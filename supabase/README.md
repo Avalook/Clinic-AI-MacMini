@@ -10,6 +10,7 @@ supabase/
   migrations/
     20260714000000_extensions.sql          # required extensions (unaccent, pg_trgm, btree_gist, pgcrypto)
     20260714000001_baseline_schema.sql     # consolidated schema: 32 tables + RLS + functions/triggers
+    20260714000002_slot_capacity_guard.sql # atomic 2+1 booking net (advisory-lock trigger)
   seed.sql                                  # reference/lookup data only (NO patient PII)
 ```
 

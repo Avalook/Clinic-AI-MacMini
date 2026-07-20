@@ -427,6 +427,12 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+    // 23514 = check_violation raised by the atomic 2+1 slot-capacity trigger
+    // (DB net for the overbook race; see migration 20260714000002). Surface the
+    // Vietnamese message as a clean 409 instead of a 500.
+    if (error.code === "23514" && /Khung giờ đã đầy/.test(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -782,8 +788,13 @@ export async function PATCH(request: Request) {
         { status: 409 },
       );
     }
-    // 23514 = check_violation. Trạng thái mới (CSKH_CONFIRMED) chưa được DB cho
-    // phép → nhiều khả năng migration 041 (appointment_cskh_confirmed) chưa chạy.
+    // 23514 = check_violation. The atomic 2+1 slot-capacity trigger raises this
+    // when a reschedule/reassign would overbook the target slot → clean 409.
+    if (updErr.code === "23514" && /Khung giờ đã đầy/.test(updErr.message)) {
+      return NextResponse.json({ error: updErr.message }, { status: 409 });
+    }
+    // Otherwise a 23514 most likely means the new status (CSKH_CONFIRMED) isn't
+    // permitted by the DB → migration 041 (appointment_cskh_confirmed) not applied.
     if (updErr.code === "23514") {
       return NextResponse.json(
         {
