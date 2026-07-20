@@ -1,0 +1,2930 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 32 — Case Study 11: Thiết kế Cloud File Storage như Google Drive-Dropbox.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-32--case-study-11-thiết-kế-cloud-file-storage-như-google-drivedropbox">Bài 32 — Case Study 11: Thiết kế Cloud File Storage như Google Drive/Dropbox</h1>
+<p>Cloud File Storage cho phép người dùng:</p>
+<pre class="hljs"><code><div>Tải file lên
+→ Lưu trữ an toàn
+→ Sắp xếp trong thư mục
+→ Đồng bộ nhiều thiết bị
+→ Chia sẻ với người khác
+→ Chỉnh sửa offline
+→ Khôi phục phiên bản cũ
+</div></code></pre>
+<p>Bề ngoài, hệ thống giống một object storage có giao diện thư mục. Nhưng production system còn phải xử lý:</p>
+<pre class="hljs"><code><div>- File từ vài byte đến hàng trăm GB
+- Upload mạng yếu và resume sau khi gián đoạn
+- Nhiều thiết bị sửa cùng một file
+- Rename, move và delete khi thiết bị đang offline
+- Đồng bộ hàng triệu thay đổi mà không quét toàn bộ thư mục
+- Chia sẻ file và folder với quyền kế thừa
+- Version history
+- Deduplication nhưng không làm rò rỉ thông tin
+- Virus scanning và content moderation
+- Multi-region, data residency và disaster recovery
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Metadata control plane
++
+File content data plane
++
+Change log và synchronization engine
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Hệ thống hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Upload và download file.
+2. Multipart/resumable upload.
+3. Folder hierarchy.
+4. Rename, move, copy và delete.
+5. File versioning.
+6. Đồng bộ nhiều thiết bị.
+7. Offline editing.
+8. Chia sẻ file/folder.
+9. Permission và access control.
+10. Deduplication.
+11. Search metadata và full-text cơ bản.
+12. Trash và restore.
+13. Multi-region.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Collaborative document editing realtime như Google Docs
+- Object storage internals cấp thấp
+- Full enterprise DLP platform
+- Media transcoding chuyên sâu
+- Git-like source control
+</div></code></pre>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="file-operations">File operations</h2>
+<pre class="hljs"><code><div>- Create
+- Upload
+- Download
+- Rename
+- Move
+- Copy
+- Delete
+- Restore
+</div></code></pre>
+<h2 id="folder-operations">Folder operations</h2>
+<pre class="hljs"><code><div>- Create folder
+- List children
+- Move subtree
+- Share folder
+- Permission inheritance
+</div></code></pre>
+<h2 id="synchronization">Synchronization</h2>
+<pre class="hljs"><code><div>- Detect remote changes
+- Upload local changes
+- Download remote changes
+- Resume after offline period
+- Resolve conflicts
+</div></code></pre>
+<h2 id="sharing">Sharing</h2>
+<pre class="hljs"><code><div>- Private
+- Shared với user/group
+- Share bằng link
+- Viewer/editor roles
+- Link expiry và password
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- File content đã commit không được mất.
+- Upload lớn phải resume được.
+- Download latency thấp toàn cầu.
+- Metadata operations phải nhất quán.
+- Đồng bộ không được bỏ sót thay đổi.
+- Duplicate events không tạo duplicate file versions.
+- Permission revocation phải có hiệu lực nhanh.
+- Hệ thống chịu được hot shared folders.
+- Có thể phục hồi file đã xóa.
+- Multi-region không tạo split-brain metadata.
+</div></code></pre>
+<hr>
+<h1 id="4-các-loại-dữ-liệu">4. Các loại dữ liệu</h1>
+<p>Cloud storage có ba nhóm dữ liệu chính.</p>
+<h2 id="file-content">File content</h2>
+<pre class="hljs"><code><div>- Bytes của file
+- Chunk objects
+- Thumbnails
+- Derived previews
+</div></code></pre>
+<h2 id="metadata">Metadata</h2>
+<pre class="hljs"><code><div>- File/folder name
+- Parent folder
+- Owner
+- Size
+- Content hash
+- Current version
+- Timestamps
+- Permissions
+</div></code></pre>
+<h2 id="change-history">Change history</h2>
+<pre class="hljs"><code><div>- Create
+- Update
+- Move
+- Rename
+- Delete
+- Permission changes
+</div></code></pre>
+<p>Ba nhóm cần storage và consistency khác nhau.</p>
+<hr>
+<h1 id="5-control-plane-và-data-plane">5. Control Plane và Data Plane</h1>
+<h2 id="control-plane">Control plane</h2>
+<p>Xử lý:</p>
+<pre class="hljs"><code><div>- Metadata
+- Upload session
+- Permissions
+- Folder hierarchy
+- Version commit
+- Change log
+</div></code></pre>
+<h2 id="data-plane">Data plane</h2>
+<p>Xử lý:</p>
+<pre class="hljs"><code><div>- Upload bytes
+- Download bytes
+- CDN delivery
+- Chunk transfer
+</div></code></pre>
+<p>Không nên cho file lớn đi xuyên qua metadata application servers.</p>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>500 triệu users
+100 triệu DAU
+20 triệu file uploads/ngày
+Average file size = 20 MB
+1 tỷ metadata operations/ngày
+</div></code></pre>
+<p>Upload data/ngày:</p>
+<pre class="hljs"><code><div>20.000.000 × 20 MB
+= 400 TB/ngày
+</div></code></pre>
+<p>Nếu replication factor là 3:</p>
+<pre class="hljs"><code><div>≈ 1,2 PB/ngày
+</div></code></pre>
+<p>chưa tính:</p>
+<pre class="hljs"><code><div>- Version history
+- Thumbnails
+- Backups
+- Erasure coding overhead
+</div></code></pre>
+<hr>
+<h1 id="7-metadata-qps">7. Metadata QPS</h1>
+<p>Một tỷ metadata operations/ngày:</p>
+<pre class="hljs"><code><div>1.000.000.000 / 86.400
+≈ 11.600 QPS trung bình
+</div></code></pre>
+<p>Peak có thể:</p>
+<pre class="hljs"><code><div>100.000+ QPS
+</div></code></pre>
+<p>Operations gồm:</p>
+<pre class="hljs"><code><div>- List folder
+- Rename
+- Move
+- Sync changes
+- Permission check
+</div></code></pre>
+<p>File transfer bandwidth thường lớn hơn metadata traffic nhiều lần.</p>
+<hr>
+<h1 id="8-high-level-architecture">8. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Clients[Web / Desktop / Mobile Clients] --> Edge[API Gateway / Edge]
+
+    Edge --> MetadataAPI[Metadata Service]
+    Edge --> UploadAPI[Upload Session Service]
+    Edge --> DownloadAPI[Download Authorization Service]
+    Edge --> SyncAPI[Sync Service]
+    Edge --> SharingAPI[Sharing / ACL Service]
+
+    MetadataAPI --> MetadataDB[(Metadata Store)]
+    MetadataAPI --> ChangeLog[(Change Log)]
+    SharingAPI --> PermissionDB[(Permission Store)]
+
+    UploadAPI --> SessionDB[(Upload Sessions)]
+    UploadAPI --> ClientUpload[Signed Upload Instructions]
+
+    ClientUpload --> BlobStore[(Blob / Object Storage)]
+    BlobStore --> ProcessingEvents[Object Events]
+
+    ProcessingEvents --> Scanner[Virus / Content Scanner]
+    ProcessingEvents --> Preview[Preview / Thumbnail Workers]
+
+    DownloadAPI --> CDN[CDN]
+    CDN --> BlobStore
+
+    ChangeLog --> SyncAPI
+    ChangeLog --> SearchIndexer
+    SearchIndexer --> SearchIndex[(Search Index)]
+</div></code></pre>
+<hr>
+<h1 id="9-file-identity-và-path">9. File Identity và Path</h1>
+<p>Không nên dùng path làm file identity.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/Documents/report.pdf
+</div></code></pre>
+<p>sau khi move:</p>
+<pre class="hljs"><code><div>/Archive/2026/report.pdf
+</div></code></pre>
+<p>Nếu path là ID, mọi reference sẽ thay đổi.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>fileId = stable immutable identity
+</div></code></pre>
+<p>Path chỉ là thuộc tính suy ra từ folder hierarchy.</p>
+<hr>
+<h1 id="10-file-metadata-model">10. File Metadata Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nodeType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;FILE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;ownerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;parentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;folder_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;report.pdf&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currentVersionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ver_12&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sizeBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10485760</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;mimeType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;application/pdf&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">37</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;updatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="11-folder-metadata-model">11. Folder Metadata Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;folder_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nodeType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;FOLDER&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;ownerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;parentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;folder_root&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Projects&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>File và folder có thể dùng chung abstraction:</p>
+<pre class="hljs"><code><div>Node
+</div></code></pre>
+<hr>
+<h1 id="12-file-version-model">12. File Version Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;fileVersionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ver_12&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fileId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;blobManifestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;manifest_99&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sizeBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10485760</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;contentHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sha256:...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdBy&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;COMMITTED&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Một file có:</p>
+<pre class="hljs"><code><div>1 stable fileId
+→ N immutable file versions
+</div></code></pre>
+<hr>
+<h1 id="13-blob-manifest">13. Blob Manifest</h1>
+<p>Nếu file được chia thành chunks:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;manifestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;manifest_99&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;totalSize&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10485760</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;chunks&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;chunkId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;chunk_a&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;offset&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4194304</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;chunkId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;chunk_b&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;offset&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4194304</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4194304</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;chunkId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;chunk_c&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;offset&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8388608</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2097152</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Manifest mô tả cách tái tạo file.</p>
+<hr>
+<h1 id="14-vì-sao-không-upload-qua-metadata-server">14. Vì sao không Upload qua Metadata Server?</h1>
+<p>Không tốt:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> MetadataServer
+    MetadataServer --> ObjectStorage
+</div></code></pre>
+<p>Metadata server phải:</p>
+<pre class="hljs"><code><div>- Giữ connection lâu
+- Chịu bandwidth file lớn
+- Buffer data
+- Scale theo bytes thay vì operations
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> UploadControl[Upload Control API]
+    UploadControl --> Client
+    Client -->|Direct upload| BlobStorage[(Blob Storage)]
+</div></code></pre>
+<hr>
+<h1 id="15-upload-session">15. Upload Session</h1>
+<p>Client bắt đầu:</p>
+<pre class="hljs"><code><div>POST /v1/upload-sessions
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;parentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;folder_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fileName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;video.mp4&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fileSize&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4294967296</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;contentHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sha256:...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conflictBehavior&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CREATE_NEW_VERSION&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;uploadSessionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;upl_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fileId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;chunkSize&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8388608</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadStrategy&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MULTIPART&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="16-upload-session-state-machine">16. Upload Session State Machine</h1>
+<pre class="hljs"><code><div>CREATED
+→ UPLOADING
+→ VERIFYING
+→ COMMITTING
+→ COMMITTED
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>ABORTED
+EXPIRED
+FAILED
+</div></code></pre>
+<p>State phải durable để resume sau khi app restart.</p>
+<hr>
+<h1 id="17-multipart-upload">17. Multipart Upload</h1>
+<p>File được chia:</p>
+<pre class="hljs"><code><div>Part 1
+Part 2
+Part 3
+...
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Retry từng part
+- Parallel upload
+- Resume
+- Không phải gửi lại toàn file
+</div></code></pre>
+<p>Client có thể upload nhiều parts đồng thời.</p>
+<hr>
+<h1 id="18-chọn-chunk-size">18. Chọn Chunk Size</h1>
+<p>Chunk nhỏ:</p>
+<pre class="hljs"><code><div>- Retry tiết kiệm
+- Dedup chi tiết hơn
+- Nhiều requests và metadata
+</div></code></pre>
+<p>Chunk lớn:</p>
+<pre class="hljs"><code><div>- Ít requests
+- Throughput tốt
+- Retry tốn bandwidth
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>File nhỏ:
+4 MB chunks
+
+File lớn:
+8–64 MB chunks
+</div></code></pre>
+<p>Có thể chọn động theo file size và network.</p>
+<hr>
+<h1 id="19-fixed-size-chunking">19. Fixed-Size Chunking</h1>
+<p>File chia theo block cố định:</p>
+<pre class="hljs"><code><div>0–4 MB
+4–8 MB
+8–12 MB
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Parallel upload dễ
+- Offset rõ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Chèn một byte đầu file
+→ Mọi chunk sau thay đổi
+→ Dedup kém
+</div></code></pre>
+<hr>
+<h1 id="20-content-defined-chunking">20. Content-Defined Chunking</h1>
+<p>Ranh giới chunk dựa trên nội dung thay vì offset cố định.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Rolling hash
+→ Khi hash thỏa điều kiện
+→ Tạo chunk boundary
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Chèn dữ liệu đầu file
+→ Nhiều chunks cũ vẫn được tái sử dụng
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Client phức tạp
+- Chunk sizes không đều
+- CPU cao hơn
+- Security considerations
+</div></code></pre>
+<hr>
+<h1 id="21-resumable-upload">21. Resumable Upload</h1>
+<p>Client lưu:</p>
+<pre class="hljs"><code><div>uploadSessionId
+file fingerprint
+uploaded chunk IDs
+chunk checksums
+</div></code></pre>
+<p>Sau reconnect:</p>
+<pre class="hljs"><code><div>GET /v1/upload-sessions/{uploadSessionId}
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;UPLOADING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadedParts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-number">5</span><span class="hljs-punctuation">,</span> <span class="hljs-number">6</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client chỉ gửi phần thiếu.</p>
+<hr>
+<h1 id="22-file-fingerprint">22. File Fingerprint</h1>
+<p>Để đảm bảo resume đúng file:</p>
+<pre class="hljs"><code><div>- File size
+- Last modified time
+- Sample hashes
+- Full content hash nếu khả thi
+</div></code></pre>
+<p>Không nên resume một file khác vào upload session cũ.</p>
+<hr>
+<h1 id="23-per-chunk-checksum">23. Per-Chunk Checksum</h1>
+<p>Mỗi chunk có:</p>
+<pre class="hljs"><code><div>chunkIndex
+offset
+size
+checksum
+</div></code></pre>
+<p>Storage hoặc upload gateway xác minh checksum.</p>
+<p>Bảo vệ khỏi:</p>
+<pre class="hljs"><code><div>- Network corruption
+- Client bug
+- Disk read error
+</div></code></pre>
+<hr>
+<h1 id="24-full-file-checksum">24. Full File Checksum</h1>
+<p>Sau khi upload đủ chunks:</p>
+<pre class="hljs"><code><div>- Verify chunk set
+- Verify total size
+- Verify full-file hash nếu có
+</div></code></pre>
+<p>Full hash có thể tính:</p>
+<pre class="hljs"><code><div>- Trên client
+- Trong background worker
+- Từ manifest/chunk hashes nếu scheme hỗ trợ
+</div></code></pre>
+<hr>
+<h1 id="25-upload-completion-api">25. Upload Completion API</h1>
+<pre class="hljs"><code><div>POST /v1/upload-sessions/{uploadSessionId}/complete
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;parts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;partNumber&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;checksum&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server:</p>
+<pre class="hljs"><code><div>1. Claim session.
+2. Verify parts.
+3. Create blob manifest.
+4. Create immutable file version.
+5. Atomically update currentVersionId.
+6. Append change-log event.
+</div></code></pre>
+<hr>
+<h1 id="26-idempotent-completion">26. Idempotent Completion</h1>
+<p>Client có thể timeout sau commit.</p>
+<p>Retry phải trả cùng:</p>
+<pre class="hljs"><code><div>fileId
+fileVersionId
+</div></code></pre>
+<p>Không tạo phiên bản trùng.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>uploadSessionId → committedVersionId
+</div></code></pre>
+<p>làm unique mapping.</p>
+<hr>
+<h1 id="27-atomic-version-commit">27. Atomic Version Commit</h1>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>1. Tạo file version.
+2. Sau đó update file pointer.
+3. Sau đó publish sync event.
+</div></code></pre>
+<p>không có transaction/outbox.</p>
+<p>Trong metadata transaction:</p>
+<pre class="hljs"><code><div>- Insert file version
+- Update file.currentVersionId
+- Increment metadata version
+- Insert change-log/outbox event
+</div></code></pre>
+<p>Blob chunks đã tồn tại nhưng chỉ trở nên visible sau metadata commit.</p>
+<hr>
+<h1 id="28-orphan-chunks">28. Orphan Chunks</h1>
+<p>Upload thất bại có thể để lại chunks không được manifest nào tham chiếu.</p>
+<p>Cần garbage collection:</p>
+<pre class="hljs"><code><div>1. Mark chunks được manifest tham chiếu.
+2. Tìm unreferenced chunks quá grace period.
+3. Delete.
+</div></code></pre>
+<p>Không xóa ngay vì completion event có thể đang trễ.</p>
+<hr>
+<h1 id="29-upload-session-cleanup">29. Upload Session Cleanup</h1>
+<p>Session hết hạn:</p>
+<pre class="hljs"><code><div>CREATED/UPLOADING
+→ EXPIRED
+</div></code></pre>
+<p>Cleanup:</p>
+<pre class="hljs"><code><div>- Abort multipart upload
+- Release temporary quota
+- Schedule orphan-chunk cleanup
+</div></code></pre>
+<hr>
+<h1 id="30-download-flow">30. Download Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Metadata
+    participant Auth as Download Authorization
+    participant CDN
+    participant Blob
+
+    Client->>Metadata: Get file metadata
+    Metadata-->>Client: Current version
+    Client->>Auth: Request download
+    Auth->>Auth: Check permission
+    Auth-->>Client: Signed URL/token
+    Client->>CDN: Download file/chunks
+    CDN->>Blob: Cache miss fetch
+    Blob-->>CDN: Content
+    CDN-->>Client: Content
+</div></code></pre>
+<hr>
+<h1 id="31-signed-download-urls">31. Signed Download URLs</h1>
+<p>Token có thể chứa:</p>
+<pre class="hljs"><code><div>fileVersionId
+viewerId hoặc share context
+expiresAt
+allowed operation
+</div></code></pre>
+<p>TTL ngắn.</p>
+<p>Không nên dùng storage object path khó đoán như access control.</p>
+<hr>
+<h1 id="32-range-requests">32. Range Requests</h1>
+<p>Download lớn cần:</p>
+<pre class="hljs"><code><div>Range: bytes=...
+</div></code></pre>
+<p>Hỗ trợ:</p>
+<pre class="hljs"><code><div>- Resume download
+- Streaming media
+- Parallel download
+- Partial preview
+</div></code></pre>
+<p>CDN và blob storage cần hỗ trợ ranges hiệu quả.</p>
+<hr>
+<h1 id="33-folder-hierarchy-models">33. Folder Hierarchy Models</h1>
+<p>Có nhiều cách biểu diễn.</p>
+<h2 id="adjacency-list">Adjacency list</h2>
+<pre class="hljs"><code><div>nodeId
+parentId
+</div></code></pre>
+<h2 id="materialized-path">Materialized path</h2>
+<pre class="hljs"><code><div>/root/projects/2026/file
+</div></code></pre>
+<h2 id="closure-table">Closure table</h2>
+<p>Lưu mọi quan hệ ancestor–descendant.</p>
+<h2 id="nested-sets">Nested sets</h2>
+<p>Lưu khoảng trái/phải.</p>
+<p>Mỗi mô hình có trade-off.</p>
+<hr>
+<h1 id="34-adjacency-list">34. Adjacency List</h1>
+<p>Mỗi node lưu <code>parentId</code>.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Move node đơn giản
+- Write nhỏ
+- Mô hình tự nhiên
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tìm toàn subtree cần recursive traversal
+- Tính full path cần đi lên ancestors
+</div></code></pre>
+<p>Phù hợp với phần lớn file storage systems.</p>
+<hr>
+<h1 id="35-materialized-path">35. Materialized Path</h1>
+<p>Node lưu:</p>
+<pre class="hljs"><code><div>/root/projects/alpha
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Query subtree bằng prefix
+- Path resolution nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Move folder lớn
+→ Update path của mọi descendant
+</div></code></pre>
+<p>Không phù hợp nếu move subtree thường xuyên và rất lớn.</p>
+<hr>
+<h1 id="36-closure-table">36. Closure Table</h1>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>ancestorId
+descendantId
+depth
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Ancestor/subtree queries nhanh
+- Permission inheritance dễ hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Storage amplification
+- Move subtree update nhiều rows
+</div></code></pre>
+<hr>
+<h1 id="37-khuyến-nghị-folder-model">37. Khuyến nghị Folder Model</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>Adjacency list authoritative
++
+Cached ancestor/path projection
++
+Search index cho lookup
+</div></code></pre>
+<p>Move chỉ update root node:</p>
+<pre class="hljs"><code><div>parentId
+</div></code></pre>
+<p>Derived paths được rebuild async nếu cần.</p>
+<hr>
+<h1 id="38-unique-name-trong-folder">38. Unique Name trong Folder</h1>
+<p>Có cho phép hai file cùng tên trong một folder không?</p>
+<p>Nhiều hệ thống yêu cầu unique:</p>
+<pre class="hljs"><code><div>(parentId, normalizedName)
+</div></code></pre>
+<p>Unique constraint ngăn race.</p>
+<p>Nhưng cần phân biệt:</p>
+<pre class="hljs"><code><div>case-sensitive
+case-insensitive
+Unicode normalization
+</div></code></pre>
+<hr>
+<h1 id="39-cross-platform-filename-semantics">39. Cross-Platform Filename Semantics</h1>
+<p>Windows, macOS và Linux có khác biệt:</p>
+<pre class="hljs"><code><div>- Case sensitivity
+- Reserved characters
+- Reserved names
+- Unicode normalization
+- Path length
+</div></code></pre>
+<p>Cloud system cần canonical naming policy.</p>
+<p>Client sync có thể phải escape hoặc map tên không hợp lệ trên local filesystem.</p>
+<hr>
+<h1 id="40-rename-operation">40. Rename Operation</h1>
+<p>Rename:</p>
+<pre class="hljs"><code><div>PATCH /v1/nodes/{nodeId}
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;new-name.pdf&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expectedVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">37</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server:</p>
+<pre class="hljs"><code><div>- Validate name
+- Check parent uniqueness
+- Compare version
+- Update
+- Append change event
+</div></code></pre>
+<hr>
+<h1 id="41-move-operation">41. Move Operation</h1>
+<p>Move node sang folder khác:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;newParentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;folder_B&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expectedVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">37</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Cần kiểm tra:</p>
+<pre class="hljs"><code><div>- Permission ở source
+- Permission ở destination
+- Destination tồn tại
+- Name conflict
+- Không move folder vào descendant của chính nó
+- Quota/ownership policy
+</div></code></pre>
+<hr>
+<h1 id="42-preventing-cycles">42. Preventing Cycles</h1>
+<p>Không được:</p>
+<pre class="hljs"><code><div>Folder A
+→ chứa Folder B
+
+Sau đó move A vào B
+</div></code></pre>
+<p>Tạo cycle.</p>
+<p>Cần ancestor check:</p>
+<pre class="hljs"><code><div>newParent không được là descendant của node
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Ancestor cache
+- Closure table
+- Recursive query
+- Folder lineage token
+</div></code></pre>
+<hr>
+<h1 id="43-copy-operation">43. Copy Operation</h1>
+<p>Copy file không nhất thiết copy bytes ngay.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>New file metadata
+→ Tham chiếu cùng immutable blob manifest
+</div></code></pre>
+<p>Đây là copy-on-write.</p>
+<p>Khi một bản được chỉnh sửa:</p>
+<pre class="hljs"><code><div>Tạo version mới
+</div></code></pre>
+<p>không ảnh hưởng bản kia.</p>
+<hr>
+<h1 id="44-copy-folder">44. Copy Folder</h1>
+<p>Copy folder lớn có thể chứa hàng triệu nodes.</p>
+<p>Không nên làm đồng bộ trong một request.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Tạo copy job.
+2. Snapshot source subtree.
+3. Copy metadata theo batches.
+4. Reuse blob manifests.
+5. Publish progress.
+</div></code></pre>
+<p>Có thể trả:</p>
+<pre class="hljs"><code><div>202 Accepted
+</div></code></pre>
+<hr>
+<h1 id="45-delete-và-trash">45. Delete và Trash</h1>
+<p>Delete user-facing thường là soft delete:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ TRASHED
+</div></code></pre>
+<p>Record giữ:</p>
+<pre class="hljs"><code><div>trashedAt
+originalParentId
+deletedBy
+</div></code></pre>
+<p>Sau retention:</p>
+<pre class="hljs"><code><div>TRASHED
+→ PURGED
+</div></code></pre>
+<hr>
+<h1 id="46-trash-restore">46. Trash Restore</h1>
+<p>Restore cần xử lý:</p>
+<pre class="hljs"><code><div>- Original folder không còn
+- Name conflict
+- Permission thay đổi
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Restore vào original parent nếu tồn tại
+- Tạo tên mới
+- Restore vào root/recovered folder
+</div></code></pre>
+<hr>
+<h1 id="47-recursive-delete">47. Recursive Delete</h1>
+<p>Xóa folder lớn có hàng triệu children.</p>
+<p>Không nên update toàn subtree đồng bộ.</p>
+<p>Pattern:</p>
+<pre class="hljs"><code><div>1. Mark folder root TRASHED.
+2. Ẩn subtree bằng ancestor state.
+3. Background worker materialize deletion.
+</div></code></pre>
+<p>Permission/list queries phải hiểu ancestor đã trashed.</p>
+<hr>
+<h1 id="48-version-history">48. Version History</h1>
+<p>Mỗi update content tạo version mới:</p>
+<pre class="hljs"><code><div>file_123
+├── ver_1
+├── ver_2
+└── ver_3 current
+</div></code></pre>
+<p>Versions immutable.</p>
+<p>Metadata rename hoặc move không nhất thiết tạo content version mới.</p>
+<hr>
+<h1 id="49-version-retention">49. Version Retention</h1>
+<p>Policy:</p>
+<pre class="hljs"><code><div>- Giữ 30 ngày
+- Giữ 100 versions gần nhất
+- Giữ forever cho enterprise
+- Legal hold
+</div></code></pre>
+<p>GC chỉ xóa blob version khi:</p>
+<pre class="hljs"><code><div>- Hết retention
+- Không có snapshot/reference khác
+- Không có legal hold
+</div></code></pre>
+<hr>
+<h1 id="50-restore-version">50. Restore Version</h1>
+<p>Restore version cũ không nên làm current version biến mất.</p>
+<p>Thay vào đó:</p>
+<pre class="hljs"><code><div>ver_2 được chọn
+→ Tạo ver_4 với cùng manifest như ver_2
+→ ver_4 trở thành current
+</div></code></pre>
+<p>Lịch sử vẫn append-only.</p>
+<hr>
+<h1 id="51-deduplication">51. Deduplication</h1>
+<p>Deduplication giảm storage bằng cách tái sử dụng content giống nhau.</p>
+<p>Các mức:</p>
+<pre class="hljs"><code><div>- File-level dedup
+- Chunk-level dedup
+- User-scoped dedup
+- Tenant-scoped dedup
+- Global dedup
+</div></code></pre>
+<hr>
+<h1 id="52-file-level-dedup">52. File-Level Dedup</h1>
+<p>Nếu full content hash giống nhau:</p>
+<pre class="hljs"><code><div>File A hash = H
+File B hash = H
+</div></code></pre>
+<p>cả hai tham chiếu cùng blob manifest.</p>
+<p>Đơn giản nhưng không tái sử dụng khi file chỉ khác một phần nhỏ.</p>
+<hr>
+<h1 id="53-chunk-level-dedup">53. Chunk-Level Dedup</h1>
+<p>Mỗi chunk có content hash:</p>
+<pre class="hljs"><code><div>chunkId = hash(chunkBytes)
+</div></code></pre>
+<p>File manifest tham chiếu chunks.</p>
+<p>Nếu file mới chỉ thay đổi một chunk:</p>
+<pre class="hljs"><code><div>Chỉ upload/lưu chunk mới
+</div></code></pre>
+<hr>
+<h1 id="54-dedup-scope-và-privacy">54. Dedup Scope và Privacy</h1>
+<p>Global dedup có rủi ro side channel.</p>
+<p>Attacker có thể kiểm tra liệu nội dung nhạy cảm đã tồn tại bằng cách quan sát:</p>
+<pre class="hljs"><code><div>- Upload có tức thì không
+- Quota có giảm không
+- Response khác biệt
+</div></code></pre>
+<p>An toàn hơn:</p>
+<pre class="hljs"><code><div>- Dedup server-side sau upload
+- Scope theo user/tenant
+- Không tiết lộ dedup hit
+</div></code></pre>
+<hr>
+<h1 id="55-convergent-encryption-problem">55. Convergent Encryption Problem</h1>
+<p>Nếu chunk encryption key được suy ra từ content hash:</p>
+<pre class="hljs"><code><div>Same plaintext
+→ Same ciphertext
+</div></code></pre>
+<p>dedup dễ hơn nhưng giảm security:</p>
+<pre class="hljs"><code><div>- Dictionary attack
+- Confirmation attack
+</div></code></pre>
+<p>Production design phải cân bằng encryption và dedup scope.</p>
+<hr>
+<h1 id="56-server-side-encryption">56. Server-Side Encryption</h1>
+<p>Mỗi blob có thể được mã hóa bằng:</p>
+<pre class="hljs"><code><div>- Random data encryption key
+- Key encryption key trong KMS
+</div></code></pre>
+<p>Metadata lưu encrypted key reference.</p>
+<p>Chunk giống nhau chỉ dedup nếu policy và key scope cho phép.</p>
+<hr>
+<h1 id="57-client-side-encryption">57. Client-Side Encryption</h1>
+<p>Client mã hóa trước upload.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Server không đọc plaintext
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Full-text search khó
+- Virus scan khó
+- Preview khó
+- Dedup toàn cục kém
+- Sharing/key management phức tạp
+</div></code></pre>
+<hr>
+<h1 id="58-sync-problem">58. Sync Problem</h1>
+<p>Desktop client cần biết:</p>
+<pre class="hljs"><code><div>- Server đã thay đổi gì từ lần sync trước?
+- Local đã thay đổi gì?
+- Thay đổi nào conflict?
+</div></code></pre>
+<p>Không nên mỗi lần quét toàn bộ cloud tree.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>Ordered change log
++
+Per-client cursor
+</div></code></pre>
+<hr>
+<h1 id="59-change-log">59. Change Log</h1>
+<p>Mỗi metadata mutation tạo event:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;changeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">123456789</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;workspaceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ws_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nodeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;changeType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CONTENT_UPDATED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nodeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">38</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;occurredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Change log cần thứ tự trong sync scope.</p>
+<hr>
+<h1 id="60-sync-scope">60. Sync Scope</h1>
+<p>Scope có thể là:</p>
+<pre class="hljs"><code><div>- User drive
+- Shared drive
+- Workspace
+- Folder subscription
+</div></code></pre>
+<p>Mỗi scope có monotonic change sequence:</p>
+<pre class="hljs"><code><div>changeSeq
+</div></code></pre>
+<p>Không cần global sequence cho toàn hệ thống.</p>
+<hr>
+<h1 id="61-delta-sync-api">61. Delta Sync API</h1>
+<pre class="hljs"><code><div>GET /v1/sync/changes?cursor=abc123
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;changes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;changeSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1001</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;nodeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file_1&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;changeType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;UPDATED&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;changeSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1002</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;nodeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;folder_2&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;changeType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MOVED&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nextCursor&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;abc124&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;hasMore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="62-cursor-semantics">62. Cursor Semantics</h1>
+<p>Cursor phải đại diện:</p>
+<pre class="hljs"><code><div>Đã xử lý mọi change tới sequence N
+</div></code></pre>
+<p>Client chỉ lưu cursor mới sau khi đã áp dụng batch thành công.</p>
+<p>Nếu crash giữa batch:</p>
+<pre class="hljs"><code><div>Fetch lại
+→ Idempotent apply
+</div></code></pre>
+<hr>
+<h1 id="63-change-log-retention">63. Change Log Retention</h1>
+<p>Không thể giữ hot log vô hạn.</p>
+<p>Nếu client offline quá lâu:</p>
+<pre class="hljs"><code><div>cursor quá cũ
+</div></code></pre>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>CURSOR_EXPIRED
+</div></code></pre>
+<p>Client phải:</p>
+<pre class="hljs"><code><div>- Download snapshot hiện tại
+- Sau đó áp delta mới
+</div></code></pre>
+<hr>
+<h1 id="64-snapshot--delta">64. Snapshot + Delta</h1>
+<p>Sync bootstrap:</p>
+<pre class="hljs"><code><div>1. Lấy snapshot tree tại snapshotVersion V.
+2. Download metadata pages.
+3. Lấy changes sau V.
+4. Chuyển sang incremental sync.
+</div></code></pre>
+<p>Cần đảm bảo snapshot không bỏ sót thay đổi diễn ra trong lúc scan.</p>
+<hr>
+<h1 id="65-snapshot-token">65. Snapshot Token</h1>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>snapshotToken
+snapshotChangeSequence
+</div></code></pre>
+<p>Client list tree theo consistent snapshot.</p>
+<p>Sau khi hoàn tất:</p>
+<pre class="hljs"><code><div>Fetch change log từ snapshotChangeSequence
+</div></code></pre>
+<hr>
+<h1 id="66-client-local-database">66. Client Local Database</h1>
+<p>Desktop sync client nên có local DB:</p>
+<pre class="hljs"><code><div>nodeId
+localPath
+remoteVersion
+localState
+syncState
+contentHash
+lastSyncedAt
+</div></code></pre>
+<p>Không nên dựa hoàn toàn vào filesystem timestamps.</p>
+<hr>
+<h1 id="67-local-change-detection">67. Local Change Detection</h1>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Filesystem watcher
+- Periodic scan fallback
+- Content hash
+- File identity/inode khi hỗ trợ
+</div></code></pre>
+<p>Filesystem watcher có thể:</p>
+<pre class="hljs"><code><div>- Mất events
+- Coalesce events
+- Báo rename thành delete + create
+</div></code></pre>
+<p>Periodic reconciliation vẫn cần.</p>
+<hr>
+<h1 id="68-uploading-local-changes">68. Uploading Local Changes</h1>
+<p>Client tạo command:</p>
+<pre class="hljs"><code><div>Update file F
+baseVersion = 37
+new content = ...
+</div></code></pre>
+<p>Server chỉ commit nếu:</p>
+<pre class="hljs"><code><div>currentVersion == baseVersion
+</div></code></pre>
+<p>Nếu không:</p>
+<pre class="hljs"><code><div>CONFLICT
+</div></code></pre>
+<hr>
+<h1 id="69-optimistic-concurrency">69. Optimistic Concurrency</h1>
+<p>Update API:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;fileId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;baseVersionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ver_37&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadSessionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;upl_456&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nếu current version vẫn là <code>ver_37</code>:</p>
+<pre class="hljs"><code><div>Commit thành công
+</div></code></pre>
+<p>Nếu đã là <code>ver_38</code>:</p>
+<pre class="hljs"><code><div>Conflict
+</div></code></pre>
+<hr>
+<h1 id="70-conflict-resolution">70. Conflict Resolution</h1>
+<p>Hai devices cùng sửa offline:</p>
+<pre class="hljs"><code><div>Device A:
+base ver_10 → content A
+
+Device B:
+base ver_10 → content B
+</div></code></pre>
+<p>A sync trước:</p>
+<pre class="hljs"><code><div>current = ver_11
+</div></code></pre>
+<p>B sync sau tạo conflict.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Last write wins
+- Create conflict copy
+- Merge tự động nếu format hỗ trợ
+- Yêu cầu user chọn
+</div></code></pre>
+<hr>
+<h1 id="71-conflict-copy">71. Conflict Copy</h1>
+<p>Phương án an toàn cho binary files:</p>
+<pre class="hljs"><code><div>report.pdf
+report (Device B&#x27;s conflicted copy).pdf
+</div></code></pre>
+<p>Không mất dữ liệu.</p>
+<p>Metadata ghi:</p>
+<pre class="hljs"><code><div>conflictSourceFileId
+conflictBaseVersion
+deviceId
+</div></code></pre>
+<hr>
+<h1 id="72-last-write-wins-risk">72. Last-Write-Wins Risk</h1>
+<p>LWW có thể làm mất chỉnh sửa hợp lệ.</p>
+<p>Clock-based LWW còn gặp:</p>
+<pre class="hljs"><code><div>- Clock skew
+- Offline devices
+- Delayed uploads
+</div></code></pre>
+<p>Không nên dùng timestamp client làm quyết định duy nhất.</p>
+<hr>
+<h1 id="73-automatic-merge">73. Automatic Merge</h1>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Text files
+- Structured JSON
+- Collaborative document format
+</div></code></pre>
+<p>Không phù hợp chung cho:</p>
+<pre class="hljs"><code><div>- Images
+- Video
+- Archives
+- Arbitrary binary files
+</div></code></pre>
+<p>Cloud file storage tổng quát nên ưu tiên preservation hơn merge mù.</p>
+<hr>
+<h1 id="74-rename-conflict">74. Rename Conflict</h1>
+<p>Hai devices:</p>
+<pre class="hljs"><code><div>A rename file → alpha.txt
+B rename file → beta.txt
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Chọn operation đến trước
+- Operation sau conflict
+- Giữ content một file nhưng chọn tên mới nhất
+</div></code></pre>
+<p>Rename conflict khác content conflict.</p>
+<hr>
+<h1 id="75-delete-vs-edit-conflict">75. Delete vs Edit Conflict</h1>
+<p>Device A xóa file.</p>
+<p>Device B offline sửa file rồi sync.</p>
+<p>Các policy:</p>
+<pre class="hljs"><code><div>1. Delete wins:
+B update bị từ chối.
+
+2. Edit resurrects:
+Khôi phục file với version mới.
+
+3. Conflict copy:
+Tạo file mới trong recovered folder.
+</div></code></pre>
+<p>Để tránh mất dữ liệu, conflict copy thường an toàn.</p>
+<hr>
+<h1 id="76-move-vs-delete-conflict">76. Move vs Delete Conflict</h1>
+<p>Folder bị move trên server nhưng local client vẫn dùng path cũ.</p>
+<p>Vì identity là <code>nodeId</code>:</p>
+<pre class="hljs"><code><div>Client nhận move event
+→ Cập nhật local path
+</div></code></pre>
+<p>Nếu path là identity, hệ thống sẽ nhầm thành delete + create.</p>
+<hr>
+<h1 id="77-offline-operation-queue">77. Offline Operation Queue</h1>
+<p>Client lưu commands:</p>
+<pre class="hljs"><code><div>- Create file
+- Update content
+- Rename
+- Move
+- Delete
+</div></code></pre>
+<p>Mỗi command có:</p>
+<pre class="hljs"><code><div>clientOperationId
+baseNodeVersion
+createdAt
+dependencyIds
+</div></code></pre>
+<p>Khi online, replay theo dependency.</p>
+<hr>
+<h1 id="78-client-operation-idempotency">78. Client Operation Idempotency</h1>
+<p>Nếu client gửi command rồi mất response:</p>
+<pre class="hljs"><code><div>Retry cùng clientOperationId
+</div></code></pre>
+<p>Server trả cùng kết quả.</p>
+<p>Không tạo duplicate folder hoặc file.</p>
+<hr>
+<h1 id="79-create-offline">79. Create Offline</h1>
+<p>Device tạo file khi offline.</p>
+<p>Client tạo temporary ID:</p>
+<pre class="hljs"><code><div>local_temp_123
+</div></code></pre>
+<p>Khi sync:</p>
+<pre class="hljs"><code><div>Server tạo nodeId
+→ Client remap temporary ID
+</div></code></pre>
+<p>Các child/dependent operations phải được remap.</p>
+<hr>
+<h1 id="80-offline-folder-rename">80. Offline Folder Rename</h1>
+<p>Nếu folder rename offline:</p>
+<pre class="hljs"><code><div>Không cần rename mọi descendant trong local metadata DB bằng cloud ID
+</div></code></pre>
+<p>Local filesystem vẫn cần path changes, nhưng cloud identity không đổi.</p>
+<hr>
+<h1 id="81-sync-ordering">81. Sync Ordering</h1>
+<p>Có thể có operations:</p>
+<pre class="hljs"><code><div>1. Create folder A
+2. Create file inside A
+3. Rename A
+</div></code></pre>
+<p>Client phải giữ dependency ordering.</p>
+<p>Server không cần global ordering giữa độc lập nodes.</p>
+<hr>
+<h1 id="82-device-registration">82. Device Registration</h1>
+<p>Mỗi sync client có:</p>
+<pre class="hljs"><code><div>deviceId
+userId
+platform
+lastSeenAt
+syncCursor
+status
+</div></code></pre>
+<p>Có thể revoke device:</p>
+<pre class="hljs"><code><div>- Lost laptop
+- Compromised token
+</div></code></pre>
+<hr>
+<h1 id="83-push-notifications-cho-sync">83. Push Notifications cho Sync</h1>
+<p>Thay vì poll liên tục:</p>
+<pre class="hljs"><code><div>Server gửi “scope changed”
+</div></code></pre>
+<p>qua:</p>
+<pre class="hljs"><code><div>- WebSocket
+- Push notification
+- Long polling
+</div></code></pre>
+<p>Client sau đó gọi delta API.</p>
+<p>Push chỉ là hint.</p>
+<p>Change log mới là source of truth.</p>
+<hr>
+<h1 id="84-push-event-không-chứa-toàn-bộ-state">84. Push Event không chứa toàn bộ State</h1>
+<p>Push có thể:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;workspaceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ws_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;latestSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1500</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client fetch changes.</p>
+<p>Nếu push bị mất:</p>
+<pre class="hljs"><code><div>Periodic polling vẫn bắt kịp
+</div></code></pre>
+<hr>
+<h1 id="85-sharing-model">85. Sharing Model</h1>
+<p>Một resource có thể được chia sẻ bằng:</p>
+<pre class="hljs"><code><div>- Direct user permission
+- Group permission
+- Domain/organization permission
+- Public link
+- Inherited folder permission
+</div></code></pre>
+<p>Roles:</p>
+<pre class="hljs"><code><div>OWNER
+EDITOR
+COMMENTER
+VIEWER
+</div></code></pre>
+<hr>
+<h1 id="86-acl-record">86. ACL Record</h1>
+<pre class="hljs"><code><div>resourceId
+principalType
+principalId
+role
+grantedBy
+createdAt
+expiresAt
+</div></code></pre>
+<p>Principal có thể là:</p>
+<pre class="hljs"><code><div>USER
+GROUP
+DOMAIN
+ANYONE_WITH_LINK
+</div></code></pre>
+<hr>
+<h1 id="87-folder-permission-inheritance">87. Folder Permission Inheritance</h1>
+<p>Nếu share folder:</p>
+<pre class="hljs"><code><div>Folder A → user B: VIEWER
+</div></code></pre>
+<p>user B thường được xem descendants.</p>
+<p>Không nên materialize ACL xuống hàng triệu files ngay lập tức nếu có thể tránh.</p>
+<p>Có thể tính effective permission từ ancestors.</p>
+<hr>
+<h1 id="88-effective-permission">88. Effective Permission</h1>
+<p>Permission check:</p>
+<pre class="hljs"><code><div>1. Direct deny/allow policy.
+2. Direct resource ACL.
+3. Ancestor inherited ACL.
+4. Workspace policy.
+5. Link capability.
+</div></code></pre>
+<p>Cần precedence rõ.</p>
+<hr>
+<h1 id="89-acl-evaluation-performance">89. ACL Evaluation Performance</h1>
+<p>Đi lên toàn bộ folder tree mỗi request có thể chậm.</p>
+<p>Các tối ưu:</p>
+<pre class="hljs"><code><div>- Permission cache
+- Ancestor lineage cache
+- Materialized effective ACL
+- Workspace membership token
+</div></code></pre>
+<p>Nhưng revocation phải invalidate nhanh.</p>
+<hr>
+<h1 id="90-permission-cache-key">90. Permission Cache Key</h1>
+<pre class="hljs"><code><div>(userId, resourceId, permissionVersion)
+→ effectiveRole
+</div></code></pre>
+<p>Mỗi ACL change tăng:</p>
+<pre class="hljs"><code><div>permissionVersion
+</div></code></pre>
+<p>Cache cũ không còn hợp lệ.</p>
+<hr>
+<h1 id="91-share-link">91. Share Link</h1>
+<p>Share link có:</p>
+<pre class="hljs"><code><div>linkId
+resourceId
+role
+tokenHash
+expiresAt
+passwordHash
+downloadAllowed
+status
+</div></code></pre>
+<p>URL chứa opaque token.</p>
+<p>Không lưu plaintext token nếu không cần.</p>
+<hr>
+<h1 id="92-capability-link">92. Capability Link</h1>
+<p>Ai có token có quyền.</p>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- Link bị forward
+- Link xuất hiện trong logs/referrer
+- Link bị brute-force
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- High entropy
+- Expiration
+- Revocation
+- Optional password
+- Access audit
+</div></code></pre>
+<hr>
+<h1 id="93-link-revocation">93. Link Revocation</h1>
+<p>Revocation phải có hiệu lực nhanh.</p>
+<p>Không chỉ đổi metadata trong source DB rồi chờ CDN TTL.</p>
+<p>Download authorization phải recheck:</p>
+<pre class="hljs"><code><div>link status
+permission version
+</div></code></pre>
+<p>Signed URL TTL cần ngắn với nội dung nhạy cảm.</p>
+<hr>
+<h1 id="94-shared-folder-move">94. Shared Folder Move</h1>
+<p>Move file ra khỏi shared folder có thể làm thay đổi quyền.</p>
+<p>Cần xác định:</p>
+<pre class="hljs"><code><div>- Quyền inherited có bị mất?
+- Direct permissions có giữ?
+- Owner có thay đổi?
+</div></code></pre>
+<p>Permission semantics phải được snapshot/reevaluate trong move transaction.</p>
+<hr>
+<h1 id="95-ownership">95. Ownership</h1>
+<p>Owner có thể khác storage payer.</p>
+<p>Enterprise systems có:</p>
+<pre class="hljs"><code><div>- User-owned drive
+- Team/shared drive
+- Organization-owned files
+</div></code></pre>
+<p>Khi user rời tổ chức:</p>
+<pre class="hljs"><code><div>File không được biến mất nếu organization sở hữu.
+</div></code></pre>
+<hr>
+<h1 id="96-quota">96. Quota</h1>
+<p>Quota có thể tính:</p>
+<pre class="hljs"><code><div>- Logical bytes
+- Physical bytes
+- Version history
+- Trash
+- Shared files
+</div></code></pre>
+<p>Cần định nghĩa rõ.</p>
+<p>Dedup làm physical bytes nhỏ hơn logical bytes, nhưng user quota thường tính logical usage.</p>
+<hr>
+<h1 id="97-quota-reservation">97. Quota Reservation</h1>
+<p>Khi bắt đầu upload lớn:</p>
+<pre class="hljs"><code><div>Reserve expectedSize
+</div></code></pre>
+<p>ngăn user mở nhiều upload sessions vượt quota.</p>
+<p>State:</p>
+<pre class="hljs"><code><div>RESERVED
+→ COMMITTED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>RESERVED
+→ RELEASED
+</div></code></pre>
+<hr>
+<h1 id="98-quota-race">98. Quota Race</h1>
+<p>Hai uploads đồng thời đều đọc còn 1 GB.</p>
+<p>Mỗi file 800 MB.</p>
+<p>Nếu không atomic:</p>
+<pre class="hljs"><code><div>Tổng 1,6 GB được commit
+</div></code></pre>
+<p>Cần conditional quota reservation.</p>
+<hr>
+<h1 id="99-search">99. Search</h1>
+<p>Search có thể hỗ trợ:</p>
+<pre class="hljs"><code><div>- Filename
+- File type
+- Owner
+- Folder
+- Modified time
+- Full-text content
+- OCR/transcript
+</div></code></pre>
+<p>Search index là projection.</p>
+<p>Permission filtering là phần khó.</p>
+<hr>
+<h1 id="100-secure-search">100. Secure Search</h1>
+<p>Không được trả file user không có quyền.</p>
+<p>Hai cách:</p>
+<h2 id="index-level-acl-filtering">Index-level ACL filtering</h2>
+<p>Search document chứa principals hoặc security tokens.</p>
+<h2 id="post-filter">Post-filter</h2>
+<p>Lấy candidates rồi permission check.</p>
+<p>Post-filter có thể:</p>
+<pre class="hljs"><code><div>- Tốn nhiều calls
+- Trả ít kết quả sau filter
+</div></code></pre>
+<p>Hybrid thường phù hợp.</p>
+<hr>
+<h1 id="101-full-text-extraction-pipeline">101. Full-Text Extraction Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    FileCommitted --> TypeDetector
+    TypeDetector --> Extractor[Text / OCR / Metadata Extractor]
+    Extractor --> Safety[Security Scan]
+    Safety --> SearchIndexer
+    SearchIndexer --> SearchIndex
+</div></code></pre>
+<p>Không nên đặt extraction trong upload critical path.</p>
+<hr>
+<h1 id="102-virus-scanning">102. Virus Scanning</h1>
+<p>Sau upload:</p>
+<pre class="hljs"><code><div>UPLOADED
+→ SCANNING
+→ CLEAN
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>SCANNING
+→ QUARANTINED
+</div></code></pre>
+<p>Policy:</p>
+<pre class="hljs"><code><div>- Có cho owner download trước scan không?
+- Shared users có được truy cập không?
+- File encrypted client-side xử lý ra sao?
+</div></code></pre>
+<hr>
+<h1 id="103-quarantine">103. Quarantine</h1>
+<p>File bị nghi ngờ:</p>
+<pre class="hljs"><code><div>- Không share/download
+- Chỉ security admins truy cập
+- Giữ evidence
+- Có appeal/manual review
+</div></code></pre>
+<p>Không xóa ngay nếu cần phân tích.</p>
+<hr>
+<h1 id="104-preview-generation">104. Preview Generation</h1>
+<p>Derived assets:</p>
+<pre class="hljs"><code><div>- Image thumbnails
+- PDF preview
+- Video poster
+- Document text preview
+</div></code></pre>
+<p>Key theo:</p>
+<pre class="hljs"><code><div>fileVersionId
+</div></code></pre>
+<p>Không theo fileId, vì content thay đổi.</p>
+<hr>
+<h1 id="105-preview-cache">105. Preview Cache</h1>
+<p>Version immutable nên preview có thể cache lâu:</p>
+<pre class="hljs"><code><div>preview/{fileVersionId}/page-1.png
+</div></code></pre>
+<p>Khi file update:</p>
+<pre class="hljs"><code><div>Version mới → preview path mới
+</div></code></pre>
+<p>Không cần purge preview cũ ngay.</p>
+<hr>
+<h1 id="106-audit-log">106. Audit Log</h1>
+<p>Audit ghi:</p>
+<pre class="hljs"><code><div>- Upload
+- Download
+- Share
+- Permission change
+- Delete
+- Restore
+- Admin access
+</div></code></pre>
+<p>Audit log khác change log.</p>
+<p>Change log phục vụ sync.</p>
+<p>Audit log phục vụ security/compliance.</p>
+<hr>
+<h1 id="107-download-audit">107. Download Audit</h1>
+<p>Với enterprise/sensitive files:</p>
+<pre class="hljs"><code><div>viewer
+resource
+timestamp
+device
+IP/region
+share context
+</div></code></pre>
+<p>Nhưng cần data minimization và retention policy.</p>
+<hr>
+<h1 id="108-multi-tenant-isolation">108. Multi-Tenant Isolation</h1>
+<p>Mỗi request cần tenant/workspace context.</p>
+<p>Không chỉ check:</p>
+<pre class="hljs"><code><div>resourceId tồn tại
+</div></code></pre>
+<p>mà phải check:</p>
+<pre class="hljs"><code><div>resource thuộc tenant nào
+caller thuộc tenant nào
+</div></code></pre>
+<p>Keys/cache phải chứa tenant scope.</p>
+<hr>
+<h1 id="109-multi-region-architecture">109. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalEdge
+
+    GlobalEdge --> RegionA[Region A APIs]
+    GlobalEdge --> RegionB[Region B APIs]
+    GlobalEdge --> RegionC[Region C APIs]
+
+    RegionA --> MetadataOwnerA[(Metadata Shards A)]
+    RegionB --> MetadataOwnerB[(Metadata Shards B)]
+    RegionC --> MetadataOwnerC[(Metadata Shards C)]
+
+    RegionA --> BlobA[(Blob Region A)]
+    RegionB --> BlobB[(Blob Region B)]
+    RegionC --> BlobC[(Blob Region C)]
+
+    MetadataOwnerA --> GlobalChangeStream
+    MetadataOwnerB --> GlobalChangeStream
+    MetadataOwnerC --> GlobalChangeStream
+
+    BlobA --> Replication
+    BlobB --> Replication
+    BlobC --> Replication
+</div></code></pre>
+<hr>
+<h1 id="110-home-region">110. Home Region</h1>
+<p>Mỗi workspace/user drive có home region:</p>
+<pre class="hljs"><code><div>workspaceId → homeRegion
+</div></code></pre>
+<p>Metadata writes route tới home region.</p>
+<p>Blob upload có thể diễn ra gần user rồi replicate.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Upload latency
+vs
+Metadata/blob locality
+</div></code></pre>
+<hr>
+<h1 id="111-metadata-ownership">111. Metadata Ownership</h1>
+<p>Mỗi sync scope cần một write owner để giữ:</p>
+<pre class="hljs"><code><div>- Node versions
+- Folder uniqueness
+- Change sequence
+- Permission updates
+</div></code></pre>
+<p>Không nên multi-write cùng folder tree từ nhiều regions không coordination.</p>
+<hr>
+<h1 id="112-partitioning-metadata">112. Partitioning Metadata</h1>
+<p>Có thể shard theo:</p>
+<pre class="hljs"><code><div>workspaceId
+userDriveId
+sharedDriveId
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Locality của folder operations
+- Change log ordering theo workspace
+- Permission scope rõ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Một workspace enterprise rất lớn có thể thành hot shard.
+</div></code></pre>
+<hr>
+<h1 id="113-large-workspace-sharding">113. Large Workspace Sharding</h1>
+<p>Workspace cực lớn có thể shard theo:</p>
+<pre class="hljs"><code><div>workspaceId + subtreeShard
+</div></code></pre>
+<p>Nhưng move giữa shards phức tạp.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Keep metadata shard lớn
+- Partition by top-level folder
+- Use distributed transaction for cross-shard move
+- Async move job
+</div></code></pre>
+<hr>
+<h1 id="114-cross-shard-move">114. Cross-Shard Move</h1>
+<p>Move file giữa shared drives khác nhau có thể liên quan:</p>
+<pre class="hljs"><code><div>- Ownership transfer
+- Quota transfer
+- ACL changes
+- Metadata shards
+</div></code></pre>
+<p>Có thể dùng Saga:</p>
+<pre class="hljs"><code><div>1. Lock/source mark MOVING.
+2. Create destination representation.
+3. Transfer references/quota.
+4. Append changes.
+5. Tombstone source.
+</div></code></pre>
+<hr>
+<h1 id="115-blob-replication">115. Blob Replication</h1>
+<p>Blob content có thể:</p>
+<pre class="hljs"><code><div>- Replicate 3 copies trong region
+- Replicate async sang DR region
+- Dùng erasure coding
+- Cache qua CDN
+</div></code></pre>
+<p>Metadata chỉ nên commit visible khi durability requirement đã đạt.</p>
+<hr>
+<h1 id="116-strong-commit-vs-fast-commit">116. Strong Commit vs Fast Commit</h1>
+<h2 id="commit-sau-local-durable-write">Commit sau local durable write</h2>
+<pre class="hljs"><code><div>Upload nhanh
+RPO có thể &gt; 0 nếu region mất trước replication
+</div></code></pre>
+<h2 id="commit-sau-cross-region-replication">Commit sau cross-region replication</h2>
+<pre class="hljs"><code><div>Durability cao
+Latency và bandwidth lớn
+</div></code></pre>
+<p>Có thể áp theo tier:</p>
+<pre class="hljs"><code><div>Standard
+Enterprise
+Regulated
+</div></code></pre>
+<hr>
+<h1 id="117-erasure-coding">117. Erasure Coding</h1>
+<p>Thay vì 3 full copies:</p>
+<pre class="hljs"><code><div>Dữ liệu chia thành data shards + parity shards
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Storage efficiency tốt
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Rebuild/read phức tạp
+- CPU/network overhead
+- Small files kém hiệu quả
+</div></code></pre>
+<p>Thường dùng cho cold/large blobs.</p>
+<hr>
+<h1 id="118-cdn-và-edge-caching">118. CDN và Edge Caching</h1>
+<p>Public/shared downloads có thể qua CDN.</p>
+<p>Cache key theo:</p>
+<pre class="hljs"><code><div>immutable fileVersionId
+</div></code></pre>
+<p>Private authorization phải tách khỏi cache object identity.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Signed cookie
+- Edge authorization
+- Short-lived signed URL
+</div></code></pre>
+<hr>
+<h1 id="119-multi-region-sync">119. Multi-Region Sync</h1>
+<p>Client ở region B nhưng workspace owner ở region A.</p>
+<p>Reads có thể dùng replica.</p>
+<p>Writes:</p>
+<pre class="hljs"><code><div>- Route về owner A
+- Hoặc edge forward command tới A
+</div></code></pre>
+<p>Change notifications replicate sang B.</p>
+<hr>
+<h1 id="120-read-your-writes">120. Read-Your-Writes</h1>
+<p>User upload tại region A rồi mở ở region B.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Session affinity
+- Version token
+- Route reads tới owner cho một thời gian
+- Wait for replica sequence
+</div></code></pre>
+<p>Client có thể gửi:</p>
+<pre class="hljs"><code><div>minimumChangeSequence
+</div></code></pre>
+<p>để yêu cầu replica ít nhất đã theo kịp sequence đó.</p>
+<hr>
+<h1 id="121-regional-failover">121. Regional Failover</h1>
+<p>Nếu metadata home region lỗi:</p>
+<pre class="hljs"><code><div>1. Xác định committed metadata sequence.
+2. Promote replica.
+3. Tăng owner epoch.
+4. Fence old writer.
+5. Resume change-log sequence.
+6. Reconcile incomplete upload commits.
+7. Rebuild caches/search projections.
+</div></code></pre>
+<p>Không chỉ đổi DNS.</p>
+<hr>
+<h1 id="122-owner-epoch">122. Owner Epoch</h1>
+<p>Mỗi workspace shard có:</p>
+<pre class="hljs"><code><div>ownerEpoch
+</div></code></pre>
+<p>New owner:</p>
+<pre class="hljs"><code><div>epoch 18
+</div></code></pre>
+<p>Old owner:</p>
+<pre class="hljs"><code><div>epoch 17
+</div></code></pre>
+<p>Metadata store từ chối writes epoch cũ.</p>
+<p>Ngăn split-brain folder tree.</p>
+<hr>
+<h1 id="123-change-sequence-sau-failover">123. Change Sequence sau Failover</h1>
+<p>Không được tái sử dụng sequence cũ.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>(epoch, localSequence)
+</div></code></pre>
+<p>hoặc sequence allocator bền vững.</p>
+<p>Clients cần ordering rõ trong scope.</p>
+<hr>
+<h1 id="124-blob-region-failure">124. Blob Region Failure</h1>
+<p>Nếu blob primary region lỗi:</p>
+<pre class="hljs"><code><div>- CDN cache có thể tiếp tục phục vụ hits.
+- Replica region phục vụ misses.
+- Upload sessions local có thể bị gián đoạn.
+</div></code></pre>
+<p>Committed versions phải có replica hoặc recovery policy.</p>
+<hr>
+<h1 id="125-upload-session-failover">125. Upload Session Failover</h1>
+<p>Multipart upload ở region A có thể không tiếp tục trực tiếp ở B.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Session state replicate
+- Shared multi-region object upload
+- Recreate session và upload missing chunks
+- Content-addressed chunks cho phép reuse chunks đã replicate
+</div></code></pre>
+<hr>
+<h1 id="126-data-residency">126. Data Residency</h1>
+<p>Có thể yêu cầu:</p>
+<pre class="hljs"><code><div>EU files và metadata không rời EU
+</div></code></pre>
+<p>Cần áp cho:</p>
+<pre class="hljs"><code><div>- Blob content
+- Metadata
+- Previews
+- Search index
+- Audit logs
+- Backups
+- Malware samples
+</div></code></pre>
+<p>CDN edge cũng phải tuân thủ policy.</p>
+<hr>
+<h1 id="127-failure-mode--blob-upload-thành-công-nhưng-metadata-commit-thất-bại">127. Failure Mode — Blob Upload thành công nhưng Metadata Commit thất bại</h1>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Chunks tồn tại
+File version chưa visible
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Upload session vẫn ở VERIFYING/FAILED
+- Retry metadata commit idempotently
+- Orphan GC sau grace period
+</div></code></pre>
+<p>Không để client thấy file nửa hoàn tất.</p>
+<hr>
+<h1 id="128-failure-mode--metadata-commit-thành-công-nhưng-response-mất">128. Failure Mode — Metadata Commit thành công nhưng Response mất</h1>
+<p>Client retry completion.</p>
+<p>Server trả cùng:</p>
+<pre class="hljs"><code><div>fileVersionId
+</div></code></pre>
+<p>nhờ upload-session idempotency.</p>
+<hr>
+<h1 id="129-failure-mode--change-event-chưa-publish">129. Failure Mode — Change Event chưa Publish</h1>
+<p>Transactional outbox bảo đảm:</p>
+<pre class="hljs"><code><div>Metadata commit
++
+Change event intent
+</div></code></pre>
+<p>cùng transaction.</p>
+<p>Sync có thể trễ nhưng không bỏ sót vĩnh viễn.</p>
+<hr>
+<h1 id="130-failure-mode--sync-client-bỏ-lỡ-push">130. Failure Mode — Sync Client bỏ lỡ Push</h1>
+<p>Push chỉ là hint.</p>
+<p>Client gọi delta API định kỳ và dùng cursor.</p>
+<p>Không mất thay đổi.</p>
+<hr>
+<h1 id="131-failure-mode--cursor-quá-cũ">131. Failure Mode — Cursor quá cũ</h1>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>CURSOR_EXPIRED
+</div></code></pre>
+<p>Client:</p>
+<pre class="hljs"><code><div>- Lấy consistent snapshot
+- Reconcile local tree
+- Tiếp tục delta
+</div></code></pre>
+<hr>
+<h1 id="132-failure-mode--duplicate-change-events">132. Failure Mode — Duplicate Change Events</h1>
+<p>Client apply idempotently theo:</p>
+<pre class="hljs"><code><div>nodeId
+nodeVersion
+changeSequence
+</div></code></pre>
+<p>Event cũ không rollback state mới.</p>
+<hr>
+<h1 id="133-failure-mode--change-events-out-of-order">133. Failure Mode — Change Events Out-of-Order</h1>
+<p>Trong cùng scope, server nên cung cấp ordered sequence.</p>
+<p>Nếu client nhận qua nhiều channels:</p>
+<pre class="hljs"><code><div>- Buffer gaps
+- Fetch missing range
+- Hoặc gọi delta API authoritative
+</div></code></pre>
+<hr>
+<h1 id="134-failure-mode--permission-service-down">134. Failure Mode — Permission Service Down</h1>
+<p>Không nên fail-open với private file.</p>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- Local permission cache còn hợp lệ
+- Deny sensitive operation
+- Allow owner path nếu authoritative token đủ mạnh
+</div></code></pre>
+<p>Policy ưu tiên confidentiality.</p>
+<hr>
+<h1 id="135-failure-mode--search-down">135. Failure Mode — Search Down</h1>
+<p>Core file access vẫn hoạt động qua folder browsing và direct links.</p>
+<p>Search là derived service.</p>
+<p>Không ảnh hưởng upload/download correctness.</p>
+<hr>
+<h1 id="136-failure-mode--preview-worker-down">136. Failure Mode — Preview Worker Down</h1>
+<p>File vẫn upload và download bình thường.</p>
+<p>Preview xuất hiện chậm.</p>
+<p>Không để derived processing chặn commit trừ policy security yêu cầu.</p>
+<hr>
+<h1 id="137-failure-mode--virus-scanner-down">137. Failure Mode — Virus Scanner Down</h1>
+<p>Policy có thể:</p>
+<pre class="hljs"><code><div>- Commit nhưng quarantine download/share
+- Chỉ owner truy cập
+- Fail closed cho external sharing
+</div></code></pre>
+<p>Không nên âm thầm đánh dấu CLEAN.</p>
+<hr>
+<h1 id="138-failure-mode--quota-projection-lag">138. Failure Mode — Quota Projection Lag</h1>
+<p>Nếu quota chỉ eventual:</p>
+<pre class="hljs"><code><div>Concurrent uploads có thể vượt giới hạn.
+</div></code></pre>
+<p>Dùng authoritative quota reservation cho commit path.</p>
+<p>Dashboard usage có thể eventual.</p>
+<hr>
+<h1 id="139-failure-mode--hot-shared-folder">139. Failure Mode — Hot Shared Folder</h1>
+<p>Một folder có hàng triệu collaborators và updates.</p>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- Metadata shard nóng
+- Change stream fan-out lớn
+- Permission cache invalidation
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Partition children
+- Batch notifications
+- Scope subscriptions
+- Async listing pagination
+- Separate activity feed
+</div></code></pre>
+<hr>
+<h1 id="140-folder-listing">140. Folder Listing</h1>
+<p>API:</p>
+<pre class="hljs"><code><div>GET /v1/folders/{folderId}/children?cursor=...
+</div></code></pre>
+<p>Không dùng offset pagination với folder thay đổi liên tục.</p>
+<p>Dùng stable cursor theo:</p>
+<pre class="hljs"><code><div>sortKey + nodeId + snapshotVersion
+</div></code></pre>
+<hr>
+<h1 id="141-listing-consistency">141. Listing Consistency</h1>
+<p>Trong lúc user paginate, folder có thể thay đổi.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Snapshot-consistent listing
+- Weak listing với possible duplicates/misses
+- Cursor bound to folder version
+</div></code></pre>
+<p>Desktop sync bootstrap thường cần snapshot consistency mạnh hơn UI browsing.</p>
+<hr>
+<h1 id="142-hot-file-download">142. Hot File Download</h1>
+<p>Một public file viral có thể nhận hàng triệu downloads.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- CDN
+- Immutable version URLs
+- Origin shield
+- Range caching
+- Rate limits
+</div></code></pre>
+<p>Metadata authorization không nên chạy cho từng chunk nếu token đã được cấp.</p>
+<hr>
+<h1 id="143-abuse-prevention">143. Abuse Prevention</h1>
+<p>Các rủi ro:</p>
+<pre class="hljs"><code><div>- Malware hosting
+- Copyright abuse
+- Public-link spam
+- Credential stuffing
+- Storage exhaustion
+- Zip bombs
+- Pathological files
+</div></code></pre>
+<p>Biện pháp:</p>
+<pre class="hljs"><code><div>- Quota
+- Rate limit
+- Malware scanning
+- Link reputation
+- Content policy
+- Decompression limits
+</div></code></pre>
+<hr>
+<h1 id="144-zip-bomb">144. Zip Bomb</h1>
+<p>File nén nhỏ có thể bung ra cực lớn.</p>
+<p>Preview/scanner workers cần:</p>
+<pre class="hljs"><code><div>- CPU limit
+- Memory limit
+- Expansion ratio limit
+- File count limit
+- Timeout
+- Sandbox
+</div></code></pre>
+<hr>
+<h1 id="145-observability--upload">145. Observability — Upload</h1>
+<pre class="hljs"><code><div>- Upload sessions started
+- Completion rate
+- Resume rate
+- Part retry rate
+- Checksum failures
+- Time to commit
+- Orphan chunk bytes
+- Abandoned sessions
+</div></code></pre>
+<p>Phân tách theo:</p>
+<pre class="hljs"><code><div>region
+device
+network
+file size
+</div></code></pre>
+<hr>
+<h1 id="146-observability--metadata">146. Observability — Metadata</h1>
+<pre class="hljs"><code><div>- Create/rename/move/delete QPS
+- p95/p99 latency
+- Version conflicts
+- Name conflicts
+- Folder cycle prevention failures
+- Transaction retries
+- Hot shard load
+</div></code></pre>
+<hr>
+<h1 id="147-observability--sync">147. Observability — Sync</h1>
+<pre class="hljs"><code><div>- Delta requests
+- Change-log lag
+- Cursor expiry rate
+- Snapshot rebuild rate
+- Conflict rate
+- Time to convergence
+- Devices with stale cursor
+</div></code></pre>
+<hr>
+<h1 id="148-observability--storage">148. Observability — Storage</h1>
+<pre class="hljs"><code><div>- Logical bytes
+- Physical bytes
+- Dedup ratio
+- Replication lag
+- Blob read errors
+- Chunk corruption
+- GC backlog
+- Version retention volume
+</div></code></pre>
+<hr>
+<h1 id="149-observability--sharing">149. Observability — Sharing</h1>
+<pre class="hljs"><code><div>- Share links created
+- Permission checks
+- Permission cache hit
+- Revocation propagation time
+- Unauthorized access attempts
+- Public-link traffic
+</div></code></pre>
+<hr>
+<h1 id="150-observability--reliability">150. Observability — Reliability</h1>
+<pre class="hljs"><code><div>- Metadata replica lag
+- Owner epoch changes
+- Failover duration
+- Lost/duplicate change sequence
+- Orphan metadata
+- Orphan blobs
+- Reconciliation mismatches
+</div></code></pre>
+<hr>
+<h1 id="151-slos-minh-họa">151. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Metadata API availability:
+99,99%
+
+Folder listing:
+p99 dưới 300 ms
+
+Upload session creation:
+p99 dưới 200 ms
+
+Committed-file durability:
+99,999999999% theo storage tier
+
+Delta sync:
+99% thay đổi xuất hiện dưới 5 giây
+
+Permission revocation:
+99% có hiệu lực dưới 30 giây
+
+File download:
+p99 phụ thuộc size/region, nhưng first-byte dưới 500 ms
+</div></code></pre>
+<hr>
+<h1 id="152-reconciliation-jobs">152. Reconciliation Jobs</h1>
+<p>Kiểm tra:</p>
+<pre class="hljs"><code><div>- Committed version tham chiếu manifest thiếu
+- Manifest tham chiếu chunk thiếu
+- Chunk không có reference
+- Upload session COMMITTING quá lâu
+- Node currentVersion không tồn tại
+- Quota reservation không có upload
+- ACL permission version lệch
+- Change log thiếu metadata version
+</div></code></pre>
+<hr>
+<h1 id="153-metadatablob-reconciliation">153. Metadata–Blob Reconciliation</h1>
+<p>Có thể duy trì reference graph:</p>
+<pre class="hljs"><code><div>Node
+→ FileVersion
+→ Manifest
+→ Chunks
+</div></code></pre>
+<p>Reconciliation xác minh từng cạnh.</p>
+<p>Không chỉ dựa vào object storage listing vì quy mô rất lớn.</p>
+<hr>
+<h1 id="154-garbage-collection-an-toàn">154. Garbage Collection an toàn</h1>
+<p>GC thường dùng:</p>
+<pre class="hljs"><code><div>Mark
+→ Grace period
+→ Sweep
+</div></code></pre>
+<p>Grace period bảo vệ khỏi:</p>
+<pre class="hljs"><code><div>- Replication lag
+- Eventual metadata propagation
+- In-flight commit
+- Restore request
+</div></code></pre>
+<hr>
+<h1 id="155-architecture-evolution">155. Architecture Evolution</h1>
+<h2 id="giai-đoạn-1">Giai đoạn 1</h2>
+<pre class="hljs"><code><div>- Một region
+- Whole-file upload
+- SQL metadata
+- Object storage
+- Basic sharing
+</div></code></pre>
+<h2 id="giai-đoạn-2">Giai đoạn 2</h2>
+<pre class="hljs"><code><div>- Multipart/resumable upload
+- Version history
+- Change-log sync
+- CDN
+- Search
+</div></code></pre>
+<h2 id="giai-đoạn-3">Giai đoạn 3</h2>
+<pre class="hljs"><code><div>- Chunk dedup
+- Offline conflict handling
+- Shared drives
+- Permission inheritance
+- Multi-region replicas
+</div></code></pre>
+<h2 id="giai-đoạn-4">Giai đoạn 4</h2>
+<pre class="hljs"><code><div>- Active-active theo workspace
+- Data residency
+- Enterprise DLP
+- Erasure-coded storage
+- Large-workspace sharding
+</div></code></pre>
+<hr>
+<h1 id="156-thiết-kế-khuyến-nghị">156. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. File/folder dùng stable node IDs, không dùng path làm identity.
+2. File content upload trực tiếp vào blob storage.
+3. Upload session quản lý multipart, resume và quota.
+4. Chunks và manifests immutable.
+5. Metadata transaction atomically commit file version và change event.
+6. Folder hierarchy dùng adjacency list authoritative.
+7. Sync dựa trên ordered change log và per-device cursor.
+8. Offline edits dùng optimistic concurrency với baseVersion.
+9. Binary conflicts tạo conflict copy thay vì ghi đè.
+10. Sharing dùng ACL, inherited permissions và short-lived download tokens.
+</div></code></pre>
+<hr>
+<h1 id="157-trade-off--whole-file-hay-chunked-storage">157. Trade-Off — Whole File hay Chunked Storage?</h1>
+<h2 id="whole-file">Whole file</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Ít metadata
+- Upload lại nhiều khi sửa nhỏ
+</div></code></pre>
+<h2 id="chunked">Chunked</h2>
+<pre class="hljs"><code><div>- Resume và dedup tốt
+- Manifest/GC phức tạp
+- Nhiều objects
+</div></code></pre>
+<p>Chunked phù hợp file lớn và sync desktop.</p>
+<hr>
+<h1 id="158-trade-off--fixed-chunk-hay-content-defined-chunk">158. Trade-Off — Fixed Chunk hay Content-Defined Chunk?</h1>
+<h2 id="fixed-size">Fixed-size</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Parallel upload tốt
+- Dedup kém khi chèn đầu file
+</div></code></pre>
+<h2 id="content-defined">Content-defined</h2>
+<pre class="hljs"><code><div>- Delta/dedup tốt
+- CPU và implementation phức tạp
+</div></code></pre>
+<p>Có thể dùng fixed chunk cho upload và content-defined cho background dedup.</p>
+<hr>
+<h1 id="159-trade-off--global-dedup-hay-tenant-dedup">159. Trade-Off — Global Dedup hay Tenant Dedup?</h1>
+<h2 id="global">Global</h2>
+<pre class="hljs"><code><div>- Storage tiết kiệm tối đa
+- Privacy side-channel cao
+</div></code></pre>
+<h2 id="tenantuser-scoped">Tenant/user-scoped</h2>
+<pre class="hljs"><code><div>- Ít rò rỉ thông tin
+- Dedup ratio thấp hơn
+</div></code></pre>
+<p>Server-side opaque dedup là lựa chọn an toàn hơn client-visible dedup.</p>
+<hr>
+<h1 id="160-trade-off--path-hay-stable-id">160. Trade-Off — Path hay Stable ID?</h1>
+<h2 id="path-identity">Path identity</h2>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Rename/move phá references
+</div></code></pre>
+<h2 id="stable-id">Stable ID</h2>
+<pre class="hljs"><code><div>- Rename/move rẻ
+- Cần metadata lookup để resolve path
+</div></code></pre>
+<p>Stable ID gần như bắt buộc cho sync đa thiết bị.</p>
+<hr>
+<h1 id="161-trade-off--lww-hay-conflict-copy">161. Trade-Off — LWW hay Conflict Copy?</h1>
+<h2 id="last-write-wins">Last-write-wins</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Có thể mất dữ liệu
+</div></code></pre>
+<h2 id="conflict-copy">Conflict copy</h2>
+<pre class="hljs"><code><div>- Không mất dữ liệu
+- Tạo file dư cần user xử lý
+</div></code></pre>
+<p>File storage tổng quát nên ưu tiên conflict copy.</p>
+<hr>
+<h1 id="162-trade-off--materialize-acl-hay-tính-từ-ancestors">162. Trade-Off — Materialize ACL hay Tính từ Ancestors?</h1>
+<h2 id="materialize-xuống-descendants">Materialize xuống descendants</h2>
+<pre class="hljs"><code><div>- Permission check nhanh
+- Share folder lớn rất đắt
+</div></code></pre>
+<h2 id="tính-khi-đọc">Tính khi đọc</h2>
+<pre class="hljs"><code><div>- Share update rẻ
+- Permission check phức tạp
+</div></code></pre>
+<p>Hybrid:</p>
+<pre class="hljs"><code><div>Inherited ACL authoritative
++
+Effective permission cache
+</div></code></pre>
+<hr>
+<h1 id="163-trade-off--strong-cross-region-commit-hay-async-replication">163. Trade-Off — Strong Cross-Region Commit hay Async Replication?</h1>
+<h2 id="strong">Strong</h2>
+<pre class="hljs"><code><div>- RPO rất thấp
+- Upload commit chậm hơn
+</div></code></pre>
+<h2 id="async">Async</h2>
+<pre class="hljs"><code><div>- Latency thấp
+- Có thể mất phiên bản mới nhất khi region disaster
+</div></code></pre>
+<p>Có thể cung cấp durability tiers.</p>
+<hr>
+<h1 id="164-cách-trình-bày-trong-phỏng-vấn">164. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi tách metadata control plane khỏi content data plane. Metadata Service quản lý file identity, folder hierarchy, versions và permissions; file bytes được upload trực tiếp vào object storage bằng resumable multipart sessions.</p>
+</blockquote>
+<p>Về file versioning:</p>
+<blockquote>
+<p>File có stable fileId, còn mỗi nội dung mới tạo một immutable fileVersion. File version tham chiếu blob manifest, manifest tham chiếu chunks. Completion chỉ làm version visible sau khi metadata transaction cập nhật currentVersion và ghi change-log event.</p>
+</blockquote>
+<p>Về sync:</p>
+<blockquote>
+<p>Mỗi user drive hoặc shared workspace có ordered change sequence. Client giữ cursor và gọi delta API thay vì quét toàn bộ tree. Khi cursor hết hạn, client lấy consistent snapshot rồi tiếp tục từ snapshot sequence.</p>
+</blockquote>
+<p>Về conflict:</p>
+<blockquote>
+<p>Client gửi baseVersion khi upload thay đổi. Nếu server current version khác, binary file không bị ghi đè; hệ thống tạo conflict copy hoặc yêu cầu người dùng giải quyết. Điều này tránh mất dữ liệu khi nhiều thiết bị chỉnh sửa offline.</p>
+</blockquote>
+<p>Về multi-region:</p>
+<blockquote>
+<p>Mỗi workspace có metadata owner region và owner epoch. Blob content có thể upload gần người dùng rồi replicate, nhưng metadata mutations route về owner để giữ folder uniqueness và ordered change log. Failover promote replica và fence writer cũ.</p>
+</blockquote>
+<hr>
+<h1 id="165-framework-45-phút">165. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Upload/download
+- Folder hierarchy
+- Sync
+- Versioning
+- Sharing
+- Offline
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- Users
+- Uploads/day
+- Average file size
+- Metadata QPS
+- Storage growth
+</div></code></pre>
+<h2 id="phút-1020-upload-và-storage">Phút 10–20: Upload và Storage</h2>
+<pre class="hljs"><code><div>- Signed upload
+- Multipart
+- Chunks
+- Manifest
+- Version commit
+</div></code></pre>
+<h2 id="phút-2030-metadata-và-sync">Phút 20–30: Metadata và Sync</h2>
+<pre class="hljs"><code><div>- Stable IDs
+- Folder model
+- Change log
+- Cursor
+- Snapshot + delta
+</div></code></pre>
+<h2 id="phút-3040-advanced">Phút 30–40: Advanced</h2>
+<pre class="hljs"><code><div>- Offline conflicts
+- Dedup
+- Sharing
+- Permissions
+- Search
+</div></code></pre>
+<h2 id="phút-4045-reliability">Phút 40–45: Reliability</h2>
+<pre class="hljs"><code><div>- GC
+- Multi-region
+- Failover
+- Data residency
+</div></code></pre>
+<hr>
+<h1 id="166-những-sai-lầm-phổ-biến">166. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-dùng-path-làm-file-id">Lỗi 1: Dùng Path làm File ID</h2>
+<p>Rename và move phá references và sync state.</p>
+<h2 id="lỗi-2-upload-file-lớn-qua-metadata-server">Lỗi 2: Upload File lớn qua Metadata Server</h2>
+<p>Bandwidth và long-lived connections làm control plane quá tải.</p>
+<h2 id="lỗi-3-không-có-resumable-upload">Lỗi 3: Không có Resumable Upload</h2>
+<p>Mạng lỗi buộc upload lại toàn file.</p>
+<h2 id="lỗi-4-completion-không-idempotent">Lỗi 4: Completion không Idempotent</h2>
+<p>Retry tạo nhiều versions.</p>
+<h2 id="lỗi-5-file-visible-trước-khi-manifest-hoàn-tất">Lỗi 5: File Visible trước khi Manifest hoàn tất</h2>
+<p>Client download file thiếu chunks.</p>
+<h2 id="lỗi-6-không-có-orphan-gc">Lỗi 6: Không có Orphan GC</h2>
+<p>Upload thất bại làm storage rác tăng mãi.</p>
+<h2 id="lỗi-7-dùng-materialized-path-authoritative-cho-folder-lớn">Lỗi 7: Dùng Materialized Path Authoritative cho Folder lớn</h2>
+<p>Move subtree phải update hàng triệu rows.</p>
+<h2 id="lỗi-8-không-có-unique-constraint-trong-folder">Lỗi 8: Không có Unique Constraint trong Folder</h2>
+<p>Concurrent create tạo hai file cùng tên ngoài policy.</p>
+<h2 id="lỗi-9-không-kiểm-tra-cycle-khi-move-folder">Lỗi 9: Không kiểm tra Cycle khi Move Folder</h2>
+<p>Tạo hierarchy không thể traverse.</p>
+<h2 id="lỗi-10-copy-file-bằng-cách-copy-toàn-bộ-bytes">Lỗi 10: Copy File bằng cách Copy toàn bộ Bytes</h2>
+<p>Lãng phí khi blobs immutable có thể reuse.</p>
+<h2 id="lỗi-11-xóa-cứng-ngay-lập-tức">Lỗi 11: Xóa Cứng ngay lập tức</h2>
+<p>Không hỗ trợ trash, restore hoặc legal hold.</p>
+<h2 id="lỗi-12-restore-version-bằng-cách-xóa-history-mới">Lỗi 12: Restore Version bằng cách xóa History mới</h2>
+<p>Phá append-only version history.</p>
+<h2 id="lỗi-13-global-dedup-lộ-hitmiss-cho-client">Lỗi 13: Global Dedup lộ Hit/Miss cho Client</h2>
+<p>Tạo side-channel về nội dung người khác.</p>
+<h2 id="lỗi-14-mỗi-sync-quét-toàn-bộ-tree">Lỗi 14: Mỗi Sync quét Toàn bộ Tree</h2>
+<p>Không scale với hàng triệu files.</p>
+<h2 id="lỗi-15-push-notification-là-source-of-truth">Lỗi 15: Push Notification là Source of Truth</h2>
+<p>Mất push dẫn tới bỏ sót thay đổi.</p>
+<h2 id="lỗi-16-cursor-được-advance-trước-khi-apply-changes">Lỗi 16: Cursor được Advance trước khi Apply Changes</h2>
+<p>Crash làm client bỏ qua batch.</p>
+<h2 id="lỗi-17-không-có-snapshot-khi-cursor-hết-hạn">Lỗi 17: Không có Snapshot khi Cursor hết hạn</h2>
+<p>Client không thể phục hồi an toàn.</p>
+<h2 id="lỗi-18-lww-bằng-client-timestamp">Lỗi 18: LWW bằng Client Timestamp</h2>
+<p>Clock skew làm mất dữ liệu.</p>
+<h2 id="lỗi-19-binary-conflict-bị-ghi-đè">Lỗi 19: Binary Conflict bị Ghi đè</h2>
+<p>Hai thiết bị offline làm mất một bản sửa.</p>
+<h2 id="lỗi-20-client-operation-không-idempotent">Lỗi 20: Client Operation không Idempotent</h2>
+<p>Retry tạo duplicate folder/file.</p>
+<h2 id="lỗi-21-permission-kế-thừa-được-materialize-đồng-bộ-toàn-subtree">Lỗi 21: Permission kế thừa được Materialize đồng bộ toàn Subtree</h2>
+<p>Share folder lớn gây write storm.</p>
+<h2 id="lỗi-22-permission-cache-không-version-hóa">Lỗi 22: Permission Cache không Version hóa</h2>
+<p>Revocation chậm hoặc không hiệu lực.</p>
+<h2 id="lỗi-23-signed-url-ttl-quá-dài-cho-file-private">Lỗi 23: Signed URL TTL quá dài cho File Private</h2>
+<p>Revocation khó thực thi.</p>
+<h2 id="lỗi-24-search-post-filter-permissions-không-đủ-candidates">Lỗi 24: Search Post-Filter Permissions không đủ Candidates</h2>
+<p>Trả kết quả rỗng dù có file hợp lệ.</p>
+<h2 id="lỗi-25-multi-region-multi-write-cùng-workspace-tree">Lỗi 25: Multi-Region Multi-Write cùng Workspace Tree</h2>
+<p>Tạo split-brain tên, versions và change sequence.</p>
+<hr>
+<h1 id="167-bảng-ghi-nhớ-nhanh">167. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Node ID</td>
+<td>Identity ổn định của file/folder</td>
+</tr>
+<tr>
+<td>File Version</td>
+<td>Nội dung immutable</td>
+</tr>
+<tr>
+<td>Blob Manifest</td>
+<td>Danh sách chunks</td>
+</tr>
+<tr>
+<td>Upload Session</td>
+<td>Multipart và resume</td>
+</tr>
+<tr>
+<td>Signed URL</td>
+<td>Truyền bytes trực tiếp</td>
+</tr>
+<tr>
+<td>Chunk Checksum</td>
+<td>Phát hiện corruption</td>
+</tr>
+<tr>
+<td>Metadata Store</td>
+<td>Folder, name, version, owner</td>
+</tr>
+<tr>
+<td>Change Log</td>
+<td>Đồng bộ incremental</td>
+</tr>
+<tr>
+<td>Sync Cursor</td>
+<td>Vị trí client đã xử lý</td>
+</tr>
+<tr>
+<td>Snapshot Token</td>
+<td>Bootstrap nhất quán</td>
+</tr>
+<tr>
+<td>Conflict Copy</td>
+<td>Bảo toàn chỉnh sửa cạnh tranh</td>
+</tr>
+<tr>
+<td>ACL</td>
+<td>Quyền trực tiếp</td>
+</tr>
+<tr>
+<td>Permission Inheritance</td>
+<td>Quyền từ folder ancestors</td>
+</tr>
+<tr>
+<td>Share Link</td>
+<td>Capability-based access</td>
+</tr>
+<tr>
+<td>Quota Reservation</td>
+<td>Ngăn upload vượt quota</td>
+</tr>
+<tr>
+<td>Search Index</td>
+<td>Projection metadata/content</td>
+</tr>
+<tr>
+<td>Trash</td>
+<td>Soft delete</td>
+</tr>
+<tr>
+<td>Garbage Collector</td>
+<td>Xóa blobs không còn tham chiếu</td>
+</tr>
+<tr>
+<td>Home Region</td>
+<td>Owner của metadata shard</td>
+</tr>
+<tr>
+<td>Owner Epoch</td>
+<td>Fencing khi failover</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="168-sơ-đồ-tổng-hợp">168. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> MetadataAPI
+    Client --> UploadAPI
+    Client --> SyncAPI
+    Client --> ShareAPI
+
+    UploadAPI --> UploadSessions[(Upload Sessions)]
+    UploadAPI --> Client
+    Client -->|Direct chunk upload| BlobStore[(Blob Storage)]
+
+    Client --> CompleteAPI[Complete Upload]
+    CompleteAPI --> ManifestStore[(Blob Manifests)]
+    CompleteAPI --> MetadataDB[(File / Folder Metadata)]
+    CompleteAPI --> Outbox[(Metadata Outbox)]
+
+    Outbox --> ChangeStream[Ordered Change Stream]
+    ChangeStream --> SyncAPI
+    ChangeStream --> SearchIndexer
+    ChangeStream --> AuditPipeline
+
+    MetadataAPI --> MetadataDB
+    ShareAPI --> ACLStore[(ACL / Links)]
+    MetadataAPI --> ACLStore
+
+    Client --> DownloadAuth
+    DownloadAuth --> ACLStore
+    DownloadAuth --> CDN
+    CDN --> BlobStore
+
+    BlobStore --> ScanPipeline[Virus / Preview / Extraction]
+    ScanPipeline --> SearchIndexer
+    SearchIndexer --> SearchIndex[(Search Index)]
+
+    MetadataDB --> Reconciliation
+    ManifestStore --> Reconciliation
+    BlobStore --> Reconciliation
+    Reconciliation --> GarbageCollector
+</div></code></pre>
+<hr>
+<h1 id="169-những-điều-phải-nhớ-sau-bài-32">169. Những Điều Phải Nhớ sau Bài 32</h1>
+<pre class="hljs"><code><div>1. Metadata và file bytes phải nằm ở hai planes khác nhau.
+2. File path không nên là identity.
+3. File và folder cần stable node IDs.
+4. Mỗi nội dung mới tạo immutable file version.
+5. File version tham chiếu blob manifest.
+6. Blob manifest có thể tham chiếu nhiều chunks.
+7. Upload lớn cần multipart và resume.
+8. Upload session phải durable.
+9. Chunk checksum bảo vệ integrity.
+10. Completion phải idempotent.
+11. File chỉ visible sau metadata commit.
+12. Metadata commit nên ghi change event cùng transaction.
+13. Orphan chunks cần garbage collection.
+14. Folder adjacency list phù hợp move operations.
+15. Materialized path giúp reads nhưng move subtree đắt.
+16. Folder move phải chống cycle.
+17. Name uniqueness phải Unicode- và platform-aware.
+18. Copy file có thể dùng copy-on-write.
+19. Delete thường nên vào trash trước.
+20. Recursive delete folder lớn nên async.
+21. Restore version nên tạo version mới.
+22. Version retention phải xét legal hold.
+23. File-level dedup đơn giản hơn chunk-level.
+24. Chunk-level dedup tiết kiệm khi sửa nhỏ.
+25. Global dedup có privacy side channel.
+26. Dedup không nên lộ hit/miss cho client.
+27. Client-side encryption làm search và dedup khó hơn.
+28. Sync không nên quét toàn bộ tree.
+29. Sync cần ordered change log.
+30. Mỗi client giữ sync cursor.
+31. Cursor chỉ advance sau khi apply thành công.
+32. Push notification chỉ là hint.
+33. Delta API là source of truth cho sync.
+34. Cursor cũ cần snapshot + delta recovery.
+35. Snapshot phải gắn với change sequence.
+36. Client nên có local metadata database.
+37. Filesystem watchers không hoàn toàn đáng tin.
+38. Periodic local reconciliation vẫn cần.
+39. Update content nên gửi base version.
+40. Version mismatch tạo conflict.
+41. Binary conflict nên tạo conflict copy.
+42. LWW có thể làm mất dữ liệu.
+43. Client timestamps không đáng tin cho ordering.
+44. Offline operations cần durable local queue.
+45. Client operations phải idempotent.
+46. Temporary local IDs cần remapping.
+47. Sharing có thể direct, group, domain hoặc link.
+48. Folder ACL thường được kế thừa.
+49. Materialize ACL toàn subtree có thể rất đắt.
+50. Effective permission cache cần versioning.
+51. Permission revocation phải nhanh.
+52. Share links cần entropy, expiry và revocation.
+53. Signed download URLs nên có TTL ngắn.
+54. Quota cần logical definition rõ.
+55. Upload lớn nên reserve quota trước.
+56. Quota check phải atomic.
+57. Search index là projection.
+58. Secure search phải permission-filter candidates.
+59. Full-text extraction nên async.
+60. Malware scanning cần sandbox.
+61. Quarantine khác deletion.
+62. Preview artifacts nên key theo fileVersionId.
+63. Audit log khác sync change log.
+64. Tenant scope phải có trong mọi authorization/cache key.
+65. Workspace hoặc drive là shard key tự nhiên.
+66. Một workspace cần một metadata write owner.
+67. Multi-region multi-write cùng tree rất nguy hiểm.
+68. Blob replication có thể async hơn metadata ownership.
+69. Strong cross-region commit tăng durability nhưng tăng latency.
+70. Owner epoch ngăn split-brain sau failover.
+71. Change sequence không được tái sử dụng sau failover.
+72. Data residency áp dụng cả preview, index và backup.
+73. Blob upload thành công nhưng metadata fail phải có recovery.
+74. Metadata success nhưng response mất cần idempotent retry.
+75. Change event delay không được làm mất sync update.
+76. Search, preview và analytics không thuộc upload correctness path.
+77. Folder listing lớn cần cursor pagination.
+78. Hot shared folders cần partition và notification batching.
+79. CDN xử lý hot downloads.
+80. Reconciliation và GC bảo đảm metadata–blob consistency lâu dài.
+</div></code></pre>
+<hr>
+<h1 id="170-bài-tập-thiết-kế-mở-rộng">170. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Cloud File Storage với yêu cầu:</p>
+<pre class="hljs"><code><div>- 1 tỷ users
+- 500 triệu DAU
+- 100 triệu uploads/ngày
+- File tối đa 10 TB
+- 100 tỷ metadata nodes
+- Đồng bộ tối đa 20 devices/user
+- Shared folders tối đa 10 triệu members
+- Version history 1 năm
+- Multi-region active–active
+- Enterprise data residency
+- Metadata RPO bằng 0 khi mất một zone
+- Blob RPO dưới 1 phút khi mất một region
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Node IDs được tạo thế nào?
+2. Metadata được shard theo user hay workspace?
+3. Workspace cực lớn được split ra sao?
+4. Folder hierarchy dùng adjacency list hay closure table?
+5. Name uniqueness được enforce thế nào?
+6. Move folder chống cycle ra sao?
+7. File 10 TB dùng chunk size bao nhiêu?
+8. Fixed hay content-defined chunking?
+9. Upload session state lưu ở đâu?
+10. Resume upload sang device khác được không?
+11. Chunk integrity được kiểm tra thế nào?
+12. Full-file hash được tính khi nào?
+13. Completion commit atomically ra sao?
+14. Orphan chunks được GC thế nào?
+15. Blob manifests được version hóa ra sao?
+16. Dedup scope là global, tenant hay user?
+17. Encryption keys ảnh hưởng dedup thế nào?
+18. Delta sync change sequence được cấp ra sao?
+19. Change log partition theo scope thế nào?
+20. Cursor retention bao lâu?
+21. Snapshot nhất quán được tạo thế nào?
+22. Client conflict detection dùng baseVersion nào?
+23. Binary conflicts được đặt tên ra sao?
+24. Delete-vs-edit policy là gì?
+25. Offline operation dependencies được replay ra sao?
+26. ACL inheritance được evaluate thế nào?
+27. Folder 10 triệu members tránh ACL fan-out ra sao?
+28. Share-link revocation dưới 10 giây thế nào?
+29. Search permission filtering làm thế nào?
+30. Quota logical và physical khác nhau ra sao?
+31. Multi-region metadata owner được chọn thế nào?
+32. Blob upload gần user nhưng metadata owner xa xử lý thế nào?
+33. Failover tiếp tục change sequence ra sao?
+34. Data residency ảnh hưởng CDN và backup thế nào?
+35. Các invariant và SLO quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-11">Kết luận Case Study 11</h1>
+<p>Cloud File Storage có thể được cô đọng thành:</p>
+<pre class="hljs"><code><div>Direct resumable chunk upload
+→ Immutable blob manifest
+→ Atomic metadata/version commit
+→ Ordered change log
+→ Cursor-based multi-device sync
+→ ACL-based sharing
+→ Conflict-preserving offline reconciliation
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Cloud storage không chỉ là nơi giữ bytes. Giá trị cốt lõi nằm ở metadata nhất quán, version identity ổn định và một giao thức đồng bộ có thể chứng minh rằng không bỏ sót thay đổi, không ghi đè im lặng và có thể phục hồi sau lỗi mạng, client offline hoặc regional failure.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 33 — Case Study 12: Thiết kế Distributed Web Crawler — URL frontier, robots.txt, politeness, DNS, fetching, deduplication, canonicalization, content parsing, scheduling, retries, traps và multi-region.</strong></p>
+
+</body>
+</html>

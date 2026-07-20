@@ -1,0 +1,2397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 10 — Reliability Patterns.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-10--reliability-patterns">Bài 10 — Reliability Patterns</h1>
+<p>Một hệ thống đáng tin cậy không phải là hệ thống “không bao giờ lỗi”.</p>
+<p>Trong production, những việc sau chắc chắn sẽ xảy ra:</p>
+<pre class="hljs"><code><div>- Network chậm hoặc mất kết nối
+- Service bị crash
+- Database quá tải
+- Cache bị mất
+- Third-party API timeout
+- Một availability zone gặp sự cố
+- Deploy phiên bản có bug
+- Traffic tăng đột ngột
+- Message bị xử lý trùng
+</div></code></pre>
+<p>Mục tiêu của Reliability Engineering là:</p>
+<blockquote>
+<p><strong>Khi lỗi xảy ra, lỗi phải được giới hạn, hệ thống phục hồi được, và chức năng cốt lõi tiếp tục hoạt động ở mức chấp nhận được.</strong></p>
+</blockquote>
+<p>Video System Design bạn cung cấp mô tả resilience là việc “dự kiến điều bất ngờ”, dùng redundancy và thiết kế graceful degradation để dù một số tính năng không khả dụng, chức năng cốt lõi vẫn còn hoạt động.</p>
+<p>Các pattern trọng tâm của bài:</p>
+<pre class="hljs"><code><div>- Timeout
+- Retry
+- Exponential backoff
+- Jitter
+- Retry budget
+- Circuit breaker
+- Bulkhead
+- Graceful degradation
+- Fault isolation
+- Load shedding
+- Redundancy và failover
+</div></code></pre>
+<hr>
+<h1 id="1-reliability-availability-và-resilience-khác-nhau-thế-nào">1. Reliability, Availability và Resilience khác nhau thế nào?</h1>
+<h2 id="reliability">Reliability</h2>
+<p>Hệ thống có thực hiện đúng chức năng một cách ổn định không?</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Không mất order
+- Không charge payment hai lần
+- Không trả nhầm dữ liệu user
+- Không bỏ sót message quan trọng
+</div></code></pre>
+<hr>
+<h2 id="availability">Availability</h2>
+<p>Hệ thống có sẵn sàng phục vụ request không?</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User gọi API
+→ API có trả response hay không?
+</div></code></pre>
+<p>Một hệ thống có thể available nhưng không reliable:</p>
+<pre class="hljs"><code><div>API luôn trả 200,
+nhưng dữ liệu trả sai.
+</div></code></pre>
+<hr>
+<h2 id="resilience">Resilience</h2>
+<p>Khả năng hệ thống chống chịu và phục hồi sau lỗi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Recommendation Service lỗi
+→ trang sản phẩm vẫn hiển thị
+→ chỉ mất phần gợi ý sản phẩm
+</div></code></pre>
+<p>Đây là resilience thông qua graceful degradation.</p>
+<hr>
+<h2 id="fault-tolerance">Fault tolerance</h2>
+<p>Khả năng hệ thống tiếp tục vận hành khi một thành phần bị lỗi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một app server chết
+→ load balancer chuyển traffic sang server khác.
+</div></code></pre>
+<hr>
+<h1 id="2-failure-propagation--lỗi-lan-truyền">2. Failure propagation — lỗi lan truyền</h1>
+<p>Giả sử một request đi qua nhiều service:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User --> Gateway
+    Gateway --> Order
+    Order --> Inventory
+    Order --> Payment
+    Payment --> Fraud
+    Fraud --> External[External Risk API]
+</div></code></pre>
+<p>Nếu External Risk API chậm:</p>
+<pre class="hljs"><code><div>External API chậm
+→ Fraud Service chờ
+→ Payment Service chờ
+→ Order Service chờ
+→ API Gateway chờ
+→ User timeout
+</div></code></pre>
+<p>Nhưng hậu quả không chỉ là một request chậm.</p>
+<p>Mỗi service có thể giữ:</p>
+<pre class="hljs"><code><div>- Thread
+- Connection
+- Memory
+- DB connection
+- Queue slot
+</div></code></pre>
+<p>Khi hàng nghìn request cùng chờ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[External dependency chậm] --> B[Request giữ connection lâu]
+    B --> C[Thread pool đầy]
+    C --> D[Request mới phải xếp hàng]
+    D --> E[Latency tăng]
+    E --> F[Client retry]
+    F --> G[Traffic tăng thêm]
+    G --> C
+</div></code></pre>
+<p>Đây là cách một dependency nhỏ kéo sập cả hệ thống.</p>
+<hr>
+<h1 id="3-single-point-of-failure">3. Single Point of Failure</h1>
+<p>Single Point of Failure — SPOF là một thành phần mà khi nó lỗi, toàn bộ hệ thống hoặc một phần rất lớn của hệ thống ngừng hoạt động.</p>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> LB[Single Load Balancer]
+    LB --> A1[App 1]
+    LB --> A2[App 2]
+    A1 --> DB[(Single Database)]
+    A2 --> DB
+</div></code></pre>
+<p>Dù có hai application server:</p>
+<pre class="hljs"><code><div>Load balancer chết
+→ Không user nào vào được.
+
+Database chết
+→ Tất cả application server mất chức năng.
+</div></code></pre>
+<p>Tài liệu/video của bạn nhấn mạnh rằng một single point of failure có thể kéo toàn hệ thống xuống; các biện pháp giảm rủi ro gồm redundancy, health checks, failover và self-healing.</p>
+<p>Giải pháp không chỉ là “thêm một bản sao”.</p>
+<p>Bạn còn phải trả lời:</p>
+<pre class="hljs"><code><div>- Làm sao phát hiện node lỗi?
+- Ai chuyển traffic?
+- Failover mất bao lâu?
+- Bản sao có dữ liệu mới nhất không?
+- Failover đã được test chưa?
+</div></code></pre>
+<hr>
+<h1 id="4-timeout--giới-hạn-thời-gian-chờ">4. Timeout — giới hạn thời gian chờ</h1>
+<p>Timeout là giới hạn thời gian một operation được phép chờ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order Service gọi Payment Service.
+Nếu quá 2 giây chưa có kết quả,
+Order Service ngừng chờ.
+</div></code></pre>
+<p>Không có timeout:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Payment
+
+    Order->>Payment: Process payment
+    Note over Payment: Service treo
+    Note over Order: Chờ vô hạn
+</div></code></pre>
+<p>Có timeout:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Payment
+
+    Order->>Payment: Process payment
+    Note over Order: Timeout = 2s
+    Note over Payment: Không phản hồi
+    Order-->>Order: Stop waiting after 2s
+</div></code></pre>
+<p>Timeout giúp giải phóng:</p>
+<pre class="hljs"><code><div>- Thread
+- Connection
+- Memory
+- Request slot
+- User waiting time
+</div></code></pre>
+<hr>
+<h1 id="5-các-loại-timeout">5. Các loại timeout</h1>
+<h2 id="51-connection-timeout">5.1 Connection timeout</h2>
+<p>Thời gian tối đa để thiết lập connection.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Không thể kết nối Payment Service trong 200 ms
+→ connection timeout.
+</div></code></pre>
+<p>Connection timeout thường ngắn hơn request timeout.</p>
+<hr>
+<h2 id="52-read-timeout">5.2 Read timeout</h2>
+<p>Sau khi kết nối thành công, chờ dữ liệu tối đa bao lâu.</p>
+<pre class="hljs"><code><div>Đã connect được,
+nhưng server không trả response.
+</div></code></pre>
+<hr>
+<h2 id="53-write-timeout">5.3 Write timeout</h2>
+<p>Thời gian tối đa để gửi request body hoặc ghi dữ liệu.</p>
+<p>Quan trọng với:</p>
+<pre class="hljs"><code><div>- Upload file
+- Request body lớn
+- Network chậm
+</div></code></pre>
+<hr>
+<h2 id="54-request-timeout">5.4 Request timeout</h2>
+<p>Thời gian tối đa cho toàn bộ một remote call.</p>
+<pre class="hljs"><code><div>Connect
++ send request
++ server processing
++ receive response
+</div></code></pre>
+<hr>
+<h2 id="55-idle-timeout">5.5 Idle timeout</h2>
+<p>Connection được giữ nhưng không có dữ liệu truyền trong một khoảng thời gian.</p>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- HTTP keep-alive
+- WebSocket
+- Streaming
+- Proxy
+</div></code></pre>
+<hr>
+<h2 id="56-end-to-end-deadline">5.6 End-to-end deadline</h2>
+<p>Thời gian tối đa cho toàn bộ request từ user.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User request budget = 2 giây
+</div></code></pre>
+<p>Request đi qua:</p>
+<pre class="hljs"><code><div>Gateway → Order → Payment → Fraud
+</div></code></pre>
+<p>Mỗi service không được tự cho mình 2 giây.</p>
+<p>Nếu mỗi tầng chờ 2 giây:</p>
+<pre class="hljs"><code><div>Gateway: 2s
+Order:   2s
+Payment: 2s
+Fraud:   2s
+</div></code></pre>
+<p>Tổng có thể vượt xa trải nghiệm mong muốn.</p>
+<hr>
+<h1 id="6-timeout-budget">6. Timeout budget</h1>
+<p>Giả sử end-to-end deadline là 2 giây.</p>
+<p>Ta có thể phân bổ:</p>
+<pre class="hljs"><code><div>API Gateway overhead:       100 ms
+Order Service processing:   200 ms
+Inventory call:             300 ms
+Payment call:               800 ms
+Serialization/network:      200 ms
+Safety margin:              400 ms
+---------------------------------
+Tổng:                     2.000 ms
+</div></code></pre>
+<p>Không nhất thiết mọi call chạy tuần tự. Nhưng mỗi dependency phải biết budget còn lại.</p>
+<hr>
+<h1 id="7-deadline-propagation">7. Deadline propagation</h1>
+<p>Gateway nhận deadline:</p>
+<pre class="hljs"><code><div>Deadline còn lại: 2.000 ms
+</div></code></pre>
+<p>Sau khi xử lý 300 ms, gọi Order Service:</p>
+<pre class="hljs"><code><div>Deadline còn lại: 1.700 ms
+</div></code></pre>
+<p>Order xử lý 200 ms rồi gọi Payment:</p>
+<pre class="hljs"><code><div>Deadline còn lại: 1.500 ms
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Gateway
+    participant Order
+    participant Payment
+
+    Client->>Gateway: Request, deadline=2s
+    Gateway->>Order: Remaining deadline=1.7s
+    Order->>Payment: Remaining deadline=1.5s
+    Payment-->>Order: Result
+    Order-->>Gateway: Result
+    Gateway-->>Client: Response
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Downstream không xử lý một request mà upstream đã bỏ cuộc
+- Giảm công việc vô ích
+- Giữ đúng end-to-end latency budget
+</div></code></pre>
+<hr>
+<h1 id="8-cancellation-propagation">8. Cancellation propagation</h1>
+<p>Timeout ở upstream nên được truyền xuống downstream.</p>
+<p>Nếu user đã đóng request:</p>
+<pre class="hljs"><code><div>Gateway không còn cần Order response.
+Order không còn cần Payment response.
+Payment không nên tiếp tục giữ tài nguyên.
+</div></code></pre>
+<p>Nếu không cancel:</p>
+<pre class="hljs"><code><div>Client đã đi
+nhưng toàn bộ backend vẫn xử lý công việc vô ích.
+</div></code></pre>
+<p>Tuy nhiên cancellation không phải lúc nào cũng được phép.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment đã được gửi sang payment provider.
+Client timeout không có nghĩa được phép hủy transaction.
+</div></code></pre>
+<p>Với operation có side effect, cần kiểm tra trạng thái thay vì giả định timeout đồng nghĩa thất bại.</p>
+<hr>
+<h1 id="9-timeout-không-có-nghĩa-operation-thất-bại">9. Timeout không có nghĩa operation thất bại</h1>
+<p>Đây là điểm cực kỳ quan trọng.</p>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant PaymentAPI
+    participant Provider
+
+    Client->>PaymentAPI: Charge
+    PaymentAPI->>Provider: Charge
+    Provider-->>PaymentAPI: Success
+    Note over PaymentAPI,Client: Response bị mất
+    Client-->>Client: Timeout
+</div></code></pre>
+<p>Client thấy timeout, nhưng payment có thể đã thành công.</p>
+<p>Do đó trạng thái là:</p>
+<pre class="hljs"><code><div>Unknown
+</div></code></pre>
+<p>Không phải chắc chắn:</p>
+<pre class="hljs"><code><div>Failed
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Idempotency key
+- Query payment status
+- Reconciliation job
+- Webhook
+- Transaction ID ổn định
+</div></code></pre>
+<hr>
+<h1 id="10-chọn-timeout-thế-nào">10. Chọn timeout thế nào?</h1>
+<p>Timeout quá dài:</p>
+<pre class="hljs"><code><div>- Giữ tài nguyên lâu
+- Failure lan rộng
+- User chờ lâu
+- Queue tích tụ
+</div></code></pre>
+<p>Timeout quá ngắn:</p>
+<pre class="hljs"><code><div>- Request bình thường bị cắt
+- Retry không cần thiết
+- Tăng error rate
+- Lãng phí công việc đã bắt đầu
+</div></code></pre>
+<p>Cần dựa vào latency distribution:</p>
+<pre class="hljs"><code><div>p50
+p95
+p99
+p99.9
+</div></code></pre>
+<p>Ví dụ dependency:</p>
+<pre class="hljs"><code><div>p50 = 50 ms
+p95 = 120 ms
+p99 = 300 ms
+</div></code></pre>
+<p>Timeout 100 ms sẽ cắt quá nhiều request hợp lệ.</p>
+<p>Timeout 10 giây có thể quá rộng.</p>
+<p>Có thể bắt đầu khoảng:</p>
+<pre class="hljs"><code><div>Timeout &gt; p99 bình thường
+nhưng nhỏ hơn end-to-end deadline.
+</div></code></pre>
+<p>Con số thực tế phải được đo và điều chỉnh.</p>
+<hr>
+<h1 id="11-retry--thử-lại-sau-lỗi">11. Retry — thử lại sau lỗi</h1>
+<p>Retry phù hợp khi lỗi có khả năng tạm thời.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Network interruption
+- Connection reset
+- 502 Bad Gateway
+- 503 Service Unavailable
+- 504 Gateway Timeout
+- Rate limiting tạm thời
+- Optimistic concurrency conflict
+</div></code></pre>
+<p>Retry không phù hợp với lỗi vĩnh viễn:</p>
+<pre class="hljs"><code><div>- 400 Invalid Request
+- 401 Unauthorized
+- 403 Forbidden
+- Validation failure
+- Unsupported operation
+- Resource chắc chắn không tồn tại
+</div></code></pre>
+<hr>
+<h1 id="12-retry-chỉ-an-toàn-với-operation-idempotent">12. Retry chỉ an toàn với operation idempotent</h1>
+<p>Các operation thường retry an toàn:</p>
+<pre class="hljs"><code><div>GET /products/p_123
+PUT /users/123/preferences
+DELETE /notes/note_123
+</div></code></pre>
+<p>Operation nguy hiểm:</p>
+<pre class="hljs"><code><div>POST /payments
+POST /orders
+POST /money-transfers
+</div></code></pre>
+<p>Nếu retry mà không có idempotency:</p>
+<pre class="hljs"><code><div>- Tạo hai order
+- Charge hai lần
+- Chuyển tiền hai lần
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>&lt;unique-logical-operation-id&gt;
+</div></code></pre>
+<hr>
+<h1 id="13-immediate-retry">13. Immediate retry</h1>
+<p>Retry ngay lập tức chỉ hữu ích trong một số lỗi rất ngắn:</p>
+<pre class="hljs"><code><div>- Connection bị reset do một backend vừa shutdown
+- Retry sang replica/backend khác
+</div></code></pre>
+<p>Nhưng nếu dependency thật sự đang quá tải:</p>
+<pre class="hljs"><code><div>Request 1 thất bại
+→ Retry ngay
+→ Dependency nhận thêm tải
+→ Thất bại nhiều hơn
+</div></code></pre>
+<p>Immediate retry có thể biến lỗi nhỏ thành outage.</p>
+<hr>
+<h1 id="14-exponential-backoff">14. Exponential Backoff</h1>
+<p>Thời gian chờ tăng dần theo mỗi lần retry.</p>
+<p>Công thức khái niệm:</p>
+<pre class="hljs"><code><div>delay = base × 2^attempt
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Lần đầu:  100 ms
+Retry 1:  200 ms
+Retry 2:  400 ms
+Retry 3:  800 ms
+Retry 4: 1.600 ms
+</div></code></pre>
+<p>Thường đặt giới hạn:</p>
+<pre class="hljs"><code><div>maxDelay = 5 giây
+maxAttempts = 3
+</div></code></pre>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> time
+
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">call_with_backoff</span>(<span class="hljs-params">operation, max_attempts: <span class="hljs-built_in">int</span> = <span class="hljs-number">3</span></span>):
+    base_delay = <span class="hljs-number">0.2</span>
+    max_delay = <span class="hljs-number">2.0</span>
+
+    <span class="hljs-keyword">for</span> attempt <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(max_attempts):
+        <span class="hljs-keyword">try</span>:
+            <span class="hljs-keyword">return</span> operation()
+        <span class="hljs-keyword">except</span> TemporaryError:
+            <span class="hljs-keyword">if</span> attempt == max_attempts - <span class="hljs-number">1</span>:
+                <span class="hljs-keyword">raise</span>
+
+            delay = <span class="hljs-built_in">min</span>(base_delay * (<span class="hljs-number">2</span>**attempt), max_delay)
+            time.sleep(delay)
+</div></code></pre>
+<hr>
+<h1 id="15-jitter">15. Jitter</h1>
+<p>Nếu 10.000 client cùng retry sau đúng 1 giây:</p>
+<pre class="hljs"><code><div>Tất cả lại gọi cùng lúc
+→ dependency tiếp tục quá tải.
+</div></code></pre>
+<p>Jitter thêm ngẫu nhiên vào thời gian retry.</p>
+<pre class="hljs"><code><div>Retry 1:
+200–400 ms
+
+Retry 2:
+400–800 ms
+
+Retry 3:
+800–1.600 ms
+</div></code></pre>
+<p>Các request được trải đều hơn.</p>
+<hr>
+<h1 id="16-các-kiểu-jitter">16. Các kiểu jitter</h1>
+<h2 id="full-jitter">Full jitter</h2>
+<pre class="hljs"><code><div>delay = random(0, exponentialDelay)
+</div></code></pre>
+<p>Ví dụ exponential delay là 800 ms:</p>
+<pre class="hljs"><code><div>Chờ ngẫu nhiên 0–800 ms.
+</div></code></pre>
+<hr>
+<h2 id="equal-jitter">Equal jitter</h2>
+<pre class="hljs"><code><div>delay = exponentialDelay / 2
+      + random(0, exponentialDelay / 2)
+</div></code></pre>
+<p>Đảm bảo có thời gian chờ tối thiểu.</p>
+<hr>
+<h2 id="decorrelated-jitter">Decorrelated jitter</h2>
+<p>Delay mới dựa trên delay trước nhưng vẫn ngẫu nhiên.</p>
+<p>Mục tiêu chung:</p>
+<pre class="hljs"><code><div>Không cho toàn bộ client đồng bộ retry cùng lúc.
+</div></code></pre>
+<p>Trong hầu hết bài System Design, chỉ cần nêu:</p>
+<blockquote>
+<p>Retry dùng exponential backoff kèm jitter.</p>
+</blockquote>
+<hr>
+<h1 id="17-retry-amplification">17. Retry amplification</h1>
+<p>Giả sử một request đi qua ba tầng:</p>
+<pre class="hljs"><code><div>Gateway → Order → Payment → Fraud
+</div></code></pre>
+<p>Mỗi tầng retry tối đa ba lần.</p>
+<p>Trong trường hợp xấu:</p>
+<pre class="hljs"><code><div>Gateway gọi Order: 3 lần
+Mỗi Order gọi Payment: 3 lần
+Mỗi Payment gọi Fraud: 3 lần
+</div></code></pre>
+<p>Fraud Service có thể nhận:</p>
+<pre class="hljs"><code><div>3 × 3 × 3 = 27 calls
+</div></code></pre>
+<p>chỉ từ một request ban đầu.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client[1 request] --> G[Gateway: 3 attempts]
+    G --> O[Order: 3 attempts each]
+    O --> P[Payment: 3 attempts each]
+    P --> F[Fraud: up to 27 calls]
+</div></code></pre>
+<p>Nếu 10.000 user cùng gặp lỗi:</p>
+<pre class="hljs"><code><div>10.000 × 27 = 270.000 downstream calls
+</div></code></pre>
+<p>Đây là retry storm.</p>
+<hr>
+<h1 id="18-retry-ở-một-tầng-phù-hợp">18. Retry ở một tầng phù hợp</h1>
+<p>Một nguyên tắc hữu ích:</p>
+<blockquote>
+<p>Đừng retry ở mọi tầng.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- SDK hoặc client service chịu trách nhiệm retry
+- Các tầng còn lại trả lỗi rõ ràng
+</div></code></pre>
+<p>Hoặc retry ở tầng biết đủ context:</p>
+<pre class="hljs"><code><div>Gateway không biết payment có idempotent không.
+Payment Service biết rõ hơn.
+</div></code></pre>
+<p>Cần xác định ownership cho retry.</p>
+<hr>
+<h1 id="19-retry-budget">19. Retry budget</h1>
+<p>Retry budget giới hạn lượng retry so với request thật.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Tối đa 10% tổng traffic là retry.
+</div></code></pre>
+<p>Nếu có:</p>
+<pre class="hljs"><code><div>100.000 request/phút
+</div></code></pre>
+<p>cho phép khoảng:</p>
+<pre class="hljs"><code><div>10.000 retry/phút
+</div></code></pre>
+<p>Khi vượt budget:</p>
+<pre class="hljs"><code><div>- Ngừng retry
+- Fail fast
+- Dùng fallback
+- Mở circuit breaker
+</div></code></pre>
+<p>Retry budget ngăn retry trở thành nguồn traffic lớn hơn traffic gốc.</p>
+<hr>
+<h1 id="20-retry-after">20. Retry-After</h1>
+<p>Khi server quá tải hoặc rate limit, server có thể trả:</p>
+<pre class="hljs"><code><div>429 Too Many Requests
+<span class="hljs-attribute">Retry-After</span><span class="hljs-punctuation">: </span>30
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>503 Service Unavailable
+<span class="hljs-attribute">Retry-After</span><span class="hljs-punctuation">: </span>5
+</div></code></pre>
+<p>Client nên tôn trọng hướng dẫn này nếu phù hợp.</p>
+<p>Không nên tất cả client retry đúng giây thứ 30; vẫn nên thêm jitter.</p>
+<hr>
+<h1 id="21-circuit-breaker">21. Circuit Breaker</h1>
+<p>Circuit breaker ngăn một service tiếp tục gọi dependency đang lỗi hoặc rất chậm.</p>
+<p>Ý tưởng giống cầu dao điện:</p>
+<pre class="hljs"><code><div>Dependency khỏe:
+Cho request đi qua.
+
+Dependency lỗi liên tục:
+Ngắt mạch, fail fast.
+
+Sau một thời gian:
+Cho một số request thử nghiệm.
+</div></code></pre>
+<p>Ba trạng thái chính:</p>
+<pre class="hljs"><code><div>Closed
+Open
+Half-open
+</div></code></pre>
+<hr>
+<h1 id="22-closed-state">22. Closed State</h1>
+<p>Circuit bình thường.</p>
+<pre class="hljs"><code><div>Request → Dependency
+</div></code></pre>
+<p>Circuit breaker theo dõi:</p>
+<pre class="hljs"><code><div>- Failure rate
+- Timeout rate
+- Slow-call rate
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: Failure threshold exceeded
+</div></code></pre>
+<hr>
+<h1 id="23-open-state">23. Open State</h1>
+<p>Khi lỗi vượt threshold:</p>
+<pre class="hljs"><code><div>Circuit mở.
+</div></code></pre>
+<p>Request mới không gọi dependency nữa.</p>
+<pre class="hljs"><code><div>Request → Fail fast hoặc fallback
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant App
+    participant Breaker
+    participant Dependency
+
+    App->>Breaker: Call
+    Note over Breaker: State = OPEN
+    Breaker-->>App: Fail fast
+    Note over Dependency: Không nhận thêm request
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Dependency có thời gian phục hồi
+- Không giữ thread chờ timeout
+- Giảm retry storm
+- Giảm failure propagation
+</div></code></pre>
+<hr>
+<h1 id="24-half-open-state">24. Half-open State</h1>
+<p>Sau một khoảng cooldown:</p>
+<pre class="hljs"><code><div>Circuit chuyển sang half-open.
+</div></code></pre>
+<p>Cho phép một số request thử nghiệm.</p>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    Open --> HalfOpen: Cooldown elapsed
+    HalfOpen --> Closed: Probe requests succeed
+    HalfOpen --> Open: Probe requests fail
+</div></code></pre>
+<p>Nếu thử nghiệm thành công:</p>
+<pre class="hljs"><code><div>Half-open → Closed
+</div></code></pre>
+<p>Nếu tiếp tục lỗi:</p>
+<pre class="hljs"><code><div>Half-open → Open
+</div></code></pre>
+<hr>
+<h1 id="25-circuit-breaker-state-machine">25. Circuit Breaker State Machine</h1>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> Closed
+
+    Closed --> Open: Error/timeout rate vượt threshold
+    Open --> HalfOpen: Sau cooldown
+    HalfOpen --> Closed: Probe thành công
+    HalfOpen --> Open: Probe thất bại
+</div></code></pre>
+<hr>
+<h1 id="26-circuit-breaker-nên-đo-gì">26. Circuit Breaker nên đo gì?</h1>
+<p>Không nên chỉ đếm tổng số lỗi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>2 lỗi trong 3 request
+</div></code></pre>
+<p>khác với:</p>
+<pre class="hljs"><code><div>2 lỗi trong 1 triệu request.
+</div></code></pre>
+<p>Cấu hình có thể gồm:</p>
+<pre class="hljs"><code><div>Minimum request volume:
+Ít nhất 100 request mới đánh giá.
+
+Failure rate threshold:
+50% lỗi.
+
+Slow call threshold:
+Call trên 1 giây được xem là slow.
+
+Open duration:
+Mở circuit 30 giây.
+
+Half-open probes:
+Cho 10 request thử.
+</div></code></pre>
+<hr>
+<h1 id="27-circuit-breaker-theo-dependency-và-operation">27. Circuit Breaker theo dependency và operation</h1>
+<p>Không nên có một circuit chung cho toàn bộ Payment Service nếu các operation rất khác nhau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>GET /payment-methods
+POST /payments
+POST /refunds
+</div></code></pre>
+<p>Refund lỗi không nhất thiết phải chặn đọc payment methods.</p>
+<p>Circuit có thể scope theo:</p>
+<pre class="hljs"><code><div>- Dependency
+- Endpoint
+- Tenant
+- Region
+- Operation type
+</div></code></pre>
+<p>Nhưng circuit quá chi tiết cũng làm vận hành khó hơn.</p>
+<hr>
+<h1 id="28-circuit-breaker-không-thay-thế-timeout">28. Circuit Breaker không thay thế timeout</h1>
+<p>Nếu không có timeout:</p>
+<pre class="hljs"><code><div>Circuit breaker phải chờ call treo vô hạn
+→ không có kết quả lỗi để đo.
+</div></code></pre>
+<p>Thứ tự logic:</p>
+<pre class="hljs"><code><div>Timeout giới hạn một call.
+Circuit breaker giới hạn nhiều call liên tiếp.
+</div></code></pre>
+<p>Cả hai thường được dùng cùng nhau.</p>
+<hr>
+<h1 id="29-circuit-breaker-không-thay-thế-retry">29. Circuit Breaker không thay thế retry</h1>
+<p>Circuit breaker và retry giải quyết hai vấn đề khác nhau:</p>
+<pre class="hljs"><code><div>Retry:
+Lỗi tạm thời của một request.
+
+Circuit breaker:
+Dependency đang lỗi hệ thống hoặc liên tục.
+</div></code></pre>
+<p>Kết hợp sai:</p>
+<pre class="hljs"><code><div>Circuit mở
+→ retry liên tục
+→ tất cả retry fail fast
+→ tốn CPU và tạo noise.
+</div></code></pre>
+<p>Khi circuit mở, thường không nên retry liên tục.</p>
+<hr>
+<h1 id="30-circuit-breaker-có-thể-gây-thundering-herd-khi-đóng-lại">30. Circuit Breaker có thể gây thundering herd khi đóng lại</h1>
+<p>Nếu circuit mở 30 giây rồi đóng hoàn toàn:</p>
+<pre class="hljs"><code><div>Hàng nghìn request cùng tràn vào dependency vừa phục hồi.
+</div></code></pre>
+<p>Do đó cần half-open:</p>
+<pre class="hljs"><code><div>Chỉ cho một lượng nhỏ probe request.
+</div></code></pre>
+<p>Có thể kết hợp:</p>
+<pre class="hljs"><code><div>- Gradual traffic ramp-up
+- Rate limiting
+- Concurrency limiting
+</div></code></pre>
+<hr>
+<h1 id="31-bulkhead-pattern">31. Bulkhead Pattern</h1>
+<p>Bulkhead bắt nguồn từ tàu biển.</p>
+<p>Một con tàu được chia thành nhiều khoang kín. Nếu một khoang bị ngập, nước không tràn ra toàn bộ tàu.</p>
+<p>Trong phần mềm:</p>
+<blockquote>
+<p>Chia tài nguyên thành các nhóm độc lập để một workload lỗi không sử dụng hết tài nguyên của workload khác.</p>
+</blockquote>
+<hr>
+<h1 id="32-không-có-bulkhead">32. Không có Bulkhead</h1>
+<p>Giả sử một application dùng chung thread pool:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Requests --> Pool[Shared Thread Pool]
+
+    Pool --> Payment
+    Pool --> Recommendation
+    Pool --> Report
+</div></code></pre>
+<p>Report Service chậm và chiếm toàn bộ thread:</p>
+<pre class="hljs"><code><div>- Payment không có thread
+- Login không có thread
+- Product API không có thread
+</div></code></pre>
+<p>Một tính năng phụ kéo sập chức năng chính.</p>
+<hr>
+<h1 id="33-có-bulkhead">33. Có Bulkhead</h1>
+<p>Tách tài nguyên:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    PaymentRequests --> PPool[Payment Pool]
+    RecommendationRequests --> RPool[Recommendation Pool]
+    ReportRequests --> ReportPool[Report Pool]
+
+    PPool --> Payment
+    RPool --> Recommendation
+    ReportPool --> Report
+</div></code></pre>
+<p>Nếu Report Pool đầy:</p>
+<pre class="hljs"><code><div>Report fail hoặc chậm,
+nhưng Payment Pool vẫn còn tài nguyên.
+</div></code></pre>
+<hr>
+<h1 id="34-các-loại-bulkhead">34. Các loại Bulkhead</h1>
+<h2 id="341-thread-pool-isolation">34.1 Thread pool isolation</h2>
+<p>Mỗi dependency hoặc workload có thread pool riêng.</p>
+<pre class="hljs"><code><div>Payment pool:       50 threads
+Email pool:         10 threads
+Recommendation:     20 threads
+</div></code></pre>
+<hr>
+<h2 id="342-connection-pool-isolation">34.2 Connection pool isolation</h2>
+<p>Không cho một dependency dùng hết connection.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Primary DB pool:      100 connections
+Analytics DB pool:     20 connections
+External API pool:     30 connections
+</div></code></pre>
+<hr>
+<h2 id="343-queue-isolation">34.3 Queue isolation</h2>
+<p>Mỗi loại job có queue riêng.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    High[Payment Jobs] --> HQ[High-priority Queue]
+    Low[Analytics Jobs] --> LQ[Low-priority Queue]
+
+    HQ --> HW[Payment Workers]
+    LQ --> LW[Analytics Workers]
+</div></code></pre>
+<p>Analytics backlog không chặn payment.</p>
+<hr>
+<h2 id="344-instance-isolation">34.4 Instance isolation</h2>
+<p>Chạy workload trên nhóm server khác nhau.</p>
+<pre class="hljs"><code><div>API instances
+Background worker instances
+Report-generation instances
+</div></code></pre>
+<p>Report nặng không tranh CPU với API real-time.</p>
+<hr>
+<h2 id="345-tenant-isolation">34.5 Tenant isolation</h2>
+<p>Khách hàng lớn hoặc tenant lỗi có thể được đặt trong cell hoặc resource pool riêng.</p>
+<pre class="hljs"><code><div>Tenant A không được dùng hết capacity của Tenant B.
+</div></code></pre>
+<hr>
+<h1 id="35-bulkhead-trade-off">35. Bulkhead trade-off</h1>
+<p>Bulkhead tăng khả năng cô lập lỗi nhưng có thể giảm hiệu quả sử dụng tài nguyên.</p>
+<p>Không tách:</p>
+<pre class="hljs"><code><div>100 threads dùng chung
+→ sử dụng linh hoạt.
+</div></code></pre>
+<p>Tách:</p>
+<pre class="hljs"><code><div>Payment: 60
+Report: 20
+Email: 20
+</div></code></pre>
+<p>Nếu Payment nhàn nhưng Report quá tải:</p>
+<pre class="hljs"><code><div>40 thread Payment có thể rảnh
+trong khi Report vẫn bị giới hạn.
+</div></code></pre>
+<p>Đây là trade-off:</p>
+<pre class="hljs"><code><div>Resource utilization
+↕
+Fault isolation
+</div></code></pre>
+<p>Có thể dùng dynamic limits, nhưng độ phức tạp tăng.</p>
+<hr>
+<h1 id="36-concurrency-limiting">36. Concurrency Limiting</h1>
+<p>Ngay cả khi service chưa lỗi, bạn có thể giới hạn số request đồng thời.</p>
+<p>Ví dụ Payment Service chịu an toàn:</p>
+<pre class="hljs"><code><div>200 concurrent requests
+</div></code></pre>
+<p>Request thứ 201:</p>
+<pre class="hljs"><code><div>- Chờ trong queue có giới hạn
+- Hoặc fail fast
+</div></code></pre>
+<p>Không nên cho 10.000 request cùng vào rồi tất cả timeout.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Requests --> Limit{Concurrency < 200?}
+    Limit -->|Có| Service
+    Limit -->|Không| Reject[Queue nhỏ / Fail fast]
+</div></code></pre>
+<p>Concurrency limit thường bảo vệ tốt hơn chỉ dựa trên RPS khi request duration biến động.</p>
+<hr>
+<h1 id="37-queue-phải-có-giới-hạn">37. Queue phải có giới hạn</h1>
+<p>Queue vô hạn không thực sự bảo vệ hệ thống.</p>
+<p>Nếu consumer xử lý chậm:</p>
+<pre class="hljs"><code><div>Queue dài vô hạn
+→ memory tăng
+→ latency tăng
+→ request hết giá trị nhưng vẫn nằm trong queue
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User chờ search result tối đa 2 giây.
+Request nằm trong queue 10 giây.
+</div></code></pre>
+<p>Dù xử lý thành công, kết quả đã vô nghĩa.</p>
+<p>Một bounded queue tốt hơn:</p>
+<pre class="hljs"><code><div>Nếu queue đầy:
+→ reject sớm
+→ trả fallback
+→ shed load
+</div></code></pre>
+<hr>
+<h1 id="38-graceful-degradation">38. Graceful Degradation</h1>
+<p>Graceful degradation nghĩa là khi một phần hệ thống lỗi, hệ thống giảm chức năng có kiểm soát thay vì sập hoàn toàn.</p>
+<p>Ví dụ trang sản phẩm có:</p>
+<pre class="hljs"><code><div>- Product details
+- Price
+- Inventory
+- Reviews
+- Recommendations
+- Recently viewed
+</div></code></pre>
+<p>Các mức quan trọng:</p>
+<pre class="hljs"><code><div>Core:
+Product details, price, purchase
+
+Optional:
+Reviews, recommendations, recently viewed
+</div></code></pre>
+<p>Nếu Recommendation Service lỗi:</p>
+<pre class="hljs"><code><div>Trang vẫn hiển thị,
+chỉ ẩn phần recommendation.
+</div></code></pre>
+<hr>
+<h1 id="39-graceful-degradation-theo-mức-ưu-tiên">39. Graceful Degradation theo mức ưu tiên</h1>
+<p>Có thể phân loại:</p>
+<h2 id="tier-0--chức-năng-sống-còn">Tier 0 — chức năng sống còn</h2>
+<pre class="hljs"><code><div>- Login
+- Checkout
+- Payment
+- Order status
+</div></code></pre>
+<h2 id="tier-1--quan-trọng">Tier 1 — quan trọng</h2>
+<pre class="hljs"><code><div>- Search
+- Inventory display
+- User profile
+</div></code></pre>
+<h2 id="tier-2--có-thể-bỏ-tạm-thời">Tier 2 — có thể bỏ tạm thời</h2>
+<pre class="hljs"><code><div>- Recommendation
+- Analytics
+- Recently viewed
+- Social sharing
+</div></code></pre>
+<p>Khi hệ thống quá tải:</p>
+<pre class="hljs"><code><div>Tắt Tier 2 trước,
+sau đó giảm Tier 1,
+bảo vệ Tier 0.
+</div></code></pre>
+<hr>
+<h1 id="40-các-chiến-lược-graceful-degradation">40. Các chiến lược Graceful Degradation</h1>
+<h2 id="401-trả-dữ-liệu-cache-cũ">40.1 Trả dữ liệu cache cũ</h2>
+<pre class="hljs"><code><div>Recommendation Service lỗi
+→ trả recommendation cache của 10 phút trước.
+</div></code></pre>
+<p>Phù hợp khi stale data chấp nhận được.</p>
+<hr>
+<h2 id="402-trả-giá-trị-mặc-định">40.2 Trả giá trị mặc định</h2>
+<pre class="hljs"><code><div>Personalized homepage lỗi
+→ trả generic popular content.
+</div></code></pre>
+<hr>
+<h2 id="403-bỏ-qua-tính-năng-phụ">40.3 Bỏ qua tính năng phụ</h2>
+<pre class="hljs"><code><div>Review Service timeout
+→ không hiển thị review section.
+</div></code></pre>
+<hr>
+<h2 id="404-chuyển-sang-chế-độ-read-only">40.4 Chuyển sang chế độ read-only</h2>
+<p>Nếu write database gặp sự cố:</p>
+<pre class="hljs"><code><div>User vẫn đọc dữ liệu,
+nhưng tạm thời không chỉnh sửa.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Wiki
+- Documentation
+- Dashboard
+- Social feed
+</div></code></pre>
+<hr>
+<h2 id="405-xử-lý-bất-đồng-bộ">40.5 Xử lý bất đồng bộ</h2>
+<p>Nếu downstream chưa sẵn sàng:</p>
+<pre class="hljs"><code><div>Nhận request
+→ đưa vào queue
+→ xử lý sau.
+</div></code></pre>
+<p>Chỉ phù hợp nếu user không cần kết quả ngay.</p>
+<hr>
+<h2 id="406-giảm-chất-lượng">40.6 Giảm chất lượng</h2>
+<p>Ví dụ video:</p>
+<pre class="hljs"><code><div>4K không khả dụng
+→ phục vụ 720p.
+</div></code></pre>
+<p>Ảnh:</p>
+<pre class="hljs"><code><div>Ảnh độ phân giải cao lỗi
+→ trả thumbnail.
+</div></code></pre>
+<p>Search:</p>
+<pre class="hljs"><code><div>Full ranking lỗi
+→ trả kết quả theo từ khóa đơn giản.
+</div></code></pre>
+<hr>
+<h1 id="41-fallback-cũng-có-thể-lỗi">41. Fallback cũng có thể lỗi</h1>
+<p>Giả sử Recommendation lỗi và fallback query thẳng database:</p>
+<pre class="hljs"><code><div>Recommendation lỗi
+→ tất cả request fallback DB
+→ DB quá tải
+→ toàn hệ thống lỗi.
+</div></code></pre>
+<p>Fallback phải:</p>
+<pre class="hljs"><code><div>- Rẻ
+- Nhanh
+- Ít dependency
+- Có giới hạn
+</div></code></pre>
+<p>Fallback tốt:</p>
+<pre class="hljs"><code><div>- Static response
+- Local cache
+- Precomputed list
+- Bỏ section
+</div></code></pre>
+<p>Fallback nguy hiểm:</p>
+<pre class="hljs"><code><div>- Query phức tạp
+- Gọi service còn nặng hơn
+- Retry vô hạn
+</div></code></pre>
+<hr>
+<h1 id="42-fault-isolation">42. Fault Isolation</h1>
+<p>Fault isolation là thiết kế ranh giới để lỗi ở một phần không lan sang phần khác.</p>
+<p>Có thể cô lập theo:</p>
+<pre class="hljs"><code><div>- Process
+- Container
+- Server
+- Service
+- Queue
+- Database
+- Availability zone
+- Region
+- Tenant
+- Cell
+</div></code></pre>
+<hr>
+<h1 id="43-process-isolation">43. Process Isolation</h1>
+<p>Chạy background job và API trong process riêng.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>Một process:
+- HTTP API
+- Video transcoding
+- Report generation
+</div></code></pre>
+<p>Video job dùng hết CPU khiến API chậm.</p>
+<p>Tốt hơn:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    APIRequests --> APIPool[API Processes]
+    VideoJobs --> VideoPool[Video Workers]
+    Reports --> ReportPool[Report Workers]
+</div></code></pre>
+<hr>
+<h1 id="44-service-isolation">44. Service Isolation</h1>
+<p>Tách service có thể giúp lỗi không lan trực tiếp.</p>
+<p>Nhưng microservices không tự động tạo isolation.</p>
+<p>Nếu tất cả service:</p>
+<pre class="hljs"><code><div>- Dùng chung database
+- Dùng chung thread pool
+- Gọi đồng bộ sâu
+- Không timeout
+</div></code></pre>
+<p>thì một service lỗi vẫn lan toàn hệ thống.</p>
+<p>Isolation cần cả:</p>
+<pre class="hljs"><code><div>- Timeout
+- Circuit breaker
+- Resource limits
+- Independent scaling
+- Clear dependency boundaries
+</div></code></pre>
+<hr>
+<h1 id="45-availability-zone-isolation">45. Availability Zone Isolation</h1>
+<p>Triển khai qua nhiều zone:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    LB[Regional Load Balancer]
+
+    LB --> ZA[Zone A]
+    LB --> ZB[Zone B]
+    LB --> ZC[Zone C]
+</div></code></pre>
+<p>Nếu Zone A lỗi:</p>
+<pre class="hljs"><code><div>Traffic chuyển sang B và C.
+</div></code></pre>
+<p>Nhưng B và C phải đủ capacity.</p>
+<p>Nếu bình thường mỗi zone chạy 33% và đều gần 100% capacity:</p>
+<pre class="hljs"><code><div>Mất một zone
+→ hai zone còn lại không chịu nổi 50% mỗi zone.
+</div></code></pre>
+<p>Cần headroom để chịu zone failure.</p>
+<hr>
+<h1 id="46-region-isolation">46. Region Isolation</h1>
+<p>Multi-region giúp chống lỗi cấp region.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Global[Global Traffic Manager]
+
+    Global --> Asia[Asia Region]
+    Global --> Europe[Europe Region]
+    Global --> US[US Region]
+</div></code></pre>
+<p>Nhưng phức tạp hơn nhiều:</p>
+<pre class="hljs"><code><div>- Data replication
+- Consistency
+- Failover
+- Data residency
+- Split-brain
+- Cost
+</div></code></pre>
+<p>Không phải mọi hệ thống cần active-active multi-region.</p>
+<hr>
+<h1 id="47-cell-based-architecture">47. Cell-based Architecture</h1>
+<p>Cell là một đơn vị triển khai tương đối độc lập, phục vụ một phần user hoặc tenant.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Router[Cell Router]
+
+    Router --> C1[Cell 1]
+    Router --> C2[Cell 2]
+    Router --> C3[Cell 3]
+
+    C1 --> DB1[(DB 1)]
+    C2 --> DB2[(DB 2)]
+    C3 --> DB3[(DB 3)]
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User hash 0–999   → Cell 1
+User hash 1000–1999 → Cell 2
+</div></code></pre>
+<p>Nếu Cell 2 lỗi:</p>
+<pre class="hljs"><code><div>Chỉ một phần user bị ảnh hưởng.
+</div></code></pre>
+<p>Thay vì:</p>
+<pre class="hljs"><code><div>Toàn bộ user bị ảnh hưởng.
+</div></code></pre>
+<p>Đây là cách giới hạn <strong>blast radius</strong>.</p>
+<hr>
+<h1 id="48-blast-radius">48. Blast Radius</h1>
+<p>Blast radius là phạm vi ảnh hưởng của một lỗi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một instance lỗi:
+Ảnh hưởng nhỏ.
+
+Một zone lỗi:
+Ảnh hưởng lớn hơn.
+
+Database global lỗi:
+Ảnh hưởng toàn hệ thống.
+</div></code></pre>
+<p>Reliability design cố gắng:</p>
+<pre class="hljs"><code><div>- Giảm xác suất lỗi
+- Giảm phạm vi lỗi
+- Giảm thời gian phục hồi
+</div></code></pre>
+<p>Không chỉ cố ngăn mọi lỗi xảy ra.</p>
+<hr>
+<h1 id="49-shared-dependency-làm-phá-vỡ-isolation">49. Shared Dependency làm phá vỡ Isolation</h1>
+<p>Bạn có thể chia application thành nhiều cell, nhưng nếu tất cả dùng chung một Redis:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    C1[Cell 1] --> Redis[(Shared Redis)]
+    C2[Cell 2] --> Redis
+    C3[Cell 3] --> Redis
+</div></code></pre>
+<p>Redis lỗi:</p>
+<pre class="hljs"><code><div>Tất cả cell cùng lỗi.
+</div></code></pre>
+<p>Cell isolation thực sự có thể cần:</p>
+<pre class="hljs"><code><div>- Cache riêng
+- Database shard riêng
+- Queue riêng
+- Limits riêng
+</div></code></pre>
+<p>Ít nhất các dependency quan trọng phải được phân vùng phù hợp.</p>
+<hr>
+<h1 id="50-load-shedding">50. Load Shedding</h1>
+<p>Load shedding là chủ động từ chối một số request khi vượt capacity.</p>
+<p>Thay vì:</p>
+<pre class="hljs"><code><div>Nhận 100.000 request
+→ tất cả timeout sau 30 giây
+</div></code></pre>
+<p>ta có thể:</p>
+<pre class="hljs"><code><div>Xử lý 20.000 request quan trọng
+→ từ chối phần còn lại ngay.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Requests --> Gate{Capacity available?}
+    Gate -->|Có| Core[Process]
+    Gate -->|Không| Reject[Fail fast / Fallback]
+</div></code></pre>
+<p>Response có thể là:</p>
+<pre class="hljs"><code><div>503 Service Unavailable
+<span class="hljs-attribute">Retry-After</span><span class="hljs-punctuation">: </span>5
+</div></code></pre>
+<hr>
+<h1 id="51-admission-control">51. Admission Control</h1>
+<p>Admission control quyết định request có được vào hệ thống không.</p>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Current concurrency
+- Queue length
+- CPU
+- Memory
+- Tenant quota
+- Priority
+- Estimated request cost
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment request:
+Ưu tiên cao.
+
+Recommendation refresh:
+Ưu tiên thấp.
+</div></code></pre>
+<p>Khi quá tải, giữ payment và bỏ recommendation.</p>
+<hr>
+<h1 id="52-priority-và-criticality">52. Priority và Criticality</h1>
+<p>Không phải request nào cũng quan trọng như nhau.</p>
+<p>Ví dụ e-commerce:</p>
+<pre class="hljs"><code><div>Priority 1:
+Checkout, payment, order status
+
+Priority 2:
+Product details, search
+
+Priority 3:
+Recommendation, analytics, view count
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Queue riêng
+- Worker riêng
+- Rate limit riêng
+- Connection pool riêng
+</div></code></pre>
+<p>Đây là bulkhead kết hợp graceful degradation.</p>
+<hr>
+<h1 id="53-rate-limiting-là-reliability-pattern">53. Rate Limiting là Reliability Pattern</h1>
+<p>Rate limiting thường được xem là security pattern, nhưng nó cũng bảo vệ reliability.</p>
+<p>Giới hạn:</p>
+<pre class="hljs"><code><div>- Theo user
+- Theo API key
+- Theo tenant
+- Theo IP
+- Theo endpoint
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Một client lỗi hoặc độc hại
+không được dùng hết capacity của toàn hệ thống.
+</div></code></pre>
+<p>Rate limit cũng có thể đặt cho outbound dependency:</p>
+<pre class="hljs"><code><div>Không gửi quá 1.000 request/giây tới Payment Provider.
+</div></code></pre>
+<hr>
+<h1 id="54-redundancy">54. Redundancy</h1>
+<p>Redundancy là có nhiều bản sao hoặc đường thay thế.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Nhiều app server
+- Database replica
+- Nhiều load balancer
+- Multi-AZ
+- Backup network route
+</div></code></pre>
+<p>Nhưng redundancy không có failover thì chưa đủ.</p>
+<pre class="hljs"><code><div>Có replica
+nhưng không ai phát hiện primary lỗi
+→ replica không được sử dụng.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>Detection
+Decision
+Traffic switch
+Recovery
+</div></code></pre>
+<hr>
+<h1 id="55-failover">55. Failover</h1>
+<p>Failover là chuyển hoạt động từ thành phần lỗi sang thành phần dự phòng.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Monitor
+    participant Primary
+    participant Replica
+    participant Router
+
+    Monitor->>Primary: Health check
+    Primary--xMonitor: Failure
+    Monitor->>Replica: Promote
+    Monitor->>Router: Route to replica
+</div></code></pre>
+<p>Failover có thể:</p>
+<pre class="hljs"><code><div>- Automatic
+- Manual
+- Active-passive
+- Active-active
+</div></code></pre>
+<hr>
+<h1 id="56-failover-cũng-có-rủi-ro">56. Failover cũng có rủi ro</h1>
+<p>Automatic failover sai có thể gây split-brain:</p>
+<pre class="hljs"><code><div>Primary thật ra vẫn hoạt động
+nhưng monitor mất kết nối.
+Replica được promote.
+</div></code></pre>
+<p>Bây giờ có hai primary cùng nhận write.</p>
+<p>Giải pháp có thể cần:</p>
+<pre class="hljs"><code><div>- Consensus
+- Quorum
+- Fencing token
+- Leader election
+- STONITH trong một số hệ thống
+</div></code></pre>
+<p>Không nên nói “chỉ cần failover” mà bỏ qua consistency.</p>
+<hr>
+<h1 id="57-fencing-token">57. Fencing Token</h1>
+<p>Fencing token là số phiên bản tăng dần khi cấp quyền sở hữu tài nguyên.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Leader cũ token = 41
+Leader mới token = 42
+</div></code></pre>
+<p>Storage chỉ chấp nhận request từ token mới nhất.</p>
+<p>Nếu leader cũ quay lại và ghi với token 41:</p>
+<pre class="hljs"><code><div>Storage từ chối.
+</div></code></pre>
+<p>Điều này giúp chống stale leader gây split-brain.</p>
+<hr>
+<h1 id="58-health-check-và-self-healing">58. Health Check và Self-Healing</h1>
+<p>Self-healing:</p>
+<pre class="hljs"><code><div>- Phát hiện instance lỗi
+- Loại khỏi traffic
+- Khởi tạo instance mới
+- Chờ readiness
+- Thêm lại vào pool
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Monitor --> Check{Healthy?}
+    Check -->|Có| Serve[Continue serving]
+    Check -->|Không| Remove[Remove from traffic]
+    Remove --> Replace[Start replacement]
+    Replace --> Ready{Ready?}
+    Ready -->|Có| Add[Add to pool]
+</div></code></pre>
+<p>Nhưng restart không phải giải pháp cho mọi lỗi.</p>
+<p>Nếu bug có trong mọi instance:</p>
+<pre class="hljs"><code><div>Restart liên tục
+→ crash loop
+</div></code></pre>
+<p>Nếu database down:</p>
+<pre class="hljs"><code><div>Restart toàn bộ API
+→ connection storm
+→ database càng khó phục hồi.
+</div></code></pre>
+<hr>
+<h1 id="59-graceful-shutdown">59. Graceful Shutdown</h1>
+<p>Khi deploy hoặc scale-in:</p>
+<pre class="hljs"><code><div>1. Mark instance not ready
+2. Load balancer ngừng gửi request mới
+3. Chờ request hiện tại hoàn tất
+4. Dừng nhận message mới
+5. Commit hoặc release công việc đang xử lý
+6. Shutdown
+</div></code></pre>
+<p>Không graceful shutdown:</p>
+<pre class="hljs"><code><div>- Request bị cắt
+- Message xử lý dở
+- Upload hỏng
+- Payment có trạng thái không rõ
+</div></code></pre>
+<hr>
+<h1 id="60-failure-matrix">60. Failure Matrix</h1>
+<p>Senior Engineer nên lập bảng:</p>
+<table>
+<thead>
+<tr>
+<th>Dependency lỗi</th>
+<th>Chức năng ảnh hưởng</th>
+<th>Hành vi mong muốn</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recommendation</td>
+<td>Gợi ý sản phẩm</td>
+<td>Ẩn section hoặc trả popular items</td>
+</tr>
+<tr>
+<td>Review Service</td>
+<td>Review</td>
+<td>Trả dữ liệu cache cũ</td>
+</tr>
+<tr>
+<td>Payment Provider</td>
+<td>Thanh toán</td>
+<td>Không retry mù quáng; trả pending/unknown</td>
+</tr>
+<tr>
+<td>Email Service</td>
+<td>Email xác nhận</td>
+<td>Queue và retry sau</td>
+</tr>
+<tr>
+<td>Redis Cache</td>
+<td>Performance</td>
+<td>Fallback DB có giới hạn</td>
+</tr>
+<tr>
+<td>Primary DB</td>
+<td>Core writes</td>
+<td>Failover hoặc read-only mode</td>
+</tr>
+<tr>
+<td>Analytics</td>
+<td>Báo cáo</td>
+<td>Drop/buffer event không quan trọng</td>
+</tr>
+</tbody>
+</table>
+<p>Bảng này buộc thiết kế phải rõ:</p>
+<pre class="hljs"><code><div>Failure nào chấp nhận được?
+Failure nào phải chặn request?
+Fallback nào dùng?
+</div></code></pre>
+<hr>
+<h1 id="61-case-study--trang-sản-phẩm">61. Case Study — Trang sản phẩm</h1>
+<p>Trang gồm:</p>
+<pre class="hljs"><code><div>- Product metadata
+- Price
+- Inventory
+- Reviews
+- Recommendations
+- User personalization
+</div></code></pre>
+<p>Kiến trúc:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Gateway
+    Gateway --> Product
+    Gateway --> Inventory
+    Gateway --> Review
+    Gateway --> Recommendation
+
+    Product --> ProductDB[(Product DB)]
+    Inventory --> InventoryDB[(Inventory DB)]
+    Review --> ReviewDB[(Review DB)]
+    Recommendation --> Model[(Recommendation System)]
+</div></code></pre>
+<hr>
+<h2 id="phân-loại-dependency">Phân loại dependency</h2>
+<pre class="hljs"><code><div>Product metadata:
+Core
+
+Price:
+Core
+
+Inventory:
+Core để checkout, có thể hơi stale khi chỉ hiển thị
+
+Reviews:
+Optional
+
+Recommendations:
+Optional
+
+Personalization:
+Optional
+</div></code></pre>
+<hr>
+<h2 id="reliability-policy">Reliability policy</h2>
+<h3 id="product-service">Product Service</h3>
+<pre class="hljs"><code><div>Timeout: 300 ms
+Retry: 1 lần nếu lỗi connection
+Fallback: cache cũ
+Circuit breaker: có
+</div></code></pre>
+<h3 id="inventory-service">Inventory Service</h3>
+<pre class="hljs"><code><div>Display:
+Có thể dùng cache TTL ngắn
+
+Reservation:
+Phải gọi source of truth
+Idempotency bắt buộc
+Không dùng stale cache để commit
+</div></code></pre>
+<h3 id="review-service">Review Service</h3>
+<pre class="hljs"><code><div>Timeout: 200 ms
+Retry: không hoặc 1 lần
+Fallback: ẩn section hoặc trả cache cũ
+</div></code></pre>
+<h3 id="recommendation-service">Recommendation Service</h3>
+<pre class="hljs"><code><div>Timeout: 100 ms
+Circuit breaker
+Fallback: popular products
+Bulkhead riêng
+</div></code></pre>
+<hr>
+<h1 id="62-sơ-đồ-graceful-degradation">62. Sơ đồ Graceful Degradation</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Request --> Product{Product available?}
+    Product -->|Không| Error[Fail page]
+    Product -->|Có| Inventory{Inventory available?}
+
+    Inventory -->|Có| Full[Show accurate availability]
+    Inventory -->|Không| Unknown[Show availability temporarily unavailable]
+
+    Full --> Reviews{Reviews available?}
+    Unknown --> Reviews
+
+    Reviews -->|Có| ShowReviews[Show reviews]
+    Reviews -->|Không| SkipReviews[Hide reviews]
+
+    ShowReviews --> Recommend{Recommendation available?}
+    SkipReviews --> Recommend
+
+    Recommend -->|Có| Personalized[Show recommendations]
+    Recommend -->|Không| Popular[Show popular products]
+</div></code></pre>
+<p>Trang vẫn có giá trị dù một số service phụ lỗi.</p>
+<hr>
+<h1 id="63-case-study--payment">63. Case Study — Payment</h1>
+<p>Payment cần thận trọng vì retry và timeout có thể tạo hậu quả tài chính.</p>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Payment
+    participant Provider
+
+    Order->>Payment: Charge, idempotencyKey=pay_attempt_123
+    Payment->>Provider: Charge, same idempotency key
+    Provider-->>Payment: Timeout/Unknown
+    Payment-->>Order: Payment pending
+    Payment->>Provider: Query status later
+</div></code></pre>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>Timeout
+→ tạo payment ID mới
+→ charge lại ngay.
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>- Giữ payment attempt ID
+- Trả pending hoặc unknown
+- Reconcile trạng thái
+- Xử lý webhook
+- Retry cùng idempotency key
+</div></code></pre>
+<hr>
+<h1 id="64-case-study--cache-outage">64. Case Study — Cache Outage</h1>
+<p>Bình thường:</p>
+<pre class="hljs"><code><div>API → Redis → Database
+</div></code></pre>
+<p>Redis down.</p>
+<p>Fallback ngây thơ:</p>
+<pre class="hljs"><code><div>Mọi request → Database
+</div></code></pre>
+<p>Nếu Redis đang giảm 95% DB reads:</p>
+<pre class="hljs"><code><div>Cache QPS: 95.000
+DB QPS:     5.000
+</div></code></pre>
+<p>Cache down:</p>
+<pre class="hljs"><code><div>DB nhận 100.000 QPS
+</div></code></pre>
+<p>Database có thể sập ngay.</p>
+<p>Chiến lược tốt hơn:</p>
+<pre class="hljs"><code><div>- Circuit breaker với Redis
+- Local cache cho hot data
+- Rate limit DB fallback
+- Serve stale data
+- Load shedding
+- Chỉ fallback cho critical request
+</div></code></pre>
+<hr>
+<h1 id="65-case-study--third-party-api-chậm">65. Case Study — Third-party API chậm</h1>
+<p>Ví dụ Shipping Rate API.</p>
+<p>Không có protection:</p>
+<pre class="hljs"><code><div>Checkout → Shipping API chậm
+→ toàn checkout chậm.
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>Timeout: 500 ms
+Retry: tối đa 1 lần với jitter
+Circuit breaker
+Cache shipping rates ngắn hạn
+Fallback: hiển thị estimated rate hoặc yêu cầu thử lại
+Bulkhead connection pool riêng
+</div></code></pre>
+<p>Third-party không được dùng chung toàn bộ outbound connection pool với internal services.</p>
+<hr>
+<h1 id="66-pattern-kết-hợp">66. Pattern kết hợp</h1>
+<p>Các pattern thường đi cùng nhau:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Request --> Rate[Rate Limit]
+    Rate --> Bulkhead[Bulkhead / Concurrency Limit]
+    Bulkhead --> Breaker[Circuit Breaker]
+    Breaker --> Timeout[Timeout]
+    Timeout --> Retry[Bounded Retry + Backoff + Jitter]
+    Retry --> Dependency
+    Breaker --> Fallback[Fallback / Degradation]
+</div></code></pre>
+<p>Một trình tự khái niệm:</p>
+<pre class="hljs"><code><div>1. Admission control bảo vệ capacity.
+2. Bulkhead giới hạn blast radius.
+3. Circuit breaker tránh gọi dependency đang lỗi.
+4. Timeout giới hạn từng call.
+5. Retry xử lý lỗi tạm thời.
+6. Fallback giữ chức năng cốt lõi.
+</div></code></pre>
+<hr>
+<h1 id="67-thứ-tự-wrapper-trong-code">67. Thứ tự wrapper trong code</h1>
+<p>Có nhiều cách tùy thư viện, nhưng logic cần rõ.</p>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">def</span> <span class="hljs-title function_">get_recommendations</span>(<span class="hljs-params">user_id: <span class="hljs-built_in">str</span></span>):
+    <span class="hljs-keyword">if</span> circuit_breaker.is_open(<span class="hljs-string">&quot;recommendation-service&quot;</span>):
+        <span class="hljs-keyword">return</span> get_popular_products()
+
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> recommendation_bulkhead.try_acquire():
+        <span class="hljs-keyword">return</span> get_popular_products()
+
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">return</span> retry_with_backoff(
+            <span class="hljs-keyword">lambda</span>: call_with_timeout(
+                <span class="hljs-keyword">lambda</span>: recommendation_client.get(user_id),
+                timeout_seconds=<span class="hljs-number">0.15</span>,
+            ),
+            max_attempts=<span class="hljs-number">2</span>,
+            retry_on=(TemporaryNetworkError,),
+        )
+    <span class="hljs-keyword">except</span> TemporaryNetworkError:
+        circuit_breaker.record_failure(<span class="hljs-string">&quot;recommendation-service&quot;</span>)
+        <span class="hljs-keyword">return</span> get_popular_products()
+    <span class="hljs-keyword">finally</span>:
+        recommendation_bulkhead.release()
+</div></code></pre>
+<p>Trong production cần thư viện battle-tested thay vì tự viết tất cả.</p>
+<hr>
+<h1 id="68-retry-và-circuit-breaker-phải-hiểu-error-type">68. Retry và Circuit Breaker phải hiểu Error Type</h1>
+<p>Không nên tính mọi response là circuit failure.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>404 Product Not Found
+</div></code></pre>
+<p>Không nhất thiết chứng minh Product Service đang lỗi.</p>
+<p>Những lỗi thường tính vào breaker:</p>
+<pre class="hljs"><code><div>- Timeout
+- Connection failure
+- 5xx
+- Slow calls vượt threshold
+</div></code></pre>
+<p>Những lỗi thường không tính:</p>
+<pre class="hljs"><code><div>- Validation error
+- Expected business rejection
+- 404 hợp lệ
+- 409 conflict nghiệp vụ
+</div></code></pre>
+<hr>
+<h1 id="69-observability-cho-reliability-patterns">69. Observability cho Reliability Patterns</h1>
+<h2 id="timeout-metrics">Timeout metrics</h2>
+<pre class="hljs"><code><div>- Timeout rate theo dependency
+- Connect timeout
+- Read timeout
+- End-to-end deadline exceeded
+</div></code></pre>
+<h2 id="retry-metrics">Retry metrics</h2>
+<pre class="hljs"><code><div>- Retry rate
+- Attempts per request
+- Retry success rate
+- Retry budget usage
+</div></code></pre>
+<h2 id="circuit-breaker-metrics">Circuit breaker metrics</h2>
+<pre class="hljs"><code><div>- Current state
+- Open count
+- Time spent open
+- Half-open probe success rate
+</div></code></pre>
+<h2 id="bulkhead-metrics">Bulkhead metrics</h2>
+<pre class="hljs"><code><div>- Active concurrency
+- Rejected requests
+- Queue depth
+- Pool saturation
+</div></code></pre>
+<h2 id="graceful-degradation-metrics">Graceful degradation metrics</h2>
+<pre class="hljs"><code><div>- Fallback response count
+- Stale data served
+- Feature-disabled count
+</div></code></pre>
+<hr>
+<h1 id="70-fallback-success-có-thể-che-giấu-outage">70. Fallback success có thể che giấu outage</h1>
+<p>Nếu Recommendation Service lỗi nhưng fallback luôn trả popular products:</p>
+<pre class="hljs"><code><div>API success rate vẫn 100%.
+</div></code></pre>
+<p>Có thể tưởng hệ thống khỏe.</p>
+<p>Do đó cần metric riêng:</p>
+<pre class="hljs"><code><div>Recommendation fallback rate = 80%
+</div></code></pre>
+<p>HTTP 200 không có nghĩa toàn bộ dependency khỏe.</p>
+<p>Phải theo dõi:</p>
+<pre class="hljs"><code><div>- Full success
+- Degraded success
+- Hard failure
+</div></code></pre>
+<hr>
+<h1 id="71-sli-slo-và-error-budget">71. SLI, SLO và Error Budget</h1>
+<h2 id="sli">SLI</h2>
+<p>Chỉ số đo thực tế.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Availability
+- Latency
+- Correctness
+- Freshness
+</div></code></pre>
+<h2 id="slo">SLO</h2>
+<p>Mục tiêu nội bộ.</p>
+<pre class="hljs"><code><div>99.9% checkout requests thành công trong 2 giây.
+</div></code></pre>
+<h2 id="sla">SLA</h2>
+<p>Cam kết với khách hàng, có thể có hậu quả tài chính.</p>
+<hr>
+<h2 id="error-budget">Error budget</h2>
+<p>Nếu SLO là 99.9%:</p>
+<pre class="hljs"><code><div>Cho phép 0.1% request không đạt mục tiêu.
+</div></code></pre>
+<p>Error budget giúp cân bằng:</p>
+<pre class="hljs"><code><div>Reliability
+↕
+Tốc độ phát triển tính năng
+</div></code></pre>
+<p>Khi error budget gần hết:</p>
+<pre class="hljs"><code><div>- Giảm deploy rủi ro
+- Tập trung sửa reliability
+- Thắt chặt rollout
+</div></code></pre>
+<hr>
+<h1 id="72-chaos-engineering">72. Chaos Engineering</h1>
+<p>Không nên đợi production thật sự lỗi mới biết failover có hoạt động không.</p>
+<p>Chaos experiments có thể:</p>
+<pre class="hljs"><code><div>- Kill một instance
+- Làm dependency chậm
+- Chặn network
+- Làm Redis unavailable
+- Tăng packet loss
+- Tắt một availability zone trong staging
+</div></code></pre>
+<p>Mục tiêu không phải phá hệ thống tùy tiện.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Kiểm tra giả định reliability có đúng không.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Ta tin rằng mất Redis chỉ làm latency tăng.
+
+Chaos test cho thấy:
+Database sập sau 30 giây.
+
+→ Thiết kế fallback đang sai.
+</div></code></pre>
+<hr>
+<h1 id="73-game-day">73. Game Day</h1>
+<p>Game day là buổi diễn tập sự cố có kế hoạch.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Primary DB lỗi
+- Payment provider timeout
+- Một zone mất kết nối
+- Queue backlog tăng nhanh
+</div></code></pre>
+<p>Đánh giá:</p>
+<pre class="hljs"><code><div>- Alert có kích hoạt không?
+- On-call có hiểu dashboard không?
+- Failover có thành công không?
+- Runbook có chính xác không?
+- Recovery mất bao lâu?
+</div></code></pre>
+<p>Reliability không chỉ là code; nó còn là quy trình vận hành.</p>
+<hr>
+<h1 id="74-runbook">74. Runbook</h1>
+<p>Runbook mô tả cách xử lý sự cố.</p>
+<p>Ví dụ circuit breaker mở liên tục:</p>
+<pre class="hljs"><code><div>1. Kiểm tra dependency latency.
+2. Kiểm tra error rate.
+3. Kiểm tra deploy gần nhất.
+4. Xác nhận fallback đang hoạt động.
+5. Kiểm tra retry volume.
+6. Rollback hoặc disable feature nếu cần.
+</div></code></pre>
+<p>Một hệ thống phức tạp nhưng không có runbook sẽ khó phục hồi nhanh.</p>
+<hr>
+<h1 id="75-những-sai-lầm-phổ-biến">75. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-không-đặt-timeout">Lỗi 1: Không đặt timeout</h2>
+<p>Một dependency treo giữ toàn bộ tài nguyên.</p>
+<hr>
+<h2 id="lỗi-2-timeout-ở-mọi-tầng-đều-giống-nhau">Lỗi 2: Timeout ở mọi tầng đều giống nhau</h2>
+<p>Không có end-to-end deadline budget.</p>
+<hr>
+<h2 id="lỗi-3-xem-timeout-là-thất-bại-chắc-chắn">Lỗi 3: Xem timeout là thất bại chắc chắn</h2>
+<p>Với operation có side effect, trạng thái có thể unknown.</p>
+<hr>
+<h2 id="lỗi-4-retry-mọi-lỗi">Lỗi 4: Retry mọi lỗi</h2>
+<p>Validation error và business rejection không trở nên đúng sau retry.</p>
+<hr>
+<h2 id="lỗi-5-retry-ở-mọi-tầng">Lỗi 5: Retry ở mọi tầng</h2>
+<p>Tạo retry amplification.</p>
+<hr>
+<h2 id="lỗi-6-retry-không-có-backoff-và-jitter">Lỗi 6: Retry không có backoff và jitter</h2>
+<p>Tạo retry storm.</p>
+<hr>
+<h2 id="lỗi-7-retry-operation-không-idempotent">Lỗi 7: Retry operation không idempotent</h2>
+<p>Tạo duplicate order/payment.</p>
+<hr>
+<h2 id="lỗi-8-circuit-breaker-không-có-half-open">Lỗi 8: Circuit breaker không có half-open</h2>
+<p>Dependency vừa phục hồi bị traffic dồn lại.</p>
+<hr>
+<h2 id="lỗi-9-dùng-một-circuit-cho-mọi-operation">Lỗi 9: Dùng một circuit cho mọi operation</h2>
+<p>Một endpoint lỗi làm chặn cả service.</p>
+<hr>
+<h2 id="lỗi-10-dùng-chung-mọi-resource-pool">Lỗi 10: Dùng chung mọi resource pool</h2>
+<p>Một tính năng phụ chiếm hết thread hoặc connection.</p>
+<hr>
+<h2 id="lỗi-11-queue-vô-hạn">Lỗi 11: Queue vô hạn</h2>
+<p>Chỉ chuyển lỗi quá tải thành latency vô hạn.</p>
+<hr>
+<h2 id="lỗi-12-fallback-quá-đắt">Lỗi 12: Fallback quá đắt</h2>
+<p>Fallback làm dependency khác sập.</p>
+<hr>
+<h2 id="lỗi-13-graceful-degradation-nhưng-không-đo-degraded-response">Lỗi 13: Graceful degradation nhưng không đo degraded response</h2>
+<p>Outage bị che bởi HTTP 200.</p>
+<hr>
+<h2 id="lỗi-14-có-replica-nhưng-không-test-failover">Lỗi 14: Có replica nhưng không test failover</h2>
+<p>Đến lúc lỗi thật mới phát hiện replica không dùng được.</p>
+<hr>
+<h2 id="lỗi-15-autoscaling-được-xem-là-giải-pháp-cho-mọi-overload">Lỗi 15: Autoscaling được xem là giải pháp cho mọi overload</h2>
+<p>Autoscaling có độ trễ và không sửa được dependency đang nghẽn.</p>
+<hr>
+<h1 id="76-framework-thiết-kế-reliability-như-senior-engineer">76. Framework thiết kế Reliability như Senior Engineer</h1>
+<p>Với mỗi dependency, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Dependency này có quan trọng với request không?
+2. Nếu nó lỗi, chức năng nào mất?
+3. Timeout là bao nhiêu?
+4. Timeout dựa trên latency distribution nào?
+5. Operation có idempotent không?
+6. Lỗi nào được retry?
+7. Retry ở tầng nào?
+8. Max attempts là bao nhiêu?
+9. Có exponential backoff và jitter không?
+10. Retry budget là bao nhiêu?
+11. Khi nào circuit breaker mở?
+12. Half-open cho bao nhiêu probe?
+13. Resource pool có được cô lập không?
+14. Queue/concurrency limit là bao nhiêu?
+15. Fallback là gì?
+16. Fallback có rẻ và đáng tin không?
+17. Có thể trả stale data không?
+18. Có thể tắt tính năng phụ không?
+19. Blast radius của failure là bao nhiêu?
+20. Metric và alert nào phát hiện lỗi?
+</div></code></pre>
+<hr>
+<h1 id="77-decision-tree">77. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Call một dependency] --> B{Dependency có bắt buộc không?}
+
+    B -->|Không| C[Timeout ngắn + fallback]
+    B -->|Có| D[Timeout theo deadline budget]
+
+    C --> E{Operation idempotent?}
+    D --> E
+
+    E -->|Có| F{Lỗi transient?}
+    E -->|Không| G[Không retry hoặc dùng idempotency key]
+
+    F -->|Có| H[Bounded retry + backoff + jitter]
+    F -->|Không| I[Fail fast]
+
+    H --> J{Failure rate cao liên tục?}
+    G --> J
+    I --> J
+
+    J -->|Có| K[Open circuit breaker]
+    J -->|Không| L[Continue]
+
+    K --> M{Có fallback an toàn?}
+    M -->|Có| N[Graceful degradation]
+    M -->|Không| O[Return controlled error]
+
+    N --> P[Monitor degraded success]
+    O --> P
+</div></code></pre>
+<hr>
+<h1 id="78-cách-trình-bày-trong-system-design-interview">78. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em thêm retry và circuit breaker để tăng reliability.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Recommendation Service là dependency không bắt buộc, nên tôi đặt timeout ngắn khoảng 100–200 ms. Chỉ lỗi network và 5xx mới được retry một lần với exponential backoff và jitter. Nếu failure hoặc slow-call rate vượt threshold, circuit breaker mở và hệ thống trả danh sách sản phẩm phổ biến từ cache. Recommendation dùng thread pool và connection pool riêng để không chiếm tài nguyên của checkout. Tôi theo dõi riêng fallback rate vì response 200 có thể che giấu việc recommendation đang lỗi.</p>
+</blockquote>
+<p>Với Payment:</p>
+<blockquote>
+<p>Payment là operation có side effect nên timeout không được xem là thất bại chắc chắn. Mỗi payment attempt dùng idempotency key ổn định. Khi provider timeout, trạng thái chuyển thành pending hoặc unknown và được reconcile qua status API hoặc webhook. Retry phải dùng cùng key và nằm trong retry budget.</p>
+</blockquote>
+<p>Đó là tư duy reliability có chiều sâu.</p>
+<hr>
+<h1 id="79-bảng-ghi-nhớ-nhanh">79. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Mục đích</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Timeout</td>
+<td>Không chờ vô hạn</td>
+</tr>
+<tr>
+<td>Deadline propagation</td>
+<td>Giữ end-to-end latency budget</td>
+</tr>
+<tr>
+<td>Retry</td>
+<td>Xử lý lỗi tạm thời</td>
+</tr>
+<tr>
+<td>Exponential backoff</td>
+<td>Giảm áp lực khi retry</td>
+</tr>
+<tr>
+<td>Jitter</td>
+<td>Tránh client retry đồng thời</td>
+</tr>
+<tr>
+<td>Retry budget</td>
+<td>Giới hạn tổng retry traffic</td>
+</tr>
+<tr>
+<td>Circuit breaker</td>
+<td>Ngừng gọi dependency đang lỗi</td>
+</tr>
+<tr>
+<td>Half-open</td>
+<td>Thử phục hồi có kiểm soát</td>
+</tr>
+<tr>
+<td>Bulkhead</td>
+<td>Cô lập tài nguyên giữa workload</td>
+</tr>
+<tr>
+<td>Concurrency limit</td>
+<td>Giới hạn số request cùng xử lý</td>
+</tr>
+<tr>
+<td>Graceful degradation</td>
+<td>Giữ chức năng cốt lõi</td>
+</tr>
+<tr>
+<td>Load shedding</td>
+<td>Từ chối có kiểm soát khi quá tải</td>
+</tr>
+<tr>
+<td>Fault isolation</td>
+<td>Giảm phạm vi ảnh hưởng</td>
+</tr>
+<tr>
+<td>Redundancy</td>
+<td>Có bản sao dự phòng</td>
+</tr>
+<tr>
+<td>Failover</td>
+<td>Chuyển sang bản sao</td>
+</tr>
+<tr>
+<td>Self-healing</td>
+<td>Tự phát hiện và thay thế node lỗi</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="80-sơ-đồ-ghi-nhớ-toàn-bài">80. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Reliability] --> B[Prevent waiting]
+    A --> C[Handle transient failure]
+    A --> D[Stop cascading failure]
+    A --> E[Limit blast radius]
+    A --> F[Keep core features alive]
+
+    B --> B1[Timeout]
+    B --> B2[Deadline]
+    B --> B3[Cancellation]
+
+    C --> C1[Retry]
+    C --> C2[Backoff]
+    C --> C3[Jitter]
+    C --> C4[Idempotency]
+
+    D --> D1[Circuit Breaker]
+    D --> D2[Load Shedding]
+    D --> D3[Rate Limiting]
+
+    E --> E1[Bulkhead]
+    E --> E2[Cells]
+    E --> E3[Multi-AZ]
+    E --> E4[Resource Limits]
+
+    F --> F1[Fallback]
+    F --> F2[Stale Cache]
+    F --> F3[Read-only Mode]
+    F --> F4[Disable Optional Features]
+</div></code></pre>
+<hr>
+<h1 id="81-những-điều-phải-nhớ-sau-bài-10">81. Những điều phải nhớ sau Bài 10</h1>
+<pre class="hljs"><code><div>1. Failure là điều bình thường trong distributed systems.
+2. Reliability tốt tập trung vào giới hạn và phục hồi lỗi.
+3. Timeout ngăn request chờ vô hạn.
+4. End-to-end deadline phải được truyền qua các service.
+5. Timeout không có nghĩa side effect chắc chắn chưa xảy ra.
+6. Chỉ retry lỗi tạm thời.
+7. Retry operation có side effect cần idempotency.
+8. Retry phải có giới hạn, backoff và jitter.
+9. Không retry ở mọi tầng vì sẽ gây amplification.
+10. Retry budget giới hạn retry traffic.
+11. Circuit breaker fail fast khi dependency đang lỗi.
+12. Circuit breaker có Closed, Open và Half-open.
+13. Circuit breaker không thay thế timeout.
+14. Bulkhead cô lập thread, connection, queue hoặc instance.
+15. Queue vô hạn không phải overload protection.
+16. Graceful degradation giữ chức năng cốt lõi hoạt động.
+17. Fallback phải rẻ và đáng tin hơn đường chính.
+18. Fault isolation giúp giảm blast radius.
+19. Cell architecture giới hạn lỗi trong một nhóm user.
+20. Shared dependency có thể phá hỏng isolation.
+21. Load shedding tốt hơn để mọi request cùng timeout.
+22. Redundancy chỉ hữu ích khi có detection và failover.
+23. Failover tự động phải chống split-brain.
+24. Fallback rate phải được đo riêng.
+25. Chaos testing và game day giúp kiểm tra giả định reliability.
+</div></code></pre>
+<hr>
+<h1 id="82-bài-tập-thực-hành">82. Bài tập thực hành</h1>
+<p>Thiết kế reliability cho một hệ thống đặt đồ ăn có các dependency:</p>
+<pre class="hljs"><code><div>- Restaurant Service
+- Menu Service
+- Inventory Service
+- Payment Provider
+- Delivery Pricing Service
+- Notification Service
+- Recommendation Service
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Dependency nào là bắt buộc với create order?
+2. Dependency nào có thể graceful degradation?
+3. Timeout của từng dependency nên tương đối thế nào?
+4. Operation nào được retry?
+5. Operation nào cần idempotency key?
+6. Retry nên nằm ở tầng nào?
+7. Circuit breaker nào cần thiết?
+8. Bulkhead nên tách theo dependency nào?
+9. Nếu Recommendation lỗi thì fallback gì?
+10. Nếu Delivery Pricing lỗi thì có được tạo order không?
+11. Nếu Payment timeout thì trạng thái order là gì?
+12. Nếu Notification lỗi thì xử lý đồng bộ hay queue?
+13. Nếu Redis cache down thì làm sao tránh DB overload?
+14. Khi hệ thống quá tải, request nào cần được ưu tiên?
+15. Blast radius khi một restaurant cực hot là bao nhiêu?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Gateway[API Gateway]
+    Gateway --> Rate[Rate Limit / Admission Control]
+    Rate --> Order[Order Service]
+
+    Order --> InventoryBreaker[Inventory Circuit Breaker]
+    Order --> PaymentBreaker[Payment Circuit Breaker]
+    Order --> DeliveryBreaker[Delivery Circuit Breaker]
+
+    InventoryBreaker --> Inventory[Inventory Service]
+    PaymentBreaker --> Payment[Payment Provider]
+    DeliveryBreaker --> Delivery[Delivery Pricing]
+
+    Order --> Queue[Async Event Queue]
+    Queue --> Notification[Notification Workers]
+    Queue --> Analytics[Analytics Workers]
+
+    Gateway --> Recommendation[Recommendation Service]
+    Recommendation --> Fallback[Popular Restaurants Cache]
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Reliability không phải thêm retry vào mọi request. Reliability là biết khi nào nên chờ, khi nào thử lại, khi nào ngừng gọi, khi nào từ chối và khi nào tiếp tục phục vụ với chức năng bị giảm.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 11 — Observability nền tảng: logging, metrics, tracing, correlation ID, RED/USE method, alerting và cách debug một distributed system.</strong></p>
+
+</body>
+</html>

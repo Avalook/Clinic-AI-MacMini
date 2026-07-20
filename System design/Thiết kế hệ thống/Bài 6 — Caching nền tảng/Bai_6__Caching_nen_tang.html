@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 6 — Caching nền tảng.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-6--caching-nền-tảng">Bài 6 — Caching nền tảng</h1>
+<p>Caching là kỹ thuật lưu tạm dữ liệu ở một nơi có tốc độ truy cập nhanh hơn để tránh phải tính toán hoặc đọc lại từ nguồn dữ liệu gốc cho mỗi request.</p>
+<p>Nói đơn giản:</p>
+<blockquote>
+<p><strong>Cache đổi storage và độ phức tạp lấy tốc độ và khả năng chịu tải.</strong></p>
+</blockquote>
+<p>Trong tài liệu System Design bạn đã cung cấp, caching được trình bày ở nhiều tầng như browser cache, server-side cache, database/query cache và CDN; các chiến lược ghi phổ biến gồm cache-aside, write-through và write-back.</p>
+<hr>
+<h1 id="1-tại-sao-cần-cache">1. Tại sao cần cache?</h1>
+<p>Giả sử endpoint:</p>
+<pre class="hljs"><code><div>GET /products/p_123
+</div></code></pre>
+<p>Không dùng cache:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant API
+    participant DB
+
+    User->>API: GET /products/p_123
+    API->>DB: SELECT product
+    DB-->>API: Product data
+    API-->>User: Response
+</div></code></pre>
+<p>Nếu có 20.000 request/giây cùng đọc một sản phẩm nổi tiếng, database phải xử lý 20.000 query/giây.</p>
+<p>Có cache:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant API
+    participant Cache
+    participant DB
+
+    User->>API: GET /products/p_123
+    API->>Cache: GET product:p_123
+    Cache-->>API: Product data
+    API-->>User: Response
+</div></code></pre>
+<p>Phần lớn request không cần chạm database.</p>
+<p>Cache giúp:</p>
+<pre class="hljs"><code><div>- Giảm latency
+- Giảm tải database
+- Giảm số lần gọi service bên ngoài
+- Giảm CPU do tính toán lặp lại
+- Tăng throughput
+- Giảm chi phí hạ tầng
+- Hấp thụ traffic spike
+</div></code></pre>
+<p>Nhưng cache cũng tạo ra vấn đề mới:</p>
+<pre class="hljs"><code><div>- Dữ liệu cũ
+- Invalidation
+- Cache miss
+- Stampede
+- Hot key
+- Memory giới hạn
+- Cache và database không đồng nhất
+</div></code></pre>
+<p>Do đó:</p>
+<blockquote>
+<p><strong>Cache không chỉ là thêm Redis. Cache là một chiến lược quản lý dữ liệu tạm thời.</strong></p>
+</blockquote>
+<hr>
+<h1 id="2-cache-nằm-ở-đâu">2. Cache nằm ở đâu?</h1>
+<p>Cache không chỉ có Redis.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User --> Browser[Browser Cache]
+    Browser --> CDN[CDN / Edge Cache]
+    CDN --> API[Application]
+    API --> Local[Local In-memory Cache]
+    API --> Distributed[Distributed Cache]
+    Distributed --> DB[(Database)]
+</div></code></pre>
+<h2 id="21-browser-cache">2.1 Browser cache</h2>
+<p>Lưu trên thiết bị người dùng:</p>
+<pre class="hljs"><code><div>- HTML
+- CSS
+- JavaScript
+- Images
+- API responses phù hợp
+</div></code></pre>
+<p>Điều khiển bằng HTTP headers:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=3600
+<span class="hljs-attribute">ETag</span><span class="hljs-punctuation">: </span>&quot;product-123-v5&quot;
+<span class="hljs-attribute">Last-Modified</span><span class="hljs-punctuation">: </span>Fri, 10 Jul 2026 08:00:00 GMT
+</div></code></pre>
+<p>Browser có thể sử dụng lại dữ liệu mà không tải lại hoàn toàn.</p>
+<hr>
+<h2 id="22-cdn-cache">2.2 CDN cache</h2>
+<p>CDN lưu static content hoặc cacheable response ở edge server gần user.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Images
+- Video segments
+- CSS/JS
+- Download files
+- Public product pages
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    U1[User Việt Nam] --> E1[Asia Edge]
+    U2[User châu Âu] --> E2[Europe Edge]
+    U3[User Mỹ] --> E3[US Edge]
+
+    E1 --> Origin[Origin Storage]
+    E2 --> Origin
+    E3 --> Origin
+</div></code></pre>
+<p>CDN vừa giảm latency, vừa giảm bandwidth và tải lên origin.</p>
+<hr>
+<h2 id="23-local-in-memory-cache">2.3 Local in-memory cache</h2>
+<p>Cache nằm trực tiếp trong memory của mỗi application instance.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Java Caffeine
+- Guava Cache
+- Node.js memory map
+- Python lru_cache
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Cực nhanh
+- Không có network call
+- Dễ dùng
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Mỗi server có cache riêng
+- Dữ liệu không đồng nhất giữa các instance
+- Mất khi process restart
+- Khó invalidation toàn cluster
+- Memory bị giới hạn theo từng máy
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    LB[Load Balancer] --> A1[API 1 + Local Cache]
+    LB --> A2[API 2 + Local Cache]
+    LB --> A3[API 3 + Local Cache]
+</div></code></pre>
+<p>API 1 có thể thấy version mới, trong khi API 2 vẫn giữ version cũ.</p>
+<hr>
+<h2 id="24-distributed-cache">2.4 Distributed cache</h2>
+<p>Cache chạy thành một hệ thống riêng và được nhiều application instance dùng chung.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Redis
+Memcached
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    LB --> A1[API 1]
+    LB --> A2[API 2]
+    LB --> A3[API 3]
+
+    A1 --> C[(Redis)]
+    A2 --> C
+    A3 --> C
+    C --> DB[(Database)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Cache được chia sẻ
+- Dễ scale application
+- Quản lý TTL và eviction tập trung
+- Hỗ trợ nhiều cấu trúc dữ liệu
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Thêm network hop
+- Thêm dependency
+- Cache có thể trở thành bottleneck
+- Cần replication, sharding và monitoring
+</div></code></pre>
+<hr>
+<h1 id="3-các-thuật-ngữ-cơ-bản">3. Các thuật ngữ cơ bản</h1>
+<h2 id="cache-hit">Cache hit</h2>
+<p>Dữ liệu được tìm thấy trong cache.</p>
+<pre class="hljs"><code><div>Request → Cache → Found
+</div></code></pre>
+<h2 id="cache-miss">Cache miss</h2>
+<p>Dữ liệu không có trong cache.</p>
+<pre class="hljs"><code><div>Request → Cache → Not found → Database
+</div></code></pre>
+<h2 id="hit-ratio">Hit ratio</h2>
+<pre class="hljs"><code><div>Cache Hit Ratio =
+Cache Hits / Total Cache Lookups
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>900.000 cache hit
+100.000 cache miss
+
+Hit ratio = 900.000 / 1.000.000 = 90%
+</div></code></pre>
+<p>Hit ratio cao thường tốt, nhưng không phải metric duy nhất.</p>
+<p>Cache hit ratio 99% vẫn có thể không đủ nếu 1% miss tương đương 50.000 DB QPS.</p>
+<hr>
+<h2 id="miss-penalty">Miss penalty</h2>
+<p>Chi phí khi cache miss:</p>
+<pre class="hljs"><code><div>- Đọc database
+- Gọi API bên ngoài
+- Tính toán dữ liệu
+- Serialize response
+- Ghi lại vào cache
+</div></code></pre>
+<p>Nếu miss penalty lớn, việc bảo vệ cache miss rất quan trọng.</p>
+<hr>
+<h1 id="4-cache-aside--lazy-loading">4. Cache-aside — Lazy Loading</h1>
+<p>Đây là chiến lược phổ biến nhất.</p>
+<p>Application tự quản lý cache.</p>
+<p>Luồng đọc:</p>
+<pre class="hljs"><code><div>1. Đọc cache
+2. Nếu cache hit → trả dữ liệu
+3. Nếu cache miss → đọc database
+4. Ghi dữ liệu vào cache
+5. Trả response
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant App
+    participant Cache
+    participant DB
+
+    Client->>App: Get product
+    App->>Cache: GET product:123
+
+    alt Cache hit
+        Cache-->>App: Product
+        App-->>Client: Product
+    else Cache miss
+        Cache-->>App: Not found
+        App->>DB: SELECT product
+        DB-->>App: Product
+        App->>Cache: SET product:123 + TTL
+        App-->>Client: Product
+    end
+</div></code></pre>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">def</span> <span class="hljs-title function_">get_product</span>(<span class="hljs-params">product_id: <span class="hljs-built_in">str</span></span>):
+    cache_key = <span class="hljs-string">f&quot;product:<span class="hljs-subst">{product_id}</span>&quot;</span>
+
+    cached = cache.get(cache_key)
+    <span class="hljs-keyword">if</span> cached <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        <span class="hljs-keyword">return</span> deserialize(cached)
+
+    product = database.get_product(product_id)
+    <span class="hljs-keyword">if</span> product <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+
+    cache.<span class="hljs-built_in">set</span>(cache_key, serialize(product), ttl=<span class="hljs-number">300</span>)
+    <span class="hljs-keyword">return</span> product
+</div></code></pre>
+<hr>
+<h2 id="cách-cập-nhật-với-cache-aside">Cách cập nhật với cache-aside</h2>
+<p>Thông thường:</p>
+<pre class="hljs"><code><div>1. Ghi database
+2. Xóa cache
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant App
+    participant DB
+    participant Cache
+
+    App->>DB: UPDATE product
+    DB-->>App: Success
+    App->>Cache: DELETE product:123
+</div></code></pre>
+<p>Request tiếp theo cache miss và nạp dữ liệu mới.</p>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">def</span> <span class="hljs-title function_">update_product</span>(<span class="hljs-params">product_id: <span class="hljs-built_in">str</span>, changes: <span class="hljs-built_in">dict</span></span>):
+    product = database.update_product(product_id, changes)
+
+    cache.delete(<span class="hljs-string">f&quot;product:<span class="hljs-subst">{product_id}</span>&quot;</span>)
+
+    <span class="hljs-keyword">return</span> product
+</div></code></pre>
+<hr>
+<h2 id="ưu-điểm-cache-aside">Ưu điểm cache-aside</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Chỉ cache dữ liệu thực sự được đọc
+- Cache failure không nhất thiết làm mất dữ liệu
+- Database vẫn là source of truth
+- Phù hợp nhiều workload read-heavy
+</div></code></pre>
+<h2 id="nhược-điểm">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Request đầu tiên luôn cache miss
+- Có thể đọc dữ liệu cũ
+- Application phải tự quản lý cache
+- Dễ xảy ra stampede
+- Có khoảng thời gian DB và cache không nhất quán
+</div></code></pre>
+<hr>
+<h1 id="5-vì-sao-thường-update-db-rồi-delete-cache">5. Vì sao thường “update DB rồi delete cache”?</h1>
+<p>Ta có ba lựa chọn tưởng như hợp lý:</p>
+<pre class="hljs"><code><div>A. Update database rồi update cache
+B. Delete cache rồi update database
+C. Update database rồi delete cache
+</div></code></pre>
+<p>Phổ biến nhất là C.</p>
+<hr>
+<h2 id="51-update-database-rồi-update-cache">5.1 Update database rồi update cache</h2>
+<p>Có thể xảy ra race condition.</p>
+<p>Giả sử hai request:</p>
+<pre class="hljs"><code><div>Request A cập nhật giá = 100
+Request B cập nhật giá = 120
+</div></code></pre>
+<p>Thứ tự:</p>
+<pre class="hljs"><code><div>A update DB = 100
+B update DB = 120
+B update cache = 120
+A update cache = 100
+</div></code></pre>
+<p>Trạng thái cuối:</p>
+<pre class="hljs"><code><div>Database = 120
+Cache = 100
+</div></code></pre>
+<p>Cache bị cũ lâu dài cho tới khi TTL hết.</p>
+<hr>
+<h2 id="52-delete-cache-rồi-update-database">5.2 Delete cache rồi update database</h2>
+<p>Race condition khác:</p>
+<pre class="hljs"><code><div>1. Writer xóa cache
+2. Reader cache miss
+3. Reader đọc giá cũ từ DB
+4. Writer cập nhật DB
+5. Reader ghi giá cũ vào cache
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Database = dữ liệu mới
+Cache = dữ liệu cũ
+</div></code></pre>
+<hr>
+<h2 id="53-update-database-rồi-delete-cache">5.3 Update database rồi delete cache</h2>
+<p>Luồng:</p>
+<pre class="hljs"><code><div>1. Database được cập nhật thành công
+2. Cache cũ bị xóa
+3. Read tiếp theo nạp dữ liệu mới
+</div></code></pre>
+<p>Đây thường là phương án ít rủi ro hơn.</p>
+<p>Nhưng vẫn chưa hoàn hảo. Nếu update DB thành công nhưng delete cache thất bại, cache vẫn cũ.</p>
+<p>Các cách giảm rủi ro:</p>
+<pre class="hljs"><code><div>- TTL
+- Retry invalidation
+- Publish event thay đổi
+- Transactional outbox
+- Change Data Capture
+- Versioned cache key
+</div></code></pre>
+<hr>
+<h1 id="6-write-through-cache">6. Write-through cache</h1>
+<p>Trong write-through, ứng dụng ghi vào cache, và cache đồng thời hoặc đồng bộ ghi xuống database.</p>
+<p>Khái niệm:</p>
+<pre class="hljs"><code><div>Application → Cache → Database
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant App
+    participant Cache
+    participant DB
+
+    Client->>App: Update product
+    App->>Cache: Write product
+    Cache->>DB: Persist product
+    DB-->>Cache: Success
+    Cache-->>App: Success
+    App-->>Client: Success
+</div></code></pre>
+<p>Một biến thể do application điều phối:</p>
+<pre class="hljs"><code><div>1. Write database
+2. Write cache
+3. Chỉ trả success khi cả hai hoàn thành
+</div></code></pre>
+<hr>
+<h2 id="ưu-điểm">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Cache luôn được làm nóng sau write
+- Read sau write thường thấy dữ liệu mới
+- Giảm cache miss với dữ liệu vừa cập nhật
+</div></code></pre>
+<h2 id="nhược-điểm-1">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Write latency cao hơn
+- Mỗi write phải cập nhật hai nơi
+- Có thể cache dữ liệu không bao giờ được đọc
+- Phải xử lý partial failure
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Database write thành công
+Cache write thất bại
+</div></code></pre>
+<p>Hoặc ngược lại.</p>
+<p>Do đó cần xác định rõ:</p>
+<pre class="hljs"><code><div>Database hay cache là source of truth?
+Thứ tự write ra sao?
+Retry có idempotent không?
+</div></code></pre>
+<hr>
+<h2 id="phù-hợp-khi">Phù hợp khi</h2>
+<pre class="hljs"><code><div>- Dữ liệu vừa ghi thường được đọc ngay
+- Read-after-write quan trọng
+- Write không quá lớn
+- Có cơ chế cache/database integration đáng tin cậy
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- User profile
+- Configuration
+- Product metadata
+- Session state bền vững
+</div></code></pre>
+<hr>
+<h1 id="7-write-back--write-behind-cache">7. Write-back / Write-behind cache</h1>
+<p>Trong write-back, dữ liệu được ghi vào cache trước và trả success nhanh. Cache sẽ ghi xuống storage bền vững sau.</p>
+<pre class="hljs"><code><div>Application → Cache → trả success
+                     ↓
+               Database sau
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant App
+    participant Cache
+    participant DB
+
+    Client->>App: Write data
+    App->>Cache: Store data
+    Cache-->>App: Success
+    App-->>Client: Success
+
+    Note over Cache,DB: Later / asynchronous
+    Cache->>DB: Flush data
+    DB-->>Cache: Persisted
+</div></code></pre>
+<hr>
+<h2 id="ưu-điểm-1">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Write latency rất thấp
+- Có thể batch nhiều write
+- Giảm write pressure lên database
+- Tăng write throughput
+</div></code></pre>
+<h2 id="nhược-điểm-2">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Có nguy cơ mất dữ liệu nếu cache chết trước khi flush
+- Logic phức tạp
+- Recovery khó
+- Database tạm thời không có dữ liệu mới
+- Cần durability cho cache hoặc write log
+</div></code></pre>
+<hr>
+<h2 id="phù-hợp-khi-1">Phù hợp khi</h2>
+<pre class="hljs"><code><div>- Write throughput rất cao
+- Chấp nhận mất một lượng nhỏ dữ liệu
+- Dữ liệu có thể batch
+- Cache/store trung gian đủ bền vững
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- View counters
+- Like counters
+- Analytics counters
+- Telemetry
+- Một số game statistics
+</div></code></pre>
+<p>Không phù hợp làm nguồn ghi trực tiếp duy nhất cho:</p>
+<pre class="hljs"><code><div>- Banking ledger
+- Payment
+- Order confirmation
+- Inventory reservation quan trọng
+</div></code></pre>
+<p>Trừ khi lớp write-back có durability và recovery được thiết kế rất nghiêm túc.</p>
+<hr>
+<h1 id="8-write-around">8. Write-around</h1>
+<p>Write-around nghĩa là ghi thẳng xuống database, bỏ qua cache.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant App
+    participant DB
+    participant Cache
+
+    App->>DB: Write data
+    DB-->>App: Success
+    Note over Cache: Không ghi cache
+</div></code></pre>
+<p>Khi có read:</p>
+<pre class="hljs"><code><div>Cache miss → DB → cache
+</div></code></pre>
+<h2 id="ưu-điểm-2">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Không đưa dữ liệu ít được đọc vào cache
+- Tránh cache bị lấp đầy bởi write-heavy data
+- Write path đơn giản hơn
+</div></code></pre>
+<h2 id="nhược-điểm-3">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Read đầu tiên sau write bị cache miss
+- Read-after-write có latency cao hơn
+</div></code></pre>
+<p>Phù hợp với dữ liệu:</p>
+<pre class="hljs"><code><div>- Ghi nhiều nhưng hiếm khi đọc ngay
+- Log
+- Event history
+- Archival records
+</div></code></pre>
+<hr>
+<h1 id="9-so-sánh-các-chiến-lược">9. So sánh các chiến lược</h1>
+<table>
+<thead>
+<tr>
+<th>Chiến lược</th>
+<th>Read</th>
+<th>Write</th>
+<th>Ưu điểm</th>
+<th>Rủi ro chính</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cache-aside</td>
+<td>App đọc cache rồi DB</td>
+<td>Ghi DB, xóa cache</td>
+<td>Đơn giản, phổ biến</td>
+<td>Dữ liệu cũ, stampede</td>
+</tr>
+<tr>
+<td>Write-through</td>
+<td>Cache và DB cùng cập nhật</td>
+<td>Đồng bộ</td>
+<td>Cache luôn nóng</td>
+<td>Write latency</td>
+</tr>
+<tr>
+<td>Write-back</td>
+<td>Ghi cache trước</td>
+<td>DB ghi sau</td>
+<td>Write rất nhanh</td>
+<td>Mất dữ liệu</td>
+</tr>
+<tr>
+<td>Write-around</td>
+<td>Miss thì nạp cache</td>
+<td>Ghi thẳng DB</td>
+<td>Không cache dữ liệu lạnh</td>
+<td>Read sau write bị miss</td>
+</tr>
+</tbody>
+</table>
+<p>Không có chiến lược luôn tốt nhất.</p>
+<hr>
+<h1 id="10-ttl--time-to-live">10. TTL — Time To Live</h1>
+<p>TTL là thời gian một cache entry tồn tại trước khi tự hết hạn.</p>
+<pre class="hljs"><code><div>SET product:123 value TTL 300 seconds
+</div></code></pre>
+<p>Sau 5 phút, key tự biến mất.</p>
+<p>TTL giải quyết:</p>
+<pre class="hljs"><code><div>- Dữ liệu không nằm vĩnh viễn
+- Cache cũ cuối cùng sẽ tự mất
+- Giới hạn memory usage
+- Giảm hậu quả invalidation thất bại
+</div></code></pre>
+<hr>
+<h2 id="ttl-dài">TTL dài</h2>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Hit ratio cao
+- Giảm tải database
+- Ít cache miss
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Dữ liệu có thể cũ lâu
+- Invalidation sai gây ảnh hưởng dài
+</div></code></pre>
+<hr>
+<h2 id="ttl-ngắn">TTL ngắn</h2>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dữ liệu mới hơn
+- Giảm stale data
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hit ratio thấp hơn
+- Database bị đọc nhiều hơn
+- Dễ stampede khi nhiều key hết hạn
+</div></code></pre>
+<hr>
+<h1 id="11-chọn-ttl-thế-nào">11. Chọn TTL thế nào?</h1>
+<p>TTL phải dựa vào business tolerance.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Exchange rate:
+Vài giây hoặc vài phút, tùy nghiệp vụ
+
+Product description:
+Vài phút đến vài giờ
+
+Product inventory:
+Rất ngắn hoặc không chỉ dựa vào TTL
+
+User profile:
+Vài phút
+
+Country list:
+Nhiều giờ hoặc nhiều ngày
+
+Feature configuration:
+Vài giây đến vài phút
+
+News feed:
+Tùy cá nhân hóa và độ mới yêu cầu
+
+Static image có version:
+Có thể cache rất lâu
+</div></code></pre>
+<p>Câu hỏi cần hỏi:</p>
+<pre class="hljs"><code><div>Dữ liệu được phép cũ bao lâu?
+Nếu user thấy dữ liệu cũ thì hậu quả gì?
+Source thay đổi thường xuyên không?
+Cache miss đắt đến mức nào?
+Có cơ chế invalidation chủ động không?
+</div></code></pre>
+<hr>
+<h1 id="12-ttl-jitter">12. TTL jitter</h1>
+<p>Nếu một triệu key được tạo cùng lúc với TTL 5 phút, chúng có thể hết hạn cùng lúc.</p>
+<pre class="hljs"><code><div>12:00:00 → 1.000.000 key được cache
+12:05:00 → 1.000.000 key cùng expire
+</div></code></pre>
+<p>Database nhận một cơn bão request.</p>
+<p>Giải pháp: thêm jitter ngẫu nhiên.</p>
+<pre class="hljs"><code><div>TTL = 300 giây + random(0, 60 giây)
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>TTL nằm trong khoảng 270–330 giây
+</div></code></pre>
+<p>Nhờ đó expiration được phân tán theo thời gian.</p>
+<hr>
+<h1 id="13-eviction-là-gì">13. Eviction là gì?</h1>
+<p>Cache memory có giới hạn.</p>
+<p>Khi đầy, cache phải quyết định key nào bị loại bỏ. Đó là <strong>eviction policy</strong>.</p>
+<p>TTL trả lời:</p>
+<blockquote>
+<p>Key tồn tại tối đa bao lâu?</p>
+</blockquote>
+<p>Eviction trả lời:</p>
+<blockquote>
+<p>Khi không đủ memory, key nào phải rời cache trước?</p>
+</blockquote>
+<hr>
+<h1 id="14-các-eviction-policy-phổ-biến">14. Các eviction policy phổ biến</h1>
+<h2 id="141-lru--least-recently-used">14.1 LRU — Least Recently Used</h2>
+<p>Xóa key lâu nhất chưa được sử dụng.</p>
+<pre class="hljs"><code><div>A được đọc vừa rồi
+B được đọc 10 phút trước
+C được đọc 2 giờ trước
+
+→ Xóa C
+</div></code></pre>
+<p>Phù hợp khi dữ liệu được truy cập gần đây có khả năng tiếp tục được truy cập.</p>
+<p>Đây là lựa chọn phổ biến cho application cache.</p>
+<hr>
+<h2 id="142-lfu--least-frequently-used">14.2 LFU — Least Frequently Used</h2>
+<p>Xóa key có tần suất truy cập thấp nhất.</p>
+<pre class="hljs"><code><div>A: 10.000 lượt đọc
+B: 100 lượt đọc
+C: 2 lượt đọc
+
+→ Xóa C
+</div></code></pre>
+<p>Phù hợp khi có một tập dữ liệu nóng ổn định.</p>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Một key từng rất nóng trong quá khứ có thể giữ điểm cao dù hiện tại không còn cần.
+</div></code></pre>
+<p>Thực tế thường cần cơ chế decay theo thời gian.</p>
+<hr>
+<h2 id="143-fifo--first-in-first-out">14.3 FIFO — First In, First Out</h2>
+<p>Key vào cache trước bị xóa trước.</p>
+<p>Đơn giản nhưng không quan tâm key có đang được dùng nhiều hay không.</p>
+<hr>
+<h2 id="144-random">14.4 Random</h2>
+<p>Xóa ngẫu nhiên một key.</p>
+<p>Nghe kém thông minh nhưng:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Overhead thấp
+- Có thể đủ tốt cho một số workload
+</div></code></pre>
+<hr>
+<h2 id="145-ttl-based-eviction">14.5 TTL-based eviction</h2>
+<p>Ưu tiên xóa key sắp hết hạn.</p>
+<p>Có thể hữu ích nhưng không đảm bảo key ít giá trị nhất bị loại.</p>
+<hr>
+<h1 id="15-chọn-eviction-policy">15. Chọn eviction policy</h1>
+<pre class="hljs"><code><div>Recent popularity quan trọng:
+LRU
+
+Long-term frequency quan trọng:
+LFU
+
+Workload đơn giản, overhead thấp:
+Random/FIFO
+
+Dữ liệu có expiration rõ:
+TTL-aware
+</div></code></pre>
+<p>Nhưng cách tốt nhất là đo:</p>
+<pre class="hljs"><code><div>- Hit ratio
+- Evictions/second
+- Memory usage
+- Miss latency
+- Hot key distribution
+</div></code></pre>
+<hr>
+<h1 id="16-cache-invalidation">16. Cache invalidation</h1>
+<p>Cache invalidation là quá trình loại bỏ hoặc cập nhật cache khi dữ liệu gốc thay đổi.</p>
+<p>Đây là một trong những vấn đề khó nhất của caching.</p>
+<p>Ba chiến lược chính:</p>
+<pre class="hljs"><code><div>1. Expiration bằng TTL
+2. Invalidation chủ động
+3. Versioned keys
+</div></code></pre>
+<hr>
+<h2 id="161-invalidation-bằng-ttl">16.1 Invalidation bằng TTL</h2>
+<p>Không xóa ngay. Chờ cache hết hạn.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Ít coupling
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User thấy dữ liệu cũ cho tới khi TTL hết
+</div></code></pre>
+<p>Phù hợp nếu stale data được chấp nhận.</p>
+<hr>
+<h2 id="162-invalidation-chủ-động">16.2 Invalidation chủ động</h2>
+<p>Khi dữ liệu thay đổi:</p>
+<pre class="hljs"><code><div>Update database
+→ Delete cache key
+</div></code></pre>
+<p>Hoặc publish event:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Service[Product Service] --> DB[(Database)]
+    Service --> Q[ProductUpdated Event]
+    Q --> C1[Invalidate Redis]
+    Q --> C2[Invalidate CDN]
+    Q --> C3[Update Search Index]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dữ liệu mới được phản ánh nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Event có thể mất hoặc trễ
+- Nhiều cache layer khó đồng bộ
+- Partial failure
+</div></code></pre>
+<p>Thường kết hợp invalidation chủ động với TTL làm safety net.</p>
+<hr>
+<h2 id="163-versioned-cache-key">16.3 Versioned cache key</h2>
+<p>Thay vì:</p>
+<pre class="hljs"><code><div>product:123
+</div></code></pre>
+<p>dùng:</p>
+<pre class="hljs"><code><div>product:123:v7
+</div></code></pre>
+<p>Khi dữ liệu thay đổi, tăng version:</p>
+<pre class="hljs"><code><div>product:123:v8
+</div></code></pre>
+<p>Key cũ không còn được đọc và sẽ tự hết hạn.</p>
+<p>Phù hợp với static assets:</p>
+<pre class="hljs"><code><div>app.a82fd1.js
+logo.v3.png
+</div></code></pre>
+<p>Có thể đặt cache rất lâu vì URL thay đổi khi nội dung đổi.</p>
+<hr>
+<h1 id="17-cache-invalidation-theo-entity-và-collection">17. Cache invalidation theo entity và collection</h1>
+<p>Giả sử cập nhật product <code>p_123</code>.</p>
+<p>Ta có thể phải invalidation:</p>
+<pre class="hljs"><code><div>product:p_123
+products:category:laptop:page:1
+products:brand:apple:page:1
+search:laptop
+homepage:featured-products
+</div></code></pre>
+<p>Đây gọi là <strong>fan-out invalidation</strong>.</p>
+<p>Một thay đổi nhỏ ảnh hưởng nhiều cache key.</p>
+<p>Các hướng xử lý:</p>
+<pre class="hljs"><code><div>- Cache object riêng thay vì cache quá nhiều query result
+- Dùng tag-based invalidation
+- Dùng dependency graph
+- TTL ngắn cho collection
+- Event-driven invalidation
+- Chấp nhận eventual consistency
+</div></code></pre>
+<hr>
+<h1 id="18-cache-stampede">18. Cache stampede</h1>
+<p>Cache stampede xảy ra khi một key nóng hết hạn và rất nhiều request cùng cache miss.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>product:iphone-new
+</div></code></pre>
+<p>Key hết hạn đúng lúc 50.000 user truy cập.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    R1[Request 1] --> C[Cache Miss]
+    R2[Request 2] --> C
+    R3[Request 3] --> C
+    R4[...50.000 requests] --> C
+
+    C --> DB[(Database)]
+</div></code></pre>
+<p>Thay vì một query DB, database nhận 50.000 query giống nhau.</p>
+<p>Stampede còn được gọi là:</p>
+<pre class="hljs"><code><div>Cache breakdown
+Dogpile effect
+Thundering herd
+</div></code></pre>
+<hr>
+<h1 id="19-giải-pháp-chống-stampede">19. Giải pháp chống stampede</h1>
+<h2 id="191-request-coalescing--single-flight">19.1 Request coalescing / Single flight</h2>
+<p>Chỉ cho một request tải dữ liệu từ DB.</p>
+<p>Các request còn lại chờ kết quả đó.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant R1 as Request 1
+    participant R2 as Request 2
+    participant Cache
+    participant Lock
+    participant DB
+
+    R1->>Cache: GET key
+    R2->>Cache: GET key
+    Cache-->>R1: Miss
+    Cache-->>R2: Miss
+
+    R1->>Lock: Acquire
+    Lock-->>R1: Granted
+    R2->>Lock: Acquire
+    Lock-->>R2: Wait
+
+    R1->>DB: Query once
+    DB-->>R1: Data
+    R1->>Cache: SET key
+    R1->>Lock: Release
+
+    R2->>Cache: GET key
+    Cache-->>R2: Data
+</div></code></pre>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">def</span> <span class="hljs-title function_">get_product</span>(<span class="hljs-params">product_id</span>):
+    key = <span class="hljs-string">f&quot;product:<span class="hljs-subst">{product_id}</span>&quot;</span>
+
+    value = cache.get(key)
+    <span class="hljs-keyword">if</span> value <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        <span class="hljs-keyword">return</span> value
+
+    <span class="hljs-keyword">with</span> distributed_lock(<span class="hljs-string">f&quot;lock:<span class="hljs-subst">{key}</span>&quot;</span>):
+        value = cache.get(key)
+        <span class="hljs-keyword">if</span> value <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+            <span class="hljs-keyword">return</span> value
+
+        value = database.get_product(product_id)
+        cache.<span class="hljs-built_in">set</span>(key, value, ttl=<span class="hljs-number">300</span>)
+        <span class="hljs-keyword">return</span> value
+</div></code></pre>
+<p>Lưu ý phải kiểm tra cache lần hai sau khi lấy lock.</p>
+<hr>
+<h2 id="192-stale-while-revalidate">19.2 Stale-while-revalidate</h2>
+<p>Cho phép trả dữ liệu cũ trong thời gian ngắn, đồng thời một worker refresh cache nền.</p>
+<pre class="hljs"><code><div>Fresh TTL = 5 phút
+Stale window = thêm 1 phút
+</div></code></pre>
+<p>Trong phút thứ 6:</p>
+<pre class="hljs"><code><div>- User vẫn nhận dữ liệu cũ
+- Một request kích hoạt refresh
+- Không dồn toàn bộ traffic vào DB
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Cache
+    participant Worker
+    participant DB
+
+    Client->>Cache: Get key
+    Cache-->>Client: Stale data
+    Cache->>Worker: Trigger refresh
+    Worker->>DB: Fetch fresh data
+    DB-->>Worker: Fresh data
+    Worker->>Cache: Replace value
+</div></code></pre>
+<p>Phù hợp khi availability và latency quan trọng hơn freshness tuyệt đối.</p>
+<hr>
+<h2 id="193-refresh-ahead">19.3 Refresh-ahead</h2>
+<p>Refresh key trước khi TTL hết.</p>
+<p>Nếu key thường được truy cập:</p>
+<pre class="hljs"><code><div>TTL còn dưới 10%
+→ async refresh
+</div></code></pre>
+<p>Nhờ vậy key nóng ít khi thực sự expire.</p>
+<hr>
+<h2 id="194-ttl-jitter">19.4 TTL jitter</h2>
+<p>Phân tán thời điểm expiration, đặc biệt khi nhiều key được preload cùng lúc.</p>
+<hr>
+<h2 id="195-rate-limit-và-circuit-breaker">19.5 Rate limit và circuit breaker</h2>
+<p>Nếu cache down hoặc miss tăng đột biến, không cho toàn bộ request tràn xuống database.</p>
+<pre class="hljs"><code><div>- Rate limit request
+- Fail fast
+- Serve stale data
+- Load shedding
+- Circuit breaker
+</div></code></pre>
+<hr>
+<h1 id="20-cache-penetration">20. Cache penetration</h1>
+<p>Cache penetration khác stampede.</p>
+<p>Nó xảy ra khi request liên tục hỏi dữ liệu <strong>không tồn tại</strong>.</p>
+<p>Ví dụ attacker hoặc bug gọi:</p>
+<pre class="hljs"><code><div>GET /products/not_exist_1
+GET /products/not_exist_2
+GET /products/not_exist_3
+</div></code></pre>
+<p>Cache không có. Database cũng không có. Nhưng mỗi request vẫn chạm DB.</p>
+<hr>
+<h2 id="giải-pháp-1-negative-caching">Giải pháp 1: Negative caching</h2>
+<p>Cache cả kết quả “không tồn tại”.</p>
+<pre class="hljs"><code><div>product:not_exist → NULL, TTL 30 giây
+</div></code></pre>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div>NOT_FOUND = <span class="hljs-string">&quot;__NOT_FOUND__&quot;</span>
+
+cached = cache.get(key)
+
+<span class="hljs-keyword">if</span> cached == NOT_FOUND:
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+
+<span class="hljs-keyword">if</span> cached <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+    <span class="hljs-keyword">return</span> cached
+
+value = database.get(key)
+
+<span class="hljs-keyword">if</span> value <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+    cache.<span class="hljs-built_in">set</span>(key, NOT_FOUND, ttl=<span class="hljs-number">30</span>)
+    <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>
+</div></code></pre>
+<p>Dùng TTL ngắn để tránh trường hợp object được tạo ngay sau đó nhưng cache vẫn nói không tồn tại quá lâu.</p>
+<hr>
+<h2 id="giải-pháp-2-bloom-filter">Giải pháp 2: Bloom filter</h2>
+<p>Bloom filter cho biết:</p>
+<pre class="hljs"><code><div>Object chắc chắn không tồn tại
+hoặc
+có thể tồn tại
+</div></code></pre>
+<p>Nếu Bloom filter nói chắc chắn không tồn tại, bỏ qua DB.</p>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Có false positive
+- Không trả dữ liệu, chỉ kiểm tra membership
+- Việc delete/update phức tạp hơn
+</div></code></pre>
+<hr>
+<h2 id="giải-pháp-3-validate-input-và-rate-limit">Giải pháp 3: Validate input và rate limit</h2>
+<p>Không để request ID vô nghĩa đi sâu vào hệ thống.</p>
+<hr>
+<h1 id="21-cache-avalanche">21. Cache avalanche</h1>
+<p>Cache avalanche là khi một lượng lớn key hết hạn gần nhau hoặc cache cluster bị down.</p>
+<p>Khác stampede:</p>
+<pre class="hljs"><code><div>Stampede:
+Một hoặc vài hot key bị miss đồng thời.
+
+Avalanche:
+Rất nhiều key cùng miss hoặc toàn cache unavailable.
+</div></code></pre>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>Cache miss tăng mạnh
+→ Database overload
+→ API timeout
+→ Retry storm
+→ Hệ thống sập dây chuyền
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- TTL jitter
+- Cache cluster replication
+- Graceful degradation
+- Request throttling
+- Circuit breaker
+- Prewarming
+- Serve stale data
+- Database capacity reserve
+</div></code></pre>
+<hr>
+<h1 id="22-hot-key">22. Hot key</h1>
+<p>Hot key là một key nhận traffic vượt xa các key khác.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>homepage:trending
+celebrity:profile:123
+live-match:score
+product:flash-sale
+</div></code></pre>
+<p>Nếu tất cả traffic vào một Redis node chứa key đó, node có thể quá tải dù cluster tổng thể còn dư capacity.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Requests[1 triệu requests] --> K[Hot Key]
+    K --> N1[Redis Node 1 overloaded]
+
+    N2[Redis Node 2 idle]
+    N3[Redis Node 3 idle]
+</div></code></pre>
+<hr>
+<h2 id="giải-pháp-hot-key">Giải pháp hot key</h2>
+<pre class="hljs"><code><div>- Local cache trước distributed cache
+- Replicate hot key
+- Split/shard key
+- CDN/edge cache
+- Request coalescing
+- Precompute response
+- Increase TTL
+- Rate limit
+</div></code></pre>
+<p>Ví dụ shard counter:</p>
+<pre class="hljs"><code><div>likes:post123:shard0
+likes:post123:shard1
+...
+likes:post123:shard99
+</div></code></pre>
+<p>Write phân tán, read cộng các shard hoặc dùng aggregate định kỳ.</p>
+<hr>
+<h1 id="23-two-level-cache">23. Two-level cache</h1>
+<p>Kết hợp local cache và distributed cache:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    App --> L1[L1 Local Cache]
+    L1 --> L2[L2 Redis]
+    L2 --> DB[(Database)]
+</div></code></pre>
+<p>Luồng:</p>
+<pre class="hljs"><code><div>1. Đọc local cache
+2. Nếu miss, đọc Redis
+3. Nếu Redis miss, đọc DB
+4. Nạp ngược lên Redis và local cache
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- L1 cực nhanh
+- Giảm tải Redis
+- Giảm network calls
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Invalidation khó hơn
+- Local cache giữa các instance có thể lệch
+- Hot data duplicate trên nhiều server
+</div></code></pre>
+<p>Thường cần:</p>
+<pre class="hljs"><code><div>- L1 TTL ngắn
+- Pub/sub invalidation
+- Version checks
+</div></code></pre>
+<hr>
+<h1 id="24-cache-key-design">24. Cache key design</h1>
+<p>Cache key phải:</p>
+<pre class="hljs"><code><div>- Unique
+- Dễ hiểu
+- Có namespace
+- Bao gồm các tham số ảnh hưởng kết quả
+- Không quá dài
+- Không chứa dữ liệu nhạy cảm
+</div></code></pre>
+<p>Ví dụ tốt:</p>
+<pre class="hljs"><code><div>product:v1:123
+user:v2:456:profile
+tasks:v1:user_123:status_open:cursor_abc
+</div></code></pre>
+<p>Ví dụ sai:</p>
+<pre class="hljs"><code><div>profile
+page1
+result
+</div></code></pre>
+<hr>
+<h2 id="cache-key-phải-chứa-toàn-bộ-input-quan-trọng">Cache key phải chứa toàn bộ input quan trọng</h2>
+<p>API:</p>
+<pre class="hljs"><code><div>GET /products?category=laptop&amp;sort=price&amp;currency=VND
+</div></code></pre>
+<p>Key không đủ:</p>
+<pre class="hljs"><code><div>products:laptop
+</div></code></pre>
+<p>Vì request USD và VND có thể nhận cùng cache sai.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>products:v1:category=laptop:sort=price:currency=VND
+</div></code></pre>
+<p>Các yếu tố thường bị quên:</p>
+<pre class="hljs"><code><div>- User identity
+- Permission/role
+- Language
+- Currency
+- Region
+- Feature flag
+- API version
+- Filter
+- Sort
+- Pagination cursor
+</div></code></pre>
+<hr>
+<h1 id="25-không-cache-dữ-liệu-riêng-tư-sai-phạm-vi">25. Không cache dữ liệu riêng tư sai phạm vi</h1>
+<p>Sai lầm nguy hiểm:</p>
+<pre class="hljs"><code><div>GET /me/profile
+Cache key = profile
+</div></code></pre>
+<p>User B có thể nhận profile của User A.</p>
+<p>Phải scope theo user:</p>
+<pre class="hljs"><code><div>profile:user_123
+</div></code></pre>
+<p>Hoặc không cache response cá nhân ở shared CDN.</p>
+<p>HTTP header phù hợp:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>private, max-age=60
+</div></code></pre>
+<p>Dữ liệu public:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=3600
+</div></code></pre>
+<p>Dữ liệu nhạy cảm:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>no-store
+</div></code></pre>
+<hr>
+<h1 id="26-những-gì-không-nên-cache">26. Những gì không nên cache</h1>
+<p>Không nên cache chỉ vì “cache nhanh”.</p>
+<p>Cân nhắc tránh cache:</p>
+<pre class="hljs"><code><div>- Dữ liệu thay đổi liên tục và cần chính xác tuyệt đối
+- Payment balance
+- Seat availability ở bước commit
+- Security permission nhạy cảm nếu invalidation không đáng tin
+- Dữ liệu hiếm khi được đọc lại
+- Response quá lớn và ít reuse
+- Query đã đủ nhanh nhưng invalidation rất phức tạp
+</div></code></pre>
+<p>Ví dụ inventory có thể cache để hiển thị:</p>
+<pre class="hljs"><code><div>“Còn khoảng 10 sản phẩm”
+</div></code></pre>
+<p>Nhưng lúc đặt hàng phải kiểm tra source of truth bằng transaction hoặc atomic reservation.</p>
+<p>Cache không được dùng để xác nhận cuối cùng rằng hàng vẫn còn.</p>
+<hr>
+<h1 id="27-cache-failure-phải-được-thiết-kế-thế-nào">27. Cache failure phải được thiết kế thế nào?</h1>
+<p>Cache thường là optimization, không nên luôn trở thành điểm làm hệ thống sập hoàn toàn.</p>
+<p>Nếu Redis down:</p>
+<pre class="hljs"><code><div>Option A:
+Fallback xuống DB
+
+Rủi ro:
+DB có thể bị overload.
+</div></code></pre>
+<pre class="hljs"><code><div>Option B:
+Fail request ngay
+
+Rủi ro:
+Availability thấp.
+</div></code></pre>
+<pre class="hljs"><code><div>Option C:
+Serve stale/local data
+
+Rủi ro:
+Dữ liệu cũ.
+</div></code></pre>
+<p>Thiết kế phù hợp có thể kết hợp:</p>
+<pre class="hljs"><code><div>- Circuit breaker
+- Rate limiting
+- Fallback có giới hạn
+- Stale response
+- Load shedding
+- Cache replication
+</div></code></pre>
+<p>Không nên để một cache outage biến thành database outage.</p>
+<hr>
+<h1 id="28-cache-prewarming">28. Cache prewarming</h1>
+<p>Sau khi deploy, restart hoặc flush cache, cache hoàn toàn trống.</p>
+<p>Đây là <strong>cold cache</strong>.</p>
+<p>Nếu toàn bộ traffic ngay lập tức chạm DB, hệ thống có thể quá tải.</p>
+<p>Prewarming là nạp trước dữ liệu quan trọng:</p>
+<pre class="hljs"><code><div>- Top products
+- Homepage content
+- Popular profiles
+- Configuration
+- Frequently used reference data
+</div></code></pre>
+<p>Nhưng không nên preload mọi thứ vì:</p>
+<pre class="hljs"><code><div>- Tốn thời gian
+- Tốn memory
+- Nhiều dữ liệu có thể không bao giờ được đọc
+</div></code></pre>
+<hr>
+<h1 id="29-observability-cho-cache">29. Observability cho cache</h1>
+<p>Không thể vận hành cache chỉ dựa trên cảm giác.</p>
+<p>Các metric quan trọng:</p>
+<pre class="hljs"><code><div>- Cache hit ratio
+- Cache miss ratio
+- Get/set latency
+- Evictions per second
+- Expired keys
+- Memory usage
+- CPU usage
+- Network throughput
+- Connection count
+- Error rate
+- Hot key distribution
+- DB QPS caused by misses
+</div></code></pre>
+<p>Đặc biệt phải theo dõi:</p>
+<pre class="hljs"><code><div>Hit ratio giảm
+→ DB QPS tăng
+→ DB latency tăng
+→ API latency tăng
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Hit[Cache hit ratio giảm] --> Miss[Cache miss tăng]
+    Miss --> DB[DB load tăng]
+    DB --> Latency[Latency tăng]
+    Latency --> Retry[Client retry]
+    Retry --> More[Load tăng thêm]
+</div></code></pre>
+<hr>
+<h1 id="30-hit-ratio-cao-chưa-chắc-hệ-thống-tốt">30. Hit ratio cao chưa chắc hệ thống tốt</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Total requests = 10 triệu/giây
+Hit ratio = 99%
+Miss = 100.000/giây
+</div></code></pre>
+<p>Nếu database chỉ chịu được 20.000 QPS, hệ thống vẫn gặp vấn đề.</p>
+<p>Ngoài hit ratio, cần biết:</p>
+<pre class="hljs"><code><div>- Absolute miss QPS
+- Miss penalty
+- Cache latency
+- Key distribution
+- Database headroom
+</div></code></pre>
+<hr>
+<h1 id="31-case-study--product-catalog">31. Case study — Product catalog</h1>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- Product metadata được đọc rất nhiều
+- Giá thay đổi không quá thường xuyên
+- Inventory thay đổi thường xuyên hơn
+- Product page chịu traffic lớn
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> CDN[CDN]
+    CDN --> API[Product API]
+    API --> Cache[(Redis)]
+    Cache --> DB[(Product DB)]
+
+    Admin[Admin] --> ProductService[Product Service]
+    ProductService --> DB
+    ProductService --> Event[ProductUpdated Event]
+    Event --> CacheInvalidator[Invalidate Cache]
+    Event --> CDNInvalidator[Invalidate CDN]
+</div></code></pre>
+<p>Chiến lược:</p>
+<pre class="hljs"><code><div>Product metadata:
+Cache-aside, TTL vài phút đến vài giờ
+
+Product images:
+CDN, versioned URL, TTL dài
+
+Inventory display:
+TTL rất ngắn hoặc event update
+
+Inventory reservation:
+Không tin cache; kiểm tra nguồn dữ liệu chính
+</div></code></pre>
+<hr>
+<h1 id="32-case-study--user-profile">32. Case study — User profile</h1>
+<pre class="hljs"><code><div>GET /users/{id}
+</div></code></pre>
+<p>Read-heavy, update ít.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>Cache-aside
+TTL 5–30 phút
+Invalidation khi user update profile
+</div></code></pre>
+<p>Key:</p>
+<pre class="hljs"><code><div>user-profile:v1:user_123
+</div></code></pre>
+<p>Update:</p>
+<pre class="hljs"><code><div>1. Update database
+2. Delete cache key
+3. Publish UserProfileUpdated nếu nhiều consumer
+</div></code></pre>
+<p>Đối với user vừa update, có thể:</p>
+<pre class="hljs"><code><div>- Trả dữ liệu mới ngay từ response
+- Temporarily read primary
+- Populate cache sau write
+</div></code></pre>
+<hr>
+<h1 id="33-case-study--like-counter">33. Case study — Like counter</h1>
+<p>Traffic write rất cao.</p>
+<p>Một thiết kế:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User --> API[Like API]
+    API --> Redis[(Redis Counters)]
+    Redis --> Worker[Flush Worker]
+    Worker --> DB[(Persistent DB)]
+</div></code></pre>
+<p>Key:</p>
+<pre class="hljs"><code><div>post:123:likes
+</div></code></pre>
+<p>Có thể dùng atomic increment:</p>
+<pre class="hljs"><code><div>INCR post:123:likes
+</div></code></pre>
+<p>Sau đó batch flush.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Counter hiển thị có thể không hoàn toàn chính xác tức thời
+- Cần recovery nếu Redis lỗi
+- Cần chống user like trùng
+</div></code></pre>
+<p>Thông tin “user nào đã like” vẫn cần storage hoặc constraint riêng; counter không giải quyết uniqueness.</p>
+<hr>
+<h1 id="34-case-study--news-feed">34. Case study — News feed</h1>
+<p>Feed có thể cache theo user:</p>
+<pre class="hljs"><code><div>feed:user_123
+</div></code></pre>
+<p>Nhưng invalidation rất khó:</p>
+<pre class="hljs"><code><div>Một creator đăng bài mới
+→ Có phải cập nhật cache của 10 triệu follower?
+</div></code></pre>
+<p>Hai chiến lược lớn:</p>
+<pre class="hljs"><code><div>Fan-out on write:
+Khi có post mới, push vào feed của follower.
+
+Fan-out on read:
+Khi user mở feed, tổng hợp từ các nguồn.
+</div></code></pre>
+<p>Cache strategy phụ thuộc vào kiến trúc feed, celebrity problem và freshness requirement.</p>
+<p>Điểm cần nhớ:</p>
+<blockquote>
+<p>Cache không thể được thiết kế tách rời access pattern và data flow.</p>
+</blockquote>
+<hr>
+<h1 id="35-các-lỗi-caching-phổ-biến">35. Các lỗi caching phổ biến</h1>
+<h2 id="lỗi-1-cache-mọi-thứ">Lỗi 1: Cache mọi thứ</h2>
+<p>Cache dữ liệu ít được reuse chỉ làm tốn memory và tăng invalidation complexity.</p>
+<hr>
+<h2 id="lỗi-2-không-có-ttl">Lỗi 2: Không có TTL</h2>
+<p>Một lần invalidation thất bại có thể khiến dữ liệu cũ tồn tại vô hạn.</p>
+<hr>
+<h2 id="lỗi-3-cùng-ttl-cho-mọi-key">Lỗi 3: Cùng TTL cho mọi key</h2>
+<p>Các loại dữ liệu có freshness và access pattern khác nhau.</p>
+<hr>
+<h2 id="lỗi-4-không-thêm-ttl-jitter">Lỗi 4: Không thêm TTL jitter</h2>
+<p>Hàng loạt key cùng expire gây avalanche.</p>
+<hr>
+<h2 id="lỗi-5-tin-cache-là-source-of-truth">Lỗi 5: Tin cache là source of truth</h2>
+<p>Cache có thể bị flush, mất key hoặc eviction bất kỳ lúc nào.</p>
+<hr>
+<h2 id="lỗi-6-không-cache-negative-result">Lỗi 6: Không cache negative result</h2>
+<p>Request cho object không tồn tại liên tục xuyên xuống database.</p>
+<hr>
+<h2 id="lỗi-7-cache-key-thiếu-context">Lỗi 7: Cache key thiếu context</h2>
+<p>Bỏ quên user, region, language hoặc permission gây trả sai dữ liệu.</p>
+<hr>
+<h2 id="lỗi-8-không-bảo-vệ-cache-miss">Lỗi 8: Không bảo vệ cache miss</h2>
+<p>Một hot key expire làm database bị stampede.</p>
+<hr>
+<h2 id="lỗi-9-chỉ-theo-dõi-hit-ratio">Lỗi 9: Chỉ theo dõi hit ratio</h2>
+<p>Không theo dõi miss QPS, eviction, memory và database load.</p>
+<hr>
+<h2 id="lỗi-10-cache-dữ-liệu-bảo-mật-sai-cách">Lỗi 10: Cache dữ liệu bảo mật sai cách</h2>
+<p>Shared cache hoặc CDN vô tình trả dữ liệu riêng tư giữa các user.</p>
+<hr>
+<h1 id="36-framework-thiết-kế-cache-như-senior-engineer">36. Framework thiết kế cache như Senior Engineer</h1>
+<p>Khi định thêm cache, hãy trả lời lần lượt:</p>
+<pre class="hljs"><code><div>1. Bottleneck hiện tại là gì?
+2. Ta đang cache dữ liệu hay kết quả tính toán?
+3. Cache nằm ở browser, CDN, local memory hay distributed cache?
+4. Cache key là gì?
+5. Access pattern read/write ra sao?
+6. Dữ liệu được phép cũ bao lâu?
+7. TTL là bao nhiêu?
+8. Invalidation khi nào và bằng cách nào?
+9. Chiến lược read/write là gì?
+10. Nếu cache miss hàng loạt thì sao?
+11. Nếu cache down thì sao?
+12. Cache có phải source of truth không?
+13. Metric nào chứng minh cache có ích?
+</div></code></pre>
+<hr>
+<h1 id="37-decision-tree-chọn-chiến-lược-cache">37. Decision tree chọn chiến lược cache</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần cache?] --> B{Dữ liệu được đọc lặp lại nhiều?}
+    B -->|Không| C[Không cache hoặc write-around]
+    B -->|Có| D{Read-after-write cần rất mới?}
+
+    D -->|Không quá nghiêm ngặt| E[Cache-aside]
+    D -->|Quan trọng| F[Write-through hoặc invalidate chủ động]
+
+    E --> G{Miss penalty lớn?}
+    F --> G
+
+    G -->|Có| H[Single-flight / stale-while-revalidate]
+    G -->|Không| I[TTL thông thường]
+
+    H --> J{Dữ liệu có được phép mất trước khi persist?}
+    J -->|Có| K[Có thể cân nhắc write-back]
+    J -->|Không| L[DB là source of truth]
+</div></code></pre>
+<hr>
+<h1 id="38-cách-trình-bày-caching-trong-system-design-interview">38. Cách trình bày caching trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em thêm Redis để hệ thống nhanh hơn.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Product metadata là read-heavy và không thay đổi thường xuyên, nên tôi dùng Redis theo cache-aside. Key là <code>product:{productId}</code>, TTL khoảng 10 phút kèm jitter. Khi product cập nhật, service commit database trước rồi xóa cache. Với hot products, tôi dùng request coalescing hoặc stale-while-revalidate để tránh cache stampede. Database vẫn là source of truth; nếu Redis lỗi, hệ thống fallback xuống database có rate limit để tránh làm database quá tải.</p>
+</blockquote>
+<p>Câu trả lời này cho thấy bạn hiểu:</p>
+<pre class="hljs"><code><div>- Tại sao cache
+- Cache cái gì
+- Cache ở đâu
+- Strategy
+- TTL
+- Invalidation
+- Stampede
+- Failure handling
+</div></code></pre>
+<hr>
+<h1 id="39-sơ-đồ-tổng-hợp-toàn-bài">39. Sơ đồ tổng hợp toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Caching] --> B[Cache Location]
+    A --> C[Read/Write Strategy]
+    A --> D[Expiration]
+    A --> E[Invalidation]
+    A --> F[Failure Modes]
+    A --> G[Observability]
+
+    B --> B1[Browser]
+    B --> B2[CDN]
+    B --> B3[Local]
+    B --> B4[Distributed]
+
+    C --> C1[Cache-aside]
+    C --> C2[Write-through]
+    C --> C3[Write-back]
+    C --> C4[Write-around]
+
+    D --> D1[TTL]
+    D --> D2[Jitter]
+    D --> D3[Eviction]
+
+    E --> E1[Delete after DB write]
+    E --> E2[Events]
+    E --> E3[Versioned keys]
+
+    F --> F1[Stampede]
+    F --> F2[Penetration]
+    F --> F3[Avalanche]
+    F --> F4[Hot key]
+
+    G --> G1[Hit ratio]
+    G --> G2[Miss QPS]
+    G --> G3[Evictions]
+    G --> G4[Latency]
+</div></code></pre>
+<hr>
+<h1 id="40-bảng-ghi-nhớ-nhanh">40. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cache hit</td>
+<td>Dữ liệu có trong cache</td>
+</tr>
+<tr>
+<td>Cache miss</td>
+<td>Phải đọc nguồn gốc</td>
+</tr>
+<tr>
+<td>Cache-aside</td>
+<td>App tự đọc/nạp/xóa cache</td>
+</tr>
+<tr>
+<td>Write-through</td>
+<td>Ghi cache và DB đồng bộ</td>
+</tr>
+<tr>
+<td>Write-back</td>
+<td>Ghi cache trước, DB sau</td>
+</tr>
+<tr>
+<td>Write-around</td>
+<td>Ghi DB, không ghi cache</td>
+</tr>
+<tr>
+<td>TTL</td>
+<td>Thời gian key tồn tại</td>
+</tr>
+<tr>
+<td>Eviction</td>
+<td>Xóa key khi thiếu memory</td>
+</tr>
+<tr>
+<td>Invalidation</td>
+<td>Xóa/cập nhật key khi source đổi</td>
+</tr>
+<tr>
+<td>Stampede</td>
+<td>Nhiều request cùng miss một hot key</td>
+</tr>
+<tr>
+<td>Penetration</td>
+<td>Request dữ liệu không tồn tại xuyên qua cache</td>
+</tr>
+<tr>
+<td>Avalanche</td>
+<td>Nhiều key miss hoặc cache down đồng thời</td>
+</tr>
+<tr>
+<td>Hot key</td>
+<td>Một key nhận traffic quá lớn</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="41-những-điều-phải-nhớ-sau-bài-6">41. Những điều phải nhớ sau Bài 6</h1>
+<pre class="hljs"><code><div>1. Cache là optimization, không mặc định là source of truth.
+2. Cache-aside là chiến lược phổ biến và đơn giản nhất.
+3. Với cache-aside, thường update DB trước rồi delete cache.
+4. Write-through tăng consistency nhưng làm write chậm hơn.
+5. Write-back tăng throughput nhưng có nguy cơ mất dữ liệu.
+6. TTL cân bằng freshness và hit ratio.
+7. TTL jitter giúp tránh nhiều key expire cùng lúc.
+8. Eviction xảy ra do memory giới hạn; LRU và LFU là hai chiến lược phổ biến.
+9. Invalidation có thể dùng TTL, event hoặc versioned key.
+10. Stampede phải được chống bằng lock/single-flight, stale response hoặc refresh-ahead.
+11. Negative caching giúp bảo vệ DB khỏi request dữ liệu không tồn tại.
+12. Hot key có thể làm một node quá tải dù cluster còn tài nguyên.
+13. Cache key phải chứa đầy đủ user, region, language và các tham số ảnh hưởng response.
+14. Không dùng cache để xác nhận cuối cùng cho payment, balance hoặc inventory reservation.
+15. Phải theo dõi cả hit ratio, absolute miss QPS, eviction và database load.
+</div></code></pre>
+<hr>
+<h1 id="42-bài-tập-thực-hành">42. Bài tập thực hành</h1>
+<p>Thiết kế cache cho một hệ thống bán vé concert.</p>
+<h2 id="các-endpoint">Các endpoint</h2>
+<pre class="hljs"><code><div>GET /events/{eventId}
+GET /events/{eventId}/seats
+POST /events/{eventId}/reservations
+GET /users/{userId}/orders
+</div></code></pre>
+<p>Hãy xác định:</p>
+<pre class="hljs"><code><div>1. Endpoint nào nên cache?
+2. Cache ở browser, CDN, local memory hay Redis?
+3. Cache key của từng endpoint là gì?
+4. TTL bao nhiêu là hợp lý?
+5. Khi event thay đổi, invalidation thế nào?
+6. Seat availability có nên cache không?
+7. Khi user đặt ghế, hệ thống có được tin dữ liệu cache không?
+8. Làm sao chống stampede khi mở bán?
+9. Làm sao xử lý một event cực hot?
+10. Redis down đúng lúc mở bán thì hệ thống làm gì?
+</div></code></pre>
+<h2 id="gợi-ý-tư-duy">Gợi ý tư duy</h2>
+<pre class="hljs"><code><div>Event metadata:
+- Cache-aside
+- TTL vài phút
+- CDN hoặc Redis
+- Invalidate khi organizer cập nhật
+
+Seat map để hiển thị:
+- Có thể cache TTL rất ngắn
+- Dữ liệu có thể hơi cũ
+
+Seat reservation:
+- Không tin cache để commit
+- Dùng atomic operation/transaction ở source of truth
+- Reservation cần idempotency
+
+Event hot:
+- Prewarm cache
+- CDN cho metadata
+- Request coalescing
+- Rate limit
+- Virtual waiting room
+</div></code></pre>
+<hr>
+<h2 id="tóm-tắt-cuối-bài">Tóm tắt cuối bài</h2>
+<blockquote>
+<p><strong>Cache tốt không chỉ làm hệ thống nhanh khi mọi thứ bình thường. Cache tốt còn phải ngăn database sập khi cache miss, bảo đảm dữ liệu cũ nằm trong giới hạn chấp nhận được và suy giảm an toàn khi cache gặp lỗi.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo: Bài 7 — CDN và Object Storage: cách phục vụ ảnh, video và static content toàn cầu; origin, edge, signed URL, cache-control và upload trực tiếp.</strong></p>
+
+</body>
+</html>

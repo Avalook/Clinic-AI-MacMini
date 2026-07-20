@@ -1,0 +1,2471 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 22 — Case Study 1: Thiết kế URL Shortener từ đầu đến cuối.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-22--case-study-1-thiết-kế-url-shortener-từ-đầu-đến-cuối">Bài 22 — Case Study 1: Thiết kế URL Shortener từ đầu đến cuối</h1>
+<p>URL Shortener nhận một URL dài:</p>
+<pre class="hljs"><code><div>https://example.com/products/mechanical-keyboard?
+campaign=summer-2026&amp;utm_source=facebook
+</div></code></pre>
+<p>và tạo một đường dẫn ngắn:</p>
+<pre class="hljs"><code><div>https://sho.rt/aZ91Kx2
+</div></code></pre>
+<p>Khi người dùng truy cập URL ngắn, hệ thống chuyển hướng tới URL gốc.</p>
+<p>Bề ngoài đây là một bài toán đơn giản:</p>
+<pre class="hljs"><code><div>shortCode → originalURL
+</div></code></pre>
+<p>Nhưng ở quy mô lớn, nó bao gồm gần như toàn bộ kiến thức đã học:</p>
+<pre class="hljs"><code><div>- Requirements
+- Capacity estimation
+- API design
+- Distributed ID generation
+- Database và sharding
+- Caching
+- High availability
+- Event streaming
+- Analytics
+- Security và abuse prevention
+- Multi-region
+- Consistency và disaster recovery
+</div></code></pre>
+<hr>
+<h1 id="1-bắt-đầu-bằng-requirements">1. Bắt đầu bằng Requirements</h1>
+<p>Trong phỏng vấn System Design, không nên lập tức vẽ kiến trúc.</p>
+<p>Trước hết cần làm rõ hệ thống phải làm gì.</p>
+<h2 id="functional-requirements">Functional Requirements</h2>
+<p>Các chức năng cốt lõi:</p>
+<pre class="hljs"><code><div>1. Tạo URL ngắn từ URL dài.
+2. Redirect URL ngắn tới URL gốc.
+3. Cho phép custom alias.
+4. Cho phép đặt expiration time.
+5. Cho phép người sở hữu xem, sửa hoặc vô hiệu hóa link.
+6. Thu thập analytics:
+   - Số lượt click
+   - Thời gian
+   - Referrer
+   - Quốc gia
+   - Thiết bị
+7. Phát hiện và chặn link độc hại.
+</div></code></pre>
+<h2 id="non-functional-requirements">Non-Functional Requirements</h2>
+<pre class="hljs"><code><div>- Redirect latency rất thấp.
+- Redirect availability rất cao.
+- Hệ thống read-heavy.
+- Short code phải unique.
+- Không được redirect sai URL.
+- Analytics có thể eventual consistent.
+- Hệ thống phải chịu được hot links.
+- Có thể phục vụ nhiều region.
+</div></code></pre>
+<hr>
+<h1 id="2-những-gì-chưa-cần-làm-ở-phiên-bản-đầu">2. Những gì chưa cần làm ở phiên bản đầu</h1>
+<p>Để giữ phạm vi phỏng vấn hợp lý, có thể tạm loại:</p>
+<pre class="hljs"><code><div>- Trình chỉnh sửa landing page
+- Quảng cáo trước khi redirect
+- Recommendation
+- Social feed
+- Blockchain-based links
+- Full marketing automation
+</div></code></pre>
+<p>Ta tập trung vào lõi:</p>
+<pre class="hljs"><code><div>Create
+→ Store
+→ Redirect
+→ Track
+</div></code></pre>
+<hr>
+<h1 id="3-access-pattern">3. Access Pattern</h1>
+<p>URL Shortener có access pattern lệch mạnh về phía đọc.</p>
+<p>Ví dụ minh họa:</p>
+<pre class="hljs"><code><div>100 triệu URL mới mỗi tháng
+10 tỷ redirect mỗi tháng
+</div></code></pre>
+<p>Tỷ lệ:</p>
+<pre class="hljs"><code><div>Redirect : Create ≈ 100 : 1
+</div></code></pre>
+<p>Điều này ảnh hưởng trực tiếp tới kiến trúc:</p>
+<pre class="hljs"><code><div>- Redirect path phải cực kỳ tối ưu.
+- Cache mang lại giá trị lớn.
+- Write path có thể phức tạp hơn một chút.
+- Analytics không nên nằm đồng bộ trong redirect path.
+</div></code></pre>
+<hr>
+<h1 id="4-capacity-estimation">4. Capacity Estimation</h1>
+<p>Các con số sau là giả định để luyện thiết kế, không phải số liệu của một dịch vụ cụ thể.</p>
+<h2 id="url-creation-traffic">URL Creation Traffic</h2>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>100 triệu links / tháng
+</div></code></pre>
+<p>Một tháng khoảng:</p>
+<pre class="hljs"><code><div>2,59 triệu giây
+</div></code></pre>
+<p>Average creation QPS:</p>
+<pre class="hljs"><code><div>100.000.000 / 2.590.000 ≈ 39 requests/giây
+</div></code></pre>
+<p>Nếu peak gấp 10 lần:</p>
+<pre class="hljs"><code><div>Peak creation QPS ≈ 400 requests/giây
+</div></code></pre>
+<p>Write traffic không quá lớn so với redirect.</p>
+<hr>
+<h1 id="5-redirect-traffic">5. Redirect Traffic</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>10 tỷ redirects / tháng
+</div></code></pre>
+<p>Average redirect QPS:</p>
+<pre class="hljs"><code><div>10.000.000.000 / 2.590.000
+≈ 3.860 requests/giây
+</div></code></pre>
+<p>Peak có thể cao hơn 10 lần:</p>
+<pre class="hljs"><code><div>Peak redirect QPS ≈ 40.000 requests/giây
+</div></code></pre>
+<p>Một hot link riêng lẻ có thể tạo:</p>
+<pre class="hljs"><code><div>100.000+ requests/giây
+</div></code></pre>
+<p>nếu được người nổi tiếng hoặc chiến dịch lớn chia sẻ.</p>
+<p>Do đó không thể chỉ dựa vào average QPS.</p>
+<hr>
+<h1 id="6-storage-estimation">6. Storage Estimation</h1>
+<p>Giả sử mỗi link record trung bình khoảng 700 byte, gồm:</p>
+<pre class="hljs"><code><div>- Short code
+- Destination URL
+- Owner ID
+- Timestamps
+- Expiration
+- Status
+- Metadata
+- Index overhead chưa đầy đủ
+</div></code></pre>
+<p>Trong 5 năm:</p>
+<pre class="hljs"><code><div>100 triệu × 60 tháng = 6 tỷ links
+</div></code></pre>
+<p>Raw data:</p>
+<pre class="hljs"><code><div>6 tỷ × 700 byte
+≈ 4,2 TB
+</div></code></pre>
+<p>Sau khi tính thêm:</p>
+<pre class="hljs"><code><div>- Database indexes
+- Replication
+- Storage engine overhead
+- Backups
+</div></code></pre>
+<p>có thể cần hàng chục TB.</p>
+<p>Đây vẫn là quy mô có thể xử lý bằng database sharding hoặc distributed key-value store.</p>
+<hr>
+<h1 id="7-analytics-storage">7. Analytics Storage</h1>
+<p>Analytics thường lớn hơn link metadata rất nhiều.</p>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>10 tỷ click events / tháng
+300 byte / event
+</div></code></pre>
+<p>Raw event data:</p>
+<pre class="hljs"><code><div>≈ 3 TB / tháng
+</div></code></pre>
+<p>Trong 5 năm:</p>
+<pre class="hljs"><code><div>≈ 180 TB raw
+</div></code></pre>
+<p>Vì vậy không nên lưu từng click event trực tiếp trong database phục vụ redirect.</p>
+<p>Analytics cần pipeline riêng:</p>
+<pre class="hljs"><code><div>Event stream
+→ Stream processing
+→ Object storage / OLAP
+</div></code></pre>
+<hr>
+<h1 id="8-high-level-architecture">8. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Edge[CDN / WAF / Global Load Balancer]
+
+    Edge --> Redirect[Redirect Service]
+    Edge --> Management[Link Management API]
+
+    Redirect --> L1[Local Cache]
+    L1 --> L2[(Distributed Cache)]
+    L2 --> LinkStore[(Link Store)]
+
+    Management --> ID[ID Generator]
+    Management --> LinkStore
+    Management --> L2
+
+    Redirect --> Events[Click Event Stream]
+    Events --> Stream[Analytics Processing]
+    Stream --> Analytics[(Analytics Store)]
+
+    Management --> Abuse[Abuse Detection]
+</div></code></pre>
+<p>Có hai đường xử lý chính:</p>
+<pre class="hljs"><code><div>Write path:
+Tạo hoặc quản lý link.
+
+Read path:
+Redirect người dùng.
+</div></code></pre>
+<p>Hai đường này có yêu cầu latency và consistency khác nhau.</p>
+<hr>
+<h1 id="9-api-design">9. API Design</h1>
+<h2 id="tạo-link">Tạo Link</h2>
+<pre class="hljs"><code><div>POST /v1/links
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer ...
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>request-123
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>application/json
+</div></code></pre>
+<p>Request:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;destinationUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://example.com/products/123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customAlias&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;summer-sale&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-12-31T23:59:59Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;redirectType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">302</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>201 Created
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;link_873921&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shortCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;summer-sale&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shortUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://sho.rt/summer-sale&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;destinationUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://example.com/products/123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-12-31T23:59:59Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T02:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="10-vì-sao-create-api-cần-idempotency">10. Vì sao Create API cần Idempotency?</h1>
+<p>Client gửi request tạo link.</p>
+<p>Server tạo thành công nhưng response bị mất.</p>
+<p>Client retry:</p>
+<pre class="hljs"><code><div>Request 1 → tạo code abc123
+Response bị mất
+
+Request 2 → có thể tạo code xyz789
+</div></code></pre>
+<p>Một yêu cầu nghiệp vụ tạo ra hai links.</p>
+<p>Với:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>request-123
+</div></code></pre>
+<p>server có thể lưu:</p>
+<pre class="hljs"><code><div>(ownerId, idempotencyKey)
+→ kết quả đã tạo
+</div></code></pre>
+<p>Request retry nhận lại cùng kết quả.</p>
+<hr>
+<h1 id="11-redirect-api">11. Redirect API</h1>
+<p>Người dùng gọi:</p>
+<pre class="hljs"><code><div>GET /aZ91Kx2
+</div></code></pre>
+<p>Response mặc định:</p>
+<pre class="hljs"><code><div>302 Found
+<span class="hljs-attribute">Location</span><span class="hljs-punctuation">: </span>https://example.com/products/123
+<span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>private, no-cache
+</div></code></pre>
+<p>Hoặc trong một số trường hợp:</p>
+<pre class="hljs"><code><div>307 Temporary Redirect
+</div></code></pre>
+<hr>
+<h1 id="12-301-hay-302">12. 301 hay 302?</h1>
+<h2 id="301-moved-permanently"><code>301 Moved Permanently</code></h2>
+<p>Browser và intermediary có thể cache mạnh.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm tải server
+- Redirect nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Sau này đổi destination khó có hiệu lực ngay
+- Có thể mất click analytics tại server
+- Browser có thể không hỏi hệ thống lần nữa
+</div></code></pre>
+<h2 id="302-found"><code>302 Found</code></h2>
+<p>Redirect tạm thời.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Mọi click thường quay lại hệ thống
+- Destination có thể thay đổi
+- Analytics dễ thu thập hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tăng traffic tới redirect service
+</div></code></pre>
+<p>Đối với URL Shortener thông thường:</p>
+<blockquote>
+<p>Mặc định nên dùng <code>302</code> hoặc <code>307</code>, trừ khi link được tuyên bố bất biến và permanent rõ ràng.</p>
+</blockquote>
+<hr>
+<h1 id="13-302-và-307-khác-nhau-thế-nào">13. 302 và 307 khác nhau thế nào?</h1>
+<p>Với request <code>GET</code>, sự khác biệt thường không đáng kể.</p>
+<p>Tuy nhiên về semantics:</p>
+<pre class="hljs"><code><div>302:
+Client lịch sử có thể đổi HTTP method trong một số trường hợp.
+
+307:
+Phải giữ nguyên method và body.
+</div></code></pre>
+<p>URL Shortener chủ yếu redirect <code>GET</code>, nên <code>302</code> được dùng rất phổ biến.</p>
+<hr>
+<h1 id="14-link-management-apis">14. Link Management APIs</h1>
+<pre class="hljs"><code><div>GET /v1/links/{shortCode}
+PATCH /v1/links/{shortCode}
+DELETE /v1/links/{shortCode}
+GET /v1/links/{shortCode}/analytics
+</div></code></pre>
+<p>Update request:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;destinationUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://example.com/new-page&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2027-01-01T00:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Delete có thể là soft delete:</p>
+<pre class="hljs"><code><div>status = DISABLED
+</div></code></pre>
+<p>thay vì xóa vật lý ngay.</p>
+<hr>
+<h1 id="15-data-model">15. Data Model</h1>
+<p>Một model đơn giản:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> short_links (
+    short_code       <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">16</span>) <span class="hljs-keyword">PRIMARY KEY</span>,
+    link_id          <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NOT NULL</span>,
+    destination_url  TEXT <span class="hljs-keyword">NOT NULL</span>,
+    owner_id         <span class="hljs-type">BIGINT</span>,
+    status           <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">20</span>) <span class="hljs-keyword">NOT NULL</span>,
+    redirect_type    <span class="hljs-type">SMALLINT</span> <span class="hljs-keyword">NOT NULL</span>,
+    created_at       <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NOT NULL</span>,
+    updated_at       <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NOT NULL</span>,
+    expires_at       <span class="hljs-type">TIMESTAMP</span>,
+    version          <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NOT NULL</span>
+);
+</div></code></pre>
+<p>Các trạng thái:</p>
+<pre class="hljs"><code><div>ACTIVE
+DISABLED
+EXPIRED
+BLOCKED
+DELETED
+</div></code></pre>
+<hr>
+<h1 id="16-access-pattern-của-link-store">16. Access Pattern của Link Store</h1>
+<p>Redirect query chủ yếu là:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> destination_url,
+       status,
+       redirect_type,
+       expires_at,
+       version
+<span class="hljs-keyword">FROM</span> short_links
+<span class="hljs-keyword">WHERE</span> short_code <span class="hljs-operator">=</span> ?;
+</div></code></pre>
+<p>Đây là exact key lookup.</p>
+<p>Không cần:</p>
+<pre class="hljs"><code><div>- Full-text search
+- Complex joins
+- Multi-row transactions trên redirect path
+</div></code></pre>
+<p>Vì vậy một distributed key-value store rất phù hợp:</p>
+<pre class="hljs"><code><div>shortCode → LinkRecord
+</div></code></pre>
+<hr>
+<h1 id="17-sql-hay-nosql">17. SQL hay NoSQL?</h1>
+<h2 id="sql-phù-hợp-khi">SQL phù hợp khi</h2>
+<pre class="hljs"><code><div>- Hệ thống còn nhỏ hoặc vừa
+- Cần transaction và uniqueness đơn giản
+- Cần quản lý links theo owner
+- Team quen relational database
+</div></code></pre>
+<p>Một relational database được partition tốt có thể đi rất xa.</p>
+<h2 id="distributed-key-value-store-phù-hợp-khi">Distributed Key-Value Store phù hợp khi</h2>
+<pre class="hljs"><code><div>- Hàng tỷ links
+- QPS redirect rất lớn
+- Cần horizontal sharding tự nhiên
+- Lookup chủ yếu theo short code
+- Multi-region replication quan trọng
+</div></code></pre>
+<p>Một thiết kế thực tế có thể dùng:</p>
+<pre class="hljs"><code><div>Link metadata authoritative:
+Distributed KV hoặc sharded relational DB
+
+Analytics:
+OLAP store
+
+Owner dashboard:
+Relational read model hoặc secondary indexes
+</div></code></pre>
+<hr>
+<h1 id="18-secondary-indexes">18. Secondary Indexes</h1>
+<p>Ngoài lookup bằng code, user cần xem links của mình:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">WHERE</span> owner_id <span class="hljs-operator">=</span> ?
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>
+</div></code></pre>
+<p>Cần index:</p>
+<pre class="hljs"><code><div>(owner_id, created_at)
+</div></code></pre>
+<p>Expiration cleanup có thể cần:</p>
+<pre class="hljs"><code><div>(expires_at)
+</div></code></pre>
+<p>Tuy nhiên index toàn cục theo <code>expires_at</code> trên hàng tỷ rows có thể đắt.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Time buckets
+- TTL feature của storage
+- Expiration queue
+</div></code></pre>
+<hr>
+<h1 id="19-sinh-short-code">19. Sinh Short Code</h1>
+<p>Short code cần:</p>
+<pre class="hljs"><code><div>- Unique
+- Ngắn
+- URL-safe
+- Tạo nhanh
+- Có thể phân tán
+</div></code></pre>
+<p>Các lựa chọn chính:</p>
+<pre class="hljs"><code><div>1. Auto-increment ID + Base62
+2. Snowflake-like ID + Base62
+3. Random code
+4. Hash của URL
+5. Range allocation
+</div></code></pre>
+<hr>
+<h1 id="20-base62-encoding">20. Base62 Encoding</h1>
+<p>Base62 sử dụng:</p>
+<pre class="hljs"><code><div>0–9
+A–Z
+a–z
+</div></code></pre>
+<p>Tổng cộng:</p>
+<pre class="hljs"><code><div>62 ký tự
+</div></code></pre>
+<p>Một integer:</p>
+<pre class="hljs"><code><div>125
+</div></code></pre>
+<p>có thể được encode thành chuỗi Base62 ngắn.</p>
+<p>Không gian code:</p>
+<pre class="hljs"><code><div>62^6 ≈ 56,8 tỷ
+62^7 ≈ 3,52 nghìn tỷ
+62^8 ≈ 218 nghìn tỷ
+</div></code></pre>
+<p>Với vài tỷ links, code 7–8 ký tự thường đủ về mặt không gian.</p>
+<hr>
+<h1 id="21-base62-là-encoding-không-phải-hashing">21. Base62 là Encoding, không phải Hashing</h1>
+<p>Base62 không làm ID bí mật.</p>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>link_id = 1.000.001
+</div></code></pre>
+<p>được encode Base62, người biết thuật toán có thể đoán các ID gần đó.</p>
+<p>Điều này có thể gây:</p>
+<pre class="hljs"><code><div>- Enumeration
+- Lộ volume
+- Crawl toàn bộ links
+</div></code></pre>
+<p>Có thể giảm bằng:</p>
+<pre class="hljs"><code><div>- Random permutation
+- Feistel-based obfuscation
+- Random code
+- Non-sequential distributed IDs
+</div></code></pre>
+<p>Nhưng không nên coi short code là access-control secret.</p>
+<hr>
+<h1 id="22-phương-án-1--database-sequence">22. Phương án 1 — Database Sequence</h1>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Database cấp ID tăng dần.
+2. Encode ID sang Base62.
+3. Lưu mapping.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>ID 1258392
+→ Base62 &quot;5hDa&quot;
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không collision
+- Đơn giản
+- Code ngắn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Central sequence
+- Khó active–active multi-region
+- Có thể đoán code
+</div></code></pre>
+<p>Phù hợp với phiên bản đầu hoặc single-region system.</p>
+<hr>
+<h1 id="23-phương-án-2--snowflake-like-id">23. Phương án 2 — Snowflake-Like ID</h1>
+<p>ID gồm:</p>
+<pre class="hljs"><code><div>timestamp + region/worker ID + sequence
+</div></code></pre>
+<p>Sau đó encode Base62.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Tạo phân tán
+- Không cần database call cho mỗi ID
+- Throughput cao
+- Gần sort theo thời gian
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Clock rollback
+- Worker ID management
+- Code có thể dài hơn
+- Vẫn lộ approximate creation time
+</div></code></pre>
+<p>Đây là lựa chọn tốt khi hệ thống có nhiều writers hoặc nhiều region.</p>
+<hr>
+<h1 id="24-phương-án-3--random-code">24. Phương án 3 — Random Code</h1>
+<p>Sinh ngẫu nhiên chuỗi:</p>
+<pre class="hljs"><code><div>aZ91Kx2Q
+</div></code></pre>
+<p>Sau đó conditional insert:</p>
+<pre class="hljs"><code><div>INSERT IF short_code DOES NOT EXIST
+</div></code></pre>
+<p>Nếu collision:</p>
+<pre class="hljs"><code><div>Sinh lại.
+</div></code></pre>
+<p>Với 8 ký tự Base62:</p>
+<pre class="hljs"><code><div>62^8 ≈ 218 nghìn tỷ combinations
+</div></code></pre>
+<p>Ngay cả khi đã có 6 tỷ links, xác suất một lần sinh mới đụng code đang tồn tại xấp xỉ:</p>
+<pre class="hljs"><code><div>6 tỷ / 218 nghìn tỷ
+≈ 0,00275%
+</div></code></pre>
+<p>Có thể retry rất nhanh.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Khó đoán hơn sequence
+- Tạo độc lập
+- Không cần central ID service
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Phải xử lý collision
+- Code thường cần dài hơn
+- Cần random generator chất lượng tốt
+</div></code></pre>
+<hr>
+<h1 id="25-birthday-paradox-và-random-code">25. Birthday Paradox và Random Code</h1>
+<p>Nếu sinh rất nhiều code, khả năng “đã từng có ít nhất một collision” sẽ tăng nhanh hơn trực giác.</p>
+<p>Tuy nhiên vấn đề được kiểm soát bằng:</p>
+<pre class="hljs"><code><div>- Unique constraint
+- Conditional write
+- Retry
+</div></code></pre>
+<p>Ta không cần bảo đảm random generator tuyệt đối không bao giờ collision.</p>
+<p>Ta cần bảo đảm:</p>
+<blockquote>
+<p>Collision không thể tạo hai records có cùng short code.</p>
+</blockquote>
+<hr>
+<h1 id="26-phương-án-4--hash-của-url">26. Phương án 4 — Hash của URL</h1>
+<p>Có thể lấy:</p>
+<pre class="hljs"><code><div>hash(destinationURL)
+</div></code></pre>
+<p>rồi lấy vài ký tự đầu.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Cùng URL có thể tạo cùng code
+- Không cần ID service
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hash collision
+- User khác nhau có thể muốn expiry khác nhau
+- Analytics và ownership khác nhau
+- URL có tracking parameters tạo hash khác
+- Không dễ sửa destination
+</div></code></pre>
+<p>Do đó không nên mặc định deduplicate toàn cục theo destination URL.</p>
+<p>Hai người tạo cùng URL có thể cần hai links khác nhau.</p>
+<hr>
+<h1 id="27-phương-án-khuyến-nghị">27. Phương án khuyến nghị</h1>
+<p>Cho thiết kế quy mô lớn:</p>
+<pre class="hljs"><code><div>Generated link:
+Snowflake-like ID hoặc random code 8–10 ký tự
+
+Custom alias:
+Conditional unique insert
+</div></code></pre>
+<p>Một lựa chọn cân bằng:</p>
+<pre class="hljs"><code><div>- Sinh distributed numeric ID.
+- Obfuscate hoặc permute ID.
+- Encode Base62.
+- Dùng unique conditional write.
+</div></code></pre>
+<p>Trong phỏng vấn, điều quan trọng là trình bày trade-off, không phải chọn duy nhất một thuật toán.</p>
+<hr>
+<h1 id="28-case-sensitivity">28. Case Sensitivity</h1>
+<p>Base62 phân biệt:</p>
+<pre class="hljs"><code><div>abc
+ABC
+AbC
+</div></code></pre>
+<p>Điều này tăng không gian code nhưng dễ gây nhầm khi đọc hoặc nhập tay.</p>
+<p>Có thể chọn Base58, loại các ký tự dễ nhầm:</p>
+<pre class="hljs"><code><div>0, O
+I, l
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Base62:
+Không gian lớn hơn
+
+Base58:
+Dễ đọc hơn
+</div></code></pre>
+<hr>
+<h1 id="29-custom-alias">29. Custom Alias</h1>
+<p>User muốn:</p>
+<pre class="hljs"><code><div>https://sho.rt/summer-sale
+</div></code></pre>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Alias phải unique.
+- Cấm reserved names.
+- Có quy tắc normalize rõ.
+- Phải chống race condition.
+</div></code></pre>
+<p>Reserved aliases:</p>
+<pre class="hljs"><code><div>admin
+api
+login
+support
+health
+robots.txt
+favicon.ico
+</div></code></pre>
+<hr>
+<h1 id="30-normalize-custom-alias">30. Normalize Custom Alias</h1>
+<p>Có thể quy định:</p>
+<pre class="hljs"><code><div>- 4–32 ký tự
+- Chỉ [a-z0-9-_]
+- Không khoảng trắng
+- Chuyển về lowercase
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Summer-Sale
+→ summer-sale
+</div></code></pre>
+<p>Nếu giữ case-sensitive alias, user dễ tạo:</p>
+<pre class="hljs"><code><div>Sale
+sale
+SALE
+</div></code></pre>
+<p>gây nhầm lẫn và phishing.</p>
+<p>Lowercase namespace thường đơn giản hơn cho custom alias.</p>
+<hr>
+<h1 id="31-race-condition-khi-tạo-alias">31. Race Condition khi Tạo Alias</h1>
+<p>Hai requests đồng thời:</p>
+<pre class="hljs"><code><div>A: tạo summer-sale
+B: tạo summer-sale
+</div></code></pre>
+<p>Không được làm:</p>
+<pre class="hljs"><code><div>1. SELECT alias
+2. Nếu chưa có thì INSERT
+</div></code></pre>
+<p>vì cả hai có thể cùng thấy chưa tồn tại.</p>
+<p>Phải dựa vào:</p>
+<pre class="hljs"><code><div>- Unique constraint
+- Compare-and-set
+- Conditional insert
+</div></code></pre>
+<p>Một request thắng, request kia nhận:</p>
+<pre class="hljs"><code><div>409 Conflict
+</div></code></pre>
+<hr>
+<h1 id="32-không-nên-tái-sử-dụng-short-code">32. Không nên Tái sử dụng Short Code</h1>
+<p>Link cũ bị xóa:</p>
+<pre class="hljs"><code><div>sho.rt/abc123
+</div></code></pre>
+<p>Không nên cấp <code>abc123</code> cho URL mới.</p>
+<p>Người dùng có thể còn:</p>
+<pre class="hljs"><code><div>- Bookmark cũ
+- Email cũ
+- QR code cũ
+- Cache cũ
+</div></code></pre>
+<p>Nếu code được tái sử dụng, người truy cập link cũ bị đưa tới nội dung hoàn toàn khác.</p>
+<p>Đây là rủi ro:</p>
+<pre class="hljs"><code><div>- Security
+- Phishing
+- Data integrity
+</div></code></pre>
+<p>Tốt hơn giữ tombstone:</p>
+<pre class="hljs"><code><div>abc123 → DELETED
+</div></code></pre>
+<p>và trả:</p>
+<pre class="hljs"><code><div>410 Gone
+</div></code></pre>
+<hr>
+<h1 id="33-create-link-write-path">33. Create Link Write Path</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant API as Link API
+    participant ID as ID Generator
+    participant DB as Link Store
+    participant Cache
+    participant Abuse
+
+    Client->>API: POST /v1/links
+    API->>API: Validate URL and quota
+    API->>Abuse: Basic reputation check
+    API->>ID: Generate short code
+    ID-->>API: aZ91Kx2
+    API->>DB: Conditional insert
+    DB-->>API: Success
+    API->>Cache: Populate cache
+    API-->>Client: 201 Created
+</div></code></pre>
+<p>Điểm consistency quan trọng:</p>
+<blockquote>
+<p>Không trả success trước khi mapping đã được ghi bền vững vào authoritative store.</p>
+</blockquote>
+<hr>
+<h1 id="34-url-validation">34. URL Validation</h1>
+<p>Destination URL phải được parse bằng URL parser chuẩn.</p>
+<p>Không nên chỉ kiểm tra:</p>
+<pre class="hljs"><code><div>Chuỗi bắt đầu bằng &quot;http&quot;
+</div></code></pre>
+<p>Cho phép:</p>
+<pre class="hljs"><code><div>http://
+https://
+</div></code></pre>
+<p>Thường nên chặn:</p>
+<pre class="hljs"><code><div>javascript:
+data:
+file:
+ftp:
+</div></code></pre>
+<p>để giảm rủi ro browser hoặc application xử lý scheme nguy hiểm.</p>
+<hr>
+<h1 id="35-normalize-destination-url">35. Normalize Destination URL?</h1>
+<p>Có thể normalize một số phần:</p>
+<pre class="hljs"><code><div>- Lowercase hostname
+- Chuẩn hóa default port
+- Punycode domain quốc tế
+</div></code></pre>
+<p>Nhưng không được tùy tiện:</p>
+<pre class="hljs"><code><div>- Xóa query parameters
+- Đổi path case
+- Reorder query
+- Xóa trailing slash
+</div></code></pre>
+<p>vì có thể thay đổi resource.</p>
+<p>URL normalization phải bảo toàn semantics.</p>
+<hr>
+<h1 id="36-redirect-read-path">36. Redirect Read Path</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Edge
+    participant Service as Redirect Service
+    participant L1 as Local Cache
+    participant Redis as Distributed Cache
+    participant DB as Link Store
+    participant Events as Event Stream
+
+    Client->>Edge: GET /aZ91Kx2
+    Edge->>Service: Forward request
+
+    Service->>L1: Lookup
+    alt L1 hit
+        L1-->>Service: Link record
+    else L1 miss
+        Service->>Redis: Lookup
+        alt Redis hit
+            Redis-->>Service: Link record
+            Service->>L1: Populate
+        else Redis miss
+            Service->>DB: Lookup short code
+            DB-->>Service: Link record
+            Service->>Redis: Populate
+            Service->>L1: Populate
+        end
+    end
+
+    Service->>Events: Publish click asynchronously
+    Service-->>Client: 302 Location: destination
+</div></code></pre>
+<hr>
+<h1 id="37-redirect-validation">37. Redirect Validation</h1>
+<p>Sau khi lấy record, Redirect Service phải kiểm tra:</p>
+<pre class="hljs"><code><div>- Code có tồn tại không?
+- Status có ACTIVE không?
+- Link có hết hạn không?
+- Link có bị abuse system BLOCKED không?
+- Destination có hợp lệ không?
+</div></code></pre>
+<p>Các response có thể là:</p>
+<pre class="hljs"><code><div>404 Not Found:
+Code chưa từng tồn tại
+
+410 Gone:
+Link đã xóa hoặc hết hạn vĩnh viễn
+
+451 Unavailable For Legal Reasons:
+Bị chặn theo yêu cầu pháp lý trong một số trường hợp
+
+302/307:
+Redirect hợp lệ
+</div></code></pre>
+<p>Không nhất thiết expose chính xác lý do block để tránh giúp attacker thăm dò hệ thống.</p>
+<hr>
+<h1 id="38-cache-architecture">38. Cache Architecture</h1>
+<p>URL Shortener là use case cache lý tưởng vì:</p>
+<pre class="hljs"><code><div>- Read-heavy
+- Mapping nhỏ
+- Nhiều code được đọc lặp lại
+- Redirect không cần query phức tạp
+</div></code></pre>
+<p>Có thể dùng nhiều tầng:</p>
+<pre class="hljs"><code><div>L0:
+CDN/edge cache
+
+L1:
+In-process cache tại Redirect Service
+
+L2:
+Distributed cache như Redis
+
+L3:
+Authoritative Link Store
+</div></code></pre>
+<hr>
+<h1 id="39-l1-local-cache">39. L1 Local Cache</h1>
+<p>Mỗi application instance giữ cache memory nhỏ.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không network call
+- Latency rất thấp
+- Giảm tải Redis
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Mỗi instance có state khác nhau
+- Invalidation khó
+- Capacity giới hạn
+</div></code></pre>
+<p>Phù hợp với hot links và TTL ngắn.</p>
+<hr>
+<h1 id="40-distributed-cache">40. Distributed Cache</h1>
+<p>L2 cache dùng chung giữa application instances.</p>
+<pre class="hljs"><code><div>shortCode → serialized LinkRecord
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Hit ratio cao hơn L1
+- Dễ warm hơn
+- Giảm tải database
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Network hop
+- Có thể trở thành bottleneck
+- Cần sharding và replication
+</div></code></pre>
+<hr>
+<h1 id="41-cache-aside-pattern">41. Cache-Aside Pattern</h1>
+<p>Redirect Service:</p>
+<pre class="hljs"><code><div>1. Đọc cache.
+2. Nếu miss, đọc database.
+3. Ghi kết quả vào cache.
+4. Trả response.
+</div></code></pre>
+<p>Đây là cache-aside.</p>
+<p>Create path có thể chủ động populate cache để bảo đảm read-after-write nhanh hơn.</p>
+<hr>
+<h1 id="42-cache-ttl">42. Cache TTL</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Default TTL:
+5–30 phút
+</div></code></pre>
+<p>Nhưng nếu link sắp hết hạn:</p>
+<pre class="hljs"><code><div>expiresAt còn 2 phút
+</div></code></pre>
+<p>cache TTL không được là 30 phút.</p>
+<p>Nên dùng:</p>
+<pre class="hljs"><code><div>cacheTTL =
+min(defaultTTL, expiresAt - now)
+</div></code></pre>
+<p>Nếu link đã bị block hoặc delete, cache cần invalidation nhanh.</p>
+<hr>
+<h1 id="43-cache-invalidation-sau-update">43. Cache Invalidation sau Update</h1>
+<p>User đổi destination.</p>
+<p>Nếu database cập nhật nhưng cache còn URL cũ:</p>
+<pre class="hljs"><code><div>Redirect tiếp tục đi sai destination.
+</div></code></pre>
+<p>Các cách:</p>
+<pre class="hljs"><code><div>1. Update DB rồi delete cache.
+2. Update DB rồi write-through cache.
+3. Phát cache invalidation event.
+4. Dùng TTL ngắn.
+</div></code></pre>
+<p>Pattern phổ biến:</p>
+<pre class="hljs"><code><div>Database authoritative update
+→ Delete cache key
+→ Request tiếp theo reload
+</div></code></pre>
+<hr>
+<h1 id="44-race-trong-cache-invalidation">44. Race trong Cache Invalidation</h1>
+<p>Có thể xảy ra:</p>
+<pre class="hljs"><code><div>1. Reader miss cache.
+2. Reader đọc URL cũ từ DB.
+3. Writer update DB và xóa cache.
+4. Reader ghi URL cũ trở lại cache.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Version trong record
+- Cache write conditional theo version
+- Double delete trong một số hệ thống
+- Short TTL
+- Read DB từ consistent source
+</div></code></pre>
+<p>Cache value nên chứa:</p>
+<pre class="hljs"><code><div>linkVersion
+</div></code></pre>
+<hr>
+<h1 id="45-negative-caching">45. Negative Caching</h1>
+<p>Nếu attacker gọi hàng triệu code không tồn tại:</p>
+<pre class="hljs"><code><div>/a000001
+/a000002
+/a000003
+</div></code></pre>
+<p>mỗi request đi database sẽ rất tốn.</p>
+<p>Có thể cache:</p>
+<pre class="hljs"><code><div>code → NOT_FOUND
+</div></code></pre>
+<p>trong TTL ngắn:</p>
+<pre class="hljs"><code><div>30–120 giây
+</div></code></pre>
+<p>Nhưng phải tránh negative cache quá lâu khi code vừa được tạo.</p>
+<p>Create path có thể xóa negative cache hoặc populate record mới.</p>
+<hr>
+<h1 id="46-cache-stampede">46. Cache Stampede</h1>
+<p>Một hot link hết TTL.</p>
+<p>Hàng nghìn requests cùng miss và gọi database.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Request coalescing
+- Single-flight
+- Stale-while-revalidate
+- Randomized TTL
+- Proactive refresh
+</div></code></pre>
+<p>Với stale-while-revalidate:</p>
+<pre class="hljs"><code><div>- Trả cached value hơi cũ.
+- Một worker refresh phía sau.
+</div></code></pre>
+<p>Chỉ nên dùng khi staleness nhỏ được chấp nhận.</p>
+<hr>
+<h1 id="47-hot-link">47. Hot Link</h1>
+<p>Một code có thể nhận lượng traffic khổng lồ.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- CDN hoặc edge caching
+- L1 cache trên mọi redirect instance
+- Replicated distributed cache
+- Không update click counter đồng bộ
+- Rate limiting cho traffic bất thường
+</div></code></pre>
+<p>Do destination mapping gần như read-only, hot key dễ scale bằng replication hơn write-heavy hot key.</p>
+<hr>
+<h1 id="48-cdn-edge-redirect">48. CDN Edge Redirect</h1>
+<p>CDN có thể cache response:</p>
+<pre class="hljs"><code><div>302 Location: ...
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Redirect gần user
+- Giảm tải origin
+- Chịu hot link tốt
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Update/delete propagation chậm
+- Origin không thấy mọi click
+- Analytics phải lấy từ CDN logs hoặc edge events
+</div></code></pre>
+<p>Có thể dùng TTL ngắn:</p>
+<pre class="hljs"><code><div>30–300 giây
+</div></code></pre>
+<p>và purge CDN khi link bị block.</p>
+<hr>
+<h1 id="49-analytics-không-được-nằm-trên-critical-path">49. Analytics không được nằm trên Critical Path</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>Redirect request
+→ Insert click row vào database
+→ Đợi commit
+→ Trả 302
+</div></code></pre>
+<p>Nếu analytics database chậm:</p>
+<pre class="hljs"><code><div>Redirect cũng chậm hoặc lỗi.
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>Redirect
+→ Publish event bất đồng bộ
+→ Trả 302 ngay
+</div></code></pre>
+<p>Nếu event stream tạm lỗi, có thể:</p>
+<pre class="hljs"><code><div>- Local bounded buffer
+- Batch logs
+- Sampling
+- Chấp nhận mất một phần low-value analytics
+</div></code></pre>
+<p>tùy contract.</p>
+<hr>
+<h1 id="50-click-event-schema">50. Click Event Schema</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shortCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;aZ91Kx2&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;linkId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;link_873921&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T02:10:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;region&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;referrer&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://social.example&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;userAgentFamily&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Chrome&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;deviceType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;mobile&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;country&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VN&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;ipPrefixHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên mặc định lưu toàn bộ IP vô thời hạn.</p>
+<p>Cần privacy và retention policy rõ.</p>
+<hr>
+<h1 id="51-analytics-pipeline">51. Analytics Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Redirect[Redirect Services] --> Broker[Partitioned Event Stream]
+
+    Broker --> Realtime[Stream Aggregation]
+    Broker --> Raw[(Raw Object Storage)]
+
+    Realtime --> RealtimeDB[(Realtime Analytics Store)]
+    Raw --> Batch[Batch Processing]
+    Batch --> Warehouse[(Data Warehouse)]
+</div></code></pre>
+<p>Realtime phục vụ:</p>
+<pre class="hljs"><code><div>- Click count gần hiện tại
+- Trending links
+- Abuse spikes
+</div></code></pre>
+<p>Batch phục vụ:</p>
+<pre class="hljs"><code><div>- Báo cáo chính xác hơn
+- Historical analytics
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="52-partition-analytics-stream">52. Partition Analytics Stream</h1>
+<p>Có thể partition theo:</p>
+<pre class="hljs"><code><div>linkId
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Events cùng link có ordering trong partition
+- Dễ aggregate theo link
+</div></code></pre>
+<p>Nhưng hot link tạo hot partition.</p>
+<p>Có thể salt:</p>
+<pre class="hljs"><code><div>partitionKey = hash(linkId + randomBucket)
+</div></code></pre>
+<p>rồi dùng two-stage aggregation.</p>
+<hr>
+<h1 id="53-hot-link-analytics">53. Hot-Link Analytics</h1>
+<p>Một link có 1 triệu clicks/giây không nên dồn toàn bộ vào một partition.</p>
+<p>Có thể phân bucket:</p>
+<pre class="hljs"><code><div>link_123:bucket_0
+link_123:bucket_1
+...
+link_123:bucket_99
+</div></code></pre>
+<p>Stage 1:</p>
+<pre class="hljs"><code><div>Count theo bucket
+</div></code></pre>
+<p>Stage 2:</p>
+<pre class="hljs"><code><div>Cộng các bucket thành tổng link
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Scale tốt hơn
+- Không có một sequence duy nhất cho mọi click
+</div></code></pre>
+<p>Analytics count không cần total order nên trade-off này hợp lý.</p>
+<hr>
+<h1 id="54-unique-visitors">54. Unique Visitors</h1>
+<p>Không nên lưu toàn bộ visitor IDs vào một set vô hạn.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- HyperLogLog-like approximate counting
+- Daily unique buckets
+- Privacy-preserving hashed identity
+</div></code></pre>
+<p>Analytics approximate thường đủ cho dashboard marketing.</p>
+<p>Billing dựa trên unique click có thể cần cơ chế chính xác hơn và chống gian lận.</p>
+<hr>
+<h1 id="55-bot-và-click-fraud">55. Bot và Click Fraud</h1>
+<p>Không phải mọi redirect đều là người thật.</p>
+<p>Có thể có:</p>
+<pre class="hljs"><code><div>- Search crawler
+- Social preview bot
+- Security scanner
+- Click farm
+- Refresh automation
+</div></code></pre>
+<p>Analytics nên phân loại:</p>
+<pre class="hljs"><code><div>humanClicks
+botClicks
+unknownClicks
+</div></code></pre>
+<p>Dựa trên:</p>
+<pre class="hljs"><code><div>- User agent
+- Request rate
+- IP reputation
+- Behavioral signals
+- Known crawler lists
+</div></code></pre>
+<hr>
+<h1 id="56-expiration">56. Expiration</h1>
+<p>Link có thể có:</p>
+<pre class="hljs"><code><div>expiresAt = 2026-12-31T23:59:59Z
+</div></code></pre>
+<p>Redirect path luôn phải kiểm tra expiration.</p>
+<p>Không được phụ thuộc hoàn toàn vào background cleanup vì cleanup có thể trễ.</p>
+<p>Logic:</p>
+<pre class="hljs"><code><div>if now &gt;= expiresAt:
+    return 410
+</div></code></pre>
+<hr>
+<h1 id="57-lazy-expiration">57. Lazy Expiration</h1>
+<p>Record hết hạn chỉ được phát hiện khi request tới.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Không cần scheduler chính xác tuyệt đối
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Record hết hạn vẫn chiếm storage
+</div></code></pre>
+<p>Vẫn nên có background cleanup sau đó.</p>
+<hr>
+<h1 id="58-active-expiration-cleanup">58. Active Expiration Cleanup</h1>
+<p>Không nên mỗi phút chạy:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> short_links
+<span class="hljs-keyword">WHERE</span> expires_at <span class="hljs-operator">&lt;</span> now();
+</div></code></pre>
+<p>trên hàng tỷ rows.</p>
+<p>Các phương án:</p>
+<pre class="hljs"><code><div>- Database TTL
+- Time-partitioned expiration buckets
+- Delayed queue
+- Priority queue phân tán
+- Index theo expires_at
+</div></code></pre>
+<p>Ví dụ bucket:</p>
+<pre class="hljs"><code><div>expiration/2026-12-31/23/
+</div></code></pre>
+<p>Worker chỉ xử lý bucket đến hạn.</p>
+<hr>
+<h1 id="59-expiration-event">59. Expiration Event</h1>
+<p>Khi link hết hạn:</p>
+<pre class="hljs"><code><div>1. Đánh dấu EXPIRED.
+2. Xóa cache.
+3. Purge CDN.
+4. Giữ tombstone.
+5. Có thể phát LinkExpired event.
+</div></code></pre>
+<p>Không nhất thiết xóa vật lý ngay.</p>
+<hr>
+<h1 id="60-abuse-prevention">60. Abuse Prevention</h1>
+<p>URL Shortener thường bị lợi dụng cho:</p>
+<pre class="hljs"><code><div>- Phishing
+- Malware
+- Spam
+- Scam
+- Tracking lạm dụng
+- Redirect chains
+- Illegal content
+</div></code></pre>
+<p>Cần một pipeline phòng chống abuse riêng.</p>
+<hr>
+<h1 id="61-abuse-check-khi-tạo-link">61. Abuse Check khi Tạo Link</h1>
+<p>Có thể thực hiện kiểm tra nhanh đồng bộ:</p>
+<pre class="hljs"><code><div>- Scheme hợp lệ
+- Domain denylist
+- URL length
+- Account quota
+- Known malware reputation
+</div></code></pre>
+<p>Sau đó kiểm tra sâu bất đồng bộ:</p>
+<pre class="hljs"><code><div>- Fetch và scan page
+- Redirect-chain analysis
+- Domain reputation
+- ML classification
+</div></code></pre>
+<p>Link có thể ở trạng thái:</p>
+<pre class="hljs"><code><div>PENDING_REVIEW
+ACTIVE
+BLOCKED
+</div></code></pre>
+<hr>
+<h1 id="62-link-preview-và-ssrf">62. Link Preview và SSRF</h1>
+<p>Nếu hệ thống tự fetch destination để tạo preview, attacker có thể gửi:</p>
+<pre class="hljs"><code><div>http://127.0.0.1/admin
+http://169.254.169.254/...
+http://private-service.internal
+</div></code></pre>
+<p>Đây là SSRF risk.</p>
+<p>Preview fetcher phải:</p>
+<pre class="hljs"><code><div>- Chạy trong sandbox
+- Chặn private/reserved IP ranges
+- Resolve DNS cẩn thận
+- Chống DNS rebinding
+- Giới hạn redirects
+- Giới hạn response size
+- Có timeout
+</div></code></pre>
+<p>Redirect service bản thân không cần fetch destination trong critical path.</p>
+<hr>
+<h1 id="63-rate-limiting">63. Rate Limiting</h1>
+<p>Cần rate limit theo:</p>
+<pre class="hljs"><code><div>- Account
+- IP
+- API key
+- Device fingerprint
+- Destination domain
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Anonymous:
+10 links / giờ
+
+Verified account:
+1.000 links / ngày
+</div></code></pre>
+<p>Các giới hạn chỉ là minh họa.</p>
+<p>Redirect traffic cũng cần DDoS protection, nhưng không nên chặn một hot link hợp lệ chỉ vì QPS lớn.</p>
+<hr>
+<h1 id="64-account-reputation">64. Account Reputation</h1>
+<p>Quota có thể phụ thuộc:</p>
+<pre class="hljs"><code><div>- Tuổi tài khoản
+- Verification
+- Lịch sử abuse
+- Payment status
+- Tỷ lệ links bị report
+</div></code></pre>
+<p>New anonymous account nên có giới hạn chặt hơn trusted enterprise account.</p>
+<hr>
+<h1 id="65-user-reporting">65. User Reporting</h1>
+<p>Cần endpoint:</p>
+<pre class="hljs"><code><div>POST /v1/abuse-reports
+</div></code></pre>
+<p>Payload:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;shortCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;aZ91Kx2&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PHISHING&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Report không nên tự động block ngay chỉ dựa trên một request.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Rate limiting
+- Reputation
+- Automated scoring
+- Human moderation cho trường hợp quan trọng
+</div></code></pre>
+<hr>
+<h1 id="66-redirect-chains">66. Redirect Chains</h1>
+<p>Attacker có thể tạo:</p>
+<pre class="hljs"><code><div>sho.rt/A → sho.rt/B → sho.rt/C → malicious.site
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Giới hạn shortener-to-shortener chains
+- Resolve known internal chains lúc tạo link
+- Phát hiện loops
+- Giới hạn số redirect khi preview
+</div></code></pre>
+<p>Không nên đồng bộ dereference toàn bộ external chain trên mỗi click.</p>
+<hr>
+<h1 id="67-privacy">67. Privacy</h1>
+<p>Click analytics có thể chứa dữ liệu nhạy cảm:</p>
+<pre class="hljs"><code><div>- IP
+- Location
+- Referrer
+- User agent
+- URL query
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Data minimization
+- IP truncation hoặc hashing
+- Retention limits
+- Access control
+- Tenant isolation
+- Consent requirements
+</div></code></pre>
+<p>Destination URL có thể chứa token hoặc PII trong query string.</p>
+<p>Không nên log raw URL tùy tiện.</p>
+<hr>
+<h1 id="68-sharding-link-store">68. Sharding Link Store</h1>
+<p>Shard key tự nhiên:</p>
+<pre class="hljs"><code><div>hash(shortCode)
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Router --> S1[(Shard 1)]
+    Router --> S2[(Shard 2)]
+    Router --> S3[(Shard 3)]
+    Router --> S4[(Shard 4)]
+</div></code></pre>
+<p>Hash sharding giúp phân phối:</p>
+<pre class="hljs"><code><div>- Số records
+- Writes
+- Read traffic bình thường
+</div></code></pre>
+<p>Hot link vẫn tạo hot key, nhưng cache/CDN xử lý tốt hơn việc cố chia một record qua nhiều shards.</p>
+<hr>
+<h1 id="69-vì-sao-không-range-shard-theo-id-tăng-dần">69. Vì sao không Range-Shard theo ID tăng dần?</h1>
+<p>Nếu IDs tăng dần:</p>
+<pre class="hljs"><code><div>1001
+1002
+1003
+...
+</div></code></pre>
+<p>range sharding khiến toàn bộ writes mới đi shard cuối.</p>
+<pre class="hljs"><code><div>→ Hot write shard
+</div></code></pre>
+<p>Hash sharding phân phối writes tốt hơn.</p>
+<p>Nếu cần listing theo owner, có thể có secondary index hoặc storage riêng theo <code>ownerId</code>.</p>
+<hr>
+<h1 id="70-virtual-shards">70. Virtual Shards</h1>
+<p>Thay vì mapping trực tiếp:</p>
+<pre class="hljs"><code><div>hash(code) mod physicalShardCount
+</div></code></pre>
+<p>có thể dùng nhiều logical partitions:</p>
+<pre class="hljs"><code><div>4.096 virtual shards
+</div></code></pre>
+<p>sau đó map virtual shard sang physical node.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Rebalancing dễ hơn
+- Chuyển một phần nhỏ dữ liệu
+- Phân phối tải linh hoạt
+</div></code></pre>
+<hr>
+<h1 id="71-consistency-requirements">71. Consistency Requirements</h1>
+<p>Không phải mọi phần cần cùng consistency.</p>
+<h2 id="short-code-uniqueness">Short-code uniqueness</h2>
+<pre class="hljs"><code><div>Strong consistency
+</div></code></pre>
+<p>Hai records không được có cùng code.</p>
+<h2 id="redirect-mapping-sau-creation">Redirect mapping sau creation</h2>
+<pre class="hljs"><code><div>Read-your-writes
+</div></code></pre>
+<p>Link vừa tạo phải dùng được ngay.</p>
+<h2 id="destination-update">Destination update</h2>
+<p>Có thể bounded stale trong vài giây nếu contract cho phép, nhưng block/delete nên propagate rất nhanh.</p>
+<h2 id="analytics">Analytics</h2>
+<pre class="hljs"><code><div>Eventual consistency
+</div></code></pre>
+<p>Dashboard chậm vài giây hoặc vài phút thường chấp nhận được.</p>
+<hr>
+<h1 id="72-read-after-write">72. Read-After-Write</h1>
+<p>Client tạo link rồi lập tức truy cập.</p>
+<p>Nếu write vào Region A nhưng redirect được route tới replica Region B đang lag:</p>
+<pre class="hljs"><code><div>404 dù create đã trả success.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Route link mới về home region trong khoảng ngắn
+- Synchronous replication trước success
+- Session/routing token
+- Populate global cache
+- Global strongly consistent store
+</div></code></pre>
+<p>Hệ thống phải chọn rõ trade-off giữa latency và immediate global visibility.</p>
+<hr>
+<h1 id="73-delete-và-block-consistency">73. Delete và Block Consistency</h1>
+<p>Nếu link phishing bị block, không muốn edge cache tiếp tục redirect trong 30 phút.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Urgent invalidation channel
+- CDN purge
+- Short cache TTL cho untrusted links
+- Blocklist checked tại edge
+- Versioned cache
+</div></code></pre>
+<p>Security state thường cần propagation nhanh hơn destination update thông thường.</p>
+<hr>
+<h1 id="74-multi-region-option-1--activepassive">74. Multi-Region Option 1 — Active–Passive</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> GlobalRouter
+
+    GlobalRouter --> Active[Region A Active]
+    GlobalRouter -. standby .-> DR[Region B Standby]
+
+    Active --> Primary[(Primary Link Store)]
+    Primary -->|Replication| Replica[(DR Replica)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Code uniqueness dễ
+- Một write owner
+- Conflict thấp
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User xa primary có write latency cao
+- Regional outage cần failover
+- Async replication có RPO lớn hơn 0
+</div></code></pre>
+<p>Phù hợp với phiên bản đầu có yêu cầu DR.</p>
+<hr>
+<h1 id="75-multi-region-option-2--global-reads-single-write-region">75. Multi-Region Option 2 — Global Reads, Single Write Region</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalEdge
+
+    GlobalEdge --> RedirectAsia[Redirect Asia]
+    GlobalEdge --> RedirectEU[Redirect Europe]
+    GlobalEdge --> RedirectUS[Redirect US]
+
+    RedirectAsia --> ReplicaAsia[(Local Read Replica)]
+    RedirectEU --> ReplicaEU[(Local Read Replica)]
+    RedirectUS --> ReplicaUS[(Local Read Replica)]
+
+    CreateAPI --> Primary[(Primary Write Region)]
+    Primary --> ReplicaAsia
+    Primary --> ReplicaEU
+    Primary --> ReplicaUS
+</div></code></pre>
+<p>Redirect latency thấp do local replicas/caches.</p>
+<p>Write vẫn tập trung.</p>
+<p>Đây là kiến trúc hợp lý vì URL creation ít hơn redirect rất nhiều.</p>
+<hr>
+<h1 id="76-multi-region-option-3--partitioned-activeactive">76. Multi-Region Option 3 — Partitioned Active–Active</h1>
+<p>Mỗi region tự sinh code không trùng nhờ region/worker bits.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Region Asia:
+ID prefix hoặc region bits A
+
+Region Europe:
+region bits E
+
+Region US:
+region bits U
+</div></code></pre>
+<p>Mỗi link có home region.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    GlobalRouter --> Asia[Asia Create/Redirect]
+    GlobalRouter --> EU[EU Create/Redirect]
+    GlobalRouter --> US[US Create/Redirect]
+
+    Asia --> StoreA[(Asia-owned Links)]
+    EU --> StoreE[(EU-owned Links)]
+    US --> StoreU[(US-owned Links)]
+</div></code></pre>
+<p>Generated code có thể chứa đủ routing information để xác định owner, hoặc global directory ánh xạ code tới shard/region.</p>
+<hr>
+<h1 id="77-region-hint-trong-short-code">77. Region Hint trong Short Code</h1>
+<p>Một số bits của ID có thể encode:</p>
+<pre class="hljs"><code><div>- Region
+- Shard
+- Worker
+</div></code></pre>
+<p>Sau Base62, user không nhìn thấy trực tiếp cấu trúc.</p>
+<p>Gateway decode code và route tới home region.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không cần global lookup trước mỗi redirect
+- Partitioning rõ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Lộ topology một phần
+- Migration region khó hơn
+- Code format bị gắn với kiến trúc
+</div></code></pre>
+<p>Có thể dùng virtual shard thay vì physical region để giảm coupling.</p>
+<hr>
+<h1 id="78-global-custom-alias-khó-hơn-generated-code">78. Global Custom Alias khó hơn Generated Code</h1>
+<p>Generated code có thể bảo đảm uniqueness bằng region bits.</p>
+<p>Custom alias:</p>
+<pre class="hljs"><code><div>summer-sale
+</div></code></pre>
+<p>không chứa region.</p>
+<p>Hai region có thể đồng thời nhận yêu cầu cùng alias.</p>
+<p>Để bảo đảm global uniqueness, cần một trong các cách:</p>
+<pre class="hljs"><code><div>- Global consensus store
+- Một alias-owner region duy nhất
+- Partition alias namespace theo tenant/domain
+- Conditional write vào globally consistent database
+</div></code></pre>
+<p>Đây là ví dụ rõ ràng của trade-off active–active.</p>
+<hr>
+<h1 id="79-custom-domain">79. Custom Domain</h1>
+<p>Enterprise có thể dùng:</p>
+<pre class="hljs"><code><div>go.company.com/sale
+</div></code></pre>
+<p>Thay vì namespace toàn cục:</p>
+<pre class="hljs"><code><div>(shortDomain, shortCode)
+</div></code></pre>
+<p>là key.</p>
+<pre class="hljs"><code><div>go.companyA.com/sale
+go.companyB.com/sale
+</div></code></pre>
+<p>không conflict.</p>
+<p>Data model:</p>
+<pre class="hljs"><code><div>domain_id + short_code
+</div></code></pre>
+<p>Custom domain cần:</p>
+<pre class="hljs"><code><div>- DNS verification
+- TLS certificate
+- Ownership proof
+- Abuse controls
+</div></code></pre>
+<hr>
+<h1 id="80-regional-failover">80. Regional Failover</h1>
+<p>Nếu Region A lỗi:</p>
+<pre class="hljs"><code><div>1. Global router ngừng gửi traffic tới A.
+2. Promote replica hoặc chuyển ownership.
+3. Fence writers cũ ở A.
+4. Redirect traffic sang B.
+5. Warm caches.
+6. Reconcile replication lag.
+</div></code></pre>
+<p>Redirect service có thể vẫn hoạt động từ cache ngay cả khi primary store tạm unavailable.</p>
+<hr>
+<h1 id="81-cache-trong-disaster">81. Cache trong Disaster</h1>
+<p>Nếu Link Store tạm lỗi:</p>
+<pre class="hljs"><code><div>- Cache hits vẫn redirect được.
+- Cache misses thất bại.
+</div></code></pre>
+<p>Có thể chọn:</p>
+<pre class="hljs"><code><div>Serve stale cached mapping
+</div></code></pre>
+<p>trong một khoảng khi database lỗi.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Availability cao hơn
+nhưng link vừa block hoặc update có thể stale.
+</div></code></pre>
+<p>Đối với untrusted hoặc blocked links, cần policy an toàn hơn.</p>
+<hr>
+<h1 id="82-failure-mode--distributed-cache-down">82. Failure Mode — Distributed Cache Down</h1>
+<p>Khi Redis lỗi, toàn bộ traffic đổ vào database có thể gây cascading failure.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- L1 cache
+- Circuit breaker
+- Database rate limit
+- Load shedding
+- Stale cache
+- Cache cluster replication
+</div></code></pre>
+<p>Không nên cho mọi request miss cache đồng thời hit database không giới hạn.</p>
+<hr>
+<h1 id="83-failure-mode--link-store-down">83. Failure Mode — Link Store Down</h1>
+<p>Có thể degrade:</p>
+<pre class="hljs"><code><div>Cache hit:
+Vẫn redirect
+
+Cache miss:
+Trả 503 hoặc fallback sang replica
+
+Link creation:
+Tạm unavailable
+</div></code></pre>
+<p>Redirect thường quan trọng hơn create, nên có thể ưu tiên tài nguyên cho read path.</p>
+<hr>
+<h1 id="84-failure-mode--analytics-pipeline-down">84. Failure Mode — Analytics Pipeline Down</h1>
+<p>Redirect không nên dừng.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Buffer giới hạn
+- Ghi local logs
+- Drop/sampling low-priority events
+- Alert analytics lag
+</div></code></pre>
+<p>Tùy business, mất một phần click analytics có thể tốt hơn làm redirect unavailable.</p>
+<hr>
+<h1 id="85-failure-mode--id-generator-down">85. Failure Mode — ID Generator Down</h1>
+<p>Nếu ID generator là service trung tâm và nó lỗi, create link dừng.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Snowflake generation local trong application
+- Preallocated ID ranges
+- Replicated ID service
+- Random code generation
+</div></code></pre>
+<p>Redirect path không phụ thuộc ID generator.</p>
+<hr>
+<h1 id="86-failure-mode--abuse-scanner-down">86. Failure Mode — Abuse Scanner Down</h1>
+<p>Không nên luôn chọn một behavior.</p>
+<p>Có thể:</p>
+<h2 id="fail-open">Fail open</h2>
+<p>Cho phép tạo link rồi scan sau.</p>
+<pre class="hljs"><code><div>Availability cao
+Abuse risk cao hơn
+</div></code></pre>
+<h2 id="fail-closed">Fail closed</h2>
+<p>Từ chối tạo link khi scanner lỗi.</p>
+<pre class="hljs"><code><div>An toàn hơn
+Availability thấp hơn
+</div></code></pre>
+<p>Có thể phân tầng:</p>
+<pre class="hljs"><code><div>Trusted accounts:
+Fail open với async scan
+
+Anonymous/new accounts:
+Fail closed hoặc PENDING_REVIEW
+</div></code></pre>
+<hr>
+<h1 id="87-observability">87. Observability</h1>
+<h2 id="redirect-metrics">Redirect Metrics</h2>
+<pre class="hljs"><code><div>- Request rate
+- p50/p95/p99 latency
+- 2xx/3xx/4xx/5xx rates
+- Cache hit ratio từng tầng
+- Link-store latency
+- Not-found rate
+- Expired/blocked redirect count
+</div></code></pre>
+<h2 id="create-metrics">Create Metrics</h2>
+<pre class="hljs"><code><div>- Creation success rate
+- ID generation latency
+- Collision retry rate
+- Custom alias conflict rate
+- Abuse rejection rate
+</div></code></pre>
+<h2 id="analytics-metrics">Analytics Metrics</h2>
+<pre class="hljs"><code><div>- Event publish rate
+- Consumer lag
+- Dropped events
+- Stream processing latency
+- Reconciliation mismatch
+</div></code></pre>
+<hr>
+<h1 id="88-ví-dụ-slo">88. Ví dụ SLO</h1>
+<p>Các con số sau chỉ là minh họa:</p>
+<pre class="hljs"><code><div>Redirect availability:
+99,99%
+
+Redirect latency:
+99% dưới 100 ms tại edge
+
+Create-link availability:
+99,9%
+
+Analytics freshness:
+99% click events hiển thị trong 2 phút
+</div></code></pre>
+<p>Redirect có SLO cao hơn create vì links đã được chia sẻ phải tiếp tục hoạt động.</p>
+<hr>
+<h1 id="89-tracing">89. Tracing</h1>
+<p>Mỗi request có:</p>
+<pre class="hljs"><code><div>traceId
+requestId
+region
+serviceVersion
+cacheResult
+</div></code></pre>
+<p>Redirect trace có thể ghi:</p>
+<pre class="hljs"><code><div>L1_HIT
+L2_HIT
+DB_LOOKUP
+EDGE_HIT
+</div></code></pre>
+<p>Không log toàn bộ destination URL nếu URL có thể chứa token hoặc PII.</p>
+<hr>
+<h1 id="90-security-của-management-apis">90. Security của Management APIs</h1>
+<p>Redirect endpoint là public.</p>
+<p>Management APIs cần:</p>
+<pre class="hljs"><code><div>- Authentication
+- Authorization
+- Ownership checks
+- CSRF protection nếu dùng browser session
+- Rate limiting
+- Audit log
+</div></code></pre>
+<p>User A không được sửa link của User B chỉ vì đoán được short code.</p>
+<hr>
+<h1 id="91-short-code-không-phải-secret">91. Short Code không phải Secret</h1>
+<p>Một unlisted link:</p>
+<pre class="hljs"><code><div>sho.rt/aZ91Kx2
+</div></code></pre>
+<p>không nên được coi là dữ liệu riêng tư chỉ vì code khó đoán.</p>
+<p>Nếu nội dung cần bảo mật, destination phải có:</p>
+<pre class="hljs"><code><div>- Authentication
+- Signed URL
+- Expiring token
+- Access control
+</div></code></pre>
+<p>URL Shortener không thay thế authorization.</p>
+<hr>
+<h1 id="92-qr-code">92. QR Code</h1>
+<p>QR code chỉ là một representation của short URL.</p>
+<p>Không cần lưu ảnh QR cho mọi link.</p>
+<p>Có thể sinh:</p>
+<pre class="hljs"><code><div>GET /v1/links/{code}/qr
+</div></code></pre>
+<p>theo yêu cầu và cache kết quả.</p>
+<p>Nếu destination thay đổi, QR vẫn giữ short URL nên không cần tạo lại.</p>
+<hr>
+<h1 id="93-preview-page-hay-redirect-ngay">93. Preview Page hay Redirect Ngay?</h1>
+<p>Một số hệ thống có thể hiển thị warning page:</p>
+<pre class="hljs"><code><div>Bạn sắp rời khỏi sho.rt
+</div></code></pre>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Link đáng ngờ
+- Anonymous links
+- Regulatory requirement
+</div></code></pre>
+<p>Nhưng thêm latency và giảm UX.</p>
+<p>Có thể dùng risk-based behavior thay vì mọi link đều qua interstitial page.</p>
+<hr>
+<h1 id="94-phased-architecture-evolution">94. Phased Architecture Evolution</h1>
+<h2 id="giai-đoạn-1">Giai đoạn 1</h2>
+<pre class="hljs"><code><div>- Single region
+- Relational database
+- Auto-increment + Base62
+- Redis cache
+- Async click queue
+</div></code></pre>
+<p>Phù hợp vài triệu links và traffic vừa.</p>
+<h2 id="giai-đoạn-2">Giai đoạn 2</h2>
+<pre class="hljs"><code><div>- Sharded link store
+- Distributed ID generation
+- Multi-tier cache
+- Stream analytics
+- Abuse pipeline
+</div></code></pre>
+<h2 id="giai-đoạn-3">Giai đoạn 3</h2>
+<pre class="hljs"><code><div>- Global edge
+- Multi-region read replicas
+- Partitioned active–active writes
+- Regional analytics
+- DR automation
+</div></code></pre>
+<p>Không nên xây giai đoạn 3 ngay khi chưa có nhu cầu.</p>
+<hr>
+<h1 id="95-thiết-kế-khuyến-nghị-cho-phỏng-vấn">95. Thiết kế Khuyến nghị cho Phỏng vấn</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Generated codes dùng Snowflake-like ID + Base62.
+2. Custom alias dùng conditional unique insert.
+3. Link Store partition theo hash(shortCode).
+4. Redirect dùng CDN/L1/Redis/DB cache hierarchy.
+5. Create ghi authoritative store trước khi trả success.
+6. Click analytics publish bất đồng bộ.
+7. Expiration kiểm tra trên read path và cleanup nền.
+8. Delete/block giữ tombstone, không tái sử dụng code.
+9. Multi-region dùng local redirects và một hoặc nhiều home write regions.
+10. Analytics và search eventual consistent.
+</div></code></pre>
+<hr>
+<h1 id="96-trade-off--random-code-hay-sequential-id">96. Trade-Off — Random Code hay Sequential ID?</h1>
+<h2 id="sequential-id--base62">Sequential ID + Base62</h2>
+<pre class="hljs"><code><div>Ưu:
+Ngắn, không collision, đơn giản.
+
+Nhược:
+Dễ enumerate, central coordination.
+</div></code></pre>
+<h2 id="random-code">Random Code</h2>
+<pre class="hljs"><code><div>Ưu:
+Khó đoán, tạo phân tán.
+
+Nhược:
+Collision retry, code dài hơn.
+</div></code></pre>
+<h2 id="snowflake--base62">Snowflake + Base62</h2>
+<pre class="hljs"><code><div>Ưu:
+Distributed, unique, throughput cao.
+
+Nhược:
+Clock/worker complexity, vẫn có cấu trúc đoán được.
+</div></code></pre>
+<p>Không có lựa chọn tốt tuyệt đối.</p>
+<hr>
+<h1 id="97-trade-off--cache-nhiều-hay-ít">97. Trade-Off — Cache nhiều hay ít?</h1>
+<p>Cache TTL dài:</p>
+<pre class="hljs"><code><div>- Hit ratio cao
+- Database nhẹ
+- Update/block propagation chậm
+</div></code></pre>
+<p>Cache TTL ngắn:</p>
+<pre class="hljs"><code><div>- Fresh hơn
+- Database/cache backend tải cao hơn
+</div></code></pre>
+<p>Có thể dùng TTL khác nhau:</p>
+<pre class="hljs"><code><div>Trusted immutable links:
+TTL dài
+
+Editable links:
+TTL vừa
+
+Untrusted/new links:
+TTL ngắn
+</div></code></pre>
+<hr>
+<h1 id="98-trade-off--dedupe-destination-url">98. Trade-Off — Dedupe Destination URL?</h1>
+<p>Dedupe toàn cục cùng URL thành một short code:</p>
+<pre class="hljs"><code><div>Ưu:
+Giảm storage
+
+Nhược:
+Ownership, expiry, alias và analytics bị trộn
+</div></code></pre>
+<p>Thông thường không nên dedupe toàn cục.</p>
+<p>Có thể dedupe theo:</p>
+<pre class="hljs"><code><div>ownerId + normalizedURL + settings
+</div></code></pre>
+<p>nếu sản phẩm muốn tránh user tự tạo duplicate.</p>
+<hr>
+<h1 id="99-trade-off--edge-cache-và-analytics">99. Trade-Off — Edge Cache và Analytics</h1>
+<p>Cache redirect tại CDN:</p>
+<pre class="hljs"><code><div>Ưu:
+Latency và scale rất tốt.
+
+Nhược:
+Origin không thấy từng click.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Edge logs
+- CDN event streaming
+- Sampled analytics
+- Không edge-cache links cần realtime click tracking
+</div></code></pre>
+<p>Sản phẩm có thể cho user chọn:</p>
+<pre class="hljs"><code><div>Maximum performance
+vs
+Maximum analytics freshness
+</div></code></pre>
+<hr>
+<h1 id="100-trade-off--strong-global-custom-alias">100. Trade-Off — Strong Global Custom Alias</h1>
+<p>Muốn custom alias unique toàn cầu trong active–active:</p>
+<pre class="hljs"><code><div>Cần global coordination.
+</div></code></pre>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Chấp nhận write latency cao
+- Chỉ cho tạo alias tại một region
+- Namespace alias theo custom domain/tenant
+- Cho generated codes local nhưng custom aliases global
+</div></code></pre>
+<p>Đây là cách tách consistency requirement theo feature.</p>
+<hr>
+<h1 id="101-cách-trình-bày-trong-phỏng-vấn">101. Cách Trình bày trong Phỏng vấn</h1>
+<p>Một câu trả lời tốt có thể bắt đầu:</p>
+<blockquote>
+<p>Hệ thống có hai access pattern chính: tạo link và redirect. Redirect nhiều hơn create khoảng hai bậc độ lớn, nên tôi tối ưu read path bằng edge cache, local cache và distributed cache. Authoritative data store là một sharded key-value store được partition theo hash của short code.</p>
+</blockquote>
+<p>Về ID:</p>
+<blockquote>
+<p>Generated links dùng một distributed 64-bit ID, chẳng hạn Snowflake-like ID, sau đó encode Base62. Custom aliases đi qua conditional insert vào namespace có unique constraint. Short codes đã xóa không được tái sử dụng vì bookmarks và QR codes cũ vẫn có thể tồn tại.</p>
+</blockquote>
+<p>Về redirect:</p>
+<blockquote>
+<p>Redirect Service lookup code qua L1, distributed cache rồi Link Store. Nó kiểm tra status và expiration, phát click event bất đồng bộ rồi trả 302. Analytics không nằm trong critical path để sự cố analytics không làm redirect lỗi.</p>
+</blockquote>
+<p>Về multi-region:</p>
+<blockquote>
+<p>Vì redirect nhiều hơn create rất nhiều, tôi ưu tiên active–active reads tại nhiều region nhưng giữ write ownership rõ ràng. Generated IDs có region/worker uniqueness; custom alias toàn cầu cần globally consistent conditional write hoặc một alias-owner region duy nhất. Link records được replicate tới read regions và cache edge.</p>
+</blockquote>
+<hr>
+<h1 id="102-framework-45-phút-trong-interview">102. Framework 45 phút trong Interview</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Create
+- Redirect
+- Custom alias
+- Expiration
+- Analytics
+- Scale và latency
+</div></code></pre>
+<h2 id="phút-510-estimation">Phút 5–10: Estimation</h2>
+<pre class="hljs"><code><div>- Create QPS
+- Redirect QPS
+- Read/write ratio
+- Storage
+</div></code></pre>
+<h2 id="phút-1020-api-và-high-level-architecture">Phút 10–20: API và High-Level Architecture</h2>
+<pre class="hljs"><code><div>- POST /links
+- GET /{code}
+- Redirect Service
+- Link Store
+- Cache
+</div></code></pre>
+<h2 id="phút-2030-deep-dive">Phút 20–30: Deep Dive</h2>
+<pre class="hljs"><code><div>- ID generation
+- Sharding
+- Caching
+- Hot keys
+</div></code></pre>
+<h2 id="phút-3040-reliability-và-features">Phút 30–40: Reliability và Features</h2>
+<pre class="hljs"><code><div>- Analytics
+- Expiration
+- Abuse
+- Multi-region
+</div></code></pre>
+<h2 id="phút-4045-trade-offs">Phút 40–45: Trade-Offs</h2>
+<pre class="hljs"><code><div>- 301 vs 302
+- Random vs generated code
+- Strong vs eventual consistency
+- CDN analytics trade-off
+</div></code></pre>
+<hr>
+<h1 id="103-những-sai-lầm-phổ-biến">103. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-bắt-đầu-ngay-bằng-microservices">Lỗi 1: Bắt đầu ngay bằng Microservices</h2>
+<p>URL Shortener phiên bản đầu có thể rất đơn giản.</p>
+<h2 id="lỗi-2-không-ước-lượng-readwrite-ratio">Lỗi 2: Không ước lượng Read/Write Ratio</h2>
+<p>Bỏ lỡ vai trò quan trọng của cache.</p>
+<h2 id="lỗi-3-dùng-hash-url-rồi-bỏ-qua-collision">Lỗi 3: Dùng Hash URL rồi bỏ qua Collision</h2>
+<p>Truncated hash vẫn có collision.</p>
+<h2 id="lỗi-4-dùng-random-code-nhưng-không-có-unique-conditional-write">Lỗi 4: Dùng Random Code nhưng không có Unique Conditional Write</h2>
+<p>Hai links có thể nhận cùng code.</p>
+<h2 id="lỗi-5-coi-base62-là-encryption">Lỗi 5: Coi Base62 là Encryption</h2>
+<p>Sequential IDs vẫn có thể bị enumerate.</p>
+<h2 id="lỗi-6-tái-sử-dụng-code-đã-xóa">Lỗi 6: Tái sử dụng Code đã Xóa</h2>
+<p>Link cũ có thể redirect sang nội dung mới nguy hiểm.</p>
+<h2 id="lỗi-7-ghi-analytics-đồng-bộ">Lỗi 7: Ghi Analytics đồng bộ</h2>
+<p>Analytics failure làm redirect chậm.</p>
+<h2 id="lỗi-8-lưu-click-counter-trực-tiếp-trong-link-record">Lỗi 8: Lưu Click Counter trực tiếp trong Link Record</h2>
+<p>Hot links tạo write contention trên một record.</p>
+<h2 id="lỗi-9-cache-mà-không-có-invalidation-strategy">Lỗi 9: Cache mà không có Invalidation Strategy</h2>
+<p>Update hoặc block không có hiệu lực.</p>
+<h2 id="lỗi-10-cache-ttl-dài-hơn-expiration">Lỗi 10: Cache TTL dài hơn Expiration</h2>
+<p>Link hết hạn vẫn redirect.</p>
+<h2 id="lỗi-11-không-negative-cache">Lỗi 11: Không Negative Cache</h2>
+<p>Random code scanning làm quá tải database.</p>
+<h2 id="lỗi-12-dùng-search-index-để-redirect">Lỗi 12: Dùng Search Index để Redirect</h2>
+<p>Redirect cần exact key-value lookup, không cần full-text search.</p>
+<h2 id="lỗi-13-không-phân-biệt-301-và-302">Lỗi 13: Không phân biệt 301 và 302</h2>
+<p>Browser cache làm mất khả năng update và track.</p>
+<h2 id="lỗi-14-multi-region-nhưng-không-giải-quyết-global-alias-uniqueness">Lỗi 14: Multi-Region nhưng không giải quyết Global Alias Uniqueness</h2>
+<p>Hai regions có thể tạo cùng alias.</p>
+<h2 id="lỗi-15-coi-short-code-là-access-control">Lỗi 15: Coi Short Code là Access Control</h2>
+<p>Ai có URL vẫn có thể truy cập destination.</p>
+<h2 id="lỗi-16-preview-destination-không-chống-ssrf">Lỗi 16: Preview Destination không chống SSRF</h2>
+<p>Attacker truy cập internal network qua preview service.</p>
+<h2 id="lỗi-17-không-có-abuse-pipeline">Lỗi 17: Không có Abuse Pipeline</h2>
+<p>Shortener nhanh chóng trở thành hạ tầng phishing.</p>
+<h2 id="lỗi-18-không-xử-lý-hot-link">Lỗi 18: Không xử lý Hot Link</h2>
+<p>Một link viral làm nóng một cache shard hoặc analytics partition.</p>
+<h2 id="lỗi-19-dùng-average-qps-để-capacity-planning">Lỗi 19: Dùng Average QPS để Capacity Planning</h2>
+<p>Peak và skew mới là vấn đề chính.</p>
+<h2 id="lỗi-20-không-có-tombstone">Lỗi 20: Không có Tombstone</h2>
+<p>Không phân biệt code chưa từng tồn tại và code đã bị thu hồi.</p>
+<hr>
+<h1 id="104-bảng-ghi-nhớ-nhanh">104. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Lựa chọn chính</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Redirect code</td>
+<td>Base62</td>
+</tr>
+<tr>
+<td>Generated ID</td>
+<td>Snowflake/random/sequence</td>
+</tr>
+<tr>
+<td>Custom alias</td>
+<td>Unique conditional insert</td>
+</tr>
+<tr>
+<td>Primary lookup</td>
+<td><code>shortCode → LinkRecord</code></td>
+</tr>
+<tr>
+<td>Partition key</td>
+<td>Hash của short code</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>CDN + L1 + distributed cache</td>
+</tr>
+<tr>
+<td>Redirect status</td>
+<td>302/307 mặc định</td>
+</tr>
+<tr>
+<td>Analytics</td>
+<td>Async event stream</td>
+</tr>
+<tr>
+<td>Expiration</td>
+<td>Read-time check + background cleanup</td>
+</tr>
+<tr>
+<td>Deleted codes</td>
+<td>Tombstone, không tái sử dụng</td>
+</tr>
+<tr>
+<td>Hot links</td>
+<td>Edge cache và replicated caches</td>
+</tr>
+<tr>
+<td>Abuse</td>
+<td>Reputation, scan, rate limit, report</td>
+</tr>
+<tr>
+<td>Multi-region</td>
+<td>Local reads, explicit write ownership</td>
+</tr>
+<tr>
+<td>Analytics consistency</td>
+<td>Eventual</td>
+</tr>
+<tr>
+<td>Code uniqueness</td>
+<td>Strong</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="105-sơ-đồ-tổng-hợp">105. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Edge[CDN / WAF / Global Router]
+
+    Edge --> Redirect[Redirect Service]
+    Edge --> API[Link Management API]
+
+    Redirect --> Local[Local Cache]
+    Local --> Cache[(Distributed Cache)]
+    Cache --> Store[(Sharded Link Store)]
+
+    API --> Validate[Validation + Abuse Checks]
+    Validate --> ID[Distributed ID Generator]
+    ID --> Store
+    API --> Cache
+
+    Redirect --> EventStream[Click Event Stream]
+    EventStream --> Realtime[Realtime Aggregation]
+    EventStream --> Raw[(Raw Event Storage)]
+
+    Realtime --> Dashboard[(Analytics DB)]
+    Raw --> Batch[Batch Processing]
+    Batch --> Warehouse[(Warehouse)]
+
+    AbuseWorkers[Abuse Workers] --> Store
+    AbuseWorkers --> Cache
+    AbuseWorkers --> Edge
+</div></code></pre>
+<hr>
+<h1 id="106-những-điều-phải-nhớ-sau-bài-22">106. Những Điều Phải Nhớ sau Bài 22</h1>
+<pre class="hljs"><code><div>1. URL Shortener là hệ thống read-heavy.
+2. Redirect path quan trọng hơn create path về availability và latency.
+3. Short code phải unique trong namespace của domain.
+4. Base62 là encoding, không phải encryption.
+5. Sequential ID tạo code ngắn nhưng dễ enumerate.
+6. Random code cần unique constraint và retry collision.
+7. Snowflake-like ID hỗ trợ distributed generation.
+8. Custom alias cần conditional insert để chống race.
+9. Không nên tái sử dụng code đã xóa.
+10. Link Store phù hợp với exact key-value lookup.
+11. Hash sharding phân phối dữ liệu tốt hơn range ID tăng dần.
+12. Cache hierarchy có thể gồm CDN, local cache và distributed cache.
+13. Cache TTL không được vượt quá link expiration.
+14. Update/delete cần cache invalidation.
+15. Negative cache bảo vệ database khỏi random-code scanning.
+16. Hot links nên được xử lý tại edge/cache.
+17. Không update click counter đồng bộ trong link record.
+18. Analytics phải được phát bất đồng bộ.
+19. Analytics có thể eventual consistent.
+20. Event stream partition theo link có thể gặp hot partition.
+21. Two-stage aggregation xử lý hot-link analytics.
+22. Unique visitors thường có thể tính xấp xỉ.
+23. Redirect nên mặc định dùng 302/307 nếu link có thể thay đổi.
+24. 301 có thể bị browser cache mạnh.
+25. Expiration phải được kiểm tra ngay trên redirect path.
+26. Background cleanup không được là cơ chế expiration duy nhất.
+27. Tombstone giúp ngăn tái sử dụng code nguy hiểm.
+28. Abuse prevention là yêu cầu cốt lõi của URL Shortener.
+29. Link preview phải chống SSRF.
+30. Chỉ nên cho phép các URL schemes an toàn.
+31. Short code không phải access-control secret.
+32. Management API cần authentication và ownership check.
+33. Data privacy áp dụng cho IP, referrer và destination URL.
+34. Global reads dễ hơn global writes.
+35. Generated IDs có thể unique theo region mà không cần consensus toàn cục.
+36. Global custom alias cần coordination mạnh hơn.
+37. Read-after-write phải được bảo đảm cho link vừa tạo.
+38. Delete/block thường cần propagation nhanh hơn update thông thường.
+39. Region outage cần failover và fencing write owner cũ.
+40. Analytics failure không nên làm redirect failure.
+41. Cache outage cần tránh traffic avalanche xuống database.
+42. DR capacity phải đủ cho redirect traffic.
+43. SLO redirect thường nghiêm ngặt hơn SLO create.
+44. Observability phải phân biệt edge hit, cache hit và DB lookup.
+45. Kiến trúc nên tiến hóa theo quy mô thay vì bắt đầu quá phức tạp.
+</div></code></pre>
+<hr>
+<h1 id="107-bài-tập-thiết-kế-mở-rộng">107. Bài tập Thiết kế Mở rộng</h1>
+<p>Giả sử URL Shortener có yêu cầu mới:</p>
+<pre class="hljs"><code><div>- 1 tỷ redirects mỗi ngày
+- 50 triệu links mới mỗi ngày
+- 5 regions active–active
+- Enterprise custom domains
+- Link destination có thể thay đổi
+- Analytics realtime dưới 10 giây
+- Phishing link phải bị chặn toàn cầu dưới 30 giây
+- Link có thể có password hoặc chỉ cho một nhóm user
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Generated IDs được tạo thế nào giữa năm regions?
+2. Short code có encode region/shard không?
+3. Custom aliases được bảo đảm global uniqueness thế nào?
+4. Custom domain tạo namespace riêng ra sao?
+5. Link Store dùng sharded SQL hay distributed KV?
+6. Partition key là gì?
+7. Read-after-write xuyên region được bảo đảm ra sao?
+8. Cache hierarchy gồm những tầng nào?
+9. Block event được propagate tới CDN dưới 30 giây thế nào?
+10. Cache value có version không?
+11. Hot link một triệu QPS được xử lý thế nào?
+12. Analytics stream tránh hot partition ra sao?
+13. Unique visitors tính chính xác hay xấp xỉ?
+14. Link password được xác minh ở đâu?
+15. Private link có được cache ở CDN không?
+16. Authorization token có được đưa vào short URL không?
+17. Expired links được cleanup thế nào?
+18. Có tái sử dụng aliases đã xóa không?
+19. Region outage ảnh hưởng RPO thế nào?
+20. Global alias service mất quorum thì create degrade ra sao?
+21. Redirect có tiếp tục hoạt động khi analytics chết không?
+22. Abuse scanner fail-open hay fail-closed?
+23. Preview service chống SSRF ra sao?
+24. Data residency ảnh hưởng click analytics thế nào?
+25. Những SLO nào cần được định nghĩa?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-1">Kết luận Case Study 1</h1>
+<p>URL Shortener cho thấy một nguyên tắc rất quan trọng của System Design:</p>
+<blockquote>
+<p><strong>Một bài toán nhìn như một bảng ánh xạ đơn giản có thể trở thành hệ thống phân tán phức tạp khi thêm scale, latency, analytics, security và multi-region.</strong></p>
+</blockquote>
+<p>Tuy nhiên kiến trúc cốt lõi vẫn nên giữ đơn giản:</p>
+<pre class="hljs"><code><div>Generate unique code
+→ Store reliable mapping
+→ Cache aggressively
+→ Redirect quickly
+→ Track asynchronously
+</div></code></pre>
+<p><strong>Bài 23 — Case Study 2: Thiết kế Notification System:</strong> email, SMS, push notification, in-app notification, user preferences, templates, scheduling, fan-out, retries, idempotency, rate limits, provider failover và delivery tracking.</p>
+
+</body>
+</html>

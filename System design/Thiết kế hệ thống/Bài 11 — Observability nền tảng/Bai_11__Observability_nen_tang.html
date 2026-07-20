@@ -1,0 +1,2422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 11 — Observability nền tảng.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-11--observability-nền-tảng">Bài 11 — Observability nền tảng</h1>
+<p>Khi một hệ thống nhỏ gặp lỗi, ta có thể mở terminal, đọc log và kiểm tra database.</p>
+<p>Nhưng trong distributed system, một request có thể đi qua:</p>
+<pre class="hljs"><code><div>CDN
+→ API Gateway
+→ Authentication Service
+→ Order Service
+→ Inventory Service
+→ Payment Service
+→ Message Queue
+→ Notification Worker
+</div></code></pre>
+<p>Nếu user báo:</p>
+<blockquote>
+<p>“Tôi bấm đặt hàng nhưng trang quay 8 giây rồi báo lỗi.”</p>
+</blockquote>
+<p>Ta cần trả lời được:</p>
+<pre class="hljs"><code><div>- Request đã đi qua những service nào?
+- Nó chậm ở đâu?
+- Service nào trả lỗi đầu tiên?
+- Database có chậm không?
+- Có retry bao nhiêu lần?
+- Payment đã thành công chưa?
+- Event có vào queue không?
+- Consumer có xử lý chưa?
+- Đây là lỗi một user hay toàn hệ thống?
+</div></code></pre>
+<p><strong>Observability</strong> là khả năng hiểu trạng thái bên trong hệ thống thông qua các tín hiệu mà hệ thống phát ra. Nó là phần bắt buộc của một hệ thống production-ready, bên cạnh reliability, scaling, database, caching và load balancing.</p>
+<p>Ba tín hiệu nền tảng:</p>
+<pre class="hljs"><code><div>Logs
+Metrics
+Traces
+</div></code></pre>
+<hr>
+<h1 id="1-monitoring-và-observability-khác-nhau-thế-nào">1. Monitoring và Observability khác nhau thế nào?</h1>
+<p>Hai khái niệm có liên quan nhưng không hoàn toàn giống nhau.</p>
+<h2 id="monitoring">Monitoring</h2>
+<p>Monitoring trả lời các câu hỏi đã biết trước:</p>
+<pre class="hljs"><code><div>- CPU có vượt 80% không?
+- Error rate có tăng không?
+- Database còn hoạt động không?
+- Queue backlog có vượt ngưỡng không?
+</div></code></pre>
+<p>Ta xác định metric và alert từ trước.</p>
+<hr>
+<h2 id="observability">Observability</h2>
+<p>Observability giúp điều tra cả những vấn đề chưa dự đoán trước.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Chỉ user dùng phiên bản mobile 7.3,
+ở khu vực châu Á,
+thanh toán bằng một provider cụ thể,
+mới gặp timeout sau khi retry lần hai.
+</div></code></pre>
+<p>Bạn có thể chưa tạo alert riêng cho trường hợp này, nhưng dữ liệu observability đủ phong phú để điều tra.</p>
+<p>Cách nhớ:</p>
+<blockquote>
+<p><strong>Monitoring nói hệ thống có vấn đề. Observability giúp giải thích vì sao.</strong></p>
+</blockquote>
+<hr>
+<h1 id="2-ba-trụ-cột-logs-metrics-và-traces">2. Ba trụ cột: Logs, Metrics và Traces</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    O[Observability] --> L[Logs]
+    O --> M[Metrics]
+    O --> T[Traces]
+
+    L --> L1[Chi tiết từng sự kiện]
+    M --> M1[Xu hướng và số liệu tổng hợp]
+    T --> T1[Hành trình request qua nhiều service]
+</div></code></pre>
+<p>Mỗi loại trả lời một nhóm câu hỏi khác nhau.</p>
+<hr>
+<h1 id="3-logs-là-gì">3. Logs là gì?</h1>
+<p>Log là bản ghi về một sự kiện đã xảy ra.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order ord_123 was created.
+Payment provider returned timeout.
+User user_456 failed authentication.
+</div></code></pre>
+<p>Log thường có độ chi tiết cao và gắn với một thời điểm cụ thể.</p>
+<hr>
+<h2 id="log-dạng-text-truyền-thống">Log dạng text truyền thống</h2>
+<pre class="hljs"><code><div>2026-07-11 10:25:13 ERROR Payment failed for order ord_123
+</div></code></pre>
+<p>Dễ đọc bằng mắt nhưng khó query chính xác.</p>
+<hr>
+<h2 id="structured-logging">Structured logging</h2>
+<p>Tốt hơn là log dưới dạng có cấu trúc, thường là JSON:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:25:13.482Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;level&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ERROR&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;payment-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;environment&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;production&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Payment provider timed out&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pay_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;provider&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;provider-a&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;durationMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2003</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_7f91&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;spanId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;span_31ab&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;errorCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PROVIDER_TIMEOUT&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Structured logs cho phép query:</p>
+<pre class="hljs"><code><div>service = payment-service
+AND errorCode = PROVIDER_TIMEOUT
+AND provider = provider-a
+</div></code></pre>
+<p>Dễ hơn tìm bằng chuỗi tự do.</p>
+<hr>
+<h1 id="4-log-nên-chứa-gì">4. Log nên chứa gì?</h1>
+<p>Một application log hữu ích thường có:</p>
+<pre class="hljs"><code><div>timestamp
+level
+service
+environment
+message
+event name
+request ID
+trace ID
+span ID
+relevant business IDs
+duration
+result/error code
+version/deployment
+region/zone
+</div></code></pre>
+<p>Ví dụ business IDs:</p>
+<pre class="hljs"><code><div>userId
+orderId
+paymentId
+uploadId
+conversationId
+</div></code></pre>
+<p>Nhưng phải tránh log dữ liệu nhạy cảm.</p>
+<hr>
+<h1 id="5-log-levels">5. Log levels</h1>
+<p>Các mức phổ biến:</p>
+<h2 id="trace">TRACE</h2>
+<p>Cực kỳ chi tiết.</p>
+<pre class="hljs"><code><div>Entered method X.
+Parsed field Y.
+</div></code></pre>
+<p>Thường chỉ dùng tạm thời hoặc trong môi trường phát triển.</p>
+<hr>
+<h2 id="debug">DEBUG</h2>
+<p>Thông tin giúp debug.</p>
+<pre class="hljs"><code><div>Cache miss for product p_123.
+Retry attempt 2 for provider-a.
+</div></code></pre>
+<p>Production có thể bật có chọn lọc vì volume rất lớn.</p>
+<hr>
+<h2 id="info">INFO</h2>
+<p>Sự kiện nghiệp vụ hoặc lifecycle bình thường.</p>
+<pre class="hljs"><code><div>Order created.
+Worker started.
+Configuration loaded.
+</div></code></pre>
+<hr>
+<h2 id="warn">WARN</h2>
+<p>Tình huống bất thường nhưng hệ thống vẫn tiếp tục.</p>
+<pre class="hljs"><code><div>Payment provider latency is elevated.
+Cache unavailable; falling back to database.
+</div></code></pre>
+<hr>
+<h2 id="error">ERROR</h2>
+<p>Operation thất bại.</p>
+<pre class="hljs"><code><div>Payment failed after retries.
+Database transaction rolled back.
+</div></code></pre>
+<hr>
+<h2 id="fatal">FATAL</h2>
+<p>Application không thể tiếp tục vận hành.</p>
+<pre class="hljs"><code><div>Cannot load mandatory configuration.
+Database schema incompatible.
+</div></code></pre>
+<p>Không nên dùng <code>ERROR</code> cho mọi thứ, vì alert và việc điều tra sẽ bị nhiễu.</p>
+<hr>
+<h1 id="6-event-log-và-debug-log">6. Event log và debug log</h1>
+<p>Nên phân biệt:</p>
+<h2 id="business-event-log">Business event log</h2>
+<pre class="hljs"><code><div>OrderCreated
+PaymentSucceeded
+RefundRequested
+UserRegistered
+</div></code></pre>
+<p>Có giá trị audit hoặc điều tra nghiệp vụ.</p>
+<h2 id="technicaldebug-log">Technical/debug log</h2>
+<pre class="hljs"><code><div>Connection timeout
+Cache miss
+Retry attempt
+Thread pool saturated
+</div></code></pre>
+<p>Hai loại có retention, quyền truy cập và mục đích khác nhau.</p>
+<hr>
+<h1 id="7-những-gì-không-được-log">7. Những gì không được log</h1>
+<p>Không nên log trực tiếp:</p>
+<pre class="hljs"><code><div>- Password
+- Access token
+- Refresh token
+- API secret
+- Private key
+- Full credit card number
+- CVV
+- Session cookie
+- Signed URL đầy đủ
+- Dữ liệu sức khỏe hoặc dữ liệu riêng tư không cần thiết
+</div></code></pre>
+<p>Ví dụ không tốt:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;authorization&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bearer eyJhbGciOi...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nên redact:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;authorization&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;[REDACTED]&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Email hoặc phone có thể cần mask:</p>
+<pre class="hljs"><code><div>lu***@example.com
++84******789
+</div></code></pre>
+<hr>
+<h1 id="8-không-log-toàn-bộ-requestresponse-mù-quáng">8. Không log toàn bộ request/response mù quáng</h1>
+<p>Một lỗi phổ biến:</p>
+<pre class="hljs"><code><div>Log toàn bộ request body và response body để dễ debug.
+</div></code></pre>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Lộ dữ liệu nhạy cảm
+- Log volume rất lớn
+- Tăng chi phí
+- Giảm hiệu năng
+- Khó tìm tín hiệu quan trọng
+</div></code></pre>
+<p>Nên log metadata và field cần thiết:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;endpoint&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;POST /payments&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestSizeBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">850</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;statusCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">503</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;durationMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2100</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pay_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="9-log-aggregation">9. Log aggregation</h1>
+<p>Trong distributed system, log nằm trên nhiều máy và container.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A1[API Server 1] --> Agent1[Log Agent]
+    A2[API Server 2] --> Agent2[Log Agent]
+    W1[Worker] --> Agent3[Log Agent]
+
+    Agent1 --> Pipeline[Log Pipeline]
+    Agent2 --> Pipeline
+    Agent3 --> Pipeline
+
+    Pipeline --> Store[(Central Log Store)]
+    Store --> Search[Search / Dashboard]
+</div></code></pre>
+<p>Nếu không aggregate:</p>
+<pre class="hljs"><code><div>Request có thể chạy ở Server 2,
+nhưng bạn đang SSH vào Server 1.
+</div></code></pre>
+<p>Trong môi trường autoscaling, container có thể đã biến mất trước khi bạn kiểm tra.</p>
+<p>Do đó logs cần được gửi đến hệ thống tập trung.</p>
+<hr>
+<h1 id="10-log-retention">10. Log retention</h1>
+<p>Không phải mọi log cần giữ mãi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Debug logs: 3–7 ngày
+Application logs: 14–30 ngày
+Security audit logs: lâu hơn theo policy
+Financial audit records: theo yêu cầu pháp lý
+</div></code></pre>
+<p>Retention cần cân bằng:</p>
+<pre class="hljs"><code><div>- Chi phí
+- Điều tra sự cố
+- Compliance
+- Quyền riêng tư
+</div></code></pre>
+<p>Có thể chuyển log cũ sang object storage rẻ hơn.</p>
+<hr>
+<h1 id="11-log-sampling">11. Log sampling</h1>
+<p>Hệ thống có 1 triệu request/giây không thể luôn log chi tiết mọi request.</p>
+<p>Sampling:</p>
+<pre class="hljs"><code><div>- Log 1% request bình thường
+- Log 100% request lỗi
+- Log 100% request latency cao
+- Log 100% request thuộc canary deployment
+</div></code></pre>
+<p>Đây là <strong>tail-aware</strong> hoặc condition-aware sampling ở mức khái niệm.</p>
+<p>Không nên sample mất toàn bộ lỗi hiếm.</p>
+<hr>
+<h1 id="12-metrics-là-gì">12. Metrics là gì?</h1>
+<p>Metric là số liệu được tổng hợp theo thời gian.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>http_requests_total = 5.000.000
+http_errors_total = 20.000
+request_duration_p95 = 320 ms
+queue_depth = 40.000
+cpu_utilization = 72%
+</div></code></pre>
+<p>Metric không kể toàn bộ câu chuyện của từng request, nhưng rất tốt để thấy:</p>
+<pre class="hljs"><code><div>- Xu hướng
+- Spike
+- So sánh
+- Alert
+- Capacity
+</div></code></pre>
+<hr>
+<h1 id="13-các-loại-metric">13. Các loại metric</h1>
+<h2 id="counter">Counter</h2>
+<p>Chỉ tăng, thường reset khi process restart.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>http_requests_total
+payment_failures_total
+messages_processed_total
+</div></code></pre>
+<p>Counter phù hợp để tính rate:</p>
+<pre class="hljs"><code><div>Requests per second
+Errors per minute
+</div></code></pre>
+<hr>
+<h2 id="gauge">Gauge</h2>
+<p>Có thể tăng hoặc giảm.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>current_queue_depth
+active_connections
+memory_usage_bytes
+healthy_instances
+</div></code></pre>
+<hr>
+<h2 id="histogram">Histogram</h2>
+<p>Phân phối các giá trị theo bucket.</p>
+<p>Ví dụ latency:</p>
+<pre class="hljs"><code><div>≤ 50 ms
+≤ 100 ms
+≤ 250 ms
+≤ 500 ms
+≤ 1.000 ms
+</div></code></pre>
+<p>Histogram cho phép tính percentile tổng hợp tốt hơn.</p>
+<hr>
+<h2 id="summary">Summary</h2>
+<p>Theo dõi distribution và percentile phía client/process.</p>
+<p>Cách triển khai cụ thể tùy hệ thống metrics. Điều quan trọng là hiểu rằng average không đủ.</p>
+<hr>
+<h1 id="14-average-latency-có-thể-đánh-lừa">14. Average latency có thể đánh lừa</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>99 request mất 100 ms
+1 request mất 10.000 ms
+</div></code></pre>
+<p>Average:</p>
+<pre class="hljs"><code><div>(99 × 100 + 10.000) / 100
+≈ 199 ms
+</div></code></pre>
+<p>Average trông chưa quá tệ.</p>
+<p>Nhưng một user phải chờ 10 giây.</p>
+<p>Do đó cần percentile.</p>
+<hr>
+<h1 id="15-p50-p95-p99">15. p50, p95, p99</h1>
+<h2 id="p50">p50</h2>
+<p>50% request nhanh hơn giá trị này.</p>
+<p>Gần với trải nghiệm median.</p>
+<h2 id="p95">p95</h2>
+<p>95% request nhanh hơn giá trị này.</p>
+<p>5% request chậm hơn.</p>
+<h2 id="p99">p99</h2>
+<p>99% request nhanh hơn giá trị này.</p>
+<p>1% request chậm hơn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>p50 = 80 ms
+p95 = 250 ms
+p99 = 1.800 ms
+</div></code></pre>
+<p>Điều này cho thấy đa số request nhanh nhưng tail latency rất cao.</p>
+<hr>
+<h1 id="16-tail-latency">16. Tail latency</h1>
+<p>Trong distributed system, tail latency đặc biệt quan trọng.</p>
+<p>Giả sử một API gọi song song 20 service và cần chờ tất cả.</p>
+<p>Dù mỗi service chỉ có 1% khả năng chậm, xác suất ít nhất một service chậm sẽ tăng khi fan-out lớn.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Gateway --> S1[Service 1]
+    Gateway --> S2[Service 2]
+    Gateway --> S3[Service 3]
+    Gateway --> SN[... Service 20]
+</div></code></pre>
+<p>Một dependency chậm có thể quyết định thời gian toàn request.</p>
+<p>Vì vậy cần theo dõi:</p>
+<pre class="hljs"><code><div>p95
+p99
+p99.9
+</div></code></pre>
+<p>không chỉ average.</p>
+<hr>
+<h1 id="17-cardinality-trong-metrics">17. Cardinality trong metrics</h1>
+<p>Metric thường có labels:</p>
+<pre class="hljs"><code><div>http_requests_total{
+  service=&quot;order&quot;,
+  method=&quot;POST&quot;,
+  status=&quot;200&quot;
+}
+</div></code></pre>
+<p>Labels giúp phân tích.</p>
+<p>Nhưng không nên dùng label có vô số giá trị:</p>
+<pre class="hljs"><code><div>userId
+orderId
+requestId
+full URL chứa ID
+</div></code></pre>
+<p>Ví dụ nguy hiểm:</p>
+<pre class="hljs"><code><div>http_requests_total{userId=&quot;user_123&quot;}
+http_requests_total{userId=&quot;user_124&quot;}
+...
+</div></code></pre>
+<p>Nếu có 100 triệu user, hệ thống metrics phải quản lý 100 triệu time series.</p>
+<p>Đây là <strong>high cardinality</strong>.</p>
+<hr>
+<h1 id="18-labels-tốt-và-xấu">18. Labels tốt và xấu</h1>
+<h2 id="labels-tốt">Labels tốt</h2>
+<p>Số giá trị hữu hạn:</p>
+<pre class="hljs"><code><div>service
+environment
+region
+method
+route
+status class
+provider
+operation
+</div></code></pre>
+<p>Ví dụ route:</p>
+<pre class="hljs"><code><div>/orders/{orderId}
+</div></code></pre>
+<p>Không dùng URL cụ thể:</p>
+<pre class="hljs"><code><div>/orders/ord_123
+/orders/ord_456
+</div></code></pre>
+<hr>
+<h2 id="labels-nguy-hiểm">Labels nguy hiểm</h2>
+<pre class="hljs"><code><div>userId
+orderId
+sessionId
+traceId
+error message nguyên bản
+</div></code></pre>
+<p>Những field này phù hợp hơn với logs hoặc traces.</p>
+<hr>
+<h1 id="19-metrics-cần-được-chuẩn-hóa">19. Metrics cần được chuẩn hóa</h1>
+<p>Các service nên dùng naming và labels nhất quán.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>Service A: request_time
+Service B: api_latency_ms
+Service C: duration
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>http_server_request_duration_seconds
+http_server_requests_total
+</div></code></pre>
+<p>Sự nhất quán giúp dashboard và alert tái sử dụng được.</p>
+<hr>
+<h1 id="20-tracing-là-gì">20. Tracing là gì?</h1>
+<p>Distributed tracing theo dõi hành trình của một request qua nhiều service.</p>
+<p>Một trace gồm nhiều <strong>span</strong>.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> G[Gateway span]
+    G --> O[Order span]
+    O --> I[Inventory span]
+    O --> P[Payment span]
+    P --> F[Fraud span]
+</div></code></pre>
+<p>Trace trả lời:</p>
+<pre class="hljs"><code><div>- Request đi qua đâu?
+- Mỗi bước mất bao lâu?
+- Service nào lỗi?
+- Có retry không?
+- Call nào diễn ra song song?
+</div></code></pre>
+<hr>
+<h1 id="21-trace-span-và-context">21. Trace, Span và Context</h1>
+<h2 id="trace-1">Trace</h2>
+<p>Toàn bộ hành trình của một request hoặc workflow.</p>
+<pre class="hljs"><code><div>traceId = trace_abc
+</div></code></pre>
+<h2 id="span">Span</h2>
+<p>Một đơn vị công việc trong trace.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Gateway HTTP request
+Order DB query
+Payment provider call
+Kafka publish
+</div></code></pre>
+<p>Mỗi span có:</p>
+<pre class="hljs"><code><div>spanId
+parentSpanId
+start time
+duration
+status
+attributes
+events
+</div></code></pre>
+<hr>
+<h1 id="22-ví-dụ-một-trace">22. Ví dụ một trace</h1>
+<pre class="hljs"><code><div>Trace: checkout request — 1.850 ms
+
+Gateway                      1.850 ms
+└── Order Service            1.700 ms
+    ├── Inventory Service      180 ms
+    ├── PostgreSQL query        45 ms
+    └── Payment Service       1.420 ms
+        └── Provider API      1.350 ms
+</div></code></pre>
+<p>Ta thấy bottleneck là payment provider.</p>
+<p>Nếu chỉ nhìn Gateway log:</p>
+<pre class="hljs"><code><div>Request took 1.850 ms
+</div></code></pre>
+<p>ta chưa biết vì sao.</p>
+<hr>
+<h1 id="23-waterfall-trace">23. Waterfall trace</h1>
+<pre><code class="language-mermaid"><div class="mermaid">gantt
+    title Checkout Trace
+    dateFormat X
+    axisFormat %L ms
+
+    section Gateway
+    HTTP request        :0, 1850
+
+    section Order
+    Order processing    :80, 1700
+
+    section Inventory
+    Reserve inventory   :150, 330
+
+    section Database
+    Insert order        :350, 395
+
+    section Payment
+    Payment request     :400, 1820
+</div></code></pre>
+<p>Trace cho thấy dependency nào chạy tuần tự, song song hoặc chậm.</p>
+<hr>
+<h1 id="24-span-attributes">24. Span attributes</h1>
+<p>Ví dụ span của database:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_abc&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;spanId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;span_db1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SELECT orders&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;durationMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;attributes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;db.system&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;postgresql&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;db.operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SELECT&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;db.table&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;orders&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;region&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;asia-southeast&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên ghi raw SQL có dữ liệu nhạy cảm nếu không cần.</p>
+<p>Có thể dùng normalized statement hoặc operation name.</p>
+<hr>
+<h1 id="25-trace-sampling">25. Trace sampling</h1>
+<p>Tracing mọi request có thể rất đắt.</p>
+<p>Sampling strategies:</p>
+<h2 id="head-based-sampling">Head-based sampling</h2>
+<p>Quyết định sample ngay khi request bắt đầu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Lưu 1% trace.
+</div></code></pre>
+<p>Đơn giản nhưng có thể bỏ lỡ lỗi hiếm.</p>
+<hr>
+<h2 id="tail-based-sampling">Tail-based sampling</h2>
+<p>Quyết định sau khi trace hoàn tất.</p>
+<p>Ưu tiên giữ:</p>
+<pre class="hljs"><code><div>- Trace lỗi
+- Trace chậm
+- Trace hiếm
+- Trace từ canary
+</div></code></pre>
+<p>Tốn tài nguyên hơn nhưng hữu ích hơn khi điều tra.</p>
+<hr>
+<h1 id="26-async-tracing">26. Async tracing</h1>
+<p>Trace không dừng ở HTTP.</p>
+<p>Khi publish message, phải truyền trace context:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_abc&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant API
+    participant Broker
+    participant Worker
+    participant DB
+
+    API->>Broker: Publish event + trace context
+    Broker->>Worker: Deliver event
+    Worker->>DB: Process
+</div></code></pre>
+<p>Worker tạo span con hoặc linked span.</p>
+<p>Nếu không truyền context, trace sẽ bị đứt tại message queue.</p>
+<hr>
+<h1 id="27-correlation-id-là-gì">27. Correlation ID là gì?</h1>
+<p>Correlation ID là một ID dùng để liên kết các sự kiện thuộc cùng một request hoặc workflow.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>correlationId = order_ord_123
+</div></code></pre>
+<p>Nó có thể xuất hiện trong:</p>
+<pre class="hljs"><code><div>- API logs
+- Queue messages
+- Payment logs
+- Notification logs
+</div></code></pre>
+<p>Query correlation ID cho phép tìm toàn bộ workflow.</p>
+<hr>
+<h1 id="28-request-id-trace-id-và-correlation-id">28. Request ID, Trace ID và Correlation ID</h1>
+<p>Ba khái niệm có thể khác nhau.</p>
+<h2 id="request-id">Request ID</h2>
+<p>Định danh một HTTP request cụ thể.</p>
+<p>Nếu client retry, mỗi attempt có thể có request ID khác.</p>
+<pre class="hljs"><code><div>req_1
+req_2
+</div></code></pre>
+<hr>
+<h2 id="trace-id">Trace ID</h2>
+<p>Định danh một distributed trace.</p>
+<p>Một attempt xuyên nhiều service thường dùng một trace ID.</p>
+<hr>
+<h2 id="correlation-id">Correlation ID</h2>
+<p>Liên kết nhiều request, trace hoặc event thuộc cùng một nghiệp vụ.</p>
+<p>Ví dụ một order tồn tại nhiều ngày:</p>
+<pre class="hljs"><code><div>PlaceOrder trace
+Payment webhook trace
+Shipping event trace
+Refund trace
+</div></code></pre>
+<p>Tất cả có thể dùng:</p>
+<pre class="hljs"><code><div>correlationId = ord_123
+</div></code></pre>
+<hr>
+<h1 id="29-ví-dụ-id-hierarchy">29. Ví dụ ID hierarchy</h1>
+<pre class="hljs"><code><div>Business workflow:
+correlationId = ord_123
+
+HTTP attempt 1:
+requestId = req_a
+traceId = trace_a
+
+HTTP retry:
+requestId = req_b
+traceId = trace_b
+
+Payment webhook:
+requestId = req_c
+traceId = trace_c
+</div></code></pre>
+<p>Tất cả cùng correlation ID:</p>
+<pre class="hljs"><code><div>ord_123
+</div></code></pre>
+<p>Điều này giúp điều tra workflow dài hơn một request.</p>
+<hr>
+<h1 id="30-propagate-correlation-context">30. Propagate correlation context</h1>
+<p>Gateway nhận request:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">X-Request-ID</span><span class="hljs-punctuation">: </span>req_123
+<span class="hljs-attribute">X-Correlation-ID</span><span class="hljs-punctuation">: </span>ord_456
+</div></code></pre>
+<p>Nếu client không gửi, gateway tạo mới.</p>
+<p>Sau đó truyền qua:</p>
+<pre class="hljs"><code><div>HTTP headers
+Message headers
+Job metadata
+Log context
+Trace context
+</div></code></pre>
+<p>Mỗi service không nên tự tạo correlation ID mới, nếu không chuỗi sẽ bị đứt.</p>
+<hr>
+<h1 id="31-không-tin-hoàn-toàn-id-từ-client">31. Không tin hoàn toàn ID từ client</h1>
+<p>Client có thể gửi:</p>
+<pre class="hljs"><code><div>X-Request-ID rất dài
+ký tự độc hại
+ID của user khác
+</div></code></pre>
+<p>Gateway nên:</p>
+<pre class="hljs"><code><div>- Validate format
+- Giới hạn độ dài
+- Tạo internal ID riêng nếu cần
+- Không dùng trực tiếp làm authorization
+</div></code></pre>
+<p>Correlation ID dùng để theo dõi, không phải bằng chứng quyền truy cập.</p>
+<hr>
+<h1 id="32-logs-metrics-và-traces-phối-hợp-thế-nào">32. Logs, Metrics và Traces phối hợp thế nào?</h1>
+<p>Giả sử alert:</p>
+<pre class="hljs"><code><div>Checkout p99 latency tăng từ 800 ms lên 4 giây.
+</div></code></pre>
+<h2 id="bước-1--metrics">Bước 1 — Metrics</h2>
+<p>Xác định:</p>
+<pre class="hljs"><code><div>- Bắt đầu từ lúc nào?
+- Region nào?
+- Endpoint nào?
+- Error rate có tăng không?
+</div></code></pre>
+<h2 id="bước-2--traces">Bước 2 — Traces</h2>
+<p>Lọc trace chậm:</p>
+<pre class="hljs"><code><div>POST /checkout
+duration &gt; 3 giây
+region = asia
+</div></code></pre>
+<p>Phát hiện Payment Provider span chiếm 90% thời gian.</p>
+<h2 id="bước-3--logs">Bước 3 — Logs</h2>
+<p>Dùng <code>traceId</code> từ trace để xem log chi tiết:</p>
+<pre class="hljs"><code><div>Retry attempt
+Provider response
+Circuit breaker state
+Payment ID
+</div></code></pre>
+<p>Cách nhớ:</p>
+<pre class="hljs"><code><div>Metrics:
+Có vấn đề gì và phạm vi bao nhiêu?
+
+Traces:
+Vấn đề nằm ở bước nào?
+
+Logs:
+Chi tiết chính xác chuyện gì xảy ra?
+</div></code></pre>
+<hr>
+<h1 id="33-red-method">33. RED Method</h1>
+<p>RED dùng để quan sát các request-driven services.</p>
+<pre class="hljs"><code><div>R — Rate
+E — Errors
+D — Duration
+</div></code></pre>
+<hr>
+<h2 id="rate">Rate</h2>
+<p>Số request mỗi đơn vị thời gian.</p>
+<pre class="hljs"><code><div>Requests per second
+Messages per second
+Transactions per minute
+</div></code></pre>
+<p>Rate tăng có thể là:</p>
+<pre class="hljs"><code><div>- Traffic thật tăng
+- Retry storm
+- Bot/abuse
+- Client bug
+</div></code></pre>
+<hr>
+<h2 id="errors">Errors</h2>
+<p>Tỷ lệ request thất bại.</p>
+<p>Không chỉ HTTP 5xx.</p>
+<p>Có thể gồm:</p>
+<pre class="hljs"><code><div>- Timeout
+- Business operation failed
+- Circuit breaker rejection
+- Invalid response từ dependency
+- Message processing failure
+</div></code></pre>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>4xx expected client errors
+5xx server failures
+degraded success
+</div></code></pre>
+<hr>
+<h2 id="duration">Duration</h2>
+<p>Thời gian xử lý request.</p>
+<p>Nên theo dõi:</p>
+<pre class="hljs"><code><div>p50
+p95
+p99
+</div></code></pre>
+<p>theo:</p>
+<pre class="hljs"><code><div>service
+route
+region
+status
+</div></code></pre>
+<p>Không dùng raw URL hoặc user ID làm label.</p>
+<hr>
+<h1 id="34-red-dashboard">34. RED dashboard</h1>
+<p>Ví dụ cho Order Service:</p>
+<pre class="hljs"><code><div>Rate:
+8.200 RPS
+
+Error rate:
+0.4%
+
+Duration:
+p50 = 90 ms
+p95 = 280 ms
+p99 = 1.4 s
+</div></code></pre>
+<p>Một dashboard RED cho từng service giúp phát hiện nhanh:</p>
+<pre class="hljs"><code><div>- Traffic tăng
+- Error spike
+- Latency regression
+</div></code></pre>
+<hr>
+<h1 id="35-use-method">35. USE Method</h1>
+<p>USE phù hợp để quan sát tài nguyên hệ thống.</p>
+<pre class="hljs"><code><div>U — Utilization
+S — Saturation
+E — Errors
+</div></code></pre>
+<p>Áp dụng cho:</p>
+<pre class="hljs"><code><div>CPU
+Memory
+Disk
+Network
+Thread pool
+Connection pool
+Queue
+</div></code></pre>
+<hr>
+<h2 id="utilization">Utilization</h2>
+<p>Phần trăm thời gian hoặc capacity đang được sử dụng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>CPU utilization = 85%
+Disk utilization = 70%
+DB connection usage = 90/100
+</div></code></pre>
+<hr>
+<h2 id="saturation">Saturation</h2>
+<p>Mức độ công việc đang phải chờ vì tài nguyên không đủ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- CPU run queue
+- Thread pool queue
+- DB connection waiters
+- Disk I/O queue
+- Message backlog
+</div></code></pre>
+<p>CPU 70% chưa chắc có vấn đề, nhưng nếu run queue rất cao thì workload đang chờ.</p>
+<hr>
+<h2 id="errors-1">Errors</h2>
+<p>Lỗi của resource:</p>
+<pre class="hljs"><code><div>- Disk read errors
+- Network packet drops
+- Out-of-memory
+- Connection acquisition timeout
+- Thread rejection
+</div></code></pre>
+<hr>
+<h1 id="36-red-và-use-dùng-khi-nào">36. RED và USE dùng khi nào?</h1>
+<pre class="hljs"><code><div>RED:
+Nhìn từ góc độ workload/request.
+
+USE:
+Nhìn từ góc độ tài nguyên.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>RED cho thấy:
+Order API p99 latency tăng.
+
+USE cho thấy:
+DB connection pool saturation 100%.
+</div></code></pre>
+<p>Kết nối hai góc nhìn giúp tìm root cause.</p>
+<hr>
+<h1 id="37-golden-signals">37. Golden Signals</h1>
+<p>Một framework gần RED gồm bốn tín hiệu:</p>
+<pre class="hljs"><code><div>Latency
+Traffic
+Errors
+Saturation
+</div></code></pre>
+<p>Có thể hiểu:</p>
+<pre class="hljs"><code><div>Traffic ≈ Rate
+Latency ≈ Duration
+Errors ≈ Errors
+Saturation được bổ sung từ góc tài nguyên
+</div></code></pre>
+<p>Không cần tranh luận framework nào “đúng nhất”. Điều quan trọng là không bỏ sót các tín hiệu chính.</p>
+<hr>
+<h1 id="38-sli-slo-và-sla">38. SLI, SLO và SLA</h1>
+<h2 id="sli--service-level-indicator">SLI — Service Level Indicator</h2>
+<p>Chỉ số đo thực tế.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Tỷ lệ checkout thành công dưới 2 giây.
+</div></code></pre>
+<hr>
+<h2 id="slo--service-level-objective">SLO — Service Level Objective</h2>
+<p>Mục tiêu nội bộ.</p>
+<pre class="hljs"><code><div>99.9% checkout hoàn tất thành công trong 2 giây mỗi tháng.
+</div></code></pre>
+<hr>
+<h2 id="sla--service-level-agreement">SLA — Service Level Agreement</h2>
+<p>Cam kết với khách hàng, có thể kèm hậu quả tài chính hoặc pháp lý.</p>
+<hr>
+<h1 id="39-availability-sli">39. Availability SLI</h1>
+<p>Không nên chỉ định nghĩa availability là:</p>
+<pre class="hljs"><code><div>HTTP status != 500
+</div></code></pre>
+<p>Ví dụ API trả 200 nhưng body:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;success&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Payment unavailable&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Về nghiệp vụ, request vẫn thất bại.</p>
+<p>SLI nên phản ánh user outcome:</p>
+<pre class="hljs"><code><div>Successful checkout
+Successful login
+Message delivered
+Video started playing
+</div></code></pre>
+<hr>
+<h1 id="40-error-budget">40. Error budget</h1>
+<p>SLO 99.9% cho phép 0.1% không đạt.</p>
+<pre class="hljs"><code><div>Error budget = 100% − SLO
+</div></code></pre>
+<p>Nếu có 10 triệu request/tháng:</p>
+<pre class="hljs"><code><div>0.1% × 10.000.000
+= 10.000 request được phép không đạt SLO
+</div></code></pre>
+<p>Error budget giúp quyết định:</p>
+<pre class="hljs"><code><div>- Có tiếp tục deploy nhanh không?
+- Có cần đóng băng release?
+- Có cần ưu tiên reliability?
+</div></code></pre>
+<hr>
+<h1 id="41-alerting-là-gì">41. Alerting là gì?</h1>
+<p>Alert là tín hiệu yêu cầu con người hoặc automation chú ý.</p>
+<p>Không phải mọi metric bất thường đều nên đánh thức on-call.</p>
+<p>Alert tốt phải:</p>
+<pre class="hljs"><code><div>- Có tác động thật
+- Có hành động rõ
+- Ít nhiễu
+- Đúng người
+- Đúng mức khẩn cấp
+</div></code></pre>
+<hr>
+<h1 id="42-symptom-based-và-cause-based-alert">42. Symptom-based và cause-based alert</h1>
+<h2 id="cause-based-alert">Cause-based alert</h2>
+<pre class="hljs"><code><div>CPU &gt; 80%
+Disk usage &gt; 85%
+</div></code></pre>
+<p>Có thể hữu ích nhưng chưa chắc user bị ảnh hưởng.</p>
+<h2 id="symptom-based-alert">Symptom-based alert</h2>
+<pre class="hljs"><code><div>Checkout error rate &gt; 2%
+Checkout p99 latency &gt; 3 giây
+</div></code></pre>
+<p>Phản ánh trực tiếp trải nghiệm user hơn.</p>
+<p>Nguyên tắc:</p>
+<blockquote>
+<p>Page on-call chủ yếu vì symptom; dùng cause metrics để điều tra.</p>
+</blockquote>
+<hr>
+<h1 id="43-alert-severity">43. Alert severity</h1>
+<h2 id="criticalpage">Critical/Page</h2>
+<p>Cần hành động ngay.</p>
+<pre class="hljs"><code><div>- Payment success rate giảm mạnh
+- Database primary unavailable
+- Toàn region mất traffic
+</div></code></pre>
+<h2 id="warningticket">Warning/Ticket</h2>
+<p>Cần xử lý nhưng không nhất thiết đánh thức lúc nửa đêm.</p>
+<pre class="hljs"><code><div>- Disk sẽ đầy sau 5 ngày
+- Certificate hết hạn sau 20 ngày
+- DLQ tăng nhẹ
+</div></code></pre>
+<h2 id="informational">Informational</h2>
+<p>Dùng cho dashboard hoặc notification.</p>
+<pre class="hljs"><code><div>Deployment completed
+Autoscaling occurred
+</div></code></pre>
+<hr>
+<h1 id="44-alert-phải-actionable">44. Alert phải actionable</h1>
+<p>Alert không tốt:</p>
+<pre class="hljs"><code><div>CPU high.
+</div></code></pre>
+<p>Không nói:</p>
+<pre class="hljs"><code><div>- Service nào?
+- Cao bao lâu?
+- User có bị ảnh hưởng không?
+- Cần làm gì?
+</div></code></pre>
+<p>Alert tốt:</p>
+<pre class="hljs"><code><div>Order Service p99 latency &gt; 2s for 10 minutes
+in Asia region.
+
+Impact:
+Checkout requests are timing out.
+
+Likely signals:
+DB connection pool saturation is 98%.
+
+Runbook:
+&lt;internal runbook reference&gt;
+</div></code></pre>
+<hr>
+<h1 id="45-tránh-alert-flapping">45. Tránh alert flapping</h1>
+<p>Nếu metric dao động quanh threshold:</p>
+<pre class="hljs"><code><div>79%
+81%
+79%
+82%
+</div></code></pre>
+<p>alert có thể bật/tắt liên tục.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Threshold duy trì một khoảng thời gian
+- Hysteresis
+- Separate trigger/recovery threshold
+- Alert grouping
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Trigger:
+Error rate &gt; 5% trong 5 phút
+
+Recover:
+Error rate &lt; 2% trong 10 phút
+</div></code></pre>
+<hr>
+<h1 id="46-multi-window-alerting">46. Multi-window alerting</h1>
+<p>Spike 30 giây chưa chắc cần page.</p>
+<p>Nhưng chờ 30 phút có thể quá chậm.</p>
+<p>Có thể dùng hai cửa sổ:</p>
+<pre class="hljs"><code><div>Fast window:
+Lỗi rất nghiêm trọng trong vài phút.
+
+Slow window:
+Lỗi nhẹ nhưng kéo dài.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Page nếu:
+Error budget burn rất nhanh trong 5 phút
+
+Hoặc:
+Burn chậm nhưng kéo dài 1 giờ
+</div></code></pre>
+<hr>
+<h1 id="47-burn-rate-alert">47. Burn rate alert</h1>
+<p>Burn rate cho biết hệ thống đang tiêu error budget nhanh đến đâu.</p>
+<p>Nếu error budget của tháng bị tiêu hết trong vài giờ, cần alert ngay.</p>
+<p>Burn rate tốt hơn một threshold lỗi cố định vì nó gắn trực tiếp với SLO.</p>
+<p>Khái niệm:</p>
+<pre class="hljs"><code><div>Burn rate = tốc độ tiêu error budget thực tế
+            / tốc độ được phép
+</div></code></pre>
+<hr>
+<h1 id="48-alert-fatigue">48. Alert fatigue</h1>
+<p>Nếu on-call nhận quá nhiều alert không hữu ích:</p>
+<pre class="hljs"><code><div>- Người trực bắt đầu bỏ qua
+- Alert quan trọng bị chìm
+- Stress tăng
+- Phản ứng chậm
+</div></code></pre>
+<p>Nguyên nhân:</p>
+<pre class="hljs"><code><div>- Alert theo mọi metric
+- Threshold quá nhạy
+- Không deduplicate
+- Một lỗi tạo 100 alert downstream
+</div></code></pre>
+<p>Cần alert theo root symptom hoặc service boundary phù hợp.</p>
+<hr>
+<h1 id="49-dashboard-tốt">49. Dashboard tốt</h1>
+<p>Dashboard không nên chỉ là hàng trăm biểu đồ.</p>
+<p>Một dashboard service tốt thường có:</p>
+<pre class="hljs"><code><div>1. Traffic
+2. Error rate
+3. Latency percentiles
+4. Saturation
+5. Dependency health
+6. Deployment markers
+7. Regional breakdown
+8. SLO/error budget
+</div></code></pre>
+<p>Nên cho phép đi từ tổng quan xuống chi tiết.</p>
+<hr>
+<h1 id="50-deployment-marker">50. Deployment marker</h1>
+<p>Khi latency tăng lúc 14:05, rất hữu ích nếu dashboard cho thấy:</p>
+<pre class="hljs"><code><div>Version 2.4.1 deployed at 14:03.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Deploy[Deploy v2.4.1] --> Errors[Error rate rises]
+    Errors --> Rollback[Rollback]
+</div></code></pre>
+<p>Mọi deployment, config change, feature flag change và failover nên có event trên observability timeline.</p>
+<hr>
+<h1 id="51-business-metrics">51. Business metrics</h1>
+<p>Technical metrics chưa đủ.</p>
+<p>Ví dụ hệ thống vẫn trả 200 nhưng business funnel hỏng.</p>
+<p>Cần theo dõi:</p>
+<pre class="hljs"><code><div>- Orders created/minute
+- Payment success rate
+- Login success rate
+- Videos reaching ready state
+- Messages delivered
+- Upload completion rate
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>HTTP error rate bình thường
+nhưng orders/minute giảm 80%.
+</div></code></pre>
+<p>Có thể frontend, business validation hoặc integration bị lỗi.</p>
+<hr>
+<h1 id="52-synthetic-monitoring">52. Synthetic monitoring</h1>
+<p>Synthetic monitoring tạo request giả định kỳ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Mở trang
+2. Đăng nhập bằng test account
+3. Search sản phẩm
+4. Tạo test order
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Kiểm tra end-to-end
+- Phát hiện lỗi trước user
+- Đo từ nhiều region
+</div></code></pre>
+<p>Health check chỉ biết service còn sống; synthetic test kiểm tra luồng user thật.</p>
+<hr>
+<h1 id="53-real-user-monitoring">53. Real User Monitoring</h1>
+<p>RUM thu thập trải nghiệm thật từ browser/mobile:</p>
+<pre class="hljs"><code><div>- Page load time
+- API latency từ client
+- JavaScript errors
+- Crash rate
+- Network type
+- Device/version
+</div></code></pre>
+<p>Backend có thể nhanh nhưng user vẫn thấy chậm do:</p>
+<pre class="hljs"><code><div>- Mobile network
+- Bundle JavaScript lớn
+- Device yếu
+- CDN issue
+</div></code></pre>
+<p>Observability nên bao phủ cả phía client nếu sản phẩm yêu cầu.</p>
+<hr>
+<h1 id="54-profiling">54. Profiling</h1>
+<p>Logs, metrics và traces cho biết request chậm ở service nào.</p>
+<p>Profiling giúp biết code bên trong tốn CPU hoặc memory ở đâu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Function nào dùng nhiều CPU
+- Allocation nào tạo nhiều memory
+- Lock nào gây contention
+- Garbage collection có vấn đề không
+</div></code></pre>
+<p>Profiling là tín hiệu bổ sung, đặc biệt cho performance investigation.</p>
+<hr>
+<h1 id="55-continuous-profiling">55. Continuous profiling</h1>
+<p>Thay vì chỉ profile khi sự cố xảy ra, hệ thống có thể lấy mẫu liên tục với overhead thấp.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- So sánh trước và sau deploy
+- Tìm CPU regression
+- Tìm memory leak
+- Phân tích code path nóng
+</div></code></pre>
+<p>Có thể coi profiling là một trụ quan sát bổ sung bên cạnh logs, metrics và traces.</p>
+<hr>
+<h1 id="56-quy-trình-debug-distributed-system">56. Quy trình debug distributed system</h1>
+<p>Giả sử nhận alert:</p>
+<blockquote>
+<p>Checkout p99 latency tăng từ 900 ms lên 5 giây.</p>
+</blockquote>
+<p>Không nên bắt đầu bằng việc đọc hàng triệu log ngẫu nhiên.</p>
+<p>Dùng quy trình có cấu trúc.</p>
+<hr>
+<h1 id="57-bước-1--xác-nhận-impact">57. Bước 1 — Xác nhận impact</h1>
+<p>Hỏi:</p>
+<pre class="hljs"><code><div>- User nào bị ảnh hưởng?
+- Bao nhiêu phần trăm traffic?
+- Region nào?
+- Endpoint nào?
+- Bắt đầu lúc nào?
+- Error hay chỉ chậm?
+</div></code></pre>
+<p>Kiểm tra business metrics:</p>
+<pre class="hljs"><code><div>Payment success
+Orders created
+Checkout completion
+</div></code></pre>
+<hr>
+<h1 id="58-bước-2--kiểm-tra-thay-đổi-gần-đây">58. Bước 2 — Kiểm tra thay đổi gần đây</h1>
+<pre class="hljs"><code><div>- Deploy mới?
+- Config change?
+- Feature flag?
+- Database migration?
+- Traffic campaign?
+- Third-party change?
+</div></code></pre>
+<p>Nếu lỗi bắt đầu đúng sau deployment, đó là tín hiệu mạnh nhưng chưa phải bằng chứng tuyệt đối.</p>
+<hr>
+<h1 id="59-bước-3--dùng-red">59. Bước 3 — Dùng RED</h1>
+<p>Kiểm tra từng service:</p>
+<pre class="hljs"><code><div>Rate
+Errors
+Duration
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Gateway:
+Rate bình thường
+Errors tăng nhẹ
+Duration tăng mạnh
+
+Order:
+Duration tăng
+
+Payment:
+Duration tăng rất mạnh
+
+Inventory:
+Bình thường
+</div></code></pre>
+<p>Khoanh vùng Payment.</p>
+<hr>
+<h1 id="60-bước-4--dùng-traces">60. Bước 4 — Dùng traces</h1>
+<p>Lọc:</p>
+<pre class="hljs"><code><div>service = checkout
+duration &gt; 4s
+status = error hoặc slow
+</div></code></pre>
+<p>Trace cho thấy:</p>
+<pre class="hljs"><code><div>Payment provider call:
+3.6 giây
+
+Retry:
+2 lần
+</div></code></pre>
+<p>Ta phát hiện thời gian bị nhân do retry.</p>
+<hr>
+<h1 id="61-bước-5--dùng-logs">61. Bước 5 — Dùng logs</h1>
+<p>Từ trace lấy:</p>
+<pre class="hljs"><code><div>traceId
+paymentId
+provider
+</div></code></pre>
+<p>Query logs:</p>
+<pre class="hljs"><code><div>traceId = trace_abc
+</div></code></pre>
+<p>Phát hiện:</p>
+<pre class="hljs"><code><div>Attempt 1: 504 after 1.2s
+Attempt 2: 504 after 1.2s
+Attempt 3: success after 1.1s
+</div></code></pre>
+<p>Tổng gần 3.5 giây.</p>
+<hr>
+<h1 id="62-bước-6--dùng-use-cho-tài-nguyên">62. Bước 6 — Dùng USE cho tài nguyên</h1>
+<p>Kiểm tra Payment Service:</p>
+<pre class="hljs"><code><div>CPU: 30%
+Memory: bình thường
+Thread pool: 95% saturated
+Outbound connection pool: 100%
+</div></code></pre>
+<p>Root cause có thể là outbound provider connections bị giữ quá lâu.</p>
+<hr>
+<h1 id="63-bước-7--kiểm-tra-dependency">63. Bước 7 — Kiểm tra dependency</h1>
+<p>Provider metrics:</p>
+<pre class="hljs"><code><div>provider-a latency tăng
+provider-b bình thường
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Mở circuit provider-a
+- Route một phần sang provider-b
+- Giảm retry
+- Trả trạng thái pending
+</div></code></pre>
+<hr>
+<h1 id="64-bước-8--mitigate-trước-root-cause-sau">64. Bước 8 — Mitigate trước, root cause sau</h1>
+<p>Trong incident:</p>
+<pre class="hljs"><code><div>1. Giảm impact
+2. Ổn định hệ thống
+3. Sau đó điều tra sâu
+</div></code></pre>
+<p>Mitigation:</p>
+<pre class="hljs"><code><div>- Rollback
+- Disable feature flag
+- Mở circuit breaker
+- Route sang provider khác
+- Scale worker
+- Giảm traffic
+- Serve fallback
+</div></code></pre>
+<p>Không nên mất 45 phút chứng minh root cause hoàn hảo trong khi user vẫn bị ảnh hưởng.</p>
+<hr>
+<h1 id="65-bước-9--xác-minh-phục-hồi">65. Bước 9 — Xác minh phục hồi</h1>
+<p>Sau mitigation:</p>
+<pre class="hljs"><code><div>- Error rate giảm chưa?
+- p99 latency bình thường chưa?
+- Queue backlog có đang giảm không?
+- Business conversion đã phục hồi chưa?
+</div></code></pre>
+<p>Không chỉ nhìn CPU.</p>
+<hr>
+<h1 id="66-bước-10--postmortem">66. Bước 10 — Postmortem</h1>
+<p>Sau sự cố, ghi lại:</p>
+<pre class="hljs"><code><div>- Timeline
+- Impact
+- Detection
+- Root cause
+- Contributing factors
+- Mitigation
+- Những gì làm tốt
+- Những gì cần cải thiện
+- Action items có owner và deadline
+</div></code></pre>
+<p>Postmortem tốt tập trung vào hệ thống và quy trình, không đổ lỗi cá nhân.</p>
+<hr>
+<h1 id="67-ví-dụ-timeline-sự-cố">67. Ví dụ timeline sự cố</h1>
+<pre class="hljs"><code><div>10:02 — Deploy payment-service v2.4
+10:06 — Provider latency tăng
+10:08 — Checkout p99 alert
+10:10 — On-call bắt đầu điều tra
+10:14 — Phát hiện retry amplification
+10:17 — Mở circuit breaker provider-a
+10:20 — Traffic chuyển provider-b
+10:23 — Checkout latency phục hồi
+10:45 — Rollback v2.4 hoàn tất
+</div></code></pre>
+<p>Timeline giúp nhìn rõ detection và recovery time.</p>
+<hr>
+<h1 id="68-mttr-mttd-và-mtbf">68. MTTR, MTTD và MTBF</h1>
+<h2 id="mttd--mean-time-to-detect">MTTD — Mean Time To Detect</h2>
+<p>Thời gian trung bình từ lúc lỗi bắt đầu đến lúc phát hiện.</p>
+<h2 id="mttr--mean-time-to-recoverrepair">MTTR — Mean Time To Recover/Repair</h2>
+<p>Thời gian trung bình từ lúc sự cố xảy ra hoặc được phát hiện đến lúc phục hồi.</p>
+<h2 id="mtbf--mean-time-between-failures">MTBF — Mean Time Between Failures</h2>
+<p>Thời gian trung bình giữa các lần lỗi.</p>
+<p>Observability tốt giúp giảm:</p>
+<pre class="hljs"><code><div>MTTD
+MTTR
+</div></code></pre>
+<p>Nó không nhất thiết làm lỗi không xảy ra, nhưng giúp phát hiện và phục hồi nhanh hơn.</p>
+<hr>
+<h1 id="69-root-cause-và-contributing-factors">69. Root cause và contributing factors</h1>
+<p>Một sự cố hiếm khi chỉ có một nguyên nhân.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Root cause:
+Provider latency tăng.
+
+Contributing factors:
+- Timeout quá dài
+- Retry ở ba tầng
+- Không có circuit breaker
+- Outbound connection pool dùng chung
+- Alert chỉ dựa trên CPU
+</div></code></pre>
+<p>Nếu chỉ ghi:</p>
+<pre class="hljs"><code><div>Provider lỗi.
+</div></code></pre>
+<p>ta bỏ lỡ các điểm có thể cải thiện trong hệ thống của mình.</p>
+<hr>
+<h1 id="70-case-study--order-thất-bại-sau-khi-payment-thành-công">70. Case study — Order thất bại sau khi payment thành công</h1>
+<p>User báo:</p>
+<pre class="hljs"><code><div>Tiền đã bị trừ nhưng order vẫn pending.
+</div></code></pre>
+<h2 id="bước-1-dùng-correlation-id">Bước 1: Dùng correlation ID</h2>
+<p>Tìm theo:</p>
+<pre class="hljs"><code><div>orderId = ord_123
+paymentId = pay_456
+</div></code></pre>
+<h2 id="bước-2-trace">Bước 2: Trace</h2>
+<pre class="hljs"><code><div>Order Service → Payment Service → Provider
+</div></code></pre>
+<p>Provider trả success.</p>
+<p>Sau đó Order Service update DB timeout.</p>
+<h2 id="bước-3-logs">Bước 3: Logs</h2>
+<pre class="hljs"><code><div>PaymentSucceeded received
+DB connection acquisition timeout
+Message redelivered
+Duplicate event ignored
+</div></code></pre>
+<h2 id="kết-luận">Kết luận</h2>
+<p>Payment thành công, nhưng order projection chưa cập nhật kịp.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Reconciliation
+- Retry consumer
+- Idempotent update
+- Alert cho payment/order state mismatch
+</div></code></pre>
+<hr>
+<h1 id="71-case-study--queue-backlog">71. Case study — Queue backlog</h1>
+<p>Alert:</p>
+<pre class="hljs"><code><div>Notification oldest message age &gt; 15 phút
+</div></code></pre>
+<h2 id="red-cho-consumer">RED cho consumer</h2>
+<pre class="hljs"><code><div>Rate xử lý giảm
+Error rate tăng
+Duration tăng
+</div></code></pre>
+<h2 id="use">USE</h2>
+<pre class="hljs"><code><div>CPU thấp
+Memory bình thường
+Outbound connection pool saturated
+</div></code></pre>
+<h2 id="logs">Logs</h2>
+<pre class="hljs"><code><div>Email provider returning 429
+Retry-After: 60
+</div></code></pre>
+<h2 id="traces">Traces</h2>
+<p>Mỗi job chờ provider lâu và retry.</p>
+<p>Mitigation:</p>
+<pre class="hljs"><code><div>- Tôn trọng Retry-After
+- Giảm concurrency
+- Chuyển provider phụ
+- Ưu tiên OTP/transactional email
+- Defer marketing email
+</div></code></pre>
+<hr>
+<h1 id="72-case-study--cache-miss-tăng">72. Case study — Cache miss tăng</h1>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>Cache hit ratio:
+95% → 40%
+
+DB QPS:
+5K → 60K
+
+API p99:
+200 ms → 2s
+</div></code></pre>
+<p>Logs:</p>
+<pre class="hljs"><code><div>Cache keys expired
+Cache node restarted
+</div></code></pre>
+<p>Traces:</p>
+<pre class="hljs"><code><div>Phần lớn thời gian nằm ở DB query.
+</div></code></pre>
+<p>USE:</p>
+<pre class="hljs"><code><div>DB connection pool saturated.
+</div></code></pre>
+<p>Mitigation:</p>
+<pre class="hljs"><code><div>- Rate-limit fallback
+- Prewarm hot keys
+- Serve stale data
+- Scale cache
+- Add TTL jitter
+</div></code></pre>
+<hr>
+<h1 id="73-observability-cho-database">73. Observability cho database</h1>
+<p>Metrics cần theo dõi:</p>
+<pre class="hljs"><code><div>- Query latency
+- Query throughput
+- Slow queries
+- Active connections
+- Connection wait time
+- Lock wait
+- Deadlocks
+- CPU
+- Memory
+- Disk I/O
+- Replication lag
+- Cache hit ratio
+</div></code></pre>
+<p>Logs:</p>
+<pre class="hljs"><code><div>- Errors
+- Deadlocks
+- Failover
+- Schema changes
+- Long-running query
+</div></code></pre>
+<p>Traces:</p>
+<pre class="hljs"><code><div>- Query nào thuộc request nào
+- Query mất bao lâu
+- Bao nhiêu query cho một API request
+</div></code></pre>
+<hr>
+<h1 id="74-n1-query-qua-tracing">74. N+1 Query qua tracing</h1>
+<p>Endpoint lấy 100 products.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>1 query lấy products
+100 query lấy category từng product
+</div></code></pre>
+<p>Trace có 101 database spans.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    API --> Q0[SELECT products]
+    API --> Q1[SELECT category 1]
+    API --> Q2[SELECT category 2]
+    API --> QN[... 100 queries]
+</div></code></pre>
+<p>Tracing giúp phát hiện N+1 mà metric DB tổng thể có thể không chỉ rõ.</p>
+<hr>
+<h1 id="75-observability-cho-cache">75. Observability cho cache</h1>
+<pre class="hljs"><code><div>- Hit ratio
+- Miss rate
+- Absolute miss QPS
+- Latency
+- Evictions
+- Expired keys
+- Memory usage
+- Hot keys
+- Connection errors
+</div></code></pre>
+<p>Cần liên hệ:</p>
+<pre class="hljs"><code><div>Cache miss tăng
+→ DB QPS tăng
+→ DB latency tăng
+→ API latency tăng
+</div></code></pre>
+<hr>
+<h1 id="76-observability-cho-message-queue">76. Observability cho message queue</h1>
+<pre class="hljs"><code><div>- Publish rate
+- Consume rate
+- Queue depth
+- Consumer lag
+- Oldest message age
+- Processing duration
+- Retry rate
+- DLQ count
+- Partition imbalance
+- Rebalance count
+</div></code></pre>
+<p>Business metric:</p>
+<pre class="hljs"><code><div>OrderCreated → RestaurantNotified mất bao lâu?
+</div></code></pre>
+<p>Oldest message age thường có giá trị hơn chỉ nhìn queue depth.</p>
+<hr>
+<h1 id="77-observability-cho-load-balancer">77. Observability cho load balancer</h1>
+<pre class="hljs"><code><div>- Incoming RPS
+- Backend RPS
+- Backend health
+- Connection count
+- TLS latency
+- 4xx/5xx
+- Backend response time
+- Retry count
+- Rejected connections
+</div></code></pre>
+<p>Phải xem phân phối từng backend:</p>
+<pre class="hljs"><code><div>Average CPU = 50%
+
+Server A = 95%
+Server B = 30%
+Server C = 25%
+</div></code></pre>
+<p>Average có thể che hotspot.</p>
+<hr>
+<h1 id="78-observability-cho-circuit-breaker-và-fallback">78. Observability cho circuit breaker và fallback</h1>
+<pre class="hljs"><code><div>- Circuit state
+- Number of opens
+- Half-open probe results
+- Calls rejected
+- Fallback rate
+- Fallback latency
+</div></code></pre>
+<p>Nếu response vẫn trả 200 nhờ fallback, error rate có thể không tăng.</p>
+<p>Do đó phải đo:</p>
+<pre class="hljs"><code><div>full_success
+degraded_success
+hard_failure
+</div></code></pre>
+<hr>
+<h1 id="79-correlation-giữa-signals">79. Correlation giữa signals</h1>
+<p>Observability mạnh nhất khi các tín hiệu liên kết được.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Metric exemplar
+→ traceId
+→ trace
+→ span
+→ logs của span
+→ deployment version
+</div></code></pre>
+<p>Khi metric spike, bạn có thể nhảy thẳng đến trace mẫu gây spike.</p>
+<hr>
+<h1 id="80-data-model-cho-telemetry">80. Data model cho telemetry</h1>
+<p>Mỗi signal có mô hình dữ liệu phù hợp:</p>
+<pre class="hljs"><code><div>Metrics:
+Low-cardinality numeric time series
+
+Logs:
+High-detail event records
+
+Traces:
+High-cardinality request graph
+
+Profiles:
+Aggregated code execution samples
+</div></code></pre>
+<p>Đừng ép mọi thứ vào logs hoặc mọi thứ vào metrics.</p>
+<hr>
+<h1 id="81-observability-overhead">81. Observability overhead</h1>
+<p>Instrumentation không miễn phí.</p>
+<p>Có thể tốn:</p>
+<pre class="hljs"><code><div>- CPU
+- Memory
+- Network bandwidth
+- Storage
+- Chi phí xử lý
+- Developer time
+</div></code></pre>
+<p>Ví dụ log toàn bộ request body có thể làm application chậm đáng kể.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Sampling
+- Batching
+- Async export
+- Cardinality control
+- Retention
+- Compression
+</div></code></pre>
+<hr>
+<h1 id="82-telemetry-pipeline-phải-chịu-lỗi">82. Telemetry pipeline phải chịu lỗi</h1>
+<p>Application không nên ngừng phục vụ chỉ vì hệ thống log gặp lỗi.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>Request xử lý xong
+→ đồng bộ gửi log
+→ log backend timeout
+→ user request cũng timeout.
+</div></code></pre>
+<p>Telemetry export thường nên:</p>
+<pre class="hljs"><code><div>- Bất đồng bộ
+- Có buffer giới hạn
+- Có batch
+- Có drop policy
+</div></code></pre>
+<p>Nhưng audit log quan trọng có thể cần durability cao hơn.</p>
+<hr>
+<h1 id="83-audit-log-khác-application-log">83. Audit log khác application log</h1>
+<p>Audit log trả lời:</p>
+<pre class="hljs"><code><div>Ai đã làm gì?
+Khi nào?
+Trên resource nào?
+Kết quả gì?
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;actorId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;admin_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DELETE_USER&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;targetId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:25:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;result&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SUCCESS&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Audit log thường cần:</p>
+<pre class="hljs"><code><div>- Chống sửa đổi
+- Retention dài
+- Access control nghiêm ngặt
+- Không phụ thuộc sampling
+</div></code></pre>
+<hr>
+<h1 id="84-dynamic-log-level">84. Dynamic log level</h1>
+<p>Có thể tạm tăng log level cho:</p>
+<pre class="hljs"><code><div>- Một service
+- Một tenant
+- Một trace
+- Một region
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Bật DEBUG cho payment-service ở Asia trong 15 phút.
+</div></code></pre>
+<p>Không bật DEBUG toàn production vô thời hạn vì volume và dữ liệu nhạy cảm.</p>
+<hr>
+<h1 id="85-feature-flag-và-observability">85. Feature flag và observability</h1>
+<p>Mọi feature flag quan trọng nên được đưa vào logs/traces:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;featureFlags&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;newPaymentFlow&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nếu lỗi chỉ xảy ra khi flag bật, ta có thể phát hiện nhanh.</p>
+<p>Metrics có thể tách theo flag nếu cardinality thấp và số flag giới hạn.</p>
+<hr>
+<h1 id="86-version-và-build-metadata">86. Version và build metadata</h1>
+<p>Mỗi log/trace nên biết:</p>
+<pre class="hljs"><code><div>service.version
+build.sha
+deployment.id
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2.4.1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;gitSha&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;a7f92c1&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Điều này giúp trả lời:</p>
+<pre class="hljs"><code><div>Lỗi chỉ xảy ra ở version nào?
+Canary hay stable?
+</div></code></pre>
+<hr>
+<h1 id="87-region-zone-và-instance">87. Region, zone và instance</h1>
+<p>Cần context hạ tầng:</p>
+<pre class="hljs"><code><div>region
+availabilityZone
+cluster
+instanceId
+pod/container
+</div></code></pre>
+<p>Nhưng instance ID có cardinality cao; phù hợp với logs và một số infrastructure metrics được kiểm soát.</p>
+<p>Khi chỉ Zone B lỗi, aggregate toàn region có thể che mất vấn đề.</p>
+<hr>
+<h1 id="88-runbook">88. Runbook</h1>
+<p>Mỗi alert nghiêm trọng nên liên kết tới runbook:</p>
+<pre class="hljs"><code><div>- Cách xác nhận impact
+- Dashboard liên quan
+- Query logs
+- Mitigation an toàn
+- Khi nào escalate
+- Cách rollback
+</div></code></pre>
+<p>Alert không có action rõ ràng sẽ làm on-call mất thời gian.</p>
+<hr>
+<h1 id="89-observability-driven-development">89. Observability-driven development</h1>
+<p>Không nên đợi production mới thêm log.</p>
+<p>Khi thiết kế tính năng, hỏi:</p>
+<pre class="hljs"><code><div>- Success được đo thế nào?
+- Failure được phân loại thế nào?
+- Latency metric nào cần?
+- Correlation ID đi qua đâu?
+- Event nào cần audit?
+- Alert nào cần có?
+</div></code></pre>
+<p>Ví dụ endpoint tạo order:</p>
+<pre class="hljs"><code><div>Metric:
+orders_created_total
+
+Latency:
+order_create_duration
+
+Errors:
+inventory_unavailable
+payment_timeout
+validation_failed
+
+Trace:
+Order → Inventory → Payment
+
+Log:
+orderId, userId, paymentAttemptId
+</div></code></pre>
+<hr>
+<h1 id="90-cách-thiết-kế-error-codes-để-quan-sát-tốt">90. Cách thiết kế error codes để quan sát tốt</h1>
+<p>Không chỉ log message tự do:</p>
+<pre class="hljs"><code><div>Payment did not work.
+</div></code></pre>
+<p>Nên có error code ổn định:</p>
+<pre class="hljs"><code><div>PAYMENT_PROVIDER_TIMEOUT
+PAYMENT_DECLINED
+PAYMENT_DUPLICATE
+PAYMENT_CONFIGURATION_ERROR
+</div></code></pre>
+<p>Metric có thể group theo code hữu hạn.</p>
+<p>Message chi tiết nằm trong log.</p>
+<p>Tránh dùng error message động làm metric label.</p>
+<hr>
+<h1 id="91-một-request-log-mẫu-tốt">91. Một request log mẫu tốt</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:25:13.482Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;level&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;INFO&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;event&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;http_request_completed&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2.4.1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;environment&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;production&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;region&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;asia-southeast&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;correlationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;method&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;POST&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;route&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;/v1/orders&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;statusCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">201</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;durationMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">284</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;result&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;success&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Khi lỗi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:25:13.482Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;level&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ERROR&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;event&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;payment_failed&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;payment-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;correlationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pay_321&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;provider&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;provider-a&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;errorCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PROVIDER_TIMEOUT&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;attempt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;durationMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2001</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="92-framework-thiết-kế-observability-như-senior-engineer">92. Framework thiết kế Observability như Senior Engineer</h1>
+<p>Với mỗi service, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. User outcome quan trọng là gì?
+2. SLI và SLO là gì?
+3. RED metrics nào cần?
+4. USE metrics của resource nào cần?
+5. Business metrics nào cần?
+6. Log event nào cần?
+7. Field nào không được log?
+8. Trace context được truyền thế nào?
+9. Correlation ID là gì?
+10. Async message có giữ trace context không?
+11. Sampling strategy là gì?
+12. Alert nào cần page?
+13. Alert nào chỉ cần ticket?
+14. Runbook ở đâu?
+15. Deployment/config change có được đánh dấu không?
+16. Retention của từng signal là bao lâu?
+17. Cardinality được kiểm soát thế nào?
+18. Telemetry backend lỗi có ảnh hưởng application không?
+19. Làm sao phân biệt full success và degraded success?
+20. Debug workflow tiêu chuẩn là gì?
+</div></code></pre>
+<hr>
+<h1 id="93-decision-tree-điều-tra-sự-cố">93. Decision tree điều tra sự cố</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Nhận alert/user report] --> B[Xác nhận impact]
+    B --> C[Kiểm tra deployment/change gần đây]
+    C --> D[RED: Rate Errors Duration]
+    D --> E{Service nào bất thường?}
+
+    E --> F[Kiểm tra traces chậm/lỗi]
+    F --> G[Xác định span/dependency]
+    G --> H[Query logs theo traceId]
+    H --> I[USE: tài nguyên có saturated không?]
+
+    I --> J{Có mitigation an toàn?}
+    J -->|Có| K[Rollback / circuit / fallback / scale]
+    J -->|Không| L[Escalate và giới hạn blast radius]
+
+    K --> M[Xác minh phục hồi]
+    L --> M
+    M --> N[Postmortem + action items]
+</div></code></pre>
+<hr>
+<h1 id="94-cách-trình-bày-trong-system-design-interview">94. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em thêm logging và monitoring.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Mỗi service phát structured logs chứa <code>service</code>, <code>version</code>, <code>traceId</code>, <code>correlationId</code>, business ID và stable error code, nhưng không ghi token hoặc dữ liệu nhạy cảm. Với request-driven service, tôi theo dõi RED: request rate, error rate và p50/p95/p99 latency. Với hạ tầng và resource pool, tôi dùng USE: utilization, saturation và errors. Trace context được propagate qua HTTP headers và message metadata để có thể theo dõi request xuyên gateway, service và asynchronous consumer. Alert nghiêm trọng dựa trên user-facing SLO và error-budget burn rate; CPU hoặc queue depth chủ yếu dùng để chẩn đoán.</p>
+</blockquote>
+<p>Câu trả lời này cho thấy bạn hiểu:</p>
+<pre class="hljs"><code><div>- Signal nào dùng cho việc gì
+- Context xuyên service
+- Cardinality
+- Alerting
+- User impact
+- Debug process
+</div></code></pre>
+<hr>
+<h1 id="95-các-sai-lầm-phổ-biến">95. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-chỉ-có-logs-không-có-metrics">Lỗi 1: Chỉ có logs, không có metrics</h2>
+<p>Khó phát hiện xu hướng và alert.</p>
+<hr>
+<h2 id="lỗi-2-chỉ-có-metrics-không-có-context">Lỗi 2: Chỉ có metrics, không có context</h2>
+<p>Biết error tăng nhưng không biết request nào và vì sao.</p>
+<hr>
+<h2 id="lỗi-3-không-có-distributed-tracing">Lỗi 3: Không có distributed tracing</h2>
+<p>Mỗi service nói “phía tôi nhanh”, nhưng không biết tổng request chậm ở đâu.</p>
+<hr>
+<h2 id="lỗi-4-không-propagate-correlation-id">Lỗi 4: Không propagate correlation ID</h2>
+<p>Log của các service không thể nối với nhau.</p>
+<hr>
+<h2 id="lỗi-5-log-dạng-chuỗi-không-cấu-trúc">Lỗi 5: Log dạng chuỗi không cấu trúc</h2>
+<p>Khó query và aggregate.</p>
+<hr>
+<h2 id="lỗi-6-log-secrets-và-dữ-liệu-cá-nhân">Lỗi 6: Log secrets và dữ liệu cá nhân</h2>
+<p>Tạo rủi ro bảo mật nghiêm trọng.</p>
+<hr>
+<h2 id="lỗi-7-metric-labels-có-cardinality-quá-cao">Lỗi 7: Metric labels có cardinality quá cao</h2>
+<p>Dùng <code>userId</code>, <code>orderId</code> hoặc raw URL làm label.</p>
+<hr>
+<h2 id="lỗi-8-chỉ-nhìn-average-latency">Lỗi 8: Chỉ nhìn average latency</h2>
+<p>Bỏ qua tail latency.</p>
+<hr>
+<h2 id="lỗi-9-alert-theo-mọi-metric">Lỗi 9: Alert theo mọi metric</h2>
+<p>Tạo alert fatigue.</p>
+<hr>
+<h2 id="lỗi-10-alert-không-có-action">Lỗi 10: Alert không có action</h2>
+<p>On-call không biết phải làm gì.</p>
+<hr>
+<h2 id="lỗi-11-chỉ-alert-theo-cpu">Lỗi 11: Chỉ alert theo CPU</h2>
+<p>User có thể gặp lỗi trong khi CPU vẫn thấp.</p>
+<hr>
+<h2 id="lỗi-12-fallback-trả-200-che-giấu-outage">Lỗi 12: Fallback trả 200 che giấu outage</h2>
+<p>Không đo degraded success.</p>
+<hr>
+<h2 id="lỗi-13-telemetry-backend-làm-request-chính-chậm">Lỗi 13: Telemetry backend làm request chính chậm</h2>
+<p>Gửi log đồng bộ hoặc block khi collector lỗi.</p>
+<hr>
+<h2 id="lỗi-14-không-ghi-deploymentconfig-events">Lỗi 14: Không ghi deployment/config events</h2>
+<p>Khó liên hệ regression với thay đổi.</p>
+<hr>
+<h2 id="lỗi-15-dlq-queue-lag-hoặc-replication-lag-không-có-alert">Lỗi 15: DLQ, queue lag hoặc replication lag không có alert</h2>
+<p>Sự cố âm thầm kéo dài.</p>
+<hr>
+<h1 id="96-bảng-ghi-nhớ-nhanh">96. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Câu hỏi trả lời</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logs</td>
+<td>Sự kiện cụ thể nào xảy ra?</td>
+</tr>
+<tr>
+<td>Metrics</td>
+<td>Xu hướng và quy mô vấn đề là gì?</td>
+</tr>
+<tr>
+<td>Traces</td>
+<td>Request đi qua đâu và chậm ở bước nào?</td>
+</tr>
+<tr>
+<td>Correlation ID</td>
+<td>Các sự kiện nào thuộc cùng workflow?</td>
+</tr>
+<tr>
+<td>RED</td>
+<td>Service nhận bao nhiêu request, lỗi bao nhiêu, chậm thế nào?</td>
+</tr>
+<tr>
+<td>USE</td>
+<td>Tài nguyên đang dùng, bão hòa và lỗi ra sao?</td>
+</tr>
+<tr>
+<td>SLI</td>
+<td>Ta đang đo điều gì?</td>
+</tr>
+<tr>
+<td>SLO</td>
+<td>Mục tiêu reliability là gì?</td>
+</tr>
+<tr>
+<td>Error budget</td>
+<td>Được phép không đạt SLO bao nhiêu?</td>
+</tr>
+<tr>
+<td>Alert</td>
+<td>Khi nào cần con người hành động?</td>
+</tr>
+<tr>
+<td>Runbook</td>
+<td>Khi alert xảy ra phải làm gì?</td>
+</tr>
+<tr>
+<td>Sampling</td>
+<td>Giảm volume nhưng giữ tín hiệu quan trọng</td>
+</tr>
+<tr>
+<td>Cardinality</td>
+<td>Số lượng tổ hợp label/time series</td>
+</tr>
+<tr>
+<td>Tail latency</td>
+<td>Trải nghiệm của nhóm request chậm nhất</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="97-sơ-đồ-ghi-nhớ-toàn-bài">97. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Observability] --> B[Logs]
+    A --> C[Metrics]
+    A --> D[Traces]
+    A --> E[Alerting]
+
+    B --> B1[Structured Logs]
+    B --> B2[Correlation ID]
+    B --> B3[Error Codes]
+    B --> B4[Audit Logs]
+
+    C --> C1[RED]
+    C --> C2[USE]
+    C --> C3[Business Metrics]
+    C --> C4[SLO / Error Budget]
+
+    D --> D1[Trace ID]
+    D --> D2[Spans]
+    D --> D3[Context Propagation]
+    D --> D4[Sampling]
+
+    E --> E1[User Symptoms]
+    E --> E2[Actionable Alerts]
+    E --> E3[Runbooks]
+    E --> E4[Burn Rate]
+</div></code></pre>
+<hr>
+<h1 id="98-những-điều-phải-nhớ-sau-bài-11">98. Những điều phải nhớ sau Bài 11</h1>
+<pre class="hljs"><code><div>1. Monitoring phát hiện vấn đề đã biết; observability hỗ trợ điều tra vấn đề chưa biết.
+2. Ba tín hiệu chính là logs, metrics và traces.
+3. Logs cung cấp chi tiết từng sự kiện.
+4. Metrics cho thấy xu hướng, rate và phạm vi.
+5. Traces theo dõi request qua nhiều service.
+6. Logs nên có cấu trúc, không chỉ là chuỗi text.
+7. Không log password, token, secret hoặc dữ liệu nhạy cảm không cần thiết.
+8. Correlation ID liên kết các sự kiện thuộc cùng workflow.
+9. Request ID thường định danh một attempt.
+10. Trace ID định danh một distributed trace.
+11. Metrics nên dùng labels có cardinality thấp.
+12. User ID, order ID và trace ID không nên là metric labels.
+13. Average latency không đủ; phải theo dõi p95 và p99.
+14. RED gồm Rate, Errors và Duration.
+15. USE gồm Utilization, Saturation và Errors.
+16. RED nhìn từ request; USE nhìn từ tài nguyên.
+17. Alert quan trọng nên dựa trên user impact và SLO.
+18. CPU cao không luôn đồng nghĩa user đang bị ảnh hưởng.
+19. Fallback thành công phải được ghi nhận là degraded success.
+20. Deployment và config changes phải xuất hiện trên timeline.
+21. Async message cần propagate trace/correlation context.
+22. Sampling phải ưu tiên giữ lỗi và trace chậm.
+23. Telemetry pipeline lỗi không nên làm request chính thất bại.
+24. Debug nên đi từ impact → metrics → traces → logs → resources.
+25. Observability tốt giúp giảm MTTD và MTTR.
+</div></code></pre>
+<hr>
+<h1 id="99-bài-tập-thực-hành">99. Bài tập thực hành</h1>
+<p>Thiết kế observability cho hệ thống đặt đồ ăn:</p>
+<pre class="hljs"><code><div>- API Gateway
+- Restaurant Service
+- Menu Service
+- Order Service
+- Inventory Service
+- Payment Service
+- Delivery Service
+- Notification Workers
+- Message Broker
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Correlation ID chính của workflow đặt hàng là gì?
+2. Request ID và trace ID khác correlation ID thế nào?
+3. Mỗi service cần RED metrics nào?
+4. Resource nào cần USE metrics?
+5. Business metrics nào thể hiện order flow đang khỏe?
+6. Những log event nào cần structured logging?
+7. Field nào không được log?
+8. Trace context được truyền qua queue thế nào?
+9. Alert nào cần đánh thức on-call ngay?
+10. Alert nào chỉ cần tạo ticket?
+11. Làm sao phát hiện payment thành công nhưng order không được cập nhật?
+12. Làm sao phát hiện notification backlog?
+13. Làm sao phân biệt full success và degraded success?
+14. Dashboard incident nên có những biểu đồ nào?
+15. Khi checkout p99 tăng, quy trình debug là gì?
+</div></code></pre>
+<p>Kiến trúc telemetry gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Gateway --> Order
+    Order --> Inventory
+    Order --> Payment
+    Order --> Broker
+    Broker --> Notification
+
+    Gateway -.logs metrics traces.-> Collector
+    Order -.logs metrics traces.-> Collector
+    Inventory -.logs metrics traces.-> Collector
+    Payment -.logs metrics traces.-> Collector
+    Notification -.logs metrics traces.-> Collector
+
+    Collector --> Logs[(Log Store)]
+    Collector --> Metrics[(Metrics Store)]
+    Collector --> Traces[(Trace Store)]
+
+    Logs --> Dashboard
+    Metrics --> Dashboard
+    Traces --> Dashboard
+    Metrics --> Alerts[Alert Manager]
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Bạn không thể vận hành đáng tin cậy một hệ thống mà bạn không thể nhìn thấy. Observability tốt không chỉ thu thập thật nhiều dữ liệu; nó thu thập đúng tín hiệu, liên kết chúng bằng context và biến chúng thành hành động điều tra rõ ràng.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 12 — Data Replication và High Availability: leader–follower, synchronous/asynchronous replication, replication lag, failover, quorum và split-brain.</strong></p>
+
+</body>
+</html>

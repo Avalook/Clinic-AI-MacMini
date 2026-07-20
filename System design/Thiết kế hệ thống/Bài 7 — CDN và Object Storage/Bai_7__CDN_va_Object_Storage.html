@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 7 — CDN và Object Storage.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-7--cdn-và-object-storage">Bài 7 — CDN và Object Storage</h1>
+<p>CDN và Object Storage thường xuất hiện cùng nhau trong các hệ thống phục vụ:</p>
+<pre class="hljs"><code><div>- Ảnh
+- Video
+- Audio
+- File tải xuống
+- CSS, JavaScript
+- Thumbnail
+- Avatar
+- Backup
+- Tài liệu người dùng upload
+</div></code></pre>
+<p>Nhưng chúng giải quyết <strong>hai vấn đề khác nhau</strong>:</p>
+<pre class="hljs"><code><div>Object Storage:
+Lưu file bền vững.
+
+CDN:
+Phân phối file nhanh đến người dùng ở nhiều vị trí địa lý.
+</div></code></pre>
+<p>Các tài liệu System Design bạn cung cấp đặt CDN trong nhóm thành phần quan trọng để giảm latency và giảm tải server gốc khi phục vụ nội dung tĩnh hoặc media ở quy mô lớn.</p>
+<hr>
+<h1 id="1-vấn-đề-khi-lưu-file-trực-tiếp-trên-application-server">1. Vấn đề khi lưu file trực tiếp trên application server</h1>
+<p>Giả sử bạn xây một ứng dụng cho phép user upload avatar.</p>
+<p>Kiến trúc đơn giản:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User --> App[Application Server]
+    App --> Disk[(Local Disk)]
+</div></code></pre>
+<p>Khi user upload file:</p>
+<pre class="hljs"><code><div>/avatar/user_123.jpg
+</div></code></pre>
+<p>file được lưu trên ổ đĩa của application server.</p>
+<p>Cách này có thể hoạt động cho prototype nhỏ, nhưng sẽ nhanh chóng gặp vấn đề.</p>
+<hr>
+<h2 id="11-không-scale-ngang-tốt">1.1 Không scale ngang tốt</h2>
+<p>Giả sử có ba application server:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> LB[Load Balancer]
+    LB --> A1[App Server 1]
+    LB --> A2[App Server 2]
+    LB --> A3[App Server 3]
+</div></code></pre>
+<p>User upload ảnh vào Server 1.</p>
+<p>Request xem ảnh sau đó được load balancer gửi đến Server 2.</p>
+<p>Server 2 không có file.</p>
+<pre class="hljs"><code><div>Server 1:
+Có avatar.jpg
+
+Server 2:
+Không có avatar.jpg
+
+Server 3:
+Không có avatar.jpg
+</div></code></pre>
+<p>Bạn có thể dùng shared filesystem, nhưng nó lại tạo thêm bottleneck và complexity.</p>
+<hr>
+<h2 id="12-server-chết-có-thể-mất-file">1.2 Server chết có thể mất file</h2>
+<p>Nếu file chỉ nằm trong local disk và máy bị hỏng:</p>
+<pre class="hljs"><code><div>- Avatar mất
+- Tài liệu mất
+- Video mất
+- Backup cũng có thể mất
+</div></code></pre>
+<p>Application server thường được thiết kế để có thể thay thế hoặc scale động. Vì thế không nên phụ thuộc vào local disk để lưu dữ liệu người dùng quan trọng.</p>
+<hr>
+<h2 id="13-deploy-trở-nên-khó-khăn">1.3 Deploy trở nên khó khăn</h2>
+<p>Container hoặc virtual machine có thể bị:</p>
+<pre class="hljs"><code><div>- Restart
+- Replace
+- Auto-scale down
+- Redeploy
+</div></code></pre>
+<p>Local storage thường không phải nơi phù hợp để lưu file bền vững.</p>
+<hr>
+<h2 id="14-application-server-phải-gánh-bandwidth">1.4 Application server phải gánh bandwidth</h2>
+<p>Nếu mỗi ảnh có kích thước 2 MB và có 10.000 lượt tải mỗi giây:</p>
+<pre class="hljs"><code><div>10.000 × 2 MB
+= 20.000 MB/s
+= 20 GB/s
+</div></code></pre>
+<p>Application server phải dùng CPU, network connection và bandwidth chỉ để truyền file.</p>
+<p>Đây là công việc CDN và object storage làm tốt hơn.</p>
+<hr>
+<h1 id="2-object-storage-là-gì">2. Object Storage là gì?</h1>
+<p>Object Storage là hệ thống lưu dữ liệu dưới dạng <strong>object</strong>.</p>
+<p>Mỗi object thường gồm:</p>
+<pre class="hljs"><code><div>- Key hoặc object name
+- File content
+- Metadata
+- Bucket/container
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Bucket:
+user-uploads
+
+Object key:
+avatars/user_123/7f9a2c.jpg
+
+Content:
+Dữ liệu ảnh
+
+Metadata:
+Content-Type: image/jpeg
+Size: 240 KB
+Uploaded-By: user_123
+</div></code></pre>
+<p>Các dịch vụ phổ biến:</p>
+<pre class="hljs"><code><div>Amazon S3
+Google Cloud Storage
+Azure Blob Storage
+Cloudflare R2
+MinIO
+</div></code></pre>
+<hr>
+<h1 id="3-object-storage-khác-filesystem-như-thế-nào">3. Object Storage khác filesystem như thế nào?</h1>
+<p>Filesystem tổ chức dữ liệu theo thư mục và file:</p>
+<pre class="hljs"><code><div>/home/app/uploads/avatar.jpg
+</div></code></pre>
+<p>Object storage tổ chức dữ liệu theo bucket và key:</p>
+<pre class="hljs"><code><div>s3://user-uploads/avatars/user_123/avatar.jpg
+</div></code></pre>
+<p>Mặc dù key trông giống thư mục:</p>
+<pre class="hljs"><code><div>avatars/user_123/avatar.jpg
+</div></code></pre>
+<p>nó thường chỉ là một chuỗi key có prefix, không nhất thiết là thư mục thật như filesystem.</p>
+<hr>
+<h2 id="so-sánh">So sánh</h2>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Local filesystem</th>
+<th>Object storage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Đơn vị lưu</td>
+<td>File</td>
+<td>Object</td>
+</tr>
+<tr>
+<td>Khả năng scale</td>
+<td>Giới hạn theo máy</td>
+<td>Scale rất lớn</td>
+</tr>
+<tr>
+<td>Durability</td>
+<td>Phụ thuộc máy</td>
+<td>Thường rất cao</td>
+</tr>
+<tr>
+<td>Truy cập</td>
+<td>File path</td>
+<td>API/HTTP</td>
+</tr>
+<tr>
+<td>Chia sẻ nhiều server</td>
+<td>Khó hơn</td>
+<td>Tự nhiên</td>
+</tr>
+<tr>
+<td>Metadata</td>
+<td>Hạn chế</td>
+<td>Linh hoạt</td>
+</tr>
+<tr>
+<td>Phù hợp</td>
+<td>File local, tạm thời</td>
+<td>Media, backup, upload</td>
+</tr>
+<tr>
+<td>Thay đổi một phần file</td>
+<td>Dễ hơn</td>
+<td>Thường phải ghi lại object</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="4-khi-nào-dùng-object-storage">4. Khi nào dùng Object Storage?</h1>
+<p>Phù hợp cho:</p>
+<pre class="hljs"><code><div>- Ảnh
+- Video
+- Audio
+- PDF
+- User uploads
+- Log archive
+- Database backup
+- Static website files
+- Machine learning datasets
+- Large downloadable files
+</div></code></pre>
+<p>Không phải lựa chọn tự nhiên cho:</p>
+<pre class="hljs"><code><div>- Query dữ liệu quan hệ
+- Transaction
+- Update một field nhỏ trong record
+- Search theo nhiều thuộc tính
+- Lock và concurrency phức tạp
+</div></code></pre>
+<p>Metadata nghiệp vụ vẫn thường nằm trong database.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Object storage:
+Nội dung file thật
+
+Database:
+file_id
+owner_id
+object_key
+mime_type
+size
+status
+created_at
+permissions
+</div></code></pre>
+<hr>
+<h1 id="5-object-storage-không-thay-thế-database">5. Object Storage không thay thế Database</h1>
+<p>Giả sử user upload một ảnh.</p>
+<p>Object storage giữ:</p>
+<pre class="hljs"><code><div>photos/user_123/photo_456.jpg
+</div></code></pre>
+<p>Database giữ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;photo_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;ownerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;objectKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;photos/user_123/photo_456.jpg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ready&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;visibility&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;private&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sizeBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2845000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T08:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Tại sao cần database?</p>
+<p>Vì ứng dụng cần query:</p>
+<pre class="hljs"><code><div>- Ảnh nào thuộc user này?
+- Ảnh có public không?
+- Ảnh đã xử lý xong chưa?
+- Ảnh thuộc album nào?
+- Ai được quyền xem?
+</div></code></pre>
+<p>Object storage chỉ biết object key và metadata cơ bản. Nó không nên thay relational hoặc application database cho nghiệp vụ.</p>
+<hr>
+<h1 id="6-cdn-là-gì">6. CDN là gì?</h1>
+<p><strong>CDN — Content Delivery Network</strong> là một mạng lưới server phân bố ở nhiều khu vực địa lý.</p>
+<p>Các server gần người dùng được gọi là:</p>
+<pre class="hljs"><code><div>Edge server
+Point of Presence — PoP
+Edge location
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Đưa nội dung đến gần user hơn.
+</div></code></pre>
+<p>Thay vì user ở Việt Nam tải ảnh từ server gốc tại Mỹ, CDN có thể phục vụ ảnh từ một edge ở Singapore, Bangkok hoặc khu vực gần hơn.</p>
+<hr>
+<h1 id="7-origin-và-edge">7. Origin và Edge</h1>
+<h2 id="origin">Origin</h2>
+<p>Origin là nơi chứa bản gốc của nội dung.</p>
+<p>Có thể là:</p>
+<pre class="hljs"><code><div>- Object storage
+- Web server
+- Application server
+- Media server
+</div></code></pre>
+<h2 id="edge">Edge</h2>
+<p>Edge là server CDN nằm gần người dùng và lưu bản cache của nội dung.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    UserVN[User Việt Nam] --> EdgeAsia[CDN Edge châu Á]
+    UserEU[User châu Âu] --> EdgeEU[CDN Edge châu Âu]
+    UserUS[User Mỹ] --> EdgeUS[CDN Edge Mỹ]
+
+    EdgeAsia --> Origin[(Object Storage Origin)]
+    EdgeEU --> Origin
+    EdgeUS --> Origin
+</div></code></pre>
+<hr>
+<h1 id="8-cdn-hoạt-động-như-thế-nào">8. CDN hoạt động như thế nào?</h1>
+<p>Giả sử user truy cập:</p>
+<pre class="hljs"><code><div>https://cdn.example.com/images/product-123.jpg
+</div></code></pre>
+<h2 id="lần-đầu-tại-một-edge">Lần đầu tại một edge</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Edge
+    participant Origin
+
+    User->>Edge: GET product-123.jpg
+    Edge->>Edge: Cache lookup
+    Note over Edge: Cache miss
+    Edge->>Origin: Fetch original file
+    Origin-->>Edge: File
+    Edge->>Edge: Store in cache
+    Edge-->>User: File
+</div></code></pre>
+<h2 id="các-lần-tiếp-theo">Các lần tiếp theo</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Edge
+
+    User->>Edge: GET product-123.jpg
+    Edge->>Edge: Cache lookup
+    Note over Edge: Cache hit
+    Edge-->>User: File
+</div></code></pre>
+<p>Origin không bị gọi lại cho tới khi:</p>
+<pre class="hljs"><code><div>- Cache hết TTL
+- File bị purge
+- Edge eviction file
+- URL thay đổi
+</div></code></pre>
+<hr>
+<h1 id="9-cdn-giúp-gì">9. CDN giúp gì?</h1>
+<h2 id="91-giảm-latency">9.1 Giảm latency</h2>
+<p>Khoảng cách địa lý ngắn hơn:</p>
+<pre class="hljs"><code><div>User Việt Nam → Edge châu Á
+</div></code></pre>
+<p>thay vì:</p>
+<pre class="hljs"><code><div>User Việt Nam → Origin Mỹ
+</div></code></pre>
+<hr>
+<h2 id="92-giảm-tải-origin">9.2 Giảm tải origin</h2>
+<p>Một file được xem một triệu lần không có nghĩa object storage phải phục vụ một triệu lần.</p>
+<p>Phần lớn request được xử lý ở edge.</p>
+<hr>
+<h2 id="93-giảm-bandwidth-origin">9.3 Giảm bandwidth origin</h2>
+<p>Nội dung lớn như video và ảnh được phân phối từ CDN.</p>
+<hr>
+<h2 id="94-hấp-thụ-traffic-spike">9.4 Hấp thụ traffic spike</h2>
+<p>Ví dụ một bài viết viral hoặc flash sale.</p>
+<p>Nếu nội dung đã được cache ở edge, origin không phải chịu toàn bộ traffic.</p>
+<hr>
+<h2 id="95-tăng-availability">9.5 Tăng availability</h2>
+<p>Nếu một edge có lỗi, CDN có thể route sang edge khác hoặc về origin.</p>
+<p>Tuy nhiên CDN không thay thế hoàn toàn chiến lược high availability của origin.</p>
+<hr>
+<h1 id="10-push-cdn-và-pull-cdn">10. Push CDN và Pull CDN</h1>
+<h2 id="101-pull-cdn">10.1 Pull CDN</h2>
+<p>Đây là mô hình phổ biến.</p>
+<p>Khi edge cache miss, CDN tự fetch từ origin.</p>
+<pre class="hljs"><code><div>User → CDN
+       ↓ miss
+     Origin
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ triển khai
+- Không cần chủ động upload đến từng edge
+- Chỉ cache nội dung có traffic
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Request đầu tiên chậm hơn
+- Origin bị gọi khi cache miss
+</div></code></pre>
+<hr>
+<h2 id="102-push-cdn">10.2 Push CDN</h2>
+<p>Hệ thống chủ động đẩy nội dung lên CDN trước khi user request.</p>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Nội dung chắc chắn sẽ rất hot
+- Live event
+- Software release
+- Game patch
+- Video premiere
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Quản lý phức tạp hơn
+- Có thể push nội dung không được dùng
+</div></code></pre>
+<p>Phần lớn ứng dụng thông thường dùng pull CDN kết hợp prewarming khi cần.</p>
+<hr>
+<h1 id="11-cache-control-là-gì">11. Cache-Control là gì?</h1>
+<p><code>Cache-Control</code> là HTTP header hướng dẫn browser, proxy và CDN cách cache response.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=3600
+</div></code></pre>
+<p>Ý nghĩa:</p>
+<pre class="hljs"><code><div>- Response có thể được shared cache lưu
+- Có thể dùng trong 3.600 giây
+</div></code></pre>
+<hr>
+<h1 id="12-các-directive-quan-trọng">12. Các directive quan trọng</h1>
+<h2 id="121-public">12.1 public</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=3600
+</div></code></pre>
+<p>Response có thể được cache bởi:</p>
+<pre class="hljs"><code><div>- Browser
+- CDN
+- Shared proxy
+</div></code></pre>
+<p>Phù hợp dữ liệu công khai.</p>
+<hr>
+<h2 id="122-private">12.2 private</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>private, max-age=60
+</div></code></pre>
+<p>Chỉ cache ở client riêng, không nên lưu ở shared CDN.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- User profile riêng
+- Dashboard cá nhân
+- Dữ liệu tùy user
+</div></code></pre>
+<hr>
+<h2 id="123-no-store">12.3 no-store</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>no-store
+</div></code></pre>
+<p>Không được lưu response.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Dữ liệu tài chính nhạy cảm
+- Token
+- Thông tin bí mật
+- Payment response
+</div></code></pre>
+<hr>
+<h2 id="124-no-cache">12.4 no-cache</h2>
+<p>Tên dễ gây nhầm.</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>no-cache
+</div></code></pre>
+<p>Không có nghĩa “không được lưu”.</p>
+<p>Nó có nghĩa:</p>
+<blockquote>
+<p>Có thể lưu, nhưng phải revalidate với origin trước khi sử dụng lại.</p>
+</blockquote>
+<hr>
+<h2 id="125-max-age">12.5 max-age</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>max-age=3600
+</div></code></pre>
+<p>Thời gian browser hoặc cache có thể xem response là fresh.</p>
+<hr>
+<h2 id="126-s-maxage">12.6 s-maxage</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=60, s-maxage=3600
+</div></code></pre>
+<p>Ý nghĩa:</p>
+<pre class="hljs"><code><div>Browser cache:
+60 giây
+
+Shared cache/CDN:
+3.600 giây
+</div></code></pre>
+<p><code>s-maxage</code> thường dùng để điều khiển CDN riêng biệt với browser.</p>
+<hr>
+<h2 id="127-immutable">12.7 immutable</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=31536000, immutable
+</div></code></pre>
+<p>Nói với client:</p>
+<blockquote>
+<p>Nội dung URL này sẽ không thay đổi.</p>
+</blockquote>
+<p>Phù hợp với versioned assets:</p>
+<pre class="hljs"><code><div>app.7f9a2c.js
+logo.a12b9e.png
+</div></code></pre>
+<hr>
+<h2 id="128-stale-while-revalidate">12.8 stale-while-revalidate</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=300, stale-while-revalidate=60
+</div></code></pre>
+<p>Sau 5 phút, CDN có thể tạm trả bản cũ trong thêm 60 giây trong khi refresh background.</p>
+<p>Giúp tránh request chờ origin.</p>
+<hr>
+<h2 id="129-stale-if-error">12.9 stale-if-error</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=300, stale-if-error=86400
+</div></code></pre>
+<p>Nếu origin lỗi, cache được phép trả dữ liệu cũ.</p>
+<p>Rất hữu ích để tăng availability cho nội dung không quá nhạy về freshness.</p>
+<hr>
+<h1 id="13-etag-và-conditional-request">13. ETag và conditional request</h1>
+<p>Origin có thể trả:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">ETag</span><span class="hljs-punctuation">: </span>&quot;photo-123-v7&quot;
+</div></code></pre>
+<p>Lần sau client hoặc CDN gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">If-None-Match</span><span class="hljs-punctuation">: </span>&quot;photo-123-v7&quot;
+</div></code></pre>
+<p>Nếu file không đổi:</p>
+<pre class="hljs"><code><div>304 Not Modified
+</div></code></pre>
+<p>Không cần gửi lại toàn bộ file.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Server
+
+    Client->>Server: GET file + If-None-Match v7
+    Server->>Server: Compare ETag
+    Server-->>Client: 304 Not Modified
+</div></code></pre>
+<p>Điều này giảm bandwidth.</p>
+<hr>
+<h1 id="14-last-modified">14. Last-Modified</h1>
+<p>Server có thể trả:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Last-Modified</span><span class="hljs-punctuation">: </span>Fri, 10 Jul 2026 08:00:00 GMT
+</div></code></pre>
+<p>Client gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">If-Modified-Since</span><span class="hljs-punctuation">: </span>Fri, 10 Jul 2026 08:00:00 GMT
+</div></code></pre>
+<p>Nếu chưa thay đổi:</p>
+<pre class="hljs"><code><div>304 Not Modified
+</div></code></pre>
+<p>ETag thường chính xác hơn vì dựa trên version hoặc content hash.</p>
+<hr>
+<h1 id="15-cache-invalidation-trên-cdn">15. Cache invalidation trên CDN</h1>
+<p>Giả sử URL:</p>
+<pre class="hljs"><code><div>https://cdn.example.com/logo.png
+</div></code></pre>
+<p>File đã được cache 24 giờ.</p>
+<p>Bạn thay logo nhưng giữ nguyên URL.</p>
+<p>Các edge có thể tiếp tục trả logo cũ.</p>
+<p>Có ba chiến lược chính.</p>
+<hr>
+<h2 id="151-chờ-ttl-hết">15.1 Chờ TTL hết</h2>
+<p>Đơn giản nhưng nội dung cũ tồn tại cho tới khi TTL hết.</p>
+<hr>
+<h2 id="152-purgeinvalidate-cdn">15.2 Purge/invalidate CDN</h2>
+<p>Gửi yêu cầu xóa:</p>
+<pre class="hljs"><code><div>/logo.png
+</div></code></pre>
+<p>khỏi các edge.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Nội dung mới xuất hiện nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Purge có thể mất thời gian
+- Tốn chi phí
+- Có rate limit
+- Có thể gây origin spike sau purge
+</div></code></pre>
+<hr>
+<h2 id="153-versioned-url">15.3 Versioned URL</h2>
+<p>Thay vì giữ:</p>
+<pre class="hljs"><code><div>/logo.png
+</div></code></pre>
+<p>dùng:</p>
+<pre class="hljs"><code><div>/logo.v1.png
+/logo.v2.png
+</div></code></pre>
+<p>Hoặc content hash:</p>
+<pre class="hljs"><code><div>/logo.7f9a2c.png
+</div></code></pre>
+<p>Khi nội dung đổi, URL đổi.</p>
+<p>File cũ vẫn cache nhưng không còn được tham chiếu.</p>
+<p>Đây thường là cách tốt nhất cho static assets.</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=31536000, immutable
+</div></code></pre>
+<hr>
+<h1 id="16-vì-sao-không-nên-overwrite-cùng-một-object-key">16. Vì sao không nên overwrite cùng một object key?</h1>
+<p>Giả sử avatar:</p>
+<pre class="hljs"><code><div>avatars/user_123/avatar.jpg
+</div></code></pre>
+<p>User thay avatar nhưng key không đổi.</p>
+<p>CDN, browser và proxy có thể vẫn giữ ảnh cũ.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>avatars/user_123/64f2a9.jpg
+</div></code></pre>
+<p>Khi upload ảnh mới:</p>
+<pre class="hljs"><code><div>avatars/user_123/b81c7d.jpg
+</div></code></pre>
+<p>Database cập nhật URL mới.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Không cần purge ngay
+- Cache được đặt TTL rất dài
+- Tránh user thấy ảnh cũ
+- Rollback dễ hơn
+</div></code></pre>
+<p>Đây gọi là immutable object naming hoặc versioned key.</p>
+<hr>
+<h1 id="17-luồng-upload-truyền-thống">17. Luồng upload truyền thống</h1>
+<p>Một cách đơn giản:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant API
+    participant Storage
+
+    Client->>API: Upload file
+    API->>Storage: Store file
+    Storage-->>API: Success
+    API-->>Client: Upload complete
+</div></code></pre>
+<p>Client upload toàn bộ file qua application server.</p>
+<p>Vấn đề:</p>
+<pre class="hljs"><code><div>- Application server gánh bandwidth
+- File lớn chiếm connection lâu
+- Tốn memory hoặc temporary disk
+- Khó scale
+- Timeout dễ xảy ra
+</div></code></pre>
+<p>Với video 2 GB, đây là thiết kế không tối ưu.</p>
+<hr>
+<h1 id="18-upload-trực-tiếp-bằng-signed-url">18. Upload trực tiếp bằng signed URL</h1>
+<p>Thiết kế tốt hơn:</p>
+<pre class="hljs"><code><div>Client xin quyền upload từ API.
+API tạo signed URL.
+Client upload trực tiếp vào object storage.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant API
+    participant DB
+    participant Storage
+
+    Client->>API: POST /uploads
+    API->>DB: Create pending file record
+    API-->>Client: Signed upload URL + object key
+
+    Client->>Storage: PUT file using signed URL
+    Storage-->>Client: Upload success
+
+    Client->>API: Confirm upload
+    API->>Storage: Verify object metadata
+    API->>DB: Mark file as uploaded
+    API-->>Client: File ready or processing
+</div></code></pre>
+<p>Application server không truyền file.</p>
+<p>Nó chỉ:</p>
+<pre class="hljs"><code><div>- Xác thực user
+- Kiểm tra quyền
+- Chọn object key
+- Tạo signed URL
+- Lưu metadata
+</div></code></pre>
+<hr>
+<h1 id="19-signed-url-là-gì">19. Signed URL là gì?</h1>
+<p>Signed URL là URL tạm thời chứa chữ ký cho phép thực hiện một hành động giới hạn.</p>
+<p>Ví dụ quyền:</p>
+<pre class="hljs"><code><div>PUT một object cụ thể
+trong vòng 10 phút
+với content type image/jpeg
+và kích thước tối đa nhất định
+</div></code></pre>
+<p>Signed URL có thể dùng cho:</p>
+<pre class="hljs"><code><div>- Upload
+- Download
+- Xem file private
+</div></code></pre>
+<p>Nó cho phép client giao tiếp trực tiếp với storage mà không cần storage bucket public.</p>
+<hr>
+<h1 id="20-tại-sao-signed-url-an-toàn-hơn-bucket-public">20. Tại sao Signed URL an toàn hơn bucket public?</h1>
+<p>Bucket private:</p>
+<pre class="hljs"><code><div>Không ai truy cập trực tiếp nếu không có quyền.
+</div></code></pre>
+<p>API sau khi xác thực user tạo URL có thời hạn:</p>
+<pre class="hljs"><code><div>Expires in 5 minutes
+Allowed method: GET
+Allowed object: private/user_123/report.pdf
+</div></code></pre>
+<p>Sau khi hết hạn, URL không còn hợp lệ.</p>
+<hr>
+<h1 id="21-signed-url-không-phải-authorization-hoàn-chỉnh">21. Signed URL không phải authorization hoàn chỉnh</h1>
+<p>Một sai lầm:</p>
+<pre class="hljs"><code><div>Có signed URL nghĩa là file được bảo vệ hoàn toàn.
+</div></code></pre>
+<p>Thực tế:</p>
+<ul>
+<li>Ai có URL còn hiệu lực thường có thể dùng nó.</li>
+<li>URL có thể bị chia sẻ.</li>
+<li>URL có thể xuất hiện trong log hoặc history.</li>
+<li>Sau khi phát hành, khó thu hồi ngay nếu TTL dài.</li>
+</ul>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>- TTL nên ngắn
+- Chỉ cấp sau khi kiểm tra authorization
+- Không chứa secrets khác trong URL
+- Dùng HTTPS
+- Không log toàn bộ query string nhạy cảm
+</div></code></pre>
+<hr>
+<h1 id="22-signed-url-cho-upload">22. Signed URL cho upload</h1>
+<p>Ví dụ client yêu cầu:</p>
+<pre class="hljs"><code><div>POST /v1/uploads
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer &lt;token&gt;
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;fileName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;avatar.jpg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;contentType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;image/jpeg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sizeBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">250000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>API trả:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;uploadId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;upl_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;objectKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;uploads/user_456/upl_123/original.jpg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://storage.example.com/...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T08:10:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client upload:</p>
+<pre class="hljs"><code><div>PUT &lt;signed-upload-url&gt;
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>image/jpeg
+</div></code></pre>
+<p>Sau đó confirm:</p>
+<pre class="hljs"><code><div>POST /v1/uploads/upl_123/complete
+</div></code></pre>
+<hr>
+<h1 id="23-tại-sao-cần-bước-confirm">23. Tại sao cần bước confirm?</h1>
+<p>Signed URL được tạo không có nghĩa file đã upload thành công.</p>
+<p>Database có thể có record:</p>
+<pre class="hljs"><code><div>status = pending
+</div></code></pre>
+<p>Sau khi client confirm, API kiểm tra:</p>
+<pre class="hljs"><code><div>- Object có tồn tại không?
+- Size có đúng không?
+- Content type có phù hợp không?
+- Checksum có đúng không?
+</div></code></pre>
+<p>Sau đó chuyển:</p>
+<pre class="hljs"><code><div>pending → uploaded → processing → ready
+</div></code></pre>
+<hr>
+<h1 id="24-đừng-tin-content-type-từ-client">24. Đừng tin Content-Type từ client</h1>
+<p>Client có thể nói:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>image/jpeg
+</div></code></pre>
+<p>nhưng file thật lại là executable hoặc nội dung khác.</p>
+<p>Nên kiểm tra:</p>
+<pre class="hljs"><code><div>- Magic bytes/file signature
+- MIME type thực tế
+- File size
+- Image dimensions
+- Virus/malware scan
+- File extension
+</div></code></pre>
+<p>Không nên chỉ tin tên file:</p>
+<pre class="hljs"><code><div>malware.exe.jpg
+</div></code></pre>
+<hr>
+<h1 id="25-luồng-xử-lý-ảnh-sau-upload">25. Luồng xử lý ảnh sau upload</h1>
+<p>Ảnh gốc thường không được phục vụ trực tiếp ngay.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Storage[(Original Upload)]
+    Storage --> Event[Object Created Event]
+    Event --> Queue[Processing Queue]
+    Queue --> Worker[Image Worker]
+
+    Worker --> Scan[Malware Scan]
+    Worker --> Resize[Resize]
+    Worker --> Compress[Compress]
+    Worker --> Metadata[Extract Metadata]
+
+    Resize --> Derived[(Derived Images)]
+    Derived --> CDN[CDN]
+    Worker --> DB[(Update status = ready)]
+</div></code></pre>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>original.jpg
+thumbnail_200.jpg
+medium_800.jpg
+large_1600.jpg
+</div></code></pre>
+<p>Client nhận kích thước phù hợp thay vì luôn tải ảnh gốc.</p>
+<hr>
+<h1 id="26-tại-sao-xử-lý-media-nên-bất-đồng-bộ">26. Tại sao xử lý media nên bất đồng bộ?</h1>
+<p>Upload ảnh/video có thể cần:</p>
+<pre class="hljs"><code><div>- Scan virus
+- Resize
+- Compress
+- Transcode
+- Generate thumbnail
+- Extract metadata
+- Content moderation
+</div></code></pre>
+<p>Các tác vụ này có thể mất vài giây hoặc vài phút.</p>
+<p>Không nên giữ HTTP request mở cho tới khi hoàn tất.</p>
+<p>Luồng tốt hơn:</p>
+<pre class="hljs"><code><div>Upload xong
+→ Trả trạng thái processing
+→ Worker xử lý
+→ Cập nhật ready
+</div></code></pre>
+<hr>
+<h1 id="27-video-transcoding">27. Video transcoding</h1>
+<p>Một video upload có thể cần chuyển thành nhiều chất lượng:</p>
+<pre class="hljs"><code><div>240p
+360p
+480p
+720p
+1080p
+4K
+</div></code></pre>
+<p>Và nhiều bitrate.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Original[Original Video] --> Transcoder[Transcoding Workers]
+    Transcoder --> V1[360p]
+    Transcoder --> V2[720p]
+    Transcoder --> V3[1080p]
+    V1 --> Storage[(Object Storage)]
+    V2 --> Storage
+    V3 --> Storage
+    Storage --> CDN[CDN]
+</div></code></pre>
+<p>Tại sao?</p>
+<p>User có:</p>
+<pre class="hljs"><code><div>- Thiết bị khác nhau
+- Màn hình khác nhau
+- Tốc độ mạng khác nhau
+</div></code></pre>
+<p>Streaming system chọn chất lượng phù hợp.</p>
+<hr>
+<h1 id="28-adaptive-bitrate-streaming">28. Adaptive bitrate streaming</h1>
+<p>Video thường được chia thành các đoạn nhỏ:</p>
+<pre class="hljs"><code><div>segment_001.ts
+segment_002.ts
+segment_003.ts
+</div></code></pre>
+<p>Hoặc các format tương đương.</p>
+<p>Client đo tốc độ mạng và chuyển bitrate.</p>
+<pre class="hljs"><code><div>Mạng tốt:
+1080p
+
+Mạng giảm:
+720p
+
+Mạng yếu:
+360p
+</div></code></pre>
+<p>CDN cache các segment này rất hiệu quả vì chúng là object tĩnh và immutable.</p>
+<hr>
+<h1 id="29-multipart-upload">29. Multipart upload</h1>
+<p>File lớn không nên upload bằng một request duy nhất.</p>
+<p>Ví dụ video 10 GB.</p>
+<p>Multipart upload chia file thành nhiều phần:</p>
+<pre class="hljs"><code><div>Part 1: 10 MB
+Part 2: 10 MB
+Part 3: 10 MB
+...
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> P1[Upload Part 1]
+    Client --> P2[Upload Part 2]
+    Client --> P3[Upload Part 3]
+
+    P1 --> Storage
+    P2 --> Storage
+    P3 --> Storage
+
+    Storage --> Complete[Complete Multipart Upload]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Upload song song
+- Retry riêng phần lỗi
+- Không phải upload lại toàn file
+- Phù hợp mạng không ổn định
+</div></code></pre>
+<hr>
+<h1 id="30-resumable-upload">30. Resumable upload</h1>
+<p>Nếu upload bị ngắt ở 80%, user không muốn bắt đầu lại.</p>
+<p>Resumable upload ghi nhận:</p>
+<pre class="hljs"><code><div>- Upload ID
+- Các part đã hoàn thành
+- Checksum từng part
+- Expiration
+</div></code></pre>
+<p>Client tiếp tục phần còn thiếu.</p>
+<p>Cần cleanup các multipart upload bị bỏ dở để tránh tốn storage.</p>
+<hr>
+<h1 id="31-checksum">31. Checksum</h1>
+<p>Checksum giúp kiểm tra file có bị lỗi trong quá trình upload không.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>MD5
+SHA-256
+CRC
+</div></code></pre>
+<p>Client hoặc storage tính checksum.</p>
+<p>Nếu checksum không khớp:</p>
+<pre class="hljs"><code><div>Upload bị corrupt hoặc sai dữ liệu.
+</div></code></pre>
+<p>Với multipart upload, có thể kiểm tra từng part.</p>
+<hr>
+<h1 id="32-download-file-public">32. Download file public</h1>
+<p>File public có thể đi theo luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User --> CDN
+    CDN --> ObjectStorage[(Public or protected origin)]
+</div></code></pre>
+<p>URL:</p>
+<pre class="hljs"><code><div>https://cdn.example.com/public/products/p_123/image.7f9a.jpg
+</div></code></pre>
+<p>Cache-Control:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=31536000, immutable
+</div></code></pre>
+<p>Phù hợp khi object key không thay đổi nội dung.</p>
+<hr>
+<h1 id="33-download-file-private">33. Download file private</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Hóa đơn
+- Hồ sơ cá nhân
+- Tài liệu nội bộ
+- Video trả phí
+</div></code></pre>
+<p>Không nên để bucket public.</p>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant API
+    participant CDN
+    participant Storage
+
+    User->>API: Request private file
+    API->>API: Authenticate + authorize
+    API-->>User: Signed download URL
+
+    User->>CDN: GET signed URL
+    CDN->>Storage: Fetch if needed
+    Storage-->>CDN: File
+    CDN-->>User: File
+</div></code></pre>
+<hr>
+<h1 id="34-signed-url-và-signed-cookie">34. Signed URL và Signed Cookie</h1>
+<h2 id="signed-url">Signed URL</h2>
+<p>Quyền gắn với một URL cụ thể.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Download một file
+- Xem một ảnh private
+- Upload một object
+</div></code></pre>
+<h2 id="signed-cookie">Signed Cookie</h2>
+<p>Quyền có thể áp dụng cho một nhóm URL.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Xem nhiều video segment
+- Truy cập cả thư mục nội dung
+- Streaming private media
+</div></code></pre>
+<p>Ví dụ một video có hàng trăm segment. Tạo signed URL cho từng segment có thể không thuận tiện; signed cookie có thể phù hợp hơn.</p>
+<hr>
+<h1 id="35-origin-protection">35. Origin protection</h1>
+<p>Nếu CDN dùng object storage làm origin, cần tránh user bỏ qua CDN và gọi origin trực tiếp.</p>
+<p>Nếu không:</p>
+<pre class="hljs"><code><div>- Không tận dụng cache
+- Origin bị abuse
+- Có thể bypass security rule
+- Tăng bandwidth cost
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Bucket private
+- Chỉ cho CDN identity truy cập origin
+- Origin access control
+- Firewall
+- Signed origin request
+</div></code></pre>
+<p>Luồng mong muốn:</p>
+<pre class="hljs"><code><div>User → CDN → Private Origin
+</div></code></pre>
+<p>Không phải:</p>
+<pre class="hljs"><code><div>User → Private Origin trực tiếp
+</div></code></pre>
+<hr>
+<h1 id="36-origin-shield">36. Origin shield</h1>
+<p>Trong CDN lớn, nhiều edge có thể cùng cache miss.</p>
+<p>Nếu 100 edge cùng request một file từ origin, origin nhận 100 request.</p>
+<p>Origin shield thêm một tầng cache trung gian:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    E1[Edge 1] --> Shield[Origin Shield]
+    E2[Edge 2] --> Shield
+    E3[Edge 3] --> Shield
+    E4[Edge 4] --> Shield
+
+    Shield --> Origin[(Origin)]
+</div></code></pre>
+<p>Origin có thể chỉ nhận một request.</p>
+<p>Đây giống request coalescing ở cấp CDN.</p>
+<hr>
+<h1 id="37-cache-key-của-cdn">37. Cache key của CDN</h1>
+<p>CDN cần quyết định request nào là cùng một object cache.</p>
+<p>Cache key có thể bao gồm:</p>
+<pre class="hljs"><code><div>- Host
+- Path
+- Query string
+- Header
+- Cookie
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/image.jpg?width=200
+/image.jpg?width=800
+</div></code></pre>
+<p>Nếu width ảnh hưởng response, query phải thuộc cache key.</p>
+<p>Nhưng nếu query chỉ là tracking:</p>
+<pre class="hljs"><code><div>/image.jpg?utm_source=email
+</div></code></pre>
+<p>không nên tạo một cache entry mới cho mỗi tracking parameter.</p>
+<hr>
+<h1 id="38-sai-cache-key-có-thể-gây-rò-rỉ-dữ-liệu">38. Sai cache key có thể gây rò rỉ dữ liệu</h1>
+<p>Giả sử response thay đổi theo:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer user-token
+</div></code></pre>
+<p>nhưng CDN cache key chỉ dựa trên URL:</p>
+<pre class="hljs"><code><div>/account
+</div></code></pre>
+<p>Response của User A có thể bị trả cho User B.</p>
+<p>Do đó private API response thường:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>private
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>no-store
+</div></code></pre>
+<p>Shared CDN chỉ nên cache khi cache key và authorization model được thiết kế rất cẩn thận.</p>
+<hr>
+<h1 id="39-cors-khi-upload-trực-tiếp">39. CORS khi upload trực tiếp</h1>
+<p>Khi browser upload trực tiếp vào object storage, storage phải cho phép origin của web app.</p>
+<p>Ví dụ policy cho phép:</p>
+<pre class="hljs"><code><div>Origin:
+https://app.example.com
+
+Methods:
+PUT, POST
+
+Headers:
+Content-Type, checksum headers
+</div></code></pre>
+<p>Nếu cấu hình CORS sai, browser sẽ chặn upload dù signed URL hợp lệ.</p>
+<p>CORS không thay thế authentication. Nó chỉ là chính sách của browser về cross-origin request.</p>
+<hr>
+<h1 id="40-file-lifecycle">40. File lifecycle</h1>
+<p>Không phải file nào cũng cần giữ mãi.</p>
+<p>Object storage thường hỗ trợ lifecycle policy:</p>
+<pre class="hljs"><code><div>- Sau 30 ngày chuyển sang storage rẻ hơn
+- Sau 1 năm archive
+- Sau 7 năm xóa
+- Xóa multipart upload chưa hoàn thành sau 24 giờ
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Hot[Hot Storage] -->|30 days| Cool[Cool Storage]
+    Cool -->|180 days| Archive[Archive Storage]
+    Archive -->|Retention expires| Delete[Delete]
+</div></code></pre>
+<p>Phù hợp cho:</p>
+<pre class="hljs"><code><div>- Logs
+- Backup
+- Compliance records
+- Old video originals
+</div></code></pre>
+<hr>
+<h1 id="41-storage-class">41. Storage class</h1>
+<p>Các lớp lưu trữ khác nhau cân bằng:</p>
+<pre class="hljs"><code><div>- Chi phí lưu
+- Chi phí đọc
+- Thời gian khôi phục
+- Availability
+</div></code></pre>
+<p>Dữ liệu thường xuyên truy cập:</p>
+<pre class="hljs"><code><div>Hot storage
+</div></code></pre>
+<p>Dữ liệu hiếm truy cập:</p>
+<pre class="hljs"><code><div>Cold/archive storage
+</div></code></pre>
+<p>Không nên để log 5 năm trong lớp storage đắt nhất nếu hầu như không được đọc.</p>
+<hr>
+<h1 id="42-replication-và-durability-của-object-storage">42. Replication và durability của object storage</h1>
+<p>Object storage thường sao chép dữ liệu qua nhiều thiết bị hoặc zone để tăng durability.</p>
+<p>Nhưng cần phân biệt:</p>
+<pre class="hljs"><code><div>Durability:
+Khả năng không mất object.
+
+Availability:
+Khả năng truy cập object ngay lúc này.
+</div></code></pre>
+<p>Một hệ thống có thể có durability rất cao nhưng đôi khi request vẫn timeout.</p>
+<hr>
+<h1 id="43-cross-region-replication">43. Cross-region replication</h1>
+<p>Có thể sao chép object sang region khác.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Primary[(Asia Object Storage)] --> Replica[(Europe Object Storage)]
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Disaster recovery
+- Data locality
+- Multi-region delivery
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Chi phí
+- Replication lag
+- Data residency
+- Conflict khi ghi nhiều region
+</div></code></pre>
+<p>CDN không đồng nghĩa với cross-region replication.</p>
+<p>CDN cache file, còn replication tạo bản sao lưu trữ bền vững.</p>
+<hr>
+<h1 id="44-xóa-file-và-cache">44. Xóa file và cache</h1>
+<p>Giả sử user xóa ảnh private.</p>
+<p>Cần xử lý:</p>
+<pre class="hljs"><code><div>1. Đánh dấu file deleted trong DB
+2. Không cấp signed URL mới
+3. Xóa hoặc quarantine object
+4. Purge CDN nếu cần
+5. Xử lý backup/retention theo chính sách
+</div></code></pre>
+<p>Nếu chỉ xóa DB record nhưng CDN vẫn cache file public, URL cũ có thể tiếp tục hoạt động tới khi cache hết hạn.</p>
+<p>Với nội dung nhạy cảm, cần:</p>
+<pre class="hljs"><code><div>- TTL ngắn hơn
+- Purge CDN
+- Signed access
+- Không dùng public immutable URL
+</div></code></pre>
+<hr>
+<h1 id="45-soft-delete-và-hard-delete">45. Soft delete và hard delete</h1>
+<h2 id="soft-delete">Soft delete</h2>
+<pre class="hljs"><code><div>status = deleted
+deleted_at = timestamp
+</div></code></pre>
+<p>Object vẫn tồn tại tạm thời.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Undo
+- Audit
+- Recovery
+- Retention policy
+</div></code></pre>
+<h2 id="hard-delete">Hard delete</h2>
+<p>Object bị xóa vật lý.</p>
+<p>Có thể xảy ra sau thời gian grace period.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Soft delete ngay
+Hard delete sau 30 ngày
+</div></code></pre>
+<hr>
+<h1 id="46-orphan-object">46. Orphan object</h1>
+<p>Orphan object là file tồn tại trong storage nhưng không còn record tương ứng trong database.</p>
+<p>Có thể xảy ra khi:</p>
+<pre class="hljs"><code><div>1. Upload object thành công
+2. Ghi DB thất bại
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>1. Xóa DB record
+2. Xóa object thất bại
+</div></code></pre>
+<p>Cần cleanup job:</p>
+<pre class="hljs"><code><div>- Tìm pending uploads quá hạn
+- Tìm object không có metadata record
+- Retry deletion
+</div></code></pre>
+<hr>
+<h1 id="47-orphan-database-record">47. Orphan database record</h1>
+<p>Ngược lại:</p>
+<pre class="hljs"><code><div>Database nói file tồn tại,
+nhưng object đã mất hoặc upload chưa hoàn tất.
+</div></code></pre>
+<p>Do đó metadata nên có trạng thái:</p>
+<pre class="hljs"><code><div>pending
+uploaded
+processing
+ready
+failed
+deleted
+</div></code></pre>
+<p>Không nên chỉ có một boolean:</p>
+<pre class="hljs"><code><div>uploaded = true/false
+</div></code></pre>
+<hr>
+<h1 id="48-idempotency-trong-upload">48. Idempotency trong upload</h1>
+<p>Client có thể retry:</p>
+<pre class="hljs"><code><div>POST /uploads
+</div></code></pre>
+<p>Nếu mỗi retry tạo object key mới, có thể tạo nhiều file trùng.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>...
+</div></code></pre>
+<p>hoặc client-generated upload ID.</p>
+<p>Server trả lại cùng upload session nếu request được retry.</p>
+<p>Multipart upload cũng cần complete operation idempotent nếu có thể.</p>
+<hr>
+<h1 id="49-ví-dụ-hoàn-chỉnh--upload-avatar">49. Ví dụ hoàn chỉnh — upload avatar</h1>
+<h2 id="bước-1-xin-upload-url">Bước 1: Xin upload URL</h2>
+<pre class="hljs"><code><div>POST /v1/avatar-uploads
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer &lt;token&gt;
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>91c4...
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;contentType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;image/jpeg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sizeBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">420000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;uploadId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;upl_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;objectKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;avatars/user_456/upl_123/original.jpg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;signed-url&gt;&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T08:10:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="bước-2-upload-trực-tiếp">Bước 2: Upload trực tiếp</h2>
+<pre class="hljs"><code><div>PUT &lt;signed-url&gt;
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>image/jpeg
+</div></code></pre>
+<hr>
+<h2 id="bước-3-confirm">Bước 3: Confirm</h2>
+<pre class="hljs"><code><div>POST /v1/avatar-uploads/upl_123/complete
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>202 Accepted
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;uploadId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;upl_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;processing&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="bước-4-worker-xử-lý">Bước 4: Worker xử lý</h2>
+<pre class="hljs"><code><div>- Verify image
+- Virus scan
+- Crop
+- Resize
+- Compress
+- Remove unsafe metadata
+</div></code></pre>
+<p>Tạo:</p>
+<pre class="hljs"><code><div>avatars/user_456/upl_123/avatar_128.jpg
+avatars/user_456/upl_123/avatar_512.jpg
+</div></code></pre>
+<hr>
+<h2 id="bước-5-cập-nhật-profile">Bước 5: Cập nhật profile</h2>
+<p>Database đổi <code>avatar_object_key</code>.</p>
+<p>CDN URL:</p>
+<pre class="hljs"><code><div>https://cdn.example.com/avatars/user_456/upl_123/avatar_512.jpg
+</div></code></pre>
+<p>Vì key mới hoàn toàn, có thể cache dài.</p>
+<hr>
+<h1 id="50-ví-dụ-hoàn-chỉnh--video-platform">50. Ví dụ hoàn chỉnh — video platform</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> API[Upload API]
+    API --> DB[(Video Metadata DB)]
+    API --> Signed[Generate Signed URL]
+    Signed --> Client
+
+    Client --> Storage[(Original Video Storage)]
+    Storage --> Event[Upload Event]
+    Event --> Queue[Transcoding Queue]
+
+    Queue --> W1[Transcoder 1]
+    Queue --> W2[Transcoder 2]
+    Queue --> W3[Thumbnail Worker]
+
+    W1 --> Output[(Processed Video Storage)]
+    W2 --> Output
+    W3 --> Output
+
+    Output --> CDN[CDN]
+    CDN --> Viewer[Viewers]
+</div></code></pre>
+<p>Metadata database:</p>
+<pre class="hljs"><code><div>video_id
+owner_id
+status
+original_object_key
+duration
+available_qualities
+thumbnail_url
+visibility
+created_at
+</div></code></pre>
+<p>Trạng thái:</p>
+<pre class="hljs"><code><div>pending_upload
+uploaded
+processing
+ready
+failed
+</div></code></pre>
+<hr>
+<h1 id="51-cdn-cho-api-response">51. CDN cho API response</h1>
+<p>CDN không chỉ cache file.</p>
+<p>Một số API public cũng có thể cache.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>GET /public/products/p_123
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=60, s-maxage=300, stale-while-revalidate=60
+</div></code></pre>
+<p>CDN cache 5 phút, browser cache 1 phút.</p>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Response public
+- Giống nhau cho mọi user
+- Không cần consistency tức thời
+- Read-heavy
+</div></code></pre>
+<p>Không phù hợp nếu response chứa dữ liệu cá nhân hoặc permission khác nhau theo user.</p>
+<hr>
+<h1 id="52-cdn-và-dynamic-content">52. CDN và dynamic content</h1>
+<p>CDN hiện đại có thể:</p>
+<pre class="hljs"><code><div>- TLS termination
+- Compression
+- Image optimization
+- Edge functions
+- Request routing
+- Bot protection
+- Rate limiting
+</div></code></pre>
+<p>Nhưng không nên đẩy business logic phức tạp ra edge chỉ vì có thể.</p>
+<p>Phải cân nhắc:</p>
+<pre class="hljs"><code><div>- Debugging
+- Deployment consistency
+- Vendor lock-in
+- Data locality
+- Runtime limits
+</div></code></pre>
+<hr>
+<h1 id="53-range-requests">53. Range requests</h1>
+<p>Video và file lớn thường hỗ trợ tải một phần:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Range</span><span class="hljs-punctuation">: </span>bytes=1000000-1999999
+</div></code></pre>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>206 Partial Content
+</div></code></pre>
+<p>Điều này cho phép:</p>
+<pre class="hljs"><code><div>- Seek video
+- Resume download
+- Không tải toàn bộ file
+</div></code></pre>
+<p>CDN và object storage thường hỗ trợ range request hiệu quả.</p>
+<hr>
+<h1 id="54-compression">54. Compression</h1>
+<p>Nội dung text như:</p>
+<pre class="hljs"><code><div>HTML
+CSS
+JavaScript
+JSON
+SVG
+</div></code></pre>
+<p>có thể nén bằng:</p>
+<pre class="hljs"><code><div>gzip
+Brotli
+</div></code></pre>
+<p>Ảnh JPEG/PNG/video vốn đã được nén; nén HTTP thêm thường không mang lại nhiều lợi ích.</p>
+<p>Header:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Content-Encoding</span><span class="hljs-punctuation">: </span>br
+</div></code></pre>
+<p>CDN có thể tự động nén theo <code>Accept-Encoding</code>.</p>
+<hr>
+<h1 id="55-image-optimization-tại-cdn">55. Image optimization tại CDN</h1>
+<p>CDN có thể tạo biến thể dựa trên query:</p>
+<pre class="hljs"><code><div>/image.jpg?width=400&amp;format=webp
+</div></code></pre>
+<p>Nhưng phải kiểm soát số biến thể.</p>
+<p>Nếu attacker yêu cầu:</p>
+<pre class="hljs"><code><div>width=401
+width=402
+width=403
+...
+</div></code></pre>
+<p>có thể tạo vô số object/cache key.</p>
+<p>Nên giới hạn kích thước hợp lệ:</p>
+<pre class="hljs"><code><div>128
+256
+512
+1024
+</div></code></pre>
+<hr>
+<h1 id="56-chi-phí">56. Chi phí</h1>
+<p>CDN và object storage có nhiều loại chi phí:</p>
+<pre class="hljs"><code><div>- Storage per GB/month
+- Request count
+- Data transfer
+- CDN egress
+- Cache invalidation
+- Image processing
+- Cross-region replication
+- Retrieval from archive
+</div></code></pre>
+<p>Một thiết kế nhanh nhưng không kiểm soát cache key có thể làm chi phí tăng mạnh.</p>
+<p>Ví dụ cache hit ratio thấp:</p>
+<pre class="hljs"><code><div>CDN liên tục fetch origin
+→ origin request cost tăng
+→ egress tăng
+</div></code></pre>
+<hr>
+<h1 id="57-observability-cần-theo-dõi">57. Observability cần theo dõi</h1>
+<h2 id="cdn-metrics">CDN metrics</h2>
+<pre class="hljs"><code><div>- Cache hit ratio
+- Edge latency
+- Origin latency
+- Origin request count
+- 4xx/5xx rate
+- Bandwidth
+- Egress
+- Purge count
+- Hot URLs
+</div></code></pre>
+<h2 id="object-storage-metrics">Object storage metrics</h2>
+<pre class="hljs"><code><div>- Upload success rate
+- Download latency
+- Storage usage
+- Request rate
+- Error rate
+- Multipart uploads chưa hoàn thành
+- Object count
+- Replication lag
+</div></code></pre>
+<h2 id="media-pipeline-metrics">Media pipeline metrics</h2>
+<pre class="hljs"><code><div>- Processing queue depth
+- Transcoding duration
+- Failure rate
+- Time from upload to ready
+- Worker utilization
+</div></code></pre>
+<hr>
+<h1 id="58-failure-modes">58. Failure modes</h1>
+<h2 id="cdn-down">CDN down</h2>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Route sang CDN khác
+- Fallback origin
+- Serve cached content từ browser
+</div></code></pre>
+<p>Nhưng fallback origin cần rate limit, nếu không origin có thể bị overload.</p>
+<hr>
+<h2 id="origin-down">Origin down</h2>
+<p>Nếu CDN còn cache:</p>
+<pre class="hljs"><code><div>Serve stale-if-error
+</div></code></pre>
+<p>Nếu file chưa được cache:</p>
+<pre class="hljs"><code><div>Request có thể fail.
+</div></code></pre>
+<p>Do đó origin vẫn cần HA phù hợp.</p>
+<hr>
+<h2 id="storage-upload-thành-công-nhưng-event-mất">Storage upload thành công nhưng event mất</h2>
+<p>File nằm trong storage nhưng không được xử lý.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Durable event delivery
+- Periodic reconciliation
+- Scan pending uploads
+- Transactional state machine
+</div></code></pre>
+<hr>
+<h2 id="worker-xử-lý-thất-bại">Worker xử lý thất bại</h2>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Retry
+- Dead-letter queue
+- Error status
+- Manual reprocessing
+</div></code></pre>
+<hr>
+<h2 id="signed-url-hết-hạn-giữa-upload">Signed URL hết hạn giữa upload</h2>
+<p>Với file nhỏ, client xin URL mới và retry.</p>
+<p>Với multipart upload, cần renew authorization cho các part còn lại mà không bắt đầu lại toàn bộ.</p>
+<hr>
+<h1 id="59-security-checklist">59. Security checklist</h1>
+<pre class="hljs"><code><div>[ ] Bucket có private mặc định không?
+[ ] API có kiểm tra owner và permission không?
+[ ] Signed URL có TTL ngắn không?
+[ ] Signed URL giới hạn đúng method và object key không?
+[ ] Có giới hạn file size không?
+[ ] Có validate MIME bằng nội dung thật không?
+[ ] Có malware scan không?
+[ ] Có ngăn path/key injection không?
+[ ] Có dùng HTTPS không?
+[ ] Có tránh log signed URL đầy đủ không?
+[ ] CDN có thể truy cập origin nhưng user không thể bypass không?
+[ ] File private có bị shared-cache nhầm không?
+</div></code></pre>
+<hr>
+<h1 id="60-sai-lầm-phổ-biến">60. Sai lầm phổ biến</h1>
+<h2 id="lỗi-1-lưu-file-trên-app-server">Lỗi 1: Lưu file trên app server</h2>
+<p>Khiến scale ngang và deploy khó khăn.</p>
+<hr>
+<h2 id="lỗi-2-upload-file-lớn-qua-api-server">Lỗi 2: Upload file lớn qua API server</h2>
+<p>Làm application server thành proxy bandwidth đắt đỏ.</p>
+<hr>
+<h2 id="lỗi-3-cho-bucket-public-toàn-bộ">Lỗi 3: Cho bucket public toàn bộ</h2>
+<p>Dễ rò rỉ file private.</p>
+<hr>
+<h2 id="lỗi-4-signed-url-có-thời-hạn-quá-dài">Lỗi 4: Signed URL có thời hạn quá dài</h2>
+<p>Nếu bị lộ, người khác có thể truy cập lâu.</p>
+<hr>
+<h2 id="lỗi-5-tin-file-extension-và-content-type">Lỗi 5: Tin file extension và Content-Type</h2>
+<p>Có thể bị upload file độc hại.</p>
+<hr>
+<h2 id="lỗi-6-overwrite-cùng-url-nhưng-đặt-ttl-dài">Lỗi 6: Overwrite cùng URL nhưng đặt TTL dài</h2>
+<p>User liên tục thấy nội dung cũ.</p>
+<hr>
+<h2 id="lỗi-7-cdn-cache-response-cá-nhân">Lỗi 7: CDN cache response cá nhân</h2>
+<p>Có thể làm rò rỉ dữ liệu giữa user.</p>
+<hr>
+<h2 id="lỗi-8-không-cleanup-upload-dở">Lỗi 8: Không cleanup upload dở</h2>
+<p>Multipart và pending object tích tụ, tăng chi phí.</p>
+<hr>
+<h2 id="lỗi-9-không-có-status-xử-lý">Lỗi 9: Không có status xử lý</h2>
+<p>Database báo file tồn tại dù media pipeline chưa hoàn tất.</p>
+<hr>
+<h2 id="lỗi-10-không-giới-hạn-biến-thể-ảnh">Lỗi 10: Không giới hạn biến thể ảnh</h2>
+<p>Tạo vô số cache key và chi phí xử lý.</p>
+<hr>
+<h1 id="61-framework-thiết-kế-như-senior-engineer">61. Framework thiết kế như Senior Engineer</h1>
+<p>Khi gặp tính năng upload hoặc media, hãy hỏi:</p>
+<pre class="hljs"><code><div>1. File là public hay private?
+2. Kích thước trung bình và tối đa?
+3. Upload QPS và download QPS?
+4. User ở một region hay toàn cầu?
+5. Có cần CDN không?
+6. File có immutable không?
+7. TTL và Cache-Control là gì?
+8. Có cần signed URL không?
+9. Có upload trực tiếp không?
+10. Có cần multipart/resumable upload không?
+11. Có cần resize/transcode/scan không?
+12. Pipeline xử lý sync hay async?
+13. Metadata nằm ở đâu?
+14. Object key được thiết kế thế nào?
+15. Làm sao cleanup orphan object?
+16. Nếu CDN hoặc storage lỗi thì sao?
+17. Chính sách retention và deletion là gì?
+</div></code></pre>
+<hr>
+<h1 id="62-cách-trình-bày-trong-system-design-interview">62. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em lưu ảnh trên S3 và dùng CDN.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Tôi lưu file gốc và các phiên bản đã xử lý trong object storage, còn metadata và permission nằm trong database. Client xin signed upload URL từ API rồi upload trực tiếp vào storage để application server không phải gánh bandwidth. Sau khi upload, một event đưa file vào pipeline scan và resize bất đồng bộ. Các phiên bản ảnh dùng object key immutable và được phục vụ qua CDN với TTL dài. File private được truy cập bằng signed URL ngắn hạn sau khi API kiểm tra authorization.</p>
+</blockquote>
+<p>Câu trả lời đó thể hiện đầy đủ:</p>
+<pre class="hljs"><code><div>- Storage
+- Metadata
+- Upload path
+- Processing
+- CDN
+- Caching
+- Security
+- Failure handling
+</div></code></pre>
+<hr>
+<h1 id="63-sơ-đồ-ghi-nhớ-toàn-bài">63. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Media System] --> B[Upload]
+    A --> C[Object Storage]
+    A --> D[Processing]
+    A --> E[CDN]
+    A --> F[Security]
+
+    B --> B1[Signed URL]
+    B --> B2[Direct Upload]
+    B --> B3[Multipart]
+    B --> B4[Confirm Upload]
+
+    C --> C1[Original File]
+    C --> C2[Derived Files]
+    C --> C3[Lifecycle]
+    C --> C4[Replication]
+
+    D --> D1[Scan]
+    D --> D2[Resize]
+    D --> D3[Transcode]
+    D --> D4[Metadata]
+
+    E --> E1[Edge]
+    E --> E2[Origin]
+    E --> E3[Cache-Control]
+    E --> E4[Versioned URL]
+
+    F --> F1[Private Bucket]
+    F --> F2[Authorization]
+    F --> F3[Signed Download]
+    F --> F4[Origin Protection]
+</div></code></pre>
+<hr>
+<h1 id="64-bảng-ghi-nhớ-nhanh">64. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Object Storage</td>
+<td>Lưu object/file bền vững</td>
+</tr>
+<tr>
+<td>CDN</td>
+<td>Phân phối nội dung từ edge gần user</td>
+</tr>
+<tr>
+<td>Origin</td>
+<td>Nguồn chứa bản gốc</td>
+</tr>
+<tr>
+<td>Edge</td>
+<td>Server CDN gần user</td>
+</tr>
+<tr>
+<td>Cache-Control</td>
+<td>Quy tắc cache HTTP</td>
+</tr>
+<tr>
+<td>Signed URL</td>
+<td>Quyền tạm thời cho một URL/action</td>
+</tr>
+<tr>
+<td>Direct upload</td>
+<td>Client upload thẳng vào storage</td>
+</tr>
+<tr>
+<td>Multipart upload</td>
+<td>Chia file lớn thành nhiều phần</td>
+</tr>
+<tr>
+<td>Immutable key</td>
+<td>Nội dung đổi thì URL/key đổi</td>
+</tr>
+<tr>
+<td>Purge</td>
+<td>Xóa cache khỏi CDN</td>
+</tr>
+<tr>
+<td>Origin shield</td>
+<td>Cache trung gian bảo vệ origin</td>
+</tr>
+<tr>
+<td>Range request</td>
+<td>Tải một phần file</td>
+</tr>
+<tr>
+<td>Lifecycle policy</td>
+<td>Chuyển/xóa object theo thời gian</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="65-những-điều-phải-nhớ-sau-bài-7">65. Những điều phải nhớ sau Bài 7</h1>
+<pre class="hljs"><code><div>1. Object storage dùng để lưu file; CDN dùng để phân phối file.
+2. Không nên lưu user uploads trên local disk của application server.
+3. Metadata nghiệp vụ nằm trong database, content nằm trong object storage.
+4. CDN cache nội dung tại edge gần user và giảm tải origin.
+5. Origin có thể là object storage hoặc web server.
+6. Static assets nên dùng immutable/versioned URL và TTL dài.
+7. Không nên overwrite cùng URL nếu CDN cache lâu.
+8. Upload file lớn nên đi trực tiếp từ client đến object storage.
+9. API chỉ xác thực, cấp signed URL và lưu metadata.
+10. Signed URL phải có phạm vi hẹp và thời hạn ngắn.
+11. Không được tin file extension hoặc Content-Type từ client.
+12. Resize, scan và transcode nên xử lý bất đồng bộ.
+13. File lớn nên dùng multipart và resumable upload.
+14. File private không nên đặt trong public bucket.
+15. CDN cache key sai có thể gây rò rỉ dữ liệu.
+16. CDN không thay thế database, object durability hoặc origin high availability.
+17. Cần cleanup pending upload và orphan object.
+18. Phải theo dõi CDN hit ratio, origin load và media processing queue.
+</div></code></pre>
+<hr>
+<h1 id="66-bài-tập-thực-hành">66. Bài tập thực hành</h1>
+<p>Thiết kế hệ thống lưu và xem ảnh giống Google Photos bản đơn giản.</p>
+<p>Giả định:</p>
+<pre class="hljs"><code><div>- 20 triệu DAU
+- Mỗi user upload 5 ảnh/ngày
+- Mỗi ảnh trung bình 2 MB
+- Mỗi user xem 50 ảnh/ngày
+- Ảnh mặc định là private
+- Hỗ trợ thumbnail và ảnh chất lượng cao
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Client upload ảnh theo luồng nào?
+2. Vì sao không upload qua application server?
+3. Object key nên được đặt thế nào?
+4. Metadata nào lưu trong database?
+5. Signed upload URL có TTL bao lâu?
+6. Khi nào ảnh được đánh dấu ready?
+7. Làm sao tạo thumbnail?
+8. Ảnh private được tải qua CDN như thế nào?
+9. Cache-Control nên đặt thế nào?
+10. Làm sao xử lý ảnh bị xóa?
+11. Làm sao cleanup upload thất bại?
+12. Nếu một ảnh đột nhiên được chia sẻ công khai và viral thì hệ thống phản ứng thế nào?
+</div></code></pre>
+<p>Kiến trúc sơ bộ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> API[Photo API]
+    API --> DB[(Metadata DB)]
+    API --> Signed[Signed Upload URL]
+    Signed --> User
+
+    User --> Storage[(Original Photo Storage)]
+    Storage --> Event[Upload Event]
+    Event --> Queue[Processing Queue]
+
+    Queue --> Worker[Image Workers]
+    Worker --> Scan[Scan]
+    Worker --> Resize[Generate Variants]
+    Resize --> Derived[(Derived Storage)]
+
+    Derived --> CDN[Private CDN]
+    CDN --> Viewer[Authorized Viewer]
+</div></code></pre>
+<hr>
+<h2 id="tóm-tắt-cuối-bài">Tóm tắt cuối bài</h2>
+<blockquote>
+<p><strong>Object Storage giữ bản gốc bền vững, CDN đưa bản sao đến gần người dùng, còn API kiểm soát metadata, authorization và workflow. Thiết kế tốt sẽ không bắt application server vận chuyển từng byte media, không để bucket private trở thành public và không phụ thuộc vào việc purge cache mỗi khi nội dung thay đổi.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo: Bài 8 — Load Balancing và Horizontal Scaling: L4/L7, thuật toán phân tải, health check, sticky session, stateless service và autoscaling.</strong></p>
+
+</body>
+</html>

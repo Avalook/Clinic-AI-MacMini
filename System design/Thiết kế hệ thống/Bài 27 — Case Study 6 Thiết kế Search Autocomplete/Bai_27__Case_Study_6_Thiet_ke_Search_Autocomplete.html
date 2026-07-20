@@ -1,0 +1,2568 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 27 — Case Study 6: Thiết kế Search Autocomplete.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-27--case-study-6-thiết-kế-search-autocomplete">Bài 27 — Case Study 6: Thiết kế Search Autocomplete</h1>
+<p>Search Autocomplete gợi ý nội dung ngay trong lúc người dùng nhập truy vấn:</p>
+<pre class="hljs"><code><div>Input:
+&quot;sys&quot;
+
+Suggestions:
+- system design
+- system design interview
+- system architecture
+- system administrator
+</div></code></pre>
+<p>Autocomplete xuất hiện trong:</p>
+<pre class="hljs"><code><div>- Công cụ tìm kiếm
+- Sàn thương mại điện tử
+- Mạng xã hội
+- Ứng dụng video
+- Bản đồ
+- Kho tài liệu
+- IDE và code search
+</div></code></pre>
+<p>Bài toán cốt lõi là:</p>
+<pre class="hljs"><code><div>prefix → top K suggestions
+</div></code></pre>
+<p>Nhưng hệ thống production còn phải giải quyết:</p>
+<pre class="hljs"><code><div>- Một request gần như sau mỗi phím bấm
+- Prefix ngắn tạo hot key cực lớn
+- Latency chỉ vài chục mili giây
+- Trending phải cập nhật gần realtime
+- Kết quả phải phù hợp ngôn ngữ và khu vực
+- Cá nhân hóa nhưng vẫn bảo vệ quyền riêng tư
+- Hỗ trợ lỗi chính tả
+- Chống spam thao túng bảng gợi ý
+- Không làm lộ truy vấn cá nhân hoặc PII
+- Hoạt động ở nhiều region
+</div></code></pre>
+<p>Kiến trúc tổng quát:</p>
+<pre class="hljs"><code><div>Query events
+→ Aggregation
+→ Prefix index
+→ Candidate retrieval
+→ Filter
+→ Ranking
+→ Top K suggestions
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế hệ thống hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Gợi ý query theo prefix.
+2. Trả về top K suggestions.
+3. Xếp hạng theo popularity, freshness và quality.
+4. Cá nhân hóa theo user, session, locale và region.
+5. Typo tolerance.
+6. Trending gần realtime.
+7. Nhiều ngôn ngữ.
+8. Safety, PII filtering và chống spam.
+9. Multi-region active–active cho serving.
+</div></code></pre>
+<p>Không đi sâu vào:</p>
+<pre class="hljs"><code><div>- Full search engine
+- Ranking tài liệu
+- Semantic retrieval hoàn chỉnh
+- Voice recognition
+- Recommendation hệ thống tổng quát
+</div></code></pre>
+<p>Autocomplete chỉ gợi ý truy vấn; search engine mới xử lý kết quả cuối cùng.</p>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="prefix-suggestion">Prefix suggestion</h2>
+<pre class="hljs"><code><div>Input:
+&quot;iph&quot;
+
+Output:
+- iphone
+- iphone 16
+- iphone 16 pro
+- iphone case
+</div></code></pre>
+<h2 id="candidate-types">Candidate types</h2>
+<p>Ngoài query text, có thể trả:</p>
+<pre class="hljs"><code><div>- Brand
+- Product
+- User
+- Hashtag
+- Category
+- Location
+- Topic
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Apple&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;BRAND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;entityId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;brand_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<h2 id="personalization">Personalization</h2>
+<pre class="hljs"><code><div>- Recent searches
+- User interests
+- Current category
+- Session context
+- Preferred language
+- Region
+</div></code></pre>
+<h2 id="safety">Safety</h2>
+<pre class="hljs"><code><div>- Loại PII
+- Loại spam
+- Loại query bị cấm
+- Áp policy theo quốc gia
+- Emergency removal
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- p99 latency rất thấp
+- Availability cao
+- Scale tới hàng triệu QPS
+- Eventual consistency cho popularity
+- Near-realtime freshness cho trending
+- Fast consistency cho safety removal
+- Chịu được hot prefixes
+- Cho phép graceful degradation
+</div></code></pre>
+<p>Autocomplete lỗi không được ngăn người dùng submit truy vấn tìm kiếm bình thường.</p>
+<hr>
+<h1 id="4-capacity-estimation">4. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>500 triệu DAU
+10 search sessions/user/ngày
+6 autocomplete requests/session
+</div></code></pre>
+<p>Tổng request:</p>
+<pre class="hljs"><code><div>500 triệu × 10 × 6
+= 30 tỷ requests/ngày
+</div></code></pre>
+<p>Average QPS:</p>
+<pre class="hljs"><code><div>30.000.000.000 / 86.400
+≈ 347.000 QPS
+</div></code></pre>
+<p>Peak gấp 5 lần:</p>
+<pre class="hljs"><code><div>≈ 1,7 triệu QPS
+</div></code></pre>
+<p>Đây là hệ thống:</p>
+<pre class="hljs"><code><div>- Read-heavy
+- Cache-heavy
+- Latency-sensitive
+- Có traffic skew cực mạnh
+</div></code></pre>
+<hr>
+<h1 id="5-vì-sao-một-search-session-tạo-nhiều-request">5. Vì sao một Search Session tạo nhiều Request?</h1>
+<p>User nhập:</p>
+<pre class="hljs"><code><div>system
+</div></code></pre>
+<p>Client có thể gửi:</p>
+<pre class="hljs"><code><div>s
+sy
+sys
+syst
+syste
+system
+</div></code></pre>
+<p>Một truy vấn cuối cùng tạo sáu request.</p>
+<p>Nếu người dùng gõ nhanh, phần lớn response cho prefix cũ không còn hữu ích khi tới client.</p>
+<p>Do đó tối ưu đầu tiên phải nằm ở client.</p>
+<hr>
+<h1 id="6-client-debounce">6. Client Debounce</h1>
+<p>Client chờ một khoảng ngắn sau lần nhập cuối trước khi gửi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Debounce = 100 ms
+</div></code></pre>
+<p>User gõ nhanh:</p>
+<pre class="hljs"><code><div>s → sy → sys
+</div></code></pre>
+<p>trong dưới 100 ms thì chỉ gửi:</p>
+<pre class="hljs"><code><div>sys
+</div></code></pre>
+<p>Debounce giúp giảm:</p>
+<pre class="hljs"><code><div>- QPS
+- Server load
+- Response bị bỏ phí
+- UI flicker
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Debounce dài:
+Giảm QPS nhưng suggestion chậm.
+
+Debounce ngắn:
+UX nhanh hơn nhưng traffic cao.
+</div></code></pre>
+<p>Khoảng 50–150 ms thường là vùng thử nghiệm hợp lý, nhưng phải đo theo thiết bị và thị trường.</p>
+<hr>
+<h1 id="7-request-cancellation-và-response-ordering">7. Request Cancellation và Response Ordering</h1>
+<p>Giả sử client gửi:</p>
+<pre class="hljs"><code><div>Request 1: &quot;sys&quot;
+Request 2: &quot;syst&quot;
+</div></code></pre>
+<p>Response <code>&quot;syst&quot;</code> về trước, sau đó <code>&quot;sys&quot;</code> mới về.</p>
+<p>Nếu client không kiểm tra, kết quả cũ sẽ ghi đè kết quả mới.</p>
+<p>Client cần:</p>
+<pre class="hljs"><code><div>- Gắn request sequence
+- Hủy request cũ nếu hỗ trợ
+- Bỏ response không còn khớp input hiện tại
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;requestSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">17</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;prefix&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;syst&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Chỉ render nếu:</p>
+<pre class="hljs"><code><div>response.requestSequence == latestRequestSequence
+</div></code></pre>
+<hr>
+<h1 id="8-api-design">8. API Design</h1>
+<pre class="hljs"><code><div>GET /v1/autocomplete?q=sys&amp;limit=10&amp;locale=vi-VN&amp;region=VN
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;query&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sys&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;suggestions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;system design&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;displayText&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;QUERY&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;system design interview&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;displayText&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design Interview&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;QUERY&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên expose:</p>
+<pre class="hljs"><code><div>- Raw internal score
+- Model features
+- Spam confidence
+- Policy reason nội bộ
+</div></code></pre>
+<hr>
+<h1 id="9-minimum-prefix-length">9. Minimum Prefix Length</h1>
+<p>Prefix một ký tự:</p>
+<pre class="hljs"><code><div>&quot;a&quot;
+</div></code></pre>
+<p>rất mơ hồ và cực nóng.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>1. Không gợi ý cho tới hai ký tự.
+2. Cho một ký tự nhưng chỉ dùng precomputed cache.
+3. Dùng locale, category và session context để giảm ambiguity.
+</div></code></pre>
+<p>Minimum prefix length là quyết định sản phẩm, nhưng prefix một ký tự không nên kích hoạt truy vấn nặng.</p>
+<hr>
+<h1 id="10-high-level-architecture">10. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Edge[Edge / Global Router]
+    Edge --> API[Autocomplete Service]
+
+    API --> L1[L1 Local Cache]
+    L1 --> L2[(Distributed Cache)]
+    L2 --> PrefixIndex[Immutable Prefix Index]
+
+    API --> Overlay[(Realtime Trending Overlay)]
+    API --> Personal[Personal History/Profile]
+    API --> Typo[Typo Correction Index]
+    API --> Entity[Entity Index]
+    API --> Policy[Safety Policy Store]
+
+    SearchEvents[Search + Selection Events] --> Stream[Event Stream]
+    Stream --> Aggregator[Streaming Aggregation]
+    Aggregator --> Overlay
+
+    Stream --> Raw[(Historical Query Data)]
+    Raw --> Batch[Batch Index Builder]
+    Batch --> Snapshot[(Versioned Index Snapshot)]
+    Snapshot --> PrefixIndex
+</div></code></pre>
+<p>Hai đường tách biệt:</p>
+<pre class="hljs"><code><div>Serving path:
+prefix → candidates → filter → rank → response
+
+Indexing path:
+events → aggregate → build → publish index
+</div></code></pre>
+<p>Serving không nên phụ thuộc trực tiếp vào analytics pipeline.</p>
+<hr>
+<h1 id="11-query-normalization">11. Query Normalization</h1>
+<p>Các query:</p>
+<pre class="hljs"><code><div>&quot; System Design &quot;
+&quot;SYSTEM DESIGN&quot;
+&quot;system   design&quot;
+</div></code></pre>
+<p>có thể được normalize thành:</p>
+<pre class="hljs"><code><div>&quot;system design&quot;
+</div></code></pre>
+<p>Các bước phổ biến:</p>
+<pre class="hljs"><code><div>- Trim whitespace
+- Collapse repeated spaces
+- Unicode normalization
+- Locale-aware case folding
+- Remove control characters
+- Enforce maximum length
+</div></code></pre>
+<p>Không nên tùy tiện:</p>
+<pre class="hljs"><code><div>- Xóa mọi dấu câu
+- Xóa dấu tiếng Việt trong canonical text
+- Reorder token
+</div></code></pre>
+<p>vì có thể thay đổi ý nghĩa.</p>
+<hr>
+<h1 id="12-unicode-normalization">12. Unicode Normalization</h1>
+<p>Hai chuỗi có thể hiển thị giống nhau nhưng dùng code-point sequences khác nhau.</p>
+<p>Ví dụ ký tự có dấu có thể được biểu diễn bằng:</p>
+<pre class="hljs"><code><div>- Một composed code point
+- Base character + combining mark
+</div></code></pre>
+<p>Nếu không normalize:</p>
+<pre class="hljs"><code><div>&quot;hệ thống&quot;
+</div></code></pre>
+<p>có thể bị lưu thành nhiều keys logic khác nhau.</p>
+<p>Nên normalize trước khi:</p>
+<pre class="hljs"><code><div>- Counting
+- Deduplication
+- Indexing
+- Cache lookup
+</div></code></pre>
+<hr>
+<h1 id="13-accent-handling">13. Accent Handling</h1>
+<p>Người dùng có thể nhập:</p>
+<pre class="hljs"><code><div>&quot;he thong&quot;
+</div></code></pre>
+<p>nhưng muốn:</p>
+<pre class="hljs"><code><div>&quot;hệ thống&quot;
+</div></code></pre>
+<p>Có thể duy trì hai forms:</p>
+<pre class="hljs"><code><div>Canonical:
+&quot;hệ thống&quot;
+
+Folded:
+&quot;he thong&quot;
+</div></code></pre>
+<p>Serving có thể lookup cả:</p>
+<pre class="hljs"><code><div>- Accent-sensitive index
+- Accent-folded auxiliary index
+</div></code></pre>
+<p>Accent folding phải locale-aware vì ở một số ngôn ngữ việc bỏ dấu có thể tạo ambiguity lớn.</p>
+<hr>
+<h1 id="14-prefix-search">14. Prefix Search</h1>
+<p>Prefix:</p>
+<pre class="hljs"><code><div>&quot;sys&quot;
+</div></code></pre>
+<p>khớp:</p>
+<pre class="hljs"><code><div>system
+system design
+system architecture
+</div></code></pre>
+<p>Không trực tiếp khớp:</p>
+<pre class="hljs"><code><div>distributed systems
+designing systems
+</div></code></pre>
+<p>Đó là:</p>
+<pre class="hljs"><code><div>- Token search
+- Infix search
+- Semantic search
+</div></code></pre>
+<p>Một autocomplete cơ bản nên bắt đầu với left-to-right prefix matching.</p>
+<hr>
+<h1 id="15-trie-là-gì">15. Trie là gì?</h1>
+<p>Trie là cây theo ký tự.</p>
+<p>Với:</p>
+<pre class="hljs"><code><div>car
+card
+care
+cat
+</div></code></pre>
+<p>Ta có:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Root --> C[c]
+    C --> A[a]
+    A --> R[r]
+    A --> T[t]
+    R --> D[d]
+    R --> E[e]
+</div></code></pre>
+<p>Lookup <code>&quot;car&quot;</code>:</p>
+<pre class="hljs"><code><div>root → c → a → r
+</div></code></pre>
+<p>Độ phức tạp:</p>
+<pre class="hljs"><code><div>O(length(prefix))
+</div></code></pre>
+<p>Điều này rất phù hợp với prefix lookup.</p>
+<hr>
+<h1 id="16-vấn-đề-của-trie-cơ-bản">16. Vấn đề của Trie Cơ bản</h1>
+<p>Nếu node <code>&quot;car&quot;</code> chỉ lưu children, để tìm top 10 suggestions hệ thống phải duyệt subtree:</p>
+<pre class="hljs"><code><div>car
+card
+care
+career
+car rental
+car insurance
+...
+</div></code></pre>
+<p>Subtree có thể chứa hàng triệu queries.</p>
+<p>Vì vậy optimization quan trọng nhất là:</p>
+<blockquote>
+<p>Mỗi node lưu sẵn top N suggestions cho prefix đó.</p>
+</blockquote>
+<p>Node <code>&quot;car&quot;</code> có thể lưu:</p>
+<pre class="hljs"><code><div>1. car
+2. car insurance
+3. car rental
+4. career
+5. card
+</div></code></pre>
+<p>Lookup trở thành:</p>
+<pre class="hljs"><code><div>Traverse prefix
+→ Đọc top N
+</div></code></pre>
+<p>Không cần duyệt descendants tại request time.</p>
+<hr>
+<h1 id="17-trie-node">17. Trie Node</h1>
+<p>Một node khái niệm:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;prefix&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sys&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;topSuggestionIds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">&quot;query_12&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;query_87&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;query_201&quot;</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Query dictionary lưu riêng:</p>
+<pre class="hljs"><code><div>queryId
+→ normalizedText
+→ displayText
+→ type
+→ static features
+</div></code></pre>
+<p>Nhờ đó full string không bị lặp tại mọi prefix.</p>
+<hr>
+<h1 id="18-top-n-trong-index-và-top-k-trong-response">18. Top N trong Index và Top K trong Response</h1>
+<p>Nếu API trả:</p>
+<pre class="hljs"><code><div>K = 10
+</div></code></pre>
+<p>index không nên chỉ lưu đúng 10.</p>
+<p>Nên lưu:</p>
+<pre class="hljs"><code><div>N = 50 hoặc 100
+</div></code></pre>
+<p>vì sau retrieval có thể loại candidates do:</p>
+<pre class="hljs"><code><div>- Safety
+- PII
+- Regional policy
+- Deduplication
+- User block
+- Personalization
+- Entity overlap
+</div></code></pre>
+<p>Nếu lưu đúng 10 và 6 bị filter, response chỉ còn 4.</p>
+<hr>
+<h1 id="19-memory-cost-của-trie">19. Memory Cost của Trie</h1>
+<p>Trie nguyên thủy có overhead lớn:</p>
+<pre class="hljs"><code><div>- Một node cho mỗi ký tự
+- Child pointers
+- Node metadata
+- Top-N arrays
+</div></code></pre>
+<p>Với hàng trăm triệu queries, node count có thể cực lớn.</p>
+<p>Các giải pháp:</p>
+<pre class="hljs"><code><div>- Radix tree
+- Compressed trie
+- Minimal finite-state automaton
+- Finite-state transducer
+- Prefix KV
+</div></code></pre>
+<hr>
+<h1 id="20-radix-tree">20. Radix Tree</h1>
+<p>Các path không phân nhánh được nén.</p>
+<p>Thay vì:</p>
+<pre class="hljs"><code><div>s → y → s → t → e → m
+</div></code></pre>
+<p>dùng một edge:</p>
+<pre class="hljs"><code><div>&quot;system&quot;
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Ít node
+- Ít pointers
+- Cache locality tốt hơn
+- Giảm memory
+</div></code></pre>
+<p>Lookup phải so sánh nhiều ký tự trên một edge, nhưng tổng chi phí vẫn theo chiều dài prefix.</p>
+<hr>
+<h1 id="21-prefix-key-value-index">21. Prefix Key-Value Index</h1>
+<p>Thay vì trie, có thể materialize:</p>
+<pre class="hljs"><code><div>prefix → top N suggestion IDs
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>&quot;s&quot;    → [...]
+&quot;sy&quot;   → [...]
+&quot;sys&quot;  → [...]
+&quot;syst&quot; → [...]
+</div></code></pre>
+<p>Lưu trong distributed KV hoặc immutable local index.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Lookup rất đơn giản
+- Dễ shard
+- Dễ cache
+- Dễ replicate
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Storage amplification
+- Một query đóng góp vào nhiều prefix keys
+</div></code></pre>
+<hr>
+<h1 id="22-trie-hay-prefix-kv">22. Trie hay Prefix KV?</h1>
+<h2 id="trie">Trie</h2>
+<pre class="hljs"><code><div>Ưu:
+- Chia sẻ common prefixes
+- Memory tốt nếu nén
+- Lookup tự nhiên
+
+Nhược:
+- Distributed updates khó
+- Sharding phức tạp hơn
+</div></code></pre>
+<h2 id="prefix-kv">Prefix KV</h2>
+<pre class="hljs"><code><div>Ưu:
+- Serving đơn giản
+- Dễ partition và cache
+- Dễ publish immutable snapshot
+
+Nhược:
+- Lặp dữ liệu top-N giữa các prefixes
+</div></code></pre>
+<p>Một production design hợp lý:</p>
+<pre class="hljs"><code><div>Offline builder tạo compressed index shards
+→ Serving nodes load shard vào memory/local SSD
+</div></code></pre>
+<hr>
+<h1 id="23-query-dictionary">23. Query Dictionary</h1>
+<p>Query text chỉ nên lưu một lần:</p>
+<pre class="hljs"><code><div>queryId → {
+    normalizedText,
+    displayText,
+    locale,
+    type,
+    policyStatus,
+    staticScoreFeatures
+}
+</div></code></pre>
+<p>Prefix nodes chỉ giữ IDs.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>&quot;system design&quot;
+</div></code></pre>
+<p>có thể xuất hiện trong 13 prefix lists nhưng full text không bị lưu 13 lần.</p>
+<hr>
+<h1 id="24-top-queries">24. Top Queries</h1>
+<p>Candidate nguồn chính là các query người dùng thực sự submit.</p>
+<p>Dữ liệu có thể gồm:</p>
+<pre class="hljs"><code><div>- Search count
+- Unique-user count
+- Suggestion selection count
+- Click-through rate
+- Search success
+- Reformulation rate
+- Region
+- Language
+- Event time
+</div></code></pre>
+<p>Không nên xếp hạng chỉ bằng raw search count.</p>
+<hr>
+<h1 id="25-candidate-sources">25. Candidate Sources</h1>
+<p>Một request có thể lấy candidates từ:</p>
+<pre class="hljs"><code><div>1. Global prefix index
+2. Regional popularity index
+3. Realtime trending overlay
+4. User search history
+5. Session context
+6. Entity index
+7. Typo correction index
+8. Curated or promoted candidates
+</div></code></pre>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>Merge
+→ Deduplicate
+→ Filter
+→ Rank
+→ Return top K
+</div></code></pre>
+<hr>
+<h1 id="26-ranking-cơ-bản">26. Ranking cơ bản</h1>
+<p>Một hàm điểm khái niệm:</p>
+<pre class="hljs"><code><div>score =
+w1 × popularity
++ w2 × freshness
++ w3 × queryQuality
++ w4 × regionalRelevance
++ w5 × personalization
++ w6 × entityQuality
+- spamPenalty
+- typoPenalty
+- repetitionPenalty
+</div></code></pre>
+<p>Không cần mọi candidate gọi một ML model nặng.</p>
+<p>Nhiều features có thể được precompute trong index.</p>
+<hr>
+<h1 id="27-popularity-score">27. Popularity Score</h1>
+<p>Raw count:</p>
+<pre class="hljs"><code><div>query A = 10 triệu
+query B = 1 triệu
+</div></code></pre>
+<p>Không nhất thiết A phải có score gấp 10 lần.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>popularityScore = log(1 + count)
+</div></code></pre>
+<p>Log scaling giảm dominance của queries cực phổ biến.</p>
+<hr>
+<h1 id="28-freshness">28. Freshness</h1>
+<p>Query mới cần cạnh tranh với query phổ biến lâu năm.</p>
+<p>Có thể dùng decay:</p>
+<pre class="hljs"><code><div>freshScore =
+Σ eventWeight × exp(-age / halfLife)
+</div></code></pre>
+<p>Search mới xảy ra có trọng số cao hơn search cũ.</p>
+<p>Có thể duy trì nhiều time windows:</p>
+<pre class="hljs"><code><div>- 5 phút
+- 1 giờ
+- 24 giờ
+- 7 ngày
+- All-time
+</div></code></pre>
+<hr>
+<h1 id="29-trending-score">29. Trending Score</h1>
+<p>Một query không phải trending chỉ vì volume lớn.</p>
+<p>Nên so recent volume với baseline:</p>
+<pre class="hljs"><code><div>trendScore =
+recentRate / expectedBaseline
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>&quot;weather&quot;:
+Baseline 100.000/giờ
+Hiện tại 120.000/giờ
+→ Tăng 20%
+
+Tên sự kiện X:
+Baseline 100/giờ
+Hiện tại 50.000/giờ
+→ Tăng cực mạnh
+</div></code></pre>
+<p>Cần minimum volume để tránh:</p>
+<pre class="hljs"><code><div>1 search → 10 searches
+</div></code></pre>
+<p>bị xem là xu hướng lớn.</p>
+<hr>
+<h1 id="30-query-quality">30. Query Quality</h1>
+<p>Một query có volume cao nhưng có thể là suggestion tệ.</p>
+<p>Signals:</p>
+<pre class="hljs"><code><div>- Search result click rate
+- Dwell time
+- Successful completion
+- Immediate reformulation
+- Result abandonment
+- Hide/report rate
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User chọn suggestion
+→ Không click kết quả
+→ Sửa query ngay
+</div></code></pre>
+<p>đây là signal chất lượng thấp.</p>
+<hr>
+<h1 id="31-position-bias">31. Position Bias</h1>
+<p>Suggestion vị trí 1 được chọn nhiều hơn chỉ vì nó đứng đầu.</p>
+<p>Do đó selection count không phản ánh hoàn toàn chất lượng.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Randomized exploration
+- Position-normalized metrics
+- Propensity correction
+- A/B testing
+</div></code></pre>
+<p>Không nên học rằng vị trí 1 tốt chỉ vì chính hệ thống luôn đặt nó ở vị trí 1.</p>
+<hr>
+<h1 id="32-personalization">32. Personalization</h1>
+<p>Personalization có thể boost:</p>
+<pre class="hljs"><code><div>- Query user từng tìm
+- Category user hay xem
+- Language preference
+- Subscriptions
+- Current page
+- Current session
+</div></code></pre>
+<p>Ví dụ user thường học System Design:</p>
+<pre class="hljs"><code><div>Input:
+&quot;ca&quot;
+
+Personal result:
+capacity estimation
+
+Global result:
+camera
+</div></code></pre>
+<hr>
+<h1 id="33-personal-history-index">33. Personal History Index</h1>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>userId
+→ recent normalized queries
+</div></code></pre>
+<p>Record:</p>
+<pre class="hljs"><code><div>normalizedQuery
+lastUsedAt
+useCount
+</div></code></pre>
+<p>Serving:</p>
+<pre class="hljs"><code><div>1. Prefix-match personal history.
+2. Lấy global candidates.
+3. Merge.
+4. Boost personal candidates.
+5. Apply safety.
+</div></code></pre>
+<p>Personal history thường nhỏ nên lookup rất nhanh.</p>
+<hr>
+<h1 id="34-client-side-personalization">34. Client-Side Personalization</h1>
+<p>Một lựa chọn bảo vệ privacy:</p>
+<pre class="hljs"><code><div>Server trả global/regional candidates.
+Client merge với local search history.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Ít user data trên server
+- Latency thấp
+- Hoạt động offline
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Khó đồng bộ nhiều thiết bị
+- Ranking logic phân tán
+- Khó quan sát đầy đủ
+</div></code></pre>
+<p>Một kiến trúc hybrid có thể dùng server profile thô và client history chi tiết.</p>
+<hr>
+<h1 id="35-personalization-và-safety">35. Personalization và Safety</h1>
+<p>Personal history không được bypass safety.</p>
+<p>Nếu user từng tìm query hiện đã bị cấm:</p>
+<pre class="hljs"><code><div>Không được gợi ý lại chỉ vì có trong lịch sử.
+</div></code></pre>
+<p>Pipeline đúng:</p>
+<pre class="hljs"><code><div>Candidate merge
+→ Personal boost
+→ Safety check
+→ Final top K
+</div></code></pre>
+<p>Safety có thể chạy cả trước và sau ranking.</p>
+<hr>
+<h1 id="36-session-context">36. Session Context</h1>
+<p>User vừa tìm:</p>
+<pre class="hljs"><code><div>&quot;system design&quot;
+</div></code></pre>
+<p>sau đó nhập:</p>
+<pre class="hljs"><code><div>&quot;ca&quot;
+</div></code></pre>
+<p>Session context có thể boost:</p>
+<pre class="hljs"><code><div>&quot;capacity estimation&quot;
+</div></code></pre>
+<p>Session context nên:</p>
+<pre class="hljs"><code><div>- TTL ngắn
+- Không trở thành global signal ngay
+- Tôn trọng private/incognito mode
+</div></code></pre>
+<hr>
+<h1 id="37-typo-tolerance">37. Typo Tolerance</h1>
+<p>User nhập:</p>
+<pre class="hljs"><code><div>&quot;sytem design&quot;
+</div></code></pre>
+<p>Hệ thống nên gợi ý:</p>
+<pre class="hljs"><code><div>&quot;system design&quot;
+</div></code></pre>
+<p>Typo tolerance không nên làm chậm exact path phổ biến.</p>
+<p>Một chiến lược tốt:</p>
+<pre class="hljs"><code><div>1. Exact prefix lookup.
+2. Nếu không đủ candidates, chạy fuzzy fallback.
+3. Merge fuzzy candidates với penalty.
+</div></code></pre>
+<hr>
+<h1 id="38-edit-distance">38. Edit Distance</h1>
+<p>Levenshtein distance là số thao tác:</p>
+<pre class="hljs"><code><div>- Insert
+- Delete
+- Replace
+</div></code></pre>
+<p>cần để biến chuỗi A thành B.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>sytem → system
+</div></code></pre>
+<p>cần insert một ký tự:</p>
+<pre class="hljs"><code><div>distance = 1
+</div></code></pre>
+<p>Có thể mở rộng thêm transposition cho lỗi đảo ký tự.</p>
+<hr>
+<h1 id="39-vì-sao-không-tính-edit-distance-với-mọi-query">39. Vì sao không tính Edit Distance với mọi Query?</h1>
+<p>Giả sử có:</p>
+<pre class="hljs"><code><div>500 triệu query candidates
+</div></code></pre>
+<p>Mỗi request không thể:</p>
+<pre class="hljs"><code><div>Tính edit distance với 500 triệu strings
+</div></code></pre>
+<p>Cần index tạo shortlist trước.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Fuzzy trie
+- N-gram index
+- BK-tree
+- Delete dictionary
+- Finite-state transducer
+</div></code></pre>
+<hr>
+<h1 id="40-fuzzy-trie">40. Fuzzy Trie</h1>
+<p>Trong trie, traversal có thể mang theo edit-distance state.</p>
+<p>Nhưng số trạng thái và nhánh tăng nhanh.</p>
+<p>Cần giới hạn:</p>
+<pre class="hljs"><code><div>- Chỉ fuzzy sau prefix dài tối thiểu
+- Chỉ distance 1 cho prefix ngắn
+- Candidate budget
+- Time budget
+- Exact-first
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Exact lookup &quot;sytem&quot;
+→ Chỉ có 1 candidate
+
+Fuzzy fallback
+→ &quot;system&quot;
+→ Lookup normal prefix index &quot;system&quot;
+</div></code></pre>
+<hr>
+<h1 id="41-n-gram-index">41. N-Gram Index</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>system
+</div></code></pre>
+<p>có trigrams:</p>
+<pre class="hljs"><code><div>sys
+yst
+ste
+tem
+</div></code></pre>
+<p>Input typo vẫn có thể chia sẻ nhiều n-grams.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>Input n-grams
+→ Lấy candidates có overlap
+→ Tính edit distance chính xác trên shortlist
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Fuzzy tốt
+- Hỗ trợ infix
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Index lớn
+- Merge posting lists tốn CPU
+</div></code></pre>
+<hr>
+<h1 id="42-delete-dictionary">42. Delete Dictionary</h1>
+<p>Với từ <code>&quot;system&quot;</code>, precompute các forms sau khi xóa ký tự:</p>
+<pre class="hljs"><code><div>ystem
+sstem
+sytem
+sysem
+systm
+syste
+</div></code></pre>
+<p>Input <code>&quot;sytem&quot;</code> có thể map trực tiếp về <code>&quot;system&quot;</code>.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Lookup nhanh cho distance nhỏ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Storage amplification
+</div></code></pre>
+<p>Phù hợp typo correction dictionary hoặc tập candidate đã được chọn lọc.</p>
+<hr>
+<h1 id="43-keyboard-aware-typo">43. Keyboard-Aware Typo</h1>
+<p>Lỗi replacement không có xác suất bằng nhau.</p>
+<p>Trên QWERTY:</p>
+<pre class="hljs"><code><div>o và p nằm gần nhau
+</div></code></pre>
+<p>Có thể giảm penalty cho:</p>
+<pre class="hljs"><code><div>- Ký tự lân cận
+- Transposition
+- Thiếu dấu
+- Input method errors
+</div></code></pre>
+<p>Model typo phải xét keyboard và locale.</p>
+<hr>
+<h1 id="44-typo-correction-rồi-prefix-lookup">44. Typo Correction rồi Prefix Lookup</h1>
+<p>Thay vì fuzzy-match mọi full suggestion:</p>
+<pre class="hljs"><code><div>Input:
+&quot;sytem d&quot;
+
+Correction:
+&quot;system d&quot;
+
+Normal prefix lookup:
+system design
+system design interview
+</div></code></pre>
+<p>Kiến trúc này tái sử dụng prefix index chính và giảm complexity.</p>
+<hr>
+<h1 id="45-streaming-aggregation">45. Streaming Aggregation</h1>
+<p>Search events đi vào stream:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Clients --> Events[Search Events]
+    Events --> Broker[Event Stream]
+    Broker --> Processor[Stream Processor]
+    Processor --> Windowed[Windowed Counts]
+    Windowed --> Trending[(Trending Overlay)]
+</div></code></pre>
+<p>Stream processor tính:</p>
+<pre class="hljs"><code><div>- Count theo query
+- Unique users
+- Count theo region
+- Selection rate
+- Recent growth
+- Spam indicators
+</div></code></pre>
+<hr>
+<h1 id="46-event-schema">46. Event Schema</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SEARCH_SUBMITTED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;query&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;system design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T05:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;region&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VN&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;locale&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vi-VN&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sessionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sess_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;userIdHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Raw query logs là dữ liệu rất nhạy cảm.</p>
+<hr>
+<h1 id="47-query-privacy">47. Query Privacy</h1>
+<p>Người dùng có thể vô tình tìm:</p>
+<pre class="hljs"><code><div>- Email cá nhân
+- Số điện thoại
+- Địa chỉ
+- Mật khẩu gõ nhầm
+- Mã định danh
+- Thông tin sức khỏe
+- Vấn đề tài chính
+</div></code></pre>
+<p>Không được tự động đưa mọi raw query vào global autocomplete.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- PII detection
+- Minimum support threshold
+- Unique-user threshold
+- Data retention
+- Restricted access
+- Redaction
+- Incognito handling
+</div></code></pre>
+<hr>
+<h1 id="48-minimum-support-threshold">48. Minimum Support Threshold</h1>
+<p>Một query chỉ được xuất hiện công khai khi:</p>
+<pre class="hljs"><code><div>- Đủ số searches
+- Đủ số user độc lập
+- Đạt quality threshold
+- Không có PII
+- Không vi phạm policy
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một query phải được tìm bởi tối thiểu N users độc lập
+trong một time window.
+</div></code></pre>
+<p>Không nên công khai query chỉ vì một user gửi hàng nghìn lần.</p>
+<hr>
+<h1 id="49-unique-user-estimation">49. Unique User Estimation</h1>
+<p>Exact distinct counting rất tốn memory.</p>
+<p>Có thể dùng approximate distinct structure như:</p>
+<pre class="hljs"><code><div>HyperLogLog-like counter
+</div></code></pre>
+<p>cho mỗi candidate hoặc heavy hitter.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Ước lượng query có được nhiều người khác nhau tìm hay không.
+</div></code></pre>
+<p>Không cần lưu toàn bộ danh sách user IDs.</p>
+<hr>
+<h1 id="50-stream-windows">50. Stream Windows</h1>
+<p>Duy trì:</p>
+<pre class="hljs"><code><div>count_1m
+count_5m
+count_1h
+count_24h
+baseline_7d
+</div></code></pre>
+<p>Mỗi window phục vụ mục tiêu khác nhau:</p>
+<pre class="hljs"><code><div>1–5 phút:
+Breaking trend
+
+1 giờ:
+Current popularity
+
+24 giờ:
+Daily relevance
+
+7 ngày:
+Baseline
+</div></code></pre>
+<hr>
+<h1 id="51-event-time-và-processing-time">51. Event Time và Processing Time</h1>
+<p>Event xảy ra lúc:</p>
+<pre class="hljs"><code><div>10:00
+</div></code></pre>
+<p>nhưng tới stream processor lúc:</p>
+<pre class="hljs"><code><div>10:05
+</div></code></pre>
+<p>Trending nên dùng event time.</p>
+<p>Cần watermark:</p>
+<pre class="hljs"><code><div>- Events đúng hạn
+- Events đến muộn
+- Events quá trễ
+</div></code></pre>
+<p>Events quá trễ có thể không ảnh hưởng realtime overlay nhưng vẫn được batch pipeline xử lý.</p>
+<hr>
+<h1 id="52-batch--stream">52. Batch + Stream</h1>
+<h2 id="batch">Batch</h2>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Long-term popularity
+- Recompute sạch
+- Spam correction
+- Index rebuild
+- Policy audit
+</div></code></pre>
+<h2 id="stream">Stream</h2>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Trending
+- Spike detection
+- Near-realtime changes
+</div></code></pre>
+<p>Kiến trúc phù hợp:</p>
+<pre class="hljs"><code><div>Immutable base index
++
+Realtime overlay
+</div></code></pre>
+<hr>
+<h1 id="53-base-index">53. Base Index</h1>
+<p>Base index được build định kỳ:</p>
+<pre class="hljs"><code><div>- Vài giờ
+- Hằng ngày
+- Tùy freshness requirement
+</div></code></pre>
+<p>Chứa:</p>
+<pre class="hljs"><code><div>- Stable queries
+- Long-term popularity
+- Approved entities
+- Static features
+</div></code></pre>
+<p>Base index nên immutable khi serving.</p>
+<hr>
+<h1 id="54-realtime-overlay">54. Realtime Overlay</h1>
+<p>Overlay chứa:</p>
+<pre class="hljs"><code><div>- Trending additions
+- Recent score boosts
+- Emergency removals
+- Temporary tombstones
+</div></code></pre>
+<p>Serving:</p>
+<pre class="hljs"><code><div>baseCandidates = base.lookup(prefix)
+overlayCandidates = overlay.lookup(prefix)
+
+merge(baseCandidates, overlayCandidates)
+</div></code></pre>
+<p>Overlay phải:</p>
+<pre class="hljs"><code><div>- Nhỏ
+- TTL
+- Có compaction
+- Được merge vào base snapshot định kỳ
+</div></code></pre>
+<hr>
+<h1 id="55-vì-sao-không-update-trie-tại-chỗ">55. Vì sao không Update Trie tại chỗ?</h1>
+<p>Mutable trie trên hàng nghìn servers tạo:</p>
+<pre class="hljs"><code><div>- Locking
+- Concurrent readers/writers
+- Partial updates
+- Version inconsistency
+- Rollback khó
+</div></code></pre>
+<p>Immutable snapshot giúp:</p>
+<pre class="hljs"><code><div>- Lock-free reads
+- Atomic version switch
+- Rollback nhanh
+- Dễ checksum
+</div></code></pre>
+<hr>
+<h1 id="56-index-build-pipeline">56. Index Build Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Raw[Historical Query Data] --> Normalize[Normalize]
+    Normalize --> Filter[PII / Spam / Policy Filter]
+    Filter --> Aggregate[Aggregate Counts]
+    Aggregate --> Score[Compute Scores]
+    Score --> Prefix[Generate Prefix Top-N]
+    Prefix --> Shard[Build Index Shards]
+    Shard --> Validate[Validation]
+    Validate --> Publish[Publish Snapshot]
+</div></code></pre>
+<p>Validation gồm:</p>
+<pre class="hljs"><code><div>- Có đủ shards không?
+- File có corrupt không?
+- Index size có tăng bất thường không?
+- Query cấm có lọt không?
+- Ranking sanity check
+</div></code></pre>
+<hr>
+<h1 id="57-immutable-snapshot-rollout">57. Immutable Snapshot Rollout</h1>
+<p>Các bước:</p>
+<pre class="hljs"><code><div>1. Build version 42.
+2. Upload shards vào object storage.
+3. Serving nodes tải về staging.
+4. Verify checksums.
+5. Warm hot prefixes.
+6. Atomic pointer swap 41 → 42.
+7. Giữ version 41 để rollback.
+</div></code></pre>
+<p>Node chỉ báo ready sau khi index đã load hoàn chỉnh.</p>
+<hr>
+<h1 id="58-index-sharding">58. Index Sharding</h1>
+<p>Có thể shard theo:</p>
+<pre class="hljs"><code><div>- Hash(prefix)
+- Locale
+- Region
+- Script/language
+</div></code></pre>
+<p>Hash prefix phân phối đều hơn first-letter sharding.</p>
+<p>First-letter sharding có thể tạo:</p>
+<pre class="hljs"><code><div>Shard &quot;s&quot; rất nóng
+Shard &quot;q&quot; rất lạnh
+</div></code></pre>
+<p>Một thiết kế tốt:</p>
+<pre class="hljs"><code><div>Partition trước theo locale
+→ Hash prefix trong locale
+</div></code></pre>
+<hr>
+<h1 id="59-hot-prefixes">59. Hot Prefixes</h1>
+<p>Các prefix:</p>
+<pre class="hljs"><code><div>a
+s
+c
+co
+ma
+</div></code></pre>
+<p>có thể chiếm phần lớn traffic.</p>
+<p>Một hot prefix không có nhiều dữ liệu, nhưng request rate cực lớn.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Edge cache
+- L1 cache
+- Distributed cache
+- Replicate hot keys
+- Precompute full response
+- Request coalescing
+- Client cache
+</div></code></pre>
+<hr>
+<h1 id="60-l1-cache">60. L1 Cache</h1>
+<p>Mỗi Autocomplete Service giữ:</p>
+<pre class="hljs"><code><div>(prefix, locale, region, vertical)
+→ base candidate list
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không network hop
+- Latency cực thấp
+- Hot prefixes được replicate tự nhiên trên mọi instance
+</div></code></pre>
+<p>Immutable base index khiến invalidation đơn giản hơn.</p>
+<hr>
+<h1 id="61-distributed-cache">61. Distributed Cache</h1>
+<p>L2 cache lưu:</p>
+<pre class="hljs"><code><div>prefix + locale + region + contextClass
+→ top candidates
+</div></code></pre>
+<p>Không nên đưa <code>userId</code> vào base cache key vì:</p>
+<pre class="hljs"><code><div>- Cache hit ratio giảm mạnh
+- Mỗi user tạo một object
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>Cache global/regional candidates
+→ Personalize sau
+</div></code></pre>
+<hr>
+<h1 id="62-edge-cache">62. Edge Cache</h1>
+<p>Anonymous hoặc minimally personalized suggestions có thể cache tại edge.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>prefix=sys
+locale=en-US
+region=US
+</div></code></pre>
+<p>Edge cache hấp thụ hot-prefix traffic trước khi tới origin.</p>
+<p>Personalization có thể được:</p>
+<pre class="hljs"><code><div>- Thực hiện client-side
+- Thực hiện tại edge
+- Thực hiện origin bằng compact user profile
+</div></code></pre>
+<hr>
+<h1 id="63-cache-ttl">63. Cache TTL</h1>
+<p>Stable prefix:</p>
+<pre class="hljs"><code><div>&quot;system design&quot;
+</div></code></pre>
+<p>có thể TTL dài.</p>
+<p>Breaking-news prefix cần TTL ngắn.</p>
+<p>Có thể đặt TTL theo volatility:</p>
+<pre class="hljs"><code><div>Stable:
+5–60 phút
+
+Trending:
+10–60 giây
+</div></code></pre>
+<p>Safety removal không nên chờ TTL; phải có invalidation channel riêng.</p>
+<hr>
+<h1 id="64-stale-while-revalidate">64. Stale-While-Revalidate</h1>
+<p>Hot prefix hết soft TTL:</p>
+<pre class="hljs"><code><div>- Một worker refresh.
+- Các request khác dùng stale value.
+</div></code></pre>
+<p>Chỉ sau hard TTL mới không được dùng cache cũ.</p>
+<p>Điều này giảm cache stampede.</p>
+<hr>
+<h1 id="65-negative-caching">65. Negative Caching</h1>
+<p>Prefix không có kết quả:</p>
+<pre class="hljs"><code><div>&quot;xqzv&quot;
+</div></code></pre>
+<p>được cache:</p>
+<pre class="hljs"><code><div>EMPTY
+</div></code></pre>
+<p>trong thời gian ngắn.</p>
+<p>Điều này bảo vệ hệ thống khỏi:</p>
+<pre class="hljs"><code><div>- Random prefix scanning
+- Bots
+- Repeated long-tail misses
+</div></code></pre>
+<hr>
+<h1 id="66-hot-query-trong-streaming-aggregation">66. Hot Query trong Streaming Aggregation</h1>
+<p>Nếu stream partition theo query:</p>
+<pre class="hljs"><code><div>partitionKey = normalizedQuery
+</div></code></pre>
+<p>query cực phổ biến tạo hot partition.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>partitionKey = query + randomSalt
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>weather:0
+weather:1
+...
+weather:99
+</div></code></pre>
+<p>Stage 1 tính partial count.</p>
+<p>Stage 2 merge theo query.</p>
+<hr>
+<h1 id="67-two-stage-aggregation">67. Two-Stage Aggregation</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Events --> Salt[Query + Salt]
+    Salt --> Partial[Partial Aggregation]
+    Partial --> Merge[Merge by Query]
+    Merge --> Trending[Trending Store]
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Tăng khả năng scale
+- Tăng một bước xử lý
+- Freshness chậm thêm một chút
+</div></code></pre>
+<p>Autocomplete trending thường chấp nhận độ trễ vài giây.</p>
+<hr>
+<h1 id="68-cardinality-explosion">68. Cardinality Explosion</h1>
+<p>Raw queries có thể gồm:</p>
+<pre class="hljs"><code><div>- Typos
+- UUIDs
+- Random text
+- PII
+- Bot spam
+- One-off queries
+</div></code></pre>
+<p>Không thể giữ state chính xác cho mọi query mãi mãi.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Length limits
+- TTL
+- Minimum frequency
+- Sampling
+- Heavy-hitter algorithms
+- Approximate counting
+</div></code></pre>
+<hr>
+<h1 id="69-count-min-sketch">69. Count-Min Sketch</h1>
+<p>Count-Min Sketch cho phép ước lượng frequency với memory nhỏ.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Update O(1)
+- Memory cố định
+- Phù hợp stream lớn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Có thể overestimate
+- Không tự lưu query string
+</div></code></pre>
+<p>Có thể kết hợp:</p>
+<pre class="hljs"><code><div>Count-Min Sketch
++
+Candidate top-K heap
+</div></code></pre>
+<p>để phát hiện heavy hitters.</p>
+<hr>
+<h1 id="70-long-tail-queries">70. Long-Tail Queries</h1>
+<p>Phần lớn queries có volume thấp.</p>
+<p>Không cần autocomplete mọi query.</p>
+<p>Có thể chỉ index query:</p>
+<pre class="hljs"><code><div>- Đạt volume threshold
+- Có đủ unique users
+- Có chất lượng tốt
+- Không vi phạm safety
+</div></code></pre>
+<p>Người dùng vẫn có thể submit long-tail query trực tiếp.</p>
+<hr>
+<h1 id="71-safety-filtering">71. Safety Filtering</h1>
+<p>Autocomplete là một dạng amplification:</p>
+<pre class="hljs"><code><div>Hệ thống chủ động đưa query cho người dùng.
+</div></code></pre>
+<p>Do đó policy có thể nghiêm ngặt hơn search retrieval.</p>
+<p>Cần lọc:</p>
+<pre class="hljs"><code><div>- PII
+- Spam
+- Illegal content theo policy
+- Harassment terms
+- Query nội bộ
+- Sensitive content không phù hợp audience
+</div></code></pre>
+<hr>
+<h1 id="72-emergency-removal">72. Emergency Removal</h1>
+<p>Khi một suggestion cần bị xóa khẩn cấp:</p>
+<pre class="hljs"><code><div>1. Cập nhật authoritative policy store.
+2. Phát invalidation event.
+3. Update realtime overlay bằng tombstone.
+4. Purge L1/L2/edge caches.
+5. Loại trong base snapshot tiếp theo.
+</div></code></pre>
+<p>Serving phải check local denylist trước response.</p>
+<p>Không được chờ index rebuild hằng ngày.</p>
+<hr>
+<h1 id="73-spam-manipulation">73. Spam Manipulation</h1>
+<p>Attacker gửi cùng query hàng triệu lần để đẩy nó lên trending.</p>
+<p>Phòng chống bằng:</p>
+<pre class="hljs"><code><div>- Unique-user weighting
+- Account reputation
+- Device reputation
+- IP/network limits
+- Bot detection
+- Minimum support threshold
+- Growth anomaly detection
+</div></code></pre>
+<p>Raw event count không được dùng trực tiếp.</p>
+<hr>
+<h1 id="74-weighted-events">74. Weighted Events</h1>
+<p>Ví dụ khái niệm:</p>
+<pre class="hljs"><code><div>Verified user:            weight 1.0
+Established anonymous:    weight 0.5
+New suspicious session:   weight 0.05
+Known bot:                weight 0
+</div></code></pre>
+<p>Các giá trị chỉ minh họa.</p>
+<p>Mục tiêu là giảm khả năng một nguồn traffic nhân tạo chi phối trending.</p>
+<hr>
+<h1 id="75-regional-ranking">75. Regional Ranking</h1>
+<p>Một query có thể phổ biến toàn cầu nhưng không phù hợp một vùng.</p>
+<p>Có thể giữ:</p>
+<pre class="hljs"><code><div>globalScore
+countryScore
+localeScore
+</div></code></pre>
+<p>Score cuối:</p>
+<pre class="hljs"><code><div>score =
+0.5 × global
++ 0.3 × country
++ 0.2 × locale
+</div></code></pre>
+<p>Trọng số phụ thuộc sản phẩm.</p>
+<hr>
+<h1 id="76-multi-language">76. Multi-Language</h1>
+<p>Có thể xây index:</p>
+<pre class="hljs"><code><div>- vi-VN
+- en-US
+- ja-JP
+- ko-KR
+</div></code></pre>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>vi-VN
+→ vi
+→ global
+</div></code></pre>
+<p>Với prefix quá ngắn, language detection không đáng tin.</p>
+<p>Nên kết hợp:</p>
+<pre class="hljs"><code><div>- User locale
+- Keyboard locale
+- Current page language
+- Script detection
+</div></code></pre>
+<hr>
+<h1 id="77-entity-suggestions">77. Entity Suggestions</h1>
+<p>Query suggestions lấy từ search logs.</p>
+<p>Entity suggestions lấy từ:</p>
+<pre class="hljs"><code><div>- Product catalog
+- User directory
+- Brand catalog
+- Location database
+- Hashtag store
+</div></code></pre>
+<p>Entity mới có thể được suggest ngay cả khi chưa có search volume.</p>
+<p>Entity indexing cần:</p>
+<pre class="hljs"><code><div>- Visibility
+- ACL
+- Quality
+- Alias
+- Language forms
+</div></code></pre>
+<hr>
+<h1 id="78-entity-enumeration-risk">78. Entity Enumeration Risk</h1>
+<p>Nếu autocomplete chứa private users hoặc private entities, attacker có thể enumerate prefixes.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Visibility check
+- Minimum prefix length
+- Rate limit
+- Result limit
+- ACL-aware entity index
+</div></code></pre>
+<p>Không đưa private entity vào public global index.</p>
+<hr>
+<h1 id="79-candidate-deduplication">79. Candidate Deduplication</h1>
+<p>Cùng candidate có thể đến từ:</p>
+<pre class="hljs"><code><div>- Global index
+- Regional index
+- Trending
+- Personal history
+</div></code></pre>
+<p>Dedupe theo normalized identity.</p>
+<p>Nhưng giữ provenance:</p>
+<pre class="hljs"><code><div>GLOBAL
+REGIONAL
+TRENDING
+PERSONAL
+</div></code></pre>
+<p>vì provenance ảnh hưởng ranking.</p>
+<hr>
+<h1 id="80-query-và-entity-cùng-display-text">80. Query và Entity cùng Display Text</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Query: &quot;apple&quot;
+Brand entity: &quot;Apple&quot;
+</div></code></pre>
+<p>Không nhất thiết là cùng candidate.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Giữ cả hai với UI khác nhau
+- Collapse thành entity
+- Ưu tiên entity nếu confidence cao
+</div></code></pre>
+<p>Identity không nên chỉ dựa trên lowercase display text.</p>
+<hr>
+<h1 id="81-lightweight-online-ranker">81. Lightweight Online Ranker</h1>
+<p>Latency autocomplete rất thấp nên online ranker phải nhẹ.</p>
+<p>Nên ưu tiên:</p>
+<pre class="hljs"><code><div>- Precomputed candidate features
+- Compact per-user profile
+- Request context local
+- Một model nhỏ hoặc heuristic
+</div></code></pre>
+<p>Không nên gọi nhiều feature services tuần tự.</p>
+<hr>
+<h1 id="82-feature-budget">82. Feature Budget</h1>
+<p>Static candidate features:</p>
+<pre class="hljs"><code><div>- Global popularity
+- Regional popularity
+- Freshness
+- Quality
+- Type
+- Policy state
+</div></code></pre>
+<p>User features:</p>
+<pre class="hljs"><code><div>- Preferred topics
+- Recent category
+- Language
+</div></code></pre>
+<p>Cross features:</p>
+<pre class="hljs"><code><div>- Candidate category matches user interest
+- User từng chọn candidate này
+</div></code></pre>
+<p>Nếu user feature service timeout:</p>
+<pre class="hljs"><code><div>Bỏ personalization
+→ Dùng global ranking
+</div></code></pre>
+<hr>
+<h1 id="83-ranking-stability">83. Ranking Stability</h1>
+<p>Khi prefix tăng:</p>
+<pre class="hljs"><code><div>s → sy → sys
+</div></code></pre>
+<p>top suggestions có thể thay đổi quá mạnh và làm UI nhảy.</p>
+<p>Có thể thêm:</p>
+<pre class="hljs"><code><div>- Session stability boost
+- Hạn chế đổi vị trí candidate còn hợp lệ
+- Score smoothing
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Ranking tối ưu tức thời
+vs
+UX ổn định
+</div></code></pre>
+<hr>
+<h1 id="84-multi-region-architecture">84. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalEdge
+
+    GlobalEdge --> RegionA[Autocomplete Region A]
+    GlobalEdge --> RegionB[Autocomplete Region B]
+    GlobalEdge --> RegionC[Autocomplete Region C]
+
+    Builder[Global/Regional Index Builders] --> Snapshots[(Versioned Snapshots)]
+
+    Snapshots --> RegionA
+    Snapshots --> RegionB
+    Snapshots --> RegionC
+
+    EventsA[Events Region A] --> Aggregation
+    EventsB[Events Region B] --> Aggregation
+    EventsC[Events Region C] --> Aggregation
+
+    Aggregation --> RegionalOverlays[Regional Trending Overlays]
+</div></code></pre>
+<p>Serving được thực hiện local tại mỗi region.</p>
+<hr>
+<h1 id="85-global-base-và-regional-overlay">85. Global Base và Regional Overlay</h1>
+<p>Mỗi region có thể load:</p>
+<pre class="hljs"><code><div>- Global base index
+- Locale index
+- Regional trend overlay
+- Local policy overlay
+</div></code></pre>
+<p>Khi Region A bị cô lập khỏi global pipeline:</p>
+<pre class="hljs"><code><div>- Base suggestions vẫn hoạt động
+- Regional trend có thể stale
+- Personalization có thể giảm
+</div></code></pre>
+<p>Đây là graceful degradation.</p>
+<hr>
+<h1 id="86-multi-region-version-skew">86. Multi-Region Version Skew</h1>
+<p>Trong thời gian rollout:</p>
+<pre class="hljs"><code><div>Region A: index version 42
+Region B: index version 41
+</div></code></pre>
+<p>Kết quả hơi khác nhau nhưng vẫn hợp lệ.</p>
+<p>Không cần global consensus cho mọi index rollout.</p>
+<p>Tuy nhiên:</p>
+<pre class="hljs"><code><div>Emergency safety denylist
+</div></code></pre>
+<p>phải propagate nhanh hơn normal snapshot.</p>
+<hr>
+<h1 id="87-data-residency">87. Data Residency</h1>
+<p>Query logs có thể bị yêu cầu ở lại trong khu vực.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>EU raw query logs không được rời EU.
+</div></code></pre>
+<p>Kiến trúc:</p>
+<pre class="hljs"><code><div>EU raw events
+→ EU aggregation
+→ Chỉ export aggregate đủ threshold
+</div></code></pre>
+<p>Không cần gửi user-level history hoặc raw session trails ra ngoài.</p>
+<hr>
+<h1 id="88-personalization-multi-region">88. Personalization Multi-Region</h1>
+<p>User history có thể nằm tại home region.</p>
+<p>Với latency vài chục ms, không nên synchronous cross-region lookup cho mỗi phím.</p>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- Client local history
+- Regional cached user profile
+- No personalization
+</div></code></pre>
+<p>Base autocomplete phải luôn hoạt động mà không cần user profile.</p>
+<hr>
+<h1 id="89-failure-mode--index-server-lỗi">89. Failure Mode — Index Server lỗi</h1>
+<p>Nếu một replica lỗi:</p>
+<pre class="hljs"><code><div>Route sang replica khác.
+</div></code></pre>
+<p>Nếu cả shard lỗi:</p>
+<pre class="hljs"><code><div>- L1/L2 cache
+- Popular-prefix fallback
+- Empty suggestions
+</div></code></pre>
+<p>Search submit vẫn hoạt động.</p>
+<hr>
+<h1 id="90-failure-mode--cache-lỗi">90. Failure Mode — Cache lỗi</h1>
+<p>Nếu L2 cache lỗi:</p>
+<pre class="hljs"><code><div>L1 và local immutable index vẫn phục vụ.
+</div></code></pre>
+<p>Không nên để mọi request fallback sang remote database.</p>
+<p>Prefix index nên nằm đủ gần serving nodes.</p>
+<hr>
+<h1 id="91-failure-mode--trending-overlay-lỗi">91. Failure Mode — Trending Overlay lỗi</h1>
+<p>Base index vẫn hoạt động.</p>
+<p>Hệ quả:</p>
+<pre class="hljs"><code><div>- Trending chậm hơn
+- Availability không giảm
+</div></code></pre>
+<p>Overlay là enrichment, không phải dependency bắt buộc.</p>
+<hr>
+<h1 id="92-failure-mode--personalization-lỗi">92. Failure Mode — Personalization lỗi</h1>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>- Global ranking
+- Regional ranking
+- Session-local history nếu có
+</div></code></pre>
+<p>Timeout personalization phải rất ngắn để không phá latency budget.</p>
+<hr>
+<h1 id="93-failure-mode--safety-service-lỗi">93. Failure Mode — Safety Service lỗi</h1>
+<p>Không nên fail-open hoàn toàn.</p>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- Local cached denylist
+- Chỉ dùng pre-approved base index
+- Tắt realtime candidates chưa được kiểm duyệt
+- Tắt personal suggestions nhạy cảm
+</div></code></pre>
+<p>Safety cần fail-safe hơn personalization.</p>
+<hr>
+<h1 id="94-failure-mode--index-build-lỗi">94. Failure Mode — Index Build lỗi</h1>
+<p>Không publish snapshot mới.</p>
+<p>Tiếp tục phục vụ version cũ.</p>
+<p>Immutable versioning cho phép:</p>
+<pre class="hljs"><code><div>- Retry build
+- Compare versions
+- Canary
+- Rollback
+</div></code></pre>
+<hr>
+<h1 id="95-observability">95. Observability</h1>
+<h2 id="serving-metrics">Serving metrics</h2>
+<pre class="hljs"><code><div>- QPS
+- p50/p95/p99 latency
+- Error rate
+- Empty result rate
+- Cache hit ratio
+- Timeout rate
+</div></code></pre>
+<h2 id="candidate-metrics">Candidate metrics</h2>
+<pre class="hljs"><code><div>- Candidates theo source
+- Dedupe rate
+- Filter rate
+- Fuzzy fallback rate
+</div></code></pre>
+<h2 id="index-metrics">Index metrics</h2>
+<pre class="hljs"><code><div>- Active version
+- Memory
+- Load time
+- Shard size
+- Snapshot age
+</div></code></pre>
+<h2 id="streaming-metrics">Streaming metrics</h2>
+<pre class="hljs"><code><div>- Consumer lag
+- Watermark delay
+- Hot-key skew
+- Unique-query cardinality
+</div></code></pre>
+<hr>
+<h1 id="96-prefix-length-metrics">96. Prefix-Length Metrics</h1>
+<p>Nên chia metric theo:</p>
+<pre class="hljs"><code><div>Length 1
+Length 2
+Length 3–5
+Length 6–10
+Length &gt; 10
+</div></code></pre>
+<p>Vì:</p>
+<pre class="hljs"><code><div>Prefix ngắn:
+QPS cao, cache hit cao, ambiguity lớn.
+
+Prefix dài:
+Long-tail, cache hit thấp, candidate ít.
+</div></code></pre>
+<p>Global average có thể che giấu hot-prefix problems.</p>
+<hr>
+<h1 id="97-quality-metrics">97. Quality Metrics</h1>
+<pre class="hljs"><code><div>- Suggestion acceptance rate
+- Mean reciprocal rank
+- Query reformulation rate
+- Time to search completion
+- Keystrokes saved
+- Duplicate suggestion rate
+</div></code></pre>
+<p>Guardrails:</p>
+<pre class="hljs"><code><div>- Spam suggestion rate
+- PII incident
+- Policy violation
+- User hide/report rate
+- Latency
+</div></code></pre>
+<hr>
+<h1 id="98-freshness-metrics">98. Freshness Metrics</h1>
+<p>Đo:</p>
+<pre class="hljs"><code><div>suggestionVisibleAt - trendStartTime
+</div></code></pre>
+<p>Ví dụ SLO:</p>
+<pre class="hljs"><code><div>Một regional query hợp lệ đang tăng mạnh
+xuất hiện trong autocomplete trong dưới 2 phút.
+</div></code></pre>
+<p>Emergency safety removal có thể yêu cầu dưới 10–30 giây.</p>
+<hr>
+<h1 id="99-slos-minh-họa">99. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Availability:
+99,99%
+
+Latency:
+p95 &lt; 50 ms
+p99 &lt; 100 ms
+
+Trending freshness:
+99% trends hợp lệ xuất hiện dưới 2 phút
+
+Safety:
+Emergency blocked suggestion biến mất dưới 30 giây
+</div></code></pre>
+<p>SLO phải đo theo:</p>
+<pre class="hljs"><code><div>- Region
+- Locale
+- Prefix length
+- Candidate source
+</div></code></pre>
+<hr>
+<h1 id="100-thiết-kế-khuyến-nghị">100. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Client debounce và bỏ response cũ.
+2. Serving tại region gần user.
+3. Base index là immutable compressed prefix index.
+4. Mỗi prefix lưu top N candidate IDs.
+5. Realtime trends nằm trong overlay nhỏ.
+6. Candidate sources được merge và dedupe.
+7. Exact prefix chạy trước, fuzzy chỉ fallback.
+8. Online ranker nhẹ dùng precomputed features.
+9. Safety filter chạy trước response.
+10. Hot prefixes được cache tại edge, L1 và L2.
+</div></code></pre>
+<hr>
+<h1 id="101-luồng-request-hoàn-chỉnh">101. Luồng Request hoàn chỉnh</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Edge
+    participant API as Autocomplete Service
+    participant Cache
+    participant Index
+    participant Overlay
+    participant Personal
+    participant Policy
+
+    Client->>Client: Debounce input
+    Client->>Edge: GET /autocomplete?q=sys
+    Edge->>API: Forward request
+
+    API->>Cache: Lookup base candidates
+
+    alt Cache hit
+        Cache-->>API: Candidates
+    else Cache miss
+        API->>Index: Prefix lookup
+        Index-->>API: Top N candidates
+        API->>Cache: Populate
+    end
+
+    API->>Overlay: Trending candidates
+    API->>Personal: Personal candidates
+    API->>API: Merge + dedupe + rank
+    API->>Policy: Final safety check
+    Policy-->>API: Allowed candidates
+
+    API-->>Client: Top K suggestions
+</div></code></pre>
+<hr>
+<h1 id="102-trade-off--trie-hay-prefix-kv">102. Trade-Off — Trie hay Prefix KV?</h1>
+<h2 id="trie-1">Trie</h2>
+<pre class="hljs"><code><div>- Memory-efficient nếu nén
+- Prefix lookup tự nhiên
+- Khó update distributed
+</div></code></pre>
+<h2 id="prefix-kv-1">Prefix KV</h2>
+<pre class="hljs"><code><div>- Lookup và sharding đơn giản
+- Cache tốt
+- Storage amplification lớn hơn
+</div></code></pre>
+<p>Ở quy mô lớn:</p>
+<pre class="hljs"><code><div>Compressed immutable index
+</div></code></pre>
+<p>thường phù hợp hơn mutable trie trong database.</p>
+<hr>
+<h1 id="103-trade-off--snapshot-hay-realtime-mutable-index">103. Trade-Off — Snapshot hay Realtime Mutable Index?</h1>
+<h2 id="snapshot">Snapshot</h2>
+<pre class="hljs"><code><div>Ưu:
+- Stable
+- Dễ rollback
+- Lock-free read
+
+Nhược:
+- Freshness chậm hơn
+</div></code></pre>
+<h2 id="mutable-index">Mutable index</h2>
+<pre class="hljs"><code><div>Ưu:
+- Realtime
+
+Nhược:
+- Concurrency
+- Partial update
+- Replication phức tạp
+</div></code></pre>
+<p>Hybrid:</p>
+<pre class="hljs"><code><div>Base snapshot + realtime overlay
+</div></code></pre>
+<p>là phương án mạnh nhất.</p>
+<hr>
+<h1 id="104-trade-off--exact-hay-fuzzy">104. Trade-Off — Exact hay Fuzzy?</h1>
+<h2 id="exact">Exact</h2>
+<pre class="hljs"><code><div>- Nhanh
+- Predictable
+- Ít false positives
+</div></code></pre>
+<h2 id="fuzzy">Fuzzy</h2>
+<pre class="hljs"><code><div>- UX tốt khi typo
+- Compute cao
+- Có thể trả kết quả bất ngờ
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>Exact first
+→ Fuzzy fallback
+</div></code></pre>
+<hr>
+<h1 id="105-trade-off--global-hay-personalized">105. Trade-Off — Global hay Personalized?</h1>
+<h2 id="global">Global</h2>
+<pre class="hljs"><code><div>- Cache hit cao
+- Đơn giản
+- Ít privacy risk
+</div></code></pre>
+<h2 id="personalized">Personalized</h2>
+<pre class="hljs"><code><div>- Relevant hơn
+- Cache khó
+- Cần user state
+</div></code></pre>
+<p>Tách thành:</p>
+<pre class="hljs"><code><div>Cached global candidate base
++
+Lightweight personal reranking
+</div></code></pre>
+<hr>
+<h1 id="106-trade-off--freshness-hay-stability">106. Trade-Off — Freshness hay Stability?</h1>
+<p>Realtime trend có thể khiến results đổi liên tục.</p>
+<p>Có thể áp:</p>
+<pre class="hljs"><code><div>- Score smoothing
+- Minimum trend duration
+- Minimum volume
+- Session stability
+</div></code></pre>
+<p>Mục tiêu là bắt trend nhưng không để UI dao động theo spike vài giây.</p>
+<hr>
+<h1 id="107-cách-trình-bày-trong-phỏng-vấn">107. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Autocomplete là hệ thống read-heavy vì mỗi search session tạo nhiều request theo số ký tự. Tôi giảm QPS tại client bằng debounce và request cancellation, sau đó phục vụ từ region gần người dùng qua nhiều tầng cache.</p>
+</blockquote>
+<p>Về index:</p>
+<blockquote>
+<p>Tôi sử dụng immutable compressed prefix index. Mỗi prefix lưu sẵn top N suggestion IDs nên request không cần traverse toàn subtree. Base index được build từ historical query data và publish theo version, còn trending được đưa vào một realtime overlay nhỏ.</p>
+</blockquote>
+<p>Về ranking:</p>
+<blockquote>
+<p>Candidate sources gồm global, regional, personal history, entity và typo correction. Hệ thống merge, deduplicate, áp safety filter và dùng lightweight reranker dựa trên popularity, freshness, query quality và personalization.</p>
+</blockquote>
+<p>Về scale:</p>
+<blockquote>
+<p>Prefix ngắn tạo hot keys nên được cache tại edge, local memory và distributed cache. Streaming aggregation dùng salted partition keys và two-stage aggregation để một trending query không làm nóng một partition duy nhất.</p>
+</blockquote>
+<hr>
+<h1 id="108-framework-45-phút">108. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Prefix suggestions
+- Top K
+- Personalization
+- Typo
+- Trending
+- Safety
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- DAU
+- Searches/day
+- Keystrokes/session
+- Peak QPS
+- Prefix skew
+</div></code></pre>
+<h2 id="phút-1020-serving">Phút 10–20: Serving</h2>
+<pre class="hljs"><code><div>Client debounce
+→ Edge
+→ Cache
+→ Prefix index
+→ Rank/filter
+</div></code></pre>
+<h2 id="phút-2030-index">Phút 20–30: Index</h2>
+<pre class="hljs"><code><div>- Trie
+- Top N per node
+- Radix compression
+- Prefix KV
+- Snapshot rollout
+</div></code></pre>
+<h2 id="phút-3040-data-pipeline">Phút 30–40: Data Pipeline</h2>
+<pre class="hljs"><code><div>- Query logs
+- Streaming aggregation
+- Trending overlay
+- Spam/privacy
+</div></code></pre>
+<h2 id="phút-4045-advanced">Phút 40–45: Advanced</h2>
+<pre class="hljs"><code><div>- Typo
+- Personalization
+- Hot prefixes
+- Multi-region
+- Fallbacks
+</div></code></pre>
+<hr>
+<h1 id="109-những-sai-lầm-phổ-biến">109. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-không-debounce">Lỗi 1: Không Debounce</h2>
+<p>Mỗi keystroke tạo request và phần lớn response bị bỏ phí.</p>
+<h2 id="lỗi-2-không-bỏ-response-cũ">Lỗi 2: Không bỏ Response cũ</h2>
+<p>Kết quả prefix cũ ghi đè prefix mới.</p>
+<h2 id="lỗi-3-dùng-like-prefix-trên-database-chính">Lỗi 3: Dùng <code>LIKE 'prefix%'</code> trên Database chính</h2>
+<p>Không phù hợp triệu QPS và tail latency thấp.</p>
+<h2 id="lỗi-4-trie-không-lưu-top-n">Lỗi 4: Trie không lưu Top N</h2>
+<p>Mỗi lookup phải duyệt subtree lớn.</p>
+<h2 id="lỗi-5-update-trie-serving-tại-chỗ">Lỗi 5: Update Trie serving tại chỗ</h2>
+<p>Khó đồng bộ, rollback và consistency.</p>
+<h2 id="lỗi-6-chỉ-ranking-bằng-raw-count">Lỗi 6: Chỉ Ranking bằng Raw Count</h2>
+<p>Query lâu năm và bot traffic thống trị.</p>
+<h2 id="lỗi-7-không-có-freshness">Lỗi 7: Không có Freshness</h2>
+<p>Trending xuất hiện quá muộn.</p>
+<h2 id="lỗi-8-không-có-baseline">Lỗi 8: Không có Baseline</h2>
+<p>Query từ 1 lên 10 được coi là trend lớn.</p>
+<h2 id="lỗi-9-public-index-mọi-raw-query">Lỗi 9: Public-index mọi Raw Query</h2>
+<p>Có thể làm lộ PII và query cá nhân.</p>
+<h2 id="lỗi-10-không-có-unique-user-threshold">Lỗi 10: Không có Unique-User Threshold</h2>
+<p>Một attacker tự bơm volume.</p>
+<h2 id="lỗi-11-fuzzy-search-toàn-dictionary">Lỗi 11: Fuzzy Search toàn Dictionary</h2>
+<p>CPU không thể scale.</p>
+<h2 id="lỗi-12-chạy-fuzzy-trước-exact">Lỗi 12: Chạy Fuzzy trước Exact</h2>
+<p>Làm chậm path phổ biến.</p>
+<h2 id="lỗi-13-cache-key-chứa-userid">Lỗi 13: Cache key chứa <code>userId</code></h2>
+<p>Cache hit ratio giảm nghiêm trọng.</p>
+<h2 id="lỗi-14-không-cache-hot-prefix">Lỗi 14: Không Cache Hot Prefix</h2>
+<p>Một số shard nhận phần lớn traffic.</p>
+<h2 id="lỗi-15-realtime-overlay-tăng-vô-hạn">Lỗi 15: Realtime Overlay tăng vô hạn</h2>
+<p>Overlay trở thành index thứ hai không kiểm soát.</p>
+<h2 id="lỗi-16-personalization-bỏ-qua-safety">Lỗi 16: Personalization bỏ qua Safety</h2>
+<p>Query bị cấm xuất hiện lại từ history.</p>
+<h2 id="lỗi-17-không-unicode-normalize">Lỗi 17: Không Unicode Normalize</h2>
+<p>Chuỗi giống nhau thành nhiều keys.</p>
+<h2 id="lỗi-18-một-normalization-cho-mọi-ngôn-ngữ">Lỗi 18: Một Normalization cho mọi Ngôn ngữ</h2>
+<p>Làm sai ý nghĩa và ranking.</p>
+<h2 id="lỗi-19-safety-dependency-lỗi-thì-fail-open">Lỗi 19: Safety Dependency lỗi thì Fail-Open</h2>
+<p>Có thể phát tán query nguy hiểm.</p>
+<h2 id="lỗi-20-gọi-cross-region-user-profile-cho-từng-phím">Lỗi 20: Gọi Cross-Region User Profile cho từng Phím</h2>
+<p>Vi phạm latency budget.</p>
+<h2 id="lỗi-21-ranking-service-là-dependency-bắt-buộc">Lỗi 21: Ranking Service là Dependency bắt buộc</h2>
+<p>Autocomplete down khi model down.</p>
+<h2 id="lỗi-22-không-theo-dõi-prefix-length">Lỗi 22: Không theo dõi Prefix Length</h2>
+<p>Không phát hiện hot-prefix bottleneck.</p>
+<h2 id="lỗi-23-tối-ưu-acceptance-nhưng-bỏ-privacy">Lỗi 23: Tối ưu Acceptance nhưng bỏ Privacy</h2>
+<p>Tạo hệ thống nguy hiểm dù CTR cao.</p>
+<hr>
+<h1 id="110-bảng-ghi-nhớ-nhanh">110. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Client debounce</td>
+<td>Giảm request theo keystroke</td>
+</tr>
+<tr>
+<td>Request sequence</td>
+<td>Bỏ response cũ</td>
+</tr>
+<tr>
+<td>Prefix index</td>
+<td>Lookup theo prefix</td>
+</tr>
+<tr>
+<td>Trie</td>
+<td>Cây ký tự</td>
+</tr>
+<tr>
+<td>Radix tree</td>
+<td>Trie nén</td>
+</tr>
+<tr>
+<td>Top N per prefix</td>
+<td>Tránh duyệt subtree</td>
+</tr>
+<tr>
+<td>Query dictionary</td>
+<td>Lưu text một lần</td>
+</tr>
+<tr>
+<td>Base snapshot</td>
+<td>Index ổn định</td>
+</tr>
+<tr>
+<td>Realtime overlay</td>
+<td>Trending và removal</td>
+</tr>
+<tr>
+<td>Global candidates</td>
+<td>Popularity toàn cầu</td>
+</tr>
+<tr>
+<td>Regional candidates</td>
+<td>Relevance địa phương</td>
+</tr>
+<tr>
+<td>Personal candidates</td>
+<td>Lịch sử user</td>
+</tr>
+<tr>
+<td>Typo index</td>
+<td>Fuzzy correction</td>
+</tr>
+<tr>
+<td>Safety filter</td>
+<td>PII, spam, policy</td>
+</tr>
+<tr>
+<td>Stream aggregator</td>
+<td>Near-realtime trends</td>
+</tr>
+<tr>
+<td>Heavy hitter</td>
+<td>Query volume lớn</td>
+</tr>
+<tr>
+<td>L1 cache</td>
+<td>Cache trong process</td>
+</tr>
+<tr>
+<td>L2 cache</td>
+<td>Cache phân tán</td>
+</tr>
+<tr>
+<td>Hot prefix</td>
+<td>Prefix QPS cực lớn</td>
+</tr>
+<tr>
+<td>Versioned rollout</td>
+<td>Publish và rollback an toàn</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="111-sơ-đồ-tổng-hợp">111. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Client[Debounce + Cancel Old Request]
+    Client --> Edge[Global Edge]
+
+    Edge --> Service[Autocomplete Service]
+
+    Service --> L1[L1 Cache]
+    L1 --> L2[(L2 Cache)]
+    L2 --> Base[Immutable Prefix Index]
+
+    Service --> Regional[(Regional Overlay)]
+    Service --> Personal[Personal History]
+    Service --> Typo[Typo Correction]
+    Service --> Entity[Entity Index]
+
+    Base --> Merge[Merge Candidates]
+    Regional --> Merge
+    Personal --> Merge
+    Typo --> Merge
+    Entity --> Merge
+
+    Merge --> Dedupe[Deduplicate]
+    Dedupe --> Safety[Safety / PII / Spam]
+    Safety --> Rank[Lightweight Ranking]
+    Rank --> Response[Top K]
+
+    SearchEvents --> Stream[Event Stream]
+    Stream --> Salted[Salted Aggregation]
+    Salted --> Trending[Realtime Overlay]
+
+    Stream --> Batch[Batch Builder]
+    Batch --> Snapshot[Versioned Snapshot]
+    Snapshot --> Base
+</div></code></pre>
+<hr>
+<h1 id="112-những-điều-phải-nhớ-sau-bài-27">112. Những Điều Phải Nhớ sau Bài 27</h1>
+<pre class="hljs"><code><div>1. Autocomplete là hệ thống read-heavy cực lớn.
+2. Một search session tạo nhiều request.
+3. Debounce và cancellation phải làm từ client.
+4. Prefix ngắn là hot keys.
+5. Trie giúp lookup theo chiều dài prefix.
+6. Trie phải lưu top N tại mỗi prefix.
+7. Compressed trie giảm memory overhead.
+8. Prefix KV đơn giản cho distributed serving.
+9. Query dictionary tránh lặp full strings.
+10. Base index nên immutable.
+11. Snapshot versioning giúp atomic rollout.
+12. Realtime overlay phục vụ trending.
+13. Overlay phải nhỏ và có TTL.
+14. Candidate generation khác ranking.
+15. Popularity không nên dùng raw count đơn thuần.
+16. Freshness decay giúp query mới cạnh tranh.
+17. Trending cần baseline và minimum volume.
+18. Query quality cần click, dwell và reformulation signals.
+19. Query normalization phải Unicode-aware.
+20. Accent và case folding phải locale-aware.
+21. Không public-index mọi raw query.
+22. Query logs chứa dữ liệu rất nhạy cảm.
+23. Global suggestions cần support threshold.
+24. Unique-user count quan trọng hơn raw event count.
+25. Spam prevention cần reputation và anomaly detection.
+26. Personal history phải tách khỏi global index.
+27. Personalization không được bypass safety.
+28. Typo nên chạy sau exact lookup.
+29. Edit distance toàn dictionary không thể scale.
+30. Fuzzy index tạo shortlist trước.
+31. Stream phù hợp trending.
+32. Batch phù hợp rebuild và long-term score.
+33. Base snapshot + realtime overlay là pattern trung tâm.
+34. Hot stream keys cần salted aggregation.
+35. Heavy-hitter structures giảm memory.
+36. Long-tail queries không cần autocomplete.
+37. Cache global candidates trước rồi personalize.
+38. L1 cache rất hiệu quả cho hot prefixes.
+39. Edge cache có thể hấp thụ anonymous traffic.
+40. TTL nên theo volatility.
+41. Stale-while-revalidate giảm stampede.
+42. Negative cache bảo vệ long-tail misses.
+43. Safety removal cần nhanh hơn normal index update.
+44. Multi-region serving nên local.
+45. Regional and global candidates có thể merge.
+46. Raw logs có thể phải tuân thủ residency.
+47. Personalization failure phải degrade về global.
+48. Overlay failure phải degrade về base index.
+49. Autocomplete failure không được chặn search submit.
+50. Hệ thống phải tối ưu đồng thời latency, relevance, freshness, privacy và safety.
+</div></code></pre>
+<hr>
+<h1 id="113-bài-tập-thiết-kế-mở-rộng">113. Bài tập Thiết kế Mở rộng</h1>
+<p>Giả sử hệ thống có:</p>
+<pre class="hljs"><code><div>- 1 tỷ DAU
+- 100 tỷ autocomplete requests/ngày
+- 500 triệu query candidates
+- 100 ngôn ngữ
+- Trending dưới 30 giây
+- p99 dưới 50 ms
+- Edit distance tối đa 2
+- Multi-region active–active
+- EU raw logs không được rời EU
+- Emergency removal dưới 10 giây
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Debounce bao nhiêu mili giây?
+2. Minimum prefix length là bao nhiêu?
+3. Trie, radix tree hay prefix KV?
+4. Mỗi prefix lưu top bao nhiêu candidates?
+5. Query dictionary được shard thế nào?
+6. Index được partition theo locale và hash ra sao?
+7. Prefix một ký tự được replicate thế nào?
+8. L1, L2 và edge cache keys gồm gì?
+9. Cache TTL theo volatility thế nào?
+10. Personalization đặt ở client hay server?
+11. User profile có được gọi cross-region không?
+12. Typo correction chạy ở bước nào?
+13. Edit distance 2 dùng n-gram hay FST?
+14. Fuzzy candidate budget là bao nhiêu?
+15. Streaming tránh hot query thế nào?
+16. Count-Min Sketch được dùng ở đâu?
+17. Unique-user threshold tính ra sao?
+18. Trending score so baseline thế nào?
+19. Overlay giữ dữ liệu bao lâu?
+20. Base snapshot rebuild bao lâu một lần?
+21. Atomic rollout được làm thế nào?
+22. Emergency denylist được phân phối ra sao?
+23. Safety service down thì degrade thế nào?
+24. EU aggregation hoạt động ra sao?
+25. Multi-region version skew có chấp nhận không?
+26. Region failover ảnh hưởng personalization thế nào?
+27. Spam metrics quan trọng nhất là gì?
+28. Freshness SLO được đo thế nào?
+29. Prefix-length latency được theo dõi ra sao?
+30. Fallback cuối cùng khi toàn bộ autocomplete lỗi là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-6">Kết luận Case Study 6</h1>
+<p>Autocomplete có thể cô đọng thành:</p>
+<pre class="hljs"><code><div>Collect query events
+→ Aggregate popularity và trends
+→ Build immutable prefix index
+→ Cache hot prefixes
+→ Merge global, regional, personal và typo candidates
+→ Filter
+→ Rank
+→ Return top K
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Autocomplete nhanh không đến từ việc chạy full search cho mỗi ký tự. Nó đến từ precomputation: lưu sẵn top candidates cho từng prefix, phục vụ bằng index gần như immutable, cache mạnh hot prefixes và tách hoàn toàn serving path khỏi pipeline thu thập, tổng hợp và xây index.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 28 — Case Study 7: Thiết kế Ride-Hailing System — location updates, geospatial indexing, driver discovery, trip matching, dispatch, ETA, surge pricing, trip state machine, payments, safety và multi-region.</strong></p>
+
+</body>
+</html>

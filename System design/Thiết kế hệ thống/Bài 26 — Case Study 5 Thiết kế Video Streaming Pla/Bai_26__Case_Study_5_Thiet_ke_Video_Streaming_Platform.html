@@ -1,0 +1,3230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 26 — Case Study 5: Thiết kế Video Streaming Platform.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-26--case-study-5-thiết-kế-video-streaming-platform">Bài 26 — Case Study 5: Thiết kế Video Streaming Platform</h1>
+<p>Ta sẽ thiết kế một nền tảng <strong>Video on Demand — VOD</strong> tương tự hệ thống chia sẻ video:</p>
+<pre class="hljs"><code><div>Creator upload video
+→ Hệ thống xử lý và transcoding
+→ Video được phân phối qua CDN
+→ Viewer phát video với chất lượng tự động thích nghi
+→ Hệ thống thu thập analytics, view count và engagement
+</div></code></pre>
+<p>Các chức năng chính:</p>
+<pre class="hljs"><code><div>- Upload video dung lượng lớn
+- Resume upload khi mất mạng
+- Transcode nhiều độ phân giải và bitrate
+- Tạo thumbnail, preview và subtitle
+- Adaptive bitrate streaming
+- Phân phối video toàn cầu qua CDN
+- Theo dõi playback quality
+- Đếm lượt xem
+- Recommendation
+- Copyright detection
+- Content moderation
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Creator --> Upload[Upload Service]
+    Upload --> Original[(Original Object Storage)]
+
+    Original --> Processing[Video Processing Pipeline]
+    Processing --> Renditions[(Processed Video Storage)]
+
+    Viewer --> CDN
+    CDN --> Renditions
+
+    Viewer --> PlaybackAPI[Playback API]
+    PlaybackAPI --> Metadata[(Video Metadata Store)]
+
+    Viewer --> Events[Playback Event Stream]
+    Events --> Analytics[Analytics Processing]
+    Analytics --> Recommendation[Recommendation System]
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Hệ thống trong bài tập hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Creator upload video.
+2. Upload có thể tạm dừng và tiếp tục.
+3. Video được transcode thành nhiều chất lượng.
+4. Viewer xem video qua adaptive bitrate streaming.
+5. Nội dung được phân phối qua CDN.
+6. Hỗ trợ public, unlisted và private video.
+7. Thu thập view count và playback analytics.
+8. Recommendation cơ bản.
+9. Copyright và moderation.
+10. Multi-region và disaster recovery.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Live streaming
+- Video call realtime
+- Interactive livestream chat
+- Ad auction hoàn chỉnh
+- DRM protocol chi tiết
+</div></code></pre>
+<p>Live streaming có nhiều điểm tương đồng nhưng khác đáng kể về:</p>
+<pre class="hljs"><code><div>- Ingest liên tục
+- Latency
+- Segment generation realtime
+- DVR window
+- Backpressure
+</div></code></pre>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="upload">Upload</h2>
+<pre class="hljs"><code><div>- Upload file lớn
+- Multipart upload
+- Resume upload
+- Báo tiến trình
+- Hủy upload
+- Kiểm tra checksum
+</div></code></pre>
+<h2 id="processing">Processing</h2>
+<pre class="hljs"><code><div>- Kiểm tra định dạng
+- Trích xuất metadata
+- Transcode
+- Generate thumbnails
+- Generate preview
+- Extract audio
+- Generate captions
+- Package HLS/DASH
+</div></code></pre>
+<h2 id="playback">Playback</h2>
+<pre class="hljs"><code><div>- Bắt đầu phát nhanh
+- Tự động đổi chất lượng
+- Seek
+- Subtitle
+- Playback resume
+- Playback trên mobile, web và TV
+</div></code></pre>
+<h2 id="management">Management</h2>
+<pre class="hljs"><code><div>- Đổi title, description và visibility
+- Xóa video
+- Publish hoặc schedule
+- Theo dõi processing status
+</div></code></pre>
+<h2 id="analytics">Analytics</h2>
+<pre class="hljs"><code><div>- View count
+- Watch time
+- Completion rate
+- Rebuffer rate
+- Playback errors
+- Device, network và region
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Upload phải chịu được mạng không ổn định.
+- Video đã upload thành công không được mất.
+- Processing có thể asynchronous.
+- Playback latency thấp.
+- Hệ thống phải chịu được viral video.
+- CDN phải hấp thụ phần lớn bandwidth.
+- Metadata và quyền truy cập phải chính xác.
+- Analytics có thể eventual consistent.
+- Processing pipeline phải retry được.
+- Hệ thống phải hoạt động ở nhiều region.
+</div></code></pre>
+<hr>
+<h1 id="4-các-trạng-thái-của-video">4. Các trạng thái của Video</h1>
+<p>Một video không chỉ có trạng thái “đã upload” hoặc “chưa upload”.</p>
+<p>State machine có thể là:</p>
+<pre class="hljs"><code><div>CREATED
+→ UPLOADING
+→ UPLOADED
+→ VALIDATING
+→ PROCESSING
+→ READY
+</div></code></pre>
+<p>Failure states:</p>
+<pre class="hljs"><code><div>UPLOAD_FAILED
+VALIDATION_FAILED
+PROCESSING_FAILED
+BLOCKED
+DELETED
+</div></code></pre>
+<p>Publishing states có thể tách riêng:</p>
+<pre class="hljs"><code><div>DRAFT
+SCHEDULED
+PUBLISHED
+UNLISTED
+PRIVATE
+</div></code></pre>
+<hr>
+<h1 id="5-upload-state-và-processing-state-nên-tách-riêng">5. Upload State và Processing State nên tách riêng</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Upload state:
+COMPLETED
+
+Processing state:
+TRANSCODING
+
+Visibility:
+PRIVATE
+</div></code></pre>
+<p>Không nên dùng một field duy nhất chứa mọi ý nghĩa.</p>
+<p>Một video có thể:</p>
+<pre class="hljs"><code><div>- Upload hoàn tất
+- Transcoding chưa xong
+- Chưa được publish
+</div></code></pre>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử nền tảng có:</p>
+<pre class="hljs"><code><div>100 triệu DAU
+5 triệu video uploads/ngày
+1 tỷ video playback sessions/ngày
+</div></code></pre>
+<p>Giả sử video gốc trung bình:</p>
+<pre class="hljs"><code><div>500 MB
+</div></code></pre>
+<p>Dung lượng upload mỗi ngày:</p>
+<pre class="hljs"><code><div>5.000.000 × 500 MB
+= 2,5 PB/ngày
+</div></code></pre>
+<p>Đây là giả định rất lớn để minh họa hệ thống quy mô toàn cầu.</p>
+<hr>
+<h1 id="7-playback-bandwidth-estimation">7. Playback Bandwidth Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>1 tỷ playback sessions/ngày
+Average watch time = 10 phút
+Average bitrate thực tế = 2 Mbps
+</div></code></pre>
+<p>Dữ liệu mỗi session:</p>
+<pre class="hljs"><code><div>2 Mb/s × 600 giây
+= 1.200 Mb
+≈ 150 MB
+</div></code></pre>
+<p>Tổng dữ liệu/ngày:</p>
+<pre class="hljs"><code><div>1 tỷ × 150 MB
+≈ 150 PB/ngày
+</div></code></pre>
+<p>Bandwidth playback lớn hơn rất nhiều metadata traffic.</p>
+<p>Do đó:</p>
+<blockquote>
+<p><strong>CDN và video delivery mới là phần có chi phí dữ liệu lớn nhất, không phải API servers.</strong></p>
+</blockquote>
+<hr>
+<h1 id="8-storage-amplification-do-transcoding">8. Storage Amplification do Transcoding</h1>
+<p>Một video 1080p gốc có thể được tạo thành:</p>
+<pre class="hljs"><code><div>240p
+360p
+480p
+720p
+1080p
+</div></code></pre>
+<p>Mỗi độ phân giải có thể có nhiều codecs:</p>
+<pre class="hljs"><code><div>H.264
+H.265/HEVC
+VP9
+AV1
+</div></code></pre>
+<p>Nếu video gốc 500 MB, processed outputs có thể tổng cộng:</p>
+<pre class="hljs"><code><div>500 MB – vài GB
+</div></code></pre>
+<p>tùy bitrate ladder và codec.</p>
+<p>Storage không chỉ gồm original video.</p>
+<hr>
+<h1 id="9-high-level-architecture">9. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Creator --> API[Video Metadata API]
+    Creator --> UploadService[Upload Service]
+
+    API --> Metadata[(Metadata Store)]
+
+    UploadService --> SessionStore[(Upload Session Store)]
+    UploadService --> ObjectStore[(Original Object Storage)]
+
+    ObjectStore --> Event[Object Uploaded Event]
+    Event --> Workflow[Processing Orchestrator]
+
+    Workflow --> Probe[Media Probe]
+    Workflow --> Transcode[Transcoding Workers]
+    Workflow --> Thumbnail[Thumbnail Workers]
+    Workflow --> Captions[Caption Pipeline]
+    Workflow --> Moderation[Moderation Pipeline]
+
+    Transcode --> Package[HLS/DASH Packager]
+    Package --> Processed[(Processed Media Storage)]
+
+    Processed --> CDN[CDN]
+
+    Viewer --> PlaybackAPI[Playback API]
+    PlaybackAPI --> Metadata
+    PlaybackAPI --> CDN
+
+    Viewer --> Telemetry[Playback Telemetry]
+    Telemetry --> Stream[Event Stream]
+    Stream --> Analytics
+    Stream --> Recommendation
+</div></code></pre>
+<hr>
+<h1 id="10-tách-control-plane-và-data-plane">10. Tách Control Plane và Data Plane</h1>
+<h2 id="control-plane">Control Plane</h2>
+<p>Xử lý metadata:</p>
+<pre class="hljs"><code><div>- Tạo video
+- Tạo upload session
+- Kiểm tra quyền
+- Processing status
+- Playback authorization
+- Video metadata
+</div></code></pre>
+<p>Traffic tương đối nhỏ.</p>
+<h2 id="data-plane">Data Plane</h2>
+<p>Xử lý bytes video:</p>
+<pre class="hljs"><code><div>- Upload file
+- Download segments
+- CDN delivery
+</div></code></pre>
+<p>Traffic cực lớn.</p>
+<p>Không nên cho video bytes đi qua application API servers.</p>
+<hr>
+<h1 id="11-vì-sao-không-upload-qua-application-server">11. Vì sao không Upload qua Application Server?</h1>
+<p>Không tốt:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> API[Application Server]
+    API --> Storage[(Object Storage)]
+</div></code></pre>
+<p>Application server phải:</p>
+<pre class="hljs"><code><div>- Nhận file vài GB
+- Giữ connection lâu
+- Buffer dữ liệu
+- Chịu bandwidth lớn
+- Scale theo upload traffic
+</div></code></pre>
+<p>Điều này làm application layer rất đắt và dễ quá tải.</p>
+<p>Tốt hơn:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> API[Upload Control API]
+    API --> Client
+    Client -->|Direct multipart upload| Storage[(Object Storage)]
+</div></code></pre>
+<hr>
+<h1 id="12-direct-upload-bằng-signed-url">12. Direct Upload bằng Signed URL</h1>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Client yêu cầu tạo upload session.
+2. Server xác thực user và quota.
+3. Server tạo multipart upload tại object storage.
+4. Server trả signed URLs.
+5. Client upload trực tiếp tới object storage.
+6. Client báo hoàn tất.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant API as Upload API
+    participant Storage
+
+    Client->>API: Create upload session
+    API->>Storage: Initiate multipart upload
+    Storage-->>API: uploadId
+    API-->>Client: uploadId + signed URLs
+
+    Client->>Storage: Upload parts
+    Client->>API: Complete upload
+    API->>Storage: Complete multipart upload
+</div></code></pre>
+<hr>
+<h1 id="13-upload-session-api">13. Upload Session API</h1>
+<pre class="hljs"><code><div>POST /v1/videos
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer ...
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>application/json
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;filename&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;travel-video.mp4&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fileSize&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4294967296</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;contentType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;video/mp4&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;checksum&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sha256:...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Chuyến đi mùa hè&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;visibility&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PRIVATE&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;videoId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vid_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadSessionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;upl_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MULTIPART&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;partSize&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">16777216</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T12:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="14-multipart-upload">14. Multipart Upload</h1>
+<p>File lớn được chia thành parts:</p>
+<pre class="hljs"><code><div>Part 1: bytes 0–16 MB
+Part 2: bytes 16–32 MB
+Part 3: bytes 32–48 MB
+...
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Retry từng phần
+- Upload song song
+- Resume
+- Không cần gửi lại toàn bộ file
+</div></code></pre>
+<p>Client có thể upload 4–8 parts song song tùy:</p>
+<pre class="hljs"><code><div>- Network
+- Device
+- Battery
+- Storage limits
+</div></code></pre>
+<hr>
+<h1 id="15-chọn-part-size">15. Chọn Part Size</h1>
+<p>Part quá nhỏ:</p>
+<pre class="hljs"><code><div>- Nhiều requests
+- Nhiều metadata
+- Nhiều signed URLs
+- Completion manifest lớn
+</div></code></pre>
+<p>Part quá lớn:</p>
+<pre class="hljs"><code><div>- Retry tốn nhiều bandwidth
+- Parallelism thấp
+- Memory pressure
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>16 MB
+32 MB
+64 MB
+</div></code></pre>
+<p>Nhưng part size nên tùy theo tổng file size.</p>
+<hr>
+<h1 id="16-dynamic-part-size">16. Dynamic Part Size</h1>
+<p>Có thể chọn:</p>
+<pre class="hljs"><code><div>File &lt; 1 GB:
+16 MB/part
+
+1–10 GB:
+64 MB/part
+
+&gt; 10 GB:
+128 MB/part
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Số part không quá lớn
+- Retry vẫn đủ nhỏ
+- Parallelism hiệu quả
+</div></code></pre>
+<hr>
+<h1 id="17-upload-part-api">17. Upload Part API</h1>
+<p>Nếu server tự quản lý signed URLs:</p>
+<pre class="hljs"><code><div>POST /v1/uploads/{uploadSessionId}/parts
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;partNumbers&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-number">4</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;parts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;partNumber&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;uploadUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://storage/...signed...&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Signed URL nên:</p>
+<pre class="hljs"><code><div>- Có thời hạn
+- Chỉ cho đúng object
+- Chỉ cho đúng part
+- Không cho phép arbitrary object overwrite
+</div></code></pre>
+<hr>
+<h1 id="18-resume-upload">18. Resume Upload</h1>
+<p>Client giữ local state:</p>
+<pre class="hljs"><code><div>uploadSessionId
+videoId
+file fingerprint
+completed parts
+ETags/checksums
+</div></code></pre>
+<p>Sau reconnect:</p>
+<pre class="hljs"><code><div>GET /v1/uploads/{uploadSessionId}
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;UPLOADING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;completedParts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-number">1</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-number">7</span><span class="hljs-punctuation">,</span> <span class="hljs-number">8</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client chỉ upload phần còn thiếu.</p>
+<hr>
+<h1 id="19-file-fingerprint">19. File Fingerprint</h1>
+<p>Client nên xác minh rằng file resume là cùng file ban đầu.</p>
+<p>Fingerprint có thể dựa trên:</p>
+<pre class="hljs"><code><div>- File size
+- Filename
+- Last modified time
+- Hash một số blocks
+- Full checksum nếu khả thi
+</div></code></pre>
+<p>Không nên resume một file khác vào cùng upload session.</p>
+<hr>
+<h1 id="20-checksums">20. Checksums</h1>
+<p>Mỗi part có thể có checksum.</p>
+<p>Sau khi complete, hệ thống xác minh:</p>
+<pre class="hljs"><code><div>- Part list đầy đủ
+- Tổng kích thước
+- Object checksum
+- Content length
+</div></code></pre>
+<p>Checksum bảo vệ khỏi:</p>
+<pre class="hljs"><code><div>- Corruption
+- Upload lỗi
+- Client bug
+</div></code></pre>
+<p>Không nên chỉ tin <code>Content-Type</code> do client cung cấp.</p>
+<hr>
+<h1 id="21-upload-completion">21. Upload Completion</h1>
+<p>Client gọi:</p>
+<pre class="hljs"><code><div>POST /v1/uploads/{uploadSessionId}/complete
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;parts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;partNumber&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;etag&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server:</p>
+<pre class="hljs"><code><div>1. Conditional claim upload session.
+2. Gọi object storage complete multipart.
+3. Kiểm tra object metadata.
+4. Chuyển trạng thái sang UPLOADED.
+5. Phát VideoUploaded event.
+</div></code></pre>
+<p>Completion API phải idempotent.</p>
+<hr>
+<h1 id="22-idempotent-completion">22. Idempotent Completion</h1>
+<p>Client có thể timeout sau khi upload đã complete.</p>
+<p>Retry không được tạo object mới hoặc processing job mới.</p>
+<p>State transition:</p>
+<pre class="hljs"><code><div>UPLOADING
+→ COMPLETING
+→ UPLOADED
+</div></code></pre>
+<p>Conditional transition:</p>
+<pre class="hljs"><code><div>Chỉ một worker được chuyển UPLOADING → COMPLETING.
+</div></code></pre>
+<p>Retry sau đó trả trạng thái hiện tại.</p>
+<hr>
+<h1 id="23-abandoned-multipart-uploads">23. Abandoned Multipart Uploads</h1>
+<p>User bắt đầu upload nhưng không hoàn tất.</p>
+<p>Object storage có thể giữ parts và tính phí.</p>
+<p>Cần cleanup:</p>
+<pre class="hljs"><code><div>Upload session quá 24 giờ
+→ ABANDONED
+→ Abort multipart upload
+</div></code></pre>
+<p>Retention tùy sản phẩm.</p>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>- Upload completion rate
+- Abandoned bytes
+- Average resume count
+</div></code></pre>
+<hr>
+<h1 id="24-upload-quotas">24. Upload Quotas</h1>
+<p>Cần giới hạn:</p>
+<pre class="hljs"><code><div>- File size tối đa
+- Tổng storage/user
+- Uploads/day
+- Concurrent upload sessions
+- Video duration
+</div></code></pre>
+<p>Quota phải kiểm tra trước khi cấp signed URL.</p>
+<p>Nếu chỉ kiểm tra sau upload, attacker có thể tiêu tốn storage và bandwidth.</p>
+<hr>
+<h1 id="25-upload-security">25. Upload Security</h1>
+<p>Signed URL không nên cho phép:</p>
+<pre class="hljs"><code><div>- Ghi sang bucket khác
+- Chọn arbitrary path
+- Đọc object khác
+- Thay đổi owner metadata
+</div></code></pre>
+<p>Object path nên do server tạo:</p>
+<pre class="hljs"><code><div>originals/{tenantId}/{videoId}/{uploadVersion}/source
+</div></code></pre>
+<p>Không dùng trực tiếp filename của user làm storage key.</p>
+<hr>
+<h1 id="26-object-storage-layout">26. Object Storage Layout</h1>
+<p>Có thể tách:</p>
+<pre class="hljs"><code><div>original-video-bucket
+processed-video-bucket
+thumbnail-bucket
+subtitle-bucket
+</div></code></pre>
+<p>Original:</p>
+<pre class="hljs"><code><div>originals/{videoId}/{version}/source
+</div></code></pre>
+<p>Processed:</p>
+<pre class="hljs"><code><div>renditions/{videoId}/{processingVersion}/{codec}/{resolution}/
+</div></code></pre>
+<p>Manifests:</p>
+<pre class="hljs"><code><div>manifests/{videoId}/{processingVersion}/master.m3u8
+</div></code></pre>
+<hr>
+<h1 id="27-immutability-và-versioning">27. Immutability và Versioning</h1>
+<p>Processed outputs nên immutable.</p>
+<p>Khi re-transcode:</p>
+<pre class="hljs"><code><div>processingVersion = 2
+</div></code></pre>
+<p>Không ghi đè trực tiếp version 1 đang được CDN cache.</p>
+<p>Playback metadata chuyển:</p>
+<pre class="hljs"><code><div>activeProcessingVersion: 1 → 2
+</div></code></pre>
+<p>Sau đó version cũ được cleanup sau grace period.</p>
+<hr>
+<h1 id="28-object-uploaded-event">28. Object Uploaded Event</h1>
+<p>Không nên dựa hoàn toàn vào client gọi completion rồi application trực tiếp kích hoạt mọi job.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Upload completion transaction
+- Object storage event
+- Reconciliation scanner
+</div></code></pre>
+<p>Event:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VideoUploaded&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;videoId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vid_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;objectKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;originals/...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;uploadVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="29-event-duplication">29. Event Duplication</h1>
+<p>Object storage event hoặc outbox event có thể được gửi nhiều lần.</p>
+<p>Processing pipeline phải idempotent:</p>
+<pre class="hljs"><code><div>(videoId, uploadVersion, processingVersion)
+</div></code></pre>
+<p>chỉ tạo một logical workflow.</p>
+<p>Không dựa vào việc broker “chỉ gửi đúng một lần”.</p>
+<hr>
+<h1 id="30-video-processing-pipeline">30. Video Processing Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Uploaded[Video Uploaded] --> Probe[Probe & Validate]
+
+    Probe --> Metadata[Extract Metadata]
+    Probe --> Moderation[Initial Moderation]
+    Probe --> Audio[Audio Extraction]
+
+    Metadata --> Plan[Create Encoding Plan]
+
+    Plan --> T240[Transcode 240p]
+    Plan --> T360[Transcode 360p]
+    Plan --> T480[Transcode 480p]
+    Plan --> T720[Transcode 720p]
+    Plan --> T1080[Transcode 1080p]
+
+    T240 --> Package[Package Segments]
+    T360 --> Package
+    T480 --> Package
+    T720 --> Package
+    T1080 --> Package
+
+    Package --> Manifest[Generate Master Manifest]
+    Manifest --> Publish[Mark READY]
+</div></code></pre>
+<hr>
+<h1 id="31-processing-là-một-dag">31. Processing là một DAG</h1>
+<p>Không phải mọi task chạy tuần tự.</p>
+<p>Ví dụ sau khi probe:</p>
+<pre class="hljs"><code><div>- Thumbnail generation
+- Audio extraction
+- Speech-to-text
+- Multiple transcoding jobs
+- Moderation
+</div></code></pre>
+<p>có thể chạy song song.</p>
+<p>Một workflow engine hoặc orchestrator quản lý:</p>
+<pre class="hljs"><code><div>- Dependencies
+- Retries
+- Timeouts
+- Task states
+- Partial failures
+</div></code></pre>
+<hr>
+<h1 id="32-probe-và-validation">32. Probe và Validation</h1>
+<p>Probe trích xuất:</p>
+<pre class="hljs"><code><div>- Container
+- Video codec
+- Audio codec
+- Resolution
+- Frame rate
+- Duration
+- Bitrate
+- Rotation
+- Audio channels
+</div></code></pre>
+<p>Validation kiểm tra:</p>
+<pre class="hljs"><code><div>- Container có đọc được không?
+- Duration hợp lệ không?
+- File có bị truncated không?
+- Có video stream không?
+- Codec có được hỗ trợ không?
+</div></code></pre>
+<hr>
+<h1 id="33-không-tin-file-extension">33. Không tin File Extension</h1>
+<p>File tên:</p>
+<pre class="hljs"><code><div>video.mp4
+</div></code></pre>
+<p>có thể không phải MP4.</p>
+<p>Hệ thống phải inspect:</p>
+<pre class="hljs"><code><div>- File signature
+- Container structure
+- Codec streams
+</div></code></pre>
+<p>Không chỉ đọc extension hoặc MIME từ client.</p>
+<hr>
+<h1 id="34-encoding-plan">34. Encoding Plan</h1>
+<p>Không phải video nào cũng cần mọi rendition.</p>
+<p>Ví dụ source 480p:</p>
+<pre class="hljs"><code><div>Không cần tạo 720p hoặc 1080p bằng upscaling.
+</div></code></pre>
+<p>Encoding plan:</p>
+<pre class="hljs"><code><div>Source 480p
+→ 240p
+→ 360p
+→ 480p
+</div></code></pre>
+<p>Source 4K:</p>
+<pre class="hljs"><code><div>→ 240p
+→ 360p
+→ 480p
+→ 720p
+→ 1080p
+→ 1440p
+→ 2160p
+</div></code></pre>
+<hr>
+<h1 id="35-bitrate-ladder">35. Bitrate Ladder</h1>
+<p>Mỗi rendition có:</p>
+<pre class="hljs"><code><div>resolution + bitrate + codec + frame rate
+</div></code></pre>
+<p>Ví dụ minh họa:</p>
+<table>
+<thead>
+<tr>
+<th>Resolution</th>
+<th style="text-align:right">Video bitrate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>240p</td>
+<td style="text-align:right">300 Kbps</td>
+</tr>
+<tr>
+<td>360p</td>
+<td style="text-align:right">700 Kbps</td>
+</tr>
+<tr>
+<td>480p</td>
+<td style="text-align:right">1,2 Mbps</td>
+</tr>
+<tr>
+<td>720p</td>
+<td style="text-align:right">2,5 Mbps</td>
+</tr>
+<tr>
+<td>1080p</td>
+<td style="text-align:right">5 Mbps</td>
+</tr>
+</tbody>
+</table>
+<p>Các giá trị thật phụ thuộc:</p>
+<pre class="hljs"><code><div>- Codec
+- Content complexity
+- Frame rate
+- Quality target
+</div></code></pre>
+<hr>
+<h1 id="36-fixed-ladder-và-per-title-encoding">36. Fixed Ladder và Per-Title Encoding</h1>
+<h2 id="fixed-ladder">Fixed Ladder</h2>
+<p>Mọi video dùng cùng cấu hình.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Dự đoán capacity dễ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Video ít chuyển động bị encode quá cao
+- Video thể thao có thể chất lượng kém
+</div></code></pre>
+<h2 id="per-title-encoding">Per-Title Encoding</h2>
+<p>Phân tích từng video để chọn ladder phù hợp.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Chất lượng tốt hơn
+- Tiết kiệm bandwidth/storage
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cần analysis
+- Processing lâu hơn
+- Pipeline phức tạp hơn
+</div></code></pre>
+<hr>
+<h1 id="37-codec-selection">37. Codec Selection</h1>
+<p>Các codec có trade-off khác nhau.</p>
+<h2 id="h264">H.264</h2>
+<pre class="hljs"><code><div>- Tương thích rộng
+- Encode tương đối nhanh
+- Compression kém hơn codec mới
+</div></code></pre>
+<h2 id="h265hevc">H.265/HEVC</h2>
+<pre class="hljs"><code><div>- Compression tốt
+- Licensing/device compatibility phức tạp
+</div></code></pre>
+<h2 id="vp9">VP9</h2>
+<pre class="hljs"><code><div>- Compression tốt
+- Hỗ trợ rộng trên nhiều web/device
+- Encode đắt hơn H.264
+</div></code></pre>
+<h2 id="av1">AV1</h2>
+<pre class="hljs"><code><div>- Compression rất tốt
+- Encode compute-intensive
+- Device support đang tăng
+</div></code></pre>
+<hr>
+<h1 id="38-multi-codec-strategy">38. Multi-Codec Strategy</h1>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>H.264:
+Tất cả video
+
+AV1:
+Video phổ biến hoặc dài
+</div></code></pre>
+<p>Lý do:</p>
+<pre class="hljs"><code><div>Video ít view:
+Chi phí AV1 encode có thể không hoàn vốn.
+
+Video hàng tỷ views:
+Tiết kiệm bandwidth rất lớn.
+</div></code></pre>
+<p>Encoding strategy có thể dựa trên expected popularity.</p>
+<hr>
+<h1 id="39-re-encode-theo-popularity">39. Re-Encode theo Popularity</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>Encode H.264 nhanh để publish sớm.
+</div></code></pre>
+<p>Nếu video trở nên phổ biến:</p>
+<pre class="hljs"><code><div>Background encode VP9/AV1.
+</div></code></pre>
+<p>Playback API sau đó ưu tiên codec phù hợp với client.</p>
+<p>Đây là một ví dụ kiến trúc tiến hóa theo workload thực tế.</p>
+<hr>
+<h1 id="40-keyframes-và-gop">40. Keyframes và GOP</h1>
+<p>Video được chia thành nhóm frames.</p>
+<p>Keyframe là frame có thể decode độc lập.</p>
+<p>ABR và seek hoạt động tốt hơn khi:</p>
+<pre class="hljs"><code><div>- Segment boundaries align với keyframes
+- Renditions có keyframe alignment giống nhau
+</div></code></pre>
+<p>Nếu không, chuyển chất lượng giữa segment có thể bị giật hoặc lỗi.</p>
+<hr>
+<h1 id="41-segmenting">41. Segmenting</h1>
+<p>Thay vì phục vụ một file video lớn, video được chia thành segments:</p>
+<pre class="hljs"><code><div>segment_0001
+segment_0002
+segment_0003
+...
+</div></code></pre>
+<p>Segment duration có thể:</p>
+<pre class="hljs"><code><div>2 giây
+4 giây
+6 giây
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Segment ngắn:
+- Chuyển bitrate nhanh
+- Startup tốt hơn
+- Nhiều requests và metadata
+
+Segment dài:
+- Ít request
+- Cache hiệu quả
+- Chuyển bitrate chậm hơn
+</div></code></pre>
+<hr>
+<h1 id="42-hls-và-dash">42. HLS và DASH</h1>
+<p>Hai cơ chế streaming phổ biến:</p>
+<pre class="hljs"><code><div>HLS
+MPEG-DASH
+</div></code></pre>
+<p>Cả hai thường sử dụng:</p>
+<pre class="hljs"><code><div>Manifest
+→ Danh sách renditions
+→ Danh sách segments
+</div></code></pre>
+<p>Client tải manifest, chọn rendition rồi tải segments tuần tự.</p>
+<hr>
+<h1 id="43-master-manifest">43. Master Manifest</h1>
+<p>Một HLS master playlist khái niệm:</p>
+<pre class="hljs"><code><div>#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=700000,RESOLUTION=640x360
+360p/index.m3u8
+
+#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720
+720p/index.m3u8
+
+#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
+1080p/index.m3u8
+</div></code></pre>
+<p>Nó mô tả những renditions mà player có thể chọn.</p>
+<hr>
+<h1 id="44-media-playlist">44. Media Playlist</h1>
+<p>Một rendition playlist:</p>
+<pre class="hljs"><code><div>#EXTM3U
+#EXTINF:4.0,
+segment_0001.m4s
+#EXTINF:4.0,
+segment_0002.m4s
+</div></code></pre>
+<p>Manifest và segments là các objects có thể cache mạnh tại CDN.</p>
+<hr>
+<h1 id="45-packaging-khác-transcoding">45. Packaging khác Transcoding</h1>
+<h2 id="transcoding">Transcoding</h2>
+<p>Chuyển:</p>
+<pre class="hljs"><code><div>Codec
+Resolution
+Bitrate
+Frame rate
+</div></code></pre>
+<h2 id="packaging">Packaging</h2>
+<p>Tạo:</p>
+<pre class="hljs"><code><div>Segments
+Manifests
+Encryption metadata
+Audio/subtitle tracks
+</div></code></pre>
+<p>Có thể transcode một lần rồi package sang nhiều streaming formats.</p>
+<hr>
+<h1 id="46-audio-tracks">46. Audio Tracks</h1>
+<p>Video có thể hỗ trợ:</p>
+<pre class="hljs"><code><div>- Original audio
+- Nhiều ngôn ngữ
+- Audio description
+</div></code></pre>
+<p>Audio có thể được encode và segment riêng.</p>
+<p>Manifest liên kết video rendition với audio groups.</p>
+<p>Tách audio giúp:</p>
+<pre class="hljs"><code><div>- Không encode lại video cho mỗi ngôn ngữ
+- Chọn audio track độc lập
+</div></code></pre>
+<hr>
+<h1 id="47-subtitle-và-caption">47. Subtitle và Caption</h1>
+<p>Nguồn subtitle:</p>
+<pre class="hljs"><code><div>- Creator upload
+- Automatic speech recognition
+- Human review
+- Machine translation
+</div></code></pre>
+<p>Subtitle nên lưu thành text tracks riêng.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Có thể bật/tắt
+- Search
+- Accessibility
+- Translation
+</div></code></pre>
+<p>Không nên burn subtitle vào mọi rendition trừ trường hợp đặc biệt.</p>
+<hr>
+<h1 id="48-thumbnail-generation">48. Thumbnail Generation</h1>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>- Thumbnail chính
+- Nhiều candidate thumbnails
+- Contact sheet
+- Storyboard preview
+</div></code></pre>
+<p>Thumbnail worker chọn frames ở các timestamps.</p>
+<p>Moderation cũng có thể scan thumbnail frames để phát hiện nội dung vi phạm.</p>
+<hr>
+<h1 id="49-scrubbing-preview">49. Scrubbing Preview</h1>
+<p>Khi viewer kéo timeline, UI hiển thị preview frames.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Sprite sheet
+- Thumbnail tiles
+- Time-to-coordinate manifest
+</div></code></pre>
+<p>Thay vì tải hàng trăm ảnh nhỏ riêng biệt.</p>
+<hr>
+<h1 id="50-processing-worker-types">50. Processing Worker Types</h1>
+<p>Không phải mọi task dùng cùng hardware.</p>
+<pre class="hljs"><code><div>CPU workers:
+- Probe
+- Packaging
+- Metadata
+
+GPU/accelerator workers:
+- Transcoding
+- ML moderation
+- Speech recognition
+</div></code></pre>
+<p>Scheduler phải route job theo:</p>
+<pre class="hljs"><code><div>- Codec
+- Resolution
+- Hardware availability
+- Priority
+</div></code></pre>
+<hr>
+<h1 id="51-processing-priority">51. Processing Priority</h1>
+<p>Các nhóm:</p>
+<pre class="hljs"><code><div>Critical:
+Short user-generated clips
+
+Normal:
+Standard uploads
+
+Bulk:
+Archive migration hoặc re-encode
+
+Premium:
+Enterprise/live event assets
+</div></code></pre>
+<p>Không để backfill AV1 cho video cũ chặn video mới được publish.</p>
+<hr>
+<h1 id="52-transcoding-chunking">52. Transcoding Chunking</h1>
+<p>Video dài hai giờ có thể được chia thành chunks để transcode song song.</p>
+<pre class="hljs"><code><div>Chunk 1: phút 0–10
+Chunk 2: phút 10–20
+...
+</div></code></pre>
+<p>Sau đó ghép output.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Processing nhanh hơn
+- Retry một chunk
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Khó giữ quality nhất quán
+- Keyframe alignment
+- Audio sync
+- Boundary artifacts
+</div></code></pre>
+<hr>
+<h1 id="53-processing-idempotency">53. Processing Idempotency</h1>
+<p>Task key:</p>
+<pre class="hljs"><code><div>(videoId, processingVersion, rendition, chunk)
+</div></code></pre>
+<p>Nếu task được giao lại:</p>
+<pre class="hljs"><code><div>- Ghi cùng immutable output key
+- Hoặc conditional commit
+</div></code></pre>
+<p>Không tạo hai logical rendition records.</p>
+<p>Temporary outputs nên ghi vào staging path.</p>
+<hr>
+<h1 id="54-atomic-publish-của-rendition">54. Atomic Publish của Rendition</h1>
+<p>Không nên để playback thấy rendition nửa hoàn chỉnh.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Transcode segments vào staging.
+2. Xác minh số segment và checksum.
+3. Generate manifest.
+4. Commit rendition metadata.
+5. Publish active manifest.
+</div></code></pre>
+<p>Master manifest chỉ tham chiếu renditions đã hoàn tất.</p>
+<hr>
+<h1 id="55-partial-processing-success">55. Partial Processing Success</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>240p READY
+360p READY
+720p READY
+1080p FAILED
+</div></code></pre>
+<p>Có hai policy:</p>
+<h2 id="publish-partial">Publish partial</h2>
+<p>Video có thể phát sớm ở chất lượng thấp.</p>
+<h2 id="chờ-tất-cả">Chờ tất cả</h2>
+<p>Chất lượng đầy đủ nhưng publication chậm.</p>
+<p>Thường có thể:</p>
+<pre class="hljs"><code><div>Mark PLAYABLE khi minimum ladder sẵn sàng.
+Mark FULLY_PROCESSED khi tất cả jobs hoàn tất.
+</div></code></pre>
+<hr>
+<h1 id="56-fast-publish-strategy">56. Fast Publish Strategy</h1>
+<p>Để giảm thời gian từ upload tới playback:</p>
+<pre class="hljs"><code><div>1. Tạo 360p/480p trước.
+2. Publish video.
+3. Tạo 720p/1080p sau.
+4. Update master manifest version.
+</div></code></pre>
+<p>Viewer đầu tiên xem chất lượng thấp hơn nhưng không phải chờ lâu.</p>
+<hr>
+<h1 id="57-processing-status-api">57. Processing Status API</h1>
+<pre class="hljs"><code><div>GET /v1/videos/{videoId}/processing-status
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;uploadStatus&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;COMPLETED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;processingStatus&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PROCESSING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;playable&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;progress&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;probe&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;COMPLETED&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;360p&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;COMPLETED&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;720p&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PROCESSING&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;1080p&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PENDING&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;thumbnail&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;COMPLETED&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Progress có thể chỉ là ước lượng.</p>
+<hr>
+<h1 id="58-video-metadata-store">58. Video Metadata Store</h1>
+<p>Schema khái niệm:</p>
+<pre class="hljs"><code><div>video_id
+owner_id
+title
+description
+visibility
+upload_status
+processing_status
+active_processing_version
+duration
+source_resolution
+created_at
+published_at
+deleted_at
+moderation_status
+copyright_status
+version
+</div></code></pre>
+<p>Metadata store cần:</p>
+<pre class="hljs"><code><div>- Transaction
+- Secondary indexes
+- Ownership lookup
+- Status updates
+</div></code></pre>
+<p>SQL thường phù hợp cho control-plane metadata.</p>
+<hr>
+<h1 id="59-rendition-metadata">59. Rendition Metadata</h1>
+<pre class="hljs"><code><div>video_id
+processing_version
+codec
+resolution
+bitrate
+frame_rate
+manifest_path
+status
+size_bytes
+created_at
+</div></code></pre>
+<p>Playback API có thể dùng rendition metadata hoặc trực tiếp master manifest đã được generate.</p>
+<hr>
+<h1 id="60-playback-api">60. Playback API</h1>
+<p>Viewer không nhất thiết được trả raw storage URL trực tiếp.</p>
+<pre class="hljs"><code><div>GET /v1/videos/{videoId}/playback
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>optional
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;videoId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vid_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;manifestUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://cdn.example.com/.../master.m3u8?token=...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;resumePositionMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">120000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;subtitles&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;language&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;url&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="61-playback-authorization">61. Playback Authorization</h1>
+<p>Playback API kiểm tra:</p>
+<pre class="hljs"><code><div>- Video có READY không?
+- Video có bị DELETED/BLOCKED không?
+- Visibility là public, unlisted hay private?
+- Viewer có quyền không?
+- Region có bị hạn chế không?
+- Age restriction?
+</div></code></pre>
+<p>Không nên dựa vào việc manifest URL khó đoán để bảo vệ video private.</p>
+<hr>
+<h1 id="62-public-unlisted-và-private">62. Public, Unlisted và Private</h1>
+<h2 id="public">Public</h2>
+<pre class="hljs"><code><div>Có thể search và recommendation.
+</div></code></pre>
+<h2 id="unlisted">Unlisted</h2>
+<pre class="hljs"><code><div>Ai có link có thể xem,
+nhưng không xuất hiện công khai.
+</div></code></pre>
+<h2 id="private">Private</h2>
+<pre class="hljs"><code><div>Chỉ owner hoặc ACL được phép.
+</div></code></pre>
+<p>Unlisted không phải quyền bảo mật mạnh nếu link bị chia sẻ.</p>
+<hr>
+<h1 id="63-signed-url-và-signed-cookie">63. Signed URL và Signed Cookie</h1>
+<p>Private hoặc paid content cần token hóa access.</p>
+<h2 id="signed-url">Signed URL</h2>
+<p>Mỗi URL chứa token.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Một manifest
+- Một object
+</div></code></pre>
+<p>Nhưng manifest tham chiếu hàng nghìn segment URLs.</p>
+<h2 id="signed-cookie">Signed Cookie</h2>
+<p>Client được cookie/token cho toàn path:</p>
+<pre class="hljs"><code><div>/videos/{videoId}/{version}/*
+</div></code></pre>
+<p>Phù hợp streaming nhiều segments.</p>
+<hr>
+<h1 id="64-token-claims">64. Token Claims</h1>
+<p>Playback token có thể chứa:</p>
+<pre class="hljs"><code><div>viewerId
+videoId
+path scope
+expiresAt
+region
+entitlement
+</div></code></pre>
+<p>Token phải được ký.</p>
+<p>Không nên đưa dữ liệu nhạy cảm không cần thiết vào token.</p>
+<p>TTL nên đủ cho playback session nhưng không quá dài.</p>
+<hr>
+<h1 id="65-cdn-architecture">65. CDN Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Viewer --> Edge[CDN Edge]
+    Edge --> Shield[Origin Shield]
+    Shield --> Origin[(Processed Object Storage)]
+</div></code></pre>
+<p>CDN cache:</p>
+<pre class="hljs"><code><div>- Manifests
+- Segments
+- Thumbnails
+- Subtitle files
+</div></code></pre>
+<p>Ứng dụng không phục vụ từng segment.</p>
+<hr>
+<h1 id="66-origin-shield">66. Origin Shield</h1>
+<p>Nếu một viral video lần đầu được request ở hàng nghìn edge locations:</p>
+<pre class="hljs"><code><div>Mỗi edge miss
+→ origin storage bị hàng nghìn request.
+</div></code></pre>
+<p>Origin shield tạo tầng cache trung gian:</p>
+<pre class="hljs"><code><div>Nhiều edges
+→ Một shield request tới origin
+</div></code></pre>
+<p>Giảm origin load và egress.</p>
+<hr>
+<h1 id="67-cache-key">67. Cache Key</h1>
+<p>Cache key phải cẩn thận với query token.</p>
+<p>Nếu token khác nhau cho mỗi user:</p>
+<pre class="hljs"><code><div>segment.ts?token=user1
+segment.ts?token=user2
+</div></code></pre>
+<p>CDN có thể coi là hai cache keys khác nhau, giảm cache hit.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Xác thực token nhưng loại token khỏi cache key
+- Signed cookies
+- Edge authorization
+</div></code></pre>
+<p>Không được làm sai khiến user truy cập content trái phép.</p>
+<hr>
+<h1 id="68-cache-control">68. Cache-Control</h1>
+<p>Processed video immutable có thể dùng:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>public, max-age=31536000, immutable
+</div></code></pre>
+<p>vì path chứa processing version.</p>
+<p>Master metadata pointer có TTL ngắn hơn nếu có thể đổi rendition set.</p>
+<p>Versioned paths giúp tránh purge thường xuyên.</p>
+<hr>
+<h1 id="69-viral-video">69. Viral Video</h1>
+<p>Một video viral có thể nhận hàng triệu concurrent viewers.</p>
+<p>Các biện pháp:</p>
+<pre class="hljs"><code><div>- CDN edge cache
+- Origin shield
+- Immutable segments
+- Request coalescing
+- Pre-warming
+- Multi-CDN
+</div></code></pre>
+<p>Metadata API có thể cache mạnh vì playback metadata ít thay đổi.</p>
+<hr>
+<h1 id="70-cdn-pre-warming">70. CDN Pre-Warming</h1>
+<p>Với video dự kiến có traffic lớn:</p>
+<pre class="hljs"><code><div>- Premiere
+- Trailer
+- Event announcement
+</div></code></pre>
+<p>Có thể pre-warm:</p>
+<pre class="hljs"><code><div>- Master manifest
+- First few segments
+- Popular renditions
+</div></code></pre>
+<p>Không cần pre-warm toàn bộ video ở mọi edge.</p>
+<hr>
+<h1 id="71-multi-cdn">71. Multi-CDN</h1>
+<p>Có thể sử dụng nhiều CDN:</p>
+<pre class="hljs"><code><div>CDN A
+CDN B
+CDN C
+</div></code></pre>
+<p>Routing dựa trên:</p>
+<pre class="hljs"><code><div>- Region
+- Latency
+- Error rate
+- Cost
+- ISP performance
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Resilience
+- Performance
+- Cost negotiation
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cache phân tán
+- Analytics phức tạp
+- Configuration drift
+</div></code></pre>
+<hr>
+<h1 id="72-cdn-failover">72. CDN Failover</h1>
+<p>Nếu CDN A lỗi:</p>
+<pre class="hljs"><code><div>Playback API hoặc DNS chuyển client sang CDN B.
+</div></code></pre>
+<p>Nhưng client đang playback có manifest URLs của A.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Player retry alternate base URL
+- Manifest có multiple pathways
+- Playback session refresh
+</div></code></pre>
+<p>Failover không nên tạo restart toàn video nếu có thể.</p>
+<hr>
+<h1 id="73-adaptive-bitrate-streaming--abr">73. Adaptive Bitrate Streaming — ABR</h1>
+<p>Player liên tục chọn rendition dựa trên:</p>
+<pre class="hljs"><code><div>- Estimated network throughput
+- Buffer level
+- Device resolution
+- CPU capability
+- Codec support
+- Data-saving preference
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Network tốt:
+1080p
+
+Bandwidth giảm:
+480p
+
+Network phục hồi:
+720p hoặc 1080p
+</div></code></pre>
+<hr>
+<h1 id="74-abr-khác-auto-resolution-đơn-giản">74. ABR khác Auto Resolution đơn giản</h1>
+<p>ABR không chỉ chọn độ phân giải một lần.</p>
+<p>Nó đánh giá lại trước mỗi segment.</p>
+<p>Player cần cân bằng:</p>
+<pre class="hljs"><code><div>- Chất lượng cao
+- Không rebuffer
+- Không đổi chất lượng quá thường xuyên
+</div></code></pre>
+<hr>
+<h1 id="75-startup-flow">75. Startup Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Viewer
+    participant API as Playback API
+    participant CDN
+    participant Player
+
+    Viewer->>API: Request playback
+    API-->>Viewer: Manifest URL + token
+    Viewer->>CDN: Fetch master manifest
+    CDN-->>Viewer: Rendition list
+    Viewer->>Player: Select initial rendition
+    Player->>CDN: Fetch first segments
+    CDN-->>Player: Segments
+    Player->>Player: Start playback
+</div></code></pre>
+<hr>
+<h1 id="76-startup-latency">76. Startup Latency</h1>
+<p>Startup latency gồm:</p>
+<pre class="hljs"><code><div>- Playback API latency
+- Manifest fetch
+- DNS/TLS
+- First segment fetch
+- Decode/buffer time
+</div></code></pre>
+<p>Các tối ưu:</p>
+<pre class="hljs"><code><div>- Cache manifest tại edge
+- Segment nhỏ ở đầu
+- Preconnect CDN
+- Start ở bitrate an toàn
+- Fast-start container/packaging
+</div></code></pre>
+<hr>
+<h1 id="77-time-to-first-frame--ttff">77. Time to First Frame — TTFF</h1>
+<p>Metric:</p>
+<pre class="hljs"><code><div>Video first frame time
+-
+User presses play
+</div></code></pre>
+<p>Đây là một trong các playback metrics quan trọng nhất.</p>
+<p>Cần đo theo:</p>
+<pre class="hljs"><code><div>- Region
+- ISP
+- Device
+- Codec
+- CDN
+- Video
+</div></code></pre>
+<hr>
+<h1 id="78-rebuffering">78. Rebuffering</h1>
+<p>Rebuffer xảy ra khi playback buffer hết.</p>
+<p>Rebuffer ratio:</p>
+<pre class="hljs"><code><div>Total rebuffer duration
+/
+Total playback duration
+</div></code></pre>
+<p>Nguyên nhân:</p>
+<pre class="hljs"><code><div>- Network chậm
+- ABR chọn bitrate quá cao
+- CDN miss
+- Segment lỗi
+- Device decode chậm
+</div></code></pre>
+<hr>
+<h1 id="79-buffer-strategy">79. Buffer Strategy</h1>
+<p>Player giữ trước một lượng video.</p>
+<p>Buffer lớn:</p>
+<pre class="hljs"><code><div>- Ít rebuffer
+- Tốn data
+- Seek chậm hơn
+- Startup lâu hơn
+</div></code></pre>
+<p>Buffer nhỏ:</p>
+<pre class="hljs"><code><div>- Startup nhanh
+- Dễ rebuffer
+</div></code></pre>
+<p>Mobile và TV có thể dùng strategy khác nhau.</p>
+<hr>
+<h1 id="80-initial-bitrate-selection">80. Initial Bitrate Selection</h1>
+<p>Bắt đầu 4K ngay có thể gây startup chậm.</p>
+<p>Player có thể chọn:</p>
+<pre class="hljs"><code><div>- Bitrate thấp/trung bình
+- Dựa trên network history
+- Dựa trên CDN throughput test
+</div></code></pre>
+<p>Sau vài segments mới tăng chất lượng.</p>
+<hr>
+<h1 id="81-seek">81. Seek</h1>
+<p>Khi user seek tới phút 40:</p>
+<pre class="hljs"><code><div>1. Player xác định segment chứa timestamp.
+2. Fetch segment từ CDN.
+3. Decode từ keyframe.
+</div></code></pre>
+<p>Keyframe interval quá dài làm seek chậm hoặc phải tải nhiều dữ liệu.</p>
+<hr>
+<h1 id="82-range-requests-và-progressive-download">82. Range Requests và Progressive Download</h1>
+<p>Một số định dạng hỗ trợ HTTP range requests.</p>
+<p>Nhưng với ABR:</p>
+<pre class="hljs"><code><div>Segment-based HLS/DASH thường phù hợp hơn.
+</div></code></pre>
+<p>Progressive MP4 có thể dùng như fallback cho:</p>
+<pre class="hljs"><code><div>- Video ngắn
+- Download
+- Client đơn giản
+</div></code></pre>
+<hr>
+<h1 id="83-playback-resume">83. Playback Resume</h1>
+<p>Store:</p>
+<pre class="hljs"><code><div>(viewerId, videoId)
+→ lastPositionMs
+</div></code></pre>
+<p>Client gửi progress định kỳ.</p>
+<p>Không gửi event mỗi 100 ms.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Mỗi 10–30 giây
+- Khi pause
+- Khi app background
+- Khi playback end
+</div></code></pre>
+<hr>
+<h1 id="84-resume-position-consistency">84. Resume Position Consistency</h1>
+<p>User xem trên điện thoại rồi mở TV.</p>
+<p>Resume state có thể eventual.</p>
+<p>Nếu hai devices cùng xem:</p>
+<pre class="hljs"><code><div>- Last-write-wins
+- Max position
+- Session-aware logic
+</div></code></pre>
+<p><code>max(position)</code> không luôn đúng vì user có thể quay lại đầu.</p>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>sessionId
+updatedAt
+position
+completionState
+</div></code></pre>
+<hr>
+<h1 id="85-playback-telemetry">85. Playback Telemetry</h1>
+<p>Client phát events:</p>
+<pre class="hljs"><code><div>PLAYBACK_STARTED
+FIRST_FRAME
+SEGMENT_DOWNLOADED
+QUALITY_CHANGED
+REBUFFER_STARTED
+REBUFFER_ENDED
+SEEK
+PLAYBACK_ENDED
+ERROR
+</div></code></pre>
+<p>Không nên gửi mọi internal player event ngay lập tức.</p>
+<p>Client có thể batch telemetry.</p>
+<hr>
+<h1 id="86-telemetry-event-schema">86. Telemetry Event Schema</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sessionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;play_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;videoId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vid_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;viewerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;REBUFFER_ENDED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;positionMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">320000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;bitrate&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2500000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;cdn&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cdn_a&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;region&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sg&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;deviceType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;mobile&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên thu thập dữ liệu vượt quá nhu cầu.</p>
+<hr>
+<h1 id="87-view-count-là-gì">87. View Count là gì?</h1>
+<p>Cần định nghĩa business rõ ràng.</p>
+<p>Một request manifest không nhất thiết là một view.</p>
+<p>Có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Playback thực sự bắt đầu
+- Xem tối thiểu N giây
+- Hoặc xem tối thiểu X% với video ngắn
+</div></code></pre>
+<p>View count là product policy, không chỉ technical counter.</p>
+<hr>
+<h1 id="88-view-count-pipeline">88. View Count Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Player --> Events[Playback Events]
+    Events --> Stream[Event Stream]
+    Stream --> Validator[View Qualification]
+    Validator --> Dedupe[Fraud + Dedupe]
+    Dedupe --> Counter[Sharded Counters]
+    Counter --> Display[(View Count Store)]
+    Stream --> Raw[(Raw Analytics Storage)]
+</div></code></pre>
+<p>Không update counter đồng bộ khi player gọi Playback API.</p>
+<hr>
+<h1 id="89-qualified-view">89. Qualified View</h1>
+<p>Một qualified view có thể dựa trên:</p>
+<pre class="hljs"><code><div>- sessionId hợp lệ
+- first frame đã render
+- watch duration đủ
+- viewer/video combination
+- bot/fraud score
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Video dài:
+Xem ít nhất 30 giây
+
+Video ngắn:
+Xem phần trăm nhất định
+</div></code></pre>
+<p>Các ngưỡng chỉ là minh họa.</p>
+<hr>
+<h1 id="90-view-dedupe">90. View Dedupe</h1>
+<p>Không nên coi refresh liên tục là vô hạn views.</p>
+<p>Dedupe key có thể dựa trên:</p>
+<pre class="hljs"><code><div>viewerId + videoId + timeWindow
+</div></code></pre>
+<p>Với anonymous viewer:</p>
+<pre class="hljs"><code><div>device/session/IP signals
+</div></code></pre>
+<p>Không thể chống fraud tuyệt đối chỉ bằng một key.</p>
+<hr>
+<h1 id="91-anonymous-views">91. Anonymous Views</h1>
+<p>Anonymous users không có stable user ID.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Signed anonymous session ID
+- Device identifier hạn chế
+- IP prefix
+- Cookie
+</div></code></pre>
+<p>Cần cân bằng:</p>
+<pre class="hljs"><code><div>- Fraud detection
+- Privacy
+- Legal requirements
+</div></code></pre>
+<hr>
+<h1 id="92-view-counter-hot-key">92. View Counter Hot Key</h1>
+<p>Viral video nhận hàng triệu view events/giây.</p>
+<p>Không update một row:</p>
+<pre class="hljs"><code><div>video_123.views += 1
+</div></code></pre>
+<p>cho mỗi event.</p>
+<p>Dùng buckets:</p>
+<pre class="hljs"><code><div>video_123:views:bucket_0
+...
+video_123:views:bucket_999
+</div></code></pre>
+<p>Sau đó merge.</p>
+<hr>
+<h1 id="93-approximate-view-count">93. Approximate View Count</h1>
+<p>Public display có thể dùng eventual/approximate count:</p>
+<pre class="hljs"><code><div>1.234.567 lượt xem
+</div></code></pre>
+<p>Counter được cập nhật theo batch vài giây.</p>
+<p>Author analytics có thể chính xác hơn sau reconciliation.</p>
+<p>Không cần public count strongly consistent.</p>
+<hr>
+<h1 id="94-watch-time">94. Watch Time</h1>
+<p>Recommendation thường quan tâm:</p>
+<pre class="hljs"><code><div>- Total watch time
+- Average percentage watched
+- Completion
+- Rewatch
+</div></code></pre>
+<p>Watch time không nên tính bằng:</p>
+<pre class="hljs"><code><div>lastPosition - firstPosition
+</div></code></pre>
+<p>vì user có thể seek.</p>
+<p>Tốt hơn tích lũy active playback intervals.</p>
+<hr>
+<h1 id="95-playback-event-delivery-semantics">95. Playback Event Delivery Semantics</h1>
+<p>Client telemetry có thể:</p>
+<pre class="hljs"><code><div>- Mất
+- Trùng
+- Đến sai thứ tự
+- Bị delayed
+</div></code></pre>
+<p>Analytics pipeline phải chấp nhận at-least-once/best-effort.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>eventId
+session sequence
+event time
+</div></code></pre>
+<p>để dedupe và reconstruct.</p>
+<hr>
+<h1 id="96-event-time-và-processing-time">96. Event Time và Processing Time</h1>
+<p>Mobile có thể offline rồi upload telemetry sau.</p>
+<p>Watch session xảy ra lúc:</p>
+<pre class="hljs"><code><div>10:00
+</div></code></pre>
+<p>Event tới server lúc:</p>
+<pre class="hljs"><code><div>10:20
+</div></code></pre>
+<p>Analytics lịch sử nên dùng event time.</p>
+<p>Realtime dashboard cần watermark và late-event policy.</p>
+<hr>
+<h1 id="97-recommendation-architecture">97. Recommendation Architecture</h1>
+<p>Recommendation gồm hai giai đoạn chính:</p>
+<pre class="hljs"><code><div>Candidate generation
+→ Ranking
+</div></code></pre>
+<p>Candidate sources:</p>
+<pre class="hljs"><code><div>- Subscriptions
+- Similar videos
+- Viewer history
+- Trending
+- Topic/channel affinity
+- Collaborative filtering
+</div></code></pre>
+<hr>
+<h1 id="98-recommendation-pipeline">98. Recommendation Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Viewer --> Candidate[Candidate Generation]
+
+    Candidate --> Subscriptions
+    Candidate --> Similar[Similar Videos]
+    Candidate --> Trending
+    Candidate --> Collaborative
+
+    Subscriptions --> Merge[Candidate Merge]
+    Similar --> Merge
+    Trending --> Merge
+    Collaborative --> Merge
+
+    Merge --> Filter[Eligibility + Safety]
+    Filter --> Ranker[Ranking Model]
+    Ranker --> Diversity[Diversity Rules]
+    Diversity --> Results
+</div></code></pre>
+<hr>
+<h1 id="99-recommendation-features">99. Recommendation Features</h1>
+<h2 id="viewer">Viewer</h2>
+<pre class="hljs"><code><div>- Watch history
+- Topics
+- Language
+- Device/network
+- Session context
+</div></code></pre>
+<h2 id="video">Video</h2>
+<pre class="hljs"><code><div>- Topic
+- Duration
+- Quality
+- Engagement
+- Freshness
+- Copyright/moderation status
+</div></code></pre>
+<h2 id="cross-features">Cross-features</h2>
+<pre class="hljs"><code><div>- Viewer-channel affinity
+- Similarity với video vừa xem
+- Expected watch time
+- Probability of satisfaction
+</div></code></pre>
+<hr>
+<h1 id="100-không-tối-ưu-chỉ-click">100. Không tối ưu chỉ Click</h1>
+<p>Nếu chỉ tối ưu click-through rate:</p>
+<pre class="hljs"><code><div>- Clickbait
+- Thumbnail gây hiểu lầm
+- User rời video sớm
+</div></code></pre>
+<p>Mục tiêu nên xét:</p>
+<pre class="hljs"><code><div>- Watch time chất lượng
+- Satisfaction
+- Completion
+- Negative feedback
+- Long-term retention
+</div></code></pre>
+<hr>
+<h1 id="101-recommendation-fallback">101. Recommendation Fallback</h1>
+<p>Nếu ranking service lỗi:</p>
+<pre class="hljs"><code><div>- Subscriptions feed
+- Trending theo region
+- Recently popular
+- Cached recommendations
+</div></code></pre>
+<p>Playback không được phụ thuộc recommendation.</p>
+<hr>
+<h1 id="102-copyright-detection">102. Copyright Detection</h1>
+<p>Nền tảng cần phát hiện:</p>
+<pre class="hljs"><code><div>- Video bị re-upload
+- Nhạc có bản quyền
+- Clip từ phim/chương trình
+</div></code></pre>
+<p>Không thể chỉ so file hash vì attacker có thể:</p>
+<pre class="hljs"><code><div>- Re-encode
+- Crop
+- Thay đổi tốc độ
+- Thêm watermark
+- Đổi âm lượng
+</div></code></pre>
+<hr>
+<h1 id="103-content-fingerprinting">103. Content Fingerprinting</h1>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>- Audio fingerprint
+- Video perceptual fingerprint
+- Frame hashes
+</div></code></pre>
+<p>Fingerprint chịu được một số biến đổi.</p>
+<p>Pipeline:</p>
+<pre class="hljs"><code><div>Uploaded video
+→ Extract fingerprints
+→ Search reference database
+→ Produce match segments
+</div></code></pre>
+<hr>
+<h1 id="104-copyright-match">104. Copyright Match</h1>
+<p>Match result có thể chứa:</p>
+<pre class="hljs"><code><div>referenceAssetId
+matchedTimeRanges
+confidence
+territories
+policy
+</div></code></pre>
+<p>Policy có thể là:</p>
+<pre class="hljs"><code><div>- Block
+- Monetize for rights holder
+- Track
+- Allow
+</div></code></pre>
+<p>Quyết định không chỉ dựa trên một similarity score đơn lẻ.</p>
+<hr>
+<h1 id="105-false-positives-và-appeals">105. False Positives và Appeals</h1>
+<p>Copyright matching có thể sai.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Human review
+- Dispute workflow
+- Appeal
+- Audit trail
+- Rights-holder verification
+</div></code></pre>
+<p>Không nên xóa vĩnh viễn chỉ dựa trên một model không có quy trình kháng nghị.</p>
+<hr>
+<h1 id="106-content-moderation">106. Content Moderation</h1>
+<p>Moderation có thể phát hiện:</p>
+<pre class="hljs"><code><div>- Violence
+- Nudity
+- Hate
+- Self-harm
+- Illegal content
+- Malware links
+- Spam
+</div></code></pre>
+<p>Các nguồn:</p>
+<pre class="hljs"><code><div>- Frames
+- Audio transcript
+- Title/description
+- Thumbnail
+- Comments/reports
+</div></code></pre>
+<hr>
+<h1 id="107-moderation-stages">107. Moderation Stages</h1>
+<h2 id="pre-publish">Pre-Publish</h2>
+<p>Kiểm tra nhanh:</p>
+<pre class="hljs"><code><div>- File validity
+- Known illegal fingerprints
+- High-confidence violations
+</div></code></pre>
+<h2 id="post-publish">Post-Publish</h2>
+<p>Kiểm tra sâu:</p>
+<pre class="hljs"><code><div>- ML analysis
+- Human moderation
+- User reports
+- Re-review khi model mới
+</div></code></pre>
+<hr>
+<h1 id="108-fail-open-hay-fail-closed">108. Fail-Open hay Fail-Closed?</h1>
+<p>Với nội dung có rủi ro cao:</p>
+<pre class="hljs"><code><div>PENDING_REVIEW
+</div></code></pre>
+<p>Với trusted creator:</p>
+<pre class="hljs"><code><div>Có thể publish rồi scan async.
+</div></code></pre>
+<p>Policy có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Account reputation
+- Content type
+- Region
+- Upload history
+</div></code></pre>
+<p>Không nên dùng một policy cho mọi creator.</p>
+<hr>
+<h1 id="109-moderation-state">109. Moderation State</h1>
+<pre class="hljs"><code><div>PENDING
+APPROVED
+LIMITED
+AGE_RESTRICTED
+BLOCKED
+REMOVED
+UNDER_APPEAL
+</div></code></pre>
+<p>Playback API phải kiểm tra state mới nhất.</p>
+<p>CDN cache không được tiếp tục phục vụ video bị gỡ.</p>
+<hr>
+<h1 id="110-emergency-takedown">110. Emergency Takedown</h1>
+<p>Khi video phải bị gỡ ngay:</p>
+<pre class="hljs"><code><div>1. Update authoritative metadata.
+2. Revoke playback tokens.
+3. Push CDN purge.
+4. Add denylist tại edge.
+5. Remove recommendation/search entries.
+6. Stop monetization.
+</div></code></pre>
+<p>Không chờ object deletion hoàn tất.</p>
+<hr>
+<h1 id="111-cdn-purge-có-thể-chậm">111. CDN Purge có thể chậm</h1>
+<p>Do đó cần lớp kiểm soát khác:</p>
+<pre class="hljs"><code><div>- Short-lived playback tokens
+- Edge authorization
+- Blocklist
+- Manifest access control
+</div></code></pre>
+<p>Segments đã được cache công khai với URL không kiểm soát có thể khó thu hồi.</p>
+<p>Thiết kế privacy phải được quyết định trước.</p>
+<hr>
+<h1 id="112-deleted-video">112. Deleted Video</h1>
+<p>Không nhất thiết xóa objects ngay.</p>
+<p>State:</p>
+<pre class="hljs"><code><div>ACTIVE → DELETED
+</div></code></pre>
+<p>Sau retention:</p>
+<pre class="hljs"><code><div>- Delete manifests
+- Delete renditions
+- Delete originals
+- Delete thumbnails
+- Apply backup policy
+</div></code></pre>
+<p>Tombstone ngăn video ID được tái sử dụng.</p>
+<hr>
+<h1 id="113-creator-delete-và-legal-retention">113. Creator Delete và Legal Retention</h1>
+<p>Creator yêu cầu xóa nhưng hệ thống có thể cần giữ:</p>
+<pre class="hljs"><code><div>- Audit
+- Legal hold
+- Abuse evidence
+</div></code></pre>
+<p>User-facing deletion và physical deletion có thể khác thời điểm.</p>
+<p>Chính sách cần rõ và có kiểm soát truy cập nghiêm ngặt.</p>
+<hr>
+<h1 id="114-search-indexing">114. Search Indexing</h1>
+<p>Video metadata event:</p>
+<pre class="hljs"><code><div>VideoPublished
+VideoUpdated
+VideoDeleted
+</div></code></pre>
+<p>đi vào search indexing pipeline.</p>
+<p>Index có:</p>
+<pre class="hljs"><code><div>- Title
+- Description
+- Transcript
+- Channel
+- Topics
+- Language
+</div></code></pre>
+<p>Search eventual consistent.</p>
+<p>Playback authorization không được dựa riêng vào search index.</p>
+<hr>
+<h1 id="115-transcript-search">115. Transcript Search</h1>
+<p>Speech-to-text tạo transcript.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Search
+- Subtitle
+- Recommendation topics
+- Moderation
+</div></code></pre>
+<p>Transcript có thể sai.</p>
+<p>Không nên dùng transcript tự động làm bằng chứng duy nhất cho moderation nghiêm trọng.</p>
+<hr>
+<h1 id="116-multi-region-upload">116. Multi-Region Upload</h1>
+<p>Creator nên upload tới region gần nhất.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Creator --> GlobalUploadRouter
+    GlobalUploadRouter --> RegionA[Upload Region A]
+    GlobalUploadRouter --> RegionB[Upload Region B]
+
+    RegionA --> OriginalA[(Original Storage A)]
+    RegionB --> OriginalB[(Original Storage B)]
+</div></code></pre>
+<p>Mỗi upload có home region.</p>
+<p>Processing thường chạy gần original storage để tránh cross-region transfer lớn.</p>
+<hr>
+<h1 id="117-upload-home-region">117. Upload Home Region</h1>
+<p>Directory:</p>
+<pre class="hljs"><code><div>videoId → uploadHomeRegion
+</div></code></pre>
+<p>Điều này giúp:</p>
+<pre class="hljs"><code><div>- Resume upload
+- Processing routing
+- Data residency
+- Object lookup
+</div></code></pre>
+<p>Metadata có thể globally replicated nhưng original bytes ở home region.</p>
+<hr>
+<h1 id="118-multi-region-processing">118. Multi-Region Processing</h1>
+<p>Hai chiến lược:</p>
+<h2 id="process-tại-upload-region">Process tại upload region</h2>
+<pre class="hljs"><code><div>Ít data transfer
+Nhưng capacity phải có ở mọi region.
+</div></code></pre>
+<h2 id="central-processing-regions">Central processing regions</h2>
+<pre class="hljs"><code><div>Tập trung hardware
+Nhưng phải chuyển original video lớn.
+</div></code></pre>
+<p>Hybrid:</p>
+<pre class="hljs"><code><div>Common renditions xử lý local.
+Special codecs xử lý ở accelerator regions.
+</div></code></pre>
+<hr>
+<h1 id="119-processed-media-distribution">119. Processed Media Distribution</h1>
+<p>Processed objects có thể:</p>
+<pre class="hljs"><code><div>- Nằm ở multi-region object storage
+- Replicate sang origin regions
+- Chỉ có một origin và phân phối qua CDN
+</div></code></pre>
+<p>CDN đã giảm nhu cầu replicate mọi segment tới mọi region.</p>
+<p>Tuy nhiên DR của origin vẫn cần được thiết kế.</p>
+<hr>
+<h1 id="120-metadata-multi-region">120. Metadata Multi-Region</h1>
+<p>Video metadata có thể:</p>
+<pre class="hljs"><code><div>- Single write home region
+- Read replicas toàn cầu
+- Partitioned active–active theo owner
+</div></code></pre>
+<p>Các update như:</p>
+<pre class="hljs"><code><div>title
+description
+visibility
+</div></code></pre>
+<p>có write ownership rõ.</p>
+<p>Playback reads nên local hoặc cache tại edge.</p>
+<hr>
+<h1 id="121-global-playback">121. Global Playback</h1>
+<p>Viewer request tới nearest region.</p>
+<p>Playback API local:</p>
+<pre class="hljs"><code><div>1. Đọc replicated metadata.
+2. Kiểm tra quyền.
+3. Chọn CDN.
+4. Tạo playback token.
+</div></code></pre>
+<p>Nếu metadata replica lag sau publish:</p>
+<pre class="hljs"><code><div>Video có thể tạm báo chưa sẵn sàng.
+</div></code></pre>
+<p>Có thể dùng version token hoặc sticky routing cho creator preview.</p>
+<hr>
+<h1 id="122-read-your-publish">122. Read-Your-Publish</h1>
+<p>Creator vừa publish rồi mở video ở region khác.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Route creator về home region
+- Publish token chứa metadata version
+- Synchronous metadata replication
+- Session overlay
+</div></code></pre>
+<p>Public viewers có thể chấp nhận vài giây eventual visibility.</p>
+<hr>
+<h1 id="123-data-residency">123. Data Residency</h1>
+<p>Cần xác định nơi lưu:</p>
+<pre class="hljs"><code><div>- Original video
+- Processed renditions
+- Thumbnails
+- Metadata
+- Viewer analytics
+- Backups
+- Moderation artifacts
+</div></code></pre>
+<p>Public distribution toàn cầu có thể xung đột với residency policy của một số nội dung.</p>
+<p>Private enterprise video có thể phải giới hạn CDN regions.</p>
+<hr>
+<h1 id="124-regional-failover">124. Regional Failover</h1>
+<p>Nếu upload region chết trong khi upload:</p>
+<pre class="hljs"><code><div>- Existing multipart session có thể không tiếp tục được.
+- Client tạo session mới ở DR region.
+- Đã upload parts có thể cần upload lại.
+</div></code></pre>
+<p>Nếu object storage multi-region hỗ trợ replication/session continuity, RTO tốt hơn nhưng complexity cao.</p>
+<hr>
+<h1 id="125-processing-region-failure">125. Processing Region Failure</h1>
+<p>Processing jobs nằm trong durable queue.</p>
+<p>Nếu worker region lỗi:</p>
+<pre class="hljs"><code><div>- Jobs được lease lại
+- Chạy tại region khác nếu original accessible
+- Hoặc chờ region phục hồi
+</div></code></pre>
+<p>Task outputs phải idempotent.</p>
+<p>Không để hai regions cùng publish hai active manifests khác nhau.</p>
+<hr>
+<h1 id="126-origin-failure">126. Origin Failure</h1>
+<p>Nếu origin object storage unavailable:</p>
+<pre class="hljs"><code><div>- CDN cache hits vẫn hoạt động.
+- Cache misses lỗi.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Replicated origin
+- Origin failover
+- Multi-region bucket
+- Long immutable cache TTL
+</div></code></pre>
+<hr>
+<h1 id="127-cdn-failure">127. CDN Failure</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Multi-CDN routing
+- Alternate manifest base URLs
+- Player retry
+- Regional failover
+</div></code></pre>
+<p>Playback API cần theo dõi CDN health.</p>
+<p>Không chuyển toàn bộ traffic sang CDN B vượt capacity hợp đồng.</p>
+<hr>
+<h1 id="128-metadata-store-failure">128. Metadata Store Failure</h1>
+<p>Playback có thể dùng:</p>
+<pre class="hljs"><code><div>- Cached playback metadata
+- Signed token đã phát hành
+</div></code></pre>
+<p>Nhưng private/removed content cần policy cẩn thận.</p>
+<p>Create/update APIs có thể tạm unavailable trong khi playback public vẫn hoạt động.</p>
+<hr>
+<h1 id="129-event-stream-failure">129. Event Stream Failure</h1>
+<p>Nếu metadata commit và outbox cùng transaction:</p>
+<pre class="hljs"><code><div>- Upload/video state vẫn bền vững.
+- Processing bị trễ.
+- Outbox publisher retry.
+</div></code></pre>
+<p>Không mất workflow intent.</p>
+<hr>
+<h1 id="130-transcoding-worker-failure">130. Transcoding Worker Failure</h1>
+<p>Task lease hết hạn.</p>
+<p>Job được retry.</p>
+<p>Đầu ra tạm nằm trong staging.</p>
+<p>Không publish rendition cho tới khi validation hoàn tất.</p>
+<hr>
+<h1 id="131-poison-video">131. Poison Video</h1>
+<p>Một file làm transcoder crash liên tục.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Sandbox
+- Retry limit
+- Resource limits
+- Quarantine
+- DLQ
+- Security analysis
+</div></code></pre>
+<p>Media parsers là attack surface quan trọng.</p>
+<hr>
+<h1 id="132-resource-limits">132. Resource Limits</h1>
+<p>Video có thể cố tình khai báo bất thường:</p>
+<pre class="hljs"><code><div>- Resolution cực lớn
+- Duration sai
+- Frame count bất thường
+- Decompression bomb
+</div></code></pre>
+<p>Worker cần giới hạn:</p>
+<pre class="hljs"><code><div>- CPU time
+- Memory
+- Disk
+- Output size
+- Duration
+</div></code></pre>
+<hr>
+<h1 id="133-processing-backpressure">133. Processing Backpressure</h1>
+<p>Upload rate tăng nhanh hơn transcode capacity.</p>
+<p>Queue lag tăng.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Autoscaling
+- Priority queues
+- Limit concurrent uploads
+- Publish low-resolution trước
+- Defer expensive codecs
+- Admission control
+</div></code></pre>
+<p>Không hứa processing time không giới hạn nếu capacity không đủ.</p>
+<hr>
+<h1 id="134-scheduling-transcoding-jobs">134. Scheduling Transcoding Jobs</h1>
+<p>Scheduler cần cân bằng:</p>
+<pre class="hljs"><code><div>- Video duration
+- Resolution
+- Codec
+- Priority
+- Hardware
+- Region
+</div></code></pre>
+<p>Một video 10 giờ không nên chiếm worker vô thời hạn nếu có thể chunk.</p>
+<p>Cần tránh starvation của long jobs.</p>
+<hr>
+<h1 id="135-cost-optimization">135. Cost Optimization</h1>
+<p>Chi phí chính:</p>
+<pre class="hljs"><code><div>- Transcoding compute
+- Object storage
+- CDN egress
+- Cross-region replication
+</div></code></pre>
+<p>Các tối ưu:</p>
+<pre class="hljs"><code><div>- Per-title encoding
+- AV1 cho popular videos
+- Delete unused originals theo policy
+- Storage tiering
+- CDN cache optimization
+- Avoid unnecessary renditions
+</div></code></pre>
+<hr>
+<h1 id="136-storage-tiering">136. Storage Tiering</h1>
+<p>Video mới/popular:</p>
+<pre class="hljs"><code><div>Hot storage
+</div></code></pre>
+<p>Video cũ ít view:</p>
+<pre class="hljs"><code><div>Cool storage
+</div></code></pre>
+<p>Original archival:</p>
+<pre class="hljs"><code><div>Archive storage
+</div></code></pre>
+<p>Nhưng restore từ archive có thể chậm.</p>
+<p>Không chuyển rendition cần playback ngay vào archive tier.</p>
+<hr>
+<h1 id="137-original-video-retention">137. Original Video Retention</h1>
+<p>Có hai lựa chọn:</p>
+<h2 id="giữ-original">Giữ original</h2>
+<pre class="hljs"><code><div>Ưu:
+Có thể re-transcode codec mới.
+
+Nhược:
+Storage lớn.
+</div></code></pre>
+<h2 id="xóa-sau-processing">Xóa sau processing</h2>
+<pre class="hljs"><code><div>Ưu:
+Tiết kiệm storage.
+
+Nhược:
+Không thể tạo rendition chất lượng cao mới.
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Giữ original cho popular/premium videos.
+Archive hoặc xóa với nội dung ít giá trị.
+</div></code></pre>
+<hr>
+<h1 id="138-qoe-metrics">138. QoE Metrics</h1>
+<p>Quality of Experience gồm:</p>
+<pre class="hljs"><code><div>- Time to first frame
+- Rebuffer ratio
+- Playback failure rate
+- Average bitrate
+- Quality-switch frequency
+- Playback completion
+</div></code></pre>
+<p>Chỉ đo API latency không đủ.</p>
+<p>Video API có thể nhanh nhưng viewer vẫn gặp playback tệ vì CDN hoặc player.</p>
+<hr>
+<h1 id="139-cdn-metrics">139. CDN Metrics</h1>
+<pre class="hljs"><code><div>- Cache hit ratio
+- Origin fetch rate
+- Edge latency
+- Segment error rate
+- Egress bandwidth
+- Regional performance
+- ISP performance
+</div></code></pre>
+<p>Cần tách theo:</p>
+<pre class="hljs"><code><div>CDN
+region
+ISP
+codec
+rendition
+</div></code></pre>
+<hr>
+<h1 id="140-upload-metrics">140. Upload Metrics</h1>
+<pre class="hljs"><code><div>- Upload start rate
+- Completion rate
+- Average throughput
+- Resume rate
+- Part retry rate
+- Abandoned bytes
+- Checksum failures
+- Upload duration
+</div></code></pre>
+<p>Theo dõi theo:</p>
+<pre class="hljs"><code><div>device
+network
+region
+file size
+</div></code></pre>
+<hr>
+<h1 id="141-processing-metrics">141. Processing Metrics</h1>
+<pre class="hljs"><code><div>- Queue lag
+- Oldest job age
+- Processing time/video minute
+- Failure rate
+- Retry rate
+- GPU utilization
+- Rendition completeness
+- Time to playable
+- Time to fully processed
+</div></code></pre>
+<p><code>Time to playable</code> thường có giá trị sản phẩm cao hơn thời gian hoàn tất toàn bộ codec.</p>
+<hr>
+<h1 id="142-playback-slos">142. Playback SLOs</h1>
+<p>Ví dụ minh họa:</p>
+<pre class="hljs"><code><div>Playback API availability:
+99,99%
+
+Time to first frame:
+99% dưới 2 giây
+
+Playback fatal error:
+Dưới 0,1%
+
+Rebuffer ratio:
+Dưới 1% cho phần lớn sessions
+
+Video processing:
+95% video ngắn playable trong 2 phút
+</div></code></pre>
+<p>SLO cần chia theo:</p>
+<pre class="hljs"><code><div>region
+device
+network
+video duration
+</div></code></pre>
+<hr>
+<h1 id="143-synthetic-playback">143. Synthetic Playback</h1>
+<p>Dùng controlled clients định kỳ:</p>
+<pre class="hljs"><code><div>- Request playback token
+- Fetch manifest
+- Fetch segments
+- Decode
+</div></code></pre>
+<p>Điều này kiểm tra end-to-end:</p>
+<pre class="hljs"><code><div>Metadata
+→ Authorization
+→ CDN
+→ Manifest
+→ Segment
+</div></code></pre>
+<p>Health check chỉ gọi <code>/health</code> không đủ.</p>
+<hr>
+<h1 id="144-playback-session-debugging">144. Playback Session Debugging</h1>
+<p>Mỗi playback có:</p>
+<pre class="hljs"><code><div>playbackSessionId
+viewer region
+CDN
+manifest version
+codec
+ABR decisions
+errors
+</div></code></pre>
+<p>Khi user báo video giật, support có thể tra session mà không cần log nội dung nhạy cảm.</p>
+<hr>
+<h1 id="145-security-của-playback-urls">145. Security của Playback URLs</h1>
+<p>Không nên đưa:</p>
+<pre class="hljs"><code><div>- User email
+- Account ID rõ
+- Entitlement chi tiết
+</div></code></pre>
+<p>vào query string nếu không cần.</p>
+<p>URLs thường bị log bởi:</p>
+<pre class="hljs"><code><div>- Browser
+- Proxy
+- CDN
+- Analytics
+</div></code></pre>
+<p>Token nên ngắn hạn và không chứa dữ liệu nhạy cảm plaintext.</p>
+<hr>
+<h1 id="146-drm">146. DRM</h1>
+<p>Premium content có thể cần Digital Rights Management.</p>
+<p>DRM flow thường gồm:</p>
+<pre class="hljs"><code><div>- Encrypted segments
+- License server
+- Device DRM client
+- Entitlement check
+</div></code></pre>
+<p>DRM không ngăn tuyệt đối screen recording, nhưng nâng mức bảo vệ và đáp ứng yêu cầu bản quyền.</p>
+<hr>
+<h1 id="147-encryption-at-rest-và-in-transit">147. Encryption at Rest và in Transit</h1>
+<pre class="hljs"><code><div>Upload:
+HTTPS
+
+Storage:
+Encryption at rest
+
+Playback:
+HTTPS
+
+Private content:
+Token/DRM
+</div></code></pre>
+<p>Encryption at rest không thay thế authorization.</p>
+<hr>
+<h1 id="148-geo-restriction">148. Geo-Restriction</h1>
+<p>Nội dung có thể chỉ được phép ở một số quốc gia.</p>
+<p>Playback API kiểm tra:</p>
+<pre class="hljs"><code><div>- Viewer region
+- Rights territory
+- Account region
+- VPN/risk policy
+</div></code></pre>
+<p>CDN token có thể giới hạn region hoặc path.</p>
+<p>Quyết định quyền phải nằm trong authoritative policy layer.</p>
+<hr>
+<h1 id="149-age-restriction">149. Age Restriction</h1>
+<p>Playback có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Logged-in user
+- Age verified
+- Parental controls
+</div></code></pre>
+<p>Không chỉ ẩn video khỏi recommendation.</p>
+<p>Playback endpoint phải thực thi hạn chế.</p>
+<hr>
+<h1 id="150-advertisement-insertion">150. Advertisement Insertion</h1>
+<p>Hai cách chính:</p>
+<h2 id="client-side-ad-insertion">Client-side ad insertion</h2>
+<p>Player tải ad riêng.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản hơn
+- Linh hoạt
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Ad blocking
+- Transition kém mượt
+</div></code></pre>
+<h2 id="server-side-ad-insertion">Server-side ad insertion</h2>
+<p>Manifest được stitch với ad segments.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Playback mượt
+- Khó block hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Manifest personalization
+- Cache phức tạp
+- Tracking phức tạp
+</div></code></pre>
+<hr>
+<h1 id="151-personalized-manifest-và-cdn-cache">151. Personalized Manifest và CDN Cache</h1>
+<p>Nếu mỗi user có manifest khác do ads:</p>
+<pre class="hljs"><code><div>Cache hit của manifest giảm.
+</div></code></pre>
+<p>Segments video chính vẫn có thể shared cache.</p>
+<p>Tách:</p>
+<pre class="hljs"><code><div>Personalized manifest
++
+Shared immutable media segments
+</div></code></pre>
+<hr>
+<h1 id="152-architecture-evolution">152. Architecture Evolution</h1>
+<h2 id="giai-đoạn-1">Giai đoạn 1</h2>
+<pre class="hljs"><code><div>- Direct upload
+- Một object store
+- Một transcoder queue
+- H.264 360p/720p
+- Một CDN
+</div></code></pre>
+<h2 id="giai-đoạn-2">Giai đoạn 2</h2>
+<pre class="hljs"><code><div>- Multipart/resumable upload
+- Processing DAG
+- Nhiều renditions
+- HLS
+- Analytics pipeline
+</div></code></pre>
+<h2 id="giai-đoạn-3">Giai đoạn 3</h2>
+<pre class="hljs"><code><div>- Multi-region upload
+- Multi-CDN
+- Per-title encoding
+- AV1/VP9
+- Recommendation
+</div></code></pre>
+<h2 id="giai-đoạn-4">Giai đoạn 4</h2>
+<pre class="hljs"><code><div>- Global content moderation
+- Copyright fingerprinting
+- Regional processing cells
+- Advanced QoE optimization
+</div></code></pre>
+<hr>
+<h1 id="153-thiết-kế-khuyến-nghị">153. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Metadata API tạo video và upload session.
+2. Client upload multipart trực tiếp vào object storage.
+3. Completion API xác minh object và phát VideoUploaded qua outbox.
+4. Processing Orchestrator điều phối probe, moderation, transcoding và packaging.
+5. Processed outputs immutable và được version hóa.
+6. HLS/DASH manifests tham chiếu các bitrate renditions.
+7. CDN phục vụ manifests, segments và thumbnails.
+8. Playback API thực thi authorization và phát token.
+9. Client player thực hiện ABR dựa trên network và buffer.
+10. Playback telemetry đi vào event stream cho analytics và recommendation.
+</div></code></pre>
+<hr>
+<h1 id="154-trade-off--upload-qua-server-hay-direct-storage">154. Trade-Off — Upload qua Server hay Direct Storage?</h1>
+<h2 id="qua-application-server">Qua Application Server</h2>
+<pre class="hljs"><code><div>Ưu:
+Kiểm soát trực tiếp.
+
+Nhược:
+Bandwidth và connection cost rất lớn.
+</div></code></pre>
+<h2 id="direct-object-storage">Direct Object Storage</h2>
+<pre class="hljs"><code><div>Ưu:
+Scale tốt, giảm tải API.
+
+Nhược:
+Signed URL, completion và security phức tạp hơn.
+</div></code></pre>
+<p>Đối với file video lớn, direct upload gần như luôn hợp lý hơn.</p>
+<hr>
+<h1 id="155-trade-off--fixed-ladder-hay-per-title">155. Trade-Off — Fixed Ladder hay Per-Title?</h1>
+<h2 id="fixed-ladder-1">Fixed Ladder</h2>
+<pre class="hljs"><code><div>Đơn giản, nhanh, dễ dự đoán.
+</div></code></pre>
+<h2 id="per-title">Per-Title</h2>
+<pre class="hljs"><code><div>Chất lượng/bandwidth tốt hơn,
+nhưng cần analysis và compute.
+</div></code></pre>
+<p>Có thể bắt đầu fixed ladder rồi áp per-title cho video dài hoặc phổ biến.</p>
+<hr>
+<h1 id="156-trade-off--publish-nhanh-hay-chờ-đầy-đủ">156. Trade-Off — Publish nhanh hay Chờ đầy đủ?</h1>
+<h2 id="publish-low-res-sớm">Publish low-res sớm</h2>
+<pre class="hljs"><code><div>UX nhanh
+nhưng chất lượng ban đầu thấp.
+</div></code></pre>
+<h2 id="chờ-mọi-rendition">Chờ mọi rendition</h2>
+<pre class="hljs"><code><div>Chất lượng đầy đủ
+nhưng creator phải đợi lâu.
+</div></code></pre>
+<p>Thường dùng staged availability:</p>
+<pre class="hljs"><code><div>PLAYABLE
+→ FULLY_PROCESSED
+</div></code></pre>
+<hr>
+<h1 id="157-trade-off--nhiều-codec-hay-một-codec">157. Trade-Off — Nhiều Codec hay Một Codec?</h1>
+<h2 id="một-codec">Một codec</h2>
+<pre class="hljs"><code><div>- Pipeline đơn giản
+- Storage thấp hơn
+- Compatibility dễ
+</div></code></pre>
+<h2 id="nhiều-codec">Nhiều codec</h2>
+<pre class="hljs"><code><div>- Tiết kiệm bandwidth
+- Tối ưu device
+- Encode/storage phức tạp hơn
+</div></code></pre>
+<p>Nên dựa trên expected view volume.</p>
+<hr>
+<h1 id="158-trade-off--public-cdn-cache-và-takedown">158. Trade-Off — Public CDN Cache và Takedown</h1>
+<p>Cache lâu:</p>
+<pre class="hljs"><code><div>- Hit ratio cao
+- Cost thấp
+- Takedown khó hơn
+</div></code></pre>
+<p>Cache ngắn/tokenized:</p>
+<pre class="hljs"><code><div>- Kiểm soát tốt
+- Origin/auth load cao hơn
+</div></code></pre>
+<p>Public immutable content và private/licensed content cần policy khác nhau.</p>
+<hr>
+<h1 id="159-trade-off--accurate-view-count-hay-realtime-count">159. Trade-Off — Accurate View Count hay Realtime Count?</h1>
+<p>Realtime exact count:</p>
+<pre class="hljs"><code><div>- Coordination cao
+- Hot key
+</div></code></pre>
+<p>Eventual approximate count:</p>
+<pre class="hljs"><code><div>- Scale tốt
+- Có thể chậm vài giây
+</div></code></pre>
+<p>Public view count thường nên eventual.</p>
+<p>Author billing hoặc revenue cần reconciliation mạnh hơn.</p>
+<hr>
+<h1 id="160-cách-trình-bày-trong-phỏng-vấn">160. Cách trình bày trong Phỏng vấn</h1>
+<p>Một câu trả lời tốt có thể bắt đầu:</p>
+<blockquote>
+<p>Tôi tách control plane khỏi media data plane. Metadata API chỉ tạo video và multipart upload session; client upload trực tiếp vào object storage bằng signed URLs. Điều này tránh truyền nhiều GB video qua application servers.</p>
+</blockquote>
+<p>Về processing:</p>
+<blockquote>
+<p>Khi upload hoàn tất, một durable event khởi động processing DAG. Probe task xác minh container và codec, sau đó các transcoding jobs cho từng rendition chạy song song. Output được ghi vào staging, kiểm tra checksum và segment completeness trước khi master manifest được publish atomically.</p>
+</blockquote>
+<p>Về playback:</p>
+<blockquote>
+<p>Playback API kiểm tra visibility và entitlement rồi trả signed manifest URL. Client dùng HLS hoặc DASH để chọn rendition theo bandwidth và buffer. CDN cache immutable manifests, segments và thumbnails; origin shield bảo vệ object storage khỏi viral cache misses.</p>
+</blockquote>
+<p>Về analytics:</p>
+<blockquote>
+<p>Player gửi playback telemetry bất đồng bộ. View count được xác định từ qualified watch sessions thay vì request manifest, sau đó aggregate bằng sharded counters. Recommendation dùng watch history, completion và negative signals nhưng không nằm trong playback critical path.</p>
+</blockquote>
+<hr>
+<h1 id="161-framework-45-phút">161. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Upload
+- Processing
+- Playback
+- Analytics
+- Moderation
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- Uploads/day
+- Average file size
+- Playback sessions
+- Bandwidth
+- Storage amplification
+</div></code></pre>
+<h2 id="phút-1020-upload-và-processing">Phút 10–20: Upload và Processing</h2>
+<pre class="hljs"><code><div>- Direct multipart upload
+- Object storage
+- Processing DAG
+- Transcoding
+</div></code></pre>
+<h2 id="phút-2030-playback">Phút 20–30: Playback</h2>
+<pre class="hljs"><code><div>- HLS/DASH
+- Manifests
+- ABR
+- CDN
+- Playback authorization
+</div></code></pre>
+<h2 id="phút-3040-analytics-và-safety">Phút 30–40: Analytics và Safety</h2>
+<pre class="hljs"><code><div>- View count
+- QoE
+- Recommendation
+- Copyright
+- Moderation
+</div></code></pre>
+<h2 id="phút-4045-failures-và-trade-offs">Phút 40–45: Failures và Trade-Offs</h2>
+<pre class="hljs"><code><div>- Viral video
+- Processing backlog
+- Multi-region
+- Multi-CDN
+</div></code></pre>
+<hr>
+<h1 id="162-những-sai-lầm-phổ-biến">162. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-upload-video-qua-application-server">Lỗi 1: Upload video qua Application Server</h2>
+<p>Bandwidth và long-lived connections làm API layer quá tải.</p>
+<h2 id="lỗi-2-không-hỗ-trợ-multipartresume">Lỗi 2: Không hỗ trợ Multipart/Resume</h2>
+<p>Mạng lỗi buộc user upload lại toàn bộ.</p>
+<h2 id="lỗi-3-tin-mime-type-hoặc-file-extension">Lỗi 3: Tin MIME Type hoặc File Extension</h2>
+<p>Attacker hoặc client lỗi có thể gửi nội dung khác.</p>
+<h2 id="lỗi-4-completion-api-không-idempotent">Lỗi 4: Completion API không Idempotent</h2>
+<p>Retry tạo processing workflows trùng.</p>
+<h2 id="lỗi-5-transcoding-và-metadata-update-không-version-hóa">Lỗi 5: Transcoding và Metadata Update không Version hóa</h2>
+<p>Output cũ/mới ghi đè lẫn nhau.</p>
+<h2 id="lỗi-6-publish-manifest-trước-khi-segments-hoàn-tất">Lỗi 6: Publish Manifest trước khi Segments hoàn tất</h2>
+<p>Viewer nhận playlist lỗi.</p>
+<h2 id="lỗi-7-tạo-mọi-rendition-kể-cả-cao-hơn-source">Lỗi 7: Tạo mọi Rendition kể cả cao hơn Source</h2>
+<p>Lãng phí compute/storage và không tăng chất lượng.</p>
+<h2 id="lỗi-8-dùng-một-bitrate-ladder-cho-mọi-video">Lỗi 8: Dùng một Bitrate Ladder cho mọi Video</h2>
+<p>Chất lượng hoặc bandwidth kém tối ưu.</p>
+<h2 id="lỗi-9-phục-vụ-video-trực-tiếp-từ-object-storage">Lỗi 9: Phục vụ Video trực tiếp từ Object Storage</h2>
+<p>Origin bị quá tải và latency toàn cầu cao.</p>
+<h2 id="lỗi-10-không-có-cdn-origin-shield">Lỗi 10: Không có CDN Origin Shield</h2>
+<p>Viral cache miss gây origin stampede.</p>
+<h2 id="lỗi-11-token-query-làm-vỡ-cdn-cache-key">Lỗi 11: Token Query làm vỡ CDN Cache Key</h2>
+<p>Mỗi user tạo một cache object logic khác nhau.</p>
+<h2 id="lỗi-12-không-align-keyframes-giữa-renditions">Lỗi 12: Không Align Keyframes giữa Renditions</h2>
+<p>ABR switching và seek bị lỗi.</p>
+<h2 id="lỗi-13-update-view-count-đồng-bộ-trên-một-row">Lỗi 13: Update View Count đồng bộ trên một Row</h2>
+<p>Viral video tạo hot key.</p>
+<h2 id="lỗi-14-coi-manifest-request-là-một-view">Lỗi 14: Coi Manifest Request là một View</h2>
+<p>Bots và prefetch làm sai số liệu.</p>
+<h2 id="lỗi-15-analytics-nằm-trong-playback-critical-path">Lỗi 15: Analytics nằm trong Playback Critical Path</h2>
+<p>Analytics failure làm video không phát.</p>
+<h2 id="lỗi-16-không-phân-biệt-accepted-first-frame-và-watch">Lỗi 16: Không phân biệt Accepted, First Frame và Watch</h2>
+<p>Metrics playback bị hiểu sai.</p>
+<h2 id="lỗi-17-recommendation-là-dependency-bắt-buộc">Lỗi 17: Recommendation là Dependency bắt buộc</h2>
+<p>Recommendation lỗi làm playback lỗi.</p>
+<h2 id="lỗi-18-cdn-cache-public-cho-private-video-không-kiểm-soát">Lỗi 18: CDN Cache Public cho Private Video không kiểm soát</h2>
+<p>Nội dung riêng tư bị lộ.</p>
+<h2 id="lỗi-19-chỉ-purge-cdn-khi-takedown">Lỗi 19: Chỉ Purge CDN khi Takedown</h2>
+<p>Purge có thể chậm hoặc không đầy đủ.</p>
+<h2 id="lỗi-20-không-sandbox-media-parsers">Lỗi 20: Không Sandbox Media Parsers</h2>
+<p>File độc hại có thể tấn công transcoding workers.</p>
+<h2 id="lỗi-21-retry-poison-video-vô-hạn">Lỗi 21: Retry Poison Video vô hạn</h2>
+<p>Queue và compute bị chiếm dụng.</p>
+<h2 id="lỗi-22-backfill-codec-mới-chặn-upload-mới">Lỗi 22: Backfill Codec mới chặn Upload mới</h2>
+<p>Priority inversion trong processing.</p>
+<h2 id="lỗi-23-multi-region-nhưng-chuyển-original-video-qua-wan-không-cần-thiết">Lỗi 23: Multi-Region nhưng Chuyển Original Video qua WAN không cần thiết</h2>
+<p>Chi phí và latency rất lớn.</p>
+<h2 id="lỗi-24-không-tính-storage-amplification">Lỗi 24: Không tính Storage Amplification</h2>
+<p>Renditions, thumbnails và replicas vượt xa original.</p>
+<h2 id="lỗi-25-chỉ-theo-dõi-api-latency">Lỗi 25: Chỉ theo dõi API Latency</h2>
+<p>Không phát hiện TTFF, rebuffer và segment errors.</p>
+<hr>
+<h1 id="163-bảng-ghi-nhớ-nhanh">163. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metadata API</td>
+<td>Quản lý video và trạng thái</td>
+</tr>
+<tr>
+<td>Upload Session</td>
+<td>Theo dõi multipart/resume</td>
+</tr>
+<tr>
+<td>Signed URL</td>
+<td>Upload trực tiếp an toàn</td>
+</tr>
+<tr>
+<td>Original Storage</td>
+<td>Lưu source video</td>
+</tr>
+<tr>
+<td>Processing Orchestrator</td>
+<td>Quản lý processing DAG</td>
+</tr>
+<tr>
+<td>Probe</td>
+<td>Trích xuất và validate metadata</td>
+</tr>
+<tr>
+<td>Transcoder</td>
+<td>Tạo codecs/resolutions</td>
+</tr>
+<tr>
+<td>Packager</td>
+<td>Tạo segments và manifests</td>
+</tr>
+<tr>
+<td>HLS/DASH</td>
+<td>Streaming protocol</td>
+</tr>
+<tr>
+<td>Master Manifest</td>
+<td>Danh sách renditions</td>
+</tr>
+<tr>
+<td>Media Playlist</td>
+<td>Danh sách segments</td>
+</tr>
+<tr>
+<td>ABR</td>
+<td>Chọn bitrate động</td>
+</tr>
+<tr>
+<td>CDN</td>
+<td>Phân phối nội dung toàn cầu</td>
+</tr>
+<tr>
+<td>Origin Shield</td>
+<td>Bảo vệ origin</td>
+</tr>
+<tr>
+<td>Playback API</td>
+<td>Authorization và token</td>
+</tr>
+<tr>
+<td>Telemetry Stream</td>
+<td>Playback analytics</td>
+</tr>
+<tr>
+<td>View Qualifier</td>
+<td>Xác định lượt xem hợp lệ</td>
+</tr>
+<tr>
+<td>QoE</td>
+<td>Chất lượng trải nghiệm</td>
+</tr>
+<tr>
+<td>Fingerprinting</td>
+<td>Copyright detection</td>
+</tr>
+<tr>
+<td>Moderation</td>
+<td>Safety policy</td>
+</tr>
+<tr>
+<td>Processing Version</td>
+<td>Immutable output version</td>
+</tr>
+<tr>
+<td>Home Region</td>
+<td>Region sở hữu upload</td>
+</tr>
+<tr>
+<td>Multi-CDN</td>
+<td>Resilience và performance</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="164-sơ-đồ-tổng-hợp">164. Sơ đồ tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Creator --> MetadataAPI
+    Creator --> UploadAPI
+
+    MetadataAPI --> Metadata[(Video Metadata)]
+    UploadAPI --> UploadSession[(Upload Sessions)]
+    UploadAPI --> Creator
+
+    Creator -->|Multipart signed upload| Original[(Original Object Storage)]
+
+    Original --> UploadEvent[VideoUploaded Event]
+    UploadEvent --> Orchestrator[Processing Orchestrator]
+
+    Orchestrator --> Probe
+    Orchestrator --> Moderation
+    Orchestrator --> Copyright
+    Orchestrator --> Transcoding
+    Orchestrator --> Thumbnail
+    Orchestrator --> Captions
+
+    Transcoding --> Packaging[HLS / DASH Packaging]
+    Packaging --> Processed[(Processed Media Storage)]
+
+    Processed --> OriginShield
+    OriginShield --> CDN1[CDN A]
+    OriginShield --> CDN2[CDN B]
+
+    Viewer --> PlaybackAPI
+    PlaybackAPI --> Metadata
+    PlaybackAPI --> Viewer
+
+    Viewer --> CDN1
+    Viewer --> CDN2
+
+    Viewer --> Telemetry
+    Telemetry --> EventStream
+
+    EventStream --> ViewCounting
+    EventStream --> QoEAnalytics
+    EventStream --> Recommendation
+</div></code></pre>
+<hr>
+<h1 id="165-những-điều-phải-nhớ-sau-bài-26">165. Những điều phải nhớ sau Bài 26</h1>
+<pre class="hljs"><code><div>1. Video platform phải tách control plane khỏi media data plane.
+2. Không nên upload video lớn qua application servers.
+3. Client nên upload trực tiếp vào object storage.
+4. Multipart upload cho phép parallelism và resume.
+5. Upload session phải durable và idempotent.
+6. Completion API phải chống retry trùng.
+7. Abandoned multipart parts cần cleanup.
+8. Không tin extension hoặc MIME từ client.
+9. Original và processed objects nên được version hóa.
+10. Processing là một DAG, không phải một task duy nhất.
+11. Probe phải chạy trước khi lập encoding plan.
+12. Không tạo resolution cao hơn source nếu không có lý do.
+13. Bitrate ladder ảnh hưởng chất lượng, bandwidth và storage.
+14. Per-title encoding hiệu quả hơn fixed ladder nhưng phức tạp hơn.
+15. Codec mới tiết kiệm bandwidth nhưng tốn compute.
+16. Có thể chỉ encode codec đắt cho video phổ biến.
+17. Renditions phải có aligned keyframes.
+18. Video được chia thành segments để hỗ trợ ABR.
+19. HLS/DASH dùng manifests và media segments.
+20. Packaging khác transcoding.
+21. Audio và subtitle nên là tracks riêng.
+22. Output nên ghi staging trước khi publish.
+23. Master manifest chỉ tham chiếu rendition hoàn chỉnh.
+24. Video có thể PLAYABLE trước khi FULLY_PROCESSED.
+25. CDN phải phục vụ phần lớn playback traffic.
+26. Origin shield giảm cache-miss stampede.
+27. Immutable versioned paths cho phép cache TTL dài.
+28. Private content cần playback authorization.
+29. URL khó đoán không phải access control.
+30. Signed cookies có thể hiệu quả hơn token trên từng segment.
+31. Cache key không nên bị phân mảnh bởi token không cần thiết.
+32. ABR chọn rendition dựa trên network và buffer.
+33. TTFF và rebuffer quan trọng hơn chỉ API latency.
+34. Player cần fallback codec/rendition.
+35. View count không nên dựa trên manifest request.
+36. Qualified view cần watch-time policy.
+37. View events nên xử lý bất đồng bộ.
+38. Viral counters cần sharding/bucketing.
+39. Public view counts có thể eventual.
+40. Watch time phải tính active playback intervals.
+41. Telemetry có thể duplicate, delayed và out-of-order.
+42. Event time quan trọng cho analytics.
+43. Recommendation không được nằm trên playback critical path.
+44. Candidate generation và ranking là hai tầng khác nhau.
+45. Không nên tối ưu chỉ click-through rate.
+46. Copyright matching cần perceptual fingerprints.
+47. File hash thông thường không đủ chống re-encode.
+48. Moderation cần cả automated và human workflows.
+49. Takedown phải cập nhật authorization, CDN và indexes.
+50. CDN purge không nên là lớp bảo vệ duy nhất.
+51. Processing workers phải được sandbox.
+52. Poison files cần quarantine và retry limit.
+53. Processing queues cần priority.
+54. Re-encode/backfill không được chặn upload mới.
+55. Multi-region upload nên chọn region gần creator.
+56. Processing nên chạy gần original storage.
+57. Không nhất thiết replicate mọi segment tới mọi region.
+58. CDN đã là lớp phân phối toàn cầu.
+59. Metadata có thể replicate rộng hơn original media.
+60. Playback API có thể chạy local theo region.
+61. Read-your-publish cần routing hoặc version token.
+62. Data residency áp dụng cả media, analytics và backups.
+63. Origin failure có thể được che bởi CDN cache.
+64. Multi-CDN tăng resilience nhưng tăng complexity.
+65. Storage tiering giảm chi phí cho video cũ.
+66. Giữ original hỗ trợ codec tương lai nhưng tốn storage.
+67. SLO phải đo upload, processing và playback riêng.
+68. Synthetic playback kiểm tra end-to-end tốt hơn health endpoint.
+69. Architecture nên phát triển từ pipeline đơn giản tới multi-codec/multi-region.
+70. Mục tiêu cuối cùng không chỉ là phát được video mà là phát nhanh, ổn định, an toàn và tối ưu chi phí.
+</div></code></pre>
+<hr>
+<h1 id="166-bài-tập-thiết-kế-mở-rộng">166. Bài tập thiết kế mở rộng</h1>
+<p>Thiết kế nền tảng video với yêu cầu:</p>
+<pre class="hljs"><code><div>- 1 tỷ người dùng
+- 20 triệu uploads/ngày
+- Video tối đa 8K và 12 giờ
+- 10 tỷ playback sessions/ngày
+- 99% playback bắt đầu dưới 1,5 giây
+- Hỗ trợ H.264, VP9 và AV1
+- Video public, private và trả phí
+- Multi-region active–active
+- Multi-CDN
+- Copyright detection trước publish
+- View analytics gần realtime
+- Một số nội dung chỉ được lưu và phát trong EU
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Upload router chọn region thế nào?
+2. Upload session được lưu ở đâu?
+3. Multipart part size được chọn ra sao?
+4. Làm sao resume upload sang thiết bị khác?
+5. Checksum được xác minh ở mức part hay object?
+6. Upload completion chống duplicate thế nào?
+7. Original object key được thiết kế ra sao?
+8. Processing DAG gồm những task nào?
+9. Probe failure được xử lý thế nào?
+10. Encoding ladder được tạo theo source ra sao?
+11. Video 8K cần những renditions nào?
+12. Codec selection dựa trên popularity thế nào?
+13. GPU workers được schedule ra sao?
+14. Video 12 giờ được chunk thế nào?
+15. Làm sao tránh artifact ở chunk boundaries?
+16. Khi nào video được đánh dấu PLAYABLE?
+17. Manifest được publish atomically ra sao?
+18. CDN cache key xử lý signed token thế nào?
+19. Private video được bảo vệ bằng signed URL, cookie hay DRM?
+20. Multi-CDN failover hoạt động trong lúc playback thế nào?
+21. Player chọn initial bitrate ra sao?
+22. TTFF được đo như thế nào?
+23. Rebuffer events được gửi với tần suất nào?
+24. Qualified view được định nghĩa thế nào?
+25. Viral video counter tránh hot key ra sao?
+26. Recommendation dùng những candidate sources nào?
+27. Copyright fingerprint được tạo ở giai đoạn nào?
+28. False-positive copyright match có appeal ra sao?
+29. EU residency ảnh hưởng CDN và processing thế nào?
+30. Region failure ảnh hưởng upload, processing và playback ra sao?
+31. Original/rendition storage retention thế nào?
+32. Processing backlog được ưu tiên ra sao?
+33. SLO quan trọng nhất cho upload là gì?
+34. SLO quan trọng nhất cho playback là gì?
+35. Metrics nào phát hiện một ISP đang gặp lỗi?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-5">Kết luận Case Study 5</h1>
+<p>Kiến trúc Video Streaming Platform có thể được cô đọng thành:</p>
+<pre class="hljs"><code><div>Direct resumable upload
+→ Durable processing workflow
+→ Multi-rendition transcoding
+→ Manifest and segment packaging
+→ CDN distribution
+→ Adaptive playback
+→ Asynchronous analytics
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Application servers quản lý quyền và metadata; object storage, transcoding workers và CDN mới là những thành phần xử lý phần lớn dữ liệu video. Một thiết kế tốt phải tối ưu đồng thời tốc độ publish, chất lượng playback, bandwidth, storage, moderation và khả năng phục hồi.</strong></p>
+</blockquote>
+<p><strong>Bài 27 — Case Study 6: Thiết kế Search Autocomplete:</strong> prefix search, trie, top queries, ranking, personalization, typo tolerance, caching, streaming aggregation, hot prefixes và multi-region.</p>
+
+</body>
+</html>

@@ -1,0 +1,3008 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 30 — Case Study 9: Thiết kế Payment System và Digital Wallet.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-30--case-study-9-thiết-kế-payment-system-và-digital-wallet">Bài 30 — Case Study 9: Thiết kế Payment System và Digital Wallet</h1>
+<p>Payment System xử lý việc <strong>thu tiền qua các phương thức bên ngoài</strong>:</p>
+<pre class="hljs"><code><div>Thẻ ngân hàng
+Tài khoản ngân hàng
+Ví điện tử
+Buy Now Pay Later
+Payment provider
+</div></code></pre>
+<p>Digital Wallet quản lý <strong>số dư nội bộ</strong> của người dùng:</p>
+<pre class="hljs"><code><div>Nạp tiền
+Giữ tiền
+Thanh toán
+Chuyển tiền
+Hoàn tiền
+Rút tiền
+</div></code></pre>
+<p>Luồng tổng quát:</p>
+<pre class="hljs"><code><div>Khách hàng xác nhận thanh toán
+→ Tạo Payment Intent
+→ Xác thực phương thức
+→ Authorization
+→ Capture
+→ Ghi nhận vào Ledger
+→ Settlement hoặc Refund
+</div></code></pre>
+<p>Đây là một trong những bài toán System Design yêu cầu correctness cao nhất vì:</p>
+<pre class="hljs"><code><div>- Retry không được charge hai lần.
+- Timeout không đồng nghĩa giao dịch thất bại.
+- Webhook có thể bị trùng hoặc đến sai thứ tự.
+- Provider báo thành công nhưng hệ thống nội bộ chưa ghi nhận.
+- Số dư không được âm ngoài policy.
+- Mọi thay đổi tiền phải audit được.
+- Không được sửa hoặc xóa lịch sử tài chính tùy tiện.
+- Multi-region không được tạo hai writers cho cùng tài khoản.
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Payment Intent
+→ Payment Attempt
+→ Provider Authorization/Capture
+→ Immutable Double-Entry Ledger
+→ Balance Projection
+→ Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế hệ thống hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Thanh toán bằng thẻ hoặc payment provider.
+2. Authorization và capture riêng biệt.
+3. Immediate capture.
+4. Partial capture.
+5. Full và partial refund.
+6. Webhook từ payment provider.
+7. Chargeback và dispute.
+8. Wallet top-up.
+9. Wallet payment.
+10. Chuyển tiền giữa người dùng.
+11. Rút tiền.
+12. Double-entry ledger.
+13. Reconciliation.
+14. Multi-region.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Blockchain
+- Core banking hoàn chỉnh
+- Card network protocol cấp thấp
+- KYC/AML pháp lý theo từng quốc gia
+- Trading hoặc securities ledger
+- Credit underwriting
+</div></code></pre>
+<hr>
+<h1 id="2-hai-lớp-quan-trọng-nhất">2. Hai lớp quan trọng nhất</h1>
+<h2 id="payment-orchestration">Payment orchestration</h2>
+<p>Quản lý quá trình giao tiếp với bên ngoài:</p>
+<pre class="hljs"><code><div>- Payment intent
+- Payment method
+- Authorization
+- Capture
+- Provider routing
+- Webhook
+- Refund
+- Chargeback
+</div></code></pre>
+<h2 id="ledger-và-wallet">Ledger và wallet</h2>
+<p>Quản lý sự thật tài chính nội bộ:</p>
+<pre class="hljs"><code><div>- Accounts
+- Journal transactions
+- Debit/credit postings
+- Holds
+- Available balance
+- Merchant payable
+- Platform fee
+- Settlement
+</div></code></pre>
+<p>Hai lớp liên quan nhưng không nên bị gộp thành một bảng <code>payments</code>.</p>
+<hr>
+<h1 id="3-functional-requirements">3. Functional Requirements</h1>
+<h2 id="thanh-toán">Thanh toán</h2>
+<pre class="hljs"><code><div>- Tạo payment intent.
+- Gắn payment method.
+- Xác nhận thanh toán.
+- Hỗ trợ xác thực bổ sung.
+- Authorize.
+- Capture.
+- Hủy authorization.
+- Kiểm tra trạng thái.
+</div></code></pre>
+<h2 id="hoàn-tiền-và-dispute">Hoàn tiền và dispute</h2>
+<pre class="hljs"><code><div>- Full refund.
+- Partial refund.
+- Nhiều lần partial refund.
+- Chargeback.
+- Dispute evidence.
+- Reversal khi thắng dispute.
+</div></code></pre>
+<h2 id="wallet">Wallet</h2>
+<pre class="hljs"><code><div>- Xem số dư.
+- Nạp tiền.
+- Thanh toán bằng ví.
+- Chuyển tiền.
+- Rút tiền.
+- Giữ tiền tạm thời.
+- Lịch sử giao dịch.
+</div></code></pre>
+<h2 id="vận-hành">Vận hành</h2>
+<pre class="hljs"><code><div>- Webhook.
+- Reconciliation.
+- Settlement.
+- Merchant payout.
+- Audit.
+- Fraud controls.
+</div></code></pre>
+<hr>
+<h1 id="4-non-functional-requirements">4. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Không double charge.
+- Không double refund.
+- Không double spend wallet.
+- Mọi movement of money phải audit được.
+- Không sửa lịch sử ledger đã post.
+- Số dư phải nhất quán với ledger.
+- Provider retry phải an toàn.
+- Hệ thống chịu được webhook trùng.
+- Hệ thống chịu được response bị mất.
+- Availability cao nhưng không hy sinh financial correctness.
+- Có disaster recovery với RPO rất thấp.
+</div></code></pre>
+<hr>
+<h1 id="5-điều-gì-cần-strong-consistency">5. Điều gì cần Strong Consistency?</h1>
+<h2 id="cần-consistency-mạnh">Cần consistency mạnh</h2>
+<pre class="hljs"><code><div>- Consume idempotency key.
+- Chuyển trạng thái Payment Intent.
+- Reserve hoặc spend wallet balance.
+- Ghi double-entry postings.
+- Tổng debit bằng tổng credit.
+- Không capture vượt authorized amount.
+- Không refund vượt captured amount.
+- Không payout vượt merchant balance.
+</div></code></pre>
+<h2 id="có-thể-eventual-consistency">Có thể eventual consistency</h2>
+<pre class="hljs"><code><div>- Dashboard.
+- Search giao dịch.
+- Analytics.
+- Merchant reporting.
+- Email receipt.
+- Notification.
+- Data warehouse.
+</div></code></pre>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>100 triệu customers
+10 triệu merchants
+100 triệu payment attempts/ngày
+10 triệu wallet transfers/ngày
+</div></code></pre>
+<p>Average payment QPS:</p>
+<pre class="hljs"><code><div>100.000.000 / 86.400
+≈ 1.160 payment attempts/giây
+</div></code></pre>
+<p>Peak gấp 10:</p>
+<pre class="hljs"><code><div>≈ 12.000 attempts/giây
+</div></code></pre>
+<p>Mỗi business transaction có thể tạo:</p>
+<pre class="hljs"><code><div>- Payment records
+- Provider calls
+- Webhook events
+- 2–10 ledger postings
+- Notifications
+- Analytics events
+</div></code></pre>
+<p>Ledger write QPS có thể lớn hơn số payment attempts nhiều lần.</p>
+<hr>
+<h1 id="7-high-level-architecture">7. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Gateway[API Gateway]
+
+    Gateway --> PaymentAPI[Payment Service]
+    Gateway --> WalletAPI[Wallet Service]
+
+    PaymentAPI --> IntentStore[(Payment Intent Store)]
+    PaymentAPI --> Orchestrator[Payment Orchestrator]
+    Orchestrator --> Router[Provider Router]
+
+    Router --> ProviderA[Payment Provider A]
+    Router --> ProviderB[Payment Provider B]
+    Router --> Bank[Bank / Card Network]
+
+    ProviderA --> Webhook[Webhook Gateway]
+    ProviderB --> Webhook
+    Webhook --> Inbox[(Webhook Inbox)]
+    Inbox --> Orchestrator
+
+    PaymentAPI --> Ledger[Ledger Service]
+    WalletAPI --> Ledger
+
+    Ledger --> Journal[(Immutable Journal)]
+    Ledger --> Balance[(Balance Projection)]
+    Ledger --> Holds[(Hold Store)]
+
+    PaymentAPI --> Outbox[(Transactional Outbox)]
+    Outbox --> Events[Financial Event Stream]
+
+    Events --> Notification
+    Events --> Analytics
+    Events --> Reconciliation
+    Events --> Settlement
+    Events --> Risk
+</div></code></pre>
+<hr>
+<h1 id="8-payment-method">8. Payment Method</h1>
+<p>Payment Method đại diện cho công cụ thanh toán:</p>
+<pre class="hljs"><code><div>- Card token
+- Bank account token
+- Wallet ID
+- Provider account
+- Cash balance
+</div></code></pre>
+<p>Record không nên lưu raw card number tùy tiện:</p>
+<pre class="hljs"><code><div>payment_method_id
+customer_id
+type
+provider_token
+last_four
+expiry_month
+expiry_year
+billing_metadata
+status
+</div></code></pre>
+<hr>
+<h1 id="9-tokenization">9. Tokenization</h1>
+<p>Thay vì lưu:</p>
+<pre class="hljs"><code><div>4111 1111 1111 1111
+</div></code></pre>
+<p>hệ thống lưu token:</p>
+<pre class="hljs"><code><div>pm_tok_abc123
+</div></code></pre>
+<p>Token có thể được tạo bởi:</p>
+<pre class="hljs"><code><div>- Payment provider
+- Token vault
+- Card network tokenization
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Giảm dữ liệu nhạy cảm trong hệ thống.
+- Giảm phạm vi compliance.
+- Token có thể revoke.
+- Raw credentials không đi qua nhiều services.
+</div></code></pre>
+<hr>
+<h1 id="10-payment-intent-là-gì">10. Payment Intent là gì?</h1>
+<p>Payment Intent đại diện cho ý định thu một số tiền cụ thể:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;paymentIntentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pi_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;merchantId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;mer_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;captureMethod&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MANUAL&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;REQUIRES_PAYMENT_METHOD&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;idempotencyKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;checkout_abc&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Payment Intent không phải một request provider đơn lẻ.</p>
+<p>Nó là aggregate có thể tồn tại qua:</p>
+<pre class="hljs"><code><div>- Nhiều retries
+- Nhiều authentication steps
+- Nhiều provider responses
+- Một hoặc nhiều payment attempts
+</div></code></pre>
+<hr>
+<h1 id="11-vì-sao-cần-payment-intent">11. Vì sao cần Payment Intent?</h1>
+<p>Nếu client gọi thẳng:</p>
+<pre class="hljs"><code><div>Charge 500.000 VND
+</div></code></pre>
+<p>và request timeout, client không biết:</p>
+<pre class="hljs"><code><div>- Charge thất bại?
+- Charge thành công nhưng response mất?
+- Provider vẫn đang xử lý?
+</div></code></pre>
+<p>Payment Intent cung cấp identity ổn định:</p>
+<pre class="hljs"><code><div>paymentIntentId
+</div></code></pre>
+<p>để client truy vấn lại trạng thái thay vì tạo charge mới.</p>
+<hr>
+<h1 id="12-payment-intent-state-machine">12. Payment Intent State Machine</h1>
+<p>Một state machine điển hình:</p>
+<pre class="hljs"><code><div>REQUIRES_PAYMENT_METHOD
+→ REQUIRES_CONFIRMATION
+→ PROCESSING
+→ REQUIRES_ACTION
+→ AUTHORIZED
+→ SUCCEEDED
+</div></code></pre>
+<p>Nhánh khác:</p>
+<pre class="hljs"><code><div>FAILED
+CANCELED
+PARTIALLY_CAPTURED
+</div></code></pre>
+<p>Ví dụ manual capture:</p>
+<pre class="hljs"><code><div>REQUIRES_CONFIRMATION
+→ PROCESSING
+→ AUTHORIZED
+→ PARTIALLY_CAPTURED
+→ SUCCEEDED
+</div></code></pre>
+<hr>
+<h1 id="13-payment-attempt">13. Payment Attempt</h1>
+<p>Một Payment Intent có thể có nhiều attempts:</p>
+<pre class="hljs"><code><div>Attempt 1:
+Card A bị từ chối.
+
+Attempt 2:
+Card B yêu cầu xác thực.
+
+Attempt 3:
+Card B thành công.
+</div></code></pre>
+<p>Record:</p>
+<pre class="hljs"><code><div>payment_attempt_id
+payment_intent_id
+provider
+provider_request_id
+payment_method_id
+amount
+status
+failure_code
+created_at
+</div></code></pre>
+<p>Không nên ghi đè attempt cũ.</p>
+<hr>
+<h1 id="14-attempt-state-machine">14. Attempt State Machine</h1>
+<pre class="hljs"><code><div>CREATED
+→ SENT_TO_PROVIDER
+→ REQUIRES_ACTION
+→ AUTHORIZED
+→ CAPTURED
+</div></code></pre>
+<p>Các trạng thái không chắc chắn:</p>
+<pre class="hljs"><code><div>UNKNOWN
+PENDING_PROVIDER
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>DECLINED
+FAILED
+CANCELED
+EXPIRED
+</div></code></pre>
+<hr>
+<h1 id="15-authorization">15. Authorization</h1>
+<p>Authorization yêu cầu issuer/provider giữ khả năng thanh toán:</p>
+<pre class="hljs"><code><div>Customer vẫn chưa chắc đã bị trừ tiền cuối cùng.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Khách đặt khách sạn:
+Authorize 5 triệu
+→ Sau khi checkout mới capture
+</div></code></pre>
+<p>Authorization thường có:</p>
+<pre class="hljs"><code><div>authorized_amount
+authorization_id
+expires_at
+provider_status
+</div></code></pre>
+<hr>
+<h1 id="16-capture">16. Capture</h1>
+<p>Capture hoàn tất việc thu tiền từ authorization.</p>
+<pre class="hljs"><code><div>Authorized 500.000
+→ Capture 500.000
+</div></code></pre>
+<p>Hoặc partial capture:</p>
+<pre class="hljs"><code><div>Authorized 500.000
+→ Capture 400.000
+→ Release 100.000
+</div></code></pre>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Total captured amount
+≤
+Authorized amount
+</div></code></pre>
+<hr>
+<h1 id="17-immediate-capture">17. Immediate Capture</h1>
+<p>Một số payment flow thực hiện:</p>
+<pre class="hljs"><code><div>Authorize + Capture
+</div></code></pre>
+<p>trong một bước provider.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Digital products
+- Đơn hàng được fulfill ngay
+- Giao dịch rủi ro thấp
+</div></code></pre>
+<p>Nhưng hệ thống nội bộ vẫn nên phân biệt:</p>
+<pre class="hljs"><code><div>authorization semantics
+capture semantics
+</div></code></pre>
+<p>để hỗ trợ refund và reconciliation.</p>
+<hr>
+<h1 id="18-manual-capture">18. Manual Capture</h1>
+<p>Phù hợp khi fulfillment xảy ra sau:</p>
+<pre class="hljs"><code><div>- Food delivery
+- Ride-hailing
+- Hotel
+- E-commerce shipment
+</div></code></pre>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Authorize trước.
+2. Fulfill.
+3. Capture số tiền cuối cùng.
+4. Void nếu fulfillment thất bại.
+</div></code></pre>
+<hr>
+<h1 id="19-payment-flow-hoàn-chỉnh">19. Payment Flow hoàn chỉnh</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Payment
+    participant Risk
+    participant Provider
+    participant Ledger
+
+    Client->>Payment: Create/confirm Payment Intent
+    Payment->>Payment: Validate idempotency
+    Payment->>Risk: Risk evaluation
+    Risk-->>Payment: Allow
+
+    Payment->>Provider: Authorize
+    Provider-->>Payment: Authorized
+
+    Payment->>Payment: Mark AUTHORIZED
+    Payment-->>Client: Authorized
+
+    Client->>Payment: Capture
+    Payment->>Provider: Capture
+    Provider-->>Payment: Captured
+
+    Payment->>Ledger: Post financial transaction
+    Ledger-->>Payment: Committed
+    Payment-->>Client: SUCCEEDED
+</div></code></pre>
+<hr>
+<h1 id="20-idempotency-là-gì">20. Idempotency là gì?</h1>
+<p>Idempotency nghĩa là:</p>
+<blockquote>
+<p>Gửi lại cùng một logical command nhiều lần vẫn chỉ tạo một business effect.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>POST /v1/payment-intents
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>checkout_order_123
+</div></code></pre>
+<p>Retry phải trả:</p>
+<pre class="hljs"><code><div>Cùng paymentIntentId
+</div></code></pre>
+<p>không tạo Payment Intent mới.</p>
+<hr>
+<h1 id="21-idempotency-key-scope">21. Idempotency Key Scope</h1>
+<p>Một key nên có scope rõ:</p>
+<pre class="hljs"><code><div>(customerId, endpoint, idempotencyKey)
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>(merchantId, operationType, idempotencyKey)
+</div></code></pre>
+<p>Không nên dùng key global không namespace nếu nhiều merchants có thể trùng chuỗi.</p>
+<hr>
+<h1 id="22-idempotency-record">22. Idempotency Record</h1>
+<pre class="hljs"><code><div>idempotency_key
+scope
+request_hash
+resource_id
+response_status
+response_body
+state
+expires_at
+</div></code></pre>
+<p>Nếu cùng key nhưng payload khác:</p>
+<pre class="hljs"><code><div>Reject:
+IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST
+</div></code></pre>
+<p>Không được âm thầm trả kết quả của payload cũ.</p>
+<hr>
+<h1 id="23-idempotency-request-hash">23. Idempotency Request Hash</h1>
+<p>Canonical request có thể được hash từ:</p>
+<pre class="hljs"><code><div>amount
+currency
+merchant
+customer
+operation
+</div></code></pre>
+<p>Không nên hash các field thay đổi không ảnh hưởng business logic như:</p>
+<pre class="hljs"><code><div>request timestamp
+trace ID
+</div></code></pre>
+<hr>
+<h1 id="24-concurrent-requests-cùng-idempotency-key">24. Concurrent Requests cùng Idempotency Key</h1>
+<p>Hai requests tới đồng thời.</p>
+<p>Không được:</p>
+<pre class="hljs"><code><div>Cả hai đều thấy key chưa tồn tại
+→ Cả hai tạo payment.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Unique constraint
+- Conditional insert
+- Serializable transaction
+</div></code></pre>
+<p>Một request claim key.</p>
+<p>Request còn lại:</p>
+<pre class="hljs"><code><div>- Chờ kết quả
+- Hoặc nhận PROCESSING
+</div></code></pre>
+<hr>
+<h1 id="25-exactly-once-có-thực-sự-tồn-tại-không">25. Exactly-Once có thực sự tồn tại không?</h1>
+<p>Giữa hệ thống và provider, khó bảo đảm exactly-once tuyệt đối vì:</p>
+<pre class="hljs"><code><div>- Request có thể tới provider nhưng response mất.
+- Provider xử lý nhưng webhook chưa tới.
+- Network retry có thể gửi lại request.
+</div></code></pre>
+<p>Thiết kế thực tế:</p>
+<pre class="hljs"><code><div>At-least-once transport
++
+Provider idempotency key
++
+Internal idempotency
++
+Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="26-unknown-outcome-problem">26. Unknown Outcome Problem</h1>
+<p>Payment Service gửi capture.</p>
+<p>Provider đã capture nhưng response bị timeout.</p>
+<p>Trạng thái thật:</p>
+<pre class="hljs"><code><div>Provider:
+CAPTURED
+
+Internal:
+UNKNOWN
+</div></code></pre>
+<p>Sai lầm nguy hiểm:</p>
+<pre class="hljs"><code><div>Thấy timeout
+→ Gửi một capture mới với identity khác
+→ Double charge
+</div></code></pre>
+<hr>
+<h1 id="27-xử-lý-unknown-outcome">27. Xử lý Unknown Outcome</h1>
+<p>Flow an toàn:</p>
+<pre class="hljs"><code><div>1. Đánh dấu attempt UNKNOWN.
+2. Không tạo attempt kinh tế mới ngay.
+3. Query provider bằng provider request ID.
+4. Chờ webhook.
+5. Reconciliation xác minh.
+6. Chỉ retry bằng cùng provider idempotency key.
+</div></code></pre>
+<p>Timeout là:</p>
+<pre class="hljs"><code><div>Unknown
+</div></code></pre>
+<p>không phải:</p>
+<pre class="hljs"><code><div>Failed
+</div></code></pre>
+<hr>
+<h1 id="28-provider-idempotency">28. Provider Idempotency</h1>
+<p>Khi gọi provider:</p>
+<pre class="hljs"><code><div>providerIdempotencyKey =
+paymentIntentId + operation + operationVersion
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>pi_123:authorize:1
+pi_123:capture:1
+pi_123:refund:2
+</div></code></pre>
+<p>Retry cùng operation phải dùng cùng key.</p>
+<hr>
+<h1 id="29-provider-abstraction-layer">29. Provider Abstraction Layer</h1>
+<p>Mỗi provider có API và semantics khác nhau.</p>
+<p>Adapter chung:</p>
+<pre class="hljs"><code><div>authorize()
+capture()
+voidAuthorization()
+refund()
+getPaymentStatus()
+verifyWebhook()
+</div></code></pre>
+<p>Nhưng không nên ép mọi provider vào abstraction quá đơn giản nếu làm mất semantics đặc biệt.</p>
+<hr>
+<h1 id="30-provider-router">30. Provider Router</h1>
+<p>Chọn provider dựa trên:</p>
+<pre class="hljs"><code><div>- Payment method
+- Country
+- Currency
+- Success rate
+- Cost
+- Latency
+- Merchant contract
+- Risk
+- Provider health
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Thẻ VND tại Việt Nam
+→ Provider A
+
+Thẻ EUR tại EU
+→ Provider B
+</div></code></pre>
+<hr>
+<h1 id="31-provider-failover">31. Provider Failover</h1>
+<p>Failover không đơn giản là:</p>
+<pre class="hljs"><code><div>Provider A timeout
+→ Gửi sang Provider B
+</div></code></pre>
+<p>Nếu A đã authorize nhưng response mất, gửi sang B có thể tạo hai authorizations.</p>
+<p>Chỉ failover an toàn khi:</p>
+<pre class="hljs"><code><div>- Chắc chắn A chưa tạo effect.
+- Operation có shared network-level identity.
+- Hoặc business chấp nhận explicit recovery workflow.
+</div></code></pre>
+<hr>
+<h1 id="32-soft-failure-và-hard-failure">32. Soft Failure và Hard Failure</h1>
+<h2 id="hard-failure">Hard failure</h2>
+<pre class="hljs"><code><div>- Card declined
+- Invalid payment method
+- Insufficient funds
+</div></code></pre>
+<p>Không retry provider khác tùy tiện.</p>
+<h2 id="soft-failure">Soft failure</h2>
+<pre class="hljs"><code><div>- Network timeout
+- Provider unavailable
+- Rate limit
+</div></code></pre>
+<p>Có thể retry cùng request identity.</p>
+<p>Nhưng outcome vẫn phải được kiểm tra.</p>
+<hr>
+<h1 id="33-strong-customer-authentication">33. Strong Customer Authentication</h1>
+<p>Một payment có thể yêu cầu bước bổ sung:</p>
+<pre class="hljs"><code><div>- OTP
+- Banking app confirmation
+- 3-D Secure challenge
+</div></code></pre>
+<p>Intent chuyển:</p>
+<pre class="hljs"><code><div>PROCESSING
+→ REQUIRES_ACTION
+</div></code></pre>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>nextAction
+clientSecret
+redirectUrl
+</div></code></pre>
+<p>Sau khi user hoàn tất, provider gửi response hoặc webhook.</p>
+<hr>
+<h1 id="34-webhook-gateway">34. Webhook Gateway</h1>
+<p>Provider gửi events:</p>
+<pre class="hljs"><code><div>payment.authorized
+payment.captured
+payment.failed
+refund.completed
+chargeback.created
+</div></code></pre>
+<p>Webhook Gateway cần:</p>
+<pre class="hljs"><code><div>- Verify signature.
+- Giới hạn payload size.
+- Rate limit.
+- Ghi raw event bền vững.
+- Trả HTTP nhanh.
+- Xử lý async.
+</div></code></pre>
+<hr>
+<h1 id="35-không-xử-lý-tất-cả-trong-http-webhook-handler">35. Không xử lý tất cả trong HTTP Webhook Handler</h1>
+<p>Handler không nên:</p>
+<pre class="hljs"><code><div>- Update nhiều databases
+- Chạy settlement
+- Gọi email
+- Chờ ledger lâu
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>Verify
+→ Persist Inbox
+→ Return 2xx
+→ Process async
+</div></code></pre>
+<p>Provider có thể retry nếu response chậm.</p>
+<hr>
+<h1 id="36-webhook-inbox">36. Webhook Inbox</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>provider
+provider_event_id
+event_type
+payload
+signature_status
+received_at
+processing_status
+</div></code></pre>
+<p>Unique key:</p>
+<pre class="hljs"><code><div>(provider, provider_event_id)
+</div></code></pre>
+<p>Webhook duplicate sẽ trở thành no-op.</p>
+<hr>
+<h1 id="37-webhook-có-thể-đến-sai-thứ-tự">37. Webhook có thể đến sai thứ tự</h1>
+<p>Có thể nhận:</p>
+<pre class="hljs"><code><div>capture.succeeded
+</div></code></pre>
+<p>trước:</p>
+<pre class="hljs"><code><div>authorization.succeeded
+</div></code></pre>
+<p>Consumer không nên giả định arrival order.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Dùng provider object version.
+- Dùng state transition monotonic.
+- Fetch latest provider state.
+- Chấp nhận event cũ nhưng không rollback state mới.
+</div></code></pre>
+<hr>
+<h1 id="38-webhook-là-nguồn-sự-thật-duy-nhất-không">38. Webhook là nguồn sự thật duy nhất không?</h1>
+<p>Không.</p>
+<p>Webhook có thể:</p>
+<pre class="hljs"><code><div>- Trễ
+- Mất
+- Duplicate
+- Sai thứ tự
+</div></code></pre>
+<p>Cần kết hợp:</p>
+<pre class="hljs"><code><div>- Synchronous provider response
+- Webhook
+- Provider status query
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="39-webhook-replay-attack">39. Webhook Replay Attack</h1>
+<p>Attacker có thể gửi lại payload cũ.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Signature verification
+- Timestamp tolerance
+- Event ID dedupe
+- Secret rotation
+- HTTPS
+</div></code></pre>
+<p>Không tin IP allowlist như cơ chế duy nhất.</p>
+<hr>
+<h1 id="40-transactional-outbox">40. Transactional Outbox</h1>
+<p>Khi Payment Intent đổi trạng thái:</p>
+<pre class="hljs"><code><div>AUTHORIZED
+→ CAPTURED
+</div></code></pre>
+<p>cần phát event.</p>
+<p>Trong cùng DB transaction:</p>
+<pre class="hljs"><code><div>- Update Payment Intent
+- Insert Outbox event
+</div></code></pre>
+<p>Publisher gửi event sau.</p>
+<p>Điều này tránh:</p>
+<pre class="hljs"><code><div>Payment cập nhật thành công
+nhưng ledger/notification không nhận event.
+</div></code></pre>
+<hr>
+<h1 id="41-inbox-pattern">41. Inbox Pattern</h1>
+<p>Consumer xử lý event với:</p>
+<pre class="hljs"><code><div>consumer_name
+event_id
+processing_status
+</div></code></pre>
+<p>Trong cùng transaction:</p>
+<pre class="hljs"><code><div>- Claim event
+- Apply business effect
+- Mark processed
+</div></code></pre>
+<p>Giúp downstream idempotent.</p>
+<hr>
+<h1 id="42-ledger-là-gì">42. Ledger là gì?</h1>
+<p>Ledger là sổ cái ghi lại mọi thay đổi tài chính.</p>
+<p>Một ledger tốt phải:</p>
+<pre class="hljs"><code><div>- Append-only.
+- Immutable sau khi post.
+- Audit được.
+- Double-entry.
+- Mọi transaction cân bằng.
+- Có stable transaction ID.
+</div></code></pre>
+<p>Không nên chỉ lưu:</p>
+<pre class="hljs"><code><div>wallet.balance = 1.000.000
+</div></code></pre>
+<p>mà không biết số dư hình thành thế nào.</p>
+<hr>
+<h1 id="43-double-entry-accounting">43. Double-Entry Accounting</h1>
+<p>Mỗi transaction có ít nhất hai postings:</p>
+<pre class="hljs"><code><div>Tổng Debit = Tổng Credit
+</div></code></pre>
+<p>Ví dụ user nạp 100.000 vào ví:</p>
+<pre class="hljs"><code><div>Debit:
+Processor Receivable Asset       100.000
+
+Credit:
+User Wallet Liability            100.000
+</div></code></pre>
+<p>Nền tảng có thêm tài sản hoặc khoản phải thu từ provider, đồng thời nợ user 100.000 trong ví.</p>
+<hr>
+<h1 id="44-debit-và-credit-không-đồng-nghĩa-âmdương">44. Debit và Credit không đồng nghĩa âm/dương</h1>
+<p>Debit và credit phụ thuộc loại tài khoản.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Asset tăng:
+Debit
+
+Liability tăng:
+Credit
+</div></code></pre>
+<p>User wallet balance thường là liability của platform:</p>
+<pre class="hljs"><code><div>Platform đang nợ user số tiền đó.
+</div></code></pre>
+<p>Do đó nạp ví làm liability tăng bằng credit.</p>
+<hr>
+<h1 id="45-wallet-payment-example">45. Wallet Payment Example</h1>
+<p>User trả merchant 80.000.</p>
+<p>Platform thu fee 8.000, merchant nhận 72.000:</p>
+<pre class="hljs"><code><div>Debit:
+User Wallet Liability            80.000
+
+Credit:
+Merchant Payable Liability       72.000
+
+Credit:
+Platform Revenue                  8.000
+</div></code></pre>
+<p>Transaction cân bằng:</p>
+<pre class="hljs"><code><div>Debit 80.000
+=
+Credit 72.000 + 8.000
+</div></code></pre>
+<hr>
+<h1 id="46-refund-example">46. Refund Example</h1>
+<p>Hoàn toàn bộ payment trước đó:</p>
+<pre class="hljs"><code><div>Debit:
+Merchant Payable / Refund Clearing
+
+Credit:
+User Wallet Liability
+</div></code></pre>
+<p>Nếu platform fee cũng được hoàn:</p>
+<pre class="hljs"><code><div>Reverse cả phần revenue tương ứng.
+</div></code></pre>
+<p>Refund không nên xóa transaction gốc.</p>
+<p>Nó tạo một transaction bù mới.</p>
+<hr>
+<h1 id="47-journal-transaction">47. Journal Transaction</h1>
+<p>Một journal transaction:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;transactionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;txn_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;referenceType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;WALLET_PAYMENT&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;referenceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pay_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;POSTED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;postings&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;accountId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;wallet_user_1&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;side&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DEBIT&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">80000</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;accountId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;merchant_payable_9&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;side&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CREDIT&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">72000</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;accountId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;platform_revenue&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;side&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CREDIT&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8000</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="48-ledger-invariants">48. Ledger Invariants</h1>
+<p>Mỗi posted transaction phải bảo đảm:</p>
+<pre class="hljs"><code><div>1. Tổng debit = tổng credit.
+2. Tất cả postings cùng currency hoặc có FX transaction rõ.
+3. Amount dương.
+4. Account tồn tại và active.
+5. Transaction ID unique.
+6. Reference idempotency không bị dùng hai lần.
+7. Không sửa postings đã post.
+</div></code></pre>
+<hr>
+<h1 id="49-ledger-account-types">49. Ledger Account Types</h1>
+<pre class="hljs"><code><div>ASSET
+LIABILITY
+REVENUE
+EXPENSE
+EQUITY
+CLEARING
+SUSPENSE
+</div></code></pre>
+<p>Các account thực tế:</p>
+<pre class="hljs"><code><div>- Processor receivable
+- Bank cash
+- User wallet liability
+- Merchant payable
+- Platform fee revenue
+- Refund clearing
+- Chargeback loss
+- Payout in transit
+</div></code></pre>
+<hr>
+<h1 id="50-ledger-account-granularity">50. Ledger Account Granularity</h1>
+<p>Có thể có:</p>
+<pre class="hljs"><code><div>Một wallet account/user/currency
+Một merchant payable account/merchant/currency
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>wallet:user_123:VND
+merchant:mer_456:VND
+</div></code></pre>
+<p>Không trộn nhiều currency vào một balance.</p>
+<hr>
+<h1 id="51-ledger-transaction-state">51. Ledger Transaction State</h1>
+<pre class="hljs"><code><div>DRAFT
+→ POSTED
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>PENDING
+→ POSTED
+→ REVERSED
+</div></code></pre>
+<p>Một transaction <code>POSTED</code> không chuyển thành deleted.</p>
+<p>Nếu sai:</p>
+<pre class="hljs"><code><div>Tạo reversal transaction.
+</div></code></pre>
+<hr>
+<h1 id="52-pending-entries">52. Pending Entries</h1>
+<p>Có hai mô hình.</p>
+<h2 id="không-đưa-pending-vào-posted-ledger">Không đưa pending vào posted ledger</h2>
+<pre class="hljs"><code><div>Hold được lưu trong Hold Store.
+Khi capture mới post ledger.
+</div></code></pre>
+<h2 id="dùng-pending-ledger-accounts">Dùng pending ledger accounts</h2>
+<pre class="hljs"><code><div>Funds chuyển từ available account
+sang reserved account.
+</div></code></pre>
+<p>Mô hình thứ hai audit tốt hơn nhưng phức tạp hơn.</p>
+<hr>
+<h1 id="53-wallet-balance-types">53. Wallet Balance Types</h1>
+<h2 id="posted-balance">Posted balance</h2>
+<p>Tổng từ các ledger postings đã post.</p>
+<h2 id="held-balance">Held balance</h2>
+<p>Tiền đang bị giữ cho giao dịch chưa hoàn tất.</p>
+<h2 id="available-balance">Available balance</h2>
+<pre class="hljs"><code><div>available =
+posted spendable balance
+-
+active holds
+</div></code></pre>
+<h2 id="pending-incoming">Pending incoming</h2>
+<p>Tiền đã được khởi tạo nhưng chưa chắc chắn có thể sử dụng.</p>
+<hr>
+<h1 id="54-không-dùng-một-field-balance">54. Không dùng một field <code>balance</code></h1>
+<p>Một wallet có thể cần:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;postedBalance&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1000000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;heldBalance&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">200000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;availableBalance&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">800000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pendingIncoming&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">50000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Các giá trị phải có định nghĩa rõ.</p>
+<hr>
+<h1 id="55-balance-projection">55. Balance Projection</h1>
+<p>Số dư có thể được tính bằng:</p>
+<pre class="hljs"><code><div>Sum tất cả postings
+</div></code></pre>
+<p>nhưng không thể scan toàn bộ ledger mỗi request.</p>
+<p>Dùng projection:</p>
+<pre class="hljs"><code><div>account_id
+currency
+posted_balance
+version
+last_transaction_sequence
+</div></code></pre>
+<p>Projection được cập nhật atomically cùng postings hoặc từ ordered ledger stream.</p>
+<hr>
+<h1 id="56-ledger-là-source-of-truth">56. Ledger là Source of Truth</h1>
+<p>Nếu balance projection bị sai:</p>
+<pre class="hljs"><code><div>Có thể rebuild từ journal.
+</div></code></pre>
+<p>Nếu chỉ có balance field mà không có journal:</p>
+<pre class="hljs"><code><div>Không thể audit hoặc rebuild.
+</div></code></pre>
+<hr>
+<h1 id="57-account-sequence">57. Account Sequence</h1>
+<p>Mỗi account có sequence tăng:</p>
+<pre class="hljs"><code><div>wallet_user_123:
+sequence 100
+sequence 101
+sequence 102
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Stable ordering.
+- Detect gaps.
+- Rebuild balance.
+- Audit account history.
+</div></code></pre>
+<hr>
+<h1 id="58-double-spend-problem">58. Double Spend Problem</h1>
+<p>Wallet có 100.000.</p>
+<p>Hai requests đồng thời:</p>
+<pre class="hljs"><code><div>Pay A: 80.000
+Pay B: 80.000
+</div></code></pre>
+<p>Nếu cả hai đọc balance 100.000 rồi cùng ghi:</p>
+<pre class="hljs"><code><div>Wallet chi 160.000.
+</div></code></pre>
+<p>Cần serialize hoặc conditional update.</p>
+<hr>
+<h1 id="59-preventing-double-spend">59. Preventing Double Spend</h1>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Serializable database transaction.
+- Row-level lock.
+- Compare-and-set balance version.
+- Single-writer per wallet shard.
+- Atomic ledger posting with balance constraint.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> wallet_balances
+<span class="hljs-keyword">SET</span> available_balance <span class="hljs-operator">=</span> available_balance <span class="hljs-operator">-</span> <span class="hljs-number">80000</span>,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> wallet_id <span class="hljs-operator">=</span> :wallet_id
+  <span class="hljs-keyword">AND</span> available_balance <span class="hljs-operator">&gt;=</span> <span class="hljs-number">80000</span>
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<hr>
+<h1 id="60-ledger-và-balance-phải-atomic">60. Ledger và Balance phải Atomic</h1>
+<p>Không được:</p>
+<pre class="hljs"><code><div>1. Giảm balance.
+2. Sau đó insert ledger.
+</div></code></pre>
+<p>Nếu crash giữa hai bước, ledger và balance lệch.</p>
+<p>Cần cùng transaction:</p>
+<pre class="hljs"><code><div>- Validate balance
+- Insert journal transaction
+- Insert postings
+- Update balance projection
+</div></code></pre>
+<hr>
+<h1 id="61-wallet-hold">61. Wallet Hold</h1>
+<p>Khi bắt đầu thanh toán 80.000:</p>
+<pre class="hljs"><code><div>Available: 100.000
+Hold: 80.000
+Available còn lại: 20.000
+</div></code></pre>
+<p>Hold record:</p>
+<pre class="hljs"><code><div>hold_id
+wallet_id
+amount
+currency
+reference_id
+status
+expires_at
+</div></code></pre>
+<hr>
+<h1 id="62-hold-state-machine">62. Hold State Machine</h1>
+<pre class="hljs"><code><div>ACTIVE
+→ CAPTURED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ RELEASED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ EXPIRED
+</div></code></pre>
+<p>Capture hoặc release phải idempotent.</p>
+<hr>
+<h1 id="63-hold-expiration">63. Hold Expiration</h1>
+<p>Nếu payment workflow chết:</p>
+<pre class="hljs"><code><div>Hold không được giữ tiền mãi.
+</div></code></pre>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>expiresAt
+</div></code></pre>
+<p>và reconciliation worker.</p>
+<p>Nhưng không tự release nếu external provider có thể vẫn capture.</p>
+<p>Hold expiry policy phải phù hợp payment state thực tế.</p>
+<hr>
+<h1 id="64-wallet-top-up">64. Wallet Top-Up</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Wallet
+    participant Payment
+    participant Provider
+    participant Ledger
+
+    User->>Wallet: Top up 500.000
+    Wallet->>Payment: Create top-up intent
+    Payment->>Provider: Charge
+    Provider-->>Payment: Succeeded
+    Payment->>Ledger: Post top-up
+    Ledger-->>Payment: Committed
+    Payment-->>Wallet: Top-up completed
+</div></code></pre>
+<p>Wallet chỉ được credit sau khi funding source đạt trạng thái đủ chắc chắn theo policy.</p>
+<hr>
+<h1 id="65-pending-top-up">65. Pending Top-Up</h1>
+<p>Một số bank transfer không final ngay.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Payment pending
+→ Wallet pending incoming
+</div></code></pre>
+<p>Chỉ khi settlement hoặc confirmation:</p>
+<pre class="hljs"><code><div>Pending
+→ Available
+</div></code></pre>
+<p>Không cho user rút hoặc chuyển tiền chưa final nếu rủi ro reversal cao.</p>
+<hr>
+<h1 id="66-peer-to-peer-wallet-transfer">66. Peer-to-Peer Wallet Transfer</h1>
+<p>User A chuyển 100.000 cho User B:</p>
+<pre class="hljs"><code><div>Debit:
+User A Wallet Liability        100.000
+
+Credit:
+User B Wallet Liability        100.000
+</div></code></pre>
+<p>Không có tiền mới được tạo.</p>
+<p>Chỉ chuyển liability từ A sang B.</p>
+<hr>
+<h1 id="67-p2p-transfer-atomicity">67. P2P Transfer Atomicity</h1>
+<p>Hai postings phải commit cùng nhau.</p>
+<p>Không được:</p>
+<pre class="hljs"><code><div>Trừ A thành công
+nhưng cộng B thất bại.
+</div></code></pre>
+<p>Nếu cả hai accounts cùng database/shard:</p>
+<pre class="hljs"><code><div>Một transaction.
+</div></code></pre>
+<p>Nếu khác shards/regions:</p>
+<pre class="hljs"><code><div>Cần kiến trúc đặc biệt hoặc transfer clearing accounts.
+</div></code></pre>
+<hr>
+<h1 id="68-cross-shard-transfer">68. Cross-Shard Transfer</h1>
+<p>Một pattern:</p>
+<pre class="hljs"><code><div>1. Debit A và credit Transfer Clearing Out.
+2. Durable transfer event.
+3. Debit Transfer Clearing In và credit B.
+4. Reconciliation bảo đảm clearing tổng bằng 0.
+</div></code></pre>
+<p>Nhưng trong quá trình:</p>
+<pre class="hljs"><code><div>Transfer có thể ở trạng thái IN_TRANSIT.
+</div></code></pre>
+<p>Đây là Saga tài chính, không phải atomic tức thời toàn cầu.</p>
+<hr>
+<h1 id="69-khi-nào-nên-dùng-globally-consistent-ledger">69. Khi nào nên dùng Globally Consistent Ledger?</h1>
+<p>Nếu yêu cầu:</p>
+<pre class="hljs"><code><div>- Transfer tức thời.
+- Không có trạng thái in-transit.
+- Balance correctness toàn cầu.
+</div></code></pre>
+<p>có thể dùng database globally consistent.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- WAN latency.
+- Chi phí.
+- Availability khi network partition.
+</div></code></pre>
+<hr>
+<h1 id="70-withdrawal">70. Withdrawal</h1>
+<p>User rút 500.000 về ngân hàng:</p>
+<pre class="hljs"><code><div>1. Reserve wallet balance.
+2. Create payout.
+3. Submit to bank/provider.
+4. Mark in transit.
+5. Confirm settlement.
+6. Capture hold hoặc reverse nếu thất bại.
+</div></code></pre>
+<p>Không nên trừ final balance và coi payout hoàn tất ngay khi request provider được gửi.</p>
+<hr>
+<h1 id="71-payout-states">71. Payout States</h1>
+<pre class="hljs"><code><div>CREATED
+→ FUNDS_RESERVED
+→ SUBMITTED
+→ IN_TRANSIT
+→ PAID
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>FAILED
+RETURNED
+CANCELED
+</div></code></pre>
+<p>Bank transfer có thể bị trả lại sau nhiều ngày:</p>
+<pre class="hljs"><code><div>PAID
+→ RETURNED
+</div></code></pre>
+<p>cần compensating ledger transaction.</p>
+<hr>
+<h1 id="72-merchant-payment">72. Merchant Payment</h1>
+<p>Khi customer thanh toán merchant:</p>
+<pre class="hljs"><code><div>Customer funds
+→ Merchant payable
+→ Merchant settlement
+</div></code></pre>
+<p>Không nên credit trực tiếp bank account merchant trong request path.</p>
+<p>Merchant payable là số tiền platform đang nợ merchant.</p>
+<hr>
+<h1 id="73-settlement">73. Settlement</h1>
+<p>Settlement tổng hợp các giao dịch:</p>
+<pre class="hljs"><code><div>- Gross sales
+- Platform fees
+- Refunds
+- Chargebacks
+- Tax
+- Adjustments
+</div></code></pre>
+<p>Sau đó tạo payout.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Gross sales:          10.000.000
+Fees:                 -1.000.000
+Refunds:                -500.000
+Chargebacks:            -200.000
+
+Net payout:            8.300.000
+</div></code></pre>
+<hr>
+<h1 id="74-settlement-batch">74. Settlement Batch</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>settlement_id
+merchant_id
+currency
+period_start
+period_end
+gross_amount
+fee_amount
+refund_amount
+net_amount
+status
+</div></code></pre>
+<p>Settlement không nên chỉ là report.</p>
+<p>Nó phải liên kết tới ledger transactions cụ thể.</p>
+<hr>
+<h1 id="75-refund">75. Refund</h1>
+<p>Refund có identity riêng:</p>
+<pre class="hljs"><code><div>refund_id
+payment_intent_id
+amount
+currency
+reason
+status
+provider_refund_id
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>CREATED
+→ SUBMITTED
+→ PROCESSING
+→ SUCCEEDED
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>FAILED
+CANCELED
+</div></code></pre>
+<hr>
+<h1 id="76-partial-refund">76. Partial Refund</h1>
+<p>Payment captured 500.000.</p>
+<p>Refund:</p>
+<pre class="hljs"><code><div>Lần 1: 100.000
+Lần 2: 150.000
+</div></code></pre>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Total successful + reserved refunds
+≤
+Captured amount
+</div></code></pre>
+<p>Cần conditional reservation refund amount trước khi gọi provider.</p>
+<hr>
+<h1 id="77-refund-reservation">77. Refund Reservation</h1>
+<p>Nếu hai support agents cùng refund:</p>
+<pre class="hljs"><code><div>Agent A: 300.000
+Agent B: 300.000
+</div></code></pre>
+<p>Không được cho cả hai nếu captured chỉ 500.000.</p>
+<p>Trong transaction:</p>
+<pre class="hljs"><code><div>availableRefundAmount &gt;= requestedAmount
+</div></code></pre>
+<p>sau đó reserve refund amount.</p>
+<hr>
+<h1 id="78-refund-timeout">78. Refund Timeout</h1>
+<p>Provider refund timeout tạo unknown outcome giống capture.</p>
+<p>Không được tạo refund mới với identity khác ngay.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Same provider refund key
+- Provider status query
+- Webhook
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="79-reversal-và-refund-khác-nhau">79. Reversal và Refund khác nhau</h1>
+<h2 id="reversalvoid">Reversal/void</h2>
+<p>Hủy authorization trước settlement/capture.</p>
+<h2 id="refund">Refund</h2>
+<p>Trả lại tiền sau khi payment đã captured.</p>
+<p>Hai operations có:</p>
+<pre class="hljs"><code><div>- Provider API khác
+- Timing khác
+- Ledger treatment khác
+</div></code></pre>
+<hr>
+<h1 id="80-chargeback">80. Chargeback</h1>
+<p>Chargeback xảy ra khi cardholder tranh chấp qua issuer/network.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>Payment succeeded
+→ Chargeback opened
+→ Funds debited hoặc reserved
+→ Evidence submitted
+→ Won hoặc lost
+</div></code></pre>
+<p>Chargeback có thể xảy ra sau nhiều tuần hoặc tháng.</p>
+<hr>
+<h1 id="81-chargeback-state-machine">81. Chargeback State Machine</h1>
+<pre class="hljs"><code><div>OPENED
+→ EVIDENCE_REQUIRED
+→ UNDER_REVIEW
+→ WON
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>UNDER_REVIEW
+→ LOST
+</div></code></pre>
+<p>Có thể có:</p>
+<pre class="hljs"><code><div>REVERSED
+EXPIRED
+</div></code></pre>
+<hr>
+<h1 id="82-chargeback-ledger">82. Chargeback Ledger</h1>
+<p>Khi chargeback mở:</p>
+<pre class="hljs"><code><div>Debit:
+Merchant Payable hoặc Reserve
+
+Credit:
+Chargeback Clearing
+</div></code></pre>
+<p>Nếu merchant không đủ balance:</p>
+<pre class="hljs"><code><div>- Tạo negative merchant balance.
+- Dùng reserve account.
+- Platform chịu temporary loss.
+</div></code></pre>
+<p>Policy phải rõ.</p>
+<hr>
+<h1 id="83-chargeback-không-phải-refund">83. Chargeback không phải Refund</h1>
+<p>Refund do merchant/platform chủ động.</p>
+<p>Chargeback do cardholder và payment network khởi tạo.</p>
+<p>Chargeback thường có:</p>
+<pre class="hljs"><code><div>- Fee
+- Evidence deadline
+- Network decision
+- Merchant liability rules
+</div></code></pre>
+<hr>
+<h1 id="84-dispute-evidence">84. Dispute Evidence</h1>
+<p>Có thể gồm:</p>
+<pre class="hljs"><code><div>- Receipt
+- Delivery confirmation
+- Device/IP evidence
+- Customer communication
+- Service usage
+</div></code></pre>
+<p>Evidence data rất nhạy cảm.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Strict access control.
+- Retention.
+- Audit.
+- Deadline workflow.
+</div></code></pre>
+<hr>
+<h1 id="85-reconciliation-là-gì">85. Reconciliation là gì?</h1>
+<p>Reconciliation so sánh các nguồn sự thật độc lập:</p>
+<pre class="hljs"><code><div>Internal payment records
+vs
+Provider records
+vs
+Bank settlement
+vs
+Internal ledger
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Phát hiện và sửa divergence.
+</div></code></pre>
+<hr>
+<h1 id="86-vì-sao-reconciliation-bắt-buộc">86. Vì sao Reconciliation bắt buộc?</h1>
+<p>Distributed payment workflow có thể gặp:</p>
+<pre class="hljs"><code><div>- Webhook mất.
+- Provider timeout.
+- Internal event lỗi.
+- Manual adjustment.
+- Bank settlement khác provider report.
+- Duplicate event.
+</div></code></pre>
+<p>Không có reconciliation thì discrepancy có thể tồn tại mãi.</p>
+<hr>
+<h1 id="87-các-tầng-reconciliation">87. Các tầng Reconciliation</h1>
+<h2 id="internal-reconciliation">Internal reconciliation</h2>
+<pre class="hljs"><code><div>Payment Intent
+vs
+Payment Attempt
+vs
+Ledger
+</div></code></pre>
+<h2 id="provider-reconciliation">Provider reconciliation</h2>
+<pre class="hljs"><code><div>Internal payments
+vs
+Provider transaction report/API
+</div></code></pre>
+<h2 id="bank-reconciliation">Bank reconciliation</h2>
+<pre class="hljs"><code><div>Provider settlement
+vs
+Bank statement
+</div></code></pre>
+<h2 id="balance-reconciliation">Balance reconciliation</h2>
+<pre class="hljs"><code><div>Ledger postings
+vs
+Balance projections
+</div></code></pre>
+<hr>
+<h1 id="88-reconciliation-record">88. Reconciliation Record</h1>
+<pre class="hljs"><code><div>reconciliation_id
+source_type
+source_reference
+internal_reference
+expected_amount
+actual_amount
+currency
+difference
+status
+resolution
+</div></code></pre>
+<p>States:</p>
+<pre class="hljs"><code><div>MATCHED
+MISSING_INTERNAL
+MISSING_EXTERNAL
+AMOUNT_MISMATCH
+DUPLICATE
+RESOLVED
+</div></code></pre>
+<hr>
+<h1 id="89-reconciliation-workflow">89. Reconciliation Workflow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ProviderReport --> Import
+    BankStatement --> Import
+    InternalLedger --> Match
+
+    Import --> Normalize
+    Normalize --> Match
+
+    Match --> Matched
+    Match --> Exceptions[Exception Queue]
+
+    Exceptions --> AutoResolve
+    Exceptions --> ManualReview
+    AutoResolve --> Adjustment[Adjustment Ledger Entry]
+    ManualReview --> Adjustment
+</div></code></pre>
+<hr>
+<h1 id="90-không-sửa-ledger-để-khớp">90. Không sửa Ledger để “khớp”</h1>
+<p>Nếu phát hiện sai:</p>
+<pre class="hljs"><code><div>Không update transaction cũ.
+</div></code></pre>
+<p>Tạo:</p>
+<pre class="hljs"><code><div>- Reversal
+- Adjustment
+- Correction transaction
+</div></code></pre>
+<p>với link tới discrepancy.</p>
+<hr>
+<h1 id="91-suspense-account">91. Suspense Account</h1>
+<p>Khi chưa biết tiền thuộc transaction nào:</p>
+<pre class="hljs"><code><div>Dùng Suspense Account.
+</div></code></pre>
+<p>Ví dụ bank nhận 100.000 nhưng thiếu reference:</p>
+<pre class="hljs"><code><div>Debit:
+Bank Cash
+
+Credit:
+Unidentified Funds Suspense
+</div></code></pre>
+<p>Sau khi xác định:</p>
+<pre class="hljs"><code><div>Chuyển từ suspense sang account đúng.
+</div></code></pre>
+<p>Suspense balance phải được theo dõi sát.</p>
+<hr>
+<h1 id="92-clearing-accounts">92. Clearing Accounts</h1>
+<p>Clearing account đại diện tiền đang di chuyển giữa hệ thống:</p>
+<pre class="hljs"><code><div>- Provider clearing
+- Payout in transit
+- Refund clearing
+- Chargeback clearing
+- Cross-region transfer clearing
+</div></code></pre>
+<p>Clearing account không nên giữ balance lớn hoặc lâu bất thường.</p>
+<hr>
+<h1 id="93-multi-currency">93. Multi-Currency</h1>
+<p>Mỗi ledger account phải có currency rõ.</p>
+<p>Không cộng:</p>
+<pre class="hljs"><code><div>100 USD + 100 EUR
+</div></code></pre>
+<p>thành một balance.</p>
+<p>Wallet thường có sub-account:</p>
+<pre class="hljs"><code><div>wallet:user_123:USD
+wallet:user_123:EUR
+wallet:user_123:VND
+</div></code></pre>
+<hr>
+<h1 id="94-fx-transaction">94. FX Transaction</h1>
+<p>User đổi 100 USD sang EUR.</p>
+<p>Ledger cần ghi:</p>
+<pre class="hljs"><code><div>- Debit USD wallet
+- Credit USD FX clearing
+- Debit EUR FX clearing
+- Credit EUR wallet
+</div></code></pre>
+<p>Hai currency không thể cân bằng bằng cùng numerical amount.</p>
+<p>Cần thêm:</p>
+<pre class="hljs"><code><div>FX rate
+source amount
+destination amount
+spread
+rate timestamp
+</div></code></pre>
+<hr>
+<h1 id="95-fx-quote">95. FX Quote</h1>
+<pre class="hljs"><code><div>fx_quote_id
+source_currency
+destination_currency
+source_amount
+destination_amount
+rate
+fee
+expires_at
+</div></code></pre>
+<p>User phải xác nhận quote còn hiệu lực.</p>
+<p>Không dùng rate live mới sau khi user đã chấp nhận quote chưa hết hạn.</p>
+<hr>
+<h1 id="96-precision-và-rounding">96. Precision và Rounding</h1>
+<p>Không dùng floating-point cho tiền.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>Integer minor units
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>10,50 USD
+→ 1050 cents
+</div></code></pre>
+<p>Hoặc decimal fixed precision khi currency không phù hợp minor-unit đơn giản.</p>
+<hr>
+<h1 id="97-currency-metadata">97. Currency Metadata</h1>
+<p>Cần biết:</p>
+<pre class="hljs"><code><div>- Decimal places
+- Minimum amount
+- Rounding rules
+- Settlement calendar
+</div></code></pre>
+<p>Không giả định mọi currency có hai chữ số thập phân.</p>
+<hr>
+<h1 id="98-risk-và-fraud-service">98. Risk và Fraud Service</h1>
+<p>Trước authorization, Risk Service có thể kiểm tra:</p>
+<pre class="hljs"><code><div>- Device fingerprint
+- Account age
+- Payment history
+- IP/location
+- Amount
+- Merchant risk
+- Velocity
+- Card verification
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>ALLOW
+BLOCK
+REVIEW
+REQUIRE_ACTION
+</div></code></pre>
+<hr>
+<h1 id="99-velocity-limits">99. Velocity Limits</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Số payment attempts/card/phút.
+- Tổng amount/user/ngày.
+- Số wallet transfers/device/giờ.
+- Số recipients mới/ngày.
+</div></code></pre>
+<p>Velocity store cần low latency và gần realtime.</p>
+<hr>
+<h1 id="100-risk-check-phải-idempotent">100. Risk Check phải Idempotent?</h1>
+<p>Risk model có thể thay đổi giữa retries.</p>
+<p>Nhưng cùng một payment confirmation retry không nên bị coi là giao dịch kinh tế mới.</p>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>riskDecisionId
+riskModelVersion
+decisionTimestamp
+</div></code></pre>
+<p>và policy về thời gian hiệu lực.</p>
+<hr>
+<h1 id="101-security">101. Security</h1>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- TLS.
+- Encryption at rest.
+- Secret management.
+- Tokenization.
+- Least privilege.
+- Network segmentation.
+- Audit logs.
+- Key rotation.
+- Signed webhooks.
+</div></code></pre>
+<p>Không log:</p>
+<pre class="hljs"><code><div>- Raw card number.
+- CVV.
+- Full bank credentials.
+- Authentication secrets.
+</div></code></pre>
+<hr>
+<h1 id="102-audit-log">102. Audit Log</h1>
+<p>Audit log khác ledger.</p>
+<p>Audit log ghi:</p>
+<pre class="hljs"><code><div>- Ai thực hiện action.
+- Action gì.
+- Từ hệ thống nào.
+- Trước/sau trạng thái.
+- Thời điểm.
+- Lý do.
+</div></code></pre>
+<p>Ledger ghi movement of money.</p>
+<p>Cả hai đều cần nhưng phục vụ mục đích khác.</p>
+<hr>
+<h1 id="103-sensitive-operations">103. Sensitive Operations</h1>
+<p>Các operation cần kiểm soát mạnh:</p>
+<pre class="hljs"><code><div>- Manual refund.
+- Ledger adjustment.
+- Payout override.
+- Wallet freeze/unfreeze.
+- Chargeback write-off.
+- Secret rotation.
+</div></code></pre>
+<p>Có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Dual approval.
+- Role-based access.
+- Reason code.
+- Full audit.
+</div></code></pre>
+<hr>
+<h1 id="104-wallet-freeze">104. Wallet Freeze</h1>
+<p>Khi fraud hoặc compliance review:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ FROZEN
+</div></code></pre>
+<p>Có thể phân biệt:</p>
+<pre class="hljs"><code><div>- Không cho debit.
+- Không cho credit.
+- Chỉ cho refund.
+- Chỉ cho withdrawal.
+</div></code></pre>
+<p>Không nên chỉ có một boolean nếu policy phức tạp.</p>
+<hr>
+<h1 id="105-limits">105. Limits</h1>
+<p>Wallet có thể có:</p>
+<pre class="hljs"><code><div>- Max balance.
+- Daily top-up limit.
+- Daily transfer limit.
+- Withdrawal limit.
+- Per-transaction limit.
+</div></code></pre>
+<p>Limit check phải atomic với operation hoặc reserve limit capacity.</p>
+<hr>
+<h1 id="106-limit-reservation">106. Limit Reservation</h1>
+<p>Hai transfers đồng thời có thể cùng vượt daily limit.</p>
+<p>Không đủ nếu:</p>
+<pre class="hljs"><code><div>Cả hai đọc usedToday trước.
+</div></code></pre>
+<p>Cần conditional update:</p>
+<pre class="hljs"><code><div>usedToday + amount &lt;= dailyLimit
+</div></code></pre>
+<p>trong cùng transaction hoặc serialized counter.</p>
+<hr>
+<h1 id="107-payment-status-api">107. Payment Status API</h1>
+<pre class="hljs"><code><div>GET /v1/payment-intents/{paymentIntentId}
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;paymentIntentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pi_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PROCESSING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;capturedAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;refundedAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nextAction&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client nên query trạng thái bằng ID thay vì suy luận từ HTTP timeout cũ.</p>
+<hr>
+<h1 id="108-client-secret">108. Client Secret</h1>
+<p>Payment Intent có thể có client secret để client hoàn tất bước xác thực.</p>
+<p>Secret cần:</p>
+<pre class="hljs"><code><div>- Scope hẹp.
+- Expiration.
+- Không log.
+- Không dùng như server API credential.
+</div></code></pre>
+<hr>
+<h1 id="109-payment-search-projection">109. Payment Search Projection</h1>
+<p>Operations cần tìm theo:</p>
+<pre class="hljs"><code><div>- Payment Intent ID
+- Provider ID
+- Customer
+- Merchant
+- Card last four
+- Date
+- Amount
+</div></code></pre>
+<p>Không query trực tiếp core ledger cho mọi support search.</p>
+<p>Dùng read model/search index được bảo vệ.</p>
+<hr>
+<h1 id="110-event-model">110. Event Model</h1>
+<p>Các events:</p>
+<pre class="hljs"><code><div>PaymentIntentCreated
+AuthorizationSucceeded
+AuthorizationFailed
+CaptureSucceeded
+PaymentSucceeded
+RefundSucceeded
+ChargebackOpened
+LedgerTransactionPosted
+PayoutPaid
+</div></code></pre>
+<p>Mỗi event cần:</p>
+<pre class="hljs"><code><div>eventId
+aggregateId
+aggregateVersion
+occurredAt
+eventType
+payloadVersion
+</div></code></pre>
+<hr>
+<h1 id="111-event-ordering">111. Event Ordering</h1>
+<p>Events cùng Payment Intent nên có aggregate version:</p>
+<pre class="hljs"><code><div>version 1
+version 2
+version 3
+</div></code></pre>
+<p>Consumer bỏ hoặc trì hoãn event nếu có gap tùy requirement.</p>
+<p>Không cần global ordering giữa các payments độc lập.</p>
+<hr>
+<h1 id="112-core-database-choice">112. Core Database Choice</h1>
+<p>Payment metadata thường phù hợp:</p>
+<pre class="hljs"><code><div>Relational database
+</div></code></pre>
+<p>vì cần:</p>
+<pre class="hljs"><code><div>- Transactions
+- Unique constraints
+- Conditional updates
+- Referential integrity
+- Audit queries
+</div></code></pre>
+<p>Ledger có thể dùng:</p>
+<pre class="hljs"><code><div>- Relational append-only journal
+- Globally consistent SQL
+- Specialized ledger database
+</div></code></pre>
+<hr>
+<h1 id="113-ledger-partitioning">113. Ledger Partitioning</h1>
+<p>Có thể partition theo:</p>
+<pre class="hljs"><code><div>account_id
+</div></code></pre>
+<p>nhưng một transaction có nhiều accounts.</p>
+<p>Nếu accounts nằm khác partitions:</p>
+<pre class="hljs"><code><div>Atomic double-entry khó hơn.
+</div></code></pre>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>1. Global transactional ledger.
+2. Co-locate related accounts.
+3. Use journal transaction partition và asynchronous account projections.
+4. Clearing-account Saga cho cross-shard movements.
+</div></code></pre>
+<hr>
+<h1 id="114-journal-centric-design">114. Journal-Centric Design</h1>
+<p>Journal transaction là unit atomic chính.</p>
+<p>Postings có thể nằm cùng journal partition:</p>
+<pre class="hljs"><code><div>transactionId → postings
+</div></code></pre>
+<p>Account balances được cập nhật từ ordered postings.</p>
+<p>Nhưng double-spend prevention vẫn cần synchronized balance check trên source account.</p>
+<hr>
+<h1 id="115-account-centric-design">115. Account-Centric Design</h1>
+<p>Mỗi wallet account có single writer.</p>
+<p>Transfer giữa hai accounts cần:</p>
+<pre class="hljs"><code><div>- Multi-account transaction.
+- Hoặc clearing workflow.
+</div></code></pre>
+<p>Account-centric design dễ serialize debits nhưng cross-account atomicity khó hơn.</p>
+<hr>
+<h1 id="116-single-writer-per-wallet">116. Single Writer per Wallet</h1>
+<p>Có thể route:</p>
+<pre class="hljs"><code><div>ownerShard = hash(walletId)
+</div></code></pre>
+<p>Mọi debit/hold của wallet đi qua owner shard.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Ordering đơn giản.
+- Double-spend prevention.
+- Account sequence.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hot wallet.
+- Cross-shard transfer.
+- Failover complexity.
+</div></code></pre>
+<hr>
+<h1 id="117-hot-accounts">117. Hot Accounts</h1>
+<p>Một platform clearing account có thể nhận rất nhiều postings.</p>
+<p>Không nên để mọi transaction lock cùng một balance row.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Sharded clearing accounts.
+- Per-provider/per-day buckets.
+- Aggregate sub-ledgers.
+- Avoid synchronous balance calculation on global account.
+</div></code></pre>
+<p>Sau đó consolidate qua ledger entries.</p>
+<hr>
+<h1 id="118-multi-region-goals">118. Multi-Region Goals</h1>
+<pre class="hljs"><code><div>1. API gần customer/merchant.
+2. Ledger không split-brain.
+3. Payment Intent có một write owner.
+4. Wallet account có một write owner.
+5. Webhook có thể nhận ở nhiều regions nhưng xử lý idempotently.
+6. Disaster không làm mất posted ledger transactions.
+</div></code></pre>
+<hr>
+<h1 id="119-multi-region-architecture">119. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalEdge
+
+    GlobalEdge --> RegionA[Payment Region A]
+    GlobalEdge --> RegionB[Payment Region B]
+    GlobalEdge --> RegionC[Payment Region C]
+
+    RegionA --> Directory[Payment / Account Directory]
+    RegionB --> Directory
+    RegionC --> Directory
+
+    Directory --> OwnerA[Intent and Wallet Owners A]
+    Directory --> OwnerB[Intent and Wallet Owners B]
+    Directory --> OwnerC[Intent and Wallet Owners C]
+
+    OwnerA --> GlobalLedger[(Strong Ledger)]
+    OwnerB --> GlobalLedger
+    OwnerC --> GlobalLedger
+
+    Providers --> WebhookA[Webhook A]
+    Providers --> WebhookB[Webhook B]
+
+    WebhookA --> GlobalInbox[(Idempotent Webhook Inbox)]
+    WebhookB --> GlobalInbox
+</div></code></pre>
+<hr>
+<h1 id="120-payment-intent-home-region">120. Payment Intent Home Region</h1>
+<p>Payment Intent có một owner region:</p>
+<pre class="hljs"><code><div>paymentIntentId → homeRegion
+</div></code></pre>
+<p>Mọi state mutation route tới owner.</p>
+<p>Reads có thể từ replica hoặc cache, nhưng writes không multi-master tùy tiện.</p>
+<hr>
+<h1 id="121-wallet-account-home-region">121. Wallet Account Home Region</h1>
+<p>Wallet:</p>
+<pre class="hljs"><code><div>walletId → ownerRegion → ownerEpoch
+</div></code></pre>
+<p>Mọi hold, debit và credit authoritative đi qua owner.</p>
+<p>Khi failover:</p>
+<pre class="hljs"><code><div>- Promote new owner.
+- Increase epoch.
+- Fence old owner.
+</div></code></pre>
+<hr>
+<h1 id="122-owner-epoch-và-fencing">122. Owner Epoch và Fencing</h1>
+<p>Old owner:</p>
+<pre class="hljs"><code><div>epoch 51
+</div></code></pre>
+<p>New owner:</p>
+<pre class="hljs"><code><div>epoch 52
+</div></code></pre>
+<p>Ledger hoặc balance store chỉ chấp nhận command từ epoch mới nhất.</p>
+<p>Ngăn hai regions cùng spend một wallet.</p>
+<hr>
+<h1 id="123-webhook-multi-region">123. Webhook Multi-Region</h1>
+<p>Provider có thể gửi webhook tới nhiều endpoints hoặc retry sang endpoint khác.</p>
+<p>Dùng globally unique:</p>
+<pre class="hljs"><code><div>(provider, provider_event_id)
+</div></code></pre>
+<p>Webhook được persist ở region nhận gần nhất.</p>
+<p>Processor route event tới Payment Intent owner.</p>
+<hr>
+<h1 id="124-ledger-replication">124. Ledger Replication</h1>
+<p>Ledger yêu cầu RPO gần 0.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Synchronous quorum across fault domains.
+- Globally consistent database.
+- Regional consensus group.
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>WAN latency
+vs
+Durability và split-brain prevention.
+</div></code></pre>
+<p>Payment metadata có thể async hơn một số projections, nhưng posted money movements phải được bảo vệ mạnh.</p>
+<hr>
+<h1 id="125-multi-region-wallet-transfer">125. Multi-Region Wallet Transfer</h1>
+<p>A ở Region A chuyển cho B ở Region B.</p>
+<p>Các lựa chọn:</p>
+<h2 id="global-transaction">Global transaction</h2>
+<pre class="hljs"><code><div>Strong và đơn giản về semantics,
+nhưng chịu WAN latency.
+</div></code></pre>
+<h2 id="clearing-saga">Clearing Saga</h2>
+<pre class="hljs"><code><div>Nhanh hơn/local hơn,
+nhưng có IN_TRANSIT state.
+</div></code></pre>
+<h2 id="regional-wallet-restriction">Regional wallet restriction</h2>
+<pre class="hljs"><code><div>Chỉ transfer tức thời trong cùng ledger region.
+Cross-region dùng settlement workflow.
+</div></code></pre>
+<hr>
+<h1 id="126-region-failure">126. Region Failure</h1>
+<p>Nếu owner region lỗi:</p>
+<pre class="hljs"><code><div>1. Dừng writes chưa được fencing.
+2. Xác định committed ledger position.
+3. Promote replica.
+4. Tăng owner epoch.
+5. Route requests sang new owner.
+6. Replay inbox/outbox.
+7. Reconcile provider operations đang UNKNOWN.
+</div></code></pre>
+<p>Không chỉ đổi DNS.</p>
+<hr>
+<h1 id="127-payment-in-flight-khi-region-failure">127. Payment in Flight khi Region Failure</h1>
+<p>Có thể có:</p>
+<pre class="hljs"><code><div>Provider đã authorize
+nhưng internal region chết trước khi commit trạng thái.
+</div></code></pre>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>- Query provider.
+- Process webhook.
+- Match provider reference.
+- Post missing internal state.
+</div></code></pre>
+<p>Đây là lý do provider IDs và reconciliation rất quan trọng.</p>
+<hr>
+<h1 id="128-disaster-recovery-priority">128. Disaster Recovery Priority</h1>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>1. Ledger correctness.
+2. Wallet debit protection.
+3. Payment status recovery.
+4. Webhook processing.
+5. Refund và payout.
+6. Dashboard và analytics.
+</div></code></pre>
+<p>Có thể tạm disable:</p>
+<pre class="hljs"><code><div>- Reports.
+- Recommendation.
+- Non-critical notifications.
+- Historical search.
+</div></code></pre>
+<hr>
+<h1 id="129-failure-mode--provider-timeout">129. Failure Mode — Provider Timeout</h1>
+<pre class="hljs"><code><div>- Mark UNKNOWN.
+- Không retry bằng identity mới.
+- Query status.
+- Chờ webhook.
+- Reconcile.
+</div></code></pre>
+<hr>
+<h1 id="130-failure-mode--webhook-down">130. Failure Mode — Webhook Down</h1>
+<p>Provider retries.</p>
+<p>Synchronous response và polling vẫn có thể cập nhật state.</p>
+<p>Reconciliation phát hiện event bị thiếu.</p>
+<hr>
+<h1 id="131-failure-mode--ledger-down">131. Failure Mode — Ledger Down</h1>
+<p>Không nên báo payment hoàn tất nội bộ nếu ledger posting bắt buộc chưa commit.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Provider captured
+→ Internal status CAPTURED_PENDING_LEDGER
+</div></code></pre>
+<p>Sau khi Ledger phục hồi:</p>
+<pre class="hljs"><code><div>Post idempotently
+→ SUCCEEDED
+</div></code></pre>
+<hr>
+<h1 id="132-failure-mode--balance-projection-down">132. Failure Mode — Balance Projection Down</h1>
+<p>Ledger vẫn post được nếu architecture cho phép.</p>
+<p>Wallet reads có thể:</p>
+<pre class="hljs"><code><div>- Dùng replica.
+- Dùng snapshot cũ.
+- Tạm từ chối debit mới.
+</div></code></pre>
+<p>Không fail-open với balance không chắc chắn.</p>
+<hr>
+<h1 id="133-failure-mode--outbox-publisher-down">133. Failure Mode — Outbox Publisher Down</h1>
+<p>Core transaction vẫn commit.</p>
+<p>Events bị trễ.</p>
+<p>Publisher replay sau.</p>
+<p>Không mất notification, analytics hoặc settlement intent.</p>
+<hr>
+<h1 id="134-failure-mode--duplicate-ledger-command">134. Failure Mode — Duplicate Ledger Command</h1>
+<p>Ledger API phải có:</p>
+<pre class="hljs"><code><div>externalReferenceId
+operationType
+</div></code></pre>
+<p>Unique constraint bảo đảm cùng business operation không post hai lần.</p>
+<p>Retry trả cùng <code>transactionId</code>.</p>
+<hr>
+<h1 id="135-failure-mode--partial-service-failure">135. Failure Mode — Partial Service Failure</h1>
+<p>Provider capture thành công nhưng notification lỗi:</p>
+<pre class="hljs"><code><div>Payment vẫn thành công.
+</div></code></pre>
+<p>Notification retry riêng.</p>
+<p>Không rollback tiền vì email receipt không gửi được.</p>
+<hr>
+<h1 id="136-failure-mode--refund-provider-success-nhưng-internal-timeout">136. Failure Mode — Refund Provider Success nhưng Internal Timeout</h1>
+<p>Refund attempt:</p>
+<pre class="hljs"><code><div>UNKNOWN
+</div></code></pre>
+<p>Không release refund reservation hoặc tạo refund mới ngay.</p>
+<p>Chờ xác minh provider.</p>
+<hr>
+<h1 id="137-failure-mode--reconciliation-lag">137. Failure Mode — Reconciliation Lag</h1>
+<p>Nếu reconciliation chậm:</p>
+<pre class="hljs"><code><div>Unknown outcomes và discrepancies tồn tại lâu.
+</div></code></pre>
+<p>Cần metrics:</p>
+<pre class="hljs"><code><div>- Oldest unmatched item.
+- Total unmatched amount.
+- Items by provider.
+- Suspense balance age.
+</div></code></pre>
+<hr>
+<h1 id="138-observability--payment-api">138. Observability — Payment API</h1>
+<pre class="hljs"><code><div>- Payment Intent creation QPS.
+- Confirmation latency.
+- Authorization success rate.
+- Capture success rate.
+- Decline codes.
+- Unknown outcome rate.
+- Provider timeout rate.
+</div></code></pre>
+<hr>
+<h1 id="139-observability--provider">139. Observability — Provider</h1>
+<pre class="hljs"><code><div>- Success rate.
+- p95/p99 latency.
+- Soft failure rate.
+- Hard decline rate.
+- Webhook delay.
+- Status-query mismatch.
+- Cost per transaction.
+</div></code></pre>
+<p>Phân tách theo:</p>
+<pre class="hljs"><code><div>country
+currency
+payment method
+merchant
+provider
+</div></code></pre>
+<hr>
+<h1 id="140-observability--ledger">140. Observability — Ledger</h1>
+<pre class="hljs"><code><div>- Post transaction latency.
+- Debit-credit imbalance attempts.
+- Duplicate reference rate.
+- Balance projection lag.
+- Account sequence gaps.
+- Hot account contention.
+- Ledger reconciliation mismatch.
+</div></code></pre>
+<p>Bất kỳ transaction không cân bằng phải bị reject và alert.</p>
+<hr>
+<h1 id="141-observability--wallet">141. Observability — Wallet</h1>
+<pre class="hljs"><code><div>- Top-up success.
+- Hold creation.
+- Hold expiry.
+- Insufficient balance.
+- Transfer latency.
+- Negative balance incidents.
+- Duplicate transfer attempts.
+</div></code></pre>
+<p>Negative balance ngoài policy là high-severity incident.</p>
+<hr>
+<h1 id="142-observability--refund-và-chargeback">142. Observability — Refund và Chargeback</h1>
+<pre class="hljs"><code><div>- Refund success.
+- Refund processing time.
+- Refund amount reserved.
+- Chargeback rate.
+- Evidence deadline breaches.
+- Win/loss rate.
+- Chargeback loss amount.
+</div></code></pre>
+<hr>
+<h1 id="143-observability--reconciliation">143. Observability — Reconciliation</h1>
+<pre class="hljs"><code><div>- Match rate.
+- Unmatched count.
+- Unmatched monetary value.
+- Oldest discrepancy.
+- Suspense balance.
+- Auto-resolution rate.
+- Manual review backlog.
+</div></code></pre>
+<hr>
+<h1 id="144-financial-invariant-monitoring">144. Financial Invariant Monitoring</h1>
+<p>Kiểm tra liên tục:</p>
+<pre class="hljs"><code><div>- Tổng debit = tổng credit.
+- Ledger balance projection khớp journal.
+- Refund không vượt capture.
+- Capture không vượt authorization.
+- Payout không vượt payable.
+- Holds không âm.
+- Clearing accounts được giải phóng đúng hạn.
+</div></code></pre>
+<hr>
+<h1 id="145-slos-minh-họa">145. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Payment API availability:
+99,99%
+
+Payment Intent creation:
+p99 dưới 300 ms
+
+Authorization completion:
+Phụ thuộc provider, nhưng internal overhead p99 dưới 200 ms
+
+Ledger posting:
+p99 dưới 100 ms
+
+Webhook acknowledgement:
+p99 dưới 500 ms
+
+Webhook processing:
+99% dưới 30 giây
+
+Reconciliation:
+99,99% monetary value matched trong ngày
+
+Duplicate charge:
+0 theo system invariant
+</div></code></pre>
+<hr>
+<h1 id="146-architecture-evolution">146. Architecture Evolution</h1>
+<h2 id="giai-đoạn-1">Giai đoạn 1</h2>
+<pre class="hljs"><code><div>- Một payment provider.
+- Payment table.
+- Immediate capture.
+- Basic idempotency.
+</div></code></pre>
+<h2 id="giai-đoạn-2">Giai đoạn 2</h2>
+<pre class="hljs"><code><div>- Payment Intent.
+- Provider adapters.
+- Webhook inbox.
+- Refund workflow.
+- Double-entry ledger.
+</div></code></pre>
+<h2 id="giai-đoạn-3">Giai đoạn 3</h2>
+<pre class="hljs"><code><div>- Wallet.
+- Merchant settlement.
+- Reconciliation.
+- Multi-provider routing.
+- Risk engine.
+</div></code></pre>
+<h2 id="giai-đoạn-4">Giai đoạn 4</h2>
+<pre class="hljs"><code><div>- Multi-region ledger.
+- Multi-currency.
+- Cross-region transfers.
+- Automated chargebacks.
+- Cell-based financial architecture.
+</div></code></pre>
+<hr>
+<h1 id="147-thiết-kế-khuyến-nghị">147. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Mỗi logical payment có một Payment Intent ổn định.
+2. Mỗi provider call có Payment Attempt riêng.
+3. Mọi mutation command sử dụng idempotency key.
+4. Provider timeout được coi là UNKNOWN, không phải FAILED.
+5. Webhook được persist vào Inbox trước khi xử lý.
+6. Core state changes dùng transactional outbox.
+7. Money movements được ghi bằng immutable double-entry ledger.
+8. Wallet balance là projection từ ledger và active holds.
+9. Refund, chargeback và payout là workflow độc lập.
+10. Reconciliation kiểm tra nội bộ, provider và bank hằng ngày/gần realtime.
+</div></code></pre>
+<hr>
+<h1 id="148-trade-off--immediate-capture-hay-manual-capture">148. Trade-Off — Immediate Capture hay Manual Capture?</h1>
+<h2 id="immediate-capture">Immediate capture</h2>
+<pre class="hljs"><code><div>- Đơn giản.
+- Thu tiền nhanh.
+- Refund nhiều hơn nếu fulfillment fail.
+</div></code></pre>
+<h2 id="manual-capture">Manual capture</h2>
+<pre class="hljs"><code><div>- Phù hợp fulfillment sau.
+- Có authorization expiration.
+- Workflow phức tạp hơn.
+</div></code></pre>
+<hr>
+<h1 id="149-trade-off--hold-store-hay-pending-ledger-accounts">149. Trade-Off — Hold Store hay Pending Ledger Accounts?</h1>
+<h2 id="hold-store">Hold Store</h2>
+<pre class="hljs"><code><div>- Đơn giản.
+- Available balance dễ tính.
+- Audit pending state tách khỏi ledger.
+</div></code></pre>
+<h2 id="pending-ledger-accounts">Pending ledger accounts</h2>
+<pre class="hljs"><code><div>- Audit toàn diện hơn.
+- Nhiều postings và account types hơn.
+</div></code></pre>
+<hr>
+<h1 id="150-trade-off--balance-từ-ledger-hay-materialized-balance">150. Trade-Off — Balance từ Ledger hay Materialized Balance?</h1>
+<h2 id="tính-trực-tiếp-từ-ledger">Tính trực tiếp từ ledger</h2>
+<pre class="hljs"><code><div>- Chính xác.
+- Quá chậm cho account có lịch sử dài.
+</div></code></pre>
+<h2 id="materialized-balance">Materialized balance</h2>
+<pre class="hljs"><code><div>- Read nhanh.
+- Cần atomic update hoặc rebuild/reconciliation.
+</div></code></pre>
+<p>Thiết kế đúng:</p>
+<pre class="hljs"><code><div>Ledger source of truth
++
+Materialized balance projection
+</div></code></pre>
+<hr>
+<h1 id="151-trade-off--global-ledger-hay-regional-ledger">151. Trade-Off — Global Ledger hay Regional Ledger?</h1>
+<h2 id="global-strongly-consistent-ledger">Global strongly consistent ledger</h2>
+<pre class="hljs"><code><div>- Transfer semantics đơn giản.
+- WAN latency cao.
+- Chi phí lớn.
+</div></code></pre>
+<h2 id="regional-ledgers--clearing">Regional ledgers + clearing</h2>
+<pre class="hljs"><code><div>- Local latency thấp.
+- Transfer in-transit.
+- Reconciliation phức tạp hơn.
+</div></code></pre>
+<hr>
+<h1 id="152-trade-off--provider-failover-nhanh-hay-duplicate-risk-thấp">152. Trade-Off — Provider Failover nhanh hay Duplicate-Risk thấp?</h1>
+<p>Failover ngay sau timeout:</p>
+<pre class="hljs"><code><div>- Availability cao hơn.
+- Có nguy cơ double charge.
+</div></code></pre>
+<p>Xác minh provider cũ trước:</p>
+<pre class="hljs"><code><div>- An toàn hơn.
+- Recovery chậm hơn.
+</div></code></pre>
+<p>Financial correctness thường được ưu tiên hơn failover mù.</p>
+<hr>
+<h1 id="153-cách-trình-bày-trong-phỏng-vấn">153. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi tách payment orchestration khỏi financial ledger. Payment Intent quản lý lifecycle authorize, action, capture và refund; ledger mới là source of truth cho movement of money và luôn dùng double-entry postings bất biến.</p>
+</blockquote>
+<p>Về idempotency:</p>
+<blockquote>
+<p>Mỗi logical command có idempotency key được consume bằng unique constraint. Mỗi provider operation cũng có provider idempotency key ổn định. Nếu provider timeout, tôi coi kết quả là UNKNOWN, query provider hoặc chờ webhook thay vì tạo charge mới.</p>
+</blockquote>
+<p>Về wallet:</p>
+<blockquote>
+<p>Wallet balance không chỉ là một field. Tôi giữ posted balance, active holds và available balance. Debit wallet và ledger postings được commit trong cùng transaction hoặc qua một single-writer account shard để ngăn double spend.</p>
+</blockquote>
+<p>Về reconciliation:</p>
+<blockquote>
+<p>Synchronous response và webhook đều không đủ làm nguồn sự thật duy nhất. Tôi định kỳ đối chiếu internal records với provider reports và bank statements. Mọi discrepancy được sửa bằng reversal hoặc adjustment transaction, không update lịch sử ledger.</p>
+</blockquote>
+<hr>
+<h1 id="154-framework-45-phút">154. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Card payment
+- Authorize/capture
+- Wallet
+- Refund
+- Chargeback
+- Multi-region
+</div></code></pre>
+<h2 id="phút-510-capacity-và-invariants">Phút 5–10: Capacity và invariants</h2>
+<pre class="hljs"><code><div>- Payment QPS
+- Ledger posting rate
+- No double charge
+- No double spend
+- Debit = credit
+</div></code></pre>
+<h2 id="phút-1020-payment-flow">Phút 10–20: Payment flow</h2>
+<pre class="hljs"><code><div>Payment Intent
+→ Attempt
+→ Provider
+→ Webhook
+→ Status recovery
+</div></code></pre>
+<h2 id="phút-2030-ledger-và-wallet">Phút 20–30: Ledger và wallet</h2>
+<pre class="hljs"><code><div>- Double-entry
+- Balance projection
+- Holds
+- Transfers
+</div></code></pre>
+<h2 id="phút-3040-financial-workflows">Phút 30–40: Financial workflows</h2>
+<pre class="hljs"><code><div>- Refund
+- Chargeback
+- Settlement
+- Reconciliation
+</div></code></pre>
+<h2 id="phút-4045-reliability">Phút 40–45: Reliability</h2>
+<pre class="hljs"><code><div>- Unknown outcome
+- Idempotency
+- Multi-region
+- Fencing
+- Failure modes
+</div></code></pre>
+<hr>
+<h1 id="155-những-sai-lầm-phổ-biến">155. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-chỉ-có-bảng-payments">Lỗi 1: Chỉ có bảng <code>payments</code></h2>
+<p>Không phân biệt intent, attempt, provider state và ledger.</p>
+<h2 id="lỗi-2-timeout-được-coi-là-failure">Lỗi 2: Timeout được coi là Failure</h2>
+<p>Có thể tạo charge thứ hai dù provider đã thành công.</p>
+<h2 id="lỗi-3-retry-bằng-provider-request-id-mới">Lỗi 3: Retry bằng Provider Request ID mới</h2>
+<p>Phá idempotency và gây double charge.</p>
+<h2 id="lỗi-4-không-kiểm-tra-payload-khi-tái-sử-dụng-idempotency-key">Lỗi 4: Không kiểm tra Payload khi tái sử dụng Idempotency Key</h2>
+<p>Một key có thể vô tình đại diện hai request khác nhau.</p>
+<h2 id="lỗi-5-webhook-được-xử-lý-trực-tiếp-không-persist">Lỗi 5: Webhook được xử lý trực tiếp không Persist</h2>
+<p>Crash làm mất event.</p>
+<h2 id="lỗi-6-tin-webhook-chỉ-đến-một-lần">Lỗi 6: Tin Webhook chỉ đến một lần</h2>
+<p>Webhook thường được retry.</p>
+<h2 id="lỗi-7-tin-webhook-đến-đúng-thứ-tự">Lỗi 7: Tin Webhook đến đúng thứ tự</h2>
+<p>Capture event có thể tới trước authorization event.</p>
+<h2 id="lỗi-8-provider-failover-mù-sau-timeout">Lỗi 8: Provider Failover mù sau Timeout</h2>
+<p>Có nguy cơ hai providers cùng charge.</p>
+<h2 id="lỗi-9-lưu-raw-card-data-tùy-tiện">Lỗi 9: Lưu Raw Card Data tùy tiện</h2>
+<p>Tăng rủi ro bảo mật và compliance.</p>
+<h2 id="lỗi-10-chỉ-lưu-walletbalance">Lỗi 10: Chỉ lưu <code>wallet.balance</code></h2>
+<p>Không audit hoặc rebuild được.</p>
+<h2 id="lỗi-11-ledger-không-double-entry">Lỗi 11: Ledger không Double-Entry</h2>
+<p>Khó phát hiện tiền được tạo hoặc mất.</p>
+<h2 id="lỗi-12-sửa-ledger-transaction-cũ">Lỗi 12: Sửa Ledger Transaction cũ</h2>
+<p>Phá audit trail.</p>
+<h2 id="lỗi-13-ledger-và-balance-cập-nhật-ở-hai-transaction-khác-nhau">Lỗi 13: Ledger và Balance cập nhật ở hai Transaction khác nhau</h2>
+<p>Có thể divergence.</p>
+<h2 id="lỗi-14-dùng-floating-point-cho-tiền">Lỗi 14: Dùng Floating-Point cho Tiền</h2>
+<p>Tạo lỗi rounding.</p>
+<h2 id="lỗi-15-không-atomic-khi-kiểm-tra-balance">Lỗi 15: Không Atomic khi Kiểm tra Balance</h2>
+<p>Hai requests cùng spend một số dư.</p>
+<h2 id="lỗi-16-hold-không-có-expirationreconciliation">Lỗi 16: Hold không có Expiration/Reconciliation</h2>
+<p>Tiền bị giữ mãi.</p>
+<h2 id="lỗi-17-refund-không-reserve-refundable-amount">Lỗi 17: Refund không Reserve Refundable Amount</h2>
+<p>Hai agents có thể refund vượt captured amount.</p>
+<h2 id="lỗi-18-refund-timeout-tạo-refund-mới">Lỗi 18: Refund Timeout tạo Refund mới</h2>
+<p>Có thể hoàn tiền hai lần.</p>
+<h2 id="lỗi-19-chargeback-được-coi-như-refund">Lỗi 19: Chargeback được coi như Refund</h2>
+<p>Sai semantics, fee và liability.</p>
+<h2 id="lỗi-20-không-có-clearingsuspense-accounts">Lỗi 20: Không có Clearing/Suspense Accounts</h2>
+<p>Không biết ghi nhận tiền đang di chuyển hoặc chưa xác định.</p>
+<h2 id="lỗi-21-settlement-tính-trực-tiếp-từ-order-tables">Lỗi 21: Settlement tính trực tiếp từ Order Tables</h2>
+<p>Dễ sai khi refund, fee và adjustment phức tạp.</p>
+<h2 id="lỗi-22-không-reconcile-với-provider-và-bank">Lỗi 22: Không Reconcile với Provider và Bank</h2>
+<p>Discrepancy tồn tại vĩnh viễn.</p>
+<h2 id="lỗi-23-multi-region-multi-write-cùng-wallet">Lỗi 23: Multi-Region Multi-Write cùng Wallet</h2>
+<p>Tạo double spend.</p>
+<h2 id="lỗi-24-failover-không-có-owner-epoch">Lỗi 24: Failover không có Owner Epoch</h2>
+<p>Writer cũ có thể tiếp tục ghi.</p>
+<h2 id="lỗi-25-analytics-hoặc-email-nằm-trong-critical-transaction">Lỗi 25: Analytics hoặc Email nằm trong Critical Transaction</h2>
+<p>Side effect lỗi làm payment thất bại không cần thiết.</p>
+<hr>
+<h1 id="156-bảng-ghi-nhớ-nhanh">156. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Payment Intent</td>
+<td>Logical payment lifecycle</td>
+</tr>
+<tr>
+<td>Payment Attempt</td>
+<td>Một lần tương tác payment method/provider</td>
+</tr>
+<tr>
+<td>Authorization</td>
+<td>Giữ khả năng thanh toán</td>
+</tr>
+<tr>
+<td>Capture</td>
+<td>Thu tiền cuối cùng</td>
+</tr>
+<tr>
+<td>Idempotency Key</td>
+<td>Ngăn effect trùng</td>
+</tr>
+<tr>
+<td>Provider Adapter</td>
+<td>Chuẩn hóa integration</td>
+</tr>
+<tr>
+<td>Provider Router</td>
+<td>Chọn provider</td>
+</tr>
+<tr>
+<td>Webhook Inbox</td>
+<td>Persist và dedupe webhook</td>
+</tr>
+<tr>
+<td>Transactional Outbox</td>
+<td>Không mất internal event</td>
+</tr>
+<tr>
+<td>Ledger</td>
+<td>Source of truth tài chính</td>
+</tr>
+<tr>
+<td>Journal Transaction</td>
+<td>Nhóm postings cân bằng</td>
+</tr>
+<tr>
+<td>Posting</td>
+<td>Debit hoặc credit một account</td>
+</tr>
+<tr>
+<td>Hold</td>
+<td>Giữ balance tạm thời</td>
+</tr>
+<tr>
+<td>Available Balance</td>
+<td>Số tiền có thể sử dụng</td>
+</tr>
+<tr>
+<td>Clearing Account</td>
+<td>Tiền đang di chuyển</td>
+</tr>
+<tr>
+<td>Suspense Account</td>
+<td>Tiền chưa xác định</td>
+</tr>
+<tr>
+<td>Refund</td>
+<td>Trả tiền sau capture</td>
+</tr>
+<tr>
+<td>Chargeback</td>
+<td>Dispute từ payment network</td>
+</tr>
+<tr>
+<td>Reconciliation</td>
+<td>So khớp internal/provider/bank</td>
+</tr>
+<tr>
+<td>Owner Epoch</td>
+<td>Fencing multi-region</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="157-sơ-đồ-tổng-hợp">157. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> PaymentAPI
+    Client --> WalletAPI
+
+    PaymentAPI --> Intent[(Payment Intents)]
+    PaymentAPI --> Attempts[(Payment Attempts)]
+    PaymentAPI --> Risk
+
+    PaymentAPI --> Router[Provider Router]
+    Router --> ProviderA
+    Router --> ProviderB
+
+    ProviderA --> WebhookGateway
+    ProviderB --> WebhookGateway
+    WebhookGateway --> Inbox[(Webhook Inbox)]
+    Inbox --> PaymentProcessor
+
+    PaymentAPI --> PaymentProcessor
+    PaymentProcessor --> Intent
+    PaymentProcessor --> Attempts
+
+    PaymentProcessor --> LedgerService
+    WalletAPI --> LedgerService
+
+    LedgerService --> Journal[(Immutable Journal)]
+    LedgerService --> Postings[(Double-Entry Postings)]
+    LedgerService --> Balances[(Balance Projection)]
+    LedgerService --> Holds[(Active Holds)]
+
+    PaymentProcessor --> Outbox[(Outbox)]
+    LedgerService --> Outbox
+    Outbox --> FinancialEvents
+
+    FinancialEvents --> RefundService
+    FinancialEvents --> ChargebackService
+    FinancialEvents --> SettlementService
+    FinancialEvents --> Reconciliation
+    FinancialEvents --> Notification
+    FinancialEvents --> Analytics
+</div></code></pre>
+<hr>
+<h1 id="158-những-điều-phải-nhớ-sau-bài-30">158. Những Điều Phải Nhớ sau Bài 30</h1>
+<pre class="hljs"><code><div>1. Payment orchestration và ledger là hai lớp khác nhau.
+2. Payment Intent đại diện một logical payment.
+3. Payment Attempt đại diện một lần thử cụ thể.
+4. Authorization khác capture.
+5. Manual capture phù hợp fulfillment xảy ra sau.
+6. Payment state phải là state machine rõ ràng.
+7. Idempotency phải tồn tại ở API và provider boundary.
+8. Cùng idempotency key nhưng payload khác phải bị từ chối.
+9. Concurrent idempotency requests cần unique claim.
+10. Timeout không đồng nghĩa failure.
+11. Unknown outcome cần query, webhook và reconciliation.
+12. Không failover provider mù sau timeout.
+13. Webhook phải verify signature.
+14. Webhook phải được persist trước khi xử lý.
+15. Webhook có thể duplicate.
+16. Webhook có thể out-of-order.
+17. Transactional outbox ngăn mất internal events.
+18. Inbox pattern giúp consumer idempotent.
+19. Ledger phải append-only.
+20. Ledger phải double-entry.
+21. Tổng debit phải bằng tổng credit.
+22. Debit không luôn là âm; credit không luôn là dương.
+23. User wallet thường là liability của platform.
+24. Không được sửa posted ledger transaction.
+25. Sai sót phải dùng reversal hoặc adjustment.
+26. Balance projection không phải source of truth.
+27. Ledger mới là source of truth.
+28. Wallet cần posted, held và available balances.
+29. Active holds phải có identity và state.
+30. Double spend cần conditional write hoặc single writer.
+31. Ledger posting và balance update phải atomic.
+32. Top-up chỉ credit wallet khi funding đạt mức finality phù hợp.
+33. P2P transfer phải có hai postings cân bằng.
+34. Cross-shard transfer có thể cần clearing Saga.
+35. Withdrawal có trạng thái in-transit.
+36. Merchant payable khác bank payout.
+37. Settlement phải dựa trên ledger.
+38. Refund có identity và state riêng.
+39. Partial refunds không được vượt captured amount.
+40. Refund timeout cũng là unknown outcome.
+41. Void khác refund.
+42. Chargeback khác refund.
+43. Chargeback có thể xảy ra rất lâu sau payment.
+44. Chargeback cần evidence workflow.
+45. Reconciliation là bắt buộc.
+46. Reconciliation phải so internal, provider và bank.
+47. Không sửa ledger chỉ để làm report khớp.
+48. Suspense account dùng cho tiền chưa xác định.
+49. Clearing account dùng cho tiền đang di chuyển.
+50. Mỗi currency cần account riêng.
+51. Không dùng floating-point cho tiền.
+52. FX cần quote, rate và hai currency legs.
+53. Risk và velocity checks cần near-realtime.
+54. Sensitive manual operations cần audit và approval.
+55. Wallet freeze cần policy chi tiết.
+56. Limits phải được check atomically.
+57. Payment events cần aggregate version.
+58. Không cần global ordering giữa các payments.
+59. Relational transactions phù hợp payment metadata.
+60. Ledger partitioning là bài toán khó vì transaction có nhiều accounts.
+61. Single writer giúp ngăn double spend.
+62. Hot clearing accounts cần sharding.
+63. Payment Intent nên có home region.
+64. Wallet account nên có owner region.
+65. Multi-region failover cần owner epoch và fencing.
+66. Posted ledger cần RPO gần 0.
+67. Webhook có thể nhận tại nhiều regions nhưng phải dedupe toàn cục.
+68. In-flight provider operations phải được reconcile sau disaster.
+69. Ledger failure không được âm thầm bỏ qua.
+70. Email, notification và analytics không thuộc financial critical path.
+</div></code></pre>
+<hr>
+<h1 id="159-bài-tập-thiết-kế-mở-rộng">159. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Payment System và Digital Wallet với yêu cầu:</p>
+<pre class="hljs"><code><div>- 1 tỷ users
+- 100 triệu merchants
+- 1 tỷ payment attempts/ngày
+- 100 triệu wallet transfers/ngày
+- 200 currencies và payment methods
+- Multi-provider routing
+- p99 internal payment latency dưới 300 ms
+- Không double charge
+- Không double spend
+- Ledger RPO bằng 0 khi mất một region
+- Multi-region active–active
+- EU financial data không được rời EU
+- Reconciliation gần realtime
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Payment Intent ID được tạo thế nào?
+2. Idempotency key scope là gì?
+3. Idempotency record giữ bao lâu?
+4. Concurrent same-key requests được xử lý ra sao?
+5. Payment Intent và Attempt states gồm gì?
+6. Provider idempotency key được xây thế nào?
+7. Provider timeout được xử lý ra sao?
+8. Khi nào được failover sang provider khác?
+9. Webhook signature và replay được kiểm tra thế nào?
+10. Webhook out-of-order được xử lý bằng version nào?
+11. Ledger schema gồm account, transaction và posting ra sao?
+12. Ledger transaction cân bằng được enforce ở đâu?
+13. Posted ledger có được update không?
+14. Balance projection được cập nhật atomically thế nào?
+15. Wallet hold nằm trong ledger hay store riêng?
+16. Hai concurrent wallet debits bị ngăn ra sao?
+17. P2P transfer giữa hai shards hoạt động thế nào?
+18. Top-up pending và available được phân biệt ra sao?
+19. Withdrawal returned sau ba ngày được reverse thế nào?
+20. Partial refund concurrency được xử lý thế nào?
+21. Chargeback debit merchant balance ra sao?
+22. Merchant không đủ balance thì xử lý thế nào?
+23. Clearing và suspense accounts được theo dõi thế nào?
+24. Multi-currency ledger cân bằng ra sao?
+25. FX rounding được ghi vào account nào?
+26. Settlement batch liên kết postings thế nào?
+27. Reconciliation matching key là gì?
+28. Unmatched provider transaction được giải quyết thế nào?
+29. Wallet owner region được chọn ra sao?
+30. Cross-region transfer dùng global transaction hay clearing Saga?
+31. Ledger quorum được đặt ở những regions nào?
+32. Owner epoch được enforce ở layer nào?
+33. Region failover xử lý in-flight authorization thế nào?
+34. EU residency ảnh hưởng provider routing ra sao?
+35. Các invariant và SLO quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-9">Kết luận Case Study 9</h1>
+<p>Payment System và Digital Wallet có thể được cô đọng thành:</p>
+<pre class="hljs"><code><div>Stable Payment Intent
+→ Idempotent provider operations
+→ Authorization và capture
+→ Immutable double-entry ledger
+→ Wallet balances và holds
+→ Refund, chargeback, settlement
+→ Continuous reconciliation
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Payment correctness không đến từ việc “gọi provider đúng một lần”. Nó đến từ stable identities, idempotent retries, explicit unknown states, immutable double-entry accounting và reconciliation liên tục giữa mọi nguồn sự thật.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 31 — Case Study 10: Thiết kế E-commerce Platform — catalog, search, inventory, cart, pricing, checkout, order management, payment, warehouse fulfillment, shipment, returns và flash sale.</strong></p>
+
+</body>
+</html>

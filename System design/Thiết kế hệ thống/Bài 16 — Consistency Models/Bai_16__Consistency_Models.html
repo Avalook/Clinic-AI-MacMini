@@ -1,0 +1,2458 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 16 — Consistency Models.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-16--consistency-models">Bài 16 — Consistency Models</h1>
+<p>Trong distributed system, dữ liệu thường tồn tại ở nhiều nơi:</p>
+<pre class="hljs"><code><div>- Leader và read replicas
+- Nhiều database shard
+- Nhiều region
+- Cache và database
+- Write model và read projection
+- Search index
+- Mobile client offline
+</div></code></pre>
+<p>Vì replication và propagation cần thời gian, các bản sao có thể tạm thời không giống nhau.</p>
+<p>Câu hỏi quan trọng không chỉ là:</p>
+<blockquote>
+<p>“Dữ liệu có nhất quán không?”</p>
+</blockquote>
+<p>Mà phải hỏi chính xác hơn:</p>
+<pre class="hljs"><code><div>- Nhất quán theo thứ tự nào?
+- Nhất quán với ai?
+- Trong bao lâu?
+- Một user có thấy write của chính mình không?
+- Các user có thấy cùng một thứ tự không?
+- Transaction có thể xen kẽ ra sao?
+- Dữ liệu được phép cũ tối đa bao lâu?
+</div></code></pre>
+<p><strong>Consistency model</strong> là contract mô tả những kết quả đọc và thứ tự operation nào mà hệ thống cho phép quan sát.</p>
+<p>Các model chính của bài:</p>
+<pre class="hljs"><code><div>- Linearizability
+- Serializability
+- Strict serializability
+- Causal consistency
+- Read-your-writes
+- Monotonic reads
+- Bounded staleness
+- Eventual consistency
+</div></code></pre>
+<hr>
+<h1 id="1-consistency-không-chỉ-có-mạnh-và-yếu">1. Consistency không chỉ có “mạnh” và “yếu”</h1>
+<p>Consistency là một phổ:</p>
+<pre class="hljs"><code><div>Strong hơn
+───────────────────────────────────────────────&gt;
+Linearizable
+Strict serializable
+Serializable
+Causal
+Session guarantees
+Bounded staleness
+Eventual consistency
+
+&lt;───────────────────────────────────────────────
+Latency thấp hơn / Availability cao hơn thường dễ đạt hơn
+</div></code></pre>
+<p>Sơ đồ trên chỉ mang tính trực giác. Một số model bảo đảm các khía cạnh khác nhau nên không phải lúc nào cũng xếp thành một đường thẳng tuyệt đối.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Linearizability:
+Nói về thứ tự operation theo thời gian thực.
+
+Serializability:
+Nói về việc nhiều transaction xen kẽ có tương đương
+một thứ tự tuần tự hợp lệ hay không.
+</div></code></pre>
+<p>Hai model này không cùng giải quyết chính xác một vấn đề.</p>
+<hr>
+<h1 id="2-consistency-model-và-transaction-isolation-khác-nhau-thế-nào">2. Consistency Model và Transaction Isolation khác nhau thế nào?</h1>
+<p>Đây là điểm thường xuyên bị nhầm.</p>
+<h2 id="consistency-model">Consistency model</h2>
+<p>Mô tả những giá trị và thứ tự operation mà client được phép quan sát trong hệ thống phân tán.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Linearizability
+- Causal consistency
+- Eventual consistency
+</div></code></pre>
+<h2 id="isolation-level">Isolation level</h2>
+<p>Mô tả các transaction đồng thời được phép nhìn thấy và ảnh hưởng lẫn nhau thế nào.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Read committed
+- Repeatable read
+- Snapshot isolation
+- Serializable
+</div></code></pre>
+<p>Có sự giao nhau về ý tưởng, nhưng không nên dùng hai nhóm thuật ngữ thay thế hoàn toàn cho nhau.</p>
+<hr>
+<h1 id="3-lịch-sử-operation">3. Lịch sử operation</h1>
+<p>Để hiểu consistency, ta xem một lịch sử thao tác trên một register <code>x</code>.</p>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>x = 0
+</div></code></pre>
+<p>Client A thực hiện:</p>
+<pre class="hljs"><code><div>write(x, 1)
+</div></code></pre>
+<p>Client B thực hiện:</p>
+<pre class="hljs"><code><div>read(x)
+</div></code></pre>
+<p>Một history gồm:</p>
+<pre class="hljs"><code><div>- Thời điểm operation bắt đầu
+- Thời điểm operation kết thúc
+- Giá trị trả về
+- Quan hệ giữa các operation
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Time ─────────────────────────────────────────&gt;
+
+A: write(x=1) |──────────| success
+
+B:                    read(x) |────| returns ?
+</div></code></pre>
+<p>Nếu read bắt đầu sau khi write đã hoàn tất, model consistency quyết định liệu B có bắt buộc đọc được <code>1</code> hay có thể vẫn thấy <code>0</code>.</p>
+<hr>
+<h1 id="4-linearizability-là-gì">4. Linearizability là gì?</h1>
+<p>Linearizability tạo cảm giác hệ thống chỉ có <strong>một bản sao dữ liệu duy nhất</strong>, dù thực tế có nhiều replica.</p>
+<p>Mỗi operation có vẻ xảy ra tức thời tại một điểm duy nhất giữa:</p>
+<pre class="hljs"><code><div>Thời điểm operation bắt đầu
+và
+Thời điểm operation kết thúc
+</div></code></pre>
+<p>Đồng thời, thứ tự phải tôn trọng <strong>real-time order</strong>.</p>
+<blockquote>
+<p>Nếu operation A hoàn tất trước khi operation B bắt đầu, B phải quan sát một trạng thái đã bao gồm A.</p>
+</blockquote>
+<hr>
+<h1 id="5-ví-dụ-linearizable-register">5. Ví dụ Linearizable Register</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>x = 0
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant A as Client A
+    participant Store
+    participant B as Client B
+
+    A->>Store: write(x = 1)
+    Store-->>A: success
+
+    B->>Store: read(x)
+    Store-->>B: 1
+</div></code></pre>
+<p>Vì write đã hoàn tất trước khi read bắt đầu, read bắt buộc trả:</p>
+<pre class="hljs"><code><div>1
+</div></code></pre>
+<p>Nếu trả <code>0</code>, history không linearizable.</p>
+<hr>
+<h1 id="6-linearization-point">6. Linearization Point</h1>
+<p>Operation có thể mất 100 ms nhưng được xem như xảy ra tại một điểm logic trong khoảng đó.</p>
+<pre class="hljs"><code><div>write starts                         write returns
+      |----------------------------------|
+                       ^
+                       |
+              linearization point
+</div></code></pre>
+<p>Ví dụ trong consensus system, linearization point của write thường gắn với:</p>
+<pre class="hljs"><code><div>Entry được commit bởi quorum.
+</div></code></pre>
+<p>Không nhất thiết là lúc client gửi request hoặc lúc leader ghi local.</p>
+<hr>
+<h1 id="7-các-operation-chồng-lấn-có-thể-được-sắp-xếp-linh-hoạt">7. Các operation chồng lấn có thể được sắp xếp linh hoạt</h1>
+<p>Nếu hai operation chạy đồng thời, real-time không bắt buộc thứ tự giữa chúng.</p>
+<pre class="hljs"><code><div>Time ─────────────────────────────────────&gt;
+
+A: write(x=1) |──────────────|
+
+B:       read(x) |──────────────|
+</div></code></pre>
+<p>Vì operation overlap, read có thể hợp lệ khi trả:</p>
+<pre class="hljs"><code><div>0 hoặc 1
+</div></code></pre>
+<p>miễn có thể tìm được một thứ tự tuần tự hợp lệ đặt linearization point của cả hai trong khoảng thực thi.</p>
+<hr>
+<h1 id="8-ví-dụ-history-không-linearizable">8. Ví dụ history không Linearizable</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>x = 0
+</div></code></pre>
+<pre class="hljs"><code><div>1. A write x=1 hoàn tất.
+2. B read x trả 1.
+3. C read x diễn ra sau B nhưng trả 0.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant A
+    participant Store
+    participant B
+    participant C
+
+    A->>Store: write x=1
+    Store-->>A: success
+
+    B->>Store: read x
+    Store-->>B: 1
+
+    C->>Store: read x
+    Store-->>C: 0
+</div></code></pre>
+<p>Sau khi hệ thống đã cho B thấy <code>1</code>, một read muộn hơn trong real time không thể quay lại <code>0</code> đối với cùng object linearizable.</p>
+<hr>
+<h1 id="9-linearizability-tạo-cảm-giác-single-copy">9. Linearizability tạo cảm giác “Single Copy”</h1>
+<p>Application có thể suy nghĩ như:</p>
+<pre class="hljs"><code><div>Chỉ có một biến x.
+Mọi người đang thao tác trên cùng biến đó.
+</div></code></pre>
+<p>Dù phía sau có:</p>
+<pre class="hljs"><code><div>- Leader
+- Followers
+- Quorum
+- Replication
+- Failover
+</div></code></pre>
+<p>Đây là abstraction rất mạnh, giúp business logic dễ viết hơn.</p>
+<hr>
+<h1 id="10-linearizability-dùng-cho-gì">10. Linearizability dùng cho gì?</h1>
+<p>Phù hợp với các invariant cần một quyết định mới nhất và duy nhất:</p>
+<pre class="hljs"><code><div>- Một ghế chỉ được bán một lần
+- Distributed lock
+- Leader election
+- Unique username
+- Inventory commit
+- Account balance authoritative
+- Permission vừa bị thu hồi
+- Compare-and-set
+- Configuration ownership
+</div></code></pre>
+<p>Ví dụ đặt ghế:</p>
+<pre class="hljs"><code><div>Client A: reserve S12
+Client B: reserve S12
+</div></code></pre>
+<p>Một linearizable conditional update có thể bảo đảm chỉ một bên thắng.</p>
+<hr>
+<h1 id="11-linearizable-compare-and-set">11. Linearizable Compare-and-Set</h1>
+<p>Operation:</p>
+<pre class="hljs"><code><div>CAS(seat_status, AVAILABLE, RESERVED_BY_A)
+</div></code></pre>
+<p>Nếu hai client cạnh tranh:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant A
+    participant Store
+    participant B
+
+    par Concurrent requests
+        A->>Store: CAS AVAILABLE → RESERVED_A
+        B->>Store: CAS AVAILABLE → RESERVED_B
+    end
+
+    Store-->>A: success
+    Store-->>B: failed
+</div></code></pre>
+<p>Store phải chọn một thứ tự duy nhất.</p>
+<p>Không được trả success cho cả hai.</p>
+<hr>
+<h1 id="12-linearizable-write-nhưng-read-từ-replica-có-thể-phá-contract">12. Linearizable Write nhưng Read từ Replica có thể phá Contract</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>1. Write vào leader.
+2. Leader trả success.
+3. Read sau đó được route tới replica đang lag.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant Replica
+
+    Client->>Leader: write x=1
+    Leader-->>Client: success
+
+    Client->>Replica: read x
+    Replica-->>Client: 0
+</div></code></pre>
+<p>Hệ thống này không linearizable nếu API hứa rằng cả write và read trên object đều linearizable.</p>
+<p>Replication nhanh không đủ; read path cũng phải tham gia consistency protocol hoặc route tới nguồn đủ mới.</p>
+<hr>
+<h1 id="13-cách-triển-khai-linearizable-read">13. Cách triển khai Linearizable Read</h1>
+<p>Các hướng phổ biến:</p>
+<pre class="hljs"><code><div>1. Đọc từ leader đã xác nhận vẫn còn leadership.
+2. Đọc qua quorum.
+3. Dùng consensus ReadIndex.
+4. Dùng leader lease với giả định thời gian cẩn thận.
+5. Chờ replica đạt commit position yêu cầu.
+</div></code></pre>
+<p>Chỉ đọc local state của một old leader chưa xác nhận quyền lãnh đạo có thể trả stale data sau network partition.</p>
+<hr>
+<h1 id="14-chi-phí-của-linearizability">14. Chi phí của Linearizability</h1>
+<p>Linearizability thường yêu cầu coordination:</p>
+<pre class="hljs"><code><div>- Quorum communication
+- Leader routing
+- Durable logging
+- Cross-node acknowledgement
+- Chờ replica đủ mới
+</div></code></pre>
+<p>Hệ quả có thể là:</p>
+<pre class="hljs"><code><div>- Write latency cao hơn
+- Read latency cao hơn
+- Giảm availability khi mất quorum
+- Cross-region latency cao
+</div></code></pre>
+<p>Không có nghĩa linearizability luôn chậm, nhưng nó hạn chế các tối ưu có thể thực hiện.</p>
+<hr>
+<h1 id="15-linearizability-trong-network-partition">15. Linearizability trong Network Partition</h1>
+<p>Cluster bị chia:</p>
+<pre class="hljs"><code><div>A, B | C, D, E
+</div></code></pre>
+<p>Nếu hệ thống cần linearizable write:</p>
+<pre class="hljs"><code><div>Phía majority:
+Có thể tiếp tục.
+
+Phía minority:
+Phải từ chối hoặc chờ.
+</div></code></pre>
+<p>Nếu cả hai phía cùng nhận write, không thể duy trì một thứ tự duy nhất mà không có conflict hoặc rollback sau đó.</p>
+<p>Đây là mối liên hệ với CAP:</p>
+<blockquote>
+<p>Khi network partition xảy ra, một hệ thống linearizable thường phải hy sinh availability ở phần không thể đạt quorum.</p>
+</blockquote>
+<hr>
+<h1 id="16-linearizability-không-có-nghĩa-transaction-serializable">16. Linearizability không có nghĩa Transaction Serializable</h1>
+<p>Linearizability thường được định nghĩa cho operation trên từng object hoặc interface.</p>
+<p>Serializability nói về nhiều transaction có thể chạm nhiều object.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Account A
+Account B
+</div></code></pre>
+<p>Hai transaction có thể đọc/ghi nhiều account.</p>
+<p>Một database có thể cung cấp linearizable reads/writes cho từng key nhưng vẫn cho phép anomaly giữa nhiều key nếu transaction isolation không đủ mạnh.</p>
+<hr>
+<h1 id="17-serializability-là-gì">17. Serializability là gì?</h1>
+<p>Serializability bảo đảm kết quả của các transaction chạy đồng thời tương đương với việc chúng chạy <strong>tuần tự theo một thứ tự nào đó</strong>.</p>
+<p>Ví dụ hai transaction:</p>
+<pre class="hljs"><code><div>T1: chuyển 100 từ A sang B
+T2: tính tổng A + B
+</div></code></pre>
+<p>Dù các operation nội bộ có thể xen kẽ, kết quả cuối phải tương đương:</p>
+<pre class="hljs"><code><div>T1 rồi T2
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>T2 rồi T1
+</div></code></pre>
+<p>Không được tạo một kết quả không thể xuất hiện trong bất kỳ thứ tự tuần tự nào.</p>
+<hr>
+<h1 id="18-ví-dụ-serial-execution">18. Ví dụ Serial Execution</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>A = 500
+B = 500
+</div></code></pre>
+<p>T1 chuyển 100 từ A sang B:</p>
+<pre class="hljs"><code><div>A = 400
+B = 600
+</div></code></pre>
+<p>T2 đọc tổng.</p>
+<h2 id="thứ-tự-t1--t2">Thứ tự T1 → T2</h2>
+<pre class="hljs"><code><div>T2 đọc:
+400 + 600 = 1000
+</div></code></pre>
+<h2 id="thứ-tự-t2--t1">Thứ tự T2 → T1</h2>
+<pre class="hljs"><code><div>T2 đọc:
+500 + 500 = 1000
+</div></code></pre>
+<p>Trong cả hai serial order:</p>
+<pre class="hljs"><code><div>Tổng = 1000
+</div></code></pre>
+<hr>
+<h1 id="19-history-không-serializable">19. History không Serializable</h1>
+<p>Các operation xen kẽ:</p>
+<pre class="hljs"><code><div>T1 đọc A=500
+T1 ghi A=400
+
+T2 đọc A=400
+T2 đọc B=500
+T2 tính tổng=900
+
+T1 ghi B=600
+</div></code></pre>
+<p>T2 thấy:</p>
+<pre class="hljs"><code><div>A sau debit
+B trước credit
+</div></code></pre>
+<p>Kết quả <code>900</code> không xuất hiện khi chạy T1 và T2 tuần tự theo bất kỳ thứ tự nào.</p>
+<p>History đó không serializable.</p>
+<hr>
+<h1 id="20-serializability-bảo-vệ-multi-object-invariant">20. Serializability bảo vệ Multi-Object Invariant</h1>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Tổng debit và credit
+- Một bác sĩ chỉ có một lịch tại cùng thời điểm
+- Giới hạn số người trực
+- Inventory và reservation liên quan
+- Unique constraints phức tạp
+- Workflow cập nhật nhiều row/table
+</div></code></pre>
+<p>Serializability cho phép application suy nghĩ như transaction được chạy lần lượt, dù database thực tế chạy song song.</p>
+<hr>
+<h1 id="21-serializability-không-nhất-thiết-tôn-trọng-real-time">21. Serializability không nhất thiết tôn trọng Real-Time</h1>
+<p>Đây là điểm cực kỳ quan trọng.</p>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>T1 hoàn tất trước khi T2 bắt đầu trong thế giới thật.
+</div></code></pre>
+<p>Serializability thuần túy chỉ yêu cầu tồn tại một serial order hợp lệ, nhưng serial order đó về lý thuyết có thể đặt:</p>
+<pre class="hljs"><code><div>T2 trước T1
+</div></code></pre>
+<p>nếu kết quả transaction vẫn hợp lệ.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>Serializable ≠ Linearizable
+</div></code></pre>
+<hr>
+<h1 id="22-strict-serializability">22. Strict Serializability</h1>
+<p><strong>Strict serializability</strong> kết hợp:</p>
+<pre class="hljs"><code><div>Serializability
++
+Real-time ordering
+</div></code></pre>
+<p>Nó yêu cầu:</p>
+<pre class="hljs"><code><div>1. Transaction tương đương một thứ tự tuần tự.
+2. Nếu T1 hoàn tất trước T2 bắt đầu,
+   serial order phải đặt T1 trước T2.
+</div></code></pre>
+<p>Strict serializability thường được xem là consistency model rất mạnh cho transactional systems.</p>
+<hr>
+<h1 id="23-linearizability-và-strict-serializability">23. Linearizability và Strict Serializability</h1>
+<p>Cách nhớ:</p>
+<pre class="hljs"><code><div>Linearizability:
+Atomic operations + real-time order
+
+Serializability:
+Transactions tương đương serial order
+
+Strict serializability:
+Serializable transactions + real-time order
+</div></code></pre>
+<p>Bảng so sánh:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Đơn vị chính</th>
+<th style="text-align:right">Tôn trọng real time?</th>
+<th style="text-align:right">Multi-operation transaction?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linearizability</td>
+<td>Operation/object</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Không tự động</td>
+</tr>
+<tr>
+<td>Serializability</td>
+<td>Transaction</td>
+<td style="text-align:right">Không bắt buộc</td>
+<td style="text-align:right">Có</td>
+</tr>
+<tr>
+<td>Strict serializability</td>
+<td>Transaction</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Có</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="24-snapshot-isolation-không-đồng-nghĩa-serializable">24. Snapshot Isolation không đồng nghĩa Serializable</h1>
+<p>Snapshot isolation thường cho mỗi transaction đọc một snapshot nhất quán.</p>
+<p>Nó ngăn nhiều anomaly nhưng vẫn có thể xảy ra <strong>write skew</strong>.</p>
+<p>Ví dụ bệnh viện:</p>
+<pre class="hljs"><code><div>Quy tắc:
+Luôn phải có ít nhất một bác sĩ trực.
+
+Ban đầu:
+Doctor A = on call
+Doctor B = on call
+</div></code></pre>
+<p>T1:</p>
+<pre class="hljs"><code><div>Đọc A và B đều on call.
+Cho A off call.
+</div></code></pre>
+<p>T2:</p>
+<pre class="hljs"><code><div>Đọc cùng snapshot A và B đều on call.
+Cho B off call.
+</div></code></pre>
+<p>Hai transaction ghi hai row khác nhau nên có thể cùng commit.</p>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Không còn bác sĩ nào trực.
+</div></code></pre>
+<p>Invariant bị phá dù mỗi transaction đọc một snapshot nhất quán.</p>
+<p>Serializable isolation phải ngăn hoặc abort một transaction.</p>
+<hr>
+<h1 id="25-causal-consistency-là-gì">25. Causal Consistency là gì?</h1>
+<p>Causal consistency bảo đảm các operation có quan hệ <strong>nhân quả</strong> được mọi observer nhìn thấy theo đúng thứ tự.</p>
+<p>Nếu event B có thể là kết quả hoặc phụ thuộc vào event A:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>thì mọi client thấy B phải thấy A trước.</p>
+<p>Các operation không có quan hệ nhân quả có thể được nhìn theo thứ tự khác nhau.</p>
+<hr>
+<h1 id="26-quan-hệ-nhân-quả-được-hình-thành-thế-nào">26. Quan hệ nhân quả được hình thành thế nào?</h1>
+<p>Một số nguồn causal relation:</p>
+<h2 id="program-order">Program order</h2>
+<p>Trong cùng client:</p>
+<pre class="hljs"><code><div>A xảy ra trước B.
+</div></code></pre>
+<h2 id="read-then-write">Read-then-write</h2>
+<p>Client đọc A rồi tạo B dựa trên A:</p>
+<pre class="hljs"><code><div>Read post P
+→ Write comment C
+</div></code></pre>
+<p>C phụ thuộc P.</p>
+<h2 id="message-passing">Message passing</h2>
+<p>Service nhận event A rồi phát event B.</p>
+<pre class="hljs"><code><div>OrderCreated
+→ InventoryReserved
+</div></code></pre>
+<p>B có quan hệ nhân quả với A.</p>
+<h2 id="transitivity">Transitivity</h2>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>A → B
+B → C
+</div></code></pre>
+<p>thì:</p>
+<pre class="hljs"><code><div>A → C
+</div></code></pre>
+<hr>
+<h1 id="27-ví-dụ-causal-consistency-trong-social-network">27. Ví dụ Causal Consistency trong Social Network</h1>
+<p>User A đăng bài:</p>
+<pre class="hljs"><code><div>P: “Tôi vừa đỗ kỳ thi.”
+</div></code></pre>
+<p>User B đọc P rồi bình luận:</p>
+<pre class="hljs"><code><div>C: “Chúc mừng!”
+</div></code></pre>
+<p>Quan hệ:</p>
+<pre class="hljs"><code><div>P → C
+</div></code></pre>
+<p>Không hợp lý nếu User C thấy:</p>
+<pre class="hljs"><code><div>“Chúc mừng!”
+</div></code></pre>
+<p>nhưng chưa thấy bài viết gốc.</p>
+<p>Causal consistency yêu cầu:</p>
+<pre class="hljs"><code><div>Ai thấy comment C cũng phải thấy post P trước.
+</div></code></pre>
+<hr>
+<h1 id="28-concurrent-operations-trong-causal-consistency">28. Concurrent Operations trong Causal Consistency</h1>
+<p>User A ở Việt Nam đăng:</p>
+<pre class="hljs"><code><div>P1: “Chào buổi sáng”
+</div></code></pre>
+<p>User B ở châu Âu đồng thời đăng:</p>
+<pre class="hljs"><code><div>P2: “Good evening”
+</div></code></pre>
+<p>Hai post không đọc hoặc phụ thuộc nhau:</p>
+<pre class="hljs"><code><div>P1 || P2
+</div></code></pre>
+<p>Chúng concurrent về mặt nhân quả.</p>
+<p>Một observer có thể thấy:</p>
+<pre class="hljs"><code><div>P1 rồi P2
+</div></code></pre>
+<p>Observer khác có thể thấy:</p>
+<pre class="hljs"><code><div>P2 rồi P1
+</div></code></pre>
+<p>Causal consistency vẫn được duy trì vì không có causal order cần bảo vệ giữa P1 và P2.</p>
+<hr>
+<h1 id="29-causal-consistency-mạnh-hơn-eventual-consistency">29. Causal Consistency mạnh hơn Eventual Consistency</h1>
+<p>Eventual consistency có thể chỉ bảo đảm cuối cùng replicas hội tụ.</p>
+<p>Nó có thể tạm thời cho thấy:</p>
+<pre class="hljs"><code><div>Comment trước post
+Reply trước message gốc
+OrderShipped trước OrderCreated
+</div></code></pre>
+<p>Causal consistency không cho phép đảo các dependency nhân quả như vậy.</p>
+<hr>
+<h1 id="30-causal-consistency-yếu-hơn-linearizability">30. Causal Consistency yếu hơn Linearizability</h1>
+<p>Linearizability yêu cầu một global real-time order cho operation.</p>
+<p>Causal consistency chỉ yêu cầu thứ tự đối với các operation có causal relation.</p>
+<p>Các operation concurrent không cần cùng thứ tự ở mọi nơi.</p>
+<p>Nhờ ít coordination hơn, causal systems có thể cung cấp:</p>
+<pre class="hljs"><code><div>- Latency địa phương thấp
+- Availability tốt hơn khi partition
+- Multi-region writes
+</div></code></pre>
+<p>trong nhiều thiết kế.</p>
+<hr>
+<h1 id="31-causal-metadata">31. Causal Metadata</h1>
+<p>Để giữ causal order, hệ thống có thể theo dõi:</p>
+<pre class="hljs"><code><div>- Logical timestamps
+- Version vectors
+- Dependency sets
+- Session tokens
+- Hybrid logical clocks
+</div></code></pre>
+<p>Ví dụ event comment mang dependency:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;comment_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;dependsOn&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;postVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Replica chỉ hiển thị comment khi đã có ít nhất post version 42.</p>
+<hr>
+<h1 id="32-causal-consistency">32. Causal+ Consistency</h1>
+<p>Một số hệ thống cung cấp causal consistency cộng thêm conflict resolution giúp replicas cuối cùng hội tụ.</p>
+<p>Có thể gọi khái niệm này là:</p>
+<pre class="hljs"><code><div>Causal+
+</div></code></pre>
+<p>Nó thường kết hợp:</p>
+<pre class="hljs"><code><div>- Causal ordering
+- Convergent conflict handling
+- Always-available local operations trong một số kiến trúc
+</div></code></pre>
+<p>Không phải thuật ngữ API phổ quát, nhưng hữu ích để hiểu các hệ thống geo-replicated.</p>
+<hr>
+<h1 id="33-session-guarantees">33. Session Guarantees</h1>
+<p>Không phải ứng dụng nào cũng cần global linearizability.</p>
+<p>Đôi khi chỉ cần bảo đảm trải nghiệm nhất quán cho từng user/session.</p>
+<p>Các session guarantee phổ biến:</p>
+<pre class="hljs"><code><div>- Read-your-writes
+- Monotonic reads
+- Monotonic writes
+- Writes-follow-reads
+</div></code></pre>
+<p>Bài này tập trung sâu vào hai loại đầu, nhưng nên hiểu cả bốn.</p>
+<hr>
+<h1 id="34-read-your-writes-consistency">34. Read-Your-Writes Consistency</h1>
+<p>Read-your-writes bảo đảm:</p>
+<blockquote>
+<p>Sau khi một client ghi thành công, các lần đọc sau của chính client đó sẽ nhìn thấy write đó hoặc version mới hơn.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User đổi tên:
+Luna → Luna Bailey
+</div></code></pre>
+<p>Sau response thành công, user không nên refresh và thấy lại:</p>
+<pre class="hljs"><code><div>Luna
+</div></code></pre>
+<hr>
+<h1 id="35-read-your-writes-không-yêu-cầu-mọi-user-thấy-ngay">35. Read-Your-Writes không yêu cầu mọi user thấy ngay</h1>
+<p>Client A vừa update profile.</p>
+<p>Read-your-writes yêu cầu:</p>
+<pre class="hljs"><code><div>A đọc lại → thấy tên mới.
+</div></code></pre>
+<p>Nhưng Client B có thể tạm thời vẫn thấy tên cũ nếu hệ thống chỉ cung cấp session consistency.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>Read-your-writes ≠ Linearizability toàn hệ thống
+</div></code></pre>
+<hr>
+<h1 id="36-read-your-writes-bị-phá-bởi-read-replica">36. Read-Your-Writes bị phá bởi Read Replica</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Leader
+    participant Replica
+
+    User->>Leader: Update profile
+    Leader-->>User: success
+
+    User->>Replica: Read profile
+    Replica-->>User: old profile
+</div></code></pre>
+<p>Đây là anomaly phổ biến khi:</p>
+<pre class="hljs"><code><div>Write → leader
+Read → random replica
+</div></code></pre>
+<hr>
+<h1 id="37-cách-bảo-đảm-read-your-writes">37. Cách bảo đảm Read-Your-Writes</h1>
+<h2 id="route-về-leader">Route về Leader</h2>
+<p>Sau write, read của user đi leader.</p>
+<pre class="hljs"><code><div>Ưu:
+Đơn giản, dữ liệu mới.
+
+Nhược:
+Tăng load leader.
+</div></code></pre>
+<hr>
+<h2 id="sticky-replica">Sticky Replica</h2>
+<p>Giữ user ở cùng replica đã đủ mới.</p>
+<p>Không hoàn hảo nếu replica đó lag hoặc lỗi.</p>
+<hr>
+<h2 id="session-version-token">Session Version Token</h2>
+<p>Write response trả:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;profileVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">105</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Read tiếp theo mang:</p>
+<pre class="hljs"><code><div>minimumVersion = 105
+</div></code></pre>
+<p>Router chỉ dùng replica có version ít nhất 105.</p>
+<p>Nếu không có replica đủ mới:</p>
+<pre class="hljs"><code><div>- Chờ
+- Route leader
+- Trả retryable response
+</div></code></pre>
+<hr>
+<h2 id="time-window">Time Window</h2>
+<p>Sau write trong vài giây:</p>
+<pre class="hljs"><code><div>Read của user → leader
+</div></code></pre>
+<p>Đây là heuristic, không phải guarantee tuyệt đối nếu lag vượt window.</p>
+<hr>
+<h2 id="client-cache">Client Cache</h2>
+<p>Client giữ state vừa ghi.</p>
+<p>Tốt cho UX nhưng không thay thế server guarantee cho correctness.</p>
+<hr>
+<h1 id="38-monotonic-reads">38. Monotonic Reads</h1>
+<p>Monotonic reads bảo đảm:</p>
+<blockquote>
+<p>Khi một client đã thấy một version dữ liệu, các lần đọc sau không được trả version cũ hơn.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Read 1 → version 10
+Read 2 → version 12
+Read 3 → không được về version 9
+</div></code></pre>
+<p>Cho phép:</p>
+<pre class="hljs"><code><div>10 → 10 → 12 → 12 → 15
+</div></code></pre>
+<p>Không cho phép:</p>
+<pre class="hljs"><code><div>10 → 12 → 9
+</div></code></pre>
+<hr>
+<h1 id="39-ví-dụ-phá-monotonic-reads">39. Ví dụ phá Monotonic Reads</h1>
+<p>Hai replicas:</p>
+<pre class="hljs"><code><div>Replica A:
+version 20
+
+Replica B:
+version 17
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant A as Replica A
+    participant B as Replica B
+
+    Client->>A: Read
+    A-->>Client: version 20
+
+    Client->>B: Read
+    B-->>Client: version 17
+</div></code></pre>
+<p>User thấy dữ liệu “quay ngược thời gian”.</p>
+<p>Điều này đặc biệt khó chịu với:</p>
+<pre class="hljs"><code><div>- Feed
+- Chat
+- Order status
+- Document editing
+- Notification list
+</div></code></pre>
+<hr>
+<h1 id="40-cách-bảo-đảm-monotonic-reads">40. Cách bảo đảm Monotonic Reads</h1>
+<h2 id="sticky-session-theo-replica">Sticky Session theo Replica</h2>
+<p>Một user luôn đọc cùng replica.</p>
+<p>Nếu replica không quay ngược state, user không thấy version cũ.</p>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Replica lỗi cần chuyển
+- Replica có thể rất lag
+- Load không đều
+</div></code></pre>
+<hr>
+<h2 id="minimum-version-token">Minimum Version Token</h2>
+<p>Client lưu version cao nhất đã thấy:</p>
+<pre class="hljs"><code><div>lastSeenVersion = 20
+</div></code></pre>
+<p>Read tiếp theo yêu cầu:</p>
+<pre class="hljs"><code><div>version &gt;= 20
+</div></code></pre>
+<hr>
+<h2 id="leader-routing">Leader Routing</h2>
+<p>Đọc leader có thể đáp ứng nếu leader authoritative và session đã thấy commit tương ứng.</p>
+<hr>
+<h2 id="wait-until-catch-up">Wait Until Catch-Up</h2>
+<p>Replica chờ apply tới required position trước khi trả response.</p>
+<hr>
+<h1 id="41-read-your-writes-và-monotonic-reads-khác-nhau">41. Read-Your-Writes và Monotonic Reads khác nhau</h1>
+<h2 id="read-your-writes">Read-your-writes</h2>
+<p>Quan tâm write của chính client:</p>
+<pre class="hljs"><code><div>Tôi vừa sửa dữ liệu.
+Tôi phải thấy sửa đổi đó.
+</div></code></pre>
+<h2 id="monotonic-reads">Monotonic reads</h2>
+<p>Quan tâm mọi version client đã thấy:</p>
+<pre class="hljs"><code><div>Tôi đã thấy version 20.
+Tôi không được quay lại version 17.
+</div></code></pre>
+<p>Một client có thể chưa từng write gì nhưng vẫn cần monotonic reads.</p>
+<hr>
+<h1 id="42-monotonic-writes">42. Monotonic Writes</h1>
+<p>Monotonic writes bảo đảm write của cùng một client được áp dụng theo đúng thứ tự client phát ra.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Đổi status thành PROCESSING
+2. Đổi status thành COMPLETED
+</div></code></pre>
+<p>Không được apply:</p>
+<pre class="hljs"><code><div>COMPLETED rồi PROCESSING
+</div></code></pre>
+<p>do write thứ nhất đến replica chậm hơn.</p>
+<hr>
+<h1 id="43-writes-follow-reads">43. Writes-Follow-Reads</h1>
+<p>Nếu client đọc version V rồi ghi dựa trên V, write mới phải được đặt sau V trong causal order.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. User đọc document version 10.
+2. User chỉnh sửa và ghi version 11.
+</div></code></pre>
+<p>Write không nên được áp dụng trên replica chỉ mới có version 8.</p>
+<p>Writes-follow-reads là một thành phần quan trọng để xây causal consistency.</p>
+<hr>
+<h1 id="44-bốn-session-guarantees-và-causal-consistency">44. Bốn Session Guarantees và Causal Consistency</h1>
+<p>Các guarantee:</p>
+<pre class="hljs"><code><div>- Read-your-writes
+- Monotonic reads
+- Monotonic writes
+- Writes-follow-reads
+</div></code></pre>
+<p>Khi được kết hợp phù hợp, chúng cung cấp trải nghiệm gần với causal consistency trong một session.</p>
+<p>Cách nhớ:</p>
+<pre class="hljs"><code><div>Read-your-writes:
+Không quên điều mình vừa ghi.
+
+Monotonic reads:
+Không quay ngược điều mình đã thấy.
+
+Monotonic writes:
+Write của mình không bị đảo.
+
+Writes-follow-reads:
+Write của mình tôn trọng dữ liệu mình đã đọc.
+</div></code></pre>
+<hr>
+<h1 id="45-bounded-staleness">45. Bounded Staleness</h1>
+<p>Bounded staleness cho phép dữ liệu cũ, nhưng đặt một giới hạn rõ ràng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Replica không được chậm hơn leader quá:
+- 5 giây
+- 100 operations
+- 1.000 log entries
+- Một version cụ thể
+</div></code></pre>
+<p>Contract:</p>
+<pre class="hljs"><code><div>Bạn có thể không thấy dữ liệu mới nhất,
+nhưng dữ liệu không cũ quá giới hạn X.
+</div></code></pre>
+<hr>
+<h1 id="46-time-bounded-staleness">46. Time-Bounded Staleness</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Read có thể cũ tối đa 10 giây.
+</div></code></pre>
+<p>Nếu replica lag:</p>
+<pre class="hljs"><code><div>3 giây → được phục vụ read
+8 giây → được phục vụ read
+15 giây → không đủ điều kiện
+</div></code></pre>
+<p>Khi vượt giới hạn:</p>
+<pre class="hljs"><code><div>- Route sang replica khác
+- Đọc leader
+- Chờ catch-up
+- Trả unavailable tùy contract
+</div></code></pre>
+<hr>
+<h1 id="47-version-bounded-staleness">47. Version-Bounded Staleness</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Replica không được chậm hơn quá 100 transactions.
+</div></code></pre>
+<p>Leader:</p>
+<pre class="hljs"><code><div>commit position = 10.000
+</div></code></pre>
+<p>Replica:</p>
+<pre class="hljs"><code><div>position = 9.950
+lag = 50
+</div></code></pre>
+<p>Replica đủ điều kiện.</p>
+<p>Replica khác:</p>
+<pre class="hljs"><code><div>position = 9.700
+lag = 300
+</div></code></pre>
+<p>Không đủ điều kiện.</p>
+<hr>
+<h1 id="48-bounded-staleness-dùng-cho-gì">48. Bounded Staleness dùng cho gì?</h1>
+<p>Phù hợp khi cần cân bằng freshness và performance:</p>
+<pre class="hljs"><code><div>- Product catalog
+- Social feed
+- Dashboard
+- Recommendation
+- Analytics gần realtime
+- Geo-replicated read
+- Inventory display không dùng để commit
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Seat map hiển thị:
+Có thể chậm 1–2 giây.
+
+Seat reservation:
+Phải kiểm tra authoritative store.
+</div></code></pre>
+<hr>
+<h1 id="49-bounded-staleness-khác-eventual-consistency">49. Bounded Staleness khác Eventual Consistency</h1>
+<p>Eventual consistency không nhất thiết đưa ra giới hạn cụ thể về độ cũ trong lúc hệ thống chưa hội tụ.</p>
+<p>Bounded staleness nói rõ:</p>
+<pre class="hljs"><code><div>Dữ liệu có thể cũ,
+nhưng chỉ cũ trong giới hạn đã định.
+</div></code></pre>
+<p>Đây là contract mạnh hơn và dễ xây SLO hơn.</p>
+<hr>
+<h1 id="50-eventual-consistency-là-gì">50. Eventual Consistency là gì?</h1>
+<p>Eventual consistency bảo đảm:</p>
+<blockquote>
+<p>Nếu không còn write mới, cuối cùng mọi replica sẽ hội tụ về cùng một giá trị.</p>
+</blockquote>
+<p>Từ “eventual” không nói:</p>
+<pre class="hljs"><code><div>- Mất bao lâu
+- Client sẽ thấy những trạng thái trung gian nào
+- Thứ tự update ra sao
+- Có read-your-writes không
+</div></code></pre>
+<p>Chỉ nói hệ thống cuối cùng hội tụ nếu quá trình cập nhật dừng và propagation tiếp tục thành công.</p>
+<hr>
+<h1 id="51-ví-dụ-eventual-consistency">51. Ví dụ Eventual Consistency</h1>
+<p>Like count:</p>
+<pre class="hljs"><code><div>Leader/Region A:
+1.001 likes
+
+Replica/Region B:
+998 likes
+</div></code></pre>
+<p>Sau replication:</p>
+<pre class="hljs"><code><div>A = 1.001
+B = 1.001
+</div></code></pre>
+<p>Trong vài giây đầu, user ở hai region có thể thấy số khác nhau.</p>
+<p>Với like count, điều này thường chấp nhận được.</p>
+<hr>
+<h1 id="52-eventual-consistency-không-có-nghĩa-sai-tùy-ý">52. Eventual Consistency không có nghĩa “Sai tùy ý”</h1>
+<p>Một hệ thống eventual consistent tốt vẫn cần:</p>
+<pre class="hljs"><code><div>- Conflict resolution
+- Retry
+- Anti-entropy
+- Version tracking
+- Repair
+- Idempotency
+- Convergence rules
+</div></code></pre>
+<p>Nếu replicas không bao giờ hội tụ do bug hoặc message mất vĩnh viễn, hệ thống không đạt eventual consistency đúng nghĩa.</p>
+<hr>
+<h1 id="53-convergence">53. Convergence</h1>
+<p>Để replicas hội tụ, update merge phải có quy tắc.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Last-write-wins
+- Highest version wins
+- Application merge
+- Set union
+- Counter merge
+- CRDT
+</div></code></pre>
+<p>Quy tắc cần mang tính deterministic:</p>
+<pre class="hljs"><code><div>Cùng tập update
+→ Mọi replica cuối cùng ra cùng state
+</div></code></pre>
+<hr>
+<h1 id="54-last-write-wins">54. Last-Write-Wins</h1>
+<p>Mỗi value có timestamp:</p>
+<pre class="hljs"><code><div>Value A:
+timestamp 100
+
+Value B:
+timestamp 105
+</div></code></pre>
+<p>Chọn B.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Dễ hội tụ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Clock skew
+- Có thể mất update hợp lệ
+- “Viết sau” về timestamp chưa chắc có ý nghĩa nghiệp vụ đúng
+</div></code></pre>
+<p>Ví dụ hai thiết bị offline sửa cùng note; một thay đổi có thể bị loại im lặng.</p>
+<hr>
+<h1 id="55-multi-value-conflict">55. Multi-Value Conflict</h1>
+<p>Thay vì tự động bỏ một write, hệ thống có thể giữ nhiều version:</p>
+<pre class="hljs"><code><div>Version A:
+title = &quot;System Design Notes&quot;
+
+Version B:
+title = &quot;Distributed Systems Notes&quot;
+</div></code></pre>
+<p>Application hoặc user quyết định merge.</p>
+<p>Cách này tránh mất dữ liệu âm thầm nhưng làm application phức tạp hơn.</p>
+<hr>
+<h1 id="56-crdt-ở-mức-trực-giác">56. CRDT ở mức trực giác</h1>
+<p>CRDT là cấu trúc dữ liệu được thiết kế để các update có thể merge và hội tụ mà không cần một global order duy nhất cho mọi operation.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Grow-only set
+- Observed-remove set
+- Grow-only counter
+- PN-counter
+</div></code></pre>
+<p>Một bộ đếm phân tán có thể lưu contribution từng replica:</p>
+<pre class="hljs"><code><div>Region A: +10
+Region B: +7
+Region C: +3
+
+Total = 20
+</div></code></pre>
+<p>Khi merge, lấy các component theo quy tắc xác định.</p>
+<p>CRDT hữu ích nhưng không phù hợp mọi business invariant, đặc biệt như:</p>
+<pre class="hljs"><code><div>- Một ghế chỉ bán một lần
+- Không được overdraft
+- Unique username
+</div></code></pre>
+<hr>
+<h1 id="57-strong-eventual-consistency">57. Strong Eventual Consistency</h1>
+<p>Một hệ thống có <strong>strong eventual consistency</strong> khi:</p>
+<pre class="hljs"><code><div>1. Các replicas đã nhận cùng tập update.
+2. Chúng phải có cùng state.
+</div></code></pre>
+<p>Điều này mạnh hơn eventual convergence mơ hồ.</p>
+<p>CRDT thường được dùng để đạt property này.</p>
+<p>Không nên nhầm “strong eventual consistency” với linearizability; nó vẫn có thể cho phép replicas tạm thời khác nhau.</p>
+<hr>
+<h1 id="58-eventual-consistency-và-user-experience">58. Eventual Consistency và User Experience</h1>
+<p>Eventual consistency phải được phản ánh trong UI.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>User bấm Follow
+API trả success
+Nút quay lại “Follow” như chưa thao tác.
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Optimistic UI
+- Pending indicator
+- Disable duplicate action
+- Session token
+- Read-your-writes routing
+</div></code></pre>
+<p>Eventual consistency phía backend không có nghĩa UX phải hỗn loạn.</p>
+<hr>
+<h1 id="59-eventual-consistency-và-api-semantics">59. Eventual Consistency và API Semantics</h1>
+<p>Nếu operation chưa hoàn tất toàn workflow, API có thể trả:</p>
+<pre class="hljs"><code><div>202 Accepted
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PROCESSING&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Thay vì trả:</p>
+<pre class="hljs"><code><div>200 OK
+</div></code></pre>
+<p>và tạo cảm giác mọi downstream state đã đồng bộ.</p>
+<p>API contract cần nói rõ:</p>
+<pre class="hljs"><code><div>- Operation đã accepted hay completed?
+- Khi nào có thể đọc kết quả?
+- Trạng thái pending là gì?
+- Client poll hay nhận webhook?
+</div></code></pre>
+<hr>
+<h1 id="60-consistency-của-cache">60. Consistency của Cache</h1>
+<p>Cache thường tạo consistency yếu hơn database.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Database:
+price = 120
+
+Cache:
+price = 100
+</div></code></pre>
+<p>Các model có thể áp dụng:</p>
+<pre class="hljs"><code><div>- TTL-based eventual consistency
+- Active invalidation
+- Versioned cache key
+- Read-through với freshness bound
+</div></code></pre>
+<p>Không nên dùng stale cache để quyết định:</p>
+<pre class="hljs"><code><div>- Final payment amount
+- Inventory commit
+- Permission authorization quan trọng
+</div></code></pre>
+<hr>
+<h1 id="61-consistency-của-search-index">61. Consistency của Search Index</h1>
+<p>Database update:</p>
+<pre class="hljs"><code><div>Product name = “Mechanical Keyboard”
+</div></code></pre>
+<p>Search index nhận event sau 2 giây.</p>
+<p>Trong khoảng đó:</p>
+<pre class="hljs"><code><div>GET product by ID:
+Tên mới
+
+Search:
+Có thể vẫn tên cũ hoặc chưa tìm thấy
+</div></code></pre>
+<p>Đây là eventual consistency giữa source of truth và search projection.</p>
+<p>Phải theo dõi:</p>
+<pre class="hljs"><code><div>- Indexing lag
+- Failed indexing events
+- Rebuild capability
+</div></code></pre>
+<hr>
+<h1 id="62-consistency-của-message-driven-projection">62. Consistency của Message-Driven Projection</h1>
+<p>Order DB:</p>
+<pre class="hljs"><code><div>status = PAID
+</div></code></pre>
+<p>Read model:</p>
+<pre class="hljs"><code><div>status = PAYMENT_PENDING
+</div></code></pre>
+<p>vì consumer chưa xử lý event.</p>
+<p>Contract có thể là:</p>
+<pre class="hljs"><code><div>- Read model eventual consistent
+- User vừa thanh toán đọc authoritative order endpoint
+- Dashboard chấp nhận lag 5 giây
+</div></code></pre>
+<p>Không nên giả định mọi projection phải cùng consistency.</p>
+<hr>
+<h1 id="63-consistency-theo-từng-field-hoặc-operation">63. Consistency theo từng Field hoặc Operation</h1>
+<p>Một entity có thể cần model khác nhau cho từng field.</p>
+<p>Ví dụ product:</p>
+<pre class="hljs"><code><div>Description:
+Eventual consistency
+
+Review count:
+Eventual consistency
+
+Display inventory:
+Bounded staleness
+
+Checkout price:
+Strong/authoritative read
+
+Inventory reservation:
+Linearizable conditional write
+</div></code></pre>
+<p>Không cần toàn bộ Product Service dùng consistency mạnh nhất.</p>
+<hr>
+<h1 id="64-consistency-theo-critical-path">64. Consistency theo Critical Path</h1>
+<p>Ví dụ tạo order:</p>
+<pre class="hljs"><code><div>Strong/local transaction:
+- Tạo order
+- Giữ inventory authoritative
+
+Eventual:
+- Email
+- Analytics
+- Search indexing
+- Loyalty points
+</div></code></pre>
+<p>Thiết kế tốt đặt consistency mạnh tại invariant boundary và dùng consistency yếu hơn cho side effects.</p>
+<hr>
+<h1 id="65-pacelc-và-consistency">65. PACELC và Consistency</h1>
+<p>CAP nói về lúc network partition:</p>
+<pre class="hljs"><code><div>Consistency hay Availability?
+</div></code></pre>
+<p>PACELC bổ sung:</p>
+<pre class="hljs"><code><div>Nếu có Partition:
+Availability hay Consistency?
+
+Else, khi hệ thống bình thường:
+Latency hay Consistency?
+</div></code></pre>
+<p>Linearizable cross-region read/write có thể tăng latency ngay cả khi không có partition.</p>
+<p>Eventual hoặc causal consistency thường giảm coordination và latency.</p>
+<hr>
+<h1 id="66-không-phải-cp-database-luôn-không-available">66. Không phải “CP Database” luôn không Available</h1>
+<p>CAP không có nghĩa database CP luôn sập toàn bộ khi một node lỗi.</p>
+<p>Nếu cluster vẫn còn majority:</p>
+<pre class="hljs"><code><div>Hệ thống vẫn available.
+</div></code></pre>
+<p>Nó chỉ từ chối operation ở phần không thể duy trì consistency, ví dụ minority partition.</p>
+<p>Tương tự, AP không có nghĩa mọi operation luôn thành công đúng nghiệp vụ; hệ thống có thể cần conflict resolution sau đó.</p>
+<hr>
+<h1 id="67-linearizability-và-cap">67. Linearizability và CAP</h1>
+<p>Trong network partition:</p>
+<pre class="hljs"><code><div>Muốn linearizable:
+Không thể để cả hai phía độc lập trả success cho conflicting writes.
+</div></code></pre>
+<p>Do đó ít nhất một phía phải:</p>
+<pre class="hljs"><code><div>- Block
+- Reject
+- Chuyển read-only
+</div></code></pre>
+<p>Điều này hy sinh availability theo định nghĩa CAP cho operation đó.</p>
+<hr>
+<h1 id="68-causal-consistency-và-availability">68. Causal Consistency và Availability</h1>
+<p>Causal consistency có thể dễ duy trì availability cao hơn vì các concurrent writes không cần một global order tức thời.</p>
+<p>Mỗi region có thể nhận operation cục bộ, miễn:</p>
+<pre class="hljs"><code><div>- Causal dependencies được truyền theo đúng thứ tự.
+- Concurrent updates có merge policy.
+</div></code></pre>
+<p>Nhưng không phải mọi causal system đều tự động available trong mọi thiết kế.</p>
+<hr>
+<h1 id="69-eventual-consistency-và-network-partition">69. Eventual Consistency và Network Partition</h1>
+<p>Hai region bị mất kết nối:</p>
+<pre class="hljs"><code><div>Region A nhận writes
+Region B cũng nhận writes
+</div></code></pre>
+<p>Khi mạng phục hồi:</p>
+<pre class="hljs"><code><div>- Trao đổi updates
+- Resolve conflicts
+- Hội tụ
+</div></code></pre>
+<p>Đây là mô hình availability-first.</p>
+<p>Nhưng nếu dữ liệu là một ghế duy nhất, hai phía có thể cùng bán ghế.</p>
+<p>Vì vậy eventual consistency không phù hợp cho mọi invariant.</p>
+<hr>
+<h1 id="70-stale-read-có-thể-gây-hậu-quả-gì">70. Stale Read có thể gây hậu quả gì?</h1>
+<h2 id="chỉ-ảnh-hưởng-trải-nghiệm">Chỉ ảnh hưởng trải nghiệm</h2>
+<pre class="hljs"><code><div>Like count thiếu vài lượt.
+</div></code></pre>
+<h2 id="gây-quyết-định-nghiệp-vụ-sai">Gây quyết định nghiệp vụ sai</h2>
+<pre class="hljs"><code><div>Đọc inventory cũ rồi xác nhận bán hàng.
+</div></code></pre>
+<h2 id="gây-lỗi-bảo-mật">Gây lỗi bảo mật</h2>
+<pre class="hljs"><code><div>Permission đã bị revoke nhưng replica chưa cập nhật.
+</div></code></pre>
+<h2 id="gây-mất-tiền">Gây mất tiền</h2>
+<pre class="hljs"><code><div>Đọc balance cũ rồi cho phép withdrawal.
+</div></code></pre>
+<p>Cùng một độ trễ 5 giây nhưng hậu quả khác nhau rất lớn.</p>
+<hr>
+<h1 id="71-freshness-requirement-nên-được-định-lượng">71. Freshness Requirement nên được định lượng</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Dữ liệu cần khá mới.
+</div></code></pre>
+<p>Nên nói:</p>
+<pre class="hljs"><code><div>- Inventory display có thể cũ tối đa 2 giây.
+- Analytics dashboard có thể cũ 5 phút.
+- Search index SLO dưới 10 giây.
+- Permission revocation phải có hiệu lực dưới 1 giây.
+- Booking commit không chấp nhận stale authoritative state.
+</div></code></pre>
+<p>Consistency trở thành contract có thể đo và alert.</p>
+<hr>
+<h1 id="72-staleness-sli">72. Staleness SLI</h1>
+<p>Có thể đo:</p>
+<pre class="hljs"><code><div>- Replication lag thời gian
+- Log position lag
+- Projection event age
+- Cache age
+- Version difference
+- Last successful sync time
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>99.9% search documents được index trong 5 giây.
+</div></code></pre>
+<p>Đây là freshness SLO.</p>
+<hr>
+<h1 id="73-session-token">73. Session Token</h1>
+<p>Một session token có thể chứa hoặc tham chiếu:</p>
+<pre class="hljs"><code><div>- Minimum commit position
+- Last seen version
+- Causal dependency clock
+- Region/replica affinity
+</div></code></pre>
+<p>Ví dụ write response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;success&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sessionToken&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;commit:10542&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Read request:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">X-Session-Token</span><span class="hljs-punctuation">: </span>commit:10542
+</div></code></pre>
+<p>Store bảo đảm response không cũ hơn token đó.</p>
+<hr>
+<h1 id="74-session-token-không-phải-authorization-token">74. Session Token không phải Authorization Token</h1>
+<p>Session consistency token dùng để theo dõi version hoặc causal context.</p>
+<p>Nó không tự động chứng minh:</p>
+<pre class="hljs"><code><div>- User identity
+- Permission
+- Ownership
+</div></code></pre>
+<p>Không nên dùng token consistency làm cơ chế authorization.</p>
+<p>Token cũng cần được validate để client không gửi metadata quá lớn hoặc không hợp lệ.</p>
+<hr>
+<h1 id="75-sticky-session-chỉ-là-một-cách-triển-khai">75. Sticky Session chỉ là một cách triển khai</h1>
+<p>Sticky routing có thể giúp read-your-writes và monotonic reads.</p>
+<p>Nhưng nó có nhược điểm:</p>
+<pre class="hljs"><code><div>- Replica lỗi
+- Load imbalance
+- User chuyển thiết bị
+- Session hết hạn
+- Cross-region travel
+</div></code></pre>
+<p>Guarantee tốt nên dựa trên version hoặc commit position hơn là chỉ hy vọng cùng replica luôn đủ mới.</p>
+<hr>
+<h1 id="76-quorum-reads-và-writes">76. Quorum Reads và Writes</h1>
+<p>Trong leaderless store:</p>
+<pre class="hljs"><code><div>N = số replica
+W = write acknowledgements
+R = read replicas
+</div></code></pre>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>W + R &gt; N
+</div></code></pre>
+<p>read quorum và write quorum giao nhau ít nhất một node.</p>
+<p>Nhưng điều này không tự động tạo linearizability.</p>
+<p>Còn phụ thuộc:</p>
+<pre class="hljs"><code><div>- Concurrent writes
+- Versioning
+- Sloppy quorum
+- Conflict resolution
+- Read repair
+- Clock semantics
+</div></code></pre>
+<p>Quorum formula là một phần của thiết kế, không phải toàn bộ consistency contract.</p>
+<hr>
+<h1 id="77-read-repair">77. Read Repair</h1>
+<p>Read từ nhiều replicas:</p>
+<pre class="hljs"><code><div>Replica A: version 10
+Replica B: version 10
+Replica C: version 7
+</div></code></pre>
+<p>Coordinator:</p>
+<pre class="hljs"><code><div>1. Trả version 10.
+2. Sửa C lên version 10.
+</div></code></pre>
+<p>Read repair giúp replicas hội tụ.</p>
+<p>Nhưng client đọc <code>R=1</code> có thể vẫn gặp stale read trước khi repair xảy ra.</p>
+<hr>
+<h1 id="78-anti-entropy">78. Anti-Entropy</h1>
+<p>Background process định kỳ so sánh replicas:</p>
+<pre class="hljs"><code><div>- Hash
+- Merkle tree
+- Version
+- Checksum
+</div></code></pre>
+<p>và sửa khác biệt.</p>
+<p>Anti-entropy giúp eventual convergence ngay cả với dữ liệu ít được đọc.</p>
+<p>Nó không cung cấp real-time freshness ngay lập tức.</p>
+<hr>
+<h1 id="79-causal-order-và-total-order">79. Causal Order và Total Order</h1>
+<h2 id="causal-order">Causal order</h2>
+<p>Chỉ bắt buộc sắp thứ tự những operation có dependency.</p>
+<pre class="hljs"><code><div>Post → Comment
+</div></code></pre>
+<h2 id="total-order">Total order</h2>
+<p>Mọi operation đều có một thứ tự chung, kể cả concurrent operations.</p>
+<pre class="hljs"><code><div>A trước B hoặc B trước A
+</div></code></pre>
+<p>Consensus replicated log thường tạo total order.</p>
+<p>Causal systems không cần global total order cho các event độc lập.</p>
+<hr>
+<h1 id="80-total-order-không-nhất-thiết-là-real-time-order">80. Total Order không nhất thiết là Real-Time Order</h1>
+<p>Một system có thể gán total order cho mọi operation nhưng thứ tự đó không tôn trọng thời gian thực.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>Total order ≠ Linearizability
+</div></code></pre>
+<p>Linearizability yêu cầu total order hợp lệ đồng thời tôn trọng real-time precedence.</p>
+<hr>
+<h1 id="81-sequential-consistency">81. Sequential Consistency</h1>
+<p>Sequential consistency bảo đảm:</p>
+<pre class="hljs"><code><div>- Có một global order cho mọi operation.
+- Order đó giữ program order của từng client.
+</div></code></pre>
+<p>Nhưng không bắt buộc tôn trọng real-time order giữa các client.</p>
+<p>Nó yếu hơn linearizability.</p>
+<p>Ví dụ write của A đã hoàn tất trước khi B bắt đầu read theo đồng hồ thật, nhưng sequential consistency vẫn có thể sắp read của B trước write của A nếu program orders không bị phá.</p>
+<hr>
+<h1 id="82-linearizability-và-sequential-consistency">82. Linearizability và Sequential Consistency</h1>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th style="text-align:right">Một global order?</th>
+<th style="text-align:right">Giữ program order?</th>
+<th style="text-align:right">Giữ real-time order?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sequential consistency</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Không</td>
+</tr>
+<tr>
+<td>Linearizability</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Có</td>
+</tr>
+</tbody>
+</table>
+<p>Linearizability dễ reasoning hơn cho external observers nhưng thường cần coordination mạnh hơn.</p>
+<hr>
+<h1 id="83-consistent-prefix">83. Consistent Prefix</h1>
+<p>Consistent-prefix reads bảo đảm client chỉ nhìn thấy một prefix hợp lệ của ordered history.</p>
+<p>History:</p>
+<pre class="hljs"><code><div>1. Order created
+2. Payment completed
+3. Order shipped
+</div></code></pre>
+<p>Client có thể thấy:</p>
+<pre class="hljs"><code><div>1
+1,2
+1,2,3
+</div></code></pre>
+<p>Không được thấy:</p>
+<pre class="hljs"><code><div>3 nhưng chưa thấy 1
+</div></code></pre>
+<p>Model này hữu ích cho event stream và replicated logs.</p>
+<hr>
+<h1 id="84-causal-consistency-và-consistent-prefix">84. Causal Consistency và Consistent Prefix</h1>
+<p>Causal consistency bảo vệ dependency nhân quả.</p>
+<p>Consistent prefix bảo vệ prefix của một ordered log.</p>
+<p>Nếu toàn bộ events thuộc cùng partition/log được ordered, consistent prefix có thể bảo đảm event sau không xuất hiện trước event trước.</p>
+<p>Nhưng causal relation có thể trải qua nhiều streams hoặc services, cần metadata rộng hơn một log đơn lẻ.</p>
+<hr>
+<h1 id="85-consistency-và-ordering-trong-message-queue">85. Consistency và Ordering trong Message Queue</h1>
+<p>Broker có thể bảo đảm ordering:</p>
+<pre class="hljs"><code><div>Trong một partition
+</div></code></pre>
+<p>nhưng không toàn topic.</p>
+<p>Nếu business entity dùng:</p>
+<pre class="hljs"><code><div>partition key = orderId
+</div></code></pre>
+<p>events cùng order có thể giữ thứ tự.</p>
+<p>Tuy nhiên retry queue hoặc parallel consumer vẫn có thể gây out-of-order application.</p>
+<p>Cần thêm:</p>
+<pre class="hljs"><code><div>- Aggregate version
+- Conditional transition
+- Idempotency
+</div></code></pre>
+<p>Ordering delivery không tự động tạo consistency nghiệp vụ.</p>
+<hr>
+<h1 id="86-case-study--product-catalog">86. Case Study — Product Catalog</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Admin update description
+- User toàn cầu đọc sản phẩm
+- Read-heavy
+- Chấp nhận propagation delay nhỏ
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>Description:
+Eventual hoặc bounded staleness
+
+Admin vừa update:
+Read-your-writes qua leader/session token
+
+Search index:
+Eventual consistency
+
+Checkout price:
+Authoritative read mạnh hơn
+</div></code></pre>
+<p>Không cần mọi product read linearizable.</p>
+<hr>
+<h1 id="87-case-study--social-feed">87. Case Study — Social Feed</h1>
+<pre class="hljs"><code><div>Post của user:
+Cần read-your-writes để user thấy bài vừa đăng.
+
+Feed của follower:
+Có thể eventual consistency.
+
+Post và comment:
+Cần causal consistency để không thấy comment trước post.
+
+Like count:
+Eventual consistency.
+
+Blocking một user:
+Có thể cần freshness mạnh hơn vì liên quan privacy.
+</div></code></pre>
+<p>Một sản phẩm dùng nhiều consistency model đồng thời.</p>
+<hr>
+<h1 id="88-case-study--chat">88. Case Study — Chat</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Message của cùng conversation có thứ tự
+- User không thấy message biến mất
+- Reply phải xuất hiện sau message gốc
+</div></code></pre>
+<p>Có thể cần:</p>
+<pre class="hljs"><code><div>- Per-conversation ordering
+- Monotonic reads
+- Read-your-writes
+- Causal relation cho reply
+</div></code></pre>
+<p>Không nhất thiết cần global linearizability cho toàn bộ các conversation độc lập.</p>
+<hr>
+<h1 id="89-case-study--ticket-booking">89. Case Study — Ticket Booking</h1>
+<h2 id="seat-map">Seat map</h2>
+<pre class="hljs"><code><div>Bounded stale hoặc eventual read
+</div></code></pre>
+<p>Có thể hiển thị ghế còn trống nhưng vừa được người khác giữ.</p>
+<p>UI cần chấp nhận:</p>
+<pre class="hljs"><code><div>Availability được xác nhận lại khi reservation.
+</div></code></pre>
+<h2 id="reserve-seat">Reserve seat</h2>
+<pre class="hljs"><code><div>Linearizable conditional write
+hoặc
+Strict serializable transaction tại authoritative store
+</div></code></pre>
+<p>Không được dựa vào seat map stale để xác nhận.</p>
+<hr>
+<h1 id="90-case-study--payment">90. Case Study — Payment</h1>
+<pre class="hljs"><code><div>Payment ledger:
+Serializable hoặc strict serializable tùy kiến trúc
+
+Payment status projection:
+Có thể eventual
+
+User vừa thanh toán:
+Read-your-writes hoặc authoritative status endpoint
+
+Analytics:
+Eventual consistency
+
+Balance/available credit:
+Cần consistency mạnh theo invariant
+</div></code></pre>
+<p>Timeout không có nghĩa payment thất bại; consistency model không thay thế idempotency và reconciliation.</p>
+<hr>
+<h1 id="91-case-study--permission-revocation">91. Case Study — Permission Revocation</h1>
+<p>Admin thu hồi quyền lúc 10:00:00.</p>
+<p>Replica region khác lag 30 giây.</p>
+<p>Nếu user tiếp tục truy cập đến 10:00:30:</p>
+<pre class="hljs"><code><div>Có thể là security violation.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Strongly consistent permission store
+- Short-lived authorization cache
+- Push invalidation
+- Versioned permission token
+- Fail closed cho operation nhạy cảm
+</div></code></pre>
+<p>Consistency requirement phải dựa trên hậu quả của stale read.</p>
+<hr>
+<h1 id="92-case-study--analytics-dashboard">92. Case Study — Analytics Dashboard</h1>
+<p>Dashboard doanh thu:</p>
+<pre class="hljs"><code><div>Không cần linearizable theo từng transaction.
+</div></code></pre>
+<p>Có thể chấp nhận:</p>
+<pre class="hljs"><code><div>- Bounded staleness 5 phút
+- Batch update
+- Eventual consistency
+</div></code></pre>
+<p>Đổi lại:</p>
+<pre class="hljs"><code><div>- Query nhanh
+- Không ảnh hưởng OLTP
+- Scale độc lập
+</div></code></pre>
+<p>UI nên hiển thị:</p>
+<pre class="hljs"><code><div>Data updated at 10:25
+</div></code></pre>
+<p>để contract freshness rõ với user.</p>
+<hr>
+<h1 id="93-cách-chọn-consistency-model">93. Cách chọn Consistency Model</h1>
+<p>Hãy bắt đầu từ hậu quả nếu đọc stale hoặc operation bị reorder.</p>
+<h2 id="câu-hỏi-1">Câu hỏi 1</h2>
+<pre class="hljs"><code><div>Nếu hai client cùng thao tác, có invariant nào có thể bị phá?
+</div></code></pre>
+<p>Nếu có:</p>
+<pre class="hljs"><code><div>Cần atomic conditional operation,
+serializable transaction hoặc consensus boundary.
+</div></code></pre>
+<h2 id="câu-hỏi-2">Câu hỏi 2</h2>
+<pre class="hljs"><code><div>User có cần thấy write của chính mình ngay không?
+</div></code></pre>
+<p>Nếu có:</p>
+<pre class="hljs"><code><div>Read-your-writes.
+</div></code></pre>
+<h2 id="câu-hỏi-3">Câu hỏi 3</h2>
+<pre class="hljs"><code><div>User có được phép thấy dữ liệu quay ngược version không?
+</div></code></pre>
+<p>Nếu không:</p>
+<pre class="hljs"><code><div>Monotonic reads.
+</div></code></pre>
+<h2 id="câu-hỏi-4">Câu hỏi 4</h2>
+<pre class="hljs"><code><div>Các event có causal dependency không?
+</div></code></pre>
+<p>Nếu có:</p>
+<pre class="hljs"><code><div>Causal consistency hoặc per-entity ordering.
+</div></code></pre>
+<h2 id="câu-hỏi-5">Câu hỏi 5</h2>
+<pre class="hljs"><code><div>Dữ liệu được cũ tối đa bao lâu?
+</div></code></pre>
+<p>Nếu định lượng được:</p>
+<pre class="hljs"><code><div>Bounded staleness.
+</div></code></pre>
+<h2 id="câu-hỏi-6">Câu hỏi 6</h2>
+<pre class="hljs"><code><div>Chỉ cần cuối cùng hội tụ?
+</div></code></pre>
+<p>Nếu có:</p>
+<pre class="hljs"><code><div>Eventual consistency.
+</div></code></pre>
+<hr>
+<h1 id="94-bảng-lựa-chọn-theo-use-case">94. Bảng lựa chọn theo Use Case</h1>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Model thường phù hợp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seat reservation</td>
+<td>Linearizable operation / strict serializable transaction</td>
+</tr>
+<tr>
+<td>Bank ledger</td>
+<td>Serializable hoặc strict serializable</td>
+</tr>
+<tr>
+<td>Distributed lock</td>
+<td>Linearizable</td>
+</tr>
+<tr>
+<td>User vừa sửa profile</td>
+<td>Read-your-writes</td>
+</tr>
+<tr>
+<td>Feed không quay ngược</td>
+<td>Monotonic reads</td>
+</tr>
+<tr>
+<td>Post và comment</td>
+<td>Causal consistency</td>
+</tr>
+<tr>
+<td>Product catalog toàn cầu</td>
+<td>Bounded staleness/eventual</td>
+</tr>
+<tr>
+<td>Search index</td>
+<td>Eventual consistency</td>
+</tr>
+<tr>
+<td>Analytics</td>
+<td>Eventual hoặc bounded staleness</td>
+</tr>
+<tr>
+<td>Like count</td>
+<td>Eventual consistency</td>
+</tr>
+<tr>
+<td>Permission revoke</td>
+<td>Strong freshness/linearizable tùy rủi ro</td>
+</tr>
+</tbody>
+</table>
+<p>Đây không phải quy tắc tuyệt đối; access pattern và failure requirements vẫn quyết định.</p>
+<hr>
+<h1 id="95-consistency-boundary">95. Consistency Boundary</h1>
+<p>Không nhất thiết toàn hệ thống dùng cùng model.</p>
+<p>Ví dụ booking:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> BookingAPI
+
+    BookingAPI --> SeatStore[(Strong Seat Store)]
+    BookingAPI --> OrderDB[(Transactional Order DB)]
+
+    OrderDB --> Events[Event Stream]
+    Events --> Search[(Eventual Search Index)]
+    Events --> Analytics[(Eventual Analytics)]
+    Events --> Email[Async Notification]
+</div></code></pre>
+<p>Consistency mạnh chỉ dùng tại:</p>
+<pre class="hljs"><code><div>- Seat ownership
+- Booking state transition
+- Payment invariant
+</div></code></pre>
+<p>Các projection còn lại dùng eventual consistency.</p>
+<hr>
+<h1 id="96-over-consistency">96. Over-Consistency</h1>
+<p>Dùng consistency quá mạnh ở mọi nơi có thể gây:</p>
+<pre class="hljs"><code><div>- Latency cao
+- Cross-region coordination
+- Giảm availability
+- Giảm throughput
+- Kiến trúc phức tạp
+- Chi phí cao
+</div></code></pre>
+<p>Ví dụ không cần consensus global cho:</p>
+<pre class="hljs"><code><div>- View counter
+- Recommendation
+- Search ranking
+- Analytics event
+</div></code></pre>
+<hr>
+<h1 id="97-under-consistency">97. Under-Consistency</h1>
+<p>Dùng consistency quá yếu cho invariant quan trọng có thể gây:</p>
+<pre class="hljs"><code><div>- Double booking
+- Overselling
+- Double spending
+- Permission leak
+- Lost update
+- State quay ngược
+</div></code></pre>
+<p>Consistency phải được chọn theo hậu quả, không theo công nghệ đang phổ biến.</p>
+<hr>
+<h1 id="98-consistency-contract-trong-api">98. Consistency Contract trong API</h1>
+<p>API nên nói rõ behavior.</p>
+<p>Ví dụ read:</p>
+<pre class="hljs"><code><div>GET /products/{id}?consistency=eventual
+</div></code></pre>
+<p>hoặc nội bộ dùng các endpoint:</p>
+<pre class="hljs"><code><div>GET /catalog/products/{id}
+→ Bounded stale
+
+GET /checkout/products/{id}
+→ Authoritative
+</div></code></pre>
+<p>Một số system hỗ trợ option:</p>
+<pre class="hljs"><code><div>- strong
+- session
+- bounded_staleness
+- eventual
+</div></code></pre>
+<p>Không nên cho client chọn tùy ý nếu application không hiểu trade-off.</p>
+<hr>
+<h1 id="99-response-metadata-về-freshness">99. Response Metadata về Freshness</h1>
+<p>Response có thể chứa:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PAID&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">52</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastUpdatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-12T04:20:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;servedFrom&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;replica&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;stalenessMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">850</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Metadata hữu ích cho:</p>
+<pre class="hljs"><code><div>- Debug
+- Session consistency
+- UI freshness indicator
+- Observability
+</div></code></pre>
+<p>Không nhất thiết expose toàn bộ internal topology cho public client.</p>
+<hr>
+<h1 id="100-observability-cho-consistency">100. Observability cho Consistency</h1>
+<p>Các metrics cần thiết:</p>
+<pre class="hljs"><code><div>- Replication lag
+- Projection lag
+- Cache age
+- Search indexing delay
+- Read served below required version
+- Leader fallback reads
+- Session-token wait duration
+- Stale-read detection
+- Conflict count
+- Reconciliation mismatch
+- Serializable transaction aborts
+</div></code></pre>
+<hr>
+<h1 id="101-consistency-anomaly-khó-thấy-qua-error-rate">101. Consistency Anomaly khó thấy qua Error Rate</h1>
+<p>API có thể luôn trả:</p>
+<pre class="hljs"><code><div>200 OK
+</div></code></pre>
+<p>nhưng user thấy:</p>
+<pre class="hljs"><code><div>- Profile cũ
+- Order status quay ngược
+- Comment không có post
+- Ghế bị bán hai lần
+</div></code></pre>
+<p>Error rate bằng 0 không có nghĩa consistency đúng.</p>
+<p>Cần business invariants và consistency checks.</p>
+<hr>
+<h1 id="102-jepsen-style-testing-ở-mức-trực-giác">102. Jepsen-Style Testing ở mức trực giác</h1>
+<p>Để kiểm tra consistency:</p>
+<pre class="hljs"><code><div>1. Chạy nhiều clients đọc/ghi đồng thời.
+2. Ghi lại complete history.
+3. Inject failure:
+   - Network partition
+   - Node crash
+   - Clock skew
+   - Process pause
+4. Phân tích history có thỏa model được tuyên bố không.
+</div></code></pre>
+<p>Không nên chỉ test happy path.</p>
+<p>Linearizability là property của toàn history, không thể chứng minh chỉ bằng một vài unit tests.</p>
+<hr>
+<h1 id="103-invariant-monitoring">103. Invariant Monitoring</h1>
+<p>Ví dụ booking:</p>
+<pre class="hljs"><code><div>Invariant:
+Mỗi seat chỉ có tối đa một confirmed booking.
+</div></code></pre>
+<p>Query kiểm tra:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> show_id, seat_id, <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>)
+<span class="hljs-keyword">FROM</span> bookings
+<span class="hljs-keyword">WHERE</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;CONFIRMED&#x27;</span>
+<span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> show_id, seat_id
+<span class="hljs-keyword">HAVING</span> <span class="hljs-built_in">COUNT</span>(<span class="hljs-operator">*</span>) <span class="hljs-operator">&gt;</span> <span class="hljs-number">1</span>;
+</div></code></pre>
+<p>Không nên chờ customer báo mới phát hiện consistency violation.</p>
+<hr>
+<h1 id="104-các-sai-lầm-phổ-biến">104. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-dùng-strong-consistency-mà-không-định-nghĩa">Lỗi 1: Dùng “strong consistency” mà không định nghĩa</h2>
+<p>Phải nói rõ:</p>
+<pre class="hljs"><code><div>Linearizable?
+Serializable?
+Strict serializable?
+Read-your-writes?
+</div></code></pre>
+<hr>
+<h2 id="lỗi-2-nhầm-linearizability-với-serializability">Lỗi 2: Nhầm Linearizability với Serializability</h2>
+<p>Một cái tập trung vào real-time operation order; một cái tập trung vào transaction interleaving.</p>
+<hr>
+<h2 id="lỗi-3-nghĩ-serializable-luôn-tôn-trọng-real-time">Lỗi 3: Nghĩ Serializable luôn tôn trọng real time</h2>
+<p>Chỉ strict serializability thêm yêu cầu đó.</p>
+<hr>
+<h2 id="lỗi-4-nghĩ-snapshot-isolation-là-serializable">Lỗi 4: Nghĩ Snapshot Isolation là Serializable</h2>
+<p>Write skew vẫn có thể phá invariant.</p>
+<hr>
+<h2 id="lỗi-5-dùng-read-replica-cho-operation-cần-dữ-liệu-mới-nhất">Lỗi 5: Dùng read replica cho operation cần dữ liệu mới nhất</h2>
+<p>Replication lag có thể tạo stale decision.</p>
+<hr>
+<h2 id="lỗi-6-nghĩ-read-your-writes-nghĩa-mọi-user-thấy-ngay">Lỗi 6: Nghĩ Read-Your-Writes nghĩa mọi user thấy ngay</h2>
+<p>Nó chỉ là session guarantee cho client đã write.</p>
+<hr>
+<h2 id="lỗi-7-không-bảo-vệ-monotonic-reads">Lỗi 7: Không bảo vệ Monotonic Reads</h2>
+<p>User thấy trạng thái quay ngược khi đổi replica.</p>
+<hr>
+<h2 id="lỗi-8-dùng-eventual-consistency-nhưng-không-có-convergence-mechanism">Lỗi 8: Dùng Eventual Consistency nhưng không có convergence mechanism</h2>
+<p>Replica có thể lệch mãi.</p>
+<hr>
+<h2 id="lỗi-9-dùng-last-write-wins-cho-mọi-conflict">Lỗi 9: Dùng Last-Write-Wins cho mọi conflict</h2>
+<p>Có thể làm mất update hợp lệ.</p>
+<hr>
+<h2 id="lỗi-10-không-định-lượng-staleness">Lỗi 10: Không định lượng Staleness</h2>
+<p>“Dữ liệu hơi cũ” không phải một contract có thể vận hành.</p>
+<hr>
+<h2 id="lỗi-11-dùng-consistency-mạnh-nhất-cho-mọi-dữ-liệu">Lỗi 11: Dùng Consistency mạnh nhất cho mọi dữ liệu</h2>
+<p>Lãng phí latency và availability.</p>
+<hr>
+<h2 id="lỗi-12-dùng-consistency-yếu-cho-invariant-tài-chính-hoặc-uniqueness">Lỗi 12: Dùng Consistency yếu cho invariant tài chính hoặc uniqueness</h2>
+<p>Có thể tạo lỗi không thể sửa đơn giản bằng reconciliation.</p>
+<hr>
+<h2 id="lỗi-13-chỉ-xem-consistency-ở-database">Lỗi 13: Chỉ xem consistency ở database</h2>
+<p>Cache, search, queue, projections và client state cũng có consistency behavior.</p>
+<hr>
+<h2 id="lỗi-14-api-trả-completed-trong-khi-workflow-chỉ-accepted">Lỗi 14: API trả completed trong khi workflow chỉ accepted</h2>
+<p>Làm client hiểu sai state.</p>
+<hr>
+<h2 id="lỗi-15-không-đo-freshness-và-conflict">Lỗi 15: Không đo freshness và conflict</h2>
+<p>Consistency failure thường không tạo HTTP 500.</p>
+<hr>
+<h1 id="105-framework-trả-lời-consistency-trong-interview">105. Framework trả lời Consistency trong Interview</h1>
+<p>Với mỗi loại dữ liệu, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Source of truth là gì?
+2. Có bao nhiêu replica hoặc projection?
+3. Invariant quan trọng là gì?
+4. Stale read gây hậu quả gì?
+5. Operation cần linearizable không?
+6. Transaction cần serializable không?
+7. Có cần strict serializability không?
+8. User có cần read-your-writes không?
+9. Có cần monotonic reads không?
+10. Các event có causal dependency không?
+11. Staleness tối đa là bao nhiêu?
+12. Conflict được xử lý thế nào?
+13. Khi network partition, ưu tiên C hay A?
+14. Read được route tới leader hay replica?
+15. Client mang version/session token không?
+16. Projection lag được đo thế nào?
+17. Consistency violation được phát hiện thế nào?
+18. Có reconciliation không?
+</div></code></pre>
+<hr>
+<h1 id="106-decision-tree">106. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Chọn consistency model] --> B{Có invariant không được vi phạm?}
+
+    B -->|Có| C{Một operation hay transaction nhiều object?}
+    C -->|Một operation/object| D[Linearizable conditional operation]
+    C -->|Nhiều operation/object| E[Serializable / Strict Serializable]
+
+    B -->|Không quá nghiêm trọng| F{Có causal dependency?}
+    F -->|Có| G[Causal consistency]
+    F -->|Không| H{User cần thấy write của mình?}
+
+    H -->|Có| I[Read-your-writes]
+    H -->|Không| J{Không được quay ngược version?}
+
+    J -->|Có| K[Monotonic reads]
+    J -->|Không| L{Có giới hạn freshness rõ?}
+
+    L -->|Có| M[Bounded staleness]
+    L -->|Không, chỉ cần hội tụ| N[Eventual consistency]
+</div></code></pre>
+<p>Thực tế có thể kết hợp nhiều nhánh:</p>
+<pre class="hljs"><code><div>Causal
++
+Read-your-writes
++
+Monotonic reads
++
+Eventual convergence
+</div></code></pre>
+<hr>
+<h1 id="107-cách-trình-bày-trong-system-design-interview">107. Cách trình bày trong System Design Interview</h1>
+<p>Không nên nói chung chung:</p>
+<pre class="hljs"><code><div>Em chọn strong consistency cho payment
+và eventual consistency cho feed.
+</div></code></pre>
+<p>Nên giải thích contract cụ thể:</p>
+<blockquote>
+<p>Seat availability trên trang có thể được đọc từ cache hoặc replica với bounded staleness vì nó chỉ phục vụ hiển thị. Tuy nhiên thao tác giữ ghế phải là một linearizable conditional write trên authoritative Booking Store, chẳng hạn <code>AVAILABLE → RESERVED</code>, để hai request cạnh tranh không cùng thành công.</p>
+</blockquote>
+<p>Với social network:</p>
+<blockquote>
+<p>Post và comment cần causal ordering để client không thấy comment trước bài gốc. Feed delivery có thể eventual consistent, nhưng tôi bảo đảm read-your-writes để tác giả thấy bài vừa đăng và monotonic reads để feed của một session không quay về version cũ khi đổi replica.</p>
+</blockquote>
+<p>Với transaction:</p>
+<blockquote>
+<p>Chuyển tiền cần serializable transaction để debit và credit tương đương một serial order. Nếu còn yêu cầu transaction đã hoàn tất phải được mọi transaction bắt đầu sau đó quan sát theo real time, contract cần strict serializability chứ không chỉ serializability.</p>
+</blockquote>
+<hr>
+<h1 id="108-bảng-ghi-nhớ-nhanh">108. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Guarantee cốt lõi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linearizability</td>
+<td>Operation có vẻ tức thời và tôn trọng real time</td>
+</tr>
+<tr>
+<td>Sequential consistency</td>
+<td>Một global order giữ program order, không bắt buộc real time</td>
+</tr>
+<tr>
+<td>Serializability</td>
+<td>Transactions tương đương một serial order</td>
+</tr>
+<tr>
+<td>Strict serializability</td>
+<td>Serializable và tôn trọng real time</td>
+</tr>
+<tr>
+<td>Causal consistency</td>
+<td>Causal dependencies luôn đúng thứ tự</td>
+</tr>
+<tr>
+<td>Read-your-writes</td>
+<td>Client thấy write của chính mình</td>
+</tr>
+<tr>
+<td>Monotonic reads</td>
+<td>Client không đọc version cũ hơn đã thấy</td>
+</tr>
+<tr>
+<td>Monotonic writes</td>
+<td>Write của một client không bị đảo</td>
+</tr>
+<tr>
+<td>Writes-follow-reads</td>
+<td>Write tôn trọng version client đã đọc</td>
+</tr>
+<tr>
+<td>Bounded staleness</td>
+<td>Dữ liệu chỉ được cũ trong giới hạn</td>
+</tr>
+<tr>
+<td>Eventual consistency</td>
+<td>Không có write mới thì replicas cuối cùng hội tụ</td>
+</tr>
+<tr>
+<td>Strong eventual consistency</td>
+<td>Cùng tập updates thì replicas có cùng state</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="109-sơ-đồ-ghi-nhớ-toàn-bài">109. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Consistency Models] --> B[Real-Time Ordering]
+    A --> C[Transaction Ordering]
+    A --> D[Causal Ordering]
+    A --> E[Session Guarantees]
+    A --> F[Freshness]
+    A --> G[Convergence]
+
+    B --> B1[Linearizability]
+    B --> B2[Sequential Consistency]
+
+    C --> C1[Serializability]
+    C --> C2[Strict Serializability]
+    C --> C3[Snapshot Isolation]
+
+    D --> D1[Causal Consistency]
+    D --> D2[Concurrent Operations]
+
+    E --> E1[Read-your-writes]
+    E --> E2[Monotonic Reads]
+    E --> E3[Monotonic Writes]
+    E --> E4[Writes-follow-reads]
+
+    F --> F1[Bounded Staleness]
+    F --> F2[Version Tokens]
+
+    G --> G1[Eventual Consistency]
+    G --> G2[Conflict Resolution]
+    G --> G3[CRDT]
+</div></code></pre>
+<hr>
+<h1 id="110-những-điều-phải-nhớ-sau-bài-16">110. Những điều phải nhớ sau Bài 16</h1>
+<pre class="hljs"><code><div>1. Consistency model là contract về các giá trị và thứ tự client được phép quan sát.
+2. Không nên chỉ nói “strong consistency” mà không chỉ rõ model.
+3. Linearizability tạo cảm giác có một bản sao duy nhất.
+4. Linearizability bắt buộc tôn trọng real-time order.
+5. Operation overlap có thể được linearize theo nhiều thứ tự.
+6. Linearizable read từ replica phải bảo đảm replica đủ mới.
+7. Linearizability phù hợp với lock, uniqueness và reservation.
+8. Serializability áp dụng cho transaction nhiều operation.
+9. Serializable history phải tương đương một serial execution.
+10. Serializability thuần túy không bắt buộc tôn trọng real time.
+11. Strict serializability kết hợp serializability và real-time order.
+12. Snapshot isolation không luôn serializable vì có write skew.
+13. Causal consistency giữ đúng thứ tự giữa các event phụ thuộc nhau.
+14. Concurrent events có thể được các observer nhìn theo thứ tự khác nhau.
+15. Causal consistency yếu hơn linearizability nhưng mạnh hơn eventual consistency.
+16. Read-your-writes bảo đảm client thấy write của chính mình.
+17. Read-your-writes không bắt buộc mọi client khác thấy ngay.
+18. Monotonic reads ngăn dữ liệu quay ngược version trong một session.
+19. Monotonic writes ngăn write của cùng client bị đảo thứ tự.
+20. Writes-follow-reads bảo đảm write tôn trọng dữ liệu client đã đọc.
+21. Bounded staleness cho phép stale data trong giới hạn rõ ràng.
+22. Giới hạn có thể tính theo thời gian, version hoặc log position.
+23. Eventual consistency chỉ bảo đảm cuối cùng hội tụ khi không có write mới.
+24. Eventual consistency vẫn cần conflict resolution và repair.
+25. Last-write-wins có thể làm mất update hợp lệ.
+26. CRDT giúp concurrent updates hội tụ cho một số data types.
+27. Consistency mạnh thường cần coordination và có thể tăng latency.
+28. Khi partition, linearizable systems thường từ chối phía không có quorum.
+29. Một sản phẩm có thể dùng nhiều consistency model đồng thời.
+30. Consistency mạnh nên đặt tại business invariant boundary.
+31. Cache, search và read projections thường eventual consistent.
+32. Stale data dùng để hiển thị có thể chấp nhận nhưng không nên dùng để commit.
+33. API nên phân biệt accepted, processing và completed.
+34. Freshness phải được định lượng thành SLO.
+35. Consistency violation thường không xuất hiện dưới dạng HTTP 500.
+36. Cần quan sát replication lag, projection lag và conflict count.
+37. Session/version token giúp giữ read-your-writes và monotonic reads.
+38. Sticky replica là một implementation, không phải guarantee hoàn chỉnh.
+39. Quorum formula không tự động bảo đảm linearizability.
+40. Consistency phải được lựa chọn theo hậu quả nếu dữ liệu stale hoặc reordered.
+</div></code></pre>
+<hr>
+<h1 id="111-bài-tập-thực-hành">111. Bài tập thực hành</h1>
+<p>Thiết kế consistency cho hệ thống thương mại điện tử có:</p>
+<pre class="hljs"><code><div>- Product catalog
+- Search index
+- Shopping cart
+- Inventory
+- Price
+- Coupon
+- Order
+- Payment
+- Review
+- Recommendation
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Thành phần nào là source of truth?
+2. Product description cần model gì?
+3. Search index được phép stale bao lâu?
+4. User vừa sửa cart cần guarantee nào?
+5. Cart có cần linearizable toàn cầu không?
+6. Inventory hiển thị và inventory commit khác nhau thế nào?
+7. Reservation cần linearizability hay serializability?
+8. Checkout price được phép đọc cache cũ không?
+9. Coupon redemption cần invariant gì?
+10. Payment ledger cần isolation/consistency nào?
+11. Order history projection có thể eventual không?
+12. User vừa thanh toán làm sao thấy status mới ngay?
+13. Review và review count dùng consistency nào?
+14. Product và review có causal dependency không?
+15. Làm sao bảo đảm user không thấy order status quay ngược?
+16. Bounded staleness được đo bằng gì?
+17. Khi region bị partition, operation nào phải dừng?
+18. Operation nào vẫn có thể tiếp tục local?
+19. Conflict trong shopping cart được merge thế nào?
+20. Metrics nào phát hiện freshness contract bị vi phạm?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> API
+
+    API --> Catalog[(Catalog DB)]
+    API --> Cart[(Cart Store)]
+    API --> Inventory[(Strong Inventory Store)]
+    API --> Order[(Transactional Order DB)]
+    API --> Payment[(Payment Ledger)]
+
+    Catalog --> Events[Event Stream]
+    Order --> Events
+    Payment --> Events
+
+    Events --> Search[(Eventual Search Index)]
+    Events --> Analytics[(Analytics)]
+    Events --> Recommendation[(Recommendation)]
+    Events --> OrderView[(Order Read Projection)]
+
+    Catalog --> Cache[(Bounded-Stale Cache)]
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Consistency không phải chọn một nhãn cho toàn hệ thống. Hãy xác định invariant cần bảo vệ, trải nghiệm session cần duy trì và độ cũ tối đa có thể chấp nhận cho từng access pattern; sau đó chỉ trả chi phí coordination ở những nơi thực sự cần thiết.</strong></p>
+</blockquote>
+<p><strong>Bài 17 — Distributed Time và Event Ordering:</strong> clock skew, wall clock, monotonic clock, Lamport timestamp, vector clock, hybrid logical clock, sequence number và distributed ID generation.</p>
+
+</body>
+</html>

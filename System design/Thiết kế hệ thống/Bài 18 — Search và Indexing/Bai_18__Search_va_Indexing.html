@@ -1,0 +1,3264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 18 — Search và Indexing.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-18--search-và-indexing">Bài 18 — Search và Indexing</h1>
+<p>Database truyền thống rất tốt khi câu hỏi có dạng:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> products
+<span class="hljs-keyword">WHERE</span> product_id <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;p_123&#x27;</span>;
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> orders
+<span class="hljs-keyword">WHERE</span> user_id <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;u_456&#x27;</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>;
+</div></code></pre>
+<p>Nhưng người dùng thường tìm kiếm bằng ngôn ngữ không chính xác:</p>
+<pre class="hljs"><code><div>&quot;bàn phím cơ không dây giá rẻ&quot;
+&quot;áo khoác chống nước nam&quot;
+&quot;quán cà phê yên tĩnh gần đây&quot;
+</div></code></pre>
+<p>Ta cần xử lý:</p>
+<pre class="hljs"><code><div>- Từ xuất hiện ở nhiều field
+- Thứ tự và khoảng cách giữa các từ
+- Từ đồng nghĩa
+- Viết hoa, viết thường
+- Dấu tiếng Việt
+- Lỗi chính tả
+- Mức độ liên quan
+- Độ phổ biến
+- Độ mới
+- Bộ lọc và phân trang
+</div></code></pre>
+<p>Đây là lý do hệ thống thường tách:</p>
+<pre class="hljs"><code><div>Database:
+Source of truth, transaction và dữ liệu chuẩn
+
+Search engine:
+Tìm kiếm văn bản, ranking và aggregation
+</div></code></pre>
+<p>Bài này mở rộng chuyên sâu từ bộ tài liệu và video System Design bạn đã cung cấp, tập trung riêng vào kiến trúc search ở quy mô production.</p>
+<p>Các chủ đề chính:</p>
+<pre class="hljs"><code><div>- Inverted index
+- Tokenization và text analysis
+- Full-text search
+- Boolean retrieval
+- Phrase và proximity search
+- TF-IDF và BM25
+- Ranking nhiều tầng
+- Indexing pipeline
+- Segment, refresh và merge
+- Search sharding
+- Replication và failover
+- Eventual consistency
+- Reindex không downtime
+- Autocomplete, typo tolerance và facets
+</div></code></pre>
+<hr>
+<h1 id="1-vì-sao-không-dùng-like-keyword">1. Vì sao không dùng <code>LIKE '%keyword%'</code>?</h1>
+<p>Ta có thể viết:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> products
+<span class="hljs-keyword">WHERE</span> description <span class="hljs-keyword">LIKE</span> <span class="hljs-string">&#x27;%keyboard%&#x27;</span>;
+</div></code></pre>
+<p>Nhưng với hàng trăm triệu document, database thường phải:</p>
+<pre class="hljs"><code><div>- Quét rất nhiều row
+- Đọc lượng dữ liệu lớn
+- Kiểm tra từng chuỗi
+- Không ranking tốt
+- Khó xử lý typo và synonym
+</div></code></pre>
+<p>B-tree index thông thường không hỗ trợ tốt pattern bắt đầu bằng wildcard:</p>
+<pre class="hljs"><code><div>%keyboard%
+</div></code></pre>
+<p>Vì B-tree được sắp theo phần đầu của giá trị.</p>
+<p>Query:</p>
+<pre class="hljs"><code><div>keyboard%
+</div></code></pre>
+<p>có thể tận dụng index tốt hơn.</p>
+<p>Query:</p>
+<pre class="hljs"><code><div>%keyboard%
+</div></code></pre>
+<p>thường không.</p>
+<hr>
+<h1 id="2-database-index-và-search-index-khác-nhau-thế-nào">2. Database Index và Search Index khác nhau thế nào?</h1>
+<h2 id="database-index">Database index</h2>
+<p>Thường tối ưu cho:</p>
+<pre class="hljs"><code><div>- Exact lookup
+- Range query
+- Sort
+- Unique constraint
+- Join
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>email = ?
+created_at BETWEEN ? AND ?
+price &lt; ?
+</div></code></pre>
+<h2 id="search-index">Search index</h2>
+<p>Tối ưu cho:</p>
+<pre class="hljs"><code><div>- Full-text search
+- Relevance ranking
+- Phrase search
+- Prefix search
+- Fuzzy matching
+- Faceting
+- Synonyms
+</div></code></pre>
+<p>Cấu trúc trung tâm thường là:</p>
+<pre class="hljs"><code><div>Inverted index
+</div></code></pre>
+<hr>
+<h1 id="3-forward-index">3. Forward Index</h1>
+<p>Giả sử có ba document:</p>
+<pre class="hljs"><code><div>D1: &quot;distributed systems are hard&quot;
+D2: &quot;distributed databases scale&quot;
+D3: &quot;search systems use indexes&quot;
+</div></code></pre>
+<p>Forward index biểu diễn:</p>
+<pre class="hljs"><code><div>D1 → distributed, systems, are, hard
+D2 → distributed, databases, scale
+D3 → search, systems, use, indexes
+</div></code></pre>
+<p>Nó trả lời tốt:</p>
+<blockquote>
+<p>Document D1 chứa những term nào?</p>
+</blockquote>
+<p>Nhưng query search cần câu hỏi ngược lại:</p>
+<blockquote>
+<p>Term “distributed” nằm trong document nào?</p>
+</blockquote>
+<hr>
+<h1 id="4-inverted-index">4. Inverted Index</h1>
+<p>Inverted index đảo mapping:</p>
+<pre class="hljs"><code><div>distributed → D1, D2
+systems     → D1, D3
+hard        → D1
+databases   → D2
+search      → D3
+indexes     → D3
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    T1[distributed] --> D1[Document 1]
+    T1 --> D2[Document 2]
+
+    T2[systems] --> D1
+    T2 --> D3[Document 3]
+
+    T3[search] --> D3
+</div></code></pre>
+<p>Khi query:</p>
+<pre class="hljs"><code><div>distributed systems
+</div></code></pre>
+<p>search engine chỉ cần lấy postings của:</p>
+<pre class="hljs"><code><div>distributed
+systems
+</div></code></pre>
+<p>rồi thực hiện giao, hợp hoặc ranking.</p>
+<p>Không cần đọc toàn bộ document collection.</p>
+<hr>
+<h1 id="5-dictionary-và-postings-list">5. Dictionary và Postings List</h1>
+<p>Inverted index thường có hai thành phần lớn:</p>
+<h2 id="term-dictionary">Term dictionary</h2>
+<p>Danh sách term:</p>
+<pre class="hljs"><code><div>database
+distributed
+hard
+index
+search
+system
+</div></code></pre>
+<p>Dictionary được tổ chức để lookup nhanh, có thể dùng:</p>
+<pre class="hljs"><code><div>- B-tree-like structure
+- Finite-state transducer
+- Trie
+- Hash-based structure
+</div></code></pre>
+<h2 id="postings-list">Postings list</h2>
+<p>Mỗi term trỏ tới danh sách document chứa term đó:</p>
+<pre class="hljs"><code><div>distributed → [D1, D2, D10, D25, ...]
+</div></code></pre>
+<hr>
+<h1 id="6-posting-chứa-những-gì">6. Posting chứa những gì?</h1>
+<p>Posting đơn giản chỉ chứa:</p>
+<pre class="hljs"><code><div>document ID
+</div></code></pre>
+<p>Production search thường cần thêm:</p>
+<pre class="hljs"><code><div>- Term frequency
+- Positions
+- Character offsets
+- Field information
+- Payload hoặc metadata
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>distributed →
+[
+  {
+    docId: D1,
+    frequency: 2,
+    positions: [1, 8]
+  },
+  {
+    docId: D2,
+    frequency: 1,
+    positions: [3]
+  }
+]
+</div></code></pre>
+<hr>
+<h1 id="7-document-frequency">7. Document Frequency</h1>
+<p>Document frequency của term <code>t</code>:</p>
+<pre class="hljs"><code><div>df(t) = số document chứa term t
+</div></code></pre>
+<p>Ví dụ có một triệu document:</p>
+<pre class="hljs"><code><div>df(&quot;the&quot;) = 900.000
+df(&quot;raft&quot;) = 2.000
+</div></code></pre>
+<p><code>raft</code> hiếm hơn nên thường mang nhiều thông tin hơn <code>the</code>.</p>
+<p>Document frequency là nền tảng của IDF và ranking.</p>
+<hr>
+<h1 id="8-term-frequency">8. Term Frequency</h1>
+<p>Term frequency:</p>
+<pre class="hljs"><code><div>tf(t, d) = số lần term t xuất hiện trong document d
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>D1:
+&quot;distributed systems and distributed databases&quot;
+
+tf(&quot;distributed&quot;, D1) = 2
+</div></code></pre>
+<p>Trực giác:</p>
+<pre class="hljs"><code><div>Term xuất hiện nhiều trong document
+→ document có thể liên quan hơn
+</div></code></pre>
+<p>Nhưng tăng từ 1 lên 2 thường quan trọng hơn tăng từ 100 lên 101.</p>
+<p>Vì vậy ranking thường dùng cơ chế saturation thay vì tăng tuyến tính vô hạn.</p>
+<hr>
+<h1 id="9-positions">9. Positions</h1>
+<p>Positions ghi vị trí term trong document.</p>
+<p>Document:</p>
+<pre class="hljs"><code><div>&quot;distributed systems are difficult&quot;
+</div></code></pre>
+<p>Có thể biểu diễn:</p>
+<pre class="hljs"><code><div>distributed: position 1
+systems:     position 2
+are:         position 3
+difficult:   position 4
+</div></code></pre>
+<p>Positions hỗ trợ:</p>
+<pre class="hljs"><code><div>- Phrase query
+- Proximity search
+- Highlighting
+</div></code></pre>
+<hr>
+<h1 id="10-phrase-search">10. Phrase Search</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>&quot;distributed systems&quot;
+</div></code></pre>
+<p>Không chỉ cần document chứa cả:</p>
+<pre class="hljs"><code><div>distributed
+systems
+</div></code></pre>
+<p>Mà còn cần positions liên tiếp:</p>
+<pre class="hljs"><code><div>distributed position = n
+systems position = n + 1
+</div></code></pre>
+<p>Document:</p>
+<pre class="hljs"><code><div>&quot;distributed database systems&quot;
+</div></code></pre>
+<p>có cả hai term nhưng không phải exact phrase vì giữa chúng có <code>database</code>.</p>
+<hr>
+<h1 id="11-proximity-search">11. Proximity Search</h1>
+<p>Query có thể cho phép khoảng cách:</p>
+<pre class="hljs"><code><div>distributed NEAR systems
+</div></code></pre>
+<p>Ví dụ slop bằng 2:</p>
+<pre class="hljs"><code><div>&quot;distributed database systems&quot;
+</div></code></pre>
+<p>vẫn có thể match.</p>
+<p>Proximity thường giúp ranking:</p>
+<pre class="hljs"><code><div>Term càng gần nhau
+→ document có khả năng liên quan hơn
+</div></code></pre>
+<hr>
+<h1 id="12-fielded-index">12. Fielded Index</h1>
+<p>Một document sản phẩm có nhiều field:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bàn phím cơ không dây&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bàn phím Bluetooth pin 100 giờ&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;brand&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;KeyPro&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;category&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Phụ kiện máy tính&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Search engine cần biết term xuất hiện ở field nào:</p>
+<pre class="hljs"><code><div>&quot;bàn phím&quot; trong title
+</div></code></pre>
+<p>thường quan trọng hơn:</p>
+<pre class="hljs"><code><div>&quot;bàn phím&quot; chỉ xuất hiện trong description dài
+</div></code></pre>
+<p>Do đó index thường tách postings theo field hoặc lưu field statistics.</p>
+<hr>
+<h1 id="13-text-field-và-keyword-field">13. Text Field và Keyword Field</h1>
+<p>Hai loại mapping quan trọng:</p>
+<h2 id="text">Text</h2>
+<p>Được phân tích thành token.</p>
+<pre class="hljs"><code><div>&quot;Bàn phím cơ không dây&quot;
+→ bàn, phím, cơ, không, dây
+</div></code></pre>
+<p>Dùng cho full-text search.</p>
+<h2 id="keyword">Keyword</h2>
+<p>Giữ nguyên giá trị:</p>
+<pre class="hljs"><code><div>&quot;KeyPro Official Store&quot;
+</div></code></pre>
+<p>Dùng cho:</p>
+<pre class="hljs"><code><div>- Exact filter
+- Aggregation
+- Sorting
+- Grouping
+</div></code></pre>
+<p>Một field có thể được index theo cả hai cách:</p>
+<pre class="hljs"><code><div>name.text
+name.keyword
+</div></code></pre>
+<hr>
+<h1 id="14-stored-fields-và-indexed-fields">14. Stored Fields và Indexed Fields</h1>
+<p>Một field có thể:</p>
+<pre class="hljs"><code><div>- Được index để search
+- Được lưu để trả response
+- Có cả hai
+- Không có cả hai
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>description:
+Index để search nhưng có thể lấy từ source document.
+
+large_binary:
+Không nên đưa vào search index.
+</div></code></pre>
+<p>Không cần index mọi field.</p>
+<p>Index càng nhiều:</p>
+<pre class="hljs"><code><div>- Storage càng lớn
+- Indexing càng chậm
+- Merge càng tốn
+- Memory dictionary càng cao
+</div></code></pre>
+<hr>
+<h1 id="15-doc-values">15. Doc Values</h1>
+<p>Full-text inverted index tối ưu:</p>
+<pre class="hljs"><code><div>term → documents
+</div></code></pre>
+<p>Nhưng sorting hoặc aggregation cần hướng ngược:</p>
+<pre class="hljs"><code><div>document → field value
+</div></code></pre>
+<p>Doc values thường lưu dữ liệu dạng column-oriented cho:</p>
+<pre class="hljs"><code><div>- Sort theo price
+- Group theo category
+- Aggregation theo brand
+- Scripted scoring
+</div></code></pre>
+<p>Text field thường không nên dùng trực tiếp để sort; dùng keyword hoặc numeric doc values.</p>
+<hr>
+<h1 id="16-text-analysis-pipeline">16. Text Analysis Pipeline</h1>
+<p>Trước khi tạo inverted index, text đi qua analyzer:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Text[Raw Text] --> Char[Character Filters]
+    Char --> Tokenizer
+    Tokenizer --> Filters[Token Filters]
+    Filters --> Terms[Index Terms]
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Raw:
+&quot;Bàn-phím CƠ không dây!&quot;
+
+Sau analysis:
+bàn_phím
+cơ
+không_dây
+</div></code></pre>
+<p>Pipeline thực tế tùy ngôn ngữ và use case.</p>
+<hr>
+<h1 id="17-character-filter">17. Character Filter</h1>
+<p>Character filter xử lý chuỗi trước tokenizer.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Loại HTML
+- Chuẩn hóa ký tự Unicode
+- Thay thế ký hiệu
+- Chuẩn hóa dấu gạch
+</div></code></pre>
+<p>Input:</p>
+<pre class="hljs"><code><div><span class="hljs-tag">&lt;<span class="hljs-name">p</span>&gt;</span>Bàn phím <span class="hljs-symbol">&amp;amp;</span> chuột<span class="hljs-tag">&lt;/<span class="hljs-name">p</span>&gt;</span>
+</div></code></pre>
+<p>Sau xử lý:</p>
+<pre class="hljs"><code><div>Bàn phím &amp; chuột
+</div></code></pre>
+<hr>
+<h1 id="18-tokenizer">18. Tokenizer</h1>
+<p>Tokenizer chia text thành token.</p>
+<p>Ví dụ tokenizer đơn giản theo khoảng trắng:</p>
+<pre class="hljs"><code><div>&quot;distributed systems design&quot;
+→ distributed
+→ systems
+→ design
+</div></code></pre>
+<p>Nhưng tokenization thực tế khó hơn vì:</p>
+<pre class="hljs"><code><div>- Dấu câu
+- Email
+- URL
+- Hashtag
+- Emoji
+- Từ ghép
+- Ngôn ngữ không phân tách bằng khoảng trắng
+</div></code></pre>
+<hr>
+<h1 id="19-vấn-đề-tokenization-tiếng-việt">19. Vấn đề Tokenization tiếng Việt</h1>
+<p>Trong tiếng Việt, khoảng trắng thường phân tách âm tiết nhưng không phải lúc nào cũng phân tách từ hoàn chỉnh.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>&quot;công nghệ thông tin&quot;
+</div></code></pre>
+<p>Có thể cần nhận diện:</p>
+<pre class="hljs"><code><div>công_nghệ
+thông_tin
+</div></code></pre>
+<p>thay vì:</p>
+<pre class="hljs"><code><div>công
+nghệ
+thông
+tin
+</div></code></pre>
+<p>Các ví dụ khác:</p>
+<pre class="hljs"><code><div>Hà Nội
+máy tính
+bàn phím
+trí tuệ nhân tạo
+</div></code></pre>
+<p>Search tiếng Việt tốt có thể cần:</p>
+<pre class="hljs"><code><div>- Vietnamese word segmentation
+- Unicode normalization
+- Diacritic handling
+- Dictionary và statistical models
+</div></code></pre>
+<hr>
+<h1 id="20-lowercasing">20. Lowercasing</h1>
+<p>Chuẩn hóa:</p>
+<pre class="hljs"><code><div>Keyboard
+KEYBOARD
+keyboard
+</div></code></pre>
+<p>thành:</p>
+<pre class="hljs"><code><div>keyboard
+</div></code></pre>
+<p>Nếu không, chúng có thể trở thành ba term khác nhau.</p>
+<p>Tuy nhiên một số trường hợp phân biệt hoa thường có ý nghĩa:</p>
+<pre class="hljs"><code><div>US
+us
+</div></code></pre>
+<p>Analyzer phải phù hợp dữ liệu.</p>
+<hr>
+<h1 id="21-chuẩn-hóa-dấu-tiếng-việt">21. Chuẩn hóa dấu tiếng Việt</h1>
+<p>User có thể search:</p>
+<pre class="hljs"><code><div>ban phim co
+</div></code></pre>
+<p>trong khi document chứa:</p>
+<pre class="hljs"><code><div>bàn phím cơ
+</div></code></pre>
+<p>Ta có thể tạo thêm dạng không dấu:</p>
+<pre class="hljs"><code><div>bàn → ban
+phím → phim
+cơ → co
+</div></code></pre>
+<p>Nhưng bỏ dấu có thể tạo ambiguity.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>ma
+má
+mà
+mã
+mả
+mạ
+</div></code></pre>
+<p>Có thể cùng biến thành <code>ma</code>.</p>
+<p>Cách thường dùng:</p>
+<pre class="hljs"><code><div>- Giữ index có dấu
+- Tạo subfield không dấu
+- Boost kết quả exact có dấu cao hơn
+</div></code></pre>
+<hr>
+<h1 id="22-stop-words">22. Stop Words</h1>
+<p>Stop words là từ rất phổ biến:</p>
+<pre class="hljs"><code><div>the
+a
+an
+is
+</div></code></pre>
+<p>hoặc tùy tiếng Việt:</p>
+<pre class="hljs"><code><div>là
+và
+của
+</div></code></pre>
+<p>Loại stop words có thể giảm index size.</p>
+<p>Nhưng loại quá mạnh có thể phá nghĩa.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>&quot;to be or not to be&quot;
+</div></code></pre>
+<p>Nếu xóa gần hết stop words, phrase search mất giá trị.</p>
+<p>Search engine hiện đại không phải lúc nào cũng nên loại stop words.</p>
+<hr>
+<h1 id="23-stemming">23. Stemming</h1>
+<p>Stemming biến các dạng từ về gốc gần đúng:</p>
+<pre class="hljs"><code><div>connected
+connecting
+connection
+→ connect
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Tăng recall
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Có thể gộp nhầm từ khác nghĩa
+</div></code></pre>
+<p>Stemming thường dựa trên quy tắc cắt hậu tố, không nhất thiết tạo từ đúng ngôn ngữ.</p>
+<hr>
+<h1 id="24-lemmatization">24. Lemmatization</h1>
+<p>Lemmatization cố đưa từ về lemma ngôn ngữ đúng:</p>
+<pre class="hljs"><code><div>am, is, are
+→ be
+</div></code></pre>
+<p>Thường chính xác hơn stemming nhưng:</p>
+<pre class="hljs"><code><div>- Cần mô hình ngôn ngữ
+- Tốn tài nguyên hơn
+- Phụ thuộc part of speech
+</div></code></pre>
+<p>Với nhiều hệ thống product search, synonym và domain dictionary đôi khi quan trọng hơn stemming phức tạp.</p>
+<hr>
+<h1 id="25-synonyms">25. Synonyms</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>laptop ↔ notebook
+điện thoại ↔ smartphone
+tv ↔ television
+</div></code></pre>
+<p>Khi user query:</p>
+<pre class="hljs"><code><div>notebook gaming
+</div></code></pre>
+<p>vẫn muốn tìm:</p>
+<pre class="hljs"><code><div>laptop gaming
+</div></code></pre>
+<p>Synonym có thể áp dụng:</p>
+<pre class="hljs"><code><div>- Khi index
+- Khi query
+</div></code></pre>
+<hr>
+<h1 id="26-synonym-lúc-index">26. Synonym lúc Index</h1>
+<p>Document:</p>
+<pre class="hljs"><code><div>laptop
+</div></code></pre>
+<p>được index thành:</p>
+<pre class="hljs"><code><div>laptop
+notebook
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Query nhanh hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Index lớn hơn
+- Đổi synonym cần reindex
+- Có thể làm ranking khó kiểm soát
+</div></code></pre>
+<hr>
+<h1 id="27-synonym-lúc-query">27. Synonym lúc Query</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>notebook
+</div></code></pre>
+<p>được mở rộng:</p>
+<pre class="hljs"><code><div>notebook OR laptop
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Cập nhật synonym linh hoạt
+- Không cần reindex toàn bộ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Query phức tạp hơn
+- Có thể tăng số clause
+- Phrase semantics khó hơn
+</div></code></pre>
+<hr>
+<h1 id="28-synonym-một-chiều">28. Synonym một chiều</h1>
+<p>Không phải synonym nào cũng đối xứng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>iphone → smartphone
+</div></code></pre>
+<p>Nhưng query:</p>
+<pre class="hljs"><code><div>smartphone
+</div></code></pre>
+<p>không nhất thiết muốn boost mọi iPhone theo cùng cách.</p>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>macbook → laptop
+</div></code></pre>
+<p>Một chiều thường phù hợp hơn:</p>
+<pre class="hljs"><code><div>Tên sản phẩm cụ thể
+→ nhóm sản phẩm rộng
+</div></code></pre>
+<hr>
+<h1 id="29-n-gram">29. N-gram</h1>
+<p>N-gram chia chuỗi thành các mảnh.</p>
+<p>Ví dụ trigram:</p>
+<pre class="hljs"><code><div>keyboard
+→ key
+→ eyb
+→ ybo
+→ boa
+→ oar
+→ ard
+</div></code></pre>
+<p>N-gram hỗ trợ:</p>
+<pre class="hljs"><code><div>- Partial matching
+- Typo tolerance
+- Languages khó tokenize
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Index rất lớn
+- Nhiều false positive
+- Ranking phức tạp
+</div></code></pre>
+<hr>
+<h1 id="30-edge-n-gram">30. Edge N-gram</h1>
+<p>Edge n-gram tạo prefix:</p>
+<pre class="hljs"><code><div>keyboard
+→ k
+→ ke
+→ key
+→ keyb
+→ keybo
+</div></code></pre>
+<p>Phù hợp autocomplete:</p>
+<pre class="hljs"><code><div>User gõ &quot;keyb&quot;
+→ tìm keyboard
+</div></code></pre>
+<p>Thường giới hạn:</p>
+<pre class="hljs"><code><div>min_gram
+max_gram
+</div></code></pre>
+<p>Không nên tạo mọi prefix từ 1 đến độ dài vô hạn.</p>
+<hr>
+<h1 id="31-index-analyzer-và-search-analyzer">31. Index Analyzer và Search Analyzer</h1>
+<p>Analyzer khi index và khi query có thể khác nhau.</p>
+<p>Ví dụ autocomplete:</p>
+<h2 id="index-analyzer">Index analyzer</h2>
+<pre class="hljs"><code><div>keyboard
+→ ke
+→ key
+→ keyb
+→ keybo
+...
+</div></code></pre>
+<h2 id="search-analyzer">Search analyzer</h2>
+<p>Query <code>keyb</code> giữ nguyên:</p>
+<pre class="hljs"><code><div>keyb
+</div></code></pre>
+<p>Nếu query cũng bị edge n-gram quá mạnh, số match và score có thể bất thường.</p>
+<hr>
+<h1 id="32-analyzer-phải-tương-thích">32. Analyzer phải tương thích</h1>
+<p>Document index:</p>
+<pre class="hljs"><code><div>&quot;Bàn Phím&quot;
+→ bàn
+→ phím
+</div></code></pre>
+<p>Query analyzer:</p>
+<pre class="hljs"><code><div>&quot;bàn phím&quot;
+→ bàn_phím
+</div></code></pre>
+<p>Term không giống nhau:</p>
+<pre class="hljs"><code><div>bàn_phím ≠ bàn + phím
+</div></code></pre>
+<p>Kết quả có thể không match.</p>
+<p>Index analyzer và query analyzer không nhất thiết giống hệt, nhưng phải được thiết kế tương thích.</p>
+<hr>
+<h1 id="33-exact-match-và-full-text-match">33. Exact Match và Full-Text Match</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>brand = &quot;Apple&quot;
+</div></code></pre>
+<p>nên dùng exact keyword filter.</p>
+<p>Query:</p>
+<pre class="hljs"><code><div>&quot;điện thoại chụp ảnh đẹp&quot;
+</div></code></pre>
+<p>nên dùng full-text query.</p>
+<p>Không nên dùng full-text analyzer cho:</p>
+<pre class="hljs"><code><div>- Product ID
+- Email exact lookup
+- Status
+- Country code
+- Enum
+</div></code></pre>
+<hr>
+<h1 id="34-boolean-retrieval">34. Boolean Retrieval</h1>
+<p>Inverted index hỗ trợ:</p>
+<h2 id="and">AND</h2>
+<pre class="hljs"><code><div>distributed AND database
+</div></code></pre>
+<p>Lấy giao hai postings list.</p>
+<h2 id="or">OR</h2>
+<pre class="hljs"><code><div>laptop OR notebook
+</div></code></pre>
+<p>Lấy hợp.</p>
+<h2 id="not">NOT</h2>
+<pre class="hljs"><code><div>laptop NOT refurbished
+</div></code></pre>
+<p>Loại document chứa term không mong muốn.</p>
+<hr>
+<h1 id="35-giao-postings-list">35. Giao Postings List</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>distributed → [1, 3, 5, 7, 9]
+systems     → [2, 3, 5, 8, 9]
+</div></code></pre>
+<p>AND:</p>
+<pre class="hljs"><code><div>[3, 5, 9]
+</div></code></pre>
+<p>Vì postings được sort theo doc ID, có thể dùng:</p>
+<pre class="hljs"><code><div>- Two-pointer intersection
+- Skip pointers
+- Compression-aware iteration
+</div></code></pre>
+<hr>
+<h1 id="36-skip-data">36. Skip Data</h1>
+<p>Với postings dài:</p>
+<pre class="hljs"><code><div>[1,2,3,4,5,...,1.000.000]
+</div></code></pre>
+<p>không muốn duyệt từng doc.</p>
+<p>Skip structures cho phép nhảy qua block không thể match.</p>
+<p>Điều này quan trọng với term phổ biến.</p>
+<hr>
+<h1 id="37-filters-và-queries">37. Filters và Queries</h1>
+<p>Search query thường chia:</p>
+<h2 id="query-context">Query context</h2>
+<p>Ảnh hưởng relevance score.</p>
+<pre class="hljs"><code><div>title chứa &quot;laptop gaming&quot;
+</div></code></pre>
+<h2 id="filter-context">Filter context</h2>
+<p>Chỉ xác định đủ điều kiện hay không.</p>
+<pre class="hljs"><code><div>price &lt; 20 triệu
+brand = ASUS
+in_stock = true
+</div></code></pre>
+<p>Filter thường:</p>
+<pre class="hljs"><code><div>- Cache dễ hơn
+- Không tính score
+- Thực thi nhanh hơn
+</div></code></pre>
+<hr>
+<h1 id="38-full-text-search-flow">38. Full-Text Search Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Q[User Query] --> Analyze[Query Analyzer]
+    Analyze --> Terms[Query Terms]
+    Terms --> Lookup[Inverted Index Lookup]
+    Lookup --> Candidates[Candidate Documents]
+    Candidates --> Score[Relevance Scoring]
+    Score --> Filter[Business Filters]
+    Filter --> Rank[Final Ranking]
+    Rank --> Results
+</div></code></pre>
+<p>Production system có thể đổi thứ tự một số bước để tối ưu.</p>
+<hr>
+<h1 id="39-candidate-generation">39. Candidate Generation</h1>
+<p>Không thể chạy mô hình ranking đắt tiền trên toàn bộ một tỷ document.</p>
+<p>Search thường có nhiều tầng:</p>
+<pre class="hljs"><code><div>Stage 1:
+Dùng inverted index lấy vài nghìn candidate
+
+Stage 2:
+Scoring chi tiết hơn
+
+Stage 3:
+Machine-learning reranking top 100
+
+Stage 4:
+Business rules và diversification
+</div></code></pre>
+<p>Đây là kiến trúc retrieval–ranking nhiều tầng.</p>
+<hr>
+<h1 id="40-precision-và-recall">40. Precision và Recall</h1>
+<h2 id="precision">Precision</h2>
+<p>Trong các kết quả trả về, bao nhiêu kết quả thực sự liên quan?</p>
+<pre class="hljs"><code><div>Precision = relevant retrieved / all retrieved
+</div></code></pre>
+<h2 id="recall">Recall</h2>
+<p>Trong tất cả kết quả liên quan tồn tại, ta tìm được bao nhiêu?</p>
+<pre class="hljs"><code><div>Recall = relevant retrieved / all relevant
+</div></code></pre>
+<p>Mở rộng synonym mạnh:</p>
+<pre class="hljs"><code><div>Recall tăng
+Precision có thể giảm
+</div></code></pre>
+<p>Exact phrase quá nghiêm:</p>
+<pre class="hljs"><code><div>Precision tăng
+Recall có thể giảm
+</div></code></pre>
+<hr>
+<h1 id="41-tf-idf">41. TF-IDF</h1>
+<p>TF-IDF kết hợp:</p>
+<pre class="hljs"><code><div>TF:
+Term quan trọng thế nào trong document?
+
+IDF:
+Term hiếm thế nào trong toàn collection?
+</div></code></pre>
+<p>Trực giác:</p>
+<pre class="hljs"><code><div>Term xuất hiện nhiều trong document
+và hiếm trong collection
+→ score cao
+</div></code></pre>
+<p>Một dạng đơn giản:</p>
+<pre class="hljs"><code><div>TF-IDF(t,d) = TF(t,d) × IDF(t)
+</div></code></pre>
+<hr>
+<h1 id="42-idf">42. IDF</h1>
+<p>Một dạng trực giác:</p>
+<pre class="hljs"><code><div>IDF(t) = log(N / df(t))
+</div></code></pre>
+<p>Trong đó:</p>
+<pre class="hljs"><code><div>N:
+Tổng document
+
+df(t):
+Số document chứa term
+</div></code></pre>
+<p>Nếu term xuất hiện gần mọi document:</p>
+<pre class="hljs"><code><div>IDF thấp
+</div></code></pre>
+<p>Nếu term rất hiếm:</p>
+<pre class="hljs"><code><div>IDF cao
+</div></code></pre>
+<hr>
+<h1 id="43-hạn-chế-tf-idf-đơn-giản">43. Hạn chế TF-IDF đơn giản</h1>
+<p>TF-IDF đơn giản có thể:</p>
+<pre class="hljs"><code><div>- Ưu tiên quá mạnh term lặp lại nhiều
+- Không xử lý tốt document length
+- Không saturation TF hợp lý
+</div></code></pre>
+<p>Do đó nhiều search engine lexical dùng BM25 hoặc biến thể.</p>
+<hr>
+<h1 id="44-bm25">44. BM25</h1>
+<p>BM25 là ranking function phổ biến cho lexical search.</p>
+<p>Một dạng:</p>
+<p>[
+score(D,Q)=
+\sum_{t \in Q}
+IDF(t)
+\cdot
+\frac{f(t,D)(k_1+1)}
+{f(t,D)+k_1\left(1-b+b\frac{|D|}{avgdl}\right)}
+]</p>
+<p>Trong đó:</p>
+<pre class="hljs"><code><div>f(t,D):
+Term frequency trong document
+
+|D|:
+Độ dài document
+
+avgdl:
+Độ dài document trung bình
+
+k1:
+Điều chỉnh TF saturation
+
+b:
+Điều chỉnh document-length normalization
+</div></code></pre>
+<p>Không cần thuộc công thức trong interview, nhưng phải hiểu trực giác.</p>
+<hr>
+<h1 id="45-tf-saturation-trong-bm25">45. TF Saturation trong BM25</h1>
+<p>Term xuất hiện:</p>
+<pre class="hljs"><code><div>1 lần → tín hiệu đáng kể
+2 lần → tăng thêm
+20 lần → không nên score gấp 20 lần
+</div></code></pre>
+<p>BM25 làm TF tăng dần nhưng bão hòa.</p>
+<p>Điều này ngăn document spam keyword dễ dàng chiếm top.</p>
+<hr>
+<h1 id="46-document-length-normalization">46. Document Length Normalization</h1>
+<p>Nếu hai document cùng chứa <code>database</code> ba lần:</p>
+<pre class="hljs"><code><div>D1:
+50 từ
+
+D2:
+5.000 từ
+</div></code></pre>
+<p>Term <code>database</code> có vẻ tập trung hơn trong D1.</p>
+<p>BM25 dùng document length normalization để điều chỉnh.</p>
+<p>Nhưng field dài tự nhiên như description cần tuning khác title.</p>
+<hr>
+<h1 id="47-field-boosting">47. Field Boosting</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>laptop gaming
+</div></code></pre>
+<p>Có thể đặt:</p>
+<pre class="hljs"><code><div>title boost = 4
+category boost = 2
+description boost = 1
+</div></code></pre>
+<p>Document match title được ưu tiên.</p>
+<p>Ví dụ score:</p>
+<pre class="hljs"><code><div>final lexical score =
+4 × title_score
++ 2 × category_score
++ 1 × description_score
+</div></code></pre>
+<p>Không nên boost quá nhiều mà không đánh giá relevance.</p>
+<hr>
+<h1 id="48-exact-phrase-boost">48. Exact Phrase Boost</h1>
+<p>Document A:</p>
+<pre class="hljs"><code><div>&quot;laptop gaming giá rẻ&quot;
+</div></code></pre>
+<p>Document B:</p>
+<pre class="hljs"><code><div>&quot;laptop dùng cho văn phòng, gaming mouse...&quot;
+</div></code></pre>
+<p>Cả hai chứa <code>laptop</code> và <code>gaming</code>.</p>
+<p>A nên được boost vì exact phrase hoặc term proximity cao hơn.</p>
+<hr>
+<h1 id="49-freshness-boost">49. Freshness Boost</h1>
+<p>Tin tức và social feed có thể ưu tiên nội dung mới.</p>
+<p>Một decay function:</p>
+<pre class="hljs"><code><div>freshnessScore = exp(-age / halfLife)
+</div></code></pre>
+<p>Nhưng không nên để freshness hoàn toàn lấn relevance.</p>
+<p>Query:</p>
+<pre class="hljs"><code><div>hướng dẫn PostgreSQL replication
+</div></code></pre>
+<p>một bài cũ nhưng chính xác có thể tốt hơn bài mới không liên quan.</p>
+<hr>
+<h1 id="50-popularity-signal">50. Popularity Signal</h1>
+<p>Có thể thêm:</p>
+<pre class="hljs"><code><div>- Click count
+- Purchase count
+- Rating
+- Sales velocity
+- Engagement
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>finalScore =
+0.7 × relevance
++ 0.2 × popularity
++ 0.1 × freshness
+</div></code></pre>
+<p>Các trọng số cần được học hoặc thử nghiệm, không nên đoán cố định.</p>
+<hr>
+<h1 id="51-popularity-bias">51. Popularity Bias</h1>
+<p>Nếu luôn boost sản phẩm phổ biến:</p>
+<pre class="hljs"><code><div>Sản phẩm phổ biến
+→ được hiển thị nhiều
+→ nhận thêm click
+→ càng phổ biến
+</div></code></pre>
+<p>Tạo feedback loop.</p>
+<p>Cần cân nhắc:</p>
+<pre class="hljs"><code><div>- Exploration
+- New-item boost
+- Diversity
+- Category fairness
+- Sponsored-result separation
+</div></code></pre>
+<hr>
+<h1 id="52-business-ranking">52. Business Ranking</h1>
+<p>E-commerce có thể thêm:</p>
+<pre class="hljs"><code><div>- Còn hàng
+- Khả năng giao tới khu vực user
+- Seller quality
+- Return rate
+- Profit margin
+- Promotion
+</div></code></pre>
+<p>Nhưng cần phân biệt:</p>
+<pre class="hljs"><code><div>Relevance:
+Kết quả phù hợp query
+
+Business objective:
+Kết quả có giá trị cho sản phẩm
+</div></code></pre>
+<p>Nếu business rule phá relevance quá mạnh, user mất niềm tin.</p>
+<hr>
+<h1 id="53-hard-filter-và-soft-boost">53. Hard Filter và Soft Boost</h1>
+<h2 id="hard-filter">Hard filter</h2>
+<p>Document không đủ điều kiện thì loại:</p>
+<pre class="hljs"><code><div>in_stock = true
+user_has_permission = true
+region_available = true
+</div></code></pre>
+<h2 id="soft-boost">Soft boost</h2>
+<p>Document vẫn đủ điều kiện nhưng được ưu tiên:</p>
+<pre class="hljs"><code><div>preferred_brand
+high_rating
+fast_shipping
+</div></code></pre>
+<p>Không nên dùng score để thay thế security filter.</p>
+<hr>
+<h1 id="54-personalized-ranking">54. Personalized Ranking</h1>
+<p>Có thể dùng tín hiệu:</p>
+<pre class="hljs"><code><div>- Lịch sử click
+- Lịch sử mua
+- Vị trí
+- Ngôn ngữ
+- Preferred categories
+</div></code></pre>
+<p>Kiến trúc thường:</p>
+<pre class="hljs"><code><div>General candidate retrieval
+→ User feature lookup
+→ Personalized reranking
+</div></code></pre>
+<p>Không nên tạo một inverted index riêng cho từng user.</p>
+<hr>
+<h1 id="55-learning-to-rank">55. Learning to Rank</h1>
+<p>Thay vì trọng số viết tay, có thể huấn luyện model sử dụng features:</p>
+<pre class="hljs"><code><div>- BM25 score
+- Exact title match
+- Popularity
+- Freshness
+- Price
+- User affinity
+- Seller quality
+</div></code></pre>
+<p>Model trả relevance score cuối.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Training labels
+- Offline evaluation
+- Online A/B testing
+- Feature consistency giữa training và serving
+</div></code></pre>
+<hr>
+<h1 id="56-semantic-search">56. Semantic Search</h1>
+<p>Lexical search dựa trên term overlap.</p>
+<p>Semantic search dùng vector embedding để tìm nội dung gần về ý nghĩa.</p>
+<p>Ví dụ query:</p>
+<pre class="hljs"><code><div>&quot;điện thoại chụp đêm tốt&quot;
+</div></code></pre>
+<p>Document có thể viết:</p>
+<pre class="hljs"><code><div>&quot;camera low-light xuất sắc&quot;
+</div></code></pre>
+<p>Lexical overlap thấp nhưng ý nghĩa gần.</p>
+<hr>
+<h1 id="57-hybrid-search">57. Hybrid Search</h1>
+<p>Production search ngày càng kết hợp:</p>
+<pre class="hljs"><code><div>Lexical retrieval
++
+Vector retrieval
++
+Reranking
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Query --> Lexical[BM25 Candidates]
+    Query --> Vector[Vector Candidates]
+
+    Lexical --> Merge[Candidate Merge]
+    Vector --> Merge
+
+    Merge --> Rerank[Cross-Encoder / LTR]
+    Rerank --> Results
+</div></code></pre>
+<p>Bài này tập trung inverted index, nhưng cần biết lexical và semantic search có thể bổ sung nhau.</p>
+<hr>
+<h1 id="58-source-of-truth">58. Source of Truth</h1>
+<p>Search index thường không phải source of truth.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Product DB:
+Authoritative product data
+
+Search index:
+Projection phục vụ search
+</div></code></pre>
+<p>Nếu search index bị mất:</p>
+<pre class="hljs"><code><div>Có thể rebuild từ DB + event log
+</div></code></pre>
+<p>Nếu database bị mất nhưng chỉ còn search index:</p>
+<pre class="hljs"><code><div>Không nên xem search index là bản thay thế transaction database.
+</div></code></pre>
+<p>Search index có thể:</p>
+<pre class="hljs"><code><div>- Thiếu field
+- Stale
+- Đã denormalize
+- Không có transaction history đầy đủ
+</div></code></pre>
+<hr>
+<h1 id="59-kiến-trúc-indexing-pipeline">59. Kiến trúc Indexing Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    DB[(Source Database)] --> CDC[CDC / Outbox]
+    CDC --> Broker[Event Stream]
+    Broker --> Processor[Indexing Processor]
+    Processor --> Enrich[Enrichment]
+    Enrich --> Search[(Search Cluster)]
+</div></code></pre>
+<p>Các bước:</p>
+<pre class="hljs"><code><div>1. Business transaction commit.
+2. Phát change event đáng tin cậy.
+3. Consumer lấy event.
+4. Normalize và enrich document.
+5. Ghi vào search index.
+6. Retry hoặc DLQ nếu thất bại.
+</div></code></pre>
+<hr>
+<h1 id="60-vì-sao-không-ghi-trực-tiếp-db-và-search">60. Vì sao không ghi trực tiếp DB và Search?</h1>
+<p>Code ngây thơ:</p>
+<pre class="hljs"><code><div>database.update_product(product)
+search.index_product(product)
+</div></code></pre>
+<p>Nếu DB thành công nhưng search thất bại:</p>
+<pre class="hljs"><code><div>Database mới
+Search cũ
+</div></code></pre>
+<p>Nếu search thành công nhưng DB rollback:</p>
+<pre class="hljs"><code><div>Search chứa dữ liệu không tồn tại
+</div></code></pre>
+<p>Đây là dual-write problem.</p>
+<p>Nên dùng:</p>
+<pre class="hljs"><code><div>- Transactional outbox
+- CDC
+- Durable event stream
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="61-indexing-event">61. Indexing Event</h1>
+<p>Một event tốt có thể chứa:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;entityType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;product&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;entityId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;entityVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">18</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;UPSERT&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;occurredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-13T04:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Payload có thể:</p>
+<pre class="hljs"><code><div>- Chứa document đầy đủ
+- Chỉ chứa ID để processor đọc source DB
+- Chứa phần thay đổi
+</div></code></pre>
+<hr>
+<h1 id="62-full-document-event">62. Full Document Event</h1>
+<p>Event chứa document hoàn chỉnh.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Consumer không cần query DB
+- Giảm load source DB
+- Dễ replay
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Event lớn
+- Schema coupling
+- Dữ liệu nhạy cảm có thể bị phát tán
+- Enrichment từ nhiều nguồn vẫn khó
+</div></code></pre>
+<hr>
+<h1 id="63-id-only-event">63. ID-Only Event</h1>
+<p>Event chỉ chứa:</p>
+<pre class="hljs"><code><div>productId
+version
+</div></code></pre>
+<p>Processor đọc state mới nhất từ DB.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Event nhỏ
+- Luôn lấy full state mới nhất
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tăng DB reads
+- Nếu record bị xóa, cần tombstone
+- Có thể bỏ qua các trạng thái trung gian
+</div></code></pre>
+<p>Đôi khi bỏ qua intermediate state là tốt nếu search chỉ cần state cuối.</p>
+<hr>
+<h1 id="64-upsert">64. UPSERT</h1>
+<p>Indexing consumer nên ưu tiên operation idempotent:</p>
+<pre class="hljs"><code><div>UPSERT document p_123 với version 18
+</div></code></pre>
+<p>Nếu event được giao hai lần:</p>
+<pre class="hljs"><code><div>Kết quả cuối vẫn là version 18
+</div></code></pre>
+<p>Không nên dùng operation kiểu:</p>
+<pre class="hljs"><code><div>increment view_count by 1
+</div></code></pre>
+<p>nếu duplicate delivery có thể làm tăng hai lần, trừ khi có deduplication.</p>
+<hr>
+<h1 id="65-out-of-order-index-events">65. Out-of-Order Index Events</h1>
+<p>Search consumer có thể nhận:</p>
+<pre class="hljs"><code><div>Product version 18
+</div></code></pre>
+<p>rồi sau đó nhận event retry:</p>
+<pre class="hljs"><code><div>Product version 17
+</div></code></pre>
+<p>Nếu ghi mù quáng:</p>
+<pre class="hljs"><code><div>Search bị quay về dữ liệu cũ.
+</div></code></pre>
+<p>Cần external versioning hoặc conditional update:</p>
+<pre class="hljs"><code><div>Chỉ apply nếu incomingVersion &gt; indexedVersion
+</div></code></pre>
+<hr>
+<h1 id="66-deletion-và-tombstone">66. Deletion và Tombstone</h1>
+<p>Record bị xóa khỏi DB.</p>
+<p>Nếu event chỉ nói “record changed” rồi processor query DB:</p>
+<pre class="hljs"><code><div>Không tìm thấy record
+</div></code></pre>
+<p>Không biết:</p>
+<pre class="hljs"><code><div>- Record bị xóa
+- DB tạm thời lỗi
+- Replica đang lag
+</div></code></pre>
+<p>Nên có delete event hoặc tombstone rõ ràng:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;entityId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">19</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DELETE&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="67-soft-delete">67. Soft Delete</h1>
+<p>Một số hệ thống không xóa document ngay mà đặt:</p>
+<pre class="hljs"><code><div>is_deleted = true
+</div></code></pre>
+<p>Search query filter:</p>
+<pre class="hljs"><code><div>is_deleted = false
+</div></code></pre>
+<p>Sau đó background cleanup xóa vật lý.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Khôi phục dễ hơn
+- Tránh document xuất hiện trong khoảng propagation
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Index chứa dữ liệu dư
+- Mọi query phải áp filter đúng
+</div></code></pre>
+<hr>
+<h1 id="68-enrichment">68. Enrichment</h1>
+<p>Search document thường denormalized.</p>
+<p>Product document có thể lấy dữ liệu từ:</p>
+<pre class="hljs"><code><div>- Product Service
+- Seller Service
+- Category Service
+- Inventory Service
+- Rating Service
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bàn phím cơ&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sellerName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Tech Store&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;categoryPath&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;Điện tử&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;Phụ kiện&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;rating&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4.8</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;inStock&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Enrichment giúp query nhanh nhưng tạo consistency complexity.</p>
+<hr>
+<h1 id="69-fan-in-problem-khi-enrichment">69. Fan-in Problem khi Enrichment</h1>
+<p>Một product update cần join nhiều service.</p>
+<p>Nếu mỗi event gọi đồng bộ năm service:</p>
+<pre class="hljs"><code><div>- Latency tăng
+- Dependency failure tăng
+- Indexing throughput thấp
+- Dễ tạo thundering herd
+</div></code></pre>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Local enrichment cache
+- Materialized view
+- Stream-table join
+- Periodic backfill
+- Index một phần rồi update sau
+</div></code></pre>
+<hr>
+<h1 id="70-indexing-pipeline-cần-at-least-once">70. Indexing Pipeline cần At-Least-Once</h1>
+<p>Nếu consumer crash sau khi ghi search nhưng trước khi ACK broker:</p>
+<pre class="hljs"><code><div>Event sẽ được giao lại.
+</div></code></pre>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>- Event ID ổn định
+- UPSERT idempotent
+- Entity version
+- Retry
+</div></code></pre>
+<p>là bắt buộc.</p>
+<p>Không nên dựa vào exactly-once message marketing để bỏ idempotency.</p>
+<hr>
+<h1 id="71-bulk-indexing">71. Bulk Indexing</h1>
+<p>Gửi một document mỗi network request có overhead lớn.</p>
+<p>Thường batch:</p>
+<pre class="hljs"><code><div>500–5.000 documents/batch
+</div></code></pre>
+<p>tùy kích thước và cluster.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Batch lớn:
+Throughput tốt hơn
+Nhưng latency và retry cost lớn hơn
+
+Batch nhỏ:
+Latency thấp hơn
+Nhưng network overhead cao
+</div></code></pre>
+<hr>
+<h1 id="72-partial-failure-trong-bulk-request">72. Partial Failure trong Bulk Request</h1>
+<p>Batch 1.000 documents có thể:</p>
+<pre class="hljs"><code><div>990 thành công
+10 thất bại
+</div></code></pre>
+<p>Không nên retry toàn bộ mù quáng nếu có side effect hoặc version issue.</p>
+<p>Processor cần:</p>
+<pre class="hljs"><code><div>- Đọc kết quả từng item
+- Retry item transient
+- DLQ item permanent
+- Ghi metric theo error type
+</div></code></pre>
+<hr>
+<h1 id="73-index-segment">73. Index Segment</h1>
+<p>Nhiều search engine dùng segment gần như immutable.</p>
+<p>Document mới được ghi vào buffer, sau đó tạo segment mới.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Writes --> Buffer
+    Buffer --> S1[Segment 1]
+    Buffer --> S2[Segment 2]
+    Buffer --> S3[Segment 3]
+</div></code></pre>
+<p>Search đọc qua nhiều segment như một logical index.</p>
+<p>Immutable segment giúp:</p>
+<pre class="hljs"><code><div>- Search concurrency đơn giản
+- Compression tốt
+- Sequential I/O
+</div></code></pre>
+<hr>
+<h1 id="74-update-trong-immutable-segment">74. Update trong Immutable Segment</h1>
+<p>Không sửa trực tiếp document trong segment cũ.</p>
+<p>Thường:</p>
+<pre class="hljs"><code><div>1. Đánh dấu version cũ đã xóa.
+2. Ghi version mới vào segment mới.
+</div></code></pre>
+<p>Do đó nhiều update tạo:</p>
+<pre class="hljs"><code><div>- Deleted documents
+- Nhiều segment nhỏ
+- Merge pressure
+</div></code></pre>
+<p>Search workload update-heavy có chi phí khác append-heavy.</p>
+<hr>
+<h1 id="75-segment-merge">75. Segment Merge</h1>
+<p>Background process merge nhiều segment:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    S1[Small Segment 1] --> Merge
+    S2[Small Segment 2] --> Merge
+    S3[Small Segment 3] --> Merge
+    Merge --> L[Large Segment]
+</div></code></pre>
+<p>Merge:</p>
+<pre class="hljs"><code><div>- Loại document đã delete
+- Tạo segment lớn hơn
+- Cải thiện search efficiency
+</div></code></pre>
+<p>Nhưng tiêu tốn:</p>
+<pre class="hljs"><code><div>- CPU
+- Disk I/O
+- Temporary storage
+- Network nếu replication segment
+</div></code></pre>
+<hr>
+<h1 id="76-refresh-và-search-visibility">76. Refresh và Search Visibility</h1>
+<p>Document đã được search engine nhận không nhất thiết xuất hiện ngay trong query.</p>
+<p>Thường có các giai đoạn:</p>
+<pre class="hljs"><code><div>Accepted
+→ Buffered
+→ Refreshed/searchable
+→ Durably committed/replicated
+</div></code></pre>
+<p>Vì vậy search thường được gọi là:</p>
+<pre class="hljs"><code><div>Near-real-time
+</div></code></pre>
+<p>không phải luôn real-time tuyệt đối.</p>
+<hr>
+<h1 id="77-refresh-interval-trade-off">77. Refresh Interval Trade-off</h1>
+<p>Refresh thường xuyên hơn:</p>
+<pre class="hljs"><code><div>- Document xuất hiện nhanh
+- Tạo nhiều segment nhỏ
+- Tăng merge overhead
+</div></code></pre>
+<p>Refresh ít thường xuyên:</p>
+<pre class="hljs"><code><div>- Indexing throughput tốt hơn
+- Search freshness kém hơn
+</div></code></pre>
+<p>Cần dựa vào freshness SLO.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Product search:
+99% update searchable trong 5 giây
+
+Security deletion:
+Có thể yêu cầu nhanh hơn và có đường xử lý riêng
+</div></code></pre>
+<hr>
+<h1 id="78-search-indexing-lag">78. Search Indexing Lag</h1>
+<p>Indexing lag có thể đo:</p>
+<pre class="hljs"><code><div>current time - event occurred time
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>source version - indexed version
+</div></code></pre>
+<p>Các thành phần lag:</p>
+<pre class="hljs"><code><div>DB commit
+→ Outbox/CDC delay
+→ Broker queue delay
+→ Processing delay
+→ Bulk flush delay
+→ Search refresh delay
+</div></code></pre>
+<p>Cần metric từng giai đoạn, không chỉ lag tổng.</p>
+<hr>
+<h1 id="79-search-sharding">79. Search Sharding</h1>
+<p>Khi index quá lớn cho một node, chia thành shards:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Index[Product Index] --> S1[(Shard 1)]
+    Index --> S2[(Shard 2)]
+    Index --> S3[(Shard 3)]
+</div></code></pre>
+<p>Mỗi document được route tới một primary shard:</p>
+<pre class="hljs"><code><div>shard = hash(routingKey) mod shardCount
+</div></code></pre>
+<hr>
+<h1 id="80-search-request-qua-nhiều-shard">80. Search Request qua nhiều Shard</h1>
+<p>Query toàn index:</p>
+<pre class="hljs"><code><div>&quot;laptop gaming&quot;
+</div></code></pre>
+<p>coordinator gửi query tới mỗi relevant shard.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Coordinator
+
+    Coordinator --> S1[(Shard 1)]
+    Coordinator --> S2[(Shard 2)]
+    Coordinator --> S3[(Shard 3)]
+
+    S1 --> Merge[Top-K Merge]
+    S2 --> Merge
+    S3 --> Merge
+
+    Merge --> Client
+</div></code></pre>
+<p>Đây là scatter–gather.</p>
+<hr>
+<h1 id="81-query-phase-và-fetch-phase">81. Query Phase và Fetch Phase</h1>
+<p>Một mô hình phổ biến:</p>
+<h2 id="query-phase">Query phase</h2>
+<p>Mỗi shard trả:</p>
+<pre class="hljs"><code><div>- Top document IDs
+- Local scores
+- Sort values
+</div></code></pre>
+<h2 id="merge">Merge</h2>
+<p>Coordinator chọn global top K.</p>
+<h2 id="fetch-phase">Fetch phase</h2>
+<p>Coordinator yêu cầu các shard chứa top K trả full document fields.</p>
+<p>Điều này tránh gửi toàn bộ document candidate qua network.</p>
+<hr>
+<h1 id="82-top-k-merge">82. Top-K Merge</h1>
+<p>User yêu cầu top 10.</p>
+<p>Mỗi shard thường trả ít nhất top 10 local.</p>
+<p>Coordinator merge để chọn top 10 toàn cục.</p>
+<p>Nếu có reranking hoặc collapse phức tạp, có thể cần overfetch:</p>
+<pre class="hljs"><code><div>Mỗi shard trả top 50
+→ Coordinator rerank
+→ Trả top 10
+</div></code></pre>
+<p>Overfetch tăng chất lượng nhưng tăng network và CPU.</p>
+<hr>
+<h1 id="83-tail-latency-của-scattergather">83. Tail Latency của Scatter–Gather</h1>
+<p>Query chạm 50 shards.</p>
+<p>Nếu 49 shard trả trong 20 ms nhưng một shard trả 500 ms:</p>
+<pre class="hljs"><code><div>Query tổng có thể chờ shard chậm.
+</div></code></pre>
+<p>Số shard càng nhiều:</p>
+<pre class="hljs"><code><div>Xác suất gặp ít nhất một shard chậm càng cao.
+</div></code></pre>
+<p>Do đó không nên tạo quá nhiều shard nhỏ.</p>
+<hr>
+<h1 id="84-over-sharding">84. Over-Sharding</h1>
+<p>Nhiều shard hơn không luôn tốt.</p>
+<p>Over-sharding gây:</p>
+<pre class="hljs"><code><div>- Nhiều network fan-out
+- Metadata lớn
+- Nhiều segment nhỏ
+- Heap overhead
+- Merge overhead
+- Recovery phức tạp
+</div></code></pre>
+<p>Một shard nên đủ lớn để sử dụng tài nguyên hiệu quả nhưng không quá lớn để:</p>
+<pre class="hljs"><code><div>- Recovery quá lâu
+- Rebalancing quá nặng
+- Một node quá tải
+</div></code></pre>
+<hr>
+<h1 id="85-under-sharding">85. Under-Sharding</h1>
+<p>Quá ít shard gây:</p>
+<pre class="hljs"><code><div>- Không scale ngang được
+- Shard quá lớn
+- Rebuild lâu
+- Hot shard
+- Không tận dụng nhiều node
+</div></code></pre>
+<p>Shard count ban đầu cần tính theo:</p>
+<pre class="hljs"><code><div>- Data growth
+- Query throughput
+- Indexing throughput
+- Recovery time
+- Node capacity
+</div></code></pre>
+<hr>
+<h1 id="86-routing-key">86. Routing Key</h1>
+<p>Mặc định document có thể route theo document ID.</p>
+<p>Có thể custom route theo:</p>
+<pre class="hljs"><code><div>tenantId
+userId
+categoryId
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>Query có routing key chỉ chạm một hoặc vài shard.
+</div></code></pre>
+<p>Ví dụ SaaS:</p>
+<pre class="hljs"><code><div>routing = tenantId
+</div></code></pre>
+<p>Query trong tenant không cần fan-out toàn cluster.</p>
+<hr>
+<h1 id="87-hot-shard-trong-search">87. Hot Shard trong Search</h1>
+<p>Nếu route theo tenant:</p>
+<pre class="hljs"><code><div>Một enterprise tenant cực lớn
+→ một shard nóng
+</div></code></pre>
+<p>Nếu route theo category:</p>
+<pre class="hljs"><code><div>Category điện thoại nhận phần lớn traffic
+→ hot shard
+</div></code></pre>
+<p>Consistent hash không giải quyết một routing key cực nóng.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Bucket tenant lớn
+- Dedicated index
+- Cache hot queries
+- Replicate read nhiều hơn
+</div></code></pre>
+<hr>
+<h1 id="88-search-replication">88. Search Replication</h1>
+<p>Mỗi primary shard có thể có replicas:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    P1[(Primary Shard 1)] --> R11[(Replica 1A)]
+    P1 --> R12[(Replica 1B)]
+
+    P2[(Primary Shard 2)] --> R21[(Replica 2A)]
+    P2 --> R22[(Replica 2B)]
+</div></code></pre>
+<p>Replication phục vụ:</p>
+<pre class="hljs"><code><div>- High availability
+- Read scaling
+- Failover
+</div></code></pre>
+<hr>
+<h1 id="89-write-path-với-replica">89. Write Path với Replica</h1>
+<p>Một write thường đi tới primary shard.</p>
+<p>Primary:</p>
+<pre class="hljs"><code><div>1. Validate operation.
+2. Ghi local.
+3. Replicate tới replicas.
+4. Xác nhận theo durability policy.
+</div></code></pre>
+<p>Chi tiết:</p>
+<pre class="hljs"><code><div>- Operation replication
+- Segment replication
+- Sync hay async ACK
+</div></code></pre>
+<p>phụ thuộc search engine.</p>
+<p>Không nên giả định mọi search engine có cùng semantics.</p>
+<hr>
+<h1 id="90-read-scaling-bằng-search-replica">90. Read Scaling bằng Search Replica</h1>
+<p>Query có thể phân phối qua:</p>
+<pre class="hljs"><code><div>Primary hoặc replica của mỗi shard
+</div></code></pre>
+<p>Nếu tăng replicas:</p>
+<pre class="hljs"><code><div>- Có thêm read capacity
+- Tăng storage cost
+- Tăng replication traffic
+- Tăng recovery work
+</div></code></pre>
+<p>Replica không giúp tăng primary indexing capacity theo cùng cách tăng shard count.</p>
+<hr>
+<h1 id="91-search-failover">91. Search Failover</h1>
+<p>Nếu primary shard chết:</p>
+<pre class="hljs"><code><div>Một replica được promote.
+</div></code></pre>
+<p>Cluster phải:</p>
+<pre class="hljs"><code><div>- Phát hiện failure
+- Chọn replica đủ mới
+- Cập nhật routing
+- Phục hồi replica count
+</div></code></pre>
+<p>Trong thời gian recovery:</p>
+<pre class="hljs"><code><div>- Query có thể degraded
+- Indexing có thể bị tạm dừng
+- Một số shard unavailable
+</div></code></pre>
+<hr>
+<h1 id="92-partial-search-results">92. Partial Search Results</h1>
+<p>Nếu một trong nhiều shard lỗi, có hai lựa chọn:</p>
+<h2 id="fail-whole-query">Fail whole query</h2>
+<pre class="hljs"><code><div>Không trả kết quả nếu thiếu shard.
+</div></code></pre>
+<p>Phù hợp khi completeness quan trọng.</p>
+<h2 id="trả-partial-results">Trả partial results</h2>
+<pre class="hljs"><code><div>Trả kết quả từ shard còn lại
+và đánh dấu incomplete.
+</div></code></pre>
+<p>Phù hợp discovery search hơn.</p>
+<p>API contract phải rõ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;results&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;partial&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;failedShards&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên âm thầm trả partial như kết quả đầy đủ.</p>
+<hr>
+<h1 id="93-eventual-consistency-của-search">93. Eventual Consistency của Search</h1>
+<p>Database commit:</p>
+<pre class="hljs"><code><div>Product title = &quot;Bàn phím cơ RGB&quot;
+</div></code></pre>
+<p>Search index vẫn tạm thời:</p>
+<pre class="hljs"><code><div>Product title = &quot;Bàn phím cơ&quot;
+</div></code></pre>
+<p>Trong khoảng indexing lag:</p>
+<pre class="hljs"><code><div>GET /products/p_123:
+Dữ liệu mới
+
+Search &quot;RGB&quot;:
+Có thể chưa thấy product
+</div></code></pre>
+<p>Đây là eventual consistency giữa database và search projection.</p>
+<hr>
+<h1 id="94-read-your-writes-trong-search">94. Read-Your-Writes trong Search</h1>
+<p>Admin vừa tạo product và muốn search thấy ngay.</p>
+<p>Các chiến lược:</p>
+<h2 id="chờ-refresh">Chờ refresh</h2>
+<pre class="hljs"><code><div>Write hoàn tất sau khi document searchable.
+</div></code></pre>
+<p>Tăng latency và giảm indexing throughput.</p>
+<h2 id="query-authoritative-db-cho-chính-entity">Query authoritative DB cho chính entity</h2>
+<p>Sau create, UI hiển thị trực tiếp product từ DB thay vì search lại ngay.</p>
+<h2 id="session-fallback">Session fallback</h2>
+<p>Nếu search chưa có product mới:</p>
+<pre class="hljs"><code><div>Merge product vừa tạo từ client/session state.
+</div></code></pre>
+<h2 id="minimum-version">Minimum version</h2>
+<p>Chờ search index đạt entity version nhất định.</p>
+<p>Khó hơn nhưng contract rõ.</p>
+<hr>
+<h1 id="95-không-dùng-search-cho-critical-validation">95. Không dùng Search cho Critical Validation</h1>
+<p>Ví dụ unique username.</p>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>Search index không thấy username
+→ cho phép tạo
+</div></code></pre>
+<p>Vì index có thể lag.</p>
+<p>Phải dùng:</p>
+<pre class="hljs"><code><div>Database unique constraint
+hoặc authoritative consistency store
+</div></code></pre>
+<p>Tương tự:</p>
+<pre class="hljs"><code><div>- Inventory
+- Permission
+- Coupon usage
+- Payment state
+</div></code></pre>
+<hr>
+<h1 id="96-search-result-có-thể-stale-sau-delete">96. Search Result có thể Stale sau Delete</h1>
+<p>User xóa document.</p>
+<p>Database đã xóa nhưng search index chưa xử lý delete event.</p>
+<p>Document vẫn xuất hiện trong search.</p>
+<p>Khi click:</p>
+<pre class="hljs"><code><div>GET source trả 404
+</div></code></pre>
+<p>Có thể chấp nhận trong thời gian rất ngắn với nội dung bình thường.</p>
+<p>Nhưng với:</p>
+<pre class="hljs"><code><div>- Dữ liệu riêng tư
+- Nội dung bị pháp luật yêu cầu gỡ
+- Permission revoked
+</div></code></pre>
+<p>cần đường xóa ưu tiên và security filter authoritative.</p>
+<hr>
+<h1 id="97-security-filtering">97. Security Filtering</h1>
+<p>Search result phải tôn trọng ACL.</p>
+<p>Không nên chỉ index document rồi filter ở UI.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- ACL filter trong query
+- Tenant isolation
+- Document-level security
+- Authoritative recheck trước truy cập
+</div></code></pre>
+<p>Ngay cả khi search result lộ title của document không được phép đọc, đó vẫn có thể là data leak.</p>
+<hr>
+<h1 id="98-acl-và-high-cardinality">98. ACL và High Cardinality</h1>
+<p>Nếu mỗi document có hàng nghìn user IDs được phép đọc:</p>
+<pre class="hljs"><code><div>ACL index rất lớn
+Query filter rất phức tạp
+</div></code></pre>
+<p>Các mô hình:</p>
+<pre class="hljs"><code><div>- Group/role IDs
+- Tenant boundary
+- Security labels
+- Separate indices
+- Precomputed access sets
+</div></code></pre>
+<p>Luôn recheck permission tại source service cho operation nhạy cảm.</p>
+<hr>
+<h1 id="99-reconciliation">99. Reconciliation</h1>
+<p>Dù có CDC và retry, search index có thể lệch.</p>
+<p>Reconciliation có thể:</p>
+<pre class="hljs"><code><div>- So sánh entity count
+- So sánh version
+- Scan updated_at range
+- Hash/checksum partitions
+- Reindex document thiếu
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>DB product version = 25
+Search product version = 22
+
+→ Reindex version 25
+</div></code></pre>
+<hr>
+<h1 id="100-full-reindex">100. Full Reindex</h1>
+<p>Khi thay đổi analyzer hoặc mapping, update tại chỗ thường không đủ.</p>
+<p>Ví dụ đổi:</p>
+<pre class="hljs"><code><div>- Tokenizer
+- Synonym strategy
+- Field type
+- Language analyzer
+</div></code></pre>
+<p>Cần tạo index mới và reindex toàn bộ document.</p>
+<hr>
+<h1 id="101-zero-downtime-reindex">101. Zero-Downtime Reindex</h1>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Tạo index_v2 với mapping mới.
+2. Backfill dữ liệu hiện tại.
+3. Tiếp tục nhận change events.
+4. Catch up tới source version hiện tại.
+5. Shadow query và so sánh.
+6. Chuyển alias từ v1 sang v2.
+7. Theo dõi.
+8. Xóa v1 sau thời gian an toàn.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    App --> Alias[products_current]
+
+    Alias --> V1[(products_v1)]
+
+    Source[(Database)] --> Backfill
+    Backfill --> V2[(products_v2)]
+
+    CDC --> V1
+    CDC --> V2
+
+    Alias -. Atomic Swap .-> V2
+</div></code></pre>
+<hr>
+<h1 id="102-dual-write-khi-reindex">102. Dual-Write khi Reindex</h1>
+<p>Có thể gửi update tới cả v1 và v2.</p>
+<p>Nhưng dual-write trực tiếp có nguy cơ:</p>
+<pre class="hljs"><code><div>v1 thành công
+v2 thất bại
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>Cả hai consume cùng durable event stream
+</div></code></pre>
+<p>Mỗi index giữ version và có thể replay.</p>
+<hr>
+<h1 id="103-alias-swap">103. Alias Swap</h1>
+<p>Application query logical name:</p>
+<pre class="hljs"><code><div>products_current
+</div></code></pre>
+<p>Không query physical name:</p>
+<pre class="hljs"><code><div>products_v1
+</div></code></pre>
+<p>Khi v2 sẵn sàng:</p>
+<pre class="hljs"><code><div>products_current → products_v2
+</div></code></pre>
+<p>Cutover metadata nên atomic để client không thấy trạng thái nửa v1, nửa v2.</p>
+<hr>
+<h1 id="104-shadow-query">104. Shadow Query</h1>
+<p>Trong migration:</p>
+<pre class="hljs"><code><div>1. Trả response từ v1.
+2. Đồng thời query v2.
+3. So sánh top results, latency và errors.
+4. Không ảnh hưởng user.
+</div></code></pre>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>- Result overlap
+- Top-1 agreement
+- NDCG difference
+- Latency difference
+- Empty-result rate
+</div></code></pre>
+<hr>
+<h1 id="105-mapping-explosion">105. Mapping Explosion</h1>
+<p>Nếu cho dynamic fields không kiểm soát:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;custom_field_user_1&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;custom_field_user_2&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;custom_field_user_3&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Mỗi tên field mới trở thành mapping mới.</p>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Cluster metadata lớn
+- Memory tăng
+- Mapping update nhiều
+- Search chậm hoặc cluster bất ổn
+</div></code></pre>
+<p>Không dùng arbitrary user key làm field name.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;customAttributes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;key&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;color&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;red&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>hoặc cấu trúc flattened phù hợp.</p>
+<hr>
+<h1 id="106-schema-evolution">106. Schema Evolution</h1>
+<p>Producer thêm field mới:</p>
+<pre class="hljs"><code><div>seller_quality_score
+</div></code></pre>
+<p>Cần xác định:</p>
+<pre class="hljs"><code><div>- Field type
+- Default value
+- Old documents xử lý ra sao
+- Ranking model có dùng ngay không
+- Có cần backfill không
+</div></code></pre>
+<p>Search document schema nên được version hóa.</p>
+<hr>
+<h1 id="107-autocomplete">107. Autocomplete</h1>
+<p>Autocomplete cần trả kết quả khi user mới gõ:</p>
+<pre class="hljs"><code><div>&quot;lap&quot;
+</div></code></pre>
+<p>Các phương án:</p>
+<pre class="hljs"><code><div>- Edge n-gram
+- Prefix index
+- Trie
+- Completion suggester
+- Precomputed popular queries
+</div></code></pre>
+<p>Không nên chạy wildcard full-text đắt tiền cho mỗi keystroke.</p>
+<hr>
+<h1 id="108-autocomplete-ranking">108. Autocomplete Ranking</h1>
+<p>Tín hiệu:</p>
+<pre class="hljs"><code><div>- Prefix match quality
+- Search frequency
+- Click-through rate
+- Recency/trending
+- User history
+- Locale
+</div></code></pre>
+<p>Cần chống:</p>
+<pre class="hljs"><code><div>- Spam query
+- Nội dung không phù hợp
+- Feedback loop
+</div></code></pre>
+<hr>
+<h1 id="109-debounce-và-request-cancellation">109. Debounce và Request Cancellation</h1>
+<p>User gõ:</p>
+<pre class="hljs"><code><div>l
+la
+lap
+lapt
+lapto
+laptop
+</div></code></pre>
+<p>Không nên gửi sáu request không kiểm soát.</p>
+<p>Client có thể:</p>
+<pre class="hljs"><code><div>- Debounce 100–300 ms
+- Cancel request cũ
+- Chỉ render response tương ứng query mới nhất
+</div></code></pre>
+<p>Nếu response <code>lap</code> về sau response <code>laptop</code>, UI không được hiển thị kết quả cũ.</p>
+<hr>
+<h1 id="110-typo-tolerance">110. Typo Tolerance</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>keybaord
+</div></code></pre>
+<p>muốn tìm:</p>
+<pre class="hljs"><code><div>keyboard
+</div></code></pre>
+<p>Có thể dùng edit distance:</p>
+<pre class="hljs"><code><div>- Insert
+- Delete
+- Replace
+- Transpose
+</div></code></pre>
+<p>Nhưng fuzzy query rất rộng có thể tốn CPU.</p>
+<p>Cần giới hạn:</p>
+<pre class="hljs"><code><div>- Max edit distance
+- Minimum query length
+- Prefix length
+- Candidate dictionary
+</div></code></pre>
+<hr>
+<h1 id="111-did-you-mean">111. “Did You Mean”</h1>
+<p>Thay vì fuzzy search trực tiếp toàn index:</p>
+<pre class="hljs"><code><div>Query &quot;iphnoe&quot;
+</div></code></pre>
+<p>hệ thống có thể gợi ý:</p>
+<pre class="hljs"><code><div>Did you mean &quot;iphone&quot;?
+</div></code></pre>
+<p>Nguồn correction:</p>
+<pre class="hljs"><code><div>- Term dictionary
+- Popular query logs
+- Language model
+- Product catalog dictionary
+</div></code></pre>
+<hr>
+<h1 id="112-faceted-search">112. Faceted Search</h1>
+<p>E-commerce hiển thị:</p>
+<pre class="hljs"><code><div>Brand
+  Apple: 120
+  Samsung: 95
+
+Price
+  Dưới 10 triệu: 80
+  10–20 triệu: 110
+</div></code></pre>
+<p>Đây là facets/aggregations.</p>
+<p>Search engine phải:</p>
+<pre class="hljs"><code><div>- Filter documents
+- Group theo field
+- Count theo bucket
+</div></code></pre>
+<p>Numeric và keyword doc values rất quan trọng.</p>
+<hr>
+<h1 id="113-post-filter-và-aggregation-semantics">113. Post-Filter và Aggregation Semantics</h1>
+<p>User filter:</p>
+<pre class="hljs"><code><div>brand = Apple
+</div></code></pre>
+<p>Có hai UX mong muốn:</p>
+<h2 id="facet-chỉ-phản-ánh-kết-quả-đã-filter">Facet chỉ phản ánh kết quả đã filter</h2>
+<pre class="hljs"><code><div>Chỉ hiện Apple: 120
+</div></code></pre>
+<h2 id="facet-cho-phép-đổi-brand">Facet cho phép đổi brand</h2>
+<pre class="hljs"><code><div>Apple: 120
+Samsung: 95
+Xiaomi: 80
+</div></code></pre>
+<p>Query và filter placement phải được thiết kế theo UX, không chỉ kỹ thuật.</p>
+<hr>
+<h1 id="114-geo-search">114. Geo Search</h1>
+<p>Document có tọa độ:</p>
+<pre class="hljs"><code><div>latitude
+longitude
+</div></code></pre>
+<p>Query:</p>
+<pre class="hljs"><code><div>quán cà phê trong bán kính 5 km
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Geo index
+- Bounding box
+- Distance calculation
+- Geo filters
+- Distance boosting
+</div></code></pre>
+<p>Không nên tính khoảng cách tới mọi document.</p>
+<hr>
+<h1 id="115-pagination">115. Pagination</h1>
+<p>Cách đơn giản:</p>
+<pre class="hljs"><code><div>from = 0
+size = 20
+</div></code></pre>
+<p>Trang 1:</p>
+<pre class="hljs"><code><div>from=0
+</div></code></pre>
+<p>Trang 10.000:</p>
+<pre class="hljs"><code><div>from=199.980
+</div></code></pre>
+<p>Search engine có thể phải tìm và sort gần 200.000 kết quả rồi bỏ phần đầu.</p>
+<p>Đây là deep pagination problem.</p>
+<hr>
+<h1 id="116-search-after">116. Search After</h1>
+<p>Thay vì offset lớn, dùng sort values của item cuối:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;score&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12.4</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Trang sau:</p>
+<pre class="hljs"><code><div>search_after = [12.4, &quot;p_123&quot;]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không cần bỏ qua lượng lớn result
+- Hiệu quả hơn deep pagination
+</div></code></pre>
+<p>Cần stable tie-breaker như document ID.</p>
+<hr>
+<h1 id="117-point-in-time-snapshot">117. Point-in-Time Snapshot</h1>
+<p>Khi index thay đổi giữa các trang:</p>
+<pre class="hljs"><code><div>Trang 1 và trang 2 có thể duplicate hoặc bỏ sót item.
+</div></code></pre>
+<p>Point-in-time hoặc snapshot search giữ một logical view trong thời gian pagination.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Giữ resource
+- Có expiration
+- Không phản ánh update mới ngay
+</div></code></pre>
+<hr>
+<h1 id="118-result-collapse-và-deduplication">118. Result Collapse và Deduplication</h1>
+<p>Nhiều variant:</p>
+<pre class="hljs"><code><div>iPhone 15 128GB đen
+iPhone 15 128GB xanh
+iPhone 15 256GB đen
+</div></code></pre>
+<p>Có thể group theo:</p>
+<pre class="hljs"><code><div>product_family_id
+</div></code></pre>
+<p>Trả một representative result rồi cho user mở variants.</p>
+<p>Collapse ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Top-K collection
+- Pagination
+- Facets
+- Reranking
+</div></code></pre>
+<hr>
+<h1 id="119-query-cache">119. Query Cache</h1>
+<p>Có thể cache:</p>
+<pre class="hljs"><code><div>query + filters + index version
+→ result IDs
+</div></code></pre>
+<p>Hiệu quả với query lặp lại:</p>
+<pre class="hljs"><code><div>iphone
+laptop
+</div></code></pre>
+<p>Nhưng index update thường xuyên làm invalidation khó.</p>
+<p>Không nên cache personalized query bằng key thiếu user context.</p>
+<hr>
+<h1 id="120-filter-cache">120. Filter Cache</h1>
+<p>Filter như:</p>
+<pre class="hljs"><code><div>category = electronics
+in_stock = true
+</div></code></pre>
+<p>có thể được biểu diễn bằng bitsets và tái sử dụng.</p>
+<p>Filter cache thường hiệu quả hơn cache full result vì:</p>
+<pre class="hljs"><code><div>- Kết hợp được nhiều query
+- Không phụ thuộc score
+</div></code></pre>
+<hr>
+<h1 id="121-query-cost-control">121. Query Cost Control</h1>
+<p>User có thể gửi query rất đắt:</p>
+<pre class="hljs"><code><div>- Wildcard đầu chuỗi
+- Regex phức tạp
+- Fuzzy trên term ngắn
+- Aggregation cardinality cao
+- Sort bằng script
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Timeout
+- Max clauses
+- Max buckets
+- Query validation
+- Rate limiting
+- Expensive-query restriction
+</div></code></pre>
+<p>Search endpoint cũng là attack surface.</p>
+<hr>
+<h1 id="122-relevance-evaluation">122. Relevance Evaluation</h1>
+<p>Không thể đánh giá ranking chỉ bằng cảm giác.</p>
+<p>Cần query set có labels:</p>
+<pre class="hljs"><code><div>Query:
+&quot;laptop gaming&quot;
+
+Documents:
+D1 relevance 3
+D2 relevance 2
+D3 relevance 0
+</div></code></pre>
+<p>Sau đó tính metrics.</p>
+<hr>
+<h1 id="123-precisionk">123. Precision@K</h1>
+<pre class="hljs"><code><div>Precision@10 =
+số kết quả relevant trong top 10 / 10
+</div></code></pre>
+<p>Phù hợp khi user chỉ xem một số kết quả đầu.</p>
+<hr>
+<h1 id="124-recallk">124. Recall@K</h1>
+<pre class="hljs"><code><div>Recall@K =
+số relevant tìm được trong top K
+/
+tổng số relevant
+</div></code></pre>
+<p>Quan trọng với:</p>
+<pre class="hljs"><code><div>- Legal discovery
+- Medical literature
+- Security search
+</div></code></pre>
+<p>Nơi bỏ sót tài liệu có hậu quả lớn.</p>
+<hr>
+<h1 id="125-mean-reciprocal-rank">125. Mean Reciprocal Rank</h1>
+<p>Nếu kết quả relevant đầu tiên ở vị trí <code>r</code>:</p>
+<pre class="hljs"><code><div>RR = 1 / r
+</div></code></pre>
+<p>MRR là trung bình trên nhiều query.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Question answering
+- Known-item search
+- User thường cần một đáp án chính
+</div></code></pre>
+<hr>
+<h1 id="126-ndcg">126. NDCG</h1>
+<p>NDCG đánh giá:</p>
+<pre class="hljs"><code><div>- Vị trí kết quả
+- Nhiều mức relevance
+</div></code></pre>
+<p>Kết quả relevance 3 ở vị trí đầu tốt hơn relevance 3 ở vị trí 20.</p>
+<p>NDCG phổ biến cho ranking nhiều mức.</p>
+<hr>
+<h1 id="127-online-metrics">127. Online Metrics</h1>
+<p>Offline relevance chưa đủ.</p>
+<p>Online metrics:</p>
+<pre class="hljs"><code><div>- Click-through rate
+- Add-to-cart rate
+- Conversion
+- Search abandonment
+- Reformulation rate
+- Zero-result rate
+- Time to first click
+</div></code></pre>
+<p>Nhưng click không hoàn toàn đồng nghĩa relevance.</p>
+<p>Vị trí cao tự nhiên nhận nhiều click hơn.</p>
+<hr>
+<h1 id="128-ab-testing">128. A/B Testing</h1>
+<p>So sánh ranking A và B:</p>
+<pre class="hljs"><code><div>50% users → A
+50% users → B
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- User assignment ổn định
+- Guardrail metrics
+- Đủ sample size
+- Không thay quá nhiều biến cùng lúc
+</div></code></pre>
+<p>Guardrails:</p>
+<pre class="hljs"><code><div>- Latency
+- Error rate
+- Revenue
+- Diversity
+- Complaint rate
+</div></code></pre>
+<hr>
+<h1 id="129-search-observability">129. Search Observability</h1>
+<h2 id="query-metrics">Query metrics</h2>
+<pre class="hljs"><code><div>- QPS
+- p50/p95/p99 latency
+- Timeout rate
+- Empty-result rate
+- Partial-result rate
+- Query types
+- Expensive-query count
+</div></code></pre>
+<h2 id="indexing-metrics">Indexing metrics</h2>
+<pre class="hljs"><code><div>- Events consumed
+- Indexing throughput
+- Bulk failure rate
+- Retry count
+- DLQ size
+- Indexing lag
+- Refresh latency
+</div></code></pre>
+<h2 id="cluster-metrics">Cluster metrics</h2>
+<pre class="hljs"><code><div>- Shard count
+- Shard size
+- Segment count
+- Merge time
+- Disk usage
+- Heap usage
+- Cache hit ratio
+- Replica health
+</div></code></pre>
+<hr>
+<h1 id="130-business-search-metrics">130. Business Search Metrics</h1>
+<p>Ví dụ e-commerce:</p>
+<pre class="hljs"><code><div>- Search-to-product-click
+- Search-to-cart
+- Search-to-purchase
+- Revenue per search
+- Query reformulation
+- Filter usage
+</div></code></pre>
+<p>Technical latency bình thường nhưng conversion giảm có thể do ranking regression.</p>
+<hr>
+<h1 id="131-zero-result-rate">131. Zero-Result Rate</h1>
+<p>Query trả zero results.</p>
+<p>Cần phân tích theo:</p>
+<pre class="hljs"><code><div>- Query language
+- Typo
+- Region
+- Category
+- App version
+</div></code></pre>
+<p>Giải pháp có thể:</p>
+<pre class="hljs"><code><div>- Synonym
+- Spell correction
+- Query relaxation
+- Broader category fallback
+</div></code></pre>
+<p>Không nên luôn trả kết quả không liên quan chỉ để zero-result rate về 0.</p>
+<hr>
+<h1 id="132-slow-query-log">132. Slow Query Log</h1>
+<p>Ghi query chậm kèm:</p>
+<pre class="hljs"><code><div>- Query type
+- Filters
+- Shards touched
+- Candidate count
+- Aggregations
+- Took time
+</div></code></pre>
+<p>Không log dữ liệu tìm kiếm nhạy cảm tùy tiện.</p>
+<p>Search query có thể chứa:</p>
+<pre class="hljs"><code><div>- Tên người
+- Thông tin sức khỏe
+- Dữ liệu nội bộ
+</div></code></pre>
+<p>Cần masking và retention policy.</p>
+<hr>
+<h1 id="133-indexing-backpressure">133. Indexing Backpressure</h1>
+<p>Nếu search cluster index chậm hơn event rate:</p>
+<pre class="hljs"><code><div>Broker backlog tăng
+Indexing lag tăng
+</div></code></pre>
+<p>Không nên tăng consumer vô hạn vì search cluster có thể càng quá tải.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Bounded concurrency
+- Adaptive batch size
+- Backpressure
+- Throttle backfill
+- Ưu tiên realtime events hơn reindex
+</div></code></pre>
+<hr>
+<h1 id="134-reindex-và-realtime-traffic">134. Reindex và Realtime Traffic</h1>
+<p>Full reindex có thể:</p>
+<pre class="hljs"><code><div>- Dùng hết disk I/O
+- Tăng merge
+- Làm query chậm
+- Làm realtime event lag
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>- Throttle
+- Chạy theo batch
+- Dùng resource isolation
+- Theo dõi query SLO
+- Pause khi cluster nóng
+</div></code></pre>
+<hr>
+<h1 id="135-failure-matrix">135. Failure Matrix</h1>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Hậu quả</th>
+<th>Cách xử lý</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CDC dừng</td>
+<td>Search stale</td>
+<td>Alert lag, restart, replay</td>
+</tr>
+<tr>
+<td>Broker backlog</td>
+<td>Update xuất hiện chậm</td>
+<td>Scale có kiểm soát</td>
+</tr>
+<tr>
+<td>Poison document</td>
+<td>Consumer retry mãi</td>
+<td>DLQ và inspection</td>
+</tr>
+<tr>
+<td>Mapping conflict</td>
+<td>Document index fail</td>
+<td>Schema validation</td>
+</tr>
+<tr>
+<td>Primary shard lỗi</td>
+<td>Indexing/read giảm</td>
+<td>Promote replica</td>
+</tr>
+<tr>
+<td>Replica lag</td>
+<td>Search có thể stale</td>
+<td>Freshness routing</td>
+</tr>
+<tr>
+<td>Disk đầy</td>
+<td>Shard unavailable</td>
+<td>Capacity alert, rebalance</td>
+</tr>
+<tr>
+<td>Merge storm</td>
+<td>Query latency tăng</td>
+<td>Throttle indexing</td>
+</tr>
+<tr>
+<td>Delete event mất</td>
+<td>Document vẫn hiện</td>
+<td>Reconciliation</td>
+</tr>
+<tr>
+<td>Out-of-order event</td>
+<td>Dữ liệu quay ngược</td>
+<td>Entity version</td>
+</tr>
+<tr>
+<td>Reindex v2 sai</td>
+<td>Ranking regression</td>
+<td>Shadow query, rollback alias</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="136-case-study--e-commerce-search">136. Case Study — E-commerce Search</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- 500 triệu sản phẩm
+- 100.000 search QPS
+- Title, brand, category và description
+- Autocomplete
+- Price, rating và delivery filters
+- Inventory thay đổi thường xuyên
+- Search đa ngôn ngữ
+</div></code></pre>
+<hr>
+<h1 id="137-product-search-document">137. Product Search Document</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">84</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bàn phím cơ không dây RGB&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;titleNoAccent&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ban phim co khong day rgb&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Kết nối Bluetooth, pin 100 giờ&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;brand&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;KeyPro&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;categoryIds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;electronics&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;keyboard&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;price&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1590000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;rating&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4.8</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;reviewCount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1250</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;inStock&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;availableRegions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;VN-HN&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;VN-HCM&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;popularityScore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.87</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;updatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-13T04:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên đưa:</p>
+<pre class="hljs"><code><div>- Full payment data
+- Internal secrets
+- Field không cần search
+</div></code></pre>
+<hr>
+<h1 id="138-query-flow-cho-product-search">138. Query Flow cho Product Search</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Gateway
+    Gateway --> SearchAPI
+
+    SearchAPI --> Analyze[Query Understanding]
+    Analyze --> SearchCluster[(Search Cluster)]
+
+    SearchCluster --> Candidates[Lexical Candidates]
+    Candidates --> Rank[Ranking Service]
+    Rank --> Availability[Availability Filter]
+    Availability --> Results
+
+    SearchAPI --> Cache[(Query Cache)]
+</div></code></pre>
+<p>Query understanding có thể làm:</p>
+<pre class="hljs"><code><div>- Normalize
+- Spell correction
+- Detect brand
+- Detect category
+- Extract price intent
+- Expand synonyms
+</div></code></pre>
+<hr>
+<h1 id="139-product-indexing-flow">139. Product Indexing Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ProductDB[(Product DB)] --> Outbox
+    InventoryDB[(Inventory DB)] --> Events
+    RatingDB[(Rating DB)] --> Events
+
+    Outbox --> Broker
+    Events --> Broker
+
+    Broker --> Builder[Product Document Builder]
+    Builder --> Cache[Enrichment State]
+    Builder --> Search[(Product Search Index)]
+
+    Reconciler --> ProductDB
+    Reconciler --> Search
+</div></code></pre>
+<p>Vì nhiều nguồn update cùng document, builder cần:</p>
+<pre class="hljs"><code><div>- Entity version theo nguồn
+- Idempotency
+- Partial update policy
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="140-inventory-trong-search">140. Inventory trong Search</h1>
+<p>Inventory thay đổi rất nhanh.</p>
+<p>Có ba lựa chọn:</p>
+<h2 id="index-inventory-trực-tiếp">Index inventory trực tiếp</h2>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>Filter nhanh
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>Indexing write rate rất cao
+Search có thể stale
+</div></code></pre>
+<h2 id="query-inventory-service-sau-retrieval">Query inventory service sau retrieval</h2>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>Fresh hơn
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>Fan-out và latency
+</div></code></pre>
+<h2 id="hybrid">Hybrid</h2>
+<pre class="hljs"><code><div>Search dùng inStock gần đúng để candidate retrieval.
+Top results được recheck với Inventory Service.
+</div></code></pre>
+<p>Hybrid thường thực tế.</p>
+<hr>
+<h1 id="141-giá-trong-search">141. Giá trong Search</h1>
+<p>Search có thể lưu display price gần realtime.</p>
+<p>Nhưng checkout phải:</p>
+<pre class="hljs"><code><div>- Đọc authoritative price
+- Revalidate promotion
+- Không tin search index
+</div></code></pre>
+<p>UI cần chấp nhận:</p>
+<pre class="hljs"><code><div>Giá search có thể thay đổi khi checkout
+</div></code></pre>
+<p>nhưng freshness SLO phải đủ tốt để tránh trải nghiệm tệ.</p>
+<hr>
+<h1 id="142-ranking-product-search">142. Ranking Product Search</h1>
+<p>Một công thức khái niệm:</p>
+<pre class="hljs"><code><div>Final score =
+Lexical relevance
++ Exact title match
++ Brand match
++ Popularity
++ Rating confidence
++ Freshness
++ Personalization
+- Out-of-stock penalty
+- Quality penalty
+</div></code></pre>
+<p>Không nên dùng rating raw:</p>
+<pre class="hljs"><code><div>5.0 với 1 review
+</div></code></pre>
+<p>cao hơn chắc chắn:</p>
+<pre class="hljs"><code><div>4.9 với 10.000 reviews
+</div></code></pre>
+<p>Có thể dùng Bayesian adjustment hoặc confidence score.</p>
+<hr>
+<h1 id="143-search-consistency-contract-cho-e-commerce">143. Search Consistency Contract cho E-commerce</h1>
+<pre class="hljs"><code><div>Product description:
+Eventual, dưới 10 giây
+
+Searchable product creation:
+Dưới 30 giây
+
+Inventory display:
+Bounded stale, dưới vài giây
+
+Checkout inventory:
+Strong authoritative check
+
+Display price:
+Bounded stale
+
+Checkout price:
+Authoritative
+
+Product deletion:
+Nhanh và có reconciliation
+
+Permission/seller visibility:
+Filter bắt buộc
+</div></code></pre>
+<hr>
+<h1 id="144-khi-nào-dùng-search-engine">144. Khi nào dùng Search Engine?</h1>
+<p>Phù hợp khi cần:</p>
+<pre class="hljs"><code><div>- Full-text
+- Ranking
+- Facets
+- Prefix/fuzzy
+- Complex filtering
+- Geo search
+- High read throughput
+</div></code></pre>
+<p>Không nên đưa search engine vào nếu chỉ cần:</p>
+<pre class="hljs"><code><div>SELECT by primary key
+</div></code></pre>
+<p>và vài filter đơn giản trên dataset nhỏ.</p>
+<p>Search engine tạo thêm:</p>
+<pre class="hljs"><code><div>- Hạ tầng
+- Eventual consistency
+- Reindex
+- Cluster operations
+- Relevance tuning
+</div></code></pre>
+<hr>
+<h1 id="145-search-engine-không-thay-thế-database">145. Search Engine không thay thế Database</h1>
+<p>Không nên dùng search index làm source of truth cho:</p>
+<pre class="hljs"><code><div>- Money
+- Inventory commit
+- Uniqueness
+- Transaction state
+- Authorization
+</div></code></pre>
+<p>Search index là read-optimized projection.</p>
+<hr>
+<h1 id="146-framework-thiết-kế-search-như-senior-engineer">146. Framework thiết kế Search như Senior Engineer</h1>
+<p>Khi thiết kế search, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Search corpus là gì?
+2. Source of truth nằm đâu?
+3. User query theo exact key hay full text?
+4. Ngôn ngữ nào cần hỗ trợ?
+5. Analyzer và tokenizer là gì?
+6. Có cần xử lý tiếng Việt không dấu không?
+7. Stop words, stemming và synonyms ra sao?
+8. Field nào là text, keyword, numeric hoặc geo?
+9. Candidate retrieval dùng gì?
+10. Ranking signals là gì?
+11. Hard filter nào bắt buộc?
+12. Freshness SLO là bao nhiêu?
+13. Index được cập nhật bằng CDC hay outbox?
+14. Consumer xử lý duplicate thế nào?
+15. Out-of-order event được chặn bằng version nào?
+16. Delete được propagate thế nào?
+17. Có bao nhiêu shards và replicas?
+18. Query có fan-out toàn shard không?
+19. Hot shard được phát hiện và xử lý thế nào?
+20. Reindex không downtime ra sao?
+21. Deep pagination dùng gì?
+22. Relevance được đánh giá bằng metric nào?
+23. Search consistency được trình bày với client thế nào?
+24. Có reconciliation và rebuild plan không?
+</div></code></pre>
+<hr>
+<h1 id="147-decision-tree">147. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần tìm dữ liệu] --> B{Exact lookup/range hay full-text?}
+
+    B -->|Exact/range đơn giản| C[Database Index]
+    B -->|Full-text/relevance| D[Search Index]
+
+    D --> E[Design Analyzer]
+    E --> F[Build Inverted Index]
+    F --> G[Candidate Retrieval]
+    G --> H[Ranking]
+
+    H --> I{Index có vừa một node?}
+    I -->|Có| J[Single Shard + Replicas]
+    I -->|Không| K[Sharding + Scatter-Gather]
+
+    K --> L[Indexing Pipeline]
+    J --> L
+
+    L --> M[Outbox/CDC + Versioning]
+    M --> N[Eventual Consistency]
+    N --> O[Reconciliation + Reindex]
+</div></code></pre>
+<hr>
+<h1 id="148-cách-trình-bày-trong-system-design-interview">148. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em dùng Elasticsearch để search.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Database vẫn là source of truth. Tôi xây một denormalized search document và cập nhật index qua transactional outbox hoặc CDC để tránh dual-write. Consumer dùng <code>entityVersion</code> để bỏ qua event cũ và thực hiện idempotent upsert. Search có eventual consistency, vì vậy inventory và price tại checkout luôn được kiểm tra lại ở authoritative services.</p>
+</blockquote>
+<p>Về retrieval:</p>
+<blockquote>
+<p>Text đi qua analyzer gồm Unicode normalization, lowercasing, tokenizer phù hợp ngôn ngữ và synonym expansion. Inverted index ánh xạ term sang postings list chứa document ID, frequency và positions. Candidate được lấy bằng BM25 với title boost và phrase proximity; top candidates sau đó được rerank bằng popularity, quality và personalization.</p>
+</blockquote>
+<p>Về scale:</p>
+<blockquote>
+<p>Index được chia thành nhiều primary shards và replicas. Query fan-out tới một bản sao của mỗi relevant shard, mỗi shard trả top K, coordinator merge rồi fetch full documents. Tôi tránh over-sharding vì tail latency tăng theo số shard. Replica phục vụ read scale và failover, còn shard count quyết định indexing và storage parallelism.</p>
+</blockquote>
+<p>Về migration:</p>
+<blockquote>
+<p>Khi thay analyzer, tôi tạo <code>index_v2</code>, backfill từ source, replay CDC tới khi bắt kịp, shadow-query để so sánh relevance, rồi atomically đổi alias. Index cũ được giữ một thời gian để rollback.</p>
+</blockquote>
+<hr>
+<h1 id="149-những-sai-lầm-phổ-biến">149. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-dùng-like-term-cho-corpus-rất-lớn">Lỗi 1: Dùng <code>LIKE '%term%'</code> cho corpus rất lớn</h2>
+<p>Không có inverted index và ranking phù hợp.</p>
+<h2 id="lỗi-2-index-mọi-field">Lỗi 2: Index mọi field</h2>
+<p>Làm storage, memory và merge tăng không cần thiết.</p>
+<h2 id="lỗi-3-dùng-cùng-analyzer-cho-mọi-ngôn-ngữ">Lỗi 3: Dùng cùng analyzer cho mọi ngôn ngữ</h2>
+<p>Tokenization và normalization có nhu cầu khác nhau.</p>
+<h2 id="lỗi-4-bỏ-dấu-tiếng-việt-hoàn-toàn">Lỗi 4: Bỏ dấu tiếng Việt hoàn toàn</h2>
+<p>Tăng ambiguity và giảm precision.</p>
+<h2 id="lỗi-5-analyzer-index-và-query-không-tương-thích">Lỗi 5: Analyzer index và query không tương thích</h2>
+<p>Term không match dù text giống nhau.</p>
+<h2 id="lỗi-6-dùng-text-field-để-sort-hoặc-aggregation">Lỗi 6: Dùng text field để sort hoặc aggregation</h2>
+<p>Nên có keyword/numeric doc values.</p>
+<h2 id="lỗi-7-synonym-expansion-không-kiểm-soát">Lỗi 7: Synonym expansion không kiểm soát</h2>
+<p>Query mở rộng quá rộng, relevance giảm.</p>
+<h2 id="lỗi-8-xem-bm25-là-ranking-cuối-cùng-cho-mọi-sản-phẩm">Lỗi 8: Xem BM25 là ranking cuối cùng cho mọi sản phẩm</h2>
+<p>Thiếu freshness, quality, availability và business signals.</p>
+<h2 id="lỗi-9-ghi-db-và-search-trực-tiếp">Lỗi 9: Ghi DB và search trực tiếp</h2>
+<p>Tạo dual-write inconsistency.</p>
+<h2 id="lỗi-10-không-dùng-entity-version">Lỗi 10: Không dùng entity version</h2>
+<p>Event cũ có thể ghi đè state mới.</p>
+<h2 id="lỗi-11-nghĩ-broker-giao-đúng-một-lần">Lỗi 11: Nghĩ broker giao đúng một lần</h2>
+<p>Consumer phải idempotent.</p>
+<h2 id="lỗi-12-không-có-delete-tombstone">Lỗi 12: Không có delete tombstone</h2>
+<p>Document bị xóa vẫn tồn tại trong search.</p>
+<h2 id="lỗi-13-quá-nhiều-shards">Lỗi 13: Quá nhiều shards</h2>
+<p>Fan-out, heap và merge overhead tăng.</p>
+<h2 id="lỗi-14-nghĩ-tăng-replica-làm-tăng-write-capacity">Lỗi 14: Nghĩ tăng replica làm tăng write capacity</h2>
+<p>Replica chủ yếu tăng read capacity và HA.</p>
+<h2 id="lỗi-15-dùng-search-để-kiểm-tra-uniqueness-hoặc-inventory">Lỗi 15: Dùng search để kiểm tra uniqueness hoặc inventory</h2>
+<p>Index có thể stale.</p>
+<h2 id="lỗi-16-deep-pagination-bằng-offset-rất-lớn">Lỗi 16: Deep pagination bằng offset rất lớn</h2>
+<p>Tốn memory và CPU.</p>
+<h2 id="lỗi-17-không-có-reindex-strategy">Lỗi 17: Không có reindex strategy</h2>
+<p>Analyzer và mapping gần như không thể nâng cấp an toàn.</p>
+<h2 id="lỗi-18-không-đo-relevance">Lỗi 18: Không đo relevance</h2>
+<p>Ranking được tune bằng cảm giác.</p>
+<h2 id="lỗi-19-chỉ-theo-dõi-query-latency">Lỗi 19: Chỉ theo dõi query latency</h2>
+<p>Không phát hiện indexing lag và dữ liệu stale.</p>
+<h2 id="lỗi-20-không-bảo-vệ-expensive-queries">Lỗi 20: Không bảo vệ expensive queries</h2>
+<p>Wildcard, regex và aggregation có thể làm cluster quá tải.</p>
+<hr>
+<h1 id="150-bảng-ghi-nhớ-nhanh">150. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inverted index</td>
+<td>Term ánh xạ tới documents</td>
+</tr>
+<tr>
+<td>Dictionary</td>
+<td>Danh sách term</td>
+</tr>
+<tr>
+<td>Postings list</td>
+<td>Danh sách document chứa term</td>
+</tr>
+<tr>
+<td>Term frequency</td>
+<td>Số lần term xuất hiện trong document</td>
+</tr>
+<tr>
+<td>Document frequency</td>
+<td>Số document chứa term</td>
+</tr>
+<tr>
+<td>Position</td>
+<td>Vị trí term trong document</td>
+</tr>
+<tr>
+<td>Analyzer</td>
+<td>Pipeline biến text thành terms</td>
+</tr>
+<tr>
+<td>Tokenizer</td>
+<td>Chia text thành token</td>
+</tr>
+<tr>
+<td>Stemming</td>
+<td>Đưa biến thể về gốc gần đúng</td>
+</tr>
+<tr>
+<td>Synonym</td>
+<td>Mở rộng term tương đương</td>
+</tr>
+<tr>
+<td>N-gram</td>
+<td>Chia term thành các mảnh</td>
+</tr>
+<tr>
+<td>BM25</td>
+<td>Lexical ranking phổ biến</td>
+</tr>
+<tr>
+<td>Candidate generation</td>
+<td>Tìm tập document ban đầu</td>
+</tr>
+<tr>
+<td>Reranking</td>
+<td>Xếp hạng chi tiết top candidates</td>
+</tr>
+<tr>
+<td>Segment</td>
+<td>Đơn vị index gần immutable</td>
+</tr>
+<tr>
+<td>Refresh</td>
+<td>Làm document có thể search</td>
+</tr>
+<tr>
+<td>Merge</td>
+<td>Hợp nhất segment</td>
+</tr>
+<tr>
+<td>Search shard</td>
+<td>Một phần của index</td>
+</tr>
+<tr>
+<td>Replica</td>
+<td>Bản sao shard cho HA/read scale</td>
+</tr>
+<tr>
+<td>Scatter–gather</td>
+<td>Query nhiều shard rồi merge</td>
+</tr>
+<tr>
+<td>CDC/Outbox</td>
+<td>Đồng bộ DB sang search đáng tin cậy</td>
+</tr>
+<tr>
+<td>Reindex</td>
+<td>Xây lại index</td>
+</tr>
+<tr>
+<td>Alias swap</td>
+<td>Chuyển index không downtime</td>
+</tr>
+<tr>
+<td>Bounded staleness</td>
+<td>Độ cũ được giới hạn</td>
+</tr>
+<tr>
+<td>Reconciliation</td>
+<td>Phát hiện và sửa index lệch</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="151-sơ-đồ-ghi-nhớ-toàn-bài">151. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Search System] --> B[Text Analysis]
+    A --> C[Inverted Index]
+    A --> D[Ranking]
+    A --> E[Indexing Pipeline]
+    A --> F[Distributed Search]
+    A --> G[Consistency]
+
+    B --> B1[Normalization]
+    B --> B2[Tokenization]
+    B --> B3[Synonyms]
+    B --> B4[N-grams]
+
+    C --> C1[Dictionary]
+    C --> C2[Postings]
+    C --> C3[Frequency]
+    C --> C4[Positions]
+
+    D --> D1[BM25]
+    D --> D2[Field Boost]
+    D --> D3[Freshness]
+    D --> D4[Reranking]
+
+    E --> E1[Outbox / CDC]
+    E --> E2[Enrichment]
+    E --> E3[Bulk Index]
+    E --> E4[Versioning]
+
+    F --> F1[Sharding]
+    F --> F2[Replication]
+    F --> F3[Scatter-Gather]
+    F --> F4[Top-K Merge]
+
+    G --> G1[Eventual Consistency]
+    G --> G2[Indexing Lag]
+    G --> G3[Reconciliation]
+    G --> G4[Zero-Downtime Reindex]
+</div></code></pre>
+<hr>
+<h1 id="152-những-điều-phải-nhớ-sau-bài-18">152. Những điều phải nhớ sau Bài 18</h1>
+<pre class="hljs"><code><div>1. Database index và search index phục vụ các access pattern khác nhau.
+2. Inverted index ánh xạ term sang postings list.
+3. Posting có thể chứa frequency, positions và field information.
+4. Positions hỗ trợ phrase và proximity search.
+5. Text phải đi qua analyzer trước khi index.
+6. Analyzer gồm character filters, tokenizer và token filters.
+7. Tokenization tiếng Việt cần lưu ý từ ghép và dấu.
+8. Có thể giữ cả field có dấu và không dấu.
+9. Stop-word removal không phải lúc nào cũng tốt.
+10. Stemming tăng recall nhưng có thể giảm precision.
+11. Synonym có thể áp dụng lúc index hoặc query.
+12. Edge n-gram phù hợp autocomplete.
+13. Text field dùng full-text; keyword dùng exact filter và aggregation.
+14. Full-text query và filter nên được phân biệt.
+15. Candidate retrieval thường dùng inverted index.
+16. BM25 kết hợp term rarity, frequency và document length.
+17. Title match thường cần boost cao hơn description.
+18. Ranking production thường kết hợp relevance, freshness và quality.
+19. Candidate generation và reranking nên tách thành nhiều tầng.
+20. Search index thường là projection, không phải source of truth.
+21. DB và search không nên được dual-write trực tiếp.
+22. Outbox hoặc CDC giúp truyền change event đáng tin cậy.
+23. Indexing consumer phải idempotent.
+24. Entity version ngăn event cũ ghi đè state mới.
+25. Delete cần tombstone rõ ràng.
+26. Search document thường denormalized và cần enrichment.
+27. Batch indexing tăng throughput nhưng phải xử lý partial failure.
+28. Search index thường gồm các segment gần immutable.
+29. Update tạo version mới và đánh dấu version cũ deleted.
+30. Segment merge tốn CPU và disk I/O.
+31. Refresh quyết định khi document trở nên searchable.
+32. Search thường near-real-time và eventual consistent.
+33. Sharding chia index để scale storage và processing.
+34. Query nhiều shard là scatter–gather.
+35. Tail latency tăng khi query chạm quá nhiều shard.
+36. Over-sharding cũng nguy hiểm như under-sharding.
+37. Replica tăng read capacity và availability.
+38. Replica không thay thế việc tăng primary shard cho write scale.
+39. Search result có thể partial khi shard lỗi; API phải nói rõ.
+40. Không dùng search để xác nhận uniqueness, payment hoặc inventory.
+41. Read-your-writes trong search cần chiến lược riêng.
+42. Search deletion liên quan privacy cần đường xử lý ưu tiên.
+43. ACL phải được áp trong search và recheck ở source service.
+44. Thay analyzer thường cần full reindex.
+45. Reindex không downtime dùng index mới, backfill, CDC và alias swap.
+46. Shadow query giúp so sánh index cũ và mới.
+47. Deep pagination nên dùng search-after thay vì offset lớn.
+48. Relevance cần được đo bằng Precision, Recall, MRR hoặc NDCG.
+49. Online metrics cần theo dõi click, conversion và abandonment.
+50. Observability phải bao gồm query latency, indexing lag, merge và shard health.
+</div></code></pre>
+<hr>
+<h1 id="153-bài-tập-thực-hành">153. Bài tập thực hành</h1>
+<p>Thiết kế search cho nền tảng tuyển dụng có:</p>
+<pre class="hljs"><code><div>- 100 triệu hồ sơ ứng viên
+- 20 triệu tin tuyển dụng
+- Tìm theo kỹ năng, chức danh và mô tả
+- Tìm kiếm tiếng Việt và tiếng Anh
+- Lọc theo vị trí, kinh nghiệm và mức lương
+- Recruiter chỉ được thấy hồ sơ được cấp quyền
+- Hồ sơ được cập nhật thường xuyên
+- Có autocomplete và typo tolerance
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Source of truth của hồ sơ nằm ở đâu?
+2. Search document nên chứa field nào?
+3. Field nào là text và field nào là keyword?
+4. Tokenization tiếng Việt xử lý thế nào?
+5. Có cần field không dấu không?
+6. Synonym cho job title được quản lý thế nào?
+7. “software engineer” và “backend developer” được match ra sao?
+8. BM25 field boost nên đặt thế nào?
+9. Skill exact match khác description match thế nào?
+10. Salary và experience được filter bằng cấu trúc nào?
+11. ACL được index và kiểm tra ra sao?
+12. Candidate indexing pipeline dùng outbox hay CDC?
+13. Event cũ bị ngăn ghi đè bằng version nào?
+14. Profile delete được propagate thế nào?
+15. Indexing freshness SLO là bao nhiêu?
+16. Có bao nhiêu shards và replicas?
+17. Query có route theo tenant không?
+18. Recruiter lớn có tạo hot shard không?
+19. Autocomplete được xây bằng edge n-gram hay query log?
+20. Typo tolerance được giới hạn ra sao?
+21. Deep pagination dùng gì?
+22. Reindex analyzer mới không downtime thế nào?
+23. Relevance được đánh giá bằng metric nào?
+24. Metrics nào phát hiện search index bị stale?
+25. Khi Search Cluster lỗi, sản phẩm degrade thế nào?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    ProfileDB[(Profile DB)] --> Outbox
+    JobDB[(Job DB)] --> Outbox
+
+    Outbox --> Broker[Event Stream]
+    Broker --> Indexer[Indexing Workers]
+
+    Indexer --> NLP[Language Analysis and Enrichment]
+    NLP --> Search[(Search Cluster)]
+
+    Recruiter --> SearchAPI
+    SearchAPI --> QueryUnderstanding
+    QueryUnderstanding --> Search
+
+    Search --> Reranker
+    Reranker --> ACLCheck
+    ACLCheck --> Results
+
+    Reconciler --> ProfileDB
+    Reconciler --> Search
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Search engine không chỉ là một database có ô tìm kiếm. Nó là một read model chuyên biệt gồm text analysis, inverted index, candidate retrieval, ranking, distributed execution và một pipeline liên tục đồng bộ từ source of truth.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 19 — Batch Processing và Stream Processing:</strong> batch job, event stream, event time, processing time, windowing, watermark, late event, delivery semantics và stateful stream processing.</p>
+
+</body>
+</html>

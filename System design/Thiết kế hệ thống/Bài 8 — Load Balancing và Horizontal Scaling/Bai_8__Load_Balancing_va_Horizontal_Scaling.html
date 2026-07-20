@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 8 — Load Balancing và Horizontal Scaling.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-8--load-balancing-và-horizontal-scaling">Bài 8 — Load Balancing và Horizontal Scaling</h1>
+<p>Khi một application server không còn đủ sức xử lý traffic, chúng ta có hai hướng mở rộng:</p>
+<pre class="hljs"><code><div>Vertical Scaling:
+Nâng cấp máy hiện tại mạnh hơn.
+
+Horizontal Scaling:
+Thêm nhiều máy cùng xử lý traffic.
+</div></code></pre>
+<p>Load balancer là thành phần đứng trước nhóm server, nhận traffic từ client và phân phối request đến các server phù hợp. Trong video/tài liệu của bạn, horizontal scaling được giới thiệu như cách thêm server để chia sẻ tải, còn load balancer đảm nhận việc phân phối traffic, kiểm tra sức khỏe server và tránh gửi request đến node đã lỗi.</p>
+<hr>
+<h1 id="1-vì-sao-một-server-cuối-cùng-sẽ-không-đủ">1. Vì sao một server cuối cùng sẽ không đủ?</h1>
+<p>Kiến trúc ban đầu:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User[Users] --> App[Application Server]
+    App --> DB[(Database)]
+</div></code></pre>
+<p>Khi hệ thống nhỏ, kiến trúc này rất hợp lý:</p>
+<pre class="hljs"><code><div>- Dễ triển khai
+- Dễ debug
+- Chi phí thấp
+- Ít thành phần
+</div></code></pre>
+<p>Nhưng một server có giới hạn:</p>
+<pre class="hljs"><code><div>- CPU
+- RAM
+- Network bandwidth
+- Số connection
+- Disk I/O
+- Số thread/process
+</div></code></pre>
+<p>Traffic tăng có thể khiến:</p>
+<pre class="hljs"><code><div>CPU lên 100%
+Connection pool đầy
+Request phải xếp hàng
+Latency tăng
+Timeout tăng
+Client retry
+Traffic càng tăng thêm
+</div></code></pre>
+<p>Chuỗi sự cố:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[Traffic tăng] --> B[Server quá tải]
+    B --> C[Latency tăng]
+    C --> D[Timeout]
+    D --> E[Client retry]
+    E --> B
+</div></code></pre>
+<p>Đây là <strong>retry amplification</strong>: server đã quá tải nhưng retry lại tạo thêm tải.</p>
+<hr>
+<h1 id="2-vertical-scaling--scale-up">2. Vertical Scaling — Scale Up</h1>
+<p>Vertical scaling là tăng tài nguyên cho máy hiện tại:</p>
+<pre class="hljs"><code><div>- Tăng CPU
+- Tăng RAM
+- Dùng ổ đĩa nhanh hơn
+- Tăng network capacity
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Trước:
+4 CPU, 8 GB RAM
+
+Sau:
+32 CPU, 128 GB RAM
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[Server nhỏ] -->|Nâng cấp| B[Server lớn hơn]
+</div></code></pre>
+<h2 id="ưu-điểm">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Không cần chia traffic
+- Ít thay đổi application
+- Không có vấn đề distributed state giữa nhiều server
+</div></code></pre>
+<h2 id="nhược-điểm">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Có giới hạn phần cứng
+- Máy càng lớn càng đắt
+- Có thể cần downtime khi nâng cấp
+- Vẫn là single point of failure
+- Không xử lý tốt traffic tăng đột biến
+</div></code></pre>
+<p>Vertical scaling không xấu. Nó thường là bước đầu hợp lý.</p>
+<p>Nhưng cuối cùng:</p>
+<blockquote>
+<p>Một máy dù mạnh đến đâu vẫn là một máy.</p>
+</blockquote>
+<hr>
+<h1 id="3-horizontal-scaling--scale-out">3. Horizontal Scaling — Scale Out</h1>
+<p>Horizontal scaling là thêm nhiều server:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> LB[Load Balancer]
+
+    LB --> A1[Application 1]
+    LB --> A2[Application 2]
+    LB --> A3[Application 3]
+</div></code></pre>
+<p>Thay vì một server xử lý 15.000 RPS:</p>
+<pre class="hljs"><code><div>Server 1:
+15.000 RPS
+</div></code></pre>
+<p>Ta có thể dùng ba server:</p>
+<pre class="hljs"><code><div>Server 1: 5.000 RPS
+Server 2: 5.000 RPS
+Server 3: 5.000 RPS
+</div></code></pre>
+<h2 id="ưu-điểm-1">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Tăng capacity bằng cách thêm server
+- Có thể tự động scale
+- Một server chết chưa chắc làm toàn hệ thống chết
+- Có thể deploy dần
+- Dễ phân tán qua nhiều availability zone
+</div></code></pre>
+<h2 id="nhược-điểm-1">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Phải có load balancer
+- Session và local state trở thành vấn đề
+- Debug khó hơn
+- Có network failure
+- Cần service discovery và health check
+- Database có thể trở thành bottleneck tiếp theo
+</div></code></pre>
+<hr>
+<h1 id="4-load-balancer-là-gì">4. Load Balancer là gì?</h1>
+<p>Load balancer là thành phần nhận connection/request từ client và chọn một backend server để xử lý.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> LB[Load Balancer]
+
+    LB --> S1[Server 1]
+    LB --> S2[Server 2]
+    LB --> S3[Server 3]
+</div></code></pre>
+<p>Nhiệm vụ chính:</p>
+<pre class="hljs"><code><div>1. Phân phối traffic
+2. Không gửi request đến server lỗi
+3. Tránh một server chịu quá nhiều tải
+4. Hỗ trợ thêm hoặc loại bỏ server
+5. Có thể terminate TLS
+6. Có thể route theo host/path/header
+7. Thu thập metrics và access logs
+</div></code></pre>
+<p>Load balancer không chỉ giúp performance.</p>
+<p>Nó còn giúp:</p>
+<pre class="hljs"><code><div>- Availability
+- Fault tolerance
+- Rolling deployment
+- Autoscaling
+- Security
+</div></code></pre>
+<hr>
+<h1 id="5-một-request-đi-qua-load-balancer-như-thế-nào">5. Một request đi qua Load Balancer như thế nào?</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant DNS
+    participant LB as Load Balancer
+    participant App as Application Server
+    participant DB as Database
+
+    Client->>DNS: Resolve api.example.com
+    DNS-->>Client: Load balancer IP
+
+    Client->>LB: HTTPS request
+    LB->>LB: Select healthy backend
+    LB->>App: Forward request
+    App->>DB: Query/update
+    DB-->>App: Result
+    App-->>LB: HTTP response
+    LB-->>Client: HTTP response
+</div></code></pre>
+<p>Client thường chỉ biết domain của load balancer:</p>
+<pre class="hljs"><code><div>api.example.com
+</div></code></pre>
+<p>Client không cần biết:</p>
+<pre class="hljs"><code><div>Server 1 có IP gì?
+Server 2 vừa được thêm chưa?
+Server 3 có đang lỗi không?
+</div></code></pre>
+<p>Những thay đổi đó được che giấu phía sau load balancer.</p>
+<hr>
+<h1 id="6-load-balancing-ở-layer-4-và-layer-7">6. Load Balancing ở Layer 4 và Layer 7</h1>
+<p>Hai loại quan trọng nhất:</p>
+<pre class="hljs"><code><div>L4 Load Balancer:
+Transport layer
+
+L7 Load Balancer:
+Application layer
+</div></code></pre>
+<hr>
+<h1 id="7-l4-load-balancer">7. L4 Load Balancer</h1>
+<p>L4 hoạt động chủ yếu dựa trên thông tin mạng và transport:</p>
+<pre class="hljs"><code><div>- Source IP
+- Destination IP
+- Source port
+- Destination port
+- Protocol TCP/UDP
+</div></code></pre>
+<p>Nó không cần hiểu sâu nội dung HTTP.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>TCP connection tới port 443
+→ chuyển tới backend 10.0.1.12:443
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client -->|TCP :443| L4[L4 Load Balancer]
+    L4 --> S1[Server 1]
+    L4 --> S2[Server 2]
+</div></code></pre>
+<h2 id="ưu-điểm-2">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Nhanh
+- Overhead thấp
+- Throughput cao
+- Hỗ trợ nhiều protocol TCP/UDP
+- Không phụ thuộc HTTP
+</div></code></pre>
+<h2 id="nhược-điểm-2">Nhược điểm</h2>
+<p>Không dễ đưa ra quyết định dựa trên:</p>
+<pre class="hljs"><code><div>- URL path
+- HTTP header
+- Cookie
+- HTTP method
+- User identity
+</div></code></pre>
+<p>L4 phù hợp với:</p>
+<pre class="hljs"><code><div>- TCP services
+- Database connection
+- Game server
+- Low-latency network service
+- Traffic rất lớn
+- TLS passthrough
+</div></code></pre>
+<hr>
+<h1 id="8-l7-load-balancer">8. L7 Load Balancer</h1>
+<p>L7 hiểu protocol ứng dụng như HTTP hoặc HTTPS.</p>
+<p>Nó có thể đọc:</p>
+<pre class="hljs"><code><div>- Host
+- URL path
+- Query string
+- Header
+- Cookie
+- HTTP method
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/api/users/*    → User Service
+/api/orders/*   → Order Service
+/images/*       → Image Service
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> L7[L7 Load Balancer]
+
+    L7 -->|/users/*| User[User Service]
+    L7 -->|/orders/*| Order[Order Service]
+    L7 -->|/payments/*| Payment[Payment Service]
+</div></code></pre>
+<h2 id="ưu-điểm-3">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Content-based routing
+- TLS termination
+- Authentication integration
+- Header manipulation
+- Redirect
+- Rate limiting
+- Canary routing
+- A/B testing
+- Web Application Firewall
+</div></code></pre>
+<h2 id="nhược-điểm-3">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Overhead lớn hơn L4
+- Phải parse protocol
+- Cấu hình phức tạp hơn
+- Thêm CPU và latency
+</div></code></pre>
+<hr>
+<h1 id="9-so-sánh-l4-và-l7">9. So sánh L4 và L7</h1>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>L4</th>
+<th>L7</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dựa trên</td>
+<td>IP, port, TCP/UDP</td>
+<td>HTTP host, path, header, cookie</td>
+</tr>
+<tr>
+<td>Hiểu HTTP</td>
+<td>Không sâu</td>
+<td>Có</td>
+</tr>
+<tr>
+<td>Hiệu năng</td>
+<td>Thường cao hơn</td>
+<td>Overhead lớn hơn</td>
+</tr>
+<tr>
+<td>TLS</td>
+<td>Passthrough hoặc terminate tùy thiết kế</td>
+<td>Thường terminate</td>
+</tr>
+<tr>
+<td>Route theo path</td>
+<td>Không</td>
+<td>Có</td>
+</tr>
+<tr>
+<td>Dùng cho</td>
+<td>TCP/UDP services</td>
+<td>Web/API/microservices</td>
+</tr>
+<tr>
+<td>Logic routing</td>
+<td>Đơn giản</td>
+<td>Linh hoạt</td>
+</tr>
+</tbody>
+</table>
+<p>Nhiều hệ thống dùng cả hai tầng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> L4[Global/L4 Load Balancer]
+    L4 --> L7A[L7 Load Balancer Zone A]
+    L4 --> L7B[L7 Load Balancer Zone B]
+
+    L7A --> A1[App A1]
+    L7A --> A2[App A2]
+
+    L7B --> B1[App B1]
+    L7B --> B2[App B2]
+</div></code></pre>
+<hr>
+<h1 id="10-tls-termination">10. TLS Termination</h1>
+<p>Nếu load balancer terminate TLS:</p>
+<pre class="hljs"><code><div>Client → HTTPS → Load Balancer
+Load Balancer → HTTP hoặc HTTPS → Backend
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client -->|Encrypted HTTPS| LB[TLS Termination]
+    LB -->|HTTP/HTTPS nội bộ| App[Application]
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Backend không phải tự xử lý TLS cho từng request
+- Quản lý certificate tập trung
+- Load balancer đọc được HTTP để route L7
+- Dễ thêm WAF và security rules
+</div></code></pre>
+<p>Nhưng traffic nội bộ có thể vẫn cần mã hóa:</p>
+<pre class="hljs"><code><div>Client → HTTPS → LB → HTTPS → Backend
+</div></code></pre>
+<p>Đặc biệt khi:</p>
+<pre class="hljs"><code><div>- Network không hoàn toàn tin cậy
+- Có yêu cầu compliance
+- Có nhiều cluster/region
+</div></code></pre>
+<hr>
+<h1 id="11-các-thuật-toán-load-balancing">11. Các thuật toán Load Balancing</h1>
+<p>Load balancer cần trả lời:</p>
+<blockquote>
+<p>Request tiếp theo nên được gửi đến server nào?</p>
+</blockquote>
+<p>Không có thuật toán tốt nhất cho mọi workload.</p>
+<hr>
+<h1 id="12-round-robin">12. Round Robin</h1>
+<p>Request được gửi tuần tự:</p>
+<pre class="hljs"><code><div>Request 1 → Server A
+Request 2 → Server B
+Request 3 → Server C
+Request 4 → Server A
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    R1[Request 1] --> A[Server A]
+    R2[Request 2] --> B[Server B]
+    R3[Request 3] --> C[Server C]
+    R4[Request 4] --> A
+</div></code></pre>
+<h2 id="ưu-điểm-4">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Overhead thấp
+- Phân phối đều số request
+</div></code></pre>
+<h2 id="nhược-điểm-4">Nhược điểm</h2>
+<p>Round Robin giả định các request và server tương đối giống nhau.</p>
+<p>Nhưng thực tế:</p>
+<pre class="hljs"><code><div>Request A xử lý 10 ms
+Request B xử lý 5 giây
+</div></code></pre>
+<p>Nếu chỉ đếm số request, server nhận request nặng có thể quá tải.</p>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Server giống nhau
+- Request tương đối đồng đều
+- Connection ngắn
+</div></code></pre>
+<hr>
+<h1 id="13-weighted-round-robin">13. Weighted Round Robin</h1>
+<p>Mỗi server có weight khác nhau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Server A: weight 1
+Server B: weight 2
+Server C: weight 4
+</div></code></pre>
+<p>C có thể nhận nhiều traffic hơn vì mạnh hơn.</p>
+<pre class="hljs"><code><div>A: 1 phần
+B: 2 phần
+C: 4 phần
+</div></code></pre>
+<p>Phù hợp khi server không cùng cấu hình:</p>
+<pre class="hljs"><code><div>- CPU khác nhau
+- RAM khác nhau
+- Version mới cần ít traffic hơn
+- Canary instance chỉ nên nhận 5%
+</div></code></pre>
+<hr>
+<h1 id="14-least-connections">14. Least Connections</h1>
+<p>Load balancer chọn server có ít connection đang hoạt động nhất.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Server A: 100 connections
+Server B: 40 connections
+Server C: 75 connections
+
+→ Chọn Server B
+</div></code></pre>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Connection tồn tại lâu
+- Request duration không đồng đều
+- WebSocket
+- Streaming
+- Long polling
+</div></code></pre>
+<p>Nhưng ít connection không phải lúc nào cũng nghĩa là ít tải.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Server A:
+100 connection nhẹ
+
+Server B:
+10 connection xử lý video nặng
+</div></code></pre>
+<p>Server B vẫn có thể bận hơn.</p>
+<hr>
+<h1 id="15-weighted-least-connections">15. Weighted Least Connections</h1>
+<p>Kết hợp số connection và capacity của server.</p>
+<p>Ví dụ server mạnh gấp đôi có thể chịu nhiều connection hơn.</p>
+<p>Đây thường hợp lý hơn least connections thuần túy khi backend không đồng nhất.</p>
+<hr>
+<h1 id="16-least-response-time">16. Least Response Time</h1>
+<p>Load balancer cân nhắc:</p>
+<pre class="hljs"><code><div>- Response time
+- Active connections
+- Server performance
+</div></code></pre>
+<p>Server phản hồi nhanh và ít bận được ưu tiên.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Có thể thích nghi với backend đang chậm.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cần đo latency liên tục
+- Metric có thể nhiễu
+- Có thể tạo feedback loop
+</div></code></pre>
+<p>Ví dụ server vừa nhanh hơn một chút được gửi nhiều traffic hơn, rồi nhanh chóng trở nên quá tải.</p>
+<hr>
+<h1 id="17-random">17. Random</h1>
+<p>Chọn ngẫu nhiên một server khỏe mạnh.</p>
+<p>Nghe đơn giản nhưng với số lượng request lớn, traffic thường phân bố tương đối đều.</p>
+<p>Một biến thể tốt là <strong>Power of Two Choices</strong>:</p>
+<pre class="hljs"><code><div>1. Chọn ngẫu nhiên hai server
+2. So sánh tải
+3. Gửi request đến server nhẹ hơn
+</div></code></pre>
+<p>Cách này đạt cân bằng tốt mà không cần theo dõi toàn bộ cluster quá chi tiết.</p>
+<hr>
+<h1 id="18-ip-hash">18. IP Hash</h1>
+<p>Load balancer hash IP của client để chọn server:</p>
+<pre class="hljs"><code><div>server = hash(client_ip) mod N
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Cùng client IP
+→ thường đi đến cùng server
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Tạo session affinity đơn giản
+- Có thể hữu ích khi backend có local state
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Nhiều user có thể dùng chung IP qua NAT
+- Mobile IP có thể thay đổi
+- Khi thêm hoặc xóa server, mapping thay đổi
+- Traffic có thể phân bố không đều
+</div></code></pre>
+<hr>
+<h1 id="19-consistent-hashing">19. Consistent Hashing</h1>
+<p>Consistent hashing ánh xạ server và key lên một hash ring.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Ring((Hash Ring))
+    A[Server A] --> Ring
+    B[Server B] --> Ring
+    C[Server C] --> Ring
+</div></code></pre>
+<p>Khi thêm hoặc loại bỏ một server, chỉ một phần key bị remap thay vì gần như toàn bộ.</p>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Distributed cache
+- Sharded storage
+- Stateful connection assignment
+- Partition-aware routing
+</div></code></pre>
+<p>Consistent hashing không chỉ là thuật toán load balancing; nó còn là kỹ thuật phân phối dữ liệu.</p>
+<hr>
+<h1 id="20-geographic-load-balancing">20. Geographic Load Balancing</h1>
+<p>Traffic được route theo vị trí user:</p>
+<pre class="hljs"><code><div>User châu Á → Asia region
+User châu Âu → Europe region
+User Mỹ → US region
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User[Global Users] --> G[Global Traffic Manager]
+
+    G --> Asia[Asia Region]
+    G --> Europe[Europe Region]
+    G --> US[US Region]
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Giảm latency
+- Phân tải toàn cầu
+- Hỗ trợ disaster recovery
+- Tuân thủ data residency
+</div></code></pre>
+<p>Routing có thể dựa trên:</p>
+<pre class="hljs"><code><div>- DNS
+- Anycast
+- Client IP
+- Network latency
+- Region health
+</div></code></pre>
+<hr>
+<h1 id="21-health-check-là-gì">21. Health Check là gì?</h1>
+<p>Load balancer không nên gửi traffic đến server đã lỗi.</p>
+<p>Health check là cơ chế kiểm tra backend có sẵn sàng nhận request hay không.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant LB as Load Balancer
+    participant App as Application Server
+
+    loop Every few seconds
+        LB->>App: GET /health
+        App-->>LB: 200 OK
+    end
+</div></code></pre>
+<p>Khi health check thất bại đủ số lần:</p>
+<pre class="hljs"><code><div>Backend bị đánh dấu unhealthy
+→ ngừng nhận traffic
+</div></code></pre>
+<p>Khi thành công trở lại đủ số lần:</p>
+<pre class="hljs"><code><div>Backend được thêm lại vào pool
+</div></code></pre>
+<hr>
+<h1 id="22-active-và-passive-health-check">22. Active và Passive Health Check</h1>
+<h2 id="active-health-check">Active health check</h2>
+<p>Load balancer chủ động gửi request:</p>
+<pre class="hljs"><code><div>GET /health
+GET /ready
+</div></code></pre>
+<p>Ví dụ mỗi 5 giây.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Phát hiện lỗi trước khi có user request
+- Kiểm tra định kỳ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tạo thêm traffic
+- Endpoint health có thể không phản ánh toàn bộ hệ thống
+</div></code></pre>
+<hr>
+<h2 id="passive-health-check">Passive health check</h2>
+<p>Load balancer quan sát request thật:</p>
+<pre class="hljs"><code><div>- Connection refused
+- Timeout
+- 5xx liên tục
+- Reset connection
+</div></code></pre>
+<p>Sau một số lỗi, backend bị loại.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dựa trên traffic thực
+- Phát hiện lỗi mà endpoint health có thể bỏ sót
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Một số user request phải thất bại trước
+</div></code></pre>
+<p>Hệ thống tốt thường kết hợp cả hai.</p>
+<hr>
+<h1 id="23-liveness-readiness-và-startup-check">23. Liveness, Readiness và Startup Check</h1>
+<p>Ba loại health check thường bị nhầm.</p>
+<hr>
+<h2 id="231-liveness">23.1 Liveness</h2>
+<p>Câu hỏi:</p>
+<blockquote>
+<p>Process có còn sống hay bị treo?</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>GET /health/live
+</div></code></pre>
+<p>Nếu liveness fail lâu:</p>
+<pre class="hljs"><code><div>Process có thể cần restart.
+</div></code></pre>
+<p>Liveness không nên kiểm tra quá nhiều dependency.</p>
+<p>Nếu database tạm thời lỗi mà mọi app instance cùng fail liveness, toàn bộ app có thể bị restart hàng loạt, làm sự cố nghiêm trọng hơn.</p>
+<hr>
+<h2 id="232-readiness">23.2 Readiness</h2>
+<p>Câu hỏi:</p>
+<blockquote>
+<p>Instance có sẵn sàng nhận traffic không?</p>
+</blockquote>
+<pre class="hljs"><code><div>GET /health/ready
+</div></code></pre>
+<p>Một instance có thể còn sống nhưng chưa ready vì:</p>
+<pre class="hljs"><code><div>- Chưa load configuration
+- Chưa warm cache
+- Chưa kết nối database
+- Đang migrate
+- Đang shutdown
+</div></code></pre>
+<p>Nếu readiness fail:</p>
+<pre class="hljs"><code><div>Ngừng gửi traffic đến instance,
+nhưng không nhất thiết restart nó.
+</div></code></pre>
+<hr>
+<h2 id="233-startup-check">23.3 Startup check</h2>
+<p>Câu hỏi:</p>
+<blockquote>
+<p>Application đã khởi động hoàn tất chưa?</p>
+</blockquote>
+<p>Hữu ích với ứng dụng khởi động chậm.</p>
+<p>Nếu không có startup check, liveness có thể kết luận app chết trong khi nó chỉ đang khởi động.</p>
+<hr>
+<h1 id="24-health-endpoint-nên-kiểm-tra-gì">24. Health endpoint nên kiểm tra gì?</h1>
+<p>Một health endpoint tốt không chỉ trả <code>200</code> vì process còn chạy.</p>
+<p>Nhưng cũng không nên phụ thuộc mù quáng vào mọi dependency.</p>
+<p>Ví dụ readiness có thể kiểm tra:</p>
+<pre class="hljs"><code><div>- Application event loop/thread pool còn hoạt động
+- Configuration đã load
+- Dependency bắt buộc có thể truy cập
+- Instance không trong trạng thái draining
+</div></code></pre>
+<p>Không nên gọi hàng chục service sâu:</p>
+<pre class="hljs"><code><div>App health
+→ Database
+→ Payment provider
+→ Email provider
+→ Analytics
+</div></code></pre>
+<p>Nếu email provider lỗi, order API có thể vẫn xử lý order bình thường.</p>
+<p>Phải phân biệt:</p>
+<pre class="hljs"><code><div>Dependency bắt buộc
+Dependency tùy chọn
+</div></code></pre>
+<hr>
+<h1 id="25-threshold-và-chống-health-check-flapping">25. Threshold và chống Health Check Flapping</h1>
+<p>Một lần timeout chưa chắc server đã chết.</p>
+<p>Nếu loại server ngay sau một lỗi:</p>
+<pre class="hljs"><code><div>Server có thể liên tục:
+healthy → unhealthy → healthy → unhealthy
+</div></code></pre>
+<p>Đó là <strong>flapping</strong>.</p>
+<p>Cấu hình thường gồm:</p>
+<pre class="hljs"><code><div>Interval:
+Bao lâu kiểm tra một lần
+
+Timeout:
+Chờ response bao lâu
+
+Unhealthy threshold:
+Bao nhiêu lần fail liên tiếp mới loại
+
+Healthy threshold:
+Bao nhiêu lần thành công mới thêm lại
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Check mỗi 5 giây
+Timeout 2 giây
+3 lần fail → unhealthy
+2 lần success → healthy
+</div></code></pre>
+<hr>
+<h1 id="26-connection-draining">26. Connection Draining</h1>
+<p>Khi một server cần dừng, không nên cắt toàn bộ connection đang xử lý.</p>
+<p>Thay vào đó:</p>
+<pre class="hljs"><code><div>1. Đánh dấu server không nhận request mới
+2. Chờ request hiện tại hoàn thành
+3. Đóng connection
+4. Tắt server
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant LB
+    participant App
+
+    LB->>App: Mark draining
+    Note over LB: Không gửi request mới
+    App->>App: Hoàn thành request đang chạy
+    App-->>LB: Connections completed
+    Note over App: Safe shutdown
+</div></code></pre>
+<p>Connection draining rất quan trọng khi:</p>
+<pre class="hljs"><code><div>- Deploy version mới
+- Scale in
+- Maintenance
+- Spot/preemptible instance sắp bị thu hồi
+</div></code></pre>
+<p>Nếu không draining:</p>
+<pre class="hljs"><code><div>- Request đang chạy bị cắt
+- Upload hỏng
+- Payment có trạng thái không rõ
+- WebSocket disconnect đột ngột
+</div></code></pre>
+<hr>
+<h1 id="27-sticky-session-là-gì">27. Sticky Session là gì?</h1>
+<p>Sticky session, hay session affinity, nghĩa là các request của một user được gửi về cùng một backend server.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    U1[User A] --> LB
+    U2[User B] --> LB
+
+    LB -->|User A luôn tới đây| S1[Server 1]
+    LB -->|User B luôn tới đây| S2[Server 2]
+</div></code></pre>
+<p>Có thể implement bằng:</p>
+<pre class="hljs"><code><div>- Cookie
+- Client IP hash
+- Session ID hash
+</div></code></pre>
+<hr>
+<h1 id="28-tại-sao-người-ta-dùng-sticky-session">28. Tại sao người ta dùng Sticky Session?</h1>
+<p>Giả sử session đăng nhập được lưu trong RAM của Server 1:</p>
+<pre class="hljs"><code><div>Server 1 memory:
+session_abc → user_123
+</div></code></pre>
+<p>Request đầu:</p>
+<pre class="hljs"><code><div>User → Server 1 → đăng nhập thành công
+</div></code></pre>
+<p>Request tiếp theo tới Server 2:</p>
+<pre class="hljs"><code><div>Server 2 không biết session_abc
+→ user bị xem như chưa đăng nhập
+</div></code></pre>
+<p>Sticky session ép user quay lại Server 1.</p>
+<hr>
+<h1 id="29-vấn-đề-của-sticky-session">29. Vấn đề của Sticky Session</h1>
+<h2 id="291-load-không-đều">29.1 Load không đều</h2>
+<p>Một server có thể nhận nhiều user nặng.</p>
+<pre class="hljs"><code><div>Server 1:
+10 user xử lý video nặng
+
+Server 2:
+100 user chỉ đọc profile
+</div></code></pre>
+<p>Số user không phản ánh tải thật.</p>
+<hr>
+<h2 id="292-server-chết-làm-mất-session">29.2 Server chết làm mất session</h2>
+<p>Nếu session chỉ ở local memory:</p>
+<pre class="hljs"><code><div>Server 1 chết
+→ session trên Server 1 mất
+→ user phải đăng nhập lại
+</div></code></pre>
+<hr>
+<h2 id="293-scale-và-deploy-khó-hơn">29.3 Scale và deploy khó hơn</h2>
+<p>Khi scale in, phải xử lý user đang dính với server bị xóa.</p>
+<p>Rolling deployment cũng khó vì traffic không linh hoạt.</p>
+<hr>
+<h2 id="294-giảm-fault-tolerance">29.4 Giảm fault tolerance</h2>
+<p>Server không còn dễ thay thế vì nó đang giữ trạng thái riêng của user.</p>
+<hr>
+<h1 id="30-stateless-service">30. Stateless Service</h1>
+<p>Một application server là stateless khi nó không giữ state lâu dài cần thiết cho request tiếp theo trong local memory hoặc local disk.</p>
+<p>Mỗi request mang đủ context để bất kỳ server nào xử lý.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> LB
+
+    LB --> A1[Stateless API 1]
+    LB --> A2[Stateless API 2]
+    LB --> A3[Stateless API 3]
+
+    A1 --> Shared[(Shared State)]
+    A2 --> Shared
+    A3 --> Shared
+</div></code></pre>
+<p>Shared state có thể nằm ở:</p>
+<pre class="hljs"><code><div>- Database
+- Redis/session store
+- Object storage
+- Message broker
+</div></code></pre>
+<hr>
+<h1 id="31-ví-dụ-stateful-và-stateless">31. Ví dụ Stateful và Stateless</h1>
+<h2 id="stateful">Stateful</h2>
+<pre class="hljs"><code><div>Server 1 RAM:
+shopping_cart_user_123
+</div></code></pre>
+<p>Chỉ Server 1 biết cart.</p>
+<h2 id="stateless-application">Stateless application</h2>
+<pre class="hljs"><code><div>Redis:
+cart:user_123
+</div></code></pre>
+<p>Bất kỳ API server nào cũng đọc được cart.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    User --> LB
+    LB --> A1[API 1]
+    LB --> A2[API 2]
+    A1 --> Redis[(Redis)]
+    A2 --> Redis
+</div></code></pre>
+<hr>
+<h1 id="32-authentication-stateless-có-nghĩa-gì">32. Authentication stateless có nghĩa gì?</h1>
+<p>Với access token:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer &lt;token&gt;
+</div></code></pre>
+<p>Bất kỳ server nào có thể:</p>
+<pre class="hljs"><code><div>- Verify token
+- Xác định user
+- Kiểm tra quyền
+- Xử lý request
+</div></code></pre>
+<p>Nhưng cần lưu ý:</p>
+<blockquote>
+<p>JWT không làm toàn bộ hệ thống tự động stateless.</p>
+</blockquote>
+<p>Hệ thống vẫn có thể cần:</p>
+<pre class="hljs"><code><div>- Token revocation
+- Refresh token storage
+- User permission lookup
+- Rate limit state
+- Business data
+</div></code></pre>
+<p>Mục tiêu không phải “không có state”.</p>
+<p>Mà là:</p>
+<blockquote>
+<p>Không khóa state quan trọng vào một application instance cụ thể.</p>
+</blockquote>
+<hr>
+<h1 id="33-khi-nào-sticky-session-vẫn-hợp-lý">33. Khi nào Sticky Session vẫn hợp lý?</h1>
+<p>Sticky session không phải lúc nào cũng sai.</p>
+<p>Có thể phù hợp khi:</p>
+<pre class="hljs"><code><div>- Legacy application lưu session local
+- WebSocket connection dài
+- In-memory processing tạm thời
+- Migrating dần sang stateless
+- Một workflow ngắn cần affinity
+</div></code></pre>
+<p>Nhưng nên xem nó là trade-off rõ ràng, không phải mặc định.</p>
+<p>Với WebSocket, một connection vật lý đương nhiên được giữ với một server trong thời gian connection tồn tại. Tuy nhiên state bền vững vẫn nên được externalize để reconnect sang server khác.</p>
+<hr>
+<h1 id="34-service-discovery">34. Service Discovery</h1>
+<p>Khi autoscaling thêm hoặc xóa server, load balancer cần biết backend nào đang tồn tại.</p>
+<p>Đây là service discovery.</p>
+<p>Hai mô hình:</p>
+<pre class="hljs"><code><div>Client-side discovery
+Server-side discovery
+</div></code></pre>
+<hr>
+<h2 id="341-server-side-discovery">34.1 Server-side discovery</h2>
+<p>Client gọi load balancer.</p>
+<p>Load balancer biết danh sách backend.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> LB[Load Balancer]
+    LB --> Registry[Service Registry]
+    LB --> S1[Service 1]
+    LB --> S2[Service 2]
+</div></code></pre>
+<p>Đây là mô hình phổ biến với external traffic.</p>
+<hr>
+<h2 id="342-client-side-discovery">34.2 Client-side discovery</h2>
+<p>Service gọi registry để lấy danh sách instance, sau đó tự chọn instance.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ServiceA[Service A] --> Registry
+    Registry --> ServiceA
+    ServiceA --> B1[Service B1]
+    ServiceA --> B2[Service B2]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Bỏ bớt network hop
+- Client có thể chọn routing strategy
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Logic discovery nằm trong client
+- Nhiều ngôn ngữ cần implementation
+- Phức tạp hơn
+</div></code></pre>
+<hr>
+<h1 id="35-autoscaling-là-gì">35. Autoscaling là gì?</h1>
+<p>Autoscaling là tự động tăng hoặc giảm số lượng instance dựa trên nhu cầu.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Metrics[Metrics] --> Controller[Autoscaling Controller]
+    Controller -->|Scale out| Add[Add Instances]
+    Controller -->|Scale in| Remove[Remove Instances]
+    Add --> Pool[Backend Pool]
+    Remove --> Pool
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Traffic tăng → thêm instance
+Traffic giảm → giảm instance
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Duy trì performance
+- Hấp thụ traffic spike
+- Giảm chi phí khi ít traffic
+- Giảm thao tác thủ công
+</div></code></pre>
+<hr>
+<h1 id="36-horizontal-và-vertical-autoscaling">36. Horizontal và Vertical Autoscaling</h1>
+<h2 id="horizontal-autoscaling">Horizontal autoscaling</h2>
+<pre class="hljs"><code><div>3 instances → 10 instances
+</div></code></pre>
+<p>Phổ biến với stateless services.</p>
+<h2 id="vertical-autoscaling">Vertical autoscaling</h2>
+<pre class="hljs"><code><div>4 CPU → 8 CPU
+8 GB RAM → 16 GB RAM
+</div></code></pre>
+<p>Có thể cần restart hoặc reschedule workload.</p>
+<p>Trong bài này, autoscaling chủ yếu nói về horizontal autoscaling.</p>
+<hr>
+<h1 id="37-autoscaling-dựa-trên-cpu">37. Autoscaling dựa trên CPU</h1>
+<p>Ví dụ rule:</p>
+<pre class="hljs"><code><div>Nếu average CPU &gt; 70% trong 5 phút:
+Thêm 2 instance
+
+Nếu average CPU &lt; 30% trong 15 phút:
+Giảm 1 instance
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Có sẵn ở nhiều nền tảng
+</div></code></pre>
+<p>Nhược điểm:</p>
+<p>CPU không luôn phản ánh tải.</p>
+<p>Ví dụ service đang chờ database:</p>
+<pre class="hljs"><code><div>CPU chỉ 20%
+Latency rất cao
+Connection pool đầy
+</div></code></pre>
+<p>Autoscaler dựa trên CPU có thể không scale dù user đang gặp timeout.</p>
+<hr>
+<h1 id="38-autoscaling-dựa-trên-memory">38. Autoscaling dựa trên Memory</h1>
+<p>Phù hợp với application có memory usage tỷ lệ với workload:</p>
+<pre class="hljs"><code><div>- In-memory processing
+- Large object transformation
+- Cache-heavy service
+</div></code></pre>
+<p>Nhưng memory có thể không giảm sau khi request hoàn tất do:</p>
+<pre class="hljs"><code><div>- Runtime garbage collection
+- Memory fragmentation
+- Local cache
+</div></code></pre>
+<p>Dùng memory làm metric cần hiểu behavior của runtime.</p>
+<hr>
+<h1 id="39-autoscaling-dựa-trên-rps">39. Autoscaling dựa trên RPS</h1>
+<p>Ví dụ mỗi instance chịu an toàn:</p>
+<pre class="hljs"><code><div>500 RPS
+</div></code></pre>
+<p>Peak hiện tại:</p>
+<pre class="hljs"><code><div>10.000 RPS
+</div></code></pre>
+<p>Số instance cơ bản:</p>
+<pre class="hljs"><code><div>10.000 / 500 = 20 instance
+</div></code></pre>
+<p>Nên thêm headroom:</p>
+<pre class="hljs"><code><div>Khoảng 25–30 instance tùy SLO và traffic burst.
+</div></code></pre>
+<p>RPS phù hợp với request tương đối đồng đều.</p>
+<p>Nhưng nếu:</p>
+<pre class="hljs"><code><div>GET /health = 1 ms
+POST /video/process = 10 giây
+</div></code></pre>
+<p>thì tổng RPS không phản ánh tải thật.</p>
+<hr>
+<h1 id="40-autoscaling-dựa-trên-latency">40. Autoscaling dựa trên Latency</h1>
+<p>Có thể scale khi:</p>
+<pre class="hljs"><code><div>p95 latency &gt; 300 ms
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Gần với trải nghiệm user
+</div></code></pre>
+<p>Nhược điểm:</p>
+<p>Latency có thể tăng vì:</p>
+<pre class="hljs"><code><div>- Database chậm
+- Third-party API chậm
+- Network lỗi
+</div></code></pre>
+<p>Thêm application instance không giải quyết được dependency chậm, thậm chí còn tăng tải lên database.</p>
+<hr>
+<h1 id="41-autoscaling-dựa-trên-queue-depth">41. Autoscaling dựa trên Queue Depth</h1>
+<p>Rất phù hợp với worker bất đồng bộ.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    API --> Queue[Message Queue]
+    Queue --> W1[Worker 1]
+    Queue --> W2[Worker 2]
+</div></code></pre>
+<p>Scale dựa trên:</p>
+<pre class="hljs"><code><div>- Số message đang chờ
+- Tuổi của message cũ nhất
+- Thời gian xử lý trung bình
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Mỗi worker xử lý 10 jobs/giây
+Queue nhận 500 jobs/giây
+
+Cần ít nhất:
+500 / 10 = 50 workers
+</div></code></pre>
+<p>Đây thường là metric tốt hơn CPU cho background workers.</p>
+<hr>
+<h1 id="42-autoscaling-dựa-trên-active-connections">42. Autoscaling dựa trên Active Connections</h1>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- WebSocket
+- Long polling
+- Streaming
+- Proxy
+</div></code></pre>
+<p>Ví dụ mỗi WebSocket server giữ an toàn 20.000 connection.</p>
+<p>Có 200.000 connection:</p>
+<pre class="hljs"><code><div>Cần tối thiểu 10 server,
+cộng thêm headroom.
+</div></code></pre>
+<hr>
+<h1 id="43-composite-metrics">43. Composite Metrics</h1>
+<p>Trong thực tế, có thể kết hợp:</p>
+<pre class="hljs"><code><div>- CPU
+- RPS
+- p95 latency
+- Queue depth
+- Active connections
+- Error rate
+</div></code></pre>
+<p>Không nên scale mù quáng từ một metric duy nhất.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Scale out nếu:
+CPU &gt; 65%
+HOẶC
+RPS/instance &gt; 400
+HOẶC
+queue oldest age &gt; 30 giây
+</div></code></pre>
+<p>Nhưng rule quá phức tạp cũng khó dự đoán và debug.</p>
+<hr>
+<h1 id="44-reactive-scheduled-và-predictive-scaling">44. Reactive, Scheduled và Predictive Scaling</h1>
+<h2 id="reactive-scaling">Reactive scaling</h2>
+<p>Traffic tăng rồi mới scale.</p>
+<pre class="hljs"><code><div>CPU cao → thêm instance
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Có độ trễ trước khi instance mới sẵn sàng.
+</div></code></pre>
+<hr>
+<h2 id="scheduled-scaling">Scheduled scaling</h2>
+<p>Scale trước thời điểm biết trước.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>11:00 → tăng capacity trước giờ ăn trưa
+19:45 → tăng capacity trước trận bóng lúc 20:00
+</div></code></pre>
+<p>Phù hợp traffic có chu kỳ.</p>
+<hr>
+<h2 id="predictive-scaling">Predictive scaling</h2>
+<p>Dùng dữ liệu lịch sử để dự đoán traffic và chuẩn bị trước.</p>
+<p>Có thể hiệu quả nhưng phức tạp và phụ thuộc chất lượng dự báo.</p>
+<p>Hệ thống lớn thường kết hợp:</p>
+<pre class="hljs"><code><div>Scheduled/Predictive baseline
++
+Reactive adjustment
+</div></code></pre>
+<hr>
+<h1 id="45-autoscaling-lag">45. Autoscaling Lag</h1>
+<p>Autoscaling không diễn ra tức thời.</p>
+<p>Quá trình có thể gồm:</p>
+<pre class="hljs"><code><div>1. Metric tăng
+2. Hệ thống thu thập metric
+3. Rule được kích hoạt
+4. Tạo instance/container
+5. Khởi động application
+6. Load configuration
+7. Warm cache
+8. Readiness thành công
+9. Load balancer bắt đầu gửi traffic
+</div></code></pre>
+<p>Quá trình này có thể mất từ vài giây đến nhiều phút.</p>
+<p>Trong thời gian đó, instance cũ vẫn phải chịu traffic.</p>
+<p>Vì vậy cần:</p>
+<pre class="hljs"><code><div>- Headroom
+- Minimum instances
+- Prewarming
+- Scheduled scaling
+- Fast startup
+- Queue buffering
+</div></code></pre>
+<hr>
+<h1 id="46-cooldown-và-stabilization-window">46. Cooldown và Stabilization Window</h1>
+<p>Nếu autoscaler phản ứng quá nhanh:</p>
+<pre class="hljs"><code><div>Scale out
+→ CPU giảm
+→ Scale in
+→ CPU tăng
+→ Scale out
+</div></code></pre>
+<p>Đây là autoscaling oscillation hoặc thrashing.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Cooldown:
+Chờ một khoảng thời gian sau khi scale.
+
+Stabilization window:
+Chỉ scale nếu metric duy trì đủ lâu.
+
+Scale-in chậm hơn scale-out:
+Thêm nhanh, giảm từ từ.
+</div></code></pre>
+<p>Nguyên tắc thực tế:</p>
+<blockquote>
+<p>Scale out cần nhanh; scale in nên thận trọng.</p>
+</blockquote>
+<hr>
+<h1 id="47-scale-in-nguy-hiểm-hơn-scale-out">47. Scale In nguy hiểm hơn Scale Out</h1>
+<p>Thêm server thường ít rủi ro.</p>
+<p>Xóa server có thể làm:</p>
+<pre class="hljs"><code><div>- Cắt request đang xử lý
+- Mất local state
+- Ngắt WebSocket
+- Giảm capacity quá nhanh
+- Tăng tải đột ngột lên server còn lại
+</div></code></pre>
+<p>Scale-in an toàn:</p>
+<pre class="hljs"><code><div>1. Chọn instance cần loại
+2. Mark not ready
+3. Load balancer ngừng gửi traffic mới
+4. Drain connection
+5. Hoàn thành jobs
+6. Shutdown
+</div></code></pre>
+<hr>
+<h1 id="48-capacity-và-headroom">48. Capacity và Headroom</h1>
+<p>Giả sử peak traffic dự kiến:</p>
+<pre class="hljs"><code><div>30.000 RPS
+</div></code></pre>
+<p>Mỗi application instance xử lý an toàn:</p>
+<pre class="hljs"><code><div>500 RPS
+</div></code></pre>
+<p>Tối thiểu:</p>
+<pre class="hljs"><code><div>30.000 / 500 = 60 instances
+</div></code></pre>
+<p>Nhưng chạy đúng 60 nghĩa là không có dự phòng.</p>
+<p>Nếu một availability zone mất 20 instance, hệ thống quá tải ngay.</p>
+<p>Có thể thiết kế:</p>
+<pre class="hljs"><code><div>60 instance cho tải
++ 20–30% headroom
+≈ 75–80 instances
+</div></code></pre>
+<p>Headroom bảo vệ trước:</p>
+<pre class="hljs"><code><div>- Traffic burst
+- Instance failure
+- Deployment
+- Autoscaling lag
+- Uneven load
+</div></code></pre>
+<hr>
+<h1 id="49-n1-và-zone-failure-capacity">49. N+1 và Zone Failure Capacity</h1>
+<p>Giả sử có ba zone:</p>
+<pre class="hljs"><code><div>Zone A: 30 servers
+Zone B: 30 servers
+Zone C: 30 servers
+</div></code></pre>
+<p>Tổng 90.</p>
+<p>Nếu hệ thống chỉ chạy ổn khi có đủ 90, mất một zone sẽ gây quá tải.</p>
+<p>Thiết kế tốt có thể yêu cầu:</p>
+<pre class="hljs"><code><div>Hai zone còn lại vẫn chịu được toàn bộ traffic.
+</div></code></pre>
+<p>Tức là capacity mỗi zone phải tính theo failure scenario, không chỉ traffic bình thường.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    LB[Regional Load Balancer]
+
+    LB --> A[Zone A]
+    LB --> B[Zone B]
+    LB --> C[Zone C]
+
+    C -.Failure.-> X[Traffic chuyển sang A và B]
+</div></code></pre>
+<hr>
+<h1 id="50-load-balancer-có-thể-trở-thành-single-point-of-failure">50. Load Balancer có thể trở thành Single Point of Failure</h1>
+<p>Kiến trúc này chưa thực sự high availability:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> LB[Single Load Balancer]
+    LB --> S1
+    LB --> S2
+    LB --> S3
+</div></code></pre>
+<p>Nếu LB chết, toàn bộ backend khỏe mạnh cũng không truy cập được.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Nhiều load balancer
+- Active-active
+- Active-passive
+- Anycast
+- DNS failover
+- Managed load balancer
+- Health check và self-healing
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> DNS[DNS/Global Routing]
+
+    DNS --> LB1[Load Balancer 1]
+    DNS --> LB2[Load Balancer 2]
+
+    LB1 --> Apps[Application Pool]
+    LB2 --> Apps
+</div></code></pre>
+<hr>
+<h1 id="51-active-active-và-active-passive">51. Active-Active và Active-Passive</h1>
+<h2 id="active-active">Active-active</h2>
+<p>Cả hai load balancer đều nhận traffic.</p>
+<pre class="hljs"><code><div>LB1: 50%
+LB2: 50%
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Sử dụng toàn bộ capacity
+- Failover nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Đồng bộ configuration
+- Routing phức tạp hơn
+</div></code></pre>
+<hr>
+<h2 id="active-passive">Active-passive</h2>
+<p>LB chính nhận traffic, LB dự phòng chờ.</p>
+<pre class="hljs"><code><div>LB1: active
+LB2: standby
+</div></code></pre>
+<p>Khi LB1 lỗi, traffic chuyển sang LB2.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Capacity dự phòng không được dùng thường xuyên
+- Failover có thể chậm hơn
+- Phải thường xuyên kiểm tra standby thật sự hoạt động
+</div></code></pre>
+<hr>
+<h1 id="52-database-trở-thành-bottleneck-tiếp-theo">52. Database trở thành Bottleneck tiếp theo</h1>
+<p>Scale application server không tự động scale database.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    LB --> A1[App 1]
+    LB --> A2[App 2]
+    LB --> A3[App 3]
+    LB --> A4[App 4]
+
+    A1 --> DB[(One Database)]
+    A2 --> DB
+    A3 --> DB
+    A4 --> DB
+</div></code></pre>
+<p>Thêm app server có thể tạo:</p>
+<pre class="hljs"><code><div>- Nhiều DB connection hơn
+- Nhiều query hơn
+- Nhiều lock contention hơn
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>100 app instances
+× 50 DB connections
+= 5.000 connections
+</div></code></pre>
+<p>Database có thể không chịu được.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Connection pooling
+- Cache
+- Read replica
+- Query optimization
+- Rate limit
+- Backpressure
+</div></code></pre>
+<p>Horizontal scaling phải được nhìn end-to-end, không chỉ application tier.</p>
+<hr>
+<h1 id="53-load-balancer-không-biết-mọi-thứ">53. Load Balancer không biết mọi thứ</h1>
+<p>Load balancer có thể biết:</p>
+<pre class="hljs"><code><div>- Connection count
+- Response time
+- Health status
+- HTTP status
+</div></code></pre>
+<p>Nhưng nó có thể không biết:</p>
+<pre class="hljs"><code><div>- Thread pool gần đầy
+- DB connection pool cạn
+- Internal queue quá dài
+- Garbage collection sắp xảy ra
+- Tenant cụ thể đang rất nặng
+</div></code></pre>
+<p>Vì thế application có thể expose:</p>
+<pre class="hljs"><code><div>- Readiness status
+- Custom load metrics
+- Queue depth
+</div></code></pre>
+<p>Hoặc dùng service mesh/autoscaler theo application metrics.</p>
+<hr>
+<h1 id="54-overload-protection-và-backpressure">54. Overload Protection và Backpressure</h1>
+<p>Scale không phải phản ứng duy nhất.</p>
+<p>Nếu traffic vượt capacity, hệ thống cần bảo vệ chính nó.</p>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Rate limiting
+- Request queue có giới hạn
+- Load shedding
+- Circuit breaker
+- Timeout
+- Retry budget
+- Priority queue
+- Degrade non-critical features
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment request:
+Ưu tiên cao
+
+Analytics event:
+Có thể drop hoặc xử lý chậm
+
+Recommendation:
+Có thể trả fallback
+</div></code></pre>
+<p>Một hệ thống tốt đôi khi phải từ chối một phần request để phần quan trọng vẫn hoạt động.</p>
+<hr>
+<h1 id="55-load-shedding">55. Load Shedding</h1>
+<p>Load shedding là chủ động từ chối request khi hệ thống quá tải.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>503 Service Unavailable
+<span class="hljs-attribute">Retry-After</span><span class="hljs-punctuation">: </span>5
+</div></code></pre>
+<p>Tốt hơn việc nhận mọi request rồi tất cả cùng timeout sau 30 giây.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Requests --> Gate{Capacity available?}
+    Gate -->|Có| Service
+    Gate -->|Không| Reject[Fail fast / fallback]
+</div></code></pre>
+<hr>
+<h1 id="56-retry-phải-được-kiểm-soát">56. Retry phải được kiểm soát</h1>
+<p>Nếu backend lỗi, load balancer hoặc client có thể retry sang server khác.</p>
+<p>Nhưng retry nguy hiểm khi:</p>
+<pre class="hljs"><code><div>- Operation không idempotent
+- Server cũ đã xử lý nhưng response bị mất
+- Retry storm
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>POST /payments
+</div></code></pre>
+<p>Không nên retry mù quáng nếu không có idempotency key.</p>
+<p>Retry nên có:</p>
+<pre class="hljs"><code><div>- Timeout hợp lý
+- Exponential backoff
+- Jitter
+- Retry limit
+- Idempotency
+- Retry budget
+</div></code></pre>
+<hr>
+<h1 id="57-rolling-deployment">57. Rolling Deployment</h1>
+<p>Load balancer hỗ trợ deploy không downtime.</p>
+<p>Luồng:</p>
+<pre class="hljs"><code><div>1. Thêm instance version mới
+2. Chờ readiness
+3. Gửi một phần traffic
+4. Theo dõi errors và latency
+5. Drain instance version cũ
+6. Tắt version cũ
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    LB --> V1A[v1]
+    LB --> V1B[v1]
+    LB --> V2A[v2 Canary]
+
+    V2A --> Check{Metrics tốt?}
+    Check -->|Có| More[Deploy thêm v2]
+    Check -->|Không| Rollback
+</div></code></pre>
+<hr>
+<h1 id="58-canary-deployment">58. Canary Deployment</h1>
+<p>Chỉ gửi một phần nhỏ traffic đến version mới:</p>
+<pre class="hljs"><code><div>v1: 95%
+v2: 5%
+</div></code></pre>
+<p>L7 load balancer có thể route theo:</p>
+<pre class="hljs"><code><div>- Percentage
+- Cookie
+- Header
+- User group
+- Region
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">X-Canary</span><span class="hljs-punctuation">: </span>true
+</div></code></pre>
+<p>Nếu metrics tốt, tăng dần:</p>
+<pre class="hljs"><code><div>5% → 20% → 50% → 100%
+</div></code></pre>
+<hr>
+<h1 id="59-websocket-và-load-balancing">59. WebSocket và Load Balancing</h1>
+<p>WebSocket tạo connection dài.</p>
+<p>Sau khi handshake, connection thường gắn với một backend.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> LB
+    LB --> WS1[WebSocket Server 1]
+</div></code></pre>
+<p>Load balancing cần cân nhắc:</p>
+<pre class="hljs"><code><div>- Least connections
+- Active connection count
+- Connection draining
+- Reconnect
+- Presence state
+- Message routing
+</div></code></pre>
+<p>Nếu User A nối với Server 1 và User B nối với Server 2, message cần đi qua shared infrastructure:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[User A] --> S1[WS Server 1]
+    B[User B] --> S2[WS Server 2]
+
+    S1 --> Broker[Message Broker]
+    Broker --> S2
+</div></code></pre>
+<p>Không nên giả định hai user chat luôn ở cùng server.</p>
+<hr>
+<h1 id="60-multi-region-load-balancing">60. Multi-region Load Balancing</h1>
+<p>Một hệ thống toàn cầu có thể có nhiều region:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Global[Global Load Balancer]
+
+    Global --> Asia[Asia Region]
+    Global --> Europe[Europe Region]
+    Global --> US[US Region]
+
+    Asia --> AsiaLB[Regional LB]
+    Europe --> EuropeLB[Regional LB]
+    US --> USLB[Regional LB]
+</div></code></pre>
+<p>Global load balancer route theo:</p>
+<pre class="hljs"><code><div>- Latency
+- Geography
+- Region health
+- Capacity
+- Data residency
+</div></code></pre>
+<p>Nếu Asia region lỗi:</p>
+<pre class="hljs"><code><div>Traffic có thể chuyển sang region khác.
+</div></code></pre>
+<p>Nhưng application và database phải hỗ trợ việc đó.</p>
+<p>Load balancer không tự giải quyết:</p>
+<pre class="hljs"><code><div>- Data replication
+- Cross-region consistency
+- User session
+- Regional failover data
+</div></code></pre>
+<hr>
+<h1 id="61-dns-load-balancing">61. DNS Load Balancing</h1>
+<p>DNS có thể trả nhiều IP:</p>
+<pre class="hljs"><code><div>api.example.com:
+IP A
+IP B
+IP C
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Hữu ích ở global level
+- Có thể route theo region
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- DNS caching
+- Failover không tức thời
+- Không biết chính xác tải từng request
+- Client có thể giữ IP cũ
+</div></code></pre>
+<p>DNS load balancing thường là tầng ngoài, không thay thế hoàn toàn regional load balancer.</p>
+<hr>
+<h1 id="62-các-failure-mode-phổ-biến">62. Các failure mode phổ biến</h1>
+<h2 id="server-treo-nhưng-vẫn-trả-health-200">Server treo nhưng vẫn trả health 200</h2>
+<p>Process còn chạy nhưng thread pool đã kẹt.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Readiness phản ánh khả năng xử lý thực tế
+Passive health checks
+Timeout
+</div></code></pre>
+<hr>
+<h2 id="health-check-quá-nặng">Health check quá nặng</h2>
+<p>Mỗi check query database phức tạp.</p>
+<p>100 load balancer × nhiều server × check mỗi giây có thể tự tạo tải lớn.</p>
+<hr>
+<h2 id="toàn-bộ-server-khởi-động-cùng-lúc">Toàn bộ server khởi động cùng lúc</h2>
+<p>Cache lạnh và kết nối DB cùng tăng, gây startup storm.</p>
+<hr>
+<h2 id="autoscaler-scale-quá-mạnh">Autoscaler scale quá mạnh</h2>
+<p>Nhiều instance mới cùng kết nối DB:</p>
+<pre class="hljs"><code><div>Connection storm
+</div></code></pre>
+<hr>
+<h2 id="scale-in-cắt-request">Scale in cắt request</h2>
+<p>Không có connection draining.</p>
+<hr>
+<h2 id="sticky-session-làm-hotspot">Sticky session làm hotspot</h2>
+<p>Một số server nhận toàn user nặng.</p>
+<hr>
+<h2 id="load-balancer-fail">Load balancer fail</h2>
+<p>Không có HA cho chính load balancer.</p>
+<hr>
+<h2 id="app-scale-được-nhưng-db-không-scale">App scale được nhưng DB không scale</h2>
+<p>Tăng app instance làm database sập nhanh hơn.</p>
+<hr>
+<h1 id="63-observability-cho-load-balancing">63. Observability cho Load Balancing</h1>
+<p>Metrics quan trọng:</p>
+<pre class="hljs"><code><div>- Request rate
+- Active connections
+- Requests per backend
+- Backend response time
+- p50/p95/p99 latency
+- 4xx/5xx rate
+- Healthy/unhealthy backend count
+- Connection errors
+- Retry count
+- Queue time tại load balancer
+- TLS handshake latency
+</div></code></pre>
+<p>Autoscaling metrics:</p>
+<pre class="hljs"><code><div>- CPU/memory
+- RPS per instance
+- Queue depth
+- Oldest message age
+- Active connections
+- Startup time
+- Scale events
+- Desired vs actual instances
+</div></code></pre>
+<p>Cần quan sát phân phối theo từng backend.</p>
+<p>Average toàn cluster có thể che giấu hotspot:</p>
+<pre class="hljs"><code><div>Average CPU = 50%
+
+Server A = 95%
+Server B = 30%
+Server C = 25%
+</div></code></pre>
+<hr>
+<h1 id="64-case-study--scale-một-api-service">64. Case Study — Scale một API service</h1>
+<p>Giả sử API hiện tại:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> App[One API Server]
+    App --> DB[(PostgreSQL)]
+</div></code></pre>
+<p>Peak:</p>
+<pre class="hljs"><code><div>8.000 RPS
+</div></code></pre>
+<p>Một server chịu an toàn:</p>
+<pre class="hljs"><code><div>1.000 RPS
+</div></code></pre>
+<p>Thiết kế tối thiểu cần tám server, nhưng ta thêm headroom:</p>
+<pre class="hljs"><code><div>12 application instances
+</div></code></pre>
+<p>Kiến trúc:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> LB[Highly Available L7 Load Balancer]
+
+    LB --> A1[Stateless API]
+    LB --> A2[Stateless API]
+    LB --> A3[Stateless API]
+    LB --> AN[... Autoscaled Instances]
+
+    A1 --> Redis[(Shared Redis)]
+    A2 --> Redis
+    A3 --> Redis
+    AN --> Redis
+
+    A1 --> Pool[DB Connection Pool]
+    A2 --> Pool
+    A3 --> Pool
+    AN --> Pool
+
+    Pool --> DB[(PostgreSQL)]
+</div></code></pre>
+<p>Quyết định:</p>
+<pre class="hljs"><code><div>Routing:
+Weighted least connections hoặc round robin nếu request đồng đều
+
+Session:
+Không lưu trong local memory; dùng token hoặc Redis
+
+Health:
+Liveness riêng, readiness riêng
+
+Autoscaling:
+Dựa trên RPS/instance và p95 latency
+
+Scale out:
+Nhanh
+
+Scale in:
+Có stabilization window và draining
+
+Failure:
+Redis/DB có circuit breaker và connection limit
+</div></code></pre>
+<hr>
+<h1 id="65-ví-dụ-health-endpoints">65. Ví dụ Health Endpoints</h1>
+<pre class="hljs"><code><div>GET /health/live
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;alive&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Chỉ kiểm tra application process.</p>
+<pre class="hljs"><code><div>GET /health/ready
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ready&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;checks&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;configuration&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;databasePool&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;criticalQueue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên trả secrets hoặc internal topology trong public response.</p>
+<p>Health endpoint nên được giới hạn access nếu chứa chi tiết hệ thống.</p>
+<hr>
+<h1 id="66-framework-thiết-kế-load-balancing-như-senior-engineer">66. Framework thiết kế Load Balancing như Senior Engineer</h1>
+<p>Khi thiết kế, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Peak RPS hoặc active connections là bao nhiêu?
+2. Mỗi instance chịu an toàn bao nhiêu tải?
+3. Service có stateless không?
+4. State/session nằm ở đâu?
+5. Cần L4 hay L7?
+6. Thuật toán balancing nào phù hợp?
+7. Backend có giống nhau không?
+8. Request ngắn hay connection dài?
+9. Health check kiểm tra điều gì?
+10. Có liveness/readiness riêng không?
+11. Làm sao connection draining?
+12. Autoscaling dựa trên metric nào?
+13. Instance startup mất bao lâu?
+14. Có cooldown/stabilization không?
+15. Load balancer có HA không?
+16. Mất một zone có đủ capacity không?
+17. Database và cache có chịu được khi app scale không?
+18. Khi quá tải, hệ thống shed load thế nào?
+</div></code></pre>
+<hr>
+<h1 id="67-decision-tree">67. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần scale service] --> B{Một máy còn đủ không?}
+
+    B -->|Có| C[Giữ đơn giản / Vertical scale]
+    B -->|Không| D[Horizontal scaling]
+
+    D --> E{HTTP routing thông minh?}
+    E -->|Có| F[L7 Load Balancer]
+    E -->|Không / TCP-UDP| G[L4 Load Balancer]
+
+    F --> H{Service có local session?}
+    G --> H
+
+    H -->|Có| I[Sticky session tạm thời hoặc externalize state]
+    H -->|Không| J[Stateless backend]
+
+    I --> J
+
+    J --> K{Workload chính?}
+    K -->|Request đồng đều| L[Round Robin]
+    K -->|Connection dài| M[Least Connections]
+    K -->|Server khác capacity| N[Weighted Algorithm]
+    K -->|Key affinity| O[Consistent Hashing]
+
+    L --> P[Health Checks + Autoscaling]
+    M --> P
+    N --> P
+    O --> P
+</div></code></pre>
+<hr>
+<h1 id="68-cách-trình-bày-trong-system-design-interview">68. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em thêm load balancer và nhiều server.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>API server sẽ stateless để bất kỳ instance nào cũng xử lý được request. Một L7 load balancer đứng trước application pool để terminate TLS và route HTTP traffic. Vì các instance có cấu hình tương đương và request tương đối ngắn, ban đầu tôi dùng round robin; nếu workload có duration không đồng đều, tôi chuyển sang least-connections hoặc least-response-time. Load balancer chỉ gửi traffic đến instance đã vượt qua readiness check. Autoscaling dựa trên RPS mỗi instance và p95 latency, có headroom để bù startup lag. Khi scale in hoặc deploy, instance được đưa vào trạng thái draining trước khi shutdown.</p>
+</blockquote>
+<p>Đây là câu trả lời thể hiện:</p>
+<pre class="hljs"><code><div>- Loại load balancer
+- State management
+- Routing algorithm
+- Health check
+- Autoscaling
+- Safe deployment
+</div></code></pre>
+<hr>
+<h1 id="69-những-sai-lầm-phổ-biến">69. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-thêm-server-nhưng-vẫn-giữ-session-local">Lỗi 1: Thêm server nhưng vẫn giữ session local</h2>
+<p>Khiến request phụ thuộc vào một server cụ thể.</p>
+<hr>
+<h2 id="lỗi-2-dùng-round-robin-cho-mọi-workload">Lỗi 2: Dùng Round Robin cho mọi workload</h2>
+<p>Không phù hợp khi request duration hoặc server capacity khác nhau nhiều.</p>
+<hr>
+<h2 id="lỗi-3-health-check-chỉ-kiểm-tra-process">Lỗi 3: Health check chỉ kiểm tra process</h2>
+<p>Process sống nhưng không thể xử lý request vẫn được xem là healthy.</p>
+<hr>
+<h2 id="lỗi-4-health-check-phụ-thuộc-mọi-service">Lỗi 4: Health check phụ thuộc mọi service</h2>
+<p>Một dependency phụ lỗi làm toàn bộ backend bị loại.</p>
+<hr>
+<h2 id="lỗi-5-không-có-draining">Lỗi 5: Không có draining</h2>
+<p>Deploy hoặc scale-in cắt request đang chạy.</p>
+<hr>
+<h2 id="lỗi-6-autoscale-chỉ-dựa-vào-cpu">Lỗi 6: Autoscale chỉ dựa vào CPU</h2>
+<p>Service I/O-bound hoặc queue-based có thể quá tải dù CPU thấp.</p>
+<hr>
+<h2 id="lỗi-7-scale-in-quá-nhanh">Lỗi 7: Scale in quá nhanh</h2>
+<p>Gây oscillation và thiếu capacity.</p>
+<hr>
+<h2 id="lỗi-8-không-tính-startup-time">Lỗi 8: Không tính startup time</h2>
+<p>Traffic spike xảy ra trước khi instance mới ready.</p>
+<hr>
+<h2 id="lỗi-9-load-balancer-là-single-point-of-failure">Lỗi 9: Load balancer là single point of failure</h2>
+<p>Backend có nhiều server nhưng cửa vào chỉ có một node.</p>
+<hr>
+<h2 id="lỗi-10-app-scale-ngang-nhưng-database-không-được-bảo-vệ">Lỗi 10: App scale ngang nhưng database không được bảo vệ</h2>
+<p>Hàng trăm app instance làm DB connection pool quá tải.</p>
+<hr>
+<h1 id="70-bảng-ghi-nhớ-nhanh">70. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vertical scaling</td>
+<td>Tăng tài nguyên một máy</td>
+</tr>
+<tr>
+<td>Horizontal scaling</td>
+<td>Thêm nhiều máy</td>
+</tr>
+<tr>
+<td>L4 load balancing</td>
+<td>Route theo IP, port, TCP/UDP</td>
+</tr>
+<tr>
+<td>L7 load balancing</td>
+<td>Route theo HTTP host, path, header</td>
+</tr>
+<tr>
+<td>Round Robin</td>
+<td>Chia request tuần tự</td>
+</tr>
+<tr>
+<td>Least Connections</td>
+<td>Chọn server ít connection</td>
+</tr>
+<tr>
+<td>Weighted routing</td>
+<td>Server mạnh nhận nhiều tải hơn</td>
+</tr>
+<tr>
+<td>Health check</td>
+<td>Xác định backend có phục vụ được không</td>
+</tr>
+<tr>
+<td>Readiness</td>
+<td>Có sẵn sàng nhận traffic không</td>
+</tr>
+<tr>
+<td>Liveness</td>
+<td>Process còn sống không</td>
+</tr>
+<tr>
+<td>Sticky session</td>
+<td>User thường quay lại cùng server</td>
+</tr>
+<tr>
+<td>Stateless service</td>
+<td>Không gắn state quan trọng với một instance</td>
+</tr>
+<tr>
+<td>Connection draining</td>
+<td>Ngừng request mới, chờ request cũ hoàn tất</td>
+</tr>
+<tr>
+<td>Autoscaling</td>
+<td>Tự động tăng/giảm instance</td>
+</tr>
+<tr>
+<td>Headroom</td>
+<td>Capacity dự phòng</td>
+</tr>
+<tr>
+<td>Load shedding</td>
+<td>Từ chối có kiểm soát khi quá tải</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="71-sơ-đồ-ghi-nhớ-toàn-bài">71. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Traffic tăng] --> B[Horizontal Scaling]
+    B --> C[Load Balancer]
+
+    C --> D[L4]
+    C --> E[L7]
+    C --> F[Algorithms]
+    C --> G[Health Checks]
+    C --> H[Autoscaling]
+
+    F --> F1[Round Robin]
+    F --> F2[Least Connections]
+    F --> F3[Weighted]
+    F --> F4[Consistent Hashing]
+
+    G --> G1[Liveness]
+    G --> G2[Readiness]
+    G --> G3[Draining]
+
+    H --> H1[CPU / Memory]
+    H --> H2[RPS / Latency]
+    H --> H3[Queue Depth]
+    H --> H4[Connections]
+
+    B --> I[Stateless Services]
+    I --> I1[Shared Session Store]
+    I --> I2[Database]
+    I --> I3[Object Storage]
+</div></code></pre>
+<hr>
+<h1 id="72-những-điều-phải-nhớ-sau-bài-8">72. Những điều phải nhớ sau Bài 8</h1>
+<pre class="hljs"><code><div>1. Vertical scaling tăng sức mạnh một máy; horizontal scaling thêm nhiều máy.
+2. Load balancer phân phối traffic và loại backend không khỏe.
+3. L4 route theo IP, port và protocol; L7 hiểu HTTP.
+4. Round Robin phù hợp server và request tương đối đồng đều.
+5. Least Connections phù hợp connection dài hoặc request duration khác nhau.
+6. Weighted algorithm phù hợp backend khác capacity hoặc canary deployment.
+7. Health check phải phân biệt liveness và readiness.
+8. Server còn sống chưa chắc đã sẵn sàng nhận traffic.
+9. Connection draining giúp deploy và scale-in an toàn.
+10. Sticky session giải quyết local state tạm thời nhưng giảm khả năng scale và failover.
+11. Stateless không nghĩa là không có state; state phải nằm ngoài application instance.
+12. Autoscaling nên dùng metric phản ánh workload thật.
+13. CPU không phải lúc nào cũng là metric tốt nhất.
+14. Worker nên scale theo queue depth hoặc message age.
+15. WebSocket service nên cân nhắc active connections.
+16. Autoscaling có độ trễ nên luôn cần headroom.
+17. Scale out nhanh nhưng scale in cần thận trọng.
+18. Load balancer cũng phải có high availability.
+19. Mất một zone vẫn phải còn đủ capacity.
+20. Scale application tier có thể khiến database trở thành bottleneck.
+21. Khi vượt capacity, hệ thống cần backpressure và load shedding.
+22. Retry chỉ an toàn khi có timeout, backoff, giới hạn và idempotency.
+</div></code></pre>
+<hr>
+<h1 id="73-bài-tập-thực-hành">73. Bài tập thực hành</h1>
+<p>Thiết kế tầng application và load balancing cho một hệ thống bán vé concert.</p>
+<p>Giả định:</p>
+<pre class="hljs"><code><div>- Bình thường: 2.000 RPS
+- Khi mở bán: 100.000 RPS
+- Mỗi API instance chịu an toàn 1.000 RPS
+- User giữ kết nối chờ mua vé trong vài phút
+- Reservation và payment không được thực hiện trùng
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Cần L4 hay L7 load balancer?
+2. Thuật toán phân tải nào phù hợp?
+3. Bình thường cần bao nhiêu instance?
+4. Khi mở bán cần bao nhiêu instance và bao nhiêu headroom?
+5. Autoscaling dựa trên CPU, RPS, connection hay queue depth?
+6. Làm sao chuẩn bị trước traffic spike đã biết?
+7. Có nên dùng sticky session không?
+8. Session và waiting-room state nằm ở đâu?
+9. Health check nên kiểm tra gì?
+10. Khi scale in, làm sao không ngắt user đang thanh toán?
+11. Làm sao tránh load balancer thành single point of failure?
+12. Làm sao bảo vệ database khi 100.000 RPS tới?
+13. Khi capacity đầy, request nào được ưu tiên?
+14. Retry reservation/payment thế nào để không tạo duplicate?
+</div></code></pre>
+<p>Kiến trúc sơ bộ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Edge[CDN / DDoS Protection]
+    Edge --> Waiting[Virtual Waiting Room]
+    Waiting --> GLB[Highly Available Load Balancer]
+
+    GLB --> API1[Stateless API]
+    GLB --> API2[Stateless API]
+    GLB --> APIN[Autoscaled API Pool]
+
+    API1 --> Redis[(Shared Session / Rate State)]
+    API2 --> Redis
+    APIN --> Redis
+
+    API1 --> Queue[Reservation Queue]
+    API2 --> Queue
+    APIN --> Queue
+
+    Queue --> Workers[Reservation Workers]
+    Workers --> DB[(Transactional Booking DB)]
+</div></code></pre>
+<p>Điểm quan trọng nhất:</p>
+<blockquote>
+<p><strong>Load balancer giúp chia tải, nhưng không tự tạo capacity và không bảo vệ database nếu toàn bộ request vẫn đi thẳng xuống database.</strong></p>
+</blockquote>
+<hr>
+<h2 id="tóm-tắt-cuối-bài">Tóm tắt cuối bài</h2>
+<blockquote>
+<p><strong>Horizontal scaling chỉ thực sự hiệu quả khi application server có thể thay thế lẫn nhau, health check phản ánh đúng khả năng phục vụ, load balancer không trở thành điểm lỗi duy nhất, và autoscaling được thiết kế theo workload thật thay vì chỉ nhìn CPU.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo: Bài 9 — Message Queue và xử lý bất đồng bộ: producer, consumer, partition, ordering, retry, dead-letter queue, at-most-once, at-least-once và idempotent consumer.</strong></p>
+
+</body>
+</html>

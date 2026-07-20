@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>bài 4.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-4--api-design-nền-tảng">Bài 4 — API Design nền tảng</h1>
+<p>API là “hợp đồng giao tiếp” giữa các thành phần trong hệ thống. Client không cần biết server dùng PostgreSQL, Redis hay Kafka; client chỉ cần biết:</p>
+<pre class="hljs"><code><div>Gọi endpoint nào?
+Gửi dữ liệu gì?
+Nhận kết quả gì?
+Khi lỗi thì lỗi theo format nào?
+Gọi lặp lại có gây hậu quả không?
+Lấy danh sách lớn như thế nào?
+Khi API thay đổi thì client cũ có bị hỏng không?
+</div></code></pre>
+<p>Trong System Design, API thường là một trong những phần được xác định sớm, sau requirements và capacity estimation. Nó giúp làm rõ luồng nghiệp vụ, data model và trách nhiệm giữa các service. Các tài liệu/video bạn cung cấp đặt API bên cạnh database, caching, CDN và load balancing như một thành phần nền tảng của kiến trúc hệ thống.</p>
+<hr>
+<h2 id="1-api-là-gì">1. API là gì?</h2>
+<p><strong>API — Application Programming Interface</strong> là giao diện để các chương trình giao tiếp với nhau.</p>
+<p>Ví dụ mobile app muốn lấy thông tin user:</p>
+<pre class="hljs"><code><div>GET /users/123
+</div></code></pre>
+<p>Server trả về:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;email&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;luna@example.com&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Luồng tổng quát:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant API
+    participant Service
+    participant DB
+
+    Client->>API: GET /users/123
+    API->>Service: getUser(123)
+    Service->>DB: SELECT user
+    DB-->>Service: User data
+    Service-->>API: User object
+    API-->>Client: 200 OK + JSON
+</div></code></pre>
+<p>API không chỉ là một URL. Một API contract thường bao gồm:</p>
+<pre class="hljs"><code><div>- HTTP method
+- URL/path
+- Query parameters
+- Headers
+- Request body
+- Response body
+- Status codes
+- Authentication rules
+- Error format
+- Idempotency behavior
+- Rate limits
+- Version
+</div></code></pre>
+<hr>
+<h1 id="2-rest-là-gì">2. REST là gì?</h1>
+<p><strong>REST — Representational State Transfer</strong> là một phong cách thiết kế API xoay quanh các <strong>resource</strong>.</p>
+<p>Resource có thể là:</p>
+<pre class="hljs"><code><div>User
+Note
+Order
+Product
+Payment
+Message
+Comment
+</div></code></pre>
+<p>Mỗi resource thường được biểu diễn bằng một URL.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/users
+/users/123
+/users/123/notes
+/orders/ord_456
+</div></code></pre>
+<p>REST không bắt buộc mọi API phải giống hệt nhau, nhưng có một số nguyên tắc phổ biến:</p>
+<ol>
+<li>URL đại diện cho resource.</li>
+<li>HTTP method đại diện cho hành động.</li>
+<li>Request nên stateless.</li>
+<li>Dùng HTTP status code đúng ngữ nghĩa.</li>
+<li>Resource thường được trao đổi qua JSON.</li>
+</ol>
+<hr>
+<h1 id="3-resource-và-endpoint">3. Resource và endpoint</h1>
+<h2 id="31-dùng-danh-từ-không-dùng-động-từ">3.1 Dùng danh từ, không dùng động từ</h2>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>GET /getUsers
+POST /createUser
+POST /deleteUser
+POST /updateUser
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>GET    /users
+POST   /users
+GET    /users/{userId}
+PATCH  /users/{userId}
+DELETE /users/{userId}
+</div></code></pre>
+<p>Lý do: resource là <code>users</code>, còn hành động đã được HTTP method biểu diễn.</p>
+<hr>
+<h2 id="32-dùng-danh-từ-số-nhiều-nhất-quán">3.2 Dùng danh từ số nhiều nhất quán</h2>
+<p>Nên chọn một convention và giữ nhất quán:</p>
+<pre class="hljs"><code><div>/users
+/orders
+/products
+/notes
+</div></code></pre>
+<p>Không nên trộn:</p>
+<pre class="hljs"><code><div>/user
+/orders
+/product-list
+</div></code></pre>
+<hr>
+<h2 id="33-resource-cụ-thể-dùng-id-trong-path">3.3 Resource cụ thể dùng ID trong path</h2>
+<pre class="hljs"><code><div>GET /users/123
+GET /orders/ord_456
+GET /products/p_789
+</div></code></pre>
+<p>Path parameter xác định resource cụ thể:</p>
+<pre class="hljs"><code><div>/users/{userId}
+/orders/{orderId}
+/products/{productId}
+</div></code></pre>
+<hr>
+<h2 id="34-resource-lồng-nhau">3.4 Resource lồng nhau</h2>
+<p>Ví dụ lấy note của một user:</p>
+<pre class="hljs"><code><div>GET /users/123/notes
+</div></code></pre>
+<p>Hoặc lấy comment của một video:</p>
+<pre class="hljs"><code><div>GET /videos/abc/comments
+</div></code></pre>
+<p>Tuy nhiên không nên lồng quá sâu:</p>
+<pre class="hljs"><code><div>/users/123/projects/456/tasks/789/comments/999/replies
+</div></code></pre>
+<p>URL như vậy khó dùng và tạo coupling lớn.</p>
+<p>Có thể rút gọn thành:</p>
+<pre class="hljs"><code><div>GET /tasks/789/comments
+GET /comments/999/replies
+</div></code></pre>
+<p>Quy tắc thực tế:</p>
+<blockquote>
+<p>Một hoặc hai cấp lồng nhau thường dễ hiểu; nhiều cấp liên tục thường là dấu hiệu cần thiết kế lại.</p>
+</blockquote>
+<hr>
+<h1 id="4-http-methods">4. HTTP methods</h1>
+<h2 id="41-get--đọc-dữ-liệu">4.1 GET — đọc dữ liệu</h2>
+<pre class="hljs"><code><div>GET /notes
+GET /notes/note_123
+</div></code></pre>
+<p>GET nên:</p>
+<pre class="hljs"><code><div>- Không thay đổi trạng thái hệ thống
+- Có thể được cache
+- Có tính safe
+- Có tính idempotent
+</div></code></pre>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>GET /delete-note?id=123
+GET /pay-order?id=456
+</div></code></pre>
+<p>Vì GET không nên tạo side effect.</p>
+<hr>
+<h2 id="42-post--tạo-resource-hoặc-thực-hiện-action">4.2 POST — tạo resource hoặc thực hiện action</h2>
+<p>Tạo note:</p>
+<pre class="hljs"><code><div>POST /notes
+</div></code></pre>
+<p>Body:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Study API design&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>201 Created
+<span class="hljs-attribute">Location</span><span class="hljs-punctuation">: </span>/notes/note_123
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Study API design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T06:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>POST thường không idempotent theo mặc định.</p>
+<p>Nếu gọi hai lần:</p>
+<pre class="hljs"><code><div>POST /orders
+POST /orders
+</div></code></pre>
+<p>có thể tạo hai order khác nhau.</p>
+<hr>
+<h2 id="43-put--thay-thế-toàn-bộ-resource">4.3 PUT — thay thế toàn bộ resource</h2>
+<pre class="hljs"><code><div>PUT /users/123
+</div></code></pre>
+<p>Body:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna Bailey&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;email&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;luna@example.com&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timezone&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Asia/Bangkok&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Ý nghĩa thường là:</p>
+<blockquote>
+<p>Thay toàn bộ representation hiện tại bằng dữ liệu mới.</p>
+</blockquote>
+<p>PUT thường được xem là idempotent.</p>
+<p>Gọi cùng một request nhiều lần vẫn dẫn tới cùng trạng thái cuối.</p>
+<hr>
+<h2 id="44-patch--cập-nhật-một-phần">4.4 PATCH — cập nhật một phần</h2>
+<pre class="hljs"><code><div>PATCH /users/123
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;timezone&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Asia/Ho_Chi_Minh&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>PATCH phù hợp khi chỉ sửa một vài field.</p>
+<p>So sánh:</p>
+<pre class="hljs"><code><div>PUT:
+Thay toàn bộ user.
+
+PATCH:
+Chỉ cập nhật timezone.
+</div></code></pre>
+<p>PATCH có thể idempotent hoặc không, tùy semantics.</p>
+<p>Ví dụ idempotent:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;active&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Gọi nhiều lần vẫn là <code>active</code>.</p>
+<p>Ví dụ không idempotent:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;increment&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Gọi 3 lần sẽ tăng 3 lần.</p>
+<hr>
+<h2 id="45-delete--xóa-resource">4.5 DELETE — xóa resource</h2>
+<pre class="hljs"><code><div>DELETE /notes/note_123
+</div></code></pre>
+<p>Response thường là:</p>
+<pre class="hljs"><code><div>204 No Content
+</div></code></pre>
+<p>DELETE thường được xem là idempotent theo trạng thái cuối:</p>
+<pre class="hljs"><code><div>Xóa lần đầu: resource biến mất.
+Xóa lần sau: resource vẫn không tồn tại.
+</div></code></pre>
+<p>Tuy nhiên API có thể trả:</p>
+<pre class="hljs"><code><div>204 khi xóa thành công
+404 nếu resource đã không còn
+</div></code></pre>
+<p>Cả hai cách có thể chấp nhận, miễn contract rõ ràng và nhất quán.</p>
+<hr>
+<h1 id="5-bảng-tổng-hợp-http-methods">5. Bảng tổng hợp HTTP methods</h1>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Mục đích chính</th>
+<th style="text-align:right">Safe</th>
+<th style="text-align:right">Idempotent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td>Đọc dữ liệu</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Có</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>Tạo hoặc chạy action</td>
+<td style="text-align:right">Không</td>
+<td style="text-align:right">Thường không</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td>Thay thế resource</td>
+<td style="text-align:right">Không</td>
+<td style="text-align:right">Có</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td>Cập nhật một phần</td>
+<td style="text-align:right">Không</td>
+<td style="text-align:right">Tùy thiết kế</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td>Xóa resource</td>
+<td style="text-align:right">Không</td>
+<td style="text-align:right">Có theo trạng thái cuối</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Safe</strong> nghĩa là không làm thay đổi trạng thái hệ thống.</p>
+<p><strong>Idempotent</strong> nghĩa là gọi lặp lại cùng request vẫn cho trạng thái cuối giống như gọi một lần.</p>
+<hr>
+<h1 id="6-path-parameter-query-parameter-và-request-body">6. Path parameter, query parameter và request body</h1>
+<h2 id="61-path-parameter--xác-định-resource">6.1 Path parameter — xác định resource</h2>
+<pre class="hljs"><code><div>GET /users/123
+</div></code></pre>
+<p><code>123</code> là <code>userId</code>.</p>
+<p>Dùng path khi giá trị là một phần của identity hoặc hierarchy.</p>
+<hr>
+<h2 id="62-query-parameter--lọc-sắp-xếp-phân-trang">6.2 Query parameter — lọc, sắp xếp, phân trang</h2>
+<pre class="hljs"><code><div>GET /products?category=laptop&amp;brand=apple&amp;sort=price
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Filter:
+?status=active
+
+Sort:
+?sort=-createdAt
+
+Search:
+?q=system+design
+
+Pagination:
+?limit=20&amp;cursor=abc123
+</div></code></pre>
+<p>Không nên dùng path cho mọi filter:</p>
+<pre class="hljs"><code><div>/products/category/laptop/brand/apple/min-price/1000
+</div></code></pre>
+<p>Query parameter phù hợp hơn:</p>
+<pre class="hljs"><code><div>/products?category=laptop&amp;brand=apple&amp;minPrice=1000
+</div></code></pre>
+<hr>
+<h2 id="63-request-body--dữ-liệu-phức-tạp">6.3 Request body — dữ liệu phức tạp</h2>
+<pre class="hljs"><code><div>POST /orders
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>application/json
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_123&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;quantity&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shippingAddressId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;addr_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentMethodId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pm_789&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên nhét payload lớn hoặc dữ liệu nhạy cảm vào URL:</p>
+<pre class="hljs"><code><div>POST /orders?cardNumber=...
+</div></code></pre>
+<p>URL có thể bị ghi vào log, browser history hoặc monitoring tools.</p>
+<hr>
+<h1 id="7-status-code">7. Status code</h1>
+<p>Status code giúp client hiểu kết quả mà không phải đoán từ chuỗi message.</p>
+<hr>
+<h2 id="71-nhóm-2xx--thành-công">7.1 Nhóm 2xx — thành công</h2>
+<h3 id="200-ok">200 OK</h3>
+<p>Dùng khi request thành công và có response body.</p>
+<pre class="hljs"><code><div>GET /users/123
+200 OK
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h3 id="201-created">201 Created</h3>
+<p>Dùng khi tạo resource thành công.</p>
+<pre class="hljs"><code><div>POST /notes
+201 Created
+</div></code></pre>
+<p>Nên trả resource vừa tạo hoặc ít nhất ID:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;API Design&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h3 id="202-accepted">202 Accepted</h3>
+<p>Server đã nhận request nhưng xử lý chưa hoàn tất.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>POST /video-exports
+202 Accepted
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;jobId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;job_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;queued&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Phù hợp với tác vụ bất đồng bộ:</p>
+<pre class="hljs"><code><div>- Encode video
+- Export report
+- Import file lớn
+- Generate AI report
+- Batch processing
+</div></code></pre>
+<hr>
+<h3 id="204-no-content">204 No Content</h3>
+<p>Request thành công nhưng không cần body.</p>
+<pre class="hljs"><code><div>DELETE /notes/note_123
+204 No Content
+</div></code></pre>
+<hr>
+<h2 id="72-nhóm-4xx--lỗi-phía-client">7.2 Nhóm 4xx — lỗi phía client</h2>
+<h3 id="400-bad-request">400 Bad Request</h3>
+<p>Request sai cú pháp hoặc không hợp lệ chung.</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;INVALID_REQUEST&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Request body is invalid&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h3 id="401-unauthorized">401 Unauthorized</h3>
+<p>Tên hơi gây hiểu nhầm. Thực tế thường có nghĩa:</p>
+<blockquote>
+<p>Chưa xác thực hoặc token không hợp lệ.</p>
+</blockquote>
+<pre class="hljs"><code><div>401 Unauthorized
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Không gửi access token
+- Token hết hạn
+- Token sai chữ ký
+</div></code></pre>
+<hr>
+<h3 id="403-forbidden">403 Forbidden</h3>
+<p>User đã xác thực nhưng không có quyền.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User A đăng nhập hợp lệ,
+nhưng cố đọc note riêng của User B.
+</div></code></pre>
+<pre class="hljs"><code><div>403 Forbidden
+</div></code></pre>
+<p>Cách nhớ:</p>
+<pre class="hljs"><code><div>401: Tôi chưa biết bạn là ai.
+403: Tôi biết bạn là ai, nhưng bạn không được phép làm việc này.
+</div></code></pre>
+<hr>
+<h3 id="404-not-found">404 Not Found</h3>
+<p>Resource không tồn tại.</p>
+<pre class="hljs"><code><div>GET /notes/not_exist
+404 Not Found
+</div></code></pre>
+<p>Trong một số hệ thống bảo mật, API cũng có thể trả 404 thay vì 403 để tránh tiết lộ resource tồn tại.</p>
+<hr>
+<h3 id="409-conflict">409 Conflict</h3>
+<p>Request xung đột với trạng thái hiện tại.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Email đã tồn tại
+- Username đã được dùng
+- Version update bị conflict
+- Order đã bị hủy nhưng client cố thanh toán
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;EMAIL_ALREADY_EXISTS&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;The email is already registered&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h3 id="422-unprocessable-content">422 Unprocessable Content</h3>
+<p>JSON hợp lệ về cú pháp nhưng dữ liệu vi phạm validation nghiệp vụ.</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;email&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;not-an-email&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;quantity&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">-2</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Có nơi dùng <code>400</code> cho tất cả validation errors; có nơi dùng <code>422</code>. Điều quan trọng nhất là nhất quán.</p>
+<hr>
+<h3 id="429-too-many-requests">429 Too Many Requests</h3>
+<p>Client vượt rate limit.</p>
+<pre class="hljs"><code><div>429 Too Many Requests
+<span class="hljs-attribute">Retry-After</span><span class="hljs-punctuation">: </span>60
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;RATE_LIMIT_EXCEEDED&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Try again in 60 seconds&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="73-nhóm-5xx--lỗi-phía-server">7.3 Nhóm 5xx — lỗi phía server</h2>
+<h3 id="500-internal-server-error">500 Internal Server Error</h3>
+<p>Lỗi server không xác định hoặc không được xử lý.</p>
+<p>Không nên trả stack trace cho client:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;INTERNAL_ERROR&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;An unexpected error occurred&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Chi tiết lỗi nên nằm trong internal logs.</p>
+<hr>
+<h3 id="502-bad-gateway">502 Bad Gateway</h3>
+<p>Gateway hoặc proxy nhận response lỗi từ upstream service.</p>
+<pre class="hljs"><code><div>Client → API Gateway → Payment Service
+                         ↓ lỗi response
+Client ← 502
+</div></code></pre>
+<hr>
+<h3 id="503-service-unavailable">503 Service Unavailable</h3>
+<p>Service tạm thời không phục vụ được.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Quá tải
+- Maintenance
+- Dependency quan trọng bị down
+</div></code></pre>
+<p>Có thể gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Retry-After</span><span class="hljs-punctuation">: </span>30
+</div></code></pre>
+<hr>
+<h3 id="504-gateway-timeout">504 Gateway Timeout</h3>
+<p>Gateway chờ upstream quá lâu.</p>
+<p>Ví dụ payment provider timeout.</p>
+<hr>
+<h1 id="8-thiết-kế-error-response">8. Thiết kế error response</h1>
+<p>Không nên mỗi endpoint trả lỗi một kiểu.</p>
+<p>Endpoint A:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;wrong&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Endpoint B:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error_message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Not found&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Endpoint C:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;errors&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;bad request&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nên có format chung:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NOTE_NOT_FOUND&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;The requested note does not exist&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;details&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;noteId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_abc123&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Các field hữu ích:</p>
+<pre class="hljs"><code><div>code:
+Mã ổn định để client xử lý bằng logic.
+
+message:
+Thông báo dễ hiểu cho developer hoặc user.
+
+details:
+Validation errors hoặc context bổ sung.
+
+requestId:
+Liên kết lỗi phía client với log phía server.
+</div></code></pre>
+<p>Validation error:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VALIDATION_FAILED&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;One or more fields are invalid&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;details&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+      <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;email&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;INVALID_FORMAT&quot;</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;password&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;TOO_SHORT&quot;</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_abc123&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="9-pagination--tại-sao-phải-phân-trang">9. Pagination — tại sao phải phân trang?</h1>
+<p>Giả sử user có 2 triệu transactions.</p>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>GET /transactions
+</div></code></pre>
+<p>rồi trả toàn bộ 2 triệu record.</p>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Response cực lớn
+- Database query chậm
+- Tốn memory server
+- Tốn bandwidth
+- Client có thể bị treo
+- Latency tăng mạnh
+</div></code></pre>
+<p>Pagination chia dữ liệu thành từng trang nhỏ:</p>
+<pre class="hljs"><code><div>GET /transactions?limit=20
+</div></code></pre>
+<hr>
+<h1 id="10-offset-pagination">10. Offset pagination</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>GET /notes?limit=20&amp;offset=0
+GET /notes?limit=20&amp;offset=20
+GET /notes?limit=20&amp;offset=40
+</div></code></pre>
+<p>SQL tương ứng:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> notes
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>
+LIMIT <span class="hljs-number">20</span> <span class="hljs-keyword">OFFSET</span> <span class="hljs-number">40</span>;
+</div></code></pre>
+<h2 id="ưu-điểm">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Dễ implement
+- Có thể nhảy tới trang bất kỳ
+- Phù hợp admin dashboard hoặc dataset nhỏ
+</div></code></pre>
+<h2 id="nhược-điểm">Nhược điểm</h2>
+<h3 id="hiệu-năng-giảm-với-offset-lớn">Hiệu năng giảm với offset lớn</h3>
+<pre class="hljs"><code><div>LIMIT <span class="hljs-number">20</span> <span class="hljs-keyword">OFFSET</span> <span class="hljs-number">1000000</span>
+</div></code></pre>
+<p>Database có thể phải đi qua rất nhiều row trước khi lấy 20 row cần thiết.</p>
+<h3 id="dữ-liệu-có-thể-bị-trùng-hoặc-bỏ-sót">Dữ liệu có thể bị trùng hoặc bỏ sót</h3>
+<p>Ví dụ:</p>
+<ol>
+<li>Client lấy trang 1.</li>
+<li>Một record mới được thêm vào đầu danh sách.</li>
+<li>Client lấy trang 2 bằng offset.</li>
+<li>Một record có thể xuất hiện lại.</li>
+</ol>
+<p>Minh họa:</p>
+<pre class="hljs"><code><div>Ban đầu:
+A B C D E F
+
+Page 1, limit 3:
+A B C
+
+Có record X mới:
+X A B C D E F
+
+Page 2, offset 3:
+C D E
+
+C bị lặp.
+</div></code></pre>
+<hr>
+<h1 id="11-cursor-pagination">11. Cursor pagination</h1>
+<p>Client không nói “bỏ qua 20 record”, mà nói:</p>
+<blockquote>
+<p>Hãy lấy dữ liệu sau record cuối cùng tôi đã thấy.</p>
+</blockquote>
+<p>Request đầu:</p>
+<pre class="hljs"><code><div>GET /notes?limit=20
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_100&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;API Design&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pagination&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;nextCursor&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;eyJjcmVhdGVkQXQiOiIyMDI2LTA3LTEwVDA2OjAwOjAwWiIsImlkIjoibm90ZV8xMDAifQ==&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;hasMore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Request tiếp:</p>
+<pre class="hljs"><code><div>GET /notes?limit=20&amp;cursor=eyJjcmVhdGVkQXQi...
+</div></code></pre>
+<p>Query logic có thể giống:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> notes
+<span class="hljs-keyword">WHERE</span> (created_at, id) <span class="hljs-operator">&lt;</span> (:created_at, :id)
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>, id <span class="hljs-keyword">DESC</span>
+LIMIT <span class="hljs-number">20</span>;
+</div></code></pre>
+<h2 id="ưu-điểm-1">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Hiệu quả hơn với dữ liệu lớn
+- Ổn định hơn khi dữ liệu liên tục thay đổi
+- Rất phù hợp news feed, chat, notification, timeline
+</div></code></pre>
+<h2 id="nhược-điểm-1">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Khó nhảy thẳng tới trang 50
+- Cursor phải được thiết kế cẩn thận
+- Sorting phải ổn định
+- Client không nên tự sửa cursor
+</div></code></pre>
+<hr>
+<h1 id="12-cursor-phải-có-thứ-tự-ổn-định">12. Cursor phải có thứ tự ổn định</h1>
+<p>Chỉ dùng <code>createdAt</code> có thể chưa đủ vì nhiều record có cùng timestamp.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>, id <span class="hljs-keyword">DESC</span>
+</div></code></pre>
+<p>Cursor chứa cả:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T06:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p><code>id</code> đóng vai trò tie-breaker.</p>
+<hr>
+<h1 id="13-page-based-pagination">13. Page-based pagination</h1>
+<p>Một biến thể của offset:</p>
+<pre class="hljs"><code><div>GET /products?page=3&amp;pageSize=20
+</div></code></pre>
+<p>Server đổi thành:</p>
+<pre class="hljs"><code><div>offset = (page - 1) × pageSize
+</div></code></pre>
+<p>Cách này thân thiện với UI:</p>
+<pre class="hljs"><code><div>Trang 1 2 3 4 5
+</div></code></pre>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Product catalog
+- Admin table
+- Search results tương đối ổn định
+</div></code></pre>
+<p>Không lý tưởng cho:</p>
+<pre class="hljs"><code><div>- Realtime feed
+- Chat history
+- Notification stream
+- Dataset thay đổi liên tục
+</div></code></pre>
+<hr>
+<h1 id="14-chọn-loại-pagination">14. Chọn loại pagination</h1>
+<table>
+<thead>
+<tr>
+<th>Trường hợp</th>
+<th>Nên dùng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Admin dashboard nhỏ</td>
+<td>Offset/page</td>
+</tr>
+<tr>
+<td>Cần nhảy tới trang bất kỳ</td>
+<td>Offset/page</td>
+</tr>
+<tr>
+<td>News feed</td>
+<td>Cursor</td>
+</tr>
+<tr>
+<td>Chat messages</td>
+<td>Cursor</td>
+</tr>
+<tr>
+<td>Notifications</td>
+<td>Cursor</td>
+</tr>
+<tr>
+<td>Transactions lớn</td>
+<td>Cursor</td>
+</tr>
+<tr>
+<td>Dataset gần như tĩnh</td>
+<td>Offset có thể đủ</td>
+</tr>
+<tr>
+<td>Infinite scroll</td>
+<td>Cursor</td>
+</tr>
+</tbody>
+</table>
+<p>Quy tắc:</p>
+<blockquote>
+<p>Dữ liệu lớn và thay đổi liên tục: ưu tiên cursor.</p>
+</blockquote>
+<hr>
+<h1 id="15-idempotency-là-gì">15. Idempotency là gì?</h1>
+<p>Một operation là <strong>idempotent</strong> nếu thực hiện cùng request nhiều lần vẫn tạo ra cùng trạng thái cuối như thực hiện một lần.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>PUT /users/123
+{
+  &quot;status&quot;: &quot;active&quot;
+}
+</div></code></pre>
+<p>Gọi 1 lần hay 10 lần, trạng thái cuối vẫn là:</p>
+<pre class="hljs"><code><div>status = active
+</div></code></pre>
+<p>Nhưng:</p>
+<pre class="hljs"><code><div>POST /orders
+</div></code></pre>
+<p>Gọi hai lần có thể tạo hai order.</p>
+<p>Đây là vấn đề rất nguy hiểm với:</p>
+<pre class="hljs"><code><div>- Payment
+- Order creation
+- Booking
+- Money transfer
+- Coupon redemption
+- Inventory reservation
+</div></code></pre>
+<hr>
+<h1 id="16-vì-sao-request-có-thể-bị-gửi-lặp">16. Vì sao request có thể bị gửi lặp?</h1>
+<p>Không nhất thiết user bấm hai lần.</p>
+<p>Một request có thể lặp vì:</p>
+<pre class="hljs"><code><div>- Client timeout rồi retry
+- Mobile network chập chờn
+- Load balancer retry
+- Proxy retry
+- Message consumer xử lý lại
+- User double-click
+- Client không nhận được response dù server đã xử lý thành công
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant PaymentAPI
+    participant DB
+
+    Client->>PaymentAPI: POST /payments
+    PaymentAPI->>DB: Charge 1,000,000đ
+    DB-->>PaymentAPI: Success
+    Note over PaymentAPI,Client: Response bị mất do network
+    Client->>PaymentAPI: Retry POST /payments
+    PaymentAPI->>DB: Charge thêm lần nữa
+</div></code></pre>
+<p>Nếu không có idempotency, user có thể bị trừ tiền hai lần.</p>
+<hr>
+<h1 id="17-idempotency-key">17. Idempotency key</h1>
+<p>Client tạo một key duy nhất cho một logical operation:</p>
+<pre class="hljs"><code><div>POST /payments
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>7f9d9dd6-6e15-4faa-93b0-6f2f8f249001
+</div></code></pre>
+<p>Body:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1000000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server lưu:</p>
+<pre class="hljs"><code><div>Idempotency key
+Request fingerprint
+Processing status
+Response result
+Expiration time
+</div></code></pre>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant API
+    participant IdempotencyStore
+    participant PaymentService
+
+    Client->>API: POST /payments + key=abc
+    API->>IdempotencyStore: Lookup abc
+    IdempotencyStore-->>API: Not found
+    API->>IdempotencyStore: Reserve abc = processing
+    API->>PaymentService: Charge payment
+    PaymentService-->>API: Payment succeeded
+    API->>IdempotencyStore: Store response for abc
+    API-->>Client: 201 Created
+
+    Client->>API: Retry with key=abc
+    API->>IdempotencyStore: Lookup abc
+    IdempotencyStore-->>API: Existing result
+    API-->>Client: Return original response
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Request gửi nhiều lần,
+nhưng payment chỉ được xử lý một lần.
+</div></code></pre>
+<hr>
+<h1 id="18-quy-tắc-thiết-kế-idempotency-key">18. Quy tắc thiết kế idempotency key</h1>
+<h2 id="181-key-phải-thuộc-phạm-vi-clientuser">18.1 Key phải thuộc phạm vi client/user</h2>
+<p>Hai user khác nhau có thể vô tình dùng cùng một UUID.</p>
+<p>Key lưu có thể là:</p>
+<pre class="hljs"><code><div>(user_id, idempotency_key)
+</div></code></pre>
+<p>thay vì chỉ:</p>
+<pre class="hljs"><code><div>idempotency_key
+</div></code></pre>
+<hr>
+<h2 id="182-cùng-key-nhưng-body-khác-phải-bị-từ-chối">18.2 Cùng key nhưng body khác phải bị từ chối</h2>
+<p>Ví dụ lần đầu:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1000000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Lần sau cùng key:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_999&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5000000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server không nên trả kết quả cũ một cách im lặng.</p>
+<p>Có thể trả:</p>
+<pre class="hljs"><code><div>409 Conflict
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;IDEMPOTENCY_KEY_REUSED&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;The idempotency key was previously used with a different request&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Do đó server thường lưu hash của request body.</p>
+<hr>
+<h2 id="183-phải-xử-lý-concurrent-requests">18.3 Phải xử lý concurrent requests</h2>
+<p>Hai request cùng key có thể tới gần như đồng thời.</p>
+<p>Cần operation atomic:</p>
+<pre class="hljs"><code><div>Insert-if-not-exists
+Unique constraint
+Distributed lock
+Transaction
+</div></code></pre>
+<p>Ví dụ table:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> idempotency_keys (
+    user_id <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">64</span>),
+    key <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>),
+    request_hash <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>),
+    status <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">20</span>),
+    response_body JSONB,
+    created_at <span class="hljs-type">TIMESTAMP</span>,
+    expires_at <span class="hljs-type">TIMESTAMP</span>,
+    <span class="hljs-keyword">PRIMARY KEY</span> (user_id, key)
+);
+</div></code></pre>
+<p>Unique constraint giúp chỉ một request sở hữu key.</p>
+<hr>
+<h2 id="184-key-cần-thời-hạn">18.4 Key cần thời hạn</h2>
+<p>Không nhất thiết lưu vĩnh viễn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment: 24–72 giờ hoặc theo business policy
+Order creation: vài giờ đến vài ngày
+Batch job: theo lifecycle của job
+</div></code></pre>
+<p>TTL là một quyết định nghiệp vụ, không có một con số đúng cho mọi hệ thống.</p>
+<hr>
+<h1 id="19-idempotency-không-đồng-nghĩa-exactly-once">19. Idempotency không đồng nghĩa exactly-once</h1>
+<p>Đây là điểm sâu cần nhớ.</p>
+<p>Trong distributed systems, “exactly once” rất khó đảm bảo end-to-end.</p>
+<p>Idempotency thường giúp ta đạt:</p>
+<pre class="hljs"><code><div>At-least-once delivery
++
+Deduplication/idempotent processing
+=
+Hiệu ứng nghiệp vụ gần như chỉ xảy ra một lần
+</div></code></pre>
+<p>Ví dụ message queue có thể giao event hai lần:</p>
+<pre class="hljs"><code><div>OrderCreated
+OrderCreated
+</div></code></pre>
+<p>Consumer phải chống xử lý trùng:</p>
+<pre class="hljs"><code><div>- Lưu eventId đã xử lý
+- Unique constraint
+- Upsert
+- Idempotent state transition
+</div></code></pre>
+<hr>
+<h1 id="20-api-versioning">20. API versioning</h1>
+<p>API sẽ thay đổi theo thời gian:</p>
+<pre class="hljs"><code><div>- Thêm field
+- Đổi cấu trúc response
+- Đổi validation
+- Xóa field
+- Đổi semantics
+- Tách resource
+</div></code></pre>
+<p>Vấn đề:</p>
+<pre class="hljs"><code><div>Mobile app cũ có thể chưa cập nhật.
+Partner bên ngoài có thể dùng API cũ.
+Service nội bộ có thể deploy khác thời điểm.
+</div></code></pre>
+<p>Nếu đổi API trực tiếp, client cũ có thể bị hỏng.</p>
+<hr>
+<h1 id="21-khi-nào-thay-đổi-được-xem-là-breaking-change">21. Khi nào thay đổi được xem là breaking change?</h1>
+<h2 id="thường-không-breaking">Thường không breaking</h2>
+<p>Thêm field mới vào response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;avatarUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Miễn client bỏ qua field không biết.</p>
+<p>Thêm endpoint mới:</p>
+<pre class="hljs"><code><div>GET /users/{id}/preferences
+</div></code></pre>
+<p>Thêm optional request field:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;API Design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;yellow&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="thường-là-breaking">Thường là breaking</h2>
+<p>Đổi tên field:</p>
+<pre class="hljs"><code><div>name → fullName
+</div></code></pre>
+<p>Xóa field:</p>
+<pre class="hljs"><code><div>avatarUrl bị loại bỏ
+</div></code></pre>
+<p>Đổi type:</p>
+<pre class="hljs"><code><div>price: 100
+→
+price: &quot;100 USD&quot;
+</div></code></pre>
+<p>Đổi semantics:</p>
+<pre class="hljs"><code><div>status = active trước đây nghĩa A,
+sau này lại nghĩa B.
+</div></code></pre>
+<p>Biến optional field thành required.</p>
+<p>Đổi status code khiến client logic hỏng.</p>
+<p>Đổi pagination format.</p>
+<hr>
+<h1 id="22-các-cách-version-api">22. Các cách version API</h1>
+<h2 id="221-version-trong-url-path">22.1 Version trong URL path</h2>
+<pre class="hljs"><code><div>GET /v1/users/123
+GET /v2/users/123
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Rõ ràng
+- Dễ debug
+- Dễ route
+- Dễ document
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- URL chứa version
+- Có thể dẫn đến copy toàn bộ API v1 thành v2 dù chỉ vài thay đổi
+</div></code></pre>
+<p>Đây là cách phổ biến và dễ quản lý.</p>
+<hr>
+<h2 id="222-version-trong-header">22.2 Version trong header</h2>
+<pre class="hljs"><code><div>GET /users/123
+<span class="hljs-attribute">Accept</span><span class="hljs-punctuation">: </span>application/vnd.example.v2+json
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">API-Version</span><span class="hljs-punctuation">: </span>2
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- URL sạch
+- Version gắn với representation
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Khó nhìn khi debug
+- Browser/manual testing bất tiện hơn
+- Cache configuration phức tạp hơn
+</div></code></pre>
+<hr>
+<h2 id="223-version-bằng-query-parameter">22.3 Version bằng query parameter</h2>
+<pre class="hljs"><code><div>GET /users/123?version=2
+</div></code></pre>
+<p>Dễ dùng nhưng thường kém rõ ràng hơn path versioning và dễ bị bỏ quên trong cache/routing rules.</p>
+<hr>
+<h2 id="224-date-based-versioning">22.4 Date-based versioning</h2>
+<pre class="hljs"><code><div><span class="hljs-attribute">API-Version</span><span class="hljs-punctuation">: </span>2026-07-01
+</div></code></pre>
+<p>Phù hợp với platform API có nhiều client bên ngoài.</p>
+<p>Ý nghĩa:</p>
+<blockquote>
+<p>Client yêu cầu behavior theo phiên bản hợp đồng tại một ngày cụ thể.</p>
+</blockquote>
+<hr>
+<h1 id="23-không-nên-tạo-version-mới-cho-mọi-thay-đổi">23. Không nên tạo version mới cho mọi thay đổi</h1>
+<p>Sai lầm:</p>
+<pre class="hljs"><code><div>Thêm field optional → tạo v2
+Thêm endpoint → tạo v3
+Sửa message lỗi → tạo v4
+</div></code></pre>
+<p>Version mới chỉ nên dùng khi có breaking change đáng kể.</p>
+<p>Các thay đổi tương thích ngược nên giữ trong cùng version.</p>
+<p>Nguyên tắc:</p>
+<pre class="hljs"><code><div>Prefer additive changes.
+Avoid destructive changes.
+</div></code></pre>
+<p>Ví dụ tốt:</p>
+<p>Thay vì đổi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>thành:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;firstName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bailey&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>ngay lập tức, có thể chuyển tiếp:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna Bailey&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;firstName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bailey&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Sau một giai đoạn deprecation mới loại bỏ <code>name</code>.</p>
+<hr>
+<h1 id="24-chiến-lược-deprecation">24. Chiến lược deprecation</h1>
+<p>Khi cần bỏ API cũ:</p>
+<pre class="hljs"><code><div>1. Công bố version mới.
+2. Document migration guide.
+3. Theo dõi traffic version cũ.
+4. Cảnh báo client đang dùng version cũ.
+5. Đặt ngày sunset.
+6. Chỉ tắt sau khi client quan trọng đã migrate.
+</div></code></pre>
+<p>Có thể sử dụng headers:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Deprecation</span><span class="hljs-punctuation">: </span>true
+<span class="hljs-attribute">Sunset</span><span class="hljs-punctuation">: </span>Wed, 31 Dec 2026 23:59:59 GMT
+<span class="hljs-attribute">Link</span><span class="hljs-punctuation">: </span>&lt;/docs/migration/v2&gt;; rel=&quot;deprecation&quot;
+</div></code></pre>
+<p>Không nên tắt API cũ đột ngột nếu có mobile app hoặc external partners phụ thuộc vào nó.</p>
+<hr>
+<h1 id="25-ví-dụ-hoàn-chỉnh-api-cho-ứng-dụng-ghi-chú">25. Ví dụ hoàn chỉnh: API cho ứng dụng ghi chú</h1>
+<h2 id="251-tạo-note">25.1 Tạo note</h2>
+<pre class="hljs"><code><div>POST /v1/notes
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer &lt;token&gt;
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>application/json
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Learn API design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;labels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;learning&quot;</span><span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>201 Created
+<span class="hljs-attribute">Location</span><span class="hljs-punctuation">: </span>/v1/notes/note_123
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Learn API design&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;labels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;learning&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T06:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;updatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10T06:00:00Z&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="252-lấy-một-note">25.2 Lấy một note</h2>
+<pre class="hljs"><code><div>GET /v1/notes/note_123
+</div></code></pre>
+<pre class="hljs"><code><div>200 OK
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Learn API design&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;labels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;learning&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="253-cập-nhật-một-phần">25.3 Cập nhật một phần</h2>
+<pre class="hljs"><code><div>PATCH /v1/notes/note_123
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design — API&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>200 OK
+</div></code></pre>
+<hr>
+<h2 id="254-xóa-note">25.4 Xóa note</h2>
+<pre class="hljs"><code><div>DELETE /v1/notes/note_123
+</div></code></pre>
+<pre class="hljs"><code><div>204 No Content
+</div></code></pre>
+<hr>
+<h2 id="255-lấy-danh-sách-bằng-cursor">25.5 Lấy danh sách bằng cursor</h2>
+<pre class="hljs"><code><div>GET /v1/notes?limit=20&amp;cursor=abc123&amp;label=learning
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design — API&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pagination&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;nextCursor&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;def456&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;hasMore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="256-tìm-kiếm">25.6 Tìm kiếm</h2>
+<pre class="hljs"><code><div>GET /v1/notes?q=system+design&amp;limit=20
+</div></code></pre>
+<p>Search nhỏ có thể dùng database full-text index.</p>
+<p>Search lớn/phức tạp có thể dùng search engine riêng.</p>
+<hr>
+<h1 id="26-ví-dụ-hoàn-chỉnh-api-tạo-order-có-idempotency">26. Ví dụ hoàn chỉnh: API tạo order có idempotency</h1>
+<p>Request:</p>
+<pre class="hljs"><code><div>POST /v1/orders
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer &lt;token&gt;
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>4f4e04c9-2353-49e6-b6fc-8ebf82d3e0a1
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_123&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;quantity&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shippingAddressId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;addr_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentMethodId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pm_789&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response lần đầu:</p>
+<pre class="hljs"><code><div>201 Created
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pending_payment&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client timeout và retry cùng key.</p>
+<p>Server trả lại cùng order:</p>
+<pre class="hljs"><code><div>201 Created
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pending_payment&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không tạo <code>ord_124</code>.</p>
+<hr>
+<h1 id="27-action-không-phù-hợp-crud-thì-thiết-kế-thế-nào">27. Action không phù hợp CRUD thì thiết kế thế nào?</h1>
+<p>Không phải mọi nghiệp vụ đều biểu diễn đẹp bằng CRUD.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Cancel order
+Capture payment
+Refund payment
+Publish article
+Archive project
+</div></code></pre>
+<p>Có thể dùng action endpoint:</p>
+<pre class="hljs"><code><div>POST /orders/ord_123/cancel
+POST /payments/pay_123/capture
+POST /payments/pay_123/refund
+POST /articles/article_123/publish
+</div></code></pre>
+<p>Đây vẫn là thiết kế thực tế và dễ hiểu.</p>
+<p>Một lựa chọn khác là update trạng thái:</p>
+<pre class="hljs"><code><div>PATCH /orders/ord_123
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cancelled&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nhưng action endpoint thường tốt hơn nếu operation có:</p>
+<pre class="hljs"><code><div>- Business validation phức tạp
+- Side effects
+- Audit requirements
+- Workflow rõ ràng
+</div></code></pre>
+<p>Ví dụ refund không chỉ là đổi field <code>status</code>; nó có thể gọi payment provider, ghi ledger và gửi notification.</p>
+<hr>
+<h1 id="28-concurrent-update-và-optimistic-locking">28. Concurrent update và optimistic locking</h1>
+<p>Giả sử hai thiết bị cùng sửa một note.</p>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>version = 5
+</div></code></pre>
+<p>Thiết bị A gửi:</p>
+<pre class="hljs"><code><div>PATCH /notes/note_123
+<span class="hljs-attribute">If-Match</span><span class="hljs-punctuation">: </span>&quot;5&quot;
+</div></code></pre>
+<p>Thiết bị B cũng gửi:</p>
+<pre class="hljs"><code><div>PATCH /notes/note_123
+<span class="hljs-attribute">If-Match</span><span class="hljs-punctuation">: </span>&quot;5&quot;
+</div></code></pre>
+<p>A cập nhật trước, version thành 6.</p>
+<p>B cập nhật sau với version 5, server trả:</p>
+<pre class="hljs"><code><div>409 Conflict
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>412 Precondition Failed
+</div></code></pre>
+<p>Sơ đồ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant A as Device A
+    participant B as Device B
+    participant API
+
+    A->>API: PATCH note, version=5
+    API-->>A: 200 OK, version=6
+
+    B->>API: PATCH note, version=5
+    API-->>B: 409 Conflict, latest version=6
+</div></code></pre>
+<p>Đây là <strong>optimistic concurrency control</strong>.</p>
+<p>Phù hợp khi conflict không quá thường xuyên.</p>
+<hr>
+<h1 id="29-một-api-response-có-nên-bọc-data-không">29. Một API response có nên bọc <code>data</code> không?</h1>
+<p>Hai style phổ biến:</p>
+<p>Không bọc:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Có bọc:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Bọc <code>data</code> giúp dễ thêm metadata:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pagination&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không có lựa chọn tuyệt đối đúng. Điều quan trọng là:</p>
+<pre class="hljs"><code><div>- Nhất quán
+- Document rõ
+- Không bọc nhiều lớp vô nghĩa
+</div></code></pre>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;result&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;payload&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="30-api-stateless-là-gì">30. API stateless là gì?</h1>
+<p>Mỗi request nên mang đủ thông tin để server xử lý.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer &lt;access-token&gt;
+</div></code></pre>
+<p>Bất kỳ API server nào cũng có thể xử lý request:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> LB[Load Balancer]
+    LB --> A1[API Server 1]
+    LB --> A2[API Server 2]
+    LB --> A3[API Server 3]
+</div></code></pre>
+<p>Nếu session state chỉ nằm trong memory của Server 1:</p>
+<pre class="hljs"><code><div>Request đầu tới Server 1 → đăng nhập được
+Request sau tới Server 2 → không biết session
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Token tự chứa thông tin phù hợp
+- Shared session store như Redis
+- Sticky session, nhưng thường kém linh hoạt hơn
+</div></code></pre>
+<p>Stateless API server dễ horizontal scaling hơn.</p>
+<hr>
+<h1 id="31-những-lỗi-api-design-phổ-biến">31. Những lỗi API Design phổ biến</h1>
+<h2 id="lỗi-1-dùng-post-cho-tất-cả">Lỗi 1: Dùng POST cho tất cả</h2>
+<pre class="hljs"><code><div>POST /getUser
+POST /updateUser
+POST /deleteUser
+</div></code></pre>
+<p>Mất semantics của HTTP và khó caching/tooling.</p>
+<hr>
+<h2 id="lỗi-2-luôn-trả-200">Lỗi 2: Luôn trả 200</h2>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>200 OK
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;success&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;User not found&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>404 Not Found
+</div></code></pre>
+<hr>
+<h2 id="lỗi-3-không-có-pagination">Lỗi 3: Không có pagination</h2>
+<p>Endpoint hoạt động lúc 1.000 record nhưng chết khi có 10 triệu record.</p>
+<hr>
+<h2 id="lỗi-4-không-xử-lý-duplicate-request">Lỗi 4: Không xử lý duplicate request</h2>
+<p>Đặc biệt nguy hiểm với payment/order.</p>
+<hr>
+<h2 id="lỗi-5-response-không-nhất-quán">Lỗi 5: Response không nhất quán</h2>
+<p>Field lúc là:</p>
+<pre class="hljs"><code><div>created_at
+</div></code></pre>
+<p>lúc là:</p>
+<pre class="hljs"><code><div>createdAt
+</div></code></pre>
+<p>lúc lại là:</p>
+<pre class="hljs"><code><div>creationTime
+</div></code></pre>
+<p>Nên chọn một convention.</p>
+<hr>
+<h2 id="lỗi-6-để-lộ-nội-bộ">Lỗi 6: Để lộ nội bộ</h2>
+<p>Không nên trả:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NullPointerException at OrderService.java:194&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sql&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SELECT ...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="lỗi-7-breaking-change-âm-thầm">Lỗi 7: Breaking change âm thầm</h2>
+<p>Đổi response mà không version, không thông báo và không migration period.</p>
+<hr>
+<h2 id="lỗi-8-trộn-resource-identity-với-user-input">Lỗi 8: Trộn resource identity với user input</h2>
+<p>Không nên cho client tùy ý truyền <code>userId</code> rồi tin tưởng:</p>
+<pre class="hljs"><code><div>GET /notes?userId=another_user
+</div></code></pre>
+<p>Server phải lấy identity từ authentication context và kiểm tra authorization.</p>
+<hr>
+<h1 id="32-checklist-thiết-kế-api">32. Checklist thiết kế API</h1>
+<h2 id="resource-và-endpoint">Resource và endpoint</h2>
+<pre class="hljs"><code><div>[ ] Resource chính là gì?
+[ ] URL dùng danh từ chưa?
+[ ] Naming có nhất quán không?
+[ ] Có lồng resource quá sâu không?
+[ ] HTTP method có đúng semantics không?
+</div></code></pre>
+<h2 id="request">Request</h2>
+<pre class="hljs"><code><div>[ ] Path parameters là gì?
+[ ] Query parameters là gì?
+[ ] Request body có schema rõ không?
+[ ] Validation rules là gì?
+[ ] Có giới hạn kích thước không?
+</div></code></pre>
+<h2 id="response">Response</h2>
+<pre class="hljs"><code><div>[ ] Success response có format nhất quán không?
+[ ] Error response có stable error code không?
+[ ] Status code có đúng không?
+[ ] Có requestId để trace không?
+</div></code></pre>
+<h2 id="scale-và-reliability">Scale và reliability</h2>
+<pre class="hljs"><code><div>[ ] List endpoint có pagination không?
+[ ] Dùng offset hay cursor?
+[ ] Operation nguy hiểm có idempotency key không?
+[ ] Retry có an toàn không?
+[ ] Có xử lý concurrent update không?
+</div></code></pre>
+<h2 id="evolution">Evolution</h2>
+<pre class="hljs"><code><div>[ ] Thay đổi có backward compatible không?
+[ ] Có cần version mới không?
+[ ] Deprecation strategy là gì?
+[ ] Client cũ còn hoạt động bao lâu?
+</div></code></pre>
+<hr>
+<h1 id="33-công-thức-thiết-kế-api-trong-system-design-interview">33. Công thức thiết kế API trong System Design Interview</h1>
+<p>Khi trình bày, bạn không cần liệt kê hàng chục endpoint. Chỉ cần core APIs.</p>
+<p>Ví dụ thiết kế app note:</p>
+<pre class="hljs"><code><div>POST   /v1/notes
+GET    /v1/notes/{noteId}
+PATCH  /v1/notes/{noteId}
+DELETE /v1/notes/{noteId}
+GET    /v1/notes?limit=20&amp;cursor=...
+GET    /v1/notes?q=...
+</div></code></pre>
+<p>Sau đó giải thích:</p>
+<pre class="hljs"><code><div>- Authentication lấy user identity từ token.
+- List endpoint dùng cursor pagination.
+- Note update dùng version để chống lost update.
+- Create request có thể dùng idempotency key nếu client retry.
+- Errors dùng status code và stable application error code.
+</div></code></pre>
+<p>Đó là đủ để thể hiện tư duy senior hơn việc viết 50 endpoint.</p>
+<hr>
+<h1 id="34-sơ-đồ-ghi-nhớ-toàn-bài">34. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[API Design] --> B[Resources]
+    A --> C[HTTP Methods]
+    A --> D[Status Codes]
+    A --> E[Pagination]
+    A --> F[Idempotency]
+    A --> G[Versioning]
+
+    B --> B1[Nouns in URLs]
+    B --> B2[Path vs Query vs Body]
+
+    C --> C1[GET]
+    C --> C2[POST]
+    C --> C3[PUT/PATCH]
+    C --> C4[DELETE]
+
+    D --> D1[2xx Success]
+    D --> D2[4xx Client Error]
+    D --> D3[5xx Server Error]
+
+    E --> E1[Offset/Page]
+    E --> E2[Cursor]
+
+    F --> F1[Idempotency Key]
+    F --> F2[Deduplication]
+    F --> F3[Safe Retry]
+
+    G --> G1[Backward Compatibility]
+    G --> G2[Deprecation]
+    G --> G3[Sunset]
+</div></code></pre>
+<hr>
+<h1 id="35-những-điều-cần-thuộc-sau-bài-4">35. Những điều cần thuộc sau Bài 4</h1>
+<pre class="hljs"><code><div>1. REST thiết kế quanh resource, không phải quanh tên function.
+2. URL nên dùng danh từ; HTTP method thể hiện hành động.
+3. GET đọc, POST tạo/action, PUT thay thế, PATCH cập nhật phần, DELETE xóa.
+4. Status code phải phản ánh đúng kết quả.
+5. Danh sách lớn luôn cần pagination.
+6. Offset đơn giản nhưng yếu khi dữ liệu lớn hoặc thay đổi liên tục.
+7. Cursor phù hợp feed, chat, notification và transaction lớn.
+8. Payment/order cần idempotency để retry an toàn.
+9. Cùng idempotency key nhưng payload khác phải bị từ chối.
+10. API nên ưu tiên backward-compatible changes.
+11. Chỉ tạo version mới khi có breaking change đáng kể.
+12. API tốt là một contract rõ ràng, nhất quán và có thể phát triển lâu dài.
+</div></code></pre>
+<hr>
+<h1 id="36-bài-tập-thực-hành">36. Bài tập thực hành</h1>
+<p>Thiết kế API nền tảng cho một ứng dụng Todoist đơn giản có các chức năng:</p>
+<pre class="hljs"><code><div>- Tạo project
+- Tạo task trong project
+- Sửa task
+- Đánh dấu task hoàn thành
+- Xóa task
+- Liệt kê task theo project
+- Lọc theo trạng thái và deadline
+</div></code></pre>
+<p>Hãy viết:</p>
+<pre class="hljs"><code><div>1. Danh sách 6–10 endpoint chính.
+2. HTTP method của từng endpoint.
+3. Status code thành công.
+4. Error code quan trọng.
+5. Pagination strategy cho task list.
+6. Operation nào cần idempotency?
+7. Bạn sẽ version API bằng cách nào?
+</div></code></pre>
+<h2 id="gợi-ý-đáp-án-khung">Gợi ý đáp án khung</h2>
+<pre class="hljs"><code><div>POST   /v1/projects
+GET    /v1/projects/{projectId}
+
+POST   /v1/projects/{projectId}/tasks
+GET    /v1/projects/{projectId}/tasks?status=open&amp;limit=20&amp;cursor=...
+GET    /v1/tasks/{taskId}
+PATCH  /v1/tasks/{taskId}
+DELETE /v1/tasks/{taskId}
+
+POST   /v1/tasks/{taskId}/complete
+</div></code></pre>
+<p>Điểm cần suy nghĩ:</p>
+<pre class="hljs"><code><div>Đánh dấu complete nên là PATCH status hay action endpoint?
+Create task có cần idempotency key không?
+Cursor nên dựa trên createdAt, dueDate hay một cặp field?
+Nếu hai thiết bị cùng sửa task thì chống lost update thế nào?
+</div></code></pre>
+<hr>
+<h2 id="tóm-tắt-cuối-bài">Tóm tắt cuối bài</h2>
+<blockquote>
+<p><strong>API tốt không chỉ “gọi được”. Nó phải dễ hiểu, nhất quán, retry an toàn, xử lý dữ liệu lớn, phản ánh lỗi đúng và có thể tiến hóa mà không phá client cũ.</strong></p>
+</blockquote>
+<p>Bài tiếp theo hợp lý là <strong>Bài 5 — Database nền tảng: SQL vs NoSQL, cách chọn database dựa trên access pattern, consistency và scale.</strong></p>
+
+</body>
+</html>

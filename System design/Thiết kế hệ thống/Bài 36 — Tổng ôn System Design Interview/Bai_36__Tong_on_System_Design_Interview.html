@@ -1,0 +1,3255 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 36 — Tổng ôn System Design Interview.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-36--tổng-ôn-system-design-interview">Bài 36 — Tổng ôn System Design Interview</h1>
+<h2 id="framework-45-phút-làm-rõ-yêu-cầu-capacity-estimation-database-kiến-trúc-bottleneck-consistency-reliability-trade-off-và-mock-interview-hoàn-chỉnh">Framework 45 phút, làm rõ yêu cầu, capacity estimation, database, kiến trúc, bottleneck, consistency, reliability, trade-off và mock interview hoàn chỉnh</h2>
+<p>System Design Interview không kiểm tra khả năng ghi nhớ một kiến trúc “đúng”.</p>
+<p>Nó kiểm tra cách bạn biến một đề bài mơ hồ thành một thiết kế có thể giải thích, mở rộng và bảo vệ bằng lập luận:</p>
+<pre class="hljs"><code><div>Đề bài mơ hồ
+→ Làm rõ phạm vi
+→ Xác định tải và ràng buộc
+→ Chọn data model và API
+→ Phân rã hệ thống
+→ Chọn consistency
+→ Tìm bottleneck
+→ Thiết kế failure recovery
+→ Trình bày trade-off
+</div></code></pre>
+<p>Một ứng viên tốt không chỉ vẽ nhiều hộp. Họ phải trả lời được:</p>
+<pre class="hljs"><code><div>- Vì sao cần hộp này?
+- Hộp này giữ dữ liệu gì?
+- Dữ liệu nào là source of truth?
+- Request đi qua đâu?
+- Hệ thống lỗi ở đâu?
+- Khi retry có tạo effect trùng không?
+- Khi scale gấp 100 lần thì bottleneck nào xuất hiện?
+- Vì sao chọn phương án A thay vì B?
+</div></code></pre>
+<hr>
+<h1 id="phần-i--bản-chất-của-system-design-interview">Phần I — Bản chất của System Design Interview</h1>
+<h2 id="1-người-phỏng-vấn-thực-sự-đánh-giá-điều-gì">1. Người phỏng vấn thực sự đánh giá điều gì?</h2>
+<p>Thông thường, họ đánh giá tám nhóm năng lực:</p>
+<table>
+<thead>
+<tr>
+<th>Năng lực</th>
+<th>Biểu hiện</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Làm rõ yêu cầu</td>
+<td>Không thiết kế vội khi phạm vi còn mơ hồ</td>
+</tr>
+<tr>
+<td>Phân rã bài toán</td>
+<td>Chia hệ thống thành các miền hợp lý</td>
+</tr>
+<tr>
+<td>Ước lượng</td>
+<td>Hiểu quy mô và bottleneck</td>
+</tr>
+<tr>
+<td>Data modeling</td>
+<td>Chọn entity, access pattern và source of truth</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>Cache, partition, async, replication</td>
+</tr>
+<tr>
+<td>Correctness</td>
+<td>Idempotency, consistency, ordering, invariants</td>
+</tr>
+<tr>
+<td>Reliability</td>
+<td>Retry, failover, reconciliation, degradation</td>
+</tr>
+<tr>
+<td>Giao tiếp</td>
+<td>Nói rõ giả định và trade-off</td>
+</tr>
+</tbody>
+</table>
+<p>Thiếu một số thành phần nhỏ không nguy hiểm bằng việc:</p>
+<pre class="hljs"><code><div>- Không xác định invariant quan trọng.
+- Không biết dữ liệu nào authoritative.
+- Không xử lý retry và timeout.
+- Không giải thích được lựa chọn.
+</div></code></pre>
+<hr>
+<h2 id="2-một-thiết-kế-đủ-tốt-trong-phỏng-vấn">2. Một thiết kế “đủ tốt” trong phỏng vấn</h2>
+<p>Thiết kế đủ tốt thường có:</p>
+<pre class="hljs"><code><div>1. Phạm vi rõ.
+2. Một số giả định về scale.
+3. API hoặc luồng chính.
+4. Data model cốt lõi.
+5. High-level architecture.
+6. Một hoặc hai deep dive.
+7. Failure handling.
+8. Trade-off rõ ràng.
+</div></code></pre>
+<p>Không cần thiết kế mọi chi tiết production trong 45 phút.</p>
+<p>Mục tiêu là chứng minh:</p>
+<blockquote>
+<p>Bạn biết thành phần nào cần đào sâu và thành phần nào có thể tạm abstract.</p>
+</blockquote>
+<hr>
+<h2 id="3-không-tồn-tại-một-kiến-trúc-đúng-duy-nhất">3. Không tồn tại một kiến trúc đúng duy nhất</h2>
+<p>Ví dụ thiết kế feed có thể dùng:</p>
+<pre class="hljs"><code><div>- Fan-out on write
+- Fan-out on read
+- Hybrid
+</div></code></pre>
+<p>Cả ba đều có thể đúng trong các điều kiện khác nhau.</p>
+<p>Câu trả lời mạnh không phải:</p>
+<pre class="hljs"><code><div>“Tôi dùng fan-out on write vì đó là kiến trúc chuẩn.”
+</div></code></pre>
+<p>Mà là:</p>
+<pre class="hljs"><code><div>“Với phần lớn users có follower count vừa phải và read volume cao,
+tôi precompute feed bằng fan-out on write.
+
+Với celebrity accounts, write amplification quá lớn,
+nên tôi pull recent posts khi đọc.”
+</div></code></pre>
+<hr>
+<h2 id="4-quy-tắc-quan-trọng-nhất">4. Quy tắc quan trọng nhất</h2>
+<p>Mọi lựa chọn phải nối được với một yêu cầu:</p>
+<pre class="hljs"><code><div>Yêu cầu
+→ Hệ quả kỹ thuật
+→ Lựa chọn
+→ Trade-off
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Yêu cầu:
+Không được bán trùng một ghế.
+
+Hệ quả:
+Inventory allocation cần consistency mạnh.
+
+Lựa chọn:
+Conditional update trên owner shard của event.
+
+Trade-off:
+Tăng contention nhưng bảo vệ correctness.
+</div></code></pre>
+<hr>
+<h1 id="phần-ii--framework-45-phút">Phần II — Framework 45 phút</h1>
+<h2 id="5-phân-bổ-thời-gian-chuẩn">5. Phân bổ thời gian chuẩn</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:right">Thời gian</th>
+<th>Nội dung</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">0–5 phút</td>
+<td>Làm rõ yêu cầu</td>
+</tr>
+<tr>
+<td style="text-align:right">5–8 phút</td>
+<td>Non-functional requirements và invariants</td>
+</tr>
+<tr>
+<td style="text-align:right">8–12 phút</td>
+<td>Capacity estimation</td>
+</tr>
+<tr>
+<td style="text-align:right">12–17 phút</td>
+<td>API và data model</td>
+</tr>
+<tr>
+<td style="text-align:right">17–27 phút</td>
+<td>High-level architecture</td>
+</tr>
+<tr>
+<td style="text-align:right">27–37 phút</td>
+<td>Deep dive</td>
+</tr>
+<tr>
+<td style="text-align:right">37–42 phút</td>
+<td>Reliability, multi-region, observability</td>
+</tr>
+<tr>
+<td style="text-align:right">42–45 phút</td>
+<td>Trade-off và tổng kết</td>
+</tr>
+</tbody>
+</table>
+<p>Không cần tuân thủ từng phút tuyệt đối. Nhưng nếu sau 20 phút vẫn chỉ hỏi yêu cầu thì quá chậm.</p>
+<hr>
+<h2 id="6-framework-tổng-quát">6. Framework tổng quát</h2>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[Clarify Requirements] --> B[Define Scale]
+    B --> C[API and Data Model]
+    C --> D[High-Level Architecture]
+    D --> E[Core Data Flow]
+    E --> F[Deep Dive]
+    F --> G[Reliability and Failure Modes]
+    G --> H[Trade-offs and Summary]
+</div></code></pre>
+<p>Bạn có thể ghi trên góc bảng:</p>
+<pre class="hljs"><code><div>R → S → API/Data → HLD → Deep Dive → Failure → Trade-off
+</div></code></pre>
+<hr>
+<h2 id="7-câu-mở-đầu-tốt">7. Câu mở đầu tốt</h2>
+<p>Một cách mở đầu:</p>
+<blockquote>
+<p>Trước khi thiết kế, tôi muốn làm rõ phạm vi sản phẩm, quy mô dự kiến và những invariant quan trọng nhất. Sau đó tôi sẽ đưa ra API, data model, kiến trúc tổng thể rồi đào sâu vào phần có rủi ro kỹ thuật lớn nhất.</p>
+</blockquote>
+<p>Câu này giúp người phỏng vấn biết bạn có cấu trúc.</p>
+<hr>
+<h2 id="8-không-bắt-đầu-bằng-công-nghệ">8. Không bắt đầu bằng công nghệ</h2>
+<p>Không nên mở đầu:</p>
+<pre class="hljs"><code><div>“Tôi sẽ dùng Kafka, Redis, Cassandra và Kubernetes.”
+</div></code></pre>
+<p>Vì chưa biết:</p>
+<pre class="hljs"><code><div>- Traffic là bao nhiêu?
+- Dữ liệu được truy cập ra sao?
+- Cần consistency gì?
+- Có cần async không?
+</div></code></pre>
+<p>Công nghệ phải xuất hiện sau requirement và access pattern.</p>
+<hr>
+<h1 id="phần-iii--làm-rõ-yêu-cầu">Phần III — Làm rõ yêu cầu</h1>
+<h2 id="9-chia-yêu-cầu-thành-hai-nhóm">9. Chia yêu cầu thành hai nhóm</h2>
+<h3 id="functional-requirements">Functional requirements</h3>
+<p>Hệ thống phải làm gì?</p>
+<pre class="hljs"><code><div>- User tạo dữ liệu gì?
+- User đọc dữ liệu gì?
+- Có update/delete không?
+- Có realtime không?
+- Có search không?
+- Có payment không?
+</div></code></pre>
+<h3 id="non-functional-requirements">Non-functional requirements</h3>
+<p>Hệ thống phải tốt tới mức nào?</p>
+<pre class="hljs"><code><div>- Scale
+- Latency
+- Availability
+- Durability
+- Consistency
+- Security
+- Data residency
+</div></code></pre>
+<hr>
+<h2 id="10-bộ-câu-hỏi-làm-rõ-phổ-quát">10. Bộ câu hỏi làm rõ phổ quát</h2>
+<p>Không cần hỏi tất cả. Chọn câu có ảnh hưởng kiến trúc.</p>
+<h3 id="người-dùng-và-phạm-vi">Người dùng và phạm vi</h3>
+<pre class="hljs"><code><div>- Ai sử dụng hệ thống?
+- Chỉ consumer hay có admin/merchant/provider?
+- Một region hay toàn cầu?
+</div></code></pre>
+<h3 id="chức-năng-chính">Chức năng chính</h3>
+<pre class="hljs"><code><div>- Luồng quan trọng nhất là gì?
+- Có create/update/delete không?
+- Có realtime updates không?
+- Có offline mode không?
+</div></code></pre>
+<h3 id="dữ-liệu">Dữ liệu</h3>
+<pre class="hljs"><code><div>- Dữ liệu lớn nhất là metadata hay blob?
+- Có version history không?
+- Có search/full-text không?
+</div></code></pre>
+<h3 id="correctness">Correctness</h3>
+<pre class="hljs"><code><div>- Có được phép duplicate không?
+- Có được phép stale không?
+- Có invariant tài chính hoặc inventory không?
+</div></code></pre>
+<h3 id="scale">Scale</h3>
+<pre class="hljs"><code><div>- DAU bao nhiêu?
+- Requests/ngày?
+- Peak multiplier?
+- Object size trung bình?
+</div></code></pre>
+<hr>
+<h2 id="11-không-hỏi-những-câu-không-thay-đổi-thiết-kế">11. Không hỏi những câu không thay đổi thiết kế</h2>
+<p>Câu hỏi yếu:</p>
+<pre class="hljs"><code><div>“Màu của nút đặt hàng là gì?”
+</div></code></pre>
+<p>Câu hỏi mạnh:</p>
+<pre class="hljs"><code><div>“Inventory có được phép oversell không,
+hay phải bảo đảm tuyệt đối không bán quá capacity?”
+</div></code></pre>
+<hr>
+<h2 id="12-cách-chốt-phạm-vi">12. Cách chốt phạm vi</h2>
+<p>Sau vài câu hỏi, hãy tóm tắt:</p>
+<blockquote>
+<p>Tôi sẽ tập trung vào luồng tạo đơn, inventory reservation, payment và order tracking. Search và recommendation sẽ được coi là derived services; phần accounting chuyên sâu nằm ngoài phạm vi.</p>
+</blockquote>
+<p>Việc chốt phạm vi ngăn cuộc phỏng vấn lan rộng.</p>
+<hr>
+<h2 id="13-xác-định-luồng-quan-trọng-nhất">13. Xác định luồng quan trọng nhất</h2>
+<p>Mỗi hệ thống có một hoặc vài critical paths:</p>
+<table>
+<thead>
+<tr>
+<th>Hệ thống</th>
+<th>Critical path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>URL Shortener</td>
+<td>Redirect</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td>Send và receive message</td>
+</tr>
+<tr>
+<td>News Feed</td>
+<td>Generate feed</td>
+</tr>
+<tr>
+<td>Payment</td>
+<td>Authorize/capture</td>
+</tr>
+<tr>
+<td>Ticketing</td>
+<td>Hold và booking</td>
+</tr>
+<tr>
+<td>Cloud Storage</td>
+<td>Upload completion và sync</td>
+</tr>
+<tr>
+<td>Monitoring</td>
+<td>Ingestion và alert evaluation</td>
+</tr>
+<tr>
+<td>Crawler</td>
+<td>Frontier scheduling và fetch</td>
+</tr>
+</tbody>
+</table>
+<p>Hãy ưu tiên thiết kế critical path trước.</p>
+<hr>
+<h2 id="14-xác-định-invariant-trước-kiến-trúc">14. Xác định invariant trước kiến trúc</h2>
+<p>Invariant là điều không được phép sai.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment:
+Không double charge.
+
+Ticketing:
+Một ghế không có hai confirmed bookings.
+
+Wallet:
+Không double spend.
+
+Cloud Storage:
+Committed file version không tham chiếu chunk thiếu.
+
+Chat:
+Một message ID không đại diện hai nội dung khác nhau.
+</div></code></pre>
+<p>Invariant quyết định nơi cần strong consistency.</p>
+<hr>
+<h2 id="15-bảng-phân-loại-correctness">15. Bảng phân loại correctness</h2>
+<table>
+<thead>
+<tr>
+<th>Loại dữ liệu</th>
+<th>Consistency thường phù hợp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Payment ledger</td>
+<td>Strong</td>
+</tr>
+<tr>
+<td>Inventory reservation</td>
+<td>Strong</td>
+</tr>
+<tr>
+<td>Username uniqueness</td>
+<td>Strong</td>
+</tr>
+<tr>
+<td>Like count</td>
+<td>Eventual</td>
+</tr>
+<tr>
+<td>View count</td>
+<td>Eventual + reconciliation</td>
+</tr>
+<tr>
+<td>Search index</td>
+<td>Eventual</td>
+</tr>
+<tr>
+<td>Feed ranking</td>
+<td>Eventual</td>
+</tr>
+<tr>
+<td>Profile cache</td>
+<td>Eventual</td>
+</tr>
+<tr>
+<td>Access revocation</td>
+<td>Nhanh và fail-closed</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="phần-iv--capacity-estimation">Phần IV — Capacity Estimation</h1>
+<h2 id="16-vì-sao-cần-estimation">16. Vì sao cần estimation?</h2>
+<p>Capacity estimation không nhằm tìm số chính xác.</p>
+<p>Nó giúp trả lời:</p>
+<pre class="hljs"><code><div>- Một database node có đủ không?
+- Có cần sharding không?
+- Read hay write là bottleneck?
+- Network hay storage lớn hơn?
+- Có cần CDN không?
+- Có hot-key problem không?
+</div></code></pre>
+<hr>
+<h2 id="17-các-đơn-vị-cần-ghi-nhớ">17. Các đơn vị cần ghi nhớ</h2>
+<pre class="hljs"><code><div>1 ngày = 86.400 giây
+1 triệu/ngày ≈ 11,6/giây
+10 triệu/ngày ≈ 116/giây
+100 triệu/ngày ≈ 1.160/giây
+1 tỷ/ngày ≈ 11.600/giây
+</div></code></pre>
+<p>Peak thường giả định:</p>
+<pre class="hljs"><code><div>3× đến 10× average
+</div></code></pre>
+<p>Hot events có thể cao hơn rất nhiều.</p>
+<hr>
+<h2 id="18-công-thức-qps">18. Công thức QPS</h2>
+<pre class="hljs"><code><div>Average QPS =
+Requests per day / 86.400
+</div></code></pre>
+<pre class="hljs"><code><div>Peak QPS =
+Average QPS × Peak factor
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>500 triệu requests/ngày
+
+Average:
+500.000.000 / 86.400
+≈ 5.800 QPS
+
+Peak 5×:
+≈ 29.000 QPS
+</div></code></pre>
+<hr>
+<h2 id="19-công-thức-storage">19. Công thức storage</h2>
+<pre class="hljs"><code><div>Daily storage =
+Objects/day × Average object size
+</div></code></pre>
+<pre class="hljs"><code><div>Retention storage =
+Daily storage × Retention days
+</div></code></pre>
+<p>Sau đó nhân thêm:</p>
+<pre class="hljs"><code><div>- Replication
+- Index overhead
+- Metadata
+- Version history
+</div></code></pre>
+<hr>
+<h2 id="20-ví-dụ-storage">20. Ví dụ storage</h2>
+<pre class="hljs"><code><div>100 triệu messages/ngày
+Average message = 500 bytes
+</div></code></pre>
+<p>Raw:</p>
+<pre class="hljs"><code><div>100.000.000 × 500
+= 50 GB/ngày
+</div></code></pre>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>Replication 3×
+Index/metadata 2×
+</div></code></pre>
+<p>Thực tế:</p>
+<pre class="hljs"><code><div>≈ 300 GB/ngày
+</div></code></pre>
+<hr>
+<h2 id="21-công-thức-bandwidth">21. Công thức bandwidth</h2>
+<pre class="hljs"><code><div>Bandwidth =
+Requests/second × Average payload bytes
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>100.000 video streams
+Average bitrate = 3 Mbps
+</div></code></pre>
+<p>Tổng:</p>
+<pre class="hljs"><code><div>300 Gbps
+</div></code></pre>
+<p>Đây là tín hiệu rõ ràng cần CDN.</p>
+<hr>
+<h2 id="22-readwrite-ratio">22. Read/write ratio</h2>
+<p>Cần hỏi:</p>
+<pre class="hljs"><code><div>- Một object được ghi bao nhiêu lần?
+- Được đọc bao nhiêu lần?
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Social post:
+1 write
+100–10.000 reads
+</div></code></pre>
+<p>Có thể phù hợp:</p>
+<pre class="hljs"><code><div>- Cache
+- CDN
+- Read replicas
+- Precomputation
+</div></code></pre>
+<hr>
+<h2 id="23-fan-out-amplification">23. Fan-out amplification</h2>
+<p>Một event có thể tạo nhiều writes downstream.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1 post
+× 500 followers
+= 500 feed insertions
+</div></code></pre>
+<pre class="hljs"><code><div>10 triệu posts/ngày
+× 500
+= 5 tỷ feed writes/ngày
+</div></code></pre>
+<p>Đây là write amplification.</p>
+<hr>
+<h2 id="24-metadata-và-blob-phải-ước-lượng-riêng">24. Metadata và blob phải ước lượng riêng</h2>
+<p>Ví dụ cloud storage:</p>
+<pre class="hljs"><code><div>Metadata operation:
+Vài trăm bytes.
+
+File upload:
+10 MB–10 GB.
+</div></code></pre>
+<p>Metadata QPS và blob bandwidth là hai bài toán khác nhau.</p>
+<hr>
+<h2 id="25-không-dành-quá-nhiều-thời-gian-cho-số-học">25. Không dành quá nhiều thời gian cho số học</h2>
+<p>Trong phỏng vấn:</p>
+<pre class="hljs"><code><div>2–4 phép tính quan trọng
+</div></code></pre>
+<p>thường đủ.</p>
+<p>Nói rõ:</p>
+<blockquote>
+<p>Tôi dùng giả định này để xác định rằng hệ thống cần horizontal scaling và object storage; con số chính xác không ảnh hưởng kiến trúc cấp cao.</p>
+</blockquote>
+<hr>
+<h1 id="phần-v--api-design">Phần V — API Design</h1>
+<h2 id="26-vì-sao-cần-api-sớm">26. Vì sao cần API sớm?</h2>
+<p>API giúp xác định:</p>
+<pre class="hljs"><code><div>- Entity
+- Request identity
+- Read/write flow
+- Idempotency
+- Pagination
+- Authorization boundary
+</div></code></pre>
+<p>Không cần liệt kê mọi endpoint.</p>
+<p>Chỉ cần critical APIs.</p>
+<hr>
+<h2 id="27-mẫu-api-create">27. Mẫu API create</h2>
+<pre class="hljs"><code><div>POST /v1/resources
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>...
+</div></code></pre>
+<p>Request:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;fieldA&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fieldB&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;resourceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CREATED&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h2 id="28-mẫu-api-update-với-optimistic-locking">28. Mẫu API update với optimistic locking</h2>
+<pre class="hljs"><code><div>PATCH /v1/resources/{resourceId}
+<span class="hljs-attribute">If-Match</span><span class="hljs-punctuation">: </span>version-17
+</div></code></pre>
+<p>Hoặc request chứa:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;expectedVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">17</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;newValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server update khi version khớp.</p>
+<hr>
+<h2 id="29-mẫu-api-pagination">29. Mẫu API pagination</h2>
+<p>Không ưu tiên offset cho dataset thay đổi nhanh.</p>
+<pre class="hljs"><code><div>GET /v1/messages?conversationId=123&amp;cursor=abc&amp;limit=50
+</div></code></pre>
+<p>Cursor có thể encode:</p>
+<pre class="hljs"><code><div>sortKey
+tieBreakerId
+snapshot/version
+</div></code></pre>
+<hr>
+<h2 id="30-mẫu-api-idempotency">30. Mẫu API idempotency</h2>
+<pre class="hljs"><code><div>POST /v1/payments
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>order_123_capture_1
+</div></code></pre>
+<p>Store:</p>
+<pre class="hljs"><code><div>(scope, idempotencyKey)
+→ requestHash
+→ resourceId
+→ response
+</div></code></pre>
+<p>Cùng key và payload khác phải bị từ chối.</p>
+<hr>
+<h2 id="31-stable-identities">31. Stable identities</h2>
+<p>Hầu hết hệ thống phân tán cần stable IDs:</p>
+<pre class="hljs"><code><div>requestId
+messageId
+paymentIntentId
+orderId
+holdId
+uploadSessionId
+eventId
+</div></code></pre>
+<p>Stable identity giúp:</p>
+<pre class="hljs"><code><div>- Retry
+- Deduplication
+- Audit
+- Reconciliation
+- Event correlation
+</div></code></pre>
+<hr>
+<h1 id="phần-vi--data-modeling">Phần VI — Data Modeling</h1>
+<h2 id="32-bắt-đầu-từ-access-pattern">32. Bắt đầu từ access pattern</h2>
+<p>Không chọn database trước.</p>
+<p>Hỏi:</p>
+<pre class="hljs"><code><div>- Query chính là gì?
+- Key lookup hay range scan?
+- Có transaction nhiều rows không?
+- Có join không?
+- Dữ liệu có append-only không?
+- Có full-text search không?
+- Có graph traversal không?
+</div></code></pre>
+<hr>
+<h2 id="33-mẫu-mô-hình-entity">33. Mẫu mô hình entity</h2>
+<p>Ví dụ order:</p>
+<pre class="hljs"><code><div>Order
+- orderId
+- customerId
+- status dimensions
+- total
+- currency
+- version
+
+OrderLine
+- orderLineId
+- orderId
+- skuId
+- quantity
+- price snapshot
+</div></code></pre>
+<p>Ví dụ message:</p>
+<pre class="hljs"><code><div>Message
+- conversationId
+- messageId
+- senderId
+- sequence
+- content
+- createdAt
+</div></code></pre>
+<hr>
+<h2 id="34-source-of-truth-và-projection">34. Source of truth và projection</h2>
+<p>Luôn xác định:</p>
+<h3 id="source-of-truth">Source of truth</h3>
+<p>Dữ liệu authoritative.</p>
+<h3 id="projection">Projection</h3>
+<p>Dữ liệu tối ưu cho một read pattern.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Product catalog:
+Source of truth
+
+Search index:
+Projection
+
+Order store:
+Source of truth
+
+Customer order history:
+Projection
+
+Ledger:
+Source of truth
+
+Balance dashboard:
+Projection
+</div></code></pre>
+<hr>
+<h2 id="35-snapshot-dữ-liệu-lịch-sử">35. Snapshot dữ liệu lịch sử</h2>
+<p>Order, payment hoặc booking phải lưu snapshot:</p>
+<pre class="hljs"><code><div>- Product name lúc mua
+- Unit price
+- Tax
+- Address
+- Terms
+</div></code></pre>
+<p>Không phụ thuộc dữ liệu hiện tại vì dữ liệu có thể thay đổi.</p>
+<hr>
+<h2 id="36-append-only-khi-cần-audit">36. Append-only khi cần audit</h2>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Ledger
+- Event log
+- Audit log
+- File versions
+- Order history
+</div></code></pre>
+<p>Sai sót thường được sửa bằng:</p>
+<pre class="hljs"><code><div>- Reversal
+- Correction event
+- New version
+</div></code></pre>
+<p>không sửa lịch sử cũ.</p>
+<hr>
+<h1 id="phần-vii--chọn-database">Phần VII — Chọn Database</h1>
+<h2 id="37-decision-tree-đơn-giản">37. Decision tree đơn giản</h2>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Access pattern?] --> B{Transactions and constraints?}
+    B -->|Strong| C[Relational / Strongly Consistent SQL]
+    B -->|Not primary| D{Primary lookup?}
+    D -->|Key-value| E[Key-Value Store]
+    D -->|Documents| F[Document Store]
+    D -->|Wide time/range writes| G[Wide-Column / LSM Store]
+    D -->|Text search| H[Search Index]
+    D -->|Graph traversal| I[Graph Store / Specialized Index]
+    D -->|Large blobs| J[Object Storage]
+</div></code></pre>
+<hr>
+<h2 id="38-relational-database-phù-hợp-khi">38. Relational database phù hợp khi</h2>
+<pre class="hljs"><code><div>- Transactions
+- Unique constraints
+- Foreign keys
+- Structured data
+- Ad hoc queries
+- Financial correctness
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Payment intents
+- Orders
+- Inventory reservations
+- Ticket holds
+- User accounts
+</div></code></pre>
+<hr>
+<h2 id="39-key-value-store-phù-hợp-khi">39. Key-value store phù hợp khi</h2>
+<pre class="hljs"><code><div>- Lookup bằng key
+- Latency thấp
+- Schema đơn giản
+- Cache/session/state
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Session
+- Idempotency record
+- Rate-limit counter
+- Cache
+- Presence
+</div></code></pre>
+<hr>
+<h2 id="40-document-store-phù-hợp-khi">40. Document store phù hợp khi</h2>
+<pre class="hljs"><code><div>- Aggregate dạng JSON
+- Schema linh hoạt
+- Đọc phần lớn document theo ID
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Product metadata
+- User settings
+- Cart
+</div></code></pre>
+<hr>
+<h2 id="41-wide-columnlsm-store-phù-hợp-khi">41. Wide-column/LSM store phù hợp khi</h2>
+<pre class="hljs"><code><div>- Write throughput cao
+- Range scan theo partition + sort key
+- Time-ordered data
+- Horizontal partitioning
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Messages theo conversation
+- Time series
+- Events
+- Activity history
+</div></code></pre>
+<hr>
+<h2 id="42-search-engine-phù-hợp-khi">42. Search engine phù hợp khi</h2>
+<pre class="hljs"><code><div>- Full-text
+- Relevance
+- Facets
+- Prefix search
+- Fuzzy matching
+</div></code></pre>
+<p>Search engine thường là projection, không source of truth.</p>
+<hr>
+<h2 id="43-object-storage-phù-hợp-khi">43. Object storage phù hợp khi</h2>
+<pre class="hljs"><code><div>- Ảnh
+- Video
+- File
+- Log chunks
+- TSDB blocks
+- Backups
+</div></code></pre>
+<p>Không lưu blob lớn trực tiếp trong transactional database nếu không có lý do mạnh.</p>
+<hr>
+<h2 id="44-một-hệ-thống-thường-dùng-nhiều-store">44. Một hệ thống thường dùng nhiều store</h2>
+<p>Ví dụ e-commerce:</p>
+<pre class="hljs"><code><div>Catalog → document/SQL
+Search → search index
+Cart → key-value/document
+Orders → relational
+Inventory → transactional database
+Images → object storage/CDN
+Events → message stream
+</div></code></pre>
+<p>Polyglot persistence là bình thường, nhưng mỗi store phải có lý do.</p>
+<hr>
+<h1 id="phần-viii--phân-rã-kiến-trúc">Phần VIII — Phân rã kiến trúc</h1>
+<h2 id="45-phân-rã-theo-domain-không-theo-động-từ-ngẫu-nhiên">45. Phân rã theo domain, không theo động từ ngẫu nhiên</h2>
+<p>Tốt:</p>
+<pre class="hljs"><code><div>- Catalog
+- Pricing
+- Inventory
+- Orders
+- Payment
+- Fulfillment
+</div></code></pre>
+<p>Yếu:</p>
+<pre class="hljs"><code><div>- Read Service
+- Write Service
+- Process Service
+- Helper Service
+</div></code></pre>
+<p>Domain boundaries giúp xác định ownership.</p>
+<hr>
+<h2 id="46-khi-nào-nên-tách-service">46. Khi nào nên tách service?</h2>
+<p>Tách khi có ít nhất một trong các lý do:</p>
+<pre class="hljs"><code><div>- Scale profile khác
+- Data ownership khác
+- Reliability boundary khác
+- Deployment cadence khác
+- Security boundary khác
+- Team ownership khác
+</div></code></pre>
+<p>Không tách chỉ để có nhiều hộp.</p>
+<hr>
+<h2 id="47-synchronous-và-asynchronous">47. Synchronous và asynchronous</h2>
+<h3 id="synchronous">Synchronous</h3>
+<p>Phù hợp khi caller cần kết quả ngay:</p>
+<pre class="hljs"><code><div>- Authorization
+- Inventory reservation
+- Permission check
+- Fetch current profile
+</div></code></pre>
+<h3 id="asynchronous">Asynchronous</h3>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Có thể xử lý sau
+- Fan-out
+- Retry độc lập
+- Spike absorption
+- Side effects
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Notification
+- Analytics
+- Search indexing
+- Thumbnail generation
+</div></code></pre>
+<hr>
+<h2 id="48-critical-path-tối-thiểu">48. Critical path tối thiểu</h2>
+<p>Mỗi dependency synchronous làm tăng:</p>
+<pre class="hljs"><code><div>- Latency
+- Error probability
+- Coupling
+</div></code></pre>
+<p>Ví dụ checkout không nên chờ:</p>
+<pre class="hljs"><code><div>- Email
+- Analytics
+- Recommendation update
+</div></code></pre>
+<p>Critical path chỉ giữ:</p>
+<pre class="hljs"><code><div>- Quote validation
+- Inventory
+- Payment policy
+- Order commit
+</div></code></pre>
+<hr>
+<h2 id="49-event-driven-không-có-nghĩa-mọi-thứ-async">49. Event-driven không có nghĩa mọi thứ async</h2>
+<p>Không nên biến request cần kết quả ngay thành:</p>
+<pre class="hljs"><code><div>Client
+→ Queue
+→ Chờ không xác định
+</div></code></pre>
+<p>Hãy dùng async ở nơi phù hợp.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order creation:
+Synchronous commit
+
+Fulfillment start:
+Async event
+</div></code></pre>
+<hr>
+<h2 id="50-transactional-outbox">50. Transactional Outbox</h2>
+<p>Vấn đề:</p>
+<pre class="hljs"><code><div>1. Update database thành công.
+2. Publish event thất bại.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Trong cùng transaction:
+- Update business data
+- Insert outbox event
+</div></code></pre>
+<p>Publisher retry sau.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant S as Service
+    participant DB as Database
+    participant P as Outbox Publisher
+    participant Q as Event Stream
+
+    S->>DB: Business update + outbox insert
+    DB-->>S: Commit
+    P->>DB: Read unpublished events
+    P->>Q: Publish
+    Q-->>P: ACK
+    P->>DB: Mark published
+</div></code></pre>
+<hr>
+<h2 id="51-inbox-pattern">51. Inbox pattern</h2>
+<p>Consumer nhận event có thể duplicate.</p>
+<p>Inbox lưu:</p>
+<pre class="hljs"><code><div>consumerName
+eventId
+processedAt
+</div></code></pre>
+<p>Trong cùng transaction:</p>
+<pre class="hljs"><code><div>- Claim event
+- Apply business effect
+- Mark processed
+</div></code></pre>
+<hr>
+<h1 id="phần-ix--caching">Phần IX — Caching</h1>
+<h2 id="52-khi-nào-cache">52. Khi nào cache?</h2>
+<p>Cache khi:</p>
+<pre class="hljs"><code><div>- Read nhiều hơn write
+- Data được đọc lặp lại
+- Backend query đắt
+- Một chút stale chấp nhận được
+</div></code></pre>
+<p>Không cache chỉ vì “hệ thống lớn”.</p>
+<hr>
+<h2 id="53-cache-aside">53. Cache-aside</h2>
+<pre class="hljs"><code><div>1. Read cache.
+2. Miss → read database.
+3. Put cache.
+4. Return.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Service
+    participant R as Cache
+    participant D as Database
+
+    C->>S: Read
+    S->>R: GET key
+    R-->>S: Miss
+    S->>D: Query
+    D-->>S: Value
+    S->>R: SET value
+    S-->>C: Value
+</div></code></pre>
+<hr>
+<h2 id="54-cache-invalidation">54. Cache invalidation</h2>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- TTL
+- Delete on write
+- Versioned keys
+- Event invalidation
+- Write-through
+</div></code></pre>
+<p>Versioned immutable key:</p>
+<pre class="hljs"><code><div>productId:version17
+</div></code></pre>
+<p>giảm vấn đề invalidation.</p>
+<hr>
+<h2 id="55-cache-stampede">55. Cache stampede</h2>
+<p>Một hot key hết hạn:</p>
+<pre class="hljs"><code><div>10.000 requests
+→ cùng miss
+→ cùng query database
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Request coalescing
+- Single-flight
+- Jitter TTL
+- Stale-while-revalidate
+- Background refresh
+</div></code></pre>
+<hr>
+<h2 id="56-cache-không-được-phá-correctness">56. Cache không được phá correctness</h2>
+<p>Không dùng cache stale để:</p>
+<pre class="hljs"><code><div>- Cho phép payment
+- Cho phép private file access
+- Xác nhận inventory
+- Validate ticket
+</div></code></pre>
+<p>Cache có thể giúp chọn candidate, nhưng authoritative mutation phải recheck source of truth.</p>
+<hr>
+<h1 id="phần-x--partitioning-và-sharding">Phần X — Partitioning và Sharding</h1>
+<h2 id="57-chọn-shard-key-từ-access-pattern">57. Chọn shard key từ access pattern</h2>
+<p>Shard key tốt:</p>
+<pre class="hljs"><code><div>- Phân bố đều
+- Giữ locality
+- Tránh cross-shard transaction
+- Hỗ trợ query chính
+</div></code></pre>
+<p>Ví dụ:</p>
+<table>
+<thead>
+<tr>
+<th>Hệ thống</th>
+<th>Shard key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chat</td>
+<td>conversationId</td>
+</tr>
+<tr>
+<td>Feed timeline</td>
+<td>viewerId</td>
+</tr>
+<tr>
+<td>Inventory</td>
+<td>SKU/location hoặc eventId</td>
+</tr>
+<tr>
+<td>Cloud drive</td>
+<td>workspaceId</td>
+</tr>
+<tr>
+<td>Crawler</td>
+<td>host hash</td>
+</tr>
+<tr>
+<td>Metrics</td>
+<td>tenant + series hash</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="58-hash-sharding">58. Hash sharding</h2>
+<pre class="hljs"><code><div>shard = hash(key) mod N
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Phân bố đều
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Range query khó
+- Thêm shard cần rebalancing
+</div></code></pre>
+<p>Consistent hashing giảm lượng key phải di chuyển.</p>
+<hr>
+<h2 id="59-range-sharding">59. Range sharding</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User IDs 1–1M → shard A
+1M–2M → shard B
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Range scan tốt
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hot range
+- Data phân bố không đều
+</div></code></pre>
+<hr>
+<h2 id="60-hot-partition">60. Hot partition</h2>
+<p>Một shard key có traffic quá lớn:</p>
+<pre class="hljs"><code><div>- Celebrity user
+- Viral video
+- Hot SKU
+- Large chat group
+- Large enterprise workspace
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Bucket/salt
+- Dedicated shard
+- Cache
+- Read replication
+- Admission control
+- Hybrid push/pull
+</div></code></pre>
+<hr>
+<h2 id="61-không-shard-quá-sớm">61. Không shard quá sớm</h2>
+<p>Một relational database mạnh với read replicas có thể đủ trong giai đoạn đầu.</p>
+<p>Sharding tăng:</p>
+<pre class="hljs"><code><div>- Operational complexity
+- Resharding
+- Cross-shard queries
+- Transactions
+- Debugging
+</div></code></pre>
+<p>Trong phỏng vấn, có thể nói:</p>
+<blockquote>
+<p>Tôi bắt đầu với một primary database có partition-ready schema, sau đó shard theo tenantId khi dữ liệu hoặc write throughput vượt giới hạn một cluster.</p>
+</blockquote>
+<hr>
+<h1 id="phần-xi--replication-và-availability">Phần XI — Replication và Availability</h1>
+<h2 id="62-leaderfollower">62. Leader–follower</h2>
+<pre class="hljs"><code><div>Writes → Leader
+Reads → Leader hoặc followers
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Read scale
+- Backup/failover
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Replication lag
+- Failover
+- Stale reads
+</div></code></pre>
+<hr>
+<h2 id="63-synchronous-và-asynchronous-replication">63. Synchronous và asynchronous replication</h2>
+<h3 id="synchronous-1">Synchronous</h3>
+<pre class="hljs"><code><div>Leader chờ replica ACK
+</div></code></pre>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>RPO thấp
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>Latency cao hơn
+Availability thấp hơn khi replica/network lỗi
+</div></code></pre>
+<h3 id="asynchronous-1">Asynchronous</h3>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>Write nhanh
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>Có thể mất recent writes khi leader chết
+</div></code></pre>
+<hr>
+<h2 id="64-read-your-writes">64. Read-your-writes</h2>
+<p>User vừa update profile nhưng đọc replica cũ.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Read leader sau write
+- Session affinity
+- Version token
+- Wait until replica catches up
+</div></code></pre>
+<hr>
+<h2 id="65-quorum-trực-giác">65. Quorum trực giác</h2>
+<p>Với N replicas:</p>
+<pre class="hljs"><code><div>W = write acknowledgements
+R = read replicas consulted
+</div></code></pre>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>W + R &gt; N
+</div></code></pre>
+<p>read/write quorums giao nhau.</p>
+<p>Nhưng quorum không tự động giải quyết mọi conflict; còn phụ thuộc versioning và failure model.</p>
+<hr>
+<h1 id="phần-xii--consistency-models">Phần XII — Consistency Models</h1>
+<h2 id="66-linearizability">66. Linearizability</h2>
+<p>Operation có vẻ xảy ra tại một điểm duy nhất giữa request và response.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Seat allocation
+- Wallet debit
+- Leader election
+- Unique username
+</div></code></pre>
+<hr>
+<h2 id="67-serializability">67. Serializability</h2>
+<p>Nhiều transactions có kết quả tương đương một thứ tự tuần tự.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Financial transaction
+- Multi-row inventory updates
+</div></code></pre>
+<p>Linearizability nói về realtime ordering của operations.</p>
+<p>Serializability nói về transaction isolation.</p>
+<hr>
+<h2 id="68-eventual-consistency">68. Eventual consistency</h2>
+<p>Nếu không có update mới, replicas cuối cùng sẽ hội tụ.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Like count
+- Search index
+- Feed
+- Analytics
+</div></code></pre>
+<p>Eventual consistency không có nghĩa “sai tùy ý”.</p>
+<p>Phải xác định:</p>
+<pre class="hljs"><code><div>- Staleness tối đa
+- Conflict resolution
+- Reconciliation
+</div></code></pre>
+<hr>
+<h2 id="69-session-guarantees">69. Session guarantees</h2>
+<p>Các guarantees hữu ích:</p>
+<pre class="hljs"><code><div>- Read-your-writes
+- Monotonic reads
+- Monotonic writes
+</div></code></pre>
+<p>Nhiều trải nghiệm người dùng không cần linearizability toàn cầu nhưng cần session consistency.</p>
+<hr>
+<h1 id="phần-xiii--idempotency-và-retry">Phần XIII — Idempotency và Retry</h1>
+<h2 id="70-retry-là-chắc-chắn-xảy-ra">70. Retry là chắc chắn xảy ra</h2>
+<p>Retry do:</p>
+<pre class="hljs"><code><div>- Client timeout
+- Load balancer retry
+- Worker crash
+- Queue redelivery
+- Provider timeout
+- Region failover
+</div></code></pre>
+<p>Mọi mutation quan trọng phải trả lời:</p>
+<pre class="hljs"><code><div>Retry có tạo effect lần hai không?
+</div></code></pre>
+<hr>
+<h2 id="71-idempotency-record">71. Idempotency record</h2>
+<pre class="hljs"><code><div>scope
+idempotencyKey
+requestHash
+resourceId
+state
+response
+expiresAt
+</div></code></pre>
+<p>Concurrent request cần unique claim.</p>
+<hr>
+<h2 id="72-business-idempotency-và-transport-dedupe">72. Business idempotency và transport dedupe</h2>
+<p>Không chỉ dedupe message delivery.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Event A được gửi hai lần
+</div></code></pre>
+<p>Downstream phải ngăn:</p>
+<pre class="hljs"><code><div>- Charge hai lần
+- Issue hai tickets
+- Grant reward hai lần
+</div></code></pre>
+<p>Dùng business reference:</p>
+<pre class="hljs"><code><div>bookingId + ISSUE_TICKET
+</div></code></pre>
+<hr>
+<h2 id="73-timeout-không-phải-failure">73. Timeout không phải failure</h2>
+<p>Khi gọi external service:</p>
+<pre class="hljs"><code><div>Request gửi thành công
+Response mất
+</div></code></pre>
+<p>Outcome là:</p>
+<pre class="hljs"><code><div>UNKNOWN
+</div></code></pre>
+<p>không phải:</p>
+<pre class="hljs"><code><div>FAILED
+</div></code></pre>
+<p>Recovery:</p>
+<pre class="hljs"><code><div>- Query status
+- Wait webhook
+- Retry cùng identity
+- Reconcile
+</div></code></pre>
+<hr>
+<h1 id="phần-xiv--distributed-transactions-và-saga">Phần XIV — Distributed Transactions và Saga</h1>
+<h2 id="74-khi-không-thể-dùng-một-transaction">74. Khi không thể dùng một transaction</h2>
+<p>Checkout có:</p>
+<pre class="hljs"><code><div>- Inventory
+- Promotion
+- Payment
+- Order
+</div></code></pre>
+<p>không nằm cùng database.</p>
+<p>Dùng Saga.</p>
+<hr>
+<h2 id="75-saga-orchestration">75. Saga orchestration</h2>
+<p>Một orchestrator quyết định:</p>
+<pre class="hljs"><code><div>Reserve inventory
+→ Authorize payment
+→ Create order
+</div></code></pre>
+<p>Nếu fail:</p>
+<pre class="hljs"><code><div>Void payment
+→ Release inventory
+</div></code></pre>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>- Flow rõ
+- Dễ audit
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>- Orchestrator phức tạp
+</div></code></pre>
+<hr>
+<h2 id="76-choreography">76. Choreography</h2>
+<p>Services phản ứng với events:</p>
+<pre class="hljs"><code><div>OrderCreated
+→ Inventory reserves
+→ Payment authorizes
+</div></code></pre>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>- Coupling trực tiếp thấp
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>- Flow khó nhìn
+- Cycles và hidden dependencies
+</div></code></pre>
+<p>Critical financial/order workflows thường dễ quản lý hơn với orchestration.</p>
+<hr>
+<h2 id="77-compensation-không-phải-rollback">77. Compensation không phải rollback</h2>
+<p>Payment đã capture không thể “rollback database”.</p>
+<p>Phải tạo:</p>
+<pre class="hljs"><code><div>Refund
+</div></code></pre>
+<p>Email đã gửi không thể thu hồi tuyệt đối.</p>
+<p>Compensation là business action mới.</p>
+<hr>
+<h1 id="phần-xv--ordering-và-time">Phần XV — Ordering và Time</h1>
+<h2 id="78-không-cần-global-ordering-cho-mọi-thứ">78. Không cần global ordering cho mọi thứ</h2>
+<p>Thường chỉ cần ordering theo aggregate:</p>
+<pre class="hljs"><code><div>- Conversation
+- Order
+- Payment Intent
+- Seat
+- File
+</div></code></pre>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>aggregateVersion
+sequence number
+</div></code></pre>
+<hr>
+<h2 id="79-event-version">79. Event version</h2>
+<pre class="hljs"><code><div>Order version 7
+→ OrderPaid
+
+Order version 8
+→ OrderCanceled
+</div></code></pre>
+<p>Consumer nhận version 8 trước version 7:</p>
+<pre class="hljs"><code><div>- Buffer
+- Fetch latest state
+- Ignore stale event
+</div></code></pre>
+<p>Không áp version 7 sau version 8.</p>
+<hr>
+<h2 id="80-clock-không-hoàn-toàn-đáng-tin">80. Clock không hoàn toàn đáng tin</h2>
+<p>Không dùng client timestamp để:</p>
+<pre class="hljs"><code><div>- Quyết định conflict cuối cùng
+- Expire hold
+- Ordering tài chính
+</div></code></pre>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>- Server/database clock
+- Logical sequence
+- Version
+</div></code></pre>
+<hr>
+<h1 id="phần-xvi--reliability-patterns">Phần XVI — Reliability Patterns</h1>
+<h2 id="81-timeout">81. Timeout</h2>
+<p>Mọi network call cần timeout.</p>
+<p>Tách:</p>
+<pre class="hljs"><code><div>- Connect timeout
+- Request timeout
+- Overall deadline
+</div></code></pre>
+<p>Không timeout:</p>
+<pre class="hljs"><code><div>Thread/connection bị giữ vô thời hạn.
+</div></code></pre>
+<hr>
+<h2 id="82-exponential-backoff-và-jitter">82. Exponential backoff và jitter</h2>
+<pre class="hljs"><code><div>1s → 2s → 4s → 8s
+</div></code></pre>
+<p>Thêm jitter để tránh đồng bộ retry storm.</p>
+<hr>
+<h2 id="83-circuit-breaker">83. Circuit breaker</h2>
+<p>Khi dependency lỗi liên tục:</p>
+<pre class="hljs"><code><div>CLOSED
+→ OPEN
+→ HALF_OPEN
+→ CLOSED
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Fail fast
+- Bảo vệ dependency
+- Cho recovery probes
+</div></code></pre>
+<hr>
+<h2 id="84-bulkhead">84. Bulkhead</h2>
+<p>Tách resource pools:</p>
+<pre class="hljs"><code><div>- Payment workers
+- Notification workers
+- Flash-sale workers
+- Normal traffic workers
+</div></code></pre>
+<p>Một workload không chiếm hết tài nguyên.</p>
+<hr>
+<h2 id="85-load-shedding">85. Load shedding</h2>
+<p>Khi hệ thống quá tải, từ chối phần ít quan trọng:</p>
+<pre class="hljs"><code><div>- Recommendation
+- Analytics
+- Expensive filters
+- Debug logs
+</div></code></pre>
+<p>Giữ:</p>
+<pre class="hljs"><code><div>- Payment
+- Booking
+- Core reads
+</div></code></pre>
+<hr>
+<h2 id="86-graceful-degradation">86. Graceful degradation</h2>
+<p>Ví dụ feed:</p>
+<pre class="hljs"><code><div>Ranking Service lỗi
+→ Trả chronological feed.
+</div></code></pre>
+<p>Search lỗi:</p>
+<pre class="hljs"><code><div>→ Cho browsing category.
+</div></code></pre>
+<p>ETA model lỗi:</p>
+<pre class="hljs"><code><div>→ Dùng historical estimate.
+</div></code></pre>
+<hr>
+<h2 id="87-reconciliation">87. Reconciliation</h2>
+<p>Reconciliation kiểm tra source of truth độc lập.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment provider
+vs payment records
+vs ledger
+
+Inventory reservations
+vs orders
+
+Carrier events
+vs shipment state
+</div></code></pre>
+<p>Reconciliation không phải “phần phụ”. Nó là lớp correctness cuối cùng.</p>
+<hr>
+<h2 id="88-dead-letter-queue">88. Dead-letter queue</h2>
+<p>Event không xử lý được sau nhiều retries:</p>
+<pre class="hljs"><code><div>→ DLQ
+</div></code></pre>
+<p>DLQ cần:</p>
+<pre class="hljs"><code><div>- Alert
+- Inspect
+- Reprocess
+- Reason
+</div></code></pre>
+<p>Không để DLQ trở thành nghĩa địa không ai theo dõi.</p>
+<hr>
+<h1 id="phần-xvii--multi-region">Phần XVII — Multi-Region</h1>
+<h2 id="89-ba-mô-hình-chính">89. Ba mô hình chính</h2>
+<h3 id="activepassive">Active–passive</h3>
+<pre class="hljs"><code><div>Region A phục vụ
+Region B standby
+</div></code></pre>
+<h3 id="activeactive-partitioned">Active–active partitioned</h3>
+<pre class="hljs"><code><div>Region A sở hữu tập users/events A
+Region B sở hữu tập users/events B
+</div></code></pre>
+<h3 id="activeactive-multi-write">Active–active multi-write</h3>
+<p>Nhiều regions ghi cùng dữ liệu.</p>
+<p>Đây là mô hình khó nhất.</p>
+<hr>
+<h2 id="90-khi-nào-nên-dùng-partitioned-ownership">90. Khi nào nên dùng partitioned ownership?</h2>
+<p>Phù hợp khi entity có owner tự nhiên:</p>
+<pre class="hljs"><code><div>- User account
+- Event inventory
+- Workspace
+- Chat conversation
+- Merchant
+- Host crawler
+</div></code></pre>
+<p>Mỗi entity chỉ có một writer tại một thời điểm.</p>
+<p>Toàn hệ thống vẫn active–active theo partitions.</p>
+<hr>
+<h2 id="91-home-region">91. Home region</h2>
+<p>Directory:</p>
+<pre class="hljs"><code><div>entityId → homeRegion
+</div></code></pre>
+<p>Requests đi tới edge gần nhất rồi được route tới owner.</p>
+<p>Reads có thể dùng replicas nếu consistency cho phép.</p>
+<hr>
+<h2 id="92-owner-epoch-và-fencing">92. Owner epoch và fencing</h2>
+<p>Failover:</p>
+<pre class="hljs"><code><div>Old owner epoch 10
+New owner epoch 11
+</div></code></pre>
+<p>Storage chỉ chấp nhận writes từ epoch mới nhất.</p>
+<p>Nếu chỉ đổi routing mà không fence writer cũ, có thể split-brain.</p>
+<hr>
+<h2 id="93-rpo-và-rto">93. RPO và RTO</h2>
+<h3 id="rpo">RPO</h3>
+<p>Mức dữ liệu có thể mất.</p>
+<pre class="hljs"><code><div>RPO = 0
+</div></code></pre>
+<p>nghĩa không được mất committed data.</p>
+<h3 id="rto">RTO</h3>
+<p>Thời gian khôi phục dịch vụ.</p>
+<p>Một thiết kế phải nói rõ:</p>
+<pre class="hljs"><code><div>- Dữ liệu nào cần RPO 0?
+- Dịch vụ nào cần RTO vài phút?
+</div></code></pre>
+<hr>
+<h2 id="94-multi-region-trade-off">94. Multi-region trade-off</h2>
+<pre class="hljs"><code><div>Consistency
+Availability
+Latency
+Cost
+</div></code></pre>
+<p>Không thể tối ưu tuyệt đối tất cả khi network partition.</p>
+<p>Ví dụ inventory:</p>
+<pre class="hljs"><code><div>Ưu tiên consistency
+→ Dừng booking khi owner không chắc chắn
+</div></code></pre>
+<p>Feed ranking:</p>
+<pre class="hljs"><code><div>Ưu tiên availability
+→ Dùng replica hoặc stale data
+</div></code></pre>
+<hr>
+<h1 id="phần-xviii--security-và-privacy">Phần XVIII — Security và Privacy</h1>
+<h2 id="95-authentication-và-authorization">95. Authentication và authorization</h2>
+<p>Authentication:</p>
+<pre class="hljs"><code><div>Bạn là ai?
+</div></code></pre>
+<p>Authorization:</p>
+<pre class="hljs"><code><div>Bạn có quyền làm gì trên resource này?
+</div></code></pre>
+<p>Không chỉ kiểm tra user đã đăng nhập.</p>
+<hr>
+<h2 id="96-fail-open-và-fail-closed">96. Fail-open và fail-closed</h2>
+<p>Permission Service lỗi:</p>
+<pre class="hljs"><code><div>Private file:
+Fail closed.
+
+Recommendation:
+Có thể fail open bằng cách bỏ personalization.
+</div></code></pre>
+<p>Chọn theo risk.</p>
+<hr>
+<h2 id="97-signed-urls-và-tokens">97. Signed URLs và tokens</h2>
+<p>Token cần:</p>
+<pre class="hljs"><code><div>- Scope
+- Expiration
+- Resource
+- Operation
+- Signature
+</div></code></pre>
+<p>Không dùng URL khó đoán thay cho authorization.</p>
+<hr>
+<h2 id="98-pii-và-data-residency">98. PII và data residency</h2>
+<p>Xác định:</p>
+<pre class="hljs"><code><div>- Dữ liệu nào nhạy cảm?
+- Lưu ở đâu?
+- Replicate tới đâu?
+- Retention bao lâu?
+- Ai được truy cập?
+</div></code></pre>
+<p>Data residency ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Databases
+- Caches
+- Search indexes
+- Backups
+- Logs
+</div></code></pre>
+<hr>
+<h1 id="phần-xix--observability">Phần XIX — Observability</h1>
+<h2 id="99-bốn-nhóm-tín-hiệu">99. Bốn nhóm tín hiệu</h2>
+<pre class="hljs"><code><div>Latency
+Traffic
+Errors
+Saturation
+</div></code></pre>
+<p>Ngoài ra cần business metrics và correctness invariants.</p>
+<hr>
+<h2 id="100-không-chỉ-đo-api-latency">100. Không chỉ đo API latency</h2>
+<p>Ví dụ order:</p>
+<pre class="hljs"><code><div>- Time to restaurant acceptance
+- Time to courier assignment
+- Fulfillment delay
+</div></code></pre>
+<p>Ví dụ payment:</p>
+<pre class="hljs"><code><div>- Unknown outcome rate
+- Reconciliation mismatch amount
+</div></code></pre>
+<p>Ví dụ ticketing:</p>
+<pre class="hljs"><code><div>- Hold conflict
+- Oversell incidents
+</div></code></pre>
+<hr>
+<h2 id="101-metrics-theo-layer">101. Metrics theo layer</h2>
+<h3 id="edge">Edge</h3>
+<pre class="hljs"><code><div>QPS
+status codes
+latency
+rate-limit
+</div></code></pre>
+<h3 id="service">Service</h3>
+<pre class="hljs"><code><div>request latency
+dependency latency
+queue depth
+retry
+</div></code></pre>
+<h3 id="storage">Storage</h3>
+<pre class="hljs"><code><div>read/write latency
+replication lag
+disk
+hot partitions
+</div></code></pre>
+<h3 id="business">Business</h3>
+<pre class="hljs"><code><div>conversion
+success rate
+stuck workflows
+</div></code></pre>
+<hr>
+<h2 id="102-distributed-tracing">102. Distributed tracing</h2>
+<p>Trace giúp trả lời:</p>
+<pre class="hljs"><code><div>Request chậm ở đâu?
+</div></code></pre>
+<p>Mỗi request mang:</p>
+<pre class="hljs"><code><div>traceId
+spanId
+</div></code></pre>
+<p>Không nên dùng traceId làm metric label vì cardinality cao.</p>
+<hr>
+<h2 id="103-slo-và-error-budget">103. SLO và error budget</h2>
+<p>SLO ví dụ:</p>
+<pre class="hljs"><code><div>99,9% requests thành công trong 30 ngày.
+</div></code></pre>
+<p>Error budget:</p>
+<pre class="hljs"><code><div>0,1% có thể lỗi.
+</div></code></pre>
+<p>SLO phải gắn với user journey, không chỉ host uptime.</p>
+<hr>
+<h1 id="phần-xx--bottleneck-analysis">Phần XX — Bottleneck Analysis</h1>
+<h2 id="104-các-bottleneck-phổ-biến">104. Các bottleneck phổ biến</h2>
+<pre class="hljs"><code><div>- Database write throughput
+- Hot partition
+- Cache miss storm
+- Network bandwidth
+- Queue lag
+- Lock contention
+- Fan-out amplification
+- Search index lag
+- External provider latency
+</div></code></pre>
+<hr>
+<h2 id="105-cách-tìm-bottleneck-có-hệ-thống">105. Cách tìm bottleneck có hệ thống</h2>
+<p>Với mỗi request path:</p>
+<pre class="hljs"><code><div>1. Thành phần nào nhận nhiều QPS nhất?
+2. Thành phần nào có state?
+3. Thành phần nào cần coordination?
+4. Thành phần nào có payload lớn?
+5. Thành phần nào là external dependency?
+6. Thành phần nào có hot key?
+</div></code></pre>
+<hr>
+<h2 id="106-scale-reads">106. Scale reads</h2>
+<p>Các công cụ:</p>
+<pre class="hljs"><code><div>- Cache
+- CDN
+- Read replicas
+- Denormalized views
+- Precomputation
+- Pagination
+</div></code></pre>
+<hr>
+<h2 id="107-scale-writes">107. Scale writes</h2>
+<p>Các công cụ:</p>
+<pre class="hljs"><code><div>- Partitioning
+- Batching
+- Append-only logs
+- Async processing
+- Sharded counters
+- Admission control
+</div></code></pre>
+<hr>
+<h2 id="108-scale-coordination">108. Scale coordination</h2>
+<p>Coordination là phần khó scale nhất:</p>
+<pre class="hljs"><code><div>- Unique allocation
+- Wallet balance
+- Inventory
+- Leader election
+</div></code></pre>
+<p>Không thể chỉ “thêm server” để giải quyết.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Ownership
+- Partitioning
+- Conditional writes
+- Single writer
+- Queue serialization
+</div></code></pre>
+<hr>
+<h2 id="109-scale-hot-events">109. Scale hot events</h2>
+<p>Hot event giải pháp:</p>
+<pre class="hljs"><code><div>- Waiting room
+- Token admission
+- Separate resource pool
+- Cache static data
+- Event-specific shard
+- Backpressure
+</div></code></pre>
+<p>Không cho hàng triệu requests cùng chạm transactional store.</p>
+<hr>
+<h1 id="phần-xxi--trình-bày-trade-off">Phần XXI — Trình bày Trade-Off</h1>
+<h2 id="110-công-thức-nói-trade-off">110. Công thức nói trade-off</h2>
+<p>Dùng cấu trúc:</p>
+<pre class="hljs"><code><div>Tôi chọn A vì requirement X.
+
+Đổi lại, A gây nhược điểm Y.
+
+Tôi giảm Y bằng Z.
+
+Nếu requirement thay đổi sang Q,
+tôi sẽ cân nhắc B.
+</div></code></pre>
+<p>Ví dụ:</p>
+<blockquote>
+<p>Tôi chọn fan-out on write cho users bình thường vì read latency là ưu tiên và follower count vừa phải. Đổi lại, write amplification tăng. Tôi giảm điều đó bằng asynchronous fan-out và chuyển celebrity accounts sang fan-out on read.</p>
+</blockquote>
+<hr>
+<h2 id="111-không-nói-a-tốt-hơn-b-tuyệt-đối">111. Không nói “A tốt hơn B” tuyệt đối</h2>
+<p>Nói:</p>
+<pre class="hljs"><code><div>A tốt hơn khi...
+B tốt hơn khi...
+</div></code></pre>
+<p>Ví dụ:</p>
+<table>
+<thead>
+<tr>
+<th>Phương án</th>
+<th>Tốt khi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SQL</td>
+<td>Transaction và constraints quan trọng</td>
+</tr>
+<tr>
+<td>NoSQL</td>
+<td>Scale/write/access pattern đơn giản</td>
+</tr>
+<tr>
+<td>Push</td>
+<td>Read-heavy, fan-out vừa</td>
+</tr>
+<tr>
+<td>Pull</td>
+<td>Celebrity/high fan-out</td>
+</tr>
+<tr>
+<td>Sync</td>
+<td>Caller cần kết quả ngay</td>
+</tr>
+<tr>
+<td>Async</td>
+<td>Side effect và spike absorption</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="112-khi-chưa-chắc-chắn">112. Khi chưa chắc chắn</h2>
+<p>Có thể nói:</p>
+<blockquote>
+<p>Tôi sẽ bắt đầu với phương án đơn giản hơn vì tải hiện tại chưa yêu cầu coordination phức tạp. Khi metric X vượt ngưỡng Y, hệ thống có thể chuyển sang phương án Z.</p>
+</blockquote>
+<p>Đây là architecture evolution.</p>
+<hr>
+<h1 id="phần-xxii--cách-vẽ-và-nói">Phần XXII — Cách Vẽ và Nói</h1>
+<h2 id="113-vẽ-theo-luồng-request">113. Vẽ theo luồng request</h2>
+<p>Không vẽ 20 hộp ngay.</p>
+<p>Thứ tự:</p>
+<pre class="hljs"><code><div>1. Client và edge.
+2. Core service.
+3. Primary store.
+4. Cache.
+5. Async stream.
+6. Downstream.
+</div></code></pre>
+<hr>
+<h2 id="114-gắn-nhãn-các-mũi-tên">114. Gắn nhãn các mũi tên</h2>
+<p>Thay vì mũi tên không nghĩa, ghi:</p>
+<pre class="hljs"><code><div>CreateOrder
+OrderCreated event
+Read cache
+Direct upload
+Replication
+</div></code></pre>
+<hr>
+<h2 id="115-đánh-dấu-source-of-truth">115. Đánh dấu source of truth</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order DB
+[Authoritative]
+</div></code></pre>
+<pre class="hljs"><code><div>Search Index
+[Derived]
+</div></code></pre>
+<p>Điều này làm thiết kế rõ hơn.</p>
+<hr>
+<h2 id="116-nói-trong-lúc-vẽ">116. Nói trong lúc vẽ</h2>
+<p>Không im lặng quá lâu.</p>
+<p>Ví dụ:</p>
+<blockquote>
+<p>Request đi qua API Gateway tới Order Service. Order Service sẽ không gọi notification trong critical path; sau khi commit order và outbox, event được phát để notification xử lý bất đồng bộ.</p>
+</blockquote>
+<hr>
+<h2 id="117-đưa-người-phỏng-vấn-vào-quyết-định">117. Đưa người phỏng vấn vào quyết định</h2>
+<p>Ví dụ:</p>
+<blockquote>
+<p>Phần rủi ro lớn nhất ở đây là inventory contention. Tôi sẽ đào sâu vào hold và payment race trước, sau đó quay lại multi-region nếu còn thời gian.</p>
+</blockquote>
+<p>Đây là giao tiếp chủ động, không phải xin phép liên tục.</p>
+<hr>
+<h1 id="phần-xxiii--câu-hỏi-deep-dive-thường-gặp">Phần XXIII — Câu hỏi Deep Dive thường gặp</h1>
+<h2 id="118-hệ-thống-này-scale-thế-nào">118. “Hệ thống này scale thế nào?”</h2>
+<p>Trả lời theo từng dimension:</p>
+<pre class="hljs"><code><div>- Stateless services: horizontal scale
+- Reads: cache/read replicas
+- Writes: sharding
+- Blobs: object storage/CDN
+- Async work: queue/worker pools
+- Hot keys: dedicated partition/admission control
+</div></code></pre>
+<hr>
+<h2 id="119-database-bị-lỗi-thì-sao">119. “Database bị lỗi thì sao?”</h2>
+<p>Nêu:</p>
+<pre class="hljs"><code><div>- Replication
+- Failover
+- RPO/RTO
+- In-flight requests
+- Idempotent retry
+- Rebuild caches/indexes
+</div></code></pre>
+<hr>
+<h2 id="120-làm-sao-tránh-duplicate">120. “Làm sao tránh duplicate?”</h2>
+<p>Nêu:</p>
+<pre class="hljs"><code><div>- Stable request identity
+- Unique constraint
+- Idempotency record
+- Event inbox
+- Business reference
+</div></code></pre>
+<hr>
+<h2 id="121-làm-sao-bảo-đảm-ordering">121. “Làm sao bảo đảm ordering?”</h2>
+<p>Hỏi lại scope:</p>
+<pre class="hljs"><code><div>Global ordering hay per entity?
+</div></code></pre>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>- Partition theo aggregate
+- Sequence/version
+- Single writer
+- Buffer gaps
+</div></code></pre>
+<hr>
+<h2 id="122-làm-sao-xử-lý-hot-key">122. “Làm sao xử lý hot key?”</h2>
+<pre class="hljs"><code><div>- Cache
+- Replicate reads
+- Salt/bucket
+- Dedicated shard
+- Hybrid strategy
+- Admission control
+</div></code></pre>
+<hr>
+<h2 id="123-nếu-queue-bị-duplicate">123. “Nếu queue bị duplicate?”</h2>
+<pre class="hljs"><code><div>At-least-once delivery
++
+Idempotent consumer
++
+Inbox/business dedupe
+</div></code></pre>
+<hr>
+<h2 id="124-exactly-once">124. “Exactly once?”</h2>
+<p>Trả lời thực tế:</p>
+<blockquote>
+<p>Tôi không dựa vào exactly-once transport xuyên toàn hệ thống. Tôi dùng at-least-once delivery, stable identities, idempotent effects và reconciliation để đạt effectively-once business semantics.</p>
+</blockquote>
+<hr>
+<h1 id="phần-xxiv--những-lỗi-phỏng-vấn-phổ-biến">Phần XXIV — Những Lỗi Phỏng vấn Phổ biến</h1>
+<h2 id="125-vẽ-kiến-trúc-trước-khi-hỏi-yêu-cầu">125. Vẽ kiến trúc trước khi hỏi yêu cầu</h2>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Thiết kế đúng cho một sản phẩm khác.
+</div></code></pre>
+<hr>
+<h2 id="126-liệt-kê-công-nghệ-thay-vì-thiết-kế">126. Liệt kê công nghệ thay vì thiết kế</h2>
+<pre class="hljs"><code><div>Kafka + Redis + Cassandra
+</div></code></pre>
+<p>không giải thích được data flow hoặc invariant.</p>
+<hr>
+<h2 id="127-không-xác-định-source-of-truth">127. Không xác định source of truth</h2>
+<p>Dẫn tới mơ hồ:</p>
+<pre class="hljs"><code><div>Cache hay database quyết định inventory?
+Webhook hay payment record quyết định success?
+</div></code></pre>
+<hr>
+<h2 id="128-dùng-cache-để-bảo-đảm-correctness">128. Dùng cache để bảo đảm correctness</h2>
+<p>Cache thường không phải nơi phù hợp duy nhất cho:</p>
+<pre class="hljs"><code><div>- Financial balance
+- Seat allocation
+- Permission revocation
+</div></code></pre>
+<hr>
+<h2 id="129-không-xử-lý-retry">129. Không xử lý retry</h2>
+<p>Bất kỳ endpoint mutation nào cũng cần suy nghĩ về duplicate.</p>
+<hr>
+<h2 id="130-coi-timeout-là-failure">130. Coi timeout là failure</h2>
+<p>Đặc biệt nguy hiểm với:</p>
+<pre class="hljs"><code><div>- Payment
+- Shipment creation
+- Ticket issuance
+</div></code></pre>
+<hr>
+<h2 id="131-một-status-cho-mọi-lifecycle">131. Một status cho mọi lifecycle</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>order.status = PROCESSING
+</div></code></pre>
+<p>không biểu diễn được:</p>
+<pre class="hljs"><code><div>Payment captured
+Shipment partial
+Return requested
+</div></code></pre>
+<hr>
+<h2 id="132-dùng-distributed-transaction-cho-mọi-thứ">132. Dùng distributed transaction cho mọi thứ</h2>
+<p>Làm hệ thống:</p>
+<pre class="hljs"><code><div>- Coupled
+- Latency cao
+- Availability thấp
+</div></code></pre>
+<p>Chỉ dùng khi cần và có platform hỗ trợ phù hợp.</p>
+<hr>
+<h2 id="133-event-driven-nhưng-không-có-idempotency">133. Event-driven nhưng không có idempotency</h2>
+<p>Duplicate events sẽ tạo duplicate effects.</p>
+<hr>
+<h2 id="134-multi-region-bằng-cách-replicate-database">134. Multi-region bằng cách “replicate database”</h2>
+<p>Chưa trả lời:</p>
+<pre class="hljs"><code><div>- Writer ở đâu?
+- Conflict thế nào?
+- Failover fencing?
+- Replication lag?
+</div></code></pre>
+<hr>
+<h2 id="135-không-đề-cập-failure-mode">135. Không đề cập failure mode</h2>
+<p>Production system chắc chắn lỗi.</p>
+<p>Một thiết kế không có timeout, retry, failover và reconciliation là chưa hoàn chỉnh.</p>
+<hr>
+<h2 id="136-đi-quá-sâu-quá-sớm">136. Đi quá sâu quá sớm</h2>
+<p>Ví dụ dành 15 phút cho schema cache trước khi vẽ core flow.</p>
+<p>Cần breadth trước, depth sau.</p>
+<hr>
+<h2 id="137-cố-thiết-kế-toàn-bộ-thế-giới">137. Cố thiết kế toàn bộ thế giới</h2>
+<p>Hãy ưu tiên:</p>
+<pre class="hljs"><code><div>- Core use cases
+- Main invariant
+- Main bottleneck
+</div></code></pre>
+<hr>
+<h1 id="phần-xxv--checklist-45-phút">Phần XXV — Checklist 45 phút</h1>
+<h2 id="138-checklist-làm-rõ">138. Checklist làm rõ</h2>
+<pre class="hljs"><code><div>□ Actors là ai?
+□ Core use cases?
+□ Out of scope?
+□ Read/write ratio?
+□ Scale?
+□ Latency?
+□ Availability?
+□ Consistency?
+□ Main invariant?
+□ Global hay regional?
+</div></code></pre>
+<hr>
+<h2 id="139-checklist-architecture">139. Checklist architecture</h2>
+<pre class="hljs"><code><div>□ Client/edge
+□ Core services
+□ Authoritative stores
+□ Cache/CDN
+□ Async stream
+□ Derived indexes
+□ Critical request flow
+□ Data partitioning
+</div></code></pre>
+<hr>
+<h2 id="140-checklist-correctness">140. Checklist correctness</h2>
+<pre class="hljs"><code><div>□ Idempotency
+□ Duplicate events
+□ Ordering
+□ Concurrent writes
+□ Timeout unknown state
+□ Saga compensation
+□ Reconciliation
+</div></code></pre>
+<hr>
+<h2 id="141-checklist-reliability">141. Checklist reliability</h2>
+<pre class="hljs"><code><div>□ Timeouts
+□ Retry/backoff
+□ Circuit breaker
+□ Queue lag
+□ Failover
+□ RPO/RTO
+□ Graceful degradation
+□ Observability
+</div></code></pre>
+<hr>
+<h2 id="142-checklist-trade-off">142. Checklist trade-off</h2>
+<pre class="hljs"><code><div>□ Vì sao chọn database?
+□ Vì sao sync/async?
+□ Vì sao cache?
+□ Vì sao shard key này?
+□ Consistency nào?
+□ Phương án thay thế?
+□ Khi nào kiến trúc cần tiến hóa?
+</div></code></pre>
+<hr>
+<h1 id="phần-xxvi--mock-interview-hoàn-chỉnh">Phần XXVI — Mock Interview Hoàn Chỉnh</h1>
+<h2 id="đề-bài">Đề bài</h2>
+<blockquote>
+<p>Thiết kế một hệ thống đặt vé concert trực tuyến có thể chịu được hàng triệu người truy cập đồng thời và không bán trùng ghế.</p>
+</blockquote>
+<p>Mock interview dưới đây mô phỏng cách nói trong khoảng 45 phút.</p>
+<hr>
+<h2 id="143-phút-03-làm-rõ-phạm-vi">143. Phút 0–3: Làm rõ phạm vi</h2>
+<h3 id="ứng-viên">Ứng viên</h3>
+<blockquote>
+<p>Tôi muốn làm rõ loại inventory. Ta hỗ trợ cả ghế được chỉ định và khu vực general admission, hay chỉ reserved seating?</p>
+</blockquote>
+<h3 id="người-phỏng-vấn">Người phỏng vấn</h3>
+<blockquote>
+<p>Hỗ trợ cả hai, nhưng reserved seating là trọng tâm.</p>
+</blockquote>
+<h3 id="ứng-viên-1">Ứng viên</h3>
+<blockquote>
+<p>Người dùng có cần resale, transfer và check-in tại cổng trong phạm vi không?</p>
+</blockquote>
+<h3 id="người-phỏng-vấn-1">Người phỏng vấn</h3>
+<blockquote>
+<p>Transfer và check-in có. Resale chỉ cần nói ở mức cao.</p>
+</blockquote>
+<h3 id="ứng-viên-2">Ứng viên</h3>
+<blockquote>
+<p>Với sự kiện hot, có yêu cầu waiting room không?</p>
+</blockquote>
+<h3 id="người-phỏng-vấn-2">Người phỏng vấn</h3>
+<blockquote>
+<p>Có, một concert có thể có 10 triệu người truy cập gần như đồng thời.</p>
+</blockquote>
+<h3 id="ứng-viên-3">Ứng viên</h3>
+<blockquote>
+<p>Tôi sẽ tập trung vào discovery, seat map, waiting room, temporary hold, payment, booking, ticket issuance và check-in. Recommendation và settlement chuyên sâu nằm ngoài phạm vi.</p>
+</blockquote>
+<hr>
+<h2 id="144-phút-35-chốt-requirements">144. Phút 3–5: Chốt requirements</h2>
+<h3 id="functional">Functional</h3>
+<pre class="hljs"><code><div>- Browse event
+- View seat map
+- Join waiting room
+- Select seats
+- Hold seats
+- Pay
+- Receive tickets
+- Transfer ticket
+- Scan ticket
+</div></code></pre>
+<h3 id="non-functional">Non-functional</h3>
+<pre class="hljs"><code><div>- Không oversell
+- Không double charge
+- Hold expiry tự động
+- Event page latency thấp
+- Hot event isolation
+- Multi-region
+- Gate validation hoạt động khi mạng yếu
+</div></code></pre>
+<h3 id="invariants">Invariants</h3>
+<pre class="hljs"><code><div>1. Một seat chỉ có một confirmed booking.
+2. Một active seat allocation chỉ thuộc một hold hoặc booking.
+3. Một checkout retry không tạo booking thứ hai.
+4. Một ticket chỉ được sử dụng một lần.
+</div></code></pre>
+<hr>
+<h2 id="145-phút-58-capacity-estimation">145. Phút 5–8: Capacity estimation</h2>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>50.000 ghế/event
+10 triệu visitors cho hot event
+2 triệu requests/giây tại edge
+100.000 users được admission đồng thời
+10.000 hold attempts/giây
+</div></code></pre>
+<p>Seat map geometry:</p>
+<pre class="hljs"><code><div>50.000 seats × khoảng 100 bytes
+≈ 5 MB raw
+</div></code></pre>
+<p>Geometry có thể chia thành tiles và cache CDN.</p>
+<p>Inventory write volume không lớn bằng edge traffic, nhưng contention rất cao trên cùng event.</p>
+<h3 id="kết-luận">Kết luận</h3>
+<pre class="hljs"><code><div>- CDN cho event/seat geometry
+- Waiting room để giảm từ hàng triệu RPS xuống mức purchase backend chịu được
+- Inventory owner theo event
+- Strong conditional updates cho holds
+</div></code></pre>
+<hr>
+<h2 id="146-phút-812-api">146. Phút 8–12: API</h2>
+<h3 id="join-waiting-room">Join waiting room</h3>
+<pre class="hljs"><code><div>POST /v1/events/{eventId}/queue
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;queueToken&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;estimatedWaitSeconds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">600</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<h3 id="read-seat-availability">Read seat availability</h3>
+<pre class="hljs"><code><div>GET /v1/events/{eventId}/sections/{sectionId}/availability
+</div></code></pre>
+<h3 id="create-hold">Create hold</h3>
+<pre class="hljs"><code><div>POST /v1/events/{eventId}/holds
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>client-hold-123
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;seatIds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;A-12-15&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;A-12-16&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;admissionToken&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<h3 id="confirm-checkout">Confirm checkout</h3>
+<pre class="hljs"><code><div>POST /v1/checkouts/{checkoutId}/confirm
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>checkout-confirm-123
+</div></code></pre>
+<h3 id="validate-ticket">Validate ticket</h3>
+<pre class="hljs"><code><div>POST /v1/events/{eventId}/scans
+</div></code></pre>
+<hr>
+<h2 id="147-phút-1215-data-model">147. Phút 12–15: Data model</h2>
+<h3 id="seat-inventory">Seat inventory</h3>
+<pre class="hljs"><code><div>SeatInventory
+- eventId
+- seatId
+- state
+- holdId
+- bookingId
+- holdExpiresAt
+- version
+</div></code></pre>
+<h3 id="hold">Hold</h3>
+<pre class="hljs"><code><div>Hold
+- holdId
+- eventId
+- customerId
+- status
+- expiresAt
+- version
+</div></code></pre>
+<h3 id="booking">Booking</h3>
+<pre class="hljs"><code><div>Booking
+- bookingId
+- customerId
+- eventId
+- paymentIntentId
+- status
+- version
+</div></code></pre>
+<h3 id="ticket">Ticket</h3>
+<pre class="hljs"><code><div>Ticket
+- ticketId
+- bookingId
+- seatId
+- ownerId
+- state
+- credentialVersion
+</div></code></pre>
+<hr>
+<h2 id="148-phút-1520-high-level-architecture">148. Phút 15–20: High-level architecture</h2>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Edge[Global Edge / CDN]
+    Edge --> Discovery[Event Discovery]
+    Edge --> Queue[Waiting Room]
+    Edge --> SeatMap[Seat Map Service]
+    Edge --> Reservation[Reservation Service]
+    Edge --> Checkout[Checkout Service]
+
+    Discovery --> Search[(Search Index)]
+    Discovery --> Catalog[(Event Catalog)]
+
+    Queue --> QueueStore[(Queue State)]
+    Queue --> Admission[Admission Token Issuer]
+
+    SeatMap --> Geometry[(Static Seat Geometry)]
+    SeatMap --> Availability[(Availability Projection)]
+
+    Reservation --> Inventory[(Authoritative Inventory DB)]
+    Reservation --> Holds[(Hold Store)]
+    Reservation --> Expiry[Expiry Scheduler]
+
+    Checkout --> Payment
+    Checkout --> BookingService
+    BookingService --> BookingDB[(Booking DB)]
+    BookingService --> Inventory
+    BookingService --> Outbox[(Outbox)]
+
+    Outbox --> Events
+    Events --> TicketIssuer
+    TicketIssuer --> TicketDB[(Ticket Store)]
+
+    TicketDB --> GateValidation
+</div></code></pre>
+<h3 id="giải-thích">Giải thích</h3>
+<blockquote>
+<p>Event page và seat geometry được cache qua CDN. Waiting room không cho toàn bộ traffic chạm purchase backend. Availability projection phục vụ UI nhưng Reservation Service luôn kiểm tra authoritative inventory.</p>
+</blockquote>
+<hr>
+<h2 id="149-phút-2025-hold-flow">149. Phút 20–25: Hold flow</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant U as User
+    participant R as Reservation
+    participant DB as Inventory DB
+    participant E as Expiry Scheduler
+
+    U->>R: Hold seats A15, A16
+    R->>DB: Begin transaction
+    DB->>DB: Conditional AVAILABLE → HELD
+    DB->>DB: Insert hold ACTIVE
+    DB->>DB: Insert expiry outbox
+    DB-->>R: Commit
+    R-->>U: holdId + expiresAt
+    DB-->>E: Hold-expiry event
+</div></code></pre>
+<p>Transaction:</p>
+<pre class="hljs"><code><div>1. Sort seat IDs để tránh deadlock.
+2. Lock hoặc conditionally update mọi seat.
+3. Nếu một seat không available → rollback.
+4. Tạo hold.
+5. Ghi expiry event.
+</div></code></pre>
+<hr>
+<h2 id="150-phút-2528-hold-expiry">150. Phút 25–28: Hold expiry</h2>
+<blockquote>
+<p>Tôi không phụ thuộc hoàn toàn vào timer. Mỗi seat giữ <code>holdExpiresAt</code>. Expiry worker chủ động release, nhưng một request mới cũng có thể reclaim một expired hold atomically.</p>
+</blockquote>
+<p>Expiry worker:</p>
+<pre class="hljs"><code><div>ACTIVE hold + expiresAt &lt;= now
+→ EXPIRED
+→ seats AVAILABLE
+</div></code></pre>
+<p>Dùng compare-and-set để không release hold đã <code>CONSUMED</code>.</p>
+<hr>
+<h2 id="151-phút-2832-checkout-và-payment">151. Phút 28–32: Checkout và payment</h2>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Validate hold ACTIVE.
+2. Tạo/confirm Payment Intent.
+3. Authorize payment.
+4. Trong một transaction:
+   - Hold ACTIVE → CONSUMED
+   - Seats HELD → SOLD
+   - Create booking
+   - Insert BookingConfirmed outbox
+5. Capture payment.
+6. Issue tickets async.
+</div></code></pre>
+<h3 id="người-phỏng-vấn-3">Người phỏng vấn</h3>
+<blockquote>
+<p>Nếu payment authorization thành công nhưng booking transaction thất bại thì sao?</p>
+</blockquote>
+<h3 id="ứng-viên-4">Ứng viên</h3>
+<blockquote>
+<p>Tôi void authorization. Nếu provider timeout khiến outcome chưa rõ, payment state là UNKNOWN. Tôi không tạo payment mới; tôi query provider hoặc chờ webhook. Trong thời gian ngắn, inventory có thể chuyển sang PAYMENT_PENDING để tránh bán ghế trong khi outcome đang được xác minh.</p>
+</blockquote>
+<hr>
+<h2 id="152-phút-3235-waiting-room">152. Phút 32–35: Waiting room</h2>
+<h3 id="thiết-kế">Thiết kế</h3>
+<pre class="hljs"><code><div>Edge-local prequeue
+→ Central event admission allocator
+→ Signed admission tokens
+</div></code></pre>
+<p>Central allocator phát quota:</p>
+<pre class="hljs"><code><div>Region A: 2.000 admissions/giây
+Region B: 1.500 admissions/giây
+</div></code></pre>
+<p>Dựa trên:</p>
+<pre class="hljs"><code><div>- Hold Service latency
+- Inventory conflicts
+- Active checkouts
+- Payment capacity
+</div></code></pre>
+<p>Admission token:</p>
+<pre class="hljs"><code><div>eventId
+visitorId
+issuedAt
+expiresAt
+nonce
+signature
+</div></code></pre>
+<p>Purchase APIs verify token server-side.</p>
+<hr>
+<h2 id="153-phút-3538-ticket-issuance-và-check-in">153. Phút 35–38: Ticket issuance và check-in</h2>
+<p>Ticket Issuer consume <code>BookingConfirmed</code>.</p>
+<p>Dùng unique business key:</p>
+<pre class="hljs"><code><div>bookingId + seatId
+</div></code></pre>
+<p>để tránh issue duplicate.</p>
+<p>Ticket credential:</p>
+<pre class="hljs"><code><div>ticketId
+eventId
+credentialVersion
+short expiration
+signature
+</div></code></pre>
+<p>Gate validation:</p>
+<pre class="hljs"><code><div>ACTIVE → USED
+</div></code></pre>
+<p>bằng conditional update.</p>
+<hr>
+<h2 id="154-phút-3840-venue-offline">154. Phút 38–40: Venue offline</h2>
+<blockquote>
+<p>Tôi đặt một venue edge server trong local network. Trước sự kiện, nó nhận active ticket snapshot và revocation list. Các scanners gọi edge server nên vẫn có atomic check-in trong venue ngay cả khi internet ngoài venue mất. Edge server upload scan log về cloud khi reconnect.</p>
+</blockquote>
+<p>Nếu mọi scanner hoàn toàn độc lập và offline:</p>
+<pre class="hljs"><code><div>Không thể vừa bảo đảm availability tuyệt đối
+vừa bảo đảm không double scan giữa scanners.
+</div></code></pre>
+<p>Đây là consistency/availability trade-off khi partition.</p>
+<hr>
+<h2 id="155-phút-4042-multi-region">155. Phút 40–42: Multi-region</h2>
+<p>Mỗi event có:</p>
+<pre class="hljs"><code><div>homeRegion
+ownerEpoch
+</div></code></pre>
+<p>Mọi inventory write route tới owner.</p>
+<p>Failover:</p>
+<pre class="hljs"><code><div>1. Dừng admission mới.
+2. Promote replica.
+3. Tăng owner epoch.
+4. Fence writer cũ.
+5. Restore hold timers.
+6. Reconcile payment UNKNOWN.
+7. Mở admission dần.
+</div></code></pre>
+<p>Toàn nền tảng active–active theo event, nhưng từng event chỉ có một inventory writer hợp lệ.</p>
+<hr>
+<h2 id="156-phút-4244-observability">156. Phút 42–44: Observability</h2>
+<p>Theo dõi:</p>
+<pre class="hljs"><code><div>- Queue wait time
+- Admission rate
+- Hold success/conflict
+- Active/expired holds
+- Hold-to-booking conversion
+- Payment UNKNOWN
+- Booking latency
+- Ticket issuance lag
+- Duplicate scan attempts
+- Oversell invariant violations
+</div></code></pre>
+<p>Alert severity cao:</p>
+<pre class="hljs"><code><div>- Seat liên kết hai bookings
+- Payment captured không có booking
+- Booking confirmed không có sold allocation
+</div></code></pre>
+<hr>
+<h2 id="157-phút-4445-tổng-kết-mock-interview">157. Phút 44–45: Tổng kết mock interview</h2>
+<h3 id="ứng-viên-5">Ứng viên</h3>
+<blockquote>
+<p>Thiết kế tách browse path khỏi purchase path. Event metadata và seat geometry được cache mạnh; waiting room giới hạn số người tiếp cận inventory. Mỗi event có một inventory owner. Reserved seats được giữ bằng multi-row conditional transaction có TTL. Checkout authorize payment trước, sau đó atomically consume hold và tạo booking. Ticket issuance là async nhưng idempotent. Multi-region failover dùng owner epoch và fencing để không có hai writers cùng bán ghế.</p>
+</blockquote>
+<p>Đây là một kết thúc mạnh vì nhắc lại:</p>
+<pre class="hljs"><code><div>- Phạm vi
+- Correctness
+- Scale
+- Reliability
+- Trade-off
+</div></code></pre>
+<hr>
+<h1 id="phần-xxvii--đánh-giá-mock-interview">Phần XXVII — Đánh giá Mock Interview</h1>
+<h2 id="158-những-điểm-làm-tốt">158. Những điểm làm tốt</h2>
+<pre class="hljs"><code><div>- Làm rõ reserved vs general admission.
+- Xác định invariant trước.
+- Dùng waiting room thay vì scale inventory mù.
+- Phân biệt availability projection và authoritative inventory.
+- Hold nhiều ghế atomic.
+- Xử lý expiry race.
+- Timeout payment là UNKNOWN.
+- Ticket issuance idempotent.
+- Multi-region có owner và fencing.
+</div></code></pre>
+<hr>
+<h2 id="159-những-câu-hỏi-mở-rộng-người-phỏng-vấn-có-thể-hỏi">159. Những câu hỏi mở rộng người phỏng vấn có thể hỏi</h2>
+<pre class="hljs"><code><div>- General admission hot counter scale thế nào?
+- Best available seats tìm ra sao?
+- Queue fairness thế nào?
+- Resale lock ticket ra sao?
+- Event cancellation refund hàng triệu bookings thế nào?
+- Data residency ảnh hưởng booking store thế nào?
+</div></code></pre>
+<p>Ứng viên không cần trả lời tất cả nếu hết thời gian, nhưng phải biết hướng tiếp cận.</p>
+<hr>
+<h1 id="phần-xxviii--bộ-framework-theo-loại-hệ-thống">Phần XXVIII — Bộ Framework Theo Loại Hệ Thống</h1>
+<h2 id="160-read-heavy-content-system">160. Read-heavy content system</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>News Feed
+Video
+Catalog
+Search
+</div></code></pre>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>- Cache/CDN
+- Precomputation
+- Read replicas
+- Denormalization
+- Pagination
+</div></code></pre>
+<hr>
+<h2 id="161-transactional-system">161. Transactional system</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment
+Booking
+Inventory
+Wallet
+</div></code></pre>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>- Invariants
+- Idempotency
+- Conditional writes
+- Transactions
+- Audit
+- Reconciliation
+</div></code></pre>
+<hr>
+<h2 id="162-realtime-communication-system">162. Realtime communication system</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Chat
+Presence
+Tracking
+</div></code></pre>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>- Persistent connections
+- Connection routing
+- Ordering scope
+- Delivery state
+- Offline sync
+- Backpressure
+</div></code></pre>
+<hr>
+<h2 id="163-blobdata-pipeline-system">163. Blob/data pipeline system</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Cloud storage
+Video platform
+Web crawler
+Monitoring
+</div></code></pre>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>- Control plane/data plane
+- Direct upload
+- Chunking
+- Object storage
+- Async processing
+- Retention
+- Reprocessing
+</div></code></pre>
+<hr>
+<h2 id="164-geo-distributed-matching-system">164. Geo-distributed matching system</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Ride-hailing
+Food delivery
+</div></code></pre>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>- Location ingestion
+- Geo index
+- Freshness
+- Candidate matching
+- State machine
+- Regional locality
+</div></code></pre>
+<hr>
+<h1 id="phần-xxix--câu-mẫu-có-thể-dùng-trong-phỏng-vấn">Phần XXIX — Câu Mẫu Có Thể Dùng Trong Phỏng Vấn</h1>
+<h2 id="165-khi-chọn-database">165. Khi chọn database</h2>
+<blockquote>
+<p>Access pattern chính là lookup theo conversation ID và scan messages theo sequence, nên tôi partition theo conversation ID và sort theo message sequence. Một wide-column hoặc partitioned relational store đều có thể phù hợp; lựa chọn cuối phụ thuộc transaction và operational constraints.</p>
+</blockquote>
+<hr>
+<h2 id="166-khi-chọn-eventual-consistency">166. Khi chọn eventual consistency</h2>
+<blockquote>
+<p>Search index có thể chậm vài giây vì checkout sẽ revalidate product, price và inventory trên authoritative services. Tôi chấp nhận staleness ở discovery để có read throughput cao.</p>
+</blockquote>
+<hr>
+<h2 id="167-khi-chọn-strong-consistency">167. Khi chọn strong consistency</h2>
+<blockquote>
+<p>Wallet debit là invariant tài chính nên tôi serialize mutations theo wallet owner và commit ledger postings cùng balance update. Tôi không dùng eventual counter cho spendable balance.</p>
+</blockquote>
+<hr>
+<h2 id="168-khi-dùng-queue">168. Khi dùng queue</h2>
+<blockquote>
+<p>Tôi đưa thumbnail generation ra khỏi upload critical path. File commit chỉ cần metadata và blob durable; thumbnail worker consume event, retry độc lập và không ảnh hưởng khả năng download file gốc.</p>
+</blockquote>
+<hr>
+<h2 id="169-khi-dùng-cache">169. Khi dùng cache</h2>
+<blockquote>
+<p>Cache chứa read model để giảm latency, nhưng mutation luôn recheck database. Điều này cho phép cache stale mà không phá inventory correctness.</p>
+</blockquote>
+<hr>
+<h2 id="170-khi-nói-về-failover">170. Khi nói về failover</h2>
+<blockquote>
+<p>Tôi không chỉ đổi traffic sang region khác. New owner phải được cấp epoch cao hơn và storage phải fence writer cũ trước khi nhận writes mới.</p>
+</blockquote>
+<hr>
+<h2 id="171-khi-bị-hỏi-còn-gì-nữa">171. Khi bị hỏi “còn gì nữa?”</h2>
+<blockquote>
+<p>Các phần tiếp theo tôi sẽ ưu tiên là failure recovery, observability và architecture evolution. Rủi ro lớn nhất hiện tại là hot partition tại X, nên tôi sẽ đào sâu vào admission control và ownership trước.</p>
+</blockquote>
+<hr>
+<h1 id="phần-xxx--rubric-tự-chấm">Phần XXX — Rubric Tự Chấm</h1>
+<h2 id="172-thang-điểm-100">172. Thang điểm 100</h2>
+<table>
+<thead>
+<tr>
+<th>Hạng mục</th>
+<th style="text-align:right">Điểm</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requirements</td>
+<td style="text-align:right">10</td>
+</tr>
+<tr>
+<td>Scale estimation</td>
+<td style="text-align:right">10</td>
+</tr>
+<tr>
+<td>API/data model</td>
+<td style="text-align:right">10</td>
+</tr>
+<tr>
+<td>High-level architecture</td>
+<td style="text-align:right">15</td>
+</tr>
+<tr>
+<td>Core flow</td>
+<td style="text-align:right">15</td>
+</tr>
+<tr>
+<td>Correctness</td>
+<td style="text-align:right">15</td>
+</tr>
+<tr>
+<td>Reliability</td>
+<td style="text-align:right">10</td>
+</tr>
+<tr>
+<td>Trade-offs</td>
+<td style="text-align:right">10</td>
+</tr>
+<tr>
+<td>Communication</td>
+<td style="text-align:right">5</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="173-mức-040">173. Mức 0–40</h2>
+<pre class="hljs"><code><div>- Nhảy vào công nghệ.
+- Không có data flow.
+- Không có invariant.
+- Không xử lý scale hoặc failure.
+</div></code></pre>
+<hr>
+<h2 id="174-mức-4060">174. Mức 40–60</h2>
+<pre class="hljs"><code><div>- Có kiến trúc cơ bản.
+- Có database và cache.
+- Thiếu idempotency, ordering hoặc failover.
+- Trade-off chưa rõ.
+</div></code></pre>
+<hr>
+<h2 id="175-mức-6080">175. Mức 60–80</h2>
+<pre class="hljs"><code><div>- Phạm vi rõ.
+- Scale hợp lý.
+- Core flow vững.
+- Có consistency và reliability.
+- Một vài deep dives chưa đủ sâu.
+</div></code></pre>
+<hr>
+<h2 id="176-mức-80100">176. Mức 80–100</h2>
+<pre class="hljs"><code><div>- Điều khiển cuộc thảo luận tốt.
+- Invariant và source of truth rõ.
+- Deep dive đúng bottleneck.
+- Failure recovery cụ thể.
+- Multi-region có ownership/fencing.
+- Trình bày trade-off mạch lạc.
+</div></code></pre>
+<hr>
+<h1 id="phần-xxxi--kế-hoạch-luyện-tập-sau-36-bài">Phần XXXI — Kế Hoạch Luyện Tập Sau 36 Bài</h1>
+<h2 id="177-giai-đoạn-1--luyện-framework">177. Giai đoạn 1 — Luyện framework</h2>
+<p>Trong mỗi đề, giới hạn 10 phút để viết:</p>
+<pre class="hljs"><code><div>- Requirements
+- Scale
+- Invariants
+- APIs
+- Entities
+</div></code></pre>
+<p>Không vẽ kiến trúc ngay.</p>
+<hr>
+<h2 id="178-giai-đoạn-2--luyện-core-flow">178. Giai đoạn 2 — Luyện core flow</h2>
+<p>Chọn một luồng:</p>
+<pre class="hljs"><code><div>- Send message
+- Place order
+- Upload file
+- Reserve seat
+- Publish post
+</div></code></pre>
+<p>Vẽ sequence diagram và trả lời:</p>
+<pre class="hljs"><code><div>- Retry?
+- Timeout?
+- Duplicate?
+- Crash ở từng bước?
+</div></code></pre>
+<hr>
+<h2 id="179-giai-đoạn-3--luyện-trade-off">179. Giai đoạn 3 — Luyện trade-off</h2>
+<p>Với mỗi thiết kế, tự so sánh:</p>
+<pre class="hljs"><code><div>- SQL vs NoSQL
+- Push vs pull
+- Sync vs async
+- Strong vs eventual
+- Cache vs source read
+- Single region vs multi-region
+</div></code></pre>
+<hr>
+<h2 id="180-giai-đoạn-4--mock-interview-có-giới-hạn-thời-gian">180. Giai đoạn 4 — Mock interview có giới hạn thời gian</h2>
+<p>Thực hiện:</p>
+<pre class="hljs"><code><div>5 phút requirements
+5 phút estimation/data
+10 phút architecture
+10 phút deep dive
+10 phút reliability
+5 phút summary
+</div></code></pre>
+<p>Ghi âm để kiểm tra:</p>
+<pre class="hljs"><code><div>- Có im lặng quá lâu không?
+- Có nói rõ giả định không?
+- Có dùng từ mơ hồ như “database nào đó” không?
+</div></code></pre>
+<hr>
+<h2 id="181-giai-đoạn-5--redesign-cùng-một-đề">181. Giai đoạn 5 — Redesign cùng một đề</h2>
+<p>Thiết kế cùng hệ thống với ba quy mô:</p>
+<pre class="hljs"><code><div>1. Startup: 100.000 users.
+2. Growth: 10 triệu users.
+3. Global: 1 tỷ users.
+</div></code></pre>
+<p>Mục tiêu là hiểu architecture evolution, không chỉ kiến trúc cuối cùng.</p>
+<hr>
+<h1 id="phần-xxxii--20-đề-mock-interview-nên-luyện">Phần XXXII — 20 Đề Mock Interview Nên Luyện</h1>
+<pre class="hljs"><code><div>1. URL Shortener
+2. Rate Limiter
+3. Notification System
+4. Chat System
+5. News Feed
+6. Video Streaming
+7. Search Autocomplete
+8. Ride-Hailing
+9. Food Delivery
+10. Payment System
+11. E-commerce
+12. Cloud File Storage
+13. Web Crawler
+14. Monitoring Platform
+15. Ticket Booking
+16. Calendar
+17. Collaborative Document Editor
+18. API Gateway
+19. Distributed Job Scheduler
+20. Feature Flag Platform
+</div></code></pre>
+<p>Mỗi đề nên luyện ít nhất hai lần:</p>
+<pre class="hljs"><code><div>Lần 1:
+Không giới hạn thời gian.
+
+Lần 2:
+45 phút.
+</div></code></pre>
+<hr>
+<h1 id="phần-xxxiii--cheat-sheet-cuối-cùng">Phần XXXIII — Cheat Sheet Cuối Cùng</h1>
+<h2 id="182-khi-thấy-nhiều-reads">182. Khi thấy “nhiều reads”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Cache
+CDN
+Read replicas
+Denormalization
+Precomputation
+Pagination
+</div></code></pre>
+<hr>
+<h2 id="183-khi-thấy-nhiều-writes">183. Khi thấy “nhiều writes”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Partitioning
+Batching
+Append-only log
+Async processing
+Backpressure
+</div></code></pre>
+<hr>
+<h2 id="184-khi-thấy-không-duplicate">184. Khi thấy “không duplicate”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Stable ID
+Idempotency key
+Unique constraint
+Inbox
+Business reference
+</div></code></pre>
+<hr>
+<h2 id="185-khi-thấy-không-overselldouble-spend">185. Khi thấy “không oversell/double spend”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Conditional write
+Transaction
+Single writer
+Owner shard
+Reservation
+</div></code></pre>
+<hr>
+<h2 id="186-khi-thấy-realtime">186. Khi thấy “realtime”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>WebSocket/SSE
+Connection registry
+Pub/sub
+Ordering scope
+Backpressure
+Offline recovery
+</div></code></pre>
+<hr>
+<h2 id="187-khi-thấy-filevideo-lớn">187. Khi thấy “file/video lớn”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Direct upload
+Multipart
+Resumable
+Object storage
+Checksum
+Async processing
+CDN
+</div></code></pre>
+<hr>
+<h2 id="188-khi-thấy-global">188. Khi thấy “global”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Regional edge
+Home region
+Replication
+Data residency
+Failover
+Owner epoch
+Conflict policy
+</div></code></pre>
+<hr>
+<h2 id="189-khi-thấy-hot-event">189. Khi thấy “hot event”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Waiting room
+Admission control
+Dedicated shard
+Resource isolation
+Token bucket
+Backpressure
+</div></code></pre>
+<hr>
+<h2 id="190-khi-thấy-external-provider">190. Khi thấy “external provider”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Timeout
+Unknown outcome
+Stable provider key
+Webhook
+Status query
+Reconciliation
+</div></code></pre>
+<hr>
+<h2 id="191-khi-thấy-derived-data">191. Khi thấy “derived data”</h2>
+<p>Nghĩ tới:</p>
+<pre class="hljs"><code><div>Event stream
+Projection
+Versioning
+Replay
+Rebuild
+Lag monitoring
+</div></code></pre>
+<hr>
+<h1 id="phần-xxxiv--100-điều-phải-nhớ">Phần XXXIV — 100 Điều Phải Nhớ</h1>
+<pre class="hljs"><code><div>1. Làm rõ trước khi thiết kế.
+2. Chốt phạm vi.
+3. Xác định critical path.
+4. Xác định invariant.
+5. Tách functional và non-functional requirements.
+6. Ước lượng để tìm bottleneck, không để biểu diễn toán học.
+7. Average QPS chưa đủ; phải xét peak.
+8. Hot-key traffic khác global average.
+9. Tách metadata và blob bandwidth.
+10. API giúp làm rõ entities và identities.
+11. Mutation quan trọng cần idempotency.
+12. Path không nên là identity nếu resource có thể move.
+13. Data model phải xuất phát từ access pattern.
+14. Mỗi domain cần source of truth rõ.
+15. Search index thường là projection.
+16. Cache thường là projection.
+17. Order cần snapshot dữ liệu thương mại.
+18. Ledger và audit thường append-only.
+19. Chọn SQL khi constraints/transactions quan trọng.
+20. Chọn object storage cho blob lớn.
+21. Một hệ thống có thể dùng nhiều stores.
+22. Tách services theo domain và scale boundary.
+23. Không đưa side effects vào critical path.
+24. Async không thay thế mọi synchronous call.
+25. Queue cần idempotent consumers.
+26. Transactional outbox ngăn mất event.
+27. Inbox giúp dedupe consumers.
+28. Cache chỉ hữu ích khi read reuse cao.
+29. Cache stampede cần single-flight/jitter.
+30. Cache stale không được phá permission hoặc inventory.
+31. Shard key phải cân bằng distribution và locality.
+32. Hash shard tốt cho distribution.
+33. Range shard tốt cho range scans.
+34. Hot partition cần strategy riêng.
+35. Sharding quá sớm tăng complexity.
+36. Replication lag ảnh hưởng read consistency.
+37. Read-your-writes thường đủ cho UX.
+38. Strong consistency dành cho invariants.
+39. Eventual consistency vẫn cần staleness bounds.
+40. Retry chắc chắn xảy ra.
+41. Timeout không đồng nghĩa failure.
+42. External operation timeout tạo UNKNOWN state.
+43. Provider failover mù có thể tạo duplicate effect.
+44. Saga compensation không phải rollback.
+45. Global event ordering hiếm khi cần.
+46. Ordering theo aggregate thường đủ.
+47. Event version chống out-of-order projection.
+48. Client clock không phù hợp cho financial ordering.
+49. Mọi network call cần timeout.
+50. Retry cần exponential backoff và jitter.
+51. Circuit breaker bảo vệ dependency đang lỗi.
+52. Bulkhead tách resource pools.
+53. Load shedding giữ critical path.
+54. Graceful degradation tốt hơn total failure.
+55. Reconciliation là lớp correctness cuối.
+56. DLQ cần được vận hành, không chỉ tồn tại.
+57. Active–active theo partition dễ hơn multi-write cùng entity.
+58. Home region giúp giữ ownership.
+59. Failover cần fencing.
+60. RPO và RTO phải gắn với data class.
+61. Không mọi dữ liệu cần RPO 0.
+62. Authentication khác authorization.
+63. Sensitive access thường fail-closed.
+64. Signed URLs phải có scope và expiry.
+65. Data residency áp dụng cả caches và backups.
+66. Observability cần latency, traffic, errors, saturation.
+67. Business metrics quan trọng như system metrics.
+68. Correctness invariant nên có monitors.
+69. Trace ID không nên là metric label.
+70. SLO phải phản ánh user journey.
+71. Bottleneck có thể là coordination, không phải CPU.
+72. Scale reads bằng cache/replicas/precompute.
+73. Scale writes bằng partition/batch/async.
+74. Scale coordination bằng ownership.
+75. Hot events cần admission control.
+76. Trade-off phải nối với requirement.
+77. Không có phương án tốt tuyệt đối.
+78. Nêu nhược điểm của lựa chọn mình.
+79. Nêu mitigation.
+80. Nêu điều kiện đổi sang phương án khác.
+81. Vẽ từ critical path ra ngoài.
+82. Gắn nhãn mũi tên.
+83. Đánh dấu authoritative và derived.
+84. Nói trong lúc vẽ.
+85. Chủ động chọn phần deep dive.
+86. Không dành quá lâu cho estimation.
+87. Không dành quá lâu cho schema phụ.
+88. Breadth trước, depth sau.
+89. Không cố dùng tên công nghệ để thay cho lập luận.
+90. Không dùng một status cho nhiều lifecycle độc lập.
+91. Không tin webhook đến đúng một lần.
+92. Không tin event đến đúng thứ tự.
+93. Không tin queue không mất kết nối.
+94. Không tin region cũ đã chết hoàn toàn sau failover.
+95. Không tin cache luôn fresh.
+96. Không tin client payload.
+97. Không tin external provider response luôn tới.
+98. Thiết kế phải có recovery path.
+99. Câu trả lời mạnh luôn có trade-off.
+100. Mục tiêu không phải vẽ nhiều hộp; mục tiêu là bảo vệ được thiết kế.
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-toàn-bộ-lộ-trình-36-bài">Kết luận Toàn bộ Lộ trình 36 Bài</h1>
+<p>Toàn bộ System Design có thể được rút gọn thành một chuỗi câu hỏi:</p>
+<pre class="hljs"><code><div>Hệ thống phải làm gì?
+→ Quy mô bao nhiêu?
+→ Dữ liệu nào quan trọng?
+→ Access pattern là gì?
+→ Source of truth nằm ở đâu?
+→ Consistency nào thực sự cần?
+→ Thành phần nào có thể async?
+→ Partition theo key nào?
+→ Retry có gây duplicate không?
+→ Dependency lỗi thì hệ thống làm gì?
+→ Region lỗi thì ai trở thành owner?
+→ Làm sao biết hệ thống đang sai?
+</div></code></pre>
+<p>Framework cuối cùng:</p>
+<pre class="hljs"><code><div>Requirements
+→ Scale
+→ API và data model
+→ High-level architecture
+→ Critical data flow
+→ Consistency và idempotency
+→ Partitioning và caching
+→ Reliability và reconciliation
+→ Multi-region
+→ Trade-offs
+</div></code></pre>
+<p>Nguyên tắc quan trọng nhất:</p>
+<blockquote>
+<p><strong>Một thiết kế mạnh không phải là thiết kế có nhiều công nghệ nhất. Đó là thiết kế biết dữ liệu nào cần đúng tuyệt đối, dữ liệu nào có thể trễ, request nào phải đồng bộ, công việc nào nên bất đồng bộ, và cách hệ thống tự phục hồi khi mọi giả định về mạng, máy chủ và external provider lần lượt bị phá vỡ.</strong></p>
+</blockquote>
+<p><strong>Lộ trình System Design 36 bài đã hoàn tất. Giai đoạn tiếp theo là luyện mock interview có giới hạn 45 phút, tự bảo vệ trade-off và thiết kế lại cùng một bài ở nhiều mức quy mô.</strong></p>
+
+</body>
+</html>

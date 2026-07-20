@@ -1,0 +1,770 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Thiết kế hệ thống</title><style>
+/* cspell:disable-file */
+/* webkit printing magic: print all background colors */
+html {
+	-webkit-print-color-adjust: exact;
+}
+* {
+	box-sizing: border-box;
+	-webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+@media only screen {
+	body {
+		margin: 2em auto;
+		max-width: 900px;
+		color: rgb(55, 53, 47);
+	}
+}
+
+body {
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+a,
+a.visited {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.pdf-relative-link-path {
+	font-size: 80%;
+	color: #444;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	font-weight: 600;
+	margin-bottom: 0;
+}
+
+/* Override strong tags inside headings to maintain consistent weight */
+h1 strong,
+h2 strong,
+h3 strong {
+	font-weight: 600;
+}
+
+.page-title {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-top: 0;
+	margin-bottom: 0.75em;
+}
+
+h1 {
+	font-size: 1.875rem;
+	margin-top: 1.875rem;
+}
+
+h2 {
+	font-size: 1.5rem;
+	margin-top: 1.5rem;
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-top: 1.25rem;
+}
+
+.source {
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	padding: 1.5em;
+	word-break: break-all;
+}
+
+.callout {
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+/* For default-background callouts, render the border outline. */
+.callout.block-color-default_background {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+figure,
+aside,
+details {
+	margin: 1.25em 0;
+	page-break-inside: avoid;
+}
+
+figcaption {
+	opacity: 0.5;
+	font-size: 85%;
+	margin-top: 0.5em;
+}
+
+mark {
+	background-color: transparent;
+}
+
+.indented {
+	padding-left: 1.5em;
+}
+
+hr {
+	background: transparent;
+	display: block;
+	width: 100%;
+	height: 1px;
+	visibility: visible;
+	border: none;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+img {
+	max-width: 100%;
+}
+
+@media only print {
+	img {
+		max-height: 100vh;
+		object-fit: contain;
+	}
+
+	table.collection-content {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	table.collection-content th,
+	table.collection-content td {
+		overflow-wrap: anywhere;
+	}
+
+	table.collection-content td > .user,
+	table.collection-content td > time {
+		white-space: pre-wrap;
+	}
+}
+
+@page {
+	margin: 1in;
+}
+
+.collection-content-wrapper {
+	overflow-x: auto;
+}
+
+@media only print {
+	.collection-content-wrapper {
+		overflow-x: visible;
+	}
+}
+
+.collection-content {
+	font-size: 0.875rem;
+}
+
+.collection-content td {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.column-list {
+	display: flex;
+	gap: 46px;
+}
+
+.column {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.column > *:first-child {
+	margin-top: 0;
+}
+
+.table_of_contents-item {
+	display: block;
+	font-size: 0.875rem;
+	line-height: 1.3;
+	padding-inline: 0.125rem;
+	padding-block: 0.375rem;
+}
+
+.table_of_contents-indent-1 {
+	margin-left: 1.5rem;
+}
+
+.table_of_contents-indent-2 {
+	margin-left: 3rem;
+}
+
+.table_of_contents-indent-3 {
+	margin-left: 4.5rem;
+}
+
+.table_of_contents-link {
+	text-decoration: none;
+	opacity: 0.7;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.18);
+}
+
+table,
+th,
+td {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+table {
+	border-collapse: collapse;
+	border-left: none;
+	border-right: none;
+}
+
+th,
+td {
+	font-weight: normal;
+	padding: 0.25em 0.5em;
+	line-height: 1.5;
+	min-height: 1.5em;
+	text-align: left;
+}
+
+th {
+	color: rgba(55, 53, 47, 0.6);
+}
+
+ol,
+ul {
+	margin: 0;
+	margin-block-start: 0.6em;
+	margin-block-end: 0.6em;
+}
+
+li > ol:first-child,
+li > ul:first-child {
+	margin-block-start: 0.6em;
+}
+
+ul > li {
+	list-style: disc;
+}
+
+ul.to-do-list {
+	padding-inline-start: 0;
+}
+
+ul.to-do-list > li {
+	list-style: none;
+}
+
+.to-do-children-checked {
+	text-decoration: line-through;
+	opacity: 0.375;
+}
+
+ul.toggle > li {
+	list-style: none;
+}
+
+ul {
+	padding-inline-start: 1.7em;
+}
+
+ul > li {
+	padding-left: 0.1em;
+}
+
+ol {
+	padding-inline-start: 1.6em;
+}
+
+ol.numbered-list.numbered-list-digits-2 {
+	padding-inline-start: 2em;
+}
+
+ol.numbered-list.numbered-list-digits-3plus {
+	padding-inline-start: 2.4em;
+}
+
+ol > li {
+	padding-left: 0.2em;
+}
+
+.mono ol {
+	padding-inline-start: 2em;
+}
+
+.mono ol > li {
+	text-indent: -0.4em;
+}
+
+.toggle {
+	padding-inline-start: 0em;
+	list-style-type: none;
+}
+
+/* Indent toggle children */
+.toggle > li > details {
+	padding-left: 1.7em;
+}
+
+.toggle > li > details > summary {
+	margin-left: -1.1em;
+}
+
+.selected-value {
+	display: inline-block;
+	padding: 0 0.5em;
+	background: rgba(206, 205, 202, 0.5);
+	border-radius: 3px;
+	margin-right: 0.5em;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	white-space: nowrap;
+}
+
+.collection-title {
+	display: inline-block;
+	margin-right: 1em;
+}
+
+.page-description {
+	margin-bottom: 2em;
+}
+
+.simple-table {
+	margin-top: 1em;
+	font-size: 0.875rem;
+	empty-cells: show;
+}
+.simple-table td {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table th {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table-header-color {
+	background: rgb(247, 246, 243);
+	color: black;
+}
+.simple-table-header {
+	font-weight: 500;
+}
+
+time {
+	opacity: 0.5;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 1.2em;
+	max-height: 1.2em;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	margin-right: 0.5em;
+}
+
+/*
+ * Render emoji icons using a ::before pseudo-element to keep the glyph
+ * out of the DOM textContent traversal. This avoids double-rendering icons
+ * in callouts and page titles.
+ * NOTE(slim/html-export-pseudo-icons): I can't tagref this because it will
+ * flag as a duplicate tag after codegen.
+ */
+.icon[data-emoji]::before {
+	content: attr(data-emoji);
+}
+
+img.icon {
+	border-radius: 3px;
+}
+
+.callout img.notion-static-icon {
+	width: 1em;
+	height: 1em;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.callout h1,
+.callout h2,
+.callout h3 {
+	margin: 0 0 0.6rem;
+}
+
+.user-icon {
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 100%;
+	margin-right: 0.5rem;
+}
+
+.user-icon-inner {
+	font-size: 0.8em;
+}
+
+.text-icon {
+	border: 1px solid #000;
+	text-align: center;
+}
+
+.page-cover-image {
+	display: block;
+	object-fit: cover;
+	width: 100%;
+	max-height: 30vh;
+}
+
+.page-header-icon {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+
+.page-header-icon-with-cover {
+	margin-top: -0.72em;
+	margin-left: 0.07em;
+}
+
+.page-header-icon img {
+	border-radius: 3px;
+}
+
+.link-to-page {
+	margin: 1em 0;
+	padding: 0;
+	border: none;
+	font-weight: 500;
+}
+
+p > .user {
+	opacity: 0.5;
+}
+
+td > .user,
+td > time {
+	white-space: nowrap;
+}
+
+input[type="checkbox"] {
+	margin-right: 0.4em;
+	vertical-align: middle;
+}
+
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.image {
+	border: none;
+	margin: 1.5em 0;
+	padding: 0;
+	border-radius: 0;
+	text-align: center;
+}
+
+.code,
+code {
+	background: rgba(135, 131, 120, 0.15);
+	border-radius: 3px;
+	padding: 0.2em 0.4em;
+	border-radius: 3px;
+	font-size: 85%;
+	tab-size: 2;
+}
+
+code {
+	color: #eb5757;
+}
+
+.code {
+	padding: 1.5em 1em;
+}
+
+.code-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.code > code {
+	background: none;
+	padding: 0;
+	font-size: 100%;
+	color: inherit;
+}
+
+blockquote {
+	font-size: 1em;
+	margin: 1em 0;
+	padding-left: 1em;
+	border-left: 3px solid rgb(55, 53, 47);
+}
+
+blockquote.quote-large {
+	font-size: 1.25em;
+}
+
+.bookmark {
+	text-decoration: none;
+	max-height: 8em;
+	padding: 0;
+	display: flex;
+	width: 100%;
+	align-items: stretch;
+}
+
+.bookmark-title {
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	height: 1.75em;
+	white-space: nowrap;
+}
+
+.bookmark-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.bookmark-info {
+	flex: 4 1 180px;
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.bookmark-image {
+	width: 33%;
+	flex: 1 1 180px;
+	display: block;
+	position: relative;
+	object-fit: cover;
+	border-radius: 1px;
+}
+
+.bookmark-description {
+	color: rgba(55, 53, 47, 0.6);
+	font-size: 0.75em;
+	overflow: hidden;
+	max-height: 4.5em;
+	word-break: break-word;
+}
+
+.bookmark-href {
+	font-size: 0.75em;
+	margin-top: 0.25em;
+}
+
+.tab {
+	margin: 1.25em 0;
+	padding-inline: 1rem;
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+.sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; }
+.code { font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace; }
+.serif { font-family: Lyon-Text, Georgia, ui-serif, serif; }
+.mono { font-family: iawriter-mono, Nitti, Menlo, Courier, monospace; }
+.pdf .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK JP'; }
+.pdf:lang(zh-CN) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK SC'; }
+.pdf:lang(zh-TW) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK TC'; }
+.pdf:lang(ko-KR) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK KR'; }
+.pdf .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.pdf .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK JP'; }
+.pdf:lang(zh-CN) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK SC'; }
+.pdf:lang(zh-TW) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK TC'; }
+.pdf:lang(ko-KR) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK KR'; }
+.pdf .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.highlight-default {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.highlight-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.highlight-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.highlight-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.highlight-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.highlight-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.highlight-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.highlight-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.highlight-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.highlight-default_background {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray_background {
+	background: rgba(42, 28, 0, 0.07);
+}
+.highlight-brown_background {
+	background: rgba(139, 46, 0, 0.086);
+}
+.highlight-orange_background {
+	background: rgba(224, 101, 1, 0.129);
+}
+.highlight-yellow_background {
+	background: rgba(211, 168, 0, 0.137);
+}
+.highlight-teal_background {
+	background: rgba(0, 100, 45, 0.09);
+}
+.highlight-blue_background {
+	background: rgba(0, 124, 215, 0.094);
+}
+.highlight-purple_background {
+	background: rgba(102, 0, 178, 0.078);
+}
+.highlight-pink_background {
+	background: rgba(197, 0, 93, 0.086);
+}
+.highlight-red_background {
+	background: rgba(223, 22, 0, 0.094);
+}
+.block-color-default {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.block-color-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.block-color-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.block-color-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.block-color-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.block-color-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.block-color-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.block-color-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.block-color-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.block-color-default_background {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray_background {
+	background: rgba(240, 239, 237, 1);
+}
+.block-color-brown_background {
+	background: rgba(245, 237, 233, 1);
+}
+.block-color-orange_background {
+	background: rgba(251, 235, 222, 1);
+}
+.block-color-yellow_background {
+	background: rgba(249, 243, 220, 1);
+}
+.block-color-teal_background {
+	background: rgba(232, 241, 236, 1);
+}
+.block-color-blue_background {
+	background: rgba(229, 242, 252, 1);
+}
+.block-color-purple_background {
+	background: rgba(243, 235, 249, 1);
+}
+.block-color-pink_background {
+	background: rgba(250, 233, 241, 1);
+}
+.block-color-red_background {
+	background: rgba(252, 233, 231, 1);
+}
+.select-value-color-default { background-color: rgba(42, 28, 0, 0.07); }
+.select-value-color-gray { background-color: rgba(28, 19, 1, 0.11); }
+.select-value-color-brown { background-color: rgba(127, 51, 0, 0.156); }
+.select-value-color-orange { background-color: rgba(196, 88, 0, 0.203); }
+.select-value-color-yellow { background-color: rgba(209, 156, 0, 0.282); }
+.select-value-color-green { background-color: rgba(0, 96, 38, 0.156); }
+.select-value-color-blue { background-color: rgba(0, 118, 217, 0.203); }
+.select-value-color-purple { background-color: rgba(92, 0, 163, 0.141); }
+.select-value-color-pink { background-color: rgba(183, 0, 78, 0.152); }
+.select-value-color-red { background-color: rgba(206, 24, 0, 0.164); }
+
+.checkbox {
+	display: inline-flex;
+	vertical-align: text-bottom;
+	width: 16;
+	height: 16;
+	background-size: 16px;
+	margin-left: 2px;
+	margin-right: 5px;
+}
+
+.checkbox-on {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2358A9D7%22%2F%3E%0A%3Cpath%20d%3D%22M6.71429%2012.2852L14%204.9995L12.7143%203.71436L6.71429%209.71378L3.28571%206.2831L2%207.57092L6.71429%2012.2852Z%22%20fill%3D%22white%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+.checkbox-off {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20x%3D%220.75%22%20y%3D%220.75%22%20width%3D%2214.5%22%20height%3D%2214.5%22%20fill%3D%22white%22%20stroke%3D%22%2336352F%22%20stroke-width%3D%221.5%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+	
+</style><style>@import url('https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex-swap.min.css')</style></head><body><article id="39dccb0e-ac88-80eb-9d6c-e3ed2410518d" class="page sans"><header><h1 class="page-title" dir="auto">Thiết kế hệ thống</h1><p class="page-description" dir="auto"></p></header><div class="page-body"><p id="39dccb0e-ac88-80ea-90bd-d4ec79542f3e" class="" dir="auto">
+</p><figure id="39dccb0e-ac88-80d0-8a43-d5b94ab07512" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%201%20%E2%80%94%20System%20Design%20l%C3%A0%20g%C3%AC,%20v%C3%AC%20sao%20kh%C3%A1c%20Coding,%20v%2039dccb0eac8880d08a43d5b94ab07512.html" data-notion-page-id="39dccb0e-ac88-80d0-8a43-d5b94ab07512" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 1 — System Design là gì, vì sao khác Coding, và mindset của Senior Engineer</a></figure><figure id="39dccb0e-ac88-8035-aad9-e2c0075a8856" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%202%20%E2%80%94%20Functional%20Requirement,%20Non-functional%20Req%2039dccb0eac888035aad9e2c0075a8856.html" data-notion-page-id="39dccb0e-ac88-8035-aad9-e2c0075a8856" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 2 — Functional Requirement, Non-functional Requirement và cách hỏi yêu cầu như Senior Engineer</a></figure><figure id="39dccb0e-ac88-8034-a2de-d17de3fe3fc6" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%203%20%E2%80%94%20Capacity%20Estimation%20%C6%B0%E1%BB%9Bc%20l%C6%B0%E1%BB%A3ng%20traffic,%20sto%2039dccb0eac888034a2ded17de3fe3fc6.html" data-notion-page-id="39dccb0e-ac88-8034-a2de-d17de3fe3fc6" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 3 — Capacity Estimation: ước lượng traffic, storage, bandwidth, QPS để thiết kế có cơ sở</a></figure><figure id="39dccb0e-ac88-808d-a3b6-cd99bb13f890" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%204%20%E2%80%94%20API%20Design%20n%E1%BB%81n%20t%E1%BA%A3ng%2039dccb0eac88808da3b6cd99bb13f890.html" data-notion-page-id="39dccb0e-ac88-808d-a3b6-cd99bb13f890" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 4 — API Design nền tảng</a></figure><figure id="39dccb0e-ac88-80ee-9893-f28ba3090628" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%205%20%E2%80%94%20Database%20n%E1%BB%81n%20t%E1%BA%A3ng%20SQL%20vs%20NoSQL%20v%C3%A0%20c%C3%A1ch%20ch%E1%BB%8D%2039dccb0eac8880ee9893f28ba3090628.html" data-notion-page-id="39dccb0e-ac88-80ee-9893-f28ba3090628" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 5 — Database nền tảng: SQL vs NoSQL và cách chọn đúng database</a></figure><figure id="39dccb0e-ac88-8049-89b5-c597a01db8cd" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%206%20%E2%80%94%20Caching%20n%E1%BB%81n%20t%E1%BA%A3ng%2039dccb0eac88804989b5c597a01db8cd.html" data-notion-page-id="39dccb0e-ac88-8049-89b5-c597a01db8cd" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 6 — Caching nền tảng</a></figure><figure id="39dccb0e-ac88-80e5-be49-dd848007104e" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%207%20%E2%80%94%20CDN%20v%C3%A0%20Object%20Storage%2039dccb0eac8880e5be49dd848007104e.html" data-notion-page-id="39dccb0e-ac88-80e5-be49-dd848007104e" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 7 — CDN và Object Storage</a></figure><figure id="39dccb0e-ac88-80b6-b286-f40c67037d8e" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%208%20%E2%80%94%20Load%20Balancing%20v%C3%A0%20Horizontal%20Scaling%2039dccb0eac8880b6b286f40c67037d8e.html" data-notion-page-id="39dccb0e-ac88-80b6-b286-f40c67037d8e" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 8 — Load Balancing và Horizontal Scaling</a></figure><figure id="39dccb0e-ac88-80cb-8ab7-e7ba6454ce97" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%209%20%E2%80%94%20Message%20Queue%20v%C3%A0%20x%E1%BB%AD%20l%C3%BD%20b%E1%BA%A5t%20%C4%91%E1%BB%93ng%20b%E1%BB%99%2039dccb0eac8880cb8ab7e7ba6454ce97.html" data-notion-page-id="39dccb0e-ac88-80cb-8ab7-e7ba6454ce97" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 9 — Message Queue và xử lý bất đồng bộ</a></figure><figure id="39dccb0e-ac88-803f-a08a-d1dc252ae026" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2010%20%E2%80%94%20Reliability%20Patterns%2039dccb0eac88803fa08ad1dc252ae026.html" data-notion-page-id="39dccb0e-ac88-803f-a08a-d1dc252ae026" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 10 — Reliability Patterns</a></figure><figure id="39dccb0e-ac88-804a-9004-ecbd106ba7bf" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2011%20%E2%80%94%20Observability%20n%E1%BB%81n%20t%E1%BA%A3ng%2039dccb0eac88804a9004ecbd106ba7bf.html" data-notion-page-id="39dccb0e-ac88-804a-9004-ecbd106ba7bf" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 11 — Observability nền tảng</a></figure><figure id="39dccb0e-ac88-80be-9b93-dd3d211449bd" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2012%20%E2%80%94%20Data%20Replication%20v%C3%A0%20High%20Availability%2039dccb0eac8880be9b93dd3d211449bd.html" data-notion-page-id="39dccb0e-ac88-80be-9b93-dd3d211449bd" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 12 — Data Replication và High Availability</a></figure><figure id="39dccb0e-ac88-806b-9e58-ec3c7115cffb" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2013%20%E2%80%94%20Sharding%20v%C3%A0%20Data%20Partitioning%2039dccb0eac88806b9e58ec3c7115cffb.html" data-notion-page-id="39dccb0e-ac88-806b-9e58-ec3c7115cffb" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 13 — Sharding và Data Partitioning</a></figure><figure id="39dccb0e-ac88-8017-8c27-effbb59c4185" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2014%20%E2%80%94%20Distributed%20Transactions%20v%C3%A0%20Consistency%20W%2039dccb0eac8880178c27effbb59c4185.html" data-notion-page-id="39dccb0e-ac88-8017-8c27-effbb59c4185" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 14 — Distributed Transactions và Consistency Workflows</a></figure><figure id="39dccb0e-ac88-8001-a1e9-f4efcaf710ad" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2015%20%E2%80%94%20Consensus%20v%C3%A0%20Leader%20Election%2039dccb0eac888001a1e9f4efcaf710ad.html" data-notion-page-id="39dccb0e-ac88-8001-a1e9-f4efcaf710ad" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 15 — Consensus và Leader Election</a></figure><figure id="39dccb0e-ac88-800f-b455-cfb0c0dbe885" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2016%20%E2%80%94%20Consistency%20Models%2039dccb0eac88800fb455cfb0c0dbe885.html" data-notion-page-id="39dccb0e-ac88-800f-b455-cfb0c0dbe885" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 16 — Consistency Models</a></figure><figure id="39dccb0e-ac88-8084-aba8-d1f443000194" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2017%20%E2%80%94%20Distributed%20Time%20v%C3%A0%20Event%20Ordering%2039dccb0eac888084aba8d1f443000194.html" data-notion-page-id="39dccb0e-ac88-8084-aba8-d1f443000194" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 17 — Distributed Time và Event Ordering</a></figure><figure id="39dccb0e-ac88-80ee-9c65-fd37229bd07b" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2018%20%E2%80%94%20Search%20v%C3%A0%20Indexing%2039dccb0eac8880ee9c65fd37229bd07b.html" data-notion-page-id="39dccb0e-ac88-80ee-9c65-fd37229bd07b" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 18 — Search và Indexing</a></figure><figure id="39dccb0e-ac88-8080-a882-f6e8dadcbe93" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2019%20%E2%80%94%20Batch%20Processing%20v%C3%A0%20Stream%20Processing%2039dccb0eac888080a882f6e8dadcbe93.html" data-notion-page-id="39dccb0e-ac88-8080-a882-f6e8dadcbe93" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 19 — Batch Processing và Stream Processing</a></figure><figure id="39dccb0e-ac88-80d4-b118-e7c41679d66c" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2020%20%E2%80%94%20Multi-Region%20Architecture%20v%C3%A0%20Disaster%20Rec%2039dccb0eac8880d4b118e7c41679d66c.html" data-notion-page-id="39dccb0e-ac88-80d4-b118-e7c41679d66c" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 20 — Multi-Region Architecture và Disaster Recovery</a></figure><figure id="39dccb0e-ac88-80f4-833b-e71ec2148327" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2021%20%E2%80%94%20Architecture%20Evolution%2039dccb0eac8880f4833be71ec2148327.html" data-notion-page-id="39dccb0e-ac88-80f4-833b-e71ec2148327" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 21 — Architecture Evolution</a></figure><figure id="39dccb0e-ac88-80d8-b47b-e274c28f33dc" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2022%20%E2%80%94%20Case%20Study%201%20Thi%E1%BA%BFt%20k%E1%BA%BF%20URL%20Shortener%20t%E1%BB%AB%20%C4%91%E1%BA%A7%2039dccb0eac8880d8b47be274c28f33dc.html" data-notion-page-id="39dccb0e-ac88-80d8-b47b-e274c28f33dc" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 22 — Case Study 1: Thiết kế URL Shortener từ đầu đến cuối</a></figure><figure id="39dccb0e-ac88-8040-a027-d4fd0496f43b" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2023%20%E2%80%94%20Case%20Study%202%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Notification%20System%2039dccb0eac888040a027d4fd0496f43b.html" data-notion-page-id="39dccb0e-ac88-8040-a027-d4fd0496f43b" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 23 — Case Study 2: Thiết kế Notification System</a></figure><figure id="39dccb0e-ac88-80d5-ae00-d8244e068cab" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2024%20%E2%80%94%20Case%20Study%203%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Chat%20System%2039dccb0eac8880d5ae00d8244e068cab.html" data-notion-page-id="39dccb0e-ac88-80d5-ae00-d8244e068cab" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 24 — Case Study 3: Thiết kế Chat System</a></figure><figure id="39dccb0e-ac88-80f4-bb59-dd282adc0611" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2025%20%E2%80%94%20Case%20Study%204%20Thi%E1%BA%BFt%20k%E1%BA%BF%20News%20Feed%2039dccb0eac8880f4bb59dd282adc0611.html" data-notion-page-id="39dccb0e-ac88-80f4-bb59-dd282adc0611" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 25 — Case Study 4: Thiết kế News Feed</a></figure><figure id="39dccb0e-ac88-8000-a805-cbf2e18949e4" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2026%20%E2%80%94%20Case%20Study%205%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Video%20Streaming%20Pla%2039dccb0eac888000a805cbf2e18949e4.html" data-notion-page-id="39dccb0e-ac88-8000-a805-cbf2e18949e4" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 26 — Case Study 5: Thiết kế Video Streaming Platform</a></figure><figure id="39dccb0e-ac88-8081-a271-c6576ffa591c" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2027%20%E2%80%94%20Case%20Study%206%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Search%20Autocomplete%2039dccb0eac888081a271c6576ffa591c.html" data-notion-page-id="39dccb0e-ac88-8081-a271-c6576ffa591c" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 27 — Case Study 6: Thiết kế Search Autocomplete</a></figure><figure id="39dccb0e-ac88-8001-a413-cef898455b55" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2028%20%E2%80%94%20Case%20Study%207%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Ride-Hailing%20System%2039dccb0eac888001a413cef898455b55.html" data-notion-page-id="39dccb0e-ac88-8001-a413-cef898455b55" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 28 — Case Study 7: Thiết kế Ride-Hailing System</a></figure><figure id="39dccb0e-ac88-800a-afad-e73c239f28f1" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2029%20%E2%80%94%20Case%20Study%208%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Food%20Delivery%20Syste%2039dccb0eac88800aafade73c239f28f1.html" data-notion-page-id="39dccb0e-ac88-800a-afad-e73c239f28f1" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 29 — Case Study 8: Thiết kế Food Delivery System</a></figure><figure id="39dccb0e-ac88-80f4-8944-ef523011040b" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2030%20%E2%80%94%20Case%20Study%209%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Payment%20System%20v%C3%A0%20D%2039dccb0eac8880f48944ef523011040b.html" data-notion-page-id="39dccb0e-ac88-80f4-8944-ef523011040b" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 30 — Case Study 9: Thiết kế Payment System và Digital Wallet</a></figure><figure id="39dccb0e-ac88-8058-875d-defdcc51bc8f" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2031%20%E2%80%94%20Case%20Study%2010%20Thi%E1%BA%BFt%20k%E1%BA%BF%20E-commerce%20Platfor%2039dccb0eac888058875ddefdcc51bc8f.html" data-notion-page-id="39dccb0e-ac88-8058-875d-defdcc51bc8f" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 31 — Case Study 10: Thiết kế E-commerce Platform</a></figure><figure id="39dccb0e-ac88-8091-a1df-d9127b3e2c2a" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2032%20%E2%80%94%20Case%20Study%2011%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Cloud%20File%20Storage%2039dccb0eac888091a1dfd9127b3e2c2a.html" data-notion-page-id="39dccb0e-ac88-8091-a1df-d9127b3e2c2a" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 32 — Case Study 11: Thiết kế Cloud File Storage như Google Drive/Dropbox</a></figure><figure id="39dccb0e-ac88-8083-8a90-f4ea5d45f451" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2033%20%E2%80%94%20Case%20Study%2012%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Distributed%20Web%20Cr%2039dccb0eac8880838a90f4ea5d45f451.html" data-notion-page-id="39dccb0e-ac88-8083-8a90-f4ea5d45f451" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 33 — Case Study 12: Thiết kế Distributed Web Crawler</a></figure><figure id="39dccb0e-ac88-80dd-9ee5-c44b68cd442a" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2034%20%E2%80%94%20Case%20Study%2013%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Metrics,%20Logging%20v%2039dccb0eac8880dd9ee5c44b68cd442a.html" data-notion-page-id="39dccb0e-ac88-80dd-9ee5-c44b68cd442a" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 34 — Case Study 13: Thiết kế Metrics, Logging và Monitoring Platform</a></figure><figure id="39dccb0e-ac88-8055-9031-f18f677fd3c8" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2035%20%E2%80%94%20Case%20Study%2014%20Thi%E1%BA%BFt%20k%E1%BA%BF%20Ticket%20Booking%20v%C3%A0%20%2039dccb0eac8880559031f18f677fd3c8.html" data-notion-page-id="39dccb0e-ac88-8055-9031-f18f677fd3c8" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 35 — Case Study 14: Thiết kế Ticket Booking và Reservation System</a></figure><figure id="39dccb0e-ac88-800b-be12-f3432d7a138d" class="link-to-page"><a href="Thi%E1%BA%BFt%20k%E1%BA%BF%20h%E1%BB%87%20th%E1%BB%91ng/B%C3%A0i%2036%20%E2%80%94%20T%E1%BB%95ng%20%C3%B4n%20System%20Design%20Interview%2039dccb0eac88800bbe12f3432d7a138d.html" data-notion-page-id="39dccb0e-ac88-800b-be12-f3432d7a138d" data-notion-space-id="00f665fd-eb7a-4866-997b-a8f7da1f69de">Bài 36 — Tổng ôn System Design Interview</a></figure><p id="39dccb0e-ac88-80d4-9b08-fe4e63a77ea0" class="" dir="auto">
+</p><p id="39dccb0e-ac88-80af-85fe-dba6671562e4" class="" dir="auto">
+</p></div></article><span class="sans" style="font-size:14px;padding-top:2em"></span></body></html>

@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 9 — Message Queue và xử lý bất đồng bộ.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-9--message-queue-và-xử-lý-bất-đồng-bộ">Bài 9 — Message Queue và xử lý bất đồng bộ</h1>
+<p>Message Queue là thành phần trung gian giúp các service giao tiếp <strong>không đồng bộ</strong>.</p>
+<p>Thay vì Service A gọi Service B và chờ B xử lý xong, A có thể gửi một message vào broker rồi tiếp tục công việc. B sẽ xử lý message khi có đủ năng lực.</p>
+<p>Trong video của bạn, mô hình này được mô tả bằng ba thành phần: producer phát message vào message broker, consumer lấy message khi có capacity, nhờ đó producer và consumer không phải chạy cùng tốc độ hoặc luôn online cùng lúc.</p>
+<hr>
+<h1 id="1-vấn-đề-của-xử-lý-đồng-bộ">1. Vấn đề của xử lý đồng bộ</h1>
+<p>Giả sử user đặt hàng.</p>
+<p>Luồng đồng bộ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Order
+    participant Inventory
+    participant Payment
+    participant Email
+    participant Analytics
+
+    User->>Order: Place order
+    Order->>Inventory: Reserve inventory
+    Inventory-->>Order: Success
+    Order->>Payment: Charge payment
+    Payment-->>Order: Success
+    Order->>Email: Send confirmation
+    Email-->>Order: Sent
+    Order->>Analytics: Record event
+    Analytics-->>Order: Done
+    Order-->>User: Order created
+</div></code></pre>
+<p>User phải chờ tất cả:</p>
+<pre class="hljs"><code><div>- Inventory
+- Payment
+- Email
+- Analytics
+</div></code></pre>
+<p>Giả sử thời gian:</p>
+<pre class="hljs"><code><div>Order validation:   100 ms
+Inventory:          200 ms
+Payment:            800 ms
+Email:              500 ms
+Analytics:          300 ms
+--------------------------------
+Tổng:             1.900 ms
+</div></code></pre>
+<p>Nếu Email Service bị lỗi, order có thể thất bại dù:</p>
+<pre class="hljs"><code><div>- Inventory đã giữ
+- Payment đã thành công
+- Email chỉ là tác vụ phụ
+</div></code></pre>
+<p>Đây là coupling không cần thiết.</p>
+<hr>
+<h1 id="2-chuyển-sang-xử-lý-bất-đồng-bộ">2. Chuyển sang xử lý bất đồng bộ</h1>
+<p>Ta chỉ giữ các bước bắt buộc trong request chính.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Order
+    participant DB
+    participant Queue
+    participant Email
+    participant Analytics
+
+    User->>Order: Place order
+    Order->>DB: Save order
+    DB-->>Order: Success
+    Order->>Queue: Publish OrderCreated
+    Order-->>User: Order accepted
+
+    Queue->>Email: Process event
+    Queue->>Analytics: Process event
+</div></code></pre>
+<p>User không cần chờ email và analytics.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Response nhanh hơn
+- Service phụ lỗi không làm request chính thất bại
+- Có thể retry tác vụ phụ
+- Hấp thụ traffic spike
+- Consumer xử lý theo capacity
+- Producer và consumer scale độc lập
+</div></code></pre>
+<hr>
+<h1 id="3-message-queue-là-gì">3. Message Queue là gì?</h1>
+<p>Message Queue là một hệ thống trung gian lưu và phân phối message giữa các thành phần.</p>
+<p>Mô hình cơ bản:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    P[Producer] --> B[Message Broker]
+    B --> Q[Queue / Topic]
+    Q --> C[Consumer]
+</div></code></pre>
+<p>Các thành phần:</p>
+<pre class="hljs"><code><div>Producer:
+Tạo và gửi message.
+
+Broker:
+Nhận, lưu và phân phối message.
+
+Queue/Topic:
+Nơi message được tổ chức.
+
+Consumer:
+Nhận và xử lý message.
+</div></code></pre>
+<p>Ví dụ công nghệ:</p>
+<pre class="hljs"><code><div>RabbitMQ
+Apache Kafka
+Amazon SQS
+Google Pub/Sub
+Azure Service Bus
+Apache Pulsar
+NATS
+</div></code></pre>
+<p>Mỗi hệ thống có semantics khác nhau. Không nên xem chúng là hoàn toàn tương đương.</p>
+<hr>
+<h1 id="4-một-message-chứa-gì">4. Một message chứa gì?</h1>
+<p>Ví dụ event <code>OrderCreated</code>:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_7f2a91&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OrderCreated&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;occurredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:30:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;producer&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Một message tốt thường có:</p>
+<pre class="hljs"><code><div>eventId:
+Định danh duy nhất để deduplicate.
+
+eventType:
+Loại message.
+
+eventVersion:
+Phiên bản schema.
+
+occurredAt:
+Thời điểm sự kiện xảy ra.
+
+producer:
+Service phát message.
+
+data:
+Payload nghiệp vụ.
+</div></code></pre>
+<p>Có thể thêm:</p>
+<pre class="hljs"><code><div>correlationId
+causationId
+traceId
+tenantId
+retryCount
+</div></code></pre>
+<hr>
+<h1 id="5-command-event-và-job">5. Command, Event và Job</h1>
+<p>Ba khái niệm này thường bị trộn lẫn.</p>
+<h2 id="command">Command</h2>
+<p>Yêu cầu một consumer thực hiện hành động.</p>
+<pre class="hljs"><code><div>SendEmail
+GenerateInvoice
+ResizeImage
+ReserveInventory
+</div></code></pre>
+<p>Command thường mang ý nghĩa:</p>
+<blockquote>
+<p>Hãy làm việc này.</p>
+</blockquote>
+<p>Thường có một handler logic chính.</p>
+<hr>
+<h2 id="event">Event</h2>
+<p>Thông báo rằng một sự việc đã xảy ra.</p>
+<pre class="hljs"><code><div>OrderCreated
+PaymentSucceeded
+UserRegistered
+VideoUploaded
+</div></code></pre>
+<p>Event mang ý nghĩa:</p>
+<blockquote>
+<p>Việc này đã xảy ra.</p>
+</blockquote>
+<p>Nhiều consumer có thể quan tâm.</p>
+<p>Ví dụ <code>OrderCreated</code>:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Order[Order Service] --> E[OrderCreated]
+
+    E --> Email[Email Consumer]
+    E --> Inventory[Inventory Consumer]
+    E --> Analytics[Analytics Consumer]
+    E --> Loyalty[Loyalty Consumer]
+</div></code></pre>
+<hr>
+<h2 id="job">Job</h2>
+<p>Một đơn vị công việc cần xử lý, thường trong background.</p>
+<pre class="hljs"><code><div>Generate monthly report
+Transcode video
+Import CSV
+Create thumbnail
+</div></code></pre>
+<p>Trong thực tế, broker có thể vận chuyển cả command, event và job. Nhưng semantics nên được đặt tên rõ.</p>
+<hr>
+<h1 id="6-queue-và-publishsubscribe">6. Queue và Publish–Subscribe</h1>
+<h2 id="work-queue">Work Queue</h2>
+<p>Nhiều consumer cùng đọc một queue, nhưng mỗi message thường chỉ được một consumer trong group xử lý.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Producer --> Queue
+
+    Queue --> C1[Worker 1]
+    Queue --> C2[Worker 2]
+    Queue --> C3[Worker 3]
+</div></code></pre>
+<p>Ví dụ 1.000 ảnh cần resize:</p>
+<pre class="hljs"><code><div>Worker 1 xử lý ảnh A
+Worker 2 xử lý ảnh B
+Worker 3 xử lý ảnh C
+</div></code></pre>
+<p>Không phải cả ba worker cùng xử lý ảnh A.</p>
+<hr>
+<h2 id="publishsubscribe">Publish–Subscribe</h2>
+<p>Một event được gửi đến nhiều subscriber độc lập.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Producer --> Topic[OrderCreated Topic]
+
+    Topic --> Sub1[Email Subscription]
+    Topic --> Sub2[Analytics Subscription]
+    Topic --> Sub3[Inventory Subscription]
+</div></code></pre>
+<p>Mỗi subscription nhận một bản logic của event.</p>
+<pre class="hljs"><code><div>Email xử lý OrderCreated
+Analytics cũng xử lý OrderCreated
+Inventory cũng xử lý OrderCreated
+</div></code></pre>
+<p>Trong từng subscription lại có thể có nhiều consumer để scale.</p>
+<hr>
+<h1 id="7-queue-khác-event-log-thế-nào">7. Queue khác Event Log thế nào?</h1>
+<p>Một queue truyền thống thường tập trung vào:</p>
+<pre class="hljs"><code><div>- Giao công việc
+- Message được acknowledge rồi loại bỏ
+- Consumer cạnh tranh để nhận message
+</div></code></pre>
+<p>Một distributed log như Kafka thường tập trung vào:</p>
+<pre class="hljs"><code><div>- Append event vào log
+- Giữ event theo retention
+- Consumer tự theo dõi offset
+- Có thể replay event
+- Nhiều consumer group đọc độc lập
+</div></code></pre>
+<p>Minh họa log:</p>
+<pre class="hljs"><code><div>Partition 0:
+
+Offset 0   Offset 1   Offset 2   Offset 3
+Event A -&gt; Event B -&gt; Event C -&gt; Event D
+</div></code></pre>
+<p>Consumer đọc tới offset 2 vẫn có thể quay lại đọc từ offset 0 nếu dữ liệu chưa hết retention.</p>
+<hr>
+<h1 id="8-vì-sao-message-queue-giúp-hấp-thụ-traffic-spike">8. Vì sao Message Queue giúp hấp thụ traffic spike?</h1>
+<p>Giả sử bình thường:</p>
+<pre class="hljs"><code><div>Producer tạo 1.000 jobs/giây
+Consumers xử lý 1.200 jobs/giây
+</div></code></pre>
+<p>Queue ổn định.</p>
+<p>Khi flash sale:</p>
+<pre class="hljs"><code><div>Producer tạo 10.000 jobs/giây
+Consumers xử lý 1.200 jobs/giây
+</div></code></pre>
+<p>Nếu không có queue, consumer có thể bị quá tải ngay.</p>
+<p>Có queue:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Producer[10K jobs/s] --> Queue[Buffer]
+    Queue --> Consumer[1.2K jobs/s]
+</div></code></pre>
+<p>Queue tích backlog và consumers xử lý dần.</p>
+<p>Nhưng cần nhớ:</p>
+<blockquote>
+<p>Queue không tạo thêm processing capacity. Nó chỉ trì hoãn và làm phẳng tải.</p>
+</blockquote>
+<p>Nếu producer liên tục nhanh hơn consumer:</p>
+<pre class="hljs"><code><div>Input: 10.000 jobs/s
+Output: 1.200 jobs/s
+</div></code></pre>
+<p>backlog sẽ tăng vô hạn.</p>
+<p>Cuối cùng bạn vẫn phải:</p>
+<pre class="hljs"><code><div>- Scale consumer
+- Giảm producer rate
+- Drop/deprioritize jobs
+- Tối ưu processing
+</div></code></pre>
+<hr>
+<h1 id="9-backpressure">9. Backpressure</h1>
+<p>Backpressure là cơ chế làm chậm hoặc kiểm soát producer khi downstream không theo kịp.</p>
+<p>Có thể thực hiện bằng:</p>
+<pre class="hljs"><code><div>- Queue có giới hạn
+- Rate limiting
+- Reject producer request
+- Consumer-controlled polling
+- Pause partition
+- Batch processing
+- Load shedding
+</div></code></pre>
+<p>Nếu không có backpressure:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Producer --> Queue
+    Queue --> Consumer
+
+    Producer -.Faster than consumer.-> Queue
+    Queue --> Full[Queue grows until failure]
+</div></code></pre>
+<p>Queue depth là tín hiệu quan trọng, không chỉ là metric để nhìn.</p>
+<hr>
+<h1 id="10-producer">10. Producer</h1>
+<p>Producer chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Xây message
+- Serialize payload
+- Chọn destination
+- Chọn partition key nếu có
+- Gửi message
+- Xử lý publish failure
+- Gắn eventId
+</div></code></pre>
+<p>Producer cần trả lời:</p>
+<pre class="hljs"><code><div>Message gửi thành công nghĩa là gì?
+Broker đã nhận vào memory?
+Đã ghi xuống disk?
+Đã replicate?
+</div></code></pre>
+<p>Mức durability phụ thuộc broker và cấu hình acknowledgement.</p>
+<hr>
+<h1 id="11-producer-acknowledgement">11. Producer acknowledgement</h1>
+<p>Khi producer publish, broker có thể xác nhận ở các mức khác nhau.</p>
+<p>Khái niệm chung:</p>
+<pre class="hljs"><code><div>No acknowledgement:
+Nhanh nhưng dễ mất message.
+
+Leader acknowledgement:
+Leader nhận message là trả thành công.
+
+Replicated acknowledgement:
+Nhiều replica đã lưu mới trả thành công.
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Durability cao hơn
+↕
+Latency và throughput thấp hơn
+</div></code></pre>
+<p>Với:</p>
+<pre class="hljs"><code><div>Analytics không quan trọng:
+Có thể chấp nhận durability thấp hơn.
+
+Payment event:
+Cần durability cao hơn.
+</div></code></pre>
+<hr>
+<h1 id="12-consumer">12. Consumer</h1>
+<p>Consumer chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Nhận message
+- Deserialize
+- Validate schema
+- Thực hiện business logic
+- Commit transaction
+- Acknowledge message
+- Xử lý retry và duplicate
+</div></code></pre>
+<p>Pseudo-code đơn giản:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">def</span> <span class="hljs-title function_">consume</span>(<span class="hljs-params">message</span>):
+    event = deserialize(message.body)
+
+    process(event)
+
+    broker.ack(message)
+</div></code></pre>
+<p>Nhưng vấn đề quan trọng là:</p>
+<blockquote>
+<p>Ack trước hay sau khi xử lý?</p>
+</blockquote>
+<hr>
+<h1 id="13-acknowledgement-của-consumer">13. Acknowledgement của Consumer</h1>
+<h2 id="ack-trước-khi-xử-lý">Ack trước khi xử lý</h2>
+<pre class="hljs"><code><div>1. Consumer nhận message
+2. Ack broker
+3. Bắt đầu xử lý
+</div></code></pre>
+<p>Nếu consumer crash ở bước 3:</p>
+<pre class="hljs"><code><div>Broker nghĩ message đã hoàn tất.
+Message bị mất.
+</div></code></pre>
+<p>Đây gần với at-most-once.</p>
+<hr>
+<h2 id="ack-sau-khi-xử-lý">Ack sau khi xử lý</h2>
+<pre class="hljs"><code><div>1. Consumer nhận message
+2. Xử lý
+3. Commit kết quả
+4. Ack broker
+</div></code></pre>
+<p>Nếu consumer xử lý thành công nhưng crash trước ack:</p>
+<pre class="hljs"><code><div>Broker sẽ giao lại message.
+Message bị xử lý lặp.
+</div></code></pre>
+<p>Đây gần với at-least-once.</p>
+<hr>
+<h1 id="14-at-most-once-delivery">14. At-most-once Delivery</h1>
+<p>At-most-once nghĩa là:</p>
+<pre class="hljs"><code><div>Message được xử lý tối đa một lần.
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Xử lý một lần
+- Hoặc không xử lý lần nào
+</div></code></pre>
+<p>Nhưng không retry để tránh duplicate.</p>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Broker
+    participant Consumer
+
+    Broker->>Consumer: Deliver message
+    Consumer->>Broker: Ack early
+    Consumer->>Consumer: Process
+
+    Note over Consumer: Nếu crash, message bị mất
+</div></code></pre>
+<p>Phù hợp khi mất một số message không quá nghiêm trọng:</p>
+<pre class="hljs"><code><div>- Một số telemetry
+- Non-critical metrics
+- Typing indicator
+- Online presence update
+</div></code></pre>
+<p>Không phù hợp với:</p>
+<pre class="hljs"><code><div>- Payment
+- Order
+- Inventory reservation
+- Email pháp lý quan trọng
+</div></code></pre>
+<hr>
+<h1 id="15-at-least-once-delivery">15. At-least-once Delivery</h1>
+<p>At-least-once nghĩa là:</p>
+<pre class="hljs"><code><div>Message sẽ được giao ít nhất một lần.
+</div></code></pre>
+<p>Có thể được giao nhiều lần.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Broker
+    participant Consumer
+    participant DB
+
+    Broker->>Consumer: Deliver event
+    Consumer->>DB: Apply change
+    DB-->>Consumer: Success
+
+    Note over Consumer: Crash before ack
+
+    Broker->>Consumer: Redeliver event
+    Consumer->>DB: Apply change again
+</div></code></pre>
+<p>Đây là semantics rất phổ biến vì dễ đảm bảo hơn việc không bao giờ duplicate.</p>
+<p>Nhưng hệ quả:</p>
+<blockquote>
+<p>Consumer bắt buộc phải chịu được duplicate.</p>
+</blockquote>
+<hr>
+<h1 id="16-exactly-once-có-thực-sự-tồn-tại-không">16. Exactly-once có thực sự tồn tại không?</h1>
+<p>“Exactly-once” nghĩa là hiệu ứng nghiệp vụ xảy ra đúng một lần.</p>
+<p>Trong một hệ thống phân tán end-to-end, điều này rất khó.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Consumer ghi DB thành công
+2. Consumer crash trước khi ack
+3. Broker redeliver
+</div></code></pre>
+<p>Broker không thể biết transaction DB đã commit hay chưa.</p>
+<p>Một số nền tảng cung cấp exactly-once trong một phạm vi nhất định, ví dụ giữa broker, transaction và producer thuộc cùng hệ sinh thái. Nhưng điều đó không tự động bảo đảm:</p>
+<pre class="hljs"><code><div>- External payment chỉ bị gọi một lần
+- Email chỉ gửi một lần
+- Database ngoài broker chỉ update một lần
+</div></code></pre>
+<p>Cách nhìn thực tế:</p>
+<pre class="hljs"><code><div>At-least-once delivery
++
+Idempotent consumer
++
+Transaction/unique constraint
+=
+Exactly-once business effect trong phạm vi thiết kế
+</div></code></pre>
+<hr>
+<h1 id="17-idempotent-consumer-là-gì">17. Idempotent Consumer là gì?</h1>
+<p>Idempotent consumer xử lý cùng một message nhiều lần nhưng trạng thái cuối vẫn giống xử lý một lần.</p>
+<p>Ví dụ event:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PaymentSucceeded&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_456&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;paymentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pay_789&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Nếu event được giao ba lần, order vẫn chỉ chuyển sang <code>paid</code> một lần.</p>
+<hr>
+<h1 id="18-cách-1--lưu-eventid-đã-xử-lý">18. Cách 1 — Lưu eventId đã xử lý</h1>
+<p>Tạo bảng:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> processed_events (
+    consumer_name <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>) <span class="hljs-keyword">NOT NULL</span>,
+    event_id <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>) <span class="hljs-keyword">NOT NULL</span>,
+    processed_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NOT NULL</span>,
+    <span class="hljs-keyword">PRIMARY KEY</span> (consumer_name, event_id)
+);
+</div></code></pre>
+<p>Consumer:</p>
+<pre class="hljs"><code><div>1. Bắt đầu transaction
+2. Insert eventId vào processed_events
+3. Nếu duplicate key → message đã xử lý
+4. Thực hiện business update
+5. Commit
+6. Ack broker
+</div></code></pre>
+<p>Pseudo-code:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">def</span> <span class="hljs-title function_">handle_payment_succeeded</span>(<span class="hljs-params">event</span>):
+    <span class="hljs-keyword">with</span> database.transaction():
+        inserted = database.try_insert_processed_event(
+            consumer_name=<span class="hljs-string">&quot;order-payment-handler&quot;</span>,
+            event_id=event.<span class="hljs-built_in">id</span>,
+        )
+
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> inserted:
+            <span class="hljs-keyword">return</span>
+
+        database.mark_order_paid(
+            order_id=event.data[<span class="hljs-string">&quot;orderId&quot;</span>],
+            payment_id=event.data[<span class="hljs-string">&quot;paymentId&quot;</span>],
+        )
+</div></code></pre>
+<p>Điểm quan trọng:</p>
+<blockquote>
+<p>Việc ghi <code>processed_events</code> và cập nhật nghiệp vụ phải nằm trong cùng transaction.</p>
+</blockquote>
+<p>Nếu không, vẫn có khoảng trống gây lỗi.</p>
+<hr>
+<h1 id="19-cách-2--unique-constraint-theo-business-key">19. Cách 2 — Unique constraint theo business key</h1>
+<p>Ví dụ tạo invoice cho mỗi order.</p>
+<p>Table:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> invoices (
+    id UUID <span class="hljs-keyword">PRIMARY KEY</span>,
+    order_id UUID <span class="hljs-keyword">NOT NULL</span> <span class="hljs-keyword">UNIQUE</span>,
+    total_amount <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NOT NULL</span>
+);
+</div></code></pre>
+<p>Nếu event được xử lý lại:</p>
+<pre class="hljs"><code><div>INSERT invoice với cùng order_id
+→ unique constraint chặn duplicate
+</div></code></pre>
+<p>Đôi khi business key tự nhiên tốt hơn bảng eventId.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một order chỉ có một invoice.
+Một paymentId chỉ được ghi một lần.
+Một coupon chỉ được redeem một lần cho một user.
+</div></code></pre>
+<hr>
+<h1 id="20-cách-3--idempotent-state-transition">20. Cách 3 — Idempotent State Transition</h1>
+<p>Không nên viết:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> paid_count <span class="hljs-operator">=</span> paid_count <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> id <span class="hljs-operator">=</span> :order_id;
+</div></code></pre>
+<p>Nếu message lặp, <code>paid_count</code> tăng nhiều lần.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;paid&#x27;</span>,
+    payment_id <span class="hljs-operator">=</span> :payment_id
+<span class="hljs-keyword">WHERE</span> id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;pending_payment&#x27;</span>;
+</div></code></pre>
+<p>Nếu đã <code>paid</code>, lần sau update không thay đổi gì.</p>
+<p>Đây là conditional state transition.</p>
+<hr>
+<h1 id="21-cách-4--upsert">21. Cách 4 — Upsert</h1>
+<p>Ví dụ projection:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">INSERT INTO</span> user_profiles (user_id, name, version)
+<span class="hljs-keyword">VALUES</span> (:user_id, :name, :version)
+<span class="hljs-keyword">ON</span> CONFLICT (user_id)
+DO <span class="hljs-keyword">UPDATE</span>
+<span class="hljs-keyword">SET</span> name <span class="hljs-operator">=</span> EXCLUDED.name,
+    version <span class="hljs-operator">=</span> EXCLUDED.version
+<span class="hljs-keyword">WHERE</span> user_profiles.version <span class="hljs-operator">&lt;</span> EXCLUDED.version;
+</div></code></pre>
+<p>Vừa chống duplicate, vừa chống event cũ ghi đè event mới.</p>
+<hr>
+<h1 id="22-consumer-group">22. Consumer Group</h1>
+<p>Consumer group cho phép nhiều consumer cùng chia việc.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Topic[Topic / Queue] --> G[Consumer Group]
+
+    G --> C1[Consumer 1]
+    G --> C2[Consumer 2]
+    G --> C3[Consumer 3]
+</div></code></pre>
+<p>Trong cùng một group:</p>
+<pre class="hljs"><code><div>Mỗi partition/message stream thường được một consumer phụ trách tại một thời điểm.
+</div></code></pre>
+<p>Hai consumer group độc lập:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Topic[Order Events]
+
+    Topic --> G1[Email Group]
+    Topic --> G2[Analytics Group]
+
+    G1 --> E1[Email Consumer 1]
+    G1 --> E2[Email Consumer 2]
+
+    G2 --> A1[Analytics Consumer 1]
+    G2 --> A2[Analytics Consumer 2]
+</div></code></pre>
+<p>Email và analytics đều nhận event, nhưng các consumer trong từng group chia tải với nhau.</p>
+<hr>
+<h1 id="23-partition-là-gì">23. Partition là gì?</h1>
+<p>Partition chia một topic hoặc log thành nhiều luồng độc lập.</p>
+<pre class="hljs"><code><div>Topic: order-events
+
+Partition 0
+Partition 1
+Partition 2
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Producer --> Router{Partitioner}
+
+    Router --> P0[Partition 0]
+    Router --> P1[Partition 1]
+    Router --> P2[Partition 2]
+</div></code></pre>
+<p>Mục đích:</p>
+<pre class="hljs"><code><div>- Scale throughput
+- Cho nhiều consumer xử lý song song
+- Phân bố dữ liệu
+- Giữ ordering trong phạm vi partition
+</div></code></pre>
+<hr>
+<h1 id="24-partition-key">24. Partition Key</h1>
+<p>Producer có thể chọn partition bằng key:</p>
+<pre class="hljs"><code><div>partition = hash(key) mod number_of_partitions
+</div></code></pre>
+<p>Ví dụ dùng <code>orderId</code>:</p>
+<pre class="hljs"><code><div>Order ord_123 → Partition 2
+Order ord_456 → Partition 0
+</div></code></pre>
+<p>Mọi event của cùng một order thường vào cùng partition:</p>
+<pre class="hljs"><code><div>OrderCreated
+PaymentSucceeded
+OrderShipped
+OrderDelivered
+</div></code></pre>
+<p>Nhờ vậy ordering của từng order dễ được giữ.</p>
+<hr>
+<h1 id="25-ordering-guarantee">25. Ordering Guarantee</h1>
+<p>Ordering thường không được bảo đảm toàn topic khi có nhiều partition.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Partition 0:
+Event A → Event C
+
+Partition 1:
+Event B → Event D
+</div></code></pre>
+<p>Consumer có thể nhận:</p>
+<pre class="hljs"><code><div>A, B, D, C
+</div></code></pre>
+<p>Broker chỉ thường bảo đảm thứ tự:</p>
+<blockquote>
+<p>Trong cùng một partition.</p>
+</blockquote>
+<p>Do đó phải hỏi:</p>
+<pre class="hljs"><code><div>Cần global ordering hay ordering theo entity?
+</div></code></pre>
+<hr>
+<h1 id="26-global-ordering">26. Global Ordering</h1>
+<p>Để có global ordering đơn giản nhất, có thể dùng một partition.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Producer --> P[Single Partition]
+    P --> Consumer
+</div></code></pre>
+<p>Nhưng throughput bị giới hạn bởi:</p>
+<pre class="hljs"><code><div>- Một partition
+- Một ordering lane
+- Số consumer song song hạn chế
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Ordering mạnh hơn
+↕
+Khả năng song song thấp hơn
+</div></code></pre>
+<p>Phần lớn hệ thống không cần global ordering.</p>
+<p>Chúng thường chỉ cần:</p>
+<pre class="hljs"><code><div>Ordering theo orderId
+Ordering theo userId
+Ordering theo accountId
+Ordering theo conversationId
+</div></code></pre>
+<hr>
+<h1 id="27-ví-dụ-ordering-theo-conversation">27. Ví dụ Ordering theo Conversation</h1>
+<p>Chat system:</p>
+<pre class="hljs"><code><div>Partition key = conversation_id
+</div></code></pre>
+<p>Mọi tin nhắn trong cùng conversation đi vào cùng partition:</p>
+<pre class="hljs"><code><div>Conversation A:
+Message 1 → Message 2 → Message 3
+</div></code></pre>
+<p>Nhưng conversation A và B có thể xử lý song song.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    P0[Partition 0: Conversation A] --> C0[Consumer 0]
+    P1[Partition 1: Conversation B] --> C1[Consumer 1]
+</div></code></pre>
+<p>Đây là cách cân bằng giữa:</p>
+<pre class="hljs"><code><div>- Ordering theo conversation
+- Throughput toàn hệ thống
+</div></code></pre>
+<hr>
+<h1 id="28-chọn-partition-key-sai">28. Chọn Partition Key sai</h1>
+<h2 id="key-có-cardinality-thấp">Key có cardinality thấp</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>partition key = country
+</div></code></pre>
+<p>Nếu 90% user ở một country:</p>
+<pre class="hljs"><code><div>Partition chứa country đó trở thành hotspot.
+</div></code></pre>
+<hr>
+<h2 id="key-quá-nóng">Key quá nóng</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>partition key = celebrityId
+</div></code></pre>
+<p>Một celebrity có thể tạo phần lớn traffic.</p>
+<hr>
+<h2 id="không-dùng-key">Không dùng key</h2>
+<p>Broker có thể round-robin message qua partition.</p>
+<p>Throughput tốt nhưng event cùng entity có thể mất ordering.</p>
+<hr>
+<h2 id="key-thay-đổi-theo-thời-gian">Key thay đổi theo thời gian</h2>
+<p>Nếu event của cùng order dùng lúc <code>userId</code>, lúc <code>orderId</code>, chúng có thể đi vào partition khác nhau.</p>
+<hr>
+<h1 id="29-số-partition-ảnh-hưởng-khả-năng-scale">29. Số Partition ảnh hưởng khả năng Scale</h1>
+<p>Giả sử topic có ba partition.</p>
+<p>Trong một consumer group:</p>
+<pre class="hljs"><code><div>Tối đa ba consumer xử lý song song hữu ích.
+</div></code></pre>
+<p>Nếu có năm consumer:</p>
+<pre class="hljs"><code><div>Consumer 1 → Partition 0
+Consumer 2 → Partition 1
+Consumer 3 → Partition 2
+Consumer 4 → Idle
+Consumer 5 → Idle
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    P0 --> C1
+    P1 --> C2
+    P2 --> C3
+
+    C4[Consumer 4 idle]
+    C5[Consumer 5 idle]
+</div></code></pre>
+<p>Muốn scale consumer cao hơn có thể cần nhiều partition hơn.</p>
+<p>Nhưng quá nhiều partition cũng có chi phí:</p>
+<pre class="hljs"><code><div>- Metadata
+- File handles
+- Replication
+- Rebalance
+- Operational overhead
+</div></code></pre>
+<hr>
+<h1 id="30-consumer-rebalancing">30. Consumer Rebalancing</h1>
+<p>Khi consumer thêm, chết hoặc rời group, partition phải được gán lại.</p>
+<pre class="hljs"><code><div>Trước:
+C1 → P0, P1
+C2 → P2, P3
+
+Thêm C3:
+C1 → P0
+C2 → P1, P2
+C3 → P3
+</div></code></pre>
+<p>Trong quá trình rebalance:</p>
+<pre class="hljs"><code><div>- Consumer có thể tạm ngừng đọc
+- Partition ownership thay đổi
+- Processing đang dở cần được xử lý cẩn thận
+</div></code></pre>
+<p>Nếu rebalance quá thường xuyên, throughput và latency bị ảnh hưởng.</p>
+<hr>
+<h1 id="31-offset">31. Offset</h1>
+<p>Trong event log, offset là vị trí của message trong partition.</p>
+<pre class="hljs"><code><div>Partition 0:
+
+Offset 100: OrderCreated
+Offset 101: PaymentSucceeded
+Offset 102: OrderShipped
+</div></code></pre>
+<p>Consumer lưu offset đã xử lý.</p>
+<p>Nếu restart:</p>
+<pre class="hljs"><code><div>Đọc tiếp từ offset đã commit.
+</div></code></pre>
+<p>Commit offset quá sớm:</p>
+<pre class="hljs"><code><div>Có thể mất message.
+</div></code></pre>
+<p>Commit offset quá muộn:</p>
+<pre class="hljs"><code><div>Có thể xử lý duplicate.
+</div></code></pre>
+<hr>
+<h1 id="32-retry">32. Retry</h1>
+<p>Consumer có thể thất bại vì:</p>
+<pre class="hljs"><code><div>- Database timeout
+- Third-party API lỗi
+- Network failure
+- Rate limit
+- Message malformed
+- Bug trong business logic
+- Dependency tạm thời unavailable
+</div></code></pre>
+<p>Không phải lỗi nào cũng nên retry giống nhau.</p>
+<hr>
+<h1 id="33-transient-và-permanent-failure">33. Transient và Permanent Failure</h1>
+<h2 id="transient-failure">Transient failure</h2>
+<p>Có khả năng thành công nếu thử lại:</p>
+<pre class="hljs"><code><div>- Timeout
+- 503 Service Unavailable
+- Database connection tạm lỗi
+- Rate limit
+- Network interruption
+</div></code></pre>
+<p>Nên retry.</p>
+<hr>
+<h2 id="permanent-failure">Permanent failure</h2>
+<p>Retry không giúp:</p>
+<pre class="hljs"><code><div>- JSON sai schema
+- Thiếu required field
+- User không tồn tại vĩnh viễn
+- Business rule không hợp lệ
+- Unsupported event version
+</div></code></pre>
+<p>Nên đưa sang DLQ hoặc xử lý riêng.</p>
+<hr>
+<h1 id="34-immediate-retry-nguy-hiểm-thế-nào">34. Immediate Retry nguy hiểm thế nào?</h1>
+<p>Giả sử payment provider đang down.</p>
+<p>Consumer retry ngay:</p>
+<pre class="hljs"><code><div>Lần 1 thất bại
+Lần 2 ngay lập tức thất bại
+Lần 3 ngay lập tức thất bại
+...
+</div></code></pre>
+<p>Nhiều consumer cùng retry tạo <strong>retry storm</strong>.</p>
+<p>Dependency đang lỗi lại bị đánh mạnh hơn.</p>
+<hr>
+<h1 id="35-exponential-backoff">35. Exponential Backoff</h1>
+<p>Thời gian chờ tăng dần:</p>
+<pre class="hljs"><code><div>Retry 1: 1 giây
+Retry 2: 2 giây
+Retry 3: 4 giây
+Retry 4: 8 giây
+Retry 5: 16 giây
+</div></code></pre>
+<p>Công thức khái niệm:</p>
+<pre class="hljs"><code><div>delay = base × 2^attempt
+</div></code></pre>
+<p>Thường cần đặt maximum:</p>
+<pre class="hljs"><code><div>max delay = 5 phút
+</div></code></pre>
+<hr>
+<h1 id="36-jitter">36. Jitter</h1>
+<p>Nếu 10.000 consumer cùng retry đúng sau 8 giây, chúng lại tạo spike.</p>
+<p>Jitter thêm ngẫu nhiên:</p>
+<pre class="hljs"><code><div>Retry 3:
+4 giây + random(0–2 giây)
+</div></code></pre>
+<p>Các retry được phân tán.</p>
+<pre class="hljs"><code><div>Exponential backoff + jitter
+</div></code></pre>
+<p>là lựa chọn phổ biến cho distributed systems.</p>
+<hr>
+<h1 id="37-retry-queue">37. Retry Queue</h1>
+<p>Thay vì giữ message và block partition, có thể chuyển message sang retry queue.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Main[Main Queue] --> Consumer
+
+    Consumer -->|Success| Ack[Done]
+    Consumer -->|Temporary Failure| R1[Retry Queue 1: 10s]
+    R1 --> Main
+
+    Consumer -->|Repeated Failure| R2[Retry Queue 2: 1m]
+    R2 --> Main
+
+    Consumer -->|Max Attempts| DLQ[Dead-Letter Queue]
+</div></code></pre>
+<p>Có thể có nhiều tầng:</p>
+<pre class="hljs"><code><div>retry-10-seconds
+retry-1-minute
+retry-10-minutes
+</div></code></pre>
+<hr>
+<h1 id="38-retry-có-thể-phá-ordering">38. Retry có thể phá Ordering</h1>
+<p>Giả sử cùng một order:</p>
+<pre class="hljs"><code><div>Event 1: OrderCreated
+Event 2: PaymentSucceeded
+</div></code></pre>
+<p>Event 1 lỗi và được đưa sang retry queue.</p>
+<p>Event 2 tiếp tục xử lý thành công.</p>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>PaymentSucceeded được xử lý trước OrderCreated.
+</div></code></pre>
+<p>Nếu ordering quan trọng, cần chọn chiến lược:</p>
+<pre class="hljs"><code><div>- Block partition tới khi event đầu xử lý được
+- Retry cùng partition
+- Buffer event sau
+- Dùng state machine chịu out-of-order
+- Gắn version/sequence number
+</div></code></pre>
+<p>Không có lựa chọn miễn phí:</p>
+<pre class="hljs"><code><div>Giữ ordering mạnh
+↕
+Một poison message có thể chặn cả partition
+</div></code></pre>
+<hr>
+<h1 id="39-poison-message">39. Poison Message</h1>
+<p>Poison message là message liên tục làm consumer thất bại.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Payload hỏng
+- Bug đặc biệt
+- Event version không hỗ trợ
+- Dữ liệu gây exception
+</div></code></pre>
+<p>Nếu retry vô hạn:</p>
+<pre class="hljs"><code><div>- Tốn CPU
+- Tạo log khổng lồ
+- Chặn partition
+- Làm tăng queue lag
+</div></code></pre>
+<p>Cần giới hạn retry và đưa sang DLQ.</p>
+<hr>
+<h1 id="40-dead-letter-queue--dlq">40. Dead-Letter Queue — DLQ</h1>
+<p>DLQ là nơi chứa message không thể xử lý thành công sau số lần retry cho phép.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Queue --> Consumer
+    Consumer -->|Success| Done[Done]
+    Consumer -->|Failed N times| DLQ[Dead-Letter Queue]
+</div></code></pre>
+<p>DLQ không phải “thùng rác”.</p>
+<p>Mục đích:</p>
+<pre class="hljs"><code><div>- Không chặn luồng chính
+- Giữ message để điều tra
+- Cho phép sửa lỗi và replay
+- Phân tích lỗi hệ thống
+</div></code></pre>
+<hr>
+<h1 id="41-message-trong-dlq-nên-chứa-gì">41. Message trong DLQ nên chứa gì?</h1>
+<p>Ngoài original message, nên có:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;originalMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OrderCreated&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;failure&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;consumer&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;inventory-consumer&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;attempts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;lastErrorCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PRODUCT_NOT_FOUND&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;lastErrorMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Product p_456 does not exist&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;firstFailedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:30:00Z&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;lastFailedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-11T03:45:00Z&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Tránh đưa stack trace nhạy cảm hoặc secret vào payload nếu DLQ có phạm vi truy cập rộng.</p>
+<hr>
+<h1 id="42-dlq-cần-vận-hành-thế-nào">42. DLQ cần vận hành thế nào?</h1>
+<p>Phải có:</p>
+<pre class="hljs"><code><div>- Alert khi DLQ tăng
+- Dashboard theo event type/error
+- Retention policy
+- Công cụ xem message an toàn
+- Quy trình replay
+- Quy trình discard có audit
+</div></code></pre>
+<p>Nếu chỉ tạo DLQ mà không ai theo dõi:</p>
+<blockquote>
+<p>Message chỉ được chuyển từ một nơi bị quên sang một nơi khác bị quên.</p>
+</blockquote>
+<hr>
+<h1 id="43-replay-message">43. Replay Message</h1>
+<p>Sau khi sửa consumer, có thể đưa message từ DLQ quay lại main queue.</p>
+<p>Nhưng replay cần thận trọng:</p>
+<pre class="hljs"><code><div>- Consumer đã idempotent chưa?
+- Message còn hợp lệ về nghiệp vụ không?
+- Schema version còn hỗ trợ không?
+- Có cần giữ ordering không?
+- Replay toàn bộ có gây spike không?
+</div></code></pre>
+<p>Nên replay có rate limit và theo batch.</p>
+<hr>
+<h1 id="44-retry-budget">44. Retry Budget</h1>
+<p>Không nên để một message được retry vô hạn.</p>
+<p>Ví dụ policy:</p>
+<pre class="hljs"><code><div>Retry tối đa: 5 lần
+Max duration: 30 phút
+Sau đó: DLQ
+</div></code></pre>
+<p>Một số nghiệp vụ có thể retry lâu hơn:</p>
+<pre class="hljs"><code><div>Email:
+Có thể retry nhiều giờ.
+
+Payment webhook:
+Có thể retry nhiều ngày.
+
+Malformed event:
+Không nên retry nhiều lần.
+</div></code></pre>
+<p>Policy phải dựa trên loại lỗi và business consequence.</p>
+<hr>
+<h1 id="45-transactional-outbox-problem">45. Transactional Outbox Problem</h1>
+<p>Một vấn đề cực kỳ quan trọng:</p>
+<pre class="hljs"><code><div>1. Order Service lưu order vào DB
+2. Order Service publish OrderCreated
+</div></code></pre>
+<p>Điều gì xảy ra nếu:</p>
+<pre class="hljs"><code><div>DB commit thành công
+nhưng publish event thất bại?
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Order đã tồn tại
+nhưng Inventory/Email/Analytics không biết.
+</div></code></pre>
+<p>Hoặc ngược lại:</p>
+<pre class="hljs"><code><div>Publish event thành công
+nhưng DB transaction rollback.
+</div></code></pre>
+<p>Event nói order tồn tại trong khi DB không có order.</p>
+<p>Đây là <strong>dual-write problem</strong>.</p>
+<hr>
+<h1 id="46-transactional-outbox-pattern">46. Transactional Outbox Pattern</h1>
+<p>Trong cùng một database transaction:</p>
+<pre class="hljs"><code><div>1. Ghi order
+2. Ghi event vào outbox table
+3. Commit cùng lúc
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant OrderService
+    participant DB
+    participant Relay
+    participant Broker
+
+    OrderService->>DB: BEGIN
+    OrderService->>DB: INSERT order
+    OrderService->>DB: INSERT outbox event
+    OrderService->>DB: COMMIT
+
+    Relay->>DB: Read unpublished events
+    Relay->>Broker: Publish OrderCreated
+    Broker-->>Relay: Acknowledged
+    Relay->>DB: Mark event published
+</div></code></pre>
+<p>Schema:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> outbox_events (
+    id UUID <span class="hljs-keyword">PRIMARY KEY</span>,
+    aggregate_type <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>),
+    aggregate_id <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>),
+    event_type <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>),
+    payload JSONB,
+    created_at <span class="hljs-type">TIMESTAMP</span>,
+    published_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NULL</span>
+);
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>Order và event được ghi atomically trong cùng DB transaction.
+</div></code></pre>
+<p>Relay vẫn có thể publish duplicate nếu crash sau publish nhưng trước khi mark published. Vì vậy consumer vẫn cần idempotent.</p>
+<hr>
+<h1 id="47-change-data-capture">47. Change Data Capture</h1>
+<p>Thay vì một relay polling outbox, có thể dùng CDC để đọc transaction log và publish thay đổi.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    App --> DB[(Database)]
+    DB --> Log[Transaction Log]
+    Log --> CDC[CDC Connector]
+    CDC --> Broker[Message Broker]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Ít polling
+- Theo sát database log
+- Có thể scale tốt
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hạ tầng phức tạp
+- Schema evolution
+- Operational burden
+</div></code></pre>
+<hr>
+<h1 id="48-inbox-pattern">48. Inbox Pattern</h1>
+<p>Outbox bảo đảm producer không bỏ sót event.</p>
+<p>Inbox giúp consumer lưu message đã nhận trước hoặc cùng lúc với processing.</p>
+<pre class="hljs"><code><div>Producer:
+Outbox
+
+Consumer:
+Inbox / processed_events
+</div></code></pre>
+<p>Kết hợp:</p>
+<pre class="hljs"><code><div>At-least-once publish
++
+At-least-once delivery
++
+Inbox/deduplication
+</div></code></pre>
+<p>giúp hiệu ứng nghiệp vụ đáng tin cậy hơn.</p>
+<hr>
+<h1 id="49-external-side-effect-khó-idempotent">49. External Side Effect khó Idempotent</h1>
+<p>Database update có thể dùng transaction và unique constraint.</p>
+<p>Nhưng gửi email hoặc gọi payment provider khó hơn.</p>
+<h2 id="gửi-email">Gửi email</h2>
+<p>Nếu consumer crash sau khi email provider đã gửi nhưng trước khi ghi trạng thái:</p>
+<pre class="hljs"><code><div>Retry có thể gửi email lần hai.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Provider hỗ trợ idempotency key
+- Lưu delivery record
+- Dùng deterministic provider request ID
+- Chấp nhận duplicate nhỏ với một số loại email
+</div></code></pre>
+<hr>
+<h2 id="payment">Payment</h2>
+<p>Luôn sử dụng idempotency key nếu payment provider hỗ trợ.</p>
+<pre class="hljs"><code><div>Idempotency-Key = payment_attempt_id
+</div></code></pre>
+<p>Retry cùng key phải trả cùng kết quả thay vì charge lại.</p>
+<hr>
+<h1 id="50-message-schema-evolution">50. Message Schema Evolution</h1>
+<p>Message tồn tại trong queue hoặc log một thời gian.</p>
+<p>Consumer mới có thể nhận event cũ.</p>
+<p>Do đó không nên thay schema tùy tiện.</p>
+<p>Version 1:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Version 2:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;firstName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;lastName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bailey&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Consumer phải biết:</p>
+<pre class="hljs"><code><div>- Hỗ trợ version nào
+- Default value
+- Migration strategy
+</div></code></pre>
+<hr>
+<h1 id="51-quy-tắc-thay-đổi-schema-an-toàn">51. Quy tắc thay đổi schema an toàn</h1>
+<p>Ưu tiên additive change:</p>
+<pre class="hljs"><code><div>- Thêm optional field
+- Giữ field cũ một thời gian
+- Consumer bỏ qua field không biết
+</div></code></pre>
+<p>Tránh:</p>
+<pre class="hljs"><code><div>- Đổi type field
+- Xóa field ngay
+- Đổi semantics âm thầm
+- Đổi tên mà không version
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- JSON schema
+- Protocol Buffers
+- Avro
+- Schema Registry
+</div></code></pre>
+<hr>
+<h1 id="52-payload-lớn-có-nên-đưa-vào-queue">52. Payload lớn có nên đưa vào Queue?</h1>
+<p>Không nên đưa file video 2 GB trực tiếp vào message broker.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>1. Lưu file vào object storage
+2. Message chỉ chứa object key
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VideoUploaded&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;videoId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vid_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;objectKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;videos/user_456/vid_123/original.mp4&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Message nhỏ
+- Broker không bị dùng làm file storage
+- Retry nhẹ hơn
+- Consumer tải file khi cần
+</div></code></pre>
+<hr>
+<h1 id="53-message-nhỏ-hay-chứa-snapshot">53. Message nhỏ hay chứa snapshot?</h1>
+<p>Hai style:</p>
+<h2 id="chỉ-chứa-id">Chỉ chứa ID</h2>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Consumer phải query Order Service hoặc database.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Message nhỏ
+- Dữ liệu không duplicate nhiều
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tăng coupling
+- Thêm network call
+- Consumer có thể đọc trạng thái mới hơn event
+</div></code></pre>
+<hr>
+<h2 id="chứa-dữ-liệu-cần-thiết">Chứa dữ liệu cần thiết</h2>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Consumer tự xử lý
+- Ít synchronous dependency
+- Giữ snapshot tại thời điểm event
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Payload lớn hơn
+- Schema evolution khó hơn
+- Có duplicate data
+</div></code></pre>
+<p>Thông thường event nên chứa đủ dữ liệu để consumer thực hiện công việc mà không phải gọi ngược producer, nhưng không nhét mọi dữ liệu không cần thiết.</p>
+<hr>
+<h1 id="54-queue-lag">54. Queue Lag</h1>
+<p>Lag thể hiện consumer đang chậm hơn producer bao nhiêu.</p>
+<p>Có thể đo bằng:</p>
+<pre class="hljs"><code><div>- Số message chưa xử lý
+- Chênh lệch offset
+- Tuổi của message cũ nhất
+- Thời gian từ publish đến process
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Queue depth = 1 triệu message
+</div></code></pre>
+<p>Con số này chưa đủ.</p>
+<p>Nếu throughput là 1 triệu message/giây:</p>
+<pre class="hljs"><code><div>Backlog chỉ tương đương 1 giây.
+</div></code></pre>
+<p>Nếu throughput là 100 message/giây:</p>
+<pre class="hljs"><code><div>Backlog tương đương gần 3 giờ.
+</div></code></pre>
+<p><strong>Oldest message age</strong> thường phản ánh impact tốt hơn queue depth thuần túy.</p>
+<hr>
+<h1 id="55-scale-consumer-theo-queue">55. Scale Consumer theo Queue</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>Input rate = 5.000 jobs/s
+Một consumer = 100 jobs/s
+</div></code></pre>
+<p>Tối thiểu:</p>
+<pre class="hljs"><code><div>5.000 / 100 = 50 consumers
+</div></code></pre>
+<p>Thêm headroom:</p>
+<pre class="hljs"><code><div>60–70 consumers
+</div></code></pre>
+<p>Có thể autoscale theo:</p>
+<pre class="hljs"><code><div>- Queue depth
+- Message age
+- Input rate
+- Processing time
+- Partition count
+</div></code></pre>
+<p>Nhưng số consumer hữu ích có thể bị giới hạn bởi số partition.</p>
+<hr>
+<h1 id="56-batch-consumption">56. Batch Consumption</h1>
+<p>Consumer có thể lấy nhiều message cùng lúc.</p>
+<pre class="hljs"><code><div>Batch size = 100
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Giảm network overhead
+- Batch database write
+- Tăng throughput
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Latency của message đầu batch có thể tăng
+- Một message lỗi ảnh hưởng cả batch
+- Ack và retry phức tạp hơn
+</div></code></pre>
+<p>Cần quyết định:</p>
+<pre class="hljs"><code><div>Retry cả batch?
+Retry riêng message lỗi?
+Commit offset tới đâu?
+</div></code></pre>
+<hr>
+<h1 id="57-prefetch">57. Prefetch</h1>
+<p>Broker có thể gửi trước nhiều message cho consumer.</p>
+<p>Nếu prefetch quá cao:</p>
+<pre class="hljs"><code><div>- Một consumer giữ quá nhiều message
+- Load không đều
+- Message chờ trong memory của consumer
+</div></code></pre>
+<p>Nếu prefetch quá thấp:</p>
+<pre class="hljs"><code><div>- Consumer không được sử dụng hết
+- Nhiều round trip
+</div></code></pre>
+<p>Prefetch nên phù hợp processing time và concurrency.</p>
+<hr>
+<h1 id="58-ordering-và-parallelism-trong-consumer">58. Ordering và Parallelism trong Consumer</h1>
+<p>Ngay cả message cùng partition được giao theo thứ tự, consumer có thể phá ordering nếu xử lý song song.</p>
+<p>Ví dụ nhận:</p>
+<pre class="hljs"><code><div>Event 1
+Event 2
+</div></code></pre>
+<p>Consumer start hai thread:</p>
+<pre class="hljs"><code><div>Event 2 xử lý xong trước Event 1
+</div></code></pre>
+<p>Nếu ordering cần thiết:</p>
+<pre class="hljs"><code><div>- Xử lý tuần tự trong từng partition/key
+- Chỉ song song giữa các partition/key
+- Dùng keyed executor
+</div></code></pre>
+<hr>
+<h1 id="59-timeout-và-visibility-timeout">59. Timeout và Visibility Timeout</h1>
+<p>Một số queue dùng visibility timeout:</p>
+<pre class="hljs"><code><div>1. Consumer nhận message
+2. Message tạm ẩn với consumer khác trong 30 giây
+3. Nếu consumer ack → xóa
+4. Nếu không ack trước timeout → message xuất hiện lại
+</div></code></pre>
+<p>Nếu processing mất 2 phút nhưng visibility timeout chỉ 30 giây:</p>
+<pre class="hljs"><code><div>Message có thể được consumer khác nhận khi consumer đầu vẫn đang xử lý.
+</div></code></pre>
+<p>Kết quả: xử lý song song duplicate.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Visibility timeout dài hơn processing time
+- Extend heartbeat/lease
+- Chia job lớn thành job nhỏ
+- Consumer vẫn phải idempotent
+</div></code></pre>
+<hr>
+<h1 id="60-case-study--order-processing">60. Case Study — Order Processing</h1>
+<p>Luồng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> OrderAPI[Order API]
+    OrderAPI --> DB[(Order DB + Outbox)]
+    DB --> Relay[Outbox Relay]
+    Relay --> Broker[Order Events]
+
+    Broker --> Payment[Payment Consumer]
+    Broker --> Inventory[Inventory Consumer]
+    Broker --> Email[Email Consumer]
+    Broker --> Analytics[Analytics Consumer]
+</div></code></pre>
+<p>Nhưng payment và inventory có thể có dependency nghiệp vụ phức tạp.</p>
+<p>Không nên giả định mọi event có thể chạy tùy ý song song.</p>
+<p>Một state machine:</p>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> Pending
+    Pending --> InventoryReserved
+    InventoryReserved --> Paid
+    Paid --> Confirmed
+
+    Pending --> Cancelled
+    InventoryReserved --> Cancelled
+</div></code></pre>
+<p>Consumer nên thực hiện conditional state transition.</p>
+<hr>
+<h1 id="61-case-study--video-processing">61. Case Study — Video Processing</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Upload[Video Uploaded] --> Queue[Transcoding Queue]
+
+    Queue --> W1[Worker 1]
+    Queue --> W2[Worker 2]
+    Queue --> W3[Worker 3]
+
+    W1 --> Storage[(Processed Storage)]
+    W2 --> Storage
+    W3 --> Storage
+
+    Storage --> Ready[VideoReady Event]
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Job nặng
+- Có thể mất vài phút
+- Retry có thể tốn kém
+- File nằm trong object storage
+- Message chỉ chứa object key
+</div></code></pre>
+<p>Idempotency:</p>
+<pre class="hljs"><code><div>Output key deterministic:
+videos/{videoId}/720p.mp4
+</div></code></pre>
+<p>Nếu retry, worker có thể kiểm tra output đã tồn tại và hợp lệ chưa.</p>
+<hr>
+<h1 id="62-case-study--notification-system">62. Case Study — Notification System</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Services --> Topic[Notification Events]
+
+    Topic --> EmailQ[Email Queue]
+    Topic --> SMSQ[SMS Queue]
+    Topic --> PushQ[Push Queue]
+
+    EmailQ --> EmailWorkers
+    SMSQ --> SMSWorkers
+    PushQ --> PushWorkers
+</div></code></pre>
+<p>Mỗi channel có:</p>
+<pre class="hljs"><code><div>- Rate limit khác
+- Provider khác
+- Retry policy khác
+- DLQ khác
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Push notification lỗi:
+Có thể drop sau vài retry.
+
+OTP SMS:
+Latency quan trọng, hết hạn sau vài phút.
+
+Invoice email:
+Có thể retry lâu hơn.
+</div></code></pre>
+<p>Không nên dùng một retry policy cho mọi notification.</p>
+<hr>
+<h1 id="63-message-queue-không-phù-hợp-khi-nào">63. Message Queue không phù hợp khi nào?</h1>
+<p>Không nên dùng queue chỉ vì hệ thống có nhiều service.</p>
+<p>Xử lý đồng bộ vẫn phù hợp khi:</p>
+<pre class="hljs"><code><div>- User cần kết quả ngay
+- Operation đơn giản
+- Không chấp nhận eventual consistency
+- Producer cần biết consumer đã thành công hay thất bại
+- Workflow nhỏ và latency thấp
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User nhập mật khẩu
+→ Authentication Service phải trả kết quả ngay.
+</div></code></pre>
+<p>Không hợp lý nếu:</p>
+<pre class="hljs"><code><div>POST /login
+→ enqueue LoginRequested
+→ user chờ không biết bao lâu
+</div></code></pre>
+<hr>
+<h1 id="64-sync-và-async-thường-được-kết-hợp">64. Sync và Async thường được kết hợp</h1>
+<p>Ví dụ order:</p>
+<pre class="hljs"><code><div>Đồng bộ:
+- Validate
+- Tạo order
+- Trả orderId
+
+Bất đồng bộ:
+- Email
+- Analytics
+- Loyalty points
+- Search indexing
+</div></code></pre>
+<p>Không phải toàn bộ luồng đều phải chuyển sang queue.</p>
+<p>Senior Engineer phân loại:</p>
+<pre class="hljs"><code><div>Critical path
+Non-critical side effects
+Long-running jobs
+Retryable work
+</div></code></pre>
+<hr>
+<h1 id="65-failure-mode-thường-gặp">65. Failure Mode thường gặp</h1>
+<h2 id="producer-nghĩ-publish-thất-bại-nhưng-broker-đã-nhận">Producer nghĩ publish thất bại nhưng broker đã nhận</h2>
+<p>Producer retry và tạo duplicate.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>eventId cố định
+idempotent producer nếu broker hỗ trợ
+consumer deduplication
+</div></code></pre>
+<hr>
+<h2 id="consumer-xử-lý-xong-nhưng-chưa-ack">Consumer xử lý xong nhưng chưa ack</h2>
+<p>Message được giao lại.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Idempotent consumer
+</div></code></pre>
+<hr>
+<h2 id="message-luôn-lỗi">Message luôn lỗi</h2>
+<p>Gây retry loop.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Retry limit + DLQ
+</div></code></pre>
+<hr>
+<h2 id="một-partition-bị-hot">Một partition bị hot</h2>
+<p>Consumer lag dù partition khác rảnh.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Chọn partition key tốt hơn
+Sharding key nóng
+Tăng partition nếu phù hợp
+</div></code></pre>
+<hr>
+<h2 id="consumer-mới-không-hiểu-event-cũ">Consumer mới không hiểu event cũ</h2>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Schema versioning
+Backward compatibility
+</div></code></pre>
+<hr>
+<h2 id="queue-che-giấu-downstream-quá-tải">Queue che giấu downstream quá tải</h2>
+<p>Backlog tăng hàng giờ nhưng API vẫn trả thành công.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Alert theo message age
+SLO cho processing delay
+Backpressure
+</div></code></pre>
+<hr>
+<h1 id="66-observability">66. Observability</h1>
+<p>Các metric quan trọng:</p>
+<pre class="hljs"><code><div>Producer:
+- Publish rate
+- Publish latency
+- Publish failures
+- Message size
+- Retry count
+
+Broker:
+- Queue depth
+- Partition size
+- Storage usage
+- Replication health
+- Under-replicated partitions
+
+Consumer:
+- Consumption rate
+- Processing latency
+- Success/error rate
+- Consumer lag
+- Oldest message age
+- Retry rate
+- DLQ count
+- Rebalance count
+</div></code></pre>
+<p>Business metrics:</p>
+<pre class="hljs"><code><div>- OrderCreated đến EmailSent mất bao lâu?
+- PaymentSucceeded đến OrderPaid mất bao lâu?
+- VideoUploaded đến VideoReady mất bao lâu?
+</div></code></pre>
+<p>Technical metrics tốt nhưng không thay thế business latency.</p>
+<hr>
+<h1 id="67-tracing-qua-message-queue">67. Tracing qua Message Queue</h1>
+<p>HTTP trace không tự nối qua async boundary nếu không truyền context.</p>
+<p>Message nên mang:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;correlationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order_ord_789&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Sơ đồ trace:</p>
+<pre class="hljs"><code><div>HTTP PlaceOrder
+→ OrderCreated
+→ PaymentProcessed
+→ EmailSent
+</div></code></pre>
+<p>Nhờ correlation ID, ta có thể theo dõi toàn bộ workflow.</p>
+<hr>
+<h1 id="68-security">68. Security</h1>
+<p>Cần bảo vệ:</p>
+<pre class="hljs"><code><div>- Ai được publish topic nào?
+- Ai được consume queue nào?
+- Payload có chứa dữ liệu nhạy cảm không?
+- Message có được mã hóa không?
+- Broker có dùng TLS không?
+- Credential có rotation không?
+</div></code></pre>
+<p>Không nên đưa vào message:</p>
+<pre class="hljs"><code><div>- Mật khẩu
+- Full card number
+- Access token không cần thiết
+- Secret key
+</div></code></pre>
+<p>Message có thể được lưu trong broker, backup, logs và DLQ lâu hơn dự kiến.</p>
+<hr>
+<h1 id="69-retention">69. Retention</h1>
+<p>Queue/log cần chính sách giữ message.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Work queue:
+Xóa sau khi ack.
+
+Event log:
+Giữ 7 ngày, 30 ngày hoặc theo dung lượng.
+
+DLQ:
+Giữ 14–90 ngày tùy nghiệp vụ.
+</div></code></pre>
+<p>Retention ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Khả năng replay
+- Storage cost
+- Compliance
+- Khả năng khôi phục consumer
+</div></code></pre>
+<hr>
+<h1 id="70-cách-chọn-queue-hay-event-streaming-platform">70. Cách chọn Queue hay Event Streaming Platform</h1>
+<h2 id="chọn-work-queue-khi">Chọn work queue khi</h2>
+<pre class="hljs"><code><div>- Job chỉ cần một worker xử lý
+- Sau khi hoàn tất không cần replay
+- Routing linh hoạt
+- Per-message acknowledgement quan trọng
+- Delay/retry queue là use case chính
+</div></code></pre>
+<h2 id="chọn-event-streaminglog-khi">Chọn event streaming/log khi</h2>
+<pre class="hljs"><code><div>- Nhiều consumer group
+- Cần replay
+- Throughput rất cao
+- Cần ordering theo partition
+- Event history có giá trị
+- Xây data pipeline
+</div></code></pre>
+<p>Nhưng ranh giới không tuyệt đối. Nhiều nền tảng hỗ trợ một phần tính năng của cả hai.</p>
+<hr>
+<h1 id="71-framework-thiết-kế-message-queue-như-senior-engineer">71. Framework thiết kế Message Queue như Senior Engineer</h1>
+<p>Khi đề xuất queue, phải trả lời:</p>
+<pre class="hljs"><code><div>1. Tại sao cần async?
+2. Producer là ai?
+3. Consumer là ai?
+4. Message là command, event hay job?
+5. Queue hay pub/sub?
+6. Payload chứa gì?
+7. Delivery semantics cần gì?
+8. Consumer có idempotent không?
+9. Partition key là gì?
+10. Ordering cần ở phạm vi nào?
+11. Retry lỗi nào?
+12. Backoff và jitter ra sao?
+13. Retry tối đa bao nhiêu?
+14. Khi nào đưa DLQ?
+15. DLQ ai theo dõi và replay?
+16. Làm sao tránh dual-write?
+17. Có dùng outbox không?
+18. Schema evolution thế nào?
+19. Scale consumer theo metric gì?
+20. SLO xử lý message là bao lâu?
+</div></code></pre>
+<hr>
+<h1 id="72-decision-tree">72. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Có công việc cần xử lý] --> B{User cần kết quả ngay?}
+
+    B -->|Có| C[Ưu tiên synchronous call]
+    B -->|Không| D{Một hay nhiều loại consumer?}
+
+    D -->|Một nhóm worker| E[Work Queue]
+    D -->|Nhiều subscriber độc lập| F[Pub/Sub hoặc Event Log]
+
+    E --> G{Cần replay lịch sử?}
+    F --> G
+
+    G -->|Có| H[Durable Event Log]
+    G -->|Không| I[Queue có thể đủ]
+
+    H --> J{Cần ordering?}
+    I --> J
+
+    J -->|Theo entity| K[Partition theo entity ID]
+    J -->|Global| L[Single ordering lane, chấp nhận giảm throughput]
+    J -->|Không| M[Phân phối đều để tăng parallelism]
+
+    K --> N[At-least-once + Idempotent Consumer]
+    L --> N
+    M --> N
+
+    N --> O[Retry + Backoff + Jitter]
+    O --> P[DLQ + Monitoring]
+</div></code></pre>
+<hr>
+<h1 id="73-cách-trình-bày-trong-system-design-interview">73. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em dùng Kafka để xử lý bất đồng bộ.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Sau khi order được commit, Order Service ghi event <code>OrderCreated</code> vào outbox trong cùng database transaction. Một relay publish event lên broker theo cơ chế at-least-once. Tôi partition theo <code>orderId</code> để giữ thứ tự các event của cùng một order, trong khi các order khác vẫn được xử lý song song. Consumer chỉ commit offset sau khi transaction nghiệp vụ hoàn tất và phải idempotent bằng <code>eventId</code> hoặc unique business constraint. Lỗi tạm thời được retry với exponential backoff và jitter; message vượt quá giới hạn retry được đưa vào DLQ có alert và quy trình replay.</p>
+</blockquote>
+<p>Câu trả lời này bao gồm:</p>
+<pre class="hljs"><code><div>- Dual-write
+- Delivery semantics
+- Partitioning
+- Ordering
+- Idempotency
+- Retry
+- DLQ
+- Operations
+</div></code></pre>
+<hr>
+<h1 id="74-các-sai-lầm-phổ-biến">74. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-nghĩ-có-queue-là-không-mất-message">Lỗi 1: Nghĩ có queue là không mất message</h2>
+<p>Durability phụ thuộc:</p>
+<pre class="hljs"><code><div>- Broker configuration
+- Replication
+- Producer ack
+- Retention
+</div></code></pre>
+<hr>
+<h2 id="lỗi-2-nghĩ-message-chỉ-được-giao-một-lần">Lỗi 2: Nghĩ message chỉ được giao một lần</h2>
+<p>At-least-once thường tạo duplicate.</p>
+<hr>
+<h2 id="lỗi-3-consumer-không-idempotent">Lỗi 3: Consumer không idempotent</h2>
+<p>Duplicate biến thành:</p>
+<pre class="hljs"><code><div>- Charge hai lần
+- Gửi coupon hai lần
+- Tăng counter hai lần
+</div></code></pre>
+<hr>
+<h2 id="lỗi-4-retry-vô-hạn">Lỗi 4: Retry vô hạn</h2>
+<p>Poison message chặn hệ thống.</p>
+<hr>
+<h2 id="lỗi-5-retry-ngay-lập-tức">Lỗi 5: Retry ngay lập tức</h2>
+<p>Tạo retry storm.</p>
+<hr>
+<h2 id="lỗi-6-dlq-không-có-alert">Lỗi 6: DLQ không có alert</h2>
+<p>Message thất bại bị quên.</p>
+<hr>
+<h2 id="lỗi-7-dùng-một-partition-để-giữ-global-order-không-cần-thiết">Lỗi 7: Dùng một partition để giữ global order không cần thiết</h2>
+<p>Làm mất khả năng scale.</p>
+<hr>
+<h2 id="lỗi-8-partition-key-gây-hotspot">Lỗi 8: Partition key gây hotspot</h2>
+<p>Một partition lag trong khi phần còn lại nhàn rỗi.</p>
+<hr>
+<h2 id="lỗi-9-publish-sau-db-commit-mà-không-có-outbox">Lỗi 9: Publish sau DB commit mà không có outbox</h2>
+<p>Có thể mất event.</p>
+<hr>
+<h2 id="lỗi-10-đưa-payload-quá-lớn-vào-broker">Lỗi 10: Đưa payload quá lớn vào broker</h2>
+<p>Broker trở thành file storage.</p>
+<hr>
+<h2 id="lỗi-11-không-version-schema">Lỗi 11: Không version schema</h2>
+<p>Consumer cũ bị hỏng khi producer đổi payload.</p>
+<hr>
+<h2 id="lỗi-12-chỉ-theo-dõi-queue-depth">Lỗi 12: Chỉ theo dõi queue depth</h2>
+<p>Không theo dõi tuổi message cũ nhất và business delay.</p>
+<hr>
+<h1 id="75-bảng-ghi-nhớ-nhanh">75. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Producer</td>
+<td>Phát message</td>
+</tr>
+<tr>
+<td>Broker</td>
+<td>Lưu và phân phối message</td>
+</tr>
+<tr>
+<td>Consumer</td>
+<td>Xử lý message</td>
+</tr>
+<tr>
+<td>Queue</td>
+<td>Chia công việc cho workers</td>
+</tr>
+<tr>
+<td>Pub/Sub</td>
+<td>Một event đến nhiều subscriber</td>
+</tr>
+<tr>
+<td>Partition</td>
+<td>Chia stream để xử lý song song</td>
+</tr>
+<tr>
+<td>Partition key</td>
+<td>Quyết định message vào partition nào</td>
+</tr>
+<tr>
+<td>Offset</td>
+<td>Vị trí message trong partition</td>
+</tr>
+<tr>
+<td>At-most-once</td>
+<td>Có thể mất, không duplicate</td>
+</tr>
+<tr>
+<td>At-least-once</td>
+<td>Không muốn mất, có thể duplicate</td>
+</tr>
+<tr>
+<td>Idempotent consumer</td>
+<td>Xử lý duplicate không gây hiệu ứng lặp</td>
+</tr>
+<tr>
+<td>Retry</td>
+<td>Thử lại sau lỗi</td>
+</tr>
+<tr>
+<td>Backoff</td>
+<td>Tăng thời gian giữa các retry</td>
+</tr>
+<tr>
+<td>Jitter</td>
+<td>Làm retry lệch nhau</td>
+</tr>
+<tr>
+<td>DLQ</td>
+<td>Lưu message xử lý thất bại</td>
+</tr>
+<tr>
+<td>Outbox</td>
+<td>Tránh dual-write giữa DB và broker</td>
+</tr>
+<tr>
+<td>Consumer lag</td>
+<td>Consumer chậm hơn producer</td>
+</tr>
+<tr>
+<td>Poison message</td>
+<td>Message liên tục gây lỗi</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="76-sơ-đồ-ghi-nhớ-toàn-bài">76. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Asynchronous Processing] --> B[Producer]
+    A --> C[Broker]
+    A --> D[Consumer]
+
+    C --> C1[Queue]
+    C --> C2[Topic]
+    C --> C3[Partitions]
+
+    C3 --> C31[Partition Key]
+    C3 --> C32[Ordering]
+    C3 --> C33[Parallelism]
+
+    D --> D1[Acknowledgement]
+    D --> D2[Idempotency]
+    D --> D3[Retry]
+    D --> D4[DLQ]
+
+    D1 --> E1[At-most-once]
+    D1 --> E2[At-least-once]
+
+    D3 --> F1[Exponential Backoff]
+    D3 --> F2[Jitter]
+    D3 --> F3[Retry Limit]
+
+    B --> G[Transactional Outbox]
+    G --> H[At-least-once Publish]
+</div></code></pre>
+<hr>
+<h1 id="77-những-điều-phải-nhớ-sau-bài-9">77. Những điều phải nhớ sau Bài 9</h1>
+<pre class="hljs"><code><div>1. Message Queue giúp producer và consumer không phải chạy đồng bộ.
+2. Queue giảm coupling, hấp thụ spike và hỗ trợ retry.
+3. Queue không tạo thêm capacity; backlog vẫn tăng nếu consumer quá chậm.
+4. Producer tạo message, broker lưu/phân phối, consumer xử lý.
+5. Work queue chia job; pub/sub phát event đến nhiều subscriber.
+6. Partition tăng throughput và parallelism.
+7. Ordering thường chỉ được bảo đảm trong một partition.
+8. Partition key nên phản ánh phạm vi ordering, ví dụ orderId.
+9. Global ordering làm giảm khả năng scale.
+10. Ack trước processing có thể mất message.
+11. Ack sau processing có thể tạo duplicate.
+12. At-most-once chấp nhận mất message để tránh duplicate.
+13. At-least-once giảm nguy cơ mất nhưng consumer phải idempotent.
+14. Exactly-once end-to-end không phải phép màu.
+15. Idempotency có thể dùng eventId, unique constraint hoặc conditional update.
+16. Retry chỉ phù hợp với lỗi tạm thời.
+17. Retry phải có exponential backoff và jitter.
+18. Poison message cần retry limit và DLQ.
+19. DLQ phải có alert, retention và quy trình replay.
+20. Retry queue có thể phá ordering.
+21. Outbox giải quyết dual-write giữa database và broker.
+22. Outbox vẫn có thể publish duplicate nên consumer vẫn phải idempotent.
+23. Message schema cần versioning và backward compatibility.
+24. File lớn nên nằm trong object storage; message chỉ mang object key.
+25. Scale consumer phải cân nhắc queue lag, message age và số partition.
+</div></code></pre>
+<hr>
+<h1 id="78-bài-tập-thực-hành">78. Bài tập thực hành</h1>
+<p>Thiết kế luồng xử lý cho hệ thống đặt đồ ăn.</p>
+<p>Khi user đặt order:</p>
+<pre class="hljs"><code><div>- Lưu order
+- Giữ inventory
+- Xử lý payment
+- Gửi thông báo nhà hàng
+- Gửi email/SMS
+- Cộng loyalty points
+- Ghi analytics
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Bước nào phải synchronous?
+2. Bước nào có thể asynchronous?
+3. Producer và consumer là những service nào?
+4. Nên dùng command hay event?
+5. Topic/queue nào cần tạo?
+6. Partition key nên là orderId hay userId?
+7. Ordering cần được bảo đảm ở phạm vi nào?
+8. Delivery semantics nên là gì?
+9. Payment consumer idempotent thế nào?
+10. Làm sao tránh mất OrderCreated sau khi DB commit?
+11. Retry payment khác retry email thế nào?
+12. Message nào được đưa vào DLQ?
+13. Ai theo dõi DLQ?
+14. Nếu InventoryReserved xử lý trước OrderCreated thì sao?
+15. Làm sao theo dõi thời gian từ đặt order đến nhà hàng nhận được thông báo?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> OrderAPI[Order API]
+    OrderAPI --> DB[(Order DB + Outbox)]
+
+    DB --> Relay[Outbox Relay]
+    Relay --> Broker[Order Event Stream]
+
+    Broker --> Inventory[Inventory Consumer]
+    Broker --> Payment[Payment Consumer]
+    Broker --> Notification[Notification Consumer]
+    Broker --> Loyalty[Loyalty Consumer]
+    Broker --> Analytics[Analytics Consumer]
+
+    Inventory --> InventoryDB[(Inventory DB)]
+    Payment --> PaymentProvider[Payment Provider]
+
+    Inventory --> RetryI[Inventory Retry]
+    Payment --> RetryP[Payment Retry]
+    Notification --> RetryN[Notification Retry]
+
+    RetryI --> DLQ[Dead-Letter Queues]
+    RetryP --> DLQ
+    RetryN --> DLQ
+</div></code></pre>
+<p>Điểm quan trọng nhất:</p>
+<blockquote>
+<p><strong>Trong hệ thống message-driven, duplicate không phải trường hợp ngoại lệ. Hãy xem duplicate, retry, out-of-order và consumer crash là hành vi bình thường phải được thiết kế từ đầu.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 10 — Reliability Patterns: timeout, retry, exponential backoff, circuit breaker, bulkhead, graceful degradation và fault isolation.</strong></p>
+
+</body>
+</html>

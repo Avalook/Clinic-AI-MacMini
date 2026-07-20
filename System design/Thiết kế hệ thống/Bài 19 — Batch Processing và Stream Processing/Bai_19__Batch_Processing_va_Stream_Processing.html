@@ -1,0 +1,3039 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 19 — Batch Processing và Stream Processing.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-19--batch-processing-và-stream-processing">Bài 19 — Batch Processing và Stream Processing</h1>
+<p>Trong nhiều hệ thống, dữ liệu không chỉ được lưu để truy vấn trực tiếp. Nó còn phải được xử lý để tạo ra:</p>
+<pre class="hljs"><code><div>- Báo cáo doanh thu
+- Dashboard realtime
+- Recommendation
+- Fraud detection
+- Search index
+- Notification
+- Billing
+- Machine-learning features
+- Materialized views
+</div></code></pre>
+<p>Có hai mô hình xử lý chính:</p>
+<pre class="hljs"><code><div>Batch processing:
+Xử lý một tập dữ liệu hữu hạn.
+
+Stream processing:
+Xử lý dòng dữ liệu liên tục hoặc không có điểm kết thúc rõ ràng.
+</div></code></pre>
+<p>Bài này nối tiếp nội dung về message queue, event ordering, consistency và observability trong bộ System Design bạn đã tải lên.</p>
+<p>Các khái niệm trọng tâm:</p>
+<pre class="hljs"><code><div>- Batch job
+- Event stream
+- Bounded và unbounded data
+- Event time, ingestion time, processing time
+- Tumbling, sliding và session windows
+- Watermark
+- Late events
+- At-most-once, at-least-once, exactly-once
+- Checkpoint và replay
+- Stateful stream processing
+- Stream joins
+- Backpressure và consumer lag
+</div></code></pre>
+<hr>
+<h1 id="1-batch-processing-là-gì">1. Batch Processing là gì?</h1>
+<p>Batch processing xử lý một lượng dữ liệu đã được gom lại thành một lô.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Mỗi đêm tính doanh thu ngày hôm trước
+- Mỗi giờ tổng hợp số lượt click
+- Mỗi tuần tạo báo cáo tài chính
+- Reindex toàn bộ product catalog
+- Huấn luyện recommendation model
+</div></code></pre>
+<p>Một batch job thường có:</p>
+<pre class="hljs"><code><div>Input hữu hạn
+→ Xử lý
+→ Output
+→ Kết thúc
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Input[(Files / Tables)] --> Job[Batch Job]
+    Job --> Output[(Report / Table)]
+</div></code></pre>
+<hr>
+<h1 id="2-ví-dụ-batch-job">2. Ví dụ Batch Job</h1>
+<p>Giả sử có bảng <code>orders</code>:</p>
+<pre class="hljs"><code><div>order_id
+user_id
+amount
+status
+created_at
+</div></code></pre>
+<p>Mỗi ngày lúc 01:00 chạy:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span>
+    <span class="hljs-type">DATE</span>(created_at) <span class="hljs-keyword">AS</span> order_date,
+    <span class="hljs-built_in">SUM</span>(amount) <span class="hljs-keyword">AS</span> revenue
+<span class="hljs-keyword">FROM</span> orders
+<span class="hljs-keyword">WHERE</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;COMPLETED&#x27;</span>
+  <span class="hljs-keyword">AND</span> created_at <span class="hljs-operator">&gt;=</span> <span class="hljs-string">&#x27;2026-07-12 00:00:00&#x27;</span>
+  <span class="hljs-keyword">AND</span> created_at <span class="hljs-operator">&lt;</span>  <span class="hljs-string">&#x27;2026-07-13 00:00:00&#x27;</span>
+<span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> <span class="hljs-type">DATE</span>(created_at);
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Revenue ngày 12/07/2026:
+2.500.000.000 VND
+</div></code></pre>
+<hr>
+<h1 id="3-đặc-điểm-của-batch-processing">3. Đặc điểm của Batch Processing</h1>
+<p>Batch thường ưu tiên:</p>
+<pre class="hljs"><code><div>- Throughput cao
+- Xử lý lượng dữ liệu lớn
+- Tính chính xác và khả năng chạy lại
+- Không cần kết quả ngay lập tức
+</div></code></pre>
+<p>Latency có thể là:</p>
+<pre class="hljs"><code><div>- Vài phút
+- Vài giờ
+- Một ngày
+</div></code></pre>
+<p>Tùy use case.</p>
+<hr>
+<h1 id="4-stream-processing-là-gì">4. Stream Processing là gì?</h1>
+<p>Stream processing xử lý dữ liệu khi các event liên tục xuất hiện.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- User click vào sản phẩm
+- Payment thành công
+- Sensor gửi nhiệt độ
+- Order được tạo
+- Driver thay đổi vị trí
+- Log được sinh ra
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Producers --> Stream[Event Stream]
+    Stream --> Processor[Stream Processor]
+    Processor --> Sink[(State / Alert / Output Stream)]
+</div></code></pre>
+<p>Stream có thể không bao giờ “kết thúc”:</p>
+<pre class="hljs"><code><div>Event 1
+Event 2
+Event 3
+...
+</div></code></pre>
+<hr>
+<h1 id="5-stream-không-nhất-thiết-xử-lý-từng-event-riêng-lẻ">5. Stream không nhất thiết xử lý từng Event riêng lẻ</h1>
+<p>Có hai cách triển khai phổ biến:</p>
+<h2 id="record-at-a-time">Record-at-a-time</h2>
+<p>Mỗi event được xử lý gần như ngay lập tức.</p>
+<pre class="hljs"><code><div>Event đến
+→ xử lý
+→ cập nhật state
+</div></code></pre>
+<h2 id="micro-batch">Micro-batch</h2>
+<p>Gom event trong khoảng ngắn:</p>
+<pre class="hljs"><code><div>500 ms
+1 giây
+5 giây
+</div></code></pre>
+<p>rồi xử lý thành batch nhỏ.</p>
+<p>Về mặt sản phẩm, cả hai đều có thể được gọi là stream processing nếu dữ liệu được xử lý liên tục với latency thấp.</p>
+<hr>
+<h1 id="6-bounded-và-unbounded-data">6. Bounded và Unbounded Data</h1>
+<p>Một cách nhìn sâu hơn:</p>
+<h2 id="bounded-data">Bounded data</h2>
+<p>Tập dữ liệu có điểm đầu và cuối rõ ràng.</p>
+<pre class="hljs"><code><div>Tất cả orders của tháng 6
+Một file log 100 GB
+Snapshot database ngày hôm qua
+</div></code></pre>
+<p>Phù hợp với batch.</p>
+<h2 id="unbounded-data">Unbounded data</h2>
+<p>Dòng dữ liệu tiếp tục tăng:</p>
+<pre class="hljs"><code><div>Click stream
+Transaction stream
+Sensor stream
+</div></code></pre>
+<p>Phù hợp với stream processing.</p>
+<hr>
+<h1 id="7-batch-và-stream-không-hoàn-toàn-đối-lập">7. Batch và Stream không hoàn toàn đối lập</h1>
+<p>Một stream vô hạn có thể được chia thành các cửa sổ hữu hạn:</p>
+<pre class="hljs"><code><div>Mỗi 1 phút
+Mỗi 5 phút
+Mỗi session
+</div></code></pre>
+<p>Ngược lại, batch processing có thể chạy rất thường xuyên:</p>
+<pre class="hljs"><code><div>Mỗi 30 giây
+</div></code></pre>
+<p>Do đó batch và stream là một phổ:</p>
+<pre class="hljs"><code><div>Batch lớn, latency cao
+←────────────────────────────→
+Micro-batch, continuous stream
+</div></code></pre>
+<hr>
+<h1 id="8-khi-nào-chọn-batch">8. Khi nào chọn Batch?</h1>
+<p>Batch phù hợp khi:</p>
+<pre class="hljs"><code><div>- Không cần realtime
+- Dataset lớn nhưng hữu hạn
+- Muốn chạy lại toàn bộ dễ dàng
+- Thuật toán cần nhìn toàn bộ dữ liệu
+- Tối ưu throughput hơn latency
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Báo cáo cuối ngày
+- Monthly billing
+- Historical analytics
+- Model training
+- Data warehouse transformation
+- Full reindex
+</div></code></pre>
+<hr>
+<h1 id="9-khi-nào-chọn-stream">9. Khi nào chọn Stream?</h1>
+<p>Stream phù hợp khi:</p>
+<pre class="hljs"><code><div>- Phải phản ứng nhanh với event
+- Dữ liệu đến liên tục
+- Cần cập nhật materialized view
+- Cần cảnh báo tức thời
+- Không thể đợi batch tiếp theo
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Fraud detection
+- Realtime dashboard
+- Ride location tracking
+- Notification
+- Inventory projection
+- Recommendation features
+</div></code></pre>
+<hr>
+<h1 id="10-so-sánh-batch-và-stream">10. So sánh Batch và Stream</h1>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Batch</th>
+<th>Stream</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Input</td>
+<td>Hữu hạn</td>
+<td>Liên tục</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>Phút–giờ</td>
+<td>Millisecond–phút</td>
+</tr>
+<tr>
+<td>Tối ưu</td>
+<td>Throughput</td>
+<td>Latency và freshness</td>
+</tr>
+<tr>
+<td>State</td>
+<td>Thường đọc toàn dataset</td>
+<td>Duy trì state lâu dài</td>
+</tr>
+<tr>
+<td>Failure recovery</td>
+<td>Chạy lại job</td>
+<td>Checkpoint + replay</td>
+</tr>
+<tr>
+<td>Late data</td>
+<td>Thường đã có đủ dữ liệu</td>
+<td>Phải xử lý trực tiếp</td>
+</tr>
+<tr>
+<td>Complexity</td>
+<td>Thấp hơn</td>
+<td>Cao hơn</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Reporting, backfill</td>
+<td>Alert, realtime view</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="11-event-stream">11. Event Stream</h1>
+<p>Event stream là chuỗi record biểu diễn những sự kiện đã xảy ra.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OrderCreated&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;occurredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-13T10:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Một stream thường có:</p>
+<pre class="hljs"><code><div>- Topic hoặc stream name
+- Partitions
+- Ordered offsets trong từng partition
+- Retention
+- Consumers
+</div></code></pre>
+<hr>
+<h1 id="12-event-stream-khác-work-queue">12. Event Stream khác Work Queue</h1>
+<h2 id="work-queue">Work queue</h2>
+<p>Một task thường được một worker xử lý.</p>
+<pre class="hljs"><code><div>Generate thumbnail
+Send email
+Process upload
+</div></code></pre>
+<h2 id="event-stream">Event stream</h2>
+<p>Nhiều consumer độc lập có thể đọc cùng event:</p>
+<pre class="hljs"><code><div>OrderCreated
+→ Inventory
+→ Analytics
+→ Notification
+→ Fraud detection
+</div></code></pre>
+<p>Event stream thường lưu event trong một thời gian để consumer có thể replay.</p>
+<hr>
+<h1 id="13-event-phải-là-business-fact">13. Event phải là Business Fact</h1>
+<p>Event tốt thường mô tả điều đã xảy ra:</p>
+<pre class="hljs"><code><div>OrderCreated
+PaymentAuthorized
+InventoryReserved
+UserRegistered
+</div></code></pre>
+<p>Không nên đặt tên quá mơ hồ:</p>
+<pre class="hljs"><code><div>DataChanged
+SomethingUpdated
+</div></code></pre>
+<p>Event rõ ràng giúp:</p>
+<pre class="hljs"><code><div>- Consumer hiểu semantics
+- Debug workflow
+- Quản lý schema
+- Replay an toàn hơn
+</div></code></pre>
+<hr>
+<h1 id="14-event-time">14. Event Time</h1>
+<p><strong>Event time</strong> là thời điểm sự kiện thực sự xảy ra tại nguồn.</p>
+<p>Ví dụ thiết bị ghi:</p>
+<pre class="hljs"><code><div>Nhiệt độ đo lúc 10:00:00
+</div></code></pre>
+<p>Event được gửi sau:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;temperature&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">35</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;10:00:00&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Event time quan trọng khi kết quả cần phản ánh thời điểm nghiệp vụ thực sự.</p>
+<hr>
+<h1 id="15-ingestion-time">15. Ingestion Time</h1>
+<p><strong>Ingestion time</strong> là lúc event đi vào hạ tầng xử lý, ví dụ broker.</p>
+<pre class="hljs"><code><div>Event xảy ra:
+10:00:00
+
+Đi vào broker:
+10:00:05
+</div></code></pre>
+<p>Độ trễ ingestion:</p>
+<pre class="hljs"><code><div>5 giây
+</div></code></pre>
+<hr>
+<h1 id="16-processing-time">16. Processing Time</h1>
+<p><strong>Processing time</strong> là thời điểm stream processor thực sự xử lý event.</p>
+<pre class="hljs"><code><div>Event time:      10:00:00
+Ingestion time:  10:00:05
+Processing time: 10:00:12
+</div></code></pre>
+<p>Processing có thể muộn do:</p>
+<pre class="hljs"><code><div>- Queue backlog
+- Worker quá tải
+- Retry
+- Network
+- Pause hoặc restart
+</div></code></pre>
+<hr>
+<h1 id="17-ba-loại-thời-gian">17. Ba loại thời gian</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Event[Event xảy ra<br>10:00:00] --> Broker[Đi vào broker<br>10:00:05]
+    Broker --> Worker[Được xử lý<br>10:00:12]
+</div></code></pre>
+<table>
+<thead>
+<tr>
+<th>Loại</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Event time</td>
+<td>Khi sự kiện thực sự xảy ra</td>
+</tr>
+<tr>
+<td>Ingestion time</td>
+<td>Khi event vào hệ thống</td>
+</tr>
+<tr>
+<td>Processing time</td>
+<td>Khi processor xử lý event</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="18-vì-sao-processing-time-có-thể-sai-với-nghiệp-vụ">18. Vì sao Processing Time có thể sai với nghiệp vụ?</h1>
+<p>Giả sử mobile offline.</p>
+<p>User click sản phẩm lúc:</p>
+<pre class="hljs"><code><div>10:00
+</div></code></pre>
+<p>Điện thoại có mạng lại lúc:</p>
+<pre class="hljs"><code><div>10:30
+</div></code></pre>
+<p>Nếu tính click theo processing time:</p>
+<pre class="hljs"><code><div>Click thuộc cửa sổ 10:30
+</div></code></pre>
+<p>Nhưng về nghiệp vụ:</p>
+<pre class="hljs"><code><div>Click thuộc cửa sổ 10:00
+</div></code></pre>
+<p>Analytics lịch sử thường cần event time.</p>
+<hr>
+<h1 id="19-processing-time-window">19. Processing-Time Window</h1>
+<p>Processor gom event theo thời điểm xử lý.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Tính số event được xử lý từ 10:00 đến 10:05.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Không cần watermark
+- Kết quả nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Không phản ánh đúng thời điểm event xảy ra
+- Kết quả thay đổi khi backlog hoặc retry
+- Chạy lại có thể cho kết quả khác
+</div></code></pre>
+<hr>
+<h1 id="20-event-time-window">20. Event-Time Window</h1>
+<p>Processor nhóm event theo timestamp nghiệp vụ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Tính tất cả giao dịch xảy ra từ 10:00 đến 10:05.
+</div></code></pre>
+<p>Dù event được xử lý lúc 10:10, nó vẫn thuộc cửa sổ 10:00–10:05.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Kết quả đúng theo thời gian nghiệp vụ
+- Ổn định hơn khi backlog
+- Replay dễ tái tạo kết quả
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Phải xử lý event đến muộn
+- Cần watermark
+- Giữ state lâu hơn
+</div></code></pre>
+<hr>
+<h1 id="21-windowing-là-gì">21. Windowing là gì?</h1>
+<p>Stream không có điểm kết thúc, nên để tính aggregation ta phải chia nó thành các cửa sổ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Số orders mỗi phút
+Doanh thu mỗi giờ
+Unique users mỗi ngày
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Stream[Continuous Events] --> W1[Window 10:00–10:05]
+    Stream --> W2[Window 10:05–10:10]
+    Stream --> W3[Window 10:10–10:15]
+</div></code></pre>
+<hr>
+<h1 id="22-tumbling-window">22. Tumbling Window</h1>
+<p>Tumbling window có:</p>
+<pre class="hljs"><code><div>- Kích thước cố định
+- Không overlap
+</div></code></pre>
+<p>Ví dụ cửa sổ 5 phút:</p>
+<pre class="hljs"><code><div>10:00–10:05
+10:05–10:10
+10:10–10:15
+</div></code></pre>
+<p>Mỗi event thuộc đúng một window.</p>
+<pre><code class="language-mermaid"><div class="mermaid">timeline
+    title Tumbling Windows
+    10:00–10:05 : Window 1
+    10:05–10:10 : Window 2
+    10:10–10:15 : Window 3
+</div></code></pre>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Revenue mỗi giờ
+- Requests mỗi phút
+- Daily active users
+</div></code></pre>
+<hr>
+<h1 id="23-sliding-hoặc-hopping-window">23. Sliding hoặc Hopping Window</h1>
+<p>Sliding window có:</p>
+<pre class="hljs"><code><div>- Window size
+- Slide interval
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Window size = 10 phút
+Slide = 5 phút
+</div></code></pre>
+<p>Các window:</p>
+<pre class="hljs"><code><div>10:00–10:10
+10:05–10:15
+10:10–10:20
+</div></code></pre>
+<p>Các window overlap.</p>
+<p>Một event có thể thuộc nhiều window.</p>
+<hr>
+<h1 id="24-ví-dụ-sliding-window">24. Ví dụ Sliding Window</h1>
+<p>Yêu cầu:</p>
+<blockquote>
+<p>Tính error rate trong 10 phút gần nhất, cập nhật mỗi phút.</p>
+</blockquote>
+<pre class="hljs"><code><div>Window size:
+10 phút
+
+Slide:
+1 phút
+</div></code></pre>
+<p>Mỗi phút hệ thống tính trên 10 phút gần nhất.</p>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Alerting
+- Moving average
+- Fraud velocity
+- Realtime trends
+</div></code></pre>
+<hr>
+<h1 id="25-chi-phí-sliding-window">25. Chi phí Sliding Window</h1>
+<p>Nếu triển khai ngây thơ, một event có thể được copy vào nhiều window.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Window = 1 giờ
+Slide = 1 phút
+</div></code></pre>
+<p>Một event có thể thuộc 60 windows.</p>
+<p>Cách tối ưu:</p>
+<pre class="hljs"><code><div>- Pane aggregation
+- Incremental add/remove
+- Bucket nhỏ rồi kết hợp
+</div></code></pre>
+<hr>
+<h1 id="26-session-window">26. Session Window</h1>
+<p>Session window nhóm event theo thời gian hoạt động của một user hoặc entity.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Nếu không có event mới trong 30 phút
+→ session kết thúc
+</div></code></pre>
+<pre class="hljs"><code><div>User event lúc:
+10:00
+10:05
+10:12
+
+Không hoạt động 30 phút
+→ Session 1 kết thúc
+
+Event mới 11:00
+→ Session 2
+</div></code></pre>
+<hr>
+<h1 id="27-session-window-có-biên-động">27. Session Window có biên động</h1>
+<p>Khác tumbling window:</p>
+<pre class="hljs"><code><div>10:00–10:05 cố định
+</div></code></pre>
+<p>Session window phụ thuộc vào dữ liệu:</p>
+<pre class="hljs"><code><div>Session A:
+10:00–10:12
+
+Session B:
+11:00–11:20
+</div></code></pre>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- User session
+- Shopping journey
+- Machine activity burst
+- Network connection session
+</div></code></pre>
+<hr>
+<h1 id="28-session-merge">28. Session Merge</h1>
+<p>Hai session đang tách biệt có thể phải merge khi late event xuất hiện.</p>
+<p>Giả sử inactivity gap là 10 phút:</p>
+<pre class="hljs"><code><div>Session 1:
+10:00–10:05
+
+Session 2:
+10:16–10:20
+</div></code></pre>
+<p>Late event lúc:</p>
+<pre class="hljs"><code><div>10:10
+</div></code></pre>
+<p>Có thể nối hai session thành:</p>
+<pre class="hljs"><code><div>10:00–10:20
+</div></code></pre>
+<p>Session windows vì vậy cần state và logic merge phức tạp hơn.</p>
+<hr>
+<h1 id="29-global-window">29. Global Window</h1>
+<p>Global window đặt toàn bộ event vào một window logic.</p>
+<p>Nó chỉ hữu ích khi đi kèm trigger hoặc logic tùy chỉnh:</p>
+<pre class="hljs"><code><div>- Phát kết quả mỗi 1.000 events
+- Phát mỗi 10 giây
+- Phát khi condition đạt
+</div></code></pre>
+<p>Nếu không có trigger, global window không bao giờ kết thúc với stream vô hạn.</p>
+<hr>
+<h1 id="30-window-key">30. Window Key</h1>
+<p>Aggregation thường được nhóm theo key.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Doanh thu mỗi 5 phút theo merchant
+</div></code></pre>
+<p>Key:</p>
+<pre class="hljs"><code><div>merchantId
+</div></code></pre>
+<p>Window:</p>
+<pre class="hljs"><code><div>5 phút
+</div></code></pre>
+<p>State logic:</p>
+<pre class="hljs"><code><div>(merchantId, windowStart)
+→ revenue
+</div></code></pre>
+<hr>
+<h1 id="31-window-boundary">31. Window Boundary</h1>
+<p>Cần định nghĩa rõ:</p>
+<pre class="hljs"><code><div>[start, end)
+</div></code></pre>
+<p>Ví dụ window:</p>
+<pre class="hljs"><code><div>[10:00, 10:05)
+</div></code></pre>
+<p>Bao gồm:</p>
+<pre class="hljs"><code><div>10:00:00
+10:04:59.999
+</div></code></pre>
+<p>Không bao gồm:</p>
+<pre class="hljs"><code><div>10:05:00
+</div></code></pre>
+<p>Event 10:05:00 thuộc window tiếp theo.</p>
+<hr>
+<h1 id="32-timezone-và-daily-window">32. Timezone và Daily Window</h1>
+<p>“Doanh thu mỗi ngày” có thể nghĩa:</p>
+<pre class="hljs"><code><div>- Ngày UTC
+- Ngày theo Asia/Bangkok
+- Ngày theo timezone merchant
+</div></code></pre>
+<p>Nếu business hoạt động đa quốc gia, daily window cần timezone rõ ràng.</p>
+<p>Daylight-saving time cũng có thể tạo ngày:</p>
+<pre class="hljs"><code><div>23 giờ
+hoặc
+25 giờ
+</div></code></pre>
+<p>Không nên giả định mọi ngày luôn chính xác 24 giờ theo local calendar.</p>
+<hr>
+<h1 id="33-watermark-là-gì">33. Watermark là gì?</h1>
+<p>Watermark là ước lượng tiến độ của event time.</p>
+<p>Watermark <code>T</code> có nghĩa gần đúng:</p>
+<blockquote>
+<p>Hệ thống tin rằng phần lớn event có event time nhỏ hơn hoặc bằng T đã đến.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Watermark = 10:05
+</div></code></pre>
+<p>Processor có thể cân nhắc đóng window:</p>
+<pre class="hljs"><code><div>10:00–10:05
+</div></code></pre>
+<hr>
+<h1 id="34-watermark-không-phải-cam-kết-tuyệt-đối">34. Watermark không phải cam kết tuyệt đối</h1>
+<p>Watermark không nói:</p>
+<pre class="hljs"><code><div>Không còn event cũ nào đến nữa.
+</div></code></pre>
+<p>Nó chỉ là policy hoặc ước lượng.</p>
+<p>Sau watermark 10:05, event time 10:02 vẫn có thể đến.</p>
+<p>Đó là:</p>
+<pre class="hljs"><code><div>Late event
+</div></code></pre>
+<hr>
+<h1 id="35-vì-sao-cần-watermark">35. Vì sao cần Watermark?</h1>
+<p>Nếu dùng event-time window và chờ mọi event:</p>
+<pre class="hljs"><code><div>Ta không bao giờ biết chắc đã nhận đủ.
+</div></code></pre>
+<p>Network có thể trì hoãn vô hạn.</p>
+<p>Watermark cho phép hệ thống cân bằng:</p>
+<pre class="hljs"><code><div>- Chờ dữ liệu muộn để tăng chính xác
+- Phát kết quả sớm để giảm latency
+</div></code></pre>
+<hr>
+<h1 id="36-watermark-đơn-giản-theo-maximum-event-time">36. Watermark đơn giản theo Maximum Event Time</h1>
+<p>Một policy khái niệm:</p>
+<pre class="hljs"><code><div>watermark =
+maximum observed event time
+- allowed out-of-orderness
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Max event time đã thấy:
+10:10
+
+Cho phép out-of-order:
+2 phút
+
+Watermark:
+10:08
+</div></code></pre>
+<p>Windows kết thúc trước 10:08 có thể được đóng sơ bộ.</p>
+<hr>
+<h1 id="37-watermark-theo-partition">37. Watermark theo Partition</h1>
+<p>Mỗi partition có watermark riêng.</p>
+<p>Global operator thường phải dùng watermark nhỏ nhất:</p>
+<pre class="hljs"><code><div>Partition A watermark = 10:10
+Partition B watermark = 10:09
+Partition C watermark = 09:30
+
+Global watermark = 09:30
+</div></code></pre>
+<p>Partition C làm toàn pipeline chậm.</p>
+<hr>
+<h1 id="38-idle-partition">38. Idle Partition</h1>
+<p>Partition C có thể không chậm; nó chỉ không có event.</p>
+<p>Nếu watermark dựa trên event mới nhất:</p>
+<pre class="hljs"><code><div>Partition không có event
+→ watermark không tiến
+</div></code></pre>
+<p>Cần idle-partition detection:</p>
+<pre class="hljs"><code><div>Nếu partition không có activity trong N phút,
+tạm loại khỏi global watermark calculation.
+</div></code></pre>
+<p>Phải cẩn thận vì event cũ vẫn có thể xuất hiện khi partition hoạt động lại.</p>
+<hr>
+<h1 id="39-watermark-từ-source">39. Watermark từ Source</h1>
+<p>Source đáng tin cậy có thể gán watermark tốt hơn processor.</p>
+<p>Ví dụ sensor gateway biết:</p>
+<pre class="hljs"><code><div>Tất cả events trước sequence X đã được gửi.
+</div></code></pre>
+<p>Hoặc file source biết:</p>
+<pre class="hljs"><code><div>Đã đọc xong toàn bộ file của giờ 10.
+</div></code></pre>
+<p>Watermark dựa trên source semantics thường chính xác hơn chỉ đo arrival delay.</p>
+<hr>
+<h1 id="40-late-event-là-gì">40. Late Event là gì?</h1>
+<p>Late event là event đến sau khi watermark đã vượt qua window mà event thuộc về.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Window:
+10:00–10:05
+
+Watermark hiện tại:
+10:08
+
+Event mới đến:
+eventTime = 10:03
+</div></code></pre>
+<p>Event này late.</p>
+<hr>
+<h1 id="41-late-khác-delayed">41. Late khác Delayed</h1>
+<p>Mọi late event đều bị trì hoãn, nhưng “late” được định nghĩa tương đối với watermark và window policy.</p>
+<p>Event đến chậm 10 phút chưa chắc late nếu watermark vẫn chưa tiến.</p>
+<p>Event chậm 30 giây có thể late nếu watermark aggressive.</p>
+<hr>
+<h1 id="42-chính-sách-xử-lý-late-event">42. Chính sách xử lý Late Event</h1>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>1. Bỏ event.
+2. Gửi vào side output.
+3. Cập nhật kết quả window cũ.
+4. Phát correction/retraction.
+5. Ghi raw storage để batch sửa sau.
+</div></code></pre>
+<p>Lựa chọn phụ thuộc nghiệp vụ.</p>
+<hr>
+<h1 id="43-drop-late-event">43. Drop Late Event</h1>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Late event rất hiếm
+- Kết quả realtime chỉ mang tính gần đúng
+- Chi phí sửa cao hơn giá trị
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Realtime dashboard không cần chính xác tuyệt đối.
+</div></code></pre>
+<p>Nhưng cần metric:</p>
+<pre class="hljs"><code><div>late_events_dropped_total
+</div></code></pre>
+<p>Không nên âm thầm bỏ.</p>
+<hr>
+<h1 id="44-allowed-lateness">44. Allowed Lateness</h1>
+<p>Cho phép window tiếp tục nhận event sau watermark trong một khoảng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Window:
+10:00–10:05
+
+Allowed lateness:
+10 phút
+</div></code></pre>
+<p>Window có thể giữ state đến:</p>
+<pre class="hljs"><code><div>10:15
+</div></code></pre>
+<p>Event tới trước deadline được cập nhật.</p>
+<p>Sau đó state mới bị xóa.</p>
+<hr>
+<h1 id="45-chi-phí-allowed-lateness">45. Chi phí Allowed Lateness</h1>
+<p>Allowed lateness lớn:</p>
+<pre class="hljs"><code><div>- Chính xác hơn
+- Giữ state lâu hơn
+- Tăng memory/disk
+- Nhiều correction hơn
+</div></code></pre>
+<p>Allowed lateness nhỏ:</p>
+<pre class="hljs"><code><div>- Kết quả nhanh
+- State ít
+- Bỏ nhiều late data hơn
+</div></code></pre>
+<p>Đây là trade-off trực tiếp giữa latency, cost và completeness.</p>
+<hr>
+<h1 id="46-early-result-và-final-result">46. Early Result và Final Result</h1>
+<p>Processor có thể phát nhiều phiên bản kết quả.</p>
+<p>Ví dụ window 10:00–10:05:</p>
+<pre class="hljs"><code><div>10:01:
+Early result = 100 orders
+
+10:05:
+On-time result = 520 orders
+
+10:08:
+Late correction = 525 orders
+</div></code></pre>
+<p>Sink phải biết xử lý update.</p>
+<hr>
+<h1 id="47-append-update-và-retract">47. Append, Update và Retract</h1>
+<h2 id="append-mode">Append mode</h2>
+<p>Mỗi output chỉ được thêm một lần.</p>
+<p>Phù hợp khi window đã thực sự đóng.</p>
+<h2 id="update-mode">Update mode</h2>
+<p>Phát giá trị mới của kết quả:</p>
+<pre class="hljs"><code><div>count = 520
+sau đó
+count = 525
+</div></code></pre>
+<h2 id="retract-mode">Retract mode</h2>
+<p>Phát:</p>
+<pre class="hljs"><code><div>-520
++525
+</div></code></pre>
+<p>để downstream sửa kết quả trước.</p>
+<p>Sink phải hỗ trợ semantics tương ứng.</p>
+<hr>
+<h1 id="48-upsert-sink">48. Upsert Sink</h1>
+<p>Một cách xử lý correction:</p>
+<pre class="hljs"><code><div>Primary key:
+(windowStart, merchantId)
+</div></code></pre>
+<p>Mỗi output upsert:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> revenue_windows
+<span class="hljs-keyword">SET</span> revenue <span class="hljs-operator">=</span> :latest_value
+<span class="hljs-keyword">WHERE</span> merchant_id <span class="hljs-operator">=</span> :merchant_id
+  <span class="hljs-keyword">AND</span> window_start <span class="hljs-operator">=</span> :window_start;
+</div></code></pre>
+<p>Late result ghi đè bản cũ.</p>
+<p>Cần version hoặc deterministic ordering để event output cũ không ghi đè output mới.</p>
+<hr>
+<h1 id="49-side-output-cho-late-events">49. Side Output cho Late Events</h1>
+<p>Late event quá giới hạn có thể được gửi tới:</p>
+<pre class="hljs"><code><div>late-events topic
+</div></code></pre>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>- Điều tra
+- Batch correction
+- Reconciliation
+- Manual review
+</div></code></pre>
+<p>Điều này tốt hơn bỏ im lặng khi dữ liệu có giá trị tài chính.</p>
+<hr>
+<h1 id="50-trigger">50. Trigger</h1>
+<p>Trigger xác định khi nào window phát output.</p>
+<p>Có thể theo:</p>
+<pre class="hljs"><code><div>- Event time
+- Processing time
+- Số lượng event
+- Điều kiện tùy chỉnh
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Phát early result mỗi phút
+và final result khi watermark qua window end.
+</div></code></pre>
+<hr>
+<h1 id="51-accumulating-và-discarding">51. Accumulating và Discarding</h1>
+<p>Sau khi trigger phát output:</p>
+<h2 id="accumulating">Accumulating</h2>
+<p>Giữ dữ liệu trước và tiếp tục cộng thêm.</p>
+<pre class="hljs"><code><div>Output 1:
+100
+
+Output 2:
+150
+</div></code></pre>
+<h2 id="discarding">Discarding</h2>
+<p>Xóa phần đã phát và chỉ tính delta mới.</p>
+<pre class="hljs"><code><div>Output 1:
+100
+
+Output 2:
+50
+</div></code></pre>
+<p>Sink phải biết output là tổng hay delta.</p>
+<hr>
+<h1 id="52-stateful-stream-processing">52. Stateful Stream Processing</h1>
+<p>Stateless processing:</p>
+<pre class="hljs"><code><div>Event vào
+→ biến đổi
+→ event ra
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Parse JSON
+Mask email
+Convert currency
+</div></code></pre>
+<p>Stateful processing cần nhớ dữ liệu từ event trước.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Count events
+- Deduplicate
+- Window aggregation
+- Join streams
+- Detect fraud pattern
+- Sessionization
+</div></code></pre>
+<hr>
+<h1 id="53-ví-dụ-stateful-count">53. Ví dụ Stateful Count</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>Đếm số click theo product trong 5 phút.
+</div></code></pre>
+<p>Processor giữ state:</p>
+<pre class="hljs"><code><div>(productId, window)
+→ count
+</div></code></pre>
+<p>Mỗi event:</p>
+<pre class="hljs"><code><div>count += 1
+</div></code></pre>
+<p>State tồn tại giữa nhiều event và có thể rất lớn.</p>
+<hr>
+<h1 id="54-keyed-state">54. Keyed State</h1>
+<p>Stream thường được partition theo key:</p>
+<pre class="hljs"><code><div>key = userId
+</div></code></pre>
+<p>Mọi event cùng key đi tới cùng logical processor.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Events --> Partition{hash userId}
+
+    Partition --> W1[Worker 1<br>Users A–F]
+    Partition --> W2[Worker 2<br>Users G–M]
+    Partition --> W3[Worker 3<br>Users N–Z]
+</div></code></pre>
+<p>Mỗi worker giữ state cho keys của mình.</p>
+<hr>
+<h1 id="55-state-có-thể-nằm-ở-đâu">55. State có thể nằm ở đâu?</h1>
+<h2 id="memory">Memory</h2>
+<p>Nhanh nhưng không bền và giới hạn dung lượng.</p>
+<h2 id="local-embedded-store">Local embedded store</h2>
+<p>Ví dụ key-value store trên disk local.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Latency thấp
+- Không cần remote call cho mỗi event
+</div></code></pre>
+<h2 id="remote-database">Remote database</h2>
+<p>Dễ chia sẻ nhưng:</p>
+<pre class="hljs"><code><div>- Network latency
+- Database bottleneck
+- Throughput thấp hơn
+</div></code></pre>
+<p>Nhiều stream engine dùng local state cùng checkpoint tới durable storage.</p>
+<hr>
+<h1 id="56-state-size">56. State Size</h1>
+<p>State có thể tăng vô hạn nếu không có retention.</p>
+<p>Ví dụ deduplicate mọi <code>eventId</code> mãi mãi:</p>
+<pre class="hljs"><code><div>10 tỷ event
+→ 10 tỷ IDs
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- TTL
+- Window cleanup
+- Compaction
+- Approximate data structures
+</div></code></pre>
+<p>State retention phải dựa trên:</p>
+<pre class="hljs"><code><div>Maximum expected retry hoặc lateness
+</div></code></pre>
+<hr>
+<h1 id="57-approximate-state">57. Approximate State</h1>
+<p>Một số use case chấp nhận xấp xỉ.</p>
+<p>Ví dụ unique users:</p>
+<p>Thay vì giữ toàn bộ user IDs, có thể dùng cấu trúc xác suất như:</p>
+<pre class="hljs"><code><div>HyperLogLog-like sketch
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Memory nhỏ
+- Merge được
+</div></code></pre>
+<p>Đổi lại:</p>
+<pre class="hljs"><code><div>- Có sai số
+</div></code></pre>
+<p>Phù hợp analytics, không phù hợp billing chính xác.</p>
+<hr>
+<h1 id="58-deduplication">58. Deduplication</h1>
+<p>At-least-once delivery có thể tạo duplicate.</p>
+<p>Processor lưu:</p>
+<pre class="hljs"><code><div>eventId → processed
+</div></code></pre>
+<p>Nếu event đến lại:</p>
+<pre class="hljs"><code><div>Bỏ qua.
+</div></code></pre>
+<p>Nhưng cần TTL.</p>
+<p>Nếu broker chỉ retry trong 7 ngày:</p>
+<pre class="hljs"><code><div>Có thể giữ dedupe state hơn 7 ngày
+</div></code></pre>
+<p>tùy backfill và replay policy.</p>
+<hr>
+<h1 id="59-deduplicate-theo-business-key">59. Deduplicate theo Business Key</h1>
+<p>Event ID đôi khi thay đổi dù operation nghiệp vụ giống nhau.</p>
+<p>Ví dụ retry payment tạo event mới sai thiết kế.</p>
+<p>Có thể deduplicate theo:</p>
+<pre class="hljs"><code><div>paymentAttemptId
+orderId + transition
+transactionReference
+</div></code></pre>
+<p>Business idempotency mạnh hơn chỉ nhìn message ID.</p>
+<hr>
+<h1 id="60-stateful-fraud-detection">60. Stateful Fraud Detection</h1>
+<p>Quy tắc:</p>
+<pre class="hljs"><code><div>Nếu một thẻ có trên 5 giao dịch
+ở 3 quốc gia
+trong 10 phút
+→ cảnh báo.
+</div></code></pre>
+<p>Processor cần state:</p>
+<pre class="hljs"><code><div>cardId
+→ recent transactions
+→ countries
+→ count
+</div></code></pre>
+<p>Đây là:</p>
+<pre class="hljs"><code><div>Keyed, windowed, stateful processing.
+</div></code></pre>
+<hr>
+<h1 id="61-complex-event-processing">61. Complex Event Processing</h1>
+<p>CEP tìm pattern qua chuỗi event.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Login từ Việt Nam
+→ 2 phút sau login từ châu Âu
+→ withdrawal lớn
+</div></code></pre>
+<p>Pattern:</p>
+<pre class="hljs"><code><div>A → B → C trong một thời gian giới hạn
+</div></code></pre>
+<p>CEP cần:</p>
+<pre class="hljs"><code><div>- Ordering
+- State machine
+- Timeout
+- Out-of-order handling
+</div></code></pre>
+<hr>
+<h1 id="62-stream-join">62. Stream Join</h1>
+<p>Có nhiều loại join:</p>
+<pre class="hljs"><code><div>- Stream–stream join
+- Stream–table join
+- Temporal join
+- Interval join
+</div></code></pre>
+<p>Join trong stream khó hơn batch vì cả hai phía có thể chưa “đến đủ”.</p>
+<hr>
+<h1 id="63-streamtable-join">63. Stream–Table Join</h1>
+<p>Ví dụ click stream:</p>
+<pre class="hljs"><code><div>userId, productId
+</div></code></pre>
+<p>Join với bảng user profile:</p>
+<pre class="hljs"><code><div>userId → country, segment
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Clicks[Click Stream] --> Join
+    Users[(User Table)] --> Join
+    Join --> Enriched[Enriched Click Stream]
+</div></code></pre>
+<p>Câu hỏi quan trọng:</p>
+<pre class="hljs"><code><div>Dùng profile hiện tại
+hay profile tại thời điểm click?
+</div></code></pre>
+<hr>
+<h1 id="64-latest-value-join">64. Latest-Value Join</h1>
+<p>Click lúc 10:00.</p>
+<p>Profile được đổi lúc 10:05.</p>
+<p>Event được xử lý lại lúc 11:00.</p>
+<p>Nếu join với profile hiện tại:</p>
+<pre class="hljs"><code><div>Dùng profile 10:05.
+</div></code></pre>
+<p>Replay có thể cho kết quả khác lần xử lý ban đầu.</p>
+<p>Điều này không deterministic theo lịch sử.</p>
+<hr>
+<h1 id="65-temporal-table-join">65. Temporal Table Join</h1>
+<p>Temporal join dùng version của table tại thời điểm event.</p>
+<pre class="hljs"><code><div>Click event time:
+10:00
+
+Join user profile version có hiệu lực lúc:
+10:00
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Table changelog
+- Versioned state
+- Effective timestamps
+</div></code></pre>
+<p>Đổi lại kết quả replay ổn định hơn.</p>
+<hr>
+<h1 id="66-streamstream-join">66. Stream–Stream Join</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>PaymentRequested stream
+PaymentCompleted stream
+</div></code></pre>
+<p>Join theo:</p>
+<pre class="hljs"><code><div>paymentId
+</div></code></pre>
+<p>trong interval:</p>
+<pre class="hljs"><code><div>Completed phải xuất hiện trong vòng 15 phút sau Requested.
+</div></code></pre>
+<p>Processor phải giữ unmatched events của cả hai bên.</p>
+<hr>
+<h1 id="67-interval-join">67. Interval Join</h1>
+<p>Điều kiện:</p>
+<pre class="hljs"><code><div>B.eventTime nằm trong
+[A.eventTime - 1 phút, A.eventTime + 15 phút]
+</div></code></pre>
+<p>State chỉ cần giữ trong phạm vi interval cộng allowed lateness.</p>
+<p>Nếu không có time bound:</p>
+<pre class="hljs"><code><div>State có thể tăng vô hạn.
+</div></code></pre>
+<hr>
+<h1 id="68-outer-join-trong-stream">68. Outer Join trong Stream</h1>
+<p>Left join không thể phát <code>NULL</code> ngay khi chưa thấy bên phải.</p>
+<p>Có thể event bên phải đến muộn.</p>
+<p>Processor phải chờ:</p>
+<pre class="hljs"><code><div>- Watermark
+- Join timeout
+- Allowed lateness
+</div></code></pre>
+<p>Sau đó mới kết luận:</p>
+<pre class="hljs"><code><div>Không có match.
+</div></code></pre>
+<hr>
+<h1 id="69-delivery-semantics">69. Delivery Semantics</h1>
+<p>Ba thuật ngữ thường gặp:</p>
+<pre class="hljs"><code><div>- At-most-once
+- At-least-once
+- Exactly-once
+</div></code></pre>
+<p>Chúng phải được phân tích xuyên suốt:</p>
+<pre class="hljs"><code><div>Source
+→ Processor
+→ State
+→ Sink
+</div></code></pre>
+<p>Không chỉ nhìn broker.</p>
+<hr>
+<h1 id="70-at-most-once">70. At-Most-Once</h1>
+<p>Event được xử lý:</p>
+<pre class="hljs"><code><div>0 hoặc 1 lần
+</div></code></pre>
+<p>Nếu failure xảy ra:</p>
+<pre class="hljs"><code><div>Event có thể mất.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Consumer nhận event.
+2. ACK broker trước.
+3. Consumer crash trước xử lý.
+</div></code></pre>
+<p>Event không được gửi lại.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Không duplicate
+- Latency thấp
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Có thể mất dữ liệu
+</div></code></pre>
+<hr>
+<h1 id="71-at-least-once">71. At-Least-Once</h1>
+<p>Event được xử lý:</p>
+<pre class="hljs"><code><div>Một hoặc nhiều lần
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Consumer xử lý event.
+2. Cập nhật state.
+3. Crash trước ACK.
+4. Broker giao lại.
+</div></code></pre>
+<p>Event được xử lý lại.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không mất event nếu retry hoạt động
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Duplicate
+- Cần idempotency hoặc deduplication
+</div></code></pre>
+<hr>
+<h1 id="72-exactly-once">72. Exactly-Once</h1>
+<p>Exactly-once thường có nghĩa cụ thể hơn:</p>
+<blockquote>
+<p>Mỗi input event chỉ tạo một hiệu ứng logic đúng một lần trong phạm vi được hệ thống bảo vệ.</p>
+</blockquote>
+<p>Không nên hiểu:</p>
+<pre class="hljs"><code><div>Mọi byte trên mạng chỉ được gửi đúng một lần.
+</div></code></pre>
+<p>Message vẫn có thể:</p>
+<pre class="hljs"><code><div>- Được gửi lại
+- Được đọc lại
+- Được xử lý lại khi recovery
+</div></code></pre>
+<p>Nhưng state/output cuối không bị nhân đôi.</p>
+<hr>
+<h1 id="73-exactly-once-processing-khác-exactly-once-effect">73. Exactly-Once Processing khác Exactly-Once Effect</h1>
+<p>Processor có thể bảo đảm state nội bộ exactly-once.</p>
+<p>Nhưng nếu gọi external API:</p>
+<pre class="hljs"><code><div>Charge credit card
+Send email
+</div></code></pre>
+<p>external side effect có thể vẫn duplicate.</p>
+<p>Cần thêm:</p>
+<pre class="hljs"><code><div>- Idempotency key
+- Transactional sink
+- Deduplication tại destination
+</div></code></pre>
+<hr>
+<h1 id="74-end-to-end-semantics">74. End-to-End Semantics</h1>
+<p>Phải xem toàn bộ pipeline:</p>
+<pre class="hljs"><code><div>Broker source
+→ Stream processor
+→ Database sink
+</div></code></pre>
+<p>Nếu source offset được checkpoint nhưng database write không atomic với checkpoint:</p>
+<pre class="hljs"><code><div>Có thể mất hoặc lặp output.
+</div></code></pre>
+<p>Exactly-once end-to-end cần coordination giữa:</p>
+<pre class="hljs"><code><div>- Input positions
+- Processor state
+- Output commits
+</div></code></pre>
+<hr>
+<h1 id="75-offset">75. Offset</h1>
+<p>Offset xác định vị trí consumer đã đọc trong partition.</p>
+<pre class="hljs"><code><div>Partition 0:
+offset 100
+101
+102
+103
+</div></code></pre>
+<p>Consumer checkpoint:</p>
+<pre class="hljs"><code><div>Đã xử lý tới offset 102.
+</div></code></pre>
+<p>Sau restart:</p>
+<pre class="hljs"><code><div>Tiếp tục từ 103.
+</div></code></pre>
+<hr>
+<h1 id="76-commit-offset-quá-sớm">76. Commit Offset quá sớm</h1>
+<pre class="hljs"><code><div>1. Đọc offset 100.
+2. Commit offset 100.
+3. Xử lý event.
+4. Crash trước bước 3.
+</div></code></pre>
+<p>Event bị mất.</p>
+<p>Đây gần at-most-once.</p>
+<hr>
+<h1 id="77-commit-offset-sau-xử-lý">77. Commit Offset sau xử lý</h1>
+<pre class="hljs"><code><div>1. Đọc offset 100.
+2. Xử lý.
+3. Ghi output.
+4. Commit offset.
+</div></code></pre>
+<p>Nếu crash giữa bước 3 và 4:</p>
+<pre class="hljs"><code><div>Event được xử lý lại.
+</div></code></pre>
+<p>Đây gần at-least-once.</p>
+<hr>
+<h1 id="78-checkpoint">78. Checkpoint</h1>
+<p>Checkpoint lưu snapshot nhất quán của:</p>
+<pre class="hljs"><code><div>- Input offsets
+- Operator state
+- Timers
+- Window state
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Checkpoint 42:
+Partition A offset 1000
+Partition B offset 850
+Fraud state snapshot X
+Window state snapshot Y
+</div></code></pre>
+<p>Sau failure, job phục hồi từ checkpoint 42 và replay event sau các offsets đó.</p>
+<hr>
+<h1 id="79-checkpoint-interval">79. Checkpoint Interval</h1>
+<p>Checkpoint thường xuyên:</p>
+<pre class="hljs"><code><div>- Recovery ít replay
+- Overhead cao
+</div></code></pre>
+<p>Checkpoint thưa:</p>
+<pre class="hljs"><code><div>- Throughput tốt hơn
+- Recovery phải replay nhiều hơn
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Checkpoint mỗi 10 giây
+</div></code></pre>
+<p>thì có thể cần replay gần 10 giây dữ liệu sau crash.</p>
+<hr>
+<h1 id="80-consistent-checkpoint">80. Consistent Checkpoint</h1>
+<p>Không thể snapshot từng operator tại thời điểm ngẫu nhiên nếu messages đang truyền giữa chúng.</p>
+<p>Có thể tạo state không tương ứng với bất kỳ execution hợp lệ nào.</p>
+<p>Cần snapshot nhất quán bao gồm:</p>
+<pre class="hljs"><code><div>- State của operators
+- Messages hoặc boundaries giữa operators
+- Input positions
+</div></code></pre>
+<hr>
+<h1 id="81-checkpoint-barrier">81. Checkpoint Barrier</h1>
+<p>Một số engine đưa barrier vào stream.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Source --> E1[Events]
+    E1 --> B[Checkpoint Barrier]
+    B --> E2[Later Events]
+</div></code></pre>
+<p>Khi operator nhận barrier trên tất cả input:</p>
+<pre class="hljs"><code><div>- Snapshot state trước barrier
+- Chuyển barrier downstream
+</div></code></pre>
+<p>Tạo distributed consistent snapshot mà không dừng toàn pipeline quá lâu.</p>
+<hr>
+<h1 id="82-aligned-checkpoint">82. Aligned Checkpoint</h1>
+<p>Operator có nhiều input.</p>
+<p>Khi barrier đến từ Input A trước B:</p>
+<pre class="hljs"><code><div>A tạm dừng
+→ chờ barrier từ B
+</div></code></pre>
+<p>Điều này bảo đảm alignment.</p>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Input chậm gây checkpoint delay và backpressure.
+</div></code></pre>
+<hr>
+<h1 id="83-unaligned-checkpoint">83. Unaligned Checkpoint</h1>
+<p>Có thể snapshot cả:</p>
+<pre class="hljs"><code><div>- Operator state
+- In-flight buffers
+</div></code></pre>
+<p>không cần chờ inputs alignment hoàn toàn.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Tốt hơn khi backpressure lớn.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Checkpoint lớn hơn
+Recovery phức tạp hơn
+</div></code></pre>
+<hr>
+<h1 id="84-transactional-sink">84. Transactional Sink</h1>
+<p>Để exactly-once, sink có thể hỗ trợ transaction.</p>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Processor ghi output vào transaction tạm.
+2. Checkpoint hoàn tất.
+3. Commit sink transaction.
+</div></code></pre>
+<p>Nếu checkpoint thất bại:</p>
+<pre class="hljs"><code><div>Abort output transaction.
+</div></code></pre>
+<p>Input state và output cùng tiến theo checkpoint boundary.</p>
+<hr>
+<h1 id="85-idempotent-sink">85. Idempotent Sink</h1>
+<p>Nếu sink không hỗ trợ distributed transaction, có thể dùng idempotency.</p>
+<p>Ví dụ output key:</p>
+<pre class="hljs"><code><div>(windowId, merchantId)
+</div></code></pre>
+<p>Ghi:</p>
+<pre class="hljs"><code><div>UPSERT latest aggregate
+</div></code></pre>
+<p>Replay cùng result không tạo duplicate row.</p>
+<p>Đây thường dễ hơn exactly-once transaction xuyên nhiều hệ thống.</p>
+<hr>
+<h1 id="86-output-deduplication">86. Output Deduplication</h1>
+<p>Mỗi output mang:</p>
+<pre class="hljs"><code><div>jobId
+partition
+checkpointId
+recordSequence
+</div></code></pre>
+<p>Sink lưu IDs đã nhận.</p>
+<p>Duplicate bị bỏ qua.</p>
+<p>Nhưng dedupe state cũng cần retention và HA.</p>
+<hr>
+<h1 id="87-exactly-once-không-miễn-phí">87. Exactly-Once không miễn phí</h1>
+<p>Chi phí:</p>
+<pre class="hljs"><code><div>- Checkpoint
+- Durable state
+- Transactional commit
+- Coordination
+- Latency
+- Storage
+</div></code></pre>
+<p>Không phải use case nào cũng cần exactly-once.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Realtime view counter
+</div></code></pre>
+<p>có thể chấp nhận at-least-once cộng reconciliation.</p>
+<p>Billing tài chính cần semantics mạnh hơn.</p>
+<hr>
+<h1 id="88-restart-strategy">88. Restart Strategy</h1>
+<p>Khi task fail:</p>
+<pre class="hljs"><code><div>- Restart task đó
+- Restart region pipeline
+- Restart toàn job
+</div></code></pre>
+<p>Tùy topology và checkpoint mechanism.</p>
+<p>Restart quá nhanh có thể tạo crash loop.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Exponential backoff
+- Restart budget
+- Alert
+- Poison event handling
+</div></code></pre>
+<hr>
+<h1 id="89-poison-event">89. Poison Event</h1>
+<p>Một event có schema lỗi làm processor crash mỗi lần replay.</p>
+<p>Nếu restart vô hạn:</p>
+<pre class="hljs"><code><div>Job không thể tiến.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Schema validation
+- Retry giới hạn
+- DLQ/side output
+- Skip có audit nếu được phép
+- Manual repair
+</div></code></pre>
+<p>Không nên bỏ event tài chính mà không có quy trình xử lý.</p>
+<hr>
+<h1 id="90-savepoint">90. Savepoint</h1>
+<p>Checkpoint thường phục vụ automatic recovery.</p>
+<p>Savepoint thường là snapshot có chủ đích để:</p>
+<pre class="hljs"><code><div>- Upgrade job
+- Thay code
+- Rescale
+- Migration
+- Rollback
+</div></code></pre>
+<p>Savepoint cần tương thích với state schema của version mới.</p>
+<hr>
+<h1 id="91-state-schema-evolution">91. State Schema Evolution</h1>
+<p>Job v1 lưu:</p>
+<pre class="hljs"><code><div>userId → count
+</div></code></pre>
+<p>Job v2 cần:</p>
+<pre class="hljs"><code><div>userId → {count, totalAmount}
+</div></code></pre>
+<p>Phải xử lý:</p>
+<pre class="hljs"><code><div>- Deserialize state cũ
+- Default fields
+- Migration
+- Rollback
+</div></code></pre>
+<p>Stateful job upgrade khó hơn stateless service deployment.</p>
+<hr>
+<h1 id="92-rescaling-stateful-job">92. Rescaling Stateful Job</h1>
+<p>Tăng workers từ 4 lên 8.</p>
+<p>Keyed state phải được phân phối lại:</p>
+<pre class="hljs"><code><div>Worker 1 trước:
+keys A–F
+
+Sau rescale:
+một phần chuyển sang workers mới.
+</div></code></pre>
+<p>Quá trình cần:</p>
+<pre class="hljs"><code><div>- Snapshot
+- State transfer
+- Routing update
+- Recovery
+</div></code></pre>
+<p>State lớn làm rescale lâu.</p>
+<hr>
+<h1 id="93-key-groups-hoặc-logical-partitions">93. Key Groups hoặc Logical Partitions</h1>
+<p>Có thể tạo nhiều logical partitions hơn workers.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1.024 key groups
+8 workers
+</div></code></pre>
+<p>Mỗi worker sở hữu nhiều key groups.</p>
+<p>Khi rescale, chỉ cần đổi mapping key group → worker.</p>
+<p>Ý tưởng tương tự virtual shards.</p>
+<hr>
+<h1 id="94-hot-key">94. Hot Key</h1>
+<p>Nếu key:</p>
+<pre class="hljs"><code><div>celebrity_123
+</div></code></pre>
+<p>nhận 1 triệu event/giây, tất cả đi cùng worker để giữ ordering.</p>
+<p>Worker trở thành bottleneck.</p>
+<p>Đây là hot-key problem.</p>
+<hr>
+<h1 id="95-cách-xử-lý-hot-key">95. Cách xử lý Hot Key</h1>
+<pre class="hljs"><code><div>- Local pre-aggregation ở source
+- Salt/bucket key
+- Two-stage aggregation
+- Dedicated worker
+- Approximate aggregation
+- Rate limiting
+</div></code></pre>
+<p>Ví dụ count:</p>
+<pre class="hljs"><code><div>celebrity_123_bucket_0
+...
+celebrity_123_bucket_99
+</div></code></pre>
+<p>Sau đó merge 100 partial counts.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Phân tán tốt hơn
+nhưng ordering và exact state phức tạp hơn.
+</div></code></pre>
+<hr>
+<h1 id="96-two-stage-aggregation">96. Two-Stage Aggregation</h1>
+<p>Stage 1:</p>
+<pre class="hljs"><code><div>Local partial sums theo partition
+</div></code></pre>
+<p>Stage 2:</p>
+<pre class="hljs"><code><div>Merge partial sums theo final key
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Events --> P1[Partial Aggregate 1]
+    Events --> P2[Partial Aggregate 2]
+    Events --> P3[Partial Aggregate 3]
+
+    P1 --> Final[Final Aggregate]
+    P2 --> Final
+    P3 --> Final
+</div></code></pre>
+<p>Giảm network và hot-key pressure.</p>
+<hr>
+<h1 id="97-backpressure">97. Backpressure</h1>
+<p>Backpressure xảy ra khi downstream xử lý chậm hơn upstream.</p>
+<pre class="hljs"><code><div>Producer rate:
+100.000 events/s
+
+Processor capacity:
+60.000 events/s
+</div></code></pre>
+<p>Backlog tăng:</p>
+<pre class="hljs"><code><div>40.000 events/s
+</div></code></pre>
+<p>Nếu kéo dài:</p>
+<pre class="hljs"><code><div>- Queue lag tăng
+- Memory buffer đầy
+- Latency tăng
+- Checkpoint chậm
+- Job có thể crash
+</div></code></pre>
+<hr>
+<h1 id="98-backpressure-propagation">98. Backpressure Propagation</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Source --> OperatorA
+    OperatorA --> OperatorB
+    OperatorB --> Sink
+
+    Sink -. slow .-> OperatorB
+    OperatorB -. pressure .-> OperatorA
+    OperatorA -. pressure .-> Source
+</div></code></pre>
+<p>Một pipeline tốt phải làm chậm upstream có kiểm soát thay vì buffer vô hạn.</p>
+<hr>
+<h1 id="99-nguyên-nhân-backpressure">99. Nguyên nhân Backpressure</h1>
+<pre class="hljs"><code><div>- Sink database chậm
+- External API rate limit
+- Hot key
+- CPU-heavy transformation
+- Serialization lớn
+- Network bandwidth
+- Checkpoint/merge pressure
+- Garbage collection
+</div></code></pre>
+<p>Scale consumers không luôn giải quyết nếu bottleneck là sink.</p>
+<hr>
+<h1 id="100-consumer-lag">100. Consumer Lag</h1>
+<p>Lag có thể đo:</p>
+<pre class="hljs"><code><div>latest broker offset
+-
+processed offset
+</div></code></pre>
+<p>Nhưng offset lag không luôn phản ánh thời gian.</p>
+<p>1 triệu event có thể tương ứng:</p>
+<pre class="hljs"><code><div>- 10 giây ở traffic cao
+- 10 giờ ở traffic thấp
+</div></code></pre>
+<p>Nên theo dõi thêm:</p>
+<pre class="hljs"><code><div>Oldest unprocessed event age
+</div></code></pre>
+<hr>
+<h1 id="101-event-time-lag">101. Event-Time Lag</h1>
+<p>Có thể đo:</p>
+<pre class="hljs"><code><div>current wall time
+-
+maximum processed event time
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Current:
+10:20
+
+Processor đã xử lý tới event time:
+10:12
+
+Event-time lag:
+8 phút
+</div></code></pre>
+<p>Cẩn thận nếu source tạo event có clock sai.</p>
+<hr>
+<h1 id="102-scaling-stream-processor">102. Scaling Stream Processor</h1>
+<p>Có thể tăng:</p>
+<pre class="hljs"><code><div>- Số partitions
+- Số workers
+- CPU/memory
+- Batch size
+- Parallelism từng operator
+</div></code></pre>
+<p>Nhưng maximum parallelism thường bị giới hạn bởi partition count hoặc key distribution.</p>
+<p>Nếu topic có 10 partitions:</p>
+<pre class="hljs"><code><div>Một consumer group chỉ có tối đa khoảng 10 active partition consumers.
+</div></code></pre>
+<hr>
+<h1 id="103-rebalancing-consumer">103. Rebalancing Consumer</h1>
+<p>Khi worker join hoặc leave:</p>
+<pre class="hljs"><code><div>Partitions được phân phối lại.
+</div></code></pre>
+<p>Với stateless consumer, khá đơn giản.</p>
+<p>Với stateful consumer:</p>
+<pre class="hljs"><code><div>- State phải restore
+- Cache lạnh
+- Processing pause
+- Watermark có thể chậm
+</div></code></pre>
+<p>Frequent rebalance làm latency không ổn định.</p>
+<hr>
+<h1 id="104-small-files-problem-trong-batch">104. Small Files Problem trong Batch</h1>
+<p>Batch pipeline thường tạo hàng triệu file nhỏ.</p>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Metadata overhead
+- Scheduling overhead
+- Read throughput thấp
+- Nhiều network request
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Compaction
+- Partition sizing
+- File format phù hợp
+- Batch output coalescing
+</div></code></pre>
+<hr>
+<h1 id="105-data-partitioning-trong-batch">105. Data Partitioning trong Batch</h1>
+<p>Batch data thường được partition theo:</p>
+<pre class="hljs"><code><div>date=2026-07-13/
+country=VN/
+region=HN/
+</div></code></pre>
+<p>Query chỉ đọc partitions liên quan.</p>
+<p>Nhưng partition quá chi tiết:</p>
+<pre class="hljs"><code><div>user_id=...
+</div></code></pre>
+<p>có thể tạo hàng triệu directories/files nhỏ.</p>
+<hr>
+<h1 id="106-map-và-reduce-ở-mức-trực-giác">106. Map và Reduce ở mức trực giác</h1>
+<p>Một batch job lớn có thể chia:</p>
+<h2 id="map">Map</h2>
+<p>Xử lý các partitions độc lập.</p>
+<pre class="hljs"><code><div>Đọc orders
+→ phát (merchantId, amount)
+</div></code></pre>
+<h2 id="shuffle">Shuffle</h2>
+<p>Đưa cùng key về cùng reducer.</p>
+<h2 id="reduce">Reduce</h2>
+<p>Tổng hợp:</p>
+<pre class="hljs"><code><div>merchantId → total revenue
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Input --> M1[Map 1]
+    Input --> M2[Map 2]
+
+    M1 --> Shuffle
+    M2 --> Shuffle
+
+    Shuffle --> R1[Reduce Merchant A]
+    Shuffle --> R2[Reduce Merchant B]
+</div></code></pre>
+<hr>
+<h1 id="107-shuffle-rất-đắt">107. Shuffle rất đắt</h1>
+<p>Shuffle tạo:</p>
+<pre class="hljs"><code><div>- Network transfer
+- Serialization
+- Disk spill
+- Sort
+</div></code></pre>
+<p>Các tối ưu:</p>
+<pre class="hljs"><code><div>- Pre-aggregation
+- Combiner
+- Partition pruning
+- Broadcast small table
+- Avoid unnecessary group-by
+</div></code></pre>
+<hr>
+<h1 id="108-batch-join">108. Batch Join</h1>
+<p>Hai datasets lớn:</p>
+<pre class="hljs"><code><div>Orders
+Users
+</div></code></pre>
+<p>Có thể shuffle cả hai theo <code>userId</code>.</p>
+<p>Nếu một bảng nhỏ:</p>
+<pre class="hljs"><code><div>Country codes
+</div></code></pre>
+<p>có thể broadcast bảng nhỏ tới workers, tránh shuffle dataset lớn.</p>
+<hr>
+<h1 id="109-incremental-batch">109. Incremental Batch</h1>
+<p>Không nhất thiết mỗi ngày đọc toàn bộ lịch sử.</p>
+<p>Có thể chỉ đọc dữ liệu mới:</p>
+<pre class="hljs"><code><div>updated_at &gt; last_successful_watermark
+</div></code></pre>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>Merge vào output hiện tại.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Nhanh hơn
+- Rẻ hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Phải quản lý checkpoint
+- Handle late update
+- Delete khó hơn
+</div></code></pre>
+<hr>
+<h1 id="110-batch-watermark">110. Batch Watermark</h1>
+<p>Trong batch ingestion, watermark cũng có thể là:</p>
+<pre class="hljs"><code><div>Đã xử lý source tới timestamp/ID/LSN nào?
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>last_processed_order_id = 1.000.000
+</div></code></pre>
+<p>Job sau đọc:</p>
+<pre class="hljs"><code><div>order_id &gt; 1.000.000
+</div></code></pre>
+<p>Phải tránh mất dữ liệu khi job fail giữa đọc và commit output.</p>
+<hr>
+<h1 id="111-batch-job-idempotency">111. Batch Job Idempotency</h1>
+<p>Nếu batch job chạy lại cùng ngày:</p>
+<pre class="hljs"><code><div>Không được tạo doanh thu gấp đôi.
+</div></code></pre>
+<p>Các cách:</p>
+<pre class="hljs"><code><div>- Overwrite partition
+- MERGE theo business key
+- Atomic table swap
+- Output versioned directory
+</div></code></pre>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>INSERT thêm mà không deduplicate.
+</div></code></pre>
+<hr>
+<h1 id="112-atomic-batch-publish">112. Atomic Batch Publish</h1>
+<p>Job có thể ghi vào thư mục tạm:</p>
+<pre class="hljs"><code><div>/output/date=2026-07-13/_temporary/
+</div></code></pre>
+<p>Sau khi thành công:</p>
+<pre class="hljs"><code><div>Atomically publish metadata hoặc rename.
+</div></code></pre>
+<p>Consumer không thấy output nửa hoàn chỉnh.</p>
+<hr>
+<h1 id="113-partial-batch-failure">113. Partial Batch Failure</h1>
+<p>Job có 1.000 tasks, 999 thành công, một task lỗi.</p>
+<p>Không nên publish toàn bộ output như hoàn chỉnh.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Retry task lỗi
+- Job-level success marker
+- Atomic commit
+- Output validation
+</div></code></pre>
+<hr>
+<h1 id="114-backfill">114. Backfill</h1>
+<p>Backfill xử lý dữ liệu lịch sử.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Thêm field mới:
+customer_segment
+
+Cần tính cho 5 năm orders cũ.
+</div></code></pre>
+<p>Backfill có thể gây:</p>
+<pre class="hljs"><code><div>- Tải lớn
+- Queue backlog
+- Search merge pressure
+- Database reads cao
+</div></code></pre>
+<p>Phải throttle và tách khỏi realtime workload khi có thể.</p>
+<hr>
+<h1 id="115-backfill-và-realtime-events">115. Backfill và Realtime Events</h1>
+<p>Trong khi backfill dữ liệu cũ, event mới vẫn đến.</p>
+<p>Cần ngăn event cũ ghi đè state mới.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Realtime version 100 đã được xử lý.
+Backfill version 20 đến sau.
+</div></code></pre>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>Entity version
+Event time
+Commit sequence
+Conditional upsert
+</div></code></pre>
+<hr>
+<h1 id="116-batch-correction-cho-stream">116. Batch Correction cho Stream</h1>
+<p>Một pattern thực tế:</p>
+<pre class="hljs"><code><div>Stream:
+Kết quả nhanh nhưng có thể gần đúng
+
+Batch:
+Định kỳ tính lại chính xác từ raw data
+</div></code></pre>
+<p>Batch sửa sai lệch stream.</p>
+<p>Đây là một ý tưởng của Lambda Architecture.</p>
+<hr>
+<h1 id="117-lambda-architecture">117. Lambda Architecture</h1>
+<p>Ba tầng:</p>
+<pre class="hljs"><code><div>1. Batch layer
+2. Speed layer
+3. Serving layer
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Raw[Raw Events] --> Batch[Batch Layer]
+    Raw --> Speed[Speed Layer]
+
+    Batch --> Serving
+    Speed --> Serving
+
+    Serving --> Query
+</div></code></pre>
+<p>Batch cho kết quả chính xác lịch sử.</p>
+<p>Speed layer cho dữ liệu mới chưa được batch xử lý.</p>
+<hr>
+<h1 id="118-nhược-điểm-lambda-architecture">118. Nhược điểm Lambda Architecture</h1>
+<p>Phải duy trì cùng business logic hai lần:</p>
+<pre class="hljs"><code><div>- Một implementation batch
+- Một implementation stream
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- Logic lệch nhau
+- Kết quả khác nhau
+- Operational complexity
+- Debug khó
+</div></code></pre>
+<hr>
+<h1 id="119-kappa-architecture">119. Kappa Architecture</h1>
+<p>Kappa Architecture ưu tiên một stream pipeline duy nhất.</p>
+<p>Khi cần tính lại:</p>
+<pre class="hljs"><code><div>Replay raw event log
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    EventLog[(Durable Event Log)] --> StreamProcessor
+    StreamProcessor --> Views[(Materialized Views)]
+
+    EventLog -. Replay .-> StreamProcessor
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Một processing model.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Replay lịch sử rất lớn có thể lâu
+- Logic state migration phức tạp
+- Không phải thuật toán batch nào cũng phù hợp streaming
+</div></code></pre>
+<hr>
+<h1 id="120-batchstream-unified-model">120. Batch–Stream Unified Model</h1>
+<p>Một cách nhìn hiện đại:</p>
+<pre class="hljs"><code><div>Batch:
+Xử lý bounded stream.
+
+Streaming:
+Xử lý unbounded stream.
+</div></code></pre>
+<p>Cùng primitives:</p>
+<pre class="hljs"><code><div>- Map
+- Filter
+- Group
+- Join
+- Window
+- Aggregate
+</div></code></pre>
+<p>Khác biệt lớn nằm ở:</p>
+<pre class="hljs"><code><div>- Khi nào input kết thúc
+- Khi nào kết quả được phát
+- Cách xử lý time và late data
+</div></code></pre>
+<hr>
+<h1 id="121-raw-event-log">121. Raw Event Log</h1>
+<p>Để replay và backfill, nên giữ raw immutable events.</p>
+<pre class="hljs"><code><div>Raw events
+→ Processed tables
+→ Aggregates
+</div></code></pre>
+<p>Raw log giúp:</p>
+<pre class="hljs"><code><div>- Sửa bug
+- Rebuild projection
+- Audit
+- Train model
+- Tạo feature mới
+</div></code></pre>
+<p>Nhưng cần:</p>
+<pre class="hljs"><code><div>- Retention
+- Schema evolution
+- Privacy deletion
+- Storage cost
+</div></code></pre>
+<hr>
+<h1 id="122-replay">122. Replay</h1>
+<p>Replay đọc lại event cũ và chạy logic mới.</p>
+<p>Các vấn đề:</p>
+<pre class="hljs"><code><div>- External side effect không được lặp
+- Event schema cũ
+- Ordering
+- State bootstrap
+- Output versioning
+- Tốc độ replay
+</div></code></pre>
+<p>Không nên replay trực tiếp vào production sink mà không có guardrail.</p>
+<hr>
+<h1 id="123-replay-mode">123. Replay Mode</h1>
+<p>Có thể chạy:</p>
+<pre class="hljs"><code><div>- Shadow output
+- New table/version
+- Separate topic
+- Dry run
+</div></code></pre>
+<p>Sau khi kiểm tra:</p>
+<pre class="hljs"><code><div>Swap hoặc merge output.
+</div></code></pre>
+<p>Cách này an toàn hơn ghi đè production trực tiếp.</p>
+<hr>
+<h1 id="124-schema-evolution-trong-event-stream">124. Schema Evolution trong Event Stream</h1>
+<p>Event v1:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Event v2 thêm:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Consumer phải xử lý event cũ không có <code>currency</code>.</p>
+<p>Nguyên tắc:</p>
+<pre class="hljs"><code><div>- Thêm field optional
+- Có default
+- Không đổi ý nghĩa field cũ âm thầm
+- Version schema
+</div></code></pre>
+<hr>
+<h1 id="125-event-envelope">125. Event Envelope</h1>
+<p>Một event chuẩn có thể chứa:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PaymentCompleted&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;aggregateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pay_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;aggregateVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-13T10:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;producer&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;payment-service&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;traceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trace_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;payload&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Metadata giúp:</p>
+<pre class="hljs"><code><div>- Deduplicate
+- Ordering
+- Tracing
+- Schema routing
+- Late-event analysis
+</div></code></pre>
+<hr>
+<h1 id="126-event-time-từ-client-có-đáng-tin-không">126. Event Time từ Client có đáng tin không?</h1>
+<p>Client có thể:</p>
+<pre class="hljs"><code><div>- Clock sai
+- Offline
+- Cố tình giả timestamp
+</div></code></pre>
+<p>Không nên dùng client event time cho:</p>
+<pre class="hljs"><code><div>- Authorization
+- Billing cutoff quan trọng
+- Financial ordering
+</div></code></pre>
+<p>Có thể lưu cả:</p>
+<pre class="hljs"><code><div>clientOccurredAt
+serverReceivedAt
+serverAcceptedAt
+</div></code></pre>
+<p>và định nghĩa authoritative timestamp rõ ràng.</p>
+<hr>
+<h1 id="127-billing-và-time-semantics">127. Billing và Time Semantics</h1>
+<p>Tính cước theo tháng cần định nghĩa:</p>
+<pre class="hljs"><code><div>- Usage xảy ra lúc nào?
+- Dùng event time hay ingestion time?
+- Late usage tháng trước xử lý thế nào?
+- Có reopen invoice không?
+- Hay cộng vào kỳ sau?
+</div></code></pre>
+<p>Đây là business decision, không chỉ vấn đề kỹ thuật.</p>
+<hr>
+<h1 id="128-case-study--realtime-dashboard">128. Case Study — Realtime Dashboard</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>Doanh thu theo merchant mỗi phút.
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>- Event-time tumbling window 1 phút
+- Watermark trễ 30 giây
+- Allowed lateness 10 phút
+- Early update mỗi 10 giây
+- Upsert sink theo merchant + window
+</div></code></pre>
+<p>Batch reconciliation cuối ngày tính lại từ raw events.</p>
+<hr>
+<h1 id="129-case-study--fraud-detection">129. Case Study — Fraud Detection</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>Cảnh báo nếu một card giao dịch
+trên 100 triệu trong 5 phút.
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>Key:
+cardId
+
+Window:
+Sliding 5 phút, cập nhật mỗi vài giây
+
+State:
+Recent transactions + total amount
+
+Delivery:
+At-least-once input
+
+Alert sink:
+Idempotent theo fraudCaseId
+</div></code></pre>
+<p>Event time quan trọng nhưng watermark không nên quá chậm vì alert phải nhanh.</p>
+<hr>
+<h1 id="130-case-study--unique-users">130. Case Study — Unique Users</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>Unique active users theo ngày.
+</div></code></pre>
+<p>Lựa chọn:</p>
+<h2 id="chính-xác">Chính xác</h2>
+<p>Giữ set user IDs:</p>
+<pre class="hljs"><code><div>State rất lớn.
+</div></code></pre>
+<h2 id="xấp-xỉ">Xấp xỉ</h2>
+<p>Dùng probabilistic sketch:</p>
+<pre class="hljs"><code><div>Memory nhỏ hơn nhiều.
+</div></code></pre>
+<p>Analytics dashboard thường chấp nhận sai số nhỏ.</p>
+<p>Billing theo unique user có thể yêu cầu chính xác hơn.</p>
+<hr>
+<h1 id="131-case-study--ride-hailing">131. Case Study — Ride Hailing</h1>
+<p>Driver location events:</p>
+<pre class="hljs"><code><div>driverId
+latitude
+longitude
+eventTime
+sequence
+</div></code></pre>
+<p>Processor:</p>
+<pre class="hljs"><code><div>- Bỏ location sequence cũ
+- Cập nhật latest driver location
+- Tính driver availability
+- Phát geo index update
+</div></code></pre>
+<p>Nếu location cũ đến muộn:</p>
+<pre class="hljs"><code><div>Không được ghi đè location mới.
+</div></code></pre>
+<p>Sequence quan trọng hơn chỉ so timestamp.</p>
+<hr>
+<h1 id="132-case-study--iot">132. Case Study — IoT</h1>
+<p>Sensor có thể offline rồi upload hàng nghìn event.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Event-time windows
+- Late data policy
+- Device clock quality
+- Per-device ordering
+- Deduplication
+- Watermark theo device group
+</div></code></pre>
+<p>Một device im lặng không nên chặn watermark toàn hệ thống mãi.</p>
+<hr>
+<h1 id="133-case-study--search-indexing">133. Case Study — Search Indexing</h1>
+<p>Product events:</p>
+<pre class="hljs"><code><div>ProductUpdated
+InventoryChanged
+RatingChanged
+</div></code></pre>
+<p>Stream processor xây search document.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Key theo productId
+- Latest version per source
+- Stateful enrichment
+- Idempotent upsert
+- Backpressure từ search cluster
+- DLQ cho mapping error
+</div></code></pre>
+<p>Reindex lịch sử là batch/backfill.</p>
+<hr>
+<h1 id="134-case-study--notification">134. Case Study — Notification</h1>
+<p>OrderConfirmed stream tạo notification.</p>
+<p>Không cần window nhưng cần:</p>
+<pre class="hljs"><code><div>- At-least-once
+- Idempotency
+- User preference state
+- Rate limiting
+- Deduplication
+</div></code></pre>
+<p>Nếu replay OrderConfirmed:</p>
+<pre class="hljs"><code><div>Không được gửi lại email cũ.
+</div></code></pre>
+<p>External side effect cần durable dedupe.</p>
+<hr>
+<h1 id="135-case-study--payment-settlement">135. Case Study — Payment Settlement</h1>
+<p>Settlement cần:</p>
+<pre class="hljs"><code><div>- Chính xác
+- Audit
+- Không duplicate
+- Reconciliation
+</div></code></pre>
+<p>Có thể dùng stream để cập nhật nhanh.</p>
+<p>Nhưng cuối kỳ chạy batch:</p>
+<pre class="hljs"><code><div>- So sánh ledger
+- Kiểm tra tổng debit/credit
+- Phát hiện mismatch
+- Tạo settlement authoritative
+</div></code></pre>
+<p>Stream realtime không thay thế batch reconciliation tài chính.</p>
+<hr>
+<h1 id="136-observability-cho-batch">136. Observability cho Batch</h1>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>- Job duration
+- Success/failure
+- Input records
+- Output records
+- Invalid records
+- Retry count
+- Task skew
+- Shuffle bytes
+- Data freshness
+- Last successful run
+</div></code></pre>
+<p>Alert:</p>
+<pre class="hljs"><code><div>Job chưa hoàn thành trước SLA.
+</div></code></pre>
+<p>Không chỉ alert khi process crash.</p>
+<hr>
+<h1 id="137-observability-cho-stream">137. Observability cho Stream</h1>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>- Input rate
+- Output rate
+- Consumer lag
+- Oldest event age
+- Watermark
+- Event-time lag
+- Processing latency
+- Late-event rate
+- Dropped-event rate
+- Checkpoint duration
+- Checkpoint failures
+- State size
+- Backpressure
+- Restart count
+</div></code></pre>
+<hr>
+<h1 id="138-end-to-end-latency">138. End-to-End Latency</h1>
+<p>Không chỉ đo operator processing time.</p>
+<p>End-to-end latency:</p>
+<pre class="hljs"><code><div>Output visible time
+-
+Event occurrence time
+</div></code></pre>
+<p>Bao gồm:</p>
+<pre class="hljs"><code><div>- Producer delay
+- Broker delay
+- Queue lag
+- Processing
+- Window wait
+- Sink delay
+</div></code></pre>
+<hr>
+<h1 id="139-freshness-slo">139. Freshness SLO</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>99% payment events xuất hiện trên dashboard
+trong vòng 30 giây theo event time.
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>99.9% fraud events được đánh giá
+trong vòng 2 giây kể từ ingestion.
+</div></code></pre>
+<p>Phải nói rõ bắt đầu đo từ:</p>
+<pre class="hljs"><code><div>Event time hay ingestion time?
+</div></code></pre>
+<hr>
+<h1 id="140-watermark-dashboard">140. Watermark Dashboard</h1>
+<p>Nên hiển thị:</p>
+<pre class="hljs"><code><div>Current wall time:
+10:30
+
+Watermark:
+10:22
+
+Event-time lag:
+8 phút
+</div></code></pre>
+<p>Nếu input rate vẫn bình thường nhưng watermark không tiến:</p>
+<pre class="hljs"><code><div>Có thể partition chậm hoặc idle handling lỗi.
+</div></code></pre>
+<hr>
+<h1 id="141-data-quality-metrics">141. Data Quality Metrics</h1>
+<pre class="hljs"><code><div>- Missing event ID
+- Invalid event time
+- Future timestamp
+- Duplicate rate
+- Out-of-order rate
+- Schema errors
+- Null key
+- Negative amount
+</div></code></pre>
+<p>Pipeline chạy ổn không có nghĩa dữ liệu đúng.</p>
+<hr>
+<h1 id="142-future-dated-events">142. Future-Dated Events</h1>
+<p>Clock client sai có thể tạo:</p>
+<pre class="hljs"><code><div>eventTime = năm 2030
+</div></code></pre>
+<p>Nếu watermark lấy maximum event time:</p>
+<pre class="hljs"><code><div>Watermark nhảy quá xa
+→ đóng hàng loạt windows sớm
+→ các event bình thường trở thành late
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Timestamp validation
+- Maximum future skew
+- Quarantine invalid event
+</div></code></pre>
+<hr>
+<h1 id="143-skew-trong-batch">143. Skew trong Batch</h1>
+<p>Một reducer nhận phần lớn dữ liệu:</p>
+<pre class="hljs"><code><div>Merchant lớn:
+1 tỷ records
+
+Merchant khác:
+1 triệu records
+</div></code></pre>
+<p>999 tasks hoàn thành nhanh, một task chạy hàng giờ.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Salt hot key
+- Two-stage aggregate
+- Custom partitioning
+- Skew-aware join
+</div></code></pre>
+<hr>
+<h1 id="144-skew-trong-stream">144. Skew trong Stream</h1>
+<p>Một partition nhận phần lớn event:</p>
+<pre class="hljs"><code><div>- Lag riêng partition tăng
+- Watermark toàn job chậm
+- Worker quá tải
+</div></code></pre>
+<p>Cluster average có thể vẫn bình thường.</p>
+<p>Phải theo dõi metrics theo:</p>
+<pre class="hljs"><code><div>partition
+key range
+worker
+</div></code></pre>
+<hr>
+<h1 id="145-khi-stream-sink-bị-down">145. Khi Stream Sink bị Down</h1>
+<p>Không nên giữ vô hạn trong memory.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Backpressure tới source
+- Broker giữ backlog
+- Local durable buffer
+- Circuit breaker
+- Fail job và restore sau
+</div></code></pre>
+<p>Cần biết broker retention có đủ cho outage dài không.</p>
+<hr>
+<h1 id="146-retention-và-recovery">146. Retention và Recovery</h1>
+<p>Nếu broker chỉ giữ event 24 giờ nhưng outage kéo dài 48 giờ:</p>
+<pre class="hljs"><code><div>Consumer không thể replay phần đầu.
+</div></code></pre>
+<p>Recovery plan cần:</p>
+<pre class="hljs"><code><div>- Retention đủ dài
+- Raw object storage
+- Batch backfill
+- Backup source
+</div></code></pre>
+<hr>
+<h1 id="147-batch-job-dependency-dag">147. Batch Job Dependency DAG</h1>
+<p>Batch pipeline thường là DAG:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Extract --> Clean
+    Clean --> Orders
+    Clean --> Users
+
+    Orders --> Join
+    Users --> Join
+
+    Join --> Aggregate
+    Aggregate --> Report
+</div></code></pre>
+<p>Scheduler phải quản lý:</p>
+<pre class="hljs"><code><div>- Dependency
+- Retry
+- SLA
+- Backfill date
+- Partial rerun
+</div></code></pre>
+<hr>
+<h1 id="148-data-interval-và-execution-time">148. Data Interval và Execution Time</h1>
+<p>Job chạy ngày 14/07 nhưng xử lý dữ liệu ngày 13/07.</p>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>Execution time:
+Khi job chạy.
+
+Data interval:
+Khoảng dữ liệu job chịu trách nhiệm.
+</div></code></pre>
+<p>Nếu không, backfill và retry dễ dùng sai ngày.</p>
+<hr>
+<h1 id="149-catch-up-batch-runs">149. Catch-Up Batch Runs</h1>
+<p>Job bị lỗi ba ngày.</p>
+<p>Khi phục hồi:</p>
+<pre class="hljs"><code><div>Có chạy ba ngày song song không?
+Có chạy tuần tự không?
+Có đủ capacity không?
+</div></code></pre>
+<p>Chạy catch-up quá nhanh có thể làm database hoặc warehouse quá tải.</p>
+<p>Cần concurrency control.</p>
+<hr>
+<h1 id="150-batch-sla-và-stream-slo">150. Batch SLA và Stream SLO</h1>
+<p>Batch:</p>
+<pre class="hljs"><code><div>Daily report phải sẵn sàng trước 07:00.
+</div></code></pre>
+<p>Stream:</p>
+<pre class="hljs"><code><div>99% events được phản ánh trong 30 giây.
+</div></code></pre>
+<p>Hai workload cần cách vận hành và alert khác nhau.</p>
+<hr>
+<h1 id="151-cách-trình-bày-trong-system-design-interview">151. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em dùng Kafka và stream processing.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Source phát immutable events vào partitioned event log. Tôi partition theo business key để giữ ordering trong phạm vi cần thiết, chẳng hạn <code>cardId</code> cho fraud detection. Processor sử dụng event time thay vì processing time vì event có thể đến trễ hoặc bị replay.</p>
+</blockquote>
+<p>Về window:</p>
+<blockquote>
+<p>Tôi dùng sliding window 10 phút, cập nhật mỗi phút. Watermark được đặt thấp hơn maximum observed event time hai phút. Window phát early result để giảm latency và tiếp tục nhận late events trong mười phút. Output là idempotent upsert theo <code>(entityId, windowStart)</code> để correction không tạo duplicate.</p>
+</blockquote>
+<p>Về reliability:</p>
+<blockquote>
+<p>Source offsets, keyed state và timers được snapshot trong consistent checkpoints. Khi worker lỗi, job restore checkpoint rồi replay từ offsets tương ứng. Pipeline cung cấp at-least-once communication; exactly-once business effect phụ thuộc sink hỗ trợ transaction hoặc idempotent upsert. External side effects như email vẫn cần idempotency key riêng.</p>
+</blockquote>
+<p>Về scale:</p>
+<blockquote>
+<p>State được partition theo key. Tôi theo dõi hot partitions, consumer lag, watermark progress, checkpoint duration và backpressure. Với hot keys, tôi dùng local pre-aggregation hoặc bucketed two-stage aggregation.</p>
+</blockquote>
+<hr>
+<h1 id="152-framework-thiết-kế-data-processing">152. Framework thiết kế Data Processing</h1>
+<p>Khi thiết kế, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Input là bounded hay unbounded?
+2. Latency requirement là bao nhiêu?
+3. Batch có đủ không?
+4. Event time authoritative nằm ở đâu?
+5. Có thể có late hoặc out-of-order events không?
+6. Window loại nào?
+7. Window size và slide là bao nhiêu?
+8. Watermark được tạo thế nào?
+9. Allowed lateness là bao lâu?
+10. Late event bị drop, update hay side output?
+11. Processing có state không?
+12. State key là gì?
+13. State retention bao lâu?
+14. Delivery semantics cần mức nào?
+15. Sink có transactional hoặc idempotent không?
+16. Checkpoint gồm những gì?
+17. Recovery replay từ đâu?
+18. Hot keys xử lý thế nào?
+19. Backpressure truyền ra sao?
+20. Có raw events để backfill không?
+21. Schema evolution thế nào?
+22. Freshness SLO và data-quality metrics là gì?
+</div></code></pre>
+<hr>
+<h1 id="153-decision-tree">153. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần xử lý dữ liệu] --> B{Cần kết quả nhanh đến mức nào?}
+
+    B -->|Giờ/ngày| C[Batch Processing]
+    B -->|Giây/phút| D[Stream Processing]
+
+    C --> E[Bounded Dataset]
+    E --> F[Partition + Parallel Tasks]
+    F --> G[Idempotent Output + Backfill]
+
+    D --> H{Kết quả phụ thuộc thời gian event?}
+    H -->|Không| I[Processing-Time Logic]
+    H -->|Có| J[Event-Time Windows]
+
+    J --> K[Watermark]
+    K --> L[Late-Event Policy]
+
+    D --> M{Có state?}
+    M -->|Không| N[Stateless Operators]
+    M -->|Có| O[Keyed State + Checkpoints]
+
+    O --> P[Delivery Semantics]
+    P --> Q[Transactional or Idempotent Sink]
+</div></code></pre>
+<hr>
+<h1 id="154-những-sai-lầm-phổ-biến">154. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-dùng-stream-chỉ-vì-muốn-kiến-trúc-hiện-đại">Lỗi 1: Dùng stream chỉ vì muốn kiến trúc hiện đại</h2>
+<p>Batch có thể đơn giản và đủ tốt hơn.</p>
+<h2 id="lỗi-2-nhầm-event-time-với-processing-time">Lỗi 2: Nhầm event time với processing time</h2>
+<p>Kết quả thay đổi khi backlog hoặc replay.</p>
+<h2 id="lỗi-3-nghĩ-watermark-là-cam-kết-không-còn-event-cũ">Lỗi 3: Nghĩ watermark là cam kết không còn event cũ</h2>
+<p>Watermark chỉ là ước lượng hoặc policy.</p>
+<h2 id="lỗi-4-không-định-nghĩa-late-event-policy">Lỗi 4: Không định nghĩa late-event policy</h2>
+<p>Kết quả âm thầm thiếu dữ liệu.</p>
+<h2 id="lỗi-5-giữ-window-state-vô-hạn">Lỗi 5: Giữ window state vô hạn</h2>
+<p>Memory/disk tăng mãi.</p>
+<h2 id="lỗi-6-dùng-global-ordering-khi-chỉ-cần-per-key-order">Lỗi 6: Dùng global ordering khi chỉ cần per-key order</h2>
+<p>Giảm scale và tăng coordination.</p>
+<h2 id="lỗi-7-commit-offset-trước-khi-xử-lý">Lỗi 7: Commit offset trước khi xử lý</h2>
+<p>Có thể mất event.</p>
+<h2 id="lỗi-8-commit-offset-sau-output-nhưng-không-idempotent">Lỗi 8: Commit offset sau output nhưng không idempotent</h2>
+<p>Có thể tạo duplicate.</p>
+<h2 id="lỗi-9-nói-exactly-once-mà-không-xét-sink">Lỗi 9: Nói exactly-once mà không xét sink</h2>
+<p>Exactly-once nội bộ không bảo vệ external side effects.</p>
+<h2 id="lỗi-10-không-checkpoint-timers-và-window-state">Lỗi 10: Không checkpoint timers và window state</h2>
+<p>Recovery cho kết quả sai.</p>
+<h2 id="lỗi-11-dùng-remote-database-cho-mọi-state-access">Lỗi 11: Dùng remote database cho mọi state access</h2>
+<p>Có thể biến database thành bottleneck.</p>
+<h2 id="lỗi-12-không-có-ttl-cho-dedupe-state">Lỗi 12: Không có TTL cho dedupe state</h2>
+<p>State tăng vô hạn.</p>
+<h2 id="lỗi-13-scale-consumer-mà-không-xem-sink">Lỗi 13: Scale consumer mà không xem sink</h2>
+<p>Downstream càng quá tải.</p>
+<h2 id="lỗi-14-chỉ-xem-offset-lag">Lỗi 14: Chỉ xem offset lag</h2>
+<p>Không biết event cũ bao lâu.</p>
+<h2 id="lỗi-15-một-idle-partition-chặn-watermark-toàn-job">Lỗi 15: Một idle partition chặn watermark toàn job</h2>
+<p>Window không bao giờ đóng.</p>
+<h2 id="lỗi-16-không-validate-timestamp-tương-lai">Lỗi 16: Không validate timestamp tương lai</h2>
+<p>Watermark có thể nhảy sai.</p>
+<h2 id="lỗi-17-replay-event-và-lặp-external-side-effects">Lỗi 17: Replay event và lặp external side effects</h2>
+<p>Gửi lại email hoặc charge lại payment.</p>
+<h2 id="lỗi-18-backfill-ghi-đè-state-realtime-mới-hơn">Lỗi 18: Backfill ghi đè state realtime mới hơn</h2>
+<p>Thiếu version guard.</p>
+<h2 id="lỗi-19-batch-output-không-atomic">Lỗi 19: Batch output không atomic</h2>
+<p>Consumer thấy dữ liệu nửa hoàn chỉnh.</p>
+<h2 id="lỗi-20-duy-trì-logic-batch-và-stream-khác-nhau-không-kiểm-thử">Lỗi 20: Duy trì logic batch và stream khác nhau không kiểm thử</h2>
+<p>Hai kết quả dần lệch nhau.</p>
+<hr>
+<h1 id="155-bảng-ghi-nhớ-nhanh">155. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Batch processing</td>
+<td>Xử lý dataset hữu hạn</td>
+</tr>
+<tr>
+<td>Stream processing</td>
+<td>Xử lý dòng dữ liệu liên tục</td>
+</tr>
+<tr>
+<td>Event time</td>
+<td>Thời điểm event xảy ra</td>
+</tr>
+<tr>
+<td>Ingestion time</td>
+<td>Thời điểm event vào hệ thống</td>
+</tr>
+<tr>
+<td>Processing time</td>
+<td>Thời điểm processor xử lý</td>
+</tr>
+<tr>
+<td>Tumbling window</td>
+<td>Window cố định, không overlap</td>
+</tr>
+<tr>
+<td>Sliding window</td>
+<td>Window overlap, trượt định kỳ</td>
+</tr>
+<tr>
+<td>Session window</td>
+<td>Window theo khoảng hoạt động</td>
+</tr>
+<tr>
+<td>Watermark</td>
+<td>Ước lượng tiến độ event time</td>
+</tr>
+<tr>
+<td>Late event</td>
+<td>Event đến sau watermark/window</td>
+</tr>
+<tr>
+<td>Allowed lateness</td>
+<td>Khoảng tiếp tục nhận late data</td>
+</tr>
+<tr>
+<td>Trigger</td>
+<td>Quyết định khi nào phát kết quả</td>
+</tr>
+<tr>
+<td>Keyed state</td>
+<td>State được chia theo key</td>
+</tr>
+<tr>
+<td>Checkpoint</td>
+<td>Snapshot state và input positions</td>
+</tr>
+<tr>
+<td>Savepoint</td>
+<td>Snapshot phục vụ nâng cấp/migration</td>
+</tr>
+<tr>
+<td>At-most-once</td>
+<td>Có thể mất, không duplicate</td>
+</tr>
+<tr>
+<td>At-least-once</td>
+<td>Không mất nhưng có thể duplicate</td>
+</tr>
+<tr>
+<td>Exactly-once</td>
+<td>Một hiệu ứng logic trong phạm vi bảo vệ</td>
+</tr>
+<tr>
+<td>Backpressure</td>
+<td>Downstream làm chậm upstream</td>
+</tr>
+<tr>
+<td>Consumer lag</td>
+<td>Khoảng cách consumer so với source</td>
+</tr>
+<tr>
+<td>Replay</td>
+<td>Đọc lại event lịch sử</td>
+</tr>
+<tr>
+<td>Backfill</td>
+<td>Xử lý dữ liệu lịch sử</td>
+</tr>
+<tr>
+<td>Lambda architecture</td>
+<td>Batch + speed layer</td>
+</tr>
+<tr>
+<td>Kappa architecture</td>
+<td>Một stream pipeline có replay</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="156-sơ-đồ-ghi-nhớ-toàn-bài">156. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Data Processing] --> B[Batch]
+    A --> C[Streaming]
+
+    B --> B1[Bounded Data]
+    B --> B2[Jobs and DAGs]
+    B --> B3[Partitions and Shuffle]
+    B --> B4[Backfill]
+
+    C --> C1[Event Stream]
+    C --> C2[Time]
+    C --> C3[Windows]
+    C --> C4[State]
+    C --> C5[Reliability]
+
+    C2 --> T1[Event Time]
+    C2 --> T2[Processing Time]
+    C2 --> T3[Watermark]
+
+    C3 --> W1[Tumbling]
+    C3 --> W2[Sliding]
+    C3 --> W3[Session]
+    C3 --> W4[Late Events]
+
+    C4 --> S1[Keyed State]
+    C4 --> S2[Joins]
+    C4 --> S3[Deduplication]
+    C4 --> S4[Timers]
+
+    C5 --> R1[Offsets]
+    C5 --> R2[Checkpoints]
+    C5 --> R3[Delivery Semantics]
+    C5 --> R4[Backpressure]
+</div></code></pre>
+<hr>
+<h1 id="157-những-điều-phải-nhớ-sau-bài-19">157. Những điều phải nhớ sau Bài 19</h1>
+<pre class="hljs"><code><div>1. Batch xử lý dữ liệu hữu hạn; stream xử lý dữ liệu liên tục.
+2. Batch ưu tiên throughput; stream thường ưu tiên freshness.
+3. Streaming có thể triển khai record-at-a-time hoặc micro-batch.
+4. Event time là lúc event xảy ra tại nguồn.
+5. Ingestion time là lúc event vào hệ thống.
+6. Processing time là lúc processor xử lý event.
+7. Processing-time result có thể thay đổi khi backlog hoặc replay.
+8. Event-time processing phản ánh thời gian nghiệp vụ tốt hơn.
+9. Window chia stream vô hạn thành phạm vi hữu hạn.
+10. Tumbling windows không overlap.
+11. Sliding windows overlap.
+12. Session windows phụ thuộc inactivity gap.
+13. Watermark là ước lượng tiến độ event time.
+14. Watermark không bảo đảm không còn event cũ.
+15. Late event được xác định tương đối với watermark.
+16. Allowed lateness cân bằng accuracy, latency và state cost.
+17. Output có thể append, update hoặc retract.
+18. Sink phải hiểu correction semantics.
+19. Stateful processing giữ dữ liệu giữa các event.
+20. Keyed state phân phối state theo business key.
+21. State luôn cần retention hoặc cleanup.
+22. Deduplication state cũng có thể tăng vô hạn.
+23. Stream–stream join cần time bound.
+24. Temporal join sử dụng table version tại event time.
+25. At-most-once có thể mất event.
+26. At-least-once có thể xử lý duplicate.
+27. Exactly-once là hiệu ứng logic trong một phạm vi xác định.
+28. Exactly-once processor không tự bảo vệ external side effects.
+29. Offsets, state và output phải phối hợp để đạt end-to-end semantics.
+30. Checkpoint lưu state và input positions nhất quán.
+31. Recovery restore checkpoint rồi replay phần sau.
+32. Savepoint hỗ trợ upgrade và rescale có kiểm soát.
+33. Stateful rescaling cần chuyển state giữa workers.
+34. Hot key có thể làm một worker quá tải.
+35. Two-stage aggregation giúp giảm hot-key pressure.
+36. Backpressure xảy ra khi downstream chậm hơn upstream.
+37. Scale consumer không giải quyết sink bottleneck.
+38. Oldest-event age thường hữu ích hơn chỉ offset lag.
+39. Batch output phải idempotent và được publish atomically.
+40. Incremental batch cần checkpoint và xử lý deletes/late updates.
+41. Backfill không được ghi đè realtime state mới hơn.
+42. Raw event log hỗ trợ replay và rebuild.
+43. Replay external side effects cần guardrail.
+44. Lambda dùng batch và speed layer nhưng có hai code paths.
+45. Kappa dùng stream log và replay nhưng không phù hợp mọi workload.
+46. Batch và stream có thể được xem là xử lý bounded và unbounded data.
+47. Timestamp từ client cần validation.
+48. Future-dated event có thể phá watermark.
+49. Observability phải theo dõi lag, watermark, checkpoint và state size.
+50. Chọn processing model theo latency và correctness requirement, không theo xu hướng.
+</div></code></pre>
+<hr>
+<h1 id="158-bài-tập-thực-hành">158. Bài tập thực hành</h1>
+<p>Thiết kế hệ thống analytics cho nền tảng thương mại điện tử.</p>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- 1 triệu click mỗi giây
+- Order và payment events
+- Dashboard doanh thu cập nhật dưới 30 giây
+- Báo cáo tài chính cuối ngày phải chính xác
+- User có thể offline nên click đến muộn
+- Cần unique visitors, conversion rate và top products
+- Có thể replay dữ liệu sáu tháng
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Thành phần nào dùng batch?
+2. Thành phần nào dùng stream?
+3. Source events được partition theo key nào?
+4. Event time lấy từ client hay server?
+5. Xử lý client clock sai thế nào?
+6. Revenue dùng tumbling hay sliding window?
+7. Conversion rate cần join những stream nào?
+8. Watermark nên đặt thế nào?
+9. Allowed lateness bao lâu?
+10. Late order event được xử lý khác late click không?
+11. Output window dùng append, update hay retract?
+12. Unique visitors tính chính xác hay xấp xỉ?
+13. Stateful data được lưu ở đâu?
+14. Checkpoint interval là bao nhiêu?
+15. Sink làm sao idempotent?
+16. Pipeline cần at-least-once hay exactly-once?
+17. External alert tránh duplicate thế nào?
+18. Hot product xử lý ra sao?
+19. Consumer lag và event-time lag được đo thế nào?
+20. Khi search/database sink chậm, backpressure xử lý ra sao?
+21. Raw events giữ ở đâu để replay sáu tháng?
+22. Backfill có ghi đè realtime aggregates không?
+23. Báo cáo tài chính cuối ngày reconciliation thế nào?
+24. Metrics nào phát hiện watermark bị kẹt?
+25. Khi nâng version stateful job, savepoint được dùng ra sao?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Clients --> Gateway
+    Services --> Broker[Partitioned Event Stream]
+
+    Gateway --> Broker
+
+    Broker --> StreamJob[Realtime Stream Processing]
+    StreamJob --> Dashboard[(Realtime Materialized Views)]
+    StreamJob --> Alerts[Fraud and Business Alerts]
+
+    Broker --> RawStore[(Raw Object Storage)]
+    RawStore --> BatchJobs[Daily Batch Jobs]
+    BatchJobs --> Warehouse[(Data Warehouse)]
+    BatchJobs --> Reconciliation[Reconciliation]
+
+    Reconciliation --> Dashboard
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Stream processing không chỉ là đọc message thật nhanh. Phần khó nằm ở việc xác định thời gian nào có ý nghĩa, khi nào một window đủ hoàn chỉnh, state được phục hồi ra sao và làm thế nào duplicate hoặc late event không phá kết quả nghiệp vụ.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 20 — Multi-Region Architecture và Disaster Recovery:</strong> active–passive, active–active, geo-routing, regional failover, replication topology, RTO, RPO, backup, restore và data residency.</p>
+
+</body>
+</html>

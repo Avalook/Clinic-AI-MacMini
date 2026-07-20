@@ -1,0 +1,2751 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 20 — Multi-Region Architecture và Disaster Recovery.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-20--multi-region-architecture-và-disaster-recovery">Bài 20 — Multi-Region Architecture và Disaster Recovery</h1>
+<p>Một hệ thống chạy trong một region có thể đạt high availability bằng nhiều Availability Zone:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> LB[Regional Load Balancer]
+
+    LB --> AZ1[Application - Zone A]
+    LB --> AZ2[Application - Zone B]
+    LB --> AZ3[Application - Zone C]
+
+    AZ1 --> DB[(Regional Database Cluster)]
+    AZ2 --> DB
+    AZ3 --> DB
+</div></code></pre>
+<p>Kiến trúc này có thể chịu:</p>
+<pre class="hljs"><code><div>- Một server chết
+- Một container chết
+- Một Availability Zone bị lỗi
+- Một database replica mất kết nối
+</div></code></pre>
+<p>Nhưng nếu toàn bộ region gặp sự cố:</p>
+<pre class="hljs"><code><div>- Mất điện diện rộng
+- Lỗi mạng backbone
+- Lỗi control plane
+- Cấu hình sai được triển khai toàn region
+- Thảm họa tự nhiên
+- Sự cố bảo mật hoặc ransomware
+</div></code></pre>
+<p>hệ thống vẫn có thể ngừng hoạt động.</p>
+<p>Multi-region architecture mở rộng failure boundary:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> GlobalRouter[Global Traffic Router]
+
+    GlobalRouter --> R1[Region A]
+    GlobalRouter --> R2[Region B]
+
+    R1 --> DB1[(Data Region A)]
+    R2 --> DB2[(Data Region B)]
+
+    DB1 <--> DB2
+</div></code></pre>
+<p>Mục tiêu không chỉ là “có hai region”, mà là trả lời chính xác:</p>
+<pre class="hljs"><code><div>- Region nào phục vụ traffic?
+- Region nào được quyền nhận write?
+- Dữ liệu được replicate thế nào?
+- Nếu mất region, có mất dữ liệu không?
+- Bao lâu hệ thống phục hồi?
+- Ai quyết định failover?
+- Làm sao chặn region cũ quay lại ghi dữ liệu?
+- Sau failover, làm sao failback an toàn?
+</div></code></pre>
+<hr>
+<h1 id="1-multi-region-giải-quyết-những-vấn-đề-gì">1. Multi-Region giải quyết những vấn đề gì?</h1>
+<h2 id="regional-disaster">Regional disaster</h2>
+<p>Nếu cả region chính không hoạt động, region khác có thể tiếp quản.</p>
+<h2 id="global-latency">Global latency</h2>
+<p>User được phục vụ gần vị trí địa lý hơn.</p>
+<pre class="hljs"><code><div>User Việt Nam → Region Singapore
+User châu Âu → Region Frankfurt
+User Mỹ → Region Virginia
+</div></code></pre>
+<h2 id="data-residency">Data residency</h2>
+<p>Dữ liệu của user có thể được giữ trong khu vực pháp lý yêu cầu.</p>
+<h2 id="capacity-isolation">Capacity isolation</h2>
+<p>Traffic toàn cầu được chia sang nhiều region.</p>
+<h2 id="operational-resilience">Operational resilience</h2>
+<p>Có thể bảo trì hoặc nâng cấp từng region mà không dừng toàn hệ thống.</p>
+<hr>
+<h1 id="2-multi-region-không-tự-động-tạo-high-availability">2. Multi-Region không tự động tạo High Availability</h1>
+<p>Có hai region nhưng cả hai phụ thuộc cùng một thành phần:</p>
+<pre class="hljs"><code><div>- Một authentication service duy nhất
+- Một DNS control plane duy nhất
+- Một database leader duy nhất
+- Một secret store duy nhất
+- Một message broker duy nhất
+</div></code></pre>
+<p>thì hệ thống vẫn có single point of failure.</p>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> R1[Region A]
+    Users --> R2[Region B]
+
+    R1 --> Auth[Global Auth Service]
+    R2 --> Auth
+
+    Auth --> SingleDB[(Single Auth Database)]
+</div></code></pre>
+<p>Nếu <code>SingleDB</code> lỗi:</p>
+<pre class="hljs"><code><div>Cả Region A và Region B đều không đăng nhập được.
+</div></code></pre>
+<p>Multi-region phải được phân tích theo toàn dependency graph, không chỉ application servers.</p>
+<hr>
+<h1 id="3-failure-domain">3. Failure Domain</h1>
+<p>Failure domain là phạm vi các thành phần có thể cùng thất bại bởi một nguyên nhân.</p>
+<p>Các cấp phổ biến:</p>
+<pre class="hljs"><code><div>- Process
+- Machine
+- Rack
+- Availability Zone
+- Region
+- Cloud provider
+- External vendor
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Hai replicas trên hai máy
+nhưng cùng một rack
+→ vẫn cùng rack failure domain.
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>Hai regions
+nhưng cùng một global identity provider
+→ vẫn có shared dependency.
+</div></code></pre>
+<p>Thiết kế resilience cần đặt replicas qua các failure domain thật sự độc lập.</p>
+<hr>
+<h1 id="4-high-availability-disaster-recovery-và-backup">4. High Availability, Disaster Recovery và Backup</h1>
+<p>Ba khái niệm liên quan nhưng không giống nhau.</p>
+<h2 id="high-availability--ha">High Availability — HA</h2>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Giảm downtime khi component thường gặp lỗi.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Nhiều application instances
+- Multi-AZ database
+- Automatic failover
+- Load balancing
+</div></code></pre>
+<h2 id="disaster-recovery--dr">Disaster Recovery — DR</h2>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Khôi phục dịch vụ sau sự cố lớn,
+đặc biệt mất region hoặc hạ tầng chính.
+</div></code></pre>
+<p>Bao gồm:</p>
+<pre class="hljs"><code><div>- Secondary region
+- Runbook
+- Data recovery
+- Traffic failover
+- Staff responsibilities
+</div></code></pre>
+<h2 id="backup">Backup</h2>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Khôi phục dữ liệu đã mất hoặc bị hỏng.
+</div></code></pre>
+<p>Backup bảo vệ khỏi:</p>
+<pre class="hljs"><code><div>- Xóa nhầm
+- Corruption
+- Ransomware
+- Lỗi application
+- Replication của dữ liệu sai
+</div></code></pre>
+<hr>
+<h1 id="5-replication-không-phải-backup">5. Replication không phải Backup</h1>
+<p>Nếu user hoặc application xóa nhầm dữ liệu:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">DELETE</span> <span class="hljs-keyword">FROM</span> customers;
+</div></code></pre>
+<p>Replication sẽ nhanh chóng replicate lệnh xóa sang các replicas.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant App
+    participant Leader
+    participant Replica
+
+    App->>Leader: DELETE customers
+    Leader->>Replica: Replicate DELETE
+    Replica-->>Leader: Applied
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Leader mất dữ liệu
+Replica cũng mất dữ liệu
+</div></code></pre>
+<p>Replication giúp:</p>
+<pre class="hljs"><code><div>- Availability
+- Failover
+- Read scale
+</div></code></pre>
+<p>Backup giúp:</p>
+<pre class="hljs"><code><div>- Quay lại trạng thái trước khi lỗi logic xảy ra
+</div></code></pre>
+<p>Một hệ thống production thường cần cả hai.</p>
+<hr>
+<h1 id="6-rto--recovery-time-objective">6. RTO — Recovery Time Objective</h1>
+<p><strong>RTO</strong> là thời gian downtime tối đa chấp nhận được sau disaster.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>RTO = 15 phút
+</div></code></pre>
+<p>Nghĩa là:</p>
+<blockquote>
+<p>Sau khi region chính mất, dịch vụ phải phục hồi trong vòng khoảng 15 phút.</p>
+</blockquote>
+<p>RTO ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Mức độ tự động hóa
+- Loại standby
+- Cách quản lý infrastructure
+- Quy trình failover
+- Chi phí
+</div></code></pre>
+<hr>
+<h1 id="7-rpo--recovery-point-objective">7. RPO — Recovery Point Objective</h1>
+<p><strong>RPO</strong> là lượng dữ liệu tối đa có thể mất, thường đo bằng thời gian.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>RPO = 5 phút
+</div></code></pre>
+<p>Nếu disaster xảy ra lúc 10:00:</p>
+<pre class="hljs"><code><div>Hệ thống có thể chỉ khôi phục dữ liệu tới khoảng 09:55.
+</div></code></pre>
+<p>Có thể mất writes trong năm phút cuối.</p>
+<hr>
+<h1 id="8-rto-và-rpo-là-hai-trục-khác-nhau">8. RTO và RPO là hai trục khác nhau</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>RTO = 5 phút
+RPO = 1 giờ
+</div></code></pre>
+<p>Hệ thống phục hồi nhanh nhưng có thể mất một giờ dữ liệu.</p>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>RTO = 4 giờ
+RPO = gần 0
+</div></code></pre>
+<p>Dữ liệu gần như không mất, nhưng cần nhiều thời gian để khởi động lại dịch vụ.</p>
+<table>
+<thead>
+<tr>
+<th>Chỉ số</th>
+<th>Câu hỏi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RTO</td>
+<td>Mất bao lâu để dịch vụ hoạt động trở lại?</td>
+</tr>
+<tr>
+<td>RPO</td>
+<td>Có thể mất bao nhiêu dữ liệu gần nhất?</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="9-rpo-không-chỉ-phụ-thuộc-backup-schedule">9. RPO không chỉ phụ thuộc Backup Schedule</h1>
+<p>Nếu database replicate asynchronous sang region DR:</p>
+<pre class="hljs"><code><div>Region A commit
+→ trả success cho client
+→ replicate sang Region B sau
+</div></code></pre>
+<p>và Region A chết trước replication:</p>
+<pre class="hljs"><code><div>Write đã báo thành công có thể mất.
+</div></code></pre>
+<p>RPO lúc đó phụ thuộc:</p>
+<pre class="hljs"><code><div>- Replication lag
+- ACK policy
+- Log durability
+- Disaster thời điểm nào
+</div></code></pre>
+<p>Không chỉ phụ thuộc việc backup mỗi giờ.</p>
+<hr>
+<h1 id="10-rto-và-rpo-phải-được-định-nghĩa-theo-từng-dữ-liệu">10. RTO và RPO phải được định nghĩa theo từng dữ liệu</h1>
+<p>Không cần mọi dữ liệu có cùng mục tiêu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment ledger:
+RPO gần 0
+RTO 5 phút
+
+Product search index:
+RPO vài giờ vì có thể rebuild
+RTO 30 phút
+
+Analytics dashboard:
+RPO 1 giờ
+RTO 4 giờ
+
+User-uploaded photos:
+RPO gần 0
+RTO 1 giờ
+</div></code></pre>
+<p>Điều này giúp tránh trả chi phí cao nhất cho toàn hệ thống.</p>
+<hr>
+<h1 id="11-activepassive-architecture">11. Active–Passive Architecture</h1>
+<p>Trong active–passive:</p>
+<pre class="hljs"><code><div>Một region chủ động phục vụ traffic.
+Region còn lại chờ để tiếp quản.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> GlobalRouter
+
+    GlobalRouter -->|Active traffic| Active[Region A - Active]
+    GlobalRouter -. No normal traffic .-> Passive[Region B - Passive]
+
+    ActiveDB[(Primary Data)] -->|Replication| PassiveDB[(Standby Data)]
+</div></code></pre>
+<p>Region passive có thể ở nhiều mức độ sẵn sàng.</p>
+<hr>
+<h1 id="12-cold-standby">12. Cold Standby</h1>
+<p>Cold standby có rất ít hoặc chưa có hạ tầng đang chạy.</p>
+<pre class="hljs"><code><div>- Backup được lưu ở region khác
+- Infrastructure được định nghĩa bằng code
+- Khi disaster mới tạo resources
+- Restore dữ liệu
+- Deploy application
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Chi phí thấp
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- RTO cao
+- Nhiều bước thủ công
+- Restore có thể mất hàng giờ
+- Rủi ro runbook chưa được kiểm thử
+</div></code></pre>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Hệ thống không quan trọng cao
+- Internal tool
+- Workload có thể downtime lâu
+</div></code></pre>
+<hr>
+<h1 id="13-pilot-light">13. Pilot Light</h1>
+<p>Pilot light giữ các thành phần cốt lõi đang hoạt động:</p>
+<pre class="hljs"><code><div>- Database replica
+- Object storage replication
+- Secrets
+- Network cơ bản
+</div></code></pre>
+<p>Nhưng application capacity còn nhỏ hoặc tắt.</p>
+<p>Khi disaster:</p>
+<pre class="hljs"><code><div>1. Scale application.
+2. Promote database.
+3. Chuyển traffic.
+</div></code></pre>
+<p>RTO thấp hơn cold standby nhưng vẫn cần thời gian mở rộng.</p>
+<hr>
+<h1 id="14-warm-standby">14. Warm Standby</h1>
+<p>Warm standby chạy một bản hệ thống nhỏ hơn ở region DR.</p>
+<pre class="hljs"><code><div>Region A:
+100 application instances
+
+Region B:
+10 standby instances
+</div></code></pre>
+<p>Region B có thể:</p>
+<pre class="hljs"><code><div>- Nhận health traffic
+- Chạy background validation
+- Luôn có database replica
+</div></code></pre>
+<p>Khi failover:</p>
+<pre class="hljs"><code><div>Scale Region B từ 10 lên 100 instances.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- RTO thấp hơn
+- Có thể kiểm thử thường xuyên
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Có chi phí thường trực
+- Có nguy cơ thiếu capacity trong lúc scale
+</div></code></pre>
+<hr>
+<h1 id="15-hot-standby">15. Hot Standby</h1>
+<p>Hot standby có capacity gần đủ để tiếp quản ngay.</p>
+<pre class="hljs"><code><div>- Application đang chạy
+- Database replica cập nhật liên tục
+- Dependencies đã sẵn sàng
+- Có thể nhận traffic nhanh
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- RTO rất thấp
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Chi phí gần gấp đôi
+- Vẫn phải kiểm soát write ownership
+- Dễ nhầm thành active–active
+</div></code></pre>
+<p>Hot standby có thể chạy health checks và shadow traffic nhưng không nhất thiết phục vụ user traffic chính.</p>
+<hr>
+<h1 id="16-các-mức-activepassive">16. Các mức Active–Passive</h1>
+<table>
+<thead>
+<tr>
+<th>Mô hình</th>
+<th>Hạ tầng DR</th>
+<th style="text-align:right">RTO</th>
+<th style="text-align:right">Chi phí</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backup &amp; restore</td>
+<td>Gần như không chạy</td>
+<td style="text-align:right">Giờ–ngày</td>
+<td style="text-align:right">Thấp</td>
+</tr>
+<tr>
+<td>Pilot light</td>
+<td>Core services chạy</td>
+<td style="text-align:right">Hàng chục phút–giờ</td>
+<td style="text-align:right">Trung bình thấp</td>
+</tr>
+<tr>
+<td>Warm standby</td>
+<td>Bản nhỏ đang chạy</td>
+<td style="text-align:right">Phút–hàng chục phút</td>
+<td style="text-align:right">Trung bình</td>
+</tr>
+<tr>
+<td>Hot standby</td>
+<td>Gần đủ capacity</td>
+<td style="text-align:right">Giây–phút</td>
+<td style="text-align:right">Cao</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="17-ưu-điểm-activepassive">17. Ưu điểm Active–Passive</h1>
+<pre class="hljs"><code><div>- Write ownership đơn giản
+- Ít conflict dữ liệu
+- Dễ reasoning hơn
+- Có thể dùng leader–follower replication
+- Failover runbook rõ ràng
+</div></code></pre>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Một region có thể xử lý toàn bộ traffic
+- Write latency cross-region không chấp nhận được
+- Muốn giảm complexity
+</div></code></pre>
+<hr>
+<h1 id="18-nhược-điểm-activepassive">18. Nhược điểm Active–Passive</h1>
+<pre class="hljs"><code><div>- Tài nguyên passive ít được sử dụng
+- Failover có thể chậm
+- Region passive có thể bị cấu hình drift
+- Dữ liệu có thể lag
+- Failover có thể chưa từng được thực hành
+</div></code></pre>
+<p>Rủi ro lớn:</p>
+<blockquote>
+<p>Region DR nhìn có vẻ tồn tại nhưng thực tế không thể tiếp quản khi cần.</p>
+</blockquote>
+<hr>
+<h1 id="19-activeactive-architecture">19. Active–Active Architecture</h1>
+<p>Trong active–active, nhiều region đồng thời phục vụ traffic.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> GlobalRouter
+
+    GlobalRouter --> R1[Region A - Active]
+    GlobalRouter --> R2[Region B - Active]
+    GlobalRouter --> R3[Region C - Active]
+
+    R1 <--> R2
+    R2 <--> R3
+    R1 <--> R3
+</div></code></pre>
+<p>Active–active có thể áp dụng ở nhiều mức:</p>
+<pre class="hljs"><code><div>- Chỉ application stateless active–active
+- Read active–active nhưng write một region
+- Write partitioned theo region
+- Multi-leader write
+- Global distributed database
+</div></code></pre>
+<p>Không nên gọi toàn hệ thống active–active chỉ vì có web servers ở hai region.</p>
+<hr>
+<h1 id="20-stateless-activeactive">20. Stateless Active–Active</h1>
+<p>Application instances ở nhiều region cùng nhận traffic.</p>
+<p>Nhưng database vẫn có một write leader.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Router
+
+    Router --> AppA[App Region A]
+    Router --> AppB[App Region B]
+
+    AppA --> Primary[(Primary DB - Region A)]
+    AppB --> Primary
+
+    Primary --> ReplicaB[(Read Replica - Region B)]
+</div></code></pre>
+<p>Region B có thể phục vụ:</p>
+<pre class="hljs"><code><div>- Static assets
+- Cached reads
+- Một số local reads
+</div></code></pre>
+<p>Nhưng write từ B phải đi tới Region A.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>User B write latency cao hơn do cross-region round trip.
+</div></code></pre>
+<hr>
+<h1 id="21-read-local-write-primary">21. Read-Local, Write-Primary</h1>
+<p>Mô hình phổ biến:</p>
+<pre class="hljs"><code><div>Reads:
+Phục vụ từ local replica
+
+Writes:
+Gửi về primary region
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Read latency thấp
+- Write consistency đơn giản
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Read có thể stale
+- Read-your-writes khó
+- Write latency xa region chính
+</div></code></pre>
+<p>Sau write, user có thể:</p>
+<pre class="hljs"><code><div>1. Ghi vào Region A.
+2. Đọc từ replica Region B.
+3. Thấy dữ liệu cũ.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Session token
+- Read leader sau write
+- Chờ replica catch up
+- Sticky authoritative reads
+</div></code></pre>
+<hr>
+<h1 id="22-partitioned-activeactive">22. Partitioned Active–Active</h1>
+<p>Mỗi region sở hữu một phần dữ liệu.</p>
+<p>Ví dụ theo user home region:</p>
+<pre class="hljs"><code><div>Users châu Á:
+Region Singapore là write owner
+
+Users châu Âu:
+Region Frankfurt là write owner
+
+Users Mỹ:
+Region Virginia là write owner
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    UserAsia --> Asia[Asia Region Owner]
+    UserEU --> EU[Europe Region Owner]
+    UserUS --> US[US Region Owner]
+
+    Asia -. replicate .-> EU
+    Asia -. replicate .-> US
+
+    EU -. replicate .-> Asia
+    US -. replicate .-> Asia
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Write local cho phần lớn user
+- Tránh multi-writer trên cùng record
+- Scale theo region
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User di chuyển region
+- Cross-region collaboration
+- Global transaction
+- Rebalancing ownership
+</div></code></pre>
+<hr>
+<h1 id="23-home-region">23. Home Region</h1>
+<p>Mỗi tenant hoặc user được gán một home region:</p>
+<pre class="hljs"><code><div>tenant_123 → eu-west
+user_456 → asia-southeast
+</div></code></pre>
+<p>Metadata routing phải cho biết:</p>
+<pre class="hljs"><code><div>Request này nên đi đâu?
+</div></code></pre>
+<p>Home region có thể được chọn theo:</p>
+<pre class="hljs"><code><div>- Nơi user đăng ký
+- Data residency
+- Tenant configuration
+- Majority traffic location
+</div></code></pre>
+<hr>
+<h1 id="24-home-region-migration">24. Home Region Migration</h1>
+<p>Nếu user chuyển từ Europe sang Asia, muốn đổi owner:</p>
+<pre class="hljs"><code><div>Europe → Asia
+</div></code></pre>
+<p>Quy trình có thể gồm:</p>
+<pre class="hljs"><code><div>1. Copy dữ liệu.
+2. Replicate delta.
+3. Tạm block hoặc coordinate writes.
+4. Cập nhật ownership version.
+5. Chuyển routing.
+6. Fence owner cũ.
+7. Xóa dữ liệu cũ nếu policy cho phép.
+</div></code></pre>
+<p>Đây gần với resharding xuyên region.</p>
+<hr>
+<h1 id="25-multi-leader-activeactive">25. Multi-Leader Active–Active</h1>
+<p>Mỗi region có thể nhận write trên cùng logical dataset.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[(Leader Region A)] <--> B[(Leader Region B)]
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Region A:
+Update profile name
+
+Region B:
+Update profile photo
+</div></code></pre>
+<p>Nếu writes độc lập, có thể merge.</p>
+<p>Nhưng nếu cùng field:</p>
+<pre class="hljs"><code><div>Region A:
+name = Luna
+
+Region B:
+name = Bailey
+</div></code></pre>
+<p>phải giải quyết conflict.</p>
+<hr>
+<h1 id="26-conflict-trong-multi-leader">26. Conflict trong Multi-Leader</h1>
+<p>Các loại conflict:</p>
+<pre class="hljs"><code><div>- Update cùng field
+- Delete và update đồng thời
+- Unique constraint ở hai region
+- Increment bị mất
+- Ordering khác nhau
+</div></code></pre>
+<p>Ví dụ unique username:</p>
+<pre class="hljs"><code><div>Region A:
+Tạo username luna
+
+Region B:
+Cũng tạo username luna
+</div></code></pre>
+<p>Mỗi region kiểm tra local và đều thấy chưa tồn tại.</p>
+<p>Sau replication, có duplicate.</p>
+<hr>
+<h1 id="27-conflict-resolution">27. Conflict Resolution</h1>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Last-write-wins
+- Region priority
+- Field-level merge
+- Application-specific merge
+- CRDT
+- Manual conflict resolution
+</div></code></pre>
+<p>Last-write-wins đơn giản nhưng có thể mất dữ liệu.</p>
+<pre class="hljs"><code><div>Region A edit hợp lệ
+Region B timestamp lớn hơn một chút
+→ Region A bị loại
+</div></code></pre>
+<p>Clock skew làm vấn đề khó hơn.</p>
+<hr>
+<h1 id="28-không-phải-dữ-liệu-nào-cũng-phù-hợp-multi-leader">28. Không phải dữ liệu nào cũng phù hợp Multi-Leader</h1>
+<p>Phù hợp hơn:</p>
+<pre class="hljs"><code><div>- Shopping cart dạng set
+- User preferences
+- Document collaborative có CRDT
+- Analytics counters
+- Social reactions
+</div></code></pre>
+<p>Khó hoặc nguy hiểm:</p>
+<pre class="hljs"><code><div>- Seat booking
+- Financial balance
+- Unique username
+- Inventory cuối cùng
+- Distributed lock
+</div></code></pre>
+<p>Với invariant mạnh, thường cần:</p>
+<pre class="hljs"><code><div>- Single owner
+- Consensus
+- Reservation protocol
+- Serializable transaction boundary
+</div></code></pre>
+<hr>
+<h1 id="29-global-distributed-database">29. Global Distributed Database</h1>
+<p>Một distributed database có thể replicate và chạy consensus xuyên region.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Coordinator
+
+    Coordinator --> N1[(Region A Replica)]
+    Coordinator --> N2[(Region B Replica)]
+    Coordinator --> N3[(Region C Replica)]
+</div></code></pre>
+<p>Write commit khi đạt quorum.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Strong consistency
+- Automated failover
+- RPO gần 0 với commit phù hợp
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cross-region write latency
+- Mất quorum làm write unavailable
+- Operational cost cao
+- Placement phức tạp
+</div></code></pre>
+<hr>
+<h1 id="30-quorum-placement-trong-multi-region">30. Quorum Placement trong Multi-Region</h1>
+<p>Cluster năm nodes:</p>
+<pre class="hljs"><code><div>Region A: 3
+Region B: 1
+Region C: 1
+</div></code></pre>
+<p>Majority:</p>
+<pre class="hljs"><code><div>3/5
+</div></code></pre>
+<p>Nếu Region A mất:</p>
+<pre class="hljs"><code><div>Chỉ còn 2/5
+→ mất quorum
+</div></code></pre>
+<p>Dù có ba regions, hệ thống không chịu được mất Region A.</p>
+<p>Phải phân tích quorum theo failure domain, không chỉ đếm tổng node.</p>
+<hr>
+<h1 id="31-ba-voting-regions">31. Ba Voting Regions</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Region A: 1 voter
+Region B: 1 voter
+Region C: 1 voter
+</div></code></pre>
+<p>Majority:</p>
+<pre class="hljs"><code><div>2/3
+</div></code></pre>
+<p>Chịu mất một region.</p>
+<p>Nhưng write cần ACK từ ít nhất một remote region:</p>
+<pre class="hljs"><code><div>Write latency chịu WAN round trip.
+</div></code></pre>
+<p>Có thể thêm non-voting replicas để read hoặc DR mà không ảnh hưởng quorum.</p>
+<hr>
+<h1 id="32-synchronous-cross-region-replication">32. Synchronous Cross-Region Replication</h1>
+<p>Write chỉ thành công sau khi dữ liệu được xác nhận ở region khác.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant A as Region A
+    participant B as Region B
+
+    Client->>A: Write
+    A->>B: Replicate synchronously
+    B-->>A: Durable ACK
+    A-->>Client: Success
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- RPO gần 0 đối với acknowledged writes
+- Failover ít mất dữ liệu
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Latency cao
+- Phụ thuộc WAN
+- Region/network failure có thể làm write dừng
+</div></code></pre>
+<hr>
+<h1 id="33-asynchronous-cross-region-replication">33. Asynchronous Cross-Region Replication</h1>
+<p>Region chính trả success trước khi region phụ ACK.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant A as Region A
+    participant B as Region B
+
+    Client->>A: Write
+    A-->>Client: Success
+    A->>B: Replicate asynchronously
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Write latency thấp
+- Region chính ít phụ thuộc WAN
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- RPO lớn hơn 0
+- Failover có thể mất acknowledged writes
+- Replica có thể stale
+</div></code></pre>
+<hr>
+<h1 id="34-semi-synchronous-replication">34. Semi-Synchronous Replication</h1>
+<p>Một số hệ thống có chính sách trung gian:</p>
+<pre class="hljs"><code><div>- Chờ một remote replica nhận log
+- Không nhất thiết chờ apply
+- Chờ local quorum và một remote witness
+</div></code></pre>
+<p>Cần làm rõ ACK nghĩa là gì:</p>
+<pre class="hljs"><code><div>- Đã nhận network buffer?
+- Đã ghi memory?
+- Đã ghi durable log?
+- Đã apply vào database?
+</div></code></pre>
+<p>RPO thực tế phụ thuộc semantics ACK, không chỉ nhãn “synchronous”.</p>
+<hr>
+<h1 id="35-replication-topology--primary-to-dr">35. Replication Topology — Primary to DR</h1>
+<p>Đơn giản nhất:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Primary[(Region A Primary)] --> DR[(Region B Replica)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Ít conflict
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- DR phụ thuộc một replication stream
+- Failback cần đồng bộ ngược
+</div></code></pre>
+<hr>
+<h1 id="36-hub-and-spoke">36. Hub-and-Spoke</h1>
+<p>Một primary region replicate sang nhiều secondary regions.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Hub[(Primary Region)] --> A[(Region A Replica)]
+    Hub --> B[(Region B Replica)]
+    Hub --> C[(Region C Replica)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Một nguồn authoritative
+- Topology đơn giản
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hub bottleneck
+- Mọi region phụ thuộc hub
+- Regional failover phức tạp nếu chọn secondary mới
+</div></code></pre>
+<hr>
+<h1 id="37-cascading-replication">37. Cascading Replication</h1>
+<p>Region A replicate sang B, B replicate sang C.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[(Region A)] --> B[(Region B)] --> C[(Region C)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm outbound bandwidth từ A
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- C lag nhiều hơn
+- B lỗi làm C mất nguồn
+- Failover topology phức tạp
+</div></code></pre>
+<hr>
+<h1 id="38-full-mesh">38. Full Mesh</h1>
+<p>Mỗi region replicate với mọi region.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[(Region A)] <--> B[(Region B)]
+    B <--> C[(Region C)]
+    A <--> C
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Nhiều đường replication
+- Phù hợp multi-leader trong một số thiết kế
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Số connections tăng nhanh
+- Conflict resolution phức tạp
+- Dễ tạo replication loop
+</div></code></pre>
+<p>Với <code>N</code> regions, số cặp kết nối gần:</p>
+<pre class="hljs"><code><div>N × (N - 1) / 2
+</div></code></pre>
+<hr>
+<h1 id="39-geo-routing">39. Geo-Routing</h1>
+<p>Geo-routing quyết định request của user được gửi tới region nào.</p>
+<p>Tiêu chí:</p>
+<pre class="hljs"><code><div>- Latency
+- Vị trí địa lý
+- Region health
+- Capacity
+- Data residency
+- User home region
+- Cost
+</div></code></pre>
+<p>Không nên chỉ chọn region gần nhất nếu dữ liệu authoritative nằm nơi khác.</p>
+<hr>
+<h1 id="40-dns-based-routing">40. DNS-Based Routing</h1>
+<p>DNS trả IP khác nhau tùy policy.</p>
+<pre class="hljs"><code><div>User Asia → IP Region Asia
+User Europe → IP Region Europe
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Hoạt động ở quy mô toàn cầu
+- Không cần mọi packet đi qua proxy trung tâm
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- DNS cache
+- TTL không được tuân thủ tuyệt đối
+- Failover không tức thời
+- Client có thể giữ IP cũ
+</div></code></pre>
+<hr>
+<h1 id="41-dns-ttl">41. DNS TTL</h1>
+<p>TTL thấp:</p>
+<pre class="hljs"><code><div>- Failover nhanh hơn
+- DNS query nhiều hơn
+- Resolver vẫn có thể cache khác kỳ vọng
+</div></code></pre>
+<p>TTL cao:</p>
+<pre class="hljs"><code><div>- Cache tốt
+- Failover chậm hơn
+</div></code></pre>
+<p>Ngay cả TTL 30 giây không bảo đảm toàn bộ client chuyển trong đúng 30 giây.</p>
+<p>Một số connection đã mở vẫn tiếp tục dùng IP cũ.</p>
+<hr>
+<h1 id="42-anycast">42. Anycast</h1>
+<p>Cùng một IP được quảng bá từ nhiều địa điểm.</p>
+<p>Network routing đưa user tới điểm gần hoặc reachable nhất.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Fast global routing
+- Tốt cho CDN, DNS và edge
+- Có thể chuyển khi route thay đổi
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Không hiểu business data ownership
+- Route có thể thay đổi giữa connection
+- Vận hành network phức tạp
+</div></code></pre>
+<p>Anycast thường tốt cho edge stateless, không tự giải quyết database consistency.</p>
+<hr>
+<h1 id="43-global-load-balancer-hoặc-gslb">43. Global Load Balancer hoặc GSLB</h1>
+<p>Một global traffic manager theo dõi:</p>
+<pre class="hljs"><code><div>- Health
+- Latency
+- Capacity
+- Region policy
+</div></code></pre>
+<p>và route request.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> GlobalLB
+
+    GlobalLB -->|Healthy + near| A[Region A]
+    GlobalLB -->|Healthy + capacity| B[Region B]
+</div></code></pre>
+<p>Control plane của global router cũng phải resilient.</p>
+<hr>
+<h1 id="44-geo-proximity-khác-data-locality">44. Geo-Proximity khác Data Locality</h1>
+<p>Region gần user nhất có thể không chứa dữ liệu write owner.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User đang du lịch ở Nhật
+Home region của account là Europe
+</div></code></pre>
+<p>Có hai lựa chọn:</p>
+<pre class="hljs"><code><div>1. Route tới Nhật rồi proxy write sang Europe.
+2. Route request trực tiếp tới Europe.
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Front-door latency
+- Cross-region hop
+- Session consistency
+- Data residency
+</div></code></pre>
+<hr>
+<h1 id="45-region-selection-token">45. Region Selection Token</h1>
+<p>Sau khi xác định home region, client có thể nhận routing token:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;homeRegion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;eu-west&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;routingVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">18</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Gateway sử dụng token để route.</p>
+<p>Cần ký hoặc validate token để client không tự chọn region trái phép.</p>
+<hr>
+<h1 id="46-health-check-cho-geo-routing">46. Health Check cho Geo-Routing</h1>
+<p>Health check cần nhiều tầng:</p>
+<pre class="hljs"><code><div>- Network reachable?
+- Load balancer trả response?
+- Application xử lý được request?
+- Database có writable không?
+- Critical dependencies có khỏe không?
+</div></code></pre>
+<p>Chỉ kiểm tra:</p>
+<pre class="hljs"><code><div>GET /health → 200
+</div></code></pre>
+<p>có thể chưa đủ.</p>
+<p>Application còn sống nhưng database mất quorum thì region không nên nhận write traffic.</p>
+<hr>
+<h1 id="47-shallow-và-deep-health-check">47. Shallow và Deep Health Check</h1>
+<h2 id="shallow-health-check">Shallow health check</h2>
+<p>Kiểm tra process cơ bản.</p>
+<pre class="hljs"><code><div>- Process alive
+- Event loop hoạt động
+</div></code></pre>
+<p>Dùng cho instance load balancing.</p>
+<h2 id="deep-health-check">Deep health check</h2>
+<p>Kiểm tra dependencies quan trọng.</p>
+<pre class="hljs"><code><div>- Database connectivity
+- Write capability
+- Queue
+- Secret access
+</div></code></pre>
+<p>Dùng cẩn thận cho regional failover vì dependency chập chờn có thể tạo flapping.</p>
+<hr>
+<h1 id="48-failover-là-gì">48. Failover là gì?</h1>
+<p>Failover là chuyển service từ component hoặc region lỗi sang component hoặc region dự phòng.</p>
+<p>Regional failover thường gồm:</p>
+<pre class="hljs"><code><div>1. Phát hiện sự cố.
+2. Xác nhận region chính không còn quyền phục vụ.
+3. Xác định state của data.
+4. Promote region dự phòng.
+5. Fence region cũ.
+6. Scale capacity.
+7. Chuyển traffic.
+8. Kiểm tra business functionality.
+</div></code></pre>
+<p>Không chỉ là đổi DNS.</p>
+<hr>
+<h1 id="49-detection-và-decision">49. Detection và Decision</h1>
+<p>Cần tách:</p>
+<pre class="hljs"><code><div>Detection:
+Có dấu hiệu Region A lỗi.
+
+Decision:
+Có thực sự thực hiện failover không?
+</div></code></pre>
+<p>Nếu failover vì một network spike ngắn:</p>
+<pre class="hljs"><code><div>- Có thể chuyển sai
+- Tạo split-brain
+- Tạo traffic oscillation
+</div></code></pre>
+<p>Decision có thể:</p>
+<pre class="hljs"><code><div>- Tự động hoàn toàn
+- Tự động với threshold
+- Human approval
+</div></code></pre>
+<p>Tùy RTO và rủi ro dữ liệu.</p>
+<hr>
+<h1 id="50-automatic-failover">50. Automatic Failover</h1>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- RTO thấp
+- Không phụ thuộc người trực
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- False positive
+- Split-brain
+- Failover khi secondary chưa sẵn sàng
+- Hai control planes cùng hành động
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Consensus hoặc quorum
+- Fencing
+- Hysteresis
+- Runbook automation đã kiểm thử
+</div></code></pre>
+<hr>
+<h1 id="51-manual-failover">51. Manual Failover</h1>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Có người đánh giá data state
+- Tránh failover sai
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- RTO cao
+- Phụ thuộc chuyên gia
+- Dễ thao tác nhầm dưới áp lực
+</div></code></pre>
+<p>Một mô hình thực tế:</p>
+<pre class="hljs"><code><div>Detection tự động
+→ Chuẩn bị tự động
+→ Human approve cutover
+</div></code></pre>
+<hr>
+<h1 id="52-split-brain-trong-regional-failover">52. Split-Brain trong Regional Failover</h1>
+<p>Network partition:</p>
+<pre class="hljs"><code><div>Region A không liên lạc được Region B
+</div></code></pre>
+<p>A có thể nghĩ:</p>
+<pre class="hljs"><code><div>B chết, tôi tiếp tục là primary.
+</div></code></pre>
+<p>B có thể nghĩ:</p>
+<pre class="hljs"><code><div>A chết, tôi nên promote.
+</div></code></pre>
+<p>Nếu cả hai nhận write:</p>
+<pre class="hljs"><code><div>- Hai lịch sử dữ liệu
+- Conflict
+- Double booking
+- Double processing
+</div></code></pre>
+<hr>
+<h1 id="53-fencing-region-cũ">53. Fencing Region Cũ</h1>
+<p>Khi Region B được promote với epoch mới:</p>
+<pre class="hljs"><code><div>Region A epoch = 41
+Region B epoch = 42
+</div></code></pre>
+<p>Database, storage hoặc downstream resources phải từ chối writes epoch 41.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Old as Region A epoch 41
+    participant New as Region B epoch 42
+    participant Store
+
+    New->>Store: Write with epoch 42
+    Store-->>New: Accepted
+
+    Old->>Store: Write with epoch 41
+    Store-->>Old: Rejected stale owner
+</div></code></pre>
+<p>Không đủ chỉ cập nhật DNS; clients hoặc background workers ở Region A vẫn có thể đang chạy.</p>
+<hr>
+<h1 id="54-fencing-ở-nhiều-lớp">54. Fencing ở nhiều lớp</h1>
+<p>Có thể fence bằng:</p>
+<pre class="hljs"><code><div>- Database lease epoch
+- Storage fencing token
+- Revoke credentials
+- Disable network route
+- Remove region khỏi service discovery
+- Block message consumption
+- Stop schedulers
+</div></code></pre>
+<p>Nên dùng nhiều lớp cho critical systems.</p>
+<hr>
+<h1 id="55-promote-replica">55. Promote Replica</h1>
+<p>Trước khi promote, cần biết:</p>
+<pre class="hljs"><code><div>- Replica lag bao nhiêu?
+- Log đã apply tới đâu?
+- Có divergent writes không?
+- Replica có đủ durability không?
+- Schema version có giống không?
+</div></code></pre>
+<p>Nếu asynchronous replication lag 30 giây:</p>
+<pre class="hljs"><code><div>Promote ngay có thể mất 30 giây writes.
+</div></code></pre>
+<p>Đây là RPO thực tế.</p>
+<hr>
+<h1 id="56-data-loss-decision">56. Data Loss Decision</h1>
+<p>Khi primary mất và replica lag, có lựa chọn:</p>
+<h2 id="failover-ngay">Failover ngay</h2>
+<pre class="hljs"><code><div>RTO thấp
+Nhưng chấp nhận mất dữ liệu trong RPO
+</div></code></pre>
+<h2 id="chờ-primary-có-thể-phục-hồi">Chờ primary có thể phục hồi</h2>
+<pre class="hljs"><code><div>Có thể tránh data loss
+Nhưng downtime dài hơn
+</div></code></pre>
+<p>Đây là trade-off giữa:</p>
+<pre class="hljs"><code><div>RTO và RPO
+</div></code></pre>
+<p>Quyết định cần được xác định trước trong business policy.</p>
+<hr>
+<h1 id="57-lost-writes-sau-failover">57. Lost Writes sau Failover</h1>
+<p>Client đã nhận success từ Region A nhưng write chưa tới Region B.</p>
+<p>Sau failover, user không thấy dữ liệu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Order vừa tạo biến mất
+- Profile update mất
+- Payment status không có
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Idempotent client retries
+- External reconciliation
+- Audit logs
+- Message recovery
+</div></code></pre>
+<p>Đối với payment, provider hoặc ledger bên ngoài có thể giúp reconciliation.</p>
+<hr>
+<h1 id="58-traffic-shift">58. Traffic Shift</h1>
+<p>Không nhất thiết chuyển 100% traffic ngay.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>1. Internal health traffic
+2. 1% canary
+3. 10%
+4. 50%
+5. 100%
+</div></code></pre>
+<p>Nhưng trong disaster cấp region, đôi khi phải chuyển nhanh.</p>
+<p>Cần xác định:</p>
+<pre class="hljs"><code><div>- Region mới có đủ capacity?
+- Cache đã warm chưa?
+- Connection pools sẵn sàng chưa?
+- Rate limits có đủ không?
+</div></code></pre>
+<hr>
+<h1 id="59-cold-cache-sau-failover">59. Cold Cache sau Failover</h1>
+<p>Region DR có thể có application và database nhưng cache trống.</p>
+<p>Sau traffic cutover:</p>
+<pre class="hljs"><code><div>- Cache miss tăng mạnh
+- Database bị đột biến tải
+- Latency tăng
+- Database có thể sập tiếp
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Pre-warm hot keys
+- Gradual traffic shift
+- Larger DB headroom
+- Request coalescing
+- Rate limiting
+</div></code></pre>
+<hr>
+<h1 id="60-capacity-trong-dr-region">60. Capacity trong DR Region</h1>
+<p>Nếu active region xử lý:</p>
+<pre class="hljs"><code><div>100.000 requests/giây
+</div></code></pre>
+<p>DR region chỉ đủ:</p>
+<pre class="hljs"><code><div>20.000 requests/giây
+</div></code></pre>
+<p>failover sẽ không thành công hoàn toàn.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Autoscale nhanh
+- Giữ warm capacity
+- Degrade noncritical features
+- Prioritize critical APIs
+- Load shed
+</div></code></pre>
+<p>DR planning phải tính capacity khi region còn lại nhận toàn bộ traffic.</p>
+<hr>
+<h1 id="61-graceful-degradation-khi-disaster">61. Graceful Degradation khi Disaster</h1>
+<p>Region DR có thể chỉ phục vụ:</p>
+<pre class="hljs"><code><div>- Login
+- Checkout
+- Payment
+- Order tracking
+</div></code></pre>
+<p>Tạm tắt:</p>
+<pre class="hljs"><code><div>- Recommendation
+- High-cost search facets
+- Analytics
+- Video transcoding
+- Bulk exports
+</div></code></pre>
+<p>Đây là dependency tiering.</p>
+<hr>
+<h1 id="62-regional-failover-runbook">62. Regional Failover Runbook</h1>
+<p>Runbook nên chứa:</p>
+<pre class="hljs"><code><div>1. Điều kiện tuyên bố disaster.
+2. Người có quyền quyết định.
+3. Cách fence primary.
+4. Cách kiểm tra replication lag.
+5. Cách promote secondary.
+6. Cách scale services.
+7. Cách chuyển traffic.
+8. Cách kiểm tra business invariants.
+9. Cách liên lạc stakeholder.
+10. Tiêu chí failback.
+</div></code></pre>
+<p>Runbook phải có command và dashboard cụ thể, không chỉ lời mô tả chung.</p>
+<hr>
+<h1 id="63-failback-là-gì">63. Failback là gì?</h1>
+<p>Sau khi region cũ phục hồi, có thể muốn chuyển trở lại.</p>
+<p>Failback thường nguy hiểm không kém failover.</p>
+<p>Region cũ có thể:</p>
+<pre class="hljs"><code><div>- Thiếu writes trong thời gian outage
+- Có log divergence
+- Có dữ liệu stale
+- Có background jobs chưa dừng
+</div></code></pre>
+<p>Không được chỉ đổi DNS trở lại.</p>
+<hr>
+<h1 id="64-quy-trình-failback">64. Quy trình Failback</h1>
+<p>Một quy trình an toàn:</p>
+<pre class="hljs"><code><div>1. Giữ Region B là authoritative.
+2. Xóa hoặc rebuild data Region A từ B.
+3. Replicate cho tới khi lag gần 0.
+4. Chạy shadow traffic.
+5. Kiểm tra schema, data và capacity.
+6. Chuyển ownership epoch.
+7. Fence Region B nếu chuyển primary.
+8. Chuyển traffic dần.
+</div></code></pre>
+<p>Region cũ thường nên được xem như replica mới, không phải tự động trở lại làm primary.</p>
+<hr>
+<h1 id="65-failover-không-đồng-nghĩa-failback-bắt-buộc">65. Failover không đồng nghĩa Failback bắt buộc</h1>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>Region B có thể trở thành primary lâu dài.
+Region A sau phục hồi trở thành DR.
+</div></code></pre>
+<p>Đây là mô hình:</p>
+<pre class="hljs"><code><div>Fail-forward
+</div></code></pre>
+<p>Có thể đơn giản và an toàn hơn việc cố quay lại topology ban đầu ngay lập tức.</p>
+<hr>
+<h1 id="66-control-plane-và-data-plane">66. Control Plane và Data Plane</h1>
+<h2 id="data-plane">Data plane</h2>
+<p>Xử lý request và dữ liệu user.</p>
+<pre class="hljs"><code><div>- API traffic
+- Database reads/writes
+- Message processing
+</div></code></pre>
+<h2 id="control-plane">Control plane</h2>
+<p>Quản lý:</p>
+<pre class="hljs"><code><div>- Region ownership
+- Routing
+- Failover decision
+- Configuration
+- Cluster membership
+</div></code></pre>
+<p>Control plane phải có availability và consistency cao.</p>
+<p>Nếu control plane bị split-brain:</p>
+<pre class="hljs"><code><div>Nó có thể gán cùng shard cho hai region.
+</div></code></pre>
+<hr>
+<h1 id="67-control-plane-không-nên-phụ-thuộc-region-đang-fail">67. Control Plane không nên phụ thuộc Region đang Fail</h1>
+<p>Nếu failover controller chỉ chạy trong Region A:</p>
+<pre class="hljs"><code><div>Region A chết
+→ Không còn controller để failover.
+</div></code></pre>
+<p>Control plane có thể:</p>
+<pre class="hljs"><code><div>- Chạy ở nhiều regions
+- Dùng quorum
+- Được vận hành ngoài failure domain chính
+</div></code></pre>
+<hr>
+<h1 id="68-stateless-application-data">68. Stateless Application Data</h1>
+<p>Để active–active application dễ hơn, session không nên chỉ lưu trong memory local.</p>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>User login ở Region A
+→ Session chỉ nằm trong RAM Region A
+</div></code></pre>
+<p>Khi route sang Region B:</p>
+<pre class="hljs"><code><div>User bị logout.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Signed stateless token
+- Globally replicated session store
+- Home-region routing
+- Session transfer
+</div></code></pre>
+<hr>
+<h1 id="69-authentication-trong-multi-region">69. Authentication trong Multi-Region</h1>
+<p>Authentication là global dependency quan trọng.</p>
+<p>Cần xem:</p>
+<pre class="hljs"><code><div>- Token validation có local được không?
+- Public keys có cache ở mọi region không?
+- Revocation freshness cần bao nhiêu?
+- Login write đi region nào?
+</div></code></pre>
+<p>Một hướng:</p>
+<pre class="hljs"><code><div>Access token tự xác minh local
+Refresh/login đi authoritative identity service
+</div></code></pre>
+<p>Nhưng permission revocation có thể stale nếu cache quá lâu.</p>
+<hr>
+<h1 id="70-secrets-và-configuration">70. Secrets và Configuration</h1>
+<p>Region DR cần:</p>
+<pre class="hljs"><code><div>- Secrets
+- Certificates
+- Feature flags
+- Database credentials
+- External API keys
+</div></code></pre>
+<p>Nếu chỉ replicate application nhưng quên secrets:</p>
+<pre class="hljs"><code><div>DR region không khởi động được.
+</div></code></pre>
+<p>Configuration cần:</p>
+<pre class="hljs"><code><div>- Versioning
+- Replication
+- Encryption
+- Recovery testing
+</div></code></pre>
+<hr>
+<h1 id="71-object-storage-multi-region">71. Object Storage Multi-Region</h1>
+<p>User uploads cần replication hoặc backup qua region.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Synchronous dual-region write
+- Async replication
+- Global object namespace
+- Backup copy
+</div></code></pre>
+<p>Với async replication:</p>
+<pre class="hljs"><code><div>Upload vừa thành công có thể chưa có ở DR region.
+</div></code></pre>
+<p>Phải xác định RPO cho object data.</p>
+<hr>
+<h1 id="72-direct-upload-và-region-ownership">72. Direct Upload và Region Ownership</h1>
+<p>Client thường upload trực tiếp vào object storage bằng signed URL.</p>
+<p>Trong multi-region:</p>
+<pre class="hljs"><code><div>- Upload vào region gần user?
+- Upload vào home region?
+- Upload đồng thời hai regions?
+</div></code></pre>
+<p>Nếu metadata ở Region A nhưng file ở Region B, workflow phải theo dõi location rõ ràng.</p>
+<hr>
+<h1 id="73-cdn-và-origin-failover">73. CDN và Origin Failover</h1>
+<p>CDN có thể tiếp tục phục vụ cached content khi origin region lỗi.</p>
+<pre class="hljs"><code><div>- Static images
+- JavaScript
+- Videos
+</div></code></pre>
+<p>Điều này giảm ảnh hưởng disaster.</p>
+<p>Nhưng cache miss vẫn cần origin.</p>
+<p>Có thể cấu hình:</p>
+<pre class="hljs"><code><div>Primary origin → Region A
+Secondary origin → Region B
+</div></code></pre>
+<p>Nội dung ở secondary phải đã replicate đủ.</p>
+<hr>
+<h1 id="74-cache-multi-region">74. Cache Multi-Region</h1>
+<p>Cache thường là dữ liệu có thể rebuild.</p>
+<p>Mỗi region có cache riêng:</p>
+<pre class="hljs"><code><div>Region A Cache
+Region B Cache
+</div></code></pre>
+<p>Không nhất thiết replicate mọi cache entry xuyên region.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm cross-region traffic
+- Failure isolation
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cache state khác nhau
+- Region failover có cold cache
+</div></code></pre>
+<hr>
+<h1 id="75-message-broker-multi-region">75. Message Broker Multi-Region</h1>
+<p>Các mô hình:</p>
+<pre class="hljs"><code><div>- Một global broker cluster
+- Broker riêng từng region
+- Topic replication giữa regions
+- Active–passive broker
+</div></code></pre>
+<p>Một global broker có thể tạo WAN dependency.</p>
+<p>Broker riêng giúp isolation nhưng cần giải quyết:</p>
+<pre class="hljs"><code><div>- Event duplication
+- Ordering
+- Cross-region replication
+- Consumer ownership
+</div></code></pre>
+<hr>
+<h1 id="76-regional-event-streams">76. Regional Event Streams</h1>
+<p>Mỗi region ghi event local:</p>
+<pre class="hljs"><code><div>Region A topic
+Region B topic
+</div></code></pre>
+<p>Sau đó replicate sang global analytics.</p>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Events độc lập
+- Không cần global ordering
+</div></code></pre>
+<p>Không phù hợp trực tiếp cho workflow cần một total order toàn cầu.</p>
+<hr>
+<h1 id="77-duplicate-events-khi-failover">77. Duplicate Events khi Failover</h1>
+<p>Producer có thể gửi event ở Region A, timeout, rồi retry ở Region B.</p>
+<p>Cả hai event có thể tồn tại.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Stable event ID
+- Stable operation ID
+- Idempotent consumer
+- Deduplication xuyên region
+</div></code></pre>
+<hr>
+<h1 id="78-consumer-failover">78. Consumer Failover</h1>
+<p>Một background job không nên chạy active ở hai regions nếu chỉ được phép chạy một lần.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Billing settlement
+- Daily payout
+- Global cleanup
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Leader election
+- Fencing token
+- Partitioned ownership
+- Idempotent output
+</div></code></pre>
+<p>Chỉ dùng cron ở cả hai regions sẽ tạo duplicate work.</p>
+<hr>
+<h1 id="79-backup-types">79. Backup Types</h1>
+<h2 id="full-backup">Full backup</h2>
+<p>Sao chép toàn bộ dataset.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Restore đơn giản hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tốn thời gian và storage
+</div></code></pre>
+<h2 id="incremental-backup">Incremental backup</h2>
+<p>Chỉ lưu thay đổi từ backup trước.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Nhanh và nhỏ hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Restore cần chuỗi backups
+- Một backup hỏng ảnh hưởng chuỗi
+</div></code></pre>
+<hr>
+<h1 id="80-physical-và-logical-backup">80. Physical và Logical Backup</h1>
+<h2 id="physical-backup">Physical backup</h2>
+<p>Sao chép block, files hoặc storage format của database.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Restore nhanh
+- Giữ cấu trúc database
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Phụ thuộc engine/version
+- Ít linh hoạt
+</div></code></pre>
+<h2 id="logical-backup">Logical backup</h2>
+<p>Xuất dữ liệu dạng logical:</p>
+<pre class="hljs"><code><div>- SQL dump
+- JSON
+- CSV
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Portable hơn
+- Có thể restore chọn lọc
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Restore chậm
+- Dataset lớn rất tốn thời gian
+</div></code></pre>
+<hr>
+<h1 id="81-point-in-time-recovery--pitr">81. Point-in-Time Recovery — PITR</h1>
+<p>PITR kết hợp:</p>
+<pre class="hljs"><code><div>Base backup
++
+Transaction logs
+</div></code></pre>
+<p>Cho phép restore tới thời điểm cụ thể:</p>
+<pre class="hljs"><code><div>10:14:59
+</div></code></pre>
+<p>trước khi câu lệnh xóa nhầm chạy lúc:</p>
+<pre class="hljs"><code><div>10:15:00
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Backup[Base Backup] --> Restore
+    Logs[Transaction Logs] --> Restore
+    Restore --> Time[State at 10:14:59]
+</div></code></pre>
+<hr>
+<h1 id="82-pitr-và-rpo">82. PITR và RPO</h1>
+<p>Nếu transaction logs được archive liên tục:</p>
+<pre class="hljs"><code><div>RPO có thể rất thấp.
+</div></code></pre>
+<p>Nhưng nếu logs chỉ upload mỗi 15 phút:</p>
+<pre class="hljs"><code><div>Có thể mất gần 15 phút dữ liệu.
+</div></code></pre>
+<p>PITR cũng cần được kiểm thử restore thực tế.</p>
+<hr>
+<h1 id="83-backup-retention">83. Backup Retention</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Hourly backups giữ 48 giờ
+- Daily backups giữ 30 ngày
+- Monthly backups giữ 1 năm
+</div></code></pre>
+<p>Retention dựa trên:</p>
+<pre class="hljs"><code><div>- Compliance
+- Recovery scenarios
+- Storage cost
+- Ransomware dwell time
+</div></code></pre>
+<p>Nếu corruption được phát hiện sau 60 ngày mà backup chỉ giữ 30 ngày:</p>
+<pre class="hljs"><code><div>Không còn recovery point sạch.
+</div></code></pre>
+<hr>
+<h1 id="84-immutable-backup">84. Immutable Backup</h1>
+<p>Backup nên được bảo vệ khỏi:</p>
+<pre class="hljs"><code><div>- Xóa nhầm
+- Compromised admin account
+- Ransomware
+</div></code></pre>
+<p>Các cơ chế:</p>
+<pre class="hljs"><code><div>- Object lock
+- Write-once retention
+- Separate credentials
+- Separate account/project
+- Air-gapped copy
+</div></code></pre>
+<p>Backup nằm cùng account với production và cùng quyền admin có thể bị xóa cùng lúc.</p>
+<hr>
+<h1 id="85-backup-encryption">85. Backup Encryption</h1>
+<p>Cần mã hóa:</p>
+<pre class="hljs"><code><div>- Khi truyền
+- Khi lưu
+</div></code></pre>
+<p>Nhưng cũng phải backup:</p>
+<pre class="hljs"><code><div>- Encryption keys hoặc recovery procedure
+</div></code></pre>
+<p>Backup tồn tại nhưng mất key:</p>
+<pre class="hljs"><code><div>Không thể restore.
+</div></code></pre>
+<p>Ngược lại, key quá dễ truy cập làm backup mất an toàn.</p>
+<hr>
+<h1 id="86-restore-testing">86. Restore Testing</h1>
+<p>Một backup chỉ đáng tin khi đã restore thành công.</p>
+<p>Cần kiểm tra:</p>
+<pre class="hljs"><code><div>- Restore mất bao lâu?
+- Data có đọc được không?
+- Application có tương thích không?
+- Transaction logs có đầy đủ không?
+- Encryption keys hoạt động không?
+</div></code></pre>
+<p>Metric quan trọng:</p>
+<pre class="hljs"><code><div>Last successful restore test
+</div></code></pre>
+<p>không chỉ:</p>
+<pre class="hljs"><code><div>Last backup completed
+</div></code></pre>
+<hr>
+<h1 id="87-restore-time-và-rto">87. Restore Time và RTO</h1>
+<p>Backup 100 TB tồn tại không có nghĩa restore trong 30 phút.</p>
+<p>RTO phải tính:</p>
+<pre class="hljs"><code><div>- Provision storage
+- Download backup
+- Restore
+- Replay logs
+- Rebuild indexes
+- Validate data
+- Start application
+- Warm caches
+</div></code></pre>
+<p>Restore throughput là capacity requirement.</p>
+<hr>
+<h1 id="88-partial-restore">88. Partial Restore</h1>
+<p>Không phải disaster nào cũng cần restore toàn database.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Một tenant bị xóa nhầm
+- Một table bị corruption
+- Một partition bị mất
+</div></code></pre>
+<p>Có thể restore backup sang environment riêng rồi trích xuất dữ liệu cần thiết.</p>
+<p>Không nên overwrite production toàn bộ để cứu một record nhỏ.</p>
+<hr>
+<h1 id="89-search-index-trong-dr">89. Search Index trong DR</h1>
+<p>Search index thường có thể:</p>
+<pre class="hljs"><code><div>- Replicate
+- Snapshot
+- Rebuild từ source of truth
+</div></code></pre>
+<p>Quyết định phụ thuộc RTO.</p>
+<p>Nếu rebuild mất hai ngày nhưng RTO là một giờ:</p>
+<pre class="hljs"><code><div>Phải có replica hoặc snapshot sẵn.
+</div></code></pre>
+<p>Trong disaster, có thể degrade:</p>
+<pre class="hljs"><code><div>- Search đơn giản hơn
+- Database prefix search
+- Cached popular results
+</div></code></pre>
+<hr>
+<h1 id="90-data-warehouse-và-analytics-dr">90. Data Warehouse và Analytics DR</h1>
+<p>Analytics thường có RTO/RPO thấp hơn OLTP.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Lưu raw events trong durable object storage
+- Rebuild warehouse
+- Tạm dừng dashboards
+</div></code></pre>
+<p>Không cần giữ hot active–active warehouse nếu business không yêu cầu.</p>
+<hr>
+<h1 id="91-data-residency">91. Data Residency</h1>
+<p>Data residency yêu cầu dữ liệu được lưu hoặc xử lý trong khu vực nhất định.</p>
+<p>Ví dụ policy có thể yêu cầu:</p>
+<pre class="hljs"><code><div>EU tenant data chỉ lưu trong EU.
+</div></code></pre>
+<p>Các câu hỏi:</p>
+<pre class="hljs"><code><div>- Primary data ở đâu?
+- Replicas ở đâu?
+- Backup ở đâu?
+- Logs ở đâu?
+- Analytics data ở đâu?
+- Support staff truy cập từ đâu?
+</div></code></pre>
+<p>Không đủ chỉ đặt primary database trong đúng region nếu backup lại nằm ngoài.</p>
+<hr>
+<h1 id="92-data-localization-và-data-sovereignty">92. Data Localization và Data Sovereignty</h1>
+<p>Các thuật ngữ thường được dùng gần nhau nhưng có thể khác trọng tâm.</p>
+<pre class="hljs"><code><div>Data residency:
+Dữ liệu nằm ở vị trí địa lý nào.
+
+Data localization:
+Một số dữ liệu bắt buộc được giữ hoặc xử lý trong lãnh thổ.
+
+Data sovereignty:
+Dữ liệu chịu pháp luật của nơi nó được lưu hoặc xử lý.
+</div></code></pre>
+<p>Yêu cầu cụ thể phụ thuộc luật, hợp đồng và ngành nghề; cần được xác minh với bộ phận pháp lý.</p>
+<hr>
+<h1 id="93-global-metadata-và-local-data">93. Global Metadata và Local Data</h1>
+<p>Có thể giữ:</p>
+<pre class="hljs"><code><div>Global metadata:
+tenantId → homeRegion
+
+Local tenant data:
+chỉ trong home region
+</div></code></pre>
+<p>Global metadata không nên chứa thông tin bị hạn chế nếu không cần.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;tenantId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;t_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;homeRegion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;eu-central&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>khác với replicate toàn bộ profile user toàn cầu.</p>
+<hr>
+<h1 id="94-cross-border-processing">94. Cross-Border Processing</h1>
+<p>Ngay cả khi data lưu local, request có thể được xử lý bởi service ở region khác.</p>
+<p>Cần xem:</p>
+<pre class="hljs"><code><div>- Logs có chứa dữ liệu cá nhân không?
+- Error traces gửi đi đâu?
+- Support tools có sao chép payload không?
+- Machine-learning pipeline chạy ở đâu?
+</div></code></pre>
+<p>Data flow mapping là một phần của kiến trúc multi-region.</p>
+<hr>
+<h1 id="95-tenant-isolation-theo-region">95. Tenant Isolation theo Region</h1>
+<p>SaaS có thể:</p>
+<pre class="hljs"><code><div>EU tenants → EU deployment
+US tenants → US deployment
+Asia tenants → Asia deployment
+</div></code></pre>
+<p>Mỗi deployment có:</p>
+<pre class="hljs"><code><div>- Database
+- Search index
+- Object storage
+- Backups
+- Logging
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Residency rõ
+- Failure isolation
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Nhiều deployments
+- Operational overhead
+- Feature rollout phức tạp
+</div></code></pre>
+<hr>
+<h1 id="96-global-user-và-local-data">96. Global User và Local Data</h1>
+<p>Một user có thể thuộc organization EU nhưng đi du lịch Mỹ.</p>
+<p>Frontend có thể chạy ở Mỹ nhưng dữ liệu vẫn phải truy cập EU.</p>
+<p>Không nên tự động replicate dữ liệu sang Mỹ chỉ để giảm latency nếu residency không cho phép.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Edge termination
+- Request proxy
+- Cached non-sensitive assets
+</div></code></pre>
+<hr>
+<h1 id="97-multi-cloud-disaster-recovery">97. Multi-Cloud Disaster Recovery</h1>
+<p>Một số tổ chức muốn DR sang cloud provider khác.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm phụ thuộc một provider
+- Bảo vệ khỏi provider-wide outage
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Network và IAM khác nhau
+- Database service không tương thích
+- Operational complexity rất cao
+- Nhân đôi skillset và automation
+</div></code></pre>
+<p>Multi-cloud không tự động làm hệ thống resilient nếu deployment thứ hai không được vận hành thường xuyên.</p>
+<hr>
+<h1 id="98-common-mode-failure">98. Common-Mode Failure</h1>
+<p>Hai regions có thể cùng lỗi do:</p>
+<pre class="hljs"><code><div>- Một deployment bug
+- Một schema migration sai
+- Một secret rotation sai
+- Một global feature flag
+- Một compromised credential
+</div></code></pre>
+<p>Đây là common-mode failure.</p>
+<p>Regional redundancy không bảo vệ khỏi lỗi logic được triển khai đồng thời toàn cầu.</p>
+<hr>
+<h1 id="99-staged-deployment-theo-region">99. Staged Deployment theo Region</h1>
+<p>Để giảm blast radius:</p>
+<pre class="hljs"><code><div>1. Deploy canary region.
+2. Theo dõi.
+3. Deploy region tiếp theo.
+4. Dừng nếu có regression.
+</div></code></pre>
+<p>Không nên deploy cùng lúc toàn bộ regions cho thay đổi rủi ro cao.</p>
+<hr>
+<h1 id="100-configuration-blast-radius">100. Configuration Blast Radius</h1>
+<p>Một global config sai có thể làm tất cả regions lỗi.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Versioned configuration
+- Region-scoped rollout
+- Validation
+- Automatic rollback
+- Break-glass local config
+</div></code></pre>
+<hr>
+<h1 id="101-database-schema-migration-trong-multi-region">101. Database Schema Migration trong Multi-Region</h1>
+<p>Regions có thể tạm thời chạy application versions khác nhau.</p>
+<p>Schema phải tương thích cả cũ và mới.</p>
+<p>Pattern:</p>
+<pre class="hljs"><code><div>1. Expand schema.
+2. Deploy code hỗ trợ cả hai.
+3. Backfill.
+4. Chuyển reads/writes.
+5. Contract schema cũ.
+</div></code></pre>
+<p>Không nên thực hiện destructive migration trước khi mọi region nâng cấp.</p>
+<hr>
+<h1 id="102-case-study--e-commerce-activepassive">102. Case Study — E-Commerce Active–Passive</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Một primary region
+- DR region nóng
+- RTO 10 phút
+- RPO dưới 1 phút
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalRouter
+
+    GlobalRouter --> Active[Region A Active]
+    GlobalRouter -. standby .-> DR[Region B Warm/Hot Standby]
+
+    Active --> PrimaryDB[(Primary DB)]
+    PrimaryDB -->|Async replication| ReplicaDB[(DR Replica)]
+
+    Active --> ObjectA[(Object Storage A)]
+    ObjectA -->|Cross-region replication| ObjectB[(Object Storage B)]
+
+    Active --> EventsA[Event Stream A]
+    EventsA -->|Replicated events| EventsB[Event Stream B]
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Async DB replication
+→ write latency thấp
+→ RPO có thể lớn hơn 0
+</div></code></pre>
+<hr>
+<h1 id="103-failover-e-commerce">103. Failover E-Commerce</h1>
+<pre class="hljs"><code><div>1. Detect Region A failure.
+2. Stop/fence Region A writes.
+3. Kiểm tra Replica B lag.
+4. Promote Replica B.
+5. Scale application Region B.
+6. Warm product/cache data.
+7. Route canary traffic.
+8. Shift toàn bộ traffic.
+9. Reconcile orders và payments.
+</div></code></pre>
+<p>Payment cần reconciliation riêng với provider.</p>
+<hr>
+<h1 id="104-case-study--global-saas-theo-home-region">104. Case Study — Global SaaS theo Home Region</h1>
+<p>Mỗi tenant có home region.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> Edge
+    Edge --> Directory[Global Tenant Directory]
+
+    Directory -->|EU tenant| EU[EU Region]
+    Directory -->|US tenant| US[US Region]
+    Directory -->|Asia tenant| Asia[Asia Region]
+</div></code></pre>
+<p>Mỗi tenant:</p>
+<pre class="hljs"><code><div>- Writes tại home region
+- Reads chủ yếu tại home region
+- Backup tuân thủ residency
+</div></code></pre>
+<p>Global directory chỉ lưu metadata routing tối thiểu.</p>
+<hr>
+<h1 id="105-disaster-cho-một-home-region">105. Disaster cho một Home Region</h1>
+<p>Nếu EU region lỗi:</p>
+<pre class="hljs"><code><div>- EU tenants có thể failover sang secondary EU region
+- Không nhất thiết failover sang Mỹ vì residency
+</div></code></pre>
+<p>Do đó DR region có thể phải nằm cùng legal geography nhưng khác physical region.</p>
+<hr>
+<h1 id="106-case-study--global-chat">106. Case Study — Global Chat</h1>
+<p>Chat cần latency thấp và user đa region.</p>
+<p>Một thiết kế:</p>
+<pre class="hljs"><code><div>- Conversation có home region
+- Messages được ordered tại conversation owner
+- Edge region proxy request tới owner
+- Replicas phục vụ history reads
+</div></code></pre>
+<p>Nếu conversation owner region lỗi:</p>
+<pre class="hljs"><code><div>- Promote replica
+- Tăng conversation epoch
+- Fence owner cũ
+- Continue sequence từ committed position
+</div></code></pre>
+<p>Global active–active write trên cùng conversation rất khó nếu cần ordering ổn định.</p>
+<hr>
+<h1 id="107-case-study--payment-system">107. Case Study — Payment System</h1>
+<p>Payment thường ưu tiên:</p>
+<pre class="hljs"><code><div>- Correctness
+- Audit
+- RPO gần 0
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Ledger dùng synchronous multi-region consensus
+- API edge active–active
+- Payment workflow owner tại một region
+- Provider calls có idempotency key
+</div></code></pre>
+<p>Nếu latency cross-region quá cao, có thể phân vùng ledger theo account hoặc geography, nhưng cross-region transfer trở thành distributed workflow.</p>
+<hr>
+<h1 id="108-case-study--social-feed">108. Case Study — Social Feed</h1>
+<p>Feed có thể active–active dễ hơn payment.</p>
+<pre class="hljs"><code><div>Post creation:
+Home region hoặc local region
+
+Feed projection:
+Replicate eventual
+
+Like count:
+Conflict-tolerant counter
+
+Profile:
+Last-write-wins hoặc field merge tùy field
+</div></code></pre>
+<p>Một số dữ liệu chấp nhận eventual consistency, cho phép local writes và merge.</p>
+<hr>
+<h1 id="109-dr-cho-external-dependencies">109. DR cho External Dependencies</h1>
+<p>Hệ thống có thể multi-region nhưng phụ thuộc:</p>
+<pre class="hljs"><code><div>- Payment provider
+- SMS provider
+- Email provider
+- Identity provider
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Vendor regional endpoints
+- Secondary vendor
+- Circuit breaker
+- Queue buffering
+- Manual fallback
+</div></code></pre>
+<p>Không phải dependency nào cũng có thể failover tự động.</p>
+<hr>
+<h1 id="110-vendor-failover-và-idempotency">110. Vendor Failover và Idempotency</h1>
+<p>Nếu payment provider A timeout rồi chuyển sang provider B:</p>
+<pre class="hljs"><code><div>Provider A có thể đã charge
+Provider B cũng charge
+</div></code></pre>
+<p>Không nên failover provider mù quáng.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Provider-specific transaction ID
+- Query status
+- Idempotency
+- Reconciliation
+- Business routing rules
+</div></code></pre>
+<hr>
+<h1 id="111-observability-cho-multi-region">111. Observability cho Multi-Region</h1>
+<p>Metrics theo region:</p>
+<pre class="hljs"><code><div>- Request rate
+- Error rate
+- Latency
+- Capacity utilization
+- Database availability
+- Replication lag
+- Event-stream lag
+- Cache hit rate
+- Dependency health
+</div></code></pre>
+<p>Không chỉ xem global average.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Global error rate = 1%
+
+Region Europe error rate = 40%
+</div></code></pre>
+<p>Global average có thể che giấu regional outage.</p>
+<hr>
+<h1 id="112-replication-metrics">112. Replication Metrics</h1>
+<pre class="hljs"><code><div>- Last replicated log position
+- Byte lag
+- Time lag
+- Apply lag
+- Replication errors
+- Replication connection status
+- Conflict count
+</div></code></pre>
+<p>Time lag cần thận trọng nếu clock skew.</p>
+<p>Log position lag thường chính xác hơn để đo progress.</p>
+<hr>
+<h1 id="113-dr-readiness-metrics">113. DR Readiness Metrics</h1>
+<pre class="hljs"><code><div>- Last successful failover drill
+- Last successful restore test
+- DR capacity available
+- Configuration drift
+- Backup age
+- Replica lag
+- Secret synchronization status
+- Certificate expiration
+</div></code></pre>
+<p>DR readiness là trạng thái liên tục, không phải tài liệu được viết một lần.</p>
+<hr>
+<h1 id="114-synthetic-traffic">114. Synthetic Traffic</h1>
+<p>Region passive nên nhận synthetic traffic để kiểm tra:</p>
+<pre class="hljs"><code><div>- Login
+- Read product
+- Create test order
+- Database write/read
+- Queue publish/consume
+</div></code></pre>
+<p>Health check chỉ ping endpoint không phát hiện lỗi workflow sâu.</p>
+<p>Test data phải được cô lập và dọn dẹp.</p>
+<hr>
+<h1 id="115-regional-slo">115. Regional SLO</h1>
+<p>Có thể định nghĩa:</p>
+<pre class="hljs"><code><div>99.95% request success theo từng region.
+</div></code></pre>
+<p>và:</p>
+<pre class="hljs"><code><div>Regional failover hoàn thành trong 10 phút.
+</div></code></pre>
+<p>DR SLO cần bao gồm:</p>
+<pre class="hljs"><code><div>- Detection time
+- Decision time
+- Promotion time
+- Traffic shift time
+</div></code></pre>
+<hr>
+<h1 id="116-disaster-recovery-drill">116. Disaster Recovery Drill</h1>
+<p>DR drill nên thực hiện định kỳ.</p>
+<p>Có thể mô phỏng:</p>
+<pre class="hljs"><code><div>- Database leader chết
+- Availability Zone mất
+- Region mất network
+- Object storage inaccessible
+- Secret store unavailable
+- DNS routing failure
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Đo RTO thực tế
+- Đo RPO thực tế
+- Phát hiện bước thủ công
+- Cập nhật runbook
+</div></code></pre>
+<hr>
+<h1 id="117-game-day">117. Game Day</h1>
+<p>Game day là buổi diễn tập có kiểm soát.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Giả lập Region A unavailable
+→ On-call thực hiện failover
+→ Quan sát hệ thống
+→ Ghi lại thời gian và lỗi
+</div></code></pre>
+<p>Không chỉ kiểm tra hạ tầng mà còn:</p>
+<pre class="hljs"><code><div>- Communication
+- Decision authority
+- Customer support
+- Status page
+- Security procedures
+</div></code></pre>
+<hr>
+<h1 id="118-chaos-engineering-trong-multi-region">118. Chaos Engineering trong Multi-Region</h1>
+<p>Có thể inject:</p>
+<pre class="hljs"><code><div>- Network latency
+- Packet loss
+- Region isolation
+- Replication delay
+- DNS failure
+- Dependency timeout
+</div></code></pre>
+<p>Cần guardrails:</p>
+<pre class="hljs"><code><div>- Blast radius nhỏ
+- Automatic abort
+- Monitoring đầy đủ
+- Không thử khi system đang bất ổn
+</div></code></pre>
+<hr>
+<h1 id="119-dr-documentation-drift">119. DR Documentation Drift</h1>
+<p>Runbook ghi:</p>
+<pre class="hljs"><code><div>Promote database bằng command X.
+</div></code></pre>
+<p>Nhưng sáu tháng sau database version đổi và command không còn đúng.</p>
+<p>Nếu không diễn tập:</p>
+<pre class="hljs"><code><div>Runbook có thể vô dụng khi disaster thật.
+</div></code></pre>
+<p>Automation và testing giảm documentation drift.</p>
+<hr>
+<h1 id="120-những-sai-lầm-phổ-biến">120. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-nghĩ-hai-regions-đồng-nghĩa-activeactive">Lỗi 1: Nghĩ hai regions đồng nghĩa active–active</h2>
+<p>Có thể chỉ application active, data vẫn single-region.</p>
+<h2 id="lỗi-2-không-định-nghĩa-rto-và-rpo">Lỗi 2: Không định nghĩa RTO và RPO</h2>
+<p>Không biết kiến trúc cần bảo vệ tới mức nào.</p>
+<h2 id="lỗi-3-rpo-chỉ-được-tính-từ-backup-schedule">Lỗi 3: RPO chỉ được tính từ backup schedule</h2>
+<p>Replication ACK và lag cũng quyết định data loss.</p>
+<h2 id="lỗi-4-xem-replication-là-backup">Lỗi 4: Xem replication là backup</h2>
+<p>Corruption và delete cũng được replicate.</p>
+<h2 id="lỗi-5-dr-region-không-đủ-capacity">Lỗi 5: DR region không đủ capacity</h2>
+<p>Failover xong nhưng hệ thống vẫn quá tải.</p>
+<h2 id="lỗi-6-không-warm-cache-trước-hoặc-trong-failover">Lỗi 6: Không warm cache trước hoặc trong failover</h2>
+<p>Database bị cache-miss storm.</p>
+<h2 id="lỗi-7-chỉ-đổi-dns-mà-không-promotefence-data-owner">Lỗi 7: Chỉ đổi DNS mà không promote/fence data owner</h2>
+<p>Dễ split-brain.</p>
+<h2 id="lỗi-8-không-fence-primary-cũ">Lỗi 8: Không fence primary cũ</h2>
+<p>Region cũ quay lại tiếp tục ghi.</p>
+<h2 id="lỗi-9-failback-ngay-khi-region-cũ-sống-lại">Lỗi 9: Failback ngay khi region cũ sống lại</h2>
+<p>Region cũ có thể stale hoặc divergent.</p>
+<h2 id="lỗi-10-dùng-asynchronous-replication-nhưng-hứa-rpo-bằng-0">Lỗi 10: Dùng asynchronous replication nhưng hứa RPO bằng 0</h2>
+<p>Acknowledged writes vẫn có thể mất.</p>
+<h2 id="lỗi-11-dùng-synchronous-cross-region-mà-không-tính-latency">Lỗi 11: Dùng synchronous cross-region mà không tính latency</h2>
+<p>Mọi write phải chịu WAN round trip.</p>
+<h2 id="lỗi-12-activeactive-multi-leader-cho-invariant-không-merge-được">Lỗi 12: Active–active multi-leader cho invariant không merge được</h2>
+<p>Gây duplicate booking hoặc uniqueness conflict.</p>
+<h2 id="lỗi-13-quorum-nodes-đặt-phần-lớn-trong-một-region">Lỗi 13: Quorum nodes đặt phần lớn trong một region</h2>
+<p>Mất region đó là mất quorum.</p>
+<h2 id="lỗi-14-health-check-chỉ-kiểm-tra-process-sống">Lỗi 14: Health check chỉ kiểm tra process sống</h2>
+<p>Region có thể sống nhưng không ghi database được.</p>
+<h2 id="lỗi-15-automatic-failover-không-có-hysteresis">Lỗi 15: Automatic failover không có hysteresis</h2>
+<p>Region flapping làm traffic chuyển liên tục.</p>
+<h2 id="lỗi-16-background-jobs-chạy-ở-cả-hai-regions-không-fencing">Lỗi 16: Background jobs chạy ở cả hai regions không fencing</h2>
+<p>Tạo duplicate billing hoặc notification.</p>
+<h2 id="lỗi-17-backup-cùng-account-và-credentials-production">Lỗi 17: Backup cùng account và credentials production</h2>
+<p>Ransomware có thể xóa cả production lẫn backup.</p>
+<h2 id="lỗi-18-có-backup-nhưng-chưa-từng-restore">Lỗi 18: Có backup nhưng chưa từng restore</h2>
+<p>Không biết backup có dùng được không.</p>
+<h2 id="lỗi-19-không-tính-thời-gian-rebuild-index-và-cache-trong-rto">Lỗi 19: Không tính thời gian rebuild index và cache trong RTO</h2>
+<p>Service mở nhưng chưa thật sự usable.</p>
+<h2 id="lỗi-20-chỉ-nghĩ-residency-ở-database">Lỗi 20: Chỉ nghĩ residency ở database</h2>
+<p>Logs, backups và analytics cũng có thể vi phạm.</p>
+<hr>
+<h1 id="121-framework-thiết-kế-multi-region">121. Framework thiết kế Multi-Region</h1>
+<p>Khi thiết kế, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Failure nào hệ thống phải chịu?
+2. RTO của từng business capability là bao nhiêu?
+3. RPO của từng loại dữ liệu là bao nhiêu?
+4. Active–passive hay active–active?
+5. Region passive là cold, warm hay hot?
+6. Region nào được quyền nhận write?
+7. Write ownership được lưu ở đâu?
+8. Replication sync hay async?
+9. ACK nghĩa là durable ở đâu?
+10. Khi partition, phía nào được tiếp tục?
+11. Region cũ được fence thế nào?
+12. Geo-routing dựa trên latency, residency hay home region?
+13. DNS TTL ảnh hưởng failover ra sao?
+14. DR region có đủ capacity không?
+15. Cache và search phục hồi thế nào?
+16. Queue consumers tránh duplicate thế nào?
+17. Failback được thực hiện ra sao?
+18. Backup, PITR và retention như thế nào?
+19. Restore đã được kiểm thử chưa?
+20. Logs, backups và analytics có tuân thủ residency không?
+21. Metrics nào đo DR readiness?
+22. Lần failover drill gần nhất là khi nào?
+</div></code></pre>
+<hr>
+<h1 id="122-decision-tree">122. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần Multi-Region] --> B{Mục tiêu chính?}
+
+    B -->|Disaster Recovery| C{RTO thấp tới đâu?}
+    C -->|Giờ/ngày| D[Cold Standby / Backup Restore]
+    C -->|Phút| E[Warm Standby]
+    C -->|Giây-phút| F[Hot Standby]
+
+    B -->|Global latency / scale| G{Cùng dữ liệu có cần ghi nhiều region?}
+
+    G -->|Không| H[Read Local, Write Primary]
+    G -->|Chia được ownership| I[Partitioned Active-Active]
+    G -->|Cần cùng record multi-write| J{Conflict có merge được?}
+
+    J -->|Có| K[Multi-Leader + Conflict Resolution]
+    J -->|Không| L[Global Consensus / Single Owner]
+
+    D --> M[Define RTO/RPO]
+    E --> M
+    F --> M
+    H --> M
+    I --> M
+    K --> M
+    L --> M
+
+    M --> N[Failover + Fencing + Failback]
+    N --> O[Backup + Restore Drills + Residency]
+</div></code></pre>
+<hr>
+<h1 id="123-cách-trình-bày-trong-system-design-interview">123. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em deploy hai regions để high availability.
+</div></code></pre>
+<p>Nên nói rõ:</p>
+<blockquote>
+<p>Tôi dùng active–passive warm standby. Region A phục vụ toàn bộ writes, Region B duy trì application capacity tối thiểu và một database replica asynchronous. Thiết kế có RTO khoảng mười phút và RPO phụ thuộc replication lag, mục tiêu dưới một phút. Nếu business yêu cầu RPO bằng 0, tôi phải chuyển sang synchronous cross-region replication hoặc quorum commit và chấp nhận write latency cũng như availability trade-off.</p>
+</blockquote>
+<p>Về failover:</p>
+<blockquote>
+<p>Failover không chỉ đổi DNS. Control plane phải fence Region A, kiểm tra log position của Region B, promote replica, scale application, warm critical caches rồi mới chuyển traffic. Ownership sử dụng epoch tăng dần để các database workers và background jobs từ Region A bị từ chối nếu quay lại.</p>
+</blockquote>
+<p>Về active–active:</p>
+<blockquote>
+<p>Tôi tránh multi-leader cho inventory cuối cùng và payment ledger vì conflict không thể merge an toàn. Thay vào đó, mỗi account hoặc tenant có home region duy nhất. Các dữ liệu như feed projection, search và analytics được replicate eventual consistency. Những workflow xuyên home regions dùng message-driven Saga hoặc một consistency boundary toàn cầu tùy invariant.</p>
+</blockquote>
+<p>Về DR:</p>
+<blockquote>
+<p>Replication không thay thế backup. Tôi giữ immutable backups ở một security account riêng, archive transaction logs cho PITR và định kỳ restore vào môi trường cô lập. DR SLO đo cả failover time, data loss thực tế và thời gian tới khi critical user journey hoạt động, không chỉ lúc load balancer bắt đầu trả 200.</p>
+</blockquote>
+<hr>
+<h1 id="124-bảng-ghi-nhớ-nhanh">124. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multi-region</td>
+<td>Triển khai qua nhiều geographic regions</td>
+</tr>
+<tr>
+<td>Active–passive</td>
+<td>Một region phục vụ, region khác chờ</td>
+</tr>
+<tr>
+<td>Active–active</td>
+<td>Nhiều region cùng phục vụ</td>
+</tr>
+<tr>
+<td>Cold standby</td>
+<td>Hạ tầng DR chủ yếu được tạo khi cần</td>
+</tr>
+<tr>
+<td>Warm standby</td>
+<td>DR đang chạy với capacity nhỏ</td>
+</tr>
+<tr>
+<td>Hot standby</td>
+<td>DR gần sẵn sàng tiếp quản ngay</td>
+</tr>
+<tr>
+<td>RTO</td>
+<td>Thời gian tối đa để phục hồi</td>
+</tr>
+<tr>
+<td>RPO</td>
+<td>Lượng dữ liệu tối đa có thể mất</td>
+</tr>
+<tr>
+<td>Geo-routing</td>
+<td>Chọn region phục vụ request</td>
+</tr>
+<tr>
+<td>Home region</td>
+<td>Region sở hữu write của user/tenant</td>
+</tr>
+<tr>
+<td>Synchronous replication</td>
+<td>Chờ remote ACK trước success</td>
+</tr>
+<tr>
+<td>Asynchronous replication</td>
+<td>Success trước remote replication</td>
+</tr>
+<tr>
+<td>Regional failover</td>
+<td>Chuyển service sang region dự phòng</td>
+</tr>
+<tr>
+<td>Failback</td>
+<td>Chuyển lại hoặc tái lập topology sau recovery</td>
+</tr>
+<tr>
+<td>Fencing</td>
+<td>Chặn region/leader cũ tiếp tục ghi</td>
+</tr>
+<tr>
+<td>Split-brain</td>
+<td>Hai bên cùng nghĩ mình là primary</td>
+</tr>
+<tr>
+<td>PITR</td>
+<td>Khôi phục tới một thời điểm cụ thể</td>
+</tr>
+<tr>
+<td>Immutable backup</td>
+<td>Backup không thể sửa/xóa trong retention</td>
+</tr>
+<tr>
+<td>Data residency</td>
+<td>Dữ liệu phải nằm ở vị trí quy định</td>
+</tr>
+<tr>
+<td>DR drill</td>
+<td>Diễn tập quy trình phục hồi</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="125-sơ-đồ-ghi-nhớ-toàn-bài">125. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Multi-Region Architecture] --> B[Traffic]
+    A --> C[Compute]
+    A --> D[Data]
+    A --> E[Recovery]
+    A --> F[Compliance]
+
+    B --> B1[DNS]
+    B --> B2[Anycast]
+    B --> B3[Global Load Balancer]
+    B --> B4[Home Region Routing]
+
+    C --> C1[Active-Passive]
+    C --> C2[Active-Active]
+    C --> C3[Warm/Hot Standby]
+    C --> C4[Capacity]
+
+    D --> D1[Sync Replication]
+    D --> D2[Async Replication]
+    D --> D3[Single Owner]
+    D --> D4[Multi-Leader / Consensus]
+
+    E --> E1[RTO]
+    E --> E2[RPO]
+    E --> E3[Failover / Failback]
+    E --> E4[Backup / PITR]
+    E --> E5[DR Drills]
+
+    F --> F1[Data Residency]
+    F --> F2[Regional Backups]
+    F --> F3[Logs and Analytics]
+</div></code></pre>
+<hr>
+<h1 id="126-những-điều-phải-nhớ-sau-bài-20">126. Những điều phải nhớ sau Bài 20</h1>
+<pre class="hljs"><code><div>1. Multi-region mở rộng fault tolerance từ machine/AZ lên region.
+2. Có nhiều regions không tự động tạo high availability.
+3. Shared global dependency vẫn có thể là single point of failure.
+4. HA, DR và backup giải quyết các vấn đề khác nhau.
+5. Replication không phải backup.
+6. RTO là thời gian phục hồi tối đa.
+7. RPO là lượng dữ liệu tối đa có thể mất.
+8. RTO và RPO phải được định nghĩa theo business capability.
+9. Active–passive có một region phục vụ writes.
+10. Cold standby rẻ nhưng RTO cao.
+11. Warm standby cân bằng chi phí và recovery time.
+12. Hot standby có RTO thấp nhưng chi phí cao.
+13. Active–active có nhiều mức, không chỉ một kiến trúc duy nhất.
+14. Stateless application active–active dễ hơn data active–active.
+15. Read-local/write-primary giảm read latency nhưng write vẫn tập trung.
+16. Read replica lag có thể phá read-your-writes.
+17. Partitioned active–active gán mỗi tenant/user một write owner.
+18. Multi-leader cần conflict resolution.
+19. Không phải invariant nào cũng có thể merge sau conflict.
+20. Payment, booking và uniqueness thường cần single owner hoặc consensus.
+21. Synchronous cross-region replication giảm RPO nhưng tăng latency.
+22. Asynchronous replication giảm write latency nhưng có thể mất acknowledged writes.
+23. ACK semantics phải nói rõ đã durable ở đâu.
+24. Quorum placement phải xét region failure, không chỉ số node.
+25. Geo-routing có thể dựa trên latency, health, capacity hoặc residency.
+26. DNS failover không tức thời do caching và connection tồn tại.
+27. Failover không chỉ là đổi DNS.
+28. Region cũ phải được fence trước hoặc trong promotion.
+29. Replication lag quyết định data loss khi failover async.
+30. DR region phải đủ capacity để nhận traffic.
+31. Cold cache có thể gây secondary failure sau failover.
+32. Graceful degradation giúp bảo vệ critical journeys.
+33. Failback phải đồng bộ lại data và ownership.
+34. Region cũ nên được rebuild từ primary mới nếu có divergence.
+35. Background jobs cũng cần ownership và fencing.
+36. Message retries xuyên region cần idempotency.
+37. Object storage, search và queue đều cần DR strategy riêng.
+38. Backup nên immutable và nằm ngoài production failure domain.
+39. Backup phải được restore thử định kỳ.
+40. PITR dùng base backup và transaction logs.
+41. RTO phải bao gồm restore, index rebuild và cache warm-up.
+42. Data residency áp dụng cả replicas, backups, logs và analytics.
+43. Global metadata nên chứa tối thiểu thông tin cần thiết.
+44. Common-mode deployment bug có thể làm hỏng mọi region.
+45. Rollout theo region giúp giảm blast radius.
+46. DR readiness cần được đo liên tục.
+47. Synthetic traffic giúp kiểm tra region passive thực sự hoạt động.
+48. Game day và chaos testing giúp đo RTO/RPO thực tế.
+49. Multi-cloud tăng independence nhưng làm complexity tăng mạnh.
+50. Kiến trúc tốt chỉ trả chi phí multi-region mạnh cho dữ liệu thực sự cần.
+</div></code></pre>
+<hr>
+<h1 id="127-bài-tập-thực-hành">127. Bài tập thực hành</h1>
+<p>Thiết kế multi-region architecture cho một nền tảng đặt vé máy bay.</p>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- User ở châu Á, châu Âu và Mỹ
+- Search chuyến bay phải latency thấp
+- Một ghế không được bán hai lần
+- Payment không được charge hai lần
+- Hệ thống phải chịu mất một region
+- RTO dưới 10 phút
+- RPO của booking gần 0
+- Search index có thể stale vài phút
+- Dữ liệu một số khách hàng phải ở EU
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Hệ thống nên active–passive hay active–active?
+2. Application layer có thể active–active không?
+3. Search phục vụ local region thế nào?
+4. Booking write owner nằm ở đâu?
+5. Ghế nên được partition theo flight hay region?
+6. Làm sao tránh hai regions cùng bán một ghế?
+7. Booking DB dùng synchronous replication hay consensus?
+8. Quorum nodes đặt ở những regions nào?
+9. Write latency toàn cầu sẽ ra sao?
+10. Có nên dùng multi-leader cho seat inventory không?
+11. Payment idempotency key là gì?
+12. Nếu payment response mất trong lúc failover thì xử lý thế nào?
+13. Geo-router chọn region dựa trên gì?
+14. User EU đi du lịch Mỹ được route thế nào?
+15. Data residency ảnh hưởng backup và analytics ra sao?
+16. Search index được rebuild hoặc failover thế nào?
+17. Region DR cần bao nhiêu capacity?
+18. Cache được warm ra sao?
+19. Region cũ được fence bằng token nào?
+20. Failback thực hiện thế nào?
+21. Booking RPO được kiểm chứng bằng metric nào?
+22. Backup và PITR được thiết kế ra sao?
+23. DR drill nên mô phỏng những failure nào?
+24. Khi chỉ còn một region, feature nào cần degrade?
+25. SLO nào đo toàn bộ recovery journey?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalRouter
+
+    GlobalRouter --> AsiaEdge[Asia Region]
+    GlobalRouter --> EUEdge[EU Region]
+    GlobalRouter --> USEdge[US Region]
+
+    AsiaEdge --> SearchAsia[(Local Search Replica)]
+    EUEdge --> SearchEU[(Local Search Replica)]
+    USEdge --> SearchUS[(Local Search Replica)]
+
+    AsiaEdge --> BookingAPI
+    EUEdge --> BookingAPI
+    USEdge --> BookingAPI
+
+    BookingAPI --> BookingConsensus[(Strong Booking Store)]
+    BookingConsensus --> SeatState[(Seat Ownership)]
+
+    BookingAPI --> Payment[Payment Workflow]
+    Payment --> Provider[Payment Providers]
+
+    BookingConsensus --> Events[Global Event Stream]
+    Events --> SearchAsia
+    Events --> SearchEU
+    Events --> SearchUS
+
+    Backup[(Immutable Backups + PITR Logs)] --> Recovery[Regional Recovery]
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Multi-region không phải bài toán sao chép toàn bộ hệ thống sang một nơi khác. Nó là bài toán xác định quyền sở hữu dữ liệu, consistency khi network bị chia, mức mất dữ liệu có thể chấp nhận và quy trình chuyển quyền an toàn khi một region không còn đáng tin cậy.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 21 — Architecture Evolution:</strong> monolith, modular monolith, microservices, service boundaries, strangler pattern, zero-downtime migration và cách tiến hóa kiến trúc theo quy mô.</p>
+
+</body>
+</html>

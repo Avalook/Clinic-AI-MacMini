@@ -1,0 +1,3040 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 35 — Case Study 14: Thiết kế Ticket Booking và Reservation System.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-35--case-study-14-thiết-kế-ticket-booking-và-reservation-system">Bài 35 — Case Study 14: Thiết kế Ticket Booking và Reservation System</h1>
+<p>Ticket Booking System phục vụ việc đặt chỗ cho:</p>
+<pre class="hljs"><code><div>- Concert
+- Rạp chiếu phim
+- Sân vận động
+- Hội nghị
+- Chuyến tàu hoặc xe khách
+- Công viên giải trí
+- Sự kiện có vé theo khung giờ
+</div></code></pre>
+<p>Luồng cơ bản:</p>
+<pre class="hljs"><code><div>Khách hàng tìm sự kiện
+→ Xem sơ đồ ghế hoặc khu vực vé
+→ Chọn ghế
+→ Giữ ghế tạm thời
+→ Thanh toán
+→ Phát hành vé
+→ Quét vé khi vào cửa
+</div></code></pre>
+<p>Phần khó không nằm ở việc hiển thị sơ đồ ghế, mà ở các invariant:</p>
+<pre class="hljs"><code><div>- Một ghế không được bán cho hai người.
+- Một payment retry không được tạo hai booking.
+- Ghế không được giữ mãi khi khách bỏ checkout.
+- Payment timeout không đồng nghĩa payment thất bại.
+- Một sự kiện hot không được làm sập toàn nền tảng.
+- Waiting room phải kiểm soát traffic và hạn chế bot.
+- Vé đã chuyển nhượng hoặc resale không được quét hai lần.
+- Multi-region không được có hai writer cùng bán một inventory.
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Event discovery
+→ Waiting room
+→ Inventory availability
+→ Temporary hold
+→ Payment authorization/capture
+→ Booking confirmation
+→ Ticket issuance
+→ Transfer/resale
+→ Gate validation
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Hệ thống hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Tạo và xuất bản sự kiện.
+2. Quản lý venue và seat map.
+3. Reserved seating.
+4. General admission.
+5. Vé theo price tier.
+6. Tìm kiếm và duyệt sự kiện.
+7. Waiting room cho sự kiện hot.
+8. Giữ ghế tạm thời.
+9. Thanh toán.
+10. Phát hành vé điện tử.
+11. Hủy và hoàn tiền.
+12. Chuyển nhượng vé.
+13. Resale marketplace.
+14. Quét vé tại cổng.
+15. Multi-region.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Toàn bộ hệ thống CRM nghệ sĩ
+- Accounting chuyên sâu
+- Dynamic ad auction
+- Hệ thống nhận diện khuôn mặt tại cổng
+- Physical ticket printing logistics
+</div></code></pre>
+<hr>
+<h1 id="2-các-actor-chính">2. Các actor chính</h1>
+<h2 id="customer">Customer</h2>
+<pre class="hljs"><code><div>- Tìm sự kiện
+- Chọn ghế
+- Thanh toán
+- Nhận vé
+- Chuyển hoặc bán lại vé
+</div></code></pre>
+<h2 id="organizer">Organizer</h2>
+<pre class="hljs"><code><div>- Tạo sự kiện
+- Chọn venue
+- Cấu hình seat map
+- Cấu hình giá
+- Quản lý inventory
+- Xem báo cáo bán vé
+</div></code></pre>
+<h2 id="venue-operator">Venue operator</h2>
+<pre class="hljs"><code><div>- Quản lý cổng
+- Quét vé
+- Xử lý ngoại lệ tại địa điểm
+</div></code></pre>
+<h2 id="reseller-hoặc-marketplace">Reseller hoặc marketplace</h2>
+<pre class="hljs"><code><div>- Đăng bán vé hợp lệ
+- Chuyển ownership
+- Thanh toán người bán
+</div></code></pre>
+<h2 id="platform">Platform</h2>
+<pre class="hljs"><code><div>- Inventory correctness
+- Waiting room
+- Booking
+- Payment
+- Ticket issuance
+- Fraud prevention
+</div></code></pre>
+<hr>
+<h1 id="3-functional-requirements">3. Functional Requirements</h1>
+<h2 id="event-discovery">Event discovery</h2>
+<pre class="hljs"><code><div>- Search theo tên, thành phố, nghệ sĩ
+- Filter theo thời gian, thể loại, giá
+- Xem lịch sự kiện
+- Xem venue và seat map
+</div></code></pre>
+<h2 id="reservation">Reservation</h2>
+<pre class="hljs"><code><div>- Chọn một hoặc nhiều ghế
+- Chọn khu vực general admission
+- Giữ chỗ trong thời gian giới hạn
+- Thay đổi lựa chọn
+- Hủy hold
+</div></code></pre>
+<h2 id="checkout">Checkout</h2>
+<pre class="hljs"><code><div>- Nhập thông tin khách hàng
+- Áp coupon
+- Chọn phương thức thanh toán
+- Xác nhận tổng tiền
+- Thanh toán
+</div></code></pre>
+<h2 id="ticket-lifecycle">Ticket lifecycle</h2>
+<pre class="hljs"><code><div>- Issue
+- Download/view
+- Transfer
+- Resell
+- Revoke
+- Scan
+</div></code></pre>
+<hr>
+<h1 id="4-non-functional-requirements">4. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Không oversell.
+- Không double-book một ghế.
+- Không double-charge.
+- Hold phải tự hết hạn.
+- Availability phải cập nhật gần realtime.
+- Sự kiện hot phải chịu được traffic tăng đột biến.
+- Một tenant hoặc sự kiện không làm chậm sự kiện khác.
+- Check-in phải hoạt động ngay cả khi mạng tại venue yếu.
+- Vé giả hoặc replay phải bị chặn.
+- Có audit trail cho mọi chuyển đổi ownership.
+</div></code></pre>
+<hr>
+<h1 id="5-reserved-seating-và-general-admission">5. Reserved Seating và General Admission</h1>
+<p>Hai mô hình inventory khác nhau.</p>
+<h2 id="reserved-seating">Reserved seating</h2>
+<p>Mỗi ghế có identity riêng:</p>
+<pre class="hljs"><code><div>Section A
+Row 12
+Seat 15
+</div></code></pre>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Seat A-12-15 chỉ có một active hold hoặc một confirmed booking.
+</div></code></pre>
+<h2 id="general-admission">General admission</h2>
+<p>Không có ghế cụ thể.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Standing Zone
+Capacity = 5.000
+</div></code></pre>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Tổng held + sold không vượt capacity.
+</div></code></pre>
+<hr>
+<h1 id="6-các-loại-inventory-khác">6. Các loại inventory khác</h1>
+<p>Ngoài hai mô hình chính:</p>
+<pre class="hljs"><code><div>- Table seating
+- Box seating
+- Parking pass
+- VIP package
+- Multi-day pass
+- Time-slot admission
+- Add-on merchandise
+</div></code></pre>
+<p>Một booking có thể chứa nhiều inventory types.</p>
+<hr>
+<h1 id="7-capacity-estimation">7. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>100 triệu users
+1 triệu events/năm
+10 triệu tickets/ngày trung bình
+100.000 events đang mở bán
+</div></code></pre>
+<p>Average booking rate:</p>
+<pre class="hljs"><code><div>10.000.000 / 86.400
+≈ 116 bookings/giây
+</div></code></pre>
+<p>Nhưng một sự kiện hot có thể tạo:</p>
+<pre class="hljs"><code><div>5 triệu users chờ
+500.000 requests/giây
+50.000 ghế
+</div></code></pre>
+<p>Do đó traffic không phân bố đều.</p>
+<p>Bài toán quan trọng là:</p>
+<pre class="hljs"><code><div>Global average thấp
+nhưng hot-event peak cực lớn.
+</div></code></pre>
+<hr>
+<h1 id="8-read-to-write-ratio">8. Read-to-Write Ratio</h1>
+<p>Một user có thể:</p>
+<pre class="hljs"><code><div>- Mở event page nhiều lần
+- Zoom seat map
+- Kiểm tra availability
+- Thử giữ ghế
+</div></code></pre>
+<p>trước khi mua.</p>
+<p>Read traffic có thể cao hơn booking writes hàng trăm lần.</p>
+<p>Tuy nhiên:</p>
+<pre class="hljs"><code><div>Inventory write contention
+</div></code></pre>
+<p>mới là bottleneck correctness.</p>
+<hr>
+<h1 id="9-high-level-architecture">9. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Customer --> Edge[CDN / API Gateway]
+
+    Edge --> Discovery[Event Discovery Service]
+    Edge --> WaitingRoom[Waiting Room Service]
+    Edge --> SeatMap[Seat Map Service]
+    Edge --> Reservation[Reservation Service]
+    Edge --> Checkout[Checkout Service]
+    Edge --> TicketAPI[Ticket Service]
+
+    Discovery --> SearchIndex[(Event Search Index)]
+    Discovery --> EventStore[(Event Catalog)]
+
+    SeatMap --> SeatMapStore[(Venue / Seat Map Store)]
+    SeatMap --> AvailabilityRead[(Availability Read Model)]
+
+    WaitingRoom --> QueueStore[(Queue / Admission Store)]
+
+    Reservation --> InventoryService
+    InventoryService --> InventoryDB[(Authoritative Inventory Store)]
+    Reservation --> HoldStore[(Hold Records)]
+
+    Checkout --> Pricing[Pricing Service]
+    Checkout --> Payment[Payment Service]
+    Checkout --> Booking[Booking Service]
+
+    Booking --> BookingDB[(Booking Store)]
+    Booking --> Outbox[(Transactional Outbox)]
+
+    Outbox --> EventStream
+    EventStream --> TicketIssuer[Ticket Issuer]
+    EventStream --> Notification
+    EventStream --> Analytics
+    EventStream --> Settlement
+
+    TicketIssuer --> TicketStore[(Ticket Store)]
+    TicketAPI --> Transfer[Transfer / Resale Service]
+    TicketAPI --> GateValidation[Gate Validation Service]
+</div></code></pre>
+<hr>
+<h1 id="10-tách-browse-path-và-purchase-path">10. Tách Browse Path và Purchase Path</h1>
+<h2 id="browse-path">Browse path</h2>
+<pre class="hljs"><code><div>- Event detail
+- Seat map
+- Price range
+- Approximate availability
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Read-heavy
+- Cacheable
+- Có thể hơi stale
+</div></code></pre>
+<h2 id="purchase-path">Purchase path</h2>
+<pre class="hljs"><code><div>- Hold
+- Payment
+- Booking
+- Ticket issuance
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Transactional
+- Strong consistency
+- Idempotent
+</div></code></pre>
+<p>Không nên dùng cùng một read model cho cả UI và authoritative reservation.</p>
+<hr>
+<h1 id="11-event-data-model">11. Event Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;venueId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;venue_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Live Concert&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;startsAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-12-01T19:00:00+07:00&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;salesStartsAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-01T10:00:00+07:00&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;salesEndsAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-12-01T18:00:00+07:00&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ON_SALE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;inventoryModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;RESERVED_SEATING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">18</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="12-event-state-machine">12. Event State Machine</h1>
+<pre class="hljs"><code><div>DRAFT
+→ SCHEDULED
+→ PRESALE
+→ ON_SALE
+→ SALES_CLOSED
+→ IN_PROGRESS
+→ COMPLETED
+</div></code></pre>
+<p>Nhánh khác:</p>
+<pre class="hljs"><code><div>POSTPONED
+CANCELED
+SUSPENDED
+</div></code></pre>
+<p>Inventory behavior phụ thuộc event state.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>CANCELED:
+Không cho booking mới
+→ Kích hoạt refund workflow
+</div></code></pre>
+<hr>
+<h1 id="13-venue-data-model">13. Venue Data Model</h1>
+<pre class="hljs"><code><div>venue_id
+name
+address
+timezone
+capacity
+seat_map_template_id
+entrances
+sections
+accessibility_rules
+</div></code></pre>
+<p>Venue template có thể được tái sử dụng cho nhiều events.</p>
+<p>Nhưng từng event có thể:</p>
+<pre class="hljs"><code><div>- Đóng một section
+- Thêm sân khấu
+- Thay đổi layout
+- Đặt giá khác
+</div></code></pre>
+<hr>
+<h1 id="14-seat-map-template-và-event-seat-map">14. Seat Map Template và Event Seat Map</h1>
+<h2 id="venue-template">Venue template</h2>
+<p>Sơ đồ vật lý chung.</p>
+<h2 id="event-seat-map">Event seat map</h2>
+<p>Snapshot hoặc biến thể của template cho một event cụ thể.</p>
+<p>Không nên để event đang bán phụ thuộc trực tiếp vào template có thể bị sửa sau này.</p>
+<p>Khi publish:</p>
+<pre class="hljs"><code><div>Venue template
+→ Event seat-map snapshot
+</div></code></pre>
+<hr>
+<h1 id="15-seat-data-model">15. Seat Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;seatId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;seat_A_12_15&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;section&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;A&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;row&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;12&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;number&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;15&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;seatType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;STANDARD&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;priceTierId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;tier_1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AVAILABLE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="16-inventory-state-cho-reserved-seat">16. Inventory State cho Reserved Seat</h1>
+<p>Một ghế có thể ở:</p>
+<pre class="hljs"><code><div>AVAILABLE
+HELD
+SOLD
+BLOCKED
+UNAVAILABLE
+</div></code></pre>
+<h2 id="blocked">BLOCKED</h2>
+<p>Dùng cho:</p>
+<pre class="hljs"><code><div>- Ghế dành cho organizer
+- Ghế kỹ thuật
+- Ghế accessibility reserve
+- Ghế chưa mở bán
+</div></code></pre>
+<h2 id="unavailable">UNAVAILABLE</h2>
+<p>Dùng khi:</p>
+<pre class="hljs"><code><div>- Ghế hỏng
+- Layout thay đổi
+- Ghế không tồn tại trong event
+</div></code></pre>
+<hr>
+<h1 id="17-inventory-state-cho-general-admission">17. Inventory State cho General Admission</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>event_id
+zone_id
+capacity
+held_quantity
+sold_quantity
+blocked_quantity
+version
+</div></code></pre>
+<p>Available:</p>
+<pre class="hljs"><code><div>available =
+capacity
+- held
+- sold
+- blocked
+</div></code></pre>
+<hr>
+<h1 id="18-availability-read-model">18. Availability Read Model</h1>
+<p>UI không nên query từng seat row từ authoritative inventory database liên tục.</p>
+<p>Tạo read model:</p>
+<pre class="hljs"><code><div>eventId + sectionId
+→ seat statuses
+</div></code></pre>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>- Bitmap
+- Compressed seat-state array
+- Cached JSON tiles
+</div></code></pre>
+<p>Read model có thể trễ vài trăm mili giây.</p>
+<p>Hold request vẫn phải kiểm tra authoritative store.</p>
+<hr>
+<h1 id="19-seat-map-tiling">19. Seat Map Tiling</h1>
+<p>Venue lớn có 100.000 ghế.</p>
+<p>Không trả toàn bộ seat map mỗi lần.</p>
+<p>Có thể chia:</p>
+<pre class="hljs"><code><div>- Section
+- Block
+- Zoom level
+- Tile
+</div></code></pre>
+<p>Client tải:</p>
+<pre class="hljs"><code><div>Venue overview
+→ Section details
+→ Seat-level tile
+</div></code></pre>
+<p>Giảm payload và render cost.</p>
+<hr>
+<h1 id="20-static-và-dynamic-seat-map-data">20. Static và Dynamic Seat Map Data</h1>
+<h2 id="static">Static</h2>
+<pre class="hljs"><code><div>- Geometry
+- Row positions
+- Seat coordinates
+- Labels
+- Accessibility
+</div></code></pre>
+<p>Cache lâu qua CDN.</p>
+<h2 id="dynamic">Dynamic</h2>
+<pre class="hljs"><code><div>- AVAILABLE
+- HELD
+- SOLD
+- Price tier
+</div></code></pre>
+<p>TTL ngắn hoặc realtime updates.</p>
+<p>Không gửi lại geometry mỗi khi availability đổi.</p>
+<hr>
+<h1 id="21-seat-availability-push">21. Seat Availability Push</h1>
+<p>Có thể dùng WebSocket hoặc Server-Sent Events để báo:</p>
+<pre class="hljs"><code><div>Seat A-12-15 → HELD
+Seat A-12-16 → SOLD
+</div></code></pre>
+<p>Nhưng push chỉ là UX hint.</p>
+<p>Authoritative check vẫn xảy ra khi user tạo hold.</p>
+<p>Nếu push mất:</p>
+<pre class="hljs"><code><div>Client refresh availability snapshot.
+</div></code></pre>
+<hr>
+<h1 id="22-temporary-hold-là-gì">22. Temporary Hold là gì?</h1>
+<p>Hold là quyền tạm thời cho phép customer hoàn tất checkout.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Seat A-12-15
+được giữ cho customer C
+trong 8 phút
+</div></code></pre>
+<p>Hold không phải booking cuối cùng.</p>
+<hr>
+<h1 id="23-vì-sao-cần-hold">23. Vì sao cần Hold?</h1>
+<p>Không có hold:</p>
+<pre class="hljs"><code><div>Customer chọn ghế
+→ Nhập payment
+→ Người khác mua mất ghế giữa chừng
+</div></code></pre>
+<p>Có hold:</p>
+<pre class="hljs"><code><div>Ghế được tạm reserve
+→ Customer có thời gian thanh toán
+</div></code></pre>
+<hr>
+<h1 id="24-hold-state-machine">24. Hold State Machine</h1>
+<pre class="hljs"><code><div>ACTIVE
+→ CONSUMED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ RELEASED
+ACTIVE
+→ EXPIRED
+ACTIVE
+→ CANCELED
+</div></code></pre>
+<p>Một hold đã <code>CONSUMED</code> không được release.</p>
+<hr>
+<h1 id="25-hold-record">25. Hold Record</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;holdId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;hold_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;inventoryItems&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">&quot;seat_A_12_15&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;seat_A_12_16&quot;</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-01T10:08:00+07:00&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="26-hold-ttl">26. Hold TTL</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>5–10 phút
+</div></code></pre>
+<p>TTL quá ngắn:</p>
+<pre class="hljs"><code><div>- Customer không đủ thời gian thanh toán
+- Tỷ lệ checkout thất bại tăng
+</div></code></pre>
+<p>TTL quá dài:</p>
+<pre class="hljs"><code><div>- Inventory bị khóa bởi abandoned checkout
+- Bot dễ giữ hàng
+</div></code></pre>
+<p>TTL có thể thay đổi theo:</p>
+<pre class="hljs"><code><div>- Payment method
+- Event demand
+- User risk
+- Accessibility flow
+</div></code></pre>
+<hr>
+<h1 id="27-atomic-seat-hold">27. Atomic Seat Hold</h1>
+<p>Không được:</p>
+<pre class="hljs"><code><div>1. Đọc ghế AVAILABLE.
+2. Tạo hold.
+3. Update ghế HELD.
+</div></code></pre>
+<p>ở các transaction tách rời.</p>
+<p>Hai users có thể cùng đọc <code>AVAILABLE</code>.</p>
+<p>Cần conditional write:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> seats
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;HELD&#x27;</span>,
+    hold_id <span class="hljs-operator">=</span> :hold_id,
+    hold_expires_at <span class="hljs-operator">=</span> :expires_at,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> event_id <span class="hljs-operator">=</span> :event_id
+  <span class="hljs-keyword">AND</span> seat_id <span class="hljs-operator">=</span> :seat_id
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;AVAILABLE&#x27;</span>;
+</div></code></pre>
+<hr>
+<h1 id="28-giữ-nhiều-ghế-atomic">28. Giữ nhiều ghế Atomic</h1>
+<p>User chọn bốn ghế liền nhau.</p>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>Hoặc giữ được cả bốn
+hoặc không giữ ghế nào.
+</div></code></pre>
+<p>Nếu cùng partition/database:</p>
+<pre class="hljs"><code><div>Một transaction khóa/conditional-update cả bốn ghế.
+</div></code></pre>
+<p>Nếu một ghế đã bị giữ:</p>
+<pre class="hljs"><code><div>Rollback toàn bộ.
+</div></code></pre>
+<hr>
+<h1 id="29-multi-seat-hold-và-deadlock">29. Multi-Seat Hold và Deadlock</h1>
+<p>Hai requests:</p>
+<pre class="hljs"><code><div>Request A:
+Seat 1 rồi Seat 2
+
+Request B:
+Seat 2 rồi Seat 1
+</div></code></pre>
+<p>có thể deadlock.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>Luôn lock seats theo seatId canonical order.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>sort(seatIds)
+→ Lock/update theo thứ tự cố định
+</div></code></pre>
+<hr>
+<h1 id="30-unique-hold-constraint">30. Unique Hold Constraint</h1>
+<p>Một seat có thể có lịch sử nhiều holds, nhưng chỉ một active allocation.</p>
+<p>Có thể enforce bằng:</p>
+<pre class="hljs"><code><div>seat status + hold_id
+</div></code></pre>
+<p>hoặc unique active reservation key:</p>
+<pre class="hljs"><code><div>(eventId, seatId)
+</div></code></pre>
+<p>trong bảng active allocations.</p>
+<p>History được lưu riêng.</p>
+<hr>
+<h1 id="31-hold-trong-redis-có-đủ-không">31. Hold trong Redis có đủ không?</h1>
+<p>Redis có TTL và atomic operations, nhưng dùng Redis duy nhất làm source of truth có rủi ro:</p>
+<pre class="hljs"><code><div>- Failover mất recent writes
+- TTL behavior và persistence policy
+- Split-brain
+- Rebuild khó
+</div></code></pre>
+<p>Có thể dùng Redis cho:</p>
+<pre class="hljs"><code><div>- Fast cache
+- Waiting room
+- Availability projection
+</div></code></pre>
+<p>Nhưng authoritative seat allocation nên có durability và conditional consistency rõ ràng.</p>
+<hr>
+<h1 id="32-thiết-kế-hybrid-hold">32. Thiết kế Hybrid Hold</h1>
+<p>Một phương án:</p>
+<pre class="hljs"><code><div>Authoritative inventory:
+Transactional database
+
+Fast availability:
+In-memory cache
+
+Expiry scheduling:
+Delayed queue hoặc timer service
+</div></code></pre>
+<p>Hold commit:</p>
+<pre class="hljs"><code><div>1. Transactionally update inventory.
+2. Insert hold record.
+3. Insert expiration event/outbox.
+4. Update cache async.
+</div></code></pre>
+<hr>
+<h1 id="33-expiry-không-chỉ-dựa-vào-scheduler">33. Expiry không chỉ dựa vào Scheduler</h1>
+<p>Nếu timer worker chậm, một expired hold vẫn không được chặn inventory mãi.</p>
+<p>Khi giữ hoặc mua ghế:</p>
+<pre class="hljs"><code><div>Nếu status = HELD
+và hold_expires_at &lt; now
+→ Có thể reclaim atomically.
+</div></code></pre>
+<p>Expiry phải được kiểm tra tại read/write path authoritative.</p>
+<hr>
+<h1 id="34-lazy-expiration">34. Lazy Expiration</h1>
+<p>Khi request chạm ghế:</p>
+<pre class="hljs"><code><div>HELD nhưng expired
+→ Chuyển AVAILABLE
+→ Thử hold mới
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Không cần timer chính xác tuyệt đối.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Ghế ít được truy cập có thể giữ trạng thái stale trong store.
+</div></code></pre>
+<hr>
+<h1 id="35-active-expiration-worker">35. Active Expiration Worker</h1>
+<p>Worker đọc delayed queue:</p>
+<pre class="hljs"><code><div>hold_123 expires at 10:08
+</div></code></pre>
+<p>Khi tới giờ:</p>
+<pre class="hljs"><code><div>Nếu hold vẫn ACTIVE
+→ Release seats
+→ Hold EXPIRED
+</div></code></pre>
+<p>Phải dùng compare-and-set để tránh release sau khi hold đã được consumed.</p>
+<hr>
+<h1 id="36-hold-expiry-race-với-payment">36. Hold Expiry Race với Payment</h1>
+<p>Tình huống:</p>
+<pre class="hljs"><code><div>10:07:59:
+Payment success
+
+10:08:00:
+Hold expiration worker chạy
+</div></code></pre>
+<p>Không được vừa confirm booking vừa release ghế.</p>
+<p>Cần transaction/state transition:</p>
+<pre class="hljs"><code><div>ACTIVE hold
+→ CONSUMED
+</div></code></pre>
+<p>chỉ một operation thắng.</p>
+<p>Expiry chỉ release nếu:</p>
+<pre class="hljs"><code><div>hold.status = ACTIVE
+và expiresAt &lt;= now
+</div></code></pre>
+<hr>
+<h1 id="37-clock-semantics">37. Clock Semantics</h1>
+<p>Không dùng clock từ client để quyết định hold còn hạn.</p>
+<p>Server dùng:</p>
+<pre class="hljs"><code><div>- Database time
+- Authoritative service time
+</div></code></pre>
+<p>Client countdown chỉ là UX.</p>
+<p>Server response nên trả:</p>
+<pre class="hljs"><code><div>expiresAt
+serverNow
+</div></code></pre>
+<p>để client hiển thị tương đối chính xác.</p>
+<hr>
+<h1 id="38-hold-extension">38. Hold Extension</h1>
+<p>Có nên cho gia hạn?</p>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Bot liên tục gia hạn
+→ Ghế không bao giờ quay lại inventory.
+</div></code></pre>
+<p>Nếu hỗ trợ:</p>
+<pre class="hljs"><code><div>- Chỉ một lần
+- Chỉ khi payment challenge đang active
+- Maximum total hold duration
+- Risk check
+</div></code></pre>
+<hr>
+<h1 id="39-general-admission-reservation">39. General Admission Reservation</h1>
+<p>Atomic conditional update:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> zone_inventory
+<span class="hljs-keyword">SET</span> held_quantity <span class="hljs-operator">=</span> held_quantity <span class="hljs-operator">+</span> :qty,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> event_id <span class="hljs-operator">=</span> :event_id
+  <span class="hljs-keyword">AND</span> zone_id <span class="hljs-operator">=</span> :zone_id
+  <span class="hljs-keyword">AND</span> capacity <span class="hljs-operator">-</span> sold_quantity <span class="hljs-operator">-</span> held_quantity <span class="hljs-operator">-</span> blocked_quantity <span class="hljs-operator">&gt;=</span> :qty;
+</div></code></pre>
+<p>Sau đó tạo hold record.</p>
+<hr>
+<h1 id="40-counter-sharding-cho-general-admission">40. Counter Sharding cho General Admission</h1>
+<p>Một hot zone có thể tạo contention trên một row.</p>
+<p>Có thể chia inventory thành buckets:</p>
+<pre class="hljs"><code><div>zone_GA_bucket_0
+...
+zone_GA_bucket_99
+</div></code></pre>
+<p>Nhưng phải bảo đảm:</p>
+<pre class="hljs"><code><div>Tổng allocation không vượt capacity.
+</div></code></pre>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Pre-allocate quota cho buckets
+- Central token allocator
+- Queue-based serialization
+</div></code></pre>
+<hr>
+<h1 id="41-inventory-tokens">41. Inventory Tokens</h1>
+<p>Với general admission:</p>
+<pre class="hljs"><code><div>Capacity 10.000
+→ Tạo 10.000 logical tokens
+</div></code></pre>
+<p>Hold consume token tạm thời.</p>
+<p>Booking chuyển token thành sold.</p>
+<p>Cách này biến counter contention thành token allocation, nhưng metadata nhiều hơn.</p>
+<hr>
+<h1 id="42-best-available-seats">42. Best Available Seats</h1>
+<p>User có thể chọn:</p>
+<pre class="hljs"><code><div>“Cho tôi 4 ghế tốt nhất liền nhau.”
+</div></code></pre>
+<p>Hệ thống cần:</p>
+<pre class="hljs"><code><div>- Seat quality score
+- Adjacency
+- Accessibility rules
+- Price tier
+- Current availability
+</div></code></pre>
+<hr>
+<h1 id="43-seat-quality-score">43. Seat Quality Score</h1>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Khoảng cách tới sân khấu
+- Góc nhìn
+- Trung tâm hàng
+- Section
+- Row
+- Obstruction
+</div></code></pre>
+<p>Precompute:</p>
+<pre class="hljs"><code><div>seatId → qualityScore
+</div></code></pre>
+<p>cho từng event layout.</p>
+<hr>
+<h1 id="44-tìm-nhóm-ghế-liền-nhau">44. Tìm nhóm ghế liền nhau</h1>
+<p>Mỗi row có thể biểu diễn availability bằng bitmap:</p>
+<pre class="hljs"><code><div>1 = available
+0 = unavailable
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>111001111100
+</div></code></pre>
+<p>Tìm chuỗi <code>1111</code> cho bốn ghế liên tiếp.</p>
+<p>Bitmap giúp tìm nhanh candidates.</p>
+<hr>
+<h1 id="45-best-available-flow">45. Best-Available Flow</h1>
+<pre class="hljs"><code><div>1. Read candidate rows từ availability index.
+2. Tìm nhóm ghế liền nhau.
+3. Xếp hạng nhóm.
+4. Thử atomic hold trên authoritative store.
+5. Nếu conflict, thử nhóm tiếp theo.
+</div></code></pre>
+<p>Availability index có thể stale, nên cần retry.</p>
+<hr>
+<h1 id="46-không-để-best-available-gây-stampede">46. Không để Best-Available gây Stampede</h1>
+<p>Nhiều users cùng nhận một nhóm “tốt nhất” rồi cùng tranh hold.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Randomize trong top-K
+- Partition candidate ranges
+- Short candidate leases
+- Retry nhanh với nhóm khác
+</div></code></pre>
+<hr>
+<h1 id="47-orphan-seat-problem">47. Orphan Seat Problem</h1>
+<p>Đặt hai ghế có thể để lại một ghế đơn lẻ giữa các bookings:</p>
+<pre class="hljs"><code><div>XX_XX
+</div></code></pre>
+<p>Venue muốn tránh ghế lẻ khó bán.</p>
+<p>Hold rules có thể từ chối lựa chọn tạo:</p>
+<pre class="hljs"><code><div>single-seat gap
+</div></code></pre>
+<p>trừ khi:</p>
+<pre class="hljs"><code><div>- Không còn lựa chọn khác
+- Accessibility rule
+- Event gần hết vé
+</div></code></pre>
+<hr>
+<h1 id="48-accessibility-seats">48. Accessibility Seats</h1>
+<p>Ghế hỗ trợ người khuyết tật có policy riêng:</p>
+<pre class="hljs"><code><div>- Chỉ mở cho eligible users
+- Có companion seats
+- Có thể mở rộng cho công chúng gần giờ diễn
+</div></code></pre>
+<p>Inventory Service phải áp rule, không chỉ UI.</p>
+<hr>
+<h1 id="49-price-tier">49. Price Tier</h1>
+<p>Ghế có:</p>
+<pre class="hljs"><code><div>priceTierId
+</div></code></pre>
+<p>Price tier record:</p>
+<pre class="hljs"><code><div>tier_id
+event_id
+base_price
+currency
+fee_policy
+sales_window
+customer_eligibility
+version
+</div></code></pre>
+<hr>
+<h1 id="50-dynamic-pricing">50. Dynamic Pricing</h1>
+<p>Giá có thể thay đổi theo:</p>
+<pre class="hljs"><code><div>- Thời gian
+- Demand
+- Remaining inventory
+- Section
+- Presale group
+</div></code></pre>
+<p>Nhưng hold phải khóa price quote trong thời gian checkout.</p>
+<p>Không được:</p>
+<pre class="hljs"><code><div>Customer giữ ghế giá 1 triệu
+→ Checkout thành 1,5 triệu
+</div></code></pre>
+<p>mà không xác nhận lại.</p>
+<hr>
+<h1 id="51-price-quote">51. Price Quote</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;quoteId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;quote_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;holdId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;hold_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;seatId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;seat_A_12_15&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;basePrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1000000</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;fees&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">120000</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;tax&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">80000</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;total&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1200000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Quote expiration thường không vượt hold expiration.</p>
+<hr>
+<h1 id="52-fee-transparency">52. Fee Transparency</h1>
+<p>Ticket có thể gồm:</p>
+<pre class="hljs"><code><div>- Face value
+- Service fee
+- Venue fee
+- Delivery fee
+- Tax
+- Insurance
+</div></code></pre>
+<p>Order phải lưu từng thành phần để:</p>
+<pre class="hljs"><code><div>- Refund
+- Settlement
+- Audit
+- Customer receipt
+</div></code></pre>
+<hr>
+<h1 id="53-coupon-và-presale-access">53. Coupon và Presale Access</h1>
+<p>Presale có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Membership
+- Access code
+- Fan club
+- Credit-card program
+</div></code></pre>
+<p>Access code không nên trực tiếp chứa toàn bộ quyền.</p>
+<p>Server validate:</p>
+<pre class="hljs"><code><div>code
+→ campaign
+→ eligible inventory/price tier
+→ usage limit
+</div></code></pre>
+<hr>
+<h1 id="54-access-code-abuse">54. Access Code Abuse</h1>
+<p>Một code dùng chung có thể bị phát tán.</p>
+<p>Có thể giới hạn:</p>
+<pre class="hljs"><code><div>- Uses/code
+- Uses/customer
+- Device/account velocity
+- Time window
+- Inventory pool riêng
+</div></code></pre>
+<hr>
+<h1 id="55-waiting-room">55. Waiting Room</h1>
+<p>Waiting room bảo vệ purchase path trước traffic spike.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>User tới event
+→ Nhận queue position/token
+→ Chờ
+→ Được admission
+→ Truy cập seat selection
+</div></code></pre>
+<hr>
+<h1 id="56-vì-sao-chỉ-rate-limit-chưa-đủ">56. Vì sao chỉ Rate Limit chưa đủ?</h1>
+<p>Rate limit có thể trả 429 cho hàng triệu users.</p>
+<p>Waiting room tốt hơn vì:</p>
+<pre class="hljs"><code><div>- Làm phẳng traffic
+- Cho UX dự kiến
+- Kiểm soát concurrency
+- Hạn chế retry storm
+- Có fairness policy
+</div></code></pre>
+<hr>
+<h1 id="57-waiting-room-architecture">57. Waiting Room Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> Edge
+    Edge --> QueueAdmission[Queue Admission]
+    QueueAdmission --> QueueStore[(Queue Store)]
+    QueueStore --> Scheduler[Admission Scheduler]
+    Scheduler --> AccessToken[Signed Access Token]
+    AccessToken --> PurchaseAPI[Purchase APIs]
+</div></code></pre>
+<hr>
+<h1 id="58-queue-token">58. Queue Token</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;queueId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;queue_evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;visitorId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vis_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;joinedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;priorityClass&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;GENERAL&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nonce&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;signature&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Token cần:</p>
+<pre class="hljs"><code><div>- High entropy
+- Signature
+- Expiry
+- Event scope
+</div></code></pre>
+<hr>
+<h1 id="59-admission-token">59. Admission Token</h1>
+<p>Khi được vào:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;visitorId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vis_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;admittedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;maxConcurrentSession&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;signature&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Purchase APIs kiểm tra token.</p>
+<p>Không chỉ dựa vào frontend redirect.</p>
+<hr>
+<h1 id="60-queue-fairness">60. Queue Fairness</h1>
+<p>Các mô hình:</p>
+<pre class="hljs"><code><div>- First come, first served
+- Randomized queue
+- Lottery
+- Priority membership
+- Accessibility priority
+- Organizer allocation
+</div></code></pre>
+<p>“First come” trên internet bị ảnh hưởng bởi:</p>
+<pre class="hljs"><code><div>- Network latency
+- Geography
+- Device speed
+</div></code></pre>
+<p>Policy phải rõ ràng.</p>
+<hr>
+<h1 id="61-pre-queue">61. Pre-Queue</h1>
+<p>Trước sales start:</p>
+<pre class="hljs"><code><div>Users vào pre-queue
+</div></code></pre>
+<p>Khi mở bán:</p>
+<pre class="hljs"><code><div>- Randomize users đã vào trước cutoff
+- Users vào sau xếp sau
+</div></code></pre>
+<p>Cách này giảm lợi thế vài mili giây mạng.</p>
+<hr>
+<h1 id="62-admission-rate">62. Admission Rate</h1>
+<p>Waiting room scheduler phát:</p>
+<pre class="hljs"><code><div>X users/giây
+</div></code></pre>
+<p>dựa trên:</p>
+<pre class="hljs"><code><div>- Reservation Service capacity
+- Payment capacity
+- Inventory contention
+- Current checkout completion rate
+</div></code></pre>
+<p>Admission rate phải adaptive.</p>
+<hr>
+<h1 id="63-queue-position-không-cần-chính-xác-tuyệt-đối">63. Queue Position không cần chính xác tuyệt đối</h1>
+<p>Hiển thị:</p>
+<pre class="hljs"><code><div>“Khoảng 12 phút”
+</div></code></pre>
+<p>có thể tốt hơn vị trí chính xác vì:</p>
+<pre class="hljs"><code><div>- Users rời queue
+- Admission rate thay đổi
+- Priority classes
+</div></code></pre>
+<p>Không nên update vị trí mỗi giây cho hàng triệu users.</p>
+<hr>
+<h1 id="64-queue-polling">64. Queue Polling</h1>
+<p>Client poll:</p>
+<pre class="hljs"><code><div>GET /queue/status
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Long polling
+- WebSocket
+- Periodic polling
+</div></code></pre>
+<p>CDN/edge có thể phục vụ một phần status có chữ ký.</p>
+<hr>
+<h1 id="65-queue-token-replay">65. Queue Token Replay</h1>
+<p>Một user chia admission token cho nhiều người.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Bind token với session/account/device
+- One active purchase session
+- Token nonce consumption
+- Short expiry
+</div></code></pre>
+<p>Không nên bind quá cứng vào IP vì mobile networks có thể thay đổi.</p>
+<hr>
+<h1 id="66-bot-protection">66. Bot Protection</h1>
+<p>Các lớp:</p>
+<pre class="hljs"><code><div>- Edge rate limits
+- Device/browser signals
+- Account age
+- CAPTCHA khi cần
+- Queue token integrity
+- Velocity limits
+- Purchase quantity limit
+- Payment identity correlation
+</div></code></pre>
+<p>Không có một tín hiệu duy nhất đủ.</p>
+<hr>
+<h1 id="67-inventory-isolation-theo-event">67. Inventory Isolation theo Event</h1>
+<p>Hot event không nên lock resources của mọi event.</p>
+<p>Có thể shard theo:</p>
+<pre class="hljs"><code><div>eventId
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Seat inventory locality
+- Hold transactions cùng shard
+- Event-level scaling
+- Failure isolation
+</div></code></pre>
+<hr>
+<h1 id="68-event-inventory-owner">68. Event Inventory Owner</h1>
+<p>Mỗi event có một authoritative writer shard/region:</p>
+<pre class="hljs"><code><div>eventId → inventoryOwner
+</div></code></pre>
+<p>Mọi hold, consume và release route tới owner.</p>
+<p>Đây là cách đơn giản nhất để tránh cross-region oversell.</p>
+<hr>
+<h1 id="69-checkout-aggregate">69. Checkout Aggregate</h1>
+<p>Checkout session:</p>
+<pre class="hljs"><code><div>checkout_id
+customer_id
+event_id
+hold_id
+quote_id
+payment_intent_id
+status
+expires_at
+version
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>CREATED
+→ HOLD_VALIDATED
+→ PAYMENT_PROCESSING
+→ BOOKING_CREATING
+→ COMPLETED
+</div></code></pre>
+<p>Nhánh khác:</p>
+<pre class="hljs"><code><div>FAILED
+EXPIRED
+CANCELED
+PAYMENT_UNKNOWN
+</div></code></pre>
+<hr>
+<h1 id="70-checkout-idempotency">70. Checkout Idempotency</h1>
+<p>Request:</p>
+<pre class="hljs"><code><div>POST /v1/checkouts/{checkoutId}/confirm
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>confirm_checkout_123
+</div></code></pre>
+<p>Retry trả cùng:</p>
+<pre class="hljs"><code><div>bookingId
+paymentIntentId
+</div></code></pre>
+<p>Không tạo booking mới.</p>
+<hr>
+<h1 id="71-booking-data-model">71. Booking Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;bookingId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;book_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;holdId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;hold_555&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CONFIRMED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2400000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentIntentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pi_111&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="72-booking-state-machine">72. Booking State Machine</h1>
+<pre class="hljs"><code><div>CREATED
+→ PAYMENT_AUTHORIZED
+→ CONFIRMED
+→ TICKETS_ISSUED
+</div></code></pre>
+<p>Nhánh khác:</p>
+<pre class="hljs"><code><div>CANCELED
+REFUND_PENDING
+REFUNDED
+PARTIALLY_REFUNDED
+PAYMENT_FAILED
+</div></code></pre>
+<hr>
+<h1 id="73-payment-trước-hay-sau-consume-hold">73. Payment trước hay sau Consume Hold?</h1>
+<h2 id="consume-hold-trước-payment">Consume hold trước payment</h2>
+<pre class="hljs"><code><div>Ưu:
+Ghế chắc chắn thuộc booking.
+
+Nhược:
+Nếu payment fail, phải release/compensate.
+</div></code></pre>
+<h2 id="payment-trước-consume">Payment trước consume</h2>
+<pre class="hljs"><code><div>Ưu:
+Không tạo booking khi không trả được.
+
+Nhược:
+Payment thành công nhưng hold vừa hết hạn.
+</div></code></pre>
+<p>Cần orchestration cẩn thận.</p>
+<hr>
+<h1 id="74-thiết-kế-khuyến-nghị-cho-checkout">74. Thiết kế Khuyến nghị cho Checkout</h1>
+<p>Một flow:</p>
+<pre class="hljs"><code><div>1. Validate hold còn ACTIVE.
+2. Tạo Payment Intent.
+3. Authorize payment.
+4. Transactionally consume hold và tạo booking.
+5. Capture payment theo policy.
+6. Issue tickets.
+</div></code></pre>
+<p>Nếu bước 4 thất bại vì hold hết hạn:</p>
+<pre class="hljs"><code><div>Void authorization.
+</div></code></pre>
+<hr>
+<h1 id="75-authorization-và-capture">75. Authorization và Capture</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Authorize
+→ Confirm booking
+→ Capture
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>Nếu booking commit fail
+→ Void authorization
+</div></code></pre>
+<p>Nếu capture ngay trước booking commit, hệ thống có thể phải refund nhiều hơn.</p>
+<hr>
+<h1 id="76-payment-timeout">76. Payment Timeout</h1>
+<p>Provider timeout:</p>
+<pre class="hljs"><code><div>Không biết đã authorize/capture hay chưa.
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>PAYMENT_UNKNOWN
+</div></code></pre>
+<p>Không được:</p>
+<pre class="hljs"><code><div>- Tạo payment mới với identity khác
+- Release hold ngay mà không xác minh
+</div></code></pre>
+<hr>
+<h1 id="77-payment-unknown-và-hold-ttl">77. Payment Unknown và Hold TTL</h1>
+<p>Đây là tình huống khó:</p>
+<pre class="hljs"><code><div>Hold gần hết hạn
+Payment outcome chưa biết
+</div></code></pre>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>1. Gia hạn hold ngắn có điều kiện.
+2. Chuyển inventory sang PAYMENT_PENDING state.
+3. Giữ internal payment-recovery lease.
+</div></code></pre>
+<p>Phải giới hạn tổng thời gian để tránh khóa ghế quá lâu.</p>
+<hr>
+<h1 id="78-payment-pending-inventory-state">78. Payment Pending Inventory State</h1>
+<p>Có thể thêm:</p>
+<pre class="hljs"><code><div>AVAILABLE
+HELD
+PAYMENT_PENDING
+SOLD
+</div></code></pre>
+<p><code>PAYMENT_PENDING</code> chỉ dành cho:</p>
+<pre class="hljs"><code><div>Provider operation đã gửi
+nhưng kết quả chưa rõ.
+</div></code></pre>
+<p>Có TTL và reconciliation riêng.</p>
+<hr>
+<h1 id="79-atomic-consume-hold-và-booking-creation">79. Atomic Consume Hold và Booking Creation</h1>
+<p>Trong một transaction:</p>
+<pre class="hljs"><code><div>- Verify hold ACTIVE
+- Verify chưa hết hạn
+- Update hold → CONSUMED
+- Update seats → SOLD
+- Insert booking
+- Insert booking lines
+- Insert outbox event
+</div></code></pre>
+<p>Điều này bảo đảm ghế và booking không lệch.</p>
+<hr>
+<h1 id="80-booking-lines">80. Booking Lines</h1>
+<pre class="hljs"><code><div>booking_line_id
+booking_id
+inventory_type
+seat_id hoặc zone_id
+quantity
+price_snapshot
+fee_snapshot
+ticket_status
+</div></code></pre>
+<p>Một booking có nhiều tickets.</p>
+<hr>
+<h1 id="81-ticket-issuance">81. Ticket Issuance</h1>
+<p>Sau <code>BookingConfirmed</code>:</p>
+<pre class="hljs"><code><div>Ticket Issuer
+→ Tạo ticket records
+→ Tạo barcode/QR identity
+→ Gửi notification
+</div></code></pre>
+<p>Ticket issuance có thể async nếu booking đã confirmed.</p>
+<p>Nhưng UI cần trạng thái:</p>
+<pre class="hljs"><code><div>TICKETS_PROCESSING
+</div></code></pre>
+<hr>
+<h1 id="82-ticket-data-model">82. Ticket Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;ticketId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;tkt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;bookingId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;book_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;seatId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;seat_A_12_15&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;ownerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_111&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;credentialVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;issuedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="83-ticket-state-machine">83. Ticket State Machine</h1>
+<pre class="hljs"><code><div>ACTIVE
+→ USED
+</div></code></pre>
+<p>Các nhánh:</p>
+<pre class="hljs"><code><div>TRANSFER_PENDING
+TRANSFERRED
+LISTED_FOR_RESALE
+SOLD_ON_RESALE
+REVOKED
+REFUNDED
+CANCELED
+</div></code></pre>
+<p>Ticket state cần rõ vì nhiều flows có thể cạnh tranh.</p>
+<hr>
+<h1 id="84-vé-điện-tử-và-credential">84. Vé điện tử và Credential</h1>
+<p>Credential có thể là:</p>
+<pre class="hljs"><code><div>- Static QR code
+- Rotating QR code
+- Signed barcode
+- NFC credential
+</div></code></pre>
+<p>Static QR dễ screenshot và chia sẻ.</p>
+<p>Rotating credential an toàn hơn nhưng yêu cầu app và connectivity.</p>
+<hr>
+<h1 id="85-signed-ticket-payload">85. Signed Ticket Payload</h1>
+<p>Payload có thể chứa:</p>
+<pre class="hljs"><code><div>ticketId
+eventId
+credentialVersion
+expiresAt hoặc time window
+nonce
+signature
+</div></code></pre>
+<p>Gate scanner verify chữ ký.</p>
+<p>Không nên chứa quá nhiều PII.</p>
+<hr>
+<h1 id="86-static-qr-risk">86. Static QR Risk</h1>
+<p>User có thể gửi screenshot cho người khác.</p>
+<p>Người quét trước sẽ vào.</p>
+<p>Đây là replay race.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Server-side first-use validation
+- Rotating QR
+- Device-bound credential
+- Identity check cho một số events
+</div></code></pre>
+<hr>
+<h1 id="87-rotating-qr">87. Rotating QR</h1>
+<p>App nhận token ngắn hạn:</p>
+<pre class="hljs"><code><div>valid 30–60 giây
+</div></code></pre>
+<p>Token mới thay token cũ.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Screenshot cũ nhanh hết hạn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Phụ thuộc app
+- Cần network hoặc token prefetch
+- Venue connectivity
+</div></code></pre>
+<hr>
+<h1 id="88-gate-validation">88. Gate Validation</h1>
+<p>Scanner gửi:</p>
+<pre class="hljs"><code><div>ticketCredential
+gateId
+scannerId
+scannedAt
+</div></code></pre>
+<p>Server kiểm tra:</p>
+<pre class="hljs"><code><div>- Signature
+- Event
+- Ticket status
+- Credential version
+- Gate eligibility
+- Chưa used
+</div></code></pre>
+<p>Sau đó atomic transition:</p>
+<pre class="hljs"><code><div>ACTIVE → USED
+</div></code></pre>
+<hr>
+<h1 id="89-concurrent-gate-scan">89. Concurrent Gate Scan</h1>
+<p>Cùng vé được quét ở hai cổng gần như đồng thời.</p>
+<p>Chỉ một conditional update thắng:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> tickets
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;USED&#x27;</span>,
+    used_at <span class="hljs-operator">=</span> :<span class="hljs-type">time</span>,
+    used_gate_id <span class="hljs-operator">=</span> :gate
+<span class="hljs-keyword">WHERE</span> ticket_id <span class="hljs-operator">=</span> :ticket
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;ACTIVE&#x27;</span>
+  <span class="hljs-keyword">AND</span> credential_version <span class="hljs-operator">=</span> :version;
+</div></code></pre>
+<p>Scanner còn lại nhận:</p>
+<pre class="hljs"><code><div>ALREADY_USED
+</div></code></pre>
+<hr>
+<h1 id="90-venue-offline-mode">90. Venue Offline Mode</h1>
+<p>Mạng tại venue có thể yếu.</p>
+<p>Scanner cần offline validation.</p>
+<p>Nhưng offline làm double-scan prevention khó vì các scanners không phối hợp tức thời.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Local venue edge server
+- Scanner mesh/local Wi-Fi
+- Partition ticket ranges theo gate
+- Offline allowlist snapshot
+</div></code></pre>
+<hr>
+<h1 id="91-venue-edge-server">91. Venue Edge Server</h1>
+<p>Trước sự kiện:</p>
+<pre class="hljs"><code><div>- Sync active ticket credentials
+- Sync revocation list
+- Sync gate rules
+</div></code></pre>
+<p>Tại venue:</p>
+<pre class="hljs"><code><div>Scanners → Local edge server
+</div></code></pre>
+<p>Local server atomic check-in trong LAN.</p>
+<p>Sau đó sync events về cloud.</p>
+<p>Đây là thiết kế tốt hơn scanners độc lập hoàn toàn offline.</p>
+<hr>
+<h1 id="92-fully-offline-scanner">92. Fully Offline Scanner</h1>
+<p>Nếu từng scanner hoạt động độc lập:</p>
+<pre class="hljs"><code><div>Hai scanners có thể chấp nhận cùng vé.
+</div></code></pre>
+<p>Có thể giảm rủi ro bằng:</p>
+<pre class="hljs"><code><div>- Assign ticket hash ranges cho scanners
+- Assign sections/gates
+- Periodic local sync
+- Mark suspicious duplicates sau sự kiện
+</div></code></pre>
+<p>Không thể đạt strong global uniqueness khi bị partition hoàn toàn mà vẫn cho mọi scanner accept.</p>
+<hr>
+<h1 id="93-check-in-event-log">93. Check-In Event Log</h1>
+<p>Mỗi scan được lưu:</p>
+<pre class="hljs"><code><div>scan_id
+ticket_id
+credential_version
+gate_id
+scanner_id
+event_timestamp
+result
+reason
+</div></code></pre>
+<p>Kể cả scans bị từ chối cũng nên audit.</p>
+<hr>
+<h1 id="94-ticket-transfer">94. Ticket Transfer</h1>
+<p>Owner chuyển vé cho người khác.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Tạo transfer invitation.
+2. Ticket → TRANSFER_PENDING.
+3. Recipient accept.
+4. Ownership đổi.
+5. Credential version tăng.
+6. Credential cũ bị revoke.
+</div></code></pre>
+<hr>
+<h1 id="95-transfer-state-machine">95. Transfer State Machine</h1>
+<pre class="hljs"><code><div>CREATED
+→ ACCEPTED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>CREATED
+→ CANCELED
+CREATED
+→ EXPIRED
+</div></code></pre>
+<p>Ticket chỉ đổi owner sau <code>ACCEPTED</code>.</p>
+<hr>
+<h1 id="96-credential-rotation-khi-transfer">96. Credential Rotation khi Transfer</h1>
+<p>Sau transfer:</p>
+<pre class="hljs"><code><div>old credential version 4
+→ new version 5
+</div></code></pre>
+<p>Gate validation từ chối version 4.</p>
+<p>Điều này ngăn người gửi giữ screenshot cũ và dùng tiếp.</p>
+<hr>
+<h1 id="97-transfer-race-với-scan">97. Transfer Race với Scan</h1>
+<p>Ticket đang <code>TRANSFER_PENDING</code> nhưng được quét.</p>
+<p>Policy có thể:</p>
+<pre class="hljs"><code><div>- Cho phép owner cũ dùng tới khi recipient accept
+- Tạm khóa ticket trong transfer
+</div></code></pre>
+<p>Cần state semantics rõ.</p>
+<p>Một lựa chọn an toàn:</p>
+<pre class="hljs"><code><div>Transfer invitation không vô hiệu hóa ticket
+cho tới khi accepted.
+</div></code></pre>
+<p>Khi accepted, credential rotate atomically.</p>
+<hr>
+<h1 id="98-resale-marketplace">98. Resale Marketplace</h1>
+<p>Resale flow:</p>
+<pre class="hljs"><code><div>Owner đăng bán
+→ Ticket bị lock
+→ Buyer mua
+→ Payment buyer
+→ Ownership transfer
+→ Seller payout
+</div></code></pre>
+<p>Không nên cho ticket vẫn có thể transfer thủ công trong lúc listed.</p>
+<hr>
+<h1 id="99-listing-state-machine">99. Listing State Machine</h1>
+<pre class="hljs"><code><div>DRAFT
+→ ACTIVE
+→ RESERVED_FOR_BUYER
+→ SOLD
+</div></code></pre>
+<p>Nhánh:</p>
+<pre class="hljs"><code><div>CANCELED
+EXPIRED
+SUSPENDED
+</div></code></pre>
+<hr>
+<h1 id="100-ticket-lock-khi-resale">100. Ticket Lock khi Resale</h1>
+<p>Khi listing <code>ACTIVE</code>:</p>
+<pre class="hljs"><code><div>ticket.status = LISTED_FOR_RESALE
+</div></code></pre>
+<p>Không cho:</p>
+<pre class="hljs"><code><div>- Transfer
+- Refund
+- Tạo listing thứ hai
+</div></code></pre>
+<p>ngoài policy.</p>
+<hr>
+<h1 id="101-resale-buyer-hold">101. Resale Buyer Hold</h1>
+<p>Buyer chọn resale ticket:</p>
+<pre class="hljs"><code><div>Listing ACTIVE
+→ RESERVED_FOR_BUYER trong vài phút
+</div></code></pre>
+<p>Pattern giống inventory hold.</p>
+<p>Nếu payment fail:</p>
+<pre class="hljs"><code><div>Listing trở lại ACTIVE.
+</div></code></pre>
+<hr>
+<h1 id="102-resale-settlement">102. Resale Settlement</h1>
+<p>Buyer payment:</p>
+<pre class="hljs"><code><div>Buyer charge
+→ Platform clearing
+→ Seller payable
+→ Platform resale fee
+</div></code></pre>
+<p>Seller payout có thể chỉ xảy ra:</p>
+<pre class="hljs"><code><div>- Ngay sau sale
+- Sau event
+- Sau cửa sổ fraud
+</div></code></pre>
+<p>Policy phụ thuộc rủi ro.</p>
+<hr>
+<h1 id="103-price-caps-và-organizer-rules">103. Price Caps và Organizer Rules</h1>
+<p>Organizer có thể đặt:</p>
+<pre class="hljs"><code><div>- Không cho resale
+- Chỉ resale qua platform
+- Giá tối đa
+- Giá tối thiểu
+- Không resale sau cutoff
+</div></code></pre>
+<p>Rule phải được enforce server-side.</p>
+<hr>
+<h1 id="104-resale-fraud">104. Resale Fraud</h1>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- Vé không hợp lệ
+- Chargeback buyer
+- Seller account fraud
+- Collusion
+- Wash trading
+</div></code></pre>
+<p>Vì ticket nằm trong platform, resale nội bộ an toàn hơn marketplace cho ảnh chụp QR bên ngoài.</p>
+<hr>
+<h1 id="105-cancellation">105. Cancellation</h1>
+<p>Event có thể:</p>
+<pre class="hljs"><code><div>- Customer cancellation
+- Organizer cancellation
+- Event cancellation
+- Event postponement
+</div></code></pre>
+<p>Mỗi trường hợp có refund policy khác nhau.</p>
+<hr>
+<h1 id="106-customer-cancellation">106. Customer Cancellation</h1>
+<p>Nhiều vé sự kiện không cho hủy tự do.</p>
+<p>Nếu cho phép:</p>
+<pre class="hljs"><code><div>- Trước cutoff
+- Có phí
+- Chỉ một số price tier
+</div></code></pre>
+<p>Flow:</p>
+<pre class="hljs"><code><div>Ticket ACTIVE
+→ CANCELED
+→ Inventory có thể được release/resell
+→ Refund
+</div></code></pre>
+<hr>
+<h1 id="107-event-cancellation">107. Event Cancellation</h1>
+<p>Event state:</p>
+<pre class="hljs"><code><div>ON_SALE
+→ CANCELED
+</div></code></pre>
+<p>Workflow:</p>
+<pre class="hljs"><code><div>- Dừng booking mới
+- Revoke tickets
+- Cancel pending holds
+- Refund bookings
+- Notify customers
+- Reverse settlement
+</div></code></pre>
+<p>Không chạy một transaction khổng lồ cho hàng triệu bookings.</p>
+<p>Dùng batch workflow.</p>
+<hr>
+<h1 id="108-postponement">108. Postponement</h1>
+<p>Event đổi ngày.</p>
+<p>Customer có thể:</p>
+<pre class="hljs"><code><div>- Giữ vé
+- Yêu cầu refund
+</div></code></pre>
+<p>Ticket identity có thể giữ nguyên nếu eventId giữ nguyên.</p>
+<p>Nhưng phải:</p>
+<pre class="hljs"><code><div>- Update event schedule version
+- Notify
+- Reissue credential nếu cần
+</div></code></pre>
+<hr>
+<h1 id="109-refund">109. Refund</h1>
+<p>Refund có thể:</p>
+<pre class="hljs"><code><div>- Full booking
+- Một ticket
+- Chỉ face value
+- Bao gồm hoặc không gồm fees
+</div></code></pre>
+<p>Order lưu fee breakdown để tính chính xác.</p>
+<hr>
+<h1 id="110-partial-refund">110. Partial Refund</h1>
+<p>Booking bốn vé, refund một vé.</p>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Refunded amount
+≤ Captured amount
+</div></code></pre>
+<p>Ticket được refund:</p>
+<pre class="hljs"><code><div>ACTIVE → REFUNDED
+</div></code></pre>
+<p>Inventory có thể:</p>
+<pre class="hljs"><code><div>- Trở lại AVAILABLE
+- Bị BLOCKED
+- Chuyển resale pool
+</div></code></pre>
+<p>tùy event state.</p>
+<hr>
+<h1 id="111-refund-race-với-transfer">111. Refund Race với Transfer</h1>
+<p>Không được vừa transfer vừa refund cùng ticket.</p>
+<p>Dùng conditional state transition:</p>
+<pre class="hljs"><code><div>ACTIVE → TRANSFERRED
+ACTIVE → REFUNDED
+</div></code></pre>
+<p>Chỉ một operation thắng.</p>
+<hr>
+<h1 id="112-inventory-release-sau-refund">112. Inventory Release sau Refund</h1>
+<p>Nếu sale vẫn mở:</p>
+<pre class="hljs"><code><div>Refunded seat có thể trở lại AVAILABLE.
+</div></code></pre>
+<p>Nếu event gần bắt đầu:</p>
+<pre class="hljs"><code><div>Có thể đưa vào resale/last-minute inventory.
+</div></code></pre>
+<p>Nếu event canceled:</p>
+<pre class="hljs"><code><div>Không cần mở lại.
+</div></code></pre>
+<hr>
+<h1 id="113-search-và-discovery">113. Search và Discovery</h1>
+<p>Event search document:</p>
+<pre class="hljs"><code><div>eventId
+title
+artists
+venue
+city
+date
+category
+priceRange
+availabilityClass
+status
+</div></code></pre>
+<p>Search index có thể stale.</p>
+<p>Trước hold:</p>
+<pre class="hljs"><code><div>Reservation Service recheck event state và inventory.
+</div></code></pre>
+<hr>
+<h1 id="114-availability-class">114. Availability Class</h1>
+<p>Discovery không cần exact seat count mỗi request.</p>
+<p>Có thể hiển thị:</p>
+<pre class="hljs"><code><div>AVAILABLE
+LIMITED
+SOLD_OUT
+NOT_ON_SALE
+</div></code></pre>
+<p>Read model update từ inventory events.</p>
+<p>Giảm load so với query exact count.</p>
+<hr>
+<h1 id="115-event-sold-out-detection">115. Event Sold-Out Detection</h1>
+<p>Reserved seating:</p>
+<pre class="hljs"><code><div>Không còn seat AVAILABLE
+</div></code></pre>
+<p>General admission:</p>
+<pre class="hljs"><code><div>available quantity = 0
+</div></code></pre>
+<p>Nhưng expired holds có thể làm read model tạm thời hiển thị sold out.</p>
+<p>Authoritative check có thể reclaim expired holds.</p>
+<hr>
+<h1 id="116-waitlist">116. Waitlist</h1>
+<p>Khi sold out:</p>
+<pre class="hljs"><code><div>User đăng ký waitlist.
+</div></code></pre>
+<p>Khi vé được release:</p>
+<pre class="hljs"><code><div>- Gửi offer theo thứ tự
+- Tạo short exclusive hold
+- Hết hạn thì offer người tiếp theo
+</div></code></pre>
+<p>Waitlist khác waiting room:</p>
+<pre class="hljs"><code><div>Waiting room:
+Trước/trong lúc sale.
+
+Waitlist:
+Sau khi hết inventory.
+</div></code></pre>
+<hr>
+<h1 id="117-waitlist-fairness">117. Waitlist Fairness</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- FIFO
+- Lottery
+- Membership priority
+- Accessibility priority
+</div></code></pre>
+<p>Offer cần:</p>
+<pre class="hljs"><code><div>waitlistOfferId
+expiresAt
+eligibleInventory
+</div></code></pre>
+<p>Không gửi cùng một ghế cho quá nhiều users nếu muốn tránh contention.</p>
+<hr>
+<h1 id="118-idempotent-apis">118. Idempotent APIs</h1>
+<p>Các operation cần idempotency:</p>
+<pre class="hljs"><code><div>- Create hold
+- Extend hold
+- Confirm checkout
+- Capture payment
+- Issue tickets
+- Transfer accept
+- Create resale listing
+- Refund
+- Scan check-in
+</div></code></pre>
+<p>Mỗi operation có stable business key.</p>
+<hr>
+<h1 id="119-event-outbox">119. Event Outbox</h1>
+<p>Khi booking confirmed:</p>
+<pre class="hljs"><code><div>- Update booking
+- Consume hold
+- Mark inventory SOLD
+- Insert outbox BookingConfirmed
+</div></code></pre>
+<p>cùng transaction.</p>
+<p>Downstream:</p>
+<pre class="hljs"><code><div>- Ticket issuer
+- Notification
+- Analytics
+- Settlement
+</div></code></pre>
+<p>phải idempotent.</p>
+<hr>
+<h1 id="120-inventory-event-ordering">120. Inventory Event Ordering</h1>
+<p>Seat lifecycle events cần version:</p>
+<pre class="hljs"><code><div>seatVersion 10: HELD
+seatVersion 11: AVAILABLE
+seatVersion 12: SOLD
+</div></code></pre>
+<p>Read model chỉ áp dụng version lớn hơn.</p>
+<p>Không để event cũ <code>AVAILABLE</code> ghi đè <code>SOLD</code>.</p>
+<hr>
+<h1 id="121-sharding-inventory">121. Sharding Inventory</h1>
+<p>Shard key tự nhiên:</p>
+<pre class="hljs"><code><div>eventId
+</div></code></pre>
+<p>Vì:</p>
+<pre class="hljs"><code><div>- Seat operations cùng event có locality
+- Best-available query cùng event
+- Hold transactions thường trong một event
+</div></code></pre>
+<p>Nhưng hot event tạo hot shard.</p>
+<hr>
+<h1 id="122-hot-event-mitigation">122. Hot Event Mitigation</h1>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Waiting room
+- Admission throttling
+- Partition event theo section
+- Dedicated inventory cluster
+- Separate worker pool
+- Event-specific cache
+</div></code></pre>
+<p>Correctness coordination vẫn cần ở ranh giới section hoặc event.</p>
+<hr>
+<h1 id="123-partition-theo-section">123. Partition theo Section</h1>
+<p>Reserved seating có thể shard:</p>
+<pre class="hljs"><code><div>eventId + sectionId
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm hot shard
+- Holds trong một section local
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hold ghế ở nhiều sections cần cross-shard transaction
+- Best available toàn event phức tạp
+</div></code></pre>
+<p>Có thể giới hạn một hold chỉ trong một section.</p>
+<hr>
+<h1 id="124-general-admission-hot-counter">124. General Admission Hot Counter</h1>
+<p>Với một GA zone duy nhất:</p>
+<pre class="hljs"><code><div>Tất cả requests tranh một counter.
+</div></code></pre>
+<p>Các giải pháp:</p>
+<pre class="hljs"><code><div>- Queue serialize allocations
+- Pre-partition quota
+- Atomic high-throughput counter
+- Admission rate thấp hơn inventory write capacity
+</div></code></pre>
+<p>Waiting room thường là lớp giảm tải quan trọng nhất.</p>
+<hr>
+<h1 id="125-multi-region-goals">125. Multi-Region Goals</h1>
+<pre class="hljs"><code><div>1. Users vào edge gần nhất.
+2. Event page và waiting room toàn cầu.
+3. Inventory có một authoritative owner.
+4. Payment có thể route theo region.
+5. Ticket delivery toàn cầu.
+6. Gate validation gần venue.
+7. Failover không oversell.
+</div></code></pre>
+<hr>
+<h1 id="126-multi-region-architecture">126. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalEdge
+
+    GlobalEdge --> DiscoveryA[Discovery Region A]
+    GlobalEdge --> DiscoveryB[Discovery Region B]
+
+    GlobalEdge --> WaitingA[Waiting Room A]
+    GlobalEdge --> WaitingB[Waiting Room B]
+
+    WaitingA --> GlobalQueue[(Global/Event Queue State)]
+    WaitingB --> GlobalQueue
+
+    GlobalEdge --> InventoryRouter
+    InventoryRouter --> EventOwnerA[Event Inventory Owner A]
+    InventoryRouter --> EventOwnerB[Event Inventory Owner B]
+
+    EventOwnerA --> InventoryA[(Inventory Store A)]
+    EventOwnerB --> InventoryB[(Inventory Store B)]
+
+    EventOwnerA --> Payment
+    EventOwnerB --> Payment
+
+    EventOwnerA --> BookingStore[(Replicated Booking Store)]
+    EventOwnerB --> BookingStore
+
+    BookingStore --> TicketService
+    TicketService --> VenueEdge[Venue Edge / Gate Systems]
+</div></code></pre>
+<hr>
+<h1 id="127-event-home-region">127. Event Home Region</h1>
+<p>Mỗi event có:</p>
+<pre class="hljs"><code><div>eventId → homeRegion
+</div></code></pre>
+<p>Chọn dựa trên:</p>
+<pre class="hljs"><code><div>- Venue location
+- Organizer region
+- Customer majority
+- Data residency
+</div></code></pre>
+<p>Inventory writes route về home region.</p>
+<hr>
+<h1 id="128-vì-sao-không-multi-write-inventory-toàn-cầu">128. Vì sao không Multi-Write Inventory toàn cầu?</h1>
+<p>Nếu Region A và B cùng thấy seat AVAILABLE:</p>
+<pre class="hljs"><code><div>A bán ghế
+B cũng bán ghế
+</div></code></pre>
+<p>Async replication không đủ.</p>
+<p>Một inventory owner hoặc globally consistent transaction là bắt buộc.</p>
+<hr>
+<h1 id="129-activeactive-theo-event">129. Active–Active theo Event</h1>
+<p>Toàn nền tảng có thể active–active:</p>
+<pre class="hljs"><code><div>Region A sở hữu events 1–1000
+Region B sở hữu events 1001–2000
+</div></code></pre>
+<p>Nhưng từng event:</p>
+<pre class="hljs"><code><div>Single authoritative inventory owner
+</div></code></pre>
+<p>Đây là partitioned active–active.</p>
+<hr>
+<h1 id="130-event-owner-epoch">130. Event Owner Epoch</h1>
+<pre class="hljs"><code><div>ownerRegion = A
+ownerEpoch = 17
+</div></code></pre>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>ownerRegion = B
+ownerEpoch = 18
+</div></code></pre>
+<p>Inventory store từ chối commands epoch 17.</p>
+<p>Ngăn old region tiếp tục bán vé.</p>
+<hr>
+<h1 id="131-failover-sequence">131. Failover Sequence</h1>
+<p>Nếu event owner region lỗi:</p>
+<pre class="hljs"><code><div>1. Dừng admission hoặc hold mới.
+2. Xác định committed inventory state.
+3. Promote replica.
+4. Tăng owner epoch.
+5. Fence owner cũ.
+6. Restore hold expiration timers.
+7. Reconcile in-flight payments.
+8. Mở lại admission từ từ.
+</div></code></pre>
+<p>Không nên failover tức thì mà không xác minh fencing.</p>
+<hr>
+<h1 id="132-in-flight-hold-khi-failover">132. In-Flight Hold khi Failover</h1>
+<p>Replica cần có:</p>
+<pre class="hljs"><code><div>- Hold records
+- Expiration timestamps
+- Seat allocation states
+</div></code></pre>
+<p>Sau promote:</p>
+<pre class="hljs"><code><div>- Rebuild expiration queue
+- Reclaim expired holds
+- Giữ active holds hợp lệ
+</div></code></pre>
+<p>Không release toàn bộ holds vì sẽ làm khách đang checkout mất ghế.</p>
+<hr>
+<h1 id="133-in-flight-payment-khi-failover">133. In-Flight Payment khi Failover</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Provider đã authorize
+nhưng region chết trước booking commit.
+</div></code></pre>
+<p>Recovery:</p>
+<pre class="hljs"><code><div>- Query provider bằng paymentIntentId
+- Process webhook
+- Kiểm tra hold state
+- Confirm booking hoặc void/refund
+</div></code></pre>
+<hr>
+<h1 id="134-waiting-room-multi-region">134. Waiting Room Multi-Region</h1>
+<p>Queue state cần global semantics theo event.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Một queue owner region
+- Globally consistent queue store
+- Edge-local prequeue + central admission allocator
+</div></code></pre>
+<p>Admission tokens phải không bị cấp vượt global purchase capacity.</p>
+<hr>
+<h1 id="135-edge-local-prequeue">135. Edge-Local Prequeue</h1>
+<p>Millions of users có thể được giữ ở edge:</p>
+<pre class="hljs"><code><div>Edge queue shards
+</div></code></pre>
+<p>Central allocator chỉ phát quota:</p>
+<pre class="hljs"><code><div>Region A: admit 2.000 users
+Region B: admit 1.500 users
+</div></code></pre>
+<p>Giảm tải central queue.</p>
+<hr>
+<h1 id="136-data-residency">136. Data Residency</h1>
+<p>Cần xét:</p>
+<pre class="hljs"><code><div>- Customer PII
+- Payment references
+- Booking history
+- Ticket ownership
+- Scan logs
+- Venue security data
+</div></code></pre>
+<p>Event public data có thể replicate toàn cầu.</p>
+<p>Customer data có thể phải ở region phù hợp.</p>
+<hr>
+<h1 id="137-venue-region">137. Venue Region</h1>
+<p>Gate validation nên chạy gần venue.</p>
+<p>Có thể có:</p>
+<pre class="hljs"><code><div>- Regional validation service
+- Venue edge appliance
+- Pre-synced ticket snapshot
+</div></code></pre>
+<p>Inventory owner không nhất thiết ở cùng place với gate, nhưng venue locality thường hợp lý.</p>
+<hr>
+<h1 id="138-failure-mode--availability-cache-stale">138. Failure Mode — Availability Cache Stale</h1>
+<p>UI hiển thị ghế available nhưng hold thất bại.</p>
+<p>Response:</p>
+<pre class="hljs"><code><div>SEAT_NO_LONGER_AVAILABLE
+</div></code></pre>
+<p>Client refresh tile và chọn ghế khác.</p>
+<p>Đây là acceptable UX nếu authoritative store đúng.</p>
+<hr>
+<h1 id="139-failure-mode--hold-service-timeout">139. Failure Mode — Hold Service Timeout</h1>
+<p>Client không biết hold đã tạo chưa.</p>
+<p>Request cần:</p>
+<pre class="hljs"><code><div>clientHoldRequestId
+</div></code></pre>
+<p>Retry trả cùng hold nếu đã commit.</p>
+<p>Không tạo thêm hold khác.</p>
+<hr>
+<h1 id="140-failure-mode--hold-created-nhưng-expiry-event-mất">140. Failure Mode — Hold Created nhưng Expiry Event mất</h1>
+<p>Hold record vẫn có <code>expiresAt</code>.</p>
+<p>Lazy expiration và reconciliation giải phóng.</p>
+<p>Không phụ thuộc hoàn toàn vào delayed queue.</p>
+<hr>
+<h1 id="141-failure-mode--payment-success-booking-commit-fail">141. Failure Mode — Payment Success, Booking Commit Fail</h1>
+<p>Workflow:</p>
+<pre class="hljs"><code><div>- Mark payment recovery required
+- Retry booking commit nếu hold còn hợp lệ
+- Nếu không thể, void/refund
+</div></code></pre>
+<p>Không âm thầm giữ tiền mà không có vé.</p>
+<hr>
+<h1 id="142-failure-mode--booking-confirmed-ticket-issuance-fail">142. Failure Mode — Booking Confirmed, Ticket Issuance Fail</h1>
+<p>Booking vẫn confirmed.</p>
+<p>Ticket issuer retry từ outbox/event stream.</p>
+<p>UI:</p>
+<pre class="hljs"><code><div>“Vé đang được phát hành.”
+</div></code></pre>
+<p>Không bán lại ghế.</p>
+<hr>
+<h1 id="143-failure-mode--notification-fail">143. Failure Mode — Notification Fail</h1>
+<p>Booking và ticket vẫn tồn tại.</p>
+<p>User có thể mở account để xem.</p>
+<p>Email/SMS retry riêng.</p>
+<hr>
+<h1 id="144-failure-mode--waiting-room-down">144. Failure Mode — Waiting Room Down</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Dừng admission mới
+- Giữ users hiện tại
+- Phục hồi queue state
+</div></code></pre>
+<p>Không bypass waiting room và gửi toàn traffic vào inventory.</p>
+<hr>
+<h1 id="145-failure-mode--queue-token-store-mất">145. Failure Mode — Queue Token Store mất</h1>
+<p>Nếu token ký self-contained:</p>
+<pre class="hljs"><code><div>Có thể verify token
+</div></code></pre>
+<p>nhưng consumption/replay protection có thể cần state.</p>
+<p>Cần durable admission session records cho hot events.</p>
+<hr>
+<h1 id="146-failure-mode--inventory-database-down">146. Failure Mode — Inventory Database Down</h1>
+<p>Không fail-open.</p>
+<p>Có thể tiếp tục:</p>
+<pre class="hljs"><code><div>- Event browsing
+- Queue waiting
+</div></code></pre>
+<p>Nhưng dừng hold và booking.</p>
+<p>Oversell nguy hiểm hơn temporary unavailability.</p>
+<hr>
+<h1 id="147-failure-mode--expiry-worker-backlog">147. Failure Mode — Expiry Worker Backlog</h1>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>oldest unprocessed expiry
+active expired holds
+</div></code></pre>
+<p>Inventory write path vẫn reclaim expired holds lazily.</p>
+<p>Admission rate có thể giảm để tránh quá nhiều stale holds.</p>
+<hr>
+<h1 id="148-failure-mode--gate-network-down">148. Failure Mode — Gate Network Down</h1>
+<p>Venue edge tiếp tục validate local snapshot.</p>
+<p>Sau reconnect:</p>
+<pre class="hljs"><code><div>- Upload scan logs
+- Detect duplicates
+- Reconcile revocations
+</div></code></pre>
+<p>Policy phải chấp nhận giới hạn consistency trong fully offline mode.</p>
+<hr>
+<h1 id="149-failure-mode--duplicate-scan-event">149. Failure Mode — Duplicate Scan Event</h1>
+<p><code>scanId</code> hoặc:</p>
+<pre class="hljs"><code><div>scannerId + localSequence
+</div></code></pre>
+<p>làm idempotency key.</p>
+<p>Upload lại không tạo check-in thứ hai.</p>
+<hr>
+<h1 id="150-reconciliation">150. Reconciliation</h1>
+<p>Jobs kiểm tra:</p>
+<pre class="hljs"><code><div>- Seat SOLD nhưng không có booking line
+- Booking confirmed nhưng hold chưa consumed
+- Hold ACTIVE nhưng đã expired lâu
+- Payment captured nhưng booking thiếu
+- Booking confirmed nhưng tickets thiếu
+- Ticket owner khác transfer record
+- Resale sold nhưng seller payable thiếu
+- Ticket USED nhưng scan event thiếu
+</div></code></pre>
+<hr>
+<h1 id="151-inventory-reconciliation-invariant">151. Inventory Reconciliation Invariant</h1>
+<p>Với reserved seat:</p>
+<pre class="hljs"><code><div>Mỗi seat phải thuộc đúng một trạng thái:
+AVAILABLE
+HELD bởi một active hold
+SOLD bởi một booking
+BLOCKED
+UNAVAILABLE
+</div></code></pre>
+<p>Không được:</p>
+<pre class="hljs"><code><div>- HELD bởi hai holds
+- SOLD bởi hai bookings
+- AVAILABLE nhưng có active booking
+</div></code></pre>
+<hr>
+<h1 id="152-general-admission-invariant">152. General Admission Invariant</h1>
+<pre class="hljs"><code><div>held_quantity &gt;= 0
+sold_quantity &gt;= 0
+blocked_quantity &gt;= 0
+
+held + sold + blocked &lt;= capacity
+</div></code></pre>
+<p>Tổng booking lines confirmed phải khớp <code>sold_quantity</code> sau reconciliation.</p>
+<hr>
+<h1 id="153-observability--waiting-room">153. Observability — Waiting Room</h1>
+<pre class="hljs"><code><div>- Users waiting
+- Admission rate
+- Queue wait time
+- Token issuance
+- Token rejection
+- Replay attempts
+- Drop-off rate
+- Queue-store latency
+</div></code></pre>
+<hr>
+<h1 id="154-observability--inventory">154. Observability — Inventory</h1>
+<pre class="hljs"><code><div>- Hold attempts
+- Hold success rate
+- Seat conflicts
+- Active holds
+- Expired holds
+- Hold duration
+- Inventory contention
+- Oversell incidents
+</div></code></pre>
+<p>Oversell phải là severity cao nhất.</p>
+<hr>
+<h1 id="155-observability--checkout">155. Observability — Checkout</h1>
+<pre class="hljs"><code><div>- Checkout starts
+- Hold-to-booking conversion
+- Payment authorization rate
+- Payment unknown rate
+- Checkout latency
+- Hold expiry during payment
+- Idempotency retries
+</div></code></pre>
+<hr>
+<h1 id="156-observability--ticketing">156. Observability — Ticketing</h1>
+<pre class="hljs"><code><div>- Ticket issuance latency
+- Issuance retries
+- Transfer rate
+- Resale listing rate
+- Credential rotation
+- Revocation propagation
+</div></code></pre>
+<hr>
+<h1 id="157-observability--gate">157. Observability — Gate</h1>
+<pre class="hljs"><code><div>- Scans/second
+- Accepted scans
+- Already-used scans
+- Invalid signatures
+- Revoked tickets
+- Offline scanner count
+- Sync lag
+</div></code></pre>
+<p>Spike <code>already-used</code> có thể chỉ ra screenshot sharing hoặc fraud.</p>
+<hr>
+<h1 id="158-business-metrics">158. Business Metrics</h1>
+<pre class="hljs"><code><div>- Queue-to-purchase conversion
+- Sell-through rate
+- Time to sell out
+- Average order value
+- Hold abandonment rate
+- Payment failure rate
+- Resale rate
+- Gate entry rate
+</div></code></pre>
+<hr>
+<h1 id="159-slos-minh-họa">159. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Event page:
+p99 dưới 300 ms.
+
+Seat-map static tiles:
+CDN hit p99 dưới 100 ms.
+
+Availability refresh:
+99% updates hiển thị dưới 2 giây.
+
+Hold creation:
+p99 dưới 500 ms.
+
+Booking confirmation:
+p99 dưới 3 giây, không tính external payment challenge.
+
+Oversell:
+0 theo inventory invariant.
+
+Ticket issuance:
+99% dưới 30 giây sau booking confirmation.
+
+Online gate validation:
+p99 dưới 300 ms.
+</div></code></pre>
+<hr>
+<h1 id="160-thiết-kế-khuyến-nghị">160. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Event và seat-map geometry được cache mạnh.
+2. Availability UI dùng read model có thể hơi stale.
+3. Event inventory được shard và sở hữu theo event.
+4. Reserved seats dùng conditional transactional hold.
+5. General admission dùng atomic capacity reservation.
+6. Hold có TTL, active expiry và lazy expiry.
+7. Waiting room giới hạn concurrency trước purchase path.
+8. Checkout dùng idempotency và payment authorization.
+9. Consume hold và create booking trong cùng transaction.
+10. Ticket issuance chạy qua outbox nhưng booking là authoritative.
+</div></code></pre>
+<hr>
+<h1 id="161-trade-off--pessimistic-lock-hay-optimistic-cas">161. Trade-Off — Pessimistic Lock hay Optimistic CAS?</h1>
+<h2 id="pessimistic-lock">Pessimistic lock</h2>
+<pre class="hljs"><code><div>- Lock seat rows
+- Dễ hiểu
+- Contention và deadlock cao
+</div></code></pre>
+<h2 id="optimistic-conditional-update">Optimistic conditional update</h2>
+<pre class="hljs"><code><div>- Throughput tốt hơn
+- Conflict được trả về
+- Client/service phải retry
+</div></code></pre>
+<p>Hot ticket systems thường ưu tiên conditional updates ngắn.</p>
+<hr>
+<h1 id="162-trade-off--hold-trong-database-hay-cache">162. Trade-Off — Hold trong Database hay Cache?</h1>
+<h2 id="database">Database</h2>
+<pre class="hljs"><code><div>- Durable
+- Strong constraints
+- Write contention cao hơn
+</div></code></pre>
+<h2 id="cache">Cache</h2>
+<pre class="hljs"><code><div>- Nhanh
+- TTL thuận tiện
+- Durability/failover khó hơn
+</div></code></pre>
+<p>Hybrid phù hợp:</p>
+<pre class="hljs"><code><div>Database authoritative
++
+Cache projection
+</div></code></pre>
+<hr>
+<h1 id="163-trade-off--hold-dài-hay-ngắn">163. Trade-Off — Hold dài hay ngắn?</h1>
+<h2 id="dài">Dài</h2>
+<pre class="hljs"><code><div>- Checkout UX tốt
+- Inventory bị khóa lâu
+</div></code></pre>
+<h2 id="ngắn">Ngắn</h2>
+<pre class="hljs"><code><div>- Inventory quay vòng nhanh
+- Customer dễ hết giờ
+</div></code></pre>
+<p>Hot events thường dùng TTL ngắn hơn.</p>
+<hr>
+<h1 id="164-trade-off--exact-queue-position-hay-estimated-wait">164. Trade-Off — Exact Queue Position hay Estimated Wait?</h1>
+<h2 id="exact-position">Exact position</h2>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Update cost lớn
+- Không ổn định khi users rời queue
+</div></code></pre>
+<h2 id="estimated-wait">Estimated wait</h2>
+<pre class="hljs"><code><div>- Dễ scale hơn
+- Không chính xác tuyệt đối
+</div></code></pre>
+<p>Estimated wait thường phù hợp hơn.</p>
+<hr>
+<h1 id="165-trade-off--single-event-shard-hay-section-shards">165. Trade-Off — Single Event Shard hay Section Shards?</h1>
+<h2 id="single-event-shard">Single event shard</h2>
+<pre class="hljs"><code><div>- Transaction nhiều ghế đơn giản
+- Hot event bottleneck
+</div></code></pre>
+<h2 id="section-shards">Section shards</h2>
+<pre class="hljs"><code><div>- Scale tốt hơn
+- Cross-section holds phức tạp
+</div></code></pre>
+<p>Có thể section-shard nhưng giới hạn hold trong một section.</p>
+<hr>
+<h1 id="166-trade-off--static-hay-rotating-qr">166. Trade-Off — Static hay Rotating QR?</h1>
+<h2 id="static-qr">Static QR</h2>
+<pre class="hljs"><code><div>- Dễ dùng
+- Offline tốt
+- Screenshot dễ chia sẻ
+</div></code></pre>
+<h2 id="rotating-qr">Rotating QR</h2>
+<pre class="hljs"><code><div>- Chống replay tốt
+- Yêu cầu app/connectivity
+</div></code></pre>
+<p>Có thể dùng rotating online và signed offline fallback.</p>
+<hr>
+<h1 id="167-trade-off--gate-strong-online-hay-offline-availability">167. Trade-Off — Gate Strong Online hay Offline Availability?</h1>
+<h2 id="strong-online">Strong online</h2>
+<pre class="hljs"><code><div>- Double-scan prevention tốt
+- Phụ thuộc venue network
+</div></code></pre>
+<h2 id="offline">Offline</h2>
+<pre class="hljs"><code><div>- Resilient
+- Có thể accept duplicate giữa scanners
+</div></code></pre>
+<p>Venue edge server là giải pháp cân bằng.</p>
+<hr>
+<h1 id="168-trade-off--resale-mở-hay-bị-giới-hạn">168. Trade-Off — Resale mở hay bị giới hạn?</h1>
+<h2 id="mở-hoàn-toàn">Mở hoàn toàn</h2>
+<pre class="hljs"><code><div>- Liquidity cao
+- Scalping và giá quá mức
+</div></code></pre>
+<h2 id="organizer-controlled">Organizer-controlled</h2>
+<pre class="hljs"><code><div>- Kiểm soát giá và ownership
+- Thị trường kém linh hoạt hơn
+</div></code></pre>
+<p>Nền tảng cần configurable policy.</p>
+<hr>
+<h1 id="169-cách-trình-bày-trong-phỏng-vấn">169. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi tách read-heavy seat-map availability khỏi authoritative inventory. UI có thể thấy trạng thái hơi stale, nhưng mọi hold đều đi qua conditional transaction trên inventory owner của event.</p>
+</blockquote>
+<p>Về hold:</p>
+<blockquote>
+<p>Hold là allocation có TTL. Với reserved seating, tôi atomically chuyển tất cả ghế từ AVAILABLE sang HELD và tạo hold record trong cùng transaction. Với general admission, tôi conditionally tăng held quantity nếu capacity còn đủ.</p>
+</blockquote>
+<p>Về expiry:</p>
+<blockquote>
+<p>Delayed worker giúp release chủ động, nhưng correctness không phụ thuộc hoàn toàn vào timer. Mọi hold hoặc purchase operation đều xem một hold quá hạn là reclaimable, và expiration worker dùng compare-and-set để không release hold đã consumed.</p>
+</blockquote>
+<p>Về flash crowd:</p>
+<blockquote>
+<p>Users không được truy cập thẳng purchase APIs. Waiting room tại edge giữ traffic, còn central admission controller phát signed admission tokens theo throughput mà inventory và payment path chịu được.</p>
+</blockquote>
+<p>Về multi-region:</p>
+<blockquote>
+<p>Toàn nền tảng active–active theo event, nhưng mỗi event có một inventory owner region và owner epoch. Failover chỉ xảy ra sau khi writer cũ bị fence để tránh hai regions bán cùng ghế.</p>
+</blockquote>
+<hr>
+<h1 id="170-framework-phỏng-vấn-45-phút">170. Framework Phỏng vấn 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Reserved seating
+- General admission
+- Holds
+- Payment
+- Ticket issuance
+- Waiting room
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- Events
+- Seats/event
+- Hot-event traffic
+- Hold QPS
+- Gate scan QPS
+</div></code></pre>
+<h2 id="phút-1020-inventory">Phút 10–20: Inventory</h2>
+<pre class="hljs"><code><div>- Seat map
+- State machine
+- Conditional hold
+- TTL
+- Best available
+</div></code></pre>
+<h2 id="phút-2030-checkout">Phút 20–30: Checkout</h2>
+<pre class="hljs"><code><div>- Idempotency
+- Price quote
+- Payment
+- Booking transaction
+- Ticket issuance
+</div></code></pre>
+<h2 id="phút-3040-scale">Phút 30–40: Scale</h2>
+<pre class="hljs"><code><div>- Waiting room
+- Bot control
+- Hot-event sharding
+- Resale
+- Gate validation
+</div></code></pre>
+<h2 id="phút-4045-reliability">Phút 40–45: Reliability</h2>
+<pre class="hljs"><code><div>- Payment unknown
+- Expiry race
+- Multi-region
+- Failover
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="171-những-sai-lầm-phổ-biến">171. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-dùng-availability-cache-làm-source-of-truth">Lỗi 1: Dùng Availability Cache làm Source of Truth</h2>
+<p>Cache stale có thể gây double booking.</p>
+<h2 id="lỗi-2-read-rồi-update-seat">Lỗi 2: Read rồi Update Seat</h2>
+<p>Hai users cùng thấy AVAILABLE.</p>
+<h2 id="lỗi-3-giữ-nhiều-ghế-không-atomic">Lỗi 3: Giữ nhiều Ghế không Atomic</h2>
+<p>Customer chỉ nhận một phần nhóm ghế.</p>
+<h2 id="lỗi-4-lock-seats-không-theo-thứ-tự">Lỗi 4: Lock Seats không theo Thứ tự</h2>
+<p>Gây deadlock.</p>
+<h2 id="lỗi-5-hold-không-có-ttl">Lỗi 5: Hold không có TTL</h2>
+<p>Ghế bị khóa mãi.</p>
+<h2 id="lỗi-6-chỉ-dựa-vào-timer-để-expire">Lỗi 6: Chỉ dựa vào Timer để Expire</h2>
+<p>Timer lag làm inventory bị giữ sai.</p>
+<h2 id="lỗi-7-expiry-worker-không-compare-and-set">Lỗi 7: Expiry Worker không Compare-and-Set</h2>
+<p>Có thể release ghế đã được mua.</p>
+<h2 id="lỗi-8-dùng-client-clock-cho-expiration">Lỗi 8: Dùng Client Clock cho Expiration</h2>
+<p>Clock sai làm hold behavior không nhất quán.</p>
+<h2 id="lỗi-9-cho-gia-hạn-hold-vô-hạn">Lỗi 9: Cho Gia hạn Hold vô hạn</h2>
+<p>Bot có thể khóa inventory.</p>
+<h2 id="lỗi-10-general-admission-chỉ-dùng-readmodifywrite">Lỗi 10: General Admission chỉ dùng Read–Modify–Write</h2>
+<p>Dẫn tới oversell.</p>
+<h2 id="lỗi-11-seat-map-gửi-toàn-bộ-mỗi-lần">Lỗi 11: Seat Map gửi toàn bộ mỗi lần</h2>
+<p>Payload và rendering rất lớn.</p>
+<h2 id="lỗi-12-best-available-chỉ-đọc-cache-rồi-trả-ghế">Lỗi 12: Best-Available chỉ đọc Cache rồi trả Ghế</h2>
+<p>Candidates có thể đã bị giữ.</p>
+<h2 id="lỗi-13-không-xử-lý-single-seat-gap">Lỗi 13: Không xử lý Single-Seat Gap</h2>
+<p>Làm inventory khó bán.</p>
+<h2 id="lỗi-14-dynamic-price-đổi-sau-khi-customer-giữ-ghế">Lỗi 14: Dynamic Price đổi sau khi Customer giữ Ghế</h2>
+<p>UX và contract không minh bạch.</p>
+<h2 id="lỗi-15-chỉ-rate-limit-mà-không-có-waiting-room">Lỗi 15: Chỉ Rate Limit mà không có Waiting Room</h2>
+<p>Users retry liên tục và tạo traffic storm.</p>
+<h2 id="lỗi-16-admission-token-chỉ-kiểm-tra-ở-frontend">Lỗi 16: Admission Token chỉ kiểm tra ở Frontend</h2>
+<p>Dễ bypass.</p>
+<h2 id="lỗi-17-queue-position-cập-nhật-realtime-cho-hàng-triệu-users">Lỗi 17: Queue Position cập nhật realtime cho hàng triệu Users</h2>
+<p>Tạo state-update storm.</p>
+<h2 id="lỗi-18-checkout-không-idempotent">Lỗi 18: Checkout không Idempotent</h2>
+<p>Retry tạo hai bookings.</p>
+<h2 id="lỗi-19-payment-timeout-được-coi-là-failure">Lỗi 19: Payment Timeout được coi là Failure</h2>
+<p>Có thể double-charge hoặc bán lại ghế đã trả tiền.</p>
+<h2 id="lỗi-20-capture-payment-và-booking-không-có-recovery">Lỗi 20: Capture Payment và Booking không có Recovery</h2>
+<p>Có thể có tiền mà không có vé.</p>
+<h2 id="lỗi-21-ticket-issuance-failure-làm-release-ghế">Lỗi 21: Ticket Issuance Failure làm Release Ghế</h2>
+<p>Booking đã confirmed thì inventory phải giữ SOLD.</p>
+<h2 id="lỗi-22-static-qr-không-có-first-use-validation">Lỗi 22: Static QR không có First-Use Validation</h2>
+<p>Screenshot được dùng nhiều lần.</p>
+<h2 id="lỗi-23-ticket-transfer-không-rotate-credential">Lỗi 23: Ticket Transfer không Rotate Credential</h2>
+<p>Owner cũ vẫn dùng QR cũ.</p>
+<h2 id="lỗi-24-resale-không-lock-ticket">Lỗi 24: Resale không Lock Ticket</h2>
+<p>Một ticket có thể được bán hoặc transfer hai lần.</p>
+<h2 id="lỗi-25-multi-region-multi-write-cùng-event-inventory">Lỗi 25: Multi-Region Multi-Write cùng Event Inventory</h2>
+<p>Dẫn tới oversell.</p>
+<hr>
+<h1 id="172-bảng-ghi-nhớ-nhanh">172. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Event Catalog</td>
+<td>Metadata sự kiện</td>
+</tr>
+<tr>
+<td>Seat Map</td>
+<td>Geometry và layout</td>
+</tr>
+<tr>
+<td>Availability Read Model</td>
+<td>Trạng thái gần realtime cho UI</td>
+</tr>
+<tr>
+<td>Inventory Store</td>
+<td>Source of truth ghế/capacity</td>
+</tr>
+<tr>
+<td>Hold</td>
+<td>Giữ chỗ tạm thời</td>
+</tr>
+<tr>
+<td>Hold TTL</td>
+<td>Tự giải phóng inventory</td>
+</tr>
+<tr>
+<td>Price Quote</td>
+<td>Khóa giá và phí</td>
+</tr>
+<tr>
+<td>Waiting Room</td>
+<td>Làm phẳng flash crowd</td>
+</tr>
+<tr>
+<td>Admission Token</td>
+<td>Cho phép vào purchase path</td>
+</tr>
+<tr>
+<td>Checkout</td>
+<td>Điều phối hold, payment, booking</td>
+</tr>
+<tr>
+<td>Booking</td>
+<td>Cam kết thương mại</td>
+</tr>
+<tr>
+<td>Ticket</td>
+<td>Quyền vào sự kiện</td>
+</tr>
+<tr>
+<td>Credential Version</td>
+<td>Thu hồi QR/barcode cũ</td>
+</tr>
+<tr>
+<td>Transfer</td>
+<td>Đổi ownership</td>
+</tr>
+<tr>
+<td>Resale Listing</td>
+<td>Bán lại có kiểm soát</td>
+</tr>
+<tr>
+<td>Gate Validation</td>
+<td>Check-in</td>
+</tr>
+<tr>
+<td>Venue Edge</td>
+<td>Validation gần địa điểm</td>
+</tr>
+<tr>
+<td>Event Owner</td>
+<td>Writer inventory duy nhất</td>
+</tr>
+<tr>
+<td>Owner Epoch</td>
+<td>Fencing khi failover</td>
+</tr>
+<tr>
+<td>Reconciliation</td>
+<td>Sửa state lệch</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="173-sơ-đồ-tổng-hợp">173. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> CDN
+    CDN --> EventDiscovery
+    EventDiscovery --> EventSearch[(Search Index)]
+    EventDiscovery --> EventCatalog[(Event Catalog)]
+
+    User --> WaitingRoom
+    WaitingRoom --> QueueState[(Queue State)]
+    WaitingRoom --> AdmissionToken
+
+    AdmissionToken --> SeatMapService
+    SeatMapService --> StaticSeatMap[(Seat Geometry)]
+    SeatMapService --> AvailabilityCache[(Availability Cache)]
+
+    User --> ReservationService
+    ReservationService --> InventoryStore[(Authoritative Inventory)]
+    ReservationService --> HoldStore[(Hold Records)]
+    ReservationService --> ExpiryQueue[(Delayed Expiry Queue)]
+
+    User --> CheckoutService
+    CheckoutService --> PricingService
+    CheckoutService --> PaymentService
+    CheckoutService --> BookingService
+
+    BookingService --> BookingStore[(Booking Store)]
+    BookingService --> InventoryStore
+    BookingService --> Outbox[(Transactional Outbox)]
+
+    Outbox --> CommerceEvents
+    CommerceEvents --> TicketIssuer
+    CommerceEvents --> Notification
+    CommerceEvents --> Settlement
+    CommerceEvents --> Analytics
+
+    TicketIssuer --> TicketStore[(Ticket Store)]
+    TicketStore --> TransferService
+    TicketStore --> ResaleService
+    TicketStore --> GateValidation
+
+    GateValidation --> VenueEdge
+    VenueEdge --> Scanners
+</div></code></pre>
+<hr>
+<h1 id="174-những-điều-phải-nhớ-sau-bài-35">174. Những Điều Phải Nhớ sau Bài 35</h1>
+<pre class="hljs"><code><div>1. Ticketing có browse path và transactional purchase path.
+2. Reserved seating khác general admission.
+3. Reserved seat cần identity riêng.
+4. General admission cần capacity invariant.
+5. Seat map geometry và availability nên tách.
+6. Geometry có thể cache lâu.
+7. Availability UI có thể hơi stale.
+8. Authoritative inventory không được stale.
+9. Hold là allocation tạm thời.
+10. Hold khác booking.
+11. Hold cần TTL.
+12. Multi-seat hold phải atomic.
+13. Conditional write ngăn double booking.
+14. Lock seats theo canonical order để tránh deadlock.
+15. Hold expiry không nên phụ thuộc duy nhất vào timer.
+16. Lazy expiry tăng correctness.
+17. Active expiry giúp inventory quay vòng nhanh.
+18. Expiry và payment completion có race.
+19. Hold consume cần compare-and-set.
+20. Server clock mới authoritative.
+21. Hold extension phải bị giới hạn.
+22. General admission reservation cần atomic capacity check.
+23. Hot counters có thể cần queue hoặc quota buckets.
+24. Best-available dùng candidate index và authoritative retry.
+25. Availability bitmap giúp tìm ghế liền nhau.
+26. Randomize top-K giảm stampede.
+27. Single-seat gap rules giúp tối ưu inventory.
+28. Accessibility rules phải enforce server-side.
+29. Price quote phải gắn với hold.
+30. Quote không nên sống lâu hơn hold.
+31. Fees cần snapshot chi tiết.
+32. Presale code cần usage controls.
+33. Waiting room bảo vệ inventory path.
+34. Waiting room tốt hơn chỉ rate limit cho flash crowd.
+35. Admission rate phải dựa trên downstream capacity.
+36. Admission token phải được verify server-side.
+37. Queue position không cần chính xác tuyệt đối.
+38. Prequeue có thể randomize để tăng fairness.
+39. Bot protection cần nhiều lớp.
+40. EventId là shard key tự nhiên.
+41. Hot event cần resource isolation.
+42. Event inventory cần một authoritative owner.
+43. Checkout phải idempotent.
+44. Payment timeout là unknown outcome.
+45. Payment unknown có thể cần PAYMENT_PENDING inventory state.
+46. Authorize trước booking giúp có thể void khi commit fail.
+47. Hold consume và booking creation nên cùng transaction.
+48. Booking confirmed không phụ thuộc notification.
+49. Ticket issuance có thể async.
+50. Ticket có lifecycle riêng.
+51. Static QR dễ bị screenshot.
+52. Rotating credential giảm replay.
+53. Gate check-in phải atomic.
+54. Venue edge giúp hoạt động khi internet yếu.
+55. Fully offline scanners không thể bảo đảm global uniqueness tuyệt đối.
+56. Transfer phải rotate credential.
+57. Credential cũ phải bị revoke.
+58. Resale listing phải lock ticket.
+59. Buyer resale flow cũng cần hold.
+60. Seller payout nên qua ledger/settlement.
+61. Organizer có thể đặt resale policy.
+62. Event cancellation cần batch refund workflow.
+63. Partial refund cần line-level ticket state.
+64. Refund và transfer có thể race.
+65. Waitlist khác waiting room.
+66. Waitlist offer cần expiry.
+67. Inventory events cần version.
+68. Read model không được áp event cũ lên state mới.
+69. Platform có thể active–active theo event.
+70. Từng event không nên multi-write inventory.
+71. Owner epoch ngăn split-brain.
+72. Failover phải restore active holds.
+73. Failover phải reconcile payments đang xử lý.
+74. Waiting room multi-region vẫn cần global admission control.
+75. Event public data có thể replicate toàn cầu.
+76. Customer và scan data có thể có residency constraints.
+77. Inventory outage phải fail closed.
+78. Ticket issuance failure không được release sold seat.
+79. Gate duplicate scans cần audit.
+80. Oversell phải được giám sát như invariant, không chỉ metric.
+</div></code></pre>
+<hr>
+<h1 id="175-bài-tập-thiết-kế-mở-rộng">175. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Ticket Booking Platform với yêu cầu:</p>
+<pre class="hljs"><code><div>- 500 triệu users
+- 5 triệu events/năm
+- Venue tối đa 150.000 ghế
+- 10 triệu users đồng thời cho một hot event
+- Peak 2 triệu requests/giây
+- Hold TTL 8 phút
+- Không oversell
+- Không double-charge
+- Waiting room đa region
+- Ticket transfer và resale
+- 200 cổng quét vé tại một venue
+- Venue phải hoạt động 2 giờ khi mất internet
+- Một số booking data không được rời EU
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Event và seat map được partition thế nào?
+2. Static geometry được phân phối ra sao?
+3. Dynamic availability được encode thế nào?
+4. Hold record và seat state nằm ở đâu?
+5. Multi-seat hold được commit atomically ra sao?
+6. Deadlock được ngăn thế nào?
+7. Hold expiry worker được thiết kế ra sao?
+8. Lazy expiration hoạt động thế nào?
+9. Hold extension được phép khi nào?
+10. General admission capacity được shard ra sao?
+11. Best-available tìm bốn ghế liền nhau thế nào?
+12. Single-seat gaps được xử lý ra sao?
+13. Waiting room state được partition thế nào?
+14. Admission rate được điều chỉnh theo tín hiệu nào?
+15. Admission token chống replay thế nào?
+16. Prequeue fairness hoạt động ra sao?
+17. Bot detection đặt ở những lớp nào?
+18. Price quote và hold expiry phối hợp thế nào?
+19. Checkout idempotency nằm ở đâu?
+20. Payment authorization diễn ra trước hay sau consume?
+21. Payment timeout giữ inventory thế nào?
+22. Booking và seat SOLD được commit cùng nhau ra sao?
+23. Ticket issuance retry tránh duplicate thế nào?
+24. Static và rotating QR dùng khi nào?
+25. Hai cổng quét cùng vé được xử lý thế nào?
+26. Venue offline có edge server ra sao?
+27. Offline scan reconciliation xử lý duplicate thế nào?
+28. Transfer rotate credential thế nào?
+29. Resale listing lock ticket ở đâu?
+30. Seller settlement xảy ra khi nào?
+31. Event cancellation refund hàng triệu bookings thế nào?
+32. Event inventory owner region được chọn ra sao?
+33. Region failover fence owner cũ thế nào?
+34. Active holds và in-flight payments được phục hồi ra sao?
+35. Các invariant và SLO quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-14">Kết luận Case Study 14</h1>
+<p>Ticket Booking và Reservation System có thể cô đọng thành:</p>
+<pre class="hljs"><code><div>Cache event và seat-map reads
+→ Kiểm soát flash crowd bằng waiting room
+→ Giữ inventory bằng atomic temporary hold
+→ Khóa price quote
+→ Authorize payment
+→ Consume hold và tạo booking
+→ Issue revocable ticket credential
+→ Transfer, resale hoặc gate validation
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Ticketing correctness không đến từ việc seat map hiển thị nhanh, mà từ việc mọi ghế có một authoritative allocation state, mọi hold đều có identity và expiry, mọi payment timeout được coi là chưa xác định, và từng event chỉ có một writer hợp lệ tại một thời điểm.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 36 — Tổng ôn System Design Interview: framework 45 phút, cách làm rõ yêu cầu, capacity estimation, chọn database, phân rã kiến trúc, xử lý bottleneck, consistency, reliability, trade-off, cách trình bày và mock interview hoàn chỉnh.</strong></p>
+
+</body>
+</html>

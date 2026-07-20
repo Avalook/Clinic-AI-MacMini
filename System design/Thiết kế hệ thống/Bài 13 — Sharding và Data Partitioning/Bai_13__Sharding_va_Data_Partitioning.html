@@ -1,0 +1,2461 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 13 — Sharding và Data Partitioning.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-13--sharding-và-data-partitioning">Bài 13 — Sharding và Data Partitioning</h1>
+<p>Khi một database còn đủ sức chứa và xử lý workload, kiến trúc đơn giản nhất thường là:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Application --> DB[(Single Database)]
+</div></code></pre>
+<p>Ta có thể kéo dài khả năng của database bằng:</p>
+<pre class="hljs"><code><div>- Tối ưu query
+- Tạo index đúng
+- Vertical scaling
+- Caching
+- Read replicas
+- Archive dữ liệu cũ
+- Table partitioning
+</div></code></pre>
+<p>Nhưng đến một quy mô nào đó, một database node có thể không còn đáp ứng được:</p>
+<pre class="hljs"><code><div>- Dung lượng dữ liệu
+- Write throughput
+- Disk I/O
+- CPU
+- Memory cho index
+- Số connection
+- Thời gian backup và restore
+- Thời gian maintenance
+</div></code></pre>
+<p>Khi đó, ta có thể phải <strong>chia dữ liệu sang nhiều node</strong>. Đây là bài toán sharding và data partitioning.</p>
+<p>Các tài liệu System Design bạn cung cấp đặt partitioning, horizontal scaling và distributed storage vào nhóm kỹ thuật mở rộng hệ thống khi một node không còn đủ khả năng phục vụ toàn bộ dữ liệu và traffic.</p>
+<hr>
+<h1 id="1-partitioning-là-gì">1. Partitioning là gì?</h1>
+<p><strong>Partitioning</strong> là chia một tập dữ liệu lớn thành nhiều phần nhỏ hơn gọi là partition.</p>
+<p>Ví dụ bảng <code>orders</code> chứa 10 tỷ bản ghi:</p>
+<pre class="hljs"><code><div>orders_2025
+orders_2026
+orders_2027
+</div></code></pre>
+<p>Hoặc chia theo user:</p>
+<pre class="hljs"><code><div>Partition 1:
+User A–F
+
+Partition 2:
+User G–M
+
+Partition 3:
+User N–Z
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Mỗi partition nhỏ hơn
+- Query có thể chỉ đọc partition liên quan
+- Maintenance dễ hơn
+- Dữ liệu và traffic có thể được phân phối
+</div></code></pre>
+<hr>
+<h1 id="2-sharding-là-gì">2. Sharding là gì?</h1>
+<p><strong>Sharding</strong> là một dạng horizontal partitioning trong đó các partition được đặt trên nhiều database server hoặc cluster độc lập.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Application --> Router[Shard Router]
+
+    Router --> S1[(Shard 1)]
+    Router --> S2[(Shard 2)]
+    Router --> S3[(Shard 3)]
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Shard 1:
+User 1–1.000.000
+
+Shard 2:
+User 1.000.001–2.000.000
+
+Shard 3:
+User 2.000.001–3.000.000
+</div></code></pre>
+<p>Mỗi shard có thể có:</p>
+<pre class="hljs"><code><div>- CPU riêng
+- Memory riêng
+- Disk riêng
+- Connection pool riêng
+- Replicas riêng
+</div></code></pre>
+<hr>
+<h1 id="3-partitioning-và-sharding-khác-nhau-thế-nào">3. Partitioning và Sharding khác nhau thế nào?</h1>
+<p>Hai thuật ngữ đôi khi được dùng lẫn nhau, nhưng có thể hiểu:</p>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa thường gặp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Partitioning</td>
+<td>Chia dữ liệu logic thành nhiều phần</td>
+</tr>
+<tr>
+<td>Table partitioning</td>
+<td>Các partition vẫn do cùng database quản lý</td>
+</tr>
+<tr>
+<td>Sharding</td>
+<td>Các phần dữ liệu nằm trên nhiều database node độc lập</td>
+</tr>
+</tbody>
+</table>
+<p>Ví dụ PostgreSQL partition theo tháng:</p>
+<pre class="hljs"><code><div>transactions_2026_01
+transactions_2026_02
+transactions_2026_03
+</div></code></pre>
+<p>Các partition vẫn có thể nằm trong cùng một database instance.</p>
+<p>Sharding:</p>
+<pre class="hljs"><code><div>Shard Asia
+Shard Europe
+Shard America
+</div></code></pre>
+<p>Mỗi shard là một database riêng.</p>
+<hr>
+<h1 id="4-vertical-và-horizontal-partitioning">4. Vertical và Horizontal Partitioning</h1>
+<h2 id="vertical-partitioning">Vertical partitioning</h2>
+<p>Chia theo cột hoặc nhóm chức năng.</p>
+<p>Ví dụ bảng user ban đầu:</p>
+<pre class="hljs"><code><div>users:
+id
+email
+password_hash
+name
+avatar
+bio
+preferences
+last_login
+</div></code></pre>
+<p>Tách thành:</p>
+<pre class="hljs"><code><div>users_auth:
+id
+email
+password_hash
+
+users_profile:
+id
+name
+avatar
+bio
+
+users_preferences:
+id
+preferences
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Tách dữ liệu nhạy cảm
+- Tách field lớn
+- Giảm row size
+- Tách workload
+</div></code></pre>
+<p>Vertical partitioning gần với việc tách service/database theo domain.</p>
+<hr>
+<h2 id="horizontal-partitioning">Horizontal partitioning</h2>
+<p>Chia theo row.</p>
+<pre class="hljs"><code><div>Partition 1:
+users có id 1–1.000.000
+
+Partition 2:
+users có id 1.000.001–2.000.000
+</div></code></pre>
+<p>Sharding chủ yếu nói về horizontal partitioning.</p>
+<hr>
+<h1 id="5-khi-nào-chưa-nên-sharding">5. Khi nào chưa nên Sharding?</h1>
+<p>Sharding làm hệ thống phức tạp hơn rất nhiều.</p>
+<p>Trước khi shard, nên kiểm tra:</p>
+<pre class="hljs"><code><div>1. Query đã tối ưu chưa?
+2. Index đã đúng chưa?
+3. Có query N+1 không?
+4. Có cache được read-heavy workload không?
+5. Có dùng read replica được không?
+6. Có thể vertical scale không?
+7. Có thể archive dữ liệu cũ không?
+8. Có thể table partition trong một database không?
+9. Có thể batch write không?
+10. Bottleneck có thực sự là database không?
+</div></code></pre>
+<p>Không nên shard vì:</p>
+<pre class="hljs"><code><div>“Sau này hệ thống có thể lớn.”
+</div></code></pre>
+<p>Nên shard khi có bằng chứng:</p>
+<pre class="hljs"><code><div>- Storage vượt giới hạn một node
+- Write QPS vượt khả năng một leader
+- Index không còn vừa memory
+- Maintenance quá lâu
+- Backup/restore không đạt RTO
+- Một tenant lớn làm node quá tải
+</div></code></pre>
+<hr>
+<h1 id="6-sharding-giải-quyết-được-gì">6. Sharding giải quyết được gì?</h1>
+<h2 id="tăng-storage-capacity">Tăng storage capacity</h2>
+<p>Nếu một node chứa được 10 TB:</p>
+<pre class="hljs"><code><div>10 shards × 10 TB
+≈ 100 TB tổng capacity
+</div></code></pre>
+<hr>
+<h2 id="tăng-write-throughput">Tăng write throughput</h2>
+<p>Write được phân phối sang nhiều shard:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Writes --> Router
+
+    Router --> S1[(Shard 1)]
+    Router --> S2[(Shard 2)]
+    Router --> S3[(Shard 3)]
+</div></code></pre>
+<p>Nếu mỗi shard chịu 5.000 writes/giây:</p>
+<pre class="hljs"><code><div>10 shards
+≈ 50.000 writes/giây về lý thuyết
+</div></code></pre>
+<p>Thực tế còn phụ thuộc phân bố tải và coordination.</p>
+<hr>
+<h2 id="giảm-kích-thước-index-trên-mỗi-node">Giảm kích thước index trên mỗi node</h2>
+<p>Thay vì một index cho 10 tỷ row:</p>
+<pre class="hljs"><code><div>Mỗi shard có index cho khoảng 1 tỷ row.
+</div></code></pre>
+<p>Index nhỏ hơn có thể:</p>
+<pre class="hljs"><code><div>- Vừa memory hơn
+- Dễ rebuild hơn
+- Query nhanh hơn
+</div></code></pre>
+<hr>
+<h2 id="giảm-blast-radius">Giảm blast radius</h2>
+<p>Nếu một shard lỗi:</p>
+<pre class="hljs"><code><div>Chỉ user trên shard đó bị ảnh hưởng
+</div></code></pre>
+<p>thay vì toàn bộ hệ thống.</p>
+<p>Điều này chỉ đúng nếu các dependency khác cũng được cô lập phù hợp.</p>
+<hr>
+<h1 id="7-sharding-không-giải-quyết-được-gì">7. Sharding không giải quyết được gì?</h1>
+<p>Sharding không tự động sửa:</p>
+<pre class="hljs"><code><div>- Query thiết kế tệ
+- Index sai
+- N+1 query
+- Lock contention trong cùng một record nóng
+- Một partition key cực nóng
+- Logic transaction không tốt
+- Retry storm
+- Connection leak
+</div></code></pre>
+<p>Thậm chí sharding có thể làm những vấn đề đó khó debug hơn.</p>
+<hr>
+<h1 id="8-shard-key-là-gì">8. Shard Key là gì?</h1>
+<p><strong>Shard key</strong> là field hoặc tổ hợp field dùng để xác định record thuộc shard nào.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>user_id
+tenant_id
+order_id
+conversation_id
+region
+</div></code></pre>
+<p>Routing:</p>
+<pre class="hljs"><code><div>shard = shard_function(shard_key)
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>shard = hash(user_id) mod 16
+</div></code></pre>
+<hr>
+<h1 id="9-một-shard-key-tốt-cần-đặc-điểm-gì">9. Một Shard Key tốt cần đặc điểm gì?</h1>
+<h2 id="cardinality-cao">Cardinality cao</h2>
+<p>Có nhiều giá trị khác nhau.</p>
+<p>Tốt:</p>
+<pre class="hljs"><code><div>user_id
+order_id
+</div></code></pre>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>country_code
+status
+gender
+</div></code></pre>
+<p>Nếu chỉ có vài giá trị, traffic khó phân phối đều.</p>
+<hr>
+<h2 id="phân-bố-tương-đối-đều">Phân bố tương đối đều</h2>
+<p>Không để một shard chứa phần lớn dữ liệu hoặc traffic.</p>
+<hr>
+<h2 id="có-mặt-trong-query-chính">Có mặt trong query chính</h2>
+<p>Nếu query thường là:</p>
+<pre class="hljs"><code><div>Lấy toàn bộ task của user X
+</div></code></pre>
+<p>shard theo <code>user_id</code> rất tự nhiên.</p>
+<p>Nếu query không có shard key, router có thể phải hỏi mọi shard.</p>
+<hr>
+<h2 id="ổn-định">Ổn định</h2>
+<p>Shard key không nên thay đổi thường xuyên.</p>
+<p>Nếu shard theo <code>country</code>, user đổi country có thể phải chuyển toàn bộ dữ liệu sang shard khác.</p>
+<hr>
+<h2 id="phù-hợp-phạm-vi-transaction">Phù hợp phạm vi transaction</h2>
+<p>Các record thường được transaction cùng nhau nên cố gắng nằm cùng shard.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order và order_items
+</div></code></pre>
+<p>nên cùng shard theo <code>order_id</code> hoặc <code>customer_id</code>, tùy access pattern.</p>
+<hr>
+<h1 id="10-shard-key-quyết-định-kiến-trúc">10. Shard Key quyết định kiến trúc</h1>
+<p>Giả sử ứng dụng Todoist.</p>
+<p>Query chính:</p>
+<pre class="hljs"><code><div>- Lấy project của user
+- Lấy task của user
+- Cập nhật task của user
+</div></code></pre>
+<p>Shard theo:</p>
+<pre class="hljs"><code><div>user_id
+</div></code></pre>
+<p>Tất cả dữ liệu của một user có thể nằm cùng shard.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    UserA[User A] --> S1[(Shard 1)]
+    UserB[User B] --> S2[(Shard 2)]
+    UserC[User C] --> S1
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Query một user chỉ chạm một shard
+- Transaction giữa task/project của user dễ hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Một enterprise tenant cực lớn có thể làm shard nóng
+- Query toàn hệ thống phải fan-out
+</div></code></pre>
+<hr>
+<h1 id="11-range-based-sharding">11. Range-based Sharding</h1>
+<p>Range sharding chia key theo khoảng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Shard 1:
+user_id 1–1.000.000
+
+Shard 2:
+user_id 1.000.001–2.000.000
+
+Shard 3:
+user_id 2.000.001–3.000.000
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ID[User ID] --> Range{Which range?}
+
+    Range -->|1–1M| S1[(Shard 1)]
+    Range -->|1M–2M| S2[(Shard 2)]
+    Range -->|2M–3M| S3[(Shard 3)]
+</div></code></pre>
+<hr>
+<h1 id="12-ưu-điểm-của-range-sharding">12. Ưu điểm của Range Sharding</h1>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Routing đơn giản
+- Range query hiệu quả
+- Dữ liệu gần nhau có thể nằm cùng shard
+</div></code></pre>
+<p>Ví dụ dữ liệu theo thời gian:</p>
+<pre class="hljs"><code><div>January → Shard 1
+February → Shard 2
+March → Shard 3
+</div></code></pre>
+<p>Query tháng 2 chỉ đọc Shard 2.</p>
+<hr>
+<h1 id="13-nhược-điểm-của-range-sharding">13. Nhược điểm của Range Sharding</h1>
+<h2 id="hot-shard-với-id-tăng-dần">Hot shard với ID tăng dần</h2>
+<p>Nếu order ID tăng liên tục:</p>
+<pre class="hljs"><code><div>Order mới nhất đều vào shard cuối.
+</div></code></pre>
+<pre class="hljs"><code><div>Shard 1: gần như không có write mới
+Shard 2: gần như không có write mới
+Shard 3: nhận toàn bộ write mới
+</div></code></pre>
+<hr>
+<h2 id="dữ-liệu-phân-bố-không-đều">Dữ liệu phân bố không đều</h2>
+<p>Một khoảng có thể chứa tenant lớn hơn nhiều khoảng khác.</p>
+<hr>
+<h2 id="rebalancing-cần-đổi-boundary">Rebalancing cần đổi boundary</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Shard 1: A–M
+Shard 2: N–Z
+</div></code></pre>
+<p>Shard 1 quá lớn, cần chia:</p>
+<pre class="hljs"><code><div>Shard 1: A–F
+Shard 3: G–M
+Shard 2: N–Z
+</div></code></pre>
+<p>Phải di chuyển dữ liệu G–M.</p>
+<hr>
+<h1 id="14-range-sharding-theo-thời-gian">14. Range Sharding theo thời gian</h1>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Logs
+- Events
+- Time-series
+- Transactions
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>2026-01 → Partition January
+2026-02 → Partition February
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Query theo khoảng thời gian tốt
+- Archive partition cũ dễ
+- Drop dữ liệu cũ nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Mọi write hiện tại vào partition mới nhất.
+</div></code></pre>
+<p>Có thể tạo hotspot.</p>
+<hr>
+<h1 id="15-hash-based-sharding">15. Hash-based Sharding</h1>
+<p>Dùng hàm hash:</p>
+<pre class="hljs"><code><div>shard = hash(shard_key) mod number_of_shards
+</div></code></pre>
+<p>Ví dụ có bốn shard:</p>
+<pre class="hljs"><code><div>hash(user_123) mod 4 = 2
+</div></code></pre>
+<p><code>user_123</code> nằm ở Shard 2.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Key[user_id] --> Hash[Hash Function]
+    Hash --> Mod[Modulo N]
+
+    Mod --> S0[(Shard 0)]
+    Mod --> S1[(Shard 1)]
+    Mod --> S2[(Shard 2)]
+    Mod --> S3[(Shard 3)]
+</div></code></pre>
+<hr>
+<h1 id="16-ưu-điểm-của-hash-sharding">16. Ưu điểm của Hash Sharding</h1>
+<pre class="hljs"><code><div>- Phân phối dữ liệu tương đối đều
+- Tránh hotspot do key tăng dần
+- Routing nhanh
+- Phù hợp lookup theo key
+</div></code></pre>
+<p>Nếu hash function tốt và key có cardinality cao, dữ liệu thường được trải tương đối đều.</p>
+<hr>
+<h1 id="17-nhược-điểm-của-hash-sharding">17. Nhược điểm của Hash Sharding</h1>
+<h2 id="range-query-khó">Range query khó</h2>
+<p>User IDs gần nhau không nhất thiết cùng shard.</p>
+<p>Query:</p>
+<pre class="hljs"><code><div>user_id từ 1.000 đến 2.000
+</div></code></pre>
+<p>có thể phải đọc nhiều shard.</p>
+<hr>
+<h2 id="thay-đổi-số-shard-gây-remap-lớn">Thay đổi số shard gây remap lớn</h2>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>shard = hash(key) mod 4
+</div></code></pre>
+<p>Sau đó tăng lên tám shard:</p>
+<pre class="hljs"><code><div>shard = hash(key) mod 8
+</div></code></pre>
+<p>Rất nhiều key đổi shard.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>hash(key) = 14
+
+14 mod 4 = 2
+14 mod 8 = 6
+</div></code></pre>
+<p>Record phải chuyển từ Shard 2 sang Shard 6.</p>
+<hr>
+<h1 id="18-modulo-sharding-và-bài-toán-resharding">18. Modulo Sharding và bài toán Resharding</h1>
+<p>Giả sử có 100 triệu user và bốn shard.</p>
+<pre class="hljs"><code><div>hash(user_id) mod 4
+</div></code></pre>
+<p>Khi thêm shard thứ năm:</p>
+<pre class="hljs"><code><div>hash(user_id) mod 5
+</div></code></pre>
+<p>Phần lớn user có mapping mới.</p>
+<p>Điều này có thể yêu cầu di chuyển gần như toàn bộ dữ liệu.</p>
+<p>Đó là lý do modulo đơn giản khó mở rộng động.</p>
+<hr>
+<h1 id="19-consistent-hashing">19. Consistent Hashing</h1>
+<p>Consistent hashing ánh xạ cả key và shard lên một vòng hash.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Ring((Hash Ring))
+
+    S1[Shard A] --> Ring
+    S2[Shard B] --> Ring
+    S3[Shard C] --> Ring
+</div></code></pre>
+<p>Một key được đặt vào shard đầu tiên theo chiều kim đồng hồ sau vị trí hash của key.</p>
+<p>Ý tưởng quan trọng:</p>
+<blockquote>
+<p>Khi thêm hoặc xóa một shard, chỉ một phần key gần shard đó cần di chuyển.</p>
+</blockquote>
+<p>Không phải toàn bộ key bị remap như modulo thông thường.</p>
+<hr>
+<h1 id="20-ví-dụ-consistent-hashing">20. Ví dụ Consistent Hashing</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>A → B → C → A trên hash ring
+</div></code></pre>
+<p>Key giữa A và B thuộc B.</p>
+<p>Khi thêm Shard D giữa A và B:</p>
+<pre class="hljs"><code><div>Chỉ các key trong khoảng A → D chuyển từ B sang D.
+</div></code></pre>
+<p>Các key thuộc C hoặc A không đổi.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[Shard A] --> D[New Shard D]
+    D --> B[Shard B]
+    B --> C[Shard C]
+    C --> A
+</div></code></pre>
+<hr>
+<h1 id="21-virtual-nodes">21. Virtual Nodes</h1>
+<p>Nếu mỗi physical shard chỉ có một điểm trên vòng hash, phân bố có thể không đều.</p>
+<p>Giải pháp: mỗi shard có nhiều <strong>virtual nodes</strong>.</p>
+<pre class="hljs"><code><div>Shard A:
+A1, A2, A3, A4
+
+Shard B:
+B1, B2, B3, B4
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Ring((Hash Ring))
+
+    A1[A1] --> Ring
+    A2[A2] --> Ring
+    A3[A3] --> Ring
+
+    B1[B1] --> Ring
+    B2[B2] --> Ring
+    B3[B3] --> Ring
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Phân phối đều hơn
+- Rebalancing mượt hơn
+- Server mạnh có thể sở hữu nhiều virtual nodes hơn
+</div></code></pre>
+<hr>
+<h1 id="22-consistent-hashing-không-tự-động-giải-quyết-hot-key">22. Consistent Hashing không tự động giải quyết Hot Key</h1>
+<p>Giả sử một key:</p>
+<pre class="hljs"><code><div>celebrity_123
+</div></code></pre>
+<p>nhận 1 triệu request/giây.</p>
+<p>Dù consistent hashing phân bố hàng triệu key rất đều:</p>
+<pre class="hljs"><code><div>celebrity_123 vẫn chỉ nằm ở một shard.
+</div></code></pre>
+<p>Shard đó vẫn nóng.</p>
+<p>Consistent hashing giải quyết:</p>
+<pre class="hljs"><code><div>Phân bố nhiều key
+</div></code></pre>
+<p>không tự động giải quyết:</p>
+<pre class="hljs"><code><div>Một key cực nóng.
+</div></code></pre>
+<hr>
+<h1 id="23-directory-based-sharding">23. Directory-based Sharding</h1>
+<p>Có một bảng hoặc service ánh xạ:</p>
+<pre class="hljs"><code><div>shard_key → shard
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>tenant_A → Shard 7
+tenant_B → Shard 2
+tenant_C → Shard 7
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Request --> Directory[Shard Directory]
+
+    Directory -->|tenant A| S7[(Shard 7)]
+    Directory -->|tenant B| S2[(Shard 2)]
+</div></code></pre>
+<hr>
+<h1 id="24-ưu-điểm-của-directory-sharding">24. Ưu điểm của Directory Sharding</h1>
+<pre class="hljs"><code><div>- Mapping linh hoạt
+- Dễ di chuyển từng tenant
+- Có thể đặt tenant lớn vào shard riêng
+- Không phụ thuộc hash cố định
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Tenant A trở nên rất lớn
+→ chuyển Tenant A từ Shard 2 sang Shard 10
+</div></code></pre>
+<p>chỉ cần cập nhật directory sau migration.</p>
+<hr>
+<h1 id="25-nhược-điểm-của-directory-sharding">25. Nhược điểm của Directory Sharding</h1>
+<p>Shard directory trở thành dependency quan trọng.</p>
+<p>Nếu directory lỗi:</p>
+<pre class="hljs"><code><div>Application không biết dữ liệu nằm đâu.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- High availability
+- Cache mapping
+- Versioning
+- Consistent updates
+</div></code></pre>
+<p>Nếu cache directory cũ, request có thể đi nhầm shard.</p>
+<hr>
+<h1 id="26-geographic-sharding">26. Geographic Sharding</h1>
+<p>Chia dữ liệu theo khu vực.</p>
+<pre class="hljs"><code><div>EU users → EU shard
+Asia users → Asia shard
+US users → US shard
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    GlobalRouter[Global Router]
+
+    GlobalRouter --> EU[(EU Shard)]
+    GlobalRouter --> Asia[(Asia Shard)]
+    GlobalRouter --> US[(US Shard)]
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Latency thấp hơn
+- Data residency
+- Giảm cross-region traffic
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User di chuyển region
+- Global query khó
+- Cross-region transaction
+- Region lớn nhỏ không đều
+</div></code></pre>
+<hr>
+<h1 id="27-composite-shard-key">27. Composite Shard Key</h1>
+<p>Shard key có thể gồm nhiều field.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>(tenant_id, user_id)
+(region, customer_id)
+(conversation_id, bucket_id)
+</div></code></pre>
+<p>Composite key giúp cân bằng giữa:</p>
+<pre class="hljs"><code><div>- Data locality
+- Distribution
+- Hotspot avoidance
+</div></code></pre>
+<hr>
+<h1 id="28-ví-dụ-composite-key-chống-hot-tenant">28. Ví dụ Composite Key chống Hot Tenant</h1>
+<p>Nếu chỉ shard theo <code>tenant_id</code>:</p>
+<pre class="hljs"><code><div>Một enterprise tenant có 100 triệu user
+→ toàn bộ tenant nằm một shard
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>(tenant_id, bucket_id)
+</div></code></pre>
+<p>Trong đó:</p>
+<pre class="hljs"><code><div>bucket_id = hash(user_id) mod 16
+</div></code></pre>
+<p>Tenant lớn được trải qua 16 shard hoặc logical partitions.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Query toàn tenant phải đọc 16 bucket.
+</div></code></pre>
+<hr>
+<h1 id="29-hot-partition-là-gì">29. Hot Partition là gì?</h1>
+<p>Hot partition là partition nhận tải vượt xa các partition khác.</p>
+<pre class="hljs"><code><div>Shard 1: 2.000 QPS
+Shard 2: 2.100 QPS
+Shard 3: 50.000 QPS
+Shard 4: 1.900 QPS
+</div></code></pre>
+<p>Mặc dù tổng cluster còn capacity, Shard 3 vẫn quá tải.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Traffic --> S1[Shard 1: normal]
+    Traffic --> S2[Shard 2: normal]
+    Traffic --> S3[Shard 3: HOT]
+    Traffic --> S4[Shard 4: normal]
+</div></code></pre>
+<hr>
+<h1 id="30-nguyên-nhân-hot-partition">30. Nguyên nhân Hot Partition</h1>
+<pre class="hljs"><code><div>- Shard key có cardinality thấp
+- Một tenant cực lớn
+- Một celebrity hoặc product viral
+- Range sharding với key tăng dần
+- Temporal hotspot
+- Hash function phân phối kém
+- Query pattern tập trung vào một tập nhỏ dữ liệu
+</div></code></pre>
+<hr>
+<h1 id="31-data-skew-và-traffic-skew">31. Data Skew và Traffic Skew</h1>
+<p>Hai vấn đề liên quan nhưng khác nhau.</p>
+<h2 id="data-skew">Data skew</h2>
+<p>Một shard chứa nhiều dữ liệu hơn.</p>
+<pre class="hljs"><code><div>Shard A: 5 TB
+Shard B: 5 TB
+Shard C: 30 TB
+</div></code></pre>
+<h2 id="traffic-skew">Traffic skew</h2>
+<p>Dữ liệu có thể đều, nhưng traffic không đều.</p>
+<pre class="hljs"><code><div>Shard A: 10 TB, 2K QPS
+Shard B: 10 TB, 100K QPS
+Shard C: 10 TB, 3K QPS
+</div></code></pre>
+<p>Cả hai cần được theo dõi riêng.</p>
+<hr>
+<h1 id="32-cách-giảm-hot-partition">32. Cách giảm Hot Partition</h1>
+<h2 id="thêm-bucket-vào-key">Thêm bucket vào key</h2>
+<pre class="hljs"><code><div>partition_key = celebrity_id + random_bucket
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>celebrity_123:0
+celebrity_123:1
+...
+celebrity_123:99
+</div></code></pre>
+<p>Write được phân tán.</p>
+<p>Nhưng read phải tổng hợp nhiều bucket.</p>
+<hr>
+<h2 id="cache-dữ-liệu-nóng">Cache dữ liệu nóng</h2>
+<p>Nếu workload read-heavy:</p>
+<pre class="hljs"><code><div>CDN
+Local cache
+Distributed cache
+</div></code></pre>
+<p>giúp giảm request đến shard.</p>
+<hr>
+<h2 id="replicate-hot-data">Replicate hot data</h2>
+<p>Tạo nhiều read replica hoặc cache copy cho key nóng.</p>
+<hr>
+<h2 id="tách-tenant-nóng">Tách tenant nóng</h2>
+<p>Directory-based sharding cho phép chuyển tenant lớn sang shard riêng.</p>
+<hr>
+<h2 id="precompute-hoặc-aggregate">Precompute hoặc aggregate</h2>
+<p>Không query lại dữ liệu nặng cho mỗi request.</p>
+<hr>
+<h2 id="rate-limiting">Rate limiting</h2>
+<p>Một tenant hoặc key không được sử dụng toàn bộ capacity.</p>
+<hr>
+<h1 id="33-celebrity-problem">33. Celebrity Problem</h1>
+<p>Trong social network, người bình thường có ít follower.</p>
+<p>Một celebrity có hàng trăm triệu follower.</p>
+<p>Nếu fan-out on write:</p>
+<pre class="hljs"><code><div>Celebrity đăng bài
+→ phải cập nhật hàng trăm triệu feed.
+</div></code></pre>
+<p>Nếu partition theo celebrity ID:</p>
+<pre class="hljs"><code><div>Một partition nhận workload cực lớn.
+</div></code></pre>
+<p>Thường cần chiến lược riêng:</p>
+<pre class="hljs"><code><div>Normal users:
+Fan-out on write
+
+Celebrities:
+Fan-out on read hoặc hybrid
+</div></code></pre>
+<p>Đây là ví dụ một access pattern cần xử lý đặc biệt, không thể chỉ dựa vào hash trung bình.</p>
+<hr>
+<h1 id="34-routing-request-tới-shard">34. Routing Request tới Shard</h1>
+<p>Có ba vị trí phổ biến cho shard routing.</p>
+<h2 id="application-side-routing">Application-side routing</h2>
+<p>Application tính shard:</p>
+<pre class="hljs"><code><div>shard_id = <span class="hljs-built_in">hash</span>(user_id) % shard_count
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không thêm network hop
+- Logic nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Mọi application phải biết topology
+- Deploy khó khi mapping thay đổi
+- Nhiều ngôn ngữ phải implement giống nhau
+</div></code></pre>
+<hr>
+<h2 id="proxy-based-routing">Proxy-based routing</h2>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Application --> Proxy[Shard Proxy]
+    Proxy --> S1[(Shard 1)]
+    Proxy --> S2[(Shard 2)]
+    Proxy --> S3[(Shard 3)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Application không cần biết topology
+- Quản lý routing tập trung
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Thêm network hop
+- Proxy phải HA
+- Có thể thành bottleneck
+</div></code></pre>
+<hr>
+<h2 id="coordinator-trong-database">Coordinator trong database</h2>
+<p>Distributed database tự route request.</p>
+<p>Client gửi key, database cluster quyết định node.</p>
+<p>Đơn giản hơn cho application nhưng logic phức tạp nằm trong database engine.</p>
+<hr>
+<h1 id="35-scattergather-query">35. Scatter–Gather Query</h1>
+<p>Nếu query không có shard key, phải gửi đến mọi shard.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Tìm 100 order mới nhất toàn hệ thống.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Query --> Coordinator
+
+    Coordinator --> S1[(Shard 1)]
+    Coordinator --> S2[(Shard 2)]
+    Coordinator --> S3[(Shard 3)]
+
+    S1 --> Merge[Merge + Sort]
+    S2 --> Merge
+    S3 --> Merge
+</div></code></pre>
+<p>Đây là <strong>scatter–gather</strong>.</p>
+<hr>
+<h1 id="36-chi-phí-của-scattergather">36. Chi phí của Scatter–Gather</h1>
+<p>Latency thường bị quyết định bởi shard chậm nhất:</p>
+<pre class="hljs"><code><div>Shard 1: 20 ms
+Shard 2: 25 ms
+Shard 3: 500 ms
+
+Tổng query phải chờ khoảng 500 ms hoặc hơn.
+</div></code></pre>
+<p>Ngoài ra:</p>
+<pre class="hljs"><code><div>- Tăng network calls
+- Tăng CPU coordinator
+- Phải merge/sort
+- Một shard lỗi có thể làm query thất bại
+</div></code></pre>
+<p>Nếu có 1.000 shard:</p>
+<pre class="hljs"><code><div>Một query có thể tạo 1.000 subqueries.
+</div></code></pre>
+<hr>
+<h1 id="37-tránh-scattergather">37. Tránh Scatter–Gather</h1>
+<pre class="hljs"><code><div>- Đưa shard key vào API/query
+- Tạo global index riêng
+- Dùng search engine
+- Precompute aggregate
+- Dùng data warehouse cho analytics
+- Duy trì materialized view
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>GET /users/{userId}/orders
+</div></code></pre>
+<p>tốt hơn query toàn cục nếu hệ thống shard theo user.</p>
+<hr>
+<h1 id="38-secondary-index-trong-hệ-thống-sharded">38. Secondary Index trong hệ thống Sharded</h1>
+<p>Giả sử shard theo <code>user_id</code>, nhưng cần tìm user theo <code>email</code>.</p>
+<p>Email không phải shard key.</p>
+<p>Có hai cách lớn.</p>
+<hr>
+<h2 id="local-secondary-index">Local secondary index</h2>
+<p>Mỗi shard có index email riêng.</p>
+<p>Để tìm email:</p>
+<pre class="hljs"><code><div>Phải query mọi shard.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Index update nằm cùng shard.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Global lookup cần scatter–gather.
+</div></code></pre>
+<hr>
+<h2 id="global-secondary-index">Global secondary index</h2>
+<p>Có một hệ thống mapping:</p>
+<pre class="hljs"><code><div>email → user_id → shard
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    EmailQuery --> GlobalIndex[(Global Email Index)]
+    GlobalIndex --> Router
+    Router --> UserShard[(User Shard)]
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Lookup nhanh.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Global index cần HA
+- Phải đồng bộ với shard
+- Có consistency lag
+- Unique constraint khó hơn
+</div></code></pre>
+<hr>
+<h1 id="39-global-uniqueness">39. Global Uniqueness</h1>
+<p>Ví dụ email phải unique toàn hệ thống.</p>
+<p>Nếu mỗi shard chỉ kiểm tra local:</p>
+<pre class="hljs"><code><div>Shard 1:
+luna@example.com tồn tại
+
+Shard 2:
+cũng có thể tạo luna@example.com
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Global uniqueness service
+- Dedicated global index
+- Shard theo normalized email
+- Reservation protocol
+- Database hỗ trợ global constraint
+</div></code></pre>
+<p>Mỗi giải pháp có trade-off.</p>
+<hr>
+<h1 id="40-id-generation-trong-hệ-thống-sharded">40. ID Generation trong hệ thống Sharded</h1>
+<p>Auto-increment ID trên từng shard có thể xung đột.</p>
+<pre class="hljs"><code><div>Shard 1 tạo order ID 100
+Shard 2 cũng tạo order ID 100
+</div></code></pre>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- UUID
+- Time-based distributed ID
+- Snowflake-like ID
+- Prefix shard ID
+- Central ID service
+</div></code></pre>
+<hr>
+<h1 id="41-id-chứa-shard-information">41. ID chứa Shard Information</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>order_id = shard_id + local_sequence
+</div></code></pre>
+<p>Hoặc một số bit đại diện:</p>
+<pre class="hljs"><code><div>timestamp
+machine/shard ID
+sequence
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Unique toàn hệ thống
+- Có thể route từ ID
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Lộ topology
+- Khó thay đổi shard
+- ID generation phức tạp
+</div></code></pre>
+<p>Không phải mọi ID đều nên encode vị trí vật lý vì record có thể được di chuyển khi resharding.</p>
+<hr>
+<h1 id="42-cross-shard-join">42. Cross-Shard JOIN</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>Users shard theo user_id
+Products shard theo product_id
+Orders shard theo order_id
+</div></code></pre>
+<p>Query:</p>
+<pre class="hljs"><code><div>Lấy order, user và product details
+</div></code></pre>
+<p>có thể phải đọc ba shard hoặc ba cluster.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    API --> OrderShard[(Order Shard)]
+    API --> UserShard[(User Shard)]
+    API --> ProductShard[(Product Shard)]
+</div></code></pre>
+<p>Database JOIN truyền thống không còn đơn giản.</p>
+<hr>
+<h1 id="43-cách-xử-lý-cross-shard-join">43. Cách xử lý Cross-Shard JOIN</h1>
+<pre class="hljs"><code><div>- Join ở application
+- Denormalize dữ liệu
+- Dùng data warehouse
+- Dùng search/index projection
+- Co-locate dữ liệu liên quan
+- Precompute materialized view
+</div></code></pre>
+<p>Ví dụ order lưu snapshot:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Luna&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_789&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;productName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Keyboard&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;unitPrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2500000</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không cần JOIN Product Service để hiển thị order lịch sử.</p>
+<hr>
+<h1 id="44-co-location">44. Co-location</h1>
+<p>Co-location là đặt dữ liệu thường được xử lý cùng nhau vào cùng shard.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order
+Order items
+Payment attempt
+</div></code></pre>
+<p>có thể shard theo <code>order_id</code>.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Local transaction
+- Local JOIN
+- Latency thấp
+</div></code></pre>
+<p>Đây là lý do shard key phải được chọn từ access pattern, không phải chọn ngẫu nhiên.</p>
+<hr>
+<h1 id="45-cross-shard-transaction">45. Cross-Shard Transaction</h1>
+<p>Transaction chạm nhiều shard.</p>
+<p>Ví dụ chuyển tiền:</p>
+<pre class="hljs"><code><div>Account A nằm Shard 1
+Account B nằm Shard 2
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>1. Trừ tiền A
+2. Cộng tiền B
+</div></code></pre>
+<p>Hoặc cả hai thành công, hoặc không bước nào thành công.</p>
+<p>Đây là distributed transaction.</p>
+<hr>
+<h1 id="46-vì-sao-cross-shard-transaction-khó">46. Vì sao Cross-Shard Transaction khó?</h1>
+<p>Trong một database node:</p>
+<pre class="hljs"><code><div>Database engine kiểm soát transaction.
+</div></code></pre>
+<p>Qua nhiều shard:</p>
+<pre class="hljs"><code><div>- Một shard có thể commit
+- Shard khác có thể fail
+- Network có thể timeout
+- Coordinator có thể crash
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Shard A đã trừ tiền
+Shard B chưa cộng tiền
+</div></code></pre>
+<p>Hệ thống ở trạng thái không nhất quán.</p>
+<hr>
+<h1 id="47-two-phase-commit--2pc">47. Two-Phase Commit — 2PC</h1>
+<p>Một protocol kinh điển cho distributed transaction.</p>
+<h2 id="phase-1--prepare">Phase 1 — Prepare</h2>
+<p>Coordinator hỏi các shard:</p>
+<pre class="hljs"><code><div>Bạn có thể commit không?
+</div></code></pre>
+<p>Các shard:</p>
+<pre class="hljs"><code><div>- Validate
+- Lock resource
+- Ghi prepare log
+- Trả YES hoặc NO
+</div></code></pre>
+<h2 id="phase-2--commitabort">Phase 2 — Commit/Abort</h2>
+<p>Nếu tất cả YES:</p>
+<pre class="hljs"><code><div>Coordinator gửi COMMIT.
+</div></code></pre>
+<p>Nếu một shard NO:</p>
+<pre class="hljs"><code><div>Coordinator gửi ABORT.
+</div></code></pre>
+<hr>
+<h1 id="48-sơ-đồ-2pc">48. Sơ đồ 2PC</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Coordinator
+    participant ShardA
+    participant ShardB
+
+    Coordinator->>ShardA: PREPARE
+    Coordinator->>ShardB: PREPARE
+
+    ShardA-->>Coordinator: YES
+    ShardB-->>Coordinator: YES
+
+    Coordinator->>ShardA: COMMIT
+    Coordinator->>ShardB: COMMIT
+</div></code></pre>
+<p>Nếu Shard B trả NO:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Coordinator
+    participant ShardA
+    participant ShardB
+
+    Coordinator->>ShardA: PREPARE
+    Coordinator->>ShardB: PREPARE
+
+    ShardA-->>Coordinator: YES
+    ShardB-->>Coordinator: NO
+
+    Coordinator->>ShardA: ABORT
+    Coordinator->>ShardB: ABORT
+</div></code></pre>
+<hr>
+<h1 id="49-nhược-điểm-của-2pc">49. Nhược điểm của 2PC</h1>
+<pre class="hljs"><code><div>- Latency cao
+- Lock được giữ lâu
+- Coordinator là thành phần quan trọng
+- Participant có thể bị block nếu coordinator chết
+- Khó vận hành xuyên region
+- Throughput giảm
+</div></code></pre>
+<p>2PC cung cấp atomicity mạnh hơn nhưng trả giá bằng availability và performance.</p>
+<hr>
+<h1 id="50-saga-pattern">50. Saga Pattern</h1>
+<p>Saga chia transaction lớn thành nhiều local transaction.</p>
+<p>Mỗi bước có một hành động bù trừ nếu bước sau thất bại.</p>
+<p>Ví dụ đặt chuyến du lịch:</p>
+<pre class="hljs"><code><div>1. Book flight
+2. Book hotel
+3. Charge payment
+</div></code></pre>
+<p>Nếu bước 3 thất bại:</p>
+<pre class="hljs"><code><div>- Cancel hotel
+- Cancel flight
+</div></code></pre>
+<hr>
+<h1 id="51-saga-cho-order">51. Saga cho Order</h1>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> OrderCreated
+    OrderCreated --> InventoryReserved
+    InventoryReserved --> PaymentCompleted
+    PaymentCompleted --> Confirmed
+
+    InventoryReserved --> InventoryReleased: Payment failed
+    OrderCreated --> Cancelled: Inventory failed
+</div></code></pre>
+<p>Các compensating actions:</p>
+<pre class="hljs"><code><div>Reserve inventory
+↔ Release inventory
+
+Charge payment
+↔ Refund payment
+
+Create shipment
+↔ Cancel shipment
+</div></code></pre>
+<hr>
+<h1 id="52-saga-không-giống-rollback-database">52. Saga không giống Rollback Database</h1>
+<p>Compensation là một operation nghiệp vụ mới.</p>
+<p>Ví dụ refund payment:</p>
+<pre class="hljs"><code><div>- Có thể mất phí
+- Có thể mất thời gian
+- Có thể thất bại
+- Có audit record riêng
+</div></code></pre>
+<p>Không phải hệ thống quay về trạng thái “chưa từng xảy ra gì”.</p>
+<p>Saga cung cấp eventual consistency, không phải atomic rollback hoàn hảo.</p>
+<hr>
+<h1 id="53-saga-orchestration-và-choreography">53. Saga Orchestration và Choreography</h1>
+<h2 id="orchestration">Orchestration</h2>
+<p>Một orchestrator điều khiển workflow.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Orchestrator --> Inventory
+    Orchestrator --> Payment
+    Orchestrator --> Shipping
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Workflow rõ ràng
+- Dễ theo dõi state
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Orchestrator phức tạp
+- Có thể trở thành thành phần trung tâm lớn
+</div></code></pre>
+<hr>
+<h2 id="choreography">Choreography</h2>
+<p>Các service phản ứng qua event.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    OrderCreated --> Inventory
+    Inventory --> InventoryReserved
+    InventoryReserved --> Payment
+    Payment --> PaymentSucceeded
+    PaymentSucceeded --> Shipping
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Decoupled
+- Không có orchestrator trung tâm
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Workflow khó nhìn
+- Debug phức tạp
+- Dependency ẩn
+</div></code></pre>
+<hr>
+<h1 id="54-tránh-cross-shard-transaction-bằng-thiết-kế-dữ-liệu">54. Tránh Cross-Shard Transaction bằng thiết kế dữ liệu</h1>
+<p>Cách tốt nhất thường là giảm số transaction cross-shard.</p>
+<p>Ví dụ shard theo account có thể làm chuyển tiền luôn cross-shard.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Dùng ledger trung tâm
+- Shard theo nhóm account có tương tác nhiều
+- Dùng clearing account
+- Xử lý bằng event và reconciliation
+</div></code></pre>
+<p>Không phải lúc nào cũng tránh được, nhưng nên coi cross-shard transaction là chi phí kiến trúc rõ ràng.</p>
+<hr>
+<h1 id="55-rebalancing-là-gì">55. Rebalancing là gì?</h1>
+<p>Rebalancing là di chuyển partition giữa các node để cân bằng:</p>
+<pre class="hljs"><code><div>- Dữ liệu
+- Traffic
+- CPU
+- Disk
+- Số leader
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Trước:
+Shard A = 5 TB
+Shard B = 5 TB
+Shard C = 20 TB
+
+Sau:
+A = 10 TB
+B = 10 TB
+C = 10 TB
+</div></code></pre>
+<hr>
+<h1 id="56-khi-nào-cần-rebalancing">56. Khi nào cần Rebalancing?</h1>
+<pre class="hljs"><code><div>- Thêm node
+- Xóa node
+- Node lỗi
+- Dữ liệu tăng không đều
+- Traffic skew
+- Một tenant tăng trưởng mạnh
+- Thay đổi capacity server
+</div></code></pre>
+<hr>
+<h1 id="57-rebalancing-có-chi-phí-gì">57. Rebalancing có chi phí gì?</h1>
+<p>Di chuyển dữ liệu tạo:</p>
+<pre class="hljs"><code><div>- Network traffic
+- Disk I/O
+- CPU serialization
+- Cache miss
+- Replication traffic
+- Latency tăng
+</div></code></pre>
+<p>Nếu rebalancing quá mạnh trong giờ cao điểm:</p>
+<pre class="hljs"><code><div>Có thể làm production chậm hoặc mất ổn định.
+</div></code></pre>
+<p>Cần throttling và headroom.</p>
+<hr>
+<h1 id="58-online-rebalancing">58. Online Rebalancing</h1>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Di chuyển dữ liệu mà hệ thống vẫn phục vụ request.
+</div></code></pre>
+<p>Quy trình khái niệm:</p>
+<pre class="hljs"><code><div>1. Copy dữ liệu từ source sang target
+2. Theo dõi các write mới
+3. Đồng bộ phần thay đổi
+4. Chuyển routing
+5. Xác minh
+6. Xóa bản cũ
+</div></code></pre>
+<hr>
+<h1 id="59-resharding-là-gì">59. Resharding là gì?</h1>
+<p>Resharding là thay đổi cách dữ liệu được chia shard.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>4 shards → 8 shards
+</div></code></pre>
+<p>Hoặc chia một shard nóng:</p>
+<pre class="hljs"><code><div>Shard A
+→ Shard A1 + Shard A2
+</div></code></pre>
+<p>Hoặc hợp nhất shard nhỏ:</p>
+<pre class="hljs"><code><div>Shard B + Shard C
+→ Shard BC
+</div></code></pre>
+<hr>
+<h1 id="60-split-một-shard">60. Split một Shard</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>Shard A:
+user IDs A–M
+</div></code></pre>
+<p>Chia:</p>
+<pre class="hljs"><code><div>Shard A1:
+A–F
+
+Shard A2:
+G–M
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Old[(Shard A: A–M)] --> New1[(Shard A1: A–F)]
+    Old --> New2[(Shard A2: G–M)]
+</div></code></pre>
+<p>Cần di chuyển dữ liệu G–M hoặc cả hai range tùy triển khai.</p>
+<hr>
+<h1 id="61-online-resharding-với-dual-write">61. Online Resharding với Dual Write</h1>
+<p>Một chiến lược:</p>
+<pre class="hljs"><code><div>1. Bắt đầu copy dữ liệu sang shard mới
+2. Write mới ghi cả old và new
+3. Read vẫn từ old
+4. Catch up
+5. Chuyển read sang new
+6. Ngừng write old
+7. Xóa old sau khi xác minh
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant App
+    participant Old
+    participant New
+
+    Note over App,New: Migration phase
+    App->>Old: Write
+    App->>New: Dual write
+
+    App->>Old: Read
+
+    Note over App,New: Cutover
+    App->>New: Read and write
+</div></code></pre>
+<hr>
+<h1 id="62-vấn-đề-của-dual-write">62. Vấn đề của Dual Write</h1>
+<pre class="hljs"><code><div>Write old thành công
+Write new thất bại
+</div></code></pre>
+<p>Hai bên lệch dữ liệu.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Retry
+- Idempotency
+- Change log
+- CDC
+- Reconciliation
+</div></code></pre>
+<p>Dual write trực tiếp thường không atomic.</p>
+<hr>
+<h1 id="63-online-resharding-bằng-change-log">63. Online Resharding bằng Change Log</h1>
+<p>Một chiến lược an toàn hơn:</p>
+<pre class="hljs"><code><div>1. Copy snapshot
+2. Ghi mọi thay đổi vào log
+3. Replay log sang shard mới
+4. Khi lag gần 0, cutover
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Old[(Old Shard)] --> Snapshot[Snapshot Copy]
+    Old --> ChangeLog[Change Log / CDC]
+
+    Snapshot --> New[(New Shard)]
+    ChangeLog --> New
+</div></code></pre>
+<p>Giống mô hình database migration hoặc replication.</p>
+<hr>
+<h1 id="64-read-during-migration">64. Read During Migration</h1>
+<p>Trong migration, routing có thể ở các trạng thái:</p>
+<pre class="hljs"><code><div>- Read old
+- Read new
+- Read old rồi fallback new
+- Read new rồi fallback old
+- Compare cả hai
+</div></code></pre>
+<p>Có thể dùng shadow reads:</p>
+<pre class="hljs"><code><div>Response trả từ old
+nhưng âm thầm query new để so sánh.
+</div></code></pre>
+<p>Không ảnh hưởng user nhưng giúp kiểm tra dữ liệu.</p>
+<hr>
+<h1 id="65-cutover">65. Cutover</h1>
+<p>Khi shard mới đã catch up:</p>
+<pre class="hljs"><code><div>1. Tạm dừng hoặc giới hạn write rất ngắn
+2. Đồng bộ delta cuối
+3. Cập nhật routing version
+4. Chuyển traffic
+5. Theo dõi error
+</div></code></pre>
+<p>Cần rollback plan nếu shard mới có lỗi.</p>
+<hr>
+<h1 id="66-routing-version">66. Routing Version</h1>
+<p>Shard mapping nên có version:</p>
+<pre class="hljs"><code><div>Mapping version 17:
+tenant A → Shard 2
+
+Mapping version 18:
+tenant A → Shard 7
+</div></code></pre>
+<p>Application hoặc proxy dùng version hiện tại.</p>
+<p>Nếu request dùng mapping cũ, shard cũ có thể trả redirect hoặc lookup lại.</p>
+<hr>
+<h1 id="67-rebalancing-và-consistent-hashing">67. Rebalancing và Consistent Hashing</h1>
+<p>Consistent hashing giúp giảm số key phải di chuyển khi thêm node.</p>
+<p>Nhưng không loại bỏ hoàn toàn migration.</p>
+<p>Vẫn cần:</p>
+<pre class="hljs"><code><div>- Copy dữ liệu
+- Update ownership
+- Handle writes trong quá trình chuyển
+- Verify consistency
+</div></code></pre>
+<p>Consistent hashing giải quyết việc <strong>chọn key nào di chuyển</strong>, không tự thực hiện toàn bộ quy trình an toàn.</p>
+<hr>
+<h1 id="68-virtual-shards--logical-partitions">68. Virtual Shards / Logical Partitions</h1>
+<p>Một chiến lược tốt là tạo nhiều logical partitions hơn physical nodes.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1.024 logical partitions
+20 physical database nodes
+</div></code></pre>
+<p>Mapping:</p>
+<pre class="hljs"><code><div>Logical partition 0–49 → Node A
+50–101 → Node B
+...
+</div></code></pre>
+<p>Khi thêm node:</p>
+<pre class="hljs"><code><div>Chuyển một số logical partition sang node mới.
+</div></code></pre>
+<p>Không cần thay đổi hash function.</p>
+<hr>
+<h1 id="69-lợi-ích-virtual-shards">69. Lợi ích Virtual Shards</h1>
+<pre class="hljs"><code><div>- Rebalancing nhỏ hơn
+- Dễ phân phối capacity
+- Tách logical partition khỏi physical server
+- Server mạnh có thể nhận nhiều partition hơn
+</div></code></pre>
+<p>Đây là ý tưởng gần virtual nodes trong consistent hashing.</p>
+<hr>
+<h1 id="70-shard-replication">70. Shard Replication</h1>
+<p>Mỗi shard thường cũng có replica.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Router --> S1L[(Shard 1 Leader)]
+    Router --> S2L[(Shard 2 Leader)]
+
+    S1L --> S1R1[(Shard 1 Replica)]
+    S1L --> S1R2[(Shard 1 Replica)]
+
+    S2L --> S2R1[(Shard 2 Replica)]
+    S2L --> S2R2[(Shard 2 Replica)]
+</div></code></pre>
+<p>Sharding giải quyết:</p>
+<pre class="hljs"><code><div>Capacity
+</div></code></pre>
+<p>Replication giải quyết:</p>
+<pre class="hljs"><code><div>Availability và read scaling
+</div></code></pre>
+<p>Một hệ thống production thường dùng cả hai.</p>
+<hr>
+<h1 id="71-shard-failure">71. Shard Failure</h1>
+<p>Nếu một shard leader lỗi:</p>
+<pre class="hljs"><code><div>Chỉ partition thuộc shard đó bị ảnh hưởng.
+</div></code></pre>
+<p>Replica được promote.</p>
+<p>Nhưng router phải biết leader mới.</p>
+<p>Cần theo dõi:</p>
+<pre class="hljs"><code><div>- Shard availability
+- Replica lag
+- Leader election
+- Routing updates
+</div></code></pre>
+<hr>
+<h1 id="72-correlated-failure">72. Correlated Failure</h1>
+<p>Không nên đặt leader và replicas của cùng shard trên cùng máy hoặc zone.</p>
+<pre class="hljs"><code><div>Shard 1 leader → Zone A
+Shard 1 replica 1 → Zone B
+Shard 1 replica 2 → Zone C
+</div></code></pre>
+<p>Nếu tất cả cùng Zone A:</p>
+<pre class="hljs"><code><div>Zone A lỗi
+→ mất toàn bộ Shard 1.
+</div></code></pre>
+<hr>
+<h1 id="73-noisy-neighbor">73. Noisy Neighbor</h1>
+<p>Nhiều tenant dùng chung shard.</p>
+<p>Một tenant chạy query nặng:</p>
+<pre class="hljs"><code><div>- CPU shard tăng
+- Connection pool đầy
+- User khác trên shard bị ảnh hưởng
+</div></code></pre>
+<p>Đây là noisy-neighbor problem.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Per-tenant rate limit
+- Query quotas
+- Resource groups
+- Move tenant lớn
+- Tenant isolation
+</div></code></pre>
+<hr>
+<h1 id="74-dedicated-shard-cho-tenant-lớn">74. Dedicated Shard cho Tenant lớn</h1>
+<p>Mô hình hybrid:</p>
+<pre class="hljs"><code><div>Tenant nhỏ:
+Dùng shared shards
+
+Tenant lớn:
+Dedicated shard
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Router --> Shared[(Shared Shards)]
+    Router --> EnterpriseA[(Dedicated Tenant A)]
+    Router --> EnterpriseB[(Dedicated Tenant B)]
+</div></code></pre>
+<p>Directory-based routing phù hợp mô hình này.</p>
+<hr>
+<h1 id="75-multi-tenant-shard-key">75. Multi-Tenant Shard Key</h1>
+<p>Nếu dùng SaaS multi-tenant:</p>
+<pre class="hljs"><code><div>tenant_id
+</div></code></pre>
+<p>là shard key tự nhiên vì:</p>
+<pre class="hljs"><code><div>- Query thường scope theo tenant
+- Dễ cô lập dữ liệu
+- Dễ backup/migrate tenant
+</div></code></pre>
+<p>Nhưng tenant size không đều.</p>
+<p>Có thể dùng tiering:</p>
+<pre class="hljs"><code><div>Small tenant → shared shard
+Large tenant → bucketed hoặc dedicated shard
+</div></code></pre>
+<hr>
+<h1 id="76-pagination-qua-nhiều-shard">76. Pagination qua nhiều Shard</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>Lấy 20 order mới nhất toàn hệ thống.
+</div></code></pre>
+<p>Mỗi shard trả 20 record mới nhất.</p>
+<p>Coordinator merge và lấy top 20 tổng thể.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Query --> S1[(Shard 1: top 20)]
+    Query --> S2[(Shard 2: top 20)]
+    Query --> S3[(Shard 3: top 20)]
+
+    S1 --> Merge[Merge top K]
+    S2 --> Merge
+    S3 --> Merge
+</div></code></pre>
+<p>Cursor cần chứa trạng thái từng shard hoặc một global ordering mechanism.</p>
+<p>Rất phức tạp so với pagination trong một database.</p>
+<hr>
+<h1 id="77-global-aggregate">77. Global Aggregate</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>Tổng doanh thu hôm nay.
+</div></code></pre>
+<p>Có thể scatter query:</p>
+<pre class="hljs"><code><div>SUM trên từng shard rồi cộng lại.
+</div></code></pre>
+<p>Nhưng với dashboard thường xuyên, nên:</p>
+<pre class="hljs"><code><div>- Stream events vào analytics store
+- Duy trì aggregate table
+- Dùng data warehouse
+</div></code></pre>
+<p>Không nên chạy heavy global query trực tiếp trên production shards liên tục.</p>
+<hr>
+<h1 id="78-search-trong-hệ-thống-sharded">78. Search trong hệ thống Sharded</h1>
+<p>Full-text search qua nhiều database shard khó.</p>
+<p>Thường dùng:</p>
+<pre class="hljs"><code><div>Primary shards = source of truth
+Search engine = global searchable projection
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Shards[(Database Shards)] --> CDC[CDC / Events]
+    CDC --> Search[(Search Index)]
+    Client --> Search
+</div></code></pre>
+<p>Search index có thể eventual consistent.</p>
+<hr>
+<h1 id="79-cache-và-sharding">79. Cache và Sharding</h1>
+<p>Cache key thường không cần biết shard nếu cache lookup theo entity ID:</p>
+<pre class="hljs"><code><div>user:user_123
+</div></code></pre>
+<p>Nhưng cache miss cần router tìm shard.</p>
+<p>Có thể cache shard mapping:</p>
+<pre class="hljs"><code><div>user_123 → Shard 7
+</div></code></pre>
+<p>Cần invalidation khi resharding.</p>
+<hr>
+<h1 id="80-backup-và-restore-trong-hệ-thống-sharded">80. Backup và Restore trong hệ thống Sharded</h1>
+<p>Mỗi shard có backup riêng.</p>
+<p>Khó khăn:</p>
+<pre class="hljs"><code><div>- Snapshot phải nhất quán giữa các shard
+- Restore nhiều shard cùng thời điểm
+- Global transaction có thể bị lệch
+- Mapping directory cũng cần backup
+</div></code></pre>
+<p>Nếu cần point-in-time recovery toàn hệ thống:</p>
+<pre class="hljs"><code><div>Tất cả shard phải phục hồi về một logical time phù hợp.
+</div></code></pre>
+<hr>
+<h1 id="81-schema-migration-qua-nhiều-shard">81. Schema Migration qua nhiều Shard</h1>
+<p>Thay đổi schema phải áp dụng cho hàng chục hoặc hàng trăm shard.</p>
+<p>Không nên chạy đồng thời toàn bộ:</p>
+<pre class="hljs"><code><div>- Tạo load spike
+- Lock đồng loạt
+- Tăng blast radius
+</div></code></pre>
+<p>Nên:</p>
+<pre class="hljs"><code><div>1. Canary một shard
+2. Theo dõi
+3. Rollout theo batch
+4. Hỗ trợ schema cũ và mới trong app
+5. Có rollback
+</div></code></pre>
+<hr>
+<h1 id="82-operational-complexity">82. Operational Complexity</h1>
+<p>Sharding làm tăng số đối tượng vận hành:</p>
+<pre class="hljs"><code><div>- Nhiều database
+- Nhiều replica
+- Nhiều backup
+- Nhiều connection pools
+- Nhiều failover
+- Nhiều schema migration
+- Nhiều dashboard
+</div></code></pre>
+<p>Nếu có 100 shard, mỗi shard 3 replica:</p>
+<pre class="hljs"><code><div>300 database nodes hoặc instances logic.
+</div></code></pre>
+<p>Automation trở thành bắt buộc.</p>
+<hr>
+<h1 id="83-observability-cho-sharding">83. Observability cho Sharding</h1>
+<p>Metrics theo từng shard:</p>
+<pre class="hljs"><code><div>- Storage usage
+- Row count
+- Read QPS
+- Write QPS
+- CPU
+- Memory
+- Disk latency
+- Connection saturation
+- Replication lag
+- Error rate
+- Hot keys
+</div></code></pre>
+<p>Cluster-level average không đủ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Average CPU = 35%
+
+Shard 17 CPU = 98%
+</div></code></pre>
+<p>Average che giấu hotspot.</p>
+<hr>
+<h1 id="84-metrics-về-phân-bố">84. Metrics về phân bố</h1>
+<p>Cần đo:</p>
+<pre class="hljs"><code><div>- Largest shard size / average shard size
+- Highest QPS shard / average QPS
+- Top tenants theo load
+- Partition growth rate
+- Rebalancing lag
+- Data movement throughput
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Skew ratio = max shard QPS / average shard QPS
+</div></code></pre>
+<p>Nếu ratio quá cao, shard key hoặc workload có vấn đề.</p>
+<hr>
+<h1 id="85-alert-quan-trọng">85. Alert quan trọng</h1>
+<pre class="hljs"><code><div>- Một shard gần đầy disk
+- Một shard latency tăng
+- Hot partition
+- Replication lag
+- Shard directory không đồng bộ
+- Rebalancing bị kẹt
+- Dual-write mismatch
+- Cross-shard transaction stuck
+- Shard leader changes liên tục
+</div></code></pre>
+<hr>
+<h1 id="86-case-study--todoist">86. Case Study — Todoist</h1>
+<p>Access pattern:</p>
+<pre class="hljs"><code><div>- Lấy projects của user
+- Lấy tasks của user
+- Cập nhật task
+- Query task theo deadline
+</div></code></pre>
+<p>Shard key hợp lý:</p>
+<pre class="hljs"><code><div>user_id
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    API --> Router
+
+    Router -->|hash user_id| S1[(Shard 1)]
+    Router -->|hash user_id| S2[(Shard 2)]
+    Router -->|hash user_id| S3[(Shard 3)]
+</div></code></pre>
+<p>Co-locate:</p>
+<pre class="hljs"><code><div>Users
+Projects
+Tasks
+Labels cá nhân
+</div></code></pre>
+<p>theo user.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Phần lớn request một shard
+- Transaction task/project local
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Shared project nhiều user phức tạp hơn
+- Global due-date report cần analytics projection
+</div></code></pre>
+<hr>
+<h1 id="87-case-study--chat">87. Case Study — Chat</h1>
+<p>Access pattern:</p>
+<pre class="hljs"><code><div>- Ghi message
+- Lấy message theo conversation
+- Sort theo thời gian
+</div></code></pre>
+<p>Shard key:</p>
+<pre class="hljs"><code><div>conversation_id
+</div></code></pre>
+<pre class="hljs"><code><div>Partition key: conversation_id
+Sort key: message_timestamp + message_id
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>Tin nhắn cùng conversation ở cùng partition,
+giữ ordering thuận tiện.
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Conversation cực lớn trở thành hot partition.
+</div></code></pre>
+<p>Có thể bucket:</p>
+<pre class="hljs"><code><div>(conversation_id, time_bucket)
+</div></code></pre>
+<p>Ví dụ theo tháng hoặc theo sequence range.</p>
+<hr>
+<h1 id="88-case-study--time-series">88. Case Study — Time-Series</h1>
+<p>Dữ liệu IoT:</p>
+<pre class="hljs"><code><div>device_id
+timestamp
+value
+</div></code></pre>
+<p>Nếu shard chỉ theo <code>device_id</code>:</p>
+<pre class="hljs"><code><div>Một device cực hoạt động có thể nóng.
+</div></code></pre>
+<p>Nếu shard chỉ theo timestamp:</p>
+<pre class="hljs"><code><div>Mọi write hiện tại tập trung vào partition mới nhất.
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>(device_id_hash, time_bucket)
+</div></code></pre>
+<p>Giúp phân phối write và hỗ trợ query theo device/time.</p>
+<hr>
+<h1 id="89-case-study--e-commerce-orders">89. Case Study — E-commerce Orders</h1>
+<p>Lựa chọn 1:</p>
+<pre class="hljs"><code><div>Shard theo customer_id
+</div></code></pre>
+<p>Tốt cho:</p>
+<pre class="hljs"><code><div>Lịch sử order của customer.
+</div></code></pre>
+<p>Lựa chọn 2:</p>
+<pre class="hljs"><code><div>Shard theo order_id
+</div></code></pre>
+<p>Tốt cho:</p>
+<pre class="hljs"><code><div>Lookup order trực tiếp và phân bố đều.
+</div></code></pre>
+<p>Lựa chọn 3:</p>
+<pre class="hljs"><code><div>Shard theo merchant_id
+</div></code></pre>
+<p>Tốt cho:</p>
+<pre class="hljs"><code><div>Merchant quản lý orders.
+</div></code></pre>
+<p>Không có đáp án tuyệt đối.</p>
+<p>Phải ưu tiên access pattern quan trọng nhất và tạo projection cho access pattern phụ.</p>
+<hr>
+<h1 id="90-case-study--ticket-booking">90. Case Study — Ticket Booking</h1>
+<p>Dữ liệu:</p>
+<pre class="hljs"><code><div>Events
+Shows
+Seats
+Reservations
+Payments
+</div></code></pre>
+<p>Một shard key có thể là:</p>
+<pre class="hljs"><code><div>show_id
+</div></code></pre>
+<p>Tất cả seat của một show nằm cùng shard.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Reservation trong một show là local transaction
+- Unique seat constraint local
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Show cực hot làm một shard quá tải.
+</div></code></pre>
+<p>Nếu chia một show qua nhiều shard theo seat section:</p>
+<pre class="hljs"><code><div>(show_id, section_id)
+</div></code></pre>
+<p>thì tăng parallelism, nhưng booking nhiều ghế ở nhiều section có thể thành cross-shard transaction.</p>
+<p>Đây là trade-off điển hình:</p>
+<pre class="hljs"><code><div>Local consistency
+↕
+Hotspot avoidance
+</div></code></pre>
+<hr>
+<h1 id="91-shard-theo-show-hay-seat">91. Shard theo Show hay Seat?</h1>
+<h2 id="theo-show_id">Theo show_id</h2>
+<pre class="hljs"><code><div>Ưu:
+- Toàn bộ ghế cùng show ở một shard
+- Transaction đơn giản
+- Tránh bán trùng dễ hơn
+
+Nhược:
+- Concert lớn tạo hotspot
+</div></code></pre>
+<h2 id="theo-hashseat_id">Theo hash(seat_id)</h2>
+<pre class="hljs"><code><div>Ưu:
+- Traffic phân tán
+
+Nhược:
+- Booking nhiều ghế chạm nhiều shard
+- Cross-shard transaction
+</div></code></pre>
+<p>Có thể dùng hierarchical design:</p>
+<pre class="hljs"><code><div>Mỗi show được cấp một nhóm partitions,
+không nhất thiết chỉ một shard.
+</div></code></pre>
+<hr>
+<h1 id="92-case-study--social-feed">92. Case Study — Social Feed</h1>
+<p>Nếu shard posts theo <code>author_id</code>:</p>
+<pre class="hljs"><code><div>Dễ lấy bài của một author.
+</div></code></pre>
+<p>Nhưng xây feed user cần đọc nhiều author shards.</p>
+<p>Nếu shard feed theo <code>user_id</code>:</p>
+<pre class="hljs"><code><div>Dễ đọc feed cá nhân.
+</div></code></pre>
+<p>Nhưng fan-out on write có thể lớn.</p>
+<p>Thường dùng nhiều storage model:</p>
+<pre class="hljs"><code><div>Post store:
+Shard theo author
+
+Feed inbox:
+Shard theo viewer/user
+</div></code></pre>
+<p>Đây là denormalization để phục vụ hai access pattern.</p>
+<hr>
+<h1 id="93-cách-chọn-chiến-lược-sharding">93. Cách chọn chiến lược Sharding</h1>
+<h2 id="range">Range</h2>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Range query quan trọng
+- Dữ liệu theo thời gian
+- Boundary dễ quản lý
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Hot range.
+</div></code></pre>
+<h2 id="hash">Hash</h2>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Lookup theo exact key
+- Muốn phân bố đều
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Range query và resharding.
+</div></code></pre>
+<h2 id="consistent-hashing">Consistent hashing</h2>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Node thay đổi thường xuyên
+- Cần giảm lượng key remap
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Không tự giải quyết hot key.
+</div></code></pre>
+<h2 id="directory">Directory</h2>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Tenant size khác nhau
+- Cần di chuyển tenant linh hoạt
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Directory trở thành critical metadata.
+</div></code></pre>
+<h2 id="geographic">Geographic</h2>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Data residency
+- Latency vùng
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>Cross-region operation.
+</div></code></pre>
+<hr>
+<h1 id="94-framework-chọn-shard-key">94. Framework chọn Shard Key</h1>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Query quan trọng nhất là gì?
+2. Record nào thường được đọc cùng nhau?
+3. Record nào cần transaction cùng nhau?
+4. Key có cardinality đủ cao không?
+5. Phân bố dữ liệu có đều không?
+6. Phân bố traffic có đều không?
+7. Có tenant hoặc celebrity cực lớn không?
+8. Key có thay đổi không?
+9. Global query sẽ xử lý thế nào?
+10. Nếu shard nóng thì chia nhỏ ra sao?
+</div></code></pre>
+<hr>
+<h1 id="95-decision-tree">95. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Database không còn đủ capacity] --> B{Đã tối ưu/index/cache/replica chưa?}
+
+    B -->|Chưa| C[Tối ưu trước]
+    B -->|Rồi| D{Access pattern chính là gì?}
+
+    D -->|Range/time queries| E[Range Partitioning]
+    D -->|Lookup theo key| F[Hash Sharding]
+    D -->|Node thay đổi thường xuyên| G[Consistent Hashing]
+    D -->|Tenant cần di chuyển linh hoạt| H[Directory Sharding]
+    D -->|Data residency| I[Geographic Sharding]
+
+    E --> J[Kiểm tra hot range]
+    F --> K[Kiểm tra hot key]
+    G --> K
+    H --> L[HA cho directory]
+    I --> M[Cross-region consistency]
+
+    J --> N[Rebalancing/Resharding Strategy]
+    K --> N
+    L --> N
+    M --> N
+</div></code></pre>
+<hr>
+<h1 id="96-cách-trình-bày-trong-system-design-interview">96. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em shard database theo user ID.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Phần lớn access pattern được scope theo user, chẳng hạn lấy project, task và notification của một user, nên tôi chọn <code>user_id</code> làm shard key để các transaction chính nằm trong một shard. Tôi dùng hash hoặc virtual partitions để phân phối user tương đối đều. Global analytics và search không chạy scatter–gather trên production shards mà được xây từ event stream vào search engine hoặc data warehouse. Với enterprise tenant lớn, directory mapping cho phép tách tenant sang shard riêng. Tôi theo dõi cả data skew và traffic skew, vì consistent hashing không ngăn một tenant hoặc key đơn lẻ trở thành hotspot.</p>
+</blockquote>
+<p>Nếu nói về migration:</p>
+<blockquote>
+<p>Khi cần resharding, tôi copy snapshot sang shard mới, dùng CDC để đồng bộ write phát sinh, shadow-read để kiểm tra, rồi cutover bằng một routing version mới. Shard cũ chỉ bị xóa sau khi dữ liệu và traffic đã được xác minh.</p>
+</blockquote>
+<p>Nếu nói về transaction:</p>
+<blockquote>
+<p>Tôi cố co-locate dữ liệu cần transaction bằng shard key phù hợp. Những workflow bắt buộc chạm nhiều shard dùng Saga hoặc distributed transaction tùy yêu cầu consistency; 2PC chỉ dùng khi atomicity mạnh đáng để đánh đổi latency và availability.</p>
+</blockquote>
+<hr>
+<h1 id="97-những-sai-lầm-phổ-biến">97. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-sharding-quá-sớm">Lỗi 1: Sharding quá sớm</h2>
+<p>Tạo complexity trước khi có bottleneck thật.</p>
+<hr>
+<h2 id="lỗi-2-chọn-shard-key-chỉ-dựa-trên-dữ-liệu">Lỗi 2: Chọn shard key chỉ dựa trên dữ liệu</h2>
+<p>Không xét access pattern và transaction.</p>
+<hr>
+<h2 id="lỗi-3-chỉ-kiểm-tra-data-distribution">Lỗi 3: Chỉ kiểm tra data distribution</h2>
+<p>Dữ liệu đều nhưng traffic vẫn có thể lệch.</p>
+<hr>
+<h2 id="lỗi-4-shard-key-có-cardinality-thấp">Lỗi 4: Shard key có cardinality thấp</h2>
+<p>Ví dụ <code>country</code> hoặc <code>status</code>.</p>
+<hr>
+<h2 id="lỗi-5-range-shard-theo-id-tăng-dần">Lỗi 5: Range shard theo ID tăng dần</h2>
+<p>Mọi write mới vào shard cuối.</p>
+<hr>
+<h2 id="lỗi-6-dùng-modulo-nhưng-không-có-kế-hoạch-resharding">Lỗi 6: Dùng modulo nhưng không có kế hoạch resharding</h2>
+<p>Thêm shard làm phần lớn key đổi vị trí.</p>
+<hr>
+<h2 id="lỗi-7-nghĩ-consistent-hashing-giải-quyết-hot-key">Lỗi 7: Nghĩ consistent hashing giải quyết hot key</h2>
+<p>Một key cực nóng vẫn nằm một nơi.</p>
+<hr>
+<h2 id="lỗi-8-không-đưa-shard-key-vào-queryapi">Lỗi 8: Không đưa shard key vào query/API</h2>
+<p>Dẫn đến scatter–gather thường xuyên.</p>
+<hr>
+<h2 id="lỗi-9-dựa-vào-cross-shard-join-như-database-đơn-node">Lỗi 9: Dựa vào cross-shard JOIN như database đơn node</h2>
+<p>Latency và complexity tăng mạnh.</p>
+<hr>
+<h2 id="lỗi-10-global-unique-constraint-không-được-thiết-kế">Lỗi 10: Global unique constraint không được thiết kế</h2>
+<p>Tạo duplicate email, username hoặc ID.</p>
+<hr>
+<h2 id="lỗi-11-cross-shard-transaction-tràn-lan">Lỗi 11: Cross-shard transaction tràn lan</h2>
+<p>Làm mất lợi ích của sharding.</p>
+<hr>
+<h2 id="lỗi-12-dual-write-khi-resharding-nhưng-không-có-reconciliation">Lỗi 12: Dual write khi resharding nhưng không có reconciliation</h2>
+<p>Old và new shard bị lệch.</p>
+<hr>
+<h2 id="lỗi-13-rebalance-toàn-tốc-độ-trong-giờ-cao-điểm">Lỗi 13: Rebalance toàn tốc độ trong giờ cao điểm</h2>
+<p>Data movement làm production quá tải.</p>
+<hr>
+<h2 id="lỗi-14-directory-mapping-là-spof">Lỗi 14: Directory mapping là SPOF</h2>
+<p>Router không biết request đi đâu khi directory lỗi.</p>
+<hr>
+<h2 id="lỗi-15-chỉ-monitor-cluster-average">Lỗi 15: Chỉ monitor cluster average</h2>
+<p>Không thấy một shard đang ở 100% CPU.</p>
+<hr>
+<h1 id="98-bảng-ghi-nhớ-nhanh">98. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Partitioning</td>
+<td>Chia dữ liệu thành nhiều phần</td>
+</tr>
+<tr>
+<td>Sharding</td>
+<td>Đặt các partition trên nhiều database node</td>
+</tr>
+<tr>
+<td>Shard key</td>
+<td>Key quyết định record thuộc shard nào</td>
+</tr>
+<tr>
+<td>Range sharding</td>
+<td>Chia theo khoảng</td>
+</tr>
+<tr>
+<td>Hash sharding</td>
+<td>Chia theo hash</td>
+</tr>
+<tr>
+<td>Consistent hashing</td>
+<td>Giảm key phải di chuyển khi node đổi</td>
+</tr>
+<tr>
+<td>Virtual node</td>
+<td>Một physical node có nhiều điểm hash</td>
+</tr>
+<tr>
+<td>Directory sharding</td>
+<td>Mapping key → shard được lưu riêng</td>
+</tr>
+<tr>
+<td>Hot partition</td>
+<td>Một partition nhận tải quá lớn</td>
+</tr>
+<tr>
+<td>Data skew</td>
+<td>Dữ liệu phân bố không đều</td>
+</tr>
+<tr>
+<td>Traffic skew</td>
+<td>Traffic phân bố không đều</td>
+</tr>
+<tr>
+<td>Scatter–gather</td>
+<td>Query nhiều shard rồi tổng hợp</td>
+</tr>
+<tr>
+<td>Co-location</td>
+<td>Đặt dữ liệu liên quan cùng shard</td>
+</tr>
+<tr>
+<td>Rebalancing</td>
+<td>Di chuyển partition để cân tải</td>
+</tr>
+<tr>
+<td>Resharding</td>
+<td>Thay đổi cách chia shard</td>
+</tr>
+<tr>
+<td>2PC</td>
+<td>Distributed atomic commit</td>
+</tr>
+<tr>
+<td>Saga</td>
+<td>Chuỗi local transaction và compensation</td>
+</tr>
+<tr>
+<td>Global index</td>
+<td>Index dùng chung xuyên shard</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="99-sơ-đồ-ghi-nhớ-toàn-bài">99. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Sharding] --> B[Shard Strategy]
+    A --> C[Shard Key]
+    A --> D[Operational Problems]
+    A --> E[Distributed Queries]
+    A --> F[Distributed Transactions]
+
+    B --> B1[Range]
+    B --> B2[Hash]
+    B --> B3[Consistent Hashing]
+    B --> B4[Directory]
+    B --> B5[Geographic]
+
+    C --> C1[High Cardinality]
+    C --> C2[Even Distribution]
+    C --> C3[Query Locality]
+    C --> C4[Transaction Locality]
+
+    D --> D1[Hot Partition]
+    D --> D2[Rebalancing]
+    D --> D3[Resharding]
+    D --> D4[Routing]
+
+    E --> E1[Scatter-Gather]
+    E --> E2[Global Index]
+    E --> E3[Analytics Projection]
+
+    F --> F1[2PC]
+    F --> F2[Saga]
+    F --> F3[Compensation]
+</div></code></pre>
+<hr>
+<h1 id="100-những-điều-phải-nhớ-sau-bài-13">100. Những điều phải nhớ sau Bài 13</h1>
+<pre class="hljs"><code><div>1. Partitioning chia dữ liệu; sharding phân phối các partition qua nhiều node.
+2. Sharding chủ yếu giải quyết storage và write capacity.
+3. Không nên shard trước khi tối ưu query, index, cache và replicas.
+4. Shard key quyết định phần lớn độ khó của hệ thống.
+5. Shard key tốt có cardinality cao, phân bố đều và xuất hiện trong query chính.
+6. Range sharding hỗ trợ range query nhưng dễ hot range.
+7. Hash sharding phân phối đều hơn nhưng range query khó.
+8. Modulo sharding làm resharding khó khi số shard thay đổi.
+9. Consistent hashing giảm số key phải remap.
+10. Virtual nodes giúp phân phối và rebalance đều hơn.
+11. Consistent hashing không ngăn hot key.
+12. Directory sharding linh hoạt nhưng directory phải có HA.
+13. Geographic sharding hỗ trợ latency và data residency.
+14. Hot partition có thể do data skew hoặc traffic skew.
+15. Cache, bucket và dedicated shard có thể giảm hotspot.
+16. Query không có shard key thường tạo scatter–gather.
+17. Scatter–gather có latency phụ thuộc shard chậm nhất.
+18. Global secondary index giúp lookup xuyên shard nhưng tạo consistency complexity.
+19. Global uniqueness không thể chỉ kiểm tra từng shard độc lập.
+20. Dữ liệu cần transaction nên được co-locate trong cùng shard.
+21. Cross-shard JOIN nên được giảm bằng denormalization hoặc projection.
+22. Cross-shard transaction có thể dùng 2PC hoặc Saga.
+23. 2PC mạnh về atomicity nhưng làm tăng latency và blocking.
+24. Saga dùng compensation và chấp nhận eventual consistency.
+25. Rebalancing di chuyển dữ liệu để cân bằng cluster.
+26. Resharding thay đổi cách dữ liệu được chia.
+27. Online resharding thường cần snapshot, change log/CDC và cutover.
+28. Dual write không tự atomic và cần reconciliation.
+29. Sharding thường đi cùng replication cho HA.
+30. Phải monitor từng shard, không chỉ cluster average.
+</div></code></pre>
+<hr>
+<h1 id="101-bài-tập-thực-hành">101. Bài tập thực hành</h1>
+<p>Thiết kế sharding cho hệ thống chat có:</p>
+<pre class="hljs"><code><div>- 100 triệu DAU
+- 50 tỷ message
+- Chat 1-1 và group chat
+- Lấy message theo conversation và thời gian
+- Một số group có hàng triệu thành viên
+- Message phải giữ thứ tự trong conversation
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Shard key nên là userId hay conversationId?
+2. Vì sao?
+3. Sort key nên là gì?
+4. Conversation rất lớn có tạo hot partition không?
+5. Nếu có, bucket conversation thế nào?
+6. Bucket theo thời gian ảnh hưởng pagination ra sao?
+7. Làm sao giữ ordering khi conversation chia nhiều bucket?
+8. Search toàn bộ message xử lý thế nào?
+9. Global unread count lưu ở đâu?
+10. Consumer/message worker scale theo partition thế nào?
+11. Khi thêm shard, dữ liệu được reshard ra sao?
+12. Làm sao routing request trong lúc migration?
+13. Có cần cross-shard transaction khi gửi message không?
+14. Nếu user thuộc nhiều conversation shard khác nhau thì danh sách inbox được lưu thế nào?
+15. Metrics nào phát hiện hot conversation?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> ChatAPI
+    ChatAPI --> Router[Shard Router]
+
+    Router --> S1[(Message Shard 1)]
+    Router --> S2[(Message Shard 2)]
+    Router --> S3[(Message Shard 3)]
+
+    ChatAPI --> Broker[Message Broker]
+    Broker --> Delivery[Delivery Workers]
+    Broker --> Inbox[Inbox Projection Workers]
+
+    Inbox --> InboxStore[(User Inbox Store)]
+    S1 --> CDC[CDC / Events]
+    S2 --> CDC
+    S3 --> CDC
+    CDC --> Search[(Message Search Index)]
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Sharding không chỉ là chia đều số row. Một thiết kế sharding tốt phải giữ các query và transaction quan trọng ở phạm vi nhỏ, đồng thời có kế hoạch rõ ràng cho hotspot, global query và việc di chuyển dữ liệu khi cluster tăng trưởng.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 14 — Distributed Transactions và Consistency Workflows: two-phase commit, Saga, orchestration, choreography, compensation, outbox và reconciliation.</strong></p>
+
+</body>
+</html>

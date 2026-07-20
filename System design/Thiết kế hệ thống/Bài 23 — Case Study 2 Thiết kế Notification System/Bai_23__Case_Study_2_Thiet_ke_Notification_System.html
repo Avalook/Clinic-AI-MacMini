@@ -1,0 +1,3181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 23 — Case Study 2: Thiết kế Notification System.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-23--case-study-2-thiết-kế-notification-system">Bài 23 — Case Study 2: Thiết kế Notification System</h1>
+<p>Notification System gửi thông báo tới người dùng qua nhiều kênh:</p>
+<pre class="hljs"><code><div>- Email
+- SMS
+- Mobile push
+- Web push
+- In-app notification
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>OrderPlaced
+→ Gửi email xác nhận đơn hàng
+→ Gửi push “Đơn hàng đã được tạo”
+→ Hiển thị thông báo trong ứng dụng
+</div></code></pre>
+<p>Một notification system production không chỉ là:</p>
+<pre class="hljs"><code><div>call sendEmail()
+</div></code></pre>
+<p>Nó phải xử lý:</p>
+<pre class="hljs"><code><div>- Hàng triệu người nhận
+- Nhiều kênh và nhà cung cấp
+- Preferences của người dùng
+- Notification quan trọng và quảng cáo
+- Retry nhưng không gửi trùng
+- Rate limit
+- Scheduling và timezone
+- Template đa ngôn ngữ
+- Provider outage
+- Delivery status và analytics
+- Unsubscribe và compliance
+</div></code></pre>
+<hr>
+<h1 id="1-functional-requirements">1. Functional Requirements</h1>
+<p>Hệ thống cần hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Gửi notification theo một hoặc nhiều kênh.
+2. Gửi cho một user, một nhóm user hoặc toàn bộ audience.
+3. Tôn trọng notification preferences.
+4. Render template với dữ liệu động.
+5. Hỗ trợ nhiều ngôn ngữ.
+6. Gửi ngay hoặc lên lịch.
+7. Retry khi gửi thất bại tạm thời.
+8. Chuyển provider khi provider chính gặp lỗi.
+9. Theo dõi trạng thái gửi và delivery.
+10. Hỗ trợ unsubscribe, suppression và blocking.
+11. Cho phép user xem in-app notification.
+12. Hỗ trợ priority và notification category.
+</div></code></pre>
+<hr>
+<h1 id="2-non-functional-requirements">2. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Không làm chậm business transaction chính.
+- Có khả năng mở rộng ngang.
+- Một notification quan trọng không bị mất.
+- Không gửi trùng quá mức chấp nhận được.
+- Có thể chịu provider outage.
+- Tôn trọng rate limit của provider.
+- Có observability và audit.
+- Có thể xử lý burst traffic.
+- Có cơ chế chống spam và abuse.
+</div></code></pre>
+<hr>
+<h1 id="3-các-loại-notification">3. Các loại Notification</h1>
+<h2 id="transactional">Transactional</h2>
+<p>Phát sinh từ hoạt động cụ thể của user:</p>
+<pre class="hljs"><code><div>- OTP
+- Xác nhận đơn hàng
+- Payment receipt
+- Password reset
+- Security alert
+</div></code></pre>
+<p>Thường có:</p>
+<pre class="hljs"><code><div>- Priority cao
+- Latency thấp
+- Preference hạn chế hơn
+- Yêu cầu reliability cao
+</div></code></pre>
+<h2 id="marketing">Marketing</h2>
+<pre class="hljs"><code><div>- Khuyến mãi
+- Newsletter
+- Product campaign
+- Re-engagement
+</div></code></pre>
+<p>Thường có:</p>
+<pre class="hljs"><code><div>- Volume lớn
+- Có unsubscribe
+- Có quiet hours
+- Có batching và throttling
+</div></code></pre>
+<h2 id="operational">Operational</h2>
+<pre class="hljs"><code><div>- Server alert
+- On-call alert
+- Incident notification
+</div></code></pre>
+<p>Có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Escalation
+- Multiple channels
+- Ack
+- Repeated delivery
+</div></code></pre>
+<h2 id="social-hoặc-engagement">Social hoặc Engagement</h2>
+<pre class="hljs"><code><div>- Có người follow
+- Có bình luận mới
+- Có lượt thích
+- Có tin nhắn
+</div></code></pre>
+<p>Thường cần:</p>
+<pre class="hljs"><code><div>- Aggregation
+- Deduplication
+- Frequency caps
+</div></code></pre>
+<hr>
+<h1 id="4-xác-định-delivery-semantics">4. Xác định Delivery Semantics</h1>
+<p>Không phải mọi notification cần cùng guarantee.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>OTP:
+Cần latency thấp, không gửi quá cũ.
+
+Payment receipt:
+Không được mất, duplicate cần kiểm soát.
+
+Marketing email:
+Có thể chậm, phải tôn trọng unsubscribe.
+
+Like notification:
+Có thể aggregation và bỏ bớt.
+</div></code></pre>
+<p>Ta cần phân loại:</p>
+<table>
+<thead>
+<tr>
+<th>Loại</th>
+<th style="text-align:right">Priority</th>
+<th style="text-align:right">Retry</th>
+<th style="text-align:right">Duplicate tolerance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OTP</td>
+<td style="text-align:right">Rất cao</td>
+<td style="text-align:right">Có nhưng ngắn</td>
+<td style="text-align:right">Thấp</td>
+</tr>
+<tr>
+<td>Security alert</td>
+<td style="text-align:right">Rất cao</td>
+<td style="text-align:right">Mạnh</td>
+<td style="text-align:right">Rất thấp</td>
+</tr>
+<tr>
+<td>Payment receipt</td>
+<td style="text-align:right">Cao</td>
+<td style="text-align:right">Mạnh</td>
+<td style="text-align:right">Thấp</td>
+</tr>
+<tr>
+<td>Order update</td>
+<td style="text-align:right">Cao</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Trung bình thấp</td>
+</tr>
+<tr>
+<td>Social engagement</td>
+<td style="text-align:right">Trung bình</td>
+<td style="text-align:right">Có giới hạn</td>
+<td style="text-align:right">Trung bình</td>
+</tr>
+<tr>
+<td>Marketing</td>
+<td style="text-align:right">Thấp</td>
+<td style="text-align:right">Có</td>
+<td style="text-align:right">Có thể dedupe theo campaign</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="5-capacity-estimation">5. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>100 triệu users
+20 triệu DAU
+500 triệu notification requests/ngày
+</div></code></pre>
+<p>Average request rate:</p>
+<pre class="hljs"><code><div>500.000.000 / 86.400
+≈ 5.800 requests/giây
+</div></code></pre>
+<p>Peak gấp 10 lần:</p>
+<pre class="hljs"><code><div>≈ 58.000 requests/giây
+</div></code></pre>
+<p>Nếu mỗi logical notification fan-out trung bình qua 1,5 channel:</p>
+<pre class="hljs"><code><div>750 triệu channel deliveries/ngày
+</div></code></pre>
+<p>Average:</p>
+<pre class="hljs"><code><div>≈ 8.700 deliveries/giây
+</div></code></pre>
+<p>Peak có thể:</p>
+<pre class="hljs"><code><div>80.000–100.000 deliveries/giây
+</div></code></pre>
+<p>Campaign lớn có thể tạo burst hàng chục triệu recipients trong vài phút.</p>
+<hr>
+<h1 id="6-logical-notification-và-delivery-attempt">6. Logical Notification và Delivery Attempt</h1>
+<p>Cần phân biệt:</p>
+<h2 id="logical-notification">Logical notification</h2>
+<p>Ý định nghiệp vụ:</p>
+<pre class="hljs"><code><div>“Thông báo order ord_123 đã được giao cho user u_456.”
+</div></code></pre>
+<h2 id="channel-delivery">Channel delivery</h2>
+<p>Một lần gửi qua một kênh:</p>
+<pre class="hljs"><code><div>Email delivery
+Push delivery
+In-app delivery
+</div></code></pre>
+<h2 id="delivery-attempt">Delivery attempt</h2>
+<p>Một lần thử cụ thể tới provider:</p>
+<pre class="hljs"><code><div>Email attempt 1 qua Provider A
+Email attempt 2 qua Provider A
+Email attempt 3 qua Provider B
+</div></code></pre>
+<p>Data model không nên gộp ba khái niệm này thành một row duy nhất.</p>
+<hr>
+<h1 id="7-high-level-architecture">7. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Producers[Business Services] --> API[Notification API / Event Ingestion]
+
+    API --> Requests[(Notification Request Store)]
+    API --> Queue[Notification Request Stream]
+
+    Queue --> Orchestrator[Notification Orchestrator]
+
+    Orchestrator --> Preference[Preference Service]
+    Orchestrator --> Template[Template Service]
+    Orchestrator --> Scheduler[Scheduler]
+    Orchestrator --> Fanout[Channel Fan-out]
+
+    Fanout --> EmailQ[Email Queue]
+    Fanout --> SMSQ[SMS Queue]
+    Fanout --> PushQ[Push Queue]
+    Fanout --> InAppQ[In-App Queue]
+
+    EmailQ --> EmailWorkers[Email Workers]
+    SMSQ --> SMSWorkers[SMS Workers]
+    PushQ --> PushWorkers[Push Workers]
+    InAppQ --> InAppWorkers[In-App Workers]
+
+    EmailWorkers --> EmailProviders[Email Providers]
+    SMSWorkers --> SMSProviders[SMS Providers]
+    PushWorkers --> PushProviders[Push Providers]
+    InAppWorkers --> InAppStore[(In-App Store)]
+
+    EmailProviders --> Webhooks[Provider Webhooks]
+    SMSProviders --> Webhooks
+    PushProviders --> Webhooks
+
+    Webhooks --> Tracking[Delivery Tracking]
+    Tracking --> DeliveryDB[(Delivery Status Store)]
+</div></code></pre>
+<hr>
+<h1 id="8-vì-sao-notification-phải-async">8. Vì sao Notification phải Async?</h1>
+<p>Không tốt:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant EmailProvider
+    participant Client
+
+    Client->>Order: Place order
+    Order->>EmailProvider: Send confirmation
+    EmailProvider-->>Order: Success
+    Order-->>Client: Order created
+</div></code></pre>
+<p>Nếu email provider chậm:</p>
+<pre class="hljs"><code><div>Order creation cũng chậm.
+</div></code></pre>
+<p>Nếu email provider lỗi:</p>
+<pre class="hljs"><code><div>Order creation có thể thất bại dù order đã hợp lệ.
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Order
+    participant DB
+    participant Outbox
+    participant Notification
+
+    Client->>Order: Place order
+    Order->>DB: Create order + outbox event
+    DB-->>Order: Commit
+    Order-->>Client: Order created
+
+    Outbox->>Notification: OrderCreated
+    Notification->>Notification: Send asynchronously
+</div></code></pre>
+<p>Business transaction và notification được decouple.</p>
+<hr>
+<h1 id="9-api-gửi-notification">9. API gửi Notification</h1>
+<pre class="hljs"><code><div>POST /v1/notifications
+<span class="hljs-attribute">Authorization</span><span class="hljs-punctuation">: </span>Bearer ...
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>notif-request-123
+<span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>application/json
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;recipient&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u_456&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;category&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ORDER_UPDATE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;templateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order_delivered_v3&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;channels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;PUSH&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;EMAIL&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;IN_APP&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;templateData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;deliveredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T10:30:00Z&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;priority&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;HIGH&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;scheduledAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>202 Accepted
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;notificationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;notif_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACCEPTED&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p><code>202 Accepted</code> phù hợp vì notification đã được nhận để xử lý, chưa chắc đã được gửi hoặc delivered.</p>
+<hr>
+<h1 id="10-api-không-nên-nhận-raw-html-tùy-tiện">10. API không nên nhận Raw HTML tùy tiện</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;to&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user@example.com&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;html&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;html&gt;...&lt;/html&gt;&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Vấn đề:</p>
+<pre class="hljs"><code><div>- Khó kiểm soát thương hiệu
+- XSS trong in-app content
+- Template không version hóa
+- Không kiểm soát unsubscribe
+- Producer gắn chặt với từng channel
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>templateId + templateData
+</div></code></pre>
+<p>Notification platform chịu trách nhiệm render đúng channel.</p>
+<hr>
+<h1 id="11-producer-nên-gửi-business-intent">11. Producer nên gửi Business Intent</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>Send email subject X with HTML Y
+</div></code></pre>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>PaymentSucceeded
+OrderDelivered
+PasswordResetRequested
+</div></code></pre>
+<p>Platform hoặc domain notification adapter ánh xạ intent thành:</p>
+<pre class="hljs"><code><div>- Template
+- Channel
+- Priority
+- Preference category
+</div></code></pre>
+<p>Điều này giảm coupling giữa business service và provider cụ thể.</p>
+<hr>
+<h1 id="12-ingestion-qua-api-hay-event">12. Ingestion qua API hay Event?</h1>
+<p>Có hai đường:</p>
+<h2 id="direct-api">Direct API</h2>
+<p>Phù hợp khi service chủ động yêu cầu:</p>
+<pre class="hljs"><code><div>- Send OTP
+- Send password reset
+- Send one-off admin message
+</div></code></pre>
+<h2 id="event-driven">Event-driven</h2>
+<p>Phù hợp với business events:</p>
+<pre class="hljs"><code><div>OrderDelivered
+PaymentCompleted
+CommentCreated
+</div></code></pre>
+<p>Event consumer quyết định notification nào cần tạo.</p>
+<p>Một hệ thống có thể hỗ trợ cả hai.</p>
+<hr>
+<h1 id="13-transactional-outbox">13. Transactional Outbox</h1>
+<p>Order Service cập nhật order và publish event.</p>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>1. Commit Order DB.
+2. Gọi Notification API.
+</div></code></pre>
+<p>Nếu bước 2 lỗi:</p>
+<pre class="hljs"><code><div>Order thành công nhưng không có notification.
+</div></code></pre>
+<p>Dùng outbox:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">BEGIN</span>;
+
+<span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;DELIVERED&#x27;</span>
+<span class="hljs-keyword">WHERE</span> order_id <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;ord_123&#x27;</span>;
+
+<span class="hljs-keyword">INSERT INTO</span> outbox_events (
+    event_id,
+    event_type,
+    aggregate_id,
+    payload
+)
+<span class="hljs-keyword">VALUES</span> (...);
+
+<span class="hljs-keyword">COMMIT</span>;
+</div></code></pre>
+<p>Outbox publisher gửi event tới broker sau.</p>
+<hr>
+<h1 id="14-notification-request-store">14. Notification Request Store</h1>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>notification_id
+source_event_id
+recipient_id
+category
+template_id
+priority
+scheduled_at
+status
+created_at
+</div></code></pre>
+<p>Mục đích:</p>
+<pre class="hljs"><code><div>- Audit
+- Idempotency
+- Retry
+- User support
+- Delivery tracking
+</div></code></pre>
+<p>Không nhất thiết mọi high-volume social notification đều cần lưu full payload lâu dài; retention có thể khác nhau theo category.</p>
+<hr>
+<h1 id="15-idempotency-tại-ingestion">15. Idempotency tại Ingestion</h1>
+<p>Nếu producer retry cùng request:</p>
+<pre class="hljs"><code><div>Idempotency-Key: order-delivered-ord_123
+</div></code></pre>
+<p>Hệ thống lưu:</p>
+<pre class="hljs"><code><div>(producerId, idempotencyKey)
+→ notificationId
+</div></code></pre>
+<p>Request lặp lại trả cùng logical notification.</p>
+<p>Không nên chỉ dùng payload hash vì:</p>
+<pre class="hljs"><code><div>- Payload có thể thay đổi thứ tự field
+- Hai notification hợp lệ có cùng payload
+</div></code></pre>
+<hr>
+<h1 id="16-source-event-id">16. Source Event ID</h1>
+<p>Với event-driven notification:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_order_delivered_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OrderDelivered&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Consumer lưu:</p>
+<pre class="hljs"><code><div>eventId → processed
+</div></code></pre>
+<p>Nếu broker giao lại event, không tạo thêm logical notification.</p>
+<p>Cần retention dedupe phù hợp với replay window.</p>
+<hr>
+<h1 id="17-notification-orchestrator">17. Notification Orchestrator</h1>
+<p>Orchestrator quyết định:</p>
+<pre class="hljs"><code><div>1. Notification có được phép gửi không?
+2. Gửi qua kênh nào?
+3. Dùng template và locale nào?
+4. Gửi ngay hay schedule?
+5. Có cần aggregation?
+6. Mỗi channel có priority/rate policy nào?
+</div></code></pre>
+<p>Orchestrator không nên trực tiếp gọi provider.</p>
+<p>Nó tạo các channel delivery jobs độc lập.</p>
+<hr>
+<h1 id="18-channel-fan-out">18. Channel Fan-Out</h1>
+<p>Một logical notification:</p>
+<pre class="hljs"><code><div>OrderDelivered
+</div></code></pre>
+<p>có thể tạo:</p>
+<pre class="hljs"><code><div>EmailDelivery
+PushDelivery
+InAppDelivery
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Notification[Logical Notification] --> Email[Email Delivery]
+    Notification --> Push[Push Delivery]
+    Notification --> InApp[In-App Delivery]
+</div></code></pre>
+<p>Mỗi channel có:</p>
+<pre class="hljs"><code><div>- Retry policy riêng
+- Provider riêng
+- Rate limit riêng
+- Status riêng
+</div></code></pre>
+<p>SMS thất bại không nên làm email bị retry lại.</p>
+<hr>
+<h1 id="19-fan-out-on-write">19. Fan-Out on Write</h1>
+<p>Khi notification được tạo, hệ thống sinh ngay delivery job cho từng recipient và channel.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Processing đơn giản
+- Delivery queue rõ ràng
+- Dễ retry từng recipient
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Campaign lớn tạo hàng triệu jobs
+- Storage và queue pressure
+</div></code></pre>
+<p>Phù hợp transactional notification và audience vừa.</p>
+<hr>
+<h1 id="20-fan-out-on-read-hoặc-lazy-fan-out">20. Fan-Out on Read hoặc Lazy Fan-Out</h1>
+<p>Thay vì tạo từng in-app row cho 100 triệu users, có thể lưu:</p>
+<pre class="hljs"><code><div>Global announcement
++
+Audience rule
+</div></code></pre>
+<p>Khi user mở app, query các announcement phù hợp.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không tạo hàng triệu rows
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Read phức tạp hơn
+- Khó tracking per-user
+- Không phù hợp email/SMS cần gửi thực tế
+</div></code></pre>
+<p>Thường dùng cho global in-app announcement.</p>
+<hr>
+<h1 id="21-hybrid-fan-out">21. Hybrid Fan-Out</h1>
+<pre class="hljs"><code><div>Transactional:
+Fan-out on write.
+
+Large marketing campaign:
+Store campaign + recipient segments,
+materialize deliveries theo batch.
+
+Global in-app banner:
+Fan-out on read.
+</div></code></pre>
+<p>Không nên áp dụng một fan-out strategy cho mọi use case.</p>
+<hr>
+<h1 id="22-user-contact-data">22. User Contact Data</h1>
+<p>Notification system cần:</p>
+<pre class="hljs"><code><div>- Email address
+- Phone number
+- Push device tokens
+- Locale
+- Timezone
+</div></code></pre>
+<p>Không nên copy dữ liệu này vô thời hạn trong mọi notification.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>recipientId
+→ Resolve contact snapshot lúc orchestration
+</div></code></pre>
+<p>Với receipt hoặc audit, có thể lưu contact destination đã dùng ở dạng bảo vệ phù hợp.</p>
+<hr>
+<h1 id="23-contact-verification">23. Contact Verification</h1>
+<p>Không gửi OTP hoặc transactional data tới contact chưa xác minh.</p>
+<p>Fields:</p>
+<pre class="hljs"><code><div>emailVerified
+phoneVerified
+deviceTokenActive
+</div></code></pre>
+<p>Khi email thay đổi:</p>
+<pre class="hljs"><code><div>- Contact cũ có thể cần bị vô hiệu
+- Pending notification không nên gửi nhầm
+</div></code></pre>
+<p>Tùy use case, delivery job có thể dùng contact snapshot hoặc resolve lại trước send.</p>
+<hr>
+<h1 id="24-notification-preferences">24. Notification Preferences</h1>
+<p>User preferences có thể ở nhiều cấp:</p>
+<pre class="hljs"><code><div>Global:
+Tắt toàn bộ marketing.
+
+Category:
+Tắt PRODUCT_RECOMMENDATION.
+
+Channel:
+Nhận order update qua push nhưng không SMS.
+
+Topic:
+Tắt thông báo comment của một thread.
+
+Quiet hours:
+Không gửi từ 22:00–07:00.
+</div></code></pre>
+<p>Data model có thể biểu diễn:</p>
+<pre class="hljs"><code><div>(userId, category, channel)
+→ ENABLED / DISABLED
+</div></code></pre>
+<hr>
+<h1 id="25-preference-hierarchy">25. Preference Hierarchy</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Global marketing disabled
+↓
+Category promotion enabled
+↓
+Channel email enabled
+</div></code></pre>
+<p>Cần quy tắc precedence rõ.</p>
+<p>Một mô hình:</p>
+<pre class="hljs"><code><div>1. Legal/safety override
+2. Global user setting
+3. Category setting
+4. Channel setting
+5. Campaign-specific opt-in
+</div></code></pre>
+<p>Không nên để logic preference rải rác trong từng service gửi.</p>
+<hr>
+<h1 id="26-transactional-notification-và-opt-out">26. Transactional Notification và Opt-Out</h1>
+<p>Không phải mọi notification đều được phép tắt.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Security alert
+- Password reset
+- Payment receipt
+- Terms/legal notice
+</div></code></pre>
+<p>Nhưng hệ thống vẫn nên giới hạn kênh và nội dung theo policy.</p>
+<p>Ví dụ user tắt marketing SMS không có nghĩa tắt OTP SMS.</p>
+<p>Category taxonomy phải rõ:</p>
+<pre class="hljs"><code><div>SECURITY
+TRANSACTIONAL
+SERVICE_UPDATE
+SOCIAL
+MARKETING
+</div></code></pre>
+<hr>
+<h1 id="27-preference-check-lúc-nào">27. Preference Check lúc nào?</h1>
+<h2 id="lúc-tạo-notification">Lúc tạo notification</h2>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>Không tạo delivery job không cần thiết.
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>User đổi preference trước scheduled send nhưng job vẫn tồn tại.
+</div></code></pre>
+<h2 id="lúc-gửi">Lúc gửi</h2>
+<p>Ưu:</p>
+<pre class="hljs"><code><div>Dùng preference mới nhất.
+</div></code></pre>
+<p>Nhược:</p>
+<pre class="hljs"><code><div>Tăng read load.
+</div></code></pre>
+<p>Thiết kế thường:</p>
+<pre class="hljs"><code><div>- Check lần đầu khi orchestration.
+- Recheck trước send với scheduled/marketing notification.
+</div></code></pre>
+<hr>
+<h1 id="28-preference-cache">28. Preference Cache</h1>
+<p>Preferences được đọc rất nhiều.</p>
+<p>Có thể cache:</p>
+<pre class="hljs"><code><div>userId → compiled preference policy
+</div></code></pre>
+<p>Nhưng unsubscribe phải có hiệu lực nhanh.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Cache invalidation event
+- Version
+- TTL ngắn phù hợp
+- Authoritative fallback
+</div></code></pre>
+<p>Marketing send không nên dùng preference cache stale hàng giờ.</p>
+<hr>
+<h1 id="29-suppression-list">29. Suppression List</h1>
+<p>Ngoài preference, có suppression do hệ thống:</p>
+<pre class="hljs"><code><div>- Email hard bounce
+- User complaint
+- SMS opt-out
+- Invalid phone
+- Provider block
+- Legal suppression
+</div></code></pre>
+<p>Key:</p>
+<pre class="hljs"><code><div>(channel, destination)
+→ suppression reason
+</div></code></pre>
+<p>Suppression thường mạnh hơn campaign setting.</p>
+<p>Một địa chỉ hard bounce không nên tiếp tục được retry.</p>
+<hr>
+<h1 id="30-template-system">30. Template System</h1>
+<p>Template cần hỗ trợ:</p>
+<pre class="hljs"><code><div>- Nhiều channel
+- Nhiều locale
+- Versioning
+- Dynamic variables
+- Preview
+- Approval
+- Rollback
+</div></code></pre>
+<p>Ví dụ logical template:</p>
+<pre class="hljs"><code><div>order_delivered
+</div></code></pre>
+<p>Variants:</p>
+<pre class="hljs"><code><div>order_delivered.email.vi-VN.v3
+order_delivered.push.vi-VN.v2
+order_delivered.sms.vi-VN.v1
+order_delivered.inapp.vi-VN.v4
+</div></code></pre>
+<hr>
+<h1 id="31-template-schema">31. Template Schema</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;templateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order_delivered&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;channel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;EMAIL&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;locale&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vi-VN&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;subject&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Đơn hàng {{orderId}} đã được giao&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Đơn hàng {{orderId}} đã được giao lúc {{deliveredAt}}.&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Template nên khai báo required variables:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;requiredVariables&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">&quot;orderId&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;deliveredAt&quot;</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Thiếu variable phải được phát hiện trước send.</p>
+<hr>
+<h1 id="32-template-versioning">32. Template Versioning</h1>
+<p>Nếu template thay đổi sau khi notification đã schedule:</p>
+<pre class="hljs"><code><div>Notification nên dùng version nào?
+</div></code></pre>
+<p>Hai lựa chọn:</p>
+<h2 id="pin-version-khi-tạo">Pin version khi tạo</h2>
+<pre class="hljs"><code><div>templateVersion = 3
+</div></code></pre>
+<p>Kết quả deterministic và audit tốt.</p>
+<h2 id="dùng-latest-lúc-send">Dùng latest lúc send</h2>
+<p>Cho phép sửa lỗi nội dung trước khi campaign chạy.</p>
+<p>Nhưng kết quả không cố định.</p>
+<p>Thường:</p>
+<pre class="hljs"><code><div>Transactional:
+Pin version.
+
+Marketing campaign:
+Pin approved version nhưng cho phép explicit update.
+</div></code></pre>
+<hr>
+<h1 id="33-rendering">33. Rendering</h1>
+<p>Không nên render một email triệu lần nếu nội dung giống hệt.</p>
+<p>Có thể tách:</p>
+<pre class="hljs"><code><div>Static shared content
++
+Per-user variables
+</div></code></pre>
+<p>Nhưng personalization sâu vẫn cần render từng recipient.</p>
+<p>Cần tránh:</p>
+<pre class="hljs"><code><div>- Template injection
+- HTML injection
+- Invalid markup
+- Missing variable
+</div></code></pre>
+<p>Variables phải được escape theo channel.</p>
+<hr>
+<h1 id="34-html-email-security">34. HTML Email Security</h1>
+<p>User-controlled variable:</p>
+<pre class="hljs"><code><div>displayName = &quot;&lt;script&gt;...&quot;
+</div></code></pre>
+<p>Phải HTML-escape trước khi chèn.</p>
+<p>Email clients có security model khác browser nhưng không nên dựa vào đó.</p>
+<p>Links trong template cũng cần:</p>
+<pre class="hljs"><code><div>- URL validation
+- Tracking parameter policy
+- Domain allowlist cho nội dung nhạy cảm
+</div></code></pre>
+<hr>
+<h1 id="35-sms-template">35. SMS Template</h1>
+<p>SMS có giới hạn độ dài và encoding.</p>
+<p>Nội dung dài có thể bị chia thành nhiều segment:</p>
+<pre class="hljs"><code><div>- Chi phí tăng
+- Người dùng nhận nhiều phần
+- Thứ tự segment có thể khó chịu
+</div></code></pre>
+<p>Template preview cần hiển thị:</p>
+<pre class="hljs"><code><div>Estimated segment count
+</div></code></pre>
+<p>Không nên đưa dữ liệu nhạy cảm đầy đủ vào SMS vì lock screen có thể hiển thị.</p>
+<hr>
+<h1 id="36-push-template">36. Push Template</h1>
+<p>Push thường gồm:</p>
+<pre class="hljs"><code><div>title
+body
+image
+deepLink
+collapseKey
+ttl
+priority
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Đơn hàng đã được giao&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Mở ứng dụng để xem chi tiết.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;deepLink&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;app://orders/ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;collapseKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;order_ord_123&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Payload push phải nhỏ và không chứa dữ liệu nhạy cảm không cần thiết.</p>
+<hr>
+<h1 id="37-in-app-template">37. In-App Template</h1>
+<p>In-app notification có thể chứa:</p>
+<pre class="hljs"><code><div>- Title
+- Body
+- Icon
+- Action
+- Read/unread state
+- Expiration
+</div></code></pre>
+<p>Không nên render HTML tùy ý nếu client không cần.</p>
+<p>Structured payload an toàn hơn:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ORDER_DELIVERED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Đơn hàng đã được giao&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Đơn hàng ord_123 đã hoàn tất.&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OPEN_ORDER&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="38-localization">38. Localization</h1>
+<p>Locale selection có thể theo:</p>
+<pre class="hljs"><code><div>1. User preference
+2. Account locale
+3. Device locale
+4. Default locale
+</div></code></pre>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>vi-VN
+→ vi
+→ en-US
+</div></code></pre>
+<p>Không nên để template missing locale làm toàn notification fail nếu có fallback phù hợp.</p>
+<hr>
+<h1 id="39-timezone">39. Timezone</h1>
+<p>Scheduling theo local time cần timezone IANA:</p>
+<pre class="hljs"><code><div>Asia/Bangkok
+Europe/Paris
+America/New_York
+</div></code></pre>
+<p>Không nên chỉ lưu:</p>
+<pre class="hljs"><code><div>UTC+7
+</div></code></pre>
+<p>vì daylight-saving ở nhiều khu vực làm offset thay đổi.</p>
+<hr>
+<h1 id="40-scheduling">40. Scheduling</h1>
+<p>Notification có thể gửi:</p>
+<pre class="hljs"><code><div>- Ngay lập tức
+- Tại một UTC timestamp
+- Theo local time của từng user
+- Lặp định kỳ
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>“Gửi lúc 09:00 local time cho từng user.”
+</div></code></pre>
+<p>Đây không phải một timestamp toàn cầu.</p>
+<p>Users ở nhiều timezone sẽ được enqueue vào các thời điểm UTC khác nhau.</p>
+<hr>
+<h1 id="41-scheduler-architecture">41. Scheduler Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    API --> ScheduleStore[(Scheduled Notifications)]
+    ScheduleStore --> Scheduler
+    Scheduler --> ReadyQueue[Ready-to-Send Queue]
+    ReadyQueue --> Orchestrator
+</div></code></pre>
+<p>Scheduler có thể dùng:</p>
+<pre class="hljs"><code><div>- Time buckets
+- Delayed queue
+- Database index theo scheduled_at
+- Hierarchical timing wheel
+</div></code></pre>
+<p>Không nên scan toàn bộ bảng mỗi giây.</p>
+<hr>
+<h1 id="42-time-bucket-scheduling">42. Time-Bucket Scheduling</h1>
+<p>Partition schedule theo phút hoặc giờ:</p>
+<pre class="hljs"><code><div>schedule/2026-07-14/10:30
+schedule/2026-07-14/10:31
+</div></code></pre>
+<p>Worker hiện tại chỉ đọc bucket đến hạn.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Query phạm vi nhỏ
+- Scale theo bucket
+</div></code></pre>
+<p>Cần xử lý:</p>
+<pre class="hljs"><code><div>- Retry
+- Clock skew
+- Duplicate pickup
+- Late scheduler
+</div></code></pre>
+<hr>
+<h1 id="43-scheduler-idempotency">43. Scheduler Idempotency</h1>
+<p>Hai scheduler workers có thể cùng lấy một job.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Lease
+- Conditional state transition
+- Compare-and-set
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>SCHEDULED
+→ CLAIMED
+→ ENQUEUED
+</div></code></pre>
+<p>Transition chỉ thành công nếu version vẫn đúng.</p>
+<p>Queue consumer sau đó vẫn cần idempotency vì job có thể được enqueue hai lần trong failure race.</p>
+<hr>
+<h1 id="44-quiet-hours">44. Quiet Hours</h1>
+<p>User chọn:</p>
+<pre class="hljs"><code><div>Không gửi marketing từ 22:00 đến 07:00.
+</div></code></pre>
+<p>Nếu notification đến lúc 23:00:</p>
+<pre class="hljs"><code><div>- Transactional high priority: gửi ngay
+- Marketing: dời sang 07:00
+- Social: có thể digest
+</div></code></pre>
+<p>Policy phụ thuộc category.</p>
+<p>Quiet hours phải tính theo timezone hiện tại của user.</p>
+<hr>
+<h1 id="45-expiration-và-ttl">45. Expiration và TTL</h1>
+<p>Một notification có thể hết giá trị.</p>
+<p>Ví dụ OTP:</p>
+<pre class="hljs"><code><div>TTL = 5 phút
+</div></code></pre>
+<p>Nếu queue backlog khiến OTP được xử lý sau 10 phút:</p>
+<pre class="hljs"><code><div>Không nên gửi nữa.
+</div></code></pre>
+<p>Mỗi delivery job nên có:</p>
+<pre class="hljs"><code><div>expiresAt
+</div></code></pre>
+<p>Worker kiểm tra trước send.</p>
+<hr>
+<h1 id="46-priority-queues">46. Priority Queues</h1>
+<p>Không nên để campaign marketing 50 triệu email chặn OTP.</p>
+<p>Tách queues:</p>
+<pre class="hljs"><code><div>- critical
+- high
+- normal
+- bulk
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Critical[Critical Queue] --> Workers
+    High[High Queue] --> Workers
+    Normal[Normal Queue] --> Workers
+    Bulk[Bulk Queue] --> Workers
+</div></code></pre>
+<p>Có thể reserve capacity:</p>
+<pre class="hljs"><code><div>50% critical/high
+30% normal
+20% bulk
+</div></code></pre>
+<p>hoặc autoscaling độc lập.</p>
+<hr>
+<h1 id="47-priority-inversion">47. Priority Inversion</h1>
+<p>Nếu workers luôn xử lý priority cao, bulk queue có thể starve mãi.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Weighted scheduling
+- Minimum reserved capacity
+- Aging
+- Per-class SLO
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>80% worker slots cho high
+20% luôn dành cho normal/bulk
+</div></code></pre>
+<hr>
+<h1 id="48-email-channel-architecture">48. Email Channel Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    EmailQueue --> EmailWorker
+    EmailWorker --> Renderer
+    Renderer --> Policy[Suppression + Rate Limit]
+    Policy --> Router[Provider Router]
+    Router --> ProviderA
+    Router --> ProviderB
+</div></code></pre>
+<p>Email worker xử lý:</p>
+<pre class="hljs"><code><div>- Resolve address
+- Check suppression
+- Render template
+- Add unsubscribe headers
+- Apply provider routing
+- Persist attempt
+- Send
+</div></code></pre>
+<hr>
+<h1 id="49-email-provider-response">49. Email Provider Response</h1>
+<p>Provider trả:</p>
+<pre class="hljs"><code><div>accepted
+rejected
+throttled
+invalid recipient
+temporary error
+</div></code></pre>
+<p><code>accepted</code> không đồng nghĩa recipient đã nhận.</p>
+<p>Nó chỉ có thể nghĩa:</p>
+<pre class="hljs"><code><div>Provider đã nhận message để xử lý.
+</div></code></pre>
+<p>Delivery sau đó được cập nhật qua webhook.</p>
+<hr>
+<h1 id="50-email-delivery-status">50. Email Delivery Status</h1>
+<p>Có thể có:</p>
+<pre class="hljs"><code><div>QUEUED
+SENT_TO_PROVIDER
+ACCEPTED
+DELIVERED
+BOUNCED
+COMPLAINED
+OPENED
+CLICKED
+</div></code></pre>
+<p>Không phải status nào cũng hoàn toàn đáng tin.</p>
+<p>Ví dụ open tracking có thể bị ảnh hưởng bởi:</p>
+<pre class="hljs"><code><div>- Image proxy
+- Privacy protection
+- Images disabled
+</div></code></pre>
+<p>Không nên coi <code>OPENED</code> là bằng chứng chắc chắn user đọc email.</p>
+<hr>
+<h1 id="51-hard-bounce-và-soft-bounce">51. Hard Bounce và Soft Bounce</h1>
+<h2 id="hard-bounce">Hard bounce</h2>
+<pre class="hljs"><code><div>- Địa chỉ không tồn tại
+- Domain không hợp lệ
+- Recipient bị chặn vĩnh viễn
+</div></code></pre>
+<p>Nên suppression ngay.</p>
+<h2 id="soft-bounce">Soft bounce</h2>
+<pre class="hljs"><code><div>- Mailbox đầy
+- Provider tạm thời lỗi
+- Rate limit
+</div></code></pre>
+<p>Có thể retry có giới hạn.</p>
+<p>Không nên retry hard bounce nhiều lần.</p>
+<hr>
+<h1 id="52-email-reputation">52. Email Reputation</h1>
+<p>Email provider và receiving mail systems đánh giá reputation.</p>
+<p>Các yếu tố:</p>
+<pre class="hljs"><code><div>- Bounce rate
+- Complaint rate
+- Spam reports
+- Unsubscribe behavior
+- Volume spike
+- Domain authentication
+</div></code></pre>
+<p>Notification architecture cần tách:</p>
+<pre class="hljs"><code><div>Transactional sending domain/IP
+Marketing sending domain/IP
+</div></code></pre>
+<p>để marketing reputation xấu không ảnh hưởng OTP hoặc receipt.</p>
+<hr>
+<h1 id="53-sms-channel-architecture">53. SMS Channel Architecture</h1>
+<p>SMS có đặc điểm:</p>
+<pre class="hljs"><code><div>- Chi phí cao
+- Provider rate limit nghiêm
+- Delivery receipt không phải lúc nào cũng chính xác tức thì
+- Quốc gia khác nhau có quy định khác nhau
+- Sender ID khác nhau theo thị trường
+</div></code></pre>
+<p>SMS nên được dùng cho:</p>
+<pre class="hljs"><code><div>- OTP
+- Security
+- Urgent alerts
+</div></code></pre>
+<p>không nên làm fallback mặc định cho mọi push thất bại.</p>
+<hr>
+<h1 id="54-phone-number-normalization">54. Phone Number Normalization</h1>
+<p>Lưu phone theo format chuẩn, ví dụ international normalized form.</p>
+<p>Không nên giữ:</p>
+<pre class="hljs"><code><div>0912...
++84 912...
+84912...
+</div></code></pre>
+<p>như ba identities khác nhau.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Country context
+- Validation
+- Verification
+</div></code></pre>
+<p>Không nên tự đoán country code khi dữ liệu không đủ.</p>
+<hr>
+<h1 id="55-sms-provider-routing">55. SMS Provider Routing</h1>
+<p>Provider có thể tốt ở quốc gia khác nhau.</p>
+<p>Routing dựa trên:</p>
+<pre class="hljs"><code><div>- Country
+- Cost
+- Delivery rate
+- Latency
+- Compliance
+- Provider health
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>VN → Provider A
+US → Provider B
+EU → Provider C
+</div></code></pre>
+<p>Fallback phải kiểm soát duplicate.</p>
+<hr>
+<h1 id="56-push-notification-architecture">56. Push Notification Architecture</h1>
+<p>Mobile push thường đi qua platform push services.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    PushQueue --> PushWorker
+    PushWorker --> TokenStore[(Device Token Store)]
+    PushWorker --> PushProvider
+    PushProvider --> MobileDevice
+</div></code></pre>
+<p>Một user có thể có nhiều devices:</p>
+<pre class="hljs"><code><div>userId
+→ deviceToken1
+→ deviceToken2
+→ deviceToken3
+</div></code></pre>
+<p>Fan-out push có thể theo:</p>
+<pre class="hljs"><code><div>- Tất cả active devices
+- Device gần nhất
+- Chỉ platform cụ thể
+</div></code></pre>
+<hr>
+<h1 id="57-device-token-lifecycle">57. Device Token Lifecycle</h1>
+<p>Token có thể:</p>
+<pre class="hljs"><code><div>- Thay đổi khi reinstall
+- Bị revoke
+- Không còn hợp lệ
+- Thuộc user cũ sau logout nếu quản lý sai
+</div></code></pre>
+<p>Token record cần:</p>
+<pre class="hljs"><code><div>token
+userId
+platform
+deviceId
+lastSeenAt
+status
+appVersion
+locale
+</div></code></pre>
+<p>Khi logout:</p>
+<pre class="hljs"><code><div>Token phải được unlink hoặc disable khỏi user.
+</div></code></pre>
+<hr>
+<h1 id="58-push-invalid-token">58. Push Invalid Token</h1>
+<p>Provider trả token invalid:</p>
+<pre class="hljs"><code><div>UNREGISTERED
+INVALID_TOKEN
+</div></code></pre>
+<p>Hệ thống nên:</p>
+<pre class="hljs"><code><div>- Disable token
+- Không retry
+- Phát cleanup event
+</div></code></pre>
+<p>Nếu không, queue và provider traffic bị lãng phí.</p>
+<hr>
+<h1 id="59-push-ttl">59. Push TTL</h1>
+<p>Một push về flash sale:</p>
+<pre class="hljs"><code><div>TTL 30 phút
+</div></code></pre>
+<p>không nên xuất hiện sau hai ngày khi device online lại.</p>
+<p>OTP push:</p>
+<pre class="hljs"><code><div>TTL vài phút
+</div></code></pre>
+<p>Order receipt có thể TTL dài hơn.</p>
+<p>TTL phải gắn với business value.</p>
+<hr>
+<h1 id="60-push-collapse-key">60. Push Collapse Key</h1>
+<p>Nhiều update cùng loại:</p>
+<pre class="hljs"><code><div>Order is preparing
+Order is on the way
+Order is arriving
+</div></code></pre>
+<p>Có thể collapse để device chỉ nhận state mới nhất.</p>
+<p>Key:</p>
+<pre class="hljs"><code><div>order_ord_123
+</div></code></pre>
+<p>Không phù hợp nếu mọi event cần hiển thị riêng.</p>
+<hr>
+<h1 id="61-in-app-notification-store">61. In-App Notification Store</h1>
+<p>Schema:</p>
+<pre class="hljs"><code><div>notification_id
+user_id
+category
+title
+body
+payload
+created_at
+read_at
+expires_at
+priority
+</div></code></pre>
+<p>Query:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">WHERE</span> user_id <span class="hljs-operator">=</span> ?
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at <span class="hljs-keyword">DESC</span>
+LIMIT ?
+</div></code></pre>
+<p>Shard key tự nhiên:</p>
+<pre class="hljs"><code><div>userId
+</div></code></pre>
+<hr>
+<h1 id="62-in-app-readunread">62. In-App Read/Unread</h1>
+<p>Mark read:</p>
+<pre class="hljs"><code><div>POST /v1/users/me/notifications/{id}/read
+</div></code></pre>
+<p>Có thể hỗ trợ:</p>
+<pre class="hljs"><code><div>- Mark one read
+- Mark all before cursor read
+</div></code></pre>
+<p>Với hàng triệu notifications, <code>mark all read</code> không nên update từng row.</p>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>user.lastReadNotificationTimestamp
+</div></code></pre>
+<p>Notification được xem là read nếu:</p>
+<pre class="hljs"><code><div>createdAt &lt;= lastReadTimestamp
+</div></code></pre>
+<p>với các ngoại lệ nếu cần.</p>
+<hr>
+<h1 id="63-pagination-in-app">63. Pagination In-App</h1>
+<p>Không nên dùng offset sâu.</p>
+<p>Dùng cursor:</p>
+<pre class="hljs"><code><div>(createdAt, notificationId)
+</div></code></pre>
+<p>Query:</p>
+<pre class="hljs"><code><div>WHERE user_id = ?
+AND (created_at, notification_id) &lt; (?, ?)
+ORDER BY created_at DESC, notification_id DESC
+LIMIT 50
+</div></code></pre>
+<hr>
+<h1 id="64-notification-aggregation">64. Notification Aggregation</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>A liked your post
+B liked your post
+C liked your post
+D liked your post
+</div></code></pre>
+<p>Có thể aggregate:</p>
+<pre class="hljs"><code><div>A, B và 2 người khác đã thích bài viết của bạn.
+</div></code></pre>
+<p>Aggregation key:</p>
+<pre class="hljs"><code><div>(userId, category, objectId, timeWindow)
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>(u_1, POST_LIKE, post_123, 10-minute window)
+</div></code></pre>
+<hr>
+<h1 id="65-aggregation-window">65. Aggregation Window</h1>
+<p>Khi like đầu tiên đến:</p>
+<pre class="hljs"><code><div>- Có gửi ngay không?
+- Hay chờ 2 phút để gom?
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Gửi ngay:
+Latency thấp, nhiều notification.
+
+Chờ:
+Ít spam hơn, nhưng notification chậm.
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Gửi lần đầu ngay.
+- Update in-app item.
+- Suppress push tiếp theo trong window.
+</div></code></pre>
+<hr>
+<h1 id="66-frequency-capping">66. Frequency Capping</h1>
+<p>Marketing:</p>
+<pre class="hljs"><code><div>Tối đa 3 notifications/ngày/user.
+</div></code></pre>
+<p>Social:</p>
+<pre class="hljs"><code><div>Tối đa 1 push/5 phút cho cùng conversation.
+</div></code></pre>
+<p>Frequency cap state:</p>
+<pre class="hljs"><code><div>(userId, category, timeBucket)
+→ count
+</div></code></pre>
+<p>State cần atomic increment hoặc approximate policy tùy mức quan trọng.</p>
+<hr>
+<h1 id="67-rate-limiting-có-nhiều-tầng">67. Rate Limiting có nhiều tầng</h1>
+<h2 id="producer-rate-limit">Producer rate limit</h2>
+<p>Ngăn một service tạo notification quá mức.</p>
+<h2 id="user-rate-limit">User rate limit</h2>
+<p>Ngăn spam một người.</p>
+<h2 id="channel-rate-limit">Channel rate limit</h2>
+<p>Ví dụ SMS tối đa theo destination.</p>
+<h2 id="provider-rate-limit">Provider rate limit</h2>
+<p>Provider cho phép:</p>
+<pre class="hljs"><code><div>10.000 requests/giây
+</div></code></pre>
+<h2 id="tenantcampaign-limit">Tenant/campaign limit</h2>
+<p>Ngăn một tenant chiếm toàn hệ thống.</p>
+<hr>
+<h1 id="68-token-bucket-cho-provider">68. Token Bucket cho Provider</h1>
+<p>Mỗi provider có token bucket:</p>
+<pre class="hljs"><code><div>capacity = 20.000
+refill = 10.000 token/giây
+</div></code></pre>
+<p>Mỗi send lấy một token.</p>
+<p>Nếu hết token:</p>
+<pre class="hljs"><code><div>- Delay job
+- Route provider khác
+- Apply backpressure
+</div></code></pre>
+<p>Không nên gửi rồi để provider trả 429 hàng loạt.</p>
+<hr>
+<h1 id="69-hierarchical-rate-limits">69. Hierarchical Rate Limits</h1>
+<p>Một job cần vượt qua:</p>
+<pre class="hljs"><code><div>Global limit
+→ Channel limit
+→ Provider limit
+→ Tenant limit
+→ Recipient limit
+</div></code></pre>
+<p>Có thể tổ chức distributed rate limiter theo keys:</p>
+<pre class="hljs"><code><div>email:providerA
+tenant:t_123
+user:u_456:marketing
+</div></code></pre>
+<p>Không nên kiểm tra mọi limit bằng nhiều network round trips tuần tự; có thể compile hoặc batch checks.</p>
+<hr>
+<h1 id="70-burst-campaign">70. Burst Campaign</h1>
+<p>Campaign gửi 50 triệu emails.</p>
+<p>Không nên enqueue 50 triệu jobs đồng thời mà không kiểm soát.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Campaign
+→ Audience chunks
+→ Batch expansion
+→ Rate-controlled delivery
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Campaign --> Audience[Audience Resolver]
+    Audience --> Chunk1[Chunk 1]
+    Audience --> Chunk2[Chunk 2]
+    Audience --> Chunk3[Chunk 3]
+
+    Chunk1 --> DeliveryQueue
+    Chunk2 --> DeliveryQueue
+    Chunk3 --> DeliveryQueue
+</div></code></pre>
+<p>Expansion rate phải phù hợp downstream capacity.</p>
+<hr>
+<h1 id="71-backpressure">71. Backpressure</h1>
+<p>Nếu email provider chậm:</p>
+<pre class="hljs"><code><div>Email queue lag tăng.
+</div></code></pre>
+<p>Không nên làm Push và In-App cùng dừng.</p>
+<p>Tách queues và workers theo channel giúp isolation.</p>
+<p>Backpressure policy:</p>
+<pre class="hljs"><code><div>- Giảm campaign expansion
+- Pause bulk traffic
+- Giữ transactional traffic
+- Scale workers trong giới hạn provider
+</div></code></pre>
+<hr>
+<h1 id="72-retry-classification">72. Retry Classification</h1>
+<p>Không phải lỗi nào cũng retry.</p>
+<h2 id="retryable">Retryable</h2>
+<pre class="hljs"><code><div>- Timeout
+- Network error
+- Provider 429
+- Provider 5xx
+- Temporary mailbox issue
+</div></code></pre>
+<h2 id="non-retryable">Non-retryable</h2>
+<pre class="hljs"><code><div>- Invalid email
+- Invalid phone
+- Invalid device token
+- Template missing required field
+- Recipient suppressed
+</div></code></pre>
+<p>Classifier phải dựa trên provider-specific error mapping.</p>
+<hr>
+<h1 id="73-exponential-backoff">73. Exponential Backoff</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Attempt 1 → sau 10 giây
+Attempt 2 → sau 30 giây
+Attempt 3 → sau 2 phút
+Attempt 4 → sau 10 phút
+</div></code></pre>
+<p>Thêm jitter để tránh tất cả jobs retry cùng lúc:</p>
+<pre class="hljs"><code><div>delay = base × 2^attempt + random_jitter
+</div></code></pre>
+<p>Retry phải dừng khi:</p>
+<pre class="hljs"><code><div>- Max attempts
+- Expiration reached
+- Status đã terminal
+</div></code></pre>
+<hr>
+<h1 id="74-retry-budget-theo-category">74. Retry Budget theo Category</h1>
+<p>OTP:</p>
+<pre class="hljs"><code><div>- Ít attempts
+- Khoảng retry ngắn
+- Hết TTL thì bỏ
+</div></code></pre>
+<p>Payment receipt:</p>
+<pre class="hljs"><code><div>- Retry lâu hơn
+- Có thể hàng giờ
+</div></code></pre>
+<p>Marketing:</p>
+<pre class="hljs"><code><div>- Retry có giới hạn
+- Không gửi sau campaign expiry
+</div></code></pre>
+<p>Không nên có một retry policy chung cho mọi notification.</p>
+<hr>
+<h1 id="75-dead-letter-queue">75. Dead-Letter Queue</h1>
+<p>Sau số lần retry tối đa:</p>
+<pre class="hljs"><code><div>delivery job → DLQ
+</div></code></pre>
+<p>DLQ lưu:</p>
+<pre class="hljs"><code><div>- Job payload
+- Error history
+- Provider responses
+- Attempts
+- Last failure time
+</div></code></pre>
+<p>DLQ không phải nơi để quên.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Alert
+- Dashboard
+- Replay tool
+- Expiration
+- Root cause analysis
+</div></code></pre>
+<hr>
+<h1 id="76-idempotency-tại-worker">76. Idempotency tại Worker</h1>
+<p>Worker có thể:</p>
+<pre class="hljs"><code><div>1. Send provider thành công.
+2. Crash trước khi ACK queue.
+3. Job được giao lại.
+</div></code></pre>
+<p>Nếu gửi lại mù quáng:</p>
+<pre class="hljs"><code><div>User nhận duplicate.
+</div></code></pre>
+<p>Cần delivery attempt idempotency.</p>
+<hr>
+<h1 id="77-provider-idempotency-key">77. Provider Idempotency Key</h1>
+<p>Nếu provider hỗ trợ:</p>
+<pre class="hljs"><code><div>Idempotency-Key: delivery_123
+</div></code></pre>
+<p>Retry cùng key không tạo send mới.</p>
+<p>Nếu provider không hỗ trợ, hệ thống phải quản lý:</p>
+<pre class="hljs"><code><div>delivery status
+provider_message_id
+attempt state
+</div></code></pre>
+<p>Nhưng timeout vẫn tạo uncertainty:</p>
+<pre class="hljs"><code><div>Provider có thể đã nhận nhưng response bị mất.
+</div></code></pre>
+<hr>
+<h1 id="78-inboxoutbox-state-machine-cho-delivery">78. Inbox/Outbox State Machine cho Delivery</h1>
+<p>Một state machine:</p>
+<pre class="hljs"><code><div>PENDING
+→ CLAIMED
+→ SENDING
+→ ACCEPTED
+→ DELIVERED
+</div></code></pre>
+<p>Failure states:</p>
+<pre class="hljs"><code><div>RETRY_SCHEDULED
+FAILED_PERMANENT
+EXPIRED
+SUPPRESSED
+</div></code></pre>
+<p>Worker claim bằng conditional update:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> deliveries
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;CLAIMED&#x27;</span>,
+    lease_until <span class="hljs-operator">=</span> :lease
+<span class="hljs-keyword">WHERE</span> delivery_id <span class="hljs-operator">=</span> :id
+  <span class="hljs-keyword">AND</span> status <span class="hljs-keyword">IN</span> (<span class="hljs-string">&#x27;PENDING&#x27;</span>, <span class="hljs-string">&#x27;RETRY_SCHEDULED&#x27;</span>);
+</div></code></pre>
+<hr>
+<h1 id="79-exactly-once-là-rất-khó">79. Exactly-Once là rất khó</h1>
+<p>Không thể bảo đảm tuyệt đối “user chỉ nhìn thấy đúng một notification” vì:</p>
+<pre class="hljs"><code><div>- Provider có thể gửi nhưng response mất
+- Device có thể hiển thị lại
+- Email systems có thể duplicate
+- User có nhiều devices
+</div></code></pre>
+<p>Mục tiêu thực tế:</p>
+<pre class="hljs"><code><div>- At-least-once processing
+- Idempotent logical notification
+- Best-effort duplicate suppression
+- Stable delivery ID
+- Channel-specific collapse/dedupe
+</div></code></pre>
+<hr>
+<h1 id="80-dedupe-window">80. Dedupe Window</h1>
+<p>Đối với social notifications:</p>
+<pre class="hljs"><code><div>(userId, eventType, objectId)
+</div></code></pre>
+<p>trong 5 phút chỉ tạo một push.</p>
+<p>Đối với payment receipt:</p>
+<pre class="hljs"><code><div>paymentId + receiptType
+</div></code></pre>
+<p>chỉ tạo một logical notification vĩnh viễn hoặc trong retention dài.</p>
+<p>Dedupe key phải gắn với business operation.</p>
+<hr>
+<h1 id="81-provider-abstraction">81. Provider Abstraction</h1>
+<p>Không nên để worker phụ thuộc trực tiếp provider SDK khắp codebase.</p>
+<p>Interface:</p>
+<pre class="hljs"><code><div>sendEmail(request) → providerResult
+sendSms(request) → providerResult
+sendPush(request) → providerResult
+</div></code></pre>
+<p>Adapter mapping:</p>
+<pre class="hljs"><code><div>Canonical request
+↔ Provider-specific request
+</div></code></pre>
+<p>Provider adapter xử lý:</p>
+<pre class="hljs"><code><div>- Authentication
+- Error mapping
+- Payload transformation
+- Webhook verification
+</div></code></pre>
+<hr>
+<h1 id="82-provider-routing">82. Provider Routing</h1>
+<p>Router chọn provider theo:</p>
+<pre class="hljs"><code><div>- Channel
+- Country
+- Tenant
+- Cost
+- Delivery performance
+- Current health
+- Rate limit
+- Compliance
+</div></code></pre>
+<p>Có thể dùng weighted routing:</p>
+<pre class="hljs"><code><div>Provider A: 80%
+Provider B: 20%
+</div></code></pre>
+<p>để giữ Provider B luôn có traffic và được kiểm chứng.</p>
+<hr>
+<h1 id="83-provider-health">83. Provider Health</h1>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>- Request success rate
+- 429 rate
+- 5xx rate
+- Latency
+- Delivery rate
+- Bounce rate
+- Webhook delay
+</div></code></pre>
+<p>Health không chỉ là API trả 200.</p>
+<p>Provider có thể accept message nhưng delivery rate giảm mạnh.</p>
+<hr>
+<h1 id="84-circuit-breaker">84. Circuit Breaker</h1>
+<p>Nếu Provider A liên tục lỗi:</p>
+<pre class="hljs"><code><div>Circuit opens
+→ Tạm không gửi thêm
+→ Route sang Provider B
+</div></code></pre>
+<p>Sau cooldown:</p>
+<pre class="hljs"><code><div>Half-open
+→ Gửi một số request thử
+</div></code></pre>
+<p>Cần tránh chuyển toàn bộ traffic đột ngột sang B vượt capacity của B.</p>
+<hr>
+<h1 id="85-provider-failover-và-duplicate-risk">85. Provider Failover và Duplicate Risk</h1>
+<p>Sequence nguy hiểm:</p>
+<pre class="hljs"><code><div>1. Gửi Provider A.
+2. Timeout.
+3. Không biết A đã nhận hay chưa.
+4. Gửi Provider B.
+5. Cả hai cùng giao.
+</div></code></pre>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Query status Provider A nếu có.
+- Chờ timeout uncertainty window.
+- Dùng provider idempotency.
+- Chấp nhận duplicate cho channel ít nghiêm trọng.
+- Không failover mù quáng cho SMS/OTP.
+</div></code></pre>
+<p>Failover policy phải channel-specific.</p>
+<hr>
+<h1 id="86-provider-failover-theo-error">86. Provider Failover theo Error</h1>
+<p>Có thể failover ngay khi:</p>
+<pre class="hljs"><code><div>- Authentication provider lỗi toàn cục
+- Provider trả explicit unavailable
+- Circuit breaker open
+</div></code></pre>
+<p>Không nên failover ngay khi:</p>
+<pre class="hljs"><code><div>- Recipient invalid
+- Suppression
+- Payload lỗi
+- Provider đã accept nhưng webhook chưa tới
+</div></code></pre>
+<hr>
+<h1 id="87-multi-provider-activeactive">87. Multi-Provider Active–Active</h1>
+<p>Thay vì chỉ dùng B khi A chết:</p>
+<pre class="hljs"><code><div>A nhận 80%
+B nhận 20%
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- B luôn warm
+- Phát hiện lỗi sớm
+- Có performance baseline
+- Failover mượt hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hai integrations luôn phải duy trì
+- Reporting phức tạp
+- Cost khác nhau
+</div></code></pre>
+<hr>
+<h1 id="88-delivery-tracking">88. Delivery Tracking</h1>
+<p>Mỗi channel có mức độ tracking khác nhau.</p>
+<h2 id="email">Email</h2>
+<pre class="hljs"><code><div>accepted
+delivered
+bounce
+complaint
+open
+click
+</div></code></pre>
+<h2 id="sms">SMS</h2>
+<pre class="hljs"><code><div>accepted
+sent
+delivered
+undelivered
+expired
+</div></code></pre>
+<h2 id="push">Push</h2>
+<pre class="hljs"><code><div>accepted by push provider
+invalid token
+</div></code></pre>
+<p>Không phải lúc nào cũng biết device thực sự hiển thị.</p>
+<h2 id="in-app">In-app</h2>
+<pre class="hljs"><code><div>created
+shown
+opened
+read
+actioned
+</div></code></pre>
+<p>Tracking semantics phải được ghi rõ.</p>
+<hr>
+<h1 id="89-webhook-ingestion">89. Webhook Ingestion</h1>
+<p>Provider gửi callback:</p>
+<pre class="hljs"><code><div>POST /v1/providers/email-a/webhooks
+</div></code></pre>
+<p>Webhook có thể:</p>
+<pre class="hljs"><code><div>- Đến trùng
+- Đến sai thứ tự
+- Đến muộn
+- Bị giả mạo
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Signature verification
+- Idempotency bằng event ID
+- Provider message ID mapping
+- Version/state transition guard
+</div></code></pre>
+<hr>
+<h1 id="90-out-of-order-webhooks">90. Out-of-Order Webhooks</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>DELIVERED đến trước ACCEPTED
+</div></code></pre>
+<p>do network delay.</p>
+<p>Không nên state machine đơn giản từ chối toàn bộ.</p>
+<p>Có thể định nghĩa status rank:</p>
+<pre class="hljs"><code><div>QUEUED &lt; ACCEPTED &lt; DELIVERED
+</div></code></pre>
+<p>Nhưng một số states không tuyến tính:</p>
+<pre class="hljs"><code><div>DELIVERED
+COMPLAINED
+</div></code></pre>
+<p>Complaint có thể xảy ra sau delivered.</p>
+<p>Nên lưu:</p>
+<pre class="hljs"><code><div>- Current delivery state
+- Event history
+</div></code></pre>
+<hr>
+<h1 id="91-webhook-dedupe">91. Webhook Dedupe</h1>
+<p>Provider event:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;provider_evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;providerMessageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;msg_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DELIVERED&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>(provider, eventId)
+→ processed
+</div></code></pre>
+<p>Nếu event lặp lại, không cập nhật analytics hai lần.</p>
+<hr>
+<h1 id="92-mapping-provider-message-id">92. Mapping Provider Message ID</h1>
+<p>Sau <code>send</code>:</p>
+<pre class="hljs"><code><div>deliveryId → providerMessageId
+</div></code></pre>
+<p>Webhook chỉ có providerMessageId.</p>
+<p>Cần index:</p>
+<pre class="hljs"><code><div>(provider, providerMessageId)
+→ deliveryId
+</div></code></pre>
+<p>Nếu mapping chưa commit mà webhook đến rất nhanh, có thể cần:</p>
+<pre class="hljs"><code><div>- Buffer unmatched webhook
+- Retry lookup
+- Transactional attempt persistence
+</div></code></pre>
+<hr>
+<h1 id="93-delivery-status-store">93. Delivery Status Store</h1>
+<p>Data model:</p>
+<pre class="hljs"><code><div>delivery_id
+notification_id
+recipient_id
+channel
+provider
+provider_message_id
+status
+attempt_count
+last_error_code
+next_retry_at
+accepted_at
+delivered_at
+created_at
+updated_at
+version
+</div></code></pre>
+<p>High-volume tracking store nên partition theo:</p>
+<pre class="hljs"><code><div>deliveryId
+</div></code></pre>
+<p>Dashboard theo user/campaign cần secondary projections.</p>
+<hr>
+<h1 id="94-user-delivery-history">94. User Delivery History</h1>
+<p>User muốn xem lịch sử in-app.</p>
+<p>Customer support muốn tra:</p>
+<pre class="hljs"><code><div>Notification này có được gửi không?
+</div></code></pre>
+<p>Có thể xây read model:</p>
+<pre class="hljs"><code><div>(userId, createdAt)
+→ notification summaries
+</div></code></pre>
+<p>Không nên chạy query fan-out trực tiếp trên raw attempt table.</p>
+<hr>
+<h1 id="95-campaign-tracking">95. Campaign Tracking</h1>
+<p>Campaign dashboard cần:</p>
+<pre class="hljs"><code><div>- Sent
+- Delivered
+- Bounced
+- Opened
+- Clicked
+- Unsubscribed
+- Complained
+</div></code></pre>
+<p>Dùng event stream:</p>
+<pre class="hljs"><code><div>Delivery events
+→ Stream aggregation
+→ Campaign metrics store
+</div></code></pre>
+<p>Không update một campaign counter row đồng bộ cho mỗi event; campaign lớn sẽ tạo hot row.</p>
+<hr>
+<h1 id="96-two-stage-aggregation">96. Two-Stage Aggregation</h1>
+<p>Partition events thành buckets:</p>
+<pre class="hljs"><code><div>campaign_123:bucket_0
+...
+campaign_123:bucket_99
+</div></code></pre>
+<p>Stage 1:</p>
+<pre class="hljs"><code><div>Partial counts
+</div></code></pre>
+<p>Stage 2:</p>
+<pre class="hljs"><code><div>Merge totals
+</div></code></pre>
+<p>Giảm hot-key contention.</p>
+<hr>
+<h1 id="97-read-receipts-in-app">97. Read Receipts In-App</h1>
+<p>Không nên nhầm:</p>
+<pre class="hljs"><code><div>Delivered:
+Item đã lưu trong notification store.
+
+Shown:
+Client đã render.
+
+Read:
+User đã mở/xem.
+
+Actioned:
+User đã bấm hành động.
+</div></code></pre>
+<p>Client events có thể mất hoặc bị giả.</p>
+<p>Analytics nên xem đây là telemetry, không phải financial truth.</p>
+<hr>
+<h1 id="98-email-unsubscribe">98. Email Unsubscribe</h1>
+<p>Marketing email cần unsubscribe.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Unsubscribe toàn marketing
+- Unsubscribe category
+- Unsubscribe campaign list
+</div></code></pre>
+<p>Link unsubscribe nên chứa token ký:</p>
+<pre class="hljs"><code><div>userId
+category
+expiry
+signature
+</div></code></pre>
+<p>Không expose raw mutable parameters có thể chỉnh sửa.</p>
+<hr>
+<h1 id="99-one-click-unsubscribe">99. One-Click Unsubscribe</h1>
+<p>Unsubscribe endpoint phải:</p>
+<pre class="hljs"><code><div>- Idempotent
+- Hiệu lực nhanh
+- Không yêu cầu login nếu token hợp lệ
+- Không gửi thêm marketing sau khi xử lý
+</div></code></pre>
+<p>Preference/suppression cache phải invalidated ngay.</p>
+<hr>
+<h1 id="100-sms-opt-out">100. SMS Opt-Out</h1>
+<p>User nhắn:</p>
+<pre class="hljs"><code><div>STOP
+</div></code></pre>
+<p>Provider webhook báo opt-out.</p>
+<p>Hệ thống phải cập nhật suppression.</p>
+<p>Không nên route sang provider khác để lách opt-out.</p>
+<p>Suppression là theo destination và jurisdiction policy, không chỉ provider.</p>
+<hr>
+<h1 id="101-abuse-prevention">101. Abuse Prevention</h1>
+<p>Notification platform có thể bị dùng để:</p>
+<pre class="hljs"><code><div>- Spam
+- Phishing
+- OTP bombing
+- Harassment
+- Cost attack qua SMS
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Producer authentication
+- Tenant quotas
+- Recipient frequency cap
+- Content policy
+- Destination reputation
+- Anomaly detection
+</div></code></pre>
+<hr>
+<h1 id="102-otp-bombing">102. OTP Bombing</h1>
+<p>Attacker yêu cầu OTP liên tục tới số của nạn nhân.</p>
+<p>Rate limits:</p>
+<pre class="hljs"><code><div>- Theo account
+- Theo IP
+- Theo phone number
+- Theo device
+- Theo session
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một số điện thoại:
+tối đa N OTP trong một khoảng
+</div></code></pre>
+<p>Cần tránh tiết lộ số có tồn tại hay không qua response khác biệt.</p>
+<hr>
+<h1 id="103-notification-authorization">103. Notification Authorization</h1>
+<p>Không phải service nào cũng được gửi mọi category.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Marketing Service:
+Không được gửi SECURITY_ALERT.
+
+Order Service:
+Chỉ được gửi ORDER_*.
+
+Identity Service:
+Có quyền gửi OTP và PASSWORD_RESET.
+</div></code></pre>
+<p>Producer identity và scope cần được kiểm tra.</p>
+<hr>
+<h1 id="104-template-approval">104. Template Approval</h1>
+<p>Marketing hoặc legal templates có thể cần workflow:</p>
+<pre class="hljs"><code><div>DRAFT
+→ REVIEW
+→ APPROVED
+→ ACTIVE
+→ RETIRED
+</div></code></pre>
+<p>Producer không được gửi template chưa approved.</p>
+<p>Emergency rollback phải có.</p>
+<hr>
+<h1 id="105-pii-và-logging">105. PII và Logging</h1>
+<p>Không log tùy tiện:</p>
+<pre class="hljs"><code><div>- Full email
+- Full phone
+- OTP
+- Password reset token
+- Sensitive template data
+</div></code></pre>
+<p>Log có thể chứa:</p>
+<pre class="hljs"><code><div>recipientHash
+maskedDestination
+notificationId
+provider
+status
+errorCode
+</div></code></pre>
+<p>OTP và reset token tuyệt đối không nên xuất hiện trong standard logs.</p>
+<hr>
+<h1 id="106-encryption-và-secret-management">106. Encryption và Secret Management</h1>
+<p>Provider API keys phải:</p>
+<pre class="hljs"><code><div>- Lưu trong secret manager
+- Rotate
+- Scope theo provider/channel
+- Không hard-code
+</div></code></pre>
+<p>Sensitive payload có thể cần encryption at rest.</p>
+<p>Access tới delivery content phải được audit.</p>
+<hr>
+<h1 id="107-data-retention">107. Data Retention</h1>
+<p>Không cần giữ mọi delivery attempt mãi mãi.</p>
+<p>Ví dụ policy:</p>
+<pre class="hljs"><code><div>- OTP payload: vài phút hoặc không lưu.
+- Delivery metadata: vài tháng.
+- Audit cho payment receipt: lâu hơn.
+- Raw provider webhook: retention ngắn/trung bình.
+- Marketing analytics: aggregate lâu, raw ngắn hơn.
+</div></code></pre>
+<p>Retention theo legal và business requirements.</p>
+<hr>
+<h1 id="108-multi-tenant-isolation">108. Multi-Tenant Isolation</h1>
+<p>Notification platform phục vụ nhiều tenants.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Tenant-scoped templates
+- Tenant quotas
+- Tenant sender identities
+- Tenant data isolation
+- Per-tenant rate limits
+</div></code></pre>
+<p>Không để tenant A dùng template hoặc sender domain của tenant B.</p>
+<hr>
+<h1 id="109-queue-partitioning">109. Queue Partitioning</h1>
+<p>Partition key tùy mục tiêu.</p>
+<h2 id="theo-recipientid">Theo recipientId</h2>
+<p>Giữ ordering notification của một user.</p>
+<p>Nhưng hot user/enterprise recipient có thể tạo hot partition.</p>
+<h2 id="theo-notificationid">Theo notificationId</h2>
+<p>Phân phối đều hơn.</p>
+<h2 id="theo-tenantid">Theo tenantId</h2>
+<p>Hỗ trợ tenant isolation nhưng tenant lớn gây skew.</p>
+<p>Thường:</p>
+<pre class="hljs"><code><div>hash(recipientId hoặc deliveryId)
+</div></code></pre>
+<p>và dùng sequence/version nếu cần ordering.</p>
+<hr>
+<h1 id="110-có-cần-global-ordering-không">110. Có cần Global Ordering không?</h1>
+<p>Không.</p>
+<p>Ta có thể cần ordering cục bộ:</p>
+<pre class="hljs"><code><div>Password changed
+→ Security alert
+
+Order shipped
+→ Order delivered
+</div></code></pre>
+<p>Nhưng email và push có thể không được provider giao đúng thứ tự.</p>
+<p>Vì vậy không nên dựa hoàn toàn vào channel delivery order cho correctness.</p>
+<p>Payload nên phản ánh state hiện tại hoặc dùng collapse key.</p>
+<hr>
+<h1 id="111-out-of-order-notifications">111. Out-of-Order Notifications</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order delivered
+</div></code></pre>
+<p>được nhận trước:</p>
+<pre class="hljs"><code><div>Order shipped
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Aggregate version
+- Suppress stale notification
+- Collapse by order
+- Check current state trước send cho notification nhạy cảm
+</div></code></pre>
+<p>Mỗi job có:</p>
+<pre class="hljs"><code><div>entityVersion
+</div></code></pre>
+<p>Worker có thể bỏ notification version cũ nếu state mới hơn đã được gửi.</p>
+<hr>
+<h1 id="112-multi-region-architecture">112. Multi-Region Architecture</h1>
+<p>Notification system có thể chạy nhiều region.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Producers --> GlobalIngress
+
+    GlobalIngress --> RegionA[Region A]
+    GlobalIngress --> RegionB[Region B]
+
+    RegionA --> QueueA
+    RegionB --> QueueB
+
+    QueueA --> WorkersA
+    QueueB --> WorkersB
+
+    WorkersA --> Providers
+    WorkersB --> Providers
+</div></code></pre>
+<p>Cần trả lời:</p>
+<pre class="hljs"><code><div>- Notification được sở hữu bởi region nào?
+- Scheduler chạy ở đâu?
+- Dedupe có global không?
+- Provider credentials có ở mọi region không?
+- Webhook về region nào?
+</div></code></pre>
+<hr>
+<h1 id="113-home-region-theo-recipient-hoặc-tenant">113. Home Region theo Recipient hoặc Tenant</h1>
+<p>Có thể gán:</p>
+<pre class="hljs"><code><div>tenant/user → home region
+</div></code></pre>
+<p>Benefits:</p>
+<pre class="hljs"><code><div>- Preference và contact data local
+- Data residency rõ
+- Ordering per recipient dễ hơn
+</div></code></pre>
+<p>Edge hoặc producer route notification về home region.</p>
+<hr>
+<h1 id="114-activeactive-ingestion">114. Active–Active Ingestion</h1>
+<p>Hai regions cùng nhận request.</p>
+<p>Generated notification IDs có thể dùng:</p>
+<pre class="hljs"><code><div>Snowflake-like ID
+</div></code></pre>
+<p>Nhưng idempotency key global cần:</p>
+<pre class="hljs"><code><div>- Globally consistent store
+- Region ownership
+- Deterministic routing theo producer/key
+</div></code></pre>
+<p>Nếu cùng request retry sang region khác mà dedupe state không replicate kịp, có thể tạo duplicate logical notifications.</p>
+<hr>
+<h1 id="115-multi-region-dedupe">115. Multi-Region Dedupe</h1>
+<p>Một cách:</p>
+<pre class="hljs"><code><div>partition idempotency key theo hash
+→ owner region
+</div></code></pre>
+<p>Mọi request cùng key đi cùng owner.</p>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>Use globally consistent idempotency store
+</div></code></pre>
+<p>Trade-off là cross-region latency.</p>
+<p>Transactional notifications quan trọng có thể trả chi phí này; social notifications có thể chấp nhận dedupe best-effort.</p>
+<hr>
+<h1 id="116-region-failover">116. Region Failover</h1>
+<p>Nếu Region A lỗi:</p>
+<pre class="hljs"><code><div>1. Stop routing new work tới A.
+2. Promote consumers hoặc transfer partition ownership.
+3. Replay unacknowledged queue messages.
+4. Rebuild scheduler ownership.
+5. Fence workers cũ.
+6. Continue delivery.
+</div></code></pre>
+<p>Stable delivery IDs và idempotency rất quan trọng vì replay sau failover có thể gửi lại.</p>
+<hr>
+<h1 id="117-provider-webhook-multi-region">117. Provider Webhook Multi-Region</h1>
+<p>Provider webhook endpoint có thể là global.</p>
+<p>Global ingress route theo:</p>
+<pre class="hljs"><code><div>providerMessageId
+</div></code></pre>
+<p>hoặc ghi event vào global webhook stream.</p>
+<p>Không nên route ngẫu nhiên nếu mapping providerMessageId chỉ tồn tại ở một region mà không có directory.</p>
+<hr>
+<h1 id="118-disaster-recovery">118. Disaster Recovery</h1>
+<p>Cần backup:</p>
+<pre class="hljs"><code><div>- Templates
+- Preferences
+- Suppression lists
+- Scheduled jobs
+- Delivery metadata
+- Provider mappings
+</div></code></pre>
+<p>Queue retention phải đủ dài để chịu outage.</p>
+<p>Nếu queue chỉ giữ 24 giờ nhưng region outage 48 giờ:</p>
+<pre class="hljs"><code><div>Một số notification có thể mất.
+</div></code></pre>
+<p>Scheduled jobs đặc biệt cần durable storage, không chỉ memory timer.</p>
+<hr>
+<h1 id="119-slo-theo-category">119. SLO theo Category</h1>
+<p>Ví dụ minh họa:</p>
+<pre class="hljs"><code><div>OTP:
+99% accepted by provider dưới 2 giây.
+
+Security alert:
+99,9% accepted dưới 10 giây.
+
+Order update:
+99% accepted dưới 1 phút.
+
+Marketing:
+99% hoàn thành trong campaign window.
+
+In-app:
+99% visible dưới 5 giây.
+</div></code></pre>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>accepted by platform
+accepted by provider
+delivered to destination
+shown to user
+</div></code></pre>
+<hr>
+<h1 id="120-observability">120. Observability</h1>
+<h2 id="ingestion">Ingestion</h2>
+<pre class="hljs"><code><div>- Request rate
+- Accepted/rejected
+- Idempotency hit rate
+- Producer quota rejection
+</div></code></pre>
+<h2 id="orchestration">Orchestration</h2>
+<pre class="hljs"><code><div>- Preference suppression rate
+- Template render failure
+- Fan-out count
+- Scheduling delay
+</div></code></pre>
+<h2 id="queue">Queue</h2>
+<pre class="hljs"><code><div>- Queue depth
+- Oldest message age
+- Consumer lag
+- DLQ size
+</div></code></pre>
+<h2 id="provider">Provider</h2>
+<pre class="hljs"><code><div>- Request latency
+- Success rate
+- 429/5xx
+- Delivery rate
+- Bounce/invalid token rate
+</div></code></pre>
+<h2 id="business">Business</h2>
+<pre class="hljs"><code><div>- Notifications per user
+- Duplicate rate
+- Unsubscribe rate
+- Complaint rate
+- OTP success rate
+</div></code></pre>
+<hr>
+<h1 id="121-end-to-end-latency">121. End-to-End Latency</h1>
+<p>Đo:</p>
+<pre class="hljs"><code><div>providerAcceptedAt - sourceEventTime
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>deliveredAt - sourceEventTime
+</div></code></pre>
+<p>Phải nói rõ metric nào.</p>
+<p>Components:</p>
+<pre class="hljs"><code><div>Event publication delay
++ Queue delay
++ Orchestration
++ Scheduling
++ Provider request
++ Provider delivery
+</div></code></pre>
+<hr>
+<h1 id="122-queue-age-quan-trọng-hơn-queue-length">122. Queue Age quan trọng hơn Queue Length</h1>
+<p>Một triệu jobs trong queue có thể bình thường nếu throughput cao.</p>
+<p>10.000 jobs có thể nguy hiểm nếu job cũ nhất đã chờ hai giờ.</p>
+<p>Theo dõi:</p>
+<pre class="hljs"><code><div>oldest_unprocessed_age
+</div></code></pre>
+<p>theo:</p>
+<pre class="hljs"><code><div>- Channel
+- Priority
+- Region
+- Tenant
+</div></code></pre>
+<hr>
+<h1 id="123-synthetic-notification">123. Synthetic Notification</h1>
+<p>Định kỳ gửi test tới controlled destinations:</p>
+<pre class="hljs"><code><div>- Test email inbox
+- Test phone
+- Test device
+</div></code></pre>
+<p>Đo end-to-end:</p>
+<pre class="hljs"><code><div>Platform accepted
+→ Provider accepted
+→ Delivery webhook
+</div></code></pre>
+<p>Health check chỉ gọi provider API không phát hiện delivery chain bị lỗi.</p>
+<hr>
+<h1 id="124-failure-mode--queue-down">124. Failure Mode — Queue Down</h1>
+<p>Ingestion có thể:</p>
+<pre class="hljs"><code><div>- Ghi request store trước
+- Publish qua outbox sau
+</div></code></pre>
+<p>Nếu queue unavailable:</p>
+<pre class="hljs"><code><div>202 chỉ nên trả khi request đã được lưu bền vững.
+</div></code></pre>
+<p>Outbox publisher retry khi queue phục hồi.</p>
+<hr>
+<h1 id="125-failure-mode--preference-service-down">125. Failure Mode — Preference Service Down</h1>
+<p>Các policy:</p>
+<pre class="hljs"><code><div>Transactional/security:
+Có thể fail open theo whitelist category.
+
+Marketing:
+Nên fail closed để tránh vi phạm opt-out.
+
+Social:
+Có thể delay.
+</div></code></pre>
+<p>Không nên dùng một behavior cho mọi category.</p>
+<hr>
+<h1 id="126-failure-mode--template-service-down">126. Failure Mode — Template Service Down</h1>
+<p>Có thể cache immutable template versions tại workers.</p>
+<p>Nếu template đã pin version và có cache:</p>
+<pre class="hljs"><code><div>Vẫn render được.
+</div></code></pre>
+<p>Nếu template không tồn tại:</p>
+<pre class="hljs"><code><div>Không retry provider.
+Đưa vào configuration error/DLQ.
+</div></code></pre>
+<hr>
+<h1 id="127-failure-mode--provider-down">127. Failure Mode — Provider Down</h1>
+<pre class="hljs"><code><div>- Circuit breaker
+- Pause bulk
+- Route alternative provider
+- Preserve critical capacity
+- Retry with backoff
+</div></code></pre>
+<p>Không chuyển toàn traffic sang provider backup nếu chưa kiểm tra capacity và duplicate uncertainty.</p>
+<hr>
+<h1 id="128-failure-mode--webhook-down">128. Failure Mode — Webhook Down</h1>
+<p>Send vẫn có thể tiếp tục.</p>
+<p>Delivery status sẽ lag.</p>
+<p>Provider có thể retry webhook.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Durable webhook ingestion
+- Idempotency
+- Reconciliation API hoặc periodic status pull nếu provider hỗ trợ
+</div></code></pre>
+<hr>
+<h1 id="129-reconciliation">129. Reconciliation</h1>
+<p>Có thể xảy ra:</p>
+<pre class="hljs"><code><div>Provider accepted
+nhưng local status vẫn SENDING.
+</div></code></pre>
+<p>Reconciliation job:</p>
+<pre class="hljs"><code><div>- Query provider status
+- So sánh accepted messages
+- Repair missing webhook state
+</div></code></pre>
+<p>Đặc biệt quan trọng cho:</p>
+<pre class="hljs"><code><div>- SMS billing
+- Critical notifications
+- Provider invoice reconciliation
+</div></code></pre>
+<hr>
+<h1 id="130-cost-control">130. Cost Control</h1>
+<p>SMS và một số email providers tính phí theo volume.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Budget per tenant
+- Campaign cost estimation
+- Daily caps
+- Alert anomaly
+- Provider cost routing
+</div></code></pre>
+<p>Không nên tối ưu chi phí làm giảm delivery của security alerts.</p>
+<p>Priority và category phải tham gia cost policy.</p>
+<hr>
+<h1 id="131-case-study--otp">131. Case Study — OTP</h1>
+<p>Flow:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant User
+    participant Identity
+    participant Notification
+    participant SMS
+    participant Provider
+
+    User->>Identity: Request OTP
+    Identity->>Identity: Generate OTP + store hash + expiry
+    Identity->>Notification: Send OTP request
+    Notification->>SMS: High-priority delivery
+    SMS->>Provider: Send with idempotency key
+    Provider-->>SMS: Accepted
+</div></code></pre>
+<p>Các điểm quan trọng:</p>
+<pre class="hljs"><code><div>- OTP được tạo và xác minh bởi Identity Service.
+- Notification Service chỉ vận chuyển.
+- Không log OTP.
+- TTL ngắn.
+- Rate limit theo phone, IP, account.
+- Không retry sau expiration.
+</div></code></pre>
+<hr>
+<h1 id="132-case-study--order-update">132. Case Study — Order Update</h1>
+<pre class="hljs"><code><div>OrderShipped
+→ Push
+→ Email
+→ In-app
+</div></code></pre>
+<p>Preferences:</p>
+<pre class="hljs"><code><div>- User có thể tắt email order update?
+- In-app vẫn được tạo?
+</div></code></pre>
+<p>Version:</p>
+<pre class="hljs"><code><div>Order version 8 = SHIPPED
+Order version 9 = DELIVERED
+</div></code></pre>
+<p>Nếu version 8 job đến sau version 9:</p>
+<pre class="hljs"><code><div>Có thể bỏ push SHIPPED hoặc collapse theo order.
+</div></code></pre>
+<hr>
+<h1 id="133-case-study--marketing-campaign">133. Case Study — Marketing Campaign</h1>
+<pre class="hljs"><code><div>- 20 triệu recipients
+- Gửi lúc 09:00 local time
+- Tối đa 2 email marketing/ngày/user
+- Unsubscribe phải có hiệu lực ngay
+</div></code></pre>
+<p>Pipeline:</p>
+<pre class="hljs"><code><div>Campaign definition
+→ Audience snapshot
+→ Timezone buckets
+→ Preference filter
+→ Rate-controlled expansion
+→ Email queues
+→ Provider routing
+</div></code></pre>
+<p>Không nên resolve audience bằng một query khổng lồ rồi enqueue tất cả ngay lập tức.</p>
+<hr>
+<h1 id="134-case-study--social-notifications">134. Case Study — Social Notifications</h1>
+<p>Events:</p>
+<pre class="hljs"><code><div>LikeCreated
+CommentCreated
+FollowCreated
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Aggregate likes theo post
+- Suppress self-actions
+- Apply quiet hours
+- Prefer in-app
+- Push có frequency cap
+</div></code></pre>
+<p>Nếu user đang active trong conversation:</p>
+<pre class="hljs"><code><div>Có thể không gửi push.
+</div></code></pre>
+<p>Presence state có thể được dùng như soft signal, không phải correctness dependency.</p>
+<hr>
+<h1 id="135-case-study--incident-alerting">135. Case Study — Incident Alerting</h1>
+<p>Incident alert cần:</p>
+<pre class="hljs"><code><div>- Push
+- SMS
+- Email
+- Escalation
+- Ack
+</div></code></pre>
+<p>Flow:</p>
+<pre class="hljs"><code><div>Send primary on-call
+→ Chờ ack 5 phút
+→ Nếu không ack, gửi secondary
+→ Sau đó manager
+</div></code></pre>
+<p>Đây là workflow stateful, không chỉ fan-out đơn giản.</p>
+<hr>
+<h1 id="136-escalation-state-machine">136. Escalation State Machine</h1>
+<pre class="hljs"><code><div>OPEN
+→ NOTIFIED_PRIMARY
+→ ACKED
+</div></code></pre>
+<p>Nếu timeout:</p>
+<pre class="hljs"><code><div>NOTIFIED_PRIMARY
+→ ESCALATED_SECONDARY
+</div></code></pre>
+<p>Scheduler/timers phải durable.</p>
+<p>Fencing cần tránh hai orchestrators cùng escalate.</p>
+<hr>
+<h1 id="137-thiết-kế-khuyến-nghị">137. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Business services publish events qua outbox hoặc gọi async API.
+2. Notification ingestion lưu durable request và dùng idempotency key.
+3. Orchestrator kiểm tra category, preference, template và schedule.
+4. Một logical notification fan-out thành delivery jobs theo channel.
+5. Mỗi channel có queue, workers, retry và provider adapters riêng.
+6. Providers được route theo health, rate limit, country và cost.
+7. Delivery attempts có stable IDs và state machine.
+8. Webhooks được verify, dedupe và xử lý out-of-order.
+9. Campaign analytics được xử lý qua event stream.
+10. Critical, normal và bulk traffic được cô lập.
+</div></code></pre>
+<hr>
+<h1 id="138-trade-off--api-hay-event">138. Trade-Off — API hay Event</h1>
+<h2 id="direct-api-1">Direct API</h2>
+<pre class="hljs"><code><div>Ưu:
+Immediate acknowledgement, explicit request.
+
+Nhược:
+Producer coupling, cần retry/idempotency.
+</div></code></pre>
+<h2 id="event-driven-1">Event-driven</h2>
+<pre class="hljs"><code><div>Ưu:
+Loose coupling, replayable.
+
+Nhược:
+Eventual processing, khó theo dõi request trực tiếp.
+</div></code></pre>
+<p>Thường:</p>
+<pre class="hljs"><code><div>OTP/admin command → API
+Business lifecycle → Event
+</div></code></pre>
+<hr>
+<h1 id="139-trade-off--render-sớm-hay-render-muộn">139. Trade-Off — Render sớm hay Render muộn</h1>
+<h2 id="render-khi-tạo">Render khi tạo</h2>
+<pre class="hljs"><code><div>Ưu:
+Deterministic, giảm runtime dependency.
+
+Nhược:
+Scheduled message không dùng preference/template mới.
+Storage payload lớn.
+</div></code></pre>
+<h2 id="render-lúc-gửi">Render lúc gửi</h2>
+<pre class="hljs"><code><div>Ưu:
+Dùng contact, locale, template mới nhất.
+
+Nhược:
+Runtime dependency và kết quả có thể thay đổi.
+</div></code></pre>
+<p>Giải pháp trung gian:</p>
+<pre class="hljs"><code><div>Pin template version
+nhưng resolve contact/preference lại trước send.
+</div></code></pre>
+<hr>
+<h1 id="140-trade-off--one-queue-hay-queue-theo-channel">140. Trade-Off — One Queue hay Queue theo Channel</h1>
+<h2 id="một-queue">Một queue</h2>
+<pre class="hljs"><code><div>Đơn giản hơn
+Nhưng provider/channel lỗi có thể ảnh hưởng tất cả.
+</div></code></pre>
+<h2 id="queue-theo-channelpriority">Queue theo channel/priority</h2>
+<pre class="hljs"><code><div>Isolation và scaling tốt hơn
+Nhưng vận hành phức tạp hơn.
+</div></code></pre>
+<p>Production lớn thường cần tách ít nhất:</p>
+<pre class="hljs"><code><div>Email
+SMS
+Push
+In-app
+</div></code></pre>
+<p>và tách critical khỏi bulk.</p>
+<hr>
+<h1 id="141-trade-off--provider-failover-nhanh-hay-chậm">141. Trade-Off — Provider Failover nhanh hay chậm</h1>
+<p>Failover nhanh:</p>
+<pre class="hljs"><code><div>Availability cao hơn
+Duplicate risk cao hơn.
+</div></code></pre>
+<p>Failover chậm:</p>
+<pre class="hljs"><code><div>Giảm duplicate
+Nhưng latency tăng.
+</div></code></pre>
+<p>Policy phải dựa trên:</p>
+<pre class="hljs"><code><div>- Channel
+- Notification TTL
+- Provider status visibility
+- Duplicate impact
+</div></code></pre>
+<hr>
+<h1 id="142-trade-off--preference-consistency">142. Trade-Off — Preference Consistency</h1>
+<p>Cache preference lâu:</p>
+<pre class="hljs"><code><div>Latency thấp
+Nhưng opt-out có thể stale.
+</div></code></pre>
+<p>Đọc authoritative mỗi lần:</p>
+<pre class="hljs"><code><div>Fresh
+Nhưng tải lớn.
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Cache versioned.
+- Push invalidation.
+- Recheck authoritative cho marketing ngay trước send.
+</div></code></pre>
+<hr>
+<h1 id="143-framework-trả-lời-trong-phỏng-vấn">143. Framework trả lời trong Phỏng vấn</h1>
+<p>Một câu trả lời tốt có thể mở đầu:</p>
+<blockquote>
+<p>Tôi tách logical notification khỏi channel delivery và provider attempt. Business services chỉ phát business event hoặc gửi notification intent; Notification Orchestrator quyết định preference, template, locale, schedule và channels. Mỗi channel có queue và worker pool riêng để SMS outage không ảnh hưởng push hoặc in-app.</p>
+</blockquote>
+<p>Về reliability:</p>
+<blockquote>
+<p>Ingestion sử dụng idempotency key hoặc source event ID. Queue cung cấp at-least-once delivery, vì vậy workers phải idempotent. Mỗi channel delivery có stable delivery ID, state machine và attempt records. Provider timeout được xem là trạng thái không chắc chắn; tôi ưu tiên provider idempotency hoặc status lookup trước khi failover để giảm duplicate.</p>
+</blockquote>
+<p>Về scale:</p>
+<blockquote>
+<p>Campaign lớn không fan-out toàn bộ một lần. Audience được chia thành chunks, áp preference và frequency cap theo batch, sau đó enqueue với tốc độ giới hạn. Critical và bulk traffic dùng queues riêng; provider rate limits được thực thi bằng distributed token buckets.</p>
+</blockquote>
+<p>Về tracking:</p>
+<blockquote>
+<p>Provider webhooks được xác minh chữ ký, dedupe bằng provider event ID và xử lý out-of-order. Raw delivery events đi vào event stream để xây campaign metrics và user delivery history. Trạng thái <code>accepted</code> được phân biệt rõ với <code>delivered</code>, <code>shown</code> và <code>read</code>.</p>
+</blockquote>
+<hr>
+<h1 id="144-framework-45-phút">144. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Channels
+- Transactional vs marketing
+- Scheduling
+- Preferences
+- Tracking
+</div></code></pre>
+<h2 id="phút-510-scale">Phút 5–10: Scale</h2>
+<pre class="hljs"><code><div>- Notifications/day
+- Fan-out
+- Peak campaigns
+- Channel mix
+</div></code></pre>
+<h2 id="phút-1020-high-level-architecture">Phút 10–20: High-Level Architecture</h2>
+<pre class="hljs"><code><div>Ingestion
+→ Orchestrator
+→ Channel queues
+→ Workers
+→ Providers
+</div></code></pre>
+<h2 id="phút-2030-deep-dive">Phút 20–30: Deep Dive</h2>
+<pre class="hljs"><code><div>- Idempotency
+- Retry
+- Rate limit
+- Template
+- Preferences
+</div></code></pre>
+<h2 id="phút-3040-reliability">Phút 30–40: Reliability</h2>
+<pre class="hljs"><code><div>- Provider failover
+- Webhooks
+- DLQ
+- Multi-region
+</div></code></pre>
+<h2 id="phút-4045-trade-offs">Phút 40–45: Trade-Offs</h2>
+<pre class="hljs"><code><div>- API vs event
+- Render timing
+- Fail-open vs fail-closed
+- Exactly-once limitations
+</div></code></pre>
+<hr>
+<h1 id="145-các-sai-lầm-phổ-biến">145. Các Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-gọi-provider-trực-tiếp-từ-business-service">Lỗi 1: Gọi Provider trực tiếp từ Business Service</h2>
+<p>Tạo coupling và làm business transaction phụ thuộc provider.</p>
+<h2 id="lỗi-2-không-phân-biệt-logical-notification-và-attempt">Lỗi 2: Không phân biệt Logical Notification và Attempt</h2>
+<p>Retry/analytics trở nên khó hiểu.</p>
+<h2 id="lỗi-3-một-queue-cho-mọi-channel-và-priority">Lỗi 3: Một Queue cho mọi Channel và Priority</h2>
+<p>Marketing burst làm OTP chậm.</p>
+<h2 id="lỗi-4-retry-mọi-error">Lỗi 4: Retry mọi Error</h2>
+<p>Invalid address bị retry vô ích.</p>
+<h2 id="lỗi-5-không-có-idempotency-key">Lỗi 5: Không có Idempotency Key</h2>
+<p>Producer retry tạo notification trùng.</p>
+<h2 id="lỗi-6-ack-queue-trước-khi-xử-lý-bền-vững">Lỗi 6: ACK Queue trước khi xử lý bền vững</h2>
+<p>Có thể mất notification.</p>
+<h2 id="lỗi-7-gửi-xong-rồi-crash-trước-ack-nhưng-không-dedupe">Lỗi 7: Gửi xong rồi Crash trước ACK nhưng không Dedupe</h2>
+<p>User nhận duplicate.</p>
+<h2 id="lỗi-8-failover-provider-ngay-sau-timeout">Lỗi 8: Failover Provider ngay sau Timeout</h2>
+<p>Có thể gửi trùng qua hai providers.</p>
+<h2 id="lỗi-9-coi-provider-accepted-là-delivered">Lỗi 9: Coi Provider Accepted là Delivered</h2>
+<p>Tracking sai semantics.</p>
+<h2 id="lỗi-10-không-verify-webhook-signature">Lỗi 10: Không Verify Webhook Signature</h2>
+<p>Attacker giả delivery event.</p>
+<h2 id="lỗi-11-không-dedupe-webhook">Lỗi 11: Không Dedupe Webhook</h2>
+<p>Metrics và state bị cập nhật nhiều lần.</p>
+<h2 id="lỗi-12-không-xử-lý-webhook-out-of-order">Lỗi 12: Không xử lý Webhook Out-of-Order</h2>
+<p>Status quay ngược.</p>
+<h2 id="lỗi-13-cache-preference-quá-lâu">Lỗi 13: Cache Preference quá lâu</h2>
+<p>Marketing vẫn gửi sau unsubscribe.</p>
+<h2 id="lỗi-14-một-retry-policy-cho-mọi-category">Lỗi 14: Một Retry Policy cho mọi Category</h2>
+<p>OTP được gửi quá muộn hoặc receipt bị bỏ quá sớm.</p>
+<h2 id="lỗi-15-không-có-notification-ttl">Lỗi 15: Không có Notification TTL</h2>
+<p>Message hết giá trị vẫn được gửi.</p>
+<h2 id="lỗi-16-fan-out-campaign-toàn-bộ-ngay-lập-tức">Lỗi 16: Fan-Out Campaign toàn bộ ngay lập tức</h2>
+<p>Queue và provider bị quá tải.</p>
+<h2 id="lỗi-17-không-có-frequency-cap">Lỗi 17: Không có Frequency Cap</h2>
+<p>User bị spam.</p>
+<h2 id="lỗi-18-token-push-không-được-cleanup">Lỗi 18: Token Push không được Cleanup</h2>
+<p>Provider traffic lãng phí.</p>
+<h2 id="lỗi-19-lưu-otp-trong-logs">Lỗi 19: Lưu OTP trong Logs</h2>
+<p>Rủi ro bảo mật nghiêm trọng.</p>
+<h2 id="lỗi-20-không-có-dlq-workflow">Lỗi 20: Không có DLQ Workflow</h2>
+<p>Failed notifications bị quên.</p>
+<h2 id="lỗi-21-không-phân-tách-transactional-và-marketing-reputation">Lỗi 21: Không phân tách Transactional và Marketing Reputation</h2>
+<p>Marketing spam ảnh hưởng receipt/OTP email.</p>
+<h2 id="lỗi-22-không-tính-timezone-cho-scheduling">Lỗi 22: Không tính Timezone cho Scheduling</h2>
+<p>User nhận campaign lúc nửa đêm.</p>
+<h2 id="lỗi-23-scheduler-chỉ-dùng-memory">Lỗi 23: Scheduler chỉ dùng Memory</h2>
+<p>Restart làm mất scheduled jobs.</p>
+<h2 id="lỗi-24-không-có-suppression-list">Lỗi 24: Không có Suppression List</h2>
+<p>Hard bounce và opt-out vẫn tiếp tục bị gửi.</p>
+<h2 id="lỗi-25-dùng-exactly-once-như-lời-hứa-tuyệt-đối">Lỗi 25: Dùng Exactly-Once như lời hứa tuyệt đối</h2>
+<p>Provider và client vẫn có thể tạo duplicate.</p>
+<hr>
+<h1 id="146-bảng-ghi-nhớ-nhanh">146. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Notification request</td>
+<td>Ý định gửi thông báo</td>
+</tr>
+<tr>
+<td>Channel delivery</td>
+<td>Một notification qua một kênh</td>
+</tr>
+<tr>
+<td>Delivery attempt</td>
+<td>Một lần thử tới provider</td>
+</tr>
+<tr>
+<td>Orchestrator</td>
+<td>Preference, template, schedule, fan-out</td>
+</tr>
+<tr>
+<td>Preference service</td>
+<td>Quyết định user cho phép gì</td>
+</tr>
+<tr>
+<td>Template service</td>
+<td>Render nội dung có version</td>
+</tr>
+<tr>
+<td>Scheduler</td>
+<td>Kích hoạt job đúng thời gian</td>
+</tr>
+<tr>
+<td>Channel queue</td>
+<td>Isolation giữa email/SMS/push</td>
+</tr>
+<tr>
+<td>Provider adapter</td>
+<td>Chuẩn hóa API và error</td>
+</tr>
+<tr>
+<td>Rate limiter</td>
+<td>Bảo vệ provider, tenant, user</td>
+</tr>
+<tr>
+<td>Retry scheduler</td>
+<td>Backoff và delayed retry</td>
+</tr>
+<tr>
+<td>DLQ</td>
+<td>Lưu job thất bại cuối</td>
+</tr>
+<tr>
+<td>Suppression list</td>
+<td>Chặn hard bounce, opt-out</td>
+</tr>
+<tr>
+<td>Webhook processor</td>
+<td>Delivery status</td>
+</tr>
+<tr>
+<td>Delivery store</td>
+<td>Trạng thái và attempts</td>
+</tr>
+<tr>
+<td>Analytics pipeline</td>
+<td>Aggregation campaign/channel</td>
+</tr>
+<tr>
+<td>Idempotency key</td>
+<td>Chặn logical duplicate</td>
+</tr>
+<tr>
+<td>Delivery ID</td>
+<td>Chặn attempt duplicate</td>
+</tr>
+<tr>
+<td>TTL</td>
+<td>Không gửi notification hết giá trị</td>
+</tr>
+<tr>
+<td>Priority</td>
+<td>Cô lập critical khỏi bulk</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="147-sơ-đồ-tổng-hợp">147. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Events[Business Events / API Requests] --> Ingestion
+
+    Ingestion --> RequestStore[(Request Store)]
+    Ingestion --> RequestQueue
+
+    RequestQueue --> Orchestrator
+
+    Orchestrator --> Preferences
+    Orchestrator --> Templates
+    Orchestrator --> Scheduler
+    Orchestrator --> Fanout
+
+    Fanout --> CriticalQ[Critical Queue]
+    Fanout --> EmailQ
+    Fanout --> SMSQ
+    Fanout --> PushQ
+    Fanout --> InAppQ
+
+    EmailQ --> EmailWorkers
+    SMSQ --> SMSWorkers
+    PushQ --> PushWorkers
+    InAppQ --> InAppWorkers
+
+    EmailWorkers --> ProviderRouter
+    SMSWorkers --> ProviderRouter
+    PushWorkers --> ProviderRouter
+
+    ProviderRouter --> ProviderA
+    ProviderRouter --> ProviderB
+
+    ProviderA --> Webhooks
+    ProviderB --> Webhooks
+
+    Webhooks --> Tracking
+    Tracking --> DeliveryStore[(Delivery Store)]
+    Tracking --> AnalyticsStream
+
+    InAppWorkers --> InAppStore[(In-App Store)]
+    AnalyticsStream --> Metrics[(Campaign Analytics)]
+</div></code></pre>
+<hr>
+<h1 id="148-những-điều-phải-nhớ-sau-bài-23">148. Những Điều Phải Nhớ sau Bài 23</h1>
+<pre class="hljs"><code><div>1. Notification nên được xử lý bất đồng bộ khỏi business transaction.
+2. Logical notification, channel delivery và provider attempt là ba đối tượng khác nhau.
+3. Producer nên gửi business intent thay vì provider-specific payload.
+4. Outbox giúp không mất notification sau business commit.
+5. Ingestion cần idempotency key hoặc source event ID.
+6. Orchestrator quyết định preference, template, locale, schedule và channels.
+7. Mỗi channel nên có queue và workers riêng.
+8. Critical và bulk traffic cần isolation.
+9. Transactional và marketing có policy khác nhau.
+10. Preference nên có hierarchy rõ.
+11. Marketing opt-out cần có hiệu lực nhanh.
+12. Suppression list mạnh hơn preference thông thường.
+13. Template cần versioning và required variables.
+14. Template variables phải được escape theo channel.
+15. Scheduled jobs phải được lưu bền vững.
+16. Scheduler cần lease hoặc conditional claim.
+17. Quiet hours phải dùng timezone của user.
+18. Notification cần TTL nếu giá trị có thời hạn.
+19. Retry chỉ áp dụng cho transient errors.
+20. Exponential backoff cần jitter.
+21. Retry policy phải theo category và channel.
+22. Queue delivery thường là at-least-once.
+23. Worker phải idempotent.
+24. Provider timeout tạo trạng thái không chắc chắn.
+25. Provider failover có thể gây duplicate.
+26. Provider idempotency key giúp giảm duplicate.
+27. Exactly-once tuyệt đối tới user thường không khả thi.
+28. Stable business dedupe key quan trọng hơn message ID ngẫu nhiên.
+29. Provider adapters che giấu API và error semantics khác nhau.
+30. Provider routing dựa trên country, health, rate, cost và compliance.
+31. Provider backup nên luôn nhận một phần traffic để được giữ warm.
+32. Circuit breaker ngăn gửi vào provider đang lỗi.
+33. Rate limiting cần nhiều tầng.
+34. Campaign lớn phải expansion theo chunks.
+35. Backpressure từ provider phải làm chậm bulk traffic.
+36. OTP phải được ưu tiên và không gửi sau expiry.
+37. OTP không được ghi vào log.
+38. Push tokens cần lifecycle và cleanup.
+39. Push collapse key giúp loại state cũ.
+40. In-app store nên shard theo user.
+41. Cursor pagination tốt hơn deep offset.
+42. Aggregation giúp giảm spam social notification.
+43. Frequency cap bảo vệ user experience.
+44. Provider accepted không đồng nghĩa delivered.
+45. Webhooks phải được verify và dedupe.
+46. Webhook có thể đến sai thứ tự.
+47. Delivery tracking cần event history và current state.
+48. Campaign counters không nên update trên một hot row.
+49. Analytics nên xử lý qua event stream.
+50. Email hard bounce phải suppression.
+51. SMS opt-out phải được áp xuyên mọi provider.
+52. Transactional và marketing sending reputation nên được tách.
+53. PII phải được giảm thiểu trong logs.
+54. Scheduled marketing nên recheck preference trước send.
+55. Multi-region cần dedupe và ownership rõ.
+56. Failover có thể replay jobs nên idempotency là bắt buộc.
+57. Queue retention phải đủ cho recovery.
+58. SLO cần phân biệt accepted, delivered, shown và read.
+59. Oldest queue age quan trọng hơn chỉ queue length.
+60. Synthetic notifications giúp đo end-to-end delivery.
+</div></code></pre>
+<hr>
+<h1 id="149-bài-tập-thiết-kế-mở-rộng">149. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Notification System với yêu cầu:</p>
+<pre class="hljs"><code><div>- 200 triệu users
+- 2 tỷ logical notifications/ngày
+- Email, SMS, mobile push, web push và in-app
+- OTP phải được gửi dưới 2 giây
+- Marketing campaign 100 triệu recipients
+- Gửi lúc 09:00 theo local timezone
+- Hỗ trợ 20 tenants lớn
+- Hai email providers và ba SMS providers
+- Multi-region active–active
+- Unsubscribe có hiệu lực dưới 30 giây
+- Delivery dashboard gần realtime
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Notification request được ingest qua API hay event?
+2. Idempotency key được tạo từ đâu?
+3. Logical notification và delivery được lưu thế nào?
+4. Queue được chia theo channel và priority ra sao?
+5. Làm sao ngăn marketing chặn OTP?
+6. Audience 100 triệu users được expansion thế nào?
+7. Preference check diễn ra ở giai đoạn nào?
+8. Unsubscribe cache được invalidation thế nào?
+9. Local-time scheduling được chia bucket ra sao?
+10. Scheduler tránh enqueue trùng thế nào?
+11. Template version được pin khi nào?
+12. Locale fallback hoạt động ra sao?
+13. SMS segment count được kiểm soát thế nào?
+14. Push gửi tới bao nhiêu devices/user?
+15. Invalid device token được cleanup ra sao?
+16. Provider rate limits được thực thi bằng gì?
+17. Provider routing dựa trên metrics nào?
+18. Provider timeout có failover ngay không?
+19. Làm sao giảm duplicate xuyên hai providers?
+20. Retry policy của OTP khác marketing thế nào?
+21. Delivery attempts được lưu bao lâu?
+22. Webhook signature được verify ở đâu?
+23. Webhook out-of-order được xử lý thế nào?
+24. Campaign counters tránh hot key ra sao?
+25. Multi-region idempotency được bảo đảm thế nào?
+26. Scheduled jobs failover region ra sao?
+27. Suppression list được replicate thế nào?
+28. Data residency ảnh hưởng contact data thế nào?
+29. Queue retention cần bao lâu?
+30. SLO và alerts quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-2">Kết luận Case Study 2</h1>
+<p>Notification System là một ví dụ điển hình về hệ thống:</p>
+<pre class="hljs"><code><div>At-least-once processing
++
+Idempotency
++
+Channel-specific retry
++
+Provider uncertainty
++
+Eventual delivery tracking
+</div></code></pre>
+<p>Kiến trúc cốt lõi nên giữ rõ:</p>
+<pre class="hljs"><code><div>Business intent
+→ Durable ingestion
+→ Preference/template/scheduling
+→ Channel fan-out
+→ Rate-controlled workers
+→ Provider adapters
+→ Webhook tracking
+</div></code></pre>
+<p>Điểm quan trọng nhất:</p>
+<blockquote>
+<p><strong>Notification system tốt không chỉ gửi được nhiều message. Nó phải gửi đúng người, đúng kênh, đúng thời điểm, không vượt preference, không spam, và vẫn hoạt động khi queue, worker hoặc provider gặp sự cố.</strong></p>
+</blockquote>
+<p><strong>Bài 24 — Case Study 3: Thiết kế Chat System:</strong> WebSocket, presence, conversation ordering, message delivery, read receipts, offline sync, fan-out, push notification, media messages, group chat, multi-device và multi-region.</p>
+
+</body>
+</html>

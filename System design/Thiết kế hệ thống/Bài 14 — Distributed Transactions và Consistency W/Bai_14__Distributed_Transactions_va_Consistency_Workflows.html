@@ -1,0 +1,2731 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 14 — Distributed Transactions và Consistency Workflows.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-14--distributed-transactions-và-consistency-workflows">Bài 14 — Distributed Transactions và Consistency Workflows</h1>
+<p>Trong một database duy nhất, transaction ACID cho phép ta viết:</p>
+<pre class="hljs"><code><div>BEGIN
+
+1. Tạo order
+2. Trừ inventory
+3. Ghi payment
+4. Cập nhật trạng thái
+
+COMMIT
+</div></code></pre>
+<p>Nếu có lỗi:</p>
+<pre class="hljs"><code><div>ROLLBACK
+</div></code></pre>
+<p>Database bảo đảm toàn bộ transaction:</p>
+<pre class="hljs"><code><div>Hoặc cùng thành công
+Hoặc cùng thất bại
+</div></code></pre>
+<p>Nhưng khi hệ thống được tách thành nhiều service và database:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Order[Order Service] --> OrderDB[(Order DB)]
+    Inventory[Inventory Service] --> InventoryDB[(Inventory DB)]
+    Payment[Payment Service] --> PaymentDB[(Payment DB)]
+</div></code></pre>
+<p>không còn một database transaction duy nhất bao phủ toàn bộ workflow.</p>
+<p>Các tài liệu khóa học bạn cung cấp đã đặt ACID, transaction và consistency làm nền tảng cho việc bảo vệ dữ liệu. Bài này mở rộng tư duy đó sang hệ thống phân tán, nơi mỗi service sở hữu database riêng và failure có thể xảy ra giữa bất kỳ hai bước nào.</p>
+<p>Câu hỏi trung tâm của bài:</p>
+<blockquote>
+<p><strong>Làm sao giữ các invariant nghiệp vụ khi một workflow đi qua nhiều database, message broker và external service mà không có một transaction ACID chung?</strong></p>
+</blockquote>
+<hr>
+<h1 id="1-local-transaction-và-distributed-transaction">1. Local Transaction và Distributed Transaction</h1>
+<h2 id="local-transaction">Local transaction</h2>
+<p>Transaction chỉ nằm trong một database.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant App
+    participant DB
+
+    App->>DB: BEGIN
+    App->>DB: INSERT order
+    App->>DB: UPDATE inventory
+    App->>DB: COMMIT
+    DB-->>App: Success
+</div></code></pre>
+<p>Database có toàn quyền quản lý:</p>
+<pre class="hljs"><code><div>- Lock
+- Isolation
+- Commit
+- Rollback
+- Transaction log
+</div></code></pre>
+<hr>
+<h2 id="distributed-transaction">Distributed transaction</h2>
+<p>Một operation nghiệp vụ tác động đến nhiều resource độc lập.</p>
+<p>Ví dụ đặt hàng:</p>
+<pre class="hljs"><code><div>Order DB:
+Tạo order
+
+Inventory DB:
+Giữ hàng
+
+Payment Provider:
+Thu tiền
+
+Delivery DB:
+Tạo chuyến giao hàng
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> OrderService
+    OrderService --> OrderDB[(Order DB)]
+    OrderService --> InventoryService
+    InventoryService --> InventoryDB[(Inventory DB)]
+    OrderService --> PaymentService
+    PaymentService --> Provider[Payment Provider]
+</div></code></pre>
+<p>Không thành phần nào có thể đơn giản gọi:</p>
+<pre class="hljs"><code><div>ROLLBACK tất cả hệ thống
+</div></code></pre>
+<hr>
+<h1 id="2-business-transaction">2. Business Transaction</h1>
+<p>Trong hệ thống phân tán, ta thường nói đến <strong>business transaction</strong> hoặc <strong>long-running transaction</strong>.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Đặt một đơn đồ ăn
+</div></code></pre>
+<p>có thể gồm:</p>
+<pre class="hljs"><code><div>1. Tạo order
+2. Nhà hàng chấp nhận
+3. Giữ tiền
+4. Tìm tài xế
+5. Nhà hàng chuẩn bị món
+6. Giao hàng
+7. Thanh toán cho nhà hàng
+</div></code></pre>
+<p>Workflow có thể kéo dài:</p>
+<pre class="hljs"><code><div>- Vài giây
+- Vài phút
+- Vài giờ
+</div></code></pre>
+<p>Không thể giữ database lock xuyên suốt thời gian này.</p>
+<p>Do đó, business transaction thường được triển khai như:</p>
+<pre class="hljs"><code><div>Nhiều local transactions
++
+Messages/events
++
+State machine
++
+Compensation
++
+Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="3-invariant--điều-gì-bắt-buộc-phải-luôn-đúng">3. Invariant — điều gì bắt buộc phải luôn đúng?</h1>
+<p>Trước khi chọn 2PC hay Saga, phải xác định <strong>business invariant</strong>.</p>
+<p>Ví dụ đặt vé:</p>
+<pre class="hljs"><code><div>Một ghế không được xác nhận bán cho hai booking.
+</div></code></pre>
+<p>Payment:</p>
+<pre class="hljs"><code><div>Một payment attempt không được charge hai lần.
+</div></code></pre>
+<p>Inventory:</p>
+<pre class="hljs"><code><div>Available quantity không được âm.
+</div></code></pre>
+<p>Transfer:</p>
+<pre class="hljs"><code><div>Tổng debit và credit trong ledger phải cân bằng.
+</div></code></pre>
+<p>Distributed consistency không có nghĩa mọi database luôn giống nhau ngay lập tức.</p>
+<p>Mục tiêu thực tế là:</p>
+<blockquote>
+<p>Các invariant quan trọng không bị vi phạm, kể cả khi một số projection hoặc trạng thái trung gian chưa đồng bộ.</p>
+</blockquote>
+<hr>
+<h1 id="4-strong-consistency-và-eventual-consistency">4. Strong Consistency và Eventual Consistency</h1>
+<h2 id="strong-consistency">Strong consistency</h2>
+<p>Sau khi operation thành công, mọi read hợp lệ nhìn thấy trạng thái mới nhất.</p>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Seat reservation
+- Account balance
+- Permission quan trọng
+- Inventory commit
+- Unique username
+</div></code></pre>
+<hr>
+<h2 id="eventual-consistency">Eventual consistency</h2>
+<p>Các component có thể tạm thời khác nhau nhưng cuối cùng sẽ hội tụ.</p>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Search index
+- Analytics
+- Recommendation
+- Notification
+- Like count
+- Order history projection
+</div></code></pre>
+<p>Một workflow có thể kết hợp cả hai:</p>
+<pre class="hljs"><code><div>Seat reservation:
+Strong consistency trong Booking DB
+
+Email confirmation:
+Eventual consistency qua queue
+</div></code></pre>
+<hr>
+<h1 id="5-dual-write-problem">5. Dual-Write Problem</h1>
+<p>Giả sử Order Service phải:</p>
+<pre class="hljs"><code><div>1. Ghi order vào database
+2. Publish OrderCreated vào broker
+</div></code></pre>
+<p>Code ngây thơ:</p>
+<pre class="hljs"><code><div>database.create_order(order)
+broker.publish(order_created_event)
+</div></code></pre>
+<p>Có hai operation độc lập.</p>
+<hr>
+<h2 id="trường-hợp-1-database-thành-công-publish-thất-bại">Trường hợp 1: Database thành công, publish thất bại</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant DB
+    participant Broker
+
+    Order->>DB: INSERT order
+    DB-->>Order: Success
+    Order->>Broker: Publish OrderCreated
+    Broker--xOrder: Failure
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Order tồn tại
+Nhưng Inventory, Email và Analytics không biết
+</div></code></pre>
+<hr>
+<h2 id="trường-hợp-2-publish-thành-công-database-rollback">Trường hợp 2: Publish thành công, database rollback</h2>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Broker
+    participant DB
+
+    Order->>Broker: Publish OrderCreated
+    Broker-->>Order: Success
+    Order->>DB: INSERT order
+    DB--xOrder: Rollback
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Consumers nhận OrderCreated
+Nhưng order không tồn tại
+</div></code></pre>
+<p>Đây là <strong>dual-write problem</strong>.</p>
+<hr>
+<h1 id="6-vì-sao-chỉ-đổi-thứ-tự-không-giải-quyết-được">6. Vì sao chỉ đổi thứ tự không giải quyết được?</h1>
+<p>Hai lựa chọn:</p>
+<pre class="hljs"><code><div>DB trước rồi Broker
+Broker trước rồi DB
+</div></code></pre>
+<p>Cả hai đều có một cửa sổ failure.</p>
+<p>Không thể làm hai hệ thống độc lập trở thành atomic chỉ bằng cách đổi thứ tự gọi.</p>
+<p>Muốn giải quyết, cần một trong các hướng:</p>
+<pre class="hljs"><code><div>- Distributed atomic commit như 2PC
+- Transactional Outbox
+- Saga/workflow
+- Idempotency và reconciliation
+</div></code></pre>
+<hr>
+<h1 id="7-two-phase-commit--2pc">7. Two-Phase Commit — 2PC</h1>
+<p>2PC là protocol để nhiều participant cùng commit hoặc cùng abort một distributed transaction.</p>
+<p>Các thành phần:</p>
+<pre class="hljs"><code><div>Coordinator:
+Điều phối transaction
+
+Participants:
+Các database/resource tham gia
+</div></code></pre>
+<p>Hai phase:</p>
+<pre class="hljs"><code><div>1. Prepare/Vote
+2. Commit hoặc Abort
+</div></code></pre>
+<hr>
+<h1 id="8-phase-1--prepare">8. Phase 1 — Prepare</h1>
+<p>Coordinator hỏi từng participant:</p>
+<blockquote>
+<p>Bạn có thể commit transaction này không?</p>
+</blockquote>
+<p>Participant thực hiện:</p>
+<pre class="hljs"><code><div>- Validate operation
+- Acquire lock cần thiết
+- Ghi transaction vào durable log
+- Chuẩn bị commit
+- Trả YES hoặc NO
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant C as Coordinator
+    participant A as Order DB
+    participant B as Inventory DB
+
+    C->>A: PREPARE transaction T
+    C->>B: PREPARE transaction T
+
+    A->>A: Validate + lock + write prepare log
+    B->>B: Validate + lock + write prepare log
+
+    A-->>C: YES
+    B-->>C: YES
+</div></code></pre>
+<p>Sau khi participant trả <code>YES</code>, nó cam kết rằng:</p>
+<pre class="hljs"><code><div>Nếu coordinator yêu cầu COMMIT,
+tôi có khả năng commit.
+</div></code></pre>
+<hr>
+<h1 id="9-phase-2--commit">9. Phase 2 — Commit</h1>
+<p>Nếu mọi participant đều trả <code>YES</code>:</p>
+<pre class="hljs"><code><div>Coordinator ghi quyết định COMMIT
+Coordinator gửi COMMIT tới tất cả participant
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant C as Coordinator
+    participant A as Order DB
+    participant B as Inventory DB
+
+    C->>A: COMMIT T
+    C->>B: COMMIT T
+
+    A->>A: Commit local transaction
+    B->>B: Commit local transaction
+
+    A-->>C: ACK
+    B-->>C: ACK
+</div></code></pre>
+<p>Nếu một participant trả <code>NO</code>:</p>
+<pre class="hljs"><code><div>Coordinator gửi ABORT tới tất cả
+</div></code></pre>
+<hr>
+<h1 id="10-luồng-abort">10. Luồng Abort</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant C as Coordinator
+    participant A as Order DB
+    participant B as Inventory DB
+
+    C->>A: PREPARE T
+    C->>B: PREPARE T
+
+    A-->>C: YES
+    B-->>C: NO
+
+    C->>A: ABORT T
+    C->>B: ABORT T
+
+    A->>A: Rollback + release locks
+</div></code></pre>
+<p>Từ góc nhìn nghiệp vụ:</p>
+<pre class="hljs"><code><div>Không có trạng thái partial commit.
+</div></code></pre>
+<hr>
+<h1 id="11-2pc-không-giống-two-phase-locking">11. 2PC không giống Two-Phase Locking</h1>
+<p>Hai khái niệm thường bị nhầm:</p>
+<h2 id="two-phase-commit">Two-Phase Commit</h2>
+<pre class="hljs"><code><div>Distributed atomic commit protocol
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Nhiều resource cùng commit hoặc abort
+</div></code></pre>
+<h2 id="two-phase-locking">Two-Phase Locking</h2>
+<pre class="hljs"><code><div>Concurrency-control protocol
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Bảo đảm isolation/serializability bằng giai đoạn acquire và release lock
+</div></code></pre>
+<p>Tên gần giống nhưng giải quyết hai vấn đề khác nhau.</p>
+<hr>
+<h1 id="12-coordinator-failure-trong-2pc">12. Coordinator failure trong 2PC</h1>
+<p>Giả sử participants đã trả <code>YES</code>, nhưng coordinator crash trước khi gửi quyết định.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant C as Coordinator
+    participant A as Order DB
+    participant B as Inventory DB
+
+    C->>A: PREPARE
+    C->>B: PREPARE
+    A-->>C: YES
+    B-->>C: YES
+
+    Note over C: Coordinator crashes
+</div></code></pre>
+<p>Participants đang ở trạng thái:</p>
+<pre class="hljs"><code><div>Prepared
+Nhưng chưa biết COMMIT hay ABORT
+</div></code></pre>
+<p>Chúng thường phải:</p>
+<pre class="hljs"><code><div>- Giữ lock
+- Giữ resource
+- Chờ coordinator phục hồi
+</div></code></pre>
+<p>Đây là <strong>blocking problem</strong> của 2PC.</p>
+<hr>
+<h1 id="13-participant-failure-trong-2pc">13. Participant failure trong 2PC</h1>
+<p>Nếu participant lỗi trước khi trả <code>YES</code>:</p>
+<pre class="hljs"><code><div>Coordinator có thể timeout và abort.
+</div></code></pre>
+<p>Nếu participant đã trả <code>YES</code> rồi crash:</p>
+<pre class="hljs"><code><div>Khi phục hồi, participant đọc prepare log
+và hỏi coordinator quyết định cuối cùng.
+</div></code></pre>
+<p>Durable transaction log là thành phần thiết yếu.</p>
+<hr>
+<h1 id="14-nhược-điểm-chính-của-2pc">14. Nhược điểm chính của 2PC</h1>
+<pre class="hljs"><code><div>- Nhiều network round trip
+- Latency cao
+- Giữ lock qua network
+- Coordinator là thành phần quan trọng
+- Participant có thể bị block
+- Availability giảm khi một participant lỗi
+- Khó dùng xuyên nhiều region
+- Không phù hợp workflow kéo dài
+</div></code></pre>
+<p>Nếu một transaction khóa inventory trong nhiều giây vì Payment Service chậm:</p>
+<pre class="hljs"><code><div>Các order khác có thể bị chặn theo.
+</div></code></pre>
+<hr>
+<h1 id="15-khi-nào-2pc-vẫn-hợp-lý">15. Khi nào 2PC vẫn hợp lý?</h1>
+<p>Không nên kết luận:</p>
+<pre class="hljs"><code><div>2PC luôn xấu hoặc không bao giờ được dùng.
+</div></code></pre>
+<p>2PC có thể phù hợp khi:</p>
+<pre class="hljs"><code><div>- Participants hỗ trợ protocol tương thích
+- Transaction ngắn
+- Số participant nhỏ
+- Cùng data center hoặc network ổn định
+- Atomicity quan trọng hơn availability
+- Lock duration có thể kiểm soát
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Một số distributed SQL database
+- XA transaction trong môi trường enterprise
+- Metadata/control-plane operations
+- Financial operation trong phạm vi được kiểm soát
+</div></code></pre>
+<hr>
+<h1 id="16-khi-nào-không-nên-dùng-2pc">16. Khi nào không nên dùng 2PC?</h1>
+<pre class="hljs"><code><div>- Workflow kéo dài vài phút hoặc giờ
+- Có human interaction
+- Có external API không hỗ trợ prepare
+- Mobile client có thể offline
+- Availability cao là ưu tiên
+- Participants thuộc nhiều tổ chức khác nhau
+</div></code></pre>
+<p>Payment provider bên ngoài thường không hỗ trợ:</p>
+<pre class="hljs"><code><div>PREPARE charge
+COMMIT charge
+</div></code></pre>
+<p>theo đúng 2PC database semantics.</p>
+<hr>
+<h1 id="17-saga-pattern">17. Saga Pattern</h1>
+<p>Saga chia một business transaction thành chuỗi <strong>local transactions</strong>.</p>
+<p>Mỗi bước:</p>
+<pre class="hljs"><code><div>- Commit cục bộ
+- Phát event hoặc command tiếp theo
+- Có compensation nếu workflow thất bại
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>T1: Create order
+T2: Reserve inventory
+T3: Charge payment
+T4: Create shipment
+</div></code></pre>
+<p>Nếu <code>T3</code> thất bại:</p>
+<pre class="hljs"><code><div>C2: Release inventory
+C1: Cancel order
+</div></code></pre>
+<hr>
+<h1 id="18-saga-workflow">18. Saga workflow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> OrderCreated
+    OrderCreated --> InventoryReserved
+    InventoryReserved --> PaymentCompleted
+    PaymentCompleted --> ShipmentCreated
+    ShipmentCreated --> Confirmed
+
+    OrderCreated --> Cancelled: inventory failed
+    InventoryReserved --> InventoryReleased: payment failed
+    InventoryReleased --> Cancelled
+    PaymentCompleted --> Refunded: shipment failed
+    Refunded --> InventoryReleased
+</div></code></pre>
+<p>Saga không giữ global database lock.</p>
+<p>Mỗi service commit dữ liệu riêng.</p>
+<hr>
+<h1 id="19-saga-cung-cấp-consistency-gì">19. Saga cung cấp consistency gì?</h1>
+<p>Saga thường cung cấp:</p>
+<pre class="hljs"><code><div>Eventual consistency
+</div></code></pre>
+<p>Trong thời gian workflow đang chạy, hệ thống có thể ở trạng thái trung gian:</p>
+<pre class="hljs"><code><div>Order = PENDING_PAYMENT
+Inventory = RESERVED
+Payment = PROCESSING
+</div></code></pre>
+<p>Đây không phải trạng thái sai.</p>
+<p>Nó là trạng thái hợp lệ trong state machine.</p>
+<p>Điều quan trọng là:</p>
+<pre class="hljs"><code><div>- State phải rõ ràng
+- Có timeout
+- Có recovery path
+- Có compensation/reconciliation
+</div></code></pre>
+<hr>
+<h1 id="20-saga-không-phải-rollback-toàn-cục">20. Saga không phải rollback toàn cục</h1>
+<p>Trong database rollback:</p>
+<pre class="hljs"><code><div>Các thay đổi chưa commit được xóa như chưa từng xảy ra.
+</div></code></pre>
+<p>Trong Saga:</p>
+<pre class="hljs"><code><div>Các local transaction đã commit.
+</div></code></pre>
+<p>Compensation là một transaction nghiệp vụ mới.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Charge payment
+→ Refund payment
+</div></code></pre>
+<p>Refund không làm lịch sử charge biến mất.</p>
+<p>Ta có:</p>
+<pre class="hljs"><code><div>Charge transaction
+Refund transaction
+Audit history của cả hai
+</div></code></pre>
+<hr>
+<h1 id="21-compensation">21. Compensation</h1>
+<p>Compensation là hành động xử lý hậu quả của một bước đã commit khi workflow sau đó không thể hoàn tất.</p>
+<p>Ví dụ:</p>
+<table>
+<thead>
+<tr>
+<th>Forward action</th>
+<th>Compensation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reserve inventory</td>
+<td>Release inventory</td>
+</tr>
+<tr>
+<td>Charge payment</td>
+<td>Refund payment</td>
+</tr>
+<tr>
+<td>Book hotel</td>
+<td>Cancel hotel</td>
+</tr>
+<tr>
+<td>Allocate coupon</td>
+<td>Restore coupon</td>
+</tr>
+<tr>
+<td>Create shipment</td>
+<td>Cancel shipment</td>
+</tr>
+</tbody>
+</table>
+<p>Không phải operation nào cũng có inverse hoàn hảo.</p>
+<hr>
+<h1 id="22-compensation-có-thể-không-hoàn-hảo">22. Compensation có thể không hoàn hảo</h1>
+<p>Ví dụ gửi email:</p>
+<pre class="hljs"><code><div>Send “Order confirmed”
+</div></code></pre>
+<p>Không thể làm người dùng “chưa từng đọc email”.</p>
+<p>Compensation có thể là:</p>
+<pre class="hljs"><code><div>Send “Order cancelled”
+</div></code></pre>
+<p>Ví dụ hàng đã bắt đầu vận chuyển:</p>
+<pre class="hljs"><code><div>Không thể đơn giản rollback shipment.
+</div></code></pre>
+<p>Có thể cần:</p>
+<pre class="hljs"><code><div>- Return workflow
+- Customer support
+- Refund
+- Manual intervention
+</div></code></pre>
+<p>Do đó:</p>
+<blockquote>
+<p>Compensation khôi phục invariant hoặc tạo trạng thái nghiệp vụ chấp nhận được, không nhất thiết phục hồi thế giới về đúng trạng thái ban đầu.</p>
+</blockquote>
+<hr>
+<h1 id="23-compensation-phải-idempotent">23. Compensation phải Idempotent</h1>
+<p>Compensation cũng có thể bị retry.</p>
+<p>Ví dụ <code>ReleaseInventory</code> được giao hai lần.</p>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>Mỗi lần đều cộng quantity thêm 1.
+</div></code></pre>
+<p>Nếu reservation chỉ giữ một đơn vị, duplicate compensation có thể làm inventory tăng sai.</p>
+<p>Cách tốt hơn:</p>
+<pre class="hljs"><code><div>Release reservation res_123 nếu trạng thái đang là ACTIVE.
+</div></code></pre>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> reservations
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;RELEASED&#x27;</span>
+<span class="hljs-keyword">WHERE</span> reservation_id <span class="hljs-operator">=</span> :reservation_id
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;ACTIVE&#x27;</span>;
+</div></code></pre>
+<p>Sau đó inventory được cập nhật đúng một lần trong cùng local transaction.</p>
+<hr>
+<h1 id="24-compensation-có-thể-thất-bại">24. Compensation có thể thất bại</h1>
+<p>Ví dụ payment charge thành công nhưng refund provider đang unavailable.</p>
+<p>Workflow không thể đơn giản đánh dấu:</p>
+<pre class="hljs"><code><div>CANCELLED hoàn toàn
+</div></code></pre>
+<p>Trạng thái thực tế có thể là:</p>
+<pre class="hljs"><code><div>CANCEL_PENDING_REFUND
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Retry với backoff
+- DLQ
+- Reconciliation
+- Alert
+- Manual review
+</div></code></pre>
+<hr>
+<h1 id="25-forward-recovery-và-backward-recovery">25. Forward Recovery và Backward Recovery</h1>
+<p>Khi một bước thất bại, có hai hướng.</p>
+<h2 id="backward-recovery">Backward recovery</h2>
+<p>Thực hiện compensation cho các bước trước.</p>
+<pre class="hljs"><code><div>Payment failed
+→ Release inventory
+→ Cancel order
+</div></code></pre>
+<h2 id="forward-recovery">Forward recovery</h2>
+<p>Sửa lỗi hoặc retry để tiếp tục workflow.</p>
+<pre class="hljs"><code><div>Notification failed
+→ Retry notification
+→ Không hủy order
+</div></code></pre>
+<p>Không phải failure nào cũng nên dẫn tới rollback bằng compensation.</p>
+<hr>
+<h1 id="26-pivot-transaction">26. Pivot Transaction</h1>
+<p>Trong Saga, <strong>pivot transaction</strong> là điểm mà sau đó workflow được xem là đã cam kết và nên ưu tiên forward recovery.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Create pending order
+2. Reserve inventory
+3. Charge payment       ← pivot
+4. Create shipment
+5. Send notification
+</div></code></pre>
+<p>Trước payment:</p>
+<pre class="hljs"><code><div>Có thể cancel và release inventory.
+</div></code></pre>
+<p>Sau payment:</p>
+<pre class="hljs"><code><div>Có thể ưu tiên tạo shipment bằng retry.
+</div></code></pre>
+<p>Nếu shipment cuối cùng không thể tạo:</p>
+<pre class="hljs"><code><div>Mới chuyển sang refund.
+</div></code></pre>
+<hr>
+<h1 id="27-compensable-pivot-và-retriable-steps">27. Compensable, Pivot và Retriable Steps</h1>
+<p>Một cách phân loại nâng cao:</p>
+<h2 id="compensable-steps">Compensable steps</h2>
+<p>Có hành động bù trừ hợp lý.</p>
+<pre class="hljs"><code><div>Reserve inventory
+Create temporary booking
+</div></code></pre>
+<h2 id="pivot-step">Pivot step</h2>
+<p>Điểm quyết định nghiệp vụ.</p>
+<pre class="hljs"><code><div>Capture payment
+Issue ticket
+</div></code></pre>
+<h2 id="retriable-steps">Retriable steps</h2>
+<p>Sau pivot, các bước nên được thiết kế để cuối cùng thành công qua retry.</p>
+<pre class="hljs"><code><div>Send receipt
+Update analytics
+Generate invoice
+</div></code></pre>
+<p>Cấu trúc Saga tốt thường là:</p>
+<pre class="hljs"><code><div>Compensable steps
+→ Pivot
+→ Retriable steps
+</div></code></pre>
+<hr>
+<h1 id="28-semantic-lock">28. Semantic Lock</h1>
+<p>Vì Saga không giữ database lock toàn cục, record có thể đang ở trạng thái trung gian.</p>
+<p>Có thể dùng trạng thái nghiệp vụ như một <strong>semantic lock</strong>.</p>
+<p>Ví dụ order:</p>
+<pre class="hljs"><code><div>PENDING
+PAYMENT_PROCESSING
+CONFIRMED
+CANCELLED
+</div></code></pre>
+<p>Khi <code>PAYMENT_PROCESSING</code>:</p>
+<pre class="hljs"><code><div>Không cho user chỉnh sửa các field quan trọng.
+</div></code></pre>
+<p>Ví dụ inventory reservation:</p>
+<pre class="hljs"><code><div>AVAILABLE
+RESERVED
+SOLD
+</div></code></pre>
+<p>State machine bảo vệ operation thay vì giữ database lock dài hạn.</p>
+<hr>
+<h1 id="29-optimistic-concurrency-trong-saga">29. Optimistic Concurrency trong Saga</h1>
+<p>Mỗi aggregate có version:</p>
+<pre class="hljs"><code><div>order.version = 7
+</div></code></pre>
+<p>Update:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;PAID&#x27;</span>,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> <span class="hljs-number">7</span>
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;PAYMENT_PENDING&#x27;</span>;
+</div></code></pre>
+<p>Nếu không update row nào:</p>
+<pre class="hljs"><code><div>Order đã thay đổi bởi workflow khác.
+</div></code></pre>
+<p>Consumer không được ghi đè mù quáng.</p>
+<hr>
+<h1 id="30-saga-orchestration">30. Saga Orchestration</h1>
+<p>Trong orchestration, một component trung tâm — <strong>Saga Orchestrator</strong> — điều khiển workflow.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Orchestrator[Saga Orchestrator]
+
+    Orchestrator --> Order[Order Service]
+    Orchestrator --> Inventory[Inventory Service]
+    Orchestrator --> Payment[Payment Service]
+    Orchestrator --> Delivery[Delivery Service]
+</div></code></pre>
+<p>Orchestrator gửi command và nhận result/event.</p>
+<hr>
+<h1 id="31-luồng-orchestration">31. Luồng Orchestration</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant O as Order Orchestrator
+    participant I as Inventory Service
+    participant P as Payment Service
+    participant D as Delivery Service
+
+    O->>I: ReserveInventory
+    I-->>O: InventoryReserved
+
+    O->>P: ChargePayment
+    P-->>O: PaymentSucceeded
+
+    O->>D: CreateDelivery
+    D-->>O: DeliveryCreated
+
+    O->>O: Mark saga completed
+</div></code></pre>
+<p>Nếu payment thất bại:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant O as Orchestrator
+    participant I as Inventory
+    participant P as Payment
+
+    O->>I: ReserveInventory
+    I-->>O: InventoryReserved
+
+    O->>P: ChargePayment
+    P-->>O: PaymentFailed
+
+    O->>I: ReleaseInventory
+    I-->>O: InventoryReleased
+</div></code></pre>
+<hr>
+<h1 id="32-orchestrator-lưu-gì">32. Orchestrator lưu gì?</h1>
+<p>Orchestrator cần persistent state:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;sagaId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;saga_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CREATE_ORDER&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;COMPENSATING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currentStep&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;RELEASE_INVENTORY&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;completedSteps&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">&quot;CREATE_ORDER&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;RESERVE_INVENTORY&quot;</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;failedStep&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CHARGE_PAYMENT&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không nên chỉ giữ workflow state trong memory.</p>
+<p>Nếu orchestrator restart:</p>
+<pre class="hljs"><code><div>Nó phải tiếp tục từ durable state.
+</div></code></pre>
+<hr>
+<h1 id="33-ưu-điểm-của-orchestration">33. Ưu điểm của Orchestration</h1>
+<pre class="hljs"><code><div>- Workflow rõ ràng ở một nơi
+- Dễ hình dung state machine
+- Dễ đặt timeout
+- Dễ quan sát tiến trình
+- Dễ thay đổi sequence
+- Compensation rõ ràng
+- Phù hợp workflow phức tạp
+</div></code></pre>
+<p>Đặc biệt hữu ích khi có:</p>
+<pre class="hljs"><code><div>- Branching
+- Parallel steps
+- Timer
+- Retry policy khác nhau
+- Manual approval
+</div></code></pre>
+<hr>
+<h1 id="34-nhược-điểm-của-orchestration">34. Nhược điểm của Orchestration</h1>
+<pre class="hljs"><code><div>- Orchestrator có thể trở nên phức tạp
+- Có nguy cơ chứa business logic của nhiều service
+- Có thể trở thành bottleneck hoặc SPOF nếu thiết kế kém
+- Coupling vào workflow trung tâm
+</div></code></pre>
+<p>Orchestrator nên biết:</p>
+<pre class="hljs"><code><div>Bước nào tiếp theo
+</div></code></pre>
+<p>nhưng không nên chứa toàn bộ implementation nội bộ của service.</p>
+<hr>
+<h1 id="35-orchestrator-không-phải-transaction-coordinator-2pc">35. Orchestrator không phải transaction coordinator 2PC</h1>
+<p>Orchestrator Saga:</p>
+<pre class="hljs"><code><div>- Không giữ global lock
+- Các bước commit cục bộ
+- Dùng compensation
+- Workflow có thể kéo dài
+</div></code></pre>
+<p>2PC coordinator:</p>
+<pre class="hljs"><code><div>- Điều phối atomic commit
+- Participants ở trạng thái prepared
+- Có thể giữ lock
+- Transaction thường ngắn
+</div></code></pre>
+<p>Cả hai có coordinator nhưng semantics hoàn toàn khác.</p>
+<hr>
+<h1 id="36-saga-choreography">36. Saga Choreography</h1>
+<p>Trong choreography, không có orchestrator trung tâm.</p>
+<p>Mỗi service phản ứng với event và phát event mới.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    OrderCreated --> Inventory
+    Inventory --> InventoryReserved
+    InventoryReserved --> Payment
+    Payment --> PaymentSucceeded
+    PaymentSucceeded --> Delivery
+</div></code></pre>
+<p>Workflow nổi lên từ các event subscription.</p>
+<hr>
+<h1 id="37-luồng-choreography">37. Luồng Choreography</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Broker
+    participant Inventory
+    participant Payment
+    participant Delivery
+
+    Order->>Broker: OrderCreated
+    Broker->>Inventory: OrderCreated
+
+    Inventory->>Broker: InventoryReserved
+    Broker->>Payment: InventoryReserved
+
+    Payment->>Broker: PaymentSucceeded
+    Broker->>Delivery: PaymentSucceeded
+
+    Delivery->>Broker: DeliveryCreated
+    Broker->>Order: DeliveryCreated
+</div></code></pre>
+<hr>
+<h1 id="38-compensation-trong-choreography">38. Compensation trong Choreography</h1>
+<p>Nếu payment thất bại:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Payment
+    participant Broker
+    participant Inventory
+    participant Order
+
+    Payment->>Broker: PaymentFailed
+    Broker->>Inventory: PaymentFailed
+    Inventory->>Inventory: Release inventory
+    Inventory->>Broker: InventoryReleased
+
+    Broker->>Order: PaymentFailed
+    Order->>Order: Mark order cancelled
+</div></code></pre>
+<p>Các service tự biết event nào cần phản ứng.</p>
+<hr>
+<h1 id="39-ưu-điểm-của-choreography">39. Ưu điểm của Choreography</h1>
+<pre class="hljs"><code><div>- Không có controller trung tâm
+- Services ít phụ thuộc trực tiếp
+- Dễ thêm subscriber cho side effect
+- Phù hợp event-driven architecture
+- Các service scale độc lập
+</div></code></pre>
+<p>Ví dụ thêm Analytics Service:</p>
+<pre class="hljs"><code><div>Chỉ subscribe OrderCreated
+Không cần sửa Order Service.
+</div></code></pre>
+<hr>
+<h1 id="40-nhược-điểm-của-choreography">40. Nhược điểm của Choreography</h1>
+<pre class="hljs"><code><div>- Workflow khó nhìn
+- Business logic bị phân tán
+- Dependency ẩn qua event
+- Khó debug
+- Dễ tạo event cycle
+- Khó biết workflow đang ở bước nào
+- Compensation phức tạp
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Event A → Service B
+Service B → Event C
+Event C → Service D
+Service D → Event E
+</div></code></pre>
+<p>Sau vài năm, không ai chắc event nào kích hoạt event nào.</p>
+<hr>
+<h1 id="41-event-cycle">41. Event Cycle</h1>
+<p>Một lỗi choreography nguy hiểm:</p>
+<pre class="hljs"><code><div>OrderUpdated
+→ Inventory cập nhật
+→ InventoryUpdated
+→ Order cập nhật
+→ OrderUpdated
+</div></code></pre>
+<p>Tạo vòng lặp vô hạn.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Event semantics rõ
+- Idempotency
+- Causation ID
+- Không phát event nếu state không thực sự thay đổi
+- Guard theo version/state
+</div></code></pre>
+<hr>
+<h1 id="42-orchestration-và-choreography-so-sánh">42. Orchestration và Choreography: so sánh</h1>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Orchestration</th>
+<th>Choreography</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Điều khiển</td>
+<td>Trung tâm</td>
+<td>Phân tán</td>
+</tr>
+<tr>
+<td>Workflow visibility</td>
+<td>Cao</td>
+<td>Thấp hơn</td>
+</tr>
+<tr>
+<td>Coupling</td>
+<td>Với orchestrator</td>
+<td>Qua event contracts</td>
+</tr>
+<tr>
+<td>Logic compensation</td>
+<td>Tập trung</td>
+<td>Phân tán</td>
+</tr>
+<tr>
+<td>Thêm side-effect subscriber</td>
+<td>Cần cân nhắc workflow</td>
+<td>Thường dễ</td>
+</tr>
+<tr>
+<td>Workflow phức tạp</td>
+<td>Thường phù hợp hơn</td>
+<td>Dễ trở nên khó hiểu</td>
+</tr>
+<tr>
+<td>SPOF</td>
+<td>Orchestrator phải HA</td>
+<td>Broker/event topology là critical</td>
+</tr>
+<tr>
+<td>Debug</td>
+<td>Dễ xem state machine hơn</td>
+<td>Cần tracing tốt</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="43-khi-nào-chọn-orchestration">43. Khi nào chọn Orchestration?</h1>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Workflow có nhiều bước
+- Có branching
+- Có timer/deadline
+- Có compensation phức tạp
+- Cần xem trạng thái toàn workflow
+- Có manual approval
+- Nghiệp vụ cần thứ tự rõ
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Order fulfillment
+- Loan application
+- Travel booking
+- Insurance claim
+- Subscription provisioning
+</div></code></pre>
+<hr>
+<h1 id="44-khi-nào-chọn-choreography">44. Khi nào chọn Choreography?</h1>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Workflow ngắn
+- Event là business fact tự nhiên
+- Subscribers tương đối độc lập
+- Không có sequence phức tạp
+- Chủ yếu là side effects
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>UserRegistered
+→ Send welcome email
+→ Initialize preferences
+→ Record analytics
+</div></code></pre>
+<p>Email thất bại không cần rollback user registration.</p>
+<hr>
+<h1 id="45-hybrid-thường-thực-tế-nhất">45. Hybrid thường thực tế nhất</h1>
+<p>Không nhất thiết chọn hoàn toàn một bên.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Core order workflow:
+Orchestration
+
+Side effects:
+Choreography
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Orchestrator --> Inventory
+    Orchestrator --> Payment
+    Orchestrator --> Delivery
+
+    Orchestrator --> Completed[OrderConfirmed Event]
+    Completed --> Email
+    Completed --> Analytics
+    Completed --> Loyalty
+</div></code></pre>
+<p>Các bước bảo vệ invariant được orchestrate.</p>
+<p>Các side effect độc lập dùng event choreography.</p>
+<hr>
+<h1 id="46-transactional-outbox-pattern">46. Transactional Outbox Pattern</h1>
+<p>Outbox giải quyết dual-write giữa:</p>
+<pre class="hljs"><code><div>Local database
+và
+Message broker
+</div></code></pre>
+<p>Trong cùng một local database transaction:</p>
+<pre class="hljs"><code><div>1. Cập nhật business data
+2. Ghi event vào outbox table
+3. Commit
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Service
+    participant DB
+
+    Service->>DB: BEGIN
+    Service->>DB: INSERT order
+    Service->>DB: INSERT outbox event
+    Service->>DB: COMMIT
+    DB-->>Service: Success
+</div></code></pre>
+<p>Vì cùng database transaction:</p>
+<pre class="hljs"><code><div>Hoặc cả order và outbox event tồn tại
+Hoặc không có cả hai
+</div></code></pre>
+<hr>
+<h1 id="47-outbox-table">47. Outbox table</h1>
+<p>Ví dụ schema:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> outbox_events (
+    event_id UUID <span class="hljs-keyword">PRIMARY KEY</span>,
+    aggregate_type <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>) <span class="hljs-keyword">NOT NULL</span>,
+    aggregate_id <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>) <span class="hljs-keyword">NOT NULL</span>,
+    event_type <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>) <span class="hljs-keyword">NOT NULL</span>,
+    event_version <span class="hljs-type">INTEGER</span> <span class="hljs-keyword">NOT NULL</span>,
+    payload JSONB <span class="hljs-keyword">NOT NULL</span>,
+    created_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NOT NULL</span>,
+    published_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NULL</span>,
+    attempts <span class="hljs-type">INTEGER</span> <span class="hljs-keyword">NOT NULL</span> <span class="hljs-keyword">DEFAULT</span> <span class="hljs-number">0</span>
+);
+</div></code></pre>
+<p>Ví dụ record:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;aggregateType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Order&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;aggregateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OrderCreated&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;eventVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="48-outbox-relay">48. Outbox Relay</h1>
+<p>Một relay đọc event chưa publish và gửi lên broker.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Service --> DB[(Business DB + Outbox)]
+    DB --> Relay[Outbox Relay]
+    Relay --> Broker[Message Broker]
+</div></code></pre>
+<p>Sau khi broker ACK:</p>
+<pre class="hljs"><code><div>Relay đánh dấu event đã publish
+</div></code></pre>
+<hr>
+<h1 id="49-polling-publisher">49. Polling Publisher</h1>
+<p>Relay định kỳ query:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> outbox_events
+<span class="hljs-keyword">WHERE</span> published_at <span class="hljs-keyword">IS</span> <span class="hljs-keyword">NULL</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> created_at
+LIMIT <span class="hljs-number">100</span>;
+</div></code></pre>
+<p>Sau đó publish và update.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Không cần CDC infrastructure
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Polling load
+- Có độ trễ
+- Nhiều relay cần locking/claiming
+</div></code></pre>
+<hr>
+<h1 id="50-claim-outbox-rows">50. Claim Outbox Rows</h1>
+<p>Nhiều relay có thể chạy song song.</p>
+<p>Cần tránh cùng publish một batch không cần thiết.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Row locking
+- SKIP LOCKED
+- Lease/claim status
+- Partition outbox theo aggregate
+</div></code></pre>
+<p>Ví dụ trạng thái:</p>
+<pre class="hljs"><code><div>NEW
+PROCESSING
+PUBLISHED
+FAILED
+</div></code></pre>
+<p>Nhưng ngay cả khi claim tốt, duplicate publish vẫn có thể xảy ra.</p>
+<hr>
+<h1 id="51-cdc-based-outbox">51. CDC-based Outbox</h1>
+<p>Change Data Capture đọc transaction log của database.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    App --> DB[(Database)]
+    DB --> WAL[Transaction Log]
+    WAL --> CDC[CDC Connector]
+    CDC --> Broker
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Latency thấp
+- Không polling business DB thường xuyên
+- Theo đúng commit order tốt hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Hạ tầng phức tạp
+- Phụ thuộc database log
+- Schema evolution
+- Vận hành connector
+</div></code></pre>
+<hr>
+<h1 id="52-outbox-vẫn-có-thể-publish-duplicate">52. Outbox vẫn có thể publish duplicate</h1>
+<p>Luồng:</p>
+<pre class="hljs"><code><div>1. Relay publish event thành công
+2. Broker nhận event
+3. Relay crash trước khi đánh dấu published
+4. Relay restart
+5. Publish event lần nữa
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Relay
+    participant Broker
+    participant DB
+
+    Relay->>Broker: Publish evt_123
+    Broker-->>Relay: ACK
+    Note over Relay: Crash
+    Relay->>DB: Restart and sees unpublished
+    Relay->>Broker: Publish evt_123 again
+</div></code></pre>
+<p>Do đó Outbox thường bảo đảm:</p>
+<pre class="hljs"><code><div>At-least-once publication
+</div></code></pre>
+<p>không phải exactly-once end-to-end.</p>
+<p>Consumer vẫn phải idempotent.</p>
+<hr>
+<h1 id="53-inbox-pattern">53. Inbox Pattern</h1>
+<p>Consumer có thể lưu event đã xử lý trong <strong>inbox</strong> hoặc <code>processed_events</code>.</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> processed_events (
+    consumer_name <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">100</span>) <span class="hljs-keyword">NOT NULL</span>,
+    event_id UUID <span class="hljs-keyword">NOT NULL</span>,
+    processed_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NOT NULL</span>,
+    <span class="hljs-keyword">PRIMARY KEY</span> (consumer_name, event_id)
+);
+</div></code></pre>
+<p>Trong cùng transaction:</p>
+<pre class="hljs"><code><div>1. Insert processed event ID
+2. Update business data
+3. Commit
+4. ACK broker
+</div></code></pre>
+<p>Nếu duplicate:</p>
+<pre class="hljs"><code><div>Unique constraint cho biết event đã xử lý.
+</div></code></pre>
+<hr>
+<h1 id="54-outbox--inbox">54. Outbox + Inbox</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ProducerDB[(Business Data + Outbox)]
+    ProducerDB --> Relay
+    Relay --> Broker
+    Broker --> Consumer
+    Consumer --> ConsumerDB[(Inbox + Business Data)]
+</div></code></pre>
+<p>Kết hợp:</p>
+<pre class="hljs"><code><div>Producer:
+Không mất event sau DB commit
+
+Broker:
+At-least-once delivery
+
+Consumer:
+Deduplicate bằng inbox/idempotency
+</div></code></pre>
+<p>Kết quả gần với:</p>
+<pre class="hljs"><code><div>Exactly-once business effect trong phạm vi được thiết kế
+</div></code></pre>
+<hr>
+<h1 id="55-outbox-giải-quyết-gì-và-không-giải-quyết-gì">55. Outbox giải quyết gì và không giải quyết gì?</h1>
+<p>Outbox giải quyết:</p>
+<pre class="hljs"><code><div>Local DB update + publish message
+</div></code></pre>
+<p>Outbox không tự giải quyết:</p>
+<pre class="hljs"><code><div>- External payment charge
+- Email đã gửi
+- File đã upload
+- API của bên thứ ba
+- Consumer side effects
+- Workflow compensation
+</div></code></pre>
+<p>Với external side effect vẫn cần:</p>
+<pre class="hljs"><code><div>- Idempotency key
+- Status tracking
+- Retry
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="56-idempotency-xuyên-workflow">56. Idempotency xuyên workflow</h1>
+<p>Mỗi logical operation cần ID ổn định.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>orderId
+reservationId
+paymentAttemptId
+shipmentRequestId
+sagaId
+eventId
+</div></code></pre>
+<p>Retry phải dùng lại cùng ID.</p>
+<p>Không nên mỗi retry tạo:</p>
+<pre class="hljs"><code><div>paymentAttemptId mới
+</div></code></pre>
+<p>vì provider có thể xem đó là charge mới.</p>
+<hr>
+<h1 id="57-idempotency-key-cho-external-api">57. Idempotency Key cho External API</h1>
+<pre class="hljs"><code><div>POST /payments
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>pay_attempt_123
+</div></code></pre>
+<p>Provider lưu:</p>
+<pre class="hljs"><code><div>pay_attempt_123 → result
+</div></code></pre>
+<p>Nếu client retry cùng key:</p>
+<pre class="hljs"><code><div>Provider trả lại cùng kết quả
+</div></code></pre>
+<p>Không charge lần hai.</p>
+<hr>
+<h1 id="58-idempotency-không-chỉ-là-deduplication">58. Idempotency không chỉ là Deduplication</h1>
+<p>Deduplication hỏi:</p>
+<pre class="hljs"><code><div>Message này đã thấy chưa?
+</div></code></pre>
+<p>Idempotency rộng hơn:</p>
+<pre class="hljs"><code><div>Nếu operation chạy lại, business state có vẫn đúng không?
+</div></code></pre>
+<p>Một operation có thể idempotent tự nhiên:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;CANCELLED&#x27;</span>
+<span class="hljs-keyword">WHERE</span> id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> status <span class="hljs-keyword">IN</span> (<span class="hljs-string">&#x27;PENDING&#x27;</span>, <span class="hljs-string">&#x27;PAYMENT_FAILED&#x27;</span>);
+</div></code></pre>
+<p>Dù chạy nhiều lần, trạng thái cuối vẫn là <code>CANCELLED</code>.</p>
+<hr>
+<h1 id="59-state-machine-là-nền-tảng-của-consistency-workflow">59. State Machine là nền tảng của Consistency Workflow</h1>
+<p>Không nên chỉ dùng boolean:</p>
+<pre class="hljs"><code><div>paid = true/false
+completed = true/false
+</div></code></pre>
+<p>Nên mô hình hóa trạng thái rõ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> Created
+    Created --> InventoryPending
+    InventoryPending --> InventoryReserved
+    InventoryReserved --> PaymentPending
+    PaymentPending --> Paid
+    Paid --> Confirmed
+
+    InventoryPending --> Cancelled
+    InventoryReserved --> Cancelling
+    PaymentPending --> Cancelling
+    Cancelling --> Cancelled
+</div></code></pre>
+<p>State machine giúp:</p>
+<pre class="hljs"><code><div>- Biết workflow đang ở đâu
+- Chặn transition không hợp lệ
+- Retry an toàn
+- Điều tra stuck workflow
+</div></code></pre>
+<hr>
+<h1 id="60-conditional-state-transition">60. Conditional State Transition</h1>
+<p>Không nên update bất kỳ trạng thái nào thành <code>PAID</code>.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;PAID&#x27;</span>,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> order_id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;PAYMENT_PENDING&#x27;</span>
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<p>Nếu không affected row:</p>
+<pre class="hljs"><code><div>- Event duplicate
+- Event out-of-order
+- Workflow đã bị cancel
+- Version conflict
+</div></code></pre>
+<p>Consumer phải kiểm tra thay vì ghi đè.</p>
+<hr>
+<h1 id="61-out-of-order-events">61. Out-of-Order Events</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>OrderCreated sequence 1
+InventoryReserved sequence 2
+PaymentSucceeded sequence 3
+</div></code></pre>
+<p>Nhưng consumer nhận:</p>
+<pre class="hljs"><code><div>PaymentSucceeded trước InventoryReserved
+</div></code></pre>
+<p>Nguyên nhân:</p>
+<pre class="hljs"><code><div>- Nhiều partition
+- Retry queue
+- Network delay
+- Consumer concurrency
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Partition theo aggregate ID
+- Sequence number
+- Version check
+- Buffer
+- Ignore event cũ
+- Re-fetch authoritative state
+</div></code></pre>
+<hr>
+<h1 id="62-aggregate-version">62. Aggregate Version</h1>
+<p>Mỗi event mang:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;aggregateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;aggregateVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Consumer đang ở version 5 nhưng nhận version 7:</p>
+<pre class="hljs"><code><div>Có thể thiếu version 6.
+</div></code></pre>
+<p>Consumer có thể:</p>
+<pre class="hljs"><code><div>- Chờ
+- Retry
+- Load current state
+- Rebuild projection
+</div></code></pre>
+<p>Nếu đang version 8 nhưng nhận version 7:</p>
+<pre class="hljs"><code><div>Event cũ hoặc duplicate
+→ bỏ qua
+</div></code></pre>
+<hr>
+<h1 id="63-timeout-trong-saga">63. Timeout trong Saga</h1>
+<p>Mỗi bước cần deadline.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Inventory reservation:
+Hết hạn sau 10 phút
+
+Payment pending:
+Hết hạn sau 15 phút
+
+Restaurant acceptance:
+Hết hạn sau 2 phút
+</div></code></pre>
+<p>Khi timeout:</p>
+<pre class="hljs"><code><div>Orchestrator hoặc timer service kích hoạt transition tiếp theo.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Restaurant không phản hồi
+→ Cancel order
+→ Release payment authorization
+</div></code></pre>
+<hr>
+<h1 id="64-durable-timer">64. Durable Timer</h1>
+<p>Không nên dùng timer chỉ trong memory:</p>
+<pre class="hljs"><code><div>sleep(<span class="hljs-number">600</span>)
+release_inventory()
+</div></code></pre>
+<p>Nếu process restart:</p>
+<pre class="hljs"><code><div>Timer biến mất.
+</div></code></pre>
+<p>Cần durable timer:</p>
+<pre class="hljs"><code><div>- Scheduled message
+- Workflow engine timer
+- Database deadline + scanner
+- Delay queue
+</div></code></pre>
+<hr>
+<h1 id="65-reservation-pattern">65. Reservation Pattern</h1>
+<p>Thay vì thực hiện final action ngay, workflow có thể chia:</p>
+<pre class="hljs"><code><div>Reserve/Hold
+→ Confirm
+→ Cancel
+</div></code></pre>
+<p>Ví dụ inventory:</p>
+<pre class="hljs"><code><div>Reserve stock trong 10 phút
+Confirm sau khi payment thành công
+Cancel nếu payment thất bại
+</div></code></pre>
+<p>Đây là một consistency workflow rất phổ biến.</p>
+<hr>
+<h1 id="66-tryconfirmcancel--tcc">66. Try–Confirm–Cancel — TCC</h1>
+<p>TCC là pattern ba bước:</p>
+<h2 id="try">Try</h2>
+<p>Tạm giữ resource.</p>
+<pre class="hljs"><code><div>Giữ ghế
+Giữ tiền
+Giữ inventory
+</div></code></pre>
+<h2 id="confirm">Confirm</h2>
+<p>Xác nhận sử dụng resource.</p>
+<h2 id="cancel">Cancel</h2>
+<p>Giải phóng resource.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Orchestrator
+    participant SeatService
+    participant PaymentService
+
+    Orchestrator->>SeatService: TRY reserve seat
+    SeatService-->>Orchestrator: Reserved
+
+    Orchestrator->>PaymentService: TRY authorize payment
+    PaymentService-->>Orchestrator: Authorized
+
+    Orchestrator->>SeatService: CONFIRM seat
+    Orchestrator->>PaymentService: CONFIRM capture
+</div></code></pre>
+<p>Nếu payment authorization thất bại:</p>
+<pre class="hljs"><code><div>CANCEL seat reservation
+</div></code></pre>
+<hr>
+<h1 id="67-tcc-và-2pc-khác-nhau-thế-nào">67. TCC và 2PC khác nhau thế nào?</h1>
+<p>2PC:</p>
+<pre class="hljs"><code><div>- Infrastructure transaction protocol
+- Participants ở trạng thái prepared
+- Commit/abort mang tính kỹ thuật
+- Có thể giữ lock
+</div></code></pre>
+<p>TCC:</p>
+<pre class="hljs"><code><div>- Business-level protocol
+- Try tạo reservation thật
+- Confirm/Cancel là business API
+- Reservation có expiration
+</div></code></pre>
+<p>TCC linh hoạt hơn cho microservices nhưng yêu cầu từng service cung cấp API đúng semantics.</p>
+<hr>
+<h1 id="68-escrow-và-reservation">68. Escrow và Reservation</h1>
+<p>Để tránh overselling, có thể tách:</p>
+<pre class="hljs"><code><div>Available quantity
+Reserved quantity
+Sold quantity
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Available = 10
+Reserved = 2
+Sold = 5
+</div></code></pre>
+<p>Reserve:</p>
+<pre class="hljs"><code><div>Available -= 1
+Reserved += 1
+</div></code></pre>
+<p>Confirm:</p>
+<pre class="hljs"><code><div>Reserved -= 1
+Sold += 1
+</div></code></pre>
+<p>Cancel:</p>
+<pre class="hljs"><code><div>Reserved -= 1
+Available += 1
+</div></code></pre>
+<p>Mỗi transition phải atomic trong Inventory DB.</p>
+<hr>
+<h1 id="69-reconciliation-là-gì">69. Reconciliation là gì?</h1>
+<p>Reconciliation là quá trình định kỳ so sánh các nguồn dữ liệu hoặc trạng thái liên quan để phát hiện và sửa sai lệch.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment Provider:
+Payment = SUCCESS
+
+Order DB:
+Order = PAYMENT_PENDING
+</div></code></pre>
+<p>Reconciliation job phát hiện mismatch và cập nhật order.</p>
+<hr>
+<h1 id="70-vì-sao-reconciliation-vẫn-cần">70. Vì sao Reconciliation vẫn cần?</h1>
+<p>Dù đã có:</p>
+<pre class="hljs"><code><div>- Outbox
+- Retry
+- DLQ
+- Idempotency
+- Webhook
+</div></code></pre>
+<p>vẫn có thể xảy ra:</p>
+<pre class="hljs"><code><div>- Event mất do cấu hình
+- Consumer bug
+- DLQ bị bỏ quên
+- Webhook không đến
+- Manual database edit
+- Third-party state thay đổi
+- Partial outage kéo dài
+</div></code></pre>
+<p>Reconciliation là safety net cuối cùng.</p>
+<blockquote>
+<p>Reconciliation không phải dấu hiệu thiết kế yếu; với payment và workflow dài, nó thường là thành phần bắt buộc.</p>
+</blockquote>
+<hr>
+<h1 id="71-reconciliation-loop">71. Reconciliation Loop</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Scheduler --> Scanner[Find inconsistent/pending records]
+    Scanner --> Authoritative[Query authoritative source]
+    Authoritative --> Compare{States match?}
+
+    Compare -->|Có| Done[No action]
+    Compare -->|Không| Repair[Repair or enqueue recovery]
+    Repair --> Audit[Write audit record]
+</div></code></pre>
+<hr>
+<h1 id="72-nguồn-dữ-liệu-chuẩn--source-of-truth">72. Nguồn dữ liệu chuẩn — Source of Truth</h1>
+<p>Reconciliation cần biết hệ thống nào có thẩm quyền.</p>
+<p>Ví dụ payment:</p>
+<pre class="hljs"><code><div>Payment provider hoặc internal payment ledger
+= source of truth về charge
+</div></code></pre>
+<p>Order database:</p>
+<pre class="hljs"><code><div>Projection về trạng thái order
+</div></code></pre>
+<p>Nếu hai nơi khác nhau:</p>
+<pre class="hljs"><code><div>Không được chọn ngẫu nhiên.
+</div></code></pre>
+<p>Cần policy rõ:</p>
+<pre class="hljs"><code><div>Provider success + Order pending
+→ Mark order paid hoặc trigger fulfillment
+
+Provider failed + Order paid
+→ Alert/manual review, không tự động tùy tiện
+</div></code></pre>
+<hr>
+<h1 id="73-reconciliation-theo-thời-gian">73. Reconciliation theo thời gian</h1>
+<p>Không cần scan toàn bộ database mỗi phút.</p>
+<p>Có thể tìm:</p>
+<pre class="hljs"><code><div>- PAYMENT_PENDING quá 5 phút
+- REFUND_PENDING quá 1 giờ
+- RESERVATION_ACTIVE đã hết hạn
+- Outbox NEW quá lâu
+- Saga RUNNING quá SLA
+</div></code></pre>
+<p>Index theo:</p>
+<pre class="hljs"><code><div>status, updated_at
+</div></code></pre>
+<p>giúp scan hiệu quả.</p>
+<hr>
+<h1 id="74-anti-entropy-reconciliation">74. Anti-Entropy Reconciliation</h1>
+<p>Ngoài workflow reconciliation, distributed data system có thể định kỳ so sánh:</p>
+<pre class="hljs"><code><div>- Counts
+- Hashes
+- Checksums
+- Versions
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Orders marked paid today: 100.000
+Payment successful records: 100.003
+</div></code></pre>
+<p>Có ba payment chưa phản ánh trong order system.</p>
+<hr>
+<h1 id="75-reconciliation-không-được-gây-duplicate-side-effect">75. Reconciliation không được gây duplicate side effect</h1>
+<p>Job phát hiện order chưa có shipment.</p>
+<p>Trước khi tạo shipment, cần kiểm tra:</p>
+<pre class="hljs"><code><div>shipmentRequestId đã được dùng chưa?
+Shipment đã tồn tại theo orderId chưa?
+</div></code></pre>
+<p>Reconciliation cũng phải idempotent.</p>
+<hr>
+<h1 id="76-manual-review-queue">76. Manual Review Queue</h1>
+<p>Một số mismatch không thể sửa tự động an toàn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Provider nói charged
+- Internal ledger thiếu record
+- Customer đã được refund thủ công
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>MANUAL_REVIEW
+</div></code></pre>
+<p>với:</p>
+<pre class="hljs"><code><div>- Context đầy đủ
+- Audit trail
+- Quyền truy cập
+- Resolution action có idempotency
+</div></code></pre>
+<p>Không nên tự động “đoán” với dữ liệu tài chính.</p>
+<hr>
+<h1 id="77-pending-không-phải-failed">77. Pending không phải Failed</h1>
+<p>Trong distributed workflow, timeout tạo trạng thái không chắc chắn.</p>
+<p>Ví dụ gọi payment provider timeout:</p>
+<pre class="hljs"><code><div>Không biết payment thất bại
+hay thành công nhưng response bị mất.
+</div></code></pre>
+<p>Trạng thái đúng:</p>
+<pre class="hljs"><code><div>PAYMENT_UNKNOWN
+hoặc
+PAYMENT_PENDING_RECONCILIATION
+</div></code></pre>
+<p>Không nên lập tức:</p>
+<pre class="hljs"><code><div>Retry với payment ID mới
+</div></code></pre>
+<hr>
+<h1 id="78-webhook--polling--reconciliation">78. Webhook + Polling + Reconciliation</h1>
+<p>Payment workflow đáng tin cậy thường dùng nhiều kênh:</p>
+<pre class="hljs"><code><div>1. Synchronous API response
+2. Provider webhook
+3. Status polling khi pending
+4. Periodic reconciliation
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    PaymentRequest --> Provider
+    Provider --> Response[Synchronous response]
+    Provider --> Webhook[Asynchronous webhook]
+    Scheduler --> Poll[Status polling]
+    Reconcile[Reconciliation job] --> Provider
+
+    Response --> PaymentDB
+    Webhook --> PaymentDB
+    Poll --> PaymentDB
+    Reconcile --> PaymentDB
+</div></code></pre>
+<p>Mọi path phải dùng cùng <code>paymentAttemptId</code> và idempotent state transitions.</p>
+<hr>
+<h1 id="79-exactly-once-là-mục-tiêu-nghiệp-vụ-không-phải-phép-màu-hạ-tầng">79. Exactly-Once là mục tiêu nghiệp vụ, không phải phép màu hạ tầng</h1>
+<p>Broker có thể giao duplicate.</p>
+<p>Relay có thể publish duplicate.</p>
+<p>Webhook có thể được gửi lại.</p>
+<p>Client có thể retry.</p>
+<p>Do đó tư duy thực tế:</p>
+<pre class="hljs"><code><div>At-least-once communication
++
+Stable operation ID
++
+Idempotent handlers
++
+Unique constraints
++
+State machine
++
+Reconciliation
+=
+Exactly-once business effect trong phạm vi có thể kiểm soát
+</div></code></pre>
+<hr>
+<h1 id="80-event-sourcing-có-liên-quan-thế-nào">80. Event Sourcing có liên quan thế nào?</h1>
+<p>Trong event sourcing, state được xây từ chuỗi event bất biến:</p>
+<pre class="hljs"><code><div>OrderCreated
+InventoryReserved
+PaymentSucceeded
+OrderConfirmed
+</div></code></pre>
+<p>Ưu điểm cho workflow:</p>
+<pre class="hljs"><code><div>- Audit history đầy đủ
+- Rebuild state
+- Debug sequence
+</div></code></pre>
+<p>Nhưng không tự giải quyết:</p>
+<pre class="hljs"><code><div>- External side effect duplicate
+- Event publish atomicity
+- Compensation
+- Cross-service consistency
+</div></code></pre>
+<p>Vẫn cần Outbox, idempotency và reconciliation.</p>
+<hr>
+<h1 id="81-cqrs-và-projection-lag">81. CQRS và Projection Lag</h1>
+<p>Command side commit business state.</p>
+<p>Read projection được cập nhật bất đồng bộ.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Command --> WriteDB[(Write Model)]
+    WriteDB --> Events
+    Events --> Projector
+    Projector --> ReadDB[(Read Model)]
+</div></code></pre>
+<p>Trong một khoảng thời gian:</p>
+<pre class="hljs"><code><div>Write model = PAID
+Read model = PAYMENT_PENDING
+</div></code></pre>
+<p>Đây là projection lag.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- UI thể hiện processing
+- Read-your-writes strategy
+- Lag monitoring
+- Projection rebuild
+</div></code></pre>
+<hr>
+<h1 id="82-failure-matrix-cho-distributed-workflow">82. Failure Matrix cho Distributed Workflow</h1>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Trạng thái có thể xảy ra</th>
+<th>Cách xử lý</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB commit thành công, publish lỗi</td>
+<td>Business state có, event thiếu</td>
+<td>Outbox</td>
+</tr>
+<tr>
+<td>Event publish duplicate</td>
+<td>Consumer chạy lặp</td>
+<td>Idempotent consumer</td>
+</tr>
+<tr>
+<td>Consumer commit rồi crash trước ACK</td>
+<td>Broker redeliver</td>
+<td>Inbox/unique constraint</td>
+</tr>
+<tr>
+<td>Payment timeout</td>
+<td>Kết quả unknown</td>
+<td>Query status/reconciliation</td>
+</tr>
+<tr>
+<td>Compensation lỗi</td>
+<td>Workflow stuck</td>
+<td>Retry, DLQ, manual review</td>
+</tr>
+<tr>
+<td>Event out-of-order</td>
+<td>Transition sai thứ tự</td>
+<td>Version/state guard</td>
+</tr>
+<tr>
+<td>Orchestrator crash</td>
+<td>Workflow tạm dừng</td>
+<td>Durable saga state</td>
+</tr>
+<tr>
+<td>Timer process chết</td>
+<td>Deadline bị quên</td>
+<td>Durable timer</td>
+</tr>
+<tr>
+<td>Read projection chậm</td>
+<td>UI thấy dữ liệu cũ</td>
+<td>Pending state/read-your-writes</td>
+</tr>
+<tr>
+<td>Webhook mất</td>
+<td>State không cập nhật</td>
+<td>Polling/reconciliation</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="83-case-study--đặt-đồ-ăn">83. Case Study — Đặt đồ ăn</h1>
+<p>Workflow:</p>
+<pre class="hljs"><code><div>1. Tạo order
+2. Nhà hàng xác nhận
+3. Authorize payment
+4. Tìm tài xế
+5. Capture payment
+6. Giao hàng
+</div></code></pre>
+<p>Đây là long-running business transaction, không phù hợp 2PC.</p>
+<hr>
+<h1 id="84-state-machine-cho-food-order">84. State Machine cho Food Order</h1>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> Created
+    Created --> RestaurantPending
+    RestaurantPending --> Accepted
+    RestaurantPending --> Cancelled
+
+    Accepted --> PaymentAuthorized
+    PaymentAuthorized --> DriverSearching
+    DriverSearching --> DriverAssigned
+    DriverAssigned --> Preparing
+    Preparing --> Delivering
+    Delivering --> Completed
+
+    PaymentAuthorized --> Cancelling
+    DriverSearching --> Cancelling
+    Cancelling --> PaymentReleased
+    PaymentReleased --> Cancelled
+</div></code></pre>
+<hr>
+<h1 id="85-compensation-cho-food-order">85. Compensation cho Food Order</h1>
+<table>
+<thead>
+<tr>
+<th>Bước</th>
+<th>Failure sau đó</th>
+<th>Compensation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nhà hàng nhận order</td>
+<td>Payment lỗi</td>
+<td>Cancel restaurant order</td>
+</tr>
+<tr>
+<td>Authorize payment</td>
+<td>Không tìm được tài xế</td>
+<td>Release authorization</td>
+</tr>
+<tr>
+<td>Giữ promotion</td>
+<td>Order cancel</td>
+<td>Restore promotion</td>
+</tr>
+<tr>
+<td>Tạo delivery task</td>
+<td>Nhà hàng cancel</td>
+<td>Cancel delivery task</td>
+</tr>
+</tbody>
+</table>
+<p>Sau khi tài xế đã lấy đồ:</p>
+<pre class="hljs"><code><div>Compensation không còn đơn giản.
+</div></code></pre>
+<p>Có thể cần:</p>
+<pre class="hljs"><code><div>- Hoàn tiền
+- Bồi thường nhà hàng/tài xế
+- Customer support
+</div></code></pre>
+<hr>
+<h1 id="86-case-study--ticket-booking">86. Case Study — Ticket Booking</h1>
+<p>Các invariant:</p>
+<pre class="hljs"><code><div>- Một ghế chỉ có một reservation active
+- Một reservation chỉ được confirm một lần
+- Payment không charge hai lần
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>Booking DB:
+Atomic seat reservation
+
+Payment:
+Idempotent authorization/capture
+
+Workflow:
+TCC hoặc Saga orchestration
+</div></code></pre>
+<hr>
+<h1 id="87-ticket-booking-với-tcc">87. Ticket Booking với TCC</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant O as Booking Orchestrator
+    participant S as Seat Service
+    participant P as Payment Service
+
+    O->>S: TRY reserve seat S12, reservation R1
+    S-->>O: Reserved until 10:15
+
+    O->>P: TRY authorize payment P1
+    P-->>O: Authorized
+
+    O->>S: CONFIRM reservation R1
+    S-->>O: Confirmed
+
+    O->>P: CONFIRM capture P1
+    P-->>O: Captured
+</div></code></pre>
+<p>Nếu authorize thất bại:</p>
+<pre class="hljs"><code><div>CANCEL reservation R1
+</div></code></pre>
+<hr>
+<h1 id="88-seat-hold-phải-tự-hết-hạn">88. Seat Hold phải tự hết hạn</h1>
+<p>Nếu orchestrator chết sau khi giữ ghế:</p>
+<pre class="hljs"><code><div>Ghế không được khóa vĩnh viễn.
+</div></code></pre>
+<p>Reservation có:</p>
+<pre class="hljs"><code><div>expires_at
+</div></code></pre>
+<p>Cleanup worker:</p>
+<pre class="hljs"><code><div>ACTIVE reservation quá hạn
+→ EXPIRED
+→ seat trở lại AVAILABLE
+</div></code></pre>
+<p>Đây là reconciliation theo deadline.</p>
+<hr>
+<h1 id="89-case-study--bank-transfer">89. Case Study — Bank Transfer</h1>
+<p>Transfer nội bộ giữa hai account trong cùng ledger database:</p>
+<pre class="hljs"><code><div>Nên ưu tiên local ACID transaction.
+</div></code></pre>
+<p>Không nên tách thành Saga không cần thiết.</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">BEGIN</span>;
+
+<span class="hljs-keyword">INSERT</span> debit_entry;
+<span class="hljs-keyword">INSERT</span> credit_entry;
+
+<span class="hljs-keyword">COMMIT</span>;
+</div></code></pre>
+<p>Nếu account nằm ở nhiều shard/database, bài toán khó hơn.</p>
+<p>Tùy hệ thống có thể dùng:</p>
+<pre class="hljs"><code><div>- Distributed SQL/consensus transaction
+- 2PC
+- Central ledger
+- Clearing workflow
+</div></code></pre>
+<p>Với tiền:</p>
+<pre class="hljs"><code><div>Không nên dựa vào compensation mơ hồ kiểu
+“trừ rồi nếu lỗi thì cộng lại sau”
+mà không có ledger và audit.
+</div></code></pre>
+<hr>
+<h1 id="90-ledger-based-consistency">90. Ledger-based Consistency</h1>
+<p>Thay vì sửa balance trực tiếp, ghi entry bất biến:</p>
+<pre class="hljs"><code><div>Debit A: -100
+Credit B: +100
+</div></code></pre>
+<p>Transfer có ID duy nhất:</p>
+<pre class="hljs"><code><div>transfer_123
+</div></code></pre>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Tổng debit + credit = 0
+</div></code></pre>
+<p>Reconciliation có thể kiểm tra:</p>
+<pre class="hljs"><code><div>Mọi transfer phải có đủ entry cân bằng.
+</div></code></pre>
+<p>Ledger giúp audit và recovery tốt hơn.</p>
+<hr>
+<h1 id="91-saga-không-phù-hợp-với-mọi-invariant">91. Saga không phù hợp với mọi invariant</h1>
+<p>Saga phù hợp khi:</p>
+<pre class="hljs"><code><div>- Trạng thái trung gian chấp nhận được
+- Có compensation hợp lý
+- Workflow kéo dài
+- Availability quan trọng
+</div></code></pre>
+<p>Saga không phải lựa chọn tự nhiên khi:</p>
+<pre class="hljs"><code><div>- Cần serializable atomicity tức thời
+- Không có compensation hợp lệ
+- Partial state gây hậu quả không thể chấp nhận
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một ghế bị confirm cho hai người
+</div></code></pre>
+<p>không thể được giải quyết chỉ bằng “sau đó compensation một người” như thiết kế bình thường.</p>
+<p>Invariant đó phải được bảo vệ tại authoritative seat store.</p>
+<hr>
+<h1 id="92-đặt-consistency-boundary-đúng-chỗ">92. Đặt Consistency Boundary đúng chỗ</h1>
+<p>Một nguyên tắc quan trọng:</p>
+<blockquote>
+<p>Đưa các dữ liệu phải thay đổi atomically vào cùng consistency boundary nếu có thể.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order và order_items
+</div></code></pre>
+<p>nên có thể commit cùng local transaction.</p>
+<pre class="hljs"><code><div>Seat và active reservation
+</div></code></pre>
+<p>nên nằm cùng authoritative database hoặc partition.</p>
+<p>Đừng phân tán dữ liệu chỉ để rồi phải dùng distributed transaction cho mọi request.</p>
+<hr>
+<h1 id="93-microservices-không-có-nghĩa-mỗi-table-là-một-service">93. Microservices không có nghĩa mỗi table là một service</h1>
+<p>Tách quá nhỏ:</p>
+<pre class="hljs"><code><div>Order Service
+Order Item Service
+Order Status Service
+Order Price Service
+</div></code></pre>
+<p>Mỗi create order trở thành distributed workflow phức tạp.</p>
+<p>Service boundary nên dựa trên:</p>
+<pre class="hljs"><code><div>- Business capability
+- Transactional invariant
+- Ownership
+- Rate of change
+</div></code></pre>
+<p>Consistency boundary là yếu tố quan trọng khi chọn service boundary.</p>
+<hr>
+<h1 id="94-observability-cho-saga">94. Observability cho Saga</h1>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>- Saga started/completed/failed
+- Saga duration p50/p95/p99
+- Sagas stuck theo step
+- Compensation count
+- Compensation failure
+- Retry count
+- Pending state age
+</div></code></pre>
+<p>Logs/traces cần:</p>
+<pre class="hljs"><code><div>sagaId
+orderId
+step
+attempt
+eventId
+causationId
+traceId
+</div></code></pre>
+<hr>
+<h1 id="95-trace-xuyên-async-workflow">95. Trace xuyên Async Workflow</h1>
+<p>Một Saga có thể chạy qua nhiều trace hoặc nhiều giờ.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>correlationId = sagaId hoặc orderId
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>trace A:
+Create order request
+
+trace B:
+Inventory consumer
+
+trace C:
+Payment webhook
+
+trace D:
+Reconciliation repair
+</div></code></pre>
+<p>Tất cả liên kết bằng:</p>
+<pre class="hljs"><code><div>orderId / sagaId
+</div></code></pre>
+<hr>
+<h1 id="96-alert-cho-consistency-workflow">96. Alert cho Consistency Workflow</h1>
+<p>Alert quan trọng:</p>
+<pre class="hljs"><code><div>- PAYMENT_PENDING quá SLA
+- REFUND_PENDING quá lâu
+- Reservation expired nhưng chưa release
+- Saga RUNNING không có progress
+- Outbox unpublished backlog
+- DLQ tăng
+- Projection lag
+- Reconciliation mismatch tăng
+</div></code></pre>
+<p>Không chỉ alert khi service trả HTTP 500.</p>
+<p>Workflow có thể âm thầm stuck trong nhiều giờ dù API vẫn trả 200/202.</p>
+<hr>
+<h1 id="97-workflow-slo">97. Workflow SLO</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>99.9% order được chuyển từ CREATED sang CONFIRMED
+hoặc CANCELLED trong vòng 5 phút.
+</div></code></pre>
+<p>Không chỉ đo:</p>
+<pre class="hljs"><code><div>POST /orders trả trong 300 ms.
+</div></code></pre>
+<p>API có thể trả nhanh nhưng order bị kẹt mãi ở <code>PROCESSING</code>.</p>
+<p>Cần đo end-to-end business outcome.</p>
+<hr>
+<h1 id="98-retry-policy-theo-step">98. Retry Policy theo Step</h1>
+<p>Không dùng một retry policy cho mọi bước.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Inventory temporary timeout:
+Retry vài lần trong vài giây
+
+Payment unknown:
+Không charge lại mù quáng; query status
+
+Email failed:
+Retry nhiều giờ
+
+Invalid payload:
+Không retry; đưa DLQ
+
+Refund failed:
+Retry lâu và alert vì liên quan tài chính
+</div></code></pre>
+<hr>
+<h1 id="99-poison-workflow">99. Poison Workflow</h1>
+<p>Một Saga có dữ liệu đặc biệt làm step luôn lỗi.</p>
+<p>Nếu retry vô hạn:</p>
+<pre class="hljs"><code><div>- Tốn tài nguyên
+- Che giấu bug
+- Không kết thúc workflow
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Retry budget
+- Failed/ManualReview state
+- DLQ
+- Alert
+- Replay tool
+</div></code></pre>
+<hr>
+<h1 id="100-replay-phải-an-toàn">100. Replay phải an toàn</h1>
+<p>Khi replay event hoặc Saga step:</p>
+<pre class="hljs"><code><div>- Handler idempotent chưa?
+- External API dùng cùng idempotency key chưa?
+- State hiện tại còn cho phép transition không?
+- Compensation đã chạy chưa?
+- Event có quá cũ không?
+</div></code></pre>
+<p>Không nên có nút:</p>
+<pre class="hljs"><code><div>Replay all
+</div></code></pre>
+<p>mà không có guardrail.</p>
+<hr>
+<h1 id="101-các-sai-lầm-phổ-biến">101. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-dùng-nhiều-service-nhưng-kỳ-vọng-acid-toàn-cục-miễn-phí">Lỗi 1: Dùng nhiều service nhưng kỳ vọng ACID toàn cục miễn phí</h2>
+<p>Không có một <code>ROLLBACK</code> chung tự nhiên.</p>
+<hr>
+<h2 id="lỗi-2-dual-write-trực-tiếp-db-và-broker">Lỗi 2: Dual-write trực tiếp DB và broker</h2>
+<p>Có cửa sổ mất event hoặc phantom event.</p>
+<hr>
+<h2 id="lỗi-3-nghĩ-outbox-tạo-exactly-once">Lỗi 3: Nghĩ Outbox tạo exactly-once</h2>
+<p>Relay vẫn có thể publish duplicate.</p>
+<hr>
+<h2 id="lỗi-4-consumer-không-idempotent">Lỗi 4: Consumer không idempotent</h2>
+<p>Duplicate gây charge, refund hoặc reserve lặp.</p>
+<hr>
+<h2 id="lỗi-5-dùng-saga-cho-invariant-cần-atomicity-tức-thời">Lỗi 5: Dùng Saga cho invariant cần atomicity tức thời</h2>
+<p>Có thể gây overselling hoặc double-spend.</p>
+<hr>
+<h2 id="lỗi-6-gọi-compensation-là-rollback">Lỗi 6: Gọi compensation là rollback</h2>
+<p>Compensation là business transaction mới và có thể thất bại.</p>
+<hr>
+<h2 id="lỗi-7-compensation-không-idempotent">Lỗi 7: Compensation không idempotent</h2>
+<p>Retry compensation làm dữ liệu sai thêm.</p>
+<hr>
+<h2 id="lỗi-8-workflow-không-có-trạng-thái-pending">Lỗi 8: Workflow không có trạng thái pending</h2>
+<p>Timeout bị xem nhầm là failure chắc chắn.</p>
+<hr>
+<h2 id="lỗi-9-saga-state-chỉ-nằm-trong-memory">Lỗi 9: Saga state chỉ nằm trong memory</h2>
+<p>Restart làm mất tiến trình.</p>
+<hr>
+<h2 id="lỗi-10-timer-không-durable">Lỗi 10: Timer không durable</h2>
+<p>Reservation không bao giờ hết hạn nếu process chết.</p>
+<hr>
+<h2 id="lỗi-11-choreography-quá-dài">Lỗi 11: Choreography quá dài</h2>
+<p>Workflow trở thành mạng event khó hiểu.</p>
+<hr>
+<h2 id="lỗi-12-orchestrator-chứa-mọi-business-logic">Lỗi 12: Orchestrator chứa mọi business logic</h2>
+<p>Trở thành distributed monolith mới.</p>
+<hr>
+<h2 id="lỗi-13-không-có-reconciliation">Lỗi 13: Không có reconciliation</h2>
+<p>Sai lệch hiếm tích tụ mãi.</p>
+<hr>
+<h2 id="lỗi-14-reconciliation-không-idempotent">Lỗi 14: Reconciliation không idempotent</h2>
+<p>Repair job tạo duplicate side effect.</p>
+<hr>
+<h2 id="lỗi-15-chỉ-đo-api-latency">Lỗi 15: Chỉ đo API latency</h2>
+<p>Không biết business workflow bị stuck.</p>
+<hr>
+<h1 id="102-framework-thiết-kế-distributed-transaction">102. Framework thiết kế Distributed Transaction</h1>
+<p>Khi gặp một workflow nhiều service, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Business invariant là gì?
+2. Dữ liệu nào phải atomic?
+3. Có thể đưa dữ liệu đó về cùng database không?
+4. Workflow kéo dài bao lâu?
+5. Trạng thái trung gian có chấp nhận được không?
+6. Participant có hỗ trợ 2PC không?
+7. Availability hay atomicity quan trọng hơn?
+8. Mỗi local transaction là gì?
+9. Compensation của mỗi bước là gì?
+10. Compensation có idempotent không?
+11. Pivot transaction nằm ở đâu?
+12. Bước nào nên forward recovery?
+13. Orchestration hay choreography?
+14. Workflow state lưu ở đâu?
+15. Timeout/deadline của mỗi bước là gì?
+16. Message publish dùng Outbox không?
+17. Consumer deduplicate thế nào?
+18. External call dùng idempotency key nào?
+19. Reconciliation kiểm tra gì?
+20. Workflow SLO và alert là gì?
+</div></code></pre>
+<hr>
+<h1 id="103-decision-tree">103. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Operation chạm nhiều resource] --> B{Có thể đặt trong cùng database/partition?}
+
+    B -->|Có| C[Ưu tiên local ACID transaction]
+    B -->|Không| D{Cần atomic commit tức thời?}
+
+    D -->|Có| E{Participants hỗ trợ distributed transaction?}
+    E -->|Có| F[2PC / Distributed SQL transaction]
+    E -->|Không| G[Thiết kế lại consistency boundary hoặc reservation protocol]
+
+    D -->|Không| H{Workflow dài và có compensation?}
+    H -->|Có| I[Saga]
+    H -->|Không| J[Eventual consistency + async events]
+
+    I --> K{Workflow phức tạp?}
+    K -->|Có| L[Orchestration]
+    K -->|Đơn giản, subscribers độc lập| M[Choreography]
+
+    L --> N[Outbox + Idempotency + Reconciliation]
+    M --> N
+    J --> N
+</div></code></pre>
+<hr>
+<h1 id="104-cách-trình-bày-trong-system-design-interview">104. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em dùng Saga vì microservices không hỗ trợ transaction.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Reservation và payment nằm ở hai service riêng nên tôi không giữ một distributed lock xuyên suốt checkout. Seat Service bảo vệ invariant “một ghế chỉ có một active reservation” bằng local transaction và unique constraint. Workflow dùng Saga orchestration: tạo reservation, authorize payment, sau đó confirm ghế và capture payment. Mỗi command có operation ID ổn định và handler idempotent. Nếu authorization thất bại, orchestrator cancel reservation; nếu response payment bị timeout, trạng thái chuyển thành pending thay vì retry bằng payment ID mới.</p>
+</blockquote>
+<p>Tiếp:</p>
+<blockquote>
+<p>Mỗi service ghi business state và outbox event trong cùng local transaction. Outbox relay publish at-least-once, vì vậy consumers deduplicate bằng event ID hoặc unique business constraint. Một reconciliation job kiểm tra reservation, payment và booking bị pending quá SLA để sửa projection hoặc chuyển manual review.</p>
+</blockquote>
+<p>Nếu 2PC phù hợp:</p>
+<blockquote>
+<p>Nếu các participant đều thuộc cùng distributed database và transaction rất ngắn, tôi có thể dùng atomic distributed transaction hoặc 2PC. Tôi tránh 2PC cho workflow kéo dài hoặc external provider vì prepared participants có thể giữ lock và block khi coordinator lỗi.</p>
+</blockquote>
+<hr>
+<h1 id="105-bảng-ghi-nhớ-nhanh">105. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Distributed transaction</td>
+<td>Một business operation chạm nhiều resource độc lập</td>
+</tr>
+<tr>
+<td>Dual-write</td>
+<td>Ghi hai hệ thống không atomic</td>
+</tr>
+<tr>
+<td>2PC</td>
+<td>Prepare rồi Commit/Abort</td>
+</tr>
+<tr>
+<td>Coordinator</td>
+<td>Thành phần điều phối 2PC hoặc workflow</td>
+</tr>
+<tr>
+<td>Participant</td>
+<td>Resource tham gia transaction</td>
+</tr>
+<tr>
+<td>Saga</td>
+<td>Chuỗi local transactions</td>
+</tr>
+<tr>
+<td>Compensation</td>
+<td>Hành động xử lý hậu quả của bước đã commit</td>
+</tr>
+<tr>
+<td>Orchestration</td>
+<td>Workflow do orchestrator điều khiển</td>
+</tr>
+<tr>
+<td>Choreography</td>
+<td>Services phản ứng qua event</td>
+</tr>
+<tr>
+<td>Pivot</td>
+<td>Điểm cam kết chính trong Saga</td>
+</tr>
+<tr>
+<td>Semantic lock</td>
+<td>Trạng thái nghiệp vụ ngăn operation xung đột</td>
+</tr>
+<tr>
+<td>Outbox</td>
+<td>Ghi business data và event atomically trong một DB</td>
+</tr>
+<tr>
+<td>Inbox</td>
+<td>Ghi nhận event đã xử lý</td>
+</tr>
+<tr>
+<td>TCC</td>
+<td>Try–Confirm–Cancel</td>
+</tr>
+<tr>
+<td>Reconciliation</td>
+<td>Phát hiện và sửa sai lệch định kỳ</td>
+</tr>
+<tr>
+<td>Pending/Unknown</td>
+<td>Kết quả chưa xác định, không đồng nghĩa failed</td>
+</tr>
+<tr>
+<td>Idempotency</td>
+<td>Retry không tạo hiệu ứng nghiệp vụ lặp</td>
+</tr>
+<tr>
+<td>Source of truth</td>
+<td>Nguồn có thẩm quyền về trạng thái</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="106-sơ-đồ-ghi-nhớ-toàn-bài">106. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Distributed Consistency] --> B[Atomic Commit]
+    A --> C[Consistency Workflow]
+    A --> D[Reliable Messaging]
+    A --> E[Recovery]
+
+    B --> B1[Local ACID]
+    B --> B2[2PC]
+    B --> B3[Distributed SQL]
+
+    C --> C1[Saga]
+    C1 --> C2[Orchestration]
+    C1 --> C3[Choreography]
+    C1 --> C4[Compensation]
+    C1 --> C5[State Machine]
+
+    D --> D1[Outbox]
+    D --> D2[Inbox]
+    D --> D3[Idempotency]
+    D --> D4[At-least-once]
+
+    E --> E1[Retry]
+    E --> E2[Timeout]
+    E --> E3[Reconciliation]
+    E --> E4[Manual Review]
+</div></code></pre>
+<hr>
+<h1 id="107-những-điều-phải-nhớ-sau-bài-14">107. Những điều phải nhớ sau Bài 14</h1>
+<pre class="hljs"><code><div>1. Local ACID transaction là lựa chọn tốt nhất khi dữ liệu có thể nằm cùng consistency boundary.
+2. Distributed transaction xuất hiện khi một business operation chạm nhiều resource độc lập.
+3. Trước khi chọn pattern, phải xác định business invariant.
+4. Dual-write không thể được giải quyết chỉ bằng đổi thứ tự hai operation.
+5. 2PC có hai phase: Prepare và Commit/Abort.
+6. Participant đã prepared có thể phải giữ lock và chờ coordinator.
+7. 2PC cung cấp atomicity mạnh nhưng giảm availability và tăng latency.
+8. 2PC phù hợp transaction ngắn trong môi trường được kiểm soát.
+9. Saga chia workflow thành nhiều local transactions.
+10. Saga thường cung cấp eventual consistency.
+11. Compensation không phải database rollback.
+12. Compensation là business transaction mới và có thể thất bại.
+13. Compensation bắt buộc phải idempotent.
+14. Forward recovery thường phù hợp cho các bước sau pivot.
+15. Orchestration tập trung workflow; choreography phân tán qua event.
+16. Workflow phức tạp thường dễ quản lý hơn bằng orchestration.
+17. Side effect độc lập thường phù hợp choreography.
+18. Hybrid orchestration cho core workflow và choreography cho side effects thường thực tế.
+19. Transactional Outbox giải quyết DB commit cùng việc ghi ý định publish event.
+20. Outbox thường publish at-least-once nên vẫn có duplicate.
+21. Inbox hoặc processed-events giúp consumer deduplicate.
+22. External API cần idempotency key ổn định.
+23. State machine và conditional update bảo vệ transition.
+24. Timeout không có nghĩa operation chắc chắn thất bại.
+25. Pending hoặc unknown là trạng thái hợp lệ.
+26. TCC dùng Try, Confirm và Cancel ở mức nghiệp vụ.
+27. Reservation phải có expiration và cleanup.
+28. Reconciliation là safety net để sửa sai lệch hiếm.
+29. Reconciliation cũng phải idempotent và có audit.
+30. Một số mismatch cần manual review thay vì tự động đoán.
+31. Exactly-once end-to-end thường được xây bằng at-least-once, idempotency và reconciliation.
+32. Phải đo workflow completion, không chỉ latency của API ban đầu.
+33. Microservice boundary nên tôn trọng consistency boundary.
+34. Không nên phân tán dữ liệu phải atomic nếu không có lợi ích rõ ràng.
+</div></code></pre>
+<hr>
+<h1 id="108-bài-tập-thực-hành">108. Bài tập thực hành</h1>
+<p>Thiết kế consistency workflow cho hệ thống đặt phòng khách sạn.</p>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- User chọn phòng
+- Giữ phòng trong 10 phút
+- Áp dụng coupon
+- Authorize payment
+- Confirm booking
+- Gửi email
+- Có thể hủy và refund
+- Hotel inventory, payment và booking nằm ở các service khác nhau
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Business invariant quan trọng nhất là gì?
+2. Dữ liệu nào phải được bảo vệ bằng local transaction?
+3. Có nên dùng 2PC cho toàn workflow không? Vì sao?
+4. Saga nên orchestrate hay choreograph?
+5. Các local transaction là gì?
+6. Compensation của từng bước là gì?
+7. Pivot transaction nằm ở đâu?
+8. Reservation hết hạn được xử lý thế nào?
+9. Payment timeout thì booking chuyển trạng thái nào?
+10. Idempotency key của payment là gì?
+11. Làm sao tránh coupon được hoàn hai lần?
+12. Booking Service publish event bằng cách nào để không mất event?
+13. Consumer deduplicate thế nào?
+14. Reconciliation job cần kiểm tra những mismatch nào?
+15. Trường hợp nào cần manual review?
+16. Workflow SLO nên được định nghĩa thế nào?
+17. Metrics nào phát hiện booking bị stuck?
+18. Khi replay DLQ, guardrail nào cần có?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    User --> BookingAPI
+    BookingAPI --> Orchestrator[Booking Saga Orchestrator]
+
+    Orchestrator --> Room[Room Inventory Service]
+    Orchestrator --> Coupon[Coupon Service]
+    Orchestrator --> Payment[Payment Service]
+    Orchestrator --> Booking[Booking Service]
+
+    Room --> RoomDB[(Room DB + Outbox)]
+    Coupon --> CouponDB[(Coupon DB + Outbox)]
+    Payment --> PaymentDB[(Payment DB + Outbox)]
+    Booking --> BookingDB[(Booking DB + Saga State + Outbox)]
+
+    RoomDB --> Broker
+    CouponDB --> Broker
+    PaymentDB --> Broker
+    BookingDB --> Broker
+
+    Broker --> Notification[Email Consumer]
+    Broker --> Analytics[Analytics Consumer]
+
+    Reconciler[Reconciliation Workers] --> Room
+    Reconciler --> Payment
+    Reconciler --> Booking
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Trong distributed systems, consistency đáng tin cậy không đến từ một pattern duy nhất. Nó được xây bằng consistency boundary hợp lý, local transactions, durable workflow state, idempotency, reliable messaging, compensation và reconciliation.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 15 — Consensus và Leader Election: quorum, majority, Raft ở mức trực giác, term, log replication, commit index, leader election và fencing.</strong></p>
+
+</body>
+</html>

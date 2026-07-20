@@ -1,0 +1,2798 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 33 — Case Study 12: Thiết kế Distributed Web Crawler.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-33--case-study-12-thiết-kế-distributed-web-crawler">Bài 33 — Case Study 12: Thiết kế Distributed Web Crawler</h1>
+<p>Distributed Web Crawler là hệ thống tự động:</p>
+<pre class="hljs"><code><div>Nhận một tập URL ban đầu
+→ Chọn URL được phép crawl
+→ Tải nội dung
+→ Phân tích trang
+→ Trích xuất liên kết mới
+→ Chuẩn hóa và loại trùng URL
+→ Đưa URL hợp lệ trở lại hàng đợi
+→ Lặp lại
+</div></code></pre>
+<p>Crawler là nền tảng của:</p>
+<pre class="hljs"><code><div>- Công cụ tìm kiếm
+- Hệ thống lưu trữ web
+- Price comparison
+- News aggregation
+- SEO monitoring
+- Security scanning
+- Dataset collection
+- Broken-link detection
+</div></code></pre>
+<p>Bề ngoài, crawler chỉ cần gửi HTTP request và lấy HTML. Nhưng một crawler production phải xử lý:</p>
+<pre class="hljs"><code><div>- Hàng tỷ URL
+- Hàng triệu domain và host
+- robots.txt khác nhau
+- Giới hạn tốc độ cho từng website
+- DNS lỗi hoặc chậm
+- Redirect loops
+- Duplicate URL và duplicate content
+- Infinite calendars và URL parameters
+- Website trả nội dung động
+- Retry mà không tấn công website
+- Lịch recrawl khác nhau cho từng trang
+- Multi-region nhưng vẫn giữ politeness toàn cục
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Seeds
+→ URL normalization và deduplication
+→ URL frontier
+→ Host-aware scheduler
+→ DNS và robots policy
+→ Fetchers
+→ Parser
+→ Content deduplication
+→ Link extraction
+→ Frontier
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế một crawler web tổng quát hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Nhận seed URLs.
+2. Crawl HTTP và HTTPS.
+3. Tôn trọng robots.txt.
+4. Tôn trọng crawl-delay hoặc policy nội bộ.
+5. Giới hạn concurrency theo host/domain.
+6. Theo dõi redirect.
+7. Chuẩn hóa URL.
+8. Loại URL trùng.
+9. Phân tích HTML và trích xuất links.
+10. Loại content trùng hoặc gần trùng.
+11. Retry lỗi tạm thời.
+12. Phát hiện crawler traps.
+13. Lên lịch recrawl.
+14. Scale nhiều máy và nhiều region.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Xếp hạng kết quả tìm kiếm
+- Full web indexing
+- Semantic understanding
+- Browser engine hoàn chỉnh
+- CAPTCHA solving
+- Bypass anti-bot systems
+- Crawl nội dung yêu cầu đăng nhập
+</div></code></pre>
+<p>Crawler phải hoạt động có trách nhiệm, không cố vượt qua các cơ chế kiểm soát truy cập.</p>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="url-ingestion">URL ingestion</h2>
+<pre class="hljs"><code><div>- Nhận seed URLs.
+- Nhận URLs từ parser.
+- Nhận sitemap URLs.
+- Nhận URLs từ external feeds.
+</div></code></pre>
+<h2 id="fetching">Fetching</h2>
+<pre class="hljs"><code><div>- HTTP GET và HEAD khi phù hợp.
+- Redirect handling.
+- Compression.
+- Conditional requests.
+- Timeouts.
+- Response size limits.
+</div></code></pre>
+<h2 id="policy">Policy</h2>
+<pre class="hljs"><code><div>- robots.txt.
+- Politeness.
+- Domain allowlist/denylist.
+- Content-type filtering.
+- Crawl budget.
+</div></code></pre>
+<h2 id="parsing">Parsing</h2>
+<pre class="hljs"><code><div>- Parse HTML.
+- Extract links.
+- Resolve relative URLs.
+- Extract canonical URL.
+- Extract metadata.
+- Detect language/content type.
+</div></code></pre>
+<h2 id="scheduling">Scheduling</h2>
+<pre class="hljs"><code><div>- New URL scheduling.
+- Retry scheduling.
+- Recrawl scheduling.
+- Priority.
+- Per-host pacing.
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Không gửi quá nhiều request tới một host.
+- Không crawl URL bị robots.txt cấm.
+- Không fetch cùng URL quá nhiều lần không cần thiết.
+- Có khả năng xử lý hàng tỷ URL.
+- Không để một domain lớn chiếm toàn bộ tài nguyên.
+- Không để một host lỗi làm treo worker.
+- Dữ liệu frontier phải durable.
+- Duplicate processing phải idempotent.
+- Có thể phục hồi sau worker hoặc region failure.
+- Dễ mở rộng thêm fetchers và parsers.
+</div></code></pre>
+<hr>
+<h1 id="4-những-khái-niệm-chính">4. Những khái niệm chính</h1>
+<h2 id="seed-url">Seed URL</h2>
+<p>URL khởi đầu:</p>
+<pre class="hljs"><code><div>https://example.com/
+https://news.example.org/
+</div></code></pre>
+<h2 id="url-frontier">URL frontier</h2>
+<p>Tập các URL đang chờ được crawl.</p>
+<h2 id="fetcher">Fetcher</h2>
+<p>Worker tải nội dung qua HTTP.</p>
+<h2 id="parser">Parser</h2>
+<p>Phân tích response và trích xuất links.</p>
+<h2 id="politeness">Politeness</h2>
+<p>Không gửi request quá nhanh hoặc quá nhiều tới cùng website.</p>
+<h2 id="recrawl">Recrawl</h2>
+<p>Crawl lại trang đã từng fetch để phát hiện thay đổi.</p>
+<hr>
+<h1 id="5-capacity-estimation">5. Capacity Estimation</h1>
+<p>Giả sử mục tiêu:</p>
+<pre class="hljs"><code><div>10 tỷ URL đã biết
+1 tỷ URL crawl mỗi ngày
+Average response body = 500 KB
+</div></code></pre>
+<p>Average fetch rate:</p>
+<pre class="hljs"><code><div>1.000.000.000 / 86.400
+≈ 11.600 requests/giây
+</div></code></pre>
+<p>Peak:</p>
+<pre class="hljs"><code><div>≈ 50.000–100.000 requests/giây
+</div></code></pre>
+<p>Bandwidth raw:</p>
+<pre class="hljs"><code><div>1 tỷ × 500 KB
+≈ 500 TB/ngày
+</div></code></pre>
+<p>Chưa tính:</p>
+<pre class="hljs"><code><div>- HTTP headers
+- Retries
+- Redirects
+- Compression differences
+- Rendered resources
+- Replication
+</div></code></pre>
+<p>Crawler thường bị giới hạn bởi:</p>
+<pre class="hljs"><code><div>- Network bandwidth
+- Remote host politeness
+- DNS
+- Parsing CPU
+- Storage throughput
+</div></code></pre>
+<p>không chỉ bởi số lượng worker.</p>
+<hr>
+<h1 id="6-metadata-volume">6. Metadata Volume</h1>
+<p>Mỗi URL record có thể lưu:</p>
+<pre class="hljs"><code><div>normalized URL
+URL hash
+host
+priority
+next fetch time
+last fetch status
+retry count
+content hash
+robots policy version
+</div></code></pre>
+<p>Giả sử 300 bytes/URL:</p>
+<pre class="hljs"><code><div>10 tỷ × 300 bytes
+≈ 3 TB raw metadata
+</div></code></pre>
+<p>Với index, replication và history, con số có thể lớn hơn nhiều.</p>
+<hr>
+<h1 id="7-high-level-architecture">7. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Seeds[Seed URLs / Sitemaps / External Feeds] --> Ingest[URL Ingestion]
+
+    Ingest --> Normalize[URL Normalize + Canonicalize]
+    Normalize --> URLDedup[URL Deduplication]
+    URLDedup --> Frontier[(Distributed URL Frontier)]
+
+    Frontier --> Scheduler[Host-Aware Scheduler]
+    Scheduler --> Robots[Robots Policy Service]
+    Scheduler --> DNS[DNS Resolver / Cache]
+    Scheduler --> FetchQueue[Ready Fetch Queue]
+
+    FetchQueue --> Fetchers[Distributed Fetchers]
+    Fetchers --> RawStore[(Raw Content Store)]
+    Fetchers --> ResponseEvents[Fetch Result Stream]
+
+    ResponseEvents --> Parser[HTML / Content Parser]
+    Parser --> ContentDedup[Content Deduplication]
+    Parser --> LinkExtractor[Link Extraction]
+
+    LinkExtractor --> Normalize
+    ContentDedup --> IndexPipeline[Downstream Index / Archive]
+
+    ResponseEvents --> RetryScheduler[Retry / Recrawl Scheduler]
+    RetryScheduler --> Frontier
+</div></code></pre>
+<hr>
+<h1 id="8-hai-đường-chính-của-crawler">8. Hai đường chính của crawler</h1>
+<h2 id="scheduling-path">Scheduling path</h2>
+<pre class="hljs"><code><div>URL
+→ Normalize
+→ Deduplicate
+→ Prioritize
+→ Check robots
+→ Apply politeness
+→ Dispatch
+</div></code></pre>
+<h2 id="processing-path">Processing path</h2>
+<pre class="hljs"><code><div>Fetch response
+→ Store raw content
+→ Parse
+→ Deduplicate content
+→ Extract links
+→ Generate metadata
+→ Schedule new URLs/recrawl
+</div></code></pre>
+<p>Hai đường nên được tách bằng durable queues hoặc event streams.</p>
+<hr>
+<h1 id="9-url-frontier-là-gì">9. URL Frontier là gì?</h1>
+<p>URL frontier không chỉ là một FIFO queue.</p>
+<p>Nó phải quyết định:</p>
+<pre class="hljs"><code><div>- URL nào có priority cao hơn?
+- Host nào đã đủ thời gian chờ?
+- Website nào đang bị rate limited?
+- URL nào đang retry?
+- URL nào cần recrawl?
+- URL nào đã hết crawl budget?
+</div></code></pre>
+<p>Một frontier tốt kết hợp:</p>
+<pre class="hljs"><code><div>Priority scheduling
++
+Per-host politeness
++
+Delayed scheduling
++
+Durability
+</div></code></pre>
+<hr>
+<h1 id="10-vì-sao-một-queue-toàn-cục-không-đủ">10. Vì sao một Queue toàn cục không đủ?</h1>
+<p>Nếu đặt mọi URL vào một queue:</p>
+<pre class="hljs"><code><div>example.com/a
+example.com/b
+example.com/c
+other.com/x
+</div></code></pre>
+<p>Nhiều workers có thể lấy ba URL đầu cùng lúc và bombard <code>example.com</code>.</p>
+<p>Ngoài ra:</p>
+<pre class="hljs"><code><div>- Không kiểm soát khoảng cách giữa requests cùng host.
+- Một domain lớn có thể chiếm queue.
+- Không hỗ trợ delayed retry tốt.
+</div></code></pre>
+<p>Cần host-aware scheduling.</p>
+<hr>
+<h1 id="11-kiến-trúc-frontier-hai-tầng">11. Kiến trúc Frontier hai tầng</h1>
+<p>Một mô hình phổ biến:</p>
+<pre class="hljs"><code><div>Front queues:
+Sắp xếp theo priority.
+
+Back queues:
+Sắp xếp theo host và politeness.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    NewURLs --> P0[Priority Queue 0]
+    NewURLs --> P1[Priority Queue 1]
+    NewURLs --> P2[Priority Queue 2]
+
+    P0 --> Selector[Priority Selector]
+    P1 --> Selector
+    P2 --> Selector
+
+    Selector --> H1[Host Queue example.com]
+    Selector --> H2[Host Queue news.com]
+    Selector --> H3[Host Queue shop.com]
+
+    H1 --> HostHeap[Next-Eligible-Time Heap]
+    H2 --> HostHeap
+    H3 --> HostHeap
+
+    HostHeap --> Fetchers
+</div></code></pre>
+<hr>
+<h1 id="12-front-queues-theo-priority">12. Front Queues theo Priority</h1>
+<p>Priority có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Seed importance
+- Page quality
+- Link depth
+- Domain reputation
+- Page freshness
+- Sitemap priority
+- Historical change frequency
+- Product/business value
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Priority 0:
+Critical news/homepages
+
+Priority 1:
+Recently changed pages
+
+Priority 2:
+Normal discovered links
+
+Priority 3:
+Deep/low-value pages
+</div></code></pre>
+<hr>
+<h1 id="13-không-để-low-priority-starvation">13. Không để Low-Priority Starvation</h1>
+<p>Nếu luôn chọn priority cao nhất:</p>
+<pre class="hljs"><code><div>Low-priority URLs có thể không bao giờ được crawl.
+</div></code></pre>
+<p>Có thể dùng weighted scheduling:</p>
+<pre class="hljs"><code><div>Priority 0: 50%
+Priority 1: 30%
+Priority 2: 15%
+Priority 3: 5%
+</div></code></pre>
+<p>Hoặc aging:</p>
+<pre class="hljs"><code><div>URL chờ càng lâu
+→ effective priority tăng
+</div></code></pre>
+<hr>
+<h1 id="14-back-queue-theo-host">14. Back Queue theo Host</h1>
+<p>Mỗi host có queue riêng:</p>
+<pre class="hljs"><code><div>example.com
+→ /a
+→ /b
+→ /c
+</div></code></pre>
+<p>Scheduler chỉ cho host đó xuất URL khi:</p>
+<pre class="hljs"><code><div>now &gt;= nextEligibleFetchTime(host)
+</div></code></pre>
+<p>Sau khi dispatch:</p>
+<pre class="hljs"><code><div>nextEligibleFetchTime =
+now + politenessDelay
+</div></code></pre>
+<hr>
+<h1 id="15-next-eligible-time-heap">15. Next-Eligible-Time Heap</h1>
+<p>Scheduler giữ min-heap:</p>
+<pre class="hljs"><code><div>(nextEligibleTime, hostId)
+</div></code></pre>
+<p>Host có thời gian nhỏ nhất được chọn trước.</p>
+<p>Nếu chưa tới thời gian:</p>
+<pre class="hljs"><code><div>Scheduler ngủ hoặc chờ delayed queue.
+</div></code></pre>
+<p>Điều này hỗ trợ hàng triệu host mà không cần poll tất cả.</p>
+<hr>
+<h1 id="16-host-domain-và-origin">16. Host, Domain và Origin</h1>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>URL:
+https://www.example.com:443/page
+
+Scheme:
+https
+
+Host:
+www.example.com
+
+Port:
+443
+
+Origin:
+https://www.example.com:443
+
+Registrable domain:
+example.com
+</div></code></pre>
+<p>Politeness có thể áp theo:</p>
+<pre class="hljs"><code><div>- Host
+- Origin
+- Registrable domain
+- IP address
+</div></code></pre>
+<hr>
+<h1 id="17-vì-sao-chỉ-rate-limit-theo-host-chưa-đủ">17. Vì sao chỉ Rate Limit theo Host chưa đủ?</h1>
+<p>Các host:</p>
+<pre class="hljs"><code><div>a.example.com
+b.example.com
+c.example.com
+</div></code></pre>
+<p>có thể cùng trỏ tới một server/IP.</p>
+<p>Nếu mỗi host được crawl mạnh:</p>
+<pre class="hljs"><code><div>Cùng một origin infrastructure vẫn bị quá tải.
+</div></code></pre>
+<p>Có thể áp nhiều tầng:</p>
+<pre class="hljs"><code><div>- Per-host limit
+- Per-domain limit
+- Per-IP limit
+- Global network limit
+</div></code></pre>
+<hr>
+<h1 id="18-politeness">18. Politeness</h1>
+<p>Politeness có hai thành phần:</p>
+<pre class="hljs"><code><div>1. Delay giữa requests.
+2. Maximum concurrent requests.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>example.com:
+delay = 2 giây
+maxConcurrency = 1
+</div></code></pre>
+<p>Website lớn hoặc crawler được phép có thể:</p>
+<pre class="hljs"><code><div>delay = 100 ms
+maxConcurrency = 8
+</div></code></pre>
+<hr>
+<h1 id="19-adaptive-politeness">19. Adaptive Politeness</h1>
+<p>Không nên dùng cùng delay cho mọi host.</p>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- robots.txt crawl-delay nếu hỗ trợ
+- Historical response latency
+- HTTP 429/503 rate
+- Server capacity signals
+- Site size
+- Explicit crawl agreement
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Host trả 429
+→ Tăng delay
+
+Host phản hồi nhanh, không lỗi
+→ Có thể tăng dần concurrency trong giới hạn
+</div></code></pre>
+<hr>
+<h1 id="20-politeness-phải-được-phối-hợp-toàn-cục">20. Politeness phải được phối hợp toàn cục</h1>
+<p>Nếu ba regions cùng crawl <code>example.com</code> độc lập:</p>
+<pre class="hljs"><code><div>Mỗi region nghĩ mình chỉ gửi 1 request/giây
+→ Website thực tế nhận 3 request/giây.
+</div></code></pre>
+<p>Multi-region cần:</p>
+<pre class="hljs"><code><div>- Một host owner duy nhất
+- Hoặc distributed global rate limiter
+- Hoặc partition host ranges theo region
+</div></code></pre>
+<p>Host ownership thường đơn giản hơn.</p>
+<hr>
+<h1 id="21-url-canonicalization-và-normalization">21. URL Canonicalization và Normalization</h1>
+<p>Cùng một tài nguyên có thể có nhiều URL forms:</p>
+<pre class="hljs"><code><div>HTTP://EXAMPLE.COM:80/a
+http://example.com/a
+http://example.com/a#section
+</div></code></pre>
+<p>URL normalization giảm duplicate crawl.</p>
+<p>Nhưng normalization quá mạnh có thể gộp hai tài nguyên khác nhau.</p>
+<hr>
+<h1 id="22-các-bước-url-normalization-an-toàn">22. Các bước URL Normalization an toàn</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Lowercase scheme.
+- Lowercase host.
+- Remove default port.
+- Normalize percent encoding.
+- Remove fragment.
+- Resolve dot segments.
+- Normalize empty path thành &quot;/&quot;.
+- Convert IDN host sang canonical form.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>HTTPS://Example.COM:443/a/../b#top
+</div></code></pre>
+<p>thành:</p>
+<pre class="hljs"><code><div>https://example.com/b
+</div></code></pre>
+<hr>
+<h1 id="23-fragment">23. Fragment</h1>
+<p>Phần sau <code>#</code> thường không được gửi tới server:</p>
+<pre class="hljs"><code><div>https://example.com/page#section1
+https://example.com/page#section2
+</div></code></pre>
+<p>HTTP fetch giống nhau.</p>
+<p>Crawler thường bỏ fragment.</p>
+<p>Ngoại lệ:</p>
+<pre class="hljs"><code><div>Single-page applications
+</div></code></pre>
+<p>có thể dùng client-side routing, nhưng crawler không nên mặc định coi mọi hash route là tài nguyên khác.</p>
+<hr>
+<h1 id="24-query-parameters">24. Query Parameters</h1>
+<p>URL:</p>
+<pre class="hljs"><code><div>/product?id=123&amp;utm_source=email
+</div></code></pre>
+<p><code>utm_source</code> thường không thay đổi nội dung chính.</p>
+<p>Nhưng:</p>
+<pre class="hljs"><code><div>/product?color=red
+/product?color=blue
+</div></code></pre>
+<p>có thể khác nội dung.</p>
+<p>Không thể xóa mọi query parameter.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Parameter allowlist/denylist.
+- Per-domain rules.
+- Canonical tag.
+- Content similarity feedback.
+</div></code></pre>
+<hr>
+<h1 id="25-query-parameter-ordering">25. Query Parameter Ordering</h1>
+<p>Các URL:</p>
+<pre class="hljs"><code><div>/search?a=1&amp;b=2
+/search?b=2&amp;a=1
+</div></code></pre>
+<p>có thể tương đương, nhưng không phải mọi server đều xử lý như nhau.</p>
+<p>Chỉ sort query parameters khi policy cho phép.</p>
+<p>Một normalization an toàn hơn:</p>
+<pre class="hljs"><code><div>Giữ semantics gốc,
+nhưng có thể tạo secondary fingerprint để phát hiện duplicates.
+</div></code></pre>
+<hr>
+<h1 id="26-trailing-slash">26. Trailing Slash</h1>
+<pre class="hljs"><code><div>https://example.com/docs
+https://example.com/docs/
+</div></code></pre>
+<p>có thể:</p>
+<pre class="hljs"><code><div>- Giống nhau
+- Redirect
+- Hoàn toàn khác
+</div></code></pre>
+<p>Không tự động gộp nếu chưa có evidence.</p>
+<p>Có thể học từ redirect hoặc canonical tag.</p>
+<hr>
+<h1 id="27-percent-encoding">27. Percent Encoding</h1>
+<p>Các URL:</p>
+<pre class="hljs"><code><div>/a%2Fb
+/a/b
+</div></code></pre>
+<p>không phải lúc nào tương đương.</p>
+<p>Normalization phải hiểu:</p>
+<pre class="hljs"><code><div>- Reserved characters
+- Unreserved characters
+</div></code></pre>
+<p>Chỉ decode/normalize unreserved characters an toàn.</p>
+<hr>
+<h1 id="28-url-identity">28. URL Identity</h1>
+<p>Một URL record nên có:</p>
+<pre class="hljs"><code><div>canonicalNormalizedUrl
+urlHash
+hostId
+discoveredFrom
+depth
+firstSeenAt
+lastSeenAt
+</div></code></pre>
+<p><code>urlHash</code> giúp:</p>
+<pre class="hljs"><code><div>- Dedup lookup
+- Partitioning
+- Compact storage
+</div></code></pre>
+<p>Nhưng collision phải được xử lý hoặc dùng hash đủ mạnh.</p>
+<hr>
+<h1 id="29-url-deduplication">29. URL Deduplication</h1>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Không đưa cùng normalized URL vào frontier nhiều lần không cần thiết.
+</div></code></pre>
+<p>Các cách:</p>
+<pre class="hljs"><code><div>- Exact key-value set
+- Database unique constraint
+- Bloom filter
+- Cuckoo filter
+- Partitioned URL registry
+</div></code></pre>
+<hr>
+<h1 id="30-exact-url-registry">30. Exact URL Registry</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>urlHash
+normalizedUrl
+crawlState
+lastFetchAt
+nextFetchAt
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Chính xác
+- Hỗ trợ metadata
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Storage và lookup lớn
+</div></code></pre>
+<hr>
+<h1 id="31-bloom-filter">31. Bloom Filter</h1>
+<p>Bloom filter trả lời:</p>
+<pre class="hljs"><code><div>URL có thể đã thấy chưa?
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Không có false negative.
+- Có false positive.
+</div></code></pre>
+<p>False positive:</p>
+<pre class="hljs"><code><div>URL mới bị coi nhầm là đã thấy
+→ Có thể bỏ lỡ crawl.
+</div></code></pre>
+<p>Phù hợp như L1 filter trước exact registry, không nhất thiết làm source of truth duy nhất.</p>
+<hr>
+<h1 id="32-layered-url-dedup">32. Layered URL Dedup</h1>
+<p>Một thiết kế:</p>
+<pre class="hljs"><code><div>1. In-process cache cho URLs rất gần đây.
+2. Bloom filter theo shard.
+3. Exact URL registry.
+</div></code></pre>
+<p>Flow:</p>
+<pre class="hljs"><code><div>L1 miss
+→ Bloom says definitely new
+→ Exact insert
+
+Bloom says maybe exists
+→ Check exact registry
+</div></code></pre>
+<hr>
+<h1 id="33-url-discovery-idempotency">33. URL Discovery Idempotency</h1>
+<p>Parser có thể phát hiện cùng link từ nhiều pages.</p>
+<p>Command:</p>
+<pre class="hljs"><code><div>DiscoverURL(normalizedUrl, sourcePageId)
+</div></code></pre>
+<p>Insert dùng unique key trên normalized URL.</p>
+<p>Nếu đã tồn tại:</p>
+<pre class="hljs"><code><div>- Cập nhật in-link count.
+- Cập nhật lastSeenAt.
+- Có thể tăng priority.
+</div></code></pre>
+<p>Không enqueue bản sao mới vô điều kiện.</p>
+<hr>
+<h1 id="34-canonical-url-từ-html">34. Canonical URL từ HTML</h1>
+<p>Trang có thể khai báo:</p>
+<pre class="hljs"><code><div><span class="hljs-tag">&lt;<span class="hljs-name">link</span> <span class="hljs-attr">rel</span>=<span class="hljs-string">&quot;canonical&quot;</span> <span class="hljs-attr">href</span>=<span class="hljs-string">&quot;https://example.com/article&quot;</span>&gt;</span>
+</div></code></pre>
+<p>Crawler có thể dùng để:</p>
+<pre class="hljs"><code><div>- Nhóm duplicates.
+- Chọn URL đại diện.
+- Giảm indexing trùng.
+</div></code></pre>
+<p>Nhưng canonical tag chỉ là hint.</p>
+<p>Website có thể cấu hình sai hoặc độc hại.</p>
+<hr>
+<h1 id="35-redirect-canonicalization">35. Redirect Canonicalization</h1>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>http://example.com
+→ 301
+https://www.example.com/
+</div></code></pre>
+<p>Crawler có thể ghi:</p>
+<pre class="hljs"><code><div>source URL
+→ redirect target
+</div></code></pre>
+<p>Permanent redirects là tín hiệu canonical mạnh hơn temporary redirects.</p>
+<p>Cần giới hạn redirect chain.</p>
+<hr>
+<h1 id="36-redirect-handling">36. Redirect Handling</h1>
+<p>Các status:</p>
+<pre class="hljs"><code><div>301 / 308:
+Permanent
+
+302 / 307:
+Temporary
+
+303:
+See Other
+</div></code></pre>
+<p>Crawler cần:</p>
+<pre class="hljs"><code><div>- Resolve relative Location header.
+- Normalize target.
+- Check robots cho target.
+- Deduplicate target.
+- Detect loop.
+</div></code></pre>
+<hr>
+<h1 id="37-redirect-loop">37. Redirect Loop</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>A → B
+B → C
+C → A
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Visited URLs trong chain.
+- Maximum redirect hops, ví dụ 10.
+</div></code></pre>
+<p>Nếu vượt:</p>
+<pre class="hljs"><code><div>REDIRECT_LOOP hoặc TOO_MANY_REDIRECTS
+</div></code></pre>
+<hr>
+<h1 id="38-robotstxt">38. robots.txt</h1>
+<p>Crawler tải:</p>
+<pre class="hljs"><code><div>https://example.com/robots.txt
+</div></code></pre>
+<p>File có thể chứa:</p>
+<pre class="hljs"><code><div>User-agent: *
+Disallow: /private/
+Allow: /private/public/
+</div></code></pre>
+<p>Crawler phải xác định:</p>
+<pre class="hljs"><code><div>URL nào được phép fetch cho user-agent của mình.
+</div></code></pre>
+<hr>
+<h1 id="39-robots-policy-service">39. Robots Policy Service</h1>
+<p>Trách nhiệm:</p>
+<pre class="hljs"><code><div>- Fetch robots.txt.
+- Parse rules.
+- Cache policy.
+- Apply theo user-agent.
+- Track expiration.
+- Handle unavailable robots.
+</div></code></pre>
+<p>Không nên mỗi fetcher tự tải robots độc lập.</p>
+<hr>
+<h1 id="40-robots-cache">40. Robots Cache</h1>
+<p>Key:</p>
+<pre class="hljs"><code><div>origin/host + crawlerUserAgent
+</div></code></pre>
+<p>Value:</p>
+<pre class="hljs"><code><div>rules
+fetchedAt
+expiresAt
+HTTP status
+ETag
+Last-Modified
+</div></code></pre>
+<p>Robots thường cache vài giờ hoặc một ngày, nhưng policy tùy crawler.</p>
+<hr>
+<h1 id="41-robotstxt-fetch-cũng-cần-politeness">41. robots.txt Fetch cũng cần Politeness</h1>
+<p>Không được mỗi worker cùng nhận URL mới của host và đồng thời tải robots.txt.</p>
+<p>Dùng single-flight:</p>
+<pre class="hljs"><code><div>Một worker fetch robots.
+Các requests khác chờ policy.
+</div></code></pre>
+<hr>
+<h1 id="42-robots-failure-policy">42. Robots Failure Policy</h1>
+<p>Các trường hợp:</p>
+<h2 id="404">404</h2>
+<p>Thường được hiểu:</p>
+<pre class="hljs"><code><div>Không có robots file
+→ Không có rule cấm
+</div></code></pre>
+<h2 id="401403">401/403</h2>
+<p>Có thể xem là không được crawl hoặc áp policy thận trọng.</p>
+<h2 id="5xxtimeout">5xx/timeout</h2>
+<p>Không nên ngay lập tức crawl toàn site.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Retry robots.
+- Temporarily pause host.
+- Dùng cached policy cũ nếu còn hợp lệ.
+</div></code></pre>
+<hr>
+<h1 id="43-robots-và-redirect">43. Robots và Redirect</h1>
+<p><code>robots.txt</code> có thể redirect.</p>
+<p>Cần giới hạn redirects và xác định policy rõ.</p>
+<p>Không để redirect robots sang domain tùy ý làm thay đổi quyền crawl của host gốc.</p>
+<hr>
+<h1 id="44-sitemap">44. Sitemap</h1>
+<p>robots.txt có thể khai báo:</p>
+<pre class="hljs"><code><div>Sitemap: https://example.com/sitemap.xml
+</div></code></pre>
+<p>Sitemap giúp:</p>
+<pre class="hljs"><code><div>- Discover pages không được link trực tiếp.
+- Nhận lastmod.
+- Nhận cấu trúc lớn.
+</div></code></pre>
+<p>Crawler nên xử lý sitemap riêng với size/depth limits.</p>
+<hr>
+<h1 id="45-sitemap-index">45. Sitemap Index</h1>
+<p>Một sitemap index có thể trỏ tới nhiều sitemap:</p>
+<pre class="hljs"><code><div><span class="hljs-tag">&lt;<span class="hljs-name">sitemapindex</span>&gt;</span>
+  <span class="hljs-tag">&lt;<span class="hljs-name">sitemap</span>&gt;</span>
+    <span class="hljs-tag">&lt;<span class="hljs-name">loc</span>&gt;</span>https://example.com/sitemap-1.xml<span class="hljs-tag">&lt;/<span class="hljs-name">loc</span>&gt;</span>
+  <span class="hljs-tag">&lt;/<span class="hljs-name">sitemap</span>&gt;</span>
+<span class="hljs-tag">&lt;/<span class="hljs-name">sitemapindex</span>&gt;</span>
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Recursion limit.
+- Entry count limit.
+- Compression limit.
+- Domain policy.
+</div></code></pre>
+<hr>
+<h1 id="46-dns-resolution">46. DNS Resolution</h1>
+<p>Fetcher cần:</p>
+<pre class="hljs"><code><div>host → IP addresses
+</div></code></pre>
+<p>DNS có thể trở thành bottleneck nếu mọi request tự resolve.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Shared DNS cache.
+- Async resolver.
+- TTL.
+- Negative caching.
+- Resolver redundancy.
+</div></code></pre>
+<hr>
+<h1 id="47-dns-cache">47. DNS Cache</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>host
+A/AAAA records
+TTL
+resolvedAt
+status
+</div></code></pre>
+<p>Không giữ IP quá TTL tùy tiện vì host có thể đổi địa chỉ.</p>
+<p>Nhưng TTL quá ngắn tạo DNS load lớn.</p>
+<hr>
+<h1 id="48-negative-dns-caching">48. Negative DNS Caching</h1>
+<p>Nếu host không tồn tại:</p>
+<pre class="hljs"><code><div>NXDOMAIN
+</div></code></pre>
+<p>cache trong khoảng phù hợp.</p>
+<p>Không retry DNS mỗi giây cho domain lỗi.</p>
+<p>Nhưng negative cache cũng phải có expiry vì DNS có thể được tạo sau.</p>
+<hr>
+<h1 id="49-dns-rebinding-và-ssrf">49. DNS Rebinding và SSRF</h1>
+<p>Crawler fetch URLs từ nguồn không đáng tin.</p>
+<p>Attacker có thể đưa URL trỏ tới:</p>
+<pre class="hljs"><code><div>- 127.0.0.1
+- 169.254.169.254
+- Internal database
+- Private network
+</div></code></pre>
+<p>Crawler phải chống SSRF.</p>
+<hr>
+<h1 id="50-network-egress-policy">50. Network Egress Policy</h1>
+<p>Trước fetch:</p>
+<pre class="hljs"><code><div>- Resolve DNS.
+- Kiểm tra tất cả IP.
+- Chặn private, loopback, link-local, metadata ranges.
+- Kiểm tra lại sau redirect.
+- Kiểm tra lại khi DNS thay đổi.
+</div></code></pre>
+<p>Không chỉ validate hostname text.</p>
+<hr>
+<h1 id="51-dns-pinning">51. DNS Pinning</h1>
+<p>Giữa lúc kiểm tra và kết nối, DNS có thể đổi.</p>
+<p>An toàn hơn:</p>
+<pre class="hljs"><code><div>1. Resolve.
+2. Validate IP.
+3. Kết nối trực tiếp tới IP đã validate.
+4. Gửi đúng Host/SNI.
+</div></code></pre>
+<p>Redirect target lại phải được resolve và validate riêng.</p>
+<hr>
+<h1 id="52-fetcher-architecture">52. Fetcher Architecture</h1>
+<p>Fetcher worker chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Nhận fetch task.
+- Resolve DNS.
+- Mở connection.
+- Gửi HTTP request.
+- Enforce timeout.
+- Enforce size limit.
+- Stream response.
+- Tính checksum.
+- Ghi raw response.
+- Phát result event.
+</div></code></pre>
+<p>Không nên parser nặng ngay trong fetcher.</p>
+<hr>
+<h1 id="53-fetch-task">53. Fetch Task</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;fetchTaskId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ft_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;urlId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;url_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;url&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;https://example.com/article&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;hostId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;host_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;robotsPolicyVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;maxBytes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10485760</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;deadline&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;attempt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Task cần stable ID để retry idempotently.</p>
+<hr>
+<h1 id="54-http-request-headers">54. HTTP Request Headers</h1>
+<p>Crawler thường gửi:</p>
+<pre class="hljs"><code><div>User-Agent
+Accept
+Accept-Encoding
+If-None-Match
+If-Modified-Since
+</div></code></pre>
+<p>User-Agent nên minh bạch và có contact information khi phù hợp.</p>
+<p>Không giả mạo browser nếu không có lý do hợp lệ.</p>
+<hr>
+<h1 id="55-connection-pooling">55. Connection Pooling</h1>
+<p>Reuse TCP/TLS connections giảm:</p>
+<pre class="hljs"><code><div>- Handshake latency
+- CPU
+- Network overhead
+</div></code></pre>
+<p>Nhưng phải tôn trọng:</p>
+<pre class="hljs"><code><div>- Per-host concurrency
+- Connection timeout
+- Server keep-alive policy
+</div></code></pre>
+<p>Fetcher pool có thể giữ connections theo origin.</p>
+<hr>
+<h1 id="56-http2-và-http3">56. HTTP/2 và HTTP/3</h1>
+<p>Multiplexing có thể tăng hiệu quả, nhưng:</p>
+<pre class="hljs"><code><div>Một connection có thể gửi nhiều streams cùng lúc.
+</div></code></pre>
+<p>Politeness vẫn phải giới hạn request concurrency logic.</p>
+<p>Không vì HTTP/2 hỗ trợ 100 streams mà crawler gửi 100 requests đồng thời.</p>
+<hr>
+<h1 id="57-timeouts">57. Timeouts</h1>
+<p>Cần nhiều timeout riêng:</p>
+<pre class="hljs"><code><div>- DNS timeout
+- Connection timeout
+- TLS timeout
+- Header timeout
+- Idle read timeout
+- Overall deadline
+</div></code></pre>
+<p>Một timeout tổng duy nhất khó debug và không xử lý slowloris tốt.</p>
+<hr>
+<h1 id="58-response-size-limit">58. Response Size Limit</h1>
+<p>Website có thể trả file cực lớn hoặc vô hạn.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Maximum Content-Length.
+- Maximum streamed bytes.
+- Per-content-type limits.
+- Early abort.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>HTML: 10 MB
+PDF: 100 MB
+Video: không crawl hoặc giới hạn riêng
+</div></code></pre>
+<hr>
+<h1 id="59-content-type-filtering">59. Content-Type Filtering</h1>
+<p>Crawler có thể chỉ quan tâm:</p>
+<pre class="hljs"><code><div>text/html
+application/xhtml+xml
+application/pdf
+text/plain
+</div></code></pre>
+<p>Nếu không cần media:</p>
+<pre class="hljs"><code><div>image/*
+video/*
+application/octet-stream
+</div></code></pre>
+<p>có thể bỏ hoặc lưu metadata בלבד.</p>
+<p>Không tin hoàn toàn <code>Content-Type</code>; có thể sniff có kiểm soát.</p>
+<hr>
+<h1 id="60-compression-bomb">60. Compression Bomb</h1>
+<p>Response gzip nhỏ có thể giải nén thành dữ liệu khổng lồ.</p>
+<p>Cần giới hạn:</p>
+<pre class="hljs"><code><div>- Compressed bytes
+- Decompressed bytes
+- Expansion ratio
+- CPU time
+</div></code></pre>
+<p>Không chỉ kiểm tra <code>Content-Length</code> của compressed body.</p>
+<hr>
+<h1 id="61-streaming-fetch">61. Streaming Fetch</h1>
+<p>Không nên giữ toàn response trong RAM.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>Network stream
+→ Size/checksum enforcement
+→ Raw content storage
+→ Parser stream hoặc event
+</div></code></pre>
+<p>Giúp xử lý responses lớn và giảm memory pressure.</p>
+<hr>
+<h1 id="62-raw-content-store">62. Raw Content Store</h1>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>fetchId
+URL
+HTTP status
+headers
+body object key
+fetchedAt
+checksum
+</div></code></pre>
+<p>Raw content giúp:</p>
+<pre class="hljs"><code><div>- Reparse bằng parser mới.
+- Audit.
+- Build search index.
+- Content archive.
+</div></code></pre>
+<p>Retention phụ thuộc mục tiêu crawler.</p>
+<hr>
+<h1 id="63-fetch-result-states">63. Fetch Result States</h1>
+<pre class="hljs"><code><div>SUCCESS
+NOT_MODIFIED
+REDIRECT
+ROBOTS_DENIED
+DNS_FAILED
+CONNECT_TIMEOUT
+READ_TIMEOUT
+HTTP_ERROR
+TOO_LARGE
+UNSUPPORTED_TYPE
+MALFORMED_RESPONSE
+</div></code></pre>
+<p>Không gộp mọi lỗi thành <code>FAILED</code>.</p>
+<p>Retry policy phụ thuộc loại lỗi.</p>
+<hr>
+<h1 id="64-conditional-requests">64. Conditional Requests</h1>
+<p>Nếu đã crawl trước:</p>
+<pre class="hljs"><code><div>ETag
+Last-Modified
+</div></code></pre>
+<p>Có thể gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">If-None-Match</span><span class="hljs-punctuation">: </span>&quot;abc&quot;
+<span class="hljs-attribute">If-Modified-Since</span><span class="hljs-punctuation">: </span>...
+</div></code></pre>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>304 Not Modified
+</div></code></pre>
+<p>Giảm bandwidth và parsing.</p>
+<hr>
+<h1 id="65-304-handling">65. 304 Handling</h1>
+<p>Khi nhận 304:</p>
+<pre class="hljs"><code><div>- Giữ content version cũ.
+- Cập nhật lastCheckedAt.
+- Cập nhật response metadata.
+- Lên lịch recrawl tiếp theo.
+</div></code></pre>
+<p>Không tạo content version mới không cần thiết.</p>
+<hr>
+<h1 id="66-retry-classification">66. Retry Classification</h1>
+<h2 id="retryable">Retryable</h2>
+<pre class="hljs"><code><div>- DNS timeout
+- Connection timeout
+- HTTP 408
+- HTTP 429
+- HTTP 500/502/503/504
+</div></code></pre>
+<h2 id="thường-không-retry-ngay">Thường không retry ngay</h2>
+<pre class="hljs"><code><div>- 400
+- 401
+- 403
+- 404
+- Unsupported content type
+- Robots denied
+</div></code></pre>
+<p>Nhưng recrawl dài hạn có thể vẫn khác với immediate retry.</p>
+<hr>
+<h1 id="67-exponential-backoff">67. Exponential Backoff</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Attempt 1: 1 phút
+Attempt 2: 5 phút
+Attempt 3: 30 phút
+Attempt 4: 6 giờ
+</div></code></pre>
+<p>Thêm jitter để tránh:</p>
+<pre class="hljs"><code><div>Hàng triệu URLs retry cùng lúc.
+</div></code></pre>
+<hr>
+<h1 id="68-retry-after">68. Retry-After</h1>
+<p>Với:</p>
+<pre class="hljs"><code><div>429 Too Many Requests
+503 Service Unavailable
+</div></code></pre>
+<p>server có thể gửi:</p>
+<pre class="hljs"><code><div>Retry-After
+</div></code></pre>
+<p>Crawler nên tôn trọng nếu hợp lệ.</p>
+<p>Đồng thời giảm host concurrency hoặc tăng politeness delay.</p>
+<hr>
+<h1 id="69-retry-budget">69. Retry Budget</h1>
+<p>Không retry vô hạn.</p>
+<p>Mỗi URL/host cần:</p>
+<pre class="hljs"><code><div>- Max immediate attempts.
+- Max retry age.
+- Host circuit breaker.
+</div></code></pre>
+<p>Sau ngưỡng:</p>
+<pre class="hljs"><code><div>DEAD / DEFERRED
+</div></code></pre>
+<p>và recrawl sau thời gian dài hơn.</p>
+<hr>
+<h1 id="70-host-circuit-breaker">70. Host Circuit Breaker</h1>
+<p>Nếu host liên tục lỗi:</p>
+<pre class="hljs"><code><div>- Mở circuit.
+- Dừng fetch mới.
+- Chờ cooldown.
+- Thử một số probe requests.
+</div></code></pre>
+<p>Điều này tránh lãng phí worker và tấn công host đang gặp sự cố.</p>
+<hr>
+<h1 id="71-parser-pipeline">71. Parser Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    FetchResult --> TypeDetect[Type Detection]
+    TypeDetect --> HTMLParser
+    TypeDetect --> PDFParser
+    TypeDetect --> TextParser
+
+    HTMLParser --> Metadata[Metadata Extraction]
+    HTMLParser --> Links[Link Extraction]
+    HTMLParser --> Text[Visible Text Extraction]
+
+    Links --> URLNormalize
+    Text --> ContentDedup
+</div></code></pre>
+<p>Parser nên sandbox vì nội dung web không đáng tin.</p>
+<hr>
+<h1 id="72-html-parsing">72. HTML Parsing</h1>
+<p>Không nên dùng regex để parse HTML tổng quát.</p>
+<p>Cần parser chịu được:</p>
+<pre class="hljs"><code><div>- HTML lỗi
+- Missing tags
+- Invalid nesting
+- Encoding lạ
+- Huge DOM
+</div></code></pre>
+<p>Giới hạn:</p>
+<pre class="hljs"><code><div>- Maximum nodes
+- Maximum depth
+- Maximum attributes
+- Parse timeout
+</div></code></pre>
+<hr>
+<h1 id="73-character-encoding">73. Character Encoding</h1>
+<p>Encoding có thể đến từ:</p>
+<pre class="hljs"><code><div>- HTTP Content-Type
+- BOM
+- HTML meta charset
+- Heuristic detection
+</div></code></pre>
+<p>Crawler cần canonicalize text về Unicode.</p>
+<p>Encoding sai có thể làm:</p>
+<pre class="hljs"><code><div>- Link extraction sai
+- Content hash khác
+- Text index lỗi
+</div></code></pre>
+<hr>
+<h1 id="74-base-url">74. Base URL</h1>
+<p>HTML có thể chứa:</p>
+<pre class="hljs"><code><div><span class="hljs-tag">&lt;<span class="hljs-name">base</span> <span class="hljs-attr">href</span>=<span class="hljs-string">&quot;https://cdn.example.com/docs/&quot;</span>&gt;</span>
+</div></code></pre>
+<p>Relative links phải được resolve dựa trên:</p>
+<pre class="hljs"><code><div>- Base tag hợp lệ
+- Nếu không có, final fetched URL sau redirects
+</div></code></pre>
+<hr>
+<h1 id="75-link-extraction">75. Link Extraction</h1>
+<p>Các nguồn link:</p>
+<pre class="hljs"><code><div>- &lt;a href&gt;
+- &lt;link href&gt;
+- &lt;img src&gt;
+- &lt;script src&gt;
+- iframe src
+- canonical
+- alternate/hreflang
+- sitemap references
+</div></code></pre>
+<p>Crawler search thường ưu tiên navigational links, không nhất thiết enqueue mọi resource.</p>
+<hr>
+<h1 id="76-nofollow">76. Nofollow</h1>
+<p>Link có thể:</p>
+<pre class="hljs"><code><div><span class="hljs-tag">&lt;<span class="hljs-name">a</span> <span class="hljs-attr">rel</span>=<span class="hljs-string">&quot;nofollow&quot;</span> <span class="hljs-attr">href</span>=<span class="hljs-string">&quot;...&quot;</span>&gt;</span>
+</div></code></pre>
+<p><code>nofollow</code> thường là hint về ranking hoặc crawl policy.</p>
+<p>Crawler có thể:</p>
+<pre class="hljs"><code><div>- Không follow.
+- Follow với priority thấp.
+- Chỉ ghi graph edge.
+</div></code></pre>
+<p>Policy tùy mục tiêu.</p>
+<hr>
+<h1 id="77-url-depth">77. URL Depth</h1>
+<p>Mỗi discovered URL có depth:</p>
+<pre class="hljs"><code><div>seed = 0
+link từ seed = 1
+...
+</div></code></pre>
+<p>Depth giúp:</p>
+<pre class="hljs"><code><div>- Giới hạn crawl.
+- Ưu tiên pages gần root.
+- Phát hiện traps.
+</div></code></pre>
+<p>Nhưng không nên dùng depth toàn cục duy nhất nếu redirects/canonical links phức tạp.</p>
+<hr>
+<h1 id="78-content-deduplication">78. Content Deduplication</h1>
+<p>URL khác nhau có thể trả cùng nội dung:</p>
+<pre class="hljs"><code><div>/article?id=123
+/article/123
+/print/article/123
+</div></code></pre>
+<p>URL dedup không đủ.</p>
+<p>Cần content fingerprint.</p>
+<hr>
+<h1 id="79-exact-content-hash">79. Exact Content Hash</h1>
+<p>Tính:</p>
+<pre class="hljs"><code><div>SHA-256(response body)
+</div></code></pre>
+<p>Nếu hash giống:</p>
+<pre class="hljs"><code><div>Exact duplicate content
+</div></code></pre>
+<p>Có thể lưu một content blob và nhiều URL references.</p>
+<hr>
+<h1 id="80-normalized-content-hash">80. Normalized Content Hash</h1>
+<p>HTML có thể khác chỉ vì:</p>
+<pre class="hljs"><code><div>- Timestamp
+- Tracking ID
+- Ad
+- Random script nonce
+</div></code></pre>
+<p>Có thể normalize trước hash:</p>
+<pre class="hljs"><code><div>- Remove selected dynamic fields.
+- Extract main text.
+- Normalize whitespace.
+</div></code></pre>
+<p>Nhưng normalization sai có thể gộp nội dung khác nhau.</p>
+<hr>
+<h1 id="81-near-duplicate-detection">81. Near-Duplicate Detection</h1>
+<p>Hai pages có thể gần giống nhưng không hoàn toàn giống.</p>
+<p>Các kỹ thuật:</p>
+<pre class="hljs"><code><div>- SimHash
+- MinHash
+- Shingling
+- Locality-sensitive hashing
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Bài báo cùng nội dung nhưng khác header/footer.
+</div></code></pre>
+<p>Near-duplicate detection giúp giảm indexing và crawl waste.</p>
+<hr>
+<h1 id="82-simhash-trực-giác">82. SimHash trực giác</h1>
+<pre class="hljs"><code><div>1. Chia nội dung thành features.
+2. Hash từng feature.
+3. Weighted combine thành fingerprint.
+4. So Hamming distance.
+</div></code></pre>
+<p>Fingerprints gần nhau:</p>
+<pre class="hljs"><code><div>Nội dung có khả năng gần trùng.
+</div></code></pre>
+<hr>
+<h1 id="83-duplicate-content-không-nhất-thiết-bỏ-crawl">83. Duplicate Content không nhất thiết bỏ Crawl</h1>
+<p>Ngay cả duplicate content, URL có thể có giá trị:</p>
+<pre class="hljs"><code><div>- Redirect/canonical evidence
+- Link graph
+- Different permissions/languages
+- Freshness
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Lưu URL metadata.
+- Không index content lần nữa.
+- Giảm recrawl priority.
+</div></code></pre>
+<hr>
+<h1 id="84-crawler-traps">84. Crawler Traps</h1>
+<p>Crawler trap là cấu trúc tạo vô hạn hoặc cực nhiều URLs.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Calendar next month forever
+- Faceted filters mọi tổ hợp
+- Session IDs
+- Sort permutations
+- Infinite pagination
+- Search results tự sinh
+- Random parameters
+</div></code></pre>
+<hr>
+<h1 id="85-infinite-calendar">85. Infinite Calendar</h1>
+<p>URLs:</p>
+<pre class="hljs"><code><div>/calendar/2026/01
+/calendar/2026/02
+...
+/calendar/9999/12
+</div></code></pre>
+<p>Nếu crawler luôn follow “next month”, frontier không bao giờ kết thúc.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Date bounds.
+- Pattern detection.
+- Low-value path rules.
+- Crawl depth limits.
+</div></code></pre>
+<hr>
+<h1 id="86-faceted-navigation-explosion">86. Faceted Navigation Explosion</h1>
+<p>E-commerce filters:</p>
+<pre class="hljs"><code><div>?color=red&amp;size=M&amp;brand=A&amp;sort=price
+</div></code></pre>
+<p>Hàng chục filters tạo hàng triệu combinations.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Parameter policy.
+- Maximum query parameters.
+- Canonical tags.
+- Similar-content detection.
+- Per-path crawl budget.
+</div></code></pre>
+<hr>
+<h1 id="87-session-ids">87. Session IDs</h1>
+<p>URLs:</p>
+<pre class="hljs"><code><div>/page?session=abc
+/page?session=def
+</div></code></pre>
+<p>Nếu mỗi visit tạo session mới:</p>
+<pre class="hljs"><code><div>URL dedup không giúp nếu parameter không được nhận diện.
+</div></code></pre>
+<p>Có thể phát hiện parameter có cardinality cao nhưng content không đổi.</p>
+<hr>
+<h1 id="88-trap-detection-signals">88. Trap Detection Signals</h1>
+<pre class="hljs"><code><div>- URL length tăng liên tục.
+- Repeated path segments.
+- Query parameter count cao.
+- Same content từ nhiều URL.
+- Infinite numeric sequences.
+- Branching factor bất thường.
+- Same template, little unique text.
+- Deep URL depth.
+</div></code></pre>
+<hr>
+<h1 id="89-crawl-budget">89. Crawl Budget</h1>
+<p>Mỗi host/path có budget:</p>
+<pre class="hljs"><code><div>- Maximum URLs/ngày.
+- Maximum bytes/ngày.
+- Maximum new URLs.
+- Maximum depth.
+- Maximum retries.
+</div></code></pre>
+<p>Khi vượt:</p>
+<pre class="hljs"><code><div>- Defer.
+- Lower priority.
+- Stop path pattern.
+</div></code></pre>
+<p>Budget bảo vệ cả crawler và website.</p>
+<hr>
+<h1 id="90-url-pattern-bucketing">90. URL Pattern Bucketing</h1>
+<p>Nhóm URL theo template:</p>
+<pre class="hljs"><code><div>/product/123
+/product/456
+→ /product/{id}
+</div></code></pre>
+<p>Theo dõi:</p>
+<pre class="hljs"><code><div>- Số URLs.
+- Duplicate rate.
+- Change rate.
+- Error rate.
+- Content value.
+</div></code></pre>
+<p>Pattern có duplicate rate cao có thể bị giảm budget.</p>
+<hr>
+<h1 id="91-recrawl-scheduling">91. Recrawl Scheduling</h1>
+<p>Không phải trang nào cũng crawl một lần.</p>
+<p>Trang tin tức:</p>
+<pre class="hljs"><code><div>Thay đổi mỗi vài phút.
+</div></code></pre>
+<p>Trang tài liệu cũ:</p>
+<pre class="hljs"><code><div>Có thể nhiều tháng không đổi.
+</div></code></pre>
+<p>Cần tính <code>nextFetchAt</code>.</p>
+<hr>
+<h1 id="92-recrawl-interval">92. Recrawl Interval</h1>
+<p>Các signals:</p>
+<pre class="hljs"><code><div>- Historical change frequency.
+- HTTP cache headers.
+- Sitemap lastmod.
+- Page importance.
+- Server update patterns.
+- Content type.
+- Recent change.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Homepage tin tức:
+5 phút
+
+Bài báo mới:
+30 phút
+
+Bài cũ:
+7 ngày
+
+Trang gần như tĩnh:
+90 ngày
+</div></code></pre>
+<hr>
+<h1 id="93-adaptive-recrawl">93. Adaptive Recrawl</h1>
+<p>Nếu page thường không đổi:</p>
+<pre class="hljs"><code><div>Tăng interval.
+</div></code></pre>
+<p>Nếu page vừa thay đổi:</p>
+<pre class="hljs"><code><div>Giảm interval.
+</div></code></pre>
+<p>Một heuristic:</p>
+<pre class="hljs"><code><div>next interval =
+clamp(previous interval × adjustment, min, max)
+</div></code></pre>
+<hr>
+<h1 id="94-freshness-và-coverage-trade-off">94. Freshness và Coverage Trade-Off</h1>
+<p>Tài nguyên crawler có giới hạn.</p>
+<p>Crawl lại pages cũ nhiều:</p>
+<pre class="hljs"><code><div>Freshness cao
+nhưng ít discovery URLs mới.
+</div></code></pre>
+<p>Crawl nhiều URLs mới:</p>
+<pre class="hljs"><code><div>Coverage cao
+nhưng pages cũ stale.
+</div></code></pre>
+<p>Scheduler phải chia budget giữa:</p>
+<pre class="hljs"><code><div>- Discovery
+- Recrawl
+- Retry
+</div></code></pre>
+<hr>
+<h1 id="95-priority-score">95. Priority Score</h1>
+<p>Một score khái niệm:</p>
+<pre class="hljs"><code><div>priority =
+pageImportance
++ freshnessNeed
++ changeProbability
++ businessValue
++ discoveryValue
+- crawlCost
+- duplicateRisk
+- trapRisk
+</div></code></pre>
+<p>Không cần ML ngay từ đầu; heuristic đủ cho kiến trúc cơ bản.</p>
+<hr>
+<h1 id="96-page-importance">96. Page Importance</h1>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Number/quality of inbound links.
+- Seed proximity.
+- Domain reputation.
+- Sitemap hints.
+- Historical traffic/value.
+</div></code></pre>
+<p>Không nhất thiết phải có PageRank hoàn chỉnh trong crawler.</p>
+<hr>
+<h1 id="97-javascript-rendered-pages">97. JavaScript-Rendered Pages</h1>
+<p>Nhiều trang trả HTML shell:</p>
+<pre class="hljs"><code><div><span class="hljs-tag">&lt;<span class="hljs-name">div</span> <span class="hljs-attr">id</span>=<span class="hljs-string">&quot;app&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">div</span>&gt;</span>
+<span class="hljs-tag">&lt;<span class="hljs-name">script</span> <span class="hljs-attr">src</span>=<span class="hljs-string">&quot;app.js&quot;</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span>
+</div></code></pre>
+<p>Nội dung xuất hiện sau JavaScript.</p>
+<p>Full browser rendering đắt hơn HTTP fetch nhiều lần.</p>
+<hr>
+<h1 id="98-two-tier-fetching">98. Two-Tier Fetching</h1>
+<pre class="hljs"><code><div>Tier 1:
+Normal HTTP fetch + HTML parse.
+
+Tier 2:
+Headless browser render cho pages cần thiết.
+</div></code></pre>
+<p>Chỉ render khi:</p>
+<pre class="hljs"><code><div>- HTML quá ít content.
+- Page được đánh giá quan trọng.
+- Domain allowlisted.
+- Rendering budget còn.
+</div></code></pre>
+<hr>
+<h1 id="99-rendering-risks">99. Rendering Risks</h1>
+<p>Headless browser cần sandbox mạnh vì:</p>
+<pre class="hljs"><code><div>- JavaScript độc hại
+- Crypto mining
+- Infinite loops
+- Memory bombs
+- Browser exploits
+- Network requests tới internal services
+</div></code></pre>
+<p>Giới hạn:</p>
+<pre class="hljs"><code><div>- CPU
+- Memory
+- Time
+- Network domains
+- Number of subresources
+</div></code></pre>
+<hr>
+<h1 id="100-rendered-url-discovery">100. Rendered URL Discovery</h1>
+<p>JavaScript có thể tạo URLs động.</p>
+<p>Crawler nên:</p>
+<pre class="hljs"><code><div>- Capture DOM links sau render.
+- Theo dõi navigation requests.
+- Không enqueue mọi API call.
+- Áp normalization/trap checks như bình thường.
+</div></code></pre>
+<hr>
+<h1 id="101-fetch-scheduling-idempotency">101. Fetch Scheduling Idempotency</h1>
+<p>Task có thể được giao lại khi worker timeout.</p>
+<p>Fetcher phải tránh tạo hai processing effects không cần thiết.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>fetchTaskId
+urlId
+crawlGeneration
+</div></code></pre>
+<p>Result consumer chỉ commit một accepted result cho generation đó.</p>
+<hr>
+<h1 id="102-lease-based-fetch-assignment">102. Lease-Based Fetch Assignment</h1>
+<p>Scheduler giao task với lease:</p>
+<pre class="hljs"><code><div>workerId
+leaseUntil
+attempt
+</div></code></pre>
+<p>Nếu worker chết:</p>
+<pre class="hljs"><code><div>Lease hết
+→ Task được giao lại.
+</div></code></pre>
+<p>Worker hoàn thành sau khi lease hết có thể bị từ chối hoặc dedupe.</p>
+<hr>
+<h1 id="103-crawl-generation">103. Crawl Generation</h1>
+<p>Một URL có thể được crawl nhiều lần theo thời gian.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>urlId
+crawlGeneration = 17
+</div></code></pre>
+<p>Generation 17 khác retry attempt của cùng lần crawl.</p>
+<pre class="hljs"><code><div>Generation:
+Một planned crawl mới.
+
+Attempt:
+Retry trong cùng planned crawl.
+</div></code></pre>
+<hr>
+<h1 id="104-state-machine-của-url-crawl">104. State Machine của URL Crawl</h1>
+<pre class="hljs"><code><div>DISCOVERED
+→ SCHEDULED
+→ LEASED
+→ FETCHING
+→ FETCHED
+→ PROCESSED
+→ SCHEDULED_FOR_RECRAWL
+</div></code></pre>
+<p>Nhánh khác:</p>
+<pre class="hljs"><code><div>ROBOTS_BLOCKED
+RETRY_WAIT
+DEAD
+REMOVED
+</div></code></pre>
+<hr>
+<h1 id="105-url-registry-và-frontier-tách-nhau">105. URL Registry và Frontier tách nhau</h1>
+<p>URL Registry lưu long-lived metadata:</p>
+<pre class="hljs"><code><div>URL đã biết
+last fetch
+content hash
+next fetch
+</div></code></pre>
+<p>Frontier chỉ chứa pending scheduling state.</p>
+<p>Không nên giữ toàn bộ lịch sử URL trong queue system.</p>
+<hr>
+<h1 id="106-frontier-partitioning">106. Frontier Partitioning</h1>
+<p>Có thể partition theo:</p>
+<pre class="hljs"><code><div>hostHash
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>Mọi URL cùng host về cùng scheduler shard.
+</div></code></pre>
+<p>Điều này giúp:</p>
+<pre class="hljs"><code><div>- Politeness.
+- Host queue.
+- Host circuit breaker.
+- Robots cache locality.
+</div></code></pre>
+<hr>
+<h1 id="107-hot-host">107. Hot Host</h1>
+<p>Một domain lớn có hàng tỷ URL.</p>
+<p>Nếu toàn host nằm một shard:</p>
+<pre class="hljs"><code><div>Hot shard.
+</div></code></pre>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Giữ scheduling owner duy nhất nhưng phân tán storage.
+- Chia host queues theo path, phối hợp rate limiter.
+- Dedicated scheduler cho large domains.
+- Virtual shards với một host-level token allocator.
+</div></code></pre>
+<p>Politeness vẫn cần một điểm coordination logic.</p>
+<hr>
+<h1 id="108-domain-fairness">108. Domain Fairness</h1>
+<p>Một site lớn không nên chiếm mọi fetch slot.</p>
+<p>Scheduler có thể giới hạn:</p>
+<pre class="hljs"><code><div>- Slots/host.
+- Slots/domain.
+- Bytes/day/domain.
+- URLs/day/domain.
+</div></code></pre>
+<p>Kết hợp weighted fair queuing giữa hosts.</p>
+<hr>
+<h1 id="109-multi-region-architecture">109. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    GlobalSeeds --> GlobalRegistry[(Global URL Registry)]
+    GlobalRegistry --> HostDirectory[Host Ownership Directory]
+
+    HostDirectory --> RegionA[Scheduler Region A]
+    HostDirectory --> RegionB[Scheduler Region B]
+    HostDirectory --> RegionC[Scheduler Region C]
+
+    RegionA --> FetchA[Fetchers A]
+    RegionB --> FetchB[Fetchers B]
+    RegionC --> FetchC[Fetchers C]
+
+    FetchA --> ContentStore[(Replicated Content Store)]
+    FetchB --> ContentStore
+    FetchC --> ContentStore
+
+    FetchA --> ResultStream[Global/Regional Result Streams]
+    FetchB --> ResultStream
+    FetchC --> ResultStream
+
+    ResultStream --> Parsers
+    Parsers --> GlobalRegistry
+</div></code></pre>
+<hr>
+<h1 id="110-host-ownership-theo-region">110. Host Ownership theo Region</h1>
+<p>Mỗi host được gán một scheduling owner:</p>
+<pre class="hljs"><code><div>hostId → ownerRegion
+</div></code></pre>
+<p>Mọi URL của host được fetch từ owner region hoặc thông qua owner scheduler.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Politeness toàn cục.
+- Robots policy nhất quán.
+- DNS cache locality.
+- Dễ theo dõi crawl budget.
+</div></code></pre>
+<hr>
+<h1 id="111-chọn-owner-region">111. Chọn Owner Region</h1>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Latency tới host.
+- DNS/IP geography.
+- Network egress cost.
+- Legal constraints.
+- Regional capacity.
+</div></code></pre>
+<p>Không cần owner gần người dùng; crawler không có interactive user latency.</p>
+<hr>
+<h1 id="112-host-migration-giữa-regions">112. Host Migration giữa Regions</h1>
+<p>Khi cần rebalance:</p>
+<pre class="hljs"><code><div>1. Pause host scheduling.
+2. Drain in-flight leases.
+3. Transfer host frontier state.
+4. Increase host owner epoch.
+5. Activate new region.
+</div></code></pre>
+<p>Không để hai regions cùng crawl host trong lúc chuyển.</p>
+<hr>
+<h1 id="113-host-owner-epoch">113. Host Owner Epoch</h1>
+<p>Host state có:</p>
+<pre class="hljs"><code><div>ownerRegion
+ownerEpoch
+</div></code></pre>
+<p>Fetch task chứa epoch.</p>
+<p>Result từ epoch cũ có thể được lưu nhưng không được dùng để cập nhật scheduling state nếu đã bị fence.</p>
+<hr>
+<h1 id="114-multi-region-url-dedup">114. Multi-Region URL Dedup</h1>
+<p>URL discovery từ nhiều regions có thể trùng.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Global exact registry.
+- Hoặc partition URL ownership theo host/hash.
+</div></code></pre>
+<p>Vì host đã có owner, normalized URLs của host có thể route về cùng registry shard.</p>
+<hr>
+<h1 id="115-content-storage-multi-region">115. Content Storage Multi-Region</h1>
+<p>Raw content có thể:</p>
+<pre class="hljs"><code><div>- Ghi vào region fetch.
+- Replicate async.
+- Dùng object storage global.
+</div></code></pre>
+<p>Metadata cần ghi:</p>
+<pre class="hljs"><code><div>content object location
+replication status
+checksum
+</div></code></pre>
+<p>Crawler có thể chấp nhận RPO khác nhau tùy mục tiêu archive hay search.</p>
+<hr>
+<h1 id="116-data-residency-và-legal-policy">116. Data Residency và Legal Policy</h1>
+<p>Một crawler có thể cần:</p>
+<pre class="hljs"><code><div>- Không lưu một số nội dung ngoài region.
+- Tuân thủ takedown.
+- Không crawl domain bị hạn chế.
+- Xóa nội dung theo retention.
+</div></code></pre>
+<p>Policy phải áp cho:</p>
+<pre class="hljs"><code><div>- Raw content
+- Extracted text
+- Screenshots
+- Search index
+- Backups
+</div></code></pre>
+<hr>
+<h1 id="117-failure-mode--scheduler-worker-chết">117. Failure Mode — Scheduler Worker chết</h1>
+<p>Task leases hết hạn và được giao lại.</p>
+<p>Host next-eligible time phải được lưu durable hoặc có thể reconstruct.</p>
+<p>Không để restart làm mất politeness delay và gửi burst.</p>
+<hr>
+<h1 id="118-failure-mode--frontier-store-lỗi">118. Failure Mode — Frontier Store lỗi</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Dừng dispatch mới.
+- Cho in-flight fetches hoàn thành.
+- Buffer discovered URLs có giới hạn.
+- Replay từ event log/outbox.
+</div></code></pre>
+<p>Không dùng memory queue duy nhất.</p>
+<hr>
+<h1 id="119-failure-mode--url-registry-chậm">119. Failure Mode — URL Registry chậm</h1>
+<p>Parser không nên block vô hạn.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Buffer discovery events.
+- Batch dedup inserts.
+- Backpressure parsers.
+</div></code></pre>
+<p>Không enqueue URLs mù nếu registry unavailable lâu.</p>
+<hr>
+<h1 id="120-failure-mode--robots-service-lỗi">120. Failure Mode — Robots Service lỗi</h1>
+<p>Không fail-open cho host chưa có policy.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Dùng cache còn hiệu lực.
+- Pause host.
+- Retry robots.
+</div></code></pre>
+<p>Với host đã có policy cũ, có thể dùng stale policy trong giới hạn theo internal rules.</p>
+<hr>
+<h1 id="121-failure-mode--dns-resolver-lỗi">121. Failure Mode — DNS Resolver lỗi</h1>
+<p>Dùng nhiều resolver pools.</p>
+<p>Nếu lỗi toàn cục:</p>
+<pre class="hljs"><code><div>- Pause new fetches.
+- Dùng cache còn TTL.
+- Không dùng IP stale quá policy.
+</div></code></pre>
+<hr>
+<h1 id="122-failure-mode--fetcher-chết-giữa-response">122. Failure Mode — Fetcher chết giữa Response</h1>
+<p>Lease hết và task retry.</p>
+<p>Partial body object phải:</p>
+<pre class="hljs"><code><div>- Có temporary object ID.
+- Chỉ publish khi complete/checksum verified.
+- Được GC nếu bỏ dở.
+</div></code></pre>
+<hr>
+<h1 id="123-failure-mode--raw-content-lưu-thành-công-nhưng-result-event-mất">123. Failure Mode — Raw Content lưu thành công nhưng Result Event mất</h1>
+<p>Dùng transactional metadata/outbox hoặc write-ahead result record:</p>
+<pre class="hljs"><code><div>Fetch result committed
++
+Processing event intent
+</div></code></pre>
+<p>Parser có thể replay.</p>
+<hr>
+<h1 id="124-failure-mode--parser-lỗi">124. Failure Mode — Parser lỗi</h1>
+<p>Raw response vẫn tồn tại.</p>
+<p>Parser task retry hoặc được gửi tới dead-letter queue.</p>
+<p>Một parser bug không nên buộc fetch lại website.</p>
+<hr>
+<h1 id="125-failure-mode--parser-tạo-url-storm">125. Failure Mode — Parser tạo URL Storm</h1>
+<p>Một malformed page có hàng triệu links.</p>
+<p>Giới hạn:</p>
+<pre class="hljs"><code><div>- Maximum links/page.
+- Maximum unique links/page.
+- Maximum processing time.
+- Per-page discovered URL budget.
+</div></code></pre>
+<hr>
+<h1 id="126-failure-mode--domain-trả-429-hàng-loạt">126. Failure Mode — Domain trả 429 hàng loạt</h1>
+<p>Scheduler:</p>
+<pre class="hljs"><code><div>- Tăng delay.
+- Giảm concurrency.
+- Tôn trọng Retry-After.
+- Mở host circuit breaker.
+</div></code></pre>
+<p>Không để nhiều workers retry độc lập.</p>
+<hr>
+<h1 id="127-failure-mode--domain-đổi-robotstxt">127. Failure Mode — Domain đổi robots.txt</h1>
+<p>Robots cache hết hạn và fetch version mới.</p>
+<p>URLs trước đây được phép có thể bị cấm.</p>
+<p>Frontier phải recheck robots policy trước dispatch, không chỉ lúc discovery.</p>
+<hr>
+<h1 id="128-failure-mode--duplicate-fetch-results">128. Failure Mode — Duplicate Fetch Results</h1>
+<p>Hai workers fetch cùng generation do lease race.</p>
+<p>Consumer chọn một accepted result bằng conditional state transition:</p>
+<pre class="hljs"><code><div>FETCHING generation 17
+→ FETCHED generation 17
+</div></code></pre>
+<p>Result thứ hai trở thành duplicate/audit record.</p>
+<hr>
+<h1 id="129-failure-mode--region-partition">129. Failure Mode — Region Partition</h1>
+<p>Nếu owner region mất liên lạc:</p>
+<pre class="hljs"><code><div>Không nên tự động để region khác crawl cùng host ngay lập tức.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Lease/epoch expiry.
+- Authoritative owner failover.
+- Fencing.
+</div></code></pre>
+<p>Financial correctness không cần, nhưng politeness và duplicate cost vẫn quan trọng.</p>
+<hr>
+<h1 id="130-security-isolation">130. Security Isolation</h1>
+<p>Fetcher và parser phải chạy trong sandbox vì nội dung không đáng tin.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- No internal network access.
+- Read-only runtime.
+- Resource limits.
+- Ephemeral filesystem.
+- Restricted syscalls.
+- Frequent patching.
+</div></code></pre>
+<hr>
+<h1 id="131-mime-confusion">131. MIME Confusion</h1>
+<p>Server có thể khai báo:</p>
+<pre class="hljs"><code><div>text/html
+</div></code></pre>
+<p>nhưng trả binary hoặc ngược lại.</p>
+<p>Type detector cần:</p>
+<pre class="hljs"><code><div>- Header
+- Magic bytes
+- Safe sniffing
+</div></code></pre>
+<p>Không tự động thực thi nội dung.</p>
+<hr>
+<h1 id="132-authentication-và-cookies">132. Authentication và Cookies</h1>
+<p>General public crawler thường không lưu session cookies giữa hosts.</p>
+<p>Nếu crawler hỗ trợ authenticated crawl:</p>
+<pre class="hljs"><code><div>- Cookie jar phải tenant-scoped.
+- Secrets phải được bảo vệ.
+- Không leak cookie qua redirect domain.
+- Crawl scope phải giới hạn.
+</div></code></pre>
+<p>Đây là một mode riêng, không nên trộn với public crawler.</p>
+<hr>
+<h1 id="133-observability--frontier">133. Observability — Frontier</h1>
+<pre class="hljs"><code><div>- Pending URLs.
+- Ready URLs.
+- Delayed URLs.
+- URLs theo priority.
+- Frontier age.
+- Host queue depth.
+- Oldest pending URL.
+- Enqueue/dequeue rate.
+</div></code></pre>
+<hr>
+<h1 id="134-observability--politeness">134. Observability — Politeness</h1>
+<pre class="hljs"><code><div>- Requests/host/second.
+- Concurrent requests/host.
+- 429 rate.
+- 503 rate.
+- Host delay adjustments.
+- Robots-denied rate.
+- Circuit-breaker hosts.
+</div></code></pre>
+<p>Cần alert nếu một host nhận vượt policy.</p>
+<hr>
+<h1 id="135-observability--fetching">135. Observability — Fetching</h1>
+<pre class="hljs"><code><div>- Fetch QPS.
+- Bytes/second.
+- DNS latency.
+- Connect latency.
+- TLS latency.
+- Time to first byte.
+- Download duration.
+- Response status distribution.
+- Timeout rate.
+</div></code></pre>
+<hr>
+<h1 id="136-observability--parsing">136. Observability — Parsing</h1>
+<pre class="hljs"><code><div>- Parse latency.
+- Links extracted/page.
+- Parser failures.
+- Unsupported types.
+- Character encoding errors.
+- DOM size.
+- Rendered-page rate.
+</div></code></pre>
+<hr>
+<h1 id="137-observability--deduplication">137. Observability — Deduplication</h1>
+<pre class="hljs"><code><div>- URL dedup hit rate.
+- Exact content duplicate rate.
+- Near-duplicate rate.
+- Bloom false-positive estimate.
+- Canonical clustering size.
+</div></code></pre>
+<p>Duplicate rate tăng đột ngột có thể chỉ ra trap.</p>
+<hr>
+<h1 id="138-observability--freshness">138. Observability — Freshness</h1>
+<pre class="hljs"><code><div>- Time since last fetch.
+- Recrawl interval.
+- Changed-content rate.
+- Stale important pages.
+- 304 rate.
+- Sitemap lastmod accuracy.
+</div></code></pre>
+<hr>
+<h1 id="139-observability--trap-detection">139. Observability — Trap Detection</h1>
+<pre class="hljs"><code><div>- URLs discovered/domain.
+- URL depth distribution.
+- Parameter cardinality.
+- Repeated path segments.
+- Same-content-many-URLs ratio.
+- Frontier growth/domain.
+</div></code></pre>
+<hr>
+<h1 id="140-observability--reliability">140. Observability — Reliability</h1>
+<pre class="hljs"><code><div>- Task lease expiry rate.
+- Duplicate fetch completion.
+- Result processing lag.
+- Parser retry backlog.
+- Orphan raw objects.
+- Host owner migrations.
+- Region replication lag.
+</div></code></pre>
+<hr>
+<h1 id="141-slos-minh-họa">141. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Frontier durability:
+Không mất accepted URL discovery events.
+
+Robots enforcement:
+100% fetch tasks được kiểm tra policy version hợp lệ.
+
+Politeness:
+Không vượt configured host/domain concurrency.
+
+Important-page freshness:
+99% pages cấp cao được crawl trong target interval.
+
+Fetch result processing:
+99% successful fetches được parse trong 5 phút.
+
+Crawler availability:
+99,9% scheduling pipeline hoạt động.
+</div></code></pre>
+<hr>
+<h1 id="142-thiết-kế-khuyến-nghị">142. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. URL Registry lưu identity và lịch sử URL.
+2. Frontier được partition theo host owner.
+3. Front queues xử lý priority.
+4. Back queues xử lý politeness theo host.
+5. Scheduler dùng next-eligible-time heap.
+6. Robots và DNS được cache tập trung theo host.
+7. Fetchers chỉ tải và lưu raw content.
+8. Parsers xử lý async và phát discovered URLs.
+9. URL dedup dùng Bloom filter + exact registry.
+10. Content dedup dùng exact hash và near-duplicate fingerprint.
+</div></code></pre>
+<hr>
+<h1 id="143-trade-off--fifo-hay-priority-frontier">143. Trade-Off — FIFO hay Priority Frontier?</h1>
+<h2 id="fifo">FIFO</h2>
+<pre class="hljs"><code><div>- Đơn giản.
+- Công bằng theo thời điểm đến.
+- Không đảm bảo important pages fresh.
+</div></code></pre>
+<h2 id="priority">Priority</h2>
+<pre class="hljs"><code><div>- Crawl tài nguyên quan trọng trước.
+- Có nguy cơ starvation.
+</div></code></pre>
+<p>Khuyến nghị:</p>
+<pre class="hljs"><code><div>Weighted priority + aging.
+</div></code></pre>
+<hr>
+<h1 id="144-trade-off--per-host-queue-hay-global-rate-limiter">144. Trade-Off — Per-Host Queue hay Global Rate Limiter?</h1>
+<h2 id="per-host-queue">Per-host queue</h2>
+<pre class="hljs"><code><div>- Politeness tự nhiên.
+- Host locality tốt.
+- Hot-host sharding khó.
+</div></code></pre>
+<h2 id="global-rate-limiter">Global rate limiter</h2>
+<pre class="hljs"><code><div>- Linh hoạt.
+- Coordination lớn.
+- Mỗi fetch cần distributed check.
+</div></code></pre>
+<p>Host-owned queues thường hiệu quả hơn.</p>
+<hr>
+<h1 id="145-trade-off--exact-url-set-hay-bloom-filter">145. Trade-Off — Exact URL Set hay Bloom Filter?</h1>
+<h2 id="exact-set">Exact set</h2>
+<pre class="hljs"><code><div>- Không false positive.
+- Storage và lookup lớn.
+</div></code></pre>
+<h2 id="bloom-filter">Bloom filter</h2>
+<pre class="hljs"><code><div>- Memory nhỏ.
+- Có false positive.
+</div></code></pre>
+<p>Kết hợp:</p>
+<pre class="hljs"><code><div>Bloom làm prefilter
++
+Exact registry làm authority.
+</div></code></pre>
+<hr>
+<h1 id="146-trade-off--full-raw-content-hay-chỉ-extracted-data">146. Trade-Off — Full Raw Content hay Chỉ Extracted Data?</h1>
+<h2 id="lưu-raw-content">Lưu raw content</h2>
+<pre class="hljs"><code><div>- Có thể reparse.
+- Audit tốt.
+- Storage lớn.
+</div></code></pre>
+<h2 id="chỉ-lưu-extracted-content">Chỉ lưu extracted content</h2>
+<pre class="hljs"><code><div>- Storage thấp.
+- Parser bug buộc refetch.
+</div></code></pre>
+<p>Search crawler lớn thường lưu raw content ít nhất một khoảng retention.</p>
+<hr>
+<h1 id="147-trade-off--fetch-rendered-javascript-hay-chỉ-html">147. Trade-Off — Fetch Rendered JavaScript hay Chỉ HTML?</h1>
+<h2 id="http-html">HTTP HTML</h2>
+<pre class="hljs"><code><div>- Nhanh.
+- Rẻ.
+- Bỏ lỡ nội dung động.
+</div></code></pre>
+<h2 id="headless-rendering">Headless rendering</h2>
+<pre class="hljs"><code><div>- Coverage tốt.
+- CPU/memory rất đắt.
+- Security risk cao.
+</div></code></pre>
+<p>Dùng two-tier rendering theo priority.</p>
+<hr>
+<h1 id="148-trade-off--global-host-ownership-hay-regional-independent-crawl">148. Trade-Off — Global Host Ownership hay Regional Independent Crawl?</h1>
+<h2 id="global-host-owner">Global host owner</h2>
+<pre class="hljs"><code><div>- Politeness chính xác.
+- Failover/migration phức tạp.
+</div></code></pre>
+<h2 id="regions-crawl-độc-lập">Regions crawl độc lập</h2>
+<pre class="hljs"><code><div>- Kiến trúc đơn giản cục bộ.
+- Duplicate fetch và quá tải website.
+</div></code></pre>
+<p>Crawler toàn cầu nên có coordination theo host/domain.</p>
+<hr>
+<h1 id="149-trade-off--recrawl-thường-xuyên-hay-coverage-rộng">149. Trade-Off — Recrawl thường xuyên hay Coverage rộng?</h1>
+<h2 id="frequent-recrawl">Frequent recrawl</h2>
+<pre class="hljs"><code><div>- Freshness cao.
+- Ít budget cho URLs mới.
+</div></code></pre>
+<h2 id="broad-discovery">Broad discovery</h2>
+<pre class="hljs"><code><div>- Coverage cao.
+- Pages cũ stale.
+</div></code></pre>
+<p>Scheduler phải tối ưu theo page value và change probability.</p>
+<hr>
+<h1 id="150-cách-trình-bày-trong-phỏng-vấn">150. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi xem URL frontier là phần trung tâm của crawler. Nó không phải FIFO queue mà là scheduler kết hợp priority, delayed retries và politeness theo host. Mỗi host có queue riêng và thời điểm được fetch tiếp theo.</p>
+</blockquote>
+<p>Về URL:</p>
+<blockquote>
+<p>Mọi URL được normalize thận trọng, loại fragment, chuẩn hóa host và default port, sau đó deduplicate qua Bloom filter và exact URL registry. Tôi không xóa query parameters tùy tiện; canonical tags, redirects và content fingerprints chỉ được xem là signals.</p>
+</blockquote>
+<p>Về fetch:</p>
+<blockquote>
+<p>Fetchers là stateless workers nhận task có lease, kiểm tra DNS/SSRF, robots policy version và response limits. Raw response được stream vào object storage, còn parsing và link extraction chạy bất đồng bộ để parser lỗi không buộc fetch lại.</p>
+</blockquote>
+<p>Về multi-region:</p>
+<blockquote>
+<p>Mỗi host có một owner region để giữ politeness toàn cục. Tất cả URLs của host route tới owner scheduler. Failover tăng owner epoch và fence task cũ để hai regions không crawl cùng host đồng thời.</p>
+</blockquote>
+<hr>
+<h1 id="151-framework-45-phút">151. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Seed URLs
+- HTTP fetching
+- robots.txt
+- Politeness
+- Dedup
+- Recrawl
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- URLs/day
+- Average response size
+- Fetch QPS
+- Bandwidth
+- URL metadata volume
+</div></code></pre>
+<h2 id="phút-1020-frontier">Phút 10–20: Frontier</h2>
+<pre class="hljs"><code><div>- Priority queues
+- Per-host queues
+- Delayed scheduling
+- Politeness
+</div></code></pre>
+<h2 id="phút-2030-fetch-pipeline">Phút 20–30: Fetch pipeline</h2>
+<pre class="hljs"><code><div>- DNS
+- Robots
+- Fetchers
+- Timeouts
+- Raw storage
+- Parsing
+</div></code></pre>
+<h2 id="phút-3040-correctness-và-efficiency">Phút 30–40: Correctness và efficiency</h2>
+<pre class="hljs"><code><div>- URL normalization
+- URL/content dedup
+- Retries
+- Traps
+- Recrawl
+</div></code></pre>
+<h2 id="phút-4045-reliability">Phút 40–45: Reliability</h2>
+<pre class="hljs"><code><div>- Multi-region
+- Host ownership
+- Failover
+- Observability
+</div></code></pre>
+<hr>
+<h1 id="152-những-sai-lầm-phổ-biến">152. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-dùng-một-fifo-queue-toàn-cục">Lỗi 1: Dùng một FIFO Queue toàn cục</h2>
+<p>Không bảo đảm politeness hoặc priority.</p>
+<h2 id="lỗi-2-nhiều-workers-crawl-cùng-host-không-coordination">Lỗi 2: Nhiều Workers Crawl cùng Host không Coordination</h2>
+<p>Có thể làm quá tải website.</p>
+<h2 id="lỗi-3-rate-limit-chỉ-theo-hostname">Lỗi 3: Rate Limit chỉ theo Hostname</h2>
+<p>Nhiều subdomains có thể cùng một IP hoặc infrastructure.</p>
+<h2 id="lỗi-4-chỉ-kiểm-tra-robotstxt-lúc-discovery">Lỗi 4: Chỉ kiểm tra robots.txt lúc Discovery</h2>
+<p>Policy có thể đổi trước khi fetch.</p>
+<h2 id="lỗi-5-robotstxt-lỗi-thì-fail-open">Lỗi 5: robots.txt lỗi thì Fail-Open</h2>
+<p>Có thể crawl nội dung không được phép.</p>
+<h2 id="lỗi-6-mỗi-worker-tự-fetch-robotstxt">Lỗi 6: Mỗi Worker tự Fetch robots.txt</h2>
+<p>Tạo duplicate traffic và race.</p>
+<h2 id="lỗi-7-normalize-url-quá-mạnh">Lỗi 7: Normalize URL quá mạnh</h2>
+<p>Gộp hai tài nguyên khác nhau.</p>
+<h2 id="lỗi-8-xóa-mọi-query-parameter">Lỗi 8: Xóa mọi Query Parameter</h2>
+<p>Làm mất pages hợp lệ.</p>
+<h2 id="lỗi-9-không-bỏ-fragment">Lỗi 9: Không bỏ Fragment</h2>
+<p>Crawl cùng tài nguyên nhiều lần.</p>
+<h2 id="lỗi-10-chỉ-dùng-bloom-filter-làm-authority">Lỗi 10: Chỉ dùng Bloom Filter làm Authority</h2>
+<p>False positive làm bỏ lỡ URLs.</p>
+<h2 id="lỗi-11-không-có-redirect-limit">Lỗi 11: Không có Redirect Limit</h2>
+<p>Bị redirect loop.</p>
+<h2 id="lỗi-12-không-chống-ssrf">Lỗi 12: Không chống SSRF</h2>
+<p>Crawler có thể truy cập internal infrastructure.</p>
+<h2 id="lỗi-13-tin-content-length-hoàn-toàn">Lỗi 13: Tin Content-Length hoàn toàn</h2>
+<p>Chunked response hoặc compression bomb có thể vượt giới hạn.</p>
+<h2 id="lỗi-14-giữ-toàn-response-trong-ram">Lỗi 14: Giữ toàn Response trong RAM</h2>
+<p>Responses lớn làm worker OOM.</p>
+<h2 id="lỗi-15-regex-parse-html">Lỗi 15: Regex Parse HTML</h2>
+<p>Không xử lý HTML lỗi và encoding phức tạp.</p>
+<h2 id="lỗi-16-parser-nằm-trong-fetcher-critical-path">Lỗi 16: Parser nằm trong Fetcher Critical Path</h2>
+<p>Parser lỗi làm giảm fetch throughput.</p>
+<h2 id="lỗi-17-retry-mọi-4xx">Lỗi 17: Retry mọi 4xx</h2>
+<p>Lãng phí và có thể tấn công host.</p>
+<h2 id="lỗi-18-timeout-được-retry-ngay-không-backoff">Lỗi 18: Timeout được Retry ngay không Backoff</h2>
+<p>Tạo retry storm.</p>
+<h2 id="lỗi-19-không-tôn-trọng-retry-after">Lỗi 19: Không tôn trọng Retry-After</h2>
+<p>Làm tăng 429/503.</p>
+<h2 id="lỗi-20-không-phát-hiện-calendarfacet-traps">Lỗi 20: Không phát hiện Calendar/Facet Traps</h2>
+<p>Frontier tăng vô hạn.</p>
+<h2 id="lỗi-21-không-có-per-domain-crawl-budget">Lỗi 21: Không có Per-Domain Crawl Budget</h2>
+<p>Một site chiếm toàn crawler.</p>
+<h2 id="lỗi-22-crawl-javascript-bằng-browser-cho-mọi-page">Lỗi 22: Crawl JavaScript bằng Browser cho mọi Page</h2>
+<p>Chi phí và rủi ro quá lớn.</p>
+<h2 id="lỗi-23-multi-region-crawl-cùng-host-độc-lập">Lỗi 23: Multi-Region Crawl cùng Host độc lập</h2>
+<p>Vi phạm politeness toàn cục.</p>
+<h2 id="lỗi-24-không-có-lease-cho-fetch-task">Lỗi 24: Không có Lease cho Fetch Task</h2>
+<p>Worker chết làm mất hoặc treo task.</p>
+<h2 id="lỗi-25-không-phân-biệt-crawl-generation-và-retry-attempt">Lỗi 25: Không phân biệt Crawl Generation và Retry Attempt</h2>
+<p>Lịch recrawl và retry trở nên mơ hồ.</p>
+<hr>
+<h1 id="153-bảng-ghi-nhớ-nhanh">153. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seed URL</td>
+<td>Điểm bắt đầu</td>
+</tr>
+<tr>
+<td>URL Registry</td>
+<td>Identity và lịch sử URL</td>
+</tr>
+<tr>
+<td>URL Frontier</td>
+<td>URL chờ crawl</td>
+</tr>
+<tr>
+<td>Front Queue</td>
+<td>Priority scheduling</td>
+</tr>
+<tr>
+<td>Back Queue</td>
+<td>Per-host politeness</td>
+</tr>
+<tr>
+<td>Host Heap</td>
+<td>Chọn host đủ điều kiện</td>
+</tr>
+<tr>
+<td>Robots Service</td>
+<td>Quyền crawl</td>
+</tr>
+<tr>
+<td>DNS Cache</td>
+<td>Resolve host hiệu quả</td>
+</tr>
+<tr>
+<td>Fetcher</td>
+<td>Tải response</td>
+</tr>
+<tr>
+<td>Raw Store</td>
+<td>Lưu response gốc</td>
+</tr>
+<tr>
+<td>Parser</td>
+<td>Trích nội dung và links</td>
+</tr>
+<tr>
+<td>URL Dedup</td>
+<td>Tránh crawl URL trùng</td>
+</tr>
+<tr>
+<td>Content Dedup</td>
+<td>Tránh xử lý content trùng</td>
+</tr>
+<tr>
+<td>Crawl Budget</td>
+<td>Giới hạn tài nguyên/domain</td>
+</tr>
+<tr>
+<td>Retry Scheduler</td>
+<td>Backoff lỗi tạm thời</td>
+</tr>
+<tr>
+<td>Recrawl Scheduler</td>
+<td>Cập nhật freshness</td>
+</tr>
+<tr>
+<td>Trap Detector</td>
+<td>Phát hiện URL vô hạn</td>
+</tr>
+<tr>
+<td>Host Owner</td>
+<td>Điều phối host toàn cục</td>
+</tr>
+<tr>
+<td>Owner Epoch</td>
+<td>Fencing khi failover</td>
+</tr>
+<tr>
+<td>Change/Result Stream</td>
+<td>Tách các pipeline</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="154-sơ-đồ-tổng-hợp">154. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Seeds --> URLIngest
+
+    URLIngest --> Normalize
+    Normalize --> URLRegistry[(URL Registry)]
+    URLRegistry --> PriorityFrontier[(Priority Frontier)]
+
+    PriorityFrontier --> HostRouter
+    HostRouter --> HostQueues[(Per-Host Queues)]
+    HostQueues --> EligibilityHeap[Next Eligible Host Heap]
+
+    EligibilityHeap --> RobotsCheck
+    RobotsCheck --> RobotsCache[(Robots Cache)]
+    RobotsCheck --> DNSCheck
+    DNSCheck --> DNSCache[(DNS Cache)]
+
+    DNSCheck --> FetchQueue
+    FetchQueue --> FetchWorkers
+
+    FetchWorkers --> RawObjects[(Raw Response Objects)]
+    FetchWorkers --> FetchResults[Fetch Result Stream]
+
+    FetchResults --> ParserWorkers
+    ParserWorkers --> ContentFingerprint
+    ParserWorkers --> LinkExtraction
+
+    ContentFingerprint --> ContentRegistry[(Content Registry)]
+    LinkExtraction --> Normalize
+
+    FetchResults --> RetryScheduler
+    FetchResults --> RecrawlScheduler
+    RetryScheduler --> HostQueues
+    RecrawlScheduler --> PriorityFrontier
+
+    URLRegistry --> TrapDetector
+    TrapDetector --> CrawlPolicy
+    CrawlPolicy --> PriorityFrontier
+</div></code></pre>
+<hr>
+<h1 id="155-những-điều-phải-nhớ-sau-bài-33">155. Những Điều Phải Nhớ sau Bài 33</h1>
+<pre class="hljs"><code><div>1. URL frontier là scheduler, không chỉ là queue.
+2. Priority và politeness là hai yêu cầu độc lập.
+3. Front queues xử lý priority.
+4. Back queues xử lý per-host pacing.
+5. Host heap chọn host theo next eligible time.
+6. Không nên crawl nhiều URL cùng host không coordination.
+7. Politeness có delay và concurrency.
+8. Per-host limit có thể chưa đủ; cần domain/IP limits.
+9. Multi-region cần coordination politeness toàn cục.
+10. Host ownership là cách partition tự nhiên.
+11. URL normalization phải thận trọng.
+12. Scheme và host có thể lowercase.
+13. Default port có thể bỏ.
+14. Fragment thường phải bỏ.
+15. Không được xóa mọi query parameter.
+16. Trailing slash không luôn tương đương.
+17. Percent encoding phải xử lý theo RFC semantics.
+18. Path không nên được canonicalize quá mạnh.
+19. Canonical tag chỉ là hint.
+20. Permanent redirect là canonical signal mạnh.
+21. Redirect chain cần maximum hops.
+22. Redirect loop phải được phát hiện.
+23. URL dedup khác content dedup.
+24. Bloom filter có false positive.
+25. Bloom nên kết hợp exact registry.
+26. Discovered URL insertion phải idempotent.
+27. robots.txt phải được kiểm tra trước fetch.
+28. Robots policy cần cache và version.
+29. robots.txt fetch cũng cần single-flight.
+30. Robots server error không nên fail-open ngay.
+31. Sitemap là nguồn discovery quan trọng.
+32. Sitemap recursion cần giới hạn.
+33. DNS cache là thành phần hiệu năng quan trọng.
+34. Negative DNS cache tránh retry vô ích.
+35. Crawler phải chống SSRF.
+36. Private và link-local IP phải bị chặn.
+37. Redirect target phải được validate lại.
+38. Fetcher nên stream response.
+39. Metadata server không nên giữ body lớn.
+40. Cần nhiều loại timeout riêng.
+41. Response size phải được enforce khi stream.
+42. Compression bombs cần decompressed-size limit.
+43. Content type không thể được tin tuyệt đối.
+44. Fetch result cần trạng thái lỗi chi tiết.
+45. Conditional HTTP requests tiết kiệm bandwidth.
+46. 304 không cần tạo content version mới.
+47. Timeout không phải mọi lúc đều retry ngay.
+48. Retry cần exponential backoff và jitter.
+49. Retry-After nên được tôn trọng.
+50. Host circuit breaker giảm tải lên site lỗi.
+51. Parser nên chạy tách khỏi fetcher.
+52. HTML parser phải chịu malformed input.
+53. Character encoding ảnh hưởng link/content extraction.
+54. Base URL phải xét final URL và base tag.
+55. Không enqueue mọi subresource như navigational URL.
+56. Nofollow là policy hint.
+57. Exact content hash phát hiện duplicate hoàn toàn.
+58. SimHash/MinHash hỗ trợ near-duplicate.
+59. Duplicate content URL vẫn có thể có metadata giá trị.
+60. Infinite calendars là crawler trap phổ biến.
+61. Faceted navigation gây combinatorial explosion.
+62. Session IDs có thể tạo URL vô hạn.
+63. Trap detection cần pattern và content signals.
+64. Mỗi host/path cần crawl budget.
+65. Pattern bucketing giúp nhận diện URL families.
+66. Recrawl interval phải dựa trên change rate.
+67. Important pages cần freshness cao hơn.
+68. Coverage và freshness cạnh tranh cùng crawl budget.
+69. JavaScript rendering nên là tier riêng.
+70. Headless browsers cần sandbox nghiêm ngặt.
+71. Fetch task cần stable identity.
+72. Lease cho phép recovery khi worker chết.
+73. Crawl generation khác retry attempt.
+74. URL Registry và Frontier nên tách nhau.
+75. Frontier partition theo host giúp giữ politeness.
+76. Hot host có thể cần dedicated scheduling.
+77. Domain fairness ngăn một site chiếm crawler.
+78. Host owner region giữ global politeness.
+79. Host migration cần drain, epoch và fencing.
+80. URL dedup multi-region cần ownership rõ.
+81. Raw content có thể replicate async.
+82. Parser failure không cần refetch nếu raw response còn.
+83. URL storms cần per-page link limit.
+84. Duplicate results cần conditional acceptance.
+85. Robots policy changes phải được áp tại dispatch.
+86. Region failover không được tạo hai host owners.
+87. Fetcher/parser cần network và process isolation.
+88. Frontier durability là yêu cầu cốt lõi.
+89. Observability phải theo host/domain, không chỉ global.
+90. Crawler tốt cân bằng coverage, freshness, cost và politeness.
+</div></code></pre>
+<hr>
+<h1 id="156-bài-tập-thiết-kế-mở-rộng">156. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Distributed Web Crawler với yêu cầu:</p>
+<pre class="hljs"><code><div>- 100 tỷ URLs đã biết
+- Crawl 10 tỷ URLs/ngày
+- 1 triệu domains
+- 500.000 fetch requests/giây peak
+- Average response 300 KB
+- HTML và PDF
+- JavaScript rendering cho 1% pages
+- Không vượt politeness của từng host
+- Content freshness dưới 5 phút cho 100.000 news pages
+- Multi-region active–active
+- Không truy cập private/internal networks
+- Raw content retention 90 ngày
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. URL Registry được partition thế nào?
+2. Frontier được chia theo priority và host ra sao?
+3. Host owner region được chọn thế nào?
+4. Hot host có hàng tỷ URLs được xử lý ra sao?
+5. Per-host delay và concurrency được lưu ở đâu?
+6. Politeness được enforce atomically thế nào?
+7. Per-IP rate limiting hoạt động ra sao?
+8. Robots cache TTL bao lâu?
+9. robots.txt 5xx được xử lý thế nào?
+10. Sitemap recursion được giới hạn ra sao?
+11. URL normalization rules nào là an toàn?
+12. Query parameters nào được loại?
+13. Bloom filter được partition và rebuild thế nào?
+14. Exact URL registry xử lý hash collision ra sao?
+15. Redirect loop được phát hiện thế nào?
+16. DNS cache và negative cache TTL thế nào?
+17. DNS rebinding được ngăn ở layer nào?
+18. Fetcher timeout budget gồm những timeout nào?
+19. Response size và decompression limits bao nhiêu?
+20. Raw content được stream và commit ra sao?
+21. Fetch result idempotency được bảo đảm thế nào?
+22. Parser sandbox dùng resource limits nào?
+23. Links/page được giới hạn bao nhiêu?
+24. Exact và near-duplicate content được tính thế nào?
+25. Infinite calendars được phát hiện ra sao?
+26. Faceted navigation budget được kiểm soát thế nào?
+27. Recrawl interval được học từ change history ra sao?
+28. News pages được ưu tiên dưới 5 phút thế nào?
+29. Rendered browser pool được isolate ra sao?
+30. Retry và recrawl dùng cùng queue hay khác queue?
+31. Host circuit breaker được mở/đóng thế nào?
+32. Region failure chuyển host ownership ra sao?
+33. Old owner được fence ở đâu?
+34. Raw content replication và retention hoạt động thế nào?
+35. Các SLO và guardrail quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-12">Kết luận Case Study 12</h1>
+<p>Distributed Web Crawler có thể được cô đọng thành:</p>
+<pre class="hljs"><code><div>Normalize và deduplicate URL
+→ Đưa vào priority frontier
+→ Schedule theo host politeness
+→ Check robots và DNS
+→ Fetch có giới hạn
+→ Lưu raw content
+→ Parse và extract links
+→ Deduplicate content
+→ Retry hoặc recrawl
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Khó khăn lớn nhất của crawler không phải tải một trang web, mà là quyết định URL nào được tải, vào thời điểm nào và bởi worker nào, sao cho hệ thống mở rộng tới hàng tỷ URL nhưng vẫn không crawl trùng, không mắc bẫy vô hạn và không gây quá tải cho bất kỳ website nào.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 34 — Case Study 13: Thiết kế Metrics, Logging và Monitoring Platform — agent collection, ingestion, time-series storage, log indexing, aggregation, retention, dashboards, alerting, high cardinality, multi-tenancy và multi-region.</strong></p>
+
+</body>
+</html>

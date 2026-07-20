@@ -1,0 +1,2768 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 25 — Case Study 4: Thiết kế News Feed.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-25--case-study-4-thiết-kế-news-feed">Bài 25 — Case Study 4: Thiết kế News Feed</h1>
+<p>News Feed là dòng nội dung được cá nhân hóa cho từng người dùng:</p>
+<pre class="hljs"><code><div>- Bài đăng từ người đang theo dõi
+- Nội dung từ nhóm hoặc cộng đồng
+- Bài được đề xuất
+- Quảng cáo
+- Nội dung đang thịnh hành
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User A theo dõi B, C và D.
+
+B đăng ảnh.
+C đăng video.
+D chia sẻ bài viết.
+
+Feed của A:
+→ Video của C
+→ Ảnh của B
+→ Bài viết của D
+</div></code></pre>
+<p>Nếu chỉ cần sắp xếp bài đăng theo thời gian, bài toán có vẻ đơn giản:</p>
+<pre class="hljs"><code><div>Lấy bài mới nhất từ những người A đang theo dõi.
+</div></code></pre>
+<p>Nhưng ở quy mô lớn, hệ thống phải giải quyết:</p>
+<pre class="hljs"><code><div>- User theo dõi hàng nghìn tài khoản
+- Celebrity có hàng trăm triệu followers
+- Mỗi post có thể tạo fan-out khổng lồ
+- Feed cần ranking cá nhân hóa
+- User scroll liên tục nhưng không được thấy trùng bài
+- Post có thể bị xóa, ẩn hoặc đổi quyền riêng tư
+- Follower graph thay đổi liên tục
+- Feed phải hoạt động ở nhiều region
+- Nội dung mới phải xuất hiện nhanh nhưng không làm hệ thống quá tải
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế một home feed tương tự mạng xã hội tổng quát.</p>
+<p>Hỗ trợ:</p>
+<pre class="hljs"><code><div>1. User tạo post.
+2. User follow/unfollow tài khoản khác.
+3. Home feed gồm nội dung từ các tài khoản đang follow.
+4. Có ranking thay vì chỉ chronological.
+5. Có like, comment, share và hide.
+6. Có public, followers-only và private content.
+7. Có pagination vô hạn.
+8. Có celebrity và group lớn.
+9. Có recommendation và quảng cáo ở mức kiến trúc.
+10. Có multi-region.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Video transcoding chi tiết
+- Ad auction hoàn chỉnh
+- Machine-learning training pipeline chuyên sâu
+- Comment system hoàn chỉnh
+- End-to-end moderation model
+</div></code></pre>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="post">Post</h2>
+<pre class="hljs"><code><div>- Tạo text, image hoặc video post
+- Sửa hoặc xóa post
+- Chọn privacy
+- Chia sẻ hoặc repost
+</div></code></pre>
+<h2 id="social-graph">Social Graph</h2>
+<pre class="hljs"><code><div>- Follow
+- Unfollow
+- Block
+- Mute
+- Private-account follow request
+</div></code></pre>
+<h2 id="feed">Feed</h2>
+<pre class="hljs"><code><div>- Lấy page đầu
+- Lấy page tiếp theo bằng cursor
+- Cá nhân hóa ranking
+- Không lặp post quá mức
+- Ẩn post đã bị xóa hoặc user không còn quyền xem
+</div></code></pre>
+<h2 id="engagement">Engagement</h2>
+<pre class="hljs"><code><div>- Like
+- Comment
+- Share
+- Save
+- Hide
+- Report
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Feed load latency thấp
+- Availability cao
+- Nội dung mới xuất hiện trong vài giây
+- Không để một celebrity post làm sập hệ thống
+- Ranking có thể eventual consistent
+- Privacy và block phải được thực thi chính xác
+- Scroll pagination phải ổn định
+- Feed có thể degrade khi ranking hoặc recommendation lỗi
+- Hệ thống phải hỗ trợ hàng triệu QPS đọc
+</div></code></pre>
+<hr>
+<h1 id="4-feed-chính-xác-tới-mức-nào">4. Feed chính xác tới mức nào?</h1>
+<p>Không phải mọi thành phần cần strong consistency.</p>
+<h2 id="cần-correctness-cao">Cần correctness cao</h2>
+<pre class="hljs"><code><div>- User bị block không được xem nội dung
+- Private post không được lộ
+- Post bị gỡ vì pháp lý phải biến mất nhanh
+- User không còn là follower không được xem followers-only post mới
+</div></code></pre>
+<h2 id="có-thể-eventual-consistency">Có thể eventual consistency</h2>
+<pre class="hljs"><code><div>- Like count
+- Comment count
+- Ranking score
+- Post mới xuất hiện chậm vài giây
+- Unread feed badge
+- Recommendation
+</div></code></pre>
+<hr>
+<h1 id="5-capacity-estimation">5. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>500 triệu DAU
+Mỗi user mở feed 10 lần/ngày
+Mỗi request trả 20 posts
+</div></code></pre>
+<p>Feed requests/ngày:</p>
+<pre class="hljs"><code><div>500 triệu × 10
+= 5 tỷ requests/ngày
+</div></code></pre>
+<p>Average QPS:</p>
+<pre class="hljs"><code><div>5.000.000.000 / 86.400
+≈ 58.000 requests/giây
+</div></code></pre>
+<p>Peak gấp 5–10 lần:</p>
+<pre class="hljs"><code><div>300.000–600.000 feed requests/giây
+</div></code></pre>
+<p>Nếu mỗi user scroll nhiều page, read QPS còn cao hơn.</p>
+<hr>
+<h1 id="6-post-creation-rate">6. Post Creation Rate</h1>
+<p>Giả sử 10% DAU tạo trung bình hai post/ngày:</p>
+<pre class="hljs"><code><div>500 triệu × 10% × 2
+= 100 triệu posts/ngày
+</div></code></pre>
+<p>Average post creation rate:</p>
+<pre class="hljs"><code><div>100.000.000 / 86.400
+≈ 1.160 posts/giây
+</div></code></pre>
+<p>Peak có thể:</p>
+<pre class="hljs"><code><div>10.000–20.000 posts/giây
+</div></code></pre>
+<p>Feed reads lớn hơn post writes rất nhiều.</p>
+<hr>
+<h1 id="7-fan-out-amplification">7. Fan-Out Amplification</h1>
+<p>Giả sử một user trung bình có 300 followers.</p>
+<p>Nếu mỗi post được copy vào feed của mọi follower:</p>
+<pre class="hljs"><code><div>100 triệu posts/ngày × 300
+= 30 tỷ feed insertions/ngày
+</div></code></pre>
+<p>Average fan-out writes:</p>
+<pre class="hljs"><code><div>≈ 347.000 insertions/giây
+</div></code></pre>
+<p>Peak có thể lên hàng triệu insertions/giây.</p>
+<p>Celebrity với 100 triệu followers tạo một post có thể yêu cầu:</p>
+<pre class="hljs"><code><div>100 triệu feed writes
+</div></code></pre>
+<p>Đây là celebrity problem.</p>
+<hr>
+<h1 id="8-high-level-architecture">8. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Edge[Global Edge / API Gateway]
+
+    Edge --> PostAPI[Post Service]
+    Edge --> FeedAPI[Feed Service]
+    Edge --> GraphAPI[Social Graph Service]
+
+    PostAPI --> PostStore[(Post Store)]
+    PostAPI --> Outbox[(Transactional Outbox)]
+
+    GraphAPI --> GraphStore[(Follower Graph Store)]
+
+    Outbox --> EventStream[Post Event Stream]
+
+    EventStream --> Fanout[Fan-out Service]
+    Fanout --> TimelineStore[(Home Timeline Store)]
+
+    FeedAPI --> FeedCache[(Feed Cache)]
+    FeedAPI --> TimelineStore
+    FeedAPI --> CandidateService[Candidate Service]
+    CandidateService --> GraphStore
+    CandidateService --> PostStore
+
+    FeedAPI --> Ranking[Ranking Service]
+    Ranking --> FeatureStore[(Online Feature Store)]
+
+    EventStream --> Search[Search / Recommendation Index]
+    EventStream --> Analytics[Analytics Pipeline]
+</div></code></pre>
+<hr>
+<h1 id="9-hai-loại-timeline">9. Hai loại Timeline</h1>
+<p>Cần phân biệt:</p>
+<h2 id="user-timeline-hoặc-profile-feed">User Timeline hoặc Profile Feed</h2>
+<p>Danh sách posts do một user tạo.</p>
+<pre class="hljs"><code><div>authorId → posts
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/profile/user_B/posts
+</div></code></pre>
+<h2 id="home-timeline-hoặc-news-feed">Home Timeline hoặc News Feed</h2>
+<p>Danh sách nội dung được chọn cho một viewer.</p>
+<pre class="hljs"><code><div>viewerId → candidate posts
+</div></code></pre>
+<p>User timeline dễ hơn vì chỉ đọc posts của một author.</p>
+<p>Home timeline cần social graph, fan-out và ranking.</p>
+<hr>
+<h1 id="10-post-data-model">10. Post Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;postId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;post_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;authorId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;postType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;IMAGE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Một ngày đẹp trời&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;mediaIds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;media_456&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;privacy&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;FOLLOWERS&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T04:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Có thể thêm:</p>
+<pre class="hljs"><code><div>- Group ID
+- Repost source
+- Language
+- Content labels
+- Moderation state
+- Location
+</div></code></pre>
+<hr>
+<h1 id="11-post-store-access-patterns">11. Post Store Access Patterns</h1>
+<p>Các query chính:</p>
+<pre class="hljs"><code><div>1. Lấy post theo postId.
+2. Lấy posts mới nhất của author.
+3. Lấy nhiều posts theo danh sách IDs.
+4. Cập nhật status/version.
+</div></code></pre>
+<p>Có thể partition theo:</p>
+<pre class="hljs"><code><div>authorId
+</div></code></pre>
+<p>và sort theo:</p>
+<pre class="hljs"><code><div>createdAt hoặc authorSequence
+</div></code></pre>
+<p>Nhưng exact post lookup theo <code>postId</code> cần global index hoặc ID chứa shard hint.</p>
+<hr>
+<h1 id="12-post-id-generation">12. Post ID Generation</h1>
+<p>Post ID cần:</p>
+<pre class="hljs"><code><div>- Unique toàn cầu
+- Tạo phân tán
+- Gần sắp theo thời gian nếu hữu ích
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Snowflake-like ID
+- Time-sortable random ID
+- UUID
+</div></code></pre>
+<p>Không nên dùng client timestamp làm ordering authoritative.</p>
+<hr>
+<h1 id="13-author-sequence">13. Author Sequence</h1>
+<p>Mỗi author có thể có sequence:</p>
+<pre class="hljs"><code><div>User B:
+Post 100
+Post 101
+Post 102
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Stable profile-feed ordering
+- Cursor pagination
+- Detect missing author posts
+</div></code></pre>
+<p>Nhưng global feed ranking không chỉ dựa vào author sequence.</p>
+<hr>
+<h1 id="14-post-creation-flow">14. Post Creation Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Post as Post Service
+    participant DB as Post Store
+    participant Outbox
+    participant Stream as Event Stream
+    participant Fanout
+
+    Client->>Post: Create post
+    Post->>Post: Validate user, media, privacy
+    Post->>DB: Insert post
+    Post->>Outbox: Insert PostCreated event
+    DB-->>Post: Commit
+    Post-->>Client: Post created
+
+    Outbox->>Stream: Publish PostCreated
+    Stream->>Fanout: Process post
+</div></code></pre>
+<p>Post phải durable trước khi trả success.</p>
+<p>Fan-out có thể diễn ra bất đồng bộ.</p>
+<hr>
+<h1 id="15-vì-sao-dùng-outbox">15. Vì sao dùng Outbox?</h1>
+<p>Nếu Post Service:</p>
+<pre class="hljs"><code><div>1. Ghi Post Store.
+2. Publish PostCreated.
+</div></code></pre>
+<p>và crash sau bước 1:</p>
+<pre class="hljs"><code><div>Post tồn tại
+nhưng không bao giờ được fan-out.
+</div></code></pre>
+<p>Nếu publish trước rồi DB fail:</p>
+<pre class="hljs"><code><div>Feed có ID của post không tồn tại.
+</div></code></pre>
+<p>Transactional outbox bảo đảm:</p>
+<pre class="hljs"><code><div>Post và ý định publish event cùng commit.
+</div></code></pre>
+<p>Downstream vẫn phải idempotent vì outbox event có thể được publish lại.</p>
+<hr>
+<h1 id="16-media-post">16. Media Post</h1>
+<p>Client không nên upload video lớn qua Post Service.</p>
+<p>Flow:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Media
+    participant Storage
+    participant Processor
+    participant Post
+
+    Client->>Media: Request upload URL
+    Media-->>Client: Signed URL
+    Client->>Storage: Upload directly
+    Storage->>Processor: Scan/transcode
+    Processor-->>Media: READY
+    Client->>Post: Create post with mediaId
+</div></code></pre>
+<p>Post Service xác minh:</p>
+<pre class="hljs"><code><div>- Media thuộc user
+- Media READY
+- Không bị BLOCKED
+</div></code></pre>
+<hr>
+<h1 id="17-follower-graph">17. Follower Graph</h1>
+<p>Follower graph có directed edges:</p>
+<pre class="hljs"><code><div>A follows B
+</div></code></pre>
+<p>Nghĩa là:</p>
+<pre class="hljs"><code><div>A muốn nhận posts của B.
+</div></code></pre>
+<p>Cần hỗ trợ hai hướng truy vấn:</p>
+<pre class="hljs"><code><div>Following:
+A đang theo dõi ai?
+
+Followers:
+Ai đang theo dõi B?
+</div></code></pre>
+<p>Fan-out on write cần danh sách followers.</p>
+<p>Fan-out on read cần danh sách following.</p>
+<hr>
+<h1 id="18-graph-data-model">18. Graph Data Model</h1>
+<p>Một cách lưu:</p>
+<pre class="hljs"><code><div>following_by_user:
+(followerId, followeeId)
+
+followers_by_user:
+(followeeId, followerId)
+</div></code></pre>
+<p>Ta denormalize cạnh theo hai hướng.</p>
+<p>Khi follow:</p>
+<pre class="hljs"><code><div>Insert A → B vào following index
+Insert B ← A vào follower index
+</div></code></pre>
+<p>Hai writes cần consistency hoặc reconciliation.</p>
+<hr>
+<h1 id="19-follow-event">19. Follow Event</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;evt_follow_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;UserFollowed&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;followerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_A&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;followeeId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_B&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;graphVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">817</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;occurredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Event được dùng để:</p>
+<pre class="hljs"><code><div>- Backfill recent posts vào feed
+- Cập nhật recommendation features
+- Cập nhật follower counts
+</div></code></pre>
+<hr>
+<h1 id="20-follow-race-và-uniqueness">20. Follow Race và Uniqueness</h1>
+<p>Hai requests follow đồng thời không được tạo hai logical edges.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>Primary key:
+(followerId, followeeId)
+</div></code></pre>
+<p>hoặc conditional insert.</p>
+<p>Follow API phải idempotent:</p>
+<pre class="hljs"><code><div>PUT /v1/users/{followeeId}/follow
+</div></code></pre>
+<p>Unfollow:</p>
+<pre class="hljs"><code><div>DELETE /v1/users/{followeeId}/follow
+</div></code></pre>
+<hr>
+<h1 id="21-private-account">21. Private Account</h1>
+<p>Với private account:</p>
+<pre class="hljs"><code><div>FOLLOW_REQUESTED
+→ ACCEPTED
+→ ACTIVE FOLLOW EDGE
+</div></code></pre>
+<p>Không fan-out nội dung followers-only trước khi request được chấp nhận.</p>
+<p>Data model cần tách:</p>
+<pre class="hljs"><code><div>Follow request
+và
+Active follow edge
+</div></code></pre>
+<hr>
+<h1 id="22-block-và-mute">22. Block và Mute</h1>
+<h2 id="block">Block</h2>
+<pre class="hljs"><code><div>- Hai bên không được tương tác theo policy
+- Nội dung không được xuất hiện
+- Có thể tự động xóa follow edges
+</div></code></pre>
+<h2 id="mute">Mute</h2>
+<pre class="hljs"><code><div>- Vẫn follow
+- Không muốn thấy nội dung trong feed
+- Author không nhất thiết biết
+</div></code></pre>
+<p>Block là authorization/privacy boundary.</p>
+<p>Mute là personalization/filtering.</p>
+<hr>
+<h1 id="23-fan-out-on-write">23. Fan-Out on Write</h1>
+<p>Khi author tạo post:</p>
+<pre class="hljs"><code><div>1. Lấy danh sách followers.
+2. Ghi post ID vào home timeline của từng follower.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Post[Post by Author B] --> Fanout[Fan-out Workers]
+
+    Fanout --> FeedA[Feed User A]
+    Fanout --> FeedC[Feed User C]
+    Fanout --> FeedD[Feed User D]
+</div></code></pre>
+<p>Home timeline chứa candidate references:</p>
+<pre class="hljs"><code><div>viewerId
+postId
+authorId
+createdAt
+fanoutReason
+</div></code></pre>
+<hr>
+<h1 id="24-ưu-điểm-fan-out-on-write">24. Ưu điểm Fan-Out on Write</h1>
+<p>Feed read rất nhanh:</p>
+<pre class="hljs"><code><div>GET viewer timeline
+→ đọc danh sách đã materialize
+</div></code></pre>
+<p>Không cần query hàng nghìn authors mỗi lần user mở app.</p>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- User có số followers vừa phải
+- Feed read rất nhiều
+- Post creation ít hơn feed reads
+</div></code></pre>
+<hr>
+<h1 id="25-nhược-điểm-fan-out-on-write">25. Nhược điểm Fan-Out on Write</h1>
+<pre class="hljs"><code><div>- Write amplification lớn
+- Celebrity post tạo hàng triệu writes
+- Feed của inactive users vẫn được cập nhật
+- Follow/unfollow cần backfill hoặc cleanup
+- Privacy change cần invalidation
+</div></code></pre>
+<p>Một user không mở app sáu tháng vẫn có thể nhận hàng nghìn feed insertions không bao giờ đọc.</p>
+<hr>
+<h1 id="26-fan-out-on-read">26. Fan-Out on Read</h1>
+<p>Khi viewer mở feed:</p>
+<pre class="hljs"><code><div>1. Lấy danh sách các tài khoản đang follow.
+2. Lấy recent posts của từng tài khoản.
+3. Merge candidates.
+4. Rank.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Viewer --> Graph[Following List]
+
+    Graph --> AuthorA[Posts Author A]
+    Graph --> AuthorB[Posts Author B]
+    Graph --> AuthorC[Posts Author C]
+
+    AuthorA --> Merge[Merge + Rank]
+    AuthorB --> Merge
+    AuthorC --> Merge
+
+    Merge --> Feed
+</div></code></pre>
+<hr>
+<h1 id="27-ưu-điểm-fan-out-on-read">27. Ưu điểm Fan-Out on Read</h1>
+<pre class="hljs"><code><div>- Post creation rẻ
+- Celebrity post không tạo hàng triệu writes
+- Privacy/follow state mới nhất dễ áp dụng
+- Không tạo timeline cho user không hoạt động
+</div></code></pre>
+<hr>
+<h1 id="28-nhược-điểm-fan-out-on-read">28. Nhược điểm Fan-Out on Read</h1>
+<pre class="hljs"><code><div>- Feed read chậm
+- Viewer follow hàng nghìn accounts cần nhiều reads
+- Merge và ranking tốn CPU
+- Tail latency cao
+- Khó cache kết quả cá nhân hóa
+</div></code></pre>
+<p>Không phù hợp nếu mọi request phải query hàng nghìn author partitions từ đầu.</p>
+<hr>
+<h1 id="29-so-sánh-push-và-pull">29. So sánh Push và Pull</h1>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Fan-out on write</th>
+<th>Fan-out on read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Post write</td>
+<td>Đắt</td>
+<td>Rẻ</td>
+</tr>
+<tr>
+<td>Feed read</td>
+<td>Nhanh</td>
+<td>Đắt</td>
+</tr>
+<tr>
+<td>Celebrity</td>
+<td>Rất khó</td>
+<td>Tốt hơn</td>
+</tr>
+<tr>
+<td>Inactive users</td>
+<td>Lãng phí writes</td>
+<td>Không lãng phí</td>
+</tr>
+<tr>
+<td>Privacy freshness</td>
+<td>Cần filter/invalidate</td>
+<td>Dễ áp dụng mới nhất</td>
+</tr>
+<tr>
+<td>Ranking</td>
+<td>Candidate đã materialize</td>
+<td>Candidate tạo lúc đọc</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>Timeline copies lớn</td>
+<td>Ít copies hơn</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="30-hybrid-fan-out">30. Hybrid Fan-Out</h1>
+<p>Thiết kế phổ biến:</p>
+<pre class="hljs"><code><div>Normal authors:
+Fan-out on write.
+
+Celebrity authors:
+Fan-out on read.
+
+Recommended content:
+Fan-out on read hoặc precomputed candidate pool.
+</div></code></pre>
+<p>Khi viewer mở feed:</p>
+<pre class="hljs"><code><div>1. Đọc home timeline đã fan-out.
+2. Pull recent posts từ celebrity đang follow.
+3. Thêm recommendation candidates.
+4. Merge, filter và rank.
+</div></code></pre>
+<hr>
+<h1 id="31-celebrity-problem">31. Celebrity Problem</h1>
+<p>Một celebrity có:</p>
+<pre class="hljs"><code><div>100 triệu followers
+</div></code></pre>
+<p>Đăng một post.</p>
+<p>Fan-out on write tạo:</p>
+<pre class="hljs"><code><div>100 triệu timeline insertions
+</div></code></pre>
+<p>Nếu cần hoàn thành trong 10 giây:</p>
+<pre class="hljs"><code><div>10 triệu writes/giây
+</div></code></pre>
+<p>chỉ cho một post.</p>
+<p>Ngoài chi phí, post đó có thể làm trễ fan-out của mọi author bình thường.</p>
+<hr>
+<h1 id="32-celebrity-classification">32. Celebrity Classification</h1>
+<p>Không nên dùng threshold cố định duy nhất mãi mãi.</p>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Follower count
+- Fan-out cost dự kiến
+- Recent active follower count
+- Current system load
+- Author post frequency
+</div></code></pre>
+<p>Một author có 10 triệu followers nhưng chỉ 1% active khác với 10 triệu followers đều hoạt động.</p>
+<hr>
+<h1 id="33-active-follower-fan-out">33. Active-Follower Fan-Out</h1>
+<p>Thay vì fan-out tới mọi follower:</p>
+<pre class="hljs"><code><div>Chỉ fan-out tới followers hoạt động trong 30 ngày gần nhất.
+</div></code></pre>
+<p>Inactive user khi quay lại:</p>
+<pre class="hljs"><code><div>Pull recent candidates từ following graph.
+</div></code></pre>
+<p>Đây là hybrid theo activity.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Giảm write amplification
+- Vẫn có feed nhanh cho active users
+</div></code></pre>
+<hr>
+<h1 id="34-fan-out-queue-partitioning">34. Fan-Out Queue Partitioning</h1>
+<p>Post fan-out job có thể partition theo:</p>
+<pre class="hljs"><code><div>authorId
+</div></code></pre>
+<p>nhưng celebrity tạo một partition cực nóng.</p>
+<p>Có thể chia follower list thành chunks:</p>
+<pre class="hljs"><code><div>authorId + followerRange
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Post P:
+chunk 0 → followers 0–99.999
+chunk 1 → followers 100.000–199.999
+...
+</div></code></pre>
+<p>Nhiều workers xử lý song song.</p>
+<hr>
+<h1 id="35-fan-out-job-model">35. Fan-Out Job Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;postId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;post_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;authorId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_B&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;followerCursorStart&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;followerCursorEnd&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;postVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fanoutPolicy&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PUSH_ACTIVE_ONLY&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Worker phải idempotent.</p>
+<p>Timeline insertion key:</p>
+<pre class="hljs"><code><div>(viewerId, postId)
+</div></code></pre>
+<p>không được tạo duplicate logical candidate.</p>
+<hr>
+<h1 id="36-home-timeline-store">36. Home Timeline Store</h1>
+<p>Một timeline entry:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;viewerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_A&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;postId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;post_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;authorId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_B&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;candidateTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T04:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;FOLLOWING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sourceVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Timeline Store chỉ nên chứa candidate references, không copy toàn bộ post payload.</p>
+<p>Nếu copy toàn bộ payload:</p>
+<pre class="hljs"><code><div>- Sửa post phải update hàng triệu copies
+- Storage tăng mạnh
+</div></code></pre>
+<hr>
+<h1 id="37-timeline-partitioning">37. Timeline Partitioning</h1>
+<p>Partition theo:</p>
+<pre class="hljs"><code><div>viewerId
+</div></code></pre>
+<p>Sort theo:</p>
+<pre class="hljs"><code><div>candidateTime hoặc insertion sequence
+</div></code></pre>
+<p>Access pattern:</p>
+<pre class="hljs"><code><div>Lấy các candidates mới nhất của một viewer.
+</div></code></pre>
+<p>Một user cực kỳ hoạt động có timeline lớn, nên cần retention/capping.</p>
+<hr>
+<h1 id="38-timeline-retention">38. Timeline Retention</h1>
+<p>Không cần giữ mọi post từng được fan-out.</p>
+<p>Có thể giữ:</p>
+<pre class="hljs"><code><div>- 7 ngày
+- 30 ngày
+- 5.000 candidates gần nhất
+</div></code></pre>
+<p>Nội dung cũ có thể được pull từ following graph nếu cần.</p>
+<p>Retention giảm:</p>
+<pre class="hljs"><code><div>- Storage
+- Read amplification
+- Cleanup complexity
+</div></code></pre>
+<hr>
+<h1 id="39-timeline-candidate-không-phải-final-feed">39. Timeline Candidate không phải Final Feed</h1>
+<p>Timeline entry chỉ nói:</p>
+<pre class="hljs"><code><div>Post này có khả năng phù hợp.
+</div></code></pre>
+<p>Trước khi trả cho user vẫn cần:</p>
+<pre class="hljs"><code><div>- Hydration
+- Privacy filtering
+- Block/mute filtering
+- Deduplication
+- Ranking
+- Diversity
+</div></code></pre>
+<p>Không nên coi materialized timeline là response cuối cùng bất biến.</p>
+<hr>
+<h1 id="40-candidate-generation">40. Candidate Generation</h1>
+<p>Candidate sources có thể gồm:</p>
+<pre class="hljs"><code><div>1. Posts từ following timeline.
+2. Celebrity posts được pull.
+3. Group/community posts.
+4. Recommended posts.
+5. Trending posts.
+6. Ads.
+7. Resurfaced older posts.
+</div></code></pre>
+<p>Candidate Service hợp nhất nhiều nguồn trước ranking.</p>
+<hr>
+<h1 id="41-candidate-source-quotas">41. Candidate Source Quotas</h1>
+<p>Nếu recommendation trả 10.000 candidates còn following chỉ 100, recommendation có thể lấn át hoàn toàn.</p>
+<p>Có thể giới hạn:</p>
+<pre class="hljs"><code><div>Following candidates: tối đa 1.000
+Celebrity pull: tối đa 200
+Recommendations: tối đa 500
+Trending: tối đa 100
+</div></code></pre>
+<p>Sau đó ranking trên pool kiểm soát.</p>
+<hr>
+<h1 id="42-pull-celebrity-candidates">42. Pull Celebrity Candidates</h1>
+<p>Khi viewer follow 50 celebrities:</p>
+<pre class="hljs"><code><div>- Lấy một số recent posts mỗi celebrity
+- Merge theo thời gian hoặc preliminary score
+</div></code></pre>
+<p>Không nên query từng celebrity tuần tự.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Batch multi-get
+- Cache recent celebrity posts
+- Maintain celebrity recent-post index
+</div></code></pre>
+<hr>
+<h1 id="43-celebrity-recent-post-cache">43. Celebrity Recent-Post Cache</h1>
+<p>Key:</p>
+<pre class="hljs"><code><div>authorId → recent post IDs
+</div></code></pre>
+<p>Cache được cập nhật khi celebrity đăng post.</p>
+<p>Feed request của hàng triệu followers dùng cùng cache data.</p>
+<p>Đây là cache rất hiệu quả vì shared across users.</p>
+<hr>
+<h1 id="44-recommendation-candidates">44. Recommendation Candidates</h1>
+<p>Recommendation system có thể tạo:</p>
+<pre class="hljs"><code><div>- Candidate authors
+- Candidate posts
+- Topics
+- Similar-content results
+</div></code></pre>
+<p>Nguồn:</p>
+<pre class="hljs"><code><div>- Collaborative filtering
+- Embedding/vector retrieval
+- Trending
+- Social interactions
+- Topic affinity
+</div></code></pre>
+<p>Recommendation là projection eventual consistent.</p>
+<p>Feed vẫn phải hoạt động khi recommendation system lỗi.</p>
+<hr>
+<h1 id="45-candidate-hydration">45. Candidate Hydration</h1>
+<p>Timeline chứa post IDs.</p>
+<p>Feed Service cần lấy:</p>
+<pre class="hljs"><code><div>- Post content
+- Author profile
+- Media metadata
+- Engagement counts
+- Viewer-specific state
+</div></code></pre>
+<p>Không nên gọi từng service cho từng post tuần tự.</p>
+<p>Nếu page có 20 posts và mỗi post gọi bốn services:</p>
+<pre class="hljs"><code><div>80 network calls
+</div></code></pre>
+<p>Đây là N+1 problem.</p>
+<hr>
+<h1 id="46-batch-hydration">46. Batch Hydration</h1>
+<p>Dùng bulk APIs:</p>
+<pre class="hljs"><code><div>Post Service:
+Get 100 posts by IDs
+
+Profile Service:
+Get 30 authors by IDs
+
+Engagement Service:
+Get viewer states for 100 posts
+</div></code></pre>
+<p>Có thể chạy các bulk calls độc lập song song.</p>
+<hr>
+<h1 id="47-denormalized-feed-documents">47. Denormalized Feed Documents</h1>
+<p>Một feed document có thể chứa snapshot:</p>
+<pre class="hljs"><code><div>- Author display name
+- Author avatar version
+- Post preview
+- Media thumbnail metadata
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Feed read nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Profile update không phản ánh ngay
+- Payload lớn
+- Update propagation phức tạp
+</div></code></pre>
+<p>Thường dùng kết hợp:</p>
+<pre class="hljs"><code><div>Post content authoritative + cached/denormalized display metadata.
+</div></code></pre>
+<hr>
+<h1 id="48-ranking-pipeline">48. Ranking Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Candidates --> PreFilter[Eligibility Filter]
+    PreFilter --> Lightweight[Lightweight Scoring]
+    Lightweight --> TopK[Top-K Candidates]
+    TopK --> HeavyRanker[Heavy Ranking Model]
+    HeavyRanker --> Rules[Business Rules + Diversity]
+    Rules --> Feed
+</div></code></pre>
+<p>Không chạy model nặng trên hàng triệu posts.</p>
+<p>Ranking nhiều tầng giúp cân bằng:</p>
+<pre class="hljs"><code><div>- Latency
+- Cost
+- Relevance
+</div></code></pre>
+<hr>
+<h1 id="49-pre-filtering">49. Pre-Filtering</h1>
+<p>Trước ranking cần loại:</p>
+<pre class="hljs"><code><div>- Post bị xóa
+- Author bị block
+- Author bị mute
+- Nội dung không đúng privacy
+- Nội dung bị moderation block
+- Post đã xem quá nhiều lần
+- Content không phù hợp region/age
+</div></code></pre>
+<p>Security/privacy filtering phải xảy ra trước khi trả response.</p>
+<hr>
+<h1 id="50-ranking-features">50. Ranking Features</h1>
+<h2 id="post-features">Post features</h2>
+<pre class="hljs"><code><div>- Tuổi bài viết
+- Like/comment/share velocity
+- Content quality
+- Language
+- Media type
+</div></code></pre>
+<h2 id="author-features">Author features</h2>
+<pre class="hljs"><code><div>- Relationship strength
+- Author quality
+- Viewer tương tác gần đây
+- Follow age
+</div></code></pre>
+<h2 id="viewer-features">Viewer features</h2>
+<pre class="hljs"><code><div>- Topic interests
+- Preferred media
+- Session context
+- Device/network
+</div></code></pre>
+<h2 id="cross-features">Cross features</h2>
+<pre class="hljs"><code><div>- Viewer-author affinity
+- Viewer-topic match
+- Viewer thường xem video của author này không?
+</div></code></pre>
+<hr>
+<h1 id="51-ranking-score-trực-giác">51. Ranking Score trực giác</h1>
+<p>Một công thức khái niệm:</p>
+<pre class="hljs"><code><div>score =
+relevance
++ social affinity
++ engagement quality
++ freshness
++ predicted action probability
+- spam penalty
+- repetition penalty
+</div></code></pre>
+<p>Trong production, model có thể dự đoán:</p>
+<pre class="hljs"><code><div>- Probability of meaningful view
+- Like probability
+- Comment probability
+- Hide/report probability
+</div></code></pre>
+<p>Không nên tối ưu chỉ click nếu clickbait gây trải nghiệm xấu.</p>
+<hr>
+<h1 id="52-chronological-feed">52. Chronological Feed</h1>
+<p>Một feed đơn giản có thể sort:</p>
+<pre class="hljs"><code><div>createdAt DESC
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Dễ debug
+- Stable hơn
+- Ít ML complexity
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User follow nhiều accounts sẽ bỏ lỡ nội dung quan trọng
+- Spam author có thể chiếm toàn feed
+</div></code></pre>
+<p>Có thể cung cấp chronological mode riêng.</p>
+<hr>
+<h1 id="53-freshness-decay">53. Freshness Decay</h1>
+<p>Post mới thường được ưu tiên.</p>
+<p>Một decay khái niệm:</p>
+<pre class="hljs"><code><div>freshnessScore = exp(-age / halfLife)
+</div></code></pre>
+<p>Nhưng half-life tùy loại nội dung:</p>
+<pre class="hljs"><code><div>Breaking news:
+Ngắn
+
+Bài viết dài:
+Dài
+
+Evergreen educational content:
+Rất dài
+</div></code></pre>
+<p>Không nên dùng cùng freshness decay cho mọi content type.</p>
+<hr>
+<h1 id="54-engagement-bias">54. Engagement Bias</h1>
+<p>Post có nhiều engagement nhận ranking cao:</p>
+<pre class="hljs"><code><div>Ranking cao
+→ được hiển thị nhiều
+→ có thêm engagement
+→ ranking càng cao
+</div></code></pre>
+<p>Tạo feedback loop.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Normalize theo impressions
+- Bayesian confidence
+- Exploration
+- Fresh-content opportunities
+- Anti-manipulation
+</div></code></pre>
+<hr>
+<h1 id="55-social-affinity">55. Social Affinity</h1>
+<p>Affinity giữa viewer A và author B có thể dựa trên:</p>
+<pre class="hljs"><code><div>- A thường xem post của B
+- A comment/message với B
+- A tìm profile B
+- A follow B gần đây
+- A hide post B
+</div></code></pre>
+<p>Affinity phải có decay theo thời gian.</p>
+<p>Tương tác năm năm trước không nên có trọng số như tuần trước.</p>
+<hr>
+<h1 id="56-negative-signals">56. Negative Signals</h1>
+<p>Ranking cần sử dụng:</p>
+<pre class="hljs"><code><div>- Hide
+- Unfollow sau khi xem
+- Report
+- Scroll qua rất nhanh
+- Mute
+- “Not interested”
+</div></code></pre>
+<p>Negative signal thường quan trọng để ngăn engagement bait.</p>
+<hr>
+<h1 id="57-diversity">57. Diversity</h1>
+<p>Nếu top score đều là video của cùng author:</p>
+<pre class="hljs"><code><div>Feed trở nên đơn điệu.
+</div></code></pre>
+<p>Post-ranking rules có thể giới hạn:</p>
+<pre class="hljs"><code><div>- Tối đa N posts liên tiếp cùng author
+- Trộn content types
+- Trộn topics
+- Giới hạn recommendation density
+</div></code></pre>
+<p>Diversity có thể giảm score tối đa ngắn hạn nhưng cải thiện trải nghiệm tổng thể.</p>
+<hr>
+<h1 id="58-deduplication">58. Deduplication</h1>
+<p>Một post có thể xuất hiện từ nhiều nguồn:</p>
+<pre class="hljs"><code><div>- Following timeline
+- Trending
+- Recommendation
+- Repost
+</div></code></pre>
+<p>Dedupe theo:</p>
+<pre class="hljs"><code><div>postId
+</div></code></pre>
+<p>Với repost, product policy quyết định:</p>
+<pre class="hljs"><code><div>- Giữ repost riêng
+- Collapse cùng original post
+- Hiển thị social context khác nhau
+</div></code></pre>
+<hr>
+<h1 id="59-seen-state">59. Seen-State</h1>
+<p>Để tránh lặp post, hệ thống có thể lưu:</p>
+<pre class="hljs"><code><div>viewerId → recently seen post IDs
+</div></code></pre>
+<p>Nhưng không thể giữ toàn bộ lịch sử mãi mãi.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- TTL set trong vài ngày
+- Session-level seen set
+- Bloom filter
+- Impression log projection
+</div></code></pre>
+<p>False positive trong approximate filter có thể làm bỏ một post chưa xem, nên cần cân nhắc.</p>
+<hr>
+<h1 id="60-impression-logging">60. Impression Logging</h1>
+<p>Khi post thực sự xuất hiện trên màn hình:</p>
+<pre class="hljs"><code><div>FeedImpression
+</div></code></pre>
+<p>Không nên coi post được trả trong API là đã xem chắc chắn.</p>
+<p>Client gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;postId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;post_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;feedRequestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;feed_req_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;visibleDurationMs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2500</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Telemetry có thể mất hoặc bị giả, nên không phải nguồn financial truth.</p>
+<hr>
+<h1 id="61-feed-request-id">61. Feed Request ID</h1>
+<p>Mỗi feed response có:</p>
+<pre class="hljs"><code><div>feedRequestId
+rankingModelVersion
+candidateSnapshot/version
+</div></code></pre>
+<p>Giúp:</p>
+<pre class="hljs"><code><div>- Debug ranking
+- Attribution impressions/clicks
+- A/B testing
+- Reproduce approximate decision
+</div></code></pre>
+<p>Không nhất thiết lưu toàn bộ candidate pool lâu dài cho mọi request.</p>
+<hr>
+<h1 id="62-pagination">62. Pagination</h1>
+<p>Không nên dùng:</p>
+<pre class="hljs"><code><div>GET /feed?offset=10000
+</div></code></pre>
+<p>Vì:</p>
+<pre class="hljs"><code><div>- Deep offset đắt
+- Feed thay đổi liên tục
+- Duplicate hoặc missing items
+</div></code></pre>
+<p>Dùng cursor-based pagination.</p>
+<hr>
+<h1 id="63-cursor-design">63. Cursor Design</h1>
+<p>Cursor có thể chứa:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;snapshotId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;snap_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastRankScore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.781</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastPostId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;post_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;issuedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Hoặc opaque token được ký/mã hóa.</p>
+<p>Client không nên tự sửa cursor.</p>
+<hr>
+<h1 id="64-vì-sao-cursor-cần-tie-breaker">64. Vì sao Cursor cần Tie-Breaker?</h1>
+<p>Hai posts có cùng score.</p>
+<p>Nếu chỉ dùng:</p>
+<pre class="hljs"><code><div>score &lt; lastScore
+</div></code></pre>
+<p>có thể bỏ hoặc lặp item.</p>
+<p>Dùng ordering:</p>
+<pre class="hljs"><code><div>(score DESC, postId DESC)
+</div></code></pre>
+<p>Cursor chứa cả:</p>
+<pre class="hljs"><code><div>lastScore
+lastPostId
+</div></code></pre>
+<hr>
+<h1 id="65-snapshot-pagination">65. Snapshot Pagination</h1>
+<p>Ranking và candidates thay đổi giữa page 1 và page 2.</p>
+<p>Có thể tạo feed session snapshot:</p>
+<pre class="hljs"><code><div>snapshotId → ordered candidate IDs
+</div></code></pre>
+<p>Trang tiếp theo đọc cùng snapshot.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Pagination ổn định
+- Ít duplicate
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Storage/cache
+- Feed không phản ánh post mới trong session hiện tại
+</div></code></pre>
+<hr>
+<h1 id="66-stateless-cursor">66. Stateless Cursor</h1>
+<p>Cursor chỉ chứa vị trí cuối cùng và query context.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không cần lưu snapshot server-side
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Candidate set thay đổi
+- Duplicate/missing khó tránh hoàn toàn
+</div></code></pre>
+<p>Nhiều consumer feeds chấp nhận best-effort stable pagination.</p>
+<hr>
+<h1 id="67-feed-session">67. Feed Session</h1>
+<p>Có thể định nghĩa:</p>
+<pre class="hljs"><code><div>User refresh:
+Tạo session feed mới.
+
+User scroll:
+Tiếp tục snapshot/cursor cũ.
+</div></code></pre>
+<p>Post mới xuất hiện ở lần refresh tiếp theo thay vì chen vào giữa scroll.</p>
+<p>Điều này cải thiện UX và pagination stability.</p>
+<hr>
+<h1 id="68-feed-cache">68. Feed Cache</h1>
+<p>Các tầng cache:</p>
+<pre class="hljs"><code><div>L1:
+In-process cache ngắn hạn
+
+L2:
+Distributed feed-result cache
+
+Timeline cache:
+Recent candidate IDs per user
+
+Object caches:
+Post/profile/engagement data
+</div></code></pre>
+<p>Personalized feed cache hit thấp hơn cache shared content.</p>
+<hr>
+<h1 id="69-first-page-cache">69. First-Page Cache</h1>
+<p>Page đầu được đọc nhiều nhất.</p>
+<p>Có thể precompute hoặc cache:</p>
+<pre class="hljs"><code><div>viewerId → top 50 ranked post IDs
+</div></code></pre>
+<p>TTL:</p>
+<pre class="hljs"><code><div>Vài chục giây đến vài phút
+</div></code></pre>
+<p>Khi user mở app:</p>
+<pre class="hljs"><code><div>Trả cache nhanh
+→ refresh phía sau.
+</div></code></pre>
+<hr>
+<h1 id="70-stale-while-revalidate">70. Stale-While-Revalidate</h1>
+<pre class="hljs"><code><div>1. Trả feed cache hơi cũ.
+2. Trigger refresh async.
+3. Lần sau nhận feed mới.
+</div></code></pre>
+<p>Phù hợp khi:</p>
+<pre class="hljs"><code><div>- Latency quan trọng
+- Staleness nhỏ chấp nhận được
+</div></code></pre>
+<p>Nhưng vẫn phải recheck:</p>
+<pre class="hljs"><code><div>- Block
+- Privacy
+- Deleted status
+</div></code></pre>
+<p>trước khi trả.</p>
+<hr>
+<h1 id="71-không-cache-security-decision-quá-lâu">71. Không Cache Security Decision quá lâu</h1>
+<p>Feed cache có thể chứa post của user vừa bị block.</p>
+<p>Nếu trả nguyên cache không filter:</p>
+<pre class="hljs"><code><div>Privacy violation.
+</div></code></pre>
+<p>Phải có:</p>
+<pre class="hljs"><code><div>- Runtime eligibility filter
+- Versioned block/privacy state
+- Urgent cache invalidation
+</div></code></pre>
+<p>Performance cache không được vượt qua authorization.</p>
+<hr>
+<h1 id="72-post-cache">72. Post Cache</h1>
+<p>Post payload được đọc bởi rất nhiều users.</p>
+<p>Key:</p>
+<pre class="hljs"><code><div>postId → PostRecord
+</div></code></pre>
+<p>Celebrity post rất phù hợp cache.</p>
+<p>Update hoặc delete cần:</p>
+<pre class="hljs"><code><div>- Version
+- Invalidation
+- Tombstone
+</div></code></pre>
+<hr>
+<h1 id="73-profile-cache">73. Profile Cache</h1>
+<p>Feed page có nhiều author profiles.</p>
+<p>Cache:</p>
+<pre class="hljs"><code><div>authorId → display profile
+</div></code></pre>
+<p>Profile updates có thể eventual trong feed.</p>
+<p>Nhưng verification badge hoặc safety state có thể cần propagation nhanh hơn.</p>
+<hr>
+<h1 id="74-engagement-count-cache">74. Engagement Count Cache</h1>
+<p>Like/comment/share counts thay đổi nhanh.</p>
+<p>Không nên update Post Store authoritative row cho mọi like.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Engagement event stream
+→ sharded counters
+→ cache
+→ periodic durable snapshot
+</div></code></pre>
+<p>Counts hiển thị có thể eventual.</p>
+<hr>
+<h1 id="75-counter-hot-key">75. Counter Hot Key</h1>
+<p>Celebrity post nhận một triệu likes/giây.</p>
+<p>Một counter key:</p>
+<pre class="hljs"><code><div>post_123:likes
+</div></code></pre>
+<p>trở thành hot key.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>post_123:likes:bucket_0
+...
+post_123:likes:bucket_99
+</div></code></pre>
+<p>Sau đó merge partial counters.</p>
+<hr>
+<h1 id="76-like-idempotency">76. Like Idempotency</h1>
+<p>Một user không được tạo nhiều logical likes giống nhau.</p>
+<p>Key:</p>
+<pre class="hljs"><code><div>(postId, userId)
+</div></code></pre>
+<p>Like API:</p>
+<pre class="hljs"><code><div>PUT /v1/posts/{postId}/like
+</div></code></pre>
+<p>Unlike:</p>
+<pre class="hljs"><code><div>DELETE /v1/posts/{postId}/like
+</div></code></pre>
+<p>Counter projection có thể retry/reconcile từ authoritative like edges.</p>
+<hr>
+<h1 id="77-privacy-models">77. Privacy Models</h1>
+<p>Post có thể là:</p>
+<pre class="hljs"><code><div>PUBLIC
+FOLLOWERS
+CLOSE_FRIENDS
+GROUP
+PRIVATE
+</div></code></pre>
+<p>Eligibility phụ thuộc:</p>
+<pre class="hljs"><code><div>viewerId
+authorId
+follow state
+block state
+group membership
+post privacy version
+</div></code></pre>
+<p>Không nên chỉ quyết định privacy lúc fan-out.</p>
+<p>Cần recheck khi feed được phục vụ.</p>
+<hr>
+<h1 id="78-vì-sao-recheck-privacy-lúc-read">78. Vì sao Recheck Privacy lúc Read?</h1>
+<p>Post followers-only được fan-out cho A.</p>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>A unfollow B
+</div></code></pre>
+<p>Timeline A vẫn có post ID.</p>
+<p>Nếu không recheck:</p>
+<pre class="hljs"><code><div>A tiếp tục xem nội dung không còn quyền.
+</div></code></pre>
+<p>Timeline là candidate store, không phải authorization store.</p>
+<hr>
+<h1 id="79-privacy-version">79. Privacy Version</h1>
+<p>Post hoặc author có:</p>
+<pre class="hljs"><code><div>privacyVersion
+</div></code></pre>
+<p>Timeline entry có thể lưu version tại lúc fan-out.</p>
+<p>Nếu version thay đổi:</p>
+<pre class="hljs"><code><div>Feed Service biết cần kiểm tra lại hoặc invalidate.
+</div></code></pre>
+<p>Đây là optimization; authoritative policy vẫn phải được thực thi.</p>
+<hr>
+<h1 id="80-followunfollow-và-existing-feed-entries">80. Follow/Unfollow và Existing Feed Entries</h1>
+<p>Khi follow:</p>
+<pre class="hljs"><code><div>Có thể backfill N posts gần nhất của author vào timeline.
+</div></code></pre>
+<p>Khi unfollow:</p>
+<pre class="hljs"><code><div>- Không nhất thiết xóa ngay mọi timeline entry.
+- Runtime filter sẽ loại.
+- Background cleanup thực hiện sau.
+</div></code></pre>
+<p>Điều này giảm synchronous write amplification.</p>
+<hr>
+<h1 id="81-block-propagation">81. Block Propagation</h1>
+<p>Block cần có hiệu lực nhanh.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Commit block edge.
+2. Invalidate graph/privacy caches.
+3. Phát BlockCreated event.
+4. Cleanup timeline projections.
+5. Feed runtime filter từ chối ngay.
+</div></code></pre>
+<p>Runtime filter là lớp bảo vệ quan trọng nhất.</p>
+<hr>
+<h1 id="82-deleted-post">82. Deleted Post</h1>
+<p>Không nên xóa vật lý ngay.</p>
+<p>Post state:</p>
+<pre class="hljs"><code><div>ACTIVE → DELETED
+</div></code></pre>
+<p>Feed hydration thấy tombstone và loại.</p>
+<p>Event:</p>
+<pre class="hljs"><code><div>PostDeleted
+</div></code></pre>
+<p>được dùng để:</p>
+<pre class="hljs"><code><div>- Invalidate caches
+- Remove search index
+- Cleanup timelines
+- Remove recommendation candidates
+</div></code></pre>
+<hr>
+<h1 id="83-legal-hoặc-safety-removal">83. Legal hoặc Safety Removal</h1>
+<p>Nội dung bị gỡ khẩn cấp cần:</p>
+<pre class="hljs"><code><div>- Global blocklist/tombstone
+- CDN purge
+- Cache invalidation ưu tiên cao
+- Search/recommendation removal
+- Audit
+</div></code></pre>
+<p>Không đợi timeline cleanup hoàn tất.</p>
+<p>Feed Service phải kiểm tra safety status mới nhất.</p>
+<hr>
+<h1 id="84-mute">84. Mute</h1>
+<p>Mute có thể được lưu:</p>
+<pre class="hljs"><code><div>(viewerId, authorId)
+</div></code></pre>
+<p>Runtime feed filter loại post.</p>
+<p>Không nhất thiết xóa toàn bộ candidates.</p>
+<p>Mute update cần cache invalidation nhanh để UX phản ánh ngay.</p>
+<hr>
+<h1 id="85-not-interested">85. “Not Interested”</h1>
+<p>Có thể tạo negative preference:</p>
+<pre class="hljs"><code><div>- Post
+- Author
+- Topic
+- Content type
+</div></code></pre>
+<p>Một số tác động:</p>
+<pre class="hljs"><code><div>- Ẩn post ngay
+- Giảm ranking tương lai
+- Không nhất thiết unfollow
+</div></code></pre>
+<p>Feedback event đi vào online feature store và training pipeline.</p>
+<hr>
+<h1 id="86-candidate-freshness">86. Candidate Freshness</h1>
+<p>Fan-out pipeline có thể chậm.</p>
+<p>Post mới chưa có trong timeline nhưng viewer mở feed ngay.</p>
+<p>Có thể bổ sung:</p>
+<pre class="hljs"><code><div>- Pull recent posts từ recent-following cache
+- Read-after-write override cho chính author
+- Fan-out lag compensation
+</div></code></pre>
+<p>Không nên để feed hoàn toàn phụ thuộc fan-out đã hoàn tất.</p>
+<hr>
+<h1 id="87-read-your-posts">87. Read-Your-Posts</h1>
+<p>User vừa đăng post và mở profile/feed.</p>
+<p>Post phải xuất hiện ngay cho chính họ.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- User profile feed đọc trực tiếp Author Timeline
+- Home feed merge recent own posts
+- Session overlay
+</div></code></pre>
+<p>Không cần chờ fan-out tự gửi post tới chính user.</p>
+<hr>
+<h1 id="88-follow-then-read">88. Follow-Then-Read</h1>
+<p>User vừa follow B rồi mở feed.</p>
+<p>Nếu fan-out backfill chưa xong:</p>
+<pre class="hljs"><code><div>Feed chưa có nội dung B.
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Pull recent B posts trong một grace period
+- Follow response trả backfill token
+- Feed merge recently followed authors
+</div></code></pre>
+<p>Đây là read-your-relationship problem.</p>
+<hr>
+<h1 id="89-ranking-feature-store">89. Ranking Feature Store</h1>
+<p>Online features:</p>
+<pre class="hljs"><code><div>- Viewer-author affinity
+- Recent topic interests
+- Post engagement velocity
+- Author quality
+- Seen count
+</div></code></pre>
+<p>Feature Store cần:</p>
+<pre class="hljs"><code><div>- Low latency
+- Versioning
+- Freshness metrics
+- Training-serving consistency
+</div></code></pre>
+<p>Nếu feature thiếu, ranking cần default an toàn.</p>
+<hr>
+<h1 id="90-feature-freshness">90. Feature Freshness</h1>
+<p>Feature cũ có thể làm ranking xấu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User vừa hide nhiều video
+nhưng video preference feature cập nhật sau một giờ.
+</div></code></pre>
+<p>Cần theo dõi:</p>
+<pre class="hljs"><code><div>feature_event_time
+feature_computed_time
+</div></code></pre>
+<p>Một số negative actions có thể được áp trực tiếp bằng online rule trước khi model cập nhật.</p>
+<hr>
+<h1 id="91-ranking-model-failure">91. Ranking Model Failure</h1>
+<p>Nếu model service lỗi:</p>
+<pre class="hljs"><code><div>Feed không nên unavailable.
+</div></code></pre>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>1. Lightweight heuristic ranking.
+2. Chronological ordering.
+3. Cached first page.
+</div></code></pre>
+<p>Ví dụ heuristic:</p>
+<pre class="hljs"><code><div>social affinity + recency + engagement.
+</div></code></pre>
+<hr>
+<h1 id="92-candidate-service-failure">92. Candidate Service Failure</h1>
+<p>Nếu recommendations lỗi:</p>
+<pre class="hljs"><code><div>Vẫn phục vụ following feed.
+</div></code></pre>
+<p>Nếu celebrity pull lỗi:</p>
+<pre class="hljs"><code><div>Vẫn phục vụ fan-out timeline.
+</div></code></pre>
+<p>Feed architecture nên cho phép degrade từng candidate source.</p>
+<hr>
+<h1 id="93-partial-hydration-failure">93. Partial Hydration Failure</h1>
+<p>Profile Service lỗi nhưng post content có sẵn.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Dùng cached author snapshot
+- Trả default avatar/name
+- Loại post
+</div></code></pre>
+<p>Không nên fail cả page chỉ vì một candidate không hydrate được.</p>
+<hr>
+<h1 id="94-overfetch">94. Overfetch</h1>
+<p>Feed cần trả 20 posts.</p>
+<p>Sau filtering có thể loại nhiều candidates.</p>
+<p>Không nên chỉ lấy đúng 20 từ timeline.</p>
+<p>Có thể lấy:</p>
+<pre class="hljs"><code><div>100–300 candidates
+</div></code></pre>
+<p>sau đó filter/rank để còn top 20.</p>
+<p>Overfetch tăng quality nhưng tăng latency và compute.</p>
+<hr>
+<h1 id="95-filter-rate-monitoring">95. Filter Rate Monitoring</h1>
+<p>Nếu lấy 200 candidates nhưng 180 bị loại:</p>
+<pre class="hljs"><code><div>- Timeline stale
+- Block/privacy cleanup chậm
+- Recommendation quality thấp
+</div></code></pre>
+<p>Metrics:</p>
+<pre class="hljs"><code><div>candidate_count
+eligible_count
+ranked_count
+returned_count
+</div></code></pre>
+<p>giúp phát hiện vấn đề.</p>
+<hr>
+<h1 id="96-feed-response">96. Feed Response</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;feedRequestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;feed_req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;postId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;post_456&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;author&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;engagement&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;viewerState&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;liked&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;saved&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Because you follow this author&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;nextCursor&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;opaque_cursor&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Không expose raw ranking score hoặc nội bộ model.</p>
+<hr>
+<h1 id="97-feed-reason">97. Feed Reason</h1>
+<p>Có thể hiển thị:</p>
+<pre class="hljs"><code><div>- Vì bạn theo dõi A
+- A đã chia sẻ bài này
+- Phổ biến trong nhóm X
+- Được đề xuất cho bạn
+</div></code></pre>
+<p>Reason cần được xác định từ candidate provenance.</p>
+<p>Một post có nhiều provenance; hệ thống chọn reason phù hợp với UX và policy.</p>
+<hr>
+<h1 id="98-ad-insertion">98. Ad Insertion</h1>
+<p>Ads có thể được chèn sau organic ranking.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Frequency cap
+- Eligibility
+- Auction/ranking
+- Position constraints
+- Separation khỏi organic results
+</div></code></pre>
+<p>Không nên để ad pipeline làm toàn feed unavailable.</p>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>Organic-only feed.
+</div></code></pre>
+<hr>
+<h1 id="99-organic-và-ad-pagination">99. Organic và Ad Pagination</h1>
+<p>Cursor phải tránh:</p>
+<pre class="hljs"><code><div>- Lặp ad
+- Quá nhiều ads liên tiếp
+- Ad position thay đổi bất ổn
+</div></code></pre>
+<p>Có thể lưu ad exposure/session state riêng.</p>
+<p>Ads không nên thay đổi organic cursor semantics quá mức.</p>
+<hr>
+<h1 id="100-spam-và-content-quality">100. Spam và Content Quality</h1>
+<p>Fan-out hệ thống có thể bị abuse:</p>
+<pre class="hljs"><code><div>- Một account đăng hàng nghìn posts
+- Follow spam
+- Engagement manipulation
+- Bot network
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Post rate limit
+- Trust/reputation score
+- Distribution throttling
+- Content quality model
+- Abuse review
+</div></code></pre>
+<p>Không phải post nào được tạo cũng được fan-out toàn bộ ngay.</p>
+<hr>
+<h1 id="101-distribution-throttling">101. Distribution Throttling</h1>
+<p>Account mới hoặc nghi ngờ có thể:</p>
+<pre class="hljs"><code><div>- Fan-out tới một phần nhỏ followers
+- Không vào recommendation
+- Chờ moderation
+</div></code></pre>
+<p>Nếu an toàn, mở rộng distribution.</p>
+<p>Điều này giảm blast radius của spam hoặc malware.</p>
+<hr>
+<h1 id="102-feed-integrity">102. Feed Integrity</h1>
+<p>Feed không chỉ tối ưu engagement.</p>
+<p>Cần guardrails:</p>
+<pre class="hljs"><code><div>- Spam prevalence
+- Report rate
+- Harmful-content exposure
+- Political/content diversity theo policy
+- User satisfaction
+- Session quality
+</div></code></pre>
+<p>System Design interview không cần xây policy model chi tiết, nhưng phải tách safety filtering khỏi ranking đơn thuần.</p>
+<hr>
+<h1 id="103-social-graph-sharding">103. Social Graph Sharding</h1>
+<p>Có thể partition following edges theo:</p>
+<pre class="hljs"><code><div>followerId
+</div></code></pre>
+<p>và follower edges theo:</p>
+<pre class="hljs"><code><div>followeeId
+</div></code></pre>
+<p>Vì cần query cả hai hướng, ta lưu hai projections.</p>
+<p>Celebrity follower list là partition rất lớn, cần bucket:</p>
+<pre class="hljs"><code><div>followeeId + bucketId
+</div></code></pre>
+<hr>
+<h1 id="104-follower-count">104. Follower Count</h1>
+<p>Không nên chạy count toàn bộ follower edges mỗi request.</p>
+<p>Dùng counter projection:</p>
+<pre class="hljs"><code><div>followeeId → followerCount
+</div></code></pre>
+<p>Counter có thể eventual.</p>
+<p>Đối với logic quyết định celebrity, có thể dùng approximate count hoặc snapshot cập nhật định kỳ.</p>
+<hr>
+<h1 id="105-graph-cache">105. Graph Cache</h1>
+<p>Following list thường được đọc nhiều để build feed.</p>
+<p>Cache:</p>
+<pre class="hljs"><code><div>viewerId → followed author IDs
+</div></code></pre>
+<p>Nhưng user follow/unfollow cần invalidation.</p>
+<p>Danh sách lớn có thể:</p>
+<pre class="hljs"><code><div>- Paginated
+- Compressed
+- Cached theo chunks
+</div></code></pre>
+<hr>
+<h1 id="106-multi-region-goals">106. Multi-Region Goals</h1>
+<p>News Feed multi-region có hai mục tiêu:</p>
+<pre class="hljs"><code><div>1. Feed reads gần user.
+2. Post creation và graph mutations có write ownership rõ.
+</div></code></pre>
+<p>Feed ranking và candidates có thể local/eventual.</p>
+<p>Post và privacy metadata cần replication đáng tin cậy.</p>
+<hr>
+<h1 id="107-multi-region-architecture">107. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> GlobalEdge
+
+    GlobalEdge --> FeedA[Feed Region A]
+    GlobalEdge --> FeedB[Feed Region B]
+    GlobalEdge --> FeedC[Feed Region C]
+
+    GlobalEdge --> WriteRouter[Write / Home Region Router]
+
+    WriteRouter --> PostA[Post Service A]
+    WriteRouter --> PostB[Post Service B]
+    WriteRouter --> PostC[Post Service C]
+
+    PostA --> StreamA[Regional Event Stream A]
+    PostB --> StreamB[Regional Event Stream B]
+    PostC --> StreamC[Regional Event Stream C]
+
+    StreamA --> GlobalEvents[Cross-Region Event Replication]
+    StreamB --> GlobalEvents
+    StreamC --> GlobalEvents
+
+    GlobalEvents --> TimelineA[(Timeline A)]
+    GlobalEvents --> TimelineB[(Timeline B)]
+    GlobalEvents --> TimelineC[(Timeline C)]
+</div></code></pre>
+<hr>
+<h1 id="108-user-home-region">108. User Home Region</h1>
+<p>Mỗi user có home region cho:</p>
+<pre class="hljs"><code><div>- Post writes
+- Follow graph mutations
+- Privacy state
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>user_123 → eu-west
+</div></code></pre>
+<p>Feed reads có thể ở nearest region, dùng replicated data.</p>
+<hr>
+<h1 id="109-post-global-visibility">109. Post Global Visibility</h1>
+<p>User tạo post tại Region A.</p>
+<p>Post event replicate sang B và C.</p>
+<p>Trong vài giây:</p>
+<pre class="hljs"><code><div>Followers ở B/C thấy post.
+</div></code></pre>
+<p>Đây là eventual global visibility.</p>
+<p>Nếu product yêu cầu immediate worldwide visibility, cần:</p>
+<pre class="hljs"><code><div>- Synchronous replication
+- Global strongly consistent store
+- Session overlay
+</div></code></pre>
+<p>với chi phí latency cao hơn.</p>
+<hr>
+<h1 id="110-read-your-write-xuyên-region">110. Read-Your-Write xuyên Region</h1>
+<p>User đăng post ở Region A rồi di chuyển hoặc request được route Region B.</p>
+<p>Region B có thể chưa replicate post.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Sticky/home-region routing sau write
+- Write token chứa minimum version
+- Merge session-created posts
+- Chờ remote replication trước success
+</div></code></pre>
+<p>Thường session overlay là lựa chọn nhẹ hơn cho feed.</p>
+<hr>
+<h1 id="111-timeline-replication">111. Timeline Replication</h1>
+<p>Không nhất thiết replicate mọi per-user timeline entry toàn cầu.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>1. Timeline theo user home region.
+2. Rebuild/feed pull tại region đọc.
+3. Replicate timelines chỉ cho active users.
+4. Cache first page gần user.
+</div></code></pre>
+<p>Replicate hàng chục tỷ timeline entries qua mọi region rất tốn.</p>
+<hr>
+<h1 id="112-regional-feed-materialization">112. Regional Feed Materialization</h1>
+<p>Mỗi region có thể fan-out cho users đang active tại region đó.</p>
+<p>Global post event:</p>
+<pre class="hljs"><code><div>PostCreated
+→ Region A fan-out local active users
+→ Region B fan-out local active users
+</div></code></pre>
+<p>Cần directory biết user feed home/read region.</p>
+<hr>
+<h1 id="113-global-celebrity-posts">113. Global Celebrity Posts</h1>
+<p>Celebrity posts được lưu vào shared recent-author cache/index ở mọi region.</p>
+<p>Không fan-out tới mọi timeline.</p>
+<p>Feed region pull celebrity candidates local từ replicated recent-post index.</p>
+<hr>
+<h1 id="114-multi-region-graph">114. Multi-Region Graph</h1>
+<p>Follower graph có thể partition theo follower home region.</p>
+<p>Following list của viewer nằm local theo viewer.</p>
+<p>Followers list của author có thể phân tán toàn cầu.</p>
+<p>Fan-out event được gửi tới regional follower buckets:</p>
+<pre class="hljs"><code><div>Author B post
+→ follower buckets ở Asia, EU, US
+</div></code></pre>
+<p>Mỗi region fan-out tới local users.</p>
+<hr>
+<h1 id="115-cross-region-unfollow-race">115. Cross-Region Unfollow Race</h1>
+<p>User A ở Region B unfollow B.</p>
+<p>Gần như đồng thời, post của B đang fan-out.</p>
+<p>Timeline entry có thể vẫn được insert.</p>
+<p>Không sao nếu Feed Service runtime check thấy follow edge đã bị xóa.</p>
+<p>Đây là lý do authorization/eligibility không nên dựa hoàn toàn vào fan-out state.</p>
+<hr>
+<h1 id="116-data-residency">116. Data Residency</h1>
+<p>Một tenant hoặc user có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Post data ở EU
+- Media ở EU
+- Feed personalization data ở EU
+</div></code></pre>
+<p>Nhưng public post có thể được cache toàn cầu.</p>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>- Authoritative personal data
+- Public content distribution
+- Analytics
+- Logs và backups
+</div></code></pre>
+<p>Yêu cầu cụ thể phải được xác minh theo policy/pháp lý.</p>
+<hr>
+<h1 id="117-regional-failover">117. Regional Failover</h1>
+<p>Nếu feed region lỗi:</p>
+<pre class="hljs"><code><div>- Global router chuyển reads sang region khác.
+- Feed cache có thể cold.
+- Ranking features có thể thiếu.
+- Hệ thống fallback chronological/cached feed.
+</div></code></pre>
+<p>Nếu post-write home region lỗi:</p>
+<pre class="hljs"><code><div>- Promote replicated store hoặc route sang DR owner.
+- Fence old writer.
+- Resume event publication.
+</div></code></pre>
+<hr>
+<h1 id="118-feed-cache-sau-failover">118. Feed Cache sau Failover</h1>
+<p>Region mới có cold cache:</p>
+<pre class="hljs"><code><div>- Timeline reads tăng
+- Post/profile store bị tải cao
+- Ranking latency tăng
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Pre-warm active-user feeds
+- Gradual traffic shift
+- Serve stale cache
+- Degrade recommendation
+- Rate limit refresh
+</div></code></pre>
+<hr>
+<h1 id="119-failure-mode--fan-out-lag">119. Failure Mode — Fan-Out Lag</h1>
+<p>Post Store hoạt động nhưng fan-out queue backlog lớn.</p>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>Post mới xuất hiện chậm.
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Monitor oldest-event age
+- Autoscale workers
+- Prioritize recent posts
+- Pull recent-post compensation
+- Pause low-priority backfill
+</div></code></pre>
+<p>Không để historical backfill chặn realtime fan-out.</p>
+<hr>
+<h1 id="120-failure-mode--timeline-store-down">120. Failure Mode — Timeline Store Down</h1>
+<p>Feed có thể fallback:</p>
+<pre class="hljs"><code><div>- Cached first page
+- Pull following posts on read
+- Chronological limited feed
+</div></code></pre>
+<p>Post creation vẫn có thể tiếp tục.</p>
+<p>Fan-out events được giữ trong broker để replay.</p>
+<hr>
+<h1 id="121-failure-mode--graph-service-down">121. Failure Mode — Graph Service Down</h1>
+<p>Feed có thể:</p>
+<pre class="hljs"><code><div>- Dùng cached following list
+- Phục vụ cached feed
+- Tắt recommendation phụ thuộc graph mới
+</div></code></pre>
+<p>Nhưng privacy/block checks không được fail-open tùy tiện.</p>
+<p>Với security state không chắc chắn, có thể loại candidate thay vì hiển thị.</p>
+<hr>
+<h1 id="122-failure-mode--ranking-service-down">122. Failure Mode — Ranking Service Down</h1>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>1. Cached ranked feed.
+2. Heuristic ranking.
+3. Reverse chronological.
+</div></code></pre>
+<p>Feed API vẫn trả response.</p>
+<hr>
+<h1 id="123-failure-mode--feature-store-down">123. Failure Mode — Feature Store Down</h1>
+<p>Ranking model có thể dùng:</p>
+<pre class="hljs"><code><div>- Default values
+- Cached features
+- Lightweight ranker
+</div></code></pre>
+<p>Không nên gửi hàng nghìn feature lookup retries làm sự cố lan rộng.</p>
+<p>Circuit breaker cần mở nhanh.</p>
+<hr>
+<h1 id="124-failure-mode--post-hydration-partial-error">124. Failure Mode — Post Hydration Partial Error</h1>
+<p>Trong 100 candidates, 10 posts không đọc được.</p>
+<p>Không fail cả page.</p>
+<pre class="hljs"><code><div>- Loại 10 posts
+- Lấy thêm candidates
+- Trả page với đủ hoặc gần đủ số item
+</div></code></pre>
+<p>Theo dõi hydration failure rate.</p>
+<hr>
+<h1 id="125-failure-mode--event-duplication">125. Failure Mode — Event Duplication</h1>
+<p><code>PostCreated</code> có thể được giao hai lần.</p>
+<p>Fan-out insertion phải idempotent:</p>
+<pre class="hljs"><code><div>Primary key:
+(viewerId, postId)
+</div></code></pre>
+<p>Recommendation/search index cũng dùng post version hoặc idempotent upsert.</p>
+<hr>
+<h1 id="126-failure-mode--event-out-of-order">126. Failure Mode — Event Out-of-Order</h1>
+<p>Có thể nhận:</p>
+<pre class="hljs"><code><div>PostDeleted version 3
+</div></code></pre>
+<p>trước:</p>
+<pre class="hljs"><code><div>PostUpdated version 2
+</div></code></pre>
+<p>Consumer chỉ áp dụng nếu:</p>
+<pre class="hljs"><code><div>incomingVersion &gt; storedVersion
+</div></code></pre>
+<p>Không để event cũ làm post sống lại.</p>
+<hr>
+<h1 id="127-feed-observability">127. Feed Observability</h1>
+<h2 id="request">Request</h2>
+<pre class="hljs"><code><div>- Feed QPS
+- p50/p95/p99 latency
+- Error rate
+- Empty-feed rate
+- Cache hit ratio
+</div></code></pre>
+<h2 id="candidates">Candidates</h2>
+<pre class="hljs"><code><div>- Candidates theo source
+- Eligibility filter rate
+- Deduplication rate
+- Overfetch ratio
+</div></code></pre>
+<h2 id="ranking">Ranking</h2>
+<pre class="hljs"><code><div>- Ranker latency
+- Model failure
+- Feature freshness
+- Fallback rate
+</div></code></pre>
+<h2 id="fan-out">Fan-Out</h2>
+<pre class="hljs"><code><div>- Event lag
+- Insert throughput
+- Failure/retry
+- Celebrity queue pressure
+</div></code></pre>
+<hr>
+<h1 id="128-business-metrics">128. Business Metrics</h1>
+<pre class="hljs"><code><div>- Session length
+- Meaningful impressions
+- Like/comment/share rate
+- Hide/report rate
+- Follow/unfollow after exposure
+- Feed refresh rate
+- Duplicate exposure rate
+- Content diversity
+</div></code></pre>
+<p>Không tối ưu một metric đơn lẻ mà bỏ guardrails.</p>
+<hr>
+<h1 id="129-freshness-metrics">129. Freshness Metrics</h1>
+<p>Đo:</p>
+<pre class="hljs"><code><div>feed_impression_time - post_created_time
+</div></code></pre>
+<p>theo:</p>
+<pre class="hljs"><code><div>- Author type
+- Region
+- Candidate source
+- Follower activity
+</div></code></pre>
+<p>Ví dụ SLO:</p>
+<pre class="hljs"><code><div>99% posts từ normal authors xuất hiện trong feed
+của active followers trong vòng 10 giây.
+</div></code></pre>
+<p>Celebrity posts pull-on-read có thể xuất hiện gần như ngay sau khi recent-post index cập nhật.</p>
+<hr>
+<h1 id="130-fan-out-completeness">130. Fan-Out Completeness</h1>
+<p>Không thể chỉ biết event đã consume.</p>
+<p>Cần biết:</p>
+<pre class="hljs"><code><div>- Tổng follower chunks dự kiến
+- Chunks đã hoàn thành
+- Timeline insertions thành công
+- Dead-letter chunks
+</div></code></pre>
+<p>Post fan-out có thể có state:</p>
+<pre class="hljs"><code><div>PENDING
+IN_PROGRESS
+PARTIAL
+COMPLETED
+FAILED
+</div></code></pre>
+<p>Không nhất thiết chờ COMPLETED để post có thể xuất hiện.</p>
+<hr>
+<h1 id="131-feed-quality-evaluation">131. Feed Quality Evaluation</h1>
+<p>Offline metrics có thể gồm:</p>
+<pre class="hljs"><code><div>- NDCG
+- Precision@K
+- Recall@K
+- Diversity
+- Calibration
+</div></code></pre>
+<p>Online:</p>
+<pre class="hljs"><code><div>- Long click/dwell
+- Meaningful interactions
+- Hide/report
+- Retention
+</div></code></pre>
+<p>A/B testing cần guardrails về latency, safety và fairness.</p>
+<hr>
+<h1 id="132-training-data-bias">132. Training Data Bias</h1>
+<p>Model học từ impressions cũ.</p>
+<p>Những post được xếp cao nhận nhiều interaction hơn, tạo position bias.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Randomized exploration
+- Propensity correction
+- Counterfactual evaluation
+- Explicit negative labels
+</div></code></pre>
+<p>Đây là ML concern nhưng ảnh hưởng trực tiếp kiến trúc logging và experimentation.</p>
+<hr>
+<h1 id="133-feed-explainability-và-debugging">133. Feed Explainability và Debugging</h1>
+<p>Khi user hoặc support hỏi:</p>
+<pre class="hljs"><code><div>“Tại sao tôi thấy bài này?”
+</div></code></pre>
+<p>Cần giữ provenance:</p>
+<pre class="hljs"><code><div>- FOLLOWING
+- REPOST_BY_FRIEND
+- TRENDING_TOPIC
+- RECOMMENDED_AUTHOR
+</div></code></pre>
+<p>Kỹ sư cần trace:</p>
+<pre class="hljs"><code><div>candidate source
+→ eligibility decisions
+→ feature versions
+→ ranker version
+→ post-ranking rules
+</div></code></pre>
+<hr>
+<h1 id="134-feed-pipeline-versioning">134. Feed Pipeline Versioning</h1>
+<p>Feed response có thể gắn nội bộ:</p>
+<pre class="hljs"><code><div>candidateGeneratorVersion
+rankerVersion
+ruleSetVersion
+experimentIds
+</div></code></pre>
+<p>Giúp xác định regression sau rollout.</p>
+<p>Không cần expose toàn bộ cho client.</p>
+<hr>
+<h1 id="135-architecture-evolution">135. Architecture Evolution</h1>
+<h2 id="giai-đoạn-1">Giai đoạn 1</h2>
+<pre class="hljs"><code><div>- SQL posts
+- SQL follower graph
+- Fan-out on read
+- Chronological feed
+</div></code></pre>
+<p>Phù hợp hệ thống nhỏ.</p>
+<h2 id="giai-đoạn-2">Giai đoạn 2</h2>
+<pre class="hljs"><code><div>- Cache
+- Materialized timelines
+- Fan-out on write cho normal users
+- Queue/event stream
+</div></code></pre>
+<h2 id="giai-đoạn-3">Giai đoạn 3</h2>
+<pre class="hljs"><code><div>- Hybrid celebrity pull
+- Distributed stores
+- Ranking service
+- Feature store
+</div></code></pre>
+<h2 id="giai-đoạn-4">Giai đoạn 4</h2>
+<pre class="hljs"><code><div>- Multi-region
+- Regional fan-out
+- ML ranking nhiều tầng
+- Cell-based architecture
+</div></code></pre>
+<hr>
+<h1 id="136-thiết-kế-khuyến-nghị">136. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Post Service lưu post và outbox event atomically.
+2. Social Graph lưu following và follower projections.
+3. Normal authors dùng fan-out on write tới active followers.
+4. Celebrity authors dùng fan-out on read.
+5. Timeline Store chỉ lưu candidate references.
+6. Feed Service merge timeline, celebrity và recommendation candidates.
+7. Eligibility filter recheck privacy, block, mute và post status.
+8. Ranker nhiều tầng chọn top posts.
+9. Cursor pagination dùng stable tie-breaker hoặc feed session.
+10. Multi-region dùng regional reads và explicit home-region writes.
+</div></code></pre>
+<hr>
+<h1 id="137-trade-off--push-hay-pull">137. Trade-Off — Push hay Pull?</h1>
+<h2 id="push">Push</h2>
+<pre class="hljs"><code><div>Phù hợp:
+Author thường, follower count vừa.
+
+Lợi ích:
+Feed read nhanh.
+
+Chi phí:
+Write amplification.
+</div></code></pre>
+<h2 id="pull">Pull</h2>
+<pre class="hljs"><code><div>Phù hợp:
+Celebrity hoặc inactive viewers.
+
+Lợi ích:
+Post write rẻ.
+
+Chi phí:
+Feed read phức tạp.
+</div></code></pre>
+<p>Khuyến nghị:</p>
+<pre class="hljs"><code><div>Hybrid theo follower count, activity và system load.
+</div></code></pre>
+<hr>
+<h1 id="138-trade-off--timeline-chứa-id-hay-full-payload">138. Trade-Off — Timeline chứa ID hay Full Payload?</h1>
+<h2 id="chỉ-ids">Chỉ IDs</h2>
+<pre class="hljs"><code><div>Ưu:
+Storage nhỏ, update dễ.
+
+Nhược:
+Cần hydration.
+</div></code></pre>
+<h2 id="full-payload">Full payload</h2>
+<pre class="hljs"><code><div>Ưu:
+Read nhanh.
+
+Nhược:
+Dữ liệu stale, update amplification.
+</div></code></pre>
+<p>Thường dùng:</p>
+<pre class="hljs"><code><div>IDs + một số immutable/preview metadata.
+</div></code></pre>
+<hr>
+<h1 id="139-trade-off--feed-snapshot-hay-freshness-liên-tục">139. Trade-Off — Feed Snapshot hay Freshness Liên tục?</h1>
+<h2 id="snapshot-session">Snapshot session</h2>
+<pre class="hljs"><code><div>Pagination ổn định
+nhưng post mới không chen vào giữa session.
+</div></code></pre>
+<h2 id="dynamic-feed-mỗi-page">Dynamic feed mỗi page</h2>
+<pre class="hljs"><code><div>Fresh hơn
+nhưng duplicate/missing nhiều hơn.
+</div></code></pre>
+<p>Consumer products thường ưu tiên ổn định trong cùng scroll session và refresh để lấy feed mới.</p>
+<hr>
+<h1 id="140-trade-off--privacy-check-lúc-write-hay-read">140. Trade-Off — Privacy Check lúc Write hay Read?</h1>
+<h2 id="lúc-fan-out">Lúc fan-out</h2>
+<pre class="hljs"><code><div>Giảm candidates không hợp lệ.
+Nhưng graph/privacy có thể thay đổi sau.
+</div></code></pre>
+<h2 id="lúc-read">Lúc read</h2>
+<pre class="hljs"><code><div>Correctness mới nhất.
+Nhưng tăng read cost.
+</div></code></pre>
+<p>Thiết kế đúng thường làm cả hai:</p>
+<pre class="hljs"><code><div>Filter sớm để tối ưu
++
+Recheck lúc read để bảo vệ.
+</div></code></pre>
+<hr>
+<h1 id="141-trade-off--chronological-hay-ranked">141. Trade-Off — Chronological hay Ranked?</h1>
+<h2 id="chronological">Chronological</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Dễ hiểu
+- Fresh
+- Có thể bị spam
+</div></code></pre>
+<h2 id="ranked">Ranked</h2>
+<pre class="hljs"><code><div>- Cá nhân hóa tốt
+- Phức tạp
+- Khó debug
+- Có feedback loop
+</div></code></pre>
+<p>Có thể cung cấp ranked feed mặc định và chronological option.</p>
+<hr>
+<h1 id="142-cách-trình-bày-trong-phỏng-vấn">142. Cách trình bày trong Phỏng vấn</h1>
+<p>Một câu trả lời tốt có thể bắt đầu:</p>
+<blockquote>
+<p>Tôi tách profile timeline khỏi home timeline. Post Service lưu post và outbox event trong cùng transaction. Social Graph duy trì cả following và follower indexes vì fan-out on write cần followers, còn fan-out on read cần following.</p>
+</blockquote>
+<p>Về fan-out:</p>
+<blockquote>
+<p>Tôi dùng hybrid strategy. Tài khoản bình thường được fan-out bất đồng bộ tới timeline của active followers. Celebrity posts không được copy tới hàng triệu timelines mà được lưu trong recent-author index và pull khi follower mở feed. Điều này tránh write explosion nhưng giữ read latency hợp lý.</p>
+</blockquote>
+<p>Về feed read:</p>
+<blockquote>
+<p>Feed Service lấy candidates từ materialized timeline, celebrity posts và recommendations. Nó batch-hydrate post/profile data, recheck privacy và block state, deduplicate rồi chạy ranking nhiều tầng. Timeline chỉ là candidate projection; authorization luôn được kiểm tra tại read time.</p>
+</blockquote>
+<p>Về pagination:</p>
+<blockquote>
+<p>Tôi dùng opaque cursor với stable tie-breaker, hoặc một short-lived feed snapshot cho cùng scroll session. Offset pagination không phù hợp vì feed liên tục thay đổi và deep offset rất đắt.</p>
+</blockquote>
+<hr>
+<h1 id="143-framework-45-phút">143. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Following feed
+- Ranking
+- Privacy
+- Pagination
+- Celebrity
+</div></code></pre>
+<h2 id="phút-510-estimation">Phút 5–10: Estimation</h2>
+<pre class="hljs"><code><div>- Feed QPS
+- Posts/second
+- Average followers
+- Fan-out amplification
+</div></code></pre>
+<h2 id="phút-1020-core-architecture">Phút 10–20: Core Architecture</h2>
+<pre class="hljs"><code><div>Post Service
+→ Event stream
+→ Fan-out
+→ Timeline Store
+→ Feed Service
+</div></code></pre>
+<h2 id="phút-2030-deep-dive">Phút 20–30: Deep Dive</h2>
+<pre class="hljs"><code><div>- Push vs pull
+- Celebrity
+- Follower graph
+- Ranking
+- Pagination
+</div></code></pre>
+<h2 id="phút-3040-correctness-và-scale">Phút 30–40: Correctness và Scale</h2>
+<pre class="hljs"><code><div>- Privacy
+- Block/unfollow races
+- Cache
+- Multi-region
+</div></code></pre>
+<h2 id="phút-4045-failures-và-trade-offs">Phút 40–45: Failures và Trade-Offs</h2>
+<pre class="hljs"><code><div>- Fan-out lag
+- Ranker fallback
+- Timeline outage
+- Snapshot vs freshness
+</div></code></pre>
+<hr>
+<h1 id="144-những-sai-lầm-phổ-biến">144. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-fan-out-on-write-cho-mọi-author">Lỗi 1: Fan-Out on Write cho mọi Author</h2>
+<p>Celebrity tạo hàng trăm triệu writes.</p>
+<h2 id="lỗi-2-fan-out-on-read-cho-mọi-viewer">Lỗi 2: Fan-Out on Read cho mọi Viewer</h2>
+<p>Feed request phải query hàng nghìn authors.</p>
+<h2 id="lỗi-3-copy-toàn-bộ-post-vào-từng-timeline">Lỗi 3: Copy toàn bộ Post vào từng Timeline</h2>
+<p>Update/delete trở thành write explosion.</p>
+<h2 id="lỗi-4-timeline-là-source-of-truth">Lỗi 4: Timeline là Source of Truth</h2>
+<p>Timeline chỉ nên là projection/candidate store.</p>
+<h2 id="lỗi-5-không-recheck-privacy-khi-read">Lỗi 5: Không Recheck Privacy khi Read</h2>
+<p>Unfollow/block sau fan-out có thể làm lộ nội dung.</p>
+<h2 id="lỗi-6-dùng-offset-pagination">Lỗi 6: Dùng Offset Pagination</h2>
+<p>Feed thay đổi làm duplicate/missing và deep pagination đắt.</p>
+<h2 id="lỗi-7-cursor-chỉ-chứa-score">Lỗi 7: Cursor chỉ chứa Score</h2>
+<p>Hai items cùng score gây lỗi pagination.</p>
+<h2 id="lỗi-8-không-dedupe-candidate-sources">Lỗi 8: Không Dedupe Candidate Sources</h2>
+<p>Cùng post xuất hiện từ follow, trending và recommendation.</p>
+<h2 id="lỗi-9-ranking-mọi-candidate-bằng-model-nặng">Lỗi 9: Ranking mọi Candidate bằng Model Nặng</h2>
+<p>Latency và compute quá cao.</p>
+<h2 id="lỗi-10-một-model-failure-làm-feed-down">Lỗi 10: Một Model Failure làm Feed Down</h2>
+<p>Phải có heuristic hoặc chronological fallback.</p>
+<h2 id="lỗi-11-một-candidate-lỗi-làm-fail-cả-page">Lỗi 11: Một Candidate lỗi làm Fail cả Page</h2>
+<p>Cần partial hydration và overfetch.</p>
+<h2 id="lỗi-12-update-counter-trên-một-hot-row">Lỗi 12: Update Counter trên một Hot Row</h2>
+<p>Celebrity likes tạo write contention.</p>
+<h2 id="lỗi-13-không-tách-active-và-inactive-followers">Lỗi 13: Không Tách Active và Inactive Followers</h2>
+<p>Lãng phí fan-out tới users không mở app.</p>
+<h2 id="lỗi-14-backfill-chặn-realtime-fan-out">Lỗi 14: Backfill Chặn Realtime Fan-Out</h2>
+<p>Historical jobs phải có priority thấp hơn.</p>
+<h2 id="lỗi-15-cache-feed-mà-không-recheck-block">Lỗi 15: Cache Feed mà không Recheck Block</h2>
+<p>Stale cache gây privacy violation.</p>
+<h2 id="lỗi-16-coi-like-count-là-strongly-consistent-requirement">Lỗi 16: Coi Like Count là Strongly Consistent Requirement</h2>
+<p>Coordination không cần thiết.</p>
+<h2 id="lỗi-17-dùng-engagement-raw-làm-quality">Lỗi 17: Dùng Engagement Raw làm Quality</h2>
+<p>Tạo feedback loop và clickbait.</p>
+<h2 id="lỗi-18-không-lưu-candidate-provenance">Lỗi 18: Không Lưu Candidate Provenance</h2>
+<p>Khó giải thích và debug feed.</p>
+<h2 id="lỗi-19-multi-region-replicate-mọi-timeline-entry-toàn-cầu">Lỗi 19: Multi-Region Replicate mọi Timeline Entry toàn cầu</h2>
+<p>Chi phí storage/network khổng lồ.</p>
+<h2 id="lỗi-20-không-có-read-your-post-overlay">Lỗi 20: Không có Read-Your-Post Overlay</h2>
+<p>User vừa đăng nhưng không thấy bài của mình.</p>
+<h2 id="lỗi-21-không-xử-lý-event-out-of-order">Lỗi 21: Không xử lý Event Out-of-Order</h2>
+<p>Post cũ có thể sống lại sau delete.</p>
+<h2 id="lỗi-22-global-average-che-giấu-regional-feed-lag">Lỗi 22: Global Average che giấu Regional Feed Lag</h2>
+<p>Phải đo theo region và candidate source.</p>
+<h2 id="lỗi-23-không-có-rate-limit-cho-post-creation">Lỗi 23: Không có Rate Limit cho Post Creation</h2>
+<p>Spam account phá fan-out pipeline.</p>
+<h2 id="lỗi-24-recommendation-là-dependency-bắt-buộc">Lỗi 24: Recommendation là Dependency bắt buộc</h2>
+<p>Feed phải hoạt động khi recommendation down.</p>
+<h2 id="lỗi-25-dùng-một-strategy-cho-mọi-groupauthor">Lỗi 25: Dùng một Strategy cho mọi Group/Author</h2>
+<p>Phải lựa chọn theo follower count, activity và workload.</p>
+<hr>
+<h1 id="145-bảng-ghi-nhớ-nhanh">145. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Post Service</td>
+<td>Tạo và quản lý post</td>
+</tr>
+<tr>
+<td>Post Store</td>
+<td>Source of truth của post</td>
+</tr>
+<tr>
+<td>Social Graph</td>
+<td>Follow, follower, block, mute</td>
+</tr>
+<tr>
+<td>Fan-out Service</td>
+<td>Phân phối post thành candidates</td>
+</tr>
+<tr>
+<td>Timeline Store</td>
+<td>Candidate posts theo viewer</td>
+</tr>
+<tr>
+<td>Fan-out on write</td>
+<td>Push post tới followers</td>
+</tr>
+<tr>
+<td>Fan-out on read</td>
+<td>Pull posts khi viewer đọc</td>
+</tr>
+<tr>
+<td>Celebrity hybrid</td>
+<td>Pull celebrity, push normal author</td>
+</tr>
+<tr>
+<td>Candidate Service</td>
+<td>Hợp nhất nhiều nguồn</td>
+</tr>
+<tr>
+<td>Eligibility Filter</td>
+<td>Privacy, block, status</td>
+</tr>
+<tr>
+<td>Ranking Service</td>
+<td>Sắp xếp candidates</td>
+</tr>
+<tr>
+<td>Feature Store</td>
+<td>Online ranking features</td>
+</tr>
+<tr>
+<td>Hydration</td>
+<td>Lấy post/profile/engagement data</td>
+</tr>
+<tr>
+<td>Feed Cursor</td>
+<td>Pagination state</td>
+</tr>
+<tr>
+<td>Seen Store</td>
+<td>Giảm lặp content</td>
+</tr>
+<tr>
+<td>Post Cache</td>
+<td>Cache shared post payload</td>
+</tr>
+<tr>
+<td>Feed Cache</td>
+<td>Cache personalized page</td>
+</tr>
+<tr>
+<td>Outbox</td>
+<td>Đồng bộ post commit với event</td>
+</tr>
+<tr>
+<td>Provenance</td>
+<td>Lý do candidate xuất hiện</td>
+</tr>
+<tr>
+<td>Home Region</td>
+<td>Write owner của user/data</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="146-sơ-đồ-tổng-hợp">146. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Creator --> PostAPI[Post Service]
+    PostAPI --> PostStore[(Post Store)]
+    PostAPI --> Outbox[(Outbox)]
+
+    Outbox --> Stream[Post Event Stream]
+    Stream --> FanoutPolicy{Fan-out Policy}
+
+    FanoutPolicy -->|Normal Author| PushFanout[Fan-out on Write]
+    FanoutPolicy -->|Celebrity| CelebrityIndex[(Recent Author Index)]
+
+    PushFanout --> Timeline[(Home Timeline Store)]
+
+    Viewer --> FeedAPI[Feed Service]
+
+    FeedAPI --> Timeline
+    FeedAPI --> CelebrityIndex
+    FeedAPI --> Recommendations[Recommendation Candidates]
+
+    Timeline --> Merge[Candidate Merge]
+    CelebrityIndex --> Merge
+    Recommendations --> Merge
+
+    Merge --> Eligibility[Privacy / Block / Status Filter]
+    Eligibility --> Hydration[Batch Hydration]
+    Hydration --> Ranker[Ranking Pipeline]
+    Ranker --> Rules[Diversity / Dedupe / Ads]
+    Rules --> FeedResponse[Cursor Feed Response]
+</div></code></pre>
+<hr>
+<h1 id="147-những-điều-phải-nhớ-sau-bài-25">147. Những Điều Phải Nhớ sau Bài 25</h1>
+<pre class="hljs"><code><div>1. News Feed là bài toán candidate generation, ranking và distribution.
+2. Profile timeline khác home timeline.
+3. Post Store là source of truth; timeline chỉ là projection.
+4. Post creation nên dùng outbox để không mất fan-out event.
+5. Social graph cần query cả following và followers.
+6. Fan-out on write tối ưu feed reads.
+7. Fan-out on read tối ưu post writes.
+8. Celebrity làm fan-out on write không khả thi.
+9. Hybrid fan-out thường là lựa chọn production hợp lý.
+10. Normal authors có thể push, celebrities có thể pull.
+11. Chỉ fan-out tới active followers giúp giảm write amplification.
+12. Celebrity recent-post cache giúp shared reads hiệu quả.
+13. Timeline nên lưu post references, không copy toàn payload.
+14. Timeline nên có retention hoặc size cap.
+15. Candidate generation có thể dùng nhiều nguồn.
+16. Candidate source cần quota để một nguồn không lấn át.
+17. Feed Service phải batch hydrate data.
+18. N+1 service calls làm feed latency rất cao.
+19. Privacy và block phải được recheck khi read.
+20. Fan-out-time filtering chỉ là optimization.
+21. Timeline stale không được gây privacy violation.
+22. Ranking nên có nhiều tầng.
+23. Model nặng chỉ chạy trên top candidates.
+24. Ranking cần cả positive và negative signals.
+25. Freshness decay phải tùy loại nội dung.
+26. Raw engagement tạo feedback loop.
+27. Diversity cần post-ranking rules.
+28. Candidate dedupe phải dùng stable post identity.
+29. Seen state chỉ cần giữ trong một khoảng hữu ích.
+30. Impression khác với API response.
+31. Offset pagination không phù hợp dynamic feed.
+32. Cursor cần stable tie-breaker.
+33. Feed snapshot cải thiện pagination stability.
+34. Refresh nên tạo feed session mới.
+35. Page đầu là ứng viên cache tốt nhất.
+36. Stale-while-revalidate giúp giảm latency.
+37. Feed cache vẫn phải qua runtime security filter.
+38. Post/profile caches có hit ratio cao hơn personalized feed cache.
+39. Like counters có thể eventual.
+40. Hot counters cần sharding/bucketing.
+41. Follow/unfollow có thể để cleanup nền nhưng read filter phải đúng.
+42. Block cần propagation ưu tiên cao.
+43. Deleted post nên dùng tombstone và version.
+44. Event consumers phải chống duplicate và out-of-order.
+45. Fan-out lag cần recent-post pull compensation.
+46. User phải thấy post vừa tạo mà không chờ fan-out.
+47. Recently followed authors có thể được pull tạm thời.
+48. Recommendation failure không được làm feed unavailable.
+49. Ranking failure cần heuristic hoặc chronological fallback.
+50. Partial hydration không nên fail cả feed page.
+51. Overfetch bù candidates bị filter.
+52. Feed provenance giúp explainability và debugging.
+53. Multi-region nên tối ưu read local và giữ write ownership rõ.
+54. Không cần replicate mọi timeline entry tới mọi region.
+55. Regional fan-out cho active users giúp giảm cross-region cost.
+56. Celebrity indexes có thể replicate toàn cầu.
+57. Read-your-write xuyên region cần routing token hoặc session overlay.
+58. Data residency áp dụng cả post, media, logs và personalization.
+59. Feed failover có thể degrade recommendation trước.
+60. Kiến trúc nên tiến hóa từ chronological pull tới hybrid ranked feed.
+</div></code></pre>
+<hr>
+<h1 id="148-bài-tập-thiết-kế-mở-rộng">148. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế News Feed với yêu cầu:</p>
+<pre class="hljs"><code><div>- 1 tỷ DAU
+- 10 tỷ feed requests/ngày
+- 500 triệu posts/ngày
+- Một user có thể follow 10.000 accounts
+- Celebrity có 500 triệu followers
+- Feed ranking cá nhân hóa dưới 200 ms
+- Post mới xuất hiện dưới 5 giây
+- Hỗ trợ public, followers-only, close-friends và group posts
+- Multi-region active–active
+- Một số dữ liệu phải nằm tại EU
+- Recommendation chiếm tối đa 30% feed
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Feed read QPS và fan-out writes ước lượng thế nào?
+2. Post Store partition theo author hay post ID?
+3. Social graph lưu hai chiều ra sao?
+4. Celebrity threshold được tính bằng follower count hay active followers?
+5. Normal author fan-out theo chunks thế nào?
+6. Timeline entry chứa những field nào?
+7. Timeline giữ bao lâu?
+8. Inactive followers được xử lý thế nào?
+9. Celebrity candidates được pull từ đâu?
+10. Viewer follow 10.000 authors thì pull-on-read ra sao?
+11. Candidate source quotas được đặt thế nào?
+12. Recommendation bị giới hạn 30% tại bước nào?
+13. Ranking pipeline có bao nhiêu tầng?
+14. Online feature store được partition thế nào?
+15. Missing features được fallback ra sao?
+16. Privacy được kiểm tra ở fan-out hay read?
+17. Close-friends membership được cache thế nào?
+18. Block phải có hiệu lực dưới bao lâu?
+19. Feed cache bị invalidation thế nào khi block?
+20. Cursor chứa score, post ID hay snapshot ID?
+21. Làm sao tránh duplicate giữa các page?
+22. Page đầu được precompute cho users nào?
+23. Celebrity like counters tránh hot key thế nào?
+24. Post deletion được propagate tới bao nhiêu projections?
+25. Fan-out backlog được ưu tiên ra sao?
+26. Multi-region follower graph được phân vùng thế nào?
+27. Post visibility toàn cầu đạt dưới 5 giây thế nào?
+28. Read-your-post xuyên region được bảo đảm ra sao?
+29. EU residency ảnh hưởng feed cache và analytics thế nào?
+30. SLO, metrics và failure fallbacks quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-4">Kết luận Case Study 4</h1>
+<p>Kiến trúc cốt lõi của News Feed:</p>
+<pre class="hljs"><code><div>Post creation
+→ Durable post event
+→ Hybrid fan-out
+→ Candidate timelines
+→ Privacy filtering
+→ Ranking
+→ Cursor pagination
+</div></code></pre>
+<p>Điểm quan trọng nhất:</p>
+<blockquote>
+<p><strong>News Feed không phải là một query lấy tất cả bài viết từ những người đang follow. Nó là một hệ thống materialized candidates kết hợp pull-on-read, sau đó liên tục lọc, xếp hạng và kiểm tra quyền truy cập tại thời điểm phục vụ.</strong></p>
+</blockquote>
+<p><strong>Bài 26 — Case Study 5: Thiết kế Video Streaming Platform:</strong> video upload, multipart upload, transcoding pipeline, object storage, manifests, adaptive bitrate streaming, CDN, playback, view counting, recommendation và copyright/moderation.</p>
+
+</body>
+</html>

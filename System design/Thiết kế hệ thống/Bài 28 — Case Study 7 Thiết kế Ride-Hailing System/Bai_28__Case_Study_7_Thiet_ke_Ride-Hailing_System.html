@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 28 — Case Study 7: Thiết kế Ride-Hailing System.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-28--case-study-7-thiết-kế-ride-hailing-system">Bài 28 — Case Study 7: Thiết kế Ride-Hailing System</h1>
+<p>Ride-Hailing System kết nối người cần đi xe với tài xế đang hoạt động gần đó:</p>
+<pre class="hljs"><code><div>Rider chọn điểm đón và điểm đến
+→ Hệ thống tìm tài xế phù hợp
+→ Tài xế chấp nhận
+→ Di chuyển tới điểm đón
+→ Thực hiện chuyến đi
+→ Thanh toán và đánh giá
+</div></code></pre>
+<p>Một hệ thống thực tế phải xử lý đồng thời:</p>
+<pre class="hljs"><code><div>- Hàng triệu thiết bị gửi vị trí liên tục
+- Tìm tài xế gần nhất trong vài chục mili giây
+- Nhiều rider tranh cùng một tài xế
+- Tài xế có thể từ chối hoặc không phản hồi
+- GPS không chính xác và có thể đến sai thứ tự
+- ETA thay đổi theo giao thông
+- Cung cầu thay đổi từng phút
+- Chuyến đi và thanh toán không được tạo trùng
+- An toàn của rider và driver
+- Nhiều thành phố, quốc gia và region
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Driver location stream
+→ Geospatial index
+→ Candidate discovery
+→ Matching/dispatch
+→ Trip state machine
+→ Payment và safety workflows
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế nền tảng hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Rider yêu cầu chuyến xe.
+2. Driver online và gửi location updates.
+3. Tìm driver gần điểm đón.
+4. Dispatch offer tới driver.
+5. Driver chấp nhận hoặc từ chối.
+6. Theo dõi driver tới điểm đón.
+7. Theo dõi chuyến đi realtime.
+8. Tính ETA và giá ước lượng.
+9. Surge pricing.
+10. Thanh toán sau chuyến.
+11. Safety và hỗ trợ sự cố.
+12. Multi-region.
+</div></code></pre>
+<p>Tạm thời không đi sâu vào:</p>
+<pre class="hljs"><code><div>- Thuật toán bản đồ và routing cấp thấp
+- Xe tự lái
+- Pooling nhiều hành khách hoàn chỉnh
+- Logistics giao hàng nhiều điểm
+- Full fraud model
+</div></code></pre>
+<hr>
+<h1 id="2-các-actor-chính">2. Các actor chính</h1>
+<pre class="hljs"><code><div>Rider:
+Người đặt chuyến.
+
+Driver:
+Người cung cấp chuyến xe.
+
+Operations:
+Đội vận hành, hỗ trợ và safety.
+
+Payment provider:
+Xử lý phương thức thanh toán.
+
+Map provider:
+Geocoding, routing, traffic và ETA.
+</div></code></pre>
+<hr>
+<h1 id="3-functional-requirements">3. Functional Requirements</h1>
+<h2 id="rider">Rider</h2>
+<pre class="hljs"><code><div>- Nhập điểm đón và điểm đến
+- Xem giá và ETA ước lượng
+- Yêu cầu chuyến xe
+- Theo dõi tài xế realtime
+- Hủy chuyến
+- Thanh toán
+- Đánh giá
+- Chia sẻ chuyến đi hoặc gọi hỗ trợ
+</div></code></pre>
+<h2 id="driver">Driver</h2>
+<pre class="hljs"><code><div>- Online/offline
+- Gửi vị trí và trạng thái
+- Nhận trip offer
+- Chấp nhận/từ chối
+- Bắt đầu và kết thúc chuyến
+- Điều hướng tới rider và destination
+- Xem thu nhập
+</div></code></pre>
+<h2 id="platform">Platform</h2>
+<pre class="hljs"><code><div>- Driver discovery
+- Dispatch
+- Pricing
+- ETA
+- Trip lifecycle
+- Payment
+- Safety
+- Fraud detection
+- Analytics
+</div></code></pre>
+<hr>
+<h1 id="4-non-functional-requirements">4. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Driver discovery latency thấp
+- Location data gần realtime
+- Không gán một driver cho hai chuyến đồng thời
+- Không tạo hai trip từ cùng request
+- Trip state phải nhất quán
+- Payment phải idempotent
+- Hệ thống hoạt động khi notification hoặc analytics lỗi
+- Có thể scale theo từng thành phố
+- Có graceful degradation khi map/ETA service lỗi
+- Privacy và data residency được bảo vệ
+</div></code></pre>
+<hr>
+<h1 id="5-phân-loại-consistency">5. Phân loại consistency</h1>
+<h2 id="cần-consistency-mạnh">Cần consistency mạnh</h2>
+<pre class="hljs"><code><div>- Driver đã được reserve cho trip nào
+- Trip state transition
+- Price quote được chấp nhận
+- Payment authorization/capture
+- Rider cancellation và driver acceptance race
+</div></code></pre>
+<h2 id="có-thể-eventual-consistent">Có thể eventual consistent</h2>
+<pre class="hljs"><code><div>- Driver marker trên bản đồ
+- Heatmap cung cầu
+- Surge multiplier hiển thị
+- Driver earnings dashboard
+- Analytics
+- Ratings aggregate
+</div></code></pre>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>50 triệu DAU
+5 triệu drivers hoạt động/ngày
+1 triệu concurrent online drivers
+20 triệu trips/ngày
+</div></code></pre>
+<p>Average trip creation rate:</p>
+<pre class="hljs"><code><div>20.000.000 / 86.400
+≈ 231 trips/giây
+</div></code></pre>
+<p>Peak gấp 10:</p>
+<pre class="hljs"><code><div>≈ 2.300 trip requests/giây
+</div></code></pre>
+<p>Trip request QPS không phải phần lớn nhất.</p>
+<p>Location updates mới là traffic chính.</p>
+<hr>
+<h1 id="7-location-update-qps">7. Location Update QPS</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>1 triệu online drivers
+Mỗi driver gửi location mỗi 4 giây
+</div></code></pre>
+<p>Location QPS:</p>
+<pre class="hljs"><code><div>1.000.000 / 4
+= 250.000 updates/giây
+</div></code></pre>
+<p>Nếu gửi mỗi giây:</p>
+<pre class="hljs"><code><div>1 triệu updates/giây
+</div></code></pre>
+<p>Chưa tính location từ rider và active trips.</p>
+<p>Do đó location ingestion phải là một pipeline riêng, không nên ghi trực tiếp mọi update vào relational database.</p>
+<hr>
+<h1 id="8-location-data-volume">8. Location Data Volume</h1>
+<p>Giả sử một update sau serialization và metadata khoảng:</p>
+<pre class="hljs"><code><div>200 byte
+</div></code></pre>
+<p>Với 250.000 updates/giây:</p>
+<pre class="hljs"><code><div>50 MB/giây
+≈ 4,3 TB/ngày raw
+</div></code></pre>
+<p>Nếu giữ toàn bộ history lâu dài, storage tăng rất nhanh.</p>
+<p>Cần tách:</p>
+<pre class="hljs"><code><div>Current location:
+State mới nhất, TTL ngắn.
+
+Location history:
+Event stream/object storage, retention có kiểm soát.
+</div></code></pre>
+<hr>
+<h1 id="9-high-level-architecture">9. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    RiderApp --> Edge[API Gateway / Regional Edge]
+    DriverApp --> Edge
+
+    Edge --> RiderAPI[Rider Service]
+    Edge --> DriverGateway[Driver Location Gateway]
+    Edge --> TripAPI[Trip Service]
+
+    DriverGateway --> LocationStream[Location Event Stream]
+    LocationStream --> LocationProcessor[Location Processor]
+    LocationProcessor --> GeoIndex[(Regional Geospatial Index)]
+    LocationProcessor --> History[(Location History Store)]
+
+    RiderAPI --> Pricing[Pricing Service]
+    RiderAPI --> ETA[ETA / Routing Service]
+    RiderAPI --> Dispatch[Dispatch Service]
+
+    Dispatch --> GeoIndex
+    Dispatch --> DriverState[(Driver State Store)]
+    Dispatch --> OfferQueue[Offer / Dispatch Stream]
+
+    OfferQueue --> Notification[Driver Notification Gateway]
+    Notification --> DriverApp
+
+    TripAPI --> TripStore[(Trip Store)]
+    TripAPI --> Payment[Payment Service]
+    TripAPI --> Safety[Safety Service]
+
+    TripStore --> TripEvents[Trip Event Stream]
+    TripEvents --> Analytics
+    TripEvents --> Support
+</div></code></pre>
+<hr>
+<h1 id="10-tách-control-plane-và-realtime-location-plane">10. Tách Control Plane và Realtime Location Plane</h1>
+<h2 id="control-plane">Control plane</h2>
+<pre class="hljs"><code><div>- Rider request
+- Trip creation
+- Driver reservation
+- Trip state
+- Price quote
+- Payment
+</div></code></pre>
+<p>Dữ liệu cần durability và transaction.</p>
+<h2 id="realtime-location-plane">Realtime location plane</h2>
+<pre class="hljs"><code><div>- Driver coordinates
+- Heading
+- Speed
+- Accuracy
+- Availability
+</div></code></pre>
+<p>Traffic cao, update thường xuyên và nhiều dữ liệu hết giá trị sau vài giây.</p>
+<p>Hai lớp cần storage và consistency khác nhau.</p>
+<hr>
+<h1 id="11-driver-state-machine">11. Driver State Machine</h1>
+<p>Driver không chỉ có <code>ONLINE</code> và <code>OFFLINE</code>.</p>
+<p>Một state machine hợp lý:</p>
+<pre class="hljs"><code><div>OFFLINE
+→ AVAILABLE
+→ RESERVED
+→ EN_ROUTE_TO_PICKUP
+→ WAITING_FOR_RIDER
+→ ON_TRIP
+→ AVAILABLE
+</div></code></pre>
+<p>Các trạng thái khác:</p>
+<pre class="hljs"><code><div>PAUSED
+SUSPENDED
+DISCONNECTED
+</div></code></pre>
+<hr>
+<h1 id="12-ý-nghĩa-từng-trạng-thái-driver">12. Ý nghĩa từng trạng thái Driver</h1>
+<pre class="hljs"><code><div>OFFLINE:
+Không nhận chuyến.
+
+AVAILABLE:
+Có thể được tìm và dispatch.
+
+RESERVED:
+Tạm giữ cho một offer/trip.
+
+EN_ROUTE_TO_PICKUP:
+Đã nhận chuyến và đang tới rider.
+
+WAITING_FOR_RIDER:
+Đã tới điểm đón.
+
+ON_TRIP:
+Đang chở rider.
+
+PAUSED:
+Online nhưng không nhận offer mới.
+
+SUSPENDED:
+Bị hệ thống chặn hoạt động.
+</div></code></pre>
+<p>Geospatial discovery chỉ nên trả driver thực sự <code>AVAILABLE</code>.</p>
+<hr>
+<h1 id="13-trip-state-machine">13. Trip State Machine</h1>
+<pre class="hljs"><code><div>REQUESTED
+→ SEARCHING
+→ DRIVER_ASSIGNED
+→ DRIVER_ARRIVING
+→ DRIVER_ARRIVED
+→ IN_PROGRESS
+→ COMPLETED
+</div></code></pre>
+<p>Các nhánh kết thúc khác:</p>
+<pre class="hljs"><code><div>CANCELLED_BY_RIDER
+CANCELLED_BY_DRIVER
+NO_DRIVER_FOUND
+RIDER_NO_SHOW
+DRIVER_NO_SHOW
+PAYMENT_PENDING
+PAYMENT_FAILED
+</div></code></pre>
+<hr>
+<h1 id="14-vì-sao-cần-state-machine-rõ">14. Vì sao cần State Machine rõ?</h1>
+<p>Không có state machine, các service có thể tạo transition vô lý:</p>
+<pre class="hljs"><code><div>REQUESTED → COMPLETED
+CANCELLED → IN_PROGRESS
+COMPLETED → DRIVER_ARRIVED
+</div></code></pre>
+<p>Mỗi transition cần:</p>
+<pre class="hljs"><code><div>- Current state hợp lệ
+- Actor có quyền
+- Expected version
+- Timestamp
+- Idempotency key
+</div></code></pre>
+<hr>
+<h1 id="15-trip-state-transition-bằng-optimistic-lock">15. Trip State Transition bằng Optimistic Lock</h1>
+<p>Trip record có:</p>
+<pre class="hljs"><code><div>trip_id
+state
+version
+assigned_driver_id
+updated_at
+</div></code></pre>
+<p>Update:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> trips
+<span class="hljs-keyword">SET</span> state <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;DRIVER_ASSIGNED&#x27;</span>,
+    assigned_driver_id <span class="hljs-operator">=</span> :driver_id,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> trip_id <span class="hljs-operator">=</span> :trip_id
+  <span class="hljs-keyword">AND</span> state <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;SEARCHING&#x27;</span>
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<p>Nếu zero rows updated:</p>
+<pre class="hljs"><code><div>State đã thay đổi hoặc có race.
+</div></code></pre>
+<hr>
+<h1 id="16-driver-location-update">16. Driver Location Update</h1>
+<p>Driver gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;driverId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;drv_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;locationSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9012</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;latitude&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10.7769</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;longitude&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">106.7009</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;accuracyMeters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;speedMetersPerSecond&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7.2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;headingDegrees&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">125</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;recordedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T04:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;driverState&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AVAILABLE&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server bổ sung:</p>
+<pre class="hljs"><code><div>receivedAt
+region
+device/session identity
+</div></code></pre>
+<hr>
+<h1 id="17-location-sequence">17. Location Sequence</h1>
+<p>Không nên chỉ dựa vào timestamp.</p>
+<p>Mạng có thể khiến update đến sai thứ tự:</p>
+<pre class="hljs"><code><div>Update sequence 102 đến trước 101.
+</div></code></pre>
+<p>Processor chỉ áp dụng nếu:</p>
+<pre class="hljs"><code><div>incomingSequence &gt; storedSequence
+</div></code></pre>
+<p>Điều này ngăn location cũ ghi đè location mới.</p>
+<hr>
+<h1 id="18-event-time-và-receive-time">18. Event Time và Receive Time</h1>
+<pre class="hljs"><code><div>recordedAt:
+Thời điểm thiết bị đo GPS.
+
+receivedAt:
+Thời điểm server nhận.
+</div></code></pre>
+<p>Nếu chênh lệch quá lớn:</p>
+<pre class="hljs"><code><div>- Thiết bị offline
+- Clock sai
+- Network backlog
+- Event replay
+</div></code></pre>
+<p>Current-location index không nên áp dụng update đã quá cũ.</p>
+<p>History pipeline vẫn có thể lưu event để phân tích.</p>
+<hr>
+<h1 id="19-location-update-frequency">19. Location Update Frequency</h1>
+<p>Không cần một tần suất cố định cho mọi trạng thái.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Driver AVAILABLE và đứng yên:
+5–10 giây.
+
+Driver AVAILABLE và đang di chuyển:
+2–5 giây.
+
+Driver tới điểm đón:
+1–3 giây.
+
+ON_TRIP:
+1–3 giây.
+
+App background:
+Thưa hơn tùy hệ điều hành.
+</div></code></pre>
+<p>Adaptive frequency giảm:</p>
+<pre class="hljs"><code><div>- Battery
+- Mobile data
+- Server QPS
+</div></code></pre>
+<hr>
+<h1 id="20-client-side-batching">20. Client-Side Batching</h1>
+<p>Khi mạng yếu, client có thể batch:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;updates&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;sequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">101</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;...&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;sequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">102</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;...&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span><span class="hljs-attr">&quot;sequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">103</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;...&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Current state chỉ cần update mới nhất hợp lệ.</p>
+<p>History pipeline có thể lưu cả chuỗi.</p>
+<p>Không để batch cũ làm driver quay ngược vị trí trong realtime index.</p>
+<hr>
+<h1 id="21-location-gateway">21. Location Gateway</h1>
+<p>Location Gateway chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Authenticate driver/device
+- Rate limit
+- Validate coordinates
+- Attach receive timestamp
+- Publish event
+- Trả ACK nhẹ
+</div></code></pre>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>- Chạy dispatch
+- Tính route
+- Ghi từng update vào SQL
+</div></code></pre>
+<p>Gateway cần scale độc lập theo connection/location traffic.</p>
+<hr>
+<h1 id="22-giao-thức-gửi-location">22. Giao thức gửi Location</h1>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- HTTP
+- WebSocket
+- gRPC streaming
+- Lightweight mobile protocol
+</div></code></pre>
+<p>WebSocket hoặc streaming connection giảm handshake overhead.</p>
+<p>HTTP batch đơn giản hơn và chịu mobile reconnect tốt.</p>
+<p>Lựa chọn phụ thuộc:</p>
+<pre class="hljs"><code><div>- Mobile SDK
+- Network
+- Battery
+- Infrastructure
+</div></code></pre>
+<hr>
+<h1 id="23-location-ack-semantics">23. Location ACK Semantics</h1>
+<p>ACK có thể chỉ nghĩa:</p>
+<pre class="hljs"><code><div>Server đã nhận và enqueue update.
+</div></code></pre>
+<p>Không cần chờ:</p>
+<pre class="hljs"><code><div>- Ghi history warehouse
+- Cập nhật analytics
+- Tính surge
+</div></code></pre>
+<p>Nếu current location rất quan trọng, processor lag phải được theo dõi riêng.</p>
+<hr>
+<h1 id="24-validate-gps">24. Validate GPS</h1>
+<p>Location không nên được tin tuyệt đối.</p>
+<p>Kiểm tra:</p>
+<pre class="hljs"><code><div>- Latitude/longitude hợp lệ
+- Accuracy không quá xấu
+- Tốc độ di chuyển hợp lý
+- Khoảng cách giữa hai update
+- Device integrity
+- GPS spoofing signals
+</div></code></pre>
+<p>Ví dụ driver di chuyển 30 km trong 2 giây:</p>
+<pre class="hljs"><code><div>Có thể là spoofing hoặc dữ liệu lỗi.
+</div></code></pre>
+<hr>
+<h1 id="25-map-matching">25. Map Matching</h1>
+<p>GPS có thể đặt xe:</p>
+<pre class="hljs"><code><div>- Trong tòa nhà
+- Trên đường song song
+- Bên kia sông
+</div></code></pre>
+<p>Map matching ánh xạ điểm GPS tới road segment hợp lý.</p>
+<p>Input:</p>
+<pre class="hljs"><code><div>latitude, longitude, heading, speed, recent path
+</div></code></pre>
+<p>Output:</p>
+<pre class="hljs"><code><div>roadSegmentId
+snappedLocation
+travelDirection
+confidence
+</div></code></pre>
+<p>Driver discovery có thể dùng raw geo point trước, nhưng ETA nên dùng road-network-aware location.</p>
+<hr>
+<h1 id="26-current-location-store">26. Current Location Store</h1>
+<p>Current driver state cần:</p>
+<pre class="hljs"><code><div>driverId
+latestLocation
+locationSequence
+lastUpdatedAt
+availabilityState
+geoCell
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Write rất cao
+- Chỉ giữ version mới nhất
+- TTL
+- Partition theo geo cell hoặc driver ID
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- In-memory regional store
+- Distributed key-value store
+- Specialized geospatial index
+</div></code></pre>
+<hr>
+<h1 id="27-vì-sao-không-dùng-sql-cho-mọi-location-update">27. Vì sao không dùng SQL cho mọi Location Update?</h1>
+<p>Một triệu updates/giây gây:</p>
+<pre class="hljs"><code><div>- WAL/transaction overhead
+- Index updates liên tục
+- Replication pressure
+- Storage bloat
+</div></code></pre>
+<p>Current location là ephemeral state.</p>
+<p>SQL vẫn phù hợp cho:</p>
+<pre class="hljs"><code><div>- Driver profile
+- Trip
+- Payment
+- Audit
+</div></code></pre>
+<p>Không phù hợp làm primary realtime location index ở scale lớn.</p>
+<hr>
+<h1 id="28-geospatial-index-là-gì">28. Geospatial Index là gì?</h1>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Cho điểm pickup P,
+tìm các AVAILABLE drivers trong bán kính R.
+</div></code></pre>
+<p>Không thể scan toàn bộ một triệu drivers.</p>
+<p>Cần chia bản đồ thành cells:</p>
+<pre class="hljs"><code><div>Location
+→ Cell ID
+→ Danh sách drivers trong cell
+</div></code></pre>
+<p>Sau đó tìm:</p>
+<pre class="hljs"><code><div>Pickup cell
++ các cell lân cận
+</div></code></pre>
+<hr>
+<h1 id="29-grid-based-index">29. Grid-Based Index</h1>
+<p>Bản đồ được chia thành ô:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A1[A1] --- A2[A2] --- A3[A3]
+    B1[B1] --- B2[B2 Pickup] --- B3[B3]
+    C1[C1] --- C2[C2] --- C3[C3]
+</div></code></pre>
+<p>Driver được lưu:</p>
+<pre class="hljs"><code><div>cellId → set of availableDriverIds
+</div></code></pre>
+<p>Nếu không đủ driver ở B2:</p>
+<pre class="hljs"><code><div>Mở rộng sang A1–C3.
+</div></code></pre>
+<hr>
+<h1 id="30-geohash-trực-giác">30. Geohash trực giác</h1>
+<p>Geohash mã hóa latitude/longitude thành chuỗi.</p>
+<p>Các điểm gần nhau thường chia sẻ prefix geohash:</p>
+<pre class="hljs"><code><div>w3gv...
+</div></code></pre>
+<p>Prefix dài hơn:</p>
+<pre class="hljs"><code><div>Cell nhỏ hơn.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ làm key
+- Hierarchical
+- Có thể range/prefix partition
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cell boundary
+- Cell shape không đều theo vĩ độ
+- Neighbor lookup cần cẩn thận
+</div></code></pre>
+<hr>
+<h1 id="31-s2h3-like-cell-systems">31. S2/H3-like Cell Systems</h1>
+<p>Một số hệ thống chia bề mặt Trái Đất thành hierarchical cells.</p>
+<p>Lợi ích khái niệm:</p>
+<pre class="hljs"><code><div>- Cell IDs ổn định
+- Neighbor traversal
+- Nhiều resolution
+- Phù hợp aggregation và partition
+</div></code></pre>
+<p>Trong phỏng vấn không bắt buộc chọn thư viện cụ thể.</p>
+<p>Điều quan trọng là giải thích:</p>
+<pre class="hljs"><code><div>Coordinate → cell
+Cell → nearby rings
+</div></code></pre>
+<hr>
+<h1 id="32-cell-resolution">32. Cell Resolution</h1>
+<p>Cell quá lớn:</p>
+<pre class="hljs"><code><div>- Nhiều drivers/cell
+- Filter khoảng cách nhiều
+- Hot cells
+</div></code></pre>
+<p>Cell quá nhỏ:</p>
+<pre class="hljs"><code><div>- Phải đọc nhiều cells
+- Driver di chuyển qua cell liên tục
+- Update index nhiều
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>Cell cạnh khoảng vài trăm mét
+</div></code></pre>
+<p>cho discovery ban đầu, sau đó tính route ETA chính xác hơn.</p>
+<p>Kích thước thật phụ thuộc density của thành phố.</p>
+<hr>
+<h1 id="33-ring-expansion">33. Ring Expansion</h1>
+<p>Tìm driver:</p>
+<pre class="hljs"><code><div>1. Đọc pickup cell.
+2. Nếu chưa đủ candidates, đọc ring 1.
+3. Sau đó ring 2.
+4. Dừng khi đủ candidates hoặc vượt radius.
+</div></code></pre>
+<p>Không nên query toàn thành phố ngay.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Mục tiêu lấy 50 candidates thô,
+sau đó ETA service xếp hạng top 10.
+</div></code></pre>
+<hr>
+<h1 id="34-cell-boundary-problem">34. Cell Boundary Problem</h1>
+<p>Rider và driver có thể ở rất gần nhưng nằm hai cells khác nhau.</p>
+<p>Vì vậy luôn cần đọc neighbor cells.</p>
+<p>Không được chỉ query đúng pickup cell.</p>
+<p>Sau candidate retrieval, tính:</p>
+<pre class="hljs"><code><div>- Haversine distance
+- Road ETA
+</div></code></pre>
+<p>để xếp hạng chính xác hơn.</p>
+<hr>
+<h1 id="35-geospatial-index-data-model">35. Geospatial Index Data Model</h1>
+<pre class="hljs"><code><div>cellId
+→ {
+    driverId,
+    location,
+    heading,
+    vehicleType,
+    lastUpdatedAt,
+    state
+}
+</div></code></pre>
+<p>Có thể tách:</p>
+<pre class="hljs"><code><div>Cell membership:
+cellId → driver IDs
+
+Driver record:
+driverId → latest attributes
+</div></code></pre>
+<p>Điều này giảm duplication nếu một driver có nhiều metadata.</p>
+<hr>
+<h1 id="36-driver-di-chuyển-giữa-cells">36. Driver Di chuyển giữa Cells</h1>
+<p>Driver từ cell A sang B.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>1. Add driver vào B.
+2. Remove driver khỏi A.
+</div></code></pre>
+<p>Nếu hai thao tác không atomic, tạm thời có thể:</p>
+<pre class="hljs"><code><div>- Driver ở cả hai cells
+- Driver không ở cell nào
+</div></code></pre>
+<p>Với discovery, duplicate có thể dedupe theo driverId.</p>
+<p>Missing ngắn hạn có thể chấp nhận hơn việc coordination mạnh cho mỗi GPS update.</p>
+<p>TTL và version giúp tự sửa state.</p>
+<hr>
+<h1 id="37-versioned-cell-entry">37. Versioned Cell Entry</h1>
+<p>Cell entry có:</p>
+<pre class="hljs"><code><div>driverId
+locationSequence
+expiresAt
+</div></code></pre>
+<p>Khi đọc, chỉ dùng entry nếu:</p>
+<pre class="hljs"><code><div>- Chưa hết hạn
+- Sequence bằng latest driver record
+- Driver vẫn AVAILABLE
+</div></code></pre>
+<p>Entry cũ trong cell cũ không làm driver bị dispatch sai.</p>
+<hr>
+<h1 id="38-location-ttl">38. Location TTL</h1>
+<p>Nếu driver mất mạng, họ không nên tiếp tục xuất hiện mãi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Nếu không có update trong 15–30 giây:
+Đánh dấu location stale.
+
+Nếu lâu hơn:
+Loại khỏi discovery.
+</div></code></pre>
+<p>Ngưỡng phụ thuộc:</p>
+<pre class="hljs"><code><div>- Network
+- Driver state
+- City
+</div></code></pre>
+<hr>
+<h1 id="39-hot-cells">39. Hot Cells</h1>
+<p>Sân bay, ga tàu hoặc trung tâm thành phố có thể chứa:</p>
+<pre class="hljs"><code><div>Hàng chục nghìn drivers và rider requests.
+</div></code></pre>
+<p>Một cell key trở thành hot.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Chia cell thành subcells
+- Bucket drivers theo hash
+- Replicate read state
+- Dynamic resolution
+- Queue/dispatch cell-local
+</div></code></pre>
+<hr>
+<h1 id="40-adaptive-geo-resolution">40. Adaptive Geo Resolution</h1>
+<p>Khu vực thưa dân:</p>
+<pre class="hljs"><code><div>Cell lớn.
+</div></code></pre>
+<p>Khu vực đông:</p>
+<pre class="hljs"><code><div>Cell nhỏ.
+</div></code></pre>
+<p>Có thể dùng hierarchical cells:</p>
+<pre class="hljs"><code><div>Parent cell
+→ child cells
+</div></code></pre>
+<p>Discovery chọn resolution theo density.</p>
+<p>Điều này phức tạp hơn fixed grid nhưng giảm hot-cell và empty-cell overhead.</p>
+<hr>
+<h1 id="41-driver-discovery-flow">41. Driver Discovery Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Rider
+    participant RideAPI
+    participant Geo as Geo Index
+    participant DriverStore
+    participant ETA
+    participant Dispatch
+
+    Rider->>RideAPI: Request trip
+    RideAPI->>Geo: Nearby available drivers
+    Geo-->>RideAPI: Candidate driver IDs
+    RideAPI->>DriverStore: Validate current states
+    DriverStore-->>RideAPI: Eligible candidates
+    RideAPI->>ETA: Batch pickup ETAs
+    ETA-->>RideAPI: Ranked ETAs
+    RideAPI->>Dispatch: Start dispatch
+</div></code></pre>
+<p>Discovery chỉ tạo candidate pool.</p>
+<p>Dispatch mới reserve và offer.</p>
+<hr>
+<h1 id="42-candidate-filters">42. Candidate Filters</h1>
+<p>Sau geo lookup, loại drivers:</p>
+<pre class="hljs"><code><div>- Không còn AVAILABLE
+- Location stale
+- Sai vehicle type
+- Không đủ capacity
+- Bị suspended
+- Không phù hợp accessibility
+- Không có giấy phép cho market
+- Đang vượt duty-time limits
+- Bị rider block hoặc safety rule
+</div></code></pre>
+<p>Không nên đưa mọi driver gần về Dispatch Service.</p>
+<hr>
+<h1 id="43-distance-không-đồng-nghĩa-eta">43. Distance không đồng nghĩa ETA</h1>
+<p>Một driver cách 500 m có thể mất 10 phút vì:</p>
+<pre class="hljs"><code><div>- Đường một chiều
+- Cầu/sông
+- Kẹt xe
+- Không thể quay đầu
+</div></code></pre>
+<p>Driver cách 1 km có thể tới trong 3 phút.</p>
+<p>Vì vậy ranking cuối nên dựa trên pickup ETA, không chỉ khoảng cách Euclidean.</p>
+<hr>
+<h1 id="44-batch-eta-matrix">44. Batch ETA Matrix</h1>
+<p>Không gọi Routing Service tuần tự 50 lần.</p>
+<p>Dùng batch:</p>
+<pre class="hljs"><code><div>Origins:
+50 driver locations
+
+Destination:
+1 pickup point
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div>driverId → ETA/distance
+</div></code></pre>
+<p>Batch matrix giảm:</p>
+<pre class="hljs"><code><div>- Network calls
+- Repeated graph computation
+- Tail latency
+</div></code></pre>
+<hr>
+<h1 id="45-eta-service">45. ETA Service</h1>
+<p>ETA có thể kết hợp:</p>
+<pre class="hljs"><code><div>- Road graph
+- Historical traffic
+- Realtime traffic
+- Time of day
+- Weather
+- Vehicle type
+- Pickup complexity
+- Driver behavior
+</div></code></pre>
+<p>Hai ETA chính:</p>
+<pre class="hljs"><code><div>Pickup ETA:
+Driver tới rider.
+
+Trip ETA:
+Pickup tới destination.
+</div></code></pre>
+<hr>
+<h1 id="46-routing-và-eta-khác-nhau">46. Routing và ETA khác nhau</h1>
+<h2 id="routing">Routing</h2>
+<pre class="hljs"><code><div>Tìm đường khả thi.
+</div></code></pre>
+<h2 id="eta">ETA</h2>
+<pre class="hljs"><code><div>Dự đoán thời gian đi trên đường đó.
+</div></code></pre>
+<p>Route ngắn nhất về khoảng cách không nhất thiết nhanh nhất.</p>
+<p>ETA model có thể điều chỉnh thời gian của từng road segment.</p>
+<hr>
+<h1 id="47-eta-caching">47. ETA Caching</h1>
+<p>Routes giữa các điểm chính có thể cache, nhưng exact origin thay đổi liên tục.</p>
+<p>Có thể cache:</p>
+<pre class="hljs"><code><div>- Road segment travel time
+- Cell-to-cell estimates
+- Popular origin-destination corridors
+</div></code></pre>
+<p>Sau đó refine bằng exact location.</p>
+<p>Không nên cache full ETA quá lâu khi traffic biến động.</p>
+<hr>
+<h1 id="48-eta-fallback">48. ETA Fallback</h1>
+<p>Nếu Routing Service lỗi:</p>
+<pre class="hljs"><code><div>- Dùng straight-line distance
+- Dùng historical cell-to-cell ETA
+- Tăng uncertainty buffer
+- Giảm số candidates
+</div></code></pre>
+<p>Hệ thống vẫn có thể dispatch với chất lượng thấp hơn.</p>
+<p>Không nên làm toàn ride request unavailable nếu bản đồ nâng cao tạm lỗi.</p>
+<hr>
+<h1 id="49-matching-score">49. Matching Score</h1>
+<p>Candidate score có thể gồm:</p>
+<pre class="hljs"><code><div>score =
+pickupETA
++ driverIdleTimeBonus
++ acceptanceProbability
++ cancellationRisk
++ vehicleMatch
++ destinationCompatibility
++ fairnessAdjustment
+</div></code></pre>
+<p>Mục tiêu không chỉ là driver gần nhất.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Driver gần nhưng thường từ chối.
+Driver xa hơn một chút nhưng acceptance cao.
+</div></code></pre>
+<p>Driver thứ hai có thể đem lại thời gian match thực tế tốt hơn.</p>
+<hr>
+<h1 id="50-dispatch-khác-matching">50. Dispatch khác Matching</h1>
+<pre class="hljs"><code><div>Matching:
+Xếp hạng driver phù hợp.
+
+Dispatch:
+Gửi offer, reserve driver, xử lý timeout và acceptance.
+</div></code></pre>
+<p>Một matching score tốt chưa giải quyết race giữa nhiều rider.</p>
+<p>Dispatch cần state và coordination.</p>
+<hr>
+<h1 id="51-sequential-dispatch">51. Sequential Dispatch</h1>
+<p>Gửi offer tới driver tốt nhất:</p>
+<pre class="hljs"><code><div>Driver 1
+→ Chờ 10 giây
+→ Từ chối
+→ Driver 2
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Ít driver bị làm phiền
+- Ít acceptance race
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Match latency cao
+- Rider chờ lâu
+</div></code></pre>
+<hr>
+<h1 id="52-parallel-dispatch">52. Parallel Dispatch</h1>
+<p>Gửi offer cùng lúc tới nhiều drivers:</p>
+<pre class="hljs"><code><div>Driver 1
+Driver 2
+Driver 3
+</div></code></pre>
+<p>Người đầu tiên chấp nhận thắng.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Match nhanh
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Nhiều drivers bị offer rồi mất chuyến
+- Race phức tạp
+- Driver experience kém
+</div></code></pre>
+<hr>
+<h1 id="53-batched-dispatch">53. Batched Dispatch</h1>
+<p>Phương án trung gian:</p>
+<pre class="hljs"><code><div>Wave 1:
+Gửi 2 drivers.
+
+Nếu không ai nhận trong 5 giây:
+Wave 2 gửi 3 drivers.
+</div></code></pre>
+<p>Điều chỉnh theo:</p>
+<pre class="hljs"><code><div>- Supply density
+- Rider priority
+- Time of day
+- Historical acceptance rate
+</div></code></pre>
+<p>Đây thường là chiến lược cân bằng.</p>
+<hr>
+<h1 id="54-driver-reservation">54. Driver Reservation</h1>
+<p>Trước hoặc khi gửi offer, Dispatch Service tạo lease:</p>
+<pre class="hljs"><code><div>driverId
+reservedForTripId
+leaseUntil
+reservationVersion
+</div></code></pre>
+<p>Mục đích:</p>
+<pre class="hljs"><code><div>Không để driver được offer/gán đồng thời cho nhiều trips.
+</div></code></pre>
+<p>Reservation có TTL để tự giải phóng nếu workflow chết.</p>
+<hr>
+<h1 id="55-reservation-state">55. Reservation State</h1>
+<pre class="hljs"><code><div>AVAILABLE
+→ OFFERED/RESERVED
+→ ASSIGNED
+</div></code></pre>
+<p>Nếu timeout/từ chối:</p>
+<pre class="hljs"><code><div>RESERVED
+→ AVAILABLE
+</div></code></pre>
+<p>Nếu driver chấp nhận:</p>
+<pre class="hljs"><code><div>RESERVED
+→ ASSIGNED
+</div></code></pre>
+<p>Transition phải atomic.</p>
+<hr>
+<h1 id="56-conditional-reservation">56. Conditional Reservation</h1>
+<p>Pseudo-operation:</p>
+<pre class="hljs"><code><div>Reserve driver D cho trip T
+nếu:
+- driver.state == AVAILABLE
+- reservation chưa tồn tại
+- location còn fresh
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>SUCCESS
+hoặc
+ALREADY_RESERVED
+</div></code></pre>
+<p>Không dùng:</p>
+<pre class="hljs"><code><div>SELECT state
+→ rồi UPDATE
+</div></code></pre>
+<p>không có conditional write, vì hai dispatchers có thể cùng thấy <code>AVAILABLE</code>.</p>
+<hr>
+<h1 id="57-reservation-lease">57. Reservation Lease</h1>
+<p>Offer hết hạn sau:</p>
+<pre class="hljs"><code><div>5–15 giây
+</div></code></pre>
+<p>Lease chứa:</p>
+<pre class="hljs"><code><div>expiresAt
+</div></code></pre>
+<p>Nếu dispatcher chết:</p>
+<pre class="hljs"><code><div>Lease tự hết.
+</div></code></pre>
+<p>Một cleanup/reconciliation worker cũng giải phóng reservations bị mắc kẹt.</p>
+<hr>
+<h1 id="58-offer-event">58. Offer Event</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;offerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;off_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;tripId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;trip_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;driverId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;drv_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pickup&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;estimatedPickupTimeSeconds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">240</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;estimatedFare&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T04:00:10Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;offerVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Offer cần ID ổn định để dedupe push/WebSocket retries.</p>
+<hr>
+<h1 id="59-driver-nhận-offer">59. Driver nhận Offer</h1>
+<p>Delivery channels:</p>
+<pre class="hljs"><code><div>- Persistent WebSocket
+- Push notification fallback
+- Mobile notification
+</div></code></pre>
+<p>Offer không nên chỉ tồn tại trong push payload.</p>
+<p>Driver app khi mở phải fetch authoritative offer state:</p>
+<pre class="hljs"><code><div>GET /driver/offers/{offerId}
+</div></code></pre>
+<p>Push có thể đến trễ sau khi offer đã hết hạn.</p>
+<hr>
+<h1 id="60-driver-accept-api">60. Driver Accept API</h1>
+<pre class="hljs"><code><div>POST /v1/driver/offers/{offerId}/accept
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>...
+</div></code></pre>
+<p>Server kiểm tra:</p>
+<pre class="hljs"><code><div>- Offer còn active
+- Chưa hết hạn
+- Driver đúng owner
+- Driver reservation vẫn thuộc trip
+- Trip vẫn SEARCHING
+</div></code></pre>
+<p>Sau đó transaction hoặc saga:</p>
+<pre class="hljs"><code><div>Trip → DRIVER_ASSIGNED
+Driver → ASSIGNED
+Offer → ACCEPTED
+</div></code></pre>
+<hr>
+<h1 id="61-acceptance-race">61. Acceptance Race</h1>
+<p>Hai drivers cùng chấp nhận parallel offers.</p>
+<p>Chỉ một driver được thắng.</p>
+<p>Trip update:</p>
+<pre class="hljs"><code><div>SEARCHING
+→ DRIVER_ASSIGNED
+</div></code></pre>
+<p>bằng compare-and-set.</p>
+<p>Driver đầu tiên commit thành công.</p>
+<p>Driver còn lại nhận:</p>
+<pre class="hljs"><code><div>OFFER_ALREADY_FILLED
+</div></code></pre>
+<p>và được giải phóng về <code>AVAILABLE</code>.</p>
+<hr>
+<h1 id="62-rider-cancellation-race">62. Rider Cancellation Race</h1>
+<p>Rider hủy cùng lúc driver chấp nhận.</p>
+<p>Hai commands tranh transition:</p>
+<pre class="hljs"><code><div>SEARCHING → CANCELLED_BY_RIDER
+SEARCHING → DRIVER_ASSIGNED
+</div></code></pre>
+<p>Chỉ một compare-and-set thắng.</p>
+<p>Nếu assign thắng trước:</p>
+<pre class="hljs"><code><div>Cancellation đi theo policy sau-assignment,
+có thể phát sinh phí.
+</div></code></pre>
+<p>Nếu cancellation thắng:</p>
+<pre class="hljs"><code><div>Acceptance bị từ chối.
+</div></code></pre>
+<hr>
+<h1 id="63-idempotent-ride-request">63. Idempotent Ride Request</h1>
+<p>Rider bấm nút nhiều lần hoặc app retry.</p>
+<p>Request có:</p>
+<pre class="hljs"><code><div>Idempotency-Key: rider_request_123
+</div></code></pre>
+<p>Store:</p>
+<pre class="hljs"><code><div>(riderId, idempotencyKey)
+→ tripId
+</div></code></pre>
+<p>Retry trả cùng trip.</p>
+<p>Không tạo hai chuyến cho cùng thao tác.</p>
+<hr>
+<h1 id="64-một-rider-chỉ-có-một-active-trip">64. Một Rider chỉ có Một Active Trip</h1>
+<p>Có thể dùng constraint:</p>
+<pre class="hljs"><code><div>riderId → activeTripId
+</div></code></pre>
+<p>Tạo trip chỉ khi:</p>
+<pre class="hljs"><code><div>activeTripId == null
+</div></code></pre>
+<p>Hoặc conditional record trong Rider State Store.</p>
+<p>Điều này ngăn nhiều requests khác idempotency key tạo nhiều active trips.</p>
+<hr>
+<h1 id="65-một-driver-chỉ-có-một-active-trip">65. Một Driver chỉ có Một Active Trip</h1>
+<p>Tương tự:</p>
+<pre class="hljs"><code><div>driverId → activeTripId
+</div></code></pre>
+<p>Đây là invariant quan trọng.</p>
+<p>Không chỉ dựa vào geospatial index vì index có thể stale.</p>
+<p>Authoritative Driver State Store mới quyết định.</p>
+<hr>
+<h1 id="66-dispatch-retry">66. Dispatch Retry</h1>
+<p>Nếu không driver nào nhận:</p>
+<pre class="hljs"><code><div>1. Mở rộng search radius.
+2. Refresh candidate pool.
+3. Điều chỉnh ranking.
+4. Gửi wave tiếp theo.
+5. Dừng khi quá timeout.
+</div></code></pre>
+<p>Cần tránh gửi lại liên tục cùng driver đã từ chối.</p>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>tripId → attemptedDriverIds hoặc attempt summary
+</div></code></pre>
+<p>với TTL.</p>
+<hr>
+<h1 id="67-search-radius">67. Search Radius</h1>
+<p>Có thể bắt đầu:</p>
+<pre class="hljs"><code><div>1 km
+</div></code></pre>
+<p>rồi tăng:</p>
+<pre class="hljs"><code><div>2 km
+4 km
+8 km
+</div></code></pre>
+<p>Nhưng ở khu vực mật độ thấp có thể bắt đầu rộng hơn.</p>
+<p>Search radius nên dựa trên:</p>
+<pre class="hljs"><code><div>- City density
+- Vehicle type
+- Current supply
+- Rider wait tolerance
+</div></code></pre>
+<hr>
+<h1 id="68-match-timeout">68. Match Timeout</h1>
+<p>Trip search không nên chạy vô hạn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>SEARCHING tối đa 60–120 giây.
+</div></code></pre>
+<p>Nếu hết:</p>
+<pre class="hljs"><code><div>NO_DRIVER_FOUND
+</div></code></pre>
+<p>Rider có thể:</p>
+<pre class="hljs"><code><div>- Retry
+- Chọn loại xe khác
+- Chấp nhận giá/ETA mới
+</div></code></pre>
+<hr>
+<h1 id="69-dispatch-fairness">69. Dispatch Fairness</h1>
+<p>Nếu luôn chọn driver gần nhất:</p>
+<pre class="hljs"><code><div>Một số drivers có thể nhận ít chuyến dù đã chờ lâu.
+</div></code></pre>
+<p>Có thể thêm:</p>
+<pre class="hljs"><code><div>- Idle time
+- Earnings balance
+- Queue position tại sân bay
+- Driver preferences
+</div></code></pre>
+<p>Nhưng fairness không được làm pickup ETA tăng quá mức.</p>
+<p>Đây là optimization đa mục tiêu.</p>
+<hr>
+<h1 id="70-airport-queue">70. Airport Queue</h1>
+<p>Sân bay thường có luật riêng:</p>
+<pre class="hljs"><code><div>- Driver vào khu vực chờ
+- Nhận queue position
+- Chỉ driver đầu hàng được dispatch
+</div></code></pre>
+<p>Không chỉ chọn nearest driver.</p>
+<p>Airport queue cần:</p>
+<pre class="hljs"><code><div>- Geofence
+- Queue state
+- Entry/exit validation
+- Anti-GPS spoofing
+</div></code></pre>
+<hr>
+<h1 id="71-destination-filtering">71. Destination Filtering</h1>
+<p>Một số hệ thống không hiển thị destination trước khi driver nhận vì fairness/policy.</p>
+<p>Nếu destination được dùng trong matching:</p>
+<pre class="hljs"><code><div>- Driver sắp hết ca
+- Vehicle restrictions
+- Cross-border permissions
+- Destination zone shortage
+</div></code></pre>
+<p>Cần đảm bảo không tạo phân biệt đối xử hoặc gaming ngoài policy.</p>
+<hr>
+<h1 id="72-price-quote">72. Price Quote</h1>
+<p>Trước khi rider xác nhận:</p>
+<pre class="hljs"><code><div>Quote Service
+→ estimated fare
+→ quoteId
+→ expiresAt
+</div></code></pre>
+<p>Quote record:</p>
+<pre class="hljs"><code><div>quoteId
+riderId
+pickup
+destination
+vehicleType
+baseEstimate
+surgeMultiplier
+fees
+currency
+expiresAt
+pricingVersion
+</div></code></pre>
+<hr>
+<h1 id="73-fare-components">73. Fare Components</h1>
+<pre class="hljs"><code><div>fare =
+base fare
++ distance component
++ time component
++ booking fee
++ tolls
++ surge
++ taxes
+- discounts
+</div></code></pre>
+<p>Estimate trước chuyến có thể khác final fare do:</p>
+<pre class="hljs"><code><div>- Route thay đổi
+- Waiting time
+- Tolls
+- Trip duration
+</div></code></pre>
+<p>Sản phẩm có thể dùng upfront fixed price hoặc metered price.</p>
+<hr>
+<h1 id="74-quote-expiration">74. Quote Expiration</h1>
+<p>Cung cầu thay đổi nhanh.</p>
+<p>Quote có TTL:</p>
+<pre class="hljs"><code><div>30–120 giây
+</div></code></pre>
+<p>Rider xác nhận phải gửi:</p>
+<pre class="hljs"><code><div>quoteId
+</div></code></pre>
+<p>Trip lưu snapshot của pricing terms.</p>
+<p>Không tính lại surge tùy tiện sau khi rider đã chấp nhận quote còn hiệu lực.</p>
+<hr>
+<h1 id="75-surge-pricing">75. Surge Pricing</h1>
+<p>Surge phản ánh mất cân bằng:</p>
+<pre class="hljs"><code><div>Demand cao
+Supply thấp
+→ multiplier tăng
+</div></code></pre>
+<p>Zone-level inputs:</p>
+<pre class="hljs"><code><div>- Pending ride requests
+- Available drivers
+- Acceptance rate
+- Pickup ETA
+- Cancellation rate
+- Forecast demand
+</div></code></pre>
+<hr>
+<h1 id="76-supply-và-demand-theo-cellzone">76. Supply và Demand theo Cell/Zone</h1>
+<p>Mỗi time window:</p>
+<pre class="hljs"><code><div>supply = số AVAILABLE drivers
+demand = số ride requests
+</div></code></pre>
+<p>Tỷ lệ khái niệm:</p>
+<pre class="hljs"><code><div>imbalance = demand / max(supply, 1)
+</div></code></pre>
+<p>Multiplier không nên là hàm tuyến tính đơn giản duy nhất.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Smoothing
+- Caps
+- Minimum sample size
+- Business/regulatory rules
+</div></code></pre>
+<hr>
+<h1 id="77-surge-smoothing">77. Surge Smoothing</h1>
+<p>Nếu multiplier nhảy:</p>
+<pre class="hljs"><code><div>1.0 → 2.5 → 1.1
+</div></code></pre>
+<p>trong vài giây, UX kém và dễ bị gaming.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Moving average
+- Hysteresis
+- Maximum rate of change
+- Minimum duration
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Multiplier chỉ thay đổi tối đa 0,2 mỗi vài phút.
+</div></code></pre>
+<hr>
+<h1 id="78-surge-hot-zone">78. Surge Hot Zone</h1>
+<p>Một sự kiện kết thúc tạo demand spike trong một cell.</p>
+<p>Nếu cell quá nhỏ:</p>
+<pre class="hljs"><code><div>Rider đi vài mét có giá khác mạnh.
+</div></code></pre>
+<p>Nếu quá lớn:</p>
+<pre class="hljs"><code><div>Surge áp cả khu vực không thiếu xe.
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Smoothing giữa neighboring cells
+- Zone boundaries theo road network
+- Minimum zone size
+</div></code></pre>
+<hr>
+<h1 id="79-surge-pipeline">79. Surge Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    RideRequests --> Demand[Demand Aggregator]
+    DriverStates --> Supply[Supply Aggregator]
+
+    Demand --> PricingModel
+    Supply --> PricingModel
+
+    PricingModel --> SurgeStore[(Regional Surge Store)]
+    SurgeStore --> QuoteService
+</div></code></pre>
+<p>Surge Store là projection gần realtime.</p>
+<p>Quote Service vẫn áp caps và policy authoritative.</p>
+<hr>
+<h1 id="80-surge-consistency">80. Surge Consistency</h1>
+<p>Rider A và B ở cùng khu vực có thể nhận multiplier hơi khác do:</p>
+<pre class="hljs"><code><div>- Request time khác
+- Cache version khác
+- Quote experiments
+</div></code></pre>
+<p>Điều này thường chấp nhận được nếu trong policy.</p>
+<p>Nhưng quote đã cấp phải ổn định tới khi hết hạn.</p>
+<hr>
+<h1 id="81-trip-tracking">81. Trip Tracking</h1>
+<p>Sau khi assign:</p>
+<pre class="hljs"><code><div>Driver locations
+→ Rider app
+</div></code></pre>
+<p>Rider không cần nhận mọi raw GPS update.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Sample
+- Smooth path
+- Send every 1–3 seconds
+- Interpolate trên client
+</div></code></pre>
+<p>Điều này giảm traffic và marker jitter.</p>
+<hr>
+<h1 id="82-realtime-location-fan-out">82. Realtime Location Fan-Out</h1>
+<p>Driver gửi một update.</p>
+<p>Hệ thống có thể fan-out tới:</p>
+<pre class="hljs"><code><div>- Rider đang đi cùng trip
+- Driver operations dashboard
+- Safety pipeline
+</div></code></pre>
+<p>Không broadcast driver location tới mọi user.</p>
+<p>Access phải gắn với active trip hoặc quyền vận hành.</p>
+<hr>
+<h1 id="83-location-privacy">83. Location Privacy</h1>
+<p>Driver/rider location là dữ liệu cực nhạy cảm.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Encryption in transit/at rest
+- Strict authorization
+- Short retention cho realtime state
+- Audit access
+- Masking trong support tools
+- Data residency
+</div></code></pre>
+<p>Không lưu raw coordinates trong standard logs.</p>
+<hr>
+<h1 id="84-pickup-confirmation">84. Pickup Confirmation</h1>
+<p>Driver có thể bấm <code>ARRIVED</code>.</p>
+<p>Server kiểm tra:</p>
+<pre class="hljs"><code><div>- Trip đang DRIVER_ARRIVING
+- Driver gần pickup geofence
+- Location fresh
+</div></code></pre>
+<p>Nhưng GPS sai có thể cần manual override.</p>
+<p>Không nên từ chối cứng mọi trường hợp chỉ vì geofence lệch vài mét.</p>
+<hr>
+<h1 id="85-start-trip">85. Start Trip</h1>
+<p>Có thể yêu cầu:</p>
+<pre class="hljs"><code><div>- Driver trong pickup area
+- Rider PIN/OTP
+- Rider confirmation
+</div></code></pre>
+<p>Transition:</p>
+<pre class="hljs"><code><div>DRIVER_ARRIVED
+→ IN_PROGRESS
+</div></code></pre>
+<p>PIN giúp giảm:</p>
+<pre class="hljs"><code><div>- Nhận nhầm xe
+- Bắt đầu nhầm rider
+- Fraud
+</div></code></pre>
+<hr>
+<h1 id="86-end-trip">86. End Trip</h1>
+<p>Driver bấm hoàn thành.</p>
+<p>Hệ thống kiểm tra:</p>
+<pre class="hljs"><code><div>- Trip đang IN_PROGRESS
+- Destination hoặc route hợp lý
+- Location fresh
+</div></code></pre>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>- Finalize distance/time
+- Calculate final fare
+- Capture payment
+- Mark trip operationally completed
+</div></code></pre>
+<p>Payment có thể thất bại sau khi chuyến đã thực sự kết thúc.</p>
+<p>Vì vậy trip completion và payment completion cần states riêng.</p>
+<hr>
+<h1 id="87-operational-completion-và-financial-completion">87. Operational Completion và Financial Completion</h1>
+<pre class="hljs"><code><div>Trip operational state:
+COMPLETED
+
+Payment state:
+PENDING / CAPTURED / FAILED
+</div></code></pre>
+<p>Không nên giữ trip <code>IN_PROGRESS</code> chỉ vì payment provider lỗi.</p>
+<p>Chuyến đi đã kết thúc về mặt vật lý.</p>
+<p>Financial workflow tiếp tục retry riêng.</p>
+<hr>
+<h1 id="88-distance-calculation">88. Distance Calculation</h1>
+<p>Không nên chỉ cộng khoảng cách giữa mọi GPS points vì:</p>
+<pre class="hljs"><code><div>- GPS jitter
+- Missing points
+- Teleport points
+- Sampling không đều
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Map-matched route
+- Filtered GPS path
+- Start/end odometer
+- Routing estimate
+</div></code></pre>
+<p>Final fare cần rules rõ và audit được.</p>
+<hr>
+<h1 id="89-payment-flow">89. Payment Flow</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>1. Pre-authorize trước hoặc khi match.
+2. Thực hiện chuyến.
+3. Tính final fare.
+4. Capture.
+5. Retry hoặc fallback nếu lỗi.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Trip
+    participant Payment
+    participant Provider
+
+    Trip->>Payment: Authorize estimated amount
+    Payment->>Provider: Authorization
+    Provider-->>Payment: Authorized
+
+    Trip->>Payment: Capture final fare
+    Payment->>Provider: Capture
+    Provider-->>Payment: Captured
+</div></code></pre>
+<hr>
+<h1 id="90-payment-idempotency">90. Payment Idempotency</h1>
+<p>Capture request:</p>
+<pre class="hljs"><code><div>Idempotency-Key = tripId + paymentAttemptType
+</div></code></pre>
+<p>Nếu timeout rồi retry:</p>
+<pre class="hljs"><code><div>Không được charge hai lần.
+</div></code></pre>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>paymentIntentId
+providerTransactionId
+status
+amount
+currency
+version
+</div></code></pre>
+<hr>
+<h1 id="91-payment-ledger">91. Payment Ledger</h1>
+<p>Không chỉ lưu:</p>
+<pre class="hljs"><code><div>trip.paymentStatus = PAID
+</div></code></pre>
+<p>Cần ledger entries:</p>
+<pre class="hljs"><code><div>- Rider charge
+- Platform fee
+- Driver earning
+- Tax
+- Toll
+- Promotion
+- Refund
+- Adjustment
+- Tip
+</div></code></pre>
+<p>Ledger là source of truth tài chính.</p>
+<p>Dashboard chỉ là projection.</p>
+<hr>
+<h1 id="92-payment-failure">92. Payment Failure</h1>
+<p>Nếu capture thất bại:</p>
+<pre class="hljs"><code><div>Trip vẫn COMPLETED.
+Payment → FAILED/PENDING_RETRY.
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Retry provider
+- Yêu cầu phương thức khác
+- Tạo rider balance/debt
+- Hạn chế đặt chuyến tiếp theo
+</div></code></pre>
+<p>Không được gọi driver quay lại vì payment lỗi.</p>
+<hr>
+<h1 id="93-cancellation-fee">93. Cancellation Fee</h1>
+<p>Cancellation policy phụ thuộc:</p>
+<pre class="hljs"><code><div>- Driver đã được assign chưa?
+- Driver đã di chuyển bao lâu?
+- Driver đã tới chưa?
+- Ai hủy?
+- Safety reason?
+</div></code></pre>
+<p>Cancellation workflow phải lưu:</p>
+<pre class="hljs"><code><div>state at cancellation
+actor
+reason
+timestamps
+estimated driver cost
+</div></code></pre>
+<p>Không chỉ dùng một boolean <code>cancelled</code>.</p>
+<hr>
+<h1 id="94-refund-và-adjustment">94. Refund và Adjustment</h1>
+<p>Sau support review:</p>
+<pre class="hljs"><code><div>- Full refund
+- Partial refund
+- Driver earning adjustment
+- Promotional credit
+</div></code></pre>
+<p>Không sửa trực tiếp transaction cũ.</p>
+<p>Tạo ledger entries bù:</p>
+<pre class="hljs"><code><div>refund
+adjustment
+credit
+</div></code></pre>
+<p>Giúp audit và reconciliation.</p>
+<hr>
+<h1 id="95-notification-trong-ride-hailing">95. Notification trong Ride-Hailing</h1>
+<p>Các events:</p>
+<pre class="hljs"><code><div>- Driver offer
+- Driver assigned
+- Driver arrived
+- Trip started
+- Trip completed
+- Payment receipt
+</div></code></pre>
+<p>Realtime channel có thể là WebSocket.</p>
+<p>Push là fallback khi app background.</p>
+<p>Notification failure không được làm trip state rollback.</p>
+<hr>
+<h1 id="96-safety-features">96. Safety Features</h1>
+<pre class="hljs"><code><div>- Driver identity verification
+- Rider/driver ratings
+- Trip sharing
+- SOS button
+- Route deviation detection
+- Unexpected stop detection
+- Phone number masking
+- Audio recording tùy policy
+- Safety check-in
+</div></code></pre>
+<p>Safety workflows cần priority cao và audit riêng.</p>
+<hr>
+<h1 id="97-emergency-sos-flow">97. Emergency SOS Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    App[SOS Trigger] --> SafetyAPI
+    SafetyAPI --> Incident[(Safety Incident Store)]
+    SafetyAPI --> Operations[Safety Operations]
+    SafetyAPI --> Contacts[Emergency Contacts]
+    SafetyAPI --> Location[High-Frequency Location Stream]
+</div></code></pre>
+<p>SOS path không nên phụ thuộc:</p>
+<pre class="hljs"><code><div>- Recommendation
+- Analytics
+- Surge
+</div></code></pre>
+<p>Cần dedicated capacity và SLO.</p>
+<hr>
+<h1 id="98-route-deviation-detection">98. Route Deviation Detection</h1>
+<p>So sánh:</p>
+<pre class="hljs"><code><div>Actual path
+vs
+Expected route corridor
+</div></code></pre>
+<p>Signals:</p>
+<pre class="hljs"><code><div>- Đi lệch xa
+- Dừng lâu bất thường
+- Trip kéo dài quá mức
+- Di chuyển sau khi trip đã kết thúc
+</div></code></pre>
+<p>Không phải mọi deviation đều nguy hiểm:</p>
+<pre class="hljs"><code><div>- Kẹt xe
+- Road closure
+- Rider yêu cầu đổi điểm
+</div></code></pre>
+<p>Hệ thống nên tạo risk score, không tự động kết luận.</p>
+<hr>
+<h1 id="99-phone-number-masking">99. Phone Number Masking</h1>
+<p>Rider và driver cần liên lạc nhưng không nên lộ số thật.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>- Proxy phone number
+- In-app VoIP
+- In-app chat
+</div></code></pre>
+<p>Mapping chỉ tồn tại trong trip window và TTL ngắn sau đó.</p>
+<hr>
+<h1 id="100-fraud-và-gps-spoofing">100. Fraud và GPS Spoofing</h1>
+<p>Driver có thể giả location để:</p>
+<pre class="hljs"><code><div>- Vào airport queue
+- Nhận surge
+- Gian lận distance
+</div></code></pre>
+<p>Rider có thể:</p>
+<pre class="hljs"><code><div>- Dùng account/payment gian lận
+- Abuse promotions
+</div></code></pre>
+<p>Signals:</p>
+<pre class="hljs"><code><div>- GPS vs network location
+- Impossible movement
+- Device integrity
+- Historical behavior
+- Repeated cancellation patterns
+</div></code></pre>
+<p>Fraud decision không nên nằm hoàn toàn trong mobile client.</p>
+<hr>
+<h1 id="101-rating-system">101. Rating System</h1>
+<p>Sau trip:</p>
+<pre class="hljs"><code><div>Rider rates driver
+Driver rates rider
+</div></code></pre>
+<p>Rating aggregate có thể eventual.</p>
+<p>Cần chống:</p>
+<pre class="hljs"><code><div>- Duplicate rating
+- Rating trước khi trip hoàn tất
+- Retaliation
+- Manipulation
+</div></code></pre>
+<p>Key:</p>
+<pre class="hljs"><code><div>(tripId, raterRole)
+</div></code></pre>
+<p>chỉ một rating logic.</p>
+<hr>
+<h1 id="102-multi-region-theo-marketcity">102. Multi-Region theo Market/City</h1>
+<p>Ride-hailing có tính địa phương mạnh.</p>
+<p>Một chuyến trong Bangkok không cần strong coordination với một chuyến ở Paris.</p>
+<p>Có thể partition theo:</p>
+<pre class="hljs"><code><div>marketId / cityId
+</div></code></pre>
+<p>Mỗi market có:</p>
+<pre class="hljs"><code><div>- Location index
+- Dispatch
+- ETA traffic data
+- Pricing
+- Operational policies
+</div></code></pre>
+<p>Đây là cell-based architecture tự nhiên.</p>
+<hr>
+<h1 id="103-regional-architecture">103. Regional Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    GlobalServices[Global Account / Identity / Payments]
+
+    GlobalRouter --> MarketA[Market Cell A]
+    GlobalRouter --> MarketB[Market Cell B]
+    GlobalRouter --> MarketC[Market Cell C]
+
+    MarketA --> GeoA[(Geo Index A)]
+    MarketA --> DispatchA[Dispatch A]
+    MarketA --> TripA[(Trip Store A)]
+
+    MarketB --> GeoB[(Geo Index B)]
+    MarketB --> DispatchB[Dispatch B]
+    MarketB --> TripB[(Trip Store B)]
+</div></code></pre>
+<p>Một market failure không nên làm mọi thị trường khác ngừng hoạt động.</p>
+<hr>
+<h1 id="104-market-home-region">104. Market Home Region</h1>
+<p>Mỗi city/market có home region:</p>
+<pre class="hljs"><code><div>Bangkok → Southeast Asia region
+Paris → EU region
+</div></code></pre>
+<p>Location, dispatch và active trip state ở gần market.</p>
+<p>Global services có thể gồm:</p>
+<pre class="hljs"><code><div>- Identity
+- Account
+- Payment routing
+- Global fraud
+- Analytics aggregation
+</div></code></pre>
+<hr>
+<h1 id="105-vì-sao-không-có-global-geo-index">105. Vì sao không có Global Geo Index?</h1>
+<p>Driver ở Bangkok không phải candidate cho rider ở Paris.</p>
+<p>Global index gây:</p>
+<pre class="hljs"><code><div>- Kích thước lớn
+- Latency
+- Không cần thiết
+- Cross-region traffic
+</div></code></pre>
+<p>Geo index nên regional/market-local.</p>
+<p>Global directory chỉ cần biết:</p>
+<pre class="hljs"><code><div>marketId → region/cell
+</div></code></pre>
+<hr>
+<h1 id="106-riderdriver-roaming">106. Rider/Driver Roaming</h1>
+<p>Driver chuyển sang market khác.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Eligibility/license tại market mới
+- Vehicle rules
+- Currency/tax
+- Driver account routing
+</div></code></pre>
+<p>Session được attach vào market hiện tại theo location/geofence.</p>
+<p>Không chỉ dùng account home country.</p>
+<hr>
+<h1 id="107-cross-market-trip">107. Cross-Market Trip</h1>
+<p>Trip có thể bắt đầu ở city A và kết thúc city B.</p>
+<p>Write owner thường giữ ở pickup market trong suốt trip.</p>
+<p>Location pipeline có thể chuyển region nếu đi xa, nhưng đổi owner giữa active trip rất phức tạp.</p>
+<p>Đa số hệ thống giữ trip ownership ổn định tới completion.</p>
+<hr>
+<h1 id="108-multi-region-activeactive">108. Multi-Region Active–Active</h1>
+<p>Toàn hệ thống active–active theo market:</p>
+<pre class="hljs"><code><div>Region A sở hữu markets 1, 2, 3
+Region B sở hữu markets 4, 5, 6
+</div></code></pre>
+<p>Không nhất thiết multi-write cùng một trip.</p>
+<p>Mỗi trip có một owner region.</p>
+<p>Đây là partitioned active–active.</p>
+<hr>
+<h1 id="109-trip-id-và-region-hint">109. Trip ID và Region Hint</h1>
+<p>Trip ID có thể là globally unique.</p>
+<p>Có thể chứa logical shard hint, nhưng không nên khóa cứng physical region nếu cần migration.</p>
+<p>Global directory:</p>
+<pre class="hljs"><code><div>tripId → marketId/homeRegion
+</div></code></pre>
+<p>có thể cache.</p>
+<hr>
+<h1 id="110-regional-failover">110. Regional Failover</h1>
+<p>Nếu market home region lỗi:</p>
+<pre class="hljs"><code><div>1. Ngừng nhận trip requests mới.
+2. Chuyển traffic sang DR region.
+3. Promote trip/driver state replica.
+4. Tăng owner epoch.
+5. Fence writers cũ.
+6. Rebuild geo index từ recent location stream.
+7. Resume active trips trước.
+</div></code></pre>
+<p>Geo index là ephemeral nên có thể rebuild.</p>
+<p>Trip/driver assignment state phải được replicate bền vững.</p>
+<hr>
+<h1 id="111-rebuild-geo-index">111. Rebuild Geo Index</h1>
+<p>Nguồn:</p>
+<pre class="hljs"><code><div>- Recent location event stream
+- Current driver state snapshot
+</div></code></pre>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>1. Load latest driver states.
+2. Replay recent updates.
+3. Expire stale locations.
+4. Mark market ready.
+</div></code></pre>
+<p>Không cần restore toàn bộ raw history trước khi dispatch hoạt động.</p>
+<hr>
+<h1 id="112-owner-epoch-và-fencing">112. Owner Epoch và Fencing</h1>
+<p>Market/trip owner có epoch:</p>
+<pre class="hljs"><code><div>Region A epoch 17
+Region B promoted epoch 18
+</div></code></pre>
+<p>Writes từ epoch 17 bị store từ chối.</p>
+<p>Điều này ngăn:</p>
+<pre class="hljs"><code><div>Hai regions cùng assign một driver hoặc update một trip.
+</div></code></pre>
+<hr>
+<h1 id="113-location-replication">113. Location Replication</h1>
+<p>Không cần synchronous replicate mọi GPS update xuyên đại dương.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Current state replicate async
+- Recent event stream có retention
+- Active-trip locations ưu tiên cao hơn available-driver locations
+</div></code></pre>
+<p>Khi disaster, một số available-driver markers có thể mất vài giây và được refresh từ devices.</p>
+<hr>
+<h1 id="114-trip-state-replication">114. Trip State Replication</h1>
+<p>Trip assignment và lifecycle quan trọng hơn location markers.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Synchronous regional replicas
+- Quorum trong low-latency region group
+- Durable log replication
+</div></code></pre>
+<p>Durability contract phải rõ:</p>
+<pre class="hljs"><code><div>Một trip đã báo assigned có được mất khi region chết không?
+</div></code></pre>
+<hr>
+<h1 id="115-data-residency">115. Data Residency</h1>
+<p>Location history và trip data có thể bị yêu cầu ở lại khu vực.</p>
+<p>Cần xét:</p>
+<pre class="hljs"><code><div>- Current coordinates
+- Historical routes
+- Payment metadata
+- Safety incidents
+- Support recordings
+- Analytics
+- Backups
+</div></code></pre>
+<p>Chỉ export aggregate hoặc pseudonymized signals khi policy cho phép.</p>
+<hr>
+<h1 id="116-failure-mode--location-pipeline-chậm">116. Failure Mode — Location Pipeline chậm</h1>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Driver positions stale
+- Discovery chất lượng kém
+- Pickup ETA sai
+</div></code></pre>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Monitor location age
+- Drop intermediate updates, giữ latest
+- Prioritize active-trip drivers
+- Increase stale filtering
+- Reduce dispatch radius confidence
+</div></code></pre>
+<p>Khi backlog, không nhất thiết xử lý mọi historical location update tuần tự.</p>
+<p>Current-state processor có thể coalesce theo driverId.</p>
+<hr>
+<h1 id="117-failure-mode--geo-index-down">117. Failure Mode — Geo Index Down</h1>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- Replica index
+- Rebuild từ current state
+- Cached candidate zones
+- Tạm dừng ride request tại market
+</div></code></pre>
+<p>Không nên scan toàn bộ Driver Store.</p>
+<p>Geo index cần regional replicas hoặc sharded redundancy.</p>
+<hr>
+<h1 id="118-failure-mode--dispatch-service-down">118. Failure Mode — Dispatch Service Down</h1>
+<p>Trip ở <code>SEARCHING</code> vẫn durable.</p>
+<p>Dispatch commands/events được replay.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Offer leases
+- Idempotent waves
+- Attempt state
+</div></code></pre>
+<p>Sau recovery không được gửi lại offer đã hết hạn như offer mới.</p>
+<hr>
+<h1 id="119-failure-mode--notification-down">119. Failure Mode — Notification Down</h1>
+<p>Driver có thể không nhận offer.</p>
+<p>Dispatch timeout và thử driver khác.</p>
+<p>Trip state không mất.</p>
+<p>Có thể fallback:</p>
+<pre class="hljs"><code><div>WebSocket → push
+</div></code></pre>
+<p>nhưng push trễ phải kiểm tra authoritative offer expiry.</p>
+<hr>
+<h1 id="120-failure-mode--eta-service-down">120. Failure Mode — ETA Service Down</h1>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- Cell distance estimate
+- Haversine distance/speed
+- Historical zone ETA
+</div></code></pre>
+<p>Pricing quote có uncertainty cao hơn.</p>
+<p>Dispatch vẫn có thể tiếp tục với degraded quality.</p>
+<hr>
+<h1 id="121-failure-mode--pricing-service-down">121. Failure Mode — Pricing Service Down</h1>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Dùng cached base pricing
+- Tắt surge, áp multiplier an toàn
+- Không nhận trip mới nếu pháp lý yêu cầu quote chính xác
+</div></code></pre>
+<p>Active trips vẫn tiếp tục.</p>
+<p>Không nên ảnh hưởng location tracking hoặc safety.</p>
+<hr>
+<h1 id="122-failure-mode--payment-provider-down">122. Failure Mode — Payment Provider Down</h1>
+<p>Ride creation có thể:</p>
+<pre class="hljs"><code><div>- Dùng pre-authorized method
+- Cho phép trusted rider đi và collect sau
+- Chặn new ride với high-risk accounts
+</div></code></pre>
+<p>Trip completion vẫn diễn ra.</p>
+<p>Payment workflow retry riêng.</p>
+<p>Policy phụ thuộc risk và thị trường.</p>
+<hr>
+<h1 id="123-failure-mode--driver-app-mất-mạng">123. Failure Mode — Driver App mất mạng</h1>
+<p>Driver đang nhận offer:</p>
+<pre class="hljs"><code><div>Offer hết lease → dispatch driver khác.
+</div></code></pre>
+<p>Driver đang tới pickup:</p>
+<pre class="hljs"><code><div>Rider thấy location stale.
+System gửi reconnect/push.
+</div></code></pre>
+<p>Driver đang on-trip:</p>
+<pre class="hljs"><code><div>Client lưu location local và upload khi reconnect.
+Trip vẫn không tự động hủy.
+Safety có thể alert nếu mất kết nối lâu.
+</div></code></pre>
+<hr>
+<h1 id="124-failure-mode--rider-app-mất-mạng">124. Failure Mode — Rider App mất mạng</h1>
+<p>Trip vẫn tiếp tục.</p>
+<p>Rider reconnect:</p>
+<pre class="hljs"><code><div>GET active trip
+→ Current trip state
+→ Driver latest location
+→ Payment/route state
+</div></code></pre>
+<p>Mobile client không phải source of truth cho trip state.</p>
+<hr>
+<h1 id="125-reconciliation">125. Reconciliation</h1>
+<p>Periodic jobs kiểm tra:</p>
+<pre class="hljs"><code><div>- Driver RESERVED nhưng offer không tồn tại
+- Trip DRIVER_ASSIGNED nhưng driver AVAILABLE
+- COMPLETED trip chưa có payment intent
+- Payment CAPTURED nhưng ledger thiếu
+- Offer active đã hết hạn
+</div></code></pre>
+<p>Distributed workflows cần reconciliation vì retry và partial failure là bình thường.</p>
+<hr>
+<h1 id="126-observability--location">126. Observability — Location</h1>
+<pre class="hljs"><code><div>- Updates/second
+- Ingestion latency
+- Processing lag
+- Latest-location age
+- Invalid GPS rate
+- Out-of-order rate
+- Drivers per geo cell
+- Stale driver percentage
+</div></code></pre>
+<p>Metrics theo:</p>
+<pre class="hljs"><code><div>market
+app version
+network
+driver state
+</div></code></pre>
+<hr>
+<h1 id="127-observability--dispatch">127. Observability — Dispatch</h1>
+<pre class="hljs"><code><div>- Time to first offer
+- Time to match
+- Candidate count
+- Offer acceptance rate
+- Offer timeout rate
+- Waves per trip
+- No-driver-found rate
+- Reservation conflict rate
+</div></code></pre>
+<p>Phân tách theo:</p>
+<pre class="hljs"><code><div>market
+vehicle type
+hour
+surge zone
+</div></code></pre>
+<hr>
+<h1 id="128-observability--eta">128. Observability — ETA</h1>
+<pre class="hljs"><code><div>- Predicted pickup ETA
+- Actual pickup time
+- ETA absolute error
+- ETA bias
+- Routing latency
+- Fallback usage
+</div></code></pre>
+<p>Nếu ETA luôn thấp hơn thực tế:</p>
+<pre class="hljs"><code><div>Rider kỳ vọng sai và cancellation tăng.
+</div></code></pre>
+<p>Không chỉ tối ưu mean error; cần theo dõi tail và bias.</p>
+<hr>
+<h1 id="129-observability--pricing">129. Observability — Pricing</h1>
+<pre class="hljs"><code><div>- Quote latency
+- Quote acceptance
+- Surge distribution
+- Price change frequency
+- Quote expiry rate
+- Final-vs-quoted variance
+</div></code></pre>
+<p>Guardrails:</p>
+<pre class="hljs"><code><div>- Regulatory caps
+- Extreme multiplier alerts
+- Zone discontinuity
+</div></code></pre>
+<hr>
+<h1 id="130-observability--trip-và-payment">130. Observability — Trip và Payment</h1>
+<pre class="hljs"><code><div>- Trips theo state
+- Stuck trip count
+- Cancellation rate
+- Completion rate
+- Payment authorization/capture success
+- Duplicate charge rate
+- Refund rate
+- Ledger reconciliation mismatch
+</div></code></pre>
+<hr>
+<h1 id="131-safety-metrics">131. Safety Metrics</h1>
+<pre class="hljs"><code><div>- SOS request latency
+- Route-deviation alerts
+- Incident acknowledgement time
+- False-positive safety alerts
+- Location freshness during incidents
+</div></code></pre>
+<p>Safety metrics cần dashboard và on-call riêng.</p>
+<hr>
+<h1 id="132-slos-minh-họa">132. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Location freshness:
+99% online drivers dưới 10 giây.
+
+Driver discovery:
+p99 dưới 100 ms.
+
+Time to first offer:
+99% dưới 1 giây.
+
+Trip state availability:
+99,99%.
+
+Driver assignment correctness:
+Không có double assignment theo invariant.
+
+SOS ingestion:
+99,99% dưới 2 giây.
+
+Payment capture:
+99% hoàn thành trong vài phút sau trip.
+</div></code></pre>
+<p>Các con số chỉ minh họa.</p>
+<hr>
+<h1 id="133-thiết-kế-khuyến-nghị">133. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Driver gửi location tới regional location gateways.
+2. Event stream tách location ingestion khỏi downstream.
+3. Latest location được materialize vào regional geo index có TTL.
+4. Rider request tạo trip idempotently và lấy price quote.
+5. Dispatch lấy nearby drivers theo cell rings.
+6. Candidates được filter và batch ETA-ranking.
+7. Driver được reserve bằng conditional lease.
+8. Offer được gửi theo waves và chỉ một acceptance thắng.
+9. Trip Service quản lý state machine có version.
+10. Payment và safety chạy dưới các workflow độc lập nhưng liên kết bằng trip events.
+</div></code></pre>
+<hr>
+<h1 id="134-trade-off--location-update-nhanh-hay-tiết-kiệm-battery">134. Trade-Off — Location Update nhanh hay tiết kiệm Battery?</h1>
+<p>Update mỗi giây:</p>
+<pre class="hljs"><code><div>- Vị trí fresh
+- ETA tốt
+- QPS và battery cao
+</div></code></pre>
+<p>Update mỗi 10 giây:</p>
+<pre class="hljs"><code><div>- Tiết kiệm
+- Driver marker stale
+- Dispatch kém chính xác
+</div></code></pre>
+<p>Khuyến nghị:</p>
+<pre class="hljs"><code><div>Adaptive update frequency theo state và movement.
+</div></code></pre>
+<hr>
+<h1 id="135-trade-off--cell-lớn-hay-nhỏ">135. Trade-Off — Cell lớn hay nhỏ?</h1>
+<h2 id="cell-lớn">Cell lớn</h2>
+<pre class="hljs"><code><div>- Ít cell reads
+- Nhiều drivers phải filter
+- Hot-cell lớn
+</div></code></pre>
+<h2 id="cell-nhỏ">Cell nhỏ</h2>
+<pre class="hljs"><code><div>- Candidate chính xác
+- Nhiều neighbor reads
+- Driver đổi cell thường xuyên
+</div></code></pre>
+<p>Có thể dùng hierarchical/adaptive resolution.</p>
+<hr>
+<h1 id="136-trade-off--sequential-hay-parallel-dispatch">136. Trade-Off — Sequential hay Parallel Dispatch?</h1>
+<h2 id="sequential">Sequential</h2>
+<pre class="hljs"><code><div>- Ít driver bị làm phiền
+- Match chậm
+</div></code></pre>
+<h2 id="parallel">Parallel</h2>
+<pre class="hljs"><code><div>- Match nhanh
+- Nhiều race và offer thất bại
+</div></code></pre>
+<p>Batched waves thường cân bằng tốt.</p>
+<hr>
+<h1 id="137-trade-off--reserve-trước-hay-sau-khi-driver-accept">137. Trade-Off — Reserve trước hay sau khi Driver Accept?</h1>
+<h2 id="reserve-trước-khi-gửi-offer">Reserve trước khi gửi Offer</h2>
+<pre class="hljs"><code><div>Ưu:
+Ngăn double offer.
+
+Nhược:
+Driver bị khóa trong lúc cân nhắc.
+</div></code></pre>
+<h2 id="reserve-sau-khi-accept">Reserve sau khi Accept</h2>
+<pre class="hljs"><code><div>Ưu:
+Ít lock.
+
+Nhược:
+Driver có thể nhận nhiều offers và acceptance conflict.
+</div></code></pre>
+<p>Thường dùng short lease reservation trước hoặc cùng lúc offer.</p>
+<hr>
+<h1 id="138-trade-off--nearest-driver-hay-best-driver">138. Trade-Off — Nearest Driver hay Best Driver?</h1>
+<p>Nearest:</p>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Pickup nhanh theo khoảng cách
+</div></code></pre>
+<p>Best score:</p>
+<pre class="hljs"><code><div>- Có acceptance probability
+- Fairness
+- Cancellation risk
+- Vehicle suitability
+</div></code></pre>
+<p>Production thường tối ưu expected successful pickup time, không chỉ khoảng cách.</p>
+<hr>
+<h1 id="139-trade-off--exact-surge-hay-stable-surge">139. Trade-Off — Exact Surge hay Stable Surge?</h1>
+<p>Surge cập nhật từng giây:</p>
+<pre class="hljs"><code><div>- Phản ánh cung cầu nhanh
+- Giá dao động mạnh
+</div></code></pre>
+<p>Surge smooth:</p>
+<pre class="hljs"><code><div>- UX ổn định
+- Phản ứng chậm hơn
+</div></code></pre>
+<p>Cần smoothing, caps và quote locking.</p>
+<hr>
+<h1 id="140-trade-off--synchronous-cross-region-location-replication">140. Trade-Off — Synchronous Cross-Region Location Replication?</h1>
+<p>Synchronous:</p>
+<pre class="hljs"><code><div>- DR state fresh
+- Latency và bandwidth rất lớn
+</div></code></pre>
+<p>Asynchronous:</p>
+<pre class="hljs"><code><div>- Rẻ và nhanh
+- Failover có location stale vài giây
+</div></code></pre>
+<p>Location có thể async; trip assignment state cần durability mạnh hơn.</p>
+<hr>
+<h1 id="141-cách-trình-bày-trong-phỏng-vấn">141. Cách trình bày trong Phỏng vấn</h1>
+<p>Một câu mở đầu tốt:</p>
+<blockquote>
+<p>Tôi tách location plane khỏi trip control plane. Driver location updates có QPS lớn, dữ liệu ngắn hạn và được materialize vào regional geospatial index có TTL. Trip, driver reservation và payment lại cần durable state và conditional transitions.</p>
+</blockquote>
+<p>Về geo discovery:</p>
+<blockquote>
+<p>Tôi chia mỗi market thành hierarchical geo cells. Rider pickup được ánh xạ vào một cell; hệ thống đọc cell đó và các rings lân cận cho tới khi có đủ candidates. Sau đó lọc state, vehicle type và location freshness rồi batch-call ETA service để xếp hạng theo thời gian tới điểm đón thay vì khoảng cách thẳng.</p>
+</blockquote>
+<p>Về dispatch:</p>
+<blockquote>
+<p>Dispatch diễn ra theo waves. Trước khi gửi offer, driver được giữ bằng một short lease conditional trên trạng thái AVAILABLE. Offer có expiry và stable ID. Nếu nhiều drivers cùng accept, compare-and-set trên trip từ SEARCHING sang DRIVER_ASSIGNED bảo đảm chỉ một người thắng.</p>
+</blockquote>
+<p>Về multi-region:</p>
+<blockquote>
+<p>Ride-hailing được partition theo market/city. Location, geo index và dispatch chạy trong region gần market; mỗi active trip có một owner region. Toàn hệ thống active–active theo market chứ không multi-write cùng một trip. Khi failover, owner epoch được tăng để fence writer cũ và geo index được rebuild từ recent location stream.</p>
+</blockquote>
+<hr>
+<h1 id="142-framework-45-phút">142. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Driver location
+- Rider request
+- Matching
+- ETA
+- Pricing
+- Trip lifecycle
+</div></code></pre>
+<h2 id="phút-510-estimation">Phút 5–10: Estimation</h2>
+<pre class="hljs"><code><div>- Online drivers
+- Location update interval
+- Location QPS
+- Trips/day
+</div></code></pre>
+<h2 id="phút-1020-core-architecture">Phút 10–20: Core Architecture</h2>
+<pre class="hljs"><code><div>Location gateway
+→ Stream
+→ Geo index
+→ Dispatch
+→ Trip Store
+</div></code></pre>
+<h2 id="phút-2030-deep-dive">Phút 20–30: Deep Dive</h2>
+<pre class="hljs"><code><div>- Geospatial cells
+- Candidate discovery
+- ETA ranking
+- Driver reservation
+- Acceptance race
+</div></code></pre>
+<h2 id="phút-3040-workflows">Phút 30–40: Workflows</h2>
+<pre class="hljs"><code><div>- Surge
+- Trip state
+- Payment
+- Safety
+</div></code></pre>
+<h2 id="phút-4045-reliability">Phút 40–45: Reliability</h2>
+<pre class="hljs"><code><div>- Multi-region
+- Failover
+- Stale location
+- Trade-offs
+</div></code></pre>
+<hr>
+<h1 id="143-những-sai-lầm-phổ-biến">143. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-ghi-mọi-gps-update-vào-sql">Lỗi 1: Ghi mọi GPS update vào SQL</h2>
+<p>Không phù hợp location QPS và update pattern.</p>
+<h2 id="lỗi-2-không-tách-current-location-và-history">Lỗi 2: Không tách Current Location và History</h2>
+<p>Storage và query requirements khác nhau.</p>
+<h2 id="lỗi-3-dùng-timestamp-duy-nhất-cho-ordering">Lỗi 3: Dùng timestamp duy nhất cho Ordering</h2>
+<p>Clock và network có thể làm update đảo thứ tự.</p>
+<h2 id="lỗi-4-không-có-ttl-cho-driver-location">Lỗi 4: Không có TTL cho Driver Location</h2>
+<p>Driver mất mạng vẫn xuất hiện trong discovery.</p>
+<h2 id="lỗi-5-chỉ-query-đúng-pickup-cell">Lỗi 5: Chỉ query đúng Pickup Cell</h2>
+<p>Bỏ sót driver ở sát biên cell.</p>
+<h2 id="lỗi-6-chọn-driver-theo-khoảng-cách-thẳng">Lỗi 6: Chọn Driver theo khoảng cách thẳng</h2>
+<p>Không phản ánh đường một chiều, cầu và traffic.</p>
+<h2 id="lỗi-7-gọi-eta-từng-driver-tuần-tự">Lỗi 7: Gọi ETA từng Driver tuần tự</h2>
+<p>Tạo N+1 network latency.</p>
+<h2 id="lỗi-8-không-có-authoritative-driver-state">Lỗi 8: Không có Authoritative Driver State</h2>
+<p>Geo index stale có thể double-assign driver.</p>
+<h2 id="lỗi-9-read-rồi-write-reservation-không-atomic">Lỗi 9: Read rồi Write Reservation không Atomic</h2>
+<p>Hai trips cùng giữ một driver.</p>
+<h2 id="lỗi-10-không-dùng-reservation-lease">Lỗi 10: Không dùng Reservation Lease</h2>
+<p>Driver mắc kẹt RESERVED khi dispatcher chết.</p>
+<h2 id="lỗi-11-parallel-dispatch-không-xử-lý-acceptance-race">Lỗi 11: Parallel Dispatch không xử lý Acceptance Race</h2>
+<p>Hai drivers tưởng cùng được nhận chuyến.</p>
+<h2 id="lỗi-12-không-có-idempotency-cho-ride-request">Lỗi 12: Không có Idempotency cho Ride Request</h2>
+<p>App retry tạo hai trips.</p>
+<h2 id="lỗi-13-gộp-trip-completion-với-payment-success">Lỗi 13: Gộp Trip Completion với Payment Success</h2>
+<p>Payment lỗi làm trip không bao giờ kết thúc.</p>
+<h2 id="lỗi-14-payment-capture-không-idempotent">Lỗi 14: Payment Capture không Idempotent</h2>
+<p>Retry có thể charge trùng.</p>
+<h2 id="lỗi-15-surge-thay-đổi-sau-khi-rider-đã-chấp-nhận-quote">Lỗi 15: Surge thay đổi sau khi Rider đã chấp nhận Quote</h2>
+<p>Vi phạm product contract.</p>
+<h2 id="lỗi-16-surge-dùng-raw-demandsupply-không-smoothing">Lỗi 16: Surge dùng Raw Demand/Supply không Smoothing</h2>
+<p>Giá dao động mạnh và dễ bị thao túng.</p>
+<h2 id="lỗi-17-location-marker-là-source-of-truth">Lỗi 17: Location Marker là Source of Truth</h2>
+<p>Marker chỉ là projection realtime.</p>
+<h2 id="lỗi-18-notification-failure-làm-rollback-trip">Lỗi 18: Notification Failure làm Rollback Trip</h2>
+<p>Notification là side effect, không phải transaction core.</p>
+<h2 id="lỗi-19-global-geo-index">Lỗi 19: Global Geo Index</h2>
+<p>Tốn kém và không phù hợp tính địa phương của rides.</p>
+<h2 id="lỗi-20-multi-region-cùng-write-một-trip">Lỗi 20: Multi-Region cùng Write một Trip</h2>
+<p>Tạo split-brain state transitions.</p>
+<h2 id="lỗi-21-failover-không-fence-region-cũ">Lỗi 21: Failover không Fence Region cũ</h2>
+<p>Hai regions cùng assign hoặc complete trip.</p>
+<h2 id="lỗi-22-không-reconcile-stuck-reservations">Lỗi 22: Không Reconcile Stuck Reservations</h2>
+<p>Drivers mất khả năng nhận chuyến.</p>
+<h2 id="lỗi-23-chỉ-theo-dõi-average-location-age">Lỗi 23: Chỉ theo dõi Average Location Age</h2>
+<p>Tail stale drivers vẫn gây match lỗi.</p>
+<h2 id="lỗi-24-log-raw-coordinates-tùy-tiện">Lỗi 24: Log Raw Coordinates tùy tiện</h2>
+<p>Rủi ro privacy nghiêm trọng.</p>
+<h2 id="lỗi-25-safety-dùng-chung-priority-với-analytics">Lỗi 25: Safety dùng chung Priority với Analytics</h2>
+<p>SOS có thể bị chậm khi pipeline tải cao.</p>
+<hr>
+<h1 id="144-bảng-ghi-nhớ-nhanh">144. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Location Gateway</td>
+<td>Nhận GPS updates</td>
+</tr>
+<tr>
+<td>Location Stream</td>
+<td>Tách ingestion khỏi processing</td>
+</tr>
+<tr>
+<td>Current Location Store</td>
+<td>Vị trí mới nhất</td>
+</tr>
+<tr>
+<td>Geo Cell</td>
+<td>Partition không gian</td>
+</tr>
+<tr>
+<td>Geo Index</td>
+<td>Tìm driver gần pickup</td>
+</tr>
+<tr>
+<td>Location TTL</td>
+<td>Loại driver stale</td>
+</tr>
+<tr>
+<td>Driver State Store</td>
+<td>Trạng thái authoritative</td>
+</tr>
+<tr>
+<td>ETA Service</td>
+<td>Dự đoán pickup/trip time</td>
+</tr>
+<tr>
+<td>Matching</td>
+<td>Xếp hạng candidates</td>
+</tr>
+<tr>
+<td>Dispatch</td>
+<td>Offer và acceptance workflow</td>
+</tr>
+<tr>
+<td>Reservation Lease</td>
+<td>Ngăn double assignment</td>
+</tr>
+<tr>
+<td>Trip Store</td>
+<td>Source of truth chuyến đi</td>
+</tr>
+<tr>
+<td>Trip State Machine</td>
+<td>Lifecycle hợp lệ</td>
+</tr>
+<tr>
+<td>Quote Service</td>
+<td>Giá và terms có TTL</td>
+</tr>
+<tr>
+<td>Surge Store</td>
+<td>Cung cầu gần realtime</td>
+</tr>
+<tr>
+<td>Payment Ledger</td>
+<td>Source of truth tài chính</td>
+</tr>
+<tr>
+<td>Safety Service</td>
+<td>SOS và incident workflows</td>
+</tr>
+<tr>
+<td>Market Cell</td>
+<td>Đơn vị deployment theo thành phố</td>
+</tr>
+<tr>
+<td>Owner Epoch</td>
+<td>Fencing khi failover</td>
+</tr>
+<tr>
+<td>Reconciliation</td>
+<td>Sửa state bị lệch</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="145-sơ-đồ-tổng-hợp">145. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    DriverApp --> LocationGateway
+    LocationGateway --> LocationStream
+
+    LocationStream --> LocationProcessor
+    LocationProcessor --> GeoIndex[(Regional Geo Index)]
+    LocationProcessor --> CurrentDriver[(Current Driver State)]
+    LocationProcessor --> LocationHistory[(Location History)]
+
+    RiderApp --> RideAPI
+    RideAPI --> QuoteService
+    QuoteService --> SurgeStore[(Surge Store)]
+    QuoteService --> ETAService
+
+    RideAPI --> TripService
+    TripService --> TripStore[(Trip Store)]
+
+    TripService --> DispatchService
+    DispatchService --> GeoIndex
+    DispatchService --> CurrentDriver
+    DispatchService --> ETAService
+    DispatchService --> ReservationStore[(Driver Reservations)]
+
+    DispatchService --> OfferStream
+    OfferStream --> DriverNotification
+    DriverNotification --> DriverApp
+
+    DriverApp --> TripService
+    RiderApp --> TripService
+
+    TripService --> TripEvents
+    TripEvents --> PaymentService
+    TripEvents --> SafetyService
+    TripEvents --> Analytics
+</div></code></pre>
+<hr>
+<h1 id="146-những-điều-phải-nhớ-sau-bài-28">146. Những Điều Phải Nhớ sau Bài 28</h1>
+<pre class="hljs"><code><div>1. Ride-hailing có location plane và transactional control plane.
+2. Location updates thường lớn hơn trip request QPS rất nhiều.
+3. Current location và historical location phải được tách.
+4. Location sequence tốt hơn chỉ timestamp cho stale update.
+5. Location state cần TTL.
+6. Geo index nên regional, không global.
+7. Bản đồ được chia thành cells và neighbor rings.
+8. Cell boundary bắt buộc phải được xử lý.
+9. Cell quá lớn tạo hot key; cell quá nhỏ tăng lookup/update.
+10. Hierarchical cells hỗ trợ adaptive resolution.
+11. Discovery chỉ tạo candidate pool.
+12. Candidate phải được recheck với authoritative driver state.
+13. Distance thẳng không bằng pickup ETA.
+14. ETA nên được tính batch.
+15. Matching và dispatch là hai bước khác nhau.
+16. Matching score có thể gồm ETA, acceptance và fairness.
+17. Dispatch có thể sequential, parallel hoặc batched.
+18. Batched waves thường là lựa chọn cân bằng.
+19. Driver cần short reservation lease.
+20. Conditional reservation ngăn double assignment.
+21. Lease tự giải phóng state khi workflow chết.
+22. Offer cần stable ID và expiration.
+23. Push chỉ là transport, không phải source of truth.
+24. Driver acceptance phải compare-and-set.
+25. Rider cancellation và driver acceptance là race.
+26. Ride request phải idempotent.
+27. Rider và driver chỉ có một active trip theo invariant.
+28. Trip lifecycle phải là state machine rõ ràng.
+29. Operational completion và payment completion phải tách.
+30. Payment capture phải idempotent.
+31. Ledger quan trọng hơn một status field.
+32. Refund nên là entry bù, không sửa lịch sử.
+33. Price quote cần ID, version và expiry.
+34. Quote terms phải được lock khi rider xác nhận.
+35. Surge là projection của cung cầu.
+36. Surge cần smoothing, caps và minimum sample.
+37. Realtime location fan-out chỉ tới actors có quyền.
+38. GPS cần validation và map matching.
+39. Location privacy là yêu cầu cốt lõi.
+40. SOS phải có priority và capacity riêng.
+41. Route deviation là risk signal, không phải kết luận.
+42. Market/city là đơn vị partition tự nhiên.
+43. Mỗi active trip nên có một owner region.
+44. Toàn hệ thống có thể active–active theo market.
+45. Không cần synchronous replicate mọi GPS update.
+46. Trip assignment cần durability mạnh hơn location marker.
+47. Geo index có thể rebuild từ recent stream.
+48. Failover cần owner epoch và fencing.
+49. Notification, analytics và recommendation không được chặn trip.
+50. Reconciliation là bắt buộc cho distributed workflows.
+51. Location lag cần coalescing theo latest update.
+52. Hot cells cần subcell hoặc bucketing.
+53. Airport dispatch có thể dùng queue, không nearest-driver.
+54. ETA accuracy và bias phải được đo theo market.
+55. Time-to-match là metric quan trọng hơn chỉ discovery latency.
+56. No-driver-found rate phản ánh cả supply và dispatch quality.
+57. Stuck reservation là failure mode nghiêm trọng.
+58. Payment provider outage không được làm active trip dừng.
+59. Client mất mạng không làm mất authoritative trip state.
+60. Kiến trúc tốt tối ưu đồng thời latency, fairness, safety và correctness.
+</div></code></pre>
+<hr>
+<h1 id="147-bài-tập-thiết-kế-mở-rộng">147. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Ride-Hailing System với yêu cầu:</p>
+<pre class="hljs"><code><div>- 100 triệu DAU
+- 10 triệu online drivers
+- Driver location mỗi 2 giây
+- 100 triệu trips/ngày
+- Driver discovery p99 dưới 100 ms
+- Match dưới 5 giây
+- Hỗ trợ car, bike, taxi và premium
+- Multi-region active–active
+- Không double-assign driver
+- Surge gần realtime
+- SOS dưới 2 giây
+- Một số quốc gia yêu cầu location data không rời khu vực
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Location QPS là bao nhiêu?
+2. Location Gateway được shard theo driver hay market?
+3. Dùng HTTP, WebSocket hay streaming?
+4. Location sequence được tạo thế nào?
+5. Stale threshold là bao nhiêu?
+6. Current location được lưu ở đâu?
+7. History retention thế nào?
+8. Geo cell resolution được chọn ra sao?
+9. Hot airport cell được split thế nào?
+10. Ring expansion dừng khi nào?
+11. Candidate pool cần bao nhiêu drivers?
+12. ETA matrix được batch thế nào?
+13. Routing service fallback ra sao?
+14. Matching score có những features nào?
+15. Sequential hay parallel dispatch?
+16. Reservation lease dài bao lâu?
+17. Conditional reservation nằm ở store nào?
+18. Hai drivers cùng accept được xử lý ra sao?
+19. Rider cancel và driver accept race thế nào?
+20. Một rider tạo hai requests đồng thời bị ngăn ra sao?
+21. Quote được lock thế nào?
+22. Surge được tính theo cell hay zone?
+23. Surge smoothing dùng phương pháp nào?
+24. Trip state transition được version hóa thế nào?
+25. Driver mất mạng khi on-trip được xử lý ra sao?
+26. Final distance được tính thế nào?
+27. Payment pre-authorization diễn ra lúc nào?
+28. Capture timeout tránh double charge thế nào?
+29. SOS có pipeline riêng ra sao?
+30. Route-deviation false positives được giảm thế nào?
+31. Market ownership được xác định ra sao?
+32. Region failover rebuild geo index thế nào?
+33. Owner cũ được fence ở đâu?
+34. Location residency ảnh hưởng analytics thế nào?
+35. SLO và alerts quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-7">Kết luận Case Study 7</h1>
+<p>Ride-Hailing System có thể cô đọng thành:</p>
+<pre class="hljs"><code><div>Ingest fresh driver locations
+→ Index drivers theo geo cells
+→ Discover và ETA-rank candidates
+→ Reserve và dispatch idempotently
+→ Quản lý trip bằng state machine
+→ Finalize payment và safety workflows
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Tìm driver gần nhất chỉ là phần đầu. Correctness thật sự nằm ở việc giữ vị trí đủ mới, reserve driver atomically, xử lý acceptance/cancellation races và duy trì một trip state machine bền vững xuyên qua lỗi mạng, service retry và regional failure.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 29 — Case Study 8: Thiết kế Food Delivery System — restaurant discovery, menu và inventory, order placement, payment, restaurant acceptance, courier dispatch, batching, ETA, order tracking, cancellation và multi-region.</strong></p>
+
+</body>
+</html>

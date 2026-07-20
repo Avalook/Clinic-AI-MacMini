@@ -1,0 +1,2794 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 24 — Case Study 3: Thiết kế Chat System.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-24--case-study-3-thiết-kế-chat-system">Bài 24 — Case Study 3: Thiết kế Chat System</h1>
+<p>Một hệ thống chat hiện đại cần hỗ trợ:</p>
+<pre class="hljs"><code><div>- Nhắn tin 1-1
+- Group chat
+- Kết nối realtime
+- Gửi khi người nhận offline
+- Đồng bộ nhiều thiết bị
+- Trạng thái online/offline
+- Typing indicator
+- Delivered/read receipts
+- Ảnh, video và file
+- Chỉnh sửa, thu hồi và reaction
+- Push notification
+- Hoạt động xuyên nhiều region
+</div></code></pre>
+<p>Bề ngoài, chat có vẻ chỉ là:</p>
+<pre class="hljs"><code><div>User A gửi message
+→ User B nhận message
+</div></code></pre>
+<p>Nhưng ở quy mô lớn, hệ thống phải giải quyết:</p>
+<pre class="hljs"><code><div>- Hàng triệu kết nối giữ lâu
+- Connection có thể mất bất kỳ lúc nào
+- Message có thể bị retry và duplicate
+- Người dùng có nhiều thiết bị
+- Các message có thể đến sai thứ tự
+- Thành viên group thay đổi liên tục
+- Người nhận có thể offline nhiều tháng
+- Một group có thể có hàng triệu thành viên
+- Region hoặc network có thể bị chia cắt
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Trong case study này, ta thiết kế một hệ thống chat tổng quát hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Chat 1-1.
+2. Group chat.
+3. WebSocket realtime.
+4. Offline delivery và sync.
+5. Presence và typing.
+6. Delivered/read receipts.
+7. Multi-device.
+8. Media messages.
+9. Push notification.
+10. Multi-region.
+</div></code></pre>
+<p>Tạm thời không đi sâu vào:</p>
+<pre class="hljs"><code><div>- Voice/video call realtime
+- End-to-end encryption protocol hoàn chỉnh
+- Livestream
+- Public social feed
+- Full-text search chuyên sâu
+</div></code></pre>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="messaging">Messaging</h2>
+<pre class="hljs"><code><div>- Gửi text message
+- Gửi media/file
+- Nhận message realtime
+- Retry khi mất kết nối
+- Chỉnh sửa hoặc thu hồi message
+- Reaction
+</div></code></pre>
+<h2 id="conversation">Conversation</h2>
+<pre class="hljs"><code><div>- Tạo conversation 1-1
+- Tạo group
+- Thêm/xóa thành viên
+- Phân quyền admin/member
+- Rời group
+</div></code></pre>
+<h2 id="state">State</h2>
+<pre class="hljs"><code><div>- Online/offline
+- Last seen
+- Typing
+- Delivered
+- Read
+- Unread count
+</div></code></pre>
+<h2 id="synchronization">Synchronization</h2>
+<pre class="hljs"><code><div>- Đồng bộ lịch sử khi login
+- Đồng bộ nhiều thiết bị
+- Tiếp tục từ cursor cũ
+- Khôi phục sau khi offline
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Latency gửi message thấp
+- Không làm mất message đã được server xác nhận
+- Không tạo duplicate message logic
+- Giữ ordering trong cùng conversation
+- Availability cao
+- Có thể scale hàng triệu concurrent connections
+- Hỗ trợ hot conversations
+- Eventual consistency chấp nhận được cho presence và receipts
+- Dữ liệu được mã hóa khi truyền và khi lưu
+</div></code></pre>
+<hr>
+<h1 id="4-điều-gì-cần-strong-consistency">4. Điều gì cần Strong Consistency?</h1>
+<p>Không phải toàn hệ thống cần cùng consistency.</p>
+<h2 id="cần-mạnh-hơn">Cần mạnh hơn</h2>
+<pre class="hljs"><code><div>- Message ID uniqueness
+- Conversation sequence
+- Membership authorization lúc gửi
+- Không cho user ngoài group đọc message
+- Message durable trước khi trả accepted
+</div></code></pre>
+<h2 id="có-thể-eventual">Có thể eventual</h2>
+<pre class="hljs"><code><div>- Presence
+- Typing indicator
+- Read receipt
+- Unread count
+- Search index
+- Analytics
+</div></code></pre>
+<p>Điều này giúp tránh coordination không cần thiết.</p>
+<hr>
+<h1 id="5-các-trạng-thái-message">5. Các trạng thái Message</h1>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>CREATED_LOCALLY
+SENT_TO_SERVER
+SERVER_ACCEPTED
+DELIVERED_TO_DEVICE
+READ_BY_USER
+</div></code></pre>
+<p>Một dấu tick không nên mang nghĩa mơ hồ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Một tick:
+Server đã lưu bền vững.
+
+Hai tick:
+Ít nhất một thiết bị người nhận đã nhận.
+
+Hai tick màu:
+Người nhận đã đọc.
+</div></code></pre>
+<p>Semantics cụ thể là quyết định sản phẩm.</p>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>100 triệu DAU
+10 triệu concurrent connections
+50 messages/user/ngày
+</div></code></pre>
+<p>Tổng message/ngày:</p>
+<pre class="hljs"><code><div>100 triệu × 50
+= 5 tỷ messages/ngày
+</div></code></pre>
+<p>Average message write rate:</p>
+<pre class="hljs"><code><div>5.000.000.000 / 86.400
+≈ 58.000 messages/giây
+</div></code></pre>
+<p>Peak gấp 5–10 lần:</p>
+<pre class="hljs"><code><div>300.000–600.000 messages/giây
+</div></code></pre>
+<p>Chưa tính:</p>
+<pre class="hljs"><code><div>- Delivery fan-out
+- Receipts
+- Typing events
+- Presence heartbeats
+</div></code></pre>
+<hr>
+<h1 id="7-connection-scale">7. Connection Scale</h1>
+<p>Giả sử 10 triệu WebSocket connections.</p>
+<p>Nếu mỗi gateway giữ 100.000 connections:</p>
+<pre class="hljs"><code><div>10.000.000 / 100.000
+= khoảng 100 gateway instances
+</div></code></pre>
+<p>Trong thực tế cần dư capacity cho:</p>
+<pre class="hljs"><code><div>- Failover
+- Rebalancing
+- Traffic skew
+- Maintenance
+</div></code></pre>
+<p>Có thể cần hàng trăm instances.</p>
+<hr>
+<h1 id="8-storage-estimation">8. Storage Estimation</h1>
+<p>Giả sử message metadata và text trung bình:</p>
+<pre class="hljs"><code><div>500 byte/message
+</div></code></pre>
+<p>5 tỷ messages/ngày:</p>
+<pre class="hljs"><code><div>≈ 2,5 TB raw/ngày
+</div></code></pre>
+<p>Trong một năm:</p>
+<pre class="hljs"><code><div>≈ 912 TB raw
+</div></code></pre>
+<p>Sau replication, indexes và overhead:</p>
+<pre class="hljs"><code><div>Có thể lên nhiều petabyte.
+</div></code></pre>
+<p>Media không nên được lưu trực tiếp trong message database.</p>
+<hr>
+<h1 id="9-high-level-architecture">9. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Clients --> Edge[Global Edge / Load Balancer]
+
+    Edge --> Gateway[WebSocket Gateways]
+    Edge --> HTTPAPI[HTTP APIs]
+
+    Gateway --> Session[Connection Registry]
+    Gateway --> ChatService[Chat Service]
+
+    HTTPAPI --> ChatService
+    ChatService --> Conversation[Conversation Service]
+    ChatService --> MessageStore[(Message Store)]
+    ChatService --> EventStream[Message Event Stream]
+
+    EventStream --> Delivery[Delivery Service]
+    Delivery --> Gateway
+
+    EventStream --> Push[Push Notification Service]
+    EventStream --> Search[Search Indexer]
+    EventStream --> Analytics[Analytics]
+
+    Clients --> MediaAPI[Media API]
+    MediaAPI --> ObjectStorage[(Object Storage)]
+    ObjectStorage --> CDN
+</div></code></pre>
+<hr>
+<h1 id="10-tách-connection-layer-khỏi-message-layer">10. Tách Connection Layer khỏi Message Layer</h1>
+<p>WebSocket Gateway chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Giữ connection
+- Authenticate connection
+- Nhận frame
+- Gửi frame
+- Heartbeat
+- Backpressure
+</div></code></pre>
+<p>Chat Service chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Validate membership
+- Deduplicate
+- Cấp sequence
+- Lưu message
+- Publish event
+</div></code></pre>
+<p>Không nên đặt toàn bộ business logic trong WebSocket Gateway.</p>
+<p>Gateway nên tương đối stateless ngoài connection state.</p>
+<hr>
+<h1 id="11-websocket-là-gì">11. WebSocket là gì?</h1>
+<p>WebSocket tạo kết nối hai chiều lâu dài:</p>
+<pre class="hljs"><code><div>Client ↔ Server
+</div></code></pre>
+<p>Sau HTTP handshake, hai phía có thể chủ động gửi frame.</p>
+<p>Phù hợp chat vì:</p>
+<pre class="hljs"><code><div>- Server push message ngay
+- Không polling liên tục
+- Overhead thấp hơn tạo HTTP request cho mỗi event
+- Hỗ trợ bidirectional communication
+</div></code></pre>
+<hr>
+<h1 id="12-vì-sao-không-chỉ-dùng-http-polling">12. Vì sao không chỉ dùng HTTP Polling?</h1>
+<p>Polling:</p>
+<pre class="hljs"><code><div>Mỗi vài giây:
+Client hỏi “có message mới không?”
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Nhiều request rỗng
+- Latency phụ thuộc polling interval
+- Tốn connection và CPU
+- Không phù hợp typing/presence realtime
+</div></code></pre>
+<p>Long polling tốt hơn polling thường nhưng vẫn phức tạp hơn WebSocket cho tương tác hai chiều liên tục.</p>
+<hr>
+<h1 id="13-sse-có-phù-hợp-không">13. SSE có phù hợp không?</h1>
+<p>Server-Sent Events hỗ trợ:</p>
+<pre class="hljs"><code><div>Server → Client
+</div></code></pre>
+<p>Nhưng client gửi message vẫn qua HTTP riêng.</p>
+<p>SSE có thể phù hợp cho notification một chiều.</p>
+<p>Chat cần:</p>
+<pre class="hljs"><code><div>Client ↔ Server
+</div></code></pre>
+<p>nên WebSocket thường tự nhiên hơn.</p>
+<hr>
+<h1 id="14-websocket-handshake">14. WebSocket Handshake</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Gateway
+    participant Auth
+
+    Client->>Gateway: HTTP Upgrade + access token
+    Gateway->>Auth: Validate token
+    Auth-->>Gateway: userId, session claims
+    Gateway-->>Client: 101 Switching Protocols
+    Gateway->>Gateway: Register connection
+</div></code></pre>
+<p>Gateway gắn connection với:</p>
+<pre class="hljs"><code><div>userId
+deviceId
+sessionId
+region
+connectionId
+</div></code></pre>
+<hr>
+<h1 id="15-authentication-trên-connection-dài">15. Authentication trên Connection dài</h1>
+<p>Access token có thể hết hạn trong khi WebSocket vẫn mở.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Đóng connection khi token hết hạn
+- Yêu cầu client refresh authentication
+- Cho session tồn tại theo policy riêng
+</div></code></pre>
+<p>Gateway phải xử lý:</p>
+<pre class="hljs"><code><div>- Token revoked
+- Account disabled
+- Device logout
+</div></code></pre>
+<p>Không nên coi authentication tại handshake là hợp lệ vĩnh viễn.</p>
+<hr>
+<h1 id="16-heartbeat">16. Heartbeat</h1>
+<p>Connection có thể chết mà TCP chưa báo ngay.</p>
+<p>Dùng heartbeat:</p>
+<pre class="hljs"><code><div>Client → ping
+Server → pong
+</div></code></pre>
+<p>hoặc ngược lại.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Heartbeat mỗi 30 giây
+Timeout sau 90 giây không phản hồi
+</div></code></pre>
+<p>Các con số phụ thuộc mobile network và battery trade-off.</p>
+<hr>
+<h1 id="17-connection-registry">17. Connection Registry</h1>
+<p>Cần biết user đang kết nối tới gateway nào.</p>
+<pre class="hljs"><code><div>userId
+→ [
+    {deviceId, gatewayId, connectionId},
+    ...
+  ]
+</div></code></pre>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>- Memory trong gateway
+- Distributed registry
+- Sharded presence service
+</div></code></pre>
+<p>Registry dùng để route message realtime.</p>
+<hr>
+<h1 id="18-registry-không-nên-là-global-hot-database">18. Registry không nên là Global Hot Database</h1>
+<p>Mỗi connect/disconnect đều update registry.</p>
+<p>Với hàng triệu connections, nếu mọi update đi một database trung tâm:</p>
+<pre class="hljs"><code><div>- Write bottleneck
+- High latency
+- Single failure domain
+</div></code></pre>
+<p>Có thể partition theo:</p>
+<pre class="hljs"><code><div>hash(userId)
+</div></code></pre>
+<p>và dùng TTL/lease.</p>
+<hr>
+<h1 id="19-connection-lease">19. Connection Lease</h1>
+<p>Gateway đăng ký:</p>
+<pre class="hljs"><code><div>connectionId
+gatewayId
+expiresAt
+</div></code></pre>
+<p>Heartbeat gia hạn lease.</p>
+<p>Nếu gateway chết:</p>
+<pre class="hljs"><code><div>Lease hết hạn
+→ Connection được coi offline
+</div></code></pre>
+<p>Không cần tin hoàn toàn vào disconnect event, vì process có thể chết đột ngột.</p>
+<hr>
+<h1 id="20-user-có-nhiều-connection">20. User có nhiều Connection</h1>
+<p>Một user có thể:</p>
+<pre class="hljs"><code><div>- Điện thoại
+- Tablet
+- Laptop
+- Nhiều browser tabs
+</div></code></pre>
+<p>Registry phải hỗ trợ:</p>
+<pre class="hljs"><code><div>userId → nhiều active connections
+</div></code></pre>
+<p>Khi gửi message cho user:</p>
+<pre class="hljs"><code><div>Có thể fan-out tới mọi thiết bị active.
+</div></code></pre>
+<hr>
+<h1 id="21-protocol-frame">21. Protocol Frame</h1>
+<p>Client gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SEND_MESSAGE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;clientMessageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;deviceA_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;TEXT&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Xin chào&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server trả:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MESSAGE_ACCEPTED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;clientMessageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;deviceA_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;messageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;msg_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10542</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;acceptedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T03:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="22-requestid-clientmessageid-và-messageid">22. <code>requestId</code>, <code>clientMessageId</code> và <code>messageId</code></h1>
+<h2 id="requestid"><code>requestId</code></h2>
+<p>Theo dõi một request transport cụ thể.</p>
+<h2 id="clientmessageid"><code>clientMessageId</code></h2>
+<p>ID ổn định do client tạo cho một logical message.</p>
+<p>Dùng để deduplicate retry.</p>
+<h2 id="messageid"><code>messageId</code></h2>
+<p>ID authoritative do server cấp.</p>
+<p>Dùng trong storage và API.</p>
+<p>Không nên dùng request ID thay client message ID vì request retry có thể có request ID mới.</p>
+<hr>
+<h1 id="23-gửi-message--client-side">23. Gửi Message — Client Side</h1>
+<p>Client nên:</p>
+<pre class="hljs"><code><div>1. Tạo clientMessageId.
+2. Lưu message local ở trạng thái pending.
+3. Gửi frame.
+4. Nếu timeout, retry cùng clientMessageId.
+5. Khi server ACK, map sang messageId và sequence.
+</div></code></pre>
+<p>UI có thể hiển thị:</p>
+<pre class="hljs"><code><div>Đồng hồ → đang gửi
+Một tick → server accepted
+</div></code></pre>
+<hr>
+<h1 id="24-send-message-flow">24. Send Message Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Sender
+    participant Gateway
+    participant Chat
+    participant Store
+    participant Stream
+    participant Delivery
+    participant Receiver
+
+    Sender->>Gateway: SEND_MESSAGE
+    Gateway->>Chat: Forward authenticated command
+    Chat->>Chat: Validate membership + dedupe
+    Chat->>Store: Persist message + sequence
+    Store-->>Chat: Committed
+    Chat->>Stream: Publish MessageCreated
+    Chat-->>Gateway: MESSAGE_ACCEPTED
+    Gateway-->>Sender: ACK
+
+    Stream->>Delivery: MessageCreated
+    Delivery->>Receiver: Deliver realtime
+</div></code></pre>
+<p>Server chỉ trả <code>MESSAGE_ACCEPTED</code> sau khi message đã durable.</p>
+<hr>
+<h1 id="25-dual-write-problem">25. Dual-Write Problem</h1>
+<p>Nếu Chat Service:</p>
+<pre class="hljs"><code><div>1. Ghi Message Store.
+2. Publish event.
+</div></code></pre>
+<p>và crash giữa hai bước:</p>
+<pre class="hljs"><code><div>Message đã lưu
+nhưng Delivery Service không biết.
+</div></code></pre>
+<p>Nếu publish trước rồi DB fail:</p>
+<pre class="hljs"><code><div>Người nhận thấy message không tồn tại authoritative.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Transactional outbox
+- Database change stream
+- Log-based message store
+</div></code></pre>
+<hr>
+<h1 id="26-transactional-outbox-cho-chat">26. Transactional Outbox cho Chat</h1>
+<p>Trong cùng transaction:</p>
+<pre class="hljs"><code><div>- Insert message
+- Insert outbox event
+</div></code></pre>
+<p>Publisher sau đó đưa event vào stream.</p>
+<p>Nếu publisher crash:</p>
+<pre class="hljs"><code><div>Outbox vẫn còn
+→ Retry.
+</div></code></pre>
+<p>Event có thể duplicate, nên downstream phải idempotent.</p>
+<hr>
+<h1 id="27-message-id-generation">27. Message ID Generation</h1>
+<p>Message ID cần:</p>
+<pre class="hljs"><code><div>- Unique toàn hệ thống
+- Sinh nhanh
+- Không phụ thuộc database central sequence
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Snowflake-like ID
+- Time-sortable random ID
+- UUID
+</div></code></pre>
+<p>Message ordering không nên chỉ dựa vào message ID nếu nhiều workers hoặc regions có clock lệch.</p>
+<hr>
+<h1 id="28-ordering-requirement">28. Ordering Requirement</h1>
+<p>Phần lớn chat cần:</p>
+<blockquote>
+<p>Message trong cùng conversation có một thứ tự ổn định.</p>
+</blockquote>
+<p>Không cần global order giữa:</p>
+<pre class="hljs"><code><div>Conversation A
+và
+Conversation B
+</div></code></pre>
+<p>Do đó ordering scope là:</p>
+<pre class="hljs"><code><div>conversationId
+</div></code></pre>
+<hr>
+<h1 id="29-conversation-sequence">29. Conversation Sequence</h1>
+<p>Mỗi conversation có sequence tăng dần:</p>
+<pre class="hljs"><code><div>Message 1 → sequence 1001
+Message 2 → sequence 1002
+Message 3 → sequence 1003
+</div></code></pre>
+<p>Key:</p>
+<pre class="hljs"><code><div>(conversationId, sequence)
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Stable ordering
+- Detect gaps
+- Offline sync
+- Cursor pagination
+- Read receipts
+</div></code></pre>
+<hr>
+<h1 id="30-sequence-phải-được-cấp-atomically">30. Sequence phải được cấp Atomically</h1>
+<p>Hai sender cùng gửi:</p>
+<pre class="hljs"><code><div>User A gửi M1
+User B gửi M2
+</div></code></pre>
+<p>Nếu cả hai đọc current sequence 100 rồi cùng tạo 101:</p>
+<pre class="hljs"><code><div>Collision.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Conversation leader/sequencer
+- Atomic counter
+- Compare-and-set
+- Transactional append log
+</div></code></pre>
+<hr>
+<h1 id="31-conversation-owner">31. Conversation Owner</h1>
+<p>Có thể route mọi write của một conversation tới một owner shard.</p>
+<pre class="hljs"><code><div>ownerShard = hash(conversationId)
+</div></code></pre>
+<p>Owner chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Validate write
+- Cấp sequence
+- Append message
+</div></code></pre>
+<p>Như vậy ordering per conversation được serialize tại owner.</p>
+<hr>
+<h1 id="32-có-cần-một-worker-cho-mỗi-conversation">32. Có cần một Worker cho mỗi Conversation?</h1>
+<p>Không.</p>
+<p>Một shard xử lý nhiều conversations:</p>
+<pre class="hljs"><code><div>Shard 1:
+conv_1, conv_5, conv_20...
+
+Shard 2:
+conv_2, conv_8...
+</div></code></pre>
+<p>Chỉ cần đảm bảo events cùng conversation được xử lý tuần tự hoặc atomic append đúng.</p>
+<hr>
+<h1 id="33-message-store-data-model">33. Message Store Data Model</h1>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>Partition key:
+conversationId
+
+Clustering key:
+sequence
+</div></code></pre>
+<p>Record:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10542</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;messageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;msg_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;senderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;messageType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;TEXT&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Xin chào&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T03:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="34-vì-sao-partition-theo-conversationid">34. Vì sao Partition theo <code>conversationId</code>?</h1>
+<p>Access pattern phổ biến:</p>
+<pre class="hljs"><code><div>- Lấy message mới nhất trong conversation
+- Lấy messages sau sequence X
+- Lấy một page trước sequence Y
+</div></code></pre>
+<p>Partition theo conversation giúp dữ liệu cùng cuộc trò chuyện nằm gần nhau.</p>
+<p>Nhưng conversation cực lớn có thể tạo partition rất lớn.</p>
+<hr>
+<h1 id="35-bucket-partition-cho-conversation-lớn">35. Bucket Partition cho Conversation lớn</h1>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>partitionKey = conversationId + bucketId
+</div></code></pre>
+<p>Ví dụ bucket mỗi 100.000 messages:</p>
+<pre class="hljs"><code><div>conv_456:bucket_0
+conv_456:bucket_1
+</div></code></pre>
+<p>Sequence vẫn toàn conversation.</p>
+<p>Directory lưu:</p>
+<pre class="hljs"><code><div>sequence 0–99.999 → bucket 0
+sequence 100.000–199.999 → bucket 1
+</div></code></pre>
+<hr>
+<h1 id="36-hot-conversation">36. Hot Conversation</h1>
+<p>Một livestream chat hoặc group lớn có thể nhận hàng trăm nghìn messages/giây.</p>
+<p>Một owner shard có thể quá tải.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Rate limiting
+- Tách public chat khỏi private chat architecture
+- Partition write lanes
+- Relax total ordering
+- Hierarchical aggregation
+</div></code></pre>
+<p>Strong total order cho một conversation siêu lớn có giới hạn throughput tự nhiên.</p>
+<hr>
+<h1 id="37-chat-1-1-conversation">37. Chat 1-1 Conversation</h1>
+<p>Một cặp user chỉ nên có một conversation logic.</p>
+<p>Có thể tạo deterministic key:</p>
+<pre class="hljs"><code><div>min(userA, userB) + max(userA, userB)
+</div></code></pre>
+<p>Nhưng cần lưu ý:</p>
+<pre class="hljs"><code><div>- Block/unblock
+- Xóa conversation cá nhân
+- Multi-account semantics
+</div></code></pre>
+<p>Có thể dùng unique constraint trên participant pair.</p>
+<hr>
+<h1 id="38-group-conversation">38. Group Conversation</h1>
+<p>Group metadata:</p>
+<pre class="hljs"><code><div>conversationId
+type = GROUP
+title
+avatar
+createdBy
+createdAt
+membershipVersion
+</div></code></pre>
+<p>Membership:</p>
+<pre class="hljs"><code><div>conversationId
+userId
+role
+joinedAtSequence
+leftAtSequence
+status
+</div></code></pre>
+<p><code>joinedAtSequence</code> giúp xác định user được phép đọc từ thời điểm nào.</p>
+<hr>
+<h1 id="39-membership-authorization-lúc-gửi">39. Membership Authorization lúc Gửi</h1>
+<p>Khi user gửi message, Chat Service phải kiểm tra:</p>
+<pre class="hljs"><code><div>- User là active member?
+- User có bị muted/banned?
+- Group có read-only?
+- User có quyền gửi loại media này?
+</div></code></pre>
+<p>Không nên dựa vào membership cache stale quá lâu cho authorization.</p>
+<p>Có thể dùng versioned cache và authoritative fallback.</p>
+<hr>
+<h1 id="40-membership-authorization-lúc-đọc">40. Membership Authorization lúc Đọc</h1>
+<p>User không nên đọc message trước khi tham gia nếu policy không cho phép.</p>
+<p>Có thể kiểm tra:</p>
+<pre class="hljs"><code><div>message.sequence &gt;= joinedAtSequence
+</div></code></pre>
+<p>Khi user rời group:</p>
+<pre class="hljs"><code><div>Có được đọc lịch sử cũ không?
+</div></code></pre>
+<p>Đây là product policy.</p>
+<hr>
+<h1 id="41-membership-version">41. Membership Version</h1>
+<p>Mỗi thay đổi thành viên tăng:</p>
+<pre class="hljs"><code><div>membershipVersion
+</div></code></pre>
+<p>Message command có thể được xử lý với membership state mới nhất.</p>
+<p>Delivery event có thể chứa:</p>
+<pre class="hljs"><code><div>membershipVersionAtSend
+</div></code></pre>
+<p>để fan-out dùng snapshot phù hợp.</p>
+<hr>
+<h1 id="42-race-giữa-remove-member-và-send-message">42. Race giữa Remove Member và Send Message</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1. Admin remove User B.
+2. User A gửi message gần như đồng thời.
+</div></code></pre>
+<p>Cần định nghĩa ordering.</p>
+<p>Nếu remove có conversation sequence hoặc membership version:</p>
+<pre class="hljs"><code><div>MemberRemoved sequence 500
+Message sequence 501
+</div></code></pre>
+<p>User B không được nhận message 501.</p>
+<p>Nếu Message 499:</p>
+<pre class="hljs"><code><div>Có thể vẫn được nhận theo policy.
+</div></code></pre>
+<hr>
+<h1 id="43-conversation-event-log">43. Conversation Event Log</h1>
+<p>Không chỉ message, conversation có thể có events:</p>
+<pre class="hljs"><code><div>MESSAGE_CREATED
+MEMBER_ADDED
+MEMBER_REMOVED
+TITLE_CHANGED
+MESSAGE_DELETED
+</div></code></pre>
+<p>Một sequence chung cho conversation giúp client reconstruct timeline ổn định.</p>
+<p>Tuy nhiên có thể tách metadata version và message sequence nếu muốn giảm contention.</p>
+<hr>
+<h1 id="44-delivery-service">44. Delivery Service</h1>
+<p>Delivery Service nhận <code>MessageCreated</code> và quyết định:</p>
+<pre class="hljs"><code><div>- Những user nào cần nhận?
+- Những devices nào đang online?
+- Gửi qua gateway nào?
+- Có cần push notification không?
+</div></code></pre>
+<p>Delivery không quyết định message có hợp lệ; message đã được Chat Service commit.</p>
+<hr>
+<h1 id="45-fan-out-cho-chat-1-1">45. Fan-Out cho Chat 1-1</h1>
+<p>Đơn giản:</p>
+<pre class="hljs"><code><div>Sender
+Recipient
+</div></code></pre>
+<p>Message thường được gửi:</p>
+<pre class="hljs"><code><div>- Tới mọi thiết bị người nhận
+- Tới các thiết bị khác của sender để đồng bộ
+</div></code></pre>
+<p>Nếu sender gửi từ điện thoại, laptop của sender cũng phải thấy message mới.</p>
+<hr>
+<h1 id="46-fan-out-cho-group-nhỏ">46. Fan-Out cho Group nhỏ</h1>
+<p>Group 20 người:</p>
+<pre class="hljs"><code><div>Một MessageCreated event
+→ Tìm 20 members
+→ Route tới online devices
+</div></code></pre>
+<p>Có thể fan-out on write.</p>
+<p>Chi phí hợp lý.</p>
+<hr>
+<h1 id="47-fan-out-cho-group-lớn">47. Fan-Out cho Group lớn</h1>
+<p>Group một triệu thành viên:</p>
+<pre class="hljs"><code><div>Một message
+→ Một triệu delivery jobs
+</div></code></pre>
+<p>Không hợp lý.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Fan-out on read
+- Hybrid fan-out
+- Chỉ realtime tới active members
+- Offline users sync từ shared conversation log
+</div></code></pre>
+<hr>
+<h1 id="48-hybrid-group-delivery">48. Hybrid Group Delivery</h1>
+<p>Với group lớn:</p>
+<pre class="hljs"><code><div>Online members:
+Push realtime.
+
+Offline members:
+Không tạo một delivery row riêng;
+khi online, sync từ conversation sequence.
+</div></code></pre>
+<p>Push notification chỉ gửi theo policy và frequency cap.</p>
+<p>Điều này giảm write amplification.</p>
+<hr>
+<h1 id="49-per-user-inbox-hay-shared-conversation-log">49. Per-User Inbox hay Shared Conversation Log?</h1>
+<h2 id="per-user-inbox">Per-user inbox</h2>
+<p>Mỗi message được copy vào inbox từng user.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Sync theo user nhanh
+- Unread dễ tính
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Group lớn tạo write amplification
+</div></code></pre>
+<h2 id="shared-conversation-log">Shared conversation log</h2>
+<p>Message chỉ lưu một lần.</p>
+<p>User giữ cursor per conversation.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Storage hiệu quả
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Sync nhiều conversations phức tạp hơn
+</div></code></pre>
+<p>Hệ thống có thể dùng hybrid.</p>
+<hr>
+<h1 id="50-realtime-delivery-frame">50. Realtime Delivery Frame</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MESSAGE_CREATED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10542</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;messageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;msg_01J...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;senderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;u_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;TEXT&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Xin chào&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T03:00:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Client kiểm tra:</p>
+<pre class="hljs"><code><div>sequence
+messageId
+</div></code></pre>
+<p>trước khi hiển thị.</p>
+<hr>
+<h1 id="51-delivered-receipt">51. Delivered Receipt</h1>
+<p>Khi client nhận và lưu message local:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DELIVERY_ACK&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;upToSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10542</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;deviceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;device_B&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Dùng cumulative ACK:</p>
+<pre class="hljs"><code><div>Đã nhận tất cả message tới sequence 10542.
+</div></code></pre>
+<p>Tốt hơn ACK từng message ở traffic cao.</p>
+<hr>
+<h1 id="52-delivered-tới-device-hay-user">52. Delivered tới Device hay User?</h1>
+<p>Có hai semantics:</p>
+<pre class="hljs"><code><div>Device delivered:
+Một thiết bị nhận.
+
+User delivered:
+Ít nhất một thiết bị của user nhận.
+</div></code></pre>
+<p>UI thường chỉ cần:</p>
+<pre class="hljs"><code><div>Recipient user đã nhận trên ít nhất một device.
+</div></code></pre>
+<p>Backend có thể giữ trạng thái per-device ngắn hạn nhưng aggregate per-user.</p>
+<hr>
+<h1 id="53-read-receipt">53. Read Receipt</h1>
+<p>Client gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;READ_ACK&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;upToSequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10540</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Đây là cumulative read cursor.</p>
+<p>Không cần gửi:</p>
+<pre class="hljs"><code><div>Message 1 read
+Message 2 read
+...
+</div></code></pre>
+<hr>
+<h1 id="54-read-receipt-per-user">54. Read Receipt per User</h1>
+<p>Store:</p>
+<pre class="hljs"><code><div>(conversationId, userId)
+→ lastReadSequence
+</div></code></pre>
+<p>Unread count xấp xỉ:</p>
+<pre class="hljs"><code><div>conversationLatestSequence - lastReadSequence
+</div></code></pre>
+<p>Nhưng system events hoặc messages bị xóa có thể làm công thức không hoàn toàn chính xác.</p>
+<p>Có thể dùng unread message counter riêng hoặc chấp nhận approximation.</p>
+<hr>
+<h1 id="55-read-receipt-trong-group">55. Read Receipt trong Group</h1>
+<p>Hiển thị “đã đọc bởi 10 người” có thể đắt với group lớn.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Chỉ hỗ trợ group nhỏ
+- Hiển thị count
+- Không hiển thị danh sách đầy đủ
+- Chỉ hiển thị tới một giới hạn
+</div></code></pre>
+<p>Không nên update một hot message row mỗi lần một user đọc.</p>
+<hr>
+<h1 id="56-read-receipt-event-stream">56. Read Receipt Event Stream</h1>
+<p>Read cursor updates có thể rất nhiều.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Coalesce tại client
+- Chỉ gửi khi cursor tăng đáng kể
+- Debounce
+- Lưu latest value, không append mọi event lâu dài
+</div></code></pre>
+<p>Read cursor là state mới nhất, không nhất thiết cần toàn bộ lịch sử.</p>
+<hr>
+<h1 id="57-offline-user">57. Offline User</h1>
+<p>Nếu recipient offline:</p>
+<pre class="hljs"><code><div>- Message vẫn được lưu trong conversation log.
+- Delivery Service không tìm thấy active connection.
+- Có thể gửi push.
+- Khi user online, client sync từ cursor.
+</div></code></pre>
+<p>Không cần giữ message mãi trong một queue chờ user online.</p>
+<p>Message Store là nguồn đồng bộ authoritative.</p>
+<hr>
+<h1 id="58-offline-sync">58. Offline Sync</h1>
+<p>Client gửi:</p>
+<pre class="hljs"><code><div>GET /v1/sync?cursor=global_cursor_123
+</div></code></pre>
+<p>hoặc theo conversation:</p>
+<pre class="hljs"><code><div>GET /v1/conversations/{id}/messages?afterSequence=10500
+</div></code></pre>
+<p>Server trả:</p>
+<pre class="hljs"><code><div>- Messages mới
+- Conversation metadata changes
+- Membership updates
+- Read cursor changes
+</div></code></pre>
+<hr>
+<h1 id="59-global-sync-cursor">59. Global Sync Cursor</h1>
+<p>Nếu user có hàng nghìn conversations, query từng conversation không hiệu quả.</p>
+<p>Có thể duy trì per-user event stream:</p>
+<pre class="hljs"><code><div>userSyncSequence
+</div></code></pre>
+<p>Events:</p>
+<pre class="hljs"><code><div>Conversation updated
+Message available
+Membership changed
+Receipt changed
+</div></code></pre>
+<p>Client sync:</p>
+<pre class="hljs"><code><div>Tất cả thay đổi sau user cursor X.
+</div></code></pre>
+<hr>
+<h1 id="60-per-user-sync-log">60. Per-User Sync Log</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>userId
+syncSequence
+eventType
+conversationId
+conversationSequence
+</div></code></pre>
+<p>Lưu ý:</p>
+<pre class="hljs"><code><div>Một group message không nhất thiết tạo sync row cho một triệu offline members.
+</div></code></pre>
+<p>Với group lớn có thể dùng:</p>
+<pre class="hljs"><code><div>Conversation-level high-watermark
++
+User subscription metadata
+</div></code></pre>
+<hr>
+<h1 id="61-gap-detection">61. Gap Detection</h1>
+<p>Client đang có sequence 100.</p>
+<p>Nhận realtime sequence 102.</p>
+<pre class="hljs"><code><div>Thiếu 101.
+</div></code></pre>
+<p>Client không nên chỉ append 102.</p>
+<p>Nó có thể:</p>
+<pre class="hljs"><code><div>1. Buffer 102.
+2. Gọi sync sau sequence 100.
+3. Nhận 101.
+4. Apply 101 rồi 102.
+</div></code></pre>
+<hr>
+<h1 id="62-duplicate-delivery">62. Duplicate Delivery</h1>
+<p>Client có thể nhận cùng message qua:</p>
+<pre class="hljs"><code><div>- WebSocket retry
+- Offline sync
+- Push deep-link fetch
+- Gateway reconnect
+</div></code></pre>
+<p>Dedupe bằng:</p>
+<pre class="hljs"><code><div>messageId
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>(conversationId, sequence)
+</div></code></pre>
+<p>Client local database nên có unique constraint.</p>
+<hr>
+<h1 id="63-at-least-once-delivery">63. At-Least-Once Delivery</h1>
+<p>Chat thường thực tế dùng:</p>
+<pre class="hljs"><code><div>At-least-once transport
++
+Idempotent storage/client
+</div></code></pre>
+<p>Không cố bảo đảm mỗi packet chỉ đi đúng một lần.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Message không mất
+và duplicate không tạo hai message logic.
+</div></code></pre>
+<hr>
+<h1 id="64-reconnect">64. Reconnect</h1>
+<p>Khi connection mất:</p>
+<pre class="hljs"><code><div>1. Client reconnect với exponential backoff.
+2. Authenticate lại.
+3. Gửi last sync cursor.
+4. Server trả missing events.
+5. Realtime stream tiếp tục.
+</div></code></pre>
+<p>Reconnect không nên chỉ tin rằng mọi message cũ đã nhận.</p>
+<hr>
+<h1 id="65-connection-migration">65. Connection Migration</h1>
+<p>Khi deploy gateway mới hoặc gateway quá tải:</p>
+<pre class="hljs"><code><div>- Gateway có thể gửi GO_AWAY.
+- Client reconnect qua load balancer.
+- Sync cursor khôi phục gap.
+</div></code></pre>
+<p>Do message delivery có thể replay, migration không làm mất message.</p>
+<hr>
+<h1 id="66-gateway-backpressure">66. Gateway Backpressure</h1>
+<p>Một client mạng chậm không đọc kịp.</p>
+<p>Gateway buffer tăng.</p>
+<p>Không được buffer vô hạn.</p>
+<p>Policy:</p>
+<pre class="hljs"><code><div>- Giới hạn outbound queue per connection
+- Drop ephemeral events trước
+- Coalesce receipts/presence
+- Nếu vẫn quá tải, disconnect client
+</div></code></pre>
+<p>Message durable có thể được lấy lại qua offline sync.</p>
+<hr>
+<h1 id="67-ephemeral-và-durable-events">67. Ephemeral và Durable Events</h1>
+<h2 id="durable">Durable</h2>
+<pre class="hljs"><code><div>- Messages
+- Membership changes
+- Message delete/edit
+</div></code></pre>
+<p>Phải sync lại được.</p>
+<h2 id="ephemeral">Ephemeral</h2>
+<pre class="hljs"><code><div>- Typing
+- Presence heartbeat
+- Temporary recording indicator
+</div></code></pre>
+<p>Có thể mất.</p>
+<p>Không nên lưu typing events vào permanent message store.</p>
+<hr>
+<h1 id="68-typing-indicator">68. Typing Indicator</h1>
+<p>Client gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;TYPING_STARTED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Server fan-out tới members online.</p>
+<p>Có TTL:</p>
+<pre class="hljs"><code><div>Typing state tự hết sau vài giây.
+</div></code></pre>
+<p>Không cần ACK/retry mạnh.</p>
+<hr>
+<h1 id="69-typing-rate-limit">69. Typing Rate Limit</h1>
+<p>Không gửi event cho mỗi keystroke.</p>
+<p>Client có thể:</p>
+<pre class="hljs"><code><div>- Gửi TYPING_STARTED một lần
+- Refresh mỗi vài giây
+- Gửi TYPING_STOPPED hoặc chờ TTL
+</div></code></pre>
+<p>Server cũng rate-limit để chống abuse.</p>
+<hr>
+<h1 id="70-presence">70. Presence</h1>
+<p>Presence có thể gồm:</p>
+<pre class="hljs"><code><div>ONLINE
+OFFLINE
+AWAY
+LAST_SEEN
+</div></code></pre>
+<p>Presence là trạng thái mềm, không phải sự thật tuyệt đối.</p>
+<p>User có thể:</p>
+<pre class="hljs"><code><div>- Mạng mất nhưng lease chưa hết
+- App background
+- Có một device online, device khác offline
+</div></code></pre>
+<hr>
+<h1 id="71-user-presence-aggregation">71. User Presence Aggregation</h1>
+<p>Per-device presence:</p>
+<pre class="hljs"><code><div>device1 = online
+device2 = offline
+</div></code></pre>
+<p>User-level:</p>
+<pre class="hljs"><code><div>ONLINE nếu ít nhất một device active.
+</div></code></pre>
+<p>Last seen:</p>
+<pre class="hljs"><code><div>Thời điểm cuối cùng mọi active connection biến mất.
+</div></code></pre>
+<p>Privacy setting có thể ẩn last seen.</p>
+<hr>
+<h1 id="72-presence-distribution">72. Presence Distribution</h1>
+<p>Không nên broadcast mọi presence change tới toàn bộ contacts.</p>
+<p>Nếu user có một triệu followers:</p>
+<pre class="hljs"><code><div>Một online event
+→ một triệu notifications
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Chỉ query presence khi mở conversation
+- Subscribe presence cho contacts đang hiển thị
+- Fan-out tới active sessions có interest
+</div></code></pre>
+<hr>
+<h1 id="73-presence-subscription">73. Presence Subscription</h1>
+<p>Client gửi danh sách user đang quan tâm:</p>
+<pre class="hljs"><code><div>Bạn bè đang hiển thị
+Conversation đang mở
+</div></code></pre>
+<p>Presence Service chỉ push updates cho subscriptions active.</p>
+<p>Subscription có TTL theo connection.</p>
+<hr>
+<h1 id="74-push-notification">74. Push Notification</h1>
+<p>Khi recipient không online hoặc app không active:</p>
+<pre class="hljs"><code><div>MessageCreated
+→ Notification Service
+→ Push provider
+</div></code></pre>
+<p>Push không chứa toàn bộ message nhạy cảm nếu privacy mode bật.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>“Bạn có tin nhắn mới”
+</div></code></pre>
+<p>thay vì nội dung đầy đủ.</p>
+<hr>
+<h1 id="75-suppress-push-khi-user-đang-active">75. Suppress Push khi User đang Active</h1>
+<p>Nếu user đang mở chính conversation đó:</p>
+<pre class="hljs"><code><div>Không cần push.
+</div></code></pre>
+<p>Delivery Service có thể kiểm tra:</p>
+<pre class="hljs"><code><div>- Active connection
+- Foreground state
+- Active conversation hint
+</div></code></pre>
+<p>Đây là soft optimization.</p>
+<p>Nếu presence state stale, gửi push thừa vẫn tốt hơn mất notification quan trọng.</p>
+<hr>
+<h1 id="76-push-collapse">76. Push Collapse</h1>
+<p>Nhiều messages nhanh:</p>
+<pre class="hljs"><code><div>A: Xin chào
+A: Bạn khỏe không?
+A: Mai gặp nhé
+</div></code></pre>
+<p>Có thể collapse push theo:</p>
+<pre class="hljs"><code><div>conversationId
+</div></code></pre>
+<p>Push cuối:</p>
+<pre class="hljs"><code><div>“A đã gửi 3 tin nhắn mới”
+</div></code></pre>
+<p>Messages thật vẫn nằm trong Message Store.</p>
+<hr>
+<h1 id="77-media-message-flow">77. Media Message Flow</h1>
+<p>Không nên gửi file lớn qua WebSocket Gateway.</p>
+<p>Flow:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant MediaAPI
+    participant Storage
+    participant Scanner
+    participant Chat
+
+    Client->>MediaAPI: Request upload URL
+    MediaAPI-->>Client: Signed upload URL
+    Client->>Storage: Upload media directly
+    Storage->>Scanner: Scan/transcode
+    Scanner-->>MediaAPI: Media ready
+    Client->>Chat: Send media message with mediaId
+</div></code></pre>
+<hr>
+<h1 id="78-media-metadata">78. Media Metadata</h1>
+<p>Message chỉ lưu:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;IMAGE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;mediaId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;media_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;width&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1920</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;height&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1080</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;thumbnailId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;thumb_456&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>File nằm trong Object Storage và được phục vụ qua CDN.</p>
+<hr>
+<h1 id="79-media-state">79. Media State</h1>
+<pre class="hljs"><code><div>UPLOADING
+PROCESSING
+READY
+FAILED
+BLOCKED
+</div></code></pre>
+<p>Không nên cho message tham chiếu media chưa tồn tại hoặc chưa được user sở hữu.</p>
+<p>Chat Service kiểm tra:</p>
+<pre class="hljs"><code><div>media.ownerId == senderId
+media.status == READY
+</div></code></pre>
+<hr>
+<h1 id="80-có-gửi-message-trước-khi-media-ready-không">80. Có gửi Message trước khi Media Ready không?</h1>
+<p>Hai lựa chọn:</p>
+<h2 id="chờ-ready">Chờ READY</h2>
+<pre class="hljs"><code><div>Đơn giản, recipient không thấy media lỗi.
+</div></code></pre>
+<h2 id="gửi-placeholder-processing">Gửi placeholder PROCESSING</h2>
+<pre class="hljs"><code><div>UX nhanh hơn,
+nhưng cần update event khi media sẵn sàng.
+</div></code></pre>
+<p>Với video lớn, placeholder có thể phù hợp.</p>
+<hr>
+<h1 id="81-media-security">81. Media Security</h1>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Malware scanning
+- MIME validation
+- File size limit
+- Image/video transcoding
+- Metadata stripping
+- Signed download URLs
+- Access checks
+</div></code></pre>
+<p>Không tin MIME type do client gửi.</p>
+<hr>
+<h1 id="82-media-access-control">82. Media Access Control</h1>
+<p>CDN URL công khai vĩnh viễn có thể làm lộ file.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Signed URL ngắn hạn
+- Tokenized CDN access
+- Authenticated media proxy
+</div></code></pre>
+<p>Client lấy quyền truy cập dựa trên membership conversation.</p>
+<hr>
+<h1 id="83-message-edit">83. Message Edit</h1>
+<p>Edit event:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;MESSAGE_EDITED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;messageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;msg_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;messageVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;newContent&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Nội dung đã sửa&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Store có thể:</p>
+<pre class="hljs"><code><div>- Update latest message record
+- Giữ edit history riêng
+</div></code></pre>
+<p>Tùy audit requirement.</p>
+<hr>
+<h1 id="84-message-delete-hoặc-recall">84. Message Delete hoặc Recall</h1>
+<p>Không nên xóa vật lý ngay.</p>
+<p>Có thể chuyển:</p>
+<pre class="hljs"><code><div>ACTIVE → DELETED
+</div></code></pre>
+<p>Client hiển thị:</p>
+<pre class="hljs"><code><div>“Tin nhắn đã được thu hồi”
+</div></code></pre>
+<p>Delete event cần có conversation sequence hoặc message version để sync tới mọi device.</p>
+<hr>
+<h1 id="85-delete-for-me-và-delete-for-everyone">85. Delete for Me và Delete for Everyone</h1>
+<h2 id="delete-for-me">Delete for me</h2>
+<p>Per-user visibility state:</p>
+<pre class="hljs"><code><div>(userId, messageId) → hidden
+</div></code></pre>
+<h2 id="delete-for-everyone">Delete for everyone</h2>
+<p>Thay đổi shared message state.</p>
+<p>Hai chức năng có consistency và storage khác nhau.</p>
+<hr>
+<h1 id="86-reactions">86. Reactions</h1>
+<p>Reaction key:</p>
+<pre class="hljs"><code><div>(messageId, userId, reactionType)
+</div></code></pre>
+<p>Cần unique constraint để cùng user không tạo duplicate reaction logic.</p>
+<p>Reaction counts có thể eventual consistent.</p>
+<p>Group lớn không nên update một hot message row đồng bộ cho mỗi reaction.</p>
+<hr>
+<h1 id="87-message-search">87. Message Search</h1>
+<p>Search index là projection:</p>
+<pre class="hljs"><code><div>MessageCreated/Edit/Delete
+→ Search indexer
+</div></code></pre>
+<p>Search eventual consistent.</p>
+<p>Authorization vẫn phải dựa vào Conversation Service hoặc ACL index đáng tin cậy.</p>
+<p>Không để search result làm lộ message từ group user đã bị xóa quyền.</p>
+<hr>
+<h1 id="88-conversation-list">88. Conversation List</h1>
+<p>Trang chủ chat cần:</p>
+<pre class="hljs"><code><div>- Conversations gần đây
+- Last message preview
+- Unread count
+- Pinned/muted state
+</div></code></pre>
+<p>Không nên query toàn bộ Message Store để xây mỗi lần.</p>
+<p>Dùng per-user conversation projection:</p>
+<pre class="hljs"><code><div>(userId, lastActivityAt)
+→ conversation summary
+</div></code></pre>
+<hr>
+<h1 id="89-conversation-list-update">89. Conversation List Update</h1>
+<p>Khi có message mới:</p>
+<pre class="hljs"><code><div>- Update last activity
+- Update preview
+- Increment unread cho recipients
+</div></code></pre>
+<p>Đây là projection eventual consistent.</p>
+<p>Message correctness không phụ thuộc projection này.</p>
+<p>Nếu projection sai, có thể rebuild từ message events.</p>
+<hr>
+<h1 id="90-unread-count-race">90. Unread Count Race</h1>
+<p>User đang đọc conversation trong khi message mới đến.</p>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>Increment unread
+và
+Set read cursor
+</div></code></pre>
+<p>đến sai thứ tự, count có thể sai.</p>
+<p>Read cursor authoritative hơn counter.</p>
+<p>Có thể định kỳ reconcile:</p>
+<pre class="hljs"><code><div>latest relevant sequence - lastReadSequence
+</div></code></pre>
+<p>hoặc dùng versioned conditional updates.</p>
+<hr>
+<h1 id="91-multi-device-sync">91. Multi-Device Sync</h1>
+<p>Một user gửi từ Device A.</p>
+<p>Cần gửi message tới:</p>
+<pre class="hljs"><code><div>- Recipient devices
+- Device B và C của chính sender
+</div></code></pre>
+<p>Device A đã có optimistic local copy nên ACK chỉ reconcile IDs.</p>
+<p>Nếu server echo lại Device A, client dedupe bằng <code>clientMessageId/messageId</code>.</p>
+<hr>
+<h1 id="92-device-specific-state">92. Device-Specific State</h1>
+<p>Một số state là per-device:</p>
+<pre class="hljs"><code><div>- Last sync cursor
+- Push token
+- Draft
+- Notification permission
+</div></code></pre>
+<p>Một số là per-user:</p>
+<pre class="hljs"><code><div>- Last read sequence
+- Membership
+- Mute preference
+</div></code></pre>
+<p>Không nên gộp hai loại state.</p>
+<hr>
+<h1 id="93-draft-sync">93. Draft Sync</h1>
+<p>Draft có thể:</p>
+<pre class="hljs"><code><div>- Chỉ local
+- Sync cloud
+</div></code></pre>
+<p>Nếu sync, draft là một loại state riêng:</p>
+<pre class="hljs"><code><div>(conversationId, userId)
+→ draftVersion, content
+</div></code></pre>
+<p>Last-write-wins có thể đủ hoặc dùng version conflict resolution.</p>
+<p>Draft không nằm trong message log.</p>
+<hr>
+<h1 id="94-group-invite-và-join">94. Group Invite và Join</h1>
+<p>Group private:</p>
+<pre class="hljs"><code><div>- Admin add member
+- Invite token
+- User accepts invite
+</div></code></pre>
+<p>Invite token cần:</p>
+<pre class="hljs"><code><div>- Expiration
+- Scope conversation
+- Có thể revoke
+- Không lộ quyền quá mức
+</div></code></pre>
+<p>Join event cập nhật membership trước khi user được đọc hoặc gửi.</p>
+<hr>
+<h1 id="95-group-admin-permissions">95. Group Admin Permissions</h1>
+<p>Roles:</p>
+<pre class="hljs"><code><div>OWNER
+ADMIN
+MEMBER
+READ_ONLY
+</div></code></pre>
+<p>Operations:</p>
+<pre class="hljs"><code><div>- Add/remove member
+- Change title
+- Promote admin
+- Delete group
+</div></code></pre>
+<p>Authorization phải được thực thi server-side.</p>
+<hr>
+<h1 id="96-large-group-membership">96. Large Group Membership</h1>
+<p>Một group có hàng triệu members.</p>
+<p>Không thể load toàn bộ member list vào memory cho mỗi message.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Membership store partitioned
+- Bloom/filter/cache cho active users
+- Fan-out only to online subset
+- Shared log for offline sync
+</div></code></pre>
+<hr>
+<h1 id="97-large-group-presence">97. Large Group Presence</h1>
+<p>Không nên hiển thị online status của một triệu thành viên realtime.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Chỉ hiện online count xấp xỉ
+- Chỉ presence của admins/contacts
+- Không hỗ trợ full presence
+</div></code></pre>
+<p>Product feature phải phù hợp scale.</p>
+<hr>
+<h1 id="98-large-group-read-receipts">98. Large Group Read Receipts</h1>
+<p>Không thực tế lưu và hiển thị:</p>
+<pre class="hljs"><code><div>Một triệu receipts/message.
+</div></code></pre>
+<p>Có thể bỏ read receipt hoặc chỉ hiển thị:</p>
+<pre class="hljs"><code><div>- View count xấp xỉ
+- Một số người đọc gần nhất
+</div></code></pre>
+<hr>
+<h1 id="99-ordering-và-delivery-là-hai-vấn-đề-khác-nhau">99. Ordering và Delivery là hai vấn đề khác nhau</h1>
+<p>Server có thể cấp:</p>
+<pre class="hljs"><code><div>M1 sequence 100
+M2 sequence 101
+</div></code></pre>
+<p>Nhưng network khiến client nhận:</p>
+<pre class="hljs"><code><div>101 trước 100
+</div></code></pre>
+<p>Ordering trong storage không tự động bảo đảm arrival order.</p>
+<p>Client phải reorder theo sequence và fetch gaps.</p>
+<hr>
+<h1 id="100-created-time-không-dùng-làm-ordering-authoritative">100. Created Time không dùng làm Ordering Authoritative</h1>
+<p>Hai senders có clock khác nhau.</p>
+<pre class="hljs"><code><div>M1 client time = 10:00:02
+M2 client time = 10:00:01
+</div></code></pre>
+<p>Không thể dùng client timestamp để order.</p>
+<p>Server sequence là authoritative.</p>
+<p>Client timestamp chỉ dùng cho UX hoặc debug.</p>
+<hr>
+<h1 id="101-server-timestamp-cũng-chưa-đủ">101. Server Timestamp cũng chưa đủ</h1>
+<p>Hai Chat Service instances có clock skew.</p>
+<p>Message được commit theo order:</p>
+<pre class="hljs"><code><div>M1 rồi M2
+</div></code></pre>
+<p>nhưng timestamps có thể đảo.</p>
+<p>Vì vậy:</p>
+<pre class="hljs"><code><div>conversationSequence
+</div></code></pre>
+<p>quan trọng hơn wall-clock timestamp.</p>
+<hr>
+<h1 id="102-message-ack-semantics">102. Message ACK Semantics</h1>
+<p>Khi server trả <code>ACCEPTED</code>, cần định nghĩa:</p>
+<pre class="hljs"><code><div>- Đã ghi vào durable log?
+- Đã replicate tới quorum?
+- Chỉ nằm memory?
+</div></code></pre>
+<p>Một contract tốt:</p>
+<blockquote>
+<p><code>SERVER_ACCEPTED</code> nghĩa là message đã được lưu bền vững theo durability policy và sẽ được retry delivery ngay cả khi gateway hiện tại chết.</p>
+</blockquote>
+<hr>
+<h1 id="103-quorum-và-message-durability">103. Quorum và Message Durability</h1>
+<p>Nếu Message Store replicate ba nodes:</p>
+<pre class="hljs"><code><div>Có thể trả accepted sau majority ACK.
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Durability cao
+- Latency cao hơn
+</div></code></pre>
+<p>Nếu chỉ local ACK rồi async replicate:</p>
+<pre class="hljs"><code><div>Region/node failure có thể làm mất message đã báo accepted.
+</div></code></pre>
+<hr>
+<h1 id="104-delivery-retry">104. Delivery Retry</h1>
+<p>Delivery Service gửi frame tới Gateway.</p>
+<p>Nếu Gateway không ACK:</p>
+<pre class="hljs"><code><div>- Connection có thể chết
+- Frame có thể đã tới client
+- ACK có thể mất
+</div></code></pre>
+<p>Có thể retry cùng message ID.</p>
+<p>Client dedupe.</p>
+<p>Không cần exactly-once transport.</p>
+<hr>
+<h1 id="105-push-và-realtime-race">105. Push và Realtime Race</h1>
+<p>Recipient vừa reconnect.</p>
+<p>Delivery Service có thể:</p>
+<pre class="hljs"><code><div>- Gửi WebSocket
+- Đồng thời Notification Service gửi push
+</div></code></pre>
+<p>User thấy push thừa.</p>
+<p>Có thể giảm bằng grace period:</p>
+<pre class="hljs"><code><div>Chờ vài giây để xem realtime delivery ACK.
+</div></code></pre>
+<p>Nhưng làm push chậm.</p>
+<p>Đây là UX trade-off, không phải correctness issue.</p>
+<hr>
+<h1 id="106-message-retention">106. Message Retention</h1>
+<p>Không phải mọi product giữ message vĩnh viễn.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Giữ vô hạn
+- Giữ 90 ngày
+- Disappearing messages
+- Retention theo tenant
+</div></code></pre>
+<p>Retention ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Storage
+- Backup
+- Search
+- Legal compliance
+- Offline sync window
+</div></code></pre>
+<hr>
+<h1 id="107-disappearing-messages">107. Disappearing Messages</h1>
+<p>Message có:</p>
+<pre class="hljs"><code><div>expiresAt
+</div></code></pre>
+<p>Client và server phải cùng tôn trọng.</p>
+<p>Không chỉ xóa khỏi UI; cần:</p>
+<pre class="hljs"><code><div>- Cleanup storage
+- Remove search index
+- Remove cached media
+- Apply retention backups theo policy
+</div></code></pre>
+<p>Không nên hứa xóa tuyệt đối khỏi mọi backup ngay lập tức nếu hạ tầng không hỗ trợ.</p>
+<hr>
+<h1 id="108-blocking-user">108. Blocking User</h1>
+<p>Nếu User A block User B:</p>
+<pre class="hljs"><code><div>- B không được gửi message mới tới A
+- Presence có thể bị ẩn
+- Existing conversation behavior theo policy
+</div></code></pre>
+<p>Block state cần được check authoritative hoặc qua cache invalidation nhanh.</p>
+<p>Không chỉ filter ở client.</p>
+<hr>
+<h1 id="109-spam-và-abuse">109. Spam và Abuse</h1>
+<p>Chat system có thể bị dùng cho:</p>
+<pre class="hljs"><code><div>- Spam
+- Harassment
+- Malware
+- Phishing
+- Mass unsolicited messages
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Rate limiting
+- Reputation
+- Message request inbox
+- Report/block
+- Attachment scanning
+- Automated moderation
+</div></code></pre>
+<hr>
+<h1 id="110-rate-limiting">110. Rate Limiting</h1>
+<p>Theo:</p>
+<pre class="hljs"><code><div>- User
+- Device
+- IP
+- Conversation
+- Recipient
+- New-account status
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>New account:
+Giới hạn bắt đầu conversations mới.
+
+Trusted contacts:
+Rate cao hơn.
+</div></code></pre>
+<p>Không nên rate-limit mọi group message giống direct message.</p>
+<hr>
+<h1 id="111-privacy">111. Privacy</h1>
+<p>Dữ liệu chat rất nhạy cảm.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- TLS
+- Encryption at rest
+- Strict access control
+- Audit access
+- Log redaction
+- Retention policy
+- Data residency
+</div></code></pre>
+<p>Không log message content trong standard application logs.</p>
+<hr>
+<h1 id="112-end-to-end-encryption">112. End-to-End Encryption</h1>
+<p>Nếu hỗ trợ E2EE:</p>
+<pre class="hljs"><code><div>Server lưu ciphertext
+và không có plaintext key.
+</div></code></pre>
+<p>Điều này ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Search server-side
+- Moderation
+- Multi-device key sync
+- Backup
+- Message preview push
+</div></code></pre>
+<p>E2EE là một hệ thống khóa và identity phức tạp riêng, không chỉ “mã hóa database”.</p>
+<hr>
+<h1 id="113-e2ee-và-multi-device">113. E2EE và Multi-Device</h1>
+<p>Mỗi device có key identity riêng.</p>
+<p>Khi user thêm device mới:</p>
+<pre class="hljs"><code><div>- Thiết lập trust
+- Phân phối conversation keys
+- Verify device
+</div></code></pre>
+<p>Server vẫn có thể xử lý:</p>
+<pre class="hljs"><code><div>message IDs
+sequence
+delivery
+</div></code></pre>
+<p>mà không đọc nội dung.</p>
+<hr>
+<h1 id="114-data-residency">114. Data Residency</h1>
+<p>User hoặc tenant có thể yêu cầu dữ liệu ở một region pháp lý.</p>
+<p>Cần xem:</p>
+<pre class="hljs"><code><div>- Message Store
+- Media
+- Backups
+- Search index
+- Logs
+- Analytics
+</div></code></pre>
+<p>Không chỉ primary database.</p>
+<hr>
+<h1 id="115-multi-region-architecture">115. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Clients --> GlobalEdge
+
+    GlobalEdge --> GatewayA[Gateway Region A]
+    GlobalEdge --> GatewayB[Gateway Region B]
+    GlobalEdge --> GatewayC[Gateway Region C]
+
+    GatewayA --> Router[Conversation Directory]
+    GatewayB --> Router
+    GatewayC --> Router
+
+    Router --> OwnerA[Conversation Owners A]
+    Router --> OwnerB[Conversation Owners B]
+    Router --> OwnerC[Conversation Owners C]
+
+    OwnerA --> StoreA[(Message Store A)]
+    OwnerB --> StoreB[(Message Store B)]
+    OwnerC --> StoreC[(Message Store C)]
+
+    StoreA -. replicate .-> StoreB
+    StoreB -. replicate .-> StoreC
+</div></code></pre>
+<hr>
+<h1 id="116-edge-region-và-conversation-home-region">116. Edge Region và Conversation Home Region</h1>
+<p>User kết nối tới region gần nhất.</p>
+<p>Nhưng conversation có thể có một home region chịu trách nhiệm write ordering.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User A ở Việt Nam
+User B ở Pháp
+Conversation owner ở Singapore
+</div></code></pre>
+<p>Gateway Pháp proxy send command tới Singapore.</p>
+<hr>
+<h1 id="117-vì-sao-conversation-cần-home-region">117. Vì sao Conversation cần Home Region?</h1>
+<p>Nếu cả Singapore và Frankfurt cùng cấp sequence cho một conversation:</p>
+<pre class="hljs"><code><div>Có thể tạo:
+M1 sequence 101
+M2 sequence 101
+</div></code></pre>
+<p>hoặc divergent order.</p>
+<p>Single conversation owner đơn giản hóa:</p>
+<pre class="hljs"><code><div>- Sequence
+- Membership ordering
+- Strong append
+</div></code></pre>
+<hr>
+<h1 id="118-chọn-home-region">118. Chọn Home Region</h1>
+<p>Có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Region của người tạo
+- Majority participants
+- Tenant residency
+- Consistent hash
+- Load
+</div></code></pre>
+<p>Conversation directory lưu:</p>
+<pre class="hljs"><code><div>conversationId
+→ homeRegion
+→ ownerEpoch
+</div></code></pre>
+<hr>
+<h1 id="119-conversation-directory">119. Conversation Directory</h1>
+<p>Directory phải:</p>
+<pre class="hljs"><code><div>- Consistent
+- Highly available
+- Cacheable
+- Versioned
+</div></code></pre>
+<p>Gateway cache mapping nhưng phải nhận update khi conversation migrate.</p>
+<p>Không nên encode physical region cố định vĩnh viễn trong conversation ID nếu migration cần linh hoạt.</p>
+<hr>
+<h1 id="120-cross-region-send-flow">120. Cross-Region Send Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant GatewayEU
+    participant OwnerAsia
+    participant StoreAsia
+    participant Delivery
+    participant GatewayUS
+
+    Client->>GatewayEU: SEND_MESSAGE
+    GatewayEU->>OwnerAsia: Forward command
+    OwnerAsia->>StoreAsia: Append + sequence
+    StoreAsia-->>OwnerAsia: Committed
+    OwnerAsia-->>GatewayEU: Accepted
+    GatewayEU-->>Client: ACK
+
+    OwnerAsia->>Delivery: MessageCreated
+    Delivery->>GatewayUS: Deliver recipient
+</div></code></pre>
+<p>Write latency chịu cross-region hop.</p>
+<hr>
+<h1 id="121-có-nên-multi-leader-theo-conversation">121. Có nên Multi-Leader theo Conversation?</h1>
+<p>Với private chat cần ordering ổn định, thường không nên.</p>
+<p>Multi-leader có thể giảm write latency nhưng tạo:</p>
+<pre class="hljs"><code><div>- Conflict ordering
+- Duplicate sequence
+- Merge complexity
+- User-visible reorder
+</div></code></pre>
+<p>Single owner per conversation là trade-off hợp lý.</p>
+<hr>
+<h1 id="122-partitioned-activeactive">122. Partitioned Active–Active</h1>
+<p>Toàn hệ thống vẫn active–active:</p>
+<pre class="hljs"><code><div>- Conversation 1 owner Region A
+- Conversation 2 owner Region B
+- Conversation 3 owner Region C
+</div></code></pre>
+<p>Mỗi conversation có một owner, nhưng nhiều regions cùng sở hữu các conversations khác nhau.</p>
+<p>Đây là partitioned active–active.</p>
+<hr>
+<h1 id="123-replication-của-message-store">123. Replication của Message Store</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Synchronous replication sang remote region
+- Asynchronous replication
+</div></code></pre>
+<h2 id="synchronous">Synchronous</h2>
+<pre class="hljs"><code><div>RPO gần 0
+nhưng write latency cao.
+</div></code></pre>
+<h2 id="asynchronous">Asynchronous</h2>
+<pre class="hljs"><code><div>Latency thấp hơn
+nhưng regional failure có thể mất accepted messages.
+</div></code></pre>
+<p>Durability contract phải nói rõ.</p>
+<hr>
+<h1 id="124-multi-region-quorum">124. Multi-Region Quorum</h1>
+<p>Có thể dùng consensus group per shard:</p>
+<pre class="hljs"><code><div>Replica A ở Region 1
+Replica B ở Region 2
+Replica C ở Region 3
+</div></code></pre>
+<p>Commit majority 2/3.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Chịu mất một region
+- Strong ordering
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Mỗi write chịu WAN latency
+</div></code></pre>
+<p>Có thể chỉ dùng cho metadata/critical tenants hoặc đặt replicas theo latency topology phù hợp.</p>
+<hr>
+<h1 id="125-regional-failover">125. Regional Failover</h1>
+<p>Nếu conversation home region chết:</p>
+<pre class="hljs"><code><div>1. Phát hiện owner unavailable.
+2. Xác định replica đủ mới.
+3. Tăng owner epoch.
+4. Promote region mới.
+5. Update directory.
+6. Fence owner cũ.
+7. Resume sequence từ committed log.
+</div></code></pre>
+<p>Không chỉ đổi traffic routing.</p>
+<hr>
+<h1 id="126-owner-epoch-và-fencing">126. Owner Epoch và Fencing</h1>
+<p>Old owner:</p>
+<pre class="hljs"><code><div>epoch 41
+</div></code></pre>
+<p>New owner:</p>
+<pre class="hljs"><code><div>epoch 42
+</div></code></pre>
+<p>Store chỉ nhận append từ epoch mới nhất.</p>
+<p>Nếu old owner quay lại:</p>
+<pre class="hljs"><code><div>Append epoch 41
+→ Rejected.
+</div></code></pre>
+<p>Ngăn split-brain.</p>
+<hr>
+<h1 id="127-message-gap-sau-failover">127. Message Gap sau Failover</h1>
+<p>Nếu async replication:</p>
+<pre class="hljs"><code><div>Old owner đã ACK message 1005
+Replica mới chỉ có tới 1003
+</div></code></pre>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>1004–1005 có thể mất.
+</div></code></pre>
+<p>Không nên tái sử dụng sequence 1004 ngay nếu client đã thấy nó.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Giữ gaps
+- Reconcile từ sender retry
+- Dùng globally unique message IDs
+</div></code></pre>
+<p>RPO phải được xác định trước.</p>
+<hr>
+<h1 id="128-sender-retry-sau-failover">128. Sender Retry sau Failover</h1>
+<p>Sender chưa nhận ACK hoặc thấy message mất.</p>
+<p>Retry cùng:</p>
+<pre class="hljs"><code><div>clientMessageId
+</div></code></pre>
+<p>New owner dedupe và có thể tái tạo message.</p>
+<p>Nếu old message đã replicate, trả record cũ.</p>
+<p>Nếu chưa tồn tại, tạo message mới.</p>
+<hr>
+<h1 id="129-conversation-migration">129. Conversation Migration</h1>
+<p>Chuyển conversation owner từ Region A sang B:</p>
+<pre class="hljs"><code><div>1. Chọn cutover sequence.
+2. Replicate log tới B.
+3. Tạm dừng hoặc buffer writes.
+4. Tăng owner epoch.
+5. Update directory.
+6. Resume writes tại B.
+7. Fence A.
+</div></code></pre>
+<p>Với low traffic conversation có thể migrate nhanh.</p>
+<p>Hot conversation cần protocol phức tạp hơn.</p>
+<hr>
+<h1 id="130-presence-multi-region">130. Presence Multi-Region</h1>
+<p>Presence nên local-first.</p>
+<p>User kết nối Region A:</p>
+<pre class="hljs"><code><div>Presence authoritative tạm thời ở A.
+</div></code></pre>
+<p>Regions khác có thể nhận replicated presence eventual.</p>
+<p>Không cần consensus toàn cầu cho mỗi heartbeat.</p>
+<hr>
+<h1 id="131-delivery-routing-multi-region">131. Delivery Routing Multi-Region</h1>
+<p>Connection registry có thể phân cấp:</p>
+<pre class="hljs"><code><div>Global directory:
+userId → active regions
+
+Regional registry:
+userId → gateways/connections
+</div></code></pre>
+<p>Delivery Service trước hết tìm active regions, sau đó regional router fan-out tới gateway.</p>
+<hr>
+<h1 id="132-registry-staleness">132. Registry Staleness</h1>
+<p>Global registry có thể nói user online Region A nhưng connection đã chết.</p>
+<p>Delivery tới A fail.</p>
+<p>Hệ thống:</p>
+<pre class="hljs"><code><div>- Không làm mất message
+- Có thể thử region khác
+- Recipient sẽ offline sync
+- Push notification fallback
+</div></code></pre>
+<p>Presence/registry stale không phá message durability.</p>
+<hr>
+<h1 id="133-slos">133. SLOs</h1>
+<p>Ví dụ minh họa:</p>
+<pre class="hljs"><code><div>Message server acceptance:
+99% dưới 300 ms trong cùng region.
+
+Realtime delivery:
+99% dưới 1 giây khi recipient online.
+
+Offline sync:
+99% hoàn tất dưới 5 giây cho backlog thông thường.
+
+Message durability:
+Không mất acknowledged message theo RPO đã cam kết.
+
+Presence freshness:
+Dưới 30–60 giây.
+</div></code></pre>
+<p>Cần phân biệt:</p>
+<pre class="hljs"><code><div>send latency
+server acceptance latency
+delivery latency
+read latency
+</div></code></pre>
+<hr>
+<h1 id="134-observability--connection-layer">134. Observability — Connection Layer</h1>
+<pre class="hljs"><code><div>- Active connections
+- Connections per gateway
+- Connect/disconnect rate
+- Authentication failures
+- Heartbeat timeout
+- Outbound queue size
+- Slow clients
+- Reconnect rate
+</div></code></pre>
+<p>Metrics phải theo:</p>
+<pre class="hljs"><code><div>region
+gateway
+client version
+network type
+</div></code></pre>
+<hr>
+<h1 id="135-observability--message-layer">135. Observability — Message Layer</h1>
+<pre class="hljs"><code><div>- Send QPS
+- Acceptance latency
+- Message-store latency
+- Sequence allocation latency
+- Dedupe hit rate
+- Outbox lag
+- Message publish failure
+- Gap/reorder rate
+</div></code></pre>
+<hr>
+<h1 id="136-observability--delivery-layer">136. Observability — Delivery Layer</h1>
+<pre class="hljs"><code><div>- Online delivery latency
+- Delivery retry rate
+- Gateway routing failures
+- Offline percentage
+- Push fallback rate
+- Duplicate delivery rate
+</div></code></pre>
+<hr>
+<h1 id="137-observability--sync-layer">137. Observability — Sync Layer</h1>
+<pre class="hljs"><code><div>- Sync request rate
+- Average backlog size
+- Sync latency
+- Gap recovery count
+- Cursor mismatch
+- Client version failures
+</div></code></pre>
+<hr>
+<h1 id="138-business-metrics">138. Business Metrics</h1>
+<pre class="hljs"><code><div>- Messages sent/user
+- Active conversations
+- Message delivery success
+- Read rate
+- Group size distribution
+- Media upload success
+- Spam report rate
+- Block rate
+</div></code></pre>
+<p>Không log content để đo metrics thông thường.</p>
+<hr>
+<h1 id="139-failure-mode--gateway-chết">139. Failure Mode — Gateway chết</h1>
+<p>Connections trên gateway mất.</p>
+<p>Clients reconnect sang gateways khác.</p>
+<p>Không mất message vì:</p>
+<pre class="hljs"><code><div>- Message Store durable
+- Client giữ pending messages
+- Offline sync khôi phục missing messages
+</div></code></pre>
+<p>Registry leases hết hạn tự động.</p>
+<hr>
+<h1 id="140-failure-mode--connection-registry-lỗi">140. Failure Mode — Connection Registry lỗi</h1>
+<p>Gateway vẫn biết local connections.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Realtime routing bị giảm
+- Message vẫn lưu
+- Push/offline sync bù
+</div></code></pre>
+<p>Registry nên được xem là routing optimization, không phải source of truth cho message.</p>
+<hr>
+<h1 id="141-failure-mode--message-store-chậm">141. Failure Mode — Message Store chậm</h1>
+<p>Không nên ACK message trước durability.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Backpressure senders
+- Rate limit
+- Queue commands ngắn hạn nếu semantics rõ
+- Trả retryable error
+</div></code></pre>
+<p>Không nên silently accept rồi làm mất.</p>
+<hr>
+<h1 id="142-failure-mode--event-stream-lỗi">142. Failure Mode — Event Stream lỗi</h1>
+<p>Nếu dùng outbox:</p>
+<pre class="hljs"><code><div>Messages vẫn được lưu.
+Delivery bị trễ.
+Outbox publisher retry khi stream phục hồi.
+</div></code></pre>
+<p>Sender nhận accepted vì message durable.</p>
+<p>Recipient sẽ nhận muộn hoặc sync sau.</p>
+<hr>
+<h1 id="143-failure-mode--delivery-service-lỗi">143. Failure Mode — Delivery Service lỗi</h1>
+<p>Message không mất.</p>
+<p>Event stream giữ backlog.</p>
+<p>Khi workers phục hồi:</p>
+<pre class="hljs"><code><div>Replay MessageCreated
+→ Deliver.
+</div></code></pre>
+<p>Client dedupe duplicate.</p>
+<hr>
+<h1 id="144-failure-mode--push-provider-lỗi">144. Failure Mode — Push Provider lỗi</h1>
+<p>Realtime chat vẫn hoạt động.</p>
+<p>Offline users không nhận push tạm thời nhưng message vẫn chờ trong Message Store.</p>
+<p>Push Service retry theo TTL.</p>
+<p>Không gửi push cũ nếu message đã quá thời gian hữu ích.</p>
+<hr>
+<h1 id="145-failure-mode--media-processor-lỗi">145. Failure Mode — Media Processor lỗi</h1>
+<p>Text chat không bị ảnh hưởng.</p>
+<p>Media ở trạng thái:</p>
+<pre class="hljs"><code><div>PROCESSING hoặc FAILED
+</div></code></pre>
+<p>Client có thể retry upload.</p>
+<p>Không nên block toàn conversation.</p>
+<hr>
+<h1 id="146-disaster-recovery">146. Disaster Recovery</h1>
+<p>Cần backup hoặc replication cho:</p>
+<pre class="hljs"><code><div>- Messages
+- Conversation metadata
+- Membership
+- Media
+- User cursors
+- Directory
+</div></code></pre>
+<p>Có thể rebuild:</p>
+<pre class="hljs"><code><div>- Search index
+- Analytics
+- Presence
+- Typing state
+</div></code></pre>
+<p>Không cần backup ephemeral presence.</p>
+<hr>
+<h1 id="147-priority-khi-disaster">147. Priority khi Disaster</h1>
+<p>Critical path:</p>
+<pre class="hljs"><code><div>1. Gửi/nhận text
+2. Conversation sync
+3. Membership authorization
+</div></code></pre>
+<p>Có thể degrade:</p>
+<pre class="hljs"><code><div>- Typing
+- Presence
+- Reactions
+- Search
+- Media transcoding
+- Read receipts
+</div></code></pre>
+<hr>
+<h1 id="148-thiết-kế-khuyến-nghị">148. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. WebSocket Gateways chỉ giữ connection và chuyển frame.
+2. Chat Service sở hữu validation, dedupe và durable append.
+3. Mỗi conversation có sequence và một owner shard.
+4. Message Store partition theo conversation, bucket khi lớn.
+5. Outbox phát MessageCreated tới delivery stream.
+6. Delivery Service route tới mọi active device và push khi cần.
+7. Offline clients sync bằng cursor và sequence.
+8. Presence/typing là ephemeral và eventual consistent.
+9. Media upload trực tiếp Object Storage.
+10. Multi-region dùng partitioned active–active với một owner cho mỗi conversation.
+</div></code></pre>
+<hr>
+<h1 id="149-trade-off--per-user-inbox-hay-shared-log">149. Trade-Off — Per-User Inbox hay Shared Log</h1>
+<h2 id="per-user-inbox-1">Per-user inbox</h2>
+<pre class="hljs"><code><div>Ưu:
+Sync nhanh, unread dễ.
+
+Nhược:
+Write amplification cho group lớn.
+</div></code></pre>
+<h2 id="shared-conversation-log-1">Shared conversation log</h2>
+<pre class="hljs"><code><div>Ưu:
+Lưu message một lần.
+
+Nhược:
+Sync toàn user phức tạp hơn.
+</div></code></pre>
+<p>Khuyến nghị:</p>
+<pre class="hljs"><code><div>Chat 1-1 và group nhỏ:
+Có thể materialize inbox.
+
+Group lớn:
+Shared log + online fan-out.
+</div></code></pre>
+<hr>
+<h1 id="150-trade-off--strong-ordering-hay-throughput">150. Trade-Off — Strong Ordering hay Throughput</h1>
+<p>Single sequence per conversation:</p>
+<pre class="hljs"><code><div>- UX ổn định
+- Logic dễ
+- Throughput giới hạn bởi owner
+</div></code></pre>
+<p>Relaxed ordering:</p>
+<pre class="hljs"><code><div>- Scale tốt hơn
+- Client merge phức tạp
+- User thấy reorder
+</div></code></pre>
+<p>Private chat thường ưu tiên stable per-conversation ordering.</p>
+<p>Public massive chat có thể dùng weaker ordering.</p>
+<hr>
+<h1 id="151-trade-off--sync-cross-region-hay-async">151. Trade-Off — Sync Cross-Region hay Async</h1>
+<h2 id="synchronous-1">Synchronous</h2>
+<pre class="hljs"><code><div>Không mất acknowledged messages khi mất region,
+nhưng latency cao.
+</div></code></pre>
+<h2 id="asynchronous-1">Asynchronous</h2>
+<pre class="hljs"><code><div>Latency thấp,
+nhưng có RPO lớn hơn 0.
+</div></code></pre>
+<p>Có thể cung cấp tier khác nhau cho:</p>
+<pre class="hljs"><code><div>Consumer chat
+Enterprise/compliance chat
+</div></code></pre>
+<hr>
+<h1 id="152-trade-off--presence-push-hay-query">152. Trade-Off — Presence Push hay Query</h1>
+<p>Push mọi presence change:</p>
+<pre class="hljs"><code><div>Fresh nhưng fan-out lớn.
+</div></code></pre>
+<p>Query khi cần:</p>
+<pre class="hljs"><code><div>Scale tốt nhưng không realtime tuyệt đối.
+</div></code></pre>
+<p>Hybrid:</p>
+<pre class="hljs"><code><div>Subscribe presence cho contacts/conversations đang hiển thị.
+</div></code></pre>
+<hr>
+<h1 id="153-trade-off--push-ngay-hay-chờ-delivery-ack">153. Trade-Off — Push ngay hay Chờ Delivery ACK</h1>
+<p>Push ngay:</p>
+<pre class="hljs"><code><div>Offline user được báo nhanh
+nhưng online user có thể nhận push thừa.
+</div></code></pre>
+<p>Chờ vài giây:</p>
+<pre class="hljs"><code><div>Giảm push thừa
+nhưng notification chậm hơn.
+</div></code></pre>
+<p>Có thể áp policy theo app state và message priority.</p>
+<hr>
+<h1 id="154-cách-trình-bày-trong-phỏng-vấn">154. Cách trình bày trong Phỏng vấn</h1>
+<p>Một câu trả lời tốt có thể bắt đầu:</p>
+<blockquote>
+<p>Tôi tách connection layer khỏi message layer. WebSocket Gateways giữ hàng triệu long-lived connections và quản lý heartbeat, nhưng mọi message command được chuyển tới Chat Service để kiểm tra membership, deduplicate bằng <code>clientMessageId</code>, cấp sequence theo conversation và lưu bền vững.</p>
+</blockquote>
+<p>Về ordering:</p>
+<blockquote>
+<p>Tôi không cần global ordering. Mỗi conversation có một owner shard và sequence tăng dần. Message Store được partition theo <code>conversationId</code>, còn conversation lớn được chia thêm theo sequence bucket. Client dùng sequence để phát hiện gap và reorder các frame đến sai thứ tự.</p>
+</blockquote>
+<p>Về delivery:</p>
+<blockquote>
+<p>Sau khi message và outbox event cùng commit, Delivery Service route message tới mọi active device của recipient và các thiết bị khác của sender. Nếu user offline, message không nằm chờ trong memory queue mà vẫn ở shared conversation log; client lấy lại bằng offline sync cursor. Transport là at-least-once và cả server lẫn client đều deduplicate bằng message ID.</p>
+</blockquote>
+<p>Về multi-region:</p>
+<blockquote>
+<p>Client kết nối region gần nhất nhưng mỗi conversation có một home region để giữ sequence và write ownership. Toàn hệ thống vẫn active–active vì conversations khác nhau có owners ở các regions khác nhau. Regional failover tăng owner epoch và fence owner cũ để tránh split-brain.</p>
+</blockquote>
+<hr>
+<h1 id="155-framework-45-phút">155. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- 1-1/group
+- WebSocket
+- Offline
+- Receipts
+- Media
+- Multi-device
+</div></code></pre>
+<h2 id="phút-510-estimation">Phút 5–10: Estimation</h2>
+<pre class="hljs"><code><div>- DAU
+- Concurrent connections
+- Messages/second
+- Storage
+</div></code></pre>
+<h2 id="phút-1020-architecture">Phút 10–20: Architecture</h2>
+<pre class="hljs"><code><div>Gateway
+→ Chat Service
+→ Message Store
+→ Event Stream
+→ Delivery
+</div></code></pre>
+<h2 id="phút-2030-deep-dive">Phút 20–30: Deep Dive</h2>
+<pre class="hljs"><code><div>- Ordering
+- Message ID
+- Sequence
+- Fan-out
+- Offline sync
+</div></code></pre>
+<h2 id="phút-3040-advanced">Phút 30–40: Advanced</h2>
+<pre class="hljs"><code><div>- Group chat
+- Media
+- Presence
+- Multi-region
+</div></code></pre>
+<h2 id="phút-4045-failure-và-trade-off">Phút 40–45: Failure và Trade-Off</h2>
+<pre class="hljs"><code><div>- Duplicate
+- Failover
+- Hot groups
+- Sync vs async replication
+</div></code></pre>
+<hr>
+<h1 id="156-những-sai-lầm-phổ-biến">156. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-lưu-connection-state-trong-database-chính">Lỗi 1: Lưu Connection State trong Database chính</h2>
+<p>Heartbeat traffic làm quá tải database.</p>
+<h2 id="lỗi-2-đặt-toàn-bộ-business-logic-trong-websocket-gateway">Lỗi 2: Đặt toàn bộ Business Logic trong WebSocket Gateway</h2>
+<p>Gateway khó scale và deploy.</p>
+<h2 id="lỗi-3-ack-trước-khi-message-durable">Lỗi 3: ACK trước khi Message Durable</h2>
+<p>Có thể mất message đã báo thành công.</p>
+<h2 id="lỗi-4-ghi-message-store-và-broker-độc-lập">Lỗi 4: Ghi Message Store và Broker độc lập</h2>
+<p>Dual-write làm mất delivery event.</p>
+<h2 id="lỗi-5-dùng-client-timestamp-để-order">Lỗi 5: Dùng Client Timestamp để Order</h2>
+<p>Clock client không đáng tin.</p>
+<h2 id="lỗi-6-dùng-server-timestamp-thay-conversation-sequence">Lỗi 6: Dùng Server Timestamp thay Conversation Sequence</h2>
+<p>Clock skew vẫn có thể đảo thứ tự.</p>
+<h2 id="lỗi-7-cố-tạo-global-ordering">Lỗi 7: Cố tạo Global Ordering</h2>
+<p>Coordination không cần thiết.</p>
+<h2 id="lỗi-8-không-có-clientmessageid">Lỗi 8: Không có <code>clientMessageId</code></h2>
+<p>Retry tạo duplicate message.</p>
+<h2 id="lỗi-9-tin-websocket-delivery-là-exactly-once">Lỗi 9: Tin WebSocket Delivery là Exactly-Once</h2>
+<p>Reconnect và retry vẫn tạo duplicate.</p>
+<h2 id="lỗi-10-không-có-offline-sync">Lỗi 10: Không có Offline Sync</h2>
+<p>Mất connection đồng nghĩa mất message.</p>
+<h2 id="lỗi-11-fan-out-một-triệu-delivery-jobs-cho-group-lớn">Lỗi 11: Fan-Out một triệu Delivery Jobs cho Group lớn</h2>
+<p>Write amplification rất lớn.</p>
+<h2 id="lỗi-12-lưu-media-trong-message-database">Lỗi 12: Lưu Media trong Message Database</h2>
+<p>Storage và bandwidth không phù hợp.</p>
+<h2 id="lỗi-13-presence-dùng-strong-consistency">Lỗi 13: Presence dùng Strong Consistency</h2>
+<p>Tốn coordination cho dữ liệu mềm.</p>
+<h2 id="lỗi-14-broadcast-presence-tới-mọi-follower">Lỗi 14: Broadcast Presence tới mọi Follower</h2>
+<p>Fan-out explosion.</p>
+<h2 id="lỗi-15-ack-từng-message-riêng-lẻ">Lỗi 15: ACK từng Message riêng lẻ</h2>
+<p>Receipt traffic quá lớn; nên cumulative ACK.</p>
+<h2 id="lỗi-16-update-hot-message-row-cho-mọi-read-receipt">Lỗi 16: Update Hot Message Row cho mọi Read Receipt</h2>
+<p>Tạo write contention.</p>
+<h2 id="lỗi-17-không-xử-lý-sequence-gap">Lỗi 17: Không xử lý Sequence Gap</h2>
+<p>Client có thể hiển thị sai thứ tự hoặc thiếu message.</p>
+<h2 id="lỗi-18-push-chứa-nội-dung-nhạy-cảm-mặc-định">Lỗi 18: Push chứa Nội dung Nhạy cảm mặc định</h2>
+<p>Lock screen có thể lộ thông tin.</p>
+<h2 id="lỗi-19-signed-media-url-không-expire">Lỗi 19: Signed Media URL không Expire</h2>
+<p>File có thể bị chia sẻ ngoài conversation.</p>
+<h2 id="lỗi-20-multi-region-nhưng-mỗi-region-cùng-cấp-sequence">Lỗi 20: Multi-Region nhưng mỗi Region cùng cấp Sequence</h2>
+<p>Tạo split-brain ordering.</p>
+<h2 id="lỗi-21-failover-không-fencing-owner-cũ">Lỗi 21: Failover không Fencing Owner cũ</h2>
+<p>Hai regions tiếp tục append.</p>
+<h2 id="lỗi-22-coi-presence-offline-là-chắc-chắn">Lỗi 22: Coi Presence Offline là Chắc chắn</h2>
+<p>Lease và network có độ trễ.</p>
+<h2 id="lỗi-23-buffer-vô-hạn-cho-slow-client">Lỗi 23: Buffer vô hạn cho Slow Client</h2>
+<p>Gateway có thể hết memory.</p>
+<h2 id="lỗi-24-không-phân-biệt-durable-và-ephemeral-events">Lỗi 24: Không phân biệt Durable và Ephemeral Events</h2>
+<p>Typing được lưu vô ích hoặc messages bị drop.</p>
+<h2 id="lỗi-25-unread-count-được-coi-là-financial-truth">Lỗi 25: Unread Count được coi là Financial Truth</h2>
+<p>Projection có thể tạm lệch và cần reconciliation.</p>
+<hr>
+<h1 id="157-bảng-ghi-nhớ-nhanh">157. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WebSocket Gateway</td>
+<td>Giữ kết nối realtime</td>
+</tr>
+<tr>
+<td>Connection Registry</td>
+<td>User/device đang ở gateway nào</td>
+</tr>
+<tr>
+<td>Chat Service</td>
+<td>Validate và append message</td>
+</tr>
+<tr>
+<td>Client message ID</td>
+<td>Deduplicate retry</td>
+</tr>
+<tr>
+<td>Message ID</td>
+<td>Identity authoritative</td>
+</tr>
+<tr>
+<td>Conversation sequence</td>
+<td>Ordering trong conversation</td>
+</tr>
+<tr>
+<td>Conversation owner</td>
+<td>Cấp sequence và write ownership</td>
+</tr>
+<tr>
+<td>Message Store</td>
+<td>Lưu lịch sử durable</td>
+</tr>
+<tr>
+<td>Outbox</td>
+<td>Đồng bộ storage với event stream</td>
+</tr>
+<tr>
+<td>Delivery Service</td>
+<td>Route message tới devices</td>
+</tr>
+<tr>
+<td>Offline sync</td>
+<td>Lấy lại message sau reconnect</td>
+</tr>
+<tr>
+<td>Delivery cursor</td>
+<td>Sequence đã nhận</td>
+</tr>
+<tr>
+<td>Read cursor</td>
+<td>Sequence đã đọc</td>
+</tr>
+<tr>
+<td>Presence</td>
+<td>Online state mềm</td>
+</tr>
+<tr>
+<td>Typing</td>
+<td>Event ephemeral</td>
+</tr>
+<tr>
+<td>Object Storage</td>
+<td>Lưu media</td>
+</tr>
+<tr>
+<td>Push Service</td>
+<td>Báo user offline</td>
+</tr>
+<tr>
+<td>Home region</td>
+<td>Region sở hữu conversation</td>
+</tr>
+<tr>
+<td>Owner epoch</td>
+<td>Fencing sau failover</td>
+</tr>
+<tr>
+<td>Shared log</td>
+<td>Lưu message một lần cho group</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="158-sơ-đồ-tổng-hợp">158. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Clients --> GlobalEdge
+
+    GlobalEdge --> Gateway[WebSocket Gateways]
+    Gateway --> Registry[Connection Registry]
+    Gateway --> Chat[Chat Service]
+
+    Chat --> Directory[Conversation Directory]
+    Chat --> Sequencer[Conversation Owner / Sequencer]
+    Sequencer --> MessageStore[(Message Store)]
+    Sequencer --> Outbox[(Outbox)]
+
+    Outbox --> Stream[Message Event Stream]
+    Stream --> Delivery[Delivery Service]
+
+    Delivery --> Registry
+    Delivery --> Gateway
+    Delivery --> Push[Push Notification]
+
+    Stream --> ConversationProjection[(Conversation List Projection)]
+    Stream --> Search[Search Index]
+    Stream --> Analytics[Analytics]
+
+    Clients --> MediaAPI
+    MediaAPI --> ObjectStorage[(Object Storage)]
+    ObjectStorage --> Scanner[Scan / Transcode]
+    ObjectStorage --> CDN
+</div></code></pre>
+<hr>
+<h1 id="159-những-điều-phải-nhớ-sau-bài-24">159. Những Điều Phải Nhớ sau Bài 24</h1>
+<pre class="hljs"><code><div>1. Chat là bài toán connection, storage, ordering và synchronization.
+2. WebSocket phù hợp cho giao tiếp realtime hai chiều.
+3. Gateway nên tách khỏi business message processing.
+4. Connection registry phải hỗ trợ nhiều devices/user.
+5. Registry nên dùng lease vì disconnect event không đáng tin tuyệt đối.
+6. Client phải tạo stable clientMessageId.
+7. Retry phải dùng cùng clientMessageId.
+8. Server messageId và conversation sequence có vai trò khác nhau.
+9. Ordering chỉ cần trong cùng conversation.
+10. Conversation sequence tốt hơn timestamp cho ordering.
+11. Mỗi conversation cần một write owner hoặc atomic sequencer.
+12. Message chỉ được ACK sau khi durable.
+13. Outbox giải quyết dual-write giữa message store và event stream.
+14. Delivery transport có thể at-least-once.
+15. Client phải deduplicate.
+16. Client phải phát hiện sequence gaps.
+17. Realtime delivery không thay thế offline sync.
+18. Message Store là nguồn durable cho user offline.
+19. Multi-device cần fan-out tới recipient và sender devices.
+20. Delivered và read nên dùng cumulative cursor.
+21. Read receipt có thể eventual consistent.
+22. Group nhỏ phù hợp fan-out on write.
+23. Group lớn nên dùng shared log hoặc hybrid fan-out.
+24. Presence và typing là ephemeral.
+25. Presence không cần strong consistency.
+26. Presence subscription nên giới hạn theo interest.
+27. Push notification chỉ là fallback, không phải message storage.
+28. Push có thể collapse theo conversation.
+29. Media upload nên trực tiếp Object Storage.
+30. Media cần scan, transcode và access control.
+31. Message edit/delete cần version hoặc event.
+32. Membership phải được kiểm tra server-side.
+33. Membership sequence/version giải quyết races.
+34. Conversation list là projection, không phải source of truth.
+35. Unread count có thể tạm lệch.
+36. Slow clients cần backpressure và bounded buffer.
+37. Durable events không được drop như typing events.
+38. Multi-region nên có một home region cho mỗi conversation.
+39. Partitioned active–active cho phép nhiều regions cùng hoạt động mà không multi-write cùng conversation.
+40. Directory ánh xạ conversation tới owner region.
+41. Owner epoch dùng để fence owner cũ.
+42. Sync cross-region giảm RPO nhưng tăng latency.
+43. Async replication giảm latency nhưng có thể mất acknowledged message khi disaster.
+44. Failover phải resume từ committed sequence.
+45. Stable clientMessageId hỗ trợ retry sau failover.
+46. Presence multi-region có thể eventual.
+47. Message content không nên xuất hiện trong standard logs.
+48. E2EE ảnh hưởng search, backup và multi-device keys.
+49. DR nên ưu tiên text messaging và sync trước các feature phụ.
+50. Kiến trúc tốt bảo đảm message durable trước, realtime delivery sau.
+</div></code></pre>
+<hr>
+<h1 id="160-bài-tập-thiết-kế-mở-rộng">160. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Chat System với yêu cầu:</p>
+<pre class="hljs"><code><div>- 500 triệu DAU
+- 50 triệu concurrent WebSocket connections
+- 50 tỷ messages/ngày
+- Chat 1-1 và group tối đa 1 triệu thành viên
+- User có tối đa 10 devices
+- Message delivery dưới 500 ms khi online
+- Hỗ trợ ảnh, video và file 2 GB
+- Multi-region active–active
+- Không mất acknowledged messages khi mất một region
+- Một số tenants yêu cầu data residency
+- Hỗ trợ disappearing messages và E2EE
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Mỗi Gateway giữ bao nhiêu connections?
+2. Connection registry partition theo key nào?
+3. Gateway discovery hoạt động ra sao?
+4. Client reconnect và sync bằng cursor nào?
+5. ClientMessageId được tạo thế nào?
+6. Conversation sequence được cấp ở đâu?
+7. Một conversation có một owner hay nhiều leaders?
+8. Message Store partition và bucket thế nào?
+9. Group một triệu members fan-out ra sao?
+10. Online delivery và offline sync kết hợp thế nào?
+11. Read cursor lưu per-device hay per-user?
+12. Message gap được client xử lý ra sao?
+13. Hot conversation được phát hiện thế nào?
+14. Presence được phân phối tới contacts ra sao?
+15. Typing events được rate-limit thế nào?
+16. Push notification bị suppress khi user active thế nào?
+17. Media upload và scan flow ra sao?
+18. Signed media URL tồn tại bao lâu?
+19. Message edit/delete đồng bộ ra sao?
+20. Membership race được xử lý bằng version nào?
+21. Multi-region directory được lưu ở đâu?
+22. Conversation home region được chọn thế nào?
+23. Synchronous replication quorum đặt ở regions nào?
+24. Region failover tăng owner epoch ra sao?
+25. Old owner bị fence ở lớp nào?
+26. E2EE keys được sync tới nhiều devices thế nào?
+27. Search hoạt động thế nào với E2EE?
+28. Disappearing messages được cleanup khỏi backups thế nào?
+29. Data residency ảnh hưởng replication ra sao?
+30. Metrics và SLO quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-3">Kết luận Case Study 3</h1>
+<p>Kiến trúc cốt lõi của Chat System có thể tóm tắt:</p>
+<pre class="hljs"><code><div>Persistent connection
+→ Authenticated send command
+→ Per-conversation durable append
+→ Event-driven delivery
+→ Device acknowledgements
+→ Cursor-based offline sync
+</div></code></pre>
+<p>Điểm quan trọng nhất:</p>
+<blockquote>
+<p><strong>WebSocket làm chat có cảm giác realtime, nhưng Message Store, sequence, idempotency và offline sync mới là những thành phần bảo đảm chat đúng và không mất dữ liệu.</strong></p>
+</blockquote>
+<p><strong>Bài 25 — Case Study 4: Thiết kế News Feed:</strong> post creation, follower graph, fan-out on write, fan-out on read, celebrity problem, ranking, pagination, caching, privacy và multi-region.</p>
+
+</body>
+</html>

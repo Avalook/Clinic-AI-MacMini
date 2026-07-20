@@ -1,0 +1,2995 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 34 — Case Study 13: Thiết kế Metrics, Logging và Monitoring Platform.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-34--case-study-13-thiết-kế-metrics-logging-và-monitoring-platform">Bài 34 — Case Study 13: Thiết kế Metrics, Logging và Monitoring Platform</h1>
+<p>Một nền tảng monitoring thu thập tín hiệu từ hàng nghìn hoặc hàng triệu máy chủ, container và ứng dụng để trả lời:</p>
+<pre class="hljs"><code><div>Hệ thống có đang hoạt động không?
+Có thành phần nào chậm hoặc lỗi không?
+Sự cố bắt đầu từ khi nào?
+Những request, service hoặc khách hàng nào bị ảnh hưởng?
+Có cần cảnh báo đội vận hành ngay không?
+</div></code></pre>
+<p>Ba loại tín hiệu observability phổ biến:</p>
+<pre class="hljs"><code><div>Metrics:
+Số liệu tổng hợp theo thời gian.
+
+Logs:
+Các bản ghi sự kiện chi tiết.
+
+Traces:
+Đường đi của một request qua nhiều service.
+</div></code></pre>
+<p>Trong bài này, trọng tâm là metrics và logs, nhưng traces sẽ được đề cập khi cần liên kết dữ liệu.</p>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Agents/Collectors
+→ Ingestion Gateway
+→ Durable Stream
+→ Metrics/Log Processing
+→ Time-Series và Log Storage
+→ Query Engine
+→ Dashboards và Alerting
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Hệ thống hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Thu thập metrics từ hosts, containers và applications.
+2. Thu thập structured/unstructured logs.
+3. Push hoặc pull collection.
+4. Multi-tenant ingestion.
+5. Time-series storage.
+6. Log storage và indexing.
+7. Aggregation và downsampling.
+8. Retention nhiều tầng.
+9. Query và dashboard.
+10. Alerting.
+11. Silencing, deduplication và notification routing.
+12. High-cardinality protection.
+13. Multi-region.
+14. RBAC, audit và quota.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- APM tracing engine hoàn chỉnh
+- Full security information and event management
+- Machine-learning anomaly detection chuyên sâu
+- Incident management platform hoàn chỉnh
+- Long-term data lake analytics tổng quát
+</div></code></pre>
+<hr>
+<h1 id="2-functional-requirements">2. Functional Requirements</h1>
+<h2 id="metrics">Metrics</h2>
+<pre class="hljs"><code><div>- Ghi samples theo timestamp.
+- Query theo khoảng thời gian.
+- Filter theo labels.
+- Aggregate sum, avg, min, max, count.
+- Tính rate, percentile và histogram.
+- Group by service, region hoặc status.
+</div></code></pre>
+<h2 id="logs">Logs</h2>
+<pre class="hljs"><code><div>- Ingest log lines hoặc structured events.
+- Search theo thời gian.
+- Filter theo service, host, severity và fields.
+- Full-text search.
+- Aggregate log counts.
+- Xem log context trước và sau một event.
+</div></code></pre>
+<h2 id="monitoring">Monitoring</h2>
+<pre class="hljs"><code><div>- Dashboard.
+- Alert rules.
+- Notification.
+- Silence.
+- Alert grouping.
+- Alert history.
+- Service health overview.
+</div></code></pre>
+<hr>
+<h1 id="3-non-functional-requirements">3. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Ingestion throughput rất cao.
+- Không để monitoring làm ảnh hưởng production workload.
+- Chấp nhận một phần eventual consistency.
+- Dữ liệu mới phải query được gần realtime.
+- Query lịch sử phải hoàn thành trong thời gian hợp lý.
+- Alert không được bỏ sót sự cố nghiêm trọng.
+- Một tenant không làm chậm tenant khác.
+- Hệ thống phải chịu được cardinality tăng đột biến.
+- Có thể mất một node hoặc một zone mà không mất dữ liệu đã ACK.
+- Có retention và cost controls rõ ràng.
+</div></code></pre>
+<hr>
+<h1 id="4-metrics-logs-và-traces-khác-nhau-thế-nào">4. Metrics, Logs và Traces khác nhau thế nào?</h1>
+<h2 id="metrics-1">Metrics</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>http_requests_total{
+  service=&quot;checkout&quot;,
+  status=&quot;500&quot;,
+  region=&quot;ap-southeast&quot;
+} 12543
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Dữ liệu số.
+- Có labels.
+- Được tối ưu cho aggregation.
+- Storage trên mỗi sự kiện thấp.
+- Không giữ toàn bộ chi tiết của từng request.
+</div></code></pre>
+<h2 id="logs-1">Logs</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T10:00:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;checkout&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;level&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ERROR&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Payment provider timeout&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Đặc điểm:</p>
+<pre class="hljs"><code><div>- Chi tiết hơn.
+- Có thể chứa text hoặc structured fields.
+- Volume lớn.
+- Search linh hoạt nhưng đắt hơn metrics.
+</div></code></pre>
+<h2 id="traces">Traces</h2>
+<pre class="hljs"><code><div>Request
+→ API Gateway
+→ Order Service
+→ Payment Service
+→ Provider
+</div></code></pre>
+<p>Traces liên kết spans bằng trace ID.</p>
+<hr>
+<h1 id="5-khi-nào-dùng-metrics-logs-hay-traces">5. Khi nào dùng Metrics, Logs hay Traces?</h1>
+<pre class="hljs"><code><div>Metrics:
+Phát hiện hệ thống đang có vấn đề.
+
+Logs:
+Giải thích sự kiện cụ thể đã xảy ra.
+
+Traces:
+Xác định request bị chậm ở service nào.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Metric:
+Error rate tăng từ 1% lên 20%.
+
+Log:
+Payment provider trả timeout.
+
+Trace:
+90% latency nằm ở Payment Service → Provider.
+</div></code></pre>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử nền tảng phục vụ:</p>
+<pre class="hljs"><code><div>100.000 hosts
+2 triệu containers
+10 triệu active time series
+50 triệu log events/giây peak
+2 triệu metric samples/giây trung bình
+</div></code></pre>
+<p>Nếu một metric sample sau encoding trung bình 20 byte:</p>
+<pre class="hljs"><code><div>2.000.000 × 20
+= 40 MB/giây
+≈ 3,5 TB/ngày
+</div></code></pre>
+<p>Với replication và indexes:</p>
+<pre class="hljs"><code><div>Có thể thành 10–20 TB/ngày.
+</div></code></pre>
+<p>Logs lớn hơn nhiều.</p>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>10 triệu log events/giây trung bình
+Average event = 500 bytes
+</div></code></pre>
+<p>thì:</p>
+<pre class="hljs"><code><div>5 GB/giây
+≈ 432 TB/ngày raw
+</div></code></pre>
+<p>Đây là lý do logs cần compression, tiered storage và selective indexing.</p>
+<hr>
+<h1 id="7-metrics-thường-nhỏ-nhưng-cardinality-rất-lớn">7. Metrics thường nhỏ nhưng Cardinality rất lớn</h1>
+<p>Một metric name:</p>
+<pre class="hljs"><code><div>http_request_duration_seconds
+</div></code></pre>
+<p>có labels:</p>
+<pre class="hljs"><code><div>service
+region
+method
+status
+endpoint
+</div></code></pre>
+<p>Mỗi tổ hợp labels tạo một time series riêng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>100 services
+× 5 regions
+× 5 methods
+× 10 status groups
+× 1.000 endpoints
+= 25 triệu series
+</div></code></pre>
+<p>Dù số samples/giây không quá lớn, metadata và indexes có thể rất đắt.</p>
+<hr>
+<h1 id="8-high-level-architecture">8. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Apps[Applications / Hosts / Containers] --> Agents[Agents / Collectors]
+    Agents --> Ingest[Regional Ingestion Gateway]
+
+    Ingest --> Auth[Auth / Tenant Quota]
+    Auth --> Stream[Durable Ingestion Stream]
+
+    Stream --> MetricProcessor[Metrics Processor]
+    Stream --> LogProcessor[Log Processor]
+
+    MetricProcessor --> Head[Metrics Head / Recent Store]
+    MetricProcessor --> TSDB[(Time-Series Blocks)]
+
+    LogProcessor --> LogBuffer[Log Buffer]
+    LogProcessor --> LogIndex[(Log Index)]
+    LogProcessor --> LogArchive[(Object Storage)]
+
+    TSDB --> QueryEngine[Metrics Query Engine]
+    Head --> QueryEngine
+    LogIndex --> LogQuery[Log Query Engine]
+    LogArchive --> LogQuery
+
+    QueryEngine --> Dashboard[Dashboards]
+    LogQuery --> Dashboard
+
+    QueryEngine --> AlertEvaluator[Alert Evaluator]
+    AlertEvaluator --> AlertManager
+    AlertManager --> Notifications[Email / Chat / Pager]
+</div></code></pre>
+<hr>
+<h1 id="9-tách-data-plane-và-control-plane">9. Tách Data Plane và Control Plane</h1>
+<h2 id="data-plane">Data plane</h2>
+<pre class="hljs"><code><div>- Metric ingestion
+- Log ingestion
+- Storage
+- Query execution
+- Alert evaluation
+</div></code></pre>
+<h2 id="control-plane">Control plane</h2>
+<pre class="hljs"><code><div>- Tenant configuration
+- Dashboards
+- Alert rules
+- Retention policy
+- RBAC
+- API keys
+- Data source configuration
+</div></code></pre>
+<p>Control plane tải thấp hơn nhưng yêu cầu consistency và audit tốt.</p>
+<hr>
+<h1 id="10-agent-collection">10. Agent Collection</h1>
+<p>Agent chạy gần workload:</p>
+<pre class="hljs"><code><div>- Trên host
+- Sidecar container
+- DaemonSet trong Kubernetes
+- Library trong application
+- Central collector
+</div></code></pre>
+<p>Agent chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Đọc metrics và logs.
+- Gắn metadata.
+- Buffer.
+- Batch.
+- Compress.
+- Retry.
+- Rate limit.
+</div></code></pre>
+<hr>
+<h1 id="11-vì-sao-cần-agent">11. Vì sao cần Agent?</h1>
+<p>Nếu mọi ứng dụng gửi trực tiếp tới backend:</p>
+<pre class="hljs"><code><div>- Mỗi ứng dụng phải tự retry.
+- Monitoring endpoint lỗi có thể làm application chậm.
+- Không kiểm soát batching.
+- Khó cập nhật protocol.
+- Không có local buffering.
+</div></code></pre>
+<p>Agent tạo một lớp cách ly giữa production application và observability backend.</p>
+<hr>
+<h1 id="12-agent-phải-không-làm-ảnh-hưởng-application">12. Agent phải không làm ảnh hưởng Application</h1>
+<p>Agent cần:</p>
+<pre class="hljs"><code><div>- CPU limit.
+- Memory limit.
+- Disk buffer limit.
+- Network bandwidth limit.
+- Backpressure policy.
+</div></code></pre>
+<p>Nếu backend monitoring lỗi:</p>
+<pre class="hljs"><code><div>Ứng dụng vẫn phải tiếp tục hoạt động.
+</div></code></pre>
+<p>Tùy signal, agent có thể:</p>
+<pre class="hljs"><code><div>- Buffer.
+- Sample.
+- Drop dữ liệu cũ.
+- Drop low-priority logs.
+</div></code></pre>
+<hr>
+<h1 id="13-push-và-pull-collection">13. Push và Pull Collection</h1>
+<h2 id="push">Push</h2>
+<p>Application hoặc agent gửi dữ liệu tới backend.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Phù hợp logs và events.
+- Phù hợp short-lived jobs.
+- Không cần backend biết mọi target.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Khó biết target đã chết hay chỉ không gửi.
+- Clients phải retry và buffer.
+</div></code></pre>
+<h2 id="pull">Pull</h2>
+<p>Collector định kỳ scrape target.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Backend kiểm soát schedule.
+- Dễ phát hiện target unreachable.
+- Target không cần biết backend.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Cần service discovery.
+- Khó với short-lived workload.
+- Network topology có thể phức tạp.
+</div></code></pre>
+<hr>
+<h1 id="14-thiết-kế-hybrid">14. Thiết kế Hybrid</h1>
+<p>Một hệ thống thực tế có thể:</p>
+<pre class="hljs"><code><div>Metrics:
+Pull từ service endpoints hoặc push qua agent.
+
+Logs:
+Push qua agents.
+
+Cloud/provider metrics:
+Pull từ APIs.
+
+Short-lived jobs:
+Push qua gateway hoặc collector.
+</div></code></pre>
+<p>Không cần ép mọi loại dữ liệu vào một collection model.</p>
+<hr>
+<h1 id="15-agent-buffer">15. Agent Buffer</h1>
+<p>Agent giữ local queue:</p>
+<pre class="hljs"><code><div>memory queue
+→ disk WAL
+→ remote backend
+</div></code></pre>
+<p>Nếu backend tạm lỗi:</p>
+<pre class="hljs"><code><div>- Ghi xuống disk.
+- Retry với backoff.
+- Xóa sau ACK.
+</div></code></pre>
+<p>Nếu disk đầy:</p>
+<pre class="hljs"><code><div>- Drop oldest.
+- Drop debug logs trước.
+- Sample.
+- Alert local health.
+</div></code></pre>
+<hr>
+<h1 id="16-agent-write-ahead-log">16. Agent Write-Ahead Log</h1>
+<p>Agent WAL record:</p>
+<pre class="hljs"><code><div>batchId
+tenantId
+signalType
+payload
+createdAt
+retryCount
+</div></code></pre>
+<p>Sau khi backend ACK:</p>
+<pre class="hljs"><code><div>Đánh dấu segment có thể xóa.
+</div></code></pre>
+<p>WAL không nên tăng vô hạn.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>maxDiskBytes
+maxAge
+segmentRotation
+</div></code></pre>
+<hr>
+<h1 id="17-batching">17. Batching</h1>
+<p>Không gửi từng metric sample hoặc từng log line riêng lẻ.</p>
+<p>Batch theo:</p>
+<pre class="hljs"><code><div>- Số events.
+- Tổng bytes.
+- Thời gian.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Gửi khi:
+- Đủ 1 MB
+- Hoặc 5.000 events
+- Hoặc sau 1 giây
+</div></code></pre>
+<p>Batch lớn:</p>
+<pre class="hljs"><code><div>- Compression tốt.
+- Ít network calls.
+</div></code></pre>
+<p>Batch quá lớn:</p>
+<pre class="hljs"><code><div>- Tăng latency.
+- Retry tốn kém.
+- Memory cao.
+</div></code></pre>
+<hr>
+<h1 id="18-compression">18. Compression</h1>
+<p>Metrics và logs có nhiều lặp lại:</p>
+<pre class="hljs"><code><div>service names
+timestamps gần nhau
+label names
+common log templates
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Snappy-like compression cho low latency.
+- Zstd-like compression cho storage.
+- Delta encoding cho timestamps.
+- Dictionary encoding cho labels.
+</div></code></pre>
+<hr>
+<h1 id="19-ingestion-gateway">19. Ingestion Gateway</h1>
+<p>Gateway chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Authenticate.
+- Resolve tenant.
+- Validate payload.
+- Enforce limits.
+- Normalize protocol.
+- Assign ingestion timestamp.
+- Route shard.
+- Write durable stream.
+</div></code></pre>
+<p>Gateway không nên thực hiện query hoặc aggregation nặng.</p>
+<hr>
+<h1 id="20-ingestion-api">20. Ingestion API</h1>
+<p>Metric batch:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;tenantId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;tenant_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;series&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;metric&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;http_requests_total&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;labels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;checkout&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;500&quot;</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;samples&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span><span class="hljs-number">1720951200</span><span class="hljs-punctuation">,</span> <span class="hljs-number">100</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-punctuation">[</span><span class="hljs-number">1720951260</span><span class="hljs-punctuation">,</span> <span class="hljs-number">120</span><span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Log batch:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;tenantId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;tenant_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;streams&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;labels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;checkout&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;level&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ERROR&quot;</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;entries&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;line&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Payment timeout&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="21-authentication-và-tenant-resolution">21. Authentication và Tenant Resolution</h1>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- API key
+- mTLS
+- Workload identity
+- OAuth token
+- Cloud role
+</div></code></pre>
+<p>Không tin <code>tenantId</code> do client gửi nếu token không cho phép tenant đó.</p>
+<p>Gateway suy ra:</p>
+<pre class="hljs"><code><div>credential → tenantId → limits/policies
+</div></code></pre>
+<hr>
+<h1 id="22-ingestion-validation">22. Ingestion Validation</h1>
+<p>Kiểm tra:</p>
+<pre class="hljs"><code><div>- Timestamp hợp lệ.
+- Metric name hợp lệ.
+- Label name/value length.
+- Payload size.
+- Log line size.
+- Number of labels.
+- Number of new series.
+- Future/past timestamp limits.
+</div></code></pre>
+<p>Không nên để malformed payload đi sâu vào storage pipeline.</p>
+<hr>
+<h1 id="23-timestamp-semantics">23. Timestamp Semantics</h1>
+<p>Có hai timestamp:</p>
+<pre class="hljs"><code><div>eventTimestamp:
+Do client tạo.
+
+ingestionTimestamp:
+Backend nhận.
+</div></code></pre>
+<p>Client timestamp có thể sai vì:</p>
+<pre class="hljs"><code><div>- Clock skew.
+- Device resume.
+- Buffer lâu.
+- Time zone bug.
+</div></code></pre>
+<p>Backend cần giới hạn:</p>
+<pre class="hljs"><code><div>Không chấp nhận sample quá xa trong tương lai.
+</div></code></pre>
+<hr>
+<h1 id="24-out-of-order-samples">24. Out-of-Order Samples</h1>
+<p>Metrics có thể tới:</p>
+<pre class="hljs"><code><div>t=100
+t=120
+t=110
+</div></code></pre>
+<p>do batching và retry.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>1. Reject sample cũ.
+2. Cho phép một out-of-order window.
+3. Buffer và sort.
+4. Ghi vào late-data block riêng.
+</div></code></pre>
+<p>Cho phép out-of-order quá rộng làm TSDB phức tạp và giảm compression.</p>
+<hr>
+<h1 id="25-duplicate-samples">25. Duplicate Samples</h1>
+<p>Agent retry batch do mất ACK.</p>
+<p>Backend có thể nhận cùng sample nhiều lần.</p>
+<p>Đối với metrics:</p>
+<pre class="hljs"><code><div>Same series + same timestamp
+</div></code></pre>
+<p>có thể:</p>
+<pre class="hljs"><code><div>- Deduplicate.
+- Last value wins.
+- Reject nếu value khác.
+</div></code></pre>
+<p>Đối với logs, duplicate detection khó hơn vì nhiều log thật có nội dung giống nhau.</p>
+<hr>
+<h1 id="26-ingestion-ack-semantics">26. Ingestion ACK Semantics</h1>
+<p>ACK nên nghĩa:</p>
+<pre class="hljs"><code><div>Dữ liệu đã được ghi bền vững vào ingestion log/quorum.
+</div></code></pre>
+<p>Không cần chờ:</p>
+<pre class="hljs"><code><div>- Compaction
+- Long-term storage
+- Dashboard update
+</div></code></pre>
+<p>Nếu ACK trước durable write:</p>
+<pre class="hljs"><code><div>Node chết có thể làm mất dữ liệu mà client đã xóa khỏi buffer.
+</div></code></pre>
+<hr>
+<h1 id="27-durable-ingestion-stream">27. Durable Ingestion Stream</h1>
+<p>Một durable stream giúp:</p>
+<pre class="hljs"><code><div>- Tách ingestion và storage.
+- Hấp thụ traffic spike.
+- Replay.
+- Scale consumers độc lập.
+- Xử lý nhiều downstream.
+</div></code></pre>
+<p>Partition key có thể là:</p>
+<pre class="hljs"><code><div>tenantId + seriesHash
+</div></code></pre>
+<p>cho metrics, và:</p>
+<pre class="hljs"><code><div>tenantId + streamHash
+</div></code></pre>
+<p>cho logs.</p>
+<hr>
+<h1 id="28-backpressure">28. Backpressure</h1>
+<p>Nếu storage chậm:</p>
+<pre class="hljs"><code><div>Stream lag tăng.
+</div></code></pre>
+<p>Nếu lag vượt giới hạn:</p>
+<pre class="hljs"><code><div>- Autoscale consumers.
+- Throttle tenant.
+- Sample/drop low-priority data.
+- Increase agent buffering.
+</div></code></pre>
+<p>Không để ingestion gateway giữ request connections vô hạn.</p>
+<hr>
+<h1 id="29-metric-types">29. Metric Types</h1>
+<h2 id="counter">Counter</h2>
+<p>Chỉ tăng hoặc reset:</p>
+<pre class="hljs"><code><div>http_requests_total
+</div></code></pre>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>rate()
+increase()
+</div></code></pre>
+<h2 id="gauge">Gauge</h2>
+<p>Có thể tăng hoặc giảm:</p>
+<pre class="hljs"><code><div>memory_usage_bytes
+queue_depth
+</div></code></pre>
+<h2 id="histogram">Histogram</h2>
+<p>Phân phối observations theo buckets:</p>
+<pre class="hljs"><code><div>request_duration_seconds_bucket
+</div></code></pre>
+<h2 id="summary">Summary</h2>
+<p>Client tính quantiles hoặc aggregated statistics.</p>
+<hr>
+<h1 id="30-counter-reset">30. Counter Reset</h1>
+<p>Counter có thể reset khi process restart:</p>
+<pre class="hljs"><code><div>1000 → 20
+</div></code></pre>
+<p>Query <code>rate</code> phải phát hiện reset thay vì coi là negative traffic.</p>
+<p>Counter nên:</p>
+<pre class="hljs"><code><div>- Chỉ tăng.
+- Reset về giá trị thấp hơn khi restart.
+</div></code></pre>
+<hr>
+<h1 id="31-gauge">31. Gauge</h1>
+<p>Gauge phù hợp:</p>
+<pre class="hljs"><code><div>- CPU temperature.
+- Active connections.
+- Queue size.
+</div></code></pre>
+<p>Không dùng gauge cho cumulative event count vì không thể tính rate chính xác qua reset hoặc missing samples.</p>
+<hr>
+<h1 id="32-histogram">32. Histogram</h1>
+<p>Ví dụ buckets:</p>
+<pre class="hljs"><code><div>≤ 100 ms
+≤ 250 ms
+≤ 500 ms
+≤ 1 s
++Inf
+</div></code></pre>
+<p>Metric:</p>
+<pre class="hljs"><code><div>http_duration_bucket{le=&quot;0.1&quot;} 100
+http_duration_bucket{le=&quot;0.25&quot;} 180
+...
+</div></code></pre>
+<p>Histogram cho phép aggregate giữa instances.</p>
+<hr>
+<h1 id="33-summary-trade-off">33. Summary Trade-Off</h1>
+<p>Client-side summary có thể tính p95 trực tiếp, nhưng:</p>
+<pre class="hljs"><code><div>p95 của instance A
++
+p95 của instance B
+</div></code></pre>
+<p>không thể cộng để tạo global p95 chính xác.</p>
+<p>Histograms aggregate tốt hơn giữa machines.</p>
+<hr>
+<h1 id="34-metric-labels">34. Metric Labels</h1>
+<p>Labels tốt:</p>
+<pre class="hljs"><code><div>service=&quot;checkout&quot;
+region=&quot;asia-southeast&quot;
+status_class=&quot;5xx&quot;
+method=&quot;POST&quot;
+</div></code></pre>
+<p>Labels nguy hiểm:</p>
+<pre class="hljs"><code><div>user_id
+request_id
+session_id
+email
+full_url_with_query
+</div></code></pre>
+<p>Mỗi giá trị duy nhất tạo series mới.</p>
+<hr>
+<h1 id="35-high-cardinality">35. High Cardinality</h1>
+<p>Cardinality là số series riêng biệt.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>metric:
+http_request_total
+
+labels:
+service=checkout
+user_id=1...100.000.000
+</div></code></pre>
+<p>có thể tạo hàng trăm triệu series.</p>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Metadata memory tăng.
+- Index lớn.
+- Compaction chậm.
+- Query fan-out lớn.
+- Cache hit thấp.
+</div></code></pre>
+<hr>
+<h1 id="36-cardinality-budget">36. Cardinality Budget</h1>
+<p>Mỗi tenant có limits:</p>
+<pre class="hljs"><code><div>- Active series.
+- New series/minute.
+- Labels/series.
+- Label value length.
+- Samples/second.
+- Total stored series.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Max active series: 10 triệu
+Max new series: 100.000/phút
+</div></code></pre>
+<hr>
+<h1 id="37-cardinality-explosion-detection">37. Cardinality Explosion Detection</h1>
+<p>Theo dõi:</p>
+<pre class="hljs"><code><div>- New series rate.
+- Active series by metric.
+- Top label names by distinct values.
+- Top tenants by series creation.
+- Series churn.
+</div></code></pre>
+<p>Alert:</p>
+<pre class="hljs"><code><div>Metric X tạo 1 triệu series mới trong 5 phút.
+</div></code></pre>
+<hr>
+<h1 id="38-series-churn">38. Series Churn</h1>
+<p>Một tenant có thể không có quá nhiều active series cùng lúc nhưng liên tục tạo series mới:</p>
+<pre class="hljs"><code><div>pod_id thay đổi mỗi deployment
+request_id thay đổi mỗi request
+</div></code></pre>
+<p>Điều này tạo metadata và small chunks lớn.</p>
+<p>Cần limit cả:</p>
+<pre class="hljs"><code><div>- Active cardinality.
+- Series creation rate.
+</div></code></pre>
+<hr>
+<h1 id="39-label-dropping-và-relabeling">39. Label Dropping và Relabeling</h1>
+<p>Collector có thể:</p>
+<pre class="hljs"><code><div>- Drop labels.
+- Rename labels.
+- Map dynamic paths.
+- Convert status code thành status class.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/api/users/123
+/api/users/456
+</div></code></pre>
+<p>chuẩn hóa thành:</p>
+<pre class="hljs"><code><div>/api/users/:id
+</div></code></pre>
+<hr>
+<h1 id="40-exemplar">40. Exemplar</h1>
+<p>Thay vì đưa <code>trace_id</code> thành metric label, lưu một số trace IDs như exemplar:</p>
+<pre class="hljs"><code><div>Histogram bucket
+→ Sample trace ID liên quan
+</div></code></pre>
+<p>Giúp từ metric spike chuyển sang trace mà không làm tăng series cardinality.</p>
+<hr>
+<h1 id="41-time-series-data-model">41. Time-Series Data Model</h1>
+<p>Một time series được xác định bởi:</p>
+<pre class="hljs"><code><div>tenantId
+metricName
+sorted label set
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>http_requests_total{
+  service=&quot;checkout&quot;,
+  region=&quot;vn&quot;,
+  status=&quot;500&quot;
+}
+</div></code></pre>
+<p>Series ID có thể là hash của canonical label set.</p>
+<hr>
+<h1 id="42-canonical-label-encoding">42. Canonical Label Encoding</h1>
+<p>Labels phải được sort:</p>
+<pre class="hljs"><code><div>region=vn,service=checkout,status=500
+</div></code></pre>
+<p>để:</p>
+<pre class="hljs"><code><div>Hash ổn định bất kể thứ tự client gửi.
+</div></code></pre>
+<p>Cần lưu original labels để xử lý hash collision hoặc query display.</p>
+<hr>
+<h1 id="43-tsdb-write-path">43. TSDB Write Path</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Stream --> Distributor
+    Distributor --> Ingester
+    Ingester --> WAL
+    Ingester --> HeadBlock[In-Memory Head Block]
+    HeadBlock --> Flush[Block Builder]
+    Flush --> ObjectStore[(Immutable TSDB Blocks)]
+    Flush --> IndexStore[(Block Index)]
+</div></code></pre>
+<hr>
+<h1 id="44-ingester">44. Ingester</h1>
+<p>Ingester chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Nhận samples theo series shard.
+- Validate ordering.
+- Append WAL.
+- Giữ recent samples trong memory.
+- Nén chunks.
+- Flush immutable blocks.
+</div></code></pre>
+<p>Ingester thường là stateful.</p>
+<hr>
+<h1 id="45-metrics-wal">45. Metrics WAL</h1>
+<p>Trước khi ACK nội bộ:</p>
+<pre class="hljs"><code><div>Append sample batch vào WAL.
+</div></code></pre>
+<p>Sau crash:</p>
+<pre class="hljs"><code><div>Replay WAL
+→ Rebuild recent head state.
+</div></code></pre>
+<p>WAL cần:</p>
+<pre class="hljs"><code><div>- Segmentation.
+- Checksums.
+- Truncation sau flush.
+</div></code></pre>
+<hr>
+<h1 id="46-head-block">46. Head Block</h1>
+<p>Recent data nằm trong:</p>
+<pre class="hljs"><code><div>- Memory.
+- Local disk/WAL.
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Query dữ liệu vài phút gần nhất.
+- Append hiệu quả.
+</div></code></pre>
+<p>Sau time window, ví dụ hai giờ:</p>
+<pre class="hljs"><code><div>Head block được đóng và flush thành immutable block.
+</div></code></pre>
+<hr>
+<h1 id="47-immutable-tsdb-blocks">47. Immutable TSDB Blocks</h1>
+<p>Một block có thể chứa:</p>
+<pre class="hljs"><code><div>- Time range.
+- Compressed chunks.
+- Series index.
+- Label index.
+- Statistics.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Block:
+10:00–12:00
+</div></code></pre>
+<p>Immutable blocks dễ:</p>
+<pre class="hljs"><code><div>- Upload object storage.
+- Cache.
+- Replicate.
+- Compact.
+</div></code></pre>
+<hr>
+<h1 id="48-time-partitioning">48. Time Partitioning</h1>
+<p>Data thường partition theo:</p>
+<pre class="hljs"><code><div>tenant
+time range
+series hash
+</div></code></pre>
+<p>Time partition giúp queries theo khoảng thời gian chỉ đọc blocks liên quan.</p>
+<p>Nhưng một block quá nhỏ tạo:</p>
+<pre class="hljs"><code><div>- Nhiều metadata.
+- Nhiều object requests.
+</div></code></pre>
+<p>Block quá lớn:</p>
+<pre class="hljs"><code><div>- Compaction nặng.
+- Query phải đọc nhiều dữ liệu không cần.
+</div></code></pre>
+<hr>
+<h1 id="49-series-index">49. Series Index</h1>
+<p>Query:</p>
+<pre class="hljs"><code><div>http_requests_total{
+  service=&quot;checkout&quot;,
+  region=&quot;vn&quot;
+}
+</div></code></pre>
+<p>cần tìm series IDs phù hợp.</p>
+<p>Dùng inverted index:</p>
+<pre class="hljs"><code><div>label_name=service,label_value=checkout
+→ series IDs
+</div></code></pre>
+<p>Intersect postings lists của nhiều matchers.</p>
+<hr>
+<h1 id="50-matcher-types">50. Matcher Types</h1>
+<p>Query có thể dùng:</p>
+<pre class="hljs"><code><div>=
+!=
+=~
+!~
+</div></code></pre>
+<p>Regex query trên labels có thể rất đắt.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>pod=~&quot;.*&quot;
+</div></code></pre>
+<p>khớp mọi series.</p>
+<p>Cần query limits và optimization.</p>
+<hr>
+<h1 id="51-chunk-encoding">51. Chunk Encoding</h1>
+<p>Time-series data có:</p>
+<pre class="hljs"><code><div>- Timestamps gần nhau.
+- Values thường biến đổi nhỏ.
+</div></code></pre>
+<p>Compression có thể dùng:</p>
+<pre class="hljs"><code><div>- Delta-of-delta cho timestamps.
+- XOR encoding cho floating values.
+</div></code></pre>
+<p>Làm giảm storage đáng kể.</p>
+<hr>
+<h1 id="52-compaction">52. Compaction</h1>
+<p>Nhiều small blocks được merge:</p>
+<pre class="hljs"><code><div>2 giờ
+→ 12 giờ
+→ 1 ngày
+</div></code></pre>
+<p>Compaction giúp:</p>
+<pre class="hljs"><code><div>- Giảm số objects.
+- Merge indexes.
+- Xóa duplicates.
+- Áp tombstones.
+- Tăng query efficiency.
+</div></code></pre>
+<hr>
+<h1 id="53-compaction-failure">53. Compaction Failure</h1>
+<p>Compaction phải idempotent.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Chọn input blocks.
+2. Tạo output block mới.
+3. Verify checksum.
+4. Publish block metadata.
+5. Đánh dấu input superseded.
+6. Xóa input sau grace period.
+</div></code></pre>
+<p>Không xóa input trước khi output visible.</p>
+<hr>
+<h1 id="54-downsampling">54. Downsampling</h1>
+<p>Dữ liệu raw:</p>
+<pre class="hljs"><code><div>Mỗi 10 giây
+</div></code></pre>
+<p>sau 30 ngày có thể chỉ giữ:</p>
+<pre class="hljs"><code><div>1 phút:
+min, max, sum, count
+
+5 phút:
+min, max, sum, count
+</div></code></pre>
+<p>Downsampling giảm storage và query cost cho khoảng thời gian dài.</p>
+<hr>
+<h1 id="55-downsampling-mất-gì">55. Downsampling mất gì?</h1>
+<p>Nếu chỉ giữ average:</p>
+<pre class="hljs"><code><div>Một spike 100% CPU trong 5 giây
+</div></code></pre>
+<p>có thể biến mất trong average 5 phút.</p>
+<p>Tốt hơn lưu:</p>
+<pre class="hljs"><code><div>min
+max
+sum
+count
+</div></code></pre>
+<p>và histogram aggregates khi cần.</p>
+<hr>
+<h1 id="56-retention-tiers">56. Retention Tiers</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Recent raw:
+7 ngày trên SSD/fast storage.
+
+Raw object blocks:
+30–90 ngày.
+
+Downsampled:
+1–2 năm.
+
+Archive:
+Object storage lạnh.
+</div></code></pre>
+<p>Retention theo tenant hoặc data class.</p>
+<hr>
+<h1 id="57-metrics-query-engine">57. Metrics Query Engine</h1>
+<p>Query flow:</p>
+<pre class="hljs"><code><div>1. Parse query.
+2. Authenticate tenant.
+3. Plan time ranges.
+4. Select blocks/ingesters.
+5. Resolve series.
+6. Fetch chunks.
+7. Execute functions.
+8. Merge partial results.
+9. Return response.
+</div></code></pre>
+<hr>
+<h1 id="58-query-fan-out">58. Query Fan-Out</h1>
+<p>Một query có thể cần đọc:</p>
+<pre class="hljs"><code><div>- Nhiều ingesters.
+- Hàng trăm blocks.
+- Nhiều storage shards.
+</div></code></pre>
+<p>Query frontend chia request thành:</p>
+<pre class="hljs"><code><div>- Time partitions.
+- Series partitions.
+</div></code></pre>
+<p>sau đó merge kết quả.</p>
+<hr>
+<h1 id="59-query-frontend">59. Query Frontend</h1>
+<p>Trách nhiệm:</p>
+<pre class="hljs"><code><div>- Parse và validate.
+- Split query.
+- Cache.
+- Retry partial failures.
+- Enforce limits.
+- Queue theo tenant.
+- Merge results.
+</div></code></pre>
+<p>Không nên cho client gọi trực tiếp mọi storage shard.</p>
+<hr>
+<h1 id="60-query-limits">60. Query Limits</h1>
+<p>Giới hạn:</p>
+<pre class="hljs"><code><div>- Maximum time range.
+- Maximum series matched.
+- Maximum samples loaded.
+- Maximum query runtime.
+- Maximum concurrent queries/tenant.
+- Maximum response size.
+</div></code></pre>
+<p>Nếu không, một query regex có thể làm sập cluster.</p>
+<hr>
+<h1 id="61-query-fairness">61. Query Fairness</h1>
+<p>Một tenant chạy 1.000 queries nặng không được làm tenant khác timeout.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>- Per-tenant queues.
+- Weighted fair scheduling.
+- Concurrency limits.
+- Query cost estimates.
+</div></code></pre>
+<hr>
+<h1 id="62-query-result-cache">62. Query Result Cache</h1>
+<p>Cache key:</p>
+<pre class="hljs"><code><div>tenant
+query expression
+time range
+step
+data version/block set
+</div></code></pre>
+<p>Historical queries dễ cache vì blocks immutable.</p>
+<p>Recent queries có TTL ngắn hoặc không cache.</p>
+<hr>
+<h1 id="63-query-splitting-theo-time">63. Query Splitting theo Time</h1>
+<p>Một query 30 ngày có thể chia:</p>
+<pre class="hljs"><code><div>Ngày 1
+Ngày 2
+...
+Ngày 30
+</div></code></pre>
+<p>thực thi song song.</p>
+<p>Nhưng fan-out quá lớn lại gây overload.</p>
+<p>Query planner cần giới hạn concurrency.</p>
+<hr>
+<h1 id="64-recording-rules">64. Recording Rules</h1>
+<p>Một query nặng thường xuyên:</p>
+<pre class="hljs"><code><div>sum by(service)(
+  rate(http_requests_total[5m])
+)
+</div></code></pre>
+<p>có thể được tính định kỳ và ghi thành metric mới:</p>
+<pre class="hljs"><code><div>service:http_requests_rate5m
+</div></code></pre>
+<p>Đây là recording rule.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Dashboard nhanh.
+- Alert evaluation rẻ.
+</div></code></pre>
+<hr>
+<h1 id="65-recording-rule-trade-off">65. Recording Rule Trade-Off</h1>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm query CPU.
+- Pre-aggregate cardinality.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Tốn thêm storage.
+- Có evaluation lag.
+- Rule sai cần recompute.
+</div></code></pre>
+<hr>
+<h1 id="66-logs-collection">66. Logs Collection</h1>
+<p>Agent có thể đọc:</p>
+<pre class="hljs"><code><div>- stdout/stderr containers.
+- System log files.
+- Application files.
+- Journald.
+- Cloud logging API.
+</div></code></pre>
+<p>Agent cần theo dõi:</p>
+<pre class="hljs"><code><div>file identity
+offset
+rotation
+inode
+</div></code></pre>
+<hr>
+<h1 id="67-log-rotation">67. Log Rotation</h1>
+<p>File:</p>
+<pre class="hljs"><code><div>app.log
+</div></code></pre>
+<p>được rename:</p>
+<pre class="hljs"><code><div>app.log.1
+</div></code></pre>
+<p>và tạo <code>app.log</code> mới.</p>
+<p>Agent không nên:</p>
+<pre class="hljs"><code><div>- Đọc lại toàn bộ file cũ.
+- Bỏ sót phần cuối.
+</div></code></pre>
+<p>Theo dõi inode/file ID và offset.</p>
+<hr>
+<h1 id="68-multiline-logs">68. Multiline Logs</h1>
+<p>Stack trace:</p>
+<pre class="hljs"><code><div>ERROR Exception
+  at service.A
+  at service.B
+</div></code></pre>
+<p>có nhiều dòng nhưng là một event logic.</p>
+<p>Agent cần multiline rules:</p>
+<pre class="hljs"><code><div>- Start pattern.
+- Continuation pattern.
+- Timeout.
+- Maximum lines/bytes.
+</div></code></pre>
+<p>Rules sai có thể gộp cả file thành một event rất lớn.</p>
+<hr>
+<h1 id="69-structured-logs">69. Structured Logs</h1>
+<p>Khuyến nghị:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;level&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ERROR&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;service&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;checkout&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Payment failed&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;req_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;provider&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;provider_a&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Tốt hơn plain text vì:</p>
+<pre class="hljs"><code><div>- Không cần regex parsing phức tạp.
+- Field types rõ.
+- Search chính xác.
+</div></code></pre>
+<hr>
+<h1 id="70-log-schema">70. Log Schema</h1>
+<p>Các field cơ bản:</p>
+<pre class="hljs"><code><div>timestamp
+tenant
+service
+environment
+region
+host/container
+level
+message
+traceId
+requestId
+attributes
+</div></code></pre>
+<p>Không nên index mọi field tự động.</p>
+<hr>
+<h1 id="71-log-indexing-trade-off">71. Log Indexing Trade-Off</h1>
+<h2 id="index-mọi-field">Index mọi field</h2>
+<pre class="hljs"><code><div>- Query linh hoạt.
+- Index rất lớn.
+- High-cardinality fields cực đắt.
+</div></code></pre>
+<h2 id="chỉ-index-labels-chọn-lọc">Chỉ index labels chọn lọc</h2>
+<pre class="hljs"><code><div>- Storage thấp.
+- Full-text hoặc field query chậm hơn.
+</div></code></pre>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>Index low-cardinality labels.
+Lưu full log body trong compressed chunks/object storage.
+</div></code></pre>
+<hr>
+<h1 id="72-log-stream">72. Log Stream</h1>
+<p>Một log stream có thể được xác định bởi:</p>
+<pre class="hljs"><code><div>tenant
+service
+environment
+region
+level
+</div></code></pre>
+<p>Các log entries trong stream được ghi theo thời gian.</p>
+<p>Không đưa <code>requestId</code> vào stream labels vì cardinality rất cao.</p>
+<hr>
+<h1 id="73-structured-metadata-không-index">73. Structured Metadata không Index</h1>
+<p>High-cardinality fields như:</p>
+<pre class="hljs"><code><div>requestId
+userId
+traceId
+orderId
+</div></code></pre>
+<p>có thể lưu trong body/structured metadata.</p>
+<p>Query theo field này có thể:</p>
+<pre class="hljs"><code><div>- Scan limited time range.
+- Dùng secondary bloom filter.
+- Dùng optional specialized index.
+</div></code></pre>
+<hr>
+<h1 id="74-log-write-path">74. Log Write Path</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Agent --> LogGateway
+    LogGateway --> LogStream
+    LogStream --> LogIngester
+    LogIngester --> LogWAL
+    LogIngester --> LogChunks
+    LogChunks --> ObjectStorage[(Compressed Log Chunks)]
+    LogIngester --> LabelIndex[(Stream Label Index)]
+</div></code></pre>
+<hr>
+<h1 id="75-log-chunks">75. Log Chunks</h1>
+<p>Một chunk chứa:</p>
+<pre class="hljs"><code><div>- Một log stream.
+- Một time range.
+- Compressed entries.
+- Optional bloom filters.
+- Min/max timestamps.
+</div></code></pre>
+<p>Chunk đóng khi:</p>
+<pre class="hljs"><code><div>- Đạt size.
+- Đạt time limit.
+- Stream inactive.
+</div></code></pre>
+<hr>
+<h1 id="76-full-text-log-index">76. Full-Text Log Index</h1>
+<p>Một số hệ thống tạo inverted index:</p>
+<pre class="hljs"><code><div>token &quot;timeout&quot;
+→ document/log IDs
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Search text nhanh.
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Index rất lớn.
+- Write amplification.
+- Tokenization đa ngôn ngữ.
+- High-cardinality terms.
+</div></code></pre>
+<p>Có thể chỉ giữ full-text index trong recent hot tier.</p>
+<hr>
+<h1 id="77-bloom-filters-cho-logs">77. Bloom Filters cho Logs</h1>
+<p>Mỗi chunk lưu bloom filter cho tokens/fields.</p>
+<p>Query <code>&quot;payment timeout&quot;</code>:</p>
+<pre class="hljs"><code><div>- Bloom nói chắc chắn không có → bỏ chunk.
+- Bloom nói có thể có → scan chunk.
+</div></code></pre>
+<p>False positives làm scan thêm nhưng không bỏ sót log.</p>
+<hr>
+<h1 id="78-log-query-flow">78. Log Query Flow</h1>
+<pre class="hljs"><code><div>1. Chọn tenant và time range.
+2. Filter stream labels.
+3. Lấy candidate chunks.
+4. Dùng bloom/index để bỏ chunks.
+5. Decompress.
+6. Apply text/field filters.
+7. Merge theo timestamp.
+</div></code></pre>
+<hr>
+<h1 id="79-context-query">79. Context Query</h1>
+<p>Khi tìm thấy log lỗi, user muốn xem:</p>
+<pre class="hljs"><code><div>20 logs trước
+20 logs sau
+</div></code></pre>
+<p>Nếu log được sharding theo streams, context cần:</p>
+<pre class="hljs"><code><div>- Cùng stream.
+- Cùng host/container.
+- Cùng request/trace nếu có.
+</div></code></pre>
+<p>Không nhất thiết có global total ordering giữa mọi logs.</p>
+<hr>
+<h1 id="80-log-ordering">80. Log Ordering</h1>
+<p>Logs từ nhiều hosts có clock skew.</p>
+<p>Backend có thể sắp theo event timestamp nhưng:</p>
+<pre class="hljs"><code><div>Không đảm bảo thứ tự tuyệt đối toàn hệ thống.
+</div></code></pre>
+<p>Giữ:</p>
+<pre class="hljs"><code><div>event timestamp
+ingestion timestamp
+source sequence
+</div></code></pre>
+<p>giúp điều tra.</p>
+<hr>
+<h1 id="81-late-logs">81. Late Logs</h1>
+<p>Agent offline rồi gửi logs cũ.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Chấp nhận trong late-arrival window.
+- Ghi vào historical chunks.
+- Reject quá cũ.
+</div></code></pre>
+<p>Late writes vào immutable index rất đắt.</p>
+<p>Có thể tạo late blocks rồi compact sau.</p>
+<hr>
+<h1 id="82-log-retention">82. Log Retention</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Debug:
+3 ngày.
+
+Info:
+14 ngày.
+
+Error:
+90 ngày.
+
+Audit:
+1–7 năm.
+</div></code></pre>
+<p>Retention có thể theo:</p>
+<pre class="hljs"><code><div>tenant
+service
+severity
+data class
+regulatory policy
+</div></code></pre>
+<hr>
+<h1 id="83-selective-log-sampling">83. Selective Log Sampling</h1>
+<p>Không phải mọi success request cần lưu đầy đủ.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Giữ 100% errors.
+- Giữ 10% slow requests.
+- Giữ 1% normal requests.
+- Tail sampling theo trace outcome.
+</div></code></pre>
+<p>Sampling phải giữ metadata về sample rate để phân tích phù hợp.</p>
+<hr>
+<h1 id="84-redaction-và-pii">84. Redaction và PII</h1>
+<p>Logs có thể chứa:</p>
+<pre class="hljs"><code><div>- Email.
+- Token.
+- Card data.
+- Password.
+- Address.
+- Health data.
+</div></code></pre>
+<p>Redaction nên xảy ra càng gần nguồn càng tốt:</p>
+<pre class="hljs"><code><div>Application/library
+→ Agent
+→ Ingestion gateway
+</div></code></pre>
+<p>Không nên dựa hoàn toàn vào query-time masking.</p>
+<hr>
+<h1 id="85-secrets-trong-logs">85. Secrets trong Logs</h1>
+<p>Cần detection cho:</p>
+<pre class="hljs"><code><div>Authorization headers
+API keys
+JWTs
+Passwords
+Private keys
+</div></code></pre>
+<p>Các biện pháp:</p>
+<pre class="hljs"><code><div>- Schema allowlist.
+- Regex/entropy detector.
+- Redaction.
+- Quarantine.
+- Security alert.
+</div></code></pre>
+<hr>
+<h1 id="86-dashboard-service">86. Dashboard Service</h1>
+<p>Dashboard lưu:</p>
+<pre class="hljs"><code><div>dashboardId
+tenantId
+title
+panels
+query expressions
+variables
+time range
+permissions
+version
+</div></code></pre>
+<p>Dashboard chỉ là configuration.</p>
+<p>Data vẫn đến từ query engines.</p>
+<hr>
+<h1 id="87-dashboard-refresh">87. Dashboard Refresh</h1>
+<p>Nếu dashboard có 30 panels refresh mỗi 5 giây:</p>
+<pre class="hljs"><code><div>Một user tạo 6 queries/giây.
+</div></code></pre>
+<p>100 users:</p>
+<pre class="hljs"><code><div>600 queries/giây
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Shared query cache.
+- Panel batching.
+- Minimum refresh intervals.
+- Query deduplication.
+</div></code></pre>
+<hr>
+<h1 id="88-dashboard-variables">88. Dashboard Variables</h1>
+<p>Variable:</p>
+<pre class="hljs"><code><div>service = checkout
+region = vn
+</div></code></pre>
+<p>Nếu variable query lấy mọi pod:</p>
+<pre class="hljs"><code><div>Có thể trả hàng triệu values.
+</div></code></pre>
+<p>Cần limits và cached label-value APIs.</p>
+<hr>
+<h1 id="89-alerting-architecture">89. Alerting Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Rules[(Alert Rules)] --> Scheduler[Rule Scheduler]
+    Scheduler --> Evaluators[Alert Evaluators]
+    Evaluators --> QueryEngine
+    QueryEngine --> Evaluators
+
+    Evaluators --> AlertState[(Alert State Store)]
+    Evaluators --> AlertManager
+
+    AlertManager --> Grouping
+    Grouping --> Dedup
+    Dedup --> Routing
+    Routing --> Email
+    Routing --> Chat
+    Routing --> Pager
+</div></code></pre>
+<hr>
+<h1 id="90-alert-rule">90. Alert Rule</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Nếu 5xx rate &gt; 5%
+trong 10 phút
+cho service checkout
+thì cảnh báo.
+</div></code></pre>
+<p>Rule có:</p>
+<pre class="hljs"><code><div>expression
+evaluation interval
+for duration
+labels
+annotations
+severity
+routing policy
+</div></code></pre>
+<hr>
+<h1 id="91-alert-state-machine">91. Alert State Machine</h1>
+<pre class="hljs"><code><div>INACTIVE
+→ PENDING
+→ FIRING
+→ RESOLVED
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Condition true:
+INACTIVE → PENDING
+
+True liên tục 10 phút:
+PENDING → FIRING
+
+Condition false:
+FIRING → RESOLVED
+</div></code></pre>
+<hr>
+<h1 id="92-vì-sao-cần-pending">92. Vì sao cần Pending?</h1>
+<p>Nếu cảnh báo ngay khi CPU vượt 90% một lần:</p>
+<pre class="hljs"><code><div>Transient spike tạo alert noise.
+</div></code></pre>
+<p><code>for: 5m</code> yêu cầu condition giữ liên tục.</p>
+<p>Nhưng với sự cố nghiêm trọng như endpoint down:</p>
+<pre class="hljs"><code><div>Có thể không cần pending dài.
+</div></code></pre>
+<hr>
+<h1 id="93-alert-evaluation-scheduling">93. Alert Evaluation Scheduling</h1>
+<p>Nếu 1 triệu rules cùng evaluate đúng phút:</p>
+<pre class="hljs"><code><div>Query spike.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Shard rules.
+- Jitter schedules.
+- Group recording rules.
+- Limit concurrent evaluations.
+</div></code></pre>
+<hr>
+<h1 id="94-alert-rule-ownership">94. Alert Rule Ownership</h1>
+<p>Partition theo:</p>
+<pre class="hljs"><code><div>tenantId + ruleGroupId
+</div></code></pre>
+<p>Một rule group nên có một active evaluator để tránh duplicate state transitions.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Lease.
+- Consistent hashing.
+- Owner epoch.
+</div></code></pre>
+<hr>
+<h1 id="95-alert-evaluation-state">95. Alert Evaluation State</h1>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>ruleId
+labelSet
+state
+activeSince
+lastEvaluatedAt
+lastValue
+notificationState
+</div></code></pre>
+<p>Mỗi label set có thể tạo alert instance riêng.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>service=checkout,region=vn
+service=checkout,region=sg
+</div></code></pre>
+<hr>
+<h1 id="96-alert-cardinality">96. Alert Cardinality</h1>
+<p>Một alert query group by <code>user_id</code> có thể tạo hàng triệu alert instances.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Maximum alert instances/rule.
+- Label limits.
+- Rule validation.
+- Notification grouping.
+</div></code></pre>
+<hr>
+<h1 id="97-missing-data-semantics">97. Missing Data Semantics</h1>
+<p>Không có sample có thể nghĩa:</p>
+<pre class="hljs"><code><div>- Service down.
+- Agent down.
+- Target removed.
+- Query lỗi.
+- Không có traffic.
+</div></code></pre>
+<p>Alert rule phải phân biệt:</p>
+<pre class="hljs"><code><div>zero
+vs
+missing
+vs
+stale
+</div></code></pre>
+<hr>
+<h1 id="98-staleness">98. Staleness</h1>
+<p>Nếu target ngừng gửi metrics:</p>
+<pre class="hljs"><code><div>Giá trị gauge cũ không được coi là tồn tại mãi.
+</div></code></pre>
+<p>TSDB cần staleness semantics hoặc explicit heartbeat/up metric.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>up{instance=&quot;x&quot;} = 0
+</div></code></pre>
+<hr>
+<h1 id="99-alert-manager">99. Alert Manager</h1>
+<p>Alert Manager chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Deduplicate alerts.
+- Group related alerts.
+- Silence.
+- Inhibition.
+- Route notifications.
+- Retry notification.
+</div></code></pre>
+<p>Không nên để mỗi evaluator tự gửi email/pager.</p>
+<hr>
+<h1 id="100-alert-grouping">100. Alert Grouping</h1>
+<p>Thay vì 1.000 alerts:</p>
+<pre class="hljs"><code><div>pod_1 down
+pod_2 down
+...
+</div></code></pre>
+<p>gửi một notification:</p>
+<pre class="hljs"><code><div>Service checkout: 1.000 pods affected
+</div></code></pre>
+<p>Group by:</p>
+<pre class="hljs"><code><div>tenant
+service
+alertname
+region
+</div></code></pre>
+<hr>
+<h1 id="101-alert-deduplication">101. Alert Deduplication</h1>
+<p>Evaluators có thể retry hoặc failover.</p>
+<p>Alert identity:</p>
+<pre class="hljs"><code><div>ruleId + canonical label set
+</div></code></pre>
+<p>Repeated FIRING updates không tạo notification mới ngoài policy.</p>
+<hr>
+<h1 id="102-silence">102. Silence</h1>
+<p>Silence có:</p>
+<pre class="hljs"><code><div>matchers
+startsAt
+endsAt
+createdBy
+reason
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>alertname=&quot;HighErrorRate&quot;
+service=&quot;checkout&quot;
+environment=&quot;staging&quot;
+</div></code></pre>
+<p>Silence không xóa alert; chỉ ngăn notification.</p>
+<hr>
+<h1 id="103-inhibition">103. Inhibition</h1>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>RegionDown đang firing
+</div></code></pre>
+<p>thì có thể suppress:</p>
+<pre class="hljs"><code><div>ServiceDown
+HostDown
+PodDown
+</div></code></pre>
+<p>trong region đó.</p>
+<p>Mục tiêu giảm alert storm và chỉ báo nguyên nhân cấp cao.</p>
+<hr>
+<h1 id="104-notification-routing">104. Notification Routing</h1>
+<p>Route theo:</p>
+<pre class="hljs"><code><div>- Severity.
+- Team.
+- Service.
+- Region.
+- Business hours.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>critical → pager
+warning → chat
+info → email
+</div></code></pre>
+<hr>
+<h1 id="105-notification-retry">105. Notification Retry</h1>
+<p>Provider chat/email/pager có thể timeout.</p>
+<p>Notification command cần idempotency:</p>
+<pre class="hljs"><code><div>notificationId
+receiver
+alertGroupVersion
+</div></code></pre>
+<p>Retry không nên gửi trùng quá nhiều.</p>
+<hr>
+<h1 id="106-multi-tenancy">106. Multi-Tenancy</h1>
+<p>Mọi dữ liệu và operations cần tenant scope:</p>
+<pre class="hljs"><code><div>tenantId
+</div></code></pre>
+<p>Áp cho:</p>
+<pre class="hljs"><code><div>- Ingestion.
+- Storage keys.
+- Query.
+- Cache.
+- Rules.
+- Dashboards.
+- Alert notifications.
+</div></code></pre>
+<p>Thiếu tenant trong cache key có thể gây data leak nghiêm trọng.</p>
+<hr>
+<h1 id="107-tenant-isolation">107. Tenant Isolation</h1>
+<p>Các mức:</p>
+<pre class="hljs"><code><div>Logical isolation:
+Chung cluster, tenantId trong keys.
+
+Resource isolation:
+Quotas và fair scheduling.
+
+Physical isolation:
+Dedicated shards/cluster cho tenant lớn hoặc regulated.
+</div></code></pre>
+<hr>
+<h1 id="108-noisy-neighbor">108. Noisy Neighbor</h1>
+<p>Tenant A có thể:</p>
+<pre class="hljs"><code><div>- Gửi 10 triệu series mới.
+- Chạy regex query nặng.
+- Tạo 100.000 alert rules.
+</div></code></pre>
+<p>Cần limits độc lập cho:</p>
+<pre class="hljs"><code><div>- Ingestion.
+- Storage.
+- Query.
+- Rules.
+- Dashboards.
+</div></code></pre>
+<hr>
+<h1 id="109-per-tenant-quotas">109. Per-Tenant Quotas</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Metric samples/second
+Log bytes/second
+Active series
+New series/minute
+Query concurrency
+Query CPU/time
+Storage bytes
+Alert rules
+Alert instances
+</div></code></pre>
+<p>Quota có thể:</p>
+<pre class="hljs"><code><div>- Hard reject.
+- Throttle.
+- Sample.
+- Burst token bucket.
+</div></code></pre>
+<hr>
+<h1 id="110-tenant-level-encryption">110. Tenant-Level Encryption</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Shared storage encryption.
+- Per-tenant encryption keys.
+- Dedicated KMS keys.
+</div></code></pre>
+<p>Per-tenant keys hỗ trợ:</p>
+<pre class="hljs"><code><div>- Revocation.
+- Compliance.
+- Tenant-controlled keys.
+</div></code></pre>
+<p>nhưng tăng key-management complexity.</p>
+<hr>
+<h1 id="111-rbac">111. RBAC</h1>
+<p>Roles:</p>
+<pre class="hljs"><code><div>Viewer:
+Xem dashboards/data.
+
+Editor:
+Tạo dashboards/rules.
+
+Operator:
+Quản lý alerts/silences.
+
+Admin:
+Quản lý tenant, retention và access.
+</div></code></pre>
+<p>Fine-grained access có thể theo:</p>
+<pre class="hljs"><code><div>environment
+service
+data source
+log sensitivity
+</div></code></pre>
+<hr>
+<h1 id="112-audit-log">112. Audit Log</h1>
+<p>Audit các thao tác:</p>
+<pre class="hljs"><code><div>- Query sensitive logs.
+- Export data.
+- Tạo hoặc sửa alert.
+- Thay retention.
+- Tạo silence.
+- Thay permissions.
+- Xóa dữ liệu.
+</div></code></pre>
+<p>Audit log không nên nằm cùng retention ngắn với application logs thông thường.</p>
+<hr>
+<h1 id="113-multi-region-goals">113. Multi-Region Goals</h1>
+<pre class="hljs"><code><div>1. Agents gửi tới region gần nhất.
+2. Regional outage không làm mất dữ liệu đã ACK.
+3. Alerting quan trọng vẫn hoạt động.
+4. Query có thể xem dữ liệu nhiều regions.
+5. Tenant residency được tôn trọng.
+6. Không duplicate alert storm sau failover.
+</div></code></pre>
+<hr>
+<h1 id="114-multi-region-architecture">114. Multi-Region Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    AgentsA --> IngestA[Region A Ingestion]
+    AgentsB --> IngestB[Region B Ingestion]
+    AgentsC --> IngestC[Region C Ingestion]
+
+    IngestA --> StreamA
+    IngestB --> StreamB
+    IngestC --> StreamC
+
+    StreamA --> StoreA[(Regional Metrics/Logs A)]
+    StreamB --> StoreB[(Regional Metrics/Logs B)]
+    StreamC --> StoreC[(Regional Metrics/Logs C)]
+
+    StoreA --> ObjectStore[(Replicated Long-Term Object Storage)]
+    StoreB --> ObjectStore
+    StoreC --> ObjectStore
+
+    GlobalQuery[Global Query Frontend] --> StoreA
+    GlobalQuery --> StoreB
+    GlobalQuery --> StoreC
+    GlobalQuery --> ObjectStore
+
+    GlobalAlert[Global / Regional Alert Evaluators] --> GlobalQuery
+</div></code></pre>
+<hr>
+<h1 id="115-regional-ingestion">115. Regional Ingestion</h1>
+<p>Agents gửi tới:</p>
+<pre class="hljs"><code><div>nearest healthy region
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Latency thấp.
+- Egress thấp.
+- Local buffering ngắn hơn.
+</div></code></pre>
+<p>Nhưng data ownership cần rõ:</p>
+<pre class="hljs"><code><div>tenant + source region + time
+</div></code></pre>
+<hr>
+<h1 id="116-local-ingest-global-query">116. Local Ingest, Global Query</h1>
+<p>Một mô hình:</p>
+<pre class="hljs"><code><div>- Data ghi vào region nguồn.
+- Long-term blocks replicate vào object storage.
+- Global query frontend fan-out tới regions liên quan.
+</div></code></pre>
+<p>Query planner dùng:</p>
+<pre class="hljs"><code><div>tenant
+time range
+region labels
+block catalog
+</div></code></pre>
+<p>để tránh hỏi mọi region.</p>
+<hr>
+<h1 id="117-regional-vs-global-metrics">117. Regional vs Global Metrics</h1>
+<p>Metrics có thể có label:</p>
+<pre class="hljs"><code><div>source_region
+</div></code></pre>
+<p>Global aggregation:</p>
+<pre class="hljs"><code><div>sum across regions
+</div></code></pre>
+<p>Nhưng alert regional nên chạy tại region để giảm latency và dependency.</p>
+<hr>
+<h1 id="118-alerting-multi-region">118. Alerting Multi-Region</h1>
+<p>Các lựa chọn:</p>
+<h2 id="regional-alert-evaluation">Regional alert evaluation</h2>
+<pre class="hljs"><code><div>- Latency thấp.
+- Tiếp tục khi global query lỗi.
+- Khó alert trên dữ liệu toàn cầu.
+</div></code></pre>
+<h2 id="global-alert-evaluation">Global alert evaluation</h2>
+<pre class="hljs"><code><div>- Có view toàn hệ thống.
+- Phụ thuộc WAN và nhiều regions.
+</div></code></pre>
+<p>Hybrid:</p>
+<pre class="hljs"><code><div>Regional alerts cho service health.
+Global alerts cho business/SLO toàn cầu.
+</div></code></pre>
+<hr>
+<h1 id="119-alert-ownership-và-failover">119. Alert Ownership và Failover</h1>
+<p>Mỗi rule group có:</p>
+<pre class="hljs"><code><div>ownerRegion
+ownerEpoch
+</div></code></pre>
+<p>Khi failover:</p>
+<pre class="hljs"><code><div>- New owner tăng epoch.
+- Restore alert state.
+- Deduplicate notifications.
+</div></code></pre>
+<p>Không để hai regions cùng gửi pager cho cùng alert.</p>
+<hr>
+<h1 id="120-metrics-replication">120. Metrics Replication</h1>
+<p>Recent head data có thể replicate:</p>
+<pre class="hljs"><code><div>- Synchronously trong zone group.
+- Asynchronously sang DR region.
+</div></code></pre>
+<p>Long-term immutable blocks dễ replicate qua object storage.</p>
+<p>Durability tier có thể khác:</p>
+<pre class="hljs"><code><div>Standard metrics:
+RPO vài phút.
+
+Audit/security metrics:
+RPO gần 0.
+</div></code></pre>
+<hr>
+<h1 id="121-log-replication">121. Log Replication</h1>
+<p>Logs có volume rất lớn.</p>
+<p>Không phải mọi log cần synchronous cross-region replication.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Critical/audit logs replicate mạnh.
+- Debug logs chỉ regional.
+- Long-term archive async.
+</div></code></pre>
+<p>Policy theo data class.</p>
+<hr>
+<h1 id="122-data-residency">122. Data Residency</h1>
+<p>Một tenant EU có thể yêu cầu:</p>
+<pre class="hljs"><code><div>Metrics, logs và indexes không rời EU.
+</div></code></pre>
+<p>Áp dụng cho:</p>
+<pre class="hljs"><code><div>- Raw data.
+- TSDB blocks.
+- Log chunks.
+- Query cache.
+- Alert state.
+- Dashboard exports.
+- Backups.
+</div></code></pre>
+<p>Global query có thể gửi query tới region và chỉ nhận aggregate nếu policy cho phép.</p>
+<hr>
+<h1 id="123-block-catalog">123. Block Catalog</h1>
+<p>Để global query biết data ở đâu, giữ catalog:</p>
+<pre class="hljs"><code><div>tenantId
+blockId
+timeRange
+region
+storageLocation
+resolution
+status
+</div></code></pre>
+<p>Catalog update phải idempotent.</p>
+<p>Immutable block chưa có catalog entry có thể tạm không query được nhưng vẫn không mất dữ liệu.</p>
+<hr>
+<h1 id="124-multi-region-query-failure">124. Multi-Region Query Failure</h1>
+<p>Nếu Region B unavailable:</p>
+<pre class="hljs"><code><div>Global query có thể trả:
+- Partial response.
+- Error.
+- Stale cached data.
+</div></code></pre>
+<p>API cần ghi rõ:</p>
+<pre class="hljs"><code><div>partial = true
+missingRegions = [&quot;B&quot;]
+</div></code></pre>
+<p>Không âm thầm trả dữ liệu thiếu như đầy đủ.</p>
+<hr>
+<h1 id="125-failure-mode--agent-mất-kết-nối">125. Failure Mode — Agent mất kết nối</h1>
+<p>Agent:</p>
+<pre class="hljs"><code><div>- Buffer local disk.
+- Retry với exponential backoff.
+- Drop theo priority khi disk đầy.
+</div></code></pre>
+<p>Monitoring phải có metric:</p>
+<pre class="hljs"><code><div>agent_buffer_usage
+agent_dropped_events_total
+</div></code></pre>
+<hr>
+<h1 id="126-failure-mode--agent-restart">126. Failure Mode — Agent Restart</h1>
+<p>Replay local WAL.</p>
+<p>Batch IDs giúp backend chịu duplicate retries.</p>
+<p>Không reset file offsets về 0 gây đọc lại toàn bộ logs.</p>
+<hr>
+<h1 id="127-failure-mode--ingestion-gateway-down">127. Failure Mode — Ingestion Gateway Down</h1>
+<p>Global/region load balancer chuyển sang replicas.</p>
+<p>Agents retry.</p>
+<p>Gateway stateless nên scale ngang.</p>
+<hr>
+<h1 id="128-failure-mode--stream-lag">128. Failure Mode — Stream Lag</h1>
+<p>Khi consumers chậm:</p>
+<pre class="hljs"><code><div>- Dữ liệu mới chưa query được.
+- Alert có thể trễ.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Autoscaling.
+- Priority streams.
+- Throttle tenants.
+- Alert trên ingestion-to-query lag.
+</div></code></pre>
+<hr>
+<h1 id="129-failure-mode--ingester-crash">129. Failure Mode — Ingester Crash</h1>
+<p>WAL replay phục hồi recent data.</p>
+<p>Nếu WAL replicate hoặc node disk mất:</p>
+<pre class="hljs"><code><div>Có thể mất dữ liệu chưa flush.
+</div></code></pre>
+<p>Dùng replication factor:</p>
+<pre class="hljs"><code><div>Sample batch ghi tới N ingesters.
+ACK khi quorum.
+</div></code></pre>
+<hr>
+<h1 id="130-replicated-ingestion">130. Replicated Ingestion</h1>
+<p>Distributor chọn replicas:</p>
+<pre class="hljs"><code><div>seriesHash
+→ ingester A, B, C
+</div></code></pre>
+<p>ACK khi:</p>
+<pre class="hljs"><code><div>2/3 durable writes thành công.
+</div></code></pre>
+<p>Query recent data dedupe samples từ replicas.</p>
+<hr>
+<h1 id="131-failure-mode--object-storage-down">131. Failure Mode — Object Storage Down</h1>
+<p>Recent head vẫn có thể phục vụ dữ liệu mới.</p>
+<p>Historical queries có thể lỗi hoặc dùng cache.</p>
+<p>Compaction/flush cần retry.</p>
+<p>Không xóa local flushed data trước khi object durable.</p>
+<hr>
+<h1 id="132-failure-mode--compactor-crash">132. Failure Mode — Compactor Crash</h1>
+<p>Input immutable blocks vẫn còn.</p>
+<p>Output chưa publish được bỏ hoặc resume.</p>
+<p>Không gây mất dữ liệu.</p>
+<hr>
+<h1 id="133-failure-mode--index-corruption">133. Failure Mode — Index Corruption</h1>
+<p>Blocks có checksums.</p>
+<p>Nếu index hỏng nhưng chunks còn:</p>
+<pre class="hljs"><code><div>- Rebuild index từ block metadata/chunks.
+- Dùng replica.
+- Mark block quarantined.
+</div></code></pre>
+<hr>
+<h1 id="134-failure-mode--query-storm">134. Failure Mode — Query Storm</h1>
+<p>Dashboard hoặc incident tạo hàng nghìn queries.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Admission control.
+- Query queue.
+- Cache.
+- Deduplicate identical requests.
+- Degrade expensive panels.
+</div></code></pre>
+<hr>
+<h1 id="135-failure-mode--alert-query-timeout">135. Failure Mode — Alert Query Timeout</h1>
+<p>Không nên tự động coi timeout là condition false.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Giữ previous state.
+- Đánh dấu evaluation error.
+- Gửi meta-alert.
+- Retry có giới hạn.
+</div></code></pre>
+<p>Nếu coi timeout là resolved, có thể che giấu sự cố.</p>
+<hr>
+<h1 id="136-failure-mode--notification-provider-down">136. Failure Mode — Notification Provider Down</h1>
+<p>Alert vẫn ở FIRING.</p>
+<p>Alert Manager:</p>
+<pre class="hljs"><code><div>- Retry.
+- Route fallback.
+- Ghi notification failure.
+</div></code></pre>
+<p>Không mất alert state.</p>
+<hr>
+<h1 id="137-failure-mode--cardinality-spike">137. Failure Mode — Cardinality Spike</h1>
+<p>Ingestion gateway có thể:</p>
+<pre class="hljs"><code><div>- Reject new series.
+- Tiếp tục chấp nhận existing series.
+- Drop offending label.
+- Throttle tenant.
+</div></code></pre>
+<p>Cần trả lỗi rõ để đội phát triển sửa instrumentation.</p>
+<hr>
+<h1 id="138-failure-mode--log-line-cực-lớn">138. Failure Mode — Log Line cực lớn</h1>
+<p>Giới hạn:</p>
+<pre class="hljs"><code><div>maxLogEventBytes
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Truncate.
+- Reject.
+- Store oversized payload riêng.
+</div></code></pre>
+<p>Phải ghi metadata rằng log đã bị truncate.</p>
+<hr>
+<h1 id="139-failure-mode--tenant-chạy-query-quá-nặng">139. Failure Mode — Tenant chạy Query quá nặng</h1>
+<p>Query frontend:</p>
+<pre class="hljs"><code><div>- Estimate cost.
+- Reject sớm.
+- Apply timeout.
+- Limit samples.
+- Require recording rule.
+</div></code></pre>
+<p>Không để storage shards bị OOM.</p>
+<hr>
+<h1 id="140-reconciliation">140. Reconciliation</h1>
+<p>Kiểm tra:</p>
+<pre class="hljs"><code><div>- Stream offsets vs ingested blocks.
+- WAL data vs flushed blocks.
+- Block catalog vs object storage.
+- Compaction input/output.
+- Alert state vs rule ownership.
+- Retention deletions.
+- Tenant usage vs billing records.
+</div></code></pre>
+<hr>
+<h1 id="141-retention-deletion">141. Retention Deletion</h1>
+<p>Không delete object ngay khi hết hạn mà không có lifecycle rõ.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Mark block expired.
+2. Remove khỏi query catalog.
+3. Chờ grace period.
+4. Delete object.
+5. Audit.
+</div></code></pre>
+<p>Grace period cho phép rollback policy lỗi.</p>
+<hr>
+<h1 id="142-legal-hold">142. Legal Hold</h1>
+<p>Một số logs không được xóa dù retention thông thường hết.</p>
+<p>Record:</p>
+<pre class="hljs"><code><div>tenant
+data selector
+time range
+hold reason
+expiresAt/indefinite
+</div></code></pre>
+<p>Retention worker phải kiểm tra legal hold.</p>
+<hr>
+<h1 id="143-cost-attribution">143. Cost Attribution</h1>
+<p>Tính theo tenant:</p>
+<pre class="hljs"><code><div>- Samples ingested.
+- Log bytes ingested.
+- Active series.
+- Stored bytes.
+- Query CPU.
+- Data scanned.
+- Alert evaluations.
+</div></code></pre>
+<p>Giúp:</p>
+<pre class="hljs"><code><div>- Billing.
+- Capacity planning.
+- Noisy-neighbor debugging.
+</div></code></pre>
+<hr>
+<h1 id="144-metrics-cho-chính-monitoring-platform">144. Metrics cho Chính Monitoring Platform</h1>
+<p>Hệ thống phải tự quan sát chính nó:</p>
+<pre class="hljs"><code><div>- Ingestion QPS.
+- Rejected samples.
+- Stream lag.
+- WAL size.
+- Active series.
+- Query latency.
+- Block upload failures.
+- Alert evaluation lag.
+- Notification failures.
+</div></code></pre>
+<p>Đây là bài toán “monitoring the monitoring system”.</p>
+<hr>
+<h1 id="145-dead-mans-switch">145. Dead Man's Switch</h1>
+<p>Nếu toàn monitoring pipeline chết, nó có thể không tự gửi alert.</p>
+<p>Cần external health check:</p>
+<pre class="hljs"><code><div>Monitoring system định kỳ gửi heartbeat tới một hệ thống độc lập.
+</div></code></pre>
+<p>Nếu heartbeat mất:</p>
+<pre class="hljs"><code><div>Hệ thống bên ngoài cảnh báo.
+</div></code></pre>
+<hr>
+<h1 id="146-observability--ingestion">146. Observability — Ingestion</h1>
+<pre class="hljs"><code><div>- Samples/second.
+- Log bytes/second.
+- Request latency.
+- Rejection rate.
+- Tenant throttling.
+- Invalid payload.
+- New series rate.
+- Batch compression ratio.
+</div></code></pre>
+<hr>
+<h1 id="147-observability--storage">147. Observability — Storage</h1>
+<pre class="hljs"><code><div>- WAL bytes.
+- Head memory.
+- Chunk compression ratio.
+- Block flush latency.
+- Compaction backlog.
+- Object storage errors.
+- Replication lag.
+- Retention deletion backlog.
+</div></code></pre>
+<hr>
+<h1 id="148-observability--query">148. Observability — Query</h1>
+<pre class="hljs"><code><div>- Query p50/p95/p99.
+- Queue wait time.
+- Series matched.
+- Samples scanned.
+- Cache hit rate.
+- Partial query rate.
+- Query timeout.
+- Top expensive queries.
+</div></code></pre>
+<hr>
+<h1 id="149-observability--logs">149. Observability — Logs</h1>
+<pre class="hljs"><code><div>- Events ingested.
+- Bytes stored.
+- Stream cardinality.
+- Chunk flush latency.
+- Bloom filter skip ratio.
+- Search scanned bytes.
+- Late-log rate.
+- Truncated events.
+</div></code></pre>
+<hr>
+<h1 id="150-observability--alerts">150. Observability — Alerts</h1>
+<pre class="hljs"><code><div>- Rule evaluations/second.
+- Evaluation duration.
+- Evaluation lag.
+- Rule failures.
+- Active alert instances.
+- Notification success.
+- Notification latency.
+- Silenced alerts.
+</div></code></pre>
+<hr>
+<h1 id="151-slos-minh-họa">151. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Ingestion availability:
+99,99%
+
+Durable ACK:
+99,9% metric/log batches ACK dưới 2 giây.
+
+Freshness:
+99% metric samples query được dưới 30 giây.
+99% logs searchable dưới 60 giây.
+
+Query:
+Recent dashboard query p95 dưới 2 giây.
+30-day aggregate query p95 dưới 10 giây.
+
+Alerting:
+99% critical rules evaluated trong vòng 2 lần interval.
+Critical notification p99 dưới 60 giây sau FIRING.
+
+Durability:
+Không mất batch đã quorum-ACK khi mất một node/zone.
+</div></code></pre>
+<hr>
+<h1 id="152-thiết-kế-khuyến-nghị">152. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Agents batch, compress và buffer dữ liệu cục bộ.
+2. Regional ingestion gateways xác thực tenant và quota.
+3. ACK chỉ sau durable stream/quorum write.
+4. Metrics và logs dùng pipelines riêng.
+5. Metrics ingesters giữ recent head và flush immutable blocks.
+6. Logs index low-cardinality labels, giữ body trong compressed chunks.
+7. Object storage giữ dữ liệu lịch sử.
+8. Query frontend áp cache, splitting và tenant fairness.
+9. Alert evaluators dùng query engine nhưng có ownership/state riêng.
+10. Multi-region ưu tiên local ingest, regional alert và global query.
+</div></code></pre>
+<hr>
+<h1 id="153-trade-off--push-hay-pull-metrics">153. Trade-Off — Push hay Pull Metrics?</h1>
+<h2 id="push-1">Push</h2>
+<pre class="hljs"><code><div>- Phù hợp short-lived jobs.
+- Client phải retry.
+- Khó phân biệt target chết.
+</div></code></pre>
+<h2 id="pull-1">Pull</h2>
+<pre class="hljs"><code><div>- Discovery và health rõ.
+- Backend kiểm soát schedule.
+- Khó qua network boundaries.
+</div></code></pre>
+<p>Hybrid thường tốt nhất.</p>
+<hr>
+<h1 id="154-trade-off--index-toàn-bộ-logs-hay-chỉ-labels">154. Trade-Off — Index toàn bộ Logs hay Chỉ Labels?</h1>
+<h2 id="full-index">Full index</h2>
+<pre class="hljs"><code><div>- Search nhanh.
+- Storage và write cost cao.
+</div></code></pre>
+<h2 id="label-index--scan-chunks">Label index + scan chunks</h2>
+<pre class="hljs"><code><div>- Rẻ hơn.
+- Text search chậm hơn.
+</div></code></pre>
+<p>Có thể dùng full-text index cho recent hot tier và object chunks cho lịch sử.</p>
+<hr>
+<h1 id="155-trade-off--raw-metrics-hay-downsample">155. Trade-Off — Raw Metrics hay Downsample?</h1>
+<h2 id="raw-lâu-dài">Raw lâu dài</h2>
+<pre class="hljs"><code><div>- Điều tra chi tiết.
+- Storage và query cost cao.
+</div></code></pre>
+<h2 id="downsample">Downsample</h2>
+<pre class="hljs"><code><div>- Rẻ.
+- Mất spikes và chi tiết.
+</div></code></pre>
+<p>Giữ raw ngắn hạn, downsample dài hạn.</p>
+<hr>
+<h1 id="156-trade-off--regional-hay-global-alerting">156. Trade-Off — Regional hay Global Alerting?</h1>
+<h2 id="regional">Regional</h2>
+<pre class="hljs"><code><div>- Nhanh và resilient.
+- Không có global view hoàn chỉnh.
+</div></code></pre>
+<h2 id="global">Global</h2>
+<pre class="hljs"><code><div>- Dễ alert business toàn cầu.
+- Phụ thuộc multi-region query.
+</div></code></pre>
+<p>Dùng cả hai theo loại alert.</p>
+<hr>
+<h1 id="157-trade-off--reject-hay-drop-khi-cardinality-quá-cao">157. Trade-Off — Reject hay Drop khi Cardinality quá cao?</h1>
+<h2 id="reject">Reject</h2>
+<pre class="hljs"><code><div>- Client biết lỗi.
+- Có thể mất toàn batch.
+</div></code></pre>
+<h2 id="drop-offending-serieslabels">Drop offending series/labels</h2>
+<pre class="hljs"><code><div>- Hệ thống tiếp tục.
+- Có thể che giấu instrumentation bug.
+</div></code></pre>
+<p>Nên hỗ trợ partial rejection với diagnostics rõ.</p>
+<hr>
+<h1 id="158-trade-off--strong-log-ordering-hay-throughput">158. Trade-Off — Strong Log Ordering hay Throughput?</h1>
+<p>Global ordering mọi log:</p>
+<pre class="hljs"><code><div>- Rất đắt.
+- Không cần thiết.
+</div></code></pre>
+<p>Thường chỉ cần:</p>
+<pre class="hljs"><code><div>- Ordering theo source/stream.
+- Event và ingestion timestamps.
+</div></code></pre>
+<hr>
+<h1 id="159-cách-trình-bày-trong-phỏng-vấn">159. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi tách metrics và logs sau ingestion vì access pattern khác nhau. Metrics cần time-series compression và aggregation theo labels; logs cần stream labels, compressed chunks và optional full-text indexing.</p>
+</blockquote>
+<p>Về collection:</p>
+<blockquote>
+<p>Agents chạy gần workload để batch, compress và ghi disk WAL. Monitoring backend lỗi không được làm ứng dụng chậm; agent có local buffer và drop policy có kiểm soát.</p>
+</blockquote>
+<p>Về metrics storage:</p>
+<blockquote>
+<p>Mỗi unique metric name và label set tạo một series. Ingester append samples vào WAL và recent head block, sau đó flush thành immutable time-partitioned blocks trên object storage. Query frontend fan-out tới recent ingesters và historical blocks.</p>
+</blockquote>
+<p>Về cardinality:</p>
+<blockquote>
+<p>Tôi giới hạn active series và new-series rate theo tenant. Các labels như user ID hoặc request ID không được dùng làm metric dimensions; chúng có thể nằm trong logs, traces hoặc exemplars.</p>
+</blockquote>
+<p>Về alerting:</p>
+<blockquote>
+<p>Alert rules được shard cho evaluators có lease. Mỗi alert instance có state inactive, pending, firing và resolved. Alert Manager thực hiện grouping, deduplication, silence, inhibition và routing.</p>
+</blockquote>
+<hr>
+<h1 id="160-framework-phỏng-vấn-45-phút">160. Framework Phỏng vấn 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Metrics
+- Logs
+- Dashboards
+- Alerting
+- Multi-tenancy
+- Retention
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- Samples/second
+- Log bytes/second
+- Active series
+- Retention
+- Query QPS
+</div></code></pre>
+<h2 id="phút-1020-collection-và-ingestion">Phút 10–20: Collection và Ingestion</h2>
+<pre class="hljs"><code><div>Agent
+→ Batch/WAL
+→ Gateway
+→ Durable stream
+</div></code></pre>
+<h2 id="phút-2030-storage">Phút 20–30: Storage</h2>
+<pre class="hljs"><code><div>Metrics:
+Head + blocks + compaction
+
+Logs:
+Streams + chunks + indexes
+</div></code></pre>
+<h2 id="phút-3040-query-và-alerting">Phút 30–40: Query và Alerting</h2>
+<pre class="hljs"><code><div>- Query frontend
+- Cache
+- Recording rules
+- Alert state
+- Notification routing
+</div></code></pre>
+<h2 id="phút-4045-advanced">Phút 40–45: Advanced</h2>
+<pre class="hljs"><code><div>- High cardinality
+- Tenant isolation
+- Multi-region
+- Failure modes
+</div></code></pre>
+<hr>
+<h1 id="161-những-sai-lầm-phổ-biến">161. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-ứng-dụng-gửi-trực-tiếp-từng-log-line">Lỗi 1: Ứng dụng gửi trực tiếp từng Log Line</h2>
+<p>Tạo network overhead và làm application phụ thuộc backend.</p>
+<h2 id="lỗi-2-agent-không-có-disk-buffer">Lỗi 2: Agent không có Disk Buffer</h2>
+<p>Backend outage làm mất toàn bộ dữ liệu.</p>
+<h2 id="lỗi-3-agent-buffer-không-có-giới-hạn">Lỗi 3: Agent Buffer không có Giới hạn</h2>
+<p>Monitoring làm đầy disk production.</p>
+<h2 id="lỗi-4-ack-trước-durable-write">Lỗi 4: ACK trước Durable Write</h2>
+<p>Client xóa buffer nhưng backend có thể mất dữ liệu.</p>
+<h2 id="lỗi-5-dùng-một-pipeline-cho-metrics-và-logs">Lỗi 5: Dùng một Pipeline cho Metrics và Logs</h2>
+<p>Access pattern và storage requirements khác nhau.</p>
+<h2 id="lỗi-6-đưa-request-id-vào-metric-label">Lỗi 6: Đưa Request ID vào Metric Label</h2>
+<p>Tạo cardinality cực lớn.</p>
+<h2 id="lỗi-7-chỉ-limit-active-series">Lỗi 7: Chỉ Limit Active Series</h2>
+<p>Không ngăn series churn.</p>
+<h2 id="lỗi-8-không-giới-hạn-timestamp-trong-tương-lai">Lỗi 8: Không giới hạn Timestamp trong Tương lai</h2>
+<p>Một sample sai clock làm query/time partitions lỗi.</p>
+<h2 id="lỗi-9-không-có-out-of-order-policy">Lỗi 9: Không có Out-of-Order Policy</h2>
+<p>Late samples làm storage behavior không xác định.</p>
+<h2 id="lỗi-10-mỗi-sample-là-một-database-row-thông-thường">Lỗi 10: Mỗi Sample là một Database Row thông thường</h2>
+<p>Không tận dụng time-series compression và batching.</p>
+<h2 id="lỗi-11-tsdb-blocks-mutable-lâu-dài">Lỗi 11: TSDB Blocks Mutable lâu dài</h2>
+<p>Compaction, cache và replication phức tạp.</p>
+<h2 id="lỗi-12-không-có-compaction">Lỗi 12: Không có Compaction</h2>
+<p>Số block/object tăng vô hạn.</p>
+<h2 id="lỗi-13-downsample-chỉ-lưu-average">Lỗi 13: Downsample chỉ lưu Average</h2>
+<p>Làm mất spikes.</p>
+<h2 id="lỗi-14-query-client-gọi-trực-tiếp-mọi-shard">Lỗi 14: Query Client gọi trực tiếp mọi Shard</h2>
+<p>Không có planning, limits hoặc fairness.</p>
+<h2 id="lỗi-15-không-limit-regex-query">Lỗi 15: Không Limit Regex Query</h2>
+<p>Một matcher có thể scan mọi series.</p>
+<h2 id="lỗi-16-dashboard-refresh-quá-nhanh">Lỗi 16: Dashboard Refresh quá nhanh</h2>
+<p>Tạo query storm.</p>
+<h2 id="lỗi-17-index-mọi-log-field">Lỗi 17: Index mọi Log Field</h2>
+<p>Index lớn hơn dữ liệu gốc.</p>
+<h2 id="lỗi-18-dùng-trace-id-làm-log-stream-label">Lỗi 18: Dùng Trace ID làm Log Stream Label</h2>
+<p>Tạo một stream/request.</p>
+<h2 id="lỗi-19-không-xử-lý-log-rotation">Lỗi 19: Không xử lý Log Rotation</h2>
+<p>Đọc trùng hoặc mất logs.</p>
+<h2 id="lỗi-20-multiline-rule-không-có-size-limit">Lỗi 20: Multiline Rule không có Size Limit</h2>
+<p>Một stack trace lỗi có thể nuốt cả file.</p>
+<h2 id="lỗi-21-không-redact-secrets-gần-nguồn">Lỗi 21: Không Redact Secrets gần Nguồn</h2>
+<p>Sensitive data đã lan vào buffers và storage.</p>
+<h2 id="lỗi-22-alert-evaluator-tự-gửi-notifications">Lỗi 22: Alert Evaluator tự gửi Notifications</h2>
+<p>Duplicate và routing khó kiểm soát.</p>
+<h2 id="lỗi-23-alert-query-timeout-được-coi-là-resolved">Lỗi 23: Alert Query Timeout được coi là Resolved</h2>
+<p>Che giấu outage.</p>
+<h2 id="lỗi-24-không-group-alerts">Lỗi 24: Không Group Alerts</h2>
+<p>Một node outage tạo hàng nghìn pager events.</p>
+<h2 id="lỗi-25-multi-tenant-cache-key-thiếu-tenant-id">Lỗi 25: Multi-Tenant Cache Key thiếu Tenant ID</h2>
+<p>Có thể rò rỉ dữ liệu giữa khách hàng.</p>
+<hr>
+<h1 id="162-bảng-ghi-nhớ-nhanh">162. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent</td>
+<td>Thu thập, batch, buffer</td>
+</tr>
+<tr>
+<td>Agent WAL</td>
+<td>Chống mất dữ liệu khi backend lỗi</td>
+</tr>
+<tr>
+<td>Ingestion Gateway</td>
+<td>Auth, quota, validation</td>
+</tr>
+<tr>
+<td>Durable Stream</td>
+<td>Buffer và replay</td>
+</tr>
+<tr>
+<td>Metric Ingester</td>
+<td>Append recent samples</td>
+</tr>
+<tr>
+<td>Metrics WAL</td>
+<td>Phục hồi ingester</td>
+</tr>
+<tr>
+<td>Head Block</td>
+<td>Dữ liệu mới gần realtime</td>
+</tr>
+<tr>
+<td>TSDB Block</td>
+<td>Dữ liệu immutable lịch sử</td>
+</tr>
+<tr>
+<td>Series Index</td>
+<td>Tìm series qua labels</td>
+</tr>
+<tr>
+<td>Compactor</td>
+<td>Merge và tối ưu blocks</td>
+</tr>
+<tr>
+<td>Downsampling</td>
+<td>Giảm độ phân giải dữ liệu cũ</td>
+</tr>
+<tr>
+<td>Log Stream</td>
+<td>Nhóm logs theo low-cardinality labels</td>
+</tr>
+<tr>
+<td>Log Chunk</td>
+<td>Compressed log entries</td>
+</tr>
+<tr>
+<td>Bloom Filter</td>
+<td>Bỏ qua chunks chắc chắn không khớp</td>
+</tr>
+<tr>
+<td>Query Frontend</td>
+<td>Planning, cache, limits</td>
+</tr>
+<tr>
+<td>Recording Rule</td>
+<td>Precompute query</td>
+</tr>
+<tr>
+<td>Alert Evaluator</td>
+<td>Đánh giá điều kiện</td>
+</tr>
+<tr>
+<td>Alert Manager</td>
+<td>Group, dedupe, route</td>
+</tr>
+<tr>
+<td>Tenant Quota</td>
+<td>Chống noisy neighbor</td>
+</tr>
+<tr>
+<td>Block Catalog</td>
+<td>Xác định dữ liệu nằm ở đâu</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="163-sơ-đồ-tổng-hợp">163. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Workloads --> Agents
+    Agents --> LocalWAL[(Local Agent WAL)]
+    Agents --> RegionalGateway
+
+    RegionalGateway --> TenantAuth
+    TenantAuth --> Quota
+    Quota --> DurableStream
+
+    DurableStream --> MetricsDistributor
+    DurableStream --> LogDistributor
+
+    MetricsDistributor --> MetricIngesters
+    MetricIngesters --> MetricWAL[(Metrics WAL)]
+    MetricIngesters --> RecentHead[(Recent Head)]
+    MetricIngesters --> BlockBuilder
+    BlockBuilder --> TSDBBlocks[(Immutable TSDB Blocks)]
+
+    TSDBBlocks --> Compactor
+    Compactor --> Downsampled[(Compacted / Downsampled Blocks)]
+
+    LogDistributor --> LogIngesters
+    LogIngesters --> LogWAL[(Log WAL)]
+    LogIngesters --> LogChunks[(Compressed Log Chunks)]
+    LogIngesters --> StreamIndex[(Label Index)]
+
+    RecentHead --> MetricsQuery
+    TSDBBlocks --> MetricsQuery
+    Downsampled --> MetricsQuery
+
+    LogChunks --> LogQuery
+    StreamIndex --> LogQuery
+
+    MetricsQuery --> QueryFrontend
+    LogQuery --> QueryFrontend
+    QueryFrontend --> Dashboards
+
+    QueryFrontend --> AlertEvaluators
+    AlertEvaluators --> AlertState[(Alert State)]
+    AlertEvaluators --> AlertManager
+    AlertManager --> NotificationChannels
+</div></code></pre>
+<hr>
+<h1 id="164-những-điều-phải-nhớ-sau-bài-34">164. Những Điều Phải Nhớ sau Bài 34</h1>
+<pre class="hljs"><code><div>1. Metrics, logs và traces có access patterns khác nhau.
+2. Metrics phát hiện vấn đề; logs giải thích sự kiện.
+3. Agent cách ly application khỏi monitoring backend.
+4. Agent cần batch, compression và local WAL.
+5. Agent buffer phải có resource limits.
+6. Push và pull đều có vai trò.
+7. Ingestion gateway phải xác thực tenant.
+8. ACK nên diễn ra sau durable write.
+9. Durable stream tách ingestion khỏi storage.
+10. Backpressure phải propagate có kiểm soát.
+11. Counter khác gauge.
+12. Histograms aggregate tốt hơn client-side quantiles.
+13. Mỗi label set tạo một time series.
+14. User ID và request ID là metric labels nguy hiểm.
+15. Active cardinality và series churn đều cần giới hạn.
+16. New-series rate là metric quan trọng.
+17. Relabeling có thể giảm cardinality.
+18. Exemplars nối metrics với traces mà không tạo series mới.
+19. Series ID dựa trên canonical label set.
+20. Ingester cần WAL và recent head.
+21. Recent data và historical data có thể nằm ở storage khác nhau.
+22. Immutable blocks giúp compaction và replication.
+23. Series index thường là inverted index.
+24. Regex matchers có thể rất đắt.
+25. Time-series chunks cần timestamp/value compression.
+26. Compaction phải idempotent.
+27. Input blocks chỉ xóa sau khi output publish an toàn.
+28. Downsampling giảm cost nhưng mất chi tiết.
+29. Nên giữ min, max, sum và count thay vì chỉ average.
+30. Retention nên phân tầng.
+31. Query frontend cần planning và limits.
+32. Query fan-out không được tăng vô hạn.
+33. Historical immutable queries dễ cache.
+34. Recording rules giảm chi phí query lặp lại.
+35. Logs cần xử lý rotation và multiline.
+36. Structured logs tốt hơn regex parsing.
+37. Không nên index mọi log field.
+38. Low-cardinality labels dùng để chọn streams.
+39. High-cardinality fields nên nằm trong body/metadata.
+40. Bloom filters giảm số chunks phải scan.
+41. Full-text index nhanh nhưng đắt.
+42. Log ordering toàn cục thường không cần thiết.
+43. Event timestamp và ingestion timestamp đều hữu ích.
+44. Late logs cần policy rõ.
+45. Log retention có thể theo severity.
+46. Sampling nên giữ toàn bộ errors và rare events.
+47. Secrets/PII nên được redact gần nguồn.
+48. Dashboard refresh có thể tạo query storm.
+49. Alert rules cũng là workload query.
+50. Alert cần inactive, pending, firing và resolved states.
+51. Pending giảm transient alert noise.
+52. Missing data khác zero.
+53. Alert query failure không nên được xem là condition false.
+54. Alert Manager khác Alert Evaluator.
+55. Grouping giảm alert storms.
+56. Deduplication tránh notification trùng.
+57. Silence khác resolve.
+58. Inhibition suppress alerts cấp thấp khi root cause đã firing.
+59. Notification commands cần idempotency.
+60. Mọi cache/storage key phải chứa tenant scope.
+61. Quotas cần áp cho ingestion, query và rules.
+62. Query fairness chống noisy neighbor.
+63. Physical isolation phù hợp regulated hoặc large tenants.
+64. Audit logs cần retention riêng.
+65. Local ingest giảm latency và egress.
+66. Global query cần biết block nằm ở region nào.
+67. Regional alerts resilient hơn global alerts.
+68. Global alerts phù hợp business/SLO toàn hệ thống.
+69. Alert rule ownership cần lease/epoch.
+70. Không nên replicate synchronous mọi debug log.
+71. Audit data có thể cần durability cao hơn.
+72. Data residency áp dụng cả cache và backup.
+73. Partial multi-region query phải được đánh dấu rõ.
+74. Replicated ingesters giảm mất recent metrics.
+75. Object storage phù hợp immutable historical blocks.
+76. Compactor crash không được làm mất input blocks.
+77. Cardinality spike cần throttling/rejection.
+78. Log lines cần maximum size.
+79. Query engine cần cost limits.
+80. Monitoring platform cần external dead-man&#x27;s switch.
+</div></code></pre>
+<hr>
+<h1 id="165-bài-tập-thiết-kế-mở-rộng">165. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế monitoring platform với yêu cầu:</p>
+<pre class="hljs"><code><div>- 10 triệu hosts và containers
+- 100 triệu metric samples/giây
+- 50 triệu active time series
+- 20 triệu log events/giây
+- Metrics raw retention 90 ngày
+- Downsampled retention 5 năm
+- Logs retention từ 7 ngày đến 7 năm
+- Query recent data p95 dưới 2 giây
+- Alert notification dưới 30 giây
+- Multi-region active–active
+- Hỗ trợ 100.000 tenants
+- Tenant regulated không được đưa dữ liệu ra khỏi region
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Agent buffer tối đa bao nhiêu?
+2. Agent dùng memory queue hay disk WAL?
+3. Batch size và flush interval là bao nhiêu?
+4. Push, pull hay hybrid?
+5. Ingestion gateway shard theo tenant hay series hash?
+6. ACK sau stream hay sau TSDB commit?
+7. Stream retention bao lâu?
+8. Replication factor của ingesters là bao nhiêu?
+9. Series ID được tạo thế nào?
+10. Hash collision được xử lý thế nào?
+11. Out-of-order window là bao nhiêu?
+12. Duplicate samples được xử lý thế nào?
+13. Active-series quota và new-series quota khác nhau ra sao?
+14. Cardinality spike được chặn ở agent hay gateway?
+15. Head block dài bao lâu?
+16. TSDB block size/time range là bao nhiêu?
+17. Compaction levels được thiết kế thế nào?
+18. Downsampling giữ những aggregates nào?
+19. Series index được partition thế nào?
+20. Query frontend estimate cost ra sao?
+21. Query cache invalidation hoạt động thế nào?
+22. Recording rules chạy ở đâu?
+23. Logs được index những fields nào?
+24. Request ID search hoạt động thế nào nếu không index?
+25. Multiline logs được giới hạn ra sao?
+26. Log chunks được partition theo stream và time thế nào?
+27. Bloom filters được tạo cho tokens hay fields nào?
+28. Alert rules được shard ra sao?
+29. Alert state được replicate thế nào?
+30. Notification duplicate được ngăn ra sao?
+31. Tenant query fairness hoạt động thế nào?
+32. Multi-region global query chọn regions ra sao?
+33. Regional outage ảnh hưởng alerting thế nào?
+34. Data residency ảnh hưởng object storage và cache ra sao?
+35. Invariants và SLO quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-13">Kết luận Case Study 13</h1>
+<p>Metrics, Logging và Monitoring Platform có thể cô đọng thành:</p>
+<pre class="hljs"><code><div>Thu thập gần workload
+→ Batch, compress và buffer
+→ Durable multi-tenant ingestion
+→ Metrics TSDB và log chunk storage
+→ Compaction, retention và indexing
+→ Query frontend
+→ Dashboard và alert evaluation
+→ Group, deduplicate và gửi notification
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Observability platform không khó chỉ vì dữ liệu lớn. Phần khó hơn là giữ ingestion đủ rẻ để không ảnh hưởng production, ngăn cardinality và query workload mất kiểm soát, đồng thời bảo đảm cảnh báo quan trọng vẫn chính xác khi agents, storage, query engine hoặc cả một region đang gặp sự cố.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 35 — Case Study 14: Thiết kế Ticket Booking và Reservation System — event inventory, seat map, temporary holds, concurrency control, waiting room, payment, overselling prevention, cancellation, resale và multi-region.</strong></p>
+
+</body>
+</html>

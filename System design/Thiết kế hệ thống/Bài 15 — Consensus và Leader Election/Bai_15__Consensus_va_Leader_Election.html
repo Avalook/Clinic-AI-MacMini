@@ -1,0 +1,2428 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 15 — Consensus và Leader Election.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-15--consensus-và-leader-election">Bài 15 — Consensus và Leader Election</h1>
+<p>Replication tạo nhiều bản sao dữ liệu. Nhưng chỉ replication thôi chưa trả lời được:</p>
+<pre class="hljs"><code><div>- Node nào được quyền nhận write?
+- Nếu leader chết, ai trở thành leader mới?
+- Hai nhóm node bị mất kết nối có được cùng nhận write không?
+- Một log entry được xem là commit khi nào?
+- Làm sao mọi node đồng ý về cùng một thứ tự thao tác?
+</div></code></pre>
+<p>Đây là bài toán <strong>consensus</strong>.</p>
+<blockquote>
+<p><strong>Consensus là quá trình nhiều node thống nhất về một quyết định hoặc một chuỗi quyết định, dù node có thể crash, message có thể trễ và mạng có thể bị phân vùng.</strong></p>
+</blockquote>
+<p>Các ứng dụng phổ biến:</p>
+<pre class="hljs"><code><div>- Leader election
+- Replicated transaction log
+- Cluster membership
+- Distributed configuration
+- Metadata management
+- Distributed lock
+- Coordination service
+- Distributed database
+</div></code></pre>
+<p>Bài này dùng <strong>Raft</strong> để xây trực giác. Mục tiêu không phải thuộc mọi dòng của thuật toán, mà là hiểu tại sao quorum, term, log replication, commit index và fencing phối hợp với nhau để bảo vệ correctness.</p>
+<hr>
+<h1 id="1-replication-chưa-phải-consensus">1. Replication chưa phải Consensus</h1>
+<p>Giả sử có ba database node:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[(Node A)]
+    B[(Node B)]
+    C[(Node C)]
+
+    A --> B
+    A --> C
+</div></code></pre>
+<p>Node A đang là leader và replicate dữ liệu sang B, C.</p>
+<p>Nếu A mất kết nối với B và C nhưng vẫn còn phục vụ client:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client1 --> A[(Old Leader A)]
+
+    Client2 --> B[(Node B)]
+    B --- C[(Node C)]
+
+    A -. Network partition .- B
+</div></code></pre>
+<p>B và C có thể bầu B thành leader mới vì chúng tạo thành majority.</p>
+<p>Nếu A vẫn tiếp tục nhận write, hệ thống có hai leader:</p>
+<pre class="hljs"><code><div>Leader A:
+Nhận write từ Client 1
+
+Leader B:
+Nhận write từ Client 2
+</div></code></pre>
+<p>Đây là <strong>split-brain</strong>.</p>
+<p>Replication chỉ tạo bản sao. Consensus xác định:</p>
+<pre class="hljs"><code><div>- Ai có quyền quyết định?
+- Quyết định nào đã được chấp nhận?
+- Node nào phải dừng khi không còn quorum?
+</div></code></pre>
+<hr>
+<h1 id="2-consensus-cần-thống-nhất-điều-gì">2. Consensus cần thống nhất điều gì?</h1>
+<p>Tùy hệ thống, các node có thể cần thống nhất:</p>
+<pre class="hljs"><code><div>- Ai là leader hiện tại?
+- Giá trị của một configuration key
+- Thứ tự các database transaction
+- Shard nào thuộc node nào
+- Thành viên nào đang thuộc cluster
+- Một distributed lock thuộc về client nào
+</div></code></pre>
+<p>Trong replicated state machine, các node chủ yếu thống nhất một <strong>ordered log</strong>:</p>
+<pre class="hljs"><code><div>Index 1: SET x = 10
+Index 2: SET y = 20
+Index 3: TRANSFER A → B 100
+Index 4: DELETE session_123
+</div></code></pre>
+<p>Nếu mọi node áp dụng cùng command theo cùng thứ tự, chúng sẽ đạt cùng state.</p>
+<hr>
+<h1 id="3-replicated-state-machine">3. Replicated State Machine</h1>
+<p>Mô hình tổng quát:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Consensus[Consensus Module]
+    Consensus --> L1[Replicated Log Node 1]
+    Consensus --> L2[Replicated Log Node 2]
+    Consensus --> L3[Replicated Log Node 3]
+
+    L1 --> S1[State Machine 1]
+    L2 --> S2[State Machine 2]
+    L3 --> S3[State Machine 3]
+</div></code></pre>
+<p>Mỗi node có:</p>
+<pre class="hljs"><code><div>1. Consensus module
+2. Replicated log
+3. State machine
+</div></code></pre>
+<p>Nếu log giống nhau:</p>
+<pre class="hljs"><code><div>Node A:
+[SET x=1, SET y=2]
+
+Node B:
+[SET x=1, SET y=2]
+
+Node C:
+[SET x=1, SET y=2]
+</div></code></pre>
+<p>và các command deterministic, state cuối cũng giống nhau.</p>
+<hr>
+<h1 id="4-safety-và-liveness">4. Safety và Liveness</h1>
+<p>Một consensus protocol phải quan tâm hai nhóm tính chất.</p>
+<h2 id="safety">Safety</h2>
+<p>Không được xảy ra điều sai.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Không có hai leader hợp lệ trong cùng một term.
+- Hai node không commit hai command khác nhau tại cùng log index.
+- Entry đã commit không được mất sau leader election.
+</div></code></pre>
+<p>Safety có thể hiểu là:</p>
+<blockquote>
+<p>Hệ thống thà tạm dừng còn hơn đưa ra hai quyết định mâu thuẫn.</p>
+</blockquote>
+<hr>
+<h2 id="liveness">Liveness</h2>
+<p>Hệ thống cuối cùng vẫn tiếp tục tiến lên khi điều kiện đủ tốt.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Cluster có majority node hoạt động.
+- Network cuối cùng ổn định.
+- Cluster cuối cùng bầu được leader.
+- Client write cuối cùng được commit.
+</div></code></pre>
+<p>Consensus thường ưu tiên safety khi phải lựa chọn.</p>
+<hr>
+<h1 id="5-majority-là-gì">5. Majority là gì?</h1>
+<p>Với <code>N</code> voting nodes:</p>
+<pre class="hljs"><code><div>Majority = floor(N / 2) + 1
+</div></code></pre>
+<p>Ví dụ:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:right">Số node</th>
+<th style="text-align:right">Majority</th>
+<th style="text-align:right">Chịu được số node lỗi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">1</td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">1</td>
+</tr>
+<tr>
+<td style="text-align:right">5</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">2</td>
+</tr>
+<tr>
+<td style="text-align:right">7</td>
+<td style="text-align:right">4</td>
+<td style="text-align:right">3</td>
+</tr>
+</tbody>
+</table>
+<p>Công thức số lỗi crash có thể chịu:</p>
+<pre class="hljs"><code><div>f = floor((N - 1) / 2)
+</div></code></pre>
+<p>Để chịu <code>f</code> lỗi, thường cần:</p>
+<pre class="hljs"><code><div>N = 2f + 1
+</div></code></pre>
+<hr>
+<h1 id="6-vì-sao-majority-quan-trọng">6. Vì sao Majority quan trọng?</h1>
+<p>Hai majority trong cùng một cluster luôn giao nhau ít nhất một node.</p>
+<p>Với năm node:</p>
+<pre class="hljs"><code><div>Majority A:
+Node 1, 2, 3
+
+Majority B:
+Node 3, 4, 5
+</div></code></pre>
+<p>Hai nhóm giao nhau tại Node 3.</p>
+<p>Tính chất giao nhau giúp ngăn hai quyết định độc lập hoàn toàn.</p>
+<p>Ví dụ không thể có:</p>
+<pre class="hljs"><code><div>Majority 1 commit X
+Majority 2 commit Y
+</div></code></pre>
+<p>mà không có ít nhất một node tham gia cả hai quyết định.</p>
+<p>Consensus protocol dùng thêm term, log rules và voting rules để node giao nhau này không thể hợp lệ hóa hai lịch sử mâu thuẫn.</p>
+<hr>
+<h1 id="7-vì-sao-cluster-thường-dùng-số-node-lẻ">7. Vì sao cluster thường dùng số node lẻ?</h1>
+<p>So sánh:</p>
+<pre class="hljs"><code><div>3 nodes:
+Majority = 2
+Chịu 1 lỗi
+
+4 nodes:
+Majority = 3
+Cũng chỉ chịu 1 lỗi
+</div></code></pre>
+<p>Node thứ tư tăng chi phí nhưng không tăng số failure mà majority cluster chịu được.</p>
+<p>Tương tự:</p>
+<pre class="hljs"><code><div>5 nodes:
+Majority = 3
+Chịu 2 lỗi
+
+6 nodes:
+Majority = 4
+Cũng chỉ chịu 2 lỗi
+</div></code></pre>
+<p>Vì vậy voting cluster thường có:</p>
+<pre class="hljs"><code><div>3, 5 hoặc 7 nodes
+</div></code></pre>
+<p>Không nên tăng quá nhiều vì mỗi write cần giao tiếp với quorum, làm tăng latency và operational cost.</p>
+<hr>
+<h1 id="8-quorum-không-đồng-nghĩa-consensus">8. Quorum không đồng nghĩa Consensus</h1>
+<p>Quorum chỉ nói:</p>
+<blockquote>
+<p>Cần bao nhiêu node tham gia?</p>
+</blockquote>
+<p>Consensus còn phải xác định:</p>
+<pre class="hljs"><code><div>- Node được vote thế nào?
+- Vote thuộc nhiệm kỳ nào?
+- Log nào mới hơn?
+- Hai candidate cạnh tranh ra sao?
+- Entry nào được commit?
+- Node cũ quay lại xử lý thế nào?
+</div></code></pre>
+<p>Một hệ thống có <code>W=2</code> trên ba replica chưa chắc đã là consensus system.</p>
+<p>Nếu hai coordinator khác nhau có thể ghi hai giá trị cạnh tranh mà không có term, ordering và conflict rules rõ ràng, quorum đơn thuần chưa đủ.</p>
+<hr>
+<h1 id="9-raft-giải-quyết-bài-toán-gì">9. Raft giải quyết bài toán gì?</h1>
+<p>Raft là consensus algorithm tổ chức cluster thành:</p>
+<pre class="hljs"><code><div>- Leader
+- Followers
+- Candidate trong thời gian election
+</div></code></pre>
+<p>Raft chia bài toán thành các phần dễ hiểu:</p>
+<pre class="hljs"><code><div>1. Leader election
+2. Log replication
+3. Safety
+4. Membership changes
+5. Log compaction
+</div></code></pre>
+<p>Phần lõi của bài này:</p>
+<pre class="hljs"><code><div>- Term
+- Election timeout
+- RequestVote
+- AppendEntries
+- Log index và log term
+- Commit index
+- Majority
+</div></code></pre>
+<hr>
+<h1 id="10-ba-trạng-thái-của-một-raft-node">10. Ba trạng thái của một Raft node</h1>
+<pre><code class="language-mermaid"><div class="mermaid">stateDiagram-v2
+    [*] --> Follower
+
+    Follower --> Candidate: Election timeout
+    Candidate --> Leader: Wins majority
+    Candidate --> Follower: Sees higher term
+    Candidate --> Candidate: New election timeout
+
+    Leader --> Follower: Sees higher term
+</div></code></pre>
+<h2 id="follower">Follower</h2>
+<p>Trạng thái bình thường của phần lớn node.</p>
+<p>Follower:</p>
+<pre class="hljs"><code><div>- Nhận heartbeat từ leader
+- Nhận log entries
+- Trả lời RequestVote
+- Không tự nhận client write
+</div></code></pre>
+<hr>
+<h2 id="candidate">Candidate</h2>
+<p>Follower không nhận heartbeat đúng hạn sẽ:</p>
+<pre class="hljs"><code><div>- Tăng term
+- Chuyển thành candidate
+- Vote cho chính mình
+- Gửi RequestVote tới các node khác
+</div></code></pre>
+<hr>
+<h2 id="leader">Leader</h2>
+<p>Candidate nhận majority vote trở thành leader.</p>
+<p>Leader:</p>
+<pre class="hljs"><code><div>- Nhận client command
+- Append command vào log
+- Replicate log tới followers
+- Quyết định commit
+- Gửi heartbeat
+</div></code></pre>
+<hr>
+<h1 id="11-term--nhiệm-kỳ-logic">11. Term — nhiệm kỳ logic</h1>
+<p>Raft chia thời gian logic thành các <strong>term</strong> tăng dần.</p>
+<pre class="hljs"><code><div>Term 1:
+Node A là leader
+
+Term 2:
+Node B là leader
+
+Term 3:
+Election không chọn được leader
+
+Term 4:
+Node C là leader
+</div></code></pre>
+<p>Term không phải thời gian đồng hồ.</p>
+<p>Nó giống một epoch hoặc generation number:</p>
+<pre class="hljs"><code><div>1, 2, 3, 4, ...
+</div></code></pre>
+<p>Mỗi node lưu bền vững:</p>
+<pre class="hljs"><code><div>currentTerm
+</div></code></pre>
+<hr>
+<h1 id="12-vai-trò-của-term">12. Vai trò của Term</h1>
+<p>Term giúp node phát hiện thông tin cũ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Node A nghĩ mình là leader Term 5.
+Node B gửi message từ Term 6.
+</div></code></pre>
+<p>A phải hiểu rằng:</p>
+<pre class="hljs"><code><div>Tôi đã lỗi thời.
+</div></code></pre>
+<p>A chuyển thành follower và cập nhật <code>currentTerm = 6</code>.</p>
+<p>Quy tắc khái niệm:</p>
+<pre class="hljs"><code><div>Nếu nhận message có term lớn hơn:
+- Cập nhật term
+- Step down thành follower
+
+Nếu nhận message có term nhỏ hơn:
+- Từ chối hoặc bỏ qua
+</div></code></pre>
+<p>Term là cơ sở quan trọng để chặn leader cũ tiếp tục hành xử như leader hợp lệ trong cluster.</p>
+<hr>
+<h1 id="13-mỗi-term-có-tối-đa-một-leader-hợp-lệ">13. Mỗi Term có tối đa một Leader hợp lệ</h1>
+<p>Một node chỉ vote tối đa một candidate trong một term.</p>
+<p>Candidate phải nhận majority.</p>
+<p>Giả sử hai candidate A và B cùng tranh cử trong Term 7.</p>
+<p>A cần ít nhất ba vote trong cluster năm node.</p>
+<p>B cũng cần ít nhất ba vote.</p>
+<p>Hai tập majority phải giao nhau ít nhất một node.</p>
+<p>Nhưng node giao nhau không thể vote cho cả A và B trong cùng term.</p>
+<p>Vì thế:</p>
+<blockquote>
+<p>Không thể có hai candidate cùng giành majority hợp lệ trong cùng một term.</p>
+</blockquote>
+<hr>
+<h1 id="14-heartbeat">14. Heartbeat</h1>
+<p>Leader định kỳ gửi <code>AppendEntries</code>, kể cả khi không có log mới.</p>
+<p>Một <code>AppendEntries</code> rỗng đóng vai trò heartbeat:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant L as Leader
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+
+    loop Every heartbeat interval
+        L->>F1: AppendEntries, no new entries
+        L->>F2: AppendEntries, no new entries
+    end
+</div></code></pre>
+<p>Heartbeat cho followers biết:</p>
+<pre class="hljs"><code><div>Leader vẫn còn hoạt động.
+Không cần bắt đầu election.
+</div></code></pre>
+<hr>
+<h1 id="15-election-timeout">15. Election Timeout</h1>
+<p>Mỗi follower có election timeout.</p>
+<p>Nếu không nhận heartbeat hoặc AppendEntries hợp lệ trước timeout:</p>
+<pre class="hljs"><code><div>Follower → Candidate
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Heartbeat interval: 50 ms
+Election timeout: ngẫu nhiên 150–300 ms
+</div></code></pre>
+<p>Con số thực tế phụ thuộc môi trường.</p>
+<p>Election timeout phải:</p>
+<pre class="hljs"><code><div>Lớn hơn đáng kể so với heartbeat interval và network delay bình thường.
+</div></code></pre>
+<hr>
+<h1 id="16-vì-sao-election-timeout-phải-ngẫu-nhiên">16. Vì sao Election Timeout phải ngẫu nhiên?</h1>
+<p>Nếu mọi follower timeout đúng 200 ms:</p>
+<pre class="hljs"><code><div>- Tất cả cùng thành candidate
+- Tất cả vote cho chính mình
+- Vote bị chia đều
+- Không ai đạt majority
+</div></code></pre>
+<p>Đây là <strong>split vote</strong>.</p>
+<p>Raft dùng randomized election timeout:</p>
+<pre class="hljs"><code><div>Node A: 167 ms
+Node B: 224 ms
+Node C: 281 ms
+</div></code></pre>
+<p>A timeout trước, gửi RequestVote khi B và C còn là follower.</p>
+<p>A có xác suất cao giành majority.</p>
+<hr>
+<h1 id="17-bắt-đầu-election">17. Bắt đầu Election</h1>
+<p>Giả sử cluster có năm node:</p>
+<pre class="hljs"><code><div>A, B, C, D, E
+</div></code></pre>
+<p>Leader cũ chết.</p>
+<p>Node B timeout đầu tiên.</p>
+<p>B thực hiện:</p>
+<pre class="hljs"><code><div>1. currentTerm tăng từ 8 lên 9
+2. Chuyển thành Candidate
+3. Vote cho B
+4. Gửi RequestVote(term=9) tới A, C, D, E
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant B as Candidate B
+    participant A
+    participant C
+    participant D
+    participant E
+
+    B->>B: term=9, vote for self
+    B->>A: RequestVote term=9
+    B->>C: RequestVote term=9
+    B->>D: RequestVote term=9
+    B->>E: RequestVote term=9
+
+    C-->>B: Vote granted
+    D-->>B: Vote granted
+
+    Note over B: B has 3 votes including itself
+    Note over B: Majority achieved
+</div></code></pre>
+<p>B trở thành leader Term 9.</p>
+<hr>
+<h1 id="18-requestvote-chứa-gì">18. RequestVote chứa gì?</h1>
+<p>Ở mức trực giác, candidate gửi:</p>
+<pre class="hljs"><code><div>- Candidate term
+- Candidate ID
+- Last log index
+- Last log term
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;term&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">9</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;candidateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;B&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastLogIndex&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">142</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;lastLogTerm&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Follower không chỉ nhìn term.</p>
+<p>Follower còn kiểm tra log của candidate có đủ mới không.</p>
+<hr>
+<h1 id="19-quy-tắc-vote-cơ-bản">19. Quy tắc Vote cơ bản</h1>
+<p>Follower vote cho candidate khi:</p>
+<pre class="hljs"><code><div>1. Candidate term không cũ hơn follower.
+2. Follower chưa vote cho node khác trong term đó.
+3. Candidate log ít nhất cập nhật bằng follower log.
+</div></code></pre>
+<p>Điều kiện thứ ba cực kỳ quan trọng.</p>
+<p>Nếu candidate có log thiếu entry đã commit, candidate đó không nên trở thành leader.</p>
+<hr>
+<h1 id="20-log-nào-được-xem-là-up-to-date-hơn">20. Log nào được xem là “up-to-date” hơn?</h1>
+<p>Raft so sánh:</p>
+<pre class="hljs"><code><div>1. Last log term
+2. Nếu last term bằng nhau, so last log index
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Candidate A:
+lastLogTerm = 8
+lastLogIndex = 100
+
+Candidate B:
+lastLogTerm = 7
+lastLogIndex = 150
+</div></code></pre>
+<p>A được xem là up-to-date hơn vì last term 8 mới hơn 7, dù log ngắn hơn.</p>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>Candidate A:
+term = 8, index = 100
+
+Candidate B:
+term = 8, index = 110
+</div></code></pre>
+<p>B mới hơn vì cùng last term nhưng index lớn hơn.</p>
+<hr>
+<h1 id="21-vì-sao-candidate-log-phải-đủ-mới">21. Vì sao Candidate Log phải đủ mới?</h1>
+<p>Giả sử entry X đã được commit trên majority:</p>
+<pre class="hljs"><code><div>Node A: [X]
+Node B: [X]
+Node C: [X]
+Node D: []
+Node E: []
+</div></code></pre>
+<p>Một candidate chỉ có thể giành majority nếu nhận vote từ ít nhất ba node.</p>
+<p>Bất kỳ majority mới nào cũng giao với majority đã chứa X.</p>
+<p>Node giao nhau biết candidate thiếu X và sẽ không vote cho candidate có log cũ.</p>
+<p>Nhờ vậy:</p>
+<blockquote>
+<p>Một leader mới hợp lệ phải chứa mọi entry đã commit.</p>
+</blockquote>
+<p>Đây là phần cốt lõi của Leader Completeness.</p>
+<hr>
+<h1 id="22-split-vote">22. Split Vote</h1>
+<p>Giả sử bốn node cùng timeout gần nhau:</p>
+<pre class="hljs"><code><div>A vote A
+B vote B
+C vote A
+D vote B
+E chưa phản hồi
+</div></code></pre>
+<p>Không candidate nào đạt ba vote.</p>
+<p>Election thất bại nhưng safety không bị vi phạm.</p>
+<p>Sau election timeout mới:</p>
+<pre class="hljs"><code><div>- Candidate tăng term
+- Random timeout lại
+- Tổ chức election mới
+</div></code></pre>
+<p>Cuối cùng một candidate thường timeout trước và thắng.</p>
+<hr>
+<h1 id="23-khi-candidate-nhận-heartbeat-từ-leader-khác">23. Khi Candidate nhận Heartbeat từ Leader khác</h1>
+<p>Candidate B đang tranh cử Term 10.</p>
+<p>Nó nhận AppendEntries từ A:</p>
+<pre class="hljs"><code><div>Case 1:
+A term = 11
+</div></code></pre>
+<p>B phải step down vì term 11 cao hơn.</p>
+<pre class="hljs"><code><div>Case 2:
+A term = 9
+</div></code></pre>
+<p>B từ chối vì A đã cũ.</p>
+<p>Nếu term bằng nhau và A là leader hợp lệ, B thường chuyển về follower.</p>
+<hr>
+<h1 id="24-client-write-đi-qua-leader">24. Client Write đi qua Leader</h1>
+<p>Client gửi command:</p>
+<pre class="hljs"><code><div>SET x = 5
+</div></code></pre>
+<p>Leader không áp dụng ngay rồi tuyên bố thành công một cách tùy tiện.</p>
+<p>Luồng cơ bản:</p>
+<pre class="hljs"><code><div>1. Leader append command vào local log.
+2. Leader gửi entry tới followers.
+3. Followers ghi entry vào log và ACK.
+4. Khi entry đủ điều kiện commit, leader tăng commitIndex.
+5. Leader apply entry vào state machine.
+6. Leader trả thành công cho client.
+7. Followers học commitIndex và apply entry.
+</div></code></pre>
+<hr>
+<h1 id="25-cấu-trúc-một-log-entry">25. Cấu trúc một Log Entry</h1>
+<p>Mỗi log entry thường có:</p>
+<pre class="hljs"><code><div>- Index
+- Term
+- Command
+</div></code></pre>
+<p>Ví dụ:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:right">Index</th>
+<th style="text-align:right">Term</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td style="text-align:right">1</td>
+<td><code>SET x=10</code></td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td style="text-align:right">1</td>
+<td><code>SET y=20</code></td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td style="text-align:right">2</td>
+<td><code>DELETE z</code></td>
+</tr>
+<tr>
+<td style="text-align:right">4</td>
+<td style="text-align:right">4</td>
+<td><code>SET x=15</code></td>
+</tr>
+</tbody>
+</table>
+<p>Index xác định vị trí.</p>
+<p>Term cho biết entry được leader của nhiệm kỳ nào tạo ra.</p>
+<hr>
+<h1 id="26-appendentries-rpc">26. AppendEntries RPC</h1>
+<p>Leader gửi tới follower:</p>
+<pre class="hljs"><code><div>- Leader term
+- Leader ID
+- prevLogIndex
+- prevLogTerm
+- Entries mới
+- leaderCommit
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;term&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;leaderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;B&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;prevLogIndex&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;prevLogTerm&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">11</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;entries&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">43</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;term&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;command&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;SET x=5&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;leaderCommit&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="27-prevlogindex-và-prevlogterm">27. prevLogIndex và prevLogTerm</h1>
+<p>Follower chỉ append entry mới nếu log trước đó khớp.</p>
+<p>Leader nói:</p>
+<pre class="hljs"><code><div>Entry trước có:
+index = 42
+term = 11
+</div></code></pre>
+<p>Follower kiểm tra log của mình.</p>
+<p>Nếu follower cũng có:</p>
+<pre class="hljs"><code><div>index 42, term 11
+</div></code></pre>
+<p>thì log prefix khớp và có thể append entry 43.</p>
+<p>Nếu không:</p>
+<pre class="hljs"><code><div>Follower từ chối AppendEntries.
+</div></code></pre>
+<p>Leader phải quay lại vị trí cũ hơn để tìm điểm log chung.</p>
+<hr>
+<h1 id="28-log-matching-property">28. Log Matching Property</h1>
+<p>Trực giác của Raft:</p>
+<blockquote>
+<p>Nếu hai log có entry cùng index và cùng term, toàn bộ prefix trước entry đó cũng giống nhau.</p>
+</blockquote>
+<p>Điều này được xây dựng bởi quy tắc kiểm tra:</p>
+<pre class="hljs"><code><div>prevLogIndex + prevLogTerm
+</div></code></pre>
+<p>Leader không được nối entry mới vào một prefix không khớp.</p>
+<hr>
+<h1 id="29-follower-bị-thiếu-log">29. Follower bị thiếu Log</h1>
+<p>Leader:</p>
+<pre class="hljs"><code><div>Index: 1 2 3 4 5
+Term:  1 1 2 2 3
+</div></code></pre>
+<p>Follower:</p>
+<pre class="hljs"><code><div>Index: 1 2 3
+Term:  1 1 2
+</div></code></pre>
+<p>Leader gửi entry 4 và 5.</p>
+<p>Follower kiểm tra entry 3 khớp, rồi append:</p>
+<pre class="hljs"><code><div>Follower sau đồng bộ:
+1 2 3 4 5
+</div></code></pre>
+<hr>
+<h1 id="30-follower-có-log-xung-đột">30. Follower có Log xung đột</h1>
+<p>Leader:</p>
+<pre class="hljs"><code><div>Index: 1 2 3 4 5
+Term:  1 1 2 4 4
+</div></code></pre>
+<p>Follower cũ:</p>
+<pre class="hljs"><code><div>Index: 1 2 3 4 5 6
+Term:  1 1 2 3 3 3
+</div></code></pre>
+<p>Entry 4 khác term:</p>
+<pre class="hljs"><code><div>Leader index 4 term 4
+Follower index 4 term 3
+</div></code></pre>
+<p>Leader tìm điểm chung cuối cùng là index 3.</p>
+<p>Follower xóa suffix xung đột:</p>
+<pre class="hljs"><code><div>4, 5, 6
+</div></code></pre>
+<p>rồi append log của leader:</p>
+<pre class="hljs"><code><div>Index: 1 2 3 4 5
+Term:  1 1 2 4 4
+</div></code></pre>
+<hr>
+<h1 id="31-vì-sao-log-chưa-commit-có-thể-bị-ghi-đè">31. Vì sao Log chưa Commit có thể bị ghi đè?</h1>
+<p>Một leader cũ có thể append entry vào một số ít node nhưng chưa đạt majority.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Node A: [X]
+Node B: [X]
+Node C: []
+Node D: []
+Node E: []
+</div></code></pre>
+<p>A chết trước khi X được replicate lên majority.</p>
+<p>Một leader mới không có X vẫn có thể được bầu.</p>
+<p>Leader mới có quyền ghi đè suffix chưa commit trên A và B.</p>
+<p>Điều này an toàn vì X chưa bao giờ được commit hoặc trả thành công theo đúng protocol.</p>
+<hr>
+<h1 id="32-nextindex-và-matchindex">32. nextIndex và matchIndex</h1>
+<p>Leader thường theo dõi cho mỗi follower:</p>
+<h2 id="nextindex">nextIndex</h2>
+<p>Entry tiếp theo leader sẽ gửi cho follower.</p>
+<pre class="hljs"><code><div>nextIndex[Follower C] = 43
+</div></code></pre>
+<h2 id="matchindex">matchIndex</h2>
+<p>Index cao nhất đã biết được replicate trên follower đó.</p>
+<pre class="hljs"><code><div>matchIndex[Follower C] = 42
+</div></code></pre>
+<p>Nếu AppendEntries thất bại:</p>
+<pre class="hljs"><code><div>Leader giảm nextIndex
+→ thử lại vị trí sớm hơn
+</div></code></pre>
+<p>Khi thành công:</p>
+<pre class="hljs"><code><div>Leader tăng nextIndex và matchIndex
+</div></code></pre>
+<hr>
+<h1 id="33-commit-index">33. Commit Index</h1>
+<p><code>commitIndex</code> là index cao nhất mà node biết đã commit.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Log:
+1 2 3 4 5 6
+
+commitIndex = 4
+</div></code></pre>
+<p>Ý nghĩa:</p>
+<pre class="hljs"><code><div>Entries 1–4 đã commit.
+Entries 5–6 chưa chắc chắn.
+</div></code></pre>
+<p>Chỉ entries đã commit mới được apply như quyết định cuối cùng vào state machine.</p>
+<hr>
+<h1 id="34-replicated-không-luôn-đồng-nghĩa-committed">34. Replicated không luôn đồng nghĩa Committed</h1>
+<p>Giả sử cluster năm node.</p>
+<p>Entry X nằm trên:</p>
+<pre class="hljs"><code><div>Leader A
+Follower B
+Follower C
+</div></code></pre>
+<p>Đây là majority ba node.</p>
+<p>Có phải X luôn được commit ngay?</p>
+<p>Với entry thuộc <strong>current leader term</strong>, leader có thể commit khi replicated trên majority.</p>
+<p>Nhưng Raft có một nuance quan trọng:</p>
+<blockquote>
+<p>Leader không trực tiếp dùng việc đếm majority để commit entry từ term cũ. Leader commit một entry thuộc current term trên majority; việc đó gián tiếp commit toàn bộ prefix trước nó.</p>
+</blockquote>
+<hr>
+<h1 id="35-vì-sao-có-quy-tắc-current-term-commit">35. Vì sao có quy tắc Current-Term Commit?</h1>
+<p>Một entry từ term cũ có thể xuất hiện trên majority tại một thời điểm nhưng vẫn có lịch sử election phức tạp khiến việc commit trực tiếp theo số lượng replica không an toàn.</p>
+<p>Raft dùng quy tắc đơn giản hơn:</p>
+<pre class="hljs"><code><div>Leader chỉ advance commitIndex bằng majority counting
+cho entry thuộc currentTerm.
+</div></code></pre>
+<p>Khi entry current term được commit:</p>
+<pre class="hljs"><code><div>Tất cả entry trước đó trong log prefix cũng được commit.
+</div></code></pre>
+<p>Nuance này thường bị bỏ qua trong các giải thích Raft sơ cấp nhưng rất quan trọng cho safety.</p>
+<hr>
+<h1 id="36-ví-dụ-commit-trong-current-term">36. Ví dụ Commit trong Current Term</h1>
+<p>Leader B đang ở Term 8.</p>
+<p>Log:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:right">Index</th>
+<th style="text-align:right">Term</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">10</td>
+<td style="text-align:right">6</td>
+<td>X</td>
+</tr>
+<tr>
+<td style="text-align:right">11</td>
+<td style="text-align:right">7</td>
+<td>Y</td>
+</tr>
+<tr>
+<td style="text-align:right">12</td>
+<td style="text-align:right">8</td>
+<td>Z</td>
+</tr>
+</tbody>
+</table>
+<p>Z tại index 12 được replicate lên majority.</p>
+<p>Leader có thể commit index 12 vì Z thuộc current term 8.</p>
+<p>Khi commit index 12:</p>
+<pre class="hljs"><code><div>X, Y và Z đều trở thành committed
+</div></code></pre>
+<p>vì chúng nằm trong cùng prefix.</p>
+<hr>
+<h1 id="37-leader-trả-success-khi-nào">37. Leader trả Success khi nào?</h1>
+<p>Đối với write yêu cầu consensus mạnh, leader thường chỉ trả success khi:</p>
+<pre class="hljs"><code><div>- Entry đã được append bền vững theo yêu cầu.
+- Entry đã replicate tới majority.
+- Entry đã được commit.
+- Thường đã apply hoặc chắc chắn sẽ apply theo contract.
+</div></code></pre>
+<p>Nếu leader trả success trước majority replication:</p>
+<pre class="hljs"><code><div>Leader chết
+→ entry có thể mất
+</div></code></pre>
+<p>Điều này phá durability và linearizability.</p>
+<hr>
+<h1 id="38-followers-biết-entry-đã-commit-thế-nào">38. Followers biết Entry đã Commit thế nào?</h1>
+<p>Leader gửi <code>leaderCommit</code> trong AppendEntries.</p>
+<p>Follower:</p>
+<pre class="hljs"><code><div>commitIndex = min(leaderCommit, index cuối của follower)
+</div></code></pre>
+<p>Sau đó follower apply các entry mới commit theo thứ tự.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant L as Leader
+    participant F as Follower
+
+    L->>F: AppendEntries, leaderCommit=52
+    F->>F: Advance commitIndex to 52
+    F->>F: Apply entries up to 52
+    F-->>L: Success
+</div></code></pre>
+<hr>
+<h1 id="39-lastapplied">39. lastApplied</h1>
+<p>Mỗi node thường theo dõi:</p>
+<pre class="hljs"><code><div>commitIndex:
+Entry cao nhất đã commit
+
+lastApplied:
+Entry cao nhất đã apply vào state machine
+</div></code></pre>
+<p>Điều kiện:</p>
+<pre class="hljs"><code><div>lastApplied ≤ commitIndex
+</div></code></pre>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>commitIndex = 100
+lastApplied = 96
+</div></code></pre>
+<p>node còn bốn entry cần apply.</p>
+<hr>
+<h1 id="40-ordering-rất-quan-trọng">40. Ordering rất quan trọng</h1>
+<p>Giả sử log:</p>
+<pre class="hljs"><code><div>1. balance = 100
+2. debit 30
+3. credit 10
+</div></code></pre>
+<p>Mọi node phải apply:</p>
+<pre class="hljs"><code><div>1 → 2 → 3
+</div></code></pre>
+<p>Không được apply:</p>
+<pre class="hljs"><code><div>1 → 3 → 2
+</div></code></pre>
+<p>Nếu command có dependency thứ tự, state có thể khác nhau.</p>
+<p>Consensus thống nhất không chỉ tập giá trị mà còn thứ tự của chúng.</p>
+<hr>
+<h1 id="41-leader-chết-trước-khi-commit">41. Leader chết trước khi Commit</h1>
+<p>Leader A append X vào local log rồi gửi cho B.</p>
+<pre class="hljs"><code><div>A: X
+B: X
+C: -
+D: -
+E: -
+</div></code></pre>
+<p>Chưa có majority.</p>
+<p>A chết.</p>
+<p>X chưa commit.</p>
+<p>Leader mới có thể:</p>
+<pre class="hljs"><code><div>- Chứa X và tiếp tục replicate X
+- Hoặc không chứa X và ghi đè X
+</div></code></pre>
+<p>Client không nên đã nhận success cho X.</p>
+<hr>
+<h1 id="42-leader-chết-sau-khi-commit-nhưng-trước-response">42. Leader chết sau khi Commit nhưng trước Response</h1>
+<p>Luồng:</p>
+<pre class="hljs"><code><div>1. Client gửi command X.
+2. X được replicate lên majority.
+3. X được commit.
+4. Leader chết trước khi response đến client.
+</div></code></pre>
+<p>Client thấy timeout nhưng X có thể đã commit.</p>
+<p>Đây là trạng thái:</p>
+<pre class="hljs"><code><div>Unknown from the client’s perspective
+</div></code></pre>
+<p>Client retry phải dùng:</p>
+<pre class="hljs"><code><div>- Stable request ID
+- Idempotency key
+- Deduplication
+</div></code></pre>
+<p>Consensus không tự giải quyết duplicate business request do lost response.</p>
+<hr>
+<h1 id="43-client-redirect">43. Client Redirect</h1>
+<p>Follower nhận client write thường không tự xử lý.</p>
+<p>Nó có thể:</p>
+<pre class="hljs"><code><div>- Redirect client tới leader
+- Proxy request tới leader
+- Trả “not leader” cùng leader hint
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant F as Follower
+    participant L as Leader
+
+    Client->>F: Write command
+    F-->>Client: Not leader; leader is L
+    Client->>L: Write command
+</div></code></pre>
+<p>Client hoặc SDK cần xử lý leader change.</p>
+<hr>
+<h1 id="44-network-partition-trong-cluster-năm-node">44. Network Partition trong Cluster năm Node</h1>
+<p>Cluster:</p>
+<pre class="hljs"><code><div>A, B | C, D, E
+</div></code></pre>
+<p>Giả sử A là leader nhưng nằm phía minority cùng B.</p>
+<p>Phía A, B chỉ có hai node:</p>
+<pre class="hljs"><code><div>Không đạt majority 3/5
+</div></code></pre>
+<p>A có thể vẫn nghĩ mình là leader trong một thời gian, nhưng không commit được write mới.</p>
+<p>Phía C, D, E:</p>
+<pre class="hljs"><code><div>Có majority
+→ Có thể bầu leader mới
+→ Tiếp tục commit
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    subgraph Minority
+        A[Old Leader A]
+        B[Node B]
+    end
+
+    subgraph Majority
+        C[New Leader C]
+        D[Node D]
+        E[Node E]
+    end
+
+    A -. Network partition .- C
+</div></code></pre>
+<hr>
+<h1 id="45-minority-leader-phải-làm-gì">45. Minority Leader phải làm gì?</h1>
+<p>Leader phía minority có thể nhận client request, nhưng không đạt majority.</p>
+<p>Nó không được báo write đã commit.</p>
+<p>Hành vi phù hợp:</p>
+<pre class="hljs"><code><div>- Request timeout
+- Trả unavailable
+- Step down khi nhận higher term sau network recovery
+</div></code></pre>
+<p>Không được:</p>
+<pre class="hljs"><code><div>- Commit local-only write
+- Trả success chỉ vì ghi vào local disk
+</div></code></pre>
+<hr>
+<h1 id="46-khi-network-phục-hồi">46. Khi Network phục hồi</h1>
+<p>Old Leader A term 10 gặp New Leader C term 11.</p>
+<p>A nhận message term 11:</p>
+<pre class="hljs"><code><div>- Cập nhật currentTerm = 11
+- Step down thành follower
+- Đồng bộ log từ C
+</div></code></pre>
+<p>Các entry chưa commit của A có thể bị xóa nếu xung đột với log leader mới.</p>
+<p>Các entry đã commit không được mất.</p>
+<hr>
+<h1 id="47-split-brain-được-ngăn-thế-nào">47. Split-Brain được ngăn thế nào?</h1>
+<p>Raft phối hợp nhiều cơ chế:</p>
+<pre class="hljs"><code><div>1. Mỗi term chỉ vote một lần.
+2. Leader phải có majority.
+3. Hai majority luôn giao nhau.
+4. Candidate log phải đủ mới.
+5. Node nhận higher term phải step down.
+6. Entry chỉ commit theo quorum rules.
+7. Minority không thể commit.
+</div></code></pre>
+<p>Nhưng cần phân biệt:</p>
+<blockquote>
+<p>Raft ngăn split-brain trong state machine mà nó quản lý. External resource vẫn cần fencing nếu leader có side effect ngoài consensus group.</p>
+</blockquote>
+<hr>
+<h1 id="48-raft-term-có-phải-fencing-token-không">48. Raft Term có phải Fencing Token không?</h1>
+<p>Term có tính chất giống epoch tăng dần.</p>
+<p>Bên trong Raft cluster:</p>
+<pre class="hljs"><code><div>Term giúp phát hiện leader cũ.
+</div></code></pre>
+<p>Nhưng giả sử leader điều khiển một external storage hoặc thiết bị không tham gia Raft.</p>
+<p>Old leader term 10 có thể gửi:</p>
+<pre class="hljs"><code><div>WRITE file X
+</div></code></pre>
+<p>New leader term 11 cũng gửi:</p>
+<pre class="hljs"><code><div>WRITE file Y
+</div></code></pre>
+<p>Nếu external storage không kiểm tra term:</p>
+<pre class="hljs"><code><div>Nó có thể chấp nhận cả hai.
+</div></code></pre>
+<p>Vì vậy cần <strong>fencing token được resource đích thực thi</strong>.</p>
+<hr>
+<h1 id="49-fencing-token">49. Fencing Token</h1>
+<p>Mỗi lần quyền sở hữu thay đổi, hệ thống cấp token tăng dần:</p>
+<pre class="hljs"><code><div>Leader cũ:
+fencingToken = 41
+
+Leader mới:
+fencingToken = 42
+</div></code></pre>
+<p>External resource lưu token lớn nhất đã thấy.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Old as Old Leader token 41
+    participant New as New Leader token 42
+    participant Storage
+
+    New->>Storage: Write with token 42
+    Storage->>Storage: highestToken = 42
+    Storage-->>New: Accepted
+
+    Old->>Storage: Write with token 41
+    Storage-->>Old: Rejected as stale
+</div></code></pre>
+<p>Điểm quan trọng:</p>
+<blockquote>
+<p>Không đủ để leader mới “nói” leader cũ đã chết. Resource phải từ chối operation từ token cũ.</p>
+</blockquote>
+<hr>
+<h1 id="50-ví-dụ-distributed-lock-không-có-fencing">50. Ví dụ Distributed Lock không có Fencing</h1>
+<p>Client A lấy lock và xử lý chậm.</p>
+<pre class="hljs"><code><div>1. A lấy lock.
+2. A bị pause lâu.
+3. Lock lease hết hạn.
+4. B lấy lock mới.
+5. B cập nhật file.
+6. A tỉnh lại và cập nhật file.
+</div></code></pre>
+<p>A có thể ghi đè kết quả của B dù A không còn giữ lock.</p>
+<p>Lock lease một mình chưa đủ.</p>
+<hr>
+<h1 id="51-distributed-lock-có-fencing">51. Distributed Lock có Fencing</h1>
+<p>Lock service trả:</p>
+<pre class="hljs"><code><div>A nhận token 100
+B nhận token 101
+</div></code></pre>
+<p>Storage chấp nhận B token 101.</p>
+<p>Sau đó A token 100 quay lại:</p>
+<pre class="hljs"><code><div>Storage từ chối.
+</div></code></pre>
+<p>Fencing bảo vệ khỏi:</p>
+<pre class="hljs"><code><div>- Process pause
+- Network delay
+- Lease expiry
+- Old leader recovery
+- Stale lock holder
+</div></code></pre>
+<hr>
+<h1 id="52-fencing-không-thể-chỉ-kiểm-tra-trong-application">52. Fencing không thể chỉ kiểm tra trong Application</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">if</span> my_token_is_current():
+    external_storage.write(data)
+</div></code></pre>
+<p>Giữa check và write, token có thể trở nên stale.</p>
+<p>Đây là race condition.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>External storage nhận token cùng operation
+và atomically từ chối token cũ.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> resource
+<span class="hljs-keyword">SET</span> <span class="hljs-keyword">value</span> <span class="hljs-operator">=</span> :<span class="hljs-keyword">value</span>,
+    fencing_token <span class="hljs-operator">=</span> :token
+<span class="hljs-keyword">WHERE</span> id <span class="hljs-operator">=</span> :id
+  <span class="hljs-keyword">AND</span> fencing_token <span class="hljs-operator">&lt;</span> :token;
+</div></code></pre>
+<hr>
+<h1 id="53-leader-lease">53. Leader Lease</h1>
+<p>Một số hệ thống dùng lease để leader phục vụ read nhanh hoặc điều phối resource.</p>
+<p>Leader được quyền trong khoảng thời gian nhất định.</p>
+<pre class="hljs"><code><div>Lease valid until logical deadline T
+</div></code></pre>
+<p>Nếu không renew được:</p>
+<pre class="hljs"><code><div>Leader phải ngừng hoạt động đặc quyền.
+</div></code></pre>
+<p>Lease có thể giảm coordination cost, nhưng phải cẩn thận với:</p>
+<pre class="hljs"><code><div>- Clock skew
+- Process pause
+- Network delay
+- Lease renewal failure
+</div></code></pre>
+<p>Consensus term/epoch và fencing thường an toàn hơn việc chỉ tin wall-clock lease.</p>
+<hr>
+<h1 id="54-linearizable-write">54. Linearizable Write</h1>
+<p>Một write linearizable phải có vẻ xảy ra tại một điểm duy nhất giữa lúc client gọi và lúc nhận response.</p>
+<p>Với Raft, điểm tuyến tính hóa của write thường gắn với việc entry được commit bởi quorum.</p>
+<p>Sau khi client nhận success:</p>
+<pre class="hljs"><code><div>Mọi operation sau đó phải quan sát hiệu ứng phù hợp với write đó.
+</div></code></pre>
+<hr>
+<h1 id="55-linearizable-read-khó-hơn-tưởng-tượng">55. Linearizable Read khó hơn tưởng tượng</h1>
+<p>Leader nhận read không thể luôn trả local state ngay lập tức.</p>
+<p>Vấn đề:</p>
+<pre class="hljs"><code><div>Old leader bị network partition.
+Majority đã elect leader mới.
+Old leader chưa biết term mới.
+</div></code></pre>
+<p>Nếu old leader trả local read:</p>
+<pre class="hljs"><code><div>Có thể trả dữ liệu cũ như thể vẫn là leader.
+</div></code></pre>
+<p>Để phục vụ linearizable read, leader cần xác nhận mình vẫn là leader hợp lệ.</p>
+<p>Các hướng phổ biến:</p>
+<pre class="hljs"><code><div>- Ghi một log entry/no-op qua quorum
+- ReadIndex/quorum confirmation
+- Leader lease với giả định thời gian cẩn thận
+</div></code></pre>
+<hr>
+<h1 id="56-readindex-ở-mức-trực-giác">56. ReadIndex ở mức trực giác</h1>
+<p>Leader muốn trả linearizable read:</p>
+<pre class="hljs"><code><div>1. Xác nhận leadership với quorum.
+2. Xác định commit index an toàn.
+3. Chờ local state machine apply tới index đó.
+4. Trả kết quả read.
+</div></code></pre>
+<p>Không nhất thiết append một log entry cho mỗi read, nhưng vẫn phải có bằng chứng leadership đủ mới.</p>
+<hr>
+<h1 id="57-stale-read-từ-follower">57. Stale Read từ Follower</h1>
+<p>Follower có thể phục vụ read mà không cần quorum.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Latency thấp
+- Scale read
+- Giảm tải leader
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Có thể stale
+- Không bảo đảm read-your-writes
+- Có thể chưa apply entry đã commit
+</div></code></pre>
+<p>Phải công bố rõ consistency contract:</p>
+<pre class="hljs"><code><div>- Linearizable read
+- Bounded stale read
+- Eventual read
+</div></code></pre>
+<hr>
+<h1 id="58-no-op-entry-khi-leader-mới-được-bầu">58. No-op Entry khi Leader mới được bầu</h1>
+<p>Leader mới thường append một no-op entry trong current term.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Thiết lập authority của current term
+- Cho phép commit an toàn prefix trước đó
+- Xác định commit point trong nhiệm kỳ mới
+</div></code></pre>
+<p>No-op không thay đổi business state nhưng vẫn là một log entry consensus.</p>
+<hr>
+<h1 id="59-leader-completeness">59. Leader Completeness</h1>
+<p>Tính chất quan trọng:</p>
+<blockquote>
+<p>Nếu một log entry đã commit trong một term, entry đó sẽ xuất hiện trong log của mọi leader ở các term sau.</p>
+</blockquote>
+<p>Raft đạt được điều này qua:</p>
+<pre class="hljs"><code><div>- Majority replication
+- Quorum intersection
+- Up-to-date log voting rule
+</div></code></pre>
+<p>Nếu candidate thiếu entry đã commit, ít nhất một voter trong majority biết log candidate cũ và không cấp vote.</p>
+<hr>
+<h1 id="60-state-machine-safety">60. State Machine Safety</h1>
+<p>Một node không được apply command X tại index 50 trong khi node khác apply command Y tại index 50.</p>
+<p>Raft bảo vệ:</p>
+<pre class="hljs"><code><div>Nếu một node đã apply entry tại index i,
+không node nào khác được apply entry khác tại index i.
+</div></code></pre>
+<p>Đây là correctness nền tảng của replicated state machine.</p>
+<hr>
+<h1 id="61-crash-failure-và-byzantine-failure">61. Crash Failure và Byzantine Failure</h1>
+<p>Raft truyền thống giả định <strong>crash fault model</strong>.</p>
+<p>Node có thể:</p>
+<pre class="hljs"><code><div>- Dừng hoạt động
+- Restart
+- Mất message
+- Gửi message trễ
+</div></code></pre>
+<p>Nhưng node không được giả định là cố tình nói dối hoặc gửi message mâu thuẫn có chủ đích.</p>
+<p>Byzantine fault model cho phép node:</p>
+<pre class="hljs"><code><div>- Gửi thông tin giả
+- Gửi dữ liệu khác nhau cho các peer
+- Hành xử độc hại
+</div></code></pre>
+<p>Raft không phải Byzantine Fault Tolerant consensus.</p>
+<hr>
+<h1 id="62-bao-nhiêu-node-cho-byzantine-fault">62. Bao nhiêu Node cho Byzantine Fault?</h1>
+<p>Crash consensus:</p>
+<pre class="hljs"><code><div>Để chịu f crash failures:
+N ≥ 2f + 1
+</div></code></pre>
+<p>Byzantine consensus thường cần:</p>
+<pre class="hljs"><code><div>N ≥ 3f + 1
+</div></code></pre>
+<p>Ví dụ chịu một Byzantine node thường cần ít nhất bốn node.</p>
+<p>Trong System Design thông thường, Raft/Paxos hay được thảo luận trong crash-fault setting.</p>
+<hr>
+<h1 id="63-stable-storage">63. Stable Storage</h1>
+<p>Một số state phải được ghi bền vững trước khi response:</p>
+<pre class="hljs"><code><div>- currentTerm
+- votedFor
+- Log entries
+</div></code></pre>
+<p>Nếu node vote cho A, crash, restart rồi quên vote và vote cho B trong cùng term:</p>
+<pre class="hljs"><code><div>Có thể phá election safety.
+</div></code></pre>
+<p>Do đó <code>votedFor</code> và <code>currentTerm</code> cần persistent storage.</p>
+<hr>
+<h1 id="64-log-durability">64. Log Durability</h1>
+<p>Follower ACK một AppendEntries có thể mang semantics:</p>
+<pre class="hljs"><code><div>- Đã nhận vào memory
+- Đã ghi OS cache
+- Đã flush durable storage
+</div></code></pre>
+<p>Consensus durability phụ thuộc contract cụ thể.</p>
+<p>Nếu majority ACK chỉ ở volatile memory và toàn bộ mất điện cùng lúc:</p>
+<pre class="hljs"><code><div>Committed entry có thể mất.
+</div></code></pre>
+<p>Cần hiểu durability guarantee của implementation, không chỉ số replica.</p>
+<hr>
+<h1 id="65-snapshot-và-log-compaction">65. Snapshot và Log Compaction</h1>
+<p>Log không thể tăng vô hạn:</p>
+<pre class="hljs"><code><div>1, 2, 3, ... 10 tỷ entries
+</div></code></pre>
+<p>Node định kỳ tạo snapshot state machine tại một index:</p>
+<pre class="hljs"><code><div>Snapshot at index 1.000.000, term 57
+</div></code></pre>
+<p>Sau đó có thể loại bỏ log cũ trước snapshot nếu không còn cần.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    OldLog[Entries 1..1,000,000] --> Snapshot[State Snapshot]
+    Snapshot --> NewLog[Entries 1,000,001...]
+</div></code></pre>
+<hr>
+<h1 id="66-follower-tụt-quá-xa">66. Follower tụt quá xa</h1>
+<p>Nếu follower thiếu log mà leader đã compact:</p>
+<pre class="hljs"><code><div>Leader không còn đủ entries cũ để gửi từng entry.
+</div></code></pre>
+<p>Leader gửi snapshot:</p>
+<pre class="hljs"><code><div>InstallSnapshot
+</div></code></pre>
+<p>Follower:</p>
+<pre class="hljs"><code><div>- Cài snapshot
+- Cập nhật state
+- Tiếp tục nhận log mới từ snapshot index
+</div></code></pre>
+<hr>
+<h1 id="67-snapshot-phải-nhất-quán">67. Snapshot phải nhất quán</h1>
+<p>Snapshot cần tương ứng với:</p>
+<pre class="hljs"><code><div>lastIncludedIndex
+lastIncludedTerm
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Snapshot chứa state sau index 1000
+Entry index 1000 thuộc term 20
+</div></code></pre>
+<p>Node cần giữ metadata này để tiếp tục log matching sau snapshot.</p>
+<hr>
+<h1 id="68-cluster-membership-change">68. Cluster Membership Change</h1>
+<p>Thêm hoặc xóa voting node không nên cập nhật cấu hình một cách ngây thơ.</p>
+<p>Ví dụ đổi:</p>
+<pre class="hljs"><code><div>Old cluster:
+A, B, C
+
+New cluster:
+C, D, E
+</div></code></pre>
+<p>Nếu mỗi phía dùng config khác nhau, có thể hình thành hai majority độc lập.</p>
+<p>Raft thường dùng ý tưởng <strong>joint consensus</strong>:</p>
+<pre class="hljs"><code><div>Giai đoạn chuyển tiếp yêu cầu agreement từ cả old config và new config.
+</div></code></pre>
+<p>Sau đó mới chuyển hoàn toàn sang new config.</p>
+<hr>
+<h1 id="69-vì-sao-không-thay-membership-cùng-lúc-tùy-tiện">69. Vì sao không thay Membership cùng lúc tùy tiện?</h1>
+<p>Giả sử old config:</p>
+<pre class="hljs"><code><div>A, B, C
+Majority = 2
+</div></code></pre>
+<p>New config:</p>
+<pre class="hljs"><code><div>D, E, F
+Majority = 2
+</div></code></pre>
+<p>A, B có thể elect một leader theo old config.</p>
+<p>D, E có thể elect leader khác theo new config.</p>
+<p>Hai majority không giao nhau.</p>
+<p>Joint configuration bảo đảm quorum intersection trong quá trình chuyển.</p>
+<hr>
+<h1 id="70-learner--non-voting-replica">70. Learner / Non-voting Replica</h1>
+<p>Khi thêm node mới, nó chưa có đầy đủ log.</p>
+<p>Không nên cho nó vote ngay.</p>
+<p>Có thể thêm dưới vai trò:</p>
+<pre class="hljs"><code><div>Learner / non-voting member
+</div></code></pre>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Add learner.
+2. Đồng bộ snapshot và log.
+3. Đợi catch up.
+4. Promote thành voter.
+5. Có thể remove node cũ.
+</div></code></pre>
+<p>Điều này tránh làm giảm khả năng đạt quorum trong lúc node mới còn chậm.</p>
+<hr>
+<h1 id="71-consensus-và-2pc-khác-nhau-thế-nào">71. Consensus và 2PC khác nhau thế nào?</h1>
+<h2 id="consensus">Consensus</h2>
+<p>Các node thống nhất về:</p>
+<pre class="hljs"><code><div>- Một leader
+- Một log
+- Một thứ tự quyết định
+</div></code></pre>
+<p>Nó chịu được một số node crash nếu còn quorum.</p>
+<h2 id="2pc">2PC</h2>
+<p>Các participant thống nhất:</p>
+<pre class="hljs"><code><div>Commit hoặc abort một transaction cụ thể
+</div></code></pre>
+<p>Coordinator failure có thể làm participants prepared bị block.</p>
+<p>Consensus có thể được dùng để làm coordinator hoặc transaction metadata highly available, nhưng hai khái niệm không giống nhau.</p>
+<hr>
+<h1 id="72-raft-và-database-replication">72. Raft và Database Replication</h1>
+<p>Một database có thể dùng:</p>
+<pre class="hljs"><code><div>- Raft/Paxos cho replicated log
+- Leader–follower replication không consensus đầy đủ
+- External consensus service cho leader election
+</div></code></pre>
+<p>Không phải mọi “primary + replicas” đều dùng Raft.</p>
+<p>Cần hỏi:</p>
+<pre class="hljs"><code><div>- Ai chọn primary?
+- Commit cần bao nhiêu ACK?
+- Leader cũ bị fence thế nào?
+- Metadata election nằm đâu?
+</div></code></pre>
+<hr>
+<h1 id="73-consensus-service-và-data-plane">73. Consensus Service và Data Plane</h1>
+<p>Một hệ thống có thể dùng consensus cho metadata nhỏ:</p>
+<pre class="hljs"><code><div>- Shard ownership
+- Cluster membership
+- Leader ID
+- Configuration
+</div></code></pre>
+<p>Trong khi data lớn đi qua một data plane riêng.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Control[Consensus Control Plane]
+    Control --> Metadata[Shard and Leader Metadata]
+
+    Client --> Router
+    Router --> Data1[(Data Node 1)]
+    Router --> Data2[(Data Node 2)]
+
+    Metadata --> Router
+</div></code></pre>
+<p>Không nên lưu mọi payload lớn trong coordination store chỉ vì nó có consensus.</p>
+<hr>
+<h1 id="74-consensus-là-đắt">74. Consensus là đắt</h1>
+<p>Một write consensus thường cần:</p>
+<pre class="hljs"><code><div>- Leader processing
+- Network round trip tới quorum
+- Durable log write
+- Replication
+- State-machine apply
+</div></code></pre>
+<p>Latency phụ thuộc:</p>
+<pre class="hljs"><code><div>- Quorum node đủ nhanh
+- Disk latency
+- Network latency
+- Leader load
+</div></code></pre>
+<p>Consensus nên dùng cho dữ liệu cần thứ tự và correctness mạnh, không phải mọi telemetry hoặc cache entry.</p>
+<hr>
+<h1 id="75-cross-region-consensus">75. Cross-Region Consensus</h1>
+<p>Nếu voting nodes nằm ở nhiều region:</p>
+<pre class="hljs"><code><div>Asia
+Europe
+US
+</div></code></pre>
+<p>Write phải chờ majority qua WAN.</p>
+<p>Ví dụ leader Asia, quorum cần Europe:</p>
+<pre class="hljs"><code><div>Write latency gồm inter-region round trip.
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Chịu region failure tốt hơn
+- RPO gần 0 tùy durability
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Latency cao
+- Network partition thường xuyên hơn
+- Chi phí lớn
+</div></code></pre>
+<p>Replica không voting hoặc async replicas có thể được dùng cho DR/read scaling mà không nằm trên write quorum.</p>
+<hr>
+<h1 id="76-quorum-placement">76. Quorum Placement</h1>
+<p>Cluster năm node:</p>
+<pre class="hljs"><code><div>Asia: 3
+Europe: 1
+US: 1
+</div></code></pre>
+<p>Nếu Asia region chết:</p>
+<pre class="hljs"><code><div>Còn 2/5
+→ Không có majority
+</div></code></pre>
+<p>Không chịu được Asia region failure.</p>
+<p>Placement phải dựa trên fault domain, không chỉ tổng số node.</p>
+<p>Ví dụ ba voting locations:</p>
+<pre class="hljs"><code><div>Zone A: 1
+Zone B: 1
+Zone C: 1
+</div></code></pre>
+<p>chịu mất một zone.</p>
+<p>Multi-region placement cần phân tích majority khi từng region lỗi.</p>
+<hr>
+<h1 id="77-witness-node">77. Witness Node</h1>
+<p>Witness có thể tham gia vote nhưng không giữ toàn bộ data.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Primary region A: Data node
+Primary region B: Data node
+Third site: Witness
+</div></code></pre>
+<p>Witness giúp phá tie trong election.</p>
+<p>Nhưng:</p>
+<pre class="hljs"><code><div>- Không thay thế data replica
+- Không giúp read scaling
+- Không nhất thiết chứa state đầy đủ
+</div></code></pre>
+<p>Nếu chỉ còn data node và witness, khả năng tiếp tục phục vụ còn phụ thuộc implementation và durability contract.</p>
+<hr>
+<h1 id="78-failure-detector-không-hoàn-hảo">78. Failure Detector không hoàn hảo</h1>
+<p>Trong asynchronous network, không nhận heartbeat không chứng minh node đã chết.</p>
+<p>Nó có thể:</p>
+<pre class="hljs"><code><div>- Bị network delay
+- Bị GC pause
+- Disk stall
+- CPU starvation
+- Packet loss
+</div></code></pre>
+<p>Consensus không cố “biết chắc node đã chết”.</p>
+<p>Nó dùng quorum và term để bảo đảm:</p>
+<pre class="hljs"><code><div>Dù đánh giá sai một node, chỉ phía có majority mới tiếp tục commit.
+</div></code></pre>
+<hr>
+<h1 id="79-election-timeout-quá-ngắn">79. Election Timeout quá ngắn</h1>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Election thường xuyên
+- Leader flapping
+- Term tăng liên tục
+- Write latency cao
+- Availability giảm
+</div></code></pre>
+<p>Node follower có thể timeout chỉ vì một network spike ngắn.</p>
+<hr>
+<h1 id="80-election-timeout-quá-dài">80. Election Timeout quá dài</h1>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Leader chết nhưng cluster phát hiện chậm
+- Failover lâu
+- RTO tăng
+</div></code></pre>
+<p>Cần cân bằng:</p>
+<pre class="hljs"><code><div>Failure detection speed
+↕
+False election risk
+</div></code></pre>
+<hr>
+<h1 id="81-leader-flapping">81. Leader Flapping</h1>
+<p>Leader thay đổi liên tục:</p>
+<pre class="hljs"><code><div>Term 100: A
+Term 101: B
+Term 102: C
+Term 103: A
+</div></code></pre>
+<p>Nguyên nhân có thể:</p>
+<pre class="hljs"><code><div>- Network không ổn định
+- Disk leader chậm
+- CPU pause
+- Election timeout quá thấp
+- Một node overload
+</div></code></pre>
+<p>Leader changes cao là metric reliability quan trọng.</p>
+<hr>
+<h1 id="82-slow-follower">82. Slow Follower</h1>
+<p>Một follower chậm không nhất thiết chặn write nếu leader vẫn đạt quorum với các follower khác.</p>
+<p>Cluster năm node:</p>
+<pre class="hljs"><code><div>Leader A
+Fast followers B, C
+Slow followers D, E
+</div></code></pre>
+<p>A + B + C là majority.</p>
+<p>Write vẫn commit.</p>
+<p>Nhưng nếu B lỗi:</p>
+<pre class="hljs"><code><div>Leader phải chờ D hoặc E
+→ latency tăng mạnh hoặc mất quorum.
+</div></code></pre>
+<p>Slow replicas làm giảm failure headroom.</p>
+<hr>
+<h1 id="83-slow-leader">83. Slow Leader</h1>
+<p>Leader chậm ảnh hưởng toàn cluster:</p>
+<pre class="hljs"><code><div>- Client write chậm
+- Heartbeat trễ
+- Followers bắt đầu election
+- Leadership có thể chuyển
+</div></code></pre>
+<p>Một follower mạnh nhưng leader yếu vẫn làm throughput thấp.</p>
+<p>Một số hệ thống hỗ trợ leadership transfer có kế hoạch.</p>
+<hr>
+<h1 id="84-leadership-transfer">84. Leadership Transfer</h1>
+<p>Trong maintenance:</p>
+<pre class="hljs"><code><div>1. Chọn follower đã catch up.
+2. Ngừng hoặc giảm write ngắn hạn.
+3. Chuyển leadership.
+4. Leader cũ step down.
+</div></code></pre>
+<p>Khác với failover bất ngờ vì:</p>
+<pre class="hljs"><code><div>- Có thể đợi follower đồng bộ
+- Giảm data uncertainty
+- Giảm downtime
+</div></code></pre>
+<hr>
+<h1 id="85-idempotency-vẫn-cần-với-consensus">85. Idempotency vẫn cần với Consensus</h1>
+<p>Consensus bảo đảm log entry không bị commit mâu thuẫn.</p>
+<p>Nhưng client có thể retry cùng business request:</p>
+<pre class="hljs"><code><div>Request 1:
+Create order, requestId=R
+
+Response bị mất
+
+Request 2:
+Create order, requestId=R
+</div></code></pre>
+<p>Nếu state machine không deduplicate:</p>
+<pre class="hljs"><code><div>Hai order khác nhau có thể được tạo và cả hai đều được consensus commit.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>requestId → stored result
+</div></code></pre>
+<p>hoặc business unique constraint.</p>
+<hr>
+<h1 id="86-deterministic-state-machine">86. Deterministic State Machine</h1>
+<p>Mọi node phải áp dụng cùng command và đạt cùng kết quả.</p>
+<p>Không nên đưa command kiểu:</p>
+<pre class="hljs"><code><div>SET created_at = local_now()
+SET token = random()
+</div></code></pre>
+<p>và để mỗi node tự tính.</p>
+<p>Kết quả có thể khác nhau.</p>
+<p>Tốt hơn leader quyết định giá trị:</p>
+<pre class="hljs"><code><div>SET created_at = 2026-07-11T...
+SET token = abc123
+</div></code></pre>
+<p>rồi replicate giá trị cụ thể.</p>
+<hr>
+<h1 id="87-external-side-effect-từ-state-machine">87. External Side Effect từ State Machine</h1>
+<p>Không nên để mọi replica cùng gửi email khi apply log entry:</p>
+<pre class="hljs"><code><div>Node A sends email
+Node B sends email
+Node C sends email
+</div></code></pre>
+<p>Sẽ gửi ba email.</p>
+<p>Các cách:</p>
+<pre class="hljs"><code><div>- Chỉ leader thực hiện side effect với idempotency.
+- Commit một outbox record trong state machine.
+- Worker bên ngoài xử lý outbox.
+- Dùng fencing token cho external resource.
+</div></code></pre>
+<p>External side effect vẫn cần reliable workflow design.</p>
+<hr>
+<h1 id="88-consensus-không-thay-thế-outbox">88. Consensus không thay thế Outbox</h1>
+<p>Consensus có thể commit:</p>
+<pre class="hljs"><code><div>OrderCreated
+</div></code></pre>
+<p>trong replicated database.</p>
+<p>Nhưng nếu application phải publish tới external broker:</p>
+<pre class="hljs"><code><div>Database commit
++
+Broker publish
+</div></code></pre>
+<p>vẫn có dual-write problem giữa hai hệ thống.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Transactional outbox
+- CDC
+- Idempotent consumer
+</div></code></pre>
+<p>Consensus giải quyết agreement trong một system boundary, không tự tạo atomicity xuyên mọi system.</p>
+<hr>
+<h1 id="89-consensus-không-thay-thế-backup">89. Consensus không thay thế Backup</h1>
+<p>Nếu leader commit:</p>
+<pre class="hljs"><code><div>DELETE FROM users
+</div></code></pre>
+<p>majority sẽ đồng ý và replicate lệnh xóa.</p>
+<p>Consensus bảo đảm mọi node cùng sai một cách nhất quán.</p>
+<p>Backup/PITR vẫn cần để phục hồi human error hoặc logical corruption.</p>
+<hr>
+<h1 id="90-observability-cho-consensus-cluster">90. Observability cho Consensus Cluster</h1>
+<p>Metrics quan trọng:</p>
+<pre class="hljs"><code><div>- Current leader
+- Current term
+- Leader changes
+- Election duration
+- Elections per minute
+- Commit index
+- Applied index
+- Per-follower match index
+- Replication lag
+- AppendEntries latency
+- Quorum availability
+- Log size
+- Snapshot duration
+- Snapshot install failures
+- Disk fsync latency
+</div></code></pre>
+<hr>
+<h1 id="91-các-độ-trễ-cần-phân-biệt">91. Các độ trễ cần phân biệt</h1>
+<pre class="hljs"><code><div>Replication lag:
+Leader log index - follower match index
+
+Apply lag:
+commitIndex - lastApplied
+
+Client commit latency:
+Từ lúc nhận command tới lúc committed
+
+Election downtime:
+Từ lúc mất leader tới khi leader mới phục vụ được
+</div></code></pre>
+<p>Một node có thể đã nhận log nhưng chưa apply state.</p>
+<hr>
+<h1 id="92-alert-quan-trọng">92. Alert quan trọng</h1>
+<pre class="hljs"><code><div>- Không có leader quá lâu
+- Leader changes tăng bất thường
+- Cluster không đạt quorum
+- Follower lag cao
+- Commit index không tiến
+- Applied index tụt xa commit index
+- Disk gần đầy
+- Snapshot thất bại
+- Fsync latency cao
+- Membership configuration không ổn định
+</div></code></pre>
+<hr>
+<h1 id="93-debug-cluster-không-commit-được-write">93. Debug Cluster không Commit được Write</h1>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Có leader không?
+2. Leader term có ổn định không?
+3. Có đủ voting nodes reachable không?
+4. Leader có nhận ACK từ majority không?
+5. Disk/fsync follower có chậm không?
+6. AppendEntries có bị reject do log mismatch không?
+7. Cluster có đang đổi membership không?
+8. commitIndex có tiến không?
+9. Client có đang gọi follower hoặc leader cũ không?
+</div></code></pre>
+<hr>
+<h1 id="94-case-study--metadata-store-cho-sharding">94. Case Study — Metadata Store cho Sharding</h1>
+<p>Hệ thống có hàng nghìn shard.</p>
+<p>Cần lưu:</p>
+<pre class="hljs"><code><div>- Shard 17 leader là node nào?
+- Partition range thuộc shard nào?
+- Node nào đang active?
+- Mapping version hiện tại?
+</div></code></pre>
+<p>Metadata phải nhất quán mạnh vì routing sai có thể gửi write tới hai owner.</p>
+<p>Có thể dùng consensus cluster nhỏ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Consensus[3 or 5-node Consensus Group]
+    Consensus --> Metadata[Shard Ownership Metadata]
+
+    Router1 --> Consensus
+    Router2 --> Consensus
+
+    Router1 --> Shards[(Data Shards)]
+    Router2 --> Shards
+</div></code></pre>
+<p>Không nhất thiết đưa toàn bộ user data vào metadata consensus cluster.</p>
+<hr>
+<h1 id="95-case-study--distributed-lock-cho-job-scheduler">95. Case Study — Distributed Lock cho Job Scheduler</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>Chỉ một scheduler được chạy settlement job.
+</div></code></pre>
+<p>Lock service dùng consensus để cấp quyền:</p>
+<pre class="hljs"><code><div>Scheduler A receives:
+lock token 205
+</div></code></pre>
+<p>A bị pause.</p>
+<p>Lock hết hạn, Scheduler B nhận:</p>
+<pre class="hljs"><code><div>lock token 206
+</div></code></pre>
+<p>Database settlement chỉ chấp nhận operation token mới hơn:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> settlement_job
+<span class="hljs-keyword">SET</span> owner_token <span class="hljs-operator">=</span> <span class="hljs-number">206</span>
+<span class="hljs-keyword">WHERE</span> owner_token <span class="hljs-operator">&lt;</span> <span class="hljs-number">206</span>;
+</div></code></pre>
+<p>A quay lại với token 205 bị từ chối.</p>
+<p>Consensus chọn lock holder; fencing bảo vệ resource thật.</p>
+<hr>
+<h1 id="96-case-study--configuration-store">96. Case Study — Configuration Store</h1>
+<p>Các service đọc config:</p>
+<pre class="hljs"><code><div>payment.provider = provider-a
+feature.checkout_v2 = enabled
+</div></code></pre>
+<p>Config update cần thứ tự rõ và không được có hai leader cùng phát version mâu thuẫn.</p>
+<p>Consensus log:</p>
+<pre class="hljs"><code><div>Index 100: checkout_v2=false
+Index 101: checkout_v2=true
+Index 102: provider=provider-b
+</div></code></pre>
+<p>Watchers nhận config theo thứ tự.</p>
+<p>Tuy nhiên client có thể cache và áp dụng trễ, nên application vẫn cần version và rollout strategy.</p>
+<hr>
+<h1 id="97-case-study--booking-seat">97. Case Study — Booking Seat</h1>
+<p>Authoritative booking state được replicate bằng consensus.</p>
+<p>Command:</p>
+<pre class="hljs"><code><div>Reserve seat S12 for reservation R1
+</div></code></pre>
+<p>Leader append vào log.</p>
+<p>Khi commit:</p>
+<pre class="hljs"><code><div>- State machine kiểm tra seat còn available.
+- Nếu còn, tạo reservation.
+- Nếu đã reserved, trả conflict.
+</div></code></pre>
+<p>Mọi replica áp dụng cùng command theo cùng thứ tự.</p>
+<p>Nhờ đó hai request cạnh tranh không cùng thắng.</p>
+<p>External payment sau đó vẫn cần Saga/TCC, idempotency và reconciliation.</p>
+<hr>
+<h1 id="98-consensus-boundary">98. Consensus Boundary</h1>
+<p>Không nên đưa toàn bộ workflow vào một consensus group khổng lồ nếu không cần.</p>
+<p>Có thể bảo vệ invariant cốt lõi:</p>
+<pre class="hljs"><code><div>Seat allocation
+Account ledger
+Shard ownership
+</div></code></pre>
+<p>bằng consensus.</p>
+<p>Các side effect khác:</p>
+<pre class="hljs"><code><div>Email
+Analytics
+Recommendation
+Search indexing
+</div></code></pre>
+<p>xử lý bất đồng bộ.</p>
+<p>Thiết kế tốt xác định:</p>
+<blockquote>
+<p>Phần nào cần một ordered, strongly consistent decision; phần nào có thể eventual consistent?</p>
+</blockquote>
+<hr>
+<h1 id="99-các-sai-lầm-phổ-biến">99. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-nghĩ-replication-tự-động-ngăn-split-brain">Lỗi 1: Nghĩ replication tự động ngăn split-brain</h2>
+<p>Replication không quyết định node nào có quyền ghi.</p>
+<hr>
+<h2 id="lỗi-2-nghĩ-health-check-có-thể-xác-nhận-node-chắc-chắn-đã-chết">Lỗi 2: Nghĩ health check có thể xác nhận node chắc chắn đã chết</h2>
+<p>Không nhận heartbeat có thể chỉ là network partition.</p>
+<hr>
+<h2 id="lỗi-3-cluster-hai-voting-nodes-nhưng-kỳ-vọng-chịu-một-failure">Lỗi 3: Cluster hai voting nodes nhưng kỳ vọng chịu một failure</h2>
+<p>Hai node cần cả hai để đạt majority.</p>
+<hr>
+<h2 id="lỗi-4-cho-minority-tiếp-tục-commit-để-tăng-availability">Lỗi 4: Cho minority tiếp tục commit để tăng availability</h2>
+<p>Có thể tạo hai lịch sử mâu thuẫn.</p>
+<hr>
+<h2 id="lỗi-5-chỉ-dựa-vào-term-trong-application-không-fencing-resource">Lỗi 5: Chỉ dựa vào term trong application, không fencing resource</h2>
+<p>External storage vẫn có thể nhận write từ leader cũ.</p>
+<hr>
+<h2 id="lỗi-6-candidate-log-cũ-vẫn-được-vote">Lỗi 6: Candidate log cũ vẫn được vote</h2>
+<p>Có thể làm mất entry đã commit.</p>
+<hr>
+<h2 id="lỗi-7-xem-entry-nằm-trên-majority-là-commit-trong-mọi-trường-hợp">Lỗi 7: Xem entry nằm trên majority là commit trong mọi trường hợp</h2>
+<p>Raft có quy tắc current-term commit quan trọng.</p>
+<hr>
+<h2 id="lỗi-8-trả-success-trước-khi-entry-commit">Lỗi 8: Trả success trước khi entry commit</h2>
+<p>Leader crash có thể làm mất write đã báo thành công.</p>
+<hr>
+<h2 id="lỗi-9-old-leader-phục-vụ-linearizable-read-mà-không-xác-nhận-leadership">Lỗi 9: Old leader phục vụ linearizable read mà không xác nhận leadership</h2>
+<p>Có thể trả dữ liệu stale sau partition.</p>
+<hr>
+<h2 id="lỗi-10-election-timeout-quá-ngắn">Lỗi 10: Election timeout quá ngắn</h2>
+<p>Tạo election storm và leader flapping.</p>
+<hr>
+<h2 id="lỗi-11-thêm-voting-node-trước-khi-nó-catch-up">Lỗi 11: Thêm voting node trước khi nó catch up</h2>
+<p>Có thể làm cluster khó đạt quorum.</p>
+<hr>
+<h2 id="lỗi-12-thay-membership-trực-tiếp-từ-old-sang-new-config">Lỗi 12: Thay membership trực tiếp từ old sang new config</h2>
+<p>Có thể hình thành hai majority không giao nhau.</p>
+<hr>
+<h2 id="lỗi-13-state-machine-dùng-random-hoặc-local-clock-tùy-node">Lỗi 13: State machine dùng random hoặc local clock tùy node</h2>
+<p>Các replica có thể diverge.</p>
+<hr>
+<h2 id="lỗi-14-mọi-replica-cùng-thực-hiện-external-side-effect">Lỗi 14: Mọi replica cùng thực hiện external side effect</h2>
+<p>Tạo email, payment hoặc job duplicate.</p>
+<hr>
+<h2 id="lỗi-15-nghĩ-consensus-thay-thế-backup-outbox-hoặc-idempotency">Lỗi 15: Nghĩ consensus thay thế backup, outbox hoặc idempotency</h2>
+<p>Consensus chỉ giải quyết agreement trong phạm vi của nó.</p>
+<hr>
+<h1 id="100-framework-thiết-kế-consensus-như-senior-engineer">100. Framework thiết kế Consensus như Senior Engineer</h1>
+<p>Khi một hệ thống cần leader hoặc strong ordering, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Các node cần thống nhất điều gì?
+2. Dữ liệu đó có thật sự cần strong consistency không?
+3. Consensus boundary là gì?
+4. Có bao nhiêu voting nodes?
+5. Chịu được bao nhiêu node hoặc zone lỗi?
+6. Majority được đặt qua những fault domain nào?
+7. Leader election được kích hoạt thế nào?
+8. Election timeout và heartbeat quan hệ ra sao?
+9. Candidate log được kiểm tra độ mới thế nào?
+10. Write được xem là commit khi nào?
+11. ACK có durable xuống disk không?
+12. Read cần linearizable hay stale được?
+13. Old leader bị step down thế nào?
+14. External resource được fence bằng token nào?
+15. Client retry được deduplicate thế nào?
+16. Membership change được thực hiện an toàn ra sao?
+17. Log được compact và snapshot thế nào?
+18. Follower tụt xa phục hồi thế nào?
+19. Metrics nào phát hiện mất quorum hoặc leader flapping?
+20. Consensus cluster đã được test network partition chưa?
+</div></code></pre>
+<hr>
+<h1 id="101-decision-tree">101. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần nhiều node phối hợp] --> B{Có cần một quyết định/thứ tự duy nhất?}
+
+    B -->|Không| C[Replication/eventual consistency có thể đủ]
+    B -->|Có| D[Consensus]
+
+    D --> E{Failure model?}
+    E -->|Crash/network partition| F[Raft/Paxos-style consensus]
+    E -->|Byzantine nodes| G[BFT protocol]
+
+    F --> H[Choose 3/5 voting nodes]
+    H --> I[Leader Election]
+    I --> J[Replicated Log]
+    J --> K[Majority Commit]
+
+    K --> L{Có external side effect?}
+    L -->|Có| M[Fencing + Idempotency + Outbox]
+    L -->|Không| N[Apply deterministic state machine]
+
+    M --> O[Observability + Partition Testing]
+    N --> O
+</div></code></pre>
+<hr>
+<h1 id="102-cách-trình-bày-trong-system-design-interview">102. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em dùng Raft để bầu leader.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Tôi dùng một consensus group gồm ba hoặc năm voting nodes. Mỗi nhiệm kỳ có một term tăng dần. Follower không nhận heartbeat trước randomized election timeout sẽ trở thành candidate, tăng term, vote cho mình và yêu cầu vote từ các peers. Candidate chỉ thắng khi có majority, và follower chỉ vote nếu candidate chưa cũ và log của candidate ít nhất cập nhật bằng log của follower. Điều này giúp bảo đảm leader mới chứa mọi entry đã commit.</p>
+</blockquote>
+<p>Với write path:</p>
+<blockquote>
+<p>Leader append command vào log rồi replicate bằng AppendEntries. Follower chỉ append nếu <code>prevLogIndex</code> và <code>prevLogTerm</code> khớp, nhờ đó các log có cùng prefix. Entry thuộc current term được commit khi nằm trên majority; khi commit index tiến lên, toàn bộ prefix trước đó cũng được xem là committed và được apply theo thứ tự vào state machine.</p>
+</blockquote>
+<p>Với partition và fencing:</p>
+<blockquote>
+<p>Khi network partition xảy ra, chỉ phía có majority có thể elect leader và commit. Leader cũ ở phía minority không thể commit write mới. Nếu leader điều khiển external resource, tôi dùng term hoặc epoch làm fencing token và yêu cầu chính resource từ chối token cũ; chỉ step-down trong application là chưa đủ để ngăn stale leader gây side effect.</p>
+</blockquote>
+<hr>
+<h1 id="103-bảng-ghi-nhớ-nhanh">103. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Consensus</td>
+<td>Các node thống nhất một quyết định hoặc log</td>
+</tr>
+<tr>
+<td>Majority</td>
+<td><code>floor(N/2)+1</code> voting nodes</td>
+</tr>
+<tr>
+<td>Quorum intersection</td>
+<td>Hai majority luôn có node giao nhau</td>
+</tr>
+<tr>
+<td>Follower</td>
+<td>Nhận heartbeat và log từ leader</td>
+</tr>
+<tr>
+<td>Candidate</td>
+<td>Node đang tranh cử leadership</td>
+</tr>
+<tr>
+<td>Leader</td>
+<td>Node điều phối client write và log replication</td>
+</tr>
+<tr>
+<td>Term</td>
+<td>Nhiệm kỳ logic tăng dần</td>
+</tr>
+<tr>
+<td>Heartbeat</td>
+<td>AppendEntries rỗng duy trì leadership</td>
+</tr>
+<tr>
+<td>Election timeout</td>
+<td>Thời gian follower chờ trước khi election</td>
+</tr>
+<tr>
+<td>RequestVote</td>
+<td>RPC xin vote khi tranh cử</td>
+</tr>
+<tr>
+<td>AppendEntries</td>
+<td>RPC replicate log và heartbeat</td>
+</tr>
+<tr>
+<td>Log index</td>
+<td>Vị trí entry</td>
+</tr>
+<tr>
+<td>Log term</td>
+<td>Term tạo entry</td>
+</tr>
+<tr>
+<td>Commit index</td>
+<td>Entry cao nhất được biết đã commit</td>
+</tr>
+<tr>
+<td>lastApplied</td>
+<td>Entry cao nhất đã apply</td>
+</tr>
+<tr>
+<td>nextIndex</td>
+<td>Entry tiếp theo leader gửi follower</td>
+</tr>
+<tr>
+<td>matchIndex</td>
+<td>Entry cao nhất follower đã replicate</td>
+</tr>
+<tr>
+<td>Fencing token</td>
+<td>Epoch tăng dần chặn stale owner</td>
+</tr>
+<tr>
+<td>Snapshot</td>
+<td>State đã compact tới một log index</td>
+</tr>
+<tr>
+<td>Joint consensus</td>
+<td>Cách đổi membership an toàn</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="104-sơ-đồ-ghi-nhớ-toàn-bài">104. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Consensus] --> B[Majority]
+    A --> C[Leader Election]
+    A --> D[Log Replication]
+    A --> E[Safety]
+    A --> F[Fencing]
+
+    C --> C1[Follower]
+    C --> C2[Candidate]
+    C --> C3[Leader]
+    C --> C4[Term]
+    C --> C5[Random Election Timeout]
+
+    D --> D1[AppendEntries]
+    D --> D2[prevLogIndex / prevLogTerm]
+    D --> D3[nextIndex / matchIndex]
+    D --> D4[Commit Index]
+
+    E --> E1[One Leader per Term]
+    E --> E2[Leader Completeness]
+    E --> E3[State Machine Safety]
+    E --> E4[Minority Cannot Commit]
+
+    F --> F1[Epoch / Term]
+    F --> F2[External Resource Check]
+    F --> F3[Reject Stale Leader]
+</div></code></pre>
+<hr>
+<h1 id="105-những-điều-phải-nhớ-sau-bài-15">105. Những điều phải nhớ sau Bài 15</h1>
+<pre class="hljs"><code><div>1. Replication tạo bản sao; consensus quyết định lịch sử nào hợp lệ.
+2. Consensus thống nhất leader, log hoặc một chuỗi quyết định.
+3. Safety bảo đảm không có quyết định mâu thuẫn.
+4. Liveness bảo đảm hệ thống cuối cùng tiếp tục khi còn majority và mạng ổn định.
+5. Majority bằng floor(N/2)+1.
+6. Ba node chịu một crash; năm node chịu hai crash.
+7. Số voting node lẻ thường hiệu quả hơn số chẵn.
+8. Hai majority luôn giao nhau.
+9. Quorum đơn thuần chưa phải consensus.
+10. Raft có follower, candidate và leader.
+11. Term là epoch logic tăng dần.
+12. Node thấy term cao hơn phải step down.
+13. Mỗi node chỉ vote một candidate trong một term.
+14. Election timeout được random hóa để giảm split vote.
+15. Candidate cần majority để trở thành leader.
+16. Candidate log phải ít nhất cập nhật bằng voter log.
+17. Heartbeat thường là AppendEntries không có entry mới.
+18. Client write đi qua leader.
+19. Mỗi log entry có index, term và command.
+20. prevLogIndex và prevLogTerm giúp kiểm tra log prefix.
+21. Follower xóa suffix chưa commit nếu xung đột với leader.
+22. Entry chưa commit có thể bị leader mới ghi đè.
+23. commitIndex là entry cao nhất đã commit.
+24. Chỉ entry committed mới được coi là quyết định cuối cùng.
+25. Raft chỉ trực tiếp majority-commit entry thuộc current term.
+26. Commit entry current term cũng commit toàn bộ prefix trước nó.
+27. Leader chỉ nên trả success sau khi entry commit theo contract.
+28. Leader crash trước response tạo kết quả unknown cho client.
+29. Idempotency vẫn cần dù hệ thống dùng consensus.
+30. Trong network partition, chỉ phía majority có thể tiếp tục commit.
+31. Minority leader có thể còn sống nhưng không còn quyền commit.
+32. Leader cũ nhận term cao hơn phải trở thành follower.
+33. Term bảo vệ cluster nhưng external resource vẫn cần fencing.
+34. Fencing token phải được resource đích kiểm tra atomically.
+35. Linearizable read cần xác nhận leader vẫn hợp lệ.
+36. Follower read có thể stale.
+37. State machine phải deterministic.
+38. External side effects không nên được mọi replica thực hiện.
+39. Snapshot giúp log không tăng vô hạn.
+40. Node tụt xa có thể được khôi phục bằng snapshot.
+41. Membership change cần quorum intersection, thường qua joint consensus.
+42. Node mới nên catch up trước khi trở thành voter.
+43. Consensus không thay thế outbox, backup hay reconciliation.
+44. Leader changes, commit lag và quorum health phải được quan sát.
+45. Network-partition testing quan trọng hơn chỉ kill process.
+</div></code></pre>
+<hr>
+<h1 id="106-bài-tập-thực-hành">106. Bài tập thực hành</h1>
+<p>Thiết kế consensus layer cho một hệ thống quản lý shard ownership.</p>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- Có hàng nghìn database shards.
+- Mỗi shard chỉ được có một write leader hợp lệ.
+- Router cần biết leader hiện tại của từng shard.
+- Node có thể crash hoặc mất kết nối mạng.
+- Không được để hai node cùng nhận write cho một shard.
+- Cần chuyển shard giữa các server khi rebalancing.
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Consensus group cần ba hay năm voting nodes?
+2. Các voting nodes nên đặt qua những zone nào?
+3. Consensus log cần lưu những command gì?
+4. Term có vai trò gì trong leader election?
+5. Election timeout cần được random hóa vì sao?
+6. Candidate cần cung cấp thông tin log gì khi xin vote?
+7. Khi nào một shard-assignment entry được commit?
+8. Router được phép dùng assignment chưa commit không?
+9. Khi old metadata leader bị partition, nó có được tiếp tục cấp shard ownership không?
+10. Shard server dùng fencing token nào?
+11. Database shard từ chối stale owner ra sao?
+12. Khi thêm metadata node mới, có nên cho vote ngay không?
+13. Membership change được triển khai thế nào?
+14. Snapshot metadata cần chứa gì?
+15. Metrics nào phát hiện consensus cluster không còn tiến?
+16. Làm sao test split-brain trước production?
+17. Client retry assignment command được deduplicate thế nào?
+18. Nếu entry commit nhưng response mất, client xử lý ra sao?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Admin[Shard Controller] --> ConsensusLeader[Metadata Consensus Leader]
+
+    ConsensusLeader --> V1[(Voting Node 1)]
+    ConsensusLeader --> V2[(Voting Node 2)]
+    ConsensusLeader --> V3[(Voting Node 3)]
+
+    ConsensusLeader --> MetadataLog[Shard Ownership Log]
+
+    Routers[Request Routers] --> MetadataLog
+
+    MetadataLog --> S1[(Shard Server A)]
+    MetadataLog --> S2[(Shard Server B)]
+
+    S1 -->|Write with fencing token| DB[(Shard Data)]
+    S2 -->|Write with fencing token| DB
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Consensus không cố chứng minh node nào đã chết. Nó bảo đảm rằng chỉ một tập node có quorum được quyền quyết định, và mọi quyết định đã commit sẽ tồn tại trong lịch sử của các leader tương lai. Fencing tiếp tục bảo vệ thế giới bên ngoài khỏi những leader cũ chưa nhận ra mình đã mất quyền.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 16 — Consistency Models: linearizability, serializability, causal consistency, read-your-writes, monotonic reads, bounded staleness và eventual consistency.</strong></p>
+
+</body>
+</html>

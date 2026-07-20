@@ -9,7 +9,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ListOrdered, Stethoscope, BellRing } from "lucide-react";
 import { fmtTime, isVnMidnight } from "../../../lib/datetime";
-import { callRank } from "../../../lib/queue";
 
 export interface QueueRow {
   id: string;
@@ -85,13 +84,9 @@ export default function QueueBoard({
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {doctors.map(([name, list]) => {
-            const ordered = [...list].sort((a, b) => {
-              const ra = callRank(a);
-              const rb = callRank(b);
-              if (ra[0] !== rb[0]) return ra[0] - rb[0];
-              if (ra[1] !== rb[1]) return ra[1] - rb[1];
-              return ra[2].localeCompare(rb[2]);
-            });
+            // Order is authoritative from the backend (/api/v1/queue → call_rank).
+            // The board only groups + splits by flags; it does NOT rank.
+            const ordered = list;
             // Làn "Chờ đọc KQ (B3)" tách RIÊNG khỏi "Đang khám" (vốn gộp lẫn đang-khám /
             // đang-ở-sono / đã-quay-lại) để bác sĩ thấy ngay ai đọc được luôn.
             const b3 = ordered.filter((r) => r.b3_ready);

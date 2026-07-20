@@ -1,0 +1,2423 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 17 — Distributed Time và Event Ordering.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-17--distributed-time-và-event-ordering">Bài 17 — Distributed Time và Event Ordering</h1>
+<p>Trong một chương trình chạy trên một máy, ta thường nghĩ thời gian và thứ tự rất đơn giản:</p>
+<pre class="hljs"><code><div>Sự kiện A xảy ra lúc 10:00:01
+Sự kiện B xảy ra lúc 10:00:02
+
+→ A xảy ra trước B
+</div></code></pre>
+<p>Nhưng trong distributed system:</p>
+<pre class="hljs"><code><div>- Mỗi server có đồng hồ riêng
+- Đồng hồ có thể nhanh hoặc chậm
+- Network có độ trễ không cố định
+- Message có thể đến sai thứ tự
+- Process có thể pause
+- Event xảy ra đồng thời ở nhiều region
+- Response có thể đến trước request khác dù operation thật xảy ra sau
+</div></code></pre>
+<p>Do đó câu hỏi:</p>
+<blockquote>
+<p>“Event nào xảy ra trước?”</p>
+</blockquote>
+<p>không phải lúc nào cũng trả lời được chỉ bằng timestamp đồng hồ.</p>
+<p>Bài này sẽ làm rõ:</p>
+<pre class="hljs"><code><div>- Wall clock và monotonic clock
+- Clock skew và clock drift
+- Physical time và logical time
+- Happens-before
+- Lamport timestamp
+- Vector clock
+- Hybrid Logical Clock
+- Sequence number
+- Ordering theo entity/partition
+- Distributed ID generation
+- UUID và Snowflake-like ID
+</div></code></pre>
+<hr>
+<h1 id="1-vì-sao-thời-gian-trong-distributed-system-khó">1. Vì sao thời gian trong distributed system khó?</h1>
+<p>Giả sử hai server:</p>
+<pre class="hljs"><code><div>Server A clock:
+10:00:05
+
+Server B clock:
+10:00:02
+</div></code></pre>
+<p>A gửi event sang B.</p>
+<p>Event thật sự xảy ra theo thứ tự:</p>
+<pre class="hljs"><code><div>1. A tạo OrderCreated
+2. B nhận rồi tạo InventoryReserved
+</div></code></pre>
+<p>Nhưng timestamp có thể là:</p>
+<pre class="hljs"><code><div>OrderCreated:
+10:00:05
+
+InventoryReserved:
+10:00:03
+</div></code></pre>
+<p>Nếu chỉ sort timestamp:</p>
+<pre class="hljs"><code><div>InventoryReserved
+→ OrderCreated
+</div></code></pre>
+<p>Thứ tự bị đảo dù InventoryReserved phụ thuộc OrderCreated.</p>
+<hr>
+<h1 id="2-không-tồn-tại-một-đồng-hồ-toàn-cầu-hoàn-hảo">2. Không tồn tại một đồng hồ toàn cầu hoàn hảo</h1>
+<p>Trong distributed system, không có một chiếc đồng hồ vật lý duy nhất mà mọi server đọc trực tiếp với độ chính xác tuyệt đối.</p>
+<p>Mỗi server thường có:</p>
+<pre class="hljs"><code><div>- Hardware clock riêng
+- Operating-system clock riêng
+- Cơ chế đồng bộ với time server
+</div></code></pre>
+<p>Hai server có thể chênh nhau:</p>
+<pre class="hljs"><code><div>- Vài microsecond
+- Vài millisecond
+- Vài giây
+- Thậm chí vài phút nếu cấu hình lỗi
+</div></code></pre>
+<p>Điều đó dẫn đến:</p>
+<pre class="hljs"><code><div>clock skew
+</div></code></pre>
+<hr>
+<h1 id="3-physical-clock-là-gì">3. Physical Clock là gì?</h1>
+<p>Physical clock cố gắng biểu diễn thời gian thực ngoài đời:</p>
+<pre class="hljs"><code><div>2026-07-12 15:30:10.123
+</div></code></pre>
+<p>Nó thường dùng cho:</p>
+<pre class="hljs"><code><div>- Timestamp hiển thị
+- Audit log
+- Expiration time
+- Scheduling
+- Certificate validity
+- User-facing date/time
+</div></code></pre>
+<p>Physical clock không tự động phản ánh đúng causal order giữa các event phân tán.</p>
+<hr>
+<h1 id="4-wall-clock">4. Wall Clock</h1>
+<p>Wall clock là thời gian lịch mà con người sử dụng:</p>
+<pre class="hljs"><code><div>2026-07-12 15:30:00 Asia/Bangkok
+</div></code></pre>
+<p>Ví dụ API:</p>
+<pre class="hljs"><code><div>datetime.now()
+time.time()
+</div></code></pre>
+<p>Wall clock có thể bị điều chỉnh bởi:</p>
+<pre class="hljs"><code><div>- NTP synchronization
+- Administrator chỉnh giờ
+- Daylight-saving change
+- Virtual machine migration
+- Clock correction
+</div></code></pre>
+<p>Vì thế wall clock có thể:</p>
+<pre class="hljs"><code><div>- Nhảy tiến
+- Nhảy lùi
+- Chạy nhanh hoặc chậm tạm thời
+</div></code></pre>
+<hr>
+<h1 id="5-wall-clock-có-thể-đi-lùi">5. Wall Clock có thể đi lùi</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Lần đọc 1:
+10:00:05.500
+
+NTP điều chỉnh clock lùi 2 giây
+
+Lần đọc 2:
+10:00:03.700
+</div></code></pre>
+<p>Nếu dùng wall clock để đo duration:</p>
+<pre class="hljs"><code><div>duration = end_time - start_time
+</div></code></pre>
+<p>ta có thể nhận:</p>
+<pre class="hljs"><code><div>duration âm
+</div></code></pre>
+<p>Do đó không nên dùng wall clock để đo elapsed time trong process.</p>
+<hr>
+<h1 id="6-monotonic-clock">6. Monotonic Clock</h1>
+<p>Monotonic clock chỉ bảo đảm:</p>
+<pre class="hljs"><code><div>Giá trị không giảm trong cùng một process/machine
+</div></code></pre>
+<p>Nó thường đo thời gian kể từ một mốc không quan trọng đối với con người.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>time.monotonic()
+</div></code></pre>
+<p>Phù hợp để đo:</p>
+<pre class="hljs"><code><div>- Timeout
+- Request duration
+- Retry delay
+- Lease duration cục bộ
+- Benchmark
+</div></code></pre>
+<p>Không phù hợp để hiển thị:</p>
+<pre class="hljs"><code><div>Ngày 12 tháng 7 năm 2026
+</div></code></pre>
+<hr>
+<h1 id="7-wall-clock-và-monotonic-clock">7. Wall Clock và Monotonic Clock</h1>
+<table>
+<thead>
+<tr>
+<th>Mục đích</th>
+<th>Loại clock phù hợp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hiển thị ngày giờ</td>
+<td>Wall clock</td>
+</tr>
+<tr>
+<td>Ghi audit timestamp</td>
+<td>Wall clock</td>
+</tr>
+<tr>
+<td>Đo request latency</td>
+<td>Monotonic clock</td>
+</tr>
+<tr>
+<td>Timeout sau 2 giây</td>
+<td>Monotonic clock</td>
+</tr>
+<tr>
+<td>Token hết hạn lúc 10:00</td>
+<td>Wall clock</td>
+</tr>
+<tr>
+<td>Retry sau 500 ms</td>
+<td>Monotonic clock</td>
+</tr>
+</tbody>
+</table>
+<p>Quy tắc:</p>
+<blockquote>
+<p>Dùng wall clock để trả lời “khi nào”; dùng monotonic clock để trả lời “đã bao lâu”.</p>
+</blockquote>
+<hr>
+<h1 id="8-monotonic-clock-không-đồng-bộ-giữa-các-máy">8. Monotonic Clock không đồng bộ giữa các máy</h1>
+<p>Monotonic clock của Server A:</p>
+<pre class="hljs"><code><div>845.22 seconds since boot
+</div></code></pre>
+<p>Server B:</p>
+<pre class="hljs"><code><div>12.03 seconds since boot
+</div></code></pre>
+<p>Không thể so sánh trực tiếp:</p>
+<pre class="hljs"><code><div>845.22 &gt; 12.03
+</div></code></pre>
+<p>và kết luận event A xảy ra sau event B.</p>
+<p>Monotonic clock chỉ hữu ích trong phạm vi một process hoặc một machine, trừ khi có protocol đặc biệt.</p>
+<hr>
+<h1 id="9-clock-skew">9. Clock Skew</h1>
+<p>Clock skew là chênh lệch giữa hai clock tại cùng một thời điểm thực.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Thời gian thực:
+10:00:00
+
+Server A:
+10:00:00.080
+
+Server B:
+09:59:59.940
+</div></code></pre>
+<p>Clock skew giữa A và B:</p>
+<pre class="hljs"><code><div>140 ms
+</div></code></pre>
+<hr>
+<h1 id="10-clock-drift">10. Clock Drift</h1>
+<p>Clock drift là tốc độ clock chạy sai theo thời gian.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Server A chạy nhanh hơn thời gian thật:
+20 ppm
+</div></code></pre>
+<p>Nếu không đồng bộ lại, độ lệch tăng dần.</p>
+<p>Phân biệt:</p>
+<pre class="hljs"><code><div>Clock skew:
+Độ lệch tại một thời điểm.
+
+Clock drift:
+Tốc độ độ lệch thay đổi theo thời gian.
+</div></code></pre>
+<hr>
+<h1 id="11-clock-synchronization">11. Clock Synchronization</h1>
+<p>Các server thường đồng bộ bằng:</p>
+<pre class="hljs"><code><div>- NTP
+- PTP
+- Cloud time synchronization
+- GPS/atomic-clock-backed sources trong hệ thống đặc biệt
+</div></code></pre>
+<p>Nhưng synchronization không tạo ra thời gian hoàn hảo.</p>
+<p>Vẫn có:</p>
+<pre class="hljs"><code><div>- Network delay không đối xứng
+- Time-server error
+- Local oscillator drift
+- Clock correction delay
+</div></code></pre>
+<p>Do đó hệ thống thường chỉ biết:</p>
+<pre class="hljs"><code><div>Clock nằm trong một khoảng sai số nhất định
+</div></code></pre>
+<p>chứ không biết thời gian tuyệt đối chính xác hoàn toàn.</p>
+<hr>
+<h1 id="12-clock-step-và-clock-slew">12. Clock Step và Clock Slew</h1>
+<p>Khi phát hiện clock sai, hệ thống có thể sửa theo hai cách.</p>
+<h2 id="step">Step</h2>
+<p>Nhảy clock ngay:</p>
+<pre class="hljs"><code><div>10:00:10
+→ 10:00:07
+</div></code></pre>
+<p>Có thể làm thời gian đi lùi.</p>
+<h2 id="slew">Slew</h2>
+<p>Điều chỉnh tốc độ clock dần dần:</p>
+<pre class="hljs"><code><div>Chạy chậm hơn hoặc nhanh hơn tạm thời
+cho tới khi đồng bộ.
+</div></code></pre>
+<p>Slew tránh bước nhảy lớn nhưng vẫn làm duration dựa trên wall clock không chính xác.</p>
+<hr>
+<h1 id="13-timezone-không-phải-clock-skew">13. Timezone không phải Clock Skew</h1>
+<p>Timezone chỉ là cách biểu diễn cùng một thời điểm.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>08:00 UTC
+15:00 Asia/Bangkok
+</div></code></pre>
+<p>Đó là cùng một instant.</p>
+<p>Clock skew là hai machine bất đồng về instant thực tế.</p>
+<p>Trong storage, thường nên lưu:</p>
+<pre class="hljs"><code><div>UTC timestamp
++
+timezone riêng nếu business cần lịch địa phương
+</div></code></pre>
+<hr>
+<h1 id="14-utc-cũng-không-giải-quyết-ordering">14. UTC cũng không giải quyết Ordering</h1>
+<p>Chuyển mọi timestamp sang UTC giải quyết vấn đề múi giờ.</p>
+<p>Nó không giải quyết:</p>
+<pre class="hljs"><code><div>- Clock skew
+- Network delay
+- Concurrent events
+- Causal ordering
+</div></code></pre>
+<p>Hai server đều ghi UTC nhưng clock vẫn có thể lệch.</p>
+<hr>
+<h1 id="15-leap-second-và-clock-anomaly">15. Leap Second và Clock Anomaly</h1>
+<p>Physical time có các phức tạp như leap second.</p>
+<p>Một số hệ thống:</p>
+<pre class="hljs"><code><div>- Step clock
+- Smear leap second qua một khoảng thời gian
+</div></code></pre>
+<p>Điều này có thể làm timestamp giữa các provider hoặc server khác nhau.</p>
+<p>Bài học:</p>
+<blockquote>
+<p>Không dùng assumptions quá mạnh về wall-clock continuity trong logic correctness quan trọng.</p>
+</blockquote>
+<hr>
+<h1 id="16-timestamp-không-phải-bằng-chứng-tuyệt-đối-của-thứ-tự">16. Timestamp không phải bằng chứng tuyệt đối của thứ tự</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>Event A timestamp = 10:00:05
+Event B timestamp = 10:00:04
+</div></code></pre>
+<p>Không thể chắc chắn:</p>
+<pre class="hljs"><code><div>B xảy ra trước A
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>A xảy ra trước nhưng clock A nhanh hơn clock B.
+</div></code></pre>
+<p>Physical timestamp tốt để:</p>
+<pre class="hljs"><code><div>- Hiển thị
+- Debug
+- Xấp xỉ ordering
+</div></code></pre>
+<p>nhưng không đủ cho:</p>
+<pre class="hljs"><code><div>- Distributed locking
+- Conflict-free transaction order
+- Causal dependency
+- Exactly-one winner
+</div></code></pre>
+<hr>
+<h1 id="17-event-time-processing-time-và-ingestion-time">17. Event Time, Processing Time và Ingestion Time</h1>
+<p>Trong stream processing, cần phân biệt ba loại thời gian.</p>
+<h2 id="event-time">Event Time</h2>
+<p>Thời điểm sự kiện thực sự xảy ra tại nguồn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Thiết bị đo nhiệt độ lúc 10:00:00
+</div></code></pre>
+<h2 id="ingestion-time">Ingestion Time</h2>
+<p>Thời điểm event đi vào hệ thống xử lý.</p>
+<pre class="hljs"><code><div>Event vào broker lúc 10:00:05
+</div></code></pre>
+<h2 id="processing-time">Processing Time</h2>
+<p>Thời điểm worker thực sự xử lý event.</p>
+<pre class="hljs"><code><div>Worker xử lý lúc 10:00:12
+</div></code></pre>
+<hr>
+<h1 id="18-ba-loại-thời-gian-có-thể-khác-xa-nhau">18. Ba loại thời gian có thể khác xa nhau</h1>
+<p>Ví dụ mobile offline:</p>
+<pre class="hljs"><code><div>Event time:
+10:00
+
+Upload khi có mạng:
+10:30
+
+Processing:
+10:32
+</div></code></pre>
+<p>Nếu dashboard nhóm theo processing time, event 10:00 có thể bị tính vào cửa sổ 10:30.</p>
+<p>Vì vậy analytics thường quan tâm event time và cần xử lý late events.</p>
+<hr>
+<h1 id="19-arrival-order-không-phải-event-order">19. Arrival Order không phải Event Order</h1>
+<p>Broker nhận:</p>
+<pre class="hljs"><code><div>Event B trước
+Event A sau
+</div></code></pre>
+<p>không có nghĩa B xảy ra trước A.</p>
+<p>Nguyên nhân:</p>
+<pre class="hljs"><code><div>- Network path khác nhau
+- Retry
+- Batch upload
+- Offline client
+- Partition khác nhau
+</div></code></pre>
+<p>Arrival order chỉ là thứ tự đến một điểm quan sát cụ thể.</p>
+<hr>
+<h1 id="20-processing-order-cũng-không-phải-business-order">20. Processing Order cũng không phải Business Order</h1>
+<p>Consumer có nhiều worker:</p>
+<pre class="hljs"><code><div>Worker 1 xử lý Event A
+Worker 2 xử lý Event B
+</div></code></pre>
+<p>B có thể hoàn tất trước A dù broker giao A trước.</p>
+<p>Nếu business cần ordering:</p>
+<pre class="hljs"><code><div>- Partition theo entity
+- Sequential processing theo key
+- Sequence/version checks
+</div></code></pre>
+<hr>
+<h1 id="21-partial-order-và-total-order">21. Partial Order và Total Order</h1>
+<h2 id="partial-order">Partial Order</h2>
+<p>Chỉ một số cặp event có quan hệ trước-sau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>OrderCreated → PaymentSucceeded
+</div></code></pre>
+<p>Nhưng hai order độc lập:</p>
+<pre class="hljs"><code><div>Order A created
+Order B created
+</div></code></pre>
+<p>có thể không cần so sánh.</p>
+<h2 id="total-order">Total Order</h2>
+<p>Mọi cặp event đều được xếp thứ tự:</p>
+<pre class="hljs"><code><div>A trước B
+hoặc
+B trước A
+</div></code></pre>
+<p>Consensus log thường tạo total order trong một consensus group.</p>
+<hr>
+<h1 id="22-vì-sao-total-order-đắt">22. Vì sao Total Order đắt?</h1>
+<p>Để mọi node đồng ý:</p>
+<pre class="hljs"><code><div>A trước B hay B trước A
+</div></code></pre>
+<p>hệ thống thường cần coordination:</p>
+<pre class="hljs"><code><div>- Leader
+- Consensus
+- Sequencer
+- Quorum
+</div></code></pre>
+<p>Nhưng nếu A và B độc lập, thứ tự toàn cầu có thể không mang giá trị nghiệp vụ.</p>
+<p>Do đó nên đặt ordering scope nhỏ nhất cần thiết:</p>
+<pre class="hljs"><code><div>- Theo order
+- Theo account
+- Theo conversation
+- Theo aggregate
+- Theo partition
+</div></code></pre>
+<hr>
+<h1 id="23-happens-before">23. Happens-Before</h1>
+<p>Leslie Lamport định nghĩa quan hệ <strong>happens-before</strong>, ký hiệu:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>nghĩa là A có thể ảnh hưởng nhân quả đến B.</p>
+<p>Ba quy tắc trực giác:</p>
+<pre class="hljs"><code><div>1. Nếu A và B trong cùng process và A xảy ra trước B:
+   A → B
+
+2. Nếu A là send message và B là receive message đó:
+   A → B
+
+3. Nếu A → B và B → C:
+   A → C
+</div></code></pre>
+<hr>
+<h1 id="24-program-order">24. Program Order</h1>
+<p>Trong cùng process:</p>
+<pre class="hljs"><code><div>A: tạo order
+B: publish event
+</div></code></pre>
+<p>Nếu code thực hiện A rồi B:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>Đây là local causal order.</p>
+<hr>
+<h1 id="25-message-order">25. Message Order</h1>
+<p>Service A gửi message M.</p>
+<p>Service B nhận M rồi xử lý.</p>
+<pre class="hljs"><code><div>send(M) → receive(M)
+</div></code></pre>
+<p>Không thể nhận đúng message trước khi nó được gửi.</p>
+<p>Đây là causal relation xuyên machine.</p>
+<hr>
+<h1 id="26-transitivity">26. Transitivity</h1>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>OrderCreated → InventoryReserved
+InventoryReserved → PaymentStarted
+</div></code></pre>
+<p>thì:</p>
+<pre class="hljs"><code><div>OrderCreated → PaymentStarted
+</div></code></pre>
+<p>Dù Payment Service không giao tiếp trực tiếp với Order Service.</p>
+<hr>
+<h1 id="27-concurrent-events">27. Concurrent Events</h1>
+<p>Nếu không có:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>và cũng không có:</p>
+<pre class="hljs"><code><div>B → A
+</div></code></pre>
+<p>thì A và B là concurrent:</p>
+<pre class="hljs"><code><div>A || B
+</div></code></pre>
+<p>Concurrent không nhất thiết có nghĩa xảy ra đúng cùng nanosecond.</p>
+<p>Nó nghĩa là hệ thống không có bằng chứng causal order giữa chúng.</p>
+<hr>
+<h1 id="28-ví-dụ-concurrent-events">28. Ví dụ Concurrent Events</h1>
+<p>Hai user offline cùng sửa document:</p>
+<pre class="hljs"><code><div>User A sửa title
+User B sửa description
+</div></code></pre>
+<p>Không ai thấy thay đổi của người kia trước khi ghi.</p>
+<p>Hai write có thể là concurrent.</p>
+<p>Một timestamp vật lý có thể xếp một write trước, nhưng về causal semantics chúng độc lập.</p>
+<hr>
+<h1 id="29-logical-clock">29. Logical Clock</h1>
+<p>Logical clock không cố đo thời gian thật.</p>
+<p>Nó cố biểu diễn:</p>
+<pre class="hljs"><code><div>- Thứ tự logic
+- Causal relation
+- Version progression
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Event A logical time = 5
+Event B logical time = 6
+</div></code></pre>
+<p>Con số không có nghĩa:</p>
+<pre class="hljs"><code><div>6 giây
+</div></code></pre>
+<p>mà có nghĩa B được đặt sau một số event logic.</p>
+<hr>
+<h1 id="30-lamport-clock">30. Lamport Clock</h1>
+<p>Mỗi process giữ một counter:</p>
+<pre class="hljs"><code><div>L
+</div></code></pre>
+<p>Quy tắc:</p>
+<h2 id="trước-mỗi-local-event-hoặc-send">Trước mỗi local event hoặc send</h2>
+<pre class="hljs"><code><div>L = L + 1
+</div></code></pre>
+<h2 id="khi-gửi-message">Khi gửi message</h2>
+<p>Gắn timestamp:</p>
+<pre class="hljs"><code><div>message.timestamp = L
+</div></code></pre>
+<h2 id="khi-nhận-message-có-timestamp-t">Khi nhận message có timestamp T</h2>
+<pre class="hljs"><code><div>L = max(L, T) + 1
+</div></code></pre>
+<hr>
+<h1 id="31-ví-dụ-lamport-clock">31. Ví dụ Lamport Clock</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>Process A: L=0
+Process B: L=0
+</div></code></pre>
+<p>A tạo event:</p>
+<pre class="hljs"><code><div>A1:
+L_A = 1
+</div></code></pre>
+<p>A gửi message:</p>
+<pre class="hljs"><code><div>A2:
+L_A = 2
+message timestamp = 2
+</div></code></pre>
+<p>B trước đó có local event:</p>
+<pre class="hljs"><code><div>B1:
+L_B = 1
+</div></code></pre>
+<p>B nhận message timestamp 2:</p>
+<pre class="hljs"><code><div>L_B = max(1, 2) + 1 = 3
+</div></code></pre>
+<hr>
+<h1 id="32-sơ-đồ-lamport-clock">32. Sơ đồ Lamport Clock</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant A
+    participant B
+
+    Note over A: L=0
+    Note over B: L=0
+
+    A->>A: Local event, L=1
+    A->>B: Send message, L=2
+    B->>B: Receive: max(1,2)+1 = 3
+    B->>B: Next local event, L=4
+</div></code></pre>
+<hr>
+<h1 id="33-tính-chất-quan-trọng-của-lamport-clock">33. Tính chất quan trọng của Lamport Clock</h1>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>thì:</p>
+<pre class="hljs"><code><div>L(A) &lt; L(B)
+</div></code></pre>
+<p>Lamport timestamp giữ causal ordering theo một chiều.</p>
+<p>Nhưng chiều ngược lại không đúng:</p>
+<pre class="hljs"><code><div>L(A) &lt; L(B)
+</div></code></pre>
+<p>không chứng minh:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>A và B có thể concurrent nhưng vẫn nhận timestamp khác nhau.</p>
+<hr>
+<h1 id="34-lamport-clock-không-phát-hiện-được-concurrency">34. Lamport Clock không phát hiện được Concurrency</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Event A timestamp = 5
+Event B timestamp = 8
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>A → B
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>A || B
+</div></code></pre>
+<p>Lamport clock chỉ tạo thứ tự phù hợp causal order, nhưng không phân biệt rõ concurrency.</p>
+<hr>
+<h1 id="35-tạo-total-order-bằng-lamport-timestamp">35. Tạo Total Order bằng Lamport Timestamp</h1>
+<p>Có thể kết hợp:</p>
+<pre class="hljs"><code><div>(Lamport timestamp, process ID)
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>(5, A)
+(5, B)
+</div></code></pre>
+<p>Tie-break bằng process ID.</p>
+<p>Ta có total order:</p>
+<pre class="hljs"><code><div>(5, A) &lt; (5, B)
+</div></code></pre>
+<p>Nhưng thứ tự tie-break này là nhân tạo, không chứng minh causal relation.</p>
+<p>Hữu ích cho:</p>
+<pre class="hljs"><code><div>- Deterministic ordering
+- Event logs
+- Mutual-exclusion algorithm
+</div></code></pre>
+<hr>
+<h1 id="36-lamport-clock-dùng-cho-gì">36. Lamport Clock dùng cho gì?</h1>
+<pre class="hljs"><code><div>- Thứ tự event logic
+- Causal-compatible sorting
+- Versioning đơn giản
+- Distributed algorithm
+- Audit/debug tương đối
+</div></code></pre>
+<p>Không dùng để:</p>
+<pre class="hljs"><code><div>- Hiển thị ngày giờ
+- Tính token hết hạn
+- Đo latency
+</div></code></pre>
+<hr>
+<h1 id="37-vector-clock">37. Vector Clock</h1>
+<p>Vector clock mở rộng Lamport clock để phát hiện concurrency.</p>
+<p>Mỗi process giữ một vector.</p>
+<p>Với ba node A, B, C:</p>
+<pre class="hljs"><code><div>[A_count, B_count, C_count]
+</div></code></pre>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>A: [0,0,0]
+B: [0,0,0]
+C: [0,0,0]
+</div></code></pre>
+<hr>
+<h1 id="38-quy-tắc-vector-clock">38. Quy tắc Vector Clock</h1>
+<h2 id="local-event-tại-node-i">Local event tại node i</h2>
+<p>Tăng component i:</p>
+<pre class="hljs"><code><div>V[i] += 1
+</div></code></pre>
+<h2 id="send-message">Send message</h2>
+<p>Gắn toàn bộ vector vào message.</p>
+<h2 id="receive-message-có-vector-m">Receive message có vector M</h2>
+<p>Merge theo component-wise maximum:</p>
+<pre class="hljs"><code><div>V[j] = max(V[j], M[j])
+</div></code></pre>
+<p>sau đó tăng component của receiver.</p>
+<hr>
+<h1 id="39-ví-dụ-vector-clock">39. Ví dụ Vector Clock</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>A = [0,0]
+B = [0,0]
+</div></code></pre>
+<p>A local event:</p>
+<pre class="hljs"><code><div>A = [1,0]
+</div></code></pre>
+<p>A gửi message:</p>
+<pre class="hljs"><code><div>A = [2,0]
+message = [2,0]
+</div></code></pre>
+<p>B trước đó local event:</p>
+<pre class="hljs"><code><div>B = [0,1]
+</div></code></pre>
+<p>B nhận message:</p>
+<pre class="hljs"><code><div>merge:
+max([0,1], [2,0]) = [2,1]
+
+increment B:
+[2,2]
+</div></code></pre>
+<hr>
+<h1 id="40-so-sánh-hai-vector-clock">40. So sánh hai Vector Clock</h1>
+<p>Cho vector X và Y.</p>
+<p>Ta nói:</p>
+<pre class="hljs"><code><div>X ≤ Y
+</div></code></pre>
+<p>nếu mọi component của X nhỏ hơn hoặc bằng Y.</p>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>X ≤ Y
+và X ≠ Y
+</div></code></pre>
+<p>thì:</p>
+<pre class="hljs"><code><div>X → Y
+</div></code></pre>
+<p>Nếu có component X lớn hơn Y và component khác nhỏ hơn:</p>
+<pre class="hljs"><code><div>X || Y
+</div></code></pre>
+<p>Hai event concurrent.</p>
+<hr>
+<h1 id="41-ví-dụ-causal-order-bằng-vector-clock">41. Ví dụ Causal Order bằng Vector Clock</h1>
+<pre class="hljs"><code><div>X = [1,2,0]
+Y = [2,3,0]
+</div></code></pre>
+<p>Mọi component của X ≤ Y.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>X → Y
+</div></code></pre>
+<p>Y biết toàn bộ lịch sử mà X biết và thêm một số event.</p>
+<hr>
+<h1 id="42-ví-dụ-concurrent-vector-clocks">42. Ví dụ Concurrent Vector Clocks</h1>
+<pre class="hljs"><code><div>X = [2,1,0]
+Y = [1,2,0]
+</div></code></pre>
+<p>So sánh:</p>
+<pre class="hljs"><code><div>Component A:
+2 &gt; 1
+
+Component B:
+1 &lt; 2
+</div></code></pre>
+<p>Không vector nào dominates vector kia.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>X || Y
+</div></code></pre>
+<p>Hai version concurrent.</p>
+<hr>
+<h1 id="43-vector-clock-trong-conflict-detection">43. Vector Clock trong Conflict Detection</h1>
+<p>Hai replica nhận concurrent writes:</p>
+<pre class="hljs"><code><div>Version A:
+value = &quot;System Design&quot;
+clock = [2,1]
+
+Version B:
+value = &quot;Distributed Systems&quot;
+clock = [1,2]
+</div></code></pre>
+<p>Không version nào causally sau version kia.</p>
+<p>Hệ thống có thể:</p>
+<pre class="hljs"><code><div>- Giữ cả hai sibling versions
+- Yêu cầu application merge
+- Dùng deterministic conflict resolver
+</div></code></pre>
+<hr>
+<h1 id="44-vector-clock-và-lost-update">44. Vector Clock và Lost Update</h1>
+<p>Nếu version mới có clock:</p>
+<pre class="hljs"><code><div>[3,2]
+</div></code></pre>
+<p>và version cũ:</p>
+<pre class="hljs"><code><div>[2,2]
+</div></code></pre>
+<p>version mới dominates version cũ.</p>
+<p>Có thể loại version cũ an toàn vì nó nằm trong lịch sử của version mới.</p>
+<p>Nhưng concurrent versions không nên tự động coi một version là cũ chỉ dựa vào arrival time.</p>
+<hr>
+<h1 id="45-nhược-điểm-của-vector-clock">45. Nhược điểm của Vector Clock</h1>
+<p>Vector clock cần một component cho mỗi participant hoặc replica identity.</p>
+<p>Nếu hệ thống có hàng triệu clients:</p>
+<pre class="hljs"><code><div>Vector có thể rất lớn.
+</div></code></pre>
+<p>Các vấn đề:</p>
+<pre class="hljs"><code><div>- Metadata tăng
+- Node join/leave
+- Identity lifecycle
+- Vector compaction
+- Merge phức tạp
+</div></code></pre>
+<p>Thực tế có thể dùng:</p>
+<pre class="hljs"><code><div>- Version vectors theo replica
+- Dotted version vectors
+- Bounded metadata
+- HLC
+</div></code></pre>
+<hr>
+<h1 id="46-lamport-clock-và-vector-clock">46. Lamport Clock và Vector Clock</h1>
+<table>
+<thead>
+<tr>
+<th>Đặc điểm</th>
+<th>Lamport Clock</th>
+<th>Vector Clock</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metadata</td>
+<td>Một số</td>
+<td>Một vector</td>
+</tr>
+<tr>
+<td>Giữ causal order</td>
+<td>Có</td>
+<td>Có</td>
+</tr>
+<tr>
+<td>Phát hiện concurrency</td>
+<td>Không</td>
+<td>Có</td>
+</tr>
+<tr>
+<td>Dễ mở rộng</td>
+<td>Dễ hơn</td>
+<td>Khó hơn</td>
+</tr>
+<tr>
+<td>Chi phí</td>
+<td>Thấp</td>
+<td>Cao hơn</td>
+</tr>
+<tr>
+<td>Dùng cho</td>
+<td>Ordering</td>
+<td>Causality/conflict detection</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="47-hybrid-logical-clock--hlc">47. Hybrid Logical Clock — HLC</h1>
+<p>Hybrid Logical Clock kết hợp:</p>
+<pre class="hljs"><code><div>Physical time
++
+Logical counter
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Timestamp gần với wall-clock time
+- Vẫn giữ causal order
+- Metadata nhỏ hơn vector clock
+</div></code></pre>
+<p>Một HLC có thể biểu diễn:</p>
+<pre class="hljs"><code><div>(physical_component, logical_component)
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>(1720771200123, 4)
+</div></code></pre>
+<hr>
+<h1 id="48-trực-giác-hoạt-động-của-hlc">48. Trực giác hoạt động của HLC</h1>
+<p>Node đọc physical clock.</p>
+<p>Nếu physical time tiến lên:</p>
+<pre class="hljs"><code><div>physical_component = current physical time
+logical_component = 0
+</div></code></pre>
+<p>Nếu nhiều event xảy ra cùng physical tick hoặc nhận event có timestamp lớn hơn:</p>
+<pre class="hljs"><code><div>logical_component tăng
+</div></code></pre>
+<p>Khi nhận message, node kết hợp:</p>
+<pre class="hljs"><code><div>- Local physical time
+- Local HLC
+- Remote HLC
+</div></code></pre>
+<p>để tạo timestamp không vi phạm causal order.</p>
+<hr>
+<h1 id="49-vì-sao-hlc-hữu-ích">49. Vì sao HLC hữu ích?</h1>
+<p>HLC cho timestamp:</p>
+<pre class="hljs"><code><div>- Gần thời gian thật
+- Có thể sort gần theo chronological order
+- Giữ happens-before
+- Metadata cố định nhỏ
+</div></code></pre>
+<p>Hữu ích cho:</p>
+<pre class="hljs"><code><div>- Distributed databases
+- MVCC version timestamps
+- Change streams
+- Cross-region ordering
+- Conflict resolution có giới hạn
+</div></code></pre>
+<hr>
+<h1 id="50-hlc-không-phát-hiện-concurrency-đầy-đủ-như-vector-clock">50. HLC không phát hiện Concurrency đầy đủ như Vector Clock</h1>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>HLC(A) &lt; HLC(B)
+</div></code></pre>
+<p>ta vẫn không luôn biết A causally trước B hay chỉ được xếp trước do timestamp.</p>
+<p>HLC bảo đảm:</p>
+<pre class="hljs"><code><div>A → B
+⇒
+HLC(A) &lt; HLC(B)
+</div></code></pre>
+<p>nhưng không mang toàn bộ causal dependency graph như vector clock.</p>
+<hr>
+<h1 id="51-truetime-like-interval-ở-mức-trực-giác">51. TrueTime-Like Interval ở mức trực giác</h1>
+<p>Một số hệ thống không giả định physical time chính xác tuyệt đối.</p>
+<p>Thay vào đó chúng biểu diễn thời gian dưới dạng interval:</p>
+<pre class="hljs"><code><div>[earliest, latest]
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Now nằm trong:
+[10:00:00.995, 10:00:01.005]
+</div></code></pre>
+<p>Độ bất định:</p>
+<pre class="hljs"><code><div>±5 ms
+</div></code></pre>
+<p>Để bảo đảm real-time ordering, hệ thống có thể phải chờ uncertainty interval qua đi trước khi xác nhận một số operation.</p>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Clock uncertainty nhỏ hơn
+→ wait ngắn hơn
+
+Clock uncertainty lớn hơn
+→ commit wait dài hơn
+</div></code></pre>
+<hr>
+<h1 id="52-logical-clock-không-thay-thế-physical-time">52. Logical Clock không thay thế Physical Time</h1>
+<p>Logical clock trả lời:</p>
+<pre class="hljs"><code><div>Event nào causally sau?
+</div></code></pre>
+<p>Physical clock trả lời:</p>
+<pre class="hljs"><code><div>Event diễn ra gần mấy giờ?
+</div></code></pre>
+<p>Một hệ thống thường cần cả hai:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;occurredAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-12T08:30:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;logicalVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">182</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Physical time cho người và analytics.</p>
+<p>Logical version cho ordering/correctness.</p>
+<hr>
+<h1 id="53-sequence-number">53. Sequence Number</h1>
+<p>Sequence number là số tăng dần dùng để sắp thứ tự event trong một scope.</p>
+<p>Ví dụ theo order:</p>
+<pre class="hljs"><code><div>OrderCreated       sequence=1
+InventoryReserved  sequence=2
+PaymentSucceeded   sequence=3
+OrderConfirmed     sequence=4
+</div></code></pre>
+<p>Consumer có thể phát hiện:</p>
+<pre class="hljs"><code><div>- Duplicate
+- Missing event
+- Out-of-order event
+</div></code></pre>
+<hr>
+<h1 id="54-sequence-number-theo-aggregate">54. Sequence Number theo Aggregate</h1>
+<p>Mỗi aggregate có counter riêng:</p>
+<pre class="hljs"><code><div>order_123:
+1, 2, 3, 4
+
+order_456:
+1, 2, 3
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Không cần global sequencer
+- Ordering đúng phạm vi nghiệp vụ
+- Scale tốt hơn
+</div></code></pre>
+<p>Đây thường là lựa chọn tốt hơn global sequence.</p>
+<hr>
+<h1 id="55-global-sequence-number">55. Global Sequence Number</h1>
+<p>Toàn hệ thống dùng một counter:</p>
+<pre class="hljs"><code><div>1, 2, 3, 4, 5...
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Total order đơn giản
+- Pagination hoặc replay thuận tiện
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Central bottleneck
+- Coordination cao
+- Availability phụ thuộc sequencer
+- Cross-region latency
+</div></code></pre>
+<p>Chỉ nên dùng nếu global ordering thật sự cần thiết.</p>
+<hr>
+<h1 id="56-per-partition-sequence">56. Per-Partition Sequence</h1>
+<p>Broker hoặc storage có thể có sequence riêng cho mỗi partition:</p>
+<pre class="hljs"><code><div>Partition 0:
+0,1,2,3
+
+Partition 1:
+0,1,2,3
+</div></code></pre>
+<p>Bảo đảm:</p>
+<pre class="hljs"><code><div>Ordering trong partition
+</div></code></pre>
+<p>Không thể so sánh trực tiếp:</p>
+<pre class="hljs"><code><div>Partition 0 offset 10
+và
+Partition 1 offset 20
+</div></code></pre>
+<p>để xác định global event order.</p>
+<hr>
+<h1 id="57-sequence-number-và-duplicate-detection">57. Sequence Number và Duplicate Detection</h1>
+<p>Consumer đang ở sequence 10.</p>
+<p>Nhận:</p>
+<pre class="hljs"><code><div>sequence 10
+</div></code></pre>
+<p>Có thể là duplicate.</p>
+<p>Nhận:</p>
+<pre class="hljs"><code><div>sequence 9
+</div></code></pre>
+<p>Có thể là stale/out-of-order event.</p>
+<p>Nhận:</p>
+<pre class="hljs"><code><div>sequence 12
+</div></code></pre>
+<p>Có thể thiếu sequence 11.</p>
+<p>Consumer có thể:</p>
+<pre class="hljs"><code><div>- Buffer
+- Retry
+- Reload authoritative state
+- Alert
+</div></code></pre>
+<hr>
+<h1 id="58-sequence-number-phải-được-cấp-atomically">58. Sequence Number phải được cấp Atomically</h1>
+<p>Nếu hai writers cùng cập nhật aggregate:</p>
+<pre class="hljs"><code><div>Writer A lấy sequence 5
+Writer B cũng lấy sequence 5
+</div></code></pre>
+<p>ordering bị phá.</p>
+<p>Sequence per aggregate thường cần:</p>
+<pre class="hljs"><code><div>- Database transaction
+- Optimistic concurrency
+- Leader/sequencer
+- Compare-and-set
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> order_id <span class="hljs-operator">=</span> :id
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<hr>
+<h1 id="59-database-version-column">59. Database Version Column</h1>
+<p>Entity:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PAYMENT_PENDING&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Update:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;PAID&#x27;</span>,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> order_id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> <span class="hljs-number">7</span>;
+</div></code></pre>
+<p>Nếu affected rows bằng 0:</p>
+<pre class="hljs"><code><div>- Có concurrent update
+- Event đã cũ
+- State đã thay đổi
+</div></code></pre>
+<p>Version vừa hỗ trợ optimistic concurrency vừa làm sequence logic.</p>
+<hr>
+<h1 id="60-ordering-theo-entity">60. Ordering theo Entity</h1>
+<p>Phần lớn hệ thống không cần ordering toàn cầu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Tin nhắn trong cùng conversation
+- Events của cùng order
+- Transactions của cùng account
+- Versions của cùng document
+</div></code></pre>
+<p>Ordering giữa hai entity độc lập không cần thiết.</p>
+<p>Do đó dùng:</p>
+<pre class="hljs"><code><div>partition key = entityId
+</div></code></pre>
+<p>để co-locate event cùng entity.</p>
+<hr>
+<h1 id="61-ordering-và-partition-key">61. Ordering và Partition Key</h1>
+<p>Message broker:</p>
+<pre class="hljs"><code><div>partition = hash(orderId)
+</div></code></pre>
+<p>Mọi event của <code>order_123</code> vào cùng partition.</p>
+<pre class="hljs"><code><div>OrderCreated
+InventoryReserved
+PaymentSucceeded
+</div></code></pre>
+<p>được broker lưu theo thứ tự trong partition.</p>
+<p>Nhưng cần bảo đảm producer cũng publish theo đúng order.</p>
+<hr>
+<h1 id="62-nhiều-producer-có-thể-phá-ordering">62. Nhiều Producer có thể phá Ordering</h1>
+<p>Nếu hai service cùng publish event cho một aggregate:</p>
+<pre class="hljs"><code><div>Order Service:
+OrderCreated
+
+Payment Service:
+PaymentSucceeded
+</div></code></pre>
+<p>Network timing có thể làm PaymentSucceeded đến broker trước.</p>
+<p>Partition cùng key không tự sửa causal order trước khi broker nhận.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Một aggregate owner duy nhất
+- Orchestrator
+- Sequence number
+- Outbox theo aggregate
+- State-machine validation
+</div></code></pre>
+<hr>
+<h1 id="63-retry-queue-có-thể-phá-ordering">63. Retry Queue có thể phá Ordering</h1>
+<p>Event sequence 1 lỗi và bị chuyển sang retry queue.</p>
+<p>Sequence 2 tiếp tục xử lý.</p>
+<p>Consumer có thể thấy:</p>
+<pre class="hljs"><code><div>2 trước 1
+</div></code></pre>
+<p>Cần chọn:</p>
+<pre class="hljs"><code><div>- Block partition
+- Buffer event sau
+- Version/state guard
+- Chấp nhận out-of-order và reconcile
+</div></code></pre>
+<p>Ordering mạnh làm giảm throughput và fault isolation.</p>
+<hr>
+<h1 id="64-consumer-parallelism-có-thể-phá-ordering">64. Consumer Parallelism có thể phá Ordering</h1>
+<p>Broker giao:</p>
+<pre class="hljs"><code><div>Event 1
+Event 2
+</div></code></pre>
+<p>Consumer chạy song song:</p>
+<pre class="hljs"><code><div>Thread A xử lý Event 1
+Thread B xử lý Event 2
+</div></code></pre>
+<p>Event 2 hoàn tất trước Event 1.</p>
+<p>Nếu ordering cần thiết:</p>
+<pre class="hljs"><code><div>- Một worker lane theo key
+- Keyed executor
+- Sequential processing per partition
+</div></code></pre>
+<hr>
+<h1 id="65-timestamp-sorting-không-đủ-cho-chat">65. Timestamp Sorting không đủ cho Chat</h1>
+<p>Hai messages:</p>
+<pre class="hljs"><code><div>M1:
+clientTimestamp = 10:00:05.200
+
+M2:
+clientTimestamp = 10:00:05.100
+</div></code></pre>
+<p>Clock điện thoại có thể lệch.</p>
+<p>Server arrival order cũng có thể lệch.</p>
+<p>Chat thường cần server-assigned ordering:</p>
+<pre class="hljs"><code><div>conversation sequence
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>M1 sequence=101
+M2 sequence=102
+</div></code></pre>
+<p>Client timestamp vẫn dùng để hiển thị xấp xỉ, nhưng sequence quyết định ordering.</p>
+<hr>
+<h1 id="66-offline-client-và-ordering">66. Offline Client và Ordering</h1>
+<p>User gửi message khi offline:</p>
+<pre class="hljs"><code><div>Created locally at 10:00
+Uploaded at 10:30
+</div></code></pre>
+<p>Nếu sort chỉ theo server receive time:</p>
+<pre class="hljs"><code><div>Message xuất hiện cuối conversation
+</div></code></pre>
+<p>Nếu sort chỉ theo client time:</p>
+<pre class="hljs"><code><div>Clock giả hoặc sai có thể chèn message tùy ý
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Server authoritative sequence
+- Client provisional order
+- Reconciliation khi sync
+- Causal parent/reference
+</div></code></pre>
+<hr>
+<h1 id="67-late-events">67. Late Events</h1>
+<p>Late event là event có event time thuộc cửa sổ cũ nhưng đến muộn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Event time:
+10:02
+
+Arrives:
+10:20
+</div></code></pre>
+<p>Nguyên nhân:</p>
+<pre class="hljs"><code><div>- Mobile offline
+- Network retry
+- Queue backlog
+- Batch upload
+</div></code></pre>
+<p>Stream system cần policy:</p>
+<pre class="hljs"><code><div>- Chấp nhận muộn trong bao lâu?
+- Update kết quả cũ?
+- Bỏ event?
+- Gửi correction?
+</div></code></pre>
+<hr>
+<h1 id="68-watermark-ở-mức-trực-giác">68. Watermark ở mức trực giác</h1>
+<p>Watermark biểu diễn ước lượng:</p>
+<blockquote>
+<p>Hệ thống tin rằng phần lớn event có event time trước thời điểm X đã đến.</p>
+</blockquote>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Watermark = 10:15
+</div></code></pre>
+<p>Event 10:10 đến sau watermark là late.</p>
+<p>Watermark không phải sự thật tuyệt đối; nó là trade-off giữa:</p>
+<pre class="hljs"><code><div>- Chờ event muộn
+- Xuất kết quả sớm
+</div></code></pre>
+<hr>
+<h1 id="69-ordering-trong-database-transaction-log">69. Ordering trong Database Transaction Log</h1>
+<p>Database WAL/binlog có thứ tự commit hoặc log sequence position.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>LSN 100: Update A
+LSN 101: Update B
+LSN 102: Update C
+</div></code></pre>
+<p>CDC consumer có thể dùng LSN để:</p>
+<pre class="hljs"><code><div>- Resume
+- Detect lag
+- Preserve source order
+</div></code></pre>
+<p>Nhưng nếu database sharded:</p>
+<pre class="hljs"><code><div>Mỗi shard có log riêng
+</div></code></pre>
+<p>không có global LSN tự nhiên.</p>
+<hr>
+<h1 id="70-commit-timestamp">70. Commit Timestamp</h1>
+<p>Database có thể gán commit timestamp cho transaction.</p>
+<p>Hữu ích cho:</p>
+<pre class="hljs"><code><div>- MVCC
+- Change feed
+- Snapshot reads
+- Temporal queries
+</div></code></pre>
+<p>Nếu timestamp dựa trên physical clock, cần kiểm soát clock uncertainty.</p>
+<p>Nếu dựa trên logical order, nó không nhất thiết ánh xạ chính xác sang thời gian người dùng.</p>
+<hr>
+<h1 id="71-mvcc-và-version-timestamp">71. MVCC và Version Timestamp</h1>
+<p>Multi-Version Concurrency Control lưu nhiều version:</p>
+<pre class="hljs"><code><div>x@T1 = 10
+x@T2 = 20
+x@T3 = 30
+</div></code></pre>
+<p>Transaction đọc snapshot tại timestamp T2 sẽ thấy:</p>
+<pre class="hljs"><code><div>x = 20
+</div></code></pre>
+<p>Version timestamp có thể là:</p>
+<pre class="hljs"><code><div>- Transaction ID
+- Commit sequence
+- Logical timestamp
+- Hybrid timestamp
+</div></code></pre>
+<p>Không nhất thiết là wall-clock timestamp thuần túy.</p>
+<hr>
+<h1 id="72-distributed-id-generation">72. Distributed ID Generation</h1>
+<p>Hệ thống phân tán cần ID:</p>
+<pre class="hljs"><code><div>- Unique
+- Có thể tạo song song
+- Không cần database central bottleneck
+- Có thể sort theo thời gian
+- Kích thước hợp lý
+</div></code></pre>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Database auto-increment
+- UUID
+- Random ID
+- Central ID service
+- Range allocation
+- Snowflake-like ID
+- ULID/UUID time-ordered variants
+</div></code></pre>
+<hr>
+<h1 id="73-database-auto-increment">73. Database Auto-Increment</h1>
+<p>Một database leader cấp:</p>
+<pre class="hljs"><code><div>1, 2, 3, 4...
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Nhỏ
+- Có thứ tự
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Central bottleneck
+- Khó multi-region
+- Shard khác nhau có thể xung đột
+- Lộ quy mô business
+</div></code></pre>
+<p>Phù hợp khi một database vẫn là consistency boundary chính.</p>
+<hr>
+<h1 id="74-auto-increment-theo-shard">74. Auto-Increment theo Shard</h1>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>Shard 1:
+1, 3, 5...
+
+Shard 2:
+2, 4, 6...
+</div></code></pre>
+<p>hoặc encode shard prefix.</p>
+<p>Nhưng:</p>
+<pre class="hljs"><code><div>- Khó thêm shard
+- Có thể lộ topology
+- Global ordering không hoàn hảo
+</div></code></pre>
+<hr>
+<h1 id="75-range-allocation">75. Range Allocation</h1>
+<p>Central service cấp block:</p>
+<pre class="hljs"><code><div>Node A:
+1–1000
+
+Node B:
+1001–2000
+</div></code></pre>
+<p>Mỗi node tạo local ID trong range.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm call tới central service
+- Throughput cao
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Có gap nếu node chết
+- ID không phản ánh thứ tự toàn cục chính xác
+- Range service vẫn cần HA
+</div></code></pre>
+<p>Gap thường không phải vấn đề nếu chỉ cần uniqueness.</p>
+<hr>
+<h1 id="76-uuid-ngẫu-nhiên">76. UUID ngẫu nhiên</h1>
+<p>UUID random cung cấp không gian ID rất lớn.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Tạo độc lập
+- Gần như không collision
+- Không cần coordination
+- Không lộ sequence
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Kích thước lớn hơn integer
+- Index locality kém nếu hoàn toàn random
+- B-tree page split
+- Không sort theo creation time
+</div></code></pre>
+<hr>
+<h1 id="77-random-uuid-và-database-index">77. Random UUID và Database Index</h1>
+<p>ID random được insert vào vị trí ngẫu nhiên của B-tree.</p>
+<p>Hậu quả có thể:</p>
+<pre class="hljs"><code><div>- Fragmentation
+- Page split
+- Cache locality thấp
+</div></code></pre>
+<p>Time-ordered IDs thường thân thiện với index hơn, nhưng có thể tạo write hotspot ở page cuối nếu workload rất lớn.</p>
+<hr>
+<h1 id="78-time-ordered-ids">78. Time-Ordered IDs</h1>
+<p>Một ID có thể bắt đầu bằng timestamp.</p>
+<p>Ví dụ cấu trúc:</p>
+<pre class="hljs"><code><div>timestamp
++
+node ID
++
+sequence
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Sort gần theo thời gian
+- Index locality tốt hơn random UUID
+- Tạo phân tán
+</div></code></pre>
+<p>Ví dụ nổi tiếng là Snowflake-like IDs.</p>
+<hr>
+<h1 id="79-snowflake-like-id">79. Snowflake-Like ID</h1>
+<p>Một cấu trúc 64-bit khái niệm:</p>
+<pre class="hljs"><code><div>| timestamp | worker ID | sequence |
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>41 bits timestamp
+10 bits worker ID
+12 bits sequence
+</div></code></pre>
+<p>Các con số chỉ là ví dụ; implementation có thể khác.</p>
+<hr>
+<h1 id="80-thành-phần-timestamp">80. Thành phần Timestamp</h1>
+<p>Timestamp thường là:</p>
+<pre class="hljs"><code><div>milliseconds since custom epoch
+</div></code></pre>
+<p>Custom epoch giúp tiết kiệm bit so với Unix epoch.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>currentTimeMillis - customEpoch
+</div></code></pre>
+<p>Timestamp làm ID tăng gần theo thời gian.</p>
+<hr>
+<h1 id="81-worker-id">81. Worker ID</h1>
+<p>Worker ID phân biệt node:</p>
+<pre class="hljs"><code><div>Worker 1
+Worker 2
+Worker 3
+</div></code></pre>
+<p>Hai node không được cùng worker ID trong cùng khoảng thời gian.</p>
+<p>Worker ID có thể được cấp bằng:</p>
+<pre class="hljs"><code><div>- Configuration
+- Coordination service
+- Lease
+- Instance metadata
+</div></code></pre>
+<p>Nếu trùng worker ID, collision có thể xảy ra.</p>
+<hr>
+<h1 id="82-sequence-trong-cùng-millisecond">82. Sequence trong cùng Millisecond</h1>
+<p>Nếu một worker tạo nhiều ID trong cùng millisecond:</p>
+<pre class="hljs"><code><div>sequence = 0,1,2,3...
+</div></code></pre>
+<p>Khi sang millisecond mới:</p>
+<pre class="hljs"><code><div>sequence reset
+</div></code></pre>
+<p>Nếu sequence hết trong một millisecond:</p>
+<pre class="hljs"><code><div>- Chờ tick tiếp theo
+- Hoặc dùng nhiều bit sequence
+</div></code></pre>
+<hr>
+<h1 id="83-ví-dụ-snowflake-id">83. Ví dụ Snowflake ID</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>timestamp = 500000
+workerId = 17
+sequence = 42
+</div></code></pre>
+<p>ID được tạo bằng bit shifting:</p>
+<pre class="hljs"><code><div>(timestamp &lt;&lt; timestampShift)
+|
+(workerId &lt;&lt; workerShift)
+|
+sequence
+</div></code></pre>
+<p>Kết quả là integer 64-bit.</p>
+<hr>
+<h1 id="84-ưu-điểm-snowflake-like-id">84. Ưu điểm Snowflake-Like ID</h1>
+<pre class="hljs"><code><div>- Tạo phân tán
+- Không cần DB round trip mỗi ID
+- Throughput cao
+- Kích thước 64-bit
+- Gần sort theo thời gian
+- Có thể suy ra approximate creation time
+</div></code></pre>
+<hr>
+<h1 id="85-nhược-điểm-snowflake-like-id">85. Nhược điểm Snowflake-Like ID</h1>
+<pre class="hljs"><code><div>- Phụ thuộc clock
+- Worker ID management
+- Clock rollback nguy hiểm
+- ID không hoàn toàn liên tục
+- Có thể lộ creation time hoặc topology
+</div></code></pre>
+<hr>
+<h1 id="86-clock-rollback-trong-snowflake">86. Clock Rollback trong Snowflake</h1>
+<p>Node tạo ID tại timestamp 1000.</p>
+<p>Sau đó wall clock lùi về 999.</p>
+<p>Nếu sequence reset theo timestamp, node có thể tạo lại ID đã tồn tại.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Dừng phát ID cho tới clock catch up
+- Dùng logical offset
+- Persist last timestamp
+- Chuyển worker ID
+- Dùng monotonic-adjusted clock
+- HLC-like approach
+</div></code></pre>
+<p>Không nên bỏ qua rollback.</p>
+<hr>
+<h1 id="87-snowflake-id-không-bảo-đảm-global-real-time-order-hoàn-hảo">87. Snowflake ID không bảo đảm Global Real-Time Order hoàn hảo</h1>
+<p>Hai workers:</p>
+<pre class="hljs"><code><div>Worker A clock nhanh 5 ms
+Worker B clock chậm 5 ms
+</div></code></pre>
+<p>Event B thật xảy ra sau A nhưng ID có thể nhỏ hơn.</p>
+<p>Snowflake thường chỉ bảo đảm:</p>
+<pre class="hljs"><code><div>- Unique
+- Increasing trên cùng worker
+- Gần time-sortable
+</div></code></pre>
+<p>Không nhất thiết linearizable global ordering.</p>
+<hr>
+<h1 id="88-id-order-không-phải-commit-order">88. ID Order không phải Commit Order</h1>
+<p>Order ID có timestamp 10:00:01.</p>
+<p>Payment ID có timestamp 10:00:00.999.</p>
+<p>Không thể kết luận payment commit trước order nếu IDs được tạo ở hai worker khác nhau.</p>
+<p>ID generation và transaction commit order là hai vấn đề khác nhau.</p>
+<hr>
+<h1 id="89-ulid-và-time-sortable-identifier">89. ULID và Time-Sortable Identifier</h1>
+<p>Một số ID format kết hợp:</p>
+<pre class="hljs"><code><div>Timestamp prefix
++
+Randomness
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Có thể tạo không coordination
+- Sort gần theo time
+- Dễ biểu diễn text
+</div></code></pre>
+<p>Nhưng cần xem:</p>
+<pre class="hljs"><code><div>- Collision probability
+- Monotonic behavior trong cùng millisecond
+- Clock rollback
+- Case sensitivity
+- Database support
+</div></code></pre>
+<p>Không nên chọn chỉ vì ID nhìn đẹp.</p>
+<hr>
+<h1 id="90-central-sequencer">90. Central Sequencer</h1>
+<p>Một service duy nhất cấp sequence:</p>
+<pre class="hljs"><code><div>1,2,3,4...
+</div></code></pre>
+<p>Có thể cung cấp global ordering mạnh hơn Snowflake.</p>
+<p>Nhưng cần:</p>
+<pre class="hljs"><code><div>- High availability
+- Consensus hoặc replication
+- Throughput
+- Batching/range allocation
+</div></code></pre>
+<p>Global sequencer có thể trở thành bottleneck.</p>
+<hr>
+<h1 id="91-sharded-sequencer">91. Sharded Sequencer</h1>
+<p>Có thể có sequence theo partition:</p>
+<pre class="hljs"><code><div>Partition A:
+1,2,3
+
+Partition B:
+1,2,3
+</div></code></pre>
+<p>Scale tốt hơn nhưng không có global order.</p>
+<p>Đây thường là trade-off hợp lý.</p>
+<hr>
+<h1 id="92-gapless-sequence">92. Gapless Sequence</h1>
+<p>Một số business yêu cầu số hóa đơn:</p>
+<pre class="hljs"><code><div>1,2,3,4
+</div></code></pre>
+<p>không có gap.</p>
+<p>Gapless sequence khó hơn unique sequence vì transaction rollback có thể tạo gap.</p>
+<p>Nếu ID đã cấp rồi transaction fail:</p>
+<pre class="hljs"><code><div>ID 100 không được dùng
+</div></code></pre>
+<p>Muốn gapless có thể cần:</p>
+<pre class="hljs"><code><div>- Serialize issuance
+- Cấp số lúc commit
+- Business-specific ledger
+</div></code></pre>
+<p>Không nên yêu cầu gapless nếu chỉ vì thẩm mỹ.</p>
+<hr>
+<h1 id="93-unique-khác-với-ordered-khác-với-gapless">93. Unique khác với Ordered khác với Gapless</h1>
+<p>Ba yêu cầu khác nhau:</p>
+<pre class="hljs"><code><div>Unique:
+Không trùng.
+
+Ordered:
+Có thể sort.
+
+Gapless:
+Không thiếu số.
+
+Monotonic:
+Số mới không nhỏ hơn số cũ trong một scope.
+</div></code></pre>
+<p>Một UUID:</p>
+<pre class="hljs"><code><div>Unique nhưng không ordered.
+</div></code></pre>
+<p>Snowflake:</p>
+<pre class="hljs"><code><div>Unique và gần ordered, nhưng có gap.
+</div></code></pre>
+<p>Auto-increment transactional:</p>
+<pre class="hljs"><code><div>Ordered nhưng vẫn có thể gap.
+</div></code></pre>
+<hr>
+<h1 id="94-id-không-nên-làm-shard-key-một-cách-mù-quáng">94. ID không nên làm Shard Key một cách mù quáng</h1>
+<p>Snowflake ID tăng theo thời gian.</p>
+<p>Nếu range-shard theo ID:</p>
+<pre class="hljs"><code><div>Mọi write mới đi shard cuối
+</div></code></pre>
+<p>tạo hotspot.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Hash ID để shard
+- Dùng userId/tenantId làm shard key
+- Tách routing key khỏi object ID
+</div></code></pre>
+<p>ID và shard key không nhất thiết là một.</p>
+<hr>
+<h1 id="95-id-chứa-worker-id-và-privacy">95. ID chứa Worker ID và Privacy</h1>
+<p>Nếu ID encode:</p>
+<pre class="hljs"><code><div>- Timestamp
+- Data-center ID
+- Worker ID
+</div></code></pre>
+<p>người ngoài có thể suy ra:</p>
+<pre class="hljs"><code><div>- Thời điểm tạo
+- Số lượng object
+- Topology một phần
+</div></code></pre>
+<p>Nếu thông tin đó nhạy cảm, có thể:</p>
+<pre class="hljs"><code><div>- Dùng opaque public ID
+- Map internal ID sang public token
+- Encrypt/obfuscate cẩn thận
+</div></code></pre>
+<hr>
+<h1 id="96-ordering-token-và-public-id-nên-tách-biệt">96. Ordering Token và Public ID nên tách biệt</h1>
+<p>Internal:</p>
+<pre class="hljs"><code><div>order sequence = 10542
+</div></code></pre>
+<p>Public:</p>
+<pre class="hljs"><code><div>ord_k8F2mQ
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Không lộ volume
+- Không ràng buộc API với topology
+- Có thể migration nội bộ
+</div></code></pre>
+<p>Nhưng thêm mapping và storage cost.</p>
+<hr>
+<h1 id="97-case-study--chat-system">97. Case Study — Chat System</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Message trong cùng conversation có thứ tự
+- Nhiều conversation xử lý song song
+- Client có thể offline
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>Partition key:
+conversationId
+
+Server sequence:
+Tăng theo conversation hoặc partition
+
+Client ID:
+Dùng để deduplicate retry
+
+Client timestamp:
+Dùng tham khảo/UI
+
+Server timestamp:
+Dùng audit
+
+Sequence:
+Dùng authoritative ordering
+</div></code></pre>
+<hr>
+<h1 id="98-chat-message-schema">98. Chat Message Schema</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;messageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;msg_01...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;clientMessageId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;client_abc_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;conversationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;conv_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;senderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sequence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10542</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;clientCreatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-12T08:00:01Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;serverAcceptedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-12T08:00:03Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Xin chào&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Vai trò:</p>
+<pre class="hljs"><code><div>messageId:
+Unique global ID
+
+clientMessageId:
+Idempotency
+
+sequence:
+Conversation ordering
+
+clientCreatedAt:
+UX
+
+serverAcceptedAt:
+Audit/ingestion time
+</div></code></pre>
+<hr>
+<h1 id="99-case-study--order-events">99. Case Study — Order Events</h1>
+<p>Mỗi order có version:</p>
+<pre class="hljs"><code><div>OrderCreated       version 1
+InventoryReserved  version 2
+PaymentSucceeded   version 3
+OrderConfirmed     version 4
+</div></code></pre>
+<p>Consumer đang ở version 2 nhưng nhận version 4:</p>
+<pre class="hljs"><code><div>Thiếu version 3
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Buffer
+- Reload order snapshot
+- Retry
+- Alert
+</div></code></pre>
+<p>Không nên chỉ sort theo <code>occurredAt</code>.</p>
+<hr>
+<h1 id="100-case-study--collaborative-document">100. Case Study — Collaborative Document</h1>
+<p>Hai user cùng edit offline.</p>
+<p>Vector clock có thể phát hiện:</p>
+<pre class="hljs"><code><div>Version A || Version B
+</div></code></pre>
+<p>Hai versions concurrent.</p>
+<p>Application có thể:</p>
+<pre class="hljs"><code><div>- Merge field-level changes
+- Dùng CRDT/OT
+- Hiển thị conflict
+</div></code></pre>
+<p>Last-write-wins có thể mất một edit hợp lệ.</p>
+<hr>
+<h1 id="101-case-study--distributed-lock">101. Case Study — Distributed Lock</h1>
+<p>Lock service cấp:</p>
+<pre class="hljs"><code><div>fencing token 100
+</div></code></pre>
+<p>Lock holder mới nhận:</p>
+<pre class="hljs"><code><div>token 101
+</div></code></pre>
+<p>Token là logical sequence, không phải wall-clock expiry timestamp.</p>
+<p>Resource chỉ chấp nhận token lớn hơn token đã thấy.</p>
+<p>Điều này an toàn hơn chỉ so sánh:</p>
+<pre class="hljs"><code><div>lock acquiredAt
+</div></code></pre>
+<p>vì clock có thể lệch.</p>
+<hr>
+<h1 id="102-case-study--payment">102. Case Study — Payment</h1>
+<p>Payment attempt có:</p>
+<pre class="hljs"><code><div>paymentAttemptId
+providerTransactionId
+stateVersion
+occurredAt
+</div></code></pre>
+<p>State transition:</p>
+<pre class="hljs"><code><div>PENDING version 1
+AUTHORIZED version 2
+CAPTURED version 3
+</div></code></pre>
+<p>Webhook cũ version 2 đến sau version 3:</p>
+<pre class="hljs"><code><div>Không được ghi đè CAPTURED thành AUTHORIZED.
+</div></code></pre>
+<p>Dùng state machine và version, không chỉ provider timestamp.</p>
+<hr>
+<h1 id="103-case-study--multi-region-feed">103. Case Study — Multi-Region Feed</h1>
+<p>Region A và B nhận posts concurrent.</p>
+<p>Nếu posts độc lập:</p>
+<pre class="hljs"><code><div>Không cần consensus global order.
+</div></code></pre>
+<p>Có thể sort feed bằng:</p>
+<pre class="hljs"><code><div>- Approximate physical timestamp
+- Ranking score
+- Stable ID tie-breaker
+</div></code></pre>
+<p>Nhưng reply/comment cần causal dependency để không xuất hiện trước parent.</p>
+<hr>
+<h1 id="104-case-study--audit-log">104. Case Study — Audit Log</h1>
+<p>Audit log cần:</p>
+<pre class="hljs"><code><div>- Physical timestamp
+- Actor
+- Operation
+- Request ID
+- Logical sequence hoặc commit position
+</div></code></pre>
+<p>Physical timestamp giúp con người đọc timeline.</p>
+<p>Logical sequence giúp xác định authoritative order trong system boundary.</p>
+<p>Một audit record tốt có thể chứa cả hai.</p>
+<hr>
+<h1 id="105-cách-chọn-clock-hoặc-ordering-mechanism">105. Cách chọn Clock hoặc Ordering Mechanism</h1>
+<h2 id="cần-đo-duration-trong-một-process">Cần đo duration trong một process</h2>
+<pre class="hljs"><code><div>Monotonic clock
+</div></code></pre>
+<h2 id="cần-hiển-thị-ngày-giờ">Cần hiển thị ngày giờ</h2>
+<pre class="hljs"><code><div>Wall clock UTC + timezone
+</div></code></pre>
+<h2 id="cần-causal-compatible-ordering-nhẹ">Cần causal-compatible ordering nhẹ</h2>
+<pre class="hljs"><code><div>Lamport clock hoặc HLC
+</div></code></pre>
+<h2 id="cần-phát-hiện-concurrent-versions">Cần phát hiện concurrent versions</h2>
+<pre class="hljs"><code><div>Vector clock/version vector
+</div></code></pre>
+<h2 id="cần-ordering-trong-một-entity">Cần ordering trong một entity</h2>
+<pre class="hljs"><code><div>Per-entity sequence/version
+</div></code></pre>
+<h2 id="cần-total-order-mạnh">Cần total order mạnh</h2>
+<pre class="hljs"><code><div>Leader/sequencer/consensus log
+</div></code></pre>
+<h2 id="cần-unique-time-sortable-id">Cần unique time-sortable ID</h2>
+<pre class="hljs"><code><div>Snowflake-like hoặc time-ordered random ID
+</div></code></pre>
+<hr>
+<h1 id="106-ordering-scope-decision">106. Ordering Scope Decision</h1>
+<p>Hãy hỏi:</p>
+<pre class="hljs"><code><div>1. Cần order toàn hệ thống hay chỉ theo entity?
+2. Event nào có causal dependency?
+3. Concurrent events có được phép không?
+4. Có cần phát hiện conflict không?
+5. Timestamp có dùng cho correctness hay chỉ hiển thị?
+6. Clock uncertainty chấp nhận được bao nhiêu?
+7. Có cần sequence gapless không?
+8. Khi node clock rollback thì làm gì?
+</div></code></pre>
+<hr>
+<h1 id="107-các-sai-lầm-phổ-biến">107. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-dùng-created_at-để-quyết-định-business-order-tuyệt-đối">Lỗi 1: Dùng <code>created_at</code> để quyết định business order tuyệt đối</h2>
+<p>Clock skew có thể đảo thứ tự.</p>
+<hr>
+<h2 id="lỗi-2-dùng-wall-clock-để-đo-timeout">Lỗi 2: Dùng wall clock để đo timeout</h2>
+<p>Clock correction có thể làm duration sai hoặc âm.</p>
+<hr>
+<h2 id="lỗi-3-nghĩ-utc-giải-quyết-distributed-ordering">Lỗi 3: Nghĩ UTC giải quyết distributed ordering</h2>
+<p>UTC chỉ chuẩn hóa timezone.</p>
+<hr>
+<h2 id="lỗi-4-sort-event-theo-broker-arrival-time">Lỗi 4: Sort event theo broker arrival time</h2>
+<p>Arrival order không nhất thiết là event order.</p>
+<hr>
+<h2 id="lỗi-5-dùng-lamport-timestamp-để-suy-ra-concurrency">Lỗi 5: Dùng Lamport timestamp để suy ra concurrency</h2>
+<p>Lamport clock không phát hiện concurrency.</p>
+<hr>
+<h2 id="lỗi-6-dùng-vector-clock-ở-quy-mô-hàng-triệu-client-mà-không-tính-metadata">Lỗi 6: Dùng vector clock ở quy mô hàng triệu client mà không tính metadata</h2>
+<p>Vector có thể phình lớn.</p>
+<hr>
+<h2 id="lỗi-7-yêu-cầu-global-ordering-dù-chỉ-cần-per-user-order">Lỗi 7: Yêu cầu global ordering dù chỉ cần per-user order</h2>
+<p>Tạo bottleneck không cần thiết.</p>
+<hr>
+<h2 id="lỗi-8-partition-cùng-key-nhưng-có-nhiều-producer-không-phối-hợp">Lỗi 8: Partition cùng key nhưng có nhiều producer không phối hợp</h2>
+<p>Event vẫn có thể đến broker sai causal order.</p>
+<hr>
+<h2 id="lỗi-9-consumer-xử-lý-song-song-rồi-giả-định-completion-order-giống-delivery-order">Lỗi 9: Consumer xử lý song song rồi giả định completion order giống delivery order</h2>
+<p>Không đúng.</p>
+<hr>
+<h2 id="lỗi-10-snowflake-id-được-coi-là-global-real-time-order">Lỗi 10: Snowflake ID được coi là global real-time order</h2>
+<p>Clock skew giữa worker vẫn tồn tại.</p>
+<hr>
+<h2 id="lỗi-11-không-xử-lý-clock-rollback-trong-id-generator">Lỗi 11: Không xử lý clock rollback trong ID generator</h2>
+<p>Có thể tạo duplicate.</p>
+<hr>
+<h2 id="lỗi-12-worker-id-bị-cấp-trùng">Lỗi 12: Worker ID bị cấp trùng</h2>
+<p>Hai node có thể tạo cùng ID.</p>
+<hr>
+<h2 id="lỗi-13-dùng-id-tăng-dần-làm-range-shard-key">Lỗi 13: Dùng ID tăng dần làm range shard key</h2>
+<p>Tạo hot shard cuối.</p>
+<hr>
+<h2 id="lỗi-14-nhầm-unique-với-gapless">Lỗi 14: Nhầm unique với gapless</h2>
+<p>Phần lớn technical IDs không cần gapless.</p>
+<hr>
+<h2 id="lỗi-15-dùng-timestamp-thay-cho-fencing-token">Lỗi 15: Dùng timestamp thay cho fencing token</h2>
+<p>Stale owner vẫn có thể ghi nếu clock sai hoặc request đến trễ.</p>
+<hr>
+<h1 id="108-framework-thiết-kế-distributed-time-như-senior-engineer">108. Framework thiết kế Distributed Time như Senior Engineer</h1>
+<p>Với mỗi event hoặc object, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Timestamp này phục vụ hiển thị hay correctness?
+2. Clock nào tạo timestamp?
+3. Clock có thể đi lùi không?
+4. Có cần đo duration không?
+5. Causal relation giữa các event là gì?
+6. Ordering scope là global, partition hay entity?
+7. Có một writer duy nhất không?
+8. Sequence được cấp atomically thế nào?
+9. Có thể có duplicate hoặc gap không?
+10. Event out-of-order được xử lý ra sao?
+11. Có cần phát hiện concurrency không?
+12. Lamport, vector hay HLC phù hợp?
+13. Client offline ảnh hưởng event time thế nào?
+14. Late event được chấp nhận trong bao lâu?
+15. ID cần unique, ordered hay gapless?
+16. ID generator xử lý clock rollback thế nào?
+17. Worker identity được cấp và fence thế nào?
+18. Metrics nào phát hiện clock hoặc ordering anomaly?
+</div></code></pre>
+<hr>
+<h1 id="109-decision-tree">109. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần timestamp hoặc ordering] --> B{Mục tiêu là gì?}
+
+    B -->|Hiển thị thời gian| C[Wall clock UTC]
+    B -->|Đo duration/timeout| D[Monotonic clock]
+    B -->|Causal ordering| E{Cần phát hiện concurrency?}
+
+    E -->|Không| F[Lamport Clock / HLC]
+    E -->|Có| G[Vector Clock / Version Vector]
+
+    B -->|Order theo entity| H[Per-Entity Sequence]
+    B -->|Global total order| I[Sequencer / Consensus Log]
+    B -->|Unique sortable ID| J[Snowflake-like / Time-Ordered ID]
+
+    H --> K[Version checks + idempotency]
+    I --> L[Quorum + commit order]
+    J --> M[Clock rollback + worker ID safety]
+</div></code></pre>
+<hr>
+<h1 id="110-cách-trình-bày-trong-system-design-interview">110. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em dùng timestamp để sắp xếp message.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Client timestamp chỉ dùng cho UX vì clock thiết bị có thể lệch hoặc client có thể offline. Authoritative message order được cấp bởi server dưới dạng sequence tăng dần theo <code>conversationId</code>. Mọi message của cùng conversation được route vào cùng partition hoặc sequencer lane, còn các conversation khác xử lý song song. <code>clientMessageId</code> dùng để deduplicate retry và <code>messageId</code> là unique distributed ID.</p>
+</blockquote>
+<p>Với event-driven workflow:</p>
+<blockquote>
+<p>Mỗi aggregate event có <code>aggregateVersion</code>. Consumer chỉ áp dụng version tiếp theo hoặc dùng conditional transition; timestamp vật lý chỉ phục vụ audit. Nếu cần biểu diễn causal order xuyên service mà không cần global total order, tôi dùng Lamport hoặc Hybrid Logical Clock. Nếu cần phát hiện hai version concurrent để merge, vector clock phù hợp hơn nhưng có metadata lớn hơn.</p>
+</blockquote>
+<p>Với ID generation:</p>
+<blockquote>
+<p>Tôi dùng Snowflake-like ID gồm timestamp, worker ID và sequence để tạo ID phân tán có khả năng sort gần theo thời gian. Nó không được dùng làm bằng chứng global commit order vì clock giữa workers có thể lệch. Generator phải persist timestamp cuối, xử lý clock rollback và bảo đảm worker ID không bị cấp trùng.</p>
+</blockquote>
+<hr>
+<h1 id="111-bảng-ghi-nhớ-nhanh">111. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wall clock</td>
+<td>Thời gian lịch để hiển thị</td>
+</tr>
+<tr>
+<td>Monotonic clock</td>
+<td>Clock không giảm để đo duration</td>
+</tr>
+<tr>
+<td>Clock skew</td>
+<td>Chênh lệch giữa các clock</td>
+</tr>
+<tr>
+<td>Clock drift</td>
+<td>Tốc độ clock lệch dần</td>
+</tr>
+<tr>
+<td>Event time</td>
+<td>Thời điểm event xảy ra tại nguồn</td>
+</tr>
+<tr>
+<td>Ingestion time</td>
+<td>Thời điểm event vào hệ thống</td>
+</tr>
+<tr>
+<td>Processing time</td>
+<td>Thời điểm event được xử lý</td>
+</tr>
+<tr>
+<td>Happens-before</td>
+<td>Quan hệ nhân quả</td>
+</tr>
+<tr>
+<td>Concurrent</td>
+<td>Không có causal order</td>
+</tr>
+<tr>
+<td>Lamport clock</td>
+<td>Logical counter giữ causal-compatible order</td>
+</tr>
+<tr>
+<td>Vector clock</td>
+<td>Logical vector phát hiện concurrency</td>
+</tr>
+<tr>
+<td>HLC</td>
+<td>Physical time kết hợp logical counter</td>
+</tr>
+<tr>
+<td>Sequence number</td>
+<td>Thứ tự trong một scope</td>
+</tr>
+<tr>
+<td>Global sequencer</td>
+<td>Cấp total order toàn hệ thống</td>
+</tr>
+<tr>
+<td>Per-entity sequence</td>
+<td>Thứ tự theo aggregate/entity</td>
+</tr>
+<tr>
+<td>Snowflake ID</td>
+<td>Timestamp + worker ID + sequence</td>
+</tr>
+<tr>
+<td>Fencing token</td>
+<td>Sequence tăng dần chặn stale owner</td>
+</tr>
+<tr>
+<td>Watermark</td>
+<td>Ước lượng tiến độ event-time stream</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="112-sơ-đồ-ghi-nhớ-toàn-bài">112. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Distributed Time] --> B[Physical Time]
+    A --> C[Logical Time]
+    A --> D[Event Ordering]
+    A --> E[Distributed IDs]
+
+    B --> B1[Wall Clock]
+    B --> B2[Monotonic Clock]
+    B --> B3[Clock Skew]
+    B --> B4[Clock Drift]
+
+    C --> C1[Happens-Before]
+    C --> C2[Lamport Clock]
+    C --> C3[Vector Clock]
+    C --> C4[Hybrid Logical Clock]
+
+    D --> D1[Per-Entity Sequence]
+    D --> D2[Per-Partition Order]
+    D --> D3[Total Order]
+    D --> D4[Late Events / Watermark]
+
+    E --> E1[UUID]
+    E --> E2[Range Allocation]
+    E --> E3[Snowflake-Like]
+    E --> E4[Clock Rollback Handling]
+</div></code></pre>
+<hr>
+<h1 id="113-những-điều-phải-nhớ-sau-bài-17">113. Những điều phải nhớ sau Bài 17</h1>
+<pre class="hljs"><code><div>1. Distributed systems không có một global physical clock hoàn hảo.
+2. Wall clock dùng cho thời gian lịch và có thể đi lùi.
+3. Monotonic clock dùng để đo duration và timeout.
+4. Monotonic clock giữa hai máy không thể so sánh trực tiếp.
+5. Clock skew là độ lệch; clock drift là tốc độ lệch.
+6. UTC giải quyết timezone, không giải quyết ordering.
+7. Physical timestamp không phải bằng chứng tuyệt đối về causal order.
+8. Event time, ingestion time và processing time là ba khái niệm khác nhau.
+9. Arrival order không nhất thiết là event order.
+10. Happens-before mô tả causal relation.
+11. Events không causally related được xem là concurrent.
+12. Lamport clock dùng counter logic.
+13. Nếu A happens-before B thì Lamport(A) nhỏ hơn Lamport(B).
+14. Chiều ngược lại không đúng.
+15. Lamport clock không phát hiện concurrency.
+16. Vector clock có thể phân biệt causal order và concurrency.
+17. Vector clock có metadata lớn hơn.
+18. HLC kết hợp physical time và logical counter.
+19. HLC gần thời gian thật nhưng không đầy đủ như vector clock về concurrency.
+20. Phần lớn hệ thống chỉ cần ordering theo entity hoặc partition.
+21. Global ordering tạo coordination và bottleneck.
+22. Sequence number giúp phát hiện duplicate, gap và out-of-order.
+23. Sequence phải được cấp atomically.
+24. Partition cùng key không đủ nếu có nhiều producer không phối hợp.
+25. Retry queue và parallel consumer có thể phá ordering.
+26. State version quan trọng hơn timestamp cho business transition.
+27. Snowflake-like ID thường gồm timestamp, worker ID và sequence.
+28. Snowflake ID không bảo đảm global real-time ordering.
+29. Clock rollback và worker-ID collision có thể tạo duplicate.
+30. Unique, ordered, monotonic và gapless là các yêu cầu khác nhau.
+31. Technical ID hiếm khi cần gapless.
+32. ID tăng theo thời gian có thể tạo hotspot nếu dùng range sharding.
+33. Fencing token là logical sequence, an toàn hơn timestamp cho ownership.
+34. Audit log thường nên có cả physical timestamp và logical order.
+35. Hãy chọn ordering scope nhỏ nhất đủ bảo vệ invariant.
+</div></code></pre>
+<hr>
+<h1 id="114-bài-tập-thực-hành">114. Bài tập thực hành</h1>
+<p>Thiết kế time và ordering cho hệ thống chat đa region.</p>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- 100 triệu DAU
+- User có thể chat từ nhiều thiết bị
+- Có chat 1-1 và group chat
+- Client có thể offline
+- Một conversation phải hiển thị message theo thứ tự ổn định
+- Retry không được tạo message trùng
+- Nhiều region cùng nhận traffic
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Client timestamp dùng cho mục đích gì?
+2. Server timestamp dùng cho mục đích gì?
+3. Có nên sort authoritative message bằng client timestamp không?
+4. Ordering scope là global hay conversation?
+5. Sequence number được cấp ở đâu?
+6. Nếu conversation được shard, làm sao cấp sequence?
+7. Nhiều producer cùng gửi vào conversation xử lý ra sao?
+8. Client retry dùng idempotency key nào?
+9. Message ID dùng UUID hay Snowflake?
+10. Snowflake clock rollback được xử lý thế nào?
+11. Message offline đến muộn xuất hiện ở vị trí nào?
+12. Có cần vector clock cho chat thông thường không?
+13. Reply-to-message tạo causal relation thế nào?
+14. Consumer phát hiện missing sequence ra sao?
+15. Nếu Event 102 đến trước 101 thì buffer bao lâu?
+16. Khi reshard conversation, sequence continuity được giữ thế nào?
+17. Metrics nào phát hiện out-of-order và clock skew?
+18. Global search index xử lý message order thế nào?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Clients --> RegionalGateway
+
+    RegionalGateway --> ChatAPI
+    ChatAPI --> Router[Conversation Router]
+
+    Router --> Sequencer1[Conversation Sequencer Lane 1]
+    Router --> Sequencer2[Conversation Sequencer Lane 2]
+
+    Sequencer1 --> MessageShard1[(Message Shard 1)]
+    Sequencer2 --> MessageShard2[(Message Shard 2)]
+
+    MessageShard1 --> EventStream
+    MessageShard2 --> EventStream
+
+    EventStream --> DeliveryWorkers
+    EventStream --> SearchIndexer
+    EventStream --> NotificationWorkers
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Trong distributed systems, timestamp cho biết thời gian xấp xỉ, còn correctness thường cần logical order, sequence hoặc consensus. Đừng dùng đồng hồ vật lý để trả lời một câu hỏi nhân quả mà nó không được thiết kế để trả lời.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 18 — Search và Indexing: inverted index, tokenization, full-text search, indexing pipeline, ranking, sharding, replication và eventual consistency của search.</strong></p>
+
+</body>
+</html>

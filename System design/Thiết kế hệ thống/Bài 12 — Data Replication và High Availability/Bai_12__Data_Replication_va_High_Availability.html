@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 12 — Data Replication và High Availability.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-12--data-replication-và-high-availability">Bài 12 — Data Replication và High Availability</h1>
+<p>Replication là kỹ thuật giữ nhiều bản sao của cùng một dữ liệu trên nhiều server, node, availability zone hoặc region.</p>
+<p>Mục tiêu không chỉ là “có thêm một bản copy”. Replication thường được dùng để:</p>
+<pre class="hljs"><code><div>- Tăng availability
+- Chịu được server hoặc disk bị lỗi
+- Tăng khả năng đọc
+- Giảm latency địa lý
+- Hỗ trợ disaster recovery
+- Cho phép maintenance và nâng cấp ít downtime hơn
+</div></code></pre>
+<p>Nhưng replication cũng tạo ra những câu hỏi khó:</p>
+<pre class="hljs"><code><div>- Write được xem là thành công khi nào?
+- Replica chậm hơn leader bao lâu?
+- User có thể đọc dữ liệu cũ không?
+- Ai được quyền nhận write?
+- Nếu leader chết, replica nào được promote?
+- Nếu hai node đều nghĩ mình là leader thì sao?
+- Bao nhiêu replica phải đồng ý trước khi commit?
+</div></code></pre>
+<p>Các tài liệu System Design của bạn đặt replication, failover và redundancy vào nhóm nền tảng để loại bỏ single point of failure và tăng khả năng chịu lỗi của hệ thống.</p>
+<hr>
+<h1 id="1-một-database-duy-nhất-có-vấn-đề-gì">1. Một database duy nhất có vấn đề gì?</h1>
+<p>Kiến trúc đơn giản:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> API[Application]
+    API --> DB[(Single Database)]
+</div></code></pre>
+<p>Nếu database gặp lỗi:</p>
+<pre class="hljs"><code><div>- Application không đọc được dữ liệu
+- Không ghi được dữ liệu
+- Toàn bộ hệ thống có thể ngừng hoạt động
+</div></code></pre>
+<p>Database này là <strong>single point of failure</strong>.</p>
+<p>Các nguyên nhân có thể gồm:</p>
+<pre class="hljs"><code><div>- Disk failure
+- Hardware failure
+- Process crash
+- Network failure
+- Operating system failure
+- Human error
+- Deployment lỗi
+- Availability zone outage
+</div></code></pre>
+<p>Replication thêm các bản sao:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    API --> L[(Leader)]
+    L --> R1[(Replica 1)]
+    L --> R2[(Replica 2)]
+</div></code></pre>
+<p>Nếu Leader lỗi, một replica có thể được promote.</p>
+<p>Nhưng việc này chỉ an toàn nếu các replica chứa dữ liệu đủ mới và hệ thống chọn đúng một leader mới.</p>
+<hr>
+<h1 id="2-replication-không-giống-backup">2. Replication không giống Backup</h1>
+<p>Hai khái niệm này thường bị nhầm.</p>
+<h2 id="replication">Replication</h2>
+<p>Giữ các bản sao gần thời gian thực.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- High availability
+- Failover nhanh
+- Scale read
+</div></code></pre>
+<h2 id="backup">Backup</h2>
+<p>Giữ snapshot hoặc lịch sử để phục hồi dữ liệu tại một thời điểm trước đó.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Khôi phục khi xóa nhầm
+- Khôi phục sau corruption
+- Ransomware recovery
+- Point-in-time recovery
+</div></code></pre>
+<p>Ví dụ DBA chạy nhầm:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">DELETE</span> <span class="hljs-keyword">FROM</span> users;
+</div></code></pre>
+<p>Lệnh này có thể được replicate ngay sang mọi replica.</p>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Leader: mất dữ liệu
+Replica 1: mất dữ liệu
+Replica 2: mất dữ liệu
+</div></code></pre>
+<p>Replication không cứu được tình huống đó.</p>
+<p>Backup hoặc point-in-time recovery mới có thể giúp.</p>
+<blockquote>
+<p><strong>Replication bảo vệ khỏi mất node; backup bảo vệ khỏi mất dữ liệu logic.</strong></p>
+</blockquote>
+<hr>
+<h1 id="3-các-mô-hình-replication">3. Các mô hình Replication</h1>
+<p>Các mô hình chính:</p>
+<pre class="hljs"><code><div>1. Leader–Follower
+2. Multi-Leader
+3. Leaderless
+</div></code></pre>
+<p>Bài này tập trung sâu vào leader–follower và quorum, nhưng ta cần hiểu tổng quan.</p>
+<hr>
+<h1 id="4-leaderfollower-replication">4. Leader–Follower Replication</h1>
+<p>Trong leader–follower:</p>
+<pre class="hljs"><code><div>Leader:
+Nhận write.
+
+Followers:
+Sao chép dữ liệu từ leader.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ClientWrite[Write Requests] --> Leader[(Leader)]
+
+    Leader --> F1[(Follower 1)]
+    Leader --> F2[(Follower 2)]
+
+    ClientRead1[Read Requests] --> Leader
+    ClientRead2[Read Requests] --> F1
+    ClientRead3[Read Requests] --> F2
+</div></code></pre>
+<p>Tên gọi khác:</p>
+<pre class="hljs"><code><div>Leader = Primary / Master
+Follower = Replica / Secondary / Slave
+</div></code></pre>
+<p>Thuật ngữ hiện đại thường ưu tiên:</p>
+<pre class="hljs"><code><div>Leader–Follower
+Primary–Replica
+</div></code></pre>
+<hr>
+<h1 id="5-luồng-ghi-trong-leaderfollower">5. Luồng ghi trong Leader–Follower</h1>
+<p>Một write cơ bản:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant Replica1
+    participant Replica2
+
+    Client->>Leader: UPDATE order
+    Leader->>Leader: Write transaction log
+    Leader->>Replica1: Replicate log
+    Leader->>Replica2: Replicate log
+    Leader-->>Client: Success
+</div></code></pre>
+<p>Điểm quan trọng:</p>
+<blockquote>
+<p>Leader trả success trước hay sau khi các replica xác nhận?</p>
+</blockquote>
+<p>Câu trả lời tạo ra synchronous hoặc asynchronous replication.</p>
+<hr>
+<h1 id="6-replication-log">6. Replication Log</h1>
+<p>Leader thường không gửi nguyên bảng cho replica sau mỗi write.</p>
+<p>Nó gửi một chuỗi thay đổi:</p>
+<pre class="hljs"><code><div>- Transaction log
+- Write-ahead log
+- Binary log
+- Operation log
+- Change stream
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Log position 100:
+INSERT order ord_123
+
+Log position 101:
+UPDATE inventory product_456 -1
+
+Log position 102:
+UPDATE order ord_123 status=paid
+</div></code></pre>
+<p>Follower đọc log và áp dụng theo thứ tự.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Leader[(Leader DB)] --> Log[Replication Log]
+    Log --> F1[(Follower 1)]
+    Log --> F2[(Follower 2)]
+</div></code></pre>
+<hr>
+<h1 id="7-statement-based-replication">7. Statement-based Replication</h1>
+<p>Leader gửi câu SQL:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> inventory
+<span class="hljs-keyword">SET</span> quantity <span class="hljs-operator">=</span> quantity <span class="hljs-operator">-</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> product_id <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;p_123&#x27;</span>;
+</div></code></pre>
+<p>Follower chạy lại câu SQL.</p>
+<p>Vấn đề nếu câu lệnh không deterministic:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> sessions
+<span class="hljs-keyword">SET</span> expires_at <span class="hljs-operator">=</span> NOW() <span class="hljs-operator">+</span> <span class="hljs-type">INTERVAL</span> <span class="hljs-string">&#x27;1 hour&#x27;</span>;
+</div></code></pre>
+<p>Leader và follower có thể chạy tại thời điểm khác nhau.</p>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">INSERT INTO</span> values_table(<span class="hljs-keyword">value</span>)
+<span class="hljs-keyword">VALUES</span> (RANDOM());
+</div></code></pre>
+<p>Kết quả có thể khác.</p>
+<p>Do đó statement-based replication cần hạn chế các hàm không deterministic.</p>
+<hr>
+<h1 id="8-row-based-replication">8. Row-based Replication</h1>
+<p>Leader gửi thay đổi cụ thể trên row:</p>
+<pre class="hljs"><code><div>Table: inventory
+Primary key: p_123
+Old quantity: 10
+New quantity: 9
+</div></code></pre>
+<p>Follower áp dụng đúng giá trị.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Ít phụ thuộc câu SQL
+- Tránh nhiều vấn đề nondeterministic
+- Phản ánh thay đổi thực tế
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Log có thể lớn
+- Một update hàng triệu row tạo rất nhiều event
+</div></code></pre>
+<hr>
+<h1 id="9-logical-replication">9. Logical Replication</h1>
+<p>Logical replication phát các thay đổi ở mức dữ liệu nghiệp vụ:</p>
+<pre class="hljs"><code><div>INSERT
+UPDATE
+DELETE
+</div></code></pre>
+<p>Có thể chỉ replicate:</p>
+<pre class="hljs"><code><div>- Một số table
+- Một số database
+- Một subset dữ liệu
+</div></code></pre>
+<p>Phù hợp:</p>
+<pre class="hljs"><code><div>- Migration
+- CDC
+- Đồng bộ search index
+- Analytics pipeline
+- Cross-version replication
+</div></code></pre>
+<hr>
+<h1 id="10-physical-replication">10. Physical Replication</h1>
+<p>Physical replication sao chép thay đổi ở mức storage/block hoặc database log vật lý.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Sao chép đầy đủ
+- Phù hợp tạo bản replica giống hệt
+- Thường hiệu quả cho HA
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Gắn chặt với database engine/version
+- Khó lọc một phần dữ liệu
+</div></code></pre>
+<hr>
+<h1 id="11-synchronous-replication">11. Synchronous Replication</h1>
+<p>Trong synchronous replication, leader chỉ xác nhận write sau khi một hoặc nhiều replica xác nhận đã lưu write.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant Replica
+
+    Client->>Leader: Write
+    Leader->>Leader: Persist locally
+    Leader->>Replica: Replicate
+    Replica->>Replica: Persist
+    Replica-->>Leader: ACK
+    Leader-->>Client: Success
+</div></code></pre>
+<h2 id="ưu-điểm">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Giảm nguy cơ mất write đã xác nhận
+- Replica được xác nhận gần như cập nhật
+- Failover có thể an toàn hơn
+</div></code></pre>
+<h2 id="nhược-điểm">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Write latency cao hơn
+- Replica hoặc network chậm làm leader chậm
+- Replica lỗi có thể ảnh hưởng availability của write
+</div></code></pre>
+<hr>
+<h1 id="12-asynchronous-replication">12. Asynchronous Replication</h1>
+<p>Leader xác nhận client ngay sau khi ghi local, rồi replicate sau.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant Replica
+
+    Client->>Leader: Write
+    Leader->>Leader: Persist locally
+    Leader-->>Client: Success
+
+    Note over Leader,Replica: Replication happens later
+    Leader->>Replica: Replicate
+</div></code></pre>
+<h2 id="ưu-điểm-1">Ưu điểm</h2>
+<pre class="hljs"><code><div>- Write latency thấp hơn
+- Leader không phải chờ replica
+- Replica chậm ít ảnh hưởng write path
+</div></code></pre>
+<h2 id="nhược-điểm-1">Nhược điểm</h2>
+<pre class="hljs"><code><div>- Có replication lag
+- Failover có thể mất write mới nhất
+- Read từ replica có thể trả dữ liệu cũ
+</div></code></pre>
+<hr>
+<h1 id="13-ví-dụ-mất-dữ-liệu-với-async-replication">13. Ví dụ mất dữ liệu với Async Replication</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant Replica
+
+    Client->>Leader: Create order ord_123
+    Leader-->>Client: 201 Created
+
+    Note over Leader: Leader crashes before replication
+    Leader-xReplica: ord_123 chưa được replicate
+
+    Note over Replica: Replica promoted
+</div></code></pre>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>Client đã nhận thành công.
+Nhưng leader mới không có ord_123.
+</div></code></pre>
+<p>Đây là vi phạm durability từ góc nhìn client.</p>
+<p>Mức mất dữ liệu tiềm năng phụ thuộc replication lag và thời điểm crash.</p>
+<hr>
+<h1 id="14-semi-synchronous-replication">14. Semi-Synchronous Replication</h1>
+<p>Một mô hình trung gian:</p>
+<pre class="hljs"><code><div>Leader chờ ít nhất một replica xác nhận,
+nhưng các replica còn lại được cập nhật async.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant R1 as Sync Replica
+    participant R2 as Async Replica
+
+    Client->>Leader: Write
+    Leader->>R1: Replicate
+    Leader->>R2: Replicate async
+    R1-->>Leader: ACK
+    Leader-->>Client: Success
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Không phải chờ toàn bộ replica
+- Vẫn có ít nhất một bản sao ngoài leader
+</div></code></pre>
+<p>Trade-off nằm giữa latency và durability.</p>
+<hr>
+<h1 id="15-synchronous-không-có-nghĩa-tuyệt-đối-không-mất-dữ-liệu">15. Synchronous không có nghĩa tuyệt đối không mất dữ liệu</h1>
+<p>Cần hỏi “ACK” có nghĩa gì.</p>
+<p>Replica có thể xác nhận khi:</p>
+<pre class="hljs"><code><div>1. Đã nhận vào memory
+2. Đã ghi vào operating-system cache
+3. Đã flush xuống durable storage
+4. Đã apply vào database
+</div></code></pre>
+<p>Các mức này có durability khác nhau.</p>
+<p>Nếu chỉ nhận vào memory rồi mất điện:</p>
+<pre class="hljs"><code><div>Write vẫn có thể mất.
+</div></code></pre>
+<p>Do đó phải biết semantics cụ thể của database.</p>
+<hr>
+<h1 id="16-replication-lag">16. Replication Lag</h1>
+<p>Replication lag là khoảng trễ giữa leader và follower.</p>
+<p>Có thể đo theo:</p>
+<pre class="hljs"><code><div>- Thời gian
+- Số byte log
+- Log sequence position
+- Số transaction
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Leader log position:   1.000.000
+Follower log position:   998.000
+</div></code></pre>
+<p>Follower đang chậm 2.000 log entries.</p>
+<hr>
+<h1 id="17-nguyên-nhân-gây-replication-lag">17. Nguyên nhân gây Replication Lag</h1>
+<pre class="hljs"><code><div>- Follower CPU yếu
+- Disk follower chậm
+- Network latency
+- Network congestion
+- Write burst
+- Transaction rất lớn
+- Lock contention trên follower
+- Schema migration
+- Follower đang phục vụ quá nhiều read
+- Apply process chỉ xử lý tuần tự
+</div></code></pre>
+<p>Replica có thể vẫn “healthy” về process nhưng dữ liệu rất cũ.</p>
+<p>Vì vậy health check chỉ kiểm tra process sống là chưa đủ.</p>
+<hr>
+<h1 id="18-read-after-write-inconsistency">18. Read-after-write inconsistency</h1>
+<p>User cập nhật profile:</p>
+<pre class="hljs"><code><div>Name: Luna
+→ Luna Bailey
+</div></code></pre>
+<p>Write vào leader.</p>
+<p>Request sau đọc từ follower chưa cập nhật:</p>
+<pre class="hljs"><code><div>Name: Luna
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Leader
+    participant Replica
+
+    Client->>Leader: UPDATE name = Luna Bailey
+    Leader-->>Client: Success
+
+    Client->>Replica: GET profile
+    Replica-->>Client: name = Luna
+</div></code></pre>
+<p>User cảm giác update thất bại dù dữ liệu sẽ đồng bộ sau.</p>
+<hr>
+<h1 id="19-giải-pháp-read-your-writes">19. Giải pháp Read-your-writes</h1>
+<h2 id="191-đọc-từ-leader-sau-write">19.1 Đọc từ leader sau write</h2>
+<p>Sau khi user vừa ghi:</p>
+<pre class="hljs"><code><div>Read của chính user → leader
+Read của user khác → replica
+</div></code></pre>
+<p>Có thể giữ sticky window:</p>
+<pre class="hljs"><code><div>Sau write trong 5 giây,
+read của user này đi leader.
+</div></code></pre>
+<hr>
+<h2 id="192-gắn-replication-position">19.2 Gắn replication position</h2>
+<p>Leader trả về:</p>
+<pre class="hljs"><code><div>commitPosition = 10500
+</div></code></pre>
+<p>Khi client đọc, hệ thống chỉ dùng replica đã đạt ít nhất position đó.</p>
+<pre class="hljs"><code><div>Follower position &gt;= 10500
+</div></code></pre>
+<p>Nếu chưa đạt:</p>
+<pre class="hljs"><code><div>- Chờ
+- Hoặc route sang leader
+</div></code></pre>
+<hr>
+<h2 id="193-session-consistency">19.3 Session consistency</h2>
+<p>Trong cùng session, client không bị quay lại trạng thái cũ hơn dữ liệu đã thấy.</p>
+<hr>
+<h2 id="194-client-side-optimistic-update">19.4 Client-side optimistic update</h2>
+<p>Client hiển thị dữ liệu vừa ghi từ local state.</p>
+<p>Cách này cải thiện UX nhưng không thay thế consistency backend cho operation quan trọng.</p>
+<hr>
+<h1 id="20-monotonic-reads">20. Monotonic Reads</h1>
+<p>Monotonic read bảo đảm:</p>
+<blockquote>
+<p>Sau khi user đã thấy version mới, họ không nhìn thấy version cũ hơn trong request sau.</p>
+</blockquote>
+<p>Ví dụ xấu:</p>
+<pre class="hljs"><code><div>Request 1 → Replica A → version 10
+Request 2 → Replica B → version 8
+</div></code></pre>
+<p>User thấy dữ liệu quay ngược thời gian.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Sticky replica theo session
+- Route theo user hash
+- Theo dõi version đã thấy
+- Chỉ đọc replica đủ mới
+</div></code></pre>
+<hr>
+<h1 id="21-consistent-prefix-reads">21. Consistent Prefix Reads</h1>
+<p>Nếu hệ thống có các event theo thứ tự:</p>
+<pre class="hljs"><code><div>1. Order created
+2. Payment succeeded
+3. Order shipped
+</div></code></pre>
+<p>Reader không nên thấy:</p>
+<pre class="hljs"><code><div>Order shipped
+</div></code></pre>
+<p>trước khi thấy:</p>
+<pre class="hljs"><code><div>Order created
+</div></code></pre>
+<p>Nếu các event được replicate qua các partition hoặc node khác nhau, thứ tự có thể bị đảo.</p>
+<p>Consistent prefix giúp reader thấy một prefix hợp lệ của lịch sử:</p>
+<pre class="hljs"><code><div>1
+1,2
+1,2,3
+</div></code></pre>
+<p>không thấy:</p>
+<pre class="hljs"><code><div>3 trước 1
+</div></code></pre>
+<hr>
+<h1 id="22-read-scaling-bằng-replica">22. Read Scaling bằng Replica</h1>
+<p>Leader xử lý write, replicas xử lý read:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Router
+
+    Router -->|Writes| Leader[(Leader)]
+    Router -->|Reads| R1[(Read Replica 1)]
+    Router -->|Reads| R2[(Read Replica 2)]
+    Router -->|Reads| R3[(Read Replica 3)]
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Giảm read load trên leader
+- Tăng read throughput
+- Có thể đặt replica gần user
+</div></code></pre>
+<p>Nhưng không nên gửi mọi query sang replica.</p>
+<p>Các query cần dữ liệu mới nhất có thể phải đọc leader:</p>
+<pre class="hljs"><code><div>- Kiểm tra payment state
+- Kiểm tra inventory trước commit
+- Đọc ngay sau write
+- Permission vừa thay đổi
+</div></code></pre>
+<hr>
+<h1 id="23-replica-cho-analytics">23. Replica cho Analytics</h1>
+<p>Có thể dùng replica riêng cho query nặng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Leader[(Leader)] --> OLTP[(Operational Replica)]
+    Leader --> Analytics[(Analytics Replica)]
+
+    API --> OLTP
+    Reports --> Analytics
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>Report query nặng không ảnh hưởng leader.
+</div></code></pre>
+<p>Nhưng report replica có thể lag hơn.</p>
+<p>Không nên dùng analytics replica cho quyết định nghiệp vụ realtime.</p>
+<hr>
+<h1 id="24-cascading-replication">24. Cascading Replication</h1>
+<p>Thay vì mọi replica kết nối trực tiếp leader:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Leader --> R1
+    Leader --> R2
+    Leader --> R3
+    Leader --> R4
+</div></code></pre>
+<p>có thể dùng cascading:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Leader --> R1
+    Leader --> R2
+
+    R1 --> R3
+    R1 --> R4
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm network load trên leader
+- Hữu ích với nhiều replica hoặc cross-region
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Replica tầng sau lag nhiều hơn
+- Failure topology phức tạp
+- Failover cần biết replica nào mới nhất
+</div></code></pre>
+<hr>
+<h1 id="25-cross-zone-replication">25. Cross-Zone Replication</h1>
+<p>Replica nằm ở availability zone khác:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Leader[(Leader - Zone A)] --> Replica[(Replica - Zone B)]
+</div></code></pre>
+<p>Nếu Zone A lỗi:</p>
+<pre class="hljs"><code><div>Replica Zone B có thể được promote.
+</div></code></pre>
+<p>Đây là mức HA phổ biến vì:</p>
+<pre class="hljs"><code><div>- Latency giữa zone thường thấp
+- Bảo vệ khỏi zone failure
+- Dễ hơn multi-region
+</div></code></pre>
+<hr>
+<h1 id="26-cross-region-replication">26. Cross-Region Replication</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Asia[(Leader - Asia)] --> Europe[(Replica - Europe)]
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Disaster recovery
+- Dữ liệu gần user hơn
+- Chịu region outage
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Network latency cao
+- Replication lag lớn hơn
+- Chi phí network
+- Data residency
+- Failover phức tạp
+</div></code></pre>
+<p>Synchronous replication cross-region có thể làm write latency tăng đáng kể vì phải chờ network round trip liên vùng.</p>
+<hr>
+<h1 id="27-high-availability-là-gì">27. High Availability là gì?</h1>
+<p>High Availability — HA nghĩa là hệ thống tiếp tục phục vụ hoặc phục hồi nhanh khi một thành phần lỗi.</p>
+<p>HA thường phụ thuộc:</p>
+<pre class="hljs"><code><div>- Redundancy
+- Failure detection
+- Failover
+- Capacity dự phòng
+- Data consistency
+- Operational readiness
+</div></code></pre>
+<p>Chỉ có replica chưa đủ.</p>
+<pre class="hljs"><code><div>Có replica nhưng failover mất 3 giờ
+→ availability vẫn thấp.
+</div></code></pre>
+<hr>
+<h1 id="28-rto-và-rpo">28. RTO và RPO</h1>
+<p>Hai khái niệm quan trọng.</p>
+<h2 id="rto--recovery-time-objective">RTO — Recovery Time Objective</h2>
+<p>Hệ thống được phép ngừng hoạt động bao lâu?</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>RTO = 5 phút
+</div></code></pre>
+<p>Nghĩa là sau sự cố, mục tiêu phục hồi trong vòng 5 phút.</p>
+<hr>
+<h2 id="rpo--recovery-point-objective">RPO — Recovery Point Objective</h2>
+<p>Được phép mất bao nhiêu dữ liệu theo thời gian?</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>RPO = 30 giây
+</div></code></pre>
+<p>Nghĩa là có thể chấp nhận mất tối đa khoảng 30 giây dữ liệu gần nhất.</p>
+<hr>
+<h2 id="ví-dụ">Ví dụ</h2>
+<p>Hệ thống blog:</p>
+<pre class="hljs"><code><div>RTO = 1 giờ
+RPO = 15 phút
+</div></code></pre>
+<p>Có thể chấp nhận.</p>
+<p>Payment ledger:</p>
+<pre class="hljs"><code><div>RTO rất thấp
+RPO gần 0
+</div></code></pre>
+<p>Yêu cầu thiết kế mạnh hơn nhiều.</p>
+<hr>
+<h1 id="29-replication-ảnh-hưởng-rpo-thế-nào">29. Replication ảnh hưởng RPO thế nào?</h1>
+<p>Async replication:</p>
+<pre class="hljs"><code><div>RPO có thể gần với replication lag.
+</div></code></pre>
+<p>Nếu replica chậm 10 giây và leader mất hoàn toàn:</p>
+<pre class="hljs"><code><div>Có thể mất khoảng 10 giây write gần nhất.
+</div></code></pre>
+<p>Sync replication với durable ACK:</p>
+<pre class="hljs"><code><div>RPO có thể tiến gần 0.
+</div></code></pre>
+<p>Nhưng write availability và latency có thể giảm.</p>
+<hr>
+<h1 id="30-failover">30. Failover</h1>
+<p>Failover là chuyển vai trò từ leader lỗi sang replica.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Monitor
+    participant Leader
+    participant Replica
+    participant Router
+
+    Monitor->>Leader: Health check
+    Leader--xMonitor: No response
+
+    Monitor->>Replica: Promote to leader
+    Replica-->>Monitor: Promoted
+
+    Monitor->>Router: Route writes to new leader
+</div></code></pre>
+<p>Các bước:</p>
+<pre class="hljs"><code><div>1. Phát hiện leader có vấn đề
+2. Xác nhận cần failover
+3. Chọn replica phù hợp
+4. Promote replica
+5. Chuyển write traffic
+6. Reconfigure replicas khác
+7. Xử lý leader cũ nếu quay lại
+</div></code></pre>
+<hr>
+<h1 id="31-failure-detection">31. Failure Detection</h1>
+<p>Phát hiện leader lỗi không đơn giản.</p>
+<p>Không nhận được response có thể vì:</p>
+<pre class="hljs"><code><div>- Leader chết
+- Network giữa monitor và leader lỗi
+- Monitor bị lỗi
+- Leader quá tải
+- GC pause
+- Disk treo
+</div></code></pre>
+<p>Nếu failover quá nhanh:</p>
+<pre class="hljs"><code><div>Có thể promote leader mới dù leader cũ vẫn hoạt động.
+</div></code></pre>
+<p>Nếu failover quá chậm:</p>
+<pre class="hljs"><code><div>Downtime kéo dài.
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Fast failure detection
+↕
+False positive risk
+</div></code></pre>
+<hr>
+<h1 id="32-heartbeat">32. Heartbeat</h1>
+<p>Các node gửi heartbeat định kỳ:</p>
+<pre class="hljs"><code><div>Leader → heartbeat mỗi 1 giây
+</div></code></pre>
+<p>Nếu không nhận trong N lần:</p>
+<pre class="hljs"><code><div>Leader bị nghi ngờ lỗi.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Heartbeat interval = 1 giây
+Failure threshold = 5
+
+→ Phát hiện sau khoảng 5 giây
+</div></code></pre>
+<p>Nhưng heartbeat miss không chứng minh node chết; chỉ chứng minh observer không liên lạc được.</p>
+<hr>
+<h1 id="33-chọn-replica-để-promote">33. Chọn Replica để Promote</h1>
+<p>Replica tốt thường là replica:</p>
+<pre class="hljs"><code><div>- Có dữ liệu mới nhất
+- Replication lag thấp
+- Đủ tài nguyên
+- Nằm ở zone/region phù hợp
+- Không có lỗi storage
+</div></code></pre>
+<p>Nếu promote replica bị lag:</p>
+<pre class="hljs"><code><div>Các write mới nhất có thể mất.
+</div></code></pre>
+<p>Nếu có nhiều replica:</p>
+<pre class="hljs"><code><div>Replica A: lag 0.2 giây
+Replica B: lag 5 giây
+Replica C: lag 20 giây
+</div></code></pre>
+<p>A thường là ứng viên tốt nhất.</p>
+<hr>
+<h1 id="34-planned-switchover-và-unplanned-failover">34. Planned Switchover và Unplanned Failover</h1>
+<h2 id="switchover">Switchover</h2>
+<p>Chuyển leader có kế hoạch:</p>
+<pre class="hljs"><code><div>- Maintenance
+- Upgrade
+- Migration
+</div></code></pre>
+<p>Ta có thể:</p>
+<pre class="hljs"><code><div>1. Ngừng write tạm thời
+2. Chờ replica catch up
+3. Promote replica
+4. Chuyển traffic
+</div></code></pre>
+<p>Rủi ro thấp hơn.</p>
+<hr>
+<h2 id="failover">Failover</h2>
+<p>Chuyển do lỗi bất ngờ.</p>
+<p>Leader có thể không phản hồi, replica có thể lag và state không rõ.</p>
+<p>Khó hơn nhiều.</p>
+<hr>
+<h1 id="35-leader-cũ-quay-trở-lại">35. Leader cũ quay trở lại</h1>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>Replica B được promote thành leader mới.
+</div></code></pre>
+<p>Leader A cũ có thể phục hồi.</p>
+<p>Nếu A vẫn nghĩ mình là leader:</p>
+<pre class="hljs"><code><div>Có hai leader cùng nhận write.
+</div></code></pre>
+<p>Đây là split-brain.</p>
+<p>Leader cũ phải:</p>
+<pre class="hljs"><code><div>- Bị fence
+- Bị demote
+- Không được nhận write
+- Đồng bộ lại từ leader mới
+</div></code></pre>
+<hr>
+<h1 id="36-split-brain-là-gì">36. Split-Brain là gì?</h1>
+<p>Split-brain xảy ra khi nhiều node cùng tin rằng mình là leader hợp lệ.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client1 --> A[(Leader A)]
+    Client2 --> B[(Leader B)]
+
+    A -.Network partition.-> B
+</div></code></pre>
+<p>Hai phía nhận write độc lập:</p>
+<pre class="hljs"><code><div>Leader A:
+balance = 100
+
+Leader B:
+balance = 80
+</div></code></pre>
+<p>Khi network phục hồi, dữ liệu xung đột.</p>
+<hr>
+<h1 id="37-ví-dụ-split-brain">37. Ví dụ Split-Brain</h1>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>Inventory = 1 vé
+</div></code></pre>
+<p>Network partition chia cluster.</p>
+<p>Leader A bán vé cho User 1.</p>
+<p>Leader B cũng bán cùng vé cho User 2.</p>
+<pre class="hljs"><code><div>Cả hai đều nghĩ inventory còn 1.
+</div></code></pre>
+<p>Sau khi mạng phục hồi:</p>
+<pre class="hljs"><code><div>Hai user đều nhận confirmation.
+</div></code></pre>
+<p>Đây là lỗi correctness nghiêm trọng.</p>
+<hr>
+<h1 id="38-nguyên-nhân-split-brain">38. Nguyên nhân Split-Brain</h1>
+<pre class="hljs"><code><div>- Network partition
+- Failure detector false positive
+- Manual promotion sai
+- Leader cũ không bị tắt write
+- Hai control plane độc lập
+- Configuration không đồng bộ
+</div></code></pre>
+<p>Split-brain là lý do failover cần coordination mạnh.</p>
+<hr>
+<h1 id="39-fencing">39. Fencing</h1>
+<p>Fencing ngăn leader cũ tiếp tục thao tác sau khi quyền leadership đã chuyển.</p>
+<p>Các cách:</p>
+<pre class="hljs"><code><div>- Fencing token
+- Storage lease
+- Disable network
+- Revoke credentials
+- Power off node
+- Generation/epoch number
+</div></code></pre>
+<hr>
+<h1 id="40-fencing-token">40. Fencing Token</h1>
+<p>Mỗi leader nhận một token tăng dần:</p>
+<pre class="hljs"><code><div>Leader A:
+epoch = 41
+
+Leader B mới:
+epoch = 42
+</div></code></pre>
+<p>Storage chỉ chấp nhận write với epoch lớn nhất.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Old as Old Leader epoch 41
+    participant New as New Leader epoch 42
+    participant Storage
+
+    New->>Storage: Write with epoch 42
+    Storage-->>New: Accepted
+
+    Old->>Storage: Write with epoch 41
+    Storage-->>Old: Rejected as stale
+</div></code></pre>
+<p>Fencing token hiệu quả hơn việc chỉ tin rằng leader cũ “chắc đã chết”.</p>
+<hr>
+<h1 id="41-lease">41. Lease</h1>
+<p>Leader được cấp quyền trong một khoảng thời gian:</p>
+<pre class="hljs"><code><div>Lease expires at 10:05:00
+</div></code></pre>
+<p>Leader chỉ được nhận write khi lease còn hiệu lực.</p>
+<p>Nếu không renew được lease:</p>
+<pre class="hljs"><code><div>Leader phải tự ngừng write.
+</div></code></pre>
+<p>Vấn đề:</p>
+<pre class="hljs"><code><div>- Clock skew
+- Pause dài
+- Network delay
+</div></code></pre>
+<p>Lease cần thiết kế dựa trên monotonic time và coordination đáng tin cậy.</p>
+<hr>
+<h1 id="42-quorum-là-gì">42. Quorum là gì?</h1>
+<p>Quorum là số node tối thiểu phải tham gia hoặc đồng ý để một operation được xem là hợp lệ.</p>
+<p>Khái niệm cơ bản:</p>
+<pre class="hljs"><code><div>N = tổng số replica
+W = số replica phải xác nhận write
+R = số replica phải tham gia read
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>N = 3
+W = 2
+R = 2
+</div></code></pre>
+<p>Write cần hai node xác nhận.</p>
+<p>Read đọc từ hai node.</p>
+<hr>
+<h1 id="43-điều-kiện-quorum-phổ-biến">43. Điều kiện Quorum phổ biến</h1>
+<p>Nếu:</p>
+<pre class="hljs"><code><div>W + R &gt; N
+</div></code></pre>
+<p>thì read quorum và write quorum sẽ giao nhau ít nhất một node.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>N = 3
+W = 2
+R = 2
+
+W + R = 4 &gt; 3
+</div></code></pre>
+<p>Về lý thuyết, read có cơ hội thấy version mới nhất nếu versioning và reconciliation được xử lý đúng.</p>
+<hr>
+<h1 id="44-ví-dụ-n3-w2">44. Ví dụ N=3, W=2</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Coordinator
+
+    Coordinator --> N1[(Node 1)]
+    Coordinator --> N2[(Node 2)]
+    Coordinator --> N3[(Node 3)]
+</div></code></pre>
+<p>Write:</p>
+<pre class="hljs"><code><div>Node 1: ACK
+Node 2: ACK
+Node 3: chậm
+
+Đã có 2 ACK
+→ write thành công.
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>Một node chậm không chặn write.
+</div></code></pre>
+<hr>
+<h1 id="45-các-cấu-hình-quorum">45. Các cấu hình Quorum</h1>
+<h2 id="w--1">W = 1</h2>
+<p>Chỉ cần một node xác nhận.</p>
+<pre class="hljs"><code><div>Ưu:
+- Write nhanh
+- Availability write cao
+
+Nhược:
+- Durability và consistency thấp hơn
+</div></code></pre>
+<hr>
+<h2 id="w--n">W = N</h2>
+<p>Mọi node phải xác nhận.</p>
+<pre class="hljs"><code><div>Ưu:
+- Mọi replica được cập nhật trước success
+
+Nhược:
+- Một node lỗi làm write thất bại
+- Latency phụ thuộc node chậm nhất
+</div></code></pre>
+<hr>
+<h2 id="r--1">R = 1</h2>
+<p>Chỉ đọc một replica.</p>
+<pre class="hljs"><code><div>Ưu:
+- Read nhanh
+- Read availability cao
+
+Nhược:
+- Có thể đọc dữ liệu cũ
+</div></code></pre>
+<hr>
+<h2 id="r--n">R = N</h2>
+<p>Đọc mọi replica.</p>
+<pre class="hljs"><code><div>Ưu:
+- Có nhiều thông tin để chọn version mới
+
+Nhược:
+- Latency cao
+- Một node lỗi có thể ảnh hưởng read
+</div></code></pre>
+<hr>
+<h1 id="46-common-quorum-configurations">46. Common Quorum Configurations</h1>
+<h2 id="read-heavy">Read-heavy</h2>
+<pre class="hljs"><code><div>N = 3
+W = 3
+R = 1
+</div></code></pre>
+<p>Write chậm hơn nhưng read nhanh.</p>
+<hr>
+<h2 id="write-heavy">Write-heavy</h2>
+<pre class="hljs"><code><div>N = 3
+W = 1
+R = 3
+</div></code></pre>
+<p>Write nhanh nhưng read phải tổng hợp nhiều node.</p>
+<hr>
+<h2 id="balanced">Balanced</h2>
+<pre class="hljs"><code><div>N = 3
+W = 2
+R = 2
+</div></code></pre>
+<p>Cân bằng tương đối giữa read và write.</p>
+<p>Tuy nhiên các con số này không tự động bảo đảm strong consistency trong mọi implementation.</p>
+<hr>
+<h1 id="47-sloppy-quorum">47. Sloppy Quorum</h1>
+<p>Khi node chính cho một key không khả dụng, hệ thống có thể ghi tạm sang node khác để giữ availability.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Các node dự kiến:
+A, B, C
+
+C bị lỗi
+→ ghi tạm vào D.
+</div></code></pre>
+<p>Đây là sloppy quorum.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Write availability cao
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- W và R có thể không giao nhau trên đúng bộ replica
+- Consistency yếu hơn
+- Cần chuyển dữ liệu về node đúng sau đó
+</div></code></pre>
+<hr>
+<h1 id="48-hinted-handoff">48. Hinted Handoff</h1>
+<p>Node D lưu dữ liệu thay cho C kèm “hint”:</p>
+<pre class="hljs"><code><div>D đang giữ dữ liệu hộ C.
+</div></code></pre>
+<p>Khi C phục hồi:</p>
+<pre class="hljs"><code><div>D chuyển write về C.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Client --> D[(Temporary Node D)]
+    D -->|C recovers| C[(Intended Node C)]
+</div></code></pre>
+<p>Cơ chế này tăng availability nhưng dữ liệu tạm thời phân tán phức tạp hơn.</p>
+<hr>
+<h1 id="49-read-repair">49. Read Repair</h1>
+<p>Khi read từ nhiều replica:</p>
+<pre class="hljs"><code><div>Node A: version 5
+Node B: version 5
+Node C: version 3
+</div></code></pre>
+<p>Coordinator trả version 5 và cập nhật C.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Coord as Coordinator
+    participant A
+    participant B
+    participant C
+
+    Client->>Coord: Read key
+    Coord->>A: Read
+    Coord->>B: Read
+    Coord->>C: Read
+
+    A-->>Coord: v5
+    B-->>Coord: v5
+    C-->>Coord: v3
+
+    Coord-->>Client: Return v5
+    Coord->>C: Repair to v5
+</div></code></pre>
+<p>Đây là read repair.</p>
+<hr>
+<h1 id="50-anti-entropy-repair">50. Anti-Entropy Repair</h1>
+<p>Ngoài read repair, các node có thể định kỳ so sánh dữ liệu và sửa sai lệch.</p>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- Đồng bộ replica lâu không được đọc
+- Sửa dữ liệu thiếu
+- Hội tụ eventual consistency
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Merkle tree
+- Hash comparison
+- Background synchronization
+</div></code></pre>
+<hr>
+<h1 id="51-conflict-resolution">51. Conflict Resolution</h1>
+<p>Trong leaderless hoặc multi-leader system, cùng một key có thể được ghi ở nhiều nơi.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Replica A:
+name = Luna
+
+Replica B:
+name = Luna Bailey
+</div></code></pre>
+<p>Cần xác định version nào thắng.</p>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Last-write-wins
+- Version number
+- Vector clocks
+- Application merge
+- CRDT
+</div></code></pre>
+<hr>
+<h1 id="52-last-write-wins">52. Last-Write-Wins</h1>
+<p>Chọn write có timestamp mới nhất.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Đơn giản
+- Dễ thực hiện
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Clock không hoàn toàn đồng bộ
+- Có thể làm mất một write hợp lệ
+- “Mới nhất theo thời gian” chưa chắc đúng nghiệp vụ
+</div></code></pre>
+<p>Ví dụ hai thiết bị offline cùng sửa note; một update có thể bị loại im lặng.</p>
+<hr>
+<h1 id="53-version-number">53. Version Number</h1>
+<p>Mỗi record có version:</p>
+<pre class="hljs"><code><div>Version 10
+Version 11
+</div></code></pre>
+<p>Update chỉ hợp lệ nếu dựa trên version hiện tại.</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> notes
+<span class="hljs-keyword">SET</span> content <span class="hljs-operator">=</span> :new_content,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> id <span class="hljs-operator">=</span> :id
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<p>Nếu affected rows = 0:</p>
+<pre class="hljs"><code><div>Có conflict.
+</div></code></pre>
+<p>Client phải reload hoặc merge.</p>
+<hr>
+<h1 id="54-vector-clock-ở-mức-khái-niệm">54. Vector Clock ở mức khái niệm</h1>
+<p>Vector clock theo dõi lịch sử cập nhật từ nhiều node.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Version A: {node1: 2, node2: 1}
+Version B: {node1: 1, node2: 2}
+</div></code></pre>
+<p>Hai version có thể concurrent, không version nào rõ ràng mới hơn.</p>
+<p>Hệ thống giữ cả hai để application merge.</p>
+<p>Khái niệm mạnh nhưng tăng complexity và metadata.</p>
+<hr>
+<h1 id="55-multi-leader-replication">55. Multi-Leader Replication</h1>
+<p>Trong multi-leader, nhiều leader nhận write.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    ClientAsia --> Asia[(Leader Asia)]
+    ClientEurope --> Europe[(Leader Europe)]
+
+    Asia <--> Europe
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Write latency thấp ở nhiều region
+- Region vẫn nhận write khi mất kết nối region khác
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Write conflict
+- Ordering phức tạp
+- Unique constraint toàn cầu khó
+- Conflict resolution khó
+</div></code></pre>
+<p>Phù hợp hơn với:</p>
+<pre class="hljs"><code><div>- Collaborative editing
+- Calendar
+- Multi-site operation
+- Dữ liệu có thể merge
+</div></code></pre>
+<p>Không tự nhiên cho:</p>
+<pre class="hljs"><code><div>- Banking balance
+- Một ghế chỉ bán một lần
+- Inventory cần uniqueness mạnh
+</div></code></pre>
+<hr>
+<h1 id="56-leaderless-replication">56. Leaderless Replication</h1>
+<p>Client hoặc coordinator ghi vào nhiều replica mà không có leader cố định.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Coordinator
+    Coordinator --> N1[(Node 1)]
+    Coordinator --> N2[(Node 2)]
+    Coordinator --> N3[(Node 3)]
+</div></code></pre>
+<p>Thường dùng quorum:</p>
+<pre class="hljs"><code><div>N
+W
+R
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Không có leader duy nhất
+- Availability cao
+- Chịu node lỗi tốt
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Conflict resolution
+- Stale reads
+- Repair phức tạp
+- Semantics khó hiểu hơn
+</div></code></pre>
+<hr>
+<h1 id="57-leaderfollower-so-với-leaderless">57. Leader–Follower so với Leaderless</h1>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>Leader–Follower</th>
+<th>Leaderless</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Write path</td>
+<td>Qua leader</td>
+<td>Qua nhiều replica</td>
+</tr>
+<tr>
+<td>Ordering</td>
+<td>Dễ hơn tại leader</td>
+<td>Phức tạp hơn</td>
+</tr>
+<tr>
+<td>Failover</td>
+<td>Cần promote leader</td>
+<td>Không có leader cố định</td>
+</tr>
+<tr>
+<td>Conflict</td>
+<td>Ít hơn</td>
+<td>Thường xuyên hơn</td>
+</tr>
+<tr>
+<td>Availability write</td>
+<td>Leader là điểm quan trọng</td>
+<td>Có thể cao hơn</td>
+</tr>
+<tr>
+<td>Consistency</td>
+<td>Dễ cung cấp mạnh hơn</td>
+<td>Tùy quorum và reconciliation</td>
+</tr>
+<tr>
+<td>Complexity client</td>
+<td>Thường thấp hơn</td>
+<td>Có thể cao hơn</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="58-quorum-không-tự-động-nghĩa-strong-consistency">58. Quorum không tự động nghĩa Strong Consistency</h1>
+<p>Công thức:</p>
+<pre class="hljs"><code><div>W + R &gt; N
+</div></code></pre>
+<p>là hữu ích, nhưng strong consistency còn phụ thuộc:</p>
+<pre class="hljs"><code><div>- Replica set có cố định không?
+- Có sloppy quorum không?
+- Concurrent writes được version thế nào?
+- Node trả stale version không?
+- Failure detection ra sao?
+- Clock và ordering được quản lý thế nào?
+</div></code></pre>
+<p>Do đó không nên chỉ nói:</p>
+<pre class="hljs"><code><div>W + R &gt; N nên hệ thống strong consistent.
+</div></code></pre>
+<p>Cần hiểu implementation cụ thể.</p>
+<hr>
+<h1 id="59-consensus-và-quorum-khác-nhau">59. Consensus và Quorum khác nhau</h1>
+<p>Quorum đơn giản:</p>
+<pre class="hljs"><code><div>Một operation cần số lượng node tối thiểu.
+</div></code></pre>
+<p>Consensus:</p>
+<pre class="hljs"><code><div>Các node đồng ý về một giá trị hoặc thứ tự duy nhất,
+dù có failure.
+</div></code></pre>
+<p>Consensus được dùng cho:</p>
+<pre class="hljs"><code><div>- Leader election
+- Cluster membership
+- Configuration
+- Replicated state machine
+</div></code></pre>
+<p>Ví dụ thuật toán:</p>
+<pre class="hljs"><code><div>- Raft
+- Paxos
+</div></code></pre>
+<p>Không cần thuộc chi tiết thuật toán ở giai đoạn này, nhưng phải hiểu:</p>
+<blockquote>
+<p>Quorum thường là thành phần của consensus, nhưng quorum đơn thuần không giải quyết toàn bộ consensus.</p>
+</blockquote>
+<hr>
+<h1 id="60-majority-quorum">60. Majority Quorum</h1>
+<p>Với ba node:</p>
+<pre class="hljs"><code><div>Majority = 2
+</div></code></pre>
+<p>Với năm node:</p>
+<pre class="hljs"><code><div>Majority = 3
+</div></code></pre>
+<p>Hai majority không thể hoàn toàn tách rời; chúng phải giao nhau ít nhất một node.</p>
+<p>Đây là tính chất quan trọng để tránh hai nhóm độc lập cùng quyết định trái ngược.</p>
+<hr>
+<h1 id="61-network-partition-và-majority">61. Network Partition và Majority</h1>
+<p>Cluster ba node:</p>
+<pre class="hljs"><code><div>A, B | C
+</div></code></pre>
+<p>A và B liên lạc được với nhau, C bị tách.</p>
+<pre class="hljs"><code><div>A + B = majority
+C = minority
+</div></code></pre>
+<p>Chỉ phía majority được phép bầu leader hoặc nhận write cần consensus.</p>
+<p>C phải ngừng write.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Node A] <--> B[Node B]
+    C[Node C - Isolated]
+
+    A --> Majority[Majority side]
+    B --> Majority
+    C --> Minority[Minority side: no writes]
+</div></code></pre>
+<p>Điều này hy sinh availability ở phía minority để bảo vệ consistency.</p>
+<hr>
+<h1 id="62-cluster-hai-node-có-vấn-đề-gì">62. Cluster hai node có vấn đề gì?</h1>
+<p>Hai node:</p>
+<pre class="hljs"><code><div>A | B
+</div></code></pre>
+<p>Khi mất kết nối, mỗi bên không biết:</p>
+<pre class="hljs"><code><div>- Node kia chết
+- Hay network giữa hai bên lỗi
+</div></code></pre>
+<p>Nếu cả hai tiếp tục nhận write:</p>
+<pre class="hljs"><code><div>Split-brain.
+</div></code></pre>
+<p>Nếu cả hai dừng:</p>
+<pre class="hljs"><code><div>Không available.
+</div></code></pre>
+<p>Đó là lý do cluster consensus thường dùng số node lẻ như 3 hoặc 5.</p>
+<hr>
+<h1 id="63-witness--arbiter">63. Witness / Arbiter</h1>
+<p>Có thể thêm node thứ ba chỉ tham gia voting:</p>
+<pre class="hljs"><code><div>A = data node
+B = data node
+W = witness
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[(Data Node A)]
+    B[(Data Node B)]
+    W[Witness / Arbiter]
+
+    A --- W
+    B --- W
+</div></code></pre>
+<p>Witness giúp đạt majority nhưng có thể không giữ toàn bộ data.</p>
+<p>Cần hiểu rõ giới hạn:</p>
+<pre class="hljs"><code><div>Witness giúp election,
+không thay thế data replica.
+</div></code></pre>
+<hr>
+<h1 id="64-tại-sao-số-node-lẻ-hiệu-quả-hơn">64. Tại sao số node lẻ hiệu quả hơn?</h1>
+<p>Cluster 3 node:</p>
+<pre class="hljs"><code><div>Chịu được 1 failure.
+Majority = 2.
+</div></code></pre>
+<p>Cluster 4 node:</p>
+<pre class="hljs"><code><div>Majority = 3.
+Vẫn chỉ chịu được 1 failure để tiếp tục majority.
+</div></code></pre>
+<p>Node thứ tư tăng chi phí nhưng không tăng số failure có thể chịu theo majority consensus.</p>
+<p>Cluster 5:</p>
+<pre class="hljs"><code><div>Majority = 3.
+Chịu được 2 failures.
+</div></code></pre>
+<hr>
+<h1 id="65-replication-factor">65. Replication Factor</h1>
+<p>Replication factor là số bản sao của mỗi dữ liệu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Replication factor = 3
+</div></code></pre>
+<p>Mỗi record có ba bản sao.</p>
+<p>Điều này không có nghĩa cluster chỉ có ba node.</p>
+<p>Cluster có thể có 100 node, mỗi partition được lưu trên ba node.</p>
+<hr>
+<h1 id="66-placement-của-replica">66. Placement của Replica</h1>
+<p>Không nên đặt cả ba replica trên cùng một máy hoặc cùng rack.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>Replica 1 → Zone A
+Replica 2 → Zone B
+Replica 3 → Zone C
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Data[Partition X] --> A[(Zone A)]
+    Data --> B[(Zone B)]
+    Data --> C[(Zone C)]
+</div></code></pre>
+<p>Nếu toàn bộ replica trong cùng Zone A:</p>
+<pre class="hljs"><code><div>Zone A lỗi
+→ mất toàn bộ partition.
+</div></code></pre>
+<hr>
+<h1 id="67-replication-và-capacity">67. Replication và Capacity</h1>
+<p>Nếu replication factor = 3:</p>
+<pre class="hljs"><code><div>Raw data = 100 TB
+Physical storage tối thiểu ≈ 300 TB
+</div></code></pre>
+<p>Chưa tính:</p>
+<pre class="hljs"><code><div>- Index
+- Transaction log
+- Temporary files
+- Backup
+- Compaction overhead
+</div></code></pre>
+<p>Replication tăng:</p>
+<pre class="hljs"><code><div>- Storage cost
+- Network traffic
+- Write amplification
+</div></code></pre>
+<hr>
+<h1 id="68-write-amplification">68. Write Amplification</h1>
+<p>Một logical write có thể tạo nhiều physical writes:</p>
+<pre class="hljs"><code><div>1 client write
+× 3 replicas
+× transaction log
+× indexes
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>1 KB payload
+</div></code></pre>
+<p>có thể tạo nhiều KB I/O trên toàn cluster.</p>
+<p>Capacity estimation phải tính replication factor.</p>
+<hr>
+<h1 id="69-replication-lag-và-failover">69. Replication Lag và Failover</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>Replica A lag 0 giây
+Replica B lag 2 giây
+Replica C lag 20 giây
+</div></code></pre>
+<p>Nếu A lỗi cùng leader, B được promote:</p>
+<pre class="hljs"><code><div>Có thể mất khoảng 2 giây dữ liệu.
+</div></code></pre>
+<p>Vì vậy cần alert:</p>
+<pre class="hljs"><code><div>- Replication lag time
+- Log position lag
+- Replica apply rate
+</div></code></pre>
+<p>Replica lag quá lớn không nên được xem là failover-ready.</p>
+<hr>
+<h1 id="70-replica-read-và-staleness-budget">70. Replica Read và Staleness Budget</h1>
+<p>Không phải mọi dữ liệu cần freshness giống nhau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Product description:
+Cho phép cũ 5 phút.
+
+Like count:
+Cho phép cũ vài giây.
+
+Payment state:
+Gần như không cho phép cũ.
+
+Access permission:
+Cần rất mới.
+</div></code></pre>
+<p>Có thể định nghĩa:</p>
+<pre class="hljs"><code><div>Maximum tolerated staleness
+</div></code></pre>
+<p>Router chỉ dùng replica nằm trong staleness budget.</p>
+<hr>
+<h1 id="71-bounded-staleness">71. Bounded Staleness</h1>
+<p>Bounded staleness bảo đảm dữ liệu không cũ hơn một giới hạn.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Không cũ hơn 5 giây
+hoặc
+không chậm hơn 100 transactions.
+</div></code></pre>
+<p>Nằm giữa:</p>
+<pre class="hljs"><code><div>Strong consistency
+và
+Eventual consistency không giới hạn rõ.
+</div></code></pre>
+<p>Phù hợp nhiều workload đọc toàn cầu.</p>
+<hr>
+<h1 id="72-failover-và-client-connection">72. Failover và Client Connection</h1>
+<p>Sau khi promote leader mới, client phải tìm được nó.</p>
+<p>Các cách:</p>
+<pre class="hljs"><code><div>- Virtual IP
+- Load balancer
+- DNS
+- Service discovery
+- Database proxy
+- Cluster-aware driver
+</div></code></pre>
+<p>Nếu dùng DNS với TTL dài:</p>
+<pre class="hljs"><code><div>Client có thể tiếp tục gọi leader cũ.
+</div></code></pre>
+<p>Database proxy hoặc driver cluster-aware có thể phản ứng nhanh hơn.</p>
+<hr>
+<h1 id="73-connection-pool-sau-failover">73. Connection Pool sau Failover</h1>
+<p>Application thường giữ connection pool tới leader cũ.</p>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>- Connection cũ fail
+- Pool phải discard
+- Resolve leader mới
+- Tạo connection mới
+</div></code></pre>
+<p>Nếu hàng trăm app instance cùng reconnect:</p>
+<pre class="hljs"><code><div>Connection storm
+</div></code></pre>
+<p>Leader mới vừa promote có thể bị quá tải.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Backoff và jitter khi reconnect
+- Giới hạn pool
+- Ramp traffic dần
+- Database proxy
+</div></code></pre>
+<hr>
+<h1 id="74-failover-storm">74. Failover Storm</h1>
+<p>Nếu nhiều shard leader cùng nằm trên một node và node đó chết:</p>
+<pre class="hljs"><code><div>Hàng trăm partition cùng elect leader mới.
+</div></code></pre>
+<p>Hậu quả:</p>
+<pre class="hljs"><code><div>- Election traffic
+- Replica catch-up
+- Client reconnect
+- Cache miss
+- Disk và network spike
+</div></code></pre>
+<p>Replica placement nên phân bố leadership để tránh một node chứa quá nhiều leader quan trọng.</p>
+<hr>
+<h1 id="75-failback">75. Failback</h1>
+<p>Sau khi node cũ được sửa, có chuyển leadership về không?</p>
+<p>Đây là failback.</p>
+<p>Không nên chuyển ngay chỉ vì node cũ đã online.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>1. Rebuild hoặc catch up dữ liệu
+2. Xác minh consistency
+3. Đảm bảo node ổn định
+4. Planned switchover nếu cần
+</div></code></pre>
+<p>Failback tự động quá sớm có thể gây flapping:</p>
+<pre class="hljs"><code><div>Leader A → B → A → B
+</div></code></pre>
+<hr>
+<h1 id="76-read-only-degradation">76. Read-Only Degradation</h1>
+<p>Nếu không thể bầu leader mới an toàn nhưng replicas vẫn đọc được:</p>
+<pre class="hljs"><code><div>Hệ thống có thể chuyển read-only.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- User đọc bài viết được
+- Không tạo hoặc sửa bài
+</div></code></pre>
+<p>Đây là graceful degradation:</p>
+<pre class="hljs"><code><div>Bảo vệ consistency,
+hy sinh write availability.
+</div></code></pre>
+<hr>
+<h1 id="77-multi-region-activepassive">77. Multi-Region Active–Passive</h1>
+<p>Một region nhận traffic chính.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Users --> Primary[Primary Region]
+    Primary --> DR[Standby Region]
+</div></code></pre>
+<p>Standby nhận replication nhưng không nhận write bình thường.</p>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Conflict ít hơn
+- Đơn giản hơn active-active
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Failover chậm hơn
+- Standby capacity có thể không được sử dụng
+- Cross-region lag tạo RPO
+</div></code></pre>
+<hr>
+<h1 id="78-multi-region-activeactive">78. Multi-Region Active–Active</h1>
+<p>Nhiều region cùng phục vụ traffic.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Global[Global Router]
+
+    Global --> Asia[Asia Active]
+    Global --> Europe[Europe Active]
+    Global --> US[US Active]
+</div></code></pre>
+<p>Nếu mỗi region nhận write:</p>
+<pre class="hljs"><code><div>Cần multi-leader, leaderless hoặc phân vùng ownership.
+</div></code></pre>
+<p>Complexity:</p>
+<pre class="hljs"><code><div>- Conflict
+- Global uniqueness
+- Transaction liên vùng
+- Ordering
+- Data locality
+</div></code></pre>
+<hr>
+<h1 id="79-single-writer-per-partition">79. Single-Writer per Partition</h1>
+<p>Một cách giảm conflict trong active-active:</p>
+<pre class="hljs"><code><div>Mỗi user hoặc tenant có một home region.
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User A → Asia is write leader
+User B → Europe is write leader
+</div></code></pre>
+<p>Các region khác có replica đọc.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    UserA --> Asia[(Asia Leader for A)]
+    UserB --> Europe[(Europe Leader for B)]
+
+    Asia --> Europe
+    Europe --> Asia
+</div></code></pre>
+<p>Giảm conflict nhưng user di chuyển hoặc cross-region transaction vẫn phức tạp.</p>
+<hr>
+<h1 id="80-data-residency">80. Data Residency</h1>
+<p>Replication cross-region có thể vi phạm quy định:</p>
+<pre class="hljs"><code><div>Dữ liệu user EU không được rời EU.
+</div></code></pre>
+<p>Replica placement cần xem xét:</p>
+<pre class="hljs"><code><div>- Pháp lý
+- Compliance
+- Encryption
+- Data classification
+</div></code></pre>
+<p>Không phải cứ nhiều region là tốt.</p>
+<hr>
+<h1 id="81-replication-và-encryption">81. Replication và Encryption</h1>
+<p>Data nên được bảo vệ:</p>
+<pre class="hljs"><code><div>- In transit: TLS
+- At rest: encryption
+- Key management
+</div></code></pre>
+<p>Replication traffic cũng có thể chứa toàn bộ dữ liệu nhạy cảm.</p>
+<p>Không nên giả định private network tự động an toàn.</p>
+<hr>
+<h1 id="82-monitoring-replication">82. Monitoring Replication</h1>
+<p>Các metrics quan trọng:</p>
+<pre class="hljs"><code><div>- Replication lag time
+- Log position lag
+- Replication throughput
+- Replica apply rate
+- Replica errors
+- Replica connectivity
+- Leader changes
+- Failover count
+- Quorum health
+- Election duration
+- Read staleness
+</div></code></pre>
+<hr>
+<h1 id="83-alert-quan-trọng">83. Alert quan trọng</h1>
+<h2 id="replication-lag-cao">Replication lag cao</h2>
+<pre class="hljs"><code><div>Replica không còn phù hợp cho failover hoặc read.
+</div></code></pre>
+<h2 id="không-đủ-quorum">Không đủ quorum</h2>
+<pre class="hljs"><code><div>Cluster có thể mất write availability.
+</div></code></pre>
+<h2 id="leader-changes-liên-tục">Leader changes liên tục</h2>
+<p>Có thể là:</p>
+<pre class="hljs"><code><div>- Network instability
+- Node overload
+- Configuration lỗi
+</div></code></pre>
+<h2 id="replica-stopped">Replica stopped</h2>
+<p>Giảm redundancy.</p>
+<h2 id="cross-region-link-lỗi">Cross-region link lỗi</h2>
+<p>RPO đang tăng dù application vẫn hoạt động bình thường.</p>
+<hr>
+<h1 id="84-replica-healthy-nhưng-không-useful">84. Replica “healthy” nhưng không useful</h1>
+<p>Một replica có thể:</p>
+<pre class="hljs"><code><div>Process running
+Network reachable
+</div></code></pre>
+<p>nhưng:</p>
+<pre class="hljs"><code><div>Lag 3 giờ
+Disk gần đầy
+Apply process stopped
+</div></code></pre>
+<p>Do đó readiness của replica phải xét:</p>
+<pre class="hljs"><code><div>- Lag
+- Storage
+- Replication status
+- Data integrity
+</div></code></pre>
+<hr>
+<h1 id="85-testing-failover">85. Testing Failover</h1>
+<p>Không nên chỉ tin cấu hình.</p>
+<p>Cần định kỳ test:</p>
+<pre class="hljs"><code><div>- Kill leader
+- Chặn network
+- Tắt một availability zone
+- Làm replica lag
+- Mô phỏng storage failure
+</div></code></pre>
+<p>Đo:</p>
+<pre class="hljs"><code><div>- Detection time
+- Election time
+- Client recovery time
+- Data loss
+- Error rate
+- Connection storm
+</div></code></pre>
+<hr>
+<h1 id="86-failover-drill">86. Failover Drill</h1>
+<p>Một drill có kế hoạch:</p>
+<pre class="hljs"><code><div>1. Ghi nhận leader hiện tại
+2. Kiểm tra replica lag
+3. Chuyển traffic
+4. Promote replica
+5. Xác minh reads/writes
+6. Đo RTO
+7. So sánh data position để xác minh RPO
+</div></code></pre>
+<p>Nếu failover chưa từng được test:</p>
+<blockquote>
+<p>Nó mới chỉ là giả định, chưa phải capability đáng tin cậy.</p>
+</blockquote>
+<hr>
+<h1 id="87-chaos-test-network-partition">87. Chaos Test Network Partition</h1>
+<p>Không chỉ kill process.</p>
+<p>Split-brain thường liên quan network partition:</p>
+<pre class="hljs"><code><div>Node vẫn sống nhưng không liên lạc được với cluster.
+</div></code></pre>
+<p>Chaos test nên kiểm tra:</p>
+<pre class="hljs"><code><div>- Minority có ngừng write không?
+- Majority có elect leader mới không?
+- Leader cũ có bị fence không?
+- Khi network phục hồi, node cũ đồng bộ thế nào?
+</div></code></pre>
+<hr>
+<h1 id="88-human-error-trong-failover">88. Human Error trong Failover</h1>
+<p>Manual failover có thể gây:</p>
+<pre class="hljs"><code><div>- Promote nhầm replica bị lag
+- Hai operator promote hai node
+- Quên fence leader cũ
+- Chuyển DNS sai
+- Xóa dữ liệu cần thiết
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Runbook
+- Automation có guardrail
+- Approval phù hợp
+- Audit log
+- Pre-flight checks
+</div></code></pre>
+<hr>
+<h1 id="89-case-study--postgresql-cho-todoist">89. Case Study — PostgreSQL cho Todoist</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Transaction quan trọng
+- Read nhiều hơn write
+- Cho phép profile/task list hơi stale trong vài giây
+- Không muốn mất task đã xác nhận
+</div></code></pre>
+<p>Thiết kế:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    API --> Proxy[DB Proxy]
+
+    Proxy -->|Writes| Leader[(PostgreSQL Primary)]
+    Proxy -->|Safe reads| R1[(Read Replica 1)]
+    Proxy -->|Safe reads| R2[(Read Replica 2)]
+
+    Leader --> R1
+    Leader --> R2
+</div></code></pre>
+<p>Quyết định:</p>
+<pre class="hljs"><code><div>- Leader nhận mọi write
+- Một replica sync/semi-sync cho HA
+- Replica khác async cho read scaling
+- User vừa update task đọc leader trong một window
+- Analytics query dùng replica riêng
+</div></code></pre>
+<hr>
+<h1 id="90-case-study--product-catalog">90. Case Study — Product Catalog</h1>
+<p>Product metadata có thể stale vài giây.</p>
+<pre class="hljs"><code><div>Read-heavy
+Write ít
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Leader cho admin update
+- Nhiều read replicas
+- Cache phía trước
+- Async replication
+</div></code></pre>
+<p>Nếu replica lag 2 giây:</p>
+<pre class="hljs"><code><div>Đa số user vẫn chấp nhận.
+</div></code></pre>
+<p>Nhưng price trong checkout có thể phải đọc leader hoặc transactional source.</p>
+<hr>
+<h1 id="91-case-study--payment-ledger">91. Case Study — Payment Ledger</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- RPO gần 0
+- Không được double-spend
+- Strong consistency
+- Audit đầy đủ
+</div></code></pre>
+<p>Không nên ưu tiên availability write bằng mọi giá.</p>
+<p>Nếu mất quorum:</p>
+<pre class="hljs"><code><div>Tạm dừng write
+</div></code></pre>
+<p>có thể đúng hơn việc để hai phía cùng nhận payment.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Cluster{Majority available?}
+    Cluster -->|Có| Commit[Commit transaction]
+    Cluster -->|Không| Reject[Reject / pending]
+</div></code></pre>
+<p>Đây là lựa chọn consistency over availability khi partition xảy ra.</p>
+<hr>
+<h1 id="92-case-study--social-like-counter">92. Case Study — Social Like Counter</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Throughput cao
+- Chấp nhận trễ
+- Sai lệch tạm thời nhỏ không nghiêm trọng
+</div></code></pre>
+<p>Có thể ưu tiên availability:</p>
+<pre class="hljs"><code><div>- Async replication
+- Leaderless counters
+- Eventual consistency
+- Background reconciliation
+</div></code></pre>
+<p>Không cần dùng cùng consistency model như payment ledger.</p>
+<hr>
+<h1 id="93-case-study--booking-seat">93. Case Study — Booking Seat</h1>
+<p>Một ghế không được bán hai lần.</p>
+<p>Replication read có thể dùng để hiển thị seat map, nhưng lúc reservation:</p>
+<pre class="hljs"><code><div>Phải gọi authoritative leader/quorum.
+</div></code></pre>
+<p>Không được:</p>
+<pre class="hljs"><code><div>Đọc replica thấy ghế còn
+→ xác nhận đặt vé chỉ dựa trên replica.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Transaction
+- Unique constraint
+- Conditional update
+- Strong consistency
+</div></code></pre>
+<hr>
+<h1 id="94-quorum-cho-booking">94. Quorum cho Booking</h1>
+<p>Giả sử booking state được lưu trên ba node.</p>
+<p>Nếu không đạt write quorum:</p>
+<pre class="hljs"><code><div>Không xác nhận thành công với user.
+</div></code></pre>
+<p>Có thể trả:</p>
+<pre class="hljs"><code><div>Reservation pending
+hoặc
+Service temporarily unavailable
+</div></code></pre>
+<p>Tốt hơn xác nhận rồi tạo hai booking.</p>
+<hr>
+<h1 id="95-case-study--user-permission">95. Case Study — User Permission</h1>
+<p>Admin thu hồi quyền user.</p>
+<p>Nếu permission read từ replica lag:</p>
+<pre class="hljs"><code><div>User có thể tiếp tục truy cập trong vài giây.
+</div></code></pre>
+<p>Đối với dữ liệu bảo mật, điều này có thể không chấp nhận.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Permission reads từ leader
+- Strongly consistent store
+- Short-lived cached permission
+- Invalidation event
+</div></code></pre>
+<p>Consistency requirement phải xét hậu quả, không chỉ latency.</p>
+<hr>
+<h1 id="96-những-sai-lầm-phổ-biến">96. Những sai lầm phổ biến</h1>
+<h2 id="lỗi-1-nghĩ-replica-luôn-cập-nhật-tức-thời">Lỗi 1: Nghĩ replica luôn cập nhật tức thời</h2>
+<p>Async replica có thể trả stale data.</p>
+<hr>
+<h2 id="lỗi-2-đọc-mọi-thứ-từ-replica">Lỗi 2: Đọc mọi thứ từ replica</h2>
+<p>Một số operation cần leader hoặc quorum.</p>
+<hr>
+<h2 id="lỗi-3-có-replication-nhưng-không-có-backup">Lỗi 3: Có replication nhưng không có backup</h2>
+<p>Xóa nhầm được replicate sang mọi nơi.</p>
+<hr>
+<h2 id="lỗi-4-có-replica-nhưng-không-test-failover">Lỗi 4: Có replica nhưng không test failover</h2>
+<p>Đến lúc sự cố mới phát hiện connection routing không hoạt động.</p>
+<hr>
+<h2 id="lỗi-5-promote-replica-bị-lag-mà-không-kiểm-tra">Lỗi 5: Promote replica bị lag mà không kiểm tra</h2>
+<p>Gây data loss.</p>
+<hr>
+<h2 id="lỗi-6-leader-cũ-không-bị-fence">Lỗi 6: Leader cũ không bị fence</h2>
+<p>Tạo split-brain.</p>
+<hr>
+<h2 id="lỗi-7-cluster-hai-node-nhưng-kỳ-vọng-tự-động-xử-lý-partition-hoàn-hảo">Lỗi 7: Cluster hai node nhưng kỳ vọng tự động xử lý partition hoàn hảo</h2>
+<p>Không có majority rõ ràng.</p>
+<hr>
+<h2 id="lỗi-8-dùng-synchronous-replication-mọi-nơi">Lỗi 8: Dùng synchronous replication mọi nơi</h2>
+<p>Write latency và availability có thể giảm không cần thiết.</p>
+<hr>
+<h2 id="lỗi-9-dùng-async-replication-cho-dữ-liệu-không-được-phép-mất">Lỗi 9: Dùng async replication cho dữ liệu không được phép mất</h2>
+<p>RPO không phù hợp nghiệp vụ.</p>
+<hr>
+<h2 id="lỗi-10-nói-quorum-bảo-đảm-strong-consistency-mà-không-xem-implementation">Lỗi 10: Nói quorum bảo đảm strong consistency mà không xem implementation</h2>
+<p>Sloppy quorum, conflict và stale node có thể thay đổi semantics.</p>
+<hr>
+<h2 id="lỗi-11-không-có-capacity-dự-phòng-sau-failover">Lỗi 11: Không có capacity dự phòng sau failover</h2>
+<p>Leader mới được promote nhưng không chịu nổi toàn traffic.</p>
+<hr>
+<h2 id="lỗi-12-không-kiểm-soát-connection-storm">Lỗi 12: Không kiểm soát connection storm</h2>
+<p>Application đồng loạt reconnect làm leader mới quá tải.</p>
+<hr>
+<h2 id="lỗi-13-không-theo-dõi-replication-lag">Lỗi 13: Không theo dõi replication lag</h2>
+<p>Replica tưởng là dự phòng nhưng thực tế chậm hàng giờ.</p>
+<hr>
+<h2 id="lỗi-14-multi-region-active-active-quá-sớm">Lỗi 14: Multi-region active-active quá sớm</h2>
+<p>Tạo conflict và operational complexity lớn.</p>
+<hr>
+<h2 id="lỗi-15-không-định-nghĩa-rto-và-rpo">Lỗi 15: Không định nghĩa RTO và RPO</h2>
+<p>Không thể chọn replication mode có cơ sở.</p>
+<hr>
+<h1 id="97-framework-thiết-kế-replication-như-senior-engineer">97. Framework thiết kế Replication như Senior Engineer</h1>
+<p>Khi thiết kế, hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Dữ liệu nào cần replication?
+2. Mục tiêu là HA, read scaling hay disaster recovery?
+3. RPO là bao nhiêu?
+4. RTO là bao nhiêu?
+5. Leader–follower, multi-leader hay leaderless?
+6. Write được xác nhận khi nào?
+7. Synchronous, asynchronous hay semi-synchronous?
+8. Replica được đặt ở zone/region nào?
+9. Read nào được phép dùng replica?
+10. Staleness tối đa chấp nhận được?
+11. Làm sao bảo đảm read-your-writes?
+12. Replication lag được đo thế nào?
+13. Replica nào đủ điều kiện failover?
+14. Ai phát hiện leader lỗi?
+15. Ai quyết định promote?
+16. Leader cũ được fence thế nào?
+17. Quorum là bao nhiêu?
+18. Mất quorum thì hệ thống làm gì?
+19. Failover đã được test chưa?
+20. Backup và restore strategy là gì?
+</div></code></pre>
+<hr>
+<h1 id="98-decision-tree">98. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Cần lưu dữ liệu] --> B{RPO gần 0?}
+
+    B -->|Có| C[Sync/Semi-sync hoặc Consensus Replication]
+    B -->|Không| D[Async replication có thể phù hợp]
+
+    C --> E{Write availability hay consistency quan trọng hơn khi partition?}
+    D --> E
+
+    E -->|Consistency| F[Chỉ majority/quorum được write]
+    E -->|Availability| G[Cho phép eventual consistency/conflict resolution]
+
+    F --> H{Có một write leader phù hợp?}
+    G --> H
+
+    H -->|Có| I[Leader–Follower]
+    H -->|Nhiều region cùng write| J[Multi-Leader/Leaderless]
+
+    I --> K[Read routing + lag monitoring]
+    J --> L[Quorum + versioning + conflict resolution]
+
+    K --> M[Failover + Fencing + Testing]
+    L --> M
+</div></code></pre>
+<hr>
+<h1 id="99-cách-trình-bày-trong-system-design-interview">99. Cách trình bày trong System Design Interview</h1>
+<p>Không nên chỉ nói:</p>
+<pre class="hljs"><code><div>Em thêm database replica để tăng availability.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Tôi sử dụng leader–follower replication. Mọi write đi qua leader; các read chấp nhận stale data có thể được phân phối sang read replicas. Với dữ liệu vừa được user cập nhật, hệ thống route read về leader trong một khoảng thời gian hoặc chỉ dùng replica đã đạt commit position tương ứng để bảo đảm read-your-writes. Ít nhất một replica nằm ở availability zone khác. Failover chỉ promote replica có replication lag trong ngưỡng cho phép, và leader cũ phải bị fence bằng epoch hoặc cơ chế tương đương để tránh split-brain.</p>
+</blockquote>
+<p>Nếu dữ liệu tài chính:</p>
+<blockquote>
+<p>Vì RPO gần 0, write chỉ được xác nhận sau khi đạt durable quorum. Nếu cluster mất majority, hệ thống tạm từ chối write thay vì cho hai phía độc lập nhận transaction. Điều này ưu tiên correctness hơn write availability trong network partition.</p>
+</blockquote>
+<p>Câu trả lời này thể hiện:</p>
+<pre class="hljs"><code><div>- Replication model
+- Consistency
+- Read routing
+- RPO/RTO
+- Failover
+- Split-brain protection
+</div></code></pre>
+<hr>
+<h1 id="100-bảng-ghi-nhớ-nhanh">100. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Leader</td>
+<td>Node nhận write</td>
+</tr>
+<tr>
+<td>Follower</td>
+<td>Node sao chép từ leader</td>
+</tr>
+<tr>
+<td>Sync replication</td>
+<td>Chờ replica ACK trước success</td>
+</tr>
+<tr>
+<td>Async replication</td>
+<td>Trả success trước, replicate sau</td>
+</tr>
+<tr>
+<td>Semi-sync</td>
+<td>Chờ một phần replica</td>
+</tr>
+<tr>
+<td>Replication lag</td>
+<td>Replica chậm hơn leader</td>
+</tr>
+<tr>
+<td>Read-your-writes</td>
+<td>User đọc thấy write của chính mình</td>
+</tr>
+<tr>
+<td>Monotonic reads</td>
+<td>Không đọc version cũ hơn đã thấy</td>
+</tr>
+<tr>
+<td>Failover</td>
+<td>Chuyển leader sang replica</td>
+</tr>
+<tr>
+<td>RTO</td>
+<td>Thời gian phục hồi mục tiêu</td>
+</tr>
+<tr>
+<td>RPO</td>
+<td>Mức mất dữ liệu cho phép</td>
+</tr>
+<tr>
+<td>Split-brain</td>
+<td>Nhiều leader cùng nhận write</td>
+</tr>
+<tr>
+<td>Fencing</td>
+<td>Chặn leader cũ thao tác</td>
+</tr>
+<tr>
+<td>Quorum</td>
+<td>Số node tối thiểu phải đồng ý</td>
+</tr>
+<tr>
+<td>N</td>
+<td>Tổng replica</td>
+</tr>
+<tr>
+<td>W</td>
+<td>Replica cần xác nhận write</td>
+</tr>
+<tr>
+<td>R</td>
+<td>Replica tham gia read</td>
+</tr>
+<tr>
+<td>Read repair</td>
+<td>Sửa replica cũ trong khi đọc</td>
+</tr>
+<tr>
+<td>Consensus</td>
+<td>Các node đồng ý về một quyết định/thứ tự</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="101-sơ-đồ-ghi-nhớ-toàn-bài">101. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Data Replication] --> B[Leader–Follower]
+    A --> C[Replication Mode]
+    A --> D[Consistency]
+    A --> E[High Availability]
+    A --> F[Quorum]
+
+    B --> B1[Leader Writes]
+    B --> B2[Follower Reads]
+    B --> B3[Replication Log]
+
+    C --> C1[Synchronous]
+    C --> C2[Asynchronous]
+    C --> C3[Semi-Synchronous]
+
+    D --> D1[Replication Lag]
+    D --> D2[Read-your-writes]
+    D --> D3[Monotonic Reads]
+    D --> D4[Bounded Staleness]
+
+    E --> E1[Failure Detection]
+    E --> E2[Failover]
+    E --> E3[Fencing]
+    E --> E4[Split-Brain Prevention]
+
+    F --> F1[N]
+    F --> F2[W]
+    F --> F3[R]
+    F --> F4[Majority]
+</div></code></pre>
+<hr>
+<h1 id="102-những-điều-phải-nhớ-sau-bài-12">102. Những điều phải nhớ sau Bài 12</h1>
+<pre class="hljs"><code><div>1. Replication tạo nhiều bản sao để tăng HA và read capacity.
+2. Replication không thay thế backup.
+3. Leader–follower cho một leader nhận write và followers sao chép.
+4. Synchronous replication giảm nguy cơ mất write nhưng tăng latency.
+5. Asynchronous replication nhanh hơn nhưng tạo replication lag.
+6. Semi-sync cân bằng giữa latency và durability.
+7. ACK của replica phải được hiểu rõ: memory, disk hay applied.
+8. Replica lag có thể trả dữ liệu cũ.
+9. Read-after-write inconsistency xảy ra khi vừa ghi leader rồi đọc replica.
+10. Read-your-writes có thể dùng leader routing hoặc commit position.
+11. Monotonic reads ngăn user thấy dữ liệu quay về version cũ.
+12. Read replica giúp scale read nhưng không phù hợp mọi operation.
+13. RTO là thời gian phục hồi; RPO là mức mất dữ liệu cho phép.
+14. Failover gồm detection, promotion, routing và reconfiguration.
+15. Replica bị lag có thể gây data loss khi được promote.
+16. Leader cũ phải bị fence sau failover.
+17. Split-brain xảy ra khi nhiều node cùng nghĩ mình là leader.
+18. Majority giúp chỉ một phía của partition tiếp tục quyết định.
+19. Cluster consensus thường dùng số node lẻ như 3 hoặc 5.
+20. Quorum dùng N, W và R để cân bằng consistency, latency và availability.
+21. W + R &gt; N hữu ích nhưng không tự động bảo đảm strong consistency.
+22. Sloppy quorum tăng availability nhưng làm consistency phức tạp hơn.
+23. Read repair và anti-entropy giúp replica hội tụ.
+24. Multi-leader tăng write availability đa vùng nhưng tạo conflict.
+25. Leaderless replication cần quorum và conflict resolution.
+26. Cross-region replication cải thiện DR nhưng tăng latency và complexity.
+27. Replica placement phải trải qua nhiều fault domain.
+28. Replication factor làm tăng storage và write amplification.
+29. Failover phải được test định kỳ.
+30. Khi mất quorum, từ chối write đôi khi an toàn hơn tiếp tục phục vụ sai.
+</div></code></pre>
+<hr>
+<h1 id="103-bài-tập-thực-hành">103. Bài tập thực hành</h1>
+<p>Thiết kế replication cho một hệ thống đặt vé concert.</p>
+<p>Giả định:</p>
+<pre class="hljs"><code><div>- Một ghế chỉ được bán một lần
+- 100.000 request/giây khi mở bán
+- User ở nhiều khu vực
+- Lịch sự kiện được đọc rất nhiều
+- Reservation và payment cần consistency mạnh
+- Chấp nhận mất recommendation hoặc analytics tạm thời
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Dữ liệu nào cần strong consistency?
+2. Dữ liệu nào có thể async replicate?
+3. Leader–follower có phù hợp với booking không?
+4. Write reservation đi vào node nào?
+5. Seat map có thể đọc từ replica không?
+6. Làm sao xử lý replication lag trên seat map?
+7. RPO của booking nên là bao nhiêu?
+8. RTO mục tiêu là bao nhiêu?
+9. Failover promote replica nào?
+10. Làm sao fence leader cũ?
+11. Nếu mất majority thì tiếp tục bán vé hay dừng?
+12. Có cần cross-region active-active không?
+13. Nếu nhiều region cùng nhận write, làm sao tránh bán trùng ghế?
+14. Metrics và alert nào cần cho replication?
+15. Cách test failover trước ngày mở bán?
+</div></code></pre>
+<p>Kiến trúc gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Global[Global Traffic Manager]
+
+    Global --> BookingAPI[Booking API]
+    Global --> CatalogAPI[Catalog API]
+
+    BookingAPI --> DBProxy[Database Proxy]
+    DBProxy -->|Strong writes| Leader[(Booking Leader)]
+    Leader -->|Sync/Semi-sync| R1[(HA Replica Zone B)]
+    Leader -->|Async| R2[(Read/DR Replica)]
+
+    CatalogAPI --> Cache[(Event Cache)]
+    CatalogAPI --> R2
+
+    BookingAPI --> Queue[Booking Events]
+    Queue --> Notification
+    Queue --> Analytics
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Replication không chỉ là tạo thêm bản copy. Thiết kế replication tốt phải xác định rõ write được commit khi nào, dữ liệu cũ được chấp nhận ở đâu, failover mất bao lâu, được phép mất bao nhiêu dữ liệu và làm sao bảo đảm chỉ có một bên được quyền ghi khi mạng bị chia cắt.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 13 — Sharding và Data Partitioning: range/hash sharding, consistent hashing, shard key, hot partition, rebalancing, resharding và cross-shard transaction.</strong></p>
+
+</body>
+</html>

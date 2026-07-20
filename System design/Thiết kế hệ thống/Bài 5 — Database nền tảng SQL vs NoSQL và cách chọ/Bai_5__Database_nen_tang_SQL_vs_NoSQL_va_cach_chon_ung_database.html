@@ -1,0 +1,1923 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 5 — Database nền tảng: SQL vs NoSQL và cách chọn đúng database.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-5--database-nền-tảng-sql-vs-nosql-và-cách-chọn-đúng-database">Bài 5 — Database nền tảng: SQL vs NoSQL và cách chọn đúng database</h1>
+<p>Database không nên được chọn theo tiêu chí:</p>
+<pre class="hljs"><code><div>Công nghệ nào đang nổi?
+Database nào scale lớn nhất?
+Công ty lớn đang dùng gì?
+</div></code></pre>
+<p>Câu hỏi đúng phải là:</p>
+<blockquote>
+<p><strong>Hệ thống sẽ đọc và ghi dữ liệu như thế nào, cần consistency đến đâu, dữ liệu có quan hệ ra sao và quy mô dự kiến thế nào?</strong></p>
+</blockquote>
+<p>Các tài liệu System Design bạn cung cấp xem database là lớp lưu trữ trung tâm, sau đó mới mở rộng bằng indexing, replication, caching và partitioning khi traffic tăng.</p>
+<hr>
+<h1 id="1-database-thực-sự-giải-quyết-vấn-đề-gì">1. Database thực sự giải quyết vấn đề gì?</h1>
+<p>Database có nhiệm vụ chính:</p>
+<pre class="hljs"><code><div>- Lưu dữ liệu
+- Truy xuất dữ liệu
+- Cập nhật dữ liệu
+- Bảo vệ tính đúng đắn của dữ liệu
+- Cho phép nhiều request thao tác đồng thời
+- Khôi phục dữ liệu sau sự cố
+</div></code></pre>
+<p>Ví dụ ứng dụng Todoist có thể chứa:</p>
+<pre class="hljs"><code><div>Users
+Projects
+Tasks
+Labels
+Comments
+Reminders
+</div></code></pre>
+<p>Nhưng trước khi chọn database, ta phải biết hệ thống sẽ truy cập chúng thế nào.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Lấy toàn bộ task chưa hoàn thành của một user
+- Lấy task trong một project theo deadline
+- Cập nhật trạng thái task
+- Tìm task theo từ khóa
+- Liệt kê task sắp hết hạn
+</div></code></pre>
+<p>Đây được gọi là <strong>access pattern</strong>.</p>
+<hr>
+<h1 id="2-access-pattern-là-gì">2. Access pattern là gì?</h1>
+<p>Access pattern là cách ứng dụng đọc và ghi dữ liệu.</p>
+<p>Ví dụ với ứng dụng chat:</p>
+<pre class="hljs"><code><div>Write:
+- Ghi tin nhắn mới
+- Cập nhật trạng thái delivered/read
+
+Read:
+- Lấy 50 tin nhắn mới nhất của một cuộc trò chuyện
+- Lấy tin nhắn cũ hơn một cursor
+- Lấy danh sách conversation gần đây của user
+</div></code></pre>
+<p>Ví dụ với e-commerce:</p>
+<pre class="hljs"><code><div>Write:
+- Tạo order
+- Cập nhật tồn kho
+- Ghi payment transaction
+
+Read:
+- Xem sản phẩm theo category
+- Tìm kiếm sản phẩm
+- Xem lịch sử đơn hàng
+- Xem trạng thái order
+</div></code></pre>
+<p>Hai hệ thống đều lưu dữ liệu, nhưng access pattern rất khác.</p>
+<hr>
+<h2 id="nguyên-tắc-quan-trọng">Nguyên tắc quan trọng</h2>
+<blockquote>
+<p><strong>Đừng thiết kế schema chỉ dựa trên dữ liệu đang có. Hãy thiết kế dựa trên cách dữ liệu sẽ được truy cập.</strong></p>
+</blockquote>
+<p>Đặc biệt với NoSQL, access pattern thường phải được xác định trước khi thiết kế partition key và data model.</p>
+<hr>
+<h1 id="3-sql-database-là-gì">3. SQL database là gì?</h1>
+<p>SQL database còn gọi là <strong>relational database</strong>.</p>
+<p>Ví dụ phổ biến:</p>
+<pre class="hljs"><code><div>PostgreSQL
+MySQL
+SQL Server
+Oracle Database
+</div></code></pre>
+<p>Dữ liệu được tổ chức thành các bảng có quan hệ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>users
+projects
+tasks
+</div></code></pre>
+<p>Quan hệ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">erDiagram
+    USER ||--o{ PROJECT : owns
+    PROJECT ||--o{ TASK : contains
+    USER ||--o{ TASK : assigned_to
+
+    USER {
+        uuid id
+        string email
+        string name
+    }
+
+    PROJECT {
+        uuid id
+        uuid owner_id
+        string name
+    }
+
+    TASK {
+        uuid id
+        uuid project_id
+        uuid assignee_id
+        string title
+        string status
+        datetime due_at
+    }
+</div></code></pre>
+<p>Một task tham chiếu đến project bằng <code>project_id</code>.</p>
+<hr>
+<h1 id="4-đặc-điểm-chính-của-sql">4. Đặc điểm chính của SQL</h1>
+<h2 id="41-schema-rõ-ràng">4.1 Schema rõ ràng</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE TABLE</span> tasks (
+    id UUID <span class="hljs-keyword">PRIMARY KEY</span>,
+    project_id UUID <span class="hljs-keyword">NOT NULL</span>,
+    title <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">255</span>) <span class="hljs-keyword">NOT NULL</span>,
+    status <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">30</span>) <span class="hljs-keyword">NOT NULL</span>,
+    due_at <span class="hljs-type">TIMESTAMP</span>,
+    created_at <span class="hljs-type">TIMESTAMP</span> <span class="hljs-keyword">NOT NULL</span>
+);
+</div></code></pre>
+<p>Database kiểm soát:</p>
+<pre class="hljs"><code><div>- Field nào bắt buộc
+- Kiểu dữ liệu
+- Primary key
+- Foreign key
+- Unique constraint
+- Check constraint
+</div></code></pre>
+<p>Điều này giúp dữ liệu có cấu trúc và nhất quán.</p>
+<hr>
+<h2 id="42-quan-hệ-và-join">4.2 Quan hệ và JOIN</h2>
+<p>Ví dụ lấy task kèm project:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span>
+    tasks.id,
+    tasks.title,
+    projects.name <span class="hljs-keyword">AS</span> project_name
+<span class="hljs-keyword">FROM</span> tasks
+<span class="hljs-keyword">JOIN</span> projects
+    <span class="hljs-keyword">ON</span> tasks.project_id <span class="hljs-operator">=</span> projects.id
+<span class="hljs-keyword">WHERE</span> tasks.id <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;task_123&#x27;</span>;
+</div></code></pre>
+<p>SQL rất mạnh khi dữ liệu có nhiều quan hệ và cần truy vấn linh hoạt.</p>
+<hr>
+<h2 id="43-transaction">4.3 Transaction</h2>
+<p>Transaction cho phép nhiều thao tác được xem như một đơn vị.</p>
+<p>Ví dụ chuyển tiền:</p>
+<pre class="hljs"><code><div>1. Trừ 1 triệu từ tài khoản A
+2. Cộng 1 triệu vào tài khoản B
+3. Ghi transaction log
+</div></code></pre>
+<p>Ta không muốn xảy ra tình huống:</p>
+<pre class="hljs"><code><div>Đã trừ A nhưng chưa cộng B.
+</div></code></pre>
+<p>Transaction bảo đảm:</p>
+<pre class="hljs"><code><div>Hoặc tất cả thành công,
+hoặc tất cả bị rollback.
+</div></code></pre>
+<hr>
+<h1 id="5-acid-là-gì">5. ACID là gì?</h1>
+<p>ACID là bốn thuộc tính quan trọng của transaction.</p>
+<pre class="hljs"><code><div>A — Atomicity
+C — Consistency
+I — Isolation
+D — Durability
+</div></code></pre>
+<hr>
+<h2 id="51-atomicity--tính-nguyên-tử">5.1 Atomicity — tính nguyên tử</h2>
+<p>Transaction thực hiện toàn bộ hoặc không thực hiện gì.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[Trừ tiền tài khoản A] --> B[Cộng tiền tài khoản B]
+    B --> C[Ghi transaction]
+
+    C --> D{Tất cả thành công?}
+    D -->|Có| E[Commit]
+    D -->|Không| F[Rollback toàn bộ]
+</div></code></pre>
+<hr>
+<h2 id="52-consistency--duy-trì-quy-tắc-dữ-liệu">5.2 Consistency — duy trì quy tắc dữ liệu</h2>
+<p>Database phải chuyển từ một trạng thái hợp lệ sang một trạng thái hợp lệ khác.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Số dư không được âm nếu business rule cấm
+- Email phải unique
+- Task phải thuộc một project tồn tại
+- Order total không được âm
+</div></code></pre>
+<p>Lưu ý: consistency trong ACID không hoàn toàn giống consistency trong distributed systems. Phần sau ta sẽ phân biệt.</p>
+<hr>
+<h2 id="53-isolation--các-transaction-không-phá-nhau">5.3 Isolation — các transaction không phá nhau</h2>
+<p>Hai transaction đồng thời không nên tạo kết quả sai.</p>
+<p>Ví dụ chỉ còn một vé:</p>
+<pre class="hljs"><code><div>User A đọc: còn 1 vé
+User B đọc: còn 1 vé
+
+A đặt vé
+B cũng đặt vé
+</div></code></pre>
+<p>Nếu không kiểm soát concurrency, hệ thống có thể bán cùng một vé hai lần.</p>
+<p>Các giải pháp có thể gồm:</p>
+<pre class="hljs"><code><div>- Row lock
+- Optimistic locking
+- Serializable isolation
+- Atomic conditional update
+- Unique constraint
+</div></code></pre>
+<hr>
+<h2 id="54-durability--dữ-liệu-đã-commit-không-bị-mất">5.4 Durability — dữ liệu đã commit không bị mất</h2>
+<p>Khi database xác nhận transaction thành công, dữ liệu phải tồn tại ngay cả khi server crash sau đó.</p>
+<p>Thường dựa trên:</p>
+<pre class="hljs"><code><div>- Write-ahead log
+- Disk persistence
+- Replication
+- Backup
+</div></code></pre>
+<hr>
+<h1 id="6-khi-nào-sql-phù-hợp">6. Khi nào SQL phù hợp?</h1>
+<p>SQL thường là lựa chọn tốt khi:</p>
+<pre class="hljs"><code><div>- Dữ liệu có quan hệ rõ
+- Cần transaction mạnh
+- Cần constraint
+- Cần query linh hoạt
+- Cần JOIN
+- Schema tương đối ổn định
+- Tính đúng đắn quan trọng
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Banking
+- Payment ledger
+- Order management
+- Inventory
+- Booking
+- User/account management
+- Business applications
+</div></code></pre>
+<p>Một nguyên tắc thực tế:</p>
+<blockquote>
+<p>Nếu chưa có lý do mạnh để chọn NoSQL, PostgreSQL thường là điểm khởi đầu rất tốt.</p>
+</blockquote>
+<hr>
+<h1 id="7-nosql-là-gì">7. NoSQL là gì?</h1>
+<p>NoSQL không phải một loại database duy nhất.</p>
+<p>Nó là một nhóm database không sử dụng mô hình quan hệ truyền thống làm mô hình chính.</p>
+<p>Các nhóm phổ biến:</p>
+<pre class="hljs"><code><div>1. Key-value database
+2. Document database
+3. Wide-column database
+4. Graph database
+</div></code></pre>
+<p>Mỗi nhóm giải quyết một loại access pattern khác nhau.</p>
+<hr>
+<h1 id="8-key-value-database">8. Key-value database</h1>
+<p>Dữ liệu được lưu theo dạng:</p>
+<pre class="hljs"><code><div>key → value
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>&quot;user:123:session&quot; → session data
+&quot;product:456&quot;      → product object
+&quot;rate:user:789&quot;    → request count
+</div></code></pre>
+<p>Ví dụ công nghệ:</p>
+<pre class="hljs"><code><div>Redis
+Amazon DynamoDB trong một số cách sử dụng
+Aerospike
+</div></code></pre>
+<hr>
+<h2 id="key-value-phù-hợp-khi">Key-value phù hợp khi</h2>
+<pre class="hljs"><code><div>- Biết chính xác key cần tìm
+- Cần lookup rất nhanh
+- Không cần query phức tạp
+- Dữ liệu phù hợp với key → value
+</div></code></pre>
+<p>Use cases:</p>
+<pre class="hljs"><code><div>- Cache
+- Session store
+- Rate limiting
+- Shopping cart
+- Feature flags
+- User preferences
+- Distributed locks
+</div></code></pre>
+<hr>
+<h2 id="hạn-chế">Hạn chế</h2>
+<p>Nếu lưu:</p>
+<pre class="hljs"><code><div>user:123 → {...}
+</div></code></pre>
+<p>thì việc hỏi:</p>
+<pre class="hljs"><code><div>Tìm tất cả user sống tại Hà Nội,
+đã đăng ký tháng trước,
+và có hơn 10 đơn hàng
+</div></code></pre>
+<p>không phải access pattern tự nhiên của key-value store.</p>
+<hr>
+<h1 id="9-document-database">9. Document database</h1>
+<p>Dữ liệu được lưu thành document, thường giống JSON.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;note_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;System Design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Learn database design&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;labels&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;backend&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;learning&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;metadata&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;yellow&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;pinned&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Ví dụ công nghệ:</p>
+<pre class="hljs"><code><div>MongoDB
+Couchbase
+Firestore
+</div></code></pre>
+<hr>
+<h2 id="document-database-phù-hợp-khi">Document database phù hợp khi</h2>
+<pre class="hljs"><code><div>- Dữ liệu có cấu trúc linh hoạt
+- Một object thường được đọc nguyên cụm
+- Dữ liệu có nested fields
+- Schema thay đổi tương đối thường xuyên
+- Không phụ thuộc nhiều vào JOIN phức tạp
+</div></code></pre>
+<p>Use cases:</p>
+<pre class="hljs"><code><div>- Content management
+- Product catalog
+- User profiles
+- Form submissions
+- Configuration data
+- Metadata
+</div></code></pre>
+<hr>
+<h2 id="nhưng-schema-less-không-có-nghĩa-không-cần-schema">Nhưng “schema-less” không có nghĩa không cần schema</h2>
+<p>Một MongoDB collection có thể không ép schema cứng như relational database, nhưng ứng dụng vẫn phải hiểu cấu trúc dữ liệu.</p>
+<p>Nếu không quản lý schema, bạn có thể có:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-10&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Document khác lại là:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;created_at&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1783650000</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Document khác nữa:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;creationTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Kết quả là code rất khó bảo trì.</p>
+<p>Cách hiểu đúng:</p>
+<blockquote>
+<p>Document database có schema linh hoạt, không phải dữ liệu hoàn toàn vô tổ chức.</p>
+</blockquote>
+<hr>
+<h1 id="10-wide-column-database">10. Wide-column database</h1>
+<p>Dữ liệu thường được tổ chức theo:</p>
+<pre class="hljs"><code><div>Partition key
+Clustering/sort key
+Columns
+</div></code></pre>
+<p>Ví dụ công nghệ:</p>
+<pre class="hljs"><code><div>Apache Cassandra
+ScyllaDB
+Google Bigtable
+Amazon DynamoDB có nhiều đặc điểm gần nhóm này
+</div></code></pre>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Write throughput rất cao
+- Dữ liệu cực lớn
+- Phân phối qua nhiều node
+- Query pattern biết trước
+- Cần scale ngang mạnh
+</div></code></pre>
+<p>Use cases:</p>
+<pre class="hljs"><code><div>- Time-series events
+- IoT data
+- Activity feed
+- Message history
+- Logs
+- Large-scale event storage
+</div></code></pre>
+<p>Ví dụ lưu tin nhắn:</p>
+<pre class="hljs"><code><div>Partition key: conversation_id
+Clustering key: message_timestamp
+</div></code></pre>
+<p>Query chính:</p>
+<pre class="hljs"><code><div>Lấy 50 tin nhắn mới nhất của conversation X.
+</div></code></pre>
+<p>Mô hình này rất phù hợp với access pattern đó.</p>
+<p>Nhưng có thể không phù hợp với:</p>
+<pre class="hljs"><code><div>Tìm tất cả tin nhắn chứa từ “database”
+trên toàn bộ conversation của mọi user.
+</div></code></pre>
+<p>Access pattern đó có thể cần search engine riêng.</p>
+<hr>
+<h1 id="11-graph-database">11. Graph database</h1>
+<p>Graph database biểu diễn:</p>
+<pre class="hljs"><code><div>Node
+Edge
+Property
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">graph LR
+    A[Alice] -->|FOLLOWS| B[Bob]
+    B -->|FOLLOWS| C[Carol]
+    A -->|LIKES| P[Post 123]
+    C -->|WORKS_AT| X[Company X]
+</div></code></pre>
+<p>Ví dụ công nghệ:</p>
+<pre class="hljs"><code><div>Neo4j
+Amazon Neptune
+JanusGraph
+</div></code></pre>
+<p>Phù hợp khi trọng tâm là quan hệ và traversal:</p>
+<pre class="hljs"><code><div>- Social graph
+- Fraud detection
+- Recommendation
+- Knowledge graph
+- Dependency graph
+- Network topology
+</div></code></pre>
+<p>Ví dụ query:</p>
+<pre class="hljs"><code><div>Bạn bè của bạn bè đang làm ở công ty X là ai?
+</div></code></pre>
+<p>Trong relational database vẫn làm được, nhưng traversal sâu có thể phức tạp và tốn kém hơn.</p>
+<hr>
+<h1 id="12-sql-vs-nosql-so-sánh-tổng-quan">12. SQL vs NoSQL: so sánh tổng quan</h1>
+<table>
+<thead>
+<tr>
+<th>Tiêu chí</th>
+<th>SQL</th>
+<th>NoSQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mô hình</td>
+<td>Bảng và quan hệ</td>
+<td>Key-value, document, column, graph</td>
+</tr>
+<tr>
+<td>Schema</td>
+<td>Thường chặt chẽ</td>
+<td>Thường linh hoạt hơn</td>
+</tr>
+<tr>
+<td>Transaction</td>
+<td>Rất mạnh</td>
+<td>Tùy loại database</td>
+</tr>
+<tr>
+<td>JOIN</td>
+<td>Hỗ trợ tốt</td>
+<td>Thường hạn chế hoặc không ưu tiên</td>
+</tr>
+<tr>
+<td>Query linh hoạt</td>
+<td>Cao</td>
+<td>Thường tối ưu cho query biết trước</td>
+</tr>
+<tr>
+<td>Scale ngang</td>
+<td>Có thể làm, nhưng phức tạp hơn</td>
+<td>Thường được thiết kế tốt cho scale ngang</td>
+</tr>
+<tr>
+<td>Consistency</td>
+<td>Thường mạnh</td>
+<td>Có thể configurable hoặc eventual</td>
+</tr>
+<tr>
+<td>Data duplication</td>
+<td>Thường giảm nhờ normalization</td>
+<td>Thường chấp nhận denormalization</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Transactional/business data</td>
+<td>Scale lớn hoặc access pattern chuyên biệt</td>
+</tr>
+</tbody>
+</table>
+<p>Nhưng bảng này chỉ là định hướng.</p>
+<p>Các database hiện đại đang hội tụ:</p>
+<pre class="hljs"><code><div>- SQL database có JSON, replication và partitioning
+- NoSQL database có transaction
+- Distributed SQL có transaction và horizontal scaling
+</div></code></pre>
+<p>Vì thế không nên nghĩ:</p>
+<pre class="hljs"><code><div>SQL = không scale
+NoSQL = luôn nhanh
+</div></code></pre>
+<p>Đó là hai nhận định sai.</p>
+<hr>
+<h1 id="13-normalization-là-gì">13. Normalization là gì?</h1>
+<p>Normalization là việc tách dữ liệu thành các bảng để giảm trùng lặp.</p>
+<p>Ví dụ không normalize:</p>
+<pre class="hljs"><code><div>orders
+------------------------------------------------
+order_id
+customer_name
+customer_email
+customer_address
+product_name
+product_price
+quantity
+</div></code></pre>
+<p>Nếu customer đổi email, phải cập nhật nhiều order.</p>
+<p>Normalize:</p>
+<pre><code class="language-mermaid"><div class="mermaid">erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--o{ ORDER_ITEM : contains
+    PRODUCT ||--o{ ORDER_ITEM : referenced_by
+</div></code></pre>
+<p>Các bảng:</p>
+<pre class="hljs"><code><div>customers
+orders
+order_items
+products
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm duplicate data
+- Dễ duy trì tính đúng đắn
+- Update một nơi
+- Quan hệ rõ ràng
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Query có thể cần nhiều JOIN
+- Read path có thể phức tạp
+- Scale phân tán khó hơn
+</div></code></pre>
+<hr>
+<h1 id="14-denormalization-là-gì">14. Denormalization là gì?</h1>
+<p>Denormalization là cố ý lưu trùng một phần dữ liệu để đọc nhanh hơn.</p>
+<p>Ví dụ order lưu snapshot:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shippingAddress&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;street&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123 Main Street&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;city&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Bangkok&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;p_789&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;productName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Mechanical Keyboard&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;unitPrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2500000</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;quantity&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Tại sao lưu <code>productName</code> và <code>unitPrice</code> trong order trong khi product table đã có?</p>
+<p>Vì order cần giữ lịch sử tại thời điểm mua.</p>
+<p>Nếu giá sản phẩm thay đổi ngày mai, order cũ không được thay đổi.</p>
+<p>Denormalization cũng giúp tránh JOIN trên read path.</p>
+<p>Đổi lại:</p>
+<pre class="hljs"><code><div>- Tốn storage hơn
+- Có duplicate data
+- Khó đồng bộ nếu dữ liệu cần luôn giống nhau
+</div></code></pre>
+<hr>
+<h1 id="15-index-là-gì">15. Index là gì?</h1>
+<p>Index giống mục lục của một cuốn sách.</p>
+<p>Không có index:</p>
+<pre class="hljs"><code><div>Muốn tìm task của user 123,
+database có thể phải quét toàn bảng.
+</div></code></pre>
+<p>Có index:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE</span> INDEX idx_tasks_user_id
+<span class="hljs-keyword">ON</span> tasks(user_id);
+</div></code></pre>
+<p>Database có thể tìm nhanh hơn.</p>
+<hr>
+<h2 id="ví-dụ-composite-index">Ví dụ composite index</h2>
+<p>Query:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> tasks
+<span class="hljs-keyword">WHERE</span> user_id <span class="hljs-operator">=</span> ?
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;open&#x27;</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> due_at <span class="hljs-keyword">ASC</span>
+LIMIT <span class="hljs-number">20</span>;
+</div></code></pre>
+<p>Index phù hợp:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE</span> INDEX idx_tasks_user_status_due
+<span class="hljs-keyword">ON</span> tasks(user_id, status, due_at);
+</div></code></pre>
+<p>Thứ tự cột trong index rất quan trọng.</p>
+<p>Index trên:</p>
+<pre class="hljs"><code><div>(user_id, status, due_at)
+</div></code></pre>
+<p>không hoàn toàn tương đương với:</p>
+<pre class="hljs"><code><div>(due_at, status, user_id)
+</div></code></pre>
+<hr>
+<h1 id="16-index-không-miễn-phí">16. Index không miễn phí</h1>
+<p>Index giúp read nhanh hơn nhưng gây chi phí:</p>
+<pre class="hljs"><code><div>- Tốn storage
+- Write chậm hơn
+- Update phải cập nhật index
+- Delete phải cập nhật index
+- Quá nhiều index làm database nặng
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Read nhanh hơn
+↕
+Write và storage tốn hơn
+</div></code></pre>
+<p>Senior không tạo index cho mọi field. Họ tạo index dựa trên query quan trọng.</p>
+<hr>
+<h1 id="17-cách-dùng-access-pattern-để-thiết-kế-index">17. Cách dùng access pattern để thiết kế index</h1>
+<p>Giả sử API:</p>
+<pre class="hljs"><code><div>GET /tasks?projectId=p_123&amp;status=open&amp;sort=dueAt
+</div></code></pre>
+<p>Query:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">SELECT</span> <span class="hljs-operator">*</span>
+<span class="hljs-keyword">FROM</span> tasks
+<span class="hljs-keyword">WHERE</span> project_id <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;p_123&#x27;</span>
+  <span class="hljs-keyword">AND</span> status <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;open&#x27;</span>
+<span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> due_at <span class="hljs-keyword">ASC</span>
+LIMIT <span class="hljs-number">20</span>;
+</div></code></pre>
+<p>Ta suy ra index:</p>
+<pre class="hljs"><code><div>(project_id, status, due_at)
+</div></code></pre>
+<p>Đây là luồng tư duy đúng:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[API endpoint] --> B[Query pattern]
+    B --> C[Filter fields]
+    B --> D[Sort fields]
+    C --> E[Composite index]
+    D --> E
+</div></code></pre>
+<p>Không phải:</p>
+<pre class="hljs"><code><div>Tạo schema trước
+→ thêm index ngẫu nhiên
+→ hy vọng query nhanh
+</div></code></pre>
+<hr>
+<h1 id="18-primary-key-và-partition-key">18. Primary key và partition key</h1>
+<h2 id="primary-key">Primary key</h2>
+<p>Primary key định danh duy nhất một record.</p>
+<pre class="hljs"><code><div>user_id
+task_id
+order_id
+message_id
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">PRIMARY KEY</span> (task_id)
+</div></code></pre>
+<hr>
+<h2 id="partition-key">Partition key</h2>
+<p>Trong distributed database, partition key quyết định dữ liệu được đặt ở node hoặc shard nào.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>partition key = user_id
+</div></code></pre>
+<p>Tất cả note của một user có thể nằm cùng partition.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    R[Request] --> H[Hash user_id]
+    H --> S1[(Shard 1)]
+    H --> S2[(Shard 2)]
+    H --> S3[(Shard 3)]
+</div></code></pre>
+<p>Partition key tốt phải:</p>
+<pre class="hljs"><code><div>- Phân phối dữ liệu tương đối đều
+- Phù hợp query thường gặp
+- Tránh hotspot
+- Có cardinality đủ lớn
+</div></code></pre>
+<hr>
+<h1 id="19-hot-partition-là-gì">19. Hot partition là gì?</h1>
+<p>Giả sử partition theo <code>celebrity_id</code>.</p>
+<p>Một celebrity có 100 triệu follower và nhận lượng traffic cực lớn.</p>
+<p>Dữ liệu của celebrity đó nằm trên một partition:</p>
+<pre class="hljs"><code><div>Partition A: 90% traffic
+Partition B: 5%
+Partition C: 5%
+</div></code></pre>
+<p>Mặc dù có ba partition, hệ thống vẫn nghẽn ở A.</p>
+<p>Đây là <strong>hot partition</strong>.</p>
+<p>Giải pháp có thể gồm:</p>
+<pre class="hljs"><code><div>- Thêm hash suffix
+- Bucket theo thời gian
+- Cache dữ liệu nóng
+- Fan-out theo nhiều partition
+- Dùng composite partition key
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>partition_key = celebrity_id + bucket_id
+</div></code></pre>
+<p>Nhưng khi đọc, ta phải query nhiều bucket và merge kết quả.</p>
+<p>Đây lại là một trade-off.</p>
+<hr>
+<h1 id="20-replication-là-gì">20. Replication là gì?</h1>
+<p>Replication là giữ nhiều bản sao của dữ liệu.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    W[Write] --> P[(Primary)]
+    P --> R1[(Replica 1)]
+    P --> R2[(Replica 2)]
+
+    Read1[Read] --> R1
+    Read2[Read] --> R2
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>- High availability
+- Fault tolerance
+- Tăng read capacity
+- Disaster recovery
+</div></code></pre>
+<hr>
+<h1 id="21-synchronous-và-asynchronous-replication">21. Synchronous và asynchronous replication</h1>
+<h2 id="synchronous-replication">Synchronous replication</h2>
+<p>Primary chỉ xác nhận write sau khi replica xác nhận.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Primary
+    participant Replica
+
+    Client->>Primary: Write
+    Primary->>Replica: Replicate
+    Replica-->>Primary: Acknowledged
+    Primary-->>Client: Success
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Ít nguy cơ mất dữ liệu
+- Replica cập nhật gần như ngay
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Write latency cao hơn
+- Replica chậm có thể ảnh hưởng write
+</div></code></pre>
+<hr>
+<h2 id="asynchronous-replication">Asynchronous replication</h2>
+<p>Primary trả success trước, sau đó replica cập nhật.</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Primary
+    participant Replica
+
+    Client->>Primary: Write
+    Primary-->>Client: Success
+    Primary->>Replica: Replicate later
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Write nhanh hơn
+- Primary ít phải chờ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Replication lag
+- Replica có thể trả dữ liệu cũ
+- Có thể mất một số write nếu primary chết quá sớm
+</div></code></pre>
+<hr>
+<h1 id="22-read-after-write-inconsistency">22. Read-after-write inconsistency</h1>
+<p>User vừa sửa profile:</p>
+<pre class="hljs"><code><div>Name: Luna → Luna Bailey
+</div></code></pre>
+<p>Write đi vào primary.</p>
+<p>Request tiếp theo đọc từ replica chưa đồng bộ, nên vẫn thấy:</p>
+<pre class="hljs"><code><div>Luna
+</div></code></pre>
+<p>Đây là read-after-write inconsistency.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Đọc từ primary trong một khoảng thời gian sau write
+- Sticky read theo user/session
+- Chờ replication position
+- Synchronous replication
+- Hiển thị dữ liệu từ client state tạm thời
+</div></code></pre>
+<p>Không phải mọi dữ liệu đều cần giải pháp mạnh nhất.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Profile name trễ 1 giây có thể chấp nhận.
+Số dư ngân hàng trễ có thể không chấp nhận.
+</div></code></pre>
+<hr>
+<h1 id="23-consistency-trong-distributed-systems">23. Consistency trong distributed systems</h1>
+<p>Consistency ở đây hỏi:</p>
+<blockquote>
+<p>Sau một write, các client và replica nhìn thấy dữ liệu mới nhanh đến mức nào?</p>
+</blockquote>
+<p>Một số mô hình:</p>
+<pre class="hljs"><code><div>- Strong consistency
+- Eventual consistency
+- Read-your-writes consistency
+- Monotonic reads
+- Causal consistency
+</div></code></pre>
+<hr>
+<h2 id="strong-consistency">Strong consistency</h2>
+<p>Sau khi write thành công, mọi read sau đó đều thấy dữ liệu mới nhất.</p>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Số dư
+- Inventory quan trọng
+- Booking seat
+- Account permission
+- Unique username
+</div></code></pre>
+<p>Đổi lại có thể tăng:</p>
+<pre class="hljs"><code><div>- Latency
+- Coordination
+- Giảm availability trong network partition
+</div></code></pre>
+<hr>
+<h2 id="eventual-consistency">Eventual consistency</h2>
+<p>Nếu không có update mới, các replica cuối cùng sẽ hội tụ về cùng dữ liệu.</p>
+<p>Trong một khoảng ngắn, user có thể đọc dữ liệu cũ.</p>
+<p>Phù hợp với:</p>
+<pre class="hljs"><code><div>- Like count
+- View count
+- Social feed
+- Analytics
+- Search index
+- Online status
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>User like bài viết.
+Số like trên một số thiết bị cập nhật sau vài giây.
+</div></code></pre>
+<p>Đây thường là trade-off chấp nhận được.</p>
+<hr>
+<h1 id="24-cap-theorem">24. CAP theorem</h1>
+<p>CAP áp dụng khi hệ thống distributed gặp <strong>network partition</strong>.</p>
+<p>Ba thuộc tính:</p>
+<pre class="hljs"><code><div>C — Consistency
+A — Availability
+P — Partition tolerance
+</div></code></pre>
+<p>Khi network partition xảy ra, hệ thống phải chọn ưu tiên:</p>
+<pre class="hljs"><code><div>CP: consistency hơn availability
+hoặc
+AP: availability hơn consistency
+</div></code></pre>
+<p>Partition tolerance gần như bắt buộc trong distributed system, vì mạng có thể lỗi.</p>
+<hr>
+<h2 id="cp-system">CP system</h2>
+<p>Khi không thể liên lạc giữa các node, hệ thống có thể từ chối một số request để tránh trả dữ liệu không nhất quán.</p>
+<p>Phù hợp khi correctness quan trọng.</p>
+<p>Ví dụ khái niệm:</p>
+<pre class="hljs"><code><div>- Distributed lock
+- Configuration consensus
+- Metadata coordination
+- Một số banking operations
+</div></code></pre>
+<hr>
+<h2 id="ap-system">AP system</h2>
+<p>Khi mạng bị chia cắt, các node vẫn phục vụ request, chấp nhận dữ liệu tạm thời khác nhau và reconcile sau.</p>
+<p>Phù hợp khi availability quan trọng hơn consistency tức thời.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Social feed
+- Shopping cart trong một số thiết kế
+- Like/view counters
+- Recommendation
+</div></code></pre>
+<hr>
+<h2 id="hiểu-sai-phổ-biến">Hiểu sai phổ biến</h2>
+<p>CAP không có nghĩa:</p>
+<pre class="hljs"><code><div>Database luôn chọn cố định 2 trong 3.
+</div></code></pre>
+<p>Chính xác hơn:</p>
+<blockquote>
+<p>Khi network partition xảy ra, bạn phải chọn giữa consistency và availability cho operation đó.</p>
+</blockquote>
+<p>Nhiều database cho phép lựa chọn consistency khác nhau theo từng request.</p>
+<hr>
+<h1 id="25-pacelc--cách-nhìn-đầy-đủ-hơn-cap">25. PACELC — cách nhìn đầy đủ hơn CAP</h1>
+<p>CAP chỉ nói khi có partition.</p>
+<p>PACELC bổ sung:</p>
+<pre class="hljs"><code><div>If Partition:
+    Availability vs Consistency
+
+Else:
+    Latency vs Consistency
+</div></code></pre>
+<p>Viết ngắn:</p>
+<pre class="hljs"><code><div>P → A/C
+Else → L/C
+</div></code></pre>
+<p>Ngay cả khi mạng bình thường, strong consistency thường đòi hỏi coordination và làm latency cao hơn.</p>
+<p>Đây là trade-off thường xuyên hơn network partition.</p>
+<hr>
+<h1 id="26-sharding-là-gì">26. Sharding là gì?</h1>
+<p>Sharding là chia dữ liệu thành nhiều database độc lập.</p>
+<p>Ví dụ chia user theo hash:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[User request] --> R[Shard Router]
+    R --> S1[(Shard 1: users 0-999)]
+    R --> S2[(Shard 2: users 1000-1999)]
+    R --> S3[(Shard 3: users 2000-2999)]
+</div></code></pre>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>shard = hash(user_id) mod N
+</div></code></pre>
+<p>Mỗi shard xử lý một phần dữ liệu và traffic.</p>
+<hr>
+<h1 id="27-khi-nào-cần-sharding">27. Khi nào cần sharding?</h1>
+<p>Không nên sharding ngay từ đầu.</p>
+<p>Chỉ cân nhắc khi:</p>
+<pre class="hljs"><code><div>- Một database không chứa nổi dữ liệu
+- Write throughput vượt khả năng một node
+- Read replica và cache chưa đủ
+- Maintenance window quá lớn
+- Index quá lớn
+- I/O hoặc connection trở thành giới hạn
+</div></code></pre>
+<p>Trước khi sharding, thường nên thử:</p>
+<pre class="hljs"><code><div>1. Query optimization
+2. Indexing
+3. Caching
+4. Vertical scaling
+5. Read replicas
+6. Archiving old data
+7. Table partitioning
+</div></code></pre>
+<p>Sharding tăng complexity rất mạnh.</p>
+<hr>
+<h1 id="28-các-chiến-lược-sharding">28. Các chiến lược sharding</h1>
+<h2 id="281-range-based-sharding">28.1 Range-based sharding</h2>
+<pre class="hljs"><code><div>User ID 1–1,000,000 → Shard 1
+User ID 1,000,001–2,000,000 → Shard 2
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Dễ hiểu
+- Range query thuận tiện
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Dễ hotspot nếu ID tăng dần
+- Shard mới nhất nhận hầu hết write
+</div></code></pre>
+<hr>
+<h2 id="282-hash-based-sharding">28.2 Hash-based sharding</h2>
+<pre class="hljs"><code><div>shard = hash(user_id) mod number_of_shards
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Phân phối tương đối đều
+- Giảm hotspot
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Range query khó
+- Thay đổi số shard có thể phải di chuyển nhiều dữ liệu
+</div></code></pre>
+<p>Consistent hashing có thể giảm lượng dữ liệu cần di chuyển khi node thay đổi.</p>
+<hr>
+<h2 id="283-directory-based-sharding">28.3 Directory-based sharding</h2>
+<p>Có service hoặc table ánh xạ:</p>
+<pre class="hljs"><code><div>user_123 → shard_7
+user_456 → shard_2
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Linh hoạt
+- Có thể di chuyển tenant riêng lẻ
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Directory là dependency quan trọng
+- Cần cache và high availability
+</div></code></pre>
+<hr>
+<h2 id="284-geographic-sharding">28.4 Geographic sharding</h2>
+<pre class="hljs"><code><div>Asia users → Asia database
+Europe users → Europe database
+US users → US database
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Giảm latency
+- Hỗ trợ data residency
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User di chuyển region
+- Cross-region transaction
+- Global reporting
+- Conflict resolution
+</div></code></pre>
+<hr>
+<h1 id="29-sharding-gây-ra-vấn-đề-gì">29. Sharding gây ra vấn đề gì?</h1>
+<h2 id="cross-shard-join">Cross-shard JOIN</h2>
+<p>User ở shard A, order ở shard B.</p>
+<p>Query cần gom dữ liệu từ nhiều shard.</p>
+<hr>
+<h2 id="cross-shard-transaction">Cross-shard transaction</h2>
+<p>Chuyển dữ liệu giữa hai shard cần distributed transaction hoặc workflow phức tạp.</p>
+<hr>
+<h2 id="rebalancing">Rebalancing</h2>
+<p>Một shard quá lớn, phải di chuyển dữ liệu sang shard mới.</p>
+<hr>
+<h2 id="hot-shard">Hot shard</h2>
+<p>Một tenant lớn tạo phần lớn traffic.</p>
+<hr>
+<h2 id="global-unique-constraint">Global unique constraint</h2>
+<p>Đảm bảo username unique trên tất cả shard khó hơn.</p>
+<p>Giải pháp có thể là:</p>
+<pre class="hljs"><code><div>- Global identity service
+- Dedicated uniqueness table
+- ID generation service
+- Database hỗ trợ global indexes
+</div></code></pre>
+<hr>
+<h1 id="30-database-partitioning-và-sharding-khác-nhau-thế-nào">30. Database partitioning và sharding khác nhau thế nào?</h1>
+<p>Hai từ đôi khi được dùng lẫn nhau.</p>
+<p>Thông thường:</p>
+<pre class="hljs"><code><div>Partitioning:
+Chia dữ liệu logic, có thể vẫn trong một database cluster.
+
+Sharding:
+Chia dữ liệu sang nhiều database/node độc lập.
+</div></code></pre>
+<p>Ví dụ PostgreSQL table partition theo tháng:</p>
+<pre class="hljs"><code><div>transactions_2026_01
+transactions_2026_02
+transactions_2026_03
+</div></code></pre>
+<p>Vẫn có thể nằm trong cùng một database.</p>
+<p>Sharding:</p>
+<pre class="hljs"><code><div>transactions_shard_1
+transactions_shard_2
+transactions_shard_3
+</div></code></pre>
+<p>Mỗi shard có thể là một database server riêng.</p>
+<hr>
+<h1 id="31-chọn-database-dựa-trên-access-pattern">31. Chọn database dựa trên access pattern</h1>
+<p>Đây là framework quan trọng nhất của bài.</p>
+<h2 id="câu-hỏi-1-dữ-liệu-được-đọc-bằng-key-hay-query-phức-tạp">Câu hỏi 1: Dữ liệu được đọc bằng key hay query phức tạp?</h2>
+<p>Nếu chủ yếu:</p>
+<pre class="hljs"><code><div>Get object by ID
+</div></code></pre>
+<p>Key-value hoặc document store có thể phù hợp.</p>
+<p>Nếu cần:</p>
+<pre class="hljs"><code><div>JOIN, filter đa chiều, report linh hoạt
+</div></code></pre>
+<p>SQL thường phù hợp hơn.</p>
+<hr>
+<h2 id="câu-hỏi-2-có-transaction-nhiều-object-không">Câu hỏi 2: Có transaction nhiều object không?</h2>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Trừ inventory
+- Tạo order
+- Ghi payment
+</div></code></pre>
+<p>Nếu cần transaction chặt, relational database là lựa chọn tự nhiên.</p>
+<hr>
+<h2 id="câu-hỏi-3-schema-ổn-định-hay-linh-hoạt">Câu hỏi 3: Schema ổn định hay linh hoạt?</h2>
+<p>Schema ổn định, quan hệ rõ:</p>
+<pre class="hljs"><code><div>SQL
+</div></code></pre>
+<p>Object có nhiều shape khác nhau:</p>
+<pre class="hljs"><code><div>Document database có thể thuận tiện hơn
+</div></code></pre>
+<hr>
+<h2 id="câu-hỏi-4-read-hay-write-là-chính">Câu hỏi 4: Read hay write là chính?</h2>
+<p>Read-heavy:</p>
+<pre class="hljs"><code><div>- Index
+- Cache
+- Read replica
+- Denormalization
+</div></code></pre>
+<p>Write-heavy:</p>
+<pre class="hljs"><code><div>- Partitioning
+- Append-oriented model
+- Queue/batching
+- Write-optimized storage
+</div></code></pre>
+<p>Không nên kết luận ngay “write-heavy thì NoSQL”. SQL vẫn có thể xử lý write lớn tùy quy mô và thiết kế.</p>
+<hr>
+<h2 id="câu-hỏi-5-consistency-cần-mạnh-đến-đâu">Câu hỏi 5: Consistency cần mạnh đến đâu?</h2>
+<p>Strong consistency:</p>
+<pre class="hljs"><code><div>SQL hoặc distributed database có strong consistency
+</div></code></pre>
+<p>Eventual consistency chấp nhận được:</p>
+<pre class="hljs"><code><div>Một số NoSQL system có thể scale và available tốt hơn
+</div></code></pre>
+<hr>
+<h2 id="câu-hỏi-6-query-pattern-có-biết-trước-không">Câu hỏi 6: Query pattern có biết trước không?</h2>
+<p>Biết rõ vài query chính:</p>
+<pre class="hljs"><code><div>Wide-column hoặc key-value có thể rất mạnh
+</div></code></pre>
+<p>Query có thể thay đổi nhiều, cần ad hoc reporting:</p>
+<pre class="hljs"><code><div>SQL thường linh hoạt hơn
+</div></code></pre>
+<hr>
+<h2 id="câu-hỏi-7-dữ-liệu-lớn-đến-đâu">Câu hỏi 7: Dữ liệu lớn đến đâu?</h2>
+<p>Hãy hỏi bằng số:</p>
+<pre class="hljs"><code><div>- Bao nhiêu record?
+- Bao nhiêu TB/PB?
+- Bao nhiêu read QPS?
+- Bao nhiêu write QPS?
+- Một object bao nhiêu KB?
+- Retention bao lâu?
+</div></code></pre>
+<p>Không chọn Cassandra chỉ vì “có thể sẽ lớn”.</p>
+<hr>
+<h1 id="32-decision-tree-chọn-database">32. Decision tree chọn database</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Bắt đầu] --> B{Cần transaction và quan hệ phức tạp?}
+
+    B -->|Có| C[Ưu tiên SQL]
+    B -->|Không| D{Access pattern chính là gì?}
+
+    D -->|Lookup theo key| E[Key-value]
+    D -->|Đọc/ghi document nguyên cụm| F[Document DB]
+    D -->|Write cực lớn, query biết trước| G[Wide-column]
+    D -->|Traversal quan hệ sâu| H[Graph DB]
+    D -->|Full-text search| I[Search engine]
+
+    C --> J{Một node có đáp ứng không?}
+    J -->|Có| K[PostgreSQL/MySQL + index]
+    J -->|Không| L[Replica/partition/sharding hoặc distributed SQL]
+</div></code></pre>
+<p>Đây không phải luật tuyệt đối, nhưng là điểm khởi đầu tốt.</p>
+<hr>
+<h1 id="33-polyglot-persistence">33. Polyglot persistence</h1>
+<p>Một hệ thống không nhất thiết chỉ dùng một database.</p>
+<p>Ví dụ e-commerce:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    API[Application Services] --> SQL[(PostgreSQL)]
+    API --> Redis[(Redis)]
+    API --> Search[(OpenSearch)]
+    API --> Object[(Object Storage)]
+    API --> Analytics[(Data Warehouse)]
+
+    SQL --> A[Orders, payments, inventory]
+    Redis --> B[Cache, session, cart]
+    Search --> C[Product full-text search]
+    Object --> D[Images, invoices]
+    Analytics --> E[Reports, BI]
+</div></code></pre>
+<p>Mỗi storage giải quyết một access pattern:</p>
+<pre class="hljs"><code><div>PostgreSQL:
+Transactional source of truth
+
+Redis:
+Fast temporary lookup
+
+Search engine:
+Text search và ranking
+
+Object storage:
+File và media
+
+Data warehouse:
+Analytics lớn
+</div></code></pre>
+<p>Đây gọi là <strong>polyglot persistence</strong>.</p>
+<hr>
+<h1 id="34-nhưng-đừng-lạm-dụng-polyglot-persistence">34. Nhưng đừng lạm dụng polyglot persistence</h1>
+<p>Mỗi database bổ sung thêm:</p>
+<pre class="hljs"><code><div>- Vận hành
+- Backup
+- Monitoring
+- Security
+- Data synchronization
+- On-call knowledge
+- Failure modes
+- Chi phí
+</div></code></pre>
+<p>Đội nhỏ dùng sáu database khác nhau có thể tạo ra nhiều vấn đề hơn lợi ích.</p>
+<p>Nguyên tắc senior:</p>
+<blockquote>
+<p>Chỉ thêm một loại database mới khi access pattern quan trọng không thể được giải quyết hợp lý bằng stack hiện tại.</p>
+</blockquote>
+<hr>
+<h1 id="35-source-of-truth-là-gì">35. Source of truth là gì?</h1>
+<p>Khi dùng nhiều storage, phải xác định hệ thống nào là nguồn dữ liệu chuẩn.</p>
+<p>Ví dụ product:</p>
+<pre class="hljs"><code><div>PostgreSQL = source of truth
+Redis = cache
+OpenSearch = search projection
+</div></code></pre>
+<p>Nếu dữ liệu khác nhau:</p>
+<pre class="hljs"><code><div>PostgreSQL được xem là đúng.
+Redis và OpenSearch được rebuild từ PostgreSQL hoặc event log.
+</div></code></pre>
+<p>Sơ đồ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    API --> DB[(Primary Database)]
+    DB --> Outbox[Outbox/Event]
+    Outbox --> Queue[Message Queue]
+    Queue --> Search[(Search Index)]
+    Queue --> Cache[(Cache)]
+</div></code></pre>
+<p>Nếu không xác định source of truth, debugging rất khó:</p>
+<pre class="hljs"><code><div>Giá sản phẩm trong DB là 100.
+Trong cache là 90.
+Trong search index là 110.
+
+Giá nào đúng?
+</div></code></pre>
+<hr>
+<h1 id="36-case-study-1--todoist">36. Case study 1 — Todoist</h1>
+<h2 id="yêu-cầu">Yêu cầu</h2>
+<pre class="hljs"><code><div>- User có nhiều project
+- Project có nhiều task
+- Task có label, assignee, deadline
+- Cần transaction và constraints
+- Query theo project, trạng thái, deadline
+</div></code></pre>
+<h2 id="lựa-chọn">Lựa chọn</h2>
+<pre class="hljs"><code><div>PostgreSQL là lựa chọn khởi đầu hợp lý.
+</div></code></pre>
+<p>Vì:</p>
+<pre class="hljs"><code><div>- Quan hệ rõ
+- Transaction tốt
+- Query linh hoạt
+- Có constraint
+- Có composite index
+</div></code></pre>
+<p>Schema:</p>
+<pre><code class="language-mermaid"><div class="mermaid">erDiagram
+    USER ||--o{ PROJECT : owns
+    PROJECT ||--o{ TASK : contains
+    TASK }o--o{ LABEL : tagged_with
+</div></code></pre>
+<p>Index:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE</span> INDEX idx_tasks_project_status_due
+<span class="hljs-keyword">ON</span> tasks(project_id, status, due_at);
+</div></code></pre>
+<p>Không cần Cassandra hoặc MongoDB chỉ vì có thể có vài triệu user.</p>
+<hr>
+<h1 id="37-case-study-2--chat-message-storage">37. Case study 2 — Chat message storage</h1>
+<h2 id="access-pattern">Access pattern</h2>
+<pre class="hljs"><code><div>- Ghi lượng lớn message
+- Lấy message theo conversation
+- Sort theo thời gian
+- Pagination bằng cursor
+- Ít JOIN
+</div></code></pre>
+<p>Data model:</p>
+<pre class="hljs"><code><div>Partition key: conversation_id
+Clustering key: message_timestamp + message_id
+</div></code></pre>
+<p>Một wide-column database có thể phù hợp ở quy mô rất lớn.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    C[conversation_id] --> P1[(Partition)]
+    P1 --> M1[message t100]
+    P1 --> M2[message t101]
+    P1 --> M3[message t102]
+</div></code></pre>
+<p>Nhưng metadata như:</p>
+<pre class="hljs"><code><div>User
+Group membership
+Permissions
+Billing
+</div></code></pre>
+<p>vẫn có thể nằm trong SQL database.</p>
+<hr>
+<h1 id="38-case-study-3--product-catalog">38. Case study 3 — Product catalog</h1>
+<p>Sản phẩm khác nhau có thuộc tính khác nhau.</p>
+<p>Laptop:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;cpu&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;M4&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;ram&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;16GB&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;screen&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;14 inch&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Áo:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;material&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cotton&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;S&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;M&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;L&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;black&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Document database có thể thuận tiện cho catalog linh hoạt.</p>
+<p>Nhưng nếu:</p>
+<pre class="hljs"><code><div>- Inventory cần transaction
+- Order cần consistency
+- Payment cần correctness
+</div></code></pre>
+<p>thì các phần đó vẫn nên có transactional store phù hợp.</p>
+<p>Search sản phẩm lại có thể đi vào search engine riêng.</p>
+<hr>
+<h1 id="39-case-study-4--banking-transfer">39. Case study 4 — Banking transfer</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Không được mất transaction
+- Không được trừ hai lần
+- Balance phải đúng
+- Có audit trail
+- Cần transaction
+</div></code></pre>
+<p>Lựa chọn tự nhiên:</p>
+<pre class="hljs"><code><div>Relational database với ACID transaction.
+</div></code></pre>
+<p>Mô hình ledger tốt thường không chỉ update balance mà còn ghi các entry bất biến.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    T[Transfer] --> D[Debit entry A]
+    T --> C[Credit entry B]
+    D --> L[(Ledger)]
+    C --> L
+</div></code></pre>
+<p>Redis hoặc eventual-consistent store không nên là source of truth cho số dư.</p>
+<hr>
+<h1 id="40-case-study-5--like-counter">40. Case study 5 — Like counter</h1>
+<p>Yêu cầu:</p>
+<pre class="hljs"><code><div>- Write rất nhiều
+- Sai lệch tạm thời nhỏ chấp nhận được
+- Không nhất thiết cập nhật toàn cầu ngay lập tức
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Counter trong Redis
+- Sharded counters
+- Event stream
+- Aggregate bất đồng bộ
+</div></code></pre>
+<p>Sau đó định kỳ ghi về persistent database.</p>
+<p>Ở đây eventual consistency có thể hợp lý hơn strong consistency cho từng lượt like.</p>
+<hr>
+<h1 id="41-database-migration">41. Database migration</h1>
+<p>Schema sẽ thay đổi theo thời gian.</p>
+<p>Ví dụ thêm cột:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">ALTER TABLE</span> users
+<span class="hljs-keyword">ADD</span> <span class="hljs-keyword">COLUMN</span> timezone <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">50</span>);
+</div></code></pre>
+<p>Trong hệ thống lớn, migration phải tránh làm downtime.</p>
+<p>Mô hình an toàn thường là <strong>expand and contract</strong>.</p>
+<hr>
+<h2 id="bước-1--expand">Bước 1 — Expand</h2>
+<p>Thêm field mới nhưng giữ field cũ.</p>
+<pre class="hljs"><code><div>name
+first_name
+last_name
+</div></code></pre>
+<p>App có thể dual-write hoặc chuyển dần.</p>
+<hr>
+<h2 id="bước-2--migrate-dữ-liệu">Bước 2 — Migrate dữ liệu</h2>
+<p>Backfill dữ liệu cũ theo batch.</p>
+<pre class="hljs"><code><div>Không update 500 triệu record trong một transaction.
+</div></code></pre>
+<hr>
+<h2 id="bước-3--chuyển-read-path">Bước 3 — Chuyển read path</h2>
+<p>App đọc field mới.</p>
+<p>Theo dõi lỗi và dữ liệu lệch.</p>
+<hr>
+<h2 id="bước-4--contract">Bước 4 — Contract</h2>
+<p>Khi mọi client đã chuyển, mới xóa field cũ.</p>
+<p>Cách này giảm rủi ro breaking change.</p>
+<hr>
+<h1 id="42-backup-không-giống-replication">42. Backup không giống replication</h1>
+<p>Replication:</p>
+<pre class="hljs"><code><div>Giữ nhiều bản sao để availability và failover.
+</div></code></pre>
+<p>Backup:</p>
+<pre class="hljs"><code><div>Giữ snapshot/lịch sử để phục hồi dữ liệu.
+</div></code></pre>
+<p>Nếu ai đó chạy:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">DELETE</span> <span class="hljs-keyword">FROM</span> users;
+</div></code></pre>
+<p>Lệnh có thể được replicate ngay sang mọi replica.</p>
+<p>Replica không cứu được bạn.</p>
+<p>Backup có thể giúp phục hồi về thời điểm trước khi xóa.</p>
+<p>Do đó cần cả:</p>
+<pre class="hljs"><code><div>- Replication
+- Backup
+- Point-in-time recovery
+- Restore testing
+</div></code></pre>
+<p>Một backup chưa từng thử restore chưa chắc là backup đáng tin.</p>
+<hr>
+<h1 id="43-các-lỗi-chọn-database-phổ-biến">43. Các lỗi chọn database phổ biến</h1>
+<h2 id="lỗi-1-chọn-theo-độ-nổi-tiếng">Lỗi 1: Chọn theo độ nổi tiếng</h2>
+<pre class="hljs"><code><div>Netflix dùng Cassandra nên mình cũng dùng.
+</div></code></pre>
+<p>Bạn không có workload, đội vận hành hoặc quy mô giống Netflix.</p>
+<hr>
+<h2 id="lỗi-2-nghĩ-nosql-không-có-schema">Lỗi 2: Nghĩ NoSQL không có schema</h2>
+<p>Schema vẫn tồn tại trong application và data contract.</p>
+<hr>
+<h2 id="lỗi-3-nghĩ-sql-không-scale">Lỗi 3: Nghĩ SQL không scale</h2>
+<p>SQL có thể scale rất xa bằng:</p>
+<pre class="hljs"><code><div>- Indexing
+- Vertical scaling
+- Read replicas
+- Partitioning
+- Caching
+- Sharding
+- Distributed SQL
+</div></code></pre>
+<hr>
+<h2 id="lỗi-4-dùng-một-database-cho-mọi-thứ">Lỗi 4: Dùng một database cho mọi thứ</h2>
+<p>PostgreSQL có thể làm rất nhiều việc, nhưng không có nghĩa nên lưu file video lớn trong bảng hoặc dùng nó thay search engine ở mọi quy mô.</p>
+<hr>
+<h2 id="lỗi-5-sharding-quá-sớm">Lỗi 5: Sharding quá sớm</h2>
+<p>Sharding trước khi có bottleneck thật sẽ làm:</p>
+<pre class="hljs"><code><div>- Transaction khó
+- Query khó
+- Migration khó
+- Debug khó
+- Vận hành khó
+</div></code></pre>
+<hr>
+<h2 id="lỗi-6-không-thiết-kế-theo-query">Lỗi 6: Không thiết kế theo query</h2>
+<p>Schema đẹp về lý thuyết nhưng query chính phải full table scan.</p>
+<hr>
+<h2 id="lỗi-7-không-xác-định-consistency">Lỗi 7: Không xác định consistency</h2>
+<p>Nói “dùng replica” nhưng không trả lời:</p>
+<pre class="hljs"><code><div>User có chấp nhận đọc dữ liệu cũ không?
+</div></code></pre>
+<hr>
+<h2 id="lỗi-8-không-xác-định-source-of-truth">Lỗi 8: Không xác định source of truth</h2>
+<p>Cache, search index và database trả ba kết quả khác nhau nhưng không biết hệ thống nào đúng.</p>
+<hr>
+<h1 id="44-framework-trả-lời-phần-database-trong-system-design-interview">44. Framework trả lời phần database trong System Design Interview</h1>
+<p>Khi chọn database, đừng chỉ nói:</p>
+<pre class="hljs"><code><div>Em chọn PostgreSQL.
+</div></code></pre>
+<p>Hãy trình bày theo cấu trúc:</p>
+<pre class="hljs"><code><div>1. Dữ liệu chính là gì?
+2. Access pattern chính là gì?
+3. Có cần transaction không?
+4. Consistency cần mạnh đến đâu?
+5. Read/write ratio là gì?
+6. Quy mô traffic và storage là bao nhiêu?
+7. Index hoặc partition key là gì?
+8. Khi scale, kế hoạch mở rộng là gì?
+</div></code></pre>
+<p>Ví dụ:</p>
+<blockquote>
+<p>Tôi chọn PostgreSQL làm source of truth cho task và project vì dữ liệu có quan hệ rõ, cần transaction và query theo nhiều chiều. Query chính là lấy task theo <code>project_id</code>, <code>status</code> và <code>due_at</code>, nên tôi tạo composite index tương ứng. Hệ thống đang read-heavy nên có thể thêm cache và read replica khi cần. Tôi chưa sharding ở giai đoạn đầu; nếu dữ liệu vượt khả năng một cluster, có thể partition hoặc shard theo <code>user_id</code>.</p>
+</blockquote>
+<p>Đây là câu trả lời có căn cứ.</p>
+<hr>
+<h1 id="45-checklist-chọn-database">45. Checklist chọn database</h1>
+<pre class="hljs"><code><div>[ ] Entities chính là gì?
+[ ] Quan hệ giữa entities ra sao?
+[ ] Access pattern quan trọng nhất là gì?
+[ ] Query theo key hay filter đa chiều?
+[ ] Có cần JOIN không?
+[ ] Có cần transaction nhiều record không?
+[ ] Có cần constraint và uniqueness không?
+[ ] Strong hay eventual consistency?
+[ ] Read/write ratio bao nhiêu?
+[ ] Peak QPS bao nhiêu?
+[ ] Dữ liệu tăng bao nhiêu mỗi ngày?
+[ ] Retention bao lâu?
+[ ] Partition key là gì?
+[ ] Có nguy cơ hot partition không?
+[ ] Cần index nào?
+[ ] Database nào là source of truth?
+[ ] Có cần cache/search engine riêng không?
+[ ] Backup và restore strategy là gì?
+[ ] Khi nào mới cần replica hoặc sharding?
+</div></code></pre>
+<hr>
+<h1 id="46-sơ-đồ-ghi-nhớ-toàn-bài">46. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Chọn Database] --> B[Access Pattern]
+    A --> C[Data Relationships]
+    A --> D[Consistency]
+    A --> E[Scale]
+    A --> F[Operations]
+
+    B --> B1[Key Lookup]
+    B --> B2[Range Query]
+    B --> B3[Search]
+    B --> B4[Graph Traversal]
+
+    C --> C1[SQL + JOIN]
+    C --> C2[Document]
+    C --> C3[Graph]
+
+    D --> D1[Strong]
+    D --> D2[Eventual]
+
+    E --> E1[Index]
+    E --> E2[Replica]
+    E --> E3[Partition]
+    E --> E4[Shard]
+
+    F --> F1[Backup]
+    F --> F2[Migration]
+    F --> F3[Monitoring]
+</div></code></pre>
+<hr>
+<h1 id="47-cách-ghi-nhớ-nhanh-sql-vs-nosql">47. Cách ghi nhớ nhanh SQL vs NoSQL</h1>
+<pre class="hljs"><code><div>SQL:
+Tối ưu cho quan hệ, transaction và query linh hoạt.
+
+NoSQL:
+Tối ưu cho access pattern cụ thể, schema linh hoạt hoặc scale phân tán.
+</div></code></pre>
+<p>Nhưng câu quan trọng hơn là:</p>
+<blockquote>
+<p><strong>Đừng bắt đầu bằng SQL hay NoSQL. Hãy bắt đầu bằng dữ liệu, access pattern, consistency và scale.</strong></p>
+</blockquote>
+<hr>
+<h1 id="48-bài-tập-thực-hành">48. Bài tập thực hành</h1>
+<p>Thiết kế lớp dữ liệu cho một hệ thống đặt vé xem phim.</p>
+<h2 id="functional-requirements">Functional requirements</h2>
+<pre class="hljs"><code><div>- User xem phim và lịch chiếu
+- User chọn ghế
+- User giữ ghế trong 5 phút
+- User thanh toán
+- User xem lịch sử đặt vé
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Entities chính là gì?
+2. Quan hệ giữa chúng ra sao?
+3. Thành phần nào cần strong consistency?
+4. Có thể dùng eventual consistency ở đâu?
+5. Database chính nên là SQL hay NoSQL?
+6. Ghế đã giữ nên lưu ở đâu?
+7. Làm sao tránh hai user mua cùng một ghế?
+8. Index nào cần thiết?
+9. Có cần cache không?
+10. Khi scale lớn, partition key có thể là gì?
+</div></code></pre>
+<h2 id="gợi-ý-tư-duy">Gợi ý tư duy</h2>
+<pre class="hljs"><code><div>Strong consistency:
+- Seat reservation
+- Payment
+- Booking confirmation
+
+Eventual consistency có thể chấp nhận:
+- Movie popularity
+- View count
+- Recommendation
+- Analytics
+</div></code></pre>
+<p>Kiến trúc dữ liệu sơ bộ:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    API[Booking Service] --> DB[(SQL Database)]
+    API --> Cache[(Redis)]
+    API --> Queue[Event Queue]
+
+    DB --> A[Shows]
+    DB --> B[Seats]
+    DB --> C[Bookings]
+    DB --> D[Payments]
+
+    Cache --> E[Temporary seat holds]
+    Queue --> F[Email/Analytics]
+</div></code></pre>
+<p>Điểm khó nhất của bài không phải chọn tên database, mà là:</p>
+<blockquote>
+<p>Làm sao bảo đảm một ghế không bị bán cho hai người khi hàng nghìn request đến đồng thời?</p>
+</blockquote>
+<hr>
+<h2 id="tóm-tắt-cuối-bài">Tóm tắt cuối bài</h2>
+<pre class="hljs"><code><div>1. Access pattern phải được xác định trước khi chọn database.
+2. SQL mạnh về relation, transaction, constraint và query linh hoạt.
+3. NoSQL gồm nhiều loại, mỗi loại phục vụ một access pattern khác nhau.
+4. Key-value phù hợp lookup nhanh.
+5. Document phù hợp object linh hoạt.
+6. Wide-column phù hợp write lớn và query biết trước.
+7. Graph phù hợp traversal quan hệ.
+8. Index tăng tốc read nhưng làm write và storage đắt hơn.
+9. Replication tăng availability và read capacity.
+10. Sharding tăng write/storage capacity nhưng tạo complexity lớn.
+11. Strong consistency phù hợp dữ liệu tài chính và đặt chỗ.
+12. Eventual consistency phù hợp feed, counters, search và analytics.
+13. Backup không giống replication.
+14. Khi dùng nhiều storage, phải xác định source of truth.
+15. Database tốt nhất là database phù hợp workload, không phải database nổi tiếng nhất.
+</div></code></pre>
+<p><strong>Bài tiếp theo: Bài 6 — Caching nền tảng: cache-aside, write-through, write-back, TTL, eviction, cache invalidation và cache stampede.</strong></p>
+
+</body>
+</html>

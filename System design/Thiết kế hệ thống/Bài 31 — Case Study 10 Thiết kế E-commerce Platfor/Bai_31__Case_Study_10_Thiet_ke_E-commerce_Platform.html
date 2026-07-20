@@ -1,0 +1,3061 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 31 — Case Study 10: Thiết kế E-commerce Platform.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-31--case-study-10-thiết-kế-e-commerce-platform">Bài 31 — Case Study 10: Thiết kế E-commerce Platform</h1>
+<p>E-commerce Platform là hệ thống cho phép khách hàng:</p>
+<pre class="hljs"><code><div>Tìm sản phẩm
+→ Xem giá và tồn kho
+→ Thêm vào giỏ hàng
+→ Checkout
+→ Thanh toán
+→ Kho chuẩn bị hàng
+→ Đơn vị vận chuyển giao hàng
+→ Đổi trả hoặc hoàn tiền
+</div></code></pre>
+<p>Đây không chỉ là một website bán hàng. Một nền tảng production phải phối hợp nhiều miền dữ liệu khác nhau:</p>
+<pre class="hljs"><code><div>- Catalog có hàng triệu sản phẩm và biến thể
+- Search cần phản hồi nhanh dù dữ liệu cập nhật liên tục
+- Giá phụ thuộc khách hàng, vùng, chương trình và thời điểm
+- Inventory phân tán ở nhiều kho
+- Nhiều người có thể mua cùng SKU cuối cùng
+- Checkout phải chống tạo trùng đơn và charge trùng
+- Một order có thể được chia thành nhiều fulfillment
+- Shipment có thể bị tách, chậm, mất hoặc hoàn trả
+- Flash sale tạo tải tăng đột biến hàng trăm lần
+- Payment, kho và đơn vị vận chuyển đều có thể lỗi độc lập
+</div></code></pre>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Catalog
+→ Search và discovery
+→ Cart
+→ Price quote
+→ Inventory reservation
+→ Checkout
+→ Order Management
+→ Warehouse Fulfillment
+→ Shipment
+→ Returns và Refund
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế một marketplace hoặc retailer hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Quản lý sản phẩm và SKU.
+2. Tìm kiếm, lọc và duyệt danh mục.
+3. Giỏ hàng.
+4. Giá, khuyến mãi và thuế.
+5. Tồn kho ở nhiều warehouse.
+6. Checkout và payment.
+7. Order lifecycle.
+8. Chia đơn theo warehouse hoặc seller.
+9. Picking, packing và shipment.
+10. Theo dõi giao hàng.
+11. Hủy đơn.
+12. Trả hàng và hoàn tiền.
+13. Flash sale.
+14. Multi-region.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Quảng cáo marketplace hoàn chỉnh
+- Recommendation ML chuyên sâu
+- Procurement và supplier management
+- Robot warehouse
+- Customs quốc tế chi tiết
+- Accounting và taxation theo từng quốc gia
+</div></code></pre>
+<hr>
+<h1 id="2-các-actor-chính">2. Các actor chính</h1>
+<h2 id="customer">Customer</h2>
+<pre class="hljs"><code><div>- Tìm kiếm sản phẩm
+- Xem thông tin
+- Thêm giỏ hàng
+- Thanh toán
+- Theo dõi đơn
+- Hủy hoặc trả hàng
+</div></code></pre>
+<h2 id="merchant-hoặc-seller">Merchant hoặc Seller</h2>
+<pre class="hljs"><code><div>- Tạo listing
+- Cập nhật giá
+- Quản lý tồn kho
+- Xử lý fulfillment
+- Nhận settlement
+</div></code></pre>
+<h2 id="warehouse">Warehouse</h2>
+<pre class="hljs"><code><div>- Nhận fulfillment request
+- Pick
+- Pack
+- Handover cho carrier
+- Xử lý return
+</div></code></pre>
+<h2 id="carrier">Carrier</h2>
+<pre class="hljs"><code><div>- Nhận parcel
+- Vận chuyển
+- Cập nhật tracking
+- Xác nhận giao hàng
+</div></code></pre>
+<h2 id="platform">Platform</h2>
+<pre class="hljs"><code><div>- Catalog
+- Search
+- Pricing
+- Inventory
+- Checkout
+- Order Management
+- Payment
+- Fraud
+- Customer support
+</div></code></pre>
+<hr>
+<h1 id="3-functional-requirements">3. Functional Requirements</h1>
+<h2 id="catalog-và-discovery">Catalog và discovery</h2>
+<pre class="hljs"><code><div>- Xem sản phẩm
+- Xem biến thể
+- Search theo từ khóa
+- Filter theo thương hiệu, giá, thuộc tính
+- Sort theo relevance, giá, rating
+- Duyệt theo category
+</div></code></pre>
+<h2 id="cart-và-checkout">Cart và checkout</h2>
+<pre class="hljs"><code><div>- Thêm, sửa, xóa item
+- Lưu giỏ hàng
+- Áp coupon
+- Chọn địa chỉ
+- Chọn phương thức giao hàng
+- Nhận tổng giá cuối cùng
+- Đặt đơn
+</div></code></pre>
+<h2 id="fulfillment">Fulfillment</h2>
+<pre class="hljs"><code><div>- Chọn warehouse
+- Reserve inventory
+- Pick và pack
+- Tạo shipment
+- Theo dõi delivery
+</div></code></pre>
+<h2 id="after-sales">After-sales</h2>
+<pre class="hljs"><code><div>- Hủy đơn
+- Return
+- Refund
+- Replacement
+- Review
+</div></code></pre>
+<hr>
+<h1 id="4-non-functional-requirements">4. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Product pages và search có latency thấp.
+- Checkout không tạo đơn trùng.
+- Không charge khách hàng hai lần.
+- Không bán vượt inventory ngoài policy.
+- Giá checkout phải audit được.
+- Order state không được nhảy sai.
+- Search có thể eventual consistent.
+- Inventory available-to-promise cần consistency cao hơn.
+- Flash sale không được làm sập toàn hệ thống.
+- Có graceful degradation khi recommendation hoặc analytics lỗi.
+- Hệ thống hoạt động ở nhiều region.
+</div></code></pre>
+<hr>
+<h1 id="5-những-dữ-liệu-nào-cần-strong-consistency">5. Những dữ liệu nào cần Strong Consistency?</h1>
+<h2 id="cần-consistency-mạnh">Cần consistency mạnh</h2>
+<pre class="hljs"><code><div>- Consume idempotency key checkout
+- Inventory reservation
+- Coupon budget giới hạn
+- Order creation
+- Payment authorization và capture
+- Order state transitions
+- Refund amount
+- Warehouse allocation
+</div></code></pre>
+<h2 id="có-thể-eventual-consistent">Có thể eventual consistent</h2>
+<pre class="hljs"><code><div>- Search index
+- Product review count
+- Product popularity
+- Recommendation
+- Sales dashboard
+- “Đã bán 10.000”
+- Search facets gần realtime
+</div></code></pre>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>200 triệu DAU
+50 triệu products
+500 triệu SKUs
+20 triệu orders/ngày
+5 tỷ product/detail/search requests/ngày
+</div></code></pre>
+<p>Average order rate:</p>
+<pre class="hljs"><code><div>20.000.000 / 86.400
+≈ 231 orders/giây
+</div></code></pre>
+<p>Peak gấp 10:</p>
+<pre class="hljs"><code><div>≈ 2.300 orders/giây
+</div></code></pre>
+<p>Trong flash sale, một SKU có thể nhận:</p>
+<pre class="hljs"><code><div>100.000–1.000.000 checkout attempts/giây
+</div></code></pre>
+<p>trong khi inventory chỉ có:</p>
+<pre class="hljs"><code><div>10.000 units
+</div></code></pre>
+<p>Read traffic lớn hơn order write traffic rất nhiều.</p>
+<hr>
+<h1 id="7-high-level-architecture">7. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Edge[CDN / API Gateway]
+
+    Edge --> CatalogAPI[Catalog Service]
+    Edge --> SearchAPI[Search Service]
+    Edge --> CartAPI[Cart Service]
+    Edge --> CheckoutAPI[Checkout Service]
+    Edge --> OrderAPI[Order Service]
+
+    CatalogAPI --> CatalogStore[(Catalog Store)]
+    CatalogAPI --> Media[(Object Storage / CDN)]
+
+    CatalogStore --> CatalogEvents[Catalog Events]
+    CatalogEvents --> SearchIndexer[Search Indexer]
+    SearchIndexer --> SearchIndex[(Search Index)]
+
+    CartAPI --> CartStore[(Cart Store)]
+
+    CheckoutAPI --> Pricing[Pricing Service]
+    CheckoutAPI --> Inventory[Inventory Service]
+    CheckoutAPI --> Payment[Payment Service]
+    CheckoutAPI --> OrderAPI
+
+    Inventory --> InventoryStore[(Inventory Store)]
+    OrderAPI --> OrderStore[(Order Store)]
+    OrderAPI --> Outbox[(Transactional Outbox)]
+
+    Outbox --> EventStream[Commerce Event Stream]
+    EventStream --> OMS[Order Management Workflow]
+    OMS --> Fulfillment[Fulfillment Service]
+    Fulfillment --> WMS[Warehouse Management System]
+    WMS --> Shipping[Shipping Service]
+    Shipping --> Carrier[Carrier APIs]
+
+    EventStream --> Notification
+    EventStream --> Analytics
+    EventStream --> Fraud
+</div></code></pre>
+<hr>
+<h1 id="8-tách-các-miền-dữ-liệu">8. Tách các miền dữ liệu</h1>
+<p>Không nên dùng một database duy nhất cho toàn hệ thống.</p>
+<p>Các miền chính:</p>
+<pre class="hljs"><code><div>Catalog:
+Sản phẩm, SKU, thuộc tính, nội dung
+
+Search:
+Projection phục vụ truy vấn
+
+Pricing:
+Giá, discount, tax, promotion
+
+Inventory:
+On-hand, reserved, available
+
+Cart:
+Ý định mua tạm thời
+
+Order:
+Cam kết thương mại
+
+Fulfillment:
+Cam kết lấy và đóng hàng
+
+Shipment:
+Parcel và carrier tracking
+
+Payment:
+Dòng tiền
+
+Returns:
+Reverse logistics
+</div></code></pre>
+<p>Mỗi miền có source of truth và consistency khác nhau.</p>
+<hr>
+<h1 id="9-product-sku-và-listing">9. Product, SKU và Listing</h1>
+<p>Ba khái niệm dễ bị nhầm.</p>
+<h2 id="product">Product</h2>
+<p>Mô tả sản phẩm chung:</p>
+<pre class="hljs"><code><div>Áo thun Basic
+</div></code></pre>
+<h2 id="sku">SKU</h2>
+<p>Một biến thể có thể bán và tồn kho riêng:</p>
+<pre class="hljs"><code><div>Áo thun Basic
+Màu đen
+Size M
+</div></code></pre>
+<h2 id="listing">Listing</h2>
+<p>Một seller bán một SKU với:</p>
+<pre class="hljs"><code><div>- Giá riêng
+- Điều kiện riêng
+- Tồn kho riêng
+- Chính sách giao hàng riêng
+</div></code></pre>
+<p>Marketplace thường cần cả ba lớp.</p>
+<hr>
+<h1 id="10-product-data-model">10. Product Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;prd_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Áo thun Basic&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;brandId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;brand_9&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;categoryId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cat_tshirt&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;attributes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;material&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cotton&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;gender&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;unisex&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">17</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="11-sku-data-model">11. SKU Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;skuId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sku_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;prd_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;attributes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;black&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;M&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;barcode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;893...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;weightGrams&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">220</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;dimensions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;lengthCm&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">30</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;widthCm&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;heightCm&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="12-listing-data-model">12. Listing Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;listingId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;lst_789&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;sellerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;seller_12&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;skuId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sku_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;priceBookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;price_vn&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fulfillmentType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PLATFORM_WAREHOUSE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;condition&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NEW&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ACTIVE&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Một SKU có thể có nhiều listings từ nhiều sellers.</p>
+<hr>
+<h1 id="13-catalog-store-access-patterns">13. Catalog Store Access Patterns</h1>
+<p>Các query chính:</p>
+<pre class="hljs"><code><div>- Lấy product theo productId
+- Lấy các SKU của product
+- Lấy listing theo seller + SKU
+- Lấy category tree
+- Cập nhật product version
+- Bulk export sang search index
+</div></code></pre>
+<p>Catalog thường có:</p>
+<pre class="hljs"><code><div>- Relational metadata
+- Document-like attributes
+- Object storage cho ảnh/video
+</div></code></pre>
+<p>Có thể dùng SQL kết hợp document columns hoặc nhiều stores.</p>
+<hr>
+<h1 id="14-category-và-attribute-schema">14. Category và Attribute Schema</h1>
+<p>Mỗi category có attribute requirements khác nhau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Điện thoại:
+- RAM
+- Storage
+- Screen size
+- Chipset
+
+Quần áo:
+- Size
+- Color
+- Material
+- Gender
+</div></code></pre>
+<p>Category schema cần:</p>
+<pre class="hljs"><code><div>- Required attributes
+- Allowed values
+- Unit
+- Search/filter behavior
+- Display behavior
+</div></code></pre>
+<hr>
+<h1 id="15-catalog-versioning">15. Catalog Versioning</h1>
+<p>Product updates có thể gồm:</p>
+<pre class="hljs"><code><div>- Title
+- Description
+- Images
+- Attributes
+- Status
+</div></code></pre>
+<p>Mỗi update tăng:</p>
+<pre class="hljs"><code><div>productVersion
+</div></code></pre>
+<p>Search index consumer chỉ áp dụng event nếu:</p>
+<pre class="hljs"><code><div>incomingVersion &gt; indexedVersion
+</div></code></pre>
+<p>Điều này chống event out-of-order.</p>
+<hr>
+<h1 id="16-media-pipeline">16. Media Pipeline</h1>
+<p>Seller không nên upload ảnh/video lớn qua Catalog Service.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>1. Xin signed upload URL.
+2. Upload trực tiếp object storage.
+3. Quét malware.
+4. Resize và optimize.
+5. Moderation.
+6. Gắn mediaId vào product.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Seller
+    participant Media as Media Service
+    participant Storage
+    participant Processor
+    participant Catalog
+
+    Seller->>Media: Request upload URL
+    Media-->>Seller: Signed URL
+    Seller->>Storage: Upload image
+    Storage->>Processor: Object-created event
+    Processor->>Processor: Scan / resize / moderate
+    Processor-->>Media: READY
+    Seller->>Catalog: Attach mediaId
+</div></code></pre>
+<hr>
+<h1 id="17-search-index">17. Search Index</h1>
+<p>Search document có thể denormalize:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;productId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;prd_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Áo thun Basic&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;categoryPath&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;Thời trang&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;Áo&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;brand&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Brand A&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;attributes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;black&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;white&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;S&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;M&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;L&quot;</span><span class="hljs-punctuation">]</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;minPrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">99000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;rating&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4.7</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;popularityScore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.82</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;available&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Search index là projection, không phải source of truth.</p>
+<hr>
+<h1 id="18-search-pipeline">18. Search Pipeline</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    CatalogStore --> CDC[CDC / Outbox Events]
+    CDC --> Indexer[Search Indexer]
+    Indexer --> SearchIndex[(Search Index)]
+
+    Pricing --> PriceEvents
+    Inventory --> InventoryEvents
+
+    PriceEvents --> Indexer
+    InventoryEvents --> Indexer
+</div></code></pre>
+<p>Search index có thể chứa giá và availability đã denormalize, nhưng dữ liệu có thể stale.</p>
+<p>Checkout phải revalidate.</p>
+<hr>
+<h1 id="19-search-query-flow">19. Search Query Flow</h1>
+<pre class="hljs"><code><div>1. Parse query.
+2. Normalize và tokenize.
+3. Retrieve candidates.
+4. Apply filters.
+5. Rank.
+6. Return product summaries.
+</div></code></pre>
+<p>Ranking có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Text relevance
+- Conversion probability
+- Price
+- Rating
+- Popularity
+- Inventory availability
+- Delivery speed
+- Personalization
+</div></code></pre>
+<hr>
+<h1 id="20-faceted-search">20. Faceted Search</h1>
+<p>Facets:</p>
+<pre class="hljs"><code><div>Brand
+Price range
+Color
+Size
+Storage
+Rating
+</div></code></pre>
+<p>Search engine phải tính:</p>
+<pre class="hljs"><code><div>- Matching documents
+- Aggregation counts theo facet
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Color:
+Black 1.200
+White 850
+Blue 500
+</div></code></pre>
+<p>Facet counts có thể eventual consistent.</p>
+<hr>
+<h1 id="21-search-index-staleness">21. Search Index Staleness</h1>
+<p>Một SKU vừa hết hàng nhưng search vẫn hiển thị available.</p>
+<p>Có ba lớp bảo vệ:</p>
+<pre class="hljs"><code><div>1. Index updates gần realtime.
+2. Product page gọi availability service.
+3. Checkout bắt buộc revalidate inventory.
+</div></code></pre>
+<p>Không thể chỉ dựa vào search index cho correctness.</p>
+<hr>
+<h1 id="22-product-detail-page">22. Product Detail Page</h1>
+<p>PDP có thể tổng hợp:</p>
+<pre class="hljs"><code><div>- Catalog data
+- SKU variants
+- Price
+- Availability
+- Delivery estimate
+- Reviews
+- Recommendations
+</div></code></pre>
+<p>Không nên gọi tuần tự 10 services.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>- API composition song song
+- Read model
+- Edge/backend-for-frontend
+- Cache theo component
+</div></code></pre>
+<hr>
+<h1 id="23-pdp-cache">23. PDP Cache</h1>
+<p>Catalog content thay đổi chậm nên cache mạnh.</p>
+<pre class="hljs"><code><div>productId + productVersion
+→ product document
+</div></code></pre>
+<p>Dynamic components tách riêng:</p>
+<pre class="hljs"><code><div>Price:
+TTL ngắn
+
+Inventory:
+TTL rất ngắn hoặc realtime
+
+Reviews:
+TTL vừa
+
+Recommendations:
+Best effort
+</div></code></pre>
+<p>Không cache toàn PDP với cùng TTL.</p>
+<hr>
+<h1 id="24-cart-data-model">24. Cart Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;cartId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cart_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;listingId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;lst_789&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;skuId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sku_456&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;quantity&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;selectedAtPrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">99000</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;addedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">14</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;updatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p><code>selectedAtPrice</code> chỉ dùng hiển thị hoặc phát hiện thay đổi.</p>
+<p>Không phải giá authoritative khi checkout.</p>
+<hr>
+<h1 id="25-cart-không-phải-reservation">25. Cart không phải Reservation</h1>
+<p>Thêm sản phẩm vào cart không nên giữ inventory mặc định.</p>
+<p>Nếu không:</p>
+<pre class="hljs"><code><div>Một user thêm sản phẩm vào cart
+→ Không checkout
+→ Inventory bị khóa vô thời hạn
+</div></code></pre>
+<p>Thông thường:</p>
+<pre class="hljs"><code><div>Cart:
+Ý định mua
+
+Checkout:
+Mới reserve inventory
+</div></code></pre>
+<p>Ngoại lệ:</p>
+<pre class="hljs"><code><div>- Ticketing
+- Flash sale đặc biệt
+- Hàng cực hiếm
+</div></code></pre>
+<p>có thể giữ ngắn hạn.</p>
+<hr>
+<h1 id="26-cart-storage">26. Cart Storage</h1>
+<p>Cart có đặc điểm:</p>
+<pre class="hljs"><code><div>- Read/write thường xuyên
+- TTL dài vừa phải
+- Không cần transaction tài chính
+- Có thể sync nhiều thiết bị
+</div></code></pre>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Key-value store
+- Document database
+- Relational database
+</div></code></pre>
+<p>Cart key:</p>
+<pre class="hljs"><code><div>customerId hoặc cartId
+</div></code></pre>
+<hr>
+<h1 id="27-guest-cart">27. Guest Cart</h1>
+<p>Guest cart có:</p>
+<pre class="hljs"><code><div>anonymousCartId
+</div></code></pre>
+<p>Khi login:</p>
+<pre class="hljs"><code><div>Guest cart
++
+Account cart
+→ Merge
+</div></code></pre>
+<p>Merge policy cần rõ:</p>
+<pre class="hljs"><code><div>- Cộng quantity
+- Giới hạn max quantity
+- Loại listing không còn active
+- Báo price changes
+</div></code></pre>
+<hr>
+<h1 id="28-cart-concurrency">28. Cart Concurrency</h1>
+<p>User cập nhật cart trên web và mobile đồng thời.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>cartVersion
+</div></code></pre>
+<p>Update:</p>
+<pre class="hljs"><code><div>If-Match: version 14
+</div></code></pre>
+<p>Nếu conflict:</p>
+<pre class="hljs"><code><div>- Reject và client refresh
+- Hoặc merge theo item-level operation
+</div></code></pre>
+<p>API dạng command thường dễ merge:</p>
+<pre class="hljs"><code><div>AddItem
+RemoveItem
+SetQuantity
+</div></code></pre>
+<p>hơn gửi lại toàn bộ cart.</p>
+<hr>
+<h1 id="29-pricing-components">29. Pricing Components</h1>
+<p>Giá checkout có thể gồm:</p>
+<pre class="hljs"><code><div>Item base price
+Seller discount
+Platform discount
+Coupon
+Membership discount
+Shipping fee
+Tax
+Import fee
+Gift wrap
+Store credit
+</div></code></pre>
+<p>Pricing không nên nằm rải rác trong client hoặc nhiều services không có snapshot.</p>
+<hr>
+<h1 id="30-price-book">30. Price Book</h1>
+<p>Price Book có thể theo:</p>
+<pre class="hljs"><code><div>- Country
+- Currency
+- Customer segment
+- Sales channel
+- Time window
+- Membership
+</div></code></pre>
+<p>Record:</p>
+<pre class="hljs"><code><div>listingId
+priceBookId
+amount
+currency
+validFrom
+validTo
+version
+</div></code></pre>
+<hr>
+<h1 id="31-price-quote">31. Price Quote</h1>
+<p>Trước khi đặt đơn, Checkout Service tạo quote:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;quoteId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;quote_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;listingId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;lst_789&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;quantity&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;unitPrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">99000</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;discount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20000</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;tax&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10000</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shippingFee&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">25000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;total&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">213000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pricingVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">81</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="32-quote-snapshot">32. Quote Snapshot</h1>
+<p>Quote lưu:</p>
+<pre class="hljs"><code><div>- Item price
+- Discount
+- Promotion IDs
+- Shipping fee
+- Tax
+- Currency
+- Address zone
+- Expiration
+</div></code></pre>
+<p>Checkout gửi <code>quoteId</code>.</p>
+<p>Server không tin total từ client.</p>
+<hr>
+<h1 id="33-quote-expiration">33. Quote Expiration</h1>
+<p>Quote có TTL vì:</p>
+<pre class="hljs"><code><div>- Giá thay đổi
+- Coupon hết hạn
+- Shipping capacity thay đổi
+- Tax context thay đổi
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>TTL 5–15 phút
+</div></code></pre>
+<p>Flash sale quote có thể ngắn hơn.</p>
+<hr>
+<h1 id="34-promotion-engine">34. Promotion Engine</h1>
+<p>Promotion rules có thể gồm:</p>
+<pre class="hljs"><code><div>- Mua 2 giảm 10%
+- Giảm 100.000 cho đơn từ 1 triệu
+- Free shipping
+- Giảm riêng category
+- Coupon một lần/user
+- Campaign budget giới hạn
+</div></code></pre>
+<p>Promotion Engine cần:</p>
+<pre class="hljs"><code><div>Eligibility
+Priority
+Stacking
+Budget
+Usage limit
+Funding source
+</div></code></pre>
+<hr>
+<h1 id="35-promotion-reservation">35. Promotion Reservation</h1>
+<p>Campaign chỉ có:</p>
+<pre class="hljs"><code><div>10.000 redemptions
+</div></code></pre>
+<p>Nếu chỉ tăng counter sau order success, có thể oversubscribe.</p>
+<p>Pattern:</p>
+<pre class="hljs"><code><div>AVAILABLE
+→ RESERVED
+→ CONSUMED
+</div></code></pre>
+<p>Nếu checkout fail:</p>
+<pre class="hljs"><code><div>RESERVED
+→ RELEASED
+</div></code></pre>
+<p>Reservation cần TTL.</p>
+<hr>
+<h1 id="36-tax-calculation">36. Tax Calculation</h1>
+<p>Tax phụ thuộc:</p>
+<pre class="hljs"><code><div>- Seller location
+- Customer address
+- Product category
+- Currency
+- Tax exemption
+- Marketplace role
+</div></code></pre>
+<p>Quote phải lưu tax breakdown.</p>
+<p>Không chỉ lưu một total vì cần:</p>
+<pre class="hljs"><code><div>- Invoice
+- Refund
+- Audit
+- Settlement
+</div></code></pre>
+<hr>
+<h1 id="37-inventory-concepts">37. Inventory Concepts</h1>
+<h2 id="on-hand">On-hand</h2>
+<p>Số lượng vật lý tại kho.</p>
+<h2 id="reserved">Reserved</h2>
+<p>Đã giữ cho orders chưa ship.</p>
+<h2 id="available-to-promise--atp">Available to promise — ATP</h2>
+<pre class="hljs"><code><div>ATP = onHand - reserved - safetyStock
+</div></code></pre>
+<h2 id="in-transit">In-transit</h2>
+<p>Hàng đang chuyển giữa kho hoặc từ supplier.</p>
+<h2 id="damaged">Damaged</h2>
+<p>Không bán được.</p>
+<hr>
+<h1 id="38-inventory-record">38. Inventory Record</h1>
+<pre class="hljs"><code><div>sku_id
+location_id
+on_hand
+reserved
+safety_stock
+available
+version
+updated_at
+</div></code></pre>
+<p><code>location_id</code> có thể là:</p>
+<pre class="hljs"><code><div>- Warehouse
+- Store
+- Seller location
+- Fulfillment center
+</div></code></pre>
+<hr>
+<h1 id="39-inventory-source-of-truth">39. Inventory Source of Truth</h1>
+<p>Search hoặc cache có thể hiển thị:</p>
+<pre class="hljs"><code><div>Còn hàng
+</div></code></pre>
+<p>Nhưng Inventory Service mới là authoritative cho reservation.</p>
+<p>Không nên update tồn kho bằng cách:</p>
+<pre class="hljs"><code><div>Read available
+→ available - quantity
+→ Write
+</div></code></pre>
+<p>không có atomic condition.</p>
+<hr>
+<h1 id="40-inventory-reservation">40. Inventory Reservation</h1>
+<p>Checkout yêu cầu:</p>
+<pre class="hljs"><code><div>Reserve:
+sku_456
+quantity 2
+warehouse WH_A
+</div></code></pre>
+<p>Conditional update:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> inventory
+<span class="hljs-keyword">SET</span> reserved <span class="hljs-operator">=</span> reserved <span class="hljs-operator">+</span> :qty,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> sku_id <span class="hljs-operator">=</span> :sku
+  <span class="hljs-keyword">AND</span> location_id <span class="hljs-operator">=</span> :location
+  <span class="hljs-keyword">AND</span> on_hand <span class="hljs-operator">-</span> reserved <span class="hljs-operator">-</span> safety_stock <span class="hljs-operator">&gt;=</span> :qty;
+</div></code></pre>
+<p>Zero rows updated nghĩa là không đủ hàng hoặc conflict.</p>
+<hr>
+<h1 id="41-reservation-record">41. Reservation Record</h1>
+<pre class="hljs"><code><div>reservation_id
+order_id
+sku_id
+location_id
+quantity
+status
+expires_at
+version
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ ALLOCATED
+→ CONSUMED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ RELEASED
+ACTIVE
+→ EXPIRED
+</div></code></pre>
+<hr>
+<h1 id="42-reservation-ttl">42. Reservation TTL</h1>
+<p>Nếu customer bỏ checkout hoặc payment treo:</p>
+<pre class="hljs"><code><div>Inventory không được giữ mãi.
+</div></code></pre>
+<p>TTL có thể:</p>
+<pre class="hljs"><code><div>5–15 phút cho checkout
+30–60 phút cho một số payment challenge
+</div></code></pre>
+<p>Policy phải phối hợp với payment state.</p>
+<p>Không release khi payment có unknown outcome mà không kiểm tra.</p>
+<hr>
+<h1 id="43-soft-reservation-và-hard-allocation">43. Soft Reservation và Hard Allocation</h1>
+<h2 id="soft-reservation">Soft reservation</h2>
+<p>Giữ inventory logic trong checkout/order.</p>
+<h2 id="hard-allocation">Hard allocation</h2>
+<p>Warehouse xác định unit/location thực tế để pick.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>ATP reserve
+→ Warehouse allocation
+→ Pick
+→ Ship
+</div></code></pre>
+<p>Soft reservation chưa nhất thiết chỉ ra bin cụ thể.</p>
+<hr>
+<h1 id="44-multi-warehouse-inventory">44. Multi-Warehouse Inventory</h1>
+<p>SKU có thể tồn tại ở:</p>
+<pre class="hljs"><code><div>WH_HCM
+WH_HN
+WH_DN
+</div></code></pre>
+<p>Allocation cần chọn kho dựa trên:</p>
+<pre class="hljs"><code><div>- Inventory
+- Customer distance
+- Delivery promise
+- Shipping cost
+- Warehouse workload
+- Split shipment penalty
+</div></code></pre>
+<hr>
+<h1 id="45-inventory-allocation-score">45. Inventory Allocation Score</h1>
+<p>Một cost function khái niệm:</p>
+<pre class="hljs"><code><div>cost =
+shippingCost
++ deliveryTimePenalty
++ warehouseLoadPenalty
++ splitShipmentPenalty
++ stockRiskPenalty
+</div></code></pre>
+<p>Không nên luôn chọn warehouse gần nhất nếu:</p>
+<pre class="hljs"><code><div>- Warehouse quá tải
+- Chỉ có một phần order
+- Kho khác có thể ship toàn bộ
+</div></code></pre>
+<hr>
+<h1 id="46-split-shipment">46. Split Shipment</h1>
+<p>Order có ba items:</p>
+<pre class="hljs"><code><div>Item A ở WH1
+Item B ở WH1
+Item C ở WH2
+</div></code></pre>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>Fulfillment 1:
+A + B từ WH1
+
+Fulfillment 2:
+C từ WH2
+</div></code></pre>
+<p>Một customer order có thể có nhiều fulfillments và shipments.</p>
+<hr>
+<h1 id="47-order-fulfillment-và-shipment">47. Order, Fulfillment và Shipment</h1>
+<h2 id="order">Order</h2>
+<p>Cam kết thương mại với customer.</p>
+<h2 id="fulfillment-1">Fulfillment</h2>
+<p>Nhóm items được một node chuẩn bị.</p>
+<h2 id="shipment">Shipment</h2>
+<p>Parcel thực tế được carrier vận chuyển.</p>
+<p>Quan hệ:</p>
+<pre class="hljs"><code><div>1 Order
+→ N Fulfillments
+→ N hoặc nhiều Shipments
+</div></code></pre>
+<p>Không nên dùng một trạng thái shipment duy nhất trong order.</p>
+<hr>
+<h1 id="48-checkout-idempotency">48. Checkout Idempotency</h1>
+<p>Request:</p>
+<pre class="hljs"><code><div>POST /v1/checkouts/{checkoutId}/place-order
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>checkout_submit_123
+</div></code></pre>
+<p>Retry phải trả cùng:</p>
+<pre class="hljs"><code><div>orderId
+paymentIntentId
+</div></code></pre>
+<p>Không tạo thêm order hoặc payment.</p>
+<hr>
+<h1 id="49-checkout-aggregate">49. Checkout Aggregate</h1>
+<p>Checkout session có thể chứa:</p>
+<pre class="hljs"><code><div>checkout_id
+customer_id
+cart_snapshot
+address
+shipping_options
+quote_id
+inventory_reservations
+payment_intent_id
+status
+expires_at
+version
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>CREATED
+→ QUOTED
+→ INVENTORY_RESERVED
+→ PAYMENT_PROCESSING
+→ ORDER_CREATED
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>EXPIRED
+FAILED
+CANCELED
+</div></code></pre>
+<hr>
+<h1 id="50-checkout-saga">50. Checkout Saga</h1>
+<p>Checkout liên quan nhiều services:</p>
+<pre class="hljs"><code><div>Pricing
+Inventory
+Promotion
+Payment
+Order
+</div></code></pre>
+<p>Không thể dùng một ACID transaction xuyên tất cả.</p>
+<p>Dùng Saga:</p>
+<pre class="hljs"><code><div>1. Validate quote.
+2. Reserve inventory.
+3. Reserve promotions.
+4. Authorize payment.
+5. Create order.
+6. Consume reservations.
+</div></code></pre>
+<p>Compensation:</p>
+<pre class="hljs"><code><div>- Release inventory
+- Release promotion
+- Void authorization
+</div></code></pre>
+<hr>
+<h1 id="51-nên-authorize-payment-trước-hay-reserve-inventory-trước">51. Nên Authorize Payment trước hay Reserve Inventory trước?</h1>
+<h2 id="reserve-inventory-trước">Reserve inventory trước</h2>
+<pre class="hljs"><code><div>Ưu:
+Không charge/authorize khi hết hàng.
+
+Nhược:
+Inventory bị giữ trong lúc payment challenge.
+</div></code></pre>
+<h2 id="authorize-trước">Authorize trước</h2>
+<pre class="hljs"><code><div>Ưu:
+Không giữ stock cho customer không trả được.
+
+Nhược:
+Authorize xong mới biết hết hàng.
+</div></code></pre>
+<p>Một flow phổ biến:</p>
+<pre class="hljs"><code><div>1. Soft-check inventory.
+2. Reserve inventory.
+3. Authorize payment.
+4. Create order.
+</div></code></pre>
+<p>TTL và compensation xử lý failure.</p>
+<hr>
+<h1 id="52-order-creation-atomicity">52. Order Creation Atomicity</h1>
+<p>Trong Order Service transaction:</p>
+<pre class="hljs"><code><div>- Insert order
+- Insert order lines
+- Store price snapshot
+- Store address snapshot
+- Store payment reference
+- Insert outbox event
+</div></code></pre>
+<p>Sau commit:</p>
+<pre class="hljs"><code><div>OrderCreated
+</div></code></pre>
+<p>được phát bất đồng bộ.</p>
+<hr>
+<h1 id="53-vì-sao-order-phải-lưu-snapshot">53. Vì sao Order phải lưu Snapshot?</h1>
+<p>Product data có thể thay đổi sau khi order được đặt:</p>
+<pre class="hljs"><code><div>- Title đổi
+- Seller đổi description
+- Giá đổi
+- SKU bị xóa
+- Địa chỉ customer đổi
+</div></code></pre>
+<p>Order phải lưu snapshot:</p>
+<pre class="hljs"><code><div>- Product title
+- SKU attributes
+- Unit price
+- Discount
+- Tax
+- Seller
+- Shipping address
+</div></code></pre>
+<p>để invoice và support vẫn đúng.</p>
+<hr>
+<h1 id="54-order-data-model">54. Order Data Model</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;customerId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cus_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">213000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;commerceState&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CONFIRMED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;paymentState&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AUTHORIZED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;fulfillmentState&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;UNALLOCATED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;shipmentState&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NOT_SHIPPED&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="55-không-nên-dùng-một-order-status-duy-nhất">55. Không nên dùng một Order Status duy nhất</h1>
+<p>Một order có thể:</p>
+<pre class="hljs"><code><div>Payment:
+CAPTURED
+
+Fulfillment:
+PARTIALLY_FULFILLED
+
+Shipment:
+PARTIALLY_DELIVERED
+
+Return:
+REQUESTED
+</div></code></pre>
+<p>Một field như:</p>
+<pre class="hljs"><code><div>status = PROCESSING
+</div></code></pre>
+<p>không đủ biểu diễn.</p>
+<p>Nên tách state dimensions.</p>
+<hr>
+<h1 id="56-order-state-dimensions">56. Order State Dimensions</h1>
+<h2 id="commerce-state">Commerce state</h2>
+<pre class="hljs"><code><div>CREATED
+CONFIRMED
+CANCELED
+COMPLETED
+</div></code></pre>
+<h2 id="payment-state">Payment state</h2>
+<pre class="hljs"><code><div>PENDING
+AUTHORIZED
+CAPTURED
+PARTIALLY_REFUNDED
+REFUNDED
+FAILED
+</div></code></pre>
+<h2 id="fulfillment-state">Fulfillment state</h2>
+<pre class="hljs"><code><div>UNALLOCATED
+ALLOCATED
+PICKING
+PARTIALLY_FULFILLED
+FULFILLED
+</div></code></pre>
+<h2 id="shipment-state">Shipment state</h2>
+<pre class="hljs"><code><div>NOT_SHIPPED
+PARTIALLY_SHIPPED
+SHIPPED
+PARTIALLY_DELIVERED
+DELIVERED
+</div></code></pre>
+<h2 id="return-state">Return state</h2>
+<pre class="hljs"><code><div>NONE
+REQUESTED
+AUTHORIZED
+IN_TRANSIT
+RECEIVED
+COMPLETED
+</div></code></pre>
+<hr>
+<h1 id="57-order-line-state">57. Order Line State</h1>
+<p>Một order có nhiều lines với lifecycle khác nhau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Line A:
+SHIPPED
+
+Line B:
+BACKORDERED
+
+Line C:
+CANCELED
+</div></code></pre>
+<p>Order aggregate state được derive từ line states.</p>
+<p>Không chỉ lưu state ở order level.</p>
+<hr>
+<h1 id="58-order-state-transition">58. Order State Transition</h1>
+<p>Dùng optimistic locking:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> commerce_state <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;CONFIRMED&#x27;</span>,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> order_id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> commerce_state <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;CREATED&#x27;</span>
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<p>Mọi command cần idempotent.</p>
+<hr>
+<h1 id="59-order-event-log">59. Order Event Log</h1>
+<p>Các events:</p>
+<pre class="hljs"><code><div>OrderCreated
+PaymentAuthorized
+InventoryAllocated
+FulfillmentCreated
+ItemPicked
+ShipmentCreated
+ShipmentDispatched
+OrderDelivered
+ReturnRequested
+RefundCompleted
+</div></code></pre>
+<p>Events hỗ trợ:</p>
+<pre class="hljs"><code><div>- Notifications
+- Search/read models
+- Analytics
+- OMS workflows
+- Support
+</div></code></pre>
+<hr>
+<h1 id="60-transactional-outbox">60. Transactional Outbox</h1>
+<p>Order update và event publish cùng transaction:</p>
+<pre class="hljs"><code><div>Update order
++
+Insert outbox event
+</div></code></pre>
+<p>Nếu event duplicate, consumer dùng:</p>
+<pre class="hljs"><code><div>eventId
+aggregateVersion
+</div></code></pre>
+<p>để dedupe và xử lý ordering.</p>
+<hr>
+<h1 id="61-order-management-system--oms">61. Order Management System — OMS</h1>
+<p>OMS điều phối:</p>
+<pre class="hljs"><code><div>- Order validation
+- Inventory allocation
+- Fulfillment splitting
+- Payment capture
+- Cancellation
+- Backorder
+- Shipment coordination
+- Returns
+</div></code></pre>
+<p>OMS không nhất thiết là source of truth của warehouse operations.</p>
+<p>WMS quản lý pick/pack vật lý.</p>
+<hr>
+<h1 id="62-fulfillment-creation">62. Fulfillment Creation</h1>
+<p>Sau OrderCreated:</p>
+<pre class="hljs"><code><div>1. Chọn warehouse.
+2. Nhóm order lines theo warehouse.
+3. Tạo fulfillment records.
+4. Gửi fulfillment request tới WMS.
+</div></code></pre>
+<p>Fulfillment record:</p>
+<pre class="hljs"><code><div>fulfillment_id
+order_id
+location_id
+lines
+status
+priority
+ship_by
+deliver_by
+version
+</div></code></pre>
+<hr>
+<h1 id="63-fulfillment-state-machine">63. Fulfillment State Machine</h1>
+<pre class="hljs"><code><div>CREATED
+→ ALLOCATED
+→ RELEASED_TO_WAREHOUSE
+→ PICKING
+→ PACKED
+→ HANDED_TO_CARRIER
+→ COMPLETED
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>SHORT_PICK
+CANCELED
+FAILED
+BACKORDERED
+</div></code></pre>
+<hr>
+<h1 id="64-warehouse-management-system--wms">64. Warehouse Management System — WMS</h1>
+<p>WMS chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Bin locations
+- Pick waves
+- Picker tasks
+- Packing stations
+- Label printing
+- Inventory adjustments
+- Handover
+</div></code></pre>
+<p>E-commerce platform thường tích hợp với WMS qua APIs hoặc events.</p>
+<hr>
+<h1 id="65-pick-task">65. Pick Task</h1>
+<pre class="hljs"><code><div>pick_task_id
+fulfillment_id
+sku_id
+quantity
+bin_location
+assigned_worker
+status
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>CREATED
+→ ASSIGNED
+→ PICKED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>CREATED
+→ SHORT_PICK
+</div></code></pre>
+<hr>
+<h1 id="66-short-pick">66. Short Pick</h1>
+<p>Inventory system nói còn 5 nhưng picker chỉ thấy 3.</p>
+<p>Nguyên nhân:</p>
+<pre class="hljs"><code><div>- Hàng mất
+- Damage
+- Sai kiểm kê
+- Put-away sai
+</div></code></pre>
+<p>Workflow:</p>
+<pre class="hljs"><code><div>1. Ghi inventory adjustment.
+2. Tìm warehouse khác.
+3. Backorder.
+4. Hủy line.
+5. Refund hoặc cập nhật payment.
+</div></code></pre>
+<p>Không được giả định reservation đảm bảo vật lý 100%.</p>
+<hr>
+<h1 id="67-inventory-reconciliation">67. Inventory Reconciliation</h1>
+<p>So sánh:</p>
+<pre class="hljs"><code><div>System on-hand
+vs
+Physical count
+vs
+WMS records
+</div></code></pre>
+<p>Các discrepancy cần:</p>
+<pre class="hljs"><code><div>- Adjustment transaction
+- Audit
+- Root-cause analysis
+</div></code></pre>
+<p>Không sửa số lượng im lặng.</p>
+<hr>
+<h1 id="68-pick-wave">68. Pick Wave</h1>
+<p>Warehouse có thể nhóm nhiều fulfillments thành wave:</p>
+<pre class="hljs"><code><div>- Cùng khu vực kho
+- Cùng carrier cutoff
+- Cùng priority
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Tối ưu quãng đường picker
+- Tăng throughput
+</div></code></pre>
+<p>Nhưng order gấp có thể dùng priority queue riêng.</p>
+<hr>
+<h1 id="69-packing">69. Packing</h1>
+<p>Packing Service/WMS xác định:</p>
+<pre class="hljs"><code><div>- Box size
+- Số parcel
+- Weight
+- Hazard restrictions
+- Fragile handling
+- Cold-chain requirements
+</div></code></pre>
+<p>Một fulfillment có thể tạo nhiều parcels.</p>
+<hr>
+<h1 id="70-shipment-data-model">70. Shipment Data Model</h1>
+<pre class="hljs"><code><div>shipment_id
+fulfillment_id
+carrier
+service_level
+tracking_number
+status
+origin
+destination
+estimated_delivery
+shipped_at
+delivered_at
+version
+</div></code></pre>
+<hr>
+<h1 id="71-shipping-rate-shopping">71. Shipping Rate Shopping</h1>
+<p>Trước checkout hoặc fulfillment, hệ thống có thể chọn carrier dựa trên:</p>
+<pre class="hljs"><code><div>- Delivery speed
+- Cost
+- Destination
+- Package size
+- Carrier capacity
+- Reliability
+- Customer promise
+</div></code></pre>
+<p>Quote checkout có thể dùng estimate.</p>
+<p>Sau packing mới biết trọng lượng chính xác.</p>
+<hr>
+<h1 id="72-delivery-promise">72. Delivery Promise</h1>
+<p>Customer thấy:</p>
+<pre class="hljs"><code><div>“Giao trước thứ Sáu”
+</div></code></pre>
+<p>Promise gồm:</p>
+<pre class="hljs"><code><div>Order processing cutoff
++ Warehouse handling
++ Carrier transit
++ Weekend/holiday
++ Destination constraints
+</div></code></pre>
+<p>Promise phải được snapshot vào order.</p>
+<hr>
+<h1 id="73-shipping-label">73. Shipping Label</h1>
+<p>Shipping Service gọi carrier:</p>
+<pre class="hljs"><code><div>Create shipment
+→ Receive tracking number
+→ Receive label PDF/ZPL
+</div></code></pre>
+<p>Request phải idempotent.</p>
+<p>Nếu timeout:</p>
+<pre class="hljs"><code><div>Carrier có thể đã tạo shipment.
+</div></code></pre>
+<p>Cần:</p>
+<pre class="hljs"><code><div>carrierRequestId
+idempotency key
+status query
+reconciliation
+</div></code></pre>
+<p>Tránh tạo hai labels/shipments.</p>
+<hr>
+<h1 id="74-carrier-webhooks">74. Carrier Webhooks</h1>
+<p>Carrier events:</p>
+<pre class="hljs"><code><div>PICKED_UP
+IN_TRANSIT
+OUT_FOR_DELIVERY
+DELIVERED
+DELIVERY_FAILED
+RETURN_TO_SENDER
+</div></code></pre>
+<p>Webhook cần:</p>
+<pre class="hljs"><code><div>- Verify
+- Persist inbox
+- Dedupe
+- Handle out-of-order
+</div></code></pre>
+<p>Carrier status có thể không monotonic hoàn hảo.</p>
+<hr>
+<h1 id="75-shipment-tracking-projection">75. Shipment Tracking Projection</h1>
+<p>Tracking read model:</p>
+<pre class="hljs"><code><div>orderId
+shipmentId
+carrier
+latestStatus
+lastLocation
+estimatedDelivery
+eventHistory
+</div></code></pre>
+<p>Source of truth có thể là:</p>
+<pre class="hljs"><code><div>Carrier events + shipment state
+</div></code></pre>
+<p>Customer không cần đọc trực tiếp OMS/WMS.</p>
+<hr>
+<h1 id="76-shipment-event-ordering">76. Shipment Event Ordering</h1>
+<p>Có thể nhận:</p>
+<pre class="hljs"><code><div>DELIVERED
+</div></code></pre>
+<p>rồi sau đó event trễ:</p>
+<pre class="hljs"><code><div>IN_TRANSIT
+</div></code></pre>
+<p>Không được rollback shipment.</p>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>- Carrier event time
+- Provider sequence
+- Allowed transition table
+- Latest carrier status query
+</div></code></pre>
+<hr>
+<h1 id="77-partial-delivery">77. Partial Delivery</h1>
+<p>Một order có hai shipments:</p>
+<pre class="hljs"><code><div>Shipment A:
+Delivered
+
+Shipment B:
+In transit
+</div></code></pre>
+<p>Order shipment state:</p>
+<pre class="hljs"><code><div>PARTIALLY_DELIVERED
+</div></code></pre>
+<p>Customer UI phải hiển thị theo parcel hoặc fulfillment.</p>
+<hr>
+<h1 id="78-payment-capture-và-fulfillment">78. Payment Capture và Fulfillment</h1>
+<p>Các lựa chọn:</p>
+<h2 id="capture-ngay-khi-order-confirmed">Capture ngay khi order confirmed</h2>
+<pre class="hljs"><code><div>Ưu:
+Dòng tiền sớm
+
+Nhược:
+Refund nhiều hơn nếu short pick/cancel
+</div></code></pre>
+<h2 id="capture-khi-shipment-tạo">Capture khi shipment tạo</h2>
+<pre class="hljs"><code><div>Phù hợp nhiều retailer
+</div></code></pre>
+<h2 id="capture-khi-carrier-handover">Capture khi carrier handover</h2>
+<pre class="hljs"><code><div>Giảm capture hàng chưa ship
+</div></code></pre>
+<p>Policy phụ thuộc business và payment authorization expiry.</p>
+<hr>
+<h1 id="79-partial-capture">79. Partial Capture</h1>
+<p>Order 3 items, chỉ 2 được ship.</p>
+<p>Có thể capture:</p>
+<pre class="hljs"><code><div>Giá trị 2 items đã ship
+</div></code></pre>
+<p>sau đó capture phần còn lại khi item 3 ship.</p>
+<p>Invariant:</p>
+<pre class="hljs"><code><div>Total captured
+≤
+Authorized amount
+</div></code></pre>
+<p>Order payment state có thể:</p>
+<pre class="hljs"><code><div>PARTIALLY_CAPTURED
+</div></code></pre>
+<hr>
+<h1 id="80-backorder">80. Backorder</h1>
+<p>Khi chưa có inventory hiện tại nhưng dự kiến nhập thêm:</p>
+<pre class="hljs"><code><div>Line state:
+BACKORDERED
+</div></code></pre>
+<p>Cần lưu:</p>
+<pre class="hljs"><code><div>expected_restock_date
+customer_consent
+latest_ship_date
+</div></code></pre>
+<p>Không nên giữ payment authorization vô thời hạn.</p>
+<p>Có thể reauthorize sau.</p>
+<hr>
+<h1 id="81-preorder">81. Preorder</h1>
+<p>Sản phẩm chưa phát hành nhưng cho đặt trước.</p>
+<p>Khác backorder:</p>
+<pre class="hljs"><code><div>Preorder:
+Planned availability trong tương lai
+
+Backorder:
+Đã bán nhưng tạm hết hàng
+</div></code></pre>
+<p>Inventory, payment và customer promise cần policy riêng.</p>
+<hr>
+<h1 id="82-order-cancellation">82. Order Cancellation</h1>
+<p>Khả năng hủy phụ thuộc stage.</p>
+<h2 id="trước-allocation">Trước allocation</h2>
+<pre class="hljs"><code><div>Hủy dễ
+Release reservation
+Void payment
+</div></code></pre>
+<h2 id="đang-picking">Đang picking</h2>
+<pre class="hljs"><code><div>Cần gửi cancel command tới WMS
+Có thể race với pick
+</div></code></pre>
+<h2 id="đã-ship">Đã ship</h2>
+<pre class="hljs"><code><div>Không còn cancel thông thường
+Chuyển thành return/refusal workflow
+</div></code></pre>
+<hr>
+<h1 id="83-cancellation-race">83. Cancellation Race</h1>
+<p>Customer hủy cùng lúc warehouse ship.</p>
+<p>Hai transitions tranh:</p>
+<pre class="hljs"><code><div>ALLOCATED → CANCELED
+ALLOCATED → SHIPPED
+</div></code></pre>
+<p>Chỉ một conditional update thắng.</p>
+<p>Nếu shipment thắng:</p>
+<pre class="hljs"><code><div>Cancellation trở thành intercept hoặc return.
+</div></code></pre>
+<hr>
+<h1 id="84-cancel-command-idempotency">84. Cancel Command Idempotency</h1>
+<pre class="hljs"><code><div>cancel_request_id
+order_id
+requested_lines
+reason
+status
+</div></code></pre>
+<p>Retry cùng request không tạo refund hoặc release inventory nhiều lần.</p>
+<hr>
+<h1 id="85-returns">85. Returns</h1>
+<p>Return flow:</p>
+<pre class="hljs"><code><div>Customer yêu cầu trả
+→ Eligibility
+→ Return authorization
+→ Shipping label hoặc pickup
+→ Carrier vận chuyển
+→ Warehouse nhận
+→ Inspection
+→ Refund hoặc replacement
+</div></code></pre>
+<hr>
+<h1 id="86-return-eligibility">86. Return Eligibility</h1>
+<p>Phụ thuộc:</p>
+<pre class="hljs"><code><div>- Return window
+- Product category
+- Product condition
+- Seller policy
+- Reason
+- Customer history
+- Regulatory requirements
+</div></code></pre>
+<p>Không phải mọi delivered item đều returnable.</p>
+<hr>
+<h1 id="87-return-merchandise-authorization--rma">87. Return Merchandise Authorization — RMA</h1>
+<pre class="hljs"><code><div>rma_id
+order_id
+order_line_id
+quantity
+reason
+return_method
+status
+expires_at
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>REQUESTED
+→ AUTHORIZED
+→ IN_TRANSIT
+→ RECEIVED
+→ INSPECTED
+→ COMPLETED
+</div></code></pre>
+<p>Failure:</p>
+<pre class="hljs"><code><div>REJECTED
+EXPIRED
+LOST
+</div></code></pre>
+<hr>
+<h1 id="88-return-inspection">88. Return Inspection</h1>
+<p>Warehouse có thể kết luận:</p>
+<pre class="hljs"><code><div>RESTOCKABLE
+DAMAGED
+USED
+WRONG_ITEM
+EMPTY_BOX
+</div></code></pre>
+<p>Kết quả ảnh hưởng:</p>
+<pre class="hljs"><code><div>- Refund amount
+- Inventory destination
+- Seller liability
+- Fraud score
+</div></code></pre>
+<hr>
+<h1 id="89-refund-timing">89. Refund Timing</h1>
+<p>Các lựa chọn:</p>
+<h2 id="refund-khi-carrier-scan-return">Refund khi carrier scan return</h2>
+<pre class="hljs"><code><div>Nhanh cho customer
+Rủi ro fraud cao hơn
+</div></code></pre>
+<h2 id="refund-khi-warehouse-nhận">Refund khi warehouse nhận</h2>
+<pre class="hljs"><code><div>Cân bằng
+</div></code></pre>
+<h2 id="refund-sau-inspection">Refund sau inspection</h2>
+<pre class="hljs"><code><div>An toàn hơn
+Customer chờ lâu
+</div></code></pre>
+<p>Policy có thể dựa trên customer trust và item value.</p>
+<hr>
+<h1 id="90-replacement">90. Replacement</h1>
+<p>Replacement không chỉ là refund rồi customer tự mua lại.</p>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>Replacement order
+</div></code></pre>
+<p>liên kết tới RMA.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Reserve replacement inventory
+- Có thể miễn payment
+- Ship trước hoặc sau khi nhận return
+</div></code></pre>
+<hr>
+<h1 id="91-return-inventory">91. Return Inventory</h1>
+<p>Returned item không đi thẳng về sellable inventory.</p>
+<p>Flow:</p>
+<pre class="hljs"><code><div>RECEIVED
+→ QUARANTINE
+→ INSPECTED
+→ RESTOCKABLE hoặc DAMAGED
+</div></code></pre>
+<p>Chỉ restock sau inspection phù hợp.</p>
+<hr>
+<h1 id="92-refund-ledger">92. Refund Ledger</h1>
+<p>Refund tạo financial transaction mới.</p>
+<p>Không xóa payment gốc.</p>
+<p>Cần xử lý:</p>
+<pre class="hljs"><code><div>- Customer refund
+- Seller payable reversal
+- Platform fee reversal
+- Tax adjustment
+- Shipping fee policy
+</div></code></pre>
+<p>Partial refund cần line-level breakdown.</p>
+<hr>
+<h1 id="93-flash-sale-problem">93. Flash Sale Problem</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>Inventory: 10.000 units
+Traffic: 1.000.000 attempts/giây
+</div></code></pre>
+<p>Nếu mọi request tới Inventory DB:</p>
+<pre class="hljs"><code><div>- Database quá tải
+- Lock contention
+- Retry storm
+- Oversell hoặc timeout
+</div></code></pre>
+<p>Flash sale cần architecture riêng.</p>
+<hr>
+<h1 id="94-flash-sale-goals">94. Flash Sale Goals</h1>
+<pre class="hljs"><code><div>- Không bán vượt quá inventory giới hạn.
+- Hấp thụ traffic spike.
+- Phản hồi nhanh cho người không thắng.
+- Chống bot.
+- Không để flash sale làm ảnh hưởng checkout thông thường.
+- Không giữ inventory cho người không thanh toán.
+</div></code></pre>
+<hr>
+<h1 id="95-admission-control">95. Admission Control</h1>
+<p>Không cho mọi request vào core checkout.</p>
+<p>Các lớp:</p>
+<pre class="hljs"><code><div>CDN/Edge
+→ Rate limit
+→ Bot detection
+→ Waiting room
+→ Token admission
+→ Inventory reservation
+</div></code></pre>
+<hr>
+<h1 id="96-virtual-waiting-room">96. Virtual Waiting Room</h1>
+<p>User vào queue trước khi sale mở.</p>
+<p>Hệ thống phát:</p>
+<pre class="hljs"><code><div>queueToken
+position hoặc estimated wait
+</div></code></pre>
+<p>Chỉ một lượng traffic kiểm soát được vào mỗi giây.</p>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Làm phẳng spike
+- Bảo vệ backend
+- Công bằng hơn
+</div></code></pre>
+<hr>
+<h1 id="97-sale-access-token">97. Sale Access Token</h1>
+<p>Token có thể chứa:</p>
+<pre class="hljs"><code><div>saleId
+customerId/sessionId
+issuedAt
+expiresAt
+nonce
+</div></code></pre>
+<p>Token được ký.</p>
+<p>Không phải cứ có token là chắc chắn mua được; token chỉ cho phép thử reservation.</p>
+<hr>
+<h1 id="98-pre-deduct-counter">98. Pre-Deduct Counter</h1>
+<p>Một pattern:</p>
+<pre class="hljs"><code><div>Flash-sale inventory counter
+</div></code></pre>
+<p>được đặt trong high-throughput atomic store.</p>
+<p>Request:</p>
+<pre class="hljs"><code><div>DECREMENT nếu counter &gt; 0
+</div></code></pre>
+<p>Nếu thành công:</p>
+<pre class="hljs"><code><div>Tạo reservation token
+</div></code></pre>
+<p>Sau đó mới vào checkout.</p>
+<hr>
+<h1 id="99-counter-và-inventory-source-of-truth">99. Counter và Inventory Source of Truth</h1>
+<p>Flash-sale counter là allocation gate.</p>
+<p>Inventory ledger vẫn là source of truth.</p>
+<p>Cần reconcile:</p>
+<pre class="hljs"><code><div>Sale counter decrements
+vs
+Actual reservations
+vs
+Orders consumed
+</div></code></pre>
+<p>Nếu checkout fail:</p>
+<pre class="hljs"><code><div>Reservation hết hạn
+→ counter có thể được hoàn lại
+</div></code></pre>
+<hr>
+<h1 id="100-reservation-token-cho-flash-sale">100. Reservation Token cho Flash Sale</h1>
+<pre class="hljs"><code><div>reservationToken
+saleId
+skuId
+customerId
+quantity
+expiresAt
+status
+</div></code></pre>
+<p>State:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ CONSUMED
+</div></code></pre>
+<p>hoặc:</p>
+<pre class="hljs"><code><div>ACTIVE
+→ EXPIRED
+ACTIVE
+→ RELEASED
+</div></code></pre>
+<p>Checkout chỉ được mua flash-sale price nếu token hợp lệ.</p>
+<hr>
+<h1 id="101-một-user-một-unit">101. Một User một Unit</h1>
+<p>Dùng conditional key:</p>
+<pre class="hljs"><code><div>(saleId, customerId)
+</div></code></pre>
+<p>Nếu đã tồn tại:</p>
+<pre class="hljs"><code><div>Reject duplicate attempt
+</div></code></pre>
+<p>Nhưng attacker có thể dùng nhiều accounts, nên cần bot/risk controls bổ sung.</p>
+<hr>
+<h1 id="102-queue-based-flash-sale">102. Queue-Based Flash Sale</h1>
+<p>Một phương án khác:</p>
+<pre class="hljs"><code><div>Purchase requests
+→ Durable queue
+→ Sequential/partitioned reservation workers
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Backpressure tự nhiên
+- Ordering rõ hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- User chờ kết quả
+- Queue backlog
+- Cần dedupe
+</div></code></pre>
+<p>Có thể trả:</p>
+<pre class="hljs"><code><div>PENDING
+</div></code></pre>
+<p>rồi thông báo kết quả sau.</p>
+<hr>
+<h1 id="103-sharding-flash-sale-inventory">103. Sharding Flash Sale Inventory</h1>
+<p>Một SKU cực nóng vẫn là một key nóng.</p>
+<p>Có thể chia inventory thành buckets:</p>
+<pre class="hljs"><code><div>sku_hot:bucket_0 = 100
+...
+sku_hot:bucket_99 = 100
+</div></code></pre>
+<p>Tổng:</p>
+<pre class="hljs"><code><div>10.000
+</div></code></pre>
+<p>User hash vào bucket hoặc thử một vài buckets.</p>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>Một bucket hết sớm dù bucket khác còn.
+</div></code></pre>
+<p>Cần rebalancing hoặc random retry có giới hạn.</p>
+<hr>
+<h1 id="104-flash-sale-isolation">104. Flash Sale Isolation</h1>
+<p>Flash sale nên có:</p>
+<pre class="hljs"><code><div>- Dedicated endpoints
+- Dedicated caches
+- Separate queues
+- Separate inventory gate
+- Separate worker pools
+- Resource quotas
+</div></code></pre>
+<p>Không để flash sale chiếm hết:</p>
+<pre class="hljs"><code><div>- Database connections
+- Payment workers
+- Order workers
+</div></code></pre>
+<p>của traffic thông thường.</p>
+<hr>
+<h1 id="105-flash-sale-payment">105. Flash Sale Payment</h1>
+<p>Reservation TTL phải đủ để thanh toán nhưng không quá dài.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>Reservation 5 phút
+</div></code></pre>
+<p>Nếu payment challenge kéo dài:</p>
+<pre class="hljs"><code><div>- Gia hạn có điều kiện
+- Hoặc release và báo hết hạn
+</div></code></pre>
+<p>Không giữ hàng 30 phút cho hàng triệu người.</p>
+<hr>
+<h1 id="106-flash-sale-fairness">106. Flash Sale Fairness</h1>
+<p>Các mô hình:</p>
+<pre class="hljs"><code><div>- First-come-first-served
+- Random lottery
+- Queue order
+- Invitation
+- Customer tier
+</div></code></pre>
+<p>“First-come” trên internet không hoàn toàn công bằng do:</p>
+<pre class="hljs"><code><div>- Network latency
+- Device speed
+- Region
+</div></code></pre>
+<p>Policy phải rõ.</p>
+<hr>
+<h1 id="107-multi-region-catalog-và-search">107. Multi-Region Catalog và Search</h1>
+<p>Catalog authoritative có thể có home region hoặc globally distributed writes.</p>
+<p>Search index được build và replicate tới regions phục vụ.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    CatalogWrite[Catalog Write Region] --> CatalogStore
+    CatalogStore --> GlobalEvents
+    GlobalEvents --> IndexerA[Indexer Region A]
+    GlobalEvents --> IndexerB[Indexer Region B]
+    IndexerA --> SearchA[(Search Index A)]
+    IndexerB --> SearchB[(Search Index B)]
+</div></code></pre>
+<p>Search có thể eventual consistent giữa regions.</p>
+<hr>
+<h1 id="108-inventory-multi-region">108. Inventory Multi-Region</h1>
+<p>Inventory thuộc location vật lý.</p>
+<pre class="hljs"><code><div>WH_HCM inventory
+</div></code></pre>
+<p>không nên multi-write từ mọi region.</p>
+<p>Mỗi inventory location có owner region.</p>
+<p>Checkout route reservation tới owner của location.</p>
+<hr>
+<h1 id="109-order-home-region">109. Order Home Region</h1>
+<p>Order có thể được đặt vào region gần customer, nhưng fulfillment inventory có thể ở region khác.</p>
+<p>Một lựa chọn:</p>
+<pre class="hljs"><code><div>Order home region = market/customer checkout region
+</div></code></pre>
+<p>OMS gọi inventory owners qua commands.</p>
+<p>Lựa chọn khác:</p>
+<pre class="hljs"><code><div>Order home region = seller/market region
+</div></code></pre>
+<p>Cần tránh thay owner trong lifecycle.</p>
+<hr>
+<h1 id="110-marketplace-multi-seller-order">110. Marketplace Multi-Seller Order</h1>
+<p>Customer checkout items từ nhiều sellers.</p>
+<p>Có thể tạo:</p>
+<pre class="hljs"><code><div>Parent order
+→ Seller order A
+→ Seller order B
+</div></code></pre>
+<p>Payment có thể là một charge, nhưng settlement và fulfillment tách.</p>
+<p>Parent order tổng hợp UX.</p>
+<p>Seller orders là units vận hành.</p>
+<hr>
+<h1 id="111-multi-region-order-ownership">111. Multi-Region Order Ownership</h1>
+<p>Mỗi seller order có thể có home region riêng.</p>
+<p>Parent order lưu:</p>
+<pre class="hljs"><code><div>childOrderIds
+</div></code></pre>
+<p>Trạng thái parent được derive.</p>
+<p>Điều này tránh transaction global xuyên nhiều sellers, nhưng tăng orchestration.</p>
+<hr>
+<h1 id="112-data-residency">112. Data Residency</h1>
+<p>Cần xét:</p>
+<pre class="hljs"><code><div>- Customer PII
+- Address
+- Order history
+- Payment references
+- Seller records
+- Returns evidence
+- Search logs
+- Warehouse data
+</div></code></pre>
+<p>Catalog công khai có thể replicate toàn cầu.</p>
+<p>Customer/order/payment data có thể bị giới hạn vùng.</p>
+<hr>
+<h1 id="113-regional-failover">113. Regional Failover</h1>
+<p>Nếu order home region lỗi:</p>
+<pre class="hljs"><code><div>1. Promote order replica.
+2. Tăng owner epoch.
+3. Fence writer cũ.
+4. Replay outbox/inbox.
+5. Restore durable timers.
+6. Reconcile payment và inventory reservations.
+7. Resume active fulfillment trước traffic mới.
+</div></code></pre>
+<hr>
+<h1 id="114-những-dữ-liệu-cần-rpo-thấp-nhất">114. Những dữ liệu cần RPO thấp nhất</h1>
+<pre class="hljs"><code><div>- Order state
+- Payment state
+- Inventory reservation
+- Promotion reservation
+- Fulfillment assignment
+- Refund state
+- Financial ledger
+</div></code></pre>
+<p>Có thể rebuild:</p>
+<pre class="hljs"><code><div>- Search index
+- Recommendation
+- Product cache
+- Tracking projection
+</div></code></pre>
+<hr>
+<h1 id="115-owner-epoch-và-fencing">115. Owner Epoch và Fencing</h1>
+<p>Order hoặc inventory owner có:</p>
+<pre class="hljs"><code><div>ownerEpoch
+</div></code></pre>
+<p>Khi failover:</p>
+<pre class="hljs"><code><div>epoch 17 → epoch 18
+</div></code></pre>
+<p>Store chỉ chấp nhận command từ epoch mới nhất.</p>
+<p>Ngăn old region tiếp tục:</p>
+<pre class="hljs"><code><div>- Reserve inventory
+- Capture payment
+- Ship order
+</div></code></pre>
+<hr>
+<h1 id="116-failure-mode--catalog-service-down">116. Failure Mode — Catalog Service Down</h1>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- CDN cache
+- Product document cache
+- Search result summary
+</div></code></pre>
+<p>Checkout không nên dùng stale catalog thay cho authoritative listing status nếu listing có thể bị disabled.</p>
+<hr>
+<h1 id="117-failure-mode--search-down">117. Failure Mode — Search Down</h1>
+<p>Customer có thể:</p>
+<pre class="hljs"><code><div>- Duyệt category cache
+- Xem recently viewed
+- Truy cập direct product URLs
+</div></code></pre>
+<p>Checkout và order processing vẫn hoạt động.</p>
+<p>Search không được là dependency của order lifecycle.</p>
+<hr>
+<h1 id="118-failure-mode--pricing-down">118. Failure Mode — Pricing Down</h1>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Dùng quote còn hiệu lực
+- Dùng cached price books
+- Không cho tạo quote mới
+</div></code></pre>
+<p>Không tự suy ra giá từ catalog cũ nếu có nguy cơ sai tài chính.</p>
+<hr>
+<h1 id="119-failure-mode--inventory-down">119. Failure Mode — Inventory Down</h1>
+<p>Không nên fail-open với hàng giới hạn.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Cho browsing
+- Cho add-to-cart
+- Tạm dừng checkout
+</div></code></pre>
+<p>Một số digital goods hoặc made-to-order items có policy khác.</p>
+<hr>
+<h1 id="120-failure-mode--payment-timeout">120. Failure Mode — Payment Timeout</h1>
+<p>Trạng thái:</p>
+<pre class="hljs"><code><div>UNKNOWN
+</div></code></pre>
+<p>Không tạo Payment Intent mới ngay.</p>
+<p>Checkout hiển thị:</p>
+<pre class="hljs"><code><div>“Đang xác nhận thanh toán”
+</div></code></pre>
+<p>và dùng webhook/status query/reconciliation.</p>
+<hr>
+<h1 id="121-failure-mode--order-created-nhưng-response-mất">121. Failure Mode — Order Created nhưng Response mất</h1>
+<p>Client retry cùng idempotency key.</p>
+<p>Server trả cùng:</p>
+<pre class="hljs"><code><div>orderId
+</div></code></pre>
+<p>Không tạo đơn mới.</p>
+<hr>
+<h1 id="122-failure-mode--order-created-nhưng-event-chưa-publish">122. Failure Mode — Order Created nhưng Event chưa Publish</h1>
+<p>Transactional outbox giữ intent.</p>
+<p>Publisher retry.</p>
+<p>Fulfillment có thể trễ nhưng order không mất.</p>
+<hr>
+<h1 id="123-failure-mode--warehouse-integration-down">123. Failure Mode — Warehouse Integration Down</h1>
+<p>Fulfillment request giữ durable.</p>
+<p>OMS retry hoặc chuyển warehouse nếu policy cho phép.</p>
+<p>Không tạo fulfillment thứ hai mù nếu WMS có thể đã nhận request.</p>
+<p>Dùng stable fulfillment request ID.</p>
+<hr>
+<h1 id="124-failure-mode--carrier-api-timeout">124. Failure Mode — Carrier API Timeout</h1>
+<p>Không tạo shipment mới bằng ID khác ngay.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Carrier request ID
+- Status lookup
+- Webhook
+- Reconciliation
+</div></code></pre>
+<p>Nếu tạo hai tracking numbers, có thể ship hai lần.</p>
+<hr>
+<h1 id="125-failure-mode--shipment-lost">125. Failure Mode — Shipment Lost</h1>
+<p>Carrier event hoặc SLA timeout kích hoạt:</p>
+<pre class="hljs"><code><div>- Investigation
+- Replacement
+- Refund
+- Carrier claim
+</div></code></pre>
+<p>Order line có thể:</p>
+<pre class="hljs"><code><div>LOST_IN_TRANSIT
+</div></code></pre>
+<p>Không đánh dấu đơn canceled như chưa từng ship.</p>
+<hr>
+<h1 id="126-failure-mode--inventory-reservation-stuck">126. Failure Mode — Inventory Reservation Stuck</h1>
+<p>Reconciliation kiểm tra:</p>
+<pre class="hljs"><code><div>ACTIVE reservation
+nhưng checkout/order không còn hợp lệ
+</div></code></pre>
+<p>Sau khi xác minh payment outcome:</p>
+<pre class="hljs"><code><div>Release reservation
+</div></code></pre>
+<p>Không release chỉ dựa vào timer nếu order có thể đã commit.</p>
+<hr>
+<h1 id="127-failure-mode--duplicate-events">127. Failure Mode — Duplicate Events</h1>
+<p>Mọi consumer cần idempotent.</p>
+<p>Ví dụ <code>ShipmentDelivered</code> trùng không được:</p>
+<pre class="hljs"><code><div>- Capture payment hai lần
+- Gửi loyalty points hai lần
+- Đánh dấu review eligibility hai lần
+</div></code></pre>
+<p>Dùng:</p>
+<pre class="hljs"><code><div>eventId
+business reference
+aggregate version
+</div></code></pre>
+<hr>
+<h1 id="128-failure-mode--event-out-of-order">128. Failure Mode — Event Out-of-Order</h1>
+<p>Có thể nhận:</p>
+<pre class="hljs"><code><div>ShipmentDelivered version 8
+</div></code></pre>
+<p>trước:</p>
+<pre class="hljs"><code><div>ShipmentDispatched version 7
+</div></code></pre>
+<p>Consumer:</p>
+<pre class="hljs"><code><div>- Dùng aggregate version
+- Buffer gap
+- Hoặc fetch latest state
+</div></code></pre>
+<p>Không rollback từ delivered về dispatched.</p>
+<hr>
+<h1 id="129-reconciliation-jobs">129. Reconciliation Jobs</h1>
+<p>Kiểm tra:</p>
+<pre class="hljs"><code><div>- Inventory reserved nhưng order thiếu
+- Order confirmed nhưng payment chưa có
+- Payment captured nhưng order canceled
+- Fulfillment created nhưng WMS không có
+- WMS shipped nhưng platform shipment thiếu
+- Carrier delivered nhưng order chưa completed
+- Refund succeeded nhưng ledger thiếu
+</div></code></pre>
+<hr>
+<h1 id="130-observability--catalog-và-search">130. Observability — Catalog và Search</h1>
+<pre class="hljs"><code><div>- Catalog update latency
+- Search indexing lag
+- Search QPS
+- Search p99
+- Zero-result rate
+- Facet latency
+- Stale-product rate
+- Search-to-PDP conversion
+</div></code></pre>
+<hr>
+<h1 id="131-observability--cart-và-pricing">131. Observability — Cart và Pricing</h1>
+<pre class="hljs"><code><div>- Cart update QPS
+- Cart conflict rate
+- Cart abandonment
+- Quote latency
+- Quote expiry rate
+- Price-change-at-checkout rate
+- Coupon rejection rate
+</div></code></pre>
+<hr>
+<h1 id="132-observability--inventory">132. Observability — Inventory</h1>
+<pre class="hljs"><code><div>- Reservation success rate
+- Reservation conflict rate
+- Oversell incidents
+- Inventory accuracy
+- Reservation age
+- Short-pick rate
+- ATP update lag
+- Hot SKU contention
+</div></code></pre>
+<p>Oversell là high-severity metric.</p>
+<hr>
+<h1 id="133-observability--checkout">133. Observability — Checkout</h1>
+<pre class="hljs"><code><div>- Checkout start
+- Checkout completion
+- Time to order
+- Payment challenge rate
+- Idempotency reuse
+- Saga compensation rate
+- Unknown payment outcomes
+</div></code></pre>
+<hr>
+<h1 id="134-observability--orders">134. Observability — Orders</h1>
+<pre class="hljs"><code><div>- Orders theo state
+- Stuck orders
+- Cancellation rate
+- Partial fulfillment rate
+- Backorder rate
+- Order event lag
+</div></code></pre>
+<hr>
+<h1 id="135-observability--warehouse">135. Observability — Warehouse</h1>
+<pre class="hljs"><code><div>- Time to allocate
+- Time to release
+- Pick duration
+- Short-pick rate
+- Pack duration
+- Warehouse queue depth
+- Ship-by SLA misses
+</div></code></pre>
+<hr>
+<h1 id="136-observability--shipment">136. Observability — Shipment</h1>
+<pre class="hljs"><code><div>- Label creation latency
+- Carrier API errors
+- Tracking webhook lag
+- Delivery success rate
+- Late shipment rate
+- Lost parcel rate
+- Return-to-sender rate
+</div></code></pre>
+<hr>
+<h1 id="137-observability--returns">137. Observability — Returns</h1>
+<pre class="hljs"><code><div>- Return request rate
+- Authorization rate
+- Time to return
+- Inspection time
+- Refund latency
+- Restock rate
+- Return fraud rate
+</div></code></pre>
+<hr>
+<h1 id="138-end-to-end-business-metrics">138. End-to-End Business Metrics</h1>
+<pre class="hljs"><code><div>- Product view to cart
+- Cart to checkout
+- Checkout conversion
+- Order fulfillment time
+- On-time delivery
+- Cancellation rate
+- Return rate
+- Customer contact rate
+- Gross merchandise value
+</div></code></pre>
+<p>Không chỉ đo API latency.</p>
+<hr>
+<h1 id="139-slos-minh-họa">139. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Search:
+p99 dưới 300 ms
+
+PDP:
+p99 dưới 250 ms
+
+Cart:
+p99 dưới 150 ms
+
+Checkout internal processing:
+p99 dưới 2 giây, không tính external challenge
+
+Inventory reservation:
+p99 dưới 200 ms
+
+Order creation:
+99,99% không tạo duplicate theo idempotency invariant
+
+Shipment tracking freshness:
+99% dưới 5 phút từ carrier event
+
+Oversell:
+Gần 0 với hard-inventory SKUs
+</div></code></pre>
+<hr>
+<h1 id="140-thiết-kế-khuyến-nghị">140. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Catalog là source of truth cho product, SKU và listing.
+2. Search là denormalized projection được cập nhật bằng events.
+3. PDP tách cache static và dynamic components.
+4. Cart không reserve inventory mặc định.
+5. Checkout dùng quote snapshot có TTL.
+6. Inventory được reserve bằng conditional writes.
+7. Checkout sử dụng Saga và idempotency.
+8. Order lưu snapshot thương mại bất biến.
+9. OMS chia order thành fulfillments.
+10. WMS quản lý pick/pack; Shipping Service quản lý carrier.
+</div></code></pre>
+<hr>
+<h1 id="141-trade-off--reserve-khi-add-to-cart-hay-checkout">141. Trade-Off — Reserve khi Add-to-Cart hay Checkout?</h1>
+<h2 id="reserve-lúc-add-to-cart">Reserve lúc add-to-cart</h2>
+<pre class="hljs"><code><div>Ưu:
+Customer cảm thấy chắc chắn có hàng.
+
+Nhược:
+Inventory bị giữ bởi abandoned carts.
+</div></code></pre>
+<h2 id="reserve-lúc-checkout">Reserve lúc checkout</h2>
+<pre class="hljs"><code><div>Ưu:
+Tận dụng inventory tốt hơn.
+
+Nhược:
+Item có thể hết khi customer checkout.
+</div></code></pre>
+<p>Thông thường reserve lúc checkout.</p>
+<hr>
+<h1 id="142-trade-off--strong-inventory-hay-eventual-inventory">142. Trade-Off — Strong Inventory hay Eventual Inventory?</h1>
+<h2 id="strong-reservation">Strong reservation</h2>
+<pre class="hljs"><code><div>- Ít oversell
+- Coordination cao
+</div></code></pre>
+<h2 id="eventual-counters">Eventual counters</h2>
+<pre class="hljs"><code><div>- Throughput cao
+- Có thể oversell
+</div></code></pre>
+<p>Dùng theo SKU:</p>
+<pre class="hljs"><code><div>Hàng giới hạn:
+Strong
+
+Made-to-order hoặc digital:
+Policy linh hoạt hơn
+</div></code></pre>
+<hr>
+<h1 id="143-trade-off--một-order-hay-parentchild-orders">143. Trade-Off — Một Order hay Parent/Child Orders?</h1>
+<h2 id="một-order-duy-nhất">Một order duy nhất</h2>
+<pre class="hljs"><code><div>- UX đơn giản
+- Cross-seller fulfillment phức tạp
+</div></code></pre>
+<h2 id="parent--child-orders">Parent + child orders</h2>
+<pre class="hljs"><code><div>- Seller operations tách biệt
+- Refund và fulfillment rõ hơn
+- Aggregate UX phức tạp hơn
+</div></code></pre>
+<p>Marketplace thường dùng parent-child model.</p>
+<hr>
+<h1 id="144-trade-off--capture-khi-order-hay-khi-ship">144. Trade-Off — Capture khi Order hay khi Ship?</h1>
+<h2 id="capture-khi-order">Capture khi order</h2>
+<pre class="hljs"><code><div>- Financial flow đơn giản
+- Refund nhiều hơn
+</div></code></pre>
+<h2 id="capture-khi-ship">Capture khi ship</h2>
+<pre class="hljs"><code><div>- Phù hợp physical goods
+- Authorization expiry phức tạp
+- Partial capture cần hỗ trợ
+</div></code></pre>
+<hr>
+<h1 id="145-trade-off--split-shipment-hay-chờ-gom-đủ">145. Trade-Off — Split Shipment hay Chờ Gom đủ?</h1>
+<h2 id="split">Split</h2>
+<pre class="hljs"><code><div>- Giao một phần sớm
+- Shipping cost cao
+</div></code></pre>
+<h2 id="consolidate">Consolidate</h2>
+<pre class="hljs"><code><div>- Ít parcels
+- Customer chờ lâu hơn
+</div></code></pre>
+<p>Allocation optimizer cần cân bằng promise và cost.</p>
+<hr>
+<h1 id="146-trade-off--search-index-chứa-inventory-hay-gọi-realtime">146. Trade-Off — Search Index chứa Inventory hay gọi Realtime?</h1>
+<h2 id="denormalize-vào-index">Denormalize vào index</h2>
+<pre class="hljs"><code><div>- Search nhanh
+- Dữ liệu stale
+</div></code></pre>
+<h2 id="realtime-filter-mọi-result">Realtime filter mọi result</h2>
+<pre class="hljs"><code><div>- Fresh
+- Quá nhiều calls
+</div></code></pre>
+<p>Hybrid:</p>
+<pre class="hljs"><code><div>Index dùng availability coarse
++
+PDP/checkout recheck authoritative
+</div></code></pre>
+<hr>
+<h1 id="147-trade-off--flash-sale-synchronous-hay-queue-based">147. Trade-Off — Flash Sale Synchronous hay Queue-Based?</h1>
+<h2 id="synchronous">Synchronous</h2>
+<pre class="hljs"><code><div>- Kết quả ngay
+- Hot-key và database pressure
+</div></code></pre>
+<h2 id="queue-based">Queue-based</h2>
+<pre class="hljs"><code><div>- Backpressure tốt
+- User chờ kết quả
+</div></code></pre>
+<p>Có thể kết hợp:</p>
+<pre class="hljs"><code><div>Admission token
+→ Fast reservation gate
+→ Async order finalization
+</div></code></pre>
+<hr>
+<h1 id="148-cách-trình-bày-trong-phỏng-vấn">148. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi tách catalog, search, cart, pricing, inventory và order vì chúng có consistency khác nhau. Search là projection eventual consistent, còn inventory reservation và order creation phải dùng conditional transactions và idempotency.</p>
+</blockquote>
+<p>Về checkout:</p>
+<blockquote>
+<p>Cart chỉ là ý định mua và không giữ inventory. Khi checkout, hệ thống tạo quote snapshot, reserve inventory, reserve promotion, authorize payment rồi tạo order thông qua Saga. Mọi bước có compensation rõ ràng.</p>
+</blockquote>
+<p>Về order:</p>
+<blockquote>
+<p>Order lưu product, price, tax, seller và address snapshots vì catalog có thể thay đổi. Tôi tách commerce, payment, fulfillment, shipment và return states thay vì dùng một status duy nhất.</p>
+</blockquote>
+<p>Về fulfillment:</p>
+<blockquote>
+<p>OMS chia order thành fulfillment groups theo warehouse. WMS quản lý pick và pack; Shipping Service tạo labels idempotently và ingest carrier webhooks qua durable inbox.</p>
+</blockquote>
+<p>Về flash sale:</p>
+<blockquote>
+<p>Tôi không cho toàn bộ traffic chạm core inventory. Traffic đi qua edge rate limit, waiting room và admission tokens. Một atomic reservation gate giới hạn số người thắng, sau đó checkout dùng reservation token có TTL.</p>
+</blockquote>
+<hr>
+<h1 id="149-framework-45-phút">149. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Catalog
+- Search
+- Cart
+- Checkout
+- Inventory
+- Fulfillment
+- Returns
+</div></code></pre>
+<h2 id="phút-510-capacity">Phút 5–10: Capacity</h2>
+<pre class="hljs"><code><div>- Products
+- SKUs
+- Search QPS
+- Orders/day
+- Flash-sale peak
+</div></code></pre>
+<h2 id="phút-1020-browsing-path">Phút 10–20: Browsing path</h2>
+<pre class="hljs"><code><div>Catalog
+→ Search index
+→ PDP
+→ Cart
+</div></code></pre>
+<h2 id="phút-2030-checkout-path">Phút 20–30: Checkout path</h2>
+<pre class="hljs"><code><div>Quote
+→ Inventory reservation
+→ Payment authorization
+→ Order creation
+</div></code></pre>
+<h2 id="phút-3040-fulfillment-path">Phút 30–40: Fulfillment path</h2>
+<pre class="hljs"><code><div>OMS
+→ Warehouse
+→ Shipment
+→ Tracking
+→ Return
+</div></code></pre>
+<h2 id="phút-4045-advanced">Phút 40–45: Advanced</h2>
+<pre class="hljs"><code><div>- Flash sale
+- Failure recovery
+- Multi-region
+- Trade-offs
+</div></code></pre>
+<hr>
+<h1 id="150-những-sai-lầm-phổ-biến">150. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-gộp-product-và-sku">Lỗi 1: Gộp Product và SKU</h2>
+<p>Không quản lý được biến thể và tồn kho riêng.</p>
+<h2 id="lỗi-2-search-index-là-source-of-truth">Lỗi 2: Search Index là Source of Truth</h2>
+<p>Search có thể stale.</p>
+<h2 id="lỗi-3-gọi-hàng-chục-services-tuần-tự-trên-pdp">Lỗi 3: Gọi hàng chục Services tuần tự trên PDP</h2>
+<p>Tail latency cao.</p>
+<h2 id="lỗi-4-cart-giữ-inventory-vô-thời-hạn">Lỗi 4: Cart giữ Inventory vô thời hạn</h2>
+<p>Abandoned carts làm cạn hàng.</p>
+<h2 id="lỗi-5-tin-giá-từ-client">Lỗi 5: Tin Giá từ Client</h2>
+<p>Có thể sai hoặc bị sửa.</p>
+<h2 id="lỗi-6-không-có-quote-snapshot">Lỗi 6: Không có Quote Snapshot</h2>
+<p>Không audit được giá checkout.</p>
+<h2 id="lỗi-7-không-version-hóa-promotion-rules">Lỗi 7: Không Version hóa Promotion Rules</h2>
+<p>Giá và refund khó tái tạo.</p>
+<h2 id="lỗi-8-read-rồi-write-inventory">Lỗi 8: Read rồi Write Inventory</h2>
+<p>Race dẫn tới oversell.</p>
+<h2 id="lỗi-9-reservation-không-có-ttl">Lỗi 9: Reservation không có TTL</h2>
+<p>Inventory bị khóa mãi.</p>
+<h2 id="lỗi-10-release-reservation-chỉ-dựa-vào-timer">Lỗi 10: Release Reservation chỉ dựa vào Timer</h2>
+<p>Có thể release trong khi order/payment thực sự đã thành công.</p>
+<h2 id="lỗi-11-checkout-không-idempotent">Lỗi 11: Checkout không Idempotent</h2>
+<p>Retry tạo hai orders.</p>
+<h2 id="lỗi-12-checkout-cố-dùng-distributed-transaction-toàn-hệ-thống">Lỗi 12: Checkout cố dùng Distributed Transaction toàn hệ thống</h2>
+<p>Khó mở rộng và availability thấp.</p>
+<h2 id="lỗi-13-không-có-compensation-trong-saga">Lỗi 13: Không có Compensation trong Saga</h2>
+<p>Inventory và promotion bị giữ sau failure.</p>
+<h2 id="lỗi-14-order-không-lưu-snapshot">Lỗi 14: Order không lưu Snapshot</h2>
+<p>Catalog update làm invoice lịch sử thay đổi.</p>
+<h2 id="lỗi-15-một-order-status-duy-nhất">Lỗi 15: Một Order Status duy nhất</h2>
+<p>Không biểu diễn partial shipment/refund.</p>
+<h2 id="lỗi-16-không-có-line-level-state">Lỗi 16: Không có Line-Level State</h2>
+<p>Một item lỗi làm state toàn order mơ hồ.</p>
+<h2 id="lỗi-17-oms-và-wms-bị-gộp-làm-một">Lỗi 17: OMS và WMS bị gộp làm một</h2>
+<p>Business orchestration và warehouse execution lẫn nhau.</p>
+<h2 id="lỗi-18-carrier-timeout-tạo-label-mới-ngay">Lỗi 18: Carrier Timeout tạo Label mới ngay</h2>
+<p>Có thể tạo duplicate shipments.</p>
+<h2 id="lỗi-19-tin-webhook-carrier-đến-đúng-thứ-tự">Lỗi 19: Tin Webhook Carrier đến đúng thứ tự</h2>
+<p>Delivered có thể bị event cũ ghi đè.</p>
+<h2 id="lỗi-20-refund-bằng-cách-sửa-payment-cũ">Lỗi 20: Refund bằng cách sửa Payment cũ</h2>
+<p>Mất audit trail.</p>
+<h2 id="lỗi-21-returned-item-đi-thẳng-vào-sellable-inventory">Lỗi 21: Returned Item đi thẳng vào Sellable Inventory</h2>
+<p>Có thể bán lại hàng hỏng.</p>
+<h2 id="lỗi-22-mọi-request-flash-sale-chạm-inventory-db">Lỗi 22: Mọi Request Flash Sale chạm Inventory DB</h2>
+<p>Database sập vì hot SKU.</p>
+<h2 id="lỗi-23-không-isolate-flash-sale">Lỗi 23: Không Isolate Flash Sale</h2>
+<p>Traffic sale làm hỏng checkout bình thường.</p>
+<h2 id="lỗi-24-multi-region-multi-write-cùng-inventory-location">Lỗi 24: Multi-Region Multi-Write cùng Inventory Location</h2>
+<p>Dẫn tới oversell.</p>
+<h2 id="lỗi-25-không-có-reconciliation">Lỗi 25: Không có Reconciliation</h2>
+<p>Payment, inventory, WMS và carrier lệch nhau lâu dài.</p>
+<hr>
+<h1 id="151-bảng-ghi-nhớ-nhanh">151. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Product</td>
+<td>Mô tả sản phẩm chung</td>
+</tr>
+<tr>
+<td>SKU</td>
+<td>Biến thể có tồn kho riêng</td>
+</tr>
+<tr>
+<td>Listing</td>
+<td>Seller bán một SKU</td>
+</tr>
+<tr>
+<td>Catalog Store</td>
+<td>Source of truth sản phẩm</td>
+</tr>
+<tr>
+<td>Search Index</td>
+<td>Projection phục vụ discovery</td>
+</tr>
+<tr>
+<td>PDP</td>
+<td>Tổng hợp product, price, inventory</td>
+</tr>
+<tr>
+<td>Cart</td>
+<td>Ý định mua</td>
+</tr>
+<tr>
+<td>Price Quote</td>
+<td>Snapshot giá checkout</td>
+</tr>
+<tr>
+<td>Promotion Reservation</td>
+<td>Giữ coupon/budget</td>
+</tr>
+<tr>
+<td>Inventory Reservation</td>
+<td>Giữ ATP</td>
+</tr>
+<tr>
+<td>Checkout Saga</td>
+<td>Điều phối reserve, pay, order</td>
+</tr>
+<tr>
+<td>Order Store</td>
+<td>Source of truth order</td>
+</tr>
+<tr>
+<td>OMS</td>
+<td>Điều phối fulfillment</td>
+</tr>
+<tr>
+<td>Fulfillment</td>
+<td>Nhóm items xử lý tại một node</td>
+</tr>
+<tr>
+<td>WMS</td>
+<td>Pick và pack</td>
+</tr>
+<tr>
+<td>Shipment</td>
+<td>Parcel giao qua carrier</td>
+</tr>
+<tr>
+<td>RMA</td>
+<td>Return authorization</td>
+</tr>
+<tr>
+<td>Ledger</td>
+<td>Movement of money</td>
+</tr>
+<tr>
+<td>Waiting Room</td>
+<td>Admission control flash sale</td>
+</tr>
+<tr>
+<td>Owner Epoch</td>
+<td>Fencing multi-region</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="152-sơ-đồ-tổng-hợp">152. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Customer --> SearchService
+    SearchService --> SearchIndex[(Search Index)]
+
+    Customer --> ProductAPI
+    ProductAPI --> Catalog[(Catalog)]
+    ProductAPI --> Pricing
+    ProductAPI --> InventoryRead[Inventory Read Model]
+
+    Customer --> CartService
+    CartService --> CartStore[(Cart Store)]
+
+    Customer --> CheckoutService
+    CheckoutService --> QuoteService
+    QuoteService --> Pricing
+    QuoteService --> Promotion
+    QuoteService --> Tax
+    QuoteService --> ShippingQuote
+
+    CheckoutService --> InventoryService
+    InventoryService --> InventoryStore[(Inventory Store)]
+
+    CheckoutService --> PaymentService
+    CheckoutService --> OrderService
+
+    OrderService --> OrderStore[(Order Store)]
+    OrderService --> Outbox[(Outbox)]
+    Outbox --> CommerceStream
+
+    CommerceStream --> OMS
+    OMS --> FulfillmentService
+    FulfillmentService --> WMS
+
+    WMS --> ShippingService
+    ShippingService --> Carrier
+
+    Carrier --> CarrierWebhook
+    CarrierWebhook --> ShipmentInbox[(Shipment Inbox)]
+    ShipmentInbox --> ShippingService
+
+    CommerceStream --> ReturnService
+    CommerceStream --> Notification
+    CommerceStream --> Analytics
+    CommerceStream --> Fraud
+</div></code></pre>
+<hr>
+<h1 id="153-những-điều-phải-nhớ-sau-bài-31">153. Những Điều Phải Nhớ sau Bài 31</h1>
+<pre class="hljs"><code><div>1. Product, SKU và listing là ba khái niệm khác nhau.
+2. Catalog là source of truth; search là projection.
+3. Search có thể eventual consistent.
+4. Checkout phải revalidate listing, price và inventory.
+5. PDP nên tách static và dynamic cache.
+6. Cart là ý định mua, không phải reservation.
+7. Guest cart và account cart cần merge policy.
+8. Cart updates nên dùng version hoặc commands.
+9. Client không bao giờ là source of truth cho giá.
+10. Quote cần ID, snapshot và expiry.
+11. Promotion có thể cần reservation.
+12. Tax breakdown phải được lưu.
+13. On-hand khác reserved và available-to-promise.
+14. Inventory reservation cần conditional write.
+15. Reservation cần TTL.
+16. Reservation expiry phải phối hợp với payment outcome.
+17. Soft reservation khác warehouse allocation.
+18. Multi-warehouse allocation là bài toán tối ưu.
+19. Split shipment có chi phí và UX trade-off.
+20. Checkout phải idempotent.
+21. Checkout thường cần Saga.
+22. Mọi Saga step cần compensation.
+23. Payment timeout là unknown outcome.
+24. Order creation phải ghi outbox cùng transaction.
+25. Order cần lưu snapshot product, price và address.
+26. Một order status duy nhất không đủ.
+27. Order line cần lifecycle riêng.
+28. OMS khác WMS.
+29. OMS điều phối; WMS thực thi vật lý.
+30. Fulfillment khác shipment.
+31. Một order có thể có nhiều fulfillments.
+32. Một fulfillment có thể có nhiều parcels.
+33. Short pick vẫn có thể xảy ra sau reservation.
+34. Inventory cần physical reconciliation.
+35. Shipping label creation phải idempotent.
+36. Carrier webhooks có thể duplicate và out-of-order.
+37. Partial shipment và delivery phải được hỗ trợ.
+38. Capture payment có thể diễn ra theo từng shipment.
+39. Backorder và preorder khác nhau.
+40. Cancellation có thể race với shipment.
+41. Sau shipment, cancellation thường trở thành return.
+42. Return cần RMA và eligibility.
+43. Return inspection quyết định restock/refund.
+44. Returned items nên vào quarantine trước.
+45. Refund là transaction mới, không sửa payment gốc.
+46. Flash sale cần admission control.
+47. Waiting room làm phẳng traffic spike.
+48. Flash-sale reservation token cần TTL.
+49. Không để mọi request chạm inventory database.
+50. Hot SKU có thể cần sharded counters.
+51. Flash sale phải được resource-isolated.
+52. Bot protection là phần cốt lõi của flash sale.
+53. Inventory location nên có một owner region.
+54. Order cũng nên có một write owner rõ.
+55. Multi-region failover cần owner epoch.
+56. Search index và caches có thể rebuild.
+57. Order, inventory reservation và payment cần RPO thấp.
+58. Durable timers phải được restore sau failover.
+59. Reconciliation giữa order, payment, inventory, WMS và carrier là bắt buộc.
+60. E-commerce correctness nằm ở ranh giới giữa browsing eventual và checkout transactional.
+</div></code></pre>
+<hr>
+<h1 id="154-bài-tập-thiết-kế-mở-rộng">154. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế E-commerce Platform với yêu cầu:</p>
+<pre class="hljs"><code><div>- 1 tỷ users
+- 500 triệu products
+- 5 tỷ SKUs
+- 100 triệu orders/ngày
+- 10 triệu sellers
+- 20.000 warehouses và stores
+- Search p99 dưới 200 ms
+- Checkout p99 dưới 2 giây
+- Không double charge
+- Oversell gần bằng 0 cho limited stock
+- Flash sale 10 triệu requests/giây
+- Multi-region active–active
+- Một số customer/order data không được rời EU
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Product, SKU và listing được partition thế nào?
+2. Catalog events chống out-of-order ra sao?
+3. Search index được shard theo category hay hash?
+4. Search facets được tính thế nào?
+5. PDP tránh N+1 service calls ra sao?
+6. Static và dynamic cache TTL khác nhau thế nào?
+7. Cart sync nhiều thiết bị bằng version hay CRDT?
+8. Quote chứa những snapshots nào?
+9. Promotion budget được reserve ra sao?
+10. Tax và shipping quote được version hóa thế nào?
+11. ATP được tính theo warehouse ra sao?
+12. Reservation TTL bao lâu?
+13. Payment challenge dài hơn TTL thì xử lý thế nào?
+14. Multi-warehouse allocation score gồm gì?
+15. Khi nào nên split shipment?
+16. Checkout Saga có những bước nào?
+17. Compensation order theo thứ tự nào?
+18. Order idempotency được lưu ở đâu?
+19. Parent-child orders dùng khi nào?
+20. Line-level states được aggregate ra sao?
+21. OMS và WMS giao tiếp bằng API hay events?
+22. Short pick được xử lý thế nào?
+23. Shipping label timeout tránh duplicate ra sao?
+24. Carrier webhook out-of-order được xử lý thế nào?
+25. Partial capture theo shipment hoạt động ra sao?
+26. Return eligibility nằm ở service nào?
+27. Refund trước hay sau inspection?
+28. Flash-sale waiting room được partition thế nào?
+29. Hot SKU counter được sharding ra sao?
+30. Một user một unit được enforce thế nào?
+31. Bot traffic bị chặn ở layer nào?
+32. Flash sale được isolate tài nguyên ra sao?
+33. Inventory owner region được chọn thế nào?
+34. Failover reconcile reservations và payments ra sao?
+35. Các invariant và SLO quan trọng nhất là gì?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-10">Kết luận Case Study 10</h1>
+<p>E-commerce Platform có thể được cô đọng thành:</p>
+<pre class="hljs"><code><div>Browse catalog và search projection
+→ Build cart
+→ Create immutable price quote
+→ Reserve inventory
+→ Authorize payment
+→ Create order idempotently
+→ Allocate warehouse
+→ Pick, pack và ship
+→ Deliver, return hoặc refund
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>E-commerce phải tách rõ đường đọc eventual-consistent của catalog/search khỏi đường ghi transactional của checkout. Search có thể chậm vài giây, nhưng inventory reservation, payment và order creation phải có identity ổn định, conditional writes, compensation và reconciliation rõ ràng.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 32 — Case Study 11: Thiết kế Cloud File Storage như Google Drive/Dropbox — file upload, chunking, resumable upload, metadata, folder hierarchy, synchronization, versioning, deduplication, sharing, conflict resolution, offline mode và multi-region.</strong></p>
+
+</body>
+</html>

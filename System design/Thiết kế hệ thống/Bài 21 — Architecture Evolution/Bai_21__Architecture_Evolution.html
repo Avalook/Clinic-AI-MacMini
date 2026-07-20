@@ -1,0 +1,2569 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 21 — Architecture Evolution.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-21--architecture-evolution">Bài 21 — Architecture Evolution</h1>
+<p>Kiến trúc phần mềm hiếm khi được thiết kế hoàn hảo ngay từ ngày đầu.</p>
+<p>Một hệ thống thường tiến hóa theo con đường:</p>
+<pre class="hljs"><code><div>Ứng dụng nhỏ
+→ Monolith
+→ Modular Monolith
+→ Một số services độc lập
+→ Microservices ở các khu vực thực sự cần
+</div></code></pre>
+<p>Sai lầm phổ biến là bắt đầu bằng suy nghĩ:</p>
+<pre class="hljs"><code><div>“Sau này hệ thống sẽ rất lớn,
+nên ngay bây giờ phải dùng microservices.”
+</div></code></pre>
+<p>Điều này thường khiến một đội nhỏ phải vận hành sớm:</p>
+<pre class="hljs"><code><div>- Hàng chục repository
+- API calls xuyên service
+- Message broker
+- Distributed tracing
+- Service discovery
+- Retry, timeout và circuit breaker
+- Distributed transactions
+- Nhiều deployment pipelines
+</div></code></pre>
+<p>trong khi sản phẩm còn chưa xác định rõ business model.</p>
+<p>Nguyên tắc trung tâm của bài:</p>
+<blockquote>
+<p><strong>Kiến trúc nên tiến hóa theo độ phức tạp thực tế của sản phẩm, dữ liệu, lưu lượng và tổ chức; không nên tiến hóa theo sơ đồ đẹp hoặc xu hướng công nghệ.</strong></p>
+</blockquote>
+<hr>
+<h1 id="1-architecture-evolution-là-gì">1. Architecture Evolution là gì?</h1>
+<p>Architecture evolution là quá trình thay đổi cấu trúc hệ thống khi các yêu cầu thay đổi:</p>
+<pre class="hljs"><code><div>- Số người dùng tăng
+- Số team tăng
+- Business domain phức tạp hơn
+- Một số module cần scale riêng
+- Release trở nên chậm
+- Database trở thành bottleneck
+- Reliability requirement tăng
+- Data residency thay đổi
+</div></code></pre>
+<p>Mục tiêu không nhất thiết là:</p>
+<pre class="hljs"><code><div>Monolith → Microservices
+</div></code></pre>
+<p>Mục tiêu thực sự là:</p>
+<pre class="hljs"><code><div>Kiến trúc hiện tại
+→ Kiến trúc phù hợp hơn với constraint hiện tại
+</div></code></pre>
+<p>Có hệ thống lớn vẫn vận hành tốt dưới dạng modular monolith.</p>
+<p>Có hệ thống cần microservices ở một số khu vực nhưng giữ phần còn lại trong monolith.</p>
+<hr>
+<h1 id="2-kiến-trúc-không-phải-đích-đến-cố-định">2. Kiến trúc không phải đích đến cố định</h1>
+<p>Một kiến trúc tốt hôm nay có thể trở thành kiến trúc không phù hợp sau ba năm.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Năm 1:
+5 engineers
+1 sản phẩm
+10.000 users
+
+Năm 3:
+50 engineers
+10 business capabilities
+5 triệu users
+</div></code></pre>
+<p>Một monolith đơn giản có thể rất hiệu quả năm đầu.</p>
+<p>Nhưng khi 10 teams cùng sửa cùng repository và deploy cùng artifact, coordination cost có thể trở thành bottleneck lớn hơn compute cost.</p>
+<p>Do đó cần đánh giá đồng thời:</p>
+<pre class="hljs"><code><div>- Technical scale
+- Organizational scale
+- Product complexity
+- Operational maturity
+</div></code></pre>
+<hr>
+<h1 id="3-monolith-là-gì">3. Monolith là gì?</h1>
+<p>Monolith là application được phát triển và triển khai như một đơn vị chính.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Monolith[Monolithic Application]
+
+    Monolith --> Auth[Authentication Code]
+    Monolith --> Catalog[Catalog Code]
+    Monolith --> Order[Order Code]
+    Monolith --> Payment[Payment Code]
+
+    Monolith --> DB[(Shared Database)]
+</div></code></pre>
+<p>Đặc điểm thường gặp:</p>
+<pre class="hljs"><code><div>- Một codebase hoặc repository chính
+- Một deployment artifact
+- Các module chạy trong cùng process
+- Thường dùng chung database
+- Function call nội bộ thay vì network call
+</div></code></pre>
+<p>Monolith không đồng nghĩa với:</p>
+<pre class="hljs"><code><div>- Code xấu
+- Không scale được
+- Chỉ chạy trên một server
+</div></code></pre>
+<p>Một monolith vẫn có thể chạy hàng trăm instances sau load balancer.</p>
+<hr>
+<h1 id="4-monolith-vẫn-có-thể-horizontal-scale">4. Monolith vẫn có thể Horizontal Scale</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> LB[Load Balancer]
+
+    LB --> M1[Monolith Instance 1]
+    LB --> M2[Monolith Instance 2]
+    LB --> M3[Monolith Instance 3]
+
+    M1 --> DB[(Database)]
+    M2 --> DB
+    M3 --> DB
+</div></code></pre>
+<p>Nếu application stateless:</p>
+<pre class="hljs"><code><div>- Tăng instances
+- Thêm cache
+- Thêm read replicas
+- Dùng CDN
+- Dùng message queue
+</div></code></pre>
+<p>Monolith không ngăn horizontal scaling ở application layer.</p>
+<p>Bottleneck thực tế thường nằm ở:</p>
+<pre class="hljs"><code><div>- Database
+- Shared mutable state
+- Một module nóng
+- Lock contention
+- Deployment coordination
+</div></code></pre>
+<hr>
+<h1 id="5-ưu-điểm-của-monolith">5. Ưu điểm của Monolith</h1>
+<h2 id="đơn-giản-để-phát-triển">Đơn giản để phát triển</h2>
+<pre class="hljs"><code><div>Function call
+thay vì
+HTTP/gRPC call
+</div></code></pre>
+<p>Không cần:</p>
+<pre class="hljs"><code><div>- Serialization
+- Network retry
+- Distributed tracing
+- Service discovery
+</div></code></pre>
+<h2 id="transaction-đơn-giản">Transaction đơn giản</h2>
+<p>Nhiều thay đổi có thể nằm trong một local ACID transaction.</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">BEGIN</span>;
+
+<span class="hljs-keyword">INSERT INTO</span> orders ...;
+<span class="hljs-keyword">UPDATE</span> inventory ...;
+<span class="hljs-keyword">INSERT INTO</span> payments ...;
+
+<span class="hljs-keyword">COMMIT</span>;
+</div></code></pre>
+<h2 id="debug-dễ-hơn">Debug dễ hơn</h2>
+<p>Một request có thể được trace trong một process.</p>
+<h2 id="deployment-đơn-giản">Deployment đơn giản</h2>
+<p>Một build, một artifact, một pipeline chính.</p>
+<h2 id="test-end-to-end-dễ-hơn">Test end-to-end dễ hơn</h2>
+<p>Không cần khởi động hàng chục services.</p>
+<h2 id="chi-phí-vận-hành-thấp">Chi phí vận hành thấp</h2>
+<p>Phù hợp với đội nhỏ và sản phẩm mới.</p>
+<hr>
+<h1 id="6-nhược-điểm-của-monolith">6. Nhược điểm của Monolith</h1>
+<p>Khi hệ thống lớn, monolith có thể gặp:</p>
+<pre class="hljs"><code><div>- Build chậm
+- Test suite chạy lâu
+- Deploy một thay đổi nhỏ phải deploy toàn hệ thống
+- Một bug có thể ảnh hưởng toàn process
+- Các team chạm vào cùng code
+- Module boundaries bị phá
+- Database schema trở thành shared global state
+</div></code></pre>
+<p>Một module sử dụng nhiều CPU có thể buộc phải scale toàn bộ application:</p>
+<pre class="hljs"><code><div>Image Processing cần 100 instances
+Order API chỉ cần 10 instances
+</div></code></pre>
+<p>Nhưng vì cùng monolith:</p>
+<pre class="hljs"><code><div>Phải chạy 100 instances chứa cả hai module
+</div></code></pre>
+<hr>
+<h1 id="7-monolith-có-thể-trở-thành-big-ball-of-mud">7. Monolith có thể trở thành “Big Ball of Mud”</h1>
+<p>Monolith xấu thường không phải vì nó là một deployable unit.</p>
+<p>Nó xấu vì thiếu boundaries:</p>
+<pre class="hljs"><code><div>Order code gọi trực tiếp bảng Payment
+Payment code import Inventory internals
+User module sửa Catalog state
+Mọi module truy cập mọi table
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Order] <--> B[Payment]
+    B <--> C[Inventory]
+    C <--> D[User]
+    D <--> A
+    A <--> C
+    B <--> D
+</div></code></pre>
+<p>Kết quả:</p>
+<pre class="hljs"><code><div>Thay đổi một module
+→ không biết module nào khác bị ảnh hưởng
+</div></code></pre>
+<p>Vấn đề chính là:</p>
+<pre class="hljs"><code><div>High coupling
++
+Low cohesion
+</div></code></pre>
+<p>không phải chỉ là số lượng dòng code.</p>
+<hr>
+<h1 id="8-khi-nào-monolith-là-lựa-chọn-đúng">8. Khi nào Monolith là lựa chọn đúng?</h1>
+<p>Monolith thường phù hợp khi:</p>
+<pre class="hljs"><code><div>- Team còn nhỏ
+- Domain chưa ổn định
+- Product-market fit chưa rõ
+- Cần thử nghiệm nhanh
+- Lưu lượng chưa quá lớn
+- Deployment chung chưa tạo bottleneck
+- Local transactions mang lại nhiều giá trị
+</div></code></pre>
+<p>Một đội năm người có thể phát triển nhanh hơn nhiều với một monolith có cấu trúc tốt so với 20 microservices.</p>
+<hr>
+<h1 id="9-modular-monolith">9. Modular Monolith</h1>
+<p>Modular monolith vẫn là một application deploy chung, nhưng code được chia thành các module có boundary rõ.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> App[Modular Monolith]
+
+    subgraph App
+        Order[Order Module]
+        Inventory[Inventory Module]
+        Payment[Payment Module]
+        Customer[Customer Module]
+    end
+
+    Order --> OrderSchema[(Order Tables)]
+    Inventory --> InventorySchema[(Inventory Tables)]
+    Payment --> PaymentSchema[(Payment Tables)]
+    Customer --> CustomerSchema[(Customer Tables)]
+</div></code></pre>
+<p>Các module giao tiếp qua:</p>
+<pre class="hljs"><code><div>- Public interfaces
+- Commands
+- Events nội bộ
+- DTOs ổn định
+</div></code></pre>
+<p>Không nên truy cập trực tiếp internals của module khác.</p>
+<hr>
+<h1 id="10-modular-monolith-khác-monolith-thông-thường-thế-nào">10. Modular Monolith khác Monolith thông thường thế nào?</h1>
+<table>
+<thead>
+<tr>
+<th>Đặc điểm</th>
+<th>Monolith thiếu cấu trúc</th>
+<th>Modular monolith</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Module boundaries</td>
+<td>Mờ</td>
+<td>Rõ</td>
+</tr>
+<tr>
+<td>Database ownership</td>
+<td>Mọi code truy cập mọi bảng</td>
+<td>Mỗi module sở hữu tables</td>
+</tr>
+<tr>
+<td>Dependency</td>
+<td>Tùy ý</td>
+<td>Có quy tắc</td>
+</tr>
+<tr>
+<td>API nội bộ</td>
+<td>Không rõ</td>
+<td>Interface rõ</td>
+</tr>
+<tr>
+<td>Khả năng tách service</td>
+<td>Khó</td>
+<td>Dễ hơn</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>Chung</td>
+<td>Chung</td>
+</tr>
+<tr>
+<td>Network calls nội bộ</td>
+<td>Không</td>
+<td>Không</td>
+</tr>
+</tbody>
+</table>
+<p>Modular monolith giữ được lợi ích của local process nhưng chuẩn bị tốt hơn cho tương lai.</p>
+<hr>
+<h1 id="11-module-boundary">11. Module Boundary</h1>
+<p>Một module tốt thường bao quanh một business capability.</p>
+<p>Ví dụ e-commerce:</p>
+<pre class="hljs"><code><div>Catalog
+Inventory
+Ordering
+Payment
+Fulfillment
+Customer Support
+</div></code></pre>
+<p>Không nên chia chỉ theo technical layer:</p>
+<pre class="hljs"><code><div>Controller module
+Service module
+Repository module
+Database module
+</div></code></pre>
+<p>Các technical layers vẫn có thể tồn tại bên trong từng business module.</p>
+<hr>
+<h1 id="12-business-capability">12. Business Capability</h1>
+<p>Business capability là khả năng nghiệp vụ tương đối độc lập.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Ordering:
+- Tạo order
+- Thay đổi order status
+- Tính order total
+- Quản lý order lifecycle
+
+Payment:
+- Tạo payment attempt
+- Authorize
+- Capture
+- Refund
+- Reconciliation
+</div></code></pre>
+<p>Mỗi capability có:</p>
+<pre class="hljs"><code><div>- Business rules
+- Data
+- State transitions
+- Ownership
+</div></code></pre>
+<p>Đây là ứng viên tự nhiên cho module hoặc service boundary.</p>
+<hr>
+<h1 id="13-bounded-context">13. Bounded Context</h1>
+<p>Trong Domain-Driven Design, bounded context là phạm vi mà một model và thuật ngữ có nghĩa nhất quán.</p>
+<p>Ví dụ từ “Product”:</p>
+<pre class="hljs"><code><div>Catalog context:
+Tên, mô tả, hình ảnh
+
+Inventory context:
+SKU, quantity, reservation
+
+Pricing context:
+Base price, promotion, currency
+
+Shipping context:
+Weight, dimensions
+</div></code></pre>
+<p>Không nên buộc toàn hệ thống dùng một <code>Product</code> object khổng lồ chứa mọi field.</p>
+<p>Mỗi context có thể có model riêng.</p>
+<hr>
+<h1 id="14-high-cohesion">14. High Cohesion</h1>
+<p>Các chức năng thay đổi cùng nhau nên nằm cùng nhau.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Payment authorization
+- Payment capture
+- Payment refund
+- Payment reconciliation
+</div></code></pre>
+<p>có cohesion cao.</p>
+<p>Nếu chúng bị tách thành bốn services nhỏ:</p>
+<pre class="hljs"><code><div>Authorization Service
+Capture Service
+Refund Service
+Reconciliation Service
+</div></code></pre>
+<p>mỗi payment workflow phải đi qua nhiều network calls không cần thiết.</p>
+<hr>
+<h1 id="15-low-coupling">15. Low Coupling</h1>
+<p>Hai module có coupling thấp khi thay đổi internals của module này ít ảnh hưởng module kia.</p>
+<p>Ví dụ Order chỉ biết interface:</p>
+<pre class="hljs"><code><div>reserveInventory(orderId, items)
+</div></code></pre>
+<p>không biết:</p>
+<pre class="hljs"><code><div>- Inventory tables
+- Locking strategy
+- Shard layout
+- Cache implementation
+</div></code></pre>
+<p>Boundary tốt che giấu implementation details.</p>
+<hr>
+<h1 id="16-encapsulation-trong-modular-monolith">16. Encapsulation trong Modular Monolith</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Order module</span>
+db.execute(<span class="hljs-string">&quot;&quot;&quot;
+    UPDATE inventory_items
+    SET available = available - 1
+    WHERE sku = ?
+&quot;&quot;&quot;</span>)
+</div></code></pre>
+<p>Order module trực tiếp sửa table Inventory.</p>
+<p>Tốt hơn:</p>
+<pre class="hljs"><code><div>inventory.reserve(
+    reservation_id=reservation_id,
+    items=items,
+)
+</div></code></pre>
+<p>Inventory module tự bảo vệ invariant.</p>
+<hr>
+<h1 id="17-database-trong-modular-monolith">17. Database trong Modular Monolith</h1>
+<p>Có thể vẫn dùng một physical database nhưng chia ownership logic:</p>
+<pre class="hljs"><code><div>order.*
+inventory.*
+payment.*
+customer.*
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order module:
+orders
+order_items
+
+Inventory module:
+stock_items
+reservations
+
+Payment module:
+payment_attempts
+refunds
+</div></code></pre>
+<p>Quy tắc:</p>
+<blockquote>
+<p>Chỉ module sở hữu dữ liệu mới được phép ghi trực tiếp vào tables đó.</p>
+</blockquote>
+<p>Module khác dùng API nội bộ hoặc event.</p>
+<hr>
+<h1 id="18-có-nên-dùng-foreign-key-xuyên-module">18. Có nên dùng Foreign Key xuyên Module?</h1>
+<p>Foreign key xuyên module tạo coupling schema mạnh.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>payment_attempts.order_id
+FOREIGN KEY → orders.id
+</div></code></pre>
+<p>Trong modular monolith, điều này có thể chấp nhận trong giai đoạn đầu.</p>
+<p>Nhưng nếu dự kiến tách service, cần cân nhắc:</p>
+<pre class="hljs"><code><div>- FK sẽ không tồn tại xuyên database
+- Migration khó hơn
+- Lifecycle của hai module bị ràng buộc
+</div></code></pre>
+<p>Có thể giữ ID reference mà không cho phép module khác join tùy ý.</p>
+<hr>
+<h1 id="19-query-xuyên-module">19. Query xuyên Module</h1>
+<p>Một admin dashboard cần:</p>
+<pre class="hljs"><code><div>Order + Payment + Customer
+</div></code></pre>
+<p>Không nên vì dashboard mà phá ownership và cho mọi module join mọi table.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Application-level composition
+- Read-only reporting view
+- Materialized projection
+- Data warehouse
+</div></code></pre>
+<p>Đường đọc và đường ghi không nhất thiết dùng cùng model.</p>
+<hr>
+<h1 id="20-modular-monolith-mang-lại-điều-gì">20. Modular Monolith mang lại điều gì?</h1>
+<pre class="hljs"><code><div>- Local calls nhanh
+- Local transactions khi cần
+- Một deployment đơn giản
+- Boundaries rõ
+- Dễ test
+- Dễ tách dần sau này
+</div></code></pre>
+<p>Đây thường là kiến trúc mặc định rất tốt cho:</p>
+<pre class="hljs"><code><div>- Startup
+- Internal platform
+- Sản phẩm có domain vừa phải
+- Team dưới vài chục engineers
+</div></code></pre>
+<p>Con số cụ thể không phải quy tắc; coordination cost mới là yếu tố quyết định.</p>
+<hr>
+<h1 id="21-microservices-là-gì">21. Microservices là gì?</h1>
+<p>Microservices architecture chia hệ thống thành nhiều services deploy độc lập.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Client --> Gateway
+
+    Gateway --> Order[Order Service]
+    Gateway --> Catalog[Catalog Service]
+    Gateway --> Customer[Customer Service]
+
+    Order --> Inventory[Inventory Service]
+    Order --> Payment[Payment Service]
+
+    Order --> OrderDB[(Order DB)]
+    Inventory --> InventoryDB[(Inventory DB)]
+    Payment --> PaymentDB[(Payment DB)]
+    Catalog --> CatalogDB[(Catalog DB)]
+</div></code></pre>
+<p>Một service thường có:</p>
+<pre class="hljs"><code><div>- Business capability riêng
+- Data ownership riêng
+- API hoặc event contracts
+- Deployment lifecycle riêng
+- Operational ownership rõ
+</div></code></pre>
+<hr>
+<h1 id="22-micro-không-nói-về-số-dòng-code">22. “Micro” không nói về số dòng Code</h1>
+<p>Một service không cần nhỏ đến mức:</p>
+<pre class="hljs"><code><div>200 dòng code
+</div></code></pre>
+<p>“Micro” nhấn mạnh:</p>
+<pre class="hljs"><code><div>- Scope tập trung
+- Ownership rõ
+- Khả năng triển khai độc lập
+</div></code></pre>
+<p>Một service có thể chứa hàng chục nghìn dòng code nhưng vẫn là một boundary hợp lý.</p>
+<hr>
+<h1 id="23-database-per-service">23. Database per Service</h1>
+<p>Nguyên tắc microservices phổ biến:</p>
+<blockquote>
+<p>Mỗi service sở hữu dữ liệu của mình.</p>
+</blockquote>
+<p>Không nhất thiết mỗi service phải có một database server vật lý riêng.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Cùng database cluster
+- Khác schema
+- Khác credentials
+- Cấm truy cập chéo
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<pre class="hljs"><code><div>Order Service không trực tiếp sửa Inventory tables.
+</div></code></pre>
+<hr>
+<h1 id="24-shared-database-anti-pattern">24. Shared Database Anti-Pattern</h1>
+<p>Nếu services deploy riêng nhưng cùng đọc/ghi một database schema:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Order[Order Service] --> Shared[(Shared Database)]
+    Payment[Payment Service] --> Shared
+    Inventory[Inventory Service] --> Shared
+    Shipping[Shipping Service] --> Shared
+</div></code></pre>
+<p>Hệ quả:</p>
+<pre class="hljs"><code><div>- Schema thay đổi ảnh hưởng mọi service
+- Service không thực sự độc lập
+- Transaction boundaries không rõ
+- Một query xấu ảnh hưởng toàn hệ thống
+</div></code></pre>
+<p>Đây thường là một dạng <strong>distributed monolith</strong>.</p>
+<hr>
+<h1 id="25-distributed-monolith">25. Distributed Monolith</h1>
+<p>Distributed monolith có vẻ là microservices nhưng vẫn phải release và hoạt động như một khối.</p>
+<p>Dấu hiệu:</p>
+<pre class="hljs"><code><div>- Deploy Order phải deploy Payment cùng lúc
+- Một request cần gọi tuần tự 12 services
+- Services chia sẻ database
+- API thay đổi làm toàn hệ thống vỡ
+- Không service nào có thể chạy khi service khác lỗi
+- Local development cần khởi động 40 services
+</div></code></pre>
+<p>Ta nhận:</p>
+<pre class="hljs"><code><div>Complexity của distributed system
++
+Coupling của monolith
+</div></code></pre>
+<p>Đây là trạng thái tệ hơn cả monolith có cấu trúc.</p>
+<hr>
+<h1 id="26-lợi-ích-thật-sự-của-microservices">26. Lợi ích thật sự của Microservices</h1>
+<h2 id="independent-deployment">Independent deployment</h2>
+<p>Payment có thể release mà không deploy Catalog.</p>
+<h2 id="independent-scaling">Independent scaling</h2>
+<pre class="hljs"><code><div>Search:
+1.000 instances
+
+Admin:
+5 instances
+</div></code></pre>
+<h2 id="failure-isolation">Failure isolation</h2>
+<p>Lỗi Recommendation không nhất thiết làm Checkout chết.</p>
+<h2 id="team-autonomy">Team autonomy</h2>
+<p>Mỗi team sở hữu:</p>
+<pre class="hljs"><code><div>Code
+Data
+Deployment
+On-call
+SLO
+</div></code></pre>
+<h2 id="technology-fit">Technology fit</h2>
+<p>Một số workload có thể dùng technology khác nhau.</p>
+<p>Nhưng không nên biến thành “mỗi service dùng một ngôn ngữ” tùy sở thích.</p>
+<hr>
+<h1 id="27-chi-phí-của-microservices">27. Chi phí của Microservices</h1>
+<pre class="hljs"><code><div>- Network latency
+- Partial failure
+- Timeout và retry
+- API versioning
+- Distributed tracing
+- Data consistency
+- Message duplication
+- Deployment orchestration
+- Service discovery
+- Security giữa services
+- Nhiều repositories và pipelines
+- Nhiều on-call surfaces
+</div></code></pre>
+<p>Một function call:</p>
+<pre class="hljs"><code><div>result = inventory.reserve(items)
+</div></code></pre>
+<p>khi chuyển thành network call cần xử lý:</p>
+<pre class="hljs"><code><div>- Request có tới không?
+- Server có xử lý nhưng response bị mất không?
+- Có nên retry không?
+- Retry có duplicate không?
+- Timeout bao lâu?
+- Circuit breaker khi nào mở?
+</div></code></pre>
+<hr>
+<h1 id="28-khi-nào-microservices-đáng-giá">28. Khi nào Microservices đáng giá?</h1>
+<p>Microservices thường đáng giá khi có ít nhất một số áp lực rõ ràng:</p>
+<pre class="hljs"><code><div>- Nhiều teams cần deploy độc lập
+- Module có scaling profile rất khác
+- Failure isolation có giá trị lớn
+- Một capability có security/compliance boundary riêng
+- Một phần hệ thống cần technology/runtime đặc biệt
+- Release coordination trong monolith trở thành bottleneck
+- Domain boundaries đã tương đối ổn định
+</div></code></pre>
+<p>Không nên tách chỉ vì:</p>
+<pre class="hljs"><code><div>- Codebase đã lớn
+- Muốn dùng Kubernetes
+- Công ty khác dùng microservices
+- Muốn “scale trong tương lai”
+</div></code></pre>
+<hr>
+<h1 id="29-organizational-scale">29. Organizational Scale</h1>
+<p>Khi một team duy nhất sở hữu monolith:</p>
+<pre class="hljs"><code><div>Coordination đơn giản.
+</div></code></pre>
+<p>Khi 20 teams cùng sửa:</p>
+<pre class="hljs"><code><div>- Merge conflicts
+- Shared release calendar
+- Ownership mờ
+- Review bottleneck
+- Incident khó phân trách nhiệm
+</div></code></pre>
+<p>Service boundaries có thể giảm coordination giữa teams.</p>
+<p>Nhưng boundary sai lại làm tăng coordination qua network contracts.</p>
+<hr>
+<h1 id="30-conways-law-ở-mức-trực-giác">30. Conway’s Law ở mức trực giác</h1>
+<p>Cấu trúc hệ thống thường phản ánh cấu trúc giao tiếp của tổ chức.</p>
+<p>Nếu teams được tổ chức theo technical layer:</p>
+<pre class="hljs"><code><div>Frontend Team
+Backend Team
+Database Team
+QA Team
+</div></code></pre>
+<p>mọi feature phải đi qua nhiều team.</p>
+<p>Nếu tổ chức theo business capability:</p>
+<pre class="hljs"><code><div>Checkout Team
+Catalog Team
+Fulfillment Team
+</div></code></pre>
+<p>mỗi team có thể sở hữu flow end-to-end tốt hơn.</p>
+<p>Architecture và team structure nên hỗ trợ nhau.</p>
+<hr>
+<h1 id="31-service-boundary-tốt">31. Service Boundary tốt</h1>
+<p>Một service boundary tốt thường có:</p>
+<pre class="hljs"><code><div>- Business capability rõ
+- Data ownership rõ
+- Ít synchronous dependencies
+- Có thể deploy tương đối độc lập
+- SLO và owner rõ
+- Failure mode hiểu được
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Payment Service:
+Authorize, capture, refund, payment state, reconciliation
+</div></code></pre>
+<p>Boundary này có cohesion cao.</p>
+<hr>
+<h1 id="32-chia-service-theo-entity-có-thể-sai">32. Chia Service theo Entity có thể sai</h1>
+<p>Thiết kế:</p>
+<pre class="hljs"><code><div>User Service
+Address Service
+Email Service
+Phone Service
+</div></code></pre>
+<p>Một thao tác update profile phải gọi bốn services.</p>
+<p>Các entities nhỏ không nhất thiết là business capability độc lập.</p>
+<p>Tốt hơn có thể là:</p>
+<pre class="hljs"><code><div>Customer Profile Service
+</div></code></pre>
+<p>bao gồm thông tin cùng lifecycle.</p>
+<hr>
+<h1 id="33-chia-theo-crud-thường-không-đủ">33. Chia theo CRUD thường không đủ</h1>
+<p>Một service chỉ có:</p>
+<pre class="hljs"><code><div>create/read/update/delete
+</div></code></pre>
+<p>cho một table chưa chắc có ý nghĩa nghiệp vụ.</p>
+<p>Service nên sở hữu behavior và invariants, không chỉ data container.</p>
+<p>Ví dụ Payment không chỉ CRUD payment row.</p>
+<p>Nó phải bảo vệ:</p>
+<pre class="hljs"><code><div>- Không capture hai lần
+- Refund không vượt số đã charge
+- State transitions hợp lệ
+</div></code></pre>
+<hr>
+<h1 id="34-service-granularity">34. Service Granularity</h1>
+<p>Service quá lớn:</p>
+<pre class="hljs"><code><div>Khó deploy độc lập
+Nhiều team cùng chạm
+</div></code></pre>
+<p>Service quá nhỏ:</p>
+<pre class="hljs"><code><div>Quá nhiều network calls
+Quá nhiều repositories
+Workflow phân mảnh
+</div></code></pre>
+<p>Không có kích thước cố định.</p>
+<p>Hãy hỏi:</p>
+<pre class="hljs"><code><div>- Những phần nào thay đổi cùng nhau?
+- Những phần nào cần scale cùng nhau?
+- Invariant nào phải atomic?
+- Team nào sở hữu?
+</div></code></pre>
+<hr>
+<h1 id="35-consistency-boundary-ảnh-hưởng-service-boundary">35. Consistency Boundary ảnh hưởng Service Boundary</h1>
+<p>Nếu hai dữ liệu gần như luôn phải thay đổi atomically, tách chúng sang hai services có thể là sai.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Order
+và
+Order Items
+</div></code></pre>
+<p>nên thường cùng service.</p>
+<p>Tách thành:</p>
+<pre class="hljs"><code><div>Order Service
+Order Item Service
+</div></code></pre>
+<p>biến mọi create order thành distributed transaction.</p>
+<p>Nguyên tắc:</p>
+<blockquote>
+<p>Những invariant cần local atomicity thường nên nằm cùng consistency boundary.</p>
+</blockquote>
+<hr>
+<h1 id="36-synchronous-communication">36. Synchronous Communication</h1>
+<p>Ví dụ Order gọi Inventory:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Client
+    participant Order
+    participant Inventory
+
+    Client->>Order: Create order
+    Order->>Inventory: Reserve stock
+    Inventory-->>Order: Reserved
+    Order-->>Client: Order created
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Kết quả ngay
+- Flow dễ hiểu
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Temporal coupling
+- Inventory chậm làm Order chậm
+- Partial failure
+- Retry complexity
+</div></code></pre>
+<hr>
+<h1 id="37-asynchronous-communication">37. Asynchronous Communication</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Broker
+    participant Inventory
+
+    Order->>Broker: OrderCreated
+    Broker->>Inventory: OrderCreated
+    Inventory->>Broker: InventoryReserved
+</div></code></pre>
+<p>Ưu điểm:</p>
+<pre class="hljs"><code><div>- Decoupling theo thời gian
+- Buffer traffic
+- Failure isolation tốt hơn
+</div></code></pre>
+<p>Nhược điểm:</p>
+<pre class="hljs"><code><div>- Eventual consistency
+- Debug khó hơn
+- Duplicate/out-of-order
+- Workflow state phức tạp
+</div></code></pre>
+<p>Không nên dùng event cho mọi interaction chỉ để “decouple”.</p>
+<hr>
+<h1 id="38-service-phải-chịu-được-partial-failure">38. Service phải chịu được Partial Failure</h1>
+<p>Trong monolith:</p>
+<pre class="hljs"><code><div>Function call thành công hoặc throw exception.
+</div></code></pre>
+<p>Trong distributed system:</p>
+<pre class="hljs"><code><div>Request timeout
+</div></code></pre>
+<p>không cho biết chắc:</p>
+<pre class="hljs"><code><div>- Server chưa nhận
+- Server đã nhận nhưng chưa xử lý
+- Server đã xử lý nhưng response mất
+</div></code></pre>
+<p>Do đó cần:</p>
+<pre class="hljs"><code><div>- Idempotency
+- Timeout
+- Retry policy
+- Circuit breaker
+- Reconciliation
+</div></code></pre>
+<hr>
+<h1 id="39-transaction-khi-tách-service">39. Transaction khi tách Service</h1>
+<p>Monolith:</p>
+<pre class="hljs"><code><div>BEGIN
+Create order
+Reserve inventory
+COMMIT
+</div></code></pre>
+<p>Microservices:</p>
+<pre class="hljs"><code><div>Order DB
+Inventory DB
+Payment DB
+</div></code></pre>
+<p>Không còn một local transaction chung.</p>
+<p>Cần:</p>
+<pre class="hljs"><code><div>- Saga
+- Reservation
+- Outbox
+- Idempotency
+- Compensation
+- Reconciliation
+</div></code></pre>
+<p>Do đó tách service là thay đổi consistency model, không chỉ thay đổi repository.</p>
+<hr>
+<h1 id="40-trước-khi-tách-hãy-tính-distributed-tax">40. Trước khi tách, hãy tính “Distributed Tax”</h1>
+<p>Mỗi boundary mới mang theo:</p>
+<pre class="hljs"><code><div>Network
+Observability
+Deployment
+Security
+Consistency
+Testing
+On-call
+</div></code></pre>
+<p>Một cách tư duy:</p>
+<pre class="hljs"><code><div>Benefit của independent service
+&gt;
+Distributed tax của boundary đó
+</div></code></pre>
+<p>Nếu chưa, giữ module trong monolith thường tốt hơn.</p>
+<hr>
+<h1 id="41-dấu-hiệu-monolith-cần-tiến-hóa">41. Dấu hiệu Monolith cần tiến hóa</h1>
+<h2 id="release-contention">Release contention</h2>
+<p>Nhiều teams phải chờ một release train.</p>
+<h2 id="buildtest-quá-lâu">Build/test quá lâu</h2>
+<p>Một thay đổi nhỏ mất hàng giờ CI.</p>
+<h2 id="scaling-không-đồng-đều">Scaling không đồng đều</h2>
+<p>Một module nóng buộc scale toàn application.</p>
+<h2 id="fault-propagation">Fault propagation</h2>
+<p>Một memory leak làm toàn hệ thống restart.</p>
+<h2 id="ownership-mờ">Ownership mờ</h2>
+<p>Không ai chịu trách nhiệm rõ cho capability.</p>
+<h2 id="security-boundary">Security boundary</h2>
+<p>Một phần cần compliance hoặc isolation riêng.</p>
+<h2 id="technology-constraint">Technology constraint</h2>
+<p>Ví dụ video transcoding cần runtime khác biệt rõ.</p>
+<hr>
+<h1 id="42-dấu-hiệu-chưa-nên-tách">42. Dấu hiệu chưa nên tách</h1>
+<pre class="hljs"><code><div>- Module boundaries còn thay đổi hàng tuần
+- Chưa có observability tốt
+- Chưa có CI/CD ổn định
+- Chưa hiểu data ownership
+- Team chưa trực on-call
+- Không có contract testing
+- Không xử lý được retry/idempotency
+</div></code></pre>
+<p>Microservices khuếch đại những điểm yếu vận hành hiện có.</p>
+<hr>
+<h1 id="43-extract-service-hay-chỉ-modularize">43. Extract Service hay chỉ Modularize?</h1>
+<p>Trước khi tạo network boundary, hãy thử:</p>
+<pre class="hljs"><code><div>- Tách package/module
+- Tạo interface
+- Cấm database access chéo
+- Tách schema ownership
+- Tách background worker
+- Tách deployment pipeline nội bộ
+</div></code></pre>
+<p>Nếu modularization giải quyết được vấn đề, chưa cần microservice.</p>
+<hr>
+<h1 id="44-service-extraction-candidate">44. Service Extraction Candidate</h1>
+<p>Một module là ứng viên tốt khi:</p>
+<pre class="hljs"><code><div>- Boundary rõ
+- Ít transaction xuyên module
+- Data ownership rõ
+- Có scaling profile riêng
+- Có team owner
+- API tương đối ổn định
+- Có thể chịu eventual consistency
+</div></code></pre>
+<p>Ví dụ thường dễ tách hơn:</p>
+<pre class="hljs"><code><div>- Notification
+- Search indexing
+- Image processing
+- Reporting
+- Recommendation
+</div></code></pre>
+<p>so với:</p>
+<pre class="hljs"><code><div>- Order và order items
+- Seat và active reservation
+</div></code></pre>
+<hr>
+<h1 id="45-bắt-đầu-bằng-peripheral-capability">45. Bắt đầu bằng Peripheral Capability</h1>
+<p>Không nên lần đầu tách service bằng phần khó nhất như:</p>
+<pre class="hljs"><code><div>Payment ledger
+Booking inventory
+</div></code></pre>
+<p>Có thể bắt đầu:</p>
+<pre class="hljs"><code><div>- Email/Notification
+- File processing
+- Search indexing
+- Audit log
+</div></code></pre>
+<p>Những phần này giúp đội học:</p>
+<pre class="hljs"><code><div>- Deployment
+- Monitoring
+- Messaging
+- Ownership
+</div></code></pre>
+<p>với rủi ro thấp hơn.</p>
+<hr>
+<h1 id="46-strangler-pattern">46. Strangler Pattern</h1>
+<p>Strangler pattern thay thế hệ thống cũ từng phần thay vì rewrite toàn bộ.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Router[Gateway / Strangler Facade]
+
+    Router -->|Old routes| Legacy[Legacy Monolith]
+    Router -->|Migrated routes| New[New Service]
+</div></code></pre>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>100% request → Monolith
+</div></code></pre>
+<p>Sau đó:</p>
+<pre class="hljs"><code><div>Một nhóm endpoint → New Service
+</div></code></pre>
+<p>Cuối cùng:</p>
+<pre class="hljs"><code><div>Monolith cũ dần bị “siết lại” và loại bỏ.
+</div></code></pre>
+<hr>
+<h1 id="47-vì-sao-big-bang-rewrite-nguy-hiểm">47. Vì sao Big-Bang Rewrite nguy hiểm?</h1>
+<p>Big-bang rewrite thường yêu cầu:</p>
+<pre class="hljs"><code><div>- Viết lại toàn bộ
+- Dừng feature development
+- Chờ nhiều tháng hoặc năm
+- Cutover một lần
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- Business thay đổi trong lúc rewrite
+- Hidden behavior không được ghi lại
+- Không có feedback production
+- Scope tăng liên tục
+- Cutover khó rollback
+</div></code></pre>
+<p>Strangler cho phép delivery giá trị từng phần.</p>
+<hr>
+<h1 id="48-strangler-facade">48. Strangler Facade</h1>
+<p>Facade hoặc gateway quyết định request đi đâu.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>/api/v1/search → Search Service
+/api/v1/orders → Legacy Monolith
+/api/v1/payments → Legacy Monolith
+</div></code></pre>
+<p>Sau khi Order được tách:</p>
+<pre class="hljs"><code><div>/api/v1/orders → Order Service
+</div></code></pre>
+<p>Client không cần biết migration nội bộ.</p>
+<hr>
+<h1 id="49-vertical-slice-migration">49. Vertical Slice Migration</h1>
+<p>Nên migrate một capability end-to-end:</p>
+<pre class="hljs"><code><div>API
+Business logic
+Data ownership
+Background jobs
+Observability
+</div></code></pre>
+<p>Không nên chỉ tách controller nhưng vẫn để logic và database trong monolith.</p>
+<p>Một vertical slice tạo ownership thực sự.</p>
+<hr>
+<h1 id="50-branch-by-abstraction">50. Branch by Abstraction</h1>
+<p>Thay vì sửa mọi nơi cùng lúc, tạo abstraction:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">class</span> <span class="hljs-title class_">InventoryGateway</span>:
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">reserve</span>(<span class="hljs-params">self, request</span>):
+        ...
+</div></code></pre>
+<p>Ban đầu implementation gọi code monolith.</p>
+<p>Sau đó implementation mới gọi Inventory Service.</p>
+<pre class="hljs"><code><div>Callers không thay đổi.
+</div></code></pre>
+<p>Pattern này giúp migration dần trong cùng codebase.</p>
+<hr>
+<h1 id="51-anti-corruption-layer">51. Anti-Corruption Layer</h1>
+<p>Hệ thống legacy có model:</p>
+<pre class="hljs"><code><div>customer_record
+order_row
+payment_flag
+</div></code></pre>
+<p>Service mới có domain model rõ hơn.</p>
+<p>Anti-corruption layer chuyển đổi:</p>
+<pre class="hljs"><code><div>Legacy model
+↔
+New domain model
+</div></code></pre>
+<p>Nó ngăn model cũ lan vào service mới.</p>
+<hr>
+<h1 id="52-shadow-traffic">52. Shadow Traffic</h1>
+<p>Gửi bản sao request sang service mới nhưng chưa dùng response cho user.</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Request --> Legacy
+    Request -. copy .-> NewService
+
+    Legacy --> Response[User Response]
+    NewService --> Compare[Compare Results]
+</div></code></pre>
+<p>Dùng để kiểm tra:</p>
+<pre class="hljs"><code><div>- Functional differences
+- Latency
+- Error rate
+- Capacity
+</div></code></pre>
+<p>Không nên shadow các side-effecting writes một cách mù quáng.</p>
+<hr>
+<h1 id="53-dark-launch">53. Dark Launch</h1>
+<p>Service mới được deploy production nhưng chưa nhận user traffic chính.</p>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Consume production events
+- Xây state
+- Chạy synthetic traffic
+- Shadow reads
+</div></code></pre>
+<p>Mục tiêu là kiểm chứng trước cutover.</p>
+<hr>
+<h1 id="54-canary-cutover">54. Canary Cutover</h1>
+<p>Thay vì chuyển 100%:</p>
+<pre class="hljs"><code><div>1%
+→ 5%
+→ 20%
+→ 50%
+→ 100%
+</div></code></pre>
+<p>Theo dõi:</p>
+<pre class="hljs"><code><div>- Error rate
+- Latency
+- Business invariants
+- Data divergence
+</div></code></pre>
+<p>Cần routing ổn định để cùng user hoặc entity không bị chuyển liên tục giữa hai implementations nếu state chưa đồng bộ.</p>
+<hr>
+<h1 id="55-data-migration-là-phần-khó-nhất">55. Data Migration là phần khó nhất</h1>
+<p>Tách code thường dễ hơn tách dữ liệu.</p>
+<p>Ban đầu:</p>
+<pre class="hljs"><code><div>Monolith DB:
+orders
+inventory
+payments
+customers
+</div></code></pre>
+<p>Sau tách:</p>
+<pre class="hljs"><code><div>Order DB
+Inventory DB
+Payment DB
+</div></code></pre>
+<p>Cần giải quyết:</p>
+<pre class="hljs"><code><div>- Historical data
+- Ongoing writes
+- Foreign keys
+- Joins
+- Consistency
+- Rollback
+</div></code></pre>
+<hr>
+<h1 id="56-shared-database-như-trạng-thái-chuyển-tiếp">56. Shared Database như Trạng thái Chuyển tiếp</h1>
+<p>Một service mới có thể tạm thời dùng database cũ.</p>
+<pre class="hljs"><code><div>Phase 1:
+Code tách, data chưa tách
+
+Phase 2:
+Service có credentials giới hạn
+
+Phase 3:
+Data được chuyển sang database riêng
+</div></code></pre>
+<p>Đây có thể là bước migration thực tế.</p>
+<p>Nhưng phải có kế hoạch thoát khỏi shared DB; nếu không sẽ dừng ở distributed monolith.</p>
+<hr>
+<h1 id="57-database-view-để-giảm-coupling">57. Database View để Giảm Coupling</h1>
+<p>Monolith legacy có schema phức tạp.</p>
+<p>Service mới có thể tạm đọc qua view ổn định:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">VIEW</span> order_service_projection <span class="hljs-keyword">AS</span>
+<span class="hljs-keyword">SELECT</span>
+    order_id,
+    customer_id,
+    status,
+    total
+<span class="hljs-keyword">FROM</span> legacy_orders;
+</div></code></pre>
+<p>View là adapter tạm thời.</p>
+<p>Nó không giải quyết write ownership lâu dài.</p>
+<hr>
+<h1 id="58-copy-data-bằng-backfill">58. Copy Data bằng Backfill</h1>
+<p>Quy trình cơ bản:</p>
+<pre class="hljs"><code><div>1. Tạo database mới.
+2. Copy historical data.
+3. Ghi nhận vị trí hoặc version tại lúc snapshot.
+4. Apply changes phát sinh sau snapshot.
+5. Catch up.
+6. Cutover reads/writes.
+</div></code></pre>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    Legacy[(Legacy DB)] --> Backfill[Historical Backfill]
+    Backfill --> New[(New Service DB)]
+
+    Legacy --> CDC[CDC / Change Stream]
+    CDC --> New
+</div></code></pre>
+<hr>
+<h1 id="59-backfill--cdc">59. Backfill + CDC</h1>
+<p>Chỉ backfill không đủ vì writes vẫn tiếp tục.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>10:00:
+Bắt đầu copy
+
+10:10:
+User update order
+
+11:00:
+Backfill hoàn tất
+</div></code></pre>
+<p>Nếu không có CDC:</p>
+<pre class="hljs"><code><div>Order update lúc 10:10 có thể thiếu ở DB mới.
+</div></code></pre>
+<p>CDC hoặc outbox capture delta trong lúc backfill.</p>
+<hr>
+<h1 id="60-snapshot-boundary">60. Snapshot Boundary</h1>
+<p>Backfill cần biết thay đổi nào thuộc trước hoặc sau snapshot.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Database log position
+- Transaction ID
+- Commit timestamp
+- Monotonic version
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Snapshot tại LSN 1000
+
+Backfill snapshot
+→ Sau đó replay CDC từ LSN 1001
+</div></code></pre>
+<hr>
+<h1 id="61-dual-write-rất-nguy-hiểm">61. Dual Write rất nguy hiểm</h1>
+<p>Trong migration, có thể muốn:</p>
+<pre class="hljs"><code><div>Write Legacy DB
+Write New DB
+</div></code></pre>
+<p>Nếu một bên thất bại:</p>
+<pre class="hljs"><code><div>Dữ liệu lệch.
+</div></code></pre>
+<p>Nếu buộc phải dual-write, cần:</p>
+<pre class="hljs"><code><div>- Durable outbox
+- Retry
+- Idempotency
+- Reconciliation
+- Versioning
+</div></code></pre>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>Một authoritative write
+→ Change stream sang hệ thống kia
+</div></code></pre>
+<p>thay vì hai independent writes trong request path.</p>
+<hr>
+<h1 id="62-chọn-source-of-truth-trong-migration">62. Chọn Source of Truth trong Migration</h1>
+<p>Mỗi giai đoạn phải có một nguồn authoritative rõ.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Phase 1:
+Legacy DB authoritative
+
+Phase 2:
+Legacy write, New read shadow
+
+Phase 3:
+New DB authoritative
+Legacy nhận replicated compatibility data
+
+Phase 4:
+Legacy copy bị loại bỏ
+</div></code></pre>
+<p>Không được để cả hai cùng “có thể đúng”.</p>
+<hr>
+<h1 id="63-read-migration">63. Read Migration</h1>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. New service đọc shadow.
+2. So sánh kết quả với legacy.
+3. Chuyển một phần read traffic.
+4. Theo dõi divergence.
+5. Chuyển toàn bộ reads.
+</div></code></pre>
+<p>Read migration thường ít rủi ro hơn write migration.</p>
+<hr>
+<h1 id="64-write-migration">64. Write Migration</h1>
+<p>Write cutover cần cẩn thận hơn:</p>
+<pre class="hljs"><code><div>1. Đảm bảo new DB đã catch up.
+2. Tạm ổn định hoặc fence old writer.
+3. Chuyển ownership epoch.
+4. Route writes sang new service.
+5. Replicate ngược nếu legacy còn cần đọc.
+6. Theo dõi.
+</div></code></pre>
+<p>Không nên có hai write owners cùng lúc.</p>
+<hr>
+<h1 id="65-fencing-khi-chuyển-ownership">65. Fencing khi Chuyển Ownership</h1>
+<p>Old monolith có thể còn worker hoặc request đang chạy.</p>
+<p>Dùng ownership version:</p>
+<pre class="hljs"><code><div>Legacy writer epoch = 7
+New service epoch = 8
+</div></code></pre>
+<p>Database hoặc control plane từ chối writes epoch cũ.</p>
+<p>Nếu không, request cũ đến muộn có thể ghi đè state mới.</p>
+<hr>
+<h1 id="66-data-verification">66. Data Verification</h1>
+<p>Trước cutover, so sánh:</p>
+<pre class="hljs"><code><div>- Row count
+- Checksums
+- Per-entity versions
+- Aggregate totals
+- Business invariants
+</div></code></pre>
+<p>Ví dụ payment:</p>
+<pre class="hljs"><code><div>Tổng captured amount
+Tổng refunded amount
+Số payment ở mỗi state
+</div></code></pre>
+<p>Không chỉ so số row.</p>
+<hr>
+<h1 id="67-reconciliation-trong-migration">67. Reconciliation trong Migration</h1>
+<p>Sau cutover vẫn cần job kiểm tra:</p>
+<pre class="hljs"><code><div>Legacy order version
+vs
+New order version
+</div></code></pre>
+<p>Nếu mismatch:</p>
+<pre class="hljs"><code><div>- Repair tự động
+- Re-enqueue event
+- Manual review
+</div></code></pre>
+<p>Migration hoàn tất về routing không có nghĩa dữ liệu chắc chắn hoàn hảo.</p>
+<hr>
+<h1 id="68-zero-downtime-migration">68. Zero-Downtime Migration</h1>
+<p>Zero downtime không có nghĩa không có bất kỳ rủi ro nào.</p>
+<p>Nó thường dựa trên:</p>
+<pre class="hljs"><code><div>- Backward compatibility
+- Incremental rollout
+- Dual-compatible schema
+- Online backfill
+- Canary
+- Rollback
+</div></code></pre>
+<p>Các thay đổi phải được chia thành nhiều bước nhỏ.</p>
+<hr>
+<h1 id="69-expandcontract-pattern">69. Expand–Contract Pattern</h1>
+<p>Ví dụ đổi column:</p>
+<pre class="hljs"><code><div>full_name
+→
+first_name + last_name
+</div></code></pre>
+<p>Không nên:</p>
+<pre class="hljs"><code><div>1. Xóa full_name
+2. Deploy code mới
+</div></code></pre>
+<p>Quy trình an toàn:</p>
+<h2 id="expand">Expand</h2>
+<pre class="hljs"><code><div>- Thêm first_name và last_name
+- Code cũ vẫn chạy
+</div></code></pre>
+<h2 id="migrate">Migrate</h2>
+<pre class="hljs"><code><div>- Backfill dữ liệu
+- Code mới đọc/ghi field mới
+- Có thể tạm ghi cả hai
+</div></code></pre>
+<h2 id="contract">Contract</h2>
+<pre class="hljs"><code><div>- Xác nhận không còn reader cũ
+- Xóa full_name
+</div></code></pre>
+<hr>
+<h1 id="70-database-schema-migration-không-downtime">70. Database Schema Migration không Downtime</h1>
+<p>Thay đổi nguy hiểm:</p>
+<pre class="hljs"><code><div>- Rename column trực tiếp
+- Drop column ngay
+- Add NOT NULL trên bảng rất lớn
+- Rebuild index blocking
+</div></code></pre>
+<p>Cách an toàn:</p>
+<pre class="hljs"><code><div>- Add nullable column
+- Backfill theo batch
+- Add validation
+- Chuyển reads
+- Enforce constraint sau
+</div></code></pre>
+<p>Cần hiểu locking behavior của database cụ thể.</p>
+<hr>
+<h1 id="71-api-backward-compatibility">71. API Backward Compatibility</h1>
+<p>Service mới có nhiều client versions.</p>
+<p>Không nên đổi:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>thành:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;totalAmount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>và xóa <code>amount</code> ngay.</p>
+<p>Quy trình:</p>
+<pre class="hljs"><code><div>1. Thêm totalAmount.
+2. Giữ amount.
+3. Chuyển clients.
+4. Theo dõi usage.
+5. Loại amount sau deprecation period.
+</div></code></pre>
+<hr>
+<h1 id="72-tolerant-reader">72. Tolerant Reader</h1>
+<p>Consumer nên bỏ qua field chưa biết nếu contract cho phép.</p>
+<p>Producer nên tránh thay đổi breaking:</p>
+<pre class="hljs"><code><div>- Đổi type
+- Đổi ý nghĩa
+- Xóa field bắt buộc
+</div></code></pre>
+<p>Event và API evolution cần quy tắc rõ.</p>
+<hr>
+<h1 id="73-event-schema-evolution">73. Event Schema Evolution</h1>
+<p>Event v1:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;o1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Event v2:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;o1&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;amount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Consumer cũ có thể bỏ qua <code>currency</code>.</p>
+<p>Consumer mới phải có default cho event v1.</p>
+<p>Không nên đổi <code>amount</code> từ integer minor units sang decimal major units mà giữ cùng tên và không version.</p>
+<hr>
+<h1 id="74-consumer-driven-contract-testing">74. Consumer-Driven Contract Testing</h1>
+<p>Provider thay API cần biết client nào bị ảnh hưởng.</p>
+<p>Consumer contract mô tả expectation:</p>
+<pre class="hljs"><code><div>Order Service kỳ vọng Inventory response có:
+reservationId
+status
+expiresAt
+</div></code></pre>
+<p>CI của Inventory kiểm tra contract trước khi release.</p>
+<p>Contract test không thay thế integration test, nhưng giảm breaking changes.</p>
+<hr>
+<h1 id="75-zero-downtime-deployment">75. Zero-Downtime Deployment</h1>
+<p>Các chiến lược:</p>
+<pre class="hljs"><code><div>- Rolling deployment
+- Blue–green
+- Canary
+</div></code></pre>
+<h2 id="rolling">Rolling</h2>
+<p>Thay instances từng phần.</p>
+<p>Cần version cũ và mới cùng hoạt động trong một thời gian.</p>
+<h2 id="bluegreen">Blue–green</h2>
+<p>Hai environments đầy đủ:</p>
+<pre class="hljs"><code><div>Blue = current
+Green = new
+</div></code></pre>
+<p>Chuyển traffic nhanh.</p>
+<h2 id="canary">Canary</h2>
+<p>Chuyển tỷ lệ traffic nhỏ trước.</p>
+<hr>
+<h1 id="76-version-skew">76. Version Skew</h1>
+<p>Trong rolling deployment:</p>
+<pre class="hljs"><code><div>Instance v1
+Instance v2
+</div></code></pre>
+<p>cùng chạy.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>- API nội bộ phải tương thích
+- Database schema phải dùng được cho cả hai
+- Events không được làm consumer cũ crash
+</div></code></pre>
+<p>Mọi migration phải giả định có version skew.</p>
+<hr>
+<h1 id="77-rollback-không-phải-lúc-nào-cũng-đơn-giản">77. Rollback không phải lúc nào cũng đơn giản</h1>
+<p>Code v2 đã ghi dữ liệu theo schema mới.</p>
+<p>Rollback về v1 có thể không đọc được.</p>
+<p>Do đó cần:</p>
+<pre class="hljs"><code><div>- Forward-compatible schema
+- Feature flags
+- Reversible data changes
+- Roll-forward plan
+</div></code></pre>
+<p>Nhiều tình huống roll-forward an toàn hơn rollback binary cũ.</p>
+<hr>
+<h1 id="78-feature-flags">78. Feature Flags</h1>
+<p>Feature flag tách:</p>
+<pre class="hljs"><code><div>Code deployment
+</div></code></pre>
+<p>khỏi:</p>
+<pre class="hljs"><code><div>Feature activation
+</div></code></pre>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Deploy code tắt
+- Bật cho internal users
+- Bật 1%
+- Tăng dần
+</div></code></pre>
+<p>Nhưng flags cũng tạo complexity:</p>
+<pre class="hljs"><code><div>- Nhiều code paths
+- Flag stale
+- Configuration dependency
+</div></code></pre>
+<p>Flag cần owner và expiration.</p>
+<hr>
+<h1 id="79-migration-by-feature-flag">79. Migration by Feature Flag</h1>
+<p>Ví dụ chuyển từ legacy pricing sang Pricing Service.</p>
+<pre class="hljs"><code><div>pricing_service_enabled:
+false → true
+</div></code></pre>
+<p>Theo:</p>
+<pre class="hljs"><code><div>- Tenant
+- Region
+- User cohort
+- Request percentage
+</div></code></pre>
+<p>Nếu có lỗi:</p>
+<pre class="hljs"><code><div>Tắt flag
+→ quay lại legacy path
+</div></code></pre>
+<p>Chỉ an toàn nếu data writes vẫn tương thích.</p>
+<hr>
+<h1 id="80-observability-trước-khi-tách-service">80. Observability trước khi Tách Service</h1>
+<p>Trước extraction, cần biết:</p>
+<pre class="hljs"><code><div>- Module được gọi bao nhiêu?
+- Latency ở đâu?
+- Dependencies nào?
+- Error rate?
+- Database queries?
+- Business invariants?
+</div></code></pre>
+<p>Nếu không có telemetry, team sẽ tách dựa trên phỏng đoán.</p>
+<hr>
+<h1 id="81-observability-sau-khi-tách">81. Observability sau khi Tách</h1>
+<p>Mỗi request cần:</p>
+<pre class="hljs"><code><div>- Trace ID
+- Correlation ID
+- Service name
+- Version
+- Region
+</div></code></pre>
+<p>Theo dõi:</p>
+<pre class="hljs"><code><div>- Synchronous call latency
+- Retry count
+- Circuit breaker state
+- Queue lag
+- Event processing failures
+- Data reconciliation mismatch
+</div></code></pre>
+<p>Microservices không có distributed tracing sẽ rất khó debug.</p>
+<hr>
+<h1 id="82-slo-theo-service-và-user-journey">82. SLO theo Service và User Journey</h1>
+<p>Service SLO:</p>
+<pre class="hljs"><code><div>Inventory Reserve:
+99.95% dưới 200 ms
+</div></code></pre>
+<p>Nhưng user journey:</p>
+<pre class="hljs"><code><div>Checkout:
+Order + Inventory + Payment + Confirmation
+</div></code></pre>
+<p>có thể tệ hơn vì nhiều dependencies.</p>
+<p>Cần cả:</p>
+<pre class="hljs"><code><div>- Service-level SLO
+- End-to-end business SLO
+</div></code></pre>
+<hr>
+<h1 id="83-reliability-giảm-theo-dependency-chain">83. Reliability giảm theo Dependency Chain</h1>
+<p>Nếu một request gọi tuần tự năm services, mỗi service availability 99.9% và độc lập hoàn toàn:</p>
+<pre class="hljs"><code><div>End-to-end availability xấp xỉ:
+0,999^5 ≈ 99,5%
+</div></code></pre>
+<p>Đây chỉ là mô hình minh họa; failure thực tế không độc lập.</p>
+<p>Thông điệp:</p>
+<blockquote>
+<p>Nhiều synchronous dependencies có thể làm reliability tổng giảm đáng kể.</p>
+</blockquote>
+<hr>
+<h1 id="84-chatty-services">84. Chatty Services</h1>
+<p>Không tốt:</p>
+<pre class="hljs"><code><div>Order → Customer
+Order → Address
+Order → Pricing
+Order → Tax
+Order → Inventory
+Order → Promotion
+Order → Payment
+</div></code></pre>
+<p>mỗi request đi tuần tự.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Coarser-grained service boundary
+- Parallel calls khi độc lập
+- Local read model
+- Async workflow
+- Cache
+</div></code></pre>
+<hr>
+<h1 id="85-api-composition">85. API Composition</h1>
+<p>Một frontend cần dữ liệu từ nhiều services.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- API Gateway
+- Backend for Frontend
+- GraphQL composition
+- Aggregator service
+</div></code></pre>
+<p>Nhưng aggregator không nên trở thành monolith business logic mới.</p>
+<p>Nó chủ yếu phối hợp và định dạng response.</p>
+<hr>
+<h1 id="86-data-duplication-giữa-services">86. Data Duplication giữa Services</h1>
+<p>Microservices thường chấp nhận duplicate data có kiểm soát.</p>
+<p>Ví dụ Order lưu snapshot:</p>
+<pre class="hljs"><code><div>customerNameAtPurchase
+shippingAddressAtPurchase
+productPriceAtPurchase
+</div></code></pre>
+<p>Không cần gọi Customer hoặc Catalog mỗi lần xem order lịch sử.</p>
+<p>Đây là business snapshot, không phải dữ liệu dư vô nghĩa.</p>
+<hr>
+<h1 id="87-local-read-model">87. Local Read Model</h1>
+<p>Inventory Service có thể cần product title để dashboard nội bộ.</p>
+<p>Thay vì gọi Catalog cho mọi row:</p>
+<pre class="hljs"><code><div>Consume ProductUpdated
+→ Lưu local projection
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>- Read nhanh
+- Eventual consistency
+- Cần rebuild/reconciliation
+</div></code></pre>
+<hr>
+<h1 id="88-platform-engineering">88. Platform Engineering</h1>
+<p>Nhiều microservices cần nền tảng chung:</p>
+<pre class="hljs"><code><div>- CI/CD templates
+- Logging
+- Metrics
+- Tracing
+- Secret management
+- Service discovery
+- Runtime standards
+- Security scanning
+</div></code></pre>
+<p>Nếu mỗi team tự xây mọi thứ:</p>
+<pre class="hljs"><code><div>Operational inconsistency
++
+Chi phí rất lớn
+</div></code></pre>
+<p>Platform team nên cung cấp “paved road” nhưng không trở thành ticket bottleneck.</p>
+<hr>
+<h1 id="89-standardization">89. Standardization</h1>
+<p>Nên chuẩn hóa:</p>
+<pre class="hljs"><code><div>- Health endpoints
+- Logging format
+- Trace propagation
+- Retry rules
+- API authentication
+- Deployment metadata
+- Runbook format
+</div></code></pre>
+<p>Không nhất thiết chuẩn hóa tuyệt đối:</p>
+<pre class="hljs"><code><div>- Mọi service cùng database
+- Mọi service cùng programming language
+</div></code></pre>
+<p>Mức độ tự do nên tương xứng khả năng vận hành.</p>
+<hr>
+<h1 id="90-local-development">90. Local Development</h1>
+<p>Nếu developer phải chạy 50 services để sửa một màn hình, productivity giảm mạnh.</p>
+<p>Các giải pháp:</p>
+<pre class="hljs"><code><div>- Contract mocks
+- Service virtualization
+- Remote development environment
+- Test containers
+- Modular monolith cho domain chưa cần tách
+</div></code></pre>
+<p>Local developer experience là một architecture requirement.</p>
+<hr>
+<h1 id="91-testing-strategy">91. Testing Strategy</h1>
+<h2 id="unit-tests">Unit tests</h2>
+<p>Test business rules trong module/service.</p>
+<h2 id="contract-tests">Contract tests</h2>
+<p>Test API/event compatibility.</p>
+<h2 id="integration-tests">Integration tests</h2>
+<p>Test database, broker, external adapter.</p>
+<h2 id="end-to-end-tests">End-to-end tests</h2>
+<p>Test critical user journey.</p>
+<p>Không nên cố dùng end-to-end tests để kiểm tra mọi edge case; chúng chậm và dễ flaky.</p>
+<hr>
+<h1 id="92-test-pyramid-trong-distributed-system">92. Test Pyramid trong Distributed System</h1>
+<p>Số lượng nên nghiêng về:</p>
+<pre class="hljs"><code><div>Nhiều unit/module tests
+Một số integration/contract tests
+Ít end-to-end tests nhưng rất quan trọng
+</div></code></pre>
+<p>Cần thêm production verification:</p>
+<pre class="hljs"><code><div>- Canary
+- Synthetic tests
+- Shadow traffic
+- Invariant monitoring
+</div></code></pre>
+<hr>
+<h1 id="93-security-boundary">93. Security Boundary</h1>
+<p>Tách service có thể hữu ích khi một capability có yêu cầu bảo mật riêng.</p>
+<p>Ví dụ Payment Service:</p>
+<pre class="hljs"><code><div>- Network segment riêng
+- Credentials riêng
+- Audit riêng
+- Hạn chế quyền truy cập
+</div></code></pre>
+<p>Nhưng nhiều services cũng tăng attack surface:</p>
+<pre class="hljs"><code><div>- Nhiều endpoints
+- Nhiều certificates
+- Nhiều secrets
+- Service-to-service authentication
+</div></code></pre>
+<hr>
+<h1 id="94-authorization-xuyên-service">94. Authorization xuyên Service</h1>
+<p>Không nên chỉ tin header do client tự gửi:</p>
+<pre class="hljs"><code><div><span class="hljs-attribute">X-User-Role</span><span class="hljs-punctuation">: </span>admin
+</div></code></pre>
+<p>Gateway hoặc identity layer phải ký/xác thực identity.</p>
+<p>Service vẫn cần kiểm tra authorization cho resource mình sở hữu.</p>
+<p>Không nên phụ thuộc toàn bộ vào gateway cho các operation nhạy cảm.</p>
+<hr>
+<h1 id="95-cost-model">95. Cost Model</h1>
+<p>Microservices có chi phí cố định cho từng service:</p>
+<pre class="hljs"><code><div>- Minimum replicas
+- Logs
+- Metrics
+- Load balancer
+- Pipeline
+- On-call
+</div></code></pre>
+<p>50 services ít traffic vẫn có thể tốn nhiều hơn một monolith lớn.</p>
+<p>Chi phí con người thường lớn hơn chi phí compute.</p>
+<hr>
+<h1 id="96-case-study--e-commerce-monolith">96. Case Study — E-Commerce Monolith</h1>
+<p>Ban đầu:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> App[E-Commerce Monolith]
+
+    App --> Catalog
+    App --> Cart
+    App --> Order
+    App --> Payment
+    App --> Inventory
+    App --> Notification
+
+    App --> DB[(Shared DB)]
+</div></code></pre>
+<p>Team:</p>
+<pre class="hljs"><code><div>8 engineers
+</div></code></pre>
+<p>Ở giai đoạn này, modular monolith là lựa chọn tốt.</p>
+<hr>
+<h1 id="97-bước-1--modularize">97. Bước 1 — Modularize</h1>
+<p>Tạo modules:</p>
+<pre class="hljs"><code><div>catalog/
+cart/
+ordering/
+inventory/
+payment/
+notification/
+</div></code></pre>
+<p>Quy tắc:</p>
+<pre class="hljs"><code><div>- Không import internals
+- Không truy cập table chéo
+- Public interfaces rõ
+- Module ownership rõ
+</div></code></pre>
+<p>Chưa cần network.</p>
+<hr>
+<h1 id="98-bước-2--tách-notification">98. Bước 2 — Tách Notification</h1>
+<p>Notification có đặc điểm:</p>
+<pre class="hljs"><code><div>- Async
+- Failure không nên block order
+- Scale profile riêng
+- Có external vendors
+</div></code></pre>
+<p>Flow:</p>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Order
+    participant Broker
+    participant Notification
+
+    Order->>Broker: OrderConfirmed
+    Broker->>Notification: OrderConfirmed
+    Notification->>Notification: Send email/SMS
+</div></code></pre>
+<p>Đây là extraction rủi ro thấp.</p>
+<hr>
+<h1 id="99-bước-3--tách-search">99. Bước 3 — Tách Search</h1>
+<p>Catalog DB vẫn là source of truth.</p>
+<p>Search Service:</p>
+<pre class="hljs"><code><div>- Consume ProductUpdated events
+- Xây search index
+- Phục vụ full-text queries
+</div></code></pre>
+<p>Search eventual consistent nên tương đối độc lập.</p>
+<hr>
+<h1 id="100-bước-4--tách-image-processing">100. Bước 4 — Tách Image Processing</h1>
+<p>Upload ảnh:</p>
+<pre class="hljs"><code><div>- CPU-heavy
+- Async
+- Scale riêng
+</div></code></pre>
+<p>Có thể tách worker/service mà không thay đổi transactional core.</p>
+<hr>
+<h1 id="101-bước-5--tách-payment">101. Bước 5 — Tách Payment</h1>
+<p>Payment tách khi:</p>
+<pre class="hljs"><code><div>- Có team chuyên trách
+- Security boundary rõ
+- Provider integrations phức tạp
+- State machine ổn định
+</div></code></pre>
+<p>Nhưng cần chuẩn bị:</p>
+<pre class="hljs"><code><div>- Payment idempotency
+- Outbox
+- Saga
+- Reconciliation
+- Audit ledger
+</div></code></pre>
+<p>Đây không còn là extraction đơn giản.</p>
+<hr>
+<h1 id="102-bước-6--inventory-và-ordering">102. Bước 6 — Inventory và Ordering</h1>
+<p>Order và Inventory có invariant liên quan nhưng không nhất thiết phải cùng service.</p>
+<p>Có thể dùng reservation:</p>
+<pre class="hljs"><code><div>1. Order tạo PENDING.
+2. Inventory reserve.
+3. Payment authorize.
+4. Order confirm.
+</div></code></pre>
+<p>Nếu business chưa cần scale hoặc ownership riêng, giữ chúng cùng module lâu hơn có thể tốt hơn.</p>
+<hr>
+<h1 id="103-evolution-architecture-minh-họa">103. Evolution Architecture minh họa</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart LR
+    A[Monolith] --> B[Modular Monolith]
+    B --> C[Extract Async Workers]
+    C --> D[Extract Search/Notification]
+    D --> E[Extract Stable Business Services]
+    E --> F[Selective Microservices Architecture]
+</div></code></pre>
+<p>Điểm cuối không nhất thiết là:</p>
+<pre class="hljs"><code><div>Mọi module đều thành service.
+</div></code></pre>
+<p>Một số module có thể ở lại modular monolith vĩnh viễn.</p>
+<hr>
+<h1 id="104-hybrid-architecture">104. Hybrid Architecture</h1>
+<p>Một hệ thống production có thể gồm:</p>
+<pre class="hljs"><code><div>- Core modular monolith
+- Search service
+- Notification service
+- Media processing workers
+- Payment service
+- Analytics pipeline
+</div></code></pre>
+<p>Đây không phải kiến trúc “chưa hoàn thành”.</p>
+<p>Nó có thể là trạng thái tối ưu.</p>
+<hr>
+<h1 id="105-macroservices">105. Macroservices</h1>
+<p>Có thể dùng services tương đối lớn:</p>
+<pre class="hljs"><code><div>Commerce Service
+Identity Service
+Payment Service
+Fulfillment Service
+</div></code></pre>
+<p>thay vì hàng trăm microservices.</p>
+<p>Boundary lớn hơn:</p>
+<pre class="hljs"><code><div>- Ít network calls
+- Ít operational overhead
+- Local transactions tốt hơn
+</div></code></pre>
+<p>Đây thường là bước thực tế trước khi cần chia nhỏ hơn.</p>
+<hr>
+<h1 id="106-cell-based-architecture">106. Cell-Based Architecture</h1>
+<p>Khi quy mô rất lớn, có thể tạo các cell độc lập.</p>
+<p>Mỗi cell phục vụ một subset users/tenants:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Router --> Cell1[Cell 1<br>App + Data + Queue]
+    Router --> Cell2[Cell 2<br>App + Data + Queue]
+    Router --> Cell3[Cell 3<br>App + Data + Queue]
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Giới hạn blast radius
+- Scale bằng cách thêm cell
+- Failure isolation
+</div></code></pre>
+<p>Cell có thể chứa một monolith hoặc một tập services.</p>
+<hr>
+<h1 id="107-architecture-evolution-theo-quy-mô">107. Architecture Evolution theo Quy mô</h1>
+<h2 id="giai-đoạn-nhỏ">Giai đoạn nhỏ</h2>
+<pre class="hljs"><code><div>Monolith
+Một database
+Simple deployment
+</div></code></pre>
+<h2 id="giai-đoạn-phát-triển">Giai đoạn phát triển</h2>
+<pre class="hljs"><code><div>Modular monolith
+Cache
+Queue
+Read replicas
+Observability
+</div></code></pre>
+<h2 id="giai-đoạn-nhiều-team">Giai đoạn nhiều team</h2>
+<pre class="hljs"><code><div>Selective service extraction
+Data ownership
+Independent pipelines
+Platform standards
+</div></code></pre>
+<h2 id="giai-đoạn-rất-lớn">Giai đoạn rất lớn</h2>
+<pre class="hljs"><code><div>Cells
+Multi-region
+Sharding
+Service decomposition ở hotspots
+</div></code></pre>
+<p>Không phải mọi hệ thống đều cần đi hết các giai đoạn.</p>
+<hr>
+<h1 id="108-framework-quyết-định-tách-service">108. Framework quyết định Tách Service</h1>
+<p>Hãy chấm điểm một module theo các câu hỏi:</p>
+<pre class="hljs"><code><div>1. Có business capability rõ không?
+2. Data ownership có rõ không?
+3. Có team owner không?
+4. Có cần deploy độc lập không?
+5. Có scaling profile riêng không?
+6. Có failure isolation value không?
+7. Boundary có ổn định không?
+8. Có ít transactions xuyên boundary không?
+9. Có thể chịu eventual consistency không?
+10. Đội có vận hành service riêng được không?
+</div></code></pre>
+<p>Nếu nhiều câu trả lời là “không”:</p>
+<pre class="hljs"><code><div>Modularize trước, chưa tách service.
+</div></code></pre>
+<hr>
+<h1 id="109-decision-tree">109. Decision Tree</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Architecture hiện tại] --> B{Team/domain còn nhỏ và thay đổi nhanh?}
+
+    B -->|Có| C[Monolith hoặc Modular Monolith]
+    B -->|Không| D{Có release, scaling hoặc ownership bottleneck rõ?}
+
+    D -->|Không| E[Tiếp tục modularize]
+    D -->|Có| F{Boundary business và data đã rõ?}
+
+    F -->|Không| G[Refactor modules trước]
+    F -->|Có| H{Lợi ích độc lập lớn hơn distributed tax?}
+
+    H -->|Không| I[Giữ trong modular monolith]
+    H -->|Có| J[Extract Service]
+
+    J --> K[Strangler + Data Migration]
+    K --> L[Shadow + Canary]
+    L --> M[Cutover + Reconciliation]
+    M --> N[Remove Legacy Path]
+</div></code></pre>
+<hr>
+<h1 id="110-các-sai-lầm-phổ-biến">110. Các sai lầm phổ biến</h1>
+<h2 id="lỗi-1-bắt-đầu-bằng-microservices-quá-sớm">Lỗi 1: Bắt đầu bằng Microservices quá sớm</h2>
+<p>Tạo distributed complexity trước khi có domain ổn định.</p>
+<h2 id="lỗi-2-nghĩ-monolith-không-scale">Lỗi 2: Nghĩ Monolith không Scale</h2>
+<p>Monolith vẫn có thể horizontal scale.</p>
+<h2 id="lỗi-3-không-modularize-trước-khi-tách">Lỗi 3: Không Modularize trước khi Tách</h2>
+<p>Service boundaries được chọn từ code rối, dẫn đến coupling qua network.</p>
+<h2 id="lỗi-4-một-service-cho-mỗi-table">Lỗi 4: Một Service cho mỗi Table</h2>
+<p>Tạo quá nhiều calls và distributed transactions.</p>
+<h2 id="lỗi-5-shared-database-giữa-services">Lỗi 5: Shared Database giữa Services</h2>
+<p>Services không thực sự độc lập.</p>
+<h2 id="lỗi-6-tách-code-nhưng-không-tách-ownership">Lỗi 6: Tách Code nhưng không Tách Ownership</h2>
+<p>Monolith vẫn quyết định data và release của service mới.</p>
+<h2 id="lỗi-7-tách-boundary-có-nhiều-invariant-atomic">Lỗi 7: Tách Boundary có nhiều Invariant Atomic</h2>
+<p>Biến local transaction thành Saga không cần thiết.</p>
+<h2 id="lỗi-8-mọi-interaction-đều-synchronous">Lỗi 8: Mọi Interaction đều Synchronous</h2>
+<p>Tạo dependency chain dài và reliability thấp.</p>
+<h2 id="lỗi-9-mọi-interaction-đều-event-driven">Lỗi 9: Mọi Interaction đều Event-Driven</h2>
+<p>Flow khó hiểu và debug dù không cần async.</p>
+<h2 id="lỗi-10-big-bang-rewrite">Lỗi 10: Big-Bang Rewrite</h2>
+<p>Rủi ro cao, feedback chậm, rollback khó.</p>
+<h2 id="lỗi-11-dual-write-db-cũ-và-mới-không-kiểm-soát">Lỗi 11: Dual-Write DB Cũ và Mới không kiểm soát</h2>
+<p>Dữ liệu lệch sau partial failure.</p>
+<h2 id="lỗi-12-không-xác-định-source-of-truth-trong-migration">Lỗi 12: Không xác định Source of Truth trong Migration</h2>
+<p>Hai databases cùng được coi là authoritative.</p>
+<h2 id="lỗi-13-cutover-write-trước-khi-data-catch-up">Lỗi 13: Cutover Write trước khi Data Catch Up</h2>
+<p>Service mới thiếu state.</p>
+<h2 id="lỗi-14-không-fence-writer-cũ">Lỗi 14: Không Fence Writer Cũ</h2>
+<p>Legacy request có thể ghi sau cutover.</p>
+<h2 id="lỗi-15-drop-column-ngay-khi-deploy-code-mới">Lỗi 15: Drop Column ngay khi Deploy Code mới</h2>
+<p>Instances cũ vẫn có thể đang chạy.</p>
+<h2 id="lỗi-16-apievent-breaking-change-trực-tiếp">Lỗi 16: API/Event Breaking Change trực tiếp</h2>
+<p>Consumers không nâng cấp đồng thời.</p>
+<h2 id="lỗi-17-không-có-observability-trước-extraction">Lỗi 17: Không có Observability trước Extraction</h2>
+<p>Không biết behavior cũ để so sánh.</p>
+<h2 id="lỗi-18-không-có-rollback-hoặc-roll-forward-plan">Lỗi 18: Không có Rollback hoặc Roll-Forward Plan</h2>
+<p>Migration lỗi trở thành incident kéo dài.</p>
+<h2 id="lỗi-19-mỗi-team-tự-xây-platform-riêng">Lỗi 19: Mỗi Team tự xây Platform riêng</h2>
+<p>Operational fragmentation tăng.</p>
+<h2 id="lỗi-20-tách-quá-nhiều-services">Lỗi 20: Tách quá nhiều Services</h2>
+<p>Nhận distributed monolith thay vì autonomy.</p>
+<hr>
+<h1 id="111-cách-trình-bày-trong-system-design-interview">111. Cách trình bày trong System Design Interview</h1>
+<p>Không nên nói:</p>
+<pre class="hljs"><code><div>Ban đầu em dùng microservices để dễ scale.
+</div></code></pre>
+<p>Nên nói:</p>
+<blockquote>
+<p>Tôi bắt đầu bằng modular monolith vì domain còn thay đổi nhanh và local transactions giúp giữ business logic đơn giản. Các module được chia theo business capability, mỗi module sở hữu tables và chỉ expose public interfaces. Application stateless nên vẫn có thể horizontal scale sau load balancer.</p>
+</blockquote>
+<p>Khi nói về evolution:</p>
+<blockquote>
+<p>Tôi chỉ tách một module khi có áp lực rõ như scaling profile riêng, yêu cầu failure isolation hoặc một team cần deploy độc lập. Các capability async và ít phụ thuộc như notification, search indexing hoặc media processing thường được tách trước. Tôi tránh một service trên mỗi entity vì điều đó tạo chatty calls và distributed transactions.</p>
+</blockquote>
+<p>Về migration:</p>
+<blockquote>
+<p>Tôi dùng strangler pattern. Gateway chuyển từng route sang service mới. Dữ liệu lịch sử được backfill từ snapshot, sau đó CDC bắt các thay đổi mới. Legacy DB vẫn là source of truth cho tới khi new store bắt kịp và verification đạt yêu cầu. Write cutover sử dụng ownership epoch để fence writer cũ, sau đó chạy reconciliation trước khi xóa legacy path.</p>
+</blockquote>
+<p>Về zero downtime:</p>
+<blockquote>
+<p>Schema migration dùng expand–migrate–contract. Tôi thêm field mới trước, deploy code hỗ trợ cả schema cũ và mới, backfill online, chuyển reads/writes rồi chỉ xóa field cũ khi không còn instances hoặc consumers cũ. API và event changes cũng phải backward compatible trong giai đoạn version skew.</p>
+</blockquote>
+<hr>
+<h1 id="112-bảng-ghi-nhớ-nhanh">112. Bảng ghi nhớ nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Khái niệm</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Monolith</td>
+<td>Một deployment unit chính</td>
+</tr>
+<tr>
+<td>Modular monolith</td>
+<td>Monolith có module boundaries rõ</td>
+</tr>
+<tr>
+<td>Microservice</td>
+<td>Business service deploy độc lập</td>
+</tr>
+<tr>
+<td>Business capability</td>
+<td>Khả năng nghiệp vụ tương đối độc lập</td>
+</tr>
+<tr>
+<td>Bounded context</td>
+<td>Phạm vi model có ý nghĩa nhất quán</td>
+</tr>
+<tr>
+<td>Cohesion</td>
+<td>Những phần liên quan nằm cùng nhau</td>
+</tr>
+<tr>
+<td>Coupling</td>
+<td>Mức độ phụ thuộc giữa các phần</td>
+</tr>
+<tr>
+<td>Distributed monolith</td>
+<td>Nhiều services nhưng coupling như monolith</td>
+</tr>
+<tr>
+<td>Strangler pattern</td>
+<td>Thay thế legacy từng phần</td>
+</tr>
+<tr>
+<td>Anti-corruption layer</td>
+<td>Chuyển đổi giữa legacy và domain model mới</td>
+</tr>
+<tr>
+<td>Shadow traffic</td>
+<td>Chạy service mới mà chưa dùng response</td>
+</tr>
+<tr>
+<td>Canary</td>
+<td>Chuyển traffic tăng dần</td>
+</tr>
+<tr>
+<td>Backfill</td>
+<td>Copy dữ liệu lịch sử</td>
+</tr>
+<tr>
+<td>CDC</td>
+<td>Đồng bộ thay đổi sau snapshot</td>
+</tr>
+<tr>
+<td>Expand–contract</td>
+<td>Thay schema theo nhiều bước tương thích</td>
+</tr>
+<tr>
+<td>Source of truth</td>
+<td>Nguồn authoritative hiện tại</td>
+</tr>
+<tr>
+<td>Fencing</td>
+<td>Chặn writer cũ sau cutover</td>
+</tr>
+<tr>
+<td>Contract testing</td>
+<td>Kiểm tra compatibility giữa provider/consumer</td>
+</tr>
+<tr>
+<td>Version skew</td>
+<td>Nhiều phiên bản cùng chạy</td>
+</tr>
+<tr>
+<td>Hybrid architecture</td>
+<td>Kết hợp monolith và một số services</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="113-sơ-đồ-ghi-nhớ-toàn-bài">113. Sơ đồ ghi nhớ toàn bài</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    A[Architecture Evolution] --> B[Monolith]
+    A --> C[Modular Monolith]
+    A --> D[Microservices]
+    A --> E[Migration]
+    A --> F[Operations]
+
+    B --> B1[Simple Deployment]
+    B --> B2[Local Transactions]
+    B --> B3[Low Operational Cost]
+
+    C --> C1[Business Modules]
+    C --> C2[Data Ownership]
+    C --> C3[Enforced Boundaries]
+
+    D --> D1[Independent Deployment]
+    D --> D2[Independent Scaling]
+    D --> D3[Failure Isolation]
+    D --> D4[Distributed Tax]
+
+    E --> E1[Strangler]
+    E --> E2[Backfill + CDC]
+    E --> E3[Shadow + Canary]
+    E --> E4[Expand–Contract]
+    E --> E5[Fencing + Reconciliation]
+
+    F --> F1[Observability]
+    F --> F2[Platform Engineering]
+    F --> F3[Contract Testing]
+    F --> F4[SLO Ownership]
+</div></code></pre>
+<hr>
+<h1 id="114-những-điều-phải-nhớ-sau-bài-21">114. Những điều phải nhớ sau Bài 21</h1>
+<pre class="hljs"><code><div>1. Kiến trúc phải tiến hóa theo constraint thực tế.
+2. Microservices không phải đích đến bắt buộc.
+3. Monolith vẫn có thể horizontal scale.
+4. Monolith có lợi thế về transaction, debug và vận hành.
+5. Vấn đề lớn thường là coupling, không chỉ deployment unit.
+6. Modular monolith giữ simplicity nhưng tạo boundaries rõ.
+7. Module nên được chia theo business capability.
+8. Mỗi module nên sở hữu dữ liệu của mình.
+9. Module khác không nên trực tiếp sửa tables của module sở hữu.
+10. Bounded context cho phép cùng một khái niệm có model khác nhau.
+11. High cohesion và low coupling là mục tiêu quan trọng.
+12. Microservice phải có ownership và deployment lifecycle rõ.
+13. “Micro” không có nghĩa cực ít dòng code.
+14. Database per service là data ownership, không nhất thiết server riêng.
+15. Shared database làm giảm independence.
+16. Distributed monolith có complexity của microservices và coupling của monolith.
+17. Microservices mang network, failure và consistency complexity.
+18. Tách service phải có lợi ích lớn hơn distributed tax.
+19. Scaling profile riêng là một lý do tách hợp lệ.
+20. Team autonomy là một lý do tách hợp lệ.
+21. Domain chưa ổn định thường chưa nên tách.
+22. Service boundary không nên dựa chỉ trên table/entity.
+23. Invariant cần atomicity thường nên cùng consistency boundary.
+24. Synchronous calls tạo temporal coupling.
+25. Async events tạo eventual consistency và operational complexity.
+26. Không nên dùng một communication style cho mọi trường hợp.
+27. Peripheral async capabilities thường dễ tách trước.
+28. Search, notification và media processing là ứng viên extraction tốt.
+29. Payment và booking cần chuẩn bị consistency kỹ hơn.
+30. Strangler pattern thay legacy từng phần.
+31. Big-bang rewrite có rủi ro rất cao.
+32. Branch by abstraction giúp đổi implementation dần.
+33. Anti-corruption layer ngăn legacy model lan sang service mới.
+34. Shadow traffic giúp so sánh mà chưa ảnh hưởng user.
+35. Canary giảm blast radius khi cutover.
+36. Tách data khó hơn tách code.
+37. Backfill phải kết hợp CDC hoặc change stream.
+38. Migration luôn cần source of truth rõ.
+39. Dual-write trực tiếp rất dễ tạo divergence.
+40. Read migration thường nên đi trước write migration.
+41. Write cutover cần fence writer cũ.
+42. Reconciliation cần tiếp tục sau cutover.
+43. Zero downtime dựa trên backward compatibility.
+44. Expand–migrate–contract là pattern schema quan trọng.
+45. Rolling deploy luôn tạo version skew tạm thời.
+46. API và event schemas phải tương thích với consumer cũ.
+47. Rollback code có thể không đủ nếu data đã thay đổi.
+48. Feature flags tách deployment khỏi activation.
+49. Observability phải có trước khi migration.
+50. End-to-end business SLO quan trọng hơn từng service riêng.
+51. Nhiều synchronous dependencies làm giảm reliability tổng.
+52. Local read models có thể giảm chatty calls.
+53. Platform engineering là nền tảng để vận hành nhiều services.
+54. Local development và testing là architecture requirements.
+55. Một hybrid architecture có thể là trạng thái tối ưu lâu dài.
+56. Không cần tách mọi module thành service.
+57. Cell architecture giới hạn blast radius ở quy mô rất lớn.
+58. Kiến trúc tốt giảm coordination cost mà không tạo complexity không cần thiết.
+</div></code></pre>
+<hr>
+<h1 id="115-bài-tập-thực-hành">115. Bài tập thực hành</h1>
+<p>Một công ty có hệ thống thương mại điện tử dạng monolith:</p>
+<pre class="hljs"><code><div>- 60 engineers
+- 8 product teams
+- Deploy 3 lần mỗi tuần
+- Full test suite mất 90 phút
+- Search gây CPU cao
+- Notification lỗi thường làm request checkout chậm
+- Payment cần compliance riêng
+- Order và Inventory dùng chung transaction
+- Mọi module truy cập cùng database
+</div></code></pre>
+<p>Hãy thiết kế lộ trình tiến hóa.</p>
+<h2 id="câu-hỏi">Câu hỏi</h2>
+<pre class="hljs"><code><div>1. Vấn đề nào là code structure, vấn đề nào là deployment?
+2. Có nên chuyển toàn bộ sang microservices ngay không?
+3. Monolith nên được modularize theo capabilities nào?
+4. Module nào nên sở hữu những tables nào?
+5. Làm sao ngăn truy cập database chéo?
+6. Module nào nên được tách trước?
+7. Notification nên giao tiếp sync hay async?
+8. Search được cập nhật bằng dual-write hay outbox/CDC?
+9. Payment nên tách ở giai đoạn nào?
+10. Order và Inventory có nên tách ngay không?
+11. Invariant nào hiện đang dựa vào local transaction?
+12. Nếu tách Inventory, workflow reservation sẽ hoạt động ra sao?
+13. Gateway áp dụng strangler pattern thế nào?
+14. Làm sao shadow traffic sang Search Service mới?
+15. Historical search data được backfill thế nào?
+16. CDC bắt đầu từ log position nào?
+17. Source of truth thay đổi qua từng phase ra sao?
+18. Write cutover cần fencing thế nào?
+19. Schema migration nào cần expand–contract?
+20. API contracts được version hóa ra sao?
+21. Consumer-driven contract tests dùng ở đâu?
+22. Canary rollout được chia theo user hay tenant?
+23. Metrics nào quyết định cutover thành công?
+24. Reconciliation phát hiện divergence thế nào?
+25. Khi migration lỗi, rollback hay roll-forward?
+26. Platform team cần cung cấp những capability nào?
+27. Mỗi service có owner và SLO thế nào?
+28. Làm sao tránh tạo distributed monolith?
+29. Những module nào nên ở lại monolith?
+30. Kiến trúc mục tiêu sau hai năm là gì?
+</div></code></pre>
+<p>Kiến trúc mục tiêu gợi ý:</p>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Users --> Gateway
+
+    Gateway --> Core[Commerce Modular Monolith]
+    Gateway --> Search[Search Service]
+    Gateway --> Payment[Payment Service]
+
+    Core --> CoreDB[(Order + Inventory + Customer DB)]
+    Core --> Broker[Event Stream]
+
+    Broker --> Notification[Notification Service]
+    Broker --> SearchIndexer[Search Indexer]
+    SearchIndexer --> SearchDB[(Search Index)]
+
+    Payment --> PaymentDB[(Payment DB)]
+    Core <--> Payment
+
+    Broker --> Analytics[Analytics Pipeline]
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Kiến trúc trưởng thành không phải kiến trúc có nhiều services nhất. Đó là kiến trúc có boundaries đúng, ownership rõ, migration an toàn và chỉ sử dụng distributed systems complexity tại những nơi nó tạo ra giá trị thực sự.</strong></p>
+</blockquote>
+<hr>
+<h1 id="hoàn-thành-phần-lý-thuyết-nền-tảng">Hoàn thành phần lý thuyết nền tảng</h1>
+<p>Bài 21 khép lại chuỗi lý thuyết chính:</p>
+<pre class="hljs"><code><div>Requirements
+→ Capacity
+→ APIs
+→ Databases
+→ Caching
+→ CDN
+→ Scaling
+→ Queues
+→ Reliability
+→ Observability
+→ Replication
+→ Sharding
+→ Distributed Transactions
+→ Consensus
+→ Consistency
+→ Distributed Time
+→ Search
+→ Data Processing
+→ Multi-Region
+→ Architecture Evolution
+</div></code></pre>
+<p>Giai đoạn tiếp theo phù hợp nhất là <strong>case study hoàn chỉnh</strong>, bắt đầu từ hệ thống dễ rồi tăng dần độ khó.</p>
+<p><strong>Bài 22 — Case Study 1: Thiết kế URL Shortener từ đầu đến cuối:</strong> requirements, capacity estimation, API, ID generation, database, cache, redirect flow, custom alias, expiration, analytics, abuse prevention, multi-region và các trade-off khi phỏng vấn.</p>
+
+</body>
+</html>

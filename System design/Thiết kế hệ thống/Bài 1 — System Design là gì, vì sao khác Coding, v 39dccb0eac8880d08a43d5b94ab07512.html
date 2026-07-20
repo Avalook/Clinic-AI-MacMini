@@ -1,0 +1,1043 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Bài 1 — System Design là gì, vì sao khác Coding, và mindset của Senior Engineer</title><style>
+/* cspell:disable-file */
+/* webkit printing magic: print all background colors */
+html {
+	-webkit-print-color-adjust: exact;
+}
+* {
+	box-sizing: border-box;
+	-webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+@media only screen {
+	body {
+		margin: 2em auto;
+		max-width: 900px;
+		color: rgb(55, 53, 47);
+	}
+}
+
+body {
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+a,
+a.visited {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.pdf-relative-link-path {
+	font-size: 80%;
+	color: #444;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	font-weight: 600;
+	margin-bottom: 0;
+}
+
+/* Override strong tags inside headings to maintain consistent weight */
+h1 strong,
+h2 strong,
+h3 strong {
+	font-weight: 600;
+}
+
+.page-title {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-top: 0;
+	margin-bottom: 0.75em;
+}
+
+h1 {
+	font-size: 1.875rem;
+	margin-top: 1.875rem;
+}
+
+h2 {
+	font-size: 1.5rem;
+	margin-top: 1.5rem;
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-top: 1.25rem;
+}
+
+.source {
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	padding: 1.5em;
+	word-break: break-all;
+}
+
+.callout {
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+/* For default-background callouts, render the border outline. */
+.callout.block-color-default_background {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+figure,
+aside,
+details {
+	margin: 1.25em 0;
+	page-break-inside: avoid;
+}
+
+figcaption {
+	opacity: 0.5;
+	font-size: 85%;
+	margin-top: 0.5em;
+}
+
+mark {
+	background-color: transparent;
+}
+
+.indented {
+	padding-left: 1.5em;
+}
+
+hr {
+	background: transparent;
+	display: block;
+	width: 100%;
+	height: 1px;
+	visibility: visible;
+	border: none;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+img {
+	max-width: 100%;
+}
+
+@media only print {
+	img {
+		max-height: 100vh;
+		object-fit: contain;
+	}
+
+	table.collection-content {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	table.collection-content th,
+	table.collection-content td {
+		overflow-wrap: anywhere;
+	}
+
+	table.collection-content td > .user,
+	table.collection-content td > time {
+		white-space: pre-wrap;
+	}
+}
+
+@page {
+	margin: 1in;
+}
+
+.collection-content-wrapper {
+	overflow-x: auto;
+}
+
+@media only print {
+	.collection-content-wrapper {
+		overflow-x: visible;
+	}
+}
+
+.collection-content {
+	font-size: 0.875rem;
+}
+
+.collection-content td {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.column-list {
+	display: flex;
+	gap: 46px;
+}
+
+.column {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.column > *:first-child {
+	margin-top: 0;
+}
+
+.table_of_contents-item {
+	display: block;
+	font-size: 0.875rem;
+	line-height: 1.3;
+	padding-inline: 0.125rem;
+	padding-block: 0.375rem;
+}
+
+.table_of_contents-indent-1 {
+	margin-left: 1.5rem;
+}
+
+.table_of_contents-indent-2 {
+	margin-left: 3rem;
+}
+
+.table_of_contents-indent-3 {
+	margin-left: 4.5rem;
+}
+
+.table_of_contents-link {
+	text-decoration: none;
+	opacity: 0.7;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.18);
+}
+
+table,
+th,
+td {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+table {
+	border-collapse: collapse;
+	border-left: none;
+	border-right: none;
+}
+
+th,
+td {
+	font-weight: normal;
+	padding: 0.25em 0.5em;
+	line-height: 1.5;
+	min-height: 1.5em;
+	text-align: left;
+}
+
+th {
+	color: rgba(55, 53, 47, 0.6);
+}
+
+ol,
+ul {
+	margin: 0;
+	margin-block-start: 0.6em;
+	margin-block-end: 0.6em;
+}
+
+li > ol:first-child,
+li > ul:first-child {
+	margin-block-start: 0.6em;
+}
+
+ul > li {
+	list-style: disc;
+}
+
+ul.to-do-list {
+	padding-inline-start: 0;
+}
+
+ul.to-do-list > li {
+	list-style: none;
+}
+
+.to-do-children-checked {
+	text-decoration: line-through;
+	opacity: 0.375;
+}
+
+ul.toggle > li {
+	list-style: none;
+}
+
+ul {
+	padding-inline-start: 1.7em;
+}
+
+ul > li {
+	padding-left: 0.1em;
+}
+
+ol {
+	padding-inline-start: 1.6em;
+}
+
+ol.numbered-list.numbered-list-digits-2 {
+	padding-inline-start: 2em;
+}
+
+ol.numbered-list.numbered-list-digits-3plus {
+	padding-inline-start: 2.4em;
+}
+
+ol > li {
+	padding-left: 0.2em;
+}
+
+.mono ol {
+	padding-inline-start: 2em;
+}
+
+.mono ol > li {
+	text-indent: -0.4em;
+}
+
+.toggle {
+	padding-inline-start: 0em;
+	list-style-type: none;
+}
+
+/* Indent toggle children */
+.toggle > li > details {
+	padding-left: 1.7em;
+}
+
+.toggle > li > details > summary {
+	margin-left: -1.1em;
+}
+
+.selected-value {
+	display: inline-block;
+	padding: 0 0.5em;
+	background: rgba(206, 205, 202, 0.5);
+	border-radius: 3px;
+	margin-right: 0.5em;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	white-space: nowrap;
+}
+
+.collection-title {
+	display: inline-block;
+	margin-right: 1em;
+}
+
+.page-description {
+	margin-bottom: 2em;
+}
+
+.simple-table {
+	margin-top: 1em;
+	font-size: 0.875rem;
+	empty-cells: show;
+}
+.simple-table td {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table th {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table-header-color {
+	background: rgb(247, 246, 243);
+	color: black;
+}
+.simple-table-header {
+	font-weight: 500;
+}
+
+time {
+	opacity: 0.5;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 1.2em;
+	max-height: 1.2em;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	margin-right: 0.5em;
+}
+
+/*
+ * Render emoji icons using a ::before pseudo-element to keep the glyph
+ * out of the DOM textContent traversal. This avoids double-rendering icons
+ * in callouts and page titles.
+ * NOTE(slim/html-export-pseudo-icons): I can't tagref this because it will
+ * flag as a duplicate tag after codegen.
+ */
+.icon[data-emoji]::before {
+	content: attr(data-emoji);
+}
+
+img.icon {
+	border-radius: 3px;
+}
+
+.callout img.notion-static-icon {
+	width: 1em;
+	height: 1em;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.callout h1,
+.callout h2,
+.callout h3 {
+	margin: 0 0 0.6rem;
+}
+
+.user-icon {
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 100%;
+	margin-right: 0.5rem;
+}
+
+.user-icon-inner {
+	font-size: 0.8em;
+}
+
+.text-icon {
+	border: 1px solid #000;
+	text-align: center;
+}
+
+.page-cover-image {
+	display: block;
+	object-fit: cover;
+	width: 100%;
+	max-height: 30vh;
+}
+
+.page-header-icon {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+
+.page-header-icon-with-cover {
+	margin-top: -0.72em;
+	margin-left: 0.07em;
+}
+
+.page-header-icon img {
+	border-radius: 3px;
+}
+
+.link-to-page {
+	margin: 1em 0;
+	padding: 0;
+	border: none;
+	font-weight: 500;
+}
+
+p > .user {
+	opacity: 0.5;
+}
+
+td > .user,
+td > time {
+	white-space: nowrap;
+}
+
+input[type="checkbox"] {
+	margin-right: 0.4em;
+	vertical-align: middle;
+}
+
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.image {
+	border: none;
+	margin: 1.5em 0;
+	padding: 0;
+	border-radius: 0;
+	text-align: center;
+}
+
+.code,
+code {
+	background: rgba(135, 131, 120, 0.15);
+	border-radius: 3px;
+	padding: 0.2em 0.4em;
+	border-radius: 3px;
+	font-size: 85%;
+	tab-size: 2;
+}
+
+code {
+	color: #eb5757;
+}
+
+.code {
+	padding: 1.5em 1em;
+}
+
+.code-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.code > code {
+	background: none;
+	padding: 0;
+	font-size: 100%;
+	color: inherit;
+}
+
+blockquote {
+	font-size: 1em;
+	margin: 1em 0;
+	padding-left: 1em;
+	border-left: 3px solid rgb(55, 53, 47);
+}
+
+blockquote.quote-large {
+	font-size: 1.25em;
+}
+
+.bookmark {
+	text-decoration: none;
+	max-height: 8em;
+	padding: 0;
+	display: flex;
+	width: 100%;
+	align-items: stretch;
+}
+
+.bookmark-title {
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	height: 1.75em;
+	white-space: nowrap;
+}
+
+.bookmark-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.bookmark-info {
+	flex: 4 1 180px;
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.bookmark-image {
+	width: 33%;
+	flex: 1 1 180px;
+	display: block;
+	position: relative;
+	object-fit: cover;
+	border-radius: 1px;
+}
+
+.bookmark-description {
+	color: rgba(55, 53, 47, 0.6);
+	font-size: 0.75em;
+	overflow: hidden;
+	max-height: 4.5em;
+	word-break: break-word;
+}
+
+.bookmark-href {
+	font-size: 0.75em;
+	margin-top: 0.25em;
+}
+
+.tab {
+	margin: 1.25em 0;
+	padding-inline: 1rem;
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+.sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; }
+.code { font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace; }
+.serif { font-family: Lyon-Text, Georgia, ui-serif, serif; }
+.mono { font-family: iawriter-mono, Nitti, Menlo, Courier, monospace; }
+.pdf .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK JP'; }
+.pdf:lang(zh-CN) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK SC'; }
+.pdf:lang(zh-TW) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK TC'; }
+.pdf:lang(ko-KR) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK KR'; }
+.pdf .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.pdf .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK JP'; }
+.pdf:lang(zh-CN) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK SC'; }
+.pdf:lang(zh-TW) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK TC'; }
+.pdf:lang(ko-KR) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK KR'; }
+.pdf .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.highlight-default {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.highlight-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.highlight-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.highlight-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.highlight-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.highlight-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.highlight-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.highlight-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.highlight-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.highlight-default_background {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray_background {
+	background: rgba(42, 28, 0, 0.07);
+}
+.highlight-brown_background {
+	background: rgba(139, 46, 0, 0.086);
+}
+.highlight-orange_background {
+	background: rgba(224, 101, 1, 0.129);
+}
+.highlight-yellow_background {
+	background: rgba(211, 168, 0, 0.137);
+}
+.highlight-teal_background {
+	background: rgba(0, 100, 45, 0.09);
+}
+.highlight-blue_background {
+	background: rgba(0, 124, 215, 0.094);
+}
+.highlight-purple_background {
+	background: rgba(102, 0, 178, 0.078);
+}
+.highlight-pink_background {
+	background: rgba(197, 0, 93, 0.086);
+}
+.highlight-red_background {
+	background: rgba(223, 22, 0, 0.094);
+}
+.block-color-default {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.block-color-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.block-color-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.block-color-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.block-color-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.block-color-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.block-color-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.block-color-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.block-color-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.block-color-default_background {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray_background {
+	background: rgba(240, 239, 237, 1);
+}
+.block-color-brown_background {
+	background: rgba(245, 237, 233, 1);
+}
+.block-color-orange_background {
+	background: rgba(251, 235, 222, 1);
+}
+.block-color-yellow_background {
+	background: rgba(249, 243, 220, 1);
+}
+.block-color-teal_background {
+	background: rgba(232, 241, 236, 1);
+}
+.block-color-blue_background {
+	background: rgba(229, 242, 252, 1);
+}
+.block-color-purple_background {
+	background: rgba(243, 235, 249, 1);
+}
+.block-color-pink_background {
+	background: rgba(250, 233, 241, 1);
+}
+.block-color-red_background {
+	background: rgba(252, 233, 231, 1);
+}
+.select-value-color-default { background-color: rgba(42, 28, 0, 0.07); }
+.select-value-color-gray { background-color: rgba(28, 19, 1, 0.11); }
+.select-value-color-brown { background-color: rgba(127, 51, 0, 0.156); }
+.select-value-color-orange { background-color: rgba(196, 88, 0, 0.203); }
+.select-value-color-yellow { background-color: rgba(209, 156, 0, 0.282); }
+.select-value-color-green { background-color: rgba(0, 96, 38, 0.156); }
+.select-value-color-blue { background-color: rgba(0, 118, 217, 0.203); }
+.select-value-color-purple { background-color: rgba(92, 0, 163, 0.141); }
+.select-value-color-pink { background-color: rgba(183, 0, 78, 0.152); }
+.select-value-color-red { background-color: rgba(206, 24, 0, 0.164); }
+
+.checkbox {
+	display: inline-flex;
+	vertical-align: text-bottom;
+	width: 16;
+	height: 16;
+	background-size: 16px;
+	margin-left: 2px;
+	margin-right: 5px;
+}
+
+.checkbox-on {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2358A9D7%22%2F%3E%0A%3Cpath%20d%3D%22M6.71429%2012.2852L14%204.9995L12.7143%203.71436L6.71429%209.71378L3.28571%206.2831L2%207.57092L6.71429%2012.2852Z%22%20fill%3D%22white%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+.checkbox-off {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20x%3D%220.75%22%20y%3D%220.75%22%20width%3D%2214.5%22%20height%3D%2214.5%22%20fill%3D%22white%22%20stroke%3D%22%2336352F%22%20stroke-width%3D%221.5%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+	
+</style><style>@import url('https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex-swap.min.css')</style></head><body><article id="39dccb0e-ac88-80d0-8a43-d5b94ab07512" class="page sans"><header><h1 class="page-title" dir="auto">Bài 1 — System Design là gì, vì sao khác Coding, và mindset của Senior Engineer</h1><p class="page-description" dir="auto"></p></header><div class="page-body"><p id="39dccb0e-ac88-80ff-9cea-e0f6c4a8a10c" class="" dir="auto"><strong>System Design không tập trung vào việc viết code cụ thể, mà tập trung vào cách ghép nhiều thành phần lại thành một hệ thống chạy được, scale được, đáng tin cậy và phục vụ được người dùng thật</strong>. </p><p id="39dccb0e-ac88-805e-810a-c6fa8f0bbedb" class="" dir="auto">Kỹ năng phân biệt mid-level developer với senior engineer: </p><p id="39dccb0e-ac88-80b6-81af-d2e302ef4ab1" class="" dir="auto">senior không chỉ nhận task rõ ràng rồi code, mà còn biết thiết kế kiến trúc từ yêu cầu mơ hồ, đưa ra trade-off và quyết định ảnh hưởng đến performance, data storage, reliability, customer experience.</p><hr id="39dccb0e-ac88-80d6-bad9-d069fb3f5fd0" dir="auto"/><h2 id="39dccb0e-ac88-80d0-bb79-f5650ce69fe1" class="" dir="auto">1. System Design là gì?</h2><p id="39dccb0e-ac88-806a-bb31-ffc8cd1918d9" class="" dir="auto"><strong>System Design</strong> là quá trình thiết kế cách một hệ thống phần mềm hoạt động ở mức tổng thể.</p><p id="39dccb0e-ac88-80d8-b9f7-fa354d21ea9d" class="" dir="auto">Không chỉ là:</p><blockquote id="39dccb0e-ac88-8007-983c-ed00cbf7d98c" class="" dir="auto">“Viết function này như thế nào?”</blockquote><p id="39dccb0e-ac88-80f6-bbce-f05fbf707610" class="" dir="auto">Mà là:</p><blockquote id="39dccb0e-ac88-80df-aad7-f9c5f18e77da" class="" dir="auto">“Làm sao để hàng triệu user cùng dùng được hệ thống này mà nó vẫn nhanh, ổn định, bảo mật, dễ mở rộng và dễ bảo trì?”</blockquote><p id="39dccb0e-ac88-8079-b6a2-ff6cbd0dcc41" class="" dir="auto">Ví dụ, nếu bạn xây một app đặt đồ ăn, coding sẽ quan tâm:</p><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" integrity="sha512-7Z9J3l1+EYfeaPKcGXu3MS/7T+w19WtKQY/n+xzmw4hZhJ9tyYmcUS+4QqAlzhicE5LAfMQSF3iFTK9bQdTxXg==" crossorigin="anonymous" referrerPolicy="no-referrer"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" integrity="sha512-tN7Ec6zAFaVSG3TpNAKtk4DOHNpSwKHxxrsiw4GHKESGPs5njn/0sMCUMl2svV4wo4BK/rCP7juYz+zx+l6oeQ==" crossorigin="anonymous" referrerPolicy="no-referrer"/><pre id="39dccb0e-ac88-8052-a8cb-e6d68cb64cd7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Viết API tạo đơn hàng
+- Validate input
+- Lưu đơn hàng vào database
+- Trả response cho client</code></pre><p id="39dccb0e-ac88-808e-9161-d8ec2657b52a" class="" dir="auto">Nhưng System Design sẽ hỏi:</p><pre id="39dccb0e-ac88-8069-a5f0-f020fe05b6ed" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Nếu 1 triệu người đặt đồ ăn cùng lúc thì sao?
+- Nếu database chính bị chết thì sao?
+- Làm sao tránh user bấm đặt hàng 2 lần bị tạo 2 đơn?
+- Làm sao xử lý thanh toán chậm?
+- Làm sao gửi email/SMS mà không làm API bị chậm?
+- Nên dùng SQL hay NoSQL?
+- Nên cache dữ liệu nào?
+- Nên scale service nào trước?
+- Làm sao monitor lỗi?</code></pre><p id="39dccb0e-ac88-8066-a8b4-cf032e7adef4" class="" dir="auto">Nói ngắn gọn:</p><blockquote id="39dccb0e-ac88-8062-8e09-e5b96c70c769" class="" dir="auto"><strong>Coding là xây từng viên gạch. System Design là thiết kế cả tòa nhà.</strong></blockquote><hr id="39dccb0e-ac88-80fe-86c3-c84f26606231" dir="auto"/><h2 id="39dccb0e-ac88-803e-a6ac-e9d28c5b8bd5" class="" dir="auto">2. Coding khác System Design như thế nào?</h2><table id="39dccb0e-ac88-80a0-a324-c22cb94f8b71" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="39dccb0e-ac88-80cb-b742-f9c931283148" dir="ltr"><th id="qqSY" class="simple-table-header-color simple-table-header">Góc nhìn</th><th id="GsyG" class="simple-table-header-color simple-table-header">Coding</th><th id="o|~I" class="simple-table-header-color simple-table-header">System Design</th></tr></thead><tbody><tr id="39dccb0e-ac88-80ec-8336-d50c1932e5f2" dir="ltr"><td id="qqSY" class="">Phạm vi</td><td id="GsyG" class="">Một function, class, module, API nhỏ</td><td id="o|~I" class="">Toàn hệ thống</td></tr><tr id="39dccb0e-ac88-80f9-8f25-fc6099a5a07c" dir="ltr"><td id="qqSY" class="">Câu hỏi chính</td><td id="GsyG" class="">“Code sao cho đúng?”</td><td id="o|~I" class="">“Hệ thống sao cho chạy tốt ở quy mô lớn?”</td></tr><tr id="39dccb0e-ac88-80fa-a53d-ca089d0dd1d8" dir="ltr"><td id="qqSY" class="">Đầu ra</td><td id="GsyG" class="">Code chạy được</td><td id="o|~I" class="">Kiến trúc, data flow, trade-off, capacity plan</td></tr><tr id="39dccb0e-ac88-804b-85bd-cb50c3802dab" dir="ltr"><td id="qqSY" class="">Tập trung vào</td><td id="GsyG" class="">Logic, syntax, algorithm, bug</td><td id="o|~I" class="">Scalability, reliability, latency, data, security</td></tr><tr id="39dccb0e-ac88-80c0-925d-f262de667796" dir="ltr"><td id="qqSY" class="">Sai lầm thường gặp</td><td id="GsyG" class="">Code sai, bug, edge case</td><td id="o|~I" class="">Nghẽn database, single point of failure, latency cao</td></tr><tr id="39dccb0e-ac88-80f1-aebd-fbdc30372438" dir="ltr"><td id="qqSY" class="">Kỹ năng cần</td><td id="GsyG" class="">Lập trình tốt</td><td id="o|~I" class="">Tư duy kiến trúc + ra quyết định dưới ràng buộc</td></tr></tbody></table><p id="39dccb0e-ac88-8076-8f7f-e335525c7c2e" class="" dir="auto">Ví dụ cùng một tính năng: <strong>upload ảnh đại diện</strong>.</p><p id="39dccb0e-ac88-80c9-b3c4-ccafaf5e2dd7" class="" dir="auto">Ở mức coding:</p><pre id="39dccb0e-ac88-80ae-a6c8-ec09e14cb696" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">POST /upload-avatar
+- Nhận file
+- Validate file type
+- Lưu file
+- Update user.avatar_url</code></pre><p id="39dccb0e-ac88-805a-a6f5-c36ab7ba4521" class="" dir="auto">Ở mức system design:</p><pre id="39dccb0e-ac88-8055-9903-d5896a580e41" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User --&gt; API Server --&gt; Object Storage
+                  |
+                  v
+              Database
+                  |
+                  v
+              CDN</code></pre><p id="39dccb0e-ac88-80b7-8f2f-cdd5ba7101f6" class="" dir="auto">Bạn phải nghĩ thêm:</p><ul id="39dccb0e-ac88-807e-ae60-cd7d44248195" class="bulleted-list" dir="auto"><li style="list-style-type:disc">File lưu ở đâu? Local disk hay S3/object storage?</li></ul><ul id="39dccb0e-ac88-80e1-a320-d43aea90bc9b" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Ảnh có cần resize không?</li></ul><ul id="39dccb0e-ac88-80f4-8687-ded5484ae8af" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Resize đồng bộ hay qua background worker?</li></ul><ul id="39dccb0e-ac88-80fb-9ee5-dbab0b08d369" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Ảnh có cần CDN không?</li></ul><ul id="39dccb0e-ac88-80d5-8492-dd191e7d0f29" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Nếu user upload file độc hại thì sao?</li></ul><ul id="39dccb0e-ac88-806c-a558-fa05d554dd09" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Nếu file lớn quá thì sao?</li></ul><ul id="39dccb0e-ac88-8094-a4cb-e03619eb9f92" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Nếu server chết giữa lúc upload thì sao?</li></ul><ul id="39dccb0e-ac88-805d-8671-c482f429ae49" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Có cần signed URL không?</li></ul><hr id="39dccb0e-ac88-8002-a3b6-c9aa0c3d436f" dir="auto"/><h2 id="39dccb0e-ac88-8037-9b28-c56876717103" class="" dir="auto">3. Sơ đồ tư duy: System Design nhìn hệ thống như thế nào?</h2><pre id="39dccb0e-ac88-8016-9d47-c64c91f82d15" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    A[System Design] --&gt; B[User Requirements]
+    A --&gt; C[API Layer]
+    A --&gt; D[Application Services]
+    A --&gt; E[Data Layer]
+    A --&gt; F[Scalability]
+    A --&gt; G[Reliability]
+    A --&gt; H[Security]
+    A --&gt; I[Observability]
+
+    B --&gt; B1[Functional Requirements]
+    B --&gt; B2[Non-functional Requirements]
+
+    C --&gt; C1[REST / GraphQL / gRPC]
+    C --&gt; C2[Auth, Rate Limit, Versioning]
+
+    D --&gt; D1[Business Logic]
+    D --&gt; D2[Service Boundaries]
+
+    E --&gt; E1[SQL / NoSQL]
+    E --&gt; E2[Indexing]
+    E --&gt; E3[Replication / Sharding]
+
+    F --&gt; F1[Load Balancing]
+    F --&gt; F2[Caching]
+    F --&gt; F3[CDN]
+
+    G --&gt; G1[Redundancy]
+    G --&gt; G2[Failover]
+    G --&gt; G3[Queue / Retry]
+
+    H --&gt; H1[Authentication]
+    H --&gt; H2[Authorization]
+    H --&gt; H3[Input Validation]
+
+    I --&gt; I1[Logs]
+    I --&gt; I2[Metrics]
+    I --&gt; I3[Tracing]</code></pre><p id="39dccb0e-ac88-80a0-9437-e1b6663ee26c" class="" dir="auto">System Design không phải một công nghệ cụ thể. Nó là <strong>cách suy nghĩ</strong> về hệ thống.</p><hr id="39dccb0e-ac88-80b1-b125-d583db5d235a" dir="auto"/><h2 id="39dccb0e-ac88-80bb-8209-f893eaf23ff3" class="" dir="auto">4. Cốt lõi của System Design: trade-off</h2><p id="39dccb0e-ac88-808f-883a-fa0a48bc7e39" class="" dir="auto">Một senior engineer hiếm khi nói:</p><blockquote id="39dccb0e-ac88-80b2-a914-f922c05bca40" class="" dir="auto">“Cách này luôn luôn tốt nhất.”</blockquote><p id="39dccb0e-ac88-8076-8f3d-e470e7e8af59" class="" dir="auto">Thay vào đó họ nói:</p><blockquote id="39dccb0e-ac88-8091-96eb-d7750ae8b7e9" class="" dir="auto">“Với traffic này, yêu cầu này, ràng buộc này, cách A tốt hơn cách B vì... nhưng ta phải chấp nhận trade-off là...”</blockquote><p id="39dccb0e-ac88-8036-b65a-e495269ecdd9" class="" dir="auto">Ví dụ:</p><h3 id="39dccb0e-ac88-80ca-ad03-f54eff4b4df4" class="" dir="auto">SQL vs NoSQL</h3><p id="39dccb0e-ac88-80ec-b7ba-ddfc18487dfc" class="" dir="auto">Nếu bạn làm hệ thống ngân hàng:</p><pre id="39dccb0e-ac88-80c3-b7f5-f4d350197a4c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ưu tiên: consistency, transaction, correctness
+=&gt; SQL thường phù hợp hơn</code></pre><p id="39dccb0e-ac88-8048-8377-fa122a338413" class="" dir="auto">Nếu bạn làm hệ thống feed mạng xã hội:</p><pre id="39dccb0e-ac88-8096-8433-f2b4c8e9055e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ưu tiên: scale lớn, đọc nhanh, dữ liệu linh hoạt
+=&gt; NoSQL/cache/search index có thể phù hợp hơn</code></pre><h3 id="39dccb0e-ac88-8062-8a71-e6fdf2c3f827" class="" dir="auto">Cache vs Database</h3><p id="39dccb0e-ac88-8048-b84a-ed67ca042436" class="" dir="auto">Dùng cache giúp nhanh hơn:</p><pre id="39dccb0e-ac88-8050-a290-f2c097c95c91" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User --&gt; API --&gt; Cache --&gt; Response nhanh</code></pre><p id="39dccb0e-ac88-802d-9d78-e6605f51afb3" class="" dir="auto">Nhưng cache tạo thêm vấn đề:</p><pre id="39dccb0e-ac88-8033-b250-df567cf7742d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Dữ liệu cache có bị cũ không?
+- Khi nào invalidate cache?
+- Nếu cache chết thì sao?
+- Cache miss quá nhiều có làm database sập không?</code></pre><h3 id="39dccb0e-ac88-8022-bb59-c8322f69bef9" class="" dir="auto">Monolith vs Microservices</h3><p id="39dccb0e-ac88-8020-9a07-ec88f13e5244" class="" dir="auto">Monolith dễ bắt đầu:</p><pre id="39dccb0e-ac88-8028-a960-e0abc8067c88" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Một codebase
+Một deploy
+Dễ debug</code></pre><p id="39dccb0e-ac88-805d-9bfe-e80a4943b830" class="" dir="auto">Nhưng khi lớn lên có thể khó scale từng phần.</p><p id="39dccb0e-ac88-8067-98bf-fe6294b7dcf0" class="" dir="auto">Microservices linh hoạt hơn:</p><pre id="39dccb0e-ac88-80da-88d0-c567dc099438" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User Service
+Order Service
+Payment Service
+Notification Service</code></pre><p id="39dccb0e-ac88-80b1-86eb-edb09ee168a3" class="" dir="auto">Nhưng đổi lại:</p><pre id="39dccb0e-ac88-80d4-a1c5-fd80a73f0e71" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Phức tạp hơn
+- Cần network call
+- Cần tracing
+- Cần retry
+- Cần xử lý distributed failure</code></pre><p id="39dccb0e-ac88-8083-9aa3-c85e2a7213bd" class="" dir="auto">Bài học quan trọng:</p><blockquote id="39dccb0e-ac88-80ca-83bf-e0fe4c1e4e2c" class="" dir="auto"><strong>System Design không phải chọn công nghệ “xịn nhất”, mà là chọn giải pháp phù hợp nhất với bài toán hiện tại.</strong></blockquote><hr id="39dccb0e-ac88-80ba-9d31-fb6a28f879e0" dir="auto"/><h2 id="39dccb0e-ac88-8028-b36b-c4073469c13b" class="" dir="auto">5. Mindset của Senior Engineer</h2><p id="39dccb0e-ac88-80f3-bc25-c40399c05897" class="" dir="auto">Video bạn đưa nhấn mạnh rằng senior engineer khác mid-level developer ở khả năng thiết kế từ đầu, xử lý yêu cầu chưa rõ, đưa ra quyết định kiến trúc và trade-off.</p><p id="39dccb0e-ac88-8070-a85e-e81750068182" class="" dir="auto">Mình tóm lại thành 7 mindset chính.</p><hr id="39dccb0e-ac88-8095-a788-f7aa1b6d1fa2" dir="auto"/><h3 id="39dccb0e-ac88-804e-b209-e3a051b0de86" class="" dir="auto">Mindset 1: Không lao vào code ngay</h3><p id="39dccb0e-ac88-80ff-96ed-e95273d704ff" class="" dir="auto">Junior thường nghe đề xong sẽ nghĩ:</p><pre id="39dccb0e-ac88-80c3-bbf3-fd5107428734" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Mình viết API nào?
+Mình tạo table nào?
+Mình dùng framework gì?</code></pre><p id="39dccb0e-ac88-8028-90eb-ee2b3e67d536" class="" dir="auto">Senior sẽ hỏi trước:</p><pre id="39dccb0e-ac88-800f-9abf-e9249f2f7311" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ai dùng hệ thống này?
+Có bao nhiêu user?
+Read nhiều hay write nhiều?
+Dữ liệu có cần chính xác tuyệt đối không?
+Latency yêu cầu bao nhiêu?
+Có cần realtime không?
+Có cần audit log không?
+Có yêu cầu bảo mật/pháp lý không?</code></pre><p id="39dccb0e-ac88-8035-a853-e6e7b960ec92" class="" dir="auto">Ví dụ đề bài: “Thiết kế hệ thống chat.”</p><p id="39dccb0e-ac88-8096-8551-d8a81e213245" class="" dir="auto">Senior sẽ không vẽ ngay. Họ hỏi:</p><pre id="39dccb0e-ac88-80a7-acbb-c3db6051f34c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Chat 1-1 hay group chat?
+- Có cần read receipt không?
+- Có cần typing indicator không?
+- Có cần gửi ảnh/video/file không?
+- Tin nhắn có cần mã hóa không?
+- Có cần sync đa thiết bị không?
+- Có bao nhiêu DAU?
+- Tin nhắn cần lưu bao lâu?</code></pre><hr id="39dccb0e-ac88-80d3-8734-c3fa49778053" dir="auto"/><h3 id="39dccb0e-ac88-800a-888e-dc4ea6ac9a9a" class="" dir="auto">Mindset 2: Tách functional và non-functional requirements</h3><p id="39dccb0e-ac88-80f0-b92a-e27f582bc55a" class="" dir="auto">Đây là nền tảng cực quan trọng.</p><p id="39dccb0e-ac88-80d4-9b1f-eb5fbb75fd3d" class="" dir="auto"><strong>Functional requirements</strong> là hệ thống phải làm gì.</p><p id="39dccb0e-ac88-802b-8ecc-f6fcb9c62238" class="" dir="auto">Ví dụ với YouTube:</p><pre id="39dccb0e-ac88-80a0-ba5f-f927ed0c81c1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User upload video
+- User xem video
+- User search video
+- User like/comment/subscribe</code></pre><p id="39dccb0e-ac88-808c-9fb4-c0a94f44d21d" class="" dir="auto"><strong>Non-functional requirements</strong> là hệ thống phải làm tốt đến mức nào.</p><pre id="39dccb0e-ac88-80d0-b97f-dc98d2ec0452" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Video load nhanh
+- Hệ thống chịu được hàng triệu user
+- Dữ liệu không mất
+- Có thể phục vụ user toàn cầu
+- Có bảo mật
+- Có monitoring</code></pre><p id="39dccb0e-ac88-80a3-89b5-fd7cb666b9b9" class="" dir="auto">Coding thường tập trung vào functional requirement.</p><p id="39dccb0e-ac88-80b4-ac15-ce2737fa3a43" class="" dir="auto">System Design bắt buộc phải quan tâm rất nhiều đến non-functional requirement.</p><hr id="39dccb0e-ac88-808c-a0f3-cbf3a5a08457" dir="auto"/><h3 id="39dccb0e-ac88-8023-9472-eedb1383554b" class="" dir="auto">Mindset 3: Luôn nghĩ về scale</h3><p id="39dccb0e-ac88-80f8-970d-e0cde98535a0" class="" dir="auto">Một app chạy được cho 100 user chưa chắc chạy được cho 1 triệu user.</p><p id="39dccb0e-ac88-8077-8e1e-d0b4047832f6" class="" dir="auto">Ví dụ kiến trúc ban đầu:</p><pre id="39dccb0e-ac88-80a5-bcd2-f3fa22acb5ab" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    U[Users] --&gt; A[One App Server]
+    A --&gt; D[(One Database)]</code></pre><p id="39dccb0e-ac88-802d-bad2-fac37c775025" class="" dir="auto">Chạy tốt khi nhỏ.</p><p id="39dccb0e-ac88-8072-9d06-f08afdfeb9f7" class="" dir="auto">Nhưng khi traffic tăng:</p><pre id="39dccb0e-ac88-80a5-bb25-c8b933072256" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    U[Users] --&gt; LB[Load Balancer]
+    LB --&gt; A1[App Server 1]
+    LB --&gt; A2[App Server 2]
+    LB --&gt; A3[App Server 3]
+
+    A1 --&gt; C[Cache]
+    A2 --&gt; C
+    A3 --&gt; C
+
+    C --&gt; DB[(Primary DB)]
+    DB --&gt; R1[(Read Replica)]
+    DB --&gt; R2[(Read Replica)]</code></pre><p id="39dccb0e-ac88-8017-9238-d2ed78abf6d7" class="" dir="auto">Lúc này bạn bắt đầu có:</p><pre id="39dccb0e-ac88-8085-b080-e529d8c81366" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Load balancer
+- Multiple app servers
+- Cache
+- Database replication
+- Read/write separation</code></pre><p id="39dccb0e-ac88-8000-8070-fcce2b1ff07d" class="" dir="auto">Senior không nhất thiết build phức tạp từ đầu, nhưng họ biết <strong>khi nào hệ thống sẽ đau ở đâu</strong>.</p><hr id="39dccb0e-ac88-80fe-b5cc-d00702bace38" dir="auto"/><h3 id="39dccb0e-ac88-80ea-aac1-e6243a24faa7" class="" dir="auto">Mindset 4: Luôn tìm bottleneck</h3><p id="39dccb0e-ac88-80f3-961e-c7ef3834344f" class="" dir="auto">Bottleneck là điểm nghẽn.</p><p id="39dccb0e-ac88-80a5-8bf8-cd0b33d9f815" class="" dir="auto">Ví dụ hệ thống chậm, nguyên nhân có thể là:</p><pre id="39dccb0e-ac88-8050-ab0b-c0d2222a3e54" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Database query chậm
+- Không có index
+- API gọi quá nhiều service
+- Cache miss cao
+- Network latency cao
+- Lock contention
+- Queue backlog
+- Third-party API chậm</code></pre><p id="39dccb0e-ac88-8007-b80f-cb2ef4c9d04e" class="" dir="auto">Senior sẽ không nói mơ hồ “server yếu”. Họ sẽ hỏi:</p><pre id="39dccb0e-ac88-804c-a8f0-f4974eae0de7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Latency p95/p99 là bao nhiêu?
+- Database CPU/memory thế nào?
+- Query nào chậm nhất?
+- Cache hit rate bao nhiêu?
+- Error rate tăng ở endpoint nào?
+- Traffic tăng ở read hay write?</code></pre><hr id="39dccb0e-ac88-804f-b8f6-d0d9ee2e7483" dir="auto"/><h3 id="39dccb0e-ac88-80f0-bcae-f05db42aa5c4" class="" dir="auto">Mindset 5: Thiết kế để failure xảy ra</h3><p id="39dccb0e-ac88-8094-b0b8-d990bc301f01" class="" dir="auto">Junior thường nghĩ:</p><blockquote id="39dccb0e-ac88-800f-b279-d96d376e2c7d" class="" dir="auto">“Nếu mọi thứ chạy bình thường…”</blockquote><p id="39dccb0e-ac88-804f-b801-c2e378ff6861" class="" dir="auto">Senior nghĩ:</p><blockquote id="39dccb0e-ac88-8040-8a3c-f3b3077ca3fa" class="" dir="auto">“Nếu một phần hệ thống chết thì sao?”</blockquote><p id="39dccb0e-ac88-8051-9784-d263a163b615" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80c4-b0fa-d0fe2cfb2f08" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Database chết
+- Redis chết
+- Payment gateway timeout
+- Email service lỗi
+- Một region mất mạng
+- Message queue bị backlog
+- Một service deploy bug</code></pre><p id="39dccb0e-ac88-80a9-a15d-fed28c9728b1" class="" dir="auto">Một hệ thống production tốt không phải là hệ thống “không bao giờ lỗi”.</p><p id="39dccb0e-ac88-8075-a308-f18e921d9aca" class="" dir="auto">Mà là:</p><blockquote id="39dccb0e-ac88-8050-b443-f34ae077b50a" class="" dir="auto"><strong>Lỗi một phần nhưng toàn hệ thống không sập hoàn toàn.</strong></blockquote><p id="39dccb0e-ac88-8078-ba0e-c5ace6e50533" class="" dir="auto">Ví dụ order system:</p><pre id="39dccb0e-ac88-802d-a289-da8a97eec79e" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">sequenceDiagram
+    participant User
+    participant API
+    participant OrderService
+    participant DB
+    participant Queue
+    participant EmailService
+
+    User-&gt;&gt;API: Place order
+    API-&gt;&gt;OrderService: Create order
+    OrderService-&gt;&gt;DB: Save order
+    OrderService-&gt;&gt;Queue: Publish OrderCreated
+    API--&gt;&gt;User: Order created
+
+    Queue-&gt;&gt;EmailService: Send confirmation email</code></pre><p id="39dccb0e-ac88-807b-bb1b-fda2c163fc37" class="" dir="auto">Nếu EmailService chết, user vẫn đặt hàng thành công. Email có thể retry sau.</p><p id="39dccb0e-ac88-809b-9843-de88b7db1098" class="" dir="auto">Đây là tư duy rất quan trọng:</p><blockquote id="39dccb0e-ac88-809d-8a3d-ef74cb569c2e" class="" dir="auto"><strong>Không để tác vụ phụ làm hỏng tác vụ chính.</strong></blockquote><hr id="39dccb0e-ac88-8004-8cf1-cb79d94fd8da" dir="auto"/><h3 id="39dccb0e-ac88-802f-aa39-f25be53c720b" class="" dir="auto">Mindset 6: Đơn giản trước, phức tạp sau</h3><p id="39dccb0e-ac88-80d2-9de5-eed017e26ec5" class="" dir="auto">Một sai lầm phổ biến khi học System Design là thấy công nghệ gì cũng muốn nhét vào:</p><pre id="39dccb0e-ac88-8065-bff8-e328490d9b1b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Kubernetes
+Kafka
+Redis
+Elasticsearch
+Microservices
+CQRS
+Event Sourcing
+Multi-region</code></pre><p id="39dccb0e-ac88-800c-a898-e76dea32cd6d" class="" dir="auto">Nhưng senior thật sự sẽ hỏi:</p><pre id="39dccb0e-ac88-8055-9974-d39890cfbb2f" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Có cần chưa?
+Traffic hiện tại bao nhiêu?
+Đội ngũ có vận hành nổi không?
+Độ phức tạp thêm vào có đáng không?</code></pre><p id="39dccb0e-ac88-8003-950a-e7917a7356dd" class="" dir="auto">Một thiết kế tốt thường bắt đầu đơn giản:</p><pre id="39dccb0e-ac88-8072-bcfd-c1f775319c79" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    User --&gt; API[Backend API]
+    API --&gt; DB[(PostgreSQL)]</code></pre><p id="39dccb0e-ac88-808a-aa48-e64db9e8558e" class="" dir="auto">Sau đó scale theo vấn đề thật:</p><pre id="39dccb0e-ac88-80d9-b51d-e03c60fc332c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Chậm vì đọc nhiều? Thêm cache/read replica.
+File lớn? Thêm object storage/CDN.
+Task chậm? Thêm queue/background worker.
+Search phức tạp? Thêm search engine.
+Service quá lớn? Tách service.</code></pre><p id="39dccb0e-ac88-807c-ad90-fa42958d5872" class="" dir="auto">Nguyên tắc:</p><blockquote id="39dccb0e-ac88-80ac-9a45-efca72867223" class="" dir="auto"><strong>Đừng dùng kiến trúc phức tạp để giải quyết vấn đề bạn chưa có.</strong></blockquote><hr id="39dccb0e-ac88-80d0-a5c4-df2a0782fcfa" dir="auto"/><h3 id="39dccb0e-ac88-8061-91db-c7905662c950" class="" dir="auto">Mindset 7: Biết giao tiếp bằng sơ đồ</h3><p id="39dccb0e-ac88-8095-b05d-e5e69390625c" class="" dir="auto">Senior engineer phải biết biến ý tưởng thành hình.</p><p id="39dccb0e-ac88-801a-858b-f26922fc9936" class="" dir="auto">Ví dụ một thiết kế e-commerce cơ bản:</p><pre id="39dccb0e-ac88-8042-8b25-ec9cf1238e51" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[User] --&gt; Web[Web/Mobile App]
+    Web --&gt; API[API Gateway]
+
+    API --&gt; Auth[Auth Service]
+    API --&gt; Product[Product Service]
+    API --&gt; Order[Order Service]
+    API --&gt; Payment[Payment Service]
+
+    Product --&gt; ProductDB[(Product DB)]
+    Order --&gt; OrderDB[(Order DB)]
+    Payment --&gt; PaymentProvider[Payment Provider]
+
+    Order --&gt; Queue[Message Queue]
+    Queue --&gt; Email[Email Worker]
+    Queue --&gt; Inventory[Inventory Worker]</code></pre><p id="39dccb0e-ac88-809e-880a-c29c2f4e7c82" class="" dir="auto">Nhìn vào sơ đồ, bạn thấy ngay:</p><pre id="39dccb0e-ac88-8096-81ab-fc5a2544fb8a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User đi qua API Gateway
+- Auth xử lý đăng nhập
+- Product xử lý catalog
+- Order xử lý đơn hàng
+- Payment gọi cổng thanh toán
+- Queue xử lý việc phụ bất đồng bộ</code></pre><p id="39dccb0e-ac88-8046-b14d-fb6aea87496f" class="" dir="auto">Sơ đồ giúp bạn nhớ lâu hơn vì bạn không còn học từng khái niệm rời rạc.</p><hr id="39dccb0e-ac88-8074-be83-c27713622c69" dir="auto"/><h2 id="39dccb0e-ac88-800f-a129-c86db69160cb" class="" dir="auto">6. Công thức tư duy khi gặp đề System Design</h2><p id="39dccb0e-ac88-8010-93e7-e2104be33af5" class="" dir="auto">Khi gặp bất kỳ đề nào, bạn có thể dùng khung này:</p><pre id="39dccb0e-ac88-8053-99cb-ddc127b6be15" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1. Clarify requirements
+2. Estimate scale
+3. Define API
+4. Design data model
+5. Draw high-level architecture
+6. Identify bottlenecks
+7. Add scaling strategies
+8. Add reliability/failure handling
+9. Add security
+10. Add observability</code></pre><p id="39dccb0e-ac88-80f6-85ee-dd8b9f32da95" class="" dir="auto">Sơ đồ:</p><pre id="39dccb0e-ac88-80d0-a1ca-dd319068cb02" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    A[Đề bài] --&gt; B[Clarify Requirements]
+    B --&gt; C[Estimate Traffic &amp; Storage]
+    C --&gt; D[API Design]
+    D --&gt; E[Data Model]
+    E --&gt; F[High-level Architecture]
+    F --&gt; G[Find Bottlenecks]
+    G --&gt; H[Scale]
+    H --&gt; I[Reliability]
+    I --&gt; J[Security]
+    J --&gt; K[Monitoring]</code></pre><p id="39dccb0e-ac88-8089-bac7-d6f5bb1961fa" class="" dir="auto">Bạn có thể áp dụng cho mọi bài:</p><pre id="39dccb0e-ac88-8079-b66d-cbdac527b794" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Design YouTube
+- Design Instagram
+- Design TikTok
+- Design Uber
+- Design Shopee
+- Design Chat App
+- Design URL Shortener
+- Design Notification System</code></pre><hr id="39dccb0e-ac88-805a-bfd2-de252adc32ba" dir="auto"/><h2 id="39dccb0e-ac88-8005-b387-ddc1b748b21f" class="" dir="auto">7. Ví dụ thực tế: thiết kế URL Shortener</h2><p id="39dccb0e-ac88-8003-8d6d-d1390389c73b" class="" dir="auto">Giả sử đề bài là:</p><blockquote id="39dccb0e-ac88-8002-9573-d1112e319ab6" class="" dir="auto">Thiết kế hệ thống rút gọn link như bit.ly.</blockquote><h3 id="39dccb0e-ac88-8041-b804-fd4447a90bb2" class="" dir="auto">Nếu tư duy coding</h3><p id="39dccb0e-ac88-80e6-b4f7-eade66efdccb" class="" dir="auto">Bạn nghĩ:</p><pre id="39dccb0e-ac88-808c-a1cc-eb52dbb4f1ff" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- API nhận long URL
+- Generate short code
+- Save vào database
+- Redirect khi user truy cập short URL</code></pre><h3 id="39dccb0e-ac88-80d2-a872-d6e0b54fb88f" class="" dir="auto">Nếu tư duy system design</h3><p id="39dccb0e-ac88-8064-940a-e81537c49482" class="" dir="auto">Bạn hỏi:</p><pre id="39dccb0e-ac88-80f0-96e2-f92ef7a353c5" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Functional:
+- User tạo short URL?
+- Có custom alias không?
+- Có expiration không?
+- Có analytics click không?
+
+Non-functional:
+- Redirect phải cực nhanh?
+- Hệ thống read nhiều hơn write bao nhiêu lần?
+- Short URL có cần unique toàn cầu không?
+- Có chống spam/phishing không?
+- Có rate limit không?</code></pre><p id="39dccb0e-ac88-80e9-9ce5-cdf233140adb" class="" dir="auto">Kiến trúc ban đầu:</p><pre id="39dccb0e-ac88-8028-b0bd-d37228dc2481" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[User] --&gt; API[API Server]
+    API --&gt; DB[(URL Database)]</code></pre><p id="39dccb0e-ac88-80e7-be3b-f5c3cc9fe47a" class="" dir="auto">Kiến trúc scale hơn:</p><pre id="39dccb0e-ac88-8077-a487-c7f1e94dbd46" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[User] --&gt; CDN[CDN / Edge]
+    CDN --&gt; LB[Load Balancer]
+    LB --&gt; API1[API Server 1]
+    LB --&gt; API2[API Server 2]
+
+    API1 --&gt; Cache[Redis Cache]
+    API2 --&gt; Cache
+
+    Cache --&gt; DB[(Primary DB)]
+    DB --&gt; Replica[(Read Replica)]
+
+    API1 --&gt; Queue[Click Event Queue]
+    API2 --&gt; Queue
+    Queue --&gt; Analytics[Analytics Worker]
+    Analytics --&gt; AnalyticsDB[(Analytics DB)]</code></pre><p id="39dccb0e-ac88-80cf-8b00-caa1ada60616" class="" dir="auto">Tại sao thiết kế như vậy?</p><pre id="39dccb0e-ac88-8024-9c34-e053f0b7678d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Redirect cần nhanh =&gt; dùng cache.
+- Read nhiều hơn write =&gt; read replica/cache hữu ích.
+- Analytics không cần xử lý đồng bộ =&gt; đưa vào queue.
+- API server scale ngang qua load balancer.
+- Database là nguồn dữ liệu chính.</code></pre><p id="39dccb0e-ac88-80fb-b173-e4dc332720b9" class="" dir="auto">Đây chính là System Design.</p><hr id="39dccb0e-ac88-8008-9d0b-e401057ad074" dir="auto"/><h2 id="39dccb0e-ac88-80cb-843a-c9103acb8775" class="" dir="auto">8. Những khái niệm bạn phải nhớ từ Bài 1</h2><h3 id="39dccb0e-ac88-8069-90d2-fd2b76d4f9f1" class="" dir="auto">Scalability</h3><p id="39dccb0e-ac88-80dd-8fb2-f78f58c4fd74" class="" dir="auto">Khả năng hệ thống xử lý tăng trưởng.</p><pre id="39dccb0e-ac88-8015-a5c8-e0d11d3c2528" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 users -&gt; 10,000 users -&gt; 1,000,000 users</code></pre><p id="39dccb0e-ac88-80fa-b2f0-f4c2db0c393e" class="" dir="auto">Có 2 kiểu scale:</p><pre id="39dccb0e-ac88-80e8-bcb6-ce92a1e90260" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Vertical scaling: tăng sức mạnh một máy
+Horizontal scaling: thêm nhiều máy</code></pre><hr id="39dccb0e-ac88-80d0-b206-d46eae6cdcd4" dir="auto"/><h3 id="39dccb0e-ac88-80d4-8c50-c2f18d2d094d" class="" dir="auto">Reliability</h3><p id="39dccb0e-ac88-805b-8e34-e8d72438f3b4" class="" dir="auto">Khả năng hệ thống hoạt động đúng và ổn định.</p><p id="39dccb0e-ac88-8034-b9ad-edb2bfbb6219" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80f6-850a-fa448b040721" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Không mất đơn hàng
+- Không tạo duplicate payment
+- Không mất tin nhắn</code></pre><hr id="39dccb0e-ac88-802a-9a94-c8e2eddff1c1" dir="auto"/><h3 id="39dccb0e-ac88-807a-8b73-c590e62e40bc" class="" dir="auto">Availability</h3><p id="39dccb0e-ac88-80da-a810-f5f1de6c06f1" class="" dir="auto">Khả năng hệ thống luôn sẵn sàng phục vụ user.</p><p id="39dccb0e-ac88-801a-9265-d198ff1eb23c" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8053-aa50-d4cc0307cae1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">99.9% uptime nghĩa là hệ thống gần như luôn truy cập được.</code></pre><hr id="39dccb0e-ac88-80d0-a292-c049036b5abe" dir="auto"/><h3 id="39dccb0e-ac88-80db-a9cc-fb1a5fed104e" class="" dir="auto">Latency</h3><p id="39dccb0e-ac88-80a6-80b5-f615288835bd" class="" dir="auto">Thời gian user chờ response.</p><p id="39dccb0e-ac88-80ae-8f44-c3a3c259564a" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80a7-b472-f93c32980a19" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User click -&gt; 200ms sau thấy kết quả</code></pre><hr id="39dccb0e-ac88-809a-a923-fb8e12f1da72" dir="auto"/><h3 id="39dccb0e-ac88-80b4-8dd8-fc04fb4af8e4" class="" dir="auto">Throughput</h3><p id="39dccb0e-ac88-8057-add2-dba76c6fe9cd" class="" dir="auto">Lượng request hệ thống xử lý trong một khoảng thời gian.</p><p id="39dccb0e-ac88-809d-9019-f7c9a05fef62" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-802d-93a1-f3bf7b935f0b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">10,000 requests/second</code></pre><hr id="39dccb0e-ac88-8015-abf7-ce5ff00585b1" dir="auto"/><h3 id="39dccb0e-ac88-8039-86bd-d271200c6389" class="" dir="auto">Consistency</h3><p id="39dccb0e-ac88-8051-a5fd-ed66e83aabfc" class="" dir="auto">Dữ liệu có đồng nhất ở mọi nơi không.</p><p id="39dccb0e-ac88-809f-967c-f2f990d2baca" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80d1-9106-c67c8c6e88b5" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Bạn chuyển tiền xong, số dư phải cập nhật chính xác.</code></pre><hr id="39dccb0e-ac88-805c-be77-d37254fc3584" dir="auto"/><h3 id="39dccb0e-ac88-8081-a0d3-ca98eaa105eb" class="" dir="auto">Fault tolerance</h3><p id="39dccb0e-ac88-808a-98a3-f8b5b414ddc7" class="" dir="auto">Hệ thống vẫn hoạt động khi một phần bị lỗi.</p><p id="39dccb0e-ac88-8097-969d-d3329a7d0593" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80c1-b67e-f7773f678d07" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Một app server chết, load balancer chuyển request sang server khác.</code></pre><hr id="39dccb0e-ac88-8021-b2e2-c05755e286d1" dir="auto"/><h2 id="39dccb0e-ac88-8058-b37f-d2b35318f561" class="" dir="auto">9. Checklist mindset của senior</h2><p id="39dccb0e-ac88-80bc-a879-eaf70371f8fc" class="" dir="auto">Khi thiết kế hệ thống, hãy tự hỏi:</p><pre id="39dccb0e-ac88-80b4-ad55-db7427d71af7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">[ ] User là ai?
+[ ] Tính năng chính là gì?
+[ ] Traffic khoảng bao nhiêu?
+[ ] Read nhiều hay write nhiều?
+[ ] Dữ liệu cần consistency mạnh không?
+[ ] Latency yêu cầu bao nhiêu?
+[ ] Thành phần nào dễ thành bottleneck?
+[ ] Nếu database/cache/service chết thì sao?
+[ ] Có cần cache không?
+[ ] Có cần queue không?
+[ ] Có cần CDN không?
+[ ] Có cần rate limit không?
+[ ] Làm sao monitor lỗi?
+[ ] Thiết kế này có đơn giản quá không?
+[ ] Thiết kế này có phức tạp quá không?</code></pre><hr id="39dccb0e-ac88-8064-b8d0-fc779f45f897" dir="auto"/><h2 id="39dccb0e-ac88-80e5-8527-c7e2fe48cee5" class="" dir="auto">10. Cách ghi nhớ bài này</h2><p id="39dccb0e-ac88-8082-a397-f3a744dc4608" class="" dir="auto">Bạn chỉ cần nhớ một câu:</p><blockquote id="39dccb0e-ac88-8076-bba3-e5bda9770d9a" class="" dir="auto"><strong>System Design = thiết kế cách nhiều thành phần phối hợp với nhau để hệ thống chạy đúng, nhanh, ổn định, bảo mật và mở rộng được.</strong></blockquote><p id="39dccb0e-ac88-80fa-a1c2-feddb880e423" class="" dir="auto">Hoặc hình dung như sau:</p><pre id="39dccb0e-ac88-8082-a5f5-c4fc8cfa2307" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Coding:
+&quot;Tôi xây một bánh răng.&quot;
+
+System Design:
+&quot;Tôi thiết kế cả cỗ máy, biết bánh răng nào nối với bánh răng nào, chỗ nào dễ gãy, chỗ nào cần bôi trơn, và khi máy chạy lớn hơn thì nâng cấp ở đâu.&quot;</code></pre><hr id="39dccb0e-ac88-80e3-aaaf-ef52f1d24dd4" dir="auto"/><h2 id="39dccb0e-ac88-8085-b53f-dcd8770b731f" class="" dir="auto">11. Bài tập nhỏ cho bạn</h2><p id="39dccb0e-ac88-8015-9c4f-ee2fc469ff36" class="" dir="auto">Hãy thử trả lời bằng 5-10 dòng cho đề sau:</p><blockquote id="39dccb0e-ac88-80c5-8c34-c96e1a1c48f1" class="" dir="auto">Thiết kế một hệ thống ghi chú cá nhân giống Google Keep bản đơn giản.</blockquote><p id="39dccb0e-ac88-80fd-8f49-c3e7c926d858" class="" dir="auto">Gợi ý trả lời theo khung:</p><pre id="39dccb0e-ac88-8065-bcf3-f76ce5841eba" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1. Functional requirements:
+2. Non-functional requirements:
+3. API chính:
+4. Database nên dùng:
+5. Kiến trúc high-level:
+6. Nếu user tăng lên 1 triệu thì bottleneck ở đâu?</code></pre><p id="39dccb0e-ac88-80d0-934a-cb6533b2fc2c" class="" dir="auto">Mình sẽ chấm và sửa tư duy system design cho bạn như mentor.</p><hr id="39dccb0e-ac88-80b2-af88-c613a2de8cdf" dir="auto"/><h2 id="39dccb0e-ac88-80fa-a7e7-dad23dafb52d" class="" dir="auto">Tóm tắt cuối bài</h2><p id="39dccb0e-ac88-8040-963b-f74f43c4a1ed" class="" dir="auto">Bài 1 cần nắm:</p><pre id="39dccb0e-ac88-80bc-8f7f-eb26151f5a4d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">System Design không phải là viết code.
+System Design là thiết kế toàn bộ hệ thống.
+
+Senior engineer không chỉ làm task.
+Senior engineer biết hỏi đúng câu hỏi, phân tích trade-off, thiết kế kiến trúc, dự đoán bottleneck, xử lý failure và đưa ra quyết định phù hợp với business/user.
+
+Một thiết kế tốt không phải thiết kế phức tạp nhất.
+Một thiết kế tốt là thiết kế giải quyết đúng bài toán ở đúng quy mô.</code></pre><p id="39dccb0e-ac88-8012-b94f-e1a790f199d4" class="" dir="auto">Bài tiếp theo nên học: <strong>Bài 2 — Functional Requirement, Non-functional Requirement và cách hỏi yêu cầu như một Senior Engineer trước khi thiết kế hệ thống.</strong></p></div></article><span class="sans" style="font-size:14px;padding-top:2em"></span></body></html>

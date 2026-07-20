@@ -1,0 +1,1178 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Bài 2 — Functional Requirement, Non-functional Requirement và cách hỏi yêu cầu như Senior Engineer</title><style>
+/* cspell:disable-file */
+/* webkit printing magic: print all background colors */
+html {
+	-webkit-print-color-adjust: exact;
+}
+* {
+	box-sizing: border-box;
+	-webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+@media only screen {
+	body {
+		margin: 2em auto;
+		max-width: 900px;
+		color: rgb(55, 53, 47);
+	}
+}
+
+body {
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+a,
+a.visited {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.pdf-relative-link-path {
+	font-size: 80%;
+	color: #444;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	font-weight: 600;
+	margin-bottom: 0;
+}
+
+/* Override strong tags inside headings to maintain consistent weight */
+h1 strong,
+h2 strong,
+h3 strong {
+	font-weight: 600;
+}
+
+.page-title {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-top: 0;
+	margin-bottom: 0.75em;
+}
+
+h1 {
+	font-size: 1.875rem;
+	margin-top: 1.875rem;
+}
+
+h2 {
+	font-size: 1.5rem;
+	margin-top: 1.5rem;
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-top: 1.25rem;
+}
+
+.source {
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	padding: 1.5em;
+	word-break: break-all;
+}
+
+.callout {
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+/* For default-background callouts, render the border outline. */
+.callout.block-color-default_background {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+figure,
+aside,
+details {
+	margin: 1.25em 0;
+	page-break-inside: avoid;
+}
+
+figcaption {
+	opacity: 0.5;
+	font-size: 85%;
+	margin-top: 0.5em;
+}
+
+mark {
+	background-color: transparent;
+}
+
+.indented {
+	padding-left: 1.5em;
+}
+
+hr {
+	background: transparent;
+	display: block;
+	width: 100%;
+	height: 1px;
+	visibility: visible;
+	border: none;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+img {
+	max-width: 100%;
+}
+
+@media only print {
+	img {
+		max-height: 100vh;
+		object-fit: contain;
+	}
+
+	table.collection-content {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	table.collection-content th,
+	table.collection-content td {
+		overflow-wrap: anywhere;
+	}
+
+	table.collection-content td > .user,
+	table.collection-content td > time {
+		white-space: pre-wrap;
+	}
+}
+
+@page {
+	margin: 1in;
+}
+
+.collection-content-wrapper {
+	overflow-x: auto;
+}
+
+@media only print {
+	.collection-content-wrapper {
+		overflow-x: visible;
+	}
+}
+
+.collection-content {
+	font-size: 0.875rem;
+}
+
+.collection-content td {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.column-list {
+	display: flex;
+	gap: 46px;
+}
+
+.column {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.column > *:first-child {
+	margin-top: 0;
+}
+
+.table_of_contents-item {
+	display: block;
+	font-size: 0.875rem;
+	line-height: 1.3;
+	padding-inline: 0.125rem;
+	padding-block: 0.375rem;
+}
+
+.table_of_contents-indent-1 {
+	margin-left: 1.5rem;
+}
+
+.table_of_contents-indent-2 {
+	margin-left: 3rem;
+}
+
+.table_of_contents-indent-3 {
+	margin-left: 4.5rem;
+}
+
+.table_of_contents-link {
+	text-decoration: none;
+	opacity: 0.7;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.18);
+}
+
+table,
+th,
+td {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+table {
+	border-collapse: collapse;
+	border-left: none;
+	border-right: none;
+}
+
+th,
+td {
+	font-weight: normal;
+	padding: 0.25em 0.5em;
+	line-height: 1.5;
+	min-height: 1.5em;
+	text-align: left;
+}
+
+th {
+	color: rgba(55, 53, 47, 0.6);
+}
+
+ol,
+ul {
+	margin: 0;
+	margin-block-start: 0.6em;
+	margin-block-end: 0.6em;
+}
+
+li > ol:first-child,
+li > ul:first-child {
+	margin-block-start: 0.6em;
+}
+
+ul > li {
+	list-style: disc;
+}
+
+ul.to-do-list {
+	padding-inline-start: 0;
+}
+
+ul.to-do-list > li {
+	list-style: none;
+}
+
+.to-do-children-checked {
+	text-decoration: line-through;
+	opacity: 0.375;
+}
+
+ul.toggle > li {
+	list-style: none;
+}
+
+ul {
+	padding-inline-start: 1.7em;
+}
+
+ul > li {
+	padding-left: 0.1em;
+}
+
+ol {
+	padding-inline-start: 1.6em;
+}
+
+ol.numbered-list.numbered-list-digits-2 {
+	padding-inline-start: 2em;
+}
+
+ol.numbered-list.numbered-list-digits-3plus {
+	padding-inline-start: 2.4em;
+}
+
+ol > li {
+	padding-left: 0.2em;
+}
+
+.mono ol {
+	padding-inline-start: 2em;
+}
+
+.mono ol > li {
+	text-indent: -0.4em;
+}
+
+.toggle {
+	padding-inline-start: 0em;
+	list-style-type: none;
+}
+
+/* Indent toggle children */
+.toggle > li > details {
+	padding-left: 1.7em;
+}
+
+.toggle > li > details > summary {
+	margin-left: -1.1em;
+}
+
+.selected-value {
+	display: inline-block;
+	padding: 0 0.5em;
+	background: rgba(206, 205, 202, 0.5);
+	border-radius: 3px;
+	margin-right: 0.5em;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	white-space: nowrap;
+}
+
+.collection-title {
+	display: inline-block;
+	margin-right: 1em;
+}
+
+.page-description {
+	margin-bottom: 2em;
+}
+
+.simple-table {
+	margin-top: 1em;
+	font-size: 0.875rem;
+	empty-cells: show;
+}
+.simple-table td {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table th {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table-header-color {
+	background: rgb(247, 246, 243);
+	color: black;
+}
+.simple-table-header {
+	font-weight: 500;
+}
+
+time {
+	opacity: 0.5;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 1.2em;
+	max-height: 1.2em;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	margin-right: 0.5em;
+}
+
+/*
+ * Render emoji icons using a ::before pseudo-element to keep the glyph
+ * out of the DOM textContent traversal. This avoids double-rendering icons
+ * in callouts and page titles.
+ * NOTE(slim/html-export-pseudo-icons): I can't tagref this because it will
+ * flag as a duplicate tag after codegen.
+ */
+.icon[data-emoji]::before {
+	content: attr(data-emoji);
+}
+
+img.icon {
+	border-radius: 3px;
+}
+
+.callout img.notion-static-icon {
+	width: 1em;
+	height: 1em;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.callout h1,
+.callout h2,
+.callout h3 {
+	margin: 0 0 0.6rem;
+}
+
+.user-icon {
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 100%;
+	margin-right: 0.5rem;
+}
+
+.user-icon-inner {
+	font-size: 0.8em;
+}
+
+.text-icon {
+	border: 1px solid #000;
+	text-align: center;
+}
+
+.page-cover-image {
+	display: block;
+	object-fit: cover;
+	width: 100%;
+	max-height: 30vh;
+}
+
+.page-header-icon {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+
+.page-header-icon-with-cover {
+	margin-top: -0.72em;
+	margin-left: 0.07em;
+}
+
+.page-header-icon img {
+	border-radius: 3px;
+}
+
+.link-to-page {
+	margin: 1em 0;
+	padding: 0;
+	border: none;
+	font-weight: 500;
+}
+
+p > .user {
+	opacity: 0.5;
+}
+
+td > .user,
+td > time {
+	white-space: nowrap;
+}
+
+input[type="checkbox"] {
+	margin-right: 0.4em;
+	vertical-align: middle;
+}
+
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.image {
+	border: none;
+	margin: 1.5em 0;
+	padding: 0;
+	border-radius: 0;
+	text-align: center;
+}
+
+.code,
+code {
+	background: rgba(135, 131, 120, 0.15);
+	border-radius: 3px;
+	padding: 0.2em 0.4em;
+	border-radius: 3px;
+	font-size: 85%;
+	tab-size: 2;
+}
+
+code {
+	color: #eb5757;
+}
+
+.code {
+	padding: 1.5em 1em;
+}
+
+.code-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.code > code {
+	background: none;
+	padding: 0;
+	font-size: 100%;
+	color: inherit;
+}
+
+blockquote {
+	font-size: 1em;
+	margin: 1em 0;
+	padding-left: 1em;
+	border-left: 3px solid rgb(55, 53, 47);
+}
+
+blockquote.quote-large {
+	font-size: 1.25em;
+}
+
+.bookmark {
+	text-decoration: none;
+	max-height: 8em;
+	padding: 0;
+	display: flex;
+	width: 100%;
+	align-items: stretch;
+}
+
+.bookmark-title {
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	height: 1.75em;
+	white-space: nowrap;
+}
+
+.bookmark-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.bookmark-info {
+	flex: 4 1 180px;
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.bookmark-image {
+	width: 33%;
+	flex: 1 1 180px;
+	display: block;
+	position: relative;
+	object-fit: cover;
+	border-radius: 1px;
+}
+
+.bookmark-description {
+	color: rgba(55, 53, 47, 0.6);
+	font-size: 0.75em;
+	overflow: hidden;
+	max-height: 4.5em;
+	word-break: break-word;
+}
+
+.bookmark-href {
+	font-size: 0.75em;
+	margin-top: 0.25em;
+}
+
+.tab {
+	margin: 1.25em 0;
+	padding-inline: 1rem;
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+.sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; }
+.code { font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace; }
+.serif { font-family: Lyon-Text, Georgia, ui-serif, serif; }
+.mono { font-family: iawriter-mono, Nitti, Menlo, Courier, monospace; }
+.pdf .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK JP'; }
+.pdf:lang(zh-CN) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK SC'; }
+.pdf:lang(zh-TW) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK TC'; }
+.pdf:lang(ko-KR) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK KR'; }
+.pdf .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.pdf .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK JP'; }
+.pdf:lang(zh-CN) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK SC'; }
+.pdf:lang(zh-TW) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK TC'; }
+.pdf:lang(ko-KR) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK KR'; }
+.pdf .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.highlight-default {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.highlight-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.highlight-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.highlight-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.highlight-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.highlight-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.highlight-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.highlight-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.highlight-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.highlight-default_background {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray_background {
+	background: rgba(42, 28, 0, 0.07);
+}
+.highlight-brown_background {
+	background: rgba(139, 46, 0, 0.086);
+}
+.highlight-orange_background {
+	background: rgba(224, 101, 1, 0.129);
+}
+.highlight-yellow_background {
+	background: rgba(211, 168, 0, 0.137);
+}
+.highlight-teal_background {
+	background: rgba(0, 100, 45, 0.09);
+}
+.highlight-blue_background {
+	background: rgba(0, 124, 215, 0.094);
+}
+.highlight-purple_background {
+	background: rgba(102, 0, 178, 0.078);
+}
+.highlight-pink_background {
+	background: rgba(197, 0, 93, 0.086);
+}
+.highlight-red_background {
+	background: rgba(223, 22, 0, 0.094);
+}
+.block-color-default {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.block-color-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.block-color-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.block-color-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.block-color-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.block-color-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.block-color-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.block-color-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.block-color-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.block-color-default_background {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray_background {
+	background: rgba(240, 239, 237, 1);
+}
+.block-color-brown_background {
+	background: rgba(245, 237, 233, 1);
+}
+.block-color-orange_background {
+	background: rgba(251, 235, 222, 1);
+}
+.block-color-yellow_background {
+	background: rgba(249, 243, 220, 1);
+}
+.block-color-teal_background {
+	background: rgba(232, 241, 236, 1);
+}
+.block-color-blue_background {
+	background: rgba(229, 242, 252, 1);
+}
+.block-color-purple_background {
+	background: rgba(243, 235, 249, 1);
+}
+.block-color-pink_background {
+	background: rgba(250, 233, 241, 1);
+}
+.block-color-red_background {
+	background: rgba(252, 233, 231, 1);
+}
+.select-value-color-default { background-color: rgba(42, 28, 0, 0.07); }
+.select-value-color-gray { background-color: rgba(28, 19, 1, 0.11); }
+.select-value-color-brown { background-color: rgba(127, 51, 0, 0.156); }
+.select-value-color-orange { background-color: rgba(196, 88, 0, 0.203); }
+.select-value-color-yellow { background-color: rgba(209, 156, 0, 0.282); }
+.select-value-color-green { background-color: rgba(0, 96, 38, 0.156); }
+.select-value-color-blue { background-color: rgba(0, 118, 217, 0.203); }
+.select-value-color-purple { background-color: rgba(92, 0, 163, 0.141); }
+.select-value-color-pink { background-color: rgba(183, 0, 78, 0.152); }
+.select-value-color-red { background-color: rgba(206, 24, 0, 0.164); }
+
+.checkbox {
+	display: inline-flex;
+	vertical-align: text-bottom;
+	width: 16;
+	height: 16;
+	background-size: 16px;
+	margin-left: 2px;
+	margin-right: 5px;
+}
+
+.checkbox-on {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2358A9D7%22%2F%3E%0A%3Cpath%20d%3D%22M6.71429%2012.2852L14%204.9995L12.7143%203.71436L6.71429%209.71378L3.28571%206.2831L2%207.57092L6.71429%2012.2852Z%22%20fill%3D%22white%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+.checkbox-off {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20x%3D%220.75%22%20y%3D%220.75%22%20width%3D%2214.5%22%20height%3D%2214.5%22%20fill%3D%22white%22%20stroke%3D%22%2336352F%22%20stroke-width%3D%221.5%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+	
+</style><style>@import url('https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex-swap.min.css')</style></head><body><article id="39dccb0e-ac88-8035-aad9-e2c0075a8856" class="page sans"><header><h1 class="page-title" dir="auto">Bài 2 — Functional Requirement, Non-functional Requirement và cách hỏi yêu cầu như Senior Engineer</h1><p class="page-description" dir="auto"></p></header><div class="page-body"><p id="39dccb0e-ac88-807d-b308-fc3c1ad73b3c" class="" dir="auto">Bài này cực kỳ quan trọng, vì trong System Design, <strong>người thiết kế giỏi không phải người vẽ sơ đồ nhanh nhất, mà là người hỏi đúng câu hỏi trước khi vẽ</strong>. Các video/tài liệu bạn đưa đều xoay quanh tư duy này: trước khi chọn API, database, cache, CDN, load balancer hay queue, ta phải hiểu hệ thống cần làm gì và cần làm tốt đến mức nào.</p><hr id="39dccb0e-ac88-80e7-b5c1-d00aa639ce89" dir="auto"/><h2 id="39dccb0e-ac88-805f-966f-f373ec14db71" class="" dir="auto">1. Vấn đề lớn của người mới học System Design</h2><p id="39dccb0e-ac88-80e3-8811-fa56916dd85c" class="" dir="auto">Người mới thường nghe đề bài xong sẽ vẽ ngay:</p><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" integrity="sha512-7Z9J3l1+EYfeaPKcGXu3MS/7T+w19WtKQY/n+xzmw4hZhJ9tyYmcUS+4QqAlzhicE5LAfMQSF3iFTK9bQdTxXg==" crossorigin="anonymous" referrerPolicy="no-referrer"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" integrity="sha512-tN7Ec6zAFaVSG3TpNAKtk4DOHNpSwKHxxrsiw4GHKESGPs5njn/0sMCUMl2svV4wo4BK/rCP7juYz+zx+l6oeQ==" crossorigin="anonymous" referrerPolicy="no-referrer"/><pre id="39dccb0e-ac88-8010-9435-c3fe69d56c56" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Client -&gt; Load Balancer -&gt; API Server -&gt; Database -&gt; Cache</code></pre><p id="39dccb0e-ac88-8062-bcdf-d9a44bd9b1ea" class="" dir="auto">Nhìn có vẻ đúng, nhưng thực ra có thể rất nguy hiểm, vì bạn chưa biết:</p><pre id="39dccb0e-ac88-80bb-ae45-e80bec38f8a1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User cần tính năng gì?
+- Hệ thống phục vụ bao nhiêu người?
+- Read nhiều hay write nhiều?
+- Có cần realtime không?
+- Dữ liệu có cần chính xác tuyệt đối không?
+- Nếu service bị lỗi thì hậu quả thế nào?
+- Latency bao nhiêu là chấp nhận được?</code></pre><p id="39dccb0e-ac88-8077-9937-d8f54ad34abe" class="" dir="auto">Ví dụ đề bài: <strong>“Thiết kế hệ thống chat.”</strong></p><p id="39dccb0e-ac88-80b4-9476-cd5a613157e1" class="" dir="auto">Nếu bạn vẽ ngay WebSocket + Redis + Kafka + Cassandra thì nghe rất chuyên nghiệp, nhưng có thể sai nếu thực tế chỉ cần:</p><pre id="39dccb0e-ac88-804e-8e92-d569e0f0c4b2" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Chat support 1-1 đơn giản
+- 1,000 user/ngày
+- Không cần realtime tuyệt đối
+- Không cần group chat
+- Không cần gửi file</code></pre><p id="39dccb0e-ac88-80ca-b117-cf912b83dfb7" class="" dir="auto">Ngược lại, nếu là chat app như Messenger/Zalo với hàng chục triệu user, thì thiết kế đơn giản lại không đủ.</p><p id="39dccb0e-ac88-806f-8fe5-ec801edb7aaf" class="" dir="auto"><strong>Bài học:</strong></p><p id="39dccb0e-ac88-804e-b50d-d71d195822d8" class="" dir="auto">Trước khi thiết kế, phải làm rõ yêu cầu.</p><hr id="39dccb0e-ac88-80a9-af93-c77ee76d1b93" dir="auto"/><h1 id="39dccb0e-ac88-80e4-8027-e9173aeba200" class="" dir="auto">2. Functional Requirement là gì?</h1><p id="39dccb0e-ac88-809a-b38f-d7ed63944c74" class="" dir="auto"><strong>Functional Requirement</strong> là những thứ hệ thống <strong>phải làm được</strong>.</p><p id="39dccb0e-ac88-80b7-92e9-c849d4ccb2b4" class="" dir="auto">Bạn có thể nhớ đơn giản:</p><blockquote id="39dccb0e-ac88-8052-88e3-f44898e423b1" class="" dir="auto">Functional Requirement = “Hệ thống có chức năng gì?”</blockquote><p id="39dccb0e-ac88-80aa-aa86-d071e7a784c2" class="" dir="auto">Ví dụ với app ghi chú giống Google Keep:</p><pre id="39dccb0e-ac88-80e9-a25d-e6f4d542f27f" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User có thể tạo ghi chú
+- User có thể sửa ghi chú
+- User có thể xoá ghi chú
+- User có thể tìm kiếm ghi chú
+- User có thể gắn nhãn ghi chú
+- User có thể đồng bộ ghi chú giữa nhiều thiết bị</code></pre><p id="39dccb0e-ac88-809d-9fd6-d8de16e133b3" class="" dir="auto">Ví dụ với YouTube:</p><pre id="39dccb0e-ac88-80b5-9491-d2fc65cb8669" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User upload video
+- User xem video
+- User search video
+- User like/comment video
+- User subscribe channel
+- Creator xem analytics</code></pre><p id="39dccb0e-ac88-808e-aded-d7c6d7d5ba60" class="" dir="auto">Ví dụ với Shopee:</p><pre id="39dccb0e-ac88-80bc-9a89-d85aec1805cd" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User xem sản phẩm
+- User thêm sản phẩm vào giỏ
+- User đặt hàng
+- User thanh toán
+- Seller quản lý sản phẩm
+- Admin xử lý tranh chấp</code></pre><p id="39dccb0e-ac88-80aa-a8de-f582a4fc1fee" class="" dir="auto">Functional Requirement thường trả lời câu hỏi:</p><pre id="39dccb0e-ac88-805b-b4c9-f1a27bf7f7de" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User làm được gì?
+Admin làm được gì?
+Hệ thống tự động làm gì?
+Dữ liệu nào được tạo/sửa/xoá?
+Luồng nghiệp vụ chính là gì?</code></pre><hr id="39dccb0e-ac88-8004-9a7e-d7402169b8a1" dir="auto"/><h1 id="39dccb0e-ac88-80f6-bb4d-ea67e6cf978e" class="" dir="auto">3. Non-functional Requirement là gì?</h1><p id="39dccb0e-ac88-80ff-ab58-dd06032c9bce" class="" dir="auto"><strong>Non-functional Requirement</strong> là hệ thống cần hoạt động <strong>tốt đến mức nào</strong>.</p><p id="39dccb0e-ac88-807c-bf55-c1c567c1a5b8" class="" dir="auto">Bạn có thể nhớ:</p><blockquote id="39dccb0e-ac88-8066-a02a-c6be709ba153" class="" dir="auto">Non-functional Requirement = “Hệ thống phải chạy tốt ra sao?”</blockquote><p id="39dccb0e-ac88-8016-b4b4-d6403083442b" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-804c-9ffa-c9ac3ba2c933" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Phải nhanh
+- Phải chịu tải lớn
+- Phải bảo mật
+- Phải ít downtime
+- Phải không mất dữ liệu
+- Phải dễ mở rộng
+- Phải dễ monitor</code></pre><p id="39dccb0e-ac88-80d7-bb8b-d10b7e4a4bd6" class="" dir="auto">Cùng một chức năng “user xem video”, nhưng non-functional requirement sẽ quyết định kiến trúc khác nhau rất nhiều.</p><p id="39dccb0e-ac88-8000-99f2-db64829db4b6" class="" dir="auto">Nếu chỉ 100 user:</p><pre id="39dccb0e-ac88-804d-be32-cefa734a4a5e" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    User --&gt; Server[App Server]
+    Server --&gt; Storage[Video Storage]</code></pre><p id="39dccb0e-ac88-80c3-8c80-e1a9eb566f46" class="" dir="auto">Nếu hàng triệu user toàn cầu:</p><pre id="39dccb0e-ac88-80ab-8633-efa7cf55d527" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    User --&gt; CDN[CDN Edge Location]
+    CDN --&gt; Origin[Origin Video Storage]
+    User --&gt; API[API Server]
+    API --&gt; DB[(Metadata DB)]
+    API --&gt; Cache[(Cache)]</code></pre><p id="39dccb0e-ac88-806a-8de1-c0e854d6bbad" class="" dir="auto">Chức năng vẫn là “xem video”, nhưng yêu cầu về tốc độ và quy mô làm kiến trúc thay đổi hoàn toàn.</p><hr id="39dccb0e-ac88-8023-8ad7-e4b0b27f4448" dir="auto"/><h1 id="39dccb0e-ac88-802d-991b-db2a22356727" class="" dir="auto">4. So sánh Functional và Non-functional</h1><table id="39dccb0e-ac88-809c-9043-c146e92f6f05" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="39dccb0e-ac88-8012-ac52-ed044ddaae58" dir="ltr"><th id="bcj&lt;" class="simple-table-header-color simple-table-header">Loại yêu cầu</th><th id="Sf[U" class="simple-table-header-color simple-table-header">Câu hỏi chính</th><th id="t~ox" class="simple-table-header-color simple-table-header">Ví dụ</th></tr></thead><tbody><tr id="39dccb0e-ac88-8083-93dd-fca18f9675fb" dir="ltr"><td id="bcj&lt;" class="">Functional</td><td id="Sf[U" class="">Hệ thống làm gì?</td><td id="t~ox" class="">Upload video, tạo note, gửi tin nhắn</td></tr><tr id="39dccb0e-ac88-8007-a980-f1adfe3b3373" dir="ltr"><td id="bcj&lt;" class="">Non-functional</td><td id="Sf[U" class="">Hệ thống làm tốt đến mức nào?</td><td id="t~ox" class="">Nhanh, scale tốt, bảo mật, không mất dữ liệu</td></tr></tbody></table><p id="39dccb0e-ac88-80ef-99c7-ca84022a67a0" class="" dir="auto">Một cách nhớ rất hay:</p><pre id="39dccb0e-ac88-807f-bd61-cce7d491afb4" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Functional = WHAT
+Hệ thống làm CÁI GÌ?
+
+Non-functional = HOW WELL
+Hệ thống làm TỐT ĐẾN MỨC NÀO?</code></pre><p id="39dccb0e-ac88-80a8-b180-c016356fe567" class="" dir="auto">Ví dụ với hệ thống chat:</p><pre id="39dccb0e-ac88-8085-920b-cd940da968fc" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Functional:
+- Gửi tin nhắn 1-1
+- Tạo group chat
+- Gửi ảnh
+- Hiển thị trạng thái đã đọc
+- Hiển thị typing indicator
+
+Non-functional:
+- Tin nhắn gửi dưới 200ms
+- Không mất tin nhắn
+- Hỗ trợ 10 triệu DAU
+- Tin nhắn được lưu ít nhất 5 năm
+- Hệ thống vẫn chạy nếu một server chết</code></pre><hr id="39dccb0e-ac88-809b-9862-fc635a4dfaef" dir="auto"/><h1 id="39dccb0e-ac88-807c-adef-e61518a87ef3" class="" dir="auto">5. Vì sao Non-functional Requirement quan trọng hơn bạn nghĩ?</h1><p id="39dccb0e-ac88-8011-a453-dd15828811bb" class="" dir="auto">Trong coding, bạn thường được giao task rõ:</p><pre id="39dccb0e-ac88-80a1-852c-e3b753897ba4" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Viết API tạo ghi chú.</code></pre><p id="39dccb0e-ac88-80e6-945e-ed34a7e07832" class="" dir="auto">Nhưng trong System Design, yêu cầu thật thường mơ hồ:</p><pre id="39dccb0e-ac88-8052-b19a-eb6834a7c924" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Thiết kế Google Keep.</code></pre><p id="39dccb0e-ac88-80d5-84a4-d9af023cd08c" class="" dir="auto">Nếu không hỏi non-functional requirement, bạn không biết nên chọn gì:</p><pre id="39dccb0e-ac88-8001-9116-e9d5fc733601" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Database: PostgreSQL hay Cassandra?
+Cache: có cần Redis không?
+Search: query DB hay Elasticsearch?
+Sync: polling hay WebSocket?
+Storage: local disk hay object storage?
+Scale: một server hay nhiều server?
+Consistency: mạnh hay eventual?</code></pre><p id="39dccb0e-ac88-808d-b78d-dba23c6852c7" class="" dir="auto">Ví dụ: Google Keep bản cá nhân nhỏ thì PostgreSQL là đủ.</p><p id="39dccb0e-ac88-8096-bba8-c78c4536b035" class="" dir="auto">Nhưng nếu thiết kế cho hàng trăm triệu user:</p><pre id="39dccb0e-ac88-8021-af65-f0a26dadb5e2" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Cần phân vùng dữ liệu theo user
+- Cần sync đa thiết bị
+- Cần conflict resolution
+- Cần search index
+- Cần backup
+- Cần high availability
+- Cần monitoring</code></pre><p id="39dccb0e-ac88-80f5-a876-d067b3852039" class="" dir="auto"><strong>Một chức năng giống nhau, nhưng non-functional requirement khác nhau sẽ tạo ra kiến trúc khác nhau.</strong></p><hr id="39dccb0e-ac88-80df-a9d1-c9fbd71558fb" dir="auto"/><h1 id="39dccb0e-ac88-8052-9275-dcef55939ca2" class="" dir="auto">6. Các nhóm Non-functional Requirement quan trọng</h1><h2 id="39dccb0e-ac88-8098-b38e-f5cc81de5a49" class="" dir="auto">6.1 Scalability — khả năng mở rộng</h2><p id="39dccb0e-ac88-8011-a373-d5a860f08f24" class="" dir="auto">Câu hỏi:</p><pre id="39dccb0e-ac88-80e4-a48c-cae7da480801" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Nếu user tăng 10 lần, hệ thống có chịu nổi không?</code></pre><p id="39dccb0e-ac88-8052-a84b-c5ded7372a51" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8028-801d-ef3f799d84ac" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1,000 users/ngày
+100,000 users/ngày
+10 triệu users/ngày</code></pre><p id="39dccb0e-ac88-80fd-bdc8-f4c573c3bd7c" class="" dir="auto">Cách nghĩ:</p><pre id="39dccb0e-ac88-80d6-90ea-f83ffda57f8c" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    A[Traffic tăng] --&gt; B{Nghẽn ở đâu?}
+    B --&gt; C[App Server]
+    B --&gt; D[Database]
+    B --&gt; E[Cache]
+    B --&gt; F[Network]
+    B --&gt; G[Third-party API]</code></pre><p id="39dccb0e-ac88-80fe-97a3-f7434ccce9fa" class="" dir="auto">Senior sẽ không chỉ nói “thêm server”. Họ hỏi:</p><pre id="39dccb0e-ac88-8018-99fa-f6c20dea093d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Bottleneck hiện tại là gì?
+- Read hay write đang tăng?
+- DB CPU cao hay connection pool đầy?
+- Cache hit rate bao nhiêu?
+- Queue có backlog không?</code></pre><hr id="39dccb0e-ac88-8062-97fa-c89ffbf233b5" dir="auto"/><h2 id="39dccb0e-ac88-802e-9a74-dec71ce43ba0" class="" dir="auto">6.2 Availability — hệ thống có sẵn sàng không?</h2><p id="39dccb0e-ac88-805f-b115-ecddf57cd310" class="" dir="auto">Availability trả lời:</p><pre id="39dccb0e-ac88-801b-a272-f3d5eb97051f" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User có truy cập được hệ thống không?</code></pre><p id="39dccb0e-ac88-80a2-9d00-ef3dc9c32259" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8071-88a9-dd0126486935" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">99% uptime     ≈ downtime khoảng 3.65 ngày/năm
+99.9% uptime   ≈ downtime khoảng 8.76 giờ/năm
+99.99% uptime  ≈ downtime khoảng 52.6 phút/năm</code></pre><p id="39dccb0e-ac88-8085-9918-fbc476f2b3e9" class="" dir="auto">Với blog cá nhân, downtime vài giờ có thể chấp nhận.</p><p id="39dccb0e-ac88-801f-8543-f751b8da57a9" class="" dir="auto">Với payment system, downtime vài phút đã rất nghiêm trọng.</p><hr id="39dccb0e-ac88-80fc-addb-f4e3dcbcd498" dir="auto"/><h2 id="39dccb0e-ac88-80e2-accd-e7bce16c9e00" class="" dir="auto">6.3 Reliability — hệ thống có đáng tin cậy không?</h2><p id="39dccb0e-ac88-800c-8460-cd0c977055ca" class="" dir="auto">Reliability khác availability.</p><p id="39dccb0e-ac88-80e7-a58a-c6cff3eb6ea1" class="" dir="auto">Availability là:</p><pre id="39dccb0e-ac88-8050-bdb0-e60a33d7a287" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Hệ thống có mở được không?</code></pre><p id="39dccb0e-ac88-80a8-880f-c091ddec27aa" class="" dir="auto">Reliability là:</p><pre id="39dccb0e-ac88-80b8-8707-f43c13f9a076" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Hệ thống có làm đúng và không mất dữ liệu không?</code></pre><p id="39dccb0e-ac88-808a-b770-e5b1a4f3fdd9" class="" dir="auto">Ví dụ payment app:</p><pre id="39dccb0e-ac88-8079-a95a-c9885b4b241d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">User chuyển 1 triệu đồng.
+Hệ thống không được trừ tiền 2 lần.
+Hệ thống không được báo thành công nhưng không ghi transaction.
+Hệ thống không được mất lịch sử giao dịch.</code></pre><hr id="39dccb0e-ac88-80b4-aa84-ec5dd786641b" dir="auto"/><h2 id="39dccb0e-ac88-8057-be03-ea0222322423" class="" dir="auto">6.4 Latency — độ trễ</h2><p id="39dccb0e-ac88-8063-9cf6-c513bbf28f76" class="" dir="auto">Latency là thời gian từ lúc user gửi request đến lúc nhận response.</p><p id="39dccb0e-ac88-803a-8984-cfba0c03bbd8" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8023-8352-e72fd2064c63" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Search dưới 300ms
+Chat message dưới 200ms
+Payment confirmation dưới vài giây
+Video start dưới 2 giây</code></pre><p id="39dccb0e-ac88-804e-9e51-fc77f4492a4b" class="" dir="auto">Latency ảnh hưởng trực tiếp đến trải nghiệm người dùng.</p><p id="39dccb0e-ac88-8045-a1cc-c61869a68c9b" class="" dir="auto">Một request có thể chậm vì:</p><pre id="39dccb0e-ac88-80dd-8341-ef6d93ea04de" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Query database chậm
+- Gọi nhiều service liên tiếp
+- Cache miss
+- Network xa
+- File/video chưa có CDN
+- Third-party API chậm</code></pre><hr id="39dccb0e-ac88-806c-b60b-fa180f4b7d94" dir="auto"/><h2 id="39dccb0e-ac88-8009-a8cd-e45c8de88ccc" class="" dir="auto">6.5 Throughput — lượng tải xử lý được</h2><p id="39dccb0e-ac88-80ca-8657-de7ef5daa1db" class="" dir="auto">Throughput là số lượng request/event hệ thống xử lý trong một khoảng thời gian.</p><p id="39dccb0e-ac88-8037-8017-d8b766ccc1f6" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80df-a942-f903779987ec" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- 10,000 requests/second
+- 1 triệu messages/minute
+- 100,000 orders/hour</code></pre><p id="39dccb0e-ac88-80a4-97c3-e91990bf14e1" class="" dir="auto">Latency và throughput khác nhau:</p><pre id="39dccb0e-ac88-80ab-afee-f2d0eec02064" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Latency: một request mất bao lâu?
+Throughput: hệ thống xử lý được bao nhiêu request?</code></pre><hr id="39dccb0e-ac88-80cc-a171-fc3af23d42c3" dir="auto"/><h2 id="39dccb0e-ac88-8037-95de-f95e40b6c8f4" class="" dir="auto">6.6 Consistency — dữ liệu có nhất quán không?</h2><p id="39dccb0e-ac88-8057-a6b7-e61e6df344dd" class="" dir="auto">Câu hỏi:</p><pre id="39dccb0e-ac88-8007-af19-cfbc77896546" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Sau khi dữ liệu thay đổi, mọi nơi có thấy cùng một kết quả không?</code></pre><p id="39dccb0e-ac88-80bb-8d81-da70c9f658b6" class="" dir="auto">Ví dụ ngân hàng:</p><pre id="39dccb0e-ac88-80b4-ba5b-f0a5dc21124e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Bạn chuyển tiền xong, số dư phải cập nhật chính xác ngay.</code></pre><p id="39dccb0e-ac88-8080-a05a-d205cfcc638b" class="" dir="auto">Ví dụ mạng xã hội:</p><pre id="39dccb0e-ac88-8074-aaae-fb703b5687a0" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Bạn vừa like bài viết, người khác có thể thấy số like cập nhật trễ vài giây.</code></pre><p id="39dccb0e-ac88-800c-a958-f5c3c6facfef" class="" dir="auto">Không phải hệ thống nào cũng cần consistency cực mạnh.</p><p id="39dccb0e-ac88-80fc-9e52-eff63d0208a1" class="" dir="auto">Senior phải biết hỏi:</p><pre id="39dccb0e-ac88-807b-abe5-c8175919c9a7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Dữ liệu này có được phép trễ không?
+Nếu trễ thì trễ bao lâu?
+Nếu sai tạm thời thì hậu quả là gì?</code></pre><hr id="39dccb0e-ac88-80ac-a05c-dabf85dd4799" dir="auto"/><h2 id="39dccb0e-ac88-8059-80d9-cdeb8e137d87" class="" dir="auto">6.7 Durability — dữ liệu có bị mất không?</h2><p id="39dccb0e-ac88-8053-96f4-f9c4618f09ed" class="" dir="auto">Durability trả lời:</p><pre id="39dccb0e-ac88-802e-a198-c56cbc8f2913" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Khi đã ghi thành công, dữ liệu có được lưu bền vững không?</code></pre><p id="39dccb0e-ac88-8088-9827-d01f9dc3d7a0" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8035-8e4a-de3c7e05bf5b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Tin nhắn không được mất
+- Đơn hàng không được mất
+- Transaction ngân hàng không được mất
+- File upload không được mất</code></pre><p id="39dccb0e-ac88-8077-8b12-c76445ef7527" class="" dir="auto">Một số dữ liệu có thể mất được:</p><pre id="39dccb0e-ac88-8032-a7d5-d0cc4c148530" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Typing indicator
+- Online status
+- Cache tạm
+- Metrics chưa quan trọng</code></pre><p id="39dccb0e-ac88-803a-9b2d-e7440703d83c" class="" dir="auto">Một số dữ liệu không được mất:</p><pre id="39dccb0e-ac88-8046-9f6c-e75c8c031ed1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Payment transaction
+- Order record
+- User document
+- Medical record</code></pre><hr id="39dccb0e-ac88-808d-97ac-c6dfcacd3388" dir="auto"/><h2 id="39dccb0e-ac88-8007-86c3-d33cef633492" class="" dir="auto">6.8 Security — bảo mật</h2><p id="39dccb0e-ac88-80aa-aa04-f1b08ed8148b" class="" dir="auto">Security là non-functional requirement rất quan trọng.</p><p id="39dccb0e-ac88-808d-a5b0-c37cb6c137e2" class="" dir="auto">Câu hỏi:</p><pre id="39dccb0e-ac88-8024-9cb6-c3e7332057de" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ai được truy cập?
+Ai được sửa?
+Dữ liệu có cần mã hóa không?
+Có chống spam/brute force không?
+Có chống injection/XSS/CSRF không?</code></pre><p id="39dccb0e-ac88-8019-9213-d6024534b7f3" class="" dir="auto">Ví dụ hệ thống ghi chú cá nhân:</p><pre id="39dccb0e-ac88-8019-a7e3-d65160aee08a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User chỉ được xem note của mình
+- Note riêng tư cần được bảo vệ
+- API cần authentication
+- Có rate limit để tránh abuse
+- Có audit log nếu dữ liệu nhạy cảm</code></pre><hr id="39dccb0e-ac88-807e-b03f-e9c1b6c750b1" dir="auto"/><h1 id="39dccb0e-ac88-80e4-befb-d86736ab55c4" class="" dir="auto">7. Framework hỏi yêu cầu như Senior Engineer</h1><p id="39dccb0e-ac88-8086-b6dd-c7c2db42d1d8" class="" dir="auto">Khi nhận đề bài, bạn có thể hỏi theo khung sau:</p><pre id="39dccb0e-ac88-80cc-830f-f818ffed71da" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1. Scope
+2. Users
+3. Core features
+4. Scale
+5. Data
+6. Performance
+7. Reliability
+8. Security
+9. Constraints
+10. Out of scope</code></pre><p id="39dccb0e-ac88-8074-820f-f684422652cd" class="" dir="auto">Sơ đồ:</p><pre id="39dccb0e-ac88-80a5-8b10-c5a1e72c4bc2" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    A[Nhận đề bài] --&gt; B[Scope]
+    B --&gt; C[Users]
+    C --&gt; D[Core Features]
+    D --&gt; E[Scale]
+    E --&gt; F[Data]
+    F --&gt; G[Performance]
+    G --&gt; H[Reliability]
+    H --&gt; I[Security]
+    I --&gt; J[Constraints]
+    J --&gt; K[Out of Scope]
+    K --&gt; L[Chốt yêu cầu trước khi vẽ kiến trúc]</code></pre><hr id="39dccb0e-ac88-808e-9bdc-fc37393f0ab9" dir="auto"/><h1 id="39dccb0e-ac88-8008-a077-fe8eace52f2b" class="" dir="auto">8. Bộ câu hỏi chuẩn khi làm System Design</h1><h2 id="39dccb0e-ac88-8083-b102-cedc33342988" class="" dir="auto">8.1 Hỏi về scope</h2><pre id="39dccb0e-ac88-80fb-a011-e811f45843a4" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Ta đang thiết kế toàn bộ hệ thống hay chỉ một phần?
+- Cần mobile app, web app, backend hay cả infra?
+- Có cần admin dashboard không?
+- Có cần analytics không?
+- Có cần recommendation/search/notification không?</code></pre><p id="39dccb0e-ac88-801b-84ba-fc7e4ff68278" class="" dir="auto">Ví dụ đề: “Thiết kế YouTube.”</p><p id="39dccb0e-ac88-8054-83d0-c22fb45a40fc" class="" dir="auto">Senior sẽ hỏi:</p><pre id="39dccb0e-ac88-80ce-9d09-c55739596f58" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ta tập trung vào video upload/playback, hay cả comment, like, subscribe, recommendation?</code></pre><p id="39dccb0e-ac88-807f-a6a7-dbbfe24221a8" class="" dir="auto">Vì YouTube quá lớn, không thể thiết kế hết trong một lần.</p><hr id="39dccb0e-ac88-8083-8460-dfe5b7a6a7c7" dir="auto"/><h2 id="39dccb0e-ac88-808e-88f3-e4c776427ea5" class="" dir="auto">8.2 Hỏi về user</h2><pre id="39dccb0e-ac88-8025-8f2a-eb0042d4ea01" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Ai là người dùng chính?
+- Có bao nhiêu loại user?
+- User ở một quốc gia hay toàn cầu?
+- User dùng web, mobile hay cả hai?
+- Có admin/operator không?</code></pre><p id="39dccb0e-ac88-8083-bec1-eb0b06199b2d" class="" dir="auto">Ví dụ e-commerce:</p><pre id="39dccb0e-ac88-80bc-bcf1-c6e54fd714d7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Buyer
+- Seller
+- Admin
+- Delivery partner
+- Payment provider</code></pre><p id="39dccb0e-ac88-80db-8e83-c96d1b18ccf3" class="" dir="auto">Mỗi loại user tạo ra yêu cầu khác nhau.</p><hr id="39dccb0e-ac88-8054-9d65-fd7af5dd6735" dir="auto"/><h2 id="39dccb0e-ac88-8092-8be1-dd615c4dccf9" class="" dir="auto">8.3 Hỏi về core features</h2><pre id="39dccb0e-ac88-80da-9296-e7809f0beb00" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- 3-5 tính năng quan trọng nhất là gì?
+- Tính năng nào bắt buộc?
+- Tính năng nào có thể bỏ qua ở version đầu?
+- Luồng chính của user là gì?</code></pre><p id="39dccb0e-ac88-806d-9e1f-c7b1336f8586" class="" dir="auto">Ví dụ Google Keep bản đơn giản:</p><pre id="39dccb0e-ac88-8091-b52a-eba9880e73aa" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Core:
+- Create note
+- Read note
+- Update note
+- Delete note
+- Search note
+
+Có thể bỏ qua ban đầu:
+- Collaboration
+- Voice note
+- Drawing
+- Reminder</code></pre><hr id="39dccb0e-ac88-8011-bb52-f21e256752e3" dir="auto"/><h2 id="39dccb0e-ac88-80a7-b3c0-d7c7e7a88907" class="" dir="auto">8.4 Hỏi về scale</h2><pre id="39dccb0e-ac88-8040-9044-d60f520afa9f" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Daily active users là bao nhiêu?
+- Peak concurrent users là bao nhiêu?
+- Requests per second khoảng bao nhiêu?
+- Read/write ratio là bao nhiêu?
+- Dữ liệu tăng bao nhiêu mỗi ngày?</code></pre><p id="39dccb0e-ac88-80d4-af28-e485aec7b62c" class="" dir="auto">Ví dụ URL Shortener:</p><pre id="39dccb0e-ac88-806a-8882-e2a3c6a8aeb3" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- 1 triệu URL mới/ngày
+- 100 triệu redirect/ngày
+- Read nhiều hơn write rất nhiều</code></pre><p id="39dccb0e-ac88-807f-9f75-ef04b2b692a6" class="" dir="auto">Từ đó bạn biết redirect path phải cực nhanh, cache rất quan trọng.</p><hr id="39dccb0e-ac88-8041-a8bd-d77bdb221012" dir="auto"/><h2 id="39dccb0e-ac88-8029-a87d-f3545d6438ba" class="" dir="auto">8.5 Hỏi về data</h2><pre id="39dccb0e-ac88-8018-9ba2-edf10520e5ce" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Dữ liệu chính là gì?
+- Dữ liệu có quan hệ phức tạp không?
+- Dữ liệu có cần transaction không?
+- Dữ liệu có thể mất không?
+- Dữ liệu cần lưu bao lâu?
+- Dữ liệu có cần search không?</code></pre><p id="39dccb0e-ac88-80fe-af94-f0a41b93056e" class="" dir="auto">Ví dụ hệ thống ghi chú:</p><pre id="39dccb0e-ac88-8020-a654-ecdd3ff80bd5" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Entities:
+- User
+- Note
+- Label
+- Attachment</code></pre><p id="39dccb0e-ac88-8015-b9f8-e5e64951b97b" class="" dir="auto">Câu hỏi sâu hơn:</p><pre id="39dccb0e-ac88-808e-81c7-c2b2b966f253" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Note có cần version history không?
+- Có cần khôi phục note đã xoá không?
+- Có cần sync offline không?
+- Có cần conflict resolution khi sửa trên 2 thiết bị không?</code></pre><hr id="39dccb0e-ac88-8090-9fe7-e586a566208c" dir="auto"/><h2 id="39dccb0e-ac88-8076-9366-f595681c3547" class="" dir="auto">8.6 Hỏi về performance</h2><pre id="39dccb0e-ac88-808e-9947-f265f6e6ce90" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Latency mục tiêu là bao nhiêu?
+- API nào cần nhanh nhất?
+- Có tác vụ nào có thể xử lý async không?
+- Có cần realtime không?</code></pre><p id="39dccb0e-ac88-8067-84a7-c760e3bd2d21" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8081-b7cb-d617908e2635" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Search note: nên dưới 300ms
+Create note: có thể dưới 500ms
+Sync background: có thể vài giây
+Email notification: có thể async</code></pre><hr id="39dccb0e-ac88-8066-b601-ded28517a8a2" dir="auto"/><h2 id="39dccb0e-ac88-8057-8d85-f6c618935252" class="" dir="auto">8.7 Hỏi về reliability/failure</h2><pre id="39dccb0e-ac88-80f3-9ce5-c393dddaeeb9" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Nếu database down thì sao?
+- Nếu cache down thì sao?
+- Nếu third-party API timeout thì sao?
+- Có cần retry không?
+- Có cần backup/restore không?
+- Có cần multi-region không?</code></pre><p id="39dccb0e-ac88-80e3-978a-d5ffa0dc4ca9" class="" dir="auto">Senior luôn giả định:</p><pre id="39dccb0e-ac88-800d-aabb-c71eeca5755d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Failure will happen.</code></pre><hr id="39dccb0e-ac88-8046-b739-d1a76291f102" dir="auto"/><h2 id="39dccb0e-ac88-80e8-bb82-c314a8bc7e54" class="" dir="auto">8.8 Hỏi về security</h2><pre id="39dccb0e-ac88-807d-ae71-c1ff79128a46" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User xác thực bằng gì?
+- Role/permission như thế nào?
+- Dữ liệu nào là private?
+- Có cần encryption không?
+- Có cần rate limiting không?
+- Có cần audit log không?</code></pre><p id="39dccb0e-ac88-801b-8953-dd502a1bbec5" class="" dir="auto">Ví dụ Google Keep:</p><pre id="39dccb0e-ac88-8059-9c85-c6f2ff09314e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Note là dữ liệu cá nhân.
+User A tuyệt đối không được đọc note của User B.</code></pre><hr id="39dccb0e-ac88-80fa-a63e-e2d070af4c55" dir="auto"/><h2 id="39dccb0e-ac88-8046-b281-ec58829d55db" class="" dir="auto">8.9 Hỏi về constraints</h2><pre id="39dccb0e-ac88-80c9-ad4f-ca88730adaef" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Có giới hạn ngân sách không?
+- Team có kinh nghiệm với công nghệ nào?
+- Phải dùng cloud nào?
+- Có yêu cầu pháp lý không?
+- Có deadline MVP không?</code></pre><p id="39dccb0e-ac88-80c2-ac8b-cfab9f84735a" class="" dir="auto">Senior không chỉ thiết kế cho “lý tưởng”, mà còn thiết kế cho thực tế.</p><hr id="39dccb0e-ac88-804b-9aa6-fce2da225f86" dir="auto"/><h2 id="39dccb0e-ac88-802b-a968-ce6756f4cef6" class="" dir="auto">8.10 Hỏi về out of scope</h2><p id="39dccb0e-ac88-804b-97a3-d6c5ae8aab36" class="" dir="auto">Đây là kỹ năng rất senior.</p><p id="39dccb0e-ac88-8095-91ee-ff0d38c9d74c" class="" dir="auto">Bạn cần nói rõ:</p><pre id="39dccb0e-ac88-805b-b030-d4e87a748fb2" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Trong version này, ta chưa xử lý phần nào?</code></pre><p id="39dccb0e-ac88-80a3-904d-f5a84fb3e527" class="" dir="auto">Ví dụ thiết kế Google Keep đơn giản:</p><pre id="39dccb0e-ac88-80cb-aee6-ff12cb92c323" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">In scope:
+- CRUD note
+- Search note
+- Sync đa thiết bị cơ bản
+
+Out of scope:
+- Collaboration realtime
+- Drawing note
+- Voice transcription
+- Reminder notification
+- AI summary</code></pre><p id="39dccb0e-ac88-80a2-829e-f4fe7b747cca" class="" dir="auto">Out of scope giúp thiết kế tập trung, không bị lan man.</p><hr id="39dccb0e-ac88-809b-a24a-c18d92ad354a" dir="auto"/><h1 id="39dccb0e-ac88-807c-8265-f672cfbc4fcd" class="" dir="auto">9. Ví dụ thực hành: hỏi yêu cầu cho Google Keep</h1><p id="39dccb0e-ac88-80df-9084-cbb4313cba0d" class="" dir="auto">Đề bài:</p><blockquote id="39dccb0e-ac88-80ca-b885-e098230065dc" class="" dir="auto">Thiết kế hệ thống ghi chú cá nhân giống Google Keep.</blockquote><p id="39dccb0e-ac88-8076-9c6b-e3725823d23f" class="" dir="auto">Một junior có thể nói:</p><pre id="39dccb0e-ac88-8049-97e5-e633e415935b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Em sẽ dùng React, Node.js, MongoDB.</code></pre><p id="39dccb0e-ac88-80c6-8b12-c583744beff9" class="" dir="auto">Một senior sẽ hỏi:</p><pre id="39dccb0e-ac88-808c-a41d-fb96c0b0d076" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1. User chỉ tạo note text hay có ảnh/file/audio?
+2. Có cần offline mode không?
+3. Có cần sync đa thiết bị không?
+4. Có cần realtime collaboration không?
+5. Có cần search toàn văn không?
+6. Note có cần label/tag/color không?
+7. Có cần reminder không?
+8. Có bao nhiêu DAU?
+9. Trung bình mỗi user có bao nhiêu note?
+10. Note có cần mã hóa không?
+11. Có cần version history không?
+12. Có cần khôi phục note đã xoá không?</code></pre><p id="39dccb0e-ac88-807b-a463-e18d153a8566" class="" dir="auto">Sau đó mới chốt scope:</p><pre id="39dccb0e-ac88-806b-b61d-db4e083640d2" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Version 1:
+- User đăng nhập
+- CRUD note text
+- Search note theo title/content
+- Gắn label
+- Sync đa thiết bị
+- Không làm collaboration realtime
+- Không làm voice note
+- Không làm reminder</code></pre><p id="39dccb0e-ac88-803a-b858-f8d04d8f1646" class="" dir="auto">Lúc này thiết kế sẽ rõ hơn nhiều.</p><hr id="39dccb0e-ac88-805c-a3a7-d0d8ccd95d94" dir="auto"/><h1 id="39dccb0e-ac88-8025-824d-f90fe71b0358" class="" dir="auto">10. Ví dụ phân loại yêu cầu Google Keep</h1><table id="39dccb0e-ac88-80ce-ba7c-cd9b32d67a87" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="39dccb0e-ac88-80bd-810c-f46d3b22262b" dir="ltr"><th id="C&lt;Ox" class="simple-table-header-color simple-table-header">Yêu cầu</th><th id="a&lt;ur" class="simple-table-header-color simple-table-header">Functional hay Non-functional?</th></tr></thead><tbody><tr id="39dccb0e-ac88-8089-97f5-d6518029032e" dir="ltr"><td id="C&lt;Ox" class="">User tạo note</td><td id="a&lt;ur" class="">Functional</td></tr><tr id="39dccb0e-ac88-802f-8dcd-e18007c89e7e" dir="ltr"><td id="C&lt;Ox" class="">User tìm kiếm note</td><td id="a&lt;ur" class="">Functional</td></tr><tr id="39dccb0e-ac88-8044-8d7c-f0380f7edec4" dir="ltr"><td id="C&lt;Ox" class="">User gắn label cho note</td><td id="a&lt;ur" class="">Functional</td></tr><tr id="39dccb0e-ac88-8092-a1a0-c2a00891ea87" dir="ltr"><td id="C&lt;Ox" class="">API search trả kết quả dưới 300ms</td><td id="a&lt;ur" class="">Non-functional</td></tr><tr id="39dccb0e-ac88-8002-97d3-e0b6159c1d84" dir="ltr"><td id="C&lt;Ox" class="">Không mất note đã lưu</td><td id="a&lt;ur" class="">Non-functional</td></tr><tr id="39dccb0e-ac88-80ae-8b62-d168f904a2ca" dir="ltr"><td id="C&lt;Ox" class="">User A không đọc được note của User B</td><td id="a&lt;ur" class="">Non-functional / Security</td></tr><tr id="39dccb0e-ac88-809d-95ce-fba14c6f96ec" dir="ltr"><td id="C&lt;Ox" class="">Hỗ trợ 10 triệu user</td><td id="a&lt;ur" class="">Non-functional / Scalability</td></tr><tr id="39dccb0e-ac88-8059-80a4-e5298d790146" dir="ltr"><td id="C&lt;Ox" class="">Sync giữa điện thoại và laptop</td><td id="a&lt;ur" class="">Functional</td></tr><tr id="39dccb0e-ac88-8041-8dd8-fe8264750936" dir="ltr"><td id="C&lt;Ox" class="">Sync hoàn tất trong vài giây</td><td id="a&lt;ur" class="">Non-functional</td></tr><tr id="39dccb0e-ac88-8021-9964-d9adbede501a" dir="ltr"><td id="C&lt;Ox" class="">Dữ liệu được backup mỗi ngày</td><td id="a&lt;ur" class="">Non-functional / Reliability</td></tr></tbody></table><hr id="39dccb0e-ac88-8016-bc4f-feb8c73babd4" dir="auto"/><h1 id="39dccb0e-ac88-80b0-b7e7-c60ebc0759f9" class="" dir="auto">11. Mẫu ghi yêu cầu chuẩn trước khi thiết kế</h1><p id="39dccb0e-ac88-8095-9f73-d9ad7ca7de74" class="" dir="auto">Khi bắt đầu một bài system design, hãy viết như sau:</p><pre id="39dccb0e-ac88-8025-bc2e-dec200c5af62" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Problem:
+Design a personal note-taking app like Google Keep.
+
+Functional Requirements:
+1. Users can create, read, update, and delete notes.
+2. Users can search notes by title/content.
+3. Users can organize notes with labels.
+4. Users can sync notes across devices.
+
+Non-functional Requirements:
+1. Low latency for reading and searching notes.
+2. High durability: saved notes should not be lost.
+3. Strong privacy: users can only access their own notes.
+4. High availability for read/write operations.
+5. The system should scale to millions of users.
+
+Out of Scope:
+1. Realtime collaboration.
+2. Voice transcription.
+3. Drawing notes.
+4. Reminder notifications.</code></pre><p id="39dccb0e-ac88-8035-9fc2-ef30f2db1297" class="" dir="auto">Đây là phần mở đầu rất tốt cho mọi bài design.</p><hr id="39dccb0e-ac88-8097-a318-f3eb07d1df21" dir="auto"/><h1 id="39dccb0e-ac88-8077-a7eb-cd5b6edbb8b9" class="" dir="auto">12. Sơ đồ từ yêu cầu đến kiến trúc</h1><pre id="39dccb0e-ac88-8067-927e-e12ae2df3f04" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    A[Requirements] --&gt; B[Functional Requirements]
+    A --&gt; C[Non-functional Requirements]
+
+    B --&gt; B1[CRUD Notes]
+    B --&gt; B2[Search]
+    B --&gt; B3[Labels]
+    B --&gt; B4[Sync]
+
+    C --&gt; C1[Low Latency]
+    C --&gt; C2[High Durability]
+    C --&gt; C3[Privacy]
+    C --&gt; C4[Scalability]
+    C --&gt; C5[Availability]
+
+    B1 --&gt; D[API Design]
+    B2 --&gt; E[Search Strategy]
+    B3 --&gt; F[Data Model]
+    B4 --&gt; G[Sync Design]
+
+    C1 --&gt; H[Cache / Index]
+    C2 --&gt; I[Backup / Replication]
+    C3 --&gt; J[Auth / Authorization]
+    C4 --&gt; K[Horizontal Scaling]
+    C5 --&gt; L[Failover]</code></pre><p id="39dccb0e-ac88-80d4-bfd5-f039a2bba955" class="" dir="auto">Điểm cần nhớ:</p><blockquote id="39dccb0e-ac88-8042-b327-d2a52433ee44" class="" dir="auto">Requirement không phải phần “nói cho có”. Requirement quyết định toàn bộ kiến trúc phía sau.</blockquote><hr id="39dccb0e-ac88-802c-8c69-e74be7841a4c" dir="auto"/><h1 id="39dccb0e-ac88-80dc-96c6-fd46f95139e0" class="" dir="auto">13. Cách Senior Engineer chuyển requirement thành quyết định kỹ thuật</h1><h2 id="39dccb0e-ac88-80f9-9e5f-c5c27eb2fccb" class="" dir="auto">Requirement: Search note phải nhanh</h2><p id="39dccb0e-ac88-8017-9497-e459e9ee422a" class="" dir="auto">Có thể dẫn đến:</p><pre id="39dccb0e-ac88-803c-a06e-f718d42c9c71" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Tạo index trong database
+- Dùng full-text search
+- Dùng Elasticsearch/OpenSearch nếu search phức tạp</code></pre><h2 id="39dccb0e-ac88-805d-9868-f18f78ec1e17" class="" dir="auto">Requirement: Không mất note</h2><p id="39dccb0e-ac88-8027-8338-e0c1355fe8e7" class="" dir="auto">Có thể dẫn đến:</p><pre id="39dccb0e-ac88-805f-b3e8-d82dcef80b01" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Dùng database có durability tốt
+- Backup định kỳ
+- Replication
+- Transaction khi ghi dữ liệu quan trọng</code></pre><h2 id="39dccb0e-ac88-80a2-ba23-c3419637f536" class="" dir="auto">Requirement: Sync đa thiết bị</h2><p id="39dccb0e-ac88-8012-a0eb-e0c1f8c31321" class="" dir="auto">Có thể dẫn đến:</p><pre id="39dccb0e-ac88-8027-9fcd-cddd8bad79d9" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Lưu updated_at/version
+- Client pull changes
+- Conflict resolution
+- Event-based sync</code></pre><h2 id="39dccb0e-ac88-805f-a0a5-c37d3d7f4e5a" class="" dir="auto">Requirement: User A không xem được note User B</h2><p id="39dccb0e-ac88-8016-93df-ef1457416697" class="" dir="auto">Có thể dẫn đến:</p><pre id="39dccb0e-ac88-800d-8f49-ce0d962e5086" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Authentication
+- Authorization check ở mọi query
+- Data partition theo user_id
+- Security test</code></pre><h2 id="39dccb0e-ac88-8081-96c4-f0be7fc36053" class="" dir="auto">Requirement: Scale tới hàng triệu user</h2><p id="39dccb0e-ac88-80a5-9777-d21dd2e3eca0" class="" dir="auto">Có thể dẫn đến:</p><pre id="39dccb0e-ac88-807b-a1f3-dd07e70462cb" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Stateless API servers
+- Load balancer
+- Database indexing
+- Read replicas
+- Cache
+- Sharding theo user_id khi cần</code></pre><hr id="39dccb0e-ac88-8076-9db3-db5da0d0c6b7" dir="auto"/><h1 id="39dccb0e-ac88-803c-9a33-f6288d2827de" class="" dir="auto">14. Lỗi thường gặp khi hỏi yêu cầu</h1><h2 id="39dccb0e-ac88-80f3-a500-c433886bd2dc" class="" dir="auto">Lỗi 1: Hỏi quá chung</h2><p id="39dccb0e-ac88-805f-b080-d1e804e8de11" class="" dir="auto">Không nên hỏi:</p><pre id="39dccb0e-ac88-806d-8eb3-d8e2bbd00f28" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Có cần scale không?</code></pre><p id="39dccb0e-ac88-8016-9240-fa8752e36dac" class="" dir="auto">Nên hỏi:</p><pre id="39dccb0e-ac88-80c6-a619-ebe2cbf9fafb" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ta dự kiến có bao nhiêu DAU?
+Peak traffic khoảng bao nhiêu request/second?
+Read/write ratio khoảng bao nhiêu?</code></pre><hr id="39dccb0e-ac88-809e-a6be-c4afb3a87576" dir="auto"/><h2 id="39dccb0e-ac88-80be-bc70-d0a09ace7e16" class="" dir="auto">Lỗi 2: Hỏi quá nhiều thứ không liên quan</h2><p id="39dccb0e-ac88-8079-801e-ef4a5a5ce217" class="" dir="auto">Không nên hỏi lan man:</p><pre id="39dccb0e-ac88-8060-bec3-e03c33474333" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Có cần blockchain không?
+Có cần AI không?
+Có cần AR/VR không?</code></pre><p id="39dccb0e-ac88-8091-b267-e089189343bb" class="" dir="auto">Senior hỏi những câu ảnh hưởng trực tiếp đến kiến trúc.</p><hr id="39dccb0e-ac88-806a-824e-c144f273617f" dir="auto"/><h2 id="39dccb0e-ac88-8025-9a09-c129cf63a327" class="" dir="auto">Lỗi 3: Không chốt scope</h2><p id="39dccb0e-ac88-80d9-837f-eabc187837e7" class="" dir="auto">Nếu không chốt scope, đề “Design YouTube” sẽ nổ tung vì quá lớn.</p><p id="39dccb0e-ac88-8072-9630-cd693dc906f0" class="" dir="auto">Nên chốt:</p><pre id="39dccb0e-ac88-80e5-94c4-e1bbb745e962" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Trong bài này, em sẽ tập trung vào:
+- Upload video
+- Process video
+- Watch video
+- Metadata/search cơ bản
+
+Em sẽ không đi sâu vào:
+- Recommendation
+- Comment moderation
+- Creator monetization</code></pre><hr id="39dccb0e-ac88-807a-8a2b-c75538bff639" dir="auto"/><h2 id="39dccb0e-ac88-8027-bf34-dca3fada60c4" class="" dir="auto">Lỗi 4: Không phân biệt “must-have” và “nice-to-have”</h2><p id="39dccb0e-ac88-808d-8ee3-dc716e838085" class="" dir="auto">Ví dụ chat app:</p><pre id="39dccb0e-ac88-80ef-b075-def6ef675df8" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Must-have:
+- Gửi/nhận tin nhắn
+- Lưu lịch sử tin nhắn
+- Hiển thị tin mới
+
+Nice-to-have:
+- Typing indicator
+- Emoji reaction
+- Sticker
+- Voice message</code></pre><p id="39dccb0e-ac88-80f4-9ffb-e1a2b554a35b" class="" dir="auto">Must-have quyết định core architecture. Nice-to-have có thể thêm sau.</p><hr id="39dccb0e-ac88-80b5-a329-c902024be7c7" dir="auto"/><h1 id="39dccb0e-ac88-8021-b26c-ef6bf08232b8" class="" dir="auto">15. Công thức 5 phút đầu trong System Design Interview</h1><p id="39dccb0e-ac88-802b-b8de-ed95306b875b" class="" dir="auto">Khi nhận đề, bạn có thể đi theo thứ tự này:</p><pre id="39dccb0e-ac88-8095-bebe-fd3b73dc0b3e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Minute 1: Clarify scope
+Minute 2: Define core functional requirements
+Minute 3: Define non-functional requirements
+Minute 4: Estimate scale/read-write pattern
+Minute 5: Confirm assumptions and out-of-scope</code></pre><p id="39dccb0e-ac88-8072-ae9a-f086136e8b7f" class="" dir="auto">Ví dụ nói thành lời:</p><pre id="39dccb0e-ac88-807c-aa56-dfb9696d148e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Before jumping into the design, I’d like to clarify the scope.
+
+For this design, I’ll focus on creating, reading, updating, deleting, searching, and syncing notes across devices.
+
+I’ll assume we need low-latency reads, strong data durability, user-level privacy, and the ability to scale to millions of users.
+
+I’ll keep realtime collaboration, voice transcription, and reminders out of scope for the first version.</code></pre><p id="39dccb0e-ac88-8034-a51f-c4a4b3d9dfa3" class="" dir="auto">Đây là cách nói rất senior.</p><hr id="39dccb0e-ac88-8024-b211-c1491d53ee12" dir="auto"/><h1 id="39dccb0e-ac88-80c3-93fc-c85bc24811b5" class="" dir="auto">16. Mini case study: thiết kế hệ thống đặt đồ ăn</h1><h2 id="39dccb0e-ac88-8010-8df9-c5ad08e2dd80" class="" dir="auto">Functional Requirements</h2><pre id="39dccb0e-ac88-8067-821f-d53aab6cf051" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- User xem danh sách nhà hàng
+- User xem menu
+- User tạo đơn hàng
+- User thanh toán
+- User theo dõi trạng thái đơn
+- Nhà hàng nhận/chấp nhận/từ chối đơn
+- Shipper nhận đơn giao hàng</code></pre><h2 id="39dccb0e-ac88-8042-9939-f819f6e44c51" class="" dir="auto">Non-functional Requirements</h2><pre id="39dccb0e-ac88-803c-b280-ff76e053cdae" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Order không được mất
+- Không được thanh toán hai lần
+- Trạng thái đơn hàng gần realtime
+- Hệ thống chịu peak traffic giờ ăn trưa/tối
+- Payment phải bảo mật
+- Nếu notification lỗi, order vẫn phải tạo thành công</code></pre><p id="39dccb0e-ac88-80bf-a900-c5af10682246" class="" dir="auto">Từ yêu cầu này, bạn bắt đầu thấy kiến trúc:</p><pre id="39dccb0e-ac88-8039-8424-cb0d58f089c1" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[User App] --&gt; API[API Gateway]
+    Restaurant[Restaurant App] --&gt; API
+    Driver[Driver App] --&gt; API
+
+    API --&gt; Order[Order Service]
+    API --&gt; Menu[Menu Service]
+    API --&gt; Payment[Payment Service]
+    API --&gt; Tracking[Tracking Service]
+
+    Order --&gt; OrderDB[(Order DB)]
+    Menu --&gt; MenuDB[(Menu DB)]
+    Payment --&gt; PaymentProvider[Payment Provider]
+
+    Order --&gt; Queue[Message Queue]
+    Queue --&gt; Notification[Notification Worker]
+    Queue --&gt; Analytics[Analytics Worker]</code></pre><p id="39dccb0e-ac88-80b2-b8be-e5abdb44ee40" class="" dir="auto">Vì sao có queue?</p><pre id="39dccb0e-ac88-80e7-8938-dcfb4933d591" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Tạo order là tác vụ chính
+- Gửi notification là tác vụ phụ
+- Analytics là tác vụ phụ
+- Không nên để notification/analytics làm chậm hoặc làm fail order</code></pre><p id="39dccb0e-ac88-8016-a4b0-d3200a571cc6" class="" dir="auto">Đây chính là việc non-functional requirement ảnh hưởng đến kiến trúc.</p><hr id="39dccb0e-ac88-8054-aa79-f2f1dec15364" dir="auto"/><h1 id="39dccb0e-ac88-8040-9769-d32ccd1d5a67" class="" dir="auto">17. Checklist hỏi requirement trước khi thiết kế</h1><p id="39dccb0e-ac88-80d1-8446-fc98d3e03f93" class="" dir="auto">Bạn có thể copy checklist này cho mọi bài:</p><pre id="39dccb0e-ac88-8094-8d79-ec68c15dd154" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">[ ] Hệ thống phục vụ ai?
+[ ] Có những loại user nào?
+[ ] 3-5 tính năng chính là gì?
+[ ] Tính năng nào nằm ngoài phạm vi?
+[ ] Daily active users khoảng bao nhiêu?
+[ ] Peak concurrent users khoảng bao nhiêu?
+[ ] Read/write ratio là bao nhiêu?
+[ ] Dữ liệu chính là gì?
+[ ] Dữ liệu có cần transaction không?
+[ ] Dữ liệu có được phép trễ không?
+[ ] Latency mục tiêu là bao nhiêu?
+[ ] Có cần realtime không?
+[ ] Có cần search không?
+[ ] Có cần lưu file/media không?
+[ ] Có cần bảo mật đặc biệt không?
+[ ] Có cần audit log không?
+[ ] Nếu một service chết thì hậu quả là gì?
+[ ] Có tác vụ nào có thể xử lý async không?</code></pre><hr id="39dccb0e-ac88-80f4-be21-ca3f7d89df81" dir="auto"/><h1 id="39dccb0e-ac88-802e-9e91-f3302b683e90" class="" dir="auto">18. Cách ghi nhớ bài này</h1><p id="39dccb0e-ac88-8090-81c2-de3b24a4bb5c" class="" dir="auto">Hãy nhớ công thức:</p><pre id="39dccb0e-ac88-8005-a742-c2e40f157ac7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">FR = What should the system do?
+NFR = How well should the system do it?</code></pre><p id="39dccb0e-ac88-80ad-a7cc-f929f68acd2b" class="" dir="auto">Hoặc tiếng Việt:</p><pre id="39dccb0e-ac88-80a2-b325-e558357ff50c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Functional Requirement:
+Hệ thống làm gì?
+
+Non-functional Requirement:
+Hệ thống làm tốt đến mức nào?</code></pre><p id="39dccb0e-ac88-800e-99ea-e91331af9632" class="" dir="auto">Và câu quan trọng nhất:</p><blockquote id="39dccb0e-ac88-8071-8181-fb0c229e6cbc" class="" dir="auto"><strong>Không hỏi requirement thì mọi kiến trúc chỉ là đoán mò.</strong></blockquote><hr id="39dccb0e-ac88-805b-8da5-d13684848459" dir="auto"/><h1 id="39dccb0e-ac88-80da-99d7-fabe6096e3a4" class="" dir="auto">19. Bài tập cho bạn</h1><p id="39dccb0e-ac88-80aa-9929-ee71df2165fd" class="" dir="auto">Hãy thử làm bài này:</p><blockquote id="39dccb0e-ac88-8077-bb0b-debb5412150f" class="" dir="auto">Thiết kế hệ thống quản lý công việc cá nhân giống Todoist bản đơn giản.</blockquote><p id="39dccb0e-ac88-80ae-a6b8-f37891c3c73f" class="" dir="auto">Trả lời theo mẫu:</p><pre id="39dccb0e-ac88-8084-8270-df039be005ef" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Problem:
+Design a personal task management app like Todoist.
+
+Functional Requirements:
+1.
+2.
+3.
+4.
+
+Non-functional Requirements:
+1.
+2.
+3.
+4.
+
+Out of Scope:
+1.
+2.
+3.
+
+Clarifying Questions:
+1.
+2.
+3.
+4.
+5.</code></pre><p id="39dccb0e-ac88-809c-aea0-c95e7518b6da" class="" dir="auto">Mình sẽ chấm bài của bạn theo 4 tiêu chí:</p><pre id="39dccb0e-ac88-809e-b64a-d96086601a0d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1. Bạn có tách đúng functional và non-functional không?
+2. Bạn có hỏi được câu hỏi ảnh hưởng đến kiến trúc không?
+3. Bạn có biết chốt scope không?
+4. Bạn có bắt đầu nghĩ như senior chưa?</code></pre><hr id="39dccb0e-ac88-80c5-a82f-cbb01fccaf3a" dir="auto"/><h2 id="39dccb0e-ac88-8057-be19-ce7575a82c58" class="" dir="auto">Tóm tắt cuối bài</h2><pre id="39dccb0e-ac88-803b-891f-eb0f62c7f03e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Bài 2 cần nhớ:
+
+1. Functional Requirement là hệ thống làm gì.
+2. Non-functional Requirement là hệ thống làm tốt đến mức nào.
+3. Senior Engineer không vẽ kiến trúc ngay.
+4. Senior Engineer hỏi scope, user, scale, data, performance, reliability, security trước.
+5. Requirement quyết định API, database, cache, queue, CDN, replication, sharding và monitoring.
+6. Thiết kế tốt bắt đầu từ câu hỏi tốt.</code></pre><p id="39dccb0e-ac88-8016-a721-c30ff5495b79" class="" dir="auto">Bài tiếp theo nên học: <strong>Bài 3 — Capacity Estimation: cách ước lượng traffic, storage, bandwidth, QPS để thiết kế hệ thống có cơ sở thay vì đoán mò.</strong></p><p id="39dccb0e-ac88-80e0-8079-c58033dcb0a7" class="" dir="auto">
+</p></div></article><span class="sans" style="font-size:14px;padding-top:2em"></span></body></html>

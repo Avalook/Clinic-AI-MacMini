@@ -1,0 +1,2830 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Bài 29 — Case Study 8: Thiết kế Food Delivery System.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="bài-29--case-study-8-thiết-kế-food-delivery-system">Bài 29 — Case Study 8: Thiết kế Food Delivery System</h1>
+<p>Food Delivery System kết nối bốn nhóm chính:</p>
+<pre class="hljs"><code><div>Customer
+→ Restaurant
+→ Courier
+→ Payment và vận hành nền tảng
+</div></code></pre>
+<p>Luồng cơ bản:</p>
+<pre class="hljs"><code><div>Khách hàng tìm nhà hàng
+→ Chọn món
+→ Đặt đơn và thanh toán
+→ Nhà hàng xác nhận, chuẩn bị món
+→ Hệ thống tìm courier
+→ Courier lấy món
+→ Giao tới khách hàng
+→ Hoàn tất thanh toán và đối soát
+</div></code></pre>
+<p>Food Delivery phức tạp hơn Ride-Hailing vì một đơn hàng đồng thời phụ thuộc vào:</p>
+<pre class="hljs"><code><div>- Khách hàng
+- Nhà hàng
+- Tình trạng món ăn
+- Thời gian chế biến
+- Courier
+- Giao thông
+- Thanh toán
+</div></code></pre>
+<p>Một courier tới sớm sẽ phải chờ nhà hàng. Courier tới muộn khiến món ăn nguội. Nhà hàng từ chối sau khi đã thanh toán tạo refund workflow. Một món vừa hết hàng có thể vẫn xuất hiện trong cache.</p>
+<p>Kiến trúc cốt lõi:</p>
+<pre class="hljs"><code><div>Restaurant discovery
+→ Menu và inventory validation
+→ Price quote
+→ Order state machine
+→ Payment authorization
+→ Restaurant acceptance
+→ Courier dispatch
+→ Pickup và delivery tracking
+→ Settlement
+</div></code></pre>
+<hr>
+<h1 id="1-xác-định-phạm-vi">1. Xác định phạm vi</h1>
+<p>Ta thiết kế một nền tảng hỗ trợ:</p>
+<pre class="hljs"><code><div>1. Tìm nhà hàng theo vị trí.
+2. Xem menu và tình trạng món.
+3. Tạo giỏ hàng.
+4. Nhận giá và ETA dự kiến.
+5. Đặt đơn idempotently.
+6. Thanh toán online hoặc tiền mặt theo thị trường.
+7. Nhà hàng chấp nhận hoặc từ chối.
+8. Nhà hàng cập nhật tiến độ chuẩn bị.
+9. Tìm và dispatch courier.
+10. Courier có thể giao một hoặc nhiều đơn.
+11. Theo dõi đơn realtime.
+12. Hủy đơn, refund và xử lý sự cố.
+13. Multi-region theo thành phố hoặc thị trường.
+</div></code></pre>
+<p>Tạm chưa đi sâu vào:</p>
+<pre class="hljs"><code><div>- Grocery warehouse automation
+- Robot delivery
+- Drone delivery
+- Full accounting và tax engine
+- Recommendation machine learning chuyên sâu
+- Marketplace quảng cáo hoàn chỉnh
+</div></code></pre>
+<hr>
+<h1 id="2-các-actor-chính">2. Các actor chính</h1>
+<h2 id="customer">Customer</h2>
+<pre class="hljs"><code><div>- Tìm nhà hàng
+- Chọn món
+- Thanh toán
+- Theo dõi đơn
+- Hủy, báo lỗi và đánh giá
+</div></code></pre>
+<h2 id="restaurant">Restaurant</h2>
+<pre class="hljs"><code><div>- Quản lý menu
+- Bật/tắt món
+- Chấp nhận hoặc từ chối đơn
+- Cập nhật thời gian chuẩn bị
+- Báo món đã sẵn sàng
+</div></code></pre>
+<h2 id="courier">Courier</h2>
+<pre class="hljs"><code><div>- Online/offline
+- Nhận offer
+- Tới nhà hàng
+- Xác nhận pickup
+- Giao hàng
+- Nhận thu nhập
+</div></code></pre>
+<h2 id="platform">Platform</h2>
+<pre class="hljs"><code><div>- Discovery
+- Pricing
+- Order orchestration
+- Payment
+- Dispatch
+- ETA
+- Support
+- Safety và fraud
+</div></code></pre>
+<hr>
+<h1 id="3-functional-requirements">3. Functional Requirements</h1>
+<h2 id="restaurant-discovery">Restaurant discovery</h2>
+<pre class="hljs"><code><div>- Tìm nhà hàng gần khách hàng
+- Lọc theo loại món
+- Lọc theo thời gian giao
+- Lọc theo giá, rating và khuyến mãi
+- Hiển thị nhà hàng đang mở
+</div></code></pre>
+<h2 id="menu">Menu</h2>
+<pre class="hljs"><code><div>- Danh mục món
+- Variants và modifiers
+- Giá
+- Availability
+- Giới hạn số lượng
+- Khung giờ phục vụ
+</div></code></pre>
+<h2 id="order">Order</h2>
+<pre class="hljs"><code><div>- Tạo giỏ hàng
+- Quote giá
+- Đặt đơn
+- Theo dõi trạng thái
+- Hủy đơn
+- Reorder
+</div></code></pre>
+<h2 id="fulfillment">Fulfillment</h2>
+<pre class="hljs"><code><div>- Nhà hàng xác nhận
+- Courier dispatch
+- Batching nhiều đơn
+- Pickup
+- Delivery
+</div></code></pre>
+<hr>
+<h1 id="4-non-functional-requirements">4. Non-Functional Requirements</h1>
+<pre class="hljs"><code><div>- Không tạo hai đơn do client retry.
+- Không charge hai lần.
+- Giá đã xác nhận không thay đổi tùy tiện.
+- Món đã hết không được tiếp tục bán quá lâu.
+- Một courier không được nhận hai assignment xung đột.
+- Order state transitions phải hợp lệ.
+- Discovery và menu có latency thấp.
+- Payment, notification hoặc analytics lỗi không làm mất order.
+- Hệ thống scale theo từng thành phố.
+- Có graceful degradation khi ETA hoặc recommendation lỗi.
+</div></code></pre>
+<hr>
+<h1 id="5-thành-phần-nào-cần-consistency-mạnh">5. Thành phần nào cần consistency mạnh?</h1>
+<h2 id="cần-consistency-mạnh-hơn">Cần consistency mạnh hơn</h2>
+<pre class="hljs"><code><div>- Order creation
+- Price quote được sử dụng
+- Payment authorization/capture
+- Restaurant acceptance
+- Courier assignment
+- Inventory giới hạn thật sự
+- Cancellation/refund
+- Order state transitions
+</div></code></pre>
+<h2 id="có-thể-eventual-consistent">Có thể eventual consistent</h2>
+<pre class="hljs"><code><div>- Restaurant rating
+- Estimated delivery time trên discovery page
+- Menu search index
+- Popular dishes
+- Courier marker trên bản đồ
+- Analytics
+- Promotion counters không mang tính tài chính
+</div></code></pre>
+<hr>
+<h1 id="6-capacity-estimation">6. Capacity Estimation</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>100 triệu DAU
+20 triệu orders/ngày
+1 triệu restaurants
+3 triệu couriers hoạt động/ngày
+500.000 couriers online đồng thời
+</div></code></pre>
+<p>Average order rate:</p>
+<pre class="hljs"><code><div>20.000.000 / 86.400
+≈ 231 orders/giây
+</div></code></pre>
+<p>Peak có thể gấp 10 lần:</p>
+<pre class="hljs"><code><div>≈ 2.300 orders/giây
+</div></code></pre>
+<p>Nhưng discovery và menu reads lớn hơn nhiều:</p>
+<pre class="hljs"><code><div>Mỗi user xem 20 nhà hàng hoặc menu trước khi đặt
+→ Hàng tỷ read requests/ngày
+</div></code></pre>
+<hr>
+<h1 id="7-courier-location-qps">7. Courier Location QPS</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>500.000 online couriers
+Location update mỗi 4 giây
+</div></code></pre>
+<p>Location QPS:</p>
+<pre class="hljs"><code><div>500.000 / 4
+= 125.000 updates/giây
+</div></code></pre>
+<p>Location traffic vẫn lớn hơn order creation nhiều lần.</p>
+<p>Do đó:</p>
+<pre class="hljs"><code><div>Courier location plane
+</div></code></pre>
+<p>phải được tách khỏi:</p>
+<pre class="hljs"><code><div>Order transactional plane
+</div></code></pre>
+<hr>
+<h1 id="8-high-level-architecture">8. High-Level Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    CustomerApp --> Edge[API Gateway / Regional Edge]
+    RestaurantApp --> Edge
+    CourierApp --> Edge
+
+    Edge --> Discovery[Restaurant Discovery Service]
+    Edge --> Menu[Menu Service]
+    Edge --> Cart[Cart Service]
+    Edge --> Order[Order Service]
+    Edge --> Tracking[Tracking Service]
+
+    Discovery --> Search[(Restaurant Search Index)]
+    Discovery --> RestaurantStore[(Restaurant Store)]
+    Discovery --> ETA[ETA Service]
+
+    Menu --> MenuStore[(Menu Store)]
+    Menu --> MenuCache[(Menu Cache)]
+    Menu --> Inventory[(Availability / Inventory Store)]
+
+    Cart --> Quote[Pricing / Quote Service]
+    Quote --> Promotion[Promotion Service]
+    Quote --> TaxFee[Tax and Fee Service]
+
+    Order --> OrderStore[(Order Store)]
+    Order --> Payment[Payment Service]
+    Order --> Workflow[Order Workflow / Orchestrator]
+
+    Workflow --> RestaurantGateway[Restaurant Order Gateway]
+    Workflow --> Dispatch[Courier Dispatch Service]
+
+    CourierApp --> LocationGateway
+    LocationGateway --> LocationStream
+    LocationStream --> GeoIndex[(Courier Geo Index)]
+
+    Dispatch --> GeoIndex
+    Dispatch --> CourierState[(Courier State Store)]
+    Dispatch --> ETA
+
+    Order --> OrderEvents[Order Event Stream]
+    OrderEvents --> Notification
+    OrderEvents --> Analytics
+    OrderEvents --> Support
+</div></code></pre>
+<hr>
+<h1 id="9-tách-search-ordering-và-fulfillment">9. Tách Search, Ordering và Fulfillment</h1>
+<p>Ba lớp có đặc điểm khác nhau:</p>
+<h2 id="discovery-layer">Discovery layer</h2>
+<pre class="hljs"><code><div>- Read-heavy
+- Cache-heavy
+- Eventual consistency
+- Ranking và search
+</div></code></pre>
+<h2 id="ordering-layer">Ordering layer</h2>
+<pre class="hljs"><code><div>- Transactional
+- Idempotent
+- Giá và payment chính xác
+- Order state durable
+</div></code></pre>
+<h2 id="fulfillment-layer">Fulfillment layer</h2>
+<pre class="hljs"><code><div>- Realtime
+- Courier locations
+- Restaurant preparation
+- Dispatch và ETA
+</div></code></pre>
+<p>Không nên xây tất cả trong một service hoặc một database.</p>
+<hr>
+<h1 id="10-restaurant-data-model">10. Restaurant Data Model</h1>
+<p>Restaurant record có thể gồm:</p>
+<pre class="hljs"><code><div>restaurant_id
+name
+location
+service_area
+cuisine_types
+opening_hours
+status
+rating
+price_level
+delivery_enabled
+minimum_order
+version
+</div></code></pre>
+<p>Các trạng thái:</p>
+<pre class="hljs"><code><div>ACTIVE
+TEMPORARILY_CLOSED
+BUSY
+PAUSED
+SUSPENDED
+PERMANENTLY_CLOSED
+</div></code></pre>
+<hr>
+<h1 id="11-restaurant-availability">11. Restaurant Availability</h1>
+<p>Một nhà hàng được hiển thị là available khi:</p>
+<pre class="hljs"><code><div>- Đang trong giờ mở cửa
+- Không bị pause
+- Nhận delivery
+- Customer nằm trong delivery area
+- Capacity không quá tải
+- Có ít nhất một số món hợp lệ
+</div></code></pre>
+<p>Không nên chỉ dùng:</p>
+<pre class="hljs"><code><div>opening_hours
+</div></code></pre>
+<p>vì nhà hàng có thể tạm dừng đơn trong giờ cao điểm.</p>
+<hr>
+<h1 id="12-service-area">12. Service Area</h1>
+<p>Nhà hàng không phục vụ mọi khách hàng trong một bán kính đơn giản.</p>
+<p>Delivery area có thể phụ thuộc:</p>
+<pre class="hljs"><code><div>- Road network
+- Sông, cầu và đường cấm
+- Courier availability
+- Market policy
+- Thời tiết
+</div></code></pre>
+<p>Một approximation ban đầu:</p>
+<pre class="hljs"><code><div>restaurant location + maximum radius
+</div></code></pre>
+<p>Sau đó refine bằng ETA hoặc zone eligibility.</p>
+<hr>
+<h1 id="13-restaurant-discovery">13. Restaurant Discovery</h1>
+<p>Customer location được dùng để lấy candidate restaurants:</p>
+<pre class="hljs"><code><div>Customer geo cell
+→ Nearby restaurant cells
+→ Service-area filter
+→ Open/available filter
+→ Ranking
+</div></code></pre>
+<p>Candidate sources:</p>
+<pre class="hljs"><code><div>- Nearby restaurants
+- Sponsored restaurants
+- Previously ordered restaurants
+- Popular local restaurants
+- Recommendations
+</div></code></pre>
+<hr>
+<h1 id="14-discovery-search-index">14. Discovery Search Index</h1>
+<p>Search document có thể chứa:</p>
+<pre class="hljs"><code><div>restaurantId
+name
+cuisines
+geoPoint
+rating
+priceLevel
+openingSchedule
+deliveryZones
+popularity
+menuKeywords
+</div></code></pre>
+<p>Search index chỉ là projection.</p>
+<p>Trước khi trả kết quả hoặc checkout vẫn phải recheck:</p>
+<pre class="hljs"><code><div>- Restaurant state
+- Opening state
+- Delivery eligibility
+</div></code></pre>
+<hr>
+<h1 id="15-discovery-ranking">15. Discovery Ranking</h1>
+<p>Một ranking score khái niệm:</p>
+<pre class="hljs"><code><div>score =
+relevance
++ predicted conversion
++ restaurant quality
++ delivery ETA
++ affordability
++ customer affinity
+- cancellation risk
+- excessive preparation delay
+</div></code></pre>
+<p>Không nên xếp chỉ theo khoảng cách.</p>
+<p>Nhà hàng gần nhưng:</p>
+<pre class="hljs"><code><div>- Chuẩn bị 50 phút
+- Thường hủy đơn
+</div></code></pre>
+<p>có thể kém hơn nhà hàng xa hơn nhưng chuẩn bị nhanh.</p>
+<hr>
+<h1 id="16-discovery-eta">16. Discovery ETA</h1>
+<p>ETA trên danh sách nhà hàng thường là estimate tổng:</p>
+<pre class="hljs"><code><div>Estimated delivery time =
+expected order acceptance
++ preparation time
++ courier assignment delay
++ courier-to-restaurant time
++ delivery travel time
+</div></code></pre>
+<p>Đây chưa phải ETA chính xác cho một order cụ thể.</p>
+<p>Nó là estimate dựa trên:</p>
+<pre class="hljs"><code><div>- Restaurant historical prep time
+- Current queue
+- Courier supply
+- Traffic
+</div></code></pre>
+<hr>
+<h1 id="17-discovery-cache">17. Discovery Cache</h1>
+<p>Restaurant lists có thể cache theo:</p>
+<pre class="hljs"><code><div>geo cell
+cuisine
+time bucket
+market
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>(cell_123, &quot;pizza&quot;, 12:00–12:05)
+→ candidate restaurant IDs
+</div></code></pre>
+<p>Personalization được áp sau cache để tăng hit ratio.</p>
+<hr>
+<h1 id="18-menu-data-model">18. Menu Data Model</h1>
+<p>Menu thường có cấu trúc:</p>
+<pre class="hljs"><code><div>Menu
+→ Sections
+→ Items
+→ Variants
+→ Modifier groups
+→ Modifiers
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Pizza
+→ Size: nhỏ, vừa, lớn
+→ Topping: phô mai, xúc xích
+→ Crust: mỏng, dày
+</div></code></pre>
+<p>Menu không chỉ là danh sách <code>item_id, price</code>.</p>
+<hr>
+<h1 id="19-menu-item">19. Menu Item</h1>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;itemId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;item_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Pizza hải sản&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;basePrice&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">150000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AVAILABLE&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;categoryId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pizza&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;modifierGroupIds&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-string">&quot;size&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-string">&quot;toppings&quot;</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;menuVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">42</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="20-modifier-constraints">20. Modifier Constraints</h1>
+<p>Modifier group có thể yêu cầu:</p>
+<pre class="hljs"><code><div>minSelections
+maxSelections
+required
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Size:
+min = 1
+max = 1
+
+Toppings:
+min = 0
+max = 5
+</div></code></pre>
+<p>Server phải validate constraints khi quote và checkout.</p>
+<p>Không tin rằng client chỉ gửi combinations hợp lệ.</p>
+<hr>
+<h1 id="21-menu-versioning">21. Menu Versioning</h1>
+<p>Menu thay đổi liên tục:</p>
+<pre class="hljs"><code><div>- Giá đổi
+- Món hết
+- Modifier bị xóa
+- Khuyến mãi kết thúc
+</div></code></pre>
+<p>Cart nên giữ:</p>
+<pre class="hljs"><code><div>menuVersion hoặc itemVersion
+</div></code></pre>
+<p>Khi checkout:</p>
+<pre class="hljs"><code><div>Client cart version
+vs
+Current menu version
+</div></code></pre>
+<p>Nếu khác, server revalidate và báo thay đổi.</p>
+<hr>
+<h1 id="22-menu-cache">22. Menu Cache</h1>
+<p>Menu được đọc nhiều và thay đổi ít hơn số lượt đọc.</p>
+<p>Có thể cache:</p>
+<pre class="hljs"><code><div>restaurantId + menuVersion
+→ immutable menu document
+</div></code></pre>
+<p>Pointer:</p>
+<pre class="hljs"><code><div>restaurantId → activeMenuVersion
+</div></code></pre>
+<p>Khi menu update:</p>
+<pre class="hljs"><code><div>Publish version 43
+→ Đổi active pointer
+</div></code></pre>
+<p>Versioned menu giúp tránh invalidation phức tạp.</p>
+<hr>
+<h1 id="23-menu-search-index">23. Menu Search Index</h1>
+<p>Customer có thể tìm:</p>
+<pre class="hljs"><code><div>&quot;gà rán&quot;
+</div></code></pre>
+<p>Search index có thể map:</p>
+<pre class="hljs"><code><div>dish keyword
+→ restaurants/items
+</div></code></pre>
+<p>Nhưng item availability có thể stale.</p>
+<p>Search result vẫn phải check Menu Service hoặc Availability Store trước checkout.</p>
+<hr>
+<h1 id="24-availability-khác-inventory">24. Availability khác Inventory</h1>
+<p>Trong restaurant delivery, nhiều món không có inventory count chính xác.</p>
+<p>Có hai mô hình:</p>
+<h2 id="boolean-availability">Boolean availability</h2>
+<pre class="hljs"><code><div>AVAILABLE / SOLD_OUT
+</div></code></pre>
+<p>Phù hợp món được nhà hàng bật/tắt thủ công.</p>
+<h2 id="counted-inventory">Counted inventory</h2>
+<pre class="hljs"><code><div>remaining_quantity = 5
+</div></code></pre>
+<p>Phù hợp món giới hạn như:</p>
+<pre class="hljs"><code><div>- Bánh chỉ còn 10 phần
+- Grocery
+- Limited special
+</div></code></pre>
+<hr>
+<h1 id="25-inventory-reservation">25. Inventory Reservation</h1>
+<p>Nếu chỉ còn một phần và hai customers cùng checkout:</p>
+<pre class="hljs"><code><div>Customer A
+Customer B
+</div></code></pre>
+<p>Cần conditional reserve:</p>
+<pre class="hljs"><code><div>remaining &gt;= requested_quantity
+</div></code></pre>
+<p>Transition:</p>
+<pre class="hljs"><code><div>AVAILABLE STOCK
+→ RESERVED
+→ CONSUMED
+</div></code></pre>
+<p>Nếu order bị hủy hoặc restaurant từ chối:</p>
+<pre class="hljs"><code><div>RESERVED
+→ RELEASED
+</div></code></pre>
+<hr>
+<h1 id="26-inventory-reservation-ttl">26. Inventory Reservation TTL</h1>
+<p>Order chưa hoàn tất không được giữ hàng mãi mãi.</p>
+<p>Reservation có:</p>
+<pre class="hljs"><code><div>reservationId
+orderId
+quantity
+expiresAt
+</div></code></pre>
+<p>Nếu checkout/payment timeout:</p>
+<pre class="hljs"><code><div>Reservation hết hạn
+→ trả lại inventory
+</div></code></pre>
+<p>Reconciliation cần xử lý reservations mắc kẹt.</p>
+<hr>
+<h1 id="27-inventory-có-luôn-strong-consistency-không">27. Inventory có luôn Strong Consistency không?</h1>
+<p>Không nhất thiết.</p>
+<p>Với món nhà hàng chế biến linh hoạt:</p>
+<pre class="hljs"><code><div>Boolean availability eventual
+</div></code></pre>
+<p>có thể đủ.</p>
+<p>Với hàng giới hạn:</p>
+<pre class="hljs"><code><div>Exact reservation
+</div></code></pre>
+<p>cần consistency mạnh hơn.</p>
+<p>Không nên áp một inventory model đắt tiền cho mọi món.</p>
+<hr>
+<h1 id="28-cart-service">28. Cart Service</h1>
+<p>Cart có thể chứa:</p>
+<pre class="hljs"><code><div>customerId
+restaurantId
+items
+selectedModifiers
+quantities
+specialInstructions
+cartVersion
+</div></code></pre>
+<p>Một cart thường chỉ được phép chứa món từ một nhà hàng.</p>
+<p>Nếu muốn multi-restaurant cart, hệ thống thực tế sẽ tạo:</p>
+<pre class="hljs"><code><div>N sub-orders
+N restaurant workflows
+N courier plans hoặc combined delivery
+</div></code></pre>
+<p>phức tạp hơn nhiều.</p>
+<hr>
+<h1 id="29-cart-server-side-hay-client-side">29. Cart Server-Side hay Client-Side?</h1>
+<h2 id="client-side-cart">Client-side cart</h2>
+<pre class="hljs"><code><div>- Đơn giản
+- Không cần server state cho anonymous user
+</div></code></pre>
+<p>Nhưng vẫn phải validate khi quote.</p>
+<h2 id="server-side-cart">Server-side cart</h2>
+<pre class="hljs"><code><div>- Sync nhiều thiết bị
+- Promotion preview
+- Abandoned cart analytics
+</div></code></pre>
+<p>Dù dùng cách nào:</p>
+<blockquote>
+<p>Cart không phải source of truth cho giá hay availability.</p>
+</blockquote>
+<hr>
+<h1 id="30-quote-service">30. Quote Service</h1>
+<p>Trước checkout, hệ thống tạo quote:</p>
+<pre class="hljs"><code><div>Items
++ Modifiers
++ Tax
++ Delivery fee
++ Service fee
++ Small-order fee
++ Promotion
++ Tip
+</div></code></pre>
+<p>Response:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;quoteId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;quote_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;restaurantId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;rest_456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;subtotal&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">250000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;deliveryFee&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">25000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;serviceFee&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;discount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">30000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;total&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">255000</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;currency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;VND&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T12:01:00Z&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pricingVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">81</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<hr>
+<h1 id="31-quote-snapshot">31. Quote Snapshot</h1>
+<p>Quote phải lưu snapshot:</p>
+<pre class="hljs"><code><div>- Giá item
+- Modifier prices
+- Fees
+- Promotion
+- Currency
+- Taxes
+- Delivery zone
+- Expiration
+</div></code></pre>
+<p>Checkout gửi <code>quoteId</code>.</p>
+<p>Server không được dùng giá từ client.</p>
+<hr>
+<h1 id="32-quote-expiration">32. Quote Expiration</h1>
+<p>Quote có TTL vì:</p>
+<pre class="hljs"><code><div>- Menu price thay đổi
+- Promotion hết hạn
+- Delivery fee thay đổi
+- Surge delivery fee thay đổi
+</div></code></pre>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>TTL = 2–5 phút
+</div></code></pre>
+<p>Nếu quote hết hạn, server tạo quote mới và yêu cầu customer xác nhận lại khi tổng tiền thay đổi.</p>
+<hr>
+<h1 id="33-delivery-fee">33. Delivery Fee</h1>
+<p>Delivery fee có thể dựa trên:</p>
+<pre class="hljs"><code><div>- Restaurant-customer distance
+- Travel time
+- Courier supply
+- Weather
+- Order size
+- Market rules
+</div></code></pre>
+<p>Không nên chỉ dùng đường chim bay.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>zone-to-zone estimate
+</div></code></pre>
+<p>cho quote nhanh, rồi route chính xác hơn sau.</p>
+<hr>
+<h1 id="34-promotion-service">34. Promotion Service</h1>
+<p>Promotion có thể gồm:</p>
+<pre class="hljs"><code><div>- Percentage discount
+- Fixed discount
+- Free delivery
+- Restaurant-funded discount
+- Platform-funded credit
+- User-specific voucher
+</div></code></pre>
+<p>Mỗi promotion có:</p>
+<pre class="hljs"><code><div>eligibility
+usage limits
+budget
+validity window
+stacking rules
+</div></code></pre>
+<hr>
+<h1 id="35-promotion-reservation">35. Promotion Reservation</h1>
+<p>Coupon giới hạn cần tránh oversubscription.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Chỉ 1.000 lượt sử dụng
+</div></code></pre>
+<p>Có thể reserve promotion khi order được tạo:</p>
+<pre class="hljs"><code><div>AVAILABLE BUDGET
+→ RESERVED
+→ CONSUMED
+</div></code></pre>
+<p>Nếu order fail:</p>
+<pre class="hljs"><code><div>RESERVED
+→ RELEASED
+</div></code></pre>
+<p>Promotion reservation và inventory reservation có pattern tương tự.</p>
+<hr>
+<h1 id="36-idempotent-order-placement">36. Idempotent Order Placement</h1>
+<p>Customer bấm nhiều lần hoặc app retry.</p>
+<p>Request:</p>
+<pre class="hljs"><code><div>POST /v1/orders
+<span class="hljs-attribute">Idempotency-Key</span><span class="hljs-punctuation">: </span>checkout_abc_123
+</div></code></pre>
+<p>Store:</p>
+<pre class="hljs"><code><div>(customerId, idempotencyKey)
+→ orderId
+</div></code></pre>
+<p>Retry trả lại cùng order.</p>
+<p>Không tạo order mới.</p>
+<hr>
+<h1 id="37-một-quote-chỉ-dùng-cho-bao-nhiêu-order">37. Một Quote chỉ dùng cho bao nhiêu Order?</h1>
+<p>Thông thường:</p>
+<pre class="hljs"><code><div>quoteId
+</div></code></pre>
+<p>chỉ được consume bởi một logical order.</p>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>quoteId → orderId
+</div></code></pre>
+<p>bằng conditional write.</p>
+<p>Điều này ngăn cùng quote được dùng cho nhiều checkout ngoài ý muốn.</p>
+<hr>
+<h1 id="38-order-creation-flow">38. Order Creation Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">sequenceDiagram
+    participant Customer
+    participant Order
+    participant Quote
+    participant Inventory
+    participant Payment
+    participant DB
+
+    Customer->>Order: Place order + quoteId + idempotency key
+    Order->>Quote: Validate quote
+    Quote-->>Order: Valid pricing snapshot
+    Order->>Inventory: Reserve limited items
+    Inventory-->>Order: Reserved
+    Order->>Payment: Authorize payment
+    Payment-->>Order: Authorized
+    Order->>DB: Create durable order
+    DB-->>Order: Committed
+    Order-->>Customer: Order placed
+</div></code></pre>
+<p>Thực tế cần Saga vì các hệ thống không nằm trong một transaction chung.</p>
+<hr>
+<h1 id="39-order-state-machine">39. Order State Machine</h1>
+<p>Một state machine tổng quát:</p>
+<pre class="hljs"><code><div>CREATED
+→ PAYMENT_AUTHORIZED
+→ PENDING_RESTAURANT
+→ RESTAURANT_ACCEPTED
+→ PREPARING
+→ READY_FOR_PICKUP
+→ PICKED_UP
+→ OUT_FOR_DELIVERY
+→ DELIVERED
+→ COMPLETED
+</div></code></pre>
+<p>Nhánh kết thúc khác:</p>
+<pre class="hljs"><code><div>RESTAURANT_REJECTED
+CANCELLED_BY_CUSTOMER
+CANCELLED_BY_RESTAURANT
+CANCELLED_BY_PLATFORM
+DELIVERY_FAILED
+PAYMENT_FAILED
+REFUND_PENDING
+REFUNDED
+</div></code></pre>
+<hr>
+<h1 id="40-tách-order-state-thành-nhiều-state-machine">40. Tách Order State thành nhiều State Machine</h1>
+<p>Một field duy nhất dễ trở nên quá phức tạp.</p>
+<p>Có thể tách:</p>
+<h2 id="commerce-state">Commerce state</h2>
+<pre class="hljs"><code><div>CREATED
+CONFIRMED
+CANCELLED
+COMPLETED
+</div></code></pre>
+<h2 id="restaurant-state">Restaurant state</h2>
+<pre class="hljs"><code><div>PENDING
+ACCEPTED
+PREPARING
+READY
+REJECTED
+</div></code></pre>
+<h2 id="delivery-state">Delivery state</h2>
+<pre class="hljs"><code><div>UNASSIGNED
+ASSIGNED
+AT_RESTAURANT
+PICKED_UP
+DELIVERED
+</div></code></pre>
+<h2 id="payment-state">Payment state</h2>
+<pre class="hljs"><code><div>PENDING
+AUTHORIZED
+CAPTURED
+FAILED
+REFUNDED
+</div></code></pre>
+<p>Order aggregate tổng hợp các state này.</p>
+<hr>
+<h1 id="41-vì-sao-tách-các-state">41. Vì sao tách các State?</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Food đã DELIVERED
+Payment vẫn PENDING_RETRY
+</div></code></pre>
+<p>Nếu chỉ có một state, khó biểu diễn.</p>
+<p>Hoặc:</p>
+<pre class="hljs"><code><div>Restaurant ACCEPTED
+Courier chưa ASSIGNED
+</div></code></pre>
+<p>Tách state giúp workflow rõ hơn và giảm số lượng trạng thái kết hợp khổng lồ.</p>
+<hr>
+<h1 id="42-optimistic-locking-cho-order">42. Optimistic Locking cho Order</h1>
+<p>Order record có:</p>
+<pre class="hljs"><code><div>order_id
+commerce_state
+restaurant_state
+delivery_state
+payment_state
+version
+</div></code></pre>
+<p>Mọi transition:</p>
+<pre class="hljs"><code><div><span class="hljs-keyword">UPDATE</span> orders
+<span class="hljs-keyword">SET</span> restaurant_state <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;ACCEPTED&#x27;</span>,
+    version <span class="hljs-operator">=</span> version <span class="hljs-operator">+</span> <span class="hljs-number">1</span>
+<span class="hljs-keyword">WHERE</span> order_id <span class="hljs-operator">=</span> :order_id
+  <span class="hljs-keyword">AND</span> restaurant_state <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;PENDING&#x27;</span>
+  <span class="hljs-keyword">AND</span> version <span class="hljs-operator">=</span> :expected_version;
+</div></code></pre>
+<hr>
+<h1 id="43-order-event-log">43. Order Event Log</h1>
+<p>Mỗi transition phát event:</p>
+<pre class="hljs"><code><div>OrderCreated
+PaymentAuthorized
+RestaurantAccepted
+CourierAssigned
+OrderReady
+OrderPickedUp
+OrderDelivered
+PaymentCaptured
+</div></code></pre>
+<p>Event log hỗ trợ:</p>
+<pre class="hljs"><code><div>- Audit
+- Notification
+- Analytics
+- Rebuild projections
+- Support investigation
+</div></code></pre>
+<hr>
+<h1 id="44-transactional-outbox">44. Transactional Outbox</h1>
+<p>Order DB update và event publish không nên là hai thao tác rời rạc.</p>
+<p>Trong cùng transaction:</p>
+<pre class="hljs"><code><div>Update order
++ Insert outbox event
+</div></code></pre>
+<p>Outbox publisher đưa event vào stream.</p>
+<p>Downstream phải idempotent vì event có thể được publish lại.</p>
+<hr>
+<h1 id="45-payment-trước-hay-sau-restaurant-acceptance">45. Payment trước hay sau Restaurant Acceptance?</h1>
+<p>Đây là trade-off lớn.</p>
+<h2 id="authorize-trước-khi-gửi-nhà-hàng">Authorize trước khi gửi nhà hàng</h2>
+<pre class="hljs"><code><div>Ưu:
+- Biết customer có khả năng thanh toán.
+- Không làm nhà hàng chuẩn bị đơn không trả được.
+
+Nhược:
+- Nhiều authorization phải void nếu nhà hàng từ chối.
+</div></code></pre>
+<h2 id="authorize-sau-acceptance">Authorize sau acceptance</h2>
+<pre class="hljs"><code><div>Ưu:
+- Ít authorization không cần thiết.
+
+Nhược:
+- Nhà hàng chấp nhận nhưng payment thất bại.
+</div></code></pre>
+<p>Phương án phổ biến:</p>
+<pre class="hljs"><code><div>Authorize trước
+→ Capture sau khi order đủ chắc chắn hoặc hoàn tất
+</div></code></pre>
+<hr>
+<h1 id="46-payment-authorization">46. Payment Authorization</h1>
+<p>Authorization giữ một số tiền dự kiến.</p>
+<p>Payment state:</p>
+<pre class="hljs"><code><div>PENDING
+→ AUTHORIZED
+→ CAPTURED
+</div></code></pre>
+<p>Nếu order bị từ chối:</p>
+<pre class="hljs"><code><div>AUTHORIZED
+→ VOIDED
+</div></code></pre>
+<p>Nếu capture nhỏ hơn authorization:</p>
+<pre class="hljs"><code><div>Capture final amount
+→ Release phần còn lại
+</div></code></pre>
+<hr>
+<h1 id="47-capture-khi-nào">47. Capture khi nào?</h1>
+<p>Các lựa chọn:</p>
+<h2 id="capture-khi-restaurant-chấp-nhận">Capture khi restaurant chấp nhận</h2>
+<pre class="hljs"><code><div>Đảm bảo revenue sớm
+nhưng refund nếu delivery fail.
+</div></code></pre>
+<h2 id="capture-khi-courier-pickup">Capture khi courier pickup</h2>
+<pre class="hljs"><code><div>Order đã được chuẩn bị
+nhưng vẫn có delivery risk.
+</div></code></pre>
+<h2 id="capture-khi-delivered">Capture khi delivered</h2>
+<pre class="hljs"><code><div>Ít refund hơn
+nhưng authorization có thể hết hạn.
+</div></code></pre>
+<p>Policy phụ thuộc:</p>
+<pre class="hljs"><code><div>- Payment provider
+- Market
+- Order duration
+- Risk
+</div></code></pre>
+<hr>
+<h1 id="48-restaurant-order-gateway">48. Restaurant Order Gateway</h1>
+<p>Nhà hàng nhận đơn qua:</p>
+<pre class="hljs"><code><div>- Restaurant tablet/app
+- POS integration
+- Printer
+- Phone fallback
+</div></code></pre>
+<p>Gateway chịu trách nhiệm:</p>
+<pre class="hljs"><code><div>- Deliver offer/order
+- Retry
+- Track acknowledgement
+- Handle device connectivity
+</div></code></pre>
+<p>Push notification không phải source of truth.</p>
+<p>Restaurant app phải fetch order authoritative.</p>
+<hr>
+<h1 id="49-restaurant-acceptance">49. Restaurant Acceptance</h1>
+<p>Restaurant nhận:</p>
+<pre class="hljs"><code><div><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;orderId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ord_123&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;requestedPreparationTime&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;acceptBy&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-07-14T12:05:00Z&quot;</span>
+<span class="hljs-punctuation">}</span>
+</div></code></pre>
+<p>Restaurant có thể:</p>
+<pre class="hljs"><code><div>ACCEPT
+REJECT
+REQUEST_LONGER_PREP_TIME
+ITEM_UNAVAILABLE
+</div></code></pre>
+<hr>
+<h1 id="50-acceptance-timeout">50. Acceptance Timeout</h1>
+<p>Nếu nhà hàng không phản hồi:</p>
+<pre class="hljs"><code><div>PENDING_RESTAURANT
+→ timeout
+</div></code></pre>
+<p>Platform có thể:</p>
+<pre class="hljs"><code><div>- Retry notification
+- Gọi phone fallback
+- Auto-cancel
+- Auto-accept với trusted integrated restaurant
+</div></code></pre>
+<p>Policy tùy integration và market.</p>
+<hr>
+<h1 id="51-restaurant-rejection">51. Restaurant Rejection</h1>
+<p>Các lý do:</p>
+<pre class="hljs"><code><div>- Hết món
+- Quá tải
+- Sắp đóng cửa
+- Thiết bị lỗi
+- Không thể phục vụ địa chỉ
+</div></code></pre>
+<p>Workflow:</p>
+<pre class="hljs"><code><div>RestaurantRejected
+→ Hủy courier search
+→ Release inventory/promotion
+→ Void/refund payment
+→ Notify customer
+</div></code></pre>
+<hr>
+<h1 id="52-partial-item-unavailability">52. Partial Item Unavailability</h1>
+<p>Restaurant có thể báo một món hết.</p>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>1. Hủy toàn order.
+2. Đề xuất thay thế.
+3. Xóa item và cập nhật giá.
+4. Cho customer chọn trước policy.
+</div></code></pre>
+<p>Customer preference lúc checkout có thể là:</p>
+<pre class="hljs"><code><div>- Hủy nếu thiếu món
+- Cho phép loại món
+- Cho phép thay thế tương đương
+</div></code></pre>
+<hr>
+<h1 id="53-price-adjustment-sau-item-removal">53. Price Adjustment sau Item Removal</h1>
+<p>Nếu một item bị loại:</p>
+<pre class="hljs"><code><div>- Recompute subtotal
+- Recompute tax
+- Recompute promotion eligibility
+- Recompute minimum order
+</div></code></pre>
+<p>Không chỉ trừ giá item.</p>
+<p>Ví dụ coupon:</p>
+<pre class="hljs"><code><div>Giảm 50.000 cho order từ 300.000
+</div></code></pre>
+<p>Sau khi bỏ item, order còn 250.000 và coupon có thể không còn hợp lệ.</p>
+<p>Policy phải được snapshot và audit.</p>
+<hr>
+<h1 id="54-preparation-time">54. Preparation Time</h1>
+<p>Restaurant cung cấp hoặc hệ thống dự đoán:</p>
+<pre class="hljs"><code><div>prep_time
+</div></code></pre>
+<p>Dựa trên:</p>
+<pre class="hljs"><code><div>- Items
+- Quantity
+- Current kitchen queue
+- Historical performance
+- Time of day
+- Restaurant capacity
+</div></code></pre>
+<p>Không nên dùng một giá trị cố định cho mọi order.</p>
+<hr>
+<h1 id="55-prep-time-model">55. Prep-Time Model</h1>
+<p>Một estimate khái niệm:</p>
+<pre class="hljs"><code><div>predictedPrep =
+baseRestaurantTime
++ itemComplexity
++ queueLoad
++ peakHourAdjustment
+</div></code></pre>
+<p>Model cần theo dõi:</p>
+<pre class="hljs"><code><div>readyAt - acceptedAt
+</div></code></pre>
+<p>để học actual preparation time.</p>
+<hr>
+<h1 id="56-restaurant-load">56. Restaurant Load</h1>
+<p>Restaurant có thể có:</p>
+<pre class="hljs"><code><div>- 5 orders đang chuẩn bị
+- 30 items trong queue
+- 2 kitchen stations
+</div></code></pre>
+<p>Load projection giúp:</p>
+<pre class="hljs"><code><div>- Discovery ETA
+- Acceptance likelihood
+- Prep prediction
+- Throttling order intake
+</div></code></pre>
+<p>Nhà hàng có thể tự đặt:</p>
+<pre class="hljs"><code><div>BUSY hoặc PAUSED
+</div></code></pre>
+<hr>
+<h1 id="57-khi-nào-bắt-đầu-dispatch-courier">57. Khi nào bắt đầu Dispatch Courier?</h1>
+<p>Nếu dispatch ngay khi order được tạo:</p>
+<pre class="hljs"><code><div>Courier có thể tới quá sớm và phải chờ.
+</div></code></pre>
+<p>Nếu chờ món gần xong mới dispatch:</p>
+<pre class="hljs"><code><div>Courier có thể tới muộn.
+</div></code></pre>
+<p>Mục tiêu:</p>
+<pre class="hljs"><code><div>Courier arrival time
+≈
+Food ready time
+</div></code></pre>
+<hr>
+<h1 id="58-dispatch-trigger-time">58. Dispatch Trigger Time</h1>
+<p>Giả sử:</p>
+<pre class="hljs"><code><div>Predicted food ready: 20 phút
+Predicted courier-to-restaurant: 8 phút
+Dispatch buffer: 3 phút
+</div></code></pre>
+<p>Bắt đầu dispatch sau:</p>
+<pre class="hljs"><code><div>20 - 8 - 3
+= 9 phút
+</div></code></pre>
+<p>Tuy nhiên courier supply biến động nên hệ thống có thể dispatch sớm hơn khi thiếu courier.</p>
+<hr>
+<h1 id="59-dispatch-scheduler">59. Dispatch Scheduler</h1>
+<p>Sau restaurant acceptance:</p>
+<pre class="hljs"><code><div>OrderAccepted
+→ Tính plannedDispatchAt
+→ Lưu durable timer
+</div></code></pre>
+<p>Scheduler tới thời điểm:</p>
+<pre class="hljs"><code><div>plannedDispatchAt
+</div></code></pre>
+<p>phát:</p>
+<pre class="hljs"><code><div>StartCourierDispatch
+</div></code></pre>
+<p>Timer phải durable, không chỉ nằm trong memory.</p>
+<hr>
+<h1 id="60-courier-discovery">60. Courier Discovery</h1>
+<p>Tương tự Ride-Hailing:</p>
+<pre class="hljs"><code><div>Restaurant location
+→ Geo cell
+→ Nearby available couriers
+→ Filter
+→ ETA ranking
+</div></code></pre>
+<p>Nhưng candidate score còn xét:</p>
+<pre class="hljs"><code><div>- Courier đang mang đơn nào
+- Vehicle type
+- Food compatibility
+- Delivery direction
+- Batch eligibility
+</div></code></pre>
+<hr>
+<h1 id="61-courier-state-machine">61. Courier State Machine</h1>
+<pre class="hljs"><code><div>OFFLINE
+→ AVAILABLE
+→ RESERVED
+→ TO_RESTAURANT
+→ WAITING_AT_RESTAURANT
+→ DELIVERING
+→ AVAILABLE
+</div></code></pre>
+<p>Với batching:</p>
+<pre class="hljs"><code><div>AVAILABLE
+→ ACTIVE_WITH_CAPACITY
+→ FULL_CAPACITY
+</div></code></pre>
+<p>Một courier có thể có nhiều active assignments nhưng phải tuân thủ route plan.</p>
+<hr>
+<h1 id="62-courier-reservation">62. Courier Reservation</h1>
+<p>Dispatch cần short lease:</p>
+<pre class="hljs"><code><div>courierId
+reservedForOrderOrBatchId
+leaseUntil
+version
+</div></code></pre>
+<p>Conditional reserve chỉ thành công nếu:</p>
+<pre class="hljs"><code><div>- Courier state phù hợp
+- Không vượt capacity
+- Route plan vẫn hợp lệ
+- Location fresh
+</div></code></pre>
+<hr>
+<h1 id="63-dispatch-offer">63. Dispatch Offer</h1>
+<p>Offer có thể chứa:</p>
+<pre class="hljs"><code><div>- Pickup restaurant
+- Estimated pickup time
+- Delivery area
+- Expected earnings
+- Number of orders trong batch
+- Expiration
+</div></code></pre>
+<p>Không nhất thiết hiển thị đầy đủ customer data trước khi courier nhận.</p>
+<hr>
+<h1 id="64-courier-acceptance-race">64. Courier Acceptance Race</h1>
+<p>Nếu gửi offer theo wave tới nhiều couriers:</p>
+<pre class="hljs"><code><div>Chỉ một courier được assign order.
+</div></code></pre>
+<p>Order delivery transition:</p>
+<pre class="hljs"><code><div>UNASSIGNED
+→ ASSIGNED
+</div></code></pre>
+<p>bằng compare-and-set.</p>
+<p>Các courier khác được release.</p>
+<hr>
+<h1 id="65-courier-assignment-và-restaurant-rejection-race">65. Courier Assignment và Restaurant Rejection Race</h1>
+<p>Có thể xảy ra:</p>
+<pre class="hljs"><code><div>Courier vừa được assign
+Restaurant lại hủy order
+</div></code></pre>
+<p>Workflow phải:</p>
+<pre class="hljs"><code><div>- Cancel courier assignment
+- Có thể trả compensation fee
+- Release courier
+- Void/refund customer
+</div></code></pre>
+<p>Không nên giả định restaurant acceptance không bao giờ bị đảo.</p>
+<hr>
+<h1 id="66-batching-là-gì">66. Batching là gì?</h1>
+<p>Một courier giao nhiều orders trong một route.</p>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>Pickup Order A tại Restaurant X
+Pickup Order B tại Restaurant X hoặc gần đó
+Deliver A
+Deliver B
+</div></code></pre>
+<p>Lợi ích:</p>
+<pre class="hljs"><code><div>- Tăng courier utilization
+- Giảm delivery cost
+- Tăng throughput
+</div></code></pre>
+<p>Rủi ro:</p>
+<pre class="hljs"><code><div>- Món nguội
+- ETA tăng
+- Route complexity
+- Một order chậm làm ảnh hưởng order khác
+</div></code></pre>
+<hr>
+<h1 id="67-các-kiểu-batching">67. Các kiểu Batching</h1>
+<h2 id="same-restaurant-batch">Same restaurant batch</h2>
+<pre class="hljs"><code><div>Hai orders từ cùng nhà hàng
+→ destinations gần nhau
+</div></code></pre>
+<p>Đơn giản nhất.</p>
+<h2 id="nearby-restaurants-batch">Nearby restaurants batch</h2>
+<pre class="hljs"><code><div>Hai pickup locations gần nhau
+→ destinations cùng hướng
+</div></code></pre>
+<p>Phức tạp hơn vì hai prep times khác nhau.</p>
+<h2 id="add-on-order">Add-on order</h2>
+<p>Courier đang giao A, hệ thống thêm B nếu route phù hợp.</p>
+<hr>
+<h1 id="68-batch-constraints">68. Batch Constraints</h1>
+<p>Chỉ batch nếu thỏa:</p>
+<pre class="hljs"><code><div>- Courier capacity
+- Vehicle capacity
+- Food compatibility
+- Pickup times gần nhau
+- Detour dưới threshold
+- Delivery deadlines
+- Customer promise không bị vi phạm
+</div></code></pre>
+<p>Ví dụ không nên batch:</p>
+<pre class="hljs"><code><div>- Kem với route quá dài
+- Món nóng và pickup thứ hai chậm 20 phút
+</div></code></pre>
+<hr>
+<h1 id="69-batch-optimization">69. Batch Optimization</h1>
+<p>Một bài toán tối ưu:</p>
+<pre class="hljs"><code><div>Minimize:
+total courier time
++ lateness penalties
++ detour
++ food-quality decay
+</div></code></pre>
+<p>Subject to:</p>
+<pre class="hljs"><code><div>- Capacity
+- Pickup readiness
+- Delivery SLA
+- Route feasibility
+</div></code></pre>
+<p>Ở quy mô lớn, thường dùng heuristic thay vì tối ưu toàn cục chính xác.</p>
+<hr>
+<h1 id="70-batch-candidate-window">70. Batch Candidate Window</h1>
+<p>Không thể chờ vô hạn để tìm batch hoàn hảo.</p>
+<p>Có thể giữ order trong:</p>
+<pre class="hljs"><code><div>batching window = 30–120 giây
+</div></code></pre>
+<p>Trade-off:</p>
+<pre class="hljs"><code><div>Window dài:
+Batch tốt hơn nhưng customer chờ lâu.
+
+Window ngắn:
+Latency thấp nhưng ít batch.
+</div></code></pre>
+<hr>
+<h1 id="71-batch-replanning">71. Batch Replanning</h1>
+<p>Nếu restaurant B chậm:</p>
+<pre class="hljs"><code><div>- Loại B khỏi batch
+- Dispatch courier khác cho B
+- Giữ A trên courier hiện tại
+</div></code></pre>
+<p>Route plan cần version.</p>
+<p>Courier app chỉ thực hiện route version mới nhất.</p>
+<hr>
+<h1 id="72-delivery-plan">72. Delivery Plan</h1>
+<p>Record:</p>
+<pre class="hljs"><code><div>deliveryPlanId
+courierId
+orders
+stops
+routeVersion
+estimatedTimes
+status
+</div></code></pre>
+<p>Stops:</p>
+<pre class="hljs"><code><div>PICKUP order_A
+PICKUP order_B
+DROPOFF order_A
+DROPOFF order_B
+</div></code></pre>
+<p>Mọi replan tăng:</p>
+<pre class="hljs"><code><div>routeVersion
+</div></code></pre>
+<hr>
+<h1 id="73-eta-components">73. ETA Components</h1>
+<p>Customer ETA không chỉ là travel time.</p>
+<pre class="hljs"><code><div>ETA =
+restaurant acceptance delay
++ remaining preparation time
++ courier assignment delay
++ courier-to-restaurant time
++ pickup wait
++ restaurant-to-customer travel
++ batch detour
+</div></code></pre>
+<p>Mỗi component có uncertainty riêng.</p>
+<hr>
+<h1 id="74-eta-timeline">74. ETA Timeline</h1>
+<p>Các giai đoạn:</p>
+<pre class="hljs"><code><div>Before order:
+Discovery ETA
+
+After checkout:
+Initial order ETA
+
+After restaurant acceptance:
+Prep-aware ETA
+
+After courier assigned:
+Courier-aware ETA
+
+After pickup:
+Route-based delivery ETA
+</div></code></pre>
+<p>ETA nên được cập nhật khi có thông tin tốt hơn.</p>
+<hr>
+<h1 id="75-eta-uncertainty">75. ETA Uncertainty</h1>
+<p>Thay vì chỉ trả:</p>
+<pre class="hljs"><code><div>25 phút
+</div></code></pre>
+<p>có thể trả:</p>
+<pre class="hljs"><code><div>25–35 phút
+</div></code></pre>
+<p>Confidence interval giúp phản ánh:</p>
+<pre class="hljs"><code><div>- Prep uncertainty
+- Courier availability
+- Traffic
+- Batch possibility
+</div></code></pre>
+<hr>
+<h1 id="76-eta-model-inputs">76. ETA Model Inputs</h1>
+<pre class="hljs"><code><div>- Restaurant prep history
+- Item complexity
+- Current queue
+- Courier supply
+- Weather
+- Traffic
+- Time of day
+- Building pickup complexity
+- Customer building access
+- Historical courier wait
+</div></code></pre>
+<hr>
+<h1 id="77-eta-fallback">77. ETA Fallback</h1>
+<p>Nếu routing hoặc ML ETA lỗi:</p>
+<pre class="hljs"><code><div>- Historical restaurant prep median
+- Cell-to-cell travel estimate
+- Straight-line distance adjustment
+- Conservative buffer
+</div></code></pre>
+<p>Order flow không nên hoàn toàn unavailable.</p>
+<hr>
+<h1 id="78-order-tracking">78. Order Tracking</h1>
+<p>Customer cần thấy:</p>
+<pre class="hljs"><code><div>- Restaurant accepted
+- Preparing
+- Courier assigned
+- Courier tới restaurant
+- Order picked up
+- Courier đang tới
+- Delivered
+</div></code></pre>
+<p>Tracking state lấy từ order aggregate và projections.</p>
+<hr>
+<h1 id="79-realtime-tracking">79. Realtime Tracking</h1>
+<p>Courier location được fan-out tới customer khi:</p>
+<pre class="hljs"><code><div>- Courier đã assigned
+- Customer có quyền trên order
+</div></code></pre>
+<p>Không broadcast toàn bộ courier location.</p>
+<p>Có thể gửi:</p>
+<pre class="hljs"><code><div>1 update mỗi 1–3 giây
+</div></code></pre>
+<p>và client interpolate marker.</p>
+<hr>
+<h1 id="80-tracking-projection">80. Tracking Projection</h1>
+<p>Tracking Service có thể giữ:</p>
+<pre class="hljs"><code><div>orderId
+customerId
+restaurantState
+deliveryState
+courierId
+latestCourierLocation
+estimatedArrival
+lastUpdatedAt
+</div></code></pre>
+<p>Đây là read model.</p>
+<p>Source of truth vẫn là:</p>
+<pre class="hljs"><code><div>Order Store + Courier State
+</div></code></pre>
+<hr>
+<h1 id="81-pickup-confirmation">81. Pickup Confirmation</h1>
+<p>Courier tới restaurant và xác nhận pickup.</p>
+<p>Có thể dùng:</p>
+<pre class="hljs"><code><div>- Geofence
+- Restaurant confirmation
+- QR/PIN
+- Item count confirmation
+</div></code></pre>
+<p>Transition:</p>
+<pre class="hljs"><code><div>READY_FOR_PICKUP
+→ PICKED_UP
+</div></code></pre>
+<p>Nếu restaurant chưa đánh dấu ready nhưng courier đã lấy món, system cần reconciliation.</p>
+<hr>
+<h1 id="82-delivery-confirmation">82. Delivery Confirmation</h1>
+<p>Các phương thức:</p>
+<pre class="hljs"><code><div>- Customer PIN/OTP
+- Photo proof
+- Customer tap confirm
+- Geofence + courier action
+- Contactless delivery proof
+</div></code></pre>
+<p>Không nên chỉ dựa vào courier bấm “delivered” ở bất kỳ vị trí nào.</p>
+<hr>
+<h1 id="83-contactless-delivery">83. Contactless Delivery</h1>
+<p>Có thể lưu:</p>
+<pre class="hljs"><code><div>- Photo
+- Timestamp
+- Location
+- Delivery note
+</div></code></pre>
+<p>Dữ liệu này nhạy cảm và cần:</p>
+<pre class="hljs"><code><div>- Retention hạn chế
+- Access control
+- Audit
+</div></code></pre>
+<hr>
+<h1 id="84-customer-cancellation">84. Customer Cancellation</h1>
+<p>Policy phụ thuộc thời điểm.</p>
+<h2 id="trước-restaurant-acceptance">Trước restaurant acceptance</h2>
+<pre class="hljs"><code><div>Thường hủy miễn phí.
+</div></code></pre>
+<h2 id="sau-restaurant-acceptance-nhưng-trước-preparation">Sau restaurant acceptance nhưng trước preparation</h2>
+<pre class="hljs"><code><div>Có thể hủy miễn phí hoặc phí nhỏ.
+</div></code></pre>
+<h2 id="đang-chuẩn-bị">Đang chuẩn bị</h2>
+<pre class="hljs"><code><div>Có thể charge một phần.
+</div></code></pre>
+<h2 id="courier-đã-pickup">Courier đã pickup</h2>
+<pre class="hljs"><code><div>Thường không cho hủy thông thường.
+</div></code></pre>
+<hr>
+<h1 id="85-restaurant-cancellation">85. Restaurant Cancellation</h1>
+<p>Nhà hàng có thể hủy vì:</p>
+<pre class="hljs"><code><div>- Hết món
+- Thiết bị hỏng
+- Quá tải
+- Sự cố vận hành
+</div></code></pre>
+<p>Workflow:</p>
+<pre class="hljs"><code><div>Cancel order
+→ Stop dispatch hoặc recall courier
+→ Release resources
+→ Refund/void
+→ Update restaurant reliability metrics
+</div></code></pre>
+<hr>
+<h1 id="86-courier-cancellation">86. Courier Cancellation</h1>
+<p>Courier có thể hủy:</p>
+<pre class="hljs"><code><div>- Trước pickup
+- Sau khi tới restaurant
+- Sau pickup trong tình huống khẩn cấp
+</div></code></pre>
+<p>Trước pickup:</p>
+<pre class="hljs"><code><div>Re-dispatch courier khác.
+</div></code></pre>
+<p>Sau pickup:</p>
+<pre class="hljs"><code><div>Safety/support workflow
+</div></code></pre>
+<p>vì courier đang giữ hàng.</p>
+<hr>
+<h1 id="87-cancellation-state-machine">87. Cancellation State Machine</h1>
+<p>Cancellation request không chỉ là một boolean.</p>
+<pre class="hljs"><code><div>CANCELLATION_REQUESTED
+→ ELIGIBILITY_CHECKED
+→ COMPENSATION_CALCULATED
+→ ORDER_CANCELLED
+→ REFUND_OR_VOID
+</div></code></pre>
+<p>Lưu:</p>
+<pre class="hljs"><code><div>actor
+reason
+stage
+fee
+restaurant compensation
+courier compensation
+</div></code></pre>
+<hr>
+<h1 id="88-refund-workflow">88. Refund Workflow</h1>
+<p>Payment đã capture:</p>
+<pre class="hljs"><code><div>CAPTURED
+→ REFUND_PENDING
+→ REFUNDED
+</div></code></pre>
+<p>Payment mới authorized:</p>
+<pre class="hljs"><code><div>AUTHORIZED
+→ VOIDED
+</div></code></pre>
+<p>Refund phải idempotent:</p>
+<pre class="hljs"><code><div>refundKey = orderId + refundReasonVersion
+</div></code></pre>
+<hr>
+<h1 id="89-partial-refund">89. Partial Refund</h1>
+<p>Ví dụ:</p>
+<pre class="hljs"><code><div>- Thiếu một món
+- Giao muộn
+- Món bị đổ
+</div></code></pre>
+<p>Tạo ledger adjustment:</p>
+<pre class="hljs"><code><div>customer refund
+restaurant deduction
+platform compensation
+courier adjustment
+</div></code></pre>
+<p>Không sửa trực tiếp transaction gốc.</p>
+<hr>
+<h1 id="90-financial-ledger">90. Financial Ledger</h1>
+<p>Order có thể tạo nhiều dòng:</p>
+<pre class="hljs"><code><div>Customer charge
+Restaurant gross
+Restaurant commission
+Courier earning
+Delivery fee
+Service fee
+Tax
+Promotion funding
+Tip
+Refund
+Adjustment
+</div></code></pre>
+<p>Ledger là source of truth tài chính.</p>
+<p>Order status không đủ cho reconciliation.</p>
+<hr>
+<h1 id="91-restaurant-settlement">91. Restaurant Settlement</h1>
+<p>Restaurant không nhất thiết nhận tiền ngay từng order.</p>
+<p>Có thể settlement:</p>
+<pre class="hljs"><code><div>- Hằng ngày
+- Hằng tuần
+- Theo threshold
+</div></code></pre>
+<p>Settlement pipeline tổng hợp ledger entries.</p>
+<p>Không query trực tiếp orders và tự cộng mỗi lần trả tiền.</p>
+<hr>
+<h1 id="92-courier-earnings">92. Courier Earnings</h1>
+<p>Courier earnings có thể gồm:</p>
+<pre class="hljs"><code><div>- Base delivery pay
+- Distance pay
+- Waiting time
+- Surge incentive
+- Batch bonus
+- Tip
+- Cancellation compensation
+</div></code></pre>
+<p>Earnings dashboard là projection từ ledger/events.</p>
+<hr>
+<h1 id="93-waiting-time-compensation">93. Waiting Time Compensation</h1>
+<p>Courier tới restaurant nhưng món chưa sẵn sàng.</p>
+<p>Có thể đo:</p>
+<pre class="hljs"><code><div>pickupActualTime - courierArrivalTime
+</div></code></pre>
+<p>Policy có thể trả thêm compensation sau ngưỡng.</p>
+<p>Điều này cũng tạo incentive cho restaurant cập nhật prep time chính xác.</p>
+<hr>
+<h1 id="94-fraud-risks">94. Fraud Risks</h1>
+<h2 id="customer-fraud">Customer fraud</h2>
+<pre class="hljs"><code><div>- Claim không nhận được hàng
+- Abuse refund
+- Promotion abuse
+- Stolen payment
+</div></code></pre>
+<h2 id="restaurant-fraud">Restaurant fraud</h2>
+<pre class="hljs"><code><div>- Đánh dấu món giá khác
+- Fake preparation updates
+- Order manipulation
+</div></code></pre>
+<h2 id="courier-fraud">Courier fraud</h2>
+<pre class="hljs"><code><div>- GPS spoofing
+- Fake delivery
+- Collusion
+- Item theft
+</div></code></pre>
+<hr>
+<h1 id="95-fraud-signals">95. Fraud Signals</h1>
+<pre class="hljs"><code><div>- Device reputation
+- Payment risk
+- GPS consistency
+- Repeated cancellation
+- Delivery proof
+- Customer complaint patterns
+- Restaurant anomaly
+- Courier route deviation
+</div></code></pre>
+<p>Fraud Service có thể:</p>
+<pre class="hljs"><code><div>- Block
+- Require additional verification
+- Hold payout
+- Trigger manual review
+</div></code></pre>
+<hr>
+<h1 id="96-safety">96. Safety</h1>
+<p>Food delivery safety có thể gồm:</p>
+<pre class="hljs"><code><div>- Courier SOS
+- Customer address privacy
+- Masked phone
+- Contactless delivery
+- Unsafe location reporting
+- Incident handling
+</div></code></pre>
+<p>Address và exact location chỉ nên được hiển thị cho courier trong thời gian cần thiết.</p>
+<hr>
+<h1 id="97-address-privacy">97. Address Privacy</h1>
+<p>Courier trước khi nhận offer có thể chỉ thấy:</p>
+<pre class="hljs"><code><div>Delivery zone hoặc approximate destination
+</div></code></pre>
+<p>Sau khi nhận mới thấy:</p>
+<pre class="hljs"><code><div>Exact address
+</div></code></pre>
+<p>Sau completion, app không nên tiếp tục giữ dữ liệu customer không cần thiết.</p>
+<hr>
+<h1 id="98-order-search-cho-support">98. Order Search cho Support</h1>
+<p>Support cần tìm theo:</p>
+<pre class="hljs"><code><div>- Order ID
+- Customer
+- Restaurant
+- Courier
+- Payment transaction
+</div></code></pre>
+<p>Nên có support read model riêng với access control và audit.</p>
+<p>Không cho support query trực tiếp production stores tùy ý.</p>
+<hr>
+<h1 id="99-multi-region-theo-market">99. Multi-Region theo Market</h1>
+<p>Food delivery có locality rất cao.</p>
+<p>Một order ở Bangkok không phụ thuộc realtime vào courier ở Paris.</p>
+<p>Partition tự nhiên:</p>
+<pre class="hljs"><code><div>marketId hoặc cityId
+</div></code></pre>
+<p>Mỗi market cell có:</p>
+<pre class="hljs"><code><div>- Restaurant catalog projection
+- Menu cache
+- Courier geo index
+- Dispatch
+- Order workflow
+- Local pricing
+</div></code></pre>
+<hr>
+<h1 id="100-cell-based-architecture">100. Cell-Based Architecture</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Global[Global Identity / Payments / Configuration]
+
+    Router --> MarketA[Market Cell A]
+    Router --> MarketB[Market Cell B]
+    Router --> MarketC[Market Cell C]
+
+    MarketA --> OrdersA[(Orders A)]
+    MarketA --> GeoA[(Courier Geo A)]
+    MarketA --> DispatchA
+    MarketA --> MenusA[(Menu Cache A)]
+
+    MarketB --> OrdersB[(Orders B)]
+    MarketB --> GeoB[(Courier Geo B)]
+    MarketB --> DispatchB
+    MarketB --> MenusB[(Menu Cache B)]
+</div></code></pre>
+<p>Failure của một market không nên làm mọi quốc gia ngừng hoạt động.</p>
+<hr>
+<h1 id="101-order-home-region">101. Order Home Region</h1>
+<p>Order thường thuộc market của restaurant.</p>
+<pre class="hljs"><code><div>restaurantId
+→ marketId
+→ homeRegion
+</div></code></pre>
+<p>Order write owner giữ ổn định trong toàn lifecycle.</p>
+<p>Không nên di chuyển order owner chỉ vì customer đi sang region khác sau khi đặt.</p>
+<hr>
+<h1 id="102-global-và-regional-services">102. Global và Regional Services</h1>
+<h2 id="regional">Regional</h2>
+<pre class="hljs"><code><div>- Discovery
+- Menu cache
+- Order workflow
+- Courier location
+- Dispatch
+- ETA
+- Local promotions
+</div></code></pre>
+<h2 id="global">Global</h2>
+<pre class="hljs"><code><div>- Identity
+- Payment provider routing
+- Global fraud signals
+- Configuration
+- Aggregated analytics
+</div></code></pre>
+<p>Global service không nên nằm trong critical path nếu có thể cache/localize.</p>
+<hr>
+<h1 id="103-menu-multi-region">103. Menu Multi-Region</h1>
+<p>Restaurant menu authoritative ở home market.</p>
+<p>Có thể replicate:</p>
+<pre class="hljs"><code><div>- Public menu snapshots
+- Search indexes
+- Images
+</div></code></pre>
+<p>toàn cầu hoặc theo region.</p>
+<p>Nhưng active checkout nên route về restaurant market để có availability mới nhất.</p>
+<hr>
+<h1 id="104-data-residency">104. Data Residency</h1>
+<p>Cần xét:</p>
+<pre class="hljs"><code><div>- Customer address
+- Courier location
+- Order history
+- Payment metadata
+- Delivery photo
+- Support logs
+- Restaurant settlement
+</div></code></pre>
+<p>Raw location và address có thể phải ở lại region.</p>
+<p>Chỉ export aggregate hoặc pseudonymized analytics nếu policy cho phép.</p>
+<hr>
+<h1 id="105-regional-failover">105. Regional Failover</h1>
+<p>Nếu market home region lỗi:</p>
+<pre class="hljs"><code><div>1. Chuyển traffic sang DR region.
+2. Promote order store replica.
+3. Tăng market owner epoch.
+4. Fence writer cũ.
+5. Rebuild courier geo index.
+6. Restore durable timers.
+7. Resume active orders trước new orders.
+</div></code></pre>
+<hr>
+<h1 id="106-những-dữ-liệu-nào-phải-replicate-bền-vững">106. Những dữ liệu nào phải replicate bền vững?</h1>
+<p>Ưu tiên:</p>
+<pre class="hljs"><code><div>- Order state
+- Payment state
+- Restaurant acceptance
+- Courier assignment
+- Inventory reservation
+- Durable timers
+- Ledger
+</div></code></pre>
+<p>Có thể rebuild:</p>
+<pre class="hljs"><code><div>- Search index
+- Menu cache
+- Courier geo index
+- Discovery ranking cache
+</div></code></pre>
+<hr>
+<h1 id="107-rebuild-courier-geo-index">107. Rebuild Courier Geo Index</h1>
+<p>Nguồn:</p>
+<pre class="hljs"><code><div>- Latest courier state snapshot
+- Recent location stream
+- Fresh updates từ apps
+</div></code></pre>
+<p>Sau failover:</p>
+<pre class="hljs"><code><div>- Load couriers đang active
+- Replay recent positions
+- Expire stale entries
+- Bật dispatch khi freshness đạt threshold
+</div></code></pre>
+<hr>
+<h1 id="108-durable-timers">108. Durable Timers</h1>
+<p>Food delivery có nhiều timer:</p>
+<pre class="hljs"><code><div>- Quote expiry
+- Payment authorization timeout
+- Restaurant acceptance timeout
+- Planned courier dispatch time
+- Courier offer expiry
+- Inventory reservation expiry
+- Cancellation deadline
+</div></code></pre>
+<p>Không được giữ timer chỉ trong memory của một service instance.</p>
+<hr>
+<h1 id="109-timer-state-machine">109. Timer State Machine</h1>
+<p>Ví dụ restaurant timeout:</p>
+<pre class="hljs"><code><div>PENDING
+→ CLAIMED
+→ FIRED
+</div></code></pre>
+<p>Timer worker dùng lease hoặc compare-and-set.</p>
+<p>Event có thể được phát hai lần, nên consumer vẫn phải idempotent.</p>
+<hr>
+<h1 id="110-failure-mode--menu-cache-stale">110. Failure Mode — Menu Cache Stale</h1>
+<p>Customer thấy món available nhưng restaurant vừa sold out.</p>
+<p>Checkout revalidation phát hiện.</p>
+<p>Response nên:</p>
+<pre class="hljs"><code><div>- Nêu item không còn available
+- Loại hoặc đề xuất thay thế
+- Tạo quote mới
+</div></code></pre>
+<p>Không nên âm thầm đặt món khác.</p>
+<hr>
+<h1 id="111-failure-mode--inventory-service-down">111. Failure Mode — Inventory Service Down</h1>
+<p>Policy tùy loại item.</p>
+<h2 id="exact-limited-inventory">Exact limited inventory</h2>
+<pre class="hljs"><code><div>Fail closed:
+Không cho checkout.
+</div></code></pre>
+<h2 id="flexible-restaurant-item">Flexible restaurant item</h2>
+<pre class="hljs"><code><div>Có thể cho order tiếp tục
+và để restaurant xác nhận.
+</div></code></pre>
+<p>Không nên dùng một policy chung.</p>
+<hr>
+<h1 id="112-failure-mode--restaurant-app-offline">112. Failure Mode — Restaurant App Offline</h1>
+<pre class="hljs"><code><div>- Retry order delivery
+- Push/phone/POS fallback
+- Acceptance timeout
+- Có thể tạm pause restaurant khỏi discovery
+</div></code></pre>
+<p>Nếu nhiều orders liên tiếp timeout:</p>
+<pre class="hljs"><code><div>Restaurant health state → PAUSED
+</div></code></pre>
+<hr>
+<h1 id="113-failure-mode--payment-provider-down">113. Failure Mode — Payment Provider Down</h1>
+<p>Có thể:</p>
+<pre class="hljs"><code><div>- Retry provider
+- Route provider khác
+- Cho cash-on-delivery nếu market hỗ trợ
+- Chặn new orders với high-risk customer
+</div></code></pre>
+<p>Order chưa nên gửi nhà hàng nếu chưa đạt payment policy cần thiết.</p>
+<hr>
+<h1 id="114-failure-mode--dispatch-down">114. Failure Mode — Dispatch Down</h1>
+<p>Restaurant vẫn có thể chuẩn bị món nếu order accepted.</p>
+<p>Nhưng có nguy cơ món sẵn sàng không có courier.</p>
+<p>Giải pháp:</p>
+<pre class="hljs"><code><div>- Durable dispatch jobs
+- Autoscaling
+- Backup dispatch workers
+- Escalation khi ETA risk tăng
+</div></code></pre>
+<p>Ở supply cực thấp, có thể delay restaurant acceptance hoặc quote ETA cao hơn.</p>
+<hr>
+<h1 id="115-failure-mode--courier-mất-mạng">115. Failure Mode — Courier mất mạng</h1>
+<p>Trước pickup:</p>
+<pre class="hljs"><code><div>Offer/assignment có thể timeout
+→ Re-dispatch.
+</div></code></pre>
+<p>Sau pickup:</p>
+<pre class="hljs"><code><div>- Courier app lưu route và events local
+- Upload khi reconnect
+- Customer thấy location stale
+- Safety/support được alert nếu quá lâu
+</div></code></pre>
+<p>Không tự hủy order ngay sau một vài giây mất mạng.</p>
+<hr>
+<h1 id="116-failure-mode--eta-service-down">116. Failure Mode — ETA Service Down</h1>
+<p>Fallback:</p>
+<pre class="hljs"><code><div>- Historical prep median
+- Cell-to-cell travel time
+- Conservative ETA range
+</div></code></pre>
+<p>Discovery có thể giảm personalization và sort theo distance/rating.</p>
+<p>Order flow vẫn hoạt động.</p>
+<hr>
+<h1 id="117-failure-mode--event-stream-down">117. Failure Mode — Event Stream Down</h1>
+<p>Nếu dùng transactional outbox:</p>
+<pre class="hljs"><code><div>Order state vẫn commit.
+Events bị trễ.
+Outbox publisher retry.
+</div></code></pre>
+<p>Customer response không nên phụ thuộc analytics hoặc notification event đã hoàn thành.</p>
+<hr>
+<h1 id="118-failure-mode--notification-down">118. Failure Mode — Notification Down</h1>
+<p>Order vẫn tồn tại.</p>
+<p>Customer hoặc restaurant app có thể poll/fetch authoritative state.</p>
+<p>Notification system retry riêng.</p>
+<p>Không rollback restaurant acceptance hoặc courier assignment vì push lỗi.</p>
+<hr>
+<h1 id="119-failure-mode--promotion-service-down">119. Failure Mode — Promotion Service Down</h1>
+<p>Các lựa chọn:</p>
+<pre class="hljs"><code><div>- Dùng quote đã tạo còn hiệu lực
+- Không áp promotion mới
+- Dùng cached promotion rules
+</div></code></pre>
+<p>Không được tính discount ngẫu nhiên khác nhau giữa quote và checkout.</p>
+<hr>
+<h1 id="120-reconciliation">120. Reconciliation</h1>
+<p>Periodic workflows kiểm tra:</p>
+<pre class="hljs"><code><div>- Inventory RESERVED nhưng order không tồn tại
+- Order accepted nhưng không có dispatch timer
+- Courier assigned nhưng order delivery state UNASSIGNED
+- Delivered nhưng payment chưa capture
+- Refund thành công nhưng ledger thiếu
+- Restaurant order READY quá lâu không pickup
+- Courier reservation đã hết hạn nhưng chưa release
+</div></code></pre>
+<p>Reconciliation là phần bắt buộc của distributed workflow.</p>
+<hr>
+<h1 id="121-observability--discovery">121. Observability — Discovery</h1>
+<pre class="hljs"><code><div>- Discovery QPS
+- Search latency
+- Empty-result rate
+- Restaurant availability filter rate
+- Menu click-through
+- Estimated ETA distribution
+- Cache hit rate
+</div></code></pre>
+<p>Theo:</p>
+<pre class="hljs"><code><div>market
+geo cell
+cuisine
+time of day
+</div></code></pre>
+<hr>
+<h1 id="122-observability--menu-và-checkout">122. Observability — Menu và Checkout</h1>
+<pre class="hljs"><code><div>- Menu cache hit
+- Item-unavailable rate
+- Quote latency
+- Quote expiry
+- Price-change-at-checkout rate
+- Inventory reservation conflicts
+- Promotion rejection rate
+</div></code></pre>
+<p>Price-change-at-checkout cao có thể chỉ ra cache hoặc menu update pipeline có vấn đề.</p>
+<hr>
+<h1 id="123-observability--restaurant">123. Observability — Restaurant</h1>
+<pre class="hljs"><code><div>- Acceptance rate
+- Acceptance latency
+- Rejection reasons
+- Prep-time prediction error
+- Ready-time accuracy
+- Restaurant timeout rate
+- Courier waiting time
+</div></code></pre>
+<hr>
+<h1 id="124-observability--dispatch">124. Observability — Dispatch</h1>
+<pre class="hljs"><code><div>- Time to dispatch
+- Time to courier acceptance
+- Candidate count
+- Offer acceptance rate
+- Assignment conflict rate
+- Re-dispatch rate
+- No-courier-found rate
+- Batch rate
+</div></code></pre>
+<hr>
+<h1 id="125-observability--delivery">125. Observability — Delivery</h1>
+<pre class="hljs"><code><div>- Pickup delay
+- Restaurant wait time
+- Delivery travel time
+- ETA error
+- Late delivery rate
+- Failed delivery
+- Courier cancellation
+</div></code></pre>
+<hr>
+<h1 id="126-observability--payment">126. Observability — Payment</h1>
+<pre class="hljs"><code><div>- Authorization success
+- Capture success
+- Void success
+- Refund latency
+- Duplicate charge
+- Ledger mismatch
+- Settlement delay
+</div></code></pre>
+<hr>
+<h1 id="127-end-to-end-metrics">127. End-to-End Metrics</h1>
+<p>Một số metrics quan trọng:</p>
+<pre class="hljs"><code><div>Order placement success
+Restaurant acceptance time
+Time to courier assignment
+Time to food ready
+Courier wait time
+Total delivery time
+On-time delivery rate
+Cancellation rate
+Refund rate
+</div></code></pre>
+<p>Không chỉ đo API latency.</p>
+<hr>
+<h1 id="128-slos-minh-họa">128. SLOs minh họa</h1>
+<pre class="hljs"><code><div>Discovery API:
+p99 dưới 200 ms.
+
+Menu API:
+p99 dưới 150 ms.
+
+Order creation:
+99,9% dưới 2 giây, không tính user payment challenge.
+
+Restaurant delivery:
+99% order tới thiết bị nhà hàng dưới 2 giây.
+
+Courier dispatch:
+99% bắt đầu trong 1 giây sau trigger.
+
+Tracking freshness:
+99% courier location dưới 10 giây.
+
+Payment:
+Không duplicate capture theo idempotency invariant.
+</div></code></pre>
+<hr>
+<h1 id="129-thiết-kế-khuyến-nghị">129. Thiết kế Khuyến nghị</h1>
+<p>Một thiết kế cân bằng:</p>
+<pre class="hljs"><code><div>1. Discovery dùng geo/search index và cache mạnh.
+2. Menu được version hóa và cache dưới dạng immutable snapshots.
+3. Checkout luôn revalidate menu, availability và quote.
+4. Order creation dùng idempotency key.
+5. Payment authorization, inventory và promotion dùng Saga.
+6. Order lifecycle được biểu diễn bằng nhiều state machines.
+7. Restaurant acceptance có durable timeout.
+8. Courier dispatch được lên lịch dựa trên predicted preparation time.
+9. Geo discovery và conditional courier reservation ngăn double assignment.
+10. Tracking, payment, notification và settlement dùng event-driven workflows.
+</div></code></pre>
+<hr>
+<h1 id="130-trade-off--inventory-chính-xác-hay-restaurant-confirmation">130. Trade-Off — Inventory chính xác hay Restaurant Confirmation?</h1>
+<h2 id="exact-reservation">Exact reservation</h2>
+<pre class="hljs"><code><div>Ưu:
+Giảm sold-out sau checkout.
+
+Nhược:
+Complexity và coordination cao.
+</div></code></pre>
+<h2 id="restaurant-confirms-availability">Restaurant confirms availability</h2>
+<pre class="hljs"><code><div>Ưu:
+Đơn giản cho món linh hoạt.
+
+Nhược:
+Customer có thể bị từ chối sau payment authorization.
+</div></code></pre>
+<p>Dùng hybrid theo loại item.</p>
+<hr>
+<h1 id="131-trade-off--dispatch-sớm-hay-muộn">131. Trade-Off — Dispatch sớm hay muộn?</h1>
+<h2 id="dispatch-sớm">Dispatch sớm</h2>
+<pre class="hljs"><code><div>- Dễ có courier
+- Courier chờ lâu
+- Chi phí tăng
+</div></code></pre>
+<h2 id="dispatch-muộn">Dispatch muộn</h2>
+<pre class="hljs"><code><div>- Ít chờ
+- Nguy cơ giao muộn
+</div></code></pre>
+<p>Nên tính:</p>
+<pre class="hljs"><code><div>predictedPrep - predictedCourierTravel - buffer
+</div></code></pre>
+<p>và điều chỉnh theo supply.</p>
+<hr>
+<h1 id="132-trade-off--capture-sớm-hay-muộn">132. Trade-Off — Capture sớm hay muộn?</h1>
+<h2 id="capture-sau-restaurant-acceptance">Capture sau restaurant acceptance</h2>
+<pre class="hljs"><code><div>- Revenue chắc hơn
+- Có thể refund nếu giao thất bại
+</div></code></pre>
+<h2 id="capture-khi-delivered-1">Capture khi delivered</h2>
+<pre class="hljs"><code><div>- Ít refund
+- Authorization có thể hết hạn
+- Financial completion chậm
+</div></code></pre>
+<p>Policy phụ thuộc market và payment rail.</p>
+<hr>
+<h1 id="133-trade-off--batching-hay-single-order">133. Trade-Off — Batching hay Single Order?</h1>
+<h2 id="batching">Batching</h2>
+<pre class="hljs"><code><div>- Hiệu quả vận hành
+- Chi phí thấp
+- ETA và food quality khó hơn
+</div></code></pre>
+<h2 id="single-order">Single order</h2>
+<pre class="hljs"><code><div>- Nhanh và dễ dự đoán
+- Courier utilization thấp hơn
+</div></code></pre>
+<p>Batch chỉ nên dùng khi detour và lateness nằm trong giới hạn.</p>
+<hr>
+<h1 id="134-trade-off--menu-cache-dài-hay-fresh">134. Trade-Off — Menu Cache dài hay Fresh?</h1>
+<p>TTL dài:</p>
+<pre class="hljs"><code><div>- Hit ratio cao
+- Sold-out/price stale
+</div></code></pre>
+<p>TTL ngắn:</p>
+<pre class="hljs"><code><div>- Fresh hơn
+- Tải Menu Service cao
+</div></code></pre>
+<p>Versioned invalidation và checkout revalidation là giải pháp cân bằng.</p>
+<hr>
+<h1 id="135-trade-off--một-state-machine-hay-nhiều-state">135. Trade-Off — Một State Machine hay nhiều State?</h1>
+<p>Một state:</p>
+<pre class="hljs"><code><div>- Dễ hiểu lúc đầu
+- Explosion trạng thái về sau
+</div></code></pre>
+<p>Nhiều state dimensions:</p>
+<pre class="hljs"><code><div>- Biểu diễn chính xác hơn
+- Cần orchestration và invariants rõ
+</div></code></pre>
+<p>Food Delivery phù hợp với composite state:</p>
+<pre class="hljs"><code><div>commerce + restaurant + delivery + payment
+</div></code></pre>
+<hr>
+<h1 id="136-cách-trình-bày-trong-phỏng-vấn">136. Cách trình bày trong Phỏng vấn</h1>
+<p>Có thể mở đầu:</p>
+<blockquote>
+<p>Tôi chia hệ thống thành discovery, ordering và fulfillment. Discovery là read-heavy và eventual consistent; ordering cần idempotency, quote snapshot và payment correctness; fulfillment xử lý restaurant preparation, courier location và dispatch realtime.</p>
+</blockquote>
+<p>Về menu:</p>
+<blockquote>
+<p>Menu được version hóa và cache như immutable documents. Cart chỉ giữ item IDs, modifiers và version. Khi checkout, hệ thống luôn revalidate active menu, modifier constraints, price và availability; client không bao giờ là source of truth cho giá.</p>
+</blockquote>
+<p>Về order:</p>
+<blockquote>
+<p>Order creation dùng idempotency key và Saga. Tôi authorize payment, reserve các item giới hạn và consume quote trước khi gửi order tới restaurant. Order không dùng một trạng thái duy nhất mà tách restaurant, delivery và payment states.</p>
+</blockquote>
+<p>Về courier:</p>
+<blockquote>
+<p>Courier dispatch không bắt đầu cố định ngay sau checkout. Hệ thống dự đoán food-ready time và courier-to-restaurant ETA để lên lịch dispatch sao cho courier tới gần lúc món sẵn sàng. Assignment dùng short lease và conditional writes để tránh double assignment.</p>
+</blockquote>
+<hr>
+<h1 id="137-framework-45-phút">137. Framework 45 phút</h1>
+<h2 id="phút-05-requirements">Phút 0–5: Requirements</h2>
+<pre class="hljs"><code><div>- Discovery
+- Menu
+- Order
+- Restaurant acceptance
+- Courier delivery
+- Payment
+</div></code></pre>
+<h2 id="phút-510-estimation">Phút 5–10: Estimation</h2>
+<pre class="hljs"><code><div>- Orders/day
+- Discovery QPS
+- Restaurants
+- Online couriers
+- Location QPS
+</div></code></pre>
+<h2 id="phút-1020-core-architecture">Phút 10–20: Core Architecture</h2>
+<pre class="hljs"><code><div>Discovery
+→ Menu
+→ Quote
+→ Order
+→ Restaurant
+→ Dispatch
+</div></code></pre>
+<h2 id="phút-2030-deep-dive">Phút 20–30: Deep Dive</h2>
+<pre class="hljs"><code><div>- Menu version
+- Inventory
+- Idempotent checkout
+- Order state machine
+- Payment
+</div></code></pre>
+<h2 id="phút-3040-fulfillment">Phút 30–40: Fulfillment</h2>
+<pre class="hljs"><code><div>- Prep prediction
+- Courier dispatch
+- Batching
+- ETA
+- Tracking
+</div></code></pre>
+<h2 id="phút-4045-reliability">Phút 40–45: Reliability</h2>
+<pre class="hljs"><code><div>- Cancellation
+- Refund
+- Multi-region
+- Failure fallbacks
+</div></code></pre>
+<hr>
+<h1 id="138-những-sai-lầm-phổ-biến">138. Những Sai lầm Phổ biến</h1>
+<h2 id="lỗi-1-tin-giá-từ-client">Lỗi 1: Tin giá từ Client</h2>
+<p>Client có thể gửi giá cũ hoặc bị sửa.</p>
+<h2 id="lỗi-2-không-version-hóa-menu">Lỗi 2: Không Version hóa Menu</h2>
+<p>Cart không biết menu đã thay đổi.</p>
+<h2 id="lỗi-3-cache-menu-nhưng-không-revalidate-checkout">Lỗi 3: Cache Menu nhưng không Revalidate Checkout</h2>
+<p>Customer đặt món đã sold out hoặc sai giá.</p>
+<h2 id="lỗi-4-một-inventory-model-cho-mọi-món">Lỗi 4: Một Inventory Model cho mọi Món</h2>
+<p>Coordination không cần thiết hoặc correctness không đủ.</p>
+<h2 id="lỗi-5-không-có-idempotency-cho-order">Lỗi 5: Không có Idempotency cho Order</h2>
+<p>Client retry tạo hai orders.</p>
+<h2 id="lỗi-6-không-có-quote-snapshot">Lỗi 6: Không có Quote Snapshot</h2>
+<p>Checkout và receipt không audit được.</p>
+<h2 id="lỗi-7-payment-capture-không-idempotent">Lỗi 7: Payment Capture không Idempotent</h2>
+<p>Retry có thể charge hai lần.</p>
+<h2 id="lỗi-8-capture-và-restaurant-acceptance-gộp-cứng">Lỗi 8: Capture và Restaurant Acceptance gộp cứng</h2>
+<p>Khó xử lý rejection và void.</p>
+<h2 id="lỗi-9-chỉ-có-một-order-status">Lỗi 9: Chỉ có một Order Status</h2>
+<p>Không biểu diễn được restaurant, delivery và payment độc lập.</p>
+<h2 id="lỗi-10-restaurant-notification-là-source-of-truth">Lỗi 10: Restaurant Notification là Source of Truth</h2>
+<p>Push có thể đến trễ hoặc mất.</p>
+<h2 id="lỗi-11-timer-chỉ-nằm-trong-memory">Lỗi 11: Timer chỉ nằm trong Memory</h2>
+<p>Restart làm mất restaurant timeout hoặc dispatch schedule.</p>
+<h2 id="lỗi-12-dispatch-courier-ngay-lập-tức-cho-mọi-order">Lỗi 12: Dispatch Courier ngay lập tức cho mọi Order</h2>
+<p>Courier chờ lâu tại restaurant.</p>
+<h2 id="lỗi-13-dispatch-quá-muộn">Lỗi 13: Dispatch quá muộn</h2>
+<p>Món đã sẵn sàng nhưng chưa có courier.</p>
+<h2 id="lỗi-14-chọn-courier-chỉ-theo-khoảng-cách">Lỗi 14: Chọn Courier chỉ theo khoảng cách</h2>
+<p>Không xét route, capacity và batch.</p>
+<h2 id="lỗi-15-không-conditional-reserve-courier">Lỗi 15: Không Conditional Reserve Courier</h2>
+<p>Courier bị double-assigned.</p>
+<h2 id="lỗi-16-batching-không-xét-prep-time">Lỗi 16: Batching không xét Prep Time</h2>
+<p>Một restaurant chậm làm hỏng toàn batch.</p>
+<h2 id="lỗi-17-eta-chỉ-gồm-travel-time">Lỗi 17: ETA chỉ gồm Travel Time</h2>
+<p>Bỏ preparation và assignment delay.</p>
+<h2 id="lỗi-18-tracking-projection-là-source-of-truth">Lỗi 18: Tracking Projection là Source of Truth</h2>
+<p>Projection có thể stale.</p>
+<h2 id="lỗi-19-hủy-order-chỉ-bằng-một-boolean">Lỗi 19: Hủy Order chỉ bằng một Boolean</h2>
+<p>Không tính compensation và refund stage.</p>
+<h2 id="lỗi-20-refund-bằng-cách-sửa-transaction-cũ">Lỗi 20: Refund bằng cách sửa Transaction cũ</h2>
+<p>Mất audit trail.</p>
+<h2 id="lỗi-21-notification-lỗi-làm-rollback-order">Lỗi 21: Notification lỗi làm rollback Order</h2>
+<p>Notification chỉ là side effect.</p>
+<h2 id="lỗi-22-geo-index-toàn-cầu">Lỗi 22: Geo Index toàn cầu</h2>
+<p>Không phù hợp locality theo market.</p>
+<h2 id="lỗi-23-multi-region-cùng-write-một-order">Lỗi 23: Multi-Region cùng Write một Order</h2>
+<p>Tạo split-brain state.</p>
+<h2 id="lỗi-24-không-reconcile-reservations-mắc-kẹt">Lỗi 24: Không Reconcile Reservations mắc kẹt</h2>
+<p>Inventory, coupon hoặc courier bị khóa mãi.</p>
+<h2 id="lỗi-25-chỉ-đo-api-latency">Lỗi 25: Chỉ đo API Latency</h2>
+<p>Không thấy restaurant wait, dispatch delay và late delivery.</p>
+<hr>
+<h1 id="139-bảng-ghi-nhớ-nhanh">139. Bảng Ghi nhớ Nhanh</h1>
+<table>
+<thead>
+<tr>
+<th>Thành phần</th>
+<th>Vai trò</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Discovery Service</td>
+<td>Tìm và xếp hạng nhà hàng</td>
+</tr>
+<tr>
+<td>Restaurant Search Index</td>
+<td>Projection cho search</td>
+</tr>
+<tr>
+<td>Menu Service</td>
+<td>Menu authoritative</td>
+</tr>
+<tr>
+<td>Menu Version</td>
+<td>Phát hiện menu thay đổi</td>
+</tr>
+<tr>
+<td>Availability Store</td>
+<td>Món còn bán hay không</td>
+</tr>
+<tr>
+<td>Inventory Reservation</td>
+<td>Giữ món giới hạn</td>
+</tr>
+<tr>
+<td>Cart</td>
+<td>Ý định mua, không phải giá authoritative</td>
+</tr>
+<tr>
+<td>Quote Service</td>
+<td>Snapshot giá và phí</td>
+</tr>
+<tr>
+<td>Promotion Service</td>
+<td>Voucher và budget</td>
+</tr>
+<tr>
+<td>Order Service</td>
+<td>Source of truth của order</td>
+</tr>
+<tr>
+<td>Order Workflow</td>
+<td>Saga và timers</td>
+</tr>
+<tr>
+<td>Restaurant Gateway</td>
+<td>Gửi đơn tới nhà hàng</td>
+</tr>
+<tr>
+<td>Prep-Time Model</td>
+<td>Dự đoán thời gian chế biến</td>
+</tr>
+<tr>
+<td>Courier Geo Index</td>
+<td>Tìm courier gần restaurant</td>
+</tr>
+<tr>
+<td>Dispatch Service</td>
+<td>Reserve và assign courier</td>
+</tr>
+<tr>
+<td>Delivery Plan</td>
+<td>Route một hoặc nhiều orders</td>
+</tr>
+<tr>
+<td>ETA Service</td>
+<td>Dự đoán từng giai đoạn</td>
+</tr>
+<tr>
+<td>Tracking Projection</td>
+<td>Read model cho customer</td>
+</tr>
+<tr>
+<td>Payment Ledger</td>
+<td>Source of truth tài chính</td>
+</tr>
+<tr>
+<td>Market Cell</td>
+<td>Đơn vị deployment theo thành phố</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="140-sơ-đồ-tổng-hợp">140. Sơ đồ Tổng hợp</h1>
+<pre><code class="language-mermaid"><div class="mermaid">flowchart TD
+    Customer --> Discovery
+    Discovery --> RestaurantIndex[(Restaurant Index)]
+    Discovery --> ETA
+
+    Customer --> MenuService
+    MenuService --> MenuCache[(Versioned Menu Cache)]
+    MenuService --> Availability[(Availability Store)]
+
+    Customer --> QuoteService
+    QuoteService --> MenuService
+    QuoteService --> Promotion
+    QuoteService --> FeePricing
+
+    Customer --> OrderService
+    OrderService --> OrderStore[(Order Store)]
+    OrderService --> Inventory
+    OrderService --> Payment
+    OrderService --> Outbox[(Outbox)]
+
+    Outbox --> EventStream
+
+    EventStream --> RestaurantWorkflow
+    RestaurantWorkflow --> RestaurantApp
+
+    RestaurantWorkflow --> DispatchScheduler
+    DispatchScheduler --> DispatchService
+
+    CourierApp --> LocationGateway
+    LocationGateway --> LocationStream
+    LocationStream --> CourierGeo[(Courier Geo Index)]
+
+    DispatchService --> CourierGeo
+    DispatchService --> CourierState
+    DispatchService --> CourierApp
+
+    CourierApp --> TrackingService
+    TrackingService --> Customer
+
+    EventStream --> Notification
+    EventStream --> Analytics
+    EventStream --> Ledger
+    EventStream --> Support
+</div></code></pre>
+<hr>
+<h1 id="141-những-điều-phải-nhớ-sau-bài-29">141. Những Điều Phải Nhớ sau Bài 29</h1>
+<pre class="hljs"><code><div>1. Food Delivery có discovery, ordering và fulfillment planes.
+2. Discovery là read-heavy và cache-heavy.
+3. Ordering cần idempotency và durable workflow.
+4. Fulfillment cần realtime restaurant/courier state.
+5. Search index không phải source of truth cho restaurant availability.
+6. Discovery ranking cần cả ETA và restaurant quality.
+7. Menu là cấu trúc variants/modifiers, không chỉ item-price.
+8. Menu phải được version hóa.
+9. Cart không phải source of truth cho giá.
+10. Checkout phải revalidate menu và availability.
+11. Boolean availability và counted inventory là hai mô hình khác nhau.
+12. Limited inventory cần reservation.
+13. Reservations cần TTL và reconciliation.
+14. Quote phải có ID, snapshot và expiration.
+15. Client không được tự tính total authoritative.
+16. Promotion budget cũng có thể cần reservation.
+17. Order placement phải idempotent.
+18. Một quote thường chỉ được consume bởi một order.
+19. Order creation thường là Saga.
+20. Payment authorize-before-acceptance là trade-off phổ biến.
+21. Capture time phụ thuộc market và payment rail.
+22. Restaurant app notification không phải source of truth.
+23. Restaurant acceptance cần timeout durable.
+24. Rejection phải release payment, inventory và promotion.
+25. Partial item removal có thể làm promotion thay đổi.
+26. Prep time phải được dự đoán theo item và kitchen load.
+27. Dispatch không nên luôn bắt đầu ngay lập tức.
+28. Courier arrival nên gần food-ready time.
+29. Dispatch timer phải durable.
+30. Courier discovery dùng regional geo index.
+31. Courier assignment cần short lease và conditional write.
+32. Courier acceptance có thể race giữa nhiều offers.
+33. Batching tăng efficiency nhưng làm ETA khó hơn.
+34. Same-restaurant batching đơn giản nhất.
+35. Batch phải xét food quality và prep-time alignment.
+36. Delivery plan cần version để replan.
+37. ETA gồm preparation, assignment, pickup và travel.
+38. ETA nên cập nhật theo từng giai đoạn.
+39. Tracking projection không phải source of truth.
+40. Pickup/delivery confirmation cần geofence hoặc proof.
+41. Cancellation policy phụ thuộc lifecycle stage.
+42. Cancellation phải tính restaurant/courier compensation.
+43. Authorization có thể void; captured payment cần refund.
+44. Refund phải idempotent.
+45. Partial refund nên tạo ledger adjustment.
+46. Ledger quan trọng hơn payment status field.
+47. Restaurant và courier settlement là batch workflows.
+48. Courier waiting time là metric vận hành quan trọng.
+49. Customer address và courier location là dữ liệu nhạy cảm.
+50. Food Delivery nên partition theo market/city.
+51. Mỗi order cần một owner region.
+52. Toàn hệ thống có thể active–active theo market.
+53. Không cần replicate synchronous mọi courier location.
+54. Order, assignment và ledger cần replication mạnh hơn caches.
+55. Geo index và search index có thể rebuild.
+56. Durable timers phải được restore sau failover.
+57. Owner epoch và fencing ngăn multi-region split-brain.
+58. Payment, notification và analytics cần failure isolation.
+59. Reconciliation sửa các Saga bị kẹt.
+60. Kiến trúc tốt phải tối ưu cùng lúc food quality, ETA, cost và correctness.
+</div></code></pre>
+<hr>
+<h1 id="142-bài-tập-thiết-kế-mở-rộng">142. Bài tập Thiết kế Mở rộng</h1>
+<p>Thiết kế Food Delivery System với yêu cầu:</p>
+<pre class="hljs"><code><div>- 200 triệu DAU
+- 50 triệu orders/ngày
+- 5 triệu restaurants
+- 10 triệu couriers
+- 2 triệu online couriers
+- Courier location mỗi 3 giây
+- Discovery p99 dưới 200 ms
+- Order placement dưới 2 giây
+- Có grocery và restaurant food
+- Courier batching tối đa 3 orders
+- Multi-region active–active
+- Không double-charge hoặc double-assign courier
+- Một số thị trường yêu cầu địa chỉ và location không rời khu vực
+</div></code></pre>
+<p>Hãy trả lời:</p>
+<pre class="hljs"><code><div>1. Discovery index được partition thế nào?
+2. Restaurant service area được biểu diễn ra sao?
+3. Menu documents được version hóa thế nào?
+4. Modifier constraints được validate ở đâu?
+5. Boolean availability và counted inventory dùng khi nào?
+6. Inventory reservation TTL bao lâu?
+7. Cart nằm client hay server?
+8. Quote chứa những field nào?
+9. Quote expiration bao lâu?
+10. Promotion budget tránh oversubscription thế nào?
+11. Order idempotency key được tạo ở đâu?
+12. Payment authorize trước hay sau restaurant acceptance?
+13. Order state được tách thành bao nhiêu dimensions?
+14. Restaurant timeout được lưu ở đâu?
+15. Partial item replacement workflow thế nào?
+16. Prep-time prediction dùng những features nào?
+17. Dispatch trigger được tính thế nào?
+18. Courier discovery candidate pool bao nhiêu?
+19. Courier reservation dùng store nào?
+20. Hai couriers cùng accept được xử lý ra sao?
+21. Batching window bao lâu?
+22. Batch feasibility được tính bằng heuristic nào?
+23. Restaurant chậm làm batch replan ra sao?
+24. ETA uncertainty được hiển thị thế nào?
+25. Pickup proof và delivery proof dùng gì?
+26. Customer cancellation fee được tính ở đâu?
+27. Restaurant/courier compensation được ghi vào ledger thế nào?
+28. Refund timeout và retry xử lý ra sao?
+29. Courier mất mạng sau pickup thì thế nào?
+30. Market home region được chọn ra sao?
+31. Failover restore durable timers thế nào?
+32. Geo index được rebuild thế nào?
+33. Owner cũ bị fence ở lớp nào?
+34. Data residency ảnh hưởng tracking và support ra sao?
+35. SLO nào quan trọng nhất ngoài API latency?
+</div></code></pre>
+<hr>
+<h1 id="kết-luận-case-study-8">Kết luận Case Study 8</h1>
+<p>Food Delivery System có thể được cô đọng thành:</p>
+<pre class="hljs"><code><div>Discover nhà hàng
+→ Validate menu và availability
+→ Tạo price quote
+→ Place order idempotently
+→ Authorize payment
+→ Restaurant accept và prepare
+→ Dispatch courier đúng thời điểm
+→ Pickup, track và deliver
+→ Capture, settle hoặc refund
+</div></code></pre>
+<p>Điểm cốt lõi:</p>
+<blockquote>
+<p><strong>Một hệ thống giao đồ ăn tốt không chỉ tìm courier gần nhất. Nó phải đồng bộ ba timeline độc lập — customer checkout, restaurant preparation và courier movement — sao cho món ăn được chuẩn bị đúng, courier tới đúng lúc, giá không thay đổi bất ngờ và mọi failure đều có compensation workflow rõ ràng.</strong></p>
+</blockquote>
+<p><strong>Bài tiếp theo phù hợp: Bài 30 — Case Study 9: Thiết kế Payment System và Digital Wallet — payment intent, authorization, capture, ledger, double-entry accounting, idempotency, webhook, refund, chargeback, reconciliation, wallet balance và multi-region.</strong></p>
+
+</body>
+</html>

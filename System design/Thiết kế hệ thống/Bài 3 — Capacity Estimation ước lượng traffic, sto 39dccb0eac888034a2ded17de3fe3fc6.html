@@ -1,0 +1,1127 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Bài 3 — Capacity Estimation: ước lượng traffic, storage, bandwidth, QPS để thiết kế có cơ sở</title><style>
+/* cspell:disable-file */
+/* webkit printing magic: print all background colors */
+html {
+	-webkit-print-color-adjust: exact;
+}
+* {
+	box-sizing: border-box;
+	-webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+@media only screen {
+	body {
+		margin: 2em auto;
+		max-width: 900px;
+		color: rgb(55, 53, 47);
+	}
+}
+
+body {
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+a,
+a.visited {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.pdf-relative-link-path {
+	font-size: 80%;
+	color: #444;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	font-weight: 600;
+	margin-bottom: 0;
+}
+
+/* Override strong tags inside headings to maintain consistent weight */
+h1 strong,
+h2 strong,
+h3 strong {
+	font-weight: 600;
+}
+
+.page-title {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-top: 0;
+	margin-bottom: 0.75em;
+}
+
+h1 {
+	font-size: 1.875rem;
+	margin-top: 1.875rem;
+}
+
+h2 {
+	font-size: 1.5rem;
+	margin-top: 1.5rem;
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-top: 1.25rem;
+}
+
+.source {
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	padding: 1.5em;
+	word-break: break-all;
+}
+
+.callout {
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+/* For default-background callouts, render the border outline. */
+.callout.block-color-default_background {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+figure,
+aside,
+details {
+	margin: 1.25em 0;
+	page-break-inside: avoid;
+}
+
+figcaption {
+	opacity: 0.5;
+	font-size: 85%;
+	margin-top: 0.5em;
+}
+
+mark {
+	background-color: transparent;
+}
+
+.indented {
+	padding-left: 1.5em;
+}
+
+hr {
+	background: transparent;
+	display: block;
+	width: 100%;
+	height: 1px;
+	visibility: visible;
+	border: none;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+img {
+	max-width: 100%;
+}
+
+@media only print {
+	img {
+		max-height: 100vh;
+		object-fit: contain;
+	}
+
+	table.collection-content {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	table.collection-content th,
+	table.collection-content td {
+		overflow-wrap: anywhere;
+	}
+
+	table.collection-content td > .user,
+	table.collection-content td > time {
+		white-space: pre-wrap;
+	}
+}
+
+@page {
+	margin: 1in;
+}
+
+.collection-content-wrapper {
+	overflow-x: auto;
+}
+
+@media only print {
+	.collection-content-wrapper {
+		overflow-x: visible;
+	}
+}
+
+.collection-content {
+	font-size: 0.875rem;
+}
+
+.collection-content td {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.column-list {
+	display: flex;
+	gap: 46px;
+}
+
+.column {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.column > *:first-child {
+	margin-top: 0;
+}
+
+.table_of_contents-item {
+	display: block;
+	font-size: 0.875rem;
+	line-height: 1.3;
+	padding-inline: 0.125rem;
+	padding-block: 0.375rem;
+}
+
+.table_of_contents-indent-1 {
+	margin-left: 1.5rem;
+}
+
+.table_of_contents-indent-2 {
+	margin-left: 3rem;
+}
+
+.table_of_contents-indent-3 {
+	margin-left: 4.5rem;
+}
+
+.table_of_contents-link {
+	text-decoration: none;
+	opacity: 0.7;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.18);
+}
+
+table,
+th,
+td {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+table {
+	border-collapse: collapse;
+	border-left: none;
+	border-right: none;
+}
+
+th,
+td {
+	font-weight: normal;
+	padding: 0.25em 0.5em;
+	line-height: 1.5;
+	min-height: 1.5em;
+	text-align: left;
+}
+
+th {
+	color: rgba(55, 53, 47, 0.6);
+}
+
+ol,
+ul {
+	margin: 0;
+	margin-block-start: 0.6em;
+	margin-block-end: 0.6em;
+}
+
+li > ol:first-child,
+li > ul:first-child {
+	margin-block-start: 0.6em;
+}
+
+ul > li {
+	list-style: disc;
+}
+
+ul.to-do-list {
+	padding-inline-start: 0;
+}
+
+ul.to-do-list > li {
+	list-style: none;
+}
+
+.to-do-children-checked {
+	text-decoration: line-through;
+	opacity: 0.375;
+}
+
+ul.toggle > li {
+	list-style: none;
+}
+
+ul {
+	padding-inline-start: 1.7em;
+}
+
+ul > li {
+	padding-left: 0.1em;
+}
+
+ol {
+	padding-inline-start: 1.6em;
+}
+
+ol.numbered-list.numbered-list-digits-2 {
+	padding-inline-start: 2em;
+}
+
+ol.numbered-list.numbered-list-digits-3plus {
+	padding-inline-start: 2.4em;
+}
+
+ol > li {
+	padding-left: 0.2em;
+}
+
+.mono ol {
+	padding-inline-start: 2em;
+}
+
+.mono ol > li {
+	text-indent: -0.4em;
+}
+
+.toggle {
+	padding-inline-start: 0em;
+	list-style-type: none;
+}
+
+/* Indent toggle children */
+.toggle > li > details {
+	padding-left: 1.7em;
+}
+
+.toggle > li > details > summary {
+	margin-left: -1.1em;
+}
+
+.selected-value {
+	display: inline-block;
+	padding: 0 0.5em;
+	background: rgba(206, 205, 202, 0.5);
+	border-radius: 3px;
+	margin-right: 0.5em;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	white-space: nowrap;
+}
+
+.collection-title {
+	display: inline-block;
+	margin-right: 1em;
+}
+
+.page-description {
+	margin-bottom: 2em;
+}
+
+.simple-table {
+	margin-top: 1em;
+	font-size: 0.875rem;
+	empty-cells: show;
+}
+.simple-table td {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table th {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table-header-color {
+	background: rgb(247, 246, 243);
+	color: black;
+}
+.simple-table-header {
+	font-weight: 500;
+}
+
+time {
+	opacity: 0.5;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 1.2em;
+	max-height: 1.2em;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	margin-right: 0.5em;
+}
+
+/*
+ * Render emoji icons using a ::before pseudo-element to keep the glyph
+ * out of the DOM textContent traversal. This avoids double-rendering icons
+ * in callouts and page titles.
+ * NOTE(slim/html-export-pseudo-icons): I can't tagref this because it will
+ * flag as a duplicate tag after codegen.
+ */
+.icon[data-emoji]::before {
+	content: attr(data-emoji);
+}
+
+img.icon {
+	border-radius: 3px;
+}
+
+.callout img.notion-static-icon {
+	width: 1em;
+	height: 1em;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.callout h1,
+.callout h2,
+.callout h3 {
+	margin: 0 0 0.6rem;
+}
+
+.user-icon {
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 100%;
+	margin-right: 0.5rem;
+}
+
+.user-icon-inner {
+	font-size: 0.8em;
+}
+
+.text-icon {
+	border: 1px solid #000;
+	text-align: center;
+}
+
+.page-cover-image {
+	display: block;
+	object-fit: cover;
+	width: 100%;
+	max-height: 30vh;
+}
+
+.page-header-icon {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+
+.page-header-icon-with-cover {
+	margin-top: -0.72em;
+	margin-left: 0.07em;
+}
+
+.page-header-icon img {
+	border-radius: 3px;
+}
+
+.link-to-page {
+	margin: 1em 0;
+	padding: 0;
+	border: none;
+	font-weight: 500;
+}
+
+p > .user {
+	opacity: 0.5;
+}
+
+td > .user,
+td > time {
+	white-space: nowrap;
+}
+
+input[type="checkbox"] {
+	margin-right: 0.4em;
+	vertical-align: middle;
+}
+
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.image {
+	border: none;
+	margin: 1.5em 0;
+	padding: 0;
+	border-radius: 0;
+	text-align: center;
+}
+
+.code,
+code {
+	background: rgba(135, 131, 120, 0.15);
+	border-radius: 3px;
+	padding: 0.2em 0.4em;
+	border-radius: 3px;
+	font-size: 85%;
+	tab-size: 2;
+}
+
+code {
+	color: #eb5757;
+}
+
+.code {
+	padding: 1.5em 1em;
+}
+
+.code-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.code > code {
+	background: none;
+	padding: 0;
+	font-size: 100%;
+	color: inherit;
+}
+
+blockquote {
+	font-size: 1em;
+	margin: 1em 0;
+	padding-left: 1em;
+	border-left: 3px solid rgb(55, 53, 47);
+}
+
+blockquote.quote-large {
+	font-size: 1.25em;
+}
+
+.bookmark {
+	text-decoration: none;
+	max-height: 8em;
+	padding: 0;
+	display: flex;
+	width: 100%;
+	align-items: stretch;
+}
+
+.bookmark-title {
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	height: 1.75em;
+	white-space: nowrap;
+}
+
+.bookmark-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.bookmark-info {
+	flex: 4 1 180px;
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.bookmark-image {
+	width: 33%;
+	flex: 1 1 180px;
+	display: block;
+	position: relative;
+	object-fit: cover;
+	border-radius: 1px;
+}
+
+.bookmark-description {
+	color: rgba(55, 53, 47, 0.6);
+	font-size: 0.75em;
+	overflow: hidden;
+	max-height: 4.5em;
+	word-break: break-word;
+}
+
+.bookmark-href {
+	font-size: 0.75em;
+	margin-top: 0.25em;
+}
+
+.tab {
+	margin: 1.25em 0;
+	padding-inline: 1rem;
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+.sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; }
+.code { font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace; }
+.serif { font-family: Lyon-Text, Georgia, ui-serif, serif; }
+.mono { font-family: iawriter-mono, Nitti, Menlo, Courier, monospace; }
+.pdf .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK JP'; }
+.pdf:lang(zh-CN) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK SC'; }
+.pdf:lang(zh-TW) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK TC'; }
+.pdf:lang(ko-KR) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK KR'; }
+.pdf .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.pdf .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK JP'; }
+.pdf:lang(zh-CN) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK SC'; }
+.pdf:lang(zh-TW) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK TC'; }
+.pdf:lang(ko-KR) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK KR'; }
+.pdf .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.highlight-default {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.highlight-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.highlight-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.highlight-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.highlight-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.highlight-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.highlight-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.highlight-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.highlight-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.highlight-default_background {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray_background {
+	background: rgba(42, 28, 0, 0.07);
+}
+.highlight-brown_background {
+	background: rgba(139, 46, 0, 0.086);
+}
+.highlight-orange_background {
+	background: rgba(224, 101, 1, 0.129);
+}
+.highlight-yellow_background {
+	background: rgba(211, 168, 0, 0.137);
+}
+.highlight-teal_background {
+	background: rgba(0, 100, 45, 0.09);
+}
+.highlight-blue_background {
+	background: rgba(0, 124, 215, 0.094);
+}
+.highlight-purple_background {
+	background: rgba(102, 0, 178, 0.078);
+}
+.highlight-pink_background {
+	background: rgba(197, 0, 93, 0.086);
+}
+.highlight-red_background {
+	background: rgba(223, 22, 0, 0.094);
+}
+.block-color-default {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.block-color-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.block-color-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.block-color-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.block-color-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.block-color-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.block-color-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.block-color-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.block-color-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.block-color-default_background {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray_background {
+	background: rgba(240, 239, 237, 1);
+}
+.block-color-brown_background {
+	background: rgba(245, 237, 233, 1);
+}
+.block-color-orange_background {
+	background: rgba(251, 235, 222, 1);
+}
+.block-color-yellow_background {
+	background: rgba(249, 243, 220, 1);
+}
+.block-color-teal_background {
+	background: rgba(232, 241, 236, 1);
+}
+.block-color-blue_background {
+	background: rgba(229, 242, 252, 1);
+}
+.block-color-purple_background {
+	background: rgba(243, 235, 249, 1);
+}
+.block-color-pink_background {
+	background: rgba(250, 233, 241, 1);
+}
+.block-color-red_background {
+	background: rgba(252, 233, 231, 1);
+}
+.select-value-color-default { background-color: rgba(42, 28, 0, 0.07); }
+.select-value-color-gray { background-color: rgba(28, 19, 1, 0.11); }
+.select-value-color-brown { background-color: rgba(127, 51, 0, 0.156); }
+.select-value-color-orange { background-color: rgba(196, 88, 0, 0.203); }
+.select-value-color-yellow { background-color: rgba(209, 156, 0, 0.282); }
+.select-value-color-green { background-color: rgba(0, 96, 38, 0.156); }
+.select-value-color-blue { background-color: rgba(0, 118, 217, 0.203); }
+.select-value-color-purple { background-color: rgba(92, 0, 163, 0.141); }
+.select-value-color-pink { background-color: rgba(183, 0, 78, 0.152); }
+.select-value-color-red { background-color: rgba(206, 24, 0, 0.164); }
+
+.checkbox {
+	display: inline-flex;
+	vertical-align: text-bottom;
+	width: 16;
+	height: 16;
+	background-size: 16px;
+	margin-left: 2px;
+	margin-right: 5px;
+}
+
+.checkbox-on {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2358A9D7%22%2F%3E%0A%3Cpath%20d%3D%22M6.71429%2012.2852L14%204.9995L12.7143%203.71436L6.71429%209.71378L3.28571%206.2831L2%207.57092L6.71429%2012.2852Z%22%20fill%3D%22white%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+.checkbox-off {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20x%3D%220.75%22%20y%3D%220.75%22%20width%3D%2214.5%22%20height%3D%2214.5%22%20fill%3D%22white%22%20stroke%3D%22%2336352F%22%20stroke-width%3D%221.5%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+	
+</style><style>@import url('https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex-swap.min.css')</style></head><body><article id="39dccb0e-ac88-8034-a2de-d17de3fe3fc6" class="page sans"><header><h1 class="page-title" dir="auto">Bài 3 — Capacity Estimation: ước lượng traffic, storage, bandwidth, QPS để thiết kế có cơ sở</h1><p class="page-description" dir="auto"></p></header><div class="page-body"><p id="39dccb0e-ac88-8004-88b6-eb2a60023966" class="" dir="auto">Trong System Design, <strong>Capacity Estimation</strong> là bước biến yêu cầu mơ hồ kiểu “hệ thống cần scale lớn” thành các con số cụ thể:</p><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" integrity="sha512-7Z9J3l1+EYfeaPKcGXu3MS/7T+w19WtKQY/n+xzmw4hZhJ9tyYmcUS+4QqAlzhicE5LAfMQSF3iFTK9bQdTxXg==" crossorigin="anonymous" referrerPolicy="no-referrer"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" integrity="sha512-tN7Ec6zAFaVSG3TpNAKtk4DOHNpSwKHxxrsiw4GHKESGPs5njn/0sMCUMl2svV4wo4BK/rCP7juYz+zx+l6oeQ==" crossorigin="anonymous" referrerPolicy="no-referrer"/><pre id="39dccb0e-ac88-809a-91f7-f9f75678a79b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Có bao nhiêu user?
+Mỗi user tạo bao nhiêu request?
+Mỗi request tạo bao nhiêu dữ liệu?
+Mỗi ngày cần lưu bao nhiêu GB?
+Peak traffic là bao nhiêu QPS?
+Database đọc/ghi bao nhiêu lần mỗi giây?
+Cache cần chứa bao nhiêu dữ liệu?
+Bandwidth cần bao nhiêu?</code></pre><p id="39dccb0e-ac88-804f-a805-f8adbf0ea388" class="" dir="auto">Các video/tài liệu bạn đưa nhấn mạnh rằng hệ thống nhỏ có thể bắt đầu đơn giản, nhưng khi traffic lớn hơn thì single server sẽ gặp giới hạn và cần scale từng phần như web tier, data tier, load balancer, cache, database replication.</p><hr id="39dccb0e-ac88-80b6-8076-d9945c18d7bd" dir="auto"/><h2 id="39dccb0e-ac88-8023-8e0e-dbeefd8d52dc" class="" dir="auto">1. Capacity Estimation là gì?</h2><p id="39dccb0e-ac88-8077-8654-f0b246e117e2" class="" dir="auto"><strong>Capacity Estimation</strong> là quá trình ước lượng quy mô hệ thống trước khi thiết kế kiến trúc.</p><p id="39dccb0e-ac88-8050-9e46-ff5917942202" class="" dir="auto">Nó giúp bạn trả lời:</p><pre id="39dccb0e-ac88-80a5-a8d3-e6614d2f5f03" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Cần bao nhiêu server?
+- Database có chịu nổi không?
+- Có cần cache không?
+- Có cần queue không?
+- Có cần CDN không?
+- Có cần sharding không?
+- Storage tăng bao nhiêu mỗi ngày/tháng/năm?</code></pre><p id="39dccb0e-ac88-80e1-b385-fa7cc4e888f9" class="" dir="auto">Nói dễ hiểu:</p><blockquote id="39dccb0e-ac88-80ab-8463-f4cd19d9c3a6" class="" dir="auto"><strong>Capacity Estimation là “tính nháp trên giấy” để biết hệ thống sẽ đau ở đâu trước khi nó thật sự đau.</strong></blockquote><hr id="39dccb0e-ac88-8096-867a-eedecfa035ad" dir="auto"/><h2 id="39dccb0e-ac88-807b-b02c-fe184f1e28a7" class="" dir="auto">2. Vì sao cần Capacity Estimation?</h2><p id="39dccb0e-ac88-8025-8802-e0bfa020be4f" class="" dir="auto">Nếu không ước lượng, bạn sẽ thiết kế bằng cảm tính.</p><p id="39dccb0e-ac88-80c2-aa0c-ed7b1842fe09" class="" dir="auto">Ví dụ đề bài:</p><blockquote id="39dccb0e-ac88-80c0-a209-d87234217a00" class="" dir="auto">Thiết kế hệ thống ghi chú giống Google Keep.</blockquote><p id="39dccb0e-ac88-80aa-8815-e24d5e55e7e1" class="" dir="auto">Nếu không có số liệu, bạn có thể nói:</p><pre id="39dccb0e-ac88-806b-9fff-ca62afe2aa01" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Dùng API server + database là được.</code></pre><p id="39dccb0e-ac88-80cd-b760-c11845f1deb7" class="" dir="auto">Nhưng nếu hỏi thêm:</p><pre id="39dccb0e-ac88-80b9-8c11-ed592be254cc" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- 50 triệu DAU
+- Mỗi user đọc 100 note/ngày
+- Mỗi user tạo/sửa 10 note/ngày
+- Mỗi note trung bình 2 KB</code></pre><p id="39dccb0e-ac88-8056-9f61-ebe56466a3f1" class="" dir="auto">Bạn sẽ thấy hệ thống có:</p><pre id="39dccb0e-ac88-80c8-93db-f1bacc664180" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Read: 5 tỷ lượt đọc note/ngày
+Write: 500 triệu lượt ghi note/ngày
+Storage mới: khoảng 1 TB/ngày, nếu tính cả metadata/version/replication có thể lớn hơn</code></pre><p id="39dccb0e-ac88-8044-b56b-eb306f28cf02" class="" dir="auto">Lúc này thiết kế sẽ khác hẳn.</p><hr id="39dccb0e-ac88-805b-a781-d88a043051ed" dir="auto"/><h1 id="39dccb0e-ac88-8050-b21e-c4838eb01f2b" class="" dir="auto">3. Các khái niệm cần nhớ</h1><h2 id="39dccb0e-ac88-80e9-ab8f-c52e801f968e" class="" dir="auto">3.1 DAU — Daily Active Users</h2><p id="39dccb0e-ac88-8060-b0f0-fc56f53417f5" class="" dir="auto">Số user hoạt động mỗi ngày.</p><pre id="39dccb0e-ac88-808f-a22b-c5ce7fc197a6" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">DAU = số user dùng hệ thống trong 1 ngày</code></pre><p id="39dccb0e-ac88-80a9-8149-c9fcc9ddc7ff" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80bd-a7dd-c90a85078ed4" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">10 triệu DAU = mỗi ngày có 10 triệu user hoạt động</code></pre><hr id="39dccb0e-ac88-8085-8b09-edb9f76063eb" dir="auto"/><h2 id="39dccb0e-ac88-80da-b16a-c252d16eda4b" class="" dir="auto">3.2 MAU — Monthly Active Users</h2><p id="39dccb0e-ac88-8034-bd76-f6f1a391c356" class="" dir="auto">Số user hoạt động mỗi tháng.</p><pre id="39dccb0e-ac88-806e-97b1-ccc1581b79a1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">MAU = số user dùng hệ thống trong 1 tháng</code></pre><p id="39dccb0e-ac88-80c4-9abb-f052f7cb6087" class="" dir="auto">MAU thường lớn hơn DAU.</p><p id="39dccb0e-ac88-8032-9250-cdb53c6a1f0f" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8084-af8b-f237c795889a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">MAU = 100 triệu
+DAU = 20 triệu</code></pre><hr id="39dccb0e-ac88-808a-be42-ffc82736ecef" dir="auto"/><h2 id="39dccb0e-ac88-8016-9a9d-c3a3ec88b23d" class="" dir="auto">3.3 RPS / QPS</h2><p id="39dccb0e-ac88-804c-bc91-c2447493ee74" class="" dir="auto"><strong>RPS</strong> = Requests Per Second.</p><p id="39dccb0e-ac88-802c-ac05-f73429075a68" class="" dir="auto"><strong>QPS</strong> = Queries Per Second.</p><p id="39dccb0e-ac88-80f6-a3db-d86bcd97fd9d" class="" dir="auto">Trong phỏng vấn System Design, nhiều người dùng QPS gần giống RPS, nhưng nên phân biệt:</p><pre id="39dccb0e-ac88-808d-9d76-d9ac6dd24feb" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">RPS: số request tới hệ thống mỗi giây
+QPS: số query tới database/search/cache mỗi giây</code></pre><p id="39dccb0e-ac88-8092-9b62-d1d16ada139e" class="" dir="auto">Một API request có thể tạo nhiều query.</p><p id="39dccb0e-ac88-80c2-919d-f802d72225f6" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8094-aa92-c906fca6d52d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1 request xem profile
+=&gt; 1 query user
+=&gt; 1 query posts
+=&gt; 1 query follower count
+=&gt; 1 query notification badge</code></pre><p id="39dccb0e-ac88-8008-8ba2-fe8efcb2f36e" class="" dir="auto">Vậy:</p><pre id="39dccb0e-ac88-807c-a950-df2c17cb378d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">RPS = 1
+DB QPS = 4</code></pre><hr id="39dccb0e-ac88-80b0-96eb-ea9aa9e27533" dir="auto"/><h2 id="39dccb0e-ac88-80a9-8dc3-f689397f8474" class="" dir="auto">3.4 Peak traffic</h2><p id="39dccb0e-ac88-8070-8e30-c85e0ede66ac" class="" dir="auto">Traffic không đều cả ngày.</p><p id="39dccb0e-ac88-806e-a2f2-f40558dc70d0" class="" dir="auto">Ví dụ trung bình:</p><pre id="39dccb0e-ac88-80b9-9cda-c9fcd8d27048" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1,000 RPS trung bình</code></pre><p id="39dccb0e-ac88-80e0-9f01-e5cd4fc36da7" class="" dir="auto">Nhưng giờ cao điểm có thể:</p><pre id="39dccb0e-ac88-80c2-b004-dd1c1d4734b1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">3,000 - 10,000 RPS</code></pre><p id="39dccb0e-ac88-8022-9e4b-e7fa84d3e6b8" class="" dir="auto">Công thức thường dùng:</p><pre id="39dccb0e-ac88-8014-a634-d40e96a57dd1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Peak RPS = Average RPS × Peak Factor</code></pre><p id="39dccb0e-ac88-80c4-8af8-c779c8d54594" class="" dir="auto">Peak factor thường lấy 2x, 3x, 5x hoặc 10x tùy hệ thống.</p><p id="39dccb0e-ac88-80a8-bca7-e4a62ccde475" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8091-84e9-d3014f1bc146" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Average RPS = 1,000
+Peak factor = 5
+Peak RPS = 5,000</code></pre><hr id="39dccb0e-ac88-8041-b63b-c3aed5c6c460" dir="auto"/><h2 id="39dccb0e-ac88-8051-abdc-f1b344c82f11" class="" dir="auto">3.5 Read/write ratio</h2><p id="39dccb0e-ac88-808d-9bcd-f21a356f510e" class="" dir="auto">Hệ thống nào cũng có tỷ lệ đọc/ghi khác nhau.</p><p id="39dccb0e-ac88-806f-9c05-fc1a9b6fbc2f" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8087-b696-e8fb4e8060f8" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">URL Shortener:
+Read nhiều hơn write rất nhiều
+Có thể 100:1 hoặc 1000:1
+
+Chat:
+Read/write tương đối cao cả hai phía
+
+Banking:
+Write ít hơn read nhưng write cực kỳ quan trọng
+
+YouTube:
+Read/watch cực lớn, upload ít hơn nhiều</code></pre><p id="39dccb0e-ac88-80b5-b78b-f7ea2ea3d141" class="" dir="auto">Read/write ratio ảnh hưởng trực tiếp đến kiến trúc:</p><pre id="39dccb0e-ac88-805d-aa22-d4f3a7543f6b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Read nhiều:
+- Cache
+- CDN
+- Read replica
+- Search index
+
+Write nhiều:
+- Queue
+- Partitioning
+- Sharding
+- Write-optimized database</code></pre><hr id="39dccb0e-ac88-80f9-bfed-f87fd45c420b" dir="auto"/><h1 id="39dccb0e-ac88-80e1-aac5-f68e537c4fef" class="" dir="auto">4. Công thức tính cơ bản</h1><p id="39dccb0e-ac88-80af-a174-f7cebc0800fd" class="" dir="auto">Bạn chỉ cần nhớ vài công thức sau.</p><h2 id="39dccb0e-ac88-8012-beed-e4b1d46b471b" class="" dir="auto">4.1 Tính request mỗi ngày</h2><pre id="39dccb0e-ac88-808d-b30e-f60e6dbe6e11" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily Requests = DAU × Requests per user per day</code></pre><p id="39dccb0e-ac88-80cb-a2ff-e8f7707a9cfc" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80e3-a2e6-da1359ae8480" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">DAU = 10 triệu
+Mỗi user tạo 50 request/ngày
+
+Daily Requests = 10,000,000 × 50
+               = 500,000,000 requests/day</code></pre><hr id="39dccb0e-ac88-8002-b434-d056a3621c4f" dir="auto"/><h2 id="39dccb0e-ac88-80dd-9d7a-fb3fef6a9d2f" class="" dir="auto">4.2 Tính average RPS</h2><p id="39dccb0e-ac88-80fb-b84b-e03b1fadbf7b" class="" dir="auto">Một ngày có:</p><pre id="39dccb0e-ac88-8025-8757-c044e82c84d6" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">24 × 60 × 60 = 86,400 giây</code></pre><p id="39dccb0e-ac88-8070-a98e-fbb1cda7f394" class="" dir="auto">Công thức:</p><pre id="39dccb0e-ac88-80f8-a1b1-e573ac1d82c5" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Average RPS = Daily Requests / 86,400</code></pre><p id="39dccb0e-ac88-806c-b589-ee1b8619c37a" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8070-a720-feb594a668f8" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">500,000,000 requests/day / 86,400
+≈ 5,787 RPS</code></pre><p id="39dccb0e-ac88-80f7-8eb5-c3f5312f392e" class="" dir="auto">Làm tròn:</p><pre id="39dccb0e-ac88-807e-92fd-efff2f63fb70" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">≈ 5.8K RPS trung bình</code></pre><hr id="39dccb0e-ac88-8020-94b5-fe4c0df1a7d9" dir="auto"/><h2 id="39dccb0e-ac88-8039-bde1-d349bece55ee" class="" dir="auto">4.3 Tính peak RPS</h2><pre id="39dccb0e-ac88-80c7-acac-c1ffeeccf614" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Peak RPS = Average RPS × Peak Factor</code></pre><p id="39dccb0e-ac88-804b-b1e5-f8dc23ade713" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80b9-ac5e-c7d67909986d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Average RPS = 5.8K
+Peak Factor = 5
+
+Peak RPS ≈ 29K RPS</code></pre><p id="39dccb0e-ac88-80f3-a5b2-e8fee1ccc754" class="" dir="auto">Vậy hệ thống phải thiết kế cho khoảng <strong>30K RPS peak</strong>, không phải chỉ 5.8K.</p><hr id="39dccb0e-ac88-80c8-9889-cad8773cf765" dir="auto"/><h2 id="39dccb0e-ac88-802e-9451-c6b45ca05ca2" class="" dir="auto">4.4 Tính storage mỗi ngày</h2><pre id="39dccb0e-ac88-80d7-ac32-f44ada563c74" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily Storage = Number of new records per day × Average record size</code></pre><p id="39dccb0e-ac88-8075-86b7-c215492667fb" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-80b9-96d8-dcadd1026973" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 triệu note mới/ngày
+Mỗi note trung bình 2 KB
+
+Daily Storage = 100,000,000 × 2 KB
+              = 200,000,000 KB
+              ≈ 200 GB/ngày</code></pre><p id="39dccb0e-ac88-8043-bc7e-c7fd3d8f4836" class="" dir="auto">Nhưng thực tế phải cộng thêm:</p><pre id="39dccb0e-ac88-8065-9bdc-f310b9201e39" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Metadata
+- Index
+- Replication
+- Backup
+- Version history
+- Compression hoặc overhead</code></pre><p id="39dccb0e-ac88-80ad-aed8-ef4211bba097" class="" dir="auto">Nếu replication factor = 3:</p><pre id="39dccb0e-ac88-806d-9594-cc2885628d38" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Raw storage = 200 GB/ngày
+With replication = 600 GB/ngày</code></pre><hr id="39dccb0e-ac88-809a-8ed2-c7c198aca8b9" dir="auto"/><h2 id="39dccb0e-ac88-80f7-8226-f278cb3be113" class="" dir="auto">4.5 Tính bandwidth</h2><p id="39dccb0e-ac88-8002-b47f-ee9551be3ed2" class="" dir="auto">Bandwidth là lượng dữ liệu truyền qua mạng.</p><pre id="39dccb0e-ac88-8089-8b65-cd172f363580" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Bandwidth = Requests per second × Response size</code></pre><p id="39dccb0e-ac88-8065-8680-f8c67f49adc0" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-806b-b294-c8b53f115803" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Peak RPS = 30,000
+Average response size = 10 KB
+
+Bandwidth = 30,000 × 10 KB/s
+          = 300,000 KB/s
+          ≈ 300 MB/s</code></pre><p id="39dccb0e-ac88-8074-9b40-e94acd649e69" class="" dir="auto">Nếu là video/image thì bandwidth tăng rất mạnh, vì response size có thể là MB thay vì KB. Đó là lý do video, ảnh, static content thường cần CDN.</p><hr id="39dccb0e-ac88-80c6-9c05-ff235af4b18b" dir="auto"/><h1 id="39dccb0e-ac88-801e-83d1-cf66f5fc3128" class="" dir="auto">5. Quy trình Capacity Estimation chuẩn</h1><p id="39dccb0e-ac88-8011-b200-f6bb7e5a4712" class="" dir="auto">Khi gặp đề System Design, bạn có thể làm theo quy trình này:</p><pre id="39dccb0e-ac88-8027-985b-ded1baf7967a" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    A[Đề bài] --&gt; B[Ước lượng users]
+    B --&gt; C[Ước lượng actions/user/day]
+    C --&gt; D[Tính daily requests]
+    D --&gt; E[Tính average RPS]
+    E --&gt; F[Tính peak RPS]
+    F --&gt; G[Tách read/write]
+    G --&gt; H[Tính storage]
+    H --&gt; I[Tính bandwidth]
+    I --&gt; J[Xác định bottleneck]
+    J --&gt; K[Quyết định kiến trúc]</code></pre><hr id="39dccb0e-ac88-8013-984d-eb4cbc231b4e" dir="auto"/><h1 id="39dccb0e-ac88-80b8-988f-cb2c6e248dba" class="" dir="auto">6. Ví dụ 1: Capacity Estimation cho Google Keep đơn giản</h1><p id="39dccb0e-ac88-802e-a8aa-e90f3c05510d" class="" dir="auto">Đề bài:</p><blockquote id="39dccb0e-ac88-80df-bb95-eae01a1d3a4a" class="" dir="auto">Thiết kế app ghi chú cá nhân giống Google Keep.</blockquote><h2 id="39dccb0e-ac88-8011-8e07-e7bd468ac401" class="" dir="auto">6.1 Giả định</h2><p id="39dccb0e-ac88-8072-9530-cd4298bdc494" class="" dir="auto">Ta chốt giả định:</p><pre id="39dccb0e-ac88-8041-868e-c6ae75561a1a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">DAU = 10 triệu user
+Mỗi user đọc 50 note/ngày
+Mỗi user tạo/sửa 5 note/ngày
+Mỗi note trung bình = 2 KB
+Peak factor = 5
+Replication factor = 3</code></pre><hr id="39dccb0e-ac88-80ad-bb19-f164f906c586" dir="auto"/><h2 id="39dccb0e-ac88-807c-930e-caa24910ddc8" class="" dir="auto">6.2 Tính read requests</h2><pre id="39dccb0e-ac88-8066-b7f0-c7cb33ede9f4" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily reads = 10 triệu × 50
+            = 500 triệu reads/day</code></pre><p id="39dccb0e-ac88-8080-8a67-dc2e24785687" class="" dir="auto">Average read RPS:</p><pre id="39dccb0e-ac88-8047-8017-e24429c42517" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">500,000,000 / 86,400
+≈ 5,787 read RPS</code></pre><p id="39dccb0e-ac88-8013-a645-d92e9863bc41" class="" dir="auto">Peak read RPS:</p><pre id="39dccb0e-ac88-8073-adbc-dbfbba487741" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">5,787 × 5
+≈ 28,935 read RPS
+≈ 29K read RPS</code></pre><hr id="39dccb0e-ac88-8066-9fc7-d9164cb85ef1" dir="auto"/><h2 id="39dccb0e-ac88-80e5-a205-fffdc4b966ae" class="" dir="auto">6.3 Tính write requests</h2><pre id="39dccb0e-ac88-80b7-9fe8-ce8c2bffa7f1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily writes = 10 triệu × 5
+             = 50 triệu writes/day</code></pre><p id="39dccb0e-ac88-80a3-8b04-c140590d1c25" class="" dir="auto">Average write RPS:</p><pre id="39dccb0e-ac88-80de-92e7-d9f3aaee1fe5" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">50,000,000 / 86,400
+≈ 579 write RPS</code></pre><p id="39dccb0e-ac88-80cf-a19b-e71fad2ad065" class="" dir="auto">Peak write RPS:</p><pre id="39dccb0e-ac88-8075-8a30-e7e479f071a6" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">579 × 5
+≈ 2,895 write RPS
+≈ 3K write RPS</code></pre><hr id="39dccb0e-ac88-80e7-b2b0-cfdae4844423" dir="auto"/><h2 id="39dccb0e-ac88-802d-9e59-c4ed24c88c53" class="" dir="auto">6.4 Read/write ratio</h2><pre id="39dccb0e-ac88-80b2-8a7f-f548a8a453bd" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Read = 500 triệu/day
+Write = 50 triệu/day
+
+Read/write ratio = 10:1</code></pre><p id="39dccb0e-ac88-80a3-a421-f65c1a03fd7c" class="" dir="auto">Kết luận:</p><blockquote id="39dccb0e-ac88-8083-8afc-fbda691ea0be" class="" dir="auto">Đây là hệ thống <strong>read-heavy</strong>.</blockquote><p id="39dccb0e-ac88-8061-8474-d04b8c0115ce" class="" dir="auto">Thiết kế nên ưu tiên:</p><pre id="39dccb0e-ac88-801c-97f0-d87eb57ad8f7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Index tốt cho note lookup/search
+- Cache cho note được mở thường xuyên
+- Read replica nếu database chính quá tải đọc
+- Search index nếu full-text search phức tạp</code></pre><hr id="39dccb0e-ac88-80e8-bdba-c0fb0bf6e672" dir="auto"/><h2 id="39dccb0e-ac88-8064-bc9e-cd8a88403351" class="" dir="auto">6.5 Tính storage</h2><pre id="39dccb0e-ac88-8011-8443-dc62cf3bde1d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">New/updated notes per day = 50 triệu
+Average note size = 2 KB
+
+Raw daily storage = 50,000,000 × 2 KB
+                  = 100,000,000 KB
+                  ≈ 100 GB/day</code></pre><p id="39dccb0e-ac88-80eb-a182-e562c0182901" class="" dir="auto">Nếu replication factor = 3:</p><pre id="39dccb0e-ac88-80aa-9745-e41feb8f1e3d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Physical storage ≈ 300 GB/day</code></pre><p id="39dccb0e-ac88-808f-bc82-d88759d72cf3" class="" dir="auto">Nếu lưu 1 năm:</p><pre id="39dccb0e-ac88-8086-9911-d64a1b65828f" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">300 GB/day × 365
+≈ 109,500 GB
+≈ 109.5 TB/year</code></pre><p id="39dccb0e-ac88-808e-9fbd-e2182d4be2b3" class="" dir="auto">Nhưng đây là ước lượng đơn giản. Thực tế có thể tăng do:</p><pre id="39dccb0e-ac88-802c-81be-f17b11a3b217" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Index
+- Metadata
+- Backup
+- Version history
+- Attachments
+- Deleted notes retained temporarily</code></pre><hr id="39dccb0e-ac88-80a6-98fa-f34ad99f8b02" dir="auto"/><h2 id="39dccb0e-ac88-803e-97f8-d008674e2b91" class="" dir="auto">6.6 Kiến trúc bắt đầu từ con số</h2><p id="39dccb0e-ac88-80cc-8028-d8694edbcb13" class="" dir="auto">Vì peak read khoảng 29K RPS và write khoảng 3K RPS, kiến trúc hợp lý:</p><pre id="39dccb0e-ac88-808b-a02f-fd7e412d95b8" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[Web/Mobile User] --&gt; LB[Load Balancer]
+    LB --&gt; API1[API Server 1]
+    LB --&gt; API2[API Server 2]
+    LB --&gt; API3[API Server 3]
+
+    API1 --&gt; Cache[Redis Cache]
+    API2 --&gt; Cache
+    API3 --&gt; Cache
+
+    API1 --&gt; DB[(Primary DB)]
+    API2 --&gt; DB
+    API3 --&gt; DB
+
+    DB --&gt; R1[(Read Replica 1)]
+    DB --&gt; R2[(Read Replica 2)]
+
+    API1 --&gt; Search[Search Index]
+    API2 --&gt; Search
+    API3 --&gt; Search</code></pre><p id="39dccb0e-ac88-8072-affc-dc833e9b05da" class="" dir="auto">Vì sao?</p><pre id="39dccb0e-ac88-8009-9623-cdfc36f4d459" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Load balancer chia traffic cho nhiều API server.
+- API server nên stateless để scale ngang.
+- Cache giảm read pressure lên DB.
+- Read replicas xử lý read-heavy workload.
+- Search index phục vụ tìm kiếm note nhanh hơn.</code></pre><hr id="39dccb0e-ac88-80d3-81af-fa1163603e9c" dir="auto"/><h1 id="39dccb0e-ac88-8008-a79c-d316ed61e3c4" class="" dir="auto">7. Ví dụ 2: URL Shortener</h1><p id="39dccb0e-ac88-805d-864d-d63cf1576e78" class="" dir="auto">Đề bài:</p><blockquote id="39dccb0e-ac88-8039-b41c-ee99ffa42dc9" class="" dir="auto">Thiết kế hệ thống rút gọn URL như bit.ly.</blockquote><h2 id="39dccb0e-ac88-8018-9853-e0e23b3c26fa" class="" dir="auto">7.1 Giả định</h2><pre id="39dccb0e-ac88-803e-8f8f-fd9eb3bfe98d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 triệu short URL mới/tháng
+10 tỷ redirects/tháng
+Average long URL size = 500 bytes
+Short code + metadata = 100 bytes
+Peak factor = 5</code></pre><hr id="39dccb0e-ac88-8048-8bcc-d7d3c812c1b8" dir="auto"/><h2 id="39dccb0e-ac88-8011-b6c0-d02efa2bef73" class="" dir="auto">7.2 Tính write</h2><pre id="39dccb0e-ac88-809b-9602-d2f25141a403" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 triệu URL mới/tháng
+≈ 3.3 triệu URL mới/ngày</code></pre><p id="39dccb0e-ac88-806b-a9be-eabf615308e2" class="" dir="auto">Write RPS:</p><pre id="39dccb0e-ac88-8058-8092-f30f9053f6ea" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">3,300,000 / 86,400
+≈ 38 writes/second</code></pre><p id="39dccb0e-ac88-8013-852b-f146a826120d" class="" dir="auto">Write rất nhỏ.</p><hr id="39dccb0e-ac88-8056-95f6-df396cea06e0" dir="auto"/><h2 id="39dccb0e-ac88-80be-a458-dd66682ec7e7" class="" dir="auto">7.3 Tính read/redirect</h2><pre id="39dccb0e-ac88-80a1-b1e7-fb1c694f83a0" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">10 tỷ redirects/tháng
+≈ 333 triệu redirects/ngày</code></pre><p id="39dccb0e-ac88-8061-842f-fffaf513fa49" class="" dir="auto">Read RPS:</p><pre id="39dccb0e-ac88-801f-88dc-f1a87fd7dd1e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">333,000,000 / 86,400
+≈ 3,854 reads/second</code></pre><p id="39dccb0e-ac88-80c3-b449-f2b1c47c1262" class="" dir="auto">Peak read RPS:</p><pre id="39dccb0e-ac88-8058-8fff-e8233bed9202" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">3,854 × 5
+≈ 19,270 reads/second
+≈ 20K read RPS</code></pre><hr id="39dccb0e-ac88-801d-881a-d9fef95abc99" dir="auto"/><h2 id="39dccb0e-ac88-8022-ab9a-f69539154740" class="" dir="auto">7.4 Read/write ratio</h2><pre id="39dccb0e-ac88-80e0-9cc0-f3cb17c5fa37" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Read ≈ 333 triệu/day
+Write ≈ 3.3 triệu/day
+
+Read/write ratio ≈ 100:1</code></pre><p id="39dccb0e-ac88-8000-af3e-f076b3e0886e" class="" dir="auto">Kết luận:</p><blockquote id="39dccb0e-ac88-808c-b970-de92f1b5fe24" class="" dir="auto">URL Shortener là hệ thống cực kỳ read-heavy.</blockquote><p id="39dccb0e-ac88-8089-bda2-fe91cb897afb" class="" dir="auto">Thiết kế nên ưu tiên redirect path cực nhanh:</p><pre id="39dccb0e-ac88-809b-8817-d194cb767260" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[User opens short URL] --&gt; LB[Load Balancer]
+    LB --&gt; API[Redirect Service]
+    API --&gt; Cache[Redis Cache]
+    Cache --&gt; DB[(URL Mapping DB)]
+    API --&gt; Queue[Click Event Queue]
+    Queue --&gt; Analytics[Analytics Worker]
+    Analytics --&gt; AnalyticsDB[(Analytics DB)]</code></pre><p id="39dccb0e-ac88-80c3-a9f0-df9d7d159b62" class="" dir="auto">Vì sao analytics đi qua queue?</p><pre id="39dccb0e-ac88-8084-b262-ff99a26c3c7d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Redirect là tác vụ chính, cần nhanh.
+Click analytics là tác vụ phụ, có thể xử lý async.
+Không nên làm user chờ analytics ghi xong mới redirect.</code></pre><hr id="39dccb0e-ac88-8082-a41c-dc1c5b7767ad" dir="auto"/><h1 id="39dccb0e-ac88-80de-ab69-cfa01da7ec34" class="" dir="auto">8. Ví dụ 3: App chat đơn giản</h1><p id="39dccb0e-ac88-8084-9915-e8da9a3aa15c" class="" dir="auto">Đề bài:</p><blockquote id="39dccb0e-ac88-80b2-a327-c024d4733bf0" class="" dir="auto">Thiết kế hệ thống chat 1-1.</blockquote><h2 id="39dccb0e-ac88-80d1-836d-c7d0ee1b23ec" class="" dir="auto">8.1 Giả định</h2><pre id="39dccb0e-ac88-80c7-8f04-fe40b99180d3" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">DAU = 20 triệu
+Mỗi user gửi 40 tin nhắn/ngày
+Mỗi message trung bình = 1 KB
+Peak factor = 5
+Replication factor = 3</code></pre><hr id="39dccb0e-ac88-804e-9649-d6147c1004a4" dir="auto"/><h2 id="39dccb0e-ac88-8067-b801-e79a36c8489d" class="" dir="auto">8.2 Tính write message</h2><pre id="39dccb0e-ac88-8047-9dc5-c6ecf93afe28" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily messages = 20 triệu × 40
+               = 800 triệu messages/day</code></pre><p id="39dccb0e-ac88-8027-9f4d-f829f5ba27af" class="" dir="auto">Average message write QPS:</p><pre id="39dccb0e-ac88-8010-9488-febf4554260a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">800,000,000 / 86,400
+≈ 9,259 messages/second</code></pre><p id="39dccb0e-ac88-80d4-9f21-e053e8b94379" class="" dir="auto">Peak message write QPS:</p><pre id="39dccb0e-ac88-802b-afdd-c128482e54bf" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">9,259 × 5
+≈ 46,295 messages/second
+≈ 46K messages/s</code></pre><p id="39dccb0e-ac88-800b-bdd2-d75de32ffd55" class="" dir="auto">Đây là write-heavy hơn Google Keep.</p><hr id="39dccb0e-ac88-8005-bf3f-c567fd10cb00" dir="auto"/><h2 id="39dccb0e-ac88-8019-b142-f7c86744bccf" class="" dir="auto">8.3 Tính storage</h2><pre id="39dccb0e-ac88-80b9-bbc0-d90196a54f99" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">800 triệu messages/day × 1 KB
+= 800 GB/day raw</code></pre><p id="39dccb0e-ac88-8008-b857-c434f8de101e" class="" dir="auto">Với replication factor = 3:</p><pre id="39dccb0e-ac88-806e-93a3-d1c9e67bb396" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">≈ 2.4 TB/day</code></pre><p id="39dccb0e-ac88-80e9-b96d-ec4bc62dce1a" class="" dir="auto">Một năm:</p><pre id="39dccb0e-ac88-80ce-b98d-c1c5bd4159f4" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">2.4 TB/day × 365
+≈ 876 TB/year</code></pre><p id="39dccb0e-ac88-8052-b7ea-d16cf681d2b5" class="" dir="auto">Kết luận:</p><blockquote id="39dccb0e-ac88-8067-a30a-f5d311ecfa47" class="" dir="auto">Chat system cần suy nghĩ nghiêm túc về storage partitioning, retention, compression, archiving, message ordering và delivery guarantee.</blockquote><hr id="39dccb0e-ac88-8028-87ac-f61e82b7a946" dir="auto"/><h2 id="39dccb0e-ac88-807b-bc02-d1cfdf42526a" class="" dir="auto">8.4 Kiến trúc bị ảnh hưởng bởi con số</h2><pre id="39dccb0e-ac88-80c3-94c5-e0c39f796dee" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    UserA[User A] --&gt; Gateway[WebSocket Gateway]
+    UserB[User B] --&gt; Gateway
+
+    Gateway --&gt; ChatService[Chat Service]
+    ChatService --&gt; MessageDB[(Message Store)]
+    ChatService --&gt; Queue[Message Queue]
+
+    Queue --&gt; Delivery[Delivery Worker]
+    Queue --&gt; Notification[Push Notification Worker]
+
+    ChatService --&gt; Presence[Presence Service]
+    Presence --&gt; PresenceCache[Redis]</code></pre><p id="39dccb0e-ac88-8014-8cb6-dc6e1ac7182d" class="" dir="auto">Vì sao cần nhiều thành phần?</p><pre id="39dccb0e-ac88-804e-a791-da0cece10bb7" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- WebSocket Gateway giữ kết nối realtime.
+- Message Store lưu tin nhắn bền vững.
+- Queue hỗ trợ delivery async/retry.
+- Presence có thể dùng Redis vì online status là dữ liệu tạm.
+- Notification không nên nằm trong request path chính.</code></pre><hr id="39dccb0e-ac88-80b4-bd33-f9f4cc044e1d" dir="auto"/><h1 id="39dccb0e-ac88-80ae-b480-c9b6eb0b8861" class="" dir="auto">9. Từ con số sang quyết định kiến trúc</h1><p id="39dccb0e-ac88-804d-b86c-f6cb16f907a2" class="" dir="auto">Đây là phần quan trọng nhất.</p><h2 id="39dccb0e-ac88-800d-a8bb-f280cdf6d94f" class="" dir="auto">9.1 Nếu RPS thấp</h2><p id="39dccb0e-ac88-803d-b2a5-c5677844b8cb" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-808a-bc69-c69561e535cf" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Peak RPS &lt; 100</code></pre><p id="39dccb0e-ac88-8035-af60-eaf5d14125f6" class="" dir="auto">Thiết kế đơn giản là đủ:</p><pre id="39dccb0e-ac88-80e0-a5d0-f1aeaeb2bd50" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    User --&gt; API[API Server]
+    API --&gt; DB[(Database)]</code></pre><p id="39dccb0e-ac88-8088-89ff-ff70ddc7e692" class="" dir="auto">Không cần Kafka, Kubernetes, sharding, microservices.</p><hr id="39dccb0e-ac88-8018-8101-d06f82cad09b" dir="auto"/><h2 id="39dccb0e-ac88-80ce-83b5-c5c8da64e47f" class="" dir="auto">9.2 Nếu API server quá tải</h2><p id="39dccb0e-ac88-8000-8a31-d91f7038f015" class="" dir="auto">Dấu hiệu:</p><pre id="39dccb0e-ac88-806d-b58e-c17a6bcc9b6c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- CPU app server cao
+- Request queue dài
+- Latency tăng khi traffic tăng</code></pre><p id="39dccb0e-ac88-80be-a030-f6e870632c31" class="" dir="auto">Giải pháp:</p><pre id="39dccb0e-ac88-80bd-8617-d6b0a41ae8dc" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Scale ngang API server
+- Dùng load balancer
+- Làm API server stateless</code></pre><pre id="39dccb0e-ac88-80d0-880f-fbefe7c3e11b" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    User --&gt; LB[Load Balancer]
+    LB --&gt; A1[API 1]
+    LB --&gt; A2[API 2]
+    LB --&gt; A3[API 3]</code></pre><p id="39dccb0e-ac88-80c5-8344-fdd34d0a485f" class="" dir="auto">Load balancer dùng để phân phối traffic qua nhiều server, giúp không một server nào phải gánh toàn bộ tải; đây cũng là nội dung chính trong video về scaling/load balancing của bạn.</p><hr id="39dccb0e-ac88-8093-9c1c-fa4e3aadaa23" dir="auto"/><h2 id="39dccb0e-ac88-8085-8e71-c6a035c6987a" class="" dir="auto">9.3 Nếu database đọc quá tải</h2><p id="39dccb0e-ac88-8023-b0e0-daca5e386f41" class="" dir="auto">Dấu hiệu:</p><pre id="39dccb0e-ac88-80fe-b1cc-ce2154bd4f1b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Read query nhiều
+- DB CPU cao
+- Query latency tăng
+- Nhiều request đọc cùng dữ liệu</code></pre><p id="39dccb0e-ac88-80d1-8f3a-ff6b27596403" class="" dir="auto">Giải pháp:</p><pre id="39dccb0e-ac88-8067-954e-d3c1304d0d99" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Add index
+- Add cache
+- Add read replica
+- Denormalize nếu hợp lý</code></pre><pre id="39dccb0e-ac88-8026-9bf3-eb6e2978fcbf" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    API --&gt; Cache[Redis]
+    Cache --&gt; DB[(Primary DB)]
+    DB --&gt; R1[(Read Replica)]
+    DB --&gt; R2[(Read Replica)]</code></pre><hr id="39dccb0e-ac88-80b2-8255-d38a35065f69" dir="auto"/><h2 id="39dccb0e-ac88-8053-9485-e573d61adeae" class="" dir="auto">9.4 Nếu database ghi quá tải</h2><p id="39dccb0e-ac88-80d9-a33a-f4d84232dd1a" class="" dir="auto">Dấu hiệu:</p><pre id="39dccb0e-ac88-80e2-9272-f32b7f2518d9" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Write QPS rất cao
+- Lock contention
+- Disk I/O cao
+- Replication lag</code></pre><p id="39dccb0e-ac88-808a-87fb-d202d31dd6b3" class="" dir="auto">Giải pháp:</p><pre id="39dccb0e-ac88-8017-a1e2-e957d744514a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Batch writes
+- Queue/buffer writes
+- Sharding
+- Partitioning
+- Write-optimized database</code></pre><p id="39dccb0e-ac88-8017-83d7-ffb1b5022daf" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8012-8ba5-e1ceb92321a5" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    API --&gt; Queue[Message Queue]
+    Queue --&gt; Worker1[Write Worker 1]
+    Queue --&gt; Worker2[Write Worker 2]
+    Worker1 --&gt; DB1[(Shard 1)]
+    Worker2 --&gt; DB2[(Shard 2)]</code></pre><hr id="39dccb0e-ac88-80a2-970c-da53a877db8e" dir="auto"/><h2 id="39dccb0e-ac88-8041-826f-d21fe7449377" class="" dir="auto">9.5 Nếu response size lớn</h2><p id="39dccb0e-ac88-801b-ad0a-ddc23691dc56" class="" dir="auto">Ví dụ:</p><pre id="39dccb0e-ac88-8012-8b6c-d6bb242039c9" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ảnh, video, file, static assets</code></pre><p id="39dccb0e-ac88-8027-b989-dc694609fcdb" class="" dir="auto">Vấn đề chính là bandwidth.</p><p id="39dccb0e-ac88-802b-a436-ebf876c1d984" class="" dir="auto">Giải pháp:</p><pre id="39dccb0e-ac88-802d-804f-cbd005533c78" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- Object storage
+- CDN
+- Compression
+- Streaming
+- Thumbnail/resized versions</code></pre><pre id="39dccb0e-ac88-8057-bbb0-cfe862073f82" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart LR
+    User --&gt; CDN[CDN]
+    CDN --&gt; ObjectStorage[Object Storage]
+    User --&gt; API[API for metadata]
+    API --&gt; DB[(Metadata DB)]</code></pre><hr id="39dccb0e-ac88-8043-a333-cc9cad7bfc73" dir="auto"/><h1 id="39dccb0e-ac88-8080-aa79-d33f7e7d56bf" class="" dir="auto">10. Các con số tham khảo nên nhớ</h1><p id="39dccb0e-ac88-809c-8767-e192fc637095" class="" dir="auto">Không cần chính xác tuyệt đối, nhưng nên có trực giác.</p><pre id="39dccb0e-ac88-80e0-be62-c2c8931c2e02" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1 ngày = 86,400 giây
+1 KB × 1 triệu = khoảng 1 GB
+1 MB × 1 triệu = khoảng 1 TB
+1 GB × 1,000 = khoảng 1 TB
+1 TB × 1,000 = khoảng 1 PB</code></pre><p id="39dccb0e-ac88-8017-9558-d4b8949b1cb9" class="" dir="auto">Cực kỳ hữu ích:</p><pre id="39dccb0e-ac88-8081-a971-cff4b272a881" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1 triệu request/ngày ≈ 12 RPS trung bình
+10 triệu request/ngày ≈ 116 RPS trung bình
+100 triệu request/ngày ≈ 1,157 RPS trung bình
+1 tỷ request/ngày ≈ 11,574 RPS trung bình</code></pre><p id="39dccb0e-ac88-8062-9653-ea3d68830697" class="" dir="auto">Nếu peak factor = 5:</p><pre id="39dccb0e-ac88-80ce-a0e5-f75b3a01e735" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 triệu request/ngày
+=&gt; 1.1K RPS trung bình
+=&gt; 5.8K RPS peak</code></pre><p id="39dccb0e-ac88-8075-a6b0-eb22a76fad57" class="" dir="auto">Nếu peak factor = 10:</p><pre id="39dccb0e-ac88-8098-9359-eccaa1840a58" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 triệu request/ngày
+=&gt; 1.1K RPS trung bình
+=&gt; 11.5K RPS peak</code></pre><hr id="39dccb0e-ac88-803b-8e79-da208213d8b5" dir="auto"/><h1 id="39dccb0e-ac88-8018-aa72-db014a7b539c" class="" dir="auto">11. Cách tính nhanh trong phỏng vấn</h1><p id="39dccb0e-ac88-8073-b667-f1c4e99a7249" class="" dir="auto">Bạn không cần tính quá chính xác. System Design thích <strong>order-of-magnitude estimation</strong>.</p><p id="39dccb0e-ac88-8034-9806-f8d5102f647a" class="" dir="auto">Nghĩa là:</p><pre id="39dccb0e-ac88-80b3-861a-c10c76a2a535" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Không cần biết chính xác 5,787 RPS.
+Nói 5.8K hoặc 6K RPS là đủ.</code></pre><p id="39dccb0e-ac88-80f1-af16-e9b0ab7d5db6" class="" dir="auto">Một câu nói tốt:</p><pre id="39dccb0e-ac88-80ce-977d-ddd3b9a2340e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Assuming 10 million DAU and each user performs around 50 reads per day, we get around 500 million reads per day. Dividing by 86,400 seconds, that gives roughly 6K read RPS on average. With a 5x peak factor, we should design for around 30K peak read RPS.</code></pre><p id="39dccb0e-ac88-805f-b5f6-d0643bab8d2c" class="" dir="auto">Phiên bản tiếng Việt:</p><pre id="39dccb0e-ac88-808b-bed1-d9d4674397d0" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Giả sử có 10 triệu DAU, mỗi user đọc khoảng 50 note/ngày, ta có khoảng 500 triệu read/ngày. Chia cho 86,400 giây thì được khoảng 6K read RPS trung bình. Nếu nhân peak factor 5 lần, hệ thống nên chịu được khoảng 30K read RPS ở giờ cao điểm.</code></pre><hr id="39dccb0e-ac88-8076-9627-da6cfdcb6230" dir="auto"/><h1 id="39dccb0e-ac88-803f-8f8a-f47702a4d352" class="" dir="auto">12. Template Capacity Estimation cho mọi bài</h1><p id="39dccb0e-ac88-80aa-8eaf-fc3c8f62858f" class="" dir="auto">Bạn có thể dùng mẫu này mỗi lần làm bài:</p><pre id="39dccb0e-ac88-8014-b405-e0635b572811" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Assumptions:
+- DAU:
+- Requests/user/day:
+- Read/write ratio:
+- Average object size:
+- Peak factor:
+- Replication factor:
+- Retention period:
+
+Traffic:
+- Daily requests =
+- Average RPS =
+- Peak RPS =
+
+Read/write:
+- Daily reads =
+- Daily writes =
+- Peak read RPS =
+- Peak write RPS =
+
+Storage:
+- New data/day =
+- Raw storage/day =
+- Storage with replication =
+- Storage per year =
+
+Bandwidth:
+- Average response size =
+- Peak bandwidth =</code></pre><hr id="39dccb0e-ac88-8054-bd0f-e320777bff1a" dir="auto"/><h1 id="39dccb0e-ac88-8079-be6f-d771ad1917ca" class="" dir="auto">13. Ví dụ hoàn chỉnh: Todoist bản đơn giản</h1><p id="39dccb0e-ac88-8025-b89c-ed5cf0a1b8f7" class="" dir="auto">Đây là bài tập từ bài trước, giờ ta thêm capacity estimation.</p><h2 id="39dccb0e-ac88-8014-a939-d4f0f32ef6e3" class="" dir="auto">13.1 Giả định</h2><pre id="39dccb0e-ac88-809d-b611-c32d2a5560bf" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">DAU = 5 triệu
+Mỗi user xem task list 20 lần/ngày
+Mỗi user tạo/sửa/xoá task 10 lần/ngày
+Task size trung bình = 1 KB
+Peak factor = 5
+Replication factor = 3</code></pre><hr id="39dccb0e-ac88-8017-9210-f1f8925ce0ac" dir="auto"/><h2 id="39dccb0e-ac88-802e-9d1b-fd87f45554dc" class="" dir="auto">13.2 Reads</h2><pre id="39dccb0e-ac88-801b-9dee-c3808a598572" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily reads = 5 triệu × 20
+            = 100 triệu reads/day
+
+Average read RPS = 100,000,000 / 86,400
+                 ≈ 1,157 RPS
+
+Peak read RPS = 1,157 × 5
+              ≈ 5,785 RPS
+              ≈ 6K RPS</code></pre><hr id="39dccb0e-ac88-8026-add5-d2f93c4359ac" dir="auto"/><h2 id="39dccb0e-ac88-8090-ae0e-f391bfa759cb" class="" dir="auto">13.3 Writes</h2><pre id="39dccb0e-ac88-80ca-937f-cf7281fed373" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily writes = 5 triệu × 10
+             = 50 triệu writes/day
+
+Average write RPS = 50,000,000 / 86,400
+                  ≈ 579 RPS
+
+Peak write RPS = 579 × 5
+               ≈ 2,895 RPS
+               ≈ 3K RPS</code></pre><hr id="39dccb0e-ac88-80b5-9563-d1807d4d09b5" dir="auto"/><h2 id="39dccb0e-ac88-80b0-b93e-cbc8a4957cca" class="" dir="auto">13.4 Storage</h2><pre id="39dccb0e-ac88-80f1-829d-fa3fc8da70f0" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">50 triệu task changes/day × 1 KB
+≈ 50 GB/day raw</code></pre><p id="39dccb0e-ac88-80d3-a45d-cc87802a9da2" class="" dir="auto">Với replication factor = 3:</p><pre id="39dccb0e-ac88-8042-b29e-d7136bd177e3" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">≈ 150 GB/day</code></pre><p id="39dccb0e-ac88-80fe-805f-eb7f6acf1aef" class="" dir="auto">Một năm:</p><pre id="39dccb0e-ac88-8075-aa73-ede1539c70ab" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">150 GB/day × 365
+≈ 54.75 TB/year</code></pre><hr id="39dccb0e-ac88-80e2-a907-cc8648923057" dir="auto"/><h2 id="39dccb0e-ac88-80a3-a568-c82c1fdb9a23" class="" dir="auto">13.5 Kết luận kiến trúc</h2><p id="39dccb0e-ac88-8072-8067-f472e7d079dd" class="" dir="auto">Với Todoist bản này:</p><pre id="39dccb0e-ac88-802d-803e-da6ce7b5a266" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Peak reads ≈ 6K RPS
+Peak writes ≈ 3K RPS
+Storage replicated ≈ 150 GB/day</code></pre><p id="39dccb0e-ac88-8008-a2cf-deb3c250b5c1" class="" dir="auto">Thiết kế hợp lý:</p><pre id="39dccb0e-ac88-8060-b4c0-d7bf29cd5ef7" class="code code-wrap" data-notion-code-syntax="mermaid"><code class="language-mermaid" style="white-space:pre-wrap;word-break:break-all">flowchart TD
+    User[User] --&gt; LB[Load Balancer]
+    LB --&gt; API1[API Server 1]
+    LB --&gt; API2[API Server 2]
+
+    API1 --&gt; Cache[Redis Cache]
+    API2 --&gt; Cache
+
+    API1 --&gt; DB[(Primary PostgreSQL)]
+    API2 --&gt; DB
+
+    DB --&gt; Replica[(Read Replica)]
+
+    API1 --&gt; Queue[Event Queue]
+    API2 --&gt; Queue
+    Queue --&gt; Worker[Sync/Notification Worker]</code></pre><p id="39dccb0e-ac88-8044-8059-fd528edce8db" class="" dir="auto">Lý do:</p><pre id="39dccb0e-ac88-8011-a35b-ea6a7994f531" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">- API server scale ngang vì peak RPS không quá nhỏ.
+- PostgreSQL vẫn hợp lý vì task có quan hệ user/project/list.
+- Cache có thể dùng cho task list được mở thường xuyên.
+- Read replica giúp giảm tải read.
+- Queue dùng cho notification, sync event, activity log.</code></pre><hr id="39dccb0e-ac88-8018-a5ac-fe9cff9540c7" dir="auto"/><h1 id="39dccb0e-ac88-8007-b0a6-f25475fd7560" class="" dir="auto">14. Sai lầm thường gặp khi estimate</h1><h2 id="39dccb0e-ac88-8001-ae23-f6449e4a704f" class="" dir="auto">Sai lầm 1: Quên peak traffic</h2><p id="39dccb0e-ac88-80fd-8fb3-faaeb44f12e7" class="" dir="auto">Chỉ tính trung bình là chưa đủ.</p><pre id="39dccb0e-ac88-80a5-88c6-c02fe0774fe1" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Average RPS = 1K
+Peak RPS có thể = 5K hoặc 10K</code></pre><hr id="39dccb0e-ac88-803c-87d8-cb7df96a888a" dir="auto"/><h2 id="39dccb0e-ac88-80e4-a3aa-fc0a6ab9a195" class="" dir="auto">Sai lầm 2: Quên read/write ratio</h2><p id="39dccb0e-ac88-80fb-9e32-ef0fa7297798" class="" dir="auto">Nói “10K RPS” vẫn chưa đủ.</p><p id="39dccb0e-ac88-80b4-a173-e73cb8fd60ac" class="" dir="auto">Phải biết:</p><pre id="39dccb0e-ac88-80fc-b746-f97d8bd08f2a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">10K RPS đó là:
+- 9K read + 1K write?
+- Hay 1K read + 9K write?</code></pre><p id="39dccb0e-ac88-8025-92a8-c8451eab36b0" class="" dir="auto">Hai trường hợp này thiết kế khác nhau rất nhiều.</p><hr id="39dccb0e-ac88-80c2-8696-fdee52b2609c" dir="auto"/><h2 id="39dccb0e-ac88-8067-85b2-c4273832815f" class="" dir="auto">Sai lầm 3: Quên response size</h2><p id="39dccb0e-ac88-8019-8215-f54c4c027579" class="" dir="auto">10K RPS với response 1 KB khác xa 10K RPS với video 5 MB.</p><pre id="39dccb0e-ac88-80da-869d-c9dedf16cc6d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">10K × 1 KB = 10 MB/s
+10K × 5 MB = 50,000 MB/s = 50 GB/s</code></pre><hr id="39dccb0e-ac88-80c0-9ff3-dc534ee5c4ec" dir="auto"/><h2 id="39dccb0e-ac88-80a2-afdf-cc482c19508b" class="" dir="auto">Sai lầm 4: Quên replication và backup</h2><p id="39dccb0e-ac88-80f4-8c8e-c6868279442a" class="" dir="auto">Nếu raw data là 100 GB/ngày, storage thật có thể là:</p><pre id="39dccb0e-ac88-80e9-9e83-edce6bb42f25" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">100 GB × 3 replicas = 300 GB/ngày
++ index
++ backup
++ logs
++ metadata</code></pre><hr id="39dccb0e-ac88-8086-b5b9-c20ef67c30b6" dir="auto"/><h2 id="39dccb0e-ac88-805b-a4ef-c2777ffddb7e" class="" dir="auto">Sai lầm 5: Estimate quá chính xác giả tạo</h2><p id="39dccb0e-ac88-8099-8ac2-dfb14e37a8f4" class="" dir="auto">Không cần nói:</p><pre id="39dccb0e-ac88-8061-9b9e-e174de3e4fea" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">5,787.037 RPS</code></pre><p id="39dccb0e-ac88-8056-9fcb-c16051a08d77" class="" dir="auto">Nên nói:</p><pre id="39dccb0e-ac88-8010-b65c-f97d1a25a718" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Khoảng 5.8K RPS, làm tròn thành 6K RPS.</code></pre><p id="39dccb0e-ac88-80c9-ab9d-d75080ea6cc8" class="" dir="auto">System Design cần tư duy đúng, không cần máy tính kế toán.</p><hr id="39dccb0e-ac88-8086-a139-f52f0e20d923" dir="auto"/><h1 id="39dccb0e-ac88-8044-b3bd-f6c0a63ff79b" class="" dir="auto">15. Checklist Capacity Estimation</h1><p id="39dccb0e-ac88-808b-8ca2-d10578850ff0" class="" dir="auto">Trước khi vẽ kiến trúc, hãy tự hỏi:</p><pre id="39dccb0e-ac88-8086-8255-eca463b700c3" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">[ ] DAU/MAU là bao nhiêu?
+[ ] Mỗi user tạo bao nhiêu action/ngày?
+[ ] Tổng request/ngày là bao nhiêu?
+[ ] Average RPS là bao nhiêu?
+[ ] Peak factor là bao nhiêu?
+[ ] Peak RPS là bao nhiêu?
+[ ] Read/write ratio là bao nhiêu?
+[ ] Mỗi object trung bình bao nhiêu KB/MB?
+[ ] Dữ liệu mới mỗi ngày là bao nhiêu?
+[ ] Storage 1 năm là bao nhiêu?
+[ ] Có replication không?
+[ ] Response size trung bình là bao nhiêu?
+[ ] Bandwidth peak là bao nhiêu?
+[ ] Bottleneck có khả năng nằm ở app, DB, cache, network hay storage?</code></pre><hr id="39dccb0e-ac88-80a3-96e8-c043f86873e1" dir="auto"/><h1 id="39dccb0e-ac88-8081-984f-cbda368fe12d" class="" dir="auto">16. Cách ghi nhớ bài này</h1><p id="39dccb0e-ac88-805b-87b5-fbf5785001a3" class="" dir="auto">Nhớ công thức cốt lõi:</p><pre id="39dccb0e-ac88-8022-ab0e-cd6c4fe07e80" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Daily Requests = DAU × Requests/User/Day
+
+Average RPS = Daily Requests / 86,400
+
+Peak RPS = Average RPS × Peak Factor
+
+Daily Storage = New Objects/Day × Object Size
+
+Bandwidth = RPS × Response Size</code></pre><p id="39dccb0e-ac88-8057-a8ca-f482100b1095" class="" dir="auto">Và nhớ câu này:</p><blockquote id="39dccb0e-ac88-80e4-a188-c81d2a586f2d" class="" dir="auto"><strong>Capacity Estimation không cần chính xác tuyệt đối, nhưng phải đủ đúng để dẫn đến quyết định kiến trúc hợp lý.</strong></blockquote><hr id="39dccb0e-ac88-80eb-8bdc-f600695bfca9" dir="auto"/><h1 id="39dccb0e-ac88-8016-b015-d82f1b159b22" class="" dir="auto">17. Bài tập cho bạn</h1><p id="39dccb0e-ac88-80f8-994c-ff3b8e4e8f5f" class="" dir="auto">Hãy estimate hệ thống sau:</p><blockquote id="39dccb0e-ac88-80ca-a870-e3d2a05bbddd" class="" dir="auto">Thiết kế app lưu ảnh cá nhân giống Google Photos bản đơn giản.</blockquote><p id="39dccb0e-ac88-80f6-9706-d6f33c91373c" class="" dir="auto">Giả định có thể dùng:</p><pre id="39dccb0e-ac88-80ab-8d25-ecd3a894b768" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">DAU = 20 triệu
+Mỗi user upload 5 ảnh/ngày
+Mỗi user xem 50 ảnh/ngày
+Mỗi ảnh trung bình = 2 MB
+Peak factor = 5
+Replication factor = 3</code></pre><p id="39dccb0e-ac88-8060-b0b4-e4940682c2fd" class="" dir="auto">Bạn hãy tính:</p><pre id="39dccb0e-ac88-80bc-9c85-e40d68759e5d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">1. Daily upload count
+2. Daily view count
+3. Average upload QPS
+4. Peak upload QPS
+5. Average view QPS
+6. Peak view QPS
+7. Raw storage/day
+8. Storage/day with replication
+9. Storage/year
+10. Vì sao hệ thống này gần như chắc chắn cần object storage + CDN?</code></pre><hr id="39dccb0e-ac88-8020-b8ab-f7c055fc1dd7" dir="auto"/><h2 id="39dccb0e-ac88-8071-a2c2-f146a25fcece" class="" dir="auto">Tóm tắt cuối bài</h2><pre id="39dccb0e-ac88-807e-8f34-f8a52c9bdecc" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Bài 3 cần nhớ:
+
+1. Capacity Estimation giúp thiết kế dựa trên con số, không đoán mò.
+2. DAU × action/user/day giúp tính daily requests.
+3. Daily requests / 86,400 giúp tính average RPS.
+4. Average RPS × peak factor giúp tính peak RPS.
+5. Read/write ratio quyết định cache, replica, queue, sharding.
+6. Object size quyết định storage và bandwidth.
+7. Video/ảnh/file thường cần object storage và CDN.
+8. Estimate càng tốt thì kiến trúc càng có cơ sở.</code></pre><p id="39dccb0e-ac88-8030-840f-e989e7d8f122" class="" dir="auto">Bài tiếp theo nên học: <strong>Bài 4 — API Design nền tảng: REST, endpoint, status code, pagination, idempotency và versioning.</strong></p></div></article><span class="sans" style="font-size:14px;padding-top:2em"></span></body></html>
