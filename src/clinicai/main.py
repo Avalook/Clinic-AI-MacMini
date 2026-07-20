@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from clinicai.api.auth import api_key_middleware
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
+from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
@@ -82,6 +83,7 @@ app = FastAPI(
 app.middleware("http")(api_key_middleware)
 
 app.include_router(health_router)
+app.include_router(identity_router, prefix="/api/v1", tags=["identity"])
 app.include_router(patients_router, prefix="/api/v1")
 app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
 app.include_router(scheduling_router, prefix="/api/v1", tags=["scheduling"])

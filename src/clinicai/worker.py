@@ -28,7 +28,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def _log_handler(event: InteractionEvent) -> None:
-    """Default sink: log the event. Replace with real dispatch when wiring the broker."""
+    """Default sink: log the event. Replace with real dispatch when broker is wired."""
     logger.info("worker_event_received", event_type=getattr(event, "event_type", None))
 
 
