@@ -20,9 +20,26 @@ Set a disposable test DB to actually run them:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
+
+# These tests belong to retired, one-off import utilities that are not part of
+# this deployment repository anymore. Ignore them only while their source files
+# are absent; if the utilities are restored, pytest automatically collects the
+# tests again.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+collect_ignore: list[str] = []
+_RETIRED_TOOL_TESTS = {
+    "scripts/data_migration/transform.py": "data_migration/test_transform.py",
+    "scripts/data_import/csv_to_sources.py": "test_csv_to_sources.py",
+    "scripts/data_import/notion_to_sources.py": "test_notion_to_sources.py",
+    "scripts/data_import/sync_to_supabase.py": "test_sync_to_supabase_helpers.py",
+}
+for source, test_file in _RETIRED_TOOL_TESTS.items():
+    if not (_REPO_ROOT / source).exists():
+        collect_ignore.append(test_file)
 
 # Loaded before any test module is imported, so the redirect below wins over
 # each module's own load_dotenv() (override=False keeps an already-set key).
@@ -58,6 +75,7 @@ _DB_FIXTURES = {
     "async_client",
 }
 _DB_PATH_HINTS = ("/integration/", "test_checkpointer_postgres")
+_EXTERNAL_PATH_HINTS = ("_integration.py", "test_real_")
 
 
 @pytest.fixture(scope="session")
@@ -80,3 +98,5 @@ def pytest_collection_modifyitems(
             hint in nodeid for hint in _DB_PATH_HINTS
         ):
             item.add_marker(pytest.mark.db)
+        if any(hint in nodeid for hint in _EXTERNAL_PATH_HINTS):
+            item.add_marker(pytest.mark.integration)

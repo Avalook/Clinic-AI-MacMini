@@ -11,6 +11,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { redactAuditData } from "./event-log-redaction";
+
 export interface EventInput {
   /** '<aggregate>.<verb>', lowercase snake_case — e.g. 'patient.created'. */
   event_type: string;
@@ -18,7 +20,7 @@ export interface EventInput {
   aggregate_type: string;
   /** id of the affected entity (patient.clinic_patient_id, appointment.id). */
   aggregate_id: string;
-  /** Snapshot of the change, enough to replay state. */
+  /** Operational change data. Direct patient PII is redacted before insert. */
   payload: Record<string, unknown>;
   /** Actor / request context (clinic_role, staff id, auth user, origin). */
   metadata?: Record<string, unknown>;
@@ -34,8 +36,8 @@ export async function logEvent(
     event_type: e.event_type,
     aggregate_type: e.aggregate_type,
     aggregate_id: e.aggregate_id,
-    payload: e.payload,
-    metadata: e.metadata ?? {},
+    payload: redactAuditData(e.payload),
+    metadata: redactAuditData(e.metadata ?? {}),
     source: e.source ?? "dashboard",
   });
 

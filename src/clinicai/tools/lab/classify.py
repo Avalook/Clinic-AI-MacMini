@@ -293,10 +293,10 @@ def _parse_llm_response(response_text: str) -> dict[str, Any]:
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"LLM response is not valid JSON: {text[:200]!r}") from exc
+        raise ValueError("LLM response is not valid JSON") from exc
 
     if not isinstance(data, dict):
-        raise ValueError(f"LLM response is not a JSON object: {data!r}")
+        raise ValueError("LLM response is not a JSON object")
 
     triage_group = data.get("triage_group")
     if triage_group not in _VALID_GROUPS:

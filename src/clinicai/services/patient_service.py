@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-import re
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +11,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+from clinicai.core.phone import phone_variants as _phone_variants
 from clinicai.schemas.patient import (
     DuplicateMatch,
     PatientCreateDTO,
@@ -66,29 +66,6 @@ def _record_to_dto(record: asyncpg.Record) -> PatientDTO:
     return PatientDTO.model_validate(dict(record))
 
 
-def _phone_variants(phone: str) -> list[str]:
-    """Canonicalise a VN phone then return its equivalent STORED spellings.
-
-    Stored data is inconsistent: some rows are ``0987…``, some ``+84987…``
-    (no DB-level format constraint — only the dashboard form forces 10 digits).
-    Comparing the raw input would let ``0987`` miss a stored ``+84987``. So we
-    strip to digits, collapse a leading ``84`` country code to a national ``0``,
-    then expand back to the three common spellings (``0…``, ``84…``, ``+84…``)
-    so a single ``= ANY(...)`` catches every form. Returns ``[]`` for input
-    with no usable digits (caller treats that as "nothing to match").
-    """
-    digits = re.sub(r"\D", "", phone)
-    if not digits:
-        return []
-    if digits.startswith("84"):
-        subscriber = digits[2:]
-    elif digits.startswith("0"):
-        subscriber = digits[1:]
-    else:
-        subscriber = digits
-    return [f"0{subscriber}", f"84{subscriber}", f"+84{subscriber}"]
-
-
 class PatientService:
     """CRUD operations for the patient table."""
 
@@ -121,10 +98,13 @@ class PatientService:
 
             # 2) Phone soft block — warn, let the operator force (feedback #9).
             if data.phone_primary and not data.force:
+                variants = _phone_variants(data.phone_primary)
                 dupes = await conn.fetch(
                     "SELECT clinic_patient_id, patient_code, full_name, "
-                    "date_of_birth FROM patient WHERE phone_primary = $1 LIMIT 5;",
-                    data.phone_primary,
+                    "date_of_birth FROM patient "
+                    "WHERE phone_primary = ANY($1::text[]) "
+                    "OR phone_secondary = ANY($1::text[]) LIMIT 5;",
+                    variants,
                 )
                 if dupes:
                     return PatientCreateResult(
@@ -242,13 +222,17 @@ class PatientService:
 
     async def get_by_phone(self, phone: str) -> list[PatientDTO]:
         """Return all patients matching a phone number (primary or secondary)."""
+        variants = _phone_variants(phone)
+        if not variants:
+            return []
         query = """
             SELECT * FROM patient
-            WHERE phone_primary = $1 OR phone_secondary = $1
+            WHERE phone_primary = ANY($1::text[])
+               OR phone_secondary = ANY($1::text[])
             ORDER BY created_at DESC;
         """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query, phone)
+            rows = await conn.fetch(query, variants)
         return [_record_to_dto(r) for r in rows]
 
     async def find_phone_duplicates(self, phone: str) -> list[dict[str, Any]]:

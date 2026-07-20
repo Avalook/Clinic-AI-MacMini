@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -36,8 +36,8 @@ class RabbitMQConsumer:
         self.connection_url = connection_url
         self.queue = queue
         self.handler = handler
-        self._connection = None
-        self._channel = None
+        self._connection: Any | None = None
+        self._channel: Any | None = None
         self._stopped = False
 
     async def start(self) -> None:
@@ -50,9 +50,11 @@ class RabbitMQConsumer:
         try:
             import aio_pika  # noqa: PLC0415  (lazy import — keeps tests light)
 
-            self._connection = await aio_pika.connect_robust(self.connection_url)
-            self._channel = await self._connection.channel()
-            queue = await self._channel.declare_queue(self.queue, durable=True)
+            connection = await aio_pika.connect_robust(self.connection_url)
+            channel = await connection.channel()
+            self._connection = connection
+            self._channel = channel
+            queue = await channel.declare_queue(self.queue, durable=True)
             logger.info(
                 "consumer_started",
                 queue=self.queue,

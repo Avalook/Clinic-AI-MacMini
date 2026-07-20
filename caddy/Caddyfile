@@ -12,6 +12,22 @@
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
+	# --- Security headers (OWASP best-practices) ---
+	header {
+		# HSTS: force HTTPS for 1 year (browsers remember).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Prevent MIME-sniffing attacks.
+		X-Content-Type-Options "nosniff"
+		# Block embedding in iframes (clickjacking).
+		X-Frame-Options "DENY"
+		# Control referrer leakage.
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Deny access to sensitive device APIs.
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Don't leak the server tech stack.
+		-Server
+	}
+
 	# Liveness for the compose healthcheck (works in :80 tunnel mode).
 	handle /health {
 		respond "ok" 200

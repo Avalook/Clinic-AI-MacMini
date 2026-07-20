@@ -8,7 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-_PHONE_RE = re.compile(r"^\d{10}$")
+from clinicai.core.phone import normalize_vn_phone
+
 _CCCD_RE = re.compile(r"^\d{12}$")
 _LINH_VUC = {"PK", "SK", "NT", "HMVS", "NK"}
 _GENDER = {"Nam", "Nữ", "Khác"}
@@ -27,7 +28,7 @@ class PatientCreateDTO(BaseModel):
     Mirrors the dashboard intake form: core identity + admin (mục I) + structured
     address + CSKH fields. Lenient on secondary fields (bad gender/linh_vuc/
     birth_year → coerced to None, NEVER blocks creation); strict on identity
-    (phone 10 digits, CCCD 12 digits → reject).
+    (Vietnamese mobile phone, CCCD 12 digits → reject).
     """
 
     full_name: str
@@ -95,10 +96,13 @@ class PatientCreateDTO(BaseModel):
     @field_validator("phone_primary", "phone_secondary")
     @classmethod
     def _phone_10_digits(cls, v: str | None) -> str | None:
-        if v is not None and not _PHONE_RE.match(v):
-            msg = "phone must be exactly 10 digits"
+        if v is None:
+            return None
+        normalized = normalize_vn_phone(v)
+        if normalized is None:
+            msg = "phone must be a supported Vietnamese mobile number"
             raise ValueError(msg)
-        return v
+        return normalized
 
     @field_validator("national_id_number")
     @classmethod
@@ -151,6 +155,19 @@ class PatientUpdateDTO(BaseModel):
             msg = "full_name must not be blank"
             raise ValueError(msg)
         return v.strip() if v else v
+
+    @field_validator("phone_primary", "phone_secondary", mode="before")
+    @classmethod
+    def normalize_phone(cls, v: object) -> str | None:
+        v = _blank_to_none(v)
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError("phone must be a string")
+        normalized = normalize_vn_phone(v)
+        if normalized is None:
+            raise ValueError("phone must be a supported Vietnamese mobile number")
+        return normalized
 
 
 def _mask_national_id(value: str | None) -> str | None:

@@ -22,9 +22,9 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const role = await getClinicRole();
-  if (!role) redirect("/role-picker");
+  if (!role) redirect("/login");
 
-  // Everyone now picks their own name at login → show "<Vai trò> · <Tên>".
+  // Identity comes from the staff row linked to the authenticated user.
   let identity = ROLE_LABEL[role];
   const staffId = await getClinicStaffId();
   if (staffId) {

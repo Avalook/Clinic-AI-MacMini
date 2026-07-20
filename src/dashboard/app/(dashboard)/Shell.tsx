@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
@@ -24,6 +24,9 @@ export default function Shell({
   // Drawer is opened from the bottom bar's "Menu"; each link / action closes it.
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const drawerRef = useRef<HTMLElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  const menuTriggerRef = useRef<HTMLElement | null>(null);
 
   // Desktop sidebar resizing and collapse state
   const [sidebarWidth, setSidebarWidth] = useState(220);
@@ -71,10 +74,44 @@ export default function Shell({
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    drawerCloseRef.current?.focus();
     return () => {
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  function openDrawer() {
+    menuTriggerRef.current = document.activeElement as HTMLElement | null;
+    setOpen(true);
+  }
+
+  function closeDrawer() {
+    setOpen(false);
+    requestAnimationFrame(() => menuTriggerRef.current?.focus());
+  }
+
+  function handleDrawerKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeDrawer();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   const renderSidebar = (collapsed: boolean, isMobile = false) => {
     return (
@@ -95,8 +132,9 @@ export default function Shell({
             </h1>
             {!collapsed && isMobile && (
               <button
+                ref={drawerCloseRef}
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeDrawer}
                 aria-label="Đóng menu"
                 className="-mr-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-[#a1a1aa] hover:bg-[#1a1a1a] hover:text-white md:hidden"
               >
@@ -104,7 +142,11 @@ export default function Shell({
               </button>
             )}
           </div>
-          <Nav role={role} onNavigate={() => setOpen(false)} isCollapsed={collapsed} />
+          <Nav
+            role={role}
+            onNavigate={isMobile ? closeDrawer : undefined}
+            isCollapsed={collapsed}
+          />
         </div>
 
         <div className="shrink-0 space-y-3 border-t border-[#1f1f1f] px-3 pt-4">
@@ -173,13 +215,20 @@ export default function Shell({
 
       {/* Mobile drawer (<md), opened from the bottom bar's Menu. */}
       <div
-        onClick={() => setOpen(false)}
+        onClick={closeDrawer}
         aria-hidden
         className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 motion-reduce:transition-none md:hidden ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
       <aside
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu điều hướng"
+        aria-hidden={!open}
+        inert={!open}
+        onKeyDown={handleDrawerKeyDown}
         className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] flex-col bg-[#0a0a0a] px-3 py-5 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none md:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -196,7 +245,7 @@ export default function Shell({
       </main>
 
       {/* Mobile bottom tab bar (<md). */}
-      <BottomNav role={role} onMenu={() => setOpen(true)} />
+      <BottomNav role={role} onMenu={openDrawer} />
     </div>
   );
 }

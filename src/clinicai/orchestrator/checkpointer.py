@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional
 
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -26,7 +26,7 @@ CHECKPOINTER_SCHEMA = "langgraph"
 async def make_checkpointer(
     backend: Optional[str] = None,
     dsn: Optional[str] = None,
-) -> AsyncIterator[BaseCheckpointSaver]:
+) -> AsyncIterator[BaseCheckpointSaver[Any]]:
     """
     Async context manager trả checkpointer + pool (auto-cleanup khi exit).
 

@@ -256,6 +256,47 @@ async def test_create_appointment_invalid_slot_raises() -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_appointment_capacity_check_violation_is_conflict() -> None:
+    """The DB's atomic capacity guard must surface as an HTTP-domain 409."""
+    from clinicai.api.exceptions import ConflictError
+
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.side_effect = asyncpg.CheckViolationError(
+        "Khung giờ đã đầy: tối đa 2 chỗ lịch hẹn"
+    )
+    svc = SchedulingService(pool)
+
+    with pytest.raises(ConflictError, match="Khung giờ đã đầy"):
+        await svc.create_appointment(
+            AppointmentCreateDTO(
+                clinic_patient_id=FAKE_PATIENT_ID,
+                location_id=FAKE_LOCATION_ID,
+                service_type_id=FAKE_SERVICE_TYPE_ID,
+                slot_start=FAKE_NOW,
+                slot_end=FAKE_LATER,
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_unrelated_appointment_check_violation_is_not_mislabeled() -> None:
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.side_effect = asyncpg.CheckViolationError("appointment_status_check")
+    svc = SchedulingService(pool)
+
+    with pytest.raises(asyncpg.CheckViolationError, match="appointment_status_check"):
+        await svc.create_appointment(
+            AppointmentCreateDTO(
+                clinic_patient_id=FAKE_PATIENT_ID,
+                location_id=FAKE_LOCATION_ID,
+                service_type_id=FAKE_SERVICE_TYPE_ID,
+                slot_start=FAKE_NOW,
+                slot_end=FAKE_LATER,
+            )
+        )
+
+
+@pytest.mark.asyncio
 async def test_confirm_appointment_success() -> None:
     """confirm_appointment transitions SCHEDULED → CONFIRMED."""
     pool, conn = _mock_pool_and_conn()

@@ -23,7 +23,7 @@ context, so the param was dropped in T-P9.2-04.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import asyncpg
 from langgraph.graph import END, StateGraph
@@ -72,16 +72,19 @@ def _route_after_classify(state: LabTriageState) -> str:
 def build_lab_triage_subgraph(
     pool: Optional[asyncpg.Pool] = None,
     llm_client: Optional["AnthropicClient"] = None,
-):
+) -> Any:
     """Compile the lab_triage sub-graph with closure-injected pool + LLM."""
     sg = StateGraph(LabTriageState)
 
-    sg.add_node("receive", make_receive_node())
-    sg.add_node("fetch", make_fetch_node(pool))
-    sg.add_node("classify", make_classify_node(pool, llm_client))
-    sg.add_node("advise", make_advise_node(pool))
-    sg.add_node("hard_block", make_hard_block_node(pool))
-    sg.add_node("create_review_tasks", make_create_review_tasks_node(pool))
+    sg.add_node("receive", cast(Any, make_receive_node()))
+    sg.add_node("fetch", cast(Any, make_fetch_node(pool)))
+    sg.add_node("classify", cast(Any, make_classify_node(pool, llm_client)))
+    sg.add_node("advise", cast(Any, make_advise_node(pool)))
+    sg.add_node("hard_block", cast(Any, make_hard_block_node(pool)))
+    sg.add_node(
+        "create_review_tasks",
+        cast(Any, make_create_review_tasks_node(pool)),
+    )
 
     sg.set_entry_point("receive")
 

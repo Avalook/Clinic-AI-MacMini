@@ -15,7 +15,7 @@ has reviewed. Once reviewed_at is populated the gate releases.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 import asyncpg
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/lab", tags=["lab"])
 
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return request.app.state.llm_client
+    return cast(AnthropicClient, request.app.state.llm_client)
 
 
 class LabTriageResponse(BaseModel):

@@ -19,7 +19,7 @@ from clinicai.api.identity import (
     verify_supabase_jwt,
 )
 
-SECRET = "test-jwt-secret"
+SECRET = "test-jwt-secret-at-least-32-bytes"
 
 
 # --------------------------- role mapping --------------------------- #
@@ -74,7 +74,7 @@ def test_verify_jwt_wrong_audience(monkeypatch):
 def test_verify_jwt_wrong_secret(monkeypatch):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
     with pytest.raises(HTTPException) as e:
-        verify_supabase_jwt(_token(secret="attacker-secret"))
+        verify_supabase_jwt(_token(secret="attacker-secret-at-least-32-bytes"))
     assert e.value.status_code == 401
 
 

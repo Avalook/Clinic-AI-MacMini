@@ -5,7 +5,9 @@ find_doctor_node uses the real find_work_sessions tool (P9.1-03b).
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import date as date_type
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import structlog
@@ -20,10 +22,15 @@ from clinicai.graphs.scheduling.state import SchedulingState
 
 logger = structlog.get_logger(__name__)
 
+if TYPE_CHECKING:
+    import asyncpg
+
+SchedulingNode = Callable[[SchedulingState], Awaitable[dict[str, Any]]]
+
 _MARKER = "scheduling_subgraph"
 
 
-async def ask_date_node(state: SchedulingState) -> dict:
+async def ask_date_node(state: SchedulingState) -> dict[str, Any]:
     msg = state.get("user_message", "")
     turn = state.get("turn_count", 0)
     logger.info("scheduling.ask_date", turn=turn)
@@ -64,7 +71,7 @@ async def ask_date_node(state: SchedulingState) -> dict:
     return {"step": "ask_time"}
 
 
-async def ask_time_node(state: SchedulingState) -> dict:
+async def ask_time_node(state: SchedulingState) -> dict[str, Any]:
     msg = state.get("user_message", "")
     turn = state.get("turn_count", 0)
     logger.info("scheduling.ask_time", turn=turn)
@@ -88,14 +95,14 @@ async def ask_time_node(state: SchedulingState) -> dict:
     }
 
 
-def make_find_doctor_node(pool, location_id: UUID):
+def make_find_doctor_node(pool: "asyncpg.Pool", location_id: UUID) -> SchedulingNode:
     """Closure factory: bind asyncpg pool + location_id into find_doctor_node.
 
     Uses the real `find_work_sessions` tool to surface doctors available for
     the (location_id, preferred_date, derived session_type) tuple.
     """
 
-    async def find_doctor_node(state: SchedulingState) -> dict:
+    async def find_doctor_node(state: SchedulingState) -> dict[str, Any]:
         from clinicai.tools.scheduling.find_work_sessions import (
             FindWorkSessionsInput,
             find_work_sessions,
@@ -110,6 +117,14 @@ def make_find_doctor_node(pool, location_id: UUID):
             date=preferred_date_str,
             time=preferred_time,
         )
+
+        if preferred_date_str is None:
+            return {
+                "step": "ask_date",
+                "response": "Dạ chị vui lòng cho em biết ngày muốn khám ạ.",
+                "handled_by": _MARKER,
+                "turn_count": turn + 1,
+            }
 
         try:
             preferred_date = date_type.fromisoformat(preferred_date_str)
@@ -163,7 +178,7 @@ def make_find_doctor_node(pool, location_id: UUID):
                 "turn_count": turn + 1,
             }
 
-        all_doctors: list[dict] = []
+        all_doctors: list[dict[str, Any]] = []
         for session in result.sessions:
             for d in session.available_doctors:
                 enriched = dict(d)
@@ -202,7 +217,7 @@ def make_find_doctor_node(pool, location_id: UUID):
     return find_doctor_node
 
 
-async def confirm_node(state: SchedulingState) -> dict:
+async def confirm_node(state: SchedulingState) -> dict[str, Any]:
     msg = state.get("user_message", "")
     turn = state.get("turn_count", 0)
     decision = parse_yes_no(msg)

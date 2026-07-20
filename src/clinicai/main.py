@@ -11,13 +11,17 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
+from clinicai.api.middleware import DbErrorMiddleware, RequestIdMiddleware
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
-from clinicai.api.v1.routers.identity import router as identity_router
-from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.brief import router as brief_router
+from clinicai.api.v1.routers.catalog import router as catalog_router
+from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
+from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
+from clinicai.api.v1.routers.payment import router as payment_router
+from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.staff import router as staff_router
 from clinicai.api.v1.routers.tools import router as tools_router
@@ -25,6 +29,7 @@ from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.core.database import close_pool, create_pool
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.core.logging import setup_logging
+from clinicai.core.sentry import init_sentry
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.orchestrator.checkpointer import make_checkpointer
 from clinicai.orchestrator.service import OrchestratorService
@@ -32,6 +37,8 @@ from clinicai.voice.transcribe import PhoWhisperTranscriber
 
 # Initialize structured JSON logging
 setup_logging()
+# Initialize Sentry APM (reads SENTRY_DSN; no-op if unset)
+init_sentry()
 
 logger = structlog.get_logger()
 
@@ -80,8 +87,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Gate every non-health route on BACKEND_API_KEY (see api.auth).
+# --- Middleware stack (outermost → innermost) ---
+# 1. Request-ID: assign/reuse X-Request-ID, bind to structlog context.
+app.add_middleware(RequestIdMiddleware)
+# 2. API-key gate: reject unauthenticated callers (see api.auth).
 app.middleware("http")(api_key_middleware)
+# 3. DB-error guard: catch transient connection errors → 503 (no crash loop).
+app.add_middleware(DbErrorMiddleware)
 
 app.include_router(health_router)
 app.include_router(identity_router, prefix="/api/v1", tags=["identity"])
@@ -89,9 +101,12 @@ app.include_router(queue_router, prefix="/api/v1", tags=["queue"])
 app.include_router(patients_router, prefix="/api/v1")
 app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
 app.include_router(scheduling_router, prefix="/api/v1", tags=["scheduling"])
+app.include_router(payment_router, prefix="/api/v1", tags=["payment"])
 app.include_router(tools_router, prefix="/api/v1")
 app.include_router(orchestrator_router, prefix="/api/v1")
 app.include_router(brief_router, prefix="/api/v1")
+app.include_router(catalog_router, prefix="/api/v1")
+app.include_router(ops_router, prefix="/api/v1", tags=["ops"])
 app.include_router(lab_router, prefix="/api/v1")
 app.include_router(voice_router, prefix="/api/v1")
 

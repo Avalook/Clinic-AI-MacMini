@@ -9,6 +9,8 @@ response để trace flow đúng và giữ contract response non-null.
 
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 
 from clinicai.orchestrator.state import OrchestratorState
@@ -21,34 +23,34 @@ _STUB_MESSAGE_TEMPLATE = (
 )
 
 
-def _stub_payload(name: str) -> dict:
+def _stub_payload(name: str) -> dict[str, Any]:
     return {
         "handled_by": f"{name}_stub",
         "response": _STUB_MESSAGE_TEMPLATE.format(name=name),
     }
 
 
-async def scheduling_stub_node(state: OrchestratorState) -> dict:
+async def scheduling_stub_node(state: OrchestratorState) -> dict[str, Any]:
     logger.info("stub_scheduling", trace_id=str(state.get("trace_id")))
     return _stub_payload("scheduling")
 
 
-async def lab_triage_stub_node(state: OrchestratorState) -> dict:
+async def lab_triage_stub_node(state: OrchestratorState) -> dict[str, Any]:
     logger.info("stub_lab_triage", trace_id=str(state.get("trace_id")))
     return _stub_payload("lab_triage")
 
 
-async def communication_stub_node(state: OrchestratorState) -> dict:
+async def communication_stub_node(state: OrchestratorState) -> dict[str, Any]:
     logger.info("stub_communication", trace_id=str(state.get("trace_id")))
     return _stub_payload("communication")
 
 
-async def task_manager_stub_node(state: OrchestratorState) -> dict:
+async def task_manager_stub_node(state: OrchestratorState) -> dict[str, Any]:
     logger.info("stub_task_manager", trace_id=str(state.get("trace_id")))
     return _stub_payload("task_manager")
 
 
-async def previsit_brief_stub_node(state: OrchestratorState) -> dict:
+async def previsit_brief_stub_node(state: OrchestratorState) -> dict[str, Any]:
     # P9.5: real pre_visit_brief graph is callable via
     # `clinicai.graphs.pre_visit_brief.build_pre_visit_brief_subgraph()` and
     # exposed through POST /api/v1/brief/{clinic_patient_id}. The stub here

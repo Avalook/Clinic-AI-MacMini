@@ -43,7 +43,7 @@ class EventService:
             async with conn.transaction():
                 # We map entity_type -> aggregate_type and entity_id -> aggregate_id
                 # trace_id is stored inside metadata JSONB.
-                event_id = await conn.fetchval(
+                event_id_raw = await conn.fetchval(
                     """
                     INSERT INTO event_log
                       (event_type, aggregate_type, aggregate_id, payload,
@@ -66,25 +66,25 @@ class EventService:
             async with self.pool.acquire() as conn:
                 await conn.execute(
                     "UPDATE event_log SET event_published = TRUE WHERE event_id = $1",
-                    event_id,
+                    event_id_raw,
                 )
         except NotImplementedError:
             # RabbitMQ stub — acceptable in dev, log warning
             logger.warning(
                 "event_publish_skipped",
-                event_id=str(event_id),
+                event_id=str(event_id_raw),
                 reason="publisher_not_implemented",
                 trace_id=str(event.trace_id),
             )
         except Exception as e:
             logger.error(
                 "event_publish_failed",
-                event_id=str(event_id),
+                event_id=str(event_id_raw),
                 error=str(e),
                 trace_id=str(event.trace_id),
             )
             # DO NOT raise — event is safe in DB and can be retried later
-        return event_id
+        return UUID(str(event_id_raw))
 
     async def get_unpublished(self, limit: int = 100) -> list[dict[str, Any]]:
         """Get events that have not been published yet — for future relay worker."""

@@ -116,10 +116,6 @@ def b3_ready_appt_ids(labs: list[dict[str, object]]) -> set[str]:
             str(lab.get("external_ref") or "").strip()
         )
         (resulted if has_result else pending)[appt] = (
-            (resulted if has_result else pending).get(appt, 0) + 1
-        )
-    return {
-        appt
-        for appt, n in resulted.items()
-        if n > 0 and pending.get(appt, 0) == 0
-    }
+            resulted if has_result else pending
+        ).get(appt, 0) + 1
+    return {appt for appt, n in resulted.items() if n > 0 and pending.get(appt, 0) == 0}

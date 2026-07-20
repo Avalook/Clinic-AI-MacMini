@@ -229,12 +229,10 @@ def _parse_brief_response(
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"LLM brief response is not valid JSON: {text[:200]!r}"
-            ) from exc
+            raise ValueError("LLM brief response is not valid JSON") from exc
 
     if not isinstance(data, dict):
-        raise ValueError(f"LLM brief response is not a JSON object: {data!r}")
+        raise ValueError("LLM brief response is not a JSON object")
 
     # Stamp deterministic metadata — the LLM is not authoritative for these.
     data["clinic_patient_id"] = context.clinic_patient_id

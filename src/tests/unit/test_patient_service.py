@@ -146,6 +146,34 @@ async def test_create_patient_phone_duplicate_blocks() -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_patient_phone_duplicate_matches_country_code_variant() -> None:
+    """A national-format input must find a historical +84 stored number."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetch.return_value = [
+        {
+            "clinic_patient_id": FAKE_UUID,
+            "patient_code": "BN-2026-000001",
+            "full_name": "Nguyễn Thị Lan",
+            "date_of_birth": datetime.date(1990, 3, 15),
+        }
+    ]
+
+    result = await PatientService(pool).create_patient(
+        PatientCreateDTO(
+            full_name="Nguyễn Thị Lan",
+            phone_primary="0901234567",
+            location_id=FAKE_LOCATION,
+        )
+    )
+
+    assert result.duplicate is True
+    sql, variants = conn.fetch.await_args.args
+    assert "phone_primary = ANY($1::text[])" in sql
+    assert "phone_secondary = ANY($1::text[])" in sql
+    assert set(variants) == {"0901234567", "84901234567", "+84901234567"}
+
+
+@pytest.mark.asyncio
 async def test_create_patient_force_bypasses_phone_duplicate() -> None:
     """force=True skips the phone soft-block and inserts anyway."""
     pool, conn = _mock_pool_and_conn()
@@ -243,7 +271,12 @@ async def test_get_by_phone_returns_list() -> None:
 
     conn.fetch.assert_awaited_once()
     sql_arg = conn.fetch.call_args[0][0]
-    assert "phone_primary" in sql_arg
+    assert "phone_primary = ANY($1::text[])" in sql_arg
+    assert set(conn.fetch.call_args[0][1]) == {
+        "0901234567",
+        "84901234567",
+        "+84901234567",
+    }
 
 
 @pytest.mark.asyncio
@@ -277,6 +310,26 @@ def test_phone_variants_normalises_to_same_set() -> None:
     # No digits → nothing to match.
     assert _phone_variants("") == []
     assert _phone_variants("abc") == []
+    assert _phone_variants("call 0901234567") == []
+
+
+def test_patient_schema_stores_phone_in_canonical_national_format() -> None:
+    dto = PatientCreateDTO(
+        full_name="Nguyễn Thị Lan",
+        phone_primary="+84 901-234-567",
+        location_id=FAKE_LOCATION,
+    )
+
+    assert dto.phone_primary == "0901234567"
+
+
+def test_patient_schema_rejects_unsupported_mobile_prefix() -> None:
+    with pytest.raises(ValueError, match="phone"):
+        PatientCreateDTO(
+            full_name="Nguyễn Thị Lan",
+            phone_primary="0101234567",
+            location_id=FAKE_LOCATION,
+        )
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ clients of the tools layer call the Python functions directly.
 
 from __future__ import annotations
 
+from typing import cast
 from uuid import UUID
 
 import asyncpg
@@ -73,7 +74,7 @@ def get_event_publisher() -> IEventPublisher:
 
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return request.app.state.llm_client
+    return cast(AnthropicClient, request.app.state.llm_client)
 
 
 @router.post("/patient/get-summary", response_model=PatientSummaryOutput)

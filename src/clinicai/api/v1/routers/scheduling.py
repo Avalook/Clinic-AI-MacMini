@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
+from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import (
     ResourceNotFoundError as CoreResourceNotFoundError,
@@ -160,11 +161,17 @@ async def assign_staff_to_session(
 async def create_appointment(
     data: AppointmentCreate,
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> AppointmentRead:
     """Book a new appointment."""
+    idem = await idem.acquire(pool)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
     service = SchedulingService(pool)
     try:
-        return await service.create_appointment(data)
+        result = await service.create_appointment(data)
+        await idem.save(pool, result.model_dump(mode="json"), status_code=201)
+        return result
     except CoreValidationError as exc:
         if "Doctor is not assigned" in exc.message:
             raise ConflictError(exc.message) from exc

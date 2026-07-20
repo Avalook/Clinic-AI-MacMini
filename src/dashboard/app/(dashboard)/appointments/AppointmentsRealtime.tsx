@@ -45,7 +45,7 @@ export default function AppointmentsRealtime() {
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+      <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-green-500 motion-reduce:animate-none" />
       <span className="text-[#71717a]">
         Realtime
         {eventCount > 0 && (

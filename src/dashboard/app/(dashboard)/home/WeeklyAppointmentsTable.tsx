@@ -368,7 +368,7 @@ export default function WeeklyAppointmentsTable({
                                       !a.has_vitals && (
                                         <span
                                           title="Cần điền sinh hiệu"
-                                          className="inline-flex h-4 w-4 shrink-0 animate-pulse items-center justify-center rounded-full bg-[#dc2626] text-[10px] font-bold leading-none text-white"
+                                          className="inline-flex h-4 w-4 shrink-0 animate-pulse items-center justify-center rounded-full bg-[#dc2626] text-[10px] font-bold leading-none text-white motion-reduce:animate-none"
                                         >
                                           !
                                         </span>
@@ -529,7 +529,7 @@ export default function WeeklyAppointmentsTable({
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ClinicalRecordForm
-                appt={selAppt as any}
+                appt={selAppt}
                 staffId={staffId}
                 vitalsOnly
                 readOnly={!canWriteClinical}

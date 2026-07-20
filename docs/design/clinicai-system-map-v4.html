@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClinicAI — Bản đồ module toàn hệ thống (v4)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, p, dl, dd, ul, figure, blockquote, pre { margin: 0; }
+  ul { padding: 0; }
+  body { min-height: 100vh; }
+  img, svg { max-width: 100%; }
+  button, input { font: inherit; color: inherit; }
+</style>
+</head>
+<body>
+<style>
+  :root {
+    --ground:#F2F4F3; --panel:#FFF; --panel-2:#FAFBFA; --line:#D3DBD8; --line-soft:#E4EAE8;
+    --grid:rgba(15,107,92,.055); --grid-2:rgba(15,107,92,.10);
+    --ink:#0F1A18; --ink-2:#3D4B48; --ink-3:#6E7C79;
+    --accent:#0F6B5C; --accent-w:rgba(15,107,92,.08);
+    --warn:#9A6212; --warn-w:rgba(154,98,18,.10);
+    --crit:#A32E24; --crit-w:rgba(163,46,36,.09);
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --sh:0 1px 2px rgba(15,26,24,.06);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --ground:#0C1211; --panel:#121A19; --panel-2:#161F1E; --line:#263230; --line-soft:#1C2726;
+    --grid:rgba(70,201,174,.05); --grid-2:rgba(70,201,174,.10);
+    --ink:#E8EFEC; --ink-2:#A7B5B1; --ink-3:#7A8886;
+    --accent:#46C9AE; --accent-w:rgba(70,201,174,.10);
+    --warn:#D69A3C; --warn-w:rgba(214,154,60,.12);
+    --crit:#E0715F; --crit-w:rgba(224,113,95,.12);
+    --sh:0 1px 2px rgba(0,0,0,.4);
+  }}
+  :root[data-theme="light"]{--ground:#F2F4F3;--panel:#FFF;--panel-2:#FAFBFA;--line:#D3DBD8;--line-soft:#E4EAE8;--grid:rgba(15,107,92,.055);--grid-2:rgba(15,107,92,.10);--ink:#0F1A18;--ink-2:#3D4B48;--ink-3:#6E7C79;--accent:#0F6B5C;--accent-w:rgba(15,107,92,.08);--warn:#9A6212;--warn-w:rgba(154,98,18,.10);--crit:#A32E24;--crit-w:rgba(163,46,36,.09);--sh:0 1px 2px rgba(15,26,24,.06);}
+  :root[data-theme="dark"]{--ground:#0C1211;--panel:#121A19;--panel-2:#161F1E;--line:#263230;--line-soft:#1C2726;--grid:rgba(70,201,174,.05);--grid-2:rgba(70,201,174,.10);--ink:#E8EFEC;--ink-2:#A7B5B1;--ink-3:#7A8886;--accent:#46C9AE;--accent-w:rgba(70,201,174,.10);--warn:#D69A3C;--warn-w:rgba(214,154,60,.12);--crit:#E0715F;--crit-w:rgba(224,113,95,.12);--sh:0 1px 2px rgba(0,0,0,.4);}
+
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 96px;display:flex;flex-direction:column;gap:52px}
+  code,.mono{font-family:var(--mono)}
+  code{font-size:.86em;background:var(--accent-w);color:var(--accent);padding:1px 5px;border:1px solid color-mix(in srgb,var(--accent) 18%,transparent);white-space:nowrap}
+  pre{font-family:var(--mono);font-size:12.5px;line-height:1.55;background:var(--panel-2);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;color:var(--ink-2);margin:0}
+  pre b{color:var(--accent);font-weight:600}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .rule{height:1px;background:var(--line)}
+  .masthead{display:flex;flex-direction:column;gap:14px}
+  .masthead h1{font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-.02em;font-weight:660;text-wrap:balance;margin:0}
+  .lede{margin:0;max-width:66ch;color:var(--ink-2);font-size:16px}
+  .thesis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .thesis div{background:var(--panel);padding:14px 16px}
+  .thesis dt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+  .thesis dd{margin:0;font-size:14px;color:var(--ink-2)}
+  .thesis dd b{color:var(--ink);font-weight:600}
+  section{display:flex;flex-direction:column;gap:18px;scroll-margin-top:20px}
+  section>header{display:flex;flex-direction:column;gap:6px}
+  section h2{margin:0;font-size:22px;font-weight:640;letter-spacing:-.01em}
+  section header p{margin:0;color:var(--ink-2);max-width:70ch;font-size:14.5px}
+
+  .shell{border:1px solid var(--line);background:var(--panel)}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .legend{display:flex;gap:13px;flex-wrap:wrap;align-items:center}
+  .legend span{font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--ink-3);display:inline-flex;align-items:center;gap:5px}
+  .sw{width:18px;height:0;border-top-width:2px;border-top-style:solid}
+  .sw.api{border-color:var(--accent)}
+  .sw.reg{border-color:var(--ink-3)}
+  .sw.evt{border-color:var(--warn);border-top-style:dashed}
+  .sw.ext{border-color:var(--crit);border-top-style:dotted}
+  .zoom{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .zoom label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+  .zoom input{width:100px;accent-color:var(--accent)}
+  .scroll{overflow:auto;background-color:var(--panel);
+    background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px),linear-gradient(to right,var(--grid-2) 1px,transparent 1px),linear-gradient(to bottom,var(--grid-2) 1px,transparent 1px);
+    background-size:20px 20px,20px 20px,100px 100px,100px 100px;max-height:82vh}
+  .board{position:relative;transform-origin:0 0}
+  .board svg{position:absolute;inset:0;overflow:visible;pointer-events:none}
+  .edge{fill:none;stroke-width:1.5}
+  .edge.api{stroke:var(--accent);stroke-width:1.8}
+  .edge.reg{stroke:var(--ink-3);stroke-width:1.5}
+  .edge.evt{stroke:var(--warn);stroke-dasharray:5 4;stroke-width:1.7}
+  .edge.ext{stroke:var(--crit);stroke-dasharray:1.5 4;stroke-linecap:round;stroke-width:2}
+  .edge.dim{opacity:.1}
+  .elab{font-family:var(--mono);font-size:9px;fill:var(--ink-3);letter-spacing:.03em}
+  .elab.dim{opacity:.1}
+  .node{position:absolute;background:var(--panel);border:1px solid var(--line);padding:7px 10px 8px;display:flex;flex-direction:column;gap:2px;cursor:pointer;text-align:left;box-shadow:var(--sh);transition:border-color .12s,transform .12s;font-family:inherit}
+  .node:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .node:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .node .c{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;color:var(--accent)}
+  .node .n{font-size:12.5px;font-weight:620;color:var(--ink);line-height:1.25}
+  .node .m{font-family:var(--mono);font-size:8.5px;color:var(--ink-3)}
+  .node.dim{opacity:.28}
+  .node.surface{background:var(--panel-2)}
+  .node.mod{background:var(--accent-w)}
+  .node.ledger{border-style:solid}
+  .node.plat{background:var(--panel-2)}
+  .node.ext{border-style:dashed;background:var(--crit-w)}
+  .node.ext .c{color:var(--crit)}
+  .node.engine{background:linear-gradient(180deg,var(--accent-w),transparent);border-color:var(--accent)}
+  .node.engine .n{font-size:14px}
+  .node.engine .m{font-size:9.5px;line-height:1.6}
+  .laneTag{position:absolute;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);border-left:1px solid var(--line);padding:2px 0 2px 7px}
+
+  .tbl{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:6px 10px;border:1px solid var(--line-soft);vertical-align:top}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);background:var(--panel-2);font-weight:500;white-space:nowrap}
+  td.mono{font-family:var(--mono);font-size:12px}
+  tbody tr:hover td{background:var(--accent-w)}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:1px 6px;border:1px solid currentColor;white-space:nowrap}
+  footer .tag{white-space:normal}
+  .tag.ok{color:var(--accent)} .tag.w{color:var(--warn)} .tag.c{color:var(--crit)} .tag.n{color:var(--ink-3)}
+  .call{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--panel);padding:12px 14px;font-size:14px;color:var(--ink-2)}
+  .call b{color:var(--ink)}
+  .call.w{border-left-color:var(--warn)} .call.c{border-left-color:var(--crit)}
+  footer.f{border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--ink-3);display:flex;flex-direction:column;gap:6px}
+  @media (max-width:760px){.wrap{padding:28px 16px 72px;gap:40px}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">ClinicAI · Bản đồ module toàn hệ thống <b style="color:var(--accent)">v4</b> · nhìn cả dự án · 17-07-2026</div>
+    <h1>Một engine ở giữa — mọi tính năng là module cắm vào</h1>
+    <p class="lede">
+      Đây là tấm bản đồ cấp dự án anh hỏi: không phải luồng bệnh nhân (đó là việc của v3), mà là <b>toàn bộ hệ thống
+      chia thành module thế nào</b> để backend dễ code, và để "thêm tính năng = thêm module" là sự thật kỹ thuật
+      chứ không phải khẩu hiệu. Sáu mockup của sếp đều map thẳng vào bản đồ này — bảng đối chiếu ở mục 05.
+    </p>
+    <div class="rule"></div>
+    <dl class="thesis">
+      <div><dt>Nguyên tắc 1</dt><dd><b>Engine không biết nghiệp vụ.</b> Nó chỉ biết hàng đợi, trạng thái, cạnh hợp lệ, SLA, validator. Siêu âm hay X-quang với engine là như nhau.</dd></div>
+      <div><dt>Nguyên tắc 2</dt><dd><b>Module không GHI chéo.</b> Ghi = qua engine command hoặc event; đọc đồng bộ = chỉ qua interface đã khai (provides/consumes). Cắt một module ra, phần còn lại vẫn chạy.</dd></div>
+      <div><dt>Nguyên tắc 3</dt><dd><b>Bề mặt là hàng generic.</b> 4 UI đọc engine — thêm module mới, Điều phối/TV/Workspace tự nhận, không sửa dòng UI nào.</dd></div>
+      <div><dt>Nguyên tắc 4</dt><dd><b>Modular monolith.</b> Module = thư mục trong một FastAPI, một Postgres — đúng spec §6, không microservice. Ranh giới để trong code, không để trong hạ tầng.</dd></div>
+    </dl>
+  </header>
+
+  <section id="pos">
+    <header><div class="eyebrow">00 — Vị trí tài liệu</div><h2>Ba tấm bản đồ, ba độ cao</h2></header>
+    <div class="tbl"><table>
+      <thead><tr><th>Tài liệu</th><th>Độ cao</th><th>Trả lời câu gì</th></tr></thead><tbody>
+      <tr><td><b>v4 — bản đồ hệ thống</b> (trang này)</td><td>Cả dự án</td><td>Chia module thế nào, module nói chuyện với nhau ra sao, thêm tính năng thì đụng vào đâu</td></tr>
+      <tr><td>v3 — thiết kế node</td><td>Luồng bệnh nhân</td><td>Từng trạm chạy thế nào: 12 khối, state machine, giờ_tính_lượt, sync/async</td></tr>
+      <tr><td>as-is — bản đồ code hiện tại</td><td>Repo</td><td>Cái gì đang chạy ở đâu, cái gì trùng, cái gì chết — để biết giữ gì bỏ gì</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section id="board-sec">
+    <header><div class="eyebrow">01 — Bản đồ</div><h2>5 vành: Bề mặt → Engine → Module nghiệp vụ → Sổ cái & nền tảng → Tích hợp ngoài</h2>
+    <p>Nét teal = gọi API engine. Nét xám = module đăng ký (form + validator + routing) vào engine lúc khởi động. Nét vàng đứt = event một chiều qua outbox. Nét đỏ chấm = ra ngoài tổ chức. Di chuột vào hộp để soi quan hệ.</p></header>
+    <div class="shell">
+      <div class="bar">
+        <div class="legend">
+          <span><i class="sw api"></i>gọi API engine</span>
+          <span><i class="sw reg"></i>đăng ký vào engine</span>
+          <span><i class="sw evt"></i>event (outbox)</span>
+          <span><i class="sw ext"></i>ra ngoài tổ chức</span>
+        </div>
+        <div class="zoom"><label for="z">Zoom</label><input id="z" type="range" min="50" max="120" value="100" step="5"><span class="mono" id="zv" style="font-size:11px;color:var(--ink-3)">100%</span></div>
+      </div>
+      <div class="scroll"><div class="board" id="board"><svg id="edges" aria-hidden="true"></svg></div></div>
+    </div>
+    <div class="call">
+      <b>Đọc board này thế nào:</b> hàng BỀ MẶT không chứa nghiệp vụ — chúng render những gì engine trả về.
+      Hàng MODULE chứa toàn bộ nghiệp vụ — mỗi module sở hữu bảng của nó, phát event của nó.
+      SỔ CÁI là dữ liệu dùng chung chỉ-đọc-qua-service (bệnh nhân, nhân sự, danh mục, cơ sở).
+      NỀN TẢNG là những gì <b>đã chạy trong repo hôm nay</b>: auth per-staff (cluster #1a), event_log outbox, idempotency.
+      CSKH là dải cắt ngang — nó nghe event từ mọi nơi và làm việc bằng case.
+    </div>
+  </section>
+
+  <section id="contract">
+    <header><div class="eyebrow">02 — Hợp đồng module</div><h2>Một module phải khai đúng 7 thứ — và chỉ 7 thứ</h2>
+    <p>Đây là cơ chế biến "thêm tính năng = thêm module" thành sự thật. Module nào không khai đủ 6 mục thì không được merge; module nào khai quá (gọi thẳng bảng của module khác) thì bị chặn ở review.</p></header>
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Khai</th><th>Là gì</th><th>Ví dụ (module Siêu âm)</th></tr></thead><tbody>
+      <tr><td class="mono">1</td><td><b>Bảng sở hữu</b></td><td>Bảng chỉ module này được ghi. Module khác muốn đọc → qua service/API của nó.</td><td class="mono">ultrasound_record</td></tr>
+      <tr><td class="mono">2</td><td><b>API</b></td><td>Router FastAPI của module, prefix riêng.</td><td class="mono">/api/v1/ultrasound/*</td></tr>
+      <tr><td class="mono">3</td><td><b>Node đăng ký vào engine</b></td><td>Instance nào (execution_site, ca), điều kiện vào, completion validator, cạnh routing.</td><td class="mono">DICH_VU@SA-T2, SA-T4 · validator: ảnh≥1 + kết luận + ký</td></tr>
+      <tr><td class="mono">4</td><td><b>Form</b></td><td>Schema để Workspace render — không viết màn hình riêng. Mọi bản ghi form có trạng thái <b>DRAFT</b> mặc định («Lưu nháp» trong mockup); validator chỉ chạy lúc Complete.</td><td class="mono">sieu_am.schema.json</td></tr>
+      <tr><td class="mono">5</td><td><b>Event phát / nghe</b></td><td>Tên event vào <code>event_log</code> + event nó subscribe. <b>Mọi billable event bắt buộc mang <code>subject_person_id</code></b> — và module KHÔNG BAO GIỜ phát giá tiền, chỉ phát usage (thungan là nơi DUY NHẤT định giá, đọc bảng giá + gói từ DANH_MUC).</td><td class="mono">phát ultrasound.completed · nghe service_order.signed</td></tr>
+      <tr><td class="mono">6</td><td><b>Provides / consumes</b></td><td>Interface ĐỌC đồng bộ module này export, và interface của module khác nó gọi — khai tường minh. Luật: GHI chéo cấm tuyệt đối (chỉ qua engine command/event); ĐỌC chéo chỉ qua interface đã khai.</td><td class="mono">provides: get_result(order_id) · consumes: benh_nhan.get_person</td></tr>
+      <tr><td class="mono">7</td><td><b>Quyền</b></td><td>Vai nào làm gì, theo ma trận 2 miền (lâm sàng/hành chính) + theo trường.</td><td class="mono">ghi: BS/TKYK · ký: BS · xem: hành chính</td></tr>
+      </tbody></table></div>
+    <pre><b># manifest của một module — đây là toàn bộ những gì phải viết khi thêm tính năng</b>
+module: <b>xquang</b>                      # ví dụ: phòng khám mở dịch vụ X-quang
+owns_tables: [xquang_record]
+api: /api/v1/xquang
+nodes:
+  - template: DICH_VU                 # dùng lại template có sẵn của engine
+    sites: [{location: KIM_NGUU, floor: 1, room: XQ-01}]
+    entry: [service_order.signed, subject_present]
+    validator: [image_count >= 1, conclusion != null, signed_by != null]
+    routing: {DONE: CHO_KHAM_LAI, DEFERRED: KET_QUA}
+form: xquang.schema.json
+provides: [get_xquang_result(order_id)]
+consumes: [benh_nhan.get_person]
+events: {emits: [xquang.completed], listens: [service_order.signed]}
+<b># validator là BIỂU THỨC KHAI BÁO — engine tự chấm trên dữ liệu, không chạy code của module
+# → module ketqua có sập thì hàng đợi các module khác vẫn chạy</b>
+permissions: {write: [BAC_SI, TKYK], sign: [BAC_SI]}
+<b># KHÔNG sửa engine. KHÔNG sửa Điều phối/TV/Workspace — chúng tự nhận node mới.</b></pre>
+  </section>
+
+  <section id="modules">
+    <header><div class="eyebrow">03 — Danh sách module</div><h2>Từng module: sở hữu gì, phát gì, cắm vào engine thế nào</h2></header>
+    <div class="tbl"><table id="mt"></table></div>
+  </section>
+
+  <section id="extend">
+    <header><div class="eyebrow">04 — Bài kiểm tra mở rộng</div><h2>"Thêm tính năng = thêm module" — thử bằng 5 kịch bản thật</h2>
+    <p>Một kiến trúc module chỉ đáng tin khi chỉ ra được <b>chính xác cái gì phải viết và cái gì không được đụng</b>. Nếu kịch bản nào buộc sửa engine hay sửa UI generic — kiến trúc sai, quay lại vẽ tiếp.</p></header>
+    <div class="tbl"><table id="xt"></table></div>
+  </section>
+
+  <section id="mock">
+    <header><div class="eyebrow">05 — Đối chiếu mockup của sếp</div><h2>Sáu bức hình ChatGPT map vào kiến trúc này thế nào</h2>
+    <p>Kết luận trước: <b>không có xung đột</b>. Mockup của sếp chính là các bề mặt generic (điều phối · workspace · TV · app BN · app quản trị) + engine — nhiều khái niệm trong hình đã có sẵn cột trong Supabase.</p></header>
+    <div class="tbl"><table id="kt"></table></div>
+  </section>
+
+  <section id="backend">
+    <header><div class="eyebrow">06 — Cấu trúc backend</div><h2>Module = thư mục. Ranh giới nằm trong code, không nằm trong hạ tầng.</h2></header>
+    <pre>src/clinicai/
+├── <b>engine/</b>                  # KHÔNG chứa nghiệp vụ — trái tim, viết một lần
+│   ├── queue.py               # queue_item + 10 command (Enqueue, Call, Complete, Route…)
+│   ├── nodes.py               # node_definition · node_instance (bật/tắt theo ca)
+│   ├── transitions.py         # node_transition — cạnh hợp lệ, trưởng ca chỉ chọn trong đây
+│   ├── ranking.py             # DỜI services/queue_order.py vào đây (đã có, 9 test) — việc còn lại: bỏ copy hiển thị lib/queue.ts
+│   ├── validators.py          # chạy completion validator do module đăng ký
+│   └── registry.py            # đăng ký TĨNH: dict Python + import-linter — KHÔNG phải plugin framework runtime
+├── <b>modules/</b>                 # nghiệp vụ — mỗi thư mục một module, KHÔNG import chéo
+│   ├── dathen/   checkin/   sinhhieu/   kham/
+│   ├── dichvu/                # template DICH_VU + các instance: SA · lấy mẫu · thủ thuật · POCT
+│   ├── ketqua/                # nhập KQ ngoài + gate duyệt (ghi lab_result — cột gate ĐÃ CÓ)
+│   ├── thungan/               # scope thuốc|dịch vụ · đối soát KiotViet · payment DEBT/WAIVED
+│   └── cskh/                  # case = staff_task · kịch bản = catalog data, không phải code
+│       └── (mỗi module: router.py · service.py · models.py · events.py · forms/ · manifest.yaml)
+├── <b>platform/</b>                # đã chạy hôm nay — giữ nguyên
+│   ├── identity/              # JWT per-staff → role (cluster #1a)
+│   ├── eventlog/              # outbox event_log + relay (append-only trigger đã có)
+│   ├── notify/                # Telegram đã chạy · Zalo khi có OA
+│   └── files/                 # ảnh SA/XN — artifact ảnh 10–30K hồ sơ
+└── <b>integrations/</b>            # mỗi đối tác một connector, cấu hình được — không hard-code vendor
+    ├── kiotviet.py            # đối soát, không kéo tiền về (cho tới khi PK quyết khác)
+    ├── lab_mail.py → lab_api.py   # email parser trước, API sau — cùng interface
+    └── zalo_oa.py</pre>
+    <div class="call w">
+      <b>Luật giữ ranh giới (3 dòng, đưa vào CI):</b>
+      (1) <code>modules/*</code> không import <code>modules/*</code> khác — chỉ import <code>engine</code>, <code>platform</code>, sổ cái.
+      (2) Mỗi bảng có đúng một module được ghi — checker đọc <code>owns_tables</code> trong manifest.
+      (3) UI không gọi Supabase trực tiếp trừ auth + realtime (đã là luật của CLAUDE.md).
+    </div>
+  </section>
+
+  <section id="migrate">
+    <header><div class="eyebrow">06b — Từ as-is sang to-be</div><h2>Code hôm nay dời vào đâu — không viết lại từ số 0</h2>
+    <p>Mỗi dòng: đích trong kiến trúc mới ← nguồn đang chạy. Ba thứ đã đúng chỗ (trigger 2+1, RPC sinh số, event_log) giữ nguyên vị trí.</p></header>
+    <div class="tbl"><table id="migt"></table></div>
+  </section>
+
+  <section id="phases">
+    <header><div class="eyebrow">07 — Trình tự xây</div><h2>Bốn đợt — mỗi đợt phòng khám thấy được một thứ mới</h2></header>
+    <div class="tbl"><table id="pt"></table></div>
+  </section>
+
+  <section id="dec">
+    <header><div class="eyebrow">08 — Quyết định đã chốt trong bản đồ này</div><h2>Ngắn — vì phần lớn đã chốt ở v3</h2></header>
+    <div class="tbl"><table id="dt"></table></div>
+  </section>
+
+  <section id="q">
+    <header><div class="eyebrow">09 — Còn chặn</div><h2>Bốn câu hỏi trước khi code đợt 1</h2></header>
+    <div class="tbl"><table id="qt"></table></div>
+  </section>
+
+  <footer class="f">
+    <div>Nguồn: 6 mockup ChatGPT (folder Riêng tư 8) · thiết kế node v3 · khảo sát 81 tài liệu + DB gốc · schema <span class="mono">supabase/migrations</span> đang chạy.</div>
+    <div>Trạng thái: <span class="tag w">DRAFT v4 — cùng 3 câu hỏi chặn của v3 (trộn số · chế độ siêu âm · điểm thu tiền)</span></div>
+  </footer>
+</div>
+
+<script>
+/* ================= BOARD ================= */
+const U=196, ROWH=118, PX=30, PY=64, NH=64;
+const NODES=[
+ // hàng 0 — bề mặt
+ {c:'DIEU_PHOI',n:'Điều phối (trưởng ca)',m:'kanban node · tạm giữ · cần can thiệp',x:0,r:0,w:1.35,k:'surface'},
+ {c:'WORKSPACE',n:'Workspace trạm',m:'form + điều kiện hoàn thành + node tiếp theo',x:1.5,r:0,w:1.35,k:'surface'},
+ {c:'TV',n:'TV gọi số & lộ trình',m:'B/S/X/T/C · lộ trình buổi khám',x:3,r:0,w:1.35,k:'surface'},
+ {c:'APP_BN',n:'Zalo/SMS bệnh nhân',m:'gọi số · lộ trình · nhắc hẹn · trả KQ',x:4.5,r:0,w:1.35,k:'surface'},
+ {c:'ADMIN',n:'App quản trị',m:'Tổng quan · Lịch hẹn · Bệnh nhân · Dịch vụ · Báo cáo · Cấu hình (sidebar 7 mục trong mockup)',x:6,r:0,w:1.35,k:'surface'},
+ // hàng 1 — engine (rộng)
+ {c:'ENGINE',n:'FLOW ENGINE — không biết nghiệp vụ',m:'queue_item (ENCOUNTER|ORDER|CASE · assigned_staff · số hiển thị theo khu) · sổ lệnh service_order (PHẢI TẠO, module ghi qua command) · node_instance theo ca · node_transition · ranking: dời queue_order.py (9 test) · SLA · validator DSL khai báo · RaiseFlag → «Cần can thiệp» · projection lộ trình + ước chờ',x:1,r:1,w:5.35,k:'engine'},
+ // hàng 2 — module nghiệp vụ
+ {c:'DAT_HEN',n:'Đặt hẹn',m:'3 kênh · slot 2+1 (trigger DB)',x:0,r:2,w:1,k:'mod'},
+ {c:'CHECKIN',n:'Check-in',m:'hợp nhất 2 cửa · sinh số',x:1.05,r:2,w:1,k:'mod'},
+ {c:'SINH_HIEU',n:'Sinh hiệu',m:'ngưỡng cảnh báo · BMI',x:2.1,r:2,w:1,k:'mod'},
+ {c:'KHAM',n:'Khám',m:'re-entrant · form=f(dịch vụ)',x:3.15,r:2,w:1,k:'mod'},
+ {c:'DICH_VU',n:'Dịch vụ (template)',m:'SA·lấy mẫu·thủ thuật·POCT = instance',x:4.2,r:2,w:1.2,k:'mod'},
+ {c:'KET_QUA',n:'Kết quả & duyệt',m:'nhập KQ ngoài + gate BS',x:5.45,r:2,w:1,k:'mod'},
+ {c:'THU_NGAN',n:'Thu ngân',m:'thuốc | dịch vụ · biên nhận',x:6.5,r:2,w:.85,k:'mod'},
+ // hàng 3 — sổ cái
+ {c:'BENH_NHAN',n:'Bệnh nhân + MPI',m:'patient · dedup · người nhà · 2 người/lượt',x:0,r:3,w:1.6,k:'ledger'},
+ {c:'NHAN_SU',n:'Nhân sự + lịch ca',m:'staff · roster duyệt · đa nhiệm',x:1.75,r:3,w:1.6,k:'ledger'},
+ {c:'DANH_MUC',n:'Danh mục DV + giá',m:'service_type · TAT · form map',x:3.5,r:3,w:1.6,k:'ledger'},
+ {c:'CO_SO',n:'Cơ sở / phòng / máy',m:'location · floor 1,2,4 · capability',x:5.25,r:3,w:1.6,k:'ledger'},
+ // hàng 4 — nền tảng
+ {c:'AUTH',n:'Auth per-staff + BN',m:'backend JWT→role ✓ · frontend còn role-picker (#1b/#1c) · identity BỆNH NHÂN (OTP/Zalo) khi cần cổng BN',x:0,r:4,w:1.6,k:'plat'},
+ {c:'EVENT_LOG',n:'Event log + outbox',m:'bảng + trigger append-only ✓ · relay WIP',x:1.75,r:4,w:1.6,k:'plat'},
+ {c:'NOTIFY',n:'Thông báo',m:'Telegram WIP · Zalo stub — phải nối',x:3.5,r:4,w:1.6,k:'plat'},
+ {c:'FILES',n:'Ảnh & tệp',m:'PHẢI XÂY — ảnh SA/XN 10–30K hồ sơ',x:5.25,r:4,w:1.6,k:'plat'},
+ // hàng 5 — tích hợp ngoài
+ {c:'ZALO_OA',n:'Zalo OA',m:'kênh gửi BN',x:1.2,r:5,w:1.1,k:'ext'},
+ {c:'CHUP_N',n:'Chụp phim ngoài',m:'BN rời cơ sở',x:3.0,r:5,w:1.1,k:'ext'},
+ {c:'LAB_P',n:'Lab đối tác',m:'email → API · vendor cấu hình',x:4.55,r:5,w:1.2,k:'ext'},
+ {c:'KIOTVIET',n:'KiotViet',m:'tiền thuốc — đối soát',x:6.3,r:5,w:1.2,k:'ext'},
+];
+const EDGES=[
+ {f:'DIEU_PHOI',t:'ENGINE',ty:'api'},{f:'WORKSPACE',t:'ENGINE',ty:'api'},
+ {f:'TV',t:'ENGINE',ty:'api',lb:'đọc queue_item.called'},{f:'APP_BN',t:'ENGINE',ty:'api'},
+ {f:'ADMIN',t:'ENGINE',ty:'api',lb:'metric + cấu hình + sổ cái'},
+ {f:'DAT_HEN',t:'ENGINE',ty:'reg'},{f:'CHECKIN',t:'ENGINE',ty:'reg'},
+ {f:'SINH_HIEU',t:'ENGINE',ty:'reg'},{f:'KHAM',t:'ENGINE',ty:'reg',lb:'đăng ký form + validator + routing'},
+ {f:'DICH_VU',t:'ENGINE',ty:'reg'},{f:'KET_QUA',t:'ENGINE',ty:'reg'},{f:'THU_NGAN',t:'ENGINE',ty:'reg'},
+ {f:'ENGINE',t:'EVENT_LOG',ty:'evt',lb:'mọi chuyển tiếp → outbox',via:16},
+ {f:'EVENT_LOG',t:'NOTIFY',ty:'evt'},
+ {f:'THU_NGAN',t:'KIOTVIET',ty:'ext',lb:'đối soát, không kéo tiền'},
+ {f:'KET_QUA',t:'LAB_P',ty:'ext',lb:'connector cấu hình',via:1037},
+ {f:'DICH_VU',t:'CHUP_N',ty:'ext',via:694},
+ {f:'NOTIFY',t:'ZALO_OA',ty:'ext'},
+];
+const board=document.getElementById('board'),svg=document.getElementById('edges');
+const BW=PX*2+7.5*U, BH=PY+6*ROWH+40;
+board.style.width=BW+'px';board.style.height=BH+'px';svg.setAttribute('width',BW);svg.setAttribute('height',BH);
+[['Bề mặt — generic, không nghiệp vụ',0],['Engine',1],['Module nghiệp vụ',2],['Sổ cái dùng chung',3],['Nền tảng (một phần đã có)',4],['Tích hợp ngoài',5]]
+ .forEach(([t,r])=>{const e=document.createElement('div');e.className='laneTag';e.textContent=t;
+  e.style.left=(PX-14)+'px';e.style.top=(PY+r*ROWH-24)+'px';board.appendChild(e);});
+const by=Object.fromEntries(NODES.map(n=>[n.c,n]));
+// chiều cao lấy từ DOM thật (đo sau khi render) để cạnh không đâm vào hộp cao hơn dự kiến
+const geo=n=>({x:PX+n.x*U,y:PY+n.r*ROWH,w:n.w*U-14,
+ h:(nEls[n.c]?nEls[n.c].offsetHeight:NH+(n.k==='engine'?26:0))});
+const NS='http://www.w3.org/2000/svg';
+function path(e){const a=geo(by[e.f]),b=geo(by[e.t]);
+ const ax=a.x+a.w/2;
+ if(a.y===b.y){ // cùng hàng → nối ngang cạnh-với-cạnh
+  const l=a.x<b.x; const sx=l?a.x+a.w:a.x, ex=l?b.x:b.x+b.w; const y=a.y+a.h/2;
+  return {d:`M ${sx} ${y} L ${ex} ${y}`,lx:(sx+ex)/2,ly:y-5};}
+ const down=b.y>a.y;
+ const sy=down?a.y+a.h:a.y, ey=down?b.y:b.y+b.h;
+ // rẽ ngang trong khe giữa hai hàng; kẹp để hộp cao bất thường không đẩy điểm rẽ vào hàng sau
+ const rowA=by[e.f].r;
+ const g1=down?Math.min(sy+24,PY+(rowA+1)*ROWH-8):Math.max(sy-24,ey+8);
+ const tx=Math.max(b.x+16,Math.min(b.x+b.w-16,ax));
+ const sx=Math.max(a.x+16,Math.min(a.x+a.w-16,tx));
+ if(e.via!==undefined){                   // cạnh dài: đi men hành lang trống (via = x cố định)
+  const g2=down?ey-24:ey+24;
+  return {d:`M ${sx} ${sy} L ${sx} ${g1} L ${e.via} ${g1} L ${e.via} ${g2} L ${tx} ${g2} L ${tx} ${ey}`,lx:e.via+8,ly:(g1+g2)/2};}
+ return {d:`M ${sx} ${sy} L ${sx} ${g1} L ${tx} ${g1} L ${tx} ${ey}`,lx:(sx+tx)/2,ly:g1-4};}
+const defs=document.createElementNS(NS,'defs');
+defs.innerHTML=['api','reg','evt','ext'].map(t=>`<marker id="a-${t}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 7 4 L 0 7 z" class="ah ${t}"/></marker>`).join('');
+svg.appendChild(defs);
+const st=document.createElementNS(NS,'style');st.textContent='.ah.api{fill:var(--accent)}.ah.reg{fill:var(--ink-3)}.ah.evt{fill:var(--warn)}.ah.ext{fill:var(--crit)}';svg.appendChild(st);
+const nEls={};
+NODES.forEach(n=>{const b=document.createElement('button');b.className='node '+n.k;
+ b.style.left=(PX+n.x*U)+'px';b.style.top=(PY+n.r*ROWH)+'px';b.style.width=(n.w*U-14)+'px';
+ b.style.minHeight=(NH+(n.k==='engine'?26:0))+'px';
+ b.innerHTML=`<span class="c">${n.c}</span><span class="n">${n.n}</span><span class="m">${n.m}</span>`;
+ b.onmouseenter=()=>hi(n.c);b.onmouseleave=()=>hi(null);b.onfocus=()=>hi(n.c);b.onblur=()=>hi(null);
+ board.appendChild(b);nEls[n.c]=b;});
+const eEls=[];
+EDGES.forEach(e=>{const p=path(e);const pa=document.createElementNS(NS,'path');
+ pa.setAttribute('d',p.d);pa.setAttribute('class','edge '+e.ty);pa.setAttribute('marker-end',`url(#a-${e.ty})`);svg.appendChild(pa);
+ let lb=null;if(e.lb){lb=document.createElementNS(NS,'text');lb.setAttribute('x',p.lx);lb.setAttribute('y',p.ly);
+  lb.setAttribute('text-anchor','middle');lb.setAttribute('class','elab');lb.textContent=e.lb;svg.appendChild(lb);}
+ eEls.push({e,pa,lb});});
+function hi(c){eEls.forEach(({e,pa,lb})=>{const on=!c||e.f===c||e.t===c;pa.classList.toggle('dim',!on);if(lb)lb.classList.toggle('dim',!on);});
+ Object.entries(nEls).forEach(([k,el])=>{const t=!c||k===c||EDGES.some(e=>(e.f===c&&e.t===k)||(e.t===c&&e.f===k));el.classList.toggle('dim',!t);});}
+const z=document.getElementById('z'),zv=document.getElementById('zv');
+z.oninput=()=>{const s=z.value/100;board.style.transform=`scale(${s})`;board.parentElement.style.height=Math.min(BH*s+16,innerHeight*.82)+'px';zv.textContent=z.value+'%';};
+
+/* ================= TABLES ================= */
+const T=(el,cols,rows)=>document.getElementById(el).innerHTML=
+ `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+
+T('mt',['Module','Sở hữu bảng','Cắm vào engine','Event phát','Ghi chú thiết kế'],[
+ ['<b>dathen</b> — Đặt hẹn','<code>appointment</code> (+<code>booking_channel</code>)','Hàng chờ xác nhận (CASE) · không cấp số','appointment.scheduled/.confirmed/.cancelled','3 kênh một module; slot 2+1 giữ nguyên ở DB trigger; «không liên lạc được» là trạng thái chuẩn'],
+ ['<b>checkin</b> — Check-in','<code>visit</code> (mở lượt)','Node CHECKIN · sinh số qua RPC advisory-lock (đã có) · giỏ dịch vụ','encounter.opened','Hợp nhất 2 cửa; giờ_tính_lượt tính ở engine.ranking — MỘT bản thay compareQueue×3'],
+ ['<b>sinhhieu</b> — Sinh hiệu','<code>clinical_form_response(VITALS)</code>','Node SINH_HIEU · validator: đủ chỉ số + không cảnh báo treo','vitals.recorded/.abnormal','Người đo là người nhập; partition clinical_form_response theo service_code (VITALS = namespace của module này); ngưỡng cảnh báo = bảng data mới trong DANH_MUC (phải tạo); form có trạng thái DRAFT, validator chỉ chạy lúc Complete'],
+ ['<b>kham</b> — Khám','<code>clinical_record</code> · <code>prescription</code>','Node KHAM re-entrant (2 hàng: lần 1 & khám lại) · validator chốt lượt · phát hành/ký <code>service_order</code> qua command engine (<b>engine sở hữu sổ lệnh</b> — vì dichvu cập nhật tiến độ, ketqua gắn KQ; ba bên cùng ghi một bảng là vi phạm hợp đồng, nên bảng thuộc engine, module chỉ gửi command)','service_order.issued/.signed · encounter.summary_ready','Form = f(service_type) qua form_schema_map; 2 người/phiếu ghi actor theo trường; encounter_participant cho lượt 2 người'],
+ ['<b>dichvu</b> — Dịch vụ (template)','<code>ultrasound_record</code> + bảng theo loại','Template DICH_VU → N instance theo (site, ca) · mỗi instance một hàng đợi theo PHÒNG','ultrasound.completed · specimen.collected · service.done','Toàn bộ SA/lấy mẫu/thủ thuật/POCT là instance — thêm loại mới = thêm manifest, không thêm code engine/UI'],
+ ['<b>ketqua</b> — Kết quả & duyệt','<code>lab_result</code>','Node NHAP_KQ (hàng = order gửi chưa có KQ) + gate DUYET_KQ có điều kiện','lab_result.received/.reviewed/.critical','Cột gate ĐÃ CÓ trong schema (requires_doctor_review, reviewed_by, is_finalized + constraint); persist AI triage — hết cảnh chạy LLM rồi vứt'],
+ ['<b>thungan</b> — Thu ngân','<code>payment</code>','Node THU_NGAN scope thuốc|dịch vụ · validator: đối soát + biên nhận + case KQ-trả-sau đã sinh','payment.recorded · encounter.closed','Mở CHECK payment.status → PAID|DEBT|WAIVED + method/transaction_ref/discount(ai duyệt) + payer_person_id (lượt 2 người → N biên nhận) + kind SETTLEMENT|PREPAY (telehealth thu trước); phiếu ⊇ hoá đơn; in lại idempotent theo document_id'],
+ ['<b>cskh</b> — CSKH (dải cắt ngang)','<code>staff_task</code> (case sống, có trạng thái CHỜ BÀN GIAO→ĐÃ NHẬN) · <code>cskh_action</code> = archive legacy chỉ-đọc','Hàng CASE — không nằm trong luồng buổi khám','followup.created/.completed','Nghe event mọi module (no-show, huỷ, KQ trả sau, nợ); 48 kịch bản = data catalog, không phải code; luật cứng: chỉ gọi trả KQ khi gate cho phép'],
+]);
+
+T('xt',['Kịch bản','Phải viết','KHÔNG đụng vào','Kết luận'],[
+ ['<b>Mở dịch vụ X-quang</b>','1 manifest (instance DICH_VU mới) + 1 form schema + 1 bảng kết quả','engine · Điều phối · TV · Workspace · các module khác',tg('ok','THÊM MODULE')],
+ ['<b>Mở cơ sở Hào Nam</b>','Thêm rows <code>location/room</code> + roster ca cho cơ sở 2','Mọi module đã mang <code>location_id</code> từ đầu — không sửa code',tg('ok','CHỈ LÀ DATA')],
+ ['<b>Nhắc tái khám tự động theo phác đồ</b>','1 module mới nghe <code>encounter.closed</code> + đọc danh mục chu kỳ XN → sinh case CSKH','engine · cskh (nó chỉ nhận thêm case) · UI',tg('ok','THÊM MODULE')],
+ ['<b>Đối tác lab có API thật</b>','1 connector mới trong <code>integrations/</code> cùng interface với email-parser','module ketqua (nó gọi interface, không biết vendor)',tg('ok','ĐỔI CONNECTOR')],
+ ['<b>Bệnh nhân tự đặt lịch online (Calendly-style)</b>','1 bề mặt mới đọc slot + gọi API dathen','dathen (đã là module, thêm 1 client) · engine',tg('ok','THÊM BỀ MẶT')],
+]);
+
+T('kt',['Mockup của sếp','Là gì trong kiến trúc','Đã có sẵn / cần xây'],[
+ ['<b>Điều phối lượt khám</b> (kanban 8 cột, tạm giữ, cần can thiệp, lý do điều phối bắt buộc)','Bề mặt DIEU_PHOI đọc engine — cột = node, thẻ = queue_item, «lý do» = reason_code của Route/Hold(reason, note, giờ tự ghi). Dải KPI = 4 count (active · quá SLA · tạm giữ · case CSKH chờ-bàn-giao). Toggle «Theo bác sĩ» = group cùng queue_item theo assigned_staff — không thêm bảng. Badge 1/2 = count order done/total. Search đọc service BENH_NHAN','Cần xây UI; engine v3 đã thiết kế đúng từng khái niệm trong hình'],
+ ['<b>Drawer chi tiết lượt</b> («Chế độ kết quả: Trong buổi / Trả sau», «KQ trả sau không chặn checkout», hành động tiếp theo)','<code>service_order.kind SYNC|ASYNC</code> + luật checkout không chặn + cạnh routing hợp lệ','Trùng khớp quyết định v3 — sếp và khảo sát hội tụ về cùng một chỗ. Stepper hiện cả bước TƯƠNG LAI → engine cung cấp projection lộ trình = f(orders đã ký, transitions, trạng thái) — mọi bề mặt cùng đọc'],
+ ['<b>TV gọi số</b> (B/S/X/T/C theo khu + «lộ trình một buổi khám»)','Bề mặt TV đọc <code>queue_item.called</code>; số theo khu = prefix hiển thị per node-family; lộ trình = chính «phiếu lộ trình» thay giấy','«Thời gian dự kiến» = ước tính chờ của engine (TAT danh mục × độ dài hàng đợi). Loa đọc số = TTS tại thiết bị TV khi nhận event queue_item.called. Mô hình SỐ per khu → câu hỏi #1'],
+ ['<b>Workspace Siêu âm</b> (checklist Điều kiện hoàn thành, «Cần ký kết quả» chặn nút, node tiếp theo)','Completion validator của module dichvu + <code>node_transition</code> — nút mờ khi validator fail','Đúng nguyên văn thiết kế v1/v3 «không có nút Hoàn thành vô điều kiện»'],
+ ['<b>Workspace Checkout</b> (đối soát nguồn ClinicAI, dòng KiotViet KV-10582, «Đã tạo ca theo dõi CSKH» là điều kiện)','Module thungan: phiếu ⊇ hoá đơn, KiotViet external_ref, validator đòi case CSKH trước khi đóng','Trùng v3; cần mở payment.status DEBT|WAIVED + method/transaction_ref/discount. «Báo sai lệch» = command RaiseFlag → panel «Cần can thiệp» + event payment.mismatch_reported. «Gửi Zalo/SMS» = thungan phát receipt.issued, NOTIFY nghe'],
+ ['<b>Workspace Sinh hiệu</b> («Tuyến hợp lệ», cảnh báo vượt ngưỡng chặn hoàn thành)','Module sinhhieu + engine transitions — chữ «Tuyến hợp lệ» trong hình chính là <code>node_transition</code>','Sếp đã tự đặt tên cho bảng cạnh — giữ nguyên ngôn ngữ này khi demo. «Báo bất thường» = RaiseFlag (cùng cơ chế với Báo sai lệch). SpO₂ + dị ứng + tag «Khám mới» = trường VITALS schema + thuộc tính đọc từ sổ cái BN'],
+]);
+
+T('pt',['Đợt','Xây','Phòng khám thấy gì','Điều kiện sang đợt sau'],[
+ ['<b>1 — Engine + xương</b>','engine/ (queue, transitions, ranking, validators, registry) + module checkin + sinhhieu + 1 instance SA. Chạy SONG SONG giấy.','TV gọi số thật · trưởng ca thấy 3 cột đầu tiên có dữ liệu sống','Node SA đơn giản hơn màn /sono hiện tại — nếu không, hợp đồng sai, dừng lại sửa'],
+ ['<b>2 — Phủ luồng</b>','kham (form f(service_type), re-entrant) + dichvu đủ instance + dathen nối vào','Kanban điều phối đủ 8 cột như mockup sếp · bỏ được xấp giấy xếp thứ tự','3 câu hỏi chặn đã có câu trả lời từ PK'],
+ ['<b>3 — Async + tiền</b>','ketqua (nhập KQ + gate + persist triage) + thungan (KiotViet đối soát, DEBT/WAIVED) + cskh case','«KQ trả sau không chặn checkout» chạy thật · hết cảnh CSKH báo BN không qua BS','Đối soát KiotViet khớp cuối ngày'],
+ ['<b>4 — Mở rộng</b>','bao_cao + app_bn (Zalo) + kịch bản mở rộng đầu tiên (X-quang hoặc nhắc tái khám)','Thêm tính năng đầu tiên mà KHÔNG sửa engine — bằng chứng sống của kiến trúc','—'],
+]);
+
+T('dt',['Quyết định','Lý do'],[
+ ['<b>Modular monolith, không microservice</b> — module là thư mục, một FastAPI, một Postgres','Spec §6 cấm over-engineer; tải đỉnh ~0,2 RPS; ranh giới bằng manifest + CI checker là đủ để sau này tách nếu thật sự cần'],
+ ['<b>Đánh số hiển thị: 2 phương án, CHƯA chốt</b> — (a) một dải gốc + prefix khu, hay (b) số phát RIÊNG khi vào từng khu (một BN mang nhiều số)','Mockup ủng hộ (b): cùng lúc B-015/S-008/X-011/C-020, và cùng BN mang B-014 ở sinh hiệu rồi S-số ở SA. Cả hai đều không đụng engine.ranking — chỉ là cột display_number theo khu. Chuyển xuống bảng câu hỏi #1'],
+ ['<b>2 instance THU_NGAN đều là quầy checkout (01/02)</b> — quầy THUỐC là điểm KiotViet ngoài, chỉ nối qua connector đối soát','Đọc kỹ mockup: «Quầy thu ngân 02» trên thẻ checkout; tiền thuốc thanh toán tại quầy thuốc • KiotViet • KV-10582 TRƯỚC khi vào hàng checkout. Trục thuốc|dịch vụ giữ làm tham số scope, chờ câu hỏi #3'],
+ ['<b>Engine viết trước, module cắm sau</b> — không viết engine «tổng quát» quá 6 mục hợp đồng','Đúng bài học v1: 12 khối là để cấu hình node có thật, không phải để sinh node tưởng tượng'],
+ ['<b>Định giá có đúng MỘT chủ: thungan</b> — module khác chỉ phát usage event, không phát giá','Bịt lỗ hổng «gói combo/thai sản»: gói = data trong DANH_MUC (tập dịch vụ + giá trọn + luật), thungan resolve lúc tính tiền — thêm gói không sửa module nào'],
+ ['<b>Validator = biểu thức khai báo, engine chấm</b> — không callback vào code module','Cô lập lỗi runtime: một module sập không kẹt hàng đợi của module khác; manifest mẫu vốn đã viết dạng biểu thức'],
+ ['<b>queue_priority là số opaque</b> — engine không gán nghĩa','Trường «Ưu tiên 0-Thường/1-Lượt khám/2-Giảm giá/3-Miễn phí» của Notion trộn ưu-tiên-xếp-hàng với phân-loại-tài-chính; tách: xếp hàng đọc số, giảm giá là chuyện của DANH_MUC + thungan'],
+ ['<b>Giấy chạy song song đợt 1–2</b>, hệ in «phiếu lộ trình»; TV/Zalo thay dần','BN cần biết «tiếp theo đi đâu»; cắt giấy trước khi bề mặt thay được chức năng đó là phá vận hành'],
+]);
+T('qt',['#','Câu hỏi','Chặn gì','Ghi chú'],[
+ ['<b>1</b>','Đánh số hiển thị: (a) một dải + prefix khu, hay (b) số phát riêng từng khu (một BN mang B-014 rồi S-009 như mockup)? 2 dải số cũ (TEXT «12a/ƯT1» vs NUMBER walk-in) di trú thế nào?','CHECKIN + TV + engine.display_number','Mockup sếp ủng hộ (b); cả hai đều KHÔNG đụng engine.ranking'],
+ ['<b>2</b>','Siêu âm: ban riêng (5 BS + 5 trợ lý, tầng 2+4) hay bác sĩ khám tự làm — hay cả hai tuỳ ca?','Cấu hình instance theo ca','v4 thiết kế cho «cả hai» (instance bật/tắt) — cần PK xác nhận luật'],
+ ['<b>3</b>','Thu tiền: 1 hay 2 quầy checkout? KiotViet kéo về hay chỉ đối soát?','THU_NGAN + connector','Mockup cho thấy quầy thuốc nằm NGOÀI ClinicAI (KiotViet)'],
+ ['<b>4</b>','% LƯỢT có xét nghiệm async (không phải % danh mục)?','Độ ưu tiên xây nhánh async đợt 3','<b>Tự trả lời được — 1 query</b> trên bảng Xét nghiệm × lib4.TAT'],
+]);
+T('migt',['Đích (v4)','Nguồn trong repo hôm nay','Số phận'],[
+ ['<code>engine/ranking.py</code>','<code>services/queue_order.py</code> (9 test)','DỜI nguyên — đã là bản authoritative; xoá copy hiển thị <code>lib/queue.ts</code> khi UI đọc từ API'],
+ ['<code>engine/</code> queue · transitions · validators','(chưa có)','VIẾT MỚI + 4 bảng mới: queue_item · node_definition/instance · node_transition · service_order'],
+ ['<code>modules/checkin</code>','<code>api/appointments/route.ts</code> (10 action) + RPC <code>check_in_appointment</code>','RPC giữ nguyên; bảng transition if/else → data <code>node_transition</code>'],
+ ['<code>modules/dathen</code>','<code>scheduling_service.py</code> + trigger 2+1','Trigger giữ; XOÁ confirm/cancel không-CAS (không ai gọi, luật lệch) — P0 của plan cũ'],
+ ['<code>modules/kham</code>','<code>clinical-record</code> + <code>clinical-form</code> routes + <code>ClinicalRecordForm</code> (willComplete)','Luật chốt lượt 2-request client → MỘT command server'],
+ ['<code>modules/dichvu</code>','<code>sono</code> + <code>service-log</code> + <code>ultrasound</code> routes','Gộp 2 bộ từ vựng status → state machine engine; service_log thành bảng đọc-legacy'],
+ ['<code>modules/ketqua</code>','<code>graphs/lab_triage</code> + <code>lab-result</code> route','Giữ graph, THÊM writer persist triage (hiện chạy LLM xong vứt); cột gate đã có sẵn'],
+ ['<code>modules/thungan</code>','<code>payment</code> route + <code>payment.py</code>','Giữ idempotency; mở CHECK status; thêm payer_person_id/method/discount'],
+ ['<code>modules/cskh</code>','<code>episodes</code> + <code>cskh-*</code> routes + <code>tools/task</code>','staff_task thành case sống (thêm trạng thái bàn giao); cskh_action = archive'],
+ ['<code>platform/identity</code>','<code>api/identity.py</code> (cluster #1a)','GIỮ — làm nốt #1b/#1c (frontend bỏ role-picker)'],
+ ['<code>platform/eventlog</code>','<code>event_service</code> + <code>notification_relay</code> + <code>lib/event-log.ts</code>','Gộp về một producer path qua engine'],
+ ['Sổ cái <code>benh_nhan</code>','<code>patient_service</code> + <code>mpi_service</code>','GIỮ — thêm <code>encounter_participant</code> (bảng mới)'],
+ ['(xoá)','orchestrator stubs · <code>event_bus</code> RabbitMQ profile · scheduling graph chưa nối','Quyết định số phận trong đợt 1 — code có nhưng không ai gọi'],
+]);
+function tg(t,x){return `<span class="tag ${t}">${x}</span>`}
+</script>
+</body>
+</html>

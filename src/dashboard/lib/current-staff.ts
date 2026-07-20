@@ -12,6 +12,7 @@
 // staff row — the linkage check is purely WHERE auth_user_id = uid.
 
 import { cache } from "react";
+import { resolveLinkedStaffAuthority } from "./identity-authority";
 import { getSupabaseServer } from "./supabase-server";
 
 export interface CurrentStaff {
@@ -21,6 +22,7 @@ export interface CurrentStaff {
   primary_department: string;
   primary_location_id: string | null;
   auth_user_id: string;
+  is_active: boolean;
 }
 
 const DOCTOR_DEPTS = new Set(["DOCTOR", "ULTRASOUND_DOCTOR"]);
@@ -54,11 +56,11 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
   const { data, error } = await supabase
     .from("staff")
     .select(
-      "id, full_name, short_name, primary_department, primary_location_id, auth_user_id",
+      "id, full_name, short_name, primary_department, primary_location_id, auth_user_id, is_active",
     )
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   if (error || !data) return null;
-  return data as CurrentStaff;
+  return resolveLinkedStaffAuthority(user.id, data as CurrentStaff);
 });

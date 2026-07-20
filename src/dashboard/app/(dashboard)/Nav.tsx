@@ -48,7 +48,7 @@ export default function Nav({
             <span className="relative shrink-0">
               <Icon size={16} strokeWidth={2} className="shrink-0" />
               {href === "/home" && blinkHome && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 animate-pulse items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white">
+                <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 animate-pulse items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white motion-reduce:animate-none">
                   !
                 </span>
               )}

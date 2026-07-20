@@ -7,11 +7,13 @@ and auto-queues high-confidence duplicates for human review.
 from __future__ import annotations
 
 import difflib
+from typing import Any
 from uuid import UUID
 
 import asyncpg
 import structlog
 
+from clinicai.core.phone import normalize_vn_phone, phone_variants
 from clinicai.schemas.patient import PatientCreateDTO, PatientDTO
 
 logger = structlog.get_logger()
@@ -44,11 +46,17 @@ class MPIService:
         total = 0.0
 
         # Phone match
-        if (
-            candidate.phone_primary
-            and existing.phone_primary
-            and candidate.phone_primary == existing.phone_primary
-        ):
+        candidate_phone = (
+            normalize_vn_phone(candidate.phone_primary)
+            if candidate.phone_primary
+            else None
+        )
+        existing_phone = (
+            normalize_vn_phone(existing.phone_primary)
+            if existing.phone_primary
+            else None
+        )
+        if candidate_phone is not None and candidate_phone == existing_phone:
             total += _PHONE_WEIGHT
 
         # National ID match (both must be non-null)
@@ -87,8 +95,11 @@ class MPIService:
         idx = 1
 
         if data.phone_primary:
-            conditions.append(f"phone_primary = ${idx}")
-            params.append(data.phone_primary)
+            conditions.append(
+                f"(phone_primary = ANY(${idx}::text[]) "
+                f"OR phone_secondary = ANY(${idx}::text[]))"
+            )
+            params.append(phone_variants(data.phone_primary))
             idx += 1
 
         if data.national_id_number:
@@ -184,7 +195,7 @@ class MPIService:
     async def get_pending_queue(
         pool: asyncpg.Pool,
         limit: int = 20,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Fetch pending MPI merge queue entries sorted by score DESC."""
         query = """
             SELECT * FROM mpi_merge_queue

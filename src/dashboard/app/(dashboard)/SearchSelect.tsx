@@ -4,7 +4,7 @@
 // (unaccentVi) nên gõ "ninh" ra "Ninh Bình", gõ "n" lọc dần. Có bàn phím
 // (↑/↓/Enter/Esc) + nút xoá. Giao diện khớp INPUT chung của dashboard.
 
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { unaccentVi } from "../../lib/validation";
 import { INPUT } from "./form-ui";
 
@@ -38,6 +38,7 @@ export default function SearchSelect({
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0); // chỉ số đang được tô (điều hướng bàn phím)
   const blurT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listboxId = useId();
 
   const filtered = useMemo(() => {
     if (query == null || query.trim() === "") return options;
@@ -64,6 +65,12 @@ export default function SearchSelect({
         type="text"
         role="combobox"
         aria-expanded={open}
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={
+          open && filtered[hi] ? `${listboxId}-option-${hi}` : undefined
+        }
+        aria-invalid={invalid || undefined}
         aria-label={ariaLabel}
         autoComplete="off"
         disabled={disabled}
@@ -126,13 +133,27 @@ export default function SearchSelect({
         </button>
       )}
       {open && !disabled && (
-        <ul className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg">
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg"
+        >
           {filtered.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-[#a1a1aa]">{emptyText}</li>
+            <li
+              role="option"
+              aria-disabled="true"
+              aria-selected="false"
+              className="px-3 py-2 text-sm text-[#a1a1aa]"
+            >
+              {emptyText}
+            </li>
           ) : (
             filtered.map((o, i) => (
               <li
                 key={o.value}
+                id={`${listboxId}-option-${i}`}
+                role="option"
+                aria-selected={o.value === value}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   choose(o);

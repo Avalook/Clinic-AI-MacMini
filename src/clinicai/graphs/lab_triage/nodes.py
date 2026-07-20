@@ -13,6 +13,7 @@ enqueues exactly one URGENT LAB_REVIEW staff task with SLA=4h.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
     from clinicai.llm.anthropic_client import AnthropicClient
 
 logger = structlog.get_logger()
+
+LabTriageNode = Callable[[LabTriageState], Awaitable[LabTriageState]]
 
 
 # query_lab_result tool requires a clinic_patient_id filter and has no
@@ -50,7 +53,7 @@ _FETCH_BY_ID_SQL = """
 """
 
 
-def make_receive_node():
+def make_receive_node() -> LabTriageNode:
     """Validate lab_result_id is present, transition to FETCH."""
 
     async def receive_node(state: LabTriageState) -> LabTriageState:
@@ -72,7 +75,7 @@ def make_receive_node():
     return receive_node
 
 
-def make_fetch_node(pool: Optional[asyncpg.Pool]):
+def make_fetch_node(pool: Optional[asyncpg.Pool]) -> LabTriageNode:
     """Load the lab_result row by id via inline SQL. Pool=None → safe stub."""
 
     async def fetch_node(state: LabTriageState) -> LabTriageState:
@@ -128,7 +131,7 @@ def make_fetch_node(pool: Optional[asyncpg.Pool]):
 def make_classify_node(
     pool: Optional[asyncpg.Pool],
     llm_client: Optional["AnthropicClient"],
-):
+) -> LabTriageNode:
     """Call classify_lab_result(row, gateway, trace). Safety-biased fallback
     when llm_client is missing: triage as PENDING with requires_review=True.
     """
@@ -172,8 +175,7 @@ def make_classify_node(
         except Exception as exc:
             logger.error(
                 "lab_triage.classify_failed_fallback_hard_block",
-                lab_result_id=str(state.lab_result_id),
-                error=str(exc),
+                trace_id=str(trace.trace_id),
                 error_type=type(exc).__name__,
             )
             # Safety bias: classifier failed → escalate to BS review.
@@ -207,7 +209,7 @@ def make_classify_node(
     return classify_node
 
 
-def make_advise_node(pool: Optional[asyncpg.Pool]):
+def make_advise_node(pool: Optional[asyncpg.Pool]) -> LabTriageNode:
     """Compose patient-facing message for GROUP_A/B (and PENDING with review)."""
 
     async def advise_node(state: LabTriageState) -> LabTriageState:
@@ -227,7 +229,7 @@ def make_advise_node(pool: Optional[asyncpg.Pool]):
     return advise_node
 
 
-def make_hard_block_node(pool: Optional[asyncpg.Pool]):
+def make_hard_block_node(pool: Optional[asyncpg.Pool]) -> LabTriageNode:
     """GROUP_C — HARD BLOCK: no patient response, escalation note for BS.
 
     Step is left at HARD_BLOCK (not DONE) so the graph can route into
@@ -262,7 +264,9 @@ def make_hard_block_node(pool: Optional[asyncpg.Pool]):
 _LAB_REVIEW_SLA_HOURS = 4
 
 
-def make_create_review_tasks_node(pool: Optional[asyncpg.Pool]):
+def make_create_review_tasks_node(
+    pool: Optional[asyncpg.Pool],
+) -> LabTriageNode:
     """After HARD_BLOCK, enqueue exactly one URGENT LAB_REVIEW staff task.
 
     Single-row architecture: one lab_triage invocation triages one

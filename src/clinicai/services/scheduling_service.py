@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 from uuid import UUID
 
 import asyncpg
 import structlog
 
+from clinicai.api.exceptions import ConflictError
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.schemas.scheduling import (
     AppointmentCreateDTO,
@@ -126,7 +128,7 @@ class SchedulingService:
         )
         return _to_wss_dto(row)
 
-    async def get_oncall_staff(self, work_session_id: UUID) -> dict | None:
+    async def get_oncall_staff(self, work_session_id: UUID) -> dict[str, Any] | None:
         """Return on-duty staff for a session, excluding trainees.
 
         Returns None if the work session does not exist (so the tool layer
@@ -157,7 +159,7 @@ class SchedulingService:
 
         return {"staff": [dict(r) for r in staff_rows]}
 
-    async def get_session_with_staff(self, work_session_id: UUID) -> dict:
+    async def get_session_with_staff(self, work_session_id: UUID) -> dict[str, Any]:
         """Fetch a work session together with its assigned staff list."""
         async with self._pool.acquire() as conn:
             session_row = await conn.fetchrow(
@@ -247,6 +249,14 @@ class SchedulingService:
                     data.is_priority_slot,
                     data.is_walkin,
                 )
+        except asyncpg.exceptions.CheckViolationError as exc:
+            # The slot-capacity trigger raises SQLSTATE 23514 atomically after
+            # taking its advisory lock. This is a state conflict (409), not an
+            # invalid DTO (422) and not an internal server error (500).
+            message = str(exc).splitlines()[0] or "Khung giờ đã đầy"
+            if not message.startswith("Khung giờ đã đầy:"):
+                raise
+            raise ConflictError(message) from exc
         except asyncpg.exceptions.ExclusionViolationError as exc:
             raise ValidationError("Bác sĩ đã có lịch hẹn trùng khung giờ này") from exc
 

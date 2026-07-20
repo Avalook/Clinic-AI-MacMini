@@ -9,8 +9,8 @@ on:
     branches: [main, staging]
 
 concurrency:
-  # Never run two deploys of the same environment at once.
-  group: deploy-${{ github.ref_name }}
+  # Prod and staging share one Docker host. Serialize every deployment.
+  group: clinicai-macmini-deploy
   cancel-in-progress: false
 
 jobs:
@@ -26,9 +26,29 @@ jobs:
             echo "target=staging" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          clean: true
+          persist-credentials: false
+          # Separate, immutable bind-mount roots: a staging checkout must never
+          # replace files currently mounted by the production containers.
+          # Keep each verified source tree immutable so boot and rollback can
+          # continue using the previous release while a new SHA is deployed.
+          path: release-${{ steps.env.outputs.target }}-${{ github.sha }}
+
       - name: Deploy ${{ steps.env.outputs.target }}
-        # deploy-backend.sh operates on its OWN fixed clone (which holds the real
-        # .env.<target> secrets) — it git-pulls, rebuilds, health-checks, rolls back.
+        # Code comes from the exact event SHA above. Secrets remain in the fixed,
+        # gitignored deploy directory and are passed only as an external env path.
         run: |
-          DEPLOY_DIR="${CLINIC_DEPLOY_DIR:-$HOME/Projects/Dr4Women-MacMini}"
-          "$DEPLOY_DIR/scripts/deploy-backend.sh" "${{ steps.env.outputs.target }}"
+          set -euo pipefail
+          TARGET="${{ steps.env.outputs.target }}"
+          SECRET_DIR="${CLINIC_DEPLOY_DIR:-$HOME/Projects/Dr4Women-MacMini}"
+          RELEASE_DIR="$GITHUB_WORKSPACE/release-$TARGET-${{ github.sha }}"
+          test -f "$SECRET_DIR/.env.$TARGET"
+          CLINIC_ENV_DIR="$SECRET_DIR" \
+          DEPLOY_EXPECTED_SHA="${{ github.sha }}" \
+          DEPLOY_SOURCE_BRANCH="${{ github.ref_name }}" \
+            "$RELEASE_DIR/scripts/deploy-backend.sh" "$TARGET"

@@ -3,33 +3,26 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../lib/clinic-session";
+import { getCurrentStaff } from "../../lib/current-staff";
 import { departmentToRole, roleLanding } from "../../lib/roles";
-import { getSupabaseServer } from "../../lib/supabase-server";
 
-// Mỗi người chọn ĐÚNG TÊN MÌNH từ danh sách. Vai trò + không gian làm việc suy
-// ra từ chức danh (primary_department) đọc THẲNG từ DB — không tin client.
-export async function chooseStaffIdentity(formData: FormData): Promise<void> {
-  const staffId = String(formData.get("staffId") ?? "").trim();
-  if (!staffId) redirect("/role-picker");
+// Legacy action retained for already-cached clients. The submitted staffId is
+// deliberately ignored: only auth.uid() → staff.auth_user_id may set identity.
+export async function chooseStaffIdentity(): Promise<void> {
+  const staff = await getCurrentStaff();
+  if (!staff) redirect("/login");
 
-  const supabase = await getSupabaseServer();
-  const { data: staff } = await supabase
-    .from("staff")
-    .select("id, primary_department, is_active")
-    .eq("id", staffId)
-    .maybeSingle();
-  if (!staff || staff.is_active === false) redirect("/role-picker");
-
-  const role = departmentToRole(staff.primary_department as string);
+  const role = departmentToRole(staff.primary_department);
 
   const c = await cookies();
   const opts = {
     path: "/",
     httpOnly: true,
     sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 12, // one clinic workday
   };
   c.set(ROLE_COOKIE, role, opts);
-  c.set(STAFF_COOKIE, staffId, opts);
+  c.set(STAFF_COOKIE, staff.id, opts);
   redirect(roleLanding(role));
 }

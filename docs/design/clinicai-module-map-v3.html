@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClinicAI — Thiết kế module hoá v3</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, p, dl, dd, ul, figure, blockquote { margin: 0; }
+  ul { padding: 0; }
+  body { min-height: 100vh; }
+  img, svg { max-width: 100%; }
+  button, input { font: inherit; color: inherit; }
+</style>
+</head>
+<body>
+<style>
+  :root {
+    --ground:#F2F4F3; --panel:#FFF; --panel-2:#FAFBFA; --line:#D3DBD8; --line-soft:#E4EAE8;
+    --grid:rgba(15,107,92,.055); --grid-2:rgba(15,107,92,.10);
+    --ink:#0F1A18; --ink-2:#3D4B48; --ink-3:#6E7C79;
+    --accent:#0F6B5C; --accent-w:rgba(15,107,92,.08);
+    --warn:#9A6212; --warn-w:rgba(154,98,18,.10);
+    --crit:#A32E24; --crit-w:rgba(163,46,36,.09);
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --sh:0 1px 2px rgba(15,26,24,.06);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --ground:#0C1211; --panel:#121A19; --panel-2:#161F1E; --line:#263230; --line-soft:#1C2726;
+    --grid:rgba(70,201,174,.05); --grid-2:rgba(70,201,174,.10);
+    --ink:#E8EFEC; --ink-2:#A7B5B1; --ink-3:#7A8886;
+    --accent:#46C9AE; --accent-w:rgba(70,201,174,.10);
+    --warn:#D69A3C; --warn-w:rgba(214,154,60,.12);
+    --crit:#E0715F; --crit-w:rgba(224,113,95,.12);
+    --sh:0 1px 2px rgba(0,0,0,.4);
+  }}
+  :root[data-theme="light"]{--ground:#F2F4F3;--panel:#FFF;--panel-2:#FAFBFA;--line:#D3DBD8;--line-soft:#E4EAE8;--grid:rgba(15,107,92,.055);--grid-2:rgba(15,107,92,.10);--ink:#0F1A18;--ink-2:#3D4B48;--ink-3:#6E7C79;--accent:#0F6B5C;--accent-w:rgba(15,107,92,.08);--warn:#9A6212;--warn-w:rgba(154,98,18,.10);--crit:#A32E24;--crit-w:rgba(163,46,36,.09);--sh:0 1px 2px rgba(15,26,24,.06);}
+  :root[data-theme="dark"]{--ground:#0C1211;--panel:#121A19;--panel-2:#161F1E;--line:#263230;--line-soft:#1C2726;--grid:rgba(70,201,174,.05);--grid-2:rgba(70,201,174,.10);--ink:#E8EFEC;--ink-2:#A7B5B1;--ink-3:#7A8886;--accent:#46C9AE;--accent-w:rgba(70,201,174,.10);--warn:#D69A3C;--warn-w:rgba(214,154,60,.12);--crit:#E0715F;--crit-w:rgba(224,113,95,.12);--sh:0 1px 2px rgba(0,0,0,.4);}
+
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 96px;display:flex;flex-direction:column;gap:52px}
+  code,.mono{font-family:var(--mono)}
+  code{font-size:.86em;background:var(--accent-w);color:var(--accent);padding:1px 5px;border:1px solid color-mix(in srgb,var(--accent) 18%,transparent);white-space:nowrap}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .rule{height:1px;background:var(--line)}
+  .masthead{display:flex;flex-direction:column;gap:14px}
+  .masthead h1{font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-.02em;font-weight:660;text-wrap:balance;margin:0}
+  .lede{margin:0;max-width:66ch;color:var(--ink-2);font-size:16px}
+  .thesis{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .thesis div{background:var(--panel);padding:14px 16px}
+  .thesis dt{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+  .thesis dd{margin:0;font-size:14px;color:var(--ink-2)}
+  .thesis dd b{color:var(--ink);font-weight:600}
+  section{display:flex;flex-direction:column;gap:18px;scroll-margin-top:20px}
+  section>header{display:flex;flex-direction:column;gap:6px}
+  section h2{margin:0;font-size:22px;font-weight:640;letter-spacing:-.01em}
+  section header p{margin:0;color:var(--ink-2);max-width:70ch;font-size:14.5px}
+
+  .shell{border:1px solid var(--line);background:var(--panel)}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .legend{display:flex;gap:13px;flex-wrap:wrap;align-items:center}
+  .legend span{font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--ink-3);display:inline-flex;align-items:center;gap:5px}
+  .sw{width:18px;height:0;border-top-width:2px;border-top-style:solid}
+  .sw.main{border-color:var(--ink-3)}
+  .sw.fan{border-color:var(--accent)}
+  .sw.async{border-color:var(--warn);border-top-style:dashed}
+  .sw.ext{border-color:var(--crit);border-top-style:dotted}
+  .zoom{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .zoom label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+  .zoom input{width:100px;accent-color:var(--accent)}
+  .scroll{overflow:auto;background-color:var(--panel);
+    background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px),linear-gradient(to bottom,var(--grid) 1px,transparent 1px),linear-gradient(to right,var(--grid-2) 1px,transparent 1px),linear-gradient(to bottom,var(--grid-2) 1px,transparent 1px);
+    background-size:20px 20px,20px 20px,100px 100px,100px 100px;max-height:80vh}
+  .board{position:relative;transform-origin:0 0}
+  .board svg{position:absolute;inset:0;overflow:visible;pointer-events:none}
+  .edge{fill:none;stroke-width:1.5}
+  .edge.main{stroke:var(--ink-3);stroke-width:1.6}
+  .edge.fan{stroke:var(--accent);stroke-width:1.9}
+  .edge.async{stroke:var(--warn);stroke-dasharray:5 4;stroke-width:1.8}
+  .edge.ext{stroke:var(--crit);stroke-dasharray:1.5 4;stroke-linecap:round;stroke-width:2}
+  .edge.dim{opacity:.12}
+  .elab{font-family:var(--mono);font-size:9px;fill:var(--ink-3);letter-spacing:.03em}
+  .elab.dim{opacity:.12}
+  .node{position:absolute;background:var(--panel);border:1px solid var(--line);padding:7px 9px 8px;display:flex;flex-direction:column;gap:2px;cursor:pointer;text-align:left;box-shadow:var(--sh);transition:border-color .12s,transform .12s;font-family:inherit}
+  .node:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .node:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .node[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-w),var(--sh)}
+  .node .c{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;color:var(--accent)}
+  .node .n{font-size:12.5px;font-weight:620;color:var(--ink);line-height:1.25}
+  .node .m{font-family:var(--mono);font-size:8.5px;color:var(--ink-3)}
+  .node.dim{opacity:.3}
+  .node.inst{background:var(--accent-w)}
+  .node.inst .c{color:var(--accent)}
+  .node.ext{border-style:dashed;background:var(--crit-w)}
+  .node.ext .c{color:var(--crit)}
+  .node.adm{border-style:dashed;background:var(--panel-2)}
+  .plane{position:absolute;border:1px dashed var(--line);background:linear-gradient(0deg,var(--accent-w),transparent);pointer-events:none}
+  .plane span{position:absolute;top:3px;left:8px;font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+
+  .tbl{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:6px 10px;border:1px solid var(--line-soft);vertical-align:top}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);background:var(--panel-2);font-weight:500;white-space:nowrap}
+  td.mono{font-family:var(--mono);font-size:12px}
+  tbody tr:hover td{background:var(--accent-w)}
+  .num{font-variant-numeric:tabular-nums}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:1px 6px;border:1px solid currentColor;white-space:nowrap}
+  .tag.ok{color:var(--accent)} .tag.w{color:var(--warn)} .tag.c{color:var(--crit)} .tag.n{color:var(--ink-3)}
+
+  .sm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .sm{background:var(--panel);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+  .sm .s{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em}
+  .sm .d{font-size:12.5px;color:var(--ink-2);line-height:1.45}
+  .sm[data-t="ok"] .s{color:var(--accent)} .sm[data-t="w"] .s{color:var(--warn)} .sm[data-t="c"] .s{color:var(--crit)} .sm[data-t="n"] .s{color:var(--ink)}
+
+  details.spec{border:1px solid var(--line);background:var(--panel)}
+  details.spec+details.spec{border-top:none}
+  details.spec>summary{list-style:none;cursor:pointer;padding:11px 16px;display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;background:var(--panel-2)}
+  details.spec>summary::-webkit-details-marker{display:none}
+  details.spec[open]>summary{border-bottom:1px solid var(--line)}
+  summary .sc{font-family:var(--mono);font-size:11.5px;letter-spacing:.07em;color:var(--accent)}
+  summary .sn{font-weight:620;font-size:14.5px}
+  summary .ss{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-left:auto}
+  .blk{display:grid;grid-template-columns:170px 1fr;gap:16px;padding:10px 16px}
+  .blk+.blk{border-top:1px dashed var(--line-soft)}
+  .bh{display:flex;flex-direction:column;gap:1px}
+  .bh .i{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.1em}
+  .bh .t{font-weight:620;font-size:12.5px;line-height:1.3}
+  .bb{min-width:0;font-size:13.5px;color:var(--ink-2)}
+  .bb p{margin:0 0 5px}.bb p:last-child{margin:0}
+  .call{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--panel);padding:12px 14px;font-size:14px;color:var(--ink-2)}
+  .call b{color:var(--ink)}
+  .call.w{border-left-color:var(--warn)} .call.c{border-left-color:var(--crit)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11px;padding:5px 9px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);cursor:pointer}
+  .chip:hover{border-color:var(--accent);color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--ground)}
+  footer.f{border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--ink-3);display:flex;flex-direction:column;gap:6px}
+  @media (max-width:760px){.blk{grid-template-columns:1fr;gap:6px}.wrap{padding:28px 16px 72px;gap:40px}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">ClinicAI · Thiết kế module hoá <b style="color:var(--accent)">v3</b> — bản để code · 17-07-2026</div>
+    <h1>Một engine, một hợp đồng 12 khối, N trạm là instance</h1>
+    <p class="lede">
+      v1 thiết kế một phòng khám tưởng tượng. v2 kiểm toán phòng khám thật nhưng quên đưa lại bản thiết kế.
+      v3 là bản thiết kế: <b>giữ nguyên 12 khối gốc</b> của tài liệu feedback, mọi luật bám <b>bảng Supabase đang chạy</b>,
+      và các phát hiện khảo sát được nhúng thành <b>quyết định</b> — có bảng căn cứ riêng ở mục 08, không tranh luận trong từng ô.
+    </p>
+    <div class="rule"></div>
+    <dl class="thesis">
+      <div><dt>Cấu trúc lõi</dt><dd>1 <code>encounter</code> → <b>N <code>service_order</code></b> chạy song song, mỗi order gắn <b>địa điểm thực thi</b>, join lại ở «chờ khám lại».</dd></div>
+      <div><dt>Trạm dịch vụ</dt><dd><b>1 module × N instance</b> theo (phòng, máy, ca): SA-T2 · SA-T4 · Lấy mẫu-T1 · Thủ thuật · POCT. Instance bật/tắt theo ca → giải quyết 2 chế độ vận hành bằng <b>cấu hình</b>, không phải 2 sơ đồ.</dd></div>
+      <div><dt>Nhánh xét nghiệm</dt><dd>Chia theo <b>đồng bộ / bất đồng bộ</b> (0h ↔ 36–168h), không chia lấy-mẫu/trả-KQ. Gate duyệt KQ <b>đã có sẵn cột trong Supabase</b> — chỉ thiếu writer.</dd></div>
+      <div><dt>Một hàng đợi, một luật</dt><dd>Số thứ tự sinh ở <b>CHECK-IN</b> bằng một thước đo <code>giờ_tính_lượt</code>. Ưu tiên/SLA/nguồn lực/quyền là <b>4 luật toàn cục</b>, trạm chỉ khai tham số.</dd></div>
+    </dl>
+  </header>
+
+  <section id="why">
+    <header><div class="eyebrow">00 — Khác gì v2</div><h2>Bốn sửa đổi</h2></header>
+    <div class="call">
+      <b>(1)</b> Trả lại <b>tầng kỹ thuật</b>: state machine, command, data model, event — thứ để code, v2 đã vứt.
+      <b>(2)</b> Board vẽ <b>TO-BE</b>: cạnh là chuyển tiếp <code>queue_item</code>, không phải "giấy/miệng" của hiện trạng (giấy chỉ còn là quyết định chuyển tiếp giai đoạn — xem mục 08).
+      <b>(3)</b> Mọi ô map vào <b>schema Supabase thật</b> (32 bảng đang chạy), không map vào Notion sắp bỏ.
+      <b>(4)</b> Trạm dịch vụ hiện rõ trên board dưới dạng <b>instance</b> — nhìn vào thấy phòng khám, không thấy hộp trừu tượng.
+    </div>
+  </section>
+
+  <section id="board-sec">
+    <header><div class="eyebrow">01 — Bản đồ</div><h2>Board v3 — 8 module · 5 instance dịch vụ · 2 biên ngoài</h2>
+    <p>Nét xám = luồng chính. Nét teal = fan-out chỉ định (song song). Nét vàng đứt = nhánh bất đồng bộ sau khi bệnh nhân về. Nét đỏ chấm = ra ngoài tổ chức. Hai dải mờ trên/dưới = mặt phẳng cắt ngang (Trưởng ca, CSKH) — nhìn xuyên mọi trạm, không phải trạm.</p></header>
+    <div class="shell">
+      <div class="bar">
+        <div class="legend">
+          <span><i class="sw main"></i>luồng chính</span>
+          <span><i class="sw fan"></i>fan-out chỉ định</span>
+          <span><i class="sw async"></i>async sau khi BN về</span>
+          <span><i class="sw ext"></i>ra ngoài tổ chức</span>
+        </div>
+        <div class="zoom"><label for="z">Zoom</label><input id="z" type="range" min="50" max="120" value="100" step="5"><span class="mono num" id="zv" style="font-size:11px;color:var(--ink-3)">100%</span></div>
+      </div>
+      <div class="scroll"><div class="board" id="board"><svg id="edges" aria-hidden="true"></svg></div></div>
+    </div>
+  </section>
+
+  <section id="engine">
+    <header><div class="eyebrow">02 — Xương sống engine</div><h2>Một state machine, ba loại chủ thể, mười command</h2>
+    <p>Mọi hàng đợi trong hệ là <code>queue_item</code> chạy đúng một vòng đời. Khác nhau duy nhất: <code>subject_type</code> = <b>ENCOUNTER</b> (bệnh nhân tại một trạm) · <b>ORDER</b> (chỉ định tại trạm dịch vụ) · <b>CASE</b> (việc CSKH). Không có SPECIMEN — thực thể đó không tồn tại trong nghiệp vụ.</p></header>
+    <div class="sm-grid" id="smg"></div>
+    <div class="call">
+      <b>10 command</b> — mỗi lệnh một <code>idempotency_key</code> (bảng đã có):
+      <code>Enqueue</code> · <code>Call</code> · <code>Recall</code> · <code>MarkPresent</code> · <code>Start</code> · <code>Hold/Resume</code> · <code>Complete</code> (chạy completion-validator, không có nút hoàn-thành-vô-điều-kiện) · <code>Route</code> (chỉ theo cạnh trong <code>node_transition</code>) · <code>MarkNoShow</code> · <code>PriorityBump</code> (bắt buộc lý do).
+      <b>Không có <code>Assign</code></b> — mô hình là <b>pull</b>: người làm lấy việc theo phòng trống + năng lực, đúng chốt 17/06 (bỏ "bác sĩ phụ trách chỉ định", 2 BS siêu âm tự chia theo giường).
+    </div>
+  </section>
+
+  <section id="data">
+    <header><div class="eyebrow">03 — Data model</div><h2>Bảng mới, bảng dùng lại — trên Supabase đang chạy</h2></header>
+    <div class="tbl"><table id="dm"></table></div>
+    <div class="call w"><b>Migration Notion → Supabase (một chiều, một lần):</b>
+      <code>LỊCH HẸN</code>→<code>appointment</code> · <code>Phiếu ĐK không hẹn</code>→<code>appointment(is_walkin)</code> · <code>Phiếu khám</code>→<code>visit + clinical_record</code> · <code>Xét nghiệm</code>→<code>lab_result</code> · <code>Kê thuốc</code>→<code>prescription</code> · <code>CSKH-Action</code>→<code>staff_task + cskh_action</code>.
+      Chuẩn hoá <code>"Kim Ngưu"/"Kim ngưu"</code> trước khi join. KQ xét nghiệm cũ (~4.700): <b>không đụng vào</b> (DoD).
+    </div>
+  </section>
+
+  <section id="glob">
+    <header><div class="eyebrow">04 — Bốn luật toàn cục</div><h2>Khai một lần — trạm chỉ điền tham số</h2>
+    <p>Đây là bốn khối mà v1 lặp 12 lần. Chúng toàn cục vì dữ liệu nói vậy: ưu tiên nằm trên hồ sơ khách, SLA nằm theo loại việc, con người đa nhiệm, quyền cắt ngang mọi trạm.</p></header>
+    <div class="tbl"><table id="gl"></table></div>
+  </section>
+
+  <section id="spec-sec">
+    <header><div class="eyebrow">05 — Spec trạm</div><h2>8 module × 12 khối gốc</h2>
+    <p>Đúng bộ 12 khối của tài liệu feedback — không đổi tên, không bỏ khối. Khối 4/5/11/12 tham chiếu luật toàn cục và chỉ điền tham số riêng.</p></header>
+    <div class="chips" id="nav"></div>
+    <div id="specs"></div>
+  </section>
+
+  <section id="nonst">
+    <header><div class="eyebrow">06 — Không phải trạm</div><h2>View, mặt phẳng, biên ngoài</h2>
+    <p>Tiêu chí trạm: có hàng đợi + có người trong phòng khám đứng + có luật hoàn thành phòng khám kiểm soát. Rớt tiêu chí nào thì xuống cấp tương ứng — không dựng 12 khối cho thứ không phải trạm.</p></header>
+    <div class="tbl"><table id="ns"></table></div>
+  </section>
+
+  <section id="ui">
+    <header><div class="eyebrow">07 — Bề mặt</div><h2>Bốn bề mặt thay cho mọi trang hard-code</h2></header>
+    <div class="tbl"><table id="uit"></table></div>
+  </section>
+
+  <section id="ev">
+    <header><div class="eyebrow">08 — Event & chỉ số</div><h2>Phát vào <code>event_log</code> có sẵn (outbox đã chạy)</h2></header>
+    <div class="tbl"><table id="evt"></table></div>
+    <div class="call"><b>Một bộ metric chung cho mọi hàng đợi</b> (đúng tài liệu gốc: "mọi node đo cùng một bộ metric"): WIP · chờ p50/p90 · thời gian phục vụ · %quá SLA · %no-show · %BLOCKED theo lý do · công suất theo người/phòng. Cộng <b>hai con số phòng khám thực sự quan tâm</b>: tổng thời gian bệnh nhân trong phòng khám (<code>encounter.closed − opened</code>) và thời gian từ khi có kết quả đến khi bệnh nhân biết.</div>
+  </section>
+
+  <section id="dec">
+    <header><div class="eyebrow">09 — Quyết định & căn cứ</div><h2>Khảo sát nằm ở đây — mỗi dòng một quyết định đã nhúng vào thiết kế</h2></header>
+    <div class="tbl"><table id="dc"></table></div>
+  </section>
+
+  <section id="q">
+    <header><div class="eyebrow">10 — Còn chặn</div><h2>8 câu hỏi — 3 chặn cứng, 1 tự trả lời được bằng query</h2></header>
+    <div class="tbl"><table id="qt"></table></div>
+  </section>
+
+  <footer class="f">
+    <div>Nguồn: 81 tài liệu Notion + Database gốc + onsite 23/04 + transcript 17/06 &amp; 14/4 + recap 8/5 + 2 file .docx + schema <span class="mono">supabase/migrations</span> đang chạy. Không chứa dữ liệu bệnh nhân.</div>
+    <div>Thay thế v1 (thiết kế trước khảo sát) và v2 (bản kiểm toán). Trạng thái: <span class="tag w">DRAFT — chờ 3 câu chặn cứng ở mục 10</span></div>
+  </footer>
+</div>
+
+<script>
+/* ============ BOARD ============ */
+const NODES=[
+ {c:'LICH_TUAN',n:'BS đăng ký lịch tuần',m:'work_roster · duyệt → sinh slot',l:0,r:0,k:'adm'},
+ {c:'DAT_HEN',n:'Tiếp nhận & đặt hẹn',m:'CSKH · 3 kênh · KHÔNG chốt số',l:0,r:2,k:'n'},
+ {c:'CHECKIN',n:'Check-in',m:'hợp nhất 2 cửa · sinh số ở đây',l:1,r:2,k:'n'},
+ {c:'TIEN_KHAM',n:'Tiền khám',m:'sinh hiệu + bệnh sử sơ bộ',l:2,r:2,k:'n'},
+ {c:'KHAM',n:'Khám — re-entrant',m:'lần 1 & «chờ khám lại» · BS+TKYK',l:3,r:2,k:'n'},
+ {c:'SA_T2',n:'Siêu âm · Tầng 2',m:'DICH_VU instance · theo phòng/máy',l:4,r:0,k:'inst'},
+ {c:'SA_T4',n:'Siêu âm · Tầng 4',m:'DICH_VU instance',l:4,r:1,k:'inst'},
+ {c:'POCT',n:'POCT tại tiếp đón',m:'DICH_VU instance · nước tiểu · DXA · 0h',l:4,r:2,k:'inst'},
+ {c:'LAY_MAU',n:'Lấy mẫu · Tầng 1',m:'DICH_VU instance · order gửi lab',l:4,r:3,k:'inst'},
+ {c:'THU_THUAT',n:'Thủ thuật',m:'DICH_VU instance',l:4,r:4,k:'inst'},
+ {c:'LAB_NGOAI',n:'Lab ngoài chạy mẫu',m:'biên tổ chức · không phải trạm',l:5,r:3,k:'ext'},
+ {c:'CHUP_NGOAI',n:'Chụp phim ngoài',m:'biên tổ chức · BN rời cơ sở',l:5,r:4,k:'ext'},
+ {c:'THU_NGAN',n:'Thu ngân',m:'scope: thuốc | dịch vụ · đối soát KiotViet',l:6,r:1,k:'n'},
+ {c:'NHAP_KQ',n:'Nhận & nhập kết quả',m:'order sent → KQ về → gắn hồ sơ',l:6,r:3,k:'n'},
+ {c:'DUYET_KQ',n:'BS duyệt KQ bất thường',m:'gate — cột có sẵn trong lab_result',l:6,r:4,k:'n'},
+];
+const EDGES=[
+ {f:'LICH_TUAN',t:'DAT_HEN',ty:'main',lb:'slot sinh từ lịch đã duyệt'},
+ {f:'DAT_HEN',t:'CHECKIN',ty:'main',lb:'ngày hẹn · walk-in vào thẳng'},
+ {f:'CHECKIN',t:'TIEN_KHAM',ty:'main',lb:'giờ_tính_lượt chốt'},
+ {f:'TIEN_KHAM',t:'KHAM',ty:'main',lb:'chờ khám lần 1'},
+ {f:'KHAM',t:'SA_T2',ty:'fan'},
+ {f:'KHAM',t:'SA_T4',ty:'fan',lb:'order theo PHÒNG'},
+ {f:'KHAM',t:'POCT',ty:'fan',lb:'0h — BN chờ'},
+ {f:'KHAM',t:'LAY_MAU',ty:'fan',lb:'order gửi lab'},
+ {f:'KHAM',t:'THU_THUAT',ty:'fan'},
+ {f:'SA_T2',t:'KHAM',ty:'fan',ch:'above',lb:'sync xong → «chờ khám lại» (join đủ KQ)'},
+ {f:'LAY_MAU',t:'LAB_NGOAI',ty:'ext',lb:'mẫu rời PK'},
+ {f:'KHAM',t:'CHUP_NGOAI',ty:'ext',ch:'below',lb:'BN rời cơ sở'},
+ {f:'LAB_NGOAI',t:'NHAP_KQ',ty:'async',lb:'email/Zalo/Drive → sau: API'},
+ {f:'CHUP_NGOAI',t:'NHAP_KQ',ty:'async'},
+ {f:'NHAP_KQ',t:'DUYET_KQ',ty:'async',lb:'chỉ khi requires_doctor_review'},
+ {f:'KHAM',t:'THU_NGAN',ty:'main',ch:'above',lb:'chốt lượt → thanh toán'},
+ {f:'LAY_MAU',t:'THU_NGAN',ty:'main',ch:'above2',lb:'chỉ lấy máu → về · KQ trả sau KHÔNG chặn'},
+];
+const NW=182,NH=62,LANE=218,ROW=114,PX=30,PY=66;
+const by=Object.fromEntries(NODES.map(n=>[n.c,n]));
+const pos=n=>({x:PX+n.l*LANE,y:PY+n.r*ROW});
+const board=document.getElementById('board'),svg=document.getElementById('edges');
+const BW=PX*2+6*LANE+NW,BH=PY+5*ROW+NH+56;
+board.style.width=BW+'px';board.style.height=BH+'px';svg.setAttribute('width',BW);svg.setAttribute('height',BH);
+
+/* planes */
+const mkPlane=(x,y,w,h,t)=>{const p=document.createElement('div');p.className='plane';
+ p.style.left=x+'px';p.style.top=y+'px';p.style.width=w+'px';p.style.height=h+'px';
+ p.innerHTML=`<span>${t}</span>`;board.appendChild(p);};
+mkPlane(PX+LANE-10,10,5*LANE+NW-198,36,'TRƯỞNG CA — view WIP mọi hàng đợi · PriorityBump có lý do · route CHỈ theo cạnh node_transition');
+mkPlane(PX-10,BH-46,6*LANE+NW,36,'CSKH — mặt phẳng case (staff_task): xác nhận hẹn · trả KQ · nhắc tái khám · nợ · «không liên lạc được» = trạng thái chuẩn');
+
+const NS='http://www.w3.org/2000/svg';
+function path(e){const a=by[e.f],b=by[e.t];const ax=pos(a).x,ay=pos(a).y,bx=pos(b).x,byy=pos(b).y;
+ const aR=ax+NW,aC=ay+NH/2,bC=byy+NH/2,back=b.l<=a.l;
+ if(a.l===b.l){const down=b.r>a.r;const x=ax+NW/2;
+  return{d:`M ${x} ${down?ay+NH:ay} L ${x} ${down?byy:byy+NH}`,lx:x+8,ly:(ay+byy+NH)/2};}
+ if(e.ch){let cy;if(e.ch==='above')cy=Math.min(ay,byy)-22;if(e.ch==='above2')cy=Math.min(ay,byy)-36;if(e.ch==='below')cy=Math.max(ay,byy)+NH+24;
+  const sx=back?ax:aR,ex=back?bx+NW:bx,up=e.ch.startsWith('above');
+  const sy=up?ay:ay+NH,ey=up?byy:byy+NH,hop=back?-14:14;
+  return{d:`M ${sx+(back?-8:8)} ${sy+(up?6:-6)} L ${sx+hop} ${cy} L ${ex-hop} ${cy} L ${ex+(back?8:-8)} ${ey+(up?6:-6)}`,lx:(sx+ex)/2,ly:cy-4};}
+ if(a.r===b.r)return{d:`M ${aR} ${aC} L ${bx} ${bC}`,lx:(aR+bx)/2,ly:aC-6};
+ const m=(aR+bx)/2;return{d:`M ${aR} ${aC} L ${m} ${aC} L ${m} ${bC} L ${bx} ${bC}`,lx:m+4,ly:(aC+bC)/2-4};}
+const defs=document.createElementNS(NS,'defs');
+defs.innerHTML=['main','fan','async','ext'].map(t=>`<marker id="a-${t}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 7 4 L 0 7 z" class="ah ${t}"/></marker>`).join('');
+svg.appendChild(defs);
+const st=document.createElementNS(NS,'style');st.textContent='.ah.main{fill:var(--ink-3)}.ah.fan{fill:var(--accent)}.ah.async{fill:var(--warn)}.ah.ext{fill:var(--crit)}';svg.appendChild(st);
+const eEls=[];
+EDGES.forEach(e=>{const p=path(e);const pa=document.createElementNS(NS,'path');
+ pa.setAttribute('d',p.d.replace(/\s+/g,' '));pa.setAttribute('class','edge '+e.ty);pa.setAttribute('marker-end',`url(#a-${e.ty})`);svg.appendChild(pa);
+ let lb=null;if(e.lb){lb=document.createElementNS(NS,'text');lb.setAttribute('x',p.lx);lb.setAttribute('y',p.ly);
+  lb.setAttribute('text-anchor','middle');lb.setAttribute('class','elab');lb.textContent=e.lb;svg.appendChild(lb);}
+ eEls.push({e,pa,lb});});
+const nEls={};
+const SPEC_OF={SA_T2:'DICH_VU',SA_T4:'DICH_VU',POCT:'DICH_VU',LAY_MAU:'DICH_VU',THU_THUAT:'DICH_VU'};
+NODES.forEach(n=>{const b=document.createElement('button');b.className='node'+(n.k!=='n'?' '+n.k:'');
+ b.style.left=pos(n).x+'px';b.style.top=pos(n).y+'px';b.style.width=NW+'px';b.style.minHeight=NH+'px';
+ b.setAttribute('aria-pressed','false');
+ b.innerHTML=`<span class="c">${n.c}${n.k==='inst'?' · instance':''}</span><span class="n">${n.n}</span><span class="m">${n.m}</span>`;
+ b.onclick=()=>sel(SPEC_OF[n.c]||n.c);b.onmouseenter=()=>hi(n.c);b.onmouseleave=()=>hi(null);
+ board.appendChild(b);nEls[n.c]=b;});
+function hi(c){eEls.forEach(({e,pa,lb})=>{const on=!c||e.f===c||e.t===c;pa.classList.toggle('dim',!on);if(lb)lb.classList.toggle('dim',!on);});
+ Object.entries(nEls).forEach(([k,el])=>{const t=!c||k===c||EDGES.some(e=>(e.f===c&&e.t===k)||(e.t===c&&e.f===k));el.classList.toggle('dim',!t);});}
+const z=document.getElementById('z'),zv=document.getElementById('zv');
+z.oninput=()=>{const s=z.value/100;board.style.transform=`scale(${s})`;board.parentElement.style.height=(BH*s+16)+'px';zv.textContent=z.value+'%';};
+
+/* ============ STATE MACHINE ============ */
+document.getElementById('smg').innerHTML=[
+ ['QUEUED','n','Vào hàng đợi. SLA bắt đầu.'],['CALLED','ok','Đã gọi (TV/loa). Đếm giờ có mặt.'],
+ ['IN_SERVICE','ok','Đang phục vụ.'],['ON_HOLD','w','Tạm giữ có lý do.'],
+ ['BLOCKED','c','Thiếu điều kiện — không xếp hàng ngầm. Bắt buộc reason_code.'],
+ ['COMPLETED','ok','Qua completion-validator.'],['ROUTED','n','Đã bàn giao theo cạnh hợp lệ. Kết thúc.'],
+ ['CANCELLED','c','Huỷ + reason_code. Kết thúc.'],['NO_SHOW','w','Gọi đủ N lần không có mặt → quay lại QUEUED hoặc huỷ.'],
+].map(([s,t,d])=>`<div class="sm" data-t="${t}"><span class="s">${s}</span><span class="d">${d}</span></div>`).join('');
+
+/* ============ TABLES ============ */
+const T=(el,cols,rows)=>document.getElementById(el).innerHTML=
+ `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+const tg=(t,x)=>`<span class="tag ${t}">${x}</span>`;
+
+T('dm',['Bảng','Trạng thái','Vai trò','Cột quyết định'],[
+ ['<code>node_definition</code> + <code>node_instance</code>',tg('w','MỚI'),'Template module + instance runtime theo (execution_site, work_session). Instance bật/tắt theo ca — đây là cách biểu diễn 2 chế độ vận hành.','node_code · execution_site · session_id · active'],
+ ['<code>node_transition</code>',tg('w','MỚI'),'Bảng cạnh hợp lệ. Trưởng ca chỉ route được trong đây.','from · outcome · to · requires_role · requires_reason'],
+ ['<code>queue_item</code>',tg('w','MỚI'),'Trái tim. 1 dòng = 1 chủ thể tại 1 instance.','subject_type ENCOUNTER|ORDER|CASE · state · sort_key · instance_id · reason_code'],
+ ['<code>service_order</code>',tg('w','MỚI'),'Chỉ định có danh tính, có nơi thực thi, có người-là-đối-tượng.','service_code→service_price · <b>subject_person_id</b> · execution_site(location_id, floor NULL, room, machine, is_external) · kind SYNC|ASYNC · capability_required · signed_by/at · sent_at'],
+ ['<code>encounter_participant</code>',tg('w','MỚI'),'1 lượt có thể 2 người (hiếm muộn: vợ+chồng). Tinh dịch đồ = order của CHỒNG trong lượt chung.','visit_id · person_id · role INDEX|PARTNER'],
+ ['<code>form_schema_map</code>',tg('w','MỚI · data'),'service_type → form schema (4–5 schema / 17 loại — chờ câu #4; thiếu map thì fallback form chung).','service_type_id · schema_ref'],
+ ['<code>visit</code> → encounter',tg('ok','GIỮ'),'Lượt đến trung lập; bác sĩ là output của trạm KHAM, không phải trục.','status OPEN|CLOSED · checked_in_at'],
+ ['<code>appointment</code>',tg('ok','GIỮ'),'2 cửa vào: có hẹn + walk-in (<code>is_walkin</code>). Slot 2+1 đã là trigger DB có advisory lock.','status · slot_start · is_walkin'],
+ ['<code>lab_result</code>',tg('ok','GIỮ — GATE CÓ SẴN'),'<b>Schema đã xây đúng cái gate mà quy trình đang thiếu</b>: chỉ cần persist kết quả AI triage + bật luật CSKH.','triage_group · requires_doctor_review · reviewed_by/at · is_finalized (constraint: finalized đòi reviewer — ĐÃ CÓ)'],
+ ['<code>payment</code>',tg('w','SỬA'),'Mở CHECK từ chỉ-PAID sang nợ/miễn giảm; tham chiếu KiotViet.','status PAID|<b>DEBT|WAIVED</b> · external_ref'],
+ ['<code>staff_task</code>',tg('ok','GIỮ'),'Case CSKH — đã có đủ priority + sla_hours + due_at, chưa ai dùng.','task_type · priority · due_at'],
+ ['<code>clinical_form_response</code> · <code>event_log</code> · <code>work_roster/session</code> · <code>block_budget</code> · <code>idempotency_key</code>',tg('ok','GIỮ'),'Form jsonb theo service_code · outbox append-only đã chạy · nguồn sinh slot + instance · chống double-submit.','(giữ nguyên)'],
+]);
+
+T('gl',['Luật','Nội dung','Vì sao toàn cục'],[
+ ['<code>sort_key</code> — một hàm xếp hàng','<code>ưu_tiên_khách</code> (0-Thường/1-Lượt khám/2-Giảm giá/3-Miễn phí — cột trên hồ sơ khách) → <code>giờ_tính_lượt</code>: walk-in = giờ check-in · đúng hẹn = mốc hẹn · <b>trễ quá hạn = tụt xuống giờ check-in</b>. PriorityBump chỉ qua command có lý do.','Ưu tiên là thuộc tính của NGƯỜI, không của trạm. Một luật thay cho compareQueue nhiều tầng đang chạy ở 3 màn client.'],
+ ['SLA theo loại việc','<code>service_type.sla</code> (khám 20’, SA 15’…) · <code>lib4.TAT</code> cho lab (36–168h) · kịch bản CSKH có deadline riêng. Trạm chỉ ghi con số đích.','SLA thật trong dữ liệu nằm theo loại việc và kịch bản — không có SLA nào theo trạm.'],
+ ['Nguồn lực = người đa nhiệm từ roster','Trạm khai <b>năng lực + phòng/máy cần</b>. NGƯỜI đến từ <code>work_roster</code> theo ca. Không pool cứng.','5/16 nhân viên giữ 4 vị trí đồng thời; "Hằng làm lễ tân hôm nay, mai ngồi siêu âm". Pool cứng = cộng trùng 1 người vào 4 trạm.'],
+ ['Quyền 2 miền + theo trường','Miền LÂM SÀNG (BS/ĐD/TKYK ghi) vs HÀNH CHÍNH (CSKH/lễ tân/thu ngân/trưởng ca) × vai; cộng quyền theo TRƯỜNG (CSKH thấy chỉ định, <b>không thấy tiền</b>).','Cắt ngang mọi trạm. Nền per-staff JWT đã có (cluster #1a).'],
+]);
+
+/* ============ SPECS ============ */
+const B=['Định danh','Điều kiện đầu vào','Chính sách hàng đợi','SLA & ưu tiên','Nguồn lực & công suất','Phân công & gọi','Form nghiệp vụ','Luật hoàn thành','Đầu ra','Cạnh routing','Ngoại lệ & phân quyền','Event & chỉ số'];
+const S=[
+{c:'DAT_HEN',n:'Tiếp nhận & đặt hẹn',s:'CSKH · module, không phải trạm vật lý',b:[
+ 'Gộp 3 kênh (chat/Pancake · hotline · quầy) thành MỘT module — kênh là <code>booking_channel</code>, không phải node riêng.',
+ 'Slot tồn tại: sinh từ <code>work_roster</code> APPROVED × <code>block_budget</code> (luật 2+1 đã là trigger DB). Bác sĩ chưa đăng ký lịch tuần → không có slot.',
+ 'Hàng chờ XÁC NHẬN (subject = <code>appointment</code>), không phải hàng khám. <b>Không cấp số thứ tự</b> — "số thứ tự chốt tại quầy".',
+ 'SLA xác nhận theo kịch bản CSKH. Ưu tiên: <code>sort_key</code> chung.',
+ 'CSKH (~1 người) — từ roster.',
+ 'Pull danh sách chờ xác nhận; chiều gọi NGƯỢC (điện thoại/Zalo ra ngoài).',
+ '3 trường bắt buộc: họ tên · SĐT · dịch vụ + ngày giờ. NTNS/địa chỉ optional. Chặn đặt trùng (unique SĐT+slot).',
+ '<code>SCHEDULED → CSKH_CONFIRMED</code>, hoặc «không liên lạc được» sau N lần — trạng thái chuẩn, không phải ngoại lệ.',
+ '<code>appointment</code> + event <code>appointment.scheduled/confirmed</code> + nhắc 24h/2h qua outbox relay (khung đã có).',
+ 'Ngày hẹn → CHECKIN. Huỷ (tần suất CAO) → trả slot ngay; đổi lịch = huỷ + tạo mới. Walk-in bỏ qua module này.',
+ 'BS nghỉ sau publish → <code>DOCTOR_DECLINED</code> + case CSKH xếp lại. Quyền: miền hành chính.',
+ 'Metric chung + tỉ lệ huỷ 24h cuối, tỉ lệ không-liên-lạc-được theo kênh.']},
+{c:'CHECKIN',n:'Check-in',s:'quầy lễ tân · nơi số thứ tự sinh ra',b:[
+ 'Quầy lễ tân (<code>location_id</code>). Trạm có thật, vai trò bị v1 đánh giá thấp: <b>đây là nơi thứ tự thật sinh ra</b>.',
+ 'Có <code>appointment</code> hôm nay (3 trạng thái sống) HOẶC walk-in → tạo <code>appointment(is_walkin)</code> tại chỗ, quota theo <code>block_budget</code>.',
+ '<b>Hợp nhất 2 cửa vào MỘT hàng</b> bằng <code>giờ_tính_lượt</code> (luật ở mục 04). Số cấp bởi RPC <code>check_in_appointment</code> — advisory lock đã chạy. Một dải số duy nhất (thay 2 kiểu TEXT/NUMBER cũ — chờ xác nhận câu #1).',
+ 'SLA 5’. Ưu tiên: <code>sort_key</code>.',
+ 'Quầy LT-01… Lễ tân đa nhiệm (kiêm POCT) — người từ roster.',
+ 'BN tự tới quầy; mục tiêu QR tự check-in (đề xuất trong feedback gốc).',
+ 'Danh tính = SĐT + ngày sinh (dữ liệu thật không có CCCD) + <b>GIỎ DỊCH VỤ</b>: cho phép lượt không qua khám — chỉ XN theo chỉ định cũ / chỉ mua thuốc / chỉ SA.',
+ '<code>visit</code> OPEN + <code>queue_item</code> đầu tiên theo giỏ + <code>giờ_tính_lượt</code> chốt.',
+ '<code>visit</code> + queue_item[]. Giai đoạn 1 in kèm <b>«phiếu lộ trình»</b> cho BN — thay đúng chức năng an-tâm của phiếu chỉ định giấy ("xem được đã làm gì, tiếp theo đi đâu").',
+ 'Giỏ có khám → TIEN_KHAM · chỉ dịch vụ → instance tương ứng · chỉ thuốc → THU_NGAN.',
+ 'Walk-in cao điểm (CAO): quota + trưởng ca duyệt vượt. Undo check-in trả về ĐÚNG trạng thái trước (sửa lỗi hiện tại luôn trả CONFIRMED). <b>Fallback offline bắt buộc</b>: danh sách in đầu ca + nhập bù — vì "hệ chậm/sập" đang là phàn nàn số 1.',
+ 'Metric chung + p90 chờ check-in · %walk-in · %QR tự động.']},
+{c:'TIEN_KHAM',n:'Tiền khám',s:'tầng 1 · 1 KTV/ĐD',b:[
+ 'Trạm tiền khám, tầng 1. (v1 gọi là VITALS và mô tả sai chức năng; trạm có thật — onsite: KTV đo huyết áp.)',
+ '<code>queue_item</code> từ CHECKIN. Tái khám trong ngày → miễn.',
+ 'FIFO theo <code>sort_key</code>.',
+ 'SLA 10’.',
+ 'Bàn đo + máy HA + cân (capability VITALS). Người từ roster.',
+ 'Pull; gọi tên qua TV (<code>queue_item.called</code>).',
+ 'Mạch · nhiệt độ · huyết áp · cân nặng (+chiều cao lần đầu; BMI máy tính) → <code>clinical_form_response(\'VITALS\')</code>. Cộng <b>bệnh sử sơ bộ</b> — đề xuất của chính bác sĩ: trợ lý hỏi trước, đẩy vào hồ sơ, tiết kiệm giờ khám. Có chỉ định POCT chuẩn → sinh order + phát cốc tại đây.',
+ 'Đủ 4 chỉ số bắt buộc, trong khoảng vật lý hợp lệ; chạm ngưỡng → bắt buộc chọn «Báo bất thường» hoặc «đã xác nhận lại» — không có hoàn-thành trơn.',
+ 'Sinh hiệu + order POCT (nếu có).',
+ '→ KHAM (hàng «khám lần 1»). Bất thường nguy kịch → PriorityBump + báo trưởng ca.',
+ 'Quyền nhập sinh hiệu: người ĐO là người NHẬP (KTV/lễ tân/ĐD), actor ghi lại — không đòi vai lâm sàng (chốt lại ở câu #6). Ký lâm sàng không yêu cầu ở trạm này.',
+ 'Metric chung + tỉ lệ bất thường phát hiện tại trạm.']},
+{c:'KHAM',n:'Khám — re-entrant',s:'bàn khám · 1 node, N lần ghé',b:[
+ 'MỘT node với HAI hàng đợi: «khám lần 1» và <b>«chờ khám lại»</b> (chính là làn b3_ready đang có, nâng thành hàng đợi chính thức). Không có node DOCTOR_REVIEW riêng — "gặp bác sĩ hai lần, lúc đến và trước khi về" là re-entrancy, không phải trạm mới.',
+ 'Lần 1: sinh hiệu xong (hoặc miễn). Lần 2 — <b>điều kiện join</b>: mọi order SYNC của encounter đã COMPLETED (đủ kết quả trong tay). Hai cạnh vào khai tường minh trong <code>node_transition</code>.',
+ 'Đọc ở <b>bảng tổng</b>, không inbox cá nhân (yêu cầu tường minh trong feedback). Sort: <code>sort_key</code>; giữa hai hàng, ai tổng-thời-gian-trong-PK lâu hơn được ưu tiên (cấu hình).',
+ 'SLA lần 1: 20’ từ max(giờ hẹn, vào hàng); lần 2: 15’.',
+ 'Bàn khám + BS theo <code>work_session</code>. <b>Lượt-về không book slot</b> ("không cần book lịch khám cuối") → công suất bàn khám chừa hệ số khám-lại, đo bằng metric rồi hiệu chỉnh. TKYK cùng phiên.',
+ 'Pull; gọi TV; recall 2 lần → NO_SHOW giữ chỗ đến cuối ca.',
+ '<b>Form = f(service_type)</b> — "phiếu custom theo loại dịch vụ, TỰ ĐỘNG chứ không chọn". Lõi chung (hành chính + sinh hiệu) + khối biến thiên qua <code>form_schema_map</code>. <b>Hai người một phiếu</b>: BS + TKYK quyền ghi ngang nhau, mỗi field ghi actor — không khoá lẫn nhau. <b>Lượt 2 người</b>: <code>encounter_participant</code>; order gắn <code>subject_person_id</code> (tinh dịch đồ → chồng, trong lượt của vợ).',
+ 'Chốt lượt = MỘT command server-side (thay willComplete 2-request ở client hiện nay): chẩn đoán + lời dặn không rỗng · mọi order đã SIGNED · đơn thuốc SIGNED · <b>TÓM TẮT</b> sinh ra — artifact thứ hai đã chốt 17/06: đoạn ngắn cuối phiếu, không sinh hiệu, đúng 4 mục (lý do khám · bất thường · xử trí · thuốc).',
+ '<code>clinical_record</code> + <code>service_order[]</code> + <code>prescription</code> + tóm tắt + hẹn tái khám (tuỳ).',
+ '<b>Fan-out</b>: mỗi order route theo <code>execution_site</code> của nó, chạy song song. Không order → THU_NGAN. Order ASYNC không giữ BN — BN có thể về.',
+ 'Hội chẩn → case (#foward). BN bỏ về giữa chừng (TB) → NO_SHOW hàng khám-lại + case CSKH + <b>vẫn đối soát</b>. Sửa sau chốt → AMENDED + event, không ghi đè. Quyền: miền lâm sàng.',
+ 'Metric chung + thời gian khám lần 1/lần 2 · hệ số khám-lại · số order/lượt.']},
+{c:'DICH_VU',n:'Thực hiện dịch vụ — 1 module, N instance',s:'SA-T2 · SA-T4 · Lấy mẫu-T1 · Thủ thuật · POCT',b:[
+ '<b>MỘT spec — N instance runtime</b>: <code>node_instance(DICH_VU, execution_site, ca)</code>. Khởi điểm 5 instance: Siêu âm T2 · Siêu âm T4 · Lấy mẫu T1 · Thủ thuật · POCT-tiếp-đón (lễ tân, 0h). <b>Instance bật/tắt theo ca</b>: buổi không có ban SA riêng → instance SA không mở, việc SA nằm trong KHAM (bác sĩ tự làm) — hai chế độ vận hành là cấu hình, không phải hai sơ đồ. Thêm dịch vụ mới ("Chụp X-quang") = thêm 1 dòng instance + 1 form — đúng lời hứa gốc của tài liệu feedback.',
+ '<code>service_order</code> SIGNED + chủ thể có mặt. Thiếu → BLOCKED + reason_code, không xếp hàng ngầm.',
+ '<b>Mỗi instance một hàng đợi, xếp theo PHÒNG</b> — đúng nguyên văn khảo sát: "chỉ định gắn tầng/phòng nên hàng đợi xếp theo phòng, không chỉ theo bác sĩ". Order mang <code>capability_required</code> → chỉ instance đủ năng lực nhận (máy không tương đương: ca SA sâu chờ đúng giường dù giường kia trống).',
+ 'SLA theo <code>service_type</code> (SA 15’, lấy mẫu 10’…), không phải hằng số trạm.',
+ 'Instance khai (phòng, máy, capability). Người từ roster — điều dưỡng SA hiện giữ cả hàng XN, nên không được khai 2 pool riêng.',
+ 'Pull theo phòng trống + năng lực; 2 BS SA tự chia theo giường — không có Assign từ trên xuống.',
+ 'Form theo loại: SA → <code>ultrasound_record</code> (findings/impression/ảnh); lấy mẫu → barcode + loại mẫu + giờ lấy (cột trên order — không có entity mẫu riêng); thủ thuật/POCT → form riêng. <b>Ràng buộc UX cứng</b>: trợ lý đang gõ theo lời BS đọc real-time — form chậm hơn tốc độ nói = trạm vỡ.',
+ 'Completion-validator theo loại (SA: có kết luận + ≥1 ảnh…). <b>Luật ký theo ngữ cảnh</b>: có vai chuyên trách → vai đó ký; bác sĩ tự làm (chế độ B) → performer tự ký. Không có gate chờ một vai không tồn tại trong ca.',
+ 'Kết quả + ảnh (giữ artifact ẢNH — 10–30K hồ sơ) + financial item. Order ASYNC: mốc <code>sent_at</code> («đã gửi lab» — user yêu cầu checkbox này) → chuyển sang biên ngoài.',
+ 'SYNC xong → hàng «chờ khám lại» của KHAM (join). ASYNC → LAB_NGOAI. Lượt chỉ-dịch-vụ → THU_NGAN. Sự cố → cạnh trưởng ca.',
+ 'Mẫu hỏng → order lấy-lại mới (không sửa cũ) + gọi lại BN. Máy hỏng → instance đóng, queue chuyển instance cùng năng lực. BN từ chối → huỷ order + báo BS. Quyền: lâm sàng ghi kết quả; hành chính xem trạng thái.',
+ 'Metric chung theo TỪNG instance + công suất máy/người + %BLOCKED theo lý do.']},
+{c:'NHAP_KQ',n:'Nhận & nhập kết quả ngoài',s:'trạm mới — bước trễ nhất hệ hiện nay',b:[
+ 'Trạm nhập kết quả từ ngoài — v1 thiếu hoàn toàn dù đây là bước trễ nhất hệ (phòng khám tự theo dõi độ trễ bằng cột «ngày up» nhập tay). Giai đoạn 1: 1 trợ lý + email/Zalo/Drive. Giai đoạn 2: cổng upload cho đối tác (tài khoản giới hạn, chỉ upload — phương án đã bàn) — cùng module, khác connector.',
+ 'Order ASYNC có <code>sent_at</code>, kết quả đã về.',
+ 'Hàng đợi = order đã gửi chưa có <code>result_received_at</code> — thay cho "ai đó nhớ mở Gmail".',
+ 'SLA đòi kết quả theo TAT của loại (lib4: 36–168h); quá hạn → cảnh báo leo thang.',
+ '1 trợ lý nhập liệu.',
+ 'Pull.',
+ 'Upload file/ảnh + giá trị → <code>lab_result</code> (cột có đủ: <code>raw_payload · external_ref · lab_provider · result_received_at</code>). Giữ artifact ảnh.',
+ 'Gắn đúng BN + đúng order bằng 2 khoá (mã order + SĐT/tên); lệch → BLOCKED + <b>cảnh báo chống gắn nhầm</b> (yêu cầu tường minh của PK). Ngày nhập: hệ stamp, không nhập tay.',
+ '<code>lab_result</code> + event <code>lab_result.received</code>. <b>Persist kết quả AI triage vào <code>triage_group</code></b> — sửa lỗ hổng hiện tại: graph phân loại xong rồi vứt, không có UPDATE nào trong repo.',
+ '<code>requires_doctor_review=true</code> → DUYET_KQ · false → case CSKH trả KQ · CRITICAL → escalate ngay, bỏ qua hàng.',
+ 'File không khớp ai → hàng «chưa xác định» cho trưởng ca. Đối tác lab đổi chủ cuối tháng → connector phải là cấu hình, không hard-code vendor (spec cũ ghi enum diag/medlatec nhưng data thật là Greenlab/TrueMed/NIPT/GPB — không khớp).',
+ 'Metric chung + turnaround theo provider + <b>độ trễ nhập</b> (KQ về → gắn hồ sơ).']},
+{c:'DUYET_KQ',n:'Bác sĩ duyệt kết quả bất thường',s:'gate có điều kiện — cột đã có sẵn',b:[
+ 'Gate an toàn lâm sàng cho nhánh ASYNC — node duy nhất sau khi BN đã về mà có bác sĩ.',
+ 'CHỈ <code>lab_result.requires_doctor_review = true</code>. KQ bình thường đi thẳng CSKH — gate là có-điều-kiện, không phải bước tuần tự.',
+ 'Hàng đợi CHUNG mọi bác sĩ (chốt 17/06 — không route về BS đã chỉ định).',
+ 'CRITICAL: 1h. Bất thường thường: 24h.',
+ 'BS bất kỳ trong ca; ngoài giờ → on-call (chưa có cơ chế — nêu ở câu hỏi).',
+ 'Pull; CRITICAL → push notification.',
+ 'Xem KQ + kết luận + chỉ định bổ sung (sinh order mới cho lượt sau) nếu cần.',
+ '<code>reviewed_by + reviewed_at + is_finalized=true</code> — constraint DB <b>đã bắt buộc</b> finalized-phải-có-reviewer. <b>Luật cứng mới</b>: CSKH chỉ được gọi khi (không cần review) HOẶC (đã finalized) — đóng đúng khoảng hở "CSKH báo BN không qua BS" đang xảy ra.',
+ '<code>lab_result</code> finalized + event <code>lab_result.reviewed / .critical</code>.',
+ '→ case CSKH trả KQ. Cần khám lại → sinh <code>appointment</code> tái khám.',
+ 'BS duyệt đêm (ca thật: ack 23:47) → BN chỉ được báo trong khung giờ cho phép (quiet hours cấu hình). Sửa sau finalize → bản AMENDED + notify nơi đã nhận bản cũ.',
+ 'Metric chung + <b>thời gian KQ → BN biết</b> (con số quan trọng nhất hệ) + %CRITICAL đúng SLA.']},
+{c:'THU_NGAN',n:'Thu ngân',s:'1 module · scope thuốc | dịch vụ · đối soát KiotViet',b:[
+ 'MỘT module, tham số <code>scope = thuốc | dịch vụ</code> — đúng yêu cầu PK "2 vai trò: thu ngân thuốc & thu ngân dịch vụ", và đúng hàng chờ thứ 6 của tài liệu gốc ("chờ thanh toán/nhận thuốc" — MỘT hàng). 2 instance nếu giữ 2 quầy, 1 nếu gộp — cấu hình, chờ câu #3. <b>Không phải sổ tiền</b>: là điểm đối soát với KiotViet (biên ngoài).',
+ 'Encounter có ≥1 mục cần thu. <b>KQ trả sau KHÔNG chặn</b> — điều kiện để BN về sớm.',
+ 'Một hàng/quầy, <code>sort_key</code> chung. Nút thắt thật đã đo: chờ thuốc 15’++ (dồn đơn) → theo dõi từ ngày đầu.',
+ 'SLA 8’.',
+ 'Quầy + POS. Kho thuốc: tồn kho + bàn giao ca («Thuốc ca sau») — ghi nhận, ngoài phạm vi v3.',
+ 'Pull theo phiếu.',
+ 'Đối soát: hoá đơn = dịch vụ SỬ DỤNG — <b>phiếu ⊇ hoá đơn, không 1-1</b> ("có thể không bao gồm xét nghiệm"). Thuốc: đối chiếu đơn từng dòng; giao dịch KiotViet ghi <code>external_ref</code>, không thu lại.',
+ 'Mọi mục đã (thu / thu-ngoài / nợ có duyệt / miễn giảm có duyệt) — cần mở CHECK <code>payment.status</code> thành PAID|DEBT|WAIVED. Biên nhận phát hành; <b>in lại idempotent theo document_id</b> (in hỏng tần suất CAO). Còn KQ trả sau → case CSKH đã sinh, không case không đóng.',
+ '<code>payment</code> + <code>visit</code> CLOSED + event <code>payment.recorded / encounter.closed</code>.',
+ 'Xong → đóng lượt. Nợ/lỗi → ON_HOLD trưởng ca duyệt. BN về chưa thanh toán → case + ghi nợ.',
+ 'Quyền theo scope; miễn giảm: trưởng ca duyệt; CSKH thấy chỉ định <b>không thấy tiền</b> (quyền theo trường).',
+ 'Metric chung + lệch đối soát KiotViet cuối ngày + %nợ/miễn + thời gian chờ thuốc (mục tiêu <15’).']},
+];
+document.getElementById('specs').innerHTML=S.map(s=>`
+<details class="spec" id="sp-${s.c}">
+ <summary><span class="sc">${s.c}</span><span class="sn">${s.n}</span><span class="ss">${s.s}</span></summary>
+ <div>${s.b.map((t,i)=>`<div class="blk"><div class="bh"><span class="i">${String(i+1).padStart(2,'0')}</span><span class="t">${B[i]}</span></div><div class="bb"><p>${t}</p></div></div>`).join('')}</div>
+</details>`).join('');
+document.getElementById('nav').innerHTML=S.map(s=>`<button class="chip" data-c="${s.c}" aria-pressed="false">${s.c}</button>`).join('');
+function sel(c){S.forEach(s=>{const on=s.c===c;document.getElementById('sp-'+s.c).open=on;
+ document.querySelector(`.chip[data-c="${s.c}"]`).setAttribute('aria-pressed',String(on));});
+ Object.entries(nEls).forEach(([k,el])=>el.setAttribute('aria-pressed',String((SPEC_OF[k]||k)===c)));
+ document.getElementById('sp-'+c).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+document.getElementById('nav').onclick=e=>{const b=e.target.closest('.chip');if(b)sel(b.dataset.c);};
+
+T('ns',['Thứ','Là gì','Vì sao không phải trạm','Nhận được gì'],[
+ ['<b>Trưởng ca</b>','Mặt phẳng điều phối (dải trên board)','Không hàng đợi riêng, không luật hoàn thành; PK chưa chốt phạm vi, chưa có người cố định.','<b>SupervisorBoard</b>: WIP mọi hàng đợi + PriorityBump có lý do + route CHỈ trong <code>node_transition</code> + hàng «BLOCKED/chưa xác định». Không sửa dữ liệu lâm sàng.'],
+ ['<b>CSKH</b>','Mặt phẳng case (dải dưới board)','Subject là KHÁCH HÀNG xuyên lượt, không phải bệnh nhân trong lượt. 1 nhân sự — không build 48 kịch bản thành code.','<code>staff_task</code> làm case; <b>48 kịch bản = catalog data</b> (bảng kịch bản có SLA), UI một danh sách. Nguồn sinh case: no-show · huỷ · KQ trả sau · nợ · PENDING_CLOSE.'],
+ ['<b>Lab ngoài / Chụp ngoài</b>','Biên tổ chức (hộp đỏ trên board)','Không người PK đứng, không công suất, không luật hoàn thành — ép 12 khối thì mọi khối rỗng.','Connector cấu hình được (email parser → API sau) + SLA đòi KQ + hàng «đơn đang ở ngoài» hiển thị trong SupervisorBoard.'],
+ ['<b>KiotViet</b>','Hệ tiền thứ ba','Tiền thật nằm ngoài ClinicAI; không có bảng thu tiền nội bộ nào trong dữ liệu gốc.','Đối soát cuối ngày qua <code>payment.external_ref</code>; lệch → báo trưởng ca.'],
+ ['<b>BS đăng ký lịch tuần</b>','Node quản trị (đã có <code>work_roster</code> + duyệt)','Ngoài luồng bệnh nhân.','Giữ nguyên flow đăng ký→duyệt hiện có; slot chỉ sinh sau duyệt — tách đúng khỏi luồng đặt hẹn của khách (feedback: "sao 2 flow này lại nối tiếp?").'],
+]);
+
+T('uit',['Bề mặt','Cho ai','Nội dung','Thay trang nào'],[
+ ['<code>&lt;QueueView instance&gt;</code>','Người làm tại trạm','Hàng đợi của instance: ai chờ, ai quá SLA, nút Gọi/Bắt đầu — cùng component cho mọi instance.','queue · service-queue · lab-queue'],
+ ['<code>&lt;Workspace instance&gt;</code>','Người đang phục vụ','Trái: hàng đợi · Giữa: form theo <code>form_schema_map</code> + input bước trước · Phải: điều kiện hoàn thành + lịch sử event · Dưới: Hold / Ngoại lệ / Complete.','sono · tasks (phần nhập)'],
+ ['<code>&lt;SupervisorBoard&gt;</code>','Trưởng ca','WIP mọi instance + BLOCKED + bump + route theo cạnh hợp lệ + biên ngoài đang chờ.','truong-ca (hiện read-only)'],
+ ['<b>TV / Zalo «lộ trình»</b>','Bệnh nhân','Đọc <code>queue_item.called</code> + lộ trình cá nhân («đã làm gì — tiếp theo đi đâu») — <b>thay đúng chức năng của tờ giấy</b>, điều kiện để bỏ in mà BN vẫn an tâm.','(mới — điểm chốt của việc bỏ giấy)'],
+]);
+
+T('evt',['Event','Phát khi','Ai nghe'],[
+ ['<code>queue_item.created/called/started/completed/routed</code>','Vòng đời hàng đợi — mốc SLA, TV, timeline','QueueView · TV · metric'],
+ ['<code>queue_item.blocked/no_show/cancelled</code>','Kèm reason_code','SupervisorBoard · CSKH'],
+ ['<code>service_order.issued/signed/sent</code>','Chỉ định phát hành → ký → gửi ngoài','instance đích · biên ngoài'],
+ ['<code>lab_result.received/triaged/reviewed/critical</code>','Nhánh async — critical bỏ qua mọi hàng','DUYET_KQ · CSKH · escalate'],
+ ['<code>encounter.opened/closed</code> · <code>payment.recorded</code>','Mở/đóng lượt · tiền','đối soát · care_episode'],
+ ['<code>followup.created/completed</code>','Case CSKH sinh/đóng','CSKH plane'],
+]);
+
+T('dc',['Quyết định','Thay cho (v1/v2)','Căn cứ'],[
+ ['Nhánh XN chia <b>SYNC / ASYNC</b>; subject = ORDER; không có Specimen','v1: LAB_COLLECT→LAB_RESULT (subject SPECIMEN)','lib4 lưỡng cực: 2/14 mục 0h vs 12/14 mục 36–168h (GPB 7 ngày); ngoại lệ "KQ về sau khi BN về" = tần suất cao nhất bảng; CSKH có dòng doanh thu "Trả xét nghiệm"; không tồn tại entity mẫu ở đâu'],
+ ['<b>NHAP_KQ là trạm chính thức</b>','v1/v2: không có hoặc chỉ mô tả','Trợ lý poll Gmail; PK tự theo dõi độ trễ («ngày up» tách khỏi created); "mất nhiều công phân loại và tìm đúng"'],
+ ['Gate duyệt KQ = <b>có điều kiện</b>, map cột sẵn có','v1: DOCTOR_REVIEW là trạm bắt buộc','<code>requires_doctor_review</code> nullable; ca thật BS ack 23:47/BN biết sáng sau; khoảng hở "CSKH báo BN không qua BS" đang có thật'],
+ ['<b>KHAM re-entrant</b>, «chờ khám lại» là hàng đợi của KHAM','v1: DOCTOR_REVIEW tách riêng','"Gặp bác sĩ hai lần"; TV mockup của chính v1 ghi «Khám lại»; lượt-về không book slot'],
+ ['Trạm dịch vụ = <b>1 module × N instance theo phòng</b>, bật/tắt theo ca','v1: 5 trạm cứng; v2: 1 hộp trừu tượng','"Hàng đợi xếp theo PHÒNG, không chỉ theo bác sĩ"; SA ở tầng 2 VÀ 4; máy không tương đương; 2 chế độ ca ("buổi có/không có BS khám chính")'],
+ ['Số thứ tự sinh ở <b>CHECK-IN</b>, một thước đo <code>giờ_tính_lượt</code>','v1: số ở BOOKING; nhiều tầng ưu tiên','"Đặt online = giữ chỗ…; số thứ tự chốt tại quầy"; luật trễ-tụt-hạng do PK phát biểu'],
+ ['1 lượt có thể <b>2 người</b>; order theo người','v1/v2: 1 lượt = 1 BN','Hiếm muộn 810 + Nam khoa 280 lượt; PK đề xuất "cả một đôi"; tinh dịch đồ có KQ lần 1/lần 2 của chồng'],
+ ['Form = <b>f(service_type)</b> + artifact TÓM TẮT','v1: một form SOAP','"Custom theo loại dịch vụ — TỰ ĐỘNG"; 17 loại/19 template in; chốt 17/06 hai artifact; form hiện tại bị đặt sai tên'],
+ ['THU_NGAN = 1 module scope <b>thuốc|dịch vụ</b>; payment mở DEBT/WAIVED; đối soát KiotViet','v1: PHARMACY → CHECKOUT (trục cấp-thuốc/thu-tiền)','PK: "2 vai trò thu ngân"; tài liệu gốc: MỘT hàng "chờ thanh toán/nhận thuốc"; không có bảng tiền nội bộ; phiếu ⊇ hoá đơn'],
+ ['CSKH = <b>mặt phẳng case</b>; kịch bản là data','v1: FOLLOWUP node nhỏ; v2: plane nhưng không spec','ERD lớn nhất hệ (48 kịch bản × 7 phân loại) nhưng 1 nhân sự vận hành — code hoá kịch bản là over-engineering'],
+ ['<code>location_id</code> mọi nơi; UI một cơ sở; normalize "Kim ngưu"','v1: một cơ sở ngầm định','Kim Ngưu 10.393 / Hào Nam 4 lượt — đa cơ sở về schema, đơn cơ sở về vận hành'],
+ ['Giấy: <b>giai đoạn 1 chạy song song</b>; hệ in «phiếu lộ trình»; TV/Zalo thay dần','v2: mô tả giấy như định mệnh','~12 bàn giao giấy/buổi; nhưng BN cần biết "tiếp theo đi đâu" — bỏ giấy phải thay bằng thứ cùng thông tin; in hỏng tần suất CAO'],
+ ['Ưu tiên/SLA/nguồn lực/quyền = <b>4 luật toàn cục</b>','v1: lặp 12 lần ở mỗi trạm','Ưu tiên nằm trên hồ sơ khách; SLA theo loại việc (lib1/lib4); 5/16 nhân viên giữ 4 vị trí; quyền cắt ngang'],
+]);
+
+T('qt',['#','Câu hỏi','Chặn gì','Trả lời thế nào'],[
+ ['<b>1</b>','Hai dải số cũ (có hẹn = TEXT «12a/ƯT1», walk-in = NUMBER) trộn thành một dải thế nào?','CHECKIN','<b>Hỏi PK.</b> v3 mặc định MỘT dải theo giờ_tính_lượt — cần PK xác nhận'],
+ ['<b>2</b>','Siêu âm: ban riêng (5 BS + 5 trợ lý, T2+T4) hay BS khám tự làm? Cả hai tuỳ ca?','Cấu hình instance theo ca','<b>Hỏi PK.</b> v3 đã thiết kế cho «cả hai» — cần xác nhận luật bật/tắt'],
+ ['<b>3</b>','Thu tiền 1 điểm hay 4 điểm? KiotViet: kéo về hay chỉ đối soát?','THU_NGAN','<b>Hỏi PK.</b>'],
+ ['4','Map 17 loại dịch vụ → 4–5 form: Nam khoa, Tiền hôn nhân, NPĐH, Tư vấn, Thủ thuật vào schema nào?','form_schema_map','Hỏi PK — thiếu map thì fallback form chung, không chặn code'],
+ ['5','Hiếm muộn: 1 lượt 2 người — hoá đơn theo lượt hay theo người?','encounter_participant + billing','Hỏi PK'],
+ ['6','Sinh hiệu: ai đo, ai nhập (lễ tân/KTV/ĐD)?','Ma trận quyền TIEN_KHAM','Hỏi PK — v3 mặc định người-đo-là-người-nhập'],
+ ['<b>7</b>','<b>% LƯỢT</b> có XN async (không phải % danh mục)?','Độ ưu tiên xây nhánh async','<b>Tự làm — 1 query</b>: đếm bảng Xét nghiệm group by tên → join lib4.TAT'],
+ ['8','In giấy: lý do pháp lý/ký tay hay thói quen? (+ luật màu tờ in)','Lộ trình bỏ giấy','Hỏi PK — nếu pháp lý thì mô hình hoá, không xoá'],
+]);
+</script>
+</body>
+</html>

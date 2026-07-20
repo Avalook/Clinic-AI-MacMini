@@ -1,5 +1,7 @@
 """Mock/rule-based nodes — giữ làm fallback khi LLM fail hoặc unit test."""
 
+from typing import Any
+
 import structlog
 
 from clinicai.orchestrator.state import OrchestratorState
@@ -40,7 +42,7 @@ def classify_intent_rule_based(message: str) -> str:
     return "general"
 
 
-async def classify_intent_node(state: OrchestratorState) -> dict:
+async def classify_intent_node(state: OrchestratorState) -> dict[str, Any]:
     """Rule-based fallback node. Dùng khi không có llm_client.
 
     Nếu event_type đã set (RabbitMQ dispatch) → route thẳng từ event,
@@ -67,7 +69,7 @@ async def classify_intent_node(state: OrchestratorState) -> dict:
     return {"route": route}
 
 
-async def respond_node(state: OrchestratorState) -> dict:
+async def respond_node(state: OrchestratorState) -> dict[str, Any]:
     """Template responder (giữ nguyên, Phase 9.0 → LLM Sonnet)."""
     route = state.get("route", "unknown")
     trace_id = state.get("trace_id")

@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from clinicai.api.exceptions import ConflictError
+from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError
 from clinicai.main import app
@@ -16,6 +17,13 @@ from clinicai.schemas.patient import DuplicateMatch, PatientCreateResult, Patien
 def override_db():
     """Fixture that overrides database dependency globally for unit tests."""
     app.dependency_overrides[get_db_pool] = lambda: MagicMock()
+    app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
+        staff_id="staff-1",
+        auth_user_id="user-1",
+        full_name="Reception A",
+        department="RECEPTION",
+        role=ClinicRole.RECEPTION,
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -24,6 +32,24 @@ def override_db():
 def client() -> TestClient:
     """Fixture providing a TestClient instance for the FastAPI application."""
     return TestClient(app)
+
+
+@patch("clinicai.api.v1.patients.PatientService")
+def test_create_patient_requires_verified_staff(mock_service_class, client) -> None:
+    """A shared API key without a verified staff JWT must never create PII."""
+    app.dependency_overrides.pop(get_current_identity, None)
+    mock_service_class.return_value.create_patient = AsyncMock()
+
+    response = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": "Nguyen Van A",
+            "location_id": str(uuid.uuid4()),
+        },
+    )
+
+    assert response.status_code == 401
+    mock_service_class.return_value.create_patient.assert_not_awaited()
 
 
 @patch("clinicai.api.v1.patients.PatientService")

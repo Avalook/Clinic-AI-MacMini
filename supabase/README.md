@@ -11,6 +11,14 @@ supabase/
     20260714000000_extensions.sql          # required extensions (unaccent, pg_trgm, btree_gist, pgcrypto)
     20260714000001_baseline_schema.sql     # consolidated schema: 32 tables + RLS + functions/triggers
     20260714000002_slot_capacity_guard.sql # atomic 2+1 booking net (advisory-lock trigger)
+    20260714000003_idempotency_key.sql     # request replay/cache table
+    20260714000004_hot_query_indexes.sql   # production hot-path indexes
+    20260714000005_idempotency_scope_and_reservation.sql # atomic actor-scoped reservation
+    20260717000001_event_log_least_privilege.sql # MANAGEMENT-only audit reads
+    20260717000002_atomic_queue_checkin.sql # atomic daily queue allocation + check-in
+  tests/
+    bootstrap_plain_postgres.sql           # disposable stock-Postgres fixture
+    event_log_rls.sql                      # forward-migration policy assertions
   seed.sql                                  # reference/lookup data only (NO patient PII)
 ```
 
@@ -35,10 +43,16 @@ supabase link --project-ref <ref>
 supabase db push
 
 # or raw psql to a fresh project
-psql "$DATABASE_URL" -f migrations/20260714000000_extensions.sql
-psql "$DATABASE_URL" -f migrations/20260714000001_baseline_schema.sql
+for migration in migrations/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+done
 psql "$DATABASE_URL" -f seed.sql        # optional reference data
 ```
+
+Apply every pending migration **before** deploying the matching application
+release. In particular, payment/scheduling idempotency requires `...00005` and
+safe front-desk check-in requires `...00002_atomic_queue_checkin.sql`; the UI
+fails closed when those database functions are absent.
 
 ## seed.sql contents (no PII)
 clinic_location (2), service_type (14), service_price (29), booking_channel (7),
@@ -50,4 +64,11 @@ are intentionally excluded — this is a structure-only clone.
 supabase migration new <describe_change>   # creates a timestamped empty file
 # edit the SQL, commit, then:
 supabase db push
+```
+
+Database assertions must target a disposable database and roll back their own
+transaction:
+
+```bash
+psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/event_log_rls.sql
 ```

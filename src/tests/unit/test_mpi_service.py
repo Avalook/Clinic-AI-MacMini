@@ -86,6 +86,14 @@ def test_score_phone_match() -> None:
     assert result < 60.0 + 1  # name can't exceed 10
 
 
+def test_score_phone_country_code_variant_matches() -> None:
+    """Equivalent 0/+84 spellings receive the phone match weight."""
+    candidate = _make_dto({"full_name": "A", "phone_primary": "0901234567"})
+    existing = _make_dto({"full_name": "B", "phone_primary": "+84901234567"})
+
+    assert MPIService.score(candidate, existing) >= 50.0
+
+
 def test_score_national_id_match() -> None:
     """Exact national_id match should yield 40 pts (+ name fuzzy)."""
     candidate = _make_dto(
@@ -208,7 +216,13 @@ async def test_find_candidates_returns_list() -> None:
     assert len(results) == 2
     conn.fetch.assert_awaited_once()
     sql_arg = conn.fetch.call_args[0][0]
-    assert "phone_primary" in sql_arg
+    assert "phone_primary = ANY($1::text[])" in sql_arg
+    assert "phone_secondary = ANY($1::text[])" in sql_arg
+    assert set(conn.fetch.call_args[0][1]) == {
+        "0901234567",
+        "84901234567",
+        "+84901234567",
+    }
 
 
 @pytest.mark.asyncio

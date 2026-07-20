@@ -8,6 +8,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../../lib/clinic-session";
+import { resolveLinkedStaffAuthority } from "../../../lib/identity-authority";
 import { departmentToRole, roleLanding } from "../../../lib/roles";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 
@@ -29,29 +30,27 @@ export async function loginStaff(
   // Tài khoản phải gắn với 1 nhân viên (staff.auth_user_id).
   const { data: staff } = await supabase
     .from("staff")
-    .select("id, primary_department, is_active")
+    .select("id, primary_department, is_active, auth_user_id")
     .eq("auth_user_id", data.user.id)
     .maybeSingle();
 
-  if (!staff) {
+  const identity = resolveLinkedStaffAuthority(data.user.id, staff);
+  if (!identity) {
     await supabase.auth.signOut();
     return { error: "Tài khoản chưa gắn với nhân viên. Liên hệ quản lý." };
   }
-  if (staff.is_active === false) {
-    await supabase.auth.signOut();
-    return { error: "Tài khoản đã bị khoá." };
-  }
 
-  const role = departmentToRole(staff.primary_department as string);
+  const role = departmentToRole(identity.primary_department);
   const opts = {
     path: "/",
     httpOnly: true,
     sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 12,
   };
   const c = await cookies();
   c.set(ROLE_COOKIE, role, opts);
-  c.set(STAFF_COOKIE, staff.id as string, opts);
+  c.set(STAFF_COOKIE, identity.id, opts);
 
   redirect(roleLanding(role));
 }

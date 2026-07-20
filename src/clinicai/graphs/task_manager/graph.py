@@ -18,7 +18,7 @@ than runtime branching for two reasons:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from langgraph.graph import END, START, StateGraph
 
@@ -38,10 +38,12 @@ def build_task_manager_subgraph(pool: "asyncpg.Pool") -> Any:
     """Compile the task_manager sub-graph with a closure-injected pool."""
     sg = StateGraph(TaskManagerState)
 
-    sg.add_node("create_task", make_create_task_node(pool))
-    sg.add_node("query_tasks", make_query_tasks_node(pool))
-    sg.add_node("check_sla", make_check_sla_node(pool))
-    sg.add_node("update_task_status", make_update_task_status_node(pool))
+    # LangGraph's current overloads reject async partial-update callables for
+    # BaseModel state even though this is the supported runtime contract.
+    sg.add_node("create_task", cast(Any, make_create_task_node(pool)))
+    sg.add_node("query_tasks", cast(Any, make_query_tasks_node(pool)))
+    sg.add_node("check_sla", cast(Any, make_check_sla_node(pool)))
+    sg.add_node("update_task_status", cast(Any, make_update_task_status_node(pool)))
 
     sg.add_edge(START, "create_task")
     sg.add_edge("create_task", "query_tasks")

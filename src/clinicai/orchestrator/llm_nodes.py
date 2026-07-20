@@ -8,7 +8,7 @@ Both fallback to rule-based / template on error.
 from __future__ import annotations
 
 import json
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 import structlog
 
@@ -81,10 +81,12 @@ def _strip_markdown_fence(text: str) -> str:
 
 def make_classify_intent_llm_node(
     llm: AnthropicClient,
-) -> Callable[[OrchestratorState], Awaitable[dict]]:
+) -> Callable[[OrchestratorState], Awaitable[dict[str, Any]]]:
     """Factory tạo node có inject AnthropicClient qua closure."""
 
-    async def classify_intent_llm_node(state: OrchestratorState) -> dict:
+    async def classify_intent_llm_node(
+        state: OrchestratorState,
+    ) -> dict[str, Any]:
         msg = state.get("user_message", "")
         trace_id = state.get("trace_id")
 
@@ -124,14 +126,11 @@ def make_classify_intent_llm_node(
                 raise ValueError(f"Invalid route from LLM: {route_raw!r}")
 
             confidence = float(parsed.get("confidence", 0.0))
-            reasoning = parsed.get("reasoning", "")
-
             logger.info(
                 "classify_intent_llm",
                 trace_id=str(trace_id),
                 route=route_raw,
                 confidence=confidence,
-                reasoning=reasoning,
                 input_tokens=resp.input_tokens,
                 output_tokens=resp.output_tokens,
                 latency_ms=resp.latency_ms,
@@ -143,8 +142,7 @@ def make_classify_intent_llm_node(
             logger.warning(
                 "classify_intent_llm_parse_failed_fallback",
                 trace_id=str(trace_id),
-                error=str(e),
-                raw_text=(resp.text[:200] if resp is not None else None),
+                error_type=type(e).__name__,
                 fallback_route=fallback_route,
             )
             return {"route": fallback_route}
@@ -154,7 +152,6 @@ def make_classify_intent_llm_node(
             logger.error(
                 "classify_intent_llm_api_failed_fallback",
                 trace_id=str(trace_id),
-                error=str(e),
                 error_type=type(e).__name__,
                 fallback_route=fallback_route,
             )
@@ -187,7 +184,7 @@ liên hệ sớm. Tuyệt đối tuân thủ QUY TẮC AN TOÀN Y TẾ phía tr�
 
 def make_respond_node_llm(
     llm: AnthropicClient,
-) -> Callable[[OrchestratorState], Awaitable[dict]]:
+) -> Callable[[OrchestratorState], Awaitable[dict[str, Any]]]:
     """Factory tạo respond_node có inject AnthropicClient (Sonnet 4.6).
 
     3-layer fallback to template respond_node:
@@ -196,7 +193,7 @@ def make_respond_node_llm(
     - Any exception → template (error log)
     """
 
-    async def respond_node_llm(state: OrchestratorState) -> dict:
+    async def respond_node_llm(state: OrchestratorState) -> dict[str, Any]:
         msg = state.get("user_message", "")
         route = state.get("route", "unknown")
         trace_id = state.get("trace_id")
@@ -234,7 +231,7 @@ def make_respond_node_llm(
                 "respond_node_llm_empty_response_fallback",
                 trace_id=str(trace_id),
                 route=route,
-                error=str(e),
+                error_type=type(e).__name__,
             )
             return await respond_node(state)
 
@@ -243,7 +240,6 @@ def make_respond_node_llm(
                 "respond_node_llm_api_failed_fallback",
                 trace_id=str(trace_id),
                 route=route,
-                error=str(e),
                 error_type=type(e).__name__,
             )
             return await respond_node(state)

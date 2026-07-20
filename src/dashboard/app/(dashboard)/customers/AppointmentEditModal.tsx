@@ -5,7 +5,7 @@
 // điền sẵn lịch cũ, chỉ cho "Đổi lịch hẹn" khi đã chọn ngày/giờ mới (reschedule).
 // Kèm nút "Hủy lịch hẹn" (cancel). Chỉ CSKH/QL/Trưởng ca thấy (gate ở parent + API).
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import AppointmentBooking, {
@@ -49,6 +49,42 @@ export default function AppointmentEditModal({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
+  function keepFocusInside(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   // UTC ISO → giờ VN (GMT+7) dạng "YYYY-MM-DD" + "HH:mm" để điền sẵn form.
   const vn = new Date(new Date(appt.slot_start).getTime() + 7 * 3_600_000);
@@ -101,19 +137,30 @@ export default function AppointmentEditModal({
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
       onClick={onClose}
+      role="presentation"
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="appointment-edit-title"
         className="my-8 w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={keepFocusInside}
       >
         <div className="mb-3 flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-[#171717]">
+            <h3
+              id="appointment-edit-title"
+              className="text-base font-semibold text-[#171717]"
+            >
               Đổi / hủy lịch hẹn
             </h3>
             <p className="truncate text-xs text-[#888888]">{patientName}</p>
           </div>
           <button
+            ref={closeButtonRef}
+            type="button"
             onClick={onClose}
             aria-label="Đóng"
             className="rounded-md p-1 text-[#71717a] hover:bg-[#f4f4f5]"
@@ -154,8 +201,11 @@ export default function AppointmentEditModal({
 
         {showCancel && (
           <div className="mt-3 space-y-2 rounded-lg border border-[#fecaca] bg-[#fff7f7] p-3">
-            <label className={LABEL}>Lý do hủy (tuỳ chọn)</label>
+            <label htmlFor="appointment-cancel-reason" className={LABEL}>
+              Lý do hủy (tuỳ chọn)
+            </label>
             <input
+              id="appointment-cancel-reason"
               className={INPUT}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -163,6 +213,7 @@ export default function AppointmentEditModal({
             />
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={doCancel}
                 disabled={busy}
                 className="min-h-10 rounded-lg bg-[#dc2626] px-4 text-sm font-semibold text-white hover:bg-[#b91c1c] disabled:opacity-50"
@@ -170,6 +221,7 @@ export default function AppointmentEditModal({
                 {busy ? "Đang hủy…" : "Xác nhận hủy lịch"}
               </button>
               <button
+                type="button"
                 onClick={() => setShowCancel(false)}
                 className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
               >
@@ -178,7 +230,11 @@ export default function AppointmentEditModal({
             </div>
           </div>
         )}
-        {err && <p className="mt-2 text-sm text-[#dc2626]">{err}</p>}
+        {err && (
+          <p role="alert" className="mt-2 text-sm text-[#dc2626]">
+            {err}
+          </p>
+        )}
       </div>
     </div>
   );

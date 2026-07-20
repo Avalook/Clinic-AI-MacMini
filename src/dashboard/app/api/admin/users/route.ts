@@ -19,7 +19,7 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { hasManagementAuthority } from "../../../../lib/identity-authority";
 
 const MIN_PASSWORD = 8;
 
@@ -30,24 +30,8 @@ type AuthResult =
 // Shared gate: env present + caller authenticated + caller is MANAGEMENT.
 // Returns a ready service-role client on success, or the error response.
 async function authorizeAdmin(): Promise<AuthResult> {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    return {
-      ok: false,
-      res: NextResponse.json(
-        {
-          error:
-            "SUPABASE_SERVICE_ROLE_KEY is not configured on the server. " +
-            "Add it to src/dashboard/.env.local and restart the dashboard.",
-        },
-        { status: 503 },
-      ),
-    };
-  }
-
-  // Must hold the shared clinic session (RLS) AND have picked the MANAGEMENT
-  // role at /role-picker. Role is app-state in a cookie, not staff linkage.
+  // Authenticate first. A clinic_role cookie is intentionally ignored because
+  // cookies are client-controlled presentation state, not authorization.
   const callerClient = await getSupabaseServer();
   const {
     data: { user },
@@ -58,16 +42,37 @@ async function authorizeAdmin(): Promise<AuthResult> {
       res: NextResponse.json({ error: "Unauthorised" }, { status: 401 }),
     };
   }
-  if ((await getClinicRole()) !== "MANAGEMENT") {
+
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!SUPABASE_URL || !SERVICE_KEY) {
     return {
       ok: false,
-      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      res: NextResponse.json(
+        { error: "Admin service is temporarily unavailable." },
+        { status: 503 },
+      ),
     };
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const { data: callerStaff, error: callerStaffError } = await admin
+    .from("staff")
+    .select("id, auth_user_id, primary_department, is_active")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (
+    callerStaffError ||
+    !hasManagementAuthority(user.id, callerStaff)
+  ) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
   return { ok: true, admin };
 }
 

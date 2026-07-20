@@ -87,7 +87,7 @@ export default function TasksRealtime({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-green-500" />
+        <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-green-500 motion-reduce:animate-none" />
         <span className="text-xs text-gray-600">
           Realtime live
           {liveCount > 0 && (

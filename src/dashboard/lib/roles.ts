@@ -1,9 +1,8 @@
 // Pure role logic — NO next/headers import, so it is safe to use from both
 // Server Components and Client Components (e.g. Nav.tsx).
 //
-// Access model (post-refactor): ONE shared Supabase login gates the app, then
-// the ACTIVE ROLE is app-state chosen at /role-picker and stored in a cookie.
-// These helpers operate on that role string, not on a staff row.
+// Roles are derived server-side from the authenticated user's linked staff
+// row. These pure helpers only transform/check the already-authoritative role.
 
 export type ClinicRole =
   | "DOCTOR"
@@ -32,8 +31,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "TRUONG_CA",
 ];
 
-// staff.primary_department → vai trò ứng dụng. Mỗi người chọn tên mình khi
-// đăng nhập; vai trò (và nav) suy ra từ chức danh, không tin client.
+// staff.primary_department → vai trò ứng dụng; never trust a posted role.
 export function departmentToRole(dept: string | null | undefined): ClinicRole {
   return isClinicRole(dept ?? "") ? (dept as ClinicRole) : "CSKH";
 }
@@ -221,6 +219,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/schedule": "all",
   "/work-sessions": ["MANAGEMENT", "TRUONG_CA"],
   "/reports": ["MANAGEMENT", "TRUONG_CA"],
+  "/ops": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],

@@ -1,4 +1,5 @@
-from typing import Optional
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Optional, cast
 from uuid import UUID
 
 from langgraph.graph import END, START, StateGraph
@@ -10,6 +11,9 @@ from clinicai.graphs.scheduling.nodes import (
     make_find_doctor_node,
 )
 from clinicai.graphs.scheduling.state import SchedulingState
+
+if TYPE_CHECKING:
+    import asyncpg
 
 _VALID_STEPS: set[str] = {"ask_date", "ask_time", "find_doctor", "confirm"}
 
@@ -24,10 +28,12 @@ def route_by_step(state: SchedulingState) -> str:
     return step if step in _VALID_STEPS else "ask_date"
 
 
-def _make_no_pool_stub_find_doctor():
+def _make_no_pool_stub_find_doctor() -> Callable[
+    [SchedulingState], Awaitable[dict[str, Any]]
+]:
     """Backward-compat stub khi pool=None (T-P9.1-02 behavior)."""
 
-    async def find_doctor_node(state: SchedulingState) -> dict:
+    async def find_doctor_node(state: SchedulingState) -> dict[str, Any]:
         turn = state.get("turn_count", 0)
         return {
             "step": "confirm",
@@ -44,9 +50,9 @@ def _make_no_pool_stub_find_doctor():
 
 
 def build_scheduling_subgraph(
-    pool: Optional[object] = None,
+    pool: Optional["asyncpg.Pool"] = None,
     location_id: Optional[UUID] = None,
-):
+) -> Any:
     """Build scheduling sub-graph with optional asyncpg pool + location_id.
 
     - pool=None or location_id=None → find_doctor_node is the stub fallback
@@ -63,10 +69,10 @@ def build_scheduling_subgraph(
     )
 
     g = StateGraph(SchedulingState)
-    g.add_node("ask_date", ask_date_node)
-    g.add_node("ask_time", ask_time_node)
-    g.add_node("find_doctor", find_doctor)
-    g.add_node("confirm", confirm_node)
+    g.add_node("ask_date", cast(Any, ask_date_node))
+    g.add_node("ask_time", cast(Any, ask_time_node))
+    g.add_node("find_doctor", cast(Any, find_doctor))
+    g.add_node("confirm", cast(Any, confirm_node))
 
     g.add_conditional_edges(
         START,

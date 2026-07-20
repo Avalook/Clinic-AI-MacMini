@@ -43,8 +43,13 @@ jobs:
       - name: Mypy
         run: poetry run mypy src/
 
-      - name: Pytest (skip DB-touching tests)
-        run: poetry run pytest src/tests/ -v --tb=short -m "not db"
+      - name: Pytest with coverage (unit tests only)
+        env:
+          ANTHROPIC_API_KEY: ""
+        run: >-
+          poetry run pytest src/tests/ -v --tb=short
+          -m "not db and not integration"
+          --cov=clinicai --cov-report=term --cov-fail-under=80
 
   frontend:
     runs-on: ubuntu-latest
@@ -73,10 +78,13 @@ jobs:
         run: npm ci
 
       - name: Typecheck (tsc)
-        run: npx tsc --noEmit
+        run: ./node_modules/.bin/tsc --noEmit
 
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --max-warnings=0
+
+      - name: Security boundary tests
+        run: npm run test:audit && npm run test:ops && npm run test:boundary
 
       - name: Build
         run: npm run build

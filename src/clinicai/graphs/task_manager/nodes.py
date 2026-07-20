@@ -8,6 +8,7 @@ deliberately small — every business decision lives in the tool layer
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -33,8 +34,10 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+TaskManagerNode = Callable[[TaskManagerState], Awaitable[dict[str, Any]]]
 
-def make_create_task_node(pool: "asyncpg.Pool"):
+
+def make_create_task_node(pool: "asyncpg.Pool") -> TaskManagerNode:
     """Build a node that inserts state.task_input via the create_task tool.
 
     No-op (pass-through) when state.task_input is None.
@@ -62,7 +65,7 @@ def make_create_task_node(pool: "asyncpg.Pool"):
     return create_task_node
 
 
-def make_query_tasks_node(pool: "asyncpg.Pool"):
+def make_query_tasks_node(pool: "asyncpg.Pool") -> TaskManagerNode:
     """Build a node that runs query_tasks with state.query_filter.
 
     When `state.query_filter` is absent but `state.created_task` exists,
@@ -108,7 +111,7 @@ def make_query_tasks_node(pool: "asyncpg.Pool"):
     return query_tasks_node
 
 
-def make_check_sla_node(pool: "asyncpg.Pool"):
+def make_check_sla_node(pool: "asyncpg.Pool") -> TaskManagerNode:
     """Build a node that calls check_task_sla for every queried_task.
 
     No-op when state.queried_tasks is empty.
@@ -146,7 +149,7 @@ def make_check_sla_node(pool: "asyncpg.Pool"):
     return check_sla_node
 
 
-def make_update_task_status_node(pool: "asyncpg.Pool"):
+def make_update_task_status_node(pool: "asyncpg.Pool") -> TaskManagerNode:
     """Build a node that applies state.update_input via update_task_status.
 
     No-op when state.update_input is None. TaskNotFoundError is caught and

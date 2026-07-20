@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LaunchDaemon: Nightly DB backup — runs every day at 2:00 AM.
+  Dumps the Supabase production database, compresses it, and optionally
+  pushes to Cloudflare R2.
+
+  Install:
+    sudo cp scripts/launchdaemons/com.dr4women.db-backup.plist /Library/LaunchDaemons/
+    sudo launchctl load /Library/LaunchDaemons/com.dr4women.db-backup.plist
+
+  Unload:
+    sudo launchctl unload /Library/LaunchDaemons/com.dr4women.db-backup.plist
+
+  Check logs:
+    tail -50 ~/Library/Logs/clinicai-backup.log
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dr4women.db-backup</string>
+
+  <key>UserName</key>
+  <string>quangdang</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/quangdang/Projects/Dr4Women-MacMini/scripts/backup-db.sh</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/quangdang</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <!-- Run every day at 02:00 -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/quangdang/Library/Logs/clinicai-backup.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/quangdang/Library/Logs/clinicai-backup.err.log</string>
+</dict>
+</plist>

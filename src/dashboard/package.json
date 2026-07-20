@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:audit": "node --test lib/event-log-redaction.test.mts",
+    "test:ops": "node --test lib/ops-summary.test.mts",
+    "test:boundary": "node --test tests/*boundary.test.mts",
     "e2e:intake": "node e2e/intake-day-simulation.mjs"
   },
   "dependencies": {
@@ -27,5 +30,10 @@
     "playwright": "^1.49.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.15"
+    }
   }
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -48,3 +49,22 @@ async def test_send_zalo_trace_id_propagated() -> None:
     out = await send_zalo_message(inp)
 
     assert out.trace_id == inp.ctx.trace_id
+
+
+@pytest.mark.asyncio
+async def test_send_zalo_log_excludes_patient_and_message_pii(monkeypatch) -> None:
+    """The tool may return a preview, but it must never emit it to logs."""
+    fake_logger = MagicMock()
+    monkeypatch.setattr("clinicai.tools.communication.send_zalo.logger", fake_logger)
+    inp = SendZaloInput(
+        patient_id=uuid4(),
+        message="Chị Lan 0901234567 đang đau bụng",
+        ctx=new_trace(),
+    )
+
+    await send_zalo_message(inp)
+
+    _, kwargs = fake_logger.info.call_args
+    assert "patient_id" not in kwargs
+    assert "message" not in kwargs
+    assert "message_preview" not in kwargs

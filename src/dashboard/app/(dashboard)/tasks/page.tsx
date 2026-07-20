@@ -21,7 +21,6 @@ import {
   canManageAppt,
   isTasksReadOnly,
   isCashierRole,
-  isThuKyRole,
   isUltrasoundDoctorRole,
   isNurseRole,
 } from "../../../lib/roles";
@@ -256,7 +255,7 @@ const DOCTOR_SELECT = `
 `;
 
 // readOnly = LỄ TÂN xem clone giao diện board bác sĩ ở chế độ CHỈ ĐỌC. Lễ tân
-// VẪN có clinic_staff_id (cookie set cho mọi vai trò) nhưng KHÔNG phải bác sĩ →
+// vẫn có staff id liên kết nhưng KHÔNG phải bác sĩ →
 // khi readOnly ta BỎ lọc doctor_id để thấy lịch của MỌI bác sĩ (góc nhìn front
 // desk). Nếu lọc theo staffId của lễ tân thì board sẽ rỗng (không lịch nào của họ).
 // allDoctors = TKYK: KHÔNG lọc theo doctor_id (TKYK không phải BS trên lịch) → thấy

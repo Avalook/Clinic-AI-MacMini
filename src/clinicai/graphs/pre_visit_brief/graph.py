@@ -14,7 +14,7 @@ raising mid-flight.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from langgraph.graph import END, START, StateGraph
 
@@ -38,9 +38,9 @@ def build_pre_visit_brief_subgraph(
     """Compile the pre_visit_brief sub-graph with closure-injected pool + LLM."""
     sg = StateGraph(PreVisitBriefState)
 
-    sg.add_node("aggregate_context", make_aggregate_context_node(pool))
-    sg.add_node("generate_brief", make_generate_brief_node(llm_client))
-    sg.add_node("render_markdown", make_render_markdown_node())
+    sg.add_node("aggregate_context", cast(Any, make_aggregate_context_node(pool)))
+    sg.add_node("generate_brief", cast(Any, make_generate_brief_node(llm_client)))
+    sg.add_node("render_markdown", cast(Any, make_render_markdown_node()))
 
     sg.add_edge(START, "aggregate_context")
     sg.add_edge("aggregate_context", "generate_brief")

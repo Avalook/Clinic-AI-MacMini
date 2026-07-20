@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   ListOrdered,
   CheckCheck,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -35,6 +36,12 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { href: "/home", label: "Trang chủ", shortLabel: "Trang chủ", icon: Home },
+  {
+    href: "/cskh-today",
+    label: "Cần làm hôm nay",
+    shortLabel: "Hôm nay",
+    icon: ClipboardCheck,
+  },
   {
     href: "/appointments",
     label: "Lịch hẹn (check đặt lịch)",
@@ -105,6 +112,7 @@ export const NAV: NavItem[] = [
   { href: "/sono", label: "ĐD siêu âm", shortLabel: "Siêu âm", icon: ScanLine },
   { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
+  { href: "/ops", label: "Vận hành hệ thống", shortLabel: "Hệ thống", icon: Gauge },
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];
 

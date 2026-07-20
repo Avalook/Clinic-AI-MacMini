@@ -7,6 +7,12 @@ from fastapi import APIRouter, Depends, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.schemas.patient import (
@@ -20,6 +26,22 @@ from clinicai.services.patient_service import PatientService
 
 router = APIRouter()
 
+_INTAKE_GUARD = require_role(
+    ClinicRole.CSKH,
+    ClinicRole.RECEPTION,
+    ClinicRole.MANAGEMENT,
+    ClinicRole.TRUONG_CA,
+)
+_PATIENT_EDIT_GUARD = require_role(
+    ClinicRole.CSKH,
+    ClinicRole.RECEPTION,
+    ClinicRole.MANAGEMENT,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+)
+
 
 @router.post(
     "/patients",
@@ -28,6 +50,7 @@ router = APIRouter()
 )
 async def create_patient(
     data: PatientCreateDTO,
+    _identity: StaffIdentity = Depends(_INTAKE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO | JSONResponse:
     """Register a patient with MPI dedup. Three outcomes:
@@ -54,6 +77,7 @@ async def create_patient(
 @router.get("/patients/check-phone", response_model=PhoneCheckResult)
 async def check_phone_duplicate(
     phone: str,
+    _identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PhoneCheckResult:
     """Read-only early warning: is this phone already on file (feedback #9)?
@@ -75,6 +99,7 @@ async def check_phone_duplicate(
 @router.get("/patients/{id}", response_model=PatientDTO)
 async def get_patient_by_id(
     id: UUID,
+    _identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO:
     """Retrieve a single patient by ID. Raises ResourceNotFoundError if not found."""
@@ -88,6 +113,7 @@ async def get_patient_by_id(
 @router.get("/patients", response_model=list[PatientDTO])
 async def get_patients_by_phone(
     phone: str,
+    _identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[PatientDTO]:
     """Retrieve all patients matching a primary or secondary phone number."""
@@ -101,6 +127,7 @@ async def get_patients_by_phone(
 async def update_patient(
     id: UUID,
     data: PatientUpdateDTO,
+    _identity: StaffIdentity = Depends(_PATIENT_EDIT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO:
     """Partially update demographic details for a patient."""

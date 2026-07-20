@@ -330,7 +330,7 @@ export async function POST(request: Request) {
   const doctor_id = (body.doctor_id ?? "").trim() || null;
   const rawChannel = (body.booking_channel ?? "").trim();
   const booking_channel = rawChannel || "WALK_IN";
-  let queue_number = (body.queue_number ?? "").trim() || null;
+  const queue_number = (body.queue_number ?? "").trim() || null;
 
   // Capacity Phase 1 — tải/ca. CSKH nhập tay; nếu thiếu thì GỢI Ý theo loại khách (DEC-3).
   const rawKind = (body.patient_kind ?? "").trim().toUpperCase();
@@ -358,22 +358,8 @@ export async function POST(request: Request) {
     slotMs >= Date.parse(todayStart) && slotMs < Date.parse(todayEnd);
   const autoCheckin = rawChannel === "WALK_IN" && slotIsToday;
   const initialStatus = autoCheckin ? "CHECKED_IN" : "SCHEDULED";
-  if (autoCheckin && !queue_number) {
-    // Số = max(số đã cấp hôm nay) + 1, đếm theo TOÀN phòng khám trong ngày VN
-    // (cùng quy tắc với lúc Lễ tân check-in ở PATCH). Best-effort: lỗi đếm KHÔNG chặn.
-    const { data: todays } = await db
-      .from("appointment")
-      .select("queue_number")
-      .gte("slot_start", todayStart)
-      .lt("slot_start", todayEnd)
-      .not("queue_number", "is", null);
-    let max = 0;
-    for (const r of (todays as { queue_number: string | null }[] | null) ?? []) {
-      const n = parseInt((r.queue_number ?? "").trim(), 10);
-      if (Number.isFinite(n) && n > max) max = n;
-    }
-    queue_number = String(max + 1);
-  }
+  // When an auto-check-in has no manual number, the DB trigger assigns it
+  // under the same per-day advisory lock used by PATCH check-in.
 
   // Chặn TRÙNG GIỜ bác sĩ NGAY (báo rõ khung giờ bận) — không để khách đặt được
   // rồi mới văng lỗi. Ràng buộc DB (appointment_no_doctor_overlap) vẫn là chốt cuối.
@@ -755,32 +741,32 @@ export async function PATCH(request: Request) {
     if (full) return NextResponse.json({ error: full }, { status: 409 });
   }
 
-  // Lễ tân check-in → TỰ CẤP SỐ THỨ TỰ trong ngày nếu lịch chưa có số (giữ số
-  // nhập tay nếu đã có). Số = max(số đã cấp hôm nay) + 1, đếm theo toàn phòng
-  // khám trong ngày VN. Best-effort: lỗi đếm KHÔNG chặn việc check-in.
-  if (action === "checkin" && !((appt.queue_number as string | null) ?? "").trim()) {
-    const { startUtc, endUtc } = vnTodayRangeUtc();
-    const { data: todays } = await db
-      .from("appointment")
-      .select("queue_number")
-      .gte("slot_start", startUtc)
-      .lt("slot_start", endUtc)
-      .not("queue_number", "is", null);
-    let max = 0;
-    for (const r of (todays as { queue_number: string | null }[] | null) ?? []) {
-      const n = parseInt((r.queue_number ?? "").trim(), 10);
-      if (Number.isFinite(n) && n > max) max = n;
-    }
-    patch.queue_number = String(max + 1);
-  }
-
-  const { data: updated, error: updErr } = await db
-    .from("appointment")
-    .update(patch)
-    .eq("id", id)
-    .in("status", fromStatuses)
-    .select("id");
+  // Check-in is special: status transition + daily queue allocation must be
+  // one serialized DB transaction. All other transitions remain optimistic
+  // updates guarded by their allowed source statuses.
+  const updateResult =
+    action === "checkin"
+      ? await db.rpc("check_in_appointment", {
+          p_appointment_id: id,
+          p_from_statuses: fromStatuses,
+        })
+      : await db
+          .from("appointment")
+          .update(patch)
+          .eq("id", id)
+          .in("status", fromStatuses)
+          .select("id");
+  const { data: updated, error: updErr } = updateResult;
   if (updErr) {
+    if (action === "checkin" && updErr.code === "42883") {
+      return NextResponse.json(
+        {
+          error:
+            "Chức năng cấp số an toàn chưa được cài đặt — cần chạy migration atomic queue check-in.",
+        },
+        { status: 503 },
+      );
+    }
     // 23P01 = exclusion_violation (bác sĩ trùng giờ) khi đổi lịch.
     if (updErr.code === "23P01") {
       return NextResponse.json(

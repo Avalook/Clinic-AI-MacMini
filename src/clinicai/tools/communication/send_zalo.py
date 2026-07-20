@@ -37,7 +37,6 @@ async def send_zalo_message(input: SendZaloInput) -> SendZaloOutput:
     """STUB — do not call Zalo API. Logs the intent and returns delivered=False."""
     logger.info(
         "tool.communication.send_zalo_stub",
-        patient_id=str(input.patient_id),
         template_key=input.template_key,
         trace_id=str(input.ctx.trace_id),
     )

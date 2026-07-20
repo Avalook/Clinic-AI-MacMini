@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -13,7 +13,7 @@ def get_orchestrator_service(request: Request) -> OrchestratorService:
     svc = getattr(request.app.state, "orchestrator_service", None)
     if svc is None:
         raise RuntimeError("OrchestratorService chưa init trong lifespan")
-    return svc
+    return cast(OrchestratorService, svc)
 
 
 class ChatInput(BaseModel):

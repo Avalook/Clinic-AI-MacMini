@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dr4Women / ClinicAI — System Architecture</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg-card: #1a1d27;
+      --bg-card-hover: #22263a;
+      --border: #2a2e3e;
+      --text: #e4e6ef;
+      --text-muted: #8b8fa3;
+      --accent: #6c5ce7;
+      --accent2: #00cec9;
+      --accent3: #fd79a8;
+      --accent4: #fdcb6e;
+      --gradient-1: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+      --gradient-2: linear-gradient(135deg, #00cec9 0%, #81ecec 100%);
+      --gradient-3: linear-gradient(135deg, #fd79a8 0%, #fab1a0 100%);
+      --gradient-4: linear-gradient(135deg, #fdcb6e 0%, #ffeaa7 100%);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      background: linear-gradient(180deg, #1a1040 0%, var(--bg) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -100px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(108,92,231,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .hero .subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      font-weight: 300;
+      margin-bottom: 20px;
+    }
+    .hero .badges {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    .badge.purple { border-color: #6c5ce7; color: #a29bfe; }
+    .badge.teal   { border-color: #00cec9; color: #81ecec; }
+    .badge.pink   { border-color: #fd79a8; color: #fab1a0; }
+    .badge.yellow { border-color: #fdcb6e; color: #ffeaa7; }
+
+    /* Navigation */
+    .nav-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      padding: 12px 20px;
+      background: rgba(15,17,23,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .nav-bar a {
+      padding: 6px 16px;
+      border-radius: 8px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .nav-bar a:hover, .nav-bar a.active {
+      background: var(--bg-card);
+      color: var(--text);
+    }
+
+    /* Section */
+    .section {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    .section-number {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .section h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    .section .desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 24px;
+      padding-left: 50px;
+    }
+
+    /* Diagram Card */
+    .diagram-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      overflow-x: auto;
+      transition: border-color 0.3s;
+    }
+    .diagram-card:hover {
+      border-color: #3a3e5e;
+    }
+    .diagram-card .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      padding: 16px 20px;
+      margin-top: 12px;
+      background: rgba(26,29,39,0.5);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+    }
+
+    /* Divider */
+    hr.divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 50px auto;
+      max-width: 1200px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Override Mermaid theme colors for dark mode */
+    .mermaid svg {
+      max-width: 100%;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 1.8rem; }
+      .diagram-card { padding: 16px; }
+      .section { margin: 24px auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>🏥 Dr4Women / ClinicAI</h1>
+  <p class="subtitle">System Architecture — Self-hosted Mac mini · AI-Powered Clinic Management</p>
+  <div class="badges">
+    <span class="badge purple">FastAPI</span>
+    <span class="badge teal">LangGraph</span>
+    <span class="badge pink">Next.js</span>
+    <span class="badge yellow">Supabase</span>
+    <span class="badge purple">Docker</span>
+    <span class="badge teal">Caddy</span>
+    <span class="badge pink">Claude AI</span>
+    <span class="badge yellow">PhoWhisper</span>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav class="nav-bar">
+  <a href="#overview">Tổng quan</a>
+  <a href="#request-flow">Request Flow</a>
+  <a href="#backend">Backend Layers</a>
+  <a href="#ai-pipeline">AI Pipeline</a>
+  <a href="#database">Database</a>
+  <a href="#auth">Auth & Security</a>
+  <a href="#deploy">Deploy & Ops</a>
+  <a href="#notification">Notification</a>
+</nav>
+
+<!-- =========================================================== -->
+<!-- 1. TỔNG QUAN KIẾN TRÚC -->
+<!-- =========================================================== -->
+<div class="section" id="overview">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-1)">1</div>
+    <h2>Tổng quan Kiến trúc Hệ thống</h2>
+  </div>
+  <p class="desc">Toàn bộ hệ thống chạy trên 1 Mac mini, data ở Supabase Cloud. Client truy cập qua Caddy (reverse proxy + TLS). API backend không bao giờ expose ra ngoài.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+graph TB
+    subgraph Internet["☁️ Internet"]
+        CLIENT["👩‍⚕️ Browser / Mobile<br/>(Nhân viên phòng khám)"]
+        CF["🛡️ Cloudflare Tunnel<br/>hoặc Tailscale Funnel"]
+    end
+
+    subgraph MAC["🖥️ Mac mini (Self-hosted Docker)"]
+        direction TB
+
+        subgraph INGRESS["🌐 Ingress Layer"]
+            CADDY["🔒 Caddy<br/>Auto-TLS · HSTS · Security Headers<br/>Port 80/443"]
+        end
+
+        subgraph APP["⚙️ Application Layer"]
+            direction LR
+            DASH["📱 Dashboard<br/>Next.js 14<br/>UI Only · Port 3000"]
+            API["🐍 FastAPI<br/>All Business Logic<br/>Port 8000"]
+            WORKER["⚡ Worker<br/>Notification Relay<br/>--relay mode"]
+        end
+
+        subgraph INFRA["🔧 Infrastructure"]
+            direction LR
+            RABBIT["🐰 RabbitMQ<br/>(opt-in, scaling)"]
+            KUMA["📊 Uptime Kuma<br/>Health Monitoring"]
+            DOZZLE["📋 Dozzle<br/>Log Viewer"]
+        end
+    end
+
+    subgraph CLOUD["☁️ Supabase Cloud"]
+        SUPA_DB[("🗄️ PostgreSQL<br/>32 tables")]
+        SUPA_AUTH["🔐 Auth<br/>JWT (HS256/ES256)"]
+        SUPA_RT["⚡ Realtime<br/>WebSocket"]
+    end
+
+    subgraph AI_SERVICES["🤖 AI Services"]
+        CLAUDE["🧠 Anthropic Claude<br/>Haiku / Sonnet"]
+        WHISPER["🎙️ PhoWhisper<br/>On-premise · CTranslate2"]
+    end
+
+    subgraph NOTIFY["📢 Notification"]
+        TELEGRAM["✈️ Telegram Bot"]
+        ZALO["💬 Zalo OA"]
+    end
+
+    CLIENT -->|HTTPS| CF
+    CF -->|HTTP :80| CADDY
+    CADDY -->|proxy| DASH
+    DASH -->|internal http://api:8000| API
+    DASH -.->|auth + realtime| SUPA_AUTH
+    DASH -.->|WebSocket| SUPA_RT
+
+    API -->|asyncpg pool| SUPA_DB
+    API -->|verify JWT| SUPA_AUTH
+    API -->|LLM calls| CLAUDE
+    API -->|on-prem STT| WHISPER
+    API -.->|publish events| RABBIT
+
+    WORKER -->|poll event_log| SUPA_DB
+    WORKER -->|send| TELEGRAM
+    WORKER -.->|send| ZALO
+
+    RABBIT -.->|consume| WORKER
+    KUMA -->|health check| API
+    KUMA -->|health check| DASH
+    KUMA -->|health check| CADDY
+
+    classDef internet fill:#1e3a5f,stroke:#3498db,color:#fff
+    classDef mac fill:#1a1d27,stroke:#6c5ce7,color:#fff
+    classDef cloud fill:#0d3331,stroke:#00cec9,color:#fff
+    classDef ai fill:#3d1f40,stroke:#fd79a8,color:#fff
+    classDef notify fill:#3d3520,stroke:#fdcb6e,color:#fff
+
+    class CLIENT,CF internet
+    class CADDY,DASH,API,WORKER,RABBIT,KUMA,DOZZLE mac
+    class SUPA_DB,SUPA_AUTH,SUPA_RT cloud
+    class CLAUDE,WHISPER ai
+    class TELEGRAM,ZALO notify
+    </pre>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#6c5ce7"></div> Mac mini (Docker)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00cec9"></div> Supabase Cloud</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fd79a8"></div> AI Services</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fdcb6e"></div> Notification Channels</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3498db"></div> Internet / Client</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 2. REQUEST FLOW -->
+<!-- =========================================================== -->
+<div class="section" id="request-flow">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-2)">2</div>
+    <h2>Luồng xử lý Request</h2>
+  </div>
+  <p class="desc">Từ browser đến DB — mọi request đi qua 3 lớp middleware (Request-ID → API-Key → DB Error Guard) trước khi đến router.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant B as 👩‍⚕️ Browser
+    participant C as 🔒 Caddy
+    participant D as 📱 Dashboard<br/>(Next.js)
+    participant M1 as 🏷️ RequestID<br/>Middleware
+    participant M2 as 🔑 API-Key<br/>Middleware
+    participant M3 as 🛡️ DB-Error<br/>Middleware
+    participant R as 🛣️ Router
+    participant S as ⚙️ Service
+    participant DB as 🗄️ Supabase DB
+
+    B->>C: HTTPS request
+    C->>D: Proxy (security headers)
+    D->>M1: Internal HTTP (api:8000)
+
+    Note over M1: Gán X-Request-ID<br/>Bind vào structlog
+
+    M1->>M2: request + request_id
+
+    alt BACKEND_API_KEY set
+        Note over M2: Check X-API-Key header<br/>hmac.compare_digest()
+        alt Key hợp lệ
+            M2->>M3: ✅ Pass
+        else Key sai hoặc thiếu
+            M2-->>B: ❌ 401/403
+        end
+    else BACKEND_API_KEY not set
+        Note over M2: ⚠️ Dev mode<br/>Warning log, pass through
+        M2->>M3: Pass (no gate)
+    end
+
+    M3->>R: route request
+
+    alt JWT Protected Route (/api/v1/me, /payment...)
+        R->>R: verify_supabase_jwt()
+        R->>DB: SELECT staff WHERE auth_user_id = $sub
+        R->>R: require_role() check
+    end
+
+    R->>S: call service function
+    S->>DB: asyncpg query
+    DB-->>S: result
+
+    alt Idempotency-Key header present
+        Note over S: Check idempotency_key table<br/>→ return cached if exists
+    end
+
+    S-->>R: response DTO
+    R-->>M3: JSON response
+
+    alt DB connection error
+        M3-->>B: 503 + Retry-After: 5
+    else Normal
+        M3-->>M1: response
+        M1-->>D: response + X-Request-ID
+        D-->>C: response
+        C-->>B: HTTPS response
+    end
+    </pre>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 3. BACKEND LAYERS -->
+<!-- =========================================================== -->
+<div class="section" id="backend">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-3)">3</div>
+    <h2>Backend Layer Architecture</h2>
+  </div>
+  <p class="desc">Kiến trúc phân lớp rõ ràng: Router (thin) → Service (logic) → DB. Không có business logic ở frontend.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+graph TB
+    subgraph ENTRY["🚪 Entry Points"]
+        MAIN["main.py<br/>FastAPI App<br/>Lifespan: pool + checkpointer + LLM"]
+        WK["worker.py<br/>--relay: poll outbox<br/>default: RabbitMQ consumer"]
+    end
+
+    subgraph MW["🛡️ Middleware Stack"]
+        direction LR
+        MW1["RequestIdMiddleware<br/>X-Request-ID + structlog"]
+        MW2["api_key_middleware<br/>X-API-Key gate"]
+        MW3["DbErrorMiddleware<br/>Connection error → 503"]
+    end
+
+    subgraph ROUTERS["🛣️ API Routers (/api/v1)"]
+        direction LR
+        R_HEALTH["health<br/>/health · /health/db"]
+        R_ID["identity<br/>/me"]
+        R_PAT["patients<br/>CRUD"]
+        R_SCHED["scheduling<br/>sessions · appointments"]
+        R_QUEUE["queue<br/>call-order"]
+        R_PAY["payment<br/>record · void"]
+        R_STAFF["staff<br/>CRUD · capabilities"]
+        R_LAB["lab<br/>results · triage"]
+        R_VOICE["voice<br/>transcribe"]
+        R_BRIEF["brief<br/>pre-visit AI"]
+        R_ORCH["orchestrator<br/>/chat"]
+        R_CAT["catalog<br/>services lookup"]
+        R_TOOL["tools<br/>AI tool registry"]
+    end
+
+    subgraph AUTH["🔐 Auth Layer"]
+        direction LR
+        AUTH_JWT["identity.py<br/>JWT verify (HS256/JWKS)<br/>StaffIdentity · ClinicRole"]
+        AUTH_ROLE["require_role()<br/>Role-based access"]
+        AUTH_IDEM["idempotency.py<br/>Idempotency-Key guard"]
+    end
+
+    subgraph SERVICES["⚙️ Service Layer (Pure Python)"]
+        direction LR
+        SV_PAT["PatientService<br/>CRUD · search · dedup"]
+        SV_SCHED["SchedulingService<br/>sessions · appointments"]
+        SV_PAY["PaymentService<br/>record · void · role gate"]
+        SV_STAFF["StaffService<br/>CRUD · capabilities"]
+        SV_QUEUE["queue_order<br/>call_rank 4-tier"]
+        SV_MPI["MPIService<br/>dedup scoring"]
+        SV_EVT["EventService<br/>event_log (outbox)"]
+        SV_CTX["PatientContextService<br/>AI context assembly"]
+        SV_NOTIFY["NotificationRelay<br/>poll → Telegram/Zalo"]
+    end
+
+    subgraph CORE["🏗️ Core Infrastructure"]
+        direction LR
+        DB["database.py<br/>asyncpg pool<br/>2-10 conn · 15s timeout"]
+        LOG["logging.py<br/>structlog JSON<br/>request_id · service · env"]
+        SENTRY["sentry.py<br/>APM (opt-in)"]
+        EXC["exceptions.py<br/>domain errors"]
+    end
+
+    subgraph DATA["🗄️ Data Layer"]
+        SUPA[("Supabase PostgreSQL<br/>32 tables · RLS")]
+    end
+
+    MAIN --> MW
+    MW1 --> MW2 --> MW3
+    MW --> ROUTERS
+    ROUTERS --> AUTH
+    ROUTERS --> SERVICES
+    AUTH --> SERVICES
+    SERVICES --> CORE
+    CORE --> DATA
+    WK --> SV_NOTIFY
+    SV_NOTIFY --> DATA
+
+    classDef entry fill:#2d1f5e,stroke:#6c5ce7,color:#fff
+    classDef mw fill:#1f3d3d,stroke:#00cec9,color:#fff
+    classDef router fill:#3d1f30,stroke:#fd79a8,color:#fff
+    classDef auth fill:#3d3520,stroke:#fdcb6e,color:#fff
+    classDef svc fill:#1f2d5e,stroke:#74b9ff,color:#fff
+    classDef core fill:#2d2d2d,stroke:#636e72,color:#fff
+    classDef data fill:#0d3331,stroke:#00cec9,color:#fff
+
+    class MAIN,WK entry
+    class MW1,MW2,MW3 mw
+    class R_HEALTH,R_ID,R_PAT,R_SCHED,R_QUEUE,R_PAY,R_STAFF,R_LAB,R_VOICE,R_BRIEF,R_ORCH,R_CAT,R_TOOL router
+    class AUTH_JWT,AUTH_ROLE,AUTH_IDEM auth
+    class SV_PAT,SV_SCHED,SV_PAY,SV_STAFF,SV_QUEUE,SV_MPI,SV_EVT,SV_CTX,SV_NOTIFY svc
+    class DB,LOG,SENTRY,EXC core
+    class SUPA data
+    </pre>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 4. AI PIPELINE (LangGraph) -->
+<!-- =========================================================== -->
+<div class="section" id="ai-pipeline">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-4)">4</div>
+    <h2>AI Pipeline — LangGraph Orchestrator</h2>
+  </div>
+  <p class="desc">6 sub-graphs điều phối bởi 1 master orchestrator. Safety gate cứng: GROUP_C lab và FINALIZED visit — AI gợi ý, con người quyết định.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+graph TB
+    subgraph ORCH["🧠 Master Orchestrator Graph"]
+        START(("▶️ START"))
+        CLASSIFY["🏷️ classify_intent<br/>Rule-based hoặc LLM (Haiku)<br/>→ scheduling | lab | task | previsit | communication | general"]
+        ROUTE{"🔀 Route<br/>by intent"}
+        RESPOND["💬 respond_node<br/>Tổng hợp + format response"]
+        ENDNODE(("⏹️ END"))
+    end
+
+    subgraph SCHED_G["📅 Scheduling Sub-graph"]
+        S1["📆 ask_date<br/>Parse ngày TV tự nhiên"]
+        S2["⏰ ask_time<br/>Parse khung giờ"]
+        S3["👨‍⚕️ find_doctor<br/>Query DB → match"]
+        S4["✅ confirm<br/>Xác nhận đặt lịch"]
+    end
+
+    subgraph LAB_G["🧪 Lab Triage Sub-graph"]
+        L1["📩 receive<br/>Nhận kết quả lab"]
+        L2["📋 fetch<br/>Fetch từ DB"]
+        L3["🤖 classify<br/>LLM phân loại<br/>A/B/C"]
+        L4{"⚠️ GROUP_C?"}
+        L5["💡 advise<br/>Tư vấn an toàn"]
+        L6["🚨 hard_block<br/>⛔ SAFETY GATE<br/>Chặn response<br/>→ escalation note"]
+        L7["📝 create_review_tasks<br/>Tạo task URGENT<br/>SLA 4h cho BS review"]
+    end
+
+    subgraph BRIEF_G["📋 Pre-visit Brief Sub-graph"]
+        B1["📂 fetch_context<br/>Lịch sử BN + lab + thuốc"]
+        B2["🧠 LLM summarize<br/>Tóm tắt trước khám"]
+    end
+
+    subgraph TASK_G["📝 Task Manager Sub-graph"]
+        T1["📌 create_task<br/>Tạo task nội bộ"]
+        T2["⏱️ check_sla<br/>Kiểm tra quá hạn"]
+        T3["📢 notify_overdue<br/>Cảnh báo"]
+    end
+
+    subgraph COMM_G["💬 Communication (stub)"]
+        CM["📨 Stub node<br/>Future: Zalo/Telegram bot"]
+    end
+
+    subgraph LLM_BOX["🤖 LLM Services"]
+        CLAUDE["Anthropic Claude<br/>Haiku (fast) · Sonnet (complex)<br/>Retry 3x · Prompt caching"]
+        WHISPER["PhoWhisper<br/>On-premise · faster-whisper<br/>Audio → Text (tiếng Việt y tế)"]
+    end
+
+    subgraph CHECKPOINT["💾 Checkpointer"]
+        MEM["Memory<br/>(development)"]
+        PG["Postgres<br/>schema: langgraph<br/>(production)"]
+    end
+
+    START --> CLASSIFY
+    CLASSIFY --> ROUTE
+
+    ROUTE -->|scheduling| S1
+    ROUTE -->|lab| L1
+    ROUTE -->|previsit| B1
+    ROUTE -->|task| T1
+    ROUTE -->|communication| CM
+    ROUTE -->|general| RESPOND
+
+    S1 --> S2 --> S3 --> S4 --> RESPOND
+    L1 --> L2 --> L3 --> L4
+    L4 -->|Không| L5 --> RESPOND
+    L4 -->|Có ⛔| L6 --> L7 --> RESPOND
+    B1 --> B2 --> RESPOND
+    T1 --> T2 --> T3 --> RESPOND
+    CM --> RESPOND
+
+    RESPOND --> ENDNODE
+
+    CLASSIFY -.->|intent detection| CLAUDE
+    L3 -.->|lab classification| CLAUDE
+    B2 -.->|summarization| CLAUDE
+
+    ORCH -.->|save state| CHECKPOINT
+
+    classDef orchestrator fill:#2d1f5e,stroke:#6c5ce7,color:#fff
+    classDef sched fill:#1f3d3d,stroke:#00cec9,color:#fff
+    classDef lab fill:#3d1f30,stroke:#fd79a8,color:#fff
+    classDef brief fill:#3d3520,stroke:#fdcb6e,color:#fff
+    classDef task fill:#1f2d5e,stroke:#74b9ff,color:#fff
+    classDef safety fill:#5e1f1f,stroke:#d63031,color:#fff
+    classDef llm fill:#3d1f40,stroke:#e17055,color:#fff
+
+    class START,CLASSIFY,ROUTE,RESPOND,ENDNODE orchestrator
+    class S1,S2,S3,S4 sched
+    class L1,L2,L3,L4,L5 lab
+    class L6,L7 safety
+    class B1,B2 brief
+    class T1,T2,T3 task
+    class CM task
+    class CLAUDE,WHISPER llm
+    </pre>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#6c5ce7"></div> Orchestrator</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00cec9"></div> Scheduling</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fd79a8"></div> Lab Triage</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#d63031"></div> Safety Gate (GROUP_C)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fdcb6e"></div> Pre-visit Brief</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#74b9ff"></div> Task Manager</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 5. DATABASE SCHEMA -->
+<!-- =========================================================== -->
+<div class="section" id="database">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-1)">5</div>
+    <h2>Database Schema — 32 Tables</h2>
+  </div>
+  <p class="desc">Schema PostgreSQL trên Supabase Cloud. Quản lý bằng Supabase CLI (migrations). Không bao giờ sửa tay qua dashboard.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+erDiagram
+    PATIENT ||--o{ APPOINTMENT : "books"
+    PATIENT ||--o{ VISIT : "has"
+    PATIENT ||--o{ LAB_RESULT : "receives"
+    PATIENT ||--o{ PRESCRIPTION : "gets"
+    PATIENT {
+        uuid id PK
+        text patient_code UK
+        text full_name
+        date date_of_birth
+        text phone_primary
+        text national_id_number "encrypted"
+        uuid location_id FK
+        boolean is_active
+        text gender
+        text address
+    }
+
+    STAFF ||--o{ WORK_SESSION_STAFF : "assigned_to"
+    STAFF ||--o{ APPOINTMENT : "doctor_for"
+    STAFF ||--o{ VISIT : "conducts"
+    STAFF ||--o{ PAYMENT : "processes"
+    STAFF ||--o{ STAFF_TASK : "assigned"
+    STAFF {
+        uuid id PK
+        uuid auth_user_id FK "→ auth.users"
+        text full_name
+        text short_name
+        text primary_department "CHECK: ClinicRole enum"
+        uuid primary_location_id FK
+        boolean is_active
+    }
+
+    LOCATION ||--o{ WORK_SESSION : "hosts"
+    LOCATION ||--o{ PATIENT : "registered_at"
+    LOCATION {
+        uuid id PK
+        text name
+        text address
+    }
+
+    WORK_SESSION ||--o{ WORK_SESSION_STAFF : "has"
+    WORK_SESSION ||--o{ APPOINTMENT : "within"
+    WORK_SESSION {
+        uuid id PK
+        uuid location_id FK
+        date session_date
+        time start_time
+        time end_time
+        text session_type
+    }
+
+    WORK_SESSION_STAFF {
+        uuid id PK
+        uuid work_session_id FK
+        uuid staff_id FK
+        text role_in_session
+    }
+
+    APPOINTMENT ||--|| VISIT : "creates"
+    APPOINTMENT {
+        uuid id PK
+        uuid patient_id FK
+        uuid doctor_id FK
+        uuid work_session_id FK
+        timestamptz slot_start
+        text queue_number
+        text booking_channel
+        timestamptz checked_in_at
+        text status "SCHEDULED|CHECKED_IN|COMPLETED|CANCELLED"
+    }
+
+    VISIT ||--o{ LAB_RESULT : "orders"
+    VISIT ||--o{ PRESCRIPTION : "prescribes"
+    VISIT ||--o{ PAYMENT : "paid_via"
+    VISIT {
+        uuid id PK
+        uuid appointment_id FK
+        uuid patient_id FK
+        uuid doctor_id FK
+        text status "WAITING|IN_PROGRESS|COMPLETED|FINALIZED"
+        jsonb clinical_note
+        text voice_transcript
+        boolean voice_note_reviewed
+    }
+
+    LAB_RESULT {
+        uuid id PK
+        uuid visit_id FK
+        uuid patient_id FK
+        text test_code
+        text test_name
+        text result_value
+        text reference_range
+        text triage_category "A|B|C|PENDING"
+        boolean requires_doctor_review
+        text external_ref
+    }
+
+    PAYMENT {
+        uuid id PK
+        uuid visit_id FK
+        text kind "thuoc|dich_vu"
+        int amount
+        text status "PAID|VOIDED"
+        uuid staff_id FK
+    }
+
+    EVENT_LOG {
+        uuid id PK
+        text event_type
+        jsonb payload
+        jsonb metadata
+        boolean event_published "outbox pattern"
+        timestamptz created_at
+    }
+
+    STAFF_TASK {
+        uuid id PK
+        uuid assigned_to FK
+        text task_type
+        text priority "LOW|NORMAL|HIGH|URGENT"
+        text status
+        interval sla
+        timestamptz due_at
+    }
+
+    IDEMPOTENCY_KEY {
+        text key PK
+        text endpoint
+        jsonb response
+        int status_code
+        timestamptz created_at "TTL 24h"
+    }
+
+    SERVICE_CATALOG {
+        uuid id PK
+        text service_code
+        text service_name
+        int price
+        text category
+    }
+
+    STAFF_CAPABILITY {
+        uuid id PK
+        uuid staff_id FK
+        text capability_code
+    }
+    </pre>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 6. AUTH & SECURITY -->
+<!-- =========================================================== -->
+<div class="section" id="auth">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-2)">6</div>
+    <h2>Auth & Security Flow</h2>
+  </div>
+  <p class="desc">Hai lớp bảo vệ: API-Key (gate toàn app) + JWT Supabase (định danh staff + role). Server-authoritative — không tin client.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+flowchart TB
+    subgraph CLIENT["👩‍⚕️ Client"]
+        LOGIN["Đăng nhập<br/>Supabase Auth"]
+        REQ["Request API<br/>+ X-API-Key<br/>+ Bearer JWT"]
+    end
+
+    subgraph GATE1["🔑 Gate 1: API-Key Middleware"]
+        CHK1{"BACKEND_API_KEY<br/>set?"}
+        CHK2{"X-API-Key header<br/>== env var?"}
+        PASS1["✅ Pass"]
+        FAIL1["❌ 401/403"]
+        WARN1["⚠️ Dev mode<br/>Warning log"]
+    end
+
+    subgraph GATE2["🔐 Gate 2: JWT Identity"]
+        EXTRACT["Extract Bearer token"]
+        VERIFY{"SUPABASE_JWT_SECRET<br/>set?"}
+        HS256["HS256 verify<br/>(shared secret)"]
+        JWKS["ES256/RS256 verify<br/>(JWKS endpoint)"]
+        CLAIMS["JWT claims<br/>sub = auth_user_id"]
+    end
+
+    subgraph RESOLVE["👤 Staff Resolution"]
+        QUERY["SELECT staff<br/>WHERE auth_user_id = sub<br/>AND is_active = TRUE"]
+        FOUND{"Staff<br/>found?"}
+        ROLE["role_from_department()<br/>primary_department → ClinicRole"]
+        IDENTITY["StaffIdentity<br/>staff_id · role · full_name"]
+        NOPE["❌ 403<br/>No active staff linked"]
+    end
+
+    subgraph RBAC["🛡️ Gate 3: Role Check"]
+        REQUIRE["require_role()<br/>e.g. CASHIER, DOCTOR"]
+        ALLOWED{"role ∈<br/>allowed?"}
+        OK["✅ Proceed to handler"]
+        DENY["❌ 403<br/>Role not permitted"]
+    end
+
+    LOGIN --> REQ
+    REQ --> CHK1
+    CHK1 -->|Yes| CHK2
+    CHK1 -->|No| WARN1
+    WARN1 --> PASS1
+    CHK2 -->|Match| PASS1
+    CHK2 -->|Mismatch| FAIL1
+
+    PASS1 --> EXTRACT
+    EXTRACT --> VERIFY
+    VERIFY -->|Yes| HS256
+    VERIFY -->|No| JWKS
+    HS256 --> CLAIMS
+    JWKS --> CLAIMS
+
+    CLAIMS --> QUERY
+    QUERY --> FOUND
+    FOUND -->|Yes| ROLE
+    FOUND -->|No| NOPE
+    ROLE --> IDENTITY
+
+    IDENTITY --> REQUIRE
+    REQUIRE --> ALLOWED
+    ALLOWED -->|Yes| OK
+    ALLOWED -->|No| DENY
+
+    classDef gate fill:#3d3520,stroke:#fdcb6e,color:#fff
+    classDef pass fill:#1f3d2d,stroke:#00b894,color:#fff
+    classDef fail fill:#5e1f1f,stroke:#d63031,color:#fff
+
+    class CHK1,CHK2,VERIFY,FOUND,ALLOWED gate
+    class PASS1,OK pass
+    class FAIL1,NOPE,DENY fail
+    </pre>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 7. DEPLOY & OPS -->
+<!-- =========================================================== -->
+<div class="section" id="deploy">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-3)">7</div>
+    <h2>Deploy & Operations Flow</h2>
+  </div>
+  <p class="desc">CI chạy trên mọi PR (lint/type-check/test). CD auto-deploy khi merge vào main/staging. deploy-backend.sh: build → up → health → auto-rollback.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+flowchart TB
+    subgraph DEV["👨‍💻 Development"]
+        CODE["Code change"]
+        PR["Pull Request"]
+    end
+
+    subgraph CI["🔄 CI Pipeline (GitHub Actions)"]
+        direction LR
+        RUFF["ruff check<br/>lint"]
+        MYPY["mypy<br/>type check"]
+        PYTEST["pytest<br/>unit tests"]
+        TSC["tsc --noEmit<br/>frontend check"]
+        LINT_FE["eslint<br/>frontend lint"]
+        BUILD_FE["next build<br/>frontend build"]
+    end
+
+    subgraph CD["🚀 CD Pipeline (Self-hosted Runner)"]
+        direction TB
+        PULL["git pull --ff-only"]
+        ENV["cp .env.prod .env<br/>(activate secrets)"]
+        SNAP["Snapshot current images<br/>(for rollback)"]
+        BUILD["docker compose build"]
+        UP["docker compose up -d"]
+        HEALTH{"Health check<br/>api + dashboard + caddy<br/>~120s timeout"}
+        ROLLBACK["⬅️ ROLLBACK<br/>Restore old images<br/>docker compose up -d"]
+        DONE["✅ Deploy complete"]
+    end
+
+    subgraph OPS["🔧 Scheduled Ops (LaunchDaemon)"]
+        BACKUP["🗄️ backup-db.sh<br/>Nightly pg_dump<br/>→ gzip → keep 7 days"]
+        CLEANUP["🧹 docker-cleanup.sh<br/>Prune old images"]
+        KUMA_M["📊 Uptime Kuma<br/>24/7 health monitor<br/>→ Telegram alert"]
+    end
+
+    subgraph DB_OPS["🗃️ Database Ops (manual)"]
+        MIGRATE["supabase db push<br/>Apply migrations"]
+        RESTORE["restore-db.sh<br/>Restore from backup"]
+    end
+
+    CODE --> PR
+    PR --> CI
+    RUFF --> MYPY --> PYTEST
+    TSC --> LINT_FE --> BUILD_FE
+
+    CI -->|All pass + merge| CD
+    PULL --> ENV --> SNAP --> BUILD --> UP --> HEALTH
+    HEALTH -->|Healthy ✅| DONE
+    HEALTH -->|Unhealthy ❌| ROLLBACK
+    ROLLBACK --> UP
+
+    classDef dev fill:#1f2d5e,stroke:#74b9ff,color:#fff
+    classDef ci fill:#2d1f5e,stroke:#6c5ce7,color:#fff
+    classDef cd fill:#1f3d3d,stroke:#00cec9,color:#fff
+    classDef ops fill:#3d3520,stroke:#fdcb6e,color:#fff
+    classDef fail fill:#5e1f1f,stroke:#d63031,color:#fff
+
+    class CODE,PR dev
+    class RUFF,MYPY,PYTEST,TSC,LINT_FE,BUILD_FE ci
+    class PULL,ENV,SNAP,BUILD,UP,HEALTH,DONE cd
+    class ROLLBACK fail
+    class BACKUP,CLEANUP,KUMA_M,MIGRATE,RESTORE ops
+    </pre>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- =========================================================== -->
+<!-- 8. NOTIFICATION SYSTEM -->
+<!-- =========================================================== -->
+<div class="section" id="notification">
+  <div class="section-header">
+    <div class="section-number" style="background:var(--gradient-4)">8</div>
+    <h2>Notification System — Outbox Pattern</h2>
+  </div>
+  <p class="desc">Event-driven notification: business logic ghi event vào event_log (outbox) → worker relay poll → render template → gửi Telegram/Zalo. Không cần RabbitMQ.</p>
+
+  <div class="diagram-card">
+    <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant S as ⚙️ Service Layer
+    participant DB as 🗄️ event_log table
+    participant W as ⚡ Worker (--relay)
+    participant T as 📝 Templates
+    participant TG as ✈️ Telegram Bot
+    participant ZL as 💬 Zalo OA
+
+    Note over S,DB: 1️⃣ Business logic tạo event (transactional)
+    S->>DB: INSERT INTO event_log<br/>(event_type, payload, event_published=FALSE)
+
+    Note over W,DB: 2️⃣ Worker poll mỗi 30 giây
+    loop Every 30s
+        W->>DB: SELECT * FROM event_log<br/>WHERE event_published = FALSE<br/>ORDER BY created_at LIMIT 50
+        DB-->>W: unpublished events (batch)
+
+        alt Có events
+            W->>T: render(event_type, payload)
+            T-->>W: notification text
+
+            alt Template exists
+                loop Retry up to 3 times
+                    W->>TG: send_telegram(message)
+                    TG-->>W: ok / error
+                end
+
+                alt Success
+                    W->>DB: UPDATE event_log<br/>SET event_published = TRUE
+                else All retries failed
+                    W->>DB: UPDATE event_log<br/>SET event_published = TRUE<br/>(log error, avoid stuck)
+                end
+            else No template
+                W->>DB: SET event_published = TRUE<br/>(skip silently)
+            end
+        end
+    end
+    </pre>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#00cec9"></div> Outbox pattern: event + data in same DB transaction</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fdcb6e"></div> At-least-once delivery (retry 3x)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#d63031"></div> Dead events → marked published to prevent infinite retry</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- Footer -->
+<div class="footer">
+  <p>Dr4Women / ClinicAI System Architecture · Generated 2026-07-17</p>
+  <p style="margin-top:4px">Self-hosted on Mac mini · Data in Supabase Cloud · AI-powered by Claude + PhoWhisper</p>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#1a1d27',
+      primaryColor: '#6c5ce7',
+      primaryTextColor: '#e4e6ef',
+      primaryBorderColor: '#3a3e5e',
+      lineColor: '#636e72',
+      secondaryColor: '#00cec9',
+      tertiaryColor: '#2d2d2d',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: '14px',
+    },
+    flowchart: { curve: 'basis', padding: 20 },
+    sequence: { actorMargin: 30, messageMargin: 30 },
+    er: { fontSize: 12 }
+  });
+
+  // Smooth scroll for nav
+  document.querySelectorAll('.nav-bar a').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const id = a.getAttribute('href').slice(1);
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // Highlight active nav on scroll
+  const sections = document.querySelectorAll('.section');
+  const navLinks = document.querySelectorAll('.nav-bar a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -41,7 +41,7 @@ class BaseAdapter(ABC):
         for attr in dir(topics):
             if not attr.startswith("_"):
                 val = getattr(topics, attr)
-                if val == event_type:
+                if isinstance(val, str) and val == event_type:
                     return val
         return event_type
 

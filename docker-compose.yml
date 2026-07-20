@@ -13,7 +13,11 @@
 # Public access: put Caddy behind Cloudflare Tunnel (profile `cloudflare`) or
 #   Tailscale Funnel (host-level, see scripts/clinic-backend-boot.sh).
 #
-# Optional profiles:  --profile workers   (RabbitMQ + worker)
+# Runtime secrets: CLINIC_ENV_FILE must name the same explicit file passed to
+#   --env-file. This prevents a staging command from loading production runtime
+#   secrets from a shared `.env` file.
+# Optional profiles:  --profile workers   (RabbitMQ worker + notification relay)
+#                     --profile notifications (notification relay only)
 #                     --profile cloudflare (cloudflared tunnel)
 
 services:
@@ -52,10 +56,13 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file: [.env]
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       # Dashboard calls FastAPI over the internal network (never the internet).
       CLINIC_API_URL: http://api:8000
+      OPS_DOZZLE_PUBLIC_URL: ${OPS_DOZZLE_PUBLIC_URL:-http://127.0.0.1:${DOZZLE_PORT:-8888}}
+      OPS_KUMA_PUBLIC_URL: ${OPS_KUMA_PUBLIC_URL:-http://127.0.0.1:${KUMA_PORT:-3001}}
+      OPS_SENTRY_PUBLIC_URL: ${OPS_SENTRY_PUBLIC_URL:-}
     depends_on:
       api:
         condition: service_healthy
@@ -74,11 +81,19 @@ services:
       dockerfile: Dockerfile.api
     image: clinicai-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file: [.env]
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
+      OPS_STATUS_FILE: /run/clinicai-ops/status.json
+    volumes:
+      - type: bind
+        source: ${OPS_STATUS_DIR:-/Users/quangdang/.clinicai/ops}/${APP_ENV:-production}
+        target: /run/clinicai-ops
+        read_only: true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      # Readiness, not just process liveness: deploy must roll back when the
+      # backend cannot actually reach Supabase/Postgres.
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/db"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -93,10 +108,27 @@ services:
     image: clinicai-api:${IMAGE_TAG:-latest}
     profiles: ["workers"]
     restart: unless-stopped
-    env_file: [.env]
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     command: ["python", "-m", "clinicai.worker"]
     depends_on:
       rabbitmq:
+        condition: service_healthy
+    networks: [internal]
+
+  # Lightweight notification outbox relay. It polls Supabase directly and does
+  # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
+  # `notifications` profile can run this service on its own.
+  notification-relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    profiles: ["workers", "notifications"]
+    restart: unless-stopped
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
+    command: ["python", "-m", "clinicai.worker", "--relay"]
+    depends_on:
+      api:
         condition: service_healthy
     networks: [internal]
 
@@ -131,7 +163,7 @@ services:
     networks: [internal]
 
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v10.6.9
     restart: unless-stopped
     ports:
       - "127.0.0.1:${DOZZLE_PORT:-8888}:8080"
@@ -141,7 +173,16 @@ services:
       DOZZLE_AUTH_PROVIDER: ${DOZZLE_AUTH_PROVIDER:-none}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks: [internal]
+      - dozzle_data:/data
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Logs stay isolated from the clinical service network. Container actions
+    # and shell remain disabled (Dozzle defaults).
+    networks: [monitoring]
 
   # ---- Cloudflare Tunnel (opt-in: --profile cloudflare) --------------------
   cloudflared:
@@ -159,9 +200,12 @@ services:
 networks:
   internal:
     driver: bridge
+  monitoring:
+    driver: bridge
 
 volumes:
   caddy_data:
   caddy_config:
   rabbitmq_data:
   kuma_data:
+  dozzle_data:

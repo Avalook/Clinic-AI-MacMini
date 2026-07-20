@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Plus, ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
+import { X, Plus, CalendarPlus } from "lucide-react";
 import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { toHref } from "../../../lib/url";
 import { INPUT, LABEL } from "../form-ui";
@@ -230,9 +230,7 @@ export default function ClinicalRecordForm({
   fill = false,
   readOnly = false,
   canEditAdmin = false,
-  showPreVisitBrief = false,
   showSono = false,
-  enableVisitPager = false,
   showRebook = false,
   onRebook,
 }: {
@@ -298,7 +296,6 @@ export default function ClinicalRecordForm({
   const pagesRef = useRef<PageRef[]>([]);
   const viewingPast = pageIdx > 0;
   const showAll = viewingPast;
-  const [pastOpen, setPastOpen] = useState(false);
   // Đổi BN / lịch → component REMOUNT (cả 2 board truyền key={appt.id}) nên
   // pages/pageIdx tự reset, KHÔNG cần effect reset thủ công.
   // Đổi trang qua pager: bật loading NGAY trong handler (không setState trong

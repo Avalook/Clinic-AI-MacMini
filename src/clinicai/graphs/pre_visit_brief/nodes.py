@@ -7,6 +7,7 @@ Errors short-circuit downstream nodes via state.error.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -27,8 +28,10 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+PreVisitBriefNode = Callable[[PreVisitBriefState], Awaitable[dict[str, Any]]]
 
-def make_aggregate_context_node(pool: "asyncpg.Pool"):
+
+def make_aggregate_context_node(pool: "asyncpg.Pool") -> PreVisitBriefNode:
     """Build the node that loads aggregated patient context.
 
     On PatientNotFoundError → sets state.error (downstream nodes skip).
@@ -59,7 +62,9 @@ def make_aggregate_context_node(pool: "asyncpg.Pool"):
     return aggregate_context_node
 
 
-def make_generate_brief_node(llm_client: "AnthropicClient"):
+def make_generate_brief_node(
+    llm_client: "AnthropicClient",
+) -> PreVisitBriefNode:
     """Build the node that calls Sonnet to produce the structured brief.
 
     Skips when state.error is set or context is missing. LLM parse errors
@@ -76,16 +81,15 @@ def make_generate_brief_node(llm_client: "AnthropicClient"):
         except ValueError as exc:
             logger.error(
                 "pre_visit_brief.generate.parse_failed",
-                clinic_patient_id=str(state.clinic_patient_id),
-                error=str(exc),
+                trace_id=str(trace.trace_id),
+                error_type=type(exc).__name__,
             )
-            return {"error": f"brief_generation_failed:{exc}"}
+            return {"error": "brief_generation_failed:invalid_model_output"}
         except Exception as exc:
             # Anthropic transport / retry exhaustion etc.
             logger.error(
                 "pre_visit_brief.generate.llm_failed",
-                clinic_patient_id=str(state.clinic_patient_id),
-                error=str(exc),
+                trace_id=str(trace.trace_id),
                 error_type=type(exc).__name__,
             )
             return {"error": f"llm_failed:{type(exc).__name__}"}
@@ -95,7 +99,7 @@ def make_generate_brief_node(llm_client: "AnthropicClient"):
     return generate_brief_node
 
 
-def make_render_markdown_node():
+def make_render_markdown_node() -> PreVisitBriefNode:
     """Build the node that renders the brief as Markdown. Pure function."""
 
     async def render_markdown_node(state: PreVisitBriefState) -> dict[str, Any]:

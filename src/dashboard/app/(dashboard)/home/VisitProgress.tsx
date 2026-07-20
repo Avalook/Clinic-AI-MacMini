@@ -69,7 +69,7 @@ export function ProgressStepper({
           state === "done"
             ? "bg-[#16a34a] border-[#16a34a] text-white"
             : state === "current"
-              ? "bg-white border-[#ec4899] ring-4 ring-[#ec4899]/15 animate-pulse"
+              ? "bg-white border-[#ec4899] ring-4 ring-[#ec4899]/15 animate-pulse motion-reduce:animate-none"
               : "bg-white border-[#e4e4e7]";
         const txt =
           state === "done"

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID, uuid4
 
 import structlog
@@ -10,18 +10,21 @@ from clinicai.orchestrator.state import OrchestratorState
 
 logger = structlog.get_logger(__name__)
 
+if TYPE_CHECKING:
+    import asyncpg
+
 
 class OrchestratorService:
     def __init__(
         self,
-        checkpointer: Optional[BaseCheckpointSaver] = None,
+        checkpointer: Optional[BaseCheckpointSaver[Any]] = None,
         llm_client: Optional[AnthropicClient] = None,
         use_llm_respond: bool = True,
-        scheduling_pool: Optional[object] = None,
+        scheduling_pool: Optional["asyncpg.Pool"] = None,
         scheduling_location_id: Optional[UUID] = None,
-        lab_triage_pool: Optional[object] = None,
-        task_manager_pool: Optional[object] = None,
-    ):
+        lab_triage_pool: Optional["asyncpg.Pool"] = None,
+        task_manager_pool: Optional["asyncpg.Pool"] = None,
+    ) -> None:
         self._graph = build_orchestrator_graph(
             checkpointer,
             llm_client,
@@ -38,7 +41,7 @@ class OrchestratorService:
         patient_id: Optional[UUID] = None,
         trace_id: Optional[UUID] = None,
         thread_id: Optional[str] = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         if trace_id is None:
             trace_id = uuid4()
         if thread_id is None:

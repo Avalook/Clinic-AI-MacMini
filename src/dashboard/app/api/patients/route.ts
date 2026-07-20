@@ -52,24 +52,9 @@ function nn(v: string | undefined): string | null {
   return t || null;
 }
 
-// FastAPI base URL. Server-only (lời gọi đi TỪ server, không phải trình duyệt) →
-// không CORS, giữ BACKEND_API_KEY ở server. Khớp cách /api/brief gọi backend.
-//
-// KHÁC /api/brief: ở production (Vercel) CHƯA deploy FastAPI → CLINIC_API_URL
-// rỗng. Khi đó BỎ QUA proxy và tạo BN TRỰC TIẾP qua Supabase service-role
-// (fallback bên dưới), thay vì cứng nhắc gọi localhost:8000 rồi 502. Khi FastAPI
-// đã deploy, set CLINIC_API_URL → tự quay lại đường proxy (MPI/dedup ở backend).
-const API_BASE = (process.env.CLINIC_API_URL ?? "").trim();
-
-/** Sinh mã BN dạng BN-YYYY-XXXXXX (mirror _generate_patient_code của FastAPI). */
-function generatePatientCode(attempt = 0): string {
-  const now = new Date();
-  // JS không có micro-giây như Python; dùng ms trong ngày + jitter theo attempt.
-  const ms = now.getHours() * 3600000 + now.getMinutes() * 60000 +
-    now.getSeconds() * 1000 + now.getMilliseconds();
-  const seq = (ms * 7 + attempt * 7919) % 1_000_000;
-  return `BN-${now.getFullYear()}-${String(seq).padStart(6, "0")}`;
-}
+// Patient creation has exactly one business-logic owner: FastAPI. A backend
+// outage must fail closed so MPI/dedup and schema validation are never bypassed.
+const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
 export async function POST(request: Request) {
   // Must hold the shared session AND an intake role.
@@ -124,245 +109,110 @@ export async function POST(request: Request) {
     );
   }
 
-  // ĐƯỜNG 1 — Proxy sang FastAPI (nếu CLINIC_API_URL đã set). server→server:
-  // không CORS, giữ key ở server. Forward toàn bộ body — DTO backend tự chuẩn
-  // hoá (birth_year→dob, whitelist…). Nếu BACKEND không kết nối được → KHÔNG
-  // 502, mà rơi xuống ĐƯỜNG 2 (tạo trực tiếp qua Supabase) để PK vẫn dùng được.
-  if (API_BASE) {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    const apiKey = process.env.BACKEND_API_KEY;
-    if (apiKey) headers["X-API-Key"] = apiKey;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    let res: Response | null = null;
-    try {
-      res = await fetch(`${API_BASE}/api/v1/patients`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: controller.signal,
-        cache: "no-store",
-      });
-    } catch {
-      res = null; // backend không kết nối được → fallback bên dưới.
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (res) {
-      let json: {
-        duplicate?: boolean;
-        matches?: unknown;
-        clinic_patient_id?: string;
-        patient_code?: string;
-        full_name?: string;
-        error?: string;
-        message?: string;
-      };
-      try {
-        json = await res.json();
-      } catch {
-        return NextResponse.json(
-          { error: "Máy chủ trả dữ liệu không đọc được." },
-          { status: 502 },
-        );
-      }
-
-      // Trùng SĐT (chưa force): FastAPI trả 200 {duplicate, matches} — KHÔNG tạo.
-      if (res.status === 200 && json.duplicate) {
-        return NextResponse.json({ duplicate: true, matches: json.matches ?? [] });
-      }
-      if (!res.ok) {
-        const msg = json.message || json.error || "Không tạo được bệnh nhân.";
-        return NextResponse.json({ error: msg }, { status: res.status });
-      }
-
-      // Tạo thành công (201). Ghi AUDIT Ở NEXT (chỉ Next có actor-context).
-      const auditDb = getSupabaseService();
-      if (auditDb && json.clinic_patient_id) {
-        await logEvent(auditDb, {
-          event_type: "patient.created",
-          aggregate_type: "patient",
-          aggregate_id: json.clinic_patient_id,
-          payload: {
-            clinic_patient_id: json.clinic_patient_id,
-            patient_code: json.patient_code,
-            full_name,
-            date_of_birth: (body.date_of_birth ?? "").trim() || null,
-            phone_primary,
-            phone_secondary,
-            national_id_number: national,
-            location_id,
-          },
-          metadata: {
-            clinic_role: role,
-            clinic_staff_id: staffId,
-            actor_auth_user_id: user.id,
-            origin: "dashboard:patient-intake",
-          },
-        });
-      }
-
-      return NextResponse.json({
-        ok: true,
-        patient: {
-          clinic_patient_id: json.clinic_patient_id,
-          patient_code: json.patient_code,
-          full_name: json.full_name,
-        },
-      });
-    }
-  }
-
-  // ĐƯỜNG 2 — Tạo BN TRỰC TIẾP qua Supabase service-role (FastAPI chưa deploy
-  // hoặc không kết nối được). Mirror logic FastAPI: 1) CCCD hard-conflict 409,
-  // 2) SĐT soft-block (duplicate) khi !force, 3) insert + sinh patient_code.
-  // MPI dedup (best-effort ở backend) BỎ trong đường này — khi có FastAPI sẽ
-  // tự chạy lại qua ĐƯỜNG 1.
-  const db = getSupabaseService();
-  if (!db) {
+  if (!API_BASE) {
     return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
+      { error: "CLINIC_API_URL chưa được cấu hình; không thể tạo bệnh nhân an toàn." },
       { status: 503 },
     );
   }
 
-  // 1) CCCD đã tồn tại → 409 (force KHÔNG override, cột UNIQUE).
-  if (national) {
-    const { data: cccdRow } = await db
-      .from("patient")
-      .select("patient_code, full_name")
-      .eq("national_id_number", national)
-      .limit(1)
-      .maybeSingle();
-    if (cccdRow) {
-      return NextResponse.json(
-        {
-          error: `CCCD này đã có hồ sơ (${cccdRow.patient_code} · ${cccdRow.full_name}).`,
-        },
-        { status: 409 },
-      );
-    }
+  const {
+    data: { session },
+  } = await caller.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    return NextResponse.json({ error: "Phiên đăng nhập đã hết hạn." }, { status: 401 });
   }
 
-  // 2) SĐT chính trùng & chưa force → cảnh báo, KHÔNG tạo (operator quyết định).
-  if (phone_primary && !body.force) {
-    const { data: dupes } = await db
-      .from("patient")
-      .select("clinic_patient_id, patient_code, full_name, date_of_birth")
-      .eq("phone_primary", phone_primary)
-      .limit(5);
-    if (dupes && dupes.length > 0) {
-      return NextResponse.json({ duplicate: true, matches: dupes });
-    }
-  }
-
-  // 3) Insert. Dựng record đầy đủ; cột nào chưa migrate (birth_year, province…)
-  // sẽ bị PostgREST báo thiếu → tự loại cột đó rồi thử lại (resilient).
-  const birthYear =
-    body.birth_year != null && `${body.birth_year}`.trim() !== ""
-      ? Number.parseInt(`${body.birth_year}`, 10)
-      : null;
-  const record: Record<string, unknown> = {
-    full_name,
-    date_of_birth: (body.date_of_birth ?? "").trim() || null,
-    phone_primary,
-    phone_secondary,
-    national_id_number: national,
-    location_id,
-    is_active: true,
-    gender: nn(body.gender),
-    ethnicity: nn(body.ethnicity),
-    nationality: nn(body.nationality),
-    occupation: nn(body.occupation),
-    patient_objection: nn(body.patient_objection),
-    address: nn(body.address),
-    guardian_name: nn(body.guardian_name),
-    birth_year: Number.isNaN(birthYear) ? null : birthYear,
-    province_code: nn(body.province_code),
-    province_name: nn(body.province_name),
-    ward_code: nn(body.ward_code),
-    ward_name: nn(body.ward_name),
-    address_detail: nn(body.address_detail),
-    van_de_di_kham: nn(body.van_de_di_kham),
-    linh_vuc: nn(body.linh_vuc),
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
   };
+  const apiKey = process.env.BACKEND_API_KEY;
+  if (apiKey) headers["X-API-Key"] = apiKey;
 
-  let created: {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/v1/patients`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "Không kết nối được máy chủ xử lý. Hồ sơ chưa được tạo; vui lòng thử lại.",
+      },
+      { status: 502 },
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  let json: {
+    duplicate?: boolean;
+    matches?: unknown;
     clinic_patient_id?: string;
     patient_code?: string;
     full_name?: string;
-  } | null = null;
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const insert = { ...record, patient_code: generatePatientCode(attempt) };
-    const { data, error } = await db
-      .from("patient")
-      .insert(insert)
-      .select("clinic_patient_id, patient_code, full_name")
-      .single();
-    if (!error) {
-      created = data;
-      break;
-    }
-    // patient_code (hoặc CCCD) trùng → 23505.
-    if (error.code === "23505") {
-      if (/national_id/i.test(error.message)) {
-        return NextResponse.json(
-          { error: "CCCD này vừa được tạo cho hồ sơ khác." },
-          { status: 409 },
-        );
-      }
-      continue; // patient_code clash → sinh mã khác, thử lại.
-    }
-    // Cột chưa tồn tại trong schema cache (chưa migrate) → loại cột rồi thử lại.
-    const missing = error.message.match(/'(\w+)' column/);
-    if (missing && missing[1] in record) {
-      delete record[missing[1]];
-      attempt--; // không tính lần này vào quota retry mã.
-      continue;
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (!created) {
+    detail?: string;
+    error?: string;
+    message?: string;
+  };
+  try {
+    json = await res.json();
+  } catch {
     return NextResponse.json(
-      { error: "Không tạo được mã BN, thử lại." },
-      { status: 500 },
+      { error: "Máy chủ trả dữ liệu không đọc được. Hồ sơ chưa được tạo." },
+      { status: 502 },
     );
   }
 
-  // AUDIT (best-effort) — cùng service-role client.
-  await logEvent(db, {
-    event_type: "patient.created",
-    aggregate_type: "patient",
-    aggregate_id: created.clinic_patient_id ?? "",
-    payload: {
-      clinic_patient_id: created.clinic_patient_id,
-      patient_code: created.patient_code,
-      full_name,
-      date_of_birth: (body.date_of_birth ?? "").trim() || null,
-      phone_primary,
-      phone_secondary,
-      national_id_number: national,
-      location_id,
-    },
-    metadata: {
-      clinic_role: role,
-      clinic_staff_id: staffId,
-      actor_auth_user_id: user.id,
-      origin: "dashboard:patient-intake:direct",
-    },
-  });
+  if (res.status === 200 && json.duplicate) {
+    return NextResponse.json({ duplicate: true, matches: json.matches ?? [] });
+  }
+  if (!res.ok) {
+    const msg =
+      json.message || json.detail || json.error || "Không tạo được bệnh nhân.";
+    return NextResponse.json({ error: msg }, { status: res.status });
+  }
+
+  const auditDb = getSupabaseService();
+  if (auditDb && json.clinic_patient_id) {
+    await logEvent(auditDb, {
+      event_type: "patient.created",
+      aggregate_type: "patient",
+      aggregate_id: json.clinic_patient_id,
+      payload: {
+        clinic_patient_id: json.clinic_patient_id,
+        patient_code: json.patient_code,
+        full_name,
+        date_of_birth: (body.date_of_birth ?? "").trim() || null,
+        phone_primary,
+        phone_secondary,
+        national_id_number: national,
+        location_id,
+      },
+      metadata: {
+        clinic_role: role,
+        clinic_staff_id: staffId,
+        actor_auth_user_id: user.id,
+        origin: "dashboard:patient-intake",
+      },
+    });
+  }
 
   return NextResponse.json({
     ok: true,
     patient: {
-      clinic_patient_id: created.clinic_patient_id,
-      patient_code: created.patient_code,
-      full_name: created.full_name,
+      clinic_patient_id: json.clinic_patient_id,
+      patient_code: json.patient_code,
+      full_name: json.full_name,
     },
   });
 }

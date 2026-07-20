@@ -47,6 +47,10 @@ out/
 !.env.example
 !.env.prod.example
 !.env.staging.example
+.active-state-*
+.release-env-*/
+.release-source-*/
+.ops-status/
 
 # Editor / OS
 .vscode/

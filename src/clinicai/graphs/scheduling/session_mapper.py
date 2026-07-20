@@ -10,14 +10,17 @@ Dr4Women business rule (D-xxx in 06_HARD_DECISIONS_AND_STYLE.md):
 from __future__ import annotations
 
 from datetime import date as date_type
+from typing import Literal
 
-_WEEKDAY_MAP = {
+SessionType = Literal["EVENING", "WEEKEND_MORNING", "WEEKEND_AFTERNOON"]
+
+_WEEKDAY_MAP: dict[str, SessionType | None] = {
     "morning": None,
     "afternoon": None,
     "evening": "EVENING",
 }
 
-_WEEKEND_MAP = {
+_WEEKEND_MAP: dict[str, SessionType | None] = {
     "morning": "WEEKEND_MORNING",
     "afternoon": "WEEKEND_AFTERNOON",
     "evening": None,
@@ -27,7 +30,7 @@ _WEEKEND_MAP = {
 def map_to_session_type(
     preferred_time: str | None,
     session_date: date_type,
-) -> str | None:
+) -> SessionType | None:
     """Translate (preferred_time, date) into a SessionType enum string.
 
     Returns None when the combination has no matching session offering.

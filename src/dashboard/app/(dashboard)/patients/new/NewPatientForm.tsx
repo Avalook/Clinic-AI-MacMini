@@ -17,6 +17,7 @@ import {
   usageAt,
   REGULAR_CAP,
   WALKIN_CAP,
+  type SlotApptLite,
 } from "../../../../lib/slot-capacity";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
 import {
@@ -42,7 +43,6 @@ import {
   BTN,
   BTN_GHOST,
   CARD,
-  DURATIONS,
   CHANNELS,
 } from "../../form-ui";
 import Time24Input from "../../Time24Input";
@@ -74,6 +74,10 @@ interface PhoneMatch {
   full_name: string;
   patient_code: string;
   birth_year: number | null;
+}
+
+interface IntakeAppointment extends SlotApptLite {
+  queue_number?: string | null;
 }
 
 function Req() {
@@ -244,8 +248,8 @@ export default function NewPatientForm({
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
   const [seatKind, setSeatKind] = useState<"regular" | "walkin">("regular");
   const priority = !walkin && seatKind === "walkin";
-  const [duration, setDuration] = useState(15);
-  const [existingAppts, setExistingAppts] = useState<any[]>([]);
+  const [duration] = useState(15);
+  const [existingAppts, setExistingAppts] = useState<IntakeAppointment[]>([]);
   // Bác sĩ TRỰC CA (work_roster LICH_KHAM) của ngày đang đặt — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
@@ -268,6 +272,10 @@ export default function NewPatientForm({
   // (BN cũ/tái khám đổi loại ở AppointmentBooking trên trang chi tiết BN).
   const [patientKind] = useState<"NEW" | "RETURN">("NEW");
   const [needSono, setNeedSono] = useState(false);
+  // Kênh đặt = NHẬP TỰ DO (feedback: "cho điền thôi, sau tự tính"). Để trống được.
+  const [channel, setChannel] = useState("");
+  // Số khám (queue_number) — feedback B5#8.
+  const [queueNumber, setQueueNumber] = useState("");
 
   // Fetch appointments for selected date to check availability / walk-in queues
   useEffect(() => {
@@ -294,10 +302,7 @@ export default function NewPatientForm({
         active = false;
       };
     } else {
-      if (!apptDate) {
-        setExistingAppts([]);
-        return;
-      }
+      if (!apptDate) return;
       let active = true;
       // Lấy lịch MỌI bác sĩ trong ngày (KHÔNG lọc doctor_id) để sơ đồ "rạp chiếu
       // phim" vẽ từng hàng bác sĩ; isSlotBooked vẫn lọc theo doctorId ở client.
@@ -317,6 +322,11 @@ export default function NewPatientForm({
     }
   }, [apptDate, walkin, TODAY]);
 
+  const visibleExistingAppts = useMemo(
+    () => (walkin || apptDate ? existingAppts : []),
+    [walkin, apptDate, existingAppts],
+  );
+
   // Khung đang chọn còn chỗ ĐÚNG LOẠI không? Luật 2+1 (slot-capacity): kênh
   // thường xét 2 chỗ BN1/BN2; walk-in xét chỗ thứ 3 (1 khách vãng lai/khung).
   const isSlotBooked = useMemo(() => {
@@ -324,7 +334,11 @@ export default function NewPatientForm({
     if (!day || !apptTime) return false;
     try {
       const bucketMs = Date.parse(vnLocalToUtcISO(day, apptTime));
-      const u = usageAt(buildSlotUsage(existingAppts), doctorId || null, bucketMs);
+      const u = usageAt(
+        buildSlotUsage(visibleExistingAppts),
+        doctorId || null,
+        bucketMs,
+      );
       // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế thứ 3.
       return walkin || priority
         ? u.walkin >= WALKIN_CAP
@@ -332,19 +346,16 @@ export default function NewPatientForm({
     } catch {
       return false;
     }
-  }, [walkin, priority, TODAY, apptDate, apptTime, doctorId, existingAppts]);
+  }, [walkin, priority, TODAY, apptDate, apptTime, doctorId, visibleExistingAppts]);
 
   // CSKH: số khám ĐỂ TRỐNG — hệ thống cấp SỐ CHUNG THEO THỜI GIAN lúc check-in.
   // KHÔNG tự dập "ƯT" theo phút (sai nghĩa): ƯT chỉ dành cho NGƯỜI QUEN nhà bác sĩ,
   // do người nhập gõ tay khi cần. Đổi ngày/giờ → xoá số đang điền cho gọn.
   useEffect(() => {
     if (walkin) return;
-    setQueueNumber("");
+    const timer = window.setTimeout(() => setQueueNumber(""), 0);
+    return () => window.clearTimeout(timer);
   }, [apptTime, isSlotBooked, walkin]);
-  // Kênh đặt = NHẬP TỰ DO (feedback: "cho điền thôi, sau tự tính"). Để trống được.
-  const [channel, setChannel] = useState("");
-  // Số khám (queue_number) — feedback B5#8.
-  const [queueNumber, setQueueNumber] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -993,7 +1004,7 @@ export default function NewPatientForm({
                   date={TODAY}
                   doctors={doctors}
                   dutyDoctorIds={dutyDoctorIds}
-                  existingAppts={existingAppts}
+                  existingAppts={visibleExistingAppts}
                   selectedDoctorId={doctorId}
                   selectedTime={apptTime}
                   mode="walkin"
@@ -1168,7 +1179,7 @@ export default function NewPatientForm({
               date={apptDate}
               doctors={doctors}
               dutyDoctorIds={dutyDoctorIds}
-              existingAppts={existingAppts}
+              existingAppts={visibleExistingAppts}
               selectedDoctorId={doctorId}
               selectedTime={apptTime}
               mode="regular"

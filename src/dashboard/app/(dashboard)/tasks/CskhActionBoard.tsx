@@ -6,7 +6,7 @@
 // nhận lịch / khám xong; Zalo/Pancake sau) HOẶC CSKH ghi TAY qua nút "+" trên mỗi
 // cột (feedback B4 → POST /api/cskh-action). Bấm thẻ → popup chi tiết + hồ sơ khách.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ExternalLink, X, Plus } from "lucide-react";
@@ -60,6 +60,29 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
   const [pcode, setPcode] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const addDialogRef = useRef<HTMLDivElement>(null);
+  const addCloseRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (addCat === null) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    addCloseRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAddCat(null);
+        setErr(null);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [addCat]);
 
   function openAdd(category: string) {
     setAddCat(category);
@@ -71,6 +94,22 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
   function closeAdd() {
     setAddCat(null);
     setErr(null);
+  }
+  function keepAddFocusInside(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = addDialogRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
   async function submit() {
     if (!desc.trim()) {
@@ -219,16 +258,27 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
         onClick={closeAdd}
+        role="presentation"
       >
         <div
+          ref={addDialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cskh-add-dialog-title"
           className="w-full max-w-md rounded-xl border border-[#f3cfe0] bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={keepAddFocusInside}
         >
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[#9d174d]">
+            <h3
+              id="cskh-add-dialog-title"
+              className="text-sm font-semibold text-[#9d174d]"
+            >
               Thêm việc: {addCat}
             </h3>
             <button
+              ref={addCloseRef}
+              type="button"
               onClick={closeAdd}
               aria-label="Đóng"
               className="rounded-md p-1 text-[#9d174d] hover:bg-[#fdf2f8]"
@@ -238,8 +288,11 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
           </div>
           <div className="space-y-2">
             <div>
-              <label className={LABEL}>Nội dung việc *</label>
+              <label htmlFor="cskh-action-description" className={LABEL}>
+                Nội dung việc *
+              </label>
               <textarea
+                id="cskh-action-description"
                 className={INPUT}
                 rows={3}
                 value={desc}
@@ -249,8 +302,11 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className={LABEL}>Trạng thái</label>
+                <label htmlFor="cskh-action-status" className={LABEL}>
+                  Trạng thái
+                </label>
                 <input
+                  id="cskh-action-status"
                   className={INPUT}
                   value={statusVal}
                   onChange={(e) => setStatusVal(e.target.value)}
@@ -258,8 +314,11 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 />
               </div>
               <div>
-                <label className={LABEL}>Mã BN (nếu có)</label>
+                <label htmlFor="cskh-action-patient-code" className={LABEL}>
+                  Mã BN (nếu có)
+                </label>
                 <input
+                  id="cskh-action-patient-code"
                   className={INPUT}
                   value={pcode}
                   onChange={(e) => setPcode(e.target.value)}
@@ -267,9 +326,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 />
               </div>
             </div>
-            {err && <p className="text-xs text-[#dc2626]">{err}</p>}
+            {err && (
+              <p role="alert" className="text-xs text-[#dc2626]">
+                {err}
+              </p>
+            )}
             <div className="flex gap-2 pt-1">
               <button
+                type="button"
                 onClick={submit}
                 disabled={busy}
                 className="min-h-10 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
@@ -277,6 +341,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 {busy ? "Đang lưu..." : "Lưu việc"}
               </button>
               <button
+                type="button"
                 onClick={closeAdd}
                 className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
               >

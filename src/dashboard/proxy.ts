@@ -1,6 +1,7 @@
 // Next 16 proxy (renamed from `middleware`). Two-stage gate:
-//   1. No shared Supabase session  → /enter (clinic password).
-//   2. Session but no role cookie   → /role-picker.
+//   1. No Supabase session                       → /enter.
+//   2. Session without an active linked staff    → /login.
+// clinic_role is a legacy compatibility cookie; it is never read here.
 // API routes enforce their own auth and are never redirected to HTML pages.
 
 import { createServerClient } from "@supabase/ssr";
@@ -42,7 +43,16 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/api")) return response;
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  const hasRole = !!request.cookies.get("clinic_role")?.value;
+  let hasStaffIdentity = false;
+  if (user) {
+    const { data: staff } = await supabase
+      .from("staff")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+    hasStaffIdentity = !!staff;
+  }
   const redirectTo = (path: string) => {
     const url = request.nextUrl.clone();
     url.pathname = path;
@@ -59,16 +69,16 @@ export async function proxy(request: NextRequest) {
 
   // 2. Đã qua cổng, đang ở trang /enter → đi tiếp.
   if (pathname.startsWith("/enter")) {
-    return redirectTo(hasRole ? "/home" : "/login");
+    return redirectTo(hasStaffIdentity ? "/home" : "/login");
   }
 
-  // 3. Đã qua cổng nhưng CHƯA đăng nhập cá nhân (chưa có role) → /login.
-  if (!hasRole && pathname !== "/login" && !isPublic) {
+  // 3. Đã qua cổng nhưng CHƯA có nhân viên liên kết → /login.
+  if (!hasStaffIdentity && pathname !== "/login" && !isPublic) {
     return redirectTo("/login");
   }
 
   // 4. Đã đăng nhập cá nhân mà còn ở /login → vào việc.
-  if (hasRole && pathname === "/login") {
+  if (hasStaffIdentity && pathname === "/login") {
     return redirectTo("/home");
   }
 

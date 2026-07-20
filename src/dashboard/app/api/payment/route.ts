@@ -10,6 +10,7 @@ import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getSupabaseService } from "../../../lib/supabase-service";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { isCashierRole, type ClinicRole } from "../../../lib/roles";
+import { paymentViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 type Kind = "thuoc" | "dich_vu";
 
@@ -47,6 +48,26 @@ async function guard(kind: unknown) {
 }
 
 export async function POST(request: Request) {
+  if (paymentViaBackend()) {
+    let raw: unknown;
+    try {
+      raw = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const p = (raw ?? {}) as {
+      visitId?: string;
+      clinicPatientId?: string;
+      kind?: string;
+      amount?: number;
+    };
+    return proxyJsonToBackend("POST", "/api/v1/payments", {
+      visit_id: p.visitId,
+      clinic_patient_id: p.clinicPatientId || null,
+      kind: p.kind,
+      amount: p.amount,
+    });
+  }
   let body: { visitId?: string; clinicPatientId?: string; kind?: string; amount?: number };
   try {
     body = await request.json();
@@ -119,6 +140,19 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (paymentViaBackend()) {
+    let raw: unknown;
+    try {
+      raw = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const p = (raw ?? {}) as { visitId?: string; kind?: string };
+    return proxyJsonToBackend("DELETE", "/api/v1/payments", {
+      visit_id: p.visitId,
+      kind: p.kind,
+    });
+  }
   let body: { visitId?: string; kind?: string };
   try {
     body = await request.json();

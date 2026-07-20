@@ -8,10 +8,11 @@ Data lives in **Supabase cloud**. A Mac crash = *temporarily unreachable*, **nev
 |---|---|
 | Bring prod up | `./scripts/deploy-backend.sh prod` |
 | Bring staging up | `./scripts/deploy-backend.sh staging` |
-| See status | `docker compose --env-file .env -p clinicai_prod ps` |
-| Tail logs | `docker compose --env-file .env -p clinicai_prod logs -f --tail=100` |
+| See status | `CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod ps` |
+| Tail logs | `CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod logs -f --tail=100` |
 | Log viewer (web) | Dozzle → `http://127.0.0.1:8888` (via Tailscale) |
 | Uptime dashboard | Uptime Kuma → `http://127.0.0.1:3001` (via Tailscale) |
+| Unified Ops Center | Dashboard → `/ops` (`MANAGEMENT` only) |
 
 ## Scenario: Mac is down / clinic can't reach the app
 1. Data is safe (Supabase). Goal is only to restore access.
@@ -21,12 +22,53 @@ Data lives in **Supabase cloud**. A Mac crash = *temporarily unreachable*, **nev
 
 ## Scenario: a deploy broke the site
 - `deploy-backend.sh` auto-rolls back to the previous images if the health check fails.
-- Manual rollback: `docker tag <old-image-id> clinicai-api:prod && docker tag <old-id> clinicai-dashboard:prod && docker compose --env-file .env -p clinicai_prod up -d`.
+- Automatic rollback uses the previous immutable source and private env revision, then rechecks health. If it reports rollback failure, stop and inspect logs instead of mixing files manually.
 - Find previous image ids: `docker images clinicai-api` / `docker images clinicai-dashboard`.
 
 ## Scenario: one container keeps crashing
 - `restart: unless-stopped` restarts it automatically. Inspect: `docker compose ... logs <svc>`.
 - Uptime Kuma alerts (Telegram/Zalo) fire when a monitor goes down (configure in Kuma UI).
+
+## Pre-deploy identity cutover (required)
+
+The dashboard now derives all roles from the verified Supabase user linked by
+`staff.auth_user_id`; role/staff cookies and the retired staff picker do not
+grant access. Before deploying this version to an environment:
+
+1. In that environment, link **every active person who is expected to log in**
+   to exactly one active `staff` row. Create/link accounts from **Settings →
+   Users** while the current release is still running.
+2. Run this read-only check in Supabase SQL Editor. The only expected unlinked
+   Auth account is the clinic-gate account configured as `CLINIC_SHARED_EMAIL`:
+
+   ```sql
+   select u.id, u.email, u.last_sign_in_at
+   from auth.users as u
+   left join public.staff as s
+     on s.auth_user_id = u.id and s.is_active = true
+   where s.id is null
+   order by u.email;
+   ```
+
+3. Resolve every other row before deploy. Also confirm no intended login staff
+   is missing a link:
+
+   ```sql
+   select id, full_name, primary_department
+   from public.staff
+   where is_active = true and auth_user_id is null
+   order by full_name;
+   ```
+
+   This second list may include active staff who genuinely do not use the app;
+   record/confirm those exceptions with the clinic administrator.
+4. Deploy to staging first. Verify one `MANAGEMENT` account can open Settings,
+   and one non-management account receives `403` from `/api/admin/users`.
+   Then deploy production and ask all active users to sign in again.
+
+Do not re-enable `/role-picker`, trust `clinic_role`/`clinic_staff_id` cookies,
+or add a shared-role fallback. If linkage is incomplete, stop the rollout and
+finish account linking (or roll back the release).
 
 ## DB schema changes (NEVER click-ops in the dashboard)
 - All schema changes are SQL files in `supabase/migrations/`, applied via the Supabase CLI:
@@ -36,12 +78,15 @@ Data lives in **Supabase cloud**. A Mac crash = *temporarily unreachable*, **nev
   ```
 - Add a migration: `supabase migration new <name>` → edit the generated SQL → commit → `db push`.
 - Apply schema to a BRAND-NEW project (no CLI): `psql "$DATABASE_URL" -f supabase/migrations/20260714000000_extensions.sql` then the baseline, then optionally `supabase/seed.sql`.
+- For this release, run `supabase db push` before application deploy: patient
+  writes require verified staff JWTs, idempotency requires migration `00005`,
+  and queue check-in requires `20260717000002_atomic_queue_checkin.sql`.
 
 ## First-time host setup (once)
 1. `brew install colima docker docker-compose caddy` ; `brew install supabase/tap/supabase`
 2. `sudo pmset -a sleep 0 disablesleep 1 autorestart 1` (no sleep, auto-boot after power loss)
 3. Enable **FileVault** (disk encryption — required for patient PII).
-4. Fill `.env.prod` (from `.env.prod.example`). `cp .env.prod .env`.
+4. Fill `.env.prod` (from `.env.prod.example`) and `chmod 600 .env.prod`; never copy it to a shared `.env`.
 5. Install the LaunchDaemon (see `docker/com.dr4women.clinic-backend.plist`) pointing at this clone.
 6. Public access: Cloudflare Tunnel (set `TUNNEL_TOKEN` in `.env.prod`, stack auto-runs `cloudflared`) OR Tailscale Funnel to the Caddy port.
 7. **Test a real reboot** — confirm the stack comes back with no manual login.

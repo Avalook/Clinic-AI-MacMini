@@ -90,3 +90,37 @@ async def test_llm_classify_empty_message_returns_unknown():
     result = await node(state)
     assert result == {"route": "unknown"}
     mock.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_llm_classify_logs_never_include_reasoning_or_raw_response(
+    monkeypatch,
+):
+    """Model output may echo patient PII and must not be copied to logs."""
+    fake_logger = MagicMock()
+    monkeypatch.setattr("clinicai.orchestrator.llm_nodes.logger", fake_logger)
+    pii = "patient@example.com 0901234567 đau bụng"
+    mock = _make_mock_llm(
+        '{"route":"scheduling","confidence":0.9,"reasoning":"' + pii + '"}'
+    )
+    node = make_classify_intent_llm_node(mock)
+
+    await node(
+        {
+            "trace_id": uuid4(),
+            "user_message": "đặt lịch",
+        }
+    )
+
+    rendered_calls = repr(fake_logger.method_calls)
+    assert pii not in rendered_calls
+    assert "reasoning" not in rendered_calls
+
+    fake_logger.reset_mock()
+    mock = _make_mock_llm(pii)
+    node = make_classify_intent_llm_node(mock)
+    await node({"trace_id": uuid4(), "user_message": "đặt lịch"})
+
+    rendered_calls = repr(fake_logger.method_calls)
+    assert pii not in rendered_calls
+    assert "raw_text" not in rendered_calls

@@ -9,7 +9,7 @@ intentionally deferred to P13 (see comment in orchestrator/stubs.py).
 from __future__ import annotations
 
 import time
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 import asyncpg
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/brief", tags=["brief"])
 
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return request.app.state.llm_client
+    return cast(AnthropicClient, request.app.state.llm_client)
 
 
 class BriefResponse(BaseModel):

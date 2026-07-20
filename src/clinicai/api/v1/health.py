@@ -1,6 +1,7 @@
 """Health check endpoints (liveness + database)."""
 
 import time
+from typing import Any
 
 import asyncpg
 import structlog
@@ -15,13 +16,13 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check() -> dict:
+async def health_check() -> dict[str, Any]:
     """Liveness probe — does not touch external dependencies."""
     return {"status": "ok", "service": "clinicai"}
 
 
 @router.get("/health/db")
-async def health_db(pool: asyncpg.Pool = Depends(get_db_pool)) -> dict:
+async def health_db(pool: asyncpg.Pool = Depends(get_db_pool)) -> dict[str, Any]:
     """Readiness probe — runs SELECT 1 against the asyncpg pool."""
     start = time.perf_counter()
     try:

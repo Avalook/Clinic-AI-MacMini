@@ -2,8 +2,8 @@
 
 // Clinic access gate. The "shared clinic password" is the password of ONE
 // shared Supabase Auth account (email kept server-side in CLINIC_SHARED_EMAIL).
-// Signing in establishes the authenticated session that RLS requires; the
-// per-person role is then chosen at /role-picker.
+// Signing in establishes the clinic-gate session; each staff member must then
+// authenticate personally and be linked through staff.auth_user_id.
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";

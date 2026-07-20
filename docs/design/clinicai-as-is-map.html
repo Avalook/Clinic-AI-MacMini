@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClinicAI — Bản đồ AS-IS (code đang chạy)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, p, dl, dd, ul, figure { margin: 0; }
+  ul { padding: 0; }
+  body { min-height: 100vh; }
+  img, svg { max-width: 100%; }
+  button, input { font: inherit; color: inherit; }
+</style>
+</head>
+<body>
+<style>
+  :root {
+    --ground: #F2F4F3; --panel: #FFFFFF; --panel-2: #FAFBFA;
+    --line: #D3DBD8; --line-soft: #E4EAE8;
+    --grid: rgba(15, 107, 92, 0.055); --grid-strong: rgba(15, 107, 92, 0.10);
+    --ink: #0F1A18; --ink-2: #3D4B48; --ink-3: #6E7C79;
+    --accent: #0F6B5C; --accent-wash: rgba(15, 107, 92, 0.08);
+    --warn: #9A6212; --warn-wash: rgba(154, 98, 18, 0.10);
+    --crit: #A32E24; --crit-wash: rgba(163, 46, 36, 0.09);
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --shadow: 0 1px 2px rgba(15, 26, 24, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0C1211; --panel: #121A19; --panel-2: #161F1E;
+      --line: #263230; --line-soft: #1C2726;
+      --grid: rgba(70, 201, 174, 0.05); --grid-strong: rgba(70, 201, 174, 0.10);
+      --ink: #E8EFEC; --ink-2: #A7B5B1; --ink-3: #7A8886;
+      --accent: #46C9AE; --accent-wash: rgba(70, 201, 174, 0.10);
+      --warn: #D69A3C; --warn-wash: rgba(214, 154, 60, 0.12);
+      --crit: #E0715F; --crit-wash: rgba(224, 113, 95, 0.12);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #F2F4F3; --panel: #FFFFFF; --panel-2: #FAFBFA;
+    --line: #D3DBD8; --line-soft: #E4EAE8;
+    --grid: rgba(15, 107, 92, 0.055); --grid-strong: rgba(15, 107, 92, 0.10);
+    --ink: #0F1A18; --ink-2: #3D4B48; --ink-3: #6E7C79;
+    --accent: #0F6B5C; --accent-wash: rgba(15, 107, 92, 0.08);
+    --warn: #9A6212; --warn-wash: rgba(154, 98, 18, 0.10);
+    --crit: #A32E24; --crit-wash: rgba(163, 46, 36, 0.09);
+    --shadow: 0 1px 2px rgba(15, 26, 24, 0.06);
+  }
+  :root[data-theme="dark"] {
+    --ground: #0C1211; --panel: #121A19; --panel-2: #161F1E;
+    --line: #263230; --line-soft: #1C2726;
+    --grid: rgba(70, 201, 174, 0.05); --grid-strong: rgba(70, 201, 174, 0.10);
+    --ink: #E8EFEC; --ink-2: #A7B5B1; --ink-3: #7A8886;
+    --accent: #46C9AE; --accent-wash: rgba(70, 201, 174, 0.10);
+    --warn: #D69A3C; --warn-wash: rgba(214, 154, 60, 0.12);
+    --crit: #E0715F; --crit-wash: rgba(224, 113, 95, 0.12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 96px; display: flex; flex-direction: column; gap: 56px; }
+  code, .mono { font-family: var(--mono); }
+  code { font-size: 0.86em; background: var(--accent-wash); color: var(--accent); padding: 1px 5px; border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); white-space: nowrap; }
+  code.f { background: transparent; color: var(--ink-3); border-color: var(--line); font-size: 0.8em; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+
+  .masthead { display: flex; flex-direction: column; gap: 14px; }
+  .masthead h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; letter-spacing: -0.02em; font-weight: 660; text-wrap: balance; margin: 0; }
+  .masthead p.lede { margin: 0; max-width: 65ch; color: var(--ink-2); font-size: 16px; }
+  .rule { height: 1px; background: var(--line); }
+  .thesis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .thesis div { background: var(--panel); padding: 14px 16px; }
+  .thesis dt { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .thesis dd { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .thesis dd b { color: var(--ink); font-weight: 600; }
+
+  section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 20px; }
+  section > header { display: flex; flex-direction: column; gap: 6px; }
+  section h2 { margin: 0; font-size: 22px; font-weight: 640; letter-spacing: -0.01em; }
+  section header p { margin: 0; color: var(--ink-2); max-width: 68ch; font-size: 14.5px; }
+
+  .board-shell { border: 1px solid var(--line); background: var(--panel); }
+  .board-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .legend span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--ink-3); display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 20px; height: 0; border-top-width: 2px; border-top-style: solid; }
+  .swatch.real { border-color: var(--accent); }
+  .swatch.part { border-color: var(--warn); border-top-style: dashed; }
+  .swatch.none { border-color: var(--ink-3); border-top-style: dotted; }
+  .zoom { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .zoom label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .zoom input { width: 110px; accent-color: var(--accent); }
+
+  .board-scroll { overflow: auto; background-color: var(--panel);
+    background-image: linear-gradient(to right, var(--grid) 1px, transparent 1px), linear-gradient(to bottom, var(--grid) 1px, transparent 1px), linear-gradient(to right, var(--grid-strong) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-strong) 1px, transparent 1px);
+    background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px; max-height: 78vh; }
+  .board { position: relative; transform-origin: 0 0; }
+  .board svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+  .edge { fill: none; stroke-width: 1.4; }
+  .edge.real { stroke: var(--accent); stroke-width: 1.8; }
+  .edge.part { stroke: var(--warn); stroke-dasharray: 5 4; }
+  .edge.none { stroke: var(--ink-3); stroke-dasharray: 1.5 4; stroke-linecap: round; stroke-width: 2; }
+  .edge.dim { opacity: 0.14; }
+  .edge-label { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-3); letter-spacing: 0.04em; }
+  .edge-label.dim { opacity: 0.14; }
+
+  .node { position: absolute; background: var(--panel); border: 1px solid var(--line); padding: 8px 10px 9px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; text-align: left; box-shadow: var(--shadow); transition: border-color .12s, transform .12s; font-family: inherit; }
+  .node:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .node[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-wash), var(--shadow); }
+  .node .code { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--accent); }
+  .node .nm { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.25; }
+  .node .meta { font-family: var(--mono); font-size: 9px; color: var(--ink-3); letter-spacing: 0.02em; }
+  .node .score { font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; margin-top: 2px; }
+  .node.dim { opacity: 0.32; }
+  .node.ghost { border-style: dashed; background: var(--panel-2); }
+  .node.ghost .code { color: var(--crit); }
+  .band { position: absolute; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); border-left: 1px solid var(--line); padding: 4px 0 4px 8px; }
+
+  .tbl-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border: 1px solid var(--line-soft); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); background: var(--panel-2); font-weight: 500; white-space: nowrap; }
+  td.mono, th.mono { font-family: var(--mono); font-size: 12px; }
+  tbody tr:hover td { background: var(--accent-wash); }
+
+  /* matrix */
+  .mx-scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--panel); }
+  table.mx { border-collapse: collapse; font-size: 12px; }
+  table.mx th, table.mx td { border: 1px solid var(--line-soft); padding: 0; }
+  table.mx th.rowh { text-align: left; padding: 5px 10px; font-family: var(--mono); font-size: 11px; text-transform: none; letter-spacing: 0.04em; color: var(--ink); white-space: nowrap; position: sticky; left: 0; background: var(--panel-2); z-index: 1; }
+  table.mx th.colh { padding: 8px 4px; font-size: 9.5px; letter-spacing: 0.02em; writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); height: 108px; white-space: nowrap; text-transform: none; }
+  table.mx td.cell { width: 34px; height: 30px; text-align: center; }
+  .dot { display: block; width: 100%; height: 100%; line-height: 30px; font-family: var(--mono); font-size: 11px; font-weight: 600; cursor: default; }
+  .dot.ok { background: color-mix(in srgb, var(--accent) 82%, transparent); color: var(--ground); }
+  .dot.part { background: color-mix(in srgb, var(--warn) 42%, transparent); color: var(--ink); }
+  .dot.no { background: color-mix(in srgb, var(--crit) 12%, transparent); color: var(--crit); }
+  .dot.na { background: transparent; color: var(--ink-3); }
+  .mx-legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .mx-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .mx-legend i { width: 14px; height: 14px; display: inline-block; }
+  .mx-legend i.ok { background: var(--accent); }
+  .mx-legend i.part { background: color-mix(in srgb, var(--warn) 42%, transparent); }
+  .mx-legend i.no { background: color-mix(in srgb, var(--crit) 12%, transparent); border: 1px solid var(--crit); }
+  .tot { font-family: var(--mono); font-size: 11px; color: var(--ink-3); text-align: center; padding: 4px !important; }
+
+  details.spec { border: 1px solid var(--line); background: var(--panel); }
+  details.spec + details.spec { border-top: none; }
+  details.spec > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; background: var(--panel-2); }
+  details.spec > summary::-webkit-details-marker { display: none; }
+  details.spec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  details.spec[open] > summary { border-bottom: 1px solid var(--line); }
+  summary .s-code { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--accent); }
+  summary .s-name { font-weight: 620; font-size: 15px; }
+  summary .s-screen { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  summary .s-score { margin-left: auto; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; }
+
+  .blk { display: grid; grid-template-columns: 175px 78px 1fr; gap: 14px; padding: 11px 16px; align-items: start; }
+  .blk + .blk { border-top: 1px dashed var(--line-soft); }
+  .blk-h { display: flex; flex-direction: column; gap: 1px; }
+  .blk-h .n { font-family: var(--mono); font-size: 10px; color: var(--ink-3); letter-spacing: 0.1em; }
+  .blk-h .t { font-weight: 620; font-size: 13px; line-height: 1.3; }
+  .blk-b { min-width: 0; font-size: 13.5px; color: var(--ink-2); }
+  .blk-b p { margin: 0 0 4px; }
+  .blk-b p:last-child { margin-bottom: 0; }
+
+  .st { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; padding: 2px 6px; border: 1px solid currentColor; white-space: nowrap; display: inline-block; }
+  .st.ok { color: var(--accent); background: var(--accent-wash); }
+  .st.part { color: var(--warn); background: var(--warn-wash); }
+  .st.no { color: var(--crit); background: var(--crit-wash); }
+  .st.na { color: var(--ink-3); }
+
+  .callout { border: 1px solid var(--line); border-left: 3px solid var(--accent); background: var(--panel); padding: 12px 14px; font-size: 14px; color: var(--ink-2); }
+  .callout b { color: var(--ink); }
+  .callout.w { border-left-color: var(--warn); }
+  .callout.c { border-left-color: var(--crit); }
+
+  footer.foot { border-top: 1px solid var(--line); padding-top: 18px; font-size: 13px; color: var(--ink-3); display: flex; flex-direction: column; gap: 6px; }
+  .spec-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; padding: 5px 9px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); cursor: pointer; }
+  .chip:hover { border-color: var(--accent); color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--ground); }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (max-width: 760px) {
+    .blk { grid-template-columns: 1fr; gap: 6px; }
+    .wrap { padding: 28px 16px 72px; gap: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">ClinicAI · AS-IS · đọc từ code nhánh main · 17-07-2026</div>
+    <h1>Hệ thống hiện tại, đặt vào đúng khung module hoá</h1>
+    <p class="lede">
+      Cùng 12 trạm và cùng 12 khối như bản đồ đích — nhưng mỗi ô ở đây điền bằng <b>code đang chạy thật</b>,
+      kèm <code class="f">file:line</code>. Chỗ nào trống là trống thật, không phải chưa khảo sát.
+      Đây là bản để đo khoảng cách, không phải bản để tự trách.
+    </p>
+    <div class="rule"></div>
+    <dl class="thesis">
+      <div>
+        <dt>Phát hiện chính</dt>
+        <dd>Không có node nào. Có <b>1</b> state machine (<code class="f">appointment.status</code>) và <b>13 màn hình</b> tự suy hàng đợi từ <b>5 bảng</b> bằng 5 bộ filter khác nhau.</dd>
+      </div>
+      <div>
+        <dt>Cạnh giữa các trạm</dt>
+        <dd><b>Hầu như không tồn tại trong code.</b> Bàn giao giữa trạm bằng giấy và bằng miệng — đúng như feedback nói.</dd>
+      </div>
+      <div>
+        <dt>Độ phủ 12×12</dt>
+        <dd><b id="cov-ok">0</b> ô có · <b id="cov-part">0</b> một phần · <b id="cov-no">0</b> không có. Xem ma trận bên dưới.</dd>
+      </div>
+      <div>
+        <dt>Tin tốt</dt>
+        <dd><code class="f">event_log</code> chạy thật với <b>23 loại event</b> + outbox + append-only trigger. Nền khó nhất đã có.</dd>
+      </div>
+    </dl>
+  </header>
+
+  <!-- BOARD -->
+  <section id="board-sec">
+    <header>
+      <div class="eyebrow">01 — Bản đồ AS-IS</div>
+      <h2>Cùng 12 trạm, nhưng nhìn vào phần nối giữa chúng</h2>
+      <p>
+        Nét teal liền = có code chuyển trạng thái thật. Nét vàng đứt = có một phần (dữ liệu có nhưng không có luật chuyển).
+        Nét xám chấm = <b>không có dòng code nào</b> — bàn giao bằng giấy/lời nói. Đếm số nét xám là đủ hiểu vì sao trưởng ca phải cầm xấp hồ sơ.
+        Card viền đứt = trạm <b>không tồn tại</b> như một màn hình riêng.
+      </p>
+    </header>
+    <div class="board-shell">
+      <div class="board-bar">
+        <div class="legend">
+          <span><i class="swatch real"></i>có code</span>
+          <span><i class="swatch part"></i>một phần</span>
+          <span><i class="swatch none"></i>giấy / miệng — không có code</span>
+        </div>
+        <div class="zoom">
+          <label for="zoom">Zoom</label>
+          <input id="zoom" type="range" min="50" max="120" value="100" step="5" />
+          <span class="mono" id="zoomval" style="font-size:11px;color:var(--ink-3)">100%</span>
+        </div>
+      </div>
+      <div class="board-scroll">
+        <div class="board" id="board"><svg id="edges" aria-hidden="true"></svg></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MATRIX -->
+  <section id="mx-sec">
+    <header>
+      <div class="eyebrow">02 — Ma trận độ phủ</div>
+      <h2>12 trạm × 12 khối hợp đồng</h2>
+      <p>Đây là bản đồ công việc Phase 4. Mỗi ô đỏ là một thứ phải viết; mỗi ô vàng là một thứ phải sửa chứ không phải viết mới.</p>
+    </header>
+    <div class="mx-scroll"><table class="mx" id="mx"></table></div>
+    <div class="mx-legend">
+      <span><i class="ok"></i>CÓ — có luật thật, thực thi được</span>
+      <span><i class="part"></i>MỘT PHẦN — có dữ liệu hoặc UI, thiếu luật</span>
+      <span><i class="no"></i>KHÔNG — không có dòng code nào</span>
+    </div>
+  </section>
+
+  <!-- SPECS -->
+  <section id="spec-sec">
+    <header>
+      <div class="eyebrow">03 — Chi tiết từng trạm</div>
+      <h2>Từng khối, đối chiếu code thật</h2>
+      <p>Click trạm trên board hoặc chip bên dưới. Mọi khẳng định đều có <code class="f">file:line</code> để anh mở ra kiểm.</p>
+    </header>
+    <div class="spec-nav" id="specnav"></div>
+    <div id="specs"></div>
+  </section>
+
+  <!-- DUPLICATION -->
+  <section id="dup-sec">
+    <header>
+      <div class="eyebrow">04 — Trùng lặp</div>
+      <h2>Cùng một luật, hai bản, cả hai đều đang chạy</h2>
+      <p>Đây là loại lỗi không báo lỗi. Hai bản hôm nay cho cùng kết quả; ngày ai đó sửa một bản là ngày hai màn hình hiển thị hai thứ tự gọi khác nhau.</p>
+    </header>
+    <div class="tbl-scroll"><table id="duptbl"></table></div>
+  </section>
+
+  <!-- DEAD -->
+  <section id="dead-sec">
+    <header>
+      <div class="eyebrow">05 — Code chết & cột chết</div>
+      <h2>Những thứ tồn tại nhưng không có đường tới</h2>
+      <p>Nguy hiểm hơn code thiếu: nó tạo cảm giác tính năng đã có. Có cột, có CHECK constraint, có index, có graph AI — nhưng không writer nào.</p>
+    </header>
+    <div class="tbl-scroll"><table id="deadtbl"></table></div>
+  </section>
+
+  <!-- LAYERS -->
+  <section id="layer-sec">
+    <header>
+      <div class="eyebrow">06 — Logic đang nằm ở đâu</div>
+      <h2>Bằng chứng cho worklist Phase 4</h2>
+    </header>
+    <div class="tbl-scroll"><table id="layertbl"></table></div>
+    <div class="callout c">
+      <b>Ba thứ tôi sẽ sửa trước bất kỳ việc module hoá nào</b> — không phải vì kiến trúc, mà vì chúng sai ngay hôm nay:
+      (1) <code>scheduling_service.py:266–341</code> đọc status rồi UPDATE không CAS, không transaction, và luật lệch với dashboard trên <b>cùng một cột</b>;
+      (2) <code>service_log.status</code> có hai bộ từ vựng (tiếng Việt từ <code class="f">/api/service-log</code>, tiếng Anh từ <code class="f">/api/sono</code>) trên một cột <b>không có CHECK constraint</b>;
+      (3) <code>attachEpisode</code> đóng đợt cũ rồi mở đợt mới bằng hai statement rời trong try/catch nuốt lỗi — chết giữa chừng là bệnh nhân mất sạch đợt sống.
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div>Đọc từ: <span class="mono">src/dashboard/app/**</span> · <span class="mono">src/clinicai/**</span> · <span class="mono">supabase/migrations/**</span> — nhánh <span class="mono">main</span>, 17-07-2026.</div>
+    <div>Bản đồ đích (TO-BE) là tài liệu song sinh của trang này — cùng 12 trạm, cùng 12 khối.</div>
+  </footer>
+</div>
+
+<script>
+/* ============================ DỮ LIỆU ============================ */
+
+const BLOCKS = ['Định danh','Điều kiện đầu vào','Chính sách hàng đợi','SLA & ưu tiên','Nguồn lực & công suất','Phân công & gọi','Form nghiệp vụ','Luật hoàn thành','Đầu ra','Cạnh routing','Ngoại lệ & phân quyền','Event & chỉ số'];
+
+const f = s => `<code class="f">${s}</code>`;
+
+const STATIONS = [
+  {
+    code:'BOOKING', name:'Đặt lịch', lane:0, row:1, ghost:false,
+    screen:'/home · /customers · /patients/new',
+    meta:'WeeklyAppointmentsTable',
+    b:[
+      ['part','Không có node. Có <code>service_type</code> + <code>booking_channel</code> làm phân loại thô.'],
+      ['ok','<b>Đây là khối mạnh nhất hệ thống.</b> Luật 2+1 chạy bằng DB trigger có advisory lock: '+f('supabase/migrations/20260714000002_slot_capacity_guard.sql:17-73')+'. Cap 2 hẹn + 1 walk-in, đếm độc lập theo <code>kind</code>, status chết không giữ chỗ.'],
+      ['part','Không phải hàng đợi mà là slot. Có reservation TTL '+f('20260714000005')+'. Nhưng <code>doctorConflictMessage</code> '+f('api/appointments/route.ts:66-112')+' tên nói "conflict" mà thực tế là ngưỡng 6 lịch/khung — dễ đọc nhầm.'],
+      ['no','Không có SLA xác nhận. <code>is_priority_slot</code> có cột nhưng không có luật nào đọc nó để xếp ưu tiên.'],
+      ['part','<code>work_roster</code> + <code>block_budget</code> có thật. Nhưng <b>CAP-01 chỉ để hiển thị</b> — khối chặn đã gỡ khỏi POST, comment '+f('api/appointments/route.ts:377-383')+'. Engine ngân sách sống ở frontend '+f('lib/capacity.ts')+'.'],
+      ['no','Không gửi gì. <code>send_zalo.py:36-48</code> là stub thuần, hardcode <code>delivered=False</code>.'],
+      ['ok','Có, rất đầy: <code>NewPatientForm.tsx</code> (1305 dòng) + <code>AppointmentBooking.tsx</code> (638 dòng). Nhưng không phải 3 trường như feedback đề xuất.'],
+      ['part','Có capacity guard + exclusion constraint. Không có completion validator theo nghĩa khai báo được.'],
+      ['ok','<code>appointment</code> + event <code>appointment.created</code> '+f('api/appointments/route.ts:435')+'.'],
+      ['part','Có bảng transition thật cho <code>appointment.status</code> '+f('api/appointments/route.ts:619-677')+' — nhưng nó là <code>if/else</code> trong TS, không phải bảng dữ liệu; sửa luật = sửa code + deploy.'],
+      ['part','Có <code>cancel</code>/<code>decline</code>/<code>reassign</code>/<code>no_show</code>. Không có <code>reason_code</code> enum — chỉ <code>cancellation_reason</code> text tự do.'],
+      ['part','Event có. Metric chỉ ở <code>/reports</code>, tính bằng 15 query rời trong TSX '+f('reports/page.tsx:92-120')+'.'],
+    ],
+  },
+  {
+    code:'CHECKIN', name:'Tiếp đón', lane:1, row:1, ghost:false,
+    screen:'/home → HomeCheckin',
+    meta:'HomeCheckin.tsx',
+    b:[
+      ['no','Không có khái niệm node.'],
+      ['ok','<code>canCheckIn = ["SCHEDULED","CSKH_CONFIRMED","CONFIRMED"].includes(status)</code> '+f('HomeCheckin.tsx:133-139')+', enforce lại ở DB qua RPC '+f('atomic_queue_checkin.sql:68')+'.'],
+      ['part','<b>Một số/ngày toàn cục</b> — không phải hàng đợi theo trạm. Cấp bởi advisory lock '+f('atomic_queue_checkin.sql:73-84')+'. Thứ tự hiển thị do <code>compareQueue</code> TS '+f('lib/queue.ts:104')+'.'],
+      ['no','Không có SLA. Không có ưu tiên ngoài regex "ƯT" gõ tay vào <code>queue_number</code> '+f('lib/queue.ts:90')+'.'],
+      ['no','Không mô hình hoá quầy, không công suất, không thời gian dự kiến.'],
+      ['no','Không có gọi, không TV, không loa. <code>/queue</code> — màn gọi số — <b>đang bị tắt</b>: '+f('lib/roles.ts:209')+' <code>"/queue": []</code>.'],
+      ['part','Hồ sơ hành chính sửa ở màn khác (<code>/patients</code>). Check-in chỉ là một nút.'],
+      ['no','<b>Không có giỏ dịch vụ.</b> Đây là gốc của mọi vấn đề feedback nêu: check-in luôn ngầm định "đi khám bác sĩ", nên "chỉ lấy máu" không biểu diễn được.'],
+      ['part','Tạo <code>visit</code> status OPEN '+f('api/appointments/route.ts:854')+'. Event <code>appointment.checked_in</code> có.'],
+      ['no','Không routing. Không có cạnh nào từ tiếp đón sang trạm sau.'],
+      ['part','Có <code>undo_checkin</code> — nhưng luôn trả về <code>CONFIRMED</code> '+f('api/appointments/route.ts:675')+', kể cả walk-in vốn chưa từng đi qua trạng thái đó.'],
+      ['part','Event có. Không đo thời gian chờ check-in.'],
+    ],
+  },
+  {
+    code:'VITALS', name:'Sinh hiệu', lane:2, row:1, ghost:true,
+    screen:'/tasks → ClinicalRecordForm (tab)',
+    meta:'không phải trạm riêng',
+    b:[
+      ['no','<b>Không tồn tại như một trạm.</b> Là một tab bên trong form khám của bác sĩ.'],
+      ['ok','Gate check-in thật: appointment phải <code>CHECKED_IN</code>|<code>COMPLETED</code> mới ghi được '+f('api/clinical-record/route.ts:292-305')+' → 409.'],
+      ['no','<b>Không có hàng chờ đo sinh hiệu.</b> Điều dưỡng không có màn hình "ai đang chờ đo".'],
+      ['no','Không có.'],
+      ['no','Không có.'],
+      ['no','Không có.'],
+      ['ok','<code>REQUIRED_VITALS = {huyet_ap, can_nang, chieu_cao}</code> '+f('ClinicalRecordForm.tsx:86-90')+'. Merge giữ sinh hiệu của ĐD khi BS lưu '+f('api/clinical-record/route.ts:460-474')+'.'],
+      ['part','Chặn lưu nếu thiếu 3 chỉ số '+f('ClinicalRecordForm.tsx:431-437')+'. Nhưng <b>không có ngưỡng bất thường</b>, không có hành động "Báo bất thường", không tính BMI.'],
+      ['part','Ghi vào <code>clinical_record.soap_objective</code> — không phải bảng riêng, nên không query được như dữ liệu.'],
+      ['no','Không routing.'],
+      ['part','Gate role có (<code>vitalsOnly</code> mở cho lễ tân '+f('api/clinical-record/route.ts:254-268')+'). Không có ngoại lệ nào.'],
+      ['no','<b>Không phát event.</b> Chỉ có dấu "!" nhắc trên <code>/home</code>, tính lại luật vitals lần hai '+f('home/page.tsx:389-392')+' — hardcode trùng với ClinicalRecordForm, hai nơi phải sync tay.'],
+    ],
+  },
+  {
+    code:'EXAM', name:'Khám ban đầu', lane:3, row:1, ghost:false,
+    screen:'/tasks → DoctorWorkBoard',
+    meta:'ClinicalRecordForm 1296 dòng',
+    b:[
+      ['no','Không có node. Có "màn công việc của tôi" theo vai.'],
+      ['ok','<code>arrivalPending</code> '+f('ClinicalRecordForm.tsx:402-403')+' + khoá 48h '+f('api/clinical-record/route.ts:341-352')+' + whitelist <code>visit.status</code> OPEN|IN_PROGRESS '+f(':358')+'.'],
+      ['part','Hàng đợi = <code>appointment</code> lọc <code>doctor_id</code>, 31 ngày '+f('tasks/page.tsx:285-293')+'. Sort bằng <code>compareQueue</code> ở <b>client</b> '+f('DoctorWorkBoard.tsx:153-158')+'.'],
+      ['no','Không có SLA. Không so giờ hẹn với giờ gọi.'],
+      ['part','<code>work_roster</code> có. Nhưng không mô hình hoá phòng, không công suất, không kiểm tra bác sĩ có mặt.'],
+      ['no','Không gọi bệnh nhân. Bác sĩ tự nhìn danh sách.'],
+      ['ok','Đầy đủ nhất hệ thống: SOAP + đơn thuốc + chỉ định XN + ghi âm '+f('ClinicalRecordForm.tsx')+'.'],
+      ['part','<b>Luật tự chốt nằm ở client:</b> <code>willComplete = chan_doan≠"" && loi_dan≠""</code> '+f('ClinicalRecordForm.tsx:406-410')+' rồi bắn <b>hai request rời nhau</b> '+f(':538-543')+' — không transaction. Request hai fail là hồ sơ ghi rồi mà lịch vẫn CHECKED_IN.'],
+      ['ok','<code>clinical_record</code> + <code>prescription</code> + event <code>appointment.completed</code>.'],
+      ['no','<b>Không routing.</b> Bác sĩ ghi chỉ định XN/SA vào hồ sơ; điều dưỡng ở trạm sau <b>tự gõ lại tên dịch vụ</b> vào <code>/sono</code>. Không có <code>service_order</code>, không có ký, không có liên kết.'],
+      ['part','Ownership có (BS không mở hồ sơ của BS khác, trừ TKYK '+f('api/clinical-record/route.ts:312-325')+'). Không có ngoại lệ khai báo.'],
+      ['part','Event có. Không đo thời gian khám vs <code>thanh_budget_min</code>.'],
+    ],
+  },
+  {
+    code:'ULTRASOUND', name:'Siêu âm', lane:4, row:0, ghost:false,
+    screen:'/sono (ĐD) + /tasks (BS SA)',
+    meta:'service_log kind=SA',
+    b:[
+      ['no','Không có node. Có bảng <code>service_log</code> lọc <code>kind=\'SA\'</code>.'],
+      ['no','<b>Không có điều kiện vào.</b> Không có <code>service_order</code> — điều dưỡng tự gõ tên dịch vụ '+f('SonoView.tsx:112')+'. Không kiểm tra bác sĩ đã chỉ định hay chưa, không kiểm tra đã ký.'],
+      ['part','Hàng đợi = <code>service_log</code> <code>kind=\'SA\'</code>, <code>order(created_at)</code> '+f('sono/page.tsx:23-36')+'. <b>Không lọc trạng thái, không lọc ngày</b> — DONE/CANCELLED vẫn nằm trong danh sách, và kéo về mọi dòng từ đầu thời gian.'],
+      ['no','Không có.'],
+      ['no','Không mô hình hoá phòng SA-01/02, không máy, không công suất.'],
+      ['no','Không gọi.'],
+      ['ok','<code>ultrasound_record</code> + <code>SonoBiometry.tsx</code> có thật. EFW nhập tay, không tự tính (comment '+f('api/ultrasound/route.ts:6-7')+').'],
+      ['no','<b>Nút "Hoàn tất" vô điều kiện.</b> <code>st === "IN_PROGRESS"</code> là hiện nút '+f('SonoView.tsx:146-166')+'. Không kiểm tra có kết luận chưa, có ảnh chưa, đã ký chưa.'],
+      ['part','<code>ultrasound_record</code> ghi được. Nhưng <code>/sono</code> "KHÔNG đụng lab_result, KHÔNG ghi visit.status" (comment '+f('sono/page.tsx:5')+') → kết quả SA không kích hoạt gì phía sau.'],
+      ['no','Không routing.'],
+      ['part','Gate role hardcode <code>NURSE_ULTRASOUND || MANAGEMENT</code> '+f('api/sono/route.ts:24')+'. Có <code>cancel</code>. Không có <code>reason_code</code>.'],
+      ['no','<b>Không phát event nào.</b> <code>/api/sono</code> không gọi <code>logEvent</code>.'],
+    ],
+  },
+  {
+    code:'LAB_COLLECT', name:'Lấy mẫu', lane:4, row:2, ghost:true,
+    screen:'/sono (kind=XN)',
+    meta:'3 mốc toggle',
+    b:[
+      ['no','Không có node. Là tab thứ hai của màn siêu âm.'],
+      ['no','Không có điều kiện vào. Cùng vấn đề với SA: không <code>service_order</code>, gõ tay.'],
+      ['part','<code>service_log</code> <code>kind=\'XN\'</code> '+f('sono/page.tsx:31')+'. Cùng lỗi không lọc ngày/trạng thái.'],
+      ['no','Không có.'],
+      ['no','Không có. Không có giờ chốt chuyến gửi mẫu.'],
+      ['no','Không gọi.'],
+      ['part','Ba mốc thời gian: <code>sample</code>→<code>started_at</code>, <code>sendlab</code>→<code>sent_to_lab_at</code>, <code>result</code>→<code>finished_at</code> '+f('api/sono/route.ts:117-121')+'. Không có mã ống, không loại mẫu, không tình trạng mẫu.'],
+      ['no','<b>Toggle tự do hai chiều:</b> <code>patch[col] = body.value ? now : null</code> '+f('api/sono/route.ts:159')+'. Bấm nhầm là xoá mốc, không guard, không log.'],
+      ['no','Không tạo <code>lab_result</code> từ đây. Hai luồng rời nhau hoàn toàn.'],
+      ['no','Không routing. <b>Mẫu và bệnh nhân không được mô hình hoá tách nhau</b> — đây là gốc của vấn đề "kết quả về sau khi BN đã về".'],
+      ['part','Cùng gate với SA.'],
+      ['no','Không phát event.'],
+    ],
+  },
+  {
+    code:'LAB_RESULT', name:'Xét nghiệm & KQ', lane:5, row:3, ghost:false,
+    screen:'/lab-queue',
+    meta:'lab_result',
+    b:[
+      ['no','Không có node.'],
+      ['part','Có bảng <code>lab_result</code> riêng, tạo từ '+f('api/lab-result/route.ts:75')+' khi BS chỉ định.'],
+      ['part','Hàng đợi = <code>result_value IS NULL AND external_ref IS NULL</code> '+f('lab-queue/page.tsx:20-34')+'. Đây là <b>hàng đợi của mẫu</b> — vô tình đúng ý niệm, nhưng không có chủ đích.'],
+      ['no','Không SLA, không phân biệt STAT vs thường.'],
+      ['no','Không có <code>lab_provider</code> khả dụng, không turnaround dự kiến.'],
+      ['na','Không áp dụng — không có ai để gọi.'],
+      ['part','<code>LabQueueView.tsx</code> nhập tay. Luật "phải có tóm tắt HOẶC link" '+f('LabQueueView.tsx:38-41')+'.'],
+      ['no','<b><code>is_finalized</code> không có writer nào trong toàn repo.</b> Cột + CHECK + index đều tồn tại '+f('baseline_schema.sql:596')+' và vĩnh viễn <code>false</code>.'],
+      ['no','<b>AI triage chạy nhưng không lưu.</b> <code>POST /api/v1/lab/triage/{id}</code> phân loại GROUP_A/B/C bằng rules + LLM, rồi <b>trả về caller và vứt đi</b> — không có câu <code>UPDATE lab_result</code> nào trong repo. Mỗi lần gọi là classify lại, tốn LLM, kết quả có thể khác.'],
+      ['part','<code>b3_ready</code> được <b>tính</b> (có KQ về, không còn pending) '+f('lib/queue.ts:34-49')+' để nhảy tier −1. Nhưng đó là <b>xếp hạng hiển thị</b>, không phải routing — không ai được thông báo, không gì được tạo.'],
+      ['part','POST gate <code>isDoctorRole</code>, PATCH gate <code>canWriteClinical</code> — <b>rộng hơn</b> '+f('api/lab-result/route.ts:36,101')+'. Ai chỉ định thì chặt, ai nhập kết quả thì lỏng.'],
+      ['part','Event <code>lab_result.ordered</code>/<code>.entered</code> có. Không đo turnaround.'],
+    ],
+  },
+  {
+    code:'DOCTOR_REVIEW', name:'Đọc kết quả', lane:6, row:1, ghost:true,
+    screen:'không có màn riêng',
+    meta:'chỉ là 1 làn trong board BS',
+    b:[
+      ['no','<b>Trạm này không tồn tại.</b> Nó là làn thứ hai trong <code>DoctorWorkBoard</code> '+f('QueueBoard.tsx:92-98')+'.'],
+      ['no','Không có điều kiện "đã đủ kết quả chưa".'],
+      ['part','<code>b3_ready</code> → tier −1. <b>Lưu ý hành vi thật:</b> check <code>b3_ready</code> đứng <b>trước</b> check ƯT '+f('queue_order.py:71 vs :81')+' → bệnh nhân ưu tiên vừa có KQ về bị xếp <b>sau</b> bệnh nhân ưu tiên chưa có KQ. Docstring mô tả ngược lại. Test không phủ case kết hợp.'],
+      ['no','Không có.'],
+      ['no','Không có.'],
+      ['no','Không gọi.'],
+      ['part','Dùng lại <code>ClinicalRecordForm</code>.'],
+      ['no','Không có luật hoàn thành riêng cho việc đọc kết quả.'],
+      ['no','Không có output riêng.'],
+      ['no','Không routing.'],
+      ['no','Không có.'],
+      ['no','Không có.'],
+    ],
+  },
+  {
+    code:'PHARMACY', name:'Cấp thuốc', lane:7, row:1, ghost:true,
+    screen:'không có màn riêng',
+    meta:'prescription rows',
+    b:[
+      ['no','<b>Trạm này không tồn tại.</b>'],
+      ['no','Không có.'],
+      ['no','<b>Không có hàng chờ lấy thuốc.</b> Dược sĩ không có màn hình nào.'],
+      ['no','Không có.'],
+      ['no','Không có.'],
+      ['no','Không gọi.'],
+      ['part','<code>prescription</code> ghi từ form của bác sĩ, replace toàn bộ bằng DELETE→INSERT '+f('api/clinical-record/route.ts:502-519')+'.'],
+      ['no','Không có đối chiếu đơn, không xác nhận đã hướng dẫn.'],
+      ['part','<code>drug_catalog</code> có <code>needs_review</code>. Giao dịch KiotViet không được mô hình hoá — thu ngân cộng tay.'],
+      ['no','Không routing.'],
+      ['no','Không có.'],
+      ['no','Không có.'],
+    ],
+  },
+  {
+    code:'CHECKOUT', name:'Đối soát & thu tiền', lane:8, row:1, ghost:false,
+    screen:'/tasks → CashierWorkBoard',
+    meta:'visit hôm nay',
+    b:[
+      ['no','Không có node.'],
+      ['ok','Chỉ thu khi <code>appointment.status === "COMPLETED"</code> '+f('api/payment/route.ts:100-105')+' → 409. Guard thật, enforce ở server.'],
+      ['part','Hàng đợi = <code>visit</code> hôm nay rồi <b>lọc trong TSX</b> theo <code>appointment.status==="COMPLETED"</code> '+f('tasks/page.tsx:105-107')+' — vì "dashboard KHÔNG tự set visit.FINALIZED" (comment của chính file).'],
+      ['no','Không có.'],
+      ['no','Không có quầy, không công suất.'],
+      ['no','Không gọi.'],
+      ['part','Đối soát có. Nhưng <b>ghép giá bằng so khớp chuỗi tên</b>: <code>normName()</code> bỏ URL Notion, gộp space '+f('tasks/page.tsx:43-49')+' rồi dò <code>service_price</code>. Không khớp → <code>missing=true</code> → hiện "(một số khoản chưa có giá)" '+f('CashierWorkBoard.tsx:121-133')+'.'],
+      ['no','Không có validator. Không kiểm biên nhận đã phát hành.'],
+      ['part','<code>payment</code> ghi được — nhưng <b><code>status</code> có CHECK chỉ cho đúng một giá trị <code>\'PAID\'</code></b> '+f('baseline_schema.sql:789')+'. <b>Ghi nợ và miễn giảm không biểu diễn được về mặt schema.</b>'],
+      ['no','Không routing. Không đóng <code>encounter</code>, không phát hành biên nhận.'],
+      ['part','Gate theo vai thu ngân thuốc/dịch vụ '+f('api/payment/route.ts:18-23')+'. DELETE (hoàn tác) <b>không</b> áp điều kiện COMPLETED, và <b>không idempotent</b> '+f('payment.py:77-90')+'.'],
+      ['no','<b>Không phát event.</b> <code>/api/payment</code> không gọi <code>logEvent</code> → tiền vào ra không có audit trail.'],
+    ],
+  },
+  {
+    code:'FOLLOWUP', name:'CSKH sau lượt', lane:7, row:4, ghost:false,
+    screen:'/episodes + cskh_action',
+    meta:'care_episode PENDING_CLOSE',
+    b:[
+      ['part','<code>care_episode</code> có thật với 3 trạng thái + <code>close_reason</code> enum 5 giá trị.'],
+      ['part','Vào hàng khi <code>complete</code> mà không có lịch tương lai → <code>PENDING_CLOSE</code> '+f('api/appointments/route.ts:1015')+'.'],
+      ['ok','Hàng đợi thật: <code>status=\'PENDING_CLOSE\'</code>, sort <code>last_visit_at</code> nullsFirst '+f('episodes/page.tsx:29-34')+'. Đây là hàng đợi <b>của việc</b> — gần nhất với ý niệm node.'],
+      ['part','<code>staff_task</code> <b>có sẵn</b> <code>priority</code> + <code>sla_hours</code> + <code>due_at</code> — <b>và không ai dùng</b>.'],
+      ['no','Không có.'],
+      ['na','Ngược chiều — không áp dụng.'],
+      ['part','<code>cskh_action</code> + <code>cskh_log</code> ghi được.'],
+      ['ok','CAS đúng: <code>.eq("status","PENDING_CLOSE")</code> → 0 row = 409 '+f('api/episodes/route.ts:67-76')+'. <b>Chỗ này làm chuẩn.</b>'],
+      ['part','Ghi <code>cskh_action</code>. Không tự sinh case từ kết quả trả muộn.'],
+      ['part','Đóng/mở đợt có. Không có cạnh sang đặt lại lịch.'],
+      ['part','Gate <code>canManageAppt</code>. Không có leo thang CRITICAL.'],
+      ['part','Event <code>episode.closed</code>/<code>.reopened</code> có. <b><code>staff_task</code> chỉ có đúng một writer trong toàn repo</b> — <code>tools/task/update_task_status.py:27</code>, UPDATE mù không check status nguồn, <code>completed_at</code> ghi bằng <code>datetime.now()</code> naive vào cột timestamptz. Dashboard chỉ đọc.'],
+    ],
+  },
+  {
+    code:'SHIFT_LEAD', name:'Trưởng ca', lane:2, row:4, ghost:false,
+    screen:'/truong-ca',
+    meta:'read-only',
+    b:[
+      ['no','Không có node.'],
+      ['part','Đọc <code>visit</code> hôm nay '+f('truong-ca/page.tsx:27-33')+'.'],
+      ['part','Không phải hàng đợi ngoại lệ — chỉ là danh sách visit trong ngày.'],
+      ['no','Không SLA, không cảnh báo.'],
+      ['no','Không thấy nguồn lực, không thấy bottleneck.'],
+      ['na','Không áp dụng.'],
+      ['part','Dùng lại <code>VisitStatusBoard</code> của <code>/home</code>.'],
+      ['na','Không áp dụng.'],
+      ['no','Không có output.'],
+      ['no','<b>Không có một hành động điều phối nào.</b> Trang read-only hoàn toàn. Đây chính xác là điều feedback nói: trưởng ca vẫn phải điều phối bằng giấy vì màn hình không cho họ làm gì.'],
+      ['no','Không xử lý được ngoại lệ nào.'],
+      ['part','Luật "Đã thanh toán" '+f('truong-ca/page.tsx:54-58')+' <b>copy nguyên khối</b> từ '+f('home/page.tsx:275-279')+'. Và trang này <b>không</b> lọc bỏ visit có lịch CANCELLED/NO_SHOW (khác <code>/home</code>) → lịch đã huỷ vẫn hiện "Đang khám".'],
+    ],
+  },
+];
+
+const EDGES = [
+  { from:'BOOKING', to:'CHECKIN', type:'real', label:'appointment.status' },
+  { from:'CHECKIN', to:'VITALS', type:'none', label:'giấy / miệng' },
+  { from:'VITALS', to:'EXAM', type:'none', label:'giấy / miệng' },
+  { from:'EXAM', to:'ULTRASOUND', type:'none', label:'ĐD gõ lại tên' },
+  { from:'EXAM', to:'LAB_COLLECT', type:'none', label:'ĐD gõ lại tên' },
+  { from:'LAB_COLLECT', to:'LAB_RESULT', type:'part', label:'sent_to_lab_at' },
+  { from:'ULTRASOUND', to:'DOCTOR_REVIEW', type:'none' },
+  { from:'LAB_RESULT', to:'DOCTOR_REVIEW', type:'part', label:'b3_ready (chỉ xếp hạng)' },
+  { from:'DOCTOR_REVIEW', to:'PHARMACY', type:'none' },
+  { from:'PHARMACY', to:'CHECKOUT', type:'none', label:'giấy / miệng' },
+  { from:'EXAM', to:'CHECKOUT', type:'real', label:'status=COMPLETED mở khoá thu', channel:'above' },
+  { from:'CHECKOUT', to:'FOLLOWUP', type:'part', label:'PENDING_CLOSE' },
+  { from:'CHECKIN', to:'SHIFT_LEAD', type:'none' },
+  { from:'CHECKOUT', to:'SHIFT_LEAD', type:'none', channel:'below2' },
+];
+
+const DUP = {
+  cols:['Luật','Bản A','Bản B','Ai đang dùng bản nào','Rủi ro'],
+  rows:[
+    ['Thứ tự gọi bệnh nhân','<code>lib/queue.ts:76-101</code> (TS)','<code>services/queue_order.py:67-96</code> (Python)','<b>TS đang chạy thật</b> ở <code>HomeCheckin</code>, <code>WeeklyAppointmentsTable</code>, <code>DoctorWorkBoard</code>. Python chỉ phục vụ <code>/queue</code> — <b>mà trang đó đang tắt</b> '+f('roles.ts:209')+'.','Cluster #5 tuyên bố "logic không còn ở frontend" — <b>chỉ đúng cho trang đang tắt</b>. Hai bản hôm nay tương đương; drift là vấn đề của ngày mai.'],
+    ['Đặt lịch / xác nhận / huỷ','<code>api/appointments/route.ts:619-677</code> (TS, có CAS)','<code>scheduling_service.py:266-341</code> (Python, <b>không</b> CAS)','Dashboard dùng bản TS. Bản Python <b>live nhưng không ai gọi</b>.','Luật lệch thật: Python <code>confirm</code> không biết <code>CSKH_CONFIRMED</code>; Python <code>cancel</code> cho huỷ cả <code>DOCTOR_DECLINED</code>/<code>NO_SHOW</code>. Cùng một cột, hai bộ luật, một bản không khoá.'],
+    ['Phân loại khám lần đầu / tái khám','So <code>slot_start</code> với lịch sớm nhất '+f('tasks/page.tsx:338-343')+' và '+f('home/page.tsx:317-325'),'<code>visit_count >= 2</code> '+f('patient-list/page.tsx:138'),'Cả hai đều đang hiển thị cho người dùng.','<b>Hai màn hình có thể gọi cùng một bệnh nhân là hai loại khác nhau.</b>'],
+    ['Luật "Đã thanh toán"','<code>home/page.tsx:275-279</code>','<code>truong-ca/page.tsx:54-58</code>','Cả hai.','Copy nguyên khối. Sửa một chỗ là lệch.'],
+    ['<code>REQUIRED_VITALS</code>','<code>ClinicalRecordForm.tsx:86-90</code>','<code>home/page.tsx:389-392</code>','Cả hai.','Hardcode hai nơi, sync tay.'],
+    ['<code>service_log.status</code> từ vựng','<code>"Chờ làm"/"Đang làm"/"Hoàn tất"</code> '+f('api/service-log/route.ts:102,143,147'),'<code>"WAITING"/"IN_PROGRESS"/"DONE"/"CANCELLED"</code> '+f('api/sono/route.ts:96,142,145,148'),'Cả hai ghi vào <b>cùng một cột</b>.','Cột <code>status</code> <b>không có CHECK constraint</b> '+f('baseline_schema.sql:871')+' → DB không bắt được. Không route nào check status nguồn.'],
+  ]
+};
+
+const DEAD = {
+  cols:['Thứ','Bằng chứng tồn tại','Bằng chứng chết','Hệ quả'],
+  rows:[
+    ['<code>visit.FINALIZED</code> / <code>AMENDED</code>','CHECK constraint '+f('baseline_schema.sql:730')+', trigger chặn sửa '+f(':303')+', 3 guard đọc nó','<b>Không dòng code nào ghi hai giá trị này</b> (grep TS/TSX/PY/SQL). Chỉ test seed tạo được.','Toàn bộ cơ chế "khoá hồ sơ pháp lý" đang canh một trạng thái <b>không có đường tới</b>.'],
+    ['<code>lab_result.triage_group</code>','CHECK + 2 index chuyên dụng '+f('baseline_schema.sql:606, :1606, :1613')+', graph AI phân loại 4 nhóm','Ghi <b>đúng một lần</b> giá trị <code>\'PENDING\'</code> '+f('api/lab-result/route.ts:75')+'. <b>Không có câu <code>UPDATE lab_result</code> nào trong repo.</b>','AI triage tốn tiền LLM mỗi lần gọi và kết quả bị vứt. <code>lib/queue.ts:20-22</code> đã phải viết comment giải thích vì sao không dùng cột này.'],
+    ['<code>lab_result.is_finalized</code>','Cột + CHECK + index '+f('baseline_schema.sql:596'),'Không writer nào.','Vĩnh viễn <code>false</code>.'],
+    ['<code>appointment.assigned_station</code>','Ghi bởi FastAPI create '+f('scheduling_service.py:230'),'<b>Không reader nào</b> — không dashboard, không SQL, không Python.','Cột chết.'],
+    ['<code>GET /api/v1/me</code>','Cluster #1a xây xong, có identity JWT + 11 role + <code>require_role()</code>','grep <code>v1/me</code> trong dashboard → <b>0 hit</b>. Frontend vẫn đọc role từ <code>getClinicRole()</code>.','Cluster #1a <b>chưa nối dây</b> — backend có identity nhưng không ai hỏi nó.'],
+    ['Toàn bộ <code>/api/v1/appointments*</code>, <code>/work-sessions*</code>, <code>/staff*</code>, <code>/catalog/*</code>','20+ endpoint thật, đang mount','Dashboard không gọi cái nào — có route Next riêng nói thẳng Supabase.','<b>37/42 endpoint backend chưa ai gọi.</b> Hai implementation song song của cùng nghiệp vụ.'],
+    ['<code>graphs/scheduling</code>','Graph đầy đủ, slot-filling, gọi <code>find_work_sessions</code> thật','<code>DEFAULT_LOCATION_ID</code> <b>không set trong bất kỳ .env nào</b> → luôn rơi về stub '+f('orchestrator/graph.py:272'),'<b>Và may là thế:</b> <code>confirm_node</code> '+f('graphs/scheduling/nodes.py:226-237')+' trả "em đã đặt lịch cho chị" nhưng <b>không hề gọi <code>create_appointment</code></b>. Bật lên là bệnh nhân nhận xác nhận cho cuộc hẹn không tồn tại.'],
+    ['<code>event_bus/</code> + RabbitMQ','Consumer, adapters, publisher đầy đủ','<code>docker-compose.yml:109,137</code> — <code>profiles: ["workers"]</code>, mặc định off. Handler duy nhất chỉ <code>log</code> '+f('worker.py:78-82')+'. <code>RabbitMQPublisher.publish</code> raise <code>NotImplementedError</code>.','Bật lên thì event bị nhận rồi vứt.'],
+    ['Notification relay','Code thật, poll outbox, advisory lock chống gửi trùng, flip <code>event_published</code>','<code>TELEGRAM_BOT_TOKEN</code> không set → skip mọi lần gửi, event pending vĩnh viễn '+f('notification_relay.py:107-110'),'Và nếu bật: template đọc <code>patient_name</code>/<code>date</code>/<code>time</code> nhưng payload dashboard chỉ có id → tin nhắn gửi đi dạng <i>"Lịch hẹn ngày (trống) lúc (trống) với BS bác sĩ"</i>. Key <code>visit.completed</code> '+f('notification_templates.py:76')+' không bao giờ match vì dashboard phát <code>appointment.completed</code>.'],
+    ['<code>golden_record/engine.py</code>','Package đầy đủ','0 caller ngoài test.','Scaffold.'],
+    ['<code>send_zalo</code>','Tool + provider','Cả hai là stub, hardcode <code>delivered=False</code> '+f('send_zalo.py:36-48'),'Kênh gửi thật duy nhất là Telegram.'],
+  ]
+};
+
+const LAYERS = {
+  cols:['Nghiệp vụ','Đang nằm ở','Nên nằm ở','Bằng chứng'],
+  rows:[
+    ['Slot 2+1 / capacity','<b>SQL trigger</b> — đúng chỗ rồi','SQL','<code>20260714000002_slot_capacity_guard.sql:17-73</code> — advisory lock, atomic, đã fix race overbook'],
+    ['Cấp số thứ tự','<b>SQL RPC + trigger</b> — đúng chỗ rồi','SQL','<code>20260717000002_atomic_queue_checkin.sql:48-90</code>'],
+    ['Bảng transition <code>appointment.status</code>','<b>TSX route handler</b> (1064 dòng)','Bảng dữ liệu <code>node_transition</code> + engine','<code>api/appointments/route.ts:619-677</code> — 10 action if/else'],
+    ['Thứ tự gọi bệnh nhân','<b>TS ở client</b> (3 màn) + Python (1 màn đang tắt)','Backend, một bản','<code>lib/queue.ts:104</code> vs <code>queue_order.py:99</code>'],
+    ['Luật tự chốt khám xong','<b>Client</b>, 2 request không transaction','Backend, 1 command','<code>ClinicalRecordForm.tsx:406-410, :538-543</code>'],
+    ['Tính tiền','<b>TSX</b>, so khớp chuỗi tên dịch vụ','SQL / service, có <code>service_order</code>','<code>tasks/page.tsx:43-49, :157-233</code> + <code>CashierWorkBoard.tsx:121-133</code>'],
+    ['Phân loại khám lần đầu/tái khám','<b>TSX</b>, 2 luật khác nhau','SQL / cột dẫn xuất','<code>tasks/page.tsx:338-343</code> vs <code>patient-list/page.tsx:138</code>'],
+    ['Luật "Đã thanh toán"','<b>TSX</b>, copy 2 nơi','SQL view','<code>home/page.tsx:275-279</code> ≡ <code>truong-ca/page.tsx:54-58</code>'],
+    ['Ngân sách CAP-01','<b>TSX</b>, chỉ hiển thị','SQL (khi nào quyết định bật chặn)','<code>lib/capacity.ts</code> + <code>api/appointments/quote/route.ts</code>'],
+    ['Dedup bệnh nhân (MPI)','<b>FastAPI</b> — đúng chỗ rồi','FastAPI','<code>patient_service.py:75-120</code> + <code>mpi_service.py</code>. Lưu ý trọng số: phone(50) + tên giống hệt(10) = 60 < ngưỡng 70 → <b>hai hồ sơ trùng SĐT + trùng tên mà thiếu CCCD không bao giờ vào merge queue</b>.'],
+    ['Auth / role','<b>Cả hai, không đồng bộ</b>','Backend (per-staff)','Backend: API-key <b>fail-open nếu env trống</b> '+f('api/auth.py:76-84')+'; chỉ 4/13 router có role check; <code>POST /staff</code> và <code>DELETE /staff</code> <b>không có role check nào</b>. Frontend: <code>getClinicRole()</code> đọc <code>staff.primary_department</code>.'],
+  ]
+};
+
+/* ============================ RENDER ============================ */
+const NW = 176, NH = 68, LANE = 220, ROW = 122, PADX = 28, PADY = 46;
+const byCode = Object.fromEntries(STATIONS.map(n => [n.code, n]));
+const pos = n => ({ x: PADX + n.lane * LANE, y: PADY + n.row * ROW });
+
+const board = document.getElementById('board');
+const svg = document.getElementById('edges');
+const BW = PADX * 2 + 8 * LANE + NW, BH = PADY * 2 + 4 * ROW + NH + 20;
+board.style.width = BW + 'px'; board.style.height = BH + 'px';
+svg.setAttribute('width', BW); svg.setAttribute('height', BH);
+
+[['Trước khi đến',0,1],['Tiếp đón',1,1],['Tiền khám → khám',2,2],['Dịch vụ chẩn đoán',4,2],['Chốt & kết thúc',6,3]]
+  .forEach(([t, lane, span]) => {
+    const el = document.createElement('div');
+    el.className = 'band'; el.textContent = t;
+    el.style.left = (PADX + lane * LANE - 10) + 'px'; el.style.top = '10px';
+    el.style.width = (span * LANE - 20) + 'px';
+    board.appendChild(el);
+  });
+
+const NS = 'http://www.w3.org/2000/svg';
+function pathFor(e) {
+  const a = byCode[e.from], b = byCode[e.to];
+  const ax = pos(a).x, ay = pos(a).y, bx = pos(b).x, by = pos(b).y;
+  const aR = ax + NW, aC = ay + NH / 2, bC = by + NH / 2;
+  const back = b.lane <= a.lane;
+  if (e.channel) {
+    let chY;
+    if (e.channel === 'above') chY = Math.min(ay, by) - 24;
+    if (e.channel === 'below2') chY = Math.max(ay, by) + NH + 34;
+    const sx = back ? ax : aR, ex = back ? bx + NW : bx;
+    const up = e.channel.startsWith('above');
+    const sy = up ? ay : ay + NH, ey = up ? by : by + NH;
+    const hop = back ? -14 : 14;
+    return { d: `M ${sx + (back ? -8 : 8)} ${sy + (up ? 6 : -6)} L ${sx + hop} ${chY} L ${ex - hop} ${chY} L ${ex + (back ? 8 : -8)} ${ey + (up ? 6 : -6)}`, lx: (sx + ex) / 2, ly: chY - 4 };
+  }
+  if (a.row === b.row) return { d: `M ${aR} ${aC} L ${bx} ${bC}`, lx: (aR + bx) / 2, ly: aC - 6 };
+  const mid = (aR + bx) / 2;
+  return { d: `M ${aR} ${aC} L ${mid} ${aC} L ${mid} ${bC} L ${bx} ${bC}`, lx: mid + 4, ly: (aC + bC) / 2 - 4 };
+}
+
+const defs = document.createElementNS(NS, 'defs');
+defs.innerHTML = ['real','part','none'].map(t => `<marker id="ah-${t}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 7 4 L 0 7 z" class="ah ${t}"></path></marker>`).join('');
+svg.appendChild(defs);
+const st = document.createElementNS(NS, 'style');
+st.textContent = `.ah.real{fill:var(--accent)} .ah.part{fill:var(--warn)} .ah.none{fill:var(--ink-3)}`;
+svg.appendChild(st);
+
+const edgeEls = [];
+EDGES.forEach(e => {
+  const p = pathFor(e);
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('d', p.d.replace(/\s+/g, ' '));
+  path.setAttribute('class', `edge ${e.type}`);
+  path.setAttribute('marker-end', `url(#ah-${e.type})`);
+  svg.appendChild(path);
+  let lbl = null;
+  if (e.label) {
+    lbl = document.createElementNS(NS, 'text');
+    lbl.setAttribute('x', p.lx); lbl.setAttribute('y', p.ly);
+    lbl.setAttribute('text-anchor', 'middle'); lbl.setAttribute('class', 'edge-label');
+    lbl.textContent = e.label; svg.appendChild(lbl);
+  }
+  edgeEls.push({ e, path, lbl });
+});
+
+const score = n => {
+  const ok = n.b.filter(x => x[0] === 'ok').length;
+  const part = n.b.filter(x => x[0] === 'part').length;
+  return { ok, part, no: n.b.filter(x => x[0] === 'no').length };
+};
+
+const nodeEls = {};
+STATIONS.forEach(n => {
+  const s = score(n);
+  const b = document.createElement('button');
+  b.className = 'node' + (n.ghost ? ' ghost' : '');
+  b.style.left = pos(n).x + 'px'; b.style.top = pos(n).y + 'px';
+  b.style.width = NW + 'px'; b.style.minHeight = NH + 'px';
+  b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = `<span class="code">${n.code}</span><span class="nm">${n.name}</span>
+    <span class="meta">${n.meta}</span>
+    <span class="score"><span style="color:var(--accent)">${s.ok}✓</span> <span style="color:var(--warn)">${s.part}~</span> <span style="color:var(--crit)">${s.no}✗</span></span>`;
+  b.addEventListener('click', () => select(n.code));
+  b.addEventListener('mouseenter', () => highlight(n.code));
+  b.addEventListener('mouseleave', () => highlight(null));
+  b.addEventListener('focus', () => highlight(n.code));
+  b.addEventListener('blur', () => highlight(null));
+  board.appendChild(b); nodeEls[n.code] = b;
+});
+
+function highlight(code) {
+  edgeEls.forEach(({ e, path, lbl }) => {
+    const on = !code || e.from === code || e.to === code;
+    path.classList.toggle('dim', !on);
+    if (lbl) lbl.classList.toggle('dim', !on);
+  });
+  Object.entries(nodeEls).forEach(([c, el]) => {
+    const touch = !code || c === code || EDGES.some(e => (e.from === code && e.to === c) || (e.to === code && e.from === c));
+    el.classList.toggle('dim', !touch);
+  });
+}
+
+const zoom = document.getElementById('zoom'), zv = document.getElementById('zoomval');
+zoom.addEventListener('input', () => {
+  const s = zoom.value / 100;
+  board.style.transform = `scale(${s})`;
+  board.parentElement.style.height = (BH * s + 16) + 'px';
+  zv.textContent = zoom.value + '%';
+});
+
+/* matrix */
+const SYM = { ok: '✓', part: '~', no: '✗', na: '·' };
+let cOk = 0, cPart = 0, cNo = 0;
+STATIONS.forEach(n => n.b.forEach(([s]) => { if (s === 'ok') cOk++; else if (s === 'part') cPart++; else if (s === 'no') cNo++; }));
+document.getElementById('cov-ok').textContent = cOk;
+document.getElementById('cov-part').textContent = cPart;
+document.getElementById('cov-no').textContent = cNo;
+
+document.getElementById('mx').innerHTML =
+  `<thead><tr><th class="rowh">Trạm \\ Khối</th>${BLOCKS.map((b, i) => `<th class="colh">${String(i + 1).padStart(2, '0')} ${b}</th>`).join('')}<th class="colh">Điểm</th></tr></thead>` +
+  `<tbody>${STATIONS.map(n => {
+    const s = score(n);
+    return `<tr><th class="rowh">${n.code}</th>${n.b.map(([st], i) =>
+      `<td class="cell"><span class="dot ${st}" title="${n.code} · ${BLOCKS[i]}">${SYM[st]}</span></td>`).join('')}
+      <td class="tot">${s.ok}/12</td></tr>`;
+  }).join('')}</tbody>`;
+
+/* tables */
+function table(el, def) {
+  document.getElementById(el).innerHTML =
+    `<thead><tr>${def.cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>` +
+    `<tbody>${def.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+table('duptbl', DUP); table('deadtbl', DEAD); table('layertbl', LAYERS);
+
+/* specs */
+const LABEL = { ok: 'CÓ', part: 'MỘT PHẦN', no: 'KHÔNG', na: 'N/A' };
+document.getElementById('specs').innerHTML = STATIONS.map(n => {
+  const s = score(n);
+  return `<details class="spec" id="spec-${n.code}">
+    <summary>
+      <span class="s-code">${n.code}</span>
+      <span class="s-name">${n.name}</span>
+      <span class="s-screen">${n.screen}</span>
+      <span class="s-score"><span style="color:var(--accent)">${s.ok} có</span> · <span style="color:var(--warn)">${s.part} một phần</span> · <span style="color:var(--crit)">${s.no} không</span></span>
+    </summary>
+    <div>${n.b.map(([stt, txt], i) => `
+      <div class="blk">
+        <div class="blk-h"><span class="n">${String(i + 1).padStart(2, '0')}</span><span class="t">${BLOCKS[i]}</span></div>
+        <div><span class="st ${stt}">${LABEL[stt]}</span></div>
+        <div class="blk-b"><p>${txt}</p></div>
+      </div>`).join('')}</div>
+  </details>`;
+}).join('');
+
+document.getElementById('specnav').innerHTML = STATIONS.map(n =>
+  `<button class="chip" data-code="${n.code}" aria-pressed="false">${n.code}</button>`).join('');
+
+function select(code) {
+  STATIONS.forEach(n => {
+    const on = n.code === code;
+    nodeEls[n.code].setAttribute('aria-pressed', String(on));
+    document.querySelector(`.chip[data-code="${n.code}"]`).setAttribute('aria-pressed', String(on));
+    document.getElementById('spec-' + n.code).open = on;
+  });
+  document.getElementById('spec-' + code).scrollIntoView({
+    behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+document.getElementById('specnav').addEventListener('click', ev => {
+  const b = ev.target.closest('.chip'); if (b) select(b.dataset.code);
+});
+</script>
+</body>
+</html>

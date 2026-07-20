@@ -1,4 +1,5 @@
-from typing import Optional
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Optional, cast
 from uuid import UUID
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -30,6 +31,11 @@ from clinicai.orchestrator.stubs import (
     scheduling_stub_node,
     task_manager_stub_node,
 )
+
+if TYPE_CHECKING:
+    import asyncpg
+
+OrchestratorNode = Callable[[OrchestratorState], Awaitable[dict[str, Any]]]
 
 _VALID_ROUTES: set[str] = {
     "scheduling",
@@ -83,9 +89,9 @@ def route_by_intent(state: OrchestratorState) -> str:
 
 
 def _make_lab_triage_wrapper_node(
-    pool: Optional[object],
+    pool: Optional["asyncpg.Pool"],
     llm_client: Optional[AnthropicClient],
-):
+) -> OrchestratorNode:
     """Wrap the lab_triage sub-graph behind an orchestrator-state interface.
 
     The sub-graph uses a Pydantic BaseModel state; the orchestrator uses a
@@ -96,7 +102,9 @@ def _make_lab_triage_wrapper_node(
     """
     sub_graph = build_lab_triage_subgraph(pool=pool, llm_client=llm_client)
 
-    async def lab_triage_wrapper(state: OrchestratorState) -> dict:
+    async def lab_triage_wrapper(
+        state: OrchestratorState,
+    ) -> dict[str, Any]:
         lab_result_id = state.get("lab_result_id")
         if not lab_result_id:
             # No specific lab result attached → orchestrator can only ack.
@@ -138,7 +146,9 @@ def _make_lab_triage_wrapper_node(
     return lab_triage_wrapper
 
 
-def _make_task_manager_wrapper_node(pool: object):
+def _make_task_manager_wrapper_node(
+    pool: "asyncpg.Pool",
+) -> OrchestratorNode:
     """Wrap the task_manager sub-graph behind the orchestrator state surface.
 
     Conservative default: today's orchestrator routing only signals "this
@@ -150,7 +160,9 @@ def _make_task_manager_wrapper_node(pool: object):
     """
     sub_graph = build_task_manager_subgraph(pool=pool)
 
-    async def task_manager_wrapper(state: OrchestratorState) -> dict:
+    async def task_manager_wrapper(
+        state: OrchestratorState,
+    ) -> dict[str, Any]:
         sub_state = TaskManagerState()
         result_dict = await sub_graph.ainvoke(sub_state)
 
@@ -170,9 +182,9 @@ def _make_task_manager_wrapper_node(pool: object):
 
 
 def _make_previsit_brief_wrapper_node(
-    pool: object,
+    pool: "asyncpg.Pool",
     llm_client: AnthropicClient,
-):
+) -> OrchestratorNode:
     """Wrap the pre_visit_brief sub-graph behind the orchestrator state surface.
 
     The sub-graph is pull/event-driven: it needs a concrete patient. The
@@ -184,7 +196,9 @@ def _make_previsit_brief_wrapper_node(
     """
     sub_graph = build_pre_visit_brief_subgraph(pool=pool, llm_client=llm_client)
 
-    async def previsit_brief_wrapper(state: OrchestratorState) -> dict:
+    async def previsit_brief_wrapper(
+        state: OrchestratorState,
+    ) -> dict[str, Any]:
         patient_id = state.get("patient_id")
         if not patient_id:
             return {
@@ -214,15 +228,15 @@ def _make_previsit_brief_wrapper_node(
 
 
 def build_orchestrator_graph(
-    checkpointer: Optional[BaseCheckpointSaver] = None,
+    checkpointer: Optional[BaseCheckpointSaver[Any]] = None,
     llm_client: Optional[AnthropicClient] = None,
     use_llm_respond: bool = True,
-    scheduling_pool: Optional[object] = None,
+    scheduling_pool: Optional["asyncpg.Pool"] = None,
     scheduling_location_id: Optional[UUID] = None,
-    lab_triage_pool: Optional[object] = None,
-    task_manager_pool: Optional[object] = None,
-    previsit_pool: Optional[object] = None,
-):
+    lab_triage_pool: Optional["asyncpg.Pool"] = None,
+    task_manager_pool: Optional["asyncpg.Pool"] = None,
+    previsit_pool: Optional["asyncpg.Pool"] = None,
+) -> Any:
     """Factory.
 
     - checkpointer=None → MemorySaver
@@ -286,14 +300,21 @@ def build_orchestrator_graph(
     else:
         previsit_brief_node = previsit_brief_stub_node
 
-    graph = StateGraph(OrchestratorState)
-    graph.add_node("classify_intent", classify_node)
-    graph.add_node("respond", respond)
-    graph.add_node("scheduling_stub", scheduling_node)
-    graph.add_node("lab_triage_stub", lab_triage_node)
-    graph.add_node("communication_stub", communication_stub_node)
-    graph.add_node("task_manager_stub", task_manager_node)
-    graph.add_node("previsit_brief_stub", previsit_brief_node)
+    graph: StateGraph[
+        OrchestratorState,
+        None,
+        OrchestratorState,
+        OrchestratorState,
+    ] = StateGraph(OrchestratorState)
+    # LangGraph's overloads currently infer Never for heterogeneous async
+    # partial-update nodes. Runtime validation still uses OrchestratorState.
+    graph.add_node("classify_intent", cast(Any, classify_node))
+    graph.add_node("respond", cast(Any, respond))
+    graph.add_node("scheduling_stub", cast(Any, scheduling_node))
+    graph.add_node("lab_triage_stub", cast(Any, lab_triage_node))
+    graph.add_node("communication_stub", cast(Any, communication_stub_node))
+    graph.add_node("task_manager_stub", cast(Any, task_manager_node))
+    graph.add_node("previsit_brief_stub", cast(Any, previsit_brief_node))
 
     graph.add_edge(START, "classify_intent")
     graph.add_conditional_edges(
