@@ -1,0 +1,328 @@
+"""Patient CRUD service using asyncpg pool."""
+
+from __future__ import annotations
+
+import datetime
+import re
+from typing import Any
+from uuid import UUID
+
+import asyncpg
+import structlog
+
+from clinicai.api.exceptions import ConflictError
+from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+from clinicai.schemas.patient import (
+    DuplicateMatch,
+    PatientCreateDTO,
+    PatientCreateResult,
+    PatientDTO,
+    PatientUpdateDTO,
+)
+
+logger = structlog.get_logger()
+
+# Columns written on INSERT, in order (patient_code prepended at call site).
+_INSERT_COLUMNS = (
+    "full_name",
+    "date_of_birth",
+    "phone_primary",
+    "phone_secondary",
+    "national_id_number",
+    "location_id",
+    "is_active",
+    "gender",
+    "ethnicity",
+    "nationality",
+    "occupation",
+    "patient_objection",
+    "address",
+    "guardian_name",
+    "birth_year",
+    "province_code",
+    "province_name",
+    "ward_code",
+    "ward_name",
+    "address_detail",
+    "van_de_di_kham",
+    "linh_vuc",
+)
+
+
+def _generate_patient_code(attempt: int = 0) -> str:
+    """Generate a human-readable patient code: BN-YYYY-XXXXXX.
+
+    Year + microsecond-resolution suffix; ``attempt`` adds jitter so a retry
+    after a (rare) UNIQUE clash lands on a different code. The DB column has a
+    UNIQUE constraint as the final safety net.
+    """
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    seq = (int(now.strftime("%f")) + attempt * 7919) % 1_000_000
+    return f"BN-{now.year}-{seq:06d}"
+
+
+def _record_to_dto(record: asyncpg.Record) -> PatientDTO:
+    """Convert an asyncpg Record into a PatientDTO."""
+    return PatientDTO.model_validate(dict(record))
+
+
+def _phone_variants(phone: str) -> list[str]:
+    """Canonicalise a VN phone then return its equivalent STORED spellings.
+
+    Stored data is inconsistent: some rows are ``0987…``, some ``+84987…``
+    (no DB-level format constraint — only the dashboard form forces 10 digits).
+    Comparing the raw input would let ``0987`` miss a stored ``+84987``. So we
+    strip to digits, collapse a leading ``84`` country code to a national ``0``,
+    then expand back to the three common spellings (``0…``, ``84…``, ``+84…``)
+    so a single ``= ANY(...)`` catches every form. Returns ``[]`` for input
+    with no usable digits (caller treats that as "nothing to match").
+    """
+    digits = re.sub(r"\D", "", phone)
+    if not digits:
+        return []
+    if digits.startswith("84"):
+        subscriber = digits[2:]
+    elif digits.startswith("0"):
+        subscriber = digits[1:]
+    else:
+        subscriber = digits
+    return [f"0{subscriber}", f"84{subscriber}", f"+84{subscriber}"]
+
+
+class PatientService:
+    """CRUD operations for the patient table."""
+
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        self._pool = pool
+
+    async def create_patient(self, data: PatientCreateDTO) -> PatientCreateResult:
+        """Register a patient: CCCD/phone guards → insert → non-blocking MPI.
+
+        Order (mirrors the dashboard intake guard it replaces):
+          1. CCCD hard pre-check — UNIQUE, ``force`` does NOT override → 409.
+          2. Phone soft block — same phone_primary already on file and not
+             ``force`` → return ``duplicate`` WITHOUT inserting (operator decides).
+          3. Insert all demographic fields with a generated patient_code.
+          4. Run MPI dedup-queue in the background (never blocks the create).
+        """
+        async with self._pool.acquire() as conn:
+            # 1) CCCD hard conflict (cannot be forced — column is UNIQUE).
+            if data.national_id_number:
+                existing = await conn.fetchrow(
+                    "SELECT patient_code, full_name FROM patient "
+                    "WHERE national_id_number = $1 LIMIT 1;",
+                    data.national_id_number,
+                )
+                if existing:
+                    raise ConflictError(
+                        f"CCCD này đã có hồ sơ "
+                        f"({existing['patient_code']} · {existing['full_name']})."
+                    )
+
+            # 2) Phone soft block — warn, let the operator force (feedback #9).
+            if data.phone_primary and not data.force:
+                dupes = await conn.fetch(
+                    "SELECT clinic_patient_id, patient_code, full_name, "
+                    "date_of_birth FROM patient WHERE phone_primary = $1 LIMIT 5;",
+                    data.phone_primary,
+                )
+                if dupes:
+                    return PatientCreateResult(
+                        duplicate=True,
+                        matches=[DuplicateMatch(**dict(r)) for r in dupes],
+                    )
+
+            # 3) Insert (retry on the rare patient_code UNIQUE clash).
+            dto = await self._insert_patient(conn, data)
+
+        # 4) MPI deduplication (non-blocking — must never fail the create).
+        await self._mpi_autoqueue(dto, data)
+        return PatientCreateResult(patient=dto)
+
+    async def _insert_patient(
+        self, conn: asyncpg.Connection, data: PatientCreateDTO
+    ) -> PatientDTO:
+        """INSERT one patient row, generating patient_code with clash retry."""
+        placeholders = ", ".join(f"${i}" for i in range(1, len(_INSERT_COLUMNS) + 2))
+        query = (
+            f"INSERT INTO patient (patient_code, {', '.join(_INSERT_COLUMNS)}) "
+            f"VALUES ({placeholders}) RETURNING *;"
+        )
+        values = [getattr(data, col) for col in _INSERT_COLUMNS]
+
+        for attempt in range(5):
+            patient_code = _generate_patient_code(attempt)
+            try:
+                row = await conn.fetchrow(query, patient_code, *values)
+            except asyncpg.UniqueViolationError as exc:
+                constraint = (exc.constraint_name or "") + " " + str(exc)
+                if "national_id" in constraint.lower():
+                    # Race after the pre-check — report clearly, don't retry.
+                    raise ConflictError(
+                        "CCCD này vừa được tạo cho hồ sơ khác."
+                    ) from exc
+                # patient_code clash → regenerate and retry.
+                logger.warning("patient_code_clash", patient_code=patient_code)
+                continue
+            logger.info(
+                "patient_created",
+                clinic_patient_id=str(row["clinic_patient_id"]),
+                patient_code=patient_code,
+            )
+            return _record_to_dto(row)
+
+        raise ValidationError("Không tạo được mã BN, thử lại.")
+
+    async def _mpi_autoqueue(self, dto: PatientDTO, data: PatientCreateDTO) -> None:
+        """Queue a merge-review if MPI finds likely-same patients. Best-effort."""
+        try:
+            from clinicai.services.mpi_service import MPIService
+
+            mpi = MPIService()
+            candidates = await mpi.find_candidates(self._pool, data)
+            if candidates:
+                queued = await mpi.auto_queue_if_needed(
+                    self._pool, dto.clinic_patient_id, candidates
+                )
+                if queued:
+                    logger.info(
+                        "mpi_auto_queued",
+                        clinic_patient_id=str(dto.clinic_patient_id),
+                        queue_count=len(queued),
+                    )
+        except Exception:
+            logger.warning(
+                "mpi_dedup_failed",
+                clinic_patient_id=str(dto.clinic_patient_id),
+                exc_info=True,
+            )
+
+    async def get_by_id(self, clinic_patient_id: UUID) -> PatientDTO | None:
+        """Fetch a single patient by primary key. Returns None if absent."""
+        query = "SELECT * FROM patient WHERE clinic_patient_id = $1;"
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, clinic_patient_id)
+        if row is None:
+            return None
+        return _record_to_dto(row)
+
+    async def get_summary_data(self, clinic_patient_id: UUID) -> dict[str, Any] | None:
+        """Return raw summary fields for the tools layer.
+
+        Joins patient + EXISTS pregnancy(ONGOING) + MAX appointment(COMPLETED).
+        Returns None if patient does not exist. The tool layer wraps the dict
+        into PatientSummaryOutput — keeping shaping out of the service.
+        """
+        query = """
+            SELECT
+                p.clinic_patient_id,
+                p.patient_code,
+                p.full_name,
+                p.phone_primary,
+                p.date_of_birth,
+                (
+                    SELECT MAX(a.slot_start)::date
+                    FROM appointment a
+                    WHERE a.clinic_patient_id = p.clinic_patient_id
+                      AND a.status = 'COMPLETED'
+                ) AS last_visit_date,
+                EXISTS (
+                    SELECT 1 FROM pregnancy pr
+                    WHERE pr.clinic_patient_id = p.clinic_patient_id
+                      AND pr.outcome = 'ONGOING'
+                ) AS active_pregnancy
+            FROM patient p
+            WHERE p.clinic_patient_id = $1;
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, clinic_patient_id)
+        if row is None:
+            return None
+        return dict(row)
+
+    async def get_by_phone(self, phone: str) -> list[PatientDTO]:
+        """Return all patients matching a phone number (primary or secondary)."""
+        query = """
+            SELECT * FROM patient
+            WHERE phone_primary = $1 OR phone_secondary = $1
+            ORDER BY created_at DESC;
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, phone)
+        return [_record_to_dto(r) for r in rows]
+
+    async def find_phone_duplicates(self, phone: str) -> list[dict[str, Any]]:
+        """Read-only: patients already on file with this phone (any spelling).
+
+        Returns MINIMAL fields (full_name, patient_code, birth_year) for a soft
+        "shared number?" warning at intake — never blocks creation. ``birth_year``
+        comes from ``date_of_birth`` (year-only patients store ``YYYY-01-01``), so
+        it does not depend on the optional ``birth_year`` column. Does NOT log the
+        phone or names. Returns ``[]`` when the input has no digits.
+        """
+        variants = _phone_variants(phone)
+        if not variants:
+            return []
+        query = """
+            SELECT
+                patient_code,
+                full_name,
+                EXTRACT(YEAR FROM date_of_birth)::int AS birth_year
+            FROM patient
+            WHERE phone_primary = ANY($1::text[])
+               OR phone_secondary = ANY($1::text[])
+            ORDER BY created_at DESC
+            LIMIT 10;
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, variants)
+        return [
+            {
+                "full_name": r["full_name"],
+                "patient_code": r["patient_code"],
+                "birth_year": r["birth_year"],
+            }
+            for r in rows
+        ]
+
+    async def update_patient(
+        self, clinic_patient_id: UUID, data: PatientUpdateDTO
+    ) -> PatientDTO:
+        """Partial-update a patient. Only non-None fields are written."""
+        updates = data.model_dump(exclude_none=True)
+        if not updates:
+            raise ValidationError("No fields to update")
+
+        # Build dynamic SET clause
+        set_parts: list[str] = []
+        values: list[object] = []
+        for idx, (col, val) in enumerate(updates.items(), start=1):
+            set_parts.append(f"{col} = ${idx}")
+            values.append(val)
+
+        # Always touch updated_at
+        set_parts.append(f"updated_at = ${len(values) + 1}")
+        values.append(datetime.datetime.now(tz=datetime.timezone.utc))
+
+        # WHERE clause param
+        values.append(clinic_patient_id)
+        where_idx = len(values)
+
+        query = (
+            f"UPDATE patient SET {', '.join(set_parts)} "
+            f"WHERE clinic_patient_id = ${where_idx} "
+            "RETURNING *;"
+        )
+
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, *values)
+
+        if row is None:
+            raise ResourceNotFoundError(f"Patient {clinic_patient_id} not found")
+
+        logger.info(
+            "patient_updated",
+            clinic_patient_id=str(clinic_patient_id),
+            fields=list(updates.keys()),
+        )
+        return _record_to_dto(row)

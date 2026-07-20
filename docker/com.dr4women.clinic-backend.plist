@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LaunchDAEMON giữ backend ClinicAI sống trên Mac mini M4 (headless, chạy lúc BOOT
+  KHÔNG cần đăng nhập GUI). Cài vào /Library/LaunchDaemons (quyền root), nhưng chạy
+  script dưới danh tính user (UserName) để Colima dùng đúng VM của user.
+
+  ĐÂY LÀ TEMPLATE — thay __REPO__ (clone server), __HOME__, __USER__ trước khi cài
+  (xem docs/deploy-mac-mini.md §E). __REPO__ nên là ~/clinic-server/Clinic-AI-Dr4Women.
+  Chạy clinic-backend-boot.sh lúc boot (RunAtLoad) + lặp mỗi 300s (self-heal).
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.dr4women.clinic-backend</string>
+
+  <!-- Chạy dưới danh tính user (không phải root) để colima/docker dùng đúng home VM. -->
+  <key>UserName</key>
+  <string>__USER__</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/scripts/clinic-backend-boot.sh</string>
+    <string>__REPO__</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>__HOME__</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/clinic-backend-boot.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/clinic-backend-boot.err.log</string>
+</dict>
+</plist>

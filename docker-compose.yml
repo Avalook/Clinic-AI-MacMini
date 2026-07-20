@@ -1,0 +1,167 @@
+# ClinicAI / Dr4Women — self-host stack (Mac mini, Docker/Colima).
+# ONE parameterized compose for BOTH environments. Select env with --env-file:
+#
+#   PROD    : docker compose --env-file .env.prod    -p clinicai_prod    up -d
+#   STAGING : docker compose --env-file .env.staging -p clinicai_staging up -d
+#
+# Prod + staging run side-by-side on the same Mac: different project names (-p),
+# different Caddy host ports (CADDY_HTTP_PORT/HTTPS_PORT), different Supabase.
+# Data lives in Supabase cloud → a Mac crash never loses data.
+#
+# Ingress: Caddy (auto-HTTPS) is the ONLY service bound to public host ports.
+#   api + dashboard are internal-only (reached over the compose network).
+# Public access: put Caddy behind Cloudflare Tunnel (profile `cloudflare`) or
+#   Tailscale Funnel (host-level, see scripts/clinic-backend-boot.sh).
+#
+# Optional profiles:  --profile workers   (RabbitMQ + worker)
+#                     --profile cloudflare (cloudflared tunnel)
+
+services:
+  # ---- Reverse proxy / TLS (public ingress) --------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in the env file}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [internal]
+
+  # ---- Frontend (Next.js standalone) — UI only -----------------------------
+  dashboard:
+    build:
+      context: ./src/dashboard
+      dockerfile: Dockerfile.dashboard
+      args:
+        # PUBLIC anon-tier values, inlined into the client bundle at build time.
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+    image: clinicai-dashboard:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      # Dashboard calls FastAPI over the internal network (never the internet).
+      CLINIC_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks: [internal]
+
+  # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks: [internal]
+
+  # ---- Async worker (opt-in: --profile workers) ----------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    profiles: ["workers"]
+    restart: unless-stopped
+    env_file: [.env]
+    command: ["python", "-m", "clinicai.worker"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks: [internal]
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    profiles: ["workers"]
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clinicai}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-clinicai_dev_pass}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-clinicai}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [internal]
+
+  # ---- Monitoring + logs (bound to localhost → private via Tailscale) ------
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${KUMA_PORT:-3001}:3001"
+    volumes:
+      - kuma_data:/app/data
+    networks: [internal]
+
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DOZZLE_PORT:-8888}:8080"
+    environment:
+      DOZZLE_NO_ANALYTICS: "true"
+      # Basic auth for the log viewer (spec Phase 6: protected). Set in env file.
+      DOZZLE_AUTH_PROVIDER: ${DOZZLE_AUTH_PROVIDER:-none}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [internal]
+
+  # ---- Cloudflare Tunnel (opt-in: --profile cloudflare) --------------------
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ["cloudflare"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      caddy:
+        condition: service_healthy
+    networks: [internal]
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  rabbitmq_data:
+  kuma_data:

@@ -1,0 +1,13 @@
+# Build context hygiene for Dockerfile.dashboard (context = src/dashboard).
+node_modules
+.next
+.git
+
+# NEXT_PUBLIC_* come from build args, not from .env files in the image.
+.env
+.env.*
+
+npm-debug.log*
+*.tsbuildinfo
+Dockerfile.dashboard
+.dockerignore

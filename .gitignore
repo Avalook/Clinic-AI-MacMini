@@ -1,0 +1,100 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+.next/
+out/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+!.env.prod.example
+!.env.staging.example
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Claude Code local artifacts (worktrees = nested git clones, never commit)
+.claude/
+
+# Logs
+*.log
+logs/
+
+# RabbitMQ runtime data
+docker/rabbitmq/data/
+docker/rabbitmq/log/
+docker/rabbitmq/mnesia/
+
+# Data audit / patient data — NEVER commit
+# Anchor to repo root so scripts/data_audit/ (audit tooling) stays tracked.
+/data_audit/
+/data_raw/
+*.csv
+*.xlsx
+*.xls
+# Allow seed CSVs that ship with the repo (clinic master data)
+!src/migrations/seed/**/*.csv
+!src/migrations/seed/**/*.xlsx
+
+# Next.js dashboard (P7a)
+src/dashboard/node_modules/
+src/dashboard/.next/
+src/dashboard/.env.local
+src/dashboard/.env.*.local
+# The global ``lib/`` (Python build artifact) above accidentally hides the
+# dashboard's source ``lib/`` folder — un-ignore it so e.g. supabase-server.ts
+# and current-staff.ts can be tracked.
+!src/dashboard/lib/
+!src/dashboard/lib/**
+
+# Seed ETL artifacts (Task A — contains real patient data, never commit)
+scripts/seed/seed_sample.json
+scripts/seed/*.csv
+
+# T-TRANSFORM-01 staged outputs (real patient data — never commit)
+scripts/data_migration/output/
+
+# DB reset backups (may contain patient PII — never commit)
+scripts/maintenance/backups/

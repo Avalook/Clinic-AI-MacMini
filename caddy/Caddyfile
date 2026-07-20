@@ -1,0 +1,25 @@
+# ClinicAI reverse proxy. The ONLY public-facing service.
+#
+# SITE_ADDRESS controls TLS behaviour:
+#   :80                    → plain HTTP; TLS terminated UPSTREAM by the tunnel
+#                            (Cloudflare Tunnel / Tailscale Funnel). DEFAULT.
+#   dr4women.example.com   → Caddy provisions Let's Encrypt certs itself
+#                            (direct-domain mode; open CADDY_HTTPS_PORT=443).
+{
+	admin off
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Liveness for the compose healthcheck (works in :80 tunnel mode).
+	handle /health {
+		respond "ok" 200
+	}
+
+	# Everything else → Next.js dashboard. The dashboard (UI) calls the FastAPI
+	# backend internally at http://api:8000; the API is never exposed publicly.
+	handle {
+		reverse_proxy dashboard:3000
+	}
+}

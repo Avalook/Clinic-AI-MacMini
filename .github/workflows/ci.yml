@@ -1,0 +1,82 @@
+name: CI
+
+# Runs on both deploy branches AND every PR (spec Phase 5: red blocks merge).
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry 2.4.1
+        run: pip install poetry==2.4.1
+
+      - name: Configure Poetry (in-project venv)
+        run: poetry config virtualenvs.in-project true
+
+      - name: Cache Poetry venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py3.12-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            venv-${{ runner.os }}-py3.12-
+
+      - name: Install dependencies
+        run: poetry install --no-root --with dev
+
+      - name: Ruff lint
+        run: poetry run ruff check src/
+
+      - name: Ruff format check
+        run: poetry run ruff format --check src/
+
+      - name: Mypy
+        run: poetry run mypy src/
+
+      - name: Pytest (skip DB-touching tests)
+        run: poetry run pytest src/tests/ -v --tb=short -m "not db"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/dashboard
+    env:
+      # Dummy public values so `next build` can inline them; real values are set
+      # per-environment at deploy time. Skips runtime env validation for the build.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-build
+      SKIP_ENV_VALIDATION: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (tsc)
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

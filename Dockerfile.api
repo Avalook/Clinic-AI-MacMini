@@ -1,0 +1,41 @@
+# ClinicAI FastAPI service — multi-stage, non-root, no inline secrets.
+# DB is Supabase Cloud (DATABASE_URL via env_file); this image runs the API only.
+
+# ---- builder: resolve deps + install clinicai into an in-project venv ----
+FROM python:3.12-slim AS builder
+
+ENV POETRY_VERSION=2.4.1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    POETRY_NO_INTERACTION=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN pip install "poetry==${POETRY_VERSION}"
+
+WORKDIR /app
+# README.md is required by pyproject (readme=) when poetry builds the root package.
+COPY pyproject.toml poetry.lock README.md ./
+COPY src ./src
+RUN poetry install --only main --no-ansi
+
+# ---- runtime: slim image, only venv + source, run as uid 1000 ----
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+# curl is needed only for the compose healthcheck.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 1000 --create-home --shell /usr/sbin/nologin appuser
+
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/src /app/src
+
+USER 1000
+EXPOSE 8000
+
+CMD ["uvicorn", "clinicai.main:app", "--host", "0.0.0.0", "--port", "8000"]

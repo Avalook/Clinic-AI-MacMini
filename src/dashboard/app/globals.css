@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Hiện tức thì khi đổi trang: chỉ opacity rất nhanh, KHÔNG trượt (tránh cảm
+ * giác chậm/giật). Bắt đầu từ 0.6 nên gần như snap vào ngay. */
+@keyframes pageIn {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.page-in {
+  animation: pageIn 0.12s ease-out;
+}
+
+/* Shimmer cho skeleton loading. */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #ececef;
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: shimmer 1.3s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-in {
+    animation: none;
+  }
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+/* ===== Tay nắm KÉO CO DÃN bảng đơn (góc dưới-phải) =====
+ * Bảng đơn lẻ (không có panel cạnh) vẫn dùng resize góc. Tô nhẹ tông hồng để
+ * thấy nhưng KHÔNG chói. Chỉ WebKit/Chrome/Safari. */
+::-webkit-resizer {
+  background-color: #f7dbe8;
+  border-right: 2px solid #ec4899;
+  border-bottom: 2px solid #ec4899;
+}
+
+/* ===== Thanh cuộn MẢNH, overlay (kiểu Linear / Vercel / macOS) =====
+ * Mảnh, bo tròn, tông nhạt; đậm lên khi hover. `border trong suốt +
+ * background-clip` tạo "đệm" để thumb trông thanh mảnh, sang hơn. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #ecc9da transparent;
+}
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #f0d4e2;
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #e29ec0;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

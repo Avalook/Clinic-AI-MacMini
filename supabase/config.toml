@@ -1,0 +1,18 @@
+# Supabase CLI config for ClinicAI / Dr4Women (self-host, Mac mini).
+# `project_id` is the LOCAL project name; link a real remote with:
+#   supabase link --project-ref <prod-or-staging-ref>
+#   supabase db push          # apply migrations/ to the linked project
+#   supabase db reset         # (local) recreate DB from migrations/ + seed.sql
+project_id = "dr4women-clinic"
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[migration]
+# Enforce that every schema change lands as a file in migrations/ (spec principle #4:
+# no click-ops in the dashboard; all DDL is git-tracked SQL via the CLI).
+enabled = true

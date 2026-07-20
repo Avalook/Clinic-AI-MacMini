@@ -1,0 +1,30 @@
+# Build context hygiene for Dockerfile.api (context = repo root).
+.git
+.gitignore
+.venv
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Secrets never enter the image (API uses env_file at runtime).
+.env
+.env.*
+
+# Node / dashboard — built from its own context, not needed for the API image.
+**/node_modules
+**/.next
+src/dashboard
+
+# RabbitMQ runtime state (named volume handles persistence).
+docker/rabbitmq/data
+docker/rabbitmq/log
+
+# Project meta not needed at build (README.md is kept — pyproject requires it).
+.ai
+context
+final_canon

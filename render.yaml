@@ -1,0 +1,31 @@
+# Render Blueprint — run the Next.js 16 dashboard as a Docker container.
+#
+# Why Docker (not Render's native Node build, and not Vercel): this app uses
+# the Next.js 16 `proxy.ts` middleware, which Vercel's native builder 404s on
+# (every page). The Dockerfile (standalone output) serves it correctly —
+# verified by building + running the image locally (/enter → 200, gate works).
+#
+# Build vs runtime env: the Dockerfile declares ARG NEXT_PUBLIC_* , so Render
+# passes those two env vars as Docker build args (inlined into the client
+# bundle). SUPABASE_SERVICE_ROLE_KEY / CLINIC_SHARED_EMAIL are NOT ARGs, so
+# they stay runtime-only (never baked into the image).
+services:
+  - type: web
+    name: clinic-ai-dr4-women
+    runtime: docker
+    plan: free
+    region: singapore            # closest Render region to Vietnam
+    branch: feat/t-transform-01
+    dockerfilePath: src/dashboard/Dockerfile.dashboard
+    dockerContext: src/dashboard
+    healthCheckPath: /enter
+    autoDeploy: true             # redeploy on every push to the branch
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false              # enter in Render dashboard (public anon-tier)
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false              # secret — runtime only
+      - key: CLINIC_SHARED_EMAIL
+        sync: false
