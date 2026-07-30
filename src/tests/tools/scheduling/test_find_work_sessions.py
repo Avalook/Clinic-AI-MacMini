@@ -52,6 +52,7 @@ async def test_find_work_sessions_returns_sessions_with_doctors() -> None:
         location_id=uuid4(),
         session_date=date(2026, 5, 25),
         session_type="EVENING",
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await find_work_sessions(inp, pool)
 
@@ -75,6 +76,7 @@ async def test_find_work_sessions_empty_result() -> None:
         location_id=uuid4(),
         session_date=date(2026, 5, 30),
         session_type="WEEKEND_MORNING",
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await find_work_sessions(inp, pool)
 
@@ -93,6 +95,7 @@ async def test_find_work_sessions_filters_by_session_type() -> None:
         location_id=loc_id,
         session_date=session_date,
         session_type="WEEKEND_AFTERNOON",
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     await find_work_sessions(inp, pool)
 
@@ -113,6 +116,7 @@ def test_find_work_sessions_input_validation() -> None:
         FindWorkSessionsInput(
             location_id=uuid4(),
             session_date=date(2026, 5, 25),
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
             session_type="MORNING",  # type: ignore[arg-type]  # not in the allowlist
         )
 
@@ -131,6 +135,7 @@ async def test_find_work_sessions_parses_jsonb_string() -> None:
         location_id=uuid4(),
         session_date=date(2026, 5, 25),
         session_type="EVENING",
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await find_work_sessions(inp, pool)
 

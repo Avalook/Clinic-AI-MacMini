@@ -74,9 +74,7 @@ async def main() -> int:
           f"{await pool.fetchval('SELECT public.default_clinic_id()')}\n")
 
     print("=== statements execute ===")
-    await check("query_lab_result (default tenant)", query_lab_result(
-        pool, QueryLabResultFilter(clinic_patient_id=patient), new_trace()))
-    await check("query_lab_result (explicit tenant)", query_lab_result(
+    await check("query_lab_result", query_lab_result(
         pool, QueryLabResultFilter(clinic_patient_id=patient, clinic_id=clinic_id),
         new_trace()))
     await check("query_lab_result (every optional filter)", query_lab_result(
@@ -86,8 +84,8 @@ async def main() -> int:
             date_to=datetime(2030, 1, 1, tzinfo=timezone.utc), is_finalized=True,
             limit=5),
         new_trace()))
-    await check("query_tasks (no filters)", query_tasks(
-        pool, QueryTasksFilter(), new_trace()))
+    await check("query_tasks (tenant only)", query_tasks(
+        pool, QueryTasksFilter(clinic_id=clinic_id), new_trace()))
     await check("query_tasks (all filters)", query_tasks(
         pool, QueryTasksFilter(
             clinic_id=clinic_id, location_id=loc, status="PENDING",
@@ -111,8 +109,14 @@ async def main() -> int:
         clinic_id=other, task_type="W8_PROBE"), new_trace())
     theirs = await query_tasks(pool, QueryTasksFilter(
         clinic_id=clinic_id, task_type="W8_PROBE"), new_trace())
-    default = await query_tasks(
-        pool, QueryTasksFilter(task_type="W8_PROBE"), new_trace())
+    # There is no "unscoped caller" left to test: clinic_id is a required field,
+    # so a query without a tenant does not reach the database — it does not
+    # compile. Assert that instead, since it is the stronger guarantee.
+    try:
+        QueryTasksFilter(task_type="W8_PROBE")  # type: ignore[call-arg]
+        unscoped_refused = False
+    except Exception:
+        unscoped_refused = True
     labs_other = await query_lab_result(pool, QueryLabResultFilter(
         clinic_patient_id=patient, clinic_id=other), new_trace())
     labs_mine = await query_lab_result(pool, QueryLabResultFilter(
@@ -121,7 +125,7 @@ async def main() -> int:
         ("create_task filed the row under the clinic it was given",
          len(mine) == 1 and mine[0].task_id == task.task_id),
         ("the other clinic cannot see it", theirs == []),
-        ("and an unscoped caller sees nothing, not everything", default == []),
+        ("a query cannot even be built without a tenant", unscoped_refused),
         ("a patient's labs are invisible to the wrong clinic", labs_other == []),
         ("and visible to the right one", len(labs_mine) > 0),
     ]:

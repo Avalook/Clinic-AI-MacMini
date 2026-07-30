@@ -167,6 +167,7 @@ async def test_get_staff_by_capability__filters_training() -> None:
         capability=Capability.PHLEBOTOMY.value,
         location_id=location_id,
         exclude_training=True,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
     )
 
     assert len(rows) == 1
@@ -210,6 +211,7 @@ async def test_get_staff_by_capability__filters_inactive() -> None:
         capability=Capability.PHLEBOTOMY.value,
         location_id=location_id,
         exclude_training=True,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
     )
 
     assert len(rows) == 2

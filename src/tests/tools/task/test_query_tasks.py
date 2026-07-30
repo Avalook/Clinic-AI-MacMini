@@ -52,7 +52,9 @@ async def test_query_tasks__overdue_only__returns_overdue(
 
     out = await query_tasks(
         pool,
-        QueryTasksFilter(overdue_only=True),
+        QueryTasksFilter(
+            overdue_only=True, clinic_id=UUID("a0000000-0000-4000-8000-000000000001")
+        ),
         new_trace(),
     )
 
@@ -72,7 +74,9 @@ async def test_query_tasks__filter_by_status__pending_only(
 
     out = await query_tasks(
         pool,
-        QueryTasksFilter(status="PENDING"),
+        QueryTasksFilter(
+            status="PENDING", clinic_id=UUID("a0000000-0000-4000-8000-000000000001")
+        ),
         new_trace(),
     )
 
@@ -95,7 +99,11 @@ async def test_query_tasks__filter_by_source__lab_result(
 
     out = await query_tasks(
         pool,
-        QueryTasksFilter(source_type="LAB_RESULT", source_id=src_id),
+        QueryTasksFilter(
+            source_type="LAB_RESULT",
+            source_id=src_id,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -117,7 +125,9 @@ async def test_query_tasks__limit_respected(
 
     await query_tasks(
         pool,
-        QueryTasksFilter(limit=7),
+        QueryTasksFilter(
+            limit=7, clinic_id=UUID("a0000000-0000-4000-8000-000000000001")
+        ),
         new_trace(),
     )
 
@@ -136,7 +146,7 @@ async def test_query_tasks__empty__returns_list(
 
     out = await query_tasks(
         pool,
-        QueryTasksFilter(),
+        QueryTasksFilter(clinic_id=UUID("a0000000-0000-4000-8000-000000000001")),
         new_trace(),
     )
 

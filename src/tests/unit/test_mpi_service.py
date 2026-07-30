@@ -9,8 +9,19 @@ from uuid import uuid4
 
 import pytest
 
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.schemas.patient import PatientCreateDTO, PatientDTO
 from clinicai.services.mpi_service import MPIService
+
+identity = StaffIdentity(
+    staff_id="s1",
+    auth_user_id="u1",
+    full_name="CSKH test",
+    department="CSKH",
+    role=ClinicRole.CSKH,
+    clinic_id="a0000000-0000-4000-8000-000000000001",
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -212,7 +223,9 @@ async def test_find_candidates_returns_list() -> None:
         phone_primary="0901234567",
         location_id=FAKE_LOCATION,
     )
-    results = await MPIService.find_candidates(pool, data)
+    results = await MPIService.find_candidates(
+        pool, data, "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert len(results) == 2
     conn.fetch.assert_awaited_once()
@@ -238,7 +251,7 @@ async def test_find_candidates_with_national_id() -> None:
         national_id_number="012345678901",
         location_id=FAKE_LOCATION,
     )
-    await MPIService.find_candidates(pool, data)
+    await MPIService.find_candidates(pool, data, "a0000000-0000-4000-8000-000000000001")
 
     sql_arg = conn.fetch.call_args[0][0]
     assert "phone_primary" in sql_arg
@@ -254,7 +267,9 @@ async def test_find_candidates_no_identifiers() -> None:
         full_name="No Phone",
         location_id=FAKE_LOCATION,
     )
-    results = await MPIService.find_candidates(pool, data)
+    results = await MPIService.find_candidates(
+        pool, data, "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert results == []
 
@@ -298,7 +313,9 @@ async def test_auto_queue_above_threshold() -> None:
         }
     )
 
-    queue_ids = await mpi.auto_queue_if_needed(pool, new_id, [candidate])
+    queue_ids = await mpi.auto_queue_if_needed(
+        pool, new_id, [candidate], "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert len(queue_ids) == 1
     # Verify INSERT into mpi_merge_queue was called
@@ -335,7 +352,9 @@ async def test_auto_queue_below_threshold() -> None:
         }
     )
 
-    queue_ids = await mpi.auto_queue_if_needed(pool, new_id, [candidate])
+    queue_ids = await mpi.auto_queue_if_needed(
+        pool, new_id, [candidate], "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert queue_ids == []
     # Only the SELECT for new patient, no INSERT
@@ -351,7 +370,9 @@ async def test_auto_queue_new_patient_not_found() -> None:
     conn.fetchrow.return_value = None  # patient deleted?
 
     candidate = _make_dto()
-    queue_ids = await mpi.auto_queue_if_needed(pool, uuid4(), [candidate])
+    queue_ids = await mpi.auto_queue_if_needed(
+        pool, uuid4(), [candidate], "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert queue_ids == []
 
@@ -384,7 +405,9 @@ async def test_get_pending_queue() -> None:
     ]
     conn.fetch.return_value = fake_rows
 
-    results = await MPIService.get_pending_queue(pool, limit=10)
+    results = await MPIService.get_pending_queue(
+        pool, limit=10, clinic_id="a0000000-0000-4000-8000-000000000001"
+    )
 
     assert len(results) == 2
     conn.fetch.assert_awaited_once()
@@ -421,7 +444,8 @@ async def test_mpi_failure_does_not_block_create() -> None:
                 full_name="Nguyễn Thị Lan",
                 phone_primary="0901234567",
                 location_id=FAKE_LOCATION,
-            )
+            ),
+            identity,
         )
 
     # Patient was still created successfully despite the MPI failure.

@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -93,6 +93,7 @@ async def test_e2e_lab_triage__no_lab_result_id__ack_response() -> None:
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "kết quả xét nghiệm của tôi ra sao?",
     }
@@ -135,6 +136,7 @@ async def test_e2e_lab_triage__group_a_real_subgraph(
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "kết quả xét nghiệm",
         "lab_result_id": row.lab_result_id,
@@ -179,6 +181,7 @@ async def test_e2e_lab_triage__group_c_safety_gate_visible(
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "kết quả xét nghiệm HIV",
         "lab_result_id": row.lab_result_id,
@@ -205,6 +208,7 @@ async def test_e2e_lab_triage__no_pool_falls_back_to_stub() -> None:
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "kết quả xét nghiệm",
     }

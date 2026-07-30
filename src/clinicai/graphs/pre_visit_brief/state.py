@@ -23,6 +23,11 @@ class PreVisitBriefState(BaseModel):
 
     # Input
     clinic_patient_id: UUID
+    # The tenant every query in this sub-graph runs under (ADR-0009). Required:
+    # the backend bypasses RLS, so a graph without a tenant would read across
+    # clinics. There is no sensible default — the caller knows who it is acting
+    # for, the graph does not.
+    clinic_id: UUID
     trace_id: Optional[UUID] = None
 
     # Intermediate

@@ -7,8 +7,19 @@ import pytest
 from dotenv import load_dotenv
 
 from clinicai.api.exceptions import ConflictError
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.schemas.patient import PatientCreateDTO, PatientUpdateDTO
 from clinicai.services.patient_service import PatientService
+
+# PatientService takes the caller now; the tenant rides on the identity.
+identity = StaffIdentity(
+    staff_id="s1",
+    auth_user_id="u1",
+    full_name="CSKH test",
+    department="CSKH",
+    role=ClinicRole.CSKH,
+    clinic_id="a0000000-0000-4000-8000-000000000001",
+)
 
 # Load environment variables from .env
 load_dotenv()
@@ -33,7 +44,7 @@ async def test_create_and_fetch_round_trip(
         location_id=location_id,
         is_active=True,
     )
-    result = await patient_service.create_patient(data)
+    result = await patient_service.create_patient(data, identity)
     assert not result.duplicate
     created = result.patient
     assert created is not None
@@ -44,7 +55,9 @@ async def test_create_and_fetch_round_trip(
     assert created.full_name == "Nguyen Van A"
     assert created.phone_primary == "+84901234567"
 
-    fetched = await patient_service.get_by_id(created.clinic_patient_id)
+    fetched = await patient_service.get_by_id(
+        created.clinic_patient_id, "a0000000-0000-4000-8000-000000000001"
+    )
     assert fetched is not None
     assert fetched.clinic_patient_id == created.clinic_patient_id
     assert fetched.patient_code == created.patient_code
@@ -65,11 +78,13 @@ async def test_get_by_phone_returns_created(
         location_id=location_id,
         is_active=True,
     )
-    created = (await patient_service.create_patient(data)).patient
+    created = (await patient_service.create_patient(data, identity)).patient
     assert created is not None
     cleanup_patients.append(created.patient_code)
 
-    results = await patient_service.get_by_phone(phone)
+    results = await patient_service.get_by_phone(
+        phone, "a0000000-0000-4000-8000-000000000001"
+    )
     assert len(results) >= 1
 
     matched = [p for p in results if p.clinic_patient_id == created.clinic_patient_id]
@@ -89,17 +104,19 @@ async def test_update_patient_persists(
         location_id=location_id,
         is_active=True,
     )
-    created = (await patient_service.create_patient(data)).patient
+    created = (await patient_service.create_patient(data, identity)).patient
     assert created is not None
     cleanup_patients.append(created.patient_code)
 
     update_data = PatientUpdateDTO(full_name="Nguyen Van C Updated")
     updated = await patient_service.update_patient(
-        created.clinic_patient_id, update_data
+        created.clinic_patient_id, update_data, identity
     )
     assert updated.full_name == "Nguyen Van C Updated"
 
-    fetched = await patient_service.get_by_id(created.clinic_patient_id)
+    fetched = await patient_service.get_by_id(
+        created.clinic_patient_id, "a0000000-0000-4000-8000-000000000001"
+    )
     assert fetched is not None
     assert fetched.full_name == "Nguyen Van C Updated"
 
@@ -131,7 +148,7 @@ async def test_duplicate_phone_triggers_mpi_queue(
         location_id=location_id,
         is_active=True,
     )
-    patient_a = (await patient_service.create_patient(data_a)).patient
+    patient_a = (await patient_service.create_patient(data_a, identity)).patient
     assert patient_a is not None
     cleanup_patients.append(patient_a.patient_code)
 
@@ -146,7 +163,7 @@ async def test_duplicate_phone_triggers_mpi_queue(
         is_active=True,
         force=True,
     )
-    patient_b = (await patient_service.create_patient(data_b)).patient
+    patient_b = (await patient_service.create_patient(data_b, identity)).patient
     assert patient_b is not None
     cleanup_patients.append(patient_b.patient_code)
 
@@ -180,7 +197,7 @@ async def test_cannot_duplicate_national_id(
         location_id=location_id,
         is_active=True,
     )
-    patient_a = (await patient_service.create_patient(data_a)).patient
+    patient_a = (await patient_service.create_patient(data_a, identity)).patient
     assert patient_a is not None
     cleanup_patients.append(patient_a.patient_code)
 
@@ -195,6 +212,6 @@ async def test_cannot_duplicate_national_id(
     )
 
     with pytest.raises(ConflictError) as exc_info:
-        await patient_service.create_patient(data_b)
+        await patient_service.create_patient(data_b, identity)
 
     assert "CCCD này đã có hồ sơ" in str(exc_info.value)

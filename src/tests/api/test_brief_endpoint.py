@@ -17,6 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import clinicai.graphs.pre_visit_brief.nodes as _pvb_nodes
+from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.api.v1.routers.brief import get_llm_client
 from clinicai.core.database import get_db_pool
 from clinicai.llm.anthropic_client import LLMResponse
@@ -92,6 +93,14 @@ def override_deps() -> Iterator[None]:
     pool = MagicMock()
     llm = _llm_returning(json.dumps(_VALID_BRIEF_JSON))
     app.dependency_overrides[get_db_pool] = lambda: pool
+    app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
+        staff_id="staff-1",
+        auth_user_id="user-1",
+        full_name="Test Doctor",
+        department="DOCTOR",
+        role=ClinicRole.DOCTOR,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
+    )
     app.dependency_overrides[get_llm_client] = lambda: llm
     yield
     app.dependency_overrides.clear()

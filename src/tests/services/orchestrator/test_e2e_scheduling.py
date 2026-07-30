@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -68,6 +68,7 @@ async def test_e2e_first_turn_scheduling_greeting() -> None:
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "tôi muốn đặt lịch khám",
     }
@@ -90,6 +91,7 @@ async def test_e2e_scheduling_no_pool_falls_back_to_stub() -> None:
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "đặt lịch khám ngày mai",
     }
@@ -122,6 +124,7 @@ async def test_e2e_scheduling_invalid_time_weekday_redirects(
     )
 
     initial: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "sáng",
         "step": "find_doctor",

@@ -34,13 +34,32 @@ def test_role_from_department_unknown_defaults_cskh() -> None:
 
 
 def test_identity_predicates() -> None:
-    doc = StaffIdentity("s1", "u1", "BS A", "DOCTOR", ClinicRole.DOCTOR)
+    doc = StaffIdentity(
+        "s1",
+        "u1",
+        "BS A",
+        "DOCTOR",
+        ClinicRole.DOCTOR,
+        "a0000000-0000-4000-8000-000000000001",
+    )
     assert doc.is_doctor() and doc.can_write_clinical() and not doc.is_cashier()
     nurse = StaffIdentity(
-        "s2", "u2", "ĐD B", "NURSE_ULTRASOUND", ClinicRole.NURSE_ULTRASOUND
+        "s2",
+        "u2",
+        "ĐD B",
+        "NURSE_ULTRASOUND",
+        ClinicRole.NURSE_ULTRASOUND,
+        "a0000000-0000-4000-8000-000000000001",
     )
     assert nurse.can_write_clinical() and not nurse.is_doctor()
-    cashier = StaffIdentity("s3", "u3", "TN C", "CASHIER", ClinicRole.CASHIER)
+    cashier = StaffIdentity(
+        "s3",
+        "u3",
+        "TN C",
+        "CASHIER",
+        ClinicRole.CASHIER,
+        "a0000000-0000-4000-8000-000000000001",
+    )
     assert cashier.is_cashier() and not cashier.can_write_clinical()
 
 
@@ -153,7 +172,14 @@ def test_get_current_identity_no_linked_staff(monkeypatch: pytest.MonkeyPatch) -
 
 # --------------------------- require_role --------------------------- #
 def test_require_role_allows_and_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
-    ident = StaffIdentity("s1", "u1", "BS A", "DOCTOR", ClinicRole.DOCTOR)
+    ident = StaffIdentity(
+        "s1",
+        "u1",
+        "BS A",
+        "DOCTOR",
+        ClinicRole.DOCTOR,
+        "a0000000-0000-4000-8000-000000000001",
+    )
     dep_ok = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
     assert asyncio.run(dep_ok(ident)) is ident
 

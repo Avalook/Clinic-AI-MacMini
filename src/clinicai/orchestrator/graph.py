@@ -116,7 +116,7 @@ def _make_lab_triage_wrapper_node(
         sub_state = LabTriageState(
             lab_result_id=lab_result_id,
             clinic_patient_id=state.get("patient_id"),
-            clinic_id=state.get("clinic_id"),
+            clinic_id=state["clinic_id"],
         )
         result_dict = await sub_graph.ainvoke(sub_state)
 
@@ -164,7 +164,7 @@ def _make_task_manager_wrapper_node(
     async def task_manager_wrapper(
         state: OrchestratorState,
     ) -> dict[str, Any]:
-        sub_state = TaskManagerState()
+        sub_state = TaskManagerState(clinic_id=state["clinic_id"])
         result_dict = await sub_graph.ainvoke(sub_state)
 
         sla_results = result_dict.get("sla_results", []) or []
@@ -209,6 +209,7 @@ def _make_previsit_brief_wrapper_node(
 
         sub_state = PreVisitBriefState(
             clinic_patient_id=patient_id,
+            clinic_id=state["clinic_id"],
             trace_id=state.get("trace_id"),
         )
         result_dict = await sub_graph.ainvoke(sub_state)

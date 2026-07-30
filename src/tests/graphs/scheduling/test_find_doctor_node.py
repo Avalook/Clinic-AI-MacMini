@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -50,6 +50,7 @@ async def test_make_find_doctor_node_success_weekday_evening(
 
     node = make_find_doctor_node(AsyncMock(), uuid4())
     state: SchedulingState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "preferred_date": "2026-05-25",  # Monday
         "preferred_time": "evening",
         "turn_count": 2,
@@ -76,6 +77,7 @@ async def test_no_sessions_found_loops_back_to_ask_date(
 
     node = make_find_doctor_node(AsyncMock(), uuid4())
     state: SchedulingState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "preferred_date": "2026-05-25",
         "preferred_time": "evening",
         "turn_count": 2,
@@ -92,6 +94,7 @@ async def test_invalid_time_for_weekday_redirects_to_ask_time() -> None:
     """morning on a weekday has no session_type → ask_time loop."""
     node = make_find_doctor_node(AsyncMock(), uuid4())
     state: SchedulingState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "preferred_date": "2026-05-25",  # Monday
         "preferred_time": "morning",
         "turn_count": 2,
@@ -114,6 +117,7 @@ async def test_tool_exception_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     node = make_find_doctor_node(AsyncMock(), uuid4())
     state: SchedulingState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "preferred_date": "2026-05-25",
         "preferred_time": "evening",
         "turn_count": 2,

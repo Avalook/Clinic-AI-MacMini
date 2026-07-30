@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.orchestrator.service import OrchestratorService
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
@@ -33,11 +34,13 @@ class ChatOutput(BaseModel):
 @router.post("/chat", response_model=ChatOutput)
 async def chat(
     input: ChatInput,
+    identity: StaffIdentity = Depends(get_current_identity),
     svc: OrchestratorService = Depends(get_orchestrator_service),
 ) -> ChatOutput:
     """Debug endpoint. Phase 9.0 → real LLM dispatch."""
     result = await svc.chat(
         user_message=input.user_message,
+        clinic_id=UUID(identity.clinic_id),
         patient_id=input.patient_id,
         trace_id=input.trace_id,
         thread_id=input.thread_id,

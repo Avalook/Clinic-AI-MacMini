@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.schemas.patient import PatientCreateDTO, PatientUpdateDTO
 from clinicai.services.patient_service import PatientService
@@ -16,6 +17,17 @@ from clinicai.services.patient_service import PatientService
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+# Every PatientService entry point needs a caller now: the tenant comes from
+# the identity, not from a database default (ADR-0009).
+identity = StaffIdentity(
+    staff_id="s1",
+    auth_user_id="u1",
+    full_name="CSKH test",
+    department="CSKH",
+    role=ClinicRole.CSKH,
+    clinic_id="a0000000-0000-4000-8000-000000000001",
+)
 
 FAKE_UUID = uuid4()
 FAKE_LOCATION = uuid4()
@@ -74,7 +86,8 @@ async def test_create_patient_success() -> None:
             date_of_birth=datetime.date(1990, 3, 15),
             phone_primary="0901234567",
             location_id=FAKE_LOCATION,
-        )
+        ),
+        identity,
     )
 
     assert result.duplicate is False
@@ -112,7 +125,8 @@ async def test_create_patient_cccd_conflict_raises() -> None:
                 national_id_number="012345678901",
                 location_id=FAKE_LOCATION,
                 force=True,  # force does NOT bypass a CCCD conflict
-            )
+            ),
+            identity,
         )
 
 
@@ -135,7 +149,8 @@ async def test_create_patient_phone_duplicate_blocks() -> None:
             full_name="Nguyễn Thị Lan",
             phone_primary="0901234567",
             location_id=FAKE_LOCATION,
-        )
+        ),
+        identity,
     )
 
     assert result.duplicate is True
@@ -164,7 +179,8 @@ async def test_create_patient_phone_duplicate_matches_country_code_variant() -> 
             full_name="Nguyễn Thị Lan",
             phone_primary="0901234567",
             location_id=FAKE_LOCATION,
-        )
+        ),
+        identity,
     )
 
     assert result.duplicate is True
@@ -191,7 +207,8 @@ async def test_create_patient_force_bypasses_phone_duplicate() -> None:
             phone_primary="0901234567",
             location_id=FAKE_LOCATION,
             force=True,
-        )
+        ),
+        identity,
     )
 
     assert result.duplicate is False
@@ -216,7 +233,8 @@ async def test_create_patient_generates_patient_code() -> None:
             PatientCreateDTO(
                 full_name="Trần Văn A",
                 location_id=FAKE_LOCATION,
-            )
+            ),
+            identity,
         )
 
     # The generated code was passed as the first positional arg
@@ -232,7 +250,7 @@ async def test_get_by_id_found() -> None:
     conn.fetchrow.return_value = record
 
     svc = PatientService(pool)
-    dto = await svc.get_by_id(FAKE_UUID)
+    dto = await svc.get_by_id(FAKE_UUID, "a0000000-0000-4000-8000-000000000001")
 
     assert dto is not None
     assert dto.clinic_patient_id == FAKE_UUID
@@ -251,7 +269,7 @@ async def test_get_by_id_not_found() -> None:
     conn.fetchrow.return_value = None
 
     svc = PatientService(pool)
-    result = await svc.get_by_id(uuid4())
+    result = await svc.get_by_id(uuid4(), "a0000000-0000-4000-8000-000000000001")
 
     assert result is None
 
@@ -266,7 +284,9 @@ async def test_get_by_phone_returns_list() -> None:
     ]
 
     svc = PatientService(pool)
-    results = await svc.get_by_phone("+84901234567")
+    results = await svc.get_by_phone(
+        "+84901234567", "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert len(results) == 2
     assert all(r.phone_primary == "+84901234567" for r in results)
@@ -288,7 +308,9 @@ async def test_get_by_phone_returns_empty() -> None:
     conn.fetch.return_value = []
 
     svc = PatientService(pool)
-    results = await svc.get_by_phone("+84999999999")
+    results = await svc.get_by_phone(
+        "+84999999999", "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert results == []
 
@@ -347,7 +369,9 @@ async def test_find_phone_duplicates_returns_minimal_fields() -> None:
     ]
 
     svc = PatientService(pool)
-    matches = await svc.find_phone_duplicates("0901234567")
+    matches = await svc.find_phone_duplicates(
+        "0901234567", "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert matches == [
         {
@@ -374,7 +398,12 @@ async def test_find_phone_duplicates_empty_when_no_match() -> None:
     conn.fetch.return_value = []
 
     svc = PatientService(pool)
-    assert await svc.find_phone_duplicates("0987654321") == []
+    assert (
+        await svc.find_phone_duplicates(
+            "0987654321", "a0000000-0000-4000-8000-000000000001"
+        )
+        == []
+    )
 
 
 @pytest.mark.asyncio
@@ -383,7 +412,10 @@ async def test_find_phone_duplicates_skips_db_when_no_digits() -> None:
     pool, conn = _mock_pool_and_conn()
 
     svc = PatientService(pool)
-    assert await svc.find_phone_duplicates("   ") == []
+    assert (
+        await svc.find_phone_duplicates("   ", "a0000000-0000-4000-8000-000000000001")
+        == []
+    )
     conn.fetch.assert_not_awaited()
 
 
@@ -398,6 +430,7 @@ async def test_update_patient_success() -> None:
     dto = await svc.update_patient(
         FAKE_UUID,
         PatientUpdateDTO(full_name="Lê Thị Hoa", is_active=False),
+        identity,
     )
 
     assert dto.full_name == "Lê Thị Hoa"
@@ -423,6 +456,7 @@ async def test_update_patient_not_found() -> None:
         await svc.update_patient(
             missing_id,
             PatientUpdateDTO(full_name="Nobody"),
+            identity,
         )
 
 
@@ -433,7 +467,7 @@ async def test_update_patient_no_fields() -> None:
     svc = PatientService(pool)
 
     with pytest.raises(ValidationError, match="No fields to update"):
-        await svc.update_patient(FAKE_UUID, PatientUpdateDTO())
+        await svc.update_patient(FAKE_UUID, PatientUpdateDTO(), identity)
 
 
 # ---------------------------------------------------------------------------

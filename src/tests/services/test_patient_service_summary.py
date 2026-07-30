@@ -29,7 +29,7 @@ async def test_get_summary_data_not_found_returns_none(
     conn.fetchrow.return_value = None
 
     svc = PatientService(pool)
-    result = await svc.get_summary_data(uuid4())
+    result = await svc.get_summary_data(uuid4(), "a0000000-0000-4000-8000-000000000001")
 
     assert result is None
     conn.fetchrow.assert_awaited_once()

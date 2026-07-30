@@ -42,7 +42,7 @@ class QueryTasksFilter(BaseModel):
     # Tenant of the caller (ADR-0009). Always applied — an unfiltered query
     # would otherwise return every clinic's task list, since the backend runs
     # as the database owner and RLS does not constrain it. None = default.
-    clinic_id: UUID | None = None
+    clinic_id: UUID
     assigned_to: UUID | None = None
     status: str | None = None
     task_type: str | None = None
@@ -116,7 +116,7 @@ async def query_tasks(
     sql = (
         f"SELECT {_SELECT_COLUMNS} "
         f"FROM staff_task "
-        f"WHERE clinic_id = COALESCE($1::uuid, public.default_clinic_id()) "
+        f"WHERE clinic_id = $1::uuid "
         f"{extra_sql}"
         f"ORDER BY {order_by_sql} "
         f"LIMIT ${idx}"

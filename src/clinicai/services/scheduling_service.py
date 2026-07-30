@@ -38,7 +38,7 @@ def _to_appointment_dto(record: asyncpg.Record) -> AppointmentDTO:
 class SchedulingService:
     """Operations for work sessions, staff assignments, and appointments."""
 
-    def __init__(self, pool: asyncpg.Pool, clinic_id: str | None = None) -> None:
+    def __init__(self, pool: asyncpg.Pool, clinic_id: str) -> None:
         self._pool = pool
         # The backend bypasses RLS, so every query below carries the tenant.
         # None resolves to the single clinic while one exists and to NULL once
@@ -49,7 +49,7 @@ class SchedulingService:
     @property
     def _tenant(self) -> str:
         """SQL fragment; pair it with ``self._clinic_id`` as the last parameter."""
-        return "clinic_id = COALESCE(${}::uuid, public.default_clinic_id())"
+        return "clinic_id = ${}::uuid"
 
     # ------------------------------------------------------------------
     # Work Session
@@ -69,7 +69,7 @@ class SchedulingService:
                 location_id, session_date, session_type,
                 start_time, end_time, max_patients
             )
-            VALUES (COALESCE($7::uuid, public.default_clinic_id()),
+            VALUES ($7::uuid,
                     $1, $2, $3, $4, $5, $6)
             RETURNING *;
         """
@@ -123,7 +123,7 @@ class SchedulingService:
                     work_session_id, staff_id, role, station,
                     on_call_flag, is_training
                 )
-                VALUES (COALESCE($7::uuid, public.default_clinic_id()),
+                VALUES ($7::uuid,
                     $1, $2, $3, $4, $5, $6)
                 RETURNING *;
                 """,
@@ -161,14 +161,13 @@ class SchedulingService:
             FROM work_session_staff wss
             JOIN staff s ON s.id = wss.staff_id
             WHERE wss.work_session_id = $1
-              AND wss.clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+              AND wss.clinic_id = $2::uuid
               AND wss.is_training = FALSE
             ORDER BY wss.station;
         """
         async with self._pool.acquire() as conn:
             session_row = await conn.fetchrow(
-                "SELECT id FROM work_session WHERE id = $1 "
-                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
+                "SELECT id FROM work_session WHERE id = $1 AND clinic_id = $2::uuid;",
                 work_session_id,
                 self._clinic_id,
             )
@@ -182,8 +181,7 @@ class SchedulingService:
         """Fetch a work session together with its assigned staff list."""
         async with self._pool.acquire() as conn:
             session_row = await conn.fetchrow(
-                "SELECT * FROM work_session WHERE id = $1 "
-                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
+                "SELECT * FROM work_session WHERE id = $1 AND clinic_id = $2::uuid;",
                 work_session_id,
                 self._clinic_id,
             )
@@ -196,7 +194,7 @@ class SchedulingService:
                 FROM work_session_staff wss
                 JOIN staff s ON s.id = wss.staff_id
                 WHERE wss.work_session_id = $1
-                  AND wss.clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+                  AND wss.clinic_id = $2::uuid
                 ORDER BY wss.station;
                 """,
                 work_session_id,
@@ -236,8 +234,7 @@ class SchedulingService:
                         """
                         SELECT 1 FROM work_session_staff
                         WHERE work_session_id = $1 AND staff_id = $2
-                          AND clinic_id = COALESCE($3::uuid,
-                                                   public.default_clinic_id());
+                          AND clinic_id = $3::uuid;
                         """,
                         data.work_session_id,
                         data.doctor_id,
@@ -258,7 +255,7 @@ class SchedulingService:
                         is_priority_slot, is_walkin, status
                     )
                     VALUES (
-                        COALESCE($13::uuid, public.default_clinic_id()),
+                        $13::uuid,
                         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
                         'SCHEDULED'
                     )
@@ -300,7 +297,7 @@ class SchedulingService:
         async with self._pool.acquire() as conn:
             existing = await conn.fetchrow(
                 "SELECT status FROM appointment WHERE id = $1 "
-                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
+                "AND clinic_id = $2::uuid;",
                 appointment_id,
                 self._clinic_id,
             )
@@ -318,7 +315,7 @@ class SchedulingService:
                     confirmed_at = $2,
                     updated_at = $2
                 WHERE id = $1
-                  AND clinic_id = COALESCE($3::uuid, public.default_clinic_id())
+                  AND clinic_id = $3::uuid
                 RETURNING *;
                 """,
                 appointment_id,
@@ -341,7 +338,7 @@ class SchedulingService:
         async with self._pool.acquire() as conn:
             existing = await conn.fetchrow(
                 "SELECT status FROM appointment WHERE id = $1 "
-                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
+                "AND clinic_id = $2::uuid;",
                 appointment_id,
                 self._clinic_id,
             )
@@ -361,7 +358,7 @@ class SchedulingService:
                     cancellation_reason = $3,
                     updated_at = $2
                 WHERE id = $1
-                  AND clinic_id = COALESCE($4::uuid, public.default_clinic_id())
+                  AND clinic_id = $4::uuid
                 RETURNING *;
                 """,
                 appointment_id,

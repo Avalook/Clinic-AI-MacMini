@@ -95,10 +95,11 @@ async def ask_time_node(state: SchedulingState) -> dict[str, Any]:
     }
 
 
-def make_find_doctor_node(
-    pool: "asyncpg.Pool", location_id: UUID, clinic_id: UUID | None = None
-) -> SchedulingNode:
+def make_find_doctor_node(pool: "asyncpg.Pool", location_id: UUID) -> SchedulingNode:
     """Closure factory: bind asyncpg pool + location_id into find_doctor_node.
+
+    The tenant is NOT bound here — it comes from the state on each turn, so one
+    graph can serve every clinic (ADR-0009).
 
     Uses the real `find_work_sessions` tool to surface doctors available for
     the (location_id, preferred_date, derived session_type) tuple.
@@ -160,7 +161,7 @@ def make_find_doctor_node(
                     location_id=location_id,
                     session_date=preferred_date,
                     session_type=session_type,
-                    clinic_id=clinic_id,
+                    clinic_id=state["clinic_id"],
                 ),
                 pool,
             )

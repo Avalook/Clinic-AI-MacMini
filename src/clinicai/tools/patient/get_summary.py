@@ -23,6 +23,9 @@ class GetPatientSummaryInput(BaseModel):
     """Input schema for the patient.get_summary tool."""
 
     patient_id: UUID
+    # Tenant the tool acts for (ADR-0009). Required: the backend bypasses RLS,
+    # so a tool without a clinic reads every clinic's rows.
+    clinic_id: UUID
     ctx: TraceContext
 
 
@@ -51,7 +54,7 @@ async def get_patient_summary(
     )
 
     service = PatientService(pool)
-    row = await service.get_summary_data(input.patient_id)
+    row = await service.get_summary_data(input.patient_id, str(input.clinic_id))
 
     if row is None:
         raise PatientNotFoundError(f"Patient {input.patient_id} not found")

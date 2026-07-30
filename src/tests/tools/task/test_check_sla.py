@@ -24,7 +24,9 @@ async def test_check_sla__overdue__is_overdue_true_hours_populated(
         return_value={"task_id": task_id, "status": "PENDING", "due_at": past},
     )
 
-    res = await check_task_sla(pool, task_id, new_trace())
+    res = await check_task_sla(
+        pool, task_id, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert res.is_overdue is True
     assert res.hours_overdue is not None
@@ -44,7 +46,9 @@ async def test_check_sla__within_sla__is_overdue_false(
         return_value={"task_id": task_id, "status": "PENDING", "due_at": future},
     )
 
-    res = await check_task_sla(pool, task_id, new_trace())
+    res = await check_task_sla(
+        pool, task_id, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert res.is_overdue is False
     assert res.hours_remaining is not None
@@ -64,7 +68,9 @@ async def test_check_sla__done_task__hours_remaining_none(
         return_value={"task_id": task_id, "status": "DONE", "due_at": past},
     )
 
-    res = await check_task_sla(pool, task_id, new_trace())
+    res = await check_task_sla(
+        pool, task_id, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert res.is_overdue is False
     assert res.hours_remaining is None
@@ -83,7 +89,9 @@ async def test_check_sla__no_due_at__handled_gracefully(
         return_value={"task_id": task_id, "status": "PENDING", "due_at": None},
     )
 
-    res = await check_task_sla(pool, task_id, new_trace())
+    res = await check_task_sla(
+        pool, task_id, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert res.is_overdue is False
     assert res.hours_remaining is None

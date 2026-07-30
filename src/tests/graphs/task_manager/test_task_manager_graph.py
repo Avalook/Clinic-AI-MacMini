@@ -100,7 +100,9 @@ async def test_task_manager__create_task__task_in_state() -> None:
             source_type="LAB_RESULT",
             source_id=created["source_id"],
             sla_hours=4,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
         ),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await graph.ainvoke(state)
 
@@ -126,7 +128,10 @@ async def test_task_manager__query_with_sla__sla_results_populated() -> None:
     graph = build_task_manager_subgraph(pool=pool)
 
     state = TaskManagerState(
-        query_filter=QueryTasksFilter(status="PENDING"),
+        query_filter=QueryTasksFilter(
+            status="PENDING", clinic_id=UUID("a0000000-0000-4000-8000-000000000001")
+        ),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await graph.ainvoke(state)
 
@@ -153,6 +158,7 @@ async def test_task_manager__update_status__updated_task_in_state() -> None:
 
     state = TaskManagerState(
         update_input=UpdateTaskStatusInput(task_id=task_id, status="DONE"),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await graph.ainvoke(state)
 
@@ -171,7 +177,7 @@ async def test_task_manager__no_input__graceful_empty_flow() -> None:
     pool = _build_pool(fetchrow_returns=[], fetch_returns=[])
     graph = build_task_manager_subgraph(pool=pool)
 
-    state = TaskManagerState()
+    state = TaskManagerState(clinic_id=UUID("a0000000-0000-4000-8000-000000000001"))
     out = await graph.ainvoke(state)
 
     assert out.get("created_task") is None
@@ -245,7 +251,11 @@ async def test_task_manager__create_review_tasks__lab_triage_integration(
     )
 
     graph = build_lab_triage_subgraph(pool=pool, llm_client=MagicMock())
-    state = LabTriageState(lab_result_id=lab_id, clinic_patient_id=patient_id)
+    state = LabTriageState(
+        lab_result_id=lab_id,
+        clinic_patient_id=patient_id,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
     result = await graph.ainvoke(state)
 
     assert result["step"] == LabTriageStep.DONE

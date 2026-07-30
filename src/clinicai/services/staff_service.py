@@ -207,7 +207,7 @@ _GET_BY_CAPABILITY_SQL = """
       AND ws.location_id = $2
       AND s.is_active = TRUE
       AND (NOT $3::boolean OR s.is_training = FALSE)
-      AND ws.clinic_id = COALESCE($4::uuid, public.default_clinic_id())
+      AND ws.clinic_id = $4::uuid
 """
 
 
@@ -242,8 +242,8 @@ async def get_staff_by_capability(
     pool: asyncpg.Pool,
     capability: str,
     location_id: UUID,
+    clinic_id: str,
     exclude_training: bool = True,
-    clinic_id: str | None = None,
 ) -> list[dict[str, object]]:
     """Return on-duty staff at `location_id` who hold `capability`.
 

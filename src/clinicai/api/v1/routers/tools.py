@@ -13,6 +13,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, Request
 
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.event_bus.publisher import IEventPublisher, MockEventPublisher
 from clinicai.llm.anthropic_client import AnthropicClient
@@ -148,14 +149,16 @@ async def _task_query(
 @router.post("/task/update-status", response_model=TaskRow)
 async def _task_update_status(
     input: UpdateTaskStatusInput,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> TaskRow:
-    return await update_task_status(pool, input, new_trace())
+    return await update_task_status(pool, input, new_trace(), identity.clinic_id)
 
 
 @router.get("/task/check-sla/{task_id}", response_model=SlaCheckResult)
 async def _task_check_sla(
     task_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> SlaCheckResult:
-    return await check_task_sla(pool, task_id, new_trace())
+    return await check_task_sla(pool, task_id, new_trace(), identity.clinic_id)

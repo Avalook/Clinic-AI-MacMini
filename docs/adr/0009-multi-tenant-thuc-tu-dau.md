@@ -79,8 +79,23 @@ nghiệp vụ nào thiếu `clinic_id`, và không policy nào còn `USING (true
   `npx supabase start`) chạy thật từng câu lệnh đó và khẳng định phòng khám này không
   đọc được dữ liệu phòng khám kia. Audit chỉ đọc chữ; unit test thì mock pool — cả hai
   đều xanh với SQL mà Postgres sẽ từ chối.
-- **Nợ tạm thời:** `clinic_id` có `DEFAULT public.default_clinic_id()` để V1 (chưa biết
-  tenant) chạy tiếp; các query cũng dùng `COALESCE($n, public.default_clinic_id())`.
-  Hàm này trả về NULL ngay khi có phòng khám thứ 2, nên không thể gán nhầm âm thầm —
-  đọc ra rỗng chứ không đọc nhầm sang tenant khác. **Gỡ default** khi mọi lối gọi đều
-  truyền `clinic_id` từ JWT (còn lại: các graph/tool chạy nền).
+- **✅ Đã gỡ default (migration `20260730000014`, 2026-07-30).** `DEFAULT
+  public.default_clinic_id()` bị xoá khỏi **36 bảng**, và 45 chỗ
+  `COALESCE($n, public.default_clinic_id())` trong query cũng biến mất. Cái mở đường
+  cho việc này là sửa **kiểu dữ liệu**: `StaffIdentity.clinic_id` từ `str | None` thành
+  `str`. `get_current_identity` vốn đã 403 khi không có membership, nên `None` là trường
+  hợp **không thể xảy ra** — vậy mà mỗi query phía dưới vẫn phải mang một fallback cho
+  nó. Khai báo đúng sự thật thì mypy chỉ thẳng ra 12 lối gọi nền chưa có tenant (graph,
+  tool, orchestrator), sửa xong là fallback thành thừa.
+- **Giờ quên tenant là hỏng ngay và hỏng giống nhau** dù có 1 hay 50 phòng khám. Trước
+  đây trường hợp 1 phòng khám là ngoại lệ che lỗi cho tới ngày có phòng khám thứ 2 —
+  đúng lúc lỗi đắt nhất.
+- **Hàng con thừa kế tenant từ hàng cha:** `work_item_dependency` và `work_item_event`
+  không có tenant riêng — cạnh thuộc về phòng khám sở hữu hai đầu, sự kiện thuộc về
+  work item sinh ra nó. Trước đây chúng lấy từ column DEFAULT (nên bài test "event phải
+  thừa kế tenant" thực chất chỉ đang kiểm tra default hoạt động). Nay có trigger **tra
+  từ cha** — không phải đoán — và **từ chối** cạnh nối hai phòng khám khác nhau, thứ mà
+  trước đây được nhận rồi âm thầm dán nhãn default.
+- **Hàm `default_clinic_id()` vẫn còn**, chỉ còn `staff_ensure_default_membership` dùng,
+  và hàm đó đã tự no-op khi có từ 2 phòng khám. Bỏ hẳn hàm sẽ phải viết lại trigger
+  onboarding — việc khác, quyết định khác.

@@ -115,7 +115,7 @@ async def test_create_work_session_success() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = _make_session_record()
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     dto = await svc.create_work_session(
         WorkSessionCreateDTO(
             location_id=FAKE_LOCATION_ID,
@@ -141,7 +141,7 @@ async def test_create_work_session_duplicate_raises() -> None:
         "duplicate key value violates unique constraint"
     )
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     with pytest.raises(ValidationError, match="already exists"):
         await svc.create_work_session(
             WorkSessionCreateDTO(
@@ -172,7 +172,7 @@ async def test_assign_staff_snapshot_training() -> None:
         wss_record,  # INSERT into work_session_staff
     ]
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     dto = await svc.assign_staff_to_session(
         WorkSessionStaffAssignDTO(
             work_session_id=FAKE_SESSION_ID,
@@ -196,7 +196,7 @@ async def test_assign_staff_not_found_raises() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = None  # staff not found
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     with pytest.raises(ResourceNotFoundError):
         await svc.assign_staff_to_session(
             WorkSessionStaffAssignDTO(
@@ -220,7 +220,7 @@ async def test_create_appointment_success() -> None:
     # No work_session_id → no on-duty check
     conn.fetchrow.return_value = _make_appt_record({"work_session_id": None})
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     dto = await svc.create_appointment(
         AppointmentCreateDTO(
             clinic_patient_id=FAKE_PATIENT_ID,
@@ -242,7 +242,7 @@ async def test_create_appointment_success() -> None:
 async def test_create_appointment_invalid_slot_raises() -> None:
     """create_appointment raises ValidationError when slot_end <= slot_start."""
     pool, _conn = _mock_pool_and_conn()
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
 
     with pytest.raises(Exception):
         await svc.create_appointment(
@@ -265,7 +265,7 @@ async def test_create_appointment_capacity_check_violation_is_conflict() -> None
     conn.fetchrow.side_effect = asyncpg.CheckViolationError(
         "Khung giờ đã đầy: tối đa 2 chỗ lịch hẹn"
     )
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
 
     with pytest.raises(ConflictError, match="Khung giờ đã đầy"):
         await svc.create_appointment(
@@ -283,7 +283,7 @@ async def test_create_appointment_capacity_check_violation_is_conflict() -> None
 async def test_unrelated_appointment_check_violation_is_not_mislabeled() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.side_effect = asyncpg.CheckViolationError("appointment_status_check")
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
 
     with pytest.raises(asyncpg.CheckViolationError, match="appointment_status_check"):
         await svc.create_appointment(
@@ -306,7 +306,7 @@ async def test_confirm_appointment_success() -> None:
         _make_appt_record({"status": "CONFIRMED", "confirmed_at": FAKE_NOW}),
     ]
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     dto = await svc.confirm_appointment(FAKE_APPT_ID)
 
     assert dto.status == "CONFIRMED"
@@ -319,7 +319,7 @@ async def test_confirm_appointment_wrong_status_raises() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = {"status": "CONFIRMED"}
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     with pytest.raises(ValidationError, match="CONFIRMED"):
         await svc.confirm_appointment(FAKE_APPT_ID)
 
@@ -339,7 +339,7 @@ async def test_cancel_appointment_success() -> None:
         ),
     ]
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     dto = await svc.cancel_appointment(FAKE_APPT_ID, reason="Patient request")
 
     assert dto.status == "CANCELLED"
@@ -352,7 +352,7 @@ async def test_cancel_completed_appointment_raises() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = {"status": "COMPLETED"}
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     with pytest.raises(ValidationError, match="COMPLETED"):
         await svc.cancel_appointment(FAKE_APPT_ID, reason="Late cancellation")
 
@@ -363,6 +363,6 @@ async def test_cancel_already_cancelled_raises() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = {"status": "CANCELLED"}
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     with pytest.raises(ValidationError, match="CANCELLED"):
         await svc.cancel_appointment(FAKE_APPT_ID, reason="Duplicate cancel")

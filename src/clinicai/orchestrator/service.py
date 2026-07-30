@@ -38,6 +38,7 @@ class OrchestratorService:
     async def chat(
         self,
         user_message: str,
+        clinic_id: UUID,
         patient_id: Optional[UUID] = None,
         trace_id: Optional[UUID] = None,
         thread_id: Optional[str] = None,
@@ -50,6 +51,7 @@ class OrchestratorService:
             "trace_id": trace_id,
             "user_message": user_message,
             "patient_id": patient_id,
+            "clinic_id": clinic_id,
         }
         config = {"configurable": {"thread_id": thread_id}}
         try:

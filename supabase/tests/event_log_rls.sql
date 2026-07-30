@@ -89,6 +89,7 @@ VALUES
 
 INSERT INTO public.event_log (
     event_id,
+    clinic_id,
     event_type,
     aggregate_type,
     aggregate_id,
@@ -97,6 +98,7 @@ INSERT INTO public.event_log (
 )
 VALUES (
     '30000000-0000-0000-0000-000000000001',
+    'a0000000-0000-4000-8000-000000000001',
     'patient.updated',
     'patient',
     '40000000-0000-0000-0000-000000000001',

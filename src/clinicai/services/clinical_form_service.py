@@ -120,7 +120,7 @@ class ClinicalFormService:
                 known_code = await conn.fetchval(
                     "SELECT 1 FROM clinical_form_catalogue "
                     "WHERE form_code = $1 AND is_active "
-                    "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id()) "
+                    "AND clinic_id = $2::uuid "
                     "LIMIT 1",
                     code,
                     identity.clinic_id,

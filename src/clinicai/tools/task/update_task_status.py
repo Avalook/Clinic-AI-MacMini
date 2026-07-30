@@ -33,7 +33,7 @@ _UPDATE_SQL = """
        SET status = $2,
            completed_at = $3
      WHERE task_id = $1
-       AND clinic_id = COALESCE($4::uuid, public.default_clinic_id())
+       AND clinic_id = $4::uuid
     RETURNING task_id, location_id, task_type, priority, status,
               assigned_to, source_type, source_id, title, description,
               due_at, sla_hours, completed_at, created_at, updated_at
@@ -57,7 +57,7 @@ async def update_task_status(
     pool: asyncpg.Pool,
     input: UpdateTaskStatusInput,
     trace: TraceContext,
-    clinic_id: str | None = None,
+    clinic_id: str,
 ) -> TaskRow:
     """Update a staff_task's status; auto-populate completed_at for DONE.
 

@@ -85,7 +85,7 @@ class MPIService:
     async def find_candidates(
         pool: asyncpg.Pool,
         data: PatientCreateDTO,
-        clinic_id: str | None = None,
+        clinic_id: str,
     ) -> list[PatientDTO]:
         """Find existing patients that may match the incoming data.
 
@@ -117,8 +117,7 @@ class MPIService:
         # merging across tenants would be wrong as well as a leak (W8).
         params.append(clinic_id)
         query = (  # noqa: S608
-            f"SELECT * FROM patient WHERE ({where}) "
-            f"AND clinic_id = COALESCE(${idx}::uuid, public.default_clinic_id());"
+            f"SELECT * FROM patient WHERE ({where}) AND clinic_id = ${idx}::uuid;"
         )
 
         async with pool.acquire() as conn:
@@ -135,7 +134,7 @@ class MPIService:
         pool: asyncpg.Pool,
         new_patient_id: UUID,
         candidates: list[PatientDTO],
-        clinic_id: str | None = None,
+        clinic_id: str,
     ) -> list[UUID]:
         """Insert into mpi_merge_queue for each candidate scoring >= threshold.
 
@@ -147,7 +146,7 @@ class MPIService:
             INSERT INTO mpi_merge_queue (
                 clinic_id, patient_id_a, patient_id_b, score, status
             )
-            VALUES (COALESCE($4::uuid, public.default_clinic_id()),
+            VALUES ($4::uuid,
                     $1, $2, $3, 'PENDING')
             RETURNING id;
         """
@@ -161,8 +160,7 @@ class MPIService:
                 # We need the new patient's data — fetch it
                 new_row = await conn.fetchrow(
                     "SELECT * FROM patient WHERE clinic_patient_id = $1 "
-                    "AND clinic_id = COALESCE($2::uuid, "
-                    "public.default_clinic_id());",
+                    "AND clinic_id = $2::uuid;",
                     new_patient_id,
                     clinic_id,
                 )
@@ -208,14 +206,14 @@ class MPIService:
     @staticmethod
     async def get_pending_queue(
         pool: asyncpg.Pool,
+        clinic_id: str,
         limit: int = 20,
-        clinic_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch pending MPI merge queue entries sorted by score DESC."""
         query = """
             SELECT * FROM mpi_merge_queue
             WHERE status = 'PENDING'
-              AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+              AND clinic_id = $2::uuid
             ORDER BY score DESC
             LIMIT $1;
         """

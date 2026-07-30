@@ -49,7 +49,7 @@ _FETCH_BY_ID_SQL = """
            lab_provider, sample_collected_at, result_received_at
     FROM lab_result
     WHERE lab_result_id = $1
-      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+      AND clinic_id = $2::uuid
     LIMIT 1
 """
 

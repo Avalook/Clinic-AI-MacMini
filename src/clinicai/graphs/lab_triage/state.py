@@ -29,10 +29,10 @@ class LabTriageState(BaseModel):
     # Input từ orchestrator
     lab_result_id: Optional[UUID] = None
     clinic_patient_id: Optional[UUID] = None
-    # The tenant the caller acts in (ADR-0009). The graph runs in the backend,
-    # which bypasses RLS, so the fetch has to filter on this itself. None falls
-    # back to the default clinic, which is correct while there is only one.
-    clinic_id: Optional[UUID] = None
+    # The tenant the caller acts in (ADR-0009). Required: the graph runs in the
+    # backend, which bypasses RLS, so without it the fetch would reach every
+    # clinic. There is no default worth guessing.
+    clinic_id: UUID
 
     # Loaded by fetch_node
     lab_result_row: Optional[Any] = None  # tools.lab.query_lab_result.LabResultRow

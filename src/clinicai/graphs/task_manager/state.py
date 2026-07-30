@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +21,12 @@ class TaskManagerState(BaseModel):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # The tenant every query in this sub-graph runs under (ADR-0009). Required:
+    # the backend bypasses RLS, so a graph without a tenant would read across
+    # clinics. There is no sensible default — the caller knows who it is acting
+    # for, the graph does not.
+    clinic_id: UUID
 
     # Input: create
     task_input: Optional[CreateTaskInput] = None

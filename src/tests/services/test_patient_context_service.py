@@ -161,7 +161,9 @@ async def test_aggregate__pregnant_patient__pregnancy_fields_populated() -> None
         ultrasounds=[],
     )
 
-    ctx = await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+    ctx = await aggregate_patient_context(
+        pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert isinstance(ctx, PatientContext)
     assert ctx.current_pregnancy_id is not None
@@ -181,7 +183,9 @@ async def test_aggregate__no_recent_visits__last_visit_none_no_error() -> None:
         ultrasounds=[],
     )
 
-    ctx = await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+    ctx = await aggregate_patient_context(
+        pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert ctx.last_visit_date is None
     assert ctx.last_visit_summary is None
@@ -207,7 +211,9 @@ async def test_aggregate__group_c_pending__included_in_pending_lab_review() -> N
         ultrasounds=[],
     )
 
-    ctx = await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+    ctx = await aggregate_patient_context(
+        pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert len(ctx.latest_lab_results) == 2
     assert len(ctx.pending_lab_review) == 1
@@ -226,7 +232,9 @@ async def test_aggregate__patient_not_found__raises_value_error() -> None:
     )
 
     with pytest.raises(PatientNotFoundError):
-        await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+        await aggregate_patient_context(
+            pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+        )
 
 
 @pytest.mark.asyncio
@@ -247,7 +255,9 @@ async def test_aggregate__view_columns_propagated__phone_visits_next_appt() -> N
         ultrasounds=[],
     )
 
-    ctx = await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+    ctx = await aggregate_patient_context(
+        pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert ctx.phone_primary == "0987654321"
     assert ctx.total_visits == 3
@@ -278,7 +288,9 @@ async def test_aggregate__ultrasound_records__exposed_in_summary() -> None:
         ],
     )
 
-    ctx = await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+    ctx = await aggregate_patient_context(
+        pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert len(ctx.latest_ultrasound_summary) == 2
     assert ctx.latest_ultrasound_summary[0]["ultrasound_type"] == "2D"
@@ -297,7 +309,9 @@ async def test_aggregate__no_medical_profile__defaults_empty_lists() -> None:
         ultrasounds=[],
     )
 
-    ctx = await aggregate_patient_context(pool, _PATIENT_ID, new_trace())
+    ctx = await aggregate_patient_context(
+        pool, _PATIENT_ID, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     assert ctx.blood_type is None
     assert ctx.chronic_diseases == []

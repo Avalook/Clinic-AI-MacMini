@@ -137,7 +137,7 @@ def _default_overrides() -> Iterator[None]:
         full_name="Test Doctor",
         department="BS",
         role=ClinicRole.DOCTOR,
-        clinic_id=None,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
     )
     yield
     app.dependency_overrides.pop(get_db_pool, None)

@@ -109,23 +109,26 @@ INSERT INTO public.clinic_location (id, clinic_id, code, name)
 VALUES ('d0000000-0000-4000-8000-0000000000a1',
         'a0000000-0000-4000-8000-000000000001', 'CS-WI', 'Cơ sở test');
 
-INSERT INTO public.patient (clinic_patient_id, patient_code, full_name, location_id)
-VALUES ('e0000000-0000-4000-8000-0000000000a1', 'BN-WI-001', 'BN kernel test',
+INSERT INTO public.patient
+    (clinic_id, clinic_patient_id, patient_code, full_name, location_id)
+VALUES ('a0000000-0000-4000-8000-000000000001',
+        'e0000000-0000-4000-8000-0000000000a1', 'BN-WI-001', 'BN kernel test',
         'd0000000-0000-4000-8000-0000000000a1');
 
 -- Three items: check-in, vitals, close. Vitals waits on check-in (FS).
-INSERT INTO public.work_item (id, node_code, clinic_patient_id, status, priority)
+INSERT INTO public.work_item
+    (clinic_id, id, node_code, clinic_patient_id, status, priority)
 VALUES
-    ('f0000000-0000-4000-8000-00000000000a', 'LUOTKHAM-01',
+    ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000a', 'LUOTKHAM-01',
      'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0'),
-    ('f0000000-0000-4000-8000-00000000000b', 'LUOTKHAM-03',
+    ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000b', 'LUOTKHAM-03',
      'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0'),
-    ('f0000000-0000-4000-8000-00000000000c', 'LUOTKHAM-15',
+    ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000c', 'LUOTKHAM-15',
      'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0');
 
 INSERT INTO public.work_item_dependency
-    (predecessor_work_item_id, successor_work_item_id, dependency_type)
-VALUES ('f0000000-0000-4000-8000-00000000000a',
+    (clinic_id, predecessor_work_item_id, successor_work_item_id, dependency_type)
+VALUES ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000a',
         'f0000000-0000-4000-8000-00000000000b', 'FS');
 
 DO $fs_gate$
@@ -271,6 +274,9 @@ END
 $status_and_timestamps_agree$;
 
 DO $history_is_tenant_scoped$
+DECLARE
+    other_clinic uuid := 'c9000000-0000-4000-8000-0000000000ff';
+    rejected boolean := false;
 BEGIN
     INSERT INTO public.work_item_event
         (work_item_id, command, from_status, to_status)
@@ -280,6 +286,27 @@ BEGIN
          WHERE work_item_id = 'f0000000-0000-4000-8000-00000000000c')
        <> 'a0000000-0000-4000-8000-000000000001'::uuid THEN
         RAISE EXCEPTION 'events must inherit the tenant';
+    END IF;
+
+    -- Inherited from the parent, not from a column DEFAULT: the default is gone
+    -- (20260730000014), and a caller naming a different clinic is refused
+    -- rather than quietly relabelled.
+    INSERT INTO public.clinic (id, code, name)
+    VALUES (other_clinic, 'WK-OTHER', 'Phòng khám khác')
+    ON CONFLICT (id) DO NOTHING;
+
+    BEGIN
+        INSERT INTO public.work_item_event
+            (work_item_id, clinic_id, command, from_status, to_status)
+        VALUES ('f0000000-0000-4000-8000-00000000000c', other_clinic,
+                'complete', 'IN_PROGRESS', 'COMPLETED');
+    EXCEPTION WHEN raise_exception THEN
+        rejected := true;
+    END;
+
+    IF NOT rejected THEN
+        RAISE EXCEPTION
+            'an event claiming another clinic must be refused, not relabelled';
     END IF;
 END
 $history_is_tenant_scoped$;

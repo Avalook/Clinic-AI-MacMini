@@ -30,7 +30,7 @@ async def enqueue(
     kind: str,
     subject_id: str,
     payload: dict[str, Any],
-    clinic_id: str | None = None,
+    clinic_id: str,
 ) -> None:
     """Queue one push, inside the caller's transaction.
 
@@ -41,7 +41,7 @@ async def enqueue(
     await conn.execute(
         """
         INSERT INTO pos_outbox (kind, subject_id, payload, clinic_id)
-        VALUES ($1, $2::uuid, $3, COALESCE($4::uuid, public.default_clinic_id()))
+        VALUES ($1, $2::uuid, $3, $4::uuid)
         ON CONFLICT ON CONSTRAINT uq_pos_outbox_subject DO NOTHING
         """,
         kind,

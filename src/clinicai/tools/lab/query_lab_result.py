@@ -88,7 +88,7 @@ class QueryLabResultFilter(BaseModel):
     # id alone is not a boundary: it is supplied by the caller and a patient of
     # another clinic would read back that clinic's results. None means "the
     # default clinic", which is the single-tenant case.
-    clinic_id: UUID | None = None
+    clinic_id: UUID
     test_code: str | None = None
     group: TriageGroup | None = None
     date_from: datetime | None = None
@@ -152,7 +152,7 @@ async def query_lab_result(
     sql = (
         f"SELECT {_SELECT_COLUMNS} "
         f"FROM lab_result "
-        f"WHERE clinic_id = COALESCE($2::uuid, public.default_clinic_id()) "
+        f"WHERE clinic_id = $2::uuid "
         f"AND {' AND '.join(where_clauses)} "
         f"ORDER BY {order_by_sql} "
         f"LIMIT ${idx}"

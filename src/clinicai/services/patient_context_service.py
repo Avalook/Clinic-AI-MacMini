@@ -103,7 +103,7 @@ _PATIENT_SUMMARY_SQL = """
         next_appointment_status
     FROM patient_summary
     WHERE clinic_patient_id = $1
-      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+      AND clinic_id = $2::uuid
     LIMIT 1
 """
 
@@ -115,7 +115,7 @@ _MEDICAL_PROFILE_SQL = """
         current_medications
     FROM patient_medical_profile
     WHERE clinic_patient_id = $1
-      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+      AND clinic_id = $2::uuid
     LIMIT 1
 """
 
@@ -130,7 +130,7 @@ _CURRENT_PREGNANCY_SQL = """
         high_risk_reason
     FROM pregnancy
     WHERE clinic_patient_id = $1
-      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+      AND clinic_id = $2::uuid
       AND outcome = 'ONGOING'
     ORDER BY created_at DESC
     LIMIT 1
@@ -151,7 +151,7 @@ _RECENT_LABS_SQL = """
         result_received_at
     FROM lab_result
     WHERE clinic_patient_id = $1
-      AND clinic_id = COALESCE($3::uuid, public.default_clinic_id())
+      AND clinic_id = $3::uuid
     ORDER BY result_received_at DESC
     LIMIT $2
 """
@@ -166,7 +166,7 @@ _LATEST_ULTRASOUND_SQL = """
         performed_at
     FROM ultrasound_record
     WHERE clinic_patient_id = $1
-      AND clinic_id = COALESCE($3::uuid, public.default_clinic_id())
+      AND clinic_id = $3::uuid
     ORDER BY COALESCE(performed_at, created_at) DESC
     LIMIT $2
 """
@@ -284,7 +284,7 @@ async def aggregate_patient_context(
     pool: "asyncpg.Pool",
     clinic_patient_id: UUID,
     trace: TraceContext,
-    clinic_id: str | None = None,
+    clinic_id: str,
 ) -> PatientContext:
     """Aggregate patient data for the pre-visit brief.
 

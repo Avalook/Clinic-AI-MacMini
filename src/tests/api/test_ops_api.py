@@ -39,7 +39,14 @@ def overrides(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]
 
 
 def _identity(role: ClinicRole) -> StaffIdentity:
-    return StaffIdentity("staff-1", "user-1", "Test User", role.value, role)
+    return StaffIdentity(
+        "staff-1",
+        "user-1",
+        "Test User",
+        role.value,
+        role,
+        "a0000000-0000-4000-8000-000000000001",
+    )
 
 
 def test_ops_status_rejects_non_management() -> None:

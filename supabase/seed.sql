@@ -31,9 +31,9 @@ SET row_security = off;
 -- Data for Name: clinic_location; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO public.clinic_location (id, code, name, address, is_active, created_at) VALUES
-    ('fe45d9f6-0d67-428d-9d16-5ba5c36befff', 'KN', 'Kim Ngưu', '99 Kim Ngưu, Hai Bà Trưng, Hà Nội', 't', '2026-06-19 04:45:46.078292+00'),
-    ('b4607cb5-3ff1-4c20-9115-147f06aeac1b', 'HN', 'Hào Nam', '12 Hào Nam, Đống Đa, Hà Nội', 'f', '2026-06-19 04:45:46.078292+00');
+INSERT INTO public.clinic_location (id, code, name, address, is_active, created_at, clinic_id) VALUES
+    ('fe45d9f6-0d67-428d-9d16-5ba5c36befff', 'KN', 'Kim Ngưu', '99 Kim Ngưu, Hai Bà Trưng, Hà Nội', 't', '2026-06-19 04:45:46.078292+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('b4607cb5-3ff1-4c20-9115-147f06aeac1b', 'HN', 'Hào Nam', '12 Hào Nam, Đống Đa, Hà Nội', 'f', '2026-06-19 04:45:46.078292+00', 'a0000000-0000-4000-8000-000000000001');
 
 --
 -- PostgreSQL database dump complete
@@ -62,21 +62,21 @@ SET row_security = off;
 -- Data for Name: service_type; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO public.service_type (id, code, name, default_duration_minutes, is_active, created_at) VALUES
-    ('a5de63b7-84d7-48b6-95d9-b558fa4c5807', 'SAN_1', 'Sản 1', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('95707b7b-61c8-4b78-8fb1-f70491ecc1ed', 'SAN_2', 'Sản 2', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('94a3d45f-a905-4155-b255-33c0c833ddca', 'SAN_3', 'Sản 3', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('c0b819cf-2773-4396-b5b8-0c6bc3b3e1ee', 'NPDH', 'NPĐH', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('5701287c-508f-4593-83f2-cb1a9954a1d6', 'HO_SO_SINH', 'Hồ sơ sinh', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('ee8303c3-4d85-4d29-b2a1-924e4f3622c1', 'TIEN_HON_NHAN', 'Tiền hôn nhân', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('f7ddb595-553c-4944-bff8-3e7035c54384', 'HIEM_MUON', 'Hiếm muộn', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('81415f94-b32b-4e75-92dd-390e687c5c0d', 'NOI_TIET_TINH_DUC', 'Nội tiết - Tình dục', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('c4e10cb8-1432-4ada-9355-d44df0bf06cf', 'PHU_KHOA', 'Phụ khoa', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('50c503a4-9d59-4a99-91f8-1987a83d4c11', 'NAM_KHOA', 'Nam khoa', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('e0ea9f0b-fa4b-446d-8869-41b2bfabef9b', 'TU_VAN_CHUYEN_SAU', 'Tư vấn chuyên sâu', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('048a59e3-0620-4f48-b392-8661ce0a3e64', 'THU_THUAT', '***#Thủ thuật', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('af545864-a967-41cf-9274-869d5483bd40', 'FREE', 'FREE', '30', 't', '2026-06-19 04:45:46.928117+00'),
-    ('a478cb9b-c659-4529-adef-ea1d742ae420', 'KHAM_TIEN_SAN', 'Khám tiền sản', '30', 't', '2026-06-19 04:45:46.928117+00');
+INSERT INTO public.service_type (id, code, name, default_duration_minutes, is_active, created_at, clinic_id) VALUES
+    ('a5de63b7-84d7-48b6-95d9-b558fa4c5807', 'SAN_1', 'Sản 1', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('95707b7b-61c8-4b78-8fb1-f70491ecc1ed', 'SAN_2', 'Sản 2', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('94a3d45f-a905-4155-b255-33c0c833ddca', 'SAN_3', 'Sản 3', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('c0b819cf-2773-4396-b5b8-0c6bc3b3e1ee', 'NPDH', 'NPĐH', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5701287c-508f-4593-83f2-cb1a9954a1d6', 'HO_SO_SINH', 'Hồ sơ sinh', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('ee8303c3-4d85-4d29-b2a1-924e4f3622c1', 'TIEN_HON_NHAN', 'Tiền hôn nhân', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('f7ddb595-553c-4944-bff8-3e7035c54384', 'HIEM_MUON', 'Hiếm muộn', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('81415f94-b32b-4e75-92dd-390e687c5c0d', 'NOI_TIET_TINH_DUC', 'Nội tiết - Tình dục', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('c4e10cb8-1432-4ada-9355-d44df0bf06cf', 'PHU_KHOA', 'Phụ khoa', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('50c503a4-9d59-4a99-91f8-1987a83d4c11', 'NAM_KHOA', 'Nam khoa', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('e0ea9f0b-fa4b-446d-8869-41b2bfabef9b', 'TU_VAN_CHUYEN_SAU', 'Tư vấn chuyên sâu', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('048a59e3-0620-4f48-b392-8661ce0a3e64', 'THU_THUAT', '***#Thủ thuật', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('af545864-a967-41cf-9274-869d5483bd40', 'FREE', 'FREE', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('a478cb9b-c659-4529-adef-ea1d742ae420', 'KHAM_TIEN_SAN', 'Khám tiền sản', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001');
 
 --
 -- PostgreSQL database dump complete
@@ -105,36 +105,36 @@ SET row_security = off;
 -- Data for Name: service_price; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO public.service_price (id, service_code, name, "group", unit_price, active, created_at, updated_at, category, tang) VALUES
-    ('5af56007-8d3b-4be0-a90c-1eb2916fc9c7', 'CLS_NUOC_TIEU', 'Nước tiểu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
-    ('cae5b478-e0ac-4c57-93a0-3b8aec68f87f', 'CLS_DO_MAT_DO_XUONG', 'Đo mật độ xương', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
-    ('e8c5c880-af86-4272-aad4-975ba9a754c5', 'CLS_XET_NGHIEM_DICH_AM_DAO', 'Xét nghiệm dịch âm đạo', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
-    ('291e2f94-79af-44f4-b17b-03648ffbfc2c', 'CLS_XET_NGHIEM_MAU', 'Xét nghiệm máu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
-    ('4228f328-e02e-40b6-9fdd-e39e6819f8d2', 'CLS_KHAM_PHU_KHOA', 'Khám phụ khoa', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
-    ('6ae18d0e-6814-4457-996b-389c94d70400', 'CLS_DAT_VONG_NOI_TIET', 'Đặt vòng nội tiết', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
-    ('5cc9e6b1-d72c-498d-8efe-37d725e0cb01', 'CLS_THAO_VONG', 'Tháo vòng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
-    ('220f7873-8bc4-4a65-a0cb-67a0060a2507', 'CLS_CAY_QUE_TRANH_THAI', 'Cấy que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
-    ('6cc8997d-2b48-465a-918e-12eb77721413', 'CLS_THAO_QUE_TRANH_THAI', 'Tháo que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
-    ('1f7c78fb-5803-43e0-a9f9-7b607fd92dbb', 'CLS_SOI_CO_TU_CUNG', 'Soi cổ tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
-    ('74958d9a-096f-4475-8ed6-a0569eeba5db', 'CLS_CHUP_VU_EP', 'Chụp vú ép', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL),
-    ('8bad3c7f-8f04-46cb-9f8c-2752ccde5da8', 'CLS_CHUP_MRI_VU', 'Chụp MRI vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL),
-    ('d0283c31-84f9-498a-a6c3-b8833bfa2fe0', 'CLS_CHUP_TU_CUNG_VOI_TRUNG', 'Chụp tử cung – vòi trứng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL),
-    ('2d7f15d8-de5b-4e36-a9b3-bf15a112eecd', 'CLS_CHAY_MONITORING', 'Chạy monitoring', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', 'Tầng 2/ Tầng 4'),
-    ('3200f47c-fb02-48b9-8ac2-74d3d8e51f0c', 'CLS_SIEU_AM_3D_THAI_12_TUAN', 'Siêu âm 3D thai <12 tuần', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('0fd6fddf-ec1b-4d3e-9295-798387987700', 'CLS_SIEU_AM_3D_THAI_12_TUAN_2', 'Siêu âm 3D thai >12 tuần', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('53e8d354-d4d5-474d-afd2-dddedf7451c4', 'CLS_SIEU_AM_THAI_6D', 'Siêu âm thai 6D', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('852105a0-6dd0-4572-9e86-c100047d32a9', 'CLS_SIEU_AM_DAU_DO_DO_DAI_CTC', 'Siêu âm đầu dò độ dài CTC', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('9f48a6c0-3d5d-4a0a-a8e6-30ba05965cf0', 'CLS_SIEU_AM_2D_TC_BT', 'Siêu âm 2D TC-BT', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('814c1197-3fa5-4ab9-97a5-02fecb9e7459', 'CLS_SIEU_AM_4D_TC_BT', 'Siêu âm 4D TC-BT', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('f6a0bf0a-75eb-4df0-8773-0d1556e8db2f', 'CLS_SIEU_AM_BOM_NUOC_TU_CUNG', 'Siêu âm bơm nước tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
-    ('390a2714-d9b3-4f9f-8d5a-bffba5595ebf', 'CLS_SIEU_AM_VU', 'Siêu âm vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('9afbbddf-8d88-4736-b183-483071819531', 'CLS_SIEU_AM_TUYEN_GIAP', 'Siêu âm tuyến giáp', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('aefb6e52-111b-4e71-a829-fc6ed95840ad', 'CLS_SIEU_AM_O_BUNG', 'Siêu âm ổ bụng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('9c5aea54-d27f-480d-9c55-a1be91b58fdd', 'CLS_SIEU_AM_DOPPLER_MACH_CANH', 'Siêu âm doppler mạch cảnh', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('c8ee781d-243e-4746-a30c-3049127992a8', 'CLS_SIEU_AM_DOPPLER_DM_THAN', 'Siêu âm doppler ĐM thận', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('0521181f-1ea0-45e1-bda3-9b6d32bc533e', 'CLS_SIEU_AM_DOPPLER_AM_VAT', 'Siêu âm doppler âm vật', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('66b3dff3-e83b-415a-aac4-cdd92cdf3e82', 'CLS_SIEU_AM_3D_SAN_CHAU', 'Siêu âm 3D sàn chậu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
-    ('7c6d66dd-686f-4481-89cf-3388b27818f5', 'CLS_SIEU_AM_KHOP', 'Siêu âm khớp', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL);
+INSERT INTO public.service_price (id, service_code, name, "group", unit_price, active, created_at, updated_at, category, tang, clinic_id) VALUES
+    ('5af56007-8d3b-4be0-a90c-1eb2916fc9c7', 'CLS_NUOC_TIEU', 'Nước tiểu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1', 'a0000000-0000-4000-8000-000000000001'),
+    ('cae5b478-e0ac-4c57-93a0-3b8aec68f87f', 'CLS_DO_MAT_DO_XUONG', 'Đo mật độ xương', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1', 'a0000000-0000-4000-8000-000000000001'),
+    ('e8c5c880-af86-4272-aad4-975ba9a754c5', 'CLS_XET_NGHIEM_DICH_AM_DAO', 'Xét nghiệm dịch âm đạo', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1', 'a0000000-0000-4000-8000-000000000001'),
+    ('291e2f94-79af-44f4-b17b-03648ffbfc2c', 'CLS_XET_NGHIEM_MAU', 'Xét nghiệm máu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1', 'a0000000-0000-4000-8000-000000000001'),
+    ('4228f328-e02e-40b6-9fdd-e39e6819f8d2', 'CLS_KHAM_PHU_KHOA', 'Khám phụ khoa', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1', 'a0000000-0000-4000-8000-000000000001'),
+    ('6ae18d0e-6814-4457-996b-389c94d70400', 'CLS_DAT_VONG_NOI_TIET', 'Đặt vòng nội tiết', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('5cc9e6b1-d72c-498d-8efe-37d725e0cb01', 'CLS_THAO_VONG', 'Tháo vòng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('220f7873-8bc4-4a65-a0cb-67a0060a2507', 'CLS_CAY_QUE_TRANH_THAI', 'Cấy que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('6cc8997d-2b48-465a-918e-12eb77721413', 'CLS_THAO_QUE_TRANH_THAI', 'Tháo que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('1f7c78fb-5803-43e0-a9f9-7b607fd92dbb', 'CLS_SOI_CO_TU_CUNG', 'Soi cổ tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('74958d9a-096f-4475-8ed6-a0569eeba5db', 'CLS_CHUP_VU_EP', 'Chụp vú ép', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('8bad3c7f-8f04-46cb-9f8c-2752ccde5da8', 'CLS_CHUP_MRI_VU', 'Chụp MRI vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('d0283c31-84f9-498a-a6c3-b8833bfa2fe0', 'CLS_CHUP_TU_CUNG_VOI_TRUNG', 'Chụp tử cung – vòi trứng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('2d7f15d8-de5b-4e36-a9b3-bf15a112eecd', 'CLS_CHAY_MONITORING', 'Chạy monitoring', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', 'Tầng 2/ Tầng 4', 'a0000000-0000-4000-8000-000000000001'),
+    ('3200f47c-fb02-48b9-8ac2-74d3d8e51f0c', 'CLS_SIEU_AM_3D_THAI_12_TUAN', 'Siêu âm 3D thai <12 tuần', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('0fd6fddf-ec1b-4d3e-9295-798387987700', 'CLS_SIEU_AM_3D_THAI_12_TUAN_2', 'Siêu âm 3D thai >12 tuần', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('53e8d354-d4d5-474d-afd2-dddedf7451c4', 'CLS_SIEU_AM_THAI_6D', 'Siêu âm thai 6D', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('852105a0-6dd0-4572-9e86-c100047d32a9', 'CLS_SIEU_AM_DAU_DO_DO_DAI_CTC', 'Siêu âm đầu dò độ dài CTC', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('9f48a6c0-3d5d-4a0a-a8e6-30ba05965cf0', 'CLS_SIEU_AM_2D_TC_BT', 'Siêu âm 2D TC-BT', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('814c1197-3fa5-4ab9-97a5-02fecb9e7459', 'CLS_SIEU_AM_4D_TC_BT', 'Siêu âm 4D TC-BT', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('f6a0bf0a-75eb-4df0-8773-0d1556e8db2f', 'CLS_SIEU_AM_BOM_NUOC_TU_CUNG', 'Siêu âm bơm nước tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('390a2714-d9b3-4f9f-8d5a-bffba5595ebf', 'CLS_SIEU_AM_VU', 'Siêu âm vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('9afbbddf-8d88-4736-b183-483071819531', 'CLS_SIEU_AM_TUYEN_GIAP', 'Siêu âm tuyến giáp', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('aefb6e52-111b-4e71-a829-fc6ed95840ad', 'CLS_SIEU_AM_O_BUNG', 'Siêu âm ổ bụng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('9c5aea54-d27f-480d-9c55-a1be91b58fdd', 'CLS_SIEU_AM_DOPPLER_MACH_CANH', 'Siêu âm doppler mạch cảnh', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('c8ee781d-243e-4746-a30c-3049127992a8', 'CLS_SIEU_AM_DOPPLER_DM_THAN', 'Siêu âm doppler ĐM thận', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('0521181f-1ea0-45e1-bda3-9b6d32bc533e', 'CLS_SIEU_AM_DOPPLER_AM_VAT', 'Siêu âm doppler âm vật', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('66b3dff3-e83b-415a-aac4-cdd92cdf3e82', 'CLS_SIEU_AM_3D_SAN_CHAU', 'Siêu âm 3D sàn chậu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('7c6d66dd-686f-4481-89cf-3388b27818f5', 'CLS_SIEU_AM_KHOP', 'Siêu âm khớp', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL, 'a0000000-0000-4000-8000-000000000001');
 
 --
 -- PostgreSQL database dump complete
@@ -163,14 +163,14 @@ SET row_security = off;
 -- Data for Name: booking_channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO public.booking_channel (id, code, name, category, is_active, created_at) VALUES
-    ('eb7b7466-4fcc-4c8a-8bd5-0ac735af5cfb', 'ZALO_PK', 'Zalo OA Phòng khám', 'ZALO', 't', '2026-06-19 04:45:49.29202+00'),
-    ('a257e9b8-b1cf-4a76-a209-5615e5d3db5b', 'FB_DR4WOMEN', 'FB Dr4women (BS Thành)', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00'),
-    ('315dfe8e-d90f-4311-8ee6-044a30ff32c6', 'FB_4WOMEN', 'FB 4women Clinic', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00'),
-    ('75d1afab-7057-4130-b85e-e47ee1c8ee29', 'FB_ACADEMY', 'FB Academy', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00'),
-    ('a2a441f4-4f30-4079-98ac-edb905dae96c', 'HOTLINE', 'Hotline', 'HOTLINE', 't', '2026-06-19 04:45:49.29202+00'),
-    ('95dbf75f-b2ac-48ce-9151-94f64931cb1a', 'WALK_IN', 'Khách walk-in', 'WALK_IN', 't', '2026-06-19 04:45:49.29202+00'),
-    ('5fa87be7-fa45-47c2-af15-04e57885c46c', 'REFERRAL', 'Giới thiệu (BN cũ / đồng nghiệp)', 'REFERRAL', 't', '2026-06-19 04:45:49.29202+00');
+INSERT INTO public.booking_channel (id, code, name, category, is_active, created_at, clinic_id) VALUES
+    ('eb7b7466-4fcc-4c8a-8bd5-0ac735af5cfb', 'ZALO_PK', 'Zalo OA Phòng khám', 'ZALO', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('a257e9b8-b1cf-4a76-a209-5615e5d3db5b', 'FB_DR4WOMEN', 'FB Dr4women (BS Thành)', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('315dfe8e-d90f-4311-8ee6-044a30ff32c6', 'FB_4WOMEN', 'FB 4women Clinic', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('75d1afab-7057-4130-b85e-e47ee1c8ee29', 'FB_ACADEMY', 'FB Academy', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('a2a441f4-4f30-4079-98ac-edb905dae96c', 'HOTLINE', 'Hotline', 'HOTLINE', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('95dbf75f-b2ac-48ce-9151-94f64931cb1a', 'WALK_IN', 'Khách walk-in', 'WALK_IN', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5fa87be7-fa45-47c2-af15-04e57885c46c', 'REFERRAL', 'Giới thiệu (BN cũ / đồng nghiệp)', 'REFERRAL', 't', '2026-06-19 04:45:49.29202+00', 'a0000000-0000-4000-8000-000000000001');
 
 --
 -- PostgreSQL database dump complete
@@ -199,71 +199,71 @@ SET row_security = off;
 -- Data for Name: drug_catalog; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-INSERT INTO public.drug_catalog (id, name_base, name_raw, variant, group_label, unit_price, needs_review, is_active, created_at) VALUES
-    ('30d30e8f-89bb-4a22-8615-17c366684552', 'Besuto', 'Besuto', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('aa346999-1472-4db6-af39-9fad6ca5b37a', 'Canxi', 'Canxi', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('a6bcb629-9a18-4361-849c-50e5f0b3872e', 'Venice', 'Venice', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('d682a9d8-14f4-4ce0-8756-ad5d785725a1', 'Ferlatum', 'Ferlatum', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('faeb6d75-626e-4878-92fc-7f3b4ecc680b', 'Vitcofol', 'Vitcofol', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('ed01aa97-9aff-49bf-bf17-9a159d31b2d6', 'Magie', 'Magie', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('9ea9efed-4da6-4e37-acc2-18a8f6764a0b', 'Aspirin', 'Aspirin', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('f20cd05b-c7d2-4f6e-a0ca-fb05d35f01ce', 'Yspuripax', 'Yspuripax (2v/4v)', '2v/4v', 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('1547d713-4930-4d94-b72f-ac17f9b1537f', 'DHA', 'DHA', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('482a2151-264b-4d9d-bfe0-a6e1e483e189', 'Pruzena', 'Pruzena', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('714b31b2-dcaa-4fce-b8ed-dfdf2b2a5f64', 'Folic Mum', 'Folic Mum', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('d690bb81-3a30-4232-90a7-5570df3241cf', 'Glucophage', 'Glucophage', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('9b1ce2a1-c569-4866-b276-3edaf931a331', 'Diane', 'Diane', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('9d975c27-344a-4ac4-9ef3-6863ddf56e3a', 'Endokirogen', 'Endokirogen', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('f55cf41b-9612-4869-a35c-43320202c5a7', 'Letrozole', 'Letrozole (10v, 15v)', '10v, 15v', 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('eb5753fd-6a89-4d10-b899-8167852a6911', 'Ovagrow', 'Ovagrow', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('c6038e31-465f-4776-b4c6-87108894c764', 'Duphaston', 'Duphaston (4v/ 2v)', '4v/ 2v', 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('07acefc5-e013-42b9-a973-fc20c243c36a', 'Androgel', 'Androgel', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('eab76666-e86b-4516-ad67-1ec0283e8a23', 'Estrogel', 'Estrogel', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('796f4ac6-1f3b-4bd6-bffd-6e3b396f071e', 'Fes 1/10', 'Fes 1/10', NULL, 'L3', NULL, 't', 't', '2026-06-19 07:28:09.508674+00'),
-    ('e4d63a89-097d-4c35-ab0a-bcf1d1e9b924', 'Fes ⅕', 'Fes ⅕', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('325944e9-b9f4-4786-97cf-650de4774dc8', 'Cyclo Progynova', 'Cyclo Progynova', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('53dfaa93-9b0b-4241-93c4-84ab2599fa7f', 'Utrogestan', 'Utrogestan (Đ) (1v/2v): (U)', 'Đ; 1v/2v; U', 'L4', NULL, 't', 't', '2026-06-19 07:28:09.508674+00'),
-    ('48edd734-87f3-44ed-92a4-506dd74906d7', 'DHEA', 'DHEA (U)', 'U', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('4f608b4d-c0e2-4f63-9ed1-dafee20eab4a', 'DHEA', 'DHEA (Đ)', 'Đ', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('71619452-0d81-4ae7-9b5a-e8648ed8bb07', 'Hyalogyn', 'Hyalogyn', NULL, 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('f3700369-c91d-4e9c-93fa-3d747953838f', 'Cavidagel', 'Cavidagel', NULL, 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('7cee3d1b-d93a-4066-9cbb-6e5fc67ffe26', 'Valiera', 'Valiera(1v/2v/3v)', '1v/2v/3v', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('5cfe80ca-b32e-4def-9e79-4beb0f6ce99f', 'Valiera', 'Valiera(Đ)', 'Đ', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('3f5fbf16-2f45-45ce-994e-b2b86aef4025', 'Follitrope', 'Follitrope', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('bac9666b-e337-4cdd-b051-f6fd05d47ea2', 'Cetrotide', 'Cetrotide', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('2eacb53b-4a18-47a1-8d51-e832a1b39467', 'Ovitrelle', 'Ovitrelle', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('9ebe1044-a030-4f22-8a87-1c879a5de5c9', 'IVF-C', 'IVF-C', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('b0ef7dcb-f742-4644-9c69-d4bbae198db9', 'IFV-M', 'IFV-M', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('1f49ad55-09d2-432b-a52b-2f4d15dca159', 'Diphereline', 'Diphereline (3.75/0.1)', '3.75/0.1', 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('2e45a4f8-ad95-43e4-9557-c702c7e8bac0', 'GonaF', 'GonaF', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('addfd354-c445-4cf1-83b5-1ece47d2993e', 'Dalacin C', 'Dalacin C', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('47191eac-b850-4c27-9d32-f414aaac4c0d', 'Assicin', 'Assicin (3v/6v/9v)', '3v/6v/9v', 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('f5dcae23-b4af-4d47-b6e5-0b8e83d10d1a', 'Cefdinir', 'Cefdinir', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('d1028fa2-bed0-4565-85fb-1bb8f48f3203', 'Docy', 'Docy (15v/30v)', '15v/30v', 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('a6e0f221-6d2a-4098-90c5-ebca79fc967d', 'Metronidazol', 'Metronidazol', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('29144784-c72c-458a-b606-8e97e9a96792', 'Dermolivo', 'Dermolivo', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('426cdd6a-c9ad-445b-8aba-b028da23347f', 'Meclon', 'Meclon', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('f27bf431-698b-4bcc-b095-4dcd8fd092aa', 'Nystatin', 'Nystatin', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('feadd213-3f26-48f3-8ca7-4cd6b6ed2373', 'Lomexin', 'Lomexin', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('e1eb9374-9183-4bf3-a3d7-61f20aa4b4f9', 'Canesten', 'Canesten', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('4afe93dd-3441-41cc-a870-ec1f8dd0a988', 'Bennatfort', 'Bennatfort', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('e5acbe24-48a6-41ff-bcec-98d21a1a5877', 'Intimate', 'Intimate', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('5b2a3a14-875e-48ce-97c1-8107f485bdb4', 'Cumlaude Lubripiu HA', 'Cumlaude Lubripiu HA', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('5d268886-1db6-4492-9c0b-337a7a4a23e2', 'Cumlaude prebiotic', 'Cumlaude prebiotic', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('9306aece-f853-4769-83e3-fa8c14ad3f0e', 'Eulac', 'Eulac', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('3ff2d764-b50d-404b-a0ee-6f7eb1222ac4', 'Difavon/Diflucan/Fluconazole/Zolmed', 'Difavon/Diflucan/Fluconazole/Zolmed', NULL, 'L8', NULL, 't', 't', '2026-06-19 07:28:09.508674+00'),
-    ('c4e9f514-ce38-425b-9f87-f1ccabd747a6', 'Cyclo', 'Cyclo', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('69c8cbd4-fff6-4974-9e88-998c723d4045', 'Estrogel pump', 'Estrogel pump', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('6ad487f5-5b16-4211-8859-e375de7eb709', 'Daikyn', 'Daikyn', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('1bd72e68-0aab-4a72-9f60-5bb0262fefd7', 'Kofio', 'Kofio', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('0ea2817b-0a6f-4967-be45-fbdb4a39cdf5', 'ZinC', 'ZinC', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('5f23835d-0ae9-4967-9a7f-4984b6236136', 'CoQ10', 'CoQ10 (1/2)', '1/2', 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('5bb4eaf7-709a-414b-a74f-5f487c2d9546', 'Glutathione', 'Glutathione (2/4)', '2/4', 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('71a64954-b545-4b8c-bbec-59b17021d40f', 'Tadalafil 20', 'Tadalafil 20', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('e7d6fdd8-1dfc-4e64-927a-e78848929976', 'Tadalafil 5mg', 'Tadalafil 5mg', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('6ee6243e-a1ac-4ba8-92b9-ebbd83f6a388', 'Kingseal', 'Kingseal', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('ab87aa13-2ee9-4438-ab0f-b1aed5f5c1f2', 'L-Agrinine', 'L-Agrinine', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
-    ('8ca2192e-49f9-40ad-b7a9-6b190b3ec3ea', 'Durapil', 'Durapil', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00');
+INSERT INTO public.drug_catalog (id, name_base, name_raw, variant, group_label, unit_price, needs_review, is_active, created_at, clinic_id) VALUES
+    ('30d30e8f-89bb-4a22-8615-17c366684552', 'Besuto', 'Besuto', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('aa346999-1472-4db6-af39-9fad6ca5b37a', 'Canxi', 'Canxi', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('a6bcb629-9a18-4361-849c-50e5f0b3872e', 'Venice', 'Venice', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('d682a9d8-14f4-4ce0-8756-ad5d785725a1', 'Ferlatum', 'Ferlatum', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('faeb6d75-626e-4878-92fc-7f3b4ecc680b', 'Vitcofol', 'Vitcofol', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('ed01aa97-9aff-49bf-bf17-9a159d31b2d6', 'Magie', 'Magie', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('9ea9efed-4da6-4e37-acc2-18a8f6764a0b', 'Aspirin', 'Aspirin', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('f20cd05b-c7d2-4f6e-a0ca-fb05d35f01ce', 'Yspuripax', 'Yspuripax (2v/4v)', '2v/4v', 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('1547d713-4930-4d94-b72f-ac17f9b1537f', 'DHA', 'DHA', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('482a2151-264b-4d9d-bfe0-a6e1e483e189', 'Pruzena', 'Pruzena', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('714b31b2-dcaa-4fce-b8ed-dfdf2b2a5f64', 'Folic Mum', 'Folic Mum', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('d690bb81-3a30-4232-90a7-5570df3241cf', 'Glucophage', 'Glucophage', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('9b1ce2a1-c569-4866-b276-3edaf931a331', 'Diane', 'Diane', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('9d975c27-344a-4ac4-9ef3-6863ddf56e3a', 'Endokirogen', 'Endokirogen', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('f55cf41b-9612-4869-a35c-43320202c5a7', 'Letrozole', 'Letrozole (10v, 15v)', '10v, 15v', 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('eb5753fd-6a89-4d10-b899-8167852a6911', 'Ovagrow', 'Ovagrow', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('c6038e31-465f-4776-b4c6-87108894c764', 'Duphaston', 'Duphaston (4v/ 2v)', '4v/ 2v', 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('07acefc5-e013-42b9-a973-fc20c243c36a', 'Androgel', 'Androgel', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('eab76666-e86b-4516-ad67-1ec0283e8a23', 'Estrogel', 'Estrogel', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('796f4ac6-1f3b-4bd6-bffd-6e3b396f071e', 'Fes 1/10', 'Fes 1/10', NULL, 'L3', NULL, 't', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('e4d63a89-097d-4c35-ab0a-bcf1d1e9b924', 'Fes ⅕', 'Fes ⅕', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('325944e9-b9f4-4786-97cf-650de4774dc8', 'Cyclo Progynova', 'Cyclo Progynova', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('53dfaa93-9b0b-4241-93c4-84ab2599fa7f', 'Utrogestan', 'Utrogestan (Đ) (1v/2v): (U)', 'Đ; 1v/2v; U', 'L4', NULL, 't', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('48edd734-87f3-44ed-92a4-506dd74906d7', 'DHEA', 'DHEA (U)', 'U', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('4f608b4d-c0e2-4f63-9ed1-dafee20eab4a', 'DHEA', 'DHEA (Đ)', 'Đ', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('71619452-0d81-4ae7-9b5a-e8648ed8bb07', 'Hyalogyn', 'Hyalogyn', NULL, 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('f3700369-c91d-4e9c-93fa-3d747953838f', 'Cavidagel', 'Cavidagel', NULL, 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('7cee3d1b-d93a-4066-9cbb-6e5fc67ffe26', 'Valiera', 'Valiera(1v/2v/3v)', '1v/2v/3v', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5cfe80ca-b32e-4def-9e79-4beb0f6ce99f', 'Valiera', 'Valiera(Đ)', 'Đ', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('3f5fbf16-2f45-45ce-994e-b2b86aef4025', 'Follitrope', 'Follitrope', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('bac9666b-e337-4cdd-b051-f6fd05d47ea2', 'Cetrotide', 'Cetrotide', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('2eacb53b-4a18-47a1-8d51-e832a1b39467', 'Ovitrelle', 'Ovitrelle', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('9ebe1044-a030-4f22-8a87-1c879a5de5c9', 'IVF-C', 'IVF-C', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('b0ef7dcb-f742-4644-9c69-d4bbae198db9', 'IFV-M', 'IFV-M', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('1f49ad55-09d2-432b-a52b-2f4d15dca159', 'Diphereline', 'Diphereline (3.75/0.1)', '3.75/0.1', 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('2e45a4f8-ad95-43e4-9557-c702c7e8bac0', 'GonaF', 'GonaF', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('addfd354-c445-4cf1-83b5-1ece47d2993e', 'Dalacin C', 'Dalacin C', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('47191eac-b850-4c27-9d32-f414aaac4c0d', 'Assicin', 'Assicin (3v/6v/9v)', '3v/6v/9v', 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('f5dcae23-b4af-4d47-b6e5-0b8e83d10d1a', 'Cefdinir', 'Cefdinir', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('d1028fa2-bed0-4565-85fb-1bb8f48f3203', 'Docy', 'Docy (15v/30v)', '15v/30v', 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('a6e0f221-6d2a-4098-90c5-ebca79fc967d', 'Metronidazol', 'Metronidazol', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('29144784-c72c-458a-b606-8e97e9a96792', 'Dermolivo', 'Dermolivo', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('426cdd6a-c9ad-445b-8aba-b028da23347f', 'Meclon', 'Meclon', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('f27bf431-698b-4bcc-b095-4dcd8fd092aa', 'Nystatin', 'Nystatin', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('feadd213-3f26-48f3-8ca7-4cd6b6ed2373', 'Lomexin', 'Lomexin', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('e1eb9374-9183-4bf3-a3d7-61f20aa4b4f9', 'Canesten', 'Canesten', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('4afe93dd-3441-41cc-a870-ec1f8dd0a988', 'Bennatfort', 'Bennatfort', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('e5acbe24-48a6-41ff-bcec-98d21a1a5877', 'Intimate', 'Intimate', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5b2a3a14-875e-48ce-97c1-8107f485bdb4', 'Cumlaude Lubripiu HA', 'Cumlaude Lubripiu HA', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5d268886-1db6-4492-9c0b-337a7a4a23e2', 'Cumlaude prebiotic', 'Cumlaude prebiotic', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('9306aece-f853-4769-83e3-fa8c14ad3f0e', 'Eulac', 'Eulac', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('3ff2d764-b50d-404b-a0ee-6f7eb1222ac4', 'Difavon/Diflucan/Fluconazole/Zolmed', 'Difavon/Diflucan/Fluconazole/Zolmed', NULL, 'L8', NULL, 't', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('c4e9f514-ce38-425b-9f87-f1ccabd747a6', 'Cyclo', 'Cyclo', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('69c8cbd4-fff6-4974-9e88-998c723d4045', 'Estrogel pump', 'Estrogel pump', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('6ad487f5-5b16-4211-8859-e375de7eb709', 'Daikyn', 'Daikyn', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('1bd72e68-0aab-4a72-9f60-5bb0262fefd7', 'Kofio', 'Kofio', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('0ea2817b-0a6f-4967-be45-fbdb4a39cdf5', 'ZinC', 'ZinC', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5f23835d-0ae9-4967-9a7f-4984b6236136', 'CoQ10', 'CoQ10 (1/2)', '1/2', 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('5bb4eaf7-709a-414b-a74f-5f487c2d9546', 'Glutathione', 'Glutathione (2/4)', '2/4', 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('71a64954-b545-4b8c-bbec-59b17021d40f', 'Tadalafil 20', 'Tadalafil 20', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('e7d6fdd8-1dfc-4e64-927a-e78848929976', 'Tadalafil 5mg', 'Tadalafil 5mg', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('6ee6243e-a1ac-4ba8-92b9-ebbd83f6a388', 'Kingseal', 'Kingseal', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('ab87aa13-2ee9-4438-ab0f-b1aed5f5c1f2', 'L-Agrinine', 'L-Agrinine', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001'),
+    ('8ca2192e-49f9-40ad-b7a9-6b190b3ec3ea', 'Durapil', 'Durapil', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00', 'a0000000-0000-4000-8000-000000000001');
 
 --
 -- PostgreSQL database dump complete

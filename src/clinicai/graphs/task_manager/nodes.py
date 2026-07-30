@@ -83,6 +83,7 @@ def make_query_tasks_node(pool: "asyncpg.Pool") -> TaskManagerNode:
 
         if filters is None and state.created_task is not None:
             filters = QueryTasksFilter(
+                clinic_id=state.clinic_id,
                 source_type=state.created_task.source_type,
                 source_id=state.created_task.source_id,
             )
@@ -125,7 +126,11 @@ def make_check_sla_node(pool: "asyncpg.Pool") -> TaskManagerNode:
         results: list[SlaCheckResult] = []
         for task in state.queried_tasks:
             try:
-                results.append(await check_task_sla(pool, task.task_id, trace))
+                results.append(
+                    await check_task_sla(
+                        pool, task.task_id, trace, str(state.clinic_id)
+                    )
+                )
             except SlaTaskNotFoundError:
                 # Race: task vanished between query and SLA check. Skip rather
                 # than fail the whole loop.
@@ -170,7 +175,9 @@ def make_update_task_status_node(pool: "asyncpg.Pool") -> TaskManagerNode:
         )
 
         try:
-            updated = await update_task_status(pool, state.update_input, trace)
+            updated = await update_task_status(
+                pool, state.update_input, trace, str(state.clinic_id)
+            )
         except TaskNotFoundError as exc:
             logger.warning(
                 "task_manager.update_task_status.not_found",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from structlog.testing import capture_logs
@@ -48,7 +48,11 @@ async def test_get_summary_happy_path(
         "active_pregnancy": True,
     }
 
-    inp = GetPatientSummaryInput(patient_id=patient_id, ctx=new_trace())
+    inp = GetPatientSummaryInput(
+        patient_id=patient_id,
+        ctx=new_trace(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
     out = await get_patient_summary(inp, pool)
 
     assert isinstance(out, PatientSummaryOutput)
@@ -70,7 +74,11 @@ async def test_get_summary_not_found(
     pool, conn = mock_pool
     conn.fetchrow.return_value = None
 
-    inp = GetPatientSummaryInput(patient_id=uuid4(), ctx=new_trace())
+    inp = GetPatientSummaryInput(
+        patient_id=uuid4(),
+        ctx=new_trace(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
 
     with pytest.raises(PatientNotFoundError):
         await get_patient_summary(inp, pool)
@@ -92,7 +100,11 @@ async def test_get_summary_logs_trace_id(
         "active_pregnancy": False,
     }
 
-    inp = GetPatientSummaryInput(patient_id=uuid4(), ctx=new_trace())
+    inp = GetPatientSummaryInput(
+        patient_id=uuid4(),
+        ctx=new_trace(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
 
     with capture_logs() as logs:
         await get_patient_summary(inp, pool)

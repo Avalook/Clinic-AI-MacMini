@@ -54,7 +54,9 @@ async def test_update_status__done__completed_at_auto_set(
     conn.fetchrow = AsyncMock(return_value=_row(status="DONE", completed_at=auto_now))
 
     inp = UpdateTaskStatusInput(task_id=uuid4(), status="DONE")
-    out = await update_task_status(pool, inp, new_trace())
+    out = await update_task_status(
+        pool, inp, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     args = conn.fetchrow.call_args.args
     # signature: (sql, task_id, status, completed_at)
@@ -73,7 +75,9 @@ async def test_update_status__cancelled__ok(
     conn.fetchrow = AsyncMock(return_value=_row(status="CANCELLED", completed_at=None))
 
     inp = UpdateTaskStatusInput(task_id=uuid4(), status="CANCELLED")
-    out = await update_task_status(pool, inp, new_trace())
+    out = await update_task_status(
+        pool, inp, new_trace(), "a0000000-0000-4000-8000-000000000001"
+    )
 
     args = conn.fetchrow.call_args.args
     assert args[2] == "CANCELLED"
@@ -99,4 +103,6 @@ async def test_update_status__task_not_found__raises_lookup_error(
 
     inp = UpdateTaskStatusInput(task_id=uuid4(), status="DONE")
     with pytest.raises(TaskNotFoundError):
-        await update_task_status(pool, inp, new_trace())
+        await update_task_status(
+            pool, inp, new_trace(), "a0000000-0000-4000-8000-000000000001"
+        )

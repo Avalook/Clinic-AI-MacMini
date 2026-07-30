@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -50,7 +50,11 @@ async def test_find_oncall_happy_path(
     conn.fetchrow.return_value = {"id": work_session_id}
     conn.fetch.return_value = rows
 
-    inp = FindOncallInput(work_session_id=work_session_id, ctx=new_trace())
+    inp = FindOncallInput(
+        work_session_id=work_session_id,
+        ctx=new_trace(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
     out = await find_oncall_staff(inp, pool)
 
     assert isinstance(out, OncallStaffOutput)
@@ -74,7 +78,11 @@ async def test_find_oncall_excludes_training(
     conn.fetchrow.return_value = {"id": work_session_id}
     conn.fetch.return_value = [_staff_row(), _staff_row(role="DOCTOR")]
 
-    inp = FindOncallInput(work_session_id=work_session_id, ctx=new_trace())
+    inp = FindOncallInput(
+        work_session_id=work_session_id,
+        ctx=new_trace(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
     out = await find_oncall_staff(inp, pool)
 
     assert len(out.on_duty_staff) == 2
@@ -92,7 +100,11 @@ async def test_find_oncall_not_found(
     pool, conn = mock_pool
     conn.fetchrow.return_value = None
 
-    inp = FindOncallInput(work_session_id=uuid4(), ctx=new_trace())
+    inp = FindOncallInput(
+        work_session_id=uuid4(),
+        ctx=new_trace(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+    )
 
     with pytest.raises(WorkSessionNotFoundError):
         await find_oncall_staff(inp, pool)

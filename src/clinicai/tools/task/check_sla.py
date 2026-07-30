@@ -26,7 +26,7 @@ _FETCH_SQL = """
     SELECT task_id, status, due_at
       FROM staff_task
      WHERE task_id = $1
-       AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+       AND clinic_id = $2::uuid
      LIMIT 1
 """
 
@@ -58,7 +58,7 @@ async def check_task_sla(
     pool: asyncpg.Pool,
     task_id: UUID,
     trace: TraceContext,
-    clinic_id: str | None = None,
+    clinic_id: str,
 ) -> SlaCheckResult:
     """Check SLA for a single task.
 

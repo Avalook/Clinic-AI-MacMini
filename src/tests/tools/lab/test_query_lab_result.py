@@ -86,7 +86,10 @@ async def test_query_lab_result__only_patient_id__returns_all_for_patient() -> N
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient_a),
+        QueryLabResultFilter(
+            clinic_patient_id=patient_a,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -95,14 +98,15 @@ async def test_query_lab_result__only_patient_id__returns_all_for_patient() -> N
     assert all(r.clinic_patient_id == patient_a for r in out)
 
     sql, *params = conn.fetch.call_args.args
-    # $1 is the patient, $2 the tenant (W8): the backend bypasses RLS, so the
-    # caller-supplied patient id is not on its own a clinic boundary.
-    assert "WHERE clinic_id = COALESCE($2::uuid, public.default_clinic_id())" in sql
+    # $1 is the patient, $2 the tenant: the backend bypasses RLS, so the
+    # caller-supplied patient id is not on its own a clinic boundary. There is
+    # no COALESCE fallback any more — clinic_id is required.
+    assert "WHERE clinic_id = $2::uuid" in sql
     assert "AND clinic_patient_id = $1" in sql
     # patient_id + clinic_id + limit → 3 params total
     assert len(params) == 3
     assert params[0] == patient_a
-    assert params[1] is None  # no clinic given → default clinic
+    assert params[1] is not None  # the tenant is always supplied
     assert params[2] == 50  # default limit
 
 
@@ -115,7 +119,11 @@ async def test_query_lab_result__filter_by_group_c__only_group_c_rows() -> None:
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient, group="GROUP_C"),
+        QueryLabResultFilter(
+            clinic_patient_id=patient,
+            group="GROUP_C",
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -136,7 +144,11 @@ async def test_query_lab_result__filter_by_test_code__exact_match() -> None:
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient, test_code="HBV"),
+        QueryLabResultFilter(
+            clinic_patient_id=patient,
+            test_code="HBV",
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -166,6 +178,7 @@ async def test_query_lab_result__date_range__within_range_only() -> None:
             clinic_patient_id=patient,
             date_from=d_from,
             date_to=d_to,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
         ),
         new_trace(),
     )
@@ -188,7 +201,11 @@ async def test_query_lab_result__limit_respected() -> None:
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient, limit=2),
+        QueryLabResultFilter(
+            clinic_patient_id=patient,
+            limit=2,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -212,7 +229,10 @@ async def test_query_lab_result__order_desc_default__newest_first() -> None:
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient),
+        QueryLabResultFilter(
+            clinic_patient_id=patient,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -230,7 +250,10 @@ async def test_query_lab_result__no_results__returns_empty_list() -> None:
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient),
+        QueryLabResultFilter(
+            clinic_patient_id=patient,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 
@@ -241,7 +264,11 @@ async def test_query_lab_result__no_results__returns_empty_list() -> None:
 def test_query_lab_result__invalid_limit__pydantic_validation_error() -> None:
     """`limit=0` violates the ge=1 constraint and must fail validation."""
     with pytest.raises(ValidationError):
-        QueryLabResultFilter(clinic_patient_id=uuid4(), limit=0)
+        QueryLabResultFilter(
+            clinic_patient_id=uuid4(),
+            limit=0,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +282,7 @@ def test_query_lab_result__invalid_order_by__pydantic_validation_error() -> None
     with pytest.raises(ValidationError):
         QueryLabResultFilter(
             clinic_patient_id=uuid4(),
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
             order_by="received_at_desc; DROP TABLE lab_result --",  # type: ignore[arg-type]
         )
 
@@ -271,7 +299,10 @@ async def test_query_lab_result__row_decimal_fields_roundtrip() -> None:
 
     out = await query_lab_result(
         pool,
-        QueryLabResultFilter(clinic_patient_id=patient),
+        QueryLabResultFilter(
+            clinic_patient_id=patient,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
         new_trace(),
     )
 

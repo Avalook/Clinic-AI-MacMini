@@ -114,6 +114,7 @@ async def test_previsit_wrapper__with_patient__runs_real_subgraph(
     )
 
     state: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
         "trace_id": uuid4(),
         "user_message": "Cho em xem tóm tắt trước khám của bệnh nhân này",
         "patient_id": _PATIENT_ID,
@@ -135,7 +136,11 @@ async def test_previsit_wrapper__no_patient_id__acks(
         pool=MagicMock(), llm_client=_mock_llm()
     )
 
-    state: OrchestratorState = {"trace_id": uuid4(), "user_message": "tóm tắt"}
+    state: OrchestratorState = {
+        "clinic_id": UUID("a0000000-0000-4000-8000-000000000001"),
+        "trace_id": uuid4(),
+        "user_message": "tóm tắt",
+    }
     out = await wrapper(state)
 
     assert out["handled_by"] == "previsit_brief_subgraph"

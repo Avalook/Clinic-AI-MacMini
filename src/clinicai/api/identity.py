@@ -85,10 +85,15 @@ class StaffIdentity:
     department: str
     role: ClinicRole
     # The tenant this request acts in, resolved from clinic_membership (ADR-0009).
-    # Services pass it explicitly on every INSERT rather than leaning on the
-    # transitional clinic_id DEFAULT, which stops guessing — correctly — as soon
-    # as a second clinic exists.
-    clinic_id: str | None = None
+    #
+    # Required, not optional. get_current_identity refuses a login with no
+    # active membership, so a request that reaches a service always has a
+    # tenant. While this said `str | None`, every query downstream carried a
+    # `COALESCE(..., default_clinic_id())` for a case that could not happen —
+    # and that fallback is exactly what silently files rows under a guess.
+    # Typing it honestly is what let those be deleted: mypy now proves the
+    # tenant is there instead of the database inventing one.
+    clinic_id: str
 
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES

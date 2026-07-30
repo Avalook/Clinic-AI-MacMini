@@ -99,7 +99,12 @@ async def test_brief_graph__happy_path__brief_and_markdown_in_state(
     llm = _mock_llm(json.dumps(_VALID_BRIEF_JSON))
 
     graph = build_pre_visit_brief_subgraph(pool=MagicMock(), llm_client=llm)
-    out = await graph.ainvoke(PreVisitBriefState(clinic_patient_id=_PATIENT_ID))
+    out = await graph.ainvoke(
+        PreVisitBriefState(
+            clinic_patient_id=_PATIENT_ID,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
+    )
 
     assert out.get("error") is None
     assert out["brief"] is not None
@@ -121,7 +126,12 @@ async def test_brief_graph__patient_not_found__error_propagated(
     llm = _mock_llm(json.dumps(_VALID_BRIEF_JSON))
 
     graph = build_pre_visit_brief_subgraph(pool=MagicMock(), llm_client=llm)
-    out = await graph.ainvoke(PreVisitBriefState(clinic_patient_id=_PATIENT_ID))
+    out = await graph.ainvoke(
+        PreVisitBriefState(
+            clinic_patient_id=_PATIENT_ID,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
+    )
 
     assert out.get("error", "").startswith("patient_not_found")
     assert out.get("brief") is None
@@ -143,7 +153,12 @@ async def test_brief_graph__llm_failure__error_propagated_no_crash(
     llm.chat = AsyncMock(side_effect=RuntimeError("anthropic timeout"))
 
     graph = build_pre_visit_brief_subgraph(pool=MagicMock(), llm_client=llm)
-    out = await graph.ainvoke(PreVisitBriefState(clinic_patient_id=_PATIENT_ID))
+    out = await graph.ainvoke(
+        PreVisitBriefState(
+            clinic_patient_id=_PATIENT_ID,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
+    )
 
     assert out.get("error", "").startswith("llm_failed")
     assert out.get("brief") is None
@@ -164,7 +179,12 @@ async def test_brief_graph__graph_invokable__no_state_corruption(
     graph = build_pre_visit_brief_subgraph(pool=MagicMock(), llm_client=llm)
 
     other_id = UUID("33333333-3333-3333-3333-333333333333")
-    out = await graph.ainvoke(PreVisitBriefState(clinic_patient_id=other_id))
+    out = await graph.ainvoke(
+        PreVisitBriefState(
+            clinic_patient_id=other_id,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
+    )
 
     assert out["brief"] is not None
     # The state we passed in carried `other_id`; nothing in the graph rewrites it.
@@ -225,7 +245,12 @@ async def test_previsit_brief__wire_summary__builds_7_fields(
     llm = _mock_llm(json.dumps(_VALID_BRIEF_JSON))
 
     graph = build_pre_visit_brief_subgraph(pool=MagicMock(), llm_client=llm)
-    out = await graph.ainvoke(PreVisitBriefState(clinic_patient_id=_PATIENT_ID))
+    out = await graph.ainvoke(
+        PreVisitBriefState(
+            clinic_patient_id=_PATIENT_ID,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
+    )
 
     assert out.get("error") is None
     assert out["brief"] is not None

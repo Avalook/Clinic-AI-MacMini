@@ -90,7 +90,7 @@ _PROGRESS_SQL = """
             FROM payment pm
            WHERE pm.visit_id = v.visit_id
       ) pay ON TRUE
-     WHERE a.clinic_id = COALESCE($1::uuid, public.default_clinic_id())
+     WHERE a.clinic_id = $1::uuid
        AND a.slot_start >= $2::timestamptz
        AND a.slot_start <  $3::timestamptz
        AND a.status NOT IN ('CANCELLED', 'NO_SHOW')

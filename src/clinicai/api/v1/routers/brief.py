@@ -17,6 +17,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.graphs.pre_visit_brief import (
     PreVisitBriefState,
@@ -48,6 +49,7 @@ async def generate_pre_visit_brief(
     clinic_patient_id: UUID,
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
     llm_client: Annotated[AnthropicClient, Depends(get_llm_client)],
+    identity: Annotated[StaffIdentity, Depends(get_current_identity)],
 ) -> BriefResponse:
     """Generate a pre-visit brief for the given patient.
 
@@ -57,7 +59,10 @@ async def generate_pre_visit_brief(
     start = time.monotonic()
 
     graph = build_pre_visit_brief_subgraph(pool=pool, llm_client=llm_client)
-    state = PreVisitBriefState(clinic_patient_id=clinic_patient_id)
+    state = PreVisitBriefState(
+        clinic_patient_id=clinic_patient_id,
+        clinic_id=UUID(identity.clinic_id),
+    )
     result = await graph.ainvoke(state)
 
     error = result.get("error") if isinstance(result, dict) else None

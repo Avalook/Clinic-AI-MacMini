@@ -136,7 +136,7 @@ async def triage_lab_result(
     graph = build_lab_triage_subgraph(pool=pool, llm_client=llm_client)
     state = LabTriageState(
         lab_result_id=lab_result_id,
-        clinic_id=UUID(identity.clinic_id) if identity.clinic_id else None,
+        clinic_id=UUID(identity.clinic_id),
     )
     result = await graph.ainvoke(state)
 

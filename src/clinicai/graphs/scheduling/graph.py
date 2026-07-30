@@ -52,19 +52,17 @@ def _make_no_pool_stub_find_doctor() -> Callable[
 def build_scheduling_subgraph(
     pool: Optional["asyncpg.Pool"] = None,
     location_id: Optional[UUID] = None,
-    clinic_id: Optional[UUID] = None,
 ) -> Any:
     """Build scheduling sub-graph with optional asyncpg pool + location_id.
 
     - pool=None or location_id=None → find_doctor_node is the stub fallback
-      (preserves T-P9.1-02 tests when DB not wired).
-    - Both pool + location_id given → make_find_doctor_node uses the real
-      find_work_sessions tool.
-
-    P9.1-04 will always pass real pool + location_id from orchestrator lifespan.
+      (preserves T-P9.1-02 tests when the DB is not wired).
+    - both given → make_find_doctor_node uses the real find_work_sessions tool.
+      The tenant is not an argument here: it rides on the state, because one
+      graph serves every clinic (ADR-0009).
     """
     find_doctor = (
-        make_find_doctor_node(pool, location_id, clinic_id)
+        make_find_doctor_node(pool, location_id)
         if pool is not None and location_id is not None
         else _make_no_pool_stub_find_doctor()
     )

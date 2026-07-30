@@ -22,6 +22,9 @@ class FindOncallInput(BaseModel):
     """Input schema for the scheduling.find_oncall tool."""
 
     work_session_id: UUID
+    # Tenant the tool acts for (ADR-0009). Required: the backend bypasses RLS,
+    # so a tool without a clinic reads every clinic's rows.
+    clinic_id: UUID
     ctx: TraceContext
 
 
@@ -45,7 +48,7 @@ async def find_oncall_staff(
         trace_id=str(input.ctx.trace_id),
     )
 
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, str(input.clinic_id))
     data = await service.get_oncall_staff(input.work_session_id)
 
     if data is None:

@@ -41,7 +41,9 @@ def make_aggregate_context_node(pool: "asyncpg.Pool") -> PreVisitBriefNode:
     async def aggregate_context_node(state: PreVisitBriefState) -> dict[str, Any]:
         trace = new_trace()
         try:
-            ctx = await aggregate_patient_context(pool, state.clinic_patient_id, trace)
+            ctx = await aggregate_patient_context(
+                pool, state.clinic_patient_id, trace, str(state.clinic_id)
+            )
         except PatientNotFoundError as exc:
             logger.warning(
                 "pre_visit_brief.aggregate.patient_not_found",

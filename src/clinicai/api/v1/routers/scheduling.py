@@ -210,8 +210,7 @@ async def get_appointment_by_id(
     """Retrieve an appointment by ID."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT * FROM appointment WHERE id = $1 "
-            "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
+            "SELECT * FROM appointment WHERE id = $1 AND clinic_id = $2::uuid;",
             id,
             identity.clinic_id,
         )

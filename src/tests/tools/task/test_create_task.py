@@ -69,6 +69,7 @@ async def test_create_task__valid_input__returns_task_row(
         priority="URGENT",
         title="Review CBC — GROUP_C",
         sla_hours=4,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await create_task(pool, inp, new_trace())
 
@@ -94,6 +95,7 @@ async def test_create_task__lab_review_type__source_fields_populated(
         source_id=source_id,
         title="Review",
         sla_hours=4,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await create_task(pool, inp, new_trace())
 
@@ -112,6 +114,7 @@ def test_create_task__missing_title__pydantic_error() -> None:
     with pytest.raises(ValidationError):
         CreateTaskInput(  # type: ignore[call-arg]
             task_type="LAB_REVIEW",
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
         )
 
 
@@ -129,6 +132,7 @@ async def test_create_task__due_at_in_past__still_creates(
         task_type="PATIENT_CALLBACK",
         title="Callback overdue",
         due_at=past,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await create_task(pool, inp, new_trace())
 
@@ -147,6 +151,7 @@ async def test_create_task__assigned_to_none__ok(
     inp = CreateTaskInput(
         task_type="LAB_REVIEW",
         title="Unassigned review",
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await create_task(pool, inp, new_trace())
 
@@ -167,6 +172,7 @@ async def test_create_task__returns_all_fields_populated(
     inp = CreateTaskInput(
         task_type="LAB_REVIEW",
         title="t",
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     out = await create_task(pool, inp, new_trace())
 

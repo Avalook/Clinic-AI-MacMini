@@ -28,7 +28,7 @@ async def test_get_oncall_staff_not_found_returns_none(
     pool, conn = mock_pool
     conn.fetchrow.return_value = None
 
-    svc = SchedulingService(pool)
+    svc = SchedulingService(pool, "a0000000-0000-4000-8000-000000000001")
     result = await svc.get_oncall_staff(uuid4())
 
     assert result is None

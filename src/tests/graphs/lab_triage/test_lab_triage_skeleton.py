@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -101,7 +101,7 @@ def test_graph_builds_with_no_args() -> None:
 async def test_missing_lab_result_id_returns_error(
     graph: Any,
 ) -> None:
-    state = LabTriageState()
+    state = LabTriageState(clinic_id=UUID("a0000000-0000-4000-8000-000000000001"))
     result = await graph.ainvoke(state)
     assert result["step"] == LabTriageStep.DONE
     assert result["error"] is not None
@@ -114,6 +114,7 @@ async def test_hard_block_node_directly(mock_pool: MagicMock) -> None:
         lab_result_id=uuid4(),
         triage_group="GROUP_C",
         step=LabTriageStep.HARD_BLOCK,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     result = await node(state)
     assert result.response_to_patient is None
@@ -161,6 +162,7 @@ async def test_lab_triage__group_a_routes_to_advise(
     state = LabTriageState(
         lab_result_id=row.lab_result_id,
         clinic_patient_id=row.clinic_patient_id,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     result = await g.ainvoke(state)
 
@@ -200,6 +202,7 @@ async def test_lab_triage__group_c_unreviewed__safety_gate_populated(
     state = LabTriageState(
         lab_result_id=row.lab_result_id,
         clinic_patient_id=row.clinic_patient_id,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     result = await g.ainvoke(state)
 
@@ -220,6 +223,7 @@ async def test_lab_triage__row_not_found__terminates_with_error(
     state = LabTriageState(
         lab_result_id=uuid4(),
         clinic_patient_id=uuid4(),
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     result = await g.ainvoke(state)
 
@@ -238,6 +242,7 @@ async def test_lab_triage__no_llm_client__safety_falls_back_to_hard_block() -> N
     state = LabTriageState(
         lab_result_id=row.lab_result_id,
         clinic_patient_id=row.clinic_patient_id,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     result = await g.ainvoke(state)
 
@@ -266,6 +271,7 @@ async def test_lab_triage__classify_exception__safety_falls_back(
     state = LabTriageState(
         lab_result_id=row.lab_result_id,
         clinic_patient_id=row.clinic_patient_id,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
     )
     result = await g.ainvoke(state)
 
