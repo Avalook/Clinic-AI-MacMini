@@ -188,7 +188,15 @@ remove_disabled_services() {
 remove_disabled_services
 
 echo "==> [4/6] up -d"
-"${COMPOSE[@]}" up -d
+# `set -e` would abort the whole script here, which skips the rollback below and
+# leaves production DOWN — the one outcome the rollback exists to prevent. A new
+# release that cannot even start is exactly when the previous one is needed, so
+# the failure is captured and handled instead of ending the run.
+UP_OK=1
+"${COMPOSE[@]}" up -d || UP_OK=0
+if [ "$UP_OK" != "1" ]; then
+  echo "!! compose up FAILED for the new release"
+fi
 
 echo "==> [5/6] health check (up to ~120s)"
 health_ok() {
@@ -231,10 +239,14 @@ wait_for_health() {
   return 1
 }
 
-if wait_for_health; then DEPLOY_OK=1; fi
+if [ "$UP_OK" = "1" ] && wait_for_health; then DEPLOY_OK=1; fi
 
 if [ "${DEPLOY_OK:-0}" != "1" ]; then
-  echo "!! health check FAILED — rolling back"
+  if [ "$UP_OK" = "1" ]; then
+    echo "!! health check FAILED — rolling back"
+  else
+    echo "!! new release would not start — rolling back"
+  fi
   if [ -n "$OLD_API" ] && [ -n "$OLD_DASH" ] && [ -n "$PREVIOUS_RELEASE" ] && [ -n "$PREVIOUS_ENV_FILE" ]; then
     docker tag "$OLD_API"  "clinicai-api:${TAG}"
     docker tag "$OLD_DASH" "clinicai-dashboard:${TAG}"
@@ -244,8 +256,15 @@ if [ "${DEPLOY_OK:-0}" != "1" ]; then
     if [ -n "$ENABLED_PROFILES" ]; then export COMPOSE_PROFILES="$ENABLED_PROFILES"; else unset COMPOSE_PROFILES 2>/dev/null || true; fi
     COMPOSE=(docker compose --env-file "$PREVIOUS_ENV_FILE" -p "$PROJECT")
     remove_disabled_services
-    "${COMPOSE[@]}" up -d
-    if wait_for_health; then
+    # Same reason as the release `up` above: if the ROLLBACK cannot start
+    # either, `set -e` would kill the script mid-recovery and the operator would
+    # see no explanation at all. Say what happened — this is the worst case and
+    # the one where a clear message matters most.
+    ROLLBACK_UP_OK=1
+    "${COMPOSE[@]}" up -d || ROLLBACK_UP_OK=0
+    if [ "$ROLLBACK_UP_OK" != "1" ]; then
+      echo "!! rollback compose up failed — the stack is DOWN, intervene manually" >&2
+    elif wait_for_health; then
       echo "   rollback health verified. Investigate the failed release logs."
     else
       echo "!! rollback was attempted but health verification FAILED" >&2

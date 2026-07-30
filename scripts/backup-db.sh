@@ -57,6 +57,70 @@ esac
 # Strip the +asyncpg driver suffix for pg_dump compatibility.
 PG_URL="${DATABASE_URL/postgresql+asyncpg:/postgresql:}"
 
+# ---- status is written for every ATTEMPT, not only for successes ------------
+# Three consecutive nights failed with "pg_dump: command not found" and nobody
+# noticed, because a failing run exits before it writes anything: the status
+# file kept describing the last SUCCESS and silence looked identical to health.
+# Now the last line of the file is always the last thing that happened.
+OPS_STATUS_ROOT=$(grep -E '^OPS_STATUS_DIR=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
+OPS_STATUS_ROOT=${OPS_STATUS_ROOT:-${HOME}/.clinicai/ops}
+case "$OPS_STATUS_ROOT" in
+    "~/"*) OPS_STATUS_ROOT="$HOME/${OPS_STATUS_ROOT#\~/}" ;;
+    /*) : ;;
+    *) OPS_STATUS_ROOT="${REPO}/${OPS_STATUS_ROOT}" ;;
+esac
+OPS_STATUS_ENV_DIR="${OPS_STATUS_ROOT}/${SOURCE_APP_ENV}"
+mkdir -p "$OPS_STATUS_ENV_DIR"
+chmod 700 "$OPS_STATUS_ENV_DIR"
+
+BACKUP_SUCCEEDED=0
+BACKUP_DECLINED=0
+write_failure_status() {
+    [ "$BACKUP_SUCCEEDED" = "1" ] && return 0
+    # Declining because another run holds the lock is not a failed backup, and
+    # recording it as one would make a manual run look like a broken nightly.
+    [ "$BACKUP_DECLINED" = "1" ] && return 0
+    local tmp
+    tmp=$(mktemp "${OPS_STATUS_ENV_DIR}/.backup-status.XXXXXX") || return 0
+    chmod 600 "$tmp"
+    printf '%s\n' \
+      '{' \
+      '  "format_version": 1,' \
+      "  \"attempted_at\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"," \
+      "  \"source_app_env\": \"${SOURCE_APP_ENV}\"," \
+      '  "succeeded": false,' \
+      '  "verified": false,' \
+      '  "offsite_uploaded": false,' \
+      "  \"detail\": \"see ${LOG}\"" \
+      '}' > "$tmp"
+    mv "$tmp" "${OPS_STATUS_ENV_DIR}/backup-status.json"
+    chmod 600 "${OPS_STATUS_ENV_DIR}/backup-status.json"
+    log "Recorded FAILED backup attempt in ${OPS_STATUS_ENV_DIR}/backup-status.json"
+}
+LOCK_OWNED=0
+release_lock() {
+    [ "$LOCK_OWNED" = "1" ] || return 0
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+    LOCK_OWNED=0
+}
+trap 'release_lock; write_failure_status' EXIT
+
+# ---- one publisher at a time ------------------------------------------------
+# The nightly LaunchDaemon and a human running this by hand can land in the same
+# second. Both would compute the same timestamped filename and write over each
+# other's temp file, and the loser publishes a truncated archive that passes
+# every integrity check because it IS a valid gzip of half a dump. mkdir is the
+# atomic primitive available in POSIX sh; the second caller declines and says so
+# rather than racing.
+LOCK_DIR="${CLINIC_BACKUP_LOCK:-${BACKUP_DIR}/.backup.lock}"
+if mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_OWNED=1
+else
+    BACKUP_DECLINED=1
+    log "DECLINED: another backup is already active (lock: $LOCK_DIR)"
+    exit 1
+fi
+
 if [ -n "${PG_DUMP_BIN:-}" ]; then
     [ -x "$PG_DUMP_BIN" ] || {
         log "ERROR: configured pg_dump is not executable: $PG_DUMP_BIN"
@@ -113,7 +177,7 @@ BACKUP_FILE="${BACKUP_DIR}/clinicai_${TIMESTAMP}.sql.gz"
 TEMP_FILE="${BACKUP_FILE}.tmp"
 MANIFEST_FILE="${BACKUP_FILE}.manifest"
 TEMP_MANIFEST="${MANIFEST_FILE}.tmp"
-trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST"' EXIT
+trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST"; release_lock; write_failure_status' EXIT
 
 sha256_file() {
     if command -v shasum >/dev/null 2>&1; then
@@ -163,6 +227,42 @@ if ! gzip -cd "$TEMP_FILE" | awk '
     exit 1
 fi
 
+# ---- companion auth artifact ------------------------------------------------
+# public alone is NOT restorable. staff.auth_user_id has a foreign key to
+# auth.users, so loading this dump into a database without those rows dies with
+# "violates foreign key constraint staff_auth_user_id_fkey" partway through —
+# not with missing logins, with a failed restore. Found by actually restoring
+# one (scripts/restore-drill.sh); every archive check ever written passed it.
+#
+# auth.users + auth.identities are what satisfy the key and what let a human log
+# in afterwards. They are a few kilobytes. The rest of the auth schema
+# (sessions, refresh tokens, MFA challenges) is deliberately excluded: it is
+# short-lived state that GoTrue rebuilds, and restoring it into a managed
+# project fights the platform's own migrations.
+AUTH_FILE="${BACKUP_DIR}/clinicai_${TIMESTAMP}_auth.sql.gz"
+TEMP_AUTH="${AUTH_FILE}.tmp"
+trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST" "$TEMP_AUTH"; release_lock; write_failure_status' EXIT
+
+log "Dumping auth identities..."
+if "$PG_DUMP_BIN" --data-only --no-owner --no-acl \
+        --table=auth.users --table=auth.identities 2>> "$LOG" | gzip > "$TEMP_AUTH"; then
+    :
+else
+    rc=$?
+    log "ERROR: auth dump failed (exit code $rc) — the public archive alone cannot be restored"
+    exit 1
+fi
+if ! gzip -t "$TEMP_AUTH"; then
+    log "ERROR: auth artifact failed gzip integrity validation"
+    exit 1
+fi
+AUTH_RAW_BYTES=$(gzip -cd "$TEMP_AUTH" | wc -c | tr -d ' ')
+if ! gzip -cd "$TEMP_AUTH" | grep -q 'COPY auth\.users'; then
+    log "ERROR: auth artifact does not contain auth.users — restore would fail on the staff FK"
+    exit 1
+fi
+AUTH_SHA256=$(sha256_file "$TEMP_AUTH")
+
 ARCHIVE_SHA256=$(sha256_file "$TEMP_FILE")
 cat > "$TEMP_MANIFEST" <<EOF
 format_version=1
@@ -172,20 +272,29 @@ requires=supabase-cloud-pitr-and-auth-backup
 source_app_env=${SOURCE_APP_ENV}
 archive_sha256=${ARCHIVE_SHA256}
 raw_bytes=${UNCOMPRESSED_BYTES}
+auth_artifact=$(basename "$AUTH_FILE")
+auth_sha256=${AUTH_SHA256}
+auth_raw_bytes=${AUTH_RAW_BYTES}
+restore_order=auth-then-public
 EOF
 
 mv "$TEMP_FILE" "$BACKUP_FILE"
+mv "$TEMP_AUTH" "$AUTH_FILE"
 mv "$TEMP_MANIFEST" "$MANIFEST_FILE"
+trap 'release_lock; write_failure_status' EXIT
 chmod 600 "$BACKUP_FILE"
+chmod 600 "$AUTH_FILE"
 chmod 600 "$MANIFEST_FILE"
-trap - EXIT
+trap release_lock EXIT
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 log "Public-schema backup created and verified: $BACKUP_FILE ($SIZE, $UNCOMPRESSED_BYTES bytes raw)"
-log "NOTICE: Supabase auth/managed schemas and roles are outside this application-data backup; retain PITR/platform backups."
+log "Auth identities: $AUTH_FILE ($AUTH_RAW_BYTES bytes raw) — restore BEFORE the public archive"
+log "NOTICE: sessions/MFA and Supabase platform config remain outside this backup; retain PITR."
 
 # Prune old backups (keep last KEEP_DAYS days).
 DELETED=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" -mtime +${KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
 find "$BACKUP_DIR" -name "clinicai_*.sql.gz.manifest" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
+find "$BACKUP_DIR" -name "clinicai_*_auth.sql.gz" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
 [ "$DELETED" -gt 0 ] && log "Pruned $DELETED backup(s) older than ${KEEP_DAYS} days"
 
 # Optional: push to Cloudflare R2 via rclone.
@@ -198,6 +307,7 @@ R2_UPLOADED=false
 if [ -n "${R2_REMOTE:-}" ] && [ -n "${R2_BUCKET:-}" ] && command -v rclone > /dev/null 2>&1; then
     log "Uploading to R2: ${R2_REMOTE}:${R2_BUCKET}/..."
     if rclone copy "$BACKUP_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
+       rclone copy "$AUTH_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
        rclone copy "$MANIFEST_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; then
         R2_UPLOADED=true
         log "R2 upload complete"
@@ -210,16 +320,6 @@ fi
 
 # Publish only sanitized backup metadata for the read-only Ops Center. The
 # archive path, DB URL and backup contents never enter this status directory.
-OPS_STATUS_ROOT=$(grep -E '^OPS_STATUS_DIR=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
-OPS_STATUS_ROOT=${OPS_STATUS_ROOT:-${HOME}/.clinicai/ops}
-case "$OPS_STATUS_ROOT" in
-    "~/"*) OPS_STATUS_ROOT="$HOME/${OPS_STATUS_ROOT#\~/}" ;;
-    /*) : ;;
-    *) OPS_STATUS_ROOT="${REPO}/${OPS_STATUS_ROOT}" ;;
-esac
-OPS_STATUS_ENV_DIR="${OPS_STATUS_ROOT}/${SOURCE_APP_ENV}"
-mkdir -p "$OPS_STATUS_ENV_DIR"
-chmod 700 "$OPS_STATUS_ENV_DIR"
 OPS_STATUS_TEMP=$(mktemp "${OPS_STATUS_ENV_DIR}/.backup-status.XXXXXX")
 chmod 600 "$OPS_STATUS_TEMP"
 COMPLETED_AT=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
@@ -227,12 +327,14 @@ printf '%s\n' \
   '{' \
   '  "format_version": 1,' \
   "  \"completed_at\": \"${COMPLETED_AT}\"," \
+  '  "succeeded": true,' \
   "  \"source_app_env\": \"${SOURCE_APP_ENV}\"," \
   "  \"archive_bytes\": ${ARCHIVE_BYTES}," \
   '  "verified": true,' \
   "  \"offsite_uploaded\": ${R2_UPLOADED}," \
   '  "scope": "public-schema-only"' \
   '}' > "$OPS_STATUS_TEMP"
+BACKUP_SUCCEEDED=1
 mv "$OPS_STATUS_TEMP" "${OPS_STATUS_ENV_DIR}/backup-status.json"
 chmod 600 "${OPS_STATUS_ENV_DIR}/backup-status.json"
 

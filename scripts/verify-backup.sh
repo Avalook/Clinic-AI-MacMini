@@ -47,7 +47,8 @@ fi
 
 if [ -z "$BACKUP_FILE" ]; then
     BACKUP_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -type f \
-        -name 'clinicai_*.sql.gz' -print 2>/dev/null | LC_ALL=C sort | tail -n 1)
+        -name 'clinicai_*.sql.gz' ! -name '*_auth.sql.gz' \
+        -print 2>/dev/null | LC_ALL=C sort | tail -n 1)
 fi
 [ -n "$BACKUP_FILE" ] || fail "no ClinicAI backup artifact found in $BACKUP_DIR"
 [ -f "$BACKUP_FILE" ] || fail "backup artifact not found: $BACKUP_FILE"

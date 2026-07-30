@@ -25,9 +25,16 @@ jobs:
     # workflow_run executes with the default-branch workflow definition. Accept
     # only a successful push from the two first-party deploy branches; a PR run
     # must never reach the secrets-bearing self-hosted runner.
+    #
+    # head_repository is checked explicitly because this repository is public:
+    # anyone may fork it and run CI. Branch and event alone would let a run
+    # whose head_branch happens to be 'main' in SOMEBODY ELSE'S fork satisfy
+    # this condition, and the job it gates runs on a self-hosted Mac with
+    # production credentials.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       (github.event.workflow_run.head_branch == 'main' ||
        github.event.workflow_run.head_branch == 'staging')
     runs-on: [self-hosted, macmini]
@@ -43,7 +50,33 @@ jobs:
             *) echo "::error::unsupported deploy branch: $SOURCE_BRANCH"; exit 1 ;;
           esac
 
+      # workflow_run can arrive late — a slow CI run, a re-run of an old one, a
+      # queue backlog. Deploying its head_sha then puts OLDER code into
+      # production on top of newer, which looks like a spontaneous rollback and
+      # is very hard to diagnose at the time. Compare against the branch tip and
+      # skip instead; the newer commit's own CI run deploys it.
+      - name: Refuse to deploy a superseded commit
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          head_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_BRANCH}" \
+                       --jq .sha 2>/dev/null || echo "")
+          if [ -z "$head_sha" ]; then
+            echo "::error::could not resolve the current head of ${SOURCE_BRANCH}"
+            exit 1
+          fi
+          if [ "$head_sha" = "$VERIFIED_SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::skipping ${VERIFIED_SHA}: ${SOURCE_BRANCH} has moved to ${head_sha}"
+          fi
+
       - name: Checkout CI-verified commit
+        if: steps.freshness.outputs.deploy == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
@@ -57,6 +90,7 @@ jobs:
           path: release-${{ steps.env.outputs.target }}-${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy ${{ steps.env.outputs.target }}
+        if: steps.freshness.outputs.deploy == 'true'
         # Code comes from the exact event SHA above. Secrets remain in the fixed,
         # gitignored deploy directory and are passed only as an external env path.
         env:

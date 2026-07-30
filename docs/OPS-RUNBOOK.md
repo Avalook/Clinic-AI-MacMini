@@ -243,20 +243,50 @@ Truy cập [sentry.io](https://sentry.io) → xem stack trace, request_id → t�
 
 ## 8. Cài đặt LaunchDaemon (lần đầu)
 
+Cài từ **template trong repo**, không gõ tay: plist gõ tay là cách "chạy được
+trên máy tôi" trở thành "chỉ chạy trên máy tôi".
+
+Template backend dùng placeholder `__USER__`, `__HOME__`, `__REPO__` để không
+nhúng cứng đường dẫn của một máy vào file commit. Render trước khi cài:
+
 ```bash
-# Backend tự khởi động (đã cài rồi)
-sudo cp scripts/launchdaemons/com.dr4women.clinic-backend.plist /Library/LaunchDaemons/ 2>/dev/null
+BACKEND_PLIST=/Library/LaunchDaemons/com.dr4women.clinic-backend.plist
 
-# Backup DB hàng đêm
+# Backend tự khởi động lại sau reboot / mất điện.
+# Template nằm ở docker/, KHÔNG phải scripts/launchdaemons/.
+sed -e "s|__USER__|$(id -un)|g" \
+    -e "s|__HOME__|$HOME|g" \
+    -e "s|__REPO__|$PWD|g" \
+    docker/com.dr4women.clinic-backend.plist | sudo tee "$BACKEND_PLIST" >/dev/null
+
+# plist hỏng thì launchd bỏ qua trong im lặng — lint trước.
+sudo plutil -lint "$BACKEND_PLIST"
+
+# Backup DB hằng đêm 02:00 + dọn image hằng tuần
 sudo cp scripts/launchdaemons/com.dr4women.db-backup.plist /Library/LaunchDaemons/
-sudo launchctl load /Library/LaunchDaemons/com.dr4women.db-backup.plist
-
-# Docker cleanup hàng tuần
 sudo cp scripts/launchdaemons/com.dr4women.docker-cleanup.plist /Library/LaunchDaemons/
-sudo launchctl load /Library/LaunchDaemons/com.dr4women.docker-cleanup.plist
 
-# Kiểm tra đã cài
-sudo launchctl list | grep dr4women
+sudo chown root:wheel /Library/LaunchDaemons/com.dr4women.*.plist
+for p in clinic-backend db-backup docker-cleanup; do
+  sudo launchctl bootstrap system "/Library/LaunchDaemons/com.dr4women.$p.plist"
+done
+```
+
+`launchctl bootstrap system` thay cho `launchctl load` (đã deprecated và nuốt
+lỗi). Chạy backup ngay một lần thay vì đợi 02:00 — sai sót phát hiện bây giờ,
+không phải sáng mai:
+
+```bash
+sudo launchctl kickstart -k system/com.dr4women.db-backup
+tail -5 ~/Library/Logs/clinicai-backup.log
+```
+
+**Kiểm tra đã nạp thật.** Job hệ thống KHÔNG hiện trong `launchctl list` của
+user — nhìn nhầm chỗ đó là lý do người ta kết luận "backup không chạy" trong khi
+nó chạy đều và fail mỗi đêm:
+
+```bash
+sudo launchctl print system/com.dr4women.db-backup | head -20
 ```
 
 ## 9. Xác nhận hardening hạ tầng trong repository

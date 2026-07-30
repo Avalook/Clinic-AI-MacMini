@@ -45,6 +45,15 @@ if [ "${1:-}" = "--version" ]; then
   echo "pg_dump (PostgreSQL) test"
   exit 0
 fi
+for arg in "$@"; do
+  if [ "$arg" = "--table=auth.users" ]; then
+    echo "COPY auth.users (instance_id, id, aud) FROM stdin;"
+    printf '%s\t%s\t%s\n' "00000000-0000-0000-0000-000000000000" \
+      "cf7ad02d-9788-4dfe-9296-9b0ea52c8a54" "authenticated"
+    echo "\\."
+    exit 0
+  fi
+done
 if mkdir "${FAKE_PG_DUMP_ONCE:?}" 2>/dev/null; then
   touch "${FAKE_PG_DUMP_STARTED:?}"
   for _ in $(seq 1 200); do
@@ -54,6 +63,11 @@ if mkdir "${FAKE_PG_DUMP_ONCE:?}" 2>/dev/null; then
   [ -f "$FAKE_PG_DUMP_RELEASE" ] || exit 91
 fi
 echo "-- PostgreSQL database dump"
+# Same preamble as the `ok` fake: every archive this suite publishes has to look
+# like a real pg_dump, or a later assertion picks the odd one out and fails for
+# a reason that has nothing to do with what it is testing.
+echo "SELECT pg_catalog.set_config('search_path', '', false);"
+echo "CREATE SCHEMA public;"
 echo "CREATE TABLE public.patient (id uuid);"
 echo "CREATE TABLE public.appointment (id uuid);"
 echo "-- PostgreSQL database dump complete"
@@ -68,12 +82,32 @@ PG_DUMP
       '[ "${PGDATABASE:-}" = "clinic_test" ] || exit 85' \
       '[ "${PGSSLMODE:-}" = "require" ] || exit 86' \
       '[[ "$*" != *"cret"* ]] || exit 87' \
+      '# The auth companion is a second invocation with --table=auth.users.' \
+      '# Model it, or the fake answers the auth dump with a public one.' \
+      'for arg in "$@"; do' \
+      '  if [ "$arg" = "--table=auth.users" ]; then' \
+      '    echo "COPY auth.users (instance_id, id, aud) FROM stdin;"' \
+      '    echo "00000000-0000-0000-0000-000000000000\tcf7ad02d-9788-4dfe-9296-9b0ea52c8a54\tauthenticated"' \
+      '    echo "\\\\."' \
+      '    exit 0' \
+      '  fi' \
+      'done' \
       'echo "-- PostgreSQL database dump"' \
       'echo "CREATE TABLE public.patient (id uuid);"' \
       'echo "-- PostgreSQL database dump complete"' > "$FAKE_BIN/pg_dump"
   else
     printf '%s\n' \
       '#!/bin/bash' \
+      '# The auth companion is a second invocation with --table=auth.users.' \
+      '# Model it, or the fake answers the auth dump with a public one.' \
+      'for arg in "$@"; do' \
+      '  if [ "$arg" = "--table=auth.users" ]; then' \
+      '    echo "COPY auth.users (instance_id, id, aud) FROM stdin;"' \
+      '    echo "00000000-0000-0000-0000-000000000000\tcf7ad02d-9788-4dfe-9296-9b0ea52c8a54\tauthenticated"' \
+      '    echo "\\\\."' \
+      '    exit 0' \
+      '  fi' \
+      'done' \
       'echo "-- PostgreSQL database dump"' \
       'echo "SELECT pg_catalog.set_config('\''search_path'\'', '\'''\'', false);"' \
       'echo "CREATE SCHEMA public;"' \
@@ -133,7 +167,7 @@ test_backup_rejects_failed_dump() {
 test_backup_creates_verified_archive() {
   make_pg_dump ok
   backup_test_env
-  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | head -1)"
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
   [ -n "$archive" ] || fail "backup did not create an archive"
   gzip -t "$archive" || fail "backup archive failed gzip validation"
   gzip -cd "$archive" | grep -q 'PostgreSQL database dump complete' || \
@@ -141,6 +175,16 @@ test_backup_creates_verified_archive() {
   [ -f "${archive}.manifest" ] || fail "backup did not create a scope/checksum manifest"
   grep -qx 'complete_supabase_dr=false' "${archive}.manifest" || \
     fail "backup manifest incorrectly presents public data as full Supabase DR"
+  # The public dump alone cannot be restored: staff.auth_user_id references
+  # auth.users. Publishing it without the companion produces an archive that
+  # passes every integrity check and still fails a real restore.
+  auth_archive="${archive%.sql.gz}_auth.sql.gz"
+  [ -f "$auth_archive" ] || fail "backup did not create the auth companion artifact"
+  gzip -t "$auth_archive" || fail "auth companion failed gzip validation"
+  gzip -cd "$auth_archive" | grep -q 'COPY auth\.users' || \
+    fail "auth companion does not contain auth.users"
+  grep -qx 'restore_order=auth-then-public' "${archive}.manifest" || \
+    fail "manifest does not record the restore order"
   status_file="$TEST_HOME/.clinicai/ops/test/backup-status.json"
   [ -f "$status_file" ] || fail "backup did not publish sanitized Ops metadata"
   grep -q '"verified": true' "$status_file" || fail "Ops backup metadata is not verified"
@@ -185,7 +229,7 @@ test_backup_rejects_small_archive_before_publish() {
 
 test_backup_verifier_rejects_stale_and_small_artifacts() {
   local archive
-  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | head -1)"
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
   [ -n "$archive" ] || fail "no verified archive exists for artifact health tests"
 
   BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_MAX_AGE_HOURS=30 \
@@ -238,7 +282,7 @@ test_backup_lock_rejects_a_concurrent_publisher() {
     backup_test_env >"$second_output" 2>&1 || second_rc=$?
 
   touch "$release_file"
-  wait "$first_pid" || fail "lock-owning backup failed"
+  wait "$first_pid" || fail "lock-owning backup failed: $(tail -3 "$first_output" | tr '\n' ' ')"
 
   [ "$second_rc" -ne 0 ] || \
     fail "backup accepted a second publisher while the first still held the lock"
@@ -247,7 +291,8 @@ test_backup_lock_rejects_a_concurrent_publisher() {
     "$TEST_HOME/Library/Logs/clinicai-backup.log" || \
     fail "concurrent backup rejection was not logged"
 
-  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | LC_ALL=C sort | tail -1)"
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' \
+    -type f | LC_ALL=C sort | tail -1)"
   [ -n "$archive" ] || fail "lock-owning backup did not publish an artifact"
   BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_MAX_AGE_HOURS=1 \
     "$ROOT/scripts/verify-backup.sh" "$archive" >/dev/null
@@ -255,7 +300,7 @@ test_backup_lock_rejects_a_concurrent_publisher() {
 
 test_restore_is_atomic_and_explicit() {
   make_psql
-  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | head -1)"
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
   stdin_capture="$TMP_ROOT/psql-input.sql"
 
   if printf 'RESTORE TEST\n' | HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
