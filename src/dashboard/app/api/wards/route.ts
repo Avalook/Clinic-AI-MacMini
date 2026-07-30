@@ -1,10 +1,13 @@
 // /api/wards?province=<code> → danh sách phường/xã của 1 tỉnh (sau sáp nhập, bỏ
-// huyện). Data tham chiếu hành chính TĨNH, CÔNG KHAI (không nhạy cảm). Đọc bằng
-// SERVICE-ROLE: bảng province/ward có RLS bật nhưng KHÔNG có policy SELECT → client
-// authenticated đọc ra 0 dòng. Bypass RLS ở server cho data tham chiếu là an toàn.
+// huyện). Data tham chiếu hành chính TĨNH, CÔNG KHAI (không nhạy cảm).
+//
+// Đọc bằng session của chính người gọi. Trước đây route này phải dùng
+// SERVICE-ROLE vì `ward` bật RLS mà không có policy SELECT nào (client
+// authenticated đọc ra 0 dòng); migration 20260730000002 đã thêm policy cho
+// province/ward nên không cần bypass RLS nữa — xem ADR-0012.
 
 import { NextResponse } from "next/server";
-import { getSupabaseService } from "../../../lib/supabase-service";
+import { getSupabaseServer } from "../../../lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +16,7 @@ export async function GET(request: Request) {
   if (!province) {
     return NextResponse.json({ wards: [] });
   }
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
+  const db = await getSupabaseServer();
   const { data, error } = await db
     .from("ward")
     .select("code, name, full_name")

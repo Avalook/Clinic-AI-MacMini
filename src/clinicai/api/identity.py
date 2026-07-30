@@ -16,7 +16,6 @@ Two verification modes (auto-selected):
 from __future__ import annotations
 
 import os
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
@@ -175,20 +174,26 @@ async def get_current_identity(
     )
 
 
-def require_role(
-    *allowed: ClinicRole,
-) -> Callable[[StaffIdentity], Awaitable[StaffIdentity]]:
-    """Dependency factory: 403 unless the caller's role is in ``allowed``."""
-    allowed_set = frozenset(allowed)
+class RoleGuard:
+    """Dependency that admits only ``allowed_roles``.
 
-    async def _dep(
+    A class rather than a closure so the gate can be read back — tests assert
+    which roles a router admits without having to drive HTTP, and the set stays
+    checkable against ``roles.ts``.
+    """
+
+    def __init__(self, allowed: frozenset[ClinicRole]) -> None:
+        self.allowed_roles = allowed
+
+    async def __call__(
+        self,
         identity: StaffIdentity = Depends(get_current_identity),
     ) -> StaffIdentity:
-        if identity.role not in allowed_set:
+        if identity.role not in self.allowed_roles:
             logger.info(
                 "role_forbidden",
                 role=identity.role.value,
-                allowed=[r.value for r in allowed_set],
+                allowed=[r.value for r in self.allowed_roles],
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -196,4 +201,7 @@ def require_role(
             )
         return identity
 
-    return _dep
+
+def require_role(*allowed: ClinicRole) -> RoleGuard:
+    """Dependency factory: 403 unless the caller's role is in ``allowed``."""
+    return RoleGuard(frozenset(allowed))

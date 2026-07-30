@@ -5,7 +5,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getSupabaseService } from "../../../../lib/supabase-service";
 import { getClinicRole } from "../../../../lib/clinic-session";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
@@ -43,9 +42,6 @@ export default async function NewPatientPage({
       : "Tạo bệnh nhân";
 
   const supabase = await getSupabaseServer();
-  // province/ward có RLS bật nhưng KHÔNG có policy SELECT → client authenticated đọc
-  // 0 dòng. Đọc bằng SERVICE-ROLE (data tham chiếu công khai, server-only, an toàn).
-  const service = getSupabaseService();
   const [locRes, svcRes, docRes, provRes] = await Promise.all([
     supabase.from("clinic_location").select("id, name").order("name"),
     supabase.from("service_type").select("id, name").order("name"),
@@ -56,9 +52,9 @@ export default async function NewPatientPage({
       .eq("is_active", true)
       .order("full_name"),
     // 34 tỉnh/thành sau sáp nhập — phường/xã load runtime theo tỉnh (/api/wards).
-    service
-      ? service.from("province").select("code, name, full_name").order("name")
-      : Promise.resolve({ data: [] as { code: string; name: string; full_name: string }[] }),
+    // Trước đây phải đọc bằng service-role vì province bật RLS mà không có policy
+    // SELECT nào; 20260730000002 đã thêm policy (ADR-0012).
+    supabase.from("province").select("code, name, full_name").order("name"),
   ]);
 
   const locations: Option[] = (locRes.data ?? []).map((r) => ({

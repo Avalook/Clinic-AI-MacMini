@@ -20,13 +20,18 @@ export function paymentViaBackend(): boolean {
   return process.env.PAYMENT_VIA_BACKEND === "1" && API_BASE !== "";
 }
 
+/** True when the care-episode lifecycle should be proxied to FastAPI (W5). */
+export function episodeViaBackend(): boolean {
+  return process.env.EPISODE_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
 /**
  * Forward a JSON body to a FastAPI endpoint, attaching the caller's Supabase
  * access token (Bearer) + the shared X-API-Key, and mirror the backend's
  * status/body back to the browser as the { ok } / { error } shape the UI expects.
  */
 export async function proxyJsonToBackend(
-  method: "POST" | "DELETE",
+  method: "POST" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
 ): Promise<NextResponse> {

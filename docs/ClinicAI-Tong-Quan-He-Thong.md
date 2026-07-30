@@ -447,7 +447,7 @@ flowchart TB
 | 1 login/nhân viên | 🟡 code xong, chờ vận hành | Luồng đã đúng (`getCurrentStaff` suy từ `auth.uid()`), UI cấp tài khoản đã có ở `/settings/new-user`. Còn: cấp tài khoản cho từng nhân viên chưa link, rồi quyết định bỏ cổng `/enter` dùng chung |
 | Siết RLS theo **vai trò** | 🔴 chưa | Lễ tân/Thu ngân vẫn đọc được `clinical_record` trong cùng phòng khám; phải dời đọc ra sau FastAPI trước (W5, đích ROLE-02) |
 | Workflow kernel đầy đủ | 🔵 | `node_*`/`work_item_*`/`follow_up_case` + Command API + seed 37 node §13 (W4) |
-| Backend sở hữu hợp đồng | 🔴 vi phạm | Gỡ `getSupabaseService()` khỏi dashboard, mọi ghi qua FastAPI, sinh type từ OpenAPI (W5) |
+| Backend sở hữu hợp đồng | 🟡 đợt 1 xong | Gỡ service-role khỏi 3 chỗ (`wards`, `check-phone`, `patients/new`); hàng rào CI `service-role-boundary.test.mts` với danh sách trắng **chỉ được ngắn đi**, trần 19 file → đích 2; `care_episode` đã dời trọn sang FastAPI làm mẫu (`PATCH /api/v1/episodes/{id}`, cờ `EPISODE_VIA_BACKEND`). Còn 14 route nghiệp vụ (W5) |
 | Sẵn sàng lên VPS | 🟡 chưa kiểm chứng | Build multi-arch + CI dựng stack trên Linux (W6) |
 | Cổng POS / KiotViet | 🔵 | `PosPort` + `NullPosAdapter` + adapter KiotViet, đồng bộ qua outbox (W7) |
 | Slot config-driven | 🔴 hardcode | Bảng `slot_capacity_rule` + đọc động (W8) |

@@ -9,7 +9,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getSupabaseService } from "../../../../lib/supabase-service";
 import { getClinicRole } from "../../../../lib/clinic-session";
 import { canWriteIntake } from "../../../../lib/roles";
 
@@ -45,10 +44,10 @@ export async function GET(request: Request) {
   }
   const ten = digits.slice(-10); // chuẩn hoá: 10 số cuối (bỏ +84/84 nếu lỡ dán vào)
 
-  // Service-role (bypass RLS) cho chắc; rớt về client authenticated (patient có
-  // RLS SELECT) nếu chưa cấu hình service key.
-  const db = getSupabaseService() ?? supabase;
-  const { data, error } = await db
+  // Đọc bằng session của người gọi. Không bypass RLS nữa (ADR-0012): từ
+  // 20260730000004, `patient` lọc theo clinic_membership, nên cảnh báo trùng SĐT
+  // chỉ soi trong phòng khám của chính người đang thao tác — đúng điều ta muốn.
+  const { data, error } = await supabase
     .from("patient")
     .select("full_name, patient_code, date_of_birth")
     .or(`phone_primary.eq.${ten},phone_secondary.eq.${ten}`)

@@ -50,3 +50,33 @@ phụ thuộc frontend; audit "ai làm gì" đầy đủ vì mọi ghi đều qu
 tải hiện tại); phải viết endpoint cho mọi thứ frontend đang tự truy vấn.
 **Kiểm chứng:** CI có test khẳng định `src/dashboard` không còn tham chiếu
 `SUPABASE_SERVICE_ROLE_KEY`, và không `from("<bảng nghiệp vụ>")` ngoài auth/realtime.
+
+## Trạng thái thực hiện (cập nhật 2026-07-30, W5 đợt 1)
+
+**Đã gỡ service-role khỏi 3 chỗ** — nhờ policy thêm ở W1b/W3, không cần bypass RLS nữa:
+`app/api/wards`, `app/api/patients/check-phone`, `app/(dashboard)/patients/new`.
+Đọc `province`/`ward`/`patient` giờ đi bằng session của chính người gọi, nên còn được
+lọc theo phòng khám thay vì thấy toàn hệ thống.
+
+**Ranh giới đã có hàng rào, không còn là lời hứa.**
+`src/dashboard/tests/service-role-boundary.test.mts` (chạy trong CI qua
+`npm run test:boundary`) giữ một **danh sách trắng chỉ được ngắn đi**:
+- thêm file mới đụng tới service-role ⇒ **CI đỏ**;
+- để lại file đã hết dùng service-role trong danh sách ⇒ **CI cũng đỏ** (chống mục);
+- trần cứng **19 file**, chỉ được hạ. W5 xong khi còn **2** (factory + route Auth-admin).
+
+Test này còn tìm ra 3 chỗ mà `grep getSupabaseService` bỏ sót vì chúng tự tạo client
+inline từ `SUPABASE_SERVICE_ROLE_KEY`: `api/roster`, `api/service-price`,
+`settings/new-user`.
+
+**Một vertical đã dời trọn sang FastAPI làm mẫu:** vòng đời `care_episode`.
+`EpisodeService` + router `PATCH /api/v1/episodes/{id}`, gate vai trò bằng
+`require_role(CSKH, MANAGEMENT, TRUONG_CA)` — khớp `canManageAppt` trong `roles.ts`, và
+`require_role` nay trả về `RoleGuard` có `allowed_roles` đọc lại được nên test khẳng định
+được cổng vai trò mà không cần dựng HTTP. Bản backend **chặt hơn** bản Next: đổi trạng
+thái và ghi audit event nằm trong **cùng một transaction**, nên không thể có chuyện đóng
+đợt khám mà thiếu event. Bật bằng `EPISODE_VIA_BACKEND=1`, mặc định tắt.
+
+**Còn lại:** 14 route nghiệp vụ (đặt lịch/check-in, bệnh án, siêu âm, xét nghiệm, thu
+tiền, service-log, sono, CSKH, roster, bảng giá). Mỗi entry trong danh sách trắng ghi rõ
+nó phải về router nào.

@@ -9,6 +9,7 @@ import { getSupabaseService } from "../../../lib/supabase-service";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { canManageAppt } from "../../../lib/roles";
 import { logEvent } from "../../../lib/event-log";
+import { episodeViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface Body {
   id?: string;
@@ -44,6 +45,14 @@ export async function PATCH(request: Request) {
       { error: "Thiếu id đợt khám hoặc action không hợp lệ." },
       { status: 400 },
     );
+  }
+
+  // W5 (ADR-0012): the rule now lives in FastAPI, where the status change and its
+  // audit event share one transaction. Off by default so prod keeps the legacy
+  // path until EPISODE_VIA_BACKEND=1 is set; the branch below is what gets
+  // deleted — along with the service-role client — once the flag is permanent.
+  if (episodeViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/episodes/${id}`, { action });
   }
 
   const db = getSupabaseService();
