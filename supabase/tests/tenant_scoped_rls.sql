@@ -92,7 +92,8 @@ DECLARE
         'mpi_merge_queue',   -- patient identifiers pending a merge decision
         'ultrasound_record', -- clinical, reached through app/api/ultrasound
         'block_budget',      -- capacity config
-        'staff_capability'   -- staffing config
+        'staff_capability',  -- staffing config
+        'pos_outbox'         -- pending pushes to an external till
     ];
 BEGIN
     SELECT string_agg(c.relname, ', ')

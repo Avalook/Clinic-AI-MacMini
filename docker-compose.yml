@@ -18,6 +18,7 @@
 #   secrets from a shared `.env` file.
 # Optional profiles:  --profile workers   (RabbitMQ worker + notification relay)
 #                     --profile notifications (notification relay only)
+#                     --profile pos       (POS outbox relay — ADR-0010)
 #                     --profile cloudflare (cloudflared tunnel)
 
 services:
@@ -117,6 +118,23 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    networks: [internal]
+
+  # POS outbox relay (ADR-0010). Opt-in: `--profile pos`. Harmless to run before
+  # any till is connected — with the default null adapter it just drains the
+  # queue. Kept separate from the notification relay because a POS being down
+  # must not delay a patient's SMS, and vice versa.
+  pos-relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    profiles: ["pos"]
+    restart: unless-stopped
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
+    environment:
+      POS_ADAPTER: ${POS_ADAPTER:-none}
+    command: ["python", "-m", "clinicai.worker", "--pos-relay"]
     networks: [internal]
 
   # Lightweight notification outbox relay. It polls Supabase directly and does

@@ -18,6 +18,7 @@ not a client-supplied cookie.
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 
 import asyncpg
 import structlog
@@ -25,6 +26,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services import pos_outbox
 
 logger = structlog.get_logger()
 
@@ -103,27 +105,49 @@ class PaymentService:
         if status_row["appt_status"] != COMPLETED_STATUS:
             raise ConflictError("Bác sĩ chưa khám xong lượt này — chưa thể thu tiền")
 
-        await self._pool.execute(
-            """
-            INSERT INTO payment (
-                visit_id, clinic_patient_id, kind, status,
-                amount, paid_by_staff_id, paid_at, updated_at
-            )
-            VALUES ($1::uuid, $2::uuid, $3, 'PAID', $4, $5::uuid, now(), now())
-            ON CONFLICT (visit_id, kind) DO UPDATE SET
-                clinic_patient_id = EXCLUDED.clinic_patient_id,
-                amount            = EXCLUDED.amount,
-                status            = 'PAID',
-                paid_by_staff_id  = EXCLUDED.paid_by_staff_id,
-                paid_at           = now(),
-                updated_at        = now()
-            """,
-            visit_id,
-            clinic_patient_id,
-            kind,
-            normalize_amount(amount),
-            identity.staff_id,
-        )
+        normalized = normalize_amount(amount)
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                payment_id = await conn.fetchval(
+                    """
+                    INSERT INTO payment (
+                        visit_id, clinic_patient_id, kind, status,
+                        amount, paid_by_staff_id, paid_at, updated_at
+                    )
+                    VALUES ($1::uuid, $2::uuid, $3, 'PAID', $4, $5::uuid, now(), now())
+                    ON CONFLICT (visit_id, kind) DO UPDATE SET
+                        clinic_patient_id = EXCLUDED.clinic_patient_id,
+                        amount            = EXCLUDED.amount,
+                        status            = 'PAID',
+                        paid_by_staff_id  = EXCLUDED.paid_by_staff_id,
+                        paid_at           = now(),
+                        updated_at        = now()
+                    RETURNING id
+                    """,
+                    visit_id,
+                    clinic_patient_id,
+                    kind,
+                    normalized,
+                    identity.staff_id,
+                )
+                # Transactional outbox (ADR-0010): queued with the payment, so
+                # the push cannot be lost, and pushed later, so an external POS
+                # being down cannot fail the cashier. No adapter is imported
+                # here — this is an INSERT, not an integration.
+                await pos_outbox.enqueue(
+                    conn,
+                    kind=pos_outbox.INVOICE,
+                    subject_id=str(payment_id),
+                    payload={
+                        "clinic_reference": str(payment_id),
+                        "kind": kind,
+                        "total_amount": normalized,
+                        "paid_at": datetime.now(timezone.utc),
+                        "patient_reference": clinic_patient_id,
+                        "visit_id": visit_id,
+                    },
+                )
         logger.info(
             "payment_recorded",
             visit_id=visit_id,
@@ -140,11 +164,27 @@ class PaymentService:
     ) -> None:
         """Delete the payment row for ``(visit_id, kind)``. Not gated on exam status."""
         self._assert_kind_allowed(kind, identity)
-        await self._pool.execute(
-            "DELETE FROM payment WHERE visit_id = $1::uuid AND kind = $2",
-            visit_id,
-            kind,
-        )
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                payment_id = await conn.fetchval(
+                    "DELETE FROM payment WHERE visit_id = $1::uuid AND kind = $2 "
+                    "RETURNING id",
+                    visit_id,
+                    kind,
+                )
+                if payment_id is not None:
+                    # A POS that was told about the invoice has to be told it is
+                    # void; one that never heard of it will no-op.
+                    await pos_outbox.enqueue(
+                        conn,
+                        kind=pos_outbox.INVOICE_VOID,
+                        subject_id=str(payment_id),
+                        payload={
+                            "clinic_reference": str(payment_id),
+                            "kind": kind,
+                            "visit_id": visit_id,
+                        },
+                    )
         logger.info(
             "payment_voided",
             visit_id=visit_id,

@@ -40,3 +40,46 @@ chạy độc lập hoàn toàn khi tắt.
 **Tiêu cực:** một lớp interface "chưa ai dùng" cần được test bằng `NullPosAdapter` +
 một adapter giả trong test, nếu không nó sẽ mục.
 **Kiểm chứng:** test khẳng định service payment không import gì từ `adapters/`.
+
+## Trạng thái thực hiện (cập nhật 2026-07-30, W7)
+
+**Cổng đã mở, và ClinicAI không phụ thuộc gì vào nó.**
+
+- **Port**: `src/clinicai/ports/pos.py` — `PosPort` (Protocol) với 4 verb
+  `push_invoice` / `void_invoice` / `push_stock_movement` / `pull_catalog`, cùng
+  `PosInvoice` / `PosStockMovement` / `PosCatalogItem` thuần dataclass. `pull_catalog`
+  ghi rõ trong docstring: **chỉ để đối soát**, không được ghi ngược vào ledger.
+- **Adapter mặc định** `NullPosAdapter` (`POS_ADAPTER=none`) — nhận rồi bỏ, nhưng vẫn
+  hành xử như adapter thật để relay *thoát hàng* thay vì để outbox phình mãi, và để
+  đường code đó được chạy ở production chứ không chỉ trong test.
+- **Cấu hình 2 tầng**: `POS_ADAPTER` (mức deployment, tắt được cả hệ thống bằng một chỗ)
+  và `clinic.settings->'pos'` (mức tenant, đè lên) — vì multi-tenant không thể giả định
+  mọi phòng khám dùng chung một cái quầy. Credential nằm trong `clinic.settings`, không
+  bao giờ trong code.
+- **Outbox có transaction**: bảng `pos_outbox` (`20260730000007`). Dòng outbox được ghi
+  **trong cùng transaction với payment** — payment commit thì push chắc chắn đã vào hàng
+  đợi; payment rollback thì không có gì trong hàng đợi. Đẩy đi sau, nên **KiotViet sập
+  không làm hỏng được lượt thu tiền**.
+- **Relay + retry + DLQ**: `pos_relay.py`, chạy bằng `python -m clinicai.worker
+  --pos-relay` hoặc compose `--profile pos`. Claim từng dòng bằng advisory lock (2 relay
+  chạy song song không đẩy trùng), backoff 1′ → 5′ → 25′ → 125′, hết `max_attempts` thì
+  chuyển **DEAD**. Dead-letter là kết cục trung thực: tiền đã thu, POS chưa biết, phải có
+  người nhìn. Im lặng hoặc retry vô hạn đều giấu chuyện đó đi.
+
+**Tại sao `pos_outbox` riêng chứ không dùng `event_log`:** `event_published` là **một
+boolean dùng chung cho mọi consumer**. Notification relay đã claim event bằng cách lật cờ
+đó, nên relay thứ hai đọc cùng cờ sẽ ăn trộm thông báo của nhau. Một cái cờ không phục vụ
+được hai consumer. *(Nâng `event_log` lên theo dõi delivery per-consumer là việc nên làm
+khi có consumer thứ ba.)*
+
+**Adapter KiotViet cố ý CHƯA hiện thực HTTP.** Không ai ở đây có credential hay sandbox,
+mà một client viết mò từ tài liệu còn tệ hơn không có: nó trông như đã xong, nó đã được
+nối vào relay, và hôm bật lên thì phòng khám phát hiện endpoint nào đoán sai — ngay trước
+mặt bệnh nhân. Nên adapter mang đủ phần biết được (cấu hình, tên, hình dạng mapping) và
+**từ chối to tiếng** bằng `PosDeliveryError(retryable=False)` → vào thẳng DEAD. Để hoàn
+thiện cần: `retailer`, `client_id`/`client_secret`, `branch_id`, và bảng ánh xạ
+`service_code` → mã sản phẩm KiotViet.
+
+**Ranh giới được test giữ**: `src/tests/test_pos_port.py::TestBoundary` fail nếu bất kỳ
+file nào trong `services/` (trừ `pos_relay`/`pos_config`) import `clinicai.adapters`, và
+khẳng định `payment_service.py` chỉ chạm `pos_outbox`, không hề biết chữ "kiotviet".

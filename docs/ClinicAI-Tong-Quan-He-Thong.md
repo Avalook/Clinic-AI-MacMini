@@ -450,7 +450,7 @@ flowchart TB
 | Sinh work item tự động + bỏ `staff_task` | 🔴 chưa | Chưa có gì tự tạo `work_item` khi check-in; `staff_task` vẫn chạy thật. Cần chốt "một lượt khám sinh ra node nào" + viết lại màn `/tasks` (sau W5) |
 | Backend sở hữu hợp đồng | 🟡 đợt 1 xong | Gỡ service-role khỏi 3 chỗ (`wards`, `check-phone`, `patients/new`); hàng rào CI `service-role-boundary.test.mts` với danh sách trắng **chỉ được ngắn đi**, trần 19 file → đích 2; `care_episode` đã dời trọn sang FastAPI làm mẫu (`PATCH /api/v1/episodes/{id}`, cờ `EPISODE_VIA_BACKEND`). Còn 14 route nghiệp vụ (W5) |
 | Sẵn sàng lên VPS | 🟢 xong | Job CI `portability`: chặn đường dẫn `/Users/…`, build 2 image `linux/amd64`, chạy thật + smoke `/health` & `/health/db`. Đã sửa 1 lỗi thật: bind mount `OPS_STATUS_DIR` mặc định trỏ vào home của Mac (W6) |
-| Cổng POS / KiotViet | 🔵 | `PosPort` + `NullPosAdapter` + adapter KiotViet, đồng bộ qua outbox (W7) |
+| Cổng POS / KiotViet | 🟢 cổng đã mở | `PosPort` + `NullPosAdapter` (mặc định) + `pos_outbox` ghi **trong cùng transaction với payment** + relay có backoff & dead-letter (`--profile pos`). Adapter KiotViet **cố ý chưa hiện thực HTTP** — thiếu credential, từ chối to tiếng thay vì đoán endpoint (W7) |
 | Slot config-driven | 🔴 hardcode | Bảng `slot_capacity_rule` + đọc động (W8) |
 | `release_state` cho kết quả | 🔵 thiếu | `DRAFT→PENDING_REVIEW→SIGNED→RELEASED\|HELD_SENSITIVE→DELIVERED` trên `lab_result`+`ultrasound_record` (W9) |
 | Payment ledger nội bộ | 🔵 | `billable_item`/`payment_transaction`/`payment_allocation`/`cashier_shift` (W10) |

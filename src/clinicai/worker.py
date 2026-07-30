@@ -9,6 +9,13 @@ Mode 2 (relay): Notification outbox relay — polls ``event_log`` and delivers
   Run:  python -m clinicai.worker --relay
   Env:  DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
+Mode 3 (pos-relay): POS outbox relay — polls ``pos_outbox`` and pushes invoices
+  and stock movements to whichever POS the clinic configured (ADR-0010). With
+  the default null adapter it simply drains the queue, so it is harmless to run
+  before any POS is connected.
+  Run:  python -m clinicai.worker --pos-relay
+  Env:  DATABASE_URL, POS_ADAPTER (default ``none``)
+
 The relay mode is the recommended lightweight path for a single Mac mini
 deployment. RabbitMQ mode is kept for future scaling.
 """
@@ -29,6 +36,8 @@ logger = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 RELAY_POLL_INTERVAL = 30  # seconds between polls
+# The POS is not on the critical path, so it can be told less often.
+POS_RELAY_POLL_INTERVAL = 60
 
 
 async def _run_relay() -> None:
@@ -68,6 +77,42 @@ async def _run_relay() -> None:
 # ---------------------------------------------------------------------------
 # RabbitMQ mode (default): consume from broker
 # ---------------------------------------------------------------------------
+
+
+async def _run_pos_relay() -> None:
+    """Run the POS outbox relay loop (ADR-0010)."""
+    from clinicai.core.database import close_pool, create_pool
+    from clinicai.services.pos_relay import poll_and_push
+
+    pool = await create_pool()
+    stop = asyncio.Event()
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+
+    logger.info(
+        "pos_relay_started",
+        poll_interval=POS_RELAY_POLL_INTERVAL,
+        adapter=os.environ.get("POS_ADAPTER", "none"),
+    )
+
+    try:
+        while not stop.is_set():
+            try:
+                await poll_and_push(pool)
+            except Exception:
+                # A broken POS must never take the relay down with it.
+                logger.exception("pos_relay_poll_error")
+
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=POS_RELAY_POLL_INTERVAL)
+                break
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        await close_pool(pool)
+        logger.info("pos_relay_stopped")
 
 
 async def _run_rabbitmq() -> None:
@@ -110,7 +155,9 @@ async def _run_rabbitmq() -> None:
 
 
 def main() -> None:
-    if "--relay" in sys.argv:
+    if "--pos-relay" in sys.argv:
+        asyncio.run(_run_pos_relay())
+    elif "--relay" in sys.argv:
         asyncio.run(_run_relay())
     else:
         asyncio.run(_run_rabbitmq())
