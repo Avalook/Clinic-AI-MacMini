@@ -39,6 +39,10 @@ class QueryTasksFilter(BaseModel):
     """Filter set for query_tasks. All fields optional except limit/order_by."""
 
     location_id: UUID | None = None
+    # Tenant of the caller (ADR-0009). Always applied — an unfiltered query
+    # would otherwise return every clinic's task list, since the backend runs
+    # as the database owner and RLS does not constrain it. None = default.
+    clinic_id: UUID | None = None
     assigned_to: UUID | None = None
     status: str | None = None
     task_type: str | None = None
@@ -71,8 +75,8 @@ async def query_tasks(
         asyncpg errors propagate unchanged.
     """
     where_clauses: list[str] = []
-    params: list[object] = []
-    idx = 1
+    params: list[object] = [filters.clinic_id]
+    idx = 2
 
     if filters.location_id is not None:
         where_clauses.append(f"location_id = ${idx}")
@@ -107,12 +111,13 @@ async def query_tasks(
     if filters.overdue_only:
         where_clauses.append("due_at < NOW() AND status = 'PENDING'")
 
-    where_sql = f"WHERE {' AND '.join(where_clauses)} " if where_clauses else ""
+    extra_sql = f"AND {' AND '.join(where_clauses)} " if where_clauses else ""
     order_by_sql = _ORDER_BY_MAP[filters.order_by]
     sql = (
         f"SELECT {_SELECT_COLUMNS} "
         f"FROM staff_task "
-        f"{where_sql}"
+        f"WHERE clinic_id = COALESCE($1::uuid, public.default_clinic_id()) "
+        f"{extra_sql}"
         f"ORDER BY {order_by_sql} "
         f"LIMIT ${idx}"
     )

@@ -168,7 +168,8 @@ async def test_create_patient_phone_duplicate_matches_country_code_variant() -> 
     )
 
     assert result.duplicate is True
-    sql, variants = conn.fetch.await_args.args
+    # The call now also carries the tenant (W8), so unpack positionally.
+    sql, variants, *_tenant = conn.fetch.await_args.args
     assert "phone_primary = ANY($1::text[])" in sql
     assert "phone_secondary = ANY($1::text[])" in sql
     assert set(variants) == {"0901234567", "84901234567", "+84901234567"}
@@ -361,7 +362,7 @@ async def test_find_phone_duplicates_returns_minimal_fields() -> None:
 
     # Queried with the normalised variant array (catches +84 vs 0).
     conn.fetch.assert_awaited_once()
-    sql_arg, variants = conn.fetch.call_args[0]
+    sql_arg, variants, *_tenant = conn.fetch.call_args[0]
     assert "= ANY($1::text[])" in sql_arg
     assert set(variants) == {"0901234567", "84901234567", "+84901234567"}
 

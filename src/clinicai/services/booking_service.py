@@ -439,7 +439,11 @@ class BookingService:
                         identity=identity,
                     )
                     updated = await self._update(
-                        conn, appointment_id, patch, transition.from_statuses
+                        conn,
+                        appointment_id,
+                        patch,
+                        transition.from_statuses,
+                        identity.clinic_id,
                     )
 
                 if not updated:
@@ -576,6 +580,7 @@ class BookingService:
         appointment_id: str,
         patch: dict[str, Any],
         from_statuses: frozenset[str],
+        clinic_id: str | None,
     ) -> bool:
         columns = list(patch)
         assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
@@ -585,11 +590,13 @@ class BookingService:
                 UPDATE appointment
                    SET {assignments}, updated_at = now()
                  WHERE id = $1::uuid AND status = ANY($2::text[])
+                   AND clinic_id = ${len(columns) + 3}::uuid
                 RETURNING id
                 """,
                 appointment_id,
                 list(from_statuses),
                 *[patch[c] for c in columns],
+                clinic_id,
             )
         except asyncpg.ExclusionViolationError as exc:
             raise ConflictError("Bác sĩ đã có lịch trùng khung giờ mới này.") from exc
@@ -747,8 +754,10 @@ class BookingService:
         if patient_kind == "NEW" and live is not None:
             await conn.execute(
                 "UPDATE care_episode SET status = 'CLOSED', closed_at = now(), "
-                "close_reason = 'new_problem', updated_at = now() WHERE id = $1",
+                "close_reason = 'new_problem', updated_at = now() "
+                "WHERE id = $1 AND clinic_id = $2::uuid",
                 live["id"],
+                identity.clinic_id,
             )
             live = None
 
@@ -756,8 +765,10 @@ class BookingService:
             if live["status"] == "PENDING_CLOSE":
                 await conn.execute(
                     "UPDATE care_episode SET status = 'OPEN', closed_at = NULL, "
-                    "close_reason = NULL, updated_at = now() WHERE id = $1",
+                    "close_reason = NULL, updated_at = now() "
+                    "WHERE id = $1 AND clinic_id = $2::uuid",
                     live["id"],
+                    identity.clinic_id,
                 )
             episode_id = live["id"]
         else:
@@ -777,9 +788,11 @@ class BookingService:
             )
 
         await conn.execute(
-            "UPDATE appointment SET episode_id = $2 WHERE id = $1",
+            "UPDATE appointment SET episode_id = $2 "
+            "WHERE id = $1 AND clinic_id = $3::uuid",
             appointment_id,
             episode_id,
+            identity.clinic_id,
         )
 
     async def _open_visit(

@@ -84,6 +84,11 @@ class QueryLabResultFilter(BaseModel):
     """
 
     clinic_patient_id: UUID
+    # Tenant of the caller (ADR-0009). The backend bypasses RLS, so the patient
+    # id alone is not a boundary: it is supplied by the caller and a patient of
+    # another clinic would read back that clinic's results. None means "the
+    # default clinic", which is the single-tenant case.
+    clinic_id: UUID | None = None
     test_code: str | None = None
     group: TriageGroup | None = None
     date_from: datetime | None = None
@@ -115,8 +120,8 @@ async def query_lab_result(
         asyncpg errors propagate unchanged — no domain wrapping.
     """
     where_clauses: list[str] = ["clinic_patient_id = $1"]
-    params: list[object] = [filters.clinic_patient_id]
-    idx = 2
+    params: list[object] = [filters.clinic_patient_id, filters.clinic_id]
+    idx = 3
 
     if filters.test_code is not None:
         where_clauses.append(f"test_code = ${idx}")
@@ -147,7 +152,8 @@ async def query_lab_result(
     sql = (
         f"SELECT {_SELECT_COLUMNS} "
         f"FROM lab_result "
-        f"WHERE {' AND '.join(where_clauses)} "
+        f"WHERE clinic_id = COALESCE($2::uuid, public.default_clinic_id()) "
+        f"AND {' AND '.join(where_clauses)} "
         f"ORDER BY {order_by_sql} "
         f"LIMIT ${idx}"
     )

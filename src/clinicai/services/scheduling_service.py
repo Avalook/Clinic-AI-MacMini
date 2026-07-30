@@ -38,8 +38,18 @@ def _to_appointment_dto(record: asyncpg.Record) -> AppointmentDTO:
 class SchedulingService:
     """Operations for work sessions, staff assignments, and appointments."""
 
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool, clinic_id: str | None = None) -> None:
         self._pool = pool
+        # The backend bypasses RLS, so every query below carries the tenant.
+        # None resolves to the single clinic while one exists and to NULL once
+        # there are two, so a caller that has not been plumbed through returns
+        # nothing instead of reaching every clinic. Fail closed (W8).
+        self._clinic_id = clinic_id
+
+    @property
+    def _tenant(self) -> str:
+        """SQL fragment; pair it with ``self._clinic_id`` as the last parameter."""
+        return "clinic_id = COALESCE(${}::uuid, public.default_clinic_id())"
 
     # ------------------------------------------------------------------
     # Work Session
@@ -55,10 +65,12 @@ class SchedulingService:
         """
         query = """
             INSERT INTO work_session (
+                clinic_id,
                 location_id, session_date, session_type,
                 start_time, end_time, max_patients
             )
-            VALUES ($1, $2, $3, $4, $5, $6)
+            VALUES (COALESCE($7::uuid, public.default_clinic_id()),
+                    $1, $2, $3, $4, $5, $6)
             RETURNING *;
         """
         try:
@@ -71,6 +83,7 @@ class SchedulingService:
                     data.start_time,
                     data.end_time,
                     data.max_patients,
+                    self._clinic_id,
                 )
         except asyncpg.UniqueViolationError as exc:
             raise ValidationError(
@@ -106,10 +119,12 @@ class SchedulingService:
             row = await conn.fetchrow(
                 """
                 INSERT INTO work_session_staff (
+                    clinic_id,
                     work_session_id, staff_id, role, station,
                     on_call_flag, is_training
                 )
-                VALUES ($1, $2, $3, $4, $5, $6)
+                VALUES (COALESCE($7::uuid, public.default_clinic_id()),
+                    $1, $2, $3, $4, $5, $6)
                 RETURNING *;
                 """,
                 data.work_session_id,
@@ -118,6 +133,7 @@ class SchedulingService:
                 data.station,
                 data.on_call_flag,
                 is_training_snapshot,
+                self._clinic_id,
             )
 
         logger.info(
@@ -145,17 +161,20 @@ class SchedulingService:
             FROM work_session_staff wss
             JOIN staff s ON s.id = wss.staff_id
             WHERE wss.work_session_id = $1
+              AND wss.clinic_id = COALESCE($2::uuid, public.default_clinic_id())
               AND wss.is_training = FALSE
             ORDER BY wss.station;
         """
         async with self._pool.acquire() as conn:
             session_row = await conn.fetchrow(
-                "SELECT id FROM work_session WHERE id = $1;",
+                "SELECT id FROM work_session WHERE id = $1 "
+                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
                 work_session_id,
+                self._clinic_id,
             )
             if session_row is None:
                 return None
-            staff_rows = await conn.fetch(query, work_session_id)
+            staff_rows = await conn.fetch(query, work_session_id, self._clinic_id)
 
         return {"staff": [dict(r) for r in staff_rows]}
 
@@ -163,8 +182,10 @@ class SchedulingService:
         """Fetch a work session together with its assigned staff list."""
         async with self._pool.acquire() as conn:
             session_row = await conn.fetchrow(
-                "SELECT * FROM work_session WHERE id = $1;",
+                "SELECT * FROM work_session WHERE id = $1 "
+                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
                 work_session_id,
+                self._clinic_id,
             )
             if session_row is None:
                 raise ResourceNotFoundError(f"Work session {work_session_id} not found")
@@ -175,9 +196,11 @@ class SchedulingService:
                 FROM work_session_staff wss
                 JOIN staff s ON s.id = wss.staff_id
                 WHERE wss.work_session_id = $1
+                  AND wss.clinic_id = COALESCE($2::uuid, public.default_clinic_id())
                 ORDER BY wss.station;
                 """,
                 work_session_id,
+                self._clinic_id,
             )
 
         return {
@@ -212,10 +235,13 @@ class SchedulingService:
                     on_duty = await conn.fetchrow(
                         """
                         SELECT 1 FROM work_session_staff
-                        WHERE work_session_id = $1 AND staff_id = $2;
+                        WHERE work_session_id = $1 AND staff_id = $2
+                          AND clinic_id = COALESCE($3::uuid,
+                                                   public.default_clinic_id());
                         """,
                         data.work_session_id,
                         data.doctor_id,
+                        self._clinic_id,
                     )
                     if on_duty is None:
                         raise ValidationError(
@@ -225,12 +251,14 @@ class SchedulingService:
                 row = await conn.fetchrow(
                     """
                     INSERT INTO appointment (
+                        clinic_id,
                         clinic_patient_id, doctor_id, work_session_id,
                         location_id, service_type_id, booking_channel,
                         slot_start, slot_end, assigned_station, queue_number,
                         is_priority_slot, is_walkin, status
                     )
                     VALUES (
+                        COALESCE($13::uuid, public.default_clinic_id()),
                         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
                         'SCHEDULED'
                     )
@@ -248,6 +276,7 @@ class SchedulingService:
                     data.queue_number,
                     data.is_priority_slot,
                     data.is_walkin,
+                    self._clinic_id,
                 )
         except asyncpg.exceptions.CheckViolationError as exc:
             # The slot-capacity trigger raises SQLSTATE 23514 atomically after
@@ -270,8 +299,10 @@ class SchedulingService:
         """
         async with self._pool.acquire() as conn:
             existing = await conn.fetchrow(
-                "SELECT status FROM appointment WHERE id = $1;",
+                "SELECT status FROM appointment WHERE id = $1 "
+                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
                 appointment_id,
+                self._clinic_id,
             )
             if existing is None:
                 raise ResourceNotFoundError(f"Appointment {appointment_id} not found")
@@ -287,10 +318,12 @@ class SchedulingService:
                     confirmed_at = $2,
                     updated_at = $2
                 WHERE id = $1
+                  AND clinic_id = COALESCE($3::uuid, public.default_clinic_id())
                 RETURNING *;
                 """,
                 appointment_id,
                 datetime.datetime.now(tz=datetime.timezone.utc),
+                self._clinic_id,
             )
 
         logger.info("appointment_confirmed", appointment_id=str(appointment_id))
@@ -307,8 +340,10 @@ class SchedulingService:
         """
         async with self._pool.acquire() as conn:
             existing = await conn.fetchrow(
-                "SELECT status FROM appointment WHERE id = $1;",
+                "SELECT status FROM appointment WHERE id = $1 "
+                "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
                 appointment_id,
+                self._clinic_id,
             )
             if existing is None:
                 raise ResourceNotFoundError(f"Appointment {appointment_id} not found")
@@ -326,11 +361,13 @@ class SchedulingService:
                     cancellation_reason = $3,
                     updated_at = $2
                 WHERE id = $1
+                  AND clinic_id = COALESCE($4::uuid, public.default_clinic_id())
                 RETURNING *;
                 """,
                 appointment_id,
                 now,
                 reason,
+                self._clinic_id,
             )
 
         logger.info(

@@ -21,6 +21,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import clinicai.graphs.lab_triage.nodes as _lt_nodes
+from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.api.v1.routers.lab import get_llm_client
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
@@ -128,9 +129,20 @@ def _default_overrides() -> Iterator[None]:
     """
     app.dependency_overrides[get_db_pool] = lambda: MagicMock()
     app.dependency_overrides[get_llm_client] = lambda: MagicMock()
+    # Triage is staff-only and tenant-scoped (W8): without an identity the
+    # route answers 401 and never reaches the safety gate under test.
+    app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
+        staff_id="staff-1",
+        auth_user_id="user-1",
+        full_name="Test Doctor",
+        department="BS",
+        role=ClinicRole.DOCTOR,
+        clinic_id=None,
+    )
     yield
     app.dependency_overrides.pop(get_db_pool, None)
     app.dependency_overrides.pop(get_llm_client, None)
+    app.dependency_overrides.pop(get_current_identity, None)
 
 
 # ──────────────────────────────────────────────────────────────────────────

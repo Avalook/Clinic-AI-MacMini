@@ -18,10 +18,15 @@ logger = logging.getLogger(__name__)
 
 _SECONDS_PER_HOUR = 3600.0
 
+# The backend bypasses RLS, so each query carries the tenant itself. AI tools
+# have no request identity yet, so clinic_id may be None: that resolves to the
+# one clinic while only one exists and to NULL once there are two — returning
+# nothing rather than reaching every clinic. Fail closed (W8).
 _FETCH_SQL = """
     SELECT task_id, status, due_at
       FROM staff_task
      WHERE task_id = $1
+       AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
      LIMIT 1
 """
 
@@ -53,6 +58,7 @@ async def check_task_sla(
     pool: asyncpg.Pool,
     task_id: UUID,
     trace: TraceContext,
+    clinic_id: str | None = None,
 ) -> SlaCheckResult:
     """Check SLA for a single task.
 
@@ -81,7 +87,7 @@ async def check_task_sla(
     )
 
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(_FETCH_SQL, task_id)
+        row = await conn.fetchrow(_FETCH_SQL, task_id, clinic_id)
 
     if row is None:
         raise TaskNotFoundError(f"staff_task not found: task_id={task_id}")

@@ -169,12 +169,14 @@ class WorkItemService:
                      WHERE id = $1::uuid
                        AND status = $3
                        AND ($4::integer IS NULL OR version = $4::integer)
+                       AND clinic_id = $5::uuid
                     RETURNING version
                     """,
                     work_item_id,
                     next_status,
                     current,
                     expected_version,
+                    item["clinic_id"],
                 )
                 if updated is None:
                     raise ConflictError(

@@ -9,7 +9,11 @@ from pydantic import BaseModel
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
-from clinicai.api.identity import StaffIdentity, require_role
+from clinicai.api.identity import (
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import (
     ResourceNotFoundError as CoreResourceNotFoundError,
@@ -98,10 +102,11 @@ class AppointmentCancelRequest(BaseModel):
 )
 async def create_work_session(
     data: WorkSessionCreate,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> WorkSessionDTO:
     """Create a new work session."""
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, identity.clinic_id)
     try:
         return await service.create_work_session(data)
     except CoreValidationError as exc:
@@ -114,10 +119,11 @@ async def create_work_session(
 )
 async def get_work_session_by_id(
     id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> WorkSessionWithStaffRead:
     """Retrieve a work session and its assigned staff list."""
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, identity.clinic_id)
     try:
         data = await service.get_session_with_staff(id)
         return WorkSessionWithStaffRead.model_validate(data)
@@ -133,10 +139,11 @@ async def get_work_session_by_id(
 async def assign_staff_to_session(
     id: UUID,
     body: WorkSessionStaffAssign,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> WorkSessionWithStaffRead:
     """Assign a staff member to a work session."""
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, identity.clinic_id)
     dto = WorkSessionStaffAssignDTO(
         work_session_id=id,
         staff_id=body.staff_id,
@@ -170,6 +177,7 @@ async def assign_staff_to_session(
 )
 async def create_appointment(
     data: AppointmentCreate,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> AppointmentRead:
@@ -177,7 +185,7 @@ async def create_appointment(
     idem = await idem.acquire(pool)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, identity.clinic_id)
     try:
         result = await service.create_appointment(data)
         await idem.save(pool, result.model_dump(mode="json"), status_code=201)
@@ -196,11 +204,17 @@ async def create_appointment(
 )
 async def get_appointment_by_id(
     id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AppointmentRead:
     """Retrieve an appointment by ID."""
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM appointment WHERE id = $1;", id)
+        row = await conn.fetchrow(
+            "SELECT * FROM appointment WHERE id = $1 "
+            "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());",
+            id,
+            identity.clinic_id,
+        )
     if row is None:
         raise NotFoundError(f"Appointment {id} not found")
     return AppointmentRead.model_validate(dict(row))
@@ -217,7 +231,7 @@ async def confirm_appointment(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AppointmentRead:
     """Confirm a scheduled appointment. Deprecated — use PATCH /appointments/{id}."""
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, identity.clinic_id)
     try:
         return await service.confirm_appointment(id)
     except CoreResourceNotFoundError as exc:
@@ -238,7 +252,7 @@ async def cancel_appointment(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AppointmentRead:
     """Cancel a booked appointment. Deprecated — use PATCH /appointments/{id}."""
-    service = SchedulingService(pool)
+    service = SchedulingService(pool, identity.clinic_id)
     reason = body.reason or "No reason provided"
     try:
         return await service.cancel_appointment(id, reason)

@@ -85,6 +85,7 @@ class MPIService:
     async def find_candidates(
         pool: asyncpg.Pool,
         data: PatientCreateDTO,
+        clinic_id: str | None = None,
     ) -> list[PatientDTO]:
         """Find existing patients that may match the incoming data.
 
@@ -111,7 +112,14 @@ class MPIService:
             return []
 
         where = " OR ".join(conditions)
-        query = f"SELECT * FROM patient WHERE {where};"  # noqa: S608
+        # Scoped to one clinic: a "duplicate" in another clinic is not a
+        # duplicate, it is a different chart for possibly the same person, and
+        # merging across tenants would be wrong as well as a leak (W8).
+        params.append(clinic_id)
+        query = (  # noqa: S608
+            f"SELECT * FROM patient WHERE ({where}) "
+            f"AND clinic_id = COALESCE(${idx}::uuid, public.default_clinic_id());"
+        )
 
         async with pool.acquire() as conn:
             rows = await conn.fetch(query, *params)
@@ -127,6 +135,7 @@ class MPIService:
         pool: asyncpg.Pool,
         new_patient_id: UUID,
         candidates: list[PatientDTO],
+        clinic_id: str | None = None,
     ) -> list[UUID]:
         """Insert into mpi_merge_queue for each candidate scoring >= threshold.
 
@@ -136,9 +145,10 @@ class MPIService:
 
         query = """
             INSERT INTO mpi_merge_queue (
-                patient_id_a, patient_id_b, score, status
+                clinic_id, patient_id_a, patient_id_b, score, status
             )
-            VALUES ($1, $2, $3, 'PENDING')
+            VALUES (COALESCE($4::uuid, public.default_clinic_id()),
+                    $1, $2, $3, 'PENDING')
             RETURNING id;
         """
 
@@ -150,8 +160,11 @@ class MPIService:
                 # Build a temporary DTO for the new patient to score
                 # We need the new patient's data — fetch it
                 new_row = await conn.fetchrow(
-                    "SELECT * FROM patient WHERE clinic_patient_id = $1;",
+                    "SELECT * FROM patient WHERE clinic_patient_id = $1 "
+                    "AND clinic_id = COALESCE($2::uuid, "
+                    "public.default_clinic_id());",
                     new_patient_id,
+                    clinic_id,
                 )
                 if new_row is None:
                     continue
@@ -173,6 +186,7 @@ class MPIService:
                     new_patient_id,
                     candidate.clinic_patient_id,
                     round(match_score, 2),
+                    clinic_id,
                 )
                 queue_id = row["id"]
                 queue_ids.append(queue_id)
@@ -195,14 +209,16 @@ class MPIService:
     async def get_pending_queue(
         pool: asyncpg.Pool,
         limit: int = 20,
+        clinic_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch pending MPI merge queue entries sorted by score DESC."""
         query = """
             SELECT * FROM mpi_merge_queue
             WHERE status = 'PENDING'
+              AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
             ORDER BY score DESC
             LIMIT $1;
         """
         async with pool.acquire() as conn:
-            rows = await conn.fetch(query, limit)
+            rows = await conn.fetch(query, limit, clinic_id)
         return [dict(r) for r in rows]

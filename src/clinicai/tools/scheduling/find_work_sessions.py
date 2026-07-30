@@ -29,6 +29,10 @@ class FindWorkSessionsInput(BaseModel):
     location_id: UUID
     session_date: date_type
     session_type: SessionTypeStr
+    # Tenant of the caller (ADR-0009). A location belongs to one clinic, but the
+    # backend bypasses RLS and location_id arrives from the caller, so the
+    # clinic is filtered explicitly rather than inferred. None = default clinic.
+    clinic_id: UUID | None = None
 
 
 class WorkSessionResult(BaseModel):
@@ -70,6 +74,7 @@ _SQL = """
       AND ws.session_type  = $3
       AND wss.role         = 'DOCTOR'
       AND wss.is_training  = FALSE
+      AND ws.clinic_id = COALESCE($4::uuid, public.default_clinic_id())
     GROUP BY ws.id, ws.session_date, ws.session_type,
              ws.start_time, ws.end_time, ws.max_patients
 """
@@ -95,6 +100,7 @@ async def find_work_sessions(
         input.location_id,
         input.session_date,
         input.session_type,
+        input.clinic_id,
     )
 
     sessions: list[WorkSessionResult] = []

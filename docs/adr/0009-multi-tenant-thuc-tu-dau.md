@@ -64,8 +64,23 @@ nghiệp vụ nào thiếu `clinic_id`, và không policy nào còn `USING (true
   `clinic` + `clinic_membership`, `clinic_id` trên 27 bảng, khoá duy nhất mang tenant,
   helper `current_staff_id()` / `current_clinic_ids()` / `current_clinic_roles()`.
   Kiểm bằng `supabase/tests/multi_tenant_foundation.sql` (chạy trong CI, job `database`).
-- **Còn lại (W3)** — thay policy `USING (true)` trên 27 bảng bằng policy theo
-  `current_clinic_ids()`; cần `staff.auth_user_id` được backfill trước.
+- **Xong (W3)** — `20260730000004_tenant_scoped_rls.sql`: 26 policy `USING (true)`
+  thay bằng `clinic_id IN (SELECT public.current_clinic_ids())`.
+  Kiểm bằng `supabase/tests/tenant_scoped_rls.sql`.
+- **Xong (W8) — quan trọng nhất:** RLS **không** bảo vệ được backend. Tiến trình
+  FastAPI nối DB bằng chủ sở hữu database, nên policy ở trên không áp cho nó: một câu
+  lệnh đọc rộng đúng bằng mệnh đề `WHERE` của chính nó. Vì vậy mọi câu lệnh trong
+  `src/clinicai` chạm bảng có tenant đều phải tự lọc `clinic_id`. Đã đưa từ **71 → 0**;
+  `scripts/tests/tenant-scope-audit.py --check` chạy trong CI với **ceiling = 0**, nên
+  PR nào thêm một câu lệnh không lọc là CI đỏ. Ba relay quét mọi tenant *có chủ đích*
+  (`pos_relay`, `notification_relay`, `event_service`) được liệt kê tường minh trong
+  audit chứ không im lặng bỏ qua.
+- **Kiểm lúc chạy:** `scripts/tests/tenant-scope-runtime-check.py` (cần
+  `npx supabase start`) chạy thật từng câu lệnh đó và khẳng định phòng khám này không
+  đọc được dữ liệu phòng khám kia. Audit chỉ đọc chữ; unit test thì mock pool — cả hai
+  đều xanh với SQL mà Postgres sẽ từ chối.
 - **Nợ tạm thời:** `clinic_id` có `DEFAULT public.default_clinic_id()` để V1 (chưa biết
-  tenant) chạy tiếp. Hàm này trả về NULL ngay khi có phòng khám thứ 2, nên không thể gán
-  nhầm âm thầm. **W5 phải gỡ default** khi backend luôn truyền `clinic_id` từ JWT.
+  tenant) chạy tiếp; các query cũng dùng `COALESCE($n, public.default_clinic_id())`.
+  Hàm này trả về NULL ngay khi có phòng khám thứ 2, nên không thể gán nhầm âm thầm —
+  đọc ra rỗng chứ không đọc nhầm sang tenant khác. **Gỡ default** khi mọi lối gọi đều
+  truyền `clinic_id` từ JWT (còn lại: các graph/tool chạy nền).

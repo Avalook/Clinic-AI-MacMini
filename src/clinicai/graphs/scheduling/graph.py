@@ -52,6 +52,7 @@ def _make_no_pool_stub_find_doctor() -> Callable[
 def build_scheduling_subgraph(
     pool: Optional["asyncpg.Pool"] = None,
     location_id: Optional[UUID] = None,
+    clinic_id: Optional[UUID] = None,
 ) -> Any:
     """Build scheduling sub-graph with optional asyncpg pool + location_id.
 
@@ -63,7 +64,7 @@ def build_scheduling_subgraph(
     P9.1-04 will always pass real pool + location_id from orchestrator lifespan.
     """
     find_doctor = (
-        make_find_doctor_node(pool, location_id)
+        make_find_doctor_node(pool, location_id, clinic_id)
         if pool is not None and location_id is not None
         else _make_no_pool_stub_find_doctor()
     )

@@ -49,6 +49,7 @@ _FETCH_BY_ID_SQL = """
            lab_provider, sample_collected_at, result_received_at
     FROM lab_result
     WHERE lab_result_id = $1
+      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
     LIMIT 1
 """
 
@@ -93,7 +94,11 @@ def make_fetch_node(pool: Optional[asyncpg.Pool]) -> LabTriageNode:
 
         try:
             async with pool.acquire() as conn:
-                record = await conn.fetchrow(_FETCH_BY_ID_SQL, state.lab_result_id)
+                record = await conn.fetchrow(
+                    _FETCH_BY_ID_SQL,
+                    state.lab_result_id,
+                    state.clinic_id,
+                )
         except Exception as exc:
             logger.error(
                 "lab_triage.fetch_failed",
@@ -306,6 +311,7 @@ def make_create_review_tasks_node(
         due_at = datetime.now(tz=timezone.utc) + timedelta(hours=_LAB_REVIEW_SLA_HOURS)
 
         task_input = CreateTaskInput(
+            clinic_id=state.clinic_id,
             task_type="LAB_REVIEW",
             priority="URGENT",
             source_type="LAB_RESULT",

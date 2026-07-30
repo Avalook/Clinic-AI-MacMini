@@ -95,7 +95,9 @@ async def ask_time_node(state: SchedulingState) -> dict[str, Any]:
     }
 
 
-def make_find_doctor_node(pool: "asyncpg.Pool", location_id: UUID) -> SchedulingNode:
+def make_find_doctor_node(
+    pool: "asyncpg.Pool", location_id: UUID, clinic_id: UUID | None = None
+) -> SchedulingNode:
     """Closure factory: bind asyncpg pool + location_id into find_doctor_node.
 
     Uses the real `find_work_sessions` tool to surface doctors available for
@@ -158,6 +160,7 @@ def make_find_doctor_node(pool: "asyncpg.Pool", location_id: UUID) -> Scheduling
                     location_id=location_id,
                     session_date=preferred_date,
                     session_type=session_type,
+                    clinic_id=clinic_id,
                 ),
                 pool,
             )

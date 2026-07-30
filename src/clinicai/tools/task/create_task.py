@@ -32,9 +32,10 @@ _INSERT_SQL = """
     INSERT INTO staff_task (
         location_id, task_type, priority, assigned_to,
         source_type, source_id, title, description,
-        due_at, sla_hours
+        due_at, sla_hours, clinic_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            COALESCE($11::uuid, public.default_clinic_id()))
     RETURNING task_id, location_id, task_type, priority, status,
               assigned_to, source_type, source_id, title, description,
               due_at, sla_hours, completed_at, created_at, updated_at
@@ -45,6 +46,8 @@ class CreateTaskInput(BaseModel):
     """Input schema for create_task."""
 
     location_id: UUID | None = None
+    # Tenant the task belongs to (ADR-0009). None = default clinic.
+    clinic_id: UUID | None = None
     task_type: str
     priority: TaskPriority = "NORMAL"
     assigned_to: UUID | None = None
@@ -123,6 +126,7 @@ async def create_task(
             input.description,
             input.due_at,
             input.sla_hours,
+            input.clinic_id,
         )
 
     return TaskRow.model_validate(dict(row))

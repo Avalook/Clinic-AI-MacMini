@@ -116,6 +116,7 @@ def _make_lab_triage_wrapper_node(
         sub_state = LabTriageState(
             lab_result_id=lab_result_id,
             clinic_patient_id=state.get("patient_id"),
+            clinic_id=state.get("clinic_id"),
         )
         result_dict = await sub_graph.ainvoke(sub_state)
 

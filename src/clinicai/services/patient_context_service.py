@@ -103,6 +103,7 @@ _PATIENT_SUMMARY_SQL = """
         next_appointment_status
     FROM patient_summary
     WHERE clinic_patient_id = $1
+      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
     LIMIT 1
 """
 
@@ -114,6 +115,7 @@ _MEDICAL_PROFILE_SQL = """
         current_medications
     FROM patient_medical_profile
     WHERE clinic_patient_id = $1
+      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
     LIMIT 1
 """
 
@@ -128,6 +130,7 @@ _CURRENT_PREGNANCY_SQL = """
         high_risk_reason
     FROM pregnancy
     WHERE clinic_patient_id = $1
+      AND clinic_id = COALESCE($2::uuid, public.default_clinic_id())
       AND outcome = 'ONGOING'
     ORDER BY created_at DESC
     LIMIT 1
@@ -148,6 +151,7 @@ _RECENT_LABS_SQL = """
         result_received_at
     FROM lab_result
     WHERE clinic_patient_id = $1
+      AND clinic_id = COALESCE($3::uuid, public.default_clinic_id())
     ORDER BY result_received_at DESC
     LIMIT $2
 """
@@ -162,6 +166,7 @@ _LATEST_ULTRASOUND_SQL = """
         performed_at
     FROM ultrasound_record
     WHERE clinic_patient_id = $1
+      AND clinic_id = COALESCE($3::uuid, public.default_clinic_id())
     ORDER BY COALESCE(performed_at, created_at) DESC
     LIMIT $2
 """
@@ -237,35 +242,40 @@ def _ultrasound_to_dict(record: "asyncpg.Record") -> dict[str, Any]:
 
 
 async def _fetch_patient_summary(
-    conn: "asyncpg.Connection", clinic_patient_id: UUID
+    conn: "asyncpg.Connection", clinic_patient_id: UUID, clinic_id: str | None
 ) -> "asyncpg.Record | None":
-    return await conn.fetchrow(_PATIENT_SUMMARY_SQL, clinic_patient_id)
+    return await conn.fetchrow(_PATIENT_SUMMARY_SQL, clinic_patient_id, clinic_id)
 
 
 async def _fetch_medical_profile(
-    conn: "asyncpg.Connection", clinic_patient_id: UUID
+    conn: "asyncpg.Connection", clinic_patient_id: UUID, clinic_id: str | None
 ) -> "asyncpg.Record | None":
-    return await conn.fetchrow(_MEDICAL_PROFILE_SQL, clinic_patient_id)
+    return await conn.fetchrow(_MEDICAL_PROFILE_SQL, clinic_patient_id, clinic_id)
 
 
 async def _fetch_current_pregnancy(
-    conn: "asyncpg.Connection", clinic_patient_id: UUID
+    conn: "asyncpg.Connection", clinic_patient_id: UUID, clinic_id: str | None
 ) -> "asyncpg.Record | None":
-    return await conn.fetchrow(_CURRENT_PREGNANCY_SQL, clinic_patient_id)
+    return await conn.fetchrow(_CURRENT_PREGNANCY_SQL, clinic_patient_id, clinic_id)
 
 
 async def _fetch_recent_labs(
-    conn: "asyncpg.Connection", clinic_patient_id: UUID
+    conn: "asyncpg.Connection", clinic_patient_id: UUID, clinic_id: str | None
 ) -> "list[asyncpg.Record]":
-    rows = await conn.fetch(_RECENT_LABS_SQL, clinic_patient_id, _RECENT_LAB_LIMIT)
+    rows = await conn.fetch(
+        _RECENT_LABS_SQL, clinic_patient_id, _RECENT_LAB_LIMIT, clinic_id
+    )
     return list(rows)
 
 
 async def _fetch_latest_ultrasounds(
-    conn: "asyncpg.Connection", clinic_patient_id: UUID
+    conn: "asyncpg.Connection", clinic_patient_id: UUID, clinic_id: str | None
 ) -> "list[asyncpg.Record]":
     rows = await conn.fetch(
-        _LATEST_ULTRASOUND_SQL, clinic_patient_id, _RECENT_ULTRASOUND_LIMIT
+        _LATEST_ULTRASOUND_SQL,
+        clinic_patient_id,
+        _RECENT_ULTRASOUND_LIMIT,
+        clinic_id,
     )
     return list(rows)
 
@@ -274,6 +284,7 @@ async def aggregate_patient_context(
     pool: "asyncpg.Pool",
     clinic_patient_id: UUID,
     trace: TraceContext,
+    clinic_id: str | None = None,
 ) -> PatientContext:
     """Aggregate patient data for the pre-visit brief.
 
@@ -305,10 +316,10 @@ async def aggregate_patient_context(
     )
 
     async def _run(
-        fetch: "Callable[[asyncpg.Connection, UUID], Awaitable[Any]]",
+        fetch: "Callable[[asyncpg.Connection, UUID, str | None], Awaitable[Any]]",
     ) -> Any:
         async with pool.acquire() as conn:
-            return await fetch(conn, clinic_patient_id)
+            return await fetch(conn, clinic_patient_id, clinic_id)
 
     (
         summary_rec,

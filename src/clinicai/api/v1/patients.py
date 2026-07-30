@@ -77,7 +77,7 @@ async def create_patient(
 @router.get("/patients/check-phone", response_model=PhoneCheckResult)
 async def check_phone_duplicate(
     phone: str,
-    _identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PhoneCheckResult:
     """Read-only early warning: is this phone already on file (feedback #9)?
@@ -89,7 +89,7 @@ async def check_phone_duplicate(
     if not phone.strip():
         raise ValidationError("phone query parameter must not be blank")
     service = PatientService(pool)
-    matches = await service.find_phone_duplicates(phone)
+    matches = await service.find_phone_duplicates(phone, identity.clinic_id)
     return PhoneCheckResult(
         exists=bool(matches),
         matches=[PhoneDuplicateMatch(**m) for m in matches],
@@ -99,12 +99,12 @@ async def check_phone_duplicate(
 @router.get("/patients/{id}", response_model=PatientDTO)
 async def get_patient_by_id(
     id: UUID,
-    _identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO:
     """Retrieve a single patient by ID. Raises ResourceNotFoundError if not found."""
     service = PatientService(pool)
-    patient = await service.get_by_id(id)
+    patient = await service.get_by_id(id, identity.clinic_id)
     if patient is None:
         raise ResourceNotFoundError(f"Patient {id} not found")
     return patient
@@ -113,14 +113,14 @@ async def get_patient_by_id(
 @router.get("/patients", response_model=list[PatientDTO])
 async def get_patients_by_phone(
     phone: str,
-    _identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[PatientDTO]:
     """Retrieve all patients matching a primary or secondary phone number."""
     if not phone.strip():
         raise ValidationError("phone query parameter must not be blank")
     service = PatientService(pool)
-    return await service.get_by_phone(phone)
+    return await service.get_by_phone(phone, identity.clinic_id)
 
 
 @router.patch("/patients/{id}", response_model=PatientDTO)

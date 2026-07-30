@@ -104,11 +104,12 @@ class UltrasoundService:
                     """
                     SELECT visit_id, status
                       FROM visit
-                     WHERE appointment_id = $1::uuid
+                     WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
                      ORDER BY created_at DESC
                      LIMIT 1
                     """,
                     appointment_id,
+                    identity.clinic_id,
                 )
 
                 if visit is not None:
@@ -139,11 +140,12 @@ class UltrasoundService:
                     """
                     SELECT ultrasound_id, findings
                       FROM ultrasound_record
-                     WHERE visit_id = $1::uuid
+                     WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
                      ORDER BY created_at DESC
                      LIMIT 1
                     """,
                     visit_id,
+                    identity.clinic_id,
                 )
 
                 findings = merge_findings(
@@ -159,11 +161,12 @@ class UltrasoundService:
                         UPDATE ultrasound_record
                            SET findings = $2, performed_by = $3::uuid,
                                performed_at = now()
-                         WHERE ultrasound_id = $1
+                         WHERE ultrasound_id = $1 AND clinic_id = $4::uuid
                         """,
                         record["ultrasound_id"],
                         _json(findings),
                         identity.staff_id,
+                        identity.clinic_id,
                     )
                 else:
                     await conn.execute(

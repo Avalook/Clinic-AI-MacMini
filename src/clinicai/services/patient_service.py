@@ -82,6 +82,13 @@ def _record_to_dto(record: asyncpg.Record) -> PatientDTO:
     return PatientDTO.model_validate(dict(record))
 
 
+# Every query below carries the tenant. The backend bypasses RLS, so a missing
+# clinic_id means "every clinic". Passing None falls back to
+# default_clinic_id(), which resolves while exactly one clinic exists and
+# returns NULL once there are two — an un-plumbed caller then reads nothing
+# instead of everything. Fail closed, and spelled out inline so it is visible.
+
+
 class PatientService:
     """CRUD operations for the patient table."""
 
@@ -100,13 +107,17 @@ class PatientService:
           3. Insert all demographic fields with a generated patient_code.
           4. Run MPI dedup-queue in the background (never blocks the create).
         """
+        clinic_id = identity.clinic_id if identity else None
+
         async with self._pool.acquire() as conn:
             # 1) CCCD hard conflict (cannot be forced — column is UNIQUE).
             if data.national_id_number:
                 existing = await conn.fetchrow(
                     "SELECT patient_code, full_name FROM patient "
-                    "WHERE national_id_number = $1 LIMIT 1;",
+                    "WHERE national_id_number = $1 AND clinic_id = "
+                    "COALESCE($2::uuid, public.default_clinic_id()) LIMIT 1;",
                     data.national_id_number,
+                    clinic_id,
                 )
                 if existing:
                     raise ConflictError(
@@ -120,9 +131,12 @@ class PatientService:
                 dupes = await conn.fetch(
                     "SELECT clinic_patient_id, patient_code, full_name, "
                     "date_of_birth FROM patient "
-                    "WHERE phone_primary = ANY($1::text[]) "
-                    "OR phone_secondary = ANY($1::text[]) LIMIT 5;",
+                    "WHERE (phone_primary = ANY($1::text[]) "
+                    "OR phone_secondary = ANY($1::text[])) "
+                    "AND clinic_id = COALESCE($2::uuid, "
+                    "public.default_clinic_id()) LIMIT 5;",
                     variants,
+                    clinic_id,
                 )
                 if dupes:
                     return PatientCreateResult(
@@ -136,7 +150,7 @@ class PatientService:
             )
 
         # 4) MPI deduplication (non-blocking — must never fail the create).
-        await self._mpi_autoqueue(dto, data)
+        await self._mpi_autoqueue(dto, data, clinic_id)
         return PatientCreateResult(patient=dto)
 
     async def _insert_patient(
@@ -152,15 +166,22 @@ class PatientService:
         as soon as there are two, so registering a patient would start failing
         on a NOT NULL violation rather than filing them under a guess.
         """
-        columns = (*_INSERT_COLUMNS, "clinic_id") if clinic_id else _INSERT_COLUMNS
-        placeholders = ", ".join(f"${i}" for i in range(1, len(columns) + 2))
+        # clinic_id is always written, never left to the column DEFAULT: the
+        # default resolves to NULL once a second clinic exists, so relying on it
+        # would turn patient registration into a NOT NULL error. COALESCE keeps
+        # a caller without identity working while there is one clinic and fails
+        # closed after that.
+        placeholders = ", ".join(f"${i}" for i in range(1, len(_INSERT_COLUMNS) + 2))
+        tenant = (
+            f"COALESCE(${len(_INSERT_COLUMNS) + 2}::uuid, public.default_clinic_id())"
+        )
         query = (
-            f"INSERT INTO patient (patient_code, {', '.join(columns)}) "
-            f"VALUES ({placeholders}) RETURNING *;"
+            "INSERT INTO patient "
+            f"(patient_code, {', '.join(_INSERT_COLUMNS)}, clinic_id) "
+            f"VALUES ({placeholders}, {tenant}) RETURNING *;"
         )
         values: list[object] = [getattr(data, col) for col in _INSERT_COLUMNS]
-        if clinic_id:
-            values.append(clinic_id)
+        values.append(clinic_id)
 
         for attempt in range(5):
             patient_code = _generate_patient_code(attempt)
@@ -185,16 +206,18 @@ class PatientService:
 
         raise ValidationError("Không tạo được mã BN, thử lại.")
 
-    async def _mpi_autoqueue(self, dto: PatientDTO, data: PatientCreateDTO) -> None:
+    async def _mpi_autoqueue(
+        self, dto: PatientDTO, data: PatientCreateDTO, clinic_id: str | None = None
+    ) -> None:
         """Queue a merge-review if MPI finds likely-same patients. Best-effort."""
         try:
             from clinicai.services.mpi_service import MPIService
 
             mpi = MPIService()
-            candidates = await mpi.find_candidates(self._pool, data)
+            candidates = await mpi.find_candidates(self._pool, data, clinic_id)
             if candidates:
                 queued = await mpi.auto_queue_if_needed(
-                    self._pool, dto.clinic_patient_id, candidates
+                    self._pool, dto.clinic_patient_id, candidates, clinic_id
                 )
                 if queued:
                     logger.info(
@@ -209,16 +232,23 @@ class PatientService:
                 exc_info=True,
             )
 
-    async def get_by_id(self, clinic_patient_id: UUID) -> PatientDTO | None:
+    async def get_by_id(
+        self, clinic_patient_id: UUID, clinic_id: str | None = None
+    ) -> PatientDTO | None:
         """Fetch a single patient by primary key. Returns None if absent."""
-        query = "SELECT * FROM patient WHERE clinic_patient_id = $1;"
+        query = (
+            "SELECT * FROM patient WHERE clinic_patient_id = $1 "
+            "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id());"
+        )
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, clinic_patient_id)
+            row = await conn.fetchrow(query, clinic_patient_id, clinic_id)
         if row is None:
             return None
         return _record_to_dto(row)
 
-    async def get_summary_data(self, clinic_patient_id: UUID) -> dict[str, Any] | None:
+    async def get_summary_data(
+        self, clinic_patient_id: UUID, clinic_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Return raw summary fields for the tools layer.
 
         Joins patient + EXISTS pregnancy(ONGOING) + MAX appointment(COMPLETED).
@@ -244,30 +274,36 @@ class PatientService:
                       AND pr.outcome = 'ONGOING'
                 ) AS active_pregnancy
             FROM patient p
-            WHERE p.clinic_patient_id = $1;
+            WHERE p.clinic_patient_id = $1
+              AND p.clinic_id = COALESCE($2::uuid, public.default_clinic_id());
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, clinic_patient_id)
+            row = await conn.fetchrow(query, clinic_patient_id, clinic_id)
         if row is None:
             return None
         return dict(row)
 
-    async def get_by_phone(self, phone: str) -> list[PatientDTO]:
+    async def get_by_phone(
+        self, phone: str, clinic_id: str | None = None
+    ) -> list[PatientDTO]:
         """Return all patients matching a phone number (primary or secondary)."""
         variants = _phone_variants(phone)
         if not variants:
             return []
         query = """
             SELECT * FROM patient
-            WHERE phone_primary = ANY($1::text[])
+            WHERE clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+              AND phone_primary = ANY($1::text[])
                OR phone_secondary = ANY($1::text[])
             ORDER BY created_at DESC;
         """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query, variants)
+            rows = await conn.fetch(query, variants, clinic_id)
         return [_record_to_dto(r) for r in rows]
 
-    async def find_phone_duplicates(self, phone: str) -> list[dict[str, Any]]:
+    async def find_phone_duplicates(
+        self, phone: str, clinic_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Read-only: patients already on file with this phone (any spelling).
 
         Returns MINIMAL fields (full_name, patient_code, birth_year) for a soft
@@ -285,13 +321,14 @@ class PatientService:
                 full_name,
                 EXTRACT(YEAR FROM date_of_birth)::int AS birth_year
             FROM patient
-            WHERE phone_primary = ANY($1::text[])
+            WHERE clinic_id = COALESCE($2::uuid, public.default_clinic_id())
+              AND phone_primary = ANY($1::text[])
                OR phone_secondary = ANY($1::text[])
             ORDER BY created_at DESC
             LIMIT 10;
         """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query, variants)
+            rows = await conn.fetch(query, variants, clinic_id)
         return [
             {
                 "full_name": r["full_name"],
@@ -339,17 +376,19 @@ class PatientService:
         set_parts.append(f"updated_at = ${len(values) + 1}")
         values.append(datetime.datetime.now(tz=datetime.timezone.utc))
 
-        # WHERE clause params
+        # WHERE clause params. The tenant filter is unconditional — an earlier
+        # version only added it when an identity was supplied, so a caller
+        # without one updated across every clinic.
         values.append(clinic_patient_id)
         where_idx = len(values)
-        tenant_clause = ""
-        if identity is not None and identity.clinic_id is not None:
-            values.append(identity.clinic_id)
-            tenant_clause = f" AND clinic_id = ${len(values)}::uuid"
+        values.append(identity.clinic_id if identity else None)
+        tenant_idx = len(values)
 
         query = (
             f"UPDATE patient SET {', '.join(set_parts)} "
-            f"WHERE clinic_patient_id = ${where_idx}{tenant_clause} "
+            f"WHERE clinic_patient_id = ${where_idx} "
+            f"AND clinic_id = COALESCE(${tenant_idx}::uuid, "
+            "public.default_clinic_id()) "
             "RETURNING *;"
         )
 

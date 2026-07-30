@@ -95,11 +95,15 @@ async def test_query_lab_result__only_patient_id__returns_all_for_patient() -> N
     assert all(r.clinic_patient_id == patient_a for r in out)
 
     sql, *params = conn.fetch.call_args.args
-    assert "WHERE clinic_patient_id = $1" in sql
-    # Only patient_id + limit → 2 params total
-    assert len(params) == 2
+    # $1 is the patient, $2 the tenant (W8): the backend bypasses RLS, so the
+    # caller-supplied patient id is not on its own a clinic boundary.
+    assert "WHERE clinic_id = COALESCE($2::uuid, public.default_clinic_id())" in sql
+    assert "AND clinic_patient_id = $1" in sql
+    # patient_id + clinic_id + limit → 3 params total
+    assert len(params) == 3
     assert params[0] == patient_a
-    assert params[1] == 50  # default limit
+    assert params[1] is None  # no clinic given → default clinic
+    assert params[2] == 50  # default limit
 
 
 @pytest.mark.asyncio
@@ -119,7 +123,7 @@ async def test_query_lab_result__filter_by_group_c__only_group_c_rows() -> None:
     assert out[0].triage_group == "GROUP_C"
 
     sql, *params = conn.fetch.call_args.args
-    assert "triage_group = $2" in sql
+    assert "triage_group = $3" in sql
     assert "GROUP_C" in params
 
 
@@ -140,7 +144,7 @@ async def test_query_lab_result__filter_by_test_code__exact_match() -> None:
     assert out[0].test_code == "HBV"
 
     sql, *params = conn.fetch.call_args.args
-    assert "test_code = $2" in sql
+    assert "test_code = $3" in sql
     assert "HBV" in params
 
 
@@ -169,8 +173,8 @@ async def test_query_lab_result__date_range__within_range_only() -> None:
     assert len(out) == 2
 
     sql, *params = conn.fetch.call_args.args
-    assert "result_received_at >= $2" in sql
-    assert "result_received_at <= $3" in sql
+    assert "result_received_at >= $3" in sql
+    assert "result_received_at <= $4" in sql
     assert d_from in params
     assert d_to in params
 
@@ -193,7 +197,7 @@ async def test_query_lab_result__limit_respected() -> None:
     sql, *params = conn.fetch.call_args.args
     # limit is always the last param
     assert params[-1] == 2
-    assert "LIMIT $2" in sql
+    assert "LIMIT $3" in sql
 
 
 @pytest.mark.asyncio

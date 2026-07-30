@@ -25,6 +25,9 @@ class OrchestratorState(TypedDict, total=False):
     trace_id: UUID
     user_message: str
     patient_id: Optional[UUID]
+    # Tenant of the conversation, set by the caller (worker / API). Passed
+    # down to sub-graphs so their queries stay inside one clinic.
+    clinic_id: NotRequired[UUID | None]
     route: RouteType
     response: str
     error: Optional[str]

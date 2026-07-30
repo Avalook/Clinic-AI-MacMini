@@ -12,8 +12,9 @@ zero before a second tenant is onboarded (ADR-0009, ADR-0012).
 
 Run:  python3 scripts/tests/tenant-scope-audit.py [--check]
 
-``--check`` exits non-zero if the count exceeds the ceiling below, so CI can
-hold the line while the number comes down. The ceiling may only be LOWERED.
+``--check`` exits non-zero if the count exceeds the ceiling below. The count is
+now 0 and the ceiling is 0: the gate no longer tracks a backlog, it keeps one
+from starting. The ceiling may only be LOWERED, never raised.
 """
 
 from __future__ import annotations
@@ -34,10 +35,11 @@ DELIBERATELY_CROSS_TENANT = {
     "services/event_service.py",  # the outbox itself
 }
 
-# The number of unscoped statements as of the W8 audit. Lower it as they are
-# fixed; never raise it. Zero is the target, and is required before a second
-# clinic exists.
-CEILING = 50
+# W8 drove this from 71 to 0. It stays at 0: every statement that names a
+# tenant table must filter clinic_id, because the backend bypasses RLS. A new
+# unscoped query is a cross-tenant read the moment a second clinic exists, so
+# CI fails the PR that adds one rather than logging it for later.
+CEILING = 0
 
 TENANT_TABLES = {
     "appointment", "block_budget", "booking_channel", "care_episode",
@@ -71,10 +73,16 @@ def sql_literals(path: pathlib.Path) -> list[tuple[int, str]]:
         return []
 
     inside_fstring: set[int] = set()
+    # Docstrings are prose. "Insert into mpi_merge_queue for each candidate"
+    # is documentation, not a statement, and flagging it teaches people to
+    # ignore the report.
+    docstrings: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.JoinedStr):
             for value in node.values:
                 inside_fstring.add(id(value))
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            docstrings.add(id(node.value))
 
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
@@ -85,7 +93,7 @@ def sql_literals(path: pathlib.Path) -> list[tuple[int, str]]:
                 if isinstance(v, ast.Constant) and isinstance(v.value, str)
             )
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if id(node) in inside_fstring:
+            if id(node) in inside_fstring or id(node) in docstrings:
                 continue
             text = node.value
         else:
@@ -127,7 +135,7 @@ def main() -> int:
         for lineno, tables, snippet in sorted(items):
             print(f"    L{lineno:<5} [{tables}] {snippet}")
 
-    print(f"\nunscoped statements: {len(unscoped)} (ceiling {CEILING}, target 0)")
+    print(f"\nunscoped statements: {len(unscoped)} (ceiling {CEILING})")
 
     if "--check" in sys.argv and len(unscoped) > CEILING:
         print(

@@ -27,6 +27,7 @@ from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
     DOCTOR_ROLES,
     StaffIdentity,
+    get_current_identity,
     require_role,
 )
 from clinicai.core.database import get_db_pool
@@ -124,6 +125,7 @@ def _reviewed_at_of(result: dict[str, Any]) -> Any:
 async def triage_lab_result(
     lab_result_id: UUID,
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
+    identity: Annotated[StaffIdentity, Depends(get_current_identity)],
     llm_client: Annotated[AnthropicClient, Depends(get_llm_client)],
 ) -> LabTriageResponse:
     """Run lab_triage on a single lab_result_id, enforcing the GROUP_C gate.
@@ -132,7 +134,10 @@ async def triage_lab_result(
     the result is GROUP_C and not yet reviewed by a doctor.
     """
     graph = build_lab_triage_subgraph(pool=pool, llm_client=llm_client)
-    state = LabTriageState(lab_result_id=lab_result_id)
+    state = LabTriageState(
+        lab_result_id=lab_result_id,
+        clinic_id=UUID(identity.clinic_id) if identity.clinic_id else None,
+    )
     result = await graph.ainvoke(state)
 
     triage_group = result.get("triage_group")

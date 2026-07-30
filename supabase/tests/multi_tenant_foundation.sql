@@ -30,10 +30,13 @@ DECLARE
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
-      FROM information_schema.columns
-     WHERE table_schema = 'public'
-       AND column_name = 'clinic_id'
-       AND table_name <> 'clinic_membership';
+      FROM information_schema.columns c
+      JOIN information_schema.tables t
+        ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+     WHERE c.table_schema = 'public'
+       AND c.column_name = 'clinic_id'
+       AND t.table_type = 'BASE TABLE'
+       AND c.table_name <> 'clinic_membership';
 
     IF actual_tenant_tables <> expected_tenant_tables THEN
         RAISE EXCEPTION 'expected % tenant-scoped tables, found %',
@@ -41,11 +44,14 @@ BEGIN
     END IF;
 
     -- A nullable clinic_id is a hole: rows could land outside every tenant.
-    SELECT string_agg(table_name, ', ') INTO nullable
-      FROM information_schema.columns
-     WHERE table_schema = 'public'
-       AND column_name = 'clinic_id'
-       AND is_nullable = 'YES';
+    SELECT string_agg(c.table_name, ', ') INTO nullable
+      FROM information_schema.columns c
+      JOIN information_schema.tables t
+        ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+     WHERE c.table_schema = 'public'
+       AND c.column_name = 'clinic_id'
+       AND t.table_type = 'BASE TABLE'
+       AND c.is_nullable = 'YES';
 
     IF nullable IS NOT NULL THEN
         RAISE EXCEPTION 'clinic_id must be NOT NULL, but is nullable on: %', nullable;
@@ -54,8 +60,11 @@ BEGIN
     -- Without an FK a tenant could be deleted out from under its data.
     SELECT string_agg(c.table_name, ', ') INTO missing
       FROM information_schema.columns c
+      JOIN information_schema.tables tt
+        ON tt.table_schema = c.table_schema AND tt.table_name = c.table_name
      WHERE c.table_schema = 'public'
        AND c.column_name = 'clinic_id'
+       AND tt.table_type = 'BASE TABLE'
        AND NOT EXISTS (
            SELECT 1 FROM pg_constraint k
             WHERE k.contype = 'f'
@@ -70,8 +79,11 @@ BEGIN
     -- Every tenant-scoped read filters on clinic_id, so it must lead an index.
     SELECT string_agg(c.table_name, ', ') INTO unindexed
       FROM information_schema.columns c
+      JOIN information_schema.tables tt
+        ON tt.table_schema = c.table_schema AND tt.table_name = c.table_name
      WHERE c.table_schema = 'public'
        AND c.column_name = 'clinic_id'
+       AND tt.table_type = 'BASE TABLE'
        AND NOT EXISTS (
            SELECT 1
              FROM pg_index i

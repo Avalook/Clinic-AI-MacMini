@@ -13,6 +13,8 @@ from clinicai.core.exceptions import ResourceNotFoundError
 from clinicai.main import app
 from clinicai.schemas.patient import DuplicateMatch, PatientCreateResult, PatientDTO
 
+CLINIC_ID = "a0000000-0000-4000-8000-000000000001"
+
 
 @pytest.fixture(autouse=True)
 def override_db() -> Iterator[None]:
@@ -24,6 +26,7 @@ def override_db() -> Iterator[None]:
         full_name="Reception A",
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
+        clinic_id=CLINIC_ID,
     )
     yield
     app.dependency_overrides.clear()
@@ -192,7 +195,7 @@ def test_get_patient_by_id_returns_200(
     assert data["clinic_patient_id"] == str(patient_id)
     assert data["full_name"] == "Nguyen Van A"
 
-    mock_service.get_by_id.assert_called_once_with(patient_id)
+    mock_service.get_by_id.assert_called_once_with(patient_id, CLINIC_ID)
 
 
 @patch("clinicai.api.v1.patients.PatientService")
@@ -211,7 +214,7 @@ def test_get_patient_not_found_returns_404(
     assert data["error"] == "NOT_FOUND"
     assert "not found" in data["message"]
 
-    mock_service.get_by_id.assert_called_once_with(patient_id)
+    mock_service.get_by_id.assert_called_once_with(patient_id, CLINIC_ID)
 
 
 @patch("clinicai.api.v1.patients.PatientService")
@@ -246,7 +249,7 @@ def test_get_by_phone_returns_list(
     assert data[0]["clinic_patient_id"] == str(patient_id)
     assert data[0]["phone_primary"] == "+84901234567"
 
-    mock_service.get_by_phone.assert_called_once_with("+84901234567")
+    mock_service.get_by_phone.assert_called_once_with("+84901234567", CLINIC_ID)
 
 
 @patch("clinicai.api.v1.patients.PatientService")
@@ -280,7 +283,7 @@ def test_check_phone_exists_returns_minimal_matches(
         "birth_year": 1990,
     }
     # Route resolves to check-phone, NOT get_patient_by_id (UUID route).
-    mock_service.find_phone_duplicates.assert_awaited_once_with("0901234567")
+    mock_service.find_phone_duplicates.assert_awaited_once_with("0901234567", CLINIC_ID)
 
 
 @patch("clinicai.api.v1.patients.PatientService")

@@ -24,11 +24,16 @@ logger = logging.getLogger(__name__)
 
 TaskStatusUpdate = Literal["PENDING", "IN_PROGRESS", "DONE", "CANCELLED"]
 
+# The backend bypasses RLS, so each query carries the tenant itself. AI tools
+# have no request identity yet, so clinic_id may be None: that resolves to the
+# one clinic while only one exists and to NULL once there are two — returning
+# nothing rather than reaching every clinic. Fail closed (W8).
 _UPDATE_SQL = """
     UPDATE staff_task
        SET status = $2,
            completed_at = $3
      WHERE task_id = $1
+       AND clinic_id = COALESCE($4::uuid, public.default_clinic_id())
     RETURNING task_id, location_id, task_type, priority, status,
               assigned_to, source_type, source_id, title, description,
               due_at, sla_hours, completed_at, created_at, updated_at
@@ -52,6 +57,7 @@ async def update_task_status(
     pool: asyncpg.Pool,
     input: UpdateTaskStatusInput,
     trace: TraceContext,
+    clinic_id: str | None = None,
 ) -> TaskRow:
     """Update a staff_task's status; auto-populate completed_at for DONE.
 
@@ -91,6 +97,7 @@ async def update_task_status(
             input.task_id,
             input.status,
             completed_at,
+            clinic_id,
         )
 
     if row is None:
