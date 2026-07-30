@@ -59,9 +59,9 @@ BEGIN
      WHERE schemaname = 'public'
        AND policyname LIKE '%_select_own_clinic';
 
-    -- 23 tenant tables + staff.
-    IF scoped_count <> 24 THEN
-        RAISE EXCEPTION 'expected 24 tenant-scoped read policies, found %', scoped_count;
+    -- 23 tenant tables + staff + the 7 workflow-kernel tables (W4).
+    IF scoped_count <> 31 THEN
+        RAISE EXCEPTION 'expected 31 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

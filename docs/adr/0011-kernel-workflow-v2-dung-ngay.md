@@ -46,3 +46,48 @@ viên; mọi bước có audit trail thật.
 `/tasks` viết lại); giai đoạn ghi kép cần dọn dứt điểm, nếu để lâu sẽ thành nợ.
 **Rủi ro:** over-engineering nếu 37 node chưa đúng thực tế → seed từ Notion (nguồn của
 phòng khám) chứ không tự nghĩ ra, và cho phép sửa bằng dữ liệu.
+
+## Trạng thái thực hiện (cập nhật 2026-07-30, W4)
+
+**Đã dựng** — `supabase/migrations/20260730000005_workflow_kernel.sql`, 7 bảng:
+`node_definition`, `node_definition_version`, `node_dependency`, `work_item`,
+`work_item_dependency`, `work_item_event`, `follow_up_case`. Tất cả mang `clinic_id`
+(ADR-0009), chỉ đọc với `authenticated`, **0 policy ghi** (ADR-0012).
+
+**37 node đã seed** — `20260730000006_seed_node_catalogue.sql`, đúng danh mục §13. Seed
+idempotent, chỉ ghi cho tenant Dr4Women, nên phòng khám thứ 2 bắt đầu với catalogue rỗng
+của riêng nó. **Đây là điểm mấu chốt của ADR này**: luồng khám giờ là *dữ liệu*, sửa được
+mà không cần deploy.
+
+**Gate nằm trong SQL, không nằm trong Python** — `work_item_gate_blockers(work_item_id,
+phase)`. `start` bị chặn bởi FS/SS, `complete` bị chặn bởi FF/SF; gate_group hỗ trợ
+AND/OR/XOR. Đặt ở DB để không caller nào quên gọi.
+
+Ba quy tắc đáng ghi lại vì chúng là quyết định nghiệp vụ, không phải chi tiết kỹ thuật:
+- **SKIPPED mở gate, CANCELLED thì không.** Bỏ qua là quyết định "bước này sẽ không xảy
+  ra" — nếu nó vẫn chặn thì một bước bị bỏ sẽ kẹt bệnh nhân suốt phần còn lại của lượt
+  khám. Huỷ là "bước này bị gọi lại", nên cái phía sau cần người quyết chứ không tự thông.
+- **`skip`/`cancel` không bao giờ bị gate.** Đó chính là cách gỡ một luồng bị kẹt.
+- **XOR đóng lại khi cả hai nhánh đều xong**, và khi đó `work_item_gate_blockers` trả về
+  *các nhánh đã xong* — vì chính chúng là vấn đề. Trả rỗng sẽ bị đọc nhầm là "thông".
+
+**Command API** — `src/clinicai/api/v1/routers/work_items.py`:
+`POST /api/v1/work-items/{id}/commands/{start|complete|skip|cancel}` + `GET .../blockers`
+để UI giải thích được vì sao nút bị khoá. Bắt buộc `Idempotency-Key`. Trong **một
+transaction**: kiểm tenant (join `clinic_membership`, nên đầu việc của phòng khám khác
+trả 404 chứ không phải 403) → kiểm transition → kiểm vai trò theo `actor_roles` của node →
+kiểm gate → `UPDATE ... WHERE version = $expected` (optimistic locking) → ghi
+`work_item_event`.
+
+**Chưa làm (cố ý):**
+- `staff_task` **giữ nguyên**, chưa migrate. Nó đang chạy phòng khám thật; đổi sang
+  `work_item` phải đi cùng lúc với việc viết lại màn `/tasks`, mà màn đó còn đang đọc
+  thẳng Supabase (W5).
+- **Chưa có routing tự động**: chưa có gì tự sinh `work_item` khi check-in. Sinh work item
+  từ `node_dependency` là bước kế tiếp, cần chốt "một lượt khám sinh ra những node nào".
+- **Dependency giữa các node**: §13 liệt kê trạm nhưng không nói mũi tên. Seed chỉ đặt
+  chuỗi FS mà chính cách đánh số của danh mục nói ra (`LUOTKHAM-01→02→03→05→13→14→15`,
+  `DATLICH-01→02→03→04`, `THEODOI-01→…→04`, `NGUONLUC-01→02→03`, và
+  `DICHVU-KETQUA-XETNGHIEM → DICHVU-DUYET-KETQUA`). 5 node khám và các node dịch vụ **cố
+  ý để rời** — dịch vụ nào theo sau ca khám nào là quyết định lâm sàng, không suy ra được
+  từ một cái bảng. **Cần phòng khám xác nhận.**

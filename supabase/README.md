@@ -19,10 +19,15 @@ supabase/
     20260730000001_care_episode_select_policy.sql        # RLS on, zero policies -> /episodes was empty
     20260730000002_reference_lookup_select_policies.sql  # same bug class on the lookup tables
     20260730000003_multi_tenant_foundation.sql           # clinic + clinic_membership + clinic_id (ADR-0009)
+    20260730000004_tenant_scoped_rls.sql                 # every USING(true) -> current_clinic_ids() (ADR-0004)
+    20260730000005_workflow_kernel.sql                   # node_* / work_item_* / follow_up_case (ADR-0011)
+    20260730000006_seed_node_catalogue.sql               # the 37 nodes of docs §13, for Dr4Women
   tests/
     bootstrap_plain_postgres.sql           # disposable stock-Postgres fixture
     event_log_rls.sql                      # forward-migration policy assertions
     multi_tenant_foundation.sql            # tenant invariants + cross-clinic isolation
+    tenant_scoped_rls.sql                  # no blanket reads; a clinic sees only itself
+    workflow_kernel.sql                    # the 37-node catalogue + FS/SS/FF/SF and AND/OR/XOR gates
     run-local.sh                           # apply the chain to a throwaway container, run the assertions
   seed.sql                                  # reference/lookup data only (NO patient PII)
 ```

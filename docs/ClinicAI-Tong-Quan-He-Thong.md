@@ -149,7 +149,7 @@ flowchart TB
 
 ## 4. Mô hình Node & Work Item (trái tim của workflow)
 
-### 4.1 Định nghĩa vs lần thực hiện 🔵 (kernel V2 — chưa có trong DB)
+### 4.1 Định nghĩa vs lần thực hiện 🟢 (đã có trong DB từ W4 — migration `20260730000005`)
 | Thực thể | Ý nghĩa |
 |---|---|
 | `node_definition` | Định nghĩa nghiệp vụ dùng lại, ví dụ `KHAM-SANKHOA`, `DATLICH-01`. |
@@ -159,7 +159,7 @@ flowchart TB
 | `work_item_event` | Lịch sử **bất biến** của mọi lần chuyển trạng thái. |
 | `follow_up_case` | Việc theo dõi còn treo khi đóng lượt (có người phụ trách + hạn). |
 
-> Hiện tại V1 dùng bảng `staff_task` như một dạng work-item đơn giản; `care_episode`/`visit`/`appointment` giữ trạng thái luồng. Kernel `node_*`/`work_item_*` là **mục tiêu V2** (milestone M2).
+> **Trạng thái W4:** 7 bảng kernel đã có trong schema, **37 node đã seed** từ §13, gate FS/SS/FF/SF + AND/OR/XOR chạy trong SQL (`work_item_gate_blockers`), Command API đã wire. **`staff_task` vẫn đang chạy phòng khám thật** và chưa migrate — đổi sang `work_item` phải đi cùng lúc với việc viết lại màn `/tasks` (đang đọc thẳng Supabase, chờ W5). Cũng **chưa có routing tự động**: chưa có gì tự sinh `work_item` khi check-in.
 
 ### 4.2 Dependency & Gate
 `work_item_dependency`: `predecessor_work_item_id`, `successor_work_item_id`, `dependency_type` ∈ **FS/SS/FF/SF**, `is_blocking`, `gate_group`, `gate_operator` ∈ **AND/OR/XOR**, `condition_json`.
@@ -446,7 +446,8 @@ flowchart TB
 | Siết RLS theo tenant | 🟢 xong (chưa push) | 26 policy `USING (true)` → `current_clinic_ids()`; `idempotency_key` bật RLS; role-picker xoá hẳn; migration có precondition chặn nếu còn staff chưa link. Migration `20260730000004`, test `supabase/tests/tenant_scoped_rls.sql` (W3) |
 | 1 login/nhân viên | 🟡 code xong, chờ vận hành | Luồng đã đúng (`getCurrentStaff` suy từ `auth.uid()`), UI cấp tài khoản đã có ở `/settings/new-user`. Còn: cấp tài khoản cho từng nhân viên chưa link, rồi quyết định bỏ cổng `/enter` dùng chung |
 | Siết RLS theo **vai trò** | 🔴 chưa | Lễ tân/Thu ngân vẫn đọc được `clinical_record` trong cùng phòng khám; phải dời đọc ra sau FastAPI trước (W5, đích ROLE-02) |
-| Workflow kernel đầy đủ | 🔵 | `node_*`/`work_item_*`/`follow_up_case` + Command API + seed 37 node §13 (W4) |
+| Workflow kernel | 🟢 xong (chưa push) | 7 bảng + gate SQL + Command API + **37 node đã seed**. Migration `20260730000005`/`20260730000006`, test `supabase/tests/workflow_kernel.sql` (W4) |
+| Sinh work item tự động + bỏ `staff_task` | 🔴 chưa | Chưa có gì tự tạo `work_item` khi check-in; `staff_task` vẫn chạy thật. Cần chốt "một lượt khám sinh ra node nào" + viết lại màn `/tasks` (sau W5) |
 | Backend sở hữu hợp đồng | 🟡 đợt 1 xong | Gỡ service-role khỏi 3 chỗ (`wards`, `check-phone`, `patients/new`); hàng rào CI `service-role-boundary.test.mts` với danh sách trắng **chỉ được ngắn đi**, trần 19 file → đích 2; `care_episode` đã dời trọn sang FastAPI làm mẫu (`PATCH /api/v1/episodes/{id}`, cờ `EPISODE_VIA_BACKEND`). Còn 14 route nghiệp vụ (W5) |
 | Sẵn sàng lên VPS | 🟡 chưa kiểm chứng | Build multi-arch + CI dựng stack trên Linux (W6) |
 | Cổng POS / KiotViet | 🔵 | `PosPort` + `NullPosAdapter` + adapter KiotViet, đồng bộ qua outbox (W7) |

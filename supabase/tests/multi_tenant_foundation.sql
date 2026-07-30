@@ -25,7 +25,8 @@ DECLARE
         'schema_migrations',  -- CLI bookkeeping
         'clinic'              -- is the tenant
     ];
-    expected_tenant_tables constant integer := 27;
+    -- 27 from W2 + the 7 workflow-kernel tables added in W4.
+    expected_tenant_tables constant integer := 34;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
