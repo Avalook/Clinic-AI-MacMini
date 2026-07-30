@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getSupabaseService } from "../../../lib/supabase-service";
+import { proxyJsonToBackend, serviceLogViaBackend } from "../../../lib/backend-proxy";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
 import { logEvent } from "../../../lib/event-log";
@@ -74,6 +75,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Thiếu tên dịch vụ." }, { status: 400 });
   }
 
+  // W5 (ADR-0012): patient lookup, insert and audit event share one transaction
+  // in FastAPI. Off until SERVICE_LOG_VIA_BACKEND=1.
+  if (serviceLogViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/service-log", {
+      service_name: serviceName,
+      patient_code: patientCode || null,
+      performer,
+    });
+  }
+
   // Mã BN tuỳ chọn → resolve clinic_patient_id.
   let clinicPatientId: string | null = null;
   if (patientCode) {
@@ -135,6 +146,13 @@ export async function PATCH(request: Request) {
   const action = body.action;
   if (!id || (action !== "start" && action !== "finish")) {
     return NextResponse.json({ error: "Thiếu id hoặc action không hợp lệ." }, { status: 400 });
+  }
+
+  if (serviceLogViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/service-log/${id}`, {
+      action,
+      result_text: body.result_text ?? null,
+    });
   }
 
   const now = new Date().toISOString();

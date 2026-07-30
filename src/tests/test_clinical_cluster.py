@@ -7,10 +7,12 @@ measurements merge, and which roles each gate admits.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole
 from clinicai.api.v1.routers.lab import _ORDER_GUARD, _RESULT_GUARD
 from clinicai.api.v1.routers.ultrasound import _SONOGRAPHER_GUARD
@@ -26,7 +28,26 @@ from clinicai.services.clinical_record_service import (
 from clinicai.services.clinical_record_service import (
     WRITABLE_VISIT_STATUSES as RECORD_WRITABLE,
 )
+from clinicai.services.cskh_service import (
+    INTAKE_ROLES,
+    clinic_today,
+    manual_source_ref,
+)
 from clinicai.services.lab_order_service import normalize_link
+from clinicai.services.service_log_service import (
+    MILESTONE_COLUMN,
+    QUEUE_CANCELLED,
+    QUEUE_DONE,
+    QUEUE_IN_PROGRESS,
+    QUEUE_WAITING,
+    SONO_ROLES,
+    TASK_DONE,
+    TASK_IN_PROGRESS,
+    TASK_WAITING,
+    queue_patch,
+    source_ref,
+    task_patch,
+)
 from clinicai.services.ultrasound_service import (
     MEASURE_KEYS,
     WRITABLE_VISIT_STATUSES,
@@ -240,3 +261,108 @@ class TestImmutability:
 
     def test_the_record_locks_after_two_shifts(self) -> None:
         assert RECORD_LOCK == timedelta(hours=48)
+
+
+class TestCskh:
+    def test_intake_roles_only(self) -> None:
+        # Care work is intake, not clinical: doctors and cashiers have their own
+        # screens and must not be logging CSKH actions.
+        assert INTAKE_ROLES == frozenset(
+            {
+                ClinicRole.CSKH,
+                ClinicRole.RECEPTION,
+                ClinicRole.MANAGEMENT,
+                ClinicRole.TRUONG_CA,
+            }
+        )
+        for role in (ClinicRole.DOCTOR, ClinicRole.CASHIER, ClinicRole.TKYK):
+            assert role not in INTAKE_ROLES
+
+    def test_the_working_day_is_the_clinic_s_not_utc(self) -> None:
+        # 20:30 in Hanoi is already tomorrow in UTC. Filing the call on the UTC
+        # date would push every evening call onto the next working day and make
+        # the overdue-recall list wrong.
+        evening = datetime(2026, 7, 30, 20, 30, tzinfo=ZoneInfo("Asia/Ho_Chi_Minh"))
+        assert clinic_today(evening) == "2026-07-30"
+        assert evening.astimezone(timezone.utc).date().isoformat() == "2026-07-30"
+
+        late = datetime(2026, 7, 30, 23, 30, tzinfo=ZoneInfo("Asia/Ho_Chi_Minh"))
+        assert clinic_today(late) == "2026-07-30"
+        # ... which UTC would have called the 30th too, but an early-hours call
+        # is where the two really diverge:
+        early = datetime(2026, 7, 31, 6, 0, tzinfo=ZoneInfo("Asia/Ho_Chi_Minh"))
+        assert clinic_today(early) == "2026-07-31"
+        assert early.astimezone(timezone.utc).date().isoformat() == "2026-07-30"
+
+    def test_manual_refs_do_not_collide(self) -> None:
+        # source_ref is UNIQUE NOT NULL and shared with the import pipeline, so
+        # two clicks in the same millisecond must not produce the same key.
+        refs = {manual_source_ref() for _ in range(500)}
+        assert len(refs) == 500
+        assert all(r.startswith("dash-manual-") for r in refs)
+
+
+class TestServiceLog:
+    def test_the_two_screens_keep_their_own_vocabularies(self) -> None:
+        # One table, two status languages, because each screen filters to its
+        # own rows. Unifying them is a data migration plus two UI changes — not
+        # something a port should do silently, which would blank whichever
+        # worklist was not updated.
+        assert (TASK_WAITING, TASK_IN_PROGRESS, TASK_DONE) == (
+            "Chờ làm",
+            "Đang làm",
+            "Hoàn tất",
+        )
+        assert (QUEUE_WAITING, QUEUE_IN_PROGRESS, QUEUE_DONE, QUEUE_CANCELLED) == (
+            "WAITING",
+            "IN_PROGRESS",
+            "DONE",
+            "CANCELLED",
+        )
+
+    def test_starting_stamps_a_start_and_finishing_stamps_a_finish(self) -> None:
+        assert task_patch("start", None) == {
+            "started_at": "now",
+            "status": TASK_IN_PROGRESS,
+        }
+        finished = task_patch("finish", "  kết quả  ")
+        assert finished["finished_at"] == "now"
+        assert finished["status"] == TASK_DONE
+        assert finished["result_text"] == "kết quả"
+
+    def test_a_blank_result_is_stored_as_nothing(self) -> None:
+        assert task_patch("finish", "   ")["result_text"] is None
+
+    def test_cancelling_does_not_erase_what_already_happened(self) -> None:
+        # A cancelled scan that was already started still started; wiping the
+        # timestamps would lose that.
+        patch = queue_patch("cancel")
+        assert patch == {"status": QUEUE_CANCELLED}
+        assert "started_at" not in patch and "finished_at" not in patch
+
+    @pytest.mark.parametrize("action", ["", "START", "done", "delete"])
+    def test_unknown_actions_are_refused(self, action: str) -> None:
+        with pytest.raises(ValidationError):
+            task_patch(action, None)
+        with pytest.raises(ValidationError):
+            queue_patch(action)
+
+    def test_lab_milestones_are_three_independent_timestamps(self) -> None:
+        # A single status cannot express "sample taken and result back, but a
+        # second sample not yet sent", which is why these are separate columns.
+        assert MILESTONE_COLUMN == {
+            "sample": "started_at",
+            "sendlab": "sent_to_lab_at",
+            "result": "finished_at",
+        }
+        assert len(set(MILESTONE_COLUMN.values())) == 3
+
+    def test_the_sono_queue_belongs_to_the_ultrasound_nurse(self) -> None:
+        assert SONO_ROLES == frozenset(
+            {ClinicRole.NURSE_ULTRASOUND, ClinicRole.MANAGEMENT}
+        )
+        assert ClinicRole.RECEPTION not in SONO_ROLES
+
+    def test_source_refs_do_not_collide(self) -> None:
+        refs = {source_ref("api-svc") for _ in range(500)}
+        assert len(refs) == 500

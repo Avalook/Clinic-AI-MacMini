@@ -10,6 +10,7 @@ import { getSupabaseService } from "../../../lib/supabase-service";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { canWriteIntake } from "../../../lib/roles";
 import { logEvent } from "../../../lib/event-log";
+import { cskhViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface Body {
   clinic_patient_id?: string;
@@ -29,14 +30,6 @@ export async function POST(request: Request) {
   }
   const staffId = await getClinicStaffId();
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -49,6 +42,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Thiếu clinic_patient_id." }, { status: 400 });
   }
   const note = (body.note ?? "").trim() || null;
+
+  // W5 (ADR-0012): FastAPI owns the write and stamps the working day in
+  // Asia/Ho_Chi_Minh, for the same reason this route did.
+  if (cskhViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/cskh/followup-calls", {
+      clinic_patient_id: clinicPatientId,
+      note,
+    });
+  }
+
+  const db = getSupabaseService();
+  if (!db) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
+      { status: 503 },
+    );
+  }
 
   const todayVn = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 

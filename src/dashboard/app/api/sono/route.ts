@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getSupabaseService } from "../../../lib/supabase-service";
+import { proxyJsonToBackend, serviceLogViaBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
 
 async function guard() {
@@ -66,6 +67,15 @@ export async function POST(request: Request) {
   }
   if (!serviceName) {
     return NextResponse.json({ error: "Thiếu tên dịch vụ." }, { status: 400 });
+  }
+
+  // W5 (ADR-0012). Off until SERVICE_LOG_VIA_BACKEND=1.
+  if (serviceLogViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/sono/queue", {
+      kind,
+      service_name: serviceName,
+      patient_code: patientCode || null,
+    });
   }
 
   // Mã BN tuỳ chọn → resolve clinic_patient_id.
@@ -134,6 +144,14 @@ export async function PATCH(request: Request) {
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
 
+  if (serviceLogViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/sono/queue/${id}`, {
+      action: body.action ?? null,
+      milestone: body.milestone ?? null,
+      value: body.value ?? null,
+    });
+  }
+
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { updated_at: now };
 
@@ -188,6 +206,10 @@ export async function DELETE(request: Request) {
   }
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
+
+  if (serviceLogViaBackend()) {
+    return proxyJsonToBackend("DELETE", `/api/v1/sono/queue/${id}`, {});
+  }
 
   const { error } = await db.from("service_log").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

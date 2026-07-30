@@ -40,6 +40,16 @@ export function clinicalFormViaBackend(): boolean {
   return process.env.CLINICAL_FORM_VIA_BACKEND === "1" && API_BASE !== "";
 }
 
+/** True when services-worklist and sono-queue writes go to FastAPI (W5). */
+export function serviceLogViaBackend(): boolean {
+  return process.env.SERVICE_LOG_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
+/** True when customer-care writes should be proxied to FastAPI (W5). */
+export function cskhViaBackend(): boolean {
+  return process.env.CSKH_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
 /** True when clinical-record writes should be proxied to FastAPI (W5). */
 export function clinicalRecordViaBackend(): boolean {
   return process.env.CLINICAL_RECORD_VIA_BACKEND === "1" && API_BASE !== "";

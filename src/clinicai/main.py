@@ -20,6 +20,7 @@ from clinicai.api.v1.routers.clinical_forms import router as clinical_forms_rout
 from clinicai.api.v1.routers.clinical_records import (
     router as clinical_records_router,
 )
+from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
@@ -28,6 +29,7 @@ from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
+from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
@@ -120,6 +122,8 @@ app.include_router(lab_router, prefix="/api/v1")
 app.include_router(ultrasound_router, prefix="/api/v1", tags=["ultrasound"])
 app.include_router(clinical_forms_router, prefix="/api/v1", tags=["clinical-forms"])
 app.include_router(clinical_records_router, prefix="/api/v1", tags=["clinical-records"])
+app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"])
+app.include_router(service_log_router, prefix="/api/v1", tags=["service-log"])
 app.include_router(voice_router, prefix="/api/v1")
 
 
