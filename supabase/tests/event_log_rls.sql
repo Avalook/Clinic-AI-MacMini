@@ -82,6 +82,11 @@ VALUES
         '10000000-0000-0000-0000-000000000002'
     );
 
+-- Since W3 (20260730000004) reading anything also requires active membership of
+-- the clinic that owns the row. The staff inserts above get theirs from the
+-- staff_ensure_default_membership trigger, which resolves the clinic while the
+-- deployment is single-tenant.
+
 INSERT INTO public.event_log (
     event_id,
     event_type,

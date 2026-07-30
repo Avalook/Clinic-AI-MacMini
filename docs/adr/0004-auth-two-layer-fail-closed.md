@@ -43,3 +43,28 @@ role = `staff.primary_department` suy từ JWT, bỏ role-picker.
 **Tiêu cực:** phải hoàn tất cutover #1b/#1c (link `auth_user_id` cho mọi staff, FE đọc
 `/me`, xoá cookies legacy) trước khi siết — RUNBOOK đã có checklist; các call nội bộ
 (cron, script) cần service-JWT hoặc đường riêng có ghi nhận.
+
+## Trạng thái thực hiện (cập nhật 2026-07-30)
+- **Xong (W3)** — `supabase/migrations/20260730000004_tenant_scoped_rls.sql`:
+  26 policy `USING (true)` bị thay bằng `clinic_id IN (SELECT current_clinic_ids())`
+  (23 bảng) + `staff` theo `clinic_membership` + `event_log` giữ MANAGEMENT **và** thêm
+  ràng buộc tenant. `province`/`ward` (danh mục hành chính quốc gia, không có PII) cố ý
+  giữ mở. Ghi vẫn **0 policy** — mọi ghi qua backend.
+- **Chặn trước khi áp:** migration `RAISE EXCEPTION` nếu còn nhân viên `is_active` chưa
+  có `auth_user_id`, hoặc chưa có `clinic_membership`. Không có chuyện áp nửa chừng rồi
+  khoá cả phòng khám ra ngoài.
+- **Bất biến tự giữ:** trigger `staff_ensure_default_membership` tạo membership ngay khi
+  insert `staff`, bất kể đường nào (StaffService, UI admin, SQL tay).
+- **Lỗ đã bịt tiện thể:** `idempotency_key` là bảng duy nhất **tắt hẳn RLS** trong
+  `public`, mà nó lưu request/response đã replay (có payload bệnh nhân). Supabase mặc
+  định cấp SELECT cho `authenticated` ⇒ ai đăng nhập cũng đọc được. Nay bật RLS, không
+  policy, `REVOKE` khỏi `anon`/`authenticated`.
+- **Tài khoản dùng chung (`CLINIC_SHARED_EMAIL`, màn `/enter`)** không còn đọc được gì:
+  nó không có dòng `staff` nên `current_clinic_ids()` rỗng ⇒ 0 dòng ở mọi bảng. Cổng vẫn
+  còn để vào được trang `/login`; **bỏ hẳn cổng này là quyết định của bạn**, vì nó đổi
+  cách cả phòng khám đăng nhập.
+- **Còn lại (W5):** siết theo **vai trò** trong cùng phòng khám (Lễ tân/Thu ngân đọc
+  `clinical_record` ra 0 dòng — DOD ROLE-02). Chưa làm được vì `/tasks` đọc `lab_result`
+  + `prescription` và `/home` đọc `clinical_record` + `payment` bằng chính session người
+  dùng, từ những màn mà Lễ tân/Thu ngân được vào. Phải dời các lệnh đọc đó ra sau FastAPI
+  (ADR-0012) rồi mới siết được, nếu không chỉ làm trắng màn hình.
