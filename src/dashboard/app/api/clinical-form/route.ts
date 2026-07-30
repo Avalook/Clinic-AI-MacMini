@@ -16,6 +16,10 @@ import { getSupabaseService } from "../../../lib/supabase-service";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
 import { getFormSchema } from "../../../lib/form-schemas";
+import {
+  clinicalFormViaBackend,
+  proxyJsonToBackend,
+} from "../../../lib/backend-proxy";
 
 // GET: đọc qua RLS (caller). Không cần quyền ghi.
 export async function GET(request: Request) {
@@ -67,14 +71,6 @@ async function write(request: Request) {
     );
   }
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
   let body: WriteBody;
   try {
     body = (await request.json()) as WriteBody;
@@ -96,6 +92,26 @@ async function write(request: Request) {
     body.form_data && typeof body.form_data === "object" && !Array.isArray(body.form_data)
       ? (body.form_data as Record<string, unknown>)
       : {};
+
+  // W5 (ADR-0012): the FINALIZED gate and the upsert now live in FastAPI, in one
+  // transaction. The schema check above stays here because lib/form-schemas is
+  // the rendering registry; the backend validates the code against service_type.
+  // Off until CLINICAL_FORM_VIA_BACKEND=1.
+  if (clinicalFormViaBackend()) {
+    return proxyJsonToBackend("PUT", "/api/v1/clinical-forms", {
+      visit_id: visitId,
+      service_code: serviceCode,
+      form_data: formData,
+    });
+  }
+
+  const db = getSupabaseService();
+  if (!db) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
+      { status: 503 },
+    );
+  }
 
   // 2) SAFETY GATE: visit phải tồn tại + KHÔNG FINALIZED.
   const { data: visit } = await db

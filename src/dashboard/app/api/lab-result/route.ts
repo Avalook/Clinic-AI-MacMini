@@ -13,6 +13,7 @@ import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { isDoctorRole, canWriteClinical } from "../../../lib/roles";
 import { logEvent } from "../../../lib/event-log";
 import { toHref } from "../../../lib/url";
+import { labViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface PostBody {
   clinicPatientId?: string;
@@ -41,14 +42,6 @@ export async function POST(request: Request) {
   }
   const staffId = await getClinicStaffId();
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
   let body: PostBody;
   try {
     body = (await request.json()) as PostBody;
@@ -62,6 +55,25 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Thiếu bệnh nhân hoặc tên xét nghiệm." },
       { status: 400 },
+    );
+  }
+
+  // W5 (ADR-0012): the rule lives in FastAPI, where the insert and its audit
+  // event share a transaction. Off until LAB_VIA_BACKEND=1; this branch and the
+  // service-role client below are what get deleted once the flag is permanent.
+  if (labViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/lab/orders", {
+      clinic_patient_id: clinicPatientId,
+      test_name: testName,
+      appointment_id: appointmentId,
+    });
+  }
+
+  const db = getSupabaseService();
+  if (!db) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
+      { status: 503 },
     );
   }
 
@@ -106,14 +118,6 @@ export async function PATCH(request: Request) {
   }
   const staffId = await getClinicStaffId();
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
   let body: PatchBody;
   try {
     body = (await request.json()) as PatchBody;
@@ -131,6 +135,22 @@ export async function PATCH(request: Request) {
     return NextResponse.json(
       { error: "Nhập tóm tắt kết quả hoặc dán link phiếu." },
       { status: 400 },
+    );
+  }
+
+  if (labViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/lab/results/${id}`, {
+      result_value: resultValue,
+      result_link: resultLink,
+      lab_provider: labProvider,
+    });
+  }
+
+  const db = getSupabaseService();
+  if (!db) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
+      { status: 503 },
     );
   }
 

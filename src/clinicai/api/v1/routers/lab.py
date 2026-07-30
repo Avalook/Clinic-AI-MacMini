@@ -21,17 +21,80 @@ from uuid import UUID
 import asyncpg
 import structlog
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from clinicai.api.identity import (
+    CLINICAL_WRITE_ROLES,
+    DOCTOR_ROLES,
+    StaffIdentity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
+from clinicai.services.lab_order_service import LabOrderService
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/lab", tags=["lab"])
+
+# Ordering a test is a doctor's decision (W5, ADR-0012).
+_ORDER_GUARD = require_role(*DOCTOR_ROLES)
+# Entering a result is clinical work: doctors, nurses and the medical secretary.
+# Reception and management are deliberately excluded.
+_RESULT_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+
+
+class LabOrderRequest(BaseModel):
+    """Order a lab test for a patient."""
+
+    clinic_patient_id: UUID
+    test_name: str = Field(min_length=1, max_length=200)
+    appointment_id: UUID | None = None
+
+
+class LabResultEntryRequest(BaseModel):
+    """Attach a summary and/or the provider's document to a pending result."""
+
+    result_value: str | None = Field(default=None, max_length=4000)
+    result_link: str | None = Field(default=None, max_length=2000)
+    lab_provider: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/orders", status_code=201)
+async def order_lab_test(
+    body: LabOrderRequest,
+    identity: StaffIdentity = Depends(_ORDER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Create a PENDING lab_result — the doctor has asked for a test."""
+    lab_result_id = await LabOrderService(pool).order_test(
+        clinic_patient_id=str(body.clinic_patient_id),
+        test_name=body.test_name,
+        appointment_id=str(body.appointment_id) if body.appointment_id else None,
+        identity=identity,
+    )
+    return {"ok": True, "lab_result_id": lab_result_id}
+
+
+@router.patch("/results/{lab_result_id}")
+async def enter_lab_result(
+    lab_result_id: UUID,
+    body: LabResultEntryRequest,
+    identity: StaffIdentity = Depends(_RESULT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Record what came back. Never finalises — that is a separate gate."""
+    await LabOrderService(pool).enter_result(
+        lab_result_id=str(lab_result_id),
+        result_value=body.result_value,
+        result_link=body.result_link,
+        lab_provider=body.lab_provider,
+        identity=identity,
+    )
+    return {"ok": True}
 
 
 def get_llm_client(request: Request) -> AnthropicClient:

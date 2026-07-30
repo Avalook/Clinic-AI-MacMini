@@ -14,6 +14,10 @@ import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getSupabaseService } from "../../../lib/supabase-service";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { isUltrasoundDoctorRole } from "../../../lib/roles";
+import {
+  proxyJsonToBackend,
+  ultrasoundViaBackend,
+} from "../../../lib/backend-proxy";
 
 const MEASURE_KEYS = ["crl", "nt", "bpd", "hc", "ac", "fl", "efw"] as const;
 const WRITABLE_VISIT_STATUSES = ["OPEN", "IN_PROGRESS"];
@@ -110,6 +114,20 @@ export async function POST(request: Request) {
       { error: "Thiếu lịch hẹn hoặc bệnh nhân." },
       { status: 400 },
     );
+  }
+
+  // W5 (ADR-0012): the rule lives in FastAPI, where find-or-create visit and the
+  // record write share a transaction — here they did not, so a crash between
+  // them left an empty visit on the appointment. Off until
+  // ULTRASOUND_VIA_BACKEND=1.
+  if (ultrasoundViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/ultrasound/measurements", {
+      appointment_id: appointmentId,
+      clinic_patient_id: clinicPatientId,
+      measurements: body.measurements ?? null,
+      is_abnormal: body.is_abnormal ?? null,
+      status: body.status ?? null,
+    });
   }
 
   const db = getSupabaseService();

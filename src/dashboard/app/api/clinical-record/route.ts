@@ -9,6 +9,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getSupabaseService } from "../../../lib/supabase-service";
+import {
+  clinicalRecordViaBackend,
+  proxyJsonToBackend,
+} from "../../../lib/backend-proxy";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { isDoctorRole, isNurseRole, isThuKyRole } from "../../../lib/roles";
 
@@ -268,20 +272,39 @@ export async function POST(request: Request) {
   }
   const staffId = await getClinicStaffId();
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
   const appointmentId = (body.appointmentId ?? "").trim();
   const clinicPatientId = (body.clinicPatientId ?? "").trim();
   if (!appointmentId || !clinicPatientId) {
     return NextResponse.json(
       { error: "Thiếu lịch hẹn hoặc bệnh nhân." },
       { status: 400 },
+    );
+  }
+
+  // W5 (ADR-0012): every gate below — arrival, ownership, the 48h lock, the
+  // writable-status whitelist, the objective merge that protects the nurse's
+  // vitals — now lives in FastAPI, and the whole write is one transaction
+  // instead of five statements. Off until CLINICAL_RECORD_VIA_BACKEND=1.
+  if (clinicalRecordViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/clinical-records", {
+      appointment_id: appointmentId,
+      clinic_patient_id: clinicPatientId,
+      vitals_only: vitalsOnly,
+      chief_complaint: body.chief_complaint ?? null,
+      subjective: body.subjective ?? null,
+      ...(body.objective !== undefined ? { objective: body.objective } : {}),
+      assessment: body.assessment ?? null,
+      plan: body.plan ?? null,
+      profile: body.profile ?? null,
+      prescriptions: body.prescriptions ?? null,
+    });
+  }
+
+  const db = getSupabaseService();
+  if (!db) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
+      { status: 503 },
     );
   }
 

@@ -80,3 +80,41 @@ thái và ghi audit event nằm trong **cùng một transaction**, nên không t
 **Còn lại:** 14 route nghiệp vụ (đặt lịch/check-in, bệnh án, siêu âm, xét nghiệm, thu
 tiền, service-log, sono, CSKH, roster, bảng giá). Mỗi entry trong danh sách trắng ghi rõ
 nó phải về router nào.
+
+## W5 đợt 2 — cụm lâm sàng (2026-07-30)
+
+**4 route lâm sàng đã có bản backend đầy đủ**, mỗi cái sau một cờ, mặc định tắt:
+
+| Route Next | Endpoint FastAPI | Cờ |
+|---|---|---|
+| `api/lab-result` POST/PATCH | `POST /api/v1/lab/orders` · `PATCH /api/v1/lab/results/{id}` | `LAB_VIA_BACKEND` |
+| `api/ultrasound` POST | `POST /api/v1/ultrasound/measurements` | `ULTRASOUND_VIA_BACKEND` |
+| `api/clinical-form` POST/PATCH | `PUT /api/v1/clinical-forms` | `CLINICAL_FORM_VIA_BACKEND` |
+| `api/clinical-record` POST | `POST /api/v1/clinical-records` | `CLINICAL_RECORD_VIA_BACKEND` |
+
+Mọi luật được port **nguyên vẹn**, kể cả những luật là *sự kiềm chế lâm sàng cố ý*:
+EFW **nhập tay, không tự tính** (Hadlock chờ BS chốt công thức); cờ bất thường do bác sĩ
+bấm, không suy từ số đo; siêu âm chỉ `ULTRASOUND_DOCTOR`, không nới; nhập KQ xét nghiệm
+loại trừ Lễ tân/Quản lý (chốt 17/6); khoá hồ sơ sau **48h**; `FINALIZED` **và** `AMENDED`
+đều bất biến theo TT13 (whitelist chứ không chỉ chặn FINALIZED).
+
+**Bản backend chặt hơn bản nó thay ở 3 chỗ:**
+1. `clinical-record` trước là **5 câu lệnh tuần tự** — hỏng giữa chừng để lại visit có hồ
+   sơ mà không có đơn thuốc, hoặc lưu hồ sơ xong mất tiền sử. Nay **một transaction**.
+2. `ultrasound` trước tạo visit rồi mới ghi record ở 2 bước — crash ở giữa để lại một
+   visit rỗng dính vào lịch hẹn. Nay chung transaction.
+3. Mọi ghi lâm sàng đều kèm audit event trong cùng transaction.
+
+**Phần khó nhất được tách thành hàm thuần và test kỹ**: `merge_objective`. Bác sĩ có thể
+đã mở form **trước khi** điều dưỡng nhập sinh hiệu; form của họ post lên vitals rỗng, ghi
+đè mù sẽ **xoá số đo đã lấy trên người bệnh nhân**. Giữ giá trị cũ, chỉ ô không-rỗng mới
+đè. 49 test cho cụm này.
+
+**Một khác biệt có chủ đích:** route cũ từ chối `service_code` không có schema render
+trong `lib/form-schemas` — một registry của frontend mà backend không nhìn thấy. Backend
+validate theo `service_type` (danh mục thật của phòng khám); frontend giữ nguyên check
+của nó trước khi hiện form. Đưa form schema vào DB là cách đúng, và ADR-0011 đã dự trù.
+
+**Danh sách trắng vẫn 19 file** — đúng như thiết kế: con số chỉ giảm khi **xoá nhánh
+legacy**, tức là sau khi bật cờ và chạy ổn trên staging. Lý do của 4 entry đã đổi thành
+"đã port, chờ bật cờ".

@@ -25,13 +25,33 @@ export function episodeViaBackend(): boolean {
   return process.env.EPISODE_VIA_BACKEND === "1" && API_BASE !== "";
 }
 
+/** True when the lab order/result write path should be proxied to FastAPI (W5). */
+export function labViaBackend(): boolean {
+  return process.env.LAB_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
+/** True when ultrasound measurements should be proxied to FastAPI (W5). */
+export function ultrasoundViaBackend(): boolean {
+  return process.env.ULTRASOUND_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
+/** True when specialty exam forms should be proxied to FastAPI (W5). */
+export function clinicalFormViaBackend(): boolean {
+  return process.env.CLINICAL_FORM_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
+/** True when clinical-record writes should be proxied to FastAPI (W5). */
+export function clinicalRecordViaBackend(): boolean {
+  return process.env.CLINICAL_RECORD_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
 /**
  * Forward a JSON body to a FastAPI endpoint, attaching the caller's Supabase
  * access token (Bearer) + the shared X-API-Key, and mirror the backend's
  * status/body back to the browser as the { ok } / { error } shape the UI expects.
  */
 export async function proxyJsonToBackend(
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
 ): Promise<NextResponse> {

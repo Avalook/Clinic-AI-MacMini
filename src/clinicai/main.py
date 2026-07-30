@@ -16,6 +16,7 @@ from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
+from clinicai.api.v1.routers.clinical_forms import router as clinical_forms_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
@@ -26,6 +27,7 @@ from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.staff import router as staff_router
 from clinicai.api.v1.routers.tools import router as tools_router
+from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
 from clinicai.core.database import close_pool, create_pool
@@ -112,6 +114,8 @@ app.include_router(brief_router, prefix="/api/v1")
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"])
 app.include_router(lab_router, prefix="/api/v1")
+app.include_router(ultrasound_router, prefix="/api/v1", tags=["ultrasound"])
+app.include_router(clinical_forms_router, prefix="/api/v1", tags=["clinical-forms"])
 app.include_router(voice_router, prefix="/api/v1")
 
 
