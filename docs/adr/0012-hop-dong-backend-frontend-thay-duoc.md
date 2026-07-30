@@ -165,3 +165,52 @@ confirm/cancel trong `scheduling.py` vốn **không có gate vai trò nào**.
 **Phần còn lại chưa rà hết** — xem task W8. Hôm nay vô hại vì chỉ có một phòng khám thật;
 ngày có phòng khám thứ hai thì đó là rò dữ liệu chéo. Phải xong **trước** khi onboard
 tenant thứ 2.
+
+## Bật cờ cutover trên staging (2026-07-30)
+
+11 cờ `*_VIA_BACKEND` đã bật trên staging (`.env.staging`, stack
+`clinicai_staging` trỏ Supabase local). **10/11 chạy thật qua dashboard**, 1 bị chặn.
+
+Kiểm bằng `scripts/tests/e2e-flags-staging.sh`. Khác hai script e2e kia (gọi thẳng
+FastAPI), script này đi qua **dashboard Next thật** với **cookie phiên Supabase thật**,
+vì đó là thứ duy nhất nhìn thấy được phần mà cờ điều khiển: route ủy quyền cho FastAPI
+hay rơi về nhánh cũ đi thẳng Supabase. Mã 200 không chứng minh gì — nhánh cũ cũng trả
+200. Nên mỗi check còn **đối chiếu access log của container api**: request tương ứng
+phải xuất hiện. Đã thử ngược lại (tắt 1 cờ) để chắc chắn check biết đỏ.
+
+Cookie do chính `@supabase/ssr` của dashboard sinh ra
+(`src/dashboard/scripts/mint-session-cookie.mjs`) chứ không tự chế — tên cookie và cách
+mã hoá là chuyện nội bộ của thư viện, đoán là hỏng ở lần nâng cấp sau.
+
+Tài khoản test: `supabase/tests/fixtures_staff_logins.sql` (6 vai, idempotent). Trước
+đây 2 tài khoản tạo tay trên máy này nên không ai chạy lại được, và `db reset` là mất.
+
+### Chặn: `CLINICAL_FORM_VIA_BACKEND` phải để **0**
+
+Hai bên đang nói hai bảng mã khác nhau cho cùng một thứ:
+
+| | Nguồn | Giá trị |
+|---|---|---|
+| Next | `lib/form-schemas` (registry render) | `PK`, `SK`, `NT`, `HMVS`, `NK` |
+| FastAPI | bảng `service_type` (danh mục thật) | `PHU_KHOA`, `SAN_1..3`, `NAM_KHOA`, … |
+
+Hai tập **không giao nhau**. Bật cờ lên thì lưu phiếu khám hỏng theo cả hai chiều:
+mã trong danh mục bị Next chặn (`Chưa có cấu hình form cho service_code SAN_1`), mã
+UI gửi bị FastAPI chặn (`Mã dịch vụ không có trong danh mục: PK`). ADR này vốn đã ghi
+"một khác biệt cố ý" ở `clinical_form_service` — đây là hệ quả chưa lường của nó.
+
+Cách sửa đúng là đưa ánh xạ vào DB (`service_type.form_code`, đúng tinh thần ADR-0011
+config-as-data) rồi UI gửi `service_type.code`, backend tra `form_code`. Ánh xạ suy ra
+được từ chính `resolveServiceCode()` (đang khớp theo TÊN dịch vụ), nhưng đó là quyết
+định danh mục nên để chủ phòng khám chốt, không tự đoán.
+
+### Phát hiện: nhánh cũ **không còn là đường lui** khi có tenant thứ 2
+
+Lúc thử tắt cờ để kiểm chứng, nhánh Next cũ chết ngay:
+`null value in column "clinic_id" of relation "cskh_action" violates not-null
+constraint`. Nhánh cũ ghi thẳng Supabase và **không set `clinic_id`**; nó chỉ sống nhờ
+`DEFAULT public.default_clinic_id()`, mà hàm đó trả NULL ngay khi có phòng khám thứ 2.
+
+Nghĩa là: hôm nay (1 phòng khám thật) tắt cờ vẫn lui được. Ngày onboard phòng khám thứ
+2 thì **không**. Nên phải xoá hẳn 15 nhánh cũ + hạ allowlist service-role 17 → 2
+**trước** khi có tenant thứ 2, chứ không phải "để đó cho an toàn".

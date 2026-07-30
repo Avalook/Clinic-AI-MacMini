@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# Prove the 11 *_VIA_BACKEND cutover flags do what they claim (ADR-0012).
+#
+# The other e2e scripts call FastAPI directly. This one goes through the real
+# Next dashboard in the staging container, with a real Supabase session cookie —
+# the path a logged-in staff member takes. That is the only way to see the part
+# the flags control: whether the Next handler delegates to FastAPI or falls back
+# to its legacy direct-to-Supabase branch.
+#
+# A 200 alone proves nothing: the legacy branch returns 200 too. So each check
+# also reads the api container's access log and requires the matching FastAPI
+# request to appear. Flag off, or CLINIC_API_URL unset, and the log stays quiet
+# while the route still answers — which is exactly the failure this catches.
+#
+# Prerequisites:
+#   npx supabase start
+#   psql "$DB" -f supabase/tests/fixtures_staff_logins.sql
+#   CLINIC_ENV_FILE=.env.staging docker compose --env-file .env.staging \
+#     -p clinicai_staging up -d --build api dashboard
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+DASH=clinicai_staging-dashboard-1
+API=clinicai_staging-api-1
+CLINIC=a0000000-0000-4000-8000-000000000001
+pass=0; fail=0
+
+command -v docker >/dev/null || { echo "docker not on PATH"; exit 1; }
+docker inspect -f '{{.State.Running}}' "$DASH" "$API" >/dev/null 2>&1 || {
+  echo "staging dashboard/api not running — see the header for the compose line"
+  exit 1
+}
+
+ANON=$(cd "$REPO" && npx --yes supabase@latest status -o env 2>/dev/null \
+       | grep '^ANON_KEY=' | cut -d'"' -f2)
+[ -n "$ANON" ] || { echo "local Supabase not running"; exit 1; }
+
+# ---- session cookies, minted the way the dashboard itself would --------------
+# @supabase/ssr decides both the cookie name (from the Supabase URL) and the
+# encoding. Hand-rolling that would be a guess that breaks on the next upgrade,
+# so the dashboard's own copy of the library does it.
+cookie() {  # email → "name=value; name=value"
+  ANON_KEY="$ANON" node "$REPO/src/dashboard/scripts/mint-session-cookie.mjs" "$1" \
+    'clinic-test-pw-123' 2>/dev/null
+}
+
+# ---- one check = one route through Next, correlated with the api log ---------
+# HTTP is spoken from inside the dashboard container: only Caddy publishes a
+# port, and starting Caddy just to reach a container on the same network would
+# be ceremony.
+call() {  # method path cookie body → status
+  docker exec "$DASH" curl -s -o /tmp/flag.out -w '%{http_code}' \
+    -X "$1" "http://localhost:3000$2" \
+    -H "Cookie: $3" -H 'Content-Type: application/json' \
+    --data-binary "${4:-{\}}"
+}
+
+# The path argument is matched as a prefix. The api scrubs long digit runs out
+# of its access log (PII), and the fixture patient's uuid is nearly all zeros —
+# it is logged as /api/v1/patients/e[REDACTED]-4000-... So an id-bearing route
+# is correlated on "verb + endpoint", which is what is being proven anyway.
+check() {  # label expected-status backend-path-prefix method status
+  local label="$1" want="$2" path="$3" verb="$4" got="$5"
+  local seen=0 tries=0
+  while [ "$tries" -lt 15 ]; do
+    seen=$(docker logs "$API" 2>&1 | tail -n +$((MARK + 1)) \
+           | grep -c "\"$verb $path")
+    [ "$seen" -gt 0 ] && break
+    tries=$((tries + 1)); sleep 0.2
+  done
+  if [ "$got" = "$want" ] && [ "$seen" -gt 0 ]; then
+    printf '  PASS  %-46s %s  → %s %s\n' "$label" "$got" "$verb" "$path"
+    pass=$((pass+1))
+  else
+    printf '  FAIL  %-46s %s (want %s)\n' "$label" "$got" "$want"
+    if [ "$seen" -eq 0 ]; then
+      printf '        never reached FastAPI: %s %s — flag off?\n' "$verb" "$path"
+    fi
+    printf '        %s\n' "$(docker exec "$DASH" head -c 200 /tmp/flag.out)"
+    fail=$((fail+1))
+  fi
+}
+
+mark() { MARK=$(docker logs "$API" 2>&1 | wc -l | tr -d ' '); }
+
+# A flag that is deliberately off is not a failure — but it must say so out
+# loud, with the reason, or "we turned them all on" quietly stops being true.
+FLAGS=$(docker exec "$DASH" env | grep '_VIA_BACKEND=' || true)
+skip_if_off() {  # flag reason → 0 when the check should run
+  case "$FLAGS" in
+    *"$1=1"*) return 0 ;;
+  esac
+  printf '  SKIP  %-46s %s off\n        %s\n' "$2" "$1" "$3"
+  return 1
+}
+
+echo "=== signing in the fixture staff ==="
+DOCTOR=$(cookie bs.a@dr4women.local)
+CSKH=$(cookie cskh@dr4women.local)
+SONO_BS=$(cookie bs.sa@dr4women.local)
+SONO_DD=$(cookie dd.sa@dr4women.local)
+CASHIER=$(cookie thungan@dr4women.local)
+BOSS=$(cookie ql@dr4women.local)
+for c in DOCTOR CSKH SONO_BS SONO_DD CASHIER BOSS; do
+  [ -n "${!c}" ] || { echo "could not sign in as $c"; exit 1; }
+done
+echo "  6 roles signed in"
+
+# ---- a fresh appointment per run --------------------------------------------
+# enforce_slot_capacity allows 2+1 per doctor per 15-minute window (CAP-01), so
+# reusing now() makes the third run of the day fail while doing its job.
+APPT=$(uuidgen | tr 'A-Z' 'a-z')
+PATIENT=e0000000-0000-4000-8000-0000000000f1
+OFFSET_MIN=$(( (RANDOM % 20000 + 1) * 20 ))
+psql "$DB" -q -v appt="$APPT" -v mins="$OFFSET_MIN" <<SQL
+INSERT INTO appointment (id, clinic_id, clinic_patient_id, location_id,
+                         service_type_id, slot_start, slot_end, status, doctor_id)
+SELECT :'appt'::uuid, '$CLINIC', '$PATIENT',
+       (SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' LIMIT 1),
+       (SELECT id FROM service_type LIMIT 1),
+       now() + (:mins * interval '1 minute'),
+       now() + (:mins * interval '1 minute') + interval '30 minutes',
+       'CHECKED_IN',
+       (SELECT id FROM staff WHERE full_name='BS A local');
+SQL
+VISIT=$(psql "$DB" -tAc "INSERT INTO visit (clinic_id, clinic_patient_id, appointment_id, status)
+                         VALUES ('$CLINIC','$PATIENT','$APPT','IN_PROGRESS')
+                         RETURNING visit_id;" | head -1 | tr -d ' ')
+CODE=$(psql "$DB" -tAc "SELECT code FROM service_type LIMIT 1;" | tr -d ' ')
+SERVICE=$(psql "$DB" -tAc "SELECT id FROM service_type LIMIT 1;" | tr -d ' ')
+LOCATION=$(psql "$DB" -tAc "SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' LIMIT 1;" | tr -d ' ')
+# The patient edit is a full replace, so send the name back unchanged rather
+# than renaming a fixture patient every run.
+PNAME=$(psql "$DB" -tAc "SELECT full_name FROM patient WHERE clinic_patient_id='$PATIENT';" | sed 's/^ *//;s/ *$//')
+TODAY=$(date -u +%Y-%m-%d)
+MONDAY=$(date -u -v-mon +%Y-%m-%d)
+
+echo
+echo "=== each flag, through the dashboard, must land in FastAPI ==="
+
+# 1. LAB_VIA_BACKEND
+mark
+s=$(call POST /api/lab-result "$DOCTOR" \
+     "{\"clinicPatientId\":\"$PATIENT\",\"test_name\":\"flag check\"}")
+check "LAB — doctor orders a test" 201 /api/v1/lab/orders POST "$s"
+
+# 2. CLINICAL_RECORD_VIA_BACKEND
+mark
+s=$(call POST /api/clinical-record "$DOCTOR" \
+     "{\"appointmentId\":\"$APPT\",\"clinicPatientId\":\"$PATIENT\",\"vitalsOnly\":true,\"objective\":{\"vitals\":{\"bp\":\"120/80\"}},\"chiefComplaint\":\"flag check\"}")
+check "CLINICAL_RECORD — vitals saved" 200 /api/v1/clinical-records POST "$s"
+
+# 3. CLINICAL_FORM_VIA_BACKEND — blocked, and the block is the point of this
+#    script. Next validates service_code against lib/form-schemas (PK, SK, NT,
+#    HMVS, NK — rendering templates) while the backend validates it against
+#    service_type (PHU_KHOA, SAN_1, NAM_KHOA, …  the real catalogue). The two
+#    vocabularies do not intersect, so with the flag on every save fails: the
+#    catalogue code is refused by Next, the UI's code is refused by FastAPI.
+#    Needs a mapping in the database (service_type.form_code, ADR-0011) before
+#    the flag can go on.
+if skip_if_off CLINICAL_FORM_VIA_BACKEND "CLINICAL_FORM — exam form saved" \
+   "form codes (PK/SK/NT/HMVS/NK) and service_type codes do not intersect"; then
+  mark
+  s=$(call POST /api/clinical-form "$DOCTOR" \
+       "{\"visitId\":\"$VISIT\",\"serviceCode\":\"$CODE\",\"form_data\":{\"a\":1}}")
+  check "CLINICAL_FORM — exam form saved" 200 /api/v1/clinical-forms PUT "$s"
+fi
+
+# 4. ULTRASOUND_VIA_BACKEND — the Next gate lets the ultrasound doctor through,
+#    so reaching FastAPI at all is what is being checked here.
+mark
+s=$(call POST /api/ultrasound "$SONO_BS" \
+     "{\"appointmentId\":\"$APPT\",\"clinicPatientId\":\"$PATIENT\",
+       \"measurements\":{\"bpd\":45}}")
+check "ULTRASOUND — sonographer writes measurements" 200 \
+      /api/v1/ultrasound/measurements POST "$s"
+
+# 5. SERVICE_LOG_VIA_BACKEND
+mark
+s=$(call POST /api/sono "$SONO_DD" \
+     "{\"kind\":\"SA\",\"service_name\":\"Sieu am flag check\"}")
+check "SERVICE_LOG — ultrasound queue entry" 201 /api/v1/sono/queue POST "$s"
+
+# 6. PAYMENT_VIA_BACKEND — the cashier gate is on the APPOINTMENT being
+#    COMPLETED ("the doctor has finished"), not on the visit. Finish it first so
+#    this is a real receipt rather than a 409.
+psql "$DB" -q -c "UPDATE appointment SET status='COMPLETED' WHERE id='$APPT';"
+mark
+s=$(call POST /api/payment "$CASHIER" \
+     "{\"visitId\":\"$VISIT\",\"kind\":\"dich_vu\",\"amount\":150000}")
+check "PAYMENT — cashier takes money" 200 /api/v1/payments POST "$s"
+
+# 7. CSKH_VIA_BACKEND
+mark
+s=$(call POST /api/cskh-action "$CSKH" \
+     "{\"category\":\"CALL\",\"description\":\"flag check\"}")
+check "CSKH — customer care action logged" 201 /api/v1/cskh/actions POST "$s"
+
+# 8. PATIENT_EDIT_VIA_BACKEND
+mark
+s=$(call PATCH /api/patients "$CSKH" \
+     "{\"clinic_patient_id\":\"$PATIENT\",\"full_name\":\"$PNAME\",\"phone_primary\":\"0900000000\"}")
+check "PATIENT_EDIT — admin details corrected" 200 /api/v1/patients/ PATCH "$s"
+
+# 9. BOOKING_VIA_BACKEND
+mark
+BOOK_MIN=$(( (RANDOM % 20000 + 1) * 20 ))
+START=$(date -u -v+${BOOK_MIN}M +%Y-%m-%dT%H:%M:%SZ)
+END=$(date -u -v+$((BOOK_MIN + 30))M +%Y-%m-%dT%H:%M:%SZ)
+s=$(call POST /api/appointments "$CSKH" \
+     "{\"clinic_patient_id\":\"$PATIENT\",\"service_type_id\":\"$SERVICE\",\"location_id\":\"$LOCATION\",\"slot_start\":\"$START\",\"slot_end\":\"$END\"}")
+check "BOOKING — CSKH books a slot" 201 /api/v1/appointments/bookings POST "$s"
+
+# 10. EPISODE_VIA_BACKEND — 409 is the backend refusing an episode that is not
+#     PENDING_CLOSE. It is still proof the rule now runs there, not in Next.
+mark
+EPI=$(psql "$DB" -tAc "SELECT id FROM care_episode WHERE clinic_id='$CLINIC' LIMIT 1;" | tr -d ' ')
+s=$(call PATCH /api/episodes "$CSKH" "{\"id\":\"$EPI\",\"action\":\"close\"}")
+check "EPISODE — CSKH closes an episode" 409 /api/v1/episodes/ PATCH "$s"
+
+# 11. CONFIG_VIA_BACKEND
+mark
+s=$(call POST /api/roster "$BOSS" \
+     "{\"week_start\":\"$MONDAY\",\"work_date\":\"$TODAY\",\"station\":\"Flag check\",\"shift\":\"SANG\"}")
+check "CONFIG — management schedules a shift" 201 /api/v1/roster/shifts POST "$s"
+
+echo
+psql "$DB" -q -c "DELETE FROM work_roster WHERE station = 'Flag check';"
+echo "=== $pass passed, $fail failed ==="
+[ "$fail" -eq 0 ]
