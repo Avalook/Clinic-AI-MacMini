@@ -11,6 +11,7 @@ _REPO = Path(__file__).resolve().parents[2]
 _AUDIT = runpy.run_path(str(_REPO / "scripts/tests/tenant-scope-audit.py"))
 has_clinic_scope = cast(Callable[[str], bool], _AUDIT["has_clinic_scope"])
 or_bypasses_tenant = cast(Callable[[str], bool], _AUDIT["or_bypasses_tenant"])
+stale_exemptions = cast(Callable[[], list[str]], _AUDIT["stale_exemptions"])
 
 
 def test_projection_or_comment_does_not_count_as_tenant_scope() -> None:
@@ -62,3 +63,15 @@ def test_or_inside_a_function_call_is_not_flagged() -> None:
     assert not or_bypasses_tenant(
         "SELECT * FROM patient WHERE clinic_id = $1 AND COALESCE(a, b) = ANY($2)"
     )
+
+
+def test_no_cross_tenant_exemption_is_stale() -> None:
+    """Every exemption must still be earned.
+
+    The list is checked in both directions, like the service-role allowlist:
+    adding an entry needs a reason, and KEEPING one needs the reason to still
+    hold. notification_relay.py stayed on this list after its query had already
+    been scoped per clinic — at which point "exempt from the tenant audit" reads
+    as "someone reviewed this and it is fine", which nobody had.
+    """
+    assert stale_exemptions() == []

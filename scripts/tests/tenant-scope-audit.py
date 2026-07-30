@@ -27,11 +27,16 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "clinicai"
 
-# Statements known to span tenants ON PURPOSE. Each is a relay or a scheduled
-# job that processes every clinic's rows; scoping them would break them.
+# Statements known to span tenants ON PURPOSE: a relay that drains every
+# clinic's rows, where scoping the query would break the job.
+#
+# This list is checked in BOTH directions, like the service-role allowlist. An
+# entry that no longer has an unscoped statement is reported as stale and must
+# be deleted — otherwise "exempt" quietly turns into "reviewed and safe" for a
+# file nobody has looked at in months. notification_relay.py sat here after it
+# had already been scoped per clinic, which is exactly that failure.
 DELIBERATELY_CROSS_TENANT = {
     "services/pos_relay.py",  # drains the outbox for every clinic
-    "services/notification_relay.py",  # same, for notifications
 }
 
 # W8 drove this from 71 to 0. It stays at 0: every statement that names a
@@ -194,6 +199,29 @@ def sql_literals(path: pathlib.Path) -> list[tuple[int, str]]:
     return found
 
 
+def stale_exemptions() -> list[str]:
+    """Exempted files that no longer contain an unscoped statement."""
+    stale: list[str] = []
+    for rel in sorted(DELIBERATELY_CROSS_TENANT):
+        path = SRC / rel
+        if not path.exists():
+            stale.append(f"{rel} (file no longer exists)")
+            continue
+        needs_exemption = False
+        for _lineno, sql in sql_literals(path):
+            touched = {
+                m.group(2).lower()
+                for m in STATEMENT.finditer(sql)
+                if m.group(2).lower() in TENANT_TABLES
+            }
+            if touched and (not has_clinic_scope(sql) or or_bypasses_tenant(sql)):
+                needs_exemption = True
+                break
+        if not needs_exemption:
+            stale.append(f"{rel} (every statement is now scoped)")
+    return stale
+
+
 def audit() -> list[tuple[str, int, str, str]]:
     unscoped: list[tuple[str, int, str, str]] = []
     for path in sorted(SRC.rglob("*.py")):
@@ -238,7 +266,22 @@ def main() -> int:
         for lineno, tables, snippet in sorted(items):
             print(f"    L{lineno:<5} [{tables}] {snippet}")
 
+    stale = stale_exemptions()
+    if stale:
+        print("\nstale cross-tenant exemptions — delete these entries:")
+        for entry in stale:
+            print(f"    {entry}")
+
     print(f"\nunscoped statements: {len(unscoped)} (ceiling {CEILING})")
+
+    if "--check" in sys.argv and stale:
+        print(
+            "\nERROR: the cross-tenant exemption list has entries it no longer "
+            "earns. An exemption that is not needed reads as a review nobody "
+            "did — remove it.",
+            file=sys.stderr,
+        )
+        return 1
 
     if "--check" in sys.argv and len(unscoped) > CEILING:
         print(
