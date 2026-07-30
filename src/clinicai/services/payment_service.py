@@ -96,9 +96,10 @@ class PaymentService:
             SELECT a.status AS appt_status
             FROM visit v
             JOIN appointment a ON a.id = v.appointment_id
-            WHERE v.visit_id = $1::uuid
+            WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
             """,
             visit_id,
+            identity.clinic_id,
         )
         if status_row is None:
             raise NotFoundError("Không tìm thấy lượt khám để thu tiền")
@@ -171,9 +172,10 @@ class PaymentService:
             async with conn.transaction():
                 payment_id = await conn.fetchval(
                     "DELETE FROM payment WHERE visit_id = $1::uuid AND kind = $2 "
-                    "RETURNING id",
+                    "AND clinic_id = $3::uuid RETURNING id",
                     visit_id,
                     kind,
+                    identity.clinic_id,
                 )
                 if payment_id is not None:
                     # A POS that was told about the invoice has to be told it is

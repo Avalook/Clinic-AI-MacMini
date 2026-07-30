@@ -39,7 +39,7 @@ async def read_clinical_form(
 ) -> dict[str, Any]:
     """Read one form. Any authenticated staff member may look at it."""
     return await ClinicalFormService(pool).get_form(
-        visit_id=str(visit_id), service_code=service_code
+        visit_id=str(visit_id), service_code=service_code, identity=identity
     )
 
 

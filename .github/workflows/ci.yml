@@ -43,6 +43,13 @@ jobs:
       - name: Mypy
         run: poetry run mypy src/
 
+      - name: Tenant-scope audit
+        # The backend connects as the database owner, so RLS does not apply to
+        # it: a query naming a tenant table without clinic_id reads every
+        # clinic. This holds the count while it comes down to zero, which is
+        # required before a second clinic is onboarded (ADR-0009).
+        run: python3 scripts/tests/tenant-scope-audit.py --check
+
       - name: Pytest with coverage (unit tests only)
         env:
           ANTHROPIC_API_KEY: ""

@@ -58,15 +58,19 @@ class ClinicalFormService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def get_form(self, *, visit_id: str, service_code: str) -> dict[str, Any]:
+    async def get_form(
+        self, *, visit_id: str, service_code: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
         row = await self._pool.fetchrow(
             """
             SELECT form_data, updated_at
               FROM clinical_form_response
              WHERE visit_id = $1::uuid AND service_code = $2
+               AND clinic_id = $3::uuid
             """,
             visit_id,
             service_code.upper(),
+            identity.clinic_id,
         )
         if row is None:
             return {"form_data": {}, "updated_at": None}
@@ -94,8 +98,10 @@ class ClinicalFormService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 visit = await conn.fetchrow(
-                    "SELECT visit_id, status FROM visit WHERE visit_id = $1::uuid",
+                    "SELECT visit_id, status FROM visit "
+                    "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
                     visit_id,
+                    identity.clinic_id,
                 )
                 if visit is None:
                     raise NotFoundError("Không tìm thấy buổi khám")

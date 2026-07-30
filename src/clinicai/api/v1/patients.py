@@ -50,7 +50,7 @@ _PATIENT_EDIT_GUARD = require_role(
 )
 async def create_patient(
     data: PatientCreateDTO,
-    _identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO | JSONResponse:
     """Register a patient with MPI dedup. Three outcomes:
@@ -60,7 +60,7 @@ async def create_patient(
     * CCCD conflict → 409 (raised as ConflictError by the service).
     """
     service = PatientService(pool)
-    result = await service.create_patient(data)
+    result = await service.create_patient(data, identity)
     if result.patient is None:
         return JSONResponse(
             status_code=status.HTTP_200_OK,

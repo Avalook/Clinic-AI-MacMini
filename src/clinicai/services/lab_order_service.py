@@ -134,13 +134,14 @@ class LabOrderService:
                            lab_provider       = $4,
                            result_received_at = now(),
                            updated_at         = now()
-                     WHERE lab_result_id = $1::uuid
+                     WHERE lab_result_id = $1::uuid AND clinic_id = $5::uuid
                     RETURNING lab_result_id
                     """,
                     lab_result_id,
                     value,
                     link,
                     provider,
+                    identity.clinic_id,
                 )
                 if updated is None:
                     raise NotFoundError("Không tìm thấy kết quả xét nghiệm")

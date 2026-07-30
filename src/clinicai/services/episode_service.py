@@ -86,12 +86,14 @@ class EpisodeService:
                            updated_at   = now()
                      WHERE id = $1::uuid
                        AND status = $4
+                       AND clinic_id = $5::uuid
                     RETURNING id
                     """,
                     episode_id,
                     next_status,
                     close_reason,
                     PENDING_CLOSE,
+                    identity.clinic_id,
                 )
                 if updated_id is None:
                     raise ConflictError(

@@ -155,8 +155,10 @@ class ClinicalRecordService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 appointment = await conn.fetchrow(
-                    "SELECT status, doctor_id FROM appointment WHERE id = $1::uuid",
+                    "SELECT status, doctor_id FROM appointment "
+                    "WHERE id = $1::uuid AND clinic_id = $2::uuid",
                     appointment_id,
+                    identity.clinic_id,
                 )
                 if appointment is None:
                     raise ValidationError("Không tìm thấy lịch hẹn")
@@ -190,8 +192,9 @@ class ClinicalRecordService:
 
                 stored = await conn.fetchval(
                     "SELECT soap_objective FROM clinical_record "
-                    "WHERE visit_id = $1::uuid",
+                    "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
                     visit_id,
+                    identity.clinic_id,
                 )
 
                 if vitals_only:
@@ -269,11 +272,12 @@ class ClinicalRecordService:
             """
             SELECT visit_id, status, created_at
               FROM visit
-             WHERE appointment_id = $1::uuid
+             WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
              ORDER BY created_at DESC
              LIMIT 1
             """,
             appointment_id,
+            identity.clinic_id,
         )
 
         if existing is not None:
@@ -323,10 +327,11 @@ class ClinicalRecordService:
             again = await conn.fetchrow(
                 """
                 SELECT visit_id, status FROM visit
-                 WHERE appointment_id = $1::uuid
+                 WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
                  ORDER BY created_at DESC LIMIT 1
                 """,
                 appointment_id,
+                identity.clinic_id,
             )
             if again is None:
                 raise
@@ -404,7 +409,10 @@ class ClinicalRecordService:
     ) -> None:
         """The visit's prescription is replaced wholesale, as the route did."""
         await conn.execute(
-            "DELETE FROM prescription WHERE visit_id = $1::uuid", visit_id
+            "DELETE FROM prescription "
+            "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
+            visit_id,
+            clinic_id,
         )
         rows = [
             (

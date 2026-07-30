@@ -88,7 +88,9 @@ class PatientService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def create_patient(self, data: PatientCreateDTO) -> PatientCreateResult:
+    async def create_patient(
+        self, data: PatientCreateDTO, identity: StaffIdentity | None = None
+    ) -> PatientCreateResult:
         """Register a patient: CCCD/phone guards → insert → non-blocking MPI.
 
         Order (mirrors the dashboard intake guard it replaces):
@@ -129,22 +131,36 @@ class PatientService:
                     )
 
             # 3) Insert (retry on the rare patient_code UNIQUE clash).
-            dto = await self._insert_patient(conn, data)
+            dto = await self._insert_patient(
+                conn, data, identity.clinic_id if identity else None
+            )
 
         # 4) MPI deduplication (non-blocking — must never fail the create).
         await self._mpi_autoqueue(dto, data)
         return PatientCreateResult(patient=dto)
 
     async def _insert_patient(
-        self, conn: asyncpg.Connection, data: PatientCreateDTO
+        self,
+        conn: asyncpg.Connection,
+        data: PatientCreateDTO,
+        clinic_id: str | None = None,
     ) -> PatientDTO:
-        """INSERT one patient row, generating patient_code with clash retry."""
-        placeholders = ", ".join(f"${i}" for i in range(1, len(_INSERT_COLUMNS) + 2))
+        """INSERT one patient row, generating patient_code with clash retry.
+
+        clinic_id is written explicitly. Leaving it to the column DEFAULT worked
+        only while exactly one clinic existed — default_clinic_id() returns NULL
+        as soon as there are two, so registering a patient would start failing
+        on a NOT NULL violation rather than filing them under a guess.
+        """
+        columns = (*_INSERT_COLUMNS, "clinic_id") if clinic_id else _INSERT_COLUMNS
+        placeholders = ", ".join(f"${i}" for i in range(1, len(columns) + 2))
         query = (
-            f"INSERT INTO patient (patient_code, {', '.join(_INSERT_COLUMNS)}) "
+            f"INSERT INTO patient (patient_code, {', '.join(columns)}) "
             f"VALUES ({placeholders}) RETURNING *;"
         )
-        values = [getattr(data, col) for col in _INSERT_COLUMNS]
+        values: list[object] = [getattr(data, col) for col in _INSERT_COLUMNS]
+        if clinic_id:
+            values.append(clinic_id)
 
         for attempt in range(5):
             patient_code = _generate_patient_code(attempt)
