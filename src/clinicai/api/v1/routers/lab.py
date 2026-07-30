@@ -15,6 +15,7 @@ has reviewed. Once reviewed_at is populated the gate releases.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
 
@@ -27,15 +28,16 @@ from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
     DOCTOR_ROLES,
     StaffIdentity,
-    get_current_identity,
     require_role,
 )
+from clinicai.api.rate_limit import InMemoryRateLimiter
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.services.lab_order_service import LabOrderService
+from clinicai.services.lab_safety_service import LabReviewOutcome, LabSafetyService
 
 logger = structlog.get_logger(__name__)
 
@@ -46,6 +48,13 @@ _ORDER_GUARD = require_role(*DOCTOR_ROLES)
 # Entering a result is clinical work: doctors, nurses and the medical secretary.
 # Reception and management are deliberately excluded.
 _RESULT_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+_TRIAGE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+LAB_TRIAGE_RATE_LIMIT = InMemoryRateLimiter(
+    scope="lab-triage",
+    limit=30,
+    window_seconds=60,
+)
+_REVIEW_GUARD = require_role(*DOCTOR_ROLES)
 
 
 class LabOrderRequest(BaseModel):
@@ -62,6 +71,24 @@ class LabResultEntryRequest(BaseModel):
     result_value: str | None = Field(default=None, max_length=4000)
     result_link: str | None = Field(default=None, max_length=2000)
     lab_provider: str | None = Field(default=None, max_length=200)
+
+
+class LabReviewRequest(BaseModel):
+    """Bind the reviewed result to the patient chart visible to the doctor."""
+
+    clinic_patient_id: UUID
+
+
+class LabReviewResponse(BaseModel):
+    """Durable audit state after a doctor finalises the result."""
+
+    lab_result_id: UUID
+    clinic_patient_id: UUID
+    triage_group: str
+    is_finalized: bool
+    reviewed_by_staff_id: UUID
+    reviewed_at: datetime
+    already_finalized: bool
 
 
 @router.post("/orders", status_code=201)
@@ -98,6 +125,33 @@ async def enter_lab_result(
     return {"ok": True}
 
 
+@router.post(
+    "/results/{lab_result_id}/review",
+    response_model=LabReviewResponse,
+)
+async def review_and_finalize_lab_result(
+    lab_result_id: UUID,
+    body: LabReviewRequest,
+    identity: StaffIdentity = Depends(_REVIEW_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> LabReviewResponse:
+    """Doctor-only review/finalise gate, scoped to clinic and patient."""
+    outcome: LabReviewOutcome = await LabSafetyService(pool).finalize_review(
+        lab_result_id=lab_result_id,
+        clinic_patient_id=body.clinic_patient_id,
+        identity=identity,
+    )
+    return LabReviewResponse(
+        lab_result_id=outcome.lab_result_id,
+        clinic_patient_id=outcome.clinic_patient_id,
+        triage_group=outcome.triage_group,
+        is_finalized=outcome.is_finalized,
+        reviewed_by_staff_id=outcome.reviewed_by_staff_id,
+        reviewed_at=outcome.reviewed_at,
+        already_finalized=outcome.already_finalized,
+    )
+
+
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
     return cast(AnthropicClient, request.app.state.llm_client)
@@ -125,8 +179,9 @@ def _reviewed_at_of(result: dict[str, Any]) -> Any:
 async def triage_lab_result(
     lab_result_id: UUID,
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
-    identity: Annotated[StaffIdentity, Depends(get_current_identity)],
+    identity: Annotated[StaffIdentity, Depends(_TRIAGE_GUARD)],
     llm_client: Annotated[AnthropicClient, Depends(get_llm_client)],
+    _rate_limit: Annotated[None, Depends(LAB_TRIAGE_RATE_LIMIT)],
 ) -> LabTriageResponse:
     """Run lab_triage on a single lab_result_id, enforcing the GROUP_C gate.
 

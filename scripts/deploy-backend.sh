@@ -118,12 +118,25 @@ for required in SITE_ADDRESS SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROL
   fi
 done
 
+profile_enabled() {
+  case ",${1// /}," in *",$2,"*) return 0 ;; *) return 1 ;; esac
+}
+
 # Reconcile every intentionally enabled optional service as part of the same
 # release. This prevents workers/relay/tunnel containers from remaining on an
 # old image merely because Compose profiles are opt-in.
 ENABLED_PROFILES="$(env_value COMPOSE_PROFILES)"
 if [ -n "$(env_value TUNNEL_TOKEN)" ]; then
   ENABLED_PROFILES="${ENABLED_PROFILES:+${ENABLED_PROFILES},}cloudflare"
+fi
+if profile_enabled "$ENABLED_PROFILES" workers; then
+  for required in RABBITMQ_PASSWORD RABBITMQ_URL; do
+    value="$(env_value "$required")"
+    if [ -z "$value" ] || [[ "$value" == *"<"* ]]; then
+      echo "!! workers profile requires a non-placeholder $required in $ENV_FILE" >&2
+      exit 1
+    fi
+  done
 fi
 if [ -n "$ENABLED_PROFILES" ]; then
   export COMPOSE_PROFILES="$ENABLED_PROFILES"
@@ -157,10 +170,6 @@ fi
 
 echo "==> [3/6] build"
 "${COMPOSE[@]}" build
-
-profile_enabled() {
-  case ",${1// /}," in *",$2,"*) return 0 ;; *) return 1 ;; esac
-}
 
 # `compose up` does not remove containers belonging to profiles that were just
 # disabled. Remove only those known optional services, while holding the host

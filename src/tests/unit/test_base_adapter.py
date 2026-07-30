@@ -34,8 +34,10 @@ async def test_walkin_adapter__normalize__returns_correct_fields(
     """Verify that normalize transforms raw input into an InteractionEvent."""
     adapter = WalkinAdapter(mock_publisher, mock_event_service)
     entity_id = uuid4()
+    clinic_id = uuid4()
     trace_id = uuid4()
     raw = {
+        "clinic_id": str(clinic_id),
         "entity_type": "appointment",
         "entity_id": str(entity_id),
         "trace_id": str(trace_id),
@@ -47,6 +49,7 @@ async def test_walkin_adapter__normalize__returns_correct_fields(
     assert event.event_type == "interaction.walkin"
     assert event.entity_type == "appointment"
     assert event.entity_id == entity_id
+    assert event.clinic_id == clinic_id
     assert event.trace_id == trace_id
     assert event.source_channel == "walkin"
     assert event.payload == raw
@@ -61,6 +64,7 @@ async def test_walkin_adapter__normalize_missing_trace_id__generates_uuid(
     adapter = WalkinAdapter(mock_publisher, mock_event_service)
     entity_id = uuid4()
     raw = {
+        "clinic_id": str(uuid4()),
         "entity_type": "appointment",
         "entity_id": str(entity_id),
         "data": "some_payload",
@@ -73,6 +77,18 @@ async def test_walkin_adapter__normalize_missing_trace_id__generates_uuid(
 
 
 @pytest.mark.asyncio
+async def test_walkin_adapter__normalize_missing_clinic_id__fails_closed(
+    mock_publisher: MockEventPublisher,
+    mock_event_service: MagicMock,
+) -> None:
+    """An adapter may not create an event whose tenant is ambiguous."""
+    adapter = WalkinAdapter(mock_publisher, mock_event_service)
+
+    with pytest.raises(ValueError, match="Missing required clinic_id"):
+        await adapter.normalize({"entity_id": str(uuid4())})
+
+
+@pytest.mark.asyncio
 async def test_base_adapter__emit__calls_record_and_publish(
     mock_publisher: MockEventPublisher,
     mock_event_service: MagicMock,
@@ -81,6 +97,7 @@ async def test_base_adapter__emit__calls_record_and_publish(
     adapter = WalkinAdapter(mock_publisher, mock_event_service)
     entity_id = uuid4()
     raw = {
+        "clinic_id": str(uuid4()),
         "entity_id": str(entity_id),
         "data": "val",
     }
@@ -101,6 +118,7 @@ async def test_base_adapter__emit__returns_normalized_event(
     adapter = WalkinAdapter(mock_publisher, mock_event_service)
     entity_id = uuid4()
     raw = {
+        "clinic_id": str(uuid4()),
         "entity_id": str(entity_id),
         "data": "val",
     }

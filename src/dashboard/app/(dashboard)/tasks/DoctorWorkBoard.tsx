@@ -99,10 +99,9 @@ export default function DoctorWorkBoard({
 }: {
   rows: DoctorApptRow[];
   staffId: string | null;
-  /** Lễ tân: clone giao diện bác sĩ nhưng CHỈ XEM — ẩn Nhận/Từ chối, hồ sơ
-   *  mở ở chế độ chỉ-đọc. Mặc định false (bác sĩ thao tác bình thường). */
+  /** Vai vận hành: chỉ xem lịch, không mount hồ sơ lâm sàng. */
   readOnly?: boolean;
-  /** Cho sửa mục I Hành chính trong hồ sơ (vd Lễ tân) — độc lập với readOnly. */
+  /** Cho sửa mục I Hành chính trong hồ sơ lâm sàng. */
   canEditAdmin?: boolean;
   /** Hiện nút "Xem tóm tắt trước khám" trong hồ sơ — chỉ BÁC SĨ bật từ server. */
   showPreVisitBrief?: boolean;
@@ -114,7 +113,9 @@ export default function DoctorWorkBoard({
   const [period, setPeriod] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const open = rows.find((a) => a.id === openId) ?? null;
+  // readOnly is used only by operational viewers. Keep the appointment board,
+  // but do not mount the clinical panel even if stale client state has an id.
+  const open = readOnly ? null : (rows.find((a) => a.id === openId) ?? null);
 
   // ---- Lọc theo KỲ + TRẠNG THÁI; gom theo NGÀY, trong ngày theo thứ tự khám ----
   const vnDate = (iso: string) =>
@@ -234,22 +235,37 @@ export default function DoctorWorkBoard({
                       {fmtTimeOrNone(a.slot_start)}
                     </td>
                     <td className={`${CELL}`}>
-                      <button
-                        onClick={() => setOpenId(a.id)}
-                        className="flex items-start gap-1.5 text-left"
-                      >
-                        <FileText size={13} className="mt-0.5 shrink-0 text-[#ec4899]" />
-                        <span>
-                          <span className="block font-medium text-[#171717] hover:text-[#ec4899]">
-                            {a.patient?.full_name ?? "—"}
-                          </span>
-                          <span className="block font-mono text-[10px] text-[#888888]">
-                            {a.patient?.patient_code}
-                            {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
-                            {a.service?.name ? ` · ${a.service.name}` : ""}
+                      {readOnly ? (
+                        <span className="flex items-start gap-1.5 text-left">
+                          <span>
+                            <span className="block font-medium text-[#171717]">
+                              {a.patient?.full_name ?? "—"}
+                            </span>
+                            <span className="block font-mono text-[10px] text-[#888888]">
+                              {a.patient?.patient_code}
+                              {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
+                              {a.service?.name ? ` · ${a.service.name}` : ""}
+                            </span>
                           </span>
                         </span>
-                      </button>
+                      ) : (
+                        <button
+                          onClick={() => setOpenId(a.id)}
+                          className="flex items-start gap-1.5 text-left"
+                        >
+                          <FileText size={13} className="mt-0.5 shrink-0 text-[#ec4899]" />
+                          <span>
+                            <span className="block font-medium text-[#171717] hover:text-[#ec4899]">
+                              {a.patient?.full_name ?? "—"}
+                            </span>
+                            <span className="block font-mono text-[10px] text-[#888888]">
+                              {a.patient?.patient_code}
+                              {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
+                              {a.service?.name ? ` · ${a.service.name}` : ""}
+                            </span>
+                          </span>
+                        </button>
+                      )}
                     </td>
                     <td className={CELL}>
                       <div className="flex flex-col items-start gap-1">
@@ -266,24 +282,8 @@ export default function DoctorWorkBoard({
                     </td>
                     <td className={`${CELL} whitespace-nowrap`}>
                       {readOnly ? (
-                        // LỄ TÂN chỉ-đọc: không Nhận/Từ chối/khám. Xem hồ sơ + In phiếu (đều read-only).
-                        <span className="flex gap-1">
-                          <button
-                            onClick={() => setOpenId(a.id)}
-                            className="inline-flex min-h-8 items-center gap-1 rounded-md border border-[#f3cfe0] bg-white px-2.5 text-xs font-medium text-[#9d2463] hover:bg-[#fdf2f8]"
-                          >
-                            <FileText size={12} /> Xem hồ sơ
-                          </button>
-                          {a.status === "COMPLETED" && (
-                            <a
-                              href={`/print/${a.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex min-h-8 items-center gap-1 rounded-md border border-[#bbf7d0] bg-white px-2.5 text-xs font-semibold text-[#15803d] hover:bg-[#f0fdf4]"
-                            >
-                              <Printer size={12} /> In phiếu
-                            </a>
-                          )}
+                        <span className="text-[11px] text-[#a1a1aa]">
+                          Chỉ xem lịch
                         </span>
                       ) : a.status === "CHECKED_IN" ? (
                         <button

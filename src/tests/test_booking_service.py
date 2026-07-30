@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -23,6 +23,7 @@ from clinicai.services.booking_service import (
     REGULAR_CAP,
     TRANSITIONS,
     WALKIN_CAP,
+    Action,
     BookingService,
     is_dead,
     is_walkin,
@@ -111,6 +112,12 @@ class TestRoleGates:
                 ClinicRole.CASHIER_DV,
             ):
                 assert cashier not in transition.allowed_roles
+
+    @pytest.mark.parametrize("action", ["checkin", "undo_checkin", "no_show"])
+    def test_only_front_desk_checks_patients_in_or_out(self, action: str) -> None:
+        assert TRANSITIONS[action].allowed_roles == frozenset(
+            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT}
+        )
 
     def test_only_the_doctor_actions_are_owner_scoped(self) -> None:
         owner_only = {a for a, t in TRANSITIONS.items() if t.owner_only}
@@ -424,3 +431,64 @@ class TestPatchBuilding:
             )
         )
         assert patch["doctor_id"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("action", "source_status"),
+    [
+        ("reassign", "DOCTOR_DECLINED"),
+        ("reschedule", "SCHEDULED"),
+    ],
+)
+async def test_doctor_change_audit_records_target_doctor(
+    action: Action,
+    source_status: str,
+) -> None:
+    old_doctor = "d0000000-0000-4000-8000-000000000001"
+    target_doctor = "d0000000-0000-4000-8000-000000000002"
+    start = datetime(2026, 7, 31, 9, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 31, 9, 30, tzinfo=timezone.utc)
+    pool = MagicMock()
+    conn = AsyncMock()
+    acquire = AsyncMock()
+    acquire.__aenter__.return_value = conn
+    pool.acquire.return_value = acquire
+    transaction = MagicMock()
+    transaction.__aenter__ = AsyncMock(return_value=None)
+    transaction.__aexit__ = AsyncMock(return_value=None)
+    conn.transaction = MagicMock(return_value=transaction)
+    conn.fetchrow.return_value = {
+        "id": "a0000000-0000-4000-8000-000000000001",
+        "doctor_id": old_doctor,
+        "status": source_status,
+        "clinic_patient_id": "p0000000-0000-4000-8000-000000000001",
+        "slot_start": start,
+        "slot_end": end,
+        "queue_number": None,
+        "booking_channel": "PHONE",
+        "patient_in_clinic": True,
+        "location_in_clinic": True,
+        "service_in_clinic": True,
+        "doctor_in_clinic": True,
+    }
+    service = BookingService(pool)
+    audit_log = AsyncMock()
+
+    with (
+        patch.object(service, "_guard_slot", AsyncMock(return_value=None)),
+        patch.object(service, "_update", AsyncMock(return_value=True)),
+        patch("clinicai.services.booking_service._log", new=audit_log),
+    ):
+        await service.apply_action(
+            appointment_id="a0000000-0000-4000-8000-000000000001",
+            action=action,
+            identity=_identity(),
+            doctor_id=target_doctor,
+            doctor_id_provided=True,
+            slot_start=start if action == "reschedule" else None,
+            slot_end=end if action == "reschedule" else None,
+        )
+
+    assert audit_log.await_args is not None
+    assert audit_log.await_args.kwargs["payload"]["doctor_id"] == target_doctor

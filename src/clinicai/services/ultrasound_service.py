@@ -29,7 +29,7 @@ from typing import Any
 import asyncpg
 import structlog
 
-from clinicai.api.exceptions import ConflictError
+from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
 
 logger = structlog.get_logger()
@@ -100,9 +100,41 @@ class UltrasoundService:
         """Upsert the visit's ultrasound record. Returns the merged findings."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                appointment = await conn.fetchrow(
+                    """
+                    SELECT
+                        a.clinic_patient_id,
+                        p.clinic_patient_id IS NOT NULL AS patient_in_clinic,
+                        EXISTS (
+                            SELECT 1
+                              FROM clinic_membership m
+                             WHERE m.staff_id = $3::uuid
+                               AND m.clinic_id = a.clinic_id
+                               AND m.is_active
+                        ) AS performer_in_clinic
+                      FROM appointment a
+                      LEFT JOIN patient p
+                        ON p.clinic_patient_id = a.clinic_patient_id
+                       AND p.clinic_id = a.clinic_id
+                     WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
+                    """,
+                    appointment_id,
+                    identity.clinic_id,
+                    identity.staff_id,
+                )
+                if appointment is None:
+                    raise ValidationError("Không tìm thấy lịch hẹn siêu âm")
+                if (
+                    not appointment["patient_in_clinic"]
+                    or str(appointment["clinic_patient_id"]) != clinic_patient_id
+                ):
+                    raise ValidationError("Lịch hẹn siêu âm không thuộc bệnh nhân này")
+                if not appointment["performer_in_clinic"]:
+                    raise ValidationError("Bác sĩ siêu âm không thuộc phòng khám này")
+
                 visit = await conn.fetchrow(
                     """
-                    SELECT visit_id, status
+                    SELECT visit_id, status, clinic_patient_id
                       FROM visit
                      WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
                      ORDER BY created_at DESC
@@ -113,6 +145,10 @@ class UltrasoundService:
                 )
 
                 if visit is not None:
+                    if str(visit["clinic_patient_id"]) != clinic_patient_id:
+                        raise ValidationError(
+                            "Lượt khám siêu âm không thuộc bệnh nhân này"
+                        )
                     if visit["status"] not in WRITABLE_VISIT_STATUSES:
                         raise ConflictError(
                             f"Hồ sơ đã chốt ({visit['status']}) — không sửa số đo."
@@ -138,7 +174,7 @@ class UltrasoundService:
 
                 record = await conn.fetchrow(
                     """
-                    SELECT ultrasound_id, findings
+                    SELECT ultrasound_id, findings, clinic_patient_id
                       FROM ultrasound_record
                      WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
                      ORDER BY created_at DESC
@@ -147,6 +183,13 @@ class UltrasoundService:
                     visit_id,
                     identity.clinic_id,
                 )
+                if (
+                    record is not None
+                    and str(record["clinic_patient_id"]) != clinic_patient_id
+                ):
+                    raise ValidationError(
+                        "Phiếu siêu âm không thuộc bệnh nhân của lượt khám này"
+                    )
 
                 findings = merge_findings(
                     _as_dict(record["findings"]) if record else None,

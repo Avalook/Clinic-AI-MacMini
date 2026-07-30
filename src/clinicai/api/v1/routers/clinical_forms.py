@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
     StaffIdentity,
-    get_current_identity,
     require_role,
 )
 from clinicai.core.database import get_db_pool
@@ -20,8 +19,8 @@ from clinicai.services.clinical_form_service import ClinicalFormService
 
 router = APIRouter()
 
-# Filling in an exam form is clinical work.
-_FORM_WRITE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+# Reading or filling in an exam form is clinical work (ROLE-02).
+_FORM_GUARD = require_role(*CLINICAL_WRITE_ROLES)
 
 
 class ClinicalFormSaveRequest(BaseModel):
@@ -34,10 +33,10 @@ class ClinicalFormSaveRequest(BaseModel):
 async def read_clinical_form(
     visit_id: UUID,
     service_code: str,
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Read one form. Any authenticated staff member may look at it."""
+    """Read one form. Medical content is limited to clinical roles."""
     return await ClinicalFormService(pool).get_form(
         visit_id=str(visit_id), service_code=service_code, identity=identity
     )
@@ -46,7 +45,7 @@ async def read_clinical_form(
 @router.put("/clinical-forms")
 async def save_clinical_form(
     body: ClinicalFormSaveRequest,
-    identity: StaffIdentity = Depends(_FORM_WRITE_GUARD),
+    identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Upsert one form. Refused once the visit is FINALIZED (ADR-0008)."""

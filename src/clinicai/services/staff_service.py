@@ -18,20 +18,40 @@ from clinicai.schemas.staff import (
 
 logger = structlog.get_logger()
 
+_STAFF_PROJECTION = """
+    s.id, s.full_name, s.short_name, m.role AS primary_department,
+    s.primary_location_id, s.employment_type, s.is_training,
+    m.is_active AS is_active, s.created_at, s.updated_at
+"""
 
-def _record_to_dto(record: asyncpg.Record) -> StaffDTO:
+
+def _record_to_dto(
+    record: asyncpg.Record,
+    *,
+    effective_is_active: bool | None = None,
+    effective_primary_department: str | None = None,
+) -> StaffDTO:
     """Convert an asyncpg Record into a StaffDTO."""
-    return StaffDTO.model_validate(dict(record))
+    payload = dict(record)
+    if effective_is_active is not None:
+        payload = {**payload, "is_active": effective_is_active}
+    if effective_primary_department is not None:
+        payload = {
+            **payload,
+            "primary_department": effective_primary_department,
+        }
+    return StaffDTO.model_validate(payload)
 
 
 class StaffService:
     """CRUD operations for the staff table."""
 
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool, clinic_id: str | UUID) -> None:
         self._pool = pool
+        self._clinic_id = UUID(str(clinic_id))
 
     async def create_staff(self, data: StaffCreateDTO) -> StaffDTO:
-        """Insert a new staff record and return the created DTO."""
+        """Create a staff row and membership in the acting clinic atomically."""
         query = """
             INSERT INTO staff (
                 full_name, short_name, primary_department,
@@ -42,25 +62,53 @@ class StaffService:
             RETURNING *;
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                query,
-                data.full_name,
-                data.short_name,
-                data.primary_department.value,
-                data.primary_location_id,
-                data.employment_type.value,
-                data.is_training,
-                data.is_active,
-            )
+            async with conn.transaction():
+                await self._validate_location(conn, data.primary_location_id)
+                row = await conn.fetchrow(
+                    query,
+                    data.full_name,
+                    data.short_name,
+                    data.primary_department.value,
+                    data.primary_location_id,
+                    data.employment_type.value,
+                    data.is_training,
+                    data.is_active,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO clinic_membership
+                        (clinic_id, staff_id, role, is_active)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT ON CONSTRAINT uq_clinic_membership
+                    DO UPDATE SET
+                        is_active = EXCLUDED.is_active,
+                        updated_at = NOW()
+                    """,
+                    self._clinic_id,
+                    row["id"],
+                    data.primary_department.value,
+                    data.is_active,
+                )
 
-        logger.info("staff_created", staff_id=str(row["id"]))
+        logger.info(
+            "staff_created",
+            staff_id=str(row["id"]),
+            clinic_id=str(self._clinic_id),
+        )
         return _record_to_dto(row)
 
     async def get_by_id(self, staff_id: UUID) -> StaffDTO | None:
-        """Fetch a single staff member by primary key. Returns None if absent."""
-        query = "SELECT * FROM staff WHERE id = $1;"
+        """Fetch a staff member only when they belong to the acting clinic."""
+        query = f"""
+            SELECT {_STAFF_PROJECTION}
+            FROM staff AS s
+            JOIN clinic_membership AS m ON m.staff_id = s.id
+            WHERE s.id = $1 AND m.clinic_id = $2
+            ORDER BY m.created_at
+            LIMIT 1;
+        """  # noqa: S608
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, staff_id)
+            row = await conn.fetchrow(query, staff_id, self._clinic_id)
         if row is None:
             return None
         return _record_to_dto(row)
@@ -69,23 +117,32 @@ class StaffService:
         self,
         location_id: UUID | None = None,
     ) -> list[StaffDTO]:
-        """Return all active staff, optionally filtered by location."""
+        """Return active staff in the acting clinic."""
         if location_id is not None:
-            query = """
-                SELECT * FROM staff
-                WHERE is_active = TRUE AND primary_location_id = $1
-                ORDER BY full_name;
-            """
+            query = f"""
+                SELECT {_STAFF_PROJECTION}
+                FROM staff AS s
+                JOIN clinic_membership AS m ON m.staff_id = s.id
+                WHERE m.clinic_id = $1
+                  AND m.is_active = TRUE
+                  AND s.is_active = TRUE
+                  AND s.primary_location_id = $2
+                ORDER BY s.full_name;
+            """  # noqa: S608
             async with self._pool.acquire() as conn:
-                rows = await conn.fetch(query, location_id)
+                rows = await conn.fetch(query, self._clinic_id, location_id)
         else:
-            query = """
-                SELECT * FROM staff
-                WHERE is_active = TRUE
-                ORDER BY full_name;
-            """
+            query = f"""
+                SELECT {_STAFF_PROJECTION}
+                FROM staff AS s
+                JOIN clinic_membership AS m ON m.staff_id = s.id
+                WHERE m.clinic_id = $1
+                  AND m.is_active = TRUE
+                  AND s.is_active = TRUE
+                ORDER BY s.full_name;
+            """  # noqa: S608
             async with self._pool.acquire() as conn:
-                rows = await conn.fetch(query)
+                rows = await conn.fetch(query, self._clinic_id)
         return [_record_to_dto(r) for r in rows]
 
     async def list_assignable(self) -> list[StaffDTO]:
@@ -96,13 +153,18 @@ class StaffService:
           - is_training = FALSE
         are returned.
         """
-        query = """
-            SELECT * FROM staff
-            WHERE is_active = TRUE AND is_training = FALSE
-            ORDER BY full_name;
-        """
+        query = f"""
+            SELECT {_STAFF_PROJECTION}
+            FROM staff AS s
+            JOIN clinic_membership AS m ON m.staff_id = s.id
+            WHERE m.clinic_id = $1
+              AND m.is_active = TRUE
+              AND s.is_active = TRUE
+              AND s.is_training = FALSE
+            ORDER BY s.full_name;
+        """  # noqa: S608
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query)
+            rows = await conn.fetch(query, self._clinic_id)
         return [_record_to_dto(r) for r in rows]
 
     async def update_staff(
@@ -111,65 +173,232 @@ class StaffService:
         data: StaffUpdateDTO,
     ) -> StaffDTO:
         """Partial-update a staff record. Only non-None fields are written."""
-        updates = data.model_dump(exclude_none=True)
-        if not updates:
+        raw_updates = data.model_dump(exclude_none=True)
+        if not raw_updates:
             raise ValidationError("No fields to update")
 
-        # Serialise enum values so asyncpg receives plain strings
-        for key in ("primary_department", "employment_type"):
-            if key in updates and hasattr(updates[key], "value"):
-                updates[key] = updates[key].value
-
-        set_parts: list[str] = []
-        values: list[object] = []
-        for idx, (col, val) in enumerate(updates.items(), start=1):
-            set_parts.append(f"{col} = ${idx}")
-            values.append(val)
-
-        set_parts.append(f"updated_at = ${len(values) + 1}")
-        values.append(datetime.datetime.now(tz=datetime.timezone.utc))
-
-        values.append(staff_id)
-        where_idx = len(values)
-
-        query = (
-            f"UPDATE staff SET {', '.join(set_parts)} "  # noqa: S608
-            f"WHERE id = ${where_idx} "
-            "RETURNING *;"
+        effective_is_active = raw_updates.get("is_active")
+        membership_role_raw = raw_updates.get("primary_department")
+        membership_role = (
+            membership_role_raw.value
+            if membership_role_raw is not None and hasattr(membership_role_raw, "value")
+            else membership_role_raw
         )
+        # Build a new mapping: tenant-local membership fields never enter the
+        # global staff UPDATE, and enum values become asyncpg-safe strings.
+        updates = {
+            key: value.value if hasattr(value, "value") else value
+            for key, value in raw_updates.items()
+            if key not in {"is_active", "primary_department"}
+        }
 
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, *values)
+            async with conn.transaction():
+                if "primary_location_id" in updates:
+                    await self._validate_location(
+                        conn,
+                        updates["primary_location_id"],
+                    )
+                if updates:
+                    await self._ensure_global_profile_editable(conn, staff_id)
+                    set_parts: list[str] = []
+                    values: list[object] = []
+                    for idx, (col, val) in enumerate(updates.items(), start=1):
+                        set_parts.append(f"{col} = ${idx}")
+                        values.append(val)
+
+                    set_parts.append(f"updated_at = ${len(values) + 1}")
+                    values.append(datetime.datetime.now(tz=datetime.timezone.utc))
+                    values.extend((staff_id, self._clinic_id))
+                    staff_idx = len(values) - 1
+                    clinic_idx = len(values)
+
+                    query = (
+                        f"UPDATE staff AS s SET {', '.join(set_parts)} "  # noqa: S608
+                        "FROM clinic_membership AS m "
+                        f"WHERE s.id = ${staff_idx} "
+                        "AND m.staff_id = s.id "
+                        f"AND m.clinic_id = ${clinic_idx} "
+                        f"RETURNING {_STAFF_PROJECTION};"
+                    )
+                    row = await conn.fetchrow(query, *values)
+                else:
+                    row = await conn.fetchrow(
+                        f"""
+                        SELECT {_STAFF_PROJECTION}
+                        FROM staff AS s
+                        JOIN clinic_membership AS m ON m.staff_id = s.id
+                        WHERE s.id = $1 AND m.clinic_id = $2
+                        LIMIT 1
+                        """,  # noqa: S608
+                        staff_id,
+                        self._clinic_id,
+                    )
+
+                if row is None:
+                    raise ResourceNotFoundError(f"Staff {staff_id} not found")
+
+                if membership_role is not None:
+                    await conn.execute(
+                        """
+                        UPDATE clinic_membership
+                        SET role = $3, updated_at = NOW()
+                        WHERE clinic_id = $1 AND staff_id = $2
+                        """,
+                        self._clinic_id,
+                        staff_id,
+                        membership_role,
+                    )
+
+                if effective_is_active is not None:
+                    await conn.execute(
+                        """
+                        UPDATE clinic_membership
+                        SET is_active = $3, updated_at = NOW()
+                        WHERE clinic_id = $1 AND staff_id = $2
+                        """,
+                        self._clinic_id,
+                        staff_id,
+                        effective_is_active,
+                    )
+                    if effective_is_active:
+                        await conn.execute(
+                            """
+                            UPDATE staff
+                            SET is_active = TRUE, updated_at = NOW()
+                            WHERE id = $1
+                              AND EXISTS (
+                                  SELECT 1 FROM clinic_membership
+                                  WHERE clinic_id = $2 AND staff_id = $1
+                              )
+                            """,
+                            staff_id,
+                            self._clinic_id,
+                        )
+                    else:
+                        await self._deactivate_global_if_orphaned(conn, staff_id)
+
+        logger.info(
+            "staff_updated",
+            staff_id=str(staff_id),
+            clinic_id=str(self._clinic_id),
+            fields=[
+                *updates.keys(),
+                *(["primary_department"] if membership_role is not None else []),
+                *(["is_active"] if effective_is_active is not None else []),
+            ],
+        )
+        return _record_to_dto(
+            row,
+            effective_is_active=effective_is_active,
+            effective_primary_department=membership_role,
+        )
+
+    async def deactivate(self, staff_id: UUID) -> None:
+        """Deactivate only the acting clinic's membership."""
+        query = """
+            UPDATE clinic_membership
+            SET is_active = FALSE, updated_at = $2
+            WHERE clinic_id = $1 AND staff_id = $3
+            RETURNING staff_id;
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    query,
+                    self._clinic_id,
+                    datetime.datetime.now(tz=datetime.timezone.utc),
+                    staff_id,
+                )
+                if row is not None:
+                    await self._deactivate_global_if_orphaned(conn, staff_id)
 
         if row is None:
             raise ResourceNotFoundError(f"Staff {staff_id} not found")
 
         logger.info(
-            "staff_updated",
+            "staff_deactivated",
             staff_id=str(staff_id),
-            fields=list(updates.keys()),
+            clinic_id=str(self._clinic_id),
         )
-        return _record_to_dto(row)
 
-    async def deactivate(self, staff_id: UUID) -> None:
-        """Soft-delete: set is_active = FALSE on the given staff member."""
-        query = """
+    @staticmethod
+    async def _deactivate_global_if_orphaned(
+        conn: asyncpg.Connection,
+        staff_id: UUID,
+    ) -> None:
+        """Deactivate the global person only after their last membership ends."""
+        await conn.execute(
+            """
             UPDATE staff
-            SET is_active = FALSE, updated_at = $2
+            SET is_active = FALSE, updated_at = NOW()
             WHERE id = $1
-            RETURNING id;
-        """
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                query,
-                staff_id,
-                datetime.datetime.now(tz=datetime.timezone.utc),
-            )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM clinic_membership
+                  WHERE staff_id = $1 AND is_active = TRUE
+              )
+            """,
+            staff_id,
+        )
 
-        if row is None:
+    async def _validate_location(
+        self,
+        conn: asyncpg.Connection,
+        location_id: object,
+    ) -> None:
+        """Reject a location UUID that belongs to a different clinic."""
+        if location_id is None:
+            return
+        exists = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM clinic_location
+                WHERE id = $1 AND clinic_id = $2
+            )
+            """,
+            location_id,
+            self._clinic_id,
+        )
+        if not exists:
+            raise ValidationError("primary_location_id is not in this clinic")
+
+    async def _ensure_global_profile_editable(
+        self,
+        conn: asyncpg.Connection,
+        staff_id: UUID,
+    ) -> None:
+        """Prevent one tenant from rewriting a shared multi-clinic profile."""
+        belongs_here = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM clinic_membership
+                WHERE staff_id = $1 AND clinic_id = $2
+            )
+            """,
+            staff_id,
+            self._clinic_id,
+        )
+        if not belongs_here:
             raise ResourceNotFoundError(f"Staff {staff_id} not found")
 
-        logger.info("staff_deactivated", staff_id=str(staff_id))
+        belongs_only_here = await conn.fetchval(
+            """
+            SELECT NOT EXISTS (
+                SELECT 1
+                FROM clinic_membership
+                WHERE staff_id = $1 AND clinic_id <> $2
+            )
+            """,
+            staff_id,
+            self._clinic_id,
+        )
+        if not belongs_only_here:
+            raise ValidationError(
+                "Shared multi-clinic staff profiles require system administration"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +414,17 @@ class StaffService:
 
 _ADD_CAPABILITY_SQL = """
     INSERT INTO staff_capability (staff_id, capability, proficiency_level)
-    VALUES ($1, $2, $3)
+    SELECT $1, $2, $3
+    WHERE EXISTS (
+        SELECT 1
+        FROM clinic_membership
+        WHERE staff_id = $1 AND clinic_id = $4::uuid
+    )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM clinic_membership
+        WHERE staff_id = $1 AND clinic_id <> $4::uuid
+    )
     ON CONFLICT (staff_id, capability) DO UPDATE
         SET proficiency_level = EXCLUDED.proficiency_level
     RETURNING id, staff_id, capability, proficiency_level, created_at
@@ -215,23 +454,33 @@ async def add_capability(
     pool: asyncpg.Pool,
     staff_id: UUID,
     capability: str,
+    clinic_id: str,
     proficiency_level: str = "COMPETENT",
 ) -> StaffCapabilityDTO:
-    """Upsert a capability for a staff member.
+    """Upsert a capability for a staff member owned only by this clinic.
 
     On the (staff_id, capability) conflict we update proficiency_level so
     callers can promote / demote without a separate code path. The
     `capability` value is enforced at the application layer
     (see clinicai.schemas.staff.Capability); the DB column is TEXT (D019).
+    Shared multi-clinic profiles require a system-admin path because this table
+    has no clinic_id and any write would otherwise affect another tenant.
     """
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            _ADD_CAPABILITY_SQL, staff_id, capability, proficiency_level
+            _ADD_CAPABILITY_SQL,
+            staff_id,
+            capability,
+            proficiency_level,
+            clinic_id,
         )
+    if row is None:
+        raise ResourceNotFoundError(f"Staff {staff_id} not found")
 
     logger.info(
         "staff_capability_upserted",
         staff_id=str(staff_id),
+        clinic_id=clinic_id,
         capability=capability,
         proficiency_level=proficiency_level,
     )

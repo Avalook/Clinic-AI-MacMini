@@ -17,7 +17,13 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.api.identity import (
+    DOCTOR_ROLES,
+    ClinicRole,
+    StaffIdentity,
+    require_role,
+)
+from clinicai.api.rate_limit import InMemoryRateLimiter
 from clinicai.core.database import get_db_pool
 from clinicai.graphs.pre_visit_brief import (
     PreVisitBriefState,
@@ -29,6 +35,57 @@ from clinicai.tools.brief.generate_brief import PreVisitBrief
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/brief", tags=["brief"])
+_BRIEF_GUARD = require_role(*DOCTOR_ROLES, ClinicRole.TKYK)
+BRIEF_RATE_LIMIT = InMemoryRateLimiter(
+    scope="pre-visit-brief",
+    limit=20,
+    window_seconds=60,
+)
+
+
+async def _can_generate_brief(
+    pool: asyncpg.Pool,
+    *,
+    clinic_patient_id: UUID,
+    identity: StaffIdentity,
+) -> bool:
+    """Keep direct API callers inside the same patient relationship as the UI."""
+    if identity.role is ClinicRole.TKYK:
+        return bool(
+            await pool.fetchval(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM patient p
+                     WHERE p.clinic_patient_id = $1
+                       AND p.clinic_id = $2::uuid
+                       AND p.is_active
+                )
+                """,
+                clinic_patient_id,
+                identity.clinic_id,
+            )
+        )
+    return bool(
+        await pool.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                  FROM appointment a
+                  JOIN patient p
+                    ON p.clinic_patient_id = a.clinic_patient_id
+                   AND p.clinic_id = a.clinic_id
+                 WHERE a.clinic_patient_id = $1
+                   AND a.clinic_id = $2::uuid
+                   AND a.doctor_id = $3::uuid
+                   AND p.is_active
+            )
+            """,
+            clinic_patient_id,
+            identity.clinic_id,
+            identity.staff_id,
+        )
+    )
 
 
 def get_llm_client(request: Request) -> AnthropicClient:
@@ -49,7 +106,8 @@ async def generate_pre_visit_brief(
     clinic_patient_id: UUID,
     pool: Annotated[asyncpg.Pool, Depends(get_db_pool)],
     llm_client: Annotated[AnthropicClient, Depends(get_llm_client)],
-    identity: Annotated[StaffIdentity, Depends(get_current_identity)],
+    identity: Annotated[StaffIdentity, Depends(_BRIEF_GUARD)],
+    _rate_limit: Annotated[None, Depends(BRIEF_RATE_LIMIT)],
 ) -> BriefResponse:
     """Generate a pre-visit brief for the given patient.
 
@@ -57,6 +115,17 @@ async def generate_pre_visit_brief(
     to produce a valid brief.
     """
     start = time.monotonic()
+    if not await _can_generate_brief(
+        pool,
+        clinic_patient_id=clinic_patient_id,
+        identity=identity,
+    ):
+        # Do not reveal whether the patient exists in another clinic or belongs
+        # to another doctor's list.
+        raise HTTPException(
+            status_code=404,
+            detail="patient_not_found_or_not_assigned",
+        )
 
     graph = build_pre_visit_brief_subgraph(pool=pool, llm_client=llm_client)
     state = PreVisitBriefState(

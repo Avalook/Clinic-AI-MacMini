@@ -36,7 +36,7 @@ _SELECT_COLUMNS = (
     "test_code, test_name, panel_code, "
     "result_value, result_numeric, result_unit, "
     "reference_range_low, reference_range_high, flag, "
-    "triage_group, triage_reason, "
+    "triage_group, triage_reason, triage_classified_at, triage_model, "
     "requires_doctor_review, reviewed_by_staff_id, reviewed_at, is_finalized, "
     "lab_provider, sample_collected_at, result_received_at"
 )
@@ -66,6 +66,8 @@ class LabResultRow(BaseModel):
     flag: str | None
     triage_group: TriageGroup
     triage_reason: str | None
+    triage_classified_at: datetime | None = None
+    triage_model: str | None = None
     requires_doctor_review: bool
     reviewed_by_staff_id: UUID | None
     reviewed_at: datetime | None

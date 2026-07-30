@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  hasManagementAuthority,
   resolveLinkedStaffAuthority,
 } from "../lib/identity-authority.ts";
 
@@ -41,24 +40,5 @@ test("rejects inactive and unlinked staff identities", () => {
       auth_user_id: null,
     }),
     null,
-  );
-});
-
-test("admin authority requires both the auth linkage and MANAGEMENT department", () => {
-  assert.equal(
-    hasManagementAuthority("auth-management", managementStaff),
-    true,
-  );
-  assert.equal(
-    hasManagementAuthority("auth-reception", managementStaff),
-    false,
-  );
-  assert.equal(
-    hasManagementAuthority("auth-reception", {
-      ...managementStaff,
-      auth_user_id: "auth-reception",
-      primary_department: "RECEPTION",
-    }),
-    false,
   );
 });

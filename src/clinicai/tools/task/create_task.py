@@ -36,6 +36,12 @@ _INSERT_SQL = """
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11::uuid)
+    ON CONFLICT (clinic_id, source_id)
+        WHERE task_type = 'LAB_REVIEW'
+          AND source_type = 'LAB_RESULT'
+          AND source_id IS NOT NULL
+          AND status IN ('PENDING', 'IN_PROGRESS')
+    DO UPDATE SET updated_at = staff_task.updated_at
     RETURNING task_id, location_id, task_type, priority, status,
               assigned_to, source_type, source_id, title, description,
               due_at, sla_hours, completed_at, created_at, updated_at

@@ -46,11 +46,13 @@ class EventService:
                 event_id_raw = await conn.fetchval(
                     """
                     INSERT INTO event_log
-                      (event_type, aggregate_type, aggregate_id, payload,
-                       metadata, source, event_published)
-                    VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+                      (event_id, clinic_id, event_type, aggregate_type,
+                       aggregate_id, payload, metadata, source, event_published)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE)
                     RETURNING event_id
                     """,
+                    event.event_id,
+                    event.clinic_id,
                     event.event_type,
                     event.entity_type,
                     event.entity_id,
@@ -58,6 +60,10 @@ class EventService:
                     json.dumps({"trace_id": str(event.trace_id)}),
                     event.source_channel,
                 )
+                persisted_event_id = UUID(str(event_id_raw))
+                if persisted_event_id != event.event_id:
+                    msg = "Persisted event_id does not match InteractionEvent.event_id"
+                    raise RuntimeError(msg)
 
         # Step 3: publish (outside transaction — fire and forget MVP)
         try:
@@ -65,39 +71,49 @@ class EventService:
             # Step 4: mark published
             async with self.pool.acquire() as conn:
                 await conn.execute(
-                    "UPDATE event_log SET event_published = TRUE WHERE event_id = $1",
-                    event_id_raw,
+                    """
+                    UPDATE event_log
+                    SET event_published = TRUE
+                    WHERE event_id = $1 AND clinic_id = $2
+                    """,
+                    persisted_event_id,
+                    event.clinic_id,
                 )
         except NotImplementedError:
             # RabbitMQ stub — acceptable in dev, log warning
             logger.warning(
                 "event_publish_skipped",
-                event_id=str(event_id_raw),
+                event_id=str(persisted_event_id),
                 reason="publisher_not_implemented",
                 trace_id=str(event.trace_id),
             )
         except Exception as e:
             logger.error(
                 "event_publish_failed",
-                event_id=str(event_id_raw),
+                event_id=str(persisted_event_id),
                 error=str(e),
                 trace_id=str(event.trace_id),
             )
             # DO NOT raise — event is safe in DB and can be retried later
-        return UUID(str(event_id_raw))
+        return persisted_event_id
 
-    async def get_unpublished(self, limit: int = 100) -> list[dict[str, Any]]:
-        """Get events that have not been published yet — for future relay worker."""
+    async def get_unpublished(
+        self,
+        clinic_id: UUID,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Get one clinic's unpublished events — for a tenant-bound relay."""
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
                 """
                 SELECT event_id, event_type, aggregate_id, payload,
                        metadata, source, occurred_at
                 FROM event_log
-                WHERE event_published = FALSE
+                WHERE clinic_id = $1 AND event_published = FALSE
                 ORDER BY occurred_at ASC
-                LIMIT $1
+                LIMIT $2
                 """,
+                clinic_id,
                 limit,
             )
 

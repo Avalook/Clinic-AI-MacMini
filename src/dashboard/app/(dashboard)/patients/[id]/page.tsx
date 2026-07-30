@@ -10,7 +10,12 @@ import PatientBooking from "./PatientBooking";
 import PatientCskhLog from "./PatientCskhLog";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import { getClinicRole, getClinicStaffId } from "../../../../lib/clinic-session";
-import { canWriteIntake, isDoctorRole, canEditPatient } from "../../../../lib/roles";
+import {
+  canReadClinical,
+  canWriteIntake,
+  isDoctorRole,
+  canEditPatient,
+} from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +53,7 @@ export default async function PatientDetailPage({
   // Sửa thông tin hành chính: intake + bác sĩ (canEditPatient) — vd CSKH mở từ
   // "Danh sách bệnh nhân" sửa tại trang chi tiết.
   const canEdit = canEditPatient(role);
+  const canSeeClinicalHistory = canReadClinical(role);
 
   let services: Option[] = [];
   let doctors: Option[] = [];
@@ -116,7 +122,14 @@ export default async function PatientDetailPage({
         />
       )}
       <PatientCskhLog id={id} />
-      <PatientHistory id={id} />
+      {canSeeClinicalHistory ? (
+        <PatientHistory id={id} canReviewLabs={isDoctorRole(role)} />
+      ) : (
+        <section className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-3 text-sm text-[#71717a]">
+          Hồ sơ lâm sàng chỉ hiển thị cho bác sĩ, điều dưỡng và thư ký y khoa.
+          Thông tin hành chính và nhật ký CSKH vẫn hiển thị ở trên.
+        </section>
+      )}
     </div>
   );
 }

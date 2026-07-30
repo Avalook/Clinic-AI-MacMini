@@ -19,6 +19,10 @@ import clinicai.graphs.lab_triage.nodes as _lt_nodes
 from clinicai.graphs.lab_triage.graph import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.nodes import make_hard_block_node
 from clinicai.graphs.lab_triage.state import LabTriageState, LabTriageStep
+from clinicai.services.lab_safety_service import (
+    LabSafetyService,
+    PersistClassificationOutcome,
+)
 from clinicai.tools.lab.classify import ClassifyResult
 from clinicai.tools.lab.query_lab_result import LabResultRow
 
@@ -157,6 +161,17 @@ async def test_lab_triage__group_a_routes_to_advise(
             )
         ),
     )
+    persist = AsyncMock(
+        return_value=PersistClassificationOutcome(
+            triage_group="GROUP_A",
+            triage_reason="Kết quả bình thường",
+            requires_doctor_review=False,
+            triage_model="RULE",
+            is_finalized=False,
+            changed=True,
+        )
+    )
+    monkeypatch.setattr(LabSafetyService, "persist_classification", persist)
 
     g = build_lab_triage_subgraph(pool=pool, llm_client=mock_llm)
     state = LabTriageState(
@@ -171,6 +186,66 @@ async def test_lab_triage__group_a_routes_to_advise(
     assert result["response_to_patient"] is not None
     assert result.get("escalation_note") is None
     assert result["requires_doctor_review"] is False
+    persist.assert_awaited_once_with(
+        lab_result_id=row.lab_result_id,
+        clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        triage_group="GROUP_A",
+        triage_reason="Kết quả bình thường",
+        requires_doctor_review=False,
+        triage_model="RULE",
+    )
+
+
+@pytest.mark.asyncio
+async def test_retry_uses_persisted_group_c_instead_of_downgraded_result(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_llm: MagicMock,
+) -> None:
+    row = _lab_row(triage_group="GROUP_C", requires_doctor_review=True)
+    pool = _mock_pool_returning_row(row)
+    monkeypatch.setattr(
+        _lt_nodes,
+        "classify_lab_result",
+        AsyncMock(
+            return_value=ClassifyResult(
+                triage_group="GROUP_A",
+                requires_doctor_review=False,
+                reason="Retry lower severity",
+                matched_rule_key="FLAG_NORMAL",
+                source="RULE",
+                confidence=1.0,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        LabSafetyService,
+        "persist_classification",
+        AsyncMock(
+            return_value=PersistClassificationOutcome(
+                triage_group="GROUP_C",
+                triage_reason="Existing critical result",
+                requires_doctor_review=True,
+                triage_model="RULE",
+                is_finalized=False,
+                changed=False,
+            )
+        ),
+    )
+
+    result = await build_lab_triage_subgraph(
+        pool=pool,
+        llm_client=mock_llm,
+    ).ainvoke(
+        LabTriageState(
+            lab_result_id=row.lab_result_id,
+            clinic_patient_id=row.clinic_patient_id,
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        )
+    )
+
+    assert result["triage_group"] == "GROUP_C"
+    assert result["requires_doctor_review"] is True
+    assert result["response_to_patient"] is None
 
 
 @pytest.mark.asyncio

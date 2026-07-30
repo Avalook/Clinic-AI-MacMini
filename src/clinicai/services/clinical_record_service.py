@@ -43,6 +43,29 @@ from clinicai.core.exceptions import SafetyGateError
 
 logger = structlog.get_logger()
 
+PROFILE_COLUMNS: frozenset[str] = frozenset(
+    {
+        "blood_type",
+        "allergies",
+        "chronic_diseases",
+        "current_medications",
+        "surgical_history",
+        "family_history",
+        "notes",
+    }
+)
+
+
+def validated_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    """Copy only the versioned medical-profile contract; reject unknown keys."""
+    unknown = set(profile) - PROFILE_COLUMNS
+    if unknown:
+        raise ValidationError(
+            "Trường tiền sử không hợp lệ: " + ", ".join(sorted(unknown))
+        )
+    return {key: profile[key] for key in profile if key in PROFILE_COLUMNS}
+
+
 WRITABLE_VISIT_STATUSES: frozenset[str] = frozenset({"OPEN", "IN_PROGRESS"})
 ARRIVED_APPOINTMENT_STATUSES: frozenset[str] = frozenset({"CHECKED_IN", "COMPLETED"})
 RECORD_LOCK = timedelta(hours=48)
@@ -155,13 +178,50 @@ class ClinicalRecordService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 appointment = await conn.fetchrow(
-                    "SELECT status, doctor_id FROM appointment "
-                    "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    """
+                    SELECT
+                        a.status,
+                        a.doctor_id,
+                        a.clinic_patient_id,
+                        p.clinic_patient_id IS NOT NULL AS patient_in_clinic,
+                        (
+                            a.doctor_id IS NULL
+                            OR EXISTS (
+                                SELECT 1
+                                  FROM staff st
+                                  JOIN clinic_membership m
+                                    ON m.staff_id = st.id
+                                 WHERE st.id = a.doctor_id
+                                   AND st.is_active
+                                   AND m.clinic_id = a.clinic_id
+                                   AND m.is_active
+                                   AND m.role IN (
+                                       'DOCTOR', 'ULTRASOUND_DOCTOR'
+                                   )
+                            )
+                        ) AS doctor_in_clinic
+                      FROM appointment a
+                      LEFT JOIN patient p
+                        ON p.clinic_patient_id = a.clinic_patient_id
+                       AND p.clinic_id = a.clinic_id
+                     WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
+                    """,
                     appointment_id,
                     identity.clinic_id,
                 )
                 if appointment is None:
                     raise ValidationError("Không tìm thấy lịch hẹn")
+                if (
+                    not appointment["patient_in_clinic"]
+                    or str(appointment["clinic_patient_id"]) != clinic_patient_id
+                ):
+                    raise ValidationError(
+                        "Lịch hẹn không thuộc bệnh nhân này trong phòng khám"
+                    )
+                if not appointment["doctor_in_clinic"]:
+                    raise ValidationError(
+                        "Bác sĩ của lịch hẹn không thuộc phòng khám này"
+                    )
 
                 if vitals_only and appointment["status"] not in (
                     ARRIVED_APPOINTMENT_STATUSES
@@ -192,7 +252,8 @@ class ClinicalRecordService:
 
                 stored = await conn.fetchval(
                     "SELECT soap_objective FROM clinical_record "
-                    "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
+                    "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid "
+                    "FOR UPDATE",
                     visit_id,
                     identity.clinic_id,
                 )
@@ -270,17 +331,22 @@ class ClinicalRecordService:
         """Find the appointment's visit or create a draft, refusing closed ones."""
         existing = await conn.fetchrow(
             """
-            SELECT visit_id, status, created_at
+            SELECT visit_id, status, created_at, clinic_patient_id
               FROM visit
              WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
              ORDER BY created_at DESC
              LIMIT 1
+             FOR UPDATE
             """,
             appointment_id,
             identity.clinic_id,
         )
 
         if existing is not None:
+            if str(existing["clinic_patient_id"]) != clinic_patient_id:
+                raise ValidationError(
+                    "Lượt khám không thuộc bệnh nhân của lịch hẹn này"
+                )
             created_at = existing["created_at"]
             if created_at is not None:
                 age = datetime.now(timezone.utc) - created_at
@@ -304,42 +370,49 @@ class ClinicalRecordService:
             else identity.staff_id
         )
 
-        try:
-            return await conn.fetchval(
-                """
-                INSERT INTO visit (
-                    clinic_id, clinic_patient_id, appointment_id,
-                    attending_doctor_id, status, checked_in_at
-                )
-                VALUES ($4::uuid, $1::uuid, $2::uuid, $3::uuid,
-                        'IN_PROGRESS', now())
-                RETURNING visit_id
-                """,
-                clinic_patient_id,
-                appointment_id,
-                str(attending) if attending else None,
-                identity.clinic_id,
+        visit_id = await conn.fetchval(
+            """
+            INSERT INTO visit (
+                clinic_id, clinic_patient_id, appointment_id,
+                attending_doctor_id, status, checked_in_at
             )
-        except asyncpg.UniqueViolationError:
-            # A nurse saving vitals and a doctor saving the record can both see
-            # "no visit yet" and both insert. UNIQUE(appointment_id) makes the
-            # loser land here; join the winner's visit instead of duplicating.
-            again = await conn.fetchrow(
-                """
-                SELECT visit_id, status FROM visit
-                 WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
-                 ORDER BY created_at DESC LIMIT 1
-                """,
-                appointment_id,
-                identity.clinic_id,
+            VALUES ($4::uuid, $1::uuid, $2::uuid, $3::uuid,
+                    'IN_PROGRESS', now())
+            ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
+            DO NOTHING
+            RETURNING visit_id
+            """,
+            clinic_patient_id,
+            appointment_id,
+            str(attending) if attending else None,
+            identity.clinic_id,
+        )
+        if visit_id is not None:
+            return visit_id
+
+        # A nurse and doctor can both observe no visit. ON CONFLICT keeps the
+        # transaction usable (unlike catching a UniqueViolation after it has
+        # aborted PostgreSQL's transaction), then this row lock serializes the
+        # objective merge with the winner.
+        again = await conn.fetchrow(
+            """
+            SELECT visit_id, status, clinic_patient_id FROM visit
+             WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid
+             ORDER BY created_at DESC LIMIT 1
+             FOR UPDATE
+            """,
+            appointment_id,
+            identity.clinic_id,
+        )
+        if again is None:
+            raise ConflictError(
+                "Lượt khám vừa được tạo nhưng chưa thể đọc lại, hãy thử lại"
             )
-            if again is None:
-                raise
-            if again["status"] not in WRITABLE_VISIT_STATUSES:
-                raise ConflictError(
-                    f"Hồ sơ đã chốt ({again['status']}) — luật cấm sửa."
-                ) from None
-            return again["visit_id"]
+        if str(again["clinic_patient_id"]) != clinic_patient_id:
+            raise ValidationError("Lượt khám không thuộc bệnh nhân của lịch hẹn này")
+        if again["status"] not in WRITABLE_VISIT_STATUSES:
+            raise ConflictError(f"Hồ sơ đã chốt ({again['status']}) — luật cấm sửa.")
+        return again["visit_id"]
 
     async def _save_vitals(
         self,
@@ -381,7 +454,8 @@ class ClinicalRecordService:
         profile: dict[str, Any],
         clinic_id: str | None,
     ) -> None:
-        columns = [key for key in profile if key.isidentifier()]
+        safe_profile = validated_profile(profile)
+        columns = list(safe_profile)
         if not columns:
             return
         assignments = ", ".join(f"{col} = ${i + 2}" for i, col in enumerate(columns))
@@ -394,7 +468,7 @@ class ClinicalRecordService:
             ON CONFLICT (clinic_patient_id) DO UPDATE SET {assignments}
             """,
             clinic_patient_id,
-            *[profile[col] for col in columns],
+            *[safe_profile[col] for col in columns],
             clinic_id,
         )
 

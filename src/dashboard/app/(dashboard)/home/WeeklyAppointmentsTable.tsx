@@ -358,7 +358,7 @@ export default function WeeklyAppointmentsTable({
                                 {a.queue_number ?? "—"}
                               </td>
                               <td className={`${CELL} text-[#171717]`}>
-                                {showActionCol ? (
+                                {canWriteClinical ? (
                                   <button
                                     onClick={() => setSelAppt(a)}
                                     className="flex items-center gap-1.5 font-medium text-[#ec4899] hover:underline text-left"
@@ -518,7 +518,7 @@ export default function WeeklyAppointmentsTable({
         </table>
       </div>
 
-      {selAppt && (
+      {canWriteClinical && selAppt && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={() => setSelAppt(null)}>
           <div className="h-full w-full max-w-lg border-l border-[#f3cfe0] bg-white p-4 shadow-[-8px_0_30px_rgba(0,0,0,0.12)] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between border-b border-[#f3cfe0] pb-2">

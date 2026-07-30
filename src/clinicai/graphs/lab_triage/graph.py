@@ -34,6 +34,7 @@ from clinicai.graphs.lab_triage.nodes import (
     make_create_review_tasks_node,
     make_fetch_node,
     make_hard_block_node,
+    make_persist_node,
     make_receive_node,
 )
 from clinicai.graphs.lab_triage.state import LabTriageState, LabTriageStep
@@ -57,6 +58,11 @@ def _route_after_fetch(state: LabTriageState) -> str:
 
 
 def _route_after_classify(state: LabTriageState) -> str:
+    """Classifier output must be durable before it can drive a response."""
+    return "persist"
+
+
+def _route_after_persist(state: LabTriageState) -> str:
     """Route after classify: hard_block when GROUP_C, or when the classify
     node safety-falls back (requires_doctor_review=True even though the
     result isn't GROUP_C — e.g. no LLM wired, or classify exception).
@@ -79,6 +85,7 @@ def build_lab_triage_subgraph(
     sg.add_node("receive", cast(Any, make_receive_node()))
     sg.add_node("fetch", cast(Any, make_fetch_node(pool)))
     sg.add_node("classify", cast(Any, make_classify_node(pool, llm_client)))
+    sg.add_node("persist", cast(Any, make_persist_node(pool)))
     sg.add_node("advise", cast(Any, make_advise_node(pool)))
     sg.add_node("hard_block", cast(Any, make_hard_block_node(pool)))
     sg.add_node(
@@ -101,6 +108,11 @@ def build_lab_triage_subgraph(
     sg.add_conditional_edges(
         "classify",
         _route_after_classify,
+        {"persist": "persist"},
+    )
+    sg.add_conditional_edges(
+        "persist",
+        _route_after_persist,
         {"advise": "advise", "hard_block": "hard_block"},
     )
     sg.add_edge("advise", END)

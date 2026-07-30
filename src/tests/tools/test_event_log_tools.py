@@ -29,11 +29,21 @@ def mock_pool() -> tuple[MagicMock, AsyncMock]:
     acquire_ctx = AsyncMock()
     acquire_ctx.__aenter__.return_value = conn
     pool.acquire.return_value = acquire_ctx
+
+    async def _return_inserted_event_id(
+        _sql: str,
+        event_id: UUID,
+        *_args: object,
+    ) -> UUID:
+        return event_id
+
+    conn.fetchval.side_effect = _return_inserted_event_id
     return pool, conn
 
 
 def _input() -> AppendEventInput:
     return AppendEventInput(
+        clinic_id=uuid4(),
         event_type="interaction.walkin",
         entity_type="appointment",
         entity_id=uuid4(),
@@ -48,8 +58,6 @@ async def test_append_event_happy_path(
 ) -> None:
     """MockPublisher path: returns AppendEventOutput with a UUID event_id."""
     pool, conn = mock_pool
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
 
     publisher = MockEventPublisher()
     inp = _input()
@@ -57,11 +65,11 @@ async def test_append_event_happy_path(
 
     assert isinstance(out, AppendEventOutput)
     assert isinstance(out.event_id, UUID)
-    assert out.event_id == fake_id
     # Publisher saw exactly one event with our topic
     assert publisher.count() == 1
     topic, event = publisher.last()
     assert topic == EVENT_LOG_TOPIC
+    assert event.clinic_id == inp.clinic_id
     assert event.entity_id == inp.entity_id
     assert event.source_channel == "walkin"
 
@@ -72,7 +80,6 @@ async def test_append_event_carries_trace_id(
 ) -> None:
     """Output trace_id must equal input ctx trace_id (propagation guarantee)."""
     pool, conn = mock_pool
-    conn.fetchval.return_value = uuid4()
 
     inp = _input()
     out = await append_event(inp, pool, MockEventPublisher())
@@ -86,13 +93,11 @@ async def test_append_event_publisher_fail_no_crash(
 ) -> None:
     """RabbitMQPublisher raises NotImplementedError — tool must NOT propagate."""
     pool, conn = mock_pool
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
 
     inp = _input()
     out = await append_event(inp, pool, RabbitMQPublisher())
 
     # No exception bubbled out; row still recorded (event_published=FALSE)
-    assert out.event_id == fake_id
+    assert out.event_id == conn.fetchval.await_args.args[1]
     # event_published UPDATE should NOT have been called when publish failed
     conn.execute.assert_not_awaited()

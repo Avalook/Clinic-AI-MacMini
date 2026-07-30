@@ -1,14 +1,18 @@
 // "Danh sách bệnh nhân" — BN đã khám (lịch hẹn COMPLETED). Gom theo BN để suy
 // "Khám lần đầu" (1 lần) / "Tái khám" (>=2 lần). Đọc qua Supabase RLS.
 //
-// Bấm tên BN: LỄ TÂN + BÁC SĨ + CSKH → BẬT POPUP hồ sơ lâm sàng (CHỈ ĐỌC lâm
-// sàng, SỬA được mục I Hành chính) trượt sang PHẢI bảng (SplitPane, y hệt "Công
-// việc của tôi" của bác sĩ), lần khám gần nhất. Quản lý → vẫn điều hướng sang
-// trang chi tiết (còn nút đặt lịch ở đó). Server quyết enablePopup theo vai trò.
+// Bấm tên BN: chỉ vai LÂM SÀNG được bật hồ sơ lâm sàng ở panel phải. Vai vận
+// hành đi tới trang thông tin hành chính; route /api/clinical-record còn chặn
+// độc lập để không thể bypass bằng cách gọi API trực tiếp.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
-import { isDoctorRole, isOpsAdmin } from "../../../lib/roles";
+import {
+  canEditPatient,
+  canReadClinical,
+  canWriteIntake,
+  isDoctorRole,
+} from "../../../lib/roles";
 import { vnTodayRangeUtc } from "../../../lib/datetime";
 import PatientListView, { type ExaminedRow } from "./PatientListView";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
@@ -43,13 +47,12 @@ const one = <T,>(x: T | T[] | null): T | null =>
 export default async function PatientListPage() {
   await requireNavAccess("/patient-list");
   const role = await getClinicRole();
-  // MỌI vai: bấm BN bật popup hồ sơ (chỉ đọc lâm sàng, sửa được hành chính)
-  // trượt sang phải — y hệt nhau. Trước đây Quản lý/Trưởng ca điều hướng sang
-  // trang chi tiết /patients/[id] (lệch UX); nay đồng bộ popup cho tất cả.
-  const enablePopup = true;
-  // CSKH + Lễ tân + Quản lý/Trưởng ca: nút "Tái khám" trong popup → /patients/[id].
-  const showRebook =
-    role === "CSKH" || role === "RECEPTION" || isOpsAdmin(role);
+  // Membership role is authoritative. Operational roles keep the administrative
+  // patient page but never mount ClinicalRecordForm.
+  const enablePopup = canReadClinical(role);
+  // Nút tái khám chỉ tồn tại bên trong popup; vai vận hành đặt lại lịch từ trang
+  // hành chính /patients/[id], nên không cần nạp option khi popup bị chặn.
+  const showRebook = enablePopup && canWriteIntake(role);
   // Bác sĩ: pager ◀ ▶ xem lượt khám trước/sau ngay trong phiếu.
   const showPager = isDoctorRole(role);
   const supabase = await getSupabaseServer();
@@ -153,13 +156,13 @@ export default async function PatientListPage() {
           {error.message}
         </div>
       ) : (
-        // canEditAdmin = enablePopup: Lễ tân + Bác sĩ vừa mở popup vừa sửa được
-        // mục I Hành chính (PATCH /api/patients, server gate canEditPatient).
+        // Chỉ vai lâm sàng có popup; quyền sửa hành chính vẫn được gate riêng ở
+        // trang /patients/[id] và PATCH /api/patients.
         <PatientListView
           rows={rows}
           enablePopup={enablePopup}
-          canEditAdmin={enablePopup}
-          /* Nút tóm tắt trước khám chỉ cho BÁC SĨ (CSKH/lễ tân mở popup nhưng không thấy). */
+          canEditAdmin={canEditPatient(role)}
+          /* Nút tóm tắt trước khám chỉ cho BÁC SĨ. */
           showPreVisitBrief={isDoctorRole(role)}
           /* Nút Tái khám: CSKH/Lễ tân. Pager lượt khám: Bác sĩ. */
           showRebook={showRebook}

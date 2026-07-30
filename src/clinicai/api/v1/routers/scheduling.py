@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import (
+    ClinicRole,
     StaffIdentity,
     get_current_identity,
     require_role,
@@ -22,9 +22,6 @@ from clinicai.core.exceptions import (
     ValidationError as CoreValidationError,
 )
 from clinicai.schemas.scheduling import (
-    AppointmentCreateDTO as AppointmentCreate,
-)
-from clinicai.schemas.scheduling import (
     AppointmentDTO as AppointmentRead,
 )
 from clinicai.schemas.scheduling import (
@@ -34,16 +31,15 @@ from clinicai.schemas.scheduling import (
     WorkSessionDTO,
     WorkSessionStaffAssignDTO,
 )
-from clinicai.services.booking_service import DOCTOR_ROLES, MANAGE_ROLES
 from clinicai.services.scheduling_service import SchedulingService
 
-# These two predate the W5 booking router and had NO role gate: any caller past
-# the shared API key could confirm or cancel any appointment. Nothing calls them
-# today, and PATCH /appointments/{id} in booking.py supersedes them with the full
-# transition table. Gated here rather than deleted, in case an AI graph reaches
-# for them before that cutover finishes.
-_CONFIRM_GUARD = require_role(*DOCTOR_ROLES)
-_CANCEL_GUARD = require_role(*MANAGE_ROLES)
+# Work-session administration is an operations function. Self-service roster
+# registration lives in config.py; this legacy surface may only be used by the
+# manager or shift lead.
+_WORK_SESSION_ADMIN_GUARD = require_role(
+    ClinicRole.MANAGEMENT,
+    ClinicRole.TRUONG_CA,
+)
 
 router = APIRouter()
 
@@ -84,12 +80,6 @@ class WorkSessionStaffAssign(BaseModel):
     on_call_flag: bool = False
 
 
-class AppointmentCancelRequest(BaseModel):
-    """Input body schema for cancelling an appointment."""
-
-    reason: str | None = None
-
-
 # ---------------------------------------------------------------------------
 # Work Session Endpoints
 # ---------------------------------------------------------------------------
@@ -102,7 +92,7 @@ class AppointmentCancelRequest(BaseModel):
 )
 async def create_work_session(
     data: WorkSessionCreate,
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_WORK_SESSION_ADMIN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> WorkSessionDTO:
     """Create a new work session."""
@@ -119,7 +109,7 @@ async def create_work_session(
 )
 async def get_work_session_by_id(
     id: UUID,
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_WORK_SESSION_ADMIN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> WorkSessionWithStaffRead:
     """Retrieve a work session and its assigned staff list."""
@@ -139,7 +129,7 @@ async def get_work_session_by_id(
 async def assign_staff_to_session(
     id: UUID,
     body: WorkSessionStaffAssign,
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_WORK_SESSION_ADMIN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> WorkSessionWithStaffRead:
     """Assign a staff member to a work session."""
@@ -170,34 +160,6 @@ async def assign_staff_to_session(
 # ---------------------------------------------------------------------------
 
 
-@router.post(
-    "/appointments",
-    response_model=AppointmentRead,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_appointment(
-    data: AppointmentCreate,
-    identity: StaffIdentity = Depends(get_current_identity),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-    idem: IdempotencyGuard = Depends(idempotency_guard),
-) -> AppointmentRead:
-    """Book a new appointment."""
-    idem = await idem.acquire(pool)
-    if idem.is_replay:
-        return idem.cached_response  # type: ignore[return-value]
-    service = SchedulingService(pool, identity.clinic_id)
-    try:
-        result = await service.create_appointment(data)
-        await idem.save(pool, result.model_dump(mode="json"), status_code=201)
-        return result
-    except CoreValidationError as exc:
-        if "Doctor is not assigned" in exc.message:
-            raise ConflictError(exc.message) from exc
-        raise ValidationError(exc.message) from exc
-    except CoreResourceNotFoundError as exc:
-        raise NotFoundError(exc.message) from exc
-
-
 @router.get(
     "/appointments/{id}",
     response_model=AppointmentRead,
@@ -217,45 +179,3 @@ async def get_appointment_by_id(
     if row is None:
         raise NotFoundError(f"Appointment {id} not found")
     return AppointmentRead.model_validate(dict(row))
-
-
-@router.patch(
-    "/appointments/{id}/confirm",
-    response_model=AppointmentRead,
-    deprecated=True,
-)
-async def confirm_appointment(
-    id: UUID,
-    identity: StaffIdentity = Depends(_CONFIRM_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> AppointmentRead:
-    """Confirm a scheduled appointment. Deprecated — use PATCH /appointments/{id}."""
-    service = SchedulingService(pool, identity.clinic_id)
-    try:
-        return await service.confirm_appointment(id)
-    except CoreResourceNotFoundError as exc:
-        raise NotFoundError(exc.message) from exc
-    except CoreValidationError as exc:
-        raise ValidationError(exc.message) from exc
-
-
-@router.patch(
-    "/appointments/{id}/cancel",
-    response_model=AppointmentRead,
-    deprecated=True,
-)
-async def cancel_appointment(
-    id: UUID,
-    body: AppointmentCancelRequest,
-    identity: StaffIdentity = Depends(_CANCEL_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> AppointmentRead:
-    """Cancel a booked appointment. Deprecated — use PATCH /appointments/{id}."""
-    service = SchedulingService(pool, identity.clinic_id)
-    reason = body.reason or "No reason provided"
-    try:
-        return await service.cancel_appointment(id, reason)
-    except CoreResourceNotFoundError as exc:
-        raise NotFoundError(exc.message) from exc
-    except CoreValidationError as exc:
-        raise ValidationError(exc.message) from exc

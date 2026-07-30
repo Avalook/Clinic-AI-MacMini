@@ -1,11 +1,8 @@
 """The adapter used when no POS is connected — which is the normal case.
 
-ADR-0010 keeps the door open without making ClinicAI depend on anything walking
-through it. Every clinic runs this unless it explicitly turns a POS on, so it
-has to behave like a real adapter: accept the call, succeed, return no external
-reference. That way the relay drains its outbox instead of piling up rows that
-nobody will ever send, and the code path is exercised in production rather than
-only in tests.
+ADR-0010 keeps the integration optional. This adapter implements the port for
+local composition, but the relay treats it as unavailable and dead-letters the
+row. A no-op must never be reported as a successful external delivery.
 """
 
 from __future__ import annotations

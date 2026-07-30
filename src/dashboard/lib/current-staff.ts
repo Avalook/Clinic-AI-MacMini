@@ -12,7 +12,10 @@
 // staff row — the linkage check is purely WHERE auth_user_id = uid.
 
 import { cache } from "react";
-import { resolveLinkedStaffAuthority } from "./identity-authority";
+import {
+  resolveLinkedStaffAuthority,
+  resolveSingleActiveMembership,
+} from "./identity-authority";
 import { getSupabaseServer } from "./supabase-server";
 
 export interface CurrentStaff {
@@ -23,6 +26,8 @@ export interface CurrentStaff {
   primary_location_id: string | null;
   auth_user_id: string;
   is_active: boolean;
+  clinic_id: string;
+  clinic_role: string;
 }
 
 const DOCTOR_DEPTS = new Set(["DOCTOR", "ULTRASOUND_DOCTOR"]);
@@ -30,18 +35,18 @@ const ADMIN_DEPTS = new Set(["MANAGEMENT"]);
 
 /** Departments allowed to filter the appointments view by themselves. */
 export function isDoctorRole(staff: CurrentStaff | null): boolean {
-  return staff !== null && DOCTOR_DEPTS.has(staff.primary_department);
+  return staff !== null && DOCTOR_DEPTS.has(staff.clinic_role);
 }
 
 /** MANAGEMENT only — sees Reports + Settings nav items. */
 export function isAdminRole(staff: CurrentStaff | null): boolean {
-  return staff !== null && ADMIN_DEPTS.has(staff.primary_department);
+  return staff !== null && ADMIN_DEPTS.has(staff.clinic_role);
 }
 
 /** The role-aware default landing path after login. */
 export function roleLanding(staff: CurrentStaff | null): string {
   if (isDoctorRole(staff)) return "/appointments?scope=me";
-  if (staff?.primary_department === "CSKH") return "/tasks";
+  if (staff?.clinic_role === "CSKH") return "/tasks";
   return "/home";
 }
 
@@ -62,5 +67,23 @@ export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
     .maybeSingle();
 
   if (error || !data) return null;
-  return resolveLinkedStaffAuthority(user.id, data as CurrentStaff);
+  const linked = resolveLinkedStaffAuthority(
+    user.id,
+    data as Omit<CurrentStaff, "clinic_id" | "clinic_role">,
+  );
+  if (!linked) return null;
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("clinic_membership")
+    .select("clinic_id, role, is_active")
+    .eq("staff_id", linked.id)
+    .eq("is_active", true);
+  const membership = resolveSingleActiveMembership(memberships ?? []);
+  if (membershipError || !membership) return null;
+
+  return {
+    ...linked,
+    clinic_id: membership.clinic_id,
+    clinic_role: membership.role,
+  };
 });

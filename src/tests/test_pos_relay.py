@@ -12,10 +12,11 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from clinicai.adapters.pos.null import NullPosAdapter
 from clinicai.ports.pos import PosCatalogItem, PosDeliveryError, PosInvoice
 from clinicai.services import pos_outbox, pos_relay
 
@@ -72,6 +73,41 @@ class _Adapter:
 
 def _statements(conn: MagicMock) -> str:
     return " ".join(str(call.args[0]) for call in conn.execute.await_args_list)
+
+
+@pytest.mark.asyncio
+async def test_relay_holds_cycle_lock_while_delivering_invoice() -> None:
+    conn = MagicMock()
+    conn.fetch = AsyncMock(return_value=[_row()])
+    conn.fetchval = AsyncMock(side_effect=[True, True])
+    order: list[str] = []
+
+    async def execute(sql: str, *args: object) -> None:
+        if args and str(args[0]).startswith("pos-cycle:"):
+            if "pg_advisory_lock" in sql:
+                order.append("cycle-lock")
+            elif "pg_advisory_unlock" in sql:
+                order.append("cycle-unlock")
+
+    conn.execute = AsyncMock(side_effect=execute)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=conn)
+    acquire.__aexit__ = AsyncMock(return_value=None)
+    pool = MagicMock()
+    pool.acquire.return_value = acquire
+
+    async def deliver(*_: object) -> bool:
+        order.append("deliver")
+        return True
+
+    with patch(
+        "clinicai.services.pos_relay._deliver",
+        new=AsyncMock(side_effect=deliver),
+    ):
+        sent = await pos_relay.poll_and_push(pool, _Adapter())
+
+    assert sent == 1
+    assert order == ["cycle-lock", "deliver", "cycle-unlock"]
 
 
 @pytest.mark.asyncio
@@ -153,6 +189,19 @@ async def test_an_unknown_kind_is_dead_lettered_immediately() -> None:
 
     assert delivered is False
     assert "status = 'DEAD'" in _statements(conn)
+
+
+@pytest.mark.asyncio
+async def test_disabled_or_misconfigured_pos_never_becomes_fake_sent() -> None:
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+
+    delivered = await pos_relay._deliver(conn, _row(), NullPosAdapter())
+
+    assert delivered is False
+    sql = _statements(conn)
+    assert "status = 'DEAD'" in sql
+    assert "status = 'SENT'" not in sql
 
 
 class TestBackoff:

@@ -15,8 +15,8 @@ import { getClinicRole, getClinicStaffId } from "../../../../lib/clinic-session"
 import { isDoctorRole } from "../../../../lib/roles";
 
 // FastAPI base URL. Server-only (không phải NEXT_PUBLIC) vì lời gọi đi từ server.
-// Mặc định localhost:8000 để dev không cần cấu hình gì thêm.
-const API_BASE = process.env.CLINIC_API_URL ?? "http://localhost:8000";
+// Missing configuration is a broken deployment, never an implicit localhost.
+const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,6 +33,13 @@ export async function POST(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
+    return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  }
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
 
@@ -73,9 +80,18 @@ export async function POST(
     );
   }
 
-  // 4) Proxy sang FastAPI. Forward X-API-Key nếu server có cấu hình (production);
-  // dev để trống thì FastAPI tự cho qua.
-  const headers: Record<string, string> = {};
+  if (!API_BASE) {
+    return NextResponse.json(
+      { error: "CLINIC_API_URL chưa được cấu hình trên server." },
+      { status: 503 },
+    );
+  }
+
+  // 4) Proxy sang FastAPI with both the caller identity and the shared
+  // server-to-server credential.
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
 

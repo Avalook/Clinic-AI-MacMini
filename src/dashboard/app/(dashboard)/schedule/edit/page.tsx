@@ -55,11 +55,18 @@ export default async function ScheduleEditPage({
           primary_department: string | null;
         }[]
       | null) ?? []
-  ).map((s) => ({
-    id: s.id,
-    name: s.full_name ?? s.short_name,
-    role: departmentToRole(s.primary_department),
-  }));
+  )
+    .map((s) => {
+      const staffRole = departmentToRole(s.primary_department);
+      return staffRole
+        ? {
+            id: s.id,
+            name: s.full_name ?? s.short_name,
+            role: staffRole,
+          }
+        : null;
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null);
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">

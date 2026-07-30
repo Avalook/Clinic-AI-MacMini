@@ -18,6 +18,11 @@ class PrimaryDepartment(str, Enum):
     RECEPTION = "RECEPTION"
     CSKH = "CSKH"
     MANAGEMENT = "MANAGEMENT"
+    CASHIER = "CASHIER"
+    CASHIER_THUOC = "CASHIER_THUOC"
+    CASHIER_DV = "CASHIER_DV"
+    TKYK = "TKYK"
+    TRUONG_CA = "TRUONG_CA"
 
 
 class EmploymentType(str, Enum):

@@ -43,13 +43,18 @@ function walk(dir: string): string[] {
   return out;
 }
 
-const sources = [join(ROOT, "app"), join(ROOT, "lib")]
-  .flatMap(walk)
+const sources = [
+  ...[join(ROOT, "app"), join(ROOT, "lib")].flatMap(walk),
+  join(ROOT, "proxy.ts"),
+]
   .filter((f) => !f.endsWith(".test.mts") && !f.endsWith(".test.ts"))
   .map((f) => ({ path: relative(ROOT, f), text: readFileSync(f, "utf8") }));
 
 const usesServiceRole = sources.filter((f) =>
   /getSupabaseService|SUPABASE_SERVICE_ROLE_KEY/.test(f.text),
+);
+const adminRoute = sources.find(
+  (source) => source.path === "app/api/admin/users/route.ts",
 );
 
 test("no new file may reach for the service-role key", () => {
@@ -109,4 +114,12 @@ test("reference data is read through the caller's own session", () => {
     .map((f) => f.path);
 
   assert.deepEqual(bypassing, []);
+});
+
+test("the Auth-admin exception remains tenant- and membership-scoped", () => {
+  assert.ok(adminRoute);
+  assert.match(adminRoute.text, /\.from\(["']clinic_membership["']\)/);
+  assert.match(adminRoute.text, /\.eq\(["']clinic_id["'], clinicId\)/);
+  assert.match(adminRoute.text, /resolveSingleManagementClinic/);
+  assert.match(adminRoute.text, /\.eq\(["']auth_user_id["'], target\.auth_user_id\)/);
 });

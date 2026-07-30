@@ -10,7 +10,7 @@
 | Mục | Thông tin |
 |---|---|
 | **Link** | https://clinic-ai-dr4-women.vercel.app |
-| **Mật khẩu phòng khám** Dr4Women@2026
+| **Mật khẩu phòng khám** | Lấy giá trị hiện hành từ secret manager; không ghi vào tài liệu hoặc gửi qua chat. |
 | **Trình duyệt** | Chrome / Edge bản mới, máy đặt **múi giờ Việt Nam** |
 
 > ⚠️ **Đây là DỮ LIỆU THẬT (import từ phòng khám).** Khi test tạo BN/lịch:

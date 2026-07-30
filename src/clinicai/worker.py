@@ -7,12 +7,13 @@ Mode 1 (default): RabbitMQ consumer (opt-in — compose profile ``workers``).
 Mode 2 (relay): Notification outbox relay — polls ``event_log`` and delivers
   notifications via Telegram/Zalo. Does NOT need RabbitMQ.
   Run:  python -m clinicai.worker --relay
-  Env:  DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+  Env:  DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+        TELEGRAM_CLINIC_ID
 
 Mode 3 (pos-relay): POS outbox relay — polls ``pos_outbox`` and pushes invoices
   and stock movements to whichever POS the clinic configured (ADR-0010). With
-  the default null adapter it simply drains the queue, so it is harmless to run
-  before any POS is connected.
+  the default null adapter, rows are dead-lettered rather than falsely marked
+  delivered. Enable this mode only after configuring a real adapter.
   Run:  python -m clinicai.worker --pos-relay
   Env:  DATABASE_URL, POS_ADAPTER (default ``none``)
 
@@ -26,6 +27,7 @@ import asyncio
 import os
 import signal
 import sys
+from uuid import UUID
 
 import structlog
 
@@ -45,6 +47,16 @@ async def _run_relay() -> None:
     from clinicai.core.database import close_pool, create_pool
     from clinicai.services.notification_relay import poll_and_deliver
 
+    raw_clinic_id = os.environ.get("TELEGRAM_CLINIC_ID", "").strip()
+    if not raw_clinic_id:
+        raise SystemExit(
+            "TELEGRAM_CLINIC_ID is not set — refusing a cross-tenant relay."
+        )
+    try:
+        clinic_id = str(UUID(raw_clinic_id))
+    except ValueError as exc:
+        raise SystemExit("TELEGRAM_CLINIC_ID must be a UUID.") from exc
+
     pool = await create_pool()
     stop = asyncio.Event()
 
@@ -57,7 +69,7 @@ async def _run_relay() -> None:
     try:
         while not stop.is_set():
             try:
-                count = await poll_and_deliver(pool)
+                count = await poll_and_deliver(pool, clinic_id=clinic_id)
                 if count > 0:
                     logger.info("relay_delivered", count=count)
             except Exception:

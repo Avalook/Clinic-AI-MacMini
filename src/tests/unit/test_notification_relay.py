@@ -10,6 +10,8 @@ import pytest
 
 from clinicai.services.notification_relay import poll_and_deliver
 
+CLINIC_ID = "a0000000-0000-4000-8000-000000000001"
+
 
 def _relay_db(
     rows: list[dict[str, Any]], *fetchvals: object
@@ -51,11 +53,13 @@ async def test_relay_claims_and_marks_canonical_event_log_row() -> None:
             new=AsyncMock(return_value={"ok": True}),
         ),
     ):
-        assert await poll_and_deliver(pool) == 1
+        assert await poll_and_deliver(pool, clinic_id=CLINIC_ID) == 1
 
     select_sql = conn.fetch.await_args.args[0]
     assert "SELECT event_id" in select_sql
     assert "ORDER BY occurred_at" in select_sql
+    assert "clinic_id = $1::uuid" in select_sql
+    assert conn.fetch.await_args.args[1] == CLINIC_ID
     assert "SELECT id" not in select_sql
     assert "created_at" not in select_sql
 
@@ -67,8 +71,9 @@ async def test_relay_claims_and_marks_canonical_event_log_row() -> None:
         if "UPDATE event_log" in call.args[0]
     ]
     assert len(update_calls) == 1
-    assert "WHERE event_id = $1" in update_calls[0][0]
+    assert "WHERE event_id = $1 AND clinic_id = $2::uuid" in update_calls[0][0]
     assert update_calls[0][1] == event_id
+    assert update_calls[0][2] == CLINIC_ID
 
 
 @pytest.mark.asyncio
@@ -96,7 +101,7 @@ async def test_relay_does_not_send_event_claimed_by_another_worker() -> None:
             new=send,
         ),
     ):
-        assert await poll_and_deliver(pool) == 0
+        assert await poll_and_deliver(pool, clinic_id=CLINIC_ID) == 0
 
     send.assert_not_awaited()
     conn.execute.assert_not_awaited()
@@ -136,7 +141,7 @@ async def test_relay_does_not_publish_unaccepted_delivery(
             new=AsyncMock(return_value=provider_result),
         ) as send,
     ):
-        assert await poll_and_deliver(pool) == 0
+        assert await poll_and_deliver(pool, clinic_id=CLINIC_ID) == 0
 
     assert send.await_count == expected_attempts
     assert not any(

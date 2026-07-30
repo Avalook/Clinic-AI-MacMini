@@ -62,6 +62,9 @@ def _mock_pool_and_conn() -> tuple[MagicMock, AsyncMock]:
     acquire_ctx = AsyncMock()
     acquire_ctx.__aenter__.return_value = conn
     pool.acquire.return_value = acquire_ctx
+    transaction_ctx = AsyncMock()
+    transaction_ctx.__aenter__.return_value = conn
+    conn.transaction = MagicMock(return_value=transaction_ctx)
 
     return pool, conn
 
@@ -103,6 +106,12 @@ async def test_create_patient_success() -> None:
     conn.fetchrow.assert_awaited_once()
     sql_arg = conn.fetchrow.call_args[0][0]
     assert "INSERT INTO patient" in sql_arg
+    # The patient row and its event_log audit must commit or roll back together.
+    # Outer patient+audit transaction, plus a nested savepoint around the
+    # patient-code INSERT so a rare UNIQUE collision can be retried.
+    assert conn.transaction.call_count == 2
+    transaction_ctx = conn.transaction.return_value
+    assert transaction_ctx.__aenter__.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -294,6 +303,15 @@ async def test_get_by_phone_returns_list() -> None:
     conn.fetch.assert_awaited_once()
     sql_arg = conn.fetch.call_args[0][0]
     assert "phone_primary = ANY($1::text[])" in sql_arg
+    # The tenant predicate must govern BOTH phone columns.  Without these
+    # parentheses SQL evaluates ``(clinic AND primary) OR secondary`` and a
+    # secondary number from another clinic leaks into this result.
+    normalised_sql = " ".join(sql_arg.split())
+    assert (
+        "WHERE clinic_id = $2::uuid "
+        "AND (phone_primary = ANY($1::text[]) "
+        "OR phone_secondary = ANY($1::text[]))"
+    ) in normalised_sql
     assert set(conn.fetch.call_args[0][1]) == {
         "0901234567",
         "84901234567",
@@ -388,6 +406,14 @@ async def test_find_phone_duplicates_returns_minimal_fields() -> None:
     conn.fetch.assert_awaited_once()
     sql_arg, variants, *_tenant = conn.fetch.call_args[0]
     assert "= ANY($1::text[])" in sql_arg
+    # Same tenant invariant as get_by_phone: the OR expression is one grouped
+    # predicate beneath clinic_id, never an escape hatch around it.
+    normalised_sql = " ".join(sql_arg.split())
+    assert (
+        "WHERE clinic_id = $2::uuid "
+        "AND (phone_primary = ANY($1::text[]) "
+        "OR phone_secondary = ANY($1::text[]))"
+    ) in normalised_sql
     assert set(variants) == {"0901234567", "84901234567", "+84901234567"}
 
 

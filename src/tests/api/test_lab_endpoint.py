@@ -237,3 +237,19 @@ def test_lab_triage__invalid_uuid__422_pydantic(client: TestClient) -> None:
     """Non-UUID path param → 422 from FastAPI/pydantic, never reaches the graph."""
     response = client.post("/api/v1/lab/triage/not-a-uuid")
     assert response.status_code == 422
+
+
+def test_lab_triage__reception_role__is_forbidden(client: TestClient) -> None:
+    """Operational roles cannot invoke or inspect the clinical classifier."""
+    app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
+        staff_id="staff-reception",
+        auth_user_id="user-reception",
+        full_name="Lễ tân Test",
+        department="RECEPTION",
+        role=ClinicRole.RECEPTION,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
+    )
+
+    response = client.post(f"/api/v1/lab/triage/{uuid4()}")
+
+    assert response.status_code == 403

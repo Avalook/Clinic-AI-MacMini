@@ -19,12 +19,15 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { hasManagementAuthority } from "../../../../lib/identity-authority";
+import {
+  resolveLinkedStaffAuthority,
+  resolveSingleManagementClinic,
+} from "../../../../lib/identity-authority";
 
 const MIN_PASSWORD = 8;
 
 type AuthResult =
-  | { ok: true; admin: SupabaseClient }
+  | { ok: true; admin: SupabaseClient; clinicId: string }
   | { ok: false; res: NextResponse };
 
 // Shared gate: env present + caller authenticated + caller is MANAGEMENT.
@@ -63,17 +66,56 @@ async function authorizeAdmin(): Promise<AuthResult> {
     .select("id, auth_user_id, primary_department, is_active")
     .eq("auth_user_id", user.id)
     .maybeSingle();
-  if (
-    callerStaffError ||
-    !hasManagementAuthority(user.id, callerStaff)
-  ) {
+  const callerIdentity = resolveLinkedStaffAuthority(user.id, callerStaff);
+  if (callerStaffError || !callerIdentity) {
     return {
       ok: false,
       res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
   }
 
-  return { ok: true, admin };
+  // clinic_membership.role is the tenant authority. primary_department is
+  // descriptive staff data and may differ between clinics.
+  const { data: memberships, error: membershipError } = await admin
+    .from("clinic_membership")
+    .select("clinic_id, role, is_active")
+    .eq("staff_id", callerIdentity.id)
+    .eq("is_active", true);
+  const clinicId = resolveSingleManagementClinic(memberships ?? []);
+  if (membershipError || !clinicId) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return { ok: true, admin, clinicId };
+}
+
+async function requireTargetMembership(
+  admin: SupabaseClient,
+  staffId: string,
+  clinicId: string,
+): Promise<NextResponse | null> {
+  const { data, error } = await admin
+    .from("clinic_membership")
+    .select("staff_id")
+    .eq("staff_id", staffId)
+    .eq("clinic_id", clinicId)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!data) {
+    // Do not reveal whether the id exists in another tenant.
+    return NextResponse.json(
+      { error: "Nhân viên không tồn tại trong phòng khám hiện tại." },
+      { status: 404 },
+    );
+  }
+  return null;
 }
 
 interface CreateBody {
@@ -86,7 +128,7 @@ interface CreateBody {
 export async function POST(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
-  const { admin } = auth;
+  const { admin, clinicId } = auth;
 
   let body: CreateBody;
   try {
@@ -112,6 +154,13 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const membershipError = await requireTargetMembership(
+    admin,
+    staffId,
+    clinicId,
+  );
+  if (membershipError) return membershipError;
 
   // Target staff exists + still unlinked?
   const { data: targetStaff, error: targetErr } = await admin
@@ -156,16 +205,18 @@ export async function POST(request: Request) {
     .from("staff")
     .update({ auth_user_id: newUserId })
     .eq("id", staffId)
-    .is("auth_user_id", null);
-  if (linkRes.error) {
+    .is("auth_user_id", null)
+    .select("id")
+    .maybeSingle();
+  if (linkRes.error || !linkRes.data) {
     await admin.auth.admin.deleteUser(newUserId);
     return NextResponse.json(
       {
         error:
           "Linked staff row update failed; the Auth user was rolled back. " +
-          linkRes.error.message,
+          (linkRes.error?.message ?? "Staff was linked concurrently."),
       },
-      { status: 500 },
+      { status: linkRes.error ? 500 : 409 },
     );
   }
 
@@ -189,7 +240,7 @@ interface PatchBody {
 export async function PATCH(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
-  const { admin } = auth;
+  const { admin, clinicId } = auth;
 
   let body: PatchBody;
   try {
@@ -202,6 +253,13 @@ export async function PATCH(request: Request) {
   if (!staffId) {
     return NextResponse.json({ error: "Thiếu staffId." }, { status: 400 });
   }
+
+  const membershipError = await requireTargetMembership(
+    admin,
+    staffId,
+    clinicId,
+  );
+  if (membershipError) return membershipError;
 
   const { data: target, error: targetErr } = await admin
     .from("staff")
@@ -252,9 +310,19 @@ export async function PATCH(request: Request) {
     const upd = await admin
       .from("staff")
       .update({ auth_user_id: null })
-      .eq("id", staffId);
-    if (upd.error) {
-      return NextResponse.json({ error: upd.error.message }, { status: 500 });
+      .eq("id", staffId)
+      .eq("auth_user_id", target.auth_user_id)
+      .select("id")
+      .maybeSingle();
+    if (upd.error || !upd.data) {
+      return NextResponse.json(
+        {
+          error:
+            upd.error?.message ??
+            "Tài khoản đã thay đổi; vui lòng tải lại trước khi gỡ.",
+        },
+        { status: upd.error ? 500 : 409 },
+      );
     }
     const del = await admin.auth.admin.deleteUser(target.auth_user_id);
     if (del.error) {

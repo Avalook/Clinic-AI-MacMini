@@ -24,6 +24,7 @@ from clinicai.services.staff_service import StaffService
 
 FAKE_STAFF_ID = uuid4()
 FAKE_LOCATION_ID = uuid4()
+FAKE_CLINIC_ID = uuid4()
 FAKE_NOW = datetime.datetime(2026, 5, 20, 10, 0, 0, tzinfo=datetime.timezone.utc)
 
 
@@ -54,6 +55,9 @@ def _mock_pool_and_conn() -> tuple[MagicMock, AsyncMock]:
     acquire_ctx = AsyncMock()
     acquire_ctx.__aenter__.return_value = conn
     pool.acquire.return_value = acquire_ctx
+    conn.transaction = MagicMock()
+    conn.transaction.return_value = AsyncMock()
+    conn.fetchval.return_value = True
 
     return pool, conn
 
@@ -69,7 +73,7 @@ async def test_create_staff_success() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = _make_staff_record()
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     dto = await svc.create_staff(
         StaffCreateDTO(
             full_name="Bác sĩ Nguyễn Văn A",
@@ -86,9 +90,34 @@ async def test_create_staff_success() -> None:
     assert dto.is_training is False
     assert dto.is_active is True
 
-    conn.fetchrow.assert_awaited_once()
-    sql_arg = conn.fetchrow.call_args[0][0]
+    sql_arg = conn.fetchrow.call_args_list[0].args[0]
     assert "INSERT INTO staff" in sql_arg
+    membership_call = conn.execute.call_args
+    assert "INSERT INTO clinic_membership" in membership_call.args[0]
+    assert membership_call.args[1] == FAKE_CLINIC_ID
+    assert membership_call.args[2] == FAKE_STAFF_ID
+
+
+@pytest.mark.asyncio
+async def test_create_staff_rejects_location_from_another_clinic() -> None:
+    """A caller cannot attach a new staff member to another tenant's location."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchval.return_value = False
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+
+    with pytest.raises(
+        ValidationError,
+        match="primary_location_id is not in this clinic",
+    ):
+        await svc.create_staff(
+            StaffCreateDTO(
+                full_name="Nhân viên sai tenant",
+                primary_department=PrimaryDepartment.CSKH,
+                primary_location_id=FAKE_LOCATION_ID,
+            )
+        )
+
+    conn.fetchrow.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -100,7 +129,7 @@ async def test_list_assignable_excludes_training() -> None:
         _make_staff_record({"is_training": False}),
     ]
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     results = await svc.list_assignable()
 
     assert len(results) == 1
@@ -108,6 +137,8 @@ async def test_list_assignable_excludes_training() -> None:
 
     sql_arg = conn.fetch.call_args[0][0]
     assert "is_training = FALSE" in sql_arg
+    assert "m.clinic_id" in sql_arg
+    assert conn.fetch.call_args.args[1] == FAKE_CLINIC_ID
 
 
 @pytest.mark.asyncio
@@ -116,7 +147,7 @@ async def test_list_assignable_excludes_inactive() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetch.return_value = []
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     results = await svc.list_assignable()
 
     assert results == []
@@ -131,10 +162,14 @@ async def test_get_by_id_not_found() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = None
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     result = await svc.get_by_id(uuid4())
 
     assert result is None
+    sql_arg = conn.fetchrow.call_args.args[0]
+    assert "clinic_membership" in sql_arg
+    assert "m.clinic_id" in sql_arg
+    assert conn.fetchrow.call_args.args[2] == FAKE_CLINIC_ID
 
 
 @pytest.mark.asyncio
@@ -149,7 +184,7 @@ async def test_update_staff() -> None:
     )
     conn.fetchrow.return_value = updated_record
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     dto = await svc.update_staff(
         FAKE_STAFF_ID,
         StaffUpdateDTO(
@@ -162,18 +197,102 @@ async def test_update_staff() -> None:
     assert dto.employment_type == "PART_TIME"
 
     sql_arg = conn.fetchrow.call_args[0][0]
-    assert "UPDATE staff SET" in sql_arg
+    assert "UPDATE staff AS s SET" in sql_arg
+    assert "m.clinic_id" in sql_arg
     assert "RETURNING" in sql_arg
+    assert FAKE_CLINIC_ID in conn.fetchrow.call_args.args
+
+
+@pytest.mark.asyncio
+async def test_update_shared_profile_requires_system_administration() -> None:
+    """Clinic management cannot rewrite global fields visible to another tenant."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchval.side_effect = [True, False]
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+
+    with pytest.raises(
+        ValidationError,
+        match="Shared multi-clinic staff profiles",
+    ):
+        await svc.update_staff(
+            FAKE_STAFF_ID,
+            StaffUpdateDTO(full_name="Cross-tenant rename"),
+        )
+
+    conn.fetchrow.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_other_tenants_profile_is_not_found() -> None:
+    """Cross-tenant UUID probing must not reveal that a staff row exists."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchval.return_value = False
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+
+    with pytest.raises(ResourceNotFoundError, match=str(FAKE_STAFF_ID)):
+        await svc.update_staff(
+            FAKE_STAFF_ID,
+            StaffUpdateDTO(full_name="Cross-tenant rename"),
+        )
+
+    conn.fetchrow.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_update_staff_no_fields_raises() -> None:
     """update_staff should raise ValidationError if no fields provided."""
     pool, _conn = _mock_pool_and_conn()
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
 
     with pytest.raises(ValidationError, match="No fields to update"):
         await svc.update_staff(FAKE_STAFF_ID, StaffUpdateDTO())
+
+
+@pytest.mark.asyncio
+async def test_update_active_state_is_membership_scoped() -> None:
+    """Deactivating one tenant must not blindly deactivate multi-clinic staff."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.return_value = _make_staff_record()
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+
+    dto = await svc.update_staff(
+        FAKE_STAFF_ID,
+        StaffUpdateDTO(is_active=False),
+    )
+
+    assert dto.is_active is False
+    executed_sql = [call.args[0] for call in conn.execute.call_args_list]
+    assert any(
+        "UPDATE clinic_membership" in sql and "clinic_id = $1" in sql
+        for sql in executed_sql
+    )
+    orphan_guard = next(sql for sql in executed_sql if "UPDATE staff" in sql)
+    assert "NOT EXISTS" in orphan_guard
+    assert "clinic_membership" in orphan_guard
+
+
+@pytest.mark.asyncio
+async def test_update_department_changes_only_callers_membership_role() -> None:
+    """A role change in clinic A must not rewrite the global/multi-clinic role."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.return_value = _make_staff_record()
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+
+    dto = await svc.update_staff(
+        FAKE_STAFF_ID,
+        StaffUpdateDTO(primary_department=PrimaryDepartment.MANAGEMENT),
+    )
+
+    assert dto.primary_department == "MANAGEMENT"
+    assert conn.fetchrow.call_args.args[0].lstrip().startswith("SELECT")
+    role_call = next(
+        call for call in conn.execute.call_args_list if "SET role = $3" in call.args[0]
+    )
+    assert role_call.args[1:] == (
+        FAKE_CLINIC_ID,
+        FAKE_STAFF_ID,
+        "MANAGEMENT",
+    )
 
 
 @pytest.mark.asyncio
@@ -182,12 +301,13 @@ async def test_deactivate_sets_inactive() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = {"id": FAKE_STAFF_ID}
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     await svc.deactivate(FAKE_STAFF_ID)
 
-    conn.fetchrow.assert_awaited_once()
     sql_arg = conn.fetchrow.call_args[0][0]
-    assert "is_active = FALSE" in sql_arg
+    assert "UPDATE clinic_membership" in sql_arg
+    assert "clinic_id = $1" in sql_arg
+    assert conn.fetchrow.call_args.args[1] == FAKE_CLINIC_ID
 
 
 @pytest.mark.asyncio
@@ -196,7 +316,7 @@ async def test_deactivate_not_found_raises() -> None:
     pool, conn = _mock_pool_and_conn()
     conn.fetchrow.return_value = None
 
-    svc = StaffService(pool)
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
     missing_id = uuid4()
 
     with pytest.raises(ResourceNotFoundError, match=str(missing_id)):

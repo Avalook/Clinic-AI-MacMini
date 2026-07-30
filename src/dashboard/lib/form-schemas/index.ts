@@ -1,21 +1,19 @@
 // Registry form chuyên khoa: service_code → schema. Engine + route đọc từ đây.
 // Thêm form mới = thêm 1 config + 1 dòng đăng ký (KHÔNG sửa engine/route).
-// 5 service_code từ docx handover_kham.docx: PK · SK · NT · HMVS · NK.
-//   (NK không có Heading-3 riêng trong docx — lắp từ field nam-khoa trong HMVS, xem nk.ts.)
+// Only doctor-sourced schemas are exposed. NK has no standalone source section
+// and stays quarantined until the clinic signs off a dedicated form.
 
 import type { FormSchema } from "./types";
 import { pkSchema } from "./pk";
 import { skSchema } from "./sk";
 import { ntSchema } from "./nt";
 import { hmvsSchema } from "./hmvs";
-import { nkSchema } from "./nk";
 
 const REGISTRY: Record<string, FormSchema> = {
   PK: pkSchema,
   SK: skSchema,
   NT: ntSchema,
   HMVS: hmvsSchema,
-  NK: nkSchema,
 };
 
 /** Schema theo service_code, hoặc null nếu chưa có config. */

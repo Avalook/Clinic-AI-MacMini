@@ -21,6 +21,7 @@ import asyncpg
 import structlog
 
 from clinicai.graphs.lab_triage.state import LabTriageState, LabTriageStep
+from clinicai.services.lab_safety_service import LabSafetyService
 from clinicai.tools._common.context import new_trace
 from clinicai.tools.lab.classify import classify_lab_result
 from clinicai.tools.lab.query_lab_result import LabResultRow
@@ -43,7 +44,7 @@ _FETCH_BY_ID_SQL = """
            test_code, test_name, panel_code,
            result_value, result_numeric, result_unit,
            reference_range_low, reference_range_high, flag,
-           triage_group, triage_reason,
+           triage_group, triage_reason, triage_classified_at, triage_model,
            requires_doctor_review, reviewed_by_staff_id, reviewed_at,
            is_finalized,
            lab_provider, sample_collected_at, result_received_at
@@ -158,6 +159,19 @@ def make_classify_node(
                 }
             )
 
+        # A doctor-finalised result is immutable. Reuse its persisted triage
+        # facts instead of spending another classifier call or overwriting it.
+        if bool(getattr(row, "is_finalized", False)):
+            return state.model_copy(
+                update={
+                    "triage_group": row.triage_group,
+                    "triage_reason": row.triage_reason,
+                    "requires_doctor_review": row.requires_doctor_review,
+                    "step": LabTriageStep.PERSIST,
+                    "turn_count": state.turn_count + 1,
+                }
+            )
+
         if llm_client is None:
             logger.warning(
                 "lab_triage.classify_no_llm_fallback",
@@ -169,7 +183,7 @@ def make_classify_node(
                     "triage_reason": "no llm client wired",
                     "requires_doctor_review": True,
                     "classify_source": None,
-                    "step": LabTriageStep.HARD_BLOCK,
+                    "step": LabTriageStep.PERSIST,
                     "turn_count": state.turn_count + 1,
                 }
             )
@@ -189,16 +203,11 @@ def make_classify_node(
                     "triage_group": "PENDING",
                     "triage_reason": "classifier error — escalated for review",
                     "requires_doctor_review": True,
-                    "step": LabTriageStep.HARD_BLOCK,
+                    "step": LabTriageStep.PERSIST,
                     "turn_count": state.turn_count + 1,
                 }
             )
 
-        next_step = (
-            LabTriageStep.HARD_BLOCK
-            if result.triage_group == "GROUP_C"
-            else LabTriageStep.ADVISE
-        )
         return state.model_copy(
             update={
                 "triage_group": result.triage_group,
@@ -206,12 +215,77 @@ def make_classify_node(
                 "requires_doctor_review": result.requires_doctor_review,
                 "classify_source": result.source,
                 "matched_rule_key": result.matched_rule_key,
-                "step": next_step,
+                "step": LabTriageStep.PERSIST,
                 "turn_count": state.turn_count + 1,
             }
         )
 
     return classify_node
+
+
+def make_persist_node(pool: Optional[asyncpg.Pool]) -> LabTriageNode:
+    """Persist classifier output before any response or review task is emitted."""
+
+    async def persist_node(state: LabTriageState) -> LabTriageState:
+        row = state.lab_result_row
+        if row is not None and bool(getattr(row, "is_finalized", False)):
+            return state.model_copy(
+                update={
+                    "step": LabTriageStep.PERSIST,
+                    "turn_count": state.turn_count + 1,
+                }
+            )
+
+        if pool is None or state.lab_result_id is None or state.triage_group is None:
+            return state.model_copy(
+                update={
+                    "requires_doctor_review": True,
+                    "error": "triage_persist_unavailable",
+                    "step": LabTriageStep.PERSIST,
+                    "turn_count": state.turn_count + 1,
+                }
+            )
+
+        try:
+            persisted = await LabSafetyService(pool).persist_classification(
+                lab_result_id=state.lab_result_id,
+                clinic_id=state.clinic_id,
+                triage_group=state.triage_group,
+                triage_reason=state.triage_reason,
+                requires_doctor_review=state.requires_doctor_review,
+                triage_model=state.classify_source,
+            )
+        except Exception as exc:
+            logger.error(
+                "lab_triage.persist_failed",
+                lab_result_id=str(state.lab_result_id),
+                error_type=type(exc).__name__,
+            )
+            persisted = None
+
+        return state.model_copy(
+            update={
+                "triage_group": (
+                    persisted.triage_group if persisted else state.triage_group
+                ),
+                "triage_reason": (
+                    persisted.triage_reason if persisted else state.triage_reason
+                ),
+                "requires_doctor_review": (
+                    persisted.requires_doctor_review if persisted else True
+                ),
+                "classify_source": (
+                    persisted.triage_model if persisted else state.classify_source
+                ),
+                "error": (
+                    state.error if persisted is not None else "triage_persist_failed"
+                ),
+                "step": LabTriageStep.PERSIST,
+                "turn_count": state.turn_count + 1,
+            }
+        )
+
+    return persist_node
 
 
 def make_advise_node(pool: Optional[asyncpg.Pool]) -> LabTriageNode:
@@ -307,6 +381,18 @@ def make_create_review_tasks_node(
             )
 
         row = state.lab_result_row
+        if row is not None and bool(getattr(row, "is_finalized", False)):
+            logger.info(
+                "lab_triage.create_review_tasks.skip_finalized",
+                lab_result_id=str(state.lab_result_id),
+            )
+            return state.model_copy(
+                update={
+                    "step": LabTriageStep.DONE,
+                    "turn_count": state.turn_count + 1,
+                }
+            )
+
         test_name = getattr(row, "test_name", None) or "lab result"
         due_at = datetime.now(tz=timezone.utc) + timedelta(hours=_LAB_REVIEW_SLA_HOURS)
 
@@ -316,7 +402,7 @@ def make_create_review_tasks_node(
             priority="URGENT",
             source_type="LAB_RESULT",
             source_id=state.lab_result_id,
-            title=f"Review {test_name} — GROUP_C",
+            title=f"Review {test_name} — {state.triage_group or 'PENDING'}",
             description=state.triage_reason,
             due_at=due_at,
             sla_hours=_LAB_REVIEW_SLA_HOURS,

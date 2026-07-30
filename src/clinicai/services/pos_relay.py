@@ -20,6 +20,7 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.adapters.pos.null import NullPosAdapter
 from clinicai.ports.pos import (
     PosDeliveryError,
     PosInvoice,
@@ -67,18 +68,29 @@ async def poll_and_push(pool: asyncpg.Pool, adapter: PosPort | None = None) -> i
             if not claimed:
                 continue
             try:
-                # Another relay may have finished this row between the SELECT
-                # and the lock.
-                still_pending = await conn.fetchval(
-                    "SELECT status = 'PENDING' FROM pos_outbox WHERE id = $1",
-                    row["id"],
+                cycle_lock = pos_outbox.causal_lock_name(str(row["subject_id"]))
+                await conn.execute(
+                    "SELECT pg_advisory_lock(hashtextextended($1::text, 0))",
+                    cycle_lock,
                 )
-                if not still_pending:
-                    continue
+                try:
+                    # Another relay or a payment void may have finished or
+                    # cancelled this row between the SELECT and both locks.
+                    still_pending = await conn.fetchval(
+                        "SELECT status = 'PENDING' FROM pos_outbox WHERE id = $1",
+                        row["id"],
+                    )
+                    if not still_pending:
+                        continue
 
-                port = adapter or build_adapter(_as_dict(row["settings"]))
-                if await _deliver(conn, row, port):
-                    sent += 1
+                    port = adapter or build_adapter(_as_dict(row["settings"]))
+                    if await _deliver(conn, row, port):
+                        sent += 1
+                finally:
+                    await conn.execute(
+                        "SELECT pg_advisory_unlock(hashtextextended($1::text, 0))",
+                        cycle_lock,
+                    )
             finally:
                 await conn.execute(
                     "SELECT pg_advisory_unlock(hashtextextended($1::text, 0))",
@@ -92,6 +104,14 @@ async def poll_and_push(pool: asyncpg.Pool, adapter: PosPort | None = None) -> i
 async def _deliver(
     conn: asyncpg.Connection, row: asyncpg.Record, port: PosPort
 ) -> bool:
+    if isinstance(port, NullPosAdapter):
+        await _dead_letter(
+            conn,
+            row,
+            "POS adapter đang tắt hoặc cấu hình sai; chưa gửi dữ liệu ra POS",
+        )
+        return False
+
     payload = _as_dict(row["payload"])
     kind = row["kind"]
 

@@ -10,11 +10,10 @@ Contract
 --------
 - Middleware reads ``BACKEND_API_KEY`` from the environment at *request* time.
 - Routes under :data:`EXEMPT_PATHS` are always reachable (health/probe).
-- If ``BACKEND_API_KEY`` is unset → request passes through *with* a structured
-  warning log. This keeps local-dev frictionless; production deploys MUST set
-  the variable or they will (correctly) be left unprotected. Docker-compose +
-  CI both pin the variable so a missing key in prod is a config bug, caught
-  fast.
+- If ``BACKEND_API_KEY`` is unset in an explicitly named development/test
+  environment → request passes through with a structured warning log.
+- In production, staging, or an unknown/unset environment → protected routes
+  return 503. A deployment mistake must never silently turn authentication off.
 - If the variable is set:
     * missing ``X-API-Key`` header → 401 Unauthorized
     * header present but != configured value → 403 Forbidden
@@ -54,6 +53,10 @@ EXEMPT_PATHS: frozenset[str] = frozenset(
 
 API_KEY_HEADER = "X-API-Key"
 ENV_VAR_NAME = "BACKEND_API_KEY"
+APP_ENV_VAR_NAME = "APP_ENV"
+UNPROTECTED_DEV_ENVIRONMENTS = frozenset(
+    {"dev", "development", "local", "test", "testing"}
+)
 
 
 def _is_exempt(path: str) -> bool:
@@ -74,11 +77,28 @@ async def api_key_middleware(
 
     expected = os.environ.get(ENV_VAR_NAME)
     if not expected:
-        # Dev-friendly fallback. Production deploys are expected to set this;
-        # the warning shows up in structured logs so a missing key is visible.
+        app_env = os.environ.get(APP_ENV_VAR_NAME, "").strip().lower()
+        if app_env not in UNPROTECTED_DEV_ENVIRONMENTS:
+            logger.error(
+                "auth_middleware_misconfigured",
+                reason=f"{ENV_VAR_NAME} not set in {app_env or 'unknown environment'}",
+                path=request.url.path,
+            )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "SERVER_MISCONFIGURED",
+                    "message": "API authentication is not configured",
+                },
+            )
+
+        # Explicit dev/test fallback. Non-production environments stay
+        # frictionless without weakening the production failure mode.
         logger.warning(
             "auth_middleware_disabled",
-            reason=f"{ENV_VAR_NAME} not set; allowing request without API key",
+            reason=(
+                f"{ENV_VAR_NAME} not set in {app_env}; allowing request without API key"
+            ),
             path=request.url.path,
         )
         return await call_next(request)

@@ -149,6 +149,8 @@ async def work_item_blockers(
 ) -> dict[str, object]:
     """What is still in the way — so the UI can say why a button is disabled."""
     blockers = await WorkItemService(pool).blockers(
-        work_item_id=str(work_item_id), phase=phase
+        work_item_id=str(work_item_id),
+        phase=phase,
+        identity=identity,
     )
     return {"phase": phase, "blockers": blockers, "open": not blockers}

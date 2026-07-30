@@ -14,6 +14,8 @@ from clinicai.event_bus.publisher import MockEventPublisher, RabbitMQPublisher
 from clinicai.schemas.events import InteractionEvent
 from clinicai.services.event_service import EventService
 
+FAKE_CLINIC_ID = uuid4()
+
 
 @pytest.fixture
 def mock_db() -> tuple[MagicMock, AsyncMock]:
@@ -44,6 +46,7 @@ def mock_publisher() -> MockEventPublisher:
 def sample_event() -> InteractionEvent:
     """Fixture that returns a sample InteractionEvent."""
     return InteractionEvent(
+        clinic_id=FAKE_CLINIC_ID,
         event_type="interaction.walkin",
         entity_type="appointment",
         entity_id=uuid4(),
@@ -61,8 +64,7 @@ async def test_event_service__record_and_publish__inserts_event_log(
 ) -> None:
     """Verify record_and_publish inserts the event into the database."""
     pool, conn = mock_db
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
+    conn.fetchval.return_value = sample_event.event_id
 
     svc = EventService(pool, mock_publisher)
     await svc.record_and_publish(sample_event, "interaction.walkin")
@@ -73,12 +75,14 @@ async def test_event_service__record_and_publish__inserts_event_log(
 
     # Verify query parameters
     args = conn.fetchval.call_args[0][1:]
-    assert args[0] == sample_event.event_type
-    assert args[1] == sample_event.entity_type
-    assert args[2] == sample_event.entity_id
-    assert json.loads(args[3]) == sample_event.payload
-    assert json.loads(args[4]) == {"trace_id": str(sample_event.trace_id)}
-    assert args[5] == sample_event.source_channel
+    assert args[0] == sample_event.event_id
+    assert args[1] == sample_event.clinic_id
+    assert args[2] == sample_event.event_type
+    assert args[3] == sample_event.entity_type
+    assert args[4] == sample_event.entity_id
+    assert json.loads(args[5]) == sample_event.payload
+    assert json.loads(args[6]) == {"trace_id": str(sample_event.trace_id)}
+    assert args[7] == sample_event.source_channel
 
 
 @pytest.mark.asyncio
@@ -89,14 +93,32 @@ async def test_event_service__record_and_publish__returns_event_id(
 ) -> None:
     """Verify that record_and_publish returns the inserted UUID."""
     pool, conn = mock_db
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
+    conn.fetchval.return_value = sample_event.event_id
 
     svc = EventService(pool, mock_publisher)
     event_id = await svc.record_and_publish(sample_event, "interaction.walkin")
 
-    assert event_id == fake_id
+    assert event_id == sample_event.event_id
     assert isinstance(event_id, UUID)
+
+
+@pytest.mark.asyncio
+async def test_event_service__db_id_mismatch__fails_before_publish(
+    mock_db: tuple[MagicMock, AsyncMock],
+    mock_publisher: MockEventPublisher,
+    sample_event: InteractionEvent,
+) -> None:
+    """The broker and outbox must never observe different event IDs."""
+    pool, conn = mock_db
+    conn.fetchval.return_value = uuid4()
+
+    with pytest.raises(RuntimeError, match="Persisted event_id does not match"):
+        await EventService(pool, mock_publisher).record_and_publish(
+            sample_event,
+            "interaction.walkin",
+        )
+
+    assert mock_publisher.count() == 0
 
 
 @pytest.mark.asyncio
@@ -107,8 +129,7 @@ async def test_event_service__record_and_publish__publishes_correct_topic(
 ) -> None:
     """Verify that the publisher is called with the correct topic and event."""
     pool, conn = mock_db
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
+    conn.fetchval.return_value = sample_event.event_id
 
     svc = EventService(pool, mock_publisher)
     await svc.record_and_publish(sample_event, "interaction.walkin")
@@ -127,15 +148,19 @@ async def test_event_service__record_and_publish__marks_published_on_success(
 ) -> None:
     """Verify that event_published is updated to TRUE after successful publish."""
     pool, conn = mock_db
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
+    conn.fetchval.return_value = sample_event.event_id
 
     svc = EventService(pool, mock_publisher)
     await svc.record_and_publish(sample_event, "interaction.walkin")
 
     conn.execute.assert_awaited_once_with(
-        "UPDATE event_log SET event_published = TRUE WHERE event_id = $1",
-        fake_id,
+        """
+                    UPDATE event_log
+                    SET event_published = TRUE
+                    WHERE event_id = $1 AND clinic_id = $2
+                    """,
+        sample_event.event_id,
+        sample_event.clinic_id,
     )
 
 
@@ -146,15 +171,14 @@ async def test_event_service__record_and_publish_not_implemented__no_exception(
 ) -> None:
     """Verify that NotImplementedError (RabbitMQ stub) does not crash the service."""
     pool, conn = mock_db
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
+    conn.fetchval.return_value = sample_event.event_id
 
     stub_publisher = RabbitMQPublisher()
     svc = EventService(pool, stub_publisher)
 
     # Should not raise exception
     event_id = await svc.record_and_publish(sample_event, "interaction.walkin")
-    assert event_id == fake_id
+    assert event_id == sample_event.event_id
 
     # Update should not be called since publishing raised NotImplementedError
     conn.execute.assert_not_awaited()
@@ -167,8 +191,7 @@ async def test_event_service__record_and_publish_failure__no_exception(
 ) -> None:
     """Verify a publisher exception does not propagate and crash the service."""
     pool, conn = mock_db
-    fake_id = uuid4()
-    conn.fetchval.return_value = fake_id
+    conn.fetchval.return_value = sample_event.event_id
 
     bad_publisher = MagicMock()
     bad_publisher.publish = AsyncMock(side_effect=RuntimeError("Broker down"))
@@ -177,7 +200,7 @@ async def test_event_service__record_and_publish_failure__no_exception(
 
     # Should not raise exception
     event_id = await svc.record_and_publish(sample_event, "interaction.walkin")
-    assert event_id == fake_id
+    assert event_id == sample_event.event_id
 
     # Update should not be called
     conn.execute.assert_not_awaited()
@@ -214,7 +237,7 @@ async def test_event_service__get_unpublished__returns_pending_events(
     conn.fetch.return_value = mock_rows
 
     svc = EventService(pool, mock_publisher)
-    results = await svc.get_unpublished(limit=10)
+    results = await svc.get_unpublished(FAKE_CLINIC_ID, limit=10)
 
     assert len(results) == 2
     assert results[0]["event_type"] == "interaction.walkin"
@@ -222,15 +245,20 @@ async def test_event_service__get_unpublished__returns_pending_events(
     assert isinstance(results[0]["trace_id"], UUID)
     assert results[1]["payload"] == {"status": "checked_in"}
     assert isinstance(results[1]["trace_id"], UUID)
+    sql, clinic_id, limit = conn.fetch.call_args.args
+    assert "WHERE clinic_id = $1" in sql
+    assert clinic_id == FAKE_CLINIC_ID
+    assert limit == 10
 
 
 def test_event_service__interaction_event_validation__raises_validation_error() -> None:
     """Verify that schema validation fails when required fields are missing."""
     with pytest.raises(ValidationError):
-        # Missing entity_id
+        # Missing clinic_id: an outbox event may never be tenant-ambiguous.
         InteractionEvent(  # type: ignore[call-arg]
             event_type="interaction.walkin",
             entity_type="appointment",
+            entity_id=uuid4(),
             payload={"status": "scheduled"},
             trace_id=uuid4(),
             source_channel="walkin",

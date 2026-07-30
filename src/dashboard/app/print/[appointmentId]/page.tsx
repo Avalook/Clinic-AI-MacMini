@@ -5,7 +5,7 @@
 
 import { notFound } from "next/navigation";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { requireClinicRole } from "../../../lib/clinic-session";
+import { requireClinicalRole } from "../../../lib/clinic-session";
 import { VN_TZ, isVnMidnight } from "../../../lib/datetime";
 import MedicalSummaryPrint, { type FormData } from "./MedicalSummaryPrint";
 
@@ -115,7 +115,7 @@ export default async function PrintMedicalSummaryPage({
 }: {
   params: Promise<{ appointmentId: string }>;
 }) {
-  await requireClinicRole(); // chặn xem PII/hồ sơ qua URL khi chưa đăng nhập/chọn vai
+  await requireClinicalRole(); // phiếu chứa hồ sơ khám: chỉ 4 vai lâm sàng
   const { appointmentId } = await params;
   const supabase = await getSupabaseServer();
 

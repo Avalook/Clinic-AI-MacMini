@@ -1,9 +1,35 @@
 """Integration tests for Staff FastAPI endpoints."""
 
+from collections.abc import AsyncIterator
 from uuid import UUID, uuid4
 
+import asyncpg
 import pytest
 from httpx import AsyncClient
+
+from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
+from clinicai.main import app
+
+
+@pytest.fixture(autouse=True)
+async def management_identity(
+    db_pool: asyncpg.Pool,
+) -> AsyncIterator[None]:
+    """Drive staff endpoints through their real MANAGEMENT authorization gate."""
+    clinic_id = await db_pool.fetchval(
+        "SELECT id FROM clinic ORDER BY created_at LIMIT 1"
+    )
+    identity = StaffIdentity(
+        staff_id=str(uuid4()),
+        auth_user_id=str(uuid4()),
+        full_name="Integration Test Manager",
+        department=ClinicRole.MANAGEMENT.value,
+        role=ClinicRole.MANAGEMENT,
+        clinic_id=str(clinic_id),
+    )
+    app.dependency_overrides[get_current_identity] = lambda: identity
+    yield
+    app.dependency_overrides.pop(get_current_identity, None)
 
 
 @pytest.mark.asyncio

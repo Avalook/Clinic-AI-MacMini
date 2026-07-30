@@ -25,6 +25,7 @@ EVENT_LOG_TOPIC = "system.event_log"
 class AppendEventInput(BaseModel):
     """Input schema for the event_log.append tool."""
 
+    clinic_id: UUID
     event_type: str
     entity_type: str
     entity_id: UUID
@@ -53,6 +54,7 @@ async def append_event(
     )
 
     event = InteractionEvent(
+        clinic_id=input.clinic_id,
         event_type=input.event_type,
         entity_type=input.entity_type,
         entity_id=input.entity_id,

@@ -13,6 +13,7 @@ class LabTriageStep(str, Enum):
     RECEIVE = "receive"
     FETCH = "fetch"
     CLASSIFY = "classify"
+    PERSIST = "persist"
     ADVISE = "advise"
     HARD_BLOCK = "hard_block"
     DONE = "done"

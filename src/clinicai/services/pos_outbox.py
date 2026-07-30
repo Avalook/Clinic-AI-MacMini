@@ -22,6 +22,35 @@ logger = structlog.get_logger()
 INVOICE = "invoice"
 INVOICE_VOID = "invoice_void"
 STOCK_MOVEMENT = "stock_movement"
+_CAUSAL_LOCK_PREFIX = "pos-cycle:"
+
+
+def causal_lock_name(subject_id: str) -> str:
+    """Shared advisory-lock namespace for all events in one payment cycle."""
+    return f"{_CAUSAL_LOCK_PREFIX}{subject_id}"
+
+
+async def cancel_pending_invoice(
+    conn: asyncpg.Connection,
+    *,
+    subject_id: str,
+    clinic_id: str,
+) -> None:
+    """Dead-letter an invoice that a void made obsolete before delivery."""
+    await conn.execute(
+        """
+        UPDATE pos_outbox
+           SET status = 'DEAD',
+               last_error = 'Invoice cancelled before delivery by payment void',
+               updated_at = now()
+         WHERE clinic_id = $1::uuid
+           AND subject_id = $2::uuid
+           AND kind = 'invoice'
+           AND status = 'PENDING'
+        """,
+        clinic_id,
+        subject_id,
+    )
 
 
 async def enqueue(

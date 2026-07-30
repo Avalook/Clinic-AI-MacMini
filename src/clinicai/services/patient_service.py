@@ -109,7 +109,7 @@ class PatientService:
         """
         clinic_id = identity.clinic_id
 
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn, conn.transaction():
             # 1) CCCD hard conflict (cannot be forced — column is UNIQUE).
             if data.national_id_number:
                 existing = await conn.fetchrow(
@@ -218,7 +218,12 @@ class PatientService:
         for attempt in range(5):
             patient_code = _generate_patient_code(attempt)
             try:
-                row = await conn.fetchrow(query, patient_code, *values)
+                # create_patient owns the outer transaction that also writes
+                # the audit event. Each retry needs its own savepoint: after a
+                # PostgreSQL UNIQUE violation the surrounding transaction is
+                # aborted until that savepoint is rolled back.
+                async with conn.transaction():
+                    row = await conn.fetchrow(query, patient_code, *values)
             except asyncpg.UniqueViolationError as exc:
                 constraint = (exc.constraint_name or "") + " " + str(exc)
                 if "national_id" in constraint.lower():
@@ -323,8 +328,8 @@ class PatientService:
         query = """
             SELECT * FROM patient
             WHERE clinic_id = $2::uuid
-              AND phone_primary = ANY($1::text[])
-               OR phone_secondary = ANY($1::text[])
+              AND (phone_primary = ANY($1::text[])
+                   OR phone_secondary = ANY($1::text[]))
             ORDER BY created_at DESC;
         """
         async with self._pool.acquire() as conn:
@@ -352,8 +357,8 @@ class PatientService:
                 EXTRACT(YEAR FROM date_of_birth)::int AS birth_year
             FROM patient
             WHERE clinic_id = $2::uuid
-              AND phone_primary = ANY($1::text[])
-               OR phone_secondary = ANY($1::text[])
+              AND (phone_primary = ANY($1::text[])
+                   OR phone_secondary = ANY($1::text[]))
             ORDER BY created_at DESC
             LIMIT 10;
         """

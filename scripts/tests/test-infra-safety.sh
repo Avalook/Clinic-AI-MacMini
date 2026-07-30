@@ -19,10 +19,45 @@ fail() {
   exit 1
 }
 
+backup_test_env() {
+  local lock_path="${CLINIC_BACKUP_LOCK:-$TMP_ROOT/backup.lock}"
+  HOME="$TEST_HOME" \
+    PATH="$FAKE_BIN:/usr/bin:/bin" \
+    PG_DUMP_BIN="$FAKE_BIN/pg_dump" \
+    BACKUP_MIN_ARCHIVE_BYTES=1 \
+    BACKUP_ENV_FILE="$TEST_ENV" \
+    CLINIC_BACKUP_LOCK="$lock_path" \
+    FAKE_PG_DUMP_ONCE="${FAKE_PG_DUMP_ONCE:-}" \
+    FAKE_PG_DUMP_STARTED="${FAKE_PG_DUMP_STARTED:-}" \
+    FAKE_PG_DUMP_RELEASE="${FAKE_PG_DUMP_RELEASE:-}" \
+    "$ROOT/scripts/backup-db.sh"
+}
+
 make_pg_dump() {
   local mode="$1"
   if [ "$mode" = "fail" ]; then
     printf '%s\n' '#!/bin/bash' 'exit 42' > "$FAKE_BIN/pg_dump"
+  elif [ "$mode" = "slow" ]; then
+    cat > "$FAKE_BIN/pg_dump" <<'PG_DUMP'
+#!/bin/bash
+set -eu
+if [ "${1:-}" = "--version" ]; then
+  echo "pg_dump (PostgreSQL) test"
+  exit 0
+fi
+if mkdir "${FAKE_PG_DUMP_ONCE:?}" 2>/dev/null; then
+  touch "${FAKE_PG_DUMP_STARTED:?}"
+  for _ in $(seq 1 200); do
+    [ -f "${FAKE_PG_DUMP_RELEASE:?}" ] && break
+    sleep 0.05
+  done
+  [ -f "$FAKE_PG_DUMP_RELEASE" ] || exit 91
+fi
+echo "-- PostgreSQL database dump"
+echo "CREATE TABLE public.patient (id uuid);"
+echo "CREATE TABLE public.appointment (id uuid);"
+echo "-- PostgreSQL database dump complete"
+PG_DUMP
   elif [ "$mode" = "incomplete" ]; then
     printf '%s\n' \
       '#!/bin/bash' \
@@ -51,8 +86,7 @@ make_pg_dump() {
 
 test_backup_rejects_structurally_incomplete_dump() {
   make_pg_dump incomplete
-  if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
-    BACKUP_ENV_FILE="$TEST_ENV" "$ROOT/scripts/backup-db.sh"; then
+  if backup_test_env; then
     fail "backup accepted a dump missing a required core table"
   fi
   if find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f 2>/dev/null | grep -q .; then
@@ -88,8 +122,7 @@ PSQL
 
 test_backup_rejects_failed_dump() {
   make_pg_dump fail
-  if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
-    BACKUP_ENV_FILE="$TEST_ENV" "$ROOT/scripts/backup-db.sh"; then
+  if backup_test_env; then
     fail "backup accepted a failed pg_dump"
   fi
   if find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f 2>/dev/null | grep -q .; then
@@ -99,8 +132,7 @@ test_backup_rejects_failed_dump() {
 
 test_backup_creates_verified_archive() {
   make_pg_dump ok
-  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
-    BACKUP_ENV_FILE="$TEST_ENV" "$ROOT/scripts/backup-db.sh"
+  backup_test_env
   archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | head -1)"
   [ -n "$archive" ] || fail "backup did not create an archive"
   gzip -t "$archive" || fail "backup archive failed gzip validation"
@@ -115,6 +147,110 @@ test_backup_creates_verified_archive() {
   if grep -Eq 'DATABASE_URL|archive_path|db\.example|s@cret' "$status_file"; then
     fail "Ops backup metadata leaked a path or secret"
   fi
+}
+
+test_backup_command_preflight_is_explicit() {
+  missing_pg_dump="$TMP_ROOT/bin/pg_dump-missing"
+  if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    PG_DUMP_BIN="$missing_pg_dump" BACKUP_MIN_ARCHIVE_BYTES=1 \
+    BACKUP_ENV_FILE="$TEST_ENV" "$ROOT/scripts/backup-db.sh"; then
+    fail "backup ignored an invalid explicit PG_DUMP_BIN"
+  fi
+  grep -q 'configured pg_dump is not executable' \
+    "$TEST_HOME/Library/Logs/clinicai-backup.log" || \
+    fail "backup preflight did not report the invalid pg_dump command"
+
+  grep -Fq '/opt/homebrew/opt/libpq/bin' "$ROOT/scripts/backup-db.sh" || \
+    fail "backup command PATH does not include Homebrew libpq"
+  grep -Fq '/opt/homebrew/opt/postgresql@17/bin' "$ROOT/scripts/backup-db.sh" || \
+    fail "backup command PATH does not include Homebrew PostgreSQL 17"
+  grep -Fq '/opt/homebrew/opt/libpq/bin' \
+    "$ROOT/scripts/launchdaemons/com.dr4women.db-backup.plist" || \
+    fail "LaunchDaemon PATH does not include Homebrew libpq"
+}
+
+test_backup_rejects_small_archive_before_publish() {
+  local small_home="$TMP_ROOT/small-home"
+  mkdir -p "$small_home"
+  make_pg_dump ok
+  if HOME="$small_home" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    PG_DUMP_BIN="$FAKE_BIN/pg_dump" BACKUP_MIN_ARCHIVE_BYTES=999999999 \
+    BACKUP_ENV_FILE="$TEST_ENV" "$ROOT/scripts/backup-db.sh"; then
+    fail "backup published an archive below the configured minimum size"
+  fi
+  if find "$small_home/backups/clinicai" -name '*.sql.gz' -type f 2>/dev/null | grep -q .; then
+    fail "backup left a published archive after the size preflight failed"
+  fi
+}
+
+test_backup_verifier_rejects_stale_and_small_artifacts() {
+  local archive
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | head -1)"
+  [ -n "$archive" ] || fail "no verified archive exists for artifact health tests"
+
+  BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_MAX_AGE_HOURS=30 \
+    "$ROOT/scripts/verify-backup.sh" "$archive" >/dev/null
+
+  if BACKUP_MIN_ARCHIVE_BYTES=999999999 BACKUP_MAX_AGE_HOURS=30 \
+    "$ROOT/scripts/verify-backup.sh" "$archive" >/dev/null 2>&1; then
+    fail "backup verifier accepted an implausibly small archive"
+  fi
+
+  touch -t 200001010000 "$archive"
+  if BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_MAX_AGE_HOURS=1 \
+    "$ROOT/scripts/verify-backup.sh" "$archive" >/dev/null 2>&1; then
+    fail "backup verifier accepted a stale archive"
+  fi
+}
+
+test_backup_lock_rejects_a_concurrent_publisher() {
+  local lock_dir="$TMP_ROOT/concurrent-backup.lock"
+  local once_dir="$TMP_ROOT/pg-dump-once"
+  local started_file="$TMP_ROOT/pg-dump-started"
+  local release_file="$TMP_ROOT/pg-dump-release"
+  local first_output="$TMP_ROOT/backup-first.out"
+  local second_output="$TMP_ROOT/backup-second.out"
+  local first_pid second_rc archive
+
+  make_pg_dump slow
+  CLINIC_BACKUP_LOCK="$lock_dir" \
+    FAKE_PG_DUMP_ONCE="$once_dir" \
+    FAKE_PG_DUMP_STARTED="$started_file" \
+    FAKE_PG_DUMP_RELEASE="$release_file" \
+    backup_test_env >"$first_output" 2>&1 &
+  first_pid=$!
+
+  for _ in $(seq 1 100); do
+    [ -f "$started_file" ] && break
+    sleep 0.05
+  done
+  [ -f "$started_file" ] || {
+    touch "$release_file"
+    wait "$first_pid" 2>/dev/null || true
+    fail "first backup never reached pg_dump"
+  }
+
+  second_rc=0
+  CLINIC_BACKUP_LOCK="$lock_dir" \
+    FAKE_PG_DUMP_ONCE="$once_dir" \
+    FAKE_PG_DUMP_STARTED="$started_file" \
+    FAKE_PG_DUMP_RELEASE="$release_file" \
+    backup_test_env >"$second_output" 2>&1 || second_rc=$?
+
+  touch "$release_file"
+  wait "$first_pid" || fail "lock-owning backup failed"
+
+  [ "$second_rc" -ne 0 ] || \
+    fail "backup accepted a second publisher while the first still held the lock"
+  [ ! -d "$lock_dir" ] || fail "backup lock was not released after completion"
+  grep -q 'another backup is already active' \
+    "$TEST_HOME/Library/Logs/clinicai-backup.log" || \
+    fail "concurrent backup rejection was not logged"
+
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' -type f | LC_ALL=C sort | tail -1)"
+  [ -n "$archive" ] || fail "lock-owning backup did not publish an artifact"
+  BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_MAX_AGE_HOURS=1 \
+    "$ROOT/scripts/verify-backup.sh" "$archive" >/dev/null
 }
 
 test_restore_is_atomic_and_explicit() {
@@ -182,8 +318,140 @@ test_deploy_is_pinned_and_serialized() {
   fi
   grep -Fq 'group: clinicai-macmini-deploy' "$ROOT/.github/workflows/cd.yml" || \
     fail "prod and staging deployments are not globally serialized"
-  grep -Fq 'ref: ${{ github.sha }}' "$ROOT/.github/workflows/cd.yml" || \
+  grep -Fq 'ref: ${{ github.event.workflow_run.head_sha }}' "$ROOT/.github/workflows/cd.yml" || \
     fail "CD does not checkout the triggering commit"
+  grep -Fq 'workflow_run:' "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD is not gated on completion of CI"
+  grep -Fq "github.event.workflow_run.conclusion == 'success'" "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD does not require a successful CI conclusion"
+  grep -Fq "github.event.workflow_run.event == 'push'" "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD can be triggered by an untrusted pull request workflow"
+  grep -Fq 'github.event.workflow_run.head_repository.full_name == github.repository' \
+    "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD does not require the completed CI run to belong to this repository"
+  grep -Fq 'github.event.workflow_run.head_branch' "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD does not select the environment from the CI source branch"
+  grep -Fq 'id: freshness' "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD does not compare a completed CI SHA with the current branch head"
+  grep -Fq 'steps.freshness.outputs.deploy' "$ROOT/.github/workflows/cd.yml" || \
+    fail "CD checkout/deploy steps are not gated by branch-head freshness"
+  if grep -Eq '^  push:' "$ROOT/.github/workflows/cd.yml"; then
+    fail "CD still deploys directly on push before CI succeeds"
+  fi
+
+  grep -Fq './scripts/tests/test-infra-safety.sh' "$ROOT/.github/workflows/ci.yml" || \
+    fail "CI does not execute the infrastructure safety smoke tests"
+  for workflow in ci.yml cd.yml; do
+    grep -Fq 'contents: read' "$ROOT/.github/workflows/$workflow" || \
+      fail "$workflow does not use least-privilege repository contents access"
+  done
+}
+
+test_deploy_rolls_back_when_initial_up_fails() {
+  local deploy_repo="$TMP_ROOT/deploy-rollback-repo"
+  local previous_repo="$TMP_ROOT/deploy-previous-release"
+  local deploy_secrets="$TMP_ROOT/deploy-rollback-secrets"
+  local deploy_tmp="$TMP_ROOT/deploy-rollback-tmp"
+  local docker_log="$TMP_ROOT/deploy-docker.log"
+  local deploy_output="$TMP_ROOT/deploy-rollback.out"
+  local previous_env="$deploy_secrets/previous.env"
+  local sha
+
+  mkdir -p "$deploy_repo/scripts" "$previous_repo" "$deploy_secrets" "$deploy_tmp"
+  cp "$ROOT/scripts/deploy-backend.sh" "$deploy_repo/scripts/deploy-backend.sh"
+  chmod +x "$deploy_repo/scripts/deploy-backend.sh"
+  printf '%s\n' 'services: {}' > "$deploy_repo/docker-compose.yml"
+  printf '%s\n' 'services: {}' > "$previous_repo/docker-compose.yml"
+  touch "$deploy_repo/.new-release-marker" "$previous_repo/.previous-release-marker"
+  cat > "$deploy_secrets/.env.prod" <<'ENV'
+APP_ENV=production
+COMPOSE_PROJECT_NAME=clinicai_prod
+IMAGE_TAG=prod
+SITE_ADDRESS=:80
+SUPABASE_URL=https://prod.example.test
+SUPABASE_ANON_KEY=anon-test
+SUPABASE_SERVICE_ROLE_KEY=service-test
+DATABASE_URL=postgresql://test:test@db.example.test:5432/test
+BACKEND_API_KEY=backend-test
+COMPOSE_PROFILES=
+ENV
+  cp "$deploy_secrets/.env.prod" "$previous_env"
+  printf 'source=%s\nenv=%s\n' "$previous_repo" "$previous_env" \
+    > "$deploy_secrets/.active-state-prod"
+
+  cat > "$FAKE_BIN/docker" <<'DOCKER'
+#!/bin/bash
+set -eu
+printf '%s|%s\n' "$PWD" "$*" >> "${FAKE_DOCKER_LOG:?}"
+if [ "${1:-}" = "image" ] && [ "${2:-}" = "inspect" ]; then
+  case "$*" in
+    *clinicai-api:prod*) echo "sha256:old-api" ;;
+    *clinicai-dashboard:prod*) echo "sha256:old-dashboard" ;;
+    *) exit 1 ;;
+  esac
+  exit 0
+fi
+if [ "${1:-}" = "tag" ]; then
+  exit 0
+fi
+if [ "${1:-}" = "inspect" ]; then
+  echo healthy
+  exit 0
+fi
+for arg in "$@"; do
+  if [ "$arg" = "ps" ]; then
+    echo fake-container-id
+    exit 0
+  fi
+  if [ "$arg" = "up" ]; then
+    if [ -f "$PWD/.new-release-marker" ]; then
+      exit 42
+    fi
+    if [ -f "$PWD/.previous-release-marker" ]; then
+      exit "${FAKE_ROLLBACK_UP_FAIL:-0}"
+    fi
+  fi
+done
+exit 0
+DOCKER
+  chmod +x "$FAKE_BIN/docker"
+
+  git -C "$deploy_repo" init -q
+  git -C "$deploy_repo" add .new-release-marker docker-compose.yml scripts/deploy-backend.sh
+  git -C "$deploy_repo" -c user.name=Test -c user.email=test@example.test commit -qm init
+  sha="$(git -C "$deploy_repo" rev-parse HEAD)"
+
+  if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
+    CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
+    DEPLOY_SOURCE_BRANCH=main FAKE_DOCKER_LOG="$docker_log" \
+    "$deploy_repo/scripts/deploy-backend.sh" prod >"$deploy_output" 2>&1; then
+    fail "deploy reported success after the new compose up failed"
+  fi
+  grep -q 'deploy-previous-release|.* up -d' "$docker_log" || \
+    fail "deploy did not run compose up from the previous release"
+  grep -q 'rollback health verified' "$deploy_output" || \
+    fail "deploy did not health-check a successful rollback"
+  grep -q 'tag sha256:old-api clinicai-api:prod' "$docker_log" || \
+    fail "deploy did not restore the previous API image tag"
+  grep -q 'tag sha256:old-dashboard clinicai-dashboard:prod' "$docker_log" || \
+    fail "deploy did not restore the previous dashboard image tag"
+  grep -Fxq "source=$previous_repo" "$deploy_secrets/.active-state-prod" || \
+    fail "failed deployment replaced the previous active release state"
+
+  : > "$docker_log"
+  if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
+    CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
+    DEPLOY_SOURCE_BRANCH=main FAKE_DOCKER_LOG="$docker_log" \
+    FAKE_ROLLBACK_UP_FAIL=43 \
+    "$deploy_repo/scripts/deploy-backend.sh" prod >"$deploy_output" 2>&1; then
+    fail "deploy reported success when both new and rollback compose up failed"
+  fi
+  grep -q 'deploy-previous-release|.* up -d' "$docker_log" || \
+    fail "deploy did not attempt the rollback compose up"
+  grep -q 'rollback compose up failed' "$deploy_output" || \
+    fail "set -e cut off controlled handling of a failed rollback compose up"
 }
 
 test_deploy_exact_sha_smoke() {
@@ -247,6 +515,17 @@ DOCKER
     DEPLOY_SOURCE_BRANCH=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
     fail "deploy accepted the wrong commit SHA"
   fi
+
+  printf '%s\n' \
+    'COMPOSE_PROFILES=workers' \
+    'RABBITMQ_URL=' \
+    'RABBITMQ_PASSWORD=' >> "$deploy_secrets/.env.prod"
+  if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
+    CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
+    CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
+    DEPLOY_SOURCE_BRANCH=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
+    fail "workers profile accepted an empty RabbitMQ password/URL"
+  fi
 }
 
 test_boot_is_bash32_safe_and_uses_shared_lock() {
@@ -278,12 +557,119 @@ test_boot_is_bash32_safe_and_uses_shared_lock() {
     fail "boot script did not honor the shared deploy lock"
 }
 
+test_compose_has_bounded_runtime_defaults() {
+  grep -Fq 'RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}' "$ROOT/docker-compose.yml" || \
+    fail "RabbitMQ still has a default password"
+  if grep -Fq 'clinicai_dev_pass' \
+      "$ROOT/docker-compose.yml" "$ROOT/.env.example" \
+      "$ROOT/.env.prod.example" "$ROOT/.env.staging.example"; then
+    fail "RabbitMQ config contains a shared fallback password"
+  fi
+  grep -Fq 'RabbitMQ password is required when the workers profile is enabled' \
+    "$ROOT/docker-compose.yml" || \
+    fail "RabbitMQ container does not fail closed when workers are enabled"
+
+  grep -Fq 'x-clinic-service-defaults:' "$ROOT/docker-compose.yml" || \
+    fail "compose does not define shared security/logging defaults"
+  [ "$(grep -Fc '<<: *clinic-service-defaults' "$ROOT/docker-compose.yml")" -ge 10 ] || \
+    fail "not every compose service inherits the security/logging defaults"
+  [ "$(grep -Ec '^    mem_limit:' "$ROOT/docker-compose.yml")" -ge 10 ] || \
+    fail "not every compose service has a memory limit"
+  [ "$(grep -Ec '^    pids_limit:' "$ROOT/docker-compose.yml")" -ge 10 ] || \
+    fail "not every compose service has a PID limit"
+}
+
+test_compose_renders_every_profile_safely() {
+  if ! command -v docker >/dev/null 2>&1 ||
+     ! docker compose version >/dev/null 2>&1; then
+    echo "SKIP: docker compose is unavailable; CI portability job must run this check"
+    return
+  fi
+
+  RABBITMQ_PASSWORD= RABBITMQ_URL= CLINIC_ENV_FILE=.env.prod.example \
+    docker compose --env-file "$ROOT/.env.prod.example" \
+      -f "$ROOT/docker-compose.yml" -p clinicai_infra_test config --quiet
+
+  CLINIC_ENV_FILE=.env.prod.example \
+    docker compose --env-file "$ROOT/.env.prod.example" \
+      -f "$ROOT/docker-compose.yml" -p clinicai_infra_test \
+      --profile '*' config --format json |
+    python3 -c '
+import json
+import sys
+
+services = json.load(sys.stdin)["services"]
+expected = {
+    "api", "caddy", "cloudflared", "dashboard", "dozzle",
+    "notification-relay", "pos-relay", "rabbitmq", "uptime-kuma", "worker",
+}
+assert set(services) == expected, set(services)
+for name, service in services.items():
+    assert service.get("mem_limit"), (name, "mem_limit")
+    assert service.get("pids_limit"), (name, "pids_limit")
+    assert service.get("security_opt") == ["no-new-privileges:true"], (
+        name,
+        "security_opt",
+    )
+    assert service.get("logging", {}).get("options") == {
+        "max-file": "5",
+        "max-size": "10m",
+    }, (name, "logging")
+'
+}
+
+test_repository_hygiene_and_test_doc_are_safe() {
+  grep -Fqx '.headroom/' "$ROOT/.gitignore" || \
+    fail "local Headroom agent memory is not ignored"
+  grep -E 'Mật khẩu phòng khám.*secret manager' \
+    "$ROOT/docs/Hướng dẫn test Dashboard.md" >/dev/null || \
+    fail "dashboard test guide does not direct testers to the secret manager"
+  if grep -E 'Mật khẩu phòng khám' "$ROOT/docs/Hướng dẫn test Dashboard.md" | \
+      grep -vq 'secret manager'; then
+    fail "dashboard test guide still embeds the clinic password"
+  fi
+}
+
+test_runbook_installs_the_real_launchdaemon_template() {
+  local runbook="$ROOT/docs/OPS-RUNBOOK.md"
+  local backend_template="$ROOT/docker/com.dr4women.clinic-backend.plist"
+
+  [ -f "$backend_template" ] || fail "backend LaunchDaemon template is missing"
+  grep -Fq 'docker/com.dr4women.clinic-backend.plist' "$runbook" || \
+    fail "runbook does not install the real backend LaunchDaemon template"
+  if grep -Fq 'scripts/launchdaemons/com.dr4women.clinic-backend.plist' "$runbook"; then
+    fail "runbook still names a nonexistent backend LaunchDaemon file"
+  fi
+  for marker in __USER__ __HOME__ __REPO__; do
+    grep -Fq "$marker" "$runbook" || \
+      fail "runbook does not render backend LaunchDaemon marker $marker"
+  done
+  grep -Fq 'plutil -lint "$BACKEND_PLIST"' "$runbook" || \
+    fail "runbook does not lint the rendered backend LaunchDaemon"
+  grep -Fq 'launchctl bootstrap system' "$runbook" || \
+    fail "runbook does not bootstrap LaunchDaemons in the system domain"
+  grep -Fq 'launchctl kickstart -k system/com.dr4women.db-backup' "$runbook" || \
+    fail "runbook does not run the reinstalled backup daemon immediately"
+  if grep -Eq 'sudo launchctl load|clinic-backend\.plist.*2>/dev/null' "$runbook"; then
+    fail "runbook still uses deprecated or error-swallowing LaunchDaemon commands"
+  fi
+}
+
 test_backup_rejects_failed_dump
 test_backup_rejects_structurally_incomplete_dump
 test_backup_creates_verified_archive
+test_backup_command_preflight_is_explicit
+test_backup_rejects_small_archive_before_publish
+test_backup_lock_rejects_a_concurrent_publisher
 test_restore_is_atomic_and_explicit
+test_backup_verifier_rejects_stale_and_small_artifacts
 test_compose_requires_explicit_runtime_env
 test_deploy_is_pinned_and_serialized
+test_deploy_rolls_back_when_initial_up_fails
 test_deploy_exact_sha_smoke
 test_boot_is_bash32_safe_and_uses_shared_lock
+test_compose_has_bounded_runtime_defaults
+test_compose_renders_every_profile_safely
+test_repository_hygiene_and_test_doc_are_safe
+test_runbook_installs_the_real_launchdaemon_template
 echo "infra safety smoke tests: PASS"

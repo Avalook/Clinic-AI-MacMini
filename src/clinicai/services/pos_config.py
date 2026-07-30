@@ -38,9 +38,9 @@ def configured_adapter_name(settings: dict[str, Any] | None = None) -> str:
 def build_adapter(settings: dict[str, Any] | None = None) -> PosPort:
     """Construct the adapter for one clinic.
 
-    Unknown names and missing credentials fall back to the null adapter rather
-    than raising: a typo in configuration must not stop the clinic taking money,
-    and the log line says exactly what was wrong.
+    Unknown names and missing credentials return the null adapter rather than
+    crashing the payment path. The relay recognizes it and dead-letters the
+    push; it must never claim an external POS accepted data that was discarded.
     """
     name = configured_adapter_name(settings)
 

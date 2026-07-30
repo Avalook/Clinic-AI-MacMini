@@ -8,7 +8,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../../lib/clinic-session";
-import { resolveLinkedStaffAuthority } from "../../../lib/identity-authority";
+import {
+  resolveLinkedStaffAuthority,
+  resolveSingleActiveMembership,
+} from "../../../lib/identity-authority";
 import { departmentToRole, roleLanding } from "../../../lib/roles";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 
@@ -40,7 +43,25 @@ export async function loginStaff(
     return { error: "Tài khoản chưa gắn với nhân viên. Liên hệ quản lý." };
   }
 
-  const role = departmentToRole(identity.primary_department);
+  const { data: memberships, error: membershipError } = await supabase
+    .from("clinic_membership")
+    .select("clinic_id, role, is_active")
+    .eq("staff_id", identity.id)
+    .eq("is_active", true);
+  const membership = resolveSingleActiveMembership(memberships ?? []);
+  if (membershipError || !membership) {
+    await supabase.auth.signOut();
+    return {
+      error:
+        "Tài khoản phải có đúng một phòng khám đang hoạt động. Liên hệ quản lý.",
+    };
+  }
+
+  const role = departmentToRole(membership.role);
+  if (!role) {
+    await supabase.auth.signOut();
+    return { error: "Vai trò nhân viên không hợp lệ. Liên hệ quản lý." };
+  }
   const opts = {
     path: "/",
     httpOnly: true,

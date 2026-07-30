@@ -73,6 +73,38 @@ class LabOrderService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                relation = await conn.fetchrow(
+                    """
+                    SELECT
+                        EXISTS (
+                            SELECT 1
+                              FROM patient p
+                             WHERE p.clinic_patient_id = $1::uuid
+                               AND p.clinic_id = $3::uuid
+                        ) AS patient_in_clinic,
+                        (
+                            SELECT a.clinic_patient_id
+                              FROM appointment a
+                             WHERE a.id = $2::uuid
+                               AND a.clinic_id = $3::uuid
+                        ) AS appointment_patient_id
+                    """,
+                    clinic_patient_id,
+                    appointment_id,
+                    identity.clinic_id,
+                )
+                if relation is None or not relation["patient_in_clinic"]:
+                    raise ValidationError("Mã bệnh nhân không thuộc phòng khám này")
+                if appointment_id is not None:
+                    appointment_patient_id = relation["appointment_patient_id"]
+                    if (
+                        appointment_patient_id is None
+                        or str(appointment_patient_id) != clinic_patient_id
+                    ):
+                        raise ValidationError(
+                            "Lịch hẹn xét nghiệm không thuộc bệnh nhân này"
+                        )
+
                 lab_result_id = await conn.fetchval(
                     """
                     INSERT INTO lab_result (
@@ -134,7 +166,9 @@ class LabOrderService:
                            lab_provider       = $4,
                            result_received_at = now(),
                            updated_at         = now()
-                     WHERE lab_result_id = $1::uuid AND clinic_id = $5::uuid
+                     WHERE lab_result_id = $1::uuid
+                       AND clinic_id = $5::uuid
+                       AND is_finalized = FALSE
                     RETURNING lab_result_id
                     """,
                     lab_result_id,
@@ -144,7 +178,9 @@ class LabOrderService:
                     identity.clinic_id,
                 )
                 if updated is None:
-                    raise NotFoundError("Không tìm thấy kết quả xét nghiệm")
+                    raise NotFoundError(
+                        "Không tìm thấy kết quả xét nghiệm hoặc kết quả đã chốt"
+                    )
 
                 await _log(
                     conn,

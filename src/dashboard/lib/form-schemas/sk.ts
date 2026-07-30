@@ -104,21 +104,6 @@ export const skSchema: FormSchema = {
       ],
     },
     {
-      // //TODO-BS-REVIEW: KHUNG bổ sung NGOÀI docx (docx Sản phần khám mỏng). Bác sĩ
-      // duyệt/sửa danh sách field khám thai chuẩn dưới đây trước khi dùng thật.
-      title: "Khám thai (khung tối thiểu) — //TODO-BS-REVIEW",
-      fields: [
-        { key: "tuoi_thai", label: "Tuổi thai", type: "number", unit: "tuần" },
-        { key: "be_cao_tu_cung", label: "Bề cao tử cung", type: "number", unit: "cm" },
-        { key: "vong_bung", label: "Vòng bụng", type: "number", unit: "cm" },
-        { key: "tim_thai", label: "Tim thai", type: "number", unit: "l/p" },
-        { key: "ngoi_thai", label: "Ngôi thai", type: "text" },
-        { key: "con_co_tu_cung", label: "Cơn co tử cung", type: "text" },
-        { key: "cu_dong_thai", label: "Cử động thai", type: "text" },
-        { key: "phu", label: "Phù", type: "text" },
-      ],
-    },
-    {
       title: "Cận lâm sàng — Xét nghiệm máu",
       fields: [
         { key: "cls_ctm", label: "CTM (HC, BC, TC, Hb, HCT)", type: "text" },

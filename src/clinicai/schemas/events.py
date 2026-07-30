@@ -13,6 +13,7 @@ class InteractionEvent(BaseModel):
     """Event model representing an interaction inside the clinic system."""
 
     event_id: UUID = Field(default_factory=uuid4)
+    clinic_id: UUID
     event_type: str  # e.g., "interaction.walkin", "zalo.message", "lab.result"
     entity_type: str  # e.g., "patient", "appointment"
     entity_id: UUID

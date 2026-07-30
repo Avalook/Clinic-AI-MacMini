@@ -2,7 +2,8 @@
 
 Covers the four behaviours promised by ``api_key_middleware``:
 * /health (exempt path) always works
-* protected route + no env var → middleware logs warning and passes through
+* development + no key → middleware logs warning and passes through
+* production + no key → middleware fails closed with 503
 * protected route + env var set + missing header → 401
 * protected route + env var set + wrong header → 403
 * protected route + env var set + right header → 200
@@ -43,13 +44,17 @@ def app() -> FastAPI:
 
 @pytest.fixture
 def patch_env() -> Iterator[None]:
-    """Snapshot ``BACKEND_API_KEY`` and restore after each test."""
-    prior = os.environ.get(ENV_VAR_NAME)
+    """Snapshot auth-related environment and restore it after each test."""
+    prior = {
+        ENV_VAR_NAME: os.environ.get(ENV_VAR_NAME),
+        "APP_ENV": os.environ.get("APP_ENV"),
+    }
     yield
-    if prior is None:
-        os.environ.pop(ENV_VAR_NAME, None)
-    else:
-        os.environ[ENV_VAR_NAME] = prior
+    for name, value in prior.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
 
 
 @pytest.mark.asyncio
@@ -68,12 +73,42 @@ async def test_missing_env_falls_through_with_warning(
     app: FastAPI, patch_env: None
 ) -> None:
     """Dev-friendly fallback: missing env var → request still served."""
+    os.environ["APP_ENV"] = "development"
     os.environ.pop(ENV_VAR_NAME, None)
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.get("/api/v1/patients/")
     assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_missing_key_in_production_fails_closed(
+    app: FastAPI, patch_env: None
+) -> None:
+    os.environ["APP_ENV"] = "production"
+    os.environ.pop(ENV_VAR_NAME, None)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/v1/patients/")
+    assert r.status_code == 503
+    assert r.json()["error"] == "SERVER_MISCONFIGURED"
+
+
+@pytest.mark.asyncio
+async def test_missing_key_and_app_env_fails_closed(
+    app: FastAPI, patch_env: None
+) -> None:
+    """An unknown runtime must not be silently treated as development."""
+    os.environ.pop("APP_ENV", None)
+    os.environ.pop(ENV_VAR_NAME, None)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        r = await client.get("/api/v1/patients/")
+    assert r.status_code == 503
+    assert r.json()["error"] == "SERVER_MISCONFIGURED"
 
 
 @pytest.mark.asyncio

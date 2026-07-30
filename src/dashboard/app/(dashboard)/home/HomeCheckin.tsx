@@ -1,9 +1,8 @@
 "use client";
 
 // Khu CHECK-IN trên trang chủ (thay cho mục sidebar cũ). Nút bấm → mở danh sách
-// check-in HÔM NAY ngay dưới nút; bấm TÊN bệnh nhân → hồ sơ lâm sàng hiện ở cột
-// PHẢI (SplitPane: kéo thanh giữa, bảng này dãn bảng kia co). Người đón khám
-// (ĐD/Lễ tân/Quản lý) ghi được Sinh hiệu, các mục khác read-only.
+// check-in HÔM NAY ngay dưới nút. Chỉ vai lâm sàng được bấm TÊN bệnh nhân để mở
+// hồ sơ ở cột PHẢI; vai vận hành thao tác check-in ngay trên danh sách.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -41,8 +40,7 @@ export default function HomeCheckin({
 }: {
   rows: HomeCheckinRow[];
   staffId: string | null;
-  /** CHỈ Bác sĩ + Điều dưỡng được ghi lâm sàng (sinh hiệu + lý do khám). Lễ tân /
-   *  Quản lý vẫn check-in (hành chính) nhưng xem hồ sơ lâm sàng ở chế độ chỉ-đọc. */
+  /** CHỈ vai lâm sàng được mở/ghi hồ sơ. Vai vận hành chỉ dùng nút check-in. */
   canWriteClinical?: boolean;
   defaultOpen?: boolean;
   /** Hiện cụm nút check-in/xác nhận/không-đến. Điều dưỡng (chế độ "Sinh hiệu hôm
@@ -78,7 +76,9 @@ export default function HomeCheckin({
     : rows;
   // Thứ tự khám: ƯT lên đầu → số → theo giờ.
   const shown = [...filtered].sort(compareQueue);
-  const sel = rows.find((r) => r.id === selId) ?? null;
+  const sel = canWriteClinical
+    ? (rows.find((r) => r.id === selId) ?? null)
+    : null;
 
   // Mọi nút = 1 việc thật → 1 action trên route /api/appointments (tái dùng,
   // service-role, gate canWriteIntake/canCheckin). Chặn double-click qua busyId.
@@ -164,10 +164,15 @@ export default function HomeCheckin({
                   )}
                 </div>
                 <button
-                  onClick={() => setSelId(r.id)}
-                  className="flex min-w-0 flex-1 items-start gap-1.5 text-left"
+                  onClick={() => {
+                    if (canWriteClinical) setSelId(r.id);
+                  }}
+                  disabled={!canWriteClinical}
+                  className="flex min-w-0 flex-1 items-start gap-1.5 text-left disabled:cursor-default"
                 >
-                  <FileText size={13} className="mt-0.5 shrink-0 text-[#ec4899]" />
+                  {canWriteClinical && (
+                    <FileText size={13} className="mt-0.5 shrink-0 text-[#ec4899]" />
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-[#171717] hover:text-[#ec4899]">
                       {r.patient?.full_name ?? "—"}

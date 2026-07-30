@@ -31,7 +31,7 @@ BATCH_SIZE = 50
 MAX_RETRIES = 3
 
 
-async def poll_and_deliver(pool: asyncpg.Pool) -> int:
+async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
     """Poll unpublished events and deliver notifications.
 
     Returns the number of events successfully processed.
@@ -41,10 +41,12 @@ async def poll_and_deliver(pool: asyncpg.Pool) -> int:
             """
             SELECT event_id, event_type, payload, metadata
             FROM event_log
-            WHERE event_published = FALSE
+            WHERE clinic_id = $1::uuid
+              AND event_published = FALSE
             ORDER BY occurred_at ASC
-            LIMIT $1
+            LIMIT $2
             """,
+            clinic_id,
             BATCH_SIZE,
         )
 
@@ -74,8 +76,10 @@ async def poll_and_deliver(pool: asyncpg.Pool) -> int:
                     SELECT NOT event_published
                     FROM event_log
                     WHERE event_id = $1
+                      AND clinic_id = $2::uuid
                     """,
                     event_id,
+                    clinic_id,
                 )
                 if not still_unpublished:
                     continue
@@ -89,7 +93,7 @@ async def poll_and_deliver(pool: asyncpg.Pool) -> int:
 
                 message = notification_templates.render(event_type, payload)
                 if message is None:
-                    await _mark_published(conn, event_id)
+                    await _mark_published(conn, event_id, clinic_id)
                     logger.debug(
                         "relay_no_template",
                         event_type=event_type,
@@ -115,7 +119,7 @@ async def poll_and_deliver(pool: asyncpg.Pool) -> int:
                     )
 
                 if success:
-                    await _mark_published(conn, event_id)
+                    await _mark_published(conn, event_id, clinic_id)
                     delivered += 1
                 else:
                     logger.error(
@@ -137,9 +141,13 @@ async def poll_and_deliver(pool: asyncpg.Pool) -> int:
     return delivered
 
 
-async def _mark_published(conn: asyncpg.Connection, event_id: Any) -> None:
+async def _mark_published(
+    conn: asyncpg.Connection, event_id: Any, clinic_id: str
+) -> None:
     """Mark an event as published in the outbox."""
     await conn.execute(
-        "UPDATE event_log SET event_published = TRUE WHERE event_id = $1",
+        "UPDATE event_log SET event_published = TRUE "
+        "WHERE event_id = $1 AND clinic_id = $2::uuid",
         event_id,
+        clinic_id,
     )

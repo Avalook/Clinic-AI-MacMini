@@ -24,7 +24,8 @@ DECLARE
     v_doctor   uuid;
 BEGIN
     SELECT id INTO v_location
-      FROM public.clinic_location WHERE clinic_id = v_clinic ORDER BY code LIMIT 1;
+      FROM public.clinic_location
+     WHERE clinic_id = v_clinic AND is_active ORDER BY code LIMIT 1;
     SELECT id INTO v_service
       FROM public.service_type WHERE clinic_id = v_clinic ORDER BY code LIMIT 1;
     SELECT id INTO v_doctor

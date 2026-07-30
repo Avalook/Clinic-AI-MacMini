@@ -2,8 +2,8 @@
 //   ① Gọi xác nhận lịch NGÀY MAI (status SCHEDULED)
 //   ② Lịch bị bác sĩ từ chối — cần phân lại (DOCTOR_DECLINED, từ hôm nay)
 //   ③ BN đến hạn TÁI KHÁM (clinical_record.soap_plan.tai_kham — hợp đồng JSONB)
-//   ④ Kết quả XN mới về hôm nay (lab_result.result_received_at; GROUP_C = gate
-//      D022: chờ BS duyệt, KHÔNG báo BN)
+//   ④ Kết quả XN mới về hôm nay. Chỉ GROUP_A đã finalized mới được báo BN;
+//      mọi trạng thái khác đều fail closed.
 // Trang CHỈ ĐỌC: thao tác xác nhận / phân lại làm ở /tasks (ConfirmBoard) —
 // không lặp lại logic ghi ở đây. CCCD KHÔNG select (D-identity).
 
@@ -18,6 +18,8 @@ import {
   VN_TZ,
 } from "../../../lib/datetime";
 import { doctorName } from "../../../lib/doctor-name";
+import { labReleaseDecision } from "../../../lib/lab-release";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import CskhFollowupList, {
   type FollowupBucket,
 } from "./CskhFollowupList";
@@ -76,21 +78,11 @@ interface ApptRow {
   service: { name: string } | null;
 }
 
-interface VisitRow {
-  visit_id: string;
-  created_at: string;
-  clinic_patient_id: string;
-  patient: PatientLite | null;
-  clinical_record:
-    | { soap_plan: unknown }
-    | { soap_plan: unknown }[]
-    | null;
-}
-
 interface LabRow {
   lab_result_id: string;
   test_name: string | null;
   triage_group: string | null;
+  is_finalized: boolean;
   result_received_at: string | null;
   patient: PatientLite | null;
 }
@@ -109,6 +101,15 @@ interface RecallRow {
   tai_kham: TaiKham;
 }
 
+interface RecallProjection {
+  clinic_patient_id: string;
+  full_name: string;
+  phone_primary: string | null;
+  due_date: string;
+  repeat_tests: string[];
+  instruction: string;
+}
+
 // Nhãn nhóm XN bác sĩ dặn làm lại khi tái khám.
 const XN_LABEL: Record<string, string> = {
   HM: "Hormone",
@@ -117,28 +118,6 @@ const XN_LABEL: Record<string, string> = {
   DXA: "DXA",
   PS: "Pap smear",
 };
-
-function one<T>(x: T | T[] | null | undefined): T | null {
-  if (!x) return null;
-  return Array.isArray(x) ? (x[0] ?? null) : x;
-}
-
-/** Đọc tai_kham từ soap_plan (JSONB unknown) — chỉ nhận ngay dạng YYYY-MM-DD. */
-function parseTaiKham(soapPlan: unknown): TaiKham | null {
-  if (!soapPlan || typeof soapPlan !== "object" || Array.isArray(soapPlan)) {
-    return null;
-  }
-  const tk = (soapPlan as Record<string, unknown>).tai_kham;
-  if (!tk || typeof tk !== "object" || Array.isArray(tk)) return null;
-  const o = tk as Record<string, unknown>;
-  const ngay = typeof o.ngay === "string" ? o.ngay.trim() : "";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) return null;
-  const xn = Array.isArray(o.xn)
-    ? o.xn.filter((x): x is string => typeof x === "string")
-    : [];
-  const ghi_chu = typeof o.ghi_chu === "string" ? o.ghi_chu : "";
-  return { ngay, xn, ghi_chu };
-}
 
 /** "YYYY-MM-DD" theo giờ VN của (hôm nay + offsetDays). */
 function vnYmd(offsetDays = 0): string {
@@ -202,9 +181,6 @@ export default async function CskhTodayPage() {
   const tomorrowEnd = new Date(
     new Date(todayEnd).getTime() + DAY_MS,
   ).toISOString();
-  // Khối ③: visit 6 tháng gần nhất.
-  const sixMonthsAgo = new Date(nowMs() - 183 * DAY_MS).toISOString();
-
   const APPT_SELECT = `
     id, slot_start,
     patient:patient!clinic_patient_id ( clinic_patient_id, full_name, phone_primary ),
@@ -212,7 +188,8 @@ export default async function CskhTodayPage() {
     service:service_type!service_type_id ( name )
   `;
 
-  const [tomorrowRes, declinedRes, visitRes, labRes] = await Promise.all([
+  const [tomorrowRes, declinedRes, recallProjection, labRes] =
+    await Promise.all([
     // ① Lịch NGÀY MAI chưa gọi xác nhận.
     supabase
       .from("appointment")
@@ -230,74 +207,38 @@ export default async function CskhTodayPage() {
       .gte("slot_start", todayStart)
       .order("slot_start", { ascending: true })
       .limit(200),
-    // ③ Visit 6 tháng gần nhất kèm soap_plan — lọc tai_kham trong JS.
-    // TODO Phase 2: chuyển sang RPC/materialized view khi data lớn.
-    supabase
-      .from("visit")
-      .select(
-        `visit_id, created_at, clinic_patient_id,
-         patient:patient!clinic_patient_id ( clinic_patient_id, full_name, phone_primary ),
-         clinical_record ( soap_plan )`,
-      )
-      .gte("created_at", sixMonthsAgo)
-      .order("created_at", { ascending: false })
-      .limit(500),
+    // ③ FastAPI reads the note and returns only the recall instruction CSKH
+    // needs; the SOAP document never crosses this boundary.
+    fetchFromBackend<RecallProjection[]>("/api/v1/cskh/recalls"),
     // ④ Kết quả XN nhận HÔM NAY.
     supabase
       .from("lab_result")
       .select(
-        `lab_result_id, test_name, triage_group, result_received_at,
+        `lab_result_id, test_name, triage_group, is_finalized, result_received_at,
          patient:patient!clinic_patient_id ( clinic_patient_id, full_name, phone_primary )`,
       )
       .gte("result_received_at", todayStart)
       .lt("result_received_at", todayEnd)
       .order("result_received_at", { ascending: false })
       .limit(200),
-  ]);
+    ]);
 
-  const error =
-    tomorrowRes.error ?? declinedRes.error ?? visitRes.error ?? labRes.error;
+  const error = tomorrowRes.error ?? declinedRes.error ?? labRes.error;
 
   const tomorrowAppts = (tomorrowRes.data as ApptRow[] | null) ?? [];
   const declinedAppts = (declinedRes.data as ApptRow[] | null) ?? [];
-  const visits = (visitRes.data as VisitRow[] | null) ?? [];
   const labResults = (labRes.data as LabRow[] | null) ?? [];
 
-  // ③ Lọc tái khám: tai_kham.ngay <= hôm nay + 7 ngày; mỗi BN giữ visit MỚI NHẤT
-  // (danh sách đã order created_at desc → lần gặp đầu tiên thắng).
-  const dueLimit = vnYmd(7);
-  const recallByPatient = new Map<string, RecallRow>();
-  for (const v of visits) {
-    if (recallByPatient.has(v.clinic_patient_id)) continue;
-    const tk = parseTaiKham(one(v.clinical_record)?.soap_plan);
-    if (!tk || tk.ngay > dueLimit) continue;
-    const p = v.patient;
-    recallByPatient.set(v.clinic_patient_id, {
-      clinic_patient_id: v.clinic_patient_id,
-      full_name: p?.full_name ?? "(không rõ tên)",
-      phone_primary: p?.phone_primary ?? null,
-      tai_kham: tk,
-    });
-  }
-
-  // ③ Loại BN ĐÃ có lịch hẹn tương lai (đã được đặt tái khám rồi).
-  let recalls = [...recallByPatient.values()];
-  if (recalls.length) {
-    const { data: futureAppts } = await supabase
-      .from("appointment")
-      .select("clinic_patient_id")
-      .in("clinic_patient_id", recalls.map((r) => r.clinic_patient_id))
-      .gte("slot_start", todayStart)
-      .in("status", ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"])
-      .limit(1000);
-    const booked = new Set(
-      ((futureAppts as { clinic_patient_id: string }[] | null) ?? []).map(
-        (a) => a.clinic_patient_id,
-      ),
-    );
-    recalls = recalls.filter((r) => !booked.has(r.clinic_patient_id));
-  }
-  recalls.sort((a, b) => a.tai_kham.ngay.localeCompare(b.tai_kham.ngay));
+  const recalls: RecallRow[] = (recallProjection ?? []).map((row) => ({
+    clinic_patient_id: row.clinic_patient_id,
+    full_name: row.full_name,
+    phone_primary: row.phone_primary,
+    tai_kham: {
+      ngay: row.due_date,
+      xn: row.repeat_tests,
+      ghi_chu: row.instruction,
+    },
+  }));
 
   // BN QUÁ HẠN tái khám (chưa đặt lịch mới) → chia bucket 2/10/20/30 ngày để nhắc gọi.
   const followupBuckets = buildFollowupBuckets(recalls, vnYmd(0));
@@ -316,6 +257,12 @@ export default async function CskhTodayPage() {
       {error && (
         <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
           {error.message}
+        </div>
+      )}
+      {recallProjection === null && (
+        <div className="rounded-md bg-[#fff7ed] px-3 py-2 text-sm text-[#9a3412]">
+          Không tải được danh sách tái khám từ máy chủ. Các phần khác vẫn hoạt
+          động; vui lòng báo quản trị viên nếu cảnh báo này còn xuất hiện.
         </div>
       )}
 
@@ -448,17 +395,22 @@ export default async function CskhTodayPage() {
         <SectionHeader
           title="Kết quả XN mới về hôm nay"
           count={labResults.length}
-          sub="GROUP_C phải chờ bác sĩ duyệt trước khi báo BN (gate D022)."
+          sub="Chỉ GROUP_A đã hoàn tất mới được báo BN; mọi trạng thái khác đều bị chặn."
         />
         {labResults.length === 0 ? (
           <EmptyRow text="Chưa có kết quả XN mới hôm nay." />
         ) : (
           <ul className="divide-y divide-[#e4e4e7] rounded-lg border border-[#e4e4e7] bg-white">
-            {labResults.map((l) => (
-              <li
-                key={l.lab_result_id}
-                className="flex items-center gap-3 px-4 py-2.5"
-              >
+            {labResults.map((l) => {
+              const release = labReleaseDecision(
+                l.triage_group,
+                l.is_finalized,
+              );
+              return (
+                <li
+                  key={l.lab_result_id}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
                 <span className="w-14 shrink-0 text-sm font-semibold text-[#171717]">
                   {fmtTimeOrNone(l.result_received_at)}
                 </span>
@@ -473,17 +425,10 @@ export default async function CskhTodayPage() {
                     {l.test_name ?? "Xét nghiệm"}
                   </p>
                 </div>
-                {l.triage_group === "GROUP_C" ? (
-                  <span className="shrink-0 rounded-md bg-[#fee2e2] px-2 py-0.5 text-xs font-semibold text-[#dc2626]">
-                    Chờ BS duyệt — KHÔNG báo BN
-                  </span>
-                ) : (
-                  <span className="shrink-0 rounded-md bg-[#dcfce7] px-2 py-0.5 text-xs font-semibold text-[#16a34a]">
-                    Được báo BN
-                  </span>
-                )}
-              </li>
-            ))}
+                  <span className={release.className}>{release.label}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

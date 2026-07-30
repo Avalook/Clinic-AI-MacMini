@@ -109,6 +109,37 @@ async def test_create_task__lab_review_type__source_fields_populated(
     assert out.source_id == source_id
 
 
+@pytest.mark.asyncio
+async def test_create_task__lab_review_retry_uses_database_conflict_arbiter(
+    mock_pool_conn: tuple[MagicMock, AsyncMock],
+) -> None:
+    """Concurrent retries must converge on the one open LAB_REVIEW task."""
+    pool, conn = mock_pool_conn
+    source_id = uuid4()
+    conn.fetchrow = AsyncMock(
+        return_value=_row(source_type="LAB_RESULT", source_id=source_id)
+    )
+
+    await create_task(
+        pool,
+        CreateTaskInput(
+            task_type="LAB_REVIEW",
+            source_type="LAB_RESULT",
+            source_id=source_id,
+            title="Review",
+            clinic_id=UUID("a0000000-0000-4000-8000-000000000001"),
+        ),
+        new_trace(),
+    )
+
+    fetch_call = conn.fetchrow.await_args
+    assert fetch_call is not None
+    sql = fetch_call.args[0]
+    assert "ON CONFLICT (clinic_id, source_id)" in sql
+    assert "task_type = 'LAB_REVIEW'" in sql
+    assert "source_type = 'LAB_RESULT'" in sql
+
+
 def test_create_task__missing_title__pydantic_error() -> None:
     """`title` is required — Pydantic rejects construction without it."""
     with pytest.raises(ValidationError):

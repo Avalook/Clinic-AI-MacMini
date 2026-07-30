@@ -3,6 +3,7 @@
 // Data is real (visit ~5.6k, lab_result ~4.7k); pregnancy is usually empty.
 
 import StatusBadge from "../../StatusBadge";
+import LabReviewActions from "./LabReviewActions";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import { fmtDate } from "../../../../lib/datetime";
 
@@ -31,6 +32,7 @@ interface LabRow {
   result_unit: string | null;
   flag: string | null;
   triage_group: string;
+  is_finalized: boolean | null;
   result_received_at: string;
 }
 
@@ -164,7 +166,15 @@ function ClinicalNote({ text }: { text: string }) {
   );
 }
 
-export default async function PatientHistory({ id }: { id: string }) {
+export default async function PatientHistory({
+  id,
+  canReviewLabs = false,
+}: {
+  id: string;
+  /** Show the doctor's triage/approve controls. The backend enforces the
+   *  real gate (DOCTOR_ROLES); this only decides whether to draw them. */
+  canReviewLabs?: boolean;
+}) {
   const supabase = await getSupabaseServer();
   const [visitRes, labRes, pregRes] = await Promise.all([
     supabase
@@ -176,7 +186,7 @@ export default async function PatientHistory({ id }: { id: string }) {
     supabase
       .from("lab_result")
       .select(
-        "lab_result_id, test_name, result_value, result_numeric, result_unit, flag, triage_group, result_received_at",
+        "lab_result_id, test_name, result_value, result_numeric, result_unit, flag, triage_group, is_finalized, result_received_at",
       )
       .eq("clinic_patient_id", id)
       .order("result_received_at", { ascending: false })
@@ -336,6 +346,17 @@ export default async function PatientHistory({ id }: { id: string }) {
                   <p className="mt-0.5 text-xs text-[#888888]">
                     Cờ: {l.flag ?? "—"} · Phân nhóm: {l.triage_group}
                   </p>
+                  {canReviewLabs && (
+                    <LabReviewActions
+                      labResultId={l.lab_result_id}
+                      clinicPatientId={id}
+                      triageGroup={l.triage_group}
+                      isFinalized={Boolean(l.is_finalized)}
+                      hasResult={
+                        Boolean(l.result_value) || l.result_numeric != null
+                      }
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -350,6 +371,7 @@ export default async function PatientHistory({ id }: { id: string }) {
                   <th className={TH}>Kết quả</th>
                   <th className={TH}>Cờ</th>
                   <th className={TH}>Phân nhóm</th>
+                  {canReviewLabs && <th className={TH}>Duyệt</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f6e0ec]">
@@ -366,6 +388,19 @@ export default async function PatientHistory({ id }: { id: string }) {
                     </td>
                     <td className={`${TD} text-[#4d4d4d]`}>{l.flag ?? "—"}</td>
                     <td className={`${TD} text-[#4d4d4d]`}>{l.triage_group}</td>
+                    {canReviewLabs && (
+                      <td className={TD}>
+                        <LabReviewActions
+                          labResultId={l.lab_result_id}
+                          clinicPatientId={id}
+                          triageGroup={l.triage_group}
+                          isFinalized={Boolean(l.is_finalized)}
+                          hasResult={
+                            Boolean(l.result_value) || l.result_numeric != null
+                          }
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

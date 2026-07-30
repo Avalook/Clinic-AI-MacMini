@@ -254,8 +254,8 @@ const DOCTOR_SELECT = `
   visit:visit!appointment_id ( checked_in_at )
 `;
 
-// readOnly = LỄ TÂN xem clone giao diện board bác sĩ ở chế độ CHỈ ĐỌC. Lễ tân
-// vẫn có staff id liên kết nhưng KHÔNG phải bác sĩ →
+// readOnly = vai vận hành xem clone giao diện board bác sĩ nhưng KHÔNG được mở
+// hồ sơ lâm sàng. Họ vẫn có staff id liên kết nhưng KHÔNG phải bác sĩ →
 // khi readOnly ta BỎ lọc doctor_id để thấy lịch của MỌI bác sĩ (góc nhìn front
 // desk). Nếu lọc theo staffId của lễ tân thì board sẽ rỗng (không lịch nào của họ).
 // allDoctors = TKYK: KHÔNG lọc theo doctor_id (TKYK không phải BS trên lịch) → thấy
@@ -383,11 +383,9 @@ async function DoctorTasks(
           rows={withPhanLoai}
           staffId={staffId}
           readOnly={readOnly}
-          /* Lễ tân (readOnly): khóa lâm sàng nhưng ĐƯỢC sửa hành chính mục I.
-             Bác sĩ (readOnly=false): không bật sửa hành chính ở đây. */
-          canEditAdmin={readOnly}
+          canEditAdmin={false}
           /* Nút tóm tắt trước khám: chỉ board của BÁC SĨ (DoctorTasks() — nhánh
-             isDoctorRole), lễ tân (DoctorTasks(true)) không bật. */
+             isDoctorRole), vai vận hành (DoctorTasks(true)) không bật. */
           showPreVisitBrief={showPreVisitBrief}
           /* Form số đo siêu âm: chỉ Bác sĩ Siêu âm (ULTRASOUND_DOCTOR). */
           showSono={showSono}
@@ -433,8 +431,7 @@ export default async function TasksPage() {
   // không siêu âm, không xem tóm tắt trước khám.
   // Điều dưỡng được điền hồ sơ như bác sĩ (mở quyền 29/6): bỏ vitalsOnly.
   if (isNurseRole(role)) return DoctorTasks(false, false, true, false, false);
-  // Lễ tân: xem board bác sĩ, ĐƯỢC điền sinh hiệu (vitalsOnly), ĐƯỢC sửa hành chính.
-  // Thu ngân: chỉ xem (readOnly).
+  // Vai vận hành: chỉ xem lịch bác sĩ, không mở popup hồ sơ lâm sàng.
   if (isTasksReadOnly(role)) {
     const isReception = role === "RECEPTION";
     return DoctorTasks(true, false, false, false, isReception);

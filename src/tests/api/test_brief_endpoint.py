@@ -91,6 +91,7 @@ def _llm_returning(text: str) -> MagicMock:
 def override_deps() -> Iterator[None]:
     """Override DB pool + LLM client deps for every test in this module."""
     pool = MagicMock()
+    pool.fetchval = AsyncMock(return_value=True)
     llm = _llm_returning(json.dumps(_VALID_BRIEF_JSON))
     app.dependency_overrides[get_db_pool] = lambda: pool
     app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
@@ -148,3 +149,24 @@ def test_post_brief__patient_not_found__404(
 
     assert response.status_code == 404
     assert "patient_not_found" in response.json()["detail"]
+
+
+def test_post_brief__doctor_without_patient_relationship__404(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pool = MagicMock()
+    pool.fetchval = AsyncMock(return_value=False)
+    app.dependency_overrides[get_db_pool] = lambda: pool
+    aggregate = AsyncMock(return_value=_patient_context())
+    monkeypatch.setattr(_pvb_nodes, "aggregate_patient_context", aggregate)
+
+    response = client.post(f"/api/v1/brief/{_PATIENT_ID}")
+
+    assert response.status_code == 404
+    aggregate.assert_not_awaited()
+    fetch_call = pool.fetchval.await_args
+    assert fetch_call is not None
+    sql = fetch_call.args[0]
+    assert "a.clinic_id = $2::uuid" in sql
+    assert "a.doctor_id = $3::uuid" in sql

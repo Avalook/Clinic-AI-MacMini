@@ -231,8 +231,13 @@ async def test_task_manager__create_review_tasks__lab_triage_integration(
 
     pool = _build_pool(
         # 1. lab_triage fetch_node SELECT (lab_result row)
-        # 2. create_review_tasks INSERT (task row)
-        fetchrow_returns=[lab_row_dict, created_task_row],
+        # 2. durable triage UPDATE
+        # 3. create_review_tasks INSERT (task row)
+        fetchrow_returns=[
+            lab_row_dict,
+            {"lab_result_id": lab_id},
+            created_task_row,
+        ],
     )
 
     monkeypatch.setattr(

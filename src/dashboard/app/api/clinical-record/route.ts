@@ -10,7 +10,12 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
-import { isDoctorRole, isNurseRole, isThuKyRole } from "../../../lib/roles";
+import {
+  canReadClinical,
+  isDoctorRole,
+  isNurseRole,
+  isThuKyRole,
+} from "../../../lib/roles";
 
 interface ClinicalRecordRow {
   chief_complaint_at_visit: string | null;
@@ -63,6 +68,17 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+
+  // Role authority is auth.uid() → staff.auth_user_id → clinic_membership.role.
+  // This gate must precede every medical-profile/SOAP/lab/prescription query:
+  // authenticated operational users are not clinical readers.
+  const role = await getClinicRole();
+  if (!canReadClinical(role)) {
+    return NextResponse.json(
+      { error: "Bạn không có quyền xem hồ sơ lâm sàng." },
+      { status: 403 },
+    );
+  }
 
   const url = new URL(request.url);
   const patientId = url.searchParams.get("patientId");

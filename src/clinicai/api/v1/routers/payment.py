@@ -12,7 +12,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
@@ -46,6 +46,13 @@ class PaymentVoidRequest(BaseModel):
 
     visit_id: UUID
     kind: PaymentKind
+    reason: str = Field(min_length=5, max_length=500)
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def strip_reason(cls, value: object) -> object:
+        """Reject whitespace-only reasons after normalising surrounding space."""
+        return value.strip() if isinstance(value, str) else value
 
 
 @router.post("/payments")
@@ -80,11 +87,12 @@ async def void_payment(
     identity: StaffIdentity = Depends(_CASHIER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, bool]:
-    """Void (delete) a payment. Not gated on exam status."""
+    """Reverse a payment without deleting its immutable financial history."""
     service = PaymentService(pool)
     await service.void_payment(
         visit_id=str(body.visit_id),
         kind=body.kind,
+        reason=body.reason,
         identity=identity,
     )
     return {"ok": True}

@@ -58,8 +58,13 @@ class WalkinAdapter(BaseAdapter):
 
         trace_id_raw = raw.get("trace_id")
         trace_id = UUID(trace_id_raw) if trace_id_raw else uuid4()
+        clinic_id_raw = raw.get("clinic_id")
+        if clinic_id_raw is None:
+            msg = "Missing required clinic_id"
+            raise ValueError(msg)
 
         return InteractionEvent(
+            clinic_id=UUID(str(clinic_id_raw)),
             event_type="interaction.walkin",
             entity_type=raw.get("entity_type", "appointment"),
             entity_id=UUID(str(entity_id_raw)),

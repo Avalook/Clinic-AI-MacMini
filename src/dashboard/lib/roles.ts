@@ -31,9 +31,12 @@ export const ALL_ROLES: ClinicRole[] = [
   "TRUONG_CA",
 ];
 
-// staff.primary_department → vai trò ứng dụng; never trust a posted role.
-export function departmentToRole(dept: string | null | undefined): ClinicRole {
-  return isClinicRole(dept ?? "") ? (dept as ClinicRole) : "CSKH";
+// Convert a trusted role value into the closed application enum. Unknown data
+// must never inherit a real role (the previous CSKH fallback was fail-open).
+export function departmentToRole(
+  dept: string | null | undefined,
+): ClinicRole | null {
+  return isClinicRole(dept ?? "") ? (dept as ClinicRole) : null;
 }
 
 export function isClinicRole(v: string | undefined | null): v is ClinicRole {
@@ -73,6 +76,11 @@ export function isThuKyRole(role: ClinicRole | null): boolean {
  *  canCheckin (đón khách = hành chính, rộng hơn). */
 export function canWriteClinical(role: ClinicRole | null): boolean {
   return isDoctorRole(role) || isNurseRole(role) || isThuKyRole(role);
+}
+
+/** Reading the medical note has the same boundary as writing it (ROLE-02). */
+export function canReadClinical(role: ClinicRole | null): boolean {
+  return canWriteClinical(role);
 }
 
 /** Roles allowed to create patients / appointments (data entry) + check-in.

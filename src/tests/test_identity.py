@@ -105,15 +105,33 @@ def test_verify_jwt_wrong_secret(monkeypatch: pytest.MonkeyPatch) -> None:
 # --------------------------- get_current_identity --------------------------- #
 class _FakePool:
     def __init__(self, row: object) -> None:
-        self._row = row
+        if row is None:
+            self._rows: list[object] = []
+        elif isinstance(row, list):
+            self._rows = row
+        else:
+            self._rows = [row]
+        self.query = ""
+        self.args: tuple[object, ...] = ()
 
-    async def fetchrow(self, _query: str, *_args: object) -> object:
-        return self._row
+    async def fetch(self, query: str, *args: object) -> list[object]:
+        self.query = query
+        self.args = args
+        requested_clinic = args[1] if len(args) > 1 else None
+        if requested_clinic is None:
+            return self._rows
+        return [
+            row
+            for row in self._rows
+            if isinstance(row, dict) and row.get("clinic_id") == requested_clinic
+        ]
 
 
-def _req(auth: str | None) -> Request:
+def _req(auth: str | None, clinic_id: str | None = None) -> Request:
     """A real Starlette Request, so the header lookup behaves as in production."""
     headers = [(b"authorization", auth.encode())] if auth is not None else []
+    if clinic_id is not None:
+        headers.append((b"x-clinic-id", clinic_id.encode()))
     return Request({"type": "http", "headers": headers})
 
 
@@ -125,6 +143,7 @@ def test_get_current_identity_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             "auth_user_id": "u-1",
             "full_name": "TS.BS. Phan Chí Thành",
             "primary_department": "DOCTOR",
+            "membership_role": "DOCTOR",
             "clinic_id": "a0000000-0000-4000-8000-000000000001",
         }
     )
@@ -135,6 +154,124 @@ def test_get_current_identity_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     # The tenant travels with the identity so services never fall back to the
     # transitional clinic_id DEFAULT (ADR-0009).
     assert ident.clinic_id == "a0000000-0000-4000-8000-000000000001"
+
+
+def test_get_current_identity_uses_role_of_selected_clinic_membership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One person may have a different role at each clinic.
+
+    ``staff.primary_department`` is global and therefore cannot authorize a
+    multi-clinic request.  The role and clinic must come from the same active
+    membership row selected by the identity query.
+    """
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-1"})
+    pool = _FakePool(
+        [
+            {
+                "id": "staff-9",
+                "auth_user_id": "u-1",
+                "full_name": "BS làm việc nhiều phòng khám",
+                "primary_department": "DOCTOR",
+                "membership_role": "DOCTOR",
+                "clinic_id": "a0000000-0000-4000-8000-000000000001",
+            },
+            {
+                "id": "staff-9",
+                "auth_user_id": "u-1",
+                "full_name": "BS làm việc nhiều phòng khám",
+                "primary_department": "DOCTOR",
+                "membership_role": "MANAGEMENT",
+                "clinic_id": "b0000000-0000-4000-8000-000000000002",
+            },
+        ]
+    )
+
+    ident = asyncio.run(
+        get_current_identity(
+            _req("Bearer abc", "b0000000-0000-4000-8000-000000000002"),
+            pool,
+        )
+    )
+
+    assert ident.department == "DOCTOR"
+    assert ident.clinic_id == "b0000000-0000-4000-8000-000000000002"
+    assert ident.role is ClinicRole.MANAGEMENT
+    assert "m.role AS membership_role" in pool.query
+    assert pool.args[1] == "b0000000-0000-4000-8000-000000000002"
+
+
+def test_get_current_identity_refuses_ambiguous_multi_clinic_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A multi-clinic login must select a clinic instead of landing arbitrarily."""
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-1"})
+    pool = _FakePool(
+        [
+            {
+                "id": "staff-9",
+                "auth_user_id": "u-1",
+                "full_name": "BS nhiều nơi",
+                "primary_department": "DOCTOR",
+                "membership_role": "DOCTOR",
+                "clinic_id": "a0000000-0000-4000-8000-000000000001",
+            },
+            {
+                "id": "staff-9",
+                "auth_user_id": "u-1",
+                "full_name": "BS nhiều nơi",
+                "primary_department": "DOCTOR",
+                "membership_role": "MANAGEMENT",
+                "clinic_id": "b0000000-0000-4000-8000-000000000002",
+            },
+        ]
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(get_current_identity(_req("Bearer abc"), pool))
+
+    assert exc.value.status_code == 403
+    assert "X-Clinic-ID" in str(exc.value.detail)
+
+
+def test_get_current_identity_rejects_malformed_clinic_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-1"})
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(
+            get_current_identity(_req("Bearer abc", "not-a-uuid"), _FakePool(None))
+        )
+
+    assert exc.value.status_code == 400
+
+
+def test_get_current_identity_rejects_clinic_without_active_membership(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """X-Clinic-ID selects among memberships; it never grants a tenant."""
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-1"})
+    pool = _FakePool(
+        {
+            "id": "staff-9",
+            "auth_user_id": "u-1",
+            "full_name": "BS A",
+            "primary_department": "DOCTOR",
+            "membership_role": "DOCTOR",
+            "clinic_id": "a0000000-0000-4000-8000-000000000001",
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(
+            get_current_identity(
+                _req("Bearer abc", "b0000000-0000-4000-8000-000000000002"),
+                pool,
+            )
+        )
+
+    assert exc.value.status_code == 403
 
 
 def test_get_current_identity_without_membership_is_refused(
@@ -149,6 +286,7 @@ def test_get_current_identity_without_membership_is_refused(
             "auth_user_id": "u-2",
             "full_name": "Chưa gán phòng khám",
             "primary_department": "DOCTOR",
+            "membership_role": None,
             "clinic_id": None,
         }
     )

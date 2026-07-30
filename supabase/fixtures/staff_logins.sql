@@ -31,6 +31,7 @@ BEGIN
         SELECT * FROM (VALUES
             ('bs.a@dr4women.local',     'BS A local',    'BS A',  'DOCTOR'),
             ('cskh@dr4women.local',     'CSKH local',    'CSKH',  'CSKH'),
+            ('letan@dr4women.local',    'Le tan local',  'LT',    'RECEPTION'),
             ('bs.sa@dr4women.local',    'BS SA local',   'BS SA', 'ULTRASOUND_DOCTOR'),
             ('dd.sa@dr4women.local',    'DD SA local',   'DD SA', 'NURSE_ULTRASOUND'),
             ('thungan@dr4women.local',  'Thu ngan local','TN',    'CASHIER'),

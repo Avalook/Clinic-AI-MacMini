@@ -5,12 +5,13 @@
 //   • Dịch vụ  → service_log của BN hôm nay (ĐỒNG BỘ thật).
 //   • Thuốc    → prescription của lượt khám (ĐỒNG BỘ thật).
 // Nút "Thanh toán" → hiện khu mã QR (PLACEHOLDER, chưa nối cổng) → "Đã thanh toán".
-// LƯU Ý: chưa có bảng billing → trạng thái "đã thanh toán" CHỈ ở client (chưa lưu).
+// Payment được lưu ở backend; hoàn tác luôn cần lý do để giữ audit tài chính.
 // Giá lấy best-effort từ service_price (khớp tên); chưa có → để trống.
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QrCode, Check, CheckCircle2, RotateCcw, Pill, Tag } from "lucide-react";
+import { calculateCashierTotal } from "@/lib/cashier-total";
 
 export type CashierMode = "thuoc" | "dich_vu";
 
@@ -76,61 +77,72 @@ export default function CashierWorkBoard({
   );
   const [busy, setBusy] = useState<string | null>(null); // key đang gọi API
   const [err, setErr] = useState<string | null>(null);
+  const [voidOpen, setVoidOpen] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
 
   const meta = MODE_META[mode];
   const key = (visitId: string) => `${mode}:${visitId}`;
 
-  // Lưu THẬT vào bảng payment (service-role) rồi cập nhật state + refresh để màn
+  // Lưu THẬT qua backend rồi cập nhật state + refresh để màn
   // Lễ tân (thanh tiến trình) đồng bộ qua realtime.
-  async function togglePaid(r: CashierRow) {
+  async function togglePaid(r: CashierRow, reversalReason?: string) {
     const k = key(r.visit_id);
     const isPaid = paid.has(k);
-    setBusy(k);
-    setErr(null);
-    const { sum } = rowTotal(r);
-    const res = await fetch("/api/payment", {
-      method: isPaid ? "DELETE" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        isPaid
-          ? { visitId: r.visit_id, kind: mode }
-          : {
-              visitId: r.visit_id,
-              clinicPatientId: r.clinic_patient_id,
-              kind: mode,
-              amount: sum,
-            },
-      ),
-    });
-    setBusy(null);
-    if (!res.ok) {
-      setErr((await res.json().catch(() => ({})))?.error ?? "Lỗi thanh toán.");
+    const normalizedReason = reversalReason?.trim();
+    const { sum, missing } = calculateCashierTotal(mode, r.services, r.drugs);
+    if (
+      isPaid &&
+      (!normalizedReason ||
+        normalizedReason.length < 5 ||
+        normalizedReason.length > 500)
+    ) {
+      setErr("Lý do hoàn tác phải có từ 5 đến 500 ký tự.");
       return;
     }
-    setPaid((s) => {
-      const next = new Set(s);
-      if (isPaid) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-    setPayOpen(null);
-    router.refresh();
-  }
-
-  // Tổng tạm tính (chỉ cộng khoản CÓ giá; còn lại để trống → không bịa tổng).
-  const rowTotal = (r: CashierRow): { sum: number; missing: boolean } => {
-    const items =
-      mode === "thuoc"
-        ? r.drugs.map((d) => d.price)
-        : r.services.map((s) => s.price);
-    let sum = 0;
-    let missing = false;
-    for (const p of items) {
-      if (p === null) missing = true;
-      else sum += p;
+    if (!isPaid && (missing || sum <= 0)) {
+      setErr(
+        "Chưa thể thu tiền khi còn khoản chưa có giá hoặc số lượng thuốc chưa hợp lệ.",
+      );
+      return;
     }
-    return { sum, missing };
-  };
+
+    setBusy(k);
+    setErr(null);
+    try {
+      const res = await fetch("/api/payment", {
+        method: isPaid ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          isPaid
+            ? { visitId: r.visit_id, kind: mode, reason: normalizedReason }
+            : {
+                visitId: r.visit_id,
+                clinicPatientId: r.clinic_patient_id,
+                kind: mode,
+                amount: sum,
+              },
+        ),
+      });
+      if (!res.ok) {
+        setErr((await res.json().catch(() => ({})))?.error ?? "Lỗi thanh toán.");
+        return;
+      }
+      setPaid((current) => {
+        const next = new Set(current);
+        if (isPaid) next.delete(k);
+        else next.add(k);
+        return next;
+      });
+      setPayOpen(null);
+      setVoidOpen(null);
+      setVoidReason("");
+      router.refresh();
+    } catch {
+      setErr("Không kết nối được máy chủ thanh toán. Vui lòng thử lại.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const hasItems = (r: CashierRow) =>
     mode === "thuoc" ? r.drugs.length > 0 : r.services.length > 0;
@@ -161,6 +173,8 @@ export default function CashierWorkBoard({
               onClick={() => {
                 setMode(m);
                 setPayOpen(null);
+                setVoidOpen(null);
+                setVoidReason("");
               }}
               className={
                 "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors " +
@@ -195,7 +209,11 @@ export default function CashierWorkBoard({
                 const k = key(r.visit_id);
                 const isPaid = paid.has(k);
                 const open = payOpen === k;
-                const { sum, missing } = rowTotal(r);
+                const { sum, missing } = calculateCashierTotal(
+                  mode,
+                  r.services,
+                  r.drugs,
+                );
                 return (
                   <tr key={r.visit_id} className="hover:bg-[#fafafa]">
                     {/* Ô 1 — BN gộp: tên + mã + SĐT. */}
@@ -264,7 +282,7 @@ export default function CashierWorkBoard({
                               </span>
                               {missing && (
                                 <span className="ml-1 text-xs text-[#a16207]">
-                                  (một số khoản chưa có giá)
+                                  (thiếu giá hoặc số lượng hợp lệ — chưa thể thu)
                                 </span>
                               )}
                             </span>
@@ -272,23 +290,80 @@ export default function CashierWorkBoard({
 
                           {/* Trạng thái + nút */}
                           {isPaid ? (
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dcfce7] px-2.5 py-1 text-xs font-semibold text-[#15803d]">
-                                <CheckCircle2 size={14} /> Đã thanh toán
-                              </span>
-                              <button
-                                onClick={() => togglePaid(r)}
-                                disabled={busy === k}
-                                className="inline-flex items-center gap-1 text-xs text-[#71717a] hover:text-[#dc2626] disabled:opacity-50"
-                              >
-                                <RotateCcw size={13} /> Hoàn tác
-                              </button>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dcfce7] px-2.5 py-1 text-xs font-semibold text-[#15803d]">
+                                  <CheckCircle2 size={14} /> Đã thanh toán
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setVoidOpen(voidOpen === k ? null : k);
+                                    setVoidReason("");
+                                    setErr(null);
+                                  }}
+                                  disabled={busy === k}
+                                  className="inline-flex items-center gap-1 text-xs text-[#71717a] hover:text-[#dc2626] disabled:opacity-50"
+                                >
+                                  <RotateCcw size={13} /> Hoàn tác
+                                </button>
+                              </div>
+                              {voidOpen === k && (
+                                <div className="rounded-lg border border-[#fecaca] bg-[#fff7f7] p-3">
+                                  <label
+                                    className="block text-xs font-medium text-[#991b1b]"
+                                    htmlFor={`void-reason-${r.visit_id}`}
+                                  >
+                                    Lý do hoàn tác
+                                  </label>
+                                  <textarea
+                                    id={`void-reason-${r.visit_id}`}
+                                    value={voidReason}
+                                    onChange={(event) =>
+                                      setVoidReason(event.target.value)
+                                    }
+                                    maxLength={500}
+                                    rows={2}
+                                    placeholder="Ví dụ: Khách đổi phương thức thanh toán"
+                                    className="mt-1 w-full rounded-md border border-[#fecaca] bg-white px-2 py-1.5 text-sm text-[#171717] outline-none focus:border-[#dc2626]"
+                                  />
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <button
+                                      onClick={() => togglePaid(r, voidReason)}
+                                      disabled={
+                                        busy === k ||
+                                        voidReason.trim().length < 5
+                                      }
+                                      className="rounded-md bg-[#dc2626] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                    >
+                                      {busy === k
+                                        ? "Đang hoàn tác…"
+                                        : "Xác nhận hoàn tác"}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setVoidOpen(null);
+                                        setVoidReason("");
+                                      }}
+                                      disabled={busy === k}
+                                      className="px-2 py-1.5 text-xs text-[#71717a] disabled:opacity-50"
+                                    >
+                                      Hủy
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="space-y-2">
                               <button
                                 onClick={() => setPayOpen(open ? null : k)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#ec4899] px-3 py-2 text-sm font-semibold text-white hover:bg-[#db2777]"
+                                disabled={missing || sum <= 0}
+                                title={
+                                  missing
+                                    ? "Cần bổ sung đầy đủ giá và số lượng thuốc trước khi thu"
+                                    : undefined
+                                }
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#ec4899] px-3 py-2 text-sm font-semibold text-white hover:bg-[#db2777] disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <QrCode size={15} />
                                 {open ? "Ẩn mã QR" : "Thanh toán"}
@@ -316,7 +391,7 @@ export default function CashierWorkBoard({
                                   </div>
                                   <button
                                     onClick={() => togglePaid(r)}
-                                    disabled={busy === k}
+                                    disabled={busy === k || missing || sum <= 0}
                                     className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#bbf7d0] bg-white px-3 py-1.5 text-sm font-semibold text-[#15803d] hover:bg-[#f0fdf4] disabled:opacity-50"
                                   >
                                     <Check size={15} /> {busy === k ? "Đang lưu…" : "Đã thanh toán"}

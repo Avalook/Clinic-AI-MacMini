@@ -117,13 +117,13 @@ export default function NewUserForm({
         </label>
         <input
           id="password"
-          type="text"
+          type="password"
           required
           minLength={MIN_PASSWORD}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-md border border-[#e4e4e7] px-3 py-2.5 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:py-2 sm:text-sm"
-          autoComplete="off"
+          autoComplete="new-password"
           placeholder="Gửi cho NV qua kênh an toàn — NV sẽ tự đổi sau đăng nhập đầu"
         />
         <p className="text-xs text-[#888888]">

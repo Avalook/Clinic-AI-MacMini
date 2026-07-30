@@ -4,7 +4,12 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentStaff } from "./current-staff";
-import { departmentToRole, canSeeNav, type ClinicRole } from "./roles";
+import {
+  departmentToRole,
+  canReadClinical,
+  canSeeNav,
+  type ClinicRole,
+} from "./roles";
 import { getSupabaseServer } from "./supabase-server";
 
 export const ROLE_COOKIE = "clinic_role";
@@ -12,7 +17,7 @@ export const STAFF_COOKIE = "clinic_staff_id";
 
 export async function getClinicRole(): Promise<ClinicRole | null> {
   const staff = await getCurrentStaff();
-  return staff ? departmentToRole(staff.primary_department) : null;
+  return staff ? departmentToRole(staff.clinic_role) : null;
 }
 
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
@@ -36,6 +41,13 @@ export async function requireClinicRole(): Promise<ClinicRole> {
   if (!user) redirect("/login");
   const role = await getClinicRole();
   if (!role) redirect("/login");
+  return role;
+}
+
+/** Guard a surface that renders the medical note, not merely operational PII. */
+export async function requireClinicalRole(): Promise<ClinicRole> {
+  const role = await requireClinicRole();
+  if (!canReadClinical(role)) redirect("/home");
   return role;
 }
 

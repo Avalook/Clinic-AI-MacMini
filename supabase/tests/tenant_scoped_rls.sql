@@ -7,6 +7,41 @@
 
 BEGIN;
 
+DO $patient_summary_is_private_and_invoker_scoped$
+DECLARE
+    options text[];
+BEGIN
+    SELECT c.reloptions
+      INTO options
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relname = 'patient_summary'
+       AND c.relkind = 'v';
+
+    IF options IS NULL
+       OR NOT ('security_invoker=true' = ANY (options)) THEN
+        RAISE EXCEPTION
+            'patient_summary must use security_invoker so its base-table RLS applies';
+    END IF;
+
+    IF has_table_privilege('authenticated', 'public.patient_summary', 'SELECT') THEN
+        RAISE EXCEPTION
+            'authenticated must not read patient_summary directly';
+    END IF;
+
+    IF has_table_privilege('anon', 'public.patient_summary', 'SELECT') THEN
+        RAISE EXCEPTION
+            'anon must not read patient_summary directly';
+    END IF;
+
+    IF NOT has_table_privilege('service_role', 'public.patient_summary', 'SELECT') THEN
+        RAISE EXCEPTION
+            'service_role must retain patient_summary access for the backend';
+    END IF;
+END
+$patient_summary_is_private_and_invoker_scoped$;
+
 DO $no_blanket_reads$
 DECLARE
     offenders text;
@@ -211,6 +246,12 @@ VALUES
     ('e0000000-0000-4000-8000-00000000000b', 'b0000000-0000-4000-8000-000000000002',
      'BN001', 'Bệnh nhân của B', 'd0000000-0000-4000-8000-00000000000b');
 
+-- The product no longer grants this view to frontend callers.  Grant it only
+-- inside the rolled-back test transaction to prove the second line of defence:
+-- if somebody accidentally restores the grant later, SECURITY INVOKER still
+-- makes the patient table's tenant RLS apply through the view.
+GRANT SELECT ON public.patient_summary TO authenticated;
+
 SET LOCAL ROLE authenticated;
 
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
@@ -225,6 +266,17 @@ BEGIN
          WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000b'
     ) THEN
         RAISE EXCEPTION 'staff A must see their own patient and not clinic B''s';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.patient_summary
+         WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000a'
+    ) OR EXISTS (
+        SELECT 1 FROM public.patient_summary
+         WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000b'
+    ) THEN
+        RAISE EXCEPTION
+            'patient_summary must inherit patient RLS and never cross tenants';
     END IF;
 
     -- Count only what this test inserted: seed.sql loads real clinic_location
@@ -285,6 +337,11 @@ BEGIN
         RAISE EXCEPTION 'an authenticated account with no staff row must read no patients';
     END IF;
 
+    IF EXISTS (SELECT 1 FROM public.patient_summary) THEN
+        RAISE EXCEPTION
+            'an authenticated account with no staff row must read no patient summaries';
+    END IF;
+
     IF (SELECT count(*) FROM public.staff) <> 0 THEN
         RAISE EXCEPTION 'an authenticated account with no staff row must read no staff';
     END IF;
@@ -301,6 +358,14 @@ BEGIN
              'e0000000-0000-4000-8000-00000000000a',
              'e0000000-0000-4000-8000-00000000000b')) <> 2 THEN
         RAISE EXCEPTION 'service_role must still read across tenants for the backend';
+    END IF;
+
+    IF (SELECT count(*) FROM public.patient_summary
+         WHERE clinic_patient_id IN (
+             'e0000000-0000-4000-8000-00000000000a',
+             'e0000000-0000-4000-8000-00000000000b')) <> 2 THEN
+        RAISE EXCEPTION
+            'service_role must retain patient_summary access for the backend';
     END IF;
 END
 $backend_unaffected$;

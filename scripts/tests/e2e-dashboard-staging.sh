@@ -107,8 +107,8 @@ psql "$DB" -q -v appt="$APPT" -v mins="$OFFSET_MIN" <<SQL
 INSERT INTO appointment (id, clinic_id, clinic_patient_id, location_id,
                          service_type_id, slot_start, slot_end, status, doctor_id)
 SELECT :'appt'::uuid, '$CLINIC', '$PATIENT',
-       (SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' LIMIT 1),
-       (SELECT id FROM service_type LIMIT 1),
+       (SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1),
+       (SELECT id FROM service_type WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1),
        now() + (:mins * interval '1 minute'),
        now() + (:mins * interval '1 minute') + interval '30 minutes',
        'CHECKED_IN',
@@ -117,9 +117,9 @@ SQL
 VISIT=$(psql "$DB" -tAc "INSERT INTO visit (clinic_id, clinic_patient_id, appointment_id, status)
                          VALUES ('$CLINIC','$PATIENT','$APPT','IN_PROGRESS')
                          RETURNING visit_id;" | head -1 | tr -d ' ')
-CODE=$(psql "$DB" -tAc "SELECT code FROM service_type LIMIT 1;" | tr -d ' ')
-SERVICE=$(psql "$DB" -tAc "SELECT id FROM service_type LIMIT 1;" | tr -d ' ')
-LOCATION=$(psql "$DB" -tAc "SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' LIMIT 1;" | tr -d ' ')
+CODE=$(psql "$DB" -tAc "SELECT code FROM service_type WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1;" | tr -d ' ')
+SERVICE=$(psql "$DB" -tAc "SELECT id FROM service_type WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1;" | tr -d ' ')
+LOCATION=$(psql "$DB" -tAc "SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1;" | tr -d ' ')
 # The patient edit is a full replace, so send the name back unchanged rather
 # than renaming a fixture patient every run.
 PNAME=$(psql "$DB" -tAc "SELECT full_name FROM patient WHERE clinic_patient_id='$PATIENT';" | sed 's/^ *//;s/ *$//')

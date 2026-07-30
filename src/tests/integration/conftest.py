@@ -43,18 +43,27 @@ def patient_service(db_pool: asyncpg.Pool) -> PatientService:
 async def location_id(db_pool: asyncpg.Pool) -> UUID:
     """Fixture returning a valid location UUID (fetches or seeds default)."""
     async with db_pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT id FROM clinic_location LIMIT 1;")
+        clinic_id = await conn.fetchval(
+            "SELECT id FROM clinic ORDER BY created_at LIMIT 1;"
+        )
+        row = await conn.fetchrow(
+            "SELECT id FROM clinic_location WHERE clinic_id = $1 LIMIT 1;",
+            clinic_id,
+        )
         if row:
             return UUID(str(row["id"]))
 
         # Insert fallback location if clinic_location is empty
         loc_id = await conn.fetchval(
             """
-            INSERT INTO clinic_location (code, name, address, is_active)
-            VALUES ('TEST-INTEG-LOC', 'Test Integration Location', '123 Test St', TRUE)
+            INSERT INTO clinic_location
+                (clinic_id, code, name, address, is_active)
+            VALUES ($1, 'TEST-INTEG-LOC', 'Test Integration Location',
+                    '123 Test St', TRUE)
             ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
             RETURNING id;
-            """
+            """,
+            clinic_id,
         )
         return UUID(str(loc_id))
 

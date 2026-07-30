@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from clinicai.core.exceptions import ResourceNotFoundError
 from clinicai.schemas.staff import (
     Capability,
     ProficiencyLevel,
@@ -26,9 +27,10 @@ from clinicai.services.staff_service import (
 )
 
 _NOW = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
+_CLINIC_ID = "a0000000-0000-4000-8000-000000000001"
 
 
-def _mock_pool_with_fetchrow(row: dict[str, Any]) -> MagicMock:
+def _mock_pool_with_fetchrow(row: dict[str, Any] | None) -> MagicMock:
     pool = MagicMock()
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value=row)
@@ -77,6 +79,7 @@ async def test_add_capability__ok() -> None:
         pool,
         staff_id=staff_id,
         capability=Capability.PHLEBOTOMY.value,
+        clinic_id=_CLINIC_ID,
         proficiency_level=ProficiencyLevel.COMPETENT.value,
     )
 
@@ -84,12 +87,13 @@ async def test_add_capability__ok() -> None:
     assert dto.staff_id == staff_id
     assert dto.capability == "PHLEBOTOMY"
     assert dto.proficiency_level == "COMPETENT"
-    # The query argument list is positional: (staff_id, capability, level)
+    # The query argument list is positional: (staff_id, capability, level, clinic)
     conn_mock = pool.acquire.return_value.__aenter__.return_value
     args = conn_mock.fetchrow.await_args.args
     assert args[1] == staff_id
     assert args[2] == "PHLEBOTOMY"
     assert args[3] == "COMPETENT"
+    assert args[4] == _CLINIC_ID
 
 
 @pytest.mark.asyncio
@@ -119,16 +123,33 @@ async def test_add_capability__upsert() -> None:
         pool,
         staff_id=staff_id,
         capability=Capability.PHLEBOTOMY.value,
+        clinic_id=_CLINIC_ID,
         proficiency_level=ProficiencyLevel.COMPETENT.value,
     )
     dto = await add_capability(
         pool,
         staff_id=staff_id,
         capability=Capability.PHLEBOTOMY.value,
+        clinic_id=_CLINIC_ID,
         proficiency_level=ProficiencyLevel.EXPERT.value,
     )
 
     assert dto.proficiency_level == "EXPERT"
+
+
+@pytest.mark.asyncio
+async def test_add_capability__other_or_shared_tenant_is_not_found() -> None:
+    """No membership/exclusive ownership means no global capability write."""
+    staff_id = uuid4()
+    pool = _mock_pool_with_fetchrow(None)
+
+    with pytest.raises(ResourceNotFoundError, match=str(staff_id)):
+        await add_capability(
+            pool,
+            staff_id=staff_id,
+            capability=Capability.PHLEBOTOMY.value,
+            clinic_id=_CLINIC_ID,
+        )
 
 
 # ---- get_staff_by_capability ------------------------------------------------

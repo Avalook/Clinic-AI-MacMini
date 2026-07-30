@@ -79,6 +79,9 @@ def _mock_pool_and_conn() -> tuple[MagicMock, AsyncMock]:
     acquire_ctx = AsyncMock()
     acquire_ctx.__aenter__.return_value = conn
     pool.acquire.return_value = acquire_ctx
+    transaction_ctx = AsyncMock()
+    transaction_ctx.__aenter__.return_value = conn
+    conn.transaction = MagicMock(return_value=transaction_ctx)
 
     return pool, conn
 

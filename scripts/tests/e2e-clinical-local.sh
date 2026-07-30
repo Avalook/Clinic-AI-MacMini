@@ -56,11 +56,11 @@ INSERT INTO appointment (id, clinic_id, clinic_patient_id, location_id,
                          service_type_id, slot_start, slot_end, status, doctor_id)
 SELECT :'appt'::uuid, 'a0000000-0000-4000-8000-000000000001',
        'e0000000-0000-4000-8000-0000000000f1',
-       (SELECT id FROM clinic_location WHERE clinic_id='a0000000-0000-4000-8000-000000000001' LIMIT 1),
+       (SELECT id FROM clinic_location WHERE clinic_id='a0000000-0000-4000-8000-000000000001' AND is_active ORDER BY code LIMIT 1),
        -- Each run needs its own 15-minute window: enforce_slot_capacity allows
        -- 2+1 bookings per doctor per window (CAP-01), so reusing now() makes the
        -- third run fail on a rule that is doing its job.
-       (SELECT id FROM service_type LIMIT 1),
+       (SELECT id FROM service_type WHERE clinic_id='a0000000-0000-4000-8000-000000000001' AND is_active ORDER BY code LIMIT 1),
        now() + (:mins * interval '1 minute'),
        now() + (:mins * interval '1 minute') + interval '30 minutes',
        'CHECKED_IN',

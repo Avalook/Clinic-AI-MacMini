@@ -8,7 +8,8 @@ from clinicai.orchestrator.service import OrchestratorService
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_scheduling() -> None:
+async def test_chat_endpoint_scheduling(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENABLE_AI_ORCHESTRATOR", "true")
     # ASGITransport does not trigger lifespan → inject service via dependency override
     svc = OrchestratorService()
     app.dependency_overrides[get_orchestrator_service] = lambda: svc
@@ -17,9 +18,9 @@ async def test_chat_endpoint_scheduling() -> None:
     app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
         staff_id="s1",
         auth_user_id="u1",
-        full_name="CSKH test",
-        department="CSKH",
-        role=ClinicRole.CSKH,
+        full_name="Management test",
+        department="MANAGEMENT",
+        role=ClinicRole.MANAGEMENT,
         clinic_id="a0000000-0000-4000-8000-000000000001",
     )
     try:

@@ -32,7 +32,6 @@ SRC = REPO / "src" / "clinicai"
 DELIBERATELY_CROSS_TENANT = {
     "services/pos_relay.py",  # drains the outbox for every clinic
     "services/notification_relay.py",  # same, for notifications
-    "services/event_service.py",  # the outbox itself
 }
 
 # W8 drove this from 71 to 0. It stays at 0: every statement that names a
@@ -49,7 +48,7 @@ TENANT_TABLES = {
     "node_definition_version", "node_dependency", "patient",
     "patient_medical_profile", "payment", "pos_outbox", "pregnancy",
     "prescription", "service_log", "service_price", "service_type",
-    "staff_task", "ultrasound_record", "visit", "work_item",
+    "staff_capability", "staff_task", "ultrasound_record", "visit", "work_item",
     "work_item_dependency", "work_item_event", "work_roster", "work_session",
     "work_session_staff",
 }
@@ -58,6 +57,98 @@ STATEMENT = re.compile(
     r"\b(FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:public\.)?([a-z_]+)",
     re.IGNORECASE,
 )
+SQL_COMMENT = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
+INSERT_CLINIC_COLUMN = re.compile(
+    r"\bINSERT\s+INTO\s+(?:public\.)?[a-z_]+\s*"
+    r"\([^)]*\bclinic_id\b",
+    re.IGNORECASE | re.DOTALL,
+)
+CLINIC_PREDICATE = re.compile(
+    r"\b(?:WHERE|AND|OR|ON)\b[^;]*?"
+    r"\b(?:[a-z_][a-z0-9_]*\.)?clinic_id\b\s*"
+    r"(?:=|<>|!=|\bIS\b|\bIN\b)",
+    re.IGNORECASE | re.DOTALL,
+)
+REVERSE_CLINIC_PREDICATE = re.compile(
+    r"\b(?:WHERE|AND|OR|ON)\b[^;]*?"
+    r"(?:=|<>|!=)\s*(?:[a-z_][a-z0-9_]*\.)?clinic_id\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def has_clinic_scope(sql: str) -> bool:
+    """Require clinic_id in an INSERT column list or an actual predicate."""
+    cleaned = SQL_COMMENT.sub("", sql)
+    return bool(
+        INSERT_CLINIC_COLUMN.search(cleaned)
+        or CLINIC_PREDICATE.search(cleaned)
+        or REVERSE_CLINIC_PREDICATE.search(cleaned)
+    )
+
+
+# A tenant predicate is only worth having if every branch of the WHERE clause
+# carries it. SQL binds AND tighter than OR, so
+#
+#     WHERE clinic_id = $2 AND phone_primary = ANY($1) OR phone_secondary = ANY($1)
+#
+# means (clinic AND primary) OR (secondary) — the second branch has no tenant at
+# all and reads every clinic. That statement passed every check above, because
+# clinic_id really is there and really is a predicate. It shipped, and a lookup
+# by a patient's SECOND phone number returned other clinics' patients.
+#
+# So: split the WHERE clause on top-level OR and require a tenant predicate in
+# each branch. Parenthesised ORs (`clinic_id = $1 AND (a OR b)`) are unaffected,
+# and a deliberately repeated predicate (`(clinic_id=$1 AND a) OR (clinic_id=$1
+# AND b)`) passes too — only a genuinely unscoped branch is reported.
+WHERE_CLAUSE = re.compile(
+    r"\bWHERE\b(.*?)(?=\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|"
+    r"\bRETURNING\b|\bON\s+CONFLICT\b|\bUNION\b|;|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _split_top_level_or(clause: str) -> list[str]:
+    """Split on OR that is not inside parentheses."""
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    i = 0
+    while i < len(clause):
+        ch = clause[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif depth == 0 and clause[i : i + 2].upper() == "OR":
+            before = clause[i - 1] if i else " "
+            after = clause[i + 2] if i + 2 < len(clause) else " "
+            word_before = before.isalnum() or before == "_"
+            word_after = after.isalnum() or after == "_"
+            if not word_before and not word_after:
+                parts.append(clause[start:i])
+                start = i + 2
+                i += 2
+                continue
+        i += 1
+    parts.append(clause[start:])
+    return parts
+
+
+def or_bypasses_tenant(sql: str) -> bool:
+    """True when some top-level OR branch has no clinic_id predicate."""
+    cleaned = SQL_COMMENT.sub("", sql)
+    for match in WHERE_CLAUSE.finditer(cleaned):
+        clause = match.group(1)
+        branches = _split_top_level_or(clause)
+        if len(branches) < 2:
+            continue
+        for branch in branches:
+            probe = "WHERE " + branch
+            if not (
+                CLINIC_PREDICATE.search(probe) or REVERSE_CLINIC_PREDICATE.search(probe)
+            ):
+                return True
+    return False
 
 
 def sql_literals(path: pathlib.Path) -> list[tuple[int, str]]:
@@ -117,9 +208,21 @@ def audit() -> list[tuple[str, int, str, str]]:
                     if m.group(2).lower() in TENANT_TABLES
                 }
             )
-            if touched and "clinic_id" not in sql:
+            if not touched:
+                continue
+            if not has_clinic_scope(sql):
                 unscoped.append(
                     (rel, lineno, ",".join(touched), " ".join(sql.split())[:70])
+                )
+            elif or_bypasses_tenant(sql):
+                unscoped.append(
+                    (
+                        rel,
+                        lineno,
+                        ",".join(touched),
+                        "OR bypasses the tenant filter: "
+                        + " ".join(sql.split())[:70],
+                    )
                 )
     return unscoped
 

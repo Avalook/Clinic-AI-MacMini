@@ -39,7 +39,7 @@ from clinicai.api.identity import StaffIdentity
 
 logger = structlog.get_logger()
 
-FINALIZED = "FINALIZED"
+WRITABLE_VISIT_STATUSES: frozenset[str] = frozenset({"OPEN", "IN_PROGRESS"})
 
 
 def actor_label(identity: StaffIdentity) -> str:
@@ -111,9 +111,9 @@ class ClinicalFormService:
                 )
                 if visit is None:
                     raise NotFoundError("Không tìm thấy buổi khám")
-                if visit["status"] == FINALIZED:
+                if visit["status"] not in WRITABLE_VISIT_STATUSES:
                     raise ConflictError(
-                        "Hồ sơ đã chốt (FINALIZED) — luật cấm sửa. "
+                        "Hồ sơ không còn ở trạng thái cho phép sửa — luật cấm sửa. "
                         "Phải đính chính qua luồng AMENDED."
                     )
 

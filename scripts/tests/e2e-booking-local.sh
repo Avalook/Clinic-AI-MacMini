@@ -2,10 +2,10 @@
 # End-to-end smoke for the W5 booking + lifecycle endpoints against local
 # Supabase. Prerequisites are the same as e2e-clinical-local.sh.
 set -uo pipefail
-API=http://127.0.0.1:8100
-SUPA=http://127.0.0.1:54321
-DB="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-KEY=staging-local-api-key
+API=${API:-http://127.0.0.1:8100}
+SUPA=${SUPA:-http://127.0.0.1:54321}
+DB=${DB:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}
+KEY=${KEY:-staging-local-api-key}
 CLINIC=a0000000-0000-4000-8000-000000000001
 PATIENT=e0000000-0000-4000-8000-0000000000f1
 pass=0; fail=0
@@ -22,10 +22,14 @@ check() { if [ "$3" = "$2" ]; then printf '  PASS  %-52s %s\n' "$1" "$3"; pass=$
 
 DOCTOR=$(tok bs.a@dr4women.local)
 CSKH=$(tok cskh@dr4women.local)
-[ -z "$DOCTOR" ] || [ -z "$CSKH" ] && { echo "missing test logins"; exit 1; }
+RECEPTION=$(tok letan@dr4women.local)
+[ -z "$DOCTOR" ] || [ -z "$CSKH" ] || [ -z "$RECEPTION" ] && {
+  echo "missing test logins"
+  exit 1
+}
 
-LOC=$(psql "$DB" -tAc "SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' LIMIT 1" | tr -d ' ')
-SVCT=$(psql "$DB" -tAc "SELECT id FROM service_type LIMIT 1" | tr -d ' ')
+LOC=$(psql "$DB" -tAc "SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1" | tr -d ' ')
+SVCT=$(psql "$DB" -tAc "SELECT id FROM service_type WHERE clinic_id='$CLINIC' AND is_active ORDER BY code LIMIT 1" | tr -d ' ')
 DOC=$(psql "$DB" -tAc "SELECT id FROM staff WHERE full_name='BS A local'" | tr -d ' ')
 # Its own 15-minute window: enforce_slot_capacity allows 2+1 per doctor per slot.
 read -r S1 S2 <<< "$(python3 -c "
@@ -42,7 +46,8 @@ psql "$DB" -tAc "SELECT '        episode attached: ' || (episode_id IS NOT NULL)
 
 check "the doctor accepts their own case" 200 "$(call PATCH "/api/v1/appointments/$APPT" "$DOCTOR" '{"action":"confirm"}')"
 check "cannot finish before the patient arrives" 409 "$(call PATCH "/api/v1/appointments/$APPT" "$DOCTOR" '{"action":"complete"}')"
-check "CSKH checks the patient in" 200 "$(call PATCH "/api/v1/appointments/$APPT" "$CSKH" '{"action":"checkin"}')"
+check "CSKH cannot check the patient in" 403 "$(call PATCH "/api/v1/appointments/$APPT" "$CSKH" '{"action":"checkin"}')"
+check "reception checks the patient in" 200 "$(call PATCH "/api/v1/appointments/$APPT" "$RECEPTION" '{"action":"checkin"}')"
 psql "$DB" -tAc "SELECT '        queue_number=' || coalesce(queue_number,'(none)') || ' visits=' || (SELECT count(*) FROM visit WHERE appointment_id='$APPT') FROM appointment WHERE id='$APPT';"
 check "now it can be finished" 200 "$(call PATCH "/api/v1/appointments/$APPT" "$DOCTOR" '{"action":"complete"}')"
 check "a doctor may not cancel" 403 "$(call PATCH "/api/v1/appointments/$APPT" "$DOCTOR" '{"action":"cancel"}')"

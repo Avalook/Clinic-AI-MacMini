@@ -1,12 +1,19 @@
 name: CD
 
-# Deploy on merge to a deploy branch. Runs on the Mac mini self-hosted runner.
+# Deploy only after CI succeeds for a push to a deploy branch. Runs on the Mac
+# mini self-hosted runner.
 #   main    → prod stack    (Supabase prod)
 #   staging → staging stack  (Supabase staging)
-# The deploy script does: git pull → build → up → health check → rollback on fail.
+# The deploy script verifies the CI SHA, then builds, starts, health-checks and
+# rolls back on failure.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main, staging]
+
+permissions:
+  contents: read
 
 concurrency:
   # Prod and staging share one Docker host. Serialize every deployment.
@@ -15,21 +22,31 @@ concurrency:
 
 jobs:
   deploy:
+    # workflow_run executes with the default-branch workflow definition. Accept
+    # only a successful push from the two first-party deploy branches; a PR run
+    # must never reach the secrets-bearing self-hosted runner.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' ||
+       github.event.workflow_run.head_branch == 'staging')
     runs-on: [self-hosted, macmini]
     steps:
       - name: Select environment
         id: env
+        env:
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "target=prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "target=staging" >> "$GITHUB_OUTPUT"
-          fi
+          case "$SOURCE_BRANCH" in
+            main) echo "target=prod" >> "$GITHUB_OUTPUT" ;;
+            staging) echo "target=staging" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::unsupported deploy branch: $SOURCE_BRANCH"; exit 1 ;;
+          esac
 
-      - name: Checkout triggering commit
+      - name: Checkout CI-verified commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 1
           clean: true
           persist-credentials: false
@@ -37,18 +54,21 @@ jobs:
           # replace files currently mounted by the production containers.
           # Keep each verified source tree immutable so boot and rollback can
           # continue using the previous release while a new SHA is deployed.
-          path: release-${{ steps.env.outputs.target }}-${{ github.sha }}
+          path: release-${{ steps.env.outputs.target }}-${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy ${{ steps.env.outputs.target }}
         # Code comes from the exact event SHA above. Secrets remain in the fixed,
         # gitignored deploy directory and are passed only as an external env path.
+        env:
+          DEPLOY_TARGET: ${{ steps.env.outputs.target }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
-          TARGET="${{ steps.env.outputs.target }}"
           SECRET_DIR="${CLINIC_DEPLOY_DIR:-$HOME/Projects/Dr4Women-MacMini}"
-          RELEASE_DIR="$GITHUB_WORKSPACE/release-$TARGET-${{ github.sha }}"
-          test -f "$SECRET_DIR/.env.$TARGET"
+          RELEASE_DIR="$GITHUB_WORKSPACE/release-$DEPLOY_TARGET-$VERIFIED_SHA"
+          test -f "$SECRET_DIR/.env.$DEPLOY_TARGET"
           CLINIC_ENV_DIR="$SECRET_DIR" \
-          DEPLOY_EXPECTED_SHA="${{ github.sha }}" \
-          DEPLOY_SOURCE_BRANCH="${{ github.ref_name }}" \
-            "$RELEASE_DIR/scripts/deploy-backend.sh" "$TARGET"
+          DEPLOY_EXPECTED_SHA="$VERIFIED_SHA" \
+          DEPLOY_SOURCE_BRANCH="$SOURCE_BRANCH" \
+            "$RELEASE_DIR/scripts/deploy-backend.sh" "$DEPLOY_TARGET"

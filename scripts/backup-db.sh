@@ -13,12 +13,18 @@
 set -euo pipefail
 umask 077
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# LaunchDaemons do not load the interactive Homebrew shell profile. `pg_dump`
+# from either the keg-only libpq package or PostgreSQL 17 must therefore be on
+# the explicit command path. CLINIC_BACKUP_PATH is an escape hatch for a
+# non-Homebrew host and deterministic tests.
+DEFAULT_COMMAND_PATH="/opt/homebrew/opt/libpq/bin:/opt/homebrew/opt/postgresql@17/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH="${CLINIC_BACKUP_PATH:-${DEFAULT_COMMAND_PATH}${PATH:+:${PATH}}}"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="$HOME/Library/Logs/clinicai-backup.log"
 BACKUP_DIR="$HOME/backups/clinicai"
 KEEP_DAYS=7
+MIN_ARCHIVE_BYTES="${BACKUP_MIN_ARCHIVE_BYTES:-1024}"
 
 mkdir -p "$(dirname "$LOG")" "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
@@ -27,6 +33,14 @@ ts() { date "+%Y-%m-%d %H:%M:%S"; }
 log() { echo "[$(ts)] $*" >> "$LOG"; }
 
 log "=== Backup starting ==="
+
+case "$MIN_ARCHIVE_BYTES" in
+    ''|*[!0-9]*) log "ERROR: BACKUP_MIN_ARCHIVE_BYTES must be a positive integer"; exit 1 ;;
+esac
+[ "$MIN_ARCHIVE_BYTES" -ge 1 ] || {
+    log "ERROR: BACKUP_MIN_ARCHIVE_BYTES must be at least 1"
+    exit 1
+}
 
 # Load DATABASE_URL from env file.
 ENV_FILE="${BACKUP_ENV_FILE:-${REPO}/.env.prod}"
@@ -43,12 +57,31 @@ esac
 # Strip the +asyncpg driver suffix for pg_dump compatibility.
 PG_URL="${DATABASE_URL/postgresql+asyncpg:/postgresql:}"
 
-for required in pg_dump gzip python3; do
+if [ -n "${PG_DUMP_BIN:-}" ]; then
+    [ -x "$PG_DUMP_BIN" ] || {
+        log "ERROR: configured pg_dump is not executable: $PG_DUMP_BIN"
+        exit 1
+    }
+else
+    PG_DUMP_BIN=$(command -v pg_dump || true)
+    [ -n "$PG_DUMP_BIN" ] || {
+        log "ERROR: required command not found: pg_dump"
+        exit 1
+    }
+fi
+for required in gzip python3 awk wc find date mktemp; do
     command -v "$required" >/dev/null 2>&1 || {
         log "ERROR: required command not found: $required"
         exit 1
     }
 done
+if ! command -v shasum >/dev/null 2>&1 &&
+   ! command -v sha256sum >/dev/null 2>&1; then
+    log "ERROR: neither shasum nor sha256sum is available"
+    exit 1
+fi
+PG_DUMP_VERSION=$("$PG_DUMP_BIN" --version 2>/dev/null || true)
+log "Preflight OK: pg_dump=${PG_DUMP_BIN} (${PG_DUMP_VERSION:-version unavailable})"
 
 load_libpq_env() {
     local parsed_file
@@ -96,7 +129,7 @@ sha256_file() {
 # Run pg_dump and compress. pipefail is mandatory: gzip can succeed on an empty
 # stream even when pg_dump was not found or exited non-zero.
 log "Dumping database..."
-if pg_dump --format=plain --schema=public --no-owner --no-acl 2>> "$LOG" | gzip > "$TEMP_FILE"; then
+if "$PG_DUMP_BIN" --format=plain --schema=public --no-owner --no-acl 2>> "$LOG" | gzip > "$TEMP_FILE"; then
     :
 else
     rc=$?
@@ -107,6 +140,11 @@ fi
 # Verify both the gzip container and the SQL payload before publishing the file.
 if ! gzip -t "$TEMP_FILE"; then
     log "ERROR: backup failed gzip integrity validation"
+    exit 1
+fi
+ARCHIVE_BYTES=$(wc -c < "$TEMP_FILE" | tr -d ' ')
+if [ "${ARCHIVE_BYTES:-0}" -lt "$MIN_ARCHIVE_BYTES" ]; then
+    log "ERROR: compressed backup is implausibly small (${ARCHIVE_BYTES:-0} bytes; minimum ${MIN_ARCHIVE_BYTES})"
     exit 1
 fi
 UNCOMPRESSED_BYTES=$(gzip -cd "$TEMP_FILE" | wc -c | tr -d ' ')
@@ -142,7 +180,6 @@ chmod 600 "$BACKUP_FILE"
 chmod 600 "$MANIFEST_FILE"
 trap - EXIT
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-ARCHIVE_BYTES=$(wc -c < "$BACKUP_FILE" | tr -d ' ')
 log "Public-schema backup created and verified: $BACKUP_FILE ($SIZE, $UNCOMPRESSED_BYTES bytes raw)"
 log "NOTICE: Supabase auth/managed schemas and roles are outside this application-data backup; retain PITR/platform backups."
 

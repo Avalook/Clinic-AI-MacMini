@@ -62,6 +62,10 @@ Thumbs.db
 # Claude Code local artifacts (worktrees = nested git clones, never commit)
 .claude/
 
+# Headroom local agent memory. Some legacy files are still tracked; remove them
+# from the Git index in a coordinated clean change without deleting local state.
+.headroom/
+
 # Logs
 *.log
 logs/

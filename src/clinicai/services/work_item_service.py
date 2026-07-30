@@ -99,23 +99,30 @@ class WorkItemService:
                 item = await conn.fetchrow(
                     """
                     SELECT w.id, w.status, w.version, w.node_code, w.clinic_id,
-                           n.actor_roles, n.name AS node_name
+                           n.actor_roles, n.name AS node_name,
+                           m.role AS membership_role
                       FROM work_item w
                       JOIN clinic_membership m
                         ON m.clinic_id = w.clinic_id
                        AND m.staff_id = $2::uuid
                        AND m.is_active
+                       AND m.clinic_id = $3::uuid
+                       AND m.role = $4
                       LEFT JOIN node_definition n
                         ON n.clinic_id = w.clinic_id
                        AND n.code = w.node_code
                      WHERE w.id = $1::uuid
+                       AND w.clinic_id = $3::uuid
                      FOR UPDATE OF w
                     """,
                     work_item_id,
                     identity.staff_id,
+                    identity.clinic_id,
+                    identity.role.value,
                 )
-                # The membership join is the tenant check: an item in another
-                # clinic is indistinguishable from one that does not exist.
+                # Both halves of the identity are re-checked against the same
+                # active membership. A membership in some other clinic (or a
+                # stale role changed after identity resolution) grants nothing.
                 if item is None:
                     raise NotFoundError("Không tìm thấy đầu việc")
 
@@ -127,11 +134,12 @@ class WorkItemService:
                     )
 
                 actor_roles: list[str] = list(item["actor_roles"] or [])
-                if actor_roles and identity.role.value not in actor_roles:
+                membership_role = str(item["membership_role"])
+                if actor_roles and membership_role not in actor_roles:
                     logger.info(
                         "work_item_role_forbidden",
                         node_code=item["node_code"],
-                        role=identity.role.value,
+                        role=membership_role,
                         allowed=actor_roles,
                     )
                     raise SafetyGateError(
@@ -176,7 +184,7 @@ class WorkItemService:
                     next_status,
                     current,
                     expected_version,
-                    item["clinic_id"],
+                    identity.clinic_id,
                 )
                 if updated is None:
                     raise ConflictError(
@@ -190,13 +198,13 @@ class WorkItemService:
                          actor_staff_id, actor_role, reason, metadata)
                     VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid, $7, $8, $9)
                     """,
-                    item["clinic_id"],
+                    identity.clinic_id,
                     work_item_id,
                     command,
                     current,
                     next_status,
                     identity.staff_id,
-                    identity.role.value,
+                    membership_role,
                     reason,
                     json.dumps({"node_code": item["node_code"]}),
                 )
@@ -209,6 +217,7 @@ class WorkItemService:
             from_status=current,
             to_status=next_status,
             by_staff_id=identity.staff_id,
+            by_role=membership_role,
         )
         return {
             "id": work_item_id,
@@ -216,15 +225,42 @@ class WorkItemService:
             "version": updated["version"],
         }
 
-    async def blockers(self, *, work_item_id: str, phase: str) -> list[dict[str, str]]:
-        """What still stands between this item and `start` / `complete`."""
+    async def blockers(
+        self,
+        *,
+        work_item_id: str,
+        phase: str,
+        identity: StaffIdentity,
+    ) -> list[dict[str, str]]:
+        """Return blockers only when the item belongs to the active membership."""
         rows = await self._pool.fetch(
-            "SELECT node_code, dependency_type "
-            "FROM work_item_gate_blockers($1::uuid, $2)",
+            """
+            SELECT w.id AS scoped_work_item_id,
+                   b.node_code,
+                   b.dependency_type
+              FROM work_item w
+              JOIN clinic_membership m
+                ON m.clinic_id = w.clinic_id
+               AND m.staff_id = $4::uuid
+               AND m.is_active
+               AND m.role = $5
+              LEFT JOIN LATERAL
+                   work_item_gate_blockers(w.id, $2) b ON TRUE
+             WHERE w.id = $1::uuid
+               AND w.clinic_id = $3::uuid
+            """,
             work_item_id,
             phase,
+            identity.clinic_id,
+            identity.staff_id,
+            identity.role.value,
         )
+        if not rows:
+            # Cross-clinic and nonexistent identifiers are deliberately
+            # indistinguishable at this boundary.
+            raise NotFoundError("Không tìm thấy đầu việc")
         return [
             {"node_code": r["node_code"], "dependency_type": r["dependency_type"]}
             for r in rows
+            if r["node_code"] is not None
         ]

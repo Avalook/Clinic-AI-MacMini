@@ -36,6 +36,7 @@ def mock_pool() -> MagicMock:
 def sample_event() -> InteractionEvent:
     """Sample InteractionEvent fixture."""
     return InteractionEvent(
+        clinic_id=uuid4(),
         event_type="interaction.walkin",
         entity_type="appointment",
         entity_id=uuid4(),
@@ -86,7 +87,7 @@ async def test_process_resolved_returns_processed(
     event_service = EventService(mock_pool, publisher)
     # event_service.record_and_publish will INSERT via fetchval — give it a UUID
     conn = mock_pool.acquire.return_value.__aenter__.return_value
-    conn.fetchval.return_value = uuid4()
+    conn.fetchval.return_value = sample_event.event_id
 
     engine = GoldenRecordEngine(mock_pool, event_service)
     resolved_id = uuid4()

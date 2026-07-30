@@ -1,6 +1,6 @@
 // /api/payment — chốt / hoàn tác thu tiền 1 khâu của 1 lượt khám.
 //   POST   { visitId, clinicPatientId?, kind, amount? }  → đánh dấu ĐÃ THU.
-//   DELETE { visitId, kind }                             → hoàn tác.
+//   DELETE { visitId, kind, reason }                     → hoàn tác có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
 // Toàn bộ luật nằm ở FastAPI (ADR-0012): vai nào được thu khâu nào, chốt "chỉ
@@ -43,9 +43,10 @@ export async function DELETE(request: Request) {
   if (raw === undefined) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const p = (raw ?? {}) as { visitId?: string; kind?: string };
+  const p = (raw ?? {}) as { visitId?: string; kind?: string; reason?: string };
   return proxyJsonToBackend("DELETE", "/api/v1/payments", {
     visit_id: p.visitId,
     kind: p.kind,
+    reason: p.reason,
   });
 }

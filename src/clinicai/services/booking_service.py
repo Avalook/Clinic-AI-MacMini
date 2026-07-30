@@ -77,10 +77,7 @@ MANAGE_ROLES: frozenset[ClinicRole] = frozenset(
 CHECKIN_ROLES: frozenset[ClinicRole] = frozenset(
     {
         ClinicRole.RECEPTION,
-        ClinicRole.NURSE_ULTRASOUND,
         ClinicRole.MANAGEMENT,
-        ClinicRole.CSKH,
-        ClinicRole.TRUONG_CA,
     }
 )
 INTAKE_ROLES: frozenset[ClinicRole] = frozenset(
@@ -134,12 +131,12 @@ TRANSITIONS: dict[str, Transition] = {
     # D21: reception checks in directly from any live appointment. The doctor's
     # accept/decline is no longer a precondition for the patient being seen.
     "checkin": Transition(
-        "CHECKED_IN", _PRE_ARRIVAL, INTAKE_ROLES, "appointment.checked_in"
+        "CHECKED_IN", _PRE_ARRIVAL, CHECKIN_ROLES, "appointment.checked_in"
     ),
     "undo_checkin": Transition(
         "CONFIRMED",
         frozenset({"CHECKED_IN"}),
-        INTAKE_ROLES,
+        CHECKIN_ROLES,
         "appointment.checkin_undone",
     ),
     # CSKH confirmed with the patient; the slot still waits on the doctor.
@@ -258,6 +255,15 @@ class BookingService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await self._validate_booking_refs(
+                    conn,
+                    clinic_patient_id=clinic_patient_id,
+                    location_id=location_id,
+                    service_type_id=service_type_id,
+                    doctor_id=doctor_id,
+                    identity=identity,
+                )
+
                 if doctor_id:
                     busy = await self._doctor_conflict(
                         conn, doctor_id, slot_start, slot_end, identity
@@ -392,16 +398,71 @@ class BookingService:
             async with conn.transaction():
                 appt = await conn.fetchrow(
                     """
-                    SELECT id, doctor_id, status, clinic_patient_id, slot_start,
-                           slot_end, queue_number, booking_channel
-                      FROM appointment
-                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                    SELECT
+                        a.id, a.doctor_id, a.status, a.clinic_patient_id,
+                        a.slot_start, a.slot_end, a.queue_number,
+                        a.booking_channel,
+                        EXISTS (
+                            SELECT 1
+                              FROM patient p
+                             WHERE p.clinic_patient_id = a.clinic_patient_id
+                               AND p.clinic_id = a.clinic_id
+                        ) AS patient_in_clinic,
+                        EXISTS (
+                            SELECT 1
+                              FROM clinic_location l
+                             WHERE l.id = a.location_id
+                               AND l.clinic_id = a.clinic_id
+                        ) AS location_in_clinic,
+                        EXISTS (
+                            SELECT 1
+                              FROM service_type s
+                             WHERE s.id = a.service_type_id
+                               AND s.clinic_id = a.clinic_id
+                        ) AS service_in_clinic,
+                        (
+                            a.doctor_id IS NULL
+                            OR EXISTS (
+                                SELECT 1
+                                  FROM staff st
+                                  JOIN clinic_membership m
+                                    ON m.staff_id = st.id
+                                 WHERE st.id = a.doctor_id
+                                   AND st.is_active
+                                   AND m.clinic_id = a.clinic_id
+                                   AND m.is_active
+                                   AND m.role IN (
+                                       'DOCTOR', 'ULTRASOUND_DOCTOR'
+                                   )
+                            )
+                        ) AS doctor_in_clinic
+                      FROM appointment a
+                     WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
                     """,
                     appointment_id,
                     identity.clinic_id,
                 )
                 if appt is None:
                     raise NotFoundError("Không tìm thấy lịch hẹn")
+                if not appt["patient_in_clinic"]:
+                    raise ValidationError(
+                        "Bệnh nhân của lịch hẹn không thuộc phòng khám này"
+                    )
+                if not appt["location_in_clinic"]:
+                    raise ValidationError(
+                        "Cơ sở của lịch hẹn không thuộc phòng khám này"
+                    )
+                if not appt["service_in_clinic"]:
+                    raise ValidationError(
+                        "Dịch vụ của lịch hẹn không thuộc phòng khám này"
+                    )
+                repairs_doctor = action in {"cancel", "reassign"} or (
+                    action == "reschedule" and doctor_id_provided
+                )
+                if not appt["doctor_in_clinic"] and not repairs_doctor:
+                    raise ValidationError(
+                        "Bác sĩ của lịch hẹn không thuộc phòng khám này"
+                    )
 
                 # A doctor acts on their own list. TKYK enters on their behalf.
                 if (
@@ -421,6 +482,9 @@ class BookingService:
                     appt["status"]
                     if transition.to_status == KEEP_STATUS
                     else transition.to_status
+                )
+                effective_doctor_id = (
+                    str(appt["doctor_id"]) if appt["doctor_id"] else None
                 )
 
                 if action == "checkin":
@@ -445,6 +509,10 @@ class BookingService:
                         transition.from_statuses,
                         identity.clinic_id,
                     )
+                    if "doctor_id" in patch:
+                        effective_doctor_id = (
+                            str(patch["doctor_id"]) if patch["doctor_id"] else None
+                        )
 
                 if not updated:
                     # Somebody moved it between our read and our write.
@@ -459,9 +527,7 @@ class BookingService:
                     payload={
                         "appointment_id": appointment_id,
                         "status": new_status,
-                        "doctor_id": (
-                            str(appt["doctor_id"]) if appt["doctor_id"] else None
-                        ),
+                        "doctor_id": effective_doctor_id,
                         "clinic_patient_id": str(appt["clinic_patient_id"]),
                     },
                     identity=identity,
@@ -473,9 +539,7 @@ class BookingService:
                         conn,
                         appointment_id=appointment_id,
                         clinic_patient_id=str(appt["clinic_patient_id"]),
-                        doctor_id=(
-                            str(appt["doctor_id"]) if appt["doctor_id"] else None
-                        ),
+                        doctor_id=effective_doctor_id,
                         identity=identity,
                     )
 
@@ -563,6 +627,7 @@ class BookingService:
         identity: StaffIdentity,
     ) -> None:
         if doctor_id:
+            await self._validate_doctor_ref(conn, doctor_id, identity.clinic_id)
             busy = await self._doctor_conflict(
                 conn, doctor_id, slot_start, slot_end, identity, exclude_id
             )
@@ -573,6 +638,94 @@ class BookingService:
         )
         if full:
             raise ConflictError(full)
+
+    async def _validate_booking_refs(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_patient_id: str,
+        location_id: str,
+        service_type_id: str,
+        doctor_id: str | None,
+        identity: StaffIdentity,
+    ) -> None:
+        """Fail before INSERT when any supplied id belongs to another clinic."""
+        refs = await conn.fetchrow(
+            """
+            SELECT
+                EXISTS (
+                    SELECT 1 FROM patient p
+                     WHERE p.clinic_patient_id = $1::uuid
+                       AND p.clinic_id = $5::uuid
+                       AND p.is_active
+                ) AS patient_ok,
+                EXISTS (
+                    SELECT 1 FROM clinic_location l
+                     WHERE l.id = $2::uuid
+                       AND l.clinic_id = $5::uuid
+                       AND l.is_active
+                ) AS location_ok,
+                EXISTS (
+                    SELECT 1 FROM service_type s
+                     WHERE s.id = $3::uuid
+                       AND s.clinic_id = $5::uuid
+                       AND s.is_active
+                ) AS service_ok,
+                (
+                    $4::uuid IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                          FROM staff st
+                          JOIN clinic_membership m ON m.staff_id = st.id
+                         WHERE st.id = $4::uuid
+                           AND st.is_active
+                           AND m.clinic_id = $5::uuid
+                           AND m.is_active
+                           AND m.role IN (
+                               'DOCTOR', 'ULTRASOUND_DOCTOR'
+                           )
+                    )
+                ) AS doctor_ok
+            """,
+            clinic_patient_id,
+            location_id,
+            service_type_id,
+            doctor_id,
+            identity.clinic_id,
+        )
+        if refs is None or not refs["patient_ok"]:
+            raise ValidationError("Mã bệnh nhân không thuộc phòng khám này")
+        if not refs["location_ok"]:
+            raise ValidationError("Mã cơ sở không thuộc phòng khám này")
+        if not refs["service_ok"]:
+            raise ValidationError("Mã dịch vụ không thuộc phòng khám này")
+        if not refs["doctor_ok"]:
+            raise ValidationError("Mã bác sĩ không thuộc phòng khám này")
+
+    async def _validate_doctor_ref(
+        self,
+        conn: asyncpg.Connection,
+        doctor_id: str,
+        clinic_id: str | None,
+    ) -> None:
+        valid = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                  FROM staff st
+                  JOIN clinic_membership m ON m.staff_id = st.id
+                 WHERE st.id = $1::uuid
+                   AND st.is_active
+                   AND m.clinic_id = $2::uuid
+                   AND m.is_active
+                   AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+            )
+            """,
+            doctor_id,
+            clinic_id,
+        )
+        if not valid:
+            raise ValidationError("Mã bác sĩ không thuộc phòng khám này")
 
     async def _update(
         self,

@@ -6,7 +6,8 @@
 #
 # Prod + staging run side-by-side on the same Mac: different project names (-p),
 # different Caddy host ports (CADDY_HTTP_PORT/HTTPS_PORT), different Supabase.
-# Data lives in Supabase cloud → a Mac crash never loses data.
+# Application rows live in Supabase cloud; host config, volumes and platform
+# identities still require the separate backup/restore plan in OPS-RUNBOOK.
 #
 # Ingress: Caddy (auto-HTTPS) is the ONLY service bound to public host ports.
 #   api + dashboard are internal-only (reached over the compose network).
@@ -21,11 +22,27 @@
 #                     --profile pos       (POS outbox relay — ADR-0010)
 #                     --profile cloudflare (cloudflared tunnel)
 
+x-clinic-service-defaults: &clinic-service-defaults
+  # Bound log growth protects the single host from an incident filling its SSD.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+  # Prevent descendants from gaining privileges through setuid/setgid binaries.
+  security_opt:
+    - no-new-privileges:true
+  # Reap orphaned child processes in long-running application containers.
+  init: true
+
 services:
   # ---- Reverse proxy / TLS (public ingress) --------------------------------
   caddy:
+    <<: *clinic-service-defaults
     image: caddy:2-alpine
     restart: unless-stopped
+    mem_limit: ${CADDY_MEMORY_LIMIT:-128m}
+    pids_limit: 128
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
@@ -48,6 +65,7 @@ services:
 
   # ---- Frontend (Next.js standalone) — UI only -----------------------------
   dashboard:
+    <<: *clinic-service-defaults
     build:
       context: ./src/dashboard
       dockerfile: Dockerfile.dashboard
@@ -57,6 +75,8 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    mem_limit: ${DASHBOARD_MEMORY_LIMIT:-512m}
+    pids_limit: 256
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       # Dashboard calls FastAPI over the internal network (never the internet).
@@ -77,11 +97,14 @@ services:
 
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
+    <<: *clinic-service-defaults
     build:
       context: .
       dockerfile: Dockerfile.api
     image: clinicai-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    mem_limit: ${API_MEMORY_LIMIT:-1g}
+    pids_limit: 256
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
@@ -107,12 +130,15 @@ services:
 
   # ---- Async worker (opt-in: --profile workers) ----------------------------
   worker:
+    <<: *clinic-service-defaults
     build:
       context: .
       dockerfile: Dockerfile.api
     image: clinicai-api:${IMAGE_TAG:-latest}
     profiles: ["workers"]
     restart: unless-stopped
+    mem_limit: ${WORKER_MEMORY_LIMIT:-256m}
+    pids_limit: 256
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     command: ["python", "-m", "clinicai.worker"]
     depends_on:
@@ -120,17 +146,20 @@ services:
         condition: service_healthy
     networks: [internal]
 
-  # POS outbox relay (ADR-0010). Opt-in: `--profile pos`. Harmless to run before
-  # any till is connected — with the default null adapter it just drains the
-  # queue. Kept separate from the notification relay because a POS being down
+  # POS outbox relay (ADR-0010). Opt-in only after configuring a real adapter;
+  # the null adapter dead-letters instead of claiming fake delivery. Kept
+  # separate from the notification relay because a POS being down
   # must not delay a patient's SMS, and vice versa.
   pos-relay:
+    <<: *clinic-service-defaults
     build:
       context: .
       dockerfile: Dockerfile.api
     image: clinicai-api:${IMAGE_TAG:-latest}
     profiles: ["pos"]
     restart: unless-stopped
+    mem_limit: ${POS_RELAY_MEMORY_LIMIT:-256m}
+    pids_limit: 128
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       POS_ADAPTER: ${POS_ADAPTER:-none}
@@ -141,12 +170,15 @@ services:
   # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
   # `notifications` profile can run this service on its own.
   notification-relay:
+    <<: *clinic-service-defaults
     build:
       context: .
       dockerfile: Dockerfile.api
     image: clinicai-api:${IMAGE_TAG:-latest}
     profiles: ["workers", "notifications"]
     restart: unless-stopped
+    mem_limit: ${NOTIFICATION_RELAY_MEMORY_LIMIT:-256m}
+    pids_limit: 128
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     command: ["python", "-m", "clinicai.worker", "--relay"]
     depends_on:
@@ -155,13 +187,28 @@ services:
     networks: [internal]
 
   rabbitmq:
+    <<: *clinic-service-defaults
     image: rabbitmq:3.13-management-alpine
     profiles: ["workers"]
     restart: unless-stopped
+    mem_limit: ${RABBITMQ_MEMORY_LIMIT:-512m}
+    pids_limit: 512
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clinicai}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-clinicai_dev_pass}
+      # Empty is allowed while the profile is disabled so the base stack still
+      # resolves. If workers are enabled, the entrypoint and deploy preflight
+      # both fail closed instead of creating a broker with a shared default.
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-clinicai}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if [ -z "$${RABBITMQ_DEFAULT_PASS:-}" ]; then
+          echo "RabbitMQ password is required when the workers profile is enabled" >&2
+          exit 78
+        fi
+        exec docker-entrypoint.sh rabbitmq-server
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
@@ -176,8 +223,11 @@ services:
 
   # ---- Monitoring + logs (bound to localhost → private via Tailscale) ------
   uptime-kuma:
+    <<: *clinic-service-defaults
     image: louislam/uptime-kuma:1
     restart: unless-stopped
+    mem_limit: ${KUMA_MEMORY_LIMIT:-256m}
+    pids_limit: 256
     ports:
       - "127.0.0.1:${KUMA_PORT:-3001}:3001"
     volumes:
@@ -185,8 +235,11 @@ services:
     networks: [internal]
 
   dozzle:
+    <<: *clinic-service-defaults
     image: amir20/dozzle:v10.6.9
     restart: unless-stopped
+    mem_limit: ${DOZZLE_MEMORY_LIMIT:-128m}
+    pids_limit: 128
     ports:
       - "127.0.0.1:${DOZZLE_PORT:-8888}:8080"
     environment:
@@ -208,9 +261,12 @@ services:
 
   # ---- Cloudflare Tunnel (opt-in: --profile cloudflare) --------------------
   cloudflared:
+    <<: *clinic-service-defaults
     image: cloudflare/cloudflared:latest
     profiles: ["cloudflare"]
     restart: unless-stopped
+    mem_limit: ${CLOUDFLARED_MEMORY_LIMIT:-128m}
+    pids_limit: 128
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}

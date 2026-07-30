@@ -106,11 +106,12 @@ export default function AccountActions({
       {mode === "reset" && (
         <div className="flex flex-wrap items-center gap-2">
           <input
-            type="text"
+            type="password"
             value={password}
             autoFocus
             onChange={(e) => setPassword(e.target.value)}
             placeholder={`Mật khẩu mới (≥${MIN_PASSWORD})`}
+            autoComplete="new-password"
             className="w-full rounded-md border border-[#e4e4e7] px-2 py-2 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:w-48 sm:py-1 sm:text-xs"
           />
           <button

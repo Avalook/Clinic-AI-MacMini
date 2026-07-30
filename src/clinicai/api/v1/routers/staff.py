@@ -6,6 +6,12 @@ import asyncpg
 from fastapi import APIRouter, Depends, status
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import (
     ResourceNotFoundError as CoreResourceNotFoundError,
@@ -25,6 +31,7 @@ from clinicai.schemas.staff import (
 from clinicai.services.staff_service import StaffService
 
 router = APIRouter()
+_STAFF_MANAGEMENT_GUARD = require_role(ClinicRole.MANAGEMENT)
 
 
 @router.post(
@@ -34,10 +41,11 @@ router = APIRouter()
 )
 async def create_staff(
     data: StaffCreate,
+    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffRead:
     """Create a new staff member."""
-    service = StaffService(pool)
+    service = StaffService(pool, identity.clinic_id)
     try:
         return await service.create_staff(data)
     except CoreValidationError as exc:
@@ -47,10 +55,11 @@ async def create_staff(
 @router.get("/staff/{id}", response_model=StaffRead)
 async def get_staff_by_id(
     id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffRead:
     """Retrieve a staff member by ID."""
-    service = StaffService(pool)
+    service = StaffService(pool, identity.clinic_id)
     staff = await service.get_by_id(id)
     if staff is None:
         raise NotFoundError(f"Staff {id} not found")
@@ -61,10 +70,11 @@ async def get_staff_by_id(
 async def list_staff(
     location_id: UUID | None = None,
     assignable: bool = False,
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[StaffRead]:
     """List active or assignable staff members, optionally filtered by location."""
-    service = StaffService(pool)
+    service = StaffService(pool, identity.clinic_id)
     if assignable:
         staff_list = await service.list_assignable()
         if location_id is not None:
@@ -78,10 +88,11 @@ async def list_staff(
 async def update_staff(
     id: UUID,
     data: StaffUpdate,
+    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffRead:
     """Partially update a staff member."""
-    service = StaffService(pool)
+    service = StaffService(pool, identity.clinic_id)
     try:
         return await service.update_staff(id, data)
     except CoreResourceNotFoundError as exc:
@@ -93,10 +104,11 @@ async def update_staff(
 @router.delete("/staff/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_staff(
     id: UUID,
+    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> None:
     """Soft delete (deactivate) a staff member."""
-    service = StaffService(pool)
+    service = StaffService(pool, identity.clinic_id)
     try:
         await service.deactivate(id)
     except CoreResourceNotFoundError as exc:

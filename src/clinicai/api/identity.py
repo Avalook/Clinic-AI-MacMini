@@ -2,8 +2,13 @@
 
 Every authenticated caller carries a Supabase JWT (Authorization: Bearer ...).
 The backend VERIFIES that JWT, maps the auth user → the linked `staff` row via
-`staff.auth_user_id`, and derives the clinic role from `staff.primary_department`.
-Nothing is trusted from the client: not the role, not the identity.
+`staff.auth_user_id`, and derives both tenant and role from the SAME active
+`clinic_membership` row. Nothing is trusted from the client: not the role, not
+the identity.
+
+Single-clinic staff need no extra context. A staff member with multiple active
+memberships must send ``X-Clinic-ID``; it only selects among memberships already
+authorized by the database and never grants access on its own.
 
 This replaces the old model where the frontend set a self-chosen `clinic_role`
 cookie + picked any `staff_id` at a role-picker (spoofable — see spec §4 / audit).
@@ -20,6 +25,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 import jwt
@@ -35,7 +41,7 @@ SUPABASE_AUDIENCE = "authenticated"
 
 
 class ClinicRole(str, Enum):
-    """Mirror of staff.primary_department CHECK — the role IS the department."""
+    """Mirror of the role codes allowed on ``clinic_membership``."""
 
     DOCTOR = "DOCTOR"
     ULTRASOUND_DOCTOR = "ULTRASOUND_DOCTOR"
@@ -68,7 +74,12 @@ CASHIER_ROLES = frozenset(
 
 
 def role_from_department(dept: str | None) -> ClinicRole:
-    """Derive clinic role from staff department. Unknown → CSKH (least privilege)."""
+    """Map a persisted role code. Unknown → CSKH (least privilege).
+
+    The legacy name remains because callers and tests use it, but request
+    authorization now supplies the per-clinic ``clinic_membership.role`` rather
+    than the global ``staff.primary_department``.
+    """
     if dept and dept in _VALID_ROLES:
         return ClinicRole(dept)
     logger.warning("unknown_department_defaulting_cskh", department=dept)
@@ -150,35 +161,76 @@ def _bearer_token(request: Request) -> str:
     return header[len("Bearer ") :].strip()
 
 
+def _requested_clinic_id(request: Request) -> str | None:
+    """Return a canonical active-clinic selector, rejecting malformed input.
+
+    The header is a selector, not authority: the database query below accepts
+    it only when the authenticated staff member has that active membership.
+    A single-clinic staff member needs no header; a multi-clinic login must
+    choose explicitly so requests never land in an arbitrary tenant.
+    """
+    raw = request.headers.get("X-Clinic-ID")
+    if raw is None:
+        return None
+    try:
+        return str(UUID(raw.strip()))
+    except (AttributeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Clinic-ID must be a valid UUID",
+        ) from None
+
+
 async def get_current_identity(
     request: Request,
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffIdentity:
-    """FastAPI dep: verify JWT → linked active staff → role. Raises 401/403."""
+    """Verify JWT → active staff → one active clinic membership. Raises 401/403."""
     claims = verify_supabase_jwt(_bearer_token(request))
     sub = claims.get("sub")
     if not sub:
         raise HTTPException(status_code=401, detail="Token missing subject")
 
-    row = await pool.fetchrow(
+    requested_clinic_id = _requested_clinic_id(request)
+    rows = await pool.fetch(
         """
         SELECT s.id, s.auth_user_id, s.full_name, s.primary_department,
-               m.clinic_id
+               m.clinic_id, m.role AS membership_role
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
         WHERE s.auth_user_id = $1::uuid AND s.is_active IS NOT FALSE
-        ORDER BY m.created_at
-        LIMIT 1
+          AND ($2::uuid IS NULL OR m.clinic_id = $2::uuid)
+        ORDER BY m.created_at, m.id
+        LIMIT 2
         """,
         sub,
+        requested_clinic_id,
     )
-    if row is None:
+    if not rows:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No active staff account is linked to this login",
+            detail="No active staff membership is linked to this login and clinic",
+        )
+    if len(rows) > 1:
+        # This is either a multi-clinic login without an explicit selector or
+        # malformed provisioning with multiple active roles in one clinic.
+        # Both are authorization ambiguity, so fail closed.
+        logger.warning(
+            "ambiguous_clinic_membership",
+            staff_id=str(rows[0]["id"]),
+            requested_clinic_id=requested_clinic_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Multiple active clinic memberships found; provide X-Clinic-ID"
+                if requested_clinic_id is None
+                else "Multiple active roles found for X-Clinic-ID"
+            ),
         )
 
+    row = rows[0]
     dept = row["primary_department"]
     clinic_id = row["clinic_id"]
     if clinic_id is None:
@@ -192,12 +244,16 @@ async def get_current_identity(
             detail="Tài khoản chưa được gán vào phòng khám nào",
         )
 
+    # A doctor may be MANAGEMENT at clinic A and DOCTOR at clinic B.  The
+    # global primary_department describes the person, but only the membership
+    # selected alongside clinic_id is authorized to describe this request.
+    membership_role = row["membership_role"]
     return StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
         full_name=row["full_name"],
         department=dept,
-        role=role_from_department(dept),
+        role=role_from_department(membership_role),
         clinic_id=str(clinic_id),
     )
 

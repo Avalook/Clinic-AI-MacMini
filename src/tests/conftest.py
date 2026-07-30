@@ -60,6 +60,9 @@ else:
 # load_dotenv(override=False) can't restore the prod key. Auth-specific tests
 # still set their own key via monkeypatch.
 os.environ["BACKEND_API_KEY"] = ""
+# Production now fails closed when the key is blank. Make the unit-test runtime
+# explicit rather than inheriting APP_ENV=production from a developer's .env.
+os.environ["APP_ENV"] = "test"
 
 # Fixtures that imply a live Postgres connection. Any test requesting one of
 # these (or living under integration/) is tagged `db` for `-m "not db"`.

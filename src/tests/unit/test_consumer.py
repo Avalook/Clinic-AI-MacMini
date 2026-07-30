@@ -13,6 +13,7 @@ from clinicai.schemas.events import InteractionEvent
 
 def _make_event() -> InteractionEvent:
     return InteractionEvent(
+        clinic_id=uuid4(),
         event_type="interaction.walkin",
         entity_type="appointment",
         entity_id=uuid4(),

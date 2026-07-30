@@ -23,7 +23,10 @@ curl -sS http://127.0.0.1/enter -o /dev/null -w "%{http_code}\n"
 ## 2. Deploy / Cập nhật code
 
 ### Tự động (khuyến nghị)
-Push code lên nhánh `main` → GitHub Actions CD pipeline tự động chạy trên Mac mini.
+Push code lên `main`/`staging` → workflow **CI** chạy trước. CD chỉ nhận
+`workflow_run` từ một lần CI `push` thành công, checkout đúng `head_sha` đã kiểm
+chứng rồi mới chạy trên Mac mini. CI đỏ hoặc run từ pull request không được vào
+self-hosted runner.
 
 ### Thủ công
 ```bash
@@ -63,16 +66,33 @@ CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai
 
 ### Backup thủ công
 ```bash
+# LaunchDaemon không nạp shell profile; lệnh này phải trả về binary Homebrew
+# trong `opt/libpq/bin` hoặc `opt/postgresql@17/bin`.
+PATH="/opt/homebrew/opt/libpq/bin:/opt/homebrew/opt/postgresql@17/bin:$PATH" command -v pg_dump
+
 ./scripts/backup-db.sh
 # Output: .sql.gz + .sql.gz.manifest (both are required)
+
+# Kiểm tra độc lập: checksum, gzip, core tables, kích thước và độ mới.
+./scripts/verify-backup.sh
 ```
+
+Backup không được publish nếu pipeline dump lỗi, thiếu bảng lõi hoặc archive nén
+nhỏ hơn 1 KiB. `verify-backup.sh` mặc định coi artifact quá 30 giờ là stale;
+monitor/test có thể chỉnh bằng `BACKUP_MIN_ARCHIVE_BYTES` và
+`BACKUP_MAX_AGE_HOURS`.
 
 ### Backup tự động
 LaunchDaemon chạy hàng đêm lúc 2h sáng. Kiểm tra:
 ```bash
+plutil -lint scripts/launchdaemons/com.dr4women.db-backup.plist
 tail -20 ~/Library/Logs/clinicai-backup.log
 ls -lh ~/backups/clinicai/
+./scripts/verify-backup.sh
 ```
+
+Sau khi thay plist trong repository phải cài lại plist hệ thống theo Mục 8; sửa
+file trong Git không tự thay bản đang nằm ở `/Library/LaunchDaemons`.
 
 ### Khôi phục từ backup
 ```bash
@@ -198,6 +218,11 @@ CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai
 ./scripts/deploy-backend.sh prod
 ```
 
+Nếu `rabbitmq` dừng ngay với exit code 78, profile `workers` đã được bật nhưng
+`RABBITMQ_PASSWORD`/`RABBITMQ_URL` còn trống hoặc placeholder. Lấy secret riêng
+cho môi trường từ secret manager rồi deploy lại. Base stack và profile
+`notifications` không yêu cầu RabbitMQ.
+
 ### 🟡 Sentry báo lỗi nhiều
 Truy cập [sentry.io](https://sentry.io) → xem stack trace, request_id → tìm trong log.
 
@@ -234,9 +259,24 @@ sudo launchctl load /Library/LaunchDaemons/com.dr4women.docker-cleanup.plist
 sudo launchctl list | grep dr4women
 ```
 
+## 9. Xác nhận hardening hạ tầng trong repository
+
+```bash
+./scripts/tests/test-infra-safety.sh
+CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod config --quiet
+```
+
+Compose đặt log rotation, `no-new-privileges`, PID limit và memory limit cho mọi
+service. Xem giới hạn đã render trước khi deploy:
+
+```bash
+CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod config \
+  | grep -E 'mem_limit|pids_limit|max-size|max-file|no-new-privileges'
+```
+
 ---
 
-## 9. Liên hệ khẩn cấp
+## 10. Liên hệ khẩn cấp
 
 | Vai trò | Liên hệ |
 |---|---|
@@ -247,7 +287,7 @@ sudo launchctl list | grep dr4women
 
 ---
 
-## 10. Kiến trúc tham chiếu nhanh
+## 11. Kiến trúc tham chiếu nhanh
 
 ```
 Internet → Cloudflare Tunnel → Caddy (:80) → Dashboard (:3000)

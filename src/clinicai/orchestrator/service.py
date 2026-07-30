@@ -62,11 +62,13 @@ class OrchestratorService:
                 "response": final_state.get("response"),
                 "error": None,
             }
-        except Exception as e:
-            logger.error("orchestrator_failed", trace_id=str(trace_id), error=str(e))
+        except Exception as exc:
+            logger.exception(
+                "orchestrator_failed", trace_id=str(trace_id), error=str(exc)
+            )
             return {
                 "trace_id": trace_id,
                 "route": None,
                 "response": None,
-                "error": str(e),
+                "error": "orchestrator_unavailable",
             }
