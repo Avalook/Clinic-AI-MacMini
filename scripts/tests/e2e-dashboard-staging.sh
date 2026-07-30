@@ -206,6 +206,53 @@ s=$(call POST /api/roster "$BOSS" \
      "{\"week_start\":\"$MONDAY\",\"work_date\":\"$TODAY\",\"station\":\"Flag check\",\"shift\":\"SANG\"}")
 check "CONFIG — management schedules a shift" 201 /api/v1/roster/shifts POST "$s"
 
+# ---- ROLE-02, through the front door ---------------------------------------
+# The schema test proves the policy; this proves the screens that policy could
+# have broken still work, and that the note really is unreadable over the API
+# the browser uses.
+echo
+echo "=== ROLE-02: the note is closed, the board still works ==="
+ANON_KEY_HDR="apikey: $ANON"
+rows_for() {  # email → how many clinical_record rows PostgREST hands them
+  local tok
+  tok=$(curl -s -X POST "http://127.0.0.1:54321/auth/v1/token?grant_type=password" \
+        -H "$ANON_KEY_HDR" -H 'Content-Type: application/json' \
+        -d "{\"email\":\"$1\",\"password\":\"clinic-test-pw-123\"}" \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin).get("access_token",""))')
+  curl -s "http://127.0.0.1:54321/rest/v1/clinical_record?select=visit_id" \
+       -H "$ANON_KEY_HDR" -H "Authorization: Bearer $tok" \
+       | python3 -c 'import sys,json;d=json.load(sys.stdin);print(len(d) if isinstance(d,list) else -1)'
+}
+for who in cskh thungan; do
+  n=$(rows_for "$who@dr4women.local")
+  if [ "$n" = "0" ]; then
+    printf '  PASS  %-46s reads 0 clinical_record rows\n' "$who"; pass=$((pass+1))
+  else
+    printf '  FAIL  %-46s reads %s clinical_record rows\n' "$who" "$n"; fail=$((fail+1))
+  fi
+done
+n=$(rows_for bs.a@dr4women.local)
+if [ "$n" -gt 0 ] 2>/dev/null; then
+  printf '  PASS  %-46s still reads the note (%s rows)\n' "bs.a (DOCTOR)" "$n"; pass=$((pass+1))
+else
+  printf '  FAIL  %-46s cannot read the note — policy too tight\n' "bs.a (DOCTOR)"; fail=$((fail+1))
+fi
+
+# The progress bar reception depends on must survive losing that read.
+mark
+TODAY_VN=$(date -u -v+7H +%Y-%m-%d)
+s=$(docker exec "$DASH" curl -s -o /tmp/flag.out -w '%{http_code}' \
+    "http://localhost:3000/home" -H "Cookie: $CSKH")
+seen=$(docker logs "$API" 2>&1 | tail -n +$((MARK + 1)) \
+       | grep -c '"GET /api/v1/visits/progress')
+if [ "$s" = "200" ] && [ "$seen" -gt 0 ]; then
+  printf '  PASS  %-46s %s  → GET /api/v1/visits/progress\n' "/home renders for CSKH" "$s"
+  pass=$((pass+1))
+else
+  printf '  FAIL  %-46s %s (backend hits: %s)\n' "/home renders for CSKH" "$s" "$seen"
+  fail=$((fail+1))
+fi
+
 echo
 psql "$DB" -q -c "DELETE FROM work_roster WHERE station = 'Flag check';"
 echo "=== $pass passed, $fail failed ==="

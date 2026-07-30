@@ -47,7 +47,12 @@ BEGIN
            SELECT 1 FROM pg_policies p
             WHERE p.schemaname = 'public'
               AND p.tablename = c.table_name
-              AND coalesce(p.qual, '') LIKE '%current_clinic_ids%'
+              -- current_clinical_clinic_ids() is current_clinic_ids() narrowed
+              -- to the clinical roles (ROLE-02, 20260730000013): still scoped by
+              -- tenant, and additionally by role. Matching on the name alone
+              -- would have read that tightening as a tenant leak.
+              AND (coalesce(p.qual, '') LIKE '%current_clinic_ids%'
+                OR coalesce(p.qual, '') LIKE '%current_clinical_clinic_ids%')
        );
 
     IF unscoped IS NOT NULL THEN
@@ -60,7 +65,8 @@ BEGIN
        AND policyname LIKE '%_select_own_clinic';
 
     -- 23 tenant tables + staff + 7 workflow-kernel tables (W4)
-    -- + block_budget, which became client-readable in W5.
+    -- + block_budget, which became client-readable in W5. clinical_record and
+    -- clinical_form_response keep this name but a narrower rule (ROLE-02).
     IF scoped_count <> 32 THEN
         RAISE EXCEPTION 'expected 32 tenant-scoped read policies, found %', scoped_count;
     END IF;

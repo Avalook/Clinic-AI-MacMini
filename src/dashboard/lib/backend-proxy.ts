@@ -85,3 +85,37 @@ export async function proxyJsonToBackend(
   }
   return NextResponse.json(payload, { status: res.status });
 }
+
+/** Server-side GET from FastAPI, with the caller's own token.
+ *
+ * proxyJsonToBackend is for route handlers, which return a NextResponse. A
+ * server component wants the data. Both go through the caller's token rather
+ * than the shared key alone, so the backend resolves the same identity — and
+ * the same clinic — that the page was rendered for.
+ *
+ * Returns null when there is no session or the backend refuses. Callers render
+ * the page without the extra detail rather than failing: these are progress
+ * indicators, not the reason the screen exists.
+ */
+export async function fetchFromBackend<T>(path: string): Promise<T | null> {
+  if (!API_BASE) return null;
+
+  const supabase = await getSupabaseServer();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return null;
+
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const apiKey = process.env.BACKEND_API_KEY;
+  if (apiKey) headers["X-API-Key"] = apiKey;
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}

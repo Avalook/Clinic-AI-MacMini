@@ -63,8 +63,19 @@ role = `staff.primary_department` suy từ JWT, bỏ role-picker.
   nó không có dòng `staff` nên `current_clinic_ids()` rỗng ⇒ 0 dòng ở mọi bảng. Cổng vẫn
   còn để vào được trang `/login`; **bỏ hẳn cổng này là quyết định của bạn**, vì nó đổi
   cách cả phòng khám đăng nhập.
-- **Còn lại (W5):** siết theo **vai trò** trong cùng phòng khám (Lễ tân/Thu ngân đọc
-  `clinical_record` ra 0 dòng — DOD ROLE-02). Chưa làm được vì `/tasks` đọc `lab_result`
-  + `prescription` và `/home` đọc `clinical_record` + `payment` bằng chính session người
-  dùng, từ những màn mà Lễ tân/Thu ngân được vào. Phải dời các lệnh đọc đó ra sau FastAPI
-  (ADR-0012) rồi mới siết được, nếu không chỉ làm trắng màn hình.
+- **✅ ROLE-02 xong (migration `20260730000013`, 2026-07-30):** trong cùng phòng khám,
+  Lễ tân/Thu ngân/Quản lý đọc `clinical_record` + `clinical_form_response` ra **0 dòng**;
+  bốn vai lâm sàng (`DOCTOR`, `ULTRASOUND_DOCTOR`, `TKYK`, `NURSE_ULTRASOUND` — đúng danh
+  sách `CLINICAL_WRITE_ROLES` của backend) vẫn đọc đủ. Chốt chặn cũ — `/home` đọc thẳng
+  `clinical_record` bằng phiên người dùng — đã gỡ: nó gọi `GET /api/v1/visits/progress`,
+  trả về **CỜ** ("đã đo sinh hiệu", "đã thu khâu nào") chứ không trả nội dung bệnh án.
+  Đó là ranh giới mà policy không vẽ được còn endpoint thì vẽ được.
+- **Cố ý KHÔNG siết:** `lab_result`, `prescription`, `payment`, `service_log` vẫn mở
+  trong phạm vi phòng khám — thu ngân thu tiền theo đơn thuốc, lễ tân đưa phiếu xét
+  nghiệm. Cắt là gãy quầy mà không được gì. `pregnancy`/`patient_medical_profile` cũng
+  để nguyên: `/patients/[id]` đang hiển thị cho CSKH/Lễ tân, đổi hay không là quyết định
+  của phòng khám chứ không phải lỗi bảo mật sửa lén trong migration.
+- **Kiểm:** `supabase/tests/role_scoped_clinical_read.sql` — khẳng định cả hai chiều
+  (lễ tân 0 dòng **và** bác sĩ vẫn đọc được), đã thử nới policy về như cũ để chắc chắn
+  test biết đỏ. `scripts/tests/e2e-dashboard-staging.sh` kiểm qua PostgREST thật + xác
+  nhận `/home` vẫn render cho CSKH.

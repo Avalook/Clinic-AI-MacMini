@@ -35,6 +35,9 @@ from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
+from clinicai.api.v1.routers.visit_progress import (
+    router as visit_progress_router,
+)
 from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
 from clinicai.core.database import close_pool, create_pool
@@ -128,6 +131,7 @@ app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"])
 app.include_router(booking_router, prefix="/api/v1", tags=["booking"])
 app.include_router(config_router, prefix="/api/v1", tags=["config"])
 app.include_router(service_log_router, prefix="/api/v1", tags=["service-log"])
+app.include_router(visit_progress_router, prefix="/api/v1", tags=["visit-progress"])
 app.include_router(voice_router, prefix="/api/v1")
 
 

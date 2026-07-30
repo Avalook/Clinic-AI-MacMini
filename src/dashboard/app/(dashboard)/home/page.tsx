@@ -17,6 +17,7 @@ import { type ClinicRole, canCheckin, canWriteClinical } from "../../../lib/role
 import HomeCheckin, { type HomeCheckinRow } from "./HomeCheckin";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { vnTodayRangeUtc, fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { currentWeekStartVn, weekDates, weekStartOf } from "../../../lib/roster";
 import WeekNav from "../WeekNav";
 import WeeklyAppointmentsTable, {
@@ -32,6 +33,16 @@ import RosterBell from "../RosterBell";
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Shape of GET /api/v1/visits/progress — flags only, never the note itself. */
+interface VisitProgressRow {
+  appointment_id: string;
+  visit_id: string | null;
+  vitals_recorded: boolean;
+  has_clinical_record: boolean;
+  has_prescription: boolean;
+  paid_kinds: string[];
+}
 
 // Chức danh ngắn dùng trong lời chào (vd "Chào bác sĩ Thành").
 const GREET_LABEL: Record<ClinicRole, string> = {
@@ -253,29 +264,26 @@ export default async function HomePage({
     return s !== "CANCELLED" && s !== "NO_SHOW";
   });
 
-  // Mốc "Đã thanh toán" của thanh tiến trình: đã thu ĐỦ mọi khâu PHẢI thu của lượt
-  // khám = DỊCH VỤ (luôn có, vì có dịch vụ khám) + THUỐC nếu lượt có đơn thuốc.
-  // Đọc bảng payment (đã thu) + prescription (có đơn?) cho các lượt hôm nay.
-  // Bảng payment có thể chưa tồn tại (migration 056 chưa apply) → error → bỏ qua.
+  // Tiến trình mỗi lượt khám (đã đo sinh hiệu chưa, đã thu những khâu nào) lấy
+  // từ FastAPI — ROLE-02. Trang này mở cho MỌI vai, kể cả Lễ tân/Thu ngân; trước
+  // đây nó đọc thẳng clinical_record + prescription bằng phiên người dùng, nên
+  // policy đọc bệnh án buộc phải mở cho cả những vai không làm lâm sàng. Backend
+  // trả về CỜ, không trả nội dung bệnh án.
+  const progress =
+    (await fetchFromBackend<VisitProgressRow[]>(
+      `/api/v1/visits/progress?from=${apptDates[0]}&to=${apptDates[apptDates.length - 1]}`,
+    )) ?? [];
+  const progressByVisit = new Map(
+    progress.filter((p) => p.visit_id).map((p) => [p.visit_id as string, p]),
+  );
+
+  // Mốc "Đã thanh toán": đã thu ĐỦ mọi khâu PHẢI thu của lượt khám = DỊCH VỤ
+  // (luôn có, vì có dịch vụ khám) + THUỐC nếu lượt có đơn thuốc.
   if (isReception && visitStatusRows.length) {
-    const vids = visitStatusRows.map((v) => v.visit_id);
-    const [payRes, rxRes] = await Promise.all([
-      supabase.from("payment").select("visit_id, kind").in("visit_id", vids),
-      supabase.from("prescription").select("visit_id").in("visit_id", vids),
-    ]);
-    const paidKinds = new Map<string, Set<string>>();
-    for (const p of (payRes.data as { visit_id: string; kind: string }[] | null) ?? []) {
-      const s = paidKinds.get(p.visit_id) ?? new Set<string>();
-      s.add(p.kind);
-      paidKinds.set(p.visit_id, s);
-    }
-    const hasRx = new Set(
-      ((rxRes.data as { visit_id: string }[] | null) ?? []).map((r) => r.visit_id),
-    );
     for (const v of visitStatusRows) {
-      const kinds = paidKinds.get(v.visit_id) ?? new Set<string>();
-      const needsThuoc = hasRx.has(v.visit_id);
-      v.paid = kinds.has("dich_vu") && (!needsThuoc || kinds.has("thuoc"));
+      const p = progressByVisit.get(v.visit_id);
+      const kinds = new Set(p?.paid_kinds ?? []);
+      v.paid = kinds.has("dich_vu") && (!p?.has_prescription || kinds.has("thuoc"));
     }
   }
 
@@ -347,56 +355,13 @@ export default async function HomePage({
     }
   }
 
-  // "!" nhắc điều dưỡng điền sinh hiệu CHỈ hiện khi lịch đã CHECKED_IN mà CHƯA ghi
-  // sinh hiệu. Trước đây "!" dựa THUẦN vào status CHECKED_IN nên điền + lưu xong vẫn
-  // còn (lưu sinh hiệu KHÔNG đổi appointment.status). Nay đọc visit→clinical_record
-  // của các lịch CHECKED_IN, coi là ĐÃ GHI khi đủ 3 vital bắt buộc (huyết áp / cân
-  // nặng / chiều cao — khớp REQUIRED_VITALS ở ClinicalRecordForm). router.refresh()
-  // sau khi lưu sẽ nạp lại trang này → "!" tự mất.
-  const vitalsRecorded = new Set<string>();
-  const checkedInIds = weekApptRows
-    .filter((a) => a.status === "CHECKED_IN")
-    .map((a) => a.id);
-  if (checkedInIds.length) {
-    const { data: visits } = await supabase
-      .from("visit")
-      .select("visit_id, appointment_id")
-      .in("appointment_id", checkedInIds);
-    const vList =
-      (visits as { visit_id: string; appointment_id: string }[] | null) ?? [];
-    const apptByVisit = new Map(vList.map((v) => [v.visit_id, v.appointment_id]));
-    if (vList.length) {
-      const { data: recs } = await supabase
-        .from("clinical_record")
-        .select("visit_id, soap_objective")
-        .in(
-          "visit_id",
-          vList.map((v) => v.visit_id),
-        );
-      const nonEmpty = (x: unknown) =>
-        typeof x === "string" ? x.trim() !== "" : x != null;
-      for (const r of (recs as
-        | { visit_id: string; soap_objective: unknown }[]
-        | null) ?? []) {
-        const obj =
-          r.soap_objective && typeof r.soap_objective === "object"
-            ? (r.soap_objective as Record<string, unknown>)
-            : {};
-        const vitals =
-          obj.vitals && typeof obj.vitals === "object"
-            ? (obj.vitals as Record<string, unknown>)
-            : {};
-        const complete =
-          nonEmpty(vitals.huyet_ap) &&
-          nonEmpty(vitals.can_nang) &&
-          nonEmpty(vitals.chieu_cao);
-        if (complete) {
-          const aid = apptByVisit.get(r.visit_id);
-          if (aid) vitalsRecorded.add(aid);
-        }
-      }
-    }
-  }
+  // "!" nhắc điều dưỡng điền sinh hiệu chỉ hiện khi lịch đã CHECKED_IN mà CHƯA
+  // ghi đủ 3 vital bắt buộc (huyết áp / cân nặng / chiều cao). Luật "đủ 3 vital"
+  // nằm trong visit_progress_service, cạnh chỗ có dữ liệu — trang này chỉ nhận
+  // cờ, nên Lễ tân không cần (và không còn) quyền đọc bệnh án.
+  const vitalsRecorded = new Set(
+    progress.filter((p) => p.vitals_recorded).map((p) => p.appointment_id),
+  );
 
   const t0 = new Date(apptStartUtc).getTime();
   const apptDays: ApptDay[] = apptDates.map((date, i) => {
