@@ -40,6 +40,11 @@ export function clinicalFormViaBackend(): boolean {
   return process.env.CLINICAL_FORM_VIA_BACKEND === "1" && API_BASE !== "";
 }
 
+/** True when appointment booking + lifecycle go to FastAPI (W5). */
+export function bookingViaBackend(): boolean {
+  return process.env.BOOKING_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
 /** True when services-worklist and sono-queue writes go to FastAPI (W5). */
 export function serviceLogViaBackend(): boolean {
   return process.env.SERVICE_LOG_VIA_BACKEND === "1" && API_BASE !== "";

@@ -67,7 +67,10 @@ async def _run(
     pool: asyncpg.Pool,
     idem: IdempotencyGuard,
 ) -> dict[str, object]:
-    await idem.acquire(pool, actor_id=identity.auth_user_id)
+    # acquire() returns a NEW guard — IdempotencyGuard is frozen, so not
+    # reassigning it silently disables replay protection and then makes
+    # save() raise. Matches the payment router.
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
 

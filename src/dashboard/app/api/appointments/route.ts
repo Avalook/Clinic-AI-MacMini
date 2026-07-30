@@ -28,6 +28,7 @@ import {
   canCheckin,
 } from "../../../lib/roles";
 import { logEvent } from "../../../lib/event-log";
+import { bookingViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { weekStartOf } from "../../../lib/roster";
 import {
   suggestLoad,
@@ -361,6 +362,26 @@ export async function POST(request: Request) {
   // When an auto-check-in has no manual number, the DB trigger assigns it
   // under the same per-day advisory lock used by PATCH check-in.
 
+  // W5 (ADR-0012): booking, the 2+1 pre-check, the episode attach, the audit
+  // events and the walk-in auto-check-in all run in ONE transaction in FastAPI.
+  // Here they were six sequential calls. Off until BOOKING_VIA_BACKEND=1.
+  if (bookingViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/appointments/bookings", {
+      clinic_patient_id,
+      service_type_id,
+      location_id,
+      slot_start,
+      slot_end,
+      doctor_id,
+      booking_channel: rawChannel || null,
+      queue_number,
+      patient_kind,
+      need_sono,
+      thanh_min,
+      sono_min,
+    });
+  }
+
   // Chặn TRÙNG GIỜ bác sĩ NGAY (báo rõ khung giờ bận) — không để khách đặt được
   // rồi mới văng lỗi. Ràng buộc DB (appointment_no_doctor_overlap) vẫn là chốt cuối.
   if (doctor_id) {
@@ -593,6 +614,16 @@ export async function PATCH(request: Request) {
       { error: "Chỉ Lễ tân / CSKH / Quản lý mới check-in bệnh nhân." },
       { status: 403 },
     );
+  }
+
+  if (bookingViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/appointments/${id}`, {
+      action,
+      cancellation_reason: body.cancellation_reason ?? null,
+      ...(body.doctor_id !== undefined ? { doctor_id: body.doctor_id || null } : {}),
+      slot_start: body.slot_start ?? null,
+      slot_end: body.slot_end ?? null,
+    });
   }
 
   const db = getSupabaseService();

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
+from clinicai.api.identity import StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import (
     ResourceNotFoundError as CoreResourceNotFoundError,
@@ -29,7 +30,16 @@ from clinicai.schemas.scheduling import (
     WorkSessionDTO,
     WorkSessionStaffAssignDTO,
 )
+from clinicai.services.booking_service import DOCTOR_ROLES, MANAGE_ROLES
 from clinicai.services.scheduling_service import SchedulingService
+
+# These two predate the W5 booking router and had NO role gate: any caller past
+# the shared API key could confirm or cancel any appointment. Nothing calls them
+# today, and PATCH /appointments/{id} in booking.py supersedes them with the full
+# transition table. Gated here rather than deleted, in case an AI graph reaches
+# for them before that cutover finishes.
+_CONFIRM_GUARD = require_role(*DOCTOR_ROLES)
+_CANCEL_GUARD = require_role(*MANAGE_ROLES)
 
 router = APIRouter()
 
@@ -199,12 +209,14 @@ async def get_appointment_by_id(
 @router.patch(
     "/appointments/{id}/confirm",
     response_model=AppointmentRead,
+    deprecated=True,
 )
 async def confirm_appointment(
     id: UUID,
+    identity: StaffIdentity = Depends(_CONFIRM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AppointmentRead:
-    """Confirm a scheduled appointment."""
+    """Confirm a scheduled appointment. Deprecated — use PATCH /appointments/{id}."""
     service = SchedulingService(pool)
     try:
         return await service.confirm_appointment(id)
@@ -217,13 +229,15 @@ async def confirm_appointment(
 @router.patch(
     "/appointments/{id}/cancel",
     response_model=AppointmentRead,
+    deprecated=True,
 )
 async def cancel_appointment(
     id: UUID,
     body: AppointmentCancelRequest,
+    identity: StaffIdentity = Depends(_CANCEL_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> AppointmentRead:
-    """Cancel a booked appointment with a reason."""
+    """Cancel a booked appointment. Deprecated — use PATCH /appointments/{id}."""
     service = SchedulingService(pool)
     reason = body.reason or "No reason provided"
     try:
