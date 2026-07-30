@@ -8,6 +8,7 @@ both `create_task` (INSERT RETURNING) and `check_sla` (SELECT) calls.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
@@ -34,7 +35,7 @@ def _task_row(
     source_type: str | None = "LAB_RESULT",
     source_id: UUID | None = None,
     completed_at: datetime | None = None,
-) -> dict:
+) -> dict[str, Any]:
     return {
         "task_id": task_id or uuid4(),
         "location_id": None,
@@ -54,7 +55,9 @@ def _task_row(
     }
 
 
-def _build_pool(fetchrow_returns: list, fetch_returns: list | None = None) -> MagicMock:
+def _build_pool(
+    fetchrow_returns: list[Any], fetch_returns: list[Any] | None = None
+) -> MagicMock:
     """Build an asyncpg-shaped pool that queues fetchrow/fetch returns."""
     pool = MagicMock()
     conn = MagicMock()
@@ -181,7 +184,7 @@ async def test_task_manager__no_input__graceful_empty_flow() -> None:
 
 @pytest.mark.asyncio
 async def test_task_manager__create_review_tasks__lab_triage_integration(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """End-to-end: lab_triage GROUP_C → create_review_tasks invokes create_task
     and appends to state.task_ids.

@@ -17,7 +17,7 @@ from clinicai.graphs.scheduling.parsers import (
         ("ngày kia", 2),
     ],
 )
-def test_parse_date_relative(phrase: str, delta_days: int):
+def test_parse_date_relative(phrase: str, delta_days: int) -> None:
     expected = (date.today() + timedelta(days=delta_days)).isoformat()
     assert parse_date(phrase) == expected
 
@@ -29,11 +29,11 @@ def test_parse_date_relative(phrase: str, delta_days: int):
         ("25-05-2026", "2026-05-25"),
     ],
 )
-def test_parse_date_explicit(phrase: str, expected: str):
+def test_parse_date_explicit(phrase: str, expected: str) -> None:
     assert parse_date(phrase) == expected
 
 
-def test_parse_date_fail():
+def test_parse_date_fail() -> None:
     assert parse_date("lúc nào cũng được") is None
 
 
@@ -46,11 +46,11 @@ def test_parse_date_fail():
         ("14h30", "afternoon"),
     ],
 )
-def test_parse_time_slot(phrase: str, expected: str):
+def test_parse_time_slot(phrase: str, expected: str) -> None:
     assert parse_time_slot(phrase) == expected
 
 
-def test_parse_time_slot_fail():
+def test_parse_time_slot_fail() -> None:
     assert parse_time_slot("không biết") is None
 
 
@@ -64,5 +64,5 @@ def test_parse_time_slot_fail():
         ("abc", None),
     ],
 )
-def test_parse_yes_no(phrase: str, expected):
+def test_parse_yes_no(phrase: str, expected: bool | None) -> None:
     assert parse_yes_no(phrase) is expected

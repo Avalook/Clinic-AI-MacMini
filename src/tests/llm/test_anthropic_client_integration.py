@@ -12,7 +12,7 @@ from clinicai.llm.anthropic_client import AnthropicClient
     not os.getenv("ANTHROPIC_API_KEY"),
     reason="ANTHROPIC_API_KEY not set — integration skip",
 )
-async def test_real_haiku_call_returns_text():
+async def test_real_haiku_call_returns_text() -> None:
     client = AnthropicClient()
     try:
         result = await client.chat(

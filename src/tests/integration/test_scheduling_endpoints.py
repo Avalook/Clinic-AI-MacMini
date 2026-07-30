@@ -1,13 +1,14 @@
 """Integration tests for Scheduling (WorkSession and Appointment) FastAPI endpoints."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
 async def test_create_and_get_work_session_success(
-    async_client, clean_db, location_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID
 ) -> None:
     """POST /api/v1/work-sessions creates a session, GET retrieves it."""
     payload = {
@@ -37,7 +38,7 @@ async def test_create_and_get_work_session_success(
 
 @pytest.mark.asyncio
 async def test_create_work_session_duplicate_409(
-    async_client, clean_db, location_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID
 ) -> None:
     """Creating duplicate work sessions (same location, date, type) returns 409."""
     payload = {
@@ -61,7 +62,7 @@ async def test_create_work_session_duplicate_409(
 
 @pytest.mark.asyncio
 async def test_assign_staff_to_session_success(
-    async_client, clean_db, location_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID
 ) -> None:
     """POST /api/v1/work-sessions/{id}/staff assigns a staff member to the session."""
     # 1. Create staff member
@@ -111,7 +112,9 @@ async def test_assign_staff_to_session_success(
 
 
 @pytest.mark.asyncio
-async def test_assign_staff_duplicate_409(async_client, clean_db, location_id) -> None:
+async def test_assign_staff_duplicate_409(
+    async_client: AsyncClient, clean_db: None, location_id: UUID
+) -> None:
     """Assigning the same staff member to the same session/station/role again
     returns 409.
     """
@@ -156,7 +159,7 @@ async def test_assign_staff_duplicate_409(async_client, clean_db, location_id) -
 
 @pytest.mark.asyncio
 async def test_create_and_get_appointment_success(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """POST /api/v1/appointments books an appointment; GET retrieves it."""
     # 1. Create patient
@@ -228,7 +231,7 @@ async def test_create_and_get_appointment_success(
 
 @pytest.mark.asyncio
 async def test_create_appointment_doctor_not_on_duty_409(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """Booking an appointment with a doctor who is not assigned to the session
     returns 409.
@@ -281,7 +284,7 @@ async def test_create_appointment_doctor_not_on_duty_409(
 
 @pytest.mark.asyncio
 async def test_confirm_appointment_workflow(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """PATCH /api/v1/appointments/{id}/confirm updates state to CONFIRMED.
     Subsequent tries fail (422).
@@ -322,7 +325,7 @@ async def test_confirm_appointment_workflow(
 
 @pytest.mark.asyncio
 async def test_cancel_appointment_workflow(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """PATCH /api/v1/appointments/{id}/cancel updates state to CANCELLED.
     Subsequent tries fail (422).
@@ -368,7 +371,9 @@ async def test_cancel_appointment_workflow(
 
 
 @pytest.mark.asyncio
-async def test_get_appointment_not_found(async_client, clean_db) -> None:
+async def test_get_appointment_not_found(
+    async_client: AsyncClient, clean_db: None
+) -> None:
     """GET /api/v1/appointments/{id} with missing ID returns 404."""
     res = await async_client.get(f"/api/v1/appointments/{uuid4()}")
     assert res.status_code == 404
@@ -377,7 +382,7 @@ async def test_get_appointment_not_found(async_client, clean_db) -> None:
 
 @pytest.mark.asyncio
 async def test_appointment_slot_overlap_same_doctor_blocked(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """Booking overlapping appointments for the same doctor should be blocked."""
     # 1. Create Patient
@@ -449,7 +454,7 @@ async def test_appointment_slot_overlap_same_doctor_blocked(
 
 @pytest.mark.asyncio
 async def test_appointment_slot_adjacent_same_doctor_allowed(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """Booking adjacent appointments for the same doctor should be allowed."""
     # 1. Create Patient
@@ -521,7 +526,7 @@ async def test_appointment_slot_adjacent_same_doctor_allowed(
 
 @pytest.mark.asyncio
 async def test_appointment_slot_overlap_after_cancel_allowed(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """Rebooking overlapping slots after cancellation should be allowed."""
     # 1. Create Patient
@@ -601,7 +606,7 @@ async def test_appointment_slot_overlap_after_cancel_allowed(
 
 @pytest.mark.asyncio
 async def test_appointment_slot_overlap_different_doctor_allowed(
-    async_client, clean_db, location_id, service_type_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID, service_type_id: UUID
 ) -> None:
     """Booking overlapping slots for different doctors should be allowed."""
     # 1. Create Patient

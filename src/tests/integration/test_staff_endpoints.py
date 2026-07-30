@@ -1,13 +1,14 @@
 """Integration tests for Staff FastAPI endpoints."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
 async def test_create_and_get_staff_success(
-    async_client, clean_db, location_id
+    async_client: AsyncClient, clean_db: None, location_id: UUID
 ) -> None:
     """POST /api/v1/staff and then GET /api/v1/staff/{id} should succeed."""
     payload = {
@@ -34,7 +35,7 @@ async def test_create_and_get_staff_success(
 
 
 @pytest.mark.asyncio
-async def test_get_staff_not_found(async_client, clean_db) -> None:
+async def test_get_staff_not_found(async_client: AsyncClient, clean_db: None) -> None:
     """GET /api/v1/staff/{id} with missing ID returns 404."""
     res = await async_client.get(f"/api/v1/staff/{uuid4()}")
     assert res.status_code == 404
@@ -42,7 +43,9 @@ async def test_get_staff_not_found(async_client, clean_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_staff_filters(async_client, clean_db, location_id) -> None:
+async def test_list_staff_filters(
+    async_client: AsyncClient, clean_db: None, location_id: UUID
+) -> None:
     """GET /api/v1/staff filters location_id and assignable correctly."""
     # Need to insert this location into DB first to satisfy references,
     # but we can just set primary_location_id to None or location_id.
@@ -115,7 +118,9 @@ async def test_list_staff_filters(async_client, clean_db, location_id) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_staff_success(async_client, clean_db, location_id) -> None:
+async def test_update_staff_success(
+    async_client: AsyncClient, clean_db: None, location_id: UUID
+) -> None:
     """PATCH /api/v1/staff/{id} updates fields successfully."""
     payload = {
         "full_name": "Before Update",
@@ -139,7 +144,9 @@ async def test_update_staff_success(async_client, clean_db, location_id) -> None
 
 
 @pytest.mark.asyncio
-async def test_delete_staff_success(async_client, clean_db, location_id) -> None:
+async def test_delete_staff_success(
+    async_client: AsyncClient, clean_db: None, location_id: UUID
+) -> None:
     """DELETE /api/v1/staff/{id} soft-deactivates staff."""
     payload = {
         "full_name": "To Be Deleted",

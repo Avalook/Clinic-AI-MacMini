@@ -15,7 +15,7 @@ from clinicai.orchestrator.state import OrchestratorState
     not os.getenv("ANTHROPIC_API_KEY"),
     reason="ANTHROPIC_API_KEY not set",
 )
-async def test_llm_classify_real_haiku_scheduling():
+async def test_llm_classify_real_haiku_scheduling() -> None:
     """Real Haiku 4.5 phân loại tin nhắn tiếng Việt về scheduling."""
     client = AnthropicClient()
     try:

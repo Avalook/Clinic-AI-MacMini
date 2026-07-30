@@ -14,7 +14,9 @@ _NOTE = "bệnh nhân đau bụng dưới ba ngày"
 
 
 class _FakeTranscriber:
-    async def transcribe(self, audio_path, language="vi"):
+    async def transcribe(
+        self, audio_path: str, language: str = "vi"
+    ) -> TranscriptResult:
         return TranscriptResult(
             text=_NOTE,
             language=language,
@@ -25,18 +27,18 @@ class _FakeTranscriber:
 
 
 class _UnavailableTranscriber:
-    async def transcribe(self, audio_path, language="vi"):
+    async def transcribe(self, audio_path: str, language: str = "vi") -> None:
         raise VoiceModelNotInstalledError("chưa cài faster-whisper")
 
 
-def _app(transcriber):
+def _app(transcriber: object) -> FastAPI:
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_transcriber] = lambda: transcriber
     return app
 
 
-def test_transcribe_returns_draft_transcript():
+def test_transcribe_returns_draft_transcript() -> None:
     client = TestClient(_app(_FakeTranscriber()))
     resp = client.post("/api/v1/voice/transcribe", content=b"RIFFfakeaudio")
     assert resp.status_code == 200
@@ -47,13 +49,13 @@ def test_transcribe_returns_draft_transcript():
     assert len(body["segments"]) == 1
 
 
-def test_empty_body_rejected():
+def test_empty_body_rejected() -> None:
     client = TestClient(_app(_FakeTranscriber()))
     resp = client.post("/api/v1/voice/transcribe", content=b"")
     assert resp.status_code == 400
 
 
-def test_model_unavailable_returns_503():
+def test_model_unavailable_returns_503() -> None:
     client = TestClient(_app(_UnavailableTranscriber()))
     resp = client.post("/api/v1/voice/transcribe", content=b"RIFFfakeaudio")
     assert resp.status_code == 503

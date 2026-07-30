@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -27,7 +28,7 @@ def mock_pool() -> tuple[MagicMock, AsyncMock]:
     return pool, conn
 
 
-def _staff_row(role: str = "NURSE", station: str = "ROOM-1") -> dict:
+def _staff_row(role: str = "NURSE", station: str = "ROOM-1") -> dict[str, Any]:
     return {
         "staff_id": uuid4(),
         "full_name": f"Staff {role}",

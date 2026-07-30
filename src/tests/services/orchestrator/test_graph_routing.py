@@ -4,7 +4,7 @@ from clinicai.orchestrator.service import OrchestratorService
 
 
 @pytest.mark.asyncio
-async def test_scheduling_route():
+async def test_scheduling_route() -> None:
     svc = OrchestratorService()
     r = await svc.chat(user_message="Tôi muốn đặt lịch hẹn ngày mai")
     assert r["route"] == "scheduling"
@@ -12,7 +12,7 @@ async def test_scheduling_route():
 
 
 @pytest.mark.asyncio
-async def test_lab_route():
+async def test_lab_route() -> None:
     svc = OrchestratorService()
     r = await svc.chat(user_message="Cho tôi xem kết quả xét nghiệm")
     assert r["route"] == "lab"
@@ -20,7 +20,7 @@ async def test_lab_route():
 
 
 @pytest.mark.asyncio
-async def test_general_fallback_route():
+async def test_general_fallback_route() -> None:
     svc = OrchestratorService()
     r = await svc.chat(user_message="Xin chào bác sĩ")
     assert r["route"] == "general"

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -33,7 +35,7 @@ _VALID_BRIEF_JSON = {
 
 @pytest.mark.asyncio
 async def test_generate__pregnancy_context__sonnet_called_with_main_brain_tier(
-    make_llm,
+    make_llm: Callable[..., MagicMock],
 ) -> None:
     """The tool MUST request the Sonnet tier; brief quality > token cost."""
     llm = make_llm(json.dumps(_VALID_BRIEF_JSON))
@@ -53,7 +55,9 @@ async def test_generate__pregnancy_context__sonnet_called_with_main_brain_tier(
 
 
 @pytest.mark.asyncio
-async def test_generate__llm_json_response__parsed_correctly(make_llm) -> None:
+async def test_generate__llm_json_response__parsed_correctly(
+    make_llm: Callable[..., MagicMock],
+) -> None:
     """Bare JSON (no fence) → PreVisitBrief populated; metadata stamped."""
     llm = make_llm(json.dumps(_VALID_BRIEF_JSON))
     ctx = make_patient_context()
@@ -71,7 +75,7 @@ async def test_generate__llm_json_response__parsed_correctly(make_llm) -> None:
 
 @pytest.mark.asyncio
 async def test_generate__llm_markdown_fenced_json__stripped_and_parsed(
-    make_llm,
+    make_llm: Callable[..., MagicMock],
 ) -> None:
     """LLM wrapped output in ```json fence → fence stripped, parse succeeds."""
     fenced = "```json\n" + json.dumps(_VALID_BRIEF_JSON) + "\n```"
@@ -84,7 +88,9 @@ async def test_generate__llm_markdown_fenced_json__stripped_and_parsed(
 
 
 @pytest.mark.asyncio
-async def test_generate__llm_invalid_json__raises_value_error(make_llm) -> None:
+async def test_generate__llm_invalid_json__raises_value_error(
+    make_llm: Callable[..., MagicMock],
+) -> None:
     """Malformed JSON → ValueError with truncated payload in message."""
     llm = make_llm("not a json — model went off-script")
     ctx = make_patient_context()
@@ -95,7 +101,7 @@ async def test_generate__llm_invalid_json__raises_value_error(make_llm) -> None:
 
 @pytest.mark.asyncio
 async def test_generate__pending_group_c__included_in_pending_reviews(
-    make_llm,
+    make_llm: Callable[..., MagicMock],
 ) -> None:
     """GROUP_C in context → user prompt mentions LAB CHƯA REVIEW so LLM sees it."""
     llm = make_llm(json.dumps(_VALID_BRIEF_JSON))
@@ -121,7 +127,9 @@ async def test_generate__pending_group_c__included_in_pending_reviews(
 
 
 @pytest.mark.asyncio
-async def test_generate__missing_data__confidence_low(make_llm) -> None:
+async def test_generate__missing_data__confidence_low(
+    make_llm: Callable[..., MagicMock],
+) -> None:
     """Tool surfaces the LLM's confidence verbatim — sparse context, low confidence."""
     sparse = {
         **_VALID_BRIEF_JSON,

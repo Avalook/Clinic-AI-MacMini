@@ -14,7 +14,7 @@ from clinicai.orchestrator.service import OrchestratorService
     not (os.getenv("CHECKPOINT_DSN") or os.getenv("DATABASE_URL")),
     reason="CHECKPOINT_DSN/DATABASE_URL not set",
 )
-async def test_postgres_checkpointer_persistence():
+async def test_postgres_checkpointer_persistence() -> None:
     """Cùng thread_id → state persist qua 2 lần invoke khác nhau."""
     thread_id = f"test-thread-{uuid4()}"
 

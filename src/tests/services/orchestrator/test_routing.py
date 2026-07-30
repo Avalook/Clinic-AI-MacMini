@@ -1,3 +1,5 @@
+from collections.abc import Callable
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -33,23 +35,23 @@ def _mock_llm_with_route(route: str) -> AnthropicClient:
     "route",
     ["scheduling", "lab", "communication", "task", "previsit", "general"],
 )
-def test_route_by_intent_valid_routes(route: str):
+def test_route_by_intent_valid_routes(route: str) -> None:
     state: OrchestratorState = {"route": route}  # type: ignore[typeddict-item]
     assert route_by_intent(state) == route
 
 
-def test_route_by_intent_unknown_fallback_general():
+def test_route_by_intent_unknown_fallback_general() -> None:
     state: OrchestratorState = {"route": "random_garbage"}  # type: ignore[typeddict-item]
     assert route_by_intent(state) == "general"
 
 
-def test_route_by_intent_missing_route_defaults_general():
+def test_route_by_intent_missing_route_defaults_general() -> None:
     state: OrchestratorState = {}
     assert route_by_intent(state) == "general"
 
 
 @pytest.mark.asyncio
-async def test_graph_routes_scheduling_to_stub():
+async def test_graph_routes_scheduling_to_stub() -> None:
     """End-to-end: classify=scheduling → scheduling_stub sets handled_by marker."""
     mock_llm = _mock_llm_with_route("scheduling")
     graph = build_orchestrator_graph(llm_client=mock_llm, use_llm_respond=False)
@@ -64,7 +66,9 @@ async def test_graph_routes_scheduling_to_stub():
 
 
 @pytest.mark.asyncio
-async def test_graph_routes_scheduling_to_real_subgraph(monkeypatch):
+async def test_graph_routes_scheduling_to_real_subgraph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """With pool + location_id wired, scheduling routes to build_scheduling_subgraph."""
     import clinicai.tools.scheduling.find_work_sessions as _fws_module
     from clinicai.tools.scheduling.find_work_sessions import (
@@ -113,7 +117,7 @@ async def test_graph_routes_scheduling_to_real_subgraph(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_graph_routes_general_to_respond():
+async def test_graph_routes_general_to_respond() -> None:
     """End-to-end: classify=general → respond_node template (non-empty)."""
     mock_llm = _mock_llm_with_route("general")
     graph = build_orchestrator_graph(llm_client=mock_llm, use_llm_respond=False)
@@ -140,8 +144,8 @@ async def test_graph_routes_general_to_respond():
     ],
 )
 async def test_all_5_stubs_set_handled_by_marker(
-    stub_node, expected_marker: str, expected_name: str
-):
+    stub_node: Callable[..., Any], expected_marker: str, expected_name: str
+) -> None:
     state: OrchestratorState = {"trace_id": uuid4(), "user_message": "x"}
     result = await stub_node(state)
     assert result["handled_by"] == expected_marker

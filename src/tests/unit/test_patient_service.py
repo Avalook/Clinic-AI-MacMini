@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -21,7 +22,7 @@ FAKE_LOCATION = uuid4()
 FAKE_NOW = datetime.datetime(2026, 5, 20, 10, 0, 0, tzinfo=datetime.timezone.utc)
 
 
-def _make_record(overrides: dict | None = None) -> dict:
+def _make_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a dict that looks like an asyncpg.Record for the patient table."""
     base = {
         "clinic_patient_id": FAKE_UUID,
@@ -298,19 +299,19 @@ async def test_get_by_phone_returns_empty() -> None:
 
 def test_phone_variants_normalises_to_same_set() -> None:
     """0xxx, 84xxx, +84xxx and a bare subscriber all map to the SAME variants."""
-    from clinicai.services.patient_service import _phone_variants
+    from clinicai.core.phone import phone_variants
 
     expected = {"0901234567", "84901234567", "+84901234567"}
-    assert set(_phone_variants("0901234567")) == expected
-    assert set(_phone_variants("+84901234567")) == expected
-    assert set(_phone_variants("84901234567")) == expected
+    assert set(phone_variants("0901234567")) == expected
+    assert set(phone_variants("+84901234567")) == expected
+    assert set(phone_variants("84901234567")) == expected
     # Spaces / dashes are stripped before normalising.
-    assert set(_phone_variants("090 123 4567")) == expected
-    assert set(_phone_variants("901234567")) == expected
+    assert set(phone_variants("090 123 4567")) == expected
+    assert set(phone_variants("901234567")) == expected
     # No digits → nothing to match.
-    assert _phone_variants("") == []
-    assert _phone_variants("abc") == []
-    assert _phone_variants("call 0901234567") == []
+    assert phone_variants("") == []
+    assert phone_variants("abc") == []
+    assert phone_variants("call 0901234567") == []
 
 
 def test_patient_schema_stores_phone_in_canonical_national_format() -> None:

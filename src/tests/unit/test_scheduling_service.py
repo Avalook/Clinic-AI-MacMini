@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -32,7 +33,7 @@ FAKE_NOW = datetime.datetime(2026, 5, 20, 10, 0, 0, tzinfo=datetime.timezone.utc
 FAKE_LATER = FAKE_NOW + datetime.timedelta(hours=1)
 
 
-def _make_session_record(overrides: dict | None = None) -> dict:
+def _make_session_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     base = {
         "id": FAKE_SESSION_ID,
         "location_id": FAKE_LOCATION_ID,
@@ -48,7 +49,7 @@ def _make_session_record(overrides: dict | None = None) -> dict:
     return base
 
 
-def _make_wss_record(overrides: dict | None = None) -> dict:
+def _make_wss_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     base = {
         "id": uuid4(),
         "work_session_id": FAKE_SESSION_ID,
@@ -64,7 +65,7 @@ def _make_wss_record(overrides: dict | None = None) -> dict:
     return base
 
 
-def _make_appt_record(overrides: dict | None = None) -> dict:
+def _make_appt_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     base = {
         "id": FAKE_APPT_ID,
         "clinic_patient_id": FAKE_PATIENT_ID,

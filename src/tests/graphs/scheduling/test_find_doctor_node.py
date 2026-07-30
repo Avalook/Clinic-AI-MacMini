@@ -38,7 +38,9 @@ def _session_result(doctor_name: str = "BS Trần Thị A") -> WorkSessionResult
 
 
 @pytest.mark.asyncio
-async def test_make_find_doctor_node_success_weekday_evening(monkeypatch) -> None:
+async def test_make_find_doctor_node_success_weekday_evening(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Happy path: weekday evening → EVENING session → doctor surfaced."""
     monkeypatch.setattr(
         _fws_module,
@@ -62,7 +64,9 @@ async def test_make_find_doctor_node_success_weekday_evening(monkeypatch) -> Non
 
 
 @pytest.mark.asyncio
-async def test_no_sessions_found_loops_back_to_ask_date(monkeypatch) -> None:
+async def test_no_sessions_found_loops_back_to_ask_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Empty tool result → loop back to ask_date."""
     monkeypatch.setattr(
         _fws_module,
@@ -100,7 +104,7 @@ async def test_invalid_time_for_weekday_redirects_to_ask_time() -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_exception_fallback(monkeypatch) -> None:
+async def test_tool_exception_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tool raises → graceful confirm-with-apology, no crash."""
     monkeypatch.setattr(
         _fws_module,

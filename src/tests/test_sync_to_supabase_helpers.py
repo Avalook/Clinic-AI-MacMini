@@ -12,6 +12,7 @@ import sys
 import uuid
 from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -83,7 +84,7 @@ def test_parse_dt_garbage_returns_none() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _master() -> dict[str, object]:
+def _master() -> dict[str, Any]:
     """Build a tiny master-lookup dict shaped like ``_resolve_master`` output."""
     phu_khoa = uuid.uuid4()
     free = uuid.uuid4()

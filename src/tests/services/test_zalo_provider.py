@@ -10,7 +10,9 @@ from clinicai.services.providers import zalo
 
 
 @pytest.mark.asyncio
-async def test_stub_log_does_not_include_phone_or_message(monkeypatch) -> None:
+async def test_stub_log_does_not_include_phone_or_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake_logger = MagicMock()
     monkeypatch.setattr(zalo, "logger", fake_logger)
 

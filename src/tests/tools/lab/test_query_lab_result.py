@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
@@ -36,7 +37,7 @@ def _make_row(
     triage_group: str = "GROUP_A",
     received_at: datetime | None = None,
     is_finalized: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     return {
         "lab_result_id": uuid4(),
         "clinic_patient_id": patient_id,
@@ -63,7 +64,7 @@ def _make_row(
     }
 
 
-def _mock_pool(rows: list[dict]) -> tuple[MagicMock, AsyncMock]:
+def _mock_pool(rows: list[dict[str, Any]]) -> tuple[MagicMock, AsyncMock]:
     """Build a MagicMock pool whose `pool.acquire()` async-context yields a
     connection whose `.fetch(...)` returns the given rows.
     """

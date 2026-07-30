@@ -15,7 +15,7 @@ from clinicai.orchestrator.nodes import map_event_to_route
 from clinicai.orchestrator.state import OrchestratorState
 
 
-def _make_mock_llm() -> AnthropicClient:
+def _make_mock_llm() -> MagicMock:
     """LLM mock that would classify as 'scheduling' if ever called."""
     fake_resp = LLMResponse(
         text='{"route": "scheduling", "confidence": 0.95, "reasoning": "test"}',
@@ -31,7 +31,7 @@ def _make_mock_llm() -> AnthropicClient:
 
 
 @pytest.mark.asyncio
-async def test_event_type_lab():
+async def test_event_type_lab() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
@@ -45,7 +45,7 @@ async def test_event_type_lab():
 
 
 @pytest.mark.asyncio
-async def test_event_type_previsit():
+async def test_event_type_previsit() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     # Empty user_message must NOT shadow the event-driven path.
@@ -60,7 +60,7 @@ async def test_event_type_previsit():
 
 
 @pytest.mark.asyncio
-async def test_event_type_task():
+async def test_event_type_task() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
@@ -74,7 +74,7 @@ async def test_event_type_task():
 
 
 @pytest.mark.asyncio
-async def test_event_type_unknown_fallback():
+async def test_event_type_unknown_fallback() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
@@ -88,7 +88,7 @@ async def test_event_type_unknown_fallback():
 
 
 @pytest.mark.asyncio
-async def test_no_event_type_still_classifies():
+async def test_no_event_type_still_classifies() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
@@ -100,7 +100,7 @@ async def test_no_event_type_still_classifies():
     mock.chat.assert_awaited_once()
 
 
-def test_map_event_to_route():
+def test_map_event_to_route() -> None:
     assert map_event_to_route("lab_result_received") == "lab"
     assert map_event_to_route("appointment_created") == "scheduling"
     assert map_event_to_route("previsit_trigger") == "previsit"

@@ -8,6 +8,7 @@ dependency, and override the DB pool dependency.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
@@ -86,7 +87,7 @@ def _llm_returning(text: str) -> MagicMock:
 
 
 @pytest.fixture(autouse=True)
-def override_deps():
+def override_deps() -> Iterator[None]:
     """Override DB pool + LLM client deps for every test in this module."""
     pool = MagicMock()
     llm = _llm_returning(json.dumps(_VALID_BRIEF_JSON))
@@ -102,7 +103,7 @@ def client() -> TestClient:
 
 
 def test_post_brief__valid_patient__returns_200_with_brief_and_markdown(
-    client, monkeypatch
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
         _pvb_nodes,
@@ -120,12 +121,14 @@ def test_post_brief__valid_patient__returns_200_with_brief_and_markdown(
     assert isinstance(body["elapsed_ms"], int)
 
 
-def test_post_brief__invalid_uuid__422_pydantic(client) -> None:
+def test_post_brief__invalid_uuid__422_pydantic(client: TestClient) -> None:
     response = client.post("/api/v1/brief/not-a-uuid")
     assert response.status_code == 422
 
 
-def test_post_brief__patient_not_found__404(client, monkeypatch) -> None:
+def test_post_brief__patient_not_found__404(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         _pvb_nodes,
         "aggregate_patient_context",

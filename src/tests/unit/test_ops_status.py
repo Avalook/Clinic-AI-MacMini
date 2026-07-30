@@ -12,10 +12,10 @@ from clinicai.services.ops_status import OpsStatusService
 
 
 class _Acquire:
-    async def __aenter__(self):
+    async def __aenter__(self) -> "_Acquire":
         return self
 
-    async def __aexit__(self, *_args):
+    async def __aexit__(self, *_args: object) -> None:
         return None
 
     async def fetchval(self, _query: str) -> int:

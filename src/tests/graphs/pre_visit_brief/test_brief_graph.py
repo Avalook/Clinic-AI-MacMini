@@ -88,7 +88,7 @@ def _mock_llm(text: str) -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_brief_graph__happy_path__brief_and_markdown_in_state(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """aggregate → generate → render: final state has both brief + markdown."""
     monkeypatch.setattr(
@@ -109,7 +109,9 @@ async def test_brief_graph__happy_path__brief_and_markdown_in_state(
 
 
 @pytest.mark.asyncio
-async def test_brief_graph__patient_not_found__error_propagated(monkeypatch) -> None:
+async def test_brief_graph__patient_not_found__error_propagated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """PatientNotFoundError → state.error set, downstream nodes skipped."""
     monkeypatch.setattr(
         _pvb_nodes,
@@ -129,7 +131,7 @@ async def test_brief_graph__patient_not_found__error_propagated(monkeypatch) -> 
 
 @pytest.mark.asyncio
 async def test_brief_graph__llm_failure__error_propagated_no_crash(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """LLM raises non-ValueError → state.error set, no exception escapes."""
     monkeypatch.setattr(
@@ -150,7 +152,7 @@ async def test_brief_graph__llm_failure__error_propagated_no_crash(
 
 @pytest.mark.asyncio
 async def test_brief_graph__graph_invokable__no_state_corruption(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Re-invoking with a fresh state must not leak from a previous run."""
     monkeypatch.setattr(
@@ -170,7 +172,9 @@ async def test_brief_graph__graph_invokable__no_state_corruption(
 
 
 @pytest.mark.asyncio
-async def test_previsit_brief__wire_summary__builds_7_fields(monkeypatch) -> None:
+async def test_previsit_brief__wire_summary__builds_7_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """P9.7c happy-path: patient_summary VIEW + ultrasound_record → 7-field brief.
 
     Verifies the new wiring surfaces phone_primary, total_visits,

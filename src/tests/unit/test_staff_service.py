@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -26,7 +27,7 @@ FAKE_LOCATION_ID = uuid4()
 FAKE_NOW = datetime.datetime(2026, 5, 20, 10, 0, 0, tzinfo=datetime.timezone.utc)
 
 
-def _make_staff_record(overrides: dict | None = None) -> dict:
+def _make_staff_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a dict that looks like an asyncpg.Record for the staff table."""
     base = {
         "id": FAKE_STAFF_ID,

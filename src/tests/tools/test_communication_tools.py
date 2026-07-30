@@ -52,7 +52,9 @@ async def test_send_zalo_trace_id_propagated() -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_zalo_log_excludes_patient_and_message_pii(monkeypatch) -> None:
+async def test_send_zalo_log_excludes_patient_and_message_pii(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The tool may return a preview, but it must never emit it to logs."""
     fake_logger = MagicMock()
     monkeypatch.setattr("clinicai.tools.communication.send_zalo.logger", fake_logger)

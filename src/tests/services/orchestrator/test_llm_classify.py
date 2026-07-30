@@ -8,7 +8,7 @@ from clinicai.orchestrator.llm_nodes import make_classify_intent_llm_node
 from clinicai.orchestrator.state import OrchestratorState
 
 
-def _make_mock_llm(text: str) -> AnthropicClient:
+def _make_mock_llm(text: str) -> MagicMock:
     """Helper tạo AnthropicClient mock trả text cho trước."""
     fake_resp = LLMResponse(
         text=text,
@@ -24,7 +24,7 @@ def _make_mock_llm(text: str) -> AnthropicClient:
 
 
 @pytest.mark.asyncio
-async def test_llm_classify_scheduling_route():
+async def test_llm_classify_scheduling_route() -> None:
     """Haiku trả JSON đúng → route đúng."""
     mock = _make_mock_llm(
         '{"route": "scheduling", "confidence": 0.95, "reasoning": "test"}'
@@ -40,7 +40,7 @@ async def test_llm_classify_scheduling_route():
 
 
 @pytest.mark.asyncio
-async def test_llm_classify_markdown_fence_stripped():
+async def test_llm_classify_markdown_fence_stripped() -> None:
     """Haiku lỡ wrap JSON trong ```json ... ``` → vẫn parse được."""
     mock = _make_mock_llm(
         '```json\n{"route": "lab", "confidence": 0.9, "reasoning": "ok"}\n```'
@@ -52,7 +52,7 @@ async def test_llm_classify_markdown_fence_stripped():
 
 
 @pytest.mark.asyncio
-async def test_llm_classify_invalid_route_falls_back():
+async def test_llm_classify_invalid_route_falls_back() -> None:
     """LLM trả route lạ → fallback rule-based."""
     mock = _make_mock_llm(
         '{"route": "BIZARRE_NEW_ROUTE", "confidence": 1.0, "reasoning": "x"}'
@@ -67,7 +67,7 @@ async def test_llm_classify_invalid_route_falls_back():
 
 
 @pytest.mark.asyncio
-async def test_llm_classify_api_error_falls_back():
+async def test_llm_classify_api_error_falls_back() -> None:
     """LLM raise exception → fallback rule-based, KHÔNG crash."""
     mock = MagicMock(spec=AnthropicClient)
     mock.chat = AsyncMock(side_effect=ConnectionError("network down"))
@@ -81,7 +81,7 @@ async def test_llm_classify_api_error_falls_back():
 
 
 @pytest.mark.asyncio
-async def test_llm_classify_empty_message_returns_unknown():
+async def test_llm_classify_empty_message_returns_unknown() -> None:
     """Tin nhắn rỗng → unknown, KHÔNG gọi LLM."""
     mock = MagicMock(spec=AnthropicClient)
     mock.chat = AsyncMock()
@@ -94,8 +94,8 @@ async def test_llm_classify_empty_message_returns_unknown():
 
 @pytest.mark.asyncio
 async def test_llm_classify_logs_never_include_reasoning_or_raw_response(
-    monkeypatch,
-):
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Model output may echo patient PII and must not be copied to logs."""
     fake_logger = MagicMock()
     monkeypatch.setattr("clinicai.orchestrator.llm_nodes.logger", fake_logger)

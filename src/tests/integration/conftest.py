@@ -1,9 +1,11 @@
 import os
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 import asyncpg
 import pytest
 from dotenv import load_dotenv
+from httpx import AsyncClient
 
 from clinicai.services.patient_service import PatientService
 
@@ -14,7 +16,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 @pytest.fixture(scope="function")
-async def db_pool():
+async def db_pool() -> AsyncIterator[asyncpg.Pool]:
     """Fixture yielding an asyncpg pool to staging DB, or skips if unconfigured."""
     if not DATABASE_URL:
         pytest.skip("no DB")
@@ -32,18 +34,18 @@ async def db_pool():
 
 
 @pytest.fixture(scope="function")
-def patient_service(db_pool) -> PatientService:
+def patient_service(db_pool: asyncpg.Pool) -> PatientService:
     """Fixture that initializes the PatientService with the active db pool."""
     return PatientService(db_pool)
 
 
 @pytest.fixture(scope="function")
-async def location_id(db_pool) -> UUID:
+async def location_id(db_pool: asyncpg.Pool) -> UUID:
     """Fixture returning a valid location UUID (fetches or seeds default)."""
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow("SELECT id FROM clinic_location LIMIT 1;")
         if row:
-            return row["id"]
+            return UUID(str(row["id"]))
 
         # Insert fallback location if clinic_location is empty
         loc_id = await conn.fetchval(
@@ -54,13 +56,13 @@ async def location_id(db_pool) -> UUID:
             RETURNING id;
             """
         )
-        return loc_id
+        return UUID(str(loc_id))
 
 
 @pytest.fixture(scope="function")
-async def cleanup_patients(db_pool):
+async def cleanup_patients(db_pool: asyncpg.Pool) -> AsyncIterator[list[str]]:
     """Fixture that accepts a list of patient codes to clean up after test execution."""
-    patient_codes = []
+    patient_codes: list[str] = []
     yield patient_codes
     if patient_codes:
         async with db_pool.acquire() as conn:
@@ -94,14 +96,14 @@ async def cleanup_patients(db_pool):
 
 
 @pytest.fixture(scope="function")
-async def async_client(db_pool):
+async def async_client(db_pool: asyncpg.Pool) -> AsyncIterator[AsyncClient]:
     """Fixture providing an HTTPX AsyncClient for FastAPI endpoint testing."""
     from clinicai.core.database import get_db_pool
     from clinicai.main import app
 
     app.dependency_overrides[get_db_pool] = lambda: db_pool
     # Use ASGITransport
-    from httpx import ASGITransport, AsyncClient
+    from httpx import ASGITransport
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -113,10 +115,10 @@ async def async_client(db_pool):
 
 
 @pytest.fixture(scope="function")
-async def clean_db(db_pool):
+async def clean_db(db_pool: asyncpg.Pool) -> AsyncIterator[None]:
     """Fixture to clean up tables in reverse dependency order after each test."""
 
-    async def _clean():
+    async def _clean() -> None:
         async with db_pool.acquire() as conn:
             await conn.execute("DELETE FROM appointment;")
             await conn.execute("DELETE FROM work_session_staff;")
@@ -133,14 +135,14 @@ async def clean_db(db_pool):
 
 
 @pytest.fixture(scope="function")
-async def service_type_id(db_pool) -> UUID:
+async def service_type_id(db_pool: asyncpg.Pool) -> UUID:
     """Fixture returning a valid service type UUID."""
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow("SELECT id FROM service_type LIMIT 1;")
         if row:
-            return row["id"]
+            return UUID(str(row["id"]))
         s_id = await conn.fetchval(
             "INSERT INTO service_type (code, name) "
             "VALUES ('TEST-SVC', 'Test Service') RETURNING id;"
         )
-        return s_id
+        return UUID(str(s_id))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -10,7 +11,9 @@ import pytest
 from clinicai.services.notification_relay import poll_and_deliver
 
 
-def _relay_db(rows: list[dict], *fetchvals: object) -> tuple[MagicMock, AsyncMock]:
+def _relay_db(
+    rows: list[dict[str, Any]], *fetchvals: object
+) -> tuple[MagicMock, AsyncMock]:
     pool = MagicMock()
     conn = AsyncMock()
     acquire = AsyncMock()

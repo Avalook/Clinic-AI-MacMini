@@ -100,7 +100,9 @@ def _mock_llm() -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_previsit_wrapper__with_patient__runs_real_subgraph(monkeypatch) -> None:
+async def test_previsit_wrapper__with_patient__runs_real_subgraph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """patient_id present → real sub-graph runs; headline surfaced to response."""
     monkeypatch.setattr(
         _pvb_nodes,
@@ -123,7 +125,9 @@ async def test_previsit_wrapper__with_patient__runs_real_subgraph(monkeypatch) -
 
 
 @pytest.mark.asyncio
-async def test_previsit_wrapper__no_patient_id__acks(monkeypatch) -> None:
+async def test_previsit_wrapper__no_patient_id__acks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """No patient_id → ack only; the real sub-graph (DB) is never invoked."""
     aggregate = AsyncMock(return_value=_patient_context())
     monkeypatch.setattr(_pvb_nodes, "aggregate_patient_context", aggregate)

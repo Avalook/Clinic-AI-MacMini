@@ -8,7 +8,7 @@ from clinicai.orchestrator.llm_nodes import make_respond_node_llm
 from clinicai.orchestrator.state import OrchestratorState
 
 
-def _make_mock_llm(text: str) -> AnthropicClient:
+def _make_mock_llm(text: str) -> MagicMock:
     fake_resp = LLMResponse(
         text=text,
         model="claude-sonnet-4-6",
@@ -23,7 +23,7 @@ def _make_mock_llm(text: str) -> AnthropicClient:
 
 
 @pytest.mark.asyncio
-async def test_llm_respond_returns_text():
+async def test_llm_respond_returns_text() -> None:
     """Sonnet trả text → response = text trimmed."""
     mock = _make_mock_llm("  Phòng khám đã nhận yêu cầu của anh/chị.  ")
     node = make_respond_node_llm(mock)
@@ -42,7 +42,7 @@ async def test_llm_respond_returns_text():
 
 
 @pytest.mark.asyncio
-async def test_llm_respond_empty_message_uses_template():
+async def test_llm_respond_empty_message_uses_template() -> None:
     """Tin nhắn rỗng → fallback template, KHÔNG gọi LLM."""
     mock = MagicMock(spec=AnthropicClient)
     mock.chat = AsyncMock()
@@ -58,7 +58,7 @@ async def test_llm_respond_empty_message_uses_template():
 
 
 @pytest.mark.asyncio
-async def test_llm_respond_empty_llm_text_falls_back_template():
+async def test_llm_respond_empty_llm_text_falls_back_template() -> None:
     """LLM trả text trống → fallback template (route=scheduling template)."""
     mock = _make_mock_llm("   ")
     node = make_respond_node_llm(mock)
@@ -72,7 +72,7 @@ async def test_llm_respond_empty_llm_text_falls_back_template():
 
 
 @pytest.mark.asyncio
-async def test_llm_respond_api_error_falls_back_template():
+async def test_llm_respond_api_error_falls_back_template() -> None:
     """LLM raise exception → fallback template, KHÔNG crash."""
     mock = MagicMock(spec=AnthropicClient)
     mock.chat = AsyncMock(side_effect=ConnectionError("network down"))

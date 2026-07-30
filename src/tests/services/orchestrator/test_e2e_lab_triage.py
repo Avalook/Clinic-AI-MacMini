@@ -11,6 +11,7 @@ Covers the wrapper-node behaviour added in T-P9.2-04:
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -40,8 +41,8 @@ def _mock_llm_route(route: str) -> AnthropicClient:
     return mock
 
 
-def _lab_row(**overrides) -> LabResultRow:
-    defaults = {
+def _lab_row(**overrides: Any) -> LabResultRow:
+    defaults: dict[str, Any] = {
         "lab_result_id": uuid4(),
         "clinic_patient_id": uuid4(),
         "visit_id": None,
@@ -103,7 +104,9 @@ async def test_e2e_lab_triage__no_lab_result_id__ack_response() -> None:
 
 
 @pytest.mark.asyncio
-async def test_e2e_lab_triage__group_a_real_subgraph(monkeypatch) -> None:
+async def test_e2e_lab_triage__group_a_real_subgraph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Lab branch with lab_result_id runs the real sub-graph and returns
     the patient-facing advise message for GROUP_A.
     """
@@ -147,7 +150,9 @@ async def test_e2e_lab_triage__group_a_real_subgraph(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_e2e_lab_triage__group_c_safety_gate_visible(monkeypatch) -> None:
+async def test_e2e_lab_triage__group_c_safety_gate_visible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """GROUP_C → wrapper surfaces the safety-gate response."""
     row = _lab_row(panel_code="HIV", flag="POSITIVE")
     monkeypatch.setattr(

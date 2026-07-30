@@ -5,6 +5,7 @@ Run: poetry run pytest src/tests/integration/test_rabbitmq_connectivity.py
 """
 
 import os
+from collections.abc import AsyncIterator
 
 import aio_pika
 import pytest
@@ -13,7 +14,7 @@ pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture
-async def rabbitmq_connection():
+async def rabbitmq_connection() -> AsyncIterator[aio_pika.abc.AbstractRobustConnection]:
     url = os.getenv("RABBITMQ_URL")
     if not url:
         pytest.skip("RABBITMQ_URL not set")
@@ -25,7 +26,9 @@ async def rabbitmq_connection():
     await conn.close()
 
 
-async def test_exchanges_exist(rabbitmq_connection):
+async def test_exchanges_exist(
+    rabbitmq_connection: aio_pika.abc.AbstractRobustConnection,
+) -> None:
     """events.topic và events.dlx phải tồn tại."""
     channel = await rabbitmq_connection.channel()
     for name in ["events.topic", "events.dlx"]:
@@ -33,7 +36,9 @@ async def test_exchanges_exist(rabbitmq_connection):
         assert ex is not None
 
 
-async def test_queues_exist(rabbitmq_connection):
+async def test_queues_exist(
+    rabbitmq_connection: aio_pika.abc.AbstractRobustConnection,
+) -> None:
     """events.audit và events.dead_letter phải tồn tại."""
     channel = await rabbitmq_connection.channel()
     for name in ["events.audit", "events.dead_letter"]:
@@ -41,7 +46,9 @@ async def test_queues_exist(rabbitmq_connection):
         assert q is not None
 
 
-async def test_publish_consume_round_trip(rabbitmq_connection):
+async def test_publish_consume_round_trip(
+    rabbitmq_connection: aio_pika.abc.AbstractRobustConnection,
+) -> None:
     """Publish vào events.topic → consume từ events.audit."""
     channel = await rabbitmq_connection.channel()
     exchange = await channel.get_exchange("events.topic")

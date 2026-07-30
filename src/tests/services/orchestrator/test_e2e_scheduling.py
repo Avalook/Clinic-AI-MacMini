@@ -57,7 +57,7 @@ def _session_result() -> WorkSessionResult:
 
 
 @pytest.mark.asyncio
-async def test_e2e_first_turn_scheduling_greeting():
+async def test_e2e_first_turn_scheduling_greeting() -> None:
     """First turn with no date → sub-graph asks for date in Vietnamese."""
     mock_llm = _mock_llm_with_route("scheduling")
     graph = build_orchestrator_graph(
@@ -80,7 +80,7 @@ async def test_e2e_first_turn_scheduling_greeting():
 
 
 @pytest.mark.asyncio
-async def test_e2e_scheduling_no_pool_falls_back_to_stub():
+async def test_e2e_scheduling_no_pool_falls_back_to_stub() -> None:
     """No pool wired → scheduling route uses the legacy stub node."""
     mock_llm = _mock_llm_with_route("scheduling")
     graph = build_orchestrator_graph(
@@ -101,7 +101,9 @@ async def test_e2e_scheduling_no_pool_falls_back_to_stub():
 
 
 @pytest.mark.asyncio
-async def test_e2e_scheduling_invalid_time_weekday_redirects(monkeypatch):
+async def test_e2e_scheduling_invalid_time_weekday_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """preferred_time=morning on weekday → sub-graph redirects to ask_time."""
     # Tool should not actually be called in this path, but keep a benign mock
     # so we get a useful error if it is reached.

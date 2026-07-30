@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,7 +15,7 @@ from clinicai.schemas.patient import DuplicateMatch, PatientCreateResult, Patien
 
 
 @pytest.fixture(autouse=True)
-def override_db():
+def override_db() -> Iterator[None]:
     """Fixture that overrides database dependency globally for unit tests."""
     app.dependency_overrides[get_db_pool] = lambda: MagicMock()
     app.dependency_overrides[get_current_identity] = lambda: StaffIdentity(
@@ -35,7 +36,9 @@ def client() -> TestClient:
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_create_patient_requires_verified_staff(mock_service_class, client) -> None:
+def test_create_patient_requires_verified_staff(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """A shared API key without a verified staff JWT must never create PII."""
     app.dependency_overrides.pop(get_current_identity, None)
     mock_service_class.return_value.create_patient = AsyncMock()
@@ -53,7 +56,9 @@ def test_create_patient_requires_verified_staff(mock_service_class, client) -> N
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_create_patient_returns_201(mock_service_class, client) -> None:
+def test_create_patient_returns_201(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """POST /api/v1/patients returns 201 Created and the created PatientDTO."""
     mock_service = mock_service_class.return_value
 
@@ -99,7 +104,9 @@ def test_create_patient_returns_201(mock_service_class, client) -> None:
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_create_patient_phone_duplicate_returns_200(mock_service_class, client) -> None:
+def test_create_patient_phone_duplicate_returns_200(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """Phone already on file (no force) → 200 {duplicate, matches}, no insert."""
     mock_service = mock_service_class.return_value
     existing_id = uuid.uuid4()
@@ -133,7 +140,9 @@ def test_create_patient_phone_duplicate_returns_200(mock_service_class, client) 
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_create_patient_cccd_conflict_returns_409(mock_service_class, client) -> None:
+def test_create_patient_cccd_conflict_returns_409(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """Duplicate CCCD raises ConflictError → 409 with friendly message."""
     mock_service = mock_service_class.return_value
     mock_service.create_patient = AsyncMock(
@@ -154,7 +163,9 @@ def test_create_patient_cccd_conflict_returns_409(mock_service_class, client) ->
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_get_patient_by_id_returns_200(mock_service_class, client) -> None:
+def test_get_patient_by_id_returns_200(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """GET /api/v1/patients/{id} returns 200 OK and the PatientDTO."""
     mock_service = mock_service_class.return_value
 
@@ -185,7 +196,9 @@ def test_get_patient_by_id_returns_200(mock_service_class, client) -> None:
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_get_patient_not_found_returns_404(mock_service_class, client) -> None:
+def test_get_patient_not_found_returns_404(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """GET /api/v1/patients/{id} returns 404 NOT FOUND if resource is absent."""
     mock_service = mock_service_class.return_value
     mock_service.get_by_id = AsyncMock(return_value=None)
@@ -202,7 +215,9 @@ def test_get_patient_not_found_returns_404(mock_service_class, client) -> None:
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_get_by_phone_returns_list(mock_service_class, client) -> None:
+def test_get_by_phone_returns_list(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """GET /api/v1/patients?phone=... returns 200 OK and a list of PatientDTOs."""
     mock_service = mock_service_class.return_value
 
@@ -235,7 +250,9 @@ def test_get_by_phone_returns_list(mock_service_class, client) -> None:
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_check_phone_exists_returns_minimal_matches(mock_service_class, client) -> None:
+def test_check_phone_exists_returns_minimal_matches(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """GET /api/v1/patients/check-phone → {exists, matches} with lean fields."""
     mock_service = mock_service_class.return_value
     mock_service.find_phone_duplicates = AsyncMock(
@@ -267,7 +284,9 @@ def test_check_phone_exists_returns_minimal_matches(mock_service_class, client) 
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_check_phone_absent_returns_exists_false(mock_service_class, client) -> None:
+def test_check_phone_absent_returns_exists_false(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """No match → exists=false, empty matches."""
     mock_service = mock_service_class.return_value
     mock_service.find_phone_duplicates = AsyncMock(return_value=[])
@@ -283,7 +302,9 @@ def test_check_phone_absent_returns_exists_false(mock_service_class, client) -> 
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_update_patient_returns_200(mock_service_class, client) -> None:
+def test_update_patient_returns_200(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """PATCH /api/v1/patients/{id} returns 200 OK and the updated PatientDTO."""
     mock_service = mock_service_class.return_value
 
@@ -318,7 +339,9 @@ def test_update_patient_returns_200(mock_service_class, client) -> None:
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_update_patient_not_found_returns_404(mock_service_class, client) -> None:
+def test_update_patient_not_found_returns_404(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
     """PATCH /api/v1/patients/{id} returns 404 if ResourceNotFoundError is raised."""
     mock_service = mock_service_class.return_value
     mock_service.update_patient = AsyncMock(

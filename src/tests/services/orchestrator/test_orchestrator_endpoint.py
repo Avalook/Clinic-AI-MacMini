@@ -7,7 +7,7 @@ from clinicai.orchestrator.service import OrchestratorService
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_scheduling():
+async def test_chat_endpoint_scheduling() -> None:
     # ASGITransport does not trigger lifespan → inject service via dependency override
     svc = OrchestratorService()
     app.dependency_overrides[get_orchestrator_service] = lambda: svc

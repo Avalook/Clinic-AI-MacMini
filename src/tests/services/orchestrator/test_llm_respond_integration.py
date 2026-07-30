@@ -15,7 +15,7 @@ from clinicai.orchestrator.state import OrchestratorState
     not os.getenv("ANTHROPIC_API_KEY"),
     reason="ANTHROPIC_API_KEY not set",
 )
-async def test_llm_respond_real_sonnet_returns_text():
+async def test_llm_respond_real_sonnet_returns_text() -> None:
     """Real Sonnet 4.6 trả response tiếng Việt non-empty cho scheduling route."""
     client = AnthropicClient()
     try:

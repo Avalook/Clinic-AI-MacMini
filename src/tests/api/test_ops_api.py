@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,10 +15,10 @@ from clinicai.main import app
 
 
 class _Acquire:
-    async def __aenter__(self):
+    async def __aenter__(self) -> "_Acquire":
         return self
 
-    async def __aexit__(self, *_args):
+    async def __aexit__(self, *_args: object) -> None:
         return None
 
     async def fetchval(self, _query: str) -> int:
@@ -29,7 +31,7 @@ class _Pool:
 
 
 @pytest.fixture(autouse=True)
-def overrides(monkeypatch, tmp_path):
+def overrides(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     monkeypatch.setenv("OPS_STATUS_FILE", str(tmp_path / "missing.json"))
     app.dependency_overrides[get_db_pool] = lambda: _Pool()
     yield

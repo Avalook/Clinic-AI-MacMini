@@ -25,7 +25,9 @@ def test_redacts_sensitive_keys_recursively_without_mutating_input() -> None:
         "items": [{"authorization": REDACTED}],
     }
     assert original["phone"] == "0901234567"
-    assert original["nested"]["email"] == "patient@example.com"
+    nested = original["nested"]
+    assert isinstance(nested, dict)
+    assert nested["email"] == "patient@example.com"
 
 
 def test_redacts_email_phone_and_bearer_token_embedded_in_error_text() -> None:

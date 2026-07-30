@@ -228,7 +228,7 @@ def test_event_service__interaction_event_validation__raises_validation_error() 
     """Verify that schema validation fails when required fields are missing."""
     with pytest.raises(ValidationError):
         # Missing entity_id
-        InteractionEvent(
+        InteractionEvent(  # type: ignore[call-arg]
             event_type="interaction.walkin",
             entity_type="appointment",
             payload={"status": "scheduled"},

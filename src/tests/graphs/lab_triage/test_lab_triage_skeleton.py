@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -24,8 +25,8 @@ from clinicai.tools.lab.query_lab_result import LabResultRow
 _NOW = datetime(2026, 5, 21, 12, 0, tzinfo=timezone.utc)
 
 
-def _lab_row(**overrides) -> LabResultRow:
-    defaults = {
+def _lab_row(**overrides: Any) -> LabResultRow:
+    defaults: dict[str, Any] = {
         "lab_result_id": uuid4(),
         "clinic_patient_id": uuid4(),
         "visit_id": None,
@@ -78,14 +79,14 @@ def mock_llm() -> MagicMock:
 
 
 @pytest.fixture
-def graph(mock_pool, mock_llm):
+def graph(mock_pool: MagicMock, mock_llm: MagicMock) -> Any:
     return build_lab_triage_subgraph(pool=mock_pool, llm_client=mock_llm)
 
 
 # ──────────────────────── Build + receive validation ────────────────────────
 
 
-def test_graph_builds_without_error(mock_pool, mock_llm) -> None:
+def test_graph_builds_without_error(mock_pool: MagicMock, mock_llm: MagicMock) -> None:
     g = build_lab_triage_subgraph(pool=mock_pool, llm_client=mock_llm)
     assert g is not None
 
@@ -97,7 +98,9 @@ def test_graph_builds_with_no_args() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_lab_result_id_returns_error(graph) -> None:
+async def test_missing_lab_result_id_returns_error(
+    graph: Any,
+) -> None:
     state = LabTriageState()
     result = await graph.ainvoke(state)
     assert result["step"] == LabTriageStep.DONE
@@ -105,7 +108,7 @@ async def test_missing_lab_result_id_returns_error(graph) -> None:
 
 
 @pytest.mark.asyncio
-async def test_hard_block_node_directly(mock_pool) -> None:
+async def test_hard_block_node_directly(mock_pool: MagicMock) -> None:
     node = make_hard_block_node(mock_pool)
     state = LabTriageState(
         lab_result_id=uuid4(),
@@ -125,7 +128,9 @@ async def test_hard_block_node_directly(mock_pool) -> None:
 
 
 @pytest.mark.asyncio
-async def test_lab_triage__group_a_routes_to_advise(monkeypatch, mock_llm) -> None:
+async def test_lab_triage__group_a_routes_to_advise(
+    monkeypatch: pytest.MonkeyPatch, mock_llm: MagicMock
+) -> None:
     """GROUP_A from classify → advise → patient response set, step=DONE."""
     row = _lab_row(
         test_name="CBC",
@@ -168,7 +173,7 @@ async def test_lab_triage__group_a_routes_to_advise(monkeypatch, mock_llm) -> No
 
 @pytest.mark.asyncio
 async def test_lab_triage__group_c_unreviewed__safety_gate_populated(
-    monkeypatch, mock_llm
+    monkeypatch: pytest.MonkeyPatch, mock_llm: MagicMock
 ) -> None:
     """GROUP_C → hard_block: no patient response, escalation_note set,
     requires_doctor_review=True. This is the medical safety gate path.
@@ -206,7 +211,9 @@ async def test_lab_triage__group_c_unreviewed__safety_gate_populated(
 
 
 @pytest.mark.asyncio
-async def test_lab_triage__row_not_found__terminates_with_error(mock_llm) -> None:
+async def test_lab_triage__row_not_found__terminates_with_error(
+    mock_llm: MagicMock,
+) -> None:
     """fetchrow returns None → graph ends, error set, no classify call."""
     pool = _mock_pool_returning_row(None)
     g = build_lab_triage_subgraph(pool=pool, llm_client=mock_llm)
@@ -243,7 +250,7 @@ async def test_lab_triage__no_llm_client__safety_falls_back_to_hard_block() -> N
 
 @pytest.mark.asyncio
 async def test_lab_triage__classify_exception__safety_falls_back(
-    monkeypatch, mock_llm
+    monkeypatch: pytest.MonkeyPatch, mock_llm: MagicMock
 ) -> None:
     """classify_lab_result raises → safety bias to hard_block."""
     row = _lab_row(test_name="Unknown panel", panel_code="UNKNOWN")

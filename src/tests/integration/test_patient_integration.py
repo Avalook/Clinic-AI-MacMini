@@ -1,11 +1,14 @@
 import datetime
 import os
+from uuid import UUID
 
+import asyncpg
 import pytest
 from dotenv import load_dotenv
 
-from clinicai.core.exceptions import ValidationError
+from clinicai.api.exceptions import ConflictError
 from clinicai.schemas.patient import PatientCreateDTO, PatientUpdateDTO
+from clinicai.services.patient_service import PatientService
 
 # Load environment variables from .env
 load_dotenv()
@@ -19,7 +22,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 async def test_create_and_fetch_round_trip(
-    patient_service, location_id, cleanup_patients
+    patient_service: PatientService, location_id: UUID, cleanup_patients: list[str]
 ) -> None:
     """Insert a new patient and retrieve by ID, ensuring fields match."""
     data = PatientCreateDTO(
@@ -30,7 +33,10 @@ async def test_create_and_fetch_round_trip(
         location_id=location_id,
         is_active=True,
     )
-    created = await patient_service.create_patient(data)
+    result = await patient_service.create_patient(data)
+    assert not result.duplicate
+    created = result.patient
+    assert created is not None
     cleanup_patients.append(created.patient_code)
 
     assert created.clinic_patient_id is not None
@@ -48,7 +54,7 @@ async def test_create_and_fetch_round_trip(
 
 @pytest.mark.asyncio
 async def test_get_by_phone_returns_created(
-    patient_service, location_id, cleanup_patients
+    patient_service: PatientService, location_id: UUID, cleanup_patients: list[str]
 ) -> None:
     """Create a patient, search by phone primary, and check matching record."""
     phone = "+84901234568"
@@ -59,7 +65,8 @@ async def test_get_by_phone_returns_created(
         location_id=location_id,
         is_active=True,
     )
-    created = await patient_service.create_patient(data)
+    created = (await patient_service.create_patient(data)).patient
+    assert created is not None
     cleanup_patients.append(created.patient_code)
 
     results = await patient_service.get_by_phone(phone)
@@ -72,7 +79,7 @@ async def test_get_by_phone_returns_created(
 
 @pytest.mark.asyncio
 async def test_update_patient_persists(
-    patient_service, location_id, cleanup_patients
+    patient_service: PatientService, location_id: UUID, cleanup_patients: list[str]
 ) -> None:
     """Create patient, update name, and assert persistent changes."""
     data = PatientCreateDTO(
@@ -82,7 +89,8 @@ async def test_update_patient_persists(
         location_id=location_id,
         is_active=True,
     )
-    created = await patient_service.create_patient(data)
+    created = (await patient_service.create_patient(data)).patient
+    assert created is not None
     cleanup_patients.append(created.patient_code)
 
     update_data = PatientUpdateDTO(full_name="Nguyen Van C Updated")
@@ -98,7 +106,11 @@ async def test_update_patient_persists(
 
 @pytest.mark.asyncio
 async def test_duplicate_phone_triggers_mpi_queue(
-    patient_service, location_id, cleanup_patients, db_pool, monkeypatch
+    patient_service: PatientService,
+    location_id: UUID,
+    cleanup_patients: list[str],
+    db_pool: asyncpg.Pool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Create patient A, then patient B with same primary phone number.
 
@@ -119,18 +131,23 @@ async def test_duplicate_phone_triggers_mpi_queue(
         location_id=location_id,
         is_active=True,
     )
-    patient_a = await patient_service.create_patient(data_a)
+    patient_a = (await patient_service.create_patient(data_a)).patient
+    assert patient_a is not None
     cleanup_patients.append(patient_a.patient_code)
 
-    # Insert Patient B
+    # Insert Patient B. The same phone is a SOFT block: without force=True the
+    # service returns duplicate matches and inserts nothing, so there would be
+    # no second patient for MPI to compare against.
     data_b = PatientCreateDTO(
         full_name="Patient B",
         date_of_birth=datetime.date(1986, 2, 2),
         phone_primary=phone,
         location_id=location_id,
         is_active=True,
+        force=True,
     )
-    patient_b = await patient_service.create_patient(data_b)
+    patient_b = (await patient_service.create_patient(data_b)).patient
+    assert patient_b is not None
     cleanup_patients.append(patient_b.patient_code)
 
     # Verify that a row exists in mpi_merge_queue referencing B's ID with PENDING status
@@ -149,9 +166,9 @@ async def test_duplicate_phone_triggers_mpi_queue(
 
 @pytest.mark.asyncio
 async def test_cannot_duplicate_national_id(
-    patient_service, location_id, cleanup_patients
+    patient_service: PatientService, location_id: UUID, cleanup_patients: list[str]
 ) -> None:
-    """Inserting two patients with the same national ID must raise ValidationError."""
+    """A second patient with the same CCCD is a hard conflict, not a soft one."""
     national_id = "123456789012"
 
     # Insert Patient A
@@ -163,7 +180,8 @@ async def test_cannot_duplicate_national_id(
         location_id=location_id,
         is_active=True,
     )
-    patient_a = await patient_service.create_patient(data_a)
+    patient_a = (await patient_service.create_patient(data_a)).patient
+    assert patient_a is not None
     cleanup_patients.append(patient_a.patient_code)
 
     # Insert Patient B with the same national ID
@@ -176,7 +194,7 @@ async def test_cannot_duplicate_national_id(
         is_active=True,
     )
 
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(ConflictError) as exc_info:
         await patient_service.create_patient(data_b)
 
-    assert "Duplicate patient record" in str(exc_info.value)
+    assert "CCCD này đã có hồ sơ" in str(exc_info.value)

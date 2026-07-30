@@ -1,5 +1,6 @@
 """Health check endpoint tests."""
 
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -10,7 +11,7 @@ from clinicai.main import app
 
 
 @pytest.mark.asyncio
-async def test_health_check():
+async def test_health_check() -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -20,7 +21,7 @@ async def test_health_check():
 
 
 @pytest.mark.asyncio
-async def test_health_db():
+async def test_health_db() -> None:
     """GET /health/db returns ok with latency when pool's SELECT 1 succeeds."""
     mock_conn = MagicMock()
     mock_conn.fetchval = AsyncMock(return_value=1)
@@ -32,7 +33,7 @@ async def test_health_db():
     mock_pool = MagicMock()
     mock_pool.acquire = MagicMock(return_value=acquire_ctx)
 
-    async def override_pool():
+    async def override_pool() -> AsyncIterator[MagicMock]:
         yield mock_pool
 
     app.dependency_overrides[get_db_pool] = override_pool

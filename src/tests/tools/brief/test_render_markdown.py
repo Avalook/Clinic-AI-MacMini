@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 from clinicai.tools.brief.generate_brief import PreVisitBrief
 from clinicai.tools.brief.render_markdown import render_brief_markdown
 
 
-def _brief(**overrides) -> PreVisitBrief:
-    defaults: dict = {
+def _brief(**overrides: Any) -> PreVisitBrief:
+    defaults: dict[str, Any] = {
         "clinic_patient_id": UUID("11111111-1111-1111-1111-111111111111"),
         "patient_code": "BN-2026-000001",
         "generated_at": datetime(2026, 5, 21, 12, 0, tzinfo=timezone.utc),

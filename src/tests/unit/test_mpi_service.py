@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -19,7 +20,7 @@ FAKE_LOCATION = uuid4()
 FAKE_NOW = datetime.datetime(2026, 5, 20, 10, 0, 0, tzinfo=datetime.timezone.utc)
 
 
-def _make_dto(overrides: dict | None = None) -> PatientDTO:
+def _make_dto(overrides: dict[str, Any] | None = None) -> PatientDTO:
     """Build a PatientDTO for scoring tests."""
     base = {
         "clinic_patient_id": uuid4(),
@@ -39,7 +40,7 @@ def _make_dto(overrides: dict | None = None) -> PatientDTO:
     return PatientDTO.model_validate(base)
 
 
-def _make_record(overrides: dict | None = None) -> dict:
+def _make_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a raw dict simulating an asyncpg Record."""
     base = {
         "clinic_patient_id": uuid4(),

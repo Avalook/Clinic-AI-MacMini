@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
@@ -12,9 +14,9 @@ from clinicai.llm.anthropic_client import LLMResponse
 from clinicai.services.patient_context_service import PatientContext
 
 
-def make_patient_context(**overrides) -> PatientContext:
+def make_patient_context(**overrides: Any) -> PatientContext:
     """Construct a baseline PatientContext, allowing per-test overrides."""
-    defaults: dict = {
+    defaults: dict[str, Any] = {
         "clinic_patient_id": UUID("11111111-1111-1111-1111-111111111111"),
         "patient_code": "BN-2026-000001",
         "full_name": "Nguyễn Thị A",
@@ -60,7 +62,7 @@ def patient_context() -> PatientContext:
 
 
 @pytest.fixture
-def make_llm():
+def make_llm() -> Callable[..., MagicMock]:
     """Factory: returns a MagicMock AnthropicClient whose .chat returns text."""
 
     def _factory(text: str, model: str = "claude-sonnet-4-6") -> MagicMock:

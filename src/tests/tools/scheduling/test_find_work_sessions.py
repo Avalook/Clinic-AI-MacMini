@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -18,14 +19,14 @@ from clinicai.tools.scheduling.find_work_sessions import (
 
 def _row(
     *,
-    session_id=None,
-    session_date=None,
-    session_type="EVENING",
-    start_time="18:00",
-    end_time="21:00",
-    max_patients=20,
-    doctors=None,
-):
+    session_id: UUID | None = None,
+    session_date: date | None = None,
+    session_type: str = "EVENING",
+    start_time: str = "18:00",
+    end_time: str = "21:00",
+    max_patients: int = 20,
+    doctors: object = None,
+) -> dict[str, Any]:
     return {
         "session_id": session_id or uuid4(),
         "session_date": session_date or date(2026, 5, 25),
@@ -112,7 +113,7 @@ def test_find_work_sessions_input_validation() -> None:
         FindWorkSessionsInput(
             location_id=uuid4(),
             session_date=date(2026, 5, 25),
-            session_type="MORNING",  # not in the Literal allowlist
+            session_type="MORNING",  # type: ignore[arg-type]  # not in the allowlist
         )
 
 

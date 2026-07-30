@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
@@ -22,7 +23,7 @@ def _row(
     task_id: UUID | None = None,
     status: str = "DONE",
     completed_at: datetime | None = None,
-) -> dict:
+) -> dict[str, Any]:
     now = datetime.now(tz=timezone.utc)
     return {
         "task_id": task_id or uuid4(),
