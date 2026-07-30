@@ -59,9 +59,10 @@ BEGIN
      WHERE schemaname = 'public'
        AND policyname LIKE '%_select_own_clinic';
 
-    -- 23 tenant tables + staff + the 7 workflow-kernel tables (W4).
-    IF scoped_count <> 31 THEN
-        RAISE EXCEPTION 'expected 31 tenant-scoped read policies, found %', scoped_count;
+    -- 23 tenant tables + staff + 7 workflow-kernel tables (W4)
+    -- + block_budget, which became client-readable in W5.
+    IF scoped_count <> 32 THEN
+        RAISE EXCEPTION 'expected 32 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
@@ -91,7 +92,6 @@ DECLARE
         'idempotency_key',   -- stores replayed request/response bodies
         'mpi_merge_queue',   -- patient identifiers pending a merge decision
         'ultrasound_record', -- clinical, reached through app/api/ultrasound
-        'block_budget',      -- capacity config
         'staff_capability',  -- staffing config
         'pos_outbox'         -- pending pushes to an external till
     ];

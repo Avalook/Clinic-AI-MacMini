@@ -4,7 +4,6 @@
 // đặt mặc định thông minh NEW/RETURN. Chỉ đọc.
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getSupabaseService } from "../../../../lib/supabase-service";
 
 export async function GET(request: Request) {
   const caller = await getSupabaseServer();
@@ -23,13 +22,12 @@ export async function GET(request: Request) {
     );
   }
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
+  // Read with the caller's own session. This used to need service-role because
+  // appointment and care_episode had no usable SELECT policy; since
+  // 20260730000004 both are readable by members of the owning clinic, so the
+  // count is now scoped to the caller's clinic instead of every clinic's
+  // (ADR-0012).
+  const db = caller;
 
   // Số lượt đã đặt cho dịch vụ này (bỏ huỷ / không đến) — chỉ cần đếm.
   const { count: serviceVisitCount } = await db

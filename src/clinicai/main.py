@@ -21,6 +21,7 @@ from clinicai.api.v1.routers.clinical_forms import router as clinical_forms_rout
 from clinicai.api.v1.routers.clinical_records import (
     router as clinical_records_router,
 )
+from clinicai.api.v1.routers.config import router as config_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.identity import router as identity_router
@@ -125,6 +126,7 @@ app.include_router(clinical_forms_router, prefix="/api/v1", tags=["clinical-form
 app.include_router(clinical_records_router, prefix="/api/v1", tags=["clinical-records"])
 app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"])
 app.include_router(booking_router, prefix="/api/v1", tags=["booking"])
+app.include_router(config_router, prefix="/api/v1", tags=["config"])
 app.include_router(service_log_router, prefix="/api/v1", tags=["service-log"])
 app.include_router(voice_router, prefix="/api/v1")
 

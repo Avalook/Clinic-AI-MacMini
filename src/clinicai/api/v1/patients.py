@@ -127,9 +127,9 @@ async def get_patients_by_phone(
 async def update_patient(
     id: UUID,
     data: PatientUpdateDTO,
-    _identity: StaffIdentity = Depends(_PATIENT_EDIT_GUARD),
+    identity: StaffIdentity = Depends(_PATIENT_EDIT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO:
     """Partially update demographic details for a patient."""
     service = PatientService(pool)
-    return await service.update_patient(id, data)
+    return await service.update_patient(id, data, identity)

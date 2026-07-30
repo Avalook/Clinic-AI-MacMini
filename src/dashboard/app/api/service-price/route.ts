@@ -6,6 +6,7 @@
 // Chỉ Thu ngân + Quản lý được ghi (khớp canSeeNav("/cashier")).
 
 import { NextResponse } from "next/server";
+import { configViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole } from "../../../lib/clinic-session";
@@ -96,6 +97,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Đơn giá không hợp lệ." }, { status: 400 });
   }
 
+  // W5 (ADR-0012). Off until CONFIG_VIA_BACKEND=1.
+  if (configViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/service-prices", {
+      service_code,
+      name,
+      group,
+      unit_price,
+    });
+  }
+
   const { data, error } = await auth.admin
     .from("service_price")
     .insert({ service_code, name, group, unit_price })
@@ -141,6 +152,14 @@ export async function PATCH(request: Request) {
   if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
   if (typeof body.active === "boolean") patch.active = body.active;
 
+  if (configViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/service-prices/${id}`, {
+      name: body.name ?? null,
+      ...("unit_price" in body ? { unit_price: body.unit_price ?? null } : {}),
+      active: typeof body.active === "boolean" ? body.active : null,
+    });
+  }
+
   const { error } = await auth.admin.from("service_price").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
@@ -158,6 +177,10 @@ export async function DELETE(request: Request) {
   }
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
+
+  if (configViaBackend()) {
+    return proxyJsonToBackend("DELETE", `/api/v1/service-prices/${id}`, {});
+  }
 
   const { error } = await auth.admin.from("service_price").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

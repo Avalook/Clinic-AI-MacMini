@@ -6,6 +6,7 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
+import { configViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
@@ -143,6 +144,19 @@ export async function POST(request: Request) {
     );
   }
 
+  // W5 (ADR-0012). week_start is derived from work_date on the server for the
+  // same reason it is here. Off until CONFIG_VIA_BACKEND=1.
+  if (configViaBackend()) {
+    return proxyJsonToBackend("POST", "/api/v1/roster/shifts", {
+      work_date,
+      station,
+      shift,
+      staff_id: assignOther ? staff_id : null,
+      staff_name: assignOther ? staff_name : null,
+      sort: body.sort ?? 0,
+    });
+  }
+
   const { data, error } = await auth.admin
     .from("work_roster")
     .insert({
@@ -200,6 +214,13 @@ export async function PATCH(request: Request) {
   const reject_reason =
     body.action === "reject" ? (body.reason ?? "").trim() || null : null;
 
+  if (configViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/roster/shifts/${id}`, {
+      decision: body.action,
+      reason: body.reason ?? null,
+    });
+  }
+
   const { error } = await auth.admin
     .from("work_roster")
     .update({ status, reject_reason, updated_at: new Date().toISOString() })
@@ -234,6 +255,10 @@ export async function DELETE(request: Request) {
         { status: 403 },
       );
     }
+  }
+
+  if (configViaBackend()) {
+    return proxyJsonToBackend("DELETE", `/api/v1/roster/shifts/${id}`, {});
   }
 
   const { error } = await auth.admin.from("work_roster").delete().eq("id", id);

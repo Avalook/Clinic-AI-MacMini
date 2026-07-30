@@ -10,6 +10,10 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getSupabaseService } from "../../../lib/supabase-service";
+import {
+  patientEditViaBackend,
+  proxyJsonToBackend,
+} from "../../../lib/backend-proxy";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
 import { canWriteIntake, canEditPatient } from "../../../lib/roles";
 import { PHONE_RE, CCCD_RE } from "../../../lib/validation";
@@ -276,6 +280,29 @@ export async function PATCH(request: Request) {
       { error: "SĐT người nhà không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)." },
       { status: 400 },
     );
+  }
+
+  // W5 (ADR-0012): PATCH /api/v1/patients/{id} owns this now. It is scoped to
+  // the caller's clinic — this path updated by clinic_patient_id alone, which
+  // reaches every clinic once there is more than one. Off until
+  // PATIENT_EDIT_VIA_BACKEND=1.
+  if (patientEditViaBackend()) {
+    return proxyJsonToBackend("PATCH", `/api/v1/patients/${id}`, {
+      full_name,
+      date_of_birth: (body.date_of_birth ?? "").trim() || null,
+      phone_primary: (body.phone_primary ?? "").trim() || null,
+      phone_secondary: (body.phone_secondary ?? "").trim() || null,
+      gender: nn(body.gender),
+      ethnicity: nn(body.ethnicity),
+      nationality: nn(body.nationality),
+      occupation: nn(body.occupation),
+      patient_objection: nn(body.patient_objection),
+      address: nn(body.address),
+      guardian_name: nn(body.guardian_name),
+      ...((body.location_id ?? "").trim()
+        ? { location_id: (body.location_id ?? "").trim() }
+        : {}),
+    });
   }
 
   const db = getSupabaseService();

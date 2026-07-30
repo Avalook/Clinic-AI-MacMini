@@ -118,3 +118,50 @@ của nó trước khi hiện form. Đưa form schema vào DB là cách đúng, 
 **Danh sách trắng vẫn 19 file** — đúng như thiết kế: con số chỉ giảm khi **xoá nhánh
 legacy**, tức là sau khi bật cờ và chạy ổn trên staging. Lý do của 4 entry đã đổi thành
 "đã port, chờ bật cờ".
+
+## W5 hoàn tất phần port (2026-07-30)
+
+**Mọi route nghiệp vụ đều đã có bản backend.** Danh sách trắng còn lại **toàn là
+nhánh legacy chờ xoá**, không còn việc phải viết:
+
+| Cụm | Endpoint FastAPI | Cờ |
+|---|---|---|
+| Lâm sàng | `lab/orders`, `lab/results/{id}`, `ultrasound/measurements`, `clinical-forms`, `clinical-records` | `LAB_`/`ULTRASOUND_`/`CLINICAL_FORM_`/`CLINICAL_RECORD_VIA_BACKEND` |
+| CSKH | `cskh/actions`, `cskh/followup-calls` | `CSKH_VIA_BACKEND` |
+| Dịch vụ | `service-log`, `sono/queue` | `SERVICE_LOG_VIA_BACKEND` |
+| Đặt lịch | `appointments/bookings`, `PATCH appointments/{id}` | `BOOKING_VIA_BACKEND` |
+| Cấu hình | `roster/shifts`, `service-prices` | `CONFIG_VIA_BACKEND` |
+| Bệnh nhân | `PATCH patients/{id}` | `PATIENT_EDIT_VIA_BACKEND` |
+| Đợt khám | `PATCH episodes/{id}` | `EPISODE_VIA_BACKEND` |
+| Thu tiền | `payments` | `PAYMENT_VIA_BACKEND` |
+
+**Ba route bỏ được service-role mà không cần backend**, nhờ policy thêm ở W1b/W3/W5:
+`api/wards`, `patients/check-phone`, `patients/new` (province/ward),
+`appointments/service-history` (appointment + care_episode), `appointments/quote`
+(`block_budget` có policy đọc theo tenant từ `20260730000009` — nó là **cấu hình**, không
+phải dữ liệu bệnh nhân, và chính nhân viên đặt lịch cần đọc).
+
+Trần danh sách trắng **19 → 17**. Nó chỉ giảm tiếp khi **xoá nhánh legacy**, việc đó xảy
+ra sau khi bật cờ chạy ổn — không phải khi viết xong backend.
+
+### ⚠️ Phát hiện lớn hơn: backend chạy như service_role, RLS KHÔNG bảo vệ nó
+
+Đây là hệ quả trực tiếp của chính ADR này mà tôi chưa nói rõ ở bản đầu. Khi mọi thứ đi
+qua FastAPI, **FastAPI kết nối bằng quyền chủ database** — mọi policy RLS viết ở W3 đều
+**không áp dụng** cho tiến trình đó. Nghĩa là **mỗi câu query trong backend phải tự lọc
+`clinic_id`**, nếu không nó chạm tới mọi phòng khám.
+
+Các service viết ở W5 đều làm đúng. Nhưng service có **trước** W5 thì không:
+
+| Service | Query trên bảng tenant | Có lọc `clinic_id` |
+|---|---|---|
+| `patient_service` | 7 | **0** |
+| `scheduling_service` | 4 | **0** |
+
+Đã sửa `PatientService.update_patient` (nó update theo `clinic_patient_id` đơn thuần —
+tức là sửa được bệnh nhân của phòng khám khác nếu biết id) và gate 2 endpoint
+confirm/cancel trong `scheduling.py` vốn **không có gate vai trò nào**.
+
+**Phần còn lại chưa rà hết** — xem task W8. Hôm nay vô hại vì chỉ có một phòng khám thật;
+ngày có phòng khám thứ hai thì đó là rò dữ liệu chéo. Phải xong **trước** khi onboard
+tenant thứ 2.

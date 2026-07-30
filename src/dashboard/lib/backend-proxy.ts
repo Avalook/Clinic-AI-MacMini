@@ -40,6 +40,16 @@ export function clinicalFormViaBackend(): boolean {
   return process.env.CLINICAL_FORM_VIA_BACKEND === "1" && API_BASE !== "";
 }
 
+/** True when roster + price-list writes go to FastAPI (W5). */
+export function configViaBackend(): boolean {
+  return process.env.CONFIG_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
+/** True when patient administrative edits go to FastAPI (W5). */
+export function patientEditViaBackend(): boolean {
+  return process.env.PATIENT_EDIT_VIA_BACKEND === "1" && API_BASE !== "";
+}
+
 /** True when appointment booking + lifecycle go to FastAPI (W5). */
 export function bookingViaBackend(): boolean {
   return process.env.BOOKING_VIA_BACKEND === "1" && API_BASE !== "";

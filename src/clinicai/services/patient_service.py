@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 from typing import Any
 from uuid import UUID
 
@@ -10,6 +11,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.core.phone import phone_variants as _phone_variants
 from clinicai.schemas.patient import (
@@ -21,6 +23,20 @@ from clinicai.schemas.patient import (
 )
 
 logger = structlog.get_logger()
+
+# Ten digits, leading zero, a plausible Vietnamese prefix. Enforced server-side
+# because the form is not the only caller.
+PHONE_RE = re.compile(r"^0(2|3|5|7|8|9)\d{8}$")
+
+
+def validate_phone(value: str | None, label: str) -> None:
+    """Raise when a phone number is present but malformed."""
+    phone = (value or "").strip()
+    if phone and not PHONE_RE.match(phone):
+        raise ValidationError(
+            f"{label} không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)."
+        )
+
 
 # Columns written on INSERT, in order (patient_code prepended at call site).
 _INSERT_COLUMNS = (
@@ -270,12 +286,31 @@ class PatientService:
         ]
 
     async def update_patient(
-        self, clinic_patient_id: UUID, data: PatientUpdateDTO
+        self,
+        clinic_patient_id: UUID,
+        data: PatientUpdateDTO,
+        identity: StaffIdentity | None = None,
     ) -> PatientDTO:
-        """Partial-update a patient. Only non-None fields are written."""
+        """Partial-update a patient. Only non-None fields are written.
+
+        TENANT SCOPE. The backend connects as the database owner, so RLS does
+        NOT apply to anything in this process — a query without clinic_id in its
+        WHERE reaches every clinic. This one used to update by
+        clinic_patient_id alone, which would have let a member of one clinic
+        edit another's patient by id the moment a second tenant existed.
+        ``identity`` is optional only so the AI tools that call this without a
+        request context keep working; pass it from anything user-facing.
+        """
         updates = data.model_dump(exclude_none=True)
         if not updates:
             raise ValidationError("No fields to update")
+
+        for column, label in (
+            ("phone_primary", "SĐT chính"),
+            ("phone_secondary", "SĐT người nhà"),
+        ):
+            if updates.get(column):
+                validate_phone(str(updates[column]), label)
 
         # Build dynamic SET clause
         set_parts: list[str] = []
@@ -288,13 +323,17 @@ class PatientService:
         set_parts.append(f"updated_at = ${len(values) + 1}")
         values.append(datetime.datetime.now(tz=datetime.timezone.utc))
 
-        # WHERE clause param
+        # WHERE clause params
         values.append(clinic_patient_id)
         where_idx = len(values)
+        tenant_clause = ""
+        if identity is not None and identity.clinic_id is not None:
+            values.append(identity.clinic_id)
+            tenant_clause = f" AND clinic_id = ${len(values)}::uuid"
 
         query = (
             f"UPDATE patient SET {', '.join(set_parts)} "
-            f"WHERE clinic_patient_id = ${where_idx} "
+            f"WHERE clinic_patient_id = ${where_idx}{tenant_clause} "
             "RETURNING *;"
         )
 

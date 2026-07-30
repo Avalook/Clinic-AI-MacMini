@@ -7,15 +7,18 @@ measurements merge, and which roles each gate admits.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import asyncio
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import ClinicRole
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers.lab import _ORDER_GUARD, _RESULT_GUARD
 from clinicai.api.v1.routers.ultrasound import _SONOGRAPHER_GUARD
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.exceptions import ValidationError as CoreValidationError
 from clinicai.services.clinical_record_service import (
     ARRIVED_APPOINTMENT_STATUSES as ARRIVED,
 )
@@ -28,12 +31,21 @@ from clinicai.services.clinical_record_service import (
 from clinicai.services.clinical_record_service import (
     WRITABLE_VISIT_STATUSES as RECORD_WRITABLE,
 )
+from clinicai.services.config_service import (
+    PRICE_ROLES,
+    ROSTER_ADMIN_ROLES,
+    ROSTER_ROLES,
+    RosterService,
+    parse_price,
+    week_start_of,
+)
 from clinicai.services.cskh_service import (
     INTAKE_ROLES,
     clinic_today,
     manual_source_ref,
 )
 from clinicai.services.lab_order_service import normalize_link
+from clinicai.services.patient_service import validate_phone
 from clinicai.services.service_log_service import (
     MILESTONE_COLUMN,
     QUEUE_CANCELLED,
@@ -366,3 +378,225 @@ class TestServiceLog:
     def test_source_refs_do_not_collide(self) -> None:
         refs = {source_ref("api-svc") for _ in range(500)}
         assert len(refs) == 500
+
+
+class TestRosterRules:
+    def test_the_week_is_derived_not_trusted(self) -> None:
+        # The schedule form keeps the previously viewed week in state, so a
+        # client-supplied week_start filed shifts under the wrong week.
+        for day in range(30, 32):
+            assert week_start_of(date(2026, 7, day)) == date(2026, 7, 27)
+        assert week_start_of(date(2026, 7, 27)) == date(2026, 7, 27)  # Monday
+        assert week_start_of(date(2026, 8, 2)) == date(2026, 7, 27)  # Sunday
+
+    def test_approving_is_management_only(self) -> None:
+        assert ROSTER_ADMIN_ROLES == frozenset({ClinicRole.MANAGEMENT})
+
+    def test_everyone_may_sign_themselves_up(self) -> None:
+        # The service ignores a client-supplied staff_id unless the caller is
+        # management, so the endpoint itself does not need to be narrow.
+        assert ROSTER_ROLES == frozenset(ClinicRole)
+
+
+class TestPriceParsing:
+    @pytest.mark.parametrize(
+        ("raw", "expected"), [("150000", 150000), (99.6, 100), (0, 0), ("0", 0)]
+    )
+    def test_prices_are_whole_dong(self, raw: object, expected: int) -> None:
+        assert parse_price(raw) == expected
+
+    @pytest.mark.parametrize("raw", [None, ""])
+    def test_blank_means_not_priced_yet(self, raw: object) -> None:
+        # Distinct from zero, which is a real price of nothing.
+        assert parse_price(raw) is None
+
+    @pytest.mark.parametrize("raw", [-1, "-5", "abc", float("inf"), float("nan"), True])
+    def test_nonsense_is_refused_rather_than_coerced(self, raw: object) -> None:
+        with pytest.raises(ValidationError):
+            parse_price(raw)
+
+    def test_only_the_cash_desk_maintains_prices(self) -> None:
+        assert ClinicRole.DOCTOR not in PRICE_ROLES
+        assert (
+            ClinicRole.CASHIER in PRICE_ROLES and ClinicRole.MANAGEMENT in PRICE_ROLES
+        )
+
+
+class TestPatientEditRules:
+    def test_editing_is_wider_than_creating(self) -> None:
+        # A doctor who spots a wrong date of birth should not have to find a
+        # receptionist; only intake may CREATE a patient.
+        from clinicai.api.v1.patients import _PATIENT_EDIT_GUARD
+
+        assert ClinicRole.DOCTOR in _PATIENT_EDIT_GUARD.allowed_roles
+
+    @pytest.mark.parametrize(
+        "phone", ["0901234567", "0281234567", "0321234567", "0791234567"]
+    )
+    def test_valid_vietnamese_numbers_pass(self, phone: str) -> None:
+        validate_phone(phone, "SĐT")
+
+    @pytest.mark.parametrize(
+        "phone", ["901234567", "09012345678", "0101234567", "+84901234567", "abc"]
+    )
+    def test_malformed_numbers_are_refused_server_side(self, phone: str) -> None:
+        # The form is not the only caller.
+        with pytest.raises(CoreValidationError):
+            validate_phone(phone, "SĐT")
+
+    @pytest.mark.parametrize("phone", [None, "", "  "])
+    def test_a_blank_number_is_allowed(self, phone: str | None) -> None:
+        validate_phone(phone, "SĐT")
+
+
+class _StubPool:
+    """Minimal asyncpg pool stand-in: one connection, canned answers."""
+
+    def __init__(self, *results: object) -> None:
+        self.conn = _StubConn(*results)
+
+    def acquire(self) -> "_StubPool":
+        return self
+
+    async def __aenter__(self) -> "_StubConn":
+        return self.conn
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+
+class _StubConn:
+    def __init__(self, *results: object) -> None:
+        self._results = list(results)
+        self.calls: list[tuple[str, tuple[object, ...]]] = []
+
+    async def fetchval(self, sql: str, *args: object) -> object:
+        self.calls.append((sql, args))
+        return self._results.pop(0) if self._results else None
+
+    async def fetchrow(self, sql: str, *args: object) -> object:
+        self.calls.append((sql, args))
+        return self._results.pop(0) if self._results else None
+
+    async def execute(self, sql: str, *args: object) -> None:
+        self.calls.append((sql, args))
+
+    def transaction(self) -> "_StubConn":
+        return self
+
+    async def __aenter__(self) -> "_StubConn":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+
+def _staff(role: ClinicRole, staff_id: str = "s1") -> StaffIdentity:
+    return StaffIdentity(
+        staff_id=staff_id,
+        auth_user_id="u1",
+        full_name="Người dùng",
+        department=role.value,
+        role=role,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
+    )
+
+
+class TestRosterAuthorisation:
+    def test_a_nurse_signing_up_is_pending_and_cannot_name_anybody(self) -> None:
+        # The client's staff_id is not validated — it is never read. There is
+        # nothing to spoof when the value is ignored.
+        pool = _StubPool("r1")
+        asyncio.run(
+            RosterService(pool).add_shift(
+                work_date=date(2026, 7, 30),
+                station="LICH_KHAM",
+                shift="SANG",
+                identity=_staff(ClinicRole.NURSE_ULTRASOUND, "nurse-1"),
+                staff_id="somebody-else",
+                staff_name="Ai đó",
+            )
+        )
+        args = pool.conn.calls[0][1]
+        assert "somebody-else" not in args
+        assert "nurse-1" in args
+        assert "PENDING" in args
+
+    def test_management_may_schedule_somebody_and_it_is_approved(self) -> None:
+        pool = _StubPool("r2")
+        asyncio.run(
+            RosterService(pool).add_shift(
+                work_date=date(2026, 7, 30),
+                station="LICH_KHAM",
+                shift="CHIEU",
+                identity=_staff(ClinicRole.MANAGEMENT, "mgr-1"),
+                staff_id="doctor-9",
+                staff_name="BS Chín",
+            )
+        )
+        args = pool.conn.calls[0][1]
+        assert "doctor-9" in args and "APPROVED" in args
+
+    def test_an_unknown_shift_falls_back_to_full_day(self) -> None:
+        pool = _StubPool("r3")
+        asyncio.run(
+            RosterService(pool).add_shift(
+                work_date=date(2026, 7, 30),
+                station="LICH_KHAM",
+                shift="TOI",
+                identity=_staff(ClinicRole.RECEPTION),
+            )
+        )
+        assert "FULL" in pool.conn.calls[0][1]
+
+    def test_only_management_approves(self) -> None:
+        with pytest.raises(SafetyGateError):
+            asyncio.run(
+                RosterService(_StubPool()).decide(
+                    roster_id="r1",
+                    decision="approve",
+                    reason=None,
+                    identity=_staff(ClinicRole.DOCTOR),
+                )
+            )
+
+    def test_a_rejection_keeps_its_reason_and_an_approval_clears_it(self) -> None:
+        pool = _StubPool("r1")
+        asyncio.run(
+            RosterService(pool).decide(
+                roster_id="r1",
+                decision="reject",
+                reason="  trùng ca  ",
+                identity=_staff(ClinicRole.MANAGEMENT),
+            )
+        )
+        assert "trùng ca" in pool.conn.calls[0][1]
+
+        pool = _StubPool("r1")
+        asyncio.run(
+            RosterService(pool).decide(
+                roster_id="r1",
+                decision="approve",
+                reason="ignored",
+                identity=_staff(ClinicRole.MANAGEMENT),
+            )
+        )
+        assert "ignored" not in pool.conn.calls[0][1]
+
+    def test_staff_may_only_remove_their_own_shift(self) -> None:
+        pool = _StubPool({"staff_id": "someone-else"})
+        with pytest.raises(SafetyGateError):
+            asyncio.run(
+                RosterService(pool).remove(
+                    roster_id="r1", identity=_staff(ClinicRole.DOCTOR, "me")
+                )
+            )
+
+    def test_management_may_remove_anybody_s(self) -> None:
+        pool = _StubPool({"staff_id": "someone-else"})
+        asyncio.run(
+            RosterService(pool).remove(
+                roster_id="r1", identity=_staff(ClinicRole.MANAGEMENT, "mgr")
+            )
+        )
+        assert any("DELETE" in sql for sql, _ in pool.conn.calls)

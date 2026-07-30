@@ -3,6 +3,10 @@
 // frontend must not be able to do: the backend owns the contract, and the
 // frontend has to be replaceable without becoming a security hole.
 //
+// Every business route now HAS a backend implementation behind a flag; the
+// entries below are legacy branches waiting to be deleted once their flag has
+// run on staging. Deleting one is what actually lowers the count.
+//
 // This list may only ever get SHORTER. Adding a file fails the test, and so does
 // leaving a file here after its service-role usage is gone — so the allowlist
 // cannot rot into a rubber stamp. Each entry names what has to move to FastAPI
@@ -19,24 +23,22 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 /** Files still allowed to hold the service-role key, and what blocks removal. */
 const ALLOWED = new Map<string, string>([
   ["lib/supabase-service.ts", "the factory itself — the last thing to delete"],
-  ["app/api/appointments/route.ts", "W5: booking, check-in and episode transitions -> FastAPI scheduling router"],
-  ["app/api/appointments/quote/route.ts", "W5: capacity quote reads block_budget (backend-only table) -> scheduling router"],
-  ["app/api/appointments/service-history/route.ts", "W5: -> scheduling router"],
+  ["app/api/appointments/route.ts", "W5: ported to /api/v1/appointments/bookings + PATCH — awaiting BOOKING_VIA_BACKEND"],
   ["app/api/clinical-record/route.ts", "W5: ported to POST /api/v1/clinical-records — delete the legacy branch once CLINICAL_RECORD_VIA_BACKEND is permanent"],
   ["app/api/clinical-form/route.ts", "W5: ported to PUT /api/v1/clinical-forms — awaiting CLINICAL_FORM_VIA_BACKEND"],
   ["app/api/ultrasound/route.ts", "W5: ported to POST /api/v1/ultrasound/measurements — awaiting ULTRASOUND_VIA_BACKEND"],
   ["app/api/lab-result/route.ts", "W5: ported to /api/v1/lab/orders + /api/v1/lab/results — awaiting LAB_VIA_BACKEND"],
   ["app/api/payment/route.ts", "W5: payment router exists; finish the cutover and drop PAYMENT_VIA_BACKEND"],
-  ["app/api/patients/route.ts", "W5: create already proxies; PATCH still writes directly"],
-  ["app/api/service-log/route.ts", "W5: -> a new service router"],
-  ["app/api/sono/route.ts", "W5: -> a new service router"],
-  ["app/api/cskh-action/route.ts", "W5: -> a new cskh router"],
-  ["app/api/cskh-followup/route.ts", "W5: -> a new cskh router"],
-  ["app/api/episodes/route.ts", "W5: episode close -> scheduling router"],
+  ["app/api/patients/route.ts", "W5: both halves proxy now — awaiting PATIENT_EDIT_VIA_BACKEND"],
+  ["app/api/service-log/route.ts", "W5: ported to /api/v1/service-log — awaiting SERVICE_LOG_VIA_BACKEND"],
+  ["app/api/sono/route.ts", "W5: ported to /api/v1/sono/queue — awaiting SERVICE_LOG_VIA_BACKEND"],
+  ["app/api/cskh-action/route.ts", "W5: ported to /api/v1/cskh/actions — awaiting CSKH_VIA_BACKEND"],
+  ["app/api/cskh-followup/route.ts", "W5: ported to /api/v1/cskh/followup-calls — awaiting CSKH_VIA_BACKEND"],
+  ["app/api/episodes/route.ts", "W5: ported to PATCH /api/v1/episodes/{id} — awaiting EPISODE_VIA_BACKEND"],
   // These two build a service client inline instead of using the factory. Worth
   // folding into getSupabaseService when they move.
-  ["app/api/roster/route.ts", "W5: roster writes -> scheduling router"],
-  ["app/api/service-price/route.ts", "W5: price-list writes -> catalog router"],
+  ["app/api/roster/route.ts", "W5: ported to /api/v1/roster/shifts — awaiting CONFIG_VIA_BACKEND"],
+  ["app/api/service-price/route.ts", "W5: ported to /api/v1/service-prices — awaiting CONFIG_VIA_BACKEND"],
   // Auth-admin operations (create a login, reset a password, revoke) have no
   // equivalent through the anon key, so this one stays even after W5.
   ["app/api/admin/users/route.ts", "keeps the key: Supabase Auth admin API"],
@@ -110,8 +112,8 @@ test("the boundary is small enough to finish", () => {
   // Auth-admin route). Raising it is not an option — the assertion is an upper
   // bound, so the only way to change this line is downwards.
   assert.ok(
-    usesServiceRole.length <= 19,
-    `${usesServiceRole.length} files hold the service-role key; the ceiling is 19 ` +
+    usesServiceRole.length <= 17,
+    `${usesServiceRole.length} files hold the service-role key; the ceiling is 17 ` +
       `and it may only be lowered.`,
   );
 });

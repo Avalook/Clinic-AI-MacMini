@@ -3,7 +3,6 @@
 // để CinemaSlotPicker tô màu ô lịch. KHÔNG đặt lịch, chỉ đọc (read-only quote).
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getSupabaseService } from "../../../../lib/supabase-service";
 import {
   vnBlockOf,
   resolveBudget,
@@ -35,13 +34,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
+  // Read with the caller's own session. block_budget got a tenant-scoped read
+  // policy in 20260730000009, so the quote is now computed from the caller's
+  // own clinic's configuration rather than by bypassing RLS (ADR-0012).
+  const db = caller;
 
   const startOfDay = new Date(`${date}T00:00:00+07:00`).toISOString();
   const endOfDay = new Date(`${date}T23:59:59+07:00`).toISOString();
