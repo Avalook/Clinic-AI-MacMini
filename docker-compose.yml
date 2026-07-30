@@ -86,8 +86,12 @@ services:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
     volumes:
+      # The default must exist on any host, not just this Mac (ADR-0013): a
+      # hard-coded /Users/... path made `up` fail or silently mount an empty
+      # root-owned directory on a VPS. Point OPS_STATUS_DIR wherever the
+      # collector writes; the repo-relative default works everywhere.
       - type: bind
-        source: ${OPS_STATUS_DIR:-/Users/quangdang/.clinicai/ops}/${APP_ENV:-production}
+        source: ${OPS_STATUS_DIR:-./.ops-status}/${APP_ENV:-production}
         target: /run/clinicai-ops
         read_only: true
     healthcheck:

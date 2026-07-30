@@ -89,6 +89,116 @@ jobs:
       - name: Build
         run: npm run build
 
+  portability:
+    # ADR-0013: the Mac mini is a deployment, not an architecture. Moving to a
+    # VPS should be an ops task, so prove on every PR that the images build and
+    # boot on linux/amd64 — not on Apple Silicon, and not with Docker Desktop.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: No committed config may name somebody's home directory
+        run: |
+          # A /Users/... or /home/<someone>/... default is how "works on the Mac
+          # mini" quietly becomes "only works on the Mac mini". Relative paths
+          # resolve against the compose file and are fine anywhere.
+          if grep -rnE '(/Users/|/home/[a-z]+/)' \
+               docker-compose.yml Dockerfile.api src/dashboard/Dockerfile.dashboard \
+               .env.example .env.prod.example .env.staging.example \
+             | grep -v '^\S*: *#'; then
+            echo "::error::host-specific path in committed config — see ADR-0013"
+            exit 1
+          fi
+
+      - name: The compose stack resolves from the shipped example env
+        run: docker compose --env-file .env.prod.example config > /dev/null
+
+      - name: Build api for linux/amd64
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          platforms: linux/amd64
+          tags: clinicai-api:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build dashboard for linux/amd64
+        uses: docker/build-push-action@v6
+        with:
+          context: ./src/dashboard
+          file: ./src/dashboard/Dockerfile.dashboard
+          platforms: linux/amd64
+          tags: clinicai-dashboard:ci
+          load: true
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-anon-key
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Images really are amd64
+        run: |
+          for image in clinicai-api:ci clinicai-dashboard:ci; do
+            arch=$(docker image inspect "$image" --format '{{.Architecture}}')
+            echo "$image -> $arch"
+            [ "$arch" = "amd64" ] || { echo "::error::$image is $arch"; exit 1; }
+          done
+
+      - name: api boots and reports the database healthy
+        run: |
+          # /health/db only runs SELECT 1, so the stock Postgres service answers
+          # it. What is being proven is that the image starts and reaches a
+          # database on Linux — not anything about Supabase.
+          docker run -d --name api-smoke --network host \
+            -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/postgres \
+            -e SUPABASE_URL=https://example.supabase.co \
+            -e SUPABASE_ANON_KEY=ci-anon-key \
+            -e SUPABASE_SERVICE_ROLE_KEY=ci-service-key \
+            -e ANTHROPIC_API_KEY=sk-ci-not-a-real-key \
+            -e BACKEND_API_KEY=ci-api-key \
+            -e CHECKPOINTER_BACKEND=memory \
+            clinicai-api:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8000/health >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://localhost:8000/health || { docker logs api-smoke; exit 1; }
+          echo
+          curl -fsS http://localhost:8000/health/db || { docker logs api-smoke; exit 1; }
+          echo
+          docker rm -f api-smoke
+
+      - name: dashboard boots and answers its liveness probe
+        run: |
+          docker run -d --name dash-smoke --network host \
+            -e NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+            -e NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-anon-key \
+            -e CLINIC_API_URL=http://localhost:8000 \
+            clinicai-dashboard:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:3000/health >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://localhost:3000/health || { docker logs dash-smoke; exit 1; }
+          echo
+          docker rm -f dash-smoke
+
   database:
     # Applies the migration chain to a throwaway Postgres and asserts the schema
     # invariants (tenant isolation, RLS). Never touches a Supabase project.

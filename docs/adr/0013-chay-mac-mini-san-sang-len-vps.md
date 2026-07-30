@@ -45,3 +45,31 @@ CI Linux còn bắt sớm lỗi phụ thuộc nền tảng.
 Silicon.
 **Việc kéo theo:** thêm job CI build/chạy amd64; rà `docs/deploy-mac-mini.md` tách rõ
 phần "riêng Mac" và phần "chung mọi môi trường".
+
+## Trạng thái thực hiện (cập nhật 2026-07-30, W6)
+
+**Đã có job CI `portability`** (`.github/workflows/ci.yml`), chạy mọi PR trên
+`ubuntu-latest`:
+1. **Chặn đường dẫn của một máy cụ thể** — grep `/Users/…` và `/home/<ai đó>/…` trong
+   `docker-compose.yml`, hai Dockerfile và ba file `.env.*.example`. Đây chính là cách
+   "chạy được trên Mac mini" âm thầm biến thành "chỉ chạy được trên Mac mini".
+2. `docker compose --env-file .env.prod.example config` phải resolve được.
+3. Build **cả hai image cho `linux/amd64`** rồi khẳng định `.Architecture == amd64`.
+4. Chạy thật: `api` nối tới một Postgres 17 và trả `/health` + `/health/db`; `dashboard`
+   trả `/health`.
+
+**Một lỗi di động thật đã sửa:** `docker-compose.yml` để mặc định
+`OPS_STATUS_DIR=/Users/quangdang/.clinicai/ops` cho bind mount của `api`. Trên VPS đường
+dẫn đó không tồn tại — Docker sẽ tạo một thư mục rỗng thuộc `root` và `api` đọc ra file
+trạng thái trống, hoặc `up` fail. Nay mặc định là `./.ops-status` (tương đối so với file
+compose, nên đúng ở mọi máy), `OPS_STATUS_DIR` vẫn override được; hai file
+`.env.*.example` bỏ giá trị macOS, chỉ còn dòng comment hướng dẫn.
+
+**Đã rà, không thấy vấn đề:** không có `Darwin`/`sys.platform` trong đường chạy ứng dụng,
+không dùng `host.docker.internal`, `launchctl`/`launchd` chỉ nằm trong
+`scripts/launchdaemons/` (đúng phạm vi ADR cho phép), hai Dockerfile dùng base image
+`python:3.12-slim` và `node:22-alpine` — không ghim kiến trúc.
+
+**Còn lại:** CD mới build image cho kiến trúc của runner (Mac mini, arm64). Khi thuê VPS
+thì hoặc chuyển sang buildx multi-arch push lên registry, hoặc build ngay trên VPS. CI
+đã đảm bảo cả hai đường đều dựng được.
