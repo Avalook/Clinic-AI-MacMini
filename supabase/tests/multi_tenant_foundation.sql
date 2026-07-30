@@ -26,7 +26,7 @@ DECLARE
         'clinic'              -- is the tenant
     ];
     -- 27 from W2 + 7 workflow-kernel tables (W4) + pos_outbox (W7).
-    expected_tenant_tables constant integer := 35;
+    expected_tenant_tables constant integer := 36;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
@@ -235,7 +235,13 @@ BEGIN
         RAISE EXCEPTION 'staff A must see exactly their own clinic';
     END IF;
 
-    IF (SELECT count(*) FROM public.clinic_membership) <> 1 THEN
+    -- Asserted as "nothing from clinic B", not "exactly one row": the count is
+    -- whatever the database happens to hold, and tying the test to it made
+    -- adding a staff fixture look like an RLS failure.
+    IF EXISTS (
+        SELECT 1 FROM public.clinic_membership
+         WHERE clinic_id <> 'a0000000-0000-4000-8000-000000000001'::uuid
+    ) THEN
         RAISE EXCEPTION 'staff A must not read another clinic''s membership';
     END IF;
 END

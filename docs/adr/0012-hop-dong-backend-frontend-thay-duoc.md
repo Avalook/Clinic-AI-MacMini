@@ -214,3 +214,61 @@ constraint`. Nhánh cũ ghi thẳng Supabase và **không set `clinic_id`**; nó
 Nghĩa là: hôm nay (1 phòng khám thật) tắt cờ vẫn lui được. Ngày onboard phòng khám thứ
 2 thì **không**. Nên phải xoá hẳn 15 nhánh cũ + hạ allowlist service-role 17 → 2
 **trước** khi có tenant thứ 2, chứ không phải "để đó cho an toàn".
+
+## Cutover hoàn tất — xoá nhánh cũ, allowlist 17 → 2 (2026-07-30)
+
+**14 route nghiệp vụ giờ là proxy thuần.** Toàn bộ nhánh cũ đi thẳng Supabase bằng
+service-role đã bị xoá (−2.246 dòng ở `src/dashboard/app` + `lib`), cùng với 11 cờ
+`*_VIA_BACKEND` — không còn đường rẽ nào để rẽ nhầm. Đọc thì đi bằng **phiên của chính
+người gọi** (RLS lo phạm vi), ghi thì đi FastAPI kèm token của họ.
+
+`scripts/tests/e2e-dashboard-staging.sh` chạy 11 route qua dashboard thật: 11/11 xanh
+sau khi xoá, và mỗi check vẫn đối chiếu access log của api nên một route lỡ tự đọc
+Supabase là đỏ ngay.
+
+### Allowlist service-role: **2** — và đó là sàn
+
+| Còn lại | Vì sao không xoá được |
+|---|---|
+| `app/api/admin/users/route.ts` | Supabase Auth admin API (tạo login, reset mật khẩu, thu hồi) không có bản anon-key |
+| `lib/supabase-service.ts` | factory mà route trên gọi |
+
+Trang `settings/new-user` từng nằm trong danh sách chỉ vì nó **in tên biến môi trường**
+ra cảnh báo cho người vận hành. Tên biến chuyển thành `SERVICE_ROLE_ENV` export từ
+factory, nên trang giữ nguyên cảnh báo mà không còn chạm tới khoá. Trần trong
+`service-role-boundary.test.mts` hạ 17 → **2**, và 2 là sàn thật chứ không phải mốc tạm.
+
+### Ba thứ phải sửa mới xoá được
+
+1. **`clinical_form_catalogue`** (migration `20260730000011`). `service_code` trên
+   `clinical_form_response` là **mã PHIẾU** (PK/SK/NT/HMVS/NK) chứ không phải mã
+   `service_type` — `resolveServiceCode()` suy từ TÊN dịch vụ rồi UI gửi lên. Backend
+   trước đó kiểm theo `service_type` nên hai bảng mã không giao nhau. Nay danh sách phiếu
+   nằm trong DB để **cả hai phía cùng đọc được**; render vẫn ở frontend.
+2. **`ultrasound_record` có policy SELECT** (`20260730000012`). Trang siêu âm đọc bảng
+   này bằng service-role — tức khoá đang làm thay việc của một policy. Bỏ khoá thì phải
+   có policy, nếu không trang đọc rỗng.
+3. **`patient.created` chuyển vào transaction của FastAPI.** Dashboard vốn ghi event này
+   *sau khi* backend tạo xong, bằng service-role: sập ở giữa là có bệnh nhân không có
+   vết audit. Đây cũng là chỗ ghi cuối cùng của frontend vượt mặt RLS.
+
+### Điều kiện triển khai lên prod
+
+Không còn nhánh cũ nghĩa là **mọi nhân viên đang hoạt động phải có login riêng gắn
+`staff.auth_user_id`** trước khi deploy bản này. Thiếu liên kết thì `get_current_identity`
+trả 403 và người đó không ghi được gì — trước đây nhánh cũ đỡ hộ, giờ thì không.
+Kiểm trước khi deploy:
+
+```sql
+SELECT full_name, primary_department FROM staff
+ WHERE is_active AND auth_user_id IS NULL;   -- phải rỗng
+```
+
+### Fixtures
+
+`supabase/tests/fixtures_staff_logins.sql` (6 vai) + `fixtures_local_data.sql` (bệnh nhân,
+ca trực, đợt khám). Trước đây dữ liệu test là mấy dòng gõ tay trên máy này: người khác
+không chạy được script, và `supabase db reset` là mất sạch — đúng như đã xảy ra khi reset
+để kiểm chuỗi migration. Vài assertion trong `supabase/tests/*.sql` cũng đổi từ đếm số
+dòng chính xác sang khẳng định đúng điều nó muốn nói ("không đọc được clinic khác",
+"đọc được event của mình"), vì đếm chính xác thì thêm một fixture là đỏ oan.

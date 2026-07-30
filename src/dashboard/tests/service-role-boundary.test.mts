@@ -3,14 +3,14 @@
 // frontend must not be able to do: the backend owns the contract, and the
 // frontend has to be replaceable without becoming a security hole.
 //
-// Every business route now HAS a backend implementation behind a flag; the
-// entries below are legacy branches waiting to be deleted once their flag has
-// run on staging. Deleting one is what actually lowers the count.
+// The legacy branches are gone: every business route is now a thin proxy to
+// FastAPI, and reads go through the caller's own session under RLS. What is
+// left is the Auth-admin route, which needs a capability the anon key does not
+// have, and the factory it calls.
 //
 // This list may only ever get SHORTER. Adding a file fails the test, and so does
 // leaving a file here after its service-role usage is gone — so the allowlist
-// cannot rot into a rubber stamp. Each entry names what has to move to FastAPI
-// before it can be deleted.
+// cannot rot into a rubber stamp.
 
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -20,30 +20,13 @@ import test from "node:test";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
-/** Files still allowed to hold the service-role key, and what blocks removal. */
+/** Files still allowed to hold the service-role key, and why. */
 const ALLOWED = new Map<string, string>([
-  ["lib/supabase-service.ts", "the factory itself — the last thing to delete"],
-  ["app/api/appointments/route.ts", "W5: ported to /api/v1/appointments/bookings + PATCH — awaiting BOOKING_VIA_BACKEND"],
-  ["app/api/clinical-record/route.ts", "W5: ported to POST /api/v1/clinical-records — delete the legacy branch once CLINICAL_RECORD_VIA_BACKEND is permanent"],
-  ["app/api/clinical-form/route.ts", "W5: ported to PUT /api/v1/clinical-forms — awaiting CLINICAL_FORM_VIA_BACKEND"],
-  ["app/api/ultrasound/route.ts", "W5: ported to POST /api/v1/ultrasound/measurements — awaiting ULTRASOUND_VIA_BACKEND"],
-  ["app/api/lab-result/route.ts", "W5: ported to /api/v1/lab/orders + /api/v1/lab/results — awaiting LAB_VIA_BACKEND"],
-  ["app/api/payment/route.ts", "W5: payment router exists; finish the cutover and drop PAYMENT_VIA_BACKEND"],
-  ["app/api/patients/route.ts", "W5: both halves proxy now — awaiting PATIENT_EDIT_VIA_BACKEND"],
-  ["app/api/service-log/route.ts", "W5: ported to /api/v1/service-log — awaiting SERVICE_LOG_VIA_BACKEND"],
-  ["app/api/sono/route.ts", "W5: ported to /api/v1/sono/queue — awaiting SERVICE_LOG_VIA_BACKEND"],
-  ["app/api/cskh-action/route.ts", "W5: ported to /api/v1/cskh/actions — awaiting CSKH_VIA_BACKEND"],
-  ["app/api/cskh-followup/route.ts", "W5: ported to /api/v1/cskh/followup-calls — awaiting CSKH_VIA_BACKEND"],
-  ["app/api/episodes/route.ts", "W5: ported to PATCH /api/v1/episodes/{id} — awaiting EPISODE_VIA_BACKEND"],
-  // These two build a service client inline instead of using the factory. Worth
-  // folding into getSupabaseService when they move.
-  ["app/api/roster/route.ts", "W5: ported to /api/v1/roster/shifts — awaiting CONFIG_VIA_BACKEND"],
-  ["app/api/service-price/route.ts", "W5: ported to /api/v1/service-prices — awaiting CONFIG_VIA_BACKEND"],
-  // Auth-admin operations (create a login, reset a password, revoke) have no
-  // equivalent through the anon key, so this one stays even after W5.
+  ["lib/supabase-service.ts", "the factory, and the presence check the settings page asks it for"],
+  // Creating a login, resetting a password and revoking one go through the
+  // Supabase Auth admin API, which has no anon-key equivalent. This is the one
+  // capability the backend cannot take over, so this entry is the floor.
   ["app/api/admin/users/route.ts", "keeps the key: Supabase Auth admin API"],
-  // Reads the variable only to warn the operator that the form will 503.
-  ["app/(dashboard)/settings/new-user/page.tsx", "presence check only, builds no client"],
 ]);
 
 function walk(dir: string): string[] {
@@ -107,13 +90,13 @@ test("the service-role key never crosses into a client component", () => {
   );
 });
 
-test("the boundary is small enough to finish", () => {
-  // A number, not a vibe: W5 is done when this reaches 2 (the factory plus the
-  // Auth-admin route). Raising it is not an option — the assertion is an upper
-  // bound, so the only way to change this line is downwards.
+test("the boundary is as small as it goes", () => {
+  // A number, not a vibe. This started at 17 and is now at its floor: the
+  // factory and the Auth-admin route that needs it. There is no third file to
+  // justify, so anything above 2 is a regression, not a work item.
   assert.ok(
-    usesServiceRole.length <= 17,
-    `${usesServiceRole.length} files hold the service-role key; the ceiling is 17 ` +
+    usesServiceRole.length <= 2,
+    `${usesServiceRole.length} files hold the service-role key; the ceiling is 2 ` +
       `and it may only be lowered.`,
   );
 });

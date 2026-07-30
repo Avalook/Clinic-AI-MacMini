@@ -6,69 +6,15 @@
 // identity → staff → role (server-authoritative, identity.py), in addition to the
 // shared X-API-Key.
 //
-// Cutover is per-route and OFF by default via an env flag, so nothing changes in
-// prod until per-staff logins (staff.auth_user_id) are rolled out and the flag is
-// set. Until then the caller keeps its legacy direct-Supabase path.
+// The cutover is finished: every business route proxies unconditionally, the
+// per-route *_VIA_BACKEND flags are gone, and no route holds a legacy
+// direct-Supabase branch to fall back to. CLINIC_API_URL not being set is now a
+// broken deployment rather than a supported mode, so it fails loudly.
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "./supabase-server";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
-
-/** True when the payment write path should be proxied to FastAPI. */
-export function paymentViaBackend(): boolean {
-  return process.env.PAYMENT_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when the care-episode lifecycle should be proxied to FastAPI (W5). */
-export function episodeViaBackend(): boolean {
-  return process.env.EPISODE_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when the lab order/result write path should be proxied to FastAPI (W5). */
-export function labViaBackend(): boolean {
-  return process.env.LAB_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when ultrasound measurements should be proxied to FastAPI (W5). */
-export function ultrasoundViaBackend(): boolean {
-  return process.env.ULTRASOUND_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when specialty exam forms should be proxied to FastAPI (W5). */
-export function clinicalFormViaBackend(): boolean {
-  return process.env.CLINICAL_FORM_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when roster + price-list writes go to FastAPI (W5). */
-export function configViaBackend(): boolean {
-  return process.env.CONFIG_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when patient administrative edits go to FastAPI (W5). */
-export function patientEditViaBackend(): boolean {
-  return process.env.PATIENT_EDIT_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when appointment booking + lifecycle go to FastAPI (W5). */
-export function bookingViaBackend(): boolean {
-  return process.env.BOOKING_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when services-worklist and sono-queue writes go to FastAPI (W5). */
-export function serviceLogViaBackend(): boolean {
-  return process.env.SERVICE_LOG_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when customer-care writes should be proxied to FastAPI (W5). */
-export function cskhViaBackend(): boolean {
-  return process.env.CSKH_VIA_BACKEND === "1" && API_BASE !== "";
-}
-
-/** True when clinical-record writes should be proxied to FastAPI (W5). */
-export function clinicalRecordViaBackend(): boolean {
-  return process.env.CLINICAL_RECORD_VIA_BACKEND === "1" && API_BASE !== "";
-}
 
 /**
  * Forward a JSON body to a FastAPI endpoint, attaching the caller's Supabase
@@ -80,6 +26,15 @@ export async function proxyJsonToBackend(
   path: string,
   body: unknown,
 ): Promise<NextResponse> {
+  if (!API_BASE) {
+    // Previously a flag returned false here and the route quietly used its
+    // legacy branch. There is no legacy branch now, so an unset CLINIC_API_URL
+    // must say so instead of failing as a confusing 502 per request.
+    return NextResponse.json(
+      { error: "CLINIC_API_URL chưa được cấu hình trên server." },
+      { status: 503 },
+    );
+  }
   const supabase = await getSupabaseServer();
   const {
     data: { session },

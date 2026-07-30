@@ -5,11 +5,9 @@
 // Gate = canManageAppt (CSKH / Quản lý / Trưởng ca). Chỉ thao tác từ PENDING_CLOSE.
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import { getClinicRole } from "../../../lib/clinic-session";
 import { canManageAppt } from "../../../lib/roles";
-import { logEvent } from "../../../lib/event-log";
-import { episodeViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface Body {
   id?: string;
@@ -30,7 +28,6 @@ export async function PATCH(request: Request) {
       { status: 403 },
     );
   }
-  const staffId = await getClinicStaffId();
 
   let body: Body;
   try {
@@ -47,55 +44,6 @@ export async function PATCH(request: Request) {
     );
   }
 
-  // W5 (ADR-0012): the rule now lives in FastAPI, where the status change and its
-  // audit event share one transaction. Off by default so prod keeps the legacy
-  // path until EPISODE_VIA_BACKEND=1 is set; the branch below is what gets
-  // deleted — along with the service-role client — once the flag is permanent.
-  if (episodeViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/episodes/${id}`, { action });
-  }
-
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
-  const nowIso = new Date().toISOString();
-  const patch =
-    action === "close"
-      ? { status: "CLOSED", closed_at: nowIso, close_reason: "cskh_confirmed", updated_at: nowIso }
-      : { status: "OPEN", closed_at: null, close_reason: null, updated_at: nowIso };
-
-  // Chỉ chuyển từ PENDING_CLOSE (race guard) → 0 row khớp nếu ai đó vừa xử lý.
-  const { data: updated, error } = await db
-    .from("care_episode")
-    .update(patch)
-    .eq("id", id)
-    .eq("status", "PENDING_CLOSE")
-    .select("id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!updated || updated.length === 0) {
-    return NextResponse.json(
-      { error: "Đợt khám không còn chờ xác nhận (đã được xử lý)." },
-      { status: 409 },
-    );
-  }
-
-  await logEvent(db, {
-    event_type: action === "close" ? "episode.closed" : "episode.reopened",
-    aggregate_type: "care_episode",
-    aggregate_id: id,
-    payload: { episode_id: id, status: patch.status },
-    metadata: {
-      clinic_role: role,
-      clinic_staff_id: staffId,
-      actor_auth_user_id: user.id,
-      origin: `dashboard:episode-${action}`,
-    },
-  });
-
-  return NextResponse.json({ ok: true, status: patch.status });
+  // The status change and its audit event share one transaction in FastAPI.
+  return proxyJsonToBackend("PATCH", `/api/v1/episodes/${id}`, { action });
 }

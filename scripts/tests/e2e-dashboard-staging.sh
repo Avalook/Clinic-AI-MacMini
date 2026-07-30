@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Prove the 11 *_VIA_BACKEND cutover flags do what they claim (ADR-0012).
+# Prove every business route in the dashboard reaches FastAPI (ADR-0012).
 #
 # The other e2e scripts call FastAPI directly. This one goes through the real
 # Next dashboard in the staging container, with a real Supabase session cookie —
-# the path a logged-in staff member takes. That is the only way to see the part
-# the flags control: whether the Next handler delegates to FastAPI or falls back
-# to its legacy direct-to-Supabase branch.
+# the path a logged-in staff member takes.
 #
-# A 200 alone proves nothing: the legacy branch returns 200 too. So each check
-# also reads the api container's access log and requires the matching FastAPI
-# request to appear. Flag off, or CLINIC_API_URL unset, and the log stays quiet
-# while the route still answers — which is exactly the failure this catches.
+# This began as a check on the *_VIA_BACKEND flags. The flags and the legacy
+# direct-to-Supabase branches they guarded are gone, so it now guards the
+# property they were a means to: a route answering 200 out of its own Supabase
+# client, instead of the backend, must fail here. That is why each check also
+# reads the api container's access log and requires the matching request to
+# appear — a status code alone cannot tell the two apart.
 #
 # Prerequisites:
 #   npx supabase start
@@ -84,17 +84,6 @@ check() {  # label expected-status backend-path-prefix method status
 
 mark() { MARK=$(docker logs "$API" 2>&1 | wc -l | tr -d ' '); }
 
-# A flag that is deliberately off is not a failure — but it must say so out
-# loud, with the reason, or "we turned them all on" quietly stops being true.
-FLAGS=$(docker exec "$DASH" env | grep '_VIA_BACKEND=' || true)
-skip_if_off() {  # flag reason → 0 when the check should run
-  case "$FLAGS" in
-    *"$1=1"*) return 0 ;;
-  esac
-  printf '  SKIP  %-46s %s off\n        %s\n' "$2" "$1" "$3"
-  return 1
-}
-
 echo "=== signing in the fixture staff ==="
 DOCTOR=$(cookie bs.a@dr4women.local)
 CSKH=$(cookie cskh@dr4women.local)
@@ -139,36 +128,28 @@ MONDAY=$(date -u -v-mon +%Y-%m-%d)
 echo
 echo "=== each flag, through the dashboard, must land in FastAPI ==="
 
-# 1. LAB_VIA_BACKEND
+# 1. Lab order
 mark
 s=$(call POST /api/lab-result "$DOCTOR" \
      "{\"clinicPatientId\":\"$PATIENT\",\"test_name\":\"flag check\"}")
 check "LAB — doctor orders a test" 201 /api/v1/lab/orders POST "$s"
 
-# 2. CLINICAL_RECORD_VIA_BACKEND
+# 2. Clinical record
 mark
 s=$(call POST /api/clinical-record "$DOCTOR" \
      "{\"appointmentId\":\"$APPT\",\"clinicPatientId\":\"$PATIENT\",\"vitalsOnly\":true,\"objective\":{\"vitals\":{\"bp\":\"120/80\"}},\"chiefComplaint\":\"flag check\"}")
 check "CLINICAL_RECORD — vitals saved" 200 /api/v1/clinical-records POST "$s"
 
-# 3. CLINICAL_FORM_VIA_BACKEND — blocked, and the block is the point of this
-#    script. Next validates service_code against lib/form-schemas (PK, SK, NT,
-#    HMVS, NK — rendering templates) while the backend validates it against
-#    service_type (PHU_KHOA, SAN_1, NAM_KHOA, …  the real catalogue). The two
-#    vocabularies do not intersect, so with the flag on every save fails: the
-#    catalogue code is refused by Next, the UI's code is refused by FastAPI.
-#    Needs a mapping in the database (service_type.form_code, ADR-0011) before
-#    the flag can go on.
-if skip_if_off CLINICAL_FORM_VIA_BACKEND "CLINICAL_FORM — exam form saved" \
-   "form codes (PK/SK/NT/HMVS/NK) and service_type codes do not intersect"; then
-  mark
-  s=$(call POST /api/clinical-form "$DOCTOR" \
-       "{\"visitId\":\"$VISIT\",\"serviceCode\":\"$CODE\",\"form_data\":{\"a\":1}}")
-  check "CLINICAL_FORM — exam form saved" 200 /api/v1/clinical-forms PUT "$s"
-fi
+# 3. Exam form. PK is a FORM code, which is what the UI sends
+#    (resolveServiceCode maps the service NAME to it), validated against
+#    clinical_form_catalogue rather than service_type — see migration
+#    20260730000011 for why that distinction was the whole bug.
+mark
+s=$(call POST /api/clinical-form "$DOCTOR" \
+     "{\"visitId\":\"$VISIT\",\"serviceCode\":\"PK\",\"form_data\":{\"a\":1}}")
+check "CLINICAL_FORM — exam form saved" 200 /api/v1/clinical-forms PUT "$s"
 
-# 4. ULTRASOUND_VIA_BACKEND — the Next gate lets the ultrasound doctor through,
-#    so reaching FastAPI at all is what is being checked here.
+# 4. Ultrasound measurements
 mark
 s=$(call POST /api/ultrasound "$SONO_BS" \
      "{\"appointmentId\":\"$APPT\",\"clinicPatientId\":\"$PATIENT\",
@@ -176,13 +157,13 @@ s=$(call POST /api/ultrasound "$SONO_BS" \
 check "ULTRASOUND — sonographer writes measurements" 200 \
       /api/v1/ultrasound/measurements POST "$s"
 
-# 5. SERVICE_LOG_VIA_BACKEND
+# 5. Ultrasound queue (service log)
 mark
 s=$(call POST /api/sono "$SONO_DD" \
      "{\"kind\":\"SA\",\"service_name\":\"Sieu am flag check\"}")
 check "SERVICE_LOG — ultrasound queue entry" 201 /api/v1/sono/queue POST "$s"
 
-# 6. PAYMENT_VIA_BACKEND — the cashier gate is on the APPOINTMENT being
+# 6. Payment — the cashier gate is on the APPOINTMENT being
 #    COMPLETED ("the doctor has finished"), not on the visit. Finish it first so
 #    this is a real receipt rather than a 409.
 psql "$DB" -q -c "UPDATE appointment SET status='COMPLETED' WHERE id='$APPT';"
@@ -191,19 +172,19 @@ s=$(call POST /api/payment "$CASHIER" \
      "{\"visitId\":\"$VISIT\",\"kind\":\"dich_vu\",\"amount\":150000}")
 check "PAYMENT — cashier takes money" 200 /api/v1/payments POST "$s"
 
-# 7. CSKH_VIA_BACKEND
+# 7. Customer care action
 mark
 s=$(call POST /api/cskh-action "$CSKH" \
      "{\"category\":\"CALL\",\"description\":\"flag check\"}")
 check "CSKH — customer care action logged" 201 /api/v1/cskh/actions POST "$s"
 
-# 8. PATIENT_EDIT_VIA_BACKEND
+# 8. Patient admin edit
 mark
 s=$(call PATCH /api/patients "$CSKH" \
      "{\"clinic_patient_id\":\"$PATIENT\",\"full_name\":\"$PNAME\",\"phone_primary\":\"0900000000\"}")
 check "PATIENT_EDIT — admin details corrected" 200 /api/v1/patients/ PATCH "$s"
 
-# 9. BOOKING_VIA_BACKEND
+# 9. Booking
 mark
 BOOK_MIN=$(( (RANDOM % 20000 + 1) * 20 ))
 START=$(date -u -v+${BOOK_MIN}M +%Y-%m-%dT%H:%M:%SZ)
@@ -212,14 +193,14 @@ s=$(call POST /api/appointments "$CSKH" \
      "{\"clinic_patient_id\":\"$PATIENT\",\"service_type_id\":\"$SERVICE\",\"location_id\":\"$LOCATION\",\"slot_start\":\"$START\",\"slot_end\":\"$END\"}")
 check "BOOKING — CSKH books a slot" 201 /api/v1/appointments/bookings POST "$s"
 
-# 10. EPISODE_VIA_BACKEND — 409 is the backend refusing an episode that is not
+# 10. Episode — 409 is the backend refusing an episode that is not
 #     PENDING_CLOSE. It is still proof the rule now runs there, not in Next.
 mark
 EPI=$(psql "$DB" -tAc "SELECT id FROM care_episode WHERE clinic_id='$CLINIC' LIMIT 1;" | tr -d ' ')
 s=$(call PATCH /api/episodes "$CSKH" "{\"id\":\"$EPI\",\"action\":\"close\"}")
 check "EPISODE — CSKH closes an episode" 409 /api/v1/episodes/ PATCH "$s"
 
-# 11. CONFIG_VIA_BACKEND
+# 11. Roster (clinic config)
 mark
 s=$(call POST /api/roster "$BOSS" \
      "{\"week_start\":\"$MONDAY\",\"work_date\":\"$TODAY\",\"station\":\"Flag check\",\"shift\":\"SANG\"}")

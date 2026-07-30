@@ -5,6 +5,10 @@
 
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import {
+  hasServiceRoleKey,
+  SERVICE_ROLE_ENV,
+} from "../../../../lib/supabase-service";
 import { getClinicRole } from "../../../../lib/clinic-session";
 import { isAdminRole } from "../../../../lib/roles";
 import NewUserForm from "./NewUserForm";
@@ -52,7 +56,7 @@ export default async function NewUserPage() {
   // Surface the env-var gap so the operator sees the failure mode
   // before they fill the form (the API returns 503 too — this is a
   // friendlier preview).
-  const hasServiceKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const hasServiceKey = hasServiceRoleKey();
 
   return (
     <div className="space-y-4">
@@ -67,7 +71,7 @@ export default async function NewUserPage() {
 
       {!hasServiceKey && (
         <div className="rounded-md bg-[#fef9c3] px-3 py-2 text-sm text-[#a16207]">
-          ⚠️ <code className="text-xs font-mono">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+          ⚠️ <code className="text-xs font-mono">{SERVICE_ROLE_ENV}</code>{" "}
           chưa được cấu hình trên server. Form bên dưới sẽ trả lỗi 503 đến
           khi key được thêm vào <code className="text-xs font-mono">.env</code>{" "}
           và restart dashboard. Lấy key từ Supabase dashboard → Settings → API

@@ -97,7 +97,10 @@ psql "$DB" -tAc "SELECT '        prescriptions = ' || count(*) FROM prescription
 echo
 echo "=== clinical form ==="
 VISIT=$(psql "$DB" -tAc "SELECT visit_id FROM visit WHERE appointment_id='$APPT';" | tr -d ' ')
-CODE=$(psql "$DB" -tAc "SELECT code FROM service_type LIMIT 1;" | tr -d ' ')
+# A FORM code (PK/SK/NT/HMVS/NK), not a service_type code: service_code on
+# clinical_form_response identifies the exam form, and the backend checks it
+# against clinical_form_catalogue (migration 20260730000011).
+CODE=$(psql "$DB" -tAc "SELECT form_code FROM clinical_form_catalogue WHERE is_active ORDER BY form_code LIMIT 1;" | tr -d ' ')
 r=$(call PUT /api/v1/clinical-forms "$TOKEN" "{\"visit_id\":\"$VISIT\",\"service_code\":\"$CODE\",\"form_data\":{\"a\":1}}")
 check "form saved for a known service code" 200 "$r"
 r=$(call PUT /api/v1/clinical-forms "$TOKEN" "{\"visit_id\":\"$VISIT\",\"service_code\":\"NOPE\",\"form_data\":{}}")

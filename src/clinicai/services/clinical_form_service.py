@@ -11,13 +11,19 @@ The route enforced that in the application layer because the append-only
 migration was still pending. It is enforced here for the same reason, and the
 comment is kept so nobody mistakes it for belt-and-braces.
 
-ONE DELIBERATE DIFFERENCE from the route. The Next version rejected a
-service_code that had no *rendering schema* in ``lib/form-schemas`` — a frontend
-registry the backend cannot see. Here the code is validated against the clinic's
-own ``service_type`` catalogue, which is the real list. The frontend keeps its
-own check before offering the form, so a code with no UI still cannot be reached
-by a user. Moving form schemas into the database is the proper fix and is
-already anticipated by ADR-0011 (config as data).
+WHICH LIST THE CODE IS CHECKED AGAINST. ``service_code`` is a FORM code — PK,
+SK, NT, HMVS, NK — not a ``service_type`` code. ClinicalRecordForm derives it
+from the service *name* via ``resolveServiceCode`` and ServiceFormEngine sends
+it, so that is what the column has always held.
+
+This first validated against ``service_type`` instead, on the reasoning that the
+backend cannot see ``lib/form-schemas``. That reasoning was right and the
+conclusion was wrong: the two vocabularies do not intersect, so every save
+failed once the route was switched over — the catalogue code refused by Next,
+the UI's code refused here. The list of forms now lives in
+``clinical_form_catalogue`` (migration 20260730000011), which is the fix ADR-0011
+anticipated: config as data, readable by both sides. Rendering stays in the
+frontend; this only answers whether the clinic uses that form at all.
 """
 
 from __future__ import annotations
@@ -112,13 +118,15 @@ class ClinicalFormService:
                     )
 
                 known_code = await conn.fetchval(
-                    "SELECT 1 FROM service_type "
-                    "WHERE upper(code) = $1 AND clinic_id = $2::uuid LIMIT 1",
+                    "SELECT 1 FROM clinical_form_catalogue "
+                    "WHERE form_code = $1 AND is_active "
+                    "AND clinic_id = COALESCE($2::uuid, public.default_clinic_id()) "
+                    "LIMIT 1",
                     code,
                     identity.clinic_id,
                 )
                 if not known_code:
-                    raise ValidationError(f"Mã dịch vụ không có trong danh mục: {code}")
+                    raise ValidationError(f"Phòng khám chưa dùng phiếu: {code}")
 
                 # created_by is stamped once and never overwritten — it answers
                 # "who opened this form", which an update must not rewrite.

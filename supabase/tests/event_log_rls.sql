@@ -129,7 +129,13 @@ SELECT set_config(
 
 DO $management_can_read$
 BEGIN
-    IF (SELECT count(*) FROM public.event_log) <> 1 THEN
+    -- "can read", not "reads exactly one row": every e2e run adds real events,
+    -- so pinning the count made an unrelated test run look like an RLS break.
+    -- The row this test inserted is the one that must be visible.
+    IF NOT EXISTS (
+        SELECT 1 FROM public.event_log
+         WHERE aggregate_id = '40000000-0000-0000-0000-000000000001'
+    ) THEN
         RAISE EXCEPTION 'linked active MANAGEMENT must read event_log';
     END IF;
 END
@@ -154,7 +160,11 @@ SET LOCAL ROLE service_role;
 
 DO $service_role_compatible$
 BEGIN
-    IF (SELECT count(*) FROM public.event_log) <> 1 THEN
+    -- Same reason as above: presence, not an exact count.
+    IF NOT EXISTS (
+        SELECT 1 FROM public.event_log
+         WHERE aggregate_id = '40000000-0000-0000-0000-000000000001'
+    ) THEN
         RAISE EXCEPTION 'service_role must retain event_log access';
     END IF;
 END

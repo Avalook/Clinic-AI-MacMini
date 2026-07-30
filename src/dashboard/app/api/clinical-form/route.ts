@@ -12,14 +12,10 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import { getClinicRole } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
 import { getFormSchema } from "../../../lib/form-schemas";
-import {
-  clinicalFormViaBackend,
-  proxyJsonToBackend,
-} from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 // GET: đọc qua RLS (caller). Không cần quyền ghi.
 export async function GET(request: Request) {
@@ -93,75 +89,15 @@ async function write(request: Request) {
       ? (body.form_data as Record<string, unknown>)
       : {};
 
-  // W5 (ADR-0012): the FINALIZED gate and the upsert now live in FastAPI, in one
-  // transaction. The schema check above stays here because lib/form-schemas is
-  // the rendering registry; the backend validates the code against service_type.
-  // Off until CLINICAL_FORM_VIA_BACKEND=1.
-  if (clinicalFormViaBackend()) {
-    return proxyJsonToBackend("PUT", "/api/v1/clinical-forms", {
-      visit_id: visitId,
-      service_code: serviceCode,
-      form_data: formData,
-    });
-  }
-
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
-  // 2) SAFETY GATE: visit phải tồn tại + KHÔNG FINALIZED.
-  const { data: visit } = await db
-    .from("visit")
-    .select("visit_id, status")
-    .eq("visit_id", visitId)
-    .maybeSingle();
-  if (!visit) {
-    return NextResponse.json({ error: "Không tìm thấy buổi khám." }, { status: 404 });
-  }
-  if ((visit as { status: string }).status === "FINALIZED") {
-    return NextResponse.json(
-      {
-        error:
-          "Hồ sơ đã chốt (FINALIZED) — luật cấm sửa. Phải đính chính qua luồng AMENDED.",
-      },
-      { status: 409 },
-    );
-  }
-
-  // 3) Upsert form_data (giữ created_by lần đầu; cập nhật updated_by mỗi lần).
-  const staffId = await getClinicStaffId();
-  const actor = `${role} · ${staffId ?? "?"}`;
-  const now = new Date().toISOString();
-
-  const { data: existing } = await db
-    .from("clinical_form_response")
-    .select("id")
-    .eq("visit_id", visitId)
-    .eq("service_code", serviceCode)
-    .maybeSingle();
-
-  if (existing) {
-    const { error } = await db
-      .from("clinical_form_response")
-      .update({ form_data: formData, updated_by: actor, updated_at: now })
-      .eq("id", (existing as { id: string }).id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  } else {
-    const { error } = await db.from("clinical_form_response").insert({
-      visit_id: visitId,
-      service_code: serviceCode,
-      form_data: formData,
-      created_by: actor,
-      updated_by: actor,
-    });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
+  // The FINALIZED gate and the upsert live in FastAPI, in one transaction. The
+  // schema check above stays here because lib/form-schemas is the rendering
+  // registry; the backend checks the same code against clinical_form_catalogue,
+  // which is the same list kept where both sides can read it (ADR-0011).
+  return proxyJsonToBackend("PUT", "/api/v1/clinical-forms", {
+    visit_id: visitId,
+    service_code: serviceCode,
+    form_data: formData,
+  });
 }
 
 export const POST = write;

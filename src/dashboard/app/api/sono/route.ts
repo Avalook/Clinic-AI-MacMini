@@ -9,8 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import { proxyJsonToBackend, serviceLogViaBackend } from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
 
 async function guard() {
@@ -30,16 +29,7 @@ async function guard() {
       ),
     };
   }
-  const db = getSupabaseService();
-  if (!db) {
-    return {
-      res: NextResponse.json(
-        { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-        { status: 503 },
-      ),
-    };
-  }
-  return { role, db };
+  return { role };
 }
 
 interface PostBody {
@@ -51,7 +41,6 @@ interface PostBody {
 export async function POST(request: Request) {
   const g = await guard();
   if ("res" in g) return g.res;
-  const { role, db } = g;
 
   let body: PostBody;
   try {
@@ -70,48 +59,12 @@ export async function POST(request: Request) {
   }
 
   // W5 (ADR-0012). Off until SERVICE_LOG_VIA_BACKEND=1.
-  if (serviceLogViaBackend()) {
-    return proxyJsonToBackend("POST", "/api/v1/sono/queue", {
-      kind,
-      service_name: serviceName,
-      patient_code: patientCode || null,
-    });
-  }
-
-  // Mã BN tuỳ chọn → resolve clinic_patient_id.
-  let clinicPatientId: string | null = null;
-  if (patientCode) {
-    const { data: p } = await db
-      .from("patient")
-      .select("clinic_patient_id")
-      .eq("patient_code", patientCode)
-      .maybeSingle();
-    clinicPatientId = (p?.clinic_patient_id as string | null) ?? null;
-    if (!clinicPatientId) {
-      return NextResponse.json(
-        { error: `Không tìm thấy bệnh nhân mã ${patientCode}.` },
-        { status: 404 },
-      );
-    }
-  }
-
-  const sourceRef = `dash-sono-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
-  const { data, error } = await db
-    .from("service_log")
-    .insert({
-      source_ref: sourceRef,
-      kind,
-      clinic_patient_id: clinicPatientId,
-      service_name_raw: serviceName,
-      status: "WAITING",
-      ordered_at: new Date().toISOString(),
-      created_by_text: `${role} · dashboard:sono`,
-      patient_link_raw: patientCode || null,
-    })
-    .select("id")
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, id: data.id });
+  // The patient-code lookup and the insert share one transaction in FastAPI.
+  return proxyJsonToBackend("POST", "/api/v1/sono/queue", {
+    kind,
+    service_name: serviceName,
+    patient_code: patientCode || null,
+  });
 }
 
 interface PatchBody {
@@ -123,17 +76,9 @@ interface PatchBody {
   value?: boolean;
 }
 
-// (b) XN milestone → cột timestamp tương ứng.
-const XN_COLUMN: Record<string, string> = {
-  sample: "started_at", // lấy mẫu
-  sendlab: "sent_to_lab_at", // gửi lab
-  result: "finished_at", // có KQ
-};
-
 export async function PATCH(request: Request) {
   const g = await guard();
   if ("res" in g) return g.res;
-  const { db } = g;
 
   let body: PatchBody;
   try {
@@ -144,59 +89,16 @@ export async function PATCH(request: Request) {
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
 
-  if (serviceLogViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/sono/queue/${id}`, {
-      action: body.action ?? null,
-      milestone: body.milestone ?? null,
-      value: body.value ?? null,
-    });
-  }
-
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = { updated_at: now };
-
-  if (body.action) {
-    // (a) SA: start → finish → cancel.
-    if (body.action === "start") {
-      patch.started_at = now;
-      patch.status = "IN_PROGRESS";
-    } else if (body.action === "finish") {
-      patch.finished_at = now;
-      patch.status = "DONE";
-    } else if (body.action === "cancel") {
-      patch.status = "CANCELLED";
-    } else {
-      return NextResponse.json({ error: "action không hợp lệ." }, { status: 400 });
-    }
-  } else if (body.milestone) {
-    // (b) XN: toggle có/chưa từng mốc.
-    const col = XN_COLUMN[body.milestone];
-    if (!col) {
-      return NextResponse.json({ error: "milestone không hợp lệ." }, { status: 400 });
-    }
-    patch[col] = body.value ? now : null;
-  } else {
-    return NextResponse.json(
-      { error: "Cần action (SA) hoặc milestone (XN)." },
-      { status: 400 },
-    );
-  }
-
-  const { data, error } = await db
-    .from("service_log")
-    .update(patch)
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Không tìm thấy dòng." }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  return proxyJsonToBackend("PATCH", `/api/v1/sono/queue/${id}`, {
+    action: body.action ?? null,
+    milestone: body.milestone ?? null,
+    value: body.value ?? null,
+  });
 }
 
 export async function DELETE(request: Request) {
   const g = await guard();
   if ("res" in g) return g.res;
-  const { db } = g;
 
   let body: { id?: string };
   try {
@@ -207,11 +109,5 @@ export async function DELETE(request: Request) {
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
 
-  if (serviceLogViaBackend()) {
-    return proxyJsonToBackend("DELETE", `/api/v1/sono/queue/${id}`, {});
-  }
-
-  const { error } = await db.from("service_log").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return proxyJsonToBackend("DELETE", `/api/v1/sono/queue/${id}`, {});
 }

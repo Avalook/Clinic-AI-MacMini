@@ -89,11 +89,14 @@ DO $backend_only_tables$
 DECLARE
     exposed text;
     backend_only text[] := ARRAY[
-        'idempotency_key',   -- stores replayed request/response bodies
-        'mpi_merge_queue',   -- patient identifiers pending a merge decision
-        'ultrasound_record', -- clinical, reached through app/api/ultrasound
-        'staff_capability',  -- staffing config
-        'pos_outbox'         -- pending pushes to an external till
+        'idempotency_key',  -- stores replayed request/response bodies
+        'mpi_merge_queue',  -- patient identifiers pending a merge decision
+        'staff_capability', -- staffing config
+        'pos_outbox'        -- pending pushes to an external till
+        -- ultrasound_record was here while app/api/ultrasound read it with the
+        -- service-role key. It now reads with the caller's own session, so the
+        -- table has a tenant-scoped SELECT policy (20260730000012) and being
+        -- policy-free would mean the page reads nothing.
     ];
 BEGIN
     SELECT string_agg(c.relname, ', ')

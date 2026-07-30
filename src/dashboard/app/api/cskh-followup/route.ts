@@ -6,11 +6,9 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import { getClinicRole } from "../../../lib/clinic-session";
 import { canWriteIntake } from "../../../lib/roles";
-import { logEvent } from "../../../lib/event-log";
-import { cskhViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface Body {
   clinic_patient_id?: string;
@@ -28,7 +26,6 @@ export async function POST(request: Request) {
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const staffId = await getClinicStaffId();
 
   let body: Body;
   try {
@@ -43,53 +40,10 @@ export async function POST(request: Request) {
   }
   const note = (body.note ?? "").trim() || null;
 
-  // W5 (ADR-0012): FastAPI owns the write and stamps the working day in
-  // Asia/Ho_Chi_Minh, for the same reason this route did.
-  if (cskhViaBackend()) {
-    return proxyJsonToBackend("POST", "/api/v1/cskh/followup-calls", {
-      clinic_patient_id: clinicPatientId,
-      note,
-    });
-  }
-
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
-  const todayVn = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
-
-  const { data, error } = await db
-    .from("cskh_log")
-    .insert({
-      clinic_patient_id: clinicPatientId,
-      work_date: todayVn,
-      cskh_status: "Đã gọi nhắc tái khám",
-      cskh_followup: "Nhắc gọi tái khám",
-      last_cskh_date: todayVn,
-      cskh_by: "CSKH · dashboard",
-      note,
-    })
-    .select("id")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await logEvent(db, {
-    event_type: "cskh_log.followup_call",
-    aggregate_type: "cskh_log",
-    aggregate_id: data.id,
-    payload: { id: data.id, clinic_patient_id: clinicPatientId, kind: "nhac_goi" },
-    metadata: {
-      clinic_role: role,
-      clinic_staff_id: staffId,
-      actor_auth_user_id: user.id,
-      origin: "dashboard:cskh-followup",
-    },
+  // FastAPI owns the write and stamps the working day in Asia/Ho_Chi_Minh,
+  // for the same reason this route did.
+  return proxyJsonToBackend("POST", "/api/v1/cskh/followup-calls", {
+    clinic_patient_id: clinicPatientId,
+    note,
   });
-
-  return NextResponse.json({ ok: true, id: data.id });
 }

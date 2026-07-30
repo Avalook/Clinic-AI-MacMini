@@ -9,15 +9,10 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import {
-  patientEditViaBackend,
-  proxyJsonToBackend,
-} from "../../../lib/backend-proxy";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { getClinicRole } from "../../../lib/clinic-session";
 import { canWriteIntake, canEditPatient } from "../../../lib/roles";
 import { PHONE_RE, CCCD_RE } from "../../../lib/validation";
-import { logEvent } from "../../../lib/event-log";
 
 interface Body {
   full_name?: string;
@@ -71,7 +66,6 @@ export async function POST(request: Request) {
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const staffId = await getClinicStaffId();
 
   let body: Body;
   try {
@@ -186,31 +180,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: res.status });
   }
 
-  const auditDb = getSupabaseService();
-  if (auditDb && json.clinic_patient_id) {
-    await logEvent(auditDb, {
-      event_type: "patient.created",
-      aggregate_type: "patient",
-      aggregate_id: json.clinic_patient_id,
-      payload: {
-        clinic_patient_id: json.clinic_patient_id,
-        patient_code: json.patient_code,
-        full_name,
-        date_of_birth: (body.date_of_birth ?? "").trim() || null,
-        phone_primary,
-        phone_secondary,
-        national_id_number: national,
-        location_id,
-      },
-      metadata: {
-        clinic_role: role,
-        clinic_staff_id: staffId,
-        actor_auth_user_id: user.id,
-        origin: "dashboard:patient-intake",
-      },
-    });
-  }
-
+  // The patient.created event is written by FastAPI inside the same
+  // transaction as the row. It used to be written here afterwards with the
+  // service-role key, which meant a crash in between left a patient with no
+  // audit trail — and it was the last write in the dashboard that bypassed RLS.
   return NextResponse.json({
     ok: true,
     patient: {
@@ -286,34 +259,7 @@ export async function PATCH(request: Request) {
   // the caller's clinic — this path updated by clinic_patient_id alone, which
   // reaches every clinic once there is more than one. Off until
   // PATIENT_EDIT_VIA_BACKEND=1.
-  if (patientEditViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/patients/${id}`, {
-      full_name,
-      date_of_birth: (body.date_of_birth ?? "").trim() || null,
-      phone_primary: (body.phone_primary ?? "").trim() || null,
-      phone_secondary: (body.phone_secondary ?? "").trim() || null,
-      gender: nn(body.gender),
-      ethnicity: nn(body.ethnicity),
-      nationality: nn(body.nationality),
-      occupation: nn(body.occupation),
-      patient_objection: nn(body.patient_objection),
-      address: nn(body.address),
-      guardian_name: nn(body.guardian_name),
-      ...((body.location_id ?? "").trim()
-        ? { location_id: (body.location_id ?? "").trim() }
-        : {}),
-    });
-  }
-
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
-  const patch: Record<string, string | null> = {
+  return proxyJsonToBackend("PATCH", `/api/v1/patients/${id}`, {
     full_name,
     date_of_birth: (body.date_of_birth ?? "").trim() || null,
     phone_primary: (body.phone_primary ?? "").trim() || null,
@@ -325,54 +271,8 @@ export async function PATCH(request: Request) {
     patient_objection: nn(body.patient_objection),
     address: nn(body.address),
     guardian_name: nn(body.guardian_name),
-  };
-  const loc = (body.location_id ?? "").trim();
-  if (loc) patch.location_id = loc;
-
-  const SEL =
-    "clinic_patient_id, full_name, date_of_birth, phone_primary, phone_secondary, location_id, gender, ethnicity, nationality, occupation, patient_objection, address, guardian_name";
-
-  // Đọc bản TRƯỚC để ghi vết before/after vào event_log (lưu mọi lần sửa hành chính —
-  // yêu cầu Quang 29/6: sửa khi gõ sai nhưng log giữ tất cả). Best-effort.
-  const { data: before } = await db
-    .from("patient")
-    .select(SEL)
-    .eq("clinic_patient_id", id)
-    .maybeSingle();
-
-  const { data, error } = await db
-    .from("patient")
-    .update(patch)
-    .eq("clinic_patient_id", id)
-    .select(SEL)
-    .maybeSingle();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) {
-    return NextResponse.json({ error: "Không tìm thấy bệnh nhân." }, { status: 404 });
-  }
-
-  // Chỉ ghi các TRƯỜNG thực sự đổi (from → to) cho gọn + dễ truy vết.
-  const beforeRec = (before ?? {}) as Record<string, unknown>;
-  const afterRec = data as Record<string, unknown>;
-  const changes: Record<string, { from: unknown; to: unknown }> = {};
-  for (const k of Object.keys(patch)) {
-    if (beforeRec[k] !== afterRec[k]) {
-      changes[k] = { from: beforeRec[k] ?? null, to: afterRec[k] ?? null };
-    }
-  }
-
-  await logEvent(db, {
-    event_type: "patient.updated",
-    aggregate_type: "patient",
-    aggregate_id: id,
-    payload: { clinic_patient_id: id, changes },
-    metadata: {
-      clinic_role: role,
-      actor_auth_user_id: user.id,
-      origin: "dashboard:patient-edit",
-    },
+    ...((body.location_id ?? "").trim()
+      ? { location_id: (body.location_id ?? "").trim() }
+      : {}),
   });
-
-  return NextResponse.json({ ok: true, patient: data });
 }

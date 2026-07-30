@@ -6,30 +6,16 @@
 // Chỉ Thu ngân + Quản lý được ghi (khớp canSeeNav("/cashier")).
 
 import { NextResponse } from "next/server";
-import { configViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole } from "../../../lib/clinic-session";
 import { isCashierRole, isTruongCaRole } from "../../../lib/roles";
 
 type PriceGroup = "thuoc" | "dich_vu";
 
-type Auth =
-  | { ok: true; admin: SupabaseClient }
-  | { ok: false; res: NextResponse };
+type Auth = { ok: true } | { ok: false; res: NextResponse };
 
 async function authorize(): Promise<Auth> {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    return {
-      ok: false,
-      res: NextResponse.json(
-        { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-        { status: 503 },
-      ),
-    };
-  }
   const caller = await getSupabaseServer();
   const {
     data: { user },
@@ -50,10 +36,7 @@ async function authorize(): Promise<Auth> {
       ),
     };
   }
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return { ok: true, admin };
+  return { ok: true };
 }
 
 // Chuẩn hoá unit_price: "" / null / undefined → null; số hợp lệ ≥ 0 → số; sai → undefined (báo lỗi).
@@ -97,28 +80,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Đơn giá không hợp lệ." }, { status: 400 });
   }
 
-  // W5 (ADR-0012). Off until CONFIG_VIA_BACKEND=1.
-  if (configViaBackend()) {
-    return proxyJsonToBackend("POST", "/api/v1/service-prices", {
-      service_code,
-      name,
-      group,
-      unit_price,
-    });
-  }
-
-  const { data, error } = await auth.admin
-    .from("service_price")
-    .insert({ service_code, name, group, unit_price })
-    .select("id")
-    .single();
-
-  if (error) {
-    // 23505 = unique_violation (trùng mã trong nhóm).
-    const status = error.code === "23505" ? 409 : 500;
-    return NextResponse.json({ error: error.message }, { status });
-  }
-  return NextResponse.json({ ok: true, id: data.id });
+  // A duplicate code is a 409 from FastAPI, not a second row nobody notices.
+  return proxyJsonToBackend("POST", "/api/v1/service-prices", {
+    service_code,
+    name,
+    group,
+    unit_price,
+  });
 }
 
 interface PatchBody {
@@ -152,17 +120,11 @@ export async function PATCH(request: Request) {
   if (typeof body.name === "string" && body.name.trim()) patch.name = body.name.trim();
   if (typeof body.active === "boolean") patch.active = body.active;
 
-  if (configViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/service-prices/${id}`, {
-      name: body.name ?? null,
-      ...("unit_price" in body ? { unit_price: body.unit_price ?? null } : {}),
-      active: typeof body.active === "boolean" ? body.active : null,
-    });
-  }
-
-  const { error } = await auth.admin.from("service_price").update(patch).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return proxyJsonToBackend("PATCH", `/api/v1/service-prices/${id}`, {
+    name: body.name ?? null,
+    ...("unit_price" in body ? { unit_price: body.unit_price ?? null } : {}),
+    active: typeof body.active === "boolean" ? body.active : null,
+  });
 }
 
 export async function DELETE(request: Request) {
@@ -178,11 +140,5 @@ export async function DELETE(request: Request) {
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
 
-  if (configViaBackend()) {
-    return proxyJsonToBackend("DELETE", `/api/v1/service-prices/${id}`, {});
-  }
-
-  const { error } = await auth.admin.from("service_price").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return proxyJsonToBackend("DELETE", `/api/v1/service-prices/${id}`, {});
 }

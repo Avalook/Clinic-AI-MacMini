@@ -8,11 +8,9 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import { proxyJsonToBackend, serviceLogViaBackend } from "../../../lib/backend-proxy";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { getClinicRole } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
-import { logEvent } from "../../../lib/event-log";
 
 interface PostBody {
   service_name?: string;
@@ -44,23 +42,12 @@ async function guard() {
       ),
     };
   }
-  const db = getSupabaseService();
-  if (!db) {
-    return {
-      res: NextResponse.json(
-        { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-        { status: 503 },
-      ),
-    };
-  }
-  return { user, role, db };
+  return { user, role };
 }
 
 export async function POST(request: Request) {
   const g = await guard();
   if ("res" in g) return g.res;
-  const { user, role, db } = g;
-  const staffId = await getClinicStaffId();
 
   let body: PostBody;
   try {
@@ -75,66 +62,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Thiếu tên dịch vụ." }, { status: 400 });
   }
 
-  // W5 (ADR-0012): patient lookup, insert and audit event share one transaction
-  // in FastAPI. Off until SERVICE_LOG_VIA_BACKEND=1.
-  if (serviceLogViaBackend()) {
-    return proxyJsonToBackend("POST", "/api/v1/service-log", {
-      service_name: serviceName,
-      patient_code: patientCode || null,
-      performer,
-    });
-  }
-
-  // Mã BN tuỳ chọn → resolve clinic_patient_id.
-  let clinicPatientId: string | null = null;
-  if (patientCode) {
-    const { data: p } = await db
-      .from("patient")
-      .select("clinic_patient_id")
-      .eq("patient_code", patientCode)
-      .maybeSingle();
-    clinicPatientId = (p?.clinic_patient_id as string | null) ?? null;
-    if (!clinicPatientId) {
-      return NextResponse.json(
-        { error: `Không tìm thấy bệnh nhân mã ${patientCode}.` },
-        { status: 404 },
-      );
-    }
-  }
-
-  const sourceRef = `dash-svc-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
-  const { data, error } = await db
-    .from("service_log")
-    .insert({
-      source_ref: sourceRef,
-      clinic_patient_id: clinicPatientId,
-      service_name_raw: serviceName,
-      performer_text: performer,
-      status: "Chờ làm",
-      ordered_at: new Date().toISOString(),
-      created_by_text: `${role} · dashboard`,
-      patient_link_raw: patientCode || null,
-    })
-    .select("id")
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await logEvent(db, {
-    event_type: "service_log.created",
-    aggregate_type: "service_log",
-    aggregate_id: data.id,
-    payload: { id: data.id, service_name: serviceName, clinic_patient_id: clinicPatientId },
-    metadata: { clinic_role: role, clinic_staff_id: staffId, actor_auth_user_id: user.id, origin: "dashboard:service-create" },
+  // Patient lookup, insert and audit event share one transaction in FastAPI.
+  return proxyJsonToBackend("POST", "/api/v1/service-log", {
+    service_name: serviceName,
+    patient_code: patientCode || null,
+    performer,
   });
-
-  return NextResponse.json({ ok: true, id: data.id });
 }
 
 export async function PATCH(request: Request) {
   const g = await guard();
   if ("res" in g) return g.res;
-  const { user, role, db } = g;
-  const staffId = await getClinicStaffId();
 
   let body: PatchBody;
   try {
@@ -148,40 +86,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Thiếu id hoặc action không hợp lệ." }, { status: 400 });
   }
 
-  if (serviceLogViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/service-log/${id}`, {
-      action,
-      result_text: body.result_text ?? null,
-    });
-  }
-
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = { updated_at: now };
-  if (action === "start") {
-    patch.started_at = now;
-    patch.status = "Đang làm";
-  } else {
-    patch.finished_at = now;
-    patch.status = "Hoàn tất";
-    patch.result_text = (body.result_text ?? "").trim() || null;
-  }
-
-  const { data, error } = await db
-    .from("service_log")
-    .update(patch)
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Không tìm thấy dịch vụ." }, { status: 404 });
-
-  await logEvent(db, {
-    event_type: `service_log.${action === "start" ? "started" : "finished"}`,
-    aggregate_type: "service_log",
-    aggregate_id: id,
-    payload: { id, action },
-    metadata: { clinic_role: role, clinic_staff_id: staffId, actor_auth_user_id: user.id, origin: `dashboard:service-${action}` },
+  return proxyJsonToBackend("PATCH", `/api/v1/service-log/${id}`, {
+    action,
+    result_text: body.result_text ?? null,
   });
-
-  return NextResponse.json({ ok: true });
 }

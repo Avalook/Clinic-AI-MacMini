@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import re
 from typing import Any
 from uuid import UUID
@@ -149,7 +150,51 @@ class PatientService:
                 conn, data, identity.clinic_id if identity else None
             )
 
-        # 4) MPI deduplication (non-blocking — must never fail the create).
+            # 4) Audit, in the same transaction as the row it describes. The
+            # dashboard used to write this afterwards with the service-role key,
+            # so a crash in between registered a patient nobody could account
+            # for — and it was the last frontend write that bypassed RLS.
+            await conn.execute(
+                """
+                INSERT INTO event_log
+                    (clinic_id, event_type, aggregate_type, aggregate_id,
+                     payload, metadata, source, event_published)
+                VALUES (COALESCE($5::uuid, public.default_clinic_id()),
+                        'patient.created', 'patient', $1, $2, $3, $4, FALSE)
+                """,
+                str(dto.clinic_patient_id),
+                json.dumps(
+                    {
+                        "clinic_patient_id": str(dto.clinic_patient_id),
+                        "patient_code": dto.patient_code,
+                        "full_name": data.full_name,
+                        "date_of_birth": (
+                            data.date_of_birth.isoformat()
+                            if data.date_of_birth
+                            else None
+                        ),
+                        "phone_primary": data.phone_primary,
+                        "phone_secondary": data.phone_secondary,
+                        "national_id_number": data.national_id_number,
+                        "location_id": (
+                            str(data.location_id) if data.location_id else None
+                        ),
+                    }
+                ),
+                json.dumps(
+                    {
+                        "clinic_role": identity.role.value if identity else None,
+                        "clinic_staff_id": identity.staff_id if identity else None,
+                        "actor_auth_user_id": (
+                            identity.auth_user_id if identity else None
+                        ),
+                    }
+                ),
+                "api:patient-intake",
+                identity.clinic_id if identity else None,
+            )
+
+        # 5) MPI deduplication (non-blocking — must never fail the create).
         await self._mpi_autoqueue(dto, data, clinic_id)
         return PatientCreateResult(patient=dto)
 

@@ -10,8 +10,10 @@ the unit tests — those mock the pool, so they pass on SQL Postgres would rejec
 It also proves the scope is real rather than decorative: it writes a row under
 one clinic and checks the other clinic cannot read it back.
 
-Prerequisite:  npx supabase start   (and supabase/tests/run-local.sh applied, so
-a second clinic exists). Run:  PYTHONPATH=src poetry run python \
+It creates the second clinic it needs and removes it again, so it leaves the
+database as it found it.
+
+Prerequisite:  npx supabase start.  Run:  PYTHONPATH=src poetry run python \
     scripts/tests/tenant-scope-runtime-check.py
 """
 
@@ -52,11 +54,14 @@ async def main() -> int:
             print(f"  FAIL  {label}\n        {type(exc).__name__}: {exc}")
             fail += 1
 
-    # default_clinic_id() is deliberately NULL here: this database already has
-    # more than one clinic, so the single-tenant fallback refuses to guess and
-    # every unscoped caller gets zero rows. Use the real tenants instead.
+    # A second clinic is the whole point: with one, default_clinic_id() papers
+    # over a missing tenant filter. This creates its own rather than depending
+    # on one being left behind by something else, and removes it at the end.
     clinic_id = await pool.fetchval("SELECT id FROM clinic WHERE code = 'DR4WOMEN'")
-    other = await pool.fetchval("SELECT id FROM clinic WHERE code = 'OTHER'")
+    other = await pool.fetchval(
+        "INSERT INTO clinic (code, name) VALUES ('W8PROBE', 'W8 scope probe') "
+        "ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name RETURNING id"
+    )
     patient = await pool.fetchval(
         "SELECT clinic_patient_id FROM patient WHERE clinic_id = $1 LIMIT 1", clinic_id)
     loc = await pool.fetchval(
@@ -124,6 +129,9 @@ async def main() -> int:
         ok, fail = (ok + 1, fail) if cond else (ok, fail + 1)
 
     await pool.execute("DELETE FROM staff_task WHERE task_type = 'W8_PROBE'")
+    await pool.execute(
+        "DELETE FROM clinical_form_catalogue WHERE clinic_id = $1", other)
+    await pool.execute("DELETE FROM clinic WHERE code = 'W8PROBE'")
     await pool.close()
     print(f"\n=== {ok} passed, {fail} failed ===")
     return 1 if fail else 0

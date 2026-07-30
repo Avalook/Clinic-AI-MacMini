@@ -6,8 +6,7 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
-import { configViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
   getClinicRole,
@@ -15,12 +14,10 @@ import {
   getActiveStaff,
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
-import { weekStartOf } from "../../../lib/roster";
 
 type Auth =
   | {
       ok: true;
-      admin: SupabaseClient;
       isAdmin: boolean;
       staffId: string | null;
       staffName: string;
@@ -28,17 +25,6 @@ type Auth =
   | { ok: false; res: NextResponse };
 
 async function authorize(): Promise<Auth> {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    return {
-      ok: false,
-      res: NextResponse.json(
-        { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-        { status: 503 },
-      ),
-    };
-  }
   const caller = await getSupabaseServer();
   const {
     data: { user },
@@ -59,10 +45,7 @@ async function authorize(): Promise<Auth> {
       res: NextResponse.json({ error: "Chưa chọn danh tính nhân viên." }, { status: 403 }),
     };
   }
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return { ok: true, admin, isAdmin, staffId, staffName };
+  return { ok: true, isAdmin, staffId, staffName };
 }
 
 // Bác sĩ TRỰC CA của một ngày — nuôi sơ đồ đặt chỗ (chỉ hiện bác sĩ trực hôm đó).
@@ -144,40 +127,17 @@ export async function POST(request: Request) {
     );
   }
 
-  // W5 (ADR-0012). week_start is derived from work_date on the server for the
-  // same reason it is here. Off until CONFIG_VIA_BACKEND=1.
-  if (configViaBackend()) {
-    return proxyJsonToBackend("POST", "/api/v1/roster/shifts", {
-      work_date,
-      station,
-      shift,
-      staff_id: assignOther ? staff_id : null,
-      staff_name: assignOther ? staff_name : null,
-      sort: body.sort ?? 0,
-    });
-  }
-
-  const { data, error } = await auth.admin
-    .from("work_roster")
-    .insert({
-      // Tính week_start TỪ work_date (không tin client) — tránh lệch tuần khi
-      // form còn giữ ngày cũ lúc người dùng chuyển tuần (state không reset).
-      week_start: weekStartOf(work_date),
-      work_date,
-      shift,
-      station,
-      staff_id,
-      staff_name,
-      sort: body.sort ?? 0,
-      // Quản lý xếp lịch → duyệt luôn. Nhân viên tự đăng ký → chờ duyệt, chưa
-      // hiện trên lịch chung tới khi quản lý duyệt (xem PATCH bên dưới).
-      status: auth.isAdmin ? "APPROVED" : "PENDING",
-    })
-    .select("id")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, id: data.id });
+  // week_start is derived from work_date in FastAPI, for the same reason it
+  // was derived here: the form keeps the previously viewed week in state, so a
+  // client-supplied value files shifts under a week nobody was editing.
+  return proxyJsonToBackend("POST", "/api/v1/roster/shifts", {
+    work_date,
+    station,
+    shift,
+    staff_id: assignOther ? staff_id : null,
+    staff_name: assignOther ? staff_name : null,
+    sort: body.sort ?? 0,
+  });
 }
 
 // Quản lý duyệt / từ chối ca tự đăng ký (PENDING). Body: { id, action }.
@@ -208,25 +168,12 @@ export async function PATCH(request: Request) {
   if (body.action !== "approve" && body.action !== "reject") {
     return NextResponse.json({ error: "action không hợp lệ." }, { status: 400 });
   }
-  const status = body.action === "approve" ? "APPROVED" : "REJECTED";
-  // Từ chối → lưu lý do (cắt gọn để người đăng ký biết). Duyệt → xoá lý do cũ
-  // (phòng khi ca từng bị từ chối rồi quản lý đổi ý duyệt lại).
-  const reject_reason =
-    body.action === "reject" ? (body.reason ?? "").trim() || null : null;
-
-  if (configViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/roster/shifts/${id}`, {
-      decision: body.action,
-      reason: body.reason ?? null,
-    });
-  }
-
-  const { error } = await auth.admin
-    .from("work_roster")
-    .update({ status, reject_reason, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  // Từ chối → lưu lý do; duyệt → xoá lý do cũ (phòng khi quản lý đổi ý). Cả hai
+  // do RosterService quyết định, route chỉ chuyển nguyên văn.
+  return proxyJsonToBackend("PATCH", `/api/v1/roster/shifts/${id}`, {
+    decision: body.action,
+    reason: body.reason ?? null,
+  });
 }
 
 export async function DELETE(request: Request) {
@@ -242,26 +189,7 @@ export async function DELETE(request: Request) {
   const id = (body.id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id." }, { status: 400 });
 
-  // Không phải quản lý → chỉ được xoá ô CỦA MÌNH.
-  if (!auth.isAdmin) {
-    const { data: row } = await auth.admin
-      .from("work_roster")
-      .select("staff_id")
-      .eq("id", id)
-      .maybeSingle();
-    if (!row || row.staff_id !== auth.staffId) {
-      return NextResponse.json(
-        { error: "Chỉ được xoá ca của chính mình." },
-        { status: 403 },
-      );
-    }
-  }
-
-  if (configViaBackend()) {
-    return proxyJsonToBackend("DELETE", `/api/v1/roster/shifts/${id}`, {});
-  }
-
-  const { error } = await auth.admin.from("work_roster").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  // "Chỉ được xoá ca của chính mình" là luật của RosterService.remove — nó đọc
+  // chủ ca trong cùng transaction với lệnh xoá, nên không có khe đua.
+  return proxyJsonToBackend("DELETE", `/api/v1/roster/shifts/${id}`, {});
 }

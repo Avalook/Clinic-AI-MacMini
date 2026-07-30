@@ -8,12 +8,10 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getSupabaseService } from "../../../lib/supabase-service";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import { getClinicRole } from "../../../lib/clinic-session";
 import { isDoctorRole, canWriteClinical } from "../../../lib/roles";
-import { logEvent } from "../../../lib/event-log";
 import { toHref } from "../../../lib/url";
-import { labViaBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface PostBody {
   clinicPatientId?: string;
@@ -40,7 +38,6 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  const staffId = await getClinicStaffId();
 
   let body: PostBody;
   try {
@@ -58,47 +55,12 @@ export async function POST(request: Request) {
     );
   }
 
-  // W5 (ADR-0012): the rule lives in FastAPI, where the insert and its audit
-  // event share a transaction. Off until LAB_VIA_BACKEND=1; this branch and the
-  // service-role client below are what get deleted once the flag is permanent.
-  if (labViaBackend()) {
-    return proxyJsonToBackend("POST", "/api/v1/lab/orders", {
-      clinic_patient_id: clinicPatientId,
-      test_name: testName,
-      appointment_id: appointmentId,
-    });
-  }
-
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
-  const { data, error } = await db
-    .from("lab_result")
-    .insert({
-      clinic_patient_id: clinicPatientId,
-      appointment_id: appointmentId,
-      test_code: "MANUAL",
-      test_name: testName,
-      triage_group: "PENDING",
-    })
-    .select("lab_result_id")
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await logEvent(db, {
-    event_type: "lab_result.ordered",
-    aggregate_type: "lab_result",
-    aggregate_id: data.lab_result_id,
-    payload: { lab_result_id: data.lab_result_id, clinic_patient_id: clinicPatientId, test_name: testName },
-    metadata: { clinic_role: role, clinic_staff_id: staffId, actor_auth_user_id: user.id, origin: "dashboard:lab-order" },
+  // The insert and its audit event share a transaction in FastAPI.
+  return proxyJsonToBackend("POST", "/api/v1/lab/orders", {
+    clinic_patient_id: clinicPatientId,
+    test_name: testName,
+    appointment_id: appointmentId,
   });
-
-  return NextResponse.json({ ok: true, lab_result_id: data.lab_result_id });
 }
 
 export async function PATCH(request: Request) {
@@ -116,7 +78,6 @@ export async function PATCH(request: Request) {
       { status: 403 },
     );
   }
-  const staffId = await getClinicStaffId();
 
   let body: PatchBody;
   try {
@@ -138,46 +99,9 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (labViaBackend()) {
-    return proxyJsonToBackend("PATCH", `/api/v1/lab/results/${id}`, {
-      result_value: resultValue,
-      result_link: resultLink,
-      lab_provider: labProvider,
-    });
-  }
-
-  const db = getSupabaseService();
-  if (!db) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY chưa cấu hình trên server." },
-      { status: 503 },
-    );
-  }
-
-  const { data, error } = await db
-    .from("lab_result")
-    .update({
-      result_value: resultValue,
-      external_ref: resultLink,
-      lab_provider: labProvider,
-      result_received_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("lab_result_id", id)
-    .select("lab_result_id")
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) {
-    return NextResponse.json({ error: "Không tìm thấy kết quả XN." }, { status: 404 });
-  }
-
-  await logEvent(db, {
-    event_type: "lab_result.entered",
-    aggregate_type: "lab_result",
-    aggregate_id: id,
-    payload: { lab_result_id: id, has_link: !!resultLink },
-    metadata: { clinic_role: role, clinic_staff_id: staffId, actor_auth_user_id: user.id, origin: "dashboard:lab-entry" },
+  return proxyJsonToBackend("PATCH", `/api/v1/lab/results/${id}`, {
+    result_value: resultValue,
+    result_link: resultLink,
+    lab_provider: labProvider,
   });
-
-  return NextResponse.json({ ok: true });
 }
