@@ -102,3 +102,6 @@ scripts/data_migration/output/
 
 # DB reset backups (may contain patient PII — never commit)
 scripts/maintenance/backups/
+
+# Supabase CLI local link/cache metadata
+/supabase/.temp/

@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | Proposed (lớp 2 đã chạy ở patients/payment/ops/me — ADR chốt phủ 100% router) |
-| **Date** | 2026-07-18 |
+| **Status** | **Accepted** 2026-07-30 — Quang chốt "login riêng làm từ giờ luôn" + "siết RLS". Không còn giai đoạn chờ: cutover per-staff login và siết RLS làm trong đợt này. |
+| **Date** | 2026-07-18 (accepted 2026-07-30) |
 | **Deciders** | Quang (mô hình B chốt trong HANDOFF §2) |
-| **Liên quan** | Design doc v5 §5.4, §6.1; `api/identity.py`; memory `identity-model-per-staff-login` |
+| **Liên quan** | Design doc v5 §5.4, §6.1; `api/identity.py`; memory `identity-model-per-staff-login`; ADR-0009 (RLS theo tenant), ADR-0012 (hợp đồng backend) |
 
 ## Context
 Khảo sát 18-07 tìm thấy: (a) API-key middleware **fail-open** khi `BACKEND_API_KEY`
