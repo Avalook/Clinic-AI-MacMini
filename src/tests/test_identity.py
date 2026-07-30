@@ -106,12 +106,36 @@ def test_get_current_identity_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             "auth_user_id": "u-1",
             "full_name": "TS.BS. Phan Chí Thành",
             "primary_department": "DOCTOR",
+            "clinic_id": "a0000000-0000-4000-8000-000000000001",
         }
     )
     ident = asyncio.run(get_current_identity(_req("Bearer abc"), pool))
     assert ident.staff_id == "staff-9"
     assert ident.role is ClinicRole.DOCTOR
     assert ident.can_write_clinical()
+    # The tenant travels with the identity so services never fall back to the
+    # transitional clinic_id DEFAULT (ADR-0009).
+    assert ident.clinic_id == "a0000000-0000-4000-8000-000000000001"
+
+
+def test_get_current_identity_without_membership_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Acting without a tenant is how a row lands in the wrong clinic, so a staff
+    # row with no membership must fail closed rather than default to one.
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-2"})
+    pool = _FakePool(
+        {
+            "id": "staff-10",
+            "auth_user_id": "u-2",
+            "full_name": "Chưa gán phòng khám",
+            "primary_department": "DOCTOR",
+            "clinic_id": None,
+        }
+    )
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(get_current_identity(_req("Bearer abc"), pool))
+    assert e.value.status_code == 403
 
 
 def test_get_current_identity_missing_bearer() -> None:

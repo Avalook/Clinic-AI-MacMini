@@ -106,7 +106,10 @@ class ClinicalFormService:
                     )
 
                 known_code = await conn.fetchval(
-                    "SELECT 1 FROM service_type WHERE upper(code) = $1 LIMIT 1", code
+                    "SELECT 1 FROM service_type "
+                    "WHERE upper(code) = $1 AND clinic_id = $2::uuid LIMIT 1",
+                    code,
+                    identity.clinic_id,
                 )
                 if not known_code:
                     raise ValidationError(f"Mã dịch vụ không có trong danh mục: {code}")
@@ -116,8 +119,9 @@ class ClinicalFormService:
                 await conn.execute(
                     """
                     INSERT INTO clinical_form_response
-                        (visit_id, service_code, form_data, created_by, updated_by)
-                    VALUES ($1::uuid, $2, $3, $4, $4)
+                        (clinic_id, visit_id, service_code, form_data,
+                         created_by, updated_by)
+                    VALUES ($5::uuid, $1::uuid, $2, $3, $4, $4)
                     ON CONFLICT ON CONSTRAINT uq_clinical_form_visit_service
                     DO UPDATE SET
                         form_data  = EXCLUDED.form_data,
@@ -128,6 +132,7 @@ class ClinicalFormService:
                     code,
                     json.dumps(payload),
                     actor,
+                    identity.clinic_id,
                 )
 
         logger.info(

@@ -30,6 +30,7 @@ async def enqueue(
     kind: str,
     subject_id: str,
     payload: dict[str, Any],
+    clinic_id: str | None = None,
 ) -> None:
     """Queue one push, inside the caller's transaction.
 
@@ -39,13 +40,14 @@ async def enqueue(
     """
     await conn.execute(
         """
-        INSERT INTO pos_outbox (kind, subject_id, payload)
-        VALUES ($1, $2::uuid, $3)
+        INSERT INTO pos_outbox (kind, subject_id, payload, clinic_id)
+        VALUES ($1, $2::uuid, $3, COALESCE($4::uuid, public.default_clinic_id()))
         ON CONFLICT ON CONSTRAINT uq_pos_outbox_subject DO NOTHING
         """,
         kind,
         subject_id,
         json.dumps(payload, default=_json_default),
+        clinic_id,
     )
     logger.debug("pos_outbox_enqueued", kind=kind, subject_id=subject_id)
 

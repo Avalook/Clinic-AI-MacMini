@@ -122,15 +122,17 @@ class UltrasoundService:
                     visit_id = await conn.fetchval(
                         """
                         INSERT INTO visit (
-                            clinic_patient_id, appointment_id, attending_doctor_id,
-                            status, checked_in_at
+                            clinic_id, clinic_patient_id, appointment_id,
+                            attending_doctor_id, status, checked_in_at
                         )
-                        VALUES ($1::uuid, $2::uuid, $3::uuid, 'IN_PROGRESS', now())
+                        VALUES ($4::uuid, $1::uuid, $2::uuid, $3::uuid,
+                                'IN_PROGRESS', now())
                         RETURNING visit_id
                         """,
                         clinic_patient_id,
                         appointment_id,
                         identity.staff_id,
+                        identity.clinic_id,
                     )
 
                 record = await conn.fetchrow(
@@ -167,15 +169,17 @@ class UltrasoundService:
                     await conn.execute(
                         """
                         INSERT INTO ultrasound_record (
-                            visit_id, clinic_patient_id, performed_by,
+                            clinic_id, visit_id, clinic_patient_id, performed_by,
                             ultrasound_type, findings, performed_at
                         )
-                        VALUES ($1::uuid, $2::uuid, $3::uuid, 'Thai', $4, now())
+                        VALUES ($5::uuid, $1::uuid, $2::uuid, $3::uuid, 'Thai',
+                                $4, now())
                         """,
                         visit_id,
                         clinic_patient_id,
                         identity.staff_id,
                         _json(findings),
+                        identity.clinic_id,
                     )
 
         logger.info(

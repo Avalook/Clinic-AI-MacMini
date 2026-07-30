@@ -84,6 +84,11 @@ class StaffIdentity:
     full_name: str
     department: str
     role: ClinicRole
+    # The tenant this request acts in, resolved from clinic_membership (ADR-0009).
+    # Services pass it explicitly on every INSERT rather than leaning on the
+    # transitional clinic_id DEFAULT, which stops guessing — correctly — as soon
+    # as a second clinic exists.
+    clinic_id: str | None = None
 
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES
@@ -152,9 +157,14 @@ async def get_current_identity(
 
     row = await pool.fetchrow(
         """
-        SELECT id, auth_user_id, full_name, primary_department
-        FROM staff
-        WHERE auth_user_id = $1::uuid AND is_active IS NOT FALSE
+        SELECT s.id, s.auth_user_id, s.full_name, s.primary_department,
+               m.clinic_id
+        FROM staff s
+        LEFT JOIN clinic_membership m
+               ON m.staff_id = s.id AND m.is_active
+        WHERE s.auth_user_id = $1::uuid AND s.is_active IS NOT FALSE
+        ORDER BY m.created_at
+        LIMIT 1
         """,
         sub,
     )
@@ -165,12 +175,25 @@ async def get_current_identity(
         )
 
     dept = row["primary_department"]
+    clinic_id = row["clinic_id"]
+    if clinic_id is None:
+        # Every active staff member gets a membership from the
+        # staff_ensure_default_membership trigger, so this means the row was
+        # created before W3 or the trigger was bypassed. Fail closed: acting
+        # without a tenant is how data lands in the wrong clinic.
+        logger.warning("staff_without_membership", staff_id=str(row["id"]))
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản chưa được gán vào phòng khám nào",
+        )
+
     return StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
         full_name=row["full_name"],
         department=dept,
         role=role_from_department(dept),
+        clinic_id=str(clinic_id),
     )
 
 

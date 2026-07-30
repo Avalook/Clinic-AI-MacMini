@@ -101,9 +101,9 @@ class EpisodeService:
                 await conn.execute(
                     """
                     INSERT INTO event_log
-                        (event_type, aggregate_type, aggregate_id, payload,
-                         metadata, source, event_published)
-                    VALUES ($1, 'care_episode', $2, $3, $4, $5, FALSE)
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, metadata, source, event_published)
+                    VALUES ($6::uuid, $1, 'care_episode', $2, $3, $4, $5, FALSE)
                     """,
                     event_type,
                     str(updated_id),
@@ -116,6 +116,7 @@ class EpisodeService:
                         }
                     ),
                     f"api:episode-{action}",
+                    identity.clinic_id,
                 )
 
         logger.info(

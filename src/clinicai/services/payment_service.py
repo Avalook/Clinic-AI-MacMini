@@ -112,10 +112,11 @@ class PaymentService:
                 payment_id = await conn.fetchval(
                     """
                     INSERT INTO payment (
-                        visit_id, clinic_patient_id, kind, status,
+                        clinic_id, visit_id, clinic_patient_id, kind, status,
                         amount, paid_by_staff_id, paid_at, updated_at
                     )
-                    VALUES ($1::uuid, $2::uuid, $3, 'PAID', $4, $5::uuid, now(), now())
+                    VALUES ($6::uuid, $1::uuid, $2::uuid, $3, 'PAID', $4, $5::uuid,
+                            now(), now())
                     ON CONFLICT (visit_id, kind) DO UPDATE SET
                         clinic_patient_id = EXCLUDED.clinic_patient_id,
                         amount            = EXCLUDED.amount,
@@ -130,6 +131,7 @@ class PaymentService:
                     kind,
                     normalized,
                     identity.staff_id,
+                    identity.clinic_id,
                 )
                 # Transactional outbox (ADR-0010): queued with the payment, so
                 # the push cannot be lost, and pushed later, so an external POS
@@ -147,6 +149,7 @@ class PaymentService:
                         "patient_reference": clinic_patient_id,
                         "visit_id": visit_id,
                     },
+                    clinic_id=identity.clinic_id,
                 )
         logger.info(
             "payment_recorded",
@@ -184,6 +187,7 @@ class PaymentService:
                             "kind": kind,
                             "visit_id": visit_id,
                         },
+                        clinic_id=identity.clinic_id,
                     )
         logger.info(
             "payment_voided",

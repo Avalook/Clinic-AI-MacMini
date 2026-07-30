@@ -76,15 +76,16 @@ class LabOrderService:
                 lab_result_id = await conn.fetchval(
                     """
                     INSERT INTO lab_result (
-                        clinic_patient_id, appointment_id, test_code, test_name,
-                        triage_group
+                        clinic_id, clinic_patient_id, appointment_id, test_code,
+                        test_name, triage_group
                     )
-                    VALUES ($1::uuid, $2::uuid, 'MANUAL', $3, 'PENDING')
+                    VALUES ($4::uuid, $1::uuid, $2::uuid, 'MANUAL', $3, 'PENDING')
                     RETURNING lab_result_id
                     """,
                     clinic_patient_id,
                     appointment_id,
                     name,
+                    identity.clinic_id,
                 )
                 await _log(
                     conn,
@@ -174,9 +175,9 @@ async def _log(
     await conn.execute(
         """
         INSERT INTO event_log
-            (event_type, aggregate_type, aggregate_id, payload, metadata,
-             source, event_published)
-        VALUES ($1, 'lab_result', $2, $3, $4, $5, FALSE)
+            (clinic_id, event_type, aggregate_type, aggregate_id, payload,
+             metadata, source, event_published)
+        VALUES ($6::uuid, $1, 'lab_result', $2, $3, $4, $5, FALSE)
         """,
         event_type,
         aggregate_id,
@@ -190,4 +191,5 @@ async def _log(
             }
         ),
         origin,
+        identity.clinic_id,
     )

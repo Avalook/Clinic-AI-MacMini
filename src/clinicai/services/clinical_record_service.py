@@ -201,16 +201,17 @@ class ClinicalRecordService:
                         stored_objective=stored,
                         objective=objective,
                         chief_complaint=chief_complaint,
+                        clinic_id=identity.clinic_id,
                     )
                     return {"visit_id": str(visit_id), "vitals_only": True}
 
                 await conn.execute(
                     """
                     INSERT INTO clinical_record (
-                        visit_id, chief_complaint_at_visit, soap_subjective,
-                        soap_objective, soap_assessment, soap_plan
+                        clinic_id, visit_id, chief_complaint_at_visit,
+                        soap_subjective, soap_objective, soap_assessment, soap_plan
                     )
-                    VALUES ($1::uuid, $2, $3, $4, $5, $6)
+                    VALUES ($7::uuid, $1::uuid, $2, $3, $4, $5, $6)
                     ON CONFLICT (visit_id) DO UPDATE SET
                         chief_complaint_at_visit = EXCLUDED.chief_complaint_at_visit,
                         soap_subjective          = EXCLUDED.soap_subjective,
@@ -228,10 +229,13 @@ class ClinicalRecordService:
                     ),
                     _json_or_none(assessment),
                     _json_or_none(plan),
+                    identity.clinic_id,
                 )
 
                 if profile:
-                    await self._save_profile(conn, clinic_patient_id, profile)
+                    await self._save_profile(
+                        conn, clinic_patient_id, profile, identity.clinic_id
+                    )
 
                 if prescriptions is not None:
                     await self._replace_prescriptions(
@@ -239,6 +243,7 @@ class ClinicalRecordService:
                         visit_id=visit_id,
                         clinic_patient_id=clinic_patient_id,
                         prescriptions=prescriptions,
+                        clinic_id=identity.clinic_id,
                     )
 
         logger.info(
@@ -299,15 +304,17 @@ class ClinicalRecordService:
             return await conn.fetchval(
                 """
                 INSERT INTO visit (
-                    clinic_patient_id, appointment_id, attending_doctor_id,
-                    status, checked_in_at
+                    clinic_id, clinic_patient_id, appointment_id,
+                    attending_doctor_id, status, checked_in_at
                 )
-                VALUES ($1::uuid, $2::uuid, $3::uuid, 'IN_PROGRESS', now())
+                VALUES ($4::uuid, $1::uuid, $2::uuid, $3::uuid,
+                        'IN_PROGRESS', now())
                 RETURNING visit_id
                 """,
                 clinic_patient_id,
                 appointment_id,
                 str(attending) if attending else None,
+                identity.clinic_id,
             )
         except asyncpg.UniqueViolationError:
             # A nurse saving vitals and a doctor saving the record can both see
@@ -337,6 +344,7 @@ class ClinicalRecordService:
         stored_objective: Any,
         objective: Any,
         chief_complaint: str | None,
+        clinic_id: str | None,
     ) -> None:
         merged = merge_vitals_only(stored_objective, objective)
         complaint = (chief_complaint or "").strip()
@@ -346,8 +354,8 @@ class ClinicalRecordService:
         await conn.execute(
             """
             INSERT INTO clinical_record
-                (visit_id, soap_objective, chief_complaint_at_visit)
-            VALUES ($1::uuid, $2, $3)
+                (clinic_id, visit_id, soap_objective, chief_complaint_at_visit)
+            VALUES ($4::uuid, $1::uuid, $2, $3)
             ON CONFLICT (visit_id) DO UPDATE SET
                 soap_objective = EXCLUDED.soap_objective,
                 chief_complaint_at_visit = COALESCE(
@@ -358,10 +366,15 @@ class ClinicalRecordService:
             visit_id,
             json.dumps(merged),
             complaint or None,
+            clinic_id,
         )
 
     async def _save_profile(
-        self, conn: asyncpg.Connection, clinic_patient_id: str, profile: dict[str, Any]
+        self,
+        conn: asyncpg.Connection,
+        clinic_patient_id: str,
+        profile: dict[str, Any],
+        clinic_id: str | None,
     ) -> None:
         columns = [key for key in profile if key.isidentifier()]
         if not columns:
@@ -371,12 +384,13 @@ class ClinicalRecordService:
         await conn.execute(
             f"""
             INSERT INTO patient_medical_profile
-                (clinic_patient_id, {", ".join(columns)})
-            VALUES ($1::uuid, {placeholders})
+                (clinic_id, clinic_patient_id, {", ".join(columns)})
+            VALUES (${len(columns) + 2}::uuid, $1::uuid, {placeholders})
             ON CONFLICT (clinic_patient_id) DO UPDATE SET {assignments}
             """,
             clinic_patient_id,
             *[profile[col] for col in columns],
+            clinic_id,
         )
 
     async def _replace_prescriptions(
@@ -386,6 +400,7 @@ class ClinicalRecordService:
         visit_id: Any,
         clinic_patient_id: str,
         prescriptions: list[dict[str, Any]],
+        clinic_id: str | None,
     ) -> None:
         """The visit's prescription is replaced wholesale, as the route did."""
         await conn.execute(
@@ -400,6 +415,7 @@ class ClinicalRecordService:
                 (item.get("quantity") or "").strip() or None,
                 (item.get("dosage") or "").strip() or None,
                 (item.get("caution") or "").strip() or None,
+                clinic_id,
             )
             for index, item in enumerate(prescriptions)
             if (item.get("drug_name") or "").strip()
@@ -410,9 +426,9 @@ class ClinicalRecordService:
             """
             INSERT INTO prescription (
                 source_ref, clinic_patient_id, visit_id, drug_name_raw,
-                quantity, dosage_instructions, caution
+                quantity, dosage_instructions, caution, clinic_id
             )
-            VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7)
+            VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid)
             """,
             rows,
         )
