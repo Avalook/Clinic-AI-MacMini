@@ -12,7 +12,9 @@ major_version = 17
 enabled = true
 sql_paths = ["./seed.sql"]
 
-[migration]
-# Enforce that every schema change lands as a file in migrations/ (spec principle #4:
-# no click-ops in the dashboard; all DDL is git-tracked SQL via the CLI).
-enabled = true
+# NOTE: there used to be a `[migration] enabled = true` block here. Supabase CLI
+# 2.x rejects that key outright — `supabase db reset` fails with "invalid keys:
+# migration" before it touches the database, so the block was silently making
+# the local workflow unusable. The principle it stood for (no click-ops; every
+# schema change is a git-tracked file under migrations/) is enforced by review
+# and by supabase/tests/run-local.sh, not by a config flag.

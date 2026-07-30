@@ -26,6 +26,17 @@ done
 
 psql_run() { docker exec -i "$CONTAINER" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres; }
 
+# psql meta-commands (\restrict, COPY ... FROM stdin) are client syntax, not SQL.
+# psql swallows them, so this harness stayed green while `supabase db push` and
+# `db reset` failed on line 1 — which is how a fresh project ended up
+# unlaunchable. Fail here instead.
+echo "==> Migrations and seed must be plain SQL"
+if grep -nE '^\\(un)?restrict|FROM stdin' \
+     "$REPO_ROOT"/supabase/migrations/*.sql "$REPO_ROOT"/supabase/seed.sql; then
+    echo "ERROR: psql-only syntax above — the Supabase CLI cannot execute it." >&2
+    exit 1
+fi
+
 echo "==> Supabase auth fixture"
 psql_run < "$REPO_ROOT/supabase/tests/bootstrap_plain_postgres.sql" >/dev/null
 

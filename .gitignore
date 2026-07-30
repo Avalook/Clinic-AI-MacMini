@@ -105,3 +105,6 @@ scripts/maintenance/backups/
 
 # Supabase CLI local link/cache metadata
 /supabase/.temp/
+
+# Supabase CLI local state
+/supabase/.branches/

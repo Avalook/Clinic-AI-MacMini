@@ -1,8 +1,11 @@
 --
 -- PostgreSQL database dump
 --
-
-\restrict IX6t3anCaHfavJhpZgvih68WbDVsiRdflltnRkff4qOaK5nAK33WnuqtFLin8cB
+-- NOTE: pg_dump 18 emits \restrict / \unrestrict around dumps. Those are psql
+-- meta-commands, not SQL, so only psql understands them — `supabase db push`
+-- and `db reset` send this file to a plain SQL executor and fail on line 1.
+-- They are a psql-side guard for restoring untrusted dumps and mean nothing
+-- for us, so they are stripped. Asserted by supabase/tests/run-local.sh.
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -25,7 +28,6 @@ SET row_security = off;
 
 CREATE SCHEMA IF NOT EXISTS public;
 
-
 --
 -- Name: doctor_patient_count(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -37,7 +39,6 @@ CREATE FUNCTION public.doctor_patient_count(p_doctor_id uuid) RETURNS bigint
   FROM appointment a
   WHERE a.doctor_id = p_doctor_id;
 $$;
-
 
 --
 -- Name: doctor_patient_list(uuid, text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
@@ -68,7 +69,6 @@ CREATE FUNCTION public.doctor_patient_list(p_doctor_id uuid, p_term text DEFAULT
   ORDER BY f.created_at DESC
   LIMIT p_limit OFFSET p_offset;
 $$;
-
 
 --
 -- Name: enforce_append_only(); Type: FUNCTION; Schema: public; Owner: -
@@ -102,7 +102,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: event_log_append_only_guard(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -117,7 +116,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: f_unaccent(text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -125,7 +123,6 @@ $$;
 CREATE FUNCTION public.f_unaccent(text) RETURNS text
     LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
     AS $_$ SELECT public.unaccent('public.unaccent'::regdictionary, $1) $_$;
-
 
 --
 -- Name: generate_lab_result_code(); Type: FUNCTION; Schema: public; Owner: -
@@ -141,7 +138,6 @@ BEGIN
     RETURN 'LAB-' || EXTRACT(YEAR FROM NOW())::TEXT || '-' || LPAD(next_id::TEXT, 6, '0');
 END;
 $$;
-
 
 --
 -- Name: generate_patient_code(); Type: FUNCTION; Schema: public; Owner: -
@@ -160,7 +156,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: kb_page_update_search_vector(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -177,7 +172,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: kb_version_append_only_guard(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -190,7 +184,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: prevent_dead_letter_modification(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -202,7 +195,6 @@ BEGIN
     RAISE EXCEPTION 'dead_letter_event is append-only — UPDATE/DELETE not allowed';
 END;
 $$;
-
 
 --
 -- Name: prevent_hard_delete(); Type: FUNCTION; Schema: public; Owner: -
@@ -233,7 +225,6 @@ BEGIN
     RETURN NULL;
 END;
 $$;
-
 
 --
 -- Name: rls_auto_enable(); Type: FUNCTION; Schema: public; Owner: -
@@ -267,7 +258,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -281,7 +271,6 @@ BEGIN
 END;
 $$;
 
-
 --
 -- Name: set_updated_at_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -294,7 +283,6 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
 
 --
 -- Name: visit_finalized_block_update(); Type: FUNCTION; Schema: public; Owner: -
@@ -313,7 +301,6 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
 
 SET default_tablespace = '';
 
@@ -355,7 +342,6 @@ CREATE TABLE public.appointment (
     CONSTRAINT appointment_thanh_min_check CHECK (((thanh_min >= 0) AND (thanh_min <= 60)))
 );
 
-
 --
 -- Name: block_budget; Type: TABLE; Schema: public; Owner: -
 --
@@ -379,7 +365,6 @@ CREATE TABLE public.block_budget (
     CONSTRAINT block_budget_weekday_check CHECK (((weekday >= 0) AND (weekday <= 6)))
 );
 
-
 --
 -- Name: booking_channel; Type: TABLE; Schema: public; Owner: -
 --
@@ -393,7 +378,6 @@ CREATE TABLE public.booking_channel (
     created_at timestamp with time zone DEFAULT now(),
     CONSTRAINT booking_channel_category_check CHECK ((category = ANY (ARRAY['ZALO'::text, 'FACEBOOK'::text, 'HOTLINE'::text, 'WALK_IN'::text, 'REFERRAL'::text, 'OTHER'::text])))
 );
-
 
 --
 -- Name: care_episode; Type: TABLE; Schema: public; Owner: -
@@ -415,7 +399,6 @@ CREATE TABLE public.care_episode (
     CONSTRAINT care_episode_status_check CHECK ((status = ANY (ARRAY['OPEN'::text, 'PENDING_CLOSE'::text, 'CLOSED'::text])))
 );
 
-
 --
 -- Name: clinic_location; Type: TABLE; Schema: public; Owner: -
 --
@@ -428,7 +411,6 @@ CREATE TABLE public.clinic_location (
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
 );
-
 
 --
 -- Name: clinical_form_response; Type: TABLE; Schema: public; Owner: -
@@ -444,7 +426,6 @@ CREATE TABLE public.clinical_form_response (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
 
 --
 -- Name: clinical_record; Type: TABLE; Schema: public; Owner: -
@@ -465,7 +446,6 @@ CREATE TABLE public.clinical_record (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
 
 --
 -- Name: cskh_action; Type: TABLE; Schema: public; Owner: -
@@ -496,7 +476,6 @@ CREATE TABLE public.cskh_action (
     updated_at timestamp with time zone DEFAULT now()
 );
 
-
 --
 -- Name: cskh_log; Type: TABLE; Schema: public; Owner: -
 --
@@ -526,7 +505,6 @@ CREATE TABLE public.cskh_log (
     created_at timestamp with time zone DEFAULT now()
 );
 
-
 --
 -- Name: drug_catalog; Type: TABLE; Schema: public; Owner: -
 --
@@ -542,7 +520,6 @@ CREATE TABLE public.drug_catalog (
     is_active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now()
 );
-
 
 --
 -- Name: event_log; Type: TABLE; Schema: public; Owner: -
@@ -566,7 +543,6 @@ CREATE TABLE public.event_log (
     CONSTRAINT event_version_positive CHECK ((event_version > 0)),
     CONSTRAINT source_not_empty CHECK ((length(source) > 0))
 );
-
 
 --
 -- Name: lab_result; Type: TABLE; Schema: public; Owner: -
@@ -606,7 +582,6 @@ CREATE TABLE public.lab_result (
     CONSTRAINT lab_result_triage_group_check CHECK ((triage_group = ANY (ARRAY['GROUP_A'::text, 'GROUP_B'::text, 'GROUP_C'::text, 'PENDING'::text])))
 );
 
-
 --
 -- Name: lab_result_code_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -617,7 +592,6 @@ CREATE SEQUENCE public.lab_result_code_seq
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
 
 --
 -- Name: mpi_merge_queue; Type: TABLE; Schema: public; Owner: -
@@ -635,7 +609,6 @@ CREATE TABLE public.mpi_merge_queue (
     CONSTRAINT chk_different_patients CHECK ((patient_id_a <> patient_id_b)),
     CONSTRAINT mpi_merge_queue_status_check CHECK ((status = ANY (ARRAY['PENDING'::text, 'MERGED'::text, 'REJECTED'::text, 'REVIEW'::text])))
 );
-
 
 --
 -- Name: patient; Type: TABLE; Schema: public; Owner: -
@@ -674,7 +647,6 @@ CREATE TABLE public.patient (
     CONSTRAINT patient_linh_vuc_check CHECK (((linh_vuc IS NULL) OR (linh_vuc = ANY (ARRAY['PK'::text, 'SK'::text, 'NT'::text, 'HMVS'::text, 'NK'::text]))))
 );
 
-
 --
 -- Name: patient_code_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
@@ -685,7 +657,6 @@ CREATE SEQUENCE public.patient_code_seq
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
 
 --
 -- Name: patient_medical_profile; Type: TABLE; Schema: public; Owner: -
@@ -705,7 +676,6 @@ CREATE TABLE public.patient_medical_profile (
     updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT patient_medical_profile_blood_type_check CHECK ((blood_type = ANY (ARRAY['A'::text, 'B'::text, 'AB'::text, 'O'::text, 'A+'::text, 'A-'::text, 'B+'::text, 'B-'::text, 'AB+'::text, 'AB-'::text, 'O+'::text, 'O-'::text])))
 );
-
 
 --
 -- Name: visit; Type: TABLE; Schema: public; Owner: -
@@ -729,7 +699,6 @@ CREATE TABLE public.visit (
     exam_completed_at timestamp with time zone,
     CONSTRAINT visit_status_check CHECK ((status = ANY (ARRAY['OPEN'::text, 'IN_PROGRESS'::text, 'FINALIZED'::text, 'AMENDED'::text])))
 );
-
 
 --
 -- Name: patient_summary; Type: VIEW; Schema: public; Owner: -
@@ -768,7 +737,6 @@ CREATE VIEW public.patient_summary AS
           ORDER BY lr.result_received_at DESC
          LIMIT 1) last_lab ON (true));
 
-
 --
 -- Name: payment; Type: TABLE; Schema: public; Owner: -
 --
@@ -788,7 +756,6 @@ CREATE TABLE public.payment (
     CONSTRAINT payment_kind_check CHECK ((kind = ANY (ARRAY['thuoc'::text, 'dich_vu'::text]))),
     CONSTRAINT payment_status_check CHECK ((status = 'PAID'::text))
 );
-
 
 --
 -- Name: pregnancy; Type: TABLE; Schema: public; Owner: -
@@ -812,7 +779,6 @@ CREATE TABLE public.pregnancy (
     CONSTRAINT pregnancy_outcome_check CHECK ((outcome = ANY (ARRAY['ONGOING'::text, 'DELIVERED'::text, 'MISCARRIAGE'::text, 'TERMINATED'::text, 'UNKNOWN'::text])))
 );
 
-
 --
 -- Name: prescription; Type: TABLE; Schema: public; Owner: -
 --
@@ -834,7 +800,6 @@ CREATE TABLE public.prescription (
     updated_at timestamp with time zone DEFAULT now()
 );
 
-
 --
 -- Name: province; Type: TABLE; Schema: public; Owner: -
 --
@@ -846,7 +811,6 @@ CREATE TABLE public.province (
     code_name text
 );
 
-
 --
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
@@ -855,7 +819,6 @@ CREATE TABLE public.schema_migrations (
     filename text NOT NULL,
     applied_at timestamp with time zone DEFAULT now()
 );
-
 
 --
 -- Name: service_log; Type: TABLE; Schema: public; Owner: -
@@ -884,7 +847,6 @@ CREATE TABLE public.service_log (
     CONSTRAINT service_log_kind_check CHECK (((kind IS NULL) OR (kind = ANY (ARRAY['SA'::text, 'XN'::text]))))
 );
 
-
 --
 -- Name: service_price; Type: TABLE; Schema: public; Owner: -
 --
@@ -903,7 +865,6 @@ CREATE TABLE public.service_price (
     CONSTRAINT service_price_group_check CHECK (("group" = ANY (ARRAY['thuoc'::text, 'dich_vu'::text])))
 );
 
-
 --
 -- Name: service_type; Type: TABLE; Schema: public; Owner: -
 --
@@ -916,7 +877,6 @@ CREATE TABLE public.service_type (
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
 );
-
 
 --
 -- Name: staff; Type: TABLE; Schema: public; Owner: -
@@ -938,7 +898,6 @@ CREATE TABLE public.staff (
     CONSTRAINT staff_primary_department_check CHECK ((primary_department = ANY (ARRAY['DOCTOR'::text, 'ULTRASOUND_DOCTOR'::text, 'NURSE_ULTRASOUND'::text, 'RECEPTION'::text, 'CSKH'::text, 'MANAGEMENT'::text, 'CASHIER'::text, 'TKYK'::text, 'TRUONG_CA'::text, 'CASHIER_THUOC'::text, 'CASHIER_DV'::text])))
 );
 
-
 --
 -- Name: staff_capability; Type: TABLE; Schema: public; Owner: -
 --
@@ -950,7 +909,6 @@ CREATE TABLE public.staff_capability (
     proficiency_level text DEFAULT 'COMPETENT'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
 
 --
 -- Name: staff_task; Type: TABLE; Schema: public; Owner: -
@@ -978,7 +936,6 @@ CREATE TABLE public.staff_task (
     CONSTRAINT staff_task_status_check CHECK ((status = ANY (ARRAY['PENDING'::text, 'IN_PROGRESS'::text, 'DONE'::text, 'CANCELLED'::text])))
 );
 
-
 --
 -- Name: ultrasound_record; Type: TABLE; Schema: public; Owner: -
 --
@@ -999,7 +956,6 @@ CREATE TABLE public.ultrasound_record (
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
 --
 -- Name: ward; Type: TABLE; Schema: public; Owner: -
 --
@@ -1011,7 +967,6 @@ CREATE TABLE public.ward (
     code_name text,
     province_code text NOT NULL
 );
-
 
 --
 -- Name: work_roster; Type: TABLE; Schema: public; Owner: -
@@ -1034,7 +989,6 @@ CREATE TABLE public.work_roster (
     CONSTRAINT work_roster_status_check CHECK ((status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text])))
 );
 
-
 --
 -- Name: work_session; Type: TABLE; Schema: public; Owner: -
 --
@@ -1052,7 +1006,6 @@ CREATE TABLE public.work_session (
     CONSTRAINT work_session_session_type_check CHECK ((session_type = ANY (ARRAY['EVENING'::text, 'WEEKEND_MORNING'::text, 'WEEKEND_AFTERNOON'::text])))
 );
 
-
 --
 -- Name: work_session_staff; Type: TABLE; Schema: public; Owner: -
 --
@@ -1068,14 +1021,12 @@ CREATE TABLE public.work_session_staff (
     created_at timestamp with time zone DEFAULT now()
 );
 
-
 --
 -- Name: appointment appointment_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: block_budget block_budget_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1084,14 +1035,12 @@ ALTER TABLE ONLY public.appointment
 ALTER TABLE ONLY public.block_budget
     ADD CONSTRAINT block_budget_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: booking_channel booking_channel_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.booking_channel
     ADD CONSTRAINT booking_channel_code_key UNIQUE (code);
-
 
 --
 -- Name: booking_channel booking_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1100,14 +1049,12 @@ ALTER TABLE ONLY public.booking_channel
 ALTER TABLE ONLY public.booking_channel
     ADD CONSTRAINT booking_channel_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: care_episode care_episode_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.care_episode
     ADD CONSTRAINT care_episode_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: clinic_location clinic_location_code_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1116,14 +1063,12 @@ ALTER TABLE ONLY public.care_episode
 ALTER TABLE ONLY public.clinic_location
     ADD CONSTRAINT clinic_location_code_key UNIQUE (code);
 
-
 --
 -- Name: clinic_location clinic_location_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.clinic_location
     ADD CONSTRAINT clinic_location_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: clinical_form_response clinical_form_response_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1132,14 +1077,12 @@ ALTER TABLE ONLY public.clinic_location
 ALTER TABLE ONLY public.clinical_form_response
     ADD CONSTRAINT clinical_form_response_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: clinical_record clinical_record_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.clinical_record
     ADD CONSTRAINT clinical_record_pkey PRIMARY KEY (record_id);
-
 
 --
 -- Name: clinical_record clinical_record_visit_id_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1148,14 +1091,12 @@ ALTER TABLE ONLY public.clinical_record
 ALTER TABLE ONLY public.clinical_record
     ADD CONSTRAINT clinical_record_visit_id_key UNIQUE (visit_id);
 
-
 --
 -- Name: cskh_action cskh_action_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cskh_action
     ADD CONSTRAINT cskh_action_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: cskh_action cskh_action_source_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1164,14 +1105,12 @@ ALTER TABLE ONLY public.cskh_action
 ALTER TABLE ONLY public.cskh_action
     ADD CONSTRAINT cskh_action_source_ref_key UNIQUE (source_ref);
 
-
 --
 -- Name: cskh_log cskh_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cskh_log
     ADD CONSTRAINT cskh_log_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: drug_catalog drug_catalog_name_raw_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1180,14 +1119,12 @@ ALTER TABLE ONLY public.cskh_log
 ALTER TABLE ONLY public.drug_catalog
     ADD CONSTRAINT drug_catalog_name_raw_key UNIQUE (name_raw);
 
-
 --
 -- Name: drug_catalog drug_catalog_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.drug_catalog
     ADD CONSTRAINT drug_catalog_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: event_log event_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1196,14 +1133,12 @@ ALTER TABLE ONLY public.drug_catalog
 ALTER TABLE ONLY public.event_log
     ADD CONSTRAINT event_log_pkey PRIMARY KEY (event_id);
 
-
 --
 -- Name: lab_result lab_result_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result
     ADD CONSTRAINT lab_result_pkey PRIMARY KEY (lab_result_id);
-
 
 --
 -- Name: mpi_merge_queue mpi_merge_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1212,14 +1147,12 @@ ALTER TABLE ONLY public.lab_result
 ALTER TABLE ONLY public.mpi_merge_queue
     ADD CONSTRAINT mpi_merge_queue_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: patient_medical_profile patient_medical_profile_clinic_patient_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient_medical_profile
     ADD CONSTRAINT patient_medical_profile_clinic_patient_id_key UNIQUE (clinic_patient_id);
-
 
 --
 -- Name: patient_medical_profile patient_medical_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1228,14 +1161,12 @@ ALTER TABLE ONLY public.patient_medical_profile
 ALTER TABLE ONLY public.patient_medical_profile
     ADD CONSTRAINT patient_medical_profile_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: patient patient_patient_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient
     ADD CONSTRAINT patient_patient_code_key UNIQUE (patient_code);
-
 
 --
 -- Name: patient patient_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1244,14 +1175,12 @@ ALTER TABLE ONLY public.patient
 ALTER TABLE ONLY public.patient
     ADD CONSTRAINT patient_pkey PRIMARY KEY (clinic_patient_id);
 
-
 --
 -- Name: payment payment_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.payment
     ADD CONSTRAINT payment_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: payment payment_visit_id_kind_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1260,14 +1189,12 @@ ALTER TABLE ONLY public.payment
 ALTER TABLE ONLY public.payment
     ADD CONSTRAINT payment_visit_id_kind_key UNIQUE (visit_id, kind);
 
-
 --
 -- Name: pregnancy pregnancy_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pregnancy
     ADD CONSTRAINT pregnancy_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: prescription prescription_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1276,14 +1203,12 @@ ALTER TABLE ONLY public.pregnancy
 ALTER TABLE ONLY public.prescription
     ADD CONSTRAINT prescription_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: prescription prescription_source_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prescription
     ADD CONSTRAINT prescription_source_ref_key UNIQUE (source_ref);
-
 
 --
 -- Name: province province_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1292,14 +1217,12 @@ ALTER TABLE ONLY public.prescription
 ALTER TABLE ONLY public.province
     ADD CONSTRAINT province_pkey PRIMARY KEY (code);
 
-
 --
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (filename);
-
 
 --
 -- Name: service_log service_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1308,14 +1231,12 @@ ALTER TABLE ONLY public.schema_migrations
 ALTER TABLE ONLY public.service_log
     ADD CONSTRAINT service_log_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: service_log service_log_source_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.service_log
     ADD CONSTRAINT service_log_source_ref_key UNIQUE (source_ref);
-
 
 --
 -- Name: service_price service_price_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1324,14 +1245,12 @@ ALTER TABLE ONLY public.service_log
 ALTER TABLE ONLY public.service_price
     ADD CONSTRAINT service_price_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: service_type service_type_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.service_type
     ADD CONSTRAINT service_type_code_key UNIQUE (code);
-
 
 --
 -- Name: service_type service_type_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1340,14 +1259,12 @@ ALTER TABLE ONLY public.service_type
 ALTER TABLE ONLY public.service_type
     ADD CONSTRAINT service_type_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: staff_capability staff_capability_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.staff_capability
     ADD CONSTRAINT staff_capability_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: staff staff_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1356,14 +1273,12 @@ ALTER TABLE ONLY public.staff_capability
 ALTER TABLE ONLY public.staff
     ADD CONSTRAINT staff_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: staff_task staff_task_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.staff_task
     ADD CONSTRAINT staff_task_pkey PRIMARY KEY (task_id);
-
 
 --
 -- Name: ultrasound_record ultrasound_record_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1372,14 +1287,12 @@ ALTER TABLE ONLY public.staff_task
 ALTER TABLE ONLY public.ultrasound_record
     ADD CONSTRAINT ultrasound_record_pkey PRIMARY KEY (ultrasound_id);
 
-
 --
 -- Name: clinical_form_response uq_clinical_form_visit_service; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.clinical_form_response
     ADD CONSTRAINT uq_clinical_form_visit_service UNIQUE (visit_id, service_code);
-
 
 --
 -- Name: staff_capability uq_staff_capability; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1388,14 +1301,12 @@ ALTER TABLE ONLY public.clinical_form_response
 ALTER TABLE ONLY public.staff_capability
     ADD CONSTRAINT uq_staff_capability UNIQUE (staff_id, capability);
 
-
 --
 -- Name: visit visit_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_pkey PRIMARY KEY (visit_id);
-
 
 --
 -- Name: ward ward_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1404,14 +1315,12 @@ ALTER TABLE ONLY public.visit
 ALTER TABLE ONLY public.ward
     ADD CONSTRAINT ward_pkey PRIMARY KEY (code);
 
-
 --
 -- Name: work_roster work_roster_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.work_roster
     ADD CONSTRAINT work_roster_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: work_session work_session_location_id_session_date_session_type_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1420,14 +1329,12 @@ ALTER TABLE ONLY public.work_roster
 ALTER TABLE ONLY public.work_session
     ADD CONSTRAINT work_session_location_id_session_date_session_type_key UNIQUE (location_id, session_date, session_type);
 
-
 --
 -- Name: work_session work_session_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.work_session
     ADD CONSTRAINT work_session_pkey PRIMARY KEY (id);
-
 
 --
 -- Name: work_session_staff work_session_staff_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1436,7 +1343,6 @@ ALTER TABLE ONLY public.work_session
 ALTER TABLE ONLY public.work_session_staff
     ADD CONSTRAINT work_session_staff_pkey PRIMARY KEY (id);
 
-
 --
 -- Name: work_session_staff work_session_staff_work_session_id_staff_id_station_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
@@ -1444,13 +1350,11 @@ ALTER TABLE ONLY public.work_session_staff
 ALTER TABLE ONLY public.work_session_staff
     ADD CONSTRAINT work_session_staff_work_session_id_staff_id_station_key UNIQUE (work_session_id, staff_id, station);
 
-
 --
 -- Name: idx_appointment_doctor_date; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_appointment_doctor_date ON public.appointment USING btree (doctor_id, slot_start);
-
 
 --
 -- Name: idx_appointment_patient; Type: INDEX; Schema: public; Owner: -
@@ -1458,13 +1362,11 @@ CREATE INDEX idx_appointment_doctor_date ON public.appointment USING btree (doct
 
 CREATE INDEX idx_appointment_patient ON public.appointment USING btree (clinic_patient_id);
 
-
 --
 -- Name: idx_appointment_session; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_appointment_session ON public.appointment USING btree (work_session_id);
-
 
 --
 -- Name: idx_appointment_status; Type: INDEX; Schema: public; Owner: -
@@ -1472,13 +1374,11 @@ CREATE INDEX idx_appointment_session ON public.appointment USING btree (work_ses
 
 CREATE INDEX idx_appointment_status ON public.appointment USING btree (status) WHERE (status = ANY (ARRAY['SCHEDULED'::text, 'CONFIRMED'::text, 'CHECKED_IN'::text]));
 
-
 --
 -- Name: idx_booking_channel_active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_booking_channel_active ON public.booking_channel USING btree (is_active) WHERE (is_active = true);
-
 
 --
 -- Name: idx_booking_channel_category; Type: INDEX; Schema: public; Owner: -
@@ -1486,13 +1386,11 @@ CREATE INDEX idx_booking_channel_active ON public.booking_channel USING btree (i
 
 CREATE INDEX idx_booking_channel_category ON public.booking_channel USING btree (category);
 
-
 --
 -- Name: idx_care_episode_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_care_episode_lookup ON public.care_episode USING btree (clinic_patient_id, service_type_id, status);
-
 
 --
 -- Name: idx_clinical_form_visit; Type: INDEX; Schema: public; Owner: -
@@ -1500,13 +1398,11 @@ CREATE INDEX idx_care_episode_lookup ON public.care_episode USING btree (clinic_
 
 CREATE INDEX idx_clinical_form_visit ON public.clinical_form_response USING btree (visit_id);
 
-
 --
 -- Name: idx_cskh_action_category; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_cskh_action_category ON public.cskh_action USING btree (category);
-
 
 --
 -- Name: idx_cskh_action_deadline; Type: INDEX; Schema: public; Owner: -
@@ -1514,13 +1410,11 @@ CREATE INDEX idx_cskh_action_category ON public.cskh_action USING btree (categor
 
 CREATE INDEX idx_cskh_action_deadline ON public.cskh_action USING btree (deadline_at) WHERE (deadline_at IS NOT NULL);
 
-
 --
 -- Name: idx_cskh_action_patient; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_cskh_action_patient ON public.cskh_action USING btree (clinic_patient_id) WHERE (clinic_patient_id IS NOT NULL);
-
 
 --
 -- Name: idx_cskh_action_source_created; Type: INDEX; Schema: public; Owner: -
@@ -1528,13 +1422,11 @@ CREATE INDEX idx_cskh_action_patient ON public.cskh_action USING btree (clinic_p
 
 CREATE INDEX idx_cskh_action_source_created ON public.cskh_action USING btree (source_created_at DESC NULLS LAST);
 
-
 --
 -- Name: idx_cskh_log_date; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_cskh_log_date ON public.cskh_log USING btree (work_date DESC);
-
 
 --
 -- Name: idx_cskh_log_patient; Type: INDEX; Schema: public; Owner: -
@@ -1542,13 +1434,11 @@ CREATE INDEX idx_cskh_log_date ON public.cskh_log USING btree (work_date DESC);
 
 CREATE INDEX idx_cskh_log_patient ON public.cskh_log USING btree (clinic_patient_id);
 
-
 --
 -- Name: idx_drug_catalog_active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_drug_catalog_active ON public.drug_catalog USING btree (name_base) WHERE is_active;
-
 
 --
 -- Name: idx_event_log_aggregate; Type: INDEX; Schema: public; Owner: -
@@ -1556,13 +1446,11 @@ CREATE INDEX idx_drug_catalog_active ON public.drug_catalog USING btree (name_ba
 
 CREATE INDEX idx_event_log_aggregate ON public.event_log USING btree (aggregate_type, aggregate_id, occurred_at);
 
-
 --
 -- Name: idx_event_log_correlation; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_event_log_correlation ON public.event_log USING btree (correlation_id) WHERE (correlation_id IS NOT NULL);
-
 
 --
 -- Name: idx_event_log_event_type; Type: INDEX; Schema: public; Owner: -
@@ -1570,13 +1458,11 @@ CREATE INDEX idx_event_log_correlation ON public.event_log USING btree (correlat
 
 CREATE INDEX idx_event_log_event_type ON public.event_log USING btree (event_type, occurred_at);
 
-
 --
 -- Name: idx_event_log_occurred_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_event_log_occurred_at ON public.event_log USING btree (occurred_at);
-
 
 --
 -- Name: idx_event_log_unpublished; Type: INDEX; Schema: public; Owner: -
@@ -1584,13 +1470,11 @@ CREATE INDEX idx_event_log_occurred_at ON public.event_log USING btree (occurred
 
 CREATE INDEX idx_event_log_unpublished ON public.event_log USING btree (event_published) WHERE (event_published = false);
 
-
 --
 -- Name: idx_lab_result_appointment; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_lab_result_appointment ON public.lab_result USING btree (appointment_id) WHERE (appointment_id IS NOT NULL);
-
 
 --
 -- Name: idx_lab_result_patient; Type: INDEX; Schema: public; Owner: -
@@ -1598,13 +1482,11 @@ CREATE INDEX idx_lab_result_appointment ON public.lab_result USING btree (appoin
 
 CREATE INDEX idx_lab_result_patient ON public.lab_result USING btree (clinic_patient_id, result_received_at DESC);
 
-
 --
 -- Name: idx_lab_result_safety_gate; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_lab_result_safety_gate ON public.lab_result USING btree (requires_doctor_review, is_finalized) WHERE ((requires_doctor_review = true) AND (is_finalized = false));
-
 
 --
 -- Name: idx_lab_result_triage_pending; Type: INDEX; Schema: public; Owner: -
@@ -1612,13 +1494,11 @@ CREATE INDEX idx_lab_result_safety_gate ON public.lab_result USING btree (requir
 
 CREATE INDEX idx_lab_result_triage_pending ON public.lab_result USING btree (triage_group) WHERE (triage_group = 'PENDING'::text);
 
-
 --
 -- Name: idx_mpi_merge_queue_status_score; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_mpi_merge_queue_status_score ON public.mpi_merge_queue USING btree (status, score DESC);
-
 
 --
 -- Name: idx_patient_full_name_unaccent; Type: INDEX; Schema: public; Owner: -
@@ -1626,13 +1506,11 @@ CREATE INDEX idx_mpi_merge_queue_status_score ON public.mpi_merge_queue USING bt
 
 CREATE INDEX idx_patient_full_name_unaccent ON public.patient USING gin (full_name_unaccent public.gin_trgm_ops);
 
-
 --
 -- Name: idx_patient_national_id_unique; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_patient_national_id_unique ON public.patient USING btree (national_id_number) WHERE (national_id_number IS NOT NULL);
-
 
 --
 -- Name: idx_patient_patient_code; Type: INDEX; Schema: public; Owner: -
@@ -1640,13 +1518,11 @@ CREATE UNIQUE INDEX idx_patient_national_id_unique ON public.patient USING btree
 
 CREATE INDEX idx_patient_patient_code ON public.patient USING btree (patient_code);
 
-
 --
 -- Name: idx_patient_phone_primary; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_patient_phone_primary ON public.patient USING btree (phone_primary);
-
 
 --
 -- Name: idx_payment_visit; Type: INDEX; Schema: public; Owner: -
@@ -1654,13 +1530,11 @@ CREATE INDEX idx_patient_phone_primary ON public.patient USING btree (phone_prim
 
 CREATE INDEX idx_payment_visit ON public.payment USING btree (visit_id);
 
-
 --
 -- Name: idx_pregnancy_clinic_patient_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_pregnancy_clinic_patient_id ON public.pregnancy USING btree (clinic_patient_id);
-
 
 --
 -- Name: idx_pregnancy_outcome; Type: INDEX; Schema: public; Owner: -
@@ -1668,13 +1542,11 @@ CREATE INDEX idx_pregnancy_clinic_patient_id ON public.pregnancy USING btree (cl
 
 CREATE INDEX idx_pregnancy_outcome ON public.pregnancy USING btree (outcome);
 
-
 --
 -- Name: idx_pregnancy_primary_doctor_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_pregnancy_primary_doctor_id ON public.pregnancy USING btree (primary_doctor_id);
-
 
 --
 -- Name: idx_prescription_patient; Type: INDEX; Schema: public; Owner: -
@@ -1682,13 +1554,11 @@ CREATE INDEX idx_pregnancy_primary_doctor_id ON public.pregnancy USING btree (pr
 
 CREATE INDEX idx_prescription_patient ON public.prescription USING btree (clinic_patient_id) WHERE (clinic_patient_id IS NOT NULL);
 
-
 --
 -- Name: idx_prescription_visit; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_prescription_visit ON public.prescription USING btree (visit_id) WHERE (visit_id IS NOT NULL);
-
 
 --
 -- Name: idx_service_log_kind; Type: INDEX; Schema: public; Owner: -
@@ -1696,13 +1566,11 @@ CREATE INDEX idx_prescription_visit ON public.prescription USING btree (visit_id
 
 CREATE INDEX idx_service_log_kind ON public.service_log USING btree (kind) WHERE (kind IS NOT NULL);
 
-
 --
 -- Name: idx_service_log_patient; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_service_log_patient ON public.service_log USING btree (clinic_patient_id) WHERE (clinic_patient_id IS NOT NULL);
-
 
 --
 -- Name: idx_service_log_service_type; Type: INDEX; Schema: public; Owner: -
@@ -1710,13 +1578,11 @@ CREATE INDEX idx_service_log_patient ON public.service_log USING btree (clinic_p
 
 CREATE INDEX idx_service_log_service_type ON public.service_log USING btree (service_type_id) WHERE (service_type_id IS NOT NULL);
 
-
 --
 -- Name: idx_service_log_started; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_service_log_started ON public.service_log USING btree (started_at DESC NULLS LAST);
-
 
 --
 -- Name: idx_service_log_status; Type: INDEX; Schema: public; Owner: -
@@ -1724,13 +1590,11 @@ CREATE INDEX idx_service_log_started ON public.service_log USING btree (started_
 
 CREATE INDEX idx_service_log_status ON public.service_log USING btree (status);
 
-
 --
 -- Name: idx_service_price_group_active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_service_price_group_active ON public.service_price USING btree ("group") WHERE active;
-
 
 --
 -- Name: idx_staff_active; Type: INDEX; Schema: public; Owner: -
@@ -1738,13 +1602,11 @@ CREATE INDEX idx_service_price_group_active ON public.service_price USING btree 
 
 CREATE INDEX idx_staff_active ON public.staff USING btree (is_active) WHERE (is_active = true);
 
-
 --
 -- Name: idx_staff_auth_user_id_unique; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_staff_auth_user_id_unique ON public.staff USING btree (auth_user_id) WHERE (auth_user_id IS NOT NULL);
-
 
 --
 -- Name: idx_staff_capability_capability; Type: INDEX; Schema: public; Owner: -
@@ -1752,13 +1614,11 @@ CREATE UNIQUE INDEX idx_staff_auth_user_id_unique ON public.staff USING btree (a
 
 CREATE INDEX idx_staff_capability_capability ON public.staff_capability USING btree (capability);
 
-
 --
 -- Name: idx_staff_capability_staff_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_staff_capability_staff_id ON public.staff_capability USING btree (staff_id);
-
 
 --
 -- Name: idx_staff_primary_location; Type: INDEX; Schema: public; Owner: -
@@ -1766,13 +1626,11 @@ CREATE INDEX idx_staff_capability_staff_id ON public.staff_capability USING btre
 
 CREATE INDEX idx_staff_primary_location ON public.staff USING btree (primary_location_id);
 
-
 --
 -- Name: idx_staff_task_assigned; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_staff_task_assigned ON public.staff_task USING btree (assigned_to, status);
-
 
 --
 -- Name: idx_staff_task_due; Type: INDEX; Schema: public; Owner: -
@@ -1780,13 +1638,11 @@ CREATE INDEX idx_staff_task_assigned ON public.staff_task USING btree (assigned_
 
 CREATE INDEX idx_staff_task_due ON public.staff_task USING btree (due_at) WHERE (status = 'PENDING'::text);
 
-
 --
 -- Name: idx_staff_task_source; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_staff_task_source ON public.staff_task USING btree (source_type, source_id);
-
 
 --
 -- Name: idx_ultrasound_patient; Type: INDEX; Schema: public; Owner: -
@@ -1794,13 +1650,11 @@ CREATE INDEX idx_staff_task_source ON public.staff_task USING btree (source_type
 
 CREATE INDEX idx_ultrasound_patient ON public.ultrasound_record USING btree (clinic_patient_id);
 
-
 --
 -- Name: idx_ultrasound_visit; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_ultrasound_visit ON public.ultrasound_record USING btree (visit_id);
-
 
 --
 -- Name: idx_visit_patient; Type: INDEX; Schema: public; Owner: -
@@ -1808,13 +1662,11 @@ CREATE INDEX idx_ultrasound_visit ON public.ultrasound_record USING btree (visit
 
 CREATE INDEX idx_visit_patient ON public.visit USING btree (clinic_patient_id);
 
-
 --
 -- Name: idx_ward_province_code; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_ward_province_code ON public.ward USING btree (province_code);
-
 
 --
 -- Name: idx_work_roster_date; Type: INDEX; Schema: public; Owner: -
@@ -1822,13 +1674,11 @@ CREATE INDEX idx_ward_province_code ON public.ward USING btree (province_code);
 
 CREATE INDEX idx_work_roster_date ON public.work_roster USING btree (work_date);
 
-
 --
 -- Name: idx_work_roster_staff; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_work_roster_staff ON public.work_roster USING btree (staff_id);
-
 
 --
 -- Name: idx_work_roster_week; Type: INDEX; Schema: public; Owner: -
@@ -1836,13 +1686,11 @@ CREATE INDEX idx_work_roster_staff ON public.work_roster USING btree (staff_id);
 
 CREATE INDEX idx_work_roster_week ON public.work_roster USING btree (week_start);
 
-
 --
 -- Name: idx_work_roster_week_status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_work_roster_week_status ON public.work_roster USING btree (week_start, status);
-
 
 --
 -- Name: idx_work_session_date; Type: INDEX; Schema: public; Owner: -
@@ -1850,13 +1698,11 @@ CREATE INDEX idx_work_roster_week_status ON public.work_roster USING btree (week
 
 CREATE INDEX idx_work_session_date ON public.work_session USING btree (session_date DESC);
 
-
 --
 -- Name: idx_wss_staff; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_wss_staff ON public.work_session_staff USING btree (staff_id);
-
 
 --
 -- Name: idx_wss_work_session; Type: INDEX; Schema: public; Owner: -
@@ -1864,13 +1710,11 @@ CREATE INDEX idx_wss_staff ON public.work_session_staff USING btree (staff_id);
 
 CREATE INDEX idx_wss_work_session ON public.work_session_staff USING btree (work_session_id);
 
-
 --
 -- Name: uq_block_budget_key; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_block_budget_key ON public.block_budget USING btree (location_id, COALESCE(doctor_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(weekday, 9), hour_start);
-
 
 --
 -- Name: uq_care_episode_live; Type: INDEX; Schema: public; Owner: -
@@ -1878,13 +1722,11 @@ CREATE UNIQUE INDEX uq_block_budget_key ON public.block_budget USING btree (loca
 
 CREATE UNIQUE INDEX uq_care_episode_live ON public.care_episode USING btree (clinic_patient_id, service_type_id) WHERE (status <> 'CLOSED'::text);
 
-
 --
 -- Name: uq_service_price_code_group; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_service_price_code_group ON public.service_price USING btree ("group", service_code);
-
 
 --
 -- Name: uq_visit_appointment_id; Type: INDEX; Schema: public; Owner: -
@@ -1892,13 +1734,11 @@ CREATE UNIQUE INDEX uq_service_price_code_group ON public.service_price USING bt
 
 CREATE UNIQUE INDEX uq_visit_appointment_id ON public.visit USING btree (appointment_id) WHERE (appointment_id IS NOT NULL);
 
-
 --
 -- Name: clinical_record clinical_record_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER clinical_record_set_updated_at BEFORE UPDATE ON public.clinical_record FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
 
 --
 -- Name: lab_result lab_result_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -1906,13 +1746,11 @@ CREATE TRIGGER clinical_record_set_updated_at BEFORE UPDATE ON public.clinical_r
 
 CREATE TRIGGER lab_result_set_updated_at BEFORE UPDATE ON public.lab_result FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-
 --
 -- Name: staff_task staff_task_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER staff_task_set_updated_at BEFORE UPDATE ON public.staff_task FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
 
 --
 -- Name: appointment trg_appointment_no_delete; Type: TRIGGER; Schema: public; Owner: -
@@ -1920,13 +1758,11 @@ CREATE TRIGGER staff_task_set_updated_at BEFORE UPDATE ON public.staff_task FOR 
 
 CREATE TRIGGER trg_appointment_no_delete BEFORE DELETE ON public.appointment FOR EACH ROW EXECUTE FUNCTION public.prevent_hard_delete();
 
-
 --
 -- Name: appointment trg_appointment_no_truncate; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_appointment_no_truncate BEFORE TRUNCATE ON public.appointment FOR EACH STATEMENT EXECUTE FUNCTION public.prevent_hard_delete();
-
 
 --
 -- Name: clinical_record trg_clinical_record_no_delete; Type: TRIGGER; Schema: public; Owner: -
@@ -1934,13 +1770,11 @@ CREATE TRIGGER trg_appointment_no_truncate BEFORE TRUNCATE ON public.appointment
 
 CREATE TRIGGER trg_clinical_record_no_delete BEFORE DELETE ON public.clinical_record FOR EACH ROW EXECUTE FUNCTION public.prevent_hard_delete();
 
-
 --
 -- Name: clinical_record trg_clinical_record_no_truncate; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_clinical_record_no_truncate BEFORE TRUNCATE ON public.clinical_record FOR EACH STATEMENT EXECUTE FUNCTION public.prevent_hard_delete();
-
 
 --
 -- Name: event_log trg_event_log_no_delete; Type: TRIGGER; Schema: public; Owner: -
@@ -1948,13 +1782,11 @@ CREATE TRIGGER trg_clinical_record_no_truncate BEFORE TRUNCATE ON public.clinica
 
 CREATE TRIGGER trg_event_log_no_delete BEFORE DELETE ON public.event_log FOR EACH ROW EXECUTE FUNCTION public.enforce_append_only();
 
-
 --
 -- Name: event_log trg_event_log_no_truncate; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_event_log_no_truncate BEFORE TRUNCATE ON public.event_log FOR EACH STATEMENT EXECUTE FUNCTION public.enforce_append_only();
-
 
 --
 -- Name: event_log trg_event_log_no_update; Type: TRIGGER; Schema: public; Owner: -
@@ -1962,13 +1794,11 @@ CREATE TRIGGER trg_event_log_no_truncate BEFORE TRUNCATE ON public.event_log FOR
 
 CREATE TRIGGER trg_event_log_no_update BEFORE UPDATE ON public.event_log FOR EACH ROW EXECUTE FUNCTION public.enforce_append_only();
 
-
 --
 -- Name: lab_result trg_lab_result_no_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_lab_result_no_delete BEFORE DELETE ON public.lab_result FOR EACH ROW EXECUTE FUNCTION public.prevent_hard_delete();
-
 
 --
 -- Name: lab_result trg_lab_result_no_truncate; Type: TRIGGER; Schema: public; Owner: -
@@ -1976,13 +1806,11 @@ CREATE TRIGGER trg_lab_result_no_delete BEFORE DELETE ON public.lab_result FOR E
 
 CREATE TRIGGER trg_lab_result_no_truncate BEFORE TRUNCATE ON public.lab_result FOR EACH STATEMENT EXECUTE FUNCTION public.prevent_hard_delete();
 
-
 --
 -- Name: patient trg_patient_no_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_patient_no_delete BEFORE DELETE ON public.patient FOR EACH ROW EXECUTE FUNCTION public.prevent_hard_delete();
-
 
 --
 -- Name: patient trg_patient_no_truncate; Type: TRIGGER; Schema: public; Owner: -
@@ -1990,13 +1818,11 @@ CREATE TRIGGER trg_patient_no_delete BEFORE DELETE ON public.patient FOR EACH RO
 
 CREATE TRIGGER trg_patient_no_truncate BEFORE TRUNCATE ON public.patient FOR EACH STATEMENT EXECUTE FUNCTION public.prevent_hard_delete();
 
-
 --
 -- Name: visit trg_visit_finalized_block; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_visit_finalized_block BEFORE UPDATE ON public.visit FOR EACH ROW EXECUTE FUNCTION public.visit_finalized_block_update();
-
 
 --
 -- Name: visit trg_visit_no_delete; Type: TRIGGER; Schema: public; Owner: -
@@ -2004,13 +1830,11 @@ CREATE TRIGGER trg_visit_finalized_block BEFORE UPDATE ON public.visit FOR EACH 
 
 CREATE TRIGGER trg_visit_no_delete BEFORE DELETE ON public.visit FOR EACH ROW EXECUTE FUNCTION public.prevent_hard_delete();
 
-
 --
 -- Name: visit trg_visit_no_truncate; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER trg_visit_no_truncate BEFORE TRUNCATE ON public.visit FOR EACH STATEMENT EXECUTE FUNCTION public.prevent_hard_delete();
-
 
 --
 -- Name: ultrasound_record ultrasound_record_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
@@ -2018,13 +1842,11 @@ CREATE TRIGGER trg_visit_no_truncate BEFORE TRUNCATE ON public.visit FOR EACH ST
 
 CREATE TRIGGER ultrasound_record_set_updated_at BEFORE UPDATE ON public.ultrasound_record FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-
 --
 -- Name: visit visit_set_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER visit_set_updated_at BEFORE UPDATE ON public.visit FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
 
 --
 -- Name: appointment appointment_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2033,14 +1855,12 @@ CREATE TRIGGER visit_set_updated_at BEFORE UPDATE ON public.visit FOR EACH ROW E
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE RESTRICT;
 
-
 --
 -- Name: appointment appointment_doctor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.staff(id);
-
 
 --
 -- Name: appointment appointment_episode_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2049,14 +1869,12 @@ ALTER TABLE ONLY public.appointment
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_episode_id_fkey FOREIGN KEY (episode_id) REFERENCES public.care_episode(id);
 
-
 --
 -- Name: appointment appointment_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id);
-
 
 --
 -- Name: appointment appointment_service_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2065,14 +1883,12 @@ ALTER TABLE ONLY public.appointment
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_service_type_id_fkey FOREIGN KEY (service_type_id) REFERENCES public.service_type(id);
 
-
 --
 -- Name: appointment appointment_work_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.appointment
     ADD CONSTRAINT appointment_work_session_id_fkey FOREIGN KEY (work_session_id) REFERENCES public.work_session(id);
-
 
 --
 -- Name: block_budget block_budget_doctor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2081,14 +1897,12 @@ ALTER TABLE ONLY public.appointment
 ALTER TABLE ONLY public.block_budget
     ADD CONSTRAINT block_budget_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES public.staff(id);
 
-
 --
 -- Name: block_budget block_budget_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.block_budget
     ADD CONSTRAINT block_budget_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id);
-
 
 --
 -- Name: care_episode care_episode_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2097,14 +1911,12 @@ ALTER TABLE ONLY public.block_budget
 ALTER TABLE ONLY public.care_episode
     ADD CONSTRAINT care_episode_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE RESTRICT;
 
-
 --
 -- Name: care_episode care_episode_opened_appointment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.care_episode
     ADD CONSTRAINT care_episode_opened_appointment_id_fkey FOREIGN KEY (opened_appointment_id) REFERENCES public.appointment(id);
-
 
 --
 -- Name: care_episode care_episode_service_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2113,14 +1925,12 @@ ALTER TABLE ONLY public.care_episode
 ALTER TABLE ONLY public.care_episode
     ADD CONSTRAINT care_episode_service_type_id_fkey FOREIGN KEY (service_type_id) REFERENCES public.service_type(id);
 
-
 --
 -- Name: clinical_form_response clinical_form_response_visit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.clinical_form_response
     ADD CONSTRAINT clinical_form_response_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES public.visit(visit_id) ON DELETE RESTRICT;
-
 
 --
 -- Name: clinical_record clinical_record_pregnancy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2129,14 +1939,12 @@ ALTER TABLE ONLY public.clinical_form_response
 ALTER TABLE ONLY public.clinical_record
     ADD CONSTRAINT clinical_record_pregnancy_id_fkey FOREIGN KEY (pregnancy_id) REFERENCES public.pregnancy(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: clinical_record clinical_record_visit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.clinical_record
     ADD CONSTRAINT clinical_record_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES public.visit(visit_id) ON DELETE RESTRICT;
-
 
 --
 -- Name: cskh_action cskh_action_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2145,14 +1953,12 @@ ALTER TABLE ONLY public.clinical_record
 ALTER TABLE ONLY public.cskh_action
     ADD CONSTRAINT cskh_action_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE SET NULL;
 
-
 --
 -- Name: cskh_log cskh_log_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cskh_log
     ADD CONSTRAINT cskh_log_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE SET NULL;
-
 
 --
 -- Name: event_log event_log_causation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2161,14 +1967,12 @@ ALTER TABLE ONLY public.cskh_log
 ALTER TABLE ONLY public.event_log
     ADD CONSTRAINT event_log_causation_id_fkey FOREIGN KEY (causation_id) REFERENCES public.event_log(event_id);
 
-
 --
 -- Name: lab_result lab_result_appointment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result
     ADD CONSTRAINT lab_result_appointment_id_fkey FOREIGN KEY (appointment_id) REFERENCES public.appointment(id);
-
 
 --
 -- Name: lab_result lab_result_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2177,14 +1981,12 @@ ALTER TABLE ONLY public.lab_result
 ALTER TABLE ONLY public.lab_result
     ADD CONSTRAINT lab_result_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id);
 
-
 --
 -- Name: lab_result lab_result_reviewed_by_staff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.lab_result
     ADD CONSTRAINT lab_result_reviewed_by_staff_id_fkey FOREIGN KEY (reviewed_by_staff_id) REFERENCES public.staff(id);
-
 
 --
 -- Name: mpi_merge_queue mpi_merge_queue_patient_id_a_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2193,14 +1995,12 @@ ALTER TABLE ONLY public.lab_result
 ALTER TABLE ONLY public.mpi_merge_queue
     ADD CONSTRAINT mpi_merge_queue_patient_id_a_fkey FOREIGN KEY (patient_id_a) REFERENCES public.patient(clinic_patient_id);
 
-
 --
 -- Name: mpi_merge_queue mpi_merge_queue_patient_id_b_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.mpi_merge_queue
     ADD CONSTRAINT mpi_merge_queue_patient_id_b_fkey FOREIGN KEY (patient_id_b) REFERENCES public.patient(clinic_patient_id);
-
 
 --
 -- Name: mpi_merge_queue mpi_merge_queue_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2209,14 +2009,12 @@ ALTER TABLE ONLY public.mpi_merge_queue
 ALTER TABLE ONLY public.mpi_merge_queue
     ADD CONSTRAINT mpi_merge_queue_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.staff(id);
 
-
 --
 -- Name: patient patient_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient
     ADD CONSTRAINT patient_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id);
-
 
 --
 -- Name: patient_medical_profile patient_medical_profile_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2225,14 +2023,12 @@ ALTER TABLE ONLY public.patient
 ALTER TABLE ONLY public.patient_medical_profile
     ADD CONSTRAINT patient_medical_profile_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id);
 
-
 --
 -- Name: patient patient_province_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.patient
     ADD CONSTRAINT patient_province_code_fkey FOREIGN KEY (province_code) REFERENCES public.province(code);
-
 
 --
 -- Name: patient patient_ward_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2241,14 +2037,12 @@ ALTER TABLE ONLY public.patient
 ALTER TABLE ONLY public.patient
     ADD CONSTRAINT patient_ward_code_fkey FOREIGN KEY (ward_code) REFERENCES public.ward(code);
 
-
 --
 -- Name: payment payment_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.payment
     ADD CONSTRAINT payment_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE SET NULL;
-
 
 --
 -- Name: payment payment_paid_by_staff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2257,14 +2051,12 @@ ALTER TABLE ONLY public.payment
 ALTER TABLE ONLY public.payment
     ADD CONSTRAINT payment_paid_by_staff_id_fkey FOREIGN KEY (paid_by_staff_id) REFERENCES public.staff(id) ON DELETE SET NULL;
 
-
 --
 -- Name: payment payment_visit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.payment
     ADD CONSTRAINT payment_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES public.visit(visit_id) ON DELETE CASCADE;
-
 
 --
 -- Name: pregnancy pregnancy_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2273,14 +2065,12 @@ ALTER TABLE ONLY public.payment
 ALTER TABLE ONLY public.pregnancy
     ADD CONSTRAINT pregnancy_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id);
 
-
 --
 -- Name: pregnancy pregnancy_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pregnancy
     ADD CONSTRAINT pregnancy_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id);
-
 
 --
 -- Name: pregnancy pregnancy_primary_doctor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2289,14 +2079,12 @@ ALTER TABLE ONLY public.pregnancy
 ALTER TABLE ONLY public.pregnancy
     ADD CONSTRAINT pregnancy_primary_doctor_id_fkey FOREIGN KEY (primary_doctor_id) REFERENCES public.staff(id);
 
-
 --
 -- Name: prescription prescription_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.prescription
     ADD CONSTRAINT prescription_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE SET NULL;
-
 
 --
 -- Name: prescription prescription_visit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2305,14 +2093,12 @@ ALTER TABLE ONLY public.prescription
 ALTER TABLE ONLY public.prescription
     ADD CONSTRAINT prescription_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES public.visit(visit_id) ON DELETE SET NULL;
 
-
 --
 -- Name: service_log service_log_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.service_log
     ADD CONSTRAINT service_log_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE SET NULL;
-
 
 --
 -- Name: service_log service_log_service_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2321,14 +2107,12 @@ ALTER TABLE ONLY public.service_log
 ALTER TABLE ONLY public.service_log
     ADD CONSTRAINT service_log_service_type_id_fkey FOREIGN KEY (service_type_id) REFERENCES public.service_type(id) ON DELETE SET NULL;
 
-
 --
 -- Name: staff staff_auth_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.staff
     ADD CONSTRAINT staff_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
 
 --
 -- Name: staff_capability staff_capability_staff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2337,14 +2121,12 @@ ALTER TABLE ONLY public.staff
 ALTER TABLE ONLY public.staff_capability
     ADD CONSTRAINT staff_capability_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff(id) ON DELETE CASCADE;
 
-
 --
 -- Name: staff staff_primary_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.staff
     ADD CONSTRAINT staff_primary_location_id_fkey FOREIGN KEY (primary_location_id) REFERENCES public.clinic_location(id) ON DELETE RESTRICT;
-
 
 --
 -- Name: staff_task staff_task_assigned_to_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2353,14 +2135,12 @@ ALTER TABLE ONLY public.staff
 ALTER TABLE ONLY public.staff_task
     ADD CONSTRAINT staff_task_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.staff(id) ON DELETE SET NULL;
 
-
 --
 -- Name: staff_task staff_task_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.staff_task
     ADD CONSTRAINT staff_task_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id) ON DELETE RESTRICT;
-
 
 --
 -- Name: ultrasound_record ultrasound_record_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2369,14 +2149,12 @@ ALTER TABLE ONLY public.staff_task
 ALTER TABLE ONLY public.ultrasound_record
     ADD CONSTRAINT ultrasound_record_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE RESTRICT;
 
-
 --
 -- Name: ultrasound_record ultrasound_record_performed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ultrasound_record
     ADD CONSTRAINT ultrasound_record_performed_by_fkey FOREIGN KEY (performed_by) REFERENCES public.staff(id) ON DELETE RESTRICT;
-
 
 --
 -- Name: ultrasound_record ultrasound_record_pregnancy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2385,14 +2163,12 @@ ALTER TABLE ONLY public.ultrasound_record
 ALTER TABLE ONLY public.ultrasound_record
     ADD CONSTRAINT ultrasound_record_pregnancy_id_fkey FOREIGN KEY (pregnancy_id) REFERENCES public.pregnancy(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: ultrasound_record ultrasound_record_visit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.ultrasound_record
     ADD CONSTRAINT ultrasound_record_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES public.visit(visit_id) ON DELETE RESTRICT;
-
 
 --
 -- Name: visit visit_appointment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2401,14 +2177,12 @@ ALTER TABLE ONLY public.ultrasound_record
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_appointment_id_fkey FOREIGN KEY (appointment_id) REFERENCES public.appointment(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: visit visit_attending_doctor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_attending_doctor_id_fkey FOREIGN KEY (attending_doctor_id) REFERENCES public.staff(id) ON DELETE RESTRICT;
-
 
 --
 -- Name: visit visit_checked_in_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2417,14 +2191,12 @@ ALTER TABLE ONLY public.visit
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_checked_in_by_fkey FOREIGN KEY (checked_in_by) REFERENCES public.staff(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: visit visit_clinic_patient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_clinic_patient_id_fkey FOREIGN KEY (clinic_patient_id) REFERENCES public.patient(clinic_patient_id) ON DELETE RESTRICT;
-
 
 --
 -- Name: visit visit_finalized_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2433,14 +2205,12 @@ ALTER TABLE ONLY public.visit
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_finalized_by_fkey FOREIGN KEY (finalized_by) REFERENCES public.staff(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: visit visit_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id) ON DELETE RESTRICT;
-
 
 --
 -- Name: visit visit_service_type_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2449,14 +2219,12 @@ ALTER TABLE ONLY public.visit
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_service_type_id_fkey FOREIGN KEY (service_type_id) REFERENCES public.service_type(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: visit visit_work_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.visit
     ADD CONSTRAINT visit_work_session_id_fkey FOREIGN KEY (work_session_id) REFERENCES public.work_session(id) ON DELETE RESTRICT;
-
 
 --
 -- Name: ward ward_province_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2465,14 +2233,12 @@ ALTER TABLE ONLY public.visit
 ALTER TABLE ONLY public.ward
     ADD CONSTRAINT ward_province_code_fkey FOREIGN KEY (province_code) REFERENCES public.province(code);
 
-
 --
 -- Name: work_roster work_roster_staff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.work_roster
     ADD CONSTRAINT work_roster_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff(id) ON DELETE SET NULL;
-
 
 --
 -- Name: work_session work_session_location_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2481,7 +2247,6 @@ ALTER TABLE ONLY public.work_roster
 ALTER TABLE ONLY public.work_session
     ADD CONSTRAINT work_session_location_id_fkey FOREIGN KEY (location_id) REFERENCES public.clinic_location(id);
 
-
 --
 -- Name: work_session_staff work_session_staff_staff_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
@@ -2489,14 +2254,12 @@ ALTER TABLE ONLY public.work_session
 ALTER TABLE ONLY public.work_session_staff
     ADD CONSTRAINT work_session_staff_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff(id) ON DELETE RESTRICT;
 
-
 --
 -- Name: work_session_staff work_session_staff_work_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.work_session_staff
     ADD CONSTRAINT work_session_staff_work_session_id_fkey FOREIGN KEY (work_session_id) REFERENCES public.work_session(id) ON DELETE CASCADE;
-
 
 --
 -- Name: appointment; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2509,7 +2272,6 @@ ALTER TABLE public.appointment ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY appointment_select_authenticated ON public.appointment FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: block_budget; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2541,7 +2303,6 @@ ALTER TABLE public.clinic_location ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY clinic_location_select_authenticated ON public.clinic_location FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: clinical_form_response; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2553,7 +2314,6 @@ ALTER TABLE public.clinical_form_response ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY clinical_form_response_select_authenticated ON public.clinical_form_response FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: clinical_record; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2567,7 +2327,6 @@ ALTER TABLE public.clinical_record ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY clinical_record_select_authenticated ON public.clinical_record FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: cskh_action; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2579,7 +2338,6 @@ ALTER TABLE public.cskh_action ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY cskh_action_select_authenticated ON public.cskh_action FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: cskh_log; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2593,7 +2351,6 @@ ALTER TABLE public.cskh_log ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY cskh_log_select_authenticated ON public.cskh_log FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: drug_catalog; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2605,7 +2362,6 @@ ALTER TABLE public.drug_catalog ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY drug_catalog_select_authenticated ON public.drug_catalog FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: event_log; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2619,7 +2375,6 @@ ALTER TABLE public.event_log ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY event_log_select_authenticated ON public.event_log FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: lab_result; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2631,7 +2386,6 @@ ALTER TABLE public.lab_result ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY lab_result_select_authenticated ON public.lab_result FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: mpi_merge_queue; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2657,13 +2411,11 @@ ALTER TABLE public.patient_medical_profile ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY patient_medical_profile_select_authenticated ON public.patient_medical_profile FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: patient patient_select_authenticated; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY patient_select_authenticated ON public.patient FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: payment; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2677,7 +2429,6 @@ ALTER TABLE public.payment ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY payment_select_authenticated ON public.payment FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: pregnancy; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2690,7 +2441,6 @@ ALTER TABLE public.pregnancy ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY pregnancy_select_authenticated ON public.pregnancy FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: prescription; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2702,7 +2452,6 @@ ALTER TABLE public.prescription ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY prescription_select_authenticated ON public.prescription FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: province; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2728,7 +2477,6 @@ ALTER TABLE public.service_log ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY service_log_select_authenticated ON public.service_log FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: service_price; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2741,7 +2489,6 @@ ALTER TABLE public.service_price ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY service_price_select_authenticated ON public.service_price FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: service_type; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2753,7 +2500,6 @@ ALTER TABLE public.service_type ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY service_type_select_authenticated ON public.service_type FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: staff; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2773,7 +2519,6 @@ ALTER TABLE public.staff_capability ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY staff_select_authenticated ON public.staff FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: staff_task; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2785,7 +2530,6 @@ ALTER TABLE public.staff_task ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY staff_task_select_authenticated ON public.staff_task FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: ultrasound_record; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2805,7 +2549,6 @@ ALTER TABLE public.visit ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY visit_select_authenticated ON public.visit FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: ward; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2824,7 +2567,6 @@ ALTER TABLE public.work_roster ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY work_roster_select_authenticated ON public.work_roster FOR SELECT TO authenticated USING (true);
 
-
 --
 -- Name: work_session; Type: ROW SECURITY; Schema: public; Owner: -
 --
@@ -2836,7 +2578,6 @@ ALTER TABLE public.work_session ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY work_session_select_authenticated ON public.work_session FOR SELECT TO authenticated USING (true);
-
 
 --
 -- Name: work_session_staff; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2850,10 +2591,7 @@ ALTER TABLE public.work_session_staff ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY work_session_staff_select_authenticated ON public.work_session_staff FOR SELECT TO authenticated USING (true);
 
-
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict IX6t3anCaHfavJhpZgvih68WbDVsiRdflltnRkff4qOaK5nAK33WnuqtFLin8cB
 

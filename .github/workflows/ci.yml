@@ -224,6 +224,17 @@ jobs:
       - name: Install psql client
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
 
+      - name: Migrations and seed must be plain SQL
+        # psql meta-commands (\restrict, COPY ... FROM stdin) are client syntax.
+        # psql runs them, the Supabase CLI does not — so a dump-derived file can
+        # pass every test here and still make `supabase db push` fail on line 1.
+        run: |
+          if grep -nE '^\\(un)?restrict|FROM stdin' \
+               supabase/migrations/*.sql supabase/seed.sql; then
+            echo "::error::psql-only syntax — the Supabase CLI cannot execute it"
+            exit 1
+          fi
+
       - name: Supabase auth fixture
         run: $PSQL -f supabase/tests/bootstrap_plain_postgres.sql
 

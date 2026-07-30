@@ -138,6 +138,33 @@ BEGIN
 END
 $membership_is_automatic$;
 
+DO $policies_need_grants$
+DECLARE
+    ungranted text;
+BEGIN
+    -- A read policy only narrows a privilege the role already holds. The frozen
+    -- baseline was dumped without ACLs, so on a fresh project every policy
+    -- written in W1-W4 was unreachable and the app died on permission denied —
+    -- invisible in production, fatal in a new environment. 20260730000008
+    -- restores them; this makes sure they stay.
+    SELECT string_agg(DISTINCT c.relname, ', ')
+      INTO ungranted
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_policy p ON p.polrelid = c.oid
+     WHERE n.nspname = 'public'
+       AND c.relkind = 'r'
+       AND p.polcmd IN ('r', '*')
+       AND NOT has_table_privilege('authenticated', c.oid, 'SELECT');
+
+    IF ungranted IS NOT NULL THEN
+        RAISE EXCEPTION
+            'these tables have a read policy but authenticated cannot SELECT them: %',
+            ungranted;
+    END IF;
+END
+$policies_need_grants$;
+
 -- --------------------------------------------------------------------------
 -- Behaviour. Two clinics, one staff member each, one patient each.
 -- --------------------------------------------------------------------------
@@ -175,24 +202,36 @@ VALUES
     ('e0000000-0000-4000-8000-00000000000b', 'b0000000-0000-4000-8000-000000000002',
      'BN001', 'Bệnh nhân của B', 'd0000000-0000-4000-8000-00000000000b');
 
--- The disposable fixture has no default privileges; a real Supabase project
--- grants these to both roles already.
-GRANT SELECT ON public.patient, public.staff, public.clinic_location
-    TO authenticated, service_role;
-
 SET LOCAL ROLE authenticated;
 
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 
 DO $staff_a$
 BEGIN
-    IF (SELECT count(*) FROM public.patient) <> 1
-       OR (SELECT full_name FROM public.patient) <> 'Bệnh nhân của A' THEN
-        RAISE EXCEPTION 'staff A must see exactly their own clinic''s patient';
+    IF NOT EXISTS (
+        SELECT 1 FROM public.patient
+         WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000a'
+    ) OR EXISTS (
+        SELECT 1 FROM public.patient
+         WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000b'
+    ) THEN
+        RAISE EXCEPTION 'staff A must see their own patient and not clinic B''s';
     END IF;
 
-    IF (SELECT count(*) FROM public.clinic_location) <> 1 THEN
+    -- Count only what this test inserted: seed.sql loads real clinic_location
+    -- rows, so asserting on the whole table passes on an empty database and
+    -- fails on a seeded one.
+    IF EXISTS (
+        SELECT 1 FROM public.clinic_location
+         WHERE id = 'd0000000-0000-4000-8000-00000000000b'
+    ) THEN
         RAISE EXCEPTION 'staff A must not see another clinic''s locations';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM public.clinic_location
+         WHERE id = 'd0000000-0000-4000-8000-00000000000a'
+    ) THEN
+        RAISE EXCEPTION 'staff A must see their own clinic''s location';
     END IF;
 
     -- Self-read must work even before any colleague lookup.
@@ -214,9 +253,14 @@ SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222
 
 DO $staff_b$
 BEGIN
-    IF (SELECT count(*) FROM public.patient) <> 1
-       OR (SELECT full_name FROM public.patient) <> 'Bệnh nhân của B' THEN
-        RAISE EXCEPTION 'staff B must see exactly their own clinic''s patient';
+    IF NOT EXISTS (
+        SELECT 1 FROM public.patient
+         WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000b'
+    ) OR EXISTS (
+        SELECT 1 FROM public.patient
+         WHERE clinic_patient_id = 'e0000000-0000-4000-8000-00000000000a'
+    ) THEN
+        RAISE EXCEPTION 'staff B must see their own patient and not clinic A''s';
     END IF;
 END
 $staff_b$;
@@ -228,7 +272,7 @@ BEGIN
     -- app/(auth)/enter signs in as one shared account with no staff row. Under
     -- the old USING(true) policies that account could read every patient in the
     -- database; now it must read none.
-    IF (SELECT count(*) FROM public.patient) <> 0 THEN
+    IF EXISTS (SELECT 1 FROM public.patient) THEN
         RAISE EXCEPTION 'an authenticated account with no staff row must read no patients';
     END IF;
 
@@ -243,7 +287,10 @@ SET LOCAL ROLE service_role;
 
 DO $backend_unaffected$
 BEGIN
-    IF (SELECT count(*) FROM public.patient) <> 2 THEN
+    IF (SELECT count(*) FROM public.patient
+         WHERE clinic_patient_id IN (
+             'e0000000-0000-4000-8000-00000000000a',
+             'e0000000-0000-4000-8000-00000000000b')) <> 2 THEN
         RAISE EXCEPTION 'service_role must still read across tenants for the backend';
     END IF;
 END

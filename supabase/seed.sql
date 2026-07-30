@@ -1,13 +1,16 @@
 -- ClinicAI reference/lookup seed (no PII). Applied by 'supabase db reset' locally,
 -- or manually to a fresh project. NOT auto-applied by 'supabase db push'.
 -- Source: fzw dev project schema-frozen seed.sql on 2026-07-14.
+-- NOTE: pg_dump 18 emits \restrict / \unrestrict around dumps. Those are psql
+-- meta-commands, not SQL, so only psql understands them — `supabase db push`
+-- and `db reset` send this file to a plain SQL executor and fail on line 1.
+-- They are a psql-side guard for restoring untrusted dumps and mean nothing
+-- for us, so they are stripped. Asserted by supabase/tests/run-local.sh.
 SET session_replication_role = replica;  -- defer FK checks during bulk load
 
 --
 -- PostgreSQL database dump
 --
-
-\restrict e4zLEmrbX34mMrBPNU0lGJ9zyj6S3uYUvzTJyKfaPva1Qz9uaBxqLbQineadMod
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -28,23 +31,17 @@ SET row_security = off;
 -- Data for Name: clinic_location; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.clinic_location (id, code, name, address, is_active, created_at) FROM stdin;
-fe45d9f6-0d67-428d-9d16-5ba5c36befff	KN	Kim Ngưu	99 Kim Ngưu, Hai Bà Trưng, Hà Nội	t	2026-06-19 04:45:46.078292+00
-b4607cb5-3ff1-4c20-9115-147f06aeac1b	HN	Hào Nam	12 Hào Nam, Đống Đa, Hà Nội	f	2026-06-19 04:45:46.078292+00
-\.
-
+INSERT INTO public.clinic_location (id, code, name, address, is_active, created_at) VALUES
+    ('fe45d9f6-0d67-428d-9d16-5ba5c36befff', 'KN', 'Kim Ngưu', '99 Kim Ngưu, Hai Bà Trưng, Hà Nội', 't', '2026-06-19 04:45:46.078292+00'),
+    ('b4607cb5-3ff1-4c20-9115-147f06aeac1b', 'HN', 'Hào Nam', '12 Hào Nam, Đống Đa, Hà Nội', 'f', '2026-06-19 04:45:46.078292+00');
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict e4zLEmrbX34mMrBPNU0lGJ9zyj6S3uYUvzTJyKfaPva1Qz9uaBxqLbQineadMod
-
 --
 -- PostgreSQL database dump
 --
-
-\restrict v2RUAznoq1DIR5aEgrQLGTBYtpdmBtNOfWfx1D5lQjwOuLUA00lsrdgSpjZTPaS
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -65,35 +62,29 @@ SET row_security = off;
 -- Data for Name: service_type; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.service_type (id, code, name, default_duration_minutes, is_active, created_at) FROM stdin;
-a5de63b7-84d7-48b6-95d9-b558fa4c5807	SAN_1	Sản 1	30	t	2026-06-19 04:45:46.928117+00
-95707b7b-61c8-4b78-8fb1-f70491ecc1ed	SAN_2	Sản 2	30	t	2026-06-19 04:45:46.928117+00
-94a3d45f-a905-4155-b255-33c0c833ddca	SAN_3	Sản 3	30	t	2026-06-19 04:45:46.928117+00
-c0b819cf-2773-4396-b5b8-0c6bc3b3e1ee	NPDH	NPĐH	30	t	2026-06-19 04:45:46.928117+00
-5701287c-508f-4593-83f2-cb1a9954a1d6	HO_SO_SINH	Hồ sơ sinh	30	t	2026-06-19 04:45:46.928117+00
-ee8303c3-4d85-4d29-b2a1-924e4f3622c1	TIEN_HON_NHAN	Tiền hôn nhân	30	t	2026-06-19 04:45:46.928117+00
-f7ddb595-553c-4944-bff8-3e7035c54384	HIEM_MUON	Hiếm muộn	30	t	2026-06-19 04:45:46.928117+00
-81415f94-b32b-4e75-92dd-390e687c5c0d	NOI_TIET_TINH_DUC	Nội tiết - Tình dục	30	t	2026-06-19 04:45:46.928117+00
-c4e10cb8-1432-4ada-9355-d44df0bf06cf	PHU_KHOA	Phụ khoa	30	t	2026-06-19 04:45:46.928117+00
-50c503a4-9d59-4a99-91f8-1987a83d4c11	NAM_KHOA	Nam khoa	30	t	2026-06-19 04:45:46.928117+00
-e0ea9f0b-fa4b-446d-8869-41b2bfabef9b	TU_VAN_CHUYEN_SAU	Tư vấn chuyên sâu	30	t	2026-06-19 04:45:46.928117+00
-048a59e3-0620-4f48-b392-8661ce0a3e64	THU_THUAT	***#Thủ thuật	30	t	2026-06-19 04:45:46.928117+00
-af545864-a967-41cf-9274-869d5483bd40	FREE	FREE	30	t	2026-06-19 04:45:46.928117+00
-a478cb9b-c659-4529-adef-ea1d742ae420	KHAM_TIEN_SAN	Khám tiền sản	30	t	2026-06-19 04:45:46.928117+00
-\.
-
+INSERT INTO public.service_type (id, code, name, default_duration_minutes, is_active, created_at) VALUES
+    ('a5de63b7-84d7-48b6-95d9-b558fa4c5807', 'SAN_1', 'Sản 1', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('95707b7b-61c8-4b78-8fb1-f70491ecc1ed', 'SAN_2', 'Sản 2', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('94a3d45f-a905-4155-b255-33c0c833ddca', 'SAN_3', 'Sản 3', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('c0b819cf-2773-4396-b5b8-0c6bc3b3e1ee', 'NPDH', 'NPĐH', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('5701287c-508f-4593-83f2-cb1a9954a1d6', 'HO_SO_SINH', 'Hồ sơ sinh', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('ee8303c3-4d85-4d29-b2a1-924e4f3622c1', 'TIEN_HON_NHAN', 'Tiền hôn nhân', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('f7ddb595-553c-4944-bff8-3e7035c54384', 'HIEM_MUON', 'Hiếm muộn', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('81415f94-b32b-4e75-92dd-390e687c5c0d', 'NOI_TIET_TINH_DUC', 'Nội tiết - Tình dục', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('c4e10cb8-1432-4ada-9355-d44df0bf06cf', 'PHU_KHOA', 'Phụ khoa', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('50c503a4-9d59-4a99-91f8-1987a83d4c11', 'NAM_KHOA', 'Nam khoa', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('e0ea9f0b-fa4b-446d-8869-41b2bfabef9b', 'TU_VAN_CHUYEN_SAU', 'Tư vấn chuyên sâu', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('048a59e3-0620-4f48-b392-8661ce0a3e64', 'THU_THUAT', '***#Thủ thuật', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('af545864-a967-41cf-9274-869d5483bd40', 'FREE', 'FREE', '30', 't', '2026-06-19 04:45:46.928117+00'),
+    ('a478cb9b-c659-4529-adef-ea1d742ae420', 'KHAM_TIEN_SAN', 'Khám tiền sản', '30', 't', '2026-06-19 04:45:46.928117+00');
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict v2RUAznoq1DIR5aEgrQLGTBYtpdmBtNOfWfx1D5lQjwOuLUA00lsrdgSpjZTPaS
-
 --
 -- PostgreSQL database dump
 --
-
-\restrict BUar9TtcBhAOYSM7i0HiGTX2fhQvgiigHhDArGNDNk44izbodWKVhURxhLS22dF
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -114,50 +105,44 @@ SET row_security = off;
 -- Data for Name: service_price; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.service_price (id, service_code, name, "group", unit_price, active, created_at, updated_at, category, tang) FROM stdin;
-5af56007-8d3b-4be0-a90c-1eb2916fc9c7	CLS_NUOC_TIEU	Nước tiểu	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Tầng 1	Tầng 1
-cae5b478-e0ac-4c57-93a0-3b8aec68f87f	CLS_DO_MAT_DO_XUONG	Đo mật độ xương	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Tầng 1	Tầng 1
-e8c5c880-af86-4272-aad4-975ba9a754c5	CLS_XET_NGHIEM_DICH_AM_DAO	Xét nghiệm dịch âm đạo	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Tầng 1	Tầng 1
-291e2f94-79af-44f4-b17b-03648ffbfc2c	CLS_XET_NGHIEM_MAU	Xét nghiệm máu	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Tầng 1	Tầng 1
-4228f328-e02e-40b6-9fdd-e39e6819f8d2	CLS_KHAM_PHU_KHOA	Khám phụ khoa	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Tầng 1	Tầng 1
-6ae18d0e-6814-4457-996b-389c94d70400	CLS_DAT_VONG_NOI_TIET	Đặt vòng nội tiết	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thủ thuật	\N
-5cc9e6b1-d72c-498d-8efe-37d725e0cb01	CLS_THAO_VONG	Tháo vòng	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thủ thuật	\N
-220f7873-8bc4-4a65-a0cb-67a0060a2507	CLS_CAY_QUE_TRANH_THAI	Cấy que tránh thai	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thủ thuật	\N
-6cc8997d-2b48-465a-918e-12eb77721413	CLS_THAO_QUE_TRANH_THAI	Tháo que tránh thai	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thủ thuật	\N
-1f7c78fb-5803-43e0-a9f9-7b607fd92dbb	CLS_SOI_CO_TU_CUNG	Soi cổ tử cung	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thủ thuật	\N
-74958d9a-096f-4475-8ed6-a0569eeba5db	CLS_CHUP_VU_EP	Chụp vú ép	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Chụp phim ngoài	\N
-8bad3c7f-8f04-46cb-9f8c-2752ccde5da8	CLS_CHUP_MRI_VU	Chụp MRI vú	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Chụp phim ngoài	\N
-d0283c31-84f9-498a-a6c3-b8833bfa2fe0	CLS_CHUP_TU_CUNG_VOI_TRUNG	Chụp tử cung – vòi trứng	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Chụp phim ngoài	\N
-2d7f15d8-de5b-4e36-a9b3-bf15a112eecd	CLS_CHAY_MONITORING	Chạy monitoring	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Chụp phim ngoài	Tầng 2/ Tầng 4
-3200f47c-fb02-48b9-8ac2-74d3d8e51f0c	CLS_SIEU_AM_3D_THAI_12_TUAN	Siêu âm 3D thai <12 tuần	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-0fd6fddf-ec1b-4d3e-9295-798387987700	CLS_SIEU_AM_3D_THAI_12_TUAN_2	Siêu âm 3D thai >12 tuần	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-53e8d354-d4d5-474d-afd2-dddedf7451c4	CLS_SIEU_AM_THAI_6D	Siêu âm thai 6D	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-852105a0-6dd0-4572-9e86-c100047d32a9	CLS_SIEU_AM_DAU_DO_DO_DAI_CTC	Siêu âm đầu dò độ dài CTC	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-9f48a6c0-3d5d-4a0a-a8e6-30ba05965cf0	CLS_SIEU_AM_2D_TC_BT	Siêu âm 2D TC-BT	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-814c1197-3fa5-4ab9-97a5-02fecb9e7459	CLS_SIEU_AM_4D_TC_BT	Siêu âm 4D TC-BT	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-f6a0bf0a-75eb-4df0-8773-0d1556e8db2f	CLS_SIEU_AM_BOM_NUOC_TU_CUNG	Siêu âm bơm nước tử cung	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Thai	\N
-390a2714-d9b3-4f9f-8d5a-bffba5595ebf	CLS_SIEU_AM_VU	Siêu âm vú	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-9afbbddf-8d88-4736-b183-483071819531	CLS_SIEU_AM_TUYEN_GIAP	Siêu âm tuyến giáp	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-aefb6e52-111b-4e71-a829-fc6ed95840ad	CLS_SIEU_AM_O_BUNG	Siêu âm ổ bụng	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-9c5aea54-d27f-480d-9c55-a1be91b58fdd	CLS_SIEU_AM_DOPPLER_MACH_CANH	Siêu âm doppler mạch cảnh	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-c8ee781d-243e-4746-a30c-3049127992a8	CLS_SIEU_AM_DOPPLER_DM_THAN	Siêu âm doppler ĐM thận	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-0521181f-1ea0-45e1-bda3-9b6d32bc533e	CLS_SIEU_AM_DOPPLER_AM_VAT	Siêu âm doppler âm vật	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-66b3dff3-e83b-415a-aac4-cdd92cdf3e82	CLS_SIEU_AM_3D_SAN_CHAU	Siêu âm 3D sàn chậu	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-7c6d66dd-686f-4481-89cf-3388b27818f5	CLS_SIEU_AM_KHOP	Siêu âm khớp	dich_vu	\N	t	2026-06-19 07:28:09.508674+00	2026-06-19 07:28:09.508674+00	Nội tiết – phụ khoa	\N
-\.
-
+INSERT INTO public.service_price (id, service_code, name, "group", unit_price, active, created_at, updated_at, category, tang) VALUES
+    ('5af56007-8d3b-4be0-a90c-1eb2916fc9c7', 'CLS_NUOC_TIEU', 'Nước tiểu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
+    ('cae5b478-e0ac-4c57-93a0-3b8aec68f87f', 'CLS_DO_MAT_DO_XUONG', 'Đo mật độ xương', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
+    ('e8c5c880-af86-4272-aad4-975ba9a754c5', 'CLS_XET_NGHIEM_DICH_AM_DAO', 'Xét nghiệm dịch âm đạo', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
+    ('291e2f94-79af-44f4-b17b-03648ffbfc2c', 'CLS_XET_NGHIEM_MAU', 'Xét nghiệm máu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
+    ('4228f328-e02e-40b6-9fdd-e39e6819f8d2', 'CLS_KHAM_PHU_KHOA', 'Khám phụ khoa', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Tầng 1', 'Tầng 1'),
+    ('6ae18d0e-6814-4457-996b-389c94d70400', 'CLS_DAT_VONG_NOI_TIET', 'Đặt vòng nội tiết', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
+    ('5cc9e6b1-d72c-498d-8efe-37d725e0cb01', 'CLS_THAO_VONG', 'Tháo vòng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
+    ('220f7873-8bc4-4a65-a0cb-67a0060a2507', 'CLS_CAY_QUE_TRANH_THAI', 'Cấy que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
+    ('6cc8997d-2b48-465a-918e-12eb77721413', 'CLS_THAO_QUE_TRANH_THAI', 'Tháo que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
+    ('1f7c78fb-5803-43e0-a9f9-7b607fd92dbb', 'CLS_SOI_CO_TU_CUNG', 'Soi cổ tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL),
+    ('74958d9a-096f-4475-8ed6-a0569eeba5db', 'CLS_CHUP_VU_EP', 'Chụp vú ép', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL),
+    ('8bad3c7f-8f04-46cb-9f8c-2752ccde5da8', 'CLS_CHUP_MRI_VU', 'Chụp MRI vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL),
+    ('d0283c31-84f9-498a-a6c3-b8833bfa2fe0', 'CLS_CHUP_TU_CUNG_VOI_TRUNG', 'Chụp tử cung – vòi trứng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL),
+    ('2d7f15d8-de5b-4e36-a9b3-bf15a112eecd', 'CLS_CHAY_MONITORING', 'Chạy monitoring', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', 'Tầng 2/ Tầng 4'),
+    ('3200f47c-fb02-48b9-8ac2-74d3d8e51f0c', 'CLS_SIEU_AM_3D_THAI_12_TUAN', 'Siêu âm 3D thai <12 tuần', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('0fd6fddf-ec1b-4d3e-9295-798387987700', 'CLS_SIEU_AM_3D_THAI_12_TUAN_2', 'Siêu âm 3D thai >12 tuần', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('53e8d354-d4d5-474d-afd2-dddedf7451c4', 'CLS_SIEU_AM_THAI_6D', 'Siêu âm thai 6D', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('852105a0-6dd0-4572-9e86-c100047d32a9', 'CLS_SIEU_AM_DAU_DO_DO_DAI_CTC', 'Siêu âm đầu dò độ dài CTC', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('9f48a6c0-3d5d-4a0a-a8e6-30ba05965cf0', 'CLS_SIEU_AM_2D_TC_BT', 'Siêu âm 2D TC-BT', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('814c1197-3fa5-4ab9-97a5-02fecb9e7459', 'CLS_SIEU_AM_4D_TC_BT', 'Siêu âm 4D TC-BT', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('f6a0bf0a-75eb-4df0-8773-0d1556e8db2f', 'CLS_SIEU_AM_BOM_NUOC_TU_CUNG', 'Siêu âm bơm nước tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thai', NULL),
+    ('390a2714-d9b3-4f9f-8d5a-bffba5595ebf', 'CLS_SIEU_AM_VU', 'Siêu âm vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('9afbbddf-8d88-4736-b183-483071819531', 'CLS_SIEU_AM_TUYEN_GIAP', 'Siêu âm tuyến giáp', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('aefb6e52-111b-4e71-a829-fc6ed95840ad', 'CLS_SIEU_AM_O_BUNG', 'Siêu âm ổ bụng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('9c5aea54-d27f-480d-9c55-a1be91b58fdd', 'CLS_SIEU_AM_DOPPLER_MACH_CANH', 'Siêu âm doppler mạch cảnh', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('c8ee781d-243e-4746-a30c-3049127992a8', 'CLS_SIEU_AM_DOPPLER_DM_THAN', 'Siêu âm doppler ĐM thận', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('0521181f-1ea0-45e1-bda3-9b6d32bc533e', 'CLS_SIEU_AM_DOPPLER_AM_VAT', 'Siêu âm doppler âm vật', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('66b3dff3-e83b-415a-aac4-cdd92cdf3e82', 'CLS_SIEU_AM_3D_SAN_CHAU', 'Siêu âm 3D sàn chậu', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL),
+    ('7c6d66dd-686f-4481-89cf-3388b27818f5', 'CLS_SIEU_AM_KHOP', 'Siêu âm khớp', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Nội tiết – phụ khoa', NULL);
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BUar9TtcBhAOYSM7i0HiGTX2fhQvgiigHhDArGNDNk44izbodWKVhURxhLS22dF
-
 --
 -- PostgreSQL database dump
 --
-
-\restrict eVI4h5TfXqtNGNuyZMH4WFzdKyB5hoSPcErWh188gBsnX5N7kJvaEMtGLJey5TV
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -178,28 +163,22 @@ SET row_security = off;
 -- Data for Name: booking_channel; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.booking_channel (id, code, name, category, is_active, created_at) FROM stdin;
-eb7b7466-4fcc-4c8a-8bd5-0ac735af5cfb	ZALO_PK	Zalo OA Phòng khám	ZALO	t	2026-06-19 04:45:49.29202+00
-a257e9b8-b1cf-4a76-a209-5615e5d3db5b	FB_DR4WOMEN	FB Dr4women (BS Thành)	FACEBOOK	t	2026-06-19 04:45:49.29202+00
-315dfe8e-d90f-4311-8ee6-044a30ff32c6	FB_4WOMEN	FB 4women Clinic	FACEBOOK	t	2026-06-19 04:45:49.29202+00
-75d1afab-7057-4130-b85e-e47ee1c8ee29	FB_ACADEMY	FB Academy	FACEBOOK	t	2026-06-19 04:45:49.29202+00
-a2a441f4-4f30-4079-98ac-edb905dae96c	HOTLINE	Hotline	HOTLINE	t	2026-06-19 04:45:49.29202+00
-95dbf75f-b2ac-48ce-9151-94f64931cb1a	WALK_IN	Khách walk-in	WALK_IN	t	2026-06-19 04:45:49.29202+00
-5fa87be7-fa45-47c2-af15-04e57885c46c	REFERRAL	Giới thiệu (BN cũ / đồng nghiệp)	REFERRAL	t	2026-06-19 04:45:49.29202+00
-\.
-
+INSERT INTO public.booking_channel (id, code, name, category, is_active, created_at) VALUES
+    ('eb7b7466-4fcc-4c8a-8bd5-0ac735af5cfb', 'ZALO_PK', 'Zalo OA Phòng khám', 'ZALO', 't', '2026-06-19 04:45:49.29202+00'),
+    ('a257e9b8-b1cf-4a76-a209-5615e5d3db5b', 'FB_DR4WOMEN', 'FB Dr4women (BS Thành)', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00'),
+    ('315dfe8e-d90f-4311-8ee6-044a30ff32c6', 'FB_4WOMEN', 'FB 4women Clinic', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00'),
+    ('75d1afab-7057-4130-b85e-e47ee1c8ee29', 'FB_ACADEMY', 'FB Academy', 'FACEBOOK', 't', '2026-06-19 04:45:49.29202+00'),
+    ('a2a441f4-4f30-4079-98ac-edb905dae96c', 'HOTLINE', 'Hotline', 'HOTLINE', 't', '2026-06-19 04:45:49.29202+00'),
+    ('95dbf75f-b2ac-48ce-9151-94f64931cb1a', 'WALK_IN', 'Khách walk-in', 'WALK_IN', 't', '2026-06-19 04:45:49.29202+00'),
+    ('5fa87be7-fa45-47c2-af15-04e57885c46c', 'REFERRAL', 'Giới thiệu (BN cũ / đồng nghiệp)', 'REFERRAL', 't', '2026-06-19 04:45:49.29202+00');
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict eVI4h5TfXqtNGNuyZMH4WFzdKyB5hoSPcErWh188gBsnX5N7kJvaEMtGLJey5TV
-
 --
 -- PostgreSQL database dump
 --
-
-\restrict rLNP6V50sPSdsBaMqR5cw1CO7XeOcZ1StSRSeuewPcrtTQYQwtiSoRVfjRsJD2n
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -220,85 +199,79 @@ SET row_security = off;
 -- Data for Name: drug_catalog; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.drug_catalog (id, name_base, name_raw, variant, group_label, unit_price, needs_review, is_active, created_at) FROM stdin;
-30d30e8f-89bb-4a22-8615-17c366684552	Besuto	Besuto	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-aa346999-1472-4db6-af39-9fad6ca5b37a	Canxi	Canxi	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-a6bcb629-9a18-4361-849c-50e5f0b3872e	Venice	Venice	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-d682a9d8-14f4-4ce0-8756-ad5d785725a1	Ferlatum	Ferlatum	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-faeb6d75-626e-4878-92fc-7f3b4ecc680b	Vitcofol	Vitcofol	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-ed01aa97-9aff-49bf-bf17-9a159d31b2d6	Magie	Magie	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-9ea9efed-4da6-4e37-acc2-18a8f6764a0b	Aspirin	Aspirin	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-f20cd05b-c7d2-4f6e-a0ca-fb05d35f01ce	Yspuripax	Yspuripax (2v/4v)	2v/4v	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-1547d713-4930-4d94-b72f-ac17f9b1537f	DHA	DHA	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-482a2151-264b-4d9d-bfe0-a6e1e483e189	Pruzena	Pruzena	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-714b31b2-dcaa-4fce-b8ed-dfdf2b2a5f64	Folic Mum	Folic Mum	\N	L1	\N	f	t	2026-06-19 07:28:09.508674+00
-d690bb81-3a30-4232-90a7-5570df3241cf	Glucophage	Glucophage	\N	L2	\N	f	t	2026-06-19 07:28:09.508674+00
-9b1ce2a1-c569-4866-b276-3edaf931a331	Diane	Diane	\N	L2	\N	f	t	2026-06-19 07:28:09.508674+00
-9d975c27-344a-4ac4-9ef3-6863ddf56e3a	Endokirogen	Endokirogen	\N	L2	\N	f	t	2026-06-19 07:28:09.508674+00
-f55cf41b-9612-4869-a35c-43320202c5a7	Letrozole	Letrozole (10v, 15v)	10v, 15v	L2	\N	f	t	2026-06-19 07:28:09.508674+00
-eb5753fd-6a89-4d10-b899-8167852a6911	Ovagrow	Ovagrow	\N	L2	\N	f	t	2026-06-19 07:28:09.508674+00
-c6038e31-465f-4776-b4c6-87108894c764	Duphaston	Duphaston (4v/ 2v)	4v/ 2v	L3	\N	f	t	2026-06-19 07:28:09.508674+00
-07acefc5-e013-42b9-a973-fc20c243c36a	Androgel	Androgel	\N	L3	\N	f	t	2026-06-19 07:28:09.508674+00
-eab76666-e86b-4516-ad67-1ec0283e8a23	Estrogel	Estrogel	\N	L3	\N	f	t	2026-06-19 07:28:09.508674+00
-796f4ac6-1f3b-4bd6-bffd-6e3b396f071e	Fes 1/10	Fes 1/10	\N	L3	\N	t	t	2026-06-19 07:28:09.508674+00
-e4d63a89-097d-4c35-ab0a-bcf1d1e9b924	Fes ⅕	Fes ⅕	\N	L3	\N	f	t	2026-06-19 07:28:09.508674+00
-325944e9-b9f4-4786-97cf-650de4774dc8	Cyclo Progynova	Cyclo Progynova	\N	L3	\N	f	t	2026-06-19 07:28:09.508674+00
-53dfaa93-9b0b-4241-93c4-84ab2599fa7f	Utrogestan	Utrogestan (Đ) (1v/2v): (U)	Đ; 1v/2v; U	L4	\N	t	t	2026-06-19 07:28:09.508674+00
-48edd734-87f3-44ed-92a4-506dd74906d7	DHEA	DHEA (U)	U	L4	\N	f	t	2026-06-19 07:28:09.508674+00
-4f608b4d-c0e2-4f63-9ed1-dafee20eab4a	DHEA	DHEA (Đ)	Đ	L4	\N	f	t	2026-06-19 07:28:09.508674+00
-71619452-0d81-4ae7-9b5a-e8648ed8bb07	Hyalogyn	Hyalogyn	\N	L4	\N	f	t	2026-06-19 07:28:09.508674+00
-f3700369-c91d-4e9c-93fa-3d747953838f	Cavidagel	Cavidagel	\N	L4	\N	f	t	2026-06-19 07:28:09.508674+00
-7cee3d1b-d93a-4066-9cbb-6e5fc67ffe26	Valiera	Valiera(1v/2v/3v)	1v/2v/3v	L4	\N	f	t	2026-06-19 07:28:09.508674+00
-5cfe80ca-b32e-4def-9e79-4beb0f6ce99f	Valiera	Valiera(Đ)	Đ	L4	\N	f	t	2026-06-19 07:28:09.508674+00
-3f5fbf16-2f45-45ce-994e-b2b86aef4025	Follitrope	Follitrope	\N	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-bac9666b-e337-4cdd-b051-f6fd05d47ea2	Cetrotide	Cetrotide	\N	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-2eacb53b-4a18-47a1-8d51-e832a1b39467	Ovitrelle	Ovitrelle	\N	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-9ebe1044-a030-4f22-8a87-1c879a5de5c9	IVF-C	IVF-C	\N	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-b0ef7dcb-f742-4644-9c69-d4bbae198db9	IFV-M	IFV-M	\N	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-1f49ad55-09d2-432b-a52b-2f4d15dca159	Diphereline	Diphereline (3.75/0.1)	3.75/0.1	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-2e45a4f8-ad95-43e4-9557-c702c7e8bac0	GonaF	GonaF	\N	L5	\N	f	t	2026-06-19 07:28:09.508674+00
-addfd354-c445-4cf1-83b5-1ece47d2993e	Dalacin C	Dalacin C	\N	L6	\N	f	t	2026-06-19 07:28:09.508674+00
-47191eac-b850-4c27-9d32-f414aaac4c0d	Assicin	Assicin (3v/6v/9v)	3v/6v/9v	L6	\N	f	t	2026-06-19 07:28:09.508674+00
-f5dcae23-b4af-4d47-b6e5-0b8e83d10d1a	Cefdinir	Cefdinir	\N	L6	\N	f	t	2026-06-19 07:28:09.508674+00
-d1028fa2-bed0-4565-85fb-1bb8f48f3203	Docy	Docy (15v/30v)	15v/30v	L6	\N	f	t	2026-06-19 07:28:09.508674+00
-a6e0f221-6d2a-4098-90c5-ebca79fc967d	Metronidazol	Metronidazol	\N	L6	\N	f	t	2026-06-19 07:28:09.508674+00
-29144784-c72c-458a-b606-8e97e9a96792	Dermolivo	Dermolivo	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-426cdd6a-c9ad-445b-8aba-b028da23347f	Meclon	Meclon	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-f27bf431-698b-4bcc-b095-4dcd8fd092aa	Nystatin	Nystatin	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-feadd213-3f26-48f3-8ca7-4cd6b6ed2373	Lomexin	Lomexin	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-e1eb9374-9183-4bf3-a3d7-61f20aa4b4f9	Canesten	Canesten	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-4afe93dd-3441-41cc-a870-ec1f8dd0a988	Bennatfort	Bennatfort	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-e5acbe24-48a6-41ff-bcec-98d21a1a5877	Intimate	Intimate	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-5b2a3a14-875e-48ce-97c1-8107f485bdb4	Cumlaude Lubripiu HA	Cumlaude Lubripiu HA	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-5d268886-1db6-4492-9c0b-337a7a4a23e2	Cumlaude prebiotic	Cumlaude prebiotic	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-9306aece-f853-4769-83e3-fa8c14ad3f0e	Eulac	Eulac	\N	L7	\N	f	t	2026-06-19 07:28:09.508674+00
-3ff2d764-b50d-404b-a0ee-6f7eb1222ac4	Difavon/Diflucan/Fluconazole/Zolmed	Difavon/Diflucan/Fluconazole/Zolmed	\N	L8	\N	t	t	2026-06-19 07:28:09.508674+00
-c4e9f514-ce38-425b-9f87-f1ccabd747a6	Cyclo	Cyclo	\N	L8	\N	f	t	2026-06-19 07:28:09.508674+00
-69c8cbd4-fff6-4974-9e88-998c723d4045	Estrogel pump	Estrogel pump	\N	L8	\N	f	t	2026-06-19 07:28:09.508674+00
-6ad487f5-5b16-4211-8859-e375de7eb709	Daikyn	Daikyn	\N	L8	\N	f	t	2026-06-19 07:28:09.508674+00
-1bd72e68-0aab-4a72-9f60-5bb0262fefd7	Kofio	Kofio	\N	L8	\N	f	t	2026-06-19 07:28:09.508674+00
-0ea2817b-0a6f-4967-be45-fbdb4a39cdf5	ZinC	ZinC	\N	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-5f23835d-0ae9-4967-9a7f-4984b6236136	CoQ10	CoQ10 (1/2)	1/2	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-5bb4eaf7-709a-414b-a74f-5f487c2d9546	Glutathione	Glutathione (2/4)	2/4	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-71a64954-b545-4b8c-bbec-59b17021d40f	Tadalafil 20	Tadalafil 20	\N	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-e7d6fdd8-1dfc-4e64-927a-e78848929976	Tadalafil 5mg	Tadalafil 5mg	\N	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-6ee6243e-a1ac-4ba8-92b9-ebbd83f6a388	Kingseal	Kingseal	\N	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-ab87aa13-2ee9-4438-ab0f-b1aed5f5c1f2	L-Agrinine	L-Agrinine	\N	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-8ca2192e-49f9-40ad-b7a9-6b190b3ec3ea	Durapil	Durapil	\N	L9	\N	f	t	2026-06-19 07:28:09.508674+00
-\.
-
+INSERT INTO public.drug_catalog (id, name_base, name_raw, variant, group_label, unit_price, needs_review, is_active, created_at) VALUES
+    ('30d30e8f-89bb-4a22-8615-17c366684552', 'Besuto', 'Besuto', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('aa346999-1472-4db6-af39-9fad6ca5b37a', 'Canxi', 'Canxi', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('a6bcb629-9a18-4361-849c-50e5f0b3872e', 'Venice', 'Venice', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('d682a9d8-14f4-4ce0-8756-ad5d785725a1', 'Ferlatum', 'Ferlatum', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('faeb6d75-626e-4878-92fc-7f3b4ecc680b', 'Vitcofol', 'Vitcofol', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('ed01aa97-9aff-49bf-bf17-9a159d31b2d6', 'Magie', 'Magie', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('9ea9efed-4da6-4e37-acc2-18a8f6764a0b', 'Aspirin', 'Aspirin', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('f20cd05b-c7d2-4f6e-a0ca-fb05d35f01ce', 'Yspuripax', 'Yspuripax (2v/4v)', '2v/4v', 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('1547d713-4930-4d94-b72f-ac17f9b1537f', 'DHA', 'DHA', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('482a2151-264b-4d9d-bfe0-a6e1e483e189', 'Pruzena', 'Pruzena', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('714b31b2-dcaa-4fce-b8ed-dfdf2b2a5f64', 'Folic Mum', 'Folic Mum', NULL, 'L1', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('d690bb81-3a30-4232-90a7-5570df3241cf', 'Glucophage', 'Glucophage', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('9b1ce2a1-c569-4866-b276-3edaf931a331', 'Diane', 'Diane', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('9d975c27-344a-4ac4-9ef3-6863ddf56e3a', 'Endokirogen', 'Endokirogen', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('f55cf41b-9612-4869-a35c-43320202c5a7', 'Letrozole', 'Letrozole (10v, 15v)', '10v, 15v', 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('eb5753fd-6a89-4d10-b899-8167852a6911', 'Ovagrow', 'Ovagrow', NULL, 'L2', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('c6038e31-465f-4776-b4c6-87108894c764', 'Duphaston', 'Duphaston (4v/ 2v)', '4v/ 2v', 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('07acefc5-e013-42b9-a973-fc20c243c36a', 'Androgel', 'Androgel', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('eab76666-e86b-4516-ad67-1ec0283e8a23', 'Estrogel', 'Estrogel', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('796f4ac6-1f3b-4bd6-bffd-6e3b396f071e', 'Fes 1/10', 'Fes 1/10', NULL, 'L3', NULL, 't', 't', '2026-06-19 07:28:09.508674+00'),
+    ('e4d63a89-097d-4c35-ab0a-bcf1d1e9b924', 'Fes ⅕', 'Fes ⅕', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('325944e9-b9f4-4786-97cf-650de4774dc8', 'Cyclo Progynova', 'Cyclo Progynova', NULL, 'L3', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('53dfaa93-9b0b-4241-93c4-84ab2599fa7f', 'Utrogestan', 'Utrogestan (Đ) (1v/2v): (U)', 'Đ; 1v/2v; U', 'L4', NULL, 't', 't', '2026-06-19 07:28:09.508674+00'),
+    ('48edd734-87f3-44ed-92a4-506dd74906d7', 'DHEA', 'DHEA (U)', 'U', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('4f608b4d-c0e2-4f63-9ed1-dafee20eab4a', 'DHEA', 'DHEA (Đ)', 'Đ', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('71619452-0d81-4ae7-9b5a-e8648ed8bb07', 'Hyalogyn', 'Hyalogyn', NULL, 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('f3700369-c91d-4e9c-93fa-3d747953838f', 'Cavidagel', 'Cavidagel', NULL, 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('7cee3d1b-d93a-4066-9cbb-6e5fc67ffe26', 'Valiera', 'Valiera(1v/2v/3v)', '1v/2v/3v', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('5cfe80ca-b32e-4def-9e79-4beb0f6ce99f', 'Valiera', 'Valiera(Đ)', 'Đ', 'L4', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('3f5fbf16-2f45-45ce-994e-b2b86aef4025', 'Follitrope', 'Follitrope', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('bac9666b-e337-4cdd-b051-f6fd05d47ea2', 'Cetrotide', 'Cetrotide', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('2eacb53b-4a18-47a1-8d51-e832a1b39467', 'Ovitrelle', 'Ovitrelle', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('9ebe1044-a030-4f22-8a87-1c879a5de5c9', 'IVF-C', 'IVF-C', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('b0ef7dcb-f742-4644-9c69-d4bbae198db9', 'IFV-M', 'IFV-M', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('1f49ad55-09d2-432b-a52b-2f4d15dca159', 'Diphereline', 'Diphereline (3.75/0.1)', '3.75/0.1', 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('2e45a4f8-ad95-43e4-9557-c702c7e8bac0', 'GonaF', 'GonaF', NULL, 'L5', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('addfd354-c445-4cf1-83b5-1ece47d2993e', 'Dalacin C', 'Dalacin C', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('47191eac-b850-4c27-9d32-f414aaac4c0d', 'Assicin', 'Assicin (3v/6v/9v)', '3v/6v/9v', 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('f5dcae23-b4af-4d47-b6e5-0b8e83d10d1a', 'Cefdinir', 'Cefdinir', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('d1028fa2-bed0-4565-85fb-1bb8f48f3203', 'Docy', 'Docy (15v/30v)', '15v/30v', 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('a6e0f221-6d2a-4098-90c5-ebca79fc967d', 'Metronidazol', 'Metronidazol', NULL, 'L6', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('29144784-c72c-458a-b606-8e97e9a96792', 'Dermolivo', 'Dermolivo', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('426cdd6a-c9ad-445b-8aba-b028da23347f', 'Meclon', 'Meclon', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('f27bf431-698b-4bcc-b095-4dcd8fd092aa', 'Nystatin', 'Nystatin', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('feadd213-3f26-48f3-8ca7-4cd6b6ed2373', 'Lomexin', 'Lomexin', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('e1eb9374-9183-4bf3-a3d7-61f20aa4b4f9', 'Canesten', 'Canesten', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('4afe93dd-3441-41cc-a870-ec1f8dd0a988', 'Bennatfort', 'Bennatfort', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('e5acbe24-48a6-41ff-bcec-98d21a1a5877', 'Intimate', 'Intimate', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('5b2a3a14-875e-48ce-97c1-8107f485bdb4', 'Cumlaude Lubripiu HA', 'Cumlaude Lubripiu HA', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('5d268886-1db6-4492-9c0b-337a7a4a23e2', 'Cumlaude prebiotic', 'Cumlaude prebiotic', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('9306aece-f853-4769-83e3-fa8c14ad3f0e', 'Eulac', 'Eulac', NULL, 'L7', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('3ff2d764-b50d-404b-a0ee-6f7eb1222ac4', 'Difavon/Diflucan/Fluconazole/Zolmed', 'Difavon/Diflucan/Fluconazole/Zolmed', NULL, 'L8', NULL, 't', 't', '2026-06-19 07:28:09.508674+00'),
+    ('c4e9f514-ce38-425b-9f87-f1ccabd747a6', 'Cyclo', 'Cyclo', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('69c8cbd4-fff6-4974-9e88-998c723d4045', 'Estrogel pump', 'Estrogel pump', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('6ad487f5-5b16-4211-8859-e375de7eb709', 'Daikyn', 'Daikyn', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('1bd72e68-0aab-4a72-9f60-5bb0262fefd7', 'Kofio', 'Kofio', NULL, 'L8', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('0ea2817b-0a6f-4967-be45-fbdb4a39cdf5', 'ZinC', 'ZinC', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('5f23835d-0ae9-4967-9a7f-4984b6236136', 'CoQ10', 'CoQ10 (1/2)', '1/2', 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('5bb4eaf7-709a-414b-a74f-5f487c2d9546', 'Glutathione', 'Glutathione (2/4)', '2/4', 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('71a64954-b545-4b8c-bbec-59b17021d40f', 'Tadalafil 20', 'Tadalafil 20', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('e7d6fdd8-1dfc-4e64-927a-e78848929976', 'Tadalafil 5mg', 'Tadalafil 5mg', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('6ee6243e-a1ac-4ba8-92b9-ebbd83f6a388', 'Kingseal', 'Kingseal', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('ab87aa13-2ee9-4438-ab0f-b1aed5f5c1f2', 'L-Agrinine', 'L-Agrinine', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00'),
+    ('8ca2192e-49f9-40ad-b7a9-6b190b3ec3ea', 'Durapil', 'Durapil', NULL, 'L9', NULL, 'f', 't', '2026-06-19 07:28:09.508674+00');
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict rLNP6V50sPSdsBaMqR5cw1CO7XeOcZ1StSRSeuewPcrtTQYQwtiSoRVfjRsJD2n
-
 --
 -- PostgreSQL database dump
 --
-
-\restrict 39bvthFxwEPhWepKdgP8c6uRH9Cc2t7HZ2uylwIkSAYFlqB9WN9SwNgcVk5XrGI
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -319,55 +292,49 @@ SET row_security = off;
 -- Data for Name: province; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.province (code, name, full_name, code_name) FROM stdin;
-01	Hà Nội	Thành phố Hà Nội	ha_noi
-04	Cao Bằng	Tỉnh Cao Bằng	cao_bang
-08	Tuyên Quang	Tỉnh Tuyên Quang	tuyen_quang
-11	Điện Biên	Tỉnh Điện Biên	dien_bien
-12	Lai Châu	Tỉnh Lai Châu	lai_chau
-14	Sơn La	Tỉnh Sơn La	son_la
-15	Lào Cai	Tỉnh Lào Cai	lao_cai
-19	Thái Nguyên	Tỉnh Thái Nguyên	thai_nguyen
-20	Lạng Sơn	Tỉnh Lạng Sơn	lang_son
-22	Quảng Ninh	Tỉnh Quảng Ninh	quang_ninh
-24	Bắc Ninh	Tỉnh Bắc Ninh	bac_ninh
-25	Phú Thọ	Tỉnh Phú Thọ	phu_tho
-31	Hải Phòng	Thành phố Hải Phòng	hai_phong
-33	Hưng Yên	Tỉnh Hưng Yên	hung_yen
-37	Ninh Bình	Tỉnh Ninh Bình	ninh_binh
-38	Thanh Hoá	Tỉnh Thanh Hoá	thanh_hoa
-40	Nghệ An	Tỉnh Nghệ An	nghe_an
-42	Hà Tĩnh	Tỉnh Hà Tĩnh	ha_tinh
-44	Quảng Trị	Tỉnh Quảng Trị	quang_tri
-46	Huế	Thành phố Huế	hue
-48	Đà Nẵng	Thành phố Đà Nẵng	da_nang
-51	Quảng Ngãi	Tỉnh Quảng Ngãi	quang_ngai
-52	Gia Lai	Tỉnh Gia Lai	gia_lai
-56	Khánh Hoà	Tỉnh Khánh Hoà	khanh_hoa
-66	Đắk Lắk	Tỉnh Đắk Lắk	dak_lak
-68	Lâm Đồng	Tỉnh Lâm Đồng	lam_dong
-75	Đồng Nai	Thành phố Đồng Nai	dong_nai
-79	Hồ Chí Minh	Thành phố Hồ Chí Minh	ho_chi_minh
-80	Tây Ninh	Tỉnh Tây Ninh	tay_ninh
-82	Đồng Tháp	Tỉnh Đồng Tháp	dong_thap
-86	Vĩnh Long	Tỉnh Vĩnh Long	vinh_long
-91	An Giang	Tỉnh An Giang	an_giang
-92	Cần Thơ	Thành phố Cần Thơ	can_tho
-96	Cà Mau	Tỉnh Cà Mau	ca_mau
-\.
-
+INSERT INTO public.province (code, name, full_name, code_name) VALUES
+    ('01', 'Hà Nội', 'Thành phố Hà Nội', 'ha_noi'),
+    ('04', 'Cao Bằng', 'Tỉnh Cao Bằng', 'cao_bang'),
+    ('08', 'Tuyên Quang', 'Tỉnh Tuyên Quang', 'tuyen_quang'),
+    ('11', 'Điện Biên', 'Tỉnh Điện Biên', 'dien_bien'),
+    ('12', 'Lai Châu', 'Tỉnh Lai Châu', 'lai_chau'),
+    ('14', 'Sơn La', 'Tỉnh Sơn La', 'son_la'),
+    ('15', 'Lào Cai', 'Tỉnh Lào Cai', 'lao_cai'),
+    ('19', 'Thái Nguyên', 'Tỉnh Thái Nguyên', 'thai_nguyen'),
+    ('20', 'Lạng Sơn', 'Tỉnh Lạng Sơn', 'lang_son'),
+    ('22', 'Quảng Ninh', 'Tỉnh Quảng Ninh', 'quang_ninh'),
+    ('24', 'Bắc Ninh', 'Tỉnh Bắc Ninh', 'bac_ninh'),
+    ('25', 'Phú Thọ', 'Tỉnh Phú Thọ', 'phu_tho'),
+    ('31', 'Hải Phòng', 'Thành phố Hải Phòng', 'hai_phong'),
+    ('33', 'Hưng Yên', 'Tỉnh Hưng Yên', 'hung_yen'),
+    ('37', 'Ninh Bình', 'Tỉnh Ninh Bình', 'ninh_binh'),
+    ('38', 'Thanh Hoá', 'Tỉnh Thanh Hoá', 'thanh_hoa'),
+    ('40', 'Nghệ An', 'Tỉnh Nghệ An', 'nghe_an'),
+    ('42', 'Hà Tĩnh', 'Tỉnh Hà Tĩnh', 'ha_tinh'),
+    ('44', 'Quảng Trị', 'Tỉnh Quảng Trị', 'quang_tri'),
+    ('46', 'Huế', 'Thành phố Huế', 'hue'),
+    ('48', 'Đà Nẵng', 'Thành phố Đà Nẵng', 'da_nang'),
+    ('51', 'Quảng Ngãi', 'Tỉnh Quảng Ngãi', 'quang_ngai'),
+    ('52', 'Gia Lai', 'Tỉnh Gia Lai', 'gia_lai'),
+    ('56', 'Khánh Hoà', 'Tỉnh Khánh Hoà', 'khanh_hoa'),
+    ('66', 'Đắk Lắk', 'Tỉnh Đắk Lắk', 'dak_lak'),
+    ('68', 'Lâm Đồng', 'Tỉnh Lâm Đồng', 'lam_dong'),
+    ('75', 'Đồng Nai', 'Thành phố Đồng Nai', 'dong_nai'),
+    ('79', 'Hồ Chí Minh', 'Thành phố Hồ Chí Minh', 'ho_chi_minh'),
+    ('80', 'Tây Ninh', 'Tỉnh Tây Ninh', 'tay_ninh'),
+    ('82', 'Đồng Tháp', 'Tỉnh Đồng Tháp', 'dong_thap'),
+    ('86', 'Vĩnh Long', 'Tỉnh Vĩnh Long', 'vinh_long'),
+    ('91', 'An Giang', 'Tỉnh An Giang', 'an_giang'),
+    ('92', 'Cần Thơ', 'Thành phố Cần Thơ', 'can_tho'),
+    ('96', 'Cà Mau', 'Tỉnh Cà Mau', 'ca_mau');
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 39bvthFxwEPhWepKdgP8c6uRH9Cc2t7HZ2uylwIkSAYFlqB9WN9SwNgcVk5XrGI
-
 --
 -- PostgreSQL database dump
 --
-
-\restrict EIJOb0UIGpkwC5RTmPm3yCsuGFsffgXXTchqLXmyLYmoEcr928wXkEyfZbGduRW
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.3
@@ -388,3336 +355,3347 @@ SET row_security = off;
 -- Data for Name: ward; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.ward (code, name, full_name, code_name, province_code) FROM stdin;
-00004	Ba Đình	Phường Ba Đình	ba_dinh	01
-00008	Ngọc Hà	Phường Ngọc Hà	ngoc_ha	01
-00025	Giảng Võ	Phường Giảng Võ	giang_vo	01
-00070	Hoàn Kiếm	Phường Hoàn Kiếm	hoan_kiem	01
-00082	Cửa Nam	Phường Cửa Nam	cua_nam	01
-00091	Phú Thượng	Phường Phú Thượng	phu_thuong	01
-00097	Hồng Hà	Phường Hồng Hà	hong_ha	01
-00103	Tây Hồ	Phường Tây Hồ	tay_ho	01
-00118	Bồ Đề	Phường Bồ Đề	bo_de	01
-00127	Việt Hưng	Phường Việt Hưng	viet_hung	01
-00136	Phúc Lợi	Phường Phúc Lợi	phuc_loi	01
-00145	Long Biên	Phường Long Biên	long_bien	01
-00160	Nghĩa Đô	Phường Nghĩa Đô	nghia_do	01
-00166	Cầu Giấy	Phường Cầu Giấy	cau_giay	01
-00175	Yên Hoà	Phường Yên Hoà	yen_hoa	01
-00190	Ô Chợ Dừa	Phường Ô Chợ Dừa	o_cho_dua	01
-00199	Láng	Phường Láng	lang	01
-00226	Văn Miếu - Quốc Tử Giám	Phường Văn Miếu - Quốc Tử Giám	van_mieu_quoc_tu_giam	01
-00229	Kim Liên	Phường Kim Liên	kim_lien	01
-00235	Đống Đa	Phường Đống Đa	dong_da	01
-00256	Hai Bà Trưng	Phường Hai Bà Trưng	hai_ba_trung	01
-00283	Vĩnh Tuy	Phường Vĩnh Tuy	vinh_tuy	01
-00292	Bạch Mai	Phường Bạch Mai	bach_mai	01
-00301	Vĩnh Hưng	Phường Vĩnh Hưng	vinh_hung	01
-00316	Định Công	Phường Định Công	dinh_cong	01
-00322	Tương Mai	Phường Tương Mai	tuong_mai	01
-00328	Lĩnh Nam	Phường Lĩnh Nam	linh_nam	01
-00331	Hoàng Mai	Phường Hoàng Mai	hoang_mai	01
-00337	Hoàng Liệt	Phường Hoàng Liệt	hoang_liet	01
-00340	Yên Sở	Phường Yên Sở	yen_so	01
-00352	Phương Liệt	Phường Phương Liệt	phuong_liet	01
-00364	Khương Đình	Phường Khương Đình	khuong_dinh	01
-00367	Thanh Xuân	Phường Thanh Xuân	thanh_xuan	01
-00376	Sóc Sơn	Xã Sóc Sơn	soc_son	01
-00382	Kim Anh	Xã Kim Anh	kim_anh	01
-00385	Trung Giã	Xã Trung Giã	trung_gia	01
-00430	Đa Phúc	Xã Đa Phúc	da_phuc	01
-00433	Nội Bài	Xã Nội Bài	noi_bai	01
-00454	Đông Anh	Xã Đông Anh	dong_anh	01
-00466	Phúc Thịnh	Xã Phúc Thịnh	phuc_thinh	01
-00475	Thư Lâm	Xã Thư Lâm	thu_lam	01
-00493	Thiên Lộc	Xã Thiên Lộc	thien_loc	01
-00508	Vĩnh Thanh	Xã Vĩnh Thanh	vinh_thanh	01
-00541	Phù Đổng	Xã Phù Đổng	phu_dong	01
-00562	Thuận An	Xã Thuận An	thuan_an	01
-00565	Gia Lâm	Xã Gia Lâm	gia_lam	01
-00577	Bát Tràng	Xã Bát Tràng	bat_trang	01
-00592	Từ Liêm	Phường Từ Liêm	tu_liem	01
-00598	Thượng Cát	Phường Thượng Cát	thuong_cat	01
-00602	Đông Ngạc	Phường Đông Ngạc	dong_ngac	01
-00611	Xuân Đỉnh	Phường Xuân Đỉnh	xuan_dinh	01
-00613	Tây Tựu	Phường Tây Tựu	tay_tuu	01
-00619	Phú Diễn	Phường Phú Diễn	phu_dien	01
-00622	Xuân Phương	Phường Xuân Phương	xuan_phuong	01
-00634	Tây Mỗ	Phường Tây Mỗ	tay_mo	01
-00637	Đại Mỗ	Phường Đại Mỗ	dai_mo	01
-00640	Thanh Trì	Xã Thanh Trì	thanh_tri	01
-00643	Thanh Liệt	Phường Thanh Liệt	thanh_liet	01
-00664	Đại Thanh	Xã Đại Thanh	dai_thanh	01
-00679	Ngọc Hồi	Xã Ngọc Hồi	ngoc_hoi	01
-00685	Nam Phù	Xã Nam Phù	nam_phu	01
-04930	Yên Xuân	Xã Yên Xuân	yen_xuan	01
-08974	Quang Minh	Xã Quang Minh	quang_minh	01
-08980	Yên Lãng	Xã Yên Lãng	yen_lang	01
-08995	Tiến Thắng	Xã Tiến Thắng	tien_thang	01
-09022	Mê Linh	Xã Mê Linh	me_linh	01
-09552	Kiến Hưng	Phường Kiến Hưng	kien_hung	01
-09556	Hà Đông	Phường Hà Đông	ha_dong	01
-09562	Yên Nghĩa	Phường Yên Nghĩa	yen_nghia	01
-09568	Phú Lương	Phường Phú Lương	phu_luong	01
-09574	Sơn Tây	Phường Sơn Tây	son_tay	01
-09604	Tùng Thiện	Phường Tùng Thiện	tung_thien	01
-09616	Đoài Phương	Xã Đoài Phương	doai_phuong	01
-09619	Quảng Oai	Xã Quảng Oai	quang_oai	01
-09634	Cổ Đô	Xã Cổ Đô	co_do	01
-09661	Minh Châu	Xã Minh Châu	minh_chau	01
-09664	Vật Lại	Xã Vật Lại	vat_lai	01
-09676	Bất Bạt	Xã Bất Bạt	bat_bat	01
-09694	Suối Hai	Xã Suối Hai	suoi_hai	01
-09700	Ba Vì	Xã Ba Vì	ba_vi	01
-09706	Yên Bài	Xã Yên Bài	yen_bai	01
-09715	Phúc Thọ	Xã Phúc Thọ	phuc_tho	01
-09739	Phúc Lộc	Xã Phúc Lộc	phuc_loc	01
-09772	Hát Môn	Xã Hát Môn	hat_mon	01
-09784	Đan Phượng	Xã Đan Phượng	dan_phuong	01
-09787	Liên Minh	Xã Liên Minh	lien_minh	01
-09817	Ô Diên	Xã Ô Diên	o_dien	01
-09832	Hoài Đức	Xã Hoài Đức	hoai_duc	01
-09856	Dương Hoà	Xã Dương Hoà	duong_hoa	01
-09871	Sơn Đồng	Xã Sơn Đồng	son_dong	01
-09877	An Khánh	Xã An Khánh	an_khanh	01
-09886	Dương Nội	Phường Dương Nội	duong_noi	01
-09895	Quốc Oai	Xã Quốc Oai	quoc_oai	01
-09910	Kiều Phú	Xã Kiều Phú	kieu_phu	01
-09931	Hưng Đạo	Xã Hưng Đạo	hung_dao	01
-09952	Phú Cát	Xã Phú Cát	phu_cat	01
-09955	Thạch Thất	Xã Thạch Thất	thach_that	01
-09982	Hạ Bằng	Xã Hạ Bằng	ha_bang	01
-09988	Hoà Lạc	Xã Hoà Lạc	hoa_lac	01
-10003	Tây Phương	Xã Tây Phương	tay_phuong	01
-00871	Du Già	Xã Du Già	du_gia	08
-10015	Chương Mỹ	Phường Chương Mỹ	chuong_my	01
-10030	Phú Nghĩa	Xã Phú Nghĩa	phu_nghia	01
-10045	Xuân Mai	Xã Xuân Mai	xuan_mai	01
-10072	Quảng Bị	Xã Quảng Bị	quang_bi	01
-10081	Trần Phú	Xã Trần Phú	tran_phu	01
-10096	Hoà Phú	Xã Hoà Phú	hoa_phu	01
-10114	Thanh Oai	Xã Thanh Oai	thanh_oai	01
-10126	Bình Minh	Xã Bình Minh	binh_minh	01
-10144	Tam Hưng	Xã Tam Hưng	tam_hung	01
-10180	Dân Hoà	Xã Dân Hoà	dan_hoa	01
-10183	Thường Tín	Xã Thường Tín	thuong_tin	01
-10210	Hồng Vân	Xã Hồng Vân	hong_van	01
-10231	Thượng Phúc	Xã Thượng Phúc	thuong_phuc	01
-10237	Chương Dương	Xã Chương Dương	chuong_duong	01
-10273	Phú Xuyên	Xã Phú Xuyên	phu_xuyen	01
-10279	Phượng Dực	Xã Phượng Dực	phuong_duc	01
-10330	Chuyên Mỹ	Xã Chuyên Mỹ	chuyen_my	01
-10342	Đại Xuyên	Xã Đại Xuyên	dai_xuyen	01
-10354	Vân Đình	Xã Vân Đình	van_dinh	01
-10369	Ứng Thiên	Xã Ứng Thiên	ung_thien	01
-10402	Ứng Hoà	Xã Ứng Hoà	ung_hoa	01
-10417	Hoà Xá	Xã Hoà Xá	hoa_xa	01
-10441	Mỹ Đức	Xã Mỹ Đức	my_duc	01
-10459	Phúc Sơn	Xã Phúc Sơn	phuc_son	01
-10465	Hồng Sơn	Xã Hồng Sơn	hong_son	01
-10489	Hương Sơn	Xã Hương Sơn	huong_son	01
-01273	Thục Phán	Phường Thục Phán	thuc_phan	04
-01279	Nùng Trí Cao	Phường Nùng Trí Cao	nung_tri_cao	04
-01288	Tân Giang	Phường Tân Giang	tan_giang	04
-01290	Bảo Lâm	Xã Bảo Lâm	bao_lam	04
-01294	Lý Bôn	Xã Lý Bôn	ly_bon	04
-01297	Nam Quang	Xã Nam Quang	nam_quang	04
-01304	Quảng Lâm	Xã Quảng Lâm	quang_lam	04
-01318	Yên Thổ	Xã Yên Thổ	yen_tho	04
-01321	Bảo Lạc	Xã Bảo Lạc	bao_lac	04
-01324	Cốc Pàng	Xã Cốc Pàng	coc_pang	04
-01327	Cô Ba	Xã Cô Ba	co_ba	04
-01336	Khánh Xuân	Xã Khánh Xuân	khanh_xuan	04
-01339	Xuân Trường	Xã Xuân Trường	xuan_truong	04
-01351	Hưng Đạo	Xã Hưng Đạo	hung_dao	04
-01354	Huy Giáp	Xã Huy Giáp	huy_giap	04
-01360	Sơn Lộ	Xã Sơn Lộ	son_lo	04
-01363	Thông Nông	Xã Thông Nông	thong_nong	04
-01366	Cần Yên	Xã Cần Yên	can_yen	04
-01387	Thanh Long	Xã Thanh Long	thanh_long	04
-01392	Trường Hà	Xã Trường Hà	truong_ha	04
-01393	Lũng Nặm	Xã Lũng Nặm	lung_nam	04
-01414	Tổng Cọt	Xã Tổng Cọt	tong_cot	04
-01438	Hà Quảng	Xã Hà Quảng	ha_quang	04
-01447	Trà Lĩnh	Xã Trà Lĩnh	tra_linh	04
-01456	Quang Hán	Xã Quang Hán	quang_han	04
-01465	Quang Trung	Xã Quang Trung	quang_trung	04
-01477	Trùng Khánh	Xã Trùng Khánh	trung_khanh	04
-01489	Đình Phong	Xã Đình Phong	dinh_phong	04
-01501	Đàm Thuỷ	Xã Đàm Thuỷ	dam_thuy	04
-01525	Đoài Dương	Xã Đoài Dương	doai_duong	04
-01537	Lý Quốc	Xã Lý Quốc	ly_quoc	04
-01552	Quang Long	Xã Quang Long	quang_long	04
-01558	Hạ Lang	Xã Hạ Lang	ha_lang	04
-01561	Vinh Quý	Xã Vinh Quý	vinh_quy	04
-01576	Quảng Uyên	Xã Quảng Uyên	quang_uyen	04
-01594	Độc Lập	Xã Độc Lập	doc_lap	04
-01618	Hạnh Phúc	Xã Hạnh Phúc	hanh_phuc	04
-01636	Bế Văn Đàn	Xã Bế Văn Đàn	be_van_dan	04
-01648	Phục Hoà	Xã Phục Hoà	phuc_hoa	04
-01654	Hoà An	Xã Hoà An	hoa_an	04
-01660	Nam Tuấn	Xã Nam Tuấn	nam_tuan	04
-01699	Nguyễn Huệ	Xã Nguyễn Huệ	nguyen_hue	04
-01708	Bạch Đằng	Xã Bạch Đằng	bach_dang	04
-01726	Nguyên Bình	Xã Nguyên Bình	nguyen_binh	04
-01729	Tĩnh Túc	Xã Tĩnh Túc	tinh_tuc	04
-01738	Ca Thành	Xã Ca Thành	ca_thanh	04
-01747	Minh Tâm	Xã Minh Tâm	minh_tam	04
-01768	Phan Thanh	Xã Phan Thanh	phan_thanh	04
-01774	Tam Kim	Xã Tam Kim	tam_kim	04
-01777	Thành Công	Xã Thành Công	thanh_cong	04
-01786	Đông Khê	Xã Đông Khê	dong_khe	04
-01789	Canh Tân	Xã Canh Tân	canh_tan	04
-01792	Kim Đồng	Xã Kim Đồng	kim_dong	04
-01795	Minh Khai	Xã Minh Khai	minh_khai	04
-01807	Thạch An	Xã Thạch An	thach_an	04
-01822	Đức Long	Xã Đức Long	duc_long	04
-00691	Hà Giang 2	Phường Hà Giang 2	ha_giang_2	08
-00694	Hà Giang 1	Phường Hà Giang 1	ha_giang_1	08
-00700	Ngọc Đường	Xã Ngọc Đường	ngoc_duong	08
-00706	Phú Linh	Xã Phú Linh	phu_linh	08
-00715	Lũng Cú	Xã Lũng Cú	lung_cu	08
-00721	Đồng Văn	Xã Đồng Văn	dong_van	08
-00733	Sà Phìn	Xã Sà Phìn	sa_phin	08
-00745	Phó Bảng	Xã Phó Bảng	pho_bang	08
-00763	Lũng Phìn	Xã Lũng Phìn	lung_phin	08
-00769	Mèo Vạc	Xã Mèo Vạc	meo_vac	08
-00778	Sơn Vĩ	Xã Sơn Vĩ	son_vi	08
-00787	Sủng Máng	Xã Sủng Máng	sung_mang	08
-00802	Khâu Vai	Xã Khâu Vai	khau_vai	08
-00808	Tát Ngà	Xã Tát Ngà	tat_nga	08
-00817	Niêm Sơn	Xã Niêm Sơn	niem_son	08
-00820	Yên Minh	Xã Yên Minh	yen_minh	08
-00829	Thắng Mố	Xã Thắng Mố	thang_mo	08
-00832	Bạch Đích	Xã Bạch Đích	bach_dich	08
-00847	Mậu Duệ	Xã Mậu Duệ	mau_due	08
-00859	Ngọc Long	Xã Ngọc Long	ngoc_long	08
-00865	Đường Thượng	Xã Đường Thượng	duong_thuong	08
-00874	Quản Bạ	Xã Quản Bạ	quan_ba	08
-00883	Cán Tỷ	Xã Cán Tỷ	can_ty	08
-00889	Nghĩa Thuận	Xã Nghĩa Thuận	nghia_thuan	08
-00892	Tùng Vài	Xã Tùng Vài	tung_vai	08
-00901	Lùng Tám	Xã Lùng Tám	lung_tam	08
-00913	Vị Xuyên	Xã Vị Xuyên	vi_xuyen	08
-00919	Minh Tân	Xã Minh Tân	minh_tan	08
-00922	Thuận Hoà	Xã Thuận Hoà	thuan_hoa	08
-00925	Tùng Bá	Xã Tùng Bá	tung_ba	08
-00928	Thanh Thuỷ	Xã Thanh Thuỷ	thanh_thuy	08
-00937	Lao Chải	Xã Lao Chải	lao_chai	08
-00952	Cao Bồ	Xã Cao Bồ	cao_bo	08
-00958	Thượng Sơn	Xã Thượng Sơn	thuong_son	08
-00967	Việt Lâm	Xã Việt Lâm	viet_lam	08
-00970	Linh Hồ	Xã Linh Hồ	linh_ho	08
-00976	Bạch Ngọc	Xã Bạch Ngọc	bach_ngoc	08
-00982	Minh Sơn	Xã Minh Sơn	minh_son	08
-00985	Giáp Trung	Xã Giáp Trung	giap_trung	08
-00991	Bắc Mê	Xã Bắc Mê	bac_me	08
-00994	Minh Ngọc	Xã Minh Ngọc	minh_ngoc	08
-01006	Yên Cường	Xã Yên Cường	yen_cuong	08
-01012	Đường Hồng	Xã Đường Hồng	duong_hong	08
-01021	Hoàng Su Phì	Xã Hoàng Su Phì	hoang_su_phi	08
-01024	Bản Máy	Xã Bản Máy	ban_may	08
-01033	Thàng Tín	Xã Thàng Tín	thang_tin	08
-01051	Tân Tiến	Xã Tân Tiến	tan_tien	08
-01057	Pờ Ly Ngài	Xã Pờ Ly Ngài	po_ly_ngai	08
-01075	Nậm Dịch	Xã Nậm Dịch	nam_dich	08
-01084	Hồ Thầu	Xã Hồ Thầu	ho_thau	08
-01090	Thông Nguyên	Xã Thông Nguyên	thong_nguyen	08
-01096	Pà Vầy Sủ	Xã Pà Vầy Sủ	pa_vay_su	08
-01108	Xín Mần	Xã Xín Mần	xin_man	08
-01117	Trung Thịnh	Xã Trung Thịnh	trung_thinh	08
-01141	Nấm Dẩn	Xã Nấm Dẩn	nam_dan	08
-01144	Quảng Nguyên	Xã Quảng Nguyên	quang_nguyen	08
-01147	Khuôn Lùng	Xã Khuôn Lùng	khuon_lung	08
-01153	Bắc Quang	Xã Bắc Quang	bac_quang	08
-01156	Vĩnh Tuy	Xã Vĩnh Tuy	vinh_tuy	08
-01165	Đồng Tâm	Xã Đồng Tâm	dong_tam	08
-01171	Tân Quang	Xã Tân Quang	tan_quang	08
-01180	Bằng Hành	Xã Bằng Hành	bang_hanh	08
-01192	Liên Hiệp	Xã Liên Hiệp	lien_hiep	08
-01201	Hùng An	Xã Hùng An	hung_an	08
-01216	Đồng Yên	Xã Đồng Yên	dong_yen	08
-01225	Tiên Nguyên	Xã Tiên Nguyên	tien_nguyen	08
-01234	Yên Thành	Xã Yên Thành	yen_thanh	08
-01237	Quang Bình	Xã Quang Bình	quang_binh	08
-01243	Tân Trịnh	Xã Tân Trịnh	tan_trinh	08
-01246	Bằng Lang	Xã Bằng Lang	bang_lang	08
-01255	Xuân Giang	Xã Xuân Giang	xuan_giang	08
-01261	Tiên Yên	Xã Tiên Yên	tien_yen	08
-02212	Nông Tiến	Phường Nông Tiến	nong_tien	08
-02215	Minh Xuân	Phường Minh Xuân	minh_xuan	08
-02221	Nà Hang	Xã Nà Hang	na_hang	08
-02239	Thượng Nông	Xã Thượng Nông	thuong_nong	08
-02245	Côn Lôn	Xã Côn Lôn	con_lon	08
-02248	Yên Hoa	Xã Yên Hoa	yen_hoa	08
-02260	Hồng Thái	Xã Hồng Thái	hong_thai	08
-02266	Lâm Bình	Xã Lâm Bình	lam_binh	08
-02269	Thượng Lâm	Xã Thượng Lâm	thuong_lam	08
-02287	Chiêm Hoá	Xã Chiêm Hoá	chiem_hoa	08
-02296	Bình An	Xã Bình An	binh_an	08
-02302	Minh Quang	Xã Minh Quang	minh_quang	08
-02305	Trung Hà	Xã Trung Hà	trung_ha	08
-02308	Tân Mỹ	Xã Tân Mỹ	tan_my	08
-02317	Yên Lập	Xã Yên Lập	yen_lap	08
-02320	Tân An	Xã Tân An	tan_an	08
-02332	Kiên Đài	Xã Kiên Đài	kien_dai	08
-02350	Kim Bình	Xã Kim Bình	kim_binh	08
-02353	Hoà An	Xã Hoà An	hoa_an	08
-02359	Tri Phú	Xã Tri Phú	tri_phu	08
-02365	Yên Nguyên	Xã Yên Nguyên	yen_nguyen	08
-02374	Hàm Yên	Xã Hàm Yên	ham_yen	08
-02380	Bạch Xa	Xã Bạch Xa	bach_xa	08
-02392	Phù Lưu	Xã Phù Lưu	phu_luu	08
-02398	Yên Phú	Xã Yên Phú	yen_phu	08
-02404	Bình Xa	Xã Bình Xa	binh_xa	08
-02407	Thái Sơn	Xã Thái Sơn	thai_son	08
-02419	Thái Hoà	Xã Thái Hoà	thai_hoa	08
-02425	Hùng Đức	Xã Hùng Đức	hung_duc	08
-02434	Lực Hành	Xã Lực Hành	luc_hanh	08
-02437	Kiến Thiết	Xã Kiến Thiết	kien_thiet	08
-02449	Xuân Vân	Xã Xuân Vân	xuan_van	08
-02455	Hùng Lợi	Xã Hùng Lợi	hung_loi	08
-02458	Trung Sơn	Xã Trung Sơn	trung_son	08
-02470	Tân Long	Xã Tân Long	tan_long	08
-02473	Yên Sơn	Xã Yên Sơn	yen_son	08
-02494	Thái Bình	Xã Thái Bình	thai_binh	08
-02509	Mỹ Lâm	Phường Mỹ Lâm	my_lam	08
-02512	An Tường	Phường An Tường	an_tuong	08
-02524	Bình Thuận	Phường Bình Thuận	binh_thuan	08
-02530	Nhữ Khê	Xã Nhữ Khê	nhu_khe	08
-02536	Sơn Dương	Xã Sơn Dương	son_duong	08
-02545	Tân Trào	Xã Tân Trào	tan_trao	08
-02548	Bình Ca	Xã Bình Ca	binh_ca	08
-02554	Minh Thanh	Xã Minh Thanh	minh_thanh	08
-02572	Đông Thọ	Xã Đông Thọ	dong_tho	08
-02578	Tân Thanh	Xã Tân Thanh	tan_thanh	08
-02608	Hồng Sơn	Xã Hồng Sơn	hong_son	08
-02611	Phú Lương	Xã Phú Lương	phu_luong	08
-02620	Sơn Thuỷ	Xã Sơn Thuỷ	son_thuy	08
-02623	Trường Sinh	Xã Trường Sinh	truong_sinh	08
-03127	Điện Biên Phủ	Phường Điện Biên Phủ	dien_bien_phu	11
-03151	Mường Lay	Phường Mường Lay	muong_lay	11
-03158	Sín Thầu	Xã Sín Thầu	sin_thau	11
-03160	Mường Nhé	Xã Mường Nhé	muong_nhe	11
-03162	Nậm Kè	Xã Nậm Kè	nam_ke	11
-03163	Mường Toong	Xã Mường Toong	muong_toong	11
-03164	Quảng Lâm	Xã Quảng Lâm	quang_lam	11
-03166	Mường Chà	Xã Mường Chà	muong_cha	11
-03169	Nà Hỳ	Xã Nà Hỳ	na_hy	11
-03172	Na Sang	Xã Na Sang	na_sang	11
-03175	Chà Tở	Xã Chà Tở	cha_to	11
-03176	Nà Bủng	Xã Nà Bủng	na_bung	11
-03181	Mường Tùng	Xã Mường Tùng	muong_tung	11
-03193	Pa Ham	Xã Pa Ham	pa_ham	11
-03194	Nậm Nèn	Xã Nậm Nèn	nam_nen	11
-03199	Si Pa Phìn	Xã Si Pa Phìn	si_pa_phin	11
-03202	Mường Pồn	Xã Mường Pồn	muong_pon	11
-03203	Na Son	Xã Na Son	na_son	11
-03208	Xa Dung	Xã Xa Dung	xa_dung	11
-03214	Mường Luân	Xã Mường Luân	muong_luan	11
-03217	Tủa Chùa	Xã Tủa Chùa	tua_chua	11
-03220	Tủa Thàng	Xã Tủa Thàng	tua_thang	11
-03226	Sín Chải	Xã Sín Chải	sin_chai	11
-03241	Sính Phình	Xã Sính Phình	sinh_phinh	11
-03244	Sáng Nhè	Xã Sáng Nhè	sang_nhe	11
-03253	Tuần Giáo	Xã Tuần Giáo	tuan_giao	11
-03256	Mường Ảng	Xã Mường Ảng	muong_ang	11
-03260	Pú Nhung	Xã Pú Nhung	pu_nhung	11
-03268	Mường Mùn	Xã Mường Mùn	muong_mun	11
-03283	Chiềng Sinh	Xã Chiềng Sinh	chieng_sinh	11
-03295	Quài Tở	Xã Quài Tở	quai_to	11
-03301	Búng Lao	Xã Búng Lao	bung_lao	11
-03313	Mường Lạn	Xã Mường Lạn	muong_lan	11
-03316	Nà Tấu	Xã Nà Tấu	na_tau	11
-03325	Mường Phăng	Xã Mường Phăng	muong_phang	11
-03328	Thanh Nưa	Xã Thanh Nưa	thanh_nua	11
-03334	Mường Thanh	Phường Mường Thanh	muong_thanh	11
-03349	Thanh Yên	Xã Thanh Yên	thanh_yen	11
-03352	Thanh An	Xã Thanh An	thanh_an	11
-03356	Sam Mứn	Xã Sam Mứn	sam_mun	11
-03358	Núa Ngam	Xã Núa Ngam	nua_ngam	11
-03368	Mường Nhà	Xã Mường Nhà	muong_nha	11
-03370	Pu Nhi	Xã Pu Nhi	pu_nhi	11
-03382	Phình Giàng	Xã Phình Giàng	phinh_giang	11
-03385	Tìa Dình	Xã Tìa Dình	tia_dinh	11
-03388	Đoàn Kết	Phường Đoàn Kết	doan_ket	12
-03390	Bình Lư	Xã Bình Lư	binh_lu	12
-03394	Sin Suối Hồ	Xã Sin Suối Hồ	sin_suoi_ho	12
-03405	Tả Lèng	Xã Tả Lèng	ta_leng	12
-03408	Tân Phong	Phường Tân Phong	tan_phong	12
-03424	Bản Bo	Xã Bản Bo	ban_bo	12
-03430	Khun Há	Xã Khun Há	khun_ha	12
-03433	Bum Tở	Xã Bum Tở	bum_to	12
-03434	Nậm Hàng	Xã Nậm Hàng	nam_hang	12
-03439	Thu Lũm	Xã Thu Lũm	thu_lum	12
-03442	Pa Ủ	Xã Pa Ủ	pa_u	12
-03445	Mường Tè	Xã Mường Tè	muong_te	12
-03451	Mù Cả	Xã Mù Cả	mu_ca	12
-03460	Hua Bum	Xã Hua Bum	hua_bum	12
-03463	Tà Tổng	Xã Tà Tổng	ta_tong	12
-03466	Bum Nưa	Xã Bum Nưa	bum_nua	12
-03472	Mường Mô	Xã Mường Mô	muong_mo	12
-03478	Sìn Hồ	Xã Sìn Hồ	sin_ho	12
-03487	Lê Lợi	Xã Lê Lợi	le_loi	12
-03503	Pa Tần	Xã Pa Tần	pa_tan	12
-03508	Hồng Thu	Xã Hồng Thu	hong_thu	12
-03517	Nậm Tăm	Xã Nậm Tăm	nam_tam	12
-03529	Tủa Sín Chải	Xã Tủa Sín Chải	tua_sin_chai	12
-03532	Pu Sam Cáp	Xã Pu Sam Cáp	pu_sam_cap	12
-03538	Nậm Mạ	Xã Nậm Mạ	nam_ma	12
-03544	Nậm Cuổi	Xã Nậm Cuổi	nam_cuoi	12
-03549	Phong Thổ	Xã Phong Thổ	phong_tho	12
-03562	Sì Lở Lầu	Xã Sì Lở Lầu	si_lo_lau	12
-03571	Dào San	Xã Dào San	dao_san	12
-03583	Khổng Lào	Xã Khổng Lào	khong_lao	12
-03595	Than Uyên	Xã Than Uyên	than_uyen	12
-03598	Tân Uyên	Xã Tân Uyên	tan_uyen	12
-03601	Mường Khoa	Xã Mường Khoa	muong_khoa	12
-03613	Nậm Sỏ	Xã Nậm Sỏ	nam_so	12
-03616	Pắc Ta	Xã Pắc Ta	pac_ta	12
-03618	Mường Than	Xã Mường Than	muong_than	12
-03637	Mường Kim	Xã Mường Kim	muong_kim	12
-03640	Khoen On	Xã Khoen On	khoen_on	12
-03646	Tô Hiệu	Phường Tô Hiệu	to_hieu	14
-03664	Chiềng An	Phường Chiềng An	chieng_an	14
-03670	Chiềng Cơi	Phường Chiềng Cơi	chieng_coi	14
-03679	Chiềng Sinh	Phường Chiềng Sinh	chieng_sinh	14
-03688	Mường Chiên	Xã Mường Chiên	muong_chien	14
-03694	Mường Giôn	Xã Mường Giôn	muong_gion	14
-03703	Quỳnh Nhai	Xã Quỳnh Nhai	quynh_nhai	14
-03712	Mường Sại	Xã Mường Sại	muong_sai	14
-03721	Thuận Châu	Xã Thuận Châu	thuan_chau	14
-03724	Bình Thuận	Xã Bình Thuận	binh_thuan	14
-03727	Mường É	Xã Mường É	muong_e	14
-03754	Chiềng La	Xã Chiềng La	chieng_la	14
-03757	Mường Khiêng	Xã Mường Khiêng	muong_khieng	14
-03760	Mường Bám	Xã Mường Bám	muong_bam	14
-03763	Long Hẹ	Xã Long Hẹ	long_he	14
-03781	Co Mạ	Xã Co Mạ	co_ma	14
-03784	Nậm Lầu	Xã Nậm Lầu	nam_lau	14
-03799	Muổi Nọi	Xã Muổi Nọi	muoi_noi	14
-03808	Mường La	Xã Mường La	muong_la	14
-03814	Chiềng Lao	Xã Chiềng Lao	chieng_lao	14
-03820	Ngọc Chiến	Xã Ngọc Chiến	ngoc_chien	14
-03847	Mường Bú	Xã Mường Bú	muong_bu	14
-03850	Chiềng Hoa	Xã Chiềng Hoa	chieng_hoa	14
-14389	Gia Lâm	Xã Gia Lâm	gia_lam	37
-03856	Bắc Yên	Xã Bắc Yên	bac_yen	14
-03862	Xím Vàng	Xã Xím Vàng	xim_vang	14
-03868	Tà Xùa	Xã Tà Xùa	ta_xua	14
-03871	Pắc Ngà	Xã Pắc Ngà	pac_nga	14
-03880	Tạ Khoa	Xã Tạ Khoa	ta_khoa	14
-03892	Chiềng Sại	Xã Chiềng Sại	chieng_sai	14
-03901	Suối Tọ	Xã Suối Tọ	suoi_to	14
-03907	Mường Cơi	Xã Mường Cơi	muong_coi	14
-03910	Phù Yên	Xã Phù Yên	phu_yen	14
-03922	Gia Phù	Xã Gia Phù	gia_phu	14
-03943	Mường Bang	Xã Mường Bang	muong_bang	14
-03958	Tường Hạ	Xã Tường Hạ	tuong_ha	14
-03961	Kim Bon	Xã Kim Bon	kim_bon	14
-03970	Tân Phong	Xã Tân Phong	tan_phong	14
-03979	Mộc Sơn	Phường Mộc Sơn	moc_son	14
-03980	Mộc Châu	Phường Mộc Châu	moc_chau	14
-03982	Thảo Nguyên	Phường Thảo Nguyên	thao_nguyen	14
-03985	Chiềng Sơn	Xã Chiềng Sơn	chieng_son	14
-03997	Tân Yên	Xã Tân Yên	tan_yen	14
-04000	Đoàn Kết	Xã Đoàn Kết	doan_ket	14
-04006	Song Khủa	Xã Song Khủa	song_khua	14
-04018	Tô Múa	Xã Tô Múa	to_mua	14
-04033	Vân Sơn	Phường Vân Sơn	van_son	14
-04045	Lóng Sập	Xã Lóng Sập	long_sap	14
-04048	Vân Hồ	Xã Vân Hồ	van_ho	14
-04057	Xuân Nha	Xã Xuân Nha	xuan_nha	14
-04075	Yên Châu	Xã Yên Châu	yen_chau	14
-04078	Chiềng Hặc	Xã Chiềng Hặc	chieng_hac	14
-04087	Yên Sơn	Xã Yên Sơn	yen_son	14
-04096	Lóng Phiêng	Xã Lóng Phiêng	long_phieng	14
-04099	Phiêng Khoài	Xã Phiêng Khoài	phieng_khoai	14
-04105	Mai Sơn	Xã Mai Sơn	mai_son	14
-04108	Chiềng Sung	Xã Chiềng Sung	chieng_sung	14
-04117	Mường Chanh	Xã Mường Chanh	muong_chanh	14
-04123	Chiềng Mung	Xã Chiềng Mung	chieng_mung	14
-04132	Chiềng Mai	Xã Chiềng Mai	chieng_mai	14
-04136	Tà Hộc	Xã Tà Hộc	ta_hoc	14
-04144	Phiêng Cằm	Xã Phiêng Cằm	phieng_cam	14
-04159	Phiêng Pằn	Xã Phiêng Pằn	phieng_pan	14
-04168	Sông Mã	Xã Sông Mã	song_ma	14
-04171	Bó Sinh	Xã Bó Sinh	bo_sinh	14
-04183	Mường Lầm	Xã Mường Lầm	muong_lam	14
-04186	Nậm Ty	Xã Nậm Ty	nam_ty	14
-04195	Chiềng Sơ	Xã Chiềng Sơ	chieng_so	14
-04204	Chiềng Khoong	Xã Chiềng Khoong	chieng_khoong	14
-04210	Huổi Một	Xã Huổi Một	huoi_mot	14
-04219	Mường Hung	Xã Mường Hung	muong_hung	14
-04222	Chiềng Khương	Xã Chiềng Khương	chieng_khuong	14
-04228	Púng Bánh	Xã Púng Bánh	pung_banh	14
-04231	Sốp Cộp	Xã Sốp Cộp	sop_cop	14
-04240	Mường Lèo	Xã Mường Lèo	muong_leo	14
-04246	Mường Lạn	Xã Mường Lạn	muong_lan	14
-02647	Lào Cai	Phường Lào Cai	lao_cai	15
-02671	Cam Đường	Phường Cam Đường	cam_duong	15
-02680	Hợp Thành	Xã Hợp Thành	hop_thanh	15
-02683	Bát Xát	Xã Bát Xát	bat_xat	15
-02686	A Mú Sung	Xã A Mú Sung	a_mu_sung	15
-02695	Trịnh Tường	Xã Trịnh Tường	trinh_tuong	15
-02701	Y Tý	Xã Y Tý	y_ty	15
-02707	Dền Sáng	Xã Dền Sáng	den_sang	15
-02725	Bản Xèo	Xã Bản Xèo	ban_xeo	15
-02728	Mường Hum	Xã Mường Hum	muong_hum	15
-02746	Cốc San	Xã Cốc San	coc_san	15
-02752	Pha Long	Xã Pha Long	pha_long	15
-02761	Mường Khương	Xã Mường Khương	muong_khuong	15
-02782	Cao Sơn	Xã Cao Sơn	cao_son	15
-02788	Bản Lầu	Xã Bản Lầu	ban_lau	15
-02809	Si Ma Cai	Xã Si Ma Cai	si_ma_cai	15
-02824	Sín Chéng	Xã Sín Chéng	sin_cheng	15
-02839	Bắc Hà	Xã Bắc Hà	bac_ha	15
-02842	Tả Củ Tỷ	Xã Tả Củ Tỷ	ta_cu_ty	15
-02848	Lùng Phình	Xã Lùng Phình	lung_phinh	15
-02869	Bản Liền	Xã Bản Liền	ban_lien	15
-02890	Bảo Nhai	Xã Bảo Nhai	bao_nhai	15
-02896	Cốc Lầu	Xã Cốc Lầu	coc_lau	15
-02902	Phong Hải	Xã Phong Hải	phong_hai	15
-02905	Bảo Thắng	Xã Bảo Thắng	bao_thang	15
-02908	Tằng Loỏng	Xã Tằng Loỏng	tang_loong	15
-02923	Gia Phú	Xã Gia Phú	gia_phu	15
-02926	Xuân Quang	Xã Xuân Quang	xuan_quang	15
-02947	Bảo Yên	Xã Bảo Yên	bao_yen	15
-02953	Nghĩa Đô	Xã Nghĩa Đô	nghia_do	15
-02962	Xuân Hoà	Xã Xuân Hoà	xuan_hoa	15
-02968	Thượng Hà	Xã Thượng Hà	thuong_ha	15
-02989	Bảo Hà	Xã Bảo Hà	bao_ha	15
-02998	Phúc Khánh	Xã Phúc Khánh	phuc_khanh	15
-03004	Ngũ Chỉ Sơn	Xã Ngũ Chỉ Sơn	ngu_chi_son	15
-03006	Sa Pa	Phường Sa Pa	sa_pa	15
-03013	Tả Phìn	Xã Tả Phìn	ta_phin	15
-03037	Tả Van	Xã Tả Van	ta_van	15
-03043	Mường Bo	Xã Mường Bo	muong_bo	15
-03046	Bản Hồ	Xã Bản Hồ	ban_ho	15
-03061	Võ Lao	Xã Võ Lao	vo_lao	15
-03076	Nậm Chày	Xã Nậm Chày	nam_chay	15
-03082	Văn Bàn	Xã Văn Bàn	van_ban	15
-03085	Nậm Xé	Xã Nậm Xé	nam_xe	15
-03091	Chiềng Ken	Xã Chiềng Ken	chieng_ken	15
-03103	Khánh Yên	Xã Khánh Yên	khanh_yen	15
-03106	Dương Quỳ	Xã Dương Quỳ	duong_quy	15
-03121	Minh Lương	Xã Minh Lương	minh_luong	15
-04252	Yên Bái	Phường Yên Bái	yen_bai	15
-04273	Nam Cường	Phường Nam Cường	nam_cuong	15
-04279	Văn Phú	Phường Văn Phú	van_phu	15
-04288	Nghĩa Lộ	Phường Nghĩa Lộ	nghia_lo	15
-04303	Lục Yên	Xã Lục Yên	luc_yen	15
-04309	Lâm Thượng	Xã Lâm Thượng	lam_thuong	15
-04336	Tân Lĩnh	Xã Tân Lĩnh	tan_linh	15
-04342	Khánh Hoà	Xã Khánh Hoà	khanh_hoa	15
-04345	Mường Lai	Xã Mường Lai	muong_lai	15
-04363	Phúc Lợi	Xã Phúc Lợi	phuc_loi	15
-04375	Mậu A	Xã Mậu A	mau_a	15
-04381	Lâm Giang	Xã Lâm Giang	lam_giang	15
-04387	Châu Quế	Xã Châu Quế	chau_que	15
-04399	Đông Cuông	Xã Đông Cuông	dong_cuong	15
-04402	Phong Dụ Hạ	Xã Phong Dụ Hạ	phong_du_ha	15
-04423	Phong Dụ Thượng	Xã Phong Dụ Thượng	phong_du_thuong	15
-04429	Tân Hợp	Xã Tân Hợp	tan_hop	15
-04441	Xuân Ái	Xã Xuân Ái	xuan_ai	15
-04450	Mỏ Vàng	Xã Mỏ Vàng	mo_vang	15
-04456	Mù Cang Chải	Xã Mù Cang Chải	mu_cang_chai	15
-04462	Nậm Có	Xã Nậm Có	nam_co	15
-04465	Khao Mang	Xã Khao Mang	khao_mang	15
-04474	Lao Chải	Xã Lao Chải	lao_chai	15
-04489	Chế Tạo	Xã Chế Tạo	che_tao	15
-04492	Púng Luông	Xã Púng Luông	pung_luong	15
-04498	Trấn Yên	Xã Trấn Yên	tran_yen	15
-04531	Quy Mông	Xã Quy Mông	quy_mong	15
-04537	Lương Thịnh	Xã Lương Thịnh	luong_thinh	15
-04543	Âu Lâu	Phường Âu Lâu	au_lau	15
-04564	Việt Hồng	Xã Việt Hồng	viet_hong	15
-04576	Hưng Khánh	Xã Hưng Khánh	hung_khanh	15
-04585	Hạnh Phúc	Xã Hạnh Phúc	hanh_phuc	15
-04603	Tà Xi Láng	Xã Tà Xi Láng	ta_xi_lang	15
-04606	Trạm Tấu	Xã Trạm Tấu	tram_tau	15
-04609	Phình Hồ	Xã Phình Hồ	phinh_ho	15
-04630	Tú Lệ	Xã Tú Lệ	tu_le	15
-04636	Gia Hội	Xã Gia Hội	gia_hoi	15
-04651	Sơn Lương	Xã Sơn Lương	son_luong	15
-04660	Liên Sơn	Xã Liên Sơn	lien_son	15
-04663	Trung Tâm	Phường Trung Tâm	trung_tam	15
-04672	Văn Chấn	Xã Văn Chấn	van_chan	15
-04681	Cầu Thia	Phường Cầu Thia	cau_thia	15
-04693	Cát Thịnh	Xã Cát Thịnh	cat_thinh	15
-04699	Chấn Thịnh	Xã Chấn Thịnh	chan_thinh	15
-04705	Thượng Bằng La	Xã Thượng Bằng La	thuong_bang_la	15
-04711	Nghĩa Tâm	Xã Nghĩa Tâm	nghia_tam	15
-04714	Yên Bình	Xã Yên Bình	yen_binh	15
-04717	Thác Bà	Xã Thác Bà	thac_ba	15
-04726	Cảm Nhân	Xã Cảm Nhân	cam_nhan	15
-04744	Yên Thành	Xã Yên Thành	yen_thanh	15
-04750	Bảo Ái	Xã Bảo Ái	bao_ai	15
-01840	Đức Xuân	Phường Đức Xuân	duc_xuan	19
-01843	Bắc Kạn	Phường Bắc Kạn	bac_kan	19
-01849	Phong Quang	Xã Phong Quang	phong_quang	19
-01864	Bằng Thành	Xã Bằng Thành	bang_thanh	19
-01879	Cao Minh	Xã Cao Minh	cao_minh	19
-01882	Nghiên Loan	Xã Nghiên Loan	nghien_loan	19
-01894	Phúc Lộc	Xã Phúc Lộc	phuc_loc	19
-01906	Ba Bể	Xã Ba Bể	ba_be	19
-01912	Chợ Rã	Xã Chợ Rã	cho_ra	19
-01921	Thượng Minh	Xã Thượng Minh	thuong_minh	19
-01933	Đồng Phúc	Xã Đồng Phúc	dong_phuc	19
-01936	Nà Phặc	Xã Nà Phặc	na_phac	19
-01942	Bằng Vân	Xã Bằng Vân	bang_van	19
-01954	Ngân Sơn	Xã Ngân Sơn	ngan_son	19
-01957	Thượng Quan	Xã Thượng Quan	thuong_quan	19
-01960	Hiệp Lực	Xã Hiệp Lực	hiep_luc	19
-01969	Phủ Thông	Xã Phủ Thông	phu_thong	19
-01981	Vĩnh Thông	Xã Vĩnh Thông	vinh_thong	19
-02008	Cẩm Giàng	Xã Cẩm Giàng	cam_giang	19
-02014	Bạch Thông	Xã Bạch Thông	bach_thong	19
-02020	Chợ Đồn	Xã Chợ Đồn	cho_don	19
-02026	Nam Cường	Xã Nam Cường	nam_cuong	19
-02038	Quảng Bạch	Xã Quảng Bạch	quang_bach	19
-02044	Yên Thịnh	Xã Yên Thịnh	yen_thinh	19
-02071	Nghĩa Tá	Xã Nghĩa Tá	nghia_ta	19
-02083	Yên Phong	Xã Yên Phong	yen_phong	19
-02086	Chợ Mới	Xã Chợ Mới	cho_moi	19
-02101	Thanh Mai	Xã Thanh Mai	thanh_mai	19
-02104	Tân Kỳ	Xã Tân Kỳ	tan_ky	19
-02107	Thanh Thịnh	Xã Thanh Thịnh	thanh_thinh	19
-02116	Yên Bình	Xã Yên Bình	yen_binh	19
-02143	Văn Lang	Xã Văn Lang	van_lang	19
-02152	Cường Lợi	Xã Cường Lợi	cuong_loi	19
-02155	Na Rì	Xã Na Rì	na_ri	19
-02176	Trần Phú	Xã Trần Phú	tran_phu	19
-02185	Côn Minh	Xã Côn Minh	con_minh	19
-02191	Xuân Dương	Xã Xuân Dương	xuan_duong	19
-05443	Phan Đình Phùng	Phường Phan Đình Phùng	phan_dinh_phung	19
-05455	Quyết Thắng	Phường Quyết Thắng	quyet_thang	19
-05467	Gia Sàng	Phường Gia Sàng	gia_sang	19
-05482	Quan Triều	Phường Quan Triều	quan_trieu	19
-05488	Đại Phúc	Xã Đại Phúc	dai_phuc	19
-05500	Tích Lương	Phường Tích Lương	tich_luong	19
-05503	Tân Cương	Xã Tân Cương	tan_cuong	19
-05518	Sông Công	Phường Sông Công	song_cong	19
-05528	Bách Quang	Phường Bách Quang	bach_quang	19
-05533	Bá Xuyên	Phường Bá Xuyên	ba_xuyen	19
-05542	Lam Vỹ	Xã Lam Vỹ	lam_vy	19
-05551	Kim Phượng	Xã Kim Phượng	kim_phuong	19
-05563	Phượng Tiến	Xã Phượng Tiến	phuong_tien	19
-05569	Định Hoá	Xã Định Hoá	dinh_hoa	19
-05581	Trung Hội	Xã Trung Hội	trung_hoi	19
-05587	Bình Yên	Xã Bình Yên	binh_yen	19
-05602	Phú Đình	Xã Phú Đình	phu_dinh	19
-05605	Bình Thành	Xã Bình Thành	binh_thanh	19
-05611	Phú Lương	Xã Phú Lương	phu_luong	19
-05620	Yên Trạch	Xã Yên Trạch	yen_trach	19
-05632	Hợp Thành	Xã Hợp Thành	hop_thanh	19
-05641	Vô Tranh	Xã Vô Tranh	vo_tranh	19
-05662	Trại Cau	Xã Trại Cau	trai_cau	19
-05665	Văn Lăng	Xã Văn Lăng	van_lang	19
-05674	Quang Sơn	Xã Quang Sơn	quang_son	19
-05680	Văn Hán	Xã Văn Hán	van_han	19
-05692	Đồng Hỷ	Xã Đồng Hỷ	dong_hy	19
-05707	Nam Hoà	Xã Nam Hoà	nam_hoa	19
-05710	Linh Sơn	Phường Linh Sơn	linh_son	19
-05716	Võ Nhai	Xã Võ Nhai	vo_nhai	19
-05719	Sảng Mộc	Xã Sảng Mộc	sang_moc	19
-05722	Nghinh Tường	Xã Nghinh Tường	nghinh_tuong	19
-05725	Thần Sa	Xã Thần Sa	than_sa	19
-05740	La Hiên	Xã La Hiên	la_hien	19
-05746	Tràng Xá	Xã Tràng Xá	trang_xa	19
-05755	Dân Tiến	Xã Dân Tiến	dan_tien	19
-05773	Phú Xuyên	Xã Phú Xuyên	phu_xuyen	19
-05776	Đức Lương	Xã Đức Lương	duc_luong	19
-05788	Phú Lạc	Xã Phú Lạc	phu_lac	19
-05800	Phú Thịnh	Xã Phú Thịnh	phu_thinh	19
-05809	An Khánh	Xã An Khánh	an_khanh	19
-05818	La Bằng	Xã La Bằng	la_bang	19
-05830	Đại Từ	Xã Đại Từ	dai_tu	19
-05845	Vạn Phú	Xã Vạn Phú	van_phu	19
-05851	Quân Chu	Xã Quân Chu	quan_chu	19
-05857	Phúc Thuận	Phường Phúc Thuận	phuc_thuan	19
-05860	Phổ Yên	Phường Phổ Yên	pho_yen	19
-05881	Thành Công	Xã Thành Công	thanh_cong	19
-05890	Vạn Xuân	Phường Vạn Xuân	van_xuan	19
-05899	Trung Thành	Phường Trung Thành	trung_thanh	19
-05908	Phú Bình	Xã Phú Bình	phu_binh	19
-05917	Tân Khánh	Xã Tân Khánh	tan_khanh	19
-05923	Tân Thành	Xã Tân Thành	tan_thanh	19
-05941	Điềm Thuỵ	Xã Điềm Thuỵ	diem_thuy	19
-05953	Kha Sơn	Xã Kha Sơn	kha_son	19
-05977	Đông Kinh	Phường Đông Kinh	dong_kinh	20
-05983	Lương Văn Tri	Phường Lương Văn Tri	luong_van_tri	20
-05986	Tam Thanh	Phường Tam Thanh	tam_thanh	20
-06001	Đoàn Kết	Xã Đoàn Kết	doan_ket	20
-06004	Quốc Khánh	Xã Quốc Khánh	quoc_khanh	20
-06019	Tân Tiến	Xã Tân Tiến	tan_tien	20
-06037	Kháng Chiến	Xã Kháng Chiến	khang_chien	20
-06040	Thất Khê	Xã Thất Khê	that_khe	20
-06046	Tràng Định	Xã Tràng Định	trang_dinh	20
-06058	Quốc Việt	Xã Quốc Việt	quoc_viet	20
-06073	Hoa Thám	Xã Hoa Thám	hoa_tham	20
-06076	Quý Hoà	Xã Quý Hoà	quy_hoa	20
-06079	Hồng Phong	Xã Hồng Phong	hong_phong	20
-06085	Thiện Hoà	Xã Thiện Hoà	thien_hoa	20
-06091	Thiện Thuật	Xã Thiện Thuật	thien_thuat	20
-06103	Thiện Long	Xã Thiện Long	thien_long	20
-06112	Bình Gia	Xã Bình Gia	binh_gia	20
-06115	Tân Văn	Xã Tân Văn	tan_van	20
-06124	Na Sầm	Xã Na Sầm	na_sam	20
-06148	Thuỵ Hùng	Xã Thuỵ Hùng	thuy_hung	20
-06151	Hội Hoan	Xã Hội Hoan	hoi_hoan	20
-06154	Văn Lãng	Xã Văn Lãng	van_lang	20
-06172	Hoàng Văn Thụ	Xã Hoàng Văn Thụ	hoang_van_thu	20
-06184	Đồng Đăng	Xã Đồng Đăng	dong_dang	20
-06187	Kỳ Lừa	Phường Kỳ Lừa	ky_lua	20
-06196	Ba Sơn	Xã Ba Sơn	ba_son	20
-06211	Cao Lộc	Xã Cao Lộc	cao_loc	20
-06220	Công Sơn	Xã Công Sơn	cong_son	20
-06253	Văn Quan	Xã Văn Quan	van_quan	20
-06280	Điềm He	Xã Điềm He	diem_he	20
-06286	Khánh Khê	Xã Khánh Khê	khanh_khe	20
-06298	Yên Phúc	Xã Yên Phúc	yen_phuc	20
-06313	Tri Lễ	Xã Tri Lễ	tri_le	20
-06316	Tân Đoàn	Xã Tân Đoàn	tan_doan	20
-06325	Bắc Sơn	xã Bắc Sơn	bac_son	20
-06337	Tân Tri	Xã Tân Tri	tan_tri	20
-06349	Hưng Vũ	Xã Hưng Vũ	hung_vu	20
-06364	Vũ Lễ	Xã Vũ Lễ	vu_le	20
-06367	Vũ Lăng	Xã Vũ Lăng	vu_lang	20
-06376	Nhất Hoà	Xã Nhất Hoà	nhat_hoa	20
-06385	Hữu Lũng	Xã Hữu Lũng	huu_lung	20
-06391	Yên Bình	Xã Yên Bình	yen_binh	20
-06400	Hữu Liên	Xã Hữu Liên	huu_lien	20
-06415	Vân Nham	Xã Vân Nham	van_nham	20
-06427	Cai Kinh	Xã Cai Kinh	cai_kinh	20
-06436	Thiện Tân	Xã Thiện Tân	thien_tan	20
-06445	Tân Thành	Xã Tân Thành	tan_thanh	20
-06457	Tuấn Sơn	Xã Tuấn Sơn	tuan_son	20
-06463	Chi Lăng	Xã Chi Lăng	chi_lang	20
-06475	Bằng Mạc	Xã Bằng Mạc	bang_mac	20
-06481	Chiến Thắng	Xã Chiến Thắng	chien_thang	20
-06496	Nhân Lý	Xã Nhân Lý	nhan_ly	20
-06505	Vạn Linh	Xã Vạn Linh	van_linh	20
-06517	Quan Sơn	Xã Quan Sơn	quan_son	20
-06526	Na Dương	Xã Na Dương	na_duong	20
-06529	Lộc Bình	Xã Lộc Bình	loc_binh	20
-06541	Mẫu Sơn	Xã Mẫu Sơn	mau_son	20
-06565	Khuất Xá	Xã Khuất Xá	khuat_xa	20
-06577	Thống Nhất	Xã Thống Nhất	thong_nhat	20
-06601	Lợi Bác	Xã Lợi Bác	loi_bac	20
-06607	Xuân Dương	Xã Xuân Dương	xuan_duong	20
-06613	Đình Lập	Xã Đình Lập	dinh_lap	20
-06616	Thái Bình	Xã Thái Bình	thai_binh	20
-06625	Kiên Mộc	Xã Kiên Mộc	kien_moc	20
-06637	Châu Sơn	Xã Châu Sơn	chau_son	20
-06652	Hà Tu	Phường Hà Tu	ha_tu	22
-06658	Cao Xanh	Phường Cao Xanh	cao_xanh	22
-06661	Việt Hưng	Phường Việt Hưng	viet_hung	22
-06673	Bãi Cháy	Phường Bãi Cháy	bai_chay	22
-06676	Hà Lầm	Phường Hà Lầm	ha_lam	22
-06685	Hồng Gai	Phường Hồng Gai	hong_gai	22
-06688	Hạ Long	Phường Hạ Long	ha_long	22
-06706	Tuần Châu	Phường Tuần Châu	tuan_chau	22
-06709	Móng Cái 2	Phường Móng Cái 2	mong_cai_2	22
-06712	Móng Cái 1	Phường Móng Cái 1	mong_cai_1	22
-06724	Hải Sơn	Xã Hải Sơn	hai_son	22
-06733	Hải Ninh	Xã Hải Ninh	hai_ninh	22
-06736	Móng Cái 3	Phường Móng Cái 3	mong_cai_3	22
-06757	Vĩnh Thực	Xã Vĩnh Thực	vinh_thuc	22
-06760	Mông Dương	Phường Mông Dương	mong_duong	22
-06778	Quang Hanh	Phường Quang Hanh	quang_hanh	22
-06781	Cửa Ông	Phường Cửa Ông	cua_ong	22
-06793	Cẩm Phả	Phường Cẩm Phả	cam_pha	22
-06799	Hải Hoà	Xã Hải Hoà	hai_hoa	22
-06811	Uông Bí	Phường Uông Bí	uong_bi	22
-06820	Vàng Danh	Phường Vàng Danh	vang_danh	22
-06832	Yên Tử	Phường Yên Tử	yen_tu	22
-06838	Bình Liêu	Xã Bình Liêu	binh_lieu	22
-06841	Hoành Mô	Xã Hoành Mô	hoanh_mo	22
-06856	Lục Hồn	Xã Lục Hồn	luc_hon	22
-06862	Tiên Yên	Xã Tiên Yên	tien_yen	22
-06874	Điền Xá	Xã Điền Xá	dien_xa	22
-06877	Đông Ngũ	Xã Đông Ngũ	dong_ngu	22
-06886	Hải Lạng	Xã Hải Lạng	hai_lang	22
-06895	Đầm Hà	Xã Đầm Hà	dam_ha	22
-06913	Quảng Tân	Xã Quảng Tân	quang_tan	22
-06922	Quảng Hà	Xã Quảng Hà	quang_ha	22
-06931	Quảng Đức	Xã Quảng Đức	quang_duc	22
-06946	Đường Hoa	Xã Đường Hoa	duong_hoa	22
-06967	Cái Chiên	Xã Cái Chiên	cai_chien	22
-06978	Ba Chẽ	Xã Ba Chẽ	ba_che	22
-06979	Kỳ Thượng	Xã Kỳ Thượng	ky_thuong	22
-06985	Lương Minh	Xã Lương Minh	luong_minh	22
-06994	Vân Đồn	Đặc khu Vân Đồn	van_don	22
-07030	Hoành Bồ	Phường Hoành Bồ	hoanh_bo	22
-07054	Quảng La	Xã Quảng La	quang_la	22
-07060	Thống Nhất	Xã Thống Nhất	thong_nhat	22
-07069	Mạo Khê	Phường Mạo Khê	mao_khe	22
-07081	Bình Khê	Phường Bình Khê	binh_khe	22
-07090	An Sinh	Phường An Sinh	an_sinh	22
-07093	Đông Triều	Phường Đông Triều	dong_trieu	22
-07114	Hoàng Quế	Phường Hoàng Quế	hoang_que	22
-07132	Quảng Yên	Phường Quảng Yên	quang_yen	22
-07135	Đông Mai	Phường Đông Mai	dong_mai	22
-07147	Hiệp Hoà	Phường Hiệp Hoà	hiep_hoa	22
-07168	Hà An	Phường Hà An	ha_an	22
-07180	Liên Hoà	Phường Liên Hoà	lien_hoa	22
-07183	Phong Cốc	Phường Phong Cốc	phong_coc	22
-07192	Cô Tô	Đặc khu Cô Tô	co_to	22
-07210	Bắc Giang	Phường Bắc Giang	bac_giang	24
-07228	Đa Mai	Phường Đa Mai	da_mai	24
-07246	Xuân Lương	Xã Xuân Lương	xuan_luong	24
-07264	Tam Tiến	Xã Tam Tiến	tam_tien	24
-07282	Đồng Kỳ	Xã Đồng Kỳ	dong_ky	24
-07288	Yên Thế	Xã Yên Thế	yen_the	24
-07294	Bố Hạ	Xã Bố Hạ	bo_ha	24
-07306	Nhã Nam	Xã Nhã Nam	nha_nam	24
-07330	Phúc Hoà	Xã Phúc Hoà	phuc_hoa	24
-07333	Quang Trung	Xã Quang Trung	quang_trung	24
-07339	Tân Yên	Xã Tân Yên	tan_yen	24
-07351	Ngọc Thiện	Xã Ngọc Thiện	ngoc_thien	24
-07375	Lạng Giang	Xã Lạng Giang	lang_giang	24
-07381	Tiên Lục	Xã Tiên Lục	tien_luc	24
-07399	Kép	Xã Kép	kep	24
-07420	Mỹ Thái	Xã Mỹ Thái	my_thai	24
-07432	Tân Dĩnh	Xã Tân Dĩnh	tan_dinh	24
-07444	Lục Nam	Xã Lục Nam	luc_nam	24
-07450	Đông Phú	Xã Đông Phú	dong_phu	24
-07462	Bảo Đài	Xã Bảo Đài	bao_dai	24
-07486	Nghĩa Phương	Xã Nghĩa Phương	nghia_phuong	24
-07489	Trường Sơn	Xã Trường Sơn	truong_son	24
-07492	Lục Sơn	Xã Lục Sơn	luc_son	24
-07498	Bắc Lũng	Xã Bắc Lũng	bac_lung	24
-07519	Cẩm Lý	Xã Cẩm Lý	cam_ly	24
-07525	Chũ	Phường Chũ	chu	24
-07531	Tân Sơn	Xã Tân Sơn	tan_son	24
-07534	Sa Lý	Xã Sa Lý	sa_ly	24
-07537	Biên Sơn	Xã Biên Sơn	bien_son	24
-07543	Sơn Hải	Xã Sơn Hải	son_hai	24
-07552	Kiên Lao	Xã Kiên Lao	kien_lao	24
-07573	Biển Động	Xã Biển Động	bien_dong	24
-07582	Lục Ngạn	Xã Lục Ngạn	luc_ngan	24
-07594	Đèo Gia	Xã Đèo Gia	deo_gia	24
-07603	Nam Dương	Xã Nam Dương	nam_duong	24
-07612	Phượng Sơn	Phường Phượng Sơn	phuong_son	24
-07615	Sơn Động	Xã Sơn Động	son_dong	24
-07616	Tây Yên Tử	Xã Tây Yên Tử	tay_yen_tu	24
-07621	Vân Sơn	Xã Vân Sơn	van_son	24
-07627	Đại Sơn	Xã Đại Sơn	dai_son	24
-07642	Yên Định	Xã Yên Định	yen_dinh	24
-07654	An Lạc	Xã An Lạc	an_lac	24
-07663	Tuấn Đạo	Xã Tuấn Đạo	tuan_dao	24
-07672	Dương Hưu	Xã Dương Hưu	duong_huu	24
-07681	Yên Dũng	Phường Yên Dũng	yen_dung	24
-07682	Tân An	Phường Tân An	tan_an	24
-07696	Tiền Phong	Phường Tiền Phong	tien_phong	24
-07699	Tân Tiến	Phường Tân Tiến	tan_tien	24
-07735	Đồng Việt	Xã Đồng Việt	dong_viet	24
-07738	Cảnh Thuỵ	Phường Cảnh Thuỵ	canh_thuy	24
-07774	Tự Lạn	Phường Tự Lạn	tu_lan	24
-07777	Việt Yên	Phường Việt Yên	viet_yen	24
-07795	Nếnh	Phường Nếnh	nenh	24
-07798	Vân Hà	Phường Vân Hà	van_ha	24
-07822	Hoàng Vân	Xã Hoàng Vân	hoang_van	24
-07840	Hiệp Hoà	Xã Hiệp Hoà	hiep_hoa	24
-07864	Hợp Thịnh	Xã Hợp Thịnh	hop_thinh	24
-07870	Xuân Cẩm	Xã Xuân Cẩm	xuan_cam	24
-09169	Vũ Ninh	Phường Vũ Ninh	vu_ninh	24
-09187	Kinh Bắc	Phường Kinh Bắc	kinh_bac	24
-09190	Võ Cường	Phường Võ Cường	vo_cuong	24
-09193	Yên Phong	Xã Yên Phong	yen_phong	24
-09202	Tam Giang	Xã Tam Giang	tam_giang	24
-09205	Yên Trung	Xã Yên Trung	yen_trung	24
-09208	Tam Đa	Xã Tam Đa	tam_da	24
-09238	Văn Môn	Xã Văn Môn	van_mon	24
-09247	Quế Võ	Phường Quế Võ	que_vo	24
-09253	Nhân Hoà	Phường Nhân Hoà	nhan_hoa	24
-09265	Phương Liễu	Phường Phương Liễu	phuong_lieu	24
-09286	Nam Sơn	Phường Nam Sơn	nam_son	24
-09292	Phù Lãng	Xã Phù Lãng	phu_lang	24
-09295	Bồng Lai	Phường Bồng Lai	bong_lai	24
-09301	Đào Viên	Phường Đào Viên	dao_vien	24
-09313	Chi Lăng	Xã Chi Lăng	chi_lang	24
-09319	Tiên Du	Xã Tiên Du	tien_du	24
-09325	Hạp Lĩnh	Phường Hạp Lĩnh	hap_linh	24
-09334	Liên Bão	Xã Liên Bão	lien_bao	24
-09340	Đại Đồng	Xã Đại Đồng	dai_dong	24
-09343	Tân Chi	Xã Tân Chi	tan_chi	24
-09349	Phật Tích	Xã Phật Tích	phat_tich	24
-09367	Từ Sơn	Phường Từ Sơn	tu_son	24
-09370	Tam Sơn	Phường Tam Sơn	tam_son	24
-09379	Phù Khê	Phường Phù Khê	phu_khe	24
-09385	Đồng Nguyên	Phường Đồng Nguyên	dong_nguyen	24
-09400	Thuận Thành	Phường Thuận Thành	thuan_thanh	24
-09409	Mão Điền	Phường Mão Điền	mao_dien	24
-09427	Trí Quả	Phường Trí Quả	tri_qua	24
-09430	Trạm Lộ	Phường Trạm Lộ	tram_lo	24
-09433	Song Liễu	Phường Song Liễu	song_lieu	24
-09445	Ninh Xá	Phường Ninh Xá	ninh_xa	24
-09454	Gia Bình	Xã Gia Bình	gia_binh	24
-09466	Cao Đức	Xã Cao Đức	cao_duc	24
-09469	Đại Lai	Xã Đại Lai	dai_lai	24
-09475	Nhân Thắng	Xã Nhân Thắng	nhan_thang	24
-09487	Đông Cứu	Xã Đông Cứu	dong_cuu	24
-09496	Lương Tài	Xã Lương Tài	luong_tai	24
-09499	Trung Kênh	Xã Trung Kênh	trung_kenh	24
-09523	Trung Chính	Xã Trung Chính	trung_chinh	24
-09529	Lâm Thao	Xã Lâm Thao	lam_thao	24
-05128	Tân Lạc	Xã Tân Lạc	tan_lac	25
-04792	Tân Hoà	Phường Tân Hoà	tan_hoa	25
-04795	Hoà Bình	Phường Hoà Bình	hoa_binh	25
-04828	Thống Nhất	Phường Thống Nhất	thong_nhat	25
-04831	Đà Bắc	Xã Đà Bắc	da_bac	25
-04846	Đức Nhàn	Xã Đức Nhàn	duc_nhan	25
-04849	Tân Pheo	Xã Tân Pheo	tan_pheo	25
-04873	Quy Đức	Xã Quy Đức	quy_duc	25
-04876	Cao Sơn	Xã Cao Sơn	cao_son	25
-04891	Tiền Phong	Xã Tiền Phong	tien_phong	25
-04894	Kỳ Sơn	Phường Kỳ Sơn	ky_son	25
-04897	Thịnh Minh	Xã Thịnh Minh	thinh_minh	25
-04924	Lương Sơn	Xã Lương Sơn	luong_son	25
-04960	Liên Sơn	Xã Liên Sơn	lien_son	25
-04978	Kim Bôi	Xã Kim Bôi	kim_boi	25
-04990	Nật Sơn	Xã Nật Sơn	nat_son	25
-05014	Mường Động	Xã Mường Động	muong_dong	25
-05047	Cao Dương	Xã Cao Dương	cao_duong	25
-05068	Hợp Kim	Xã Hợp Kim	hop_kim	25
-05086	Dũng Tiến	Xã Dũng Tiến	dung_tien	25
-05089	Cao Phong	Xã Cao Phong	cao_phong	25
-05092	Thung Nai	Xã Thung Nai	thung_nai	25
-05116	Mường Thàng	Xã Mường Thàng	muong_thang	25
-05134	Mường Hoa	Xã Mường Hoa	muong_hoa	25
-05152	Vân Sơn	Xã Vân Sơn	van_son	25
-05158	Mường Bi	Xã Mường Bi	muong_bi	25
-05191	Toàn Thắng	Xã Toàn Thắng	toan_thang	25
-05200	Mai Châu	Xã Mai Châu	mai_chau	25
-05206	Tân Mai	Xã Tân Mai	tan_mai	25
-05212	Pà Cò	Xã Pà Cò	pa_co	25
-05245	Bao La	Xã Bao La	bao_la	25
-05251	Mai Hạ	Xã Mai Hạ	mai_ha	25
-05266	Lạc Sơn	Xã Lạc Sơn	lac_son	25
-05287	Mường Vang	Xã Mường Vang	muong_vang	25
-05290	Nhân Nghĩa	Xã Nhân Nghĩa	nhan_nghia	25
-05293	Thượng Cốc	Xã Thượng Cốc	thuong_coc	25
-05305	Yên Phú	Xã Yên Phú	yen_phu	25
-05323	Quyết Thắng	Xã Quyết Thắng	quyet_thang	25
-05329	Ngọc Sơn	Xã Ngọc Sơn	ngoc_son	25
-05347	Đại Đồng	Xã Đại Đồng	dai_dong	25
-05353	Yên Thuỷ	Xã Yên Thuỷ	yen_thuy	25
-05362	Lạc Lương	Xã Lạc Lương	lac_luong	25
-05386	Yên Trị	Xã Yên Trị	yen_tri	25
-05392	Lạc Thuỷ	Xã Lạc Thuỷ	lac_thuy	25
-05395	An Nghĩa	Xã An Nghĩa	an_nghia	25
-05425	An Bình	Xã An Bình	an_binh	25
-07894	Nông Trang	Phường Nông Trang	nong_trang	25
-07900	Việt Trì	Phường Việt Trì	viet_tri	25
-07909	Thanh Miếu	Phường Thanh Miếu	thanh_mieu	25
-07918	Vân Phú	Phường Vân Phú	van_phu	25
-07942	Phú Thọ	Phường Phú Thọ	phu_tho	25
-07948	Âu Cơ	Phường Âu Cơ	au_co	25
-07954	Phong Châu	Phường Phong Châu	phong_chau	25
-07969	Đoan Hùng	Xã Đoan Hùng	doan_hung	25
-07996	Bằng Luân	Xã Bằng Luân	bang_luan	25
-07999	Chí Đám	Xã Chí Đám	chi_dam	25
-08023	Tây Cốc	Xã Tây Cốc	tay_coc	25
-08038	Chân Mộng	Xã Chân Mộng	chan_mong	25
-08053	Hạ Hoà	Xã Hạ Hoà	ha_hoa	25
-08071	Đan Thượng	Xã Đan Thượng	dan_thuong	25
-08110	Hiền Lương	Xã Hiền Lương	hien_luong	25
-08113	Yên Kỳ	Xã Yên Kỳ	yen_ky	25
-08134	Văn Lang	Xã Văn Lang	van_lang	25
-08143	Vĩnh Chân	Xã Vĩnh Chân	vinh_chan	25
-08152	Thanh Ba	Xã Thanh Ba	thanh_ba	25
-08173	Quảng Yên	Xã Quảng Yên	quang_yen	25
-08203	Hoàng Cương	Xã Hoàng Cương	hoang_cuong	25
-08209	Đông Thành	Xã Đông Thành	dong_thanh	25
-08218	Chí Tiên	Xã Chí Tiên	chi_tien	25
-08227	Liên Minh	Xã Liên Minh	lien_minh	25
-08230	Phù Ninh	Xã Phù Ninh	phu_ninh	25
-08236	Phú Mỹ	Xã Phú Mỹ	phu_my	25
-08245	Trạm Thản	Xã Trạm Thản	tram_than	25
-08254	Dân Chủ	Xã Dân Chủ	dan_chu	25
-08275	Bình Phú	Xã Bình Phú	binh_phu	25
-08290	Yên Lập	Xã Yên Lập	yen_lap	25
-08296	Sơn Lương	Xã Sơn Lương	son_luong	25
-08305	Xuân Viên	Xã Xuân Viên	xuan_vien	25
-08311	Trung Sơn	Xã Trung Sơn	trung_son	25
-08323	Thượng Long	Xã Thượng Long	thuong_long	25
-08338	Minh Hoà	Xã Minh Hoà	minh_hoa	25
-08341	Cẩm Khê	Xã Cẩm Khê	cam_khe	25
-08344	Tiên Lương	Xã Tiên Lương	tien_luong	25
-08377	Vân Bán	Xã Vân Bán	van_ban	25
-08398	Phú Khê	Xã Phú Khê	phu_khe	25
-08416	Hùng Việt	Xã Hùng Việt	hung_viet	25
-08431	Đồng Lương	Xã Đồng Lương	dong_luong	25
-08434	Tam Nông	Xã Tam Nông	tam_nong	25
-08443	Hiền Quan	Xã Hiền Quan	hien_quan	25
-08467	Vạn Xuân	Xã Vạn Xuân	van_xuan	25
-08479	Thọ Văn	Xã Thọ Văn	tho_van	25
-08494	Lâm Thao	Xã Lâm Thao	lam_thao	25
-08500	Xuân Lũng	Xã Xuân Lũng	xuan_lung	25
-08515	Hy Cương	Xã Hy Cương	hy_cuong	25
-08521	Phùng Nguyên	Xã Phùng Nguyên	phung_nguyen	25
-08527	Bản Nguyên	Xã Bản Nguyên	ban_nguyen	25
-08542	Thanh Sơn	Xã Thanh Sơn	thanh_son	25
-08545	Thu Cúc	Xã Thu Cúc	thu_cuc	25
-08560	Lai Đồng	Xã Lai Đồng	lai_dong	25
-08566	Tân Sơn	Xã Tân Sơn	tan_son	25
-08584	Võ Miếu	Xã Võ Miếu	vo_mieu	25
-08590	Xuân Đài	Xã Xuân Đài	xuan_dai	25
-08593	Minh Đài	Xã Minh Đài	minh_dai	25
-08611	Văn Miếu	Xã Văn Miếu	van_mieu	25
-08614	Cự Đồng	Xã Cự Đồng	cu_dong	25
-08620	Long Cốc	Xã Long Cốc	long_coc	25
-08632	Hương Cần	Xã Hương Cần	huong_can	25
-08635	Khả Cửu	Xã Khả Cửu	kha_cuu	25
-08656	Yên Sơn	Xã Yên Sơn	yen_son	25
-08662	Đào Xá	Xã Đào Xá	dao_xa	25
-08674	Thanh Thuỷ	Xã Thanh Thuỷ	thanh_thuy	25
-08686	Tu Vũ	Xã Tu Vũ	tu_vu	25
-08707	Vĩnh Yên	Phường Vĩnh Yên	vinh_yen	25
-08716	Vĩnh Phúc	Phường Vĩnh Phúc	vinh_phuc	25
-08740	Phúc Yên	Phường Phúc Yên	phuc_yen	25
-08746	Xuân Hoà	Phường Xuân Hoà	xuan_hoa	25
-08761	Lập Thạch	Xã Lập Thạch	lap_thach	25
-08770	Hợp Lý	Xã Hợp Lý	hop_ly	25
-08773	Yên Lãng	Xã Yên Lãng	yen_lang	25
-08782	Hải Lựu	Xã Hải Lựu	hai_luu	25
-08788	Thái Hoà	Xã Thái Hoà	thai_hoa	25
-08812	Liên Hoà	Xã Liên Hoà	lien_hoa	25
-08824	Tam Sơn	Xã Tam Sơn	tam_son	25
-08842	Tiên Lữ	Xã Tiên Lữ	tien_lu	25
-08848	Sông Lô	Xã Sông Lô	song_lo	25
-08866	Sơn Đông	Xã Sơn Đông	son_dong	25
-08869	Tam Dương	Xã Tam Dương	tam_duong	25
-08872	Tam Dương Bắc	Xã Tam Dương Bắc	tam_duong_bac	25
-08896	Hoàng An	Xã Hoàng An	hoang_an	25
-08905	Hội Thịnh	Xã Hội Thịnh	hoi_thinh	25
-08911	Tam Đảo	Xã Tam Đảo	tam_dao	25
-08914	Đạo Trù	Xã Đạo Trù	dao_tru	25
-08923	Đại Đình	Xã Đại Đình	dai_dinh	25
-08935	Bình Nguyên	Xã Bình Nguyên	binh_nguyen	25
-08944	Bình Tuyền	Xã Bình Tuyền	binh_tuyen	25
-08950	Bình Xuyên	Xã Bình Xuyên	binh_xuyen	25
-08971	Xuân Lãng	Xã Xuân Lãng	xuan_lang	25
-09025	Yên Lạc	Xã Yên Lạc	yen_lac	25
-09040	Tề Lỗ	Xã Tề Lỗ	te_lo	25
-09043	Tam Hồng	Xã Tam Hồng	tam_hong	25
-09052	Nguyệt Đức	Xã Nguyệt Đức	nguyet_duc	25
-09064	Liên Châu	Xã Liên Châu	lien_chau	25
-09076	Vĩnh Tường	Xã Vĩnh Tường	vinh_tuong	25
-09079	Vĩnh An	Xã Vĩnh An	vinh_an	25
-09100	Vĩnh Hưng	Xã Vĩnh Hưng	vinh_hung	25
-09106	Vĩnh Thành	Xã Vĩnh Thành	vinh_thanh	25
-09112	Thổ Tang	Xã Thổ Tang	tho_tang	25
-09154	Vĩnh Phú	Xã Vĩnh Phú	vinh_phu	25
-10507	Thành Đông	Phường Thành Đông	thanh_dong	31
-10525	Hải Dương	Phường Hải Dương	hai_duong	31
-10532	Lê Thanh Nghị	Phường Lê Thanh Nghị	le_thanh_nghi	31
-10537	Tân Hưng	Phường Tân Hưng	tan_hung	31
-10543	Việt Hoà	Phường Việt Hoà	viet_hoa	31
-10546	Chí Linh	Phường Chí Linh	chi_linh	31
-10549	Chu Văn An	Phường Chu Văn An	chu_van_an	31
-10552	Nguyễn Trãi	Phường Nguyễn Trãi	nguyen_trai	31
-10570	Trần Hưng Đạo	Phường Trần Hưng Đạo	tran_hung_dao	31
-10573	Trần Nhân Tông	Phường Trần Nhân Tông	tran_nhan_tong	31
-10603	Lê Đại Hành	Phường Lê Đại Hành	le_dai_hanh	31
-10606	Nam Sách	Xã Nam Sách	nam_sach	31
-10615	Hợp Tiến	Xã Hợp Tiến	hop_tien	31
-10633	Trần Phú	Xã Trần Phú	tran_phu	31
-10642	Thái Tân	Xã Thái Tân	thai_tan	31
-10645	An Phú	Xã An Phú	an_phu	31
-10660	Ái Quốc	Phường Ái Quốc	ai_quoc	31
-10675	Kinh Môn	Phường Kinh Môn	kinh_mon	31
-10678	Bắc An Phụ	Phường Bắc An Phụ	bac_an_phu	31
-10705	Nam An Phụ	Xã Nam An Phụ	nam_an_phu	31
-10714	Nhị Chiểu	Phường Nhị Chiểu	nhi_chieu	31
-10726	Phạm Sư Mạnh	Phường Phạm Sư Mạnh	pham_su_manh	31
-10729	Trần Liễu	Phường Trần Liễu	tran_lieu	31
-10744	Nguyễn Đại Năng	Phường Nguyễn Đại Năng	nguyen_dai_nang	31
-10750	Phú Thái	Xã Phú Thái	phu_thai	31
-10756	Lai Khê	Xã Lai Khê	lai_khe	31
-10792	An Thành	Xã An Thành	an_thanh	31
-10804	Kim Thành	Xã Kim Thành	kim_thanh	31
-10813	Thanh Hà	Xã Thanh Hà	thanh_ha	31
-10816	Hà Bắc	Xã Hà Bắc	ha_bac	31
-10837	Nam Đồng	Phường Nam Đồng	nam_dong	31
-10843	Hà Nam	Xã Hà Nam	ha_nam	31
-10846	Hà Tây	Xã Hà Tây	ha_tay	31
-10882	Hà Đông	Xã Hà Đông	ha_dong	31
-10888	Cẩm Giang	Xã Cẩm Giang	cam_giang	31
-10891	Tứ Minh	Phường Tứ Minh	tu_minh	31
-10903	Cẩm Giàng	Xã Cẩm Giàng	cam_giang	31
-10909	Tuệ Tĩnh	Xã Tuệ Tĩnh	tue_tinh	31
-10930	Mao Điền	Xã Mao Điền	mao_dien	31
-10945	Kẻ Sặt	Xã Kẻ Sặt	ke_sat	31
-10966	Bình Giang	Xã Bình Giang	binh_giang	31
-10972	Đường An	Xã Đường An	duong_an	31
-10993	Thượng Hồng	Xã Thượng Hồng	thuong_hong	31
-10999	Gia Lộc	Xã Gia Lộc	gia_loc	31
-11002	Thạch Khôi	Phường Thạch Khôi	thach_khoi	31
-11020	Yết Kiêu	Xã Yết Kiêu	yet_kieu	31
-11050	Gia Phúc	Xã Gia Phúc	gia_phuc	31
-11065	Trường Tân	Xã Trường Tân	truong_tan	31
-11074	Tứ Kỳ	Xã Tứ Kỳ	tu_ky	31
-11086	Đại Sơn	Xã Đại Sơn	dai_son	31
-11113	Tân Kỳ	Xã Tân Kỳ	tan_ky	31
-11131	Chí Minh	Xã Chí Minh	chi_minh	31
-11140	Lạc Phượng	Xã Lạc Phượng	lac_phuong	31
-11146	Nguyên Giáp	Xã Nguyên Giáp	nguyen_giap	31
-11164	Vĩnh Lại	Xã Vĩnh Lại	vinh_lai	31
-11167	Tân An	Xã Tân An	tan_an	31
-11203	Ninh Giang	Xã Ninh Giang	ninh_giang	31
-11218	Hồng Châu	Xã Hồng Châu	hong_chau	31
-11224	Khúc Thừa Dụ	Xã Khúc Thừa Dụ	khuc_thua_du	31
-11239	Thanh Miện	Xã Thanh Miện	thanh_mien	31
-11242	Nguyễn Lương Bằng	Xã Nguyễn Lương Bằng	nguyen_luong_bang	31
-11254	Bắc Thanh Miện	Xã Bắc Thanh Miện	bac_thanh_mien	31
-11257	Hải Hưng	Xã Hải Hưng	hai_hung	31
-11284	Nam Thanh Miện	Xã Nam Thanh Miện	nam_thanh_mien	31
-11311	Hồng Bàng	Phường Hồng Bàng	hong_bang	31
-11329	Ngô Quyền	Phường Ngô Quyền	ngo_quyen	31
-11359	Gia Viên	Phường Gia Viên	gia_vien	31
-11383	Lê Chân	Phường Lê Chân	le_chan	31
-11407	An Biên	Phường An Biên	an_bien	31
-11411	Đông Hải	Phường Đông Hải	dong_hai	31
-11413	Hải An	Phường Hải An	hai_an	31
-11443	Kiến An	Phường Kiến An	kien_an	31
-11446	Phù Liễn	Phường Phù Liễn	phu_lien	31
-11455	Đồ Sơn	Phường Đồ Sơn	do_son	31
-11473	Bạch Đằng	Phường Bạch Đằng	bach_dang	31
-11488	Lưu Kiếm	Phường Lưu Kiếm	luu_kiem	31
-11503	Việt Khê	Xã Việt Khê	viet_khe	31
-11506	Lê Ích Mộc	Phường Lê Ích Mộc	le_ich_moc	31
-11533	Hoà Bình	Phường Hoà Bình	hoa_binh	31
-11542	Nam Triệu	Phường Nam Triệu	nam_trieu	31
-11557	Thiên Hương	Phường Thiên Hương	thien_huong	31
-11560	Thuỷ Nguyên	Phường Thuỷ Nguyên	thuy_nguyen	31
-11581	An Dương	Phường An Dương	an_duong	31
-11593	An Phong	Phường An Phong	an_phong	31
-11602	Hồng An	Phường Hồng An	hong_an	31
-11617	An Hải	Phường An Hải	an_hai	31
-11629	An Lão	Xã An Lão	an_lao	31
-11635	An Trường	Xã An Trường	an_truong	31
-11647	An Quang	Xã An Quang	an_quang	31
-11668	An Khánh	Xã An Khánh	an_khanh	31
-11674	An Hưng	Xã An Hưng	an_hung	31
-11680	Kiến Thuỵ	Xã Kiến Thuỵ	kien_thuy	31
-11689	Hưng Đạo	Phường Hưng Đạo	hung_dao	31
-11692	Dương Kinh	Phường Dương Kinh	duong_kinh	31
-11713	Nghi Dương	Xã Nghi Dương	nghi_duong	31
-11725	Kiến Minh	Xã Kiến Minh	kien_minh	31
-11728	Kiến Hưng	Xã Kiến Hưng	kien_hung	31
-11737	Nam Đồ Sơn	Phường Nam Đồ Sơn	nam_do_son	31
-11749	Kiến Hải	Xã Kiến Hải	kien_hai	31
-11755	Tiên Lãng	Xã Tiên Lãng	tien_lang	31
-11761	Quyết Thắng	Xã Quyết Thắng	quyet_thang	31
-11779	Tân Minh	Xã Tân Minh	tan_minh	31
-11791	Tiên Minh	Xã Tiên Minh	tien_minh	31
-11806	Chấn Hưng	Xã Chấn Hưng	chan_hung	31
-11809	Hùng Thắng	Xã Hùng Thắng	hung_thang	31
-11824	Vĩnh Bảo	Xã Vĩnh Bảo	vinh_bao	31
-11836	Vĩnh Thịnh	Xã Vĩnh Thịnh	vinh_thinh	31
-11842	Vĩnh Thuận	Xã Vĩnh Thuận	vinh_thuan	31
-11848	Vĩnh Hoà	Xã Vĩnh Hoà	vinh_hoa	31
-11875	Vĩnh Hải	Xã Vĩnh Hải	vinh_hai	31
-11887	Vĩnh Am	Xã Vĩnh Am	vinh_am	31
-11911	Nguyễn Bỉnh Khiêm	Xã Nguyễn Bỉnh Khiêm	nguyen_binh_khiem	31
-11914	Cát Hải	Đặc khu Cát Hải	cat_hai	31
-11948	Bạch Long Vĩ	Đặc khu Bạch Long Vĩ	bach_long_vi	31
-12619	Diên Hà	Xã Diên Hà	dien_ha	33
-11953	Phố Hiến	Phường Phố Hiến	pho_hien	33
-11977	Tân Hưng	Xã Tân Hưng	tan_hung	33
-11980	Hồng Châu	Phường Hồng Châu	hong_chau	33
-11983	Sơn Nam	Phường Sơn Nam	son_nam	33
-11992	Lạc Đạo	Xã Lạc Đạo	lac_dao	33
-11995	Đại Đồng	Xã Đại Đồng	dai_dong	33
-12004	Như Quỳnh	Xã Như Quỳnh	nhu_quynh	33
-12019	Văn Giang	Xã Văn Giang	van_giang	33
-12025	Phụng Công	Xã Phụng Công	phung_cong	33
-12031	Nghĩa Trụ	Xã Nghĩa Trụ	nghia_tru	33
-12049	Mễ Sở	Xã Mễ Sở	me_so	33
-12064	Nguyễn Văn Linh	Xã Nguyễn Văn Linh	nguyen_van_linh	33
-12070	Hoàn Long	Xã Hoàn Long	hoan_long	33
-12073	Yên Mỹ	Xã Yên Mỹ	yen_my	33
-12091	Việt Yên	Xã Việt Yên	viet_yen	33
-12103	Mỹ Hào	Phường Mỹ Hào	my_hao	33
-12127	Thượng Hồng	Phường Thượng Hồng	thuong_hong	33
-12133	Đường Hào	Phường Đường Hào	duong_hao	33
-12142	Ân Thi	Xã Ân Thi	an_thi	33
-12148	Phạm Ngũ Lão	Xã Phạm Ngũ Lão	pham_ngu_lao	33
-12166	Xuân Trúc	Xã Xuân Trúc	xuan_truc	33
-12184	Nguyễn Trãi	Xã Nguyễn Trãi	nguyen_trai	33
-12196	Hồng Quang	Xã Hồng Quang	hong_quang	33
-12205	Khoái Châu	Xã Khoái Châu	khoai_chau	33
-12223	Triệu Việt Vương	Xã Triệu Việt Vương	trieu_viet_vuong	33
-12238	Việt Tiến	Xã Việt Tiến	viet_tien	33
-12247	Châu Ninh	Xã Châu Ninh	chau_ninh	33
-12271	Chí Minh	Xã Chí Minh	chi_minh	33
-12280	Lương Bằng	Xã Lương Bằng	luong_bang	33
-12286	Nghĩa Dân	Xã Nghĩa Dân	nghia_dan	33
-12313	Đức Hợp	Xã Đức Hợp	duc_hop	33
-12322	Hiệp Cường	Xã Hiệp Cường	hiep_cuong	33
-12337	Hoàng Hoa Thám	Xã Hoàng Hoa Thám	hoang_hoa_tham	33
-12361	Tiên Hoa	Xã Tiên Hoa	tien_hoa	33
-12364	Tiên Lữ	Xã Tiên Lữ	tien_lu	33
-12391	Quang Hưng	Xã Quang Hưng	quang_hung	33
-12406	Đoàn Đào	Xã Đoàn Đào	doan_dao	33
-12424	Tiên Tiến	Xã Tiên Tiến	tien_tien	33
-12427	Tống Trân	Xã Tống Trân	tong_tran	33
-12452	Trần Hưng Đạo	Phường Trần Hưng Đạo	tran_hung_dao	33
-12454	Trần Lãm	Phường Trần Lãm	tran_lam	33
-12466	Vũ Phúc	Phường Vũ Phúc	vu_phuc	33
-12472	Quỳnh Phụ	Xã Quỳnh Phụ	quynh_phu	33
-12499	A Sào	Xã A Sào	a_sao	33
-12511	Minh Thọ	Xã Minh Thọ	minh_tho	33
-12517	Ngọc Lâm	Xã Ngọc Lâm	ngoc_lam	33
-12523	Phụ Dực	Xã Phụ Dực	phu_duc	33
-12526	Đồng Bằng	Xã Đồng Bằng	dong_bang	33
-12532	Nguyễn Du	Xã Nguyễn Du	nguyen_du	33
-12577	Quỳnh An	Xã Quỳnh An	quynh_an	33
-12583	Tân Tiến	Xã Tân Tiến	tan_tien	33
-12586	Hưng Hà	Xã Hưng Hà	hung_ha	33
-12595	Ngự Thiên	Xã Ngự Thiên	ngu_thien	33
-12613	Long Hưng	Xã Long Hưng	long_hung	33
-12631	Thần Khê	Xã Thần Khê	than_khe	33
-12634	Tiên La	Xã Tiên La	tien_la	33
-12676	Lê Quý Đôn	Xã Lê Quý Đôn	le_quy_don	33
-12685	Hồng Minh	Xã Hồng Minh	hong_minh	33
-12688	Đông Hưng	Xã Đông Hưng	dong_hung	33
-12694	Bắc Đông Hưng	Xã Bắc Đông Hưng	bac_dong_hung	33
-12700	Bắc Tiên Hưng	Xã Bắc Tiên Hưng	bac_tien_hung	33
-12736	Đông Tiên Hưng	Xã Đông Tiên Hưng	dong_tien_hung	33
-12745	Bắc Đông Quan	Xã Bắc Đông Quan	bac_dong_quan	33
-12754	Tiên Hưng	Xã Tiên Hưng	tien_hung	33
-12763	Nam Tiên Hưng	Xã Nam Tiên Hưng	nam_tien_hung	33
-12775	Nam Đông Hưng	Xã Nam Đông Hưng	nam_dong_hung	33
-12793	Đông Quan	Xã Đông Quan	dong_quan	33
-12817	Trà Lý	Phường Trà Lý	tra_ly	33
-12826	Thái Thuỵ	Xã Thái Thuỵ	thai_thuy	33
-12850	Tây Thuỵ Anh	Xã Tây Thuỵ Anh	tay_thuy_anh	33
-12859	Bắc Thuỵ Anh	Xã Bắc Thuỵ Anh	bac_thuy_anh	33
-12862	Đông Thuỵ Anh	Xã Đông Thuỵ Anh	dong_thuy_anh	33
-12865	Thuỵ Anh	Xã Thuỵ Anh	thuy_anh	33
-12904	Nam Thuỵ Anh	Xã Nam Thuỵ Anh	nam_thuy_anh	33
-12916	Bắc Thái Ninh	Xã Bắc Thái Ninh	bac_thai_ninh	33
-12919	Tây Thái Ninh	Xã Tây Thái Ninh	tay_thai_ninh	33
-12922	Thái Ninh	Xã Thái Ninh	thai_ninh	33
-12943	Đông Thái Ninh	Xã Đông Thái Ninh	dong_thai_ninh	33
-12961	Nam Thái Ninh	Xã Nam Thái Ninh	nam_thai_ninh	33
-12970	Tiền Hải	Xã Tiền Hải	tien_hai	33
-12988	Đông Tiền Hải	Xã Đông Tiền Hải	dong_tien_hai	33
-13003	Đồng Châu	Xã Đồng Châu	dong_chau	33
-13021	Ái Quốc	Xã Ái Quốc	ai_quoc	33
-13039	Tây Tiền Hải	Xã Tây Tiền Hải	tay_tien_hai	33
-13057	Nam Cường	Xã Nam Cường	nam_cuong	33
-13063	Nam Tiền Hải	Xã Nam Tiền Hải	nam_tien_hai	33
-13066	Hưng Phú	Xã Hưng Phú	hung_phu	33
-13075	Kiến Xương	Xã Kiến Xương	kien_xuong	33
-13093	Trà Giang	Xã Trà Giang	tra_giang	33
-13096	Bình Nguyên	Xã Bình Nguyên	binh_nguyen	33
-13120	Lê Lợi	Xã Lê Lợi	le_loi	33
-13132	Quang Lịch	Xã Quang Lịch	quang_lich	33
-13141	Vũ Quý	Xã Vũ Quý	vu_quy	33
-13159	Hồng Vũ	Xã Hồng Vũ	hong_vu	33
-13183	Bình Thanh	Xã Bình Thanh	binh_thanh	33
-13186	Bình Định	Xã Bình Định	binh_dinh	33
-13192	Vũ Thư	Xã Vũ Thư	vu_thu	33
-13219	Vạn Xuân	Xã Vạn Xuân	van_xuan	33
-13222	Thư Trì	Xã Thư Trì	thu_tri	33
-13225	Thái Bình	Phường Thái Bình	thai_binh	33
-13246	Tân Thuận	Xã Tân Thuận	tan_thuan	33
-13264	Thư Vũ	Xã Thư Vũ	thu_vu	33
-13279	Vũ Tiên	Xã Vũ Tiên	vu_tien	33
-13285	Phủ Lý	Phường Phủ Lý	phu_ly	37
-13291	Phù Vân	Phường Phù Vân	phu_van	37
-13318	Châu Sơn	Phường Châu Sơn	chau_son	37
-13324	Duy Tiên	Phường Duy Tiên	duy_tien	37
-13330	Duy Tân	Phường Duy Tân	duy_tan	37
-13336	Duy Hà	Phường Duy Hà	duy_ha	37
-13348	Đồng Văn	Phường Đồng Văn	dong_van	37
-13363	Tiên Sơn	Phường Tiên Sơn	tien_son	37
-13366	Hà Nam	Phường Hà Nam	ha_nam	37
-13384	Kim Bảng	Phường Kim Bảng	kim_bang	37
-13393	Lê Hồ	Phường Lê Hồ	le_ho	37
-13396	Nguyễn Úy	Phường Nguyễn Úy	nguyen_uy	37
-13402	Kim Thanh	Phường Kim Thanh	kim_thanh	37
-13420	Tam Chúc	Phường Tam Chúc	tam_chuc	37
-13435	Lý Thường Kiệt	Phường Lý Thường Kiệt	ly_thuong_kiet	37
-13444	Liêm Tuyền	Phường Liêm Tuyền	liem_tuyen	37
-13456	Liêm Hà	Xã Liêm Hà	liem_ha	37
-13474	Tân Thanh	Xã Tân Thanh	tan_thanh	37
-13483	Thanh Bình	Xã Thanh Bình	thanh_binh	37
-13489	Thanh Lâm	Xã Thanh Lâm	thanh_lam	37
-13495	Thanh Liêm	Xã Thanh Liêm	thanh_liem	37
-13501	Bình Mỹ	Xã Bình Mỹ	binh_my	37
-13504	Bình Lục	Xã Bình Lục	binh_luc	37
-13531	Bình Giang	Xã Bình Giang	binh_giang	37
-13540	Bình An	Xã Bình An	binh_an	37
-13558	Bình Sơn	Xã Bình Sơn	binh_son	37
-13573	Lý Nhân	Xã Lý Nhân	ly_nhan	37
-13579	Bắc Lý	Xã Bắc Lý	bac_ly	37
-13591	Nam Xang	Xã Nam Xang	nam_xang	37
-13594	Trần Thương	Xã Trần Thương	tran_thuong	37
-13597	Vĩnh Trụ	Xã Vĩnh Trụ	vinh_tru	37
-13609	Nhân Hà	Xã Nhân Hà	nhan_ha	37
-13627	Nam Lý	Xã Nam Lý	nam_ly	37
-13669	Nam Định	Phường Nam Định	nam_dinh	37
-13684	Thiên Trường	Phường Thiên Trường	thien_truong	37
-13693	Đông A	Phường Đông A	dong_a	37
-13699	Thành Nam	Phường Thành Nam	thanh_nam	37
-13708	Mỹ Lộc	Phường Mỹ Lộc	my_loc	37
-13741	Vụ Bản	Xã Vụ Bản	vu_ban	37
-13750	Minh Tân	Xã Minh Tân	minh_tan	37
-13753	Hiển Khánh	Xã Hiển Khánh	hien_khanh	37
-13777	Trường Thi	Phường Trường Thi	truong_thi	37
-13786	Liên Minh	Xã Liên Minh	lien_minh	37
-13795	Ý Yên	Xã Ý Yên	y_yen	37
-13807	Tân Minh	Xã Tân Minh	tan_minh	37
-13822	Phong Doanh	Xã Phong Doanh	phong_doanh	37
-13834	Vũ Dương	Xã Vũ Dương	vu_duong	37
-13864	Vạn Thắng	Xã Vạn Thắng	van_thang	37
-13870	Yên Cường	Xã Yên Cường	yen_cuong	37
-13879	Yên Đồng	Xã Yên Đồng	yen_dong	37
-13891	Nghĩa Hưng	Xã Nghĩa Hưng	nghia_hung	37
-13894	Rạng Đông	Xã Rạng Đông	rang_dong	37
-13900	Đồng Thịnh	Xã Đồng Thịnh	dong_thinh	37
-13918	Nghĩa Sơn	Xã Nghĩa Sơn	nghia_son	37
-13927	Hồng Phong	Xã Hồng Phong	hong_phong	37
-13939	Quỹ Nhất	Xã Quỹ Nhất	quy_nhat	37
-13957	Nghĩa Lâm	Xã Nghĩa Lâm	nghia_lam	37
-13966	Nam Trực	Xã Nam Trực	nam_truc	37
-13972	Vị Khê	Phường Vị Khê	vi_khe	37
-13984	Hồng Quang	Phường Hồng Quang	hong_quang	37
-13987	Nam Hồng	Xã Nam Hồng	nam_hong	37
-14005	Nam Ninh	Xã Nam Ninh	nam_ninh	37
-14011	Nam Minh	Xã Nam Minh	nam_minh	37
-14014	Nam Đồng	Xã Nam Đồng	nam_dong	37
-14026	Cổ Lễ	Xã Cổ Lễ	co_le	37
-14038	Ninh Giang	Xã Ninh Giang	ninh_giang	37
-14053	Trực Ninh	Xã Trực Ninh	truc_ninh	37
-14056	Cát Thành	Xã Cát Thành	cat_thanh	37
-14062	Quang Hưng	Xã Quang Hưng	quang_hung	37
-14071	Minh Thái	Xã Minh Thái	minh_thai	37
-14077	Ninh Cường	Xã Ninh Cường	ninh_cuong	37
-14089	Xuân Trường	Xã Xuân Trường	xuan_truong	37
-14095	Xuân Hồng	Xã Xuân Hồng	xuan_hong	37
-14104	Xuân Giang	Xã Xuân Giang	xuan_giang	37
-14122	Xuân Hưng	Xã Xuân Hưng	xuan_hung	37
-14161	Giao Minh	Xã Giao Minh	giao_minh	37
-14167	Giao Thuỷ	Xã Giao Thuỷ	giao_thuy	37
-14179	Giao Hưng	Xã Giao Hưng	giao_hung	37
-14182	Giao Hoà	Xã Giao Hoà	giao_hoa	37
-14194	Giao Bình	Xã Giao Bình	giao_binh	37
-14203	Giao Phúc	Xã Giao Phúc	giao_phuc	37
-14212	Giao Ninh	Xã Giao Ninh	giao_ninh	37
-14215	Hải Hậu	Xã Hải Hậu	hai_hau	37
-14218	Hải Tiến	Xã Hải Tiến	hai_tien	37
-14221	Hải Thịnh	Xã Hải Thịnh	hai_thinh	37
-14236	Hải Anh	Xã Hải Anh	hai_anh	37
-14248	Hải Hưng	Xã Hải Hưng	hai_hung	37
-14281	Hải An	Xã Hải An	hai_an	37
-14287	Hải Quang	Xã Hải Quang	hai_quang	37
-14308	Hải Xuân	Xã Hải Xuân	hai_xuan	37
-14329	Hoa Lư	Phường Hoa Lư	hoa_lu	37
-14359	Nam Hoa Lư	Phường Nam Hoa Lư	nam_hoa_lu	37
-14362	Tam Điệp	Phường Tam Điệp	tam_diep	37
-14365	Trung Sơn	Phường Trung Sơn	trung_son	37
-14371	Yên Sơn	Phường Yên Sơn	yen_son	37
-14401	Gia Tường	Xã Gia Tường	gia_tuong	37
-14404	Cúc Phương	Xã Cúc Phương	cuc_phuong	37
-14407	Phú Sơn	Xã Phú Sơn	phu_son	37
-14428	Nho Quan	Xã Nho Quan	nho_quan	37
-14434	Thanh Sơn	Xã Thanh Sơn	thanh_son	37
-14452	Quỳnh Lưu	Xã Quỳnh Lưu	quynh_luu	37
-14458	Phú Long	Xã Phú Long	phu_long	37
-14464	Gia Viễn	Xã Gia Viễn	gia_vien	37
-14482	Gia Hưng	Xã Gia Hưng	gia_hung	37
-14488	Gia Vân	Xã Gia Vân	gia_van	37
-14494	Gia Trấn	Xã Gia Trấn	gia_tran	37
-14500	Đại Hoàng	Xã Đại Hoàng	dai_hoang	37
-14524	Gia Phong	Xã Gia Phong	gia_phong	37
-14533	Tây Hoa Lư	Phường Tây Hoa Lư	tay_hoa_lu	37
-14560	Yên Khánh	Xã Yên Khánh	yen_khanh	37
-14563	Khánh Thiện	Xã Khánh Thiện	khanh_thien	37
-14566	Đông Hoa Lư	Phường Đông Hoa Lư	dong_hoa_lu	37
-14608	Khánh Trung	Xã Khánh Trung	khanh_trung	37
-14611	Khánh Nhạc	Xã Khánh Nhạc	khanh_nhac	37
-14614	Khánh Hội	Xã Khánh Hội	khanh_hoi	37
-14620	Phát Diệm	Xã Phát Diệm	phat_diem	37
-14623	Bình Minh	Xã Bình Minh	binh_minh	37
-14638	Kim Sơn	Xã Kim Sơn	kim_son	37
-14647	Quang Thiện	Xã Quang Thiện	quang_thien	37
-14653	Chất Bình	Xã Chất Bình	chat_binh	37
-14674	Lai Thành	Xã Lai Thành	lai_thanh	37
-14677	Định Hoá	Xã Định Hoá	dinh_hoa	37
-14698	Kim Đông	Xã Kim Đông	kim_dong	37
-14701	Yên Mô	Xã Yên Mô	yen_mo	37
-14725	Yên Thắng	Phường Yên Thắng	yen_thang	37
-14728	Yên Từ	Xã Yên Từ	yen_tu	37
-14743	Yên Mạc	Xã Yên Mạc	yen_mac	37
-14746	Đồng Thái	Xã Đồng Thái	dong_thai	37
-14758	Hàm Rồng	Phường Hàm Rồng	ham_rong	38
-14797	Hạc Thành	Phường Hạc Thành	hac_thanh	38
-14812	Bỉm Sơn	Phường Bỉm Sơn	bim_son	38
-14818	Quang Trung	Phường Quang Trung	quang_trung	38
-14845	Mường Lát	Xã Mường Lát	muong_lat	38
-14848	Tam Chung	Xã Tam Chung	tam_chung	38
-14854	Mường Lý	Xã Mường Lý	muong_ly	38
-14857	Trung Lý	Xã Trung Lý	trung_ly	38
-14860	Quang Chiểu	Xã Quang Chiểu	quang_chieu	38
-14863	Pù Nhi	Xã Pù Nhi	pu_nhi	38
-14864	Nhi Sơn	Xã Nhi Sơn	nhi_son	38
-14866	Mường Chanh	Xã Mường Chanh	muong_chanh	38
-14869	Hồi Xuân	Xã Hồi Xuân	hoi_xuan	38
-14872	Trung Thành	Xã Trung Thành	trung_thanh	38
-14875	Trung Sơn	Xã Trung Sơn	trung_son	38
-14878	Phú Lệ	Xã Phú Lệ	phu_le	38
-14890	Phú Xuân	Xã Phú Xuân	phu_xuan	38
-14896	Hiền Kiệt	Xã Hiền Kiệt	hien_kiet	38
-14902	Nam Xuân	Xã Nam Xuân	nam_xuan	38
-14908	Thiên Phủ	Xã Thiên Phủ	thien_phu	38
-14923	Bá Thước	Xã Bá Thước	ba_thuoc	38
-14932	Điền Quang	Xã Điền Quang	dien_quang	38
-14950	Điền Lư	Xã Điền Lư	dien_lu	38
-14953	Quý Lương	Xã Quý Lương	quy_luong	38
-14956	Pù Luông	Xã Pù Luông	pu_luong	38
-14959	Cổ Lũng	Xã Cổ Lũng	co_lung	38
-14974	Văn Nho	Xã Văn Nho	van_nho	38
-14980	Thiết Ống	Xã Thiết Ống	thiet_ong	38
-15001	Trung Hạ	Xã Trung Hạ	trung_ha	38
-15007	Tam Thanh	Xã Tam Thanh	tam_thanh	38
-15010	Sơn Thuỷ	Xã Sơn Thuỷ	son_thuy	38
-15013	Na Mèo	Xã Na Mèo	na_meo	38
-15016	Quan Sơn	Xã Quan Sơn	quan_son	38
-15019	Tam Lư	Xã Tam Lư	tam_lu	38
-15022	Sơn Điện	Xã Sơn Điện	son_dien	38
-15025	Mường Mìn	Xã Mường Mìn	muong_min	38
-15031	Yên Khương	Xã Yên Khương	yen_khuong	38
-15034	Yên Thắng	Xã Yên Thắng	yen_thang	38
-15043	Giao An	Xã Giao An	giao_an	38
-15049	Văn Phú	Xã Văn Phú	van_phu	38
-15055	Linh Sơn	Xã Linh Sơn	linh_son	38
-15058	Đồng Lương	Xã Đồng Lương	dong_luong	38
-15061	Ngọc Lặc	Xã Ngọc Lặc	ngoc_lac	38
-15085	Thạch Lập	Xã Thạch Lập	thach_lap	38
-15091	Ngọc Liên	Xã Ngọc Liên	ngoc_lien	38
-15106	Nguyệt Ấn	Xã Nguyệt Ấn	nguyet_an	38
-15112	Kiên Thọ	Xã Kiên Thọ	kien_tho	38
-15124	Minh Sơn	Xã Minh Sơn	minh_son	38
-15127	Cẩm Thuỷ	Xã Cẩm Thuỷ	cam_thuy	38
-15142	Cẩm Thạch	Xã Cẩm Thạch	cam_thach	38
-15148	Cẩm Tú	Xã Cẩm Tú	cam_tu	38
-15163	Cẩm Vân	Xã Cẩm Vân	cam_van	38
-15178	Cẩm Tân	Xã Cẩm Tân	cam_tan	38
-15187	Kim Tân	Xã Kim Tân	kim_tan	38
-15190	Vân Du	Xã Vân Du	van_du	38
-15199	Thạch Quảng	Xã Thạch Quảng	thach_quang	38
-15211	Thạch Bình	Xã Thạch Bình	thach_binh	38
-15229	Thành Vinh	Xã Thành Vinh	thanh_vinh	38
-15250	Ngọc Trạo	Xã Ngọc Trạo	ngoc_trao	38
-15271	Hà Trung	Xã Hà Trung	ha_trung	38
-15274	Hà Long	Xã Hà Long	ha_long	38
-15286	Hoạt Giang	Xã Hoạt Giang	hoat_giang	38
-15298	Lĩnh Toại	Xã Lĩnh Toại	linh_toai	38
-15316	Tống Sơn	Xã Tống Sơn	tong_son	38
-15349	Vĩnh Lộc	Xã Vĩnh Lộc	vinh_loc	38
-15361	Tây Đô	Xã Tây Đô	tay_do	38
-15382	Biện Thượng	Xã Biện Thượng	bien_thuong	38
-15409	Yên Phú	Xã Yên Phú	yen_phu	38
-15412	Quý Lộc	Xã Quý Lộc	quy_loc	38
-15421	Yên Trường	Xã Yên Trường	yen_truong	38
-15442	Yên Ninh	Xã Yên Ninh	yen_ninh	38
-15448	Định Hoà	Xã Định Hoà	dinh_hoa	38
-15457	Định Tân	Xã Định Tân	dinh_tan	38
-15469	Yên Định	Xã Yên Định	yen_dinh	38
-15499	Thọ Xuân	Xã Thọ Xuân	tho_xuan	38
-15505	Thọ Long	Xã Thọ Long	tho_long	38
-15520	Xuân Hoà	Xã Xuân Hoà	xuan_hoa	38
-15544	Lam Sơn	Xã Lam Sơn	lam_son	38
-15553	Sao Vàng	Xã Sao Vàng	sao_vang	38
-15568	Thọ Lập	Xã Thọ Lập	tho_lap	38
-15574	Xuân Tín	Xã Xuân Tín	xuan_tin	38
-15592	Xuân Lập	Xã Xuân Lập	xuan_lap	38
-15607	Bát Mọt	Xã Bát Mọt	bat_mot	38
-15610	Yên Nhân	Xã Yên Nhân	yen_nhan	38
-15622	Vạn Xuân	Xã Vạn Xuân	van_xuan	38
-15628	Lương Sơn	Xã Lương Sơn	luong_son	38
-15634	Luận Thành	Xã Luận Thành	luan_thanh	38
-15643	Thắng Lộc	Xã Thắng Lộc	thang_loc	38
-15646	Thường Xuân	Xã Thường Xuân	thuong_xuan	38
-15658	Xuân Chinh	Xã Xuân Chinh	xuan_chinh	38
-15661	Tân Thành	Xã Tân Thành	tan_thanh	38
-15664	Triệu Sơn	Xã Triệu Sơn	trieu_son	38
-15667	Thọ Bình	Xã Thọ Bình	tho_binh	38
-15682	Hợp Tiến	Xã Hợp Tiến	hop_tien	38
-15715	Tân Ninh	Xã Tân Ninh	tan_ninh	38
-15724	Đồng Tiến	Xã Đồng Tiến	dong_tien	38
-15754	Thọ Ngọc	Xã Thọ Ngọc	tho_ngoc	38
-15763	Thọ Phú	Xã Thọ Phú	tho_phu	38
-15766	An Nông	Xã An Nông	an_nong	38
-15772	Thiệu Hoá	Xã Thiệu Hoá	thieu_hoa	38
-15778	Thiệu Tiến	Xã Thiệu Tiến	thieu_tien	38
-15796	Thiệu Quang	Xã Thiệu Quang	thieu_quang	38
-15820	Thiệu Toán	Xã Thiệu Toán	thieu_toan	38
-15835	Thiệu Trung	Xã Thiệu Trung	thieu_trung	38
-15853	Đông Tiến	Phường Đông Tiến	dong_tien	38
-15865	Hoằng Hoá	Xã Hoằng Hoá	hoang_hoa	38
-15880	Hoằng Giang	Xã Hoằng Giang	hoang_giang	38
-15889	Hoằng Phú	Xã Hoằng Phú	hoang_phu	38
-15910	Hoằng Sơn	Xã Hoằng Sơn	hoang_son	38
-15925	Nguyệt Viên	Phường Nguyệt Viên	nguyet_vien	38
-15961	Hoằng Lộc	Xã Hoằng Lộc	hoang_loc	38
-15976	Hoằng Châu	Xã Hoằng Châu	hoang_chau	38
-15991	Hoằng Tiến	Xã Hoằng Tiến	hoang_tien	38
-16000	Hoằng Thanh	Xã Hoằng Thanh	hoang_thanh	38
-16012	Hậu Lộc	Xã Hậu Lộc	hau_loc	38
-16021	Triệu Lộc	Xã Triệu Lộc	trieu_loc	38
-16033	Đông Thành	Xã Đông Thành	dong_thanh	38
-16072	Hoa Lộc	Xã Hoa Lộc	hoa_loc	38
-16078	Vạn Lộc	Xã Vạn Lộc	van_loc	38
-16093	Nga Sơn	Xã Nga Sơn	nga_son	38
-16108	Tân Tiến	Xã Tân Tiến	tan_tien	38
-16114	Nga Thắng	Xã Nga Thắng	nga_thang	38
-16138	Hồ Vương	Xã Hồ Vương	ho_vuong	38
-16144	Nga An	Xã Nga An	nga_an	38
-16171	Ba Đình	Xã Ba Đình	ba_dinh	38
-16174	Như Xuân	Xã Như Xuân	nhu_xuan	38
-16177	Xuân Bình	Xã Xuân Bình	xuan_binh	38
-16186	Hoá Quỳ	Xã Hoá Quỳ	hoa_quy	38
-16213	Thanh Phong	Xã Thanh Phong	thanh_phong	38
-16222	Thanh Quân	Xã Thanh Quân	thanh_quan	38
-16225	Thượng Ninh	Xã Thượng Ninh	thuong_ninh	38
-16228	Như Thanh	Xã Như Thanh	nhu_thanh	38
-16234	Xuân Du	Xã Xuân Du	xuan_du	38
-16249	Mậu Lâm	Xã Mậu Lâm	mau_lam	38
-16258	Xuân Thái	Xã Xuân Thái	xuan_thai	38
-16264	Yên Thọ	Xã Yên Thọ	yen_tho	38
-16273	Thanh Kỳ	Xã Thanh Kỳ	thanh_ky	38
-16279	Nông Cống	Xã Nông Cống	nong_cong	38
-16297	Trung Chính	Xã Trung Chính	trung_chinh	38
-16309	Thắng Lợi	Xã Thắng Lợi	thang_loi	38
-16342	Thăng Bình	Xã Thăng Bình	thang_binh	38
-16348	Trường Văn	Xã Trường Văn	truong_van	38
-16363	Tượng Lĩnh	Xã Tượng Lĩnh	tuong_linh	38
-16369	Công Chính	Xã Công Chính	cong_chinh	38
-16378	Đông Sơn	Phường Đông Sơn	dong_son	38
-16417	Đông Quang	Phường Đông Quang	dong_quang	38
-16438	Lưu Vệ	Xã Lưu Vệ	luu_ve	38
-16480	Quảng Yên	Xã Quảng Yên	quang_yen	38
-16489	Quảng Chính	Xã Quảng Chính	quang_chinh	38
-16498	Quảng Ngọc	Xã Quảng Ngọc	quang_ngoc	38
-16516	Nam Sầm Sơn	Phường Nam Sầm Sơn	nam_sam_son	38
-16522	Quảng Phú	Phường Quảng Phú	quang_phu	38
-16531	Sầm Sơn	Phường Sầm Sơn	sam_son	38
-16540	Quảng Ninh	Xã Quảng Ninh	quang_ninh	38
-16543	Quảng Bình	Xã Quảng Bình	quang_binh	38
-16549	Tiên Trang	Xã Tiên Trang	tien_trang	38
-16561	Tĩnh Gia	Phường Tĩnh Gia	tinh_gia	38
-16576	Ngọc Sơn	Phường Ngọc Sơn	ngoc_son	38
-16591	Các Sơn	Xã Các Sơn	cac_son	38
-16594	Tân Dân	Phường Tân Dân	tan_dan	38
-16597	Hải Lĩnh	Phường Hải Lĩnh	hai_linh	38
-16609	Đào Duy Từ	Phường Đào Duy Từ	dao_duy_tu	38
-16624	Trúc Lâm	Phường Trúc Lâm	truc_lam	38
-16636	Trường Lâm	Xã Trường Lâm	truong_lam	38
-16645	Hải Bình	Phường Hải Bình	hai_binh	38
-16654	Nghi Sơn	Phường Nghi Sơn	nghi_son	38
-17611	Vân Tụ	Xã Vân Tụ	van_tu	40
-16681	Thành Vinh	Phường Thành Vinh	thanh_vinh	40
-16690	Trường Vinh	Phường Trường Vinh	truong_vinh	40
-16702	Vinh Phú	Phường Vinh Phú	vinh_phu	40
-16708	Vinh Lộc	Phường Vinh Lộc	vinh_loc	40
-16732	Cửa Lò	Phường Cửa Lò	cua_lo	40
-16738	Quế Phong	Xã Quế Phong	que_phong	40
-16744	Thông Thụ	Xã Thông Thụ	thong_thu	40
-16750	Tiền Phong	Xã Tiền Phong	tien_phong	40
-16756	Tri Lễ	Xã Tri Lễ	tri_le	40
-16774	Mường Quàng	Xã Mường Quàng	muong_quang	40
-16777	Quỳ Châu	Xã Quỳ Châu	quy_chau	40
-16792	Châu Tiến	Xã Châu Tiến	chau_tien	40
-16801	Hùng Chân	Xã Hùng Chân	hung_chan	40
-16804	Châu Bình	Xã Châu Bình	chau_binh	40
-16813	Mường Xén	Xã Mường Xén	muong_xen	40
-16816	Mỹ Lý	Xã Mỹ Lý	my_ly	40
-16819	Bắc Lý	Xã Bắc Lý	bac_ly	40
-16822	Keng Đu	Xã Keng Đu	keng_du	40
-16828	Huồi Tụ	Xã Huồi Tụ	huoi_tu	40
-16831	Mường Lống	Xã Mường Lống	muong_long	40
-16834	Na Loi	Xã Na Loi	na_loi	40
-16837	Nậm Cắn	Xã Nậm Cắn	nam_can	40
-16849	Hữu Kiệm	Xã Hữu Kiệm	huu_kiem	40
-16855	Chiêu Lưu	Xã Chiêu Lưu	chieu_luu	40
-16858	Mường Típ	Xã Mường Típ	muong_tip	40
-16870	Na Ngoi	Xã Na Ngoi	na_ngoi	40
-16876	Tương Dương	Xã Tương Dương	tuong_duong	40
-16882	Nhôn Mai	Xã Nhôn Mai	nhon_mai	40
-16885	Hữu Khuông	Xã Hữu Khuông	huu_khuong	40
-16903	Nga My	Xã Nga My	nga_my	40
-16906	Lượng Minh	Xã Lượng Minh	luong_minh	40
-16909	Yên Hoà	Xã Yên Hoà	yen_hoa	40
-16912	Yên Na	Xã Yên Na	yen_na	40
-16933	Tam Quang	Xã Tam Quang	tam_quang	40
-16936	Tam Thái	Xã Tam Thái	tam_thai	40
-16939	Thái Hoà	Phường Thái Hoà	thai_hoa	40
-16941	Nghĩa Đàn	Xã Nghĩa Đàn	nghia_dan	40
-16951	Nghĩa Lâm	Xã Nghĩa Lâm	nghia_lam	40
-16969	Nghĩa Thọ	Xã Nghĩa Thọ	nghia_tho	40
-16972	Nghĩa Hưng	Xã Nghĩa Hưng	nghia_hung	40
-16975	Nghĩa Mai	Xã Nghĩa Mai	nghia_mai	40
-17011	Tây Hiếu	Phường Tây Hiếu	tay_hieu	40
-17017	Đông Hiếu	Xã Đông Hiếu	dong_hieu	40
-17029	Nghĩa Lộc	Xã Nghĩa Lộc	nghia_loc	40
-17032	Nghĩa Khánh	Xã Nghĩa Khánh	nghia_khanh	40
-17035	Quỳ Hợp	Xã Quỳ Hợp	quy_hop	40
-17044	Châu Hồng	Xã Châu Hồng	chau_hong	40
-17056	Châu Lộc	Xã Châu Lộc	chau_loc	40
-17059	Tam Hợp	Xã Tam Hợp	tam_hop	40
-17071	Minh Hợp	Xã Minh Hợp	minh_hop	40
-17077	Mường Ham	Xã Mường Ham	muong_ham	40
-17089	Mường Chọng	Xã Mường Chọng	muong_chong	40
-17110	Hoàng Mai	Phường Hoàng Mai	hoang_mai	40
-17125	Quỳnh Mai	Phường Quỳnh Mai	quynh_mai	40
-17128	Tân Mai	Phường Tân Mai	tan_mai	40
-17143	Quỳnh Văn	Xã Quỳnh Văn	quynh_van	40
-17149	Quỳnh Tam	Xã Quỳnh Tam	quynh_tam	40
-17170	Quỳnh Sơn	Xã Quỳnh Sơn	quynh_son	40
-17176	Quỳnh Anh	Xã Quỳnh Anh	quynh_anh	40
-17179	Quỳnh Lưu	Xã Quỳnh Lưu	quynh_luu	40
-17212	Quỳnh Phú	Xã Quỳnh Phú	quynh_phu	40
-17224	Quỳnh Thắng	Xã Quỳnh Thắng	quynh_thang	40
-17230	Bình Chuẩn	Xã Bình Chuẩn	binh_chuan	40
-17239	Mậu Thạch	Xã Mậu Thạch	mau_thach	40
-17242	Cam Phục	Xã Cam Phục	cam_phuc	40
-17248	Châu Khê	Xã Châu Khê	chau_khe	40
-17254	Con Cuông	Xã Con Cuông	con_cuong	40
-17263	Môn Sơn	Xã Môn Sơn	mon_son	40
-17266	Tân Kỳ	Xã Tân Kỳ	tan_ky	40
-17272	Tân Phú	Xã Tân Phú	tan_phu	40
-17278	Giai Xuân	Xã Giai Xuân	giai_xuan	40
-17284	Nghĩa Đồng	Xã Nghĩa Đồng	nghia_dong	40
-17287	Tiên Đồng	Xã Tiên Đồng	tien_dong	40
-17305	Tân An	Xã Tân An	tan_an	40
-17326	Nghĩa Hành	Xã Nghĩa Hành	nghia_hanh	40
-17329	Anh Sơn	Xã Anh Sơn	anh_son	40
-17335	Thành Bình Thọ	Xã Thành Bình Thọ	thanh_binh_tho	40
-17344	Nhân Hoà	Xã Nhân Hoà	nhan_hoa	40
-17357	Vĩnh Tường	Xã Vĩnh Tường	vinh_tuong	40
-17365	Anh Sơn Đông	Xã Anh Sơn Đông	anh_son_dong	40
-17380	Yên Xuân	Xã Yên Xuân	yen_xuan	40
-17395	Hùng Châu	Xã Hùng Châu	hung_chau	40
-17416	Đức Châu	Xã Đức Châu	duc_chau	40
-17419	Hải Châu	Xã Hải Châu	hai_chau	40
-17443	Quảng Châu	Xã Quảng Châu	quang_chau	40
-17464	Diễn Châu	Xã Diễn Châu	dien_chau	40
-17476	Minh Châu	Xã Minh Châu	minh_chau	40
-17479	An Châu	Xã An Châu	an_chau	40
-17488	Tân Châu	Xã Tân Châu	tan_chau	40
-17506	Yên Thành	Xã Yên Thành	yen_thanh	40
-17515	Bình Minh	Xã Bình Minh	binh_minh	40
-17521	Quang Đồng	Xã Quang Đồng	quang_dong	40
-17524	Giai Lạc	Xã Giai Lạc	giai_lac	40
-17530	Đông Thành	Xã Đông Thành	dong_thanh	40
-17560	Vân Du	Xã Vân Du	van_du	40
-17569	Quan Thành	Xã Quan Thành	quan_thanh	40
-17605	Hợp Minh	Xã Hợp Minh	hop_minh	40
-17623	Bạch Ngọc	Xã Bạch Ngọc	bach_ngoc	40
-17641	Lương Sơn	Xã Lương Sơn	luong_son	40
-17662	Đô Lương	Xã Đô Lương	do_luong	40
-17677	Văn Hiến	Xã Văn Hiến	van_hien	40
-17689	Thuần Trung	Xã Thuần Trung	thuan_trung	40
-17707	Bạch Hà	Xã Bạch Hà	bach_ha	40
-17713	Đại Đồng	Xã Đại Đồng	dai_dong	40
-17722	Hạnh Lâm	Xã Hạnh Lâm	hanh_lam	40
-17728	Cát Ngạn	Xã Cát Ngạn	cat_ngan	40
-17743	Tam Đồng	Xã Tam Đồng	tam_dong	40
-17759	Sơn Lâm	Xã Sơn Lâm	son_lam	40
-17770	Hoa Quân	Xã Hoa Quân	hoa_quan	40
-17779	Xuân Lâm	Xã Xuân Lâm	xuan_lam	40
-17791	Kim Bảng	Xã Kim Bảng	kim_bang	40
-17818	Bích Hào	Xã Bích Hào	bich_hao	40
-17827	Nghi Lộc	Xã Nghi Lộc	nghi_loc	40
-17833	Hải Lộc	Xã Hải Lộc	hai_loc	40
-17842	Thần Lĩnh	Xã Thần Lĩnh	than_linh	40
-17854	Văn Kiều	Xã Văn Kiều	van_kieu	40
-17857	Phúc Lộc	Xã Phúc Lộc	phuc_loc	40
-17866	Trung Lộc	Xã Trung Lộc	trung_loc	40
-17878	Đông Lộc	Xã Đông Lộc	dong_loc	40
-17920	Vinh Hưng	Phường Vinh Hưng	vinh_hung	40
-17935	Nam Đàn	Xã Nam Đàn	nam_dan	40
-17944	Đại Huệ	Xã Đại Huệ	dai_hue	40
-17950	Vạn An	Xã Vạn An	van_an	40
-17971	Kim Liên	Xã Kim Liên	kim_lien	40
-17989	Thiên Nhẫn	Xã Thiên Nhẫn	thien_nhan	40
-18001	Hưng Nguyên	Xã Hưng Nguyên	hung_nguyen	40
-18007	Yên Trung	Xã Yên Trung	yen_trung	40
-18028	Hưng Nguyên Nam	Xã Hưng Nguyên Nam	hung_nguyen_nam	40
-18040	Lam Thành	Xã Lam Thành	lam_thanh	40
-18073	Thành Sen	Phường Thành Sen	thanh_sen	42
-18100	Trần Phú	Phường Trần Phú	tran_phu	42
-18115	Bắc Hồng Lĩnh	Phường Bắc Hồng Lĩnh	bac_hong_linh	42
-18118	Nam Hồng Lĩnh	Phường Nam Hồng Lĩnh	nam_hong_linh	42
-18133	Hương Sơn	Xã Hương Sơn	huong_son	42
-18160	Sơn Hồng	Xã Sơn Hồng	son_hong	42
-18163	Sơn Tiến	Xã Sơn Tiến	son_tien	42
-18172	Sơn Tây	Xã Sơn Tây	son_tay	42
-18184	Sơn Giang	Xã Sơn Giang	son_giang	42
-18196	Sơn Kim 1	Xã Sơn Kim 1	son_kim_1	42
-18199	Sơn Kim 2	Xã Sơn Kim 2	son_kim_2	42
-18202	Tứ Mỹ	Xã Tứ Mỹ	tu_my	42
-18223	Kim Hoa	Xã Kim Hoa	kim_hoa	42
-18229	Đức Thọ	Xã Đức Thọ	duc_tho	42
-18244	Đức Minh	Xã Đức Minh	duc_minh	42
-18262	Đức Quang	Xã Đức Quang	duc_quang	42
-18277	Đức Thịnh	Xã Đức Thịnh	duc_thinh	42
-18304	Đức Đồng	Xã Đức Đồng	duc_dong	42
-18313	Vũ Quang	Xã Vũ Quang	vu_quang	42
-18322	Mai Hoa	Xã Mai Hoa	mai_hoa	42
-18328	Thượng Đức	Xã Thượng Đức	thuong_duc	42
-18352	Nghi Xuân	Xã Nghi Xuân	nghi_xuan	42
-18364	Đan Hải	Xã Đan Hải	dan_hai	42
-18373	Tiên Điền	Xã Tiên Điền	tien_dien	42
-18394	Cổ Đạm	Xã Cổ Đạm	co_dam	42
-18406	Can Lộc	Xã Can Lộc	can_loc	42
-18409	Hồng Lộc	Xã Hồng Lộc	hong_loc	42
-18418	Tùng Lộc	Xã Tùng Lộc	tung_loc	42
-18436	Trường Lưu	Xã Trường Lưu	truong_luu	42
-18466	Gia Hanh	Xã Gia Hanh	gia_hanh	42
-18481	Xuân Lộc	Xã Xuân Lộc	xuan_loc	42
-18484	Đồng Lộc	Xã Đồng Lộc	dong_loc	42
-18496	Hương Khê	Xã Hương Khê	huong_khe	42
-18502	Hà Linh	Xã Hà Linh	ha_linh	42
-18523	Hương Bình	Xã Hương Bình	huong_binh	42
-18532	Hương Phố	Xã Hương Phố	huong_pho	42
-18544	Hương Xuân	Xã Hương Xuân	huong_xuan	42
-18547	Phúc Trạch	Xã Phúc Trạch	phuc_trach	42
-18550	Hương Đô	Xã Hương Đô	huong_do	42
-18562	Thạch Hà	Xã Thạch Hà	thach_ha	42
-18568	Lộc Hà	Xã Lộc Hà	loc_ha	42
-18583	Mai Phụ	Xã Mai Phụ	mai_phu	42
-18586	Đông Kinh	Xã Đông Kinh	dong_kinh	42
-18601	Việt Xuyên	Xã Việt Xuyên	viet_xuyen	42
-18604	Thạch Khê	Xã Thạch Khê	thach_khe	42
-18619	Đồng Tiến	Xã Đồng Tiến	dong_tien	42
-18628	Thạch Lạc	Xã Thạch Lạc	thach_lac	42
-18634	Toàn Lưu	Xã Toàn Lưu	toan_luu	42
-18652	Hà Huy Tập	Phường Hà Huy Tập	ha_huy_tap	42
-18667	Thạch Xuân	Xã Thạch Xuân	thach_xuan	42
-18673	Cẩm Xuyên	Xã Cẩm Xuyên	cam_xuyen	42
-18676	Thiên Cầm	Xã Thiên Cầm	thien_cam	42
-18682	Yên Hoà	Xã Yên Hoà	yen_hoa	42
-18685	Cẩm Bình	Xã Cẩm Bình	cam_binh	42
-18736	Cẩm Hưng	Xã Cẩm Hưng	cam_hung	42
-18739	Cẩm Duệ	Xã Cẩm Duệ	cam_due	42
-18742	Cẩm Trung	Xã Cẩm Trung	cam_trung	42
-18748	Cẩm Lạc	Xã Cẩm Lạc	cam_lac	42
-18754	Sông Trí	Phường Sông Trí	song_tri	42
-18766	Kỳ Xuân	Xã Kỳ Xuân	ky_xuan	42
-18775	Kỳ Anh	Xã Kỳ Anh	ky_anh	42
-18781	Hải Ninh	Phường Hải Ninh	hai_ninh	42
-18787	Kỳ Văn	Xã Kỳ Văn	ky_van	42
-18790	Kỳ Khang	Xã Kỳ Khang	ky_khang	42
-18814	Kỳ Hoa	Xã Kỳ Hoa	ky_hoa	42
-18823	Vũng Áng	Phường Vũng Áng	vung_ang	42
-18832	Hoành Sơn	Phường Hoành Sơn	hoanh_son	42
-18838	Kỳ Lạc	Xã Kỳ Lạc	ky_lac	42
-18844	Kỳ Thượng	Xã Kỳ Thượng	ky_thuong	42
-18859	Đồng Thuận	Phường Đồng Thuận	dong_thuan	44
-18871	Đồng Sơn	Phường Đồng Sơn	dong_son	44
-18880	Đồng Hới	Phường Đồng Hới	dong_hoi	44
-18901	Minh Hoá	Xã Minh Hoá	minh_hoa	44
-18904	Dân Hoá	Xã Dân Hoá	dan_hoa	44
-18919	Tân Thành	Xã Tân Thành	tan_thanh	44
-18922	Kim Điền	Xã Kim Điền	kim_dien	44
-18943	Kim Phú	Xã Kim Phú	kim_phu	44
-18949	Đồng Lê	Xã Đồng Lê	dong_le	44
-18952	Tuyên Sơn	Xã Tuyên Sơn	tuyen_son	44
-18958	Tuyên Lâm	Xã Tuyên Lâm	tuyen_lam	44
-18985	Tuyên Phú	Xã Tuyên Phú	tuyen_phu	44
-18991	Tuyên Bình	Xã Tuyên Bình	tuyen_binh	44
-18997	Tuyên Hoá	Xã Tuyên Hoá	tuyen_hoa	44
-19009	Ba Đồn	Phường Ba Đồn	ba_don	44
-19021	Phú Trạch	Xã Phú Trạch	phu_trach	44
-19030	Trung Thuần	Xã Trung Thuần	trung_thuan	44
-19033	Hoà Trạch	Xã Hoà Trạch	hoa_trach	44
-19051	Tân Gianh	Xã Tân Gianh	tan_gianh	44
-19057	Quảng Trạch	Xã Quảng Trạch	quang_trach	44
-19066	Bắc Gianh	Phường Bắc Gianh	bac_gianh	44
-19075	Nam Ba Đồn	Xã Nam Ba Đồn	nam_ba_don	44
-19093	Nam Gianh	Xã Nam Gianh	nam_gianh	44
-19111	Hoàn Lão	Xã Hoàn Lão	hoan_lao	44
-19126	Bắc Trạch	Xã Bắc Trạch	bac_trach	44
-19138	Phong Nha	Xã Phong Nha	phong_nha	44
-19141	Bố Trạch	Xã Bố Trạch	bo_trach	44
-19147	Thượng Trạch	Xã Thượng Trạch	thuong_trach	44
-19159	Đông Trạch	Xã Đông Trạch	dong_trach	44
-19198	Nam Trạch	Xã Nam Trạch	nam_trach	44
-19204	Trường Sơn	Xã Trường Sơn	truong_son	44
-19207	Quảng Ninh	Xã Quảng Ninh	quang_ninh	44
-19225	Ninh Châu	Xã Ninh Châu	ninh_chau	44
-19237	Trường Ninh	Xã Trường Ninh	truong_ninh	44
-19246	Lệ Ninh	Xã Lệ Ninh	le_ninh	44
-19249	Lệ Thuỷ	Xã Lệ Thuỷ	le_thuy	44
-19255	Cam Hồng	Xã Cam Hồng	cam_hong	44
-19288	Sen Ngư	Xã Sen Ngư	sen_ngu	44
-19291	Tân Mỹ	Xã Tân Mỹ	tan_my	44
-19309	Trường Phú	Xã Trường Phú	truong_phu	44
-19318	Kim Ngân	Xã Kim Ngân	kim_ngan	44
-19333	Đông Hà	Phường Đông Hà	dong_ha	44
-19351	Nam Đông Hà	Phường Nam Đông Hà	nam_dong_ha	44
-19360	Quảng Trị	Phường Quảng Trị	quang_tri	44
-19363	Vĩnh Linh	Xã Vĩnh Linh	vinh_linh	44
-19366	Bến Quan	Xã Bến Quan	ben_quan	44
-19372	Vĩnh Hoàng	Xã Vĩnh Hoàng	vinh_hoang	44
-19405	Vĩnh Thuỷ	Xã Vĩnh Thuỷ	vinh_thuy	44
-19414	Cửa Tùng	Xã Cửa Tùng	cua_tung	44
-19429	Khe Sanh	Xã Khe Sanh	khe_sanh	44
-19432	Lao Bảo	Xã Lao Bảo	lao_bao	44
-19435	Hướng Lập	Xã Hướng Lập	huong_lap	44
-19441	Hướng Phùng	Xã Hướng Phùng	huong_phung	44
-19462	Tân Lập	Xã Tân Lập	tan_lap	44
-19483	A Dơi	Xã A Dơi	a_doi	44
-19489	Lìa	Xã Lìa	lia	44
-19495	Gio Linh	Xã Gio Linh	gio_linh	44
-19496	Cửa Việt	Xã Cửa Việt	cua_viet	44
-19501	Bến Hải	Xã Bến Hải	ben_hai	44
-19537	Cồn Tiên	Xã Cồn Tiên	con_tien	44
-19555	Hướng Hiệp	Xã Hướng Hiệp	huong_hiep	44
-19564	Đakrông	Xã Đakrông	dakrong	44
-19567	Ba Lòng	Xã Ba Lòng	ba_long	44
-19588	Tà Rụt	Xã Tà Rụt	ta_rut	44
-19594	La Lay	Xã La Lay	la_lay	44
-19597	Cam Lộ	Xã Cam Lộ	cam_lo	44
-19603	Hiếu Giang	Xã Hiếu Giang	hieu_giang	44
-19624	Triệu Phong	Xã Triệu Phong	trieu_phong	44
-19639	Nam Cửa Việt	Xã Nam Cửa Việt	nam_cua_viet	44
-19645	Triệu Bình	Xã Triệu Bình	trieu_binh	44
-19654	Triệu Cơ	Xã Triệu Cơ	trieu_co	44
-19669	Ái Tử	Xã Ái Tử	ai_tu	44
-19681	Diên Sanh	Xã Diên Sanh	dien_sanh	44
-19699	Vĩnh Định	Xã Vĩnh Định	vinh_dinh	44
-19702	Hải Lăng	Xã Hải Lăng	hai_lang	44
-19735	Nam Hải Lăng	Xã Nam Hải Lăng	nam_hai_lang	44
-19741	Mỹ Thuỷ	Xã Mỹ Thuỷ	my_thuy	44
-19742	Cồn Cỏ	Đặc khu Cồn Cỏ	con_co	44
-19753	Phú Xuân	Phường Phú Xuân	phu_xuan	46
-19774	Kim Long	Phường Kim Long	kim_long	46
-19777	Vỹ Dạ	Phường Vỹ Dạ	vy_da	46
-19789	Thuận Hoá	Phường Thuận Hoá	thuan_hoa	46
-19804	Hương An	Phường Hương An	huong_an	46
-19813	Thuỷ Xuân	Phường Thuỷ Xuân	thuy_xuan	46
-19815	An Cựu	Phường An Cựu	an_cuu	46
-19819	Phong Điền	Phường Phong Điền	phong_dien	46
-19828	Phong Phú	Phường Phong Phú	phong_phu	46
-19831	Phong Dinh	Phường Phong Dinh	phong_dinh	46
-19858	Phong Thái	Phường Phong Thái	phong_thai	46
-19867	Quảng Điền	Xã Quảng Điền	quang_dien	46
-19873	Phong Quảng	Phường Phong Quảng	phong_quang	46
-19885	Đan Điền	Xã Đan Điền	dan_dien	46
-19900	Thuận An	Phường Thuận An	thuan_an	46
-19909	Dương Nỗ	Phường Dương Nỗ	duong_no	46
-19918	Phú Hồ	Xã Phú Hồ	phu_ho	46
-19930	Mỹ Thượng	Phường Mỹ Thượng	my_thuong	46
-19942	Phú Vang	Xã Phú Vang	phu_vang	46
-19945	Phú Vinh	Xã Phú Vinh	phu_vinh	46
-19960	Phú Bài	Phường Phú Bài	phu_bai	46
-19969	Thanh Thuỷ	Phường Thanh Thuỷ	thanh_thuy	46
-19975	Hương Thuỷ	Phường Hương Thuỷ	huong_thuy	46
-19996	Hương Trà	Phường Hương Trà	huong_tra	46
-20014	Hoá Châu	Phường Hoá Châu	hoa_chau	46
-20017	Kim Trà	Phường Kim Trà	kim_tra	46
-20035	Bình Điền	Xã Bình Điền	binh_dien	46
-20044	A Lưới 2	Xã A Lưới 2	a_luoi_2	46
-20050	A Lưới 5	Xã A Lưới 5	a_luoi_5	46
-20056	A Lưới 1	Xã A Lưới 1	a_luoi_1	46
-20071	A Lưới 3	Xã A Lưới 3	a_luoi_3	46
-20101	A Lưới 4	Xã A Lưới 4	a_luoi_4	46
-20107	Phú Lộc	Xã Phú Lộc	phu_loc	46
-20122	Vinh Lộc	Xã Vinh Lộc	vinh_loc	46
-20131	Hưng Lộc	Xã Hưng Lộc	hung_loc	46
-20137	Chân Mây - Lăng Cô	Xã Chân Mây - Lăng Cô	chan_may_lang_co	46
-20140	Lộc An	Xã Lộc An	loc_an	46
-20161	Khe Tre	Xã Khe Tre	khe_tre	46
-20179	Nam Đông	Xã Nam Đông	nam_dong	46
-20182	Long Quảng	Xã Long Quảng	long_quang	46
-20194	Hải Vân	Phường Hải Vân	hai_van	48
-20197	Liên Chiểu	Phường Liên Chiểu	lien_chieu	48
-20200	Hoà Khánh	Phường Hoà Khánh	hoa_khanh	48
-20209	Thanh Khê	Phường Thanh Khê	thanh_khe	48
-20242	Hải Châu	Phường Hải Châu	hai_chau	48
-20257	Hoà Cường	Phường Hoà Cường	hoa_cuong	48
-20260	Cẩm Lệ	Phường Cẩm Lệ	cam_le	48
-20263	Sơn Trà	Phường Sơn Trà	son_tra	48
-20275	An Hải	Phường An Hải	an_hai	48
-20285	Ngũ Hành Sơn	Phường Ngũ Hành Sơn	ngu_hanh_son	48
-20305	An Khê	Phường An Khê	an_khe	48
-20308	Bà Nà	Xã Bà Nà	ba_na	48
-20314	Hoà Xuân	Phường Hoà Xuân	hoa_xuan	48
-20320	Hoà Vang	Xã Hoà Vang	hoa_vang	48
-20332	Hoà Tiến	Xã Hoà Tiến	hoa_tien	48
-20333	Hoàng Sa	Đặc khu Hoàng Sa	hoang_sa	48
-20335	Bàn Thạch	Phường Bàn Thạch	ban_thach	48
-20341	Tam Kỳ	Phường Tam Kỳ	tam_ky	48
-20350	Hương Trà	Phường Hương Trà	huong_tra	48
-20356	Quảng Phú	Phường Quảng Phú	quang_phu	48
-20364	Chiên Đàn	Xã Chiên Đàn	chien_dan	48
-20380	Tây Hồ	Xã Tây Hồ	tay_ho	48
-20392	Phú Ninh	Xã Phú Ninh	phu_ninh	48
-20401	Hội An Tây	Phường Hội An Tây	hoi_an_tay	48
-20410	Hội An	Phường Hội An	hoi_an	48
-20413	Hội An Đông	Phường Hội An Đông	hoi_an_dong	48
-20434	Tân Hiệp	Xã Tân Hiệp	tan_hiep	48
-20443	Hùng Sơn	Xã Hùng Sơn	hung_son	48
-20455	Tây Giang	Xã Tây Giang	tay_giang	48
-20458	Avương	Xã Avương	avuong	48
-20467	Đông Giang	Xã Đông Giang	dong_giang	48
-20476	Sông Kôn	Xã Sông Kôn	song_kon	48
-20485	Sông Vàng	Xã Sông Vàng	song_vang	48
-20494	Bến Hiên	Xã Bến Hiên	ben_hien	48
-20500	Đại Lộc	Xã Đại Lộc	dai_loc	48
-20506	Thượng Đức	Xã Thượng Đức	thuong_duc	48
-20515	Hà Nha	Xã Hà Nha	ha_nha	48
-20539	Vu Gia	Xã Vu Gia	vu_gia	48
-20542	Phú Thuận	Xã Phú Thuận	phu_thuan	48
-20551	Điện Bàn	Phường Điện Bàn	dien_ban	48
-20557	Điện Bàn Bắc	Phường Điện Bàn Bắc	dien_ban_bac	48
-20569	Điện Bàn Tây	Xã Điện Bàn Tây	dien_ban_tay	48
-20575	An Thắng	Phường An Thắng	an_thang	48
-20579	Điện Bàn Đông	Phường Điện Bàn Đông	dien_ban_dong	48
-20587	Gò Nổi	Xã Gò Nổi	go_noi	48
-20599	Nam Phước	Xã Nam Phước	nam_phuoc	48
-20611	Thu Bồn	Xã Thu Bồn	thu_bon	48
-20623	Duy Xuyên	Xã Duy Xuyên	duy_xuyen	48
-20635	Duy Nghĩa	Xã Duy Nghĩa	duy_nghia	48
-20641	Quế Sơn	Xã Quế Sơn	que_son	48
-20650	Xuân Phú	Xã Xuân Phú	xuan_phu	48
-20656	Nông Sơn	Xã Nông Sơn	nong_son	48
-20662	Quế Sơn Trung	Xã Quế Sơn Trung	que_son_trung	48
-20669	Quế Phước	Xã Quế Phước	que_phuoc	48
-20695	Thạnh Mỹ	Xã Thạnh Mỹ	thanh_my	48
-20698	La Êê	Xã La Êê	la_ee	48
-20704	La Dêê	Xã La Dêê	la_dee	48
-20707	Nam Giang	Xã Nam Giang	nam_giang	48
-20710	Bến Giằng	Xã Bến Giằng	ben_giang	48
-20716	Đắc Pring	Xã Đắc Pring	dac_pring	48
-20722	Khâm Đức	Xã Khâm Đức	kham_duc	48
-20728	Phước Hiệp	Xã Phước Hiệp	phuoc_hiep	48
-20734	Phước Năng	Xã Phước Năng	phuoc_nang	48
-20740	Phước Chánh	Xã Phước Chánh	phuoc_chanh	48
-20752	Phước Thành	Xã Phước Thành	phuoc_thanh	48
-20767	Việt An	Xã Việt An	viet_an	48
-20770	Phước Trà	Xã Phước Trà	phuoc_tra	48
-20779	Hiệp Đức	Xã Hiệp Đức	hiep_duc	48
-20791	Thăng Bình	Xã Thăng Bình	thang_binh	48
-20794	Thăng An	Xã Thăng An	thang_an	48
-20818	Đồng Dương	Xã Đồng Dương	dong_duong	48
-20827	Thăng Phú	Xã Thăng Phú	thang_phu	48
-20836	Thăng Trường	Xã Thăng Trường	thang_truong	48
-20848	Thăng Điền	Xã Thăng Điền	thang_dien	48
-20854	Tiên Phước	Xã Tiên Phước	tien_phuoc	48
-20857	Sơn Cẩm Hà	Xã Sơn Cẩm Hà	son_cam_ha	48
-20875	Lãnh Ngọc	Xã Lãnh Ngọc	lanh_ngoc	48
-20878	Thạnh Bình	Xã Thạnh Bình	thanh_binh	48
-20900	Trà My	Xã Trà My	tra_my	48
-20908	Trà Liên	Xã Trà Liên	tra_lien	48
-20920	Trà Đốc	Xã Trà Đốc	tra_doc	48
-20923	Trà Tân	Xã Trà Tân	tra_tan	48
-20929	Trà Giáp	Xã Trà Giáp	tra_giap	48
-20938	Trà Leng	Xã Trà Leng	tra_leng	48
-20941	Trà Tập	Xã Trà Tập	tra_tap	48
-20944	Nam Trà My	Xã Nam Trà My	nam_tra_my	48
-20950	Trà Linh	Xã Trà Linh	tra_linh	48
-20959	Trà Vân	Xã Trà Vân	tra_van	48
-20965	Núi Thành	Xã Núi Thành	nui_thanh	48
-20971	Tam Xuân	Xã Tam Xuân	tam_xuan	48
-20977	Đức Phú	Xã Đức Phú	duc_phu	48
-20984	Tam Anh	Xã Tam Anh	tam_anh	48
-20992	Tam Hải	Xã Tam Hải	tam_hai	48
-21004	Tam Mỹ	Xã Tam Mỹ	tam_my	48
-23293	Kon Tum	Phường Kon Tum	kon_tum	51
-21025	Cẩm Thành	Phường Cẩm Thành	cam_thanh	51
-21028	Nghĩa Lộ	Phường Nghĩa Lộ	nghia_lo	51
-21034	An Phú	Xã An Phú	an_phu	51
-21040	Bình Sơn	Xã Bình Sơn	binh_son	51
-21061	Vạn Tường	Xã Vạn Tường	van_tuong	51
-21085	Bình Minh	Xã Bình Minh	binh_minh	51
-21100	Bình Chương	Xã Bình Chương	binh_chuong	51
-21109	Đông Sơn	Xã Đông Sơn	dong_son	51
-21115	Trà Bồng	Xã Trà Bồng	tra_bong	51
-21124	Thanh Bồng	Xã Thanh Bồng	thanh_bong	51
-21127	Đông Trà Bồng	Xã Đông Trà Bồng	dong_tra_bong	51
-21136	Cà Đam	Xã Cà Đam	ca_dam	51
-21154	Tây Trà	Xã Tây Trà	tay_tra	51
-21157	Tây Trà Bồng	Xã Tây Trà Bồng	tay_tra_bong	51
-21172	Trương Quang Trọng	Phường Trương Quang Trọng	truong_quang_trong	51
-21181	Thọ Phong	Xã Thọ Phong	tho_phong	51
-21196	Trường Giang	Xã Trường Giang	truong_giang	51
-21205	Ba Gia	Xã Ba Gia	ba_gia	51
-21211	Tịnh Khê	Xã Tịnh Khê	tinh_khe	51
-21220	Sơn Tịnh	Xã Sơn Tịnh	son_tinh	51
-21235	Tư Nghĩa	Xã Tư Nghĩa	tu_nghia	51
-21238	Vệ Giang	Xã Vệ Giang	ve_giang	51
-21244	Trà Giang	Xã Trà Giang	tra_giang	51
-21250	Nghĩa Giang	Xã Nghĩa Giang	nghia_giang	51
-21289	Sơn Hà	Xã Sơn Hà	son_ha	51
-21292	Sơn Hạ	Xã Sơn Hạ	son_ha	51
-21307	Sơn Linh	Xã Sơn Linh	son_linh	51
-21319	Sơn Thuỷ	Xã Sơn Thuỷ	son_thuy	51
-21325	Sơn Kỳ	Xã Sơn Kỳ	son_ky	51
-21334	Sơn Tây Thượng	Xã Sơn Tây Thượng	son_tay_thuong	51
-21340	Sơn Tây	Xã Sơn Tây	son_tay	51
-21343	Sơn Tây Hạ	Xã Sơn Tây Hạ	son_tay_ha	51
-21349	Sơn Mai	Xã Sơn Mai	son_mai	51
-21361	Minh Long	Xã Minh Long	minh_long	51
-21364	Nghĩa Hành	Xã Nghĩa Hành	nghia_hanh	51
-21370	Phước Giang	Xã Phước Giang	phuoc_giang	51
-21385	Đình Cương	Xã Đình Cương	dinh_cuong	51
-21388	Thiện Tín	Xã Thiện Tín	thien_tin	51
-21400	Mộ Đức	Xã Mộ Đức	mo_duc	51
-21409	Long Phụng	Xã Long Phụng	long_phung	51
-21421	Mỏ Cày	Xã Mỏ Cày	mo_cay	51
-21433	Lân Phong	Xã Lân Phong	lan_phong	51
-21439	Đức Phổ	Phường Đức Phổ	duc_pho	51
-21451	Trà Câu	Phường Trà Câu	tra_cau	51
-21457	Nguyễn Nghiêm	Xã Nguyễn Nghiêm	nguyen_nghiem	51
-21472	Khánh Cường	Xã Khánh Cường	khanh_cuong	51
-21478	Sa Huỳnh	Phường Sa Huỳnh	sa_huynh	51
-21484	Ba Tơ	Xã Ba Tơ	ba_to	51
-21490	Ba Vinh	Xã Ba Vinh	ba_vinh	51
-21496	Ba Động	Xã Ba Động	ba_dong	51
-21499	Ba Dinh	Xã Ba Dinh	ba_dinh	51
-21520	Đặng Thuỳ Trâm	Xã Đặng Thuỳ Trâm	dang_thuy_tram	51
-21523	Ba Tô	Xã Ba Tô	ba_to	51
-21529	Ba Vì	Xã Ba Vì	ba_vi	51
-21538	Ba Xa	Xã Ba Xa	ba_xa	51
-21548	Lý Sơn	Đặc khu Lý Sơn	ly_son	51
-23284	Đăk Cấm	Phường Đăk Cấm	dak_cam	51
-23302	Đăk Bla	Phường Đăk Bla	dak_bla	51
-23317	Ngọk Bay	Xã Ngọk Bay	ngok_bay	51
-23326	Ia Chim	Xã Ia Chim	ia_chim	51
-23332	Đăk Rơ Wa	Xã Đăk Rơ Wa	dak_ro_wa	51
-23341	Đăk Pék	Xã Đăk Pék	dak_pek	51
-23344	Đăk Plô	Xã Đăk Plô	dak_plo	51
-23356	Xốp	Xã Xốp	xop	51
-23365	Ngọc Linh	Xã Ngọc Linh	ngoc_linh	51
-23368	Đăk Long	Xã Đăk Long	dak_long	51
-23374	Đăk Môn	Xã Đăk Môn	dak_mon	51
-23377	Bờ Y	Xã Bờ Y	bo_y	51
-23383	Dục Nông	Xã Dục Nông	duc_nong	51
-23392	Sa Loong	Xã Sa Loong	sa_loong	51
-23401	Đăk Tô	Xã Đăk Tô	dak_to	51
-23416	Đăk Sao	Xã Đăk Sao	dak_sao	51
-23419	Đăk Tờ Kan	Xã Đăk Tờ Kan	dak_to_kan	51
-23425	Tu Mơ Rông	Xã Tu Mơ Rông	tu_mo_rong	51
-23428	Ngọk Tụ	Xã Ngọk Tụ	ngok_tu	51
-23430	Kon Đào	Xã Kon Đào	kon_dao	51
-23446	Măng Ri	Xã Măng Ri	mang_ri	51
-23455	Măng Bút	Xã Măng Bút	mang_but	51
-23473	Măng Đen	Xã Măng Đen	mang_den	51
-23476	Kon Plông	Xã Kon Plông	kon_plong	51
-23479	Đăk Rve	Xã Đăk Rve	dak_rve	51
-23485	Đăk Kôi	Xã Đăk Kôi	dak_koi	51
-23497	Kon Braih	Xã Kon Braih	kon_braih	51
-23500	Đăk Hà	Xã Đăk Hà	dak_ha	51
-23504	Đăk Pxi	Xã Đăk Pxi	dak_pxi	51
-23510	Đăk Ui	Xã Đăk Ui	dak_ui	51
-23512	Đăk Mar	Xã Đăk Mar	dak_mar	51
-23515	Ngọk Réo	Xã Ngọk Réo	ngok_reo	51
-23527	Sa Thầy	Xã Sa Thầy	sa_thay	51
-23530	Rờ Kơi	Xã Rờ Kơi	ro_koi	51
-23534	Sa Bình	Xã Sa Bình	sa_binh	51
-23535	Ia Đal	Xã Ia Đal	ia_dal	51
-23536	Mô Rai	Xã Mô Rai	mo_rai	51
-23538	Ia Tơi	Xã Ia Tơi	ia_toi	51
-23548	Ya Ly	Xã Ya Ly	ya_ly	51
-21553	Quy Nhơn Bắc	Phường Quy Nhơn Bắc	quy_nhon_bac	52
-21583	Quy Nhơn	Phường Quy Nhơn	quy_nhon	52
-21589	Quy Nhơn Tây	Phường Quy Nhơn Tây	quy_nhon_tay	52
-21592	Quy Nhơn Nam	Phường Quy Nhơn Nam	quy_nhon_nam	52
-21601	Quy Nhơn Đông	Phường Quy Nhơn Đông	quy_nhon_dong	52
-21607	Nhơn Châu	Xã Nhơn Châu	nhon_chau	52
-21609	An Lão	Xã An Lão	an_lao	52
-21616	An Vinh	Xã An Vinh	an_vinh	52
-21622	An Toàn	Xã An Toàn	an_toan	52
-21628	An Hoà	Xã An Hoà	an_hoa	52
-21637	Tam Quan	Phường Tam Quan	tam_quan	52
-21640	Bồng Sơn	Phường Bồng Sơn	bong_son	52
-21655	Hoài Nhơn Bắc	Phường Hoài Nhơn Bắc	hoai_nhon_bac	52
-21661	Hoài Nhơn Tây	Phường Hoài Nhơn Tây	hoai_nhon_tay	52
-21664	Hoài Nhơn	Phường Hoài Nhơn	hoai_nhon	52
-21670	Hoài Nhơn Đông	Phường Hoài Nhơn Đông	hoai_nhon_dong	52
-21673	Hoài Nhơn Nam	Phường Hoài Nhơn Nam	hoai_nhon_nam	52
-21688	Hoài Ân	Xã Hoài Ân	hoai_an	52
-21697	Ân Hảo	Xã Ân Hảo	an_hao	52
-21703	Vạn Đức	Xã Vạn Đức	van_duc	52
-21715	Ân Tường	Xã Ân Tường	an_tuong	52
-21727	Kim Sơn	Xã Kim Sơn	kim_son	52
-21730	Phù Mỹ	Xã Phù Mỹ	phu_my	52
-21733	Bình Dương	Xã Bình Dương	binh_duong	52
-21739	Phù Mỹ Bắc	Xã Phù Mỹ Bắc	phu_my_bac	52
-21751	Phù Mỹ Đông	Xã Phù Mỹ Đông	phu_my_dong	52
-21757	Phù Mỹ Tây	Xã Phù Mỹ Tây	phu_my_tay	52
-21769	An Lương	Xã An Lương	an_luong	52
-21775	Phù Mỹ Nam	Xã Phù Mỹ Nam	phu_my_nam	52
-21786	Vĩnh Thạnh	Xã Vĩnh Thạnh	vinh_thanh	52
-21787	Vĩnh Sơn	Xã Vĩnh Sơn	vinh_son	52
-21796	Vĩnh Thịnh	Xã Vĩnh Thịnh	vinh_thinh	52
-21805	Vĩnh Quang	Xã Vĩnh Quang	vinh_quang	52
-21808	Tây Sơn	Xã Tây Sơn	tay_son	52
-21817	Bình Hiệp	Xã Bình Hiệp	binh_hiep	52
-21820	Bình Khê	Xã Bình Khê	binh_khe	52
-21829	Bình An	Xã Bình An	binh_an	52
-21835	Bình Phú	Xã Bình Phú	binh_phu	52
-21853	Phù Cát	Xã Phù Cát	phu_cat	52
-21859	Đề Gi	Xã Đề Gi	de_gi	52
-21868	Hội Sơn	Xã Hội Sơn	hoi_son	52
-21871	Hoà Hội	Xã Hoà Hội	hoa_hoi	52
-21880	Cát Tiến	Xã Cát Tiến	cat_tien	52
-21892	Xuân An	Xã Xuân An	xuan_an	52
-21901	Ngô Mây	Xã Ngô Mây	ngo_may	52
-21907	Bình Định	Phường Bình Định	binh_dinh	52
-21910	An Nhơn	Phường An Nhơn	an_nhon	52
-21925	An Nhơn Bắc	Phường An Nhơn Bắc	an_nhon_bac	52
-21934	An Nhơn Đông	Phường An Nhơn Đông	an_nhon_dong	52
-21940	An Nhơn Tây	Xã An Nhơn Tây	an_nhon_tay	52
-21943	An Nhơn Nam	Phường An Nhơn Nam	an_nhon_nam	52
-21952	Tuy Phước	Xã Tuy Phước	tuy_phuoc	52
-21964	Tuy Phước Bắc	Xã Tuy Phước Bắc	tuy_phuoc_bac	52
-21970	Tuy Phước Đông	Xã Tuy Phước Đông	tuy_phuoc_dong	52
-21985	Tuy Phước Tây	Xã Tuy Phước Tây	tuy_phuoc_tay	52
-21994	Vân Canh	Xã Vân Canh	van_canh	52
-21997	Canh Liên	Xã Canh Liên	canh_lien	52
-22006	Canh Vinh	Xã Canh Vinh	canh_vinh	52
-23563	Diên Hồng	Phường Diên Hồng	dien_hong	52
-23575	Pleiku	Phường Pleiku	pleiku	52
-23584	Thống Nhất	Phường Thống Nhất	thong_nhat	52
-23586	Hội Phú	Phường Hội Phú	hoi_phu	52
-23590	Biển Hồ	Xã Biển Hồ	bien_ho	52
-23602	An Phú	Phường An Phú	an_phu	52
-23611	Gào	Xã Gào	gao	52
-23614	An Bình	Phường An Bình	an_binh	52
-23617	An Khê	Phường An Khê	an_khe	52
-23629	Cửu An	Xã Cửu An	cuu_an	52
-23638	Kbang	Xã Kbang	kbang	52
-23644	Đak Rong	Xã Đak Rong	dak_rong	52
-23647	Sơn Lang	Xã Sơn Lang	son_lang	52
-23650	Krong	Xã Krong	krong	52
-23668	Tơ Tung	Xã Tơ Tung	to_tung	52
-23674	Kông Bơ La	Xã Kông Bơ La	kong_bo_la	52
-23677	Đak Đoa	Xã Đak Đoa	dak_doa	52
-23683	Đak Sơmei	Xã Đak Sơmei	dak_somei	52
-23701	Kon Gang	Xã Kon Gang	kon_gang	52
-23710	Ia Băng	Xã Ia Băng	ia_bang	52
-23714	KDang	Xã KDang	kdang	52
-23722	Chư Păh	Xã Chư Păh	chu_pah	52
-23728	Ia Khươl	Xã Ia Khươl	ia_khuol	52
-23734	Ia Ly	Xã Ia Ly	ia_ly	52
-23749	Ia Phí	Xã Ia Phí	ia_phi	52
-23764	Ia Grai	Xã Ia Grai	ia_grai	52
-23767	Ia Hrung	Xã Ia Hrung	ia_hrung	52
-23776	Ia Krái	Xã Ia Krái	ia_krai	52
-23782	Ia O	Xã Ia O	ia_o	52
-23788	Ia Chia	Xã Ia Chia	ia_chia	52
-23794	Mang Yang	Xã Mang Yang	mang_yang	52
-23798	Ayun	Xã Ayun	ayun	52
-23799	Hra	Xã Hra	hra	52
-23812	Lơ Pang	Xã Lơ Pang	lo_pang	52
-23818	Kon Chiêng	Xã Kon Chiêng	kon_chieng	52
-23824	Kông Chro	Xã Kông Chro	kong_chro	52
-23830	Chư Krey	Xã Chư Krey	chu_krey	52
-23833	Ya Ma	Xã Ya Ma	ya_ma	52
-23839	SRó	Xã SRó	sro	52
-23842	Đăk Song	Xã Đăk Song	dak_song	52
-23851	Chơ Long	Xã Chơ Long	cho_long	52
-23857	Đức Cơ	Xã Đức Cơ	duc_co	52
-23866	Ia Krêl	Xã Ia Krêl	ia_krel	52
-23869	Ia Dơk	Xã Ia Dơk	ia_dok	52
-23872	Ia Dom	Xã Ia Dom	ia_dom	52
-23881	Ia Pnôn	Xã Ia Pnôn	ia_pnon	52
-23884	Ia Nan	Xã Ia Nan	ia_nan	52
-23887	Chư Prông	Xã Chư Prông	chu_prong	52
-23896	Bàu Cạn	Xã Bàu Cạn	bau_can	52
-23908	Ia Tôr	Xã Ia Tôr	ia_tor	52
-23911	Ia Boòng	Xã Ia Boòng	ia_boong	52
-23917	Ia Púch	Xã Ia Púch	ia_puch	52
-23926	Ia Pia	Xã Ia Pia	ia_pia	52
-23935	Ia Lâu	Xã Ia Lâu	ia_lau	52
-23938	Ia Mơ	Xã Ia Mơ	ia_mo	52
-23941	Chư Sê	Xã Chư Sê	chu_se	52
-23942	Chư Pưh	Xã Chư Pưh	chu_puh	52
-23947	Bờ Ngoong	Xã Bờ Ngoong	bo_ngoong	52
-23954	Al Bá	Xã Al Bá	al_ba	52
-23971	Ia Hrú	Xã Ia Hrú	ia_hru	52
-23977	Ia Ko	Xã Ia Ko	ia_ko	52
-23986	Ia Le	Xã Ia Le	ia_le	52
-23995	Đak Pơ	Xã Đak Pơ	dak_po	52
-24007	Ya Hội	Xã Ya Hội	ya_hoi	52
-24013	Pờ Tó	Xã Pờ Tó	po_to	52
-24022	Ia Pa	Xã Ia Pa	ia_pa	52
-24028	Ia Tul	Xã Ia Tul	ia_tul	52
-24043	Phú Thiện	Xã Phú Thiện	phu_thien	52
-24044	Ayun Pa	Phường Ayun Pa	ayun_pa	52
-24049	Chư A Thai	Xã Chư A Thai	chu_a_thai	52
-24061	Ia Hiao	Xã Ia Hiao	ia_hiao	52
-24065	Ia Rbol	Xã Ia Rbol	ia_rbol	52
-24073	Ia Sao	Xã Ia Sao	ia_sao	52
-24076	Phú Túc	Xã Phú Túc	phu_tuc	52
-24100	Ia Dreh	Xã Ia Dreh	ia_dreh	52
-24109	Uar	Xã Uar	uar	52
-24112	Ia Rsai	Xã Ia Rsai	ia_rsai	52
-22333	Bắc Nha Trang	Phường Bắc Nha Trang	bac_nha_trang	56
-22366	Nha Trang	Phường Nha Trang	nha_trang	56
-22390	Tây Nha Trang	Phường Tây Nha Trang	tay_nha_trang	56
-22402	Nam Nha Trang	Phường Nam Nha Trang	nam_nha_trang	56
-22411	Bắc Cam Ranh	Phường Bắc Cam Ranh	bac_cam_ranh	56
-22420	Cam Ranh	Phường Cam Ranh	cam_ranh	56
-22423	Ba Ngòi	Phường Ba Ngòi	ba_ngoi	56
-22432	Cam Linh	Phường Cam Linh	cam_linh	56
-22435	Cam Hiệp	Xã Cam Hiệp	cam_hiep	56
-22453	Cam Lâm	Xã Cam Lâm	cam_lam	56
-22465	Cam An	Xã Cam An	cam_an	56
-22480	Nam Cam Ranh	Xã Nam Cam Ranh	nam_cam_ranh	56
-22489	Vạn Ninh	Xã Vạn Ninh	van_ninh	56
-22498	Tu Bông	Xã Tu Bông	tu_bong	56
-22504	Đại Lãnh	Xã Đại Lãnh	dai_lanh	56
-22516	Vạn Thắng	Xã Vạn Thắng	van_thang	56
-22525	Vạn Hưng	Xã Vạn Hưng	van_hung	56
-22528	Ninh Hoà	Phường Ninh Hoà	ninh_hoa	56
-22546	Bắc Ninh Hoà	Xã Bắc Ninh Hoà	bac_ninh_hoa	56
-22552	Tây Ninh Hoà	Xã Tây Ninh Hoà	tay_ninh_hoa	56
-22558	Hoà Trí	Xã Hoà Trí	hoa_tri	56
-22561	Đông Ninh Hoà	Phường Đông Ninh Hoà	dong_ninh_hoa	56
-22576	Tân Định	Xã Tân Định	tan_dinh	56
-22591	Hoà Thắng	Phường Hoà Thắng	hoa_thang	56
-22597	Nam Ninh Hoà	Xã Nam Ninh Hoà	nam_ninh_hoa	56
-22609	Khánh Vĩnh	Xã Khánh Vĩnh	khanh_vinh	56
-22612	Trung Khánh Vĩnh	Xã Trung Khánh Vĩnh	trung_khanh_vinh	56
-22615	Bắc Khánh Vĩnh	Xã Bắc Khánh Vĩnh	bac_khanh_vinh	56
-22624	Tây Khánh Vĩnh	Xã Tây Khánh Vĩnh	tay_khanh_vinh	56
-22648	Nam Khánh Vĩnh	Xã Nam Khánh Vĩnh	nam_khanh_vinh	56
-22651	Diên Khánh	Xã Diên Khánh	dien_khanh	56
-22657	Diên Điền	Xã Diên Điền	dien_dien	56
-22660	Diên Lâm	Xã Diên Lâm	dien_lam	56
-22672	Diên Thọ	Xã Diên Thọ	dien_tho	56
-22678	Diên Lạc	Xã Diên Lạc	dien_lac	56
-22702	Suối Hiệp	Xã Suối Hiệp	suoi_hiep	56
-22708	Suối Dầu	Xã Suối Dầu	suoi_dau	56
-22714	Khánh Sơn	Xã Khánh Sơn	khanh_son	56
-22720	Tây Khánh Sơn	Xã Tây Khánh Sơn	tay_khanh_son	56
-22732	Đông Khánh Sơn	Xã Đông Khánh Sơn	dong_khanh_son	56
-22736	Trường Sa	Đặc khu Trường Sa	truong_sa	56
-22738	Đô Vinh	Phường Đô Vinh	do_vinh	56
-22741	Bảo An	Phường Bảo An	bao_an	56
-22759	Phan Rang	Phường Phan Rang	phan_rang	56
-22780	Đông Hải	Phường Đông Hải	dong_hai	56
-22786	Bác Ái Tây	Xã Bác Ái Tây	bac_ai_tay	56
-22795	Bác Ái	Xã Bác Ái	bac_ai	56
-22801	Bác Ái Đông	Xã Bác Ái Đông	bac_ai_dong	56
-22810	Ninh Sơn	Xã Ninh Sơn	ninh_son	56
-22813	Lâm Sơn	Xã Lâm Sơn	lam_son	56
-22822	Mỹ Sơn	Xã Mỹ Sơn	my_son	56
-22828	Anh Dũng	Xã Anh Dũng	anh_dung	56
-22834	Ninh Chử	Phường Ninh Chử	ninh_chu	56
-22840	Công Hải	Xã Công Hải	cong_hai	56
-22846	Vĩnh Hải	Xã Vĩnh Hải	vinh_hai	56
-22849	Thuận Bắc	Xã Thuận Bắc	thuan_bac	56
-22852	Ninh Hải	Xã Ninh Hải	ninh_hai	56
-22861	Xuân Hải	Xã Xuân Hải	xuan_hai	56
-22870	Ninh Phước	Xã Ninh Phước	ninh_phuoc	56
-22873	Phước Hậu	Xã Phước Hậu	phuoc_hau	56
-22888	Phước Dinh	Xã Phước Dinh	phuoc_dinh	56
-22891	Phước Hữu	Xã Phước Hữu	phuoc_huu	56
-22897	Thuận Nam	Xã Thuận Nam	thuan_nam	56
-22900	Phước Hà	Xã Phước Hà	phuoc_ha	56
-22909	Cà Ná	Xã Cà Ná	ca_na	56
-22015	Tuy Hoà	Phường Tuy Hoà	tuy_hoa	66
-22045	Bình Kiến	Phường Bình Kiến	binh_kien	66
-22051	Sông Cầu	Phường Sông Cầu	song_cau	66
-22057	Xuân Lộc	Xã Xuân Lộc	xuan_loc	66
-22060	Xuân Cảnh	Xã Xuân Cảnh	xuan_canh	66
-22075	Xuân Thọ	Xã Xuân Thọ	xuan_tho	66
-22076	Xuân Đài	Phường Xuân Đài	xuan_dai	66
-22081	Đồng Xuân	Xã Đồng Xuân	dong_xuan	66
-22090	Xuân Lãnh	Xã Xuân Lãnh	xuan_lanh	66
-22096	Phú Mỡ	Xã Phú Mỡ	phu_mo	66
-22111	Xuân Phước	Xã Xuân Phước	xuan_phuoc	66
-22114	Tuy An Bắc	Xã Tuy An Bắc	tuy_an_bac	66
-22120	Tuy An Đông	Xã Tuy An Đông	tuy_an_dong	66
-22132	Tuy An Tây	Xã Tuy An Tây	tuy_an_tay	66
-22147	Ô Loan	Xã Ô Loan	o_loan	66
-22153	Tuy An Nam	Xã Tuy An Nam	tuy_an_nam	66
-22165	Sơn Hoà	Xã Sơn Hoà	son_hoa	66
-22171	Tây Sơn	Xã Tây Sơn	tay_son	66
-22177	Vân Hoà	Xã Vân Hoà	van_hoa	66
-22192	Suối Trai	Xã Suối Trai	suoi_trai	66
-22207	Sông Hinh	Xã Sông Hinh	song_hinh	66
-22222	Đức Bình	Xã Đức Bình	duc_binh	66
-22225	Ea Bá	Xã Ea Bá	ea_ba	66
-22237	Ea Ly	Xã Ea Ly	ea_ly	66
-22240	Phú Yên	Phường Phú Yên	phu_yen	66
-22250	Sơn Thành	Xã Sơn Thành	son_thanh	66
-22255	Tây Hoà	Xã Tây Hoà	tay_hoa	66
-22258	Đông Hoà	Phường Đông Hoà	dong_hoa	66
-22261	Hoà Hiệp	Phường Hoà Hiệp	hoa_hiep	66
-22276	Hoà Thịnh	Xã Hoà Thịnh	hoa_thinh	66
-22285	Hoà Mỹ	Xã Hoà Mỹ	hoa_my	66
-22291	Hoà Xuân	Xã Hoà Xuân	hoa_xuan	66
-22303	Phú Hoà 2	Xã Phú Hoà 2	phu_hoa_2	66
-22319	Phú Hoà 1	Xã Phú Hoà 1	phu_hoa_1	66
-24121	Tân Lập	Phường Tân Lập	tan_lap	66
-24133	Buôn Ma Thuột	Phường Buôn Ma Thuột	buon_ma_thuot	66
-24154	Thành Nhất	Phường Thành Nhất	thanh_nhat	66
-24163	Tân An	Phường Tân An	tan_an	66
-24169	Ea Kao	Phường Ea Kao	ea_kao	66
-24175	Hoà Phú	Xã Hoà Phú	hoa_phu	66
-24181	Ea Drăng	Xã Ea Drăng	ea_drang	66
-24184	Ea H'Leo	Xã Ea H'Leo	ea_hleo	66
-24187	Ea Hiao	Xã Ea Hiao	ea_hiao	66
-24193	Ea Wy	Xã Ea Wy	ea_wy	66
-24208	Ea Khăl	Xã Ea Khăl	ea_khal	66
-24211	Ea Súp	Xã Ea Súp	ea_sup	66
-24214	Ia Lốp	Xã Ia Lốp	ia_lop	66
-24217	Ea Rốk	Xã Ea Rốk	ea_rok	66
-24221	Ia Rvê	Xã Ia Rvê	ia_rve	66
-24229	Ea Bung	Xã Ea Bung	ea_bung	66
-24235	Buôn Đôn	Xã Buôn Đôn	buon_don	66
-24241	Ea Wer	Xã Ea Wer	ea_wer	66
-24250	Ea Nuôl	Xã Ea Nuôl	ea_nuol	66
-24259	Quảng Phú	Xã Quảng Phú	quang_phu	66
-24265	Ea Kiết	Xã Ea Kiết	ea_kiet	66
-24277	Ea Tul	Xã Ea Tul	ea_tul	66
-24280	Cư M'gar	Xã Cư M'gar	cu_mgar	66
-24286	Ea M'Droh	Xã Ea M'Droh	ea_mdroh	66
-24301	Cuôr Đăng	Xã Cuôr Đăng	cuor_dang	66
-24305	Buôn Hồ	Phường Buôn Hồ	buon_ho	66
-24310	Krông Búk	Xã Krông Búk	krong_buk	66
-24313	Cư Pơng	Xã Cư Pơng	cu_pong	66
-24316	Pơng Drang	Xã Pơng Drang	pong_drang	66
-24328	Ea Drông	Xã Ea Drông	ea_drong	66
-24340	Cư Bao	Phường Cư Bao	cu_bao	66
-24343	Krông Năng	Xã Krông Năng	krong_nang	66
-24346	Dliê Ya	Xã Dliê Ya	dlie_ya	66
-24352	Tam Giang	Xã Tam Giang	tam_giang	66
-24364	Phú Xuân	Xã Phú Xuân	phu_xuan	66
-24373	Ea Kar	Xã Ea Kar	ea_kar	66
-24376	Ea Knốp	Xã Ea Knốp	ea_knop	66
-24400	Ea Păl	Xã Ea Păl	ea_pal	66
-24403	Ea Ô	Xã Ea Ô	ea_o	66
-24406	Cư Yang	Xã Cư Yang	cu_yang	66
-24412	M'Drắk	Xã M'Drắk	mdrak	66
-24415	Cư Prao	Xã Cư Prao	cu_prao	66
-24433	Ea Riêng	Xã Ea Riêng	ea_rieng	66
-24436	Cư M'ta	Xã Cư M'ta	cu_mta	66
-24444	Krông Á	Xã Krông Á	krong_a	66
-24445	Ea Trang	Xã Ea Trang	ea_trang	66
-24448	Krông Bông	Xã Krông Bông	krong_bong	66
-24454	Dang Kang	Xã Dang Kang	dang_kang	66
-24472	Hoà Sơn	Xã Hoà Sơn	hoa_son	66
-24478	Cư Pui	Xã Cư Pui	cu_pui	66
-24484	Yang Mao	Xã Yang Mao	yang_mao	66
-24490	Krông Pắc	Xã Krông Pắc	krong_pac	66
-24496	Ea Kly	Xã Ea Kly	ea_kly	66
-24502	Ea Phê	Xã Ea Phê	ea_phe	66
-24505	Ea Knuếc	Xã Ea Knuếc	ea_knuec	66
-24526	Tân Tiến	Xã Tân Tiến	tan_tien	66
-24529	Vụ Bổn	Xã Vụ Bổn	vu_bon	66
-24538	Krông Ana	Xã Krông Ana	krong_ana	66
-24540	Ea Ning	Xã Ea Ning	ea_ning	66
-24544	Ea Ktur	Xã Ea Ktur	ea_ktur	66
-24559	Ea Na	Xã Ea Na	ea_na	66
-24561	Dray Bhăng	Xã Dray Bhăng	dray_bhang	66
-24568	Dur Kmăl	Xã Dur Kmăl	dur_kmal	66
-24580	Liên Sơn Lắk	Xã Liên Sơn Lắk	lien_son_lak	66
-24595	Đắk Liêng	Xã Đắk Liêng	dak_lieng	66
-24598	Đắk Phơi	Xã Đắk Phơi	dak_phoi	66
-24604	Krông Nô	Xã Krông Nô	krong_no	66
-24607	Nam Ka	Xã Nam Ka	nam_ka	66
-22918	Mũi Né	Phường Mũi Né	mui_ne	68
-22924	Phú Thuỷ	Phường Phú Thuỷ	phu_thuy	68
-22933	Hàm Thắng	Phường Hàm Thắng	ham_thang	68
-22945	Phan Thiết	Phường Phan Thiết	phan_thiet	68
-22954	Tiến Thành	Phường Tiến Thành	tien_thanh	68
-22960	Bình Thuận	Phường Bình Thuận	binh_thuan	68
-22963	Tuyên Quang	Xã Tuyên Quang	tuyen_quang	68
-22969	Liên Hương	Xã Liên Hương	lien_huong	68
-22972	Phan Rí Cửa	Xã Phan Rí Cửa	phan_ri_cua	68
-22978	Tuy Phong	Xã Tuy Phong	tuy_phong	68
-22981	Vĩnh Hảo	Xã Vĩnh Hảo	vinh_hao	68
-23005	Bắc Bình	Xã Bắc Bình	bac_binh	68
-23008	Phan Sơn	Xã Phan Sơn	phan_son	68
-23020	Hải Ninh	Xã Hải Ninh	hai_ninh	68
-23023	Sông Luỹ	Xã Sông Luỹ	song_luy	68
-23032	Lương Sơn	Xã Lương Sơn	luong_son	68
-23041	Hồng Thái	Xã Hồng Thái	hong_thai	68
-23053	Hoà Thắng	Xã Hoà Thắng	hoa_thang	68
-23059	Hàm Thuận	Xã Hàm Thuận	ham_thuan	68
-23065	La Dạ	Xã La Dạ	la_da	68
-23074	Đông Giang	Xã Đông Giang	dong_giang	68
-23086	Hồng Sơn	Xã Hồng Sơn	hong_son	68
-23089	Hàm Thuận Bắc	Xã Hàm Thuận Bắc	ham_thuan_bac	68
-23095	Hàm Liêm	Xã Hàm Liêm	ham_liem	68
-23110	Hàm Thuận Nam	Xã Hàm Thuận Nam	ham_thuan_nam	68
-23122	Hàm Thạnh	Xã Hàm Thạnh	ham_thanh	68
-23128	Hàm Kiệm	Xã Hàm Kiệm	ham_kiem	68
-23134	Tân Lập	Xã Tân Lập	tan_lap	68
-23143	Tân Thành	Xã Tân Thành	tan_thanh	68
-23149	Tánh Linh	Xã Tánh Linh	tanh_linh	68
-23152	Bắc Ruộng	Xã Bắc Ruộng	bac_ruong	68
-23158	Nghị Đức	Xã Nghị Đức	nghi_duc	68
-23173	Đồng Kho	Xã Đồng Kho	dong_kho	68
-23188	Suối Kiết	Xã Suối Kiết	suoi_kiet	68
-23191	Đức Linh	Xã Đức Linh	duc_linh	68
-23194	Hoài Đức	Xã Hoài Đức	hoai_duc	68
-23200	Nam Thành	Xã Nam Thành	nam_thanh	68
-23227	Trà Tân	Xã Trà Tân	tra_tan	68
-23230	Tân Minh	Xã Tân Minh	tan_minh	68
-23231	Phước Hội	Phường Phước Hội	phuoc_hoi	68
-23235	La Gi	Phường La Gi	la_gi	68
-23236	Hàm Tân	Xã Hàm Tân	ham_tan	68
-23246	Tân Hải	Xã Tân Hải	tan_hai	68
-23266	Sơn Mỹ	Xã Sơn Mỹ	son_my	68
-23272	Phú Quý	Đặc khu Phú Quý	phu_quy	68
-24611	Bắc Gia Nghĩa	Phường Bắc Gia Nghĩa	bac_gia_nghia	68
-24615	Nam Gia Nghĩa	Phường Nam Gia Nghĩa	nam_gia_nghia	68
-24616	Quảng Sơn	Xã Quảng Sơn	quang_son	68
-24617	Đông Gia Nghĩa	Phường Đông Gia Nghĩa	dong_gia_nghia	68
-24620	Quảng Hoà	Xã Quảng Hoà	quang_hoa	68
-24631	Quảng Khê	Xã Quảng Khê	quang_khe	68
-24637	Tà Đùng	Xã Tà Đùng	ta_dung	68
-24640	Cư Jút	Xã Cư Jút	cu_jut	68
-24646	Đắk Wil	Xã Đắk Wil	dak_wil	68
-24649	Nam Dong	Xã Nam Dong	nam_dong	68
-24664	Đức Lập	Xã Đức Lập	duc_lap	68
-24670	Đắk Mil	Xã Đắk Mil	dak_mil	68
-24678	Đắk Sắk	Xã Đắk Sắk	dak_sak	68
-24682	Thuận An	Xã Thuận An	thuan_an	68
-24688	Krông Nô	Xã Krông Nô	krong_no	68
-24697	Nam Đà	Xã Nam Đà	nam_da	68
-24703	Nâm Nung	Xã Nâm Nung	nam_nung	68
-24712	Quảng Phú	Xã Quảng Phú	quang_phu	68
-24717	Đức An	Xã Đức An	duc_an	68
-24718	Đắk Song	Xã Đắk Song	dak_song	68
-24722	Thuận Hạnh	Xã Thuận Hạnh	thuan_hanh	68
-24730	Trường Xuân	Xã Trường Xuân	truong_xuan	68
-24733	Kiến Đức	Xã Kiến Đức	kien_duc	68
-24736	Quảng Trực	Xã Quảng Trực	quang_truc	68
-24739	Tuy Đức	Xã Tuy Đức	tuy_duc	68
-24748	Quảng Tân	Xã Quảng Tân	quang_tan	68
-24751	Nhân Cơ	Xã Nhân Cơ	nhan_co	68
-24760	Quảng Tín	Xã Quảng Tín	quang_tin	68
-24778	Lâm Viên - Đà Lạt	Phường Lâm Viên - Đà Lạt	lam_vien_da_lat	68
-24781	Xuân Hương - Đà Lạt	Phường Xuân Hương - Đà Lạt	xuan_huong_da_lat	68
-24787	Cam Ly - Đà Lạt	Phường Cam Ly - Đà Lạt	cam_ly_da_lat	68
-24805	Xuân Trường - Đà Lạt	Phường Xuân Trường - Đà Lạt	xuan_truong_da_lat	68
-24820	2 Bảo Lộc	Phường 2 Bảo Lộc	2_bao_loc	68
-24823	1 Bảo Lộc	Phường 1 Bảo Lộc	1_bao_loc	68
-24829	B'Lao	Phường B'Lao	blao	68
-24841	3 Bảo Lộc	Phường 3 Bảo Lộc	3_bao_loc	68
-24846	Lang Biang - Đà Lạt	Phường Lang Biang - Đà Lạt	lang_biang_da_lat	68
-24848	Lạc Dương	Xã Lạc Dương	lac_duong	68
-24853	Đam Rông 4	Xã Đam Rông 4	dam_rong_4	68
-24868	Nam Ban Lâm Hà	Xã Nam Ban Lâm Hà	nam_ban_lam_ha	68
-24871	Đinh Văn Lâm Hà	Xã Đinh Văn Lâm Hà	dinh_van_lam_ha	68
-24875	Đam Rông 3	Xã Đam Rông 3	dam_rong_3	68
-24877	Đam Rông 2	Xã Đam Rông 2	dam_rong_2	68
-24883	Nam Hà Lâm Hà	Xã Nam Hà Lâm Hà	nam_ha_lam_ha	68
-24886	Đam Rông 1	Xã Đam Rông 1	dam_rong_1	68
-24895	Phú Sơn Lâm Hà	Xã Phú Sơn Lâm Hà	phu_son_lam_ha	68
-24907	Phúc Thọ Lâm Hà	Xã Phúc Thọ Lâm Hà	phuc_tho_lam_ha	68
-24916	Tân Hà Lâm Hà	Xã Tân Hà Lâm Hà	tan_ha_lam_ha	68
-24931	Đơn Dương	Xã Đơn Dương	don_duong	68
-24934	D'Ran	Xã D'Ran	dran	68
-24943	Ka Đô	Xã Ka Đô	ka_do	68
-24955	Quảng Lập	Xã Quảng Lập	quang_lap	68
-24958	Đức Trọng	Xã Đức Trọng	duc_trong	68
-24967	Hiệp Thạnh	Xã Hiệp Thạnh	hiep_thanh	68
-24976	Tân Hội	Xã Tân Hội	tan_hoi	68
-24985	Ninh Gia	Xã Ninh Gia	ninh_gia	68
-24988	Tà Năng	Xã Tà Năng	ta_nang	68
-24991	Tà Hine	Xã Tà Hine	ta_hine	68
-25000	Di Linh	Xã Di Linh	di_linh	68
-25007	Đinh Trang Thượng	Xã Đinh Trang Thượng	dinh_trang_thuong	68
-25015	Gia Hiệp	Xã Gia Hiệp	gia_hiep	68
-25018	Bảo Thuận	Xã Bảo Thuận	bao_thuan	68
-25036	Hoà Ninh	Xã Hoà Ninh	hoa_ninh	68
-25042	Hoà Bắc	Xã Hoà Bắc	hoa_bac	68
-25051	Sơn Điền	Xã Sơn Điền	son_dien	68
-25054	Bảo Lâm 1	Xã Bảo Lâm 1	bao_lam_1	68
-25057	Bảo Lâm 5	Xã Bảo Lâm 5	bao_lam_5	68
-25063	Bảo Lâm 4	Xã Bảo Lâm 4	bao_lam_4	68
-25084	Bảo Lâm 2	Xã Bảo Lâm 2	bao_lam_2	68
-25093	Bảo Lâm 3	Xã Bảo Lâm 3	bao_lam_3	68
-25099	Đạ Huoai	Xã Đạ Huoai	da_huoai	68
-25105	Đạ Huoai 2	Xã Đạ Huoai 2	da_huoai_2	68
-25114	Đạ Huoai 3	Xã Đạ Huoai 3	da_huoai_3	68
-25126	Đạ Tẻh	Xã Đạ Tẻh	da_teh	68
-25135	Đạ Tẻh 3	Xã Đạ Tẻh 3	da_teh_3	68
-25138	Đạ Tẻh 2	Xã Đạ Tẻh 2	da_teh_2	68
-25159	Cát Tiên	Xã Cát Tiên	cat_tien	68
-25162	Cát Tiên 3	Xã Cát Tiên 3	cat_tien_3	68
-25180	Cát Tiên 2	Xã Cát Tiên 2	cat_tien_2	68
-25195	Bình Phước	Phường Bình Phước	binh_phuoc	75
-25210	Đồng Xoài	Phường Đồng Xoài	dong_xoai	75
-25217	Phước Long	Phường Phước Long	phuoc_long	75
-25220	Phước Bình	Phường Phước Bình	phuoc_binh	75
-25222	Bù Gia Mập	Xã Bù Gia Mập	bu_gia_map	75
-25225	Đăk Ơ	Xã Đăk Ơ	dak_o	75
-25231	Đa Kia	Xã Đa Kia	da_kia	75
-25246	Bình Tân	Xã Bình Tân	binh_tan	75
-25252	Phú Riềng	Xã Phú Riềng	phu_rieng	75
-25255	Long Hà	Xã Long Hà	long_ha	75
-25261	Phú Trung	Xã Phú Trung	phu_trung	75
-25267	Phú Nghĩa	Xã Phú Nghĩa	phu_nghia	75
-25270	Lộc Ninh	Phường Lộc Ninh	loc_ninh	75
-25279	Lộc Tấn	Xã Lộc Tấn	loc_tan	75
-25280	Lộc Thạnh	Xã Lộc Thạnh	loc_thanh	75
-25292	Lộc Quang	Xã Lộc Quang	loc_quang	75
-25294	Lộc Thành	Xã Lộc Thành	loc_thanh	75
-25303	Lộc Hưng	Xã Lộc Hưng	loc_hung	75
-25308	Thiện Hưng	Xã Thiện Hưng	thien_hung	75
-25309	Hưng Phước	Xã Hưng Phước	hung_phuoc	75
-25318	Tân Tiến	Xã Tân Tiến	tan_tien	75
-25326	Bình Long	Phường Bình Long	binh_long	75
-25333	An Lộc	Phường An Lộc	an_loc	75
-25345	Tân Hưng	Xã Tân Hưng	tan_hung	75
-25349	Minh Đức	Xã Minh Đức	minh_duc	75
-25351	Tân Quan	Xã Tân Quan	tan_quan	75
-25357	Tân Khai	Phường Tân Khai	tan_khai	75
-25363	Đồng Phú	Phường Đồng Phú	dong_phu	75
-25378	Tân Lợi	Xã Tân Lợi	tan_loi	75
-25387	Thuận Lợi	Xã Thuận Lợi	thuan_loi	75
-25390	Đồng Tâm	Xã Đồng Tâm	dong_tam	75
-25396	Bù Đăng	Xã Bù Đăng	bu_dang	75
-25399	Đak Nhau	Xã Đak Nhau	dak_nhau	75
-25402	Thọ Sơn	Xã Thọ Sơn	tho_son	75
-25405	Bom Bo	Xã Bom Bo	bom_bo	75
-25417	Nghĩa Trung	Xã Nghĩa Trung	nghia_trung	75
-25420	Phước Sơn	Xã Phước Sơn	phuoc_son	75
-25432	Chơn Thành	Phường Chơn Thành	chon_thanh	75
-25441	Minh Hưng	Phường Minh Hưng	minh_hung	75
-25450	Nha Bích	Xã Nha Bích	nha_bich	75
-25993	Trảng Dài	Phường Trảng Dài	trang_dai	75
-26005	Hố Nai	Phường Hố Nai	ho_nai	75
-26017	Tam Hiệp	Phường Tam Hiệp	tam_hiep	75
-26020	Long Bình	Phường Long Bình	long_binh	75
-26041	Trấn Biên	Phường Trấn Biên	tran_bien	75
-26068	Biên Hoà	Phường Biên Hoà	bien_hoa	75
-26080	Long Khánh	Phường Long Khánh	long_khanh	75
-26089	Bình Lộc	Phường Bình Lộc	binh_loc	75
-26098	Bảo Vinh	Phường Bảo Vinh	bao_vinh	75
-26104	Xuân Lập	Phường Xuân Lập	xuan_lap	75
-26113	Hàng Gòn	Phường Hàng Gòn	hang_gon	75
-26116	Tân Phú	Phường Tân Phú	tan_phu	75
-26119	Đak Lua	Xã Đak Lua	dak_lua	75
-26122	Nam Cát Tiên	Xã Nam Cát Tiên	nam_cat_tien	75
-26134	Tà Lài	Xã Tà Lài	ta_lai	75
-26158	Phú Lâm	Xã Phú Lâm	phu_lam	75
-26170	Trị An	Phường Trị An	tri_an	75
-26173	Phú Lý	Xã Phú Lý	phu_ly	75
-26179	Tân An	Xã Tân An	tan_an	75
-26188	Tân Triều	Phường Tân Triều	tan_trieu	75
-26206	Định Quán	Xã Định Quán	dinh_quan	75
-26209	Thanh Sơn	Xã Thanh Sơn	thanh_son	75
-26215	Phú Vinh	Xã Phú Vinh	phu_vinh	75
-26221	Phú Hoà	Xã Phú Hoà	phu_hoa	75
-26227	La Ngà	Xã La Ngà	la_nga	75
-26248	Trảng Bom	Phường Trảng Bom	trang_bom	75
-26254	Bàu Hàm	Xã Bàu Hàm	bau_ham	75
-26278	Bình Minh	Xã Bình Minh	binh_minh	75
-26281	Hưng Thịnh	Xã Hưng Thịnh	hung_thinh	75
-26296	An Viễn	Xã An Viễn	an_vien	75
-26299	Thống Nhất	Xã Thống Nhất	thong_nhat	75
-26311	Gia Kiệm	Xã Gia Kiệm	gia_kiem	75
-26326	Dầu Giây	Phường Dầu Giây	dau_giay	75
-26332	Xuân Quế	Xã Xuân Quế	xuan_que	75
-26341	Cẩm Mỹ	Xã Cẩm Mỹ	cam_my	75
-26347	Xuân Đường	Xã Xuân Đường	xuan_duong	75
-26359	Xuân Đông	Xã Xuân Đông	xuan_dong	75
-26362	Sông Ray	Xã Sông Ray	song_ray	75
-26368	Long Thành	Phường Long Thành	long_thanh	75
-26374	Tam Phước	Phường Tam Phước	tam_phuoc	75
-26377	Phước Tân	Phường Phước Tân	phuoc_tan	75
-26380	Long Hưng	Phường Long Hưng	long_hung	75
-26383	An Phước	Xã An Phước	an_phuoc	75
-26389	Bình An	Xã Bình An	binh_an	75
-26413	Long Phước	Xã Long Phước	long_phuoc	75
-26422	Phước Thái	Xã Phước Thái	phuoc_thai	75
-26425	Xuân Lộc	Phường Xuân Lộc	xuan_loc	75
-26428	Xuân Bắc	Xã Xuân Bắc	xuan_bac	75
-26434	Xuân Thành	Xã Xuân Thành	xuan_thanh	75
-26446	Xuân Hoà	Xã Xuân Hoà	xuan_hoa	75
-26458	Xuân Phú	Xã Xuân Phú	xuan_phu	75
-26461	Xuân Định	Xã Xuân Định	xuan_dinh	75
-26485	Nhơn Trạch	Phường Nhơn Trạch	nhon_trach	75
-26491	Đại Phước	Xã Đại Phước	dai_phuoc	75
-26503	Phước An	Xã Phước An	phuoc_an	75
-25747	Thủ Dầu Một	Phường Thủ Dầu Một	thu_dau_mot	79
-25750	Phú Lợi	Phường Phú Lợi	phu_loi	79
-25760	Bình Dương	Phường Bình Dương	binh_duong	79
-25768	Phú An	Phường Phú An	phu_an	79
-25771	Chánh Hiệp	Phường Chánh Hiệp	chanh_hiep	79
-25777	Dầu Tiếng	Xã Dầu Tiếng	dau_tieng	79
-25780	Minh Thạnh	Xã Minh Thạnh	minh_thanh	79
-25792	Long Hoà	Xã Long Hoà	long_hoa	79
-25807	Thanh An	Xã Thanh An	thanh_an	79
-25813	Bến Cát	Phường Bến Cát	ben_cat	79
-25819	Trừ Văn Thố	Xã Trừ Văn Thố	tru_van_tho	79
-25822	Bàu Bàng	Xã Bàu Bàng	bau_bang	79
-25837	Chánh Phú Hoà	Phường Chánh Phú Hoà	chanh_phu_hoa	79
-25840	Long Nguyên	Phường Long Nguyên	long_nguyen	79
-25843	Tây Nam	Phường Tây Nam	tay_nam	79
-25846	Thới Hoà	Phường Thới Hoà	thoi_hoa	79
-25849	Hoà Lợi	Phường Hoà Lợi	hoa_loi	79
-25858	Phú Giáo	Xã Phú Giáo	phu_giao	79
-25864	Phước Thành	Xã Phước Thành	phuoc_thanh	79
-25867	An Long	Xã An Long	an_long	79
-25882	Phước Hoà	Xã Phước Hoà	phuoc_hoa	79
-25888	Tân Uyên	Phường Tân Uyên	tan_uyen	79
-25891	Tân Khánh	Phường Tân Khánh	tan_khanh	79
-25906	Bắc Tân Uyên	Xã Bắc Tân Uyên	bac_tan_uyen	79
-25909	Thường Tân	Xã Thường Tân	thuong_tan	79
-25912	Vĩnh Tân	Phường Vĩnh Tân	vinh_tan	79
-25915	Bình Cơ	Phường Bình Cơ	binh_co	79
-25920	Tân Hiệp	Phường Tân Hiệp	tan_hiep	79
-25942	Dĩ An	Phường Dĩ An	di_an	79
-25945	Tân Đông Hiệp	Phường Tân Đông Hiệp	tan_dong_hiep	79
-25951	Đông Hoà	Phường Đông Hoà	dong_hoa	79
-25966	Lái Thiêu	Phường Lái Thiêu	lai_thieu	79
-25969	Thuận Giao	Phường Thuận Giao	thuan_giao	79
-25975	An Phú	Phường An Phú	an_phu	79
-25978	Thuận An	Phường Thuận An	thuan_an	79
-25987	Bình Hoà	Phường Bình Hoà	binh_hoa	79
-26506	Vũng Tàu	Phường Vũng Tàu	vung_tau	79
-26526	Tam Thắng	Phường Tam Thắng	tam_thang	79
-26536	Rạch Dừa	Phường Rạch Dừa	rach_dua	79
-26542	Phước Thắng	Phường Phước Thắng	phuoc_thang	79
-26545	Long Sơn	Xã Long Sơn	long_son	79
-26560	Bà Rịa	Phường Bà Rịa	ba_ria	79
-26566	Long Hương	Phường Long Hương	long_huong	79
-26572	Tam Long	Phường Tam Long	tam_long	79
-26575	Ngãi Giao	Xã Ngãi Giao	ngai_giao	79
-26584	Xuân Sơn	Xã Xuân Sơn	xuan_son	79
-26590	Bình Giã	Xã Bình Giã	binh_gia	79
-26596	Châu Đức	Xã Châu Đức	chau_duc	79
-26608	Kim Long	Xã Kim Long	kim_long	79
-26617	Nghĩa Thành	Xã Nghĩa Thành	nghia_thanh	79
-26620	Hồ Tràm	Xã Hồ Tràm	ho_tram	79
-26632	Xuyên Mộc	Xã Xuyên Mộc	xuyen_moc	79
-26638	Bàu Lâm	Xã Bàu Lâm	bau_lam	79
-26641	Hoà Hội	Xã Hoà Hội	hoa_hoi	79
-26647	Hoà Hiệp	Xã Hoà Hiệp	hoa_hiep	79
-26656	Bình Châu	Xã Bình Châu	binh_chau	79
-26659	Long Điền	Xã Long Điền	long_dien	79
-26662	Long Hải	Xã Long Hải	long_hai	79
-26680	Đất Đỏ	Xã Đất Đỏ	dat_do	79
-26686	Phước Hải	Xã Phước Hải	phuoc_hai	79
-26704	Phú Mỹ	Phường Phú Mỹ	phu_my	79
-26710	Tân Hải	Phường Tân Hải	tan_hai	79
-26713	Tân Phước	Phường Tân Phước	tan_phuoc	79
-26725	Tân Thành	Phường Tân Thành	tan_thanh	79
-26728	Châu Pha	Xã Châu Pha	chau_pha	79
-26732	Côn Đảo	Đặc khu Côn Đảo	con_dao	79
-26737	Tân Định	Phường Tân Định	tan_dinh	79
-26740	Sài Gòn	Phường Sài Gòn	sai_gon	79
-26743	Bến Thành	Phường Bến Thành	ben_thanh	79
-26758	Cầu Ông Lãnh	Phường Cầu Ông Lãnh	cau_ong_lanh	79
-26767	An Phú Đông	Phường An Phú Đông	an_phu_dong	79
-26773	Thới An	Phường Thới An	thoi_an	79
-26782	Tân Thới Hiệp	Phường Tân Thới Hiệp	tan_thoi_hiep	79
-26785	Trung Mỹ Tây	Phường Trung Mỹ Tây	trung_my_tay	79
-26791	Đông Hưng Thuận	Phường Đông Hưng Thuận	dong_hung_thuan	79
-26800	Linh Xuân	Phường Linh Xuân	linh_xuan	79
-26803	Tam Bình	Phường Tam Bình	tam_binh	79
-26809	Hiệp Bình	Phường Hiệp Bình	hiep_binh	79
-26824	Thủ Đức	Phường Thủ Đức	thu_duc	79
-26833	Long Bình	Phường Long Bình	long_binh	79
-26842	Tăng Nhơn Phú	Phường Tăng Nhơn Phú	tang_nhon_phu	79
-26848	Phước Long	Phường Phước Long	phuoc_long	79
-26857	Long Phước	Phường Long Phước	long_phuoc	79
-26860	Long Trường	Phường Long Trường	long_truong	79
-26876	An Nhơn	Phường An Nhơn	an_nhon	79
-26878	An Hội Đông	Phường An Hội Đông	an_hoi_dong	79
-26882	An Hội Tây	Phường An Hội Tây	an_hoi_tay	79
-26884	Gò Vấp	Phường Gò Vấp	go_vap	79
-26890	Hạnh Thông	Phường Hạnh Thông	hanh_thong	79
-26898	Thông Tây Hội	Phường Thông Tây Hội	thong_tay_hoi	79
-26905	Bình Lợi Trung	Phường Bình Lợi Trung	binh_loi_trung	79
-26911	Bình Quới	Phường Bình Quới	binh_quoi	79
-26929	Bình Thạnh	Phường Bình Thạnh	binh_thanh	79
-26944	Gia Định	Phường Gia Định	gia_dinh	79
-26956	Thạnh Mỹ Tây	Phường Thạnh Mỹ Tây	thanh_my_tay	79
-26968	Tân Sơn Nhất	Phường Tân Sơn Nhất	tan_son_nhat	79
-26977	Tân Sơn Hoà	Phường Tân Sơn Hoà	tan_son_hoa	79
-26983	Bảy Hiền	Phường Bảy Hiền	bay_hien	79
-26995	Tân Hoà	Phường Tân Hoà	tan_hoa	79
-27004	Tân Bình	Phường Tân Bình	tan_binh	79
-27007	Tân Sơn	Phường Tân Sơn	tan_son	79
-27013	Tây Thạnh	Phường Tây Thạnh	tay_thanh	79
-27019	Tân Sơn Nhì	Phường Tân Sơn Nhì	tan_son_nhi	79
-27022	Phú Thọ Hoà	Phường Phú Thọ Hoà	phu_tho_hoa	79
-27028	Phú Thạnh	Phường Phú Thạnh	phu_thanh	79
-27031	Tân Phú	Phường Tân Phú	tan_phu	79
-27043	Đức Nhuận	Phường Đức Nhuận	duc_nhuan	79
-27058	Cầu Kiệu	Phường Cầu Kiệu	cau_kieu	79
-27073	Phú Nhuận	Phường Phú Nhuận	phu_nhuan	79
-27094	An Khánh	Phường An Khánh	an_khanh	79
-27097	Bình Trưng	Phường Bình Trưng	binh_trung	79
-27112	Cát Lái	Phường Cát Lái	cat_lai	79
-27139	Xuân Hoà	Phường Xuân Hoà	xuan_hoa	79
-27142	Nhiêu Lộc	Phường Nhiêu Lộc	nhieu_loc	79
-27154	Bàn Cờ	Phường Bàn Cờ	ban_co	79
-27163	Hoà Hưng	Phường Hoà Hưng	hoa_hung	79
-27169	Diên Hồng	Phường Diên Hồng	dien_hong	79
-27190	Vườn Lài	Phường Vườn Lài	vuon_lai	79
-27211	Hoà Bình	Phường Hoà Bình	hoa_binh	79
-27226	Phú Thọ	Phường Phú Thọ	phu_tho	79
-27232	Bình Thới	Phường Bình Thới	binh_thoi	79
-27238	Minh Phụng	Phường Minh Phụng	minh_phung	79
-27259	Xóm Chiếu	Phường Xóm Chiếu	xom_chieu	79
-27265	Khánh Hội	Phường Khánh Hội	khanh_hoi	79
-27286	Vĩnh Hội	Phường Vĩnh Hội	vinh_hoi	79
-27301	Chợ Quán	Phường Chợ Quán	cho_quan	79
-27316	An Đông	Phường An Đông	an_dong	79
-27343	Chợ Lớn	Phường Chợ Lớn	cho_lon	79
-27349	Phú Lâm	Phường Phú Lâm	phu_lam	79
-27364	Bình Phú	Phường Bình Phú	binh_phu	79
-27367	Bình Tây	Phường Bình Tây	binh_tay	79
-27373	Bình Tiên	Phường Bình Tiên	binh_tien	79
-27418	Chánh Hưng	Phường Chánh Hưng	chanh_hung	79
-27424	Bình Đông	Phường Bình Đông	binh_dong	79
-27427	Phú Định	Phường Phú Định	phu_dinh	79
-27439	Bình Hưng Hoà	Phường Bình Hưng Hoà	binh_hung_hoa	79
-27442	Bình Tân	Phường Bình Tân	binh_tan	79
-27448	Bình Trị Đông	Phường Bình Trị Đông	binh_tri_dong	79
-27457	Tân Tạo	Phường Tân Tạo	tan_tao	79
-27460	An Lạc	Phường An Lạc	an_lac	79
-27475	Tân Hưng	Phường Tân Hưng	tan_hung	79
-27478	Tân Thuận	Phường Tân Thuận	tan_thuan	79
-27484	Phú Thuận	Phường Phú Thuận	phu_thuan	79
-27487	Tân Mỹ	Phường Tân Mỹ	tan_my	79
-27496	Tân An Hội	Xã Tân An Hội	tan_an_hoi	79
-27508	An Nhơn Tây	Xã An Nhơn Tây	an_nhon_tay	79
-27511	Nhuận Đức	Xã Nhuận Đức	nhuan_duc	79
-27526	Thái Mỹ	Xã Thái Mỹ	thai_my	79
-27541	Phú Hoà Đông	Xã Phú Hoà Đông	phu_hoa_dong	79
-27544	Bình Mỹ	Xã Bình Mỹ	binh_my	79
-27553	Củ Chi	Xã Củ Chi	cu_chi	79
-27559	Hóc Môn	Xã Hóc Môn	hoc_mon	79
-27568	Đông Thạnh	Xã Đông Thạnh	dong_thanh	79
-27577	Xuân Thới Sơn	Xã Xuân Thới Sơn	xuan_thoi_son	79
-27592	Bà Điểm	Xã Bà Điểm	ba_diem	79
-27595	Tân Nhựt	Xã Tân Nhựt	tan_nhut	79
-27601	Vĩnh Lộc	Xã Vĩnh Lộc	vinh_loc	79
-27604	Tân Vĩnh Lộc	Xã Tân Vĩnh Lộc	tan_vinh_loc	79
-27610	Bình Lợi	Xã Bình Lợi	binh_loi	79
-27619	Bình Hưng	Xã Bình Hưng	binh_hung	79
-27628	Hưng Long	Xã Hưng Long	hung_long	79
-27637	Bình Chánh	Xã Bình Chánh	binh_chanh	79
-27655	Nhà Bè	Xã Nhà Bè	nha_be	79
-27658	Hiệp Phước	Xã Hiệp Phước	hiep_phuoc	79
-27664	Cần Giờ	Xã Cần Giờ	can_gio	79
-27667	Bình Khánh	Xã Bình Khánh	binh_khanh	79
-27673	An Thới Đông	Xã An Thới Đông	an_thoi_dong	79
-27676	Thạnh An	Xã Thạnh An	thanh_an	79
-25459	Tân Ninh	Phường Tân Ninh	tan_ninh	80
-25480	Bình Minh	Phường Bình Minh	binh_minh	80
-25486	Tân Biên	Xã Tân Biên	tan_bien	80
-25489	Tân Lập	Xã Tân Lập	tan_lap	80
-25498	Thạnh Bình	Xã Thạnh Bình	thanh_binh	80
-25510	Trà Vong	Xã Trà Vong	tra_vong	80
-25516	Tân Châu	Xã Tân Châu	tan_chau	80
-25522	Tân Đông	Xã Tân Đông	tan_dong	80
-25525	Tân Hội	Xã Tân Hội	tan_hoi	80
-25531	Tân Hoà	Xã Tân Hoà	tan_hoa	80
-25534	Tân Thành	Xã Tân Thành	tan_thanh	80
-25549	Tân Phú	Xã Tân Phú	tan_phu	80
-25552	Dương Minh Châu	Xã Dương Minh Châu	duong_minh_chau	80
-25567	Ninh Thạnh	Phường Ninh Thạnh	ninh_thanh	80
-25573	Cầu Khởi	Xã Cầu Khởi	cau_khoi	80
-25579	Lộc Ninh	Xã Lộc Ninh	loc_ninh	80
-25585	Châu Thành	Xã Châu Thành	chau_thanh	80
-25588	Hảo Đước	Xã Hảo Đước	hao_duoc	80
-25591	Phước Vinh	Xã Phước Vinh	phuoc_vinh	80
-25606	Hoà Hội	Xã Hoà Hội	hoa_hoi	80
-25621	Ninh Điền	Xã Ninh Điền	ninh_dien	80
-25630	Long Hoa	Phường Long Hoa	long_hoa	80
-25633	Thanh Điền	Phường Thanh Điền	thanh_dien	80
-25645	Hoà Thành	Phường Hoà Thành	hoa_thanh	80
-25654	Gò Dầu	Phường Gò Dầu	go_dau	80
-25657	Thạnh Đức	Xã Thạnh Đức	thanh_duc	80
-25663	Phước Thạnh	Xã Phước Thạnh	phuoc_thanh	80
-25666	Truông Mít	Xã Truông Mít	truong_mit	80
-25672	Gia Lộc	Phường Gia Lộc	gia_loc	80
-25681	Bến Cầu	Xã Bến Cầu	ben_cau	80
-25684	Long Chữ	Xã Long Chữ	long_chu	80
-25702	Long Thuận	Xã Long Thuận	long_thuan	80
-25708	Trảng Bàng	Phường Trảng Bàng	trang_bang	80
-25711	Hưng Thuận	Xã Hưng Thuận	hung_thuan	80
-25729	Phước Chỉ	Xã Phước Chỉ	phuoc_chi	80
-25732	An Tịnh	Phường An Tịnh	an_tinh	80
-27694	Long An	Phường Long An	long_an	80
-27712	Tân An	Phường Tân An	tan_an	80
-27715	Khánh Hậu	Phường Khánh Hậu	khanh_hau	80
-27721	Tân Hưng	Xã Tân Hưng	tan_hung	80
-27727	Hưng Điền	Xã Hưng Điền	hung_dien	80
-27736	Vĩnh Thạnh	Xã Vĩnh Thạnh	vinh_thanh	80
-27748	Vĩnh Châu	Xã Vĩnh Châu	vinh_chau	80
-27757	Vĩnh Hưng	Xã Vĩnh Hưng	vinh_hung	80
-27763	Khánh Hưng	Xã Khánh Hưng	khanh_hung	80
-27775	Tuyên Bình	Xã Tuyên Bình	tuyen_binh	80
-27787	Kiến Tường	Phường Kiến Tường	kien_tuong	80
-27793	Bình Hiệp	Xã Bình Hiệp	binh_hiep	80
-27811	Bình Hoà	Xã Bình Hoà	binh_hoa	80
-27817	Tuyên Thạnh	Xã Tuyên Thạnh	tuyen_thanh	80
-27823	Mộc Hoá	Xã Mộc Hoá	moc_hoa	80
-27826	Tân Thạnh	Xã Tân Thạnh	tan_thanh	80
-27838	Nhơn Hoà Lập	Xã Nhơn Hoà Lập	nhon_hoa_lap	80
-27841	Hậu Thạnh	Xã Hậu Thạnh	hau_thanh	80
-27856	Nhơn Ninh	Xã Nhơn Ninh	nhon_ninh	80
-27865	Thạnh Hoá	Xã Thạnh Hoá	thanh_hoa	80
-27868	Bình Thành	Xã Bình Thành	binh_thanh	80
-27877	Thạnh Phước	Xã Thạnh Phước	thanh_phuoc	80
-27889	Tân Tây	Xã Tân Tây	tan_tay	80
-27898	Đông Thành	Xã Đông Thành	dong_thanh	80
-27907	Mỹ Quý	Xã Mỹ Quý	my_quy	80
-27925	Đức Huệ	Xã Đức Huệ	duc_hue	80
-27931	Hậu Nghĩa	Xã Hậu Nghĩa	hau_nghia	80
-27937	Đức Hoà	Xã Đức Hoà	duc_hoa	80
-27943	An Ninh	Xã An Ninh	an_ninh	80
-27952	Hiệp Hoà	Xã Hiệp Hoà	hiep_hoa	80
-27964	Đức Lập	Xã Đức Lập	duc_lap	80
-27976	Mỹ Hạnh	Xã Mỹ Hạnh	my_hanh	80
-27979	Hoà Khánh	Xã Hoà Khánh	hoa_khanh	80
-27991	Bến Lức	Xã Bến Lức	ben_luc	80
-27994	Thạnh Lợi	Xã Thạnh Lợi	thanh_loi	80
-28003	Lương Hoà	Xã Lương Hoà	luong_hoa	80
-28015	Bình Đức	Xã Bình Đức	binh_duc	80
-28018	Mỹ Yên	Xã Mỹ Yên	my_yen	80
-28036	Thủ Thừa	Xã Thủ Thừa	thu_thua	80
-28051	Mỹ Thạnh	Xã Mỹ Thạnh	my_thanh	80
-28066	Mỹ An	Xã Mỹ An	my_an	80
-28072	Tân Long	Xã Tân Long	tan_long	80
-28075	Tân Trụ	Xã Tân Trụ	tan_tru	80
-28087	Nhựt Tảo	Xã Nhựt Tảo	nhut_tao	80
-28093	Vàm Cỏ	Xã Vàm Cỏ	vam_co	80
-28108	Cần Đước	Xã Cần Đước	can_duoc	80
-28114	Rạch Kiến	Xã Rạch Kiến	rach_kien	80
-28126	Long Cang	Xã Long Cang	long_cang	80
-28132	Mỹ Lệ	Xã Mỹ Lệ	my_le	80
-28138	Tân Lân	Xã Tân Lân	tan_lan	80
-28144	Long Hựu	Xã Long Hựu	long_huu	80
-28159	Cần Giuộc	Xã Cần Giuộc	can_giuoc	80
-28165	Phước Lý	Xã Phước Lý	phuoc_ly	80
-28177	Mỹ Lộc	Xã Mỹ Lộc	my_loc	80
-28201	Phước Vĩnh Tây	Xã Phước Vĩnh Tây	phuoc_vinh_tay	80
-28207	Tân Tập	Xã Tân Tập	tan_tap	80
-28210	Tầm Vu	Xã Tầm Vu	tam_vu	80
-28222	Vĩnh Công	Xã Vĩnh Công	vinh_cong	80
-28225	Thuận Mỹ	Xã Thuận Mỹ	thuan_my	80
-28243	An Lục Long	Xã An Lục Long	an_luc_long	80
-28249	Đạo Thạnh	Phường Đạo Thạnh	dao_thanh	82
-28261	Mỹ Tho	Phường Mỹ Tho	my_tho	82
-28270	Thới Sơn	Phường Thới Sơn	thoi_son	82
-28273	Mỹ Phong	Phường Mỹ Phong	my_phong	82
-28285	Trung An	Phường Trung An	trung_an	82
-28297	Long Thuận	Phường Long Thuận	long_thuan	82
-28306	Gò Công	Phường Gò Công	go_cong	82
-28315	Bình Xuân	Phường Bình Xuân	binh_xuan	82
-28321	Tân Phước 1	Xã Tân Phước 1	tan_phuoc_1	82
-28327	Tân Phước 2	Xã Tân Phước 2	tan_phuoc_2	82
-28336	Hưng Thạnh	Xã Hưng Thạnh	hung_thanh	82
-28345	Tân Phước 3	Xã Tân Phước 3	tan_phuoc_3	82
-28360	Cái Bè	Xã Cái Bè	cai_be	82
-28366	Hậu Mỹ	Xã Hậu Mỹ	hau_my	82
-28378	Mỹ Thiện	Xã Mỹ Thiện	my_thien	82
-28393	Hội Cư	Xã Hội Cư	hoi_cu	82
-28405	Mỹ Đức Tây	Xã Mỹ Đức Tây	my_duc_tay	82
-28414	Mỹ Lợi	Xã Mỹ Lợi	my_loi	82
-28426	Thanh Hưng	Xã Thanh Hưng	thanh_hung	82
-28429	An Hữu	Xã An Hữu	an_huu	82
-28435	Mỹ Phước Tây	Phường Mỹ Phước Tây	my_phuoc_tay	82
-28436	Thanh Hoà	Phường Thanh Hoà	thanh_hoa	82
-28439	Cai Lậy	Phường Cai Lậy	cai_lay	82
-28444	Thạnh Phú	Xã Thạnh Phú	thanh_phu	82
-28456	Mỹ Thành	Xã Mỹ Thành	my_thanh	82
-28468	Tân Phú	Xã Tân Phú	tan_phu	82
-28471	Bình Phú	Xã Bình Phú	binh_phu	82
-28477	Nhị Quý	Phường Nhị Quý	nhi_quy	82
-28501	Hiệp Đức	Xã Hiệp Đức	hiep_duc	82
-28504	Long Tiên	Xã Long Tiên	long_tien	82
-28516	Ngũ Hiệp	Xã Ngũ Hiệp	ngu_hiep	82
-28519	Châu Thành	Xã Châu Thành	chau_thanh	82
-28525	Tân Hương	Xã Tân Hương	tan_huong	82
-28537	Long Hưng	Xã Long Hưng	long_hung	82
-28543	Long Định	Xã Long Định	long_dinh	82
-28564	Bình Trưng	Xã Bình Trưng	binh_trung	82
-28576	Vĩnh Kim	Xã Vĩnh Kim	vinh_kim	82
-28582	Kim Sơn	Xã Kim Sơn	kim_son	82
-28594	Chợ Gạo	Xã Chợ Gạo	cho_gao	82
-28603	Mỹ Tịnh An	Xã Mỹ Tịnh An	my_tinh_an	82
-28615	Lương Hoà Lạc	Xã Lương Hoà Lạc	luong_hoa_lac	82
-28627	Tân Thuận Bình	Xã Tân Thuận Bình	tan_thuan_binh	82
-28633	An Thạnh Thuỷ	Xã An Thạnh Thuỷ	an_thanh_thuy	82
-28648	Bình Ninh	Xã Bình Ninh	binh_ninh	82
-28651	Vĩnh Bình	Xã Vĩnh Bình	vinh_binh	82
-28660	Đồng Sơn	Xã Đồng Sơn	dong_son	82
-28663	Phú Thành	Xã Phú Thành	phu_thanh	82
-28678	Vĩnh Hựu	Xã Vĩnh Hựu	vinh_huu	82
-28687	Long Bình	Xã Long Bình	long_binh	82
-28693	Tân Thới	Xã Tân Thới	tan_thoi	82
-28696	Tân Phú Đông	Xã Tân Phú Đông	tan_phu_dong	82
-28702	Tân Hoà	Xã Tân Hoà	tan_hoa	82
-28720	Gia Thuận	Xã Gia Thuận	gia_thuan	82
-28723	Tân Đông	Xã Tân Đông	tan_dong	82
-28729	Sơn Qui	Phường Sơn Qui	son_qui	82
-28738	Tân Điền	Xã Tân Điền	tan_dien	82
-28747	Gò Công Đông	Xã Gò Công Đông	go_cong_dong	82
-29869	Cao Lãnh	Phường Cao Lãnh	cao_lanh	82
-29884	Mỹ Ngãi	Phường Mỹ Ngãi	my_ngai	82
-29888	Mỹ Trà	Phường Mỹ Trà	my_tra	82
-29905	Sa Đéc	Phường Sa Đéc	sa_dec	82
-29926	Tân Hồng	Xã Tân Hồng	tan_hong	82
-29929	Tân Hộ Cơ	Xã Tân Hộ Cơ	tan_ho_co	82
-29938	Tân Thành	Xã Tân Thành	tan_thanh	82
-29944	An Phước	Xã An Phước	an_phuoc	82
-29954	An Bình	Phường An Bình	an_binh	82
-29955	Hồng Ngự	Phường Hồng Ngự	hong_ngu	82
-29971	Thường Phước	Xã Thường Phước	thuong_phuoc	82
-29978	Thường Lạc	Phường Thường Lạc	thuong_lac	82
-29983	Long Khánh	Xã Long Khánh	long_khanh	82
-29992	Long Phú Thuận	Xã Long Phú Thuận	long_phu_thuan	82
-30001	Tràm Chim	Xã Tràm Chim	tram_chim	82
-30010	Tam Nông	Xã Tam Nông	tam_nong	82
-30019	An Hoà	Xã An Hoà	an_hoa	82
-30025	Phú Cường	Xã Phú Cường	phu_cuong	82
-30028	An Long	Xã An Long	an_long	82
-30034	Phú Thọ	Xã Phú Thọ	phu_tho	82
-30037	Tháp Mười	Xã Tháp Mười	thap_muoi	82
-30043	Phương Thịnh	Xã Phương Thịnh	phuong_thinh	82
-30046	Trường Xuân	Xã Trường Xuân	truong_xuan	82
-30055	Mỹ Quí	Xã Mỹ Quí	my_qui	82
-30061	Đốc Binh Kiều	Xã Đốc Binh Kiều	doc_binh_kieu	82
-30073	Thanh Mỹ	Xã Thanh Mỹ	thanh_my	82
-30076	Mỹ Thọ	Xã Mỹ Thọ	my_tho	82
-30085	Ba Sao	Xã Ba Sao	ba_sao	82
-30088	Phong Mỹ	Xã Phong Mỹ	phong_my	82
-30112	Mỹ Hiệp	Xã Mỹ Hiệp	my_hiep	82
-30118	Bình Hàng Trung	Xã Bình Hàng Trung	binh_hang_trung	82
-30130	Thanh Bình	Xã Thanh Bình	thanh_binh	82
-30154	Tân Long	Xã Tân Long	tan_long	82
-30157	Tân Thạnh	Xã Tân Thạnh	tan_thanh	82
-30163	Bình Thành	Xã Bình Thành	binh_thanh	82
-30169	Lấp Vò	Xã Lấp Vò	lap_vo	82
-30178	Mỹ An Hưng	Xã Mỹ An Hưng	my_an_hung	82
-30184	Tân Khánh Trung	Xã Tân Khánh Trung	tan_khanh_trung	82
-30208	Hoà Long	Xã Hoà Long	hoa_long	82
-30214	Tân Dương	Xã Tân Dương	tan_duong	82
-30226	Lai Vung	Xã Lai Vung	lai_vung	82
-30235	Phong Hoà	Xã Phong Hoà	phong_hoa	82
-30244	Phú Hựu	Xã Phú Hựu	phu_huu	82
-30253	Tân Nhuận Đông	Xã Tân Nhuận Đông	tan_nhuan_dong	82
-30259	Tân Phú Trung	Xã Tân Phú Trung	tan_phu_trung	82
-28756	Phú Khương	Phường Phú Khương	phu_khuong	86
-28777	An Hội	Phường An Hội	an_hoi	86
-28783	Sơn Đông	Phường Sơn Đông	son_dong	86
-28789	Bến Tre	Phường Bến Tre	ben_tre	86
-28807	Giao Long	Xã Giao Long	giao_long	86
-28810	Phú Túc	Xã Phú Túc	phu_tuc	86
-28840	Tân Phú	Xã Tân Phú	tan_phu	86
-28858	Phú Tân	Phường Phú Tân	phu_tan	86
-28861	Tiên Thuỷ	Xã Tiên Thuỷ	tien_thuy	86
-28870	Chợ Lách	Xã Chợ Lách	cho_lach	86
-28879	Phú Phụng	Xã Phú Phụng	phu_phung	86
-28894	Vĩnh Thành	Xã Vĩnh Thành	vinh_thanh	86
-28901	Hưng Khánh Trung	Xã Hưng Khánh Trung	hung_khanh_trung	86
-28903	Mỏ Cày	Xã Mỏ Cày	mo_cay	86
-28915	Phước Mỹ Trung	Xã Phước Mỹ Trung	phuoc_my_trung	86
-28921	Tân Thành Bình	Xã Tân Thành Bình	tan_thanh_binh	86
-28945	Đồng Khởi	Xã Đồng Khởi	dong_khoi	86
-28948	Nhuận Phú Tân	Xã Nhuận Phú Tân	nhuan_phu_tan	86
-28957	An Định	Xã An Định	an_dinh	86
-28969	Thành Thới	Xã Thành Thới	thanh_thoi	86
-28981	Hương Mỹ	Xã Hương Mỹ	huong_my	86
-28984	Giồng Trôm	Xã Giồng Trôm	giong_trom	86
-28987	Lương Hoà	Xã Lương Hoà	luong_hoa	86
-28993	Lương Phú	Xã Lương Phú	luong_phu	86
-28996	Châu Hoà	Xã Châu Hoà	chau_hoa	86
-29020	Phước Long	Xã Phước Long	phuoc_long	86
-29029	Tân Hào	Xã Tân Hào	tan_hao	86
-29044	Hưng Nhượng	Xã Hưng Nhượng	hung_nhuong	86
-29050	Bình Đại	Xã Bình Đại	binh_dai	86
-29062	Phú Thuận	Xã Phú Thuận	phu_thuan	86
-29077	Lộc Thuận	Xã Lộc Thuận	loc_thuan	86
-29083	Châu Hưng	Xã Châu Hưng	chau_hung	86
-29089	Thạnh Trị	Xã Thạnh Trị	thanh_tri	86
-29104	Thạnh Phước	Xã Thạnh Phước	thanh_phuoc	86
-29107	Thới Thuận	Xã Thới Thuận	thoi_thuan	86
-29110	Ba Tri	Xã Ba Tri	ba_tri	86
-29122	Mỹ Chánh Hoà	Xã Mỹ Chánh Hoà	my_chanh_hoa	86
-29125	Bảo Thạnh	Xã Bảo Thạnh	bao_thanh	86
-29137	Tân Xuân	Xã Tân Xuân	tan_xuan	86
-29143	An Ngãi Trung	Xã An Ngãi Trung	an_ngai_trung	86
-29158	An Hiệp	Xã An Hiệp	an_hiep	86
-29167	Tân Thuỷ	Xã Tân Thuỷ	tan_thuy	86
-29182	Thạnh Phú	Xã Thạnh Phú	thanh_phu	86
-29191	Quới Điền	Xã Quới Điền	quoi_dien	86
-29194	Đại Điền	Xã Đại Điền	dai_dien	86
-29221	Thạnh Hải	Xã Thạnh Hải	thanh_hai	86
-29224	An Qui	Xã An Qui	an_qui	86
-29227	Thạnh Phong	Xã Thạnh Phong	thanh_phong	86
-29242	Trà Vinh	Phường Trà Vinh	tra_vinh	86
-29254	Nguyệt Hoá	Phường Nguyệt Hoá	nguyet_hoa	86
-29263	Long Đức	Phường Long Đức	long_duc	86
-29266	Càng Long	Xã Càng Long	cang_long	86
-29275	An Trường	Xã An Trường	an_truong	86
-29278	Tân An	Xã Tân An	tan_an	86
-29287	Bình Phú	Xã Bình Phú	binh_phu	86
-29302	Nhị Long	Xã Nhị Long	nhi_long	86
-29308	Cầu Kè	Xã Cầu Kè	cau_ke	86
-29317	An Phú Tân	Xã An Phú Tân	an_phu_tan	86
-29329	Phong Thạnh	Xã Phong Thạnh	phong_thanh	86
-29335	Tam Ngãi	Xã Tam Ngãi	tam_ngai	86
-29341	Tiểu Cần	Xã Tiểu Cần	tieu_can	86
-29362	Hùng Hoà	Xã Hùng Hoà	hung_hoa	86
-29365	Tập Ngãi	Xã Tập Ngãi	tap_ngai	86
-29371	Tân Hoà	Xã Tân Hoà	tan_hoa	86
-29374	Châu Thành	Xã Châu Thành	chau_thanh	86
-29386	Song Lộc	Xã Song Lộc	song_loc	86
-29398	Hoà Thuận	Phường Hoà Thuận	hoa_thuan	86
-29407	Hưng Mỹ	Xã Hưng Mỹ	hung_my	86
-29410	Hoà Minh	Xã Hoà Minh	hoa_minh	86
-29413	Long Hoà	Xã Long Hoà	long_hoa	86
-29416	Cầu Ngang	Xã Cầu Ngang	cau_ngang	86
-29419	Mỹ Long	Xã Mỹ Long	my_long	86
-29431	Vinh Kim	Xã Vinh Kim	vinh_kim	86
-29446	Nhị Trường	Xã Nhị Trường	nhi_truong	86
-29455	Hiệp Mỹ	Xã Hiệp Mỹ	hiep_my	86
-29461	Trà Cú	Xã Trà Cú	tra_cu	86
-29467	Tập Sơn	Xã Tập Sơn	tap_son	86
-29476	Lưu Nghiệp Anh	Xã Lưu Nghiệp Anh	luu_nghiep_anh	86
-29489	Hàm Giang	Xã Hàm Giang	ham_giang	86
-29491	Đại An	Xã Đại An	dai_an	86
-29497	Đôn Châu	Xã Đôn Châu	don_chau	86
-29506	Long Hiệp	Xã Long Hiệp	long_hiep	86
-29512	Duyên Hải	Phường Duyên Hải	duyen_hai	86
-29513	Long Thành	Xã Long Thành	long_thanh	86
-29516	Trường Long Hoà	Phường Trường Long Hoà	truong_long_hoa	86
-29518	Long Hữu	Xã Long Hữu	long_huu	86
-29530	Ngũ Lạc	Xã Ngũ Lạc	ngu_lac	86
-29533	Long Vĩnh	Xã Long Vĩnh	long_vinh	86
-29536	Đông Hải	Xã Đông Hải	dong_hai	86
-29551	Long Châu	Phường Long Châu	long_chau	86
-29557	Phước Hậu	Phường Phước Hậu	phuoc_hau	86
-29566	Tân Ngãi	Phường Tân Ngãi	tan_ngai	86
-29584	An Bình	Xã An Bình	an_binh	86
-29590	Thanh Đức	Phường Thanh Đức	thanh_duc	86
-29593	Tân Hạnh	Phường Tân Hạnh	tan_hanh	86
-29602	Long Hồ	Xã Long Hồ	long_ho	86
-29611	Phú Quới	Xã Phú Quới	phu_quoi	86
-29623	Nhơn Phú	Xã Nhơn Phú	nhon_phu	86
-29638	Bình Phước	Xã Bình Phước	binh_phuoc	86
-29641	Cái Nhum	Xã Cái Nhum	cai_nhum	86
-29653	Tân Long Hội	Xã Tân Long Hội	tan_long_hoi	86
-29659	Trung Thành	Xã Trung Thành	trung_thanh	86
-29668	Quới An	Xã Quới An	quoi_an	86
-29677	Quới Thiện	Xã Quới Thiện	quoi_thien	86
-29683	Trung Hiệp	Xã Trung Hiệp	trung_hiep	86
-29698	Trung Ngãi	Xã Trung Ngãi	trung_ngai	86
-29701	Hiếu Phụng	Xã Hiếu Phụng	hieu_phung	86
-29713	Hiếu Thành	Xã Hiếu Thành	hieu_thanh	86
-29719	Tam Bình	Xã Tam Bình	tam_binh	86
-29728	Cái Ngang	Xã Cái Ngang	cai_ngang	86
-29734	Hoà Hiệp	Xã Hoà Hiệp	hoa_hiep	86
-29740	Song Phú	Xã Song Phú	song_phu	86
-29767	Ngãi Tứ	Xã Ngãi Tứ	ngai_tu	86
-29770	Cái Vồn	Phường Cái Vồn	cai_von	86
-29771	Bình Minh	Phường Bình Minh	binh_minh	86
-29785	Tân Lược	Xã Tân Lược	tan_luoc	86
-29788	Mỹ Thuận	Xã Mỹ Thuận	my_thuan	86
-29800	Tân Quới	Xã Tân Quới	tan_quoi	86
-29812	Đông Thành	Phường Đông Thành	dong_thanh	86
-29821	Trà Ôn	Xã Trà Ôn	tra_on	86
-29830	Hoà Bình	Xã Hoà Bình	hoa_binh	86
-29836	Trà Côn	Xã Trà Côn	tra_con	86
-29845	Vĩnh Xuân	Xã Vĩnh Xuân	vinh_xuan	86
-29857	Lục Sĩ Thành	Xã Lục Sĩ Thành	luc_si_thanh	86
-30292	Bình Đức	Phường Bình Đức	binh_duc	91
-30301	Mỹ Thới	Phường Mỹ Thới	my_thoi	91
-30307	Long Xuyên	Phường Long Xuyên	long_xuyen	91
-30313	Mỹ Hoà Hưng	Xã Mỹ Hoà Hưng	my_hoa_hung	91
-30316	Châu Đốc	Phường Châu Đốc	chau_doc	91
-30325	Vĩnh Tế	Phường Vĩnh Tế	vinh_te	91
-30337	An Phú	Xã An Phú	an_phu	91
-30341	Khánh Bình	Xã Khánh Bình	khanh_binh	91
-30346	Nhơn Hội	Xã Nhơn Hội	nhon_hoi	91
-30352	Phú Hữu	Xã Phú Hữu	phu_huu	91
-30367	Vĩnh Hậu	Xã Vĩnh Hậu	vinh_hau	91
-30376	Tân Châu	Phường Tân Châu	tan_chau	91
-30377	Long Phú	Phường Long Phú	long_phu	91
-30385	Vĩnh Xương	Xã Vĩnh Xương	vinh_xuong	91
-30388	Tân An	Xã Tân An	tan_an	91
-30403	Châu Phong	Xã Châu Phong	chau_phong	91
-30406	Phú Tân	Xã Phú Tân	phu_tan	91
-30409	Chợ Vàm	Xã Chợ Vàm	cho_vam	91
-30421	Phú Lâm	Xã Phú Lâm	phu_lam	91
-30430	Hoà Lạc	Xã Hoà Lạc	hoa_lac	91
-30436	Phú An	Xã Phú An	phu_an	91
-30445	Bình Thạnh Đông	Xã Bình Thạnh Đông	binh_thanh_dong	91
-30463	Châu Phú	Xã Châu Phú	chau_phu	91
-30469	Mỹ Đức	Xã Mỹ Đức	my_duc	91
-30478	Vĩnh Thạnh Trung	Xã Vĩnh Thạnh Trung	vinh_thanh_trung	91
-30481	Thạnh Mỹ Tây	Xã Thạnh Mỹ Tây	thanh_my_tay	91
-30487	Bình Mỹ	Xã Bình Mỹ	binh_my	91
-30502	Thới Sơn	Phường Thới Sơn	thoi_son	91
-30505	Chi Lăng	Phường Chi Lăng	chi_lang	91
-30520	Tịnh Biên	Phường Tịnh Biên	tinh_bien	91
-30526	An Cư	Xã An Cư	an_cu	91
-30538	Núi Cấm	Xã Núi Cấm	nui_cam	91
-30544	Tri Tôn	Xã Tri Tôn	tri_ton	91
-30547	Ba Chúc	Xã Ba Chúc	ba_chuc	91
-30568	Vĩnh Gia	Xã Vĩnh Gia	vinh_gia	91
-30577	Ô Lâm	Xã Ô Lâm	o_lam	91
-30580	Cô Tô	Xã Cô Tô	co_to	91
-30589	An Châu	Xã An Châu	an_chau	91
-30595	Cần Đăng	Xã Cần Đăng	can_dang	91
-30604	Vĩnh An	Xã Vĩnh An	vinh_an	91
-30607	Bình Hoà	Xã Bình Hoà	binh_hoa	91
-30619	Vĩnh Hanh	Xã Vĩnh Hanh	vinh_hanh	91
-30628	Chợ Mới	Xã Chợ Mới	cho_moi	91
-30631	Long Điền	Xã Long Điền	long_dien	91
-30643	Cù Lao Giêng	Xã Cù Lao Giêng	cu_lao_gieng	91
-30658	Nhơn Mỹ	Xã Nhơn Mỹ	nhon_my	91
-30664	Long Kiến	Xã Long Kiến	long_kien	91
-30673	Hội An	Xã Hội An	hoi_an	91
-30682	Thoại Sơn	Xã Thoại Sơn	thoai_son	91
-30685	Phú Hoà	Xã Phú Hoà	phu_hoa	91
-30688	Óc Eo	Xã Óc Eo	oc_eo	91
-30691	Tây Phú	Xã Tây Phú	tay_phu	91
-30697	Vĩnh Trạch	Xã Vĩnh Trạch	vinh_trach	91
-30709	Định Mỹ	Xã Định Mỹ	dinh_my	91
-30742	Rạch Giá	Phường Rạch Giá	rach_gia	91
-30760	Vĩnh Thông	Phường Vĩnh Thông	vinh_thong	91
-30766	Tô Châu	Phường Tô Châu	to_chau	91
-30769	Hà Tiên	Phường Hà Tiên	ha_tien	91
-30781	Tiên Hải	Xã Tiên Hải	tien_hai	91
-30787	Kiên Lương	Xã Kiên Lương	kien_luong	91
-30790	Hoà Điền	Xã Hoà Điền	hoa_dien	91
-30793	Vĩnh Điều	Xã Vĩnh Điều	vinh_dieu	91
-30796	Giang Thành	Xã Giang Thành	giang_thanh	91
-30811	Sơn Hải	Xã Sơn Hải	son_hai	91
-30814	Hòn Nghệ	Xã Hòn Nghệ	hon_nghe	91
-30817	Hòn Đất	Xã Hòn Đất	hon_dat	91
-30823	Bình Sơn	Xã Bình Sơn	binh_son	91
-30826	Bình Giang	Xã Bình Giang	binh_giang	91
-30835	Sơn Kiên	Xã Sơn Kiên	son_kien	91
-30838	Mỹ Thuận	Xã Mỹ Thuận	my_thuan	91
-30850	Tân Hiệp	Xã Tân Hiệp	tan_hiep	91
-30856	Tân Hội	Xã Tân Hội	tan_hoi	91
-30874	Thạnh Đông	Xã Thạnh Đông	thanh_dong	91
-30880	Châu Thành	Xã Châu Thành	chau_thanh	91
-30886	Thạnh Lộc	Xã Thạnh Lộc	thanh_loc	91
-30898	Bình An	Xã Bình An	binh_an	91
-30904	Giồng Riềng	Xã Giồng Riềng	giong_rieng	91
-30910	Thạnh Hưng	Xã Thạnh Hưng	thanh_hung	91
-30928	Ngọc Chúc	Xã Ngọc Chúc	ngoc_chuc	91
-30934	Hoà Hưng	Xã Hoà Hưng	hoa_hung	91
-30943	Long Thạnh	Xã Long Thạnh	long_thanh	91
-30949	Hoà Thuận	Xã Hoà Thuận	hoa_thuan	91
-30952	Gò Quao	Xã Gò Quao	go_quao	91
-30958	Định Hoà	Xã Định Hoà	dinh_hoa	91
-30970	Vĩnh Hoà Hưng	Xã Vĩnh Hoà Hưng	vinh_hoa_hung	91
-30982	Vĩnh Tuy	Xã Vĩnh Tuy	vinh_tuy	91
-30985	An Biên	Xã An Biên	an_bien	91
-30988	Tây Yên	Xã Tây Yên	tay_yen	91
-31006	Đông Thái	Xã Đông Thái	dong_thai	91
-31012	Vĩnh Hoà	Xã Vĩnh Hoà	vinh_hoa	91
-31018	An Minh	Xã An Minh	an_minh	91
-31024	Đông Hoà	Xã Đông Hoà	dong_hoa	91
-31027	U Minh Thượng	Xã U Minh Thượng	u_minh_thuong	91
-31031	Tân Thạnh	Xã Tân Thạnh	tan_thanh	91
-31036	Đông Hưng	Xã Đông Hưng	dong_hung	91
-31042	Vân Khánh	Xã Vân Khánh	van_khanh	91
-31051	Vĩnh Phong	Xã Vĩnh Phong	vinh_phong	91
-31064	Vĩnh Bình	Xã Vĩnh Bình	vinh_binh	91
-31069	Vĩnh Thuận	Xã Vĩnh Thuận	vinh_thuan	91
-31078	Phú Quốc	Đặc khu Phú Quốc	phu_quoc	91
-31105	Thổ Châu	Đặc khu Thổ Châu	tho_chau	91
-31108	Kiên Hải	Đặc khu Kiên Hải	kien_hai	91
-31120	Cái Khế	Phường Cái Khế	cai_khe	92
-31135	Ninh Kiều	Phường Ninh Kiều	ninh_kieu	92
-31147	Tân An	Phường Tân An	tan_an	92
-31150	An Bình	Phường An Bình	an_binh	92
-31153	Ô Môn	Phường Ô Môn	o_mon	92
-31157	Thới Long	Phường Thới Long	thoi_long	92
-31162	Phước Thới	Phường Phước Thới	phuoc_thoi	92
-31168	Bình Thuỷ	Phường Bình Thuỷ	binh_thuy	92
-31174	Thới An Đông	Phường Thới An Đông	thoi_an_dong	92
-31183	Long Tuyền	Phường Long Tuyền	long_tuyen	92
-31186	Cái Răng	Phường Cái Răng	cai_rang	92
-31201	Hưng Phú	Phường Hưng Phú	hung_phu	92
-31207	Thốt Nốt	Phường Thốt Nốt	thot_not	92
-31213	Tân Lộc	Phường Tân Lộc	tan_loc	92
-31217	Trung Nhứt	Phường Trung Nhứt	trung_nhut	92
-31228	Thuận Hưng	Phường Thuận Hưng	thuan_hung	92
-31231	Thạnh An	Xã Thạnh An	thanh_an	92
-31232	Vĩnh Thạnh	Xã Vĩnh Thạnh	vinh_thanh	92
-31237	Vĩnh Trinh	Xã Vĩnh Trinh	vinh_trinh	92
-31246	Thạnh Quới	Xã Thạnh Quới	thanh_quoi	92
-31249	Thạnh Phú	Xã Thạnh Phú	thanh_phu	92
-31255	Trung Hưng	Xã Trung Hưng	trung_hung	92
-31258	Thới Lai	Xã Thới Lai	thoi_lai	92
-31261	Cờ Đỏ	Xã Cờ Đỏ	co_do	92
-31264	Thới Hưng	Xã Thới Hưng	thoi_hung	92
-31273	Đông Hiệp	Xã Đông Hiệp	dong_hiep	92
-31282	Đông Thuận	Xã Đông Thuận	dong_thuan	92
-31288	Trường Thành	Xã Trường Thành	truong_thanh	92
-31294	Trường Xuân	Xã Trường Xuân	truong_xuan	92
-31299	Phong Điền	Xã Phong Điền	phong_dien	92
-31309	Trường Long	Xã Trường Long	truong_long	92
-31315	Nhơn Ái	Xã Nhơn Ái	nhon_ai	92
-31321	Vị Thanh	Phường Vị Thanh	vi_thanh	92
-31333	Vị Tân	Phường Vị Tân	vi_tan	92
-31338	Hoả Lựu	Xã Hoả Lựu	hoa_luu	92
-31340	Ngã Bảy	Phường Ngã Bảy	nga_bay	92
-31342	Tân Hoà	Xã Tân Hoà	tan_hoa	92
-31348	Trường Long Tây	Xã Trường Long Tây	truong_long_tay	92
-31360	Thạnh Xuân	Xã Thạnh Xuân	thanh_xuan	92
-31366	Châu Thành	Xã Châu Thành	chau_thanh	92
-31369	Đông Phước	Xã Đông Phước	dong_phuoc	92
-31378	Phú Hữu	Xã Phú Hữu	phu_huu	92
-31393	Hoà An	Xã Hoà An	hoa_an	92
-31396	Hiệp Hưng	Xã Hiệp Hưng	hiep_hung	92
-31399	Tân Bình	Xã Tân Bình	tan_binh	92
-31408	Thạnh Hoà	Xã Thạnh Hoà	thanh_hoa	92
-31411	Đại Thành	Phường Đại Thành	dai_thanh	92
-31420	Phụng Hiệp	Xã Phụng Hiệp	phung_hiep	92
-31426	Phương Bình	Xã Phương Bình	phuong_binh	92
-31432	Tân Phước Hưng	Xã Tân Phước Hưng	tan_phuoc_hung	92
-31441	Vị Thuỷ	Xã Vị Thuỷ	vi_thuy	92
-31453	Vĩnh Thuận Đông	Xã Vĩnh Thuận Đông	vinh_thuan_dong	92
-31459	Vĩnh Tường	Xã Vĩnh Tường	vinh_tuong	92
-31465	Vị Thanh 1	Xã Vị Thanh 1	vi_thanh_1	92
-31471	Long Mỹ	Phường Long Mỹ	long_my	92
-31473	Long Bình	Phường Long Bình	long_binh	92
-31480	Long Phú 1	Phường Long Phú 1	long_phu_1	92
-31489	Vĩnh Viễn	Xã Vĩnh Viễn	vinh_vien	92
-31492	Lương Tâm	Xã Lương Tâm	luong_tam	92
-31495	Xà Phiên	Xã Xà Phiên	xa_phien	92
-31507	Sóc Trăng	Phường Sóc Trăng	soc_trang	92
-31510	Phú Lợi	Phường Phú Lợi	phu_loi	92
-31528	Kế Sách	Xã Kế Sách	ke_sach	92
-31531	An Lạc Thôn	Xã An Lạc Thôn	an_lac_thon	92
-31537	Phong Nẫm	Xã Phong Nẫm	phong_nam	92
-31540	Thới An Hội	Xã Thới An Hội	thoi_an_hoi	92
-31552	Nhơn Mỹ	Xã Nhơn Mỹ	nhon_my	92
-31561	Đại Hải	Xã Đại Hải	dai_hai	92
-31567	Mỹ Tú	Xã Mỹ Tú	my_tu	92
-31569	Phú Tâm	Xã Phú Tâm	phu_tam	92
-31570	Hồ Đắc Kiện	Xã Hồ Đắc Kiện	ho_dac_kien	92
-31579	Long Hưng	Xã Long Hưng	long_hung	92
-31582	Thuận Hoà	Xã Thuận Hoà	thuan_hoa	92
-31591	Mỹ Hương	Xã Mỹ Hương	my_huong	92
-31594	An Ninh	Xã An Ninh	an_ninh	92
-31603	Mỹ Phước	Xã Mỹ Phước	my_phuoc	92
-31615	An Thạnh	Xã An Thạnh	an_thanh	92
-31633	Cù Lao Dung	Xã Cù Lao Dung	cu_lao_dung	92
-31639	Long Phú	Xã Long Phú	long_phu	92
-31645	Đại Ngãi	Xã Đại Ngãi	dai_ngai	92
-31654	Trường Khánh	Xã Trường Khánh	truong_khanh	92
-31666	Tân Thạnh	Xã Tân Thạnh	tan_thanh	92
-31673	Trần Đề	Xã Trần Đề	tran_de	92
-31675	Liêu Tú	Xã Liêu Tú	lieu_tu	92
-31679	Lịch Hội Thượng	Xã Lịch Hội Thượng	lich_hoi_thuong	92
-31684	Mỹ Xuyên	Phường Mỹ Xuyên	my_xuyen	92
-31687	Tài Văn	Xã Tài Văn	tai_van	92
-31699	Thạnh Thới An	Xã Thạnh Thới An	thanh_thoi_an	92
-31708	Nhu Gia	Xã Nhu Gia	nhu_gia	92
-31717	Hoà Tú	Xã Hoà Tú	hoa_tu	92
-31723	Ngọc Tố	Xã Ngọc Tố	ngoc_to	92
-31726	Gia Hoà	Xã Gia Hoà	gia_hoa	92
-31732	Ngã Năm	Phường Ngã Năm	nga_nam	92
-31741	Tân Long	Xã Tân Long	tan_long	92
-31753	Mỹ Quới	Phường Mỹ Quới	my_quoi	92
-31756	Phú Lộc	Xã Phú Lộc	phu_loc	92
-31759	Lâm Tân	Xã Lâm Tân	lam_tan	92
-31777	Vĩnh Lợi	Xã Vĩnh Lợi	vinh_loi	92
-31783	Vĩnh Châu	Phường Vĩnh Châu	vinh_chau	92
-31789	Khánh Hoà	Phường Khánh Hoà	khanh_hoa	92
-31795	Vĩnh Hải	Xã Vĩnh Hải	vinh_hai	92
-31804	Vĩnh Phước	Phường Vĩnh Phước	vinh_phuoc	92
-31810	Lai Hoà	Xã Lai Hoà	lai_hoa	92
-31825	Bạc Liêu	Phường Bạc Liêu	bac_lieu	96
-31834	Vĩnh Trạch	Phường Vĩnh Trạch	vinh_trach	96
-31840	Hiệp Thành	Phường Hiệp Thành	hiep_thanh	96
-31843	Hồng Dân	Xã Hồng Dân	hong_dan	96
-31849	Ninh Quới	Xã Ninh Quới	ninh_quoi	96
-31858	Vĩnh Lộc	Xã Vĩnh Lộc	vinh_loc	96
-31864	Ninh Thạnh Lợi	Xã Ninh Thạnh Lợi	ninh_thanh_loi	96
-31867	Phước Long	Xã Phước Long	phuoc_long	96
-31876	Vĩnh Phước	Xã Vĩnh Phước	vinh_phuoc	96
-31882	Vĩnh Thanh	Xã Vĩnh Thanh	vinh_thanh	96
-31885	Phong Hiệp	Xã Phong Hiệp	phong_hiep	96
-31891	Hoà Bình	Xã Hoà Bình	hoa_binh	96
-31894	Châu Thới	Xã Châu Thới	chau_thoi	96
-31900	Vĩnh Lợi	Xã Vĩnh Lợi	vinh_loi	96
-31906	Hưng Hội	Xã Hưng Hội	hung_hoi	96
-31918	Vĩnh Mỹ	Xã Vĩnh Mỹ	vinh_my	96
-31927	Vĩnh Hậu	Xã Vĩnh Hậu	vinh_hau	96
-31942	Giá Rai	Phường Giá Rai	gia_rai	96
-31951	Láng Tròn	Phường Láng Tròn	lang_tron	96
-31957	Phong Thạnh	Xã Phong Thạnh	phong_thanh	96
-31972	Gành Hào	Xã Gành Hào	ganh_hao	96
-31975	Đông Hải	Xã Đông Hải	dong_hai	96
-31985	Long Điền	Xã Long Điền	long_dien	96
-31988	An Trạch	Xã An Trạch	an_trach	96
-31993	Định Thành	Xã Định Thành	dinh_thanh	96
-32002	An Xuyên	Phường An Xuyên	an_xuyen	96
-32014	Lý Văn Lâm	Phường Lý Văn Lâm	ly_van_lam	96
-32025	Tân Thành	Phường Tân Thành	tan_thanh	96
-32041	Hoà Thành	Phường Hoà Thành	hoa_thanh	96
-32044	Nguyễn Phích	Xã Nguyễn Phích	nguyen_phich	96
-32047	U Minh	Xã U Minh	u_minh	96
-32059	Khánh An	Xã Khánh An	khanh_an	96
-32062	Khánh Lâm	Xã Khánh Lâm	khanh_lam	96
-32065	Thới Bình	Xã Thới Bình	thoi_binh	96
-32069	Biển Bạch	Xã Biển Bạch	bien_bach	96
-32071	Trí Phải	Xã Trí Phải	tri_phai	96
-32083	Tân Lộc	Xã Tân Lộc	tan_loc	96
-32092	Hồ Thị Kỷ	Xã Hồ Thị Kỷ	ho_thi_ky	96
-32095	Trần Văn Thời	Xã Trần Văn Thời	tran_van_thoi	96
-32098	Sông Đốc	Xã Sông Đốc	song_doc	96
-32104	Đá Bạc	Xã Đá Bạc	da_bac	96
-32110	Khánh Bình	Xã Khánh Bình	khanh_binh	96
-32119	Khánh Hưng	Xã Khánh Hưng	khanh_hung	96
-32128	Cái Nước	Xã Cái Nước	cai_nuoc	96
-32134	Lương Thế Trân	Xã Lương Thế Trân	luong_the_tran	96
-32137	Tân Hưng	Xã Tân Hưng	tan_hung	96
-32140	Hưng Mỹ	Xã Hưng Mỹ	hung_my	96
-32152	Đầm Dơi	Xã Đầm Dơi	dam_doi	96
-32155	Tạ An Khương	Xã Tạ An Khương	ta_an_khuong	96
-32161	Trần Phán	Xã Trần Phán	tran_phan	96
-32167	Tân Thuận	Xã Tân Thuận	tan_thuan	96
-32182	Quách Phẩm	Xã Quách Phẩm	quach_pham	96
-32185	Thanh Tùng	Xã Thanh Tùng	thanh_tung	96
-32188	Tân Tiến	Xã Tân Tiến	tan_tien	96
-32191	Năm Căn	Xã Năm Căn	nam_can	96
-32201	Đất Mới	Xã Đất Mới	dat_moi	96
-32206	Tam Giang	Xã Tam Giang	tam_giang	96
-32212	Cái Đôi Vàm	Xã Cái Đôi Vàm	cai_doi_vam	96
-32214	Phú Mỹ	Xã Phú Mỹ	phu_my	96
-32218	Phú Tân	Xã Phú Tân	phu_tan	96
-32227	Nguyễn Việt Khái	Xã Nguyễn Việt Khái	nguyen_viet_khai	96
-32236	Tân Ân	Xã Tân Ân	tan_an	96
-32244	Phan Ngọc Hiển	Xã Phan Ngọc Hiển	phan_ngoc_hien	96
-32248	Đất Mũi	Xã Đất Mũi	dat_mui	96
-\.
-
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('00004', 'Ba Đình', 'Phường Ba Đình', 'ba_dinh', '01'),
+    ('00008', 'Ngọc Hà', 'Phường Ngọc Hà', 'ngoc_ha', '01'),
+    ('00025', 'Giảng Võ', 'Phường Giảng Võ', 'giang_vo', '01'),
+    ('00070', 'Hoàn Kiếm', 'Phường Hoàn Kiếm', 'hoan_kiem', '01'),
+    ('00082', 'Cửa Nam', 'Phường Cửa Nam', 'cua_nam', '01'),
+    ('00091', 'Phú Thượng', 'Phường Phú Thượng', 'phu_thuong', '01'),
+    ('00097', 'Hồng Hà', 'Phường Hồng Hà', 'hong_ha', '01'),
+    ('00103', 'Tây Hồ', 'Phường Tây Hồ', 'tay_ho', '01'),
+    ('00118', 'Bồ Đề', 'Phường Bồ Đề', 'bo_de', '01'),
+    ('00127', 'Việt Hưng', 'Phường Việt Hưng', 'viet_hung', '01'),
+    ('00136', 'Phúc Lợi', 'Phường Phúc Lợi', 'phuc_loi', '01'),
+    ('00145', 'Long Biên', 'Phường Long Biên', 'long_bien', '01'),
+    ('00160', 'Nghĩa Đô', 'Phường Nghĩa Đô', 'nghia_do', '01'),
+    ('00166', 'Cầu Giấy', 'Phường Cầu Giấy', 'cau_giay', '01'),
+    ('00175', 'Yên Hoà', 'Phường Yên Hoà', 'yen_hoa', '01'),
+    ('00190', 'Ô Chợ Dừa', 'Phường Ô Chợ Dừa', 'o_cho_dua', '01'),
+    ('00199', 'Láng', 'Phường Láng', 'lang', '01'),
+    ('00226', 'Văn Miếu - Quốc Tử Giám', 'Phường Văn Miếu - Quốc Tử Giám', 'van_mieu_quoc_tu_giam', '01'),
+    ('00229', 'Kim Liên', 'Phường Kim Liên', 'kim_lien', '01'),
+    ('00235', 'Đống Đa', 'Phường Đống Đa', 'dong_da', '01'),
+    ('00256', 'Hai Bà Trưng', 'Phường Hai Bà Trưng', 'hai_ba_trung', '01'),
+    ('00283', 'Vĩnh Tuy', 'Phường Vĩnh Tuy', 'vinh_tuy', '01'),
+    ('00292', 'Bạch Mai', 'Phường Bạch Mai', 'bach_mai', '01'),
+    ('00301', 'Vĩnh Hưng', 'Phường Vĩnh Hưng', 'vinh_hung', '01'),
+    ('00316', 'Định Công', 'Phường Định Công', 'dinh_cong', '01'),
+    ('00322', 'Tương Mai', 'Phường Tương Mai', 'tuong_mai', '01'),
+    ('00328', 'Lĩnh Nam', 'Phường Lĩnh Nam', 'linh_nam', '01'),
+    ('00331', 'Hoàng Mai', 'Phường Hoàng Mai', 'hoang_mai', '01'),
+    ('00337', 'Hoàng Liệt', 'Phường Hoàng Liệt', 'hoang_liet', '01'),
+    ('00340', 'Yên Sở', 'Phường Yên Sở', 'yen_so', '01'),
+    ('00352', 'Phương Liệt', 'Phường Phương Liệt', 'phuong_liet', '01'),
+    ('00364', 'Khương Đình', 'Phường Khương Đình', 'khuong_dinh', '01'),
+    ('00367', 'Thanh Xuân', 'Phường Thanh Xuân', 'thanh_xuan', '01'),
+    ('00376', 'Sóc Sơn', 'Xã Sóc Sơn', 'soc_son', '01'),
+    ('00382', 'Kim Anh', 'Xã Kim Anh', 'kim_anh', '01'),
+    ('00385', 'Trung Giã', 'Xã Trung Giã', 'trung_gia', '01'),
+    ('00430', 'Đa Phúc', 'Xã Đa Phúc', 'da_phuc', '01'),
+    ('00433', 'Nội Bài', 'Xã Nội Bài', 'noi_bai', '01'),
+    ('00454', 'Đông Anh', 'Xã Đông Anh', 'dong_anh', '01'),
+    ('00466', 'Phúc Thịnh', 'Xã Phúc Thịnh', 'phuc_thinh', '01'),
+    ('00475', 'Thư Lâm', 'Xã Thư Lâm', 'thu_lam', '01'),
+    ('00493', 'Thiên Lộc', 'Xã Thiên Lộc', 'thien_loc', '01'),
+    ('00508', 'Vĩnh Thanh', 'Xã Vĩnh Thanh', 'vinh_thanh', '01'),
+    ('00541', 'Phù Đổng', 'Xã Phù Đổng', 'phu_dong', '01'),
+    ('00562', 'Thuận An', 'Xã Thuận An', 'thuan_an', '01'),
+    ('00565', 'Gia Lâm', 'Xã Gia Lâm', 'gia_lam', '01'),
+    ('00577', 'Bát Tràng', 'Xã Bát Tràng', 'bat_trang', '01'),
+    ('00592', 'Từ Liêm', 'Phường Từ Liêm', 'tu_liem', '01'),
+    ('00598', 'Thượng Cát', 'Phường Thượng Cát', 'thuong_cat', '01'),
+    ('00602', 'Đông Ngạc', 'Phường Đông Ngạc', 'dong_ngac', '01'),
+    ('00611', 'Xuân Đỉnh', 'Phường Xuân Đỉnh', 'xuan_dinh', '01'),
+    ('00613', 'Tây Tựu', 'Phường Tây Tựu', 'tay_tuu', '01'),
+    ('00619', 'Phú Diễn', 'Phường Phú Diễn', 'phu_dien', '01'),
+    ('00622', 'Xuân Phương', 'Phường Xuân Phương', 'xuan_phuong', '01'),
+    ('00634', 'Tây Mỗ', 'Phường Tây Mỗ', 'tay_mo', '01'),
+    ('00637', 'Đại Mỗ', 'Phường Đại Mỗ', 'dai_mo', '01'),
+    ('00640', 'Thanh Trì', 'Xã Thanh Trì', 'thanh_tri', '01'),
+    ('00643', 'Thanh Liệt', 'Phường Thanh Liệt', 'thanh_liet', '01'),
+    ('00664', 'Đại Thanh', 'Xã Đại Thanh', 'dai_thanh', '01'),
+    ('00679', 'Ngọc Hồi', 'Xã Ngọc Hồi', 'ngoc_hoi', '01'),
+    ('00685', 'Nam Phù', 'Xã Nam Phù', 'nam_phu', '01'),
+    ('04930', 'Yên Xuân', 'Xã Yên Xuân', 'yen_xuan', '01'),
+    ('08974', 'Quang Minh', 'Xã Quang Minh', 'quang_minh', '01'),
+    ('08980', 'Yên Lãng', 'Xã Yên Lãng', 'yen_lang', '01'),
+    ('08995', 'Tiến Thắng', 'Xã Tiến Thắng', 'tien_thang', '01'),
+    ('09022', 'Mê Linh', 'Xã Mê Linh', 'me_linh', '01'),
+    ('09552', 'Kiến Hưng', 'Phường Kiến Hưng', 'kien_hung', '01'),
+    ('09556', 'Hà Đông', 'Phường Hà Đông', 'ha_dong', '01'),
+    ('09562', 'Yên Nghĩa', 'Phường Yên Nghĩa', 'yen_nghia', '01'),
+    ('09568', 'Phú Lương', 'Phường Phú Lương', 'phu_luong', '01'),
+    ('09574', 'Sơn Tây', 'Phường Sơn Tây', 'son_tay', '01'),
+    ('09604', 'Tùng Thiện', 'Phường Tùng Thiện', 'tung_thien', '01'),
+    ('09616', 'Đoài Phương', 'Xã Đoài Phương', 'doai_phuong', '01'),
+    ('09619', 'Quảng Oai', 'Xã Quảng Oai', 'quang_oai', '01'),
+    ('09634', 'Cổ Đô', 'Xã Cổ Đô', 'co_do', '01'),
+    ('09661', 'Minh Châu', 'Xã Minh Châu', 'minh_chau', '01'),
+    ('09664', 'Vật Lại', 'Xã Vật Lại', 'vat_lai', '01'),
+    ('09676', 'Bất Bạt', 'Xã Bất Bạt', 'bat_bat', '01'),
+    ('09694', 'Suối Hai', 'Xã Suối Hai', 'suoi_hai', '01'),
+    ('09700', 'Ba Vì', 'Xã Ba Vì', 'ba_vi', '01'),
+    ('09706', 'Yên Bài', 'Xã Yên Bài', 'yen_bai', '01'),
+    ('09715', 'Phúc Thọ', 'Xã Phúc Thọ', 'phuc_tho', '01'),
+    ('09739', 'Phúc Lộc', 'Xã Phúc Lộc', 'phuc_loc', '01'),
+    ('09772', 'Hát Môn', 'Xã Hát Môn', 'hat_mon', '01'),
+    ('09784', 'Đan Phượng', 'Xã Đan Phượng', 'dan_phuong', '01'),
+    ('09787', 'Liên Minh', 'Xã Liên Minh', 'lien_minh', '01'),
+    ('09817', 'Ô Diên', 'Xã Ô Diên', 'o_dien', '01'),
+    ('09832', 'Hoài Đức', 'Xã Hoài Đức', 'hoai_duc', '01'),
+    ('09856', 'Dương Hoà', 'Xã Dương Hoà', 'duong_hoa', '01'),
+    ('09871', 'Sơn Đồng', 'Xã Sơn Đồng', 'son_dong', '01'),
+    ('09877', 'An Khánh', 'Xã An Khánh', 'an_khanh', '01'),
+    ('09886', 'Dương Nội', 'Phường Dương Nội', 'duong_noi', '01'),
+    ('09895', 'Quốc Oai', 'Xã Quốc Oai', 'quoc_oai', '01'),
+    ('09910', 'Kiều Phú', 'Xã Kiều Phú', 'kieu_phu', '01'),
+    ('09931', 'Hưng Đạo', 'Xã Hưng Đạo', 'hung_dao', '01'),
+    ('09952', 'Phú Cát', 'Xã Phú Cát', 'phu_cat', '01'),
+    ('09955', 'Thạch Thất', 'Xã Thạch Thất', 'thach_that', '01'),
+    ('09982', 'Hạ Bằng', 'Xã Hạ Bằng', 'ha_bang', '01'),
+    ('09988', 'Hoà Lạc', 'Xã Hoà Lạc', 'hoa_lac', '01'),
+    ('10003', 'Tây Phương', 'Xã Tây Phương', 'tay_phuong', '01'),
+    ('00871', 'Du Già', 'Xã Du Già', 'du_gia', '08'),
+    ('10015', 'Chương Mỹ', 'Phường Chương Mỹ', 'chuong_my', '01'),
+    ('10030', 'Phú Nghĩa', 'Xã Phú Nghĩa', 'phu_nghia', '01'),
+    ('10045', 'Xuân Mai', 'Xã Xuân Mai', 'xuan_mai', '01'),
+    ('10072', 'Quảng Bị', 'Xã Quảng Bị', 'quang_bi', '01'),
+    ('10081', 'Trần Phú', 'Xã Trần Phú', 'tran_phu', '01'),
+    ('10096', 'Hoà Phú', 'Xã Hoà Phú', 'hoa_phu', '01'),
+    ('10114', 'Thanh Oai', 'Xã Thanh Oai', 'thanh_oai', '01'),
+    ('10126', 'Bình Minh', 'Xã Bình Minh', 'binh_minh', '01'),
+    ('10144', 'Tam Hưng', 'Xã Tam Hưng', 'tam_hung', '01'),
+    ('10180', 'Dân Hoà', 'Xã Dân Hoà', 'dan_hoa', '01'),
+    ('10183', 'Thường Tín', 'Xã Thường Tín', 'thuong_tin', '01'),
+    ('10210', 'Hồng Vân', 'Xã Hồng Vân', 'hong_van', '01'),
+    ('10231', 'Thượng Phúc', 'Xã Thượng Phúc', 'thuong_phuc', '01'),
+    ('10237', 'Chương Dương', 'Xã Chương Dương', 'chuong_duong', '01'),
+    ('10273', 'Phú Xuyên', 'Xã Phú Xuyên', 'phu_xuyen', '01'),
+    ('10279', 'Phượng Dực', 'Xã Phượng Dực', 'phuong_duc', '01'),
+    ('10330', 'Chuyên Mỹ', 'Xã Chuyên Mỹ', 'chuyen_my', '01'),
+    ('10342', 'Đại Xuyên', 'Xã Đại Xuyên', 'dai_xuyen', '01'),
+    ('10354', 'Vân Đình', 'Xã Vân Đình', 'van_dinh', '01'),
+    ('10369', 'Ứng Thiên', 'Xã Ứng Thiên', 'ung_thien', '01'),
+    ('10402', 'Ứng Hoà', 'Xã Ứng Hoà', 'ung_hoa', '01'),
+    ('10417', 'Hoà Xá', 'Xã Hoà Xá', 'hoa_xa', '01'),
+    ('10441', 'Mỹ Đức', 'Xã Mỹ Đức', 'my_duc', '01'),
+    ('10459', 'Phúc Sơn', 'Xã Phúc Sơn', 'phuc_son', '01'),
+    ('10465', 'Hồng Sơn', 'Xã Hồng Sơn', 'hong_son', '01'),
+    ('10489', 'Hương Sơn', 'Xã Hương Sơn', 'huong_son', '01'),
+    ('01273', 'Thục Phán', 'Phường Thục Phán', 'thuc_phan', '04'),
+    ('01279', 'Nùng Trí Cao', 'Phường Nùng Trí Cao', 'nung_tri_cao', '04'),
+    ('01288', 'Tân Giang', 'Phường Tân Giang', 'tan_giang', '04'),
+    ('01290', 'Bảo Lâm', 'Xã Bảo Lâm', 'bao_lam', '04'),
+    ('01294', 'Lý Bôn', 'Xã Lý Bôn', 'ly_bon', '04'),
+    ('01297', 'Nam Quang', 'Xã Nam Quang', 'nam_quang', '04'),
+    ('01304', 'Quảng Lâm', 'Xã Quảng Lâm', 'quang_lam', '04'),
+    ('01318', 'Yên Thổ', 'Xã Yên Thổ', 'yen_tho', '04'),
+    ('01321', 'Bảo Lạc', 'Xã Bảo Lạc', 'bao_lac', '04'),
+    ('01324', 'Cốc Pàng', 'Xã Cốc Pàng', 'coc_pang', '04'),
+    ('01327', 'Cô Ba', 'Xã Cô Ba', 'co_ba', '04'),
+    ('01336', 'Khánh Xuân', 'Xã Khánh Xuân', 'khanh_xuan', '04'),
+    ('01339', 'Xuân Trường', 'Xã Xuân Trường', 'xuan_truong', '04'),
+    ('01351', 'Hưng Đạo', 'Xã Hưng Đạo', 'hung_dao', '04'),
+    ('01354', 'Huy Giáp', 'Xã Huy Giáp', 'huy_giap', '04'),
+    ('01360', 'Sơn Lộ', 'Xã Sơn Lộ', 'son_lo', '04'),
+    ('01363', 'Thông Nông', 'Xã Thông Nông', 'thong_nong', '04'),
+    ('01366', 'Cần Yên', 'Xã Cần Yên', 'can_yen', '04'),
+    ('01387', 'Thanh Long', 'Xã Thanh Long', 'thanh_long', '04'),
+    ('01392', 'Trường Hà', 'Xã Trường Hà', 'truong_ha', '04'),
+    ('01393', 'Lũng Nặm', 'Xã Lũng Nặm', 'lung_nam', '04'),
+    ('01414', 'Tổng Cọt', 'Xã Tổng Cọt', 'tong_cot', '04'),
+    ('01438', 'Hà Quảng', 'Xã Hà Quảng', 'ha_quang', '04'),
+    ('01447', 'Trà Lĩnh', 'Xã Trà Lĩnh', 'tra_linh', '04'),
+    ('01456', 'Quang Hán', 'Xã Quang Hán', 'quang_han', '04'),
+    ('01465', 'Quang Trung', 'Xã Quang Trung', 'quang_trung', '04'),
+    ('01477', 'Trùng Khánh', 'Xã Trùng Khánh', 'trung_khanh', '04'),
+    ('01489', 'Đình Phong', 'Xã Đình Phong', 'dinh_phong', '04'),
+    ('01501', 'Đàm Thuỷ', 'Xã Đàm Thuỷ', 'dam_thuy', '04'),
+    ('01525', 'Đoài Dương', 'Xã Đoài Dương', 'doai_duong', '04'),
+    ('01537', 'Lý Quốc', 'Xã Lý Quốc', 'ly_quoc', '04'),
+    ('01552', 'Quang Long', 'Xã Quang Long', 'quang_long', '04'),
+    ('01558', 'Hạ Lang', 'Xã Hạ Lang', 'ha_lang', '04'),
+    ('01561', 'Vinh Quý', 'Xã Vinh Quý', 'vinh_quy', '04'),
+    ('01576', 'Quảng Uyên', 'Xã Quảng Uyên', 'quang_uyen', '04'),
+    ('01594', 'Độc Lập', 'Xã Độc Lập', 'doc_lap', '04'),
+    ('01618', 'Hạnh Phúc', 'Xã Hạnh Phúc', 'hanh_phuc', '04'),
+    ('01636', 'Bế Văn Đàn', 'Xã Bế Văn Đàn', 'be_van_dan', '04'),
+    ('01648', 'Phục Hoà', 'Xã Phục Hoà', 'phuc_hoa', '04'),
+    ('01654', 'Hoà An', 'Xã Hoà An', 'hoa_an', '04'),
+    ('01660', 'Nam Tuấn', 'Xã Nam Tuấn', 'nam_tuan', '04'),
+    ('01699', 'Nguyễn Huệ', 'Xã Nguyễn Huệ', 'nguyen_hue', '04'),
+    ('01708', 'Bạch Đằng', 'Xã Bạch Đằng', 'bach_dang', '04'),
+    ('01726', 'Nguyên Bình', 'Xã Nguyên Bình', 'nguyen_binh', '04'),
+    ('01729', 'Tĩnh Túc', 'Xã Tĩnh Túc', 'tinh_tuc', '04'),
+    ('01738', 'Ca Thành', 'Xã Ca Thành', 'ca_thanh', '04'),
+    ('01747', 'Minh Tâm', 'Xã Minh Tâm', 'minh_tam', '04'),
+    ('01768', 'Phan Thanh', 'Xã Phan Thanh', 'phan_thanh', '04'),
+    ('01774', 'Tam Kim', 'Xã Tam Kim', 'tam_kim', '04'),
+    ('01777', 'Thành Công', 'Xã Thành Công', 'thanh_cong', '04'),
+    ('01786', 'Đông Khê', 'Xã Đông Khê', 'dong_khe', '04'),
+    ('01789', 'Canh Tân', 'Xã Canh Tân', 'canh_tan', '04'),
+    ('01792', 'Kim Đồng', 'Xã Kim Đồng', 'kim_dong', '04'),
+    ('01795', 'Minh Khai', 'Xã Minh Khai', 'minh_khai', '04'),
+    ('01807', 'Thạch An', 'Xã Thạch An', 'thach_an', '04'),
+    ('01822', 'Đức Long', 'Xã Đức Long', 'duc_long', '04'),
+    ('00691', 'Hà Giang 2', 'Phường Hà Giang 2', 'ha_giang_2', '08'),
+    ('00694', 'Hà Giang 1', 'Phường Hà Giang 1', 'ha_giang_1', '08'),
+    ('00700', 'Ngọc Đường', 'Xã Ngọc Đường', 'ngoc_duong', '08'),
+    ('00706', 'Phú Linh', 'Xã Phú Linh', 'phu_linh', '08'),
+    ('00715', 'Lũng Cú', 'Xã Lũng Cú', 'lung_cu', '08'),
+    ('00721', 'Đồng Văn', 'Xã Đồng Văn', 'dong_van', '08'),
+    ('00733', 'Sà Phìn', 'Xã Sà Phìn', 'sa_phin', '08'),
+    ('00745', 'Phó Bảng', 'Xã Phó Bảng', 'pho_bang', '08'),
+    ('00763', 'Lũng Phìn', 'Xã Lũng Phìn', 'lung_phin', '08'),
+    ('00769', 'Mèo Vạc', 'Xã Mèo Vạc', 'meo_vac', '08'),
+    ('00778', 'Sơn Vĩ', 'Xã Sơn Vĩ', 'son_vi', '08'),
+    ('00787', 'Sủng Máng', 'Xã Sủng Máng', 'sung_mang', '08'),
+    ('00802', 'Khâu Vai', 'Xã Khâu Vai', 'khau_vai', '08'),
+    ('00808', 'Tát Ngà', 'Xã Tát Ngà', 'tat_nga', '08'),
+    ('00817', 'Niêm Sơn', 'Xã Niêm Sơn', 'niem_son', '08'),
+    ('00820', 'Yên Minh', 'Xã Yên Minh', 'yen_minh', '08'),
+    ('00829', 'Thắng Mố', 'Xã Thắng Mố', 'thang_mo', '08');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('00832', 'Bạch Đích', 'Xã Bạch Đích', 'bach_dich', '08'),
+    ('00847', 'Mậu Duệ', 'Xã Mậu Duệ', 'mau_due', '08'),
+    ('00859', 'Ngọc Long', 'Xã Ngọc Long', 'ngoc_long', '08'),
+    ('00865', 'Đường Thượng', 'Xã Đường Thượng', 'duong_thuong', '08'),
+    ('00874', 'Quản Bạ', 'Xã Quản Bạ', 'quan_ba', '08'),
+    ('00883', 'Cán Tỷ', 'Xã Cán Tỷ', 'can_ty', '08'),
+    ('00889', 'Nghĩa Thuận', 'Xã Nghĩa Thuận', 'nghia_thuan', '08'),
+    ('00892', 'Tùng Vài', 'Xã Tùng Vài', 'tung_vai', '08'),
+    ('00901', 'Lùng Tám', 'Xã Lùng Tám', 'lung_tam', '08'),
+    ('00913', 'Vị Xuyên', 'Xã Vị Xuyên', 'vi_xuyen', '08'),
+    ('00919', 'Minh Tân', 'Xã Minh Tân', 'minh_tan', '08'),
+    ('00922', 'Thuận Hoà', 'Xã Thuận Hoà', 'thuan_hoa', '08'),
+    ('00925', 'Tùng Bá', 'Xã Tùng Bá', 'tung_ba', '08'),
+    ('00928', 'Thanh Thuỷ', 'Xã Thanh Thuỷ', 'thanh_thuy', '08'),
+    ('00937', 'Lao Chải', 'Xã Lao Chải', 'lao_chai', '08'),
+    ('00952', 'Cao Bồ', 'Xã Cao Bồ', 'cao_bo', '08'),
+    ('00958', 'Thượng Sơn', 'Xã Thượng Sơn', 'thuong_son', '08'),
+    ('00967', 'Việt Lâm', 'Xã Việt Lâm', 'viet_lam', '08'),
+    ('00970', 'Linh Hồ', 'Xã Linh Hồ', 'linh_ho', '08'),
+    ('00976', 'Bạch Ngọc', 'Xã Bạch Ngọc', 'bach_ngoc', '08'),
+    ('00982', 'Minh Sơn', 'Xã Minh Sơn', 'minh_son', '08'),
+    ('00985', 'Giáp Trung', 'Xã Giáp Trung', 'giap_trung', '08'),
+    ('00991', 'Bắc Mê', 'Xã Bắc Mê', 'bac_me', '08'),
+    ('00994', 'Minh Ngọc', 'Xã Minh Ngọc', 'minh_ngoc', '08'),
+    ('01006', 'Yên Cường', 'Xã Yên Cường', 'yen_cuong', '08'),
+    ('01012', 'Đường Hồng', 'Xã Đường Hồng', 'duong_hong', '08'),
+    ('01021', 'Hoàng Su Phì', 'Xã Hoàng Su Phì', 'hoang_su_phi', '08'),
+    ('01024', 'Bản Máy', 'Xã Bản Máy', 'ban_may', '08'),
+    ('01033', 'Thàng Tín', 'Xã Thàng Tín', 'thang_tin', '08'),
+    ('01051', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '08'),
+    ('01057', 'Pờ Ly Ngài', 'Xã Pờ Ly Ngài', 'po_ly_ngai', '08'),
+    ('01075', 'Nậm Dịch', 'Xã Nậm Dịch', 'nam_dich', '08'),
+    ('01084', 'Hồ Thầu', 'Xã Hồ Thầu', 'ho_thau', '08'),
+    ('01090', 'Thông Nguyên', 'Xã Thông Nguyên', 'thong_nguyen', '08'),
+    ('01096', 'Pà Vầy Sủ', 'Xã Pà Vầy Sủ', 'pa_vay_su', '08'),
+    ('01108', 'Xín Mần', 'Xã Xín Mần', 'xin_man', '08'),
+    ('01117', 'Trung Thịnh', 'Xã Trung Thịnh', 'trung_thinh', '08'),
+    ('01141', 'Nấm Dẩn', 'Xã Nấm Dẩn', 'nam_dan', '08'),
+    ('01144', 'Quảng Nguyên', 'Xã Quảng Nguyên', 'quang_nguyen', '08'),
+    ('01147', 'Khuôn Lùng', 'Xã Khuôn Lùng', 'khuon_lung', '08'),
+    ('01153', 'Bắc Quang', 'Xã Bắc Quang', 'bac_quang', '08'),
+    ('01156', 'Vĩnh Tuy', 'Xã Vĩnh Tuy', 'vinh_tuy', '08'),
+    ('01165', 'Đồng Tâm', 'Xã Đồng Tâm', 'dong_tam', '08'),
+    ('01171', 'Tân Quang', 'Xã Tân Quang', 'tan_quang', '08'),
+    ('01180', 'Bằng Hành', 'Xã Bằng Hành', 'bang_hanh', '08'),
+    ('01192', 'Liên Hiệp', 'Xã Liên Hiệp', 'lien_hiep', '08'),
+    ('01201', 'Hùng An', 'Xã Hùng An', 'hung_an', '08'),
+    ('01216', 'Đồng Yên', 'Xã Đồng Yên', 'dong_yen', '08'),
+    ('01225', 'Tiên Nguyên', 'Xã Tiên Nguyên', 'tien_nguyen', '08'),
+    ('01234', 'Yên Thành', 'Xã Yên Thành', 'yen_thanh', '08'),
+    ('01237', 'Quang Bình', 'Xã Quang Bình', 'quang_binh', '08'),
+    ('01243', 'Tân Trịnh', 'Xã Tân Trịnh', 'tan_trinh', '08'),
+    ('01246', 'Bằng Lang', 'Xã Bằng Lang', 'bang_lang', '08'),
+    ('01255', 'Xuân Giang', 'Xã Xuân Giang', 'xuan_giang', '08'),
+    ('01261', 'Tiên Yên', 'Xã Tiên Yên', 'tien_yen', '08'),
+    ('02212', 'Nông Tiến', 'Phường Nông Tiến', 'nong_tien', '08'),
+    ('02215', 'Minh Xuân', 'Phường Minh Xuân', 'minh_xuan', '08'),
+    ('02221', 'Nà Hang', 'Xã Nà Hang', 'na_hang', '08'),
+    ('02239', 'Thượng Nông', 'Xã Thượng Nông', 'thuong_nong', '08'),
+    ('02245', 'Côn Lôn', 'Xã Côn Lôn', 'con_lon', '08'),
+    ('02248', 'Yên Hoa', 'Xã Yên Hoa', 'yen_hoa', '08'),
+    ('02260', 'Hồng Thái', 'Xã Hồng Thái', 'hong_thai', '08'),
+    ('02266', 'Lâm Bình', 'Xã Lâm Bình', 'lam_binh', '08'),
+    ('02269', 'Thượng Lâm', 'Xã Thượng Lâm', 'thuong_lam', '08'),
+    ('02287', 'Chiêm Hoá', 'Xã Chiêm Hoá', 'chiem_hoa', '08'),
+    ('02296', 'Bình An', 'Xã Bình An', 'binh_an', '08'),
+    ('02302', 'Minh Quang', 'Xã Minh Quang', 'minh_quang', '08'),
+    ('02305', 'Trung Hà', 'Xã Trung Hà', 'trung_ha', '08'),
+    ('02308', 'Tân Mỹ', 'Xã Tân Mỹ', 'tan_my', '08'),
+    ('02317', 'Yên Lập', 'Xã Yên Lập', 'yen_lap', '08'),
+    ('02320', 'Tân An', 'Xã Tân An', 'tan_an', '08'),
+    ('02332', 'Kiên Đài', 'Xã Kiên Đài', 'kien_dai', '08'),
+    ('02350', 'Kim Bình', 'Xã Kim Bình', 'kim_binh', '08'),
+    ('02353', 'Hoà An', 'Xã Hoà An', 'hoa_an', '08'),
+    ('02359', 'Tri Phú', 'Xã Tri Phú', 'tri_phu', '08'),
+    ('02365', 'Yên Nguyên', 'Xã Yên Nguyên', 'yen_nguyen', '08'),
+    ('02374', 'Hàm Yên', 'Xã Hàm Yên', 'ham_yen', '08'),
+    ('02380', 'Bạch Xa', 'Xã Bạch Xa', 'bach_xa', '08'),
+    ('02392', 'Phù Lưu', 'Xã Phù Lưu', 'phu_luu', '08'),
+    ('02398', 'Yên Phú', 'Xã Yên Phú', 'yen_phu', '08'),
+    ('02404', 'Bình Xa', 'Xã Bình Xa', 'binh_xa', '08'),
+    ('02407', 'Thái Sơn', 'Xã Thái Sơn', 'thai_son', '08'),
+    ('02419', 'Thái Hoà', 'Xã Thái Hoà', 'thai_hoa', '08'),
+    ('02425', 'Hùng Đức', 'Xã Hùng Đức', 'hung_duc', '08'),
+    ('02434', 'Lực Hành', 'Xã Lực Hành', 'luc_hanh', '08'),
+    ('02437', 'Kiến Thiết', 'Xã Kiến Thiết', 'kien_thiet', '08'),
+    ('02449', 'Xuân Vân', 'Xã Xuân Vân', 'xuan_van', '08'),
+    ('02455', 'Hùng Lợi', 'Xã Hùng Lợi', 'hung_loi', '08'),
+    ('02458', 'Trung Sơn', 'Xã Trung Sơn', 'trung_son', '08'),
+    ('02470', 'Tân Long', 'Xã Tân Long', 'tan_long', '08'),
+    ('02473', 'Yên Sơn', 'Xã Yên Sơn', 'yen_son', '08'),
+    ('02494', 'Thái Bình', 'Xã Thái Bình', 'thai_binh', '08'),
+    ('02509', 'Mỹ Lâm', 'Phường Mỹ Lâm', 'my_lam', '08'),
+    ('02512', 'An Tường', 'Phường An Tường', 'an_tuong', '08'),
+    ('02524', 'Bình Thuận', 'Phường Bình Thuận', 'binh_thuan', '08'),
+    ('02530', 'Nhữ Khê', 'Xã Nhữ Khê', 'nhu_khe', '08'),
+    ('02536', 'Sơn Dương', 'Xã Sơn Dương', 'son_duong', '08'),
+    ('02545', 'Tân Trào', 'Xã Tân Trào', 'tan_trao', '08'),
+    ('02548', 'Bình Ca', 'Xã Bình Ca', 'binh_ca', '08'),
+    ('02554', 'Minh Thanh', 'Xã Minh Thanh', 'minh_thanh', '08'),
+    ('02572', 'Đông Thọ', 'Xã Đông Thọ', 'dong_tho', '08'),
+    ('02578', 'Tân Thanh', 'Xã Tân Thanh', 'tan_thanh', '08'),
+    ('02608', 'Hồng Sơn', 'Xã Hồng Sơn', 'hong_son', '08'),
+    ('02611', 'Phú Lương', 'Xã Phú Lương', 'phu_luong', '08'),
+    ('02620', 'Sơn Thuỷ', 'Xã Sơn Thuỷ', 'son_thuy', '08'),
+    ('02623', 'Trường Sinh', 'Xã Trường Sinh', 'truong_sinh', '08'),
+    ('03127', 'Điện Biên Phủ', 'Phường Điện Biên Phủ', 'dien_bien_phu', '11'),
+    ('03151', 'Mường Lay', 'Phường Mường Lay', 'muong_lay', '11'),
+    ('03158', 'Sín Thầu', 'Xã Sín Thầu', 'sin_thau', '11'),
+    ('03160', 'Mường Nhé', 'Xã Mường Nhé', 'muong_nhe', '11'),
+    ('03162', 'Nậm Kè', 'Xã Nậm Kè', 'nam_ke', '11'),
+    ('03163', 'Mường Toong', 'Xã Mường Toong', 'muong_toong', '11'),
+    ('03164', 'Quảng Lâm', 'Xã Quảng Lâm', 'quang_lam', '11'),
+    ('03166', 'Mường Chà', 'Xã Mường Chà', 'muong_cha', '11'),
+    ('03169', 'Nà Hỳ', 'Xã Nà Hỳ', 'na_hy', '11'),
+    ('03172', 'Na Sang', 'Xã Na Sang', 'na_sang', '11'),
+    ('03175', 'Chà Tở', 'Xã Chà Tở', 'cha_to', '11'),
+    ('03176', 'Nà Bủng', 'Xã Nà Bủng', 'na_bung', '11'),
+    ('03181', 'Mường Tùng', 'Xã Mường Tùng', 'muong_tung', '11'),
+    ('03193', 'Pa Ham', 'Xã Pa Ham', 'pa_ham', '11'),
+    ('03194', 'Nậm Nèn', 'Xã Nậm Nèn', 'nam_nen', '11'),
+    ('03199', 'Si Pa Phìn', 'Xã Si Pa Phìn', 'si_pa_phin', '11'),
+    ('03202', 'Mường Pồn', 'Xã Mường Pồn', 'muong_pon', '11'),
+    ('03203', 'Na Son', 'Xã Na Son', 'na_son', '11'),
+    ('03208', 'Xa Dung', 'Xã Xa Dung', 'xa_dung', '11'),
+    ('03214', 'Mường Luân', 'Xã Mường Luân', 'muong_luan', '11'),
+    ('03217', 'Tủa Chùa', 'Xã Tủa Chùa', 'tua_chua', '11'),
+    ('03220', 'Tủa Thàng', 'Xã Tủa Thàng', 'tua_thang', '11'),
+    ('03226', 'Sín Chải', 'Xã Sín Chải', 'sin_chai', '11'),
+    ('03241', 'Sính Phình', 'Xã Sính Phình', 'sinh_phinh', '11'),
+    ('03244', 'Sáng Nhè', 'Xã Sáng Nhè', 'sang_nhe', '11'),
+    ('03253', 'Tuần Giáo', 'Xã Tuần Giáo', 'tuan_giao', '11'),
+    ('03256', 'Mường Ảng', 'Xã Mường Ảng', 'muong_ang', '11'),
+    ('03260', 'Pú Nhung', 'Xã Pú Nhung', 'pu_nhung', '11'),
+    ('03268', 'Mường Mùn', 'Xã Mường Mùn', 'muong_mun', '11'),
+    ('03283', 'Chiềng Sinh', 'Xã Chiềng Sinh', 'chieng_sinh', '11'),
+    ('03295', 'Quài Tở', 'Xã Quài Tở', 'quai_to', '11'),
+    ('03301', 'Búng Lao', 'Xã Búng Lao', 'bung_lao', '11'),
+    ('03313', 'Mường Lạn', 'Xã Mường Lạn', 'muong_lan', '11'),
+    ('03316', 'Nà Tấu', 'Xã Nà Tấu', 'na_tau', '11'),
+    ('03325', 'Mường Phăng', 'Xã Mường Phăng', 'muong_phang', '11'),
+    ('03328', 'Thanh Nưa', 'Xã Thanh Nưa', 'thanh_nua', '11'),
+    ('03334', 'Mường Thanh', 'Phường Mường Thanh', 'muong_thanh', '11'),
+    ('03349', 'Thanh Yên', 'Xã Thanh Yên', 'thanh_yen', '11'),
+    ('03352', 'Thanh An', 'Xã Thanh An', 'thanh_an', '11'),
+    ('03356', 'Sam Mứn', 'Xã Sam Mứn', 'sam_mun', '11'),
+    ('03358', 'Núa Ngam', 'Xã Núa Ngam', 'nua_ngam', '11'),
+    ('03368', 'Mường Nhà', 'Xã Mường Nhà', 'muong_nha', '11'),
+    ('03370', 'Pu Nhi', 'Xã Pu Nhi', 'pu_nhi', '11'),
+    ('03382', 'Phình Giàng', 'Xã Phình Giàng', 'phinh_giang', '11'),
+    ('03385', 'Tìa Dình', 'Xã Tìa Dình', 'tia_dinh', '11'),
+    ('03388', 'Đoàn Kết', 'Phường Đoàn Kết', 'doan_ket', '12'),
+    ('03390', 'Bình Lư', 'Xã Bình Lư', 'binh_lu', '12'),
+    ('03394', 'Sin Suối Hồ', 'Xã Sin Suối Hồ', 'sin_suoi_ho', '12'),
+    ('03405', 'Tả Lèng', 'Xã Tả Lèng', 'ta_leng', '12'),
+    ('03408', 'Tân Phong', 'Phường Tân Phong', 'tan_phong', '12'),
+    ('03424', 'Bản Bo', 'Xã Bản Bo', 'ban_bo', '12'),
+    ('03430', 'Khun Há', 'Xã Khun Há', 'khun_ha', '12'),
+    ('03433', 'Bum Tở', 'Xã Bum Tở', 'bum_to', '12'),
+    ('03434', 'Nậm Hàng', 'Xã Nậm Hàng', 'nam_hang', '12'),
+    ('03439', 'Thu Lũm', 'Xã Thu Lũm', 'thu_lum', '12'),
+    ('03442', 'Pa Ủ', 'Xã Pa Ủ', 'pa_u', '12'),
+    ('03445', 'Mường Tè', 'Xã Mường Tè', 'muong_te', '12'),
+    ('03451', 'Mù Cả', 'Xã Mù Cả', 'mu_ca', '12'),
+    ('03460', 'Hua Bum', 'Xã Hua Bum', 'hua_bum', '12'),
+    ('03463', 'Tà Tổng', 'Xã Tà Tổng', 'ta_tong', '12'),
+    ('03466', 'Bum Nưa', 'Xã Bum Nưa', 'bum_nua', '12'),
+    ('03472', 'Mường Mô', 'Xã Mường Mô', 'muong_mo', '12'),
+    ('03478', 'Sìn Hồ', 'Xã Sìn Hồ', 'sin_ho', '12'),
+    ('03487', 'Lê Lợi', 'Xã Lê Lợi', 'le_loi', '12'),
+    ('03503', 'Pa Tần', 'Xã Pa Tần', 'pa_tan', '12'),
+    ('03508', 'Hồng Thu', 'Xã Hồng Thu', 'hong_thu', '12'),
+    ('03517', 'Nậm Tăm', 'Xã Nậm Tăm', 'nam_tam', '12'),
+    ('03529', 'Tủa Sín Chải', 'Xã Tủa Sín Chải', 'tua_sin_chai', '12'),
+    ('03532', 'Pu Sam Cáp', 'Xã Pu Sam Cáp', 'pu_sam_cap', '12'),
+    ('03538', 'Nậm Mạ', 'Xã Nậm Mạ', 'nam_ma', '12'),
+    ('03544', 'Nậm Cuổi', 'Xã Nậm Cuổi', 'nam_cuoi', '12'),
+    ('03549', 'Phong Thổ', 'Xã Phong Thổ', 'phong_tho', '12'),
+    ('03562', 'Sì Lở Lầu', 'Xã Sì Lở Lầu', 'si_lo_lau', '12'),
+    ('03571', 'Dào San', 'Xã Dào San', 'dao_san', '12'),
+    ('03583', 'Khổng Lào', 'Xã Khổng Lào', 'khong_lao', '12'),
+    ('03595', 'Than Uyên', 'Xã Than Uyên', 'than_uyen', '12'),
+    ('03598', 'Tân Uyên', 'Xã Tân Uyên', 'tan_uyen', '12'),
+    ('03601', 'Mường Khoa', 'Xã Mường Khoa', 'muong_khoa', '12'),
+    ('03613', 'Nậm Sỏ', 'Xã Nậm Sỏ', 'nam_so', '12'),
+    ('03616', 'Pắc Ta', 'Xã Pắc Ta', 'pac_ta', '12'),
+    ('03618', 'Mường Than', 'Xã Mường Than', 'muong_than', '12'),
+    ('03637', 'Mường Kim', 'Xã Mường Kim', 'muong_kim', '12'),
+    ('03640', 'Khoen On', 'Xã Khoen On', 'khoen_on', '12'),
+    ('03646', 'Tô Hiệu', 'Phường Tô Hiệu', 'to_hieu', '14'),
+    ('03664', 'Chiềng An', 'Phường Chiềng An', 'chieng_an', '14'),
+    ('03670', 'Chiềng Cơi', 'Phường Chiềng Cơi', 'chieng_coi', '14'),
+    ('03679', 'Chiềng Sinh', 'Phường Chiềng Sinh', 'chieng_sinh', '14'),
+    ('03688', 'Mường Chiên', 'Xã Mường Chiên', 'muong_chien', '14'),
+    ('03694', 'Mường Giôn', 'Xã Mường Giôn', 'muong_gion', '14'),
+    ('03703', 'Quỳnh Nhai', 'Xã Quỳnh Nhai', 'quynh_nhai', '14'),
+    ('03712', 'Mường Sại', 'Xã Mường Sại', 'muong_sai', '14'),
+    ('03721', 'Thuận Châu', 'Xã Thuận Châu', 'thuan_chau', '14'),
+    ('03724', 'Bình Thuận', 'Xã Bình Thuận', 'binh_thuan', '14'),
+    ('03727', 'Mường É', 'Xã Mường É', 'muong_e', '14');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('03754', 'Chiềng La', 'Xã Chiềng La', 'chieng_la', '14'),
+    ('03757', 'Mường Khiêng', 'Xã Mường Khiêng', 'muong_khieng', '14'),
+    ('03760', 'Mường Bám', 'Xã Mường Bám', 'muong_bam', '14'),
+    ('03763', 'Long Hẹ', 'Xã Long Hẹ', 'long_he', '14'),
+    ('03781', 'Co Mạ', 'Xã Co Mạ', 'co_ma', '14'),
+    ('03784', 'Nậm Lầu', 'Xã Nậm Lầu', 'nam_lau', '14'),
+    ('03799', 'Muổi Nọi', 'Xã Muổi Nọi', 'muoi_noi', '14'),
+    ('03808', 'Mường La', 'Xã Mường La', 'muong_la', '14'),
+    ('03814', 'Chiềng Lao', 'Xã Chiềng Lao', 'chieng_lao', '14'),
+    ('03820', 'Ngọc Chiến', 'Xã Ngọc Chiến', 'ngoc_chien', '14'),
+    ('03847', 'Mường Bú', 'Xã Mường Bú', 'muong_bu', '14'),
+    ('03850', 'Chiềng Hoa', 'Xã Chiềng Hoa', 'chieng_hoa', '14'),
+    ('14389', 'Gia Lâm', 'Xã Gia Lâm', 'gia_lam', '37'),
+    ('03856', 'Bắc Yên', 'Xã Bắc Yên', 'bac_yen', '14'),
+    ('03862', 'Xím Vàng', 'Xã Xím Vàng', 'xim_vang', '14'),
+    ('03868', 'Tà Xùa', 'Xã Tà Xùa', 'ta_xua', '14'),
+    ('03871', 'Pắc Ngà', 'Xã Pắc Ngà', 'pac_nga', '14'),
+    ('03880', 'Tạ Khoa', 'Xã Tạ Khoa', 'ta_khoa', '14'),
+    ('03892', 'Chiềng Sại', 'Xã Chiềng Sại', 'chieng_sai', '14'),
+    ('03901', 'Suối Tọ', 'Xã Suối Tọ', 'suoi_to', '14'),
+    ('03907', 'Mường Cơi', 'Xã Mường Cơi', 'muong_coi', '14'),
+    ('03910', 'Phù Yên', 'Xã Phù Yên', 'phu_yen', '14'),
+    ('03922', 'Gia Phù', 'Xã Gia Phù', 'gia_phu', '14'),
+    ('03943', 'Mường Bang', 'Xã Mường Bang', 'muong_bang', '14'),
+    ('03958', 'Tường Hạ', 'Xã Tường Hạ', 'tuong_ha', '14'),
+    ('03961', 'Kim Bon', 'Xã Kim Bon', 'kim_bon', '14'),
+    ('03970', 'Tân Phong', 'Xã Tân Phong', 'tan_phong', '14'),
+    ('03979', 'Mộc Sơn', 'Phường Mộc Sơn', 'moc_son', '14'),
+    ('03980', 'Mộc Châu', 'Phường Mộc Châu', 'moc_chau', '14'),
+    ('03982', 'Thảo Nguyên', 'Phường Thảo Nguyên', 'thao_nguyen', '14'),
+    ('03985', 'Chiềng Sơn', 'Xã Chiềng Sơn', 'chieng_son', '14'),
+    ('03997', 'Tân Yên', 'Xã Tân Yên', 'tan_yen', '14'),
+    ('04000', 'Đoàn Kết', 'Xã Đoàn Kết', 'doan_ket', '14'),
+    ('04006', 'Song Khủa', 'Xã Song Khủa', 'song_khua', '14'),
+    ('04018', 'Tô Múa', 'Xã Tô Múa', 'to_mua', '14'),
+    ('04033', 'Vân Sơn', 'Phường Vân Sơn', 'van_son', '14'),
+    ('04045', 'Lóng Sập', 'Xã Lóng Sập', 'long_sap', '14'),
+    ('04048', 'Vân Hồ', 'Xã Vân Hồ', 'van_ho', '14'),
+    ('04057', 'Xuân Nha', 'Xã Xuân Nha', 'xuan_nha', '14'),
+    ('04075', 'Yên Châu', 'Xã Yên Châu', 'yen_chau', '14'),
+    ('04078', 'Chiềng Hặc', 'Xã Chiềng Hặc', 'chieng_hac', '14'),
+    ('04087', 'Yên Sơn', 'Xã Yên Sơn', 'yen_son', '14'),
+    ('04096', 'Lóng Phiêng', 'Xã Lóng Phiêng', 'long_phieng', '14'),
+    ('04099', 'Phiêng Khoài', 'Xã Phiêng Khoài', 'phieng_khoai', '14'),
+    ('04105', 'Mai Sơn', 'Xã Mai Sơn', 'mai_son', '14'),
+    ('04108', 'Chiềng Sung', 'Xã Chiềng Sung', 'chieng_sung', '14'),
+    ('04117', 'Mường Chanh', 'Xã Mường Chanh', 'muong_chanh', '14'),
+    ('04123', 'Chiềng Mung', 'Xã Chiềng Mung', 'chieng_mung', '14'),
+    ('04132', 'Chiềng Mai', 'Xã Chiềng Mai', 'chieng_mai', '14'),
+    ('04136', 'Tà Hộc', 'Xã Tà Hộc', 'ta_hoc', '14'),
+    ('04144', 'Phiêng Cằm', 'Xã Phiêng Cằm', 'phieng_cam', '14'),
+    ('04159', 'Phiêng Pằn', 'Xã Phiêng Pằn', 'phieng_pan', '14'),
+    ('04168', 'Sông Mã', 'Xã Sông Mã', 'song_ma', '14'),
+    ('04171', 'Bó Sinh', 'Xã Bó Sinh', 'bo_sinh', '14'),
+    ('04183', 'Mường Lầm', 'Xã Mường Lầm', 'muong_lam', '14'),
+    ('04186', 'Nậm Ty', 'Xã Nậm Ty', 'nam_ty', '14'),
+    ('04195', 'Chiềng Sơ', 'Xã Chiềng Sơ', 'chieng_so', '14'),
+    ('04204', 'Chiềng Khoong', 'Xã Chiềng Khoong', 'chieng_khoong', '14'),
+    ('04210', 'Huổi Một', 'Xã Huổi Một', 'huoi_mot', '14'),
+    ('04219', 'Mường Hung', 'Xã Mường Hung', 'muong_hung', '14'),
+    ('04222', 'Chiềng Khương', 'Xã Chiềng Khương', 'chieng_khuong', '14'),
+    ('04228', 'Púng Bánh', 'Xã Púng Bánh', 'pung_banh', '14'),
+    ('04231', 'Sốp Cộp', 'Xã Sốp Cộp', 'sop_cop', '14'),
+    ('04240', 'Mường Lèo', 'Xã Mường Lèo', 'muong_leo', '14'),
+    ('04246', 'Mường Lạn', 'Xã Mường Lạn', 'muong_lan', '14'),
+    ('02647', 'Lào Cai', 'Phường Lào Cai', 'lao_cai', '15'),
+    ('02671', 'Cam Đường', 'Phường Cam Đường', 'cam_duong', '15'),
+    ('02680', 'Hợp Thành', 'Xã Hợp Thành', 'hop_thanh', '15'),
+    ('02683', 'Bát Xát', 'Xã Bát Xát', 'bat_xat', '15'),
+    ('02686', 'A Mú Sung', 'Xã A Mú Sung', 'a_mu_sung', '15'),
+    ('02695', 'Trịnh Tường', 'Xã Trịnh Tường', 'trinh_tuong', '15'),
+    ('02701', 'Y Tý', 'Xã Y Tý', 'y_ty', '15'),
+    ('02707', 'Dền Sáng', 'Xã Dền Sáng', 'den_sang', '15'),
+    ('02725', 'Bản Xèo', 'Xã Bản Xèo', 'ban_xeo', '15'),
+    ('02728', 'Mường Hum', 'Xã Mường Hum', 'muong_hum', '15'),
+    ('02746', 'Cốc San', 'Xã Cốc San', 'coc_san', '15'),
+    ('02752', 'Pha Long', 'Xã Pha Long', 'pha_long', '15'),
+    ('02761', 'Mường Khương', 'Xã Mường Khương', 'muong_khuong', '15'),
+    ('02782', 'Cao Sơn', 'Xã Cao Sơn', 'cao_son', '15'),
+    ('02788', 'Bản Lầu', 'Xã Bản Lầu', 'ban_lau', '15'),
+    ('02809', 'Si Ma Cai', 'Xã Si Ma Cai', 'si_ma_cai', '15'),
+    ('02824', 'Sín Chéng', 'Xã Sín Chéng', 'sin_cheng', '15'),
+    ('02839', 'Bắc Hà', 'Xã Bắc Hà', 'bac_ha', '15'),
+    ('02842', 'Tả Củ Tỷ', 'Xã Tả Củ Tỷ', 'ta_cu_ty', '15'),
+    ('02848', 'Lùng Phình', 'Xã Lùng Phình', 'lung_phinh', '15'),
+    ('02869', 'Bản Liền', 'Xã Bản Liền', 'ban_lien', '15'),
+    ('02890', 'Bảo Nhai', 'Xã Bảo Nhai', 'bao_nhai', '15'),
+    ('02896', 'Cốc Lầu', 'Xã Cốc Lầu', 'coc_lau', '15'),
+    ('02902', 'Phong Hải', 'Xã Phong Hải', 'phong_hai', '15'),
+    ('02905', 'Bảo Thắng', 'Xã Bảo Thắng', 'bao_thang', '15'),
+    ('02908', 'Tằng Loỏng', 'Xã Tằng Loỏng', 'tang_loong', '15'),
+    ('02923', 'Gia Phú', 'Xã Gia Phú', 'gia_phu', '15'),
+    ('02926', 'Xuân Quang', 'Xã Xuân Quang', 'xuan_quang', '15'),
+    ('02947', 'Bảo Yên', 'Xã Bảo Yên', 'bao_yen', '15'),
+    ('02953', 'Nghĩa Đô', 'Xã Nghĩa Đô', 'nghia_do', '15'),
+    ('02962', 'Xuân Hoà', 'Xã Xuân Hoà', 'xuan_hoa', '15'),
+    ('02968', 'Thượng Hà', 'Xã Thượng Hà', 'thuong_ha', '15'),
+    ('02989', 'Bảo Hà', 'Xã Bảo Hà', 'bao_ha', '15'),
+    ('02998', 'Phúc Khánh', 'Xã Phúc Khánh', 'phuc_khanh', '15'),
+    ('03004', 'Ngũ Chỉ Sơn', 'Xã Ngũ Chỉ Sơn', 'ngu_chi_son', '15'),
+    ('03006', 'Sa Pa', 'Phường Sa Pa', 'sa_pa', '15'),
+    ('03013', 'Tả Phìn', 'Xã Tả Phìn', 'ta_phin', '15'),
+    ('03037', 'Tả Van', 'Xã Tả Van', 'ta_van', '15'),
+    ('03043', 'Mường Bo', 'Xã Mường Bo', 'muong_bo', '15'),
+    ('03046', 'Bản Hồ', 'Xã Bản Hồ', 'ban_ho', '15'),
+    ('03061', 'Võ Lao', 'Xã Võ Lao', 'vo_lao', '15'),
+    ('03076', 'Nậm Chày', 'Xã Nậm Chày', 'nam_chay', '15'),
+    ('03082', 'Văn Bàn', 'Xã Văn Bàn', 'van_ban', '15'),
+    ('03085', 'Nậm Xé', 'Xã Nậm Xé', 'nam_xe', '15'),
+    ('03091', 'Chiềng Ken', 'Xã Chiềng Ken', 'chieng_ken', '15'),
+    ('03103', 'Khánh Yên', 'Xã Khánh Yên', 'khanh_yen', '15'),
+    ('03106', 'Dương Quỳ', 'Xã Dương Quỳ', 'duong_quy', '15'),
+    ('03121', 'Minh Lương', 'Xã Minh Lương', 'minh_luong', '15'),
+    ('04252', 'Yên Bái', 'Phường Yên Bái', 'yen_bai', '15'),
+    ('04273', 'Nam Cường', 'Phường Nam Cường', 'nam_cuong', '15'),
+    ('04279', 'Văn Phú', 'Phường Văn Phú', 'van_phu', '15'),
+    ('04288', 'Nghĩa Lộ', 'Phường Nghĩa Lộ', 'nghia_lo', '15'),
+    ('04303', 'Lục Yên', 'Xã Lục Yên', 'luc_yen', '15'),
+    ('04309', 'Lâm Thượng', 'Xã Lâm Thượng', 'lam_thuong', '15'),
+    ('04336', 'Tân Lĩnh', 'Xã Tân Lĩnh', 'tan_linh', '15'),
+    ('04342', 'Khánh Hoà', 'Xã Khánh Hoà', 'khanh_hoa', '15'),
+    ('04345', 'Mường Lai', 'Xã Mường Lai', 'muong_lai', '15'),
+    ('04363', 'Phúc Lợi', 'Xã Phúc Lợi', 'phuc_loi', '15'),
+    ('04375', 'Mậu A', 'Xã Mậu A', 'mau_a', '15'),
+    ('04381', 'Lâm Giang', 'Xã Lâm Giang', 'lam_giang', '15'),
+    ('04387', 'Châu Quế', 'Xã Châu Quế', 'chau_que', '15'),
+    ('04399', 'Đông Cuông', 'Xã Đông Cuông', 'dong_cuong', '15'),
+    ('04402', 'Phong Dụ Hạ', 'Xã Phong Dụ Hạ', 'phong_du_ha', '15'),
+    ('04423', 'Phong Dụ Thượng', 'Xã Phong Dụ Thượng', 'phong_du_thuong', '15'),
+    ('04429', 'Tân Hợp', 'Xã Tân Hợp', 'tan_hop', '15'),
+    ('04441', 'Xuân Ái', 'Xã Xuân Ái', 'xuan_ai', '15'),
+    ('04450', 'Mỏ Vàng', 'Xã Mỏ Vàng', 'mo_vang', '15'),
+    ('04456', 'Mù Cang Chải', 'Xã Mù Cang Chải', 'mu_cang_chai', '15'),
+    ('04462', 'Nậm Có', 'Xã Nậm Có', 'nam_co', '15'),
+    ('04465', 'Khao Mang', 'Xã Khao Mang', 'khao_mang', '15'),
+    ('04474', 'Lao Chải', 'Xã Lao Chải', 'lao_chai', '15'),
+    ('04489', 'Chế Tạo', 'Xã Chế Tạo', 'che_tao', '15'),
+    ('04492', 'Púng Luông', 'Xã Púng Luông', 'pung_luong', '15'),
+    ('04498', 'Trấn Yên', 'Xã Trấn Yên', 'tran_yen', '15'),
+    ('04531', 'Quy Mông', 'Xã Quy Mông', 'quy_mong', '15'),
+    ('04537', 'Lương Thịnh', 'Xã Lương Thịnh', 'luong_thinh', '15'),
+    ('04543', 'Âu Lâu', 'Phường Âu Lâu', 'au_lau', '15'),
+    ('04564', 'Việt Hồng', 'Xã Việt Hồng', 'viet_hong', '15'),
+    ('04576', 'Hưng Khánh', 'Xã Hưng Khánh', 'hung_khanh', '15'),
+    ('04585', 'Hạnh Phúc', 'Xã Hạnh Phúc', 'hanh_phuc', '15'),
+    ('04603', 'Tà Xi Láng', 'Xã Tà Xi Láng', 'ta_xi_lang', '15'),
+    ('04606', 'Trạm Tấu', 'Xã Trạm Tấu', 'tram_tau', '15'),
+    ('04609', 'Phình Hồ', 'Xã Phình Hồ', 'phinh_ho', '15'),
+    ('04630', 'Tú Lệ', 'Xã Tú Lệ', 'tu_le', '15'),
+    ('04636', 'Gia Hội', 'Xã Gia Hội', 'gia_hoi', '15'),
+    ('04651', 'Sơn Lương', 'Xã Sơn Lương', 'son_luong', '15'),
+    ('04660', 'Liên Sơn', 'Xã Liên Sơn', 'lien_son', '15'),
+    ('04663', 'Trung Tâm', 'Phường Trung Tâm', 'trung_tam', '15'),
+    ('04672', 'Văn Chấn', 'Xã Văn Chấn', 'van_chan', '15'),
+    ('04681', 'Cầu Thia', 'Phường Cầu Thia', 'cau_thia', '15'),
+    ('04693', 'Cát Thịnh', 'Xã Cát Thịnh', 'cat_thinh', '15'),
+    ('04699', 'Chấn Thịnh', 'Xã Chấn Thịnh', 'chan_thinh', '15'),
+    ('04705', 'Thượng Bằng La', 'Xã Thượng Bằng La', 'thuong_bang_la', '15'),
+    ('04711', 'Nghĩa Tâm', 'Xã Nghĩa Tâm', 'nghia_tam', '15'),
+    ('04714', 'Yên Bình', 'Xã Yên Bình', 'yen_binh', '15'),
+    ('04717', 'Thác Bà', 'Xã Thác Bà', 'thac_ba', '15'),
+    ('04726', 'Cảm Nhân', 'Xã Cảm Nhân', 'cam_nhan', '15'),
+    ('04744', 'Yên Thành', 'Xã Yên Thành', 'yen_thanh', '15'),
+    ('04750', 'Bảo Ái', 'Xã Bảo Ái', 'bao_ai', '15'),
+    ('01840', 'Đức Xuân', 'Phường Đức Xuân', 'duc_xuan', '19'),
+    ('01843', 'Bắc Kạn', 'Phường Bắc Kạn', 'bac_kan', '19'),
+    ('01849', 'Phong Quang', 'Xã Phong Quang', 'phong_quang', '19'),
+    ('01864', 'Bằng Thành', 'Xã Bằng Thành', 'bang_thanh', '19'),
+    ('01879', 'Cao Minh', 'Xã Cao Minh', 'cao_minh', '19'),
+    ('01882', 'Nghiên Loan', 'Xã Nghiên Loan', 'nghien_loan', '19'),
+    ('01894', 'Phúc Lộc', 'Xã Phúc Lộc', 'phuc_loc', '19'),
+    ('01906', 'Ba Bể', 'Xã Ba Bể', 'ba_be', '19'),
+    ('01912', 'Chợ Rã', 'Xã Chợ Rã', 'cho_ra', '19'),
+    ('01921', 'Thượng Minh', 'Xã Thượng Minh', 'thuong_minh', '19'),
+    ('01933', 'Đồng Phúc', 'Xã Đồng Phúc', 'dong_phuc', '19'),
+    ('01936', 'Nà Phặc', 'Xã Nà Phặc', 'na_phac', '19'),
+    ('01942', 'Bằng Vân', 'Xã Bằng Vân', 'bang_van', '19'),
+    ('01954', 'Ngân Sơn', 'Xã Ngân Sơn', 'ngan_son', '19'),
+    ('01957', 'Thượng Quan', 'Xã Thượng Quan', 'thuong_quan', '19'),
+    ('01960', 'Hiệp Lực', 'Xã Hiệp Lực', 'hiep_luc', '19'),
+    ('01969', 'Phủ Thông', 'Xã Phủ Thông', 'phu_thong', '19'),
+    ('01981', 'Vĩnh Thông', 'Xã Vĩnh Thông', 'vinh_thong', '19'),
+    ('02008', 'Cẩm Giàng', 'Xã Cẩm Giàng', 'cam_giang', '19'),
+    ('02014', 'Bạch Thông', 'Xã Bạch Thông', 'bach_thong', '19'),
+    ('02020', 'Chợ Đồn', 'Xã Chợ Đồn', 'cho_don', '19'),
+    ('02026', 'Nam Cường', 'Xã Nam Cường', 'nam_cuong', '19'),
+    ('02038', 'Quảng Bạch', 'Xã Quảng Bạch', 'quang_bach', '19'),
+    ('02044', 'Yên Thịnh', 'Xã Yên Thịnh', 'yen_thinh', '19'),
+    ('02071', 'Nghĩa Tá', 'Xã Nghĩa Tá', 'nghia_ta', '19'),
+    ('02083', 'Yên Phong', 'Xã Yên Phong', 'yen_phong', '19'),
+    ('02086', 'Chợ Mới', 'Xã Chợ Mới', 'cho_moi', '19'),
+    ('02101', 'Thanh Mai', 'Xã Thanh Mai', 'thanh_mai', '19'),
+    ('02104', 'Tân Kỳ', 'Xã Tân Kỳ', 'tan_ky', '19'),
+    ('02107', 'Thanh Thịnh', 'Xã Thanh Thịnh', 'thanh_thinh', '19'),
+    ('02116', 'Yên Bình', 'Xã Yên Bình', 'yen_binh', '19'),
+    ('02143', 'Văn Lang', 'Xã Văn Lang', 'van_lang', '19'),
+    ('02152', 'Cường Lợi', 'Xã Cường Lợi', 'cuong_loi', '19'),
+    ('02155', 'Na Rì', 'Xã Na Rì', 'na_ri', '19'),
+    ('02176', 'Trần Phú', 'Xã Trần Phú', 'tran_phu', '19'),
+    ('02185', 'Côn Minh', 'Xã Côn Minh', 'con_minh', '19');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('02191', 'Xuân Dương', 'Xã Xuân Dương', 'xuan_duong', '19'),
+    ('05443', 'Phan Đình Phùng', 'Phường Phan Đình Phùng', 'phan_dinh_phung', '19'),
+    ('05455', 'Quyết Thắng', 'Phường Quyết Thắng', 'quyet_thang', '19'),
+    ('05467', 'Gia Sàng', 'Phường Gia Sàng', 'gia_sang', '19'),
+    ('05482', 'Quan Triều', 'Phường Quan Triều', 'quan_trieu', '19'),
+    ('05488', 'Đại Phúc', 'Xã Đại Phúc', 'dai_phuc', '19'),
+    ('05500', 'Tích Lương', 'Phường Tích Lương', 'tich_luong', '19'),
+    ('05503', 'Tân Cương', 'Xã Tân Cương', 'tan_cuong', '19'),
+    ('05518', 'Sông Công', 'Phường Sông Công', 'song_cong', '19'),
+    ('05528', 'Bách Quang', 'Phường Bách Quang', 'bach_quang', '19'),
+    ('05533', 'Bá Xuyên', 'Phường Bá Xuyên', 'ba_xuyen', '19'),
+    ('05542', 'Lam Vỹ', 'Xã Lam Vỹ', 'lam_vy', '19'),
+    ('05551', 'Kim Phượng', 'Xã Kim Phượng', 'kim_phuong', '19'),
+    ('05563', 'Phượng Tiến', 'Xã Phượng Tiến', 'phuong_tien', '19'),
+    ('05569', 'Định Hoá', 'Xã Định Hoá', 'dinh_hoa', '19'),
+    ('05581', 'Trung Hội', 'Xã Trung Hội', 'trung_hoi', '19'),
+    ('05587', 'Bình Yên', 'Xã Bình Yên', 'binh_yen', '19'),
+    ('05602', 'Phú Đình', 'Xã Phú Đình', 'phu_dinh', '19'),
+    ('05605', 'Bình Thành', 'Xã Bình Thành', 'binh_thanh', '19'),
+    ('05611', 'Phú Lương', 'Xã Phú Lương', 'phu_luong', '19'),
+    ('05620', 'Yên Trạch', 'Xã Yên Trạch', 'yen_trach', '19'),
+    ('05632', 'Hợp Thành', 'Xã Hợp Thành', 'hop_thanh', '19'),
+    ('05641', 'Vô Tranh', 'Xã Vô Tranh', 'vo_tranh', '19'),
+    ('05662', 'Trại Cau', 'Xã Trại Cau', 'trai_cau', '19'),
+    ('05665', 'Văn Lăng', 'Xã Văn Lăng', 'van_lang', '19'),
+    ('05674', 'Quang Sơn', 'Xã Quang Sơn', 'quang_son', '19'),
+    ('05680', 'Văn Hán', 'Xã Văn Hán', 'van_han', '19'),
+    ('05692', 'Đồng Hỷ', 'Xã Đồng Hỷ', 'dong_hy', '19'),
+    ('05707', 'Nam Hoà', 'Xã Nam Hoà', 'nam_hoa', '19'),
+    ('05710', 'Linh Sơn', 'Phường Linh Sơn', 'linh_son', '19'),
+    ('05716', 'Võ Nhai', 'Xã Võ Nhai', 'vo_nhai', '19'),
+    ('05719', 'Sảng Mộc', 'Xã Sảng Mộc', 'sang_moc', '19'),
+    ('05722', 'Nghinh Tường', 'Xã Nghinh Tường', 'nghinh_tuong', '19'),
+    ('05725', 'Thần Sa', 'Xã Thần Sa', 'than_sa', '19'),
+    ('05740', 'La Hiên', 'Xã La Hiên', 'la_hien', '19'),
+    ('05746', 'Tràng Xá', 'Xã Tràng Xá', 'trang_xa', '19'),
+    ('05755', 'Dân Tiến', 'Xã Dân Tiến', 'dan_tien', '19'),
+    ('05773', 'Phú Xuyên', 'Xã Phú Xuyên', 'phu_xuyen', '19'),
+    ('05776', 'Đức Lương', 'Xã Đức Lương', 'duc_luong', '19'),
+    ('05788', 'Phú Lạc', 'Xã Phú Lạc', 'phu_lac', '19'),
+    ('05800', 'Phú Thịnh', 'Xã Phú Thịnh', 'phu_thinh', '19'),
+    ('05809', 'An Khánh', 'Xã An Khánh', 'an_khanh', '19'),
+    ('05818', 'La Bằng', 'Xã La Bằng', 'la_bang', '19'),
+    ('05830', 'Đại Từ', 'Xã Đại Từ', 'dai_tu', '19'),
+    ('05845', 'Vạn Phú', 'Xã Vạn Phú', 'van_phu', '19'),
+    ('05851', 'Quân Chu', 'Xã Quân Chu', 'quan_chu', '19'),
+    ('05857', 'Phúc Thuận', 'Phường Phúc Thuận', 'phuc_thuan', '19'),
+    ('05860', 'Phổ Yên', 'Phường Phổ Yên', 'pho_yen', '19'),
+    ('05881', 'Thành Công', 'Xã Thành Công', 'thanh_cong', '19'),
+    ('05890', 'Vạn Xuân', 'Phường Vạn Xuân', 'van_xuan', '19'),
+    ('05899', 'Trung Thành', 'Phường Trung Thành', 'trung_thanh', '19'),
+    ('05908', 'Phú Bình', 'Xã Phú Bình', 'phu_binh', '19'),
+    ('05917', 'Tân Khánh', 'Xã Tân Khánh', 'tan_khanh', '19'),
+    ('05923', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '19'),
+    ('05941', 'Điềm Thuỵ', 'Xã Điềm Thuỵ', 'diem_thuy', '19'),
+    ('05953', 'Kha Sơn', 'Xã Kha Sơn', 'kha_son', '19'),
+    ('05977', 'Đông Kinh', 'Phường Đông Kinh', 'dong_kinh', '20'),
+    ('05983', 'Lương Văn Tri', 'Phường Lương Văn Tri', 'luong_van_tri', '20'),
+    ('05986', 'Tam Thanh', 'Phường Tam Thanh', 'tam_thanh', '20'),
+    ('06001', 'Đoàn Kết', 'Xã Đoàn Kết', 'doan_ket', '20'),
+    ('06004', 'Quốc Khánh', 'Xã Quốc Khánh', 'quoc_khanh', '20'),
+    ('06019', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '20'),
+    ('06037', 'Kháng Chiến', 'Xã Kháng Chiến', 'khang_chien', '20'),
+    ('06040', 'Thất Khê', 'Xã Thất Khê', 'that_khe', '20'),
+    ('06046', 'Tràng Định', 'Xã Tràng Định', 'trang_dinh', '20'),
+    ('06058', 'Quốc Việt', 'Xã Quốc Việt', 'quoc_viet', '20'),
+    ('06073', 'Hoa Thám', 'Xã Hoa Thám', 'hoa_tham', '20'),
+    ('06076', 'Quý Hoà', 'Xã Quý Hoà', 'quy_hoa', '20'),
+    ('06079', 'Hồng Phong', 'Xã Hồng Phong', 'hong_phong', '20'),
+    ('06085', 'Thiện Hoà', 'Xã Thiện Hoà', 'thien_hoa', '20'),
+    ('06091', 'Thiện Thuật', 'Xã Thiện Thuật', 'thien_thuat', '20'),
+    ('06103', 'Thiện Long', 'Xã Thiện Long', 'thien_long', '20'),
+    ('06112', 'Bình Gia', 'Xã Bình Gia', 'binh_gia', '20'),
+    ('06115', 'Tân Văn', 'Xã Tân Văn', 'tan_van', '20'),
+    ('06124', 'Na Sầm', 'Xã Na Sầm', 'na_sam', '20'),
+    ('06148', 'Thuỵ Hùng', 'Xã Thuỵ Hùng', 'thuy_hung', '20'),
+    ('06151', 'Hội Hoan', 'Xã Hội Hoan', 'hoi_hoan', '20'),
+    ('06154', 'Văn Lãng', 'Xã Văn Lãng', 'van_lang', '20'),
+    ('06172', 'Hoàng Văn Thụ', 'Xã Hoàng Văn Thụ', 'hoang_van_thu', '20'),
+    ('06184', 'Đồng Đăng', 'Xã Đồng Đăng', 'dong_dang', '20'),
+    ('06187', 'Kỳ Lừa', 'Phường Kỳ Lừa', 'ky_lua', '20'),
+    ('06196', 'Ba Sơn', 'Xã Ba Sơn', 'ba_son', '20'),
+    ('06211', 'Cao Lộc', 'Xã Cao Lộc', 'cao_loc', '20'),
+    ('06220', 'Công Sơn', 'Xã Công Sơn', 'cong_son', '20'),
+    ('06253', 'Văn Quan', 'Xã Văn Quan', 'van_quan', '20'),
+    ('06280', 'Điềm He', 'Xã Điềm He', 'diem_he', '20'),
+    ('06286', 'Khánh Khê', 'Xã Khánh Khê', 'khanh_khe', '20'),
+    ('06298', 'Yên Phúc', 'Xã Yên Phúc', 'yen_phuc', '20'),
+    ('06313', 'Tri Lễ', 'Xã Tri Lễ', 'tri_le', '20'),
+    ('06316', 'Tân Đoàn', 'Xã Tân Đoàn', 'tan_doan', '20'),
+    ('06325', 'Bắc Sơn', 'xã Bắc Sơn', 'bac_son', '20'),
+    ('06337', 'Tân Tri', 'Xã Tân Tri', 'tan_tri', '20'),
+    ('06349', 'Hưng Vũ', 'Xã Hưng Vũ', 'hung_vu', '20'),
+    ('06364', 'Vũ Lễ', 'Xã Vũ Lễ', 'vu_le', '20'),
+    ('06367', 'Vũ Lăng', 'Xã Vũ Lăng', 'vu_lang', '20'),
+    ('06376', 'Nhất Hoà', 'Xã Nhất Hoà', 'nhat_hoa', '20'),
+    ('06385', 'Hữu Lũng', 'Xã Hữu Lũng', 'huu_lung', '20'),
+    ('06391', 'Yên Bình', 'Xã Yên Bình', 'yen_binh', '20'),
+    ('06400', 'Hữu Liên', 'Xã Hữu Liên', 'huu_lien', '20'),
+    ('06415', 'Vân Nham', 'Xã Vân Nham', 'van_nham', '20'),
+    ('06427', 'Cai Kinh', 'Xã Cai Kinh', 'cai_kinh', '20'),
+    ('06436', 'Thiện Tân', 'Xã Thiện Tân', 'thien_tan', '20'),
+    ('06445', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '20'),
+    ('06457', 'Tuấn Sơn', 'Xã Tuấn Sơn', 'tuan_son', '20'),
+    ('06463', 'Chi Lăng', 'Xã Chi Lăng', 'chi_lang', '20'),
+    ('06475', 'Bằng Mạc', 'Xã Bằng Mạc', 'bang_mac', '20'),
+    ('06481', 'Chiến Thắng', 'Xã Chiến Thắng', 'chien_thang', '20'),
+    ('06496', 'Nhân Lý', 'Xã Nhân Lý', 'nhan_ly', '20'),
+    ('06505', 'Vạn Linh', 'Xã Vạn Linh', 'van_linh', '20'),
+    ('06517', 'Quan Sơn', 'Xã Quan Sơn', 'quan_son', '20'),
+    ('06526', 'Na Dương', 'Xã Na Dương', 'na_duong', '20'),
+    ('06529', 'Lộc Bình', 'Xã Lộc Bình', 'loc_binh', '20'),
+    ('06541', 'Mẫu Sơn', 'Xã Mẫu Sơn', 'mau_son', '20'),
+    ('06565', 'Khuất Xá', 'Xã Khuất Xá', 'khuat_xa', '20'),
+    ('06577', 'Thống Nhất', 'Xã Thống Nhất', 'thong_nhat', '20'),
+    ('06601', 'Lợi Bác', 'Xã Lợi Bác', 'loi_bac', '20'),
+    ('06607', 'Xuân Dương', 'Xã Xuân Dương', 'xuan_duong', '20'),
+    ('06613', 'Đình Lập', 'Xã Đình Lập', 'dinh_lap', '20'),
+    ('06616', 'Thái Bình', 'Xã Thái Bình', 'thai_binh', '20'),
+    ('06625', 'Kiên Mộc', 'Xã Kiên Mộc', 'kien_moc', '20'),
+    ('06637', 'Châu Sơn', 'Xã Châu Sơn', 'chau_son', '20'),
+    ('06652', 'Hà Tu', 'Phường Hà Tu', 'ha_tu', '22'),
+    ('06658', 'Cao Xanh', 'Phường Cao Xanh', 'cao_xanh', '22'),
+    ('06661', 'Việt Hưng', 'Phường Việt Hưng', 'viet_hung', '22'),
+    ('06673', 'Bãi Cháy', 'Phường Bãi Cháy', 'bai_chay', '22'),
+    ('06676', 'Hà Lầm', 'Phường Hà Lầm', 'ha_lam', '22'),
+    ('06685', 'Hồng Gai', 'Phường Hồng Gai', 'hong_gai', '22'),
+    ('06688', 'Hạ Long', 'Phường Hạ Long', 'ha_long', '22'),
+    ('06706', 'Tuần Châu', 'Phường Tuần Châu', 'tuan_chau', '22'),
+    ('06709', 'Móng Cái 2', 'Phường Móng Cái 2', 'mong_cai_2', '22'),
+    ('06712', 'Móng Cái 1', 'Phường Móng Cái 1', 'mong_cai_1', '22'),
+    ('06724', 'Hải Sơn', 'Xã Hải Sơn', 'hai_son', '22'),
+    ('06733', 'Hải Ninh', 'Xã Hải Ninh', 'hai_ninh', '22'),
+    ('06736', 'Móng Cái 3', 'Phường Móng Cái 3', 'mong_cai_3', '22'),
+    ('06757', 'Vĩnh Thực', 'Xã Vĩnh Thực', 'vinh_thuc', '22'),
+    ('06760', 'Mông Dương', 'Phường Mông Dương', 'mong_duong', '22'),
+    ('06778', 'Quang Hanh', 'Phường Quang Hanh', 'quang_hanh', '22'),
+    ('06781', 'Cửa Ông', 'Phường Cửa Ông', 'cua_ong', '22'),
+    ('06793', 'Cẩm Phả', 'Phường Cẩm Phả', 'cam_pha', '22'),
+    ('06799', 'Hải Hoà', 'Xã Hải Hoà', 'hai_hoa', '22'),
+    ('06811', 'Uông Bí', 'Phường Uông Bí', 'uong_bi', '22'),
+    ('06820', 'Vàng Danh', 'Phường Vàng Danh', 'vang_danh', '22'),
+    ('06832', 'Yên Tử', 'Phường Yên Tử', 'yen_tu', '22'),
+    ('06838', 'Bình Liêu', 'Xã Bình Liêu', 'binh_lieu', '22'),
+    ('06841', 'Hoành Mô', 'Xã Hoành Mô', 'hoanh_mo', '22'),
+    ('06856', 'Lục Hồn', 'Xã Lục Hồn', 'luc_hon', '22'),
+    ('06862', 'Tiên Yên', 'Xã Tiên Yên', 'tien_yen', '22'),
+    ('06874', 'Điền Xá', 'Xã Điền Xá', 'dien_xa', '22'),
+    ('06877', 'Đông Ngũ', 'Xã Đông Ngũ', 'dong_ngu', '22'),
+    ('06886', 'Hải Lạng', 'Xã Hải Lạng', 'hai_lang', '22'),
+    ('06895', 'Đầm Hà', 'Xã Đầm Hà', 'dam_ha', '22'),
+    ('06913', 'Quảng Tân', 'Xã Quảng Tân', 'quang_tan', '22'),
+    ('06922', 'Quảng Hà', 'Xã Quảng Hà', 'quang_ha', '22'),
+    ('06931', 'Quảng Đức', 'Xã Quảng Đức', 'quang_duc', '22'),
+    ('06946', 'Đường Hoa', 'Xã Đường Hoa', 'duong_hoa', '22'),
+    ('06967', 'Cái Chiên', 'Xã Cái Chiên', 'cai_chien', '22'),
+    ('06978', 'Ba Chẽ', 'Xã Ba Chẽ', 'ba_che', '22'),
+    ('06979', 'Kỳ Thượng', 'Xã Kỳ Thượng', 'ky_thuong', '22'),
+    ('06985', 'Lương Minh', 'Xã Lương Minh', 'luong_minh', '22'),
+    ('06994', 'Vân Đồn', 'Đặc khu Vân Đồn', 'van_don', '22'),
+    ('07030', 'Hoành Bồ', 'Phường Hoành Bồ', 'hoanh_bo', '22'),
+    ('07054', 'Quảng La', 'Xã Quảng La', 'quang_la', '22'),
+    ('07060', 'Thống Nhất', 'Xã Thống Nhất', 'thong_nhat', '22'),
+    ('07069', 'Mạo Khê', 'Phường Mạo Khê', 'mao_khe', '22'),
+    ('07081', 'Bình Khê', 'Phường Bình Khê', 'binh_khe', '22'),
+    ('07090', 'An Sinh', 'Phường An Sinh', 'an_sinh', '22'),
+    ('07093', 'Đông Triều', 'Phường Đông Triều', 'dong_trieu', '22'),
+    ('07114', 'Hoàng Quế', 'Phường Hoàng Quế', 'hoang_que', '22'),
+    ('07132', 'Quảng Yên', 'Phường Quảng Yên', 'quang_yen', '22'),
+    ('07135', 'Đông Mai', 'Phường Đông Mai', 'dong_mai', '22'),
+    ('07147', 'Hiệp Hoà', 'Phường Hiệp Hoà', 'hiep_hoa', '22'),
+    ('07168', 'Hà An', 'Phường Hà An', 'ha_an', '22'),
+    ('07180', 'Liên Hoà', 'Phường Liên Hoà', 'lien_hoa', '22'),
+    ('07183', 'Phong Cốc', 'Phường Phong Cốc', 'phong_coc', '22'),
+    ('07192', 'Cô Tô', 'Đặc khu Cô Tô', 'co_to', '22'),
+    ('07210', 'Bắc Giang', 'Phường Bắc Giang', 'bac_giang', '24'),
+    ('07228', 'Đa Mai', 'Phường Đa Mai', 'da_mai', '24'),
+    ('07246', 'Xuân Lương', 'Xã Xuân Lương', 'xuan_luong', '24'),
+    ('07264', 'Tam Tiến', 'Xã Tam Tiến', 'tam_tien', '24'),
+    ('07282', 'Đồng Kỳ', 'Xã Đồng Kỳ', 'dong_ky', '24'),
+    ('07288', 'Yên Thế', 'Xã Yên Thế', 'yen_the', '24'),
+    ('07294', 'Bố Hạ', 'Xã Bố Hạ', 'bo_ha', '24'),
+    ('07306', 'Nhã Nam', 'Xã Nhã Nam', 'nha_nam', '24'),
+    ('07330', 'Phúc Hoà', 'Xã Phúc Hoà', 'phuc_hoa', '24'),
+    ('07333', 'Quang Trung', 'Xã Quang Trung', 'quang_trung', '24'),
+    ('07339', 'Tân Yên', 'Xã Tân Yên', 'tan_yen', '24'),
+    ('07351', 'Ngọc Thiện', 'Xã Ngọc Thiện', 'ngoc_thien', '24'),
+    ('07375', 'Lạng Giang', 'Xã Lạng Giang', 'lang_giang', '24'),
+    ('07381', 'Tiên Lục', 'Xã Tiên Lục', 'tien_luc', '24'),
+    ('07399', 'Kép', 'Xã Kép', 'kep', '24'),
+    ('07420', 'Mỹ Thái', 'Xã Mỹ Thái', 'my_thai', '24'),
+    ('07432', 'Tân Dĩnh', 'Xã Tân Dĩnh', 'tan_dinh', '24'),
+    ('07444', 'Lục Nam', 'Xã Lục Nam', 'luc_nam', '24'),
+    ('07450', 'Đông Phú', 'Xã Đông Phú', 'dong_phu', '24'),
+    ('07462', 'Bảo Đài', 'Xã Bảo Đài', 'bao_dai', '24'),
+    ('07486', 'Nghĩa Phương', 'Xã Nghĩa Phương', 'nghia_phuong', '24'),
+    ('07489', 'Trường Sơn', 'Xã Trường Sơn', 'truong_son', '24'),
+    ('07492', 'Lục Sơn', 'Xã Lục Sơn', 'luc_son', '24'),
+    ('07498', 'Bắc Lũng', 'Xã Bắc Lũng', 'bac_lung', '24'),
+    ('07519', 'Cẩm Lý', 'Xã Cẩm Lý', 'cam_ly', '24');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('07525', 'Chũ', 'Phường Chũ', 'chu', '24'),
+    ('07531', 'Tân Sơn', 'Xã Tân Sơn', 'tan_son', '24'),
+    ('07534', 'Sa Lý', 'Xã Sa Lý', 'sa_ly', '24'),
+    ('07537', 'Biên Sơn', 'Xã Biên Sơn', 'bien_son', '24'),
+    ('07543', 'Sơn Hải', 'Xã Sơn Hải', 'son_hai', '24'),
+    ('07552', 'Kiên Lao', 'Xã Kiên Lao', 'kien_lao', '24'),
+    ('07573', 'Biển Động', 'Xã Biển Động', 'bien_dong', '24'),
+    ('07582', 'Lục Ngạn', 'Xã Lục Ngạn', 'luc_ngan', '24'),
+    ('07594', 'Đèo Gia', 'Xã Đèo Gia', 'deo_gia', '24'),
+    ('07603', 'Nam Dương', 'Xã Nam Dương', 'nam_duong', '24'),
+    ('07612', 'Phượng Sơn', 'Phường Phượng Sơn', 'phuong_son', '24'),
+    ('07615', 'Sơn Động', 'Xã Sơn Động', 'son_dong', '24'),
+    ('07616', 'Tây Yên Tử', 'Xã Tây Yên Tử', 'tay_yen_tu', '24'),
+    ('07621', 'Vân Sơn', 'Xã Vân Sơn', 'van_son', '24'),
+    ('07627', 'Đại Sơn', 'Xã Đại Sơn', 'dai_son', '24'),
+    ('07642', 'Yên Định', 'Xã Yên Định', 'yen_dinh', '24'),
+    ('07654', 'An Lạc', 'Xã An Lạc', 'an_lac', '24'),
+    ('07663', 'Tuấn Đạo', 'Xã Tuấn Đạo', 'tuan_dao', '24'),
+    ('07672', 'Dương Hưu', 'Xã Dương Hưu', 'duong_huu', '24'),
+    ('07681', 'Yên Dũng', 'Phường Yên Dũng', 'yen_dung', '24'),
+    ('07682', 'Tân An', 'Phường Tân An', 'tan_an', '24'),
+    ('07696', 'Tiền Phong', 'Phường Tiền Phong', 'tien_phong', '24'),
+    ('07699', 'Tân Tiến', 'Phường Tân Tiến', 'tan_tien', '24'),
+    ('07735', 'Đồng Việt', 'Xã Đồng Việt', 'dong_viet', '24'),
+    ('07738', 'Cảnh Thuỵ', 'Phường Cảnh Thuỵ', 'canh_thuy', '24'),
+    ('07774', 'Tự Lạn', 'Phường Tự Lạn', 'tu_lan', '24'),
+    ('07777', 'Việt Yên', 'Phường Việt Yên', 'viet_yen', '24'),
+    ('07795', 'Nếnh', 'Phường Nếnh', 'nenh', '24'),
+    ('07798', 'Vân Hà', 'Phường Vân Hà', 'van_ha', '24'),
+    ('07822', 'Hoàng Vân', 'Xã Hoàng Vân', 'hoang_van', '24'),
+    ('07840', 'Hiệp Hoà', 'Xã Hiệp Hoà', 'hiep_hoa', '24'),
+    ('07864', 'Hợp Thịnh', 'Xã Hợp Thịnh', 'hop_thinh', '24'),
+    ('07870', 'Xuân Cẩm', 'Xã Xuân Cẩm', 'xuan_cam', '24'),
+    ('09169', 'Vũ Ninh', 'Phường Vũ Ninh', 'vu_ninh', '24'),
+    ('09187', 'Kinh Bắc', 'Phường Kinh Bắc', 'kinh_bac', '24'),
+    ('09190', 'Võ Cường', 'Phường Võ Cường', 'vo_cuong', '24'),
+    ('09193', 'Yên Phong', 'Xã Yên Phong', 'yen_phong', '24'),
+    ('09202', 'Tam Giang', 'Xã Tam Giang', 'tam_giang', '24'),
+    ('09205', 'Yên Trung', 'Xã Yên Trung', 'yen_trung', '24'),
+    ('09208', 'Tam Đa', 'Xã Tam Đa', 'tam_da', '24'),
+    ('09238', 'Văn Môn', 'Xã Văn Môn', 'van_mon', '24'),
+    ('09247', 'Quế Võ', 'Phường Quế Võ', 'que_vo', '24'),
+    ('09253', 'Nhân Hoà', 'Phường Nhân Hoà', 'nhan_hoa', '24'),
+    ('09265', 'Phương Liễu', 'Phường Phương Liễu', 'phuong_lieu', '24'),
+    ('09286', 'Nam Sơn', 'Phường Nam Sơn', 'nam_son', '24'),
+    ('09292', 'Phù Lãng', 'Xã Phù Lãng', 'phu_lang', '24'),
+    ('09295', 'Bồng Lai', 'Phường Bồng Lai', 'bong_lai', '24'),
+    ('09301', 'Đào Viên', 'Phường Đào Viên', 'dao_vien', '24'),
+    ('09313', 'Chi Lăng', 'Xã Chi Lăng', 'chi_lang', '24'),
+    ('09319', 'Tiên Du', 'Xã Tiên Du', 'tien_du', '24'),
+    ('09325', 'Hạp Lĩnh', 'Phường Hạp Lĩnh', 'hap_linh', '24'),
+    ('09334', 'Liên Bão', 'Xã Liên Bão', 'lien_bao', '24'),
+    ('09340', 'Đại Đồng', 'Xã Đại Đồng', 'dai_dong', '24'),
+    ('09343', 'Tân Chi', 'Xã Tân Chi', 'tan_chi', '24'),
+    ('09349', 'Phật Tích', 'Xã Phật Tích', 'phat_tich', '24'),
+    ('09367', 'Từ Sơn', 'Phường Từ Sơn', 'tu_son', '24'),
+    ('09370', 'Tam Sơn', 'Phường Tam Sơn', 'tam_son', '24'),
+    ('09379', 'Phù Khê', 'Phường Phù Khê', 'phu_khe', '24'),
+    ('09385', 'Đồng Nguyên', 'Phường Đồng Nguyên', 'dong_nguyen', '24'),
+    ('09400', 'Thuận Thành', 'Phường Thuận Thành', 'thuan_thanh', '24'),
+    ('09409', 'Mão Điền', 'Phường Mão Điền', 'mao_dien', '24'),
+    ('09427', 'Trí Quả', 'Phường Trí Quả', 'tri_qua', '24'),
+    ('09430', 'Trạm Lộ', 'Phường Trạm Lộ', 'tram_lo', '24'),
+    ('09433', 'Song Liễu', 'Phường Song Liễu', 'song_lieu', '24'),
+    ('09445', 'Ninh Xá', 'Phường Ninh Xá', 'ninh_xa', '24'),
+    ('09454', 'Gia Bình', 'Xã Gia Bình', 'gia_binh', '24'),
+    ('09466', 'Cao Đức', 'Xã Cao Đức', 'cao_duc', '24'),
+    ('09469', 'Đại Lai', 'Xã Đại Lai', 'dai_lai', '24'),
+    ('09475', 'Nhân Thắng', 'Xã Nhân Thắng', 'nhan_thang', '24'),
+    ('09487', 'Đông Cứu', 'Xã Đông Cứu', 'dong_cuu', '24'),
+    ('09496', 'Lương Tài', 'Xã Lương Tài', 'luong_tai', '24'),
+    ('09499', 'Trung Kênh', 'Xã Trung Kênh', 'trung_kenh', '24'),
+    ('09523', 'Trung Chính', 'Xã Trung Chính', 'trung_chinh', '24'),
+    ('09529', 'Lâm Thao', 'Xã Lâm Thao', 'lam_thao', '24'),
+    ('05128', 'Tân Lạc', 'Xã Tân Lạc', 'tan_lac', '25'),
+    ('04792', 'Tân Hoà', 'Phường Tân Hoà', 'tan_hoa', '25'),
+    ('04795', 'Hoà Bình', 'Phường Hoà Bình', 'hoa_binh', '25'),
+    ('04828', 'Thống Nhất', 'Phường Thống Nhất', 'thong_nhat', '25'),
+    ('04831', 'Đà Bắc', 'Xã Đà Bắc', 'da_bac', '25'),
+    ('04846', 'Đức Nhàn', 'Xã Đức Nhàn', 'duc_nhan', '25'),
+    ('04849', 'Tân Pheo', 'Xã Tân Pheo', 'tan_pheo', '25'),
+    ('04873', 'Quy Đức', 'Xã Quy Đức', 'quy_duc', '25'),
+    ('04876', 'Cao Sơn', 'Xã Cao Sơn', 'cao_son', '25'),
+    ('04891', 'Tiền Phong', 'Xã Tiền Phong', 'tien_phong', '25'),
+    ('04894', 'Kỳ Sơn', 'Phường Kỳ Sơn', 'ky_son', '25'),
+    ('04897', 'Thịnh Minh', 'Xã Thịnh Minh', 'thinh_minh', '25'),
+    ('04924', 'Lương Sơn', 'Xã Lương Sơn', 'luong_son', '25'),
+    ('04960', 'Liên Sơn', 'Xã Liên Sơn', 'lien_son', '25'),
+    ('04978', 'Kim Bôi', 'Xã Kim Bôi', 'kim_boi', '25'),
+    ('04990', 'Nật Sơn', 'Xã Nật Sơn', 'nat_son', '25'),
+    ('05014', 'Mường Động', 'Xã Mường Động', 'muong_dong', '25'),
+    ('05047', 'Cao Dương', 'Xã Cao Dương', 'cao_duong', '25'),
+    ('05068', 'Hợp Kim', 'Xã Hợp Kim', 'hop_kim', '25'),
+    ('05086', 'Dũng Tiến', 'Xã Dũng Tiến', 'dung_tien', '25'),
+    ('05089', 'Cao Phong', 'Xã Cao Phong', 'cao_phong', '25'),
+    ('05092', 'Thung Nai', 'Xã Thung Nai', 'thung_nai', '25'),
+    ('05116', 'Mường Thàng', 'Xã Mường Thàng', 'muong_thang', '25'),
+    ('05134', 'Mường Hoa', 'Xã Mường Hoa', 'muong_hoa', '25'),
+    ('05152', 'Vân Sơn', 'Xã Vân Sơn', 'van_son', '25'),
+    ('05158', 'Mường Bi', 'Xã Mường Bi', 'muong_bi', '25'),
+    ('05191', 'Toàn Thắng', 'Xã Toàn Thắng', 'toan_thang', '25'),
+    ('05200', 'Mai Châu', 'Xã Mai Châu', 'mai_chau', '25'),
+    ('05206', 'Tân Mai', 'Xã Tân Mai', 'tan_mai', '25'),
+    ('05212', 'Pà Cò', 'Xã Pà Cò', 'pa_co', '25'),
+    ('05245', 'Bao La', 'Xã Bao La', 'bao_la', '25'),
+    ('05251', 'Mai Hạ', 'Xã Mai Hạ', 'mai_ha', '25'),
+    ('05266', 'Lạc Sơn', 'Xã Lạc Sơn', 'lac_son', '25'),
+    ('05287', 'Mường Vang', 'Xã Mường Vang', 'muong_vang', '25'),
+    ('05290', 'Nhân Nghĩa', 'Xã Nhân Nghĩa', 'nhan_nghia', '25'),
+    ('05293', 'Thượng Cốc', 'Xã Thượng Cốc', 'thuong_coc', '25'),
+    ('05305', 'Yên Phú', 'Xã Yên Phú', 'yen_phu', '25'),
+    ('05323', 'Quyết Thắng', 'Xã Quyết Thắng', 'quyet_thang', '25'),
+    ('05329', 'Ngọc Sơn', 'Xã Ngọc Sơn', 'ngoc_son', '25'),
+    ('05347', 'Đại Đồng', 'Xã Đại Đồng', 'dai_dong', '25'),
+    ('05353', 'Yên Thuỷ', 'Xã Yên Thuỷ', 'yen_thuy', '25'),
+    ('05362', 'Lạc Lương', 'Xã Lạc Lương', 'lac_luong', '25'),
+    ('05386', 'Yên Trị', 'Xã Yên Trị', 'yen_tri', '25'),
+    ('05392', 'Lạc Thuỷ', 'Xã Lạc Thuỷ', 'lac_thuy', '25'),
+    ('05395', 'An Nghĩa', 'Xã An Nghĩa', 'an_nghia', '25'),
+    ('05425', 'An Bình', 'Xã An Bình', 'an_binh', '25'),
+    ('07894', 'Nông Trang', 'Phường Nông Trang', 'nong_trang', '25'),
+    ('07900', 'Việt Trì', 'Phường Việt Trì', 'viet_tri', '25'),
+    ('07909', 'Thanh Miếu', 'Phường Thanh Miếu', 'thanh_mieu', '25'),
+    ('07918', 'Vân Phú', 'Phường Vân Phú', 'van_phu', '25'),
+    ('07942', 'Phú Thọ', 'Phường Phú Thọ', 'phu_tho', '25'),
+    ('07948', 'Âu Cơ', 'Phường Âu Cơ', 'au_co', '25'),
+    ('07954', 'Phong Châu', 'Phường Phong Châu', 'phong_chau', '25'),
+    ('07969', 'Đoan Hùng', 'Xã Đoan Hùng', 'doan_hung', '25'),
+    ('07996', 'Bằng Luân', 'Xã Bằng Luân', 'bang_luan', '25'),
+    ('07999', 'Chí Đám', 'Xã Chí Đám', 'chi_dam', '25'),
+    ('08023', 'Tây Cốc', 'Xã Tây Cốc', 'tay_coc', '25'),
+    ('08038', 'Chân Mộng', 'Xã Chân Mộng', 'chan_mong', '25'),
+    ('08053', 'Hạ Hoà', 'Xã Hạ Hoà', 'ha_hoa', '25'),
+    ('08071', 'Đan Thượng', 'Xã Đan Thượng', 'dan_thuong', '25'),
+    ('08110', 'Hiền Lương', 'Xã Hiền Lương', 'hien_luong', '25'),
+    ('08113', 'Yên Kỳ', 'Xã Yên Kỳ', 'yen_ky', '25'),
+    ('08134', 'Văn Lang', 'Xã Văn Lang', 'van_lang', '25'),
+    ('08143', 'Vĩnh Chân', 'Xã Vĩnh Chân', 'vinh_chan', '25'),
+    ('08152', 'Thanh Ba', 'Xã Thanh Ba', 'thanh_ba', '25'),
+    ('08173', 'Quảng Yên', 'Xã Quảng Yên', 'quang_yen', '25'),
+    ('08203', 'Hoàng Cương', 'Xã Hoàng Cương', 'hoang_cuong', '25'),
+    ('08209', 'Đông Thành', 'Xã Đông Thành', 'dong_thanh', '25'),
+    ('08218', 'Chí Tiên', 'Xã Chí Tiên', 'chi_tien', '25'),
+    ('08227', 'Liên Minh', 'Xã Liên Minh', 'lien_minh', '25'),
+    ('08230', 'Phù Ninh', 'Xã Phù Ninh', 'phu_ninh', '25'),
+    ('08236', 'Phú Mỹ', 'Xã Phú Mỹ', 'phu_my', '25'),
+    ('08245', 'Trạm Thản', 'Xã Trạm Thản', 'tram_than', '25'),
+    ('08254', 'Dân Chủ', 'Xã Dân Chủ', 'dan_chu', '25'),
+    ('08275', 'Bình Phú', 'Xã Bình Phú', 'binh_phu', '25'),
+    ('08290', 'Yên Lập', 'Xã Yên Lập', 'yen_lap', '25'),
+    ('08296', 'Sơn Lương', 'Xã Sơn Lương', 'son_luong', '25'),
+    ('08305', 'Xuân Viên', 'Xã Xuân Viên', 'xuan_vien', '25'),
+    ('08311', 'Trung Sơn', 'Xã Trung Sơn', 'trung_son', '25'),
+    ('08323', 'Thượng Long', 'Xã Thượng Long', 'thuong_long', '25'),
+    ('08338', 'Minh Hoà', 'Xã Minh Hoà', 'minh_hoa', '25'),
+    ('08341', 'Cẩm Khê', 'Xã Cẩm Khê', 'cam_khe', '25'),
+    ('08344', 'Tiên Lương', 'Xã Tiên Lương', 'tien_luong', '25'),
+    ('08377', 'Vân Bán', 'Xã Vân Bán', 'van_ban', '25'),
+    ('08398', 'Phú Khê', 'Xã Phú Khê', 'phu_khe', '25'),
+    ('08416', 'Hùng Việt', 'Xã Hùng Việt', 'hung_viet', '25'),
+    ('08431', 'Đồng Lương', 'Xã Đồng Lương', 'dong_luong', '25'),
+    ('08434', 'Tam Nông', 'Xã Tam Nông', 'tam_nong', '25'),
+    ('08443', 'Hiền Quan', 'Xã Hiền Quan', 'hien_quan', '25'),
+    ('08467', 'Vạn Xuân', 'Xã Vạn Xuân', 'van_xuan', '25'),
+    ('08479', 'Thọ Văn', 'Xã Thọ Văn', 'tho_van', '25'),
+    ('08494', 'Lâm Thao', 'Xã Lâm Thao', 'lam_thao', '25'),
+    ('08500', 'Xuân Lũng', 'Xã Xuân Lũng', 'xuan_lung', '25'),
+    ('08515', 'Hy Cương', 'Xã Hy Cương', 'hy_cuong', '25'),
+    ('08521', 'Phùng Nguyên', 'Xã Phùng Nguyên', 'phung_nguyen', '25'),
+    ('08527', 'Bản Nguyên', 'Xã Bản Nguyên', 'ban_nguyen', '25'),
+    ('08542', 'Thanh Sơn', 'Xã Thanh Sơn', 'thanh_son', '25'),
+    ('08545', 'Thu Cúc', 'Xã Thu Cúc', 'thu_cuc', '25'),
+    ('08560', 'Lai Đồng', 'Xã Lai Đồng', 'lai_dong', '25'),
+    ('08566', 'Tân Sơn', 'Xã Tân Sơn', 'tan_son', '25'),
+    ('08584', 'Võ Miếu', 'Xã Võ Miếu', 'vo_mieu', '25'),
+    ('08590', 'Xuân Đài', 'Xã Xuân Đài', 'xuan_dai', '25'),
+    ('08593', 'Minh Đài', 'Xã Minh Đài', 'minh_dai', '25'),
+    ('08611', 'Văn Miếu', 'Xã Văn Miếu', 'van_mieu', '25'),
+    ('08614', 'Cự Đồng', 'Xã Cự Đồng', 'cu_dong', '25'),
+    ('08620', 'Long Cốc', 'Xã Long Cốc', 'long_coc', '25'),
+    ('08632', 'Hương Cần', 'Xã Hương Cần', 'huong_can', '25'),
+    ('08635', 'Khả Cửu', 'Xã Khả Cửu', 'kha_cuu', '25'),
+    ('08656', 'Yên Sơn', 'Xã Yên Sơn', 'yen_son', '25'),
+    ('08662', 'Đào Xá', 'Xã Đào Xá', 'dao_xa', '25'),
+    ('08674', 'Thanh Thuỷ', 'Xã Thanh Thuỷ', 'thanh_thuy', '25'),
+    ('08686', 'Tu Vũ', 'Xã Tu Vũ', 'tu_vu', '25'),
+    ('08707', 'Vĩnh Yên', 'Phường Vĩnh Yên', 'vinh_yen', '25'),
+    ('08716', 'Vĩnh Phúc', 'Phường Vĩnh Phúc', 'vinh_phuc', '25'),
+    ('08740', 'Phúc Yên', 'Phường Phúc Yên', 'phuc_yen', '25'),
+    ('08746', 'Xuân Hoà', 'Phường Xuân Hoà', 'xuan_hoa', '25'),
+    ('08761', 'Lập Thạch', 'Xã Lập Thạch', 'lap_thach', '25'),
+    ('08770', 'Hợp Lý', 'Xã Hợp Lý', 'hop_ly', '25'),
+    ('08773', 'Yên Lãng', 'Xã Yên Lãng', 'yen_lang', '25'),
+    ('08782', 'Hải Lựu', 'Xã Hải Lựu', 'hai_luu', '25'),
+    ('08788', 'Thái Hoà', 'Xã Thái Hoà', 'thai_hoa', '25'),
+    ('08812', 'Liên Hoà', 'Xã Liên Hoà', 'lien_hoa', '25'),
+    ('08824', 'Tam Sơn', 'Xã Tam Sơn', 'tam_son', '25'),
+    ('08842', 'Tiên Lữ', 'Xã Tiên Lữ', 'tien_lu', '25'),
+    ('08848', 'Sông Lô', 'Xã Sông Lô', 'song_lo', '25'),
+    ('08866', 'Sơn Đông', 'Xã Sơn Đông', 'son_dong', '25');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('08869', 'Tam Dương', 'Xã Tam Dương', 'tam_duong', '25'),
+    ('08872', 'Tam Dương Bắc', 'Xã Tam Dương Bắc', 'tam_duong_bac', '25'),
+    ('08896', 'Hoàng An', 'Xã Hoàng An', 'hoang_an', '25'),
+    ('08905', 'Hội Thịnh', 'Xã Hội Thịnh', 'hoi_thinh', '25'),
+    ('08911', 'Tam Đảo', 'Xã Tam Đảo', 'tam_dao', '25'),
+    ('08914', 'Đạo Trù', 'Xã Đạo Trù', 'dao_tru', '25'),
+    ('08923', 'Đại Đình', 'Xã Đại Đình', 'dai_dinh', '25'),
+    ('08935', 'Bình Nguyên', 'Xã Bình Nguyên', 'binh_nguyen', '25'),
+    ('08944', 'Bình Tuyền', 'Xã Bình Tuyền', 'binh_tuyen', '25'),
+    ('08950', 'Bình Xuyên', 'Xã Bình Xuyên', 'binh_xuyen', '25'),
+    ('08971', 'Xuân Lãng', 'Xã Xuân Lãng', 'xuan_lang', '25'),
+    ('09025', 'Yên Lạc', 'Xã Yên Lạc', 'yen_lac', '25'),
+    ('09040', 'Tề Lỗ', 'Xã Tề Lỗ', 'te_lo', '25'),
+    ('09043', 'Tam Hồng', 'Xã Tam Hồng', 'tam_hong', '25'),
+    ('09052', 'Nguyệt Đức', 'Xã Nguyệt Đức', 'nguyet_duc', '25'),
+    ('09064', 'Liên Châu', 'Xã Liên Châu', 'lien_chau', '25'),
+    ('09076', 'Vĩnh Tường', 'Xã Vĩnh Tường', 'vinh_tuong', '25'),
+    ('09079', 'Vĩnh An', 'Xã Vĩnh An', 'vinh_an', '25'),
+    ('09100', 'Vĩnh Hưng', 'Xã Vĩnh Hưng', 'vinh_hung', '25'),
+    ('09106', 'Vĩnh Thành', 'Xã Vĩnh Thành', 'vinh_thanh', '25'),
+    ('09112', 'Thổ Tang', 'Xã Thổ Tang', 'tho_tang', '25'),
+    ('09154', 'Vĩnh Phú', 'Xã Vĩnh Phú', 'vinh_phu', '25'),
+    ('10507', 'Thành Đông', 'Phường Thành Đông', 'thanh_dong', '31'),
+    ('10525', 'Hải Dương', 'Phường Hải Dương', 'hai_duong', '31'),
+    ('10532', 'Lê Thanh Nghị', 'Phường Lê Thanh Nghị', 'le_thanh_nghi', '31'),
+    ('10537', 'Tân Hưng', 'Phường Tân Hưng', 'tan_hung', '31'),
+    ('10543', 'Việt Hoà', 'Phường Việt Hoà', 'viet_hoa', '31'),
+    ('10546', 'Chí Linh', 'Phường Chí Linh', 'chi_linh', '31'),
+    ('10549', 'Chu Văn An', 'Phường Chu Văn An', 'chu_van_an', '31'),
+    ('10552', 'Nguyễn Trãi', 'Phường Nguyễn Trãi', 'nguyen_trai', '31'),
+    ('10570', 'Trần Hưng Đạo', 'Phường Trần Hưng Đạo', 'tran_hung_dao', '31'),
+    ('10573', 'Trần Nhân Tông', 'Phường Trần Nhân Tông', 'tran_nhan_tong', '31'),
+    ('10603', 'Lê Đại Hành', 'Phường Lê Đại Hành', 'le_dai_hanh', '31'),
+    ('10606', 'Nam Sách', 'Xã Nam Sách', 'nam_sach', '31'),
+    ('10615', 'Hợp Tiến', 'Xã Hợp Tiến', 'hop_tien', '31'),
+    ('10633', 'Trần Phú', 'Xã Trần Phú', 'tran_phu', '31'),
+    ('10642', 'Thái Tân', 'Xã Thái Tân', 'thai_tan', '31'),
+    ('10645', 'An Phú', 'Xã An Phú', 'an_phu', '31'),
+    ('10660', 'Ái Quốc', 'Phường Ái Quốc', 'ai_quoc', '31'),
+    ('10675', 'Kinh Môn', 'Phường Kinh Môn', 'kinh_mon', '31'),
+    ('10678', 'Bắc An Phụ', 'Phường Bắc An Phụ', 'bac_an_phu', '31'),
+    ('10705', 'Nam An Phụ', 'Xã Nam An Phụ', 'nam_an_phu', '31'),
+    ('10714', 'Nhị Chiểu', 'Phường Nhị Chiểu', 'nhi_chieu', '31'),
+    ('10726', 'Phạm Sư Mạnh', 'Phường Phạm Sư Mạnh', 'pham_su_manh', '31'),
+    ('10729', 'Trần Liễu', 'Phường Trần Liễu', 'tran_lieu', '31'),
+    ('10744', 'Nguyễn Đại Năng', 'Phường Nguyễn Đại Năng', 'nguyen_dai_nang', '31'),
+    ('10750', 'Phú Thái', 'Xã Phú Thái', 'phu_thai', '31'),
+    ('10756', 'Lai Khê', 'Xã Lai Khê', 'lai_khe', '31'),
+    ('10792', 'An Thành', 'Xã An Thành', 'an_thanh', '31'),
+    ('10804', 'Kim Thành', 'Xã Kim Thành', 'kim_thanh', '31'),
+    ('10813', 'Thanh Hà', 'Xã Thanh Hà', 'thanh_ha', '31'),
+    ('10816', 'Hà Bắc', 'Xã Hà Bắc', 'ha_bac', '31'),
+    ('10837', 'Nam Đồng', 'Phường Nam Đồng', 'nam_dong', '31'),
+    ('10843', 'Hà Nam', 'Xã Hà Nam', 'ha_nam', '31'),
+    ('10846', 'Hà Tây', 'Xã Hà Tây', 'ha_tay', '31'),
+    ('10882', 'Hà Đông', 'Xã Hà Đông', 'ha_dong', '31'),
+    ('10888', 'Cẩm Giang', 'Xã Cẩm Giang', 'cam_giang', '31'),
+    ('10891', 'Tứ Minh', 'Phường Tứ Minh', 'tu_minh', '31'),
+    ('10903', 'Cẩm Giàng', 'Xã Cẩm Giàng', 'cam_giang', '31'),
+    ('10909', 'Tuệ Tĩnh', 'Xã Tuệ Tĩnh', 'tue_tinh', '31'),
+    ('10930', 'Mao Điền', 'Xã Mao Điền', 'mao_dien', '31'),
+    ('10945', 'Kẻ Sặt', 'Xã Kẻ Sặt', 'ke_sat', '31'),
+    ('10966', 'Bình Giang', 'Xã Bình Giang', 'binh_giang', '31'),
+    ('10972', 'Đường An', 'Xã Đường An', 'duong_an', '31'),
+    ('10993', 'Thượng Hồng', 'Xã Thượng Hồng', 'thuong_hong', '31'),
+    ('10999', 'Gia Lộc', 'Xã Gia Lộc', 'gia_loc', '31'),
+    ('11002', 'Thạch Khôi', 'Phường Thạch Khôi', 'thach_khoi', '31'),
+    ('11020', 'Yết Kiêu', 'Xã Yết Kiêu', 'yet_kieu', '31'),
+    ('11050', 'Gia Phúc', 'Xã Gia Phúc', 'gia_phuc', '31'),
+    ('11065', 'Trường Tân', 'Xã Trường Tân', 'truong_tan', '31'),
+    ('11074', 'Tứ Kỳ', 'Xã Tứ Kỳ', 'tu_ky', '31'),
+    ('11086', 'Đại Sơn', 'Xã Đại Sơn', 'dai_son', '31'),
+    ('11113', 'Tân Kỳ', 'Xã Tân Kỳ', 'tan_ky', '31'),
+    ('11131', 'Chí Minh', 'Xã Chí Minh', 'chi_minh', '31'),
+    ('11140', 'Lạc Phượng', 'Xã Lạc Phượng', 'lac_phuong', '31'),
+    ('11146', 'Nguyên Giáp', 'Xã Nguyên Giáp', 'nguyen_giap', '31'),
+    ('11164', 'Vĩnh Lại', 'Xã Vĩnh Lại', 'vinh_lai', '31'),
+    ('11167', 'Tân An', 'Xã Tân An', 'tan_an', '31'),
+    ('11203', 'Ninh Giang', 'Xã Ninh Giang', 'ninh_giang', '31'),
+    ('11218', 'Hồng Châu', 'Xã Hồng Châu', 'hong_chau', '31'),
+    ('11224', 'Khúc Thừa Dụ', 'Xã Khúc Thừa Dụ', 'khuc_thua_du', '31'),
+    ('11239', 'Thanh Miện', 'Xã Thanh Miện', 'thanh_mien', '31'),
+    ('11242', 'Nguyễn Lương Bằng', 'Xã Nguyễn Lương Bằng', 'nguyen_luong_bang', '31'),
+    ('11254', 'Bắc Thanh Miện', 'Xã Bắc Thanh Miện', 'bac_thanh_mien', '31'),
+    ('11257', 'Hải Hưng', 'Xã Hải Hưng', 'hai_hung', '31'),
+    ('11284', 'Nam Thanh Miện', 'Xã Nam Thanh Miện', 'nam_thanh_mien', '31'),
+    ('11311', 'Hồng Bàng', 'Phường Hồng Bàng', 'hong_bang', '31'),
+    ('11329', 'Ngô Quyền', 'Phường Ngô Quyền', 'ngo_quyen', '31'),
+    ('11359', 'Gia Viên', 'Phường Gia Viên', 'gia_vien', '31'),
+    ('11383', 'Lê Chân', 'Phường Lê Chân', 'le_chan', '31'),
+    ('11407', 'An Biên', 'Phường An Biên', 'an_bien', '31'),
+    ('11411', 'Đông Hải', 'Phường Đông Hải', 'dong_hai', '31'),
+    ('11413', 'Hải An', 'Phường Hải An', 'hai_an', '31'),
+    ('11443', 'Kiến An', 'Phường Kiến An', 'kien_an', '31'),
+    ('11446', 'Phù Liễn', 'Phường Phù Liễn', 'phu_lien', '31'),
+    ('11455', 'Đồ Sơn', 'Phường Đồ Sơn', 'do_son', '31'),
+    ('11473', 'Bạch Đằng', 'Phường Bạch Đằng', 'bach_dang', '31'),
+    ('11488', 'Lưu Kiếm', 'Phường Lưu Kiếm', 'luu_kiem', '31'),
+    ('11503', 'Việt Khê', 'Xã Việt Khê', 'viet_khe', '31'),
+    ('11506', 'Lê Ích Mộc', 'Phường Lê Ích Mộc', 'le_ich_moc', '31'),
+    ('11533', 'Hoà Bình', 'Phường Hoà Bình', 'hoa_binh', '31'),
+    ('11542', 'Nam Triệu', 'Phường Nam Triệu', 'nam_trieu', '31'),
+    ('11557', 'Thiên Hương', 'Phường Thiên Hương', 'thien_huong', '31'),
+    ('11560', 'Thuỷ Nguyên', 'Phường Thuỷ Nguyên', 'thuy_nguyen', '31'),
+    ('11581', 'An Dương', 'Phường An Dương', 'an_duong', '31'),
+    ('11593', 'An Phong', 'Phường An Phong', 'an_phong', '31'),
+    ('11602', 'Hồng An', 'Phường Hồng An', 'hong_an', '31'),
+    ('11617', 'An Hải', 'Phường An Hải', 'an_hai', '31'),
+    ('11629', 'An Lão', 'Xã An Lão', 'an_lao', '31'),
+    ('11635', 'An Trường', 'Xã An Trường', 'an_truong', '31'),
+    ('11647', 'An Quang', 'Xã An Quang', 'an_quang', '31'),
+    ('11668', 'An Khánh', 'Xã An Khánh', 'an_khanh', '31'),
+    ('11674', 'An Hưng', 'Xã An Hưng', 'an_hung', '31'),
+    ('11680', 'Kiến Thuỵ', 'Xã Kiến Thuỵ', 'kien_thuy', '31'),
+    ('11689', 'Hưng Đạo', 'Phường Hưng Đạo', 'hung_dao', '31'),
+    ('11692', 'Dương Kinh', 'Phường Dương Kinh', 'duong_kinh', '31'),
+    ('11713', 'Nghi Dương', 'Xã Nghi Dương', 'nghi_duong', '31'),
+    ('11725', 'Kiến Minh', 'Xã Kiến Minh', 'kien_minh', '31'),
+    ('11728', 'Kiến Hưng', 'Xã Kiến Hưng', 'kien_hung', '31'),
+    ('11737', 'Nam Đồ Sơn', 'Phường Nam Đồ Sơn', 'nam_do_son', '31'),
+    ('11749', 'Kiến Hải', 'Xã Kiến Hải', 'kien_hai', '31'),
+    ('11755', 'Tiên Lãng', 'Xã Tiên Lãng', 'tien_lang', '31'),
+    ('11761', 'Quyết Thắng', 'Xã Quyết Thắng', 'quyet_thang', '31'),
+    ('11779', 'Tân Minh', 'Xã Tân Minh', 'tan_minh', '31'),
+    ('11791', 'Tiên Minh', 'Xã Tiên Minh', 'tien_minh', '31'),
+    ('11806', 'Chấn Hưng', 'Xã Chấn Hưng', 'chan_hung', '31'),
+    ('11809', 'Hùng Thắng', 'Xã Hùng Thắng', 'hung_thang', '31'),
+    ('11824', 'Vĩnh Bảo', 'Xã Vĩnh Bảo', 'vinh_bao', '31'),
+    ('11836', 'Vĩnh Thịnh', 'Xã Vĩnh Thịnh', 'vinh_thinh', '31'),
+    ('11842', 'Vĩnh Thuận', 'Xã Vĩnh Thuận', 'vinh_thuan', '31'),
+    ('11848', 'Vĩnh Hoà', 'Xã Vĩnh Hoà', 'vinh_hoa', '31'),
+    ('11875', 'Vĩnh Hải', 'Xã Vĩnh Hải', 'vinh_hai', '31'),
+    ('11887', 'Vĩnh Am', 'Xã Vĩnh Am', 'vinh_am', '31'),
+    ('11911', 'Nguyễn Bỉnh Khiêm', 'Xã Nguyễn Bỉnh Khiêm', 'nguyen_binh_khiem', '31'),
+    ('11914', 'Cát Hải', 'Đặc khu Cát Hải', 'cat_hai', '31'),
+    ('11948', 'Bạch Long Vĩ', 'Đặc khu Bạch Long Vĩ', 'bach_long_vi', '31'),
+    ('12619', 'Diên Hà', 'Xã Diên Hà', 'dien_ha', '33'),
+    ('11953', 'Phố Hiến', 'Phường Phố Hiến', 'pho_hien', '33'),
+    ('11977', 'Tân Hưng', 'Xã Tân Hưng', 'tan_hung', '33'),
+    ('11980', 'Hồng Châu', 'Phường Hồng Châu', 'hong_chau', '33'),
+    ('11983', 'Sơn Nam', 'Phường Sơn Nam', 'son_nam', '33'),
+    ('11992', 'Lạc Đạo', 'Xã Lạc Đạo', 'lac_dao', '33'),
+    ('11995', 'Đại Đồng', 'Xã Đại Đồng', 'dai_dong', '33'),
+    ('12004', 'Như Quỳnh', 'Xã Như Quỳnh', 'nhu_quynh', '33'),
+    ('12019', 'Văn Giang', 'Xã Văn Giang', 'van_giang', '33'),
+    ('12025', 'Phụng Công', 'Xã Phụng Công', 'phung_cong', '33'),
+    ('12031', 'Nghĩa Trụ', 'Xã Nghĩa Trụ', 'nghia_tru', '33'),
+    ('12049', 'Mễ Sở', 'Xã Mễ Sở', 'me_so', '33'),
+    ('12064', 'Nguyễn Văn Linh', 'Xã Nguyễn Văn Linh', 'nguyen_van_linh', '33'),
+    ('12070', 'Hoàn Long', 'Xã Hoàn Long', 'hoan_long', '33'),
+    ('12073', 'Yên Mỹ', 'Xã Yên Mỹ', 'yen_my', '33'),
+    ('12091', 'Việt Yên', 'Xã Việt Yên', 'viet_yen', '33'),
+    ('12103', 'Mỹ Hào', 'Phường Mỹ Hào', 'my_hao', '33'),
+    ('12127', 'Thượng Hồng', 'Phường Thượng Hồng', 'thuong_hong', '33'),
+    ('12133', 'Đường Hào', 'Phường Đường Hào', 'duong_hao', '33'),
+    ('12142', 'Ân Thi', 'Xã Ân Thi', 'an_thi', '33'),
+    ('12148', 'Phạm Ngũ Lão', 'Xã Phạm Ngũ Lão', 'pham_ngu_lao', '33'),
+    ('12166', 'Xuân Trúc', 'Xã Xuân Trúc', 'xuan_truc', '33'),
+    ('12184', 'Nguyễn Trãi', 'Xã Nguyễn Trãi', 'nguyen_trai', '33'),
+    ('12196', 'Hồng Quang', 'Xã Hồng Quang', 'hong_quang', '33'),
+    ('12205', 'Khoái Châu', 'Xã Khoái Châu', 'khoai_chau', '33'),
+    ('12223', 'Triệu Việt Vương', 'Xã Triệu Việt Vương', 'trieu_viet_vuong', '33'),
+    ('12238', 'Việt Tiến', 'Xã Việt Tiến', 'viet_tien', '33'),
+    ('12247', 'Châu Ninh', 'Xã Châu Ninh', 'chau_ninh', '33'),
+    ('12271', 'Chí Minh', 'Xã Chí Minh', 'chi_minh', '33'),
+    ('12280', 'Lương Bằng', 'Xã Lương Bằng', 'luong_bang', '33'),
+    ('12286', 'Nghĩa Dân', 'Xã Nghĩa Dân', 'nghia_dan', '33'),
+    ('12313', 'Đức Hợp', 'Xã Đức Hợp', 'duc_hop', '33'),
+    ('12322', 'Hiệp Cường', 'Xã Hiệp Cường', 'hiep_cuong', '33'),
+    ('12337', 'Hoàng Hoa Thám', 'Xã Hoàng Hoa Thám', 'hoang_hoa_tham', '33'),
+    ('12361', 'Tiên Hoa', 'Xã Tiên Hoa', 'tien_hoa', '33'),
+    ('12364', 'Tiên Lữ', 'Xã Tiên Lữ', 'tien_lu', '33'),
+    ('12391', 'Quang Hưng', 'Xã Quang Hưng', 'quang_hung', '33'),
+    ('12406', 'Đoàn Đào', 'Xã Đoàn Đào', 'doan_dao', '33'),
+    ('12424', 'Tiên Tiến', 'Xã Tiên Tiến', 'tien_tien', '33'),
+    ('12427', 'Tống Trân', 'Xã Tống Trân', 'tong_tran', '33'),
+    ('12452', 'Trần Hưng Đạo', 'Phường Trần Hưng Đạo', 'tran_hung_dao', '33'),
+    ('12454', 'Trần Lãm', 'Phường Trần Lãm', 'tran_lam', '33'),
+    ('12466', 'Vũ Phúc', 'Phường Vũ Phúc', 'vu_phuc', '33'),
+    ('12472', 'Quỳnh Phụ', 'Xã Quỳnh Phụ', 'quynh_phu', '33'),
+    ('12499', 'A Sào', 'Xã A Sào', 'a_sao', '33'),
+    ('12511', 'Minh Thọ', 'Xã Minh Thọ', 'minh_tho', '33'),
+    ('12517', 'Ngọc Lâm', 'Xã Ngọc Lâm', 'ngoc_lam', '33'),
+    ('12523', 'Phụ Dực', 'Xã Phụ Dực', 'phu_duc', '33'),
+    ('12526', 'Đồng Bằng', 'Xã Đồng Bằng', 'dong_bang', '33'),
+    ('12532', 'Nguyễn Du', 'Xã Nguyễn Du', 'nguyen_du', '33'),
+    ('12577', 'Quỳnh An', 'Xã Quỳnh An', 'quynh_an', '33'),
+    ('12583', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '33'),
+    ('12586', 'Hưng Hà', 'Xã Hưng Hà', 'hung_ha', '33'),
+    ('12595', 'Ngự Thiên', 'Xã Ngự Thiên', 'ngu_thien', '33'),
+    ('12613', 'Long Hưng', 'Xã Long Hưng', 'long_hung', '33'),
+    ('12631', 'Thần Khê', 'Xã Thần Khê', 'than_khe', '33'),
+    ('12634', 'Tiên La', 'Xã Tiên La', 'tien_la', '33'),
+    ('12676', 'Lê Quý Đôn', 'Xã Lê Quý Đôn', 'le_quy_don', '33'),
+    ('12685', 'Hồng Minh', 'Xã Hồng Minh', 'hong_minh', '33'),
+    ('12688', 'Đông Hưng', 'Xã Đông Hưng', 'dong_hung', '33'),
+    ('12694', 'Bắc Đông Hưng', 'Xã Bắc Đông Hưng', 'bac_dong_hung', '33'),
+    ('12700', 'Bắc Tiên Hưng', 'Xã Bắc Tiên Hưng', 'bac_tien_hung', '33'),
+    ('12736', 'Đông Tiên Hưng', 'Xã Đông Tiên Hưng', 'dong_tien_hung', '33'),
+    ('12745', 'Bắc Đông Quan', 'Xã Bắc Đông Quan', 'bac_dong_quan', '33');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('12754', 'Tiên Hưng', 'Xã Tiên Hưng', 'tien_hung', '33'),
+    ('12763', 'Nam Tiên Hưng', 'Xã Nam Tiên Hưng', 'nam_tien_hung', '33'),
+    ('12775', 'Nam Đông Hưng', 'Xã Nam Đông Hưng', 'nam_dong_hung', '33'),
+    ('12793', 'Đông Quan', 'Xã Đông Quan', 'dong_quan', '33'),
+    ('12817', 'Trà Lý', 'Phường Trà Lý', 'tra_ly', '33'),
+    ('12826', 'Thái Thuỵ', 'Xã Thái Thuỵ', 'thai_thuy', '33'),
+    ('12850', 'Tây Thuỵ Anh', 'Xã Tây Thuỵ Anh', 'tay_thuy_anh', '33'),
+    ('12859', 'Bắc Thuỵ Anh', 'Xã Bắc Thuỵ Anh', 'bac_thuy_anh', '33'),
+    ('12862', 'Đông Thuỵ Anh', 'Xã Đông Thuỵ Anh', 'dong_thuy_anh', '33'),
+    ('12865', 'Thuỵ Anh', 'Xã Thuỵ Anh', 'thuy_anh', '33'),
+    ('12904', 'Nam Thuỵ Anh', 'Xã Nam Thuỵ Anh', 'nam_thuy_anh', '33'),
+    ('12916', 'Bắc Thái Ninh', 'Xã Bắc Thái Ninh', 'bac_thai_ninh', '33'),
+    ('12919', 'Tây Thái Ninh', 'Xã Tây Thái Ninh', 'tay_thai_ninh', '33'),
+    ('12922', 'Thái Ninh', 'Xã Thái Ninh', 'thai_ninh', '33'),
+    ('12943', 'Đông Thái Ninh', 'Xã Đông Thái Ninh', 'dong_thai_ninh', '33'),
+    ('12961', 'Nam Thái Ninh', 'Xã Nam Thái Ninh', 'nam_thai_ninh', '33'),
+    ('12970', 'Tiền Hải', 'Xã Tiền Hải', 'tien_hai', '33'),
+    ('12988', 'Đông Tiền Hải', 'Xã Đông Tiền Hải', 'dong_tien_hai', '33'),
+    ('13003', 'Đồng Châu', 'Xã Đồng Châu', 'dong_chau', '33'),
+    ('13021', 'Ái Quốc', 'Xã Ái Quốc', 'ai_quoc', '33'),
+    ('13039', 'Tây Tiền Hải', 'Xã Tây Tiền Hải', 'tay_tien_hai', '33'),
+    ('13057', 'Nam Cường', 'Xã Nam Cường', 'nam_cuong', '33'),
+    ('13063', 'Nam Tiền Hải', 'Xã Nam Tiền Hải', 'nam_tien_hai', '33'),
+    ('13066', 'Hưng Phú', 'Xã Hưng Phú', 'hung_phu', '33'),
+    ('13075', 'Kiến Xương', 'Xã Kiến Xương', 'kien_xuong', '33'),
+    ('13093', 'Trà Giang', 'Xã Trà Giang', 'tra_giang', '33'),
+    ('13096', 'Bình Nguyên', 'Xã Bình Nguyên', 'binh_nguyen', '33'),
+    ('13120', 'Lê Lợi', 'Xã Lê Lợi', 'le_loi', '33'),
+    ('13132', 'Quang Lịch', 'Xã Quang Lịch', 'quang_lich', '33'),
+    ('13141', 'Vũ Quý', 'Xã Vũ Quý', 'vu_quy', '33'),
+    ('13159', 'Hồng Vũ', 'Xã Hồng Vũ', 'hong_vu', '33'),
+    ('13183', 'Bình Thanh', 'Xã Bình Thanh', 'binh_thanh', '33'),
+    ('13186', 'Bình Định', 'Xã Bình Định', 'binh_dinh', '33'),
+    ('13192', 'Vũ Thư', 'Xã Vũ Thư', 'vu_thu', '33'),
+    ('13219', 'Vạn Xuân', 'Xã Vạn Xuân', 'van_xuan', '33'),
+    ('13222', 'Thư Trì', 'Xã Thư Trì', 'thu_tri', '33'),
+    ('13225', 'Thái Bình', 'Phường Thái Bình', 'thai_binh', '33'),
+    ('13246', 'Tân Thuận', 'Xã Tân Thuận', 'tan_thuan', '33'),
+    ('13264', 'Thư Vũ', 'Xã Thư Vũ', 'thu_vu', '33'),
+    ('13279', 'Vũ Tiên', 'Xã Vũ Tiên', 'vu_tien', '33'),
+    ('13285', 'Phủ Lý', 'Phường Phủ Lý', 'phu_ly', '37'),
+    ('13291', 'Phù Vân', 'Phường Phù Vân', 'phu_van', '37'),
+    ('13318', 'Châu Sơn', 'Phường Châu Sơn', 'chau_son', '37'),
+    ('13324', 'Duy Tiên', 'Phường Duy Tiên', 'duy_tien', '37'),
+    ('13330', 'Duy Tân', 'Phường Duy Tân', 'duy_tan', '37'),
+    ('13336', 'Duy Hà', 'Phường Duy Hà', 'duy_ha', '37'),
+    ('13348', 'Đồng Văn', 'Phường Đồng Văn', 'dong_van', '37'),
+    ('13363', 'Tiên Sơn', 'Phường Tiên Sơn', 'tien_son', '37'),
+    ('13366', 'Hà Nam', 'Phường Hà Nam', 'ha_nam', '37'),
+    ('13384', 'Kim Bảng', 'Phường Kim Bảng', 'kim_bang', '37'),
+    ('13393', 'Lê Hồ', 'Phường Lê Hồ', 'le_ho', '37'),
+    ('13396', 'Nguyễn Úy', 'Phường Nguyễn Úy', 'nguyen_uy', '37'),
+    ('13402', 'Kim Thanh', 'Phường Kim Thanh', 'kim_thanh', '37'),
+    ('13420', 'Tam Chúc', 'Phường Tam Chúc', 'tam_chuc', '37'),
+    ('13435', 'Lý Thường Kiệt', 'Phường Lý Thường Kiệt', 'ly_thuong_kiet', '37'),
+    ('13444', 'Liêm Tuyền', 'Phường Liêm Tuyền', 'liem_tuyen', '37'),
+    ('13456', 'Liêm Hà', 'Xã Liêm Hà', 'liem_ha', '37'),
+    ('13474', 'Tân Thanh', 'Xã Tân Thanh', 'tan_thanh', '37'),
+    ('13483', 'Thanh Bình', 'Xã Thanh Bình', 'thanh_binh', '37'),
+    ('13489', 'Thanh Lâm', 'Xã Thanh Lâm', 'thanh_lam', '37'),
+    ('13495', 'Thanh Liêm', 'Xã Thanh Liêm', 'thanh_liem', '37'),
+    ('13501', 'Bình Mỹ', 'Xã Bình Mỹ', 'binh_my', '37'),
+    ('13504', 'Bình Lục', 'Xã Bình Lục', 'binh_luc', '37'),
+    ('13531', 'Bình Giang', 'Xã Bình Giang', 'binh_giang', '37'),
+    ('13540', 'Bình An', 'Xã Bình An', 'binh_an', '37'),
+    ('13558', 'Bình Sơn', 'Xã Bình Sơn', 'binh_son', '37'),
+    ('13573', 'Lý Nhân', 'Xã Lý Nhân', 'ly_nhan', '37'),
+    ('13579', 'Bắc Lý', 'Xã Bắc Lý', 'bac_ly', '37'),
+    ('13591', 'Nam Xang', 'Xã Nam Xang', 'nam_xang', '37'),
+    ('13594', 'Trần Thương', 'Xã Trần Thương', 'tran_thuong', '37'),
+    ('13597', 'Vĩnh Trụ', 'Xã Vĩnh Trụ', 'vinh_tru', '37'),
+    ('13609', 'Nhân Hà', 'Xã Nhân Hà', 'nhan_ha', '37'),
+    ('13627', 'Nam Lý', 'Xã Nam Lý', 'nam_ly', '37'),
+    ('13669', 'Nam Định', 'Phường Nam Định', 'nam_dinh', '37'),
+    ('13684', 'Thiên Trường', 'Phường Thiên Trường', 'thien_truong', '37'),
+    ('13693', 'Đông A', 'Phường Đông A', 'dong_a', '37'),
+    ('13699', 'Thành Nam', 'Phường Thành Nam', 'thanh_nam', '37'),
+    ('13708', 'Mỹ Lộc', 'Phường Mỹ Lộc', 'my_loc', '37'),
+    ('13741', 'Vụ Bản', 'Xã Vụ Bản', 'vu_ban', '37'),
+    ('13750', 'Minh Tân', 'Xã Minh Tân', 'minh_tan', '37'),
+    ('13753', 'Hiển Khánh', 'Xã Hiển Khánh', 'hien_khanh', '37'),
+    ('13777', 'Trường Thi', 'Phường Trường Thi', 'truong_thi', '37'),
+    ('13786', 'Liên Minh', 'Xã Liên Minh', 'lien_minh', '37'),
+    ('13795', 'Ý Yên', 'Xã Ý Yên', 'y_yen', '37'),
+    ('13807', 'Tân Minh', 'Xã Tân Minh', 'tan_minh', '37'),
+    ('13822', 'Phong Doanh', 'Xã Phong Doanh', 'phong_doanh', '37'),
+    ('13834', 'Vũ Dương', 'Xã Vũ Dương', 'vu_duong', '37'),
+    ('13864', 'Vạn Thắng', 'Xã Vạn Thắng', 'van_thang', '37'),
+    ('13870', 'Yên Cường', 'Xã Yên Cường', 'yen_cuong', '37'),
+    ('13879', 'Yên Đồng', 'Xã Yên Đồng', 'yen_dong', '37'),
+    ('13891', 'Nghĩa Hưng', 'Xã Nghĩa Hưng', 'nghia_hung', '37'),
+    ('13894', 'Rạng Đông', 'Xã Rạng Đông', 'rang_dong', '37'),
+    ('13900', 'Đồng Thịnh', 'Xã Đồng Thịnh', 'dong_thinh', '37'),
+    ('13918', 'Nghĩa Sơn', 'Xã Nghĩa Sơn', 'nghia_son', '37'),
+    ('13927', 'Hồng Phong', 'Xã Hồng Phong', 'hong_phong', '37'),
+    ('13939', 'Quỹ Nhất', 'Xã Quỹ Nhất', 'quy_nhat', '37'),
+    ('13957', 'Nghĩa Lâm', 'Xã Nghĩa Lâm', 'nghia_lam', '37'),
+    ('13966', 'Nam Trực', 'Xã Nam Trực', 'nam_truc', '37'),
+    ('13972', 'Vị Khê', 'Phường Vị Khê', 'vi_khe', '37'),
+    ('13984', 'Hồng Quang', 'Phường Hồng Quang', 'hong_quang', '37'),
+    ('13987', 'Nam Hồng', 'Xã Nam Hồng', 'nam_hong', '37'),
+    ('14005', 'Nam Ninh', 'Xã Nam Ninh', 'nam_ninh', '37'),
+    ('14011', 'Nam Minh', 'Xã Nam Minh', 'nam_minh', '37'),
+    ('14014', 'Nam Đồng', 'Xã Nam Đồng', 'nam_dong', '37'),
+    ('14026', 'Cổ Lễ', 'Xã Cổ Lễ', 'co_le', '37'),
+    ('14038', 'Ninh Giang', 'Xã Ninh Giang', 'ninh_giang', '37'),
+    ('14053', 'Trực Ninh', 'Xã Trực Ninh', 'truc_ninh', '37'),
+    ('14056', 'Cát Thành', 'Xã Cát Thành', 'cat_thanh', '37'),
+    ('14062', 'Quang Hưng', 'Xã Quang Hưng', 'quang_hung', '37'),
+    ('14071', 'Minh Thái', 'Xã Minh Thái', 'minh_thai', '37'),
+    ('14077', 'Ninh Cường', 'Xã Ninh Cường', 'ninh_cuong', '37'),
+    ('14089', 'Xuân Trường', 'Xã Xuân Trường', 'xuan_truong', '37'),
+    ('14095', 'Xuân Hồng', 'Xã Xuân Hồng', 'xuan_hong', '37'),
+    ('14104', 'Xuân Giang', 'Xã Xuân Giang', 'xuan_giang', '37'),
+    ('14122', 'Xuân Hưng', 'Xã Xuân Hưng', 'xuan_hung', '37'),
+    ('14161', 'Giao Minh', 'Xã Giao Minh', 'giao_minh', '37'),
+    ('14167', 'Giao Thuỷ', 'Xã Giao Thuỷ', 'giao_thuy', '37'),
+    ('14179', 'Giao Hưng', 'Xã Giao Hưng', 'giao_hung', '37'),
+    ('14182', 'Giao Hoà', 'Xã Giao Hoà', 'giao_hoa', '37'),
+    ('14194', 'Giao Bình', 'Xã Giao Bình', 'giao_binh', '37'),
+    ('14203', 'Giao Phúc', 'Xã Giao Phúc', 'giao_phuc', '37'),
+    ('14212', 'Giao Ninh', 'Xã Giao Ninh', 'giao_ninh', '37'),
+    ('14215', 'Hải Hậu', 'Xã Hải Hậu', 'hai_hau', '37'),
+    ('14218', 'Hải Tiến', 'Xã Hải Tiến', 'hai_tien', '37'),
+    ('14221', 'Hải Thịnh', 'Xã Hải Thịnh', 'hai_thinh', '37'),
+    ('14236', 'Hải Anh', 'Xã Hải Anh', 'hai_anh', '37'),
+    ('14248', 'Hải Hưng', 'Xã Hải Hưng', 'hai_hung', '37'),
+    ('14281', 'Hải An', 'Xã Hải An', 'hai_an', '37'),
+    ('14287', 'Hải Quang', 'Xã Hải Quang', 'hai_quang', '37'),
+    ('14308', 'Hải Xuân', 'Xã Hải Xuân', 'hai_xuan', '37'),
+    ('14329', 'Hoa Lư', 'Phường Hoa Lư', 'hoa_lu', '37'),
+    ('14359', 'Nam Hoa Lư', 'Phường Nam Hoa Lư', 'nam_hoa_lu', '37'),
+    ('14362', 'Tam Điệp', 'Phường Tam Điệp', 'tam_diep', '37'),
+    ('14365', 'Trung Sơn', 'Phường Trung Sơn', 'trung_son', '37'),
+    ('14371', 'Yên Sơn', 'Phường Yên Sơn', 'yen_son', '37'),
+    ('14401', 'Gia Tường', 'Xã Gia Tường', 'gia_tuong', '37'),
+    ('14404', 'Cúc Phương', 'Xã Cúc Phương', 'cuc_phuong', '37'),
+    ('14407', 'Phú Sơn', 'Xã Phú Sơn', 'phu_son', '37'),
+    ('14428', 'Nho Quan', 'Xã Nho Quan', 'nho_quan', '37'),
+    ('14434', 'Thanh Sơn', 'Xã Thanh Sơn', 'thanh_son', '37'),
+    ('14452', 'Quỳnh Lưu', 'Xã Quỳnh Lưu', 'quynh_luu', '37'),
+    ('14458', 'Phú Long', 'Xã Phú Long', 'phu_long', '37'),
+    ('14464', 'Gia Viễn', 'Xã Gia Viễn', 'gia_vien', '37'),
+    ('14482', 'Gia Hưng', 'Xã Gia Hưng', 'gia_hung', '37'),
+    ('14488', 'Gia Vân', 'Xã Gia Vân', 'gia_van', '37'),
+    ('14494', 'Gia Trấn', 'Xã Gia Trấn', 'gia_tran', '37'),
+    ('14500', 'Đại Hoàng', 'Xã Đại Hoàng', 'dai_hoang', '37'),
+    ('14524', 'Gia Phong', 'Xã Gia Phong', 'gia_phong', '37'),
+    ('14533', 'Tây Hoa Lư', 'Phường Tây Hoa Lư', 'tay_hoa_lu', '37'),
+    ('14560', 'Yên Khánh', 'Xã Yên Khánh', 'yen_khanh', '37'),
+    ('14563', 'Khánh Thiện', 'Xã Khánh Thiện', 'khanh_thien', '37'),
+    ('14566', 'Đông Hoa Lư', 'Phường Đông Hoa Lư', 'dong_hoa_lu', '37'),
+    ('14608', 'Khánh Trung', 'Xã Khánh Trung', 'khanh_trung', '37'),
+    ('14611', 'Khánh Nhạc', 'Xã Khánh Nhạc', 'khanh_nhac', '37'),
+    ('14614', 'Khánh Hội', 'Xã Khánh Hội', 'khanh_hoi', '37'),
+    ('14620', 'Phát Diệm', 'Xã Phát Diệm', 'phat_diem', '37'),
+    ('14623', 'Bình Minh', 'Xã Bình Minh', 'binh_minh', '37'),
+    ('14638', 'Kim Sơn', 'Xã Kim Sơn', 'kim_son', '37'),
+    ('14647', 'Quang Thiện', 'Xã Quang Thiện', 'quang_thien', '37'),
+    ('14653', 'Chất Bình', 'Xã Chất Bình', 'chat_binh', '37'),
+    ('14674', 'Lai Thành', 'Xã Lai Thành', 'lai_thanh', '37'),
+    ('14677', 'Định Hoá', 'Xã Định Hoá', 'dinh_hoa', '37'),
+    ('14698', 'Kim Đông', 'Xã Kim Đông', 'kim_dong', '37'),
+    ('14701', 'Yên Mô', 'Xã Yên Mô', 'yen_mo', '37'),
+    ('14725', 'Yên Thắng', 'Phường Yên Thắng', 'yen_thang', '37'),
+    ('14728', 'Yên Từ', 'Xã Yên Từ', 'yen_tu', '37'),
+    ('14743', 'Yên Mạc', 'Xã Yên Mạc', 'yen_mac', '37'),
+    ('14746', 'Đồng Thái', 'Xã Đồng Thái', 'dong_thai', '37'),
+    ('14758', 'Hàm Rồng', 'Phường Hàm Rồng', 'ham_rong', '38'),
+    ('14797', 'Hạc Thành', 'Phường Hạc Thành', 'hac_thanh', '38'),
+    ('14812', 'Bỉm Sơn', 'Phường Bỉm Sơn', 'bim_son', '38'),
+    ('14818', 'Quang Trung', 'Phường Quang Trung', 'quang_trung', '38'),
+    ('14845', 'Mường Lát', 'Xã Mường Lát', 'muong_lat', '38'),
+    ('14848', 'Tam Chung', 'Xã Tam Chung', 'tam_chung', '38'),
+    ('14854', 'Mường Lý', 'Xã Mường Lý', 'muong_ly', '38'),
+    ('14857', 'Trung Lý', 'Xã Trung Lý', 'trung_ly', '38'),
+    ('14860', 'Quang Chiểu', 'Xã Quang Chiểu', 'quang_chieu', '38'),
+    ('14863', 'Pù Nhi', 'Xã Pù Nhi', 'pu_nhi', '38'),
+    ('14864', 'Nhi Sơn', 'Xã Nhi Sơn', 'nhi_son', '38'),
+    ('14866', 'Mường Chanh', 'Xã Mường Chanh', 'muong_chanh', '38'),
+    ('14869', 'Hồi Xuân', 'Xã Hồi Xuân', 'hoi_xuan', '38'),
+    ('14872', 'Trung Thành', 'Xã Trung Thành', 'trung_thanh', '38'),
+    ('14875', 'Trung Sơn', 'Xã Trung Sơn', 'trung_son', '38'),
+    ('14878', 'Phú Lệ', 'Xã Phú Lệ', 'phu_le', '38'),
+    ('14890', 'Phú Xuân', 'Xã Phú Xuân', 'phu_xuan', '38'),
+    ('14896', 'Hiền Kiệt', 'Xã Hiền Kiệt', 'hien_kiet', '38'),
+    ('14902', 'Nam Xuân', 'Xã Nam Xuân', 'nam_xuan', '38'),
+    ('14908', 'Thiên Phủ', 'Xã Thiên Phủ', 'thien_phu', '38'),
+    ('14923', 'Bá Thước', 'Xã Bá Thước', 'ba_thuoc', '38'),
+    ('14932', 'Điền Quang', 'Xã Điền Quang', 'dien_quang', '38'),
+    ('14950', 'Điền Lư', 'Xã Điền Lư', 'dien_lu', '38'),
+    ('14953', 'Quý Lương', 'Xã Quý Lương', 'quy_luong', '38'),
+    ('14956', 'Pù Luông', 'Xã Pù Luông', 'pu_luong', '38'),
+    ('14959', 'Cổ Lũng', 'Xã Cổ Lũng', 'co_lung', '38'),
+    ('14974', 'Văn Nho', 'Xã Văn Nho', 'van_nho', '38'),
+    ('14980', 'Thiết Ống', 'Xã Thiết Ống', 'thiet_ong', '38'),
+    ('15001', 'Trung Hạ', 'Xã Trung Hạ', 'trung_ha', '38'),
+    ('15007', 'Tam Thanh', 'Xã Tam Thanh', 'tam_thanh', '38'),
+    ('15010', 'Sơn Thuỷ', 'Xã Sơn Thuỷ', 'son_thuy', '38'),
+    ('15013', 'Na Mèo', 'Xã Na Mèo', 'na_meo', '38');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('15016', 'Quan Sơn', 'Xã Quan Sơn', 'quan_son', '38'),
+    ('15019', 'Tam Lư', 'Xã Tam Lư', 'tam_lu', '38'),
+    ('15022', 'Sơn Điện', 'Xã Sơn Điện', 'son_dien', '38'),
+    ('15025', 'Mường Mìn', 'Xã Mường Mìn', 'muong_min', '38'),
+    ('15031', 'Yên Khương', 'Xã Yên Khương', 'yen_khuong', '38'),
+    ('15034', 'Yên Thắng', 'Xã Yên Thắng', 'yen_thang', '38'),
+    ('15043', 'Giao An', 'Xã Giao An', 'giao_an', '38'),
+    ('15049', 'Văn Phú', 'Xã Văn Phú', 'van_phu', '38'),
+    ('15055', 'Linh Sơn', 'Xã Linh Sơn', 'linh_son', '38'),
+    ('15058', 'Đồng Lương', 'Xã Đồng Lương', 'dong_luong', '38'),
+    ('15061', 'Ngọc Lặc', 'Xã Ngọc Lặc', 'ngoc_lac', '38'),
+    ('15085', 'Thạch Lập', 'Xã Thạch Lập', 'thach_lap', '38'),
+    ('15091', 'Ngọc Liên', 'Xã Ngọc Liên', 'ngoc_lien', '38'),
+    ('15106', 'Nguyệt Ấn', 'Xã Nguyệt Ấn', 'nguyet_an', '38'),
+    ('15112', 'Kiên Thọ', 'Xã Kiên Thọ', 'kien_tho', '38'),
+    ('15124', 'Minh Sơn', 'Xã Minh Sơn', 'minh_son', '38'),
+    ('15127', 'Cẩm Thuỷ', 'Xã Cẩm Thuỷ', 'cam_thuy', '38'),
+    ('15142', 'Cẩm Thạch', 'Xã Cẩm Thạch', 'cam_thach', '38'),
+    ('15148', 'Cẩm Tú', 'Xã Cẩm Tú', 'cam_tu', '38'),
+    ('15163', 'Cẩm Vân', 'Xã Cẩm Vân', 'cam_van', '38'),
+    ('15178', 'Cẩm Tân', 'Xã Cẩm Tân', 'cam_tan', '38'),
+    ('15187', 'Kim Tân', 'Xã Kim Tân', 'kim_tan', '38'),
+    ('15190', 'Vân Du', 'Xã Vân Du', 'van_du', '38'),
+    ('15199', 'Thạch Quảng', 'Xã Thạch Quảng', 'thach_quang', '38'),
+    ('15211', 'Thạch Bình', 'Xã Thạch Bình', 'thach_binh', '38'),
+    ('15229', 'Thành Vinh', 'Xã Thành Vinh', 'thanh_vinh', '38'),
+    ('15250', 'Ngọc Trạo', 'Xã Ngọc Trạo', 'ngoc_trao', '38'),
+    ('15271', 'Hà Trung', 'Xã Hà Trung', 'ha_trung', '38'),
+    ('15274', 'Hà Long', 'Xã Hà Long', 'ha_long', '38'),
+    ('15286', 'Hoạt Giang', 'Xã Hoạt Giang', 'hoat_giang', '38'),
+    ('15298', 'Lĩnh Toại', 'Xã Lĩnh Toại', 'linh_toai', '38'),
+    ('15316', 'Tống Sơn', 'Xã Tống Sơn', 'tong_son', '38'),
+    ('15349', 'Vĩnh Lộc', 'Xã Vĩnh Lộc', 'vinh_loc', '38'),
+    ('15361', 'Tây Đô', 'Xã Tây Đô', 'tay_do', '38'),
+    ('15382', 'Biện Thượng', 'Xã Biện Thượng', 'bien_thuong', '38'),
+    ('15409', 'Yên Phú', 'Xã Yên Phú', 'yen_phu', '38'),
+    ('15412', 'Quý Lộc', 'Xã Quý Lộc', 'quy_loc', '38'),
+    ('15421', 'Yên Trường', 'Xã Yên Trường', 'yen_truong', '38'),
+    ('15442', 'Yên Ninh', 'Xã Yên Ninh', 'yen_ninh', '38'),
+    ('15448', 'Định Hoà', 'Xã Định Hoà', 'dinh_hoa', '38'),
+    ('15457', 'Định Tân', 'Xã Định Tân', 'dinh_tan', '38'),
+    ('15469', 'Yên Định', 'Xã Yên Định', 'yen_dinh', '38'),
+    ('15499', 'Thọ Xuân', 'Xã Thọ Xuân', 'tho_xuan', '38'),
+    ('15505', 'Thọ Long', 'Xã Thọ Long', 'tho_long', '38'),
+    ('15520', 'Xuân Hoà', 'Xã Xuân Hoà', 'xuan_hoa', '38'),
+    ('15544', 'Lam Sơn', 'Xã Lam Sơn', 'lam_son', '38'),
+    ('15553', 'Sao Vàng', 'Xã Sao Vàng', 'sao_vang', '38'),
+    ('15568', 'Thọ Lập', 'Xã Thọ Lập', 'tho_lap', '38'),
+    ('15574', 'Xuân Tín', 'Xã Xuân Tín', 'xuan_tin', '38'),
+    ('15592', 'Xuân Lập', 'Xã Xuân Lập', 'xuan_lap', '38'),
+    ('15607', 'Bát Mọt', 'Xã Bát Mọt', 'bat_mot', '38'),
+    ('15610', 'Yên Nhân', 'Xã Yên Nhân', 'yen_nhan', '38'),
+    ('15622', 'Vạn Xuân', 'Xã Vạn Xuân', 'van_xuan', '38'),
+    ('15628', 'Lương Sơn', 'Xã Lương Sơn', 'luong_son', '38'),
+    ('15634', 'Luận Thành', 'Xã Luận Thành', 'luan_thanh', '38'),
+    ('15643', 'Thắng Lộc', 'Xã Thắng Lộc', 'thang_loc', '38'),
+    ('15646', 'Thường Xuân', 'Xã Thường Xuân', 'thuong_xuan', '38'),
+    ('15658', 'Xuân Chinh', 'Xã Xuân Chinh', 'xuan_chinh', '38'),
+    ('15661', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '38'),
+    ('15664', 'Triệu Sơn', 'Xã Triệu Sơn', 'trieu_son', '38'),
+    ('15667', 'Thọ Bình', 'Xã Thọ Bình', 'tho_binh', '38'),
+    ('15682', 'Hợp Tiến', 'Xã Hợp Tiến', 'hop_tien', '38'),
+    ('15715', 'Tân Ninh', 'Xã Tân Ninh', 'tan_ninh', '38'),
+    ('15724', 'Đồng Tiến', 'Xã Đồng Tiến', 'dong_tien', '38'),
+    ('15754', 'Thọ Ngọc', 'Xã Thọ Ngọc', 'tho_ngoc', '38'),
+    ('15763', 'Thọ Phú', 'Xã Thọ Phú', 'tho_phu', '38'),
+    ('15766', 'An Nông', 'Xã An Nông', 'an_nong', '38'),
+    ('15772', 'Thiệu Hoá', 'Xã Thiệu Hoá', 'thieu_hoa', '38'),
+    ('15778', 'Thiệu Tiến', 'Xã Thiệu Tiến', 'thieu_tien', '38'),
+    ('15796', 'Thiệu Quang', 'Xã Thiệu Quang', 'thieu_quang', '38'),
+    ('15820', 'Thiệu Toán', 'Xã Thiệu Toán', 'thieu_toan', '38'),
+    ('15835', 'Thiệu Trung', 'Xã Thiệu Trung', 'thieu_trung', '38'),
+    ('15853', 'Đông Tiến', 'Phường Đông Tiến', 'dong_tien', '38'),
+    ('15865', 'Hoằng Hoá', 'Xã Hoằng Hoá', 'hoang_hoa', '38'),
+    ('15880', 'Hoằng Giang', 'Xã Hoằng Giang', 'hoang_giang', '38'),
+    ('15889', 'Hoằng Phú', 'Xã Hoằng Phú', 'hoang_phu', '38'),
+    ('15910', 'Hoằng Sơn', 'Xã Hoằng Sơn', 'hoang_son', '38'),
+    ('15925', 'Nguyệt Viên', 'Phường Nguyệt Viên', 'nguyet_vien', '38'),
+    ('15961', 'Hoằng Lộc', 'Xã Hoằng Lộc', 'hoang_loc', '38'),
+    ('15976', 'Hoằng Châu', 'Xã Hoằng Châu', 'hoang_chau', '38'),
+    ('15991', 'Hoằng Tiến', 'Xã Hoằng Tiến', 'hoang_tien', '38'),
+    ('16000', 'Hoằng Thanh', 'Xã Hoằng Thanh', 'hoang_thanh', '38'),
+    ('16012', 'Hậu Lộc', 'Xã Hậu Lộc', 'hau_loc', '38'),
+    ('16021', 'Triệu Lộc', 'Xã Triệu Lộc', 'trieu_loc', '38'),
+    ('16033', 'Đông Thành', 'Xã Đông Thành', 'dong_thanh', '38'),
+    ('16072', 'Hoa Lộc', 'Xã Hoa Lộc', 'hoa_loc', '38'),
+    ('16078', 'Vạn Lộc', 'Xã Vạn Lộc', 'van_loc', '38'),
+    ('16093', 'Nga Sơn', 'Xã Nga Sơn', 'nga_son', '38'),
+    ('16108', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '38'),
+    ('16114', 'Nga Thắng', 'Xã Nga Thắng', 'nga_thang', '38'),
+    ('16138', 'Hồ Vương', 'Xã Hồ Vương', 'ho_vuong', '38'),
+    ('16144', 'Nga An', 'Xã Nga An', 'nga_an', '38'),
+    ('16171', 'Ba Đình', 'Xã Ba Đình', 'ba_dinh', '38'),
+    ('16174', 'Như Xuân', 'Xã Như Xuân', 'nhu_xuan', '38'),
+    ('16177', 'Xuân Bình', 'Xã Xuân Bình', 'xuan_binh', '38'),
+    ('16186', 'Hoá Quỳ', 'Xã Hoá Quỳ', 'hoa_quy', '38'),
+    ('16213', 'Thanh Phong', 'Xã Thanh Phong', 'thanh_phong', '38'),
+    ('16222', 'Thanh Quân', 'Xã Thanh Quân', 'thanh_quan', '38'),
+    ('16225', 'Thượng Ninh', 'Xã Thượng Ninh', 'thuong_ninh', '38'),
+    ('16228', 'Như Thanh', 'Xã Như Thanh', 'nhu_thanh', '38'),
+    ('16234', 'Xuân Du', 'Xã Xuân Du', 'xuan_du', '38'),
+    ('16249', 'Mậu Lâm', 'Xã Mậu Lâm', 'mau_lam', '38'),
+    ('16258', 'Xuân Thái', 'Xã Xuân Thái', 'xuan_thai', '38'),
+    ('16264', 'Yên Thọ', 'Xã Yên Thọ', 'yen_tho', '38'),
+    ('16273', 'Thanh Kỳ', 'Xã Thanh Kỳ', 'thanh_ky', '38'),
+    ('16279', 'Nông Cống', 'Xã Nông Cống', 'nong_cong', '38'),
+    ('16297', 'Trung Chính', 'Xã Trung Chính', 'trung_chinh', '38'),
+    ('16309', 'Thắng Lợi', 'Xã Thắng Lợi', 'thang_loi', '38'),
+    ('16342', 'Thăng Bình', 'Xã Thăng Bình', 'thang_binh', '38'),
+    ('16348', 'Trường Văn', 'Xã Trường Văn', 'truong_van', '38'),
+    ('16363', 'Tượng Lĩnh', 'Xã Tượng Lĩnh', 'tuong_linh', '38'),
+    ('16369', 'Công Chính', 'Xã Công Chính', 'cong_chinh', '38'),
+    ('16378', 'Đông Sơn', 'Phường Đông Sơn', 'dong_son', '38'),
+    ('16417', 'Đông Quang', 'Phường Đông Quang', 'dong_quang', '38'),
+    ('16438', 'Lưu Vệ', 'Xã Lưu Vệ', 'luu_ve', '38'),
+    ('16480', 'Quảng Yên', 'Xã Quảng Yên', 'quang_yen', '38'),
+    ('16489', 'Quảng Chính', 'Xã Quảng Chính', 'quang_chinh', '38'),
+    ('16498', 'Quảng Ngọc', 'Xã Quảng Ngọc', 'quang_ngoc', '38'),
+    ('16516', 'Nam Sầm Sơn', 'Phường Nam Sầm Sơn', 'nam_sam_son', '38'),
+    ('16522', 'Quảng Phú', 'Phường Quảng Phú', 'quang_phu', '38'),
+    ('16531', 'Sầm Sơn', 'Phường Sầm Sơn', 'sam_son', '38'),
+    ('16540', 'Quảng Ninh', 'Xã Quảng Ninh', 'quang_ninh', '38'),
+    ('16543', 'Quảng Bình', 'Xã Quảng Bình', 'quang_binh', '38'),
+    ('16549', 'Tiên Trang', 'Xã Tiên Trang', 'tien_trang', '38'),
+    ('16561', 'Tĩnh Gia', 'Phường Tĩnh Gia', 'tinh_gia', '38'),
+    ('16576', 'Ngọc Sơn', 'Phường Ngọc Sơn', 'ngoc_son', '38'),
+    ('16591', 'Các Sơn', 'Xã Các Sơn', 'cac_son', '38'),
+    ('16594', 'Tân Dân', 'Phường Tân Dân', 'tan_dan', '38'),
+    ('16597', 'Hải Lĩnh', 'Phường Hải Lĩnh', 'hai_linh', '38'),
+    ('16609', 'Đào Duy Từ', 'Phường Đào Duy Từ', 'dao_duy_tu', '38'),
+    ('16624', 'Trúc Lâm', 'Phường Trúc Lâm', 'truc_lam', '38'),
+    ('16636', 'Trường Lâm', 'Xã Trường Lâm', 'truong_lam', '38'),
+    ('16645', 'Hải Bình', 'Phường Hải Bình', 'hai_binh', '38'),
+    ('16654', 'Nghi Sơn', 'Phường Nghi Sơn', 'nghi_son', '38'),
+    ('17611', 'Vân Tụ', 'Xã Vân Tụ', 'van_tu', '40'),
+    ('16681', 'Thành Vinh', 'Phường Thành Vinh', 'thanh_vinh', '40'),
+    ('16690', 'Trường Vinh', 'Phường Trường Vinh', 'truong_vinh', '40'),
+    ('16702', 'Vinh Phú', 'Phường Vinh Phú', 'vinh_phu', '40'),
+    ('16708', 'Vinh Lộc', 'Phường Vinh Lộc', 'vinh_loc', '40'),
+    ('16732', 'Cửa Lò', 'Phường Cửa Lò', 'cua_lo', '40'),
+    ('16738', 'Quế Phong', 'Xã Quế Phong', 'que_phong', '40'),
+    ('16744', 'Thông Thụ', 'Xã Thông Thụ', 'thong_thu', '40'),
+    ('16750', 'Tiền Phong', 'Xã Tiền Phong', 'tien_phong', '40'),
+    ('16756', 'Tri Lễ', 'Xã Tri Lễ', 'tri_le', '40'),
+    ('16774', 'Mường Quàng', 'Xã Mường Quàng', 'muong_quang', '40'),
+    ('16777', 'Quỳ Châu', 'Xã Quỳ Châu', 'quy_chau', '40'),
+    ('16792', 'Châu Tiến', 'Xã Châu Tiến', 'chau_tien', '40'),
+    ('16801', 'Hùng Chân', 'Xã Hùng Chân', 'hung_chan', '40'),
+    ('16804', 'Châu Bình', 'Xã Châu Bình', 'chau_binh', '40'),
+    ('16813', 'Mường Xén', 'Xã Mường Xén', 'muong_xen', '40'),
+    ('16816', 'Mỹ Lý', 'Xã Mỹ Lý', 'my_ly', '40'),
+    ('16819', 'Bắc Lý', 'Xã Bắc Lý', 'bac_ly', '40'),
+    ('16822', 'Keng Đu', 'Xã Keng Đu', 'keng_du', '40'),
+    ('16828', 'Huồi Tụ', 'Xã Huồi Tụ', 'huoi_tu', '40'),
+    ('16831', 'Mường Lống', 'Xã Mường Lống', 'muong_long', '40'),
+    ('16834', 'Na Loi', 'Xã Na Loi', 'na_loi', '40'),
+    ('16837', 'Nậm Cắn', 'Xã Nậm Cắn', 'nam_can', '40'),
+    ('16849', 'Hữu Kiệm', 'Xã Hữu Kiệm', 'huu_kiem', '40'),
+    ('16855', 'Chiêu Lưu', 'Xã Chiêu Lưu', 'chieu_luu', '40'),
+    ('16858', 'Mường Típ', 'Xã Mường Típ', 'muong_tip', '40'),
+    ('16870', 'Na Ngoi', 'Xã Na Ngoi', 'na_ngoi', '40'),
+    ('16876', 'Tương Dương', 'Xã Tương Dương', 'tuong_duong', '40'),
+    ('16882', 'Nhôn Mai', 'Xã Nhôn Mai', 'nhon_mai', '40'),
+    ('16885', 'Hữu Khuông', 'Xã Hữu Khuông', 'huu_khuong', '40'),
+    ('16903', 'Nga My', 'Xã Nga My', 'nga_my', '40'),
+    ('16906', 'Lượng Minh', 'Xã Lượng Minh', 'luong_minh', '40'),
+    ('16909', 'Yên Hoà', 'Xã Yên Hoà', 'yen_hoa', '40'),
+    ('16912', 'Yên Na', 'Xã Yên Na', 'yen_na', '40'),
+    ('16933', 'Tam Quang', 'Xã Tam Quang', 'tam_quang', '40'),
+    ('16936', 'Tam Thái', 'Xã Tam Thái', 'tam_thai', '40'),
+    ('16939', 'Thái Hoà', 'Phường Thái Hoà', 'thai_hoa', '40'),
+    ('16941', 'Nghĩa Đàn', 'Xã Nghĩa Đàn', 'nghia_dan', '40'),
+    ('16951', 'Nghĩa Lâm', 'Xã Nghĩa Lâm', 'nghia_lam', '40'),
+    ('16969', 'Nghĩa Thọ', 'Xã Nghĩa Thọ', 'nghia_tho', '40'),
+    ('16972', 'Nghĩa Hưng', 'Xã Nghĩa Hưng', 'nghia_hung', '40'),
+    ('16975', 'Nghĩa Mai', 'Xã Nghĩa Mai', 'nghia_mai', '40'),
+    ('17011', 'Tây Hiếu', 'Phường Tây Hiếu', 'tay_hieu', '40'),
+    ('17017', 'Đông Hiếu', 'Xã Đông Hiếu', 'dong_hieu', '40'),
+    ('17029', 'Nghĩa Lộc', 'Xã Nghĩa Lộc', 'nghia_loc', '40'),
+    ('17032', 'Nghĩa Khánh', 'Xã Nghĩa Khánh', 'nghia_khanh', '40'),
+    ('17035', 'Quỳ Hợp', 'Xã Quỳ Hợp', 'quy_hop', '40'),
+    ('17044', 'Châu Hồng', 'Xã Châu Hồng', 'chau_hong', '40'),
+    ('17056', 'Châu Lộc', 'Xã Châu Lộc', 'chau_loc', '40'),
+    ('17059', 'Tam Hợp', 'Xã Tam Hợp', 'tam_hop', '40'),
+    ('17071', 'Minh Hợp', 'Xã Minh Hợp', 'minh_hop', '40'),
+    ('17077', 'Mường Ham', 'Xã Mường Ham', 'muong_ham', '40'),
+    ('17089', 'Mường Chọng', 'Xã Mường Chọng', 'muong_chong', '40'),
+    ('17110', 'Hoàng Mai', 'Phường Hoàng Mai', 'hoang_mai', '40'),
+    ('17125', 'Quỳnh Mai', 'Phường Quỳnh Mai', 'quynh_mai', '40'),
+    ('17128', 'Tân Mai', 'Phường Tân Mai', 'tan_mai', '40'),
+    ('17143', 'Quỳnh Văn', 'Xã Quỳnh Văn', 'quynh_van', '40'),
+    ('17149', 'Quỳnh Tam', 'Xã Quỳnh Tam', 'quynh_tam', '40'),
+    ('17170', 'Quỳnh Sơn', 'Xã Quỳnh Sơn', 'quynh_son', '40'),
+    ('17176', 'Quỳnh Anh', 'Xã Quỳnh Anh', 'quynh_anh', '40'),
+    ('17179', 'Quỳnh Lưu', 'Xã Quỳnh Lưu', 'quynh_luu', '40'),
+    ('17212', 'Quỳnh Phú', 'Xã Quỳnh Phú', 'quynh_phu', '40'),
+    ('17224', 'Quỳnh Thắng', 'Xã Quỳnh Thắng', 'quynh_thang', '40'),
+    ('17230', 'Bình Chuẩn', 'Xã Bình Chuẩn', 'binh_chuan', '40'),
+    ('17239', 'Mậu Thạch', 'Xã Mậu Thạch', 'mau_thach', '40'),
+    ('17242', 'Cam Phục', 'Xã Cam Phục', 'cam_phuc', '40');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('17248', 'Châu Khê', 'Xã Châu Khê', 'chau_khe', '40'),
+    ('17254', 'Con Cuông', 'Xã Con Cuông', 'con_cuong', '40'),
+    ('17263', 'Môn Sơn', 'Xã Môn Sơn', 'mon_son', '40'),
+    ('17266', 'Tân Kỳ', 'Xã Tân Kỳ', 'tan_ky', '40'),
+    ('17272', 'Tân Phú', 'Xã Tân Phú', 'tan_phu', '40'),
+    ('17278', 'Giai Xuân', 'Xã Giai Xuân', 'giai_xuan', '40'),
+    ('17284', 'Nghĩa Đồng', 'Xã Nghĩa Đồng', 'nghia_dong', '40'),
+    ('17287', 'Tiên Đồng', 'Xã Tiên Đồng', 'tien_dong', '40'),
+    ('17305', 'Tân An', 'Xã Tân An', 'tan_an', '40'),
+    ('17326', 'Nghĩa Hành', 'Xã Nghĩa Hành', 'nghia_hanh', '40'),
+    ('17329', 'Anh Sơn', 'Xã Anh Sơn', 'anh_son', '40'),
+    ('17335', 'Thành Bình Thọ', 'Xã Thành Bình Thọ', 'thanh_binh_tho', '40'),
+    ('17344', 'Nhân Hoà', 'Xã Nhân Hoà', 'nhan_hoa', '40'),
+    ('17357', 'Vĩnh Tường', 'Xã Vĩnh Tường', 'vinh_tuong', '40'),
+    ('17365', 'Anh Sơn Đông', 'Xã Anh Sơn Đông', 'anh_son_dong', '40'),
+    ('17380', 'Yên Xuân', 'Xã Yên Xuân', 'yen_xuan', '40'),
+    ('17395', 'Hùng Châu', 'Xã Hùng Châu', 'hung_chau', '40'),
+    ('17416', 'Đức Châu', 'Xã Đức Châu', 'duc_chau', '40'),
+    ('17419', 'Hải Châu', 'Xã Hải Châu', 'hai_chau', '40'),
+    ('17443', 'Quảng Châu', 'Xã Quảng Châu', 'quang_chau', '40'),
+    ('17464', 'Diễn Châu', 'Xã Diễn Châu', 'dien_chau', '40'),
+    ('17476', 'Minh Châu', 'Xã Minh Châu', 'minh_chau', '40'),
+    ('17479', 'An Châu', 'Xã An Châu', 'an_chau', '40'),
+    ('17488', 'Tân Châu', 'Xã Tân Châu', 'tan_chau', '40'),
+    ('17506', 'Yên Thành', 'Xã Yên Thành', 'yen_thanh', '40'),
+    ('17515', 'Bình Minh', 'Xã Bình Minh', 'binh_minh', '40'),
+    ('17521', 'Quang Đồng', 'Xã Quang Đồng', 'quang_dong', '40'),
+    ('17524', 'Giai Lạc', 'Xã Giai Lạc', 'giai_lac', '40'),
+    ('17530', 'Đông Thành', 'Xã Đông Thành', 'dong_thanh', '40'),
+    ('17560', 'Vân Du', 'Xã Vân Du', 'van_du', '40'),
+    ('17569', 'Quan Thành', 'Xã Quan Thành', 'quan_thanh', '40'),
+    ('17605', 'Hợp Minh', 'Xã Hợp Minh', 'hop_minh', '40'),
+    ('17623', 'Bạch Ngọc', 'Xã Bạch Ngọc', 'bach_ngoc', '40'),
+    ('17641', 'Lương Sơn', 'Xã Lương Sơn', 'luong_son', '40'),
+    ('17662', 'Đô Lương', 'Xã Đô Lương', 'do_luong', '40'),
+    ('17677', 'Văn Hiến', 'Xã Văn Hiến', 'van_hien', '40'),
+    ('17689', 'Thuần Trung', 'Xã Thuần Trung', 'thuan_trung', '40'),
+    ('17707', 'Bạch Hà', 'Xã Bạch Hà', 'bach_ha', '40'),
+    ('17713', 'Đại Đồng', 'Xã Đại Đồng', 'dai_dong', '40'),
+    ('17722', 'Hạnh Lâm', 'Xã Hạnh Lâm', 'hanh_lam', '40'),
+    ('17728', 'Cát Ngạn', 'Xã Cát Ngạn', 'cat_ngan', '40'),
+    ('17743', 'Tam Đồng', 'Xã Tam Đồng', 'tam_dong', '40'),
+    ('17759', 'Sơn Lâm', 'Xã Sơn Lâm', 'son_lam', '40'),
+    ('17770', 'Hoa Quân', 'Xã Hoa Quân', 'hoa_quan', '40'),
+    ('17779', 'Xuân Lâm', 'Xã Xuân Lâm', 'xuan_lam', '40'),
+    ('17791', 'Kim Bảng', 'Xã Kim Bảng', 'kim_bang', '40'),
+    ('17818', 'Bích Hào', 'Xã Bích Hào', 'bich_hao', '40'),
+    ('17827', 'Nghi Lộc', 'Xã Nghi Lộc', 'nghi_loc', '40'),
+    ('17833', 'Hải Lộc', 'Xã Hải Lộc', 'hai_loc', '40'),
+    ('17842', 'Thần Lĩnh', 'Xã Thần Lĩnh', 'than_linh', '40'),
+    ('17854', 'Văn Kiều', 'Xã Văn Kiều', 'van_kieu', '40'),
+    ('17857', 'Phúc Lộc', 'Xã Phúc Lộc', 'phuc_loc', '40'),
+    ('17866', 'Trung Lộc', 'Xã Trung Lộc', 'trung_loc', '40'),
+    ('17878', 'Đông Lộc', 'Xã Đông Lộc', 'dong_loc', '40'),
+    ('17920', 'Vinh Hưng', 'Phường Vinh Hưng', 'vinh_hung', '40'),
+    ('17935', 'Nam Đàn', 'Xã Nam Đàn', 'nam_dan', '40'),
+    ('17944', 'Đại Huệ', 'Xã Đại Huệ', 'dai_hue', '40'),
+    ('17950', 'Vạn An', 'Xã Vạn An', 'van_an', '40'),
+    ('17971', 'Kim Liên', 'Xã Kim Liên', 'kim_lien', '40'),
+    ('17989', 'Thiên Nhẫn', 'Xã Thiên Nhẫn', 'thien_nhan', '40'),
+    ('18001', 'Hưng Nguyên', 'Xã Hưng Nguyên', 'hung_nguyen', '40'),
+    ('18007', 'Yên Trung', 'Xã Yên Trung', 'yen_trung', '40'),
+    ('18028', 'Hưng Nguyên Nam', 'Xã Hưng Nguyên Nam', 'hung_nguyen_nam', '40'),
+    ('18040', 'Lam Thành', 'Xã Lam Thành', 'lam_thanh', '40'),
+    ('18073', 'Thành Sen', 'Phường Thành Sen', 'thanh_sen', '42'),
+    ('18100', 'Trần Phú', 'Phường Trần Phú', 'tran_phu', '42'),
+    ('18115', 'Bắc Hồng Lĩnh', 'Phường Bắc Hồng Lĩnh', 'bac_hong_linh', '42'),
+    ('18118', 'Nam Hồng Lĩnh', 'Phường Nam Hồng Lĩnh', 'nam_hong_linh', '42'),
+    ('18133', 'Hương Sơn', 'Xã Hương Sơn', 'huong_son', '42'),
+    ('18160', 'Sơn Hồng', 'Xã Sơn Hồng', 'son_hong', '42'),
+    ('18163', 'Sơn Tiến', 'Xã Sơn Tiến', 'son_tien', '42'),
+    ('18172', 'Sơn Tây', 'Xã Sơn Tây', 'son_tay', '42'),
+    ('18184', 'Sơn Giang', 'Xã Sơn Giang', 'son_giang', '42'),
+    ('18196', 'Sơn Kim 1', 'Xã Sơn Kim 1', 'son_kim_1', '42'),
+    ('18199', 'Sơn Kim 2', 'Xã Sơn Kim 2', 'son_kim_2', '42'),
+    ('18202', 'Tứ Mỹ', 'Xã Tứ Mỹ', 'tu_my', '42'),
+    ('18223', 'Kim Hoa', 'Xã Kim Hoa', 'kim_hoa', '42'),
+    ('18229', 'Đức Thọ', 'Xã Đức Thọ', 'duc_tho', '42'),
+    ('18244', 'Đức Minh', 'Xã Đức Minh', 'duc_minh', '42'),
+    ('18262', 'Đức Quang', 'Xã Đức Quang', 'duc_quang', '42'),
+    ('18277', 'Đức Thịnh', 'Xã Đức Thịnh', 'duc_thinh', '42'),
+    ('18304', 'Đức Đồng', 'Xã Đức Đồng', 'duc_dong', '42'),
+    ('18313', 'Vũ Quang', 'Xã Vũ Quang', 'vu_quang', '42'),
+    ('18322', 'Mai Hoa', 'Xã Mai Hoa', 'mai_hoa', '42'),
+    ('18328', 'Thượng Đức', 'Xã Thượng Đức', 'thuong_duc', '42'),
+    ('18352', 'Nghi Xuân', 'Xã Nghi Xuân', 'nghi_xuan', '42'),
+    ('18364', 'Đan Hải', 'Xã Đan Hải', 'dan_hai', '42'),
+    ('18373', 'Tiên Điền', 'Xã Tiên Điền', 'tien_dien', '42'),
+    ('18394', 'Cổ Đạm', 'Xã Cổ Đạm', 'co_dam', '42'),
+    ('18406', 'Can Lộc', 'Xã Can Lộc', 'can_loc', '42'),
+    ('18409', 'Hồng Lộc', 'Xã Hồng Lộc', 'hong_loc', '42'),
+    ('18418', 'Tùng Lộc', 'Xã Tùng Lộc', 'tung_loc', '42'),
+    ('18436', 'Trường Lưu', 'Xã Trường Lưu', 'truong_luu', '42'),
+    ('18466', 'Gia Hanh', 'Xã Gia Hanh', 'gia_hanh', '42'),
+    ('18481', 'Xuân Lộc', 'Xã Xuân Lộc', 'xuan_loc', '42'),
+    ('18484', 'Đồng Lộc', 'Xã Đồng Lộc', 'dong_loc', '42'),
+    ('18496', 'Hương Khê', 'Xã Hương Khê', 'huong_khe', '42'),
+    ('18502', 'Hà Linh', 'Xã Hà Linh', 'ha_linh', '42'),
+    ('18523', 'Hương Bình', 'Xã Hương Bình', 'huong_binh', '42'),
+    ('18532', 'Hương Phố', 'Xã Hương Phố', 'huong_pho', '42'),
+    ('18544', 'Hương Xuân', 'Xã Hương Xuân', 'huong_xuan', '42'),
+    ('18547', 'Phúc Trạch', 'Xã Phúc Trạch', 'phuc_trach', '42'),
+    ('18550', 'Hương Đô', 'Xã Hương Đô', 'huong_do', '42'),
+    ('18562', 'Thạch Hà', 'Xã Thạch Hà', 'thach_ha', '42'),
+    ('18568', 'Lộc Hà', 'Xã Lộc Hà', 'loc_ha', '42'),
+    ('18583', 'Mai Phụ', 'Xã Mai Phụ', 'mai_phu', '42'),
+    ('18586', 'Đông Kinh', 'Xã Đông Kinh', 'dong_kinh', '42'),
+    ('18601', 'Việt Xuyên', 'Xã Việt Xuyên', 'viet_xuyen', '42'),
+    ('18604', 'Thạch Khê', 'Xã Thạch Khê', 'thach_khe', '42'),
+    ('18619', 'Đồng Tiến', 'Xã Đồng Tiến', 'dong_tien', '42'),
+    ('18628', 'Thạch Lạc', 'Xã Thạch Lạc', 'thach_lac', '42'),
+    ('18634', 'Toàn Lưu', 'Xã Toàn Lưu', 'toan_luu', '42'),
+    ('18652', 'Hà Huy Tập', 'Phường Hà Huy Tập', 'ha_huy_tap', '42'),
+    ('18667', 'Thạch Xuân', 'Xã Thạch Xuân', 'thach_xuan', '42'),
+    ('18673', 'Cẩm Xuyên', 'Xã Cẩm Xuyên', 'cam_xuyen', '42'),
+    ('18676', 'Thiên Cầm', 'Xã Thiên Cầm', 'thien_cam', '42'),
+    ('18682', 'Yên Hoà', 'Xã Yên Hoà', 'yen_hoa', '42'),
+    ('18685', 'Cẩm Bình', 'Xã Cẩm Bình', 'cam_binh', '42'),
+    ('18736', 'Cẩm Hưng', 'Xã Cẩm Hưng', 'cam_hung', '42'),
+    ('18739', 'Cẩm Duệ', 'Xã Cẩm Duệ', 'cam_due', '42'),
+    ('18742', 'Cẩm Trung', 'Xã Cẩm Trung', 'cam_trung', '42'),
+    ('18748', 'Cẩm Lạc', 'Xã Cẩm Lạc', 'cam_lac', '42'),
+    ('18754', 'Sông Trí', 'Phường Sông Trí', 'song_tri', '42'),
+    ('18766', 'Kỳ Xuân', 'Xã Kỳ Xuân', 'ky_xuan', '42'),
+    ('18775', 'Kỳ Anh', 'Xã Kỳ Anh', 'ky_anh', '42'),
+    ('18781', 'Hải Ninh', 'Phường Hải Ninh', 'hai_ninh', '42'),
+    ('18787', 'Kỳ Văn', 'Xã Kỳ Văn', 'ky_van', '42'),
+    ('18790', 'Kỳ Khang', 'Xã Kỳ Khang', 'ky_khang', '42'),
+    ('18814', 'Kỳ Hoa', 'Xã Kỳ Hoa', 'ky_hoa', '42'),
+    ('18823', 'Vũng Áng', 'Phường Vũng Áng', 'vung_ang', '42'),
+    ('18832', 'Hoành Sơn', 'Phường Hoành Sơn', 'hoanh_son', '42'),
+    ('18838', 'Kỳ Lạc', 'Xã Kỳ Lạc', 'ky_lac', '42'),
+    ('18844', 'Kỳ Thượng', 'Xã Kỳ Thượng', 'ky_thuong', '42'),
+    ('18859', 'Đồng Thuận', 'Phường Đồng Thuận', 'dong_thuan', '44'),
+    ('18871', 'Đồng Sơn', 'Phường Đồng Sơn', 'dong_son', '44'),
+    ('18880', 'Đồng Hới', 'Phường Đồng Hới', 'dong_hoi', '44'),
+    ('18901', 'Minh Hoá', 'Xã Minh Hoá', 'minh_hoa', '44'),
+    ('18904', 'Dân Hoá', 'Xã Dân Hoá', 'dan_hoa', '44'),
+    ('18919', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '44'),
+    ('18922', 'Kim Điền', 'Xã Kim Điền', 'kim_dien', '44'),
+    ('18943', 'Kim Phú', 'Xã Kim Phú', 'kim_phu', '44'),
+    ('18949', 'Đồng Lê', 'Xã Đồng Lê', 'dong_le', '44'),
+    ('18952', 'Tuyên Sơn', 'Xã Tuyên Sơn', 'tuyen_son', '44'),
+    ('18958', 'Tuyên Lâm', 'Xã Tuyên Lâm', 'tuyen_lam', '44'),
+    ('18985', 'Tuyên Phú', 'Xã Tuyên Phú', 'tuyen_phu', '44'),
+    ('18991', 'Tuyên Bình', 'Xã Tuyên Bình', 'tuyen_binh', '44'),
+    ('18997', 'Tuyên Hoá', 'Xã Tuyên Hoá', 'tuyen_hoa', '44'),
+    ('19009', 'Ba Đồn', 'Phường Ba Đồn', 'ba_don', '44'),
+    ('19021', 'Phú Trạch', 'Xã Phú Trạch', 'phu_trach', '44'),
+    ('19030', 'Trung Thuần', 'Xã Trung Thuần', 'trung_thuan', '44'),
+    ('19033', 'Hoà Trạch', 'Xã Hoà Trạch', 'hoa_trach', '44'),
+    ('19051', 'Tân Gianh', 'Xã Tân Gianh', 'tan_gianh', '44'),
+    ('19057', 'Quảng Trạch', 'Xã Quảng Trạch', 'quang_trach', '44'),
+    ('19066', 'Bắc Gianh', 'Phường Bắc Gianh', 'bac_gianh', '44'),
+    ('19075', 'Nam Ba Đồn', 'Xã Nam Ba Đồn', 'nam_ba_don', '44'),
+    ('19093', 'Nam Gianh', 'Xã Nam Gianh', 'nam_gianh', '44'),
+    ('19111', 'Hoàn Lão', 'Xã Hoàn Lão', 'hoan_lao', '44'),
+    ('19126', 'Bắc Trạch', 'Xã Bắc Trạch', 'bac_trach', '44'),
+    ('19138', 'Phong Nha', 'Xã Phong Nha', 'phong_nha', '44'),
+    ('19141', 'Bố Trạch', 'Xã Bố Trạch', 'bo_trach', '44'),
+    ('19147', 'Thượng Trạch', 'Xã Thượng Trạch', 'thuong_trach', '44'),
+    ('19159', 'Đông Trạch', 'Xã Đông Trạch', 'dong_trach', '44'),
+    ('19198', 'Nam Trạch', 'Xã Nam Trạch', 'nam_trach', '44'),
+    ('19204', 'Trường Sơn', 'Xã Trường Sơn', 'truong_son', '44'),
+    ('19207', 'Quảng Ninh', 'Xã Quảng Ninh', 'quang_ninh', '44'),
+    ('19225', 'Ninh Châu', 'Xã Ninh Châu', 'ninh_chau', '44'),
+    ('19237', 'Trường Ninh', 'Xã Trường Ninh', 'truong_ninh', '44'),
+    ('19246', 'Lệ Ninh', 'Xã Lệ Ninh', 'le_ninh', '44'),
+    ('19249', 'Lệ Thuỷ', 'Xã Lệ Thuỷ', 'le_thuy', '44'),
+    ('19255', 'Cam Hồng', 'Xã Cam Hồng', 'cam_hong', '44'),
+    ('19288', 'Sen Ngư', 'Xã Sen Ngư', 'sen_ngu', '44'),
+    ('19291', 'Tân Mỹ', 'Xã Tân Mỹ', 'tan_my', '44'),
+    ('19309', 'Trường Phú', 'Xã Trường Phú', 'truong_phu', '44'),
+    ('19318', 'Kim Ngân', 'Xã Kim Ngân', 'kim_ngan', '44'),
+    ('19333', 'Đông Hà', 'Phường Đông Hà', 'dong_ha', '44'),
+    ('19351', 'Nam Đông Hà', 'Phường Nam Đông Hà', 'nam_dong_ha', '44'),
+    ('19360', 'Quảng Trị', 'Phường Quảng Trị', 'quang_tri', '44'),
+    ('19363', 'Vĩnh Linh', 'Xã Vĩnh Linh', 'vinh_linh', '44'),
+    ('19366', 'Bến Quan', 'Xã Bến Quan', 'ben_quan', '44'),
+    ('19372', 'Vĩnh Hoàng', 'Xã Vĩnh Hoàng', 'vinh_hoang', '44'),
+    ('19405', 'Vĩnh Thuỷ', 'Xã Vĩnh Thuỷ', 'vinh_thuy', '44'),
+    ('19414', 'Cửa Tùng', 'Xã Cửa Tùng', 'cua_tung', '44'),
+    ('19429', 'Khe Sanh', 'Xã Khe Sanh', 'khe_sanh', '44'),
+    ('19432', 'Lao Bảo', 'Xã Lao Bảo', 'lao_bao', '44'),
+    ('19435', 'Hướng Lập', 'Xã Hướng Lập', 'huong_lap', '44'),
+    ('19441', 'Hướng Phùng', 'Xã Hướng Phùng', 'huong_phung', '44'),
+    ('19462', 'Tân Lập', 'Xã Tân Lập', 'tan_lap', '44'),
+    ('19483', 'A Dơi', 'Xã A Dơi', 'a_doi', '44'),
+    ('19489', 'Lìa', 'Xã Lìa', 'lia', '44'),
+    ('19495', 'Gio Linh', 'Xã Gio Linh', 'gio_linh', '44'),
+    ('19496', 'Cửa Việt', 'Xã Cửa Việt', 'cua_viet', '44'),
+    ('19501', 'Bến Hải', 'Xã Bến Hải', 'ben_hai', '44'),
+    ('19537', 'Cồn Tiên', 'Xã Cồn Tiên', 'con_tien', '44'),
+    ('19555', 'Hướng Hiệp', 'Xã Hướng Hiệp', 'huong_hiep', '44'),
+    ('19564', 'Đakrông', 'Xã Đakrông', 'dakrong', '44'),
+    ('19567', 'Ba Lòng', 'Xã Ba Lòng', 'ba_long', '44'),
+    ('19588', 'Tà Rụt', 'Xã Tà Rụt', 'ta_rut', '44'),
+    ('19594', 'La Lay', 'Xã La Lay', 'la_lay', '44'),
+    ('19597', 'Cam Lộ', 'Xã Cam Lộ', 'cam_lo', '44'),
+    ('19603', 'Hiếu Giang', 'Xã Hiếu Giang', 'hieu_giang', '44');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('19624', 'Triệu Phong', 'Xã Triệu Phong', 'trieu_phong', '44'),
+    ('19639', 'Nam Cửa Việt', 'Xã Nam Cửa Việt', 'nam_cua_viet', '44'),
+    ('19645', 'Triệu Bình', 'Xã Triệu Bình', 'trieu_binh', '44'),
+    ('19654', 'Triệu Cơ', 'Xã Triệu Cơ', 'trieu_co', '44'),
+    ('19669', 'Ái Tử', 'Xã Ái Tử', 'ai_tu', '44'),
+    ('19681', 'Diên Sanh', 'Xã Diên Sanh', 'dien_sanh', '44'),
+    ('19699', 'Vĩnh Định', 'Xã Vĩnh Định', 'vinh_dinh', '44'),
+    ('19702', 'Hải Lăng', 'Xã Hải Lăng', 'hai_lang', '44'),
+    ('19735', 'Nam Hải Lăng', 'Xã Nam Hải Lăng', 'nam_hai_lang', '44'),
+    ('19741', 'Mỹ Thuỷ', 'Xã Mỹ Thuỷ', 'my_thuy', '44'),
+    ('19742', 'Cồn Cỏ', 'Đặc khu Cồn Cỏ', 'con_co', '44'),
+    ('19753', 'Phú Xuân', 'Phường Phú Xuân', 'phu_xuan', '46'),
+    ('19774', 'Kim Long', 'Phường Kim Long', 'kim_long', '46'),
+    ('19777', 'Vỹ Dạ', 'Phường Vỹ Dạ', 'vy_da', '46'),
+    ('19789', 'Thuận Hoá', 'Phường Thuận Hoá', 'thuan_hoa', '46'),
+    ('19804', 'Hương An', 'Phường Hương An', 'huong_an', '46'),
+    ('19813', 'Thuỷ Xuân', 'Phường Thuỷ Xuân', 'thuy_xuan', '46'),
+    ('19815', 'An Cựu', 'Phường An Cựu', 'an_cuu', '46'),
+    ('19819', 'Phong Điền', 'Phường Phong Điền', 'phong_dien', '46'),
+    ('19828', 'Phong Phú', 'Phường Phong Phú', 'phong_phu', '46'),
+    ('19831', 'Phong Dinh', 'Phường Phong Dinh', 'phong_dinh', '46'),
+    ('19858', 'Phong Thái', 'Phường Phong Thái', 'phong_thai', '46'),
+    ('19867', 'Quảng Điền', 'Xã Quảng Điền', 'quang_dien', '46'),
+    ('19873', 'Phong Quảng', 'Phường Phong Quảng', 'phong_quang', '46'),
+    ('19885', 'Đan Điền', 'Xã Đan Điền', 'dan_dien', '46'),
+    ('19900', 'Thuận An', 'Phường Thuận An', 'thuan_an', '46'),
+    ('19909', 'Dương Nỗ', 'Phường Dương Nỗ', 'duong_no', '46'),
+    ('19918', 'Phú Hồ', 'Xã Phú Hồ', 'phu_ho', '46'),
+    ('19930', 'Mỹ Thượng', 'Phường Mỹ Thượng', 'my_thuong', '46'),
+    ('19942', 'Phú Vang', 'Xã Phú Vang', 'phu_vang', '46'),
+    ('19945', 'Phú Vinh', 'Xã Phú Vinh', 'phu_vinh', '46'),
+    ('19960', 'Phú Bài', 'Phường Phú Bài', 'phu_bai', '46'),
+    ('19969', 'Thanh Thuỷ', 'Phường Thanh Thuỷ', 'thanh_thuy', '46'),
+    ('19975', 'Hương Thuỷ', 'Phường Hương Thuỷ', 'huong_thuy', '46'),
+    ('19996', 'Hương Trà', 'Phường Hương Trà', 'huong_tra', '46'),
+    ('20014', 'Hoá Châu', 'Phường Hoá Châu', 'hoa_chau', '46'),
+    ('20017', 'Kim Trà', 'Phường Kim Trà', 'kim_tra', '46'),
+    ('20035', 'Bình Điền', 'Xã Bình Điền', 'binh_dien', '46'),
+    ('20044', 'A Lưới 2', 'Xã A Lưới 2', 'a_luoi_2', '46'),
+    ('20050', 'A Lưới 5', 'Xã A Lưới 5', 'a_luoi_5', '46'),
+    ('20056', 'A Lưới 1', 'Xã A Lưới 1', 'a_luoi_1', '46'),
+    ('20071', 'A Lưới 3', 'Xã A Lưới 3', 'a_luoi_3', '46'),
+    ('20101', 'A Lưới 4', 'Xã A Lưới 4', 'a_luoi_4', '46'),
+    ('20107', 'Phú Lộc', 'Xã Phú Lộc', 'phu_loc', '46'),
+    ('20122', 'Vinh Lộc', 'Xã Vinh Lộc', 'vinh_loc', '46'),
+    ('20131', 'Hưng Lộc', 'Xã Hưng Lộc', 'hung_loc', '46'),
+    ('20137', 'Chân Mây - Lăng Cô', 'Xã Chân Mây - Lăng Cô', 'chan_may_lang_co', '46'),
+    ('20140', 'Lộc An', 'Xã Lộc An', 'loc_an', '46'),
+    ('20161', 'Khe Tre', 'Xã Khe Tre', 'khe_tre', '46'),
+    ('20179', 'Nam Đông', 'Xã Nam Đông', 'nam_dong', '46'),
+    ('20182', 'Long Quảng', 'Xã Long Quảng', 'long_quang', '46'),
+    ('20194', 'Hải Vân', 'Phường Hải Vân', 'hai_van', '48'),
+    ('20197', 'Liên Chiểu', 'Phường Liên Chiểu', 'lien_chieu', '48'),
+    ('20200', 'Hoà Khánh', 'Phường Hoà Khánh', 'hoa_khanh', '48'),
+    ('20209', 'Thanh Khê', 'Phường Thanh Khê', 'thanh_khe', '48'),
+    ('20242', 'Hải Châu', 'Phường Hải Châu', 'hai_chau', '48'),
+    ('20257', 'Hoà Cường', 'Phường Hoà Cường', 'hoa_cuong', '48'),
+    ('20260', 'Cẩm Lệ', 'Phường Cẩm Lệ', 'cam_le', '48'),
+    ('20263', 'Sơn Trà', 'Phường Sơn Trà', 'son_tra', '48'),
+    ('20275', 'An Hải', 'Phường An Hải', 'an_hai', '48'),
+    ('20285', 'Ngũ Hành Sơn', 'Phường Ngũ Hành Sơn', 'ngu_hanh_son', '48'),
+    ('20305', 'An Khê', 'Phường An Khê', 'an_khe', '48'),
+    ('20308', 'Bà Nà', 'Xã Bà Nà', 'ba_na', '48'),
+    ('20314', 'Hoà Xuân', 'Phường Hoà Xuân', 'hoa_xuan', '48'),
+    ('20320', 'Hoà Vang', 'Xã Hoà Vang', 'hoa_vang', '48'),
+    ('20332', 'Hoà Tiến', 'Xã Hoà Tiến', 'hoa_tien', '48'),
+    ('20333', 'Hoàng Sa', 'Đặc khu Hoàng Sa', 'hoang_sa', '48'),
+    ('20335', 'Bàn Thạch', 'Phường Bàn Thạch', 'ban_thach', '48'),
+    ('20341', 'Tam Kỳ', 'Phường Tam Kỳ', 'tam_ky', '48'),
+    ('20350', 'Hương Trà', 'Phường Hương Trà', 'huong_tra', '48'),
+    ('20356', 'Quảng Phú', 'Phường Quảng Phú', 'quang_phu', '48'),
+    ('20364', 'Chiên Đàn', 'Xã Chiên Đàn', 'chien_dan', '48'),
+    ('20380', 'Tây Hồ', 'Xã Tây Hồ', 'tay_ho', '48'),
+    ('20392', 'Phú Ninh', 'Xã Phú Ninh', 'phu_ninh', '48'),
+    ('20401', 'Hội An Tây', 'Phường Hội An Tây', 'hoi_an_tay', '48'),
+    ('20410', 'Hội An', 'Phường Hội An', 'hoi_an', '48'),
+    ('20413', 'Hội An Đông', 'Phường Hội An Đông', 'hoi_an_dong', '48'),
+    ('20434', 'Tân Hiệp', 'Xã Tân Hiệp', 'tan_hiep', '48'),
+    ('20443', 'Hùng Sơn', 'Xã Hùng Sơn', 'hung_son', '48'),
+    ('20455', 'Tây Giang', 'Xã Tây Giang', 'tay_giang', '48'),
+    ('20458', 'Avương', 'Xã Avương', 'avuong', '48'),
+    ('20467', 'Đông Giang', 'Xã Đông Giang', 'dong_giang', '48'),
+    ('20476', 'Sông Kôn', 'Xã Sông Kôn', 'song_kon', '48'),
+    ('20485', 'Sông Vàng', 'Xã Sông Vàng', 'song_vang', '48'),
+    ('20494', 'Bến Hiên', 'Xã Bến Hiên', 'ben_hien', '48'),
+    ('20500', 'Đại Lộc', 'Xã Đại Lộc', 'dai_loc', '48'),
+    ('20506', 'Thượng Đức', 'Xã Thượng Đức', 'thuong_duc', '48'),
+    ('20515', 'Hà Nha', 'Xã Hà Nha', 'ha_nha', '48'),
+    ('20539', 'Vu Gia', 'Xã Vu Gia', 'vu_gia', '48'),
+    ('20542', 'Phú Thuận', 'Xã Phú Thuận', 'phu_thuan', '48'),
+    ('20551', 'Điện Bàn', 'Phường Điện Bàn', 'dien_ban', '48'),
+    ('20557', 'Điện Bàn Bắc', 'Phường Điện Bàn Bắc', 'dien_ban_bac', '48'),
+    ('20569', 'Điện Bàn Tây', 'Xã Điện Bàn Tây', 'dien_ban_tay', '48'),
+    ('20575', 'An Thắng', 'Phường An Thắng', 'an_thang', '48'),
+    ('20579', 'Điện Bàn Đông', 'Phường Điện Bàn Đông', 'dien_ban_dong', '48'),
+    ('20587', 'Gò Nổi', 'Xã Gò Nổi', 'go_noi', '48'),
+    ('20599', 'Nam Phước', 'Xã Nam Phước', 'nam_phuoc', '48'),
+    ('20611', 'Thu Bồn', 'Xã Thu Bồn', 'thu_bon', '48'),
+    ('20623', 'Duy Xuyên', 'Xã Duy Xuyên', 'duy_xuyen', '48'),
+    ('20635', 'Duy Nghĩa', 'Xã Duy Nghĩa', 'duy_nghia', '48'),
+    ('20641', 'Quế Sơn', 'Xã Quế Sơn', 'que_son', '48'),
+    ('20650', 'Xuân Phú', 'Xã Xuân Phú', 'xuan_phu', '48'),
+    ('20656', 'Nông Sơn', 'Xã Nông Sơn', 'nong_son', '48'),
+    ('20662', 'Quế Sơn Trung', 'Xã Quế Sơn Trung', 'que_son_trung', '48'),
+    ('20669', 'Quế Phước', 'Xã Quế Phước', 'que_phuoc', '48'),
+    ('20695', 'Thạnh Mỹ', 'Xã Thạnh Mỹ', 'thanh_my', '48'),
+    ('20698', 'La Êê', 'Xã La Êê', 'la_ee', '48'),
+    ('20704', 'La Dêê', 'Xã La Dêê', 'la_dee', '48'),
+    ('20707', 'Nam Giang', 'Xã Nam Giang', 'nam_giang', '48'),
+    ('20710', 'Bến Giằng', 'Xã Bến Giằng', 'ben_giang', '48'),
+    ('20716', 'Đắc Pring', 'Xã Đắc Pring', 'dac_pring', '48'),
+    ('20722', 'Khâm Đức', 'Xã Khâm Đức', 'kham_duc', '48'),
+    ('20728', 'Phước Hiệp', 'Xã Phước Hiệp', 'phuoc_hiep', '48'),
+    ('20734', 'Phước Năng', 'Xã Phước Năng', 'phuoc_nang', '48'),
+    ('20740', 'Phước Chánh', 'Xã Phước Chánh', 'phuoc_chanh', '48'),
+    ('20752', 'Phước Thành', 'Xã Phước Thành', 'phuoc_thanh', '48'),
+    ('20767', 'Việt An', 'Xã Việt An', 'viet_an', '48'),
+    ('20770', 'Phước Trà', 'Xã Phước Trà', 'phuoc_tra', '48'),
+    ('20779', 'Hiệp Đức', 'Xã Hiệp Đức', 'hiep_duc', '48'),
+    ('20791', 'Thăng Bình', 'Xã Thăng Bình', 'thang_binh', '48'),
+    ('20794', 'Thăng An', 'Xã Thăng An', 'thang_an', '48'),
+    ('20818', 'Đồng Dương', 'Xã Đồng Dương', 'dong_duong', '48'),
+    ('20827', 'Thăng Phú', 'Xã Thăng Phú', 'thang_phu', '48'),
+    ('20836', 'Thăng Trường', 'Xã Thăng Trường', 'thang_truong', '48'),
+    ('20848', 'Thăng Điền', 'Xã Thăng Điền', 'thang_dien', '48'),
+    ('20854', 'Tiên Phước', 'Xã Tiên Phước', 'tien_phuoc', '48'),
+    ('20857', 'Sơn Cẩm Hà', 'Xã Sơn Cẩm Hà', 'son_cam_ha', '48'),
+    ('20875', 'Lãnh Ngọc', 'Xã Lãnh Ngọc', 'lanh_ngoc', '48'),
+    ('20878', 'Thạnh Bình', 'Xã Thạnh Bình', 'thanh_binh', '48'),
+    ('20900', 'Trà My', 'Xã Trà My', 'tra_my', '48'),
+    ('20908', 'Trà Liên', 'Xã Trà Liên', 'tra_lien', '48'),
+    ('20920', 'Trà Đốc', 'Xã Trà Đốc', 'tra_doc', '48'),
+    ('20923', 'Trà Tân', 'Xã Trà Tân', 'tra_tan', '48'),
+    ('20929', 'Trà Giáp', 'Xã Trà Giáp', 'tra_giap', '48'),
+    ('20938', 'Trà Leng', 'Xã Trà Leng', 'tra_leng', '48'),
+    ('20941', 'Trà Tập', 'Xã Trà Tập', 'tra_tap', '48'),
+    ('20944', 'Nam Trà My', 'Xã Nam Trà My', 'nam_tra_my', '48'),
+    ('20950', 'Trà Linh', 'Xã Trà Linh', 'tra_linh', '48'),
+    ('20959', 'Trà Vân', 'Xã Trà Vân', 'tra_van', '48'),
+    ('20965', 'Núi Thành', 'Xã Núi Thành', 'nui_thanh', '48'),
+    ('20971', 'Tam Xuân', 'Xã Tam Xuân', 'tam_xuan', '48'),
+    ('20977', 'Đức Phú', 'Xã Đức Phú', 'duc_phu', '48'),
+    ('20984', 'Tam Anh', 'Xã Tam Anh', 'tam_anh', '48'),
+    ('20992', 'Tam Hải', 'Xã Tam Hải', 'tam_hai', '48'),
+    ('21004', 'Tam Mỹ', 'Xã Tam Mỹ', 'tam_my', '48'),
+    ('23293', 'Kon Tum', 'Phường Kon Tum', 'kon_tum', '51'),
+    ('21025', 'Cẩm Thành', 'Phường Cẩm Thành', 'cam_thanh', '51'),
+    ('21028', 'Nghĩa Lộ', 'Phường Nghĩa Lộ', 'nghia_lo', '51'),
+    ('21034', 'An Phú', 'Xã An Phú', 'an_phu', '51'),
+    ('21040', 'Bình Sơn', 'Xã Bình Sơn', 'binh_son', '51'),
+    ('21061', 'Vạn Tường', 'Xã Vạn Tường', 'van_tuong', '51'),
+    ('21085', 'Bình Minh', 'Xã Bình Minh', 'binh_minh', '51'),
+    ('21100', 'Bình Chương', 'Xã Bình Chương', 'binh_chuong', '51'),
+    ('21109', 'Đông Sơn', 'Xã Đông Sơn', 'dong_son', '51'),
+    ('21115', 'Trà Bồng', 'Xã Trà Bồng', 'tra_bong', '51'),
+    ('21124', 'Thanh Bồng', 'Xã Thanh Bồng', 'thanh_bong', '51'),
+    ('21127', 'Đông Trà Bồng', 'Xã Đông Trà Bồng', 'dong_tra_bong', '51'),
+    ('21136', 'Cà Đam', 'Xã Cà Đam', 'ca_dam', '51'),
+    ('21154', 'Tây Trà', 'Xã Tây Trà', 'tay_tra', '51'),
+    ('21157', 'Tây Trà Bồng', 'Xã Tây Trà Bồng', 'tay_tra_bong', '51'),
+    ('21172', 'Trương Quang Trọng', 'Phường Trương Quang Trọng', 'truong_quang_trong', '51'),
+    ('21181', 'Thọ Phong', 'Xã Thọ Phong', 'tho_phong', '51'),
+    ('21196', 'Trường Giang', 'Xã Trường Giang', 'truong_giang', '51'),
+    ('21205', 'Ba Gia', 'Xã Ba Gia', 'ba_gia', '51'),
+    ('21211', 'Tịnh Khê', 'Xã Tịnh Khê', 'tinh_khe', '51'),
+    ('21220', 'Sơn Tịnh', 'Xã Sơn Tịnh', 'son_tinh', '51'),
+    ('21235', 'Tư Nghĩa', 'Xã Tư Nghĩa', 'tu_nghia', '51'),
+    ('21238', 'Vệ Giang', 'Xã Vệ Giang', 've_giang', '51'),
+    ('21244', 'Trà Giang', 'Xã Trà Giang', 'tra_giang', '51'),
+    ('21250', 'Nghĩa Giang', 'Xã Nghĩa Giang', 'nghia_giang', '51'),
+    ('21289', 'Sơn Hà', 'Xã Sơn Hà', 'son_ha', '51'),
+    ('21292', 'Sơn Hạ', 'Xã Sơn Hạ', 'son_ha', '51'),
+    ('21307', 'Sơn Linh', 'Xã Sơn Linh', 'son_linh', '51'),
+    ('21319', 'Sơn Thuỷ', 'Xã Sơn Thuỷ', 'son_thuy', '51'),
+    ('21325', 'Sơn Kỳ', 'Xã Sơn Kỳ', 'son_ky', '51'),
+    ('21334', 'Sơn Tây Thượng', 'Xã Sơn Tây Thượng', 'son_tay_thuong', '51'),
+    ('21340', 'Sơn Tây', 'Xã Sơn Tây', 'son_tay', '51'),
+    ('21343', 'Sơn Tây Hạ', 'Xã Sơn Tây Hạ', 'son_tay_ha', '51'),
+    ('21349', 'Sơn Mai', 'Xã Sơn Mai', 'son_mai', '51'),
+    ('21361', 'Minh Long', 'Xã Minh Long', 'minh_long', '51'),
+    ('21364', 'Nghĩa Hành', 'Xã Nghĩa Hành', 'nghia_hanh', '51'),
+    ('21370', 'Phước Giang', 'Xã Phước Giang', 'phuoc_giang', '51'),
+    ('21385', 'Đình Cương', 'Xã Đình Cương', 'dinh_cuong', '51'),
+    ('21388', 'Thiện Tín', 'Xã Thiện Tín', 'thien_tin', '51'),
+    ('21400', 'Mộ Đức', 'Xã Mộ Đức', 'mo_duc', '51'),
+    ('21409', 'Long Phụng', 'Xã Long Phụng', 'long_phung', '51'),
+    ('21421', 'Mỏ Cày', 'Xã Mỏ Cày', 'mo_cay', '51'),
+    ('21433', 'Lân Phong', 'Xã Lân Phong', 'lan_phong', '51'),
+    ('21439', 'Đức Phổ', 'Phường Đức Phổ', 'duc_pho', '51'),
+    ('21451', 'Trà Câu', 'Phường Trà Câu', 'tra_cau', '51'),
+    ('21457', 'Nguyễn Nghiêm', 'Xã Nguyễn Nghiêm', 'nguyen_nghiem', '51'),
+    ('21472', 'Khánh Cường', 'Xã Khánh Cường', 'khanh_cuong', '51'),
+    ('21478', 'Sa Huỳnh', 'Phường Sa Huỳnh', 'sa_huynh', '51'),
+    ('21484', 'Ba Tơ', 'Xã Ba Tơ', 'ba_to', '51'),
+    ('21490', 'Ba Vinh', 'Xã Ba Vinh', 'ba_vinh', '51'),
+    ('21496', 'Ba Động', 'Xã Ba Động', 'ba_dong', '51'),
+    ('21499', 'Ba Dinh', 'Xã Ba Dinh', 'ba_dinh', '51'),
+    ('21520', 'Đặng Thuỳ Trâm', 'Xã Đặng Thuỳ Trâm', 'dang_thuy_tram', '51'),
+    ('21523', 'Ba Tô', 'Xã Ba Tô', 'ba_to', '51'),
+    ('21529', 'Ba Vì', 'Xã Ba Vì', 'ba_vi', '51');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('21538', 'Ba Xa', 'Xã Ba Xa', 'ba_xa', '51'),
+    ('21548', 'Lý Sơn', 'Đặc khu Lý Sơn', 'ly_son', '51'),
+    ('23284', 'Đăk Cấm', 'Phường Đăk Cấm', 'dak_cam', '51'),
+    ('23302', 'Đăk Bla', 'Phường Đăk Bla', 'dak_bla', '51'),
+    ('23317', 'Ngọk Bay', 'Xã Ngọk Bay', 'ngok_bay', '51'),
+    ('23326', 'Ia Chim', 'Xã Ia Chim', 'ia_chim', '51'),
+    ('23332', 'Đăk Rơ Wa', 'Xã Đăk Rơ Wa', 'dak_ro_wa', '51'),
+    ('23341', 'Đăk Pék', 'Xã Đăk Pék', 'dak_pek', '51'),
+    ('23344', 'Đăk Plô', 'Xã Đăk Plô', 'dak_plo', '51'),
+    ('23356', 'Xốp', 'Xã Xốp', 'xop', '51'),
+    ('23365', 'Ngọc Linh', 'Xã Ngọc Linh', 'ngoc_linh', '51'),
+    ('23368', 'Đăk Long', 'Xã Đăk Long', 'dak_long', '51'),
+    ('23374', 'Đăk Môn', 'Xã Đăk Môn', 'dak_mon', '51'),
+    ('23377', 'Bờ Y', 'Xã Bờ Y', 'bo_y', '51'),
+    ('23383', 'Dục Nông', 'Xã Dục Nông', 'duc_nong', '51'),
+    ('23392', 'Sa Loong', 'Xã Sa Loong', 'sa_loong', '51'),
+    ('23401', 'Đăk Tô', 'Xã Đăk Tô', 'dak_to', '51'),
+    ('23416', 'Đăk Sao', 'Xã Đăk Sao', 'dak_sao', '51'),
+    ('23419', 'Đăk Tờ Kan', 'Xã Đăk Tờ Kan', 'dak_to_kan', '51'),
+    ('23425', 'Tu Mơ Rông', 'Xã Tu Mơ Rông', 'tu_mo_rong', '51'),
+    ('23428', 'Ngọk Tụ', 'Xã Ngọk Tụ', 'ngok_tu', '51'),
+    ('23430', 'Kon Đào', 'Xã Kon Đào', 'kon_dao', '51'),
+    ('23446', 'Măng Ri', 'Xã Măng Ri', 'mang_ri', '51'),
+    ('23455', 'Măng Bút', 'Xã Măng Bút', 'mang_but', '51'),
+    ('23473', 'Măng Đen', 'Xã Măng Đen', 'mang_den', '51'),
+    ('23476', 'Kon Plông', 'Xã Kon Plông', 'kon_plong', '51'),
+    ('23479', 'Đăk Rve', 'Xã Đăk Rve', 'dak_rve', '51'),
+    ('23485', 'Đăk Kôi', 'Xã Đăk Kôi', 'dak_koi', '51'),
+    ('23497', 'Kon Braih', 'Xã Kon Braih', 'kon_braih', '51'),
+    ('23500', 'Đăk Hà', 'Xã Đăk Hà', 'dak_ha', '51'),
+    ('23504', 'Đăk Pxi', 'Xã Đăk Pxi', 'dak_pxi', '51'),
+    ('23510', 'Đăk Ui', 'Xã Đăk Ui', 'dak_ui', '51'),
+    ('23512', 'Đăk Mar', 'Xã Đăk Mar', 'dak_mar', '51'),
+    ('23515', 'Ngọk Réo', 'Xã Ngọk Réo', 'ngok_reo', '51'),
+    ('23527', 'Sa Thầy', 'Xã Sa Thầy', 'sa_thay', '51'),
+    ('23530', 'Rờ Kơi', 'Xã Rờ Kơi', 'ro_koi', '51'),
+    ('23534', 'Sa Bình', 'Xã Sa Bình', 'sa_binh', '51'),
+    ('23535', 'Ia Đal', 'Xã Ia Đal', 'ia_dal', '51'),
+    ('23536', 'Mô Rai', 'Xã Mô Rai', 'mo_rai', '51'),
+    ('23538', 'Ia Tơi', 'Xã Ia Tơi', 'ia_toi', '51'),
+    ('23548', 'Ya Ly', 'Xã Ya Ly', 'ya_ly', '51'),
+    ('21553', 'Quy Nhơn Bắc', 'Phường Quy Nhơn Bắc', 'quy_nhon_bac', '52'),
+    ('21583', 'Quy Nhơn', 'Phường Quy Nhơn', 'quy_nhon', '52'),
+    ('21589', 'Quy Nhơn Tây', 'Phường Quy Nhơn Tây', 'quy_nhon_tay', '52'),
+    ('21592', 'Quy Nhơn Nam', 'Phường Quy Nhơn Nam', 'quy_nhon_nam', '52'),
+    ('21601', 'Quy Nhơn Đông', 'Phường Quy Nhơn Đông', 'quy_nhon_dong', '52'),
+    ('21607', 'Nhơn Châu', 'Xã Nhơn Châu', 'nhon_chau', '52'),
+    ('21609', 'An Lão', 'Xã An Lão', 'an_lao', '52'),
+    ('21616', 'An Vinh', 'Xã An Vinh', 'an_vinh', '52'),
+    ('21622', 'An Toàn', 'Xã An Toàn', 'an_toan', '52'),
+    ('21628', 'An Hoà', 'Xã An Hoà', 'an_hoa', '52'),
+    ('21637', 'Tam Quan', 'Phường Tam Quan', 'tam_quan', '52'),
+    ('21640', 'Bồng Sơn', 'Phường Bồng Sơn', 'bong_son', '52'),
+    ('21655', 'Hoài Nhơn Bắc', 'Phường Hoài Nhơn Bắc', 'hoai_nhon_bac', '52'),
+    ('21661', 'Hoài Nhơn Tây', 'Phường Hoài Nhơn Tây', 'hoai_nhon_tay', '52'),
+    ('21664', 'Hoài Nhơn', 'Phường Hoài Nhơn', 'hoai_nhon', '52'),
+    ('21670', 'Hoài Nhơn Đông', 'Phường Hoài Nhơn Đông', 'hoai_nhon_dong', '52'),
+    ('21673', 'Hoài Nhơn Nam', 'Phường Hoài Nhơn Nam', 'hoai_nhon_nam', '52'),
+    ('21688', 'Hoài Ân', 'Xã Hoài Ân', 'hoai_an', '52'),
+    ('21697', 'Ân Hảo', 'Xã Ân Hảo', 'an_hao', '52'),
+    ('21703', 'Vạn Đức', 'Xã Vạn Đức', 'van_duc', '52'),
+    ('21715', 'Ân Tường', 'Xã Ân Tường', 'an_tuong', '52'),
+    ('21727', 'Kim Sơn', 'Xã Kim Sơn', 'kim_son', '52'),
+    ('21730', 'Phù Mỹ', 'Xã Phù Mỹ', 'phu_my', '52'),
+    ('21733', 'Bình Dương', 'Xã Bình Dương', 'binh_duong', '52'),
+    ('21739', 'Phù Mỹ Bắc', 'Xã Phù Mỹ Bắc', 'phu_my_bac', '52'),
+    ('21751', 'Phù Mỹ Đông', 'Xã Phù Mỹ Đông', 'phu_my_dong', '52'),
+    ('21757', 'Phù Mỹ Tây', 'Xã Phù Mỹ Tây', 'phu_my_tay', '52'),
+    ('21769', 'An Lương', 'Xã An Lương', 'an_luong', '52'),
+    ('21775', 'Phù Mỹ Nam', 'Xã Phù Mỹ Nam', 'phu_my_nam', '52'),
+    ('21786', 'Vĩnh Thạnh', 'Xã Vĩnh Thạnh', 'vinh_thanh', '52'),
+    ('21787', 'Vĩnh Sơn', 'Xã Vĩnh Sơn', 'vinh_son', '52'),
+    ('21796', 'Vĩnh Thịnh', 'Xã Vĩnh Thịnh', 'vinh_thinh', '52'),
+    ('21805', 'Vĩnh Quang', 'Xã Vĩnh Quang', 'vinh_quang', '52'),
+    ('21808', 'Tây Sơn', 'Xã Tây Sơn', 'tay_son', '52'),
+    ('21817', 'Bình Hiệp', 'Xã Bình Hiệp', 'binh_hiep', '52'),
+    ('21820', 'Bình Khê', 'Xã Bình Khê', 'binh_khe', '52'),
+    ('21829', 'Bình An', 'Xã Bình An', 'binh_an', '52'),
+    ('21835', 'Bình Phú', 'Xã Bình Phú', 'binh_phu', '52'),
+    ('21853', 'Phù Cát', 'Xã Phù Cát', 'phu_cat', '52'),
+    ('21859', 'Đề Gi', 'Xã Đề Gi', 'de_gi', '52'),
+    ('21868', 'Hội Sơn', 'Xã Hội Sơn', 'hoi_son', '52'),
+    ('21871', 'Hoà Hội', 'Xã Hoà Hội', 'hoa_hoi', '52'),
+    ('21880', 'Cát Tiến', 'Xã Cát Tiến', 'cat_tien', '52'),
+    ('21892', 'Xuân An', 'Xã Xuân An', 'xuan_an', '52'),
+    ('21901', 'Ngô Mây', 'Xã Ngô Mây', 'ngo_may', '52'),
+    ('21907', 'Bình Định', 'Phường Bình Định', 'binh_dinh', '52'),
+    ('21910', 'An Nhơn', 'Phường An Nhơn', 'an_nhon', '52'),
+    ('21925', 'An Nhơn Bắc', 'Phường An Nhơn Bắc', 'an_nhon_bac', '52'),
+    ('21934', 'An Nhơn Đông', 'Phường An Nhơn Đông', 'an_nhon_dong', '52'),
+    ('21940', 'An Nhơn Tây', 'Xã An Nhơn Tây', 'an_nhon_tay', '52'),
+    ('21943', 'An Nhơn Nam', 'Phường An Nhơn Nam', 'an_nhon_nam', '52'),
+    ('21952', 'Tuy Phước', 'Xã Tuy Phước', 'tuy_phuoc', '52'),
+    ('21964', 'Tuy Phước Bắc', 'Xã Tuy Phước Bắc', 'tuy_phuoc_bac', '52'),
+    ('21970', 'Tuy Phước Đông', 'Xã Tuy Phước Đông', 'tuy_phuoc_dong', '52'),
+    ('21985', 'Tuy Phước Tây', 'Xã Tuy Phước Tây', 'tuy_phuoc_tay', '52'),
+    ('21994', 'Vân Canh', 'Xã Vân Canh', 'van_canh', '52'),
+    ('21997', 'Canh Liên', 'Xã Canh Liên', 'canh_lien', '52'),
+    ('22006', 'Canh Vinh', 'Xã Canh Vinh', 'canh_vinh', '52'),
+    ('23563', 'Diên Hồng', 'Phường Diên Hồng', 'dien_hong', '52'),
+    ('23575', 'Pleiku', 'Phường Pleiku', 'pleiku', '52'),
+    ('23584', 'Thống Nhất', 'Phường Thống Nhất', 'thong_nhat', '52'),
+    ('23586', 'Hội Phú', 'Phường Hội Phú', 'hoi_phu', '52'),
+    ('23590', 'Biển Hồ', 'Xã Biển Hồ', 'bien_ho', '52'),
+    ('23602', 'An Phú', 'Phường An Phú', 'an_phu', '52'),
+    ('23611', 'Gào', 'Xã Gào', 'gao', '52'),
+    ('23614', 'An Bình', 'Phường An Bình', 'an_binh', '52'),
+    ('23617', 'An Khê', 'Phường An Khê', 'an_khe', '52'),
+    ('23629', 'Cửu An', 'Xã Cửu An', 'cuu_an', '52'),
+    ('23638', 'Kbang', 'Xã Kbang', 'kbang', '52'),
+    ('23644', 'Đak Rong', 'Xã Đak Rong', 'dak_rong', '52'),
+    ('23647', 'Sơn Lang', 'Xã Sơn Lang', 'son_lang', '52'),
+    ('23650', 'Krong', 'Xã Krong', 'krong', '52'),
+    ('23668', 'Tơ Tung', 'Xã Tơ Tung', 'to_tung', '52'),
+    ('23674', 'Kông Bơ La', 'Xã Kông Bơ La', 'kong_bo_la', '52'),
+    ('23677', 'Đak Đoa', 'Xã Đak Đoa', 'dak_doa', '52'),
+    ('23683', 'Đak Sơmei', 'Xã Đak Sơmei', 'dak_somei', '52'),
+    ('23701', 'Kon Gang', 'Xã Kon Gang', 'kon_gang', '52'),
+    ('23710', 'Ia Băng', 'Xã Ia Băng', 'ia_bang', '52'),
+    ('23714', 'KDang', 'Xã KDang', 'kdang', '52'),
+    ('23722', 'Chư Păh', 'Xã Chư Păh', 'chu_pah', '52'),
+    ('23728', 'Ia Khươl', 'Xã Ia Khươl', 'ia_khuol', '52'),
+    ('23734', 'Ia Ly', 'Xã Ia Ly', 'ia_ly', '52'),
+    ('23749', 'Ia Phí', 'Xã Ia Phí', 'ia_phi', '52'),
+    ('23764', 'Ia Grai', 'Xã Ia Grai', 'ia_grai', '52'),
+    ('23767', 'Ia Hrung', 'Xã Ia Hrung', 'ia_hrung', '52'),
+    ('23776', 'Ia Krái', 'Xã Ia Krái', 'ia_krai', '52'),
+    ('23782', 'Ia O', 'Xã Ia O', 'ia_o', '52'),
+    ('23788', 'Ia Chia', 'Xã Ia Chia', 'ia_chia', '52'),
+    ('23794', 'Mang Yang', 'Xã Mang Yang', 'mang_yang', '52'),
+    ('23798', 'Ayun', 'Xã Ayun', 'ayun', '52'),
+    ('23799', 'Hra', 'Xã Hra', 'hra', '52'),
+    ('23812', 'Lơ Pang', 'Xã Lơ Pang', 'lo_pang', '52'),
+    ('23818', 'Kon Chiêng', 'Xã Kon Chiêng', 'kon_chieng', '52'),
+    ('23824', 'Kông Chro', 'Xã Kông Chro', 'kong_chro', '52'),
+    ('23830', 'Chư Krey', 'Xã Chư Krey', 'chu_krey', '52'),
+    ('23833', 'Ya Ma', 'Xã Ya Ma', 'ya_ma', '52'),
+    ('23839', 'SRó', 'Xã SRó', 'sro', '52'),
+    ('23842', 'Đăk Song', 'Xã Đăk Song', 'dak_song', '52'),
+    ('23851', 'Chơ Long', 'Xã Chơ Long', 'cho_long', '52'),
+    ('23857', 'Đức Cơ', 'Xã Đức Cơ', 'duc_co', '52'),
+    ('23866', 'Ia Krêl', 'Xã Ia Krêl', 'ia_krel', '52'),
+    ('23869', 'Ia Dơk', 'Xã Ia Dơk', 'ia_dok', '52'),
+    ('23872', 'Ia Dom', 'Xã Ia Dom', 'ia_dom', '52'),
+    ('23881', 'Ia Pnôn', 'Xã Ia Pnôn', 'ia_pnon', '52'),
+    ('23884', 'Ia Nan', 'Xã Ia Nan', 'ia_nan', '52'),
+    ('23887', 'Chư Prông', 'Xã Chư Prông', 'chu_prong', '52'),
+    ('23896', 'Bàu Cạn', 'Xã Bàu Cạn', 'bau_can', '52'),
+    ('23908', 'Ia Tôr', 'Xã Ia Tôr', 'ia_tor', '52'),
+    ('23911', 'Ia Boòng', 'Xã Ia Boòng', 'ia_boong', '52'),
+    ('23917', 'Ia Púch', 'Xã Ia Púch', 'ia_puch', '52'),
+    ('23926', 'Ia Pia', 'Xã Ia Pia', 'ia_pia', '52'),
+    ('23935', 'Ia Lâu', 'Xã Ia Lâu', 'ia_lau', '52'),
+    ('23938', 'Ia Mơ', 'Xã Ia Mơ', 'ia_mo', '52'),
+    ('23941', 'Chư Sê', 'Xã Chư Sê', 'chu_se', '52'),
+    ('23942', 'Chư Pưh', 'Xã Chư Pưh', 'chu_puh', '52'),
+    ('23947', 'Bờ Ngoong', 'Xã Bờ Ngoong', 'bo_ngoong', '52'),
+    ('23954', 'Al Bá', 'Xã Al Bá', 'al_ba', '52'),
+    ('23971', 'Ia Hrú', 'Xã Ia Hrú', 'ia_hru', '52'),
+    ('23977', 'Ia Ko', 'Xã Ia Ko', 'ia_ko', '52'),
+    ('23986', 'Ia Le', 'Xã Ia Le', 'ia_le', '52'),
+    ('23995', 'Đak Pơ', 'Xã Đak Pơ', 'dak_po', '52'),
+    ('24007', 'Ya Hội', 'Xã Ya Hội', 'ya_hoi', '52'),
+    ('24013', 'Pờ Tó', 'Xã Pờ Tó', 'po_to', '52'),
+    ('24022', 'Ia Pa', 'Xã Ia Pa', 'ia_pa', '52'),
+    ('24028', 'Ia Tul', 'Xã Ia Tul', 'ia_tul', '52'),
+    ('24043', 'Phú Thiện', 'Xã Phú Thiện', 'phu_thien', '52'),
+    ('24044', 'Ayun Pa', 'Phường Ayun Pa', 'ayun_pa', '52'),
+    ('24049', 'Chư A Thai', 'Xã Chư A Thai', 'chu_a_thai', '52'),
+    ('24061', 'Ia Hiao', 'Xã Ia Hiao', 'ia_hiao', '52'),
+    ('24065', 'Ia Rbol', 'Xã Ia Rbol', 'ia_rbol', '52'),
+    ('24073', 'Ia Sao', 'Xã Ia Sao', 'ia_sao', '52'),
+    ('24076', 'Phú Túc', 'Xã Phú Túc', 'phu_tuc', '52'),
+    ('24100', 'Ia Dreh', 'Xã Ia Dreh', 'ia_dreh', '52'),
+    ('24109', 'Uar', 'Xã Uar', 'uar', '52'),
+    ('24112', 'Ia Rsai', 'Xã Ia Rsai', 'ia_rsai', '52'),
+    ('22333', 'Bắc Nha Trang', 'Phường Bắc Nha Trang', 'bac_nha_trang', '56'),
+    ('22366', 'Nha Trang', 'Phường Nha Trang', 'nha_trang', '56'),
+    ('22390', 'Tây Nha Trang', 'Phường Tây Nha Trang', 'tay_nha_trang', '56'),
+    ('22402', 'Nam Nha Trang', 'Phường Nam Nha Trang', 'nam_nha_trang', '56'),
+    ('22411', 'Bắc Cam Ranh', 'Phường Bắc Cam Ranh', 'bac_cam_ranh', '56'),
+    ('22420', 'Cam Ranh', 'Phường Cam Ranh', 'cam_ranh', '56'),
+    ('22423', 'Ba Ngòi', 'Phường Ba Ngòi', 'ba_ngoi', '56'),
+    ('22432', 'Cam Linh', 'Phường Cam Linh', 'cam_linh', '56'),
+    ('22435', 'Cam Hiệp', 'Xã Cam Hiệp', 'cam_hiep', '56'),
+    ('22453', 'Cam Lâm', 'Xã Cam Lâm', 'cam_lam', '56'),
+    ('22465', 'Cam An', 'Xã Cam An', 'cam_an', '56'),
+    ('22480', 'Nam Cam Ranh', 'Xã Nam Cam Ranh', 'nam_cam_ranh', '56'),
+    ('22489', 'Vạn Ninh', 'Xã Vạn Ninh', 'van_ninh', '56'),
+    ('22498', 'Tu Bông', 'Xã Tu Bông', 'tu_bong', '56'),
+    ('22504', 'Đại Lãnh', 'Xã Đại Lãnh', 'dai_lanh', '56'),
+    ('22516', 'Vạn Thắng', 'Xã Vạn Thắng', 'van_thang', '56'),
+    ('22525', 'Vạn Hưng', 'Xã Vạn Hưng', 'van_hung', '56'),
+    ('22528', 'Ninh Hoà', 'Phường Ninh Hoà', 'ninh_hoa', '56'),
+    ('22546', 'Bắc Ninh Hoà', 'Xã Bắc Ninh Hoà', 'bac_ninh_hoa', '56'),
+    ('22552', 'Tây Ninh Hoà', 'Xã Tây Ninh Hoà', 'tay_ninh_hoa', '56'),
+    ('22558', 'Hoà Trí', 'Xã Hoà Trí', 'hoa_tri', '56'),
+    ('22561', 'Đông Ninh Hoà', 'Phường Đông Ninh Hoà', 'dong_ninh_hoa', '56'),
+    ('22576', 'Tân Định', 'Xã Tân Định', 'tan_dinh', '56'),
+    ('22591', 'Hoà Thắng', 'Phường Hoà Thắng', 'hoa_thang', '56');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('22597', 'Nam Ninh Hoà', 'Xã Nam Ninh Hoà', 'nam_ninh_hoa', '56'),
+    ('22609', 'Khánh Vĩnh', 'Xã Khánh Vĩnh', 'khanh_vinh', '56'),
+    ('22612', 'Trung Khánh Vĩnh', 'Xã Trung Khánh Vĩnh', 'trung_khanh_vinh', '56'),
+    ('22615', 'Bắc Khánh Vĩnh', 'Xã Bắc Khánh Vĩnh', 'bac_khanh_vinh', '56'),
+    ('22624', 'Tây Khánh Vĩnh', 'Xã Tây Khánh Vĩnh', 'tay_khanh_vinh', '56'),
+    ('22648', 'Nam Khánh Vĩnh', 'Xã Nam Khánh Vĩnh', 'nam_khanh_vinh', '56'),
+    ('22651', 'Diên Khánh', 'Xã Diên Khánh', 'dien_khanh', '56'),
+    ('22657', 'Diên Điền', 'Xã Diên Điền', 'dien_dien', '56'),
+    ('22660', 'Diên Lâm', 'Xã Diên Lâm', 'dien_lam', '56'),
+    ('22672', 'Diên Thọ', 'Xã Diên Thọ', 'dien_tho', '56'),
+    ('22678', 'Diên Lạc', 'Xã Diên Lạc', 'dien_lac', '56'),
+    ('22702', 'Suối Hiệp', 'Xã Suối Hiệp', 'suoi_hiep', '56'),
+    ('22708', 'Suối Dầu', 'Xã Suối Dầu', 'suoi_dau', '56'),
+    ('22714', 'Khánh Sơn', 'Xã Khánh Sơn', 'khanh_son', '56'),
+    ('22720', 'Tây Khánh Sơn', 'Xã Tây Khánh Sơn', 'tay_khanh_son', '56'),
+    ('22732', 'Đông Khánh Sơn', 'Xã Đông Khánh Sơn', 'dong_khanh_son', '56'),
+    ('22736', 'Trường Sa', 'Đặc khu Trường Sa', 'truong_sa', '56'),
+    ('22738', 'Đô Vinh', 'Phường Đô Vinh', 'do_vinh', '56'),
+    ('22741', 'Bảo An', 'Phường Bảo An', 'bao_an', '56'),
+    ('22759', 'Phan Rang', 'Phường Phan Rang', 'phan_rang', '56'),
+    ('22780', 'Đông Hải', 'Phường Đông Hải', 'dong_hai', '56'),
+    ('22786', 'Bác Ái Tây', 'Xã Bác Ái Tây', 'bac_ai_tay', '56'),
+    ('22795', 'Bác Ái', 'Xã Bác Ái', 'bac_ai', '56'),
+    ('22801', 'Bác Ái Đông', 'Xã Bác Ái Đông', 'bac_ai_dong', '56'),
+    ('22810', 'Ninh Sơn', 'Xã Ninh Sơn', 'ninh_son', '56'),
+    ('22813', 'Lâm Sơn', 'Xã Lâm Sơn', 'lam_son', '56'),
+    ('22822', 'Mỹ Sơn', 'Xã Mỹ Sơn', 'my_son', '56'),
+    ('22828', 'Anh Dũng', 'Xã Anh Dũng', 'anh_dung', '56'),
+    ('22834', 'Ninh Chử', 'Phường Ninh Chử', 'ninh_chu', '56'),
+    ('22840', 'Công Hải', 'Xã Công Hải', 'cong_hai', '56'),
+    ('22846', 'Vĩnh Hải', 'Xã Vĩnh Hải', 'vinh_hai', '56'),
+    ('22849', 'Thuận Bắc', 'Xã Thuận Bắc', 'thuan_bac', '56'),
+    ('22852', 'Ninh Hải', 'Xã Ninh Hải', 'ninh_hai', '56'),
+    ('22861', 'Xuân Hải', 'Xã Xuân Hải', 'xuan_hai', '56'),
+    ('22870', 'Ninh Phước', 'Xã Ninh Phước', 'ninh_phuoc', '56'),
+    ('22873', 'Phước Hậu', 'Xã Phước Hậu', 'phuoc_hau', '56'),
+    ('22888', 'Phước Dinh', 'Xã Phước Dinh', 'phuoc_dinh', '56'),
+    ('22891', 'Phước Hữu', 'Xã Phước Hữu', 'phuoc_huu', '56'),
+    ('22897', 'Thuận Nam', 'Xã Thuận Nam', 'thuan_nam', '56'),
+    ('22900', 'Phước Hà', 'Xã Phước Hà', 'phuoc_ha', '56'),
+    ('22909', 'Cà Ná', 'Xã Cà Ná', 'ca_na', '56'),
+    ('22015', 'Tuy Hoà', 'Phường Tuy Hoà', 'tuy_hoa', '66'),
+    ('22045', 'Bình Kiến', 'Phường Bình Kiến', 'binh_kien', '66'),
+    ('22051', 'Sông Cầu', 'Phường Sông Cầu', 'song_cau', '66'),
+    ('22057', 'Xuân Lộc', 'Xã Xuân Lộc', 'xuan_loc', '66'),
+    ('22060', 'Xuân Cảnh', 'Xã Xuân Cảnh', 'xuan_canh', '66'),
+    ('22075', 'Xuân Thọ', 'Xã Xuân Thọ', 'xuan_tho', '66'),
+    ('22076', 'Xuân Đài', 'Phường Xuân Đài', 'xuan_dai', '66'),
+    ('22081', 'Đồng Xuân', 'Xã Đồng Xuân', 'dong_xuan', '66'),
+    ('22090', 'Xuân Lãnh', 'Xã Xuân Lãnh', 'xuan_lanh', '66'),
+    ('22096', 'Phú Mỡ', 'Xã Phú Mỡ', 'phu_mo', '66'),
+    ('22111', 'Xuân Phước', 'Xã Xuân Phước', 'xuan_phuoc', '66'),
+    ('22114', 'Tuy An Bắc', 'Xã Tuy An Bắc', 'tuy_an_bac', '66'),
+    ('22120', 'Tuy An Đông', 'Xã Tuy An Đông', 'tuy_an_dong', '66'),
+    ('22132', 'Tuy An Tây', 'Xã Tuy An Tây', 'tuy_an_tay', '66'),
+    ('22147', 'Ô Loan', 'Xã Ô Loan', 'o_loan', '66'),
+    ('22153', 'Tuy An Nam', 'Xã Tuy An Nam', 'tuy_an_nam', '66'),
+    ('22165', 'Sơn Hoà', 'Xã Sơn Hoà', 'son_hoa', '66'),
+    ('22171', 'Tây Sơn', 'Xã Tây Sơn', 'tay_son', '66'),
+    ('22177', 'Vân Hoà', 'Xã Vân Hoà', 'van_hoa', '66'),
+    ('22192', 'Suối Trai', 'Xã Suối Trai', 'suoi_trai', '66'),
+    ('22207', 'Sông Hinh', 'Xã Sông Hinh', 'song_hinh', '66'),
+    ('22222', 'Đức Bình', 'Xã Đức Bình', 'duc_binh', '66'),
+    ('22225', 'Ea Bá', 'Xã Ea Bá', 'ea_ba', '66'),
+    ('22237', 'Ea Ly', 'Xã Ea Ly', 'ea_ly', '66'),
+    ('22240', 'Phú Yên', 'Phường Phú Yên', 'phu_yen', '66'),
+    ('22250', 'Sơn Thành', 'Xã Sơn Thành', 'son_thanh', '66'),
+    ('22255', 'Tây Hoà', 'Xã Tây Hoà', 'tay_hoa', '66'),
+    ('22258', 'Đông Hoà', 'Phường Đông Hoà', 'dong_hoa', '66'),
+    ('22261', 'Hoà Hiệp', 'Phường Hoà Hiệp', 'hoa_hiep', '66'),
+    ('22276', 'Hoà Thịnh', 'Xã Hoà Thịnh', 'hoa_thinh', '66'),
+    ('22285', 'Hoà Mỹ', 'Xã Hoà Mỹ', 'hoa_my', '66'),
+    ('22291', 'Hoà Xuân', 'Xã Hoà Xuân', 'hoa_xuan', '66'),
+    ('22303', 'Phú Hoà 2', 'Xã Phú Hoà 2', 'phu_hoa_2', '66'),
+    ('22319', 'Phú Hoà 1', 'Xã Phú Hoà 1', 'phu_hoa_1', '66'),
+    ('24121', 'Tân Lập', 'Phường Tân Lập', 'tan_lap', '66'),
+    ('24133', 'Buôn Ma Thuột', 'Phường Buôn Ma Thuột', 'buon_ma_thuot', '66'),
+    ('24154', 'Thành Nhất', 'Phường Thành Nhất', 'thanh_nhat', '66'),
+    ('24163', 'Tân An', 'Phường Tân An', 'tan_an', '66'),
+    ('24169', 'Ea Kao', 'Phường Ea Kao', 'ea_kao', '66'),
+    ('24175', 'Hoà Phú', 'Xã Hoà Phú', 'hoa_phu', '66'),
+    ('24181', 'Ea Drăng', 'Xã Ea Drăng', 'ea_drang', '66'),
+    ('24184', 'Ea H''Leo', 'Xã Ea H''Leo', 'ea_hleo', '66'),
+    ('24187', 'Ea Hiao', 'Xã Ea Hiao', 'ea_hiao', '66'),
+    ('24193', 'Ea Wy', 'Xã Ea Wy', 'ea_wy', '66'),
+    ('24208', 'Ea Khăl', 'Xã Ea Khăl', 'ea_khal', '66'),
+    ('24211', 'Ea Súp', 'Xã Ea Súp', 'ea_sup', '66'),
+    ('24214', 'Ia Lốp', 'Xã Ia Lốp', 'ia_lop', '66'),
+    ('24217', 'Ea Rốk', 'Xã Ea Rốk', 'ea_rok', '66'),
+    ('24221', 'Ia Rvê', 'Xã Ia Rvê', 'ia_rve', '66'),
+    ('24229', 'Ea Bung', 'Xã Ea Bung', 'ea_bung', '66'),
+    ('24235', 'Buôn Đôn', 'Xã Buôn Đôn', 'buon_don', '66'),
+    ('24241', 'Ea Wer', 'Xã Ea Wer', 'ea_wer', '66'),
+    ('24250', 'Ea Nuôl', 'Xã Ea Nuôl', 'ea_nuol', '66'),
+    ('24259', 'Quảng Phú', 'Xã Quảng Phú', 'quang_phu', '66'),
+    ('24265', 'Ea Kiết', 'Xã Ea Kiết', 'ea_kiet', '66'),
+    ('24277', 'Ea Tul', 'Xã Ea Tul', 'ea_tul', '66'),
+    ('24280', 'Cư M''gar', 'Xã Cư M''gar', 'cu_mgar', '66'),
+    ('24286', 'Ea M''Droh', 'Xã Ea M''Droh', 'ea_mdroh', '66'),
+    ('24301', 'Cuôr Đăng', 'Xã Cuôr Đăng', 'cuor_dang', '66'),
+    ('24305', 'Buôn Hồ', 'Phường Buôn Hồ', 'buon_ho', '66'),
+    ('24310', 'Krông Búk', 'Xã Krông Búk', 'krong_buk', '66'),
+    ('24313', 'Cư Pơng', 'Xã Cư Pơng', 'cu_pong', '66'),
+    ('24316', 'Pơng Drang', 'Xã Pơng Drang', 'pong_drang', '66'),
+    ('24328', 'Ea Drông', 'Xã Ea Drông', 'ea_drong', '66'),
+    ('24340', 'Cư Bao', 'Phường Cư Bao', 'cu_bao', '66'),
+    ('24343', 'Krông Năng', 'Xã Krông Năng', 'krong_nang', '66'),
+    ('24346', 'Dliê Ya', 'Xã Dliê Ya', 'dlie_ya', '66'),
+    ('24352', 'Tam Giang', 'Xã Tam Giang', 'tam_giang', '66'),
+    ('24364', 'Phú Xuân', 'Xã Phú Xuân', 'phu_xuan', '66'),
+    ('24373', 'Ea Kar', 'Xã Ea Kar', 'ea_kar', '66'),
+    ('24376', 'Ea Knốp', 'Xã Ea Knốp', 'ea_knop', '66'),
+    ('24400', 'Ea Păl', 'Xã Ea Păl', 'ea_pal', '66'),
+    ('24403', 'Ea Ô', 'Xã Ea Ô', 'ea_o', '66'),
+    ('24406', 'Cư Yang', 'Xã Cư Yang', 'cu_yang', '66'),
+    ('24412', 'M''Drắk', 'Xã M''Drắk', 'mdrak', '66'),
+    ('24415', 'Cư Prao', 'Xã Cư Prao', 'cu_prao', '66'),
+    ('24433', 'Ea Riêng', 'Xã Ea Riêng', 'ea_rieng', '66'),
+    ('24436', 'Cư M''ta', 'Xã Cư M''ta', 'cu_mta', '66'),
+    ('24444', 'Krông Á', 'Xã Krông Á', 'krong_a', '66'),
+    ('24445', 'Ea Trang', 'Xã Ea Trang', 'ea_trang', '66'),
+    ('24448', 'Krông Bông', 'Xã Krông Bông', 'krong_bong', '66'),
+    ('24454', 'Dang Kang', 'Xã Dang Kang', 'dang_kang', '66'),
+    ('24472', 'Hoà Sơn', 'Xã Hoà Sơn', 'hoa_son', '66'),
+    ('24478', 'Cư Pui', 'Xã Cư Pui', 'cu_pui', '66'),
+    ('24484', 'Yang Mao', 'Xã Yang Mao', 'yang_mao', '66'),
+    ('24490', 'Krông Pắc', 'Xã Krông Pắc', 'krong_pac', '66'),
+    ('24496', 'Ea Kly', 'Xã Ea Kly', 'ea_kly', '66'),
+    ('24502', 'Ea Phê', 'Xã Ea Phê', 'ea_phe', '66'),
+    ('24505', 'Ea Knuếc', 'Xã Ea Knuếc', 'ea_knuec', '66'),
+    ('24526', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '66'),
+    ('24529', 'Vụ Bổn', 'Xã Vụ Bổn', 'vu_bon', '66'),
+    ('24538', 'Krông Ana', 'Xã Krông Ana', 'krong_ana', '66'),
+    ('24540', 'Ea Ning', 'Xã Ea Ning', 'ea_ning', '66'),
+    ('24544', 'Ea Ktur', 'Xã Ea Ktur', 'ea_ktur', '66'),
+    ('24559', 'Ea Na', 'Xã Ea Na', 'ea_na', '66'),
+    ('24561', 'Dray Bhăng', 'Xã Dray Bhăng', 'dray_bhang', '66'),
+    ('24568', 'Dur Kmăl', 'Xã Dur Kmăl', 'dur_kmal', '66'),
+    ('24580', 'Liên Sơn Lắk', 'Xã Liên Sơn Lắk', 'lien_son_lak', '66'),
+    ('24595', 'Đắk Liêng', 'Xã Đắk Liêng', 'dak_lieng', '66'),
+    ('24598', 'Đắk Phơi', 'Xã Đắk Phơi', 'dak_phoi', '66'),
+    ('24604', 'Krông Nô', 'Xã Krông Nô', 'krong_no', '66'),
+    ('24607', 'Nam Ka', 'Xã Nam Ka', 'nam_ka', '66'),
+    ('22918', 'Mũi Né', 'Phường Mũi Né', 'mui_ne', '68'),
+    ('22924', 'Phú Thuỷ', 'Phường Phú Thuỷ', 'phu_thuy', '68'),
+    ('22933', 'Hàm Thắng', 'Phường Hàm Thắng', 'ham_thang', '68'),
+    ('22945', 'Phan Thiết', 'Phường Phan Thiết', 'phan_thiet', '68'),
+    ('22954', 'Tiến Thành', 'Phường Tiến Thành', 'tien_thanh', '68'),
+    ('22960', 'Bình Thuận', 'Phường Bình Thuận', 'binh_thuan', '68'),
+    ('22963', 'Tuyên Quang', 'Xã Tuyên Quang', 'tuyen_quang', '68'),
+    ('22969', 'Liên Hương', 'Xã Liên Hương', 'lien_huong', '68'),
+    ('22972', 'Phan Rí Cửa', 'Xã Phan Rí Cửa', 'phan_ri_cua', '68'),
+    ('22978', 'Tuy Phong', 'Xã Tuy Phong', 'tuy_phong', '68'),
+    ('22981', 'Vĩnh Hảo', 'Xã Vĩnh Hảo', 'vinh_hao', '68'),
+    ('23005', 'Bắc Bình', 'Xã Bắc Bình', 'bac_binh', '68'),
+    ('23008', 'Phan Sơn', 'Xã Phan Sơn', 'phan_son', '68'),
+    ('23020', 'Hải Ninh', 'Xã Hải Ninh', 'hai_ninh', '68'),
+    ('23023', 'Sông Luỹ', 'Xã Sông Luỹ', 'song_luy', '68'),
+    ('23032', 'Lương Sơn', 'Xã Lương Sơn', 'luong_son', '68'),
+    ('23041', 'Hồng Thái', 'Xã Hồng Thái', 'hong_thai', '68'),
+    ('23053', 'Hoà Thắng', 'Xã Hoà Thắng', 'hoa_thang', '68'),
+    ('23059', 'Hàm Thuận', 'Xã Hàm Thuận', 'ham_thuan', '68'),
+    ('23065', 'La Dạ', 'Xã La Dạ', 'la_da', '68'),
+    ('23074', 'Đông Giang', 'Xã Đông Giang', 'dong_giang', '68'),
+    ('23086', 'Hồng Sơn', 'Xã Hồng Sơn', 'hong_son', '68'),
+    ('23089', 'Hàm Thuận Bắc', 'Xã Hàm Thuận Bắc', 'ham_thuan_bac', '68'),
+    ('23095', 'Hàm Liêm', 'Xã Hàm Liêm', 'ham_liem', '68'),
+    ('23110', 'Hàm Thuận Nam', 'Xã Hàm Thuận Nam', 'ham_thuan_nam', '68'),
+    ('23122', 'Hàm Thạnh', 'Xã Hàm Thạnh', 'ham_thanh', '68'),
+    ('23128', 'Hàm Kiệm', 'Xã Hàm Kiệm', 'ham_kiem', '68'),
+    ('23134', 'Tân Lập', 'Xã Tân Lập', 'tan_lap', '68'),
+    ('23143', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '68'),
+    ('23149', 'Tánh Linh', 'Xã Tánh Linh', 'tanh_linh', '68'),
+    ('23152', 'Bắc Ruộng', 'Xã Bắc Ruộng', 'bac_ruong', '68'),
+    ('23158', 'Nghị Đức', 'Xã Nghị Đức', 'nghi_duc', '68'),
+    ('23173', 'Đồng Kho', 'Xã Đồng Kho', 'dong_kho', '68'),
+    ('23188', 'Suối Kiết', 'Xã Suối Kiết', 'suoi_kiet', '68'),
+    ('23191', 'Đức Linh', 'Xã Đức Linh', 'duc_linh', '68'),
+    ('23194', 'Hoài Đức', 'Xã Hoài Đức', 'hoai_duc', '68'),
+    ('23200', 'Nam Thành', 'Xã Nam Thành', 'nam_thanh', '68'),
+    ('23227', 'Trà Tân', 'Xã Trà Tân', 'tra_tan', '68'),
+    ('23230', 'Tân Minh', 'Xã Tân Minh', 'tan_minh', '68'),
+    ('23231', 'Phước Hội', 'Phường Phước Hội', 'phuoc_hoi', '68'),
+    ('23235', 'La Gi', 'Phường La Gi', 'la_gi', '68'),
+    ('23236', 'Hàm Tân', 'Xã Hàm Tân', 'ham_tan', '68'),
+    ('23246', 'Tân Hải', 'Xã Tân Hải', 'tan_hai', '68'),
+    ('23266', 'Sơn Mỹ', 'Xã Sơn Mỹ', 'son_my', '68'),
+    ('23272', 'Phú Quý', 'Đặc khu Phú Quý', 'phu_quy', '68'),
+    ('24611', 'Bắc Gia Nghĩa', 'Phường Bắc Gia Nghĩa', 'bac_gia_nghia', '68'),
+    ('24615', 'Nam Gia Nghĩa', 'Phường Nam Gia Nghĩa', 'nam_gia_nghia', '68'),
+    ('24616', 'Quảng Sơn', 'Xã Quảng Sơn', 'quang_son', '68'),
+    ('24617', 'Đông Gia Nghĩa', 'Phường Đông Gia Nghĩa', 'dong_gia_nghia', '68'),
+    ('24620', 'Quảng Hoà', 'Xã Quảng Hoà', 'quang_hoa', '68'),
+    ('24631', 'Quảng Khê', 'Xã Quảng Khê', 'quang_khe', '68'),
+    ('24637', 'Tà Đùng', 'Xã Tà Đùng', 'ta_dung', '68'),
+    ('24640', 'Cư Jút', 'Xã Cư Jút', 'cu_jut', '68'),
+    ('24646', 'Đắk Wil', 'Xã Đắk Wil', 'dak_wil', '68'),
+    ('24649', 'Nam Dong', 'Xã Nam Dong', 'nam_dong', '68'),
+    ('24664', 'Đức Lập', 'Xã Đức Lập', 'duc_lap', '68'),
+    ('24670', 'Đắk Mil', 'Xã Đắk Mil', 'dak_mil', '68');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('24678', 'Đắk Sắk', 'Xã Đắk Sắk', 'dak_sak', '68'),
+    ('24682', 'Thuận An', 'Xã Thuận An', 'thuan_an', '68'),
+    ('24688', 'Krông Nô', 'Xã Krông Nô', 'krong_no', '68'),
+    ('24697', 'Nam Đà', 'Xã Nam Đà', 'nam_da', '68'),
+    ('24703', 'Nâm Nung', 'Xã Nâm Nung', 'nam_nung', '68'),
+    ('24712', 'Quảng Phú', 'Xã Quảng Phú', 'quang_phu', '68'),
+    ('24717', 'Đức An', 'Xã Đức An', 'duc_an', '68'),
+    ('24718', 'Đắk Song', 'Xã Đắk Song', 'dak_song', '68'),
+    ('24722', 'Thuận Hạnh', 'Xã Thuận Hạnh', 'thuan_hanh', '68'),
+    ('24730', 'Trường Xuân', 'Xã Trường Xuân', 'truong_xuan', '68'),
+    ('24733', 'Kiến Đức', 'Xã Kiến Đức', 'kien_duc', '68'),
+    ('24736', 'Quảng Trực', 'Xã Quảng Trực', 'quang_truc', '68'),
+    ('24739', 'Tuy Đức', 'Xã Tuy Đức', 'tuy_duc', '68'),
+    ('24748', 'Quảng Tân', 'Xã Quảng Tân', 'quang_tan', '68'),
+    ('24751', 'Nhân Cơ', 'Xã Nhân Cơ', 'nhan_co', '68'),
+    ('24760', 'Quảng Tín', 'Xã Quảng Tín', 'quang_tin', '68'),
+    ('24778', 'Lâm Viên - Đà Lạt', 'Phường Lâm Viên - Đà Lạt', 'lam_vien_da_lat', '68'),
+    ('24781', 'Xuân Hương - Đà Lạt', 'Phường Xuân Hương - Đà Lạt', 'xuan_huong_da_lat', '68'),
+    ('24787', 'Cam Ly - Đà Lạt', 'Phường Cam Ly - Đà Lạt', 'cam_ly_da_lat', '68'),
+    ('24805', 'Xuân Trường - Đà Lạt', 'Phường Xuân Trường - Đà Lạt', 'xuan_truong_da_lat', '68'),
+    ('24820', '2 Bảo Lộc', 'Phường 2 Bảo Lộc', '2_bao_loc', '68'),
+    ('24823', '1 Bảo Lộc', 'Phường 1 Bảo Lộc', '1_bao_loc', '68'),
+    ('24829', 'B''Lao', 'Phường B''Lao', 'blao', '68'),
+    ('24841', '3 Bảo Lộc', 'Phường 3 Bảo Lộc', '3_bao_loc', '68'),
+    ('24846', 'Lang Biang - Đà Lạt', 'Phường Lang Biang - Đà Lạt', 'lang_biang_da_lat', '68'),
+    ('24848', 'Lạc Dương', 'Xã Lạc Dương', 'lac_duong', '68'),
+    ('24853', 'Đam Rông 4', 'Xã Đam Rông 4', 'dam_rong_4', '68'),
+    ('24868', 'Nam Ban Lâm Hà', 'Xã Nam Ban Lâm Hà', 'nam_ban_lam_ha', '68'),
+    ('24871', 'Đinh Văn Lâm Hà', 'Xã Đinh Văn Lâm Hà', 'dinh_van_lam_ha', '68'),
+    ('24875', 'Đam Rông 3', 'Xã Đam Rông 3', 'dam_rong_3', '68'),
+    ('24877', 'Đam Rông 2', 'Xã Đam Rông 2', 'dam_rong_2', '68'),
+    ('24883', 'Nam Hà Lâm Hà', 'Xã Nam Hà Lâm Hà', 'nam_ha_lam_ha', '68'),
+    ('24886', 'Đam Rông 1', 'Xã Đam Rông 1', 'dam_rong_1', '68'),
+    ('24895', 'Phú Sơn Lâm Hà', 'Xã Phú Sơn Lâm Hà', 'phu_son_lam_ha', '68'),
+    ('24907', 'Phúc Thọ Lâm Hà', 'Xã Phúc Thọ Lâm Hà', 'phuc_tho_lam_ha', '68'),
+    ('24916', 'Tân Hà Lâm Hà', 'Xã Tân Hà Lâm Hà', 'tan_ha_lam_ha', '68'),
+    ('24931', 'Đơn Dương', 'Xã Đơn Dương', 'don_duong', '68'),
+    ('24934', 'D''Ran', 'Xã D''Ran', 'dran', '68'),
+    ('24943', 'Ka Đô', 'Xã Ka Đô', 'ka_do', '68'),
+    ('24955', 'Quảng Lập', 'Xã Quảng Lập', 'quang_lap', '68'),
+    ('24958', 'Đức Trọng', 'Xã Đức Trọng', 'duc_trong', '68'),
+    ('24967', 'Hiệp Thạnh', 'Xã Hiệp Thạnh', 'hiep_thanh', '68'),
+    ('24976', 'Tân Hội', 'Xã Tân Hội', 'tan_hoi', '68'),
+    ('24985', 'Ninh Gia', 'Xã Ninh Gia', 'ninh_gia', '68'),
+    ('24988', 'Tà Năng', 'Xã Tà Năng', 'ta_nang', '68'),
+    ('24991', 'Tà Hine', 'Xã Tà Hine', 'ta_hine', '68'),
+    ('25000', 'Di Linh', 'Xã Di Linh', 'di_linh', '68'),
+    ('25007', 'Đinh Trang Thượng', 'Xã Đinh Trang Thượng', 'dinh_trang_thuong', '68'),
+    ('25015', 'Gia Hiệp', 'Xã Gia Hiệp', 'gia_hiep', '68'),
+    ('25018', 'Bảo Thuận', 'Xã Bảo Thuận', 'bao_thuan', '68'),
+    ('25036', 'Hoà Ninh', 'Xã Hoà Ninh', 'hoa_ninh', '68'),
+    ('25042', 'Hoà Bắc', 'Xã Hoà Bắc', 'hoa_bac', '68'),
+    ('25051', 'Sơn Điền', 'Xã Sơn Điền', 'son_dien', '68'),
+    ('25054', 'Bảo Lâm 1', 'Xã Bảo Lâm 1', 'bao_lam_1', '68'),
+    ('25057', 'Bảo Lâm 5', 'Xã Bảo Lâm 5', 'bao_lam_5', '68'),
+    ('25063', 'Bảo Lâm 4', 'Xã Bảo Lâm 4', 'bao_lam_4', '68'),
+    ('25084', 'Bảo Lâm 2', 'Xã Bảo Lâm 2', 'bao_lam_2', '68'),
+    ('25093', 'Bảo Lâm 3', 'Xã Bảo Lâm 3', 'bao_lam_3', '68'),
+    ('25099', 'Đạ Huoai', 'Xã Đạ Huoai', 'da_huoai', '68'),
+    ('25105', 'Đạ Huoai 2', 'Xã Đạ Huoai 2', 'da_huoai_2', '68'),
+    ('25114', 'Đạ Huoai 3', 'Xã Đạ Huoai 3', 'da_huoai_3', '68'),
+    ('25126', 'Đạ Tẻh', 'Xã Đạ Tẻh', 'da_teh', '68'),
+    ('25135', 'Đạ Tẻh 3', 'Xã Đạ Tẻh 3', 'da_teh_3', '68'),
+    ('25138', 'Đạ Tẻh 2', 'Xã Đạ Tẻh 2', 'da_teh_2', '68'),
+    ('25159', 'Cát Tiên', 'Xã Cát Tiên', 'cat_tien', '68'),
+    ('25162', 'Cát Tiên 3', 'Xã Cát Tiên 3', 'cat_tien_3', '68'),
+    ('25180', 'Cát Tiên 2', 'Xã Cát Tiên 2', 'cat_tien_2', '68'),
+    ('25195', 'Bình Phước', 'Phường Bình Phước', 'binh_phuoc', '75'),
+    ('25210', 'Đồng Xoài', 'Phường Đồng Xoài', 'dong_xoai', '75'),
+    ('25217', 'Phước Long', 'Phường Phước Long', 'phuoc_long', '75'),
+    ('25220', 'Phước Bình', 'Phường Phước Bình', 'phuoc_binh', '75'),
+    ('25222', 'Bù Gia Mập', 'Xã Bù Gia Mập', 'bu_gia_map', '75'),
+    ('25225', 'Đăk Ơ', 'Xã Đăk Ơ', 'dak_o', '75'),
+    ('25231', 'Đa Kia', 'Xã Đa Kia', 'da_kia', '75'),
+    ('25246', 'Bình Tân', 'Xã Bình Tân', 'binh_tan', '75'),
+    ('25252', 'Phú Riềng', 'Xã Phú Riềng', 'phu_rieng', '75'),
+    ('25255', 'Long Hà', 'Xã Long Hà', 'long_ha', '75'),
+    ('25261', 'Phú Trung', 'Xã Phú Trung', 'phu_trung', '75'),
+    ('25267', 'Phú Nghĩa', 'Xã Phú Nghĩa', 'phu_nghia', '75'),
+    ('25270', 'Lộc Ninh', 'Phường Lộc Ninh', 'loc_ninh', '75'),
+    ('25279', 'Lộc Tấn', 'Xã Lộc Tấn', 'loc_tan', '75'),
+    ('25280', 'Lộc Thạnh', 'Xã Lộc Thạnh', 'loc_thanh', '75'),
+    ('25292', 'Lộc Quang', 'Xã Lộc Quang', 'loc_quang', '75'),
+    ('25294', 'Lộc Thành', 'Xã Lộc Thành', 'loc_thanh', '75'),
+    ('25303', 'Lộc Hưng', 'Xã Lộc Hưng', 'loc_hung', '75'),
+    ('25308', 'Thiện Hưng', 'Xã Thiện Hưng', 'thien_hung', '75'),
+    ('25309', 'Hưng Phước', 'Xã Hưng Phước', 'hung_phuoc', '75'),
+    ('25318', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '75'),
+    ('25326', 'Bình Long', 'Phường Bình Long', 'binh_long', '75'),
+    ('25333', 'An Lộc', 'Phường An Lộc', 'an_loc', '75'),
+    ('25345', 'Tân Hưng', 'Xã Tân Hưng', 'tan_hung', '75'),
+    ('25349', 'Minh Đức', 'Xã Minh Đức', 'minh_duc', '75'),
+    ('25351', 'Tân Quan', 'Xã Tân Quan', 'tan_quan', '75'),
+    ('25357', 'Tân Khai', 'Phường Tân Khai', 'tan_khai', '75'),
+    ('25363', 'Đồng Phú', 'Phường Đồng Phú', 'dong_phu', '75'),
+    ('25378', 'Tân Lợi', 'Xã Tân Lợi', 'tan_loi', '75'),
+    ('25387', 'Thuận Lợi', 'Xã Thuận Lợi', 'thuan_loi', '75'),
+    ('25390', 'Đồng Tâm', 'Xã Đồng Tâm', 'dong_tam', '75'),
+    ('25396', 'Bù Đăng', 'Xã Bù Đăng', 'bu_dang', '75'),
+    ('25399', 'Đak Nhau', 'Xã Đak Nhau', 'dak_nhau', '75'),
+    ('25402', 'Thọ Sơn', 'Xã Thọ Sơn', 'tho_son', '75'),
+    ('25405', 'Bom Bo', 'Xã Bom Bo', 'bom_bo', '75'),
+    ('25417', 'Nghĩa Trung', 'Xã Nghĩa Trung', 'nghia_trung', '75'),
+    ('25420', 'Phước Sơn', 'Xã Phước Sơn', 'phuoc_son', '75'),
+    ('25432', 'Chơn Thành', 'Phường Chơn Thành', 'chon_thanh', '75'),
+    ('25441', 'Minh Hưng', 'Phường Minh Hưng', 'minh_hung', '75'),
+    ('25450', 'Nha Bích', 'Xã Nha Bích', 'nha_bich', '75'),
+    ('25993', 'Trảng Dài', 'Phường Trảng Dài', 'trang_dai', '75'),
+    ('26005', 'Hố Nai', 'Phường Hố Nai', 'ho_nai', '75'),
+    ('26017', 'Tam Hiệp', 'Phường Tam Hiệp', 'tam_hiep', '75'),
+    ('26020', 'Long Bình', 'Phường Long Bình', 'long_binh', '75'),
+    ('26041', 'Trấn Biên', 'Phường Trấn Biên', 'tran_bien', '75'),
+    ('26068', 'Biên Hoà', 'Phường Biên Hoà', 'bien_hoa', '75'),
+    ('26080', 'Long Khánh', 'Phường Long Khánh', 'long_khanh', '75'),
+    ('26089', 'Bình Lộc', 'Phường Bình Lộc', 'binh_loc', '75'),
+    ('26098', 'Bảo Vinh', 'Phường Bảo Vinh', 'bao_vinh', '75'),
+    ('26104', 'Xuân Lập', 'Phường Xuân Lập', 'xuan_lap', '75'),
+    ('26113', 'Hàng Gòn', 'Phường Hàng Gòn', 'hang_gon', '75'),
+    ('26116', 'Tân Phú', 'Phường Tân Phú', 'tan_phu', '75'),
+    ('26119', 'Đak Lua', 'Xã Đak Lua', 'dak_lua', '75'),
+    ('26122', 'Nam Cát Tiên', 'Xã Nam Cát Tiên', 'nam_cat_tien', '75'),
+    ('26134', 'Tà Lài', 'Xã Tà Lài', 'ta_lai', '75'),
+    ('26158', 'Phú Lâm', 'Xã Phú Lâm', 'phu_lam', '75'),
+    ('26170', 'Trị An', 'Phường Trị An', 'tri_an', '75'),
+    ('26173', 'Phú Lý', 'Xã Phú Lý', 'phu_ly', '75'),
+    ('26179', 'Tân An', 'Xã Tân An', 'tan_an', '75'),
+    ('26188', 'Tân Triều', 'Phường Tân Triều', 'tan_trieu', '75'),
+    ('26206', 'Định Quán', 'Xã Định Quán', 'dinh_quan', '75'),
+    ('26209', 'Thanh Sơn', 'Xã Thanh Sơn', 'thanh_son', '75'),
+    ('26215', 'Phú Vinh', 'Xã Phú Vinh', 'phu_vinh', '75'),
+    ('26221', 'Phú Hoà', 'Xã Phú Hoà', 'phu_hoa', '75'),
+    ('26227', 'La Ngà', 'Xã La Ngà', 'la_nga', '75'),
+    ('26248', 'Trảng Bom', 'Phường Trảng Bom', 'trang_bom', '75'),
+    ('26254', 'Bàu Hàm', 'Xã Bàu Hàm', 'bau_ham', '75'),
+    ('26278', 'Bình Minh', 'Xã Bình Minh', 'binh_minh', '75'),
+    ('26281', 'Hưng Thịnh', 'Xã Hưng Thịnh', 'hung_thinh', '75'),
+    ('26296', 'An Viễn', 'Xã An Viễn', 'an_vien', '75'),
+    ('26299', 'Thống Nhất', 'Xã Thống Nhất', 'thong_nhat', '75'),
+    ('26311', 'Gia Kiệm', 'Xã Gia Kiệm', 'gia_kiem', '75'),
+    ('26326', 'Dầu Giây', 'Phường Dầu Giây', 'dau_giay', '75'),
+    ('26332', 'Xuân Quế', 'Xã Xuân Quế', 'xuan_que', '75'),
+    ('26341', 'Cẩm Mỹ', 'Xã Cẩm Mỹ', 'cam_my', '75'),
+    ('26347', 'Xuân Đường', 'Xã Xuân Đường', 'xuan_duong', '75'),
+    ('26359', 'Xuân Đông', 'Xã Xuân Đông', 'xuan_dong', '75'),
+    ('26362', 'Sông Ray', 'Xã Sông Ray', 'song_ray', '75'),
+    ('26368', 'Long Thành', 'Phường Long Thành', 'long_thanh', '75'),
+    ('26374', 'Tam Phước', 'Phường Tam Phước', 'tam_phuoc', '75'),
+    ('26377', 'Phước Tân', 'Phường Phước Tân', 'phuoc_tan', '75'),
+    ('26380', 'Long Hưng', 'Phường Long Hưng', 'long_hung', '75'),
+    ('26383', 'An Phước', 'Xã An Phước', 'an_phuoc', '75'),
+    ('26389', 'Bình An', 'Xã Bình An', 'binh_an', '75'),
+    ('26413', 'Long Phước', 'Xã Long Phước', 'long_phuoc', '75'),
+    ('26422', 'Phước Thái', 'Xã Phước Thái', 'phuoc_thai', '75'),
+    ('26425', 'Xuân Lộc', 'Phường Xuân Lộc', 'xuan_loc', '75'),
+    ('26428', 'Xuân Bắc', 'Xã Xuân Bắc', 'xuan_bac', '75'),
+    ('26434', 'Xuân Thành', 'Xã Xuân Thành', 'xuan_thanh', '75'),
+    ('26446', 'Xuân Hoà', 'Xã Xuân Hoà', 'xuan_hoa', '75'),
+    ('26458', 'Xuân Phú', 'Xã Xuân Phú', 'xuan_phu', '75'),
+    ('26461', 'Xuân Định', 'Xã Xuân Định', 'xuan_dinh', '75'),
+    ('26485', 'Nhơn Trạch', 'Phường Nhơn Trạch', 'nhon_trach', '75'),
+    ('26491', 'Đại Phước', 'Xã Đại Phước', 'dai_phuoc', '75'),
+    ('26503', 'Phước An', 'Xã Phước An', 'phuoc_an', '75'),
+    ('25747', 'Thủ Dầu Một', 'Phường Thủ Dầu Một', 'thu_dau_mot', '79'),
+    ('25750', 'Phú Lợi', 'Phường Phú Lợi', 'phu_loi', '79'),
+    ('25760', 'Bình Dương', 'Phường Bình Dương', 'binh_duong', '79'),
+    ('25768', 'Phú An', 'Phường Phú An', 'phu_an', '79'),
+    ('25771', 'Chánh Hiệp', 'Phường Chánh Hiệp', 'chanh_hiep', '79'),
+    ('25777', 'Dầu Tiếng', 'Xã Dầu Tiếng', 'dau_tieng', '79'),
+    ('25780', 'Minh Thạnh', 'Xã Minh Thạnh', 'minh_thanh', '79'),
+    ('25792', 'Long Hoà', 'Xã Long Hoà', 'long_hoa', '79'),
+    ('25807', 'Thanh An', 'Xã Thanh An', 'thanh_an', '79'),
+    ('25813', 'Bến Cát', 'Phường Bến Cát', 'ben_cat', '79'),
+    ('25819', 'Trừ Văn Thố', 'Xã Trừ Văn Thố', 'tru_van_tho', '79'),
+    ('25822', 'Bàu Bàng', 'Xã Bàu Bàng', 'bau_bang', '79'),
+    ('25837', 'Chánh Phú Hoà', 'Phường Chánh Phú Hoà', 'chanh_phu_hoa', '79'),
+    ('25840', 'Long Nguyên', 'Phường Long Nguyên', 'long_nguyen', '79'),
+    ('25843', 'Tây Nam', 'Phường Tây Nam', 'tay_nam', '79'),
+    ('25846', 'Thới Hoà', 'Phường Thới Hoà', 'thoi_hoa', '79'),
+    ('25849', 'Hoà Lợi', 'Phường Hoà Lợi', 'hoa_loi', '79'),
+    ('25858', 'Phú Giáo', 'Xã Phú Giáo', 'phu_giao', '79'),
+    ('25864', 'Phước Thành', 'Xã Phước Thành', 'phuoc_thanh', '79'),
+    ('25867', 'An Long', 'Xã An Long', 'an_long', '79'),
+    ('25882', 'Phước Hoà', 'Xã Phước Hoà', 'phuoc_hoa', '79'),
+    ('25888', 'Tân Uyên', 'Phường Tân Uyên', 'tan_uyen', '79'),
+    ('25891', 'Tân Khánh', 'Phường Tân Khánh', 'tan_khanh', '79'),
+    ('25906', 'Bắc Tân Uyên', 'Xã Bắc Tân Uyên', 'bac_tan_uyen', '79'),
+    ('25909', 'Thường Tân', 'Xã Thường Tân', 'thuong_tan', '79'),
+    ('25912', 'Vĩnh Tân', 'Phường Vĩnh Tân', 'vinh_tan', '79'),
+    ('25915', 'Bình Cơ', 'Phường Bình Cơ', 'binh_co', '79'),
+    ('25920', 'Tân Hiệp', 'Phường Tân Hiệp', 'tan_hiep', '79'),
+    ('25942', 'Dĩ An', 'Phường Dĩ An', 'di_an', '79'),
+    ('25945', 'Tân Đông Hiệp', 'Phường Tân Đông Hiệp', 'tan_dong_hiep', '79'),
+    ('25951', 'Đông Hoà', 'Phường Đông Hoà', 'dong_hoa', '79'),
+    ('25966', 'Lái Thiêu', 'Phường Lái Thiêu', 'lai_thieu', '79'),
+    ('25969', 'Thuận Giao', 'Phường Thuận Giao', 'thuan_giao', '79'),
+    ('25975', 'An Phú', 'Phường An Phú', 'an_phu', '79'),
+    ('25978', 'Thuận An', 'Phường Thuận An', 'thuan_an', '79'),
+    ('25987', 'Bình Hoà', 'Phường Bình Hoà', 'binh_hoa', '79'),
+    ('26506', 'Vũng Tàu', 'Phường Vũng Tàu', 'vung_tau', '79'),
+    ('26526', 'Tam Thắng', 'Phường Tam Thắng', 'tam_thang', '79');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('26536', 'Rạch Dừa', 'Phường Rạch Dừa', 'rach_dua', '79'),
+    ('26542', 'Phước Thắng', 'Phường Phước Thắng', 'phuoc_thang', '79'),
+    ('26545', 'Long Sơn', 'Xã Long Sơn', 'long_son', '79'),
+    ('26560', 'Bà Rịa', 'Phường Bà Rịa', 'ba_ria', '79'),
+    ('26566', 'Long Hương', 'Phường Long Hương', 'long_huong', '79'),
+    ('26572', 'Tam Long', 'Phường Tam Long', 'tam_long', '79'),
+    ('26575', 'Ngãi Giao', 'Xã Ngãi Giao', 'ngai_giao', '79'),
+    ('26584', 'Xuân Sơn', 'Xã Xuân Sơn', 'xuan_son', '79'),
+    ('26590', 'Bình Giã', 'Xã Bình Giã', 'binh_gia', '79'),
+    ('26596', 'Châu Đức', 'Xã Châu Đức', 'chau_duc', '79'),
+    ('26608', 'Kim Long', 'Xã Kim Long', 'kim_long', '79'),
+    ('26617', 'Nghĩa Thành', 'Xã Nghĩa Thành', 'nghia_thanh', '79'),
+    ('26620', 'Hồ Tràm', 'Xã Hồ Tràm', 'ho_tram', '79'),
+    ('26632', 'Xuyên Mộc', 'Xã Xuyên Mộc', 'xuyen_moc', '79'),
+    ('26638', 'Bàu Lâm', 'Xã Bàu Lâm', 'bau_lam', '79'),
+    ('26641', 'Hoà Hội', 'Xã Hoà Hội', 'hoa_hoi', '79'),
+    ('26647', 'Hoà Hiệp', 'Xã Hoà Hiệp', 'hoa_hiep', '79'),
+    ('26656', 'Bình Châu', 'Xã Bình Châu', 'binh_chau', '79'),
+    ('26659', 'Long Điền', 'Xã Long Điền', 'long_dien', '79'),
+    ('26662', 'Long Hải', 'Xã Long Hải', 'long_hai', '79'),
+    ('26680', 'Đất Đỏ', 'Xã Đất Đỏ', 'dat_do', '79'),
+    ('26686', 'Phước Hải', 'Xã Phước Hải', 'phuoc_hai', '79'),
+    ('26704', 'Phú Mỹ', 'Phường Phú Mỹ', 'phu_my', '79'),
+    ('26710', 'Tân Hải', 'Phường Tân Hải', 'tan_hai', '79'),
+    ('26713', 'Tân Phước', 'Phường Tân Phước', 'tan_phuoc', '79'),
+    ('26725', 'Tân Thành', 'Phường Tân Thành', 'tan_thanh', '79'),
+    ('26728', 'Châu Pha', 'Xã Châu Pha', 'chau_pha', '79'),
+    ('26732', 'Côn Đảo', 'Đặc khu Côn Đảo', 'con_dao', '79'),
+    ('26737', 'Tân Định', 'Phường Tân Định', 'tan_dinh', '79'),
+    ('26740', 'Sài Gòn', 'Phường Sài Gòn', 'sai_gon', '79'),
+    ('26743', 'Bến Thành', 'Phường Bến Thành', 'ben_thanh', '79'),
+    ('26758', 'Cầu Ông Lãnh', 'Phường Cầu Ông Lãnh', 'cau_ong_lanh', '79'),
+    ('26767', 'An Phú Đông', 'Phường An Phú Đông', 'an_phu_dong', '79'),
+    ('26773', 'Thới An', 'Phường Thới An', 'thoi_an', '79'),
+    ('26782', 'Tân Thới Hiệp', 'Phường Tân Thới Hiệp', 'tan_thoi_hiep', '79'),
+    ('26785', 'Trung Mỹ Tây', 'Phường Trung Mỹ Tây', 'trung_my_tay', '79'),
+    ('26791', 'Đông Hưng Thuận', 'Phường Đông Hưng Thuận', 'dong_hung_thuan', '79'),
+    ('26800', 'Linh Xuân', 'Phường Linh Xuân', 'linh_xuan', '79'),
+    ('26803', 'Tam Bình', 'Phường Tam Bình', 'tam_binh', '79'),
+    ('26809', 'Hiệp Bình', 'Phường Hiệp Bình', 'hiep_binh', '79'),
+    ('26824', 'Thủ Đức', 'Phường Thủ Đức', 'thu_duc', '79'),
+    ('26833', 'Long Bình', 'Phường Long Bình', 'long_binh', '79'),
+    ('26842', 'Tăng Nhơn Phú', 'Phường Tăng Nhơn Phú', 'tang_nhon_phu', '79'),
+    ('26848', 'Phước Long', 'Phường Phước Long', 'phuoc_long', '79'),
+    ('26857', 'Long Phước', 'Phường Long Phước', 'long_phuoc', '79'),
+    ('26860', 'Long Trường', 'Phường Long Trường', 'long_truong', '79'),
+    ('26876', 'An Nhơn', 'Phường An Nhơn', 'an_nhon', '79'),
+    ('26878', 'An Hội Đông', 'Phường An Hội Đông', 'an_hoi_dong', '79'),
+    ('26882', 'An Hội Tây', 'Phường An Hội Tây', 'an_hoi_tay', '79'),
+    ('26884', 'Gò Vấp', 'Phường Gò Vấp', 'go_vap', '79'),
+    ('26890', 'Hạnh Thông', 'Phường Hạnh Thông', 'hanh_thong', '79'),
+    ('26898', 'Thông Tây Hội', 'Phường Thông Tây Hội', 'thong_tay_hoi', '79'),
+    ('26905', 'Bình Lợi Trung', 'Phường Bình Lợi Trung', 'binh_loi_trung', '79'),
+    ('26911', 'Bình Quới', 'Phường Bình Quới', 'binh_quoi', '79'),
+    ('26929', 'Bình Thạnh', 'Phường Bình Thạnh', 'binh_thanh', '79'),
+    ('26944', 'Gia Định', 'Phường Gia Định', 'gia_dinh', '79'),
+    ('26956', 'Thạnh Mỹ Tây', 'Phường Thạnh Mỹ Tây', 'thanh_my_tay', '79'),
+    ('26968', 'Tân Sơn Nhất', 'Phường Tân Sơn Nhất', 'tan_son_nhat', '79'),
+    ('26977', 'Tân Sơn Hoà', 'Phường Tân Sơn Hoà', 'tan_son_hoa', '79'),
+    ('26983', 'Bảy Hiền', 'Phường Bảy Hiền', 'bay_hien', '79'),
+    ('26995', 'Tân Hoà', 'Phường Tân Hoà', 'tan_hoa', '79'),
+    ('27004', 'Tân Bình', 'Phường Tân Bình', 'tan_binh', '79'),
+    ('27007', 'Tân Sơn', 'Phường Tân Sơn', 'tan_son', '79'),
+    ('27013', 'Tây Thạnh', 'Phường Tây Thạnh', 'tay_thanh', '79'),
+    ('27019', 'Tân Sơn Nhì', 'Phường Tân Sơn Nhì', 'tan_son_nhi', '79'),
+    ('27022', 'Phú Thọ Hoà', 'Phường Phú Thọ Hoà', 'phu_tho_hoa', '79'),
+    ('27028', 'Phú Thạnh', 'Phường Phú Thạnh', 'phu_thanh', '79'),
+    ('27031', 'Tân Phú', 'Phường Tân Phú', 'tan_phu', '79'),
+    ('27043', 'Đức Nhuận', 'Phường Đức Nhuận', 'duc_nhuan', '79'),
+    ('27058', 'Cầu Kiệu', 'Phường Cầu Kiệu', 'cau_kieu', '79'),
+    ('27073', 'Phú Nhuận', 'Phường Phú Nhuận', 'phu_nhuan', '79'),
+    ('27094', 'An Khánh', 'Phường An Khánh', 'an_khanh', '79'),
+    ('27097', 'Bình Trưng', 'Phường Bình Trưng', 'binh_trung', '79'),
+    ('27112', 'Cát Lái', 'Phường Cát Lái', 'cat_lai', '79'),
+    ('27139', 'Xuân Hoà', 'Phường Xuân Hoà', 'xuan_hoa', '79'),
+    ('27142', 'Nhiêu Lộc', 'Phường Nhiêu Lộc', 'nhieu_loc', '79'),
+    ('27154', 'Bàn Cờ', 'Phường Bàn Cờ', 'ban_co', '79'),
+    ('27163', 'Hoà Hưng', 'Phường Hoà Hưng', 'hoa_hung', '79'),
+    ('27169', 'Diên Hồng', 'Phường Diên Hồng', 'dien_hong', '79'),
+    ('27190', 'Vườn Lài', 'Phường Vườn Lài', 'vuon_lai', '79'),
+    ('27211', 'Hoà Bình', 'Phường Hoà Bình', 'hoa_binh', '79'),
+    ('27226', 'Phú Thọ', 'Phường Phú Thọ', 'phu_tho', '79'),
+    ('27232', 'Bình Thới', 'Phường Bình Thới', 'binh_thoi', '79'),
+    ('27238', 'Minh Phụng', 'Phường Minh Phụng', 'minh_phung', '79'),
+    ('27259', 'Xóm Chiếu', 'Phường Xóm Chiếu', 'xom_chieu', '79'),
+    ('27265', 'Khánh Hội', 'Phường Khánh Hội', 'khanh_hoi', '79'),
+    ('27286', 'Vĩnh Hội', 'Phường Vĩnh Hội', 'vinh_hoi', '79'),
+    ('27301', 'Chợ Quán', 'Phường Chợ Quán', 'cho_quan', '79'),
+    ('27316', 'An Đông', 'Phường An Đông', 'an_dong', '79'),
+    ('27343', 'Chợ Lớn', 'Phường Chợ Lớn', 'cho_lon', '79'),
+    ('27349', 'Phú Lâm', 'Phường Phú Lâm', 'phu_lam', '79'),
+    ('27364', 'Bình Phú', 'Phường Bình Phú', 'binh_phu', '79'),
+    ('27367', 'Bình Tây', 'Phường Bình Tây', 'binh_tay', '79'),
+    ('27373', 'Bình Tiên', 'Phường Bình Tiên', 'binh_tien', '79'),
+    ('27418', 'Chánh Hưng', 'Phường Chánh Hưng', 'chanh_hung', '79'),
+    ('27424', 'Bình Đông', 'Phường Bình Đông', 'binh_dong', '79'),
+    ('27427', 'Phú Định', 'Phường Phú Định', 'phu_dinh', '79'),
+    ('27439', 'Bình Hưng Hoà', 'Phường Bình Hưng Hoà', 'binh_hung_hoa', '79'),
+    ('27442', 'Bình Tân', 'Phường Bình Tân', 'binh_tan', '79'),
+    ('27448', 'Bình Trị Đông', 'Phường Bình Trị Đông', 'binh_tri_dong', '79'),
+    ('27457', 'Tân Tạo', 'Phường Tân Tạo', 'tan_tao', '79'),
+    ('27460', 'An Lạc', 'Phường An Lạc', 'an_lac', '79'),
+    ('27475', 'Tân Hưng', 'Phường Tân Hưng', 'tan_hung', '79'),
+    ('27478', 'Tân Thuận', 'Phường Tân Thuận', 'tan_thuan', '79'),
+    ('27484', 'Phú Thuận', 'Phường Phú Thuận', 'phu_thuan', '79'),
+    ('27487', 'Tân Mỹ', 'Phường Tân Mỹ', 'tan_my', '79'),
+    ('27496', 'Tân An Hội', 'Xã Tân An Hội', 'tan_an_hoi', '79'),
+    ('27508', 'An Nhơn Tây', 'Xã An Nhơn Tây', 'an_nhon_tay', '79'),
+    ('27511', 'Nhuận Đức', 'Xã Nhuận Đức', 'nhuan_duc', '79'),
+    ('27526', 'Thái Mỹ', 'Xã Thái Mỹ', 'thai_my', '79'),
+    ('27541', 'Phú Hoà Đông', 'Xã Phú Hoà Đông', 'phu_hoa_dong', '79'),
+    ('27544', 'Bình Mỹ', 'Xã Bình Mỹ', 'binh_my', '79'),
+    ('27553', 'Củ Chi', 'Xã Củ Chi', 'cu_chi', '79'),
+    ('27559', 'Hóc Môn', 'Xã Hóc Môn', 'hoc_mon', '79'),
+    ('27568', 'Đông Thạnh', 'Xã Đông Thạnh', 'dong_thanh', '79'),
+    ('27577', 'Xuân Thới Sơn', 'Xã Xuân Thới Sơn', 'xuan_thoi_son', '79'),
+    ('27592', 'Bà Điểm', 'Xã Bà Điểm', 'ba_diem', '79'),
+    ('27595', 'Tân Nhựt', 'Xã Tân Nhựt', 'tan_nhut', '79'),
+    ('27601', 'Vĩnh Lộc', 'Xã Vĩnh Lộc', 'vinh_loc', '79'),
+    ('27604', 'Tân Vĩnh Lộc', 'Xã Tân Vĩnh Lộc', 'tan_vinh_loc', '79'),
+    ('27610', 'Bình Lợi', 'Xã Bình Lợi', 'binh_loi', '79'),
+    ('27619', 'Bình Hưng', 'Xã Bình Hưng', 'binh_hung', '79'),
+    ('27628', 'Hưng Long', 'Xã Hưng Long', 'hung_long', '79'),
+    ('27637', 'Bình Chánh', 'Xã Bình Chánh', 'binh_chanh', '79'),
+    ('27655', 'Nhà Bè', 'Xã Nhà Bè', 'nha_be', '79'),
+    ('27658', 'Hiệp Phước', 'Xã Hiệp Phước', 'hiep_phuoc', '79'),
+    ('27664', 'Cần Giờ', 'Xã Cần Giờ', 'can_gio', '79'),
+    ('27667', 'Bình Khánh', 'Xã Bình Khánh', 'binh_khanh', '79'),
+    ('27673', 'An Thới Đông', 'Xã An Thới Đông', 'an_thoi_dong', '79'),
+    ('27676', 'Thạnh An', 'Xã Thạnh An', 'thanh_an', '79'),
+    ('25459', 'Tân Ninh', 'Phường Tân Ninh', 'tan_ninh', '80'),
+    ('25480', 'Bình Minh', 'Phường Bình Minh', 'binh_minh', '80'),
+    ('25486', 'Tân Biên', 'Xã Tân Biên', 'tan_bien', '80'),
+    ('25489', 'Tân Lập', 'Xã Tân Lập', 'tan_lap', '80'),
+    ('25498', 'Thạnh Bình', 'Xã Thạnh Bình', 'thanh_binh', '80'),
+    ('25510', 'Trà Vong', 'Xã Trà Vong', 'tra_vong', '80'),
+    ('25516', 'Tân Châu', 'Xã Tân Châu', 'tan_chau', '80'),
+    ('25522', 'Tân Đông', 'Xã Tân Đông', 'tan_dong', '80'),
+    ('25525', 'Tân Hội', 'Xã Tân Hội', 'tan_hoi', '80'),
+    ('25531', 'Tân Hoà', 'Xã Tân Hoà', 'tan_hoa', '80'),
+    ('25534', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '80'),
+    ('25549', 'Tân Phú', 'Xã Tân Phú', 'tan_phu', '80'),
+    ('25552', 'Dương Minh Châu', 'Xã Dương Minh Châu', 'duong_minh_chau', '80'),
+    ('25567', 'Ninh Thạnh', 'Phường Ninh Thạnh', 'ninh_thanh', '80'),
+    ('25573', 'Cầu Khởi', 'Xã Cầu Khởi', 'cau_khoi', '80'),
+    ('25579', 'Lộc Ninh', 'Xã Lộc Ninh', 'loc_ninh', '80'),
+    ('25585', 'Châu Thành', 'Xã Châu Thành', 'chau_thanh', '80'),
+    ('25588', 'Hảo Đước', 'Xã Hảo Đước', 'hao_duoc', '80'),
+    ('25591', 'Phước Vinh', 'Xã Phước Vinh', 'phuoc_vinh', '80'),
+    ('25606', 'Hoà Hội', 'Xã Hoà Hội', 'hoa_hoi', '80'),
+    ('25621', 'Ninh Điền', 'Xã Ninh Điền', 'ninh_dien', '80'),
+    ('25630', 'Long Hoa', 'Phường Long Hoa', 'long_hoa', '80'),
+    ('25633', 'Thanh Điền', 'Phường Thanh Điền', 'thanh_dien', '80'),
+    ('25645', 'Hoà Thành', 'Phường Hoà Thành', 'hoa_thanh', '80'),
+    ('25654', 'Gò Dầu', 'Phường Gò Dầu', 'go_dau', '80'),
+    ('25657', 'Thạnh Đức', 'Xã Thạnh Đức', 'thanh_duc', '80'),
+    ('25663', 'Phước Thạnh', 'Xã Phước Thạnh', 'phuoc_thanh', '80'),
+    ('25666', 'Truông Mít', 'Xã Truông Mít', 'truong_mit', '80'),
+    ('25672', 'Gia Lộc', 'Phường Gia Lộc', 'gia_loc', '80'),
+    ('25681', 'Bến Cầu', 'Xã Bến Cầu', 'ben_cau', '80'),
+    ('25684', 'Long Chữ', 'Xã Long Chữ', 'long_chu', '80'),
+    ('25702', 'Long Thuận', 'Xã Long Thuận', 'long_thuan', '80'),
+    ('25708', 'Trảng Bàng', 'Phường Trảng Bàng', 'trang_bang', '80'),
+    ('25711', 'Hưng Thuận', 'Xã Hưng Thuận', 'hung_thuan', '80'),
+    ('25729', 'Phước Chỉ', 'Xã Phước Chỉ', 'phuoc_chi', '80'),
+    ('25732', 'An Tịnh', 'Phường An Tịnh', 'an_tinh', '80'),
+    ('27694', 'Long An', 'Phường Long An', 'long_an', '80'),
+    ('27712', 'Tân An', 'Phường Tân An', 'tan_an', '80'),
+    ('27715', 'Khánh Hậu', 'Phường Khánh Hậu', 'khanh_hau', '80'),
+    ('27721', 'Tân Hưng', 'Xã Tân Hưng', 'tan_hung', '80'),
+    ('27727', 'Hưng Điền', 'Xã Hưng Điền', 'hung_dien', '80'),
+    ('27736', 'Vĩnh Thạnh', 'Xã Vĩnh Thạnh', 'vinh_thanh', '80'),
+    ('27748', 'Vĩnh Châu', 'Xã Vĩnh Châu', 'vinh_chau', '80'),
+    ('27757', 'Vĩnh Hưng', 'Xã Vĩnh Hưng', 'vinh_hung', '80'),
+    ('27763', 'Khánh Hưng', 'Xã Khánh Hưng', 'khanh_hung', '80'),
+    ('27775', 'Tuyên Bình', 'Xã Tuyên Bình', 'tuyen_binh', '80'),
+    ('27787', 'Kiến Tường', 'Phường Kiến Tường', 'kien_tuong', '80'),
+    ('27793', 'Bình Hiệp', 'Xã Bình Hiệp', 'binh_hiep', '80'),
+    ('27811', 'Bình Hoà', 'Xã Bình Hoà', 'binh_hoa', '80'),
+    ('27817', 'Tuyên Thạnh', 'Xã Tuyên Thạnh', 'tuyen_thanh', '80'),
+    ('27823', 'Mộc Hoá', 'Xã Mộc Hoá', 'moc_hoa', '80'),
+    ('27826', 'Tân Thạnh', 'Xã Tân Thạnh', 'tan_thanh', '80'),
+    ('27838', 'Nhơn Hoà Lập', 'Xã Nhơn Hoà Lập', 'nhon_hoa_lap', '80'),
+    ('27841', 'Hậu Thạnh', 'Xã Hậu Thạnh', 'hau_thanh', '80'),
+    ('27856', 'Nhơn Ninh', 'Xã Nhơn Ninh', 'nhon_ninh', '80'),
+    ('27865', 'Thạnh Hoá', 'Xã Thạnh Hoá', 'thanh_hoa', '80'),
+    ('27868', 'Bình Thành', 'Xã Bình Thành', 'binh_thanh', '80'),
+    ('27877', 'Thạnh Phước', 'Xã Thạnh Phước', 'thanh_phuoc', '80'),
+    ('27889', 'Tân Tây', 'Xã Tân Tây', 'tan_tay', '80'),
+    ('27898', 'Đông Thành', 'Xã Đông Thành', 'dong_thanh', '80'),
+    ('27907', 'Mỹ Quý', 'Xã Mỹ Quý', 'my_quy', '80'),
+    ('27925', 'Đức Huệ', 'Xã Đức Huệ', 'duc_hue', '80'),
+    ('27931', 'Hậu Nghĩa', 'Xã Hậu Nghĩa', 'hau_nghia', '80'),
+    ('27937', 'Đức Hoà', 'Xã Đức Hoà', 'duc_hoa', '80'),
+    ('27943', 'An Ninh', 'Xã An Ninh', 'an_ninh', '80'),
+    ('27952', 'Hiệp Hoà', 'Xã Hiệp Hoà', 'hiep_hoa', '80'),
+    ('27964', 'Đức Lập', 'Xã Đức Lập', 'duc_lap', '80'),
+    ('27976', 'Mỹ Hạnh', 'Xã Mỹ Hạnh', 'my_hanh', '80'),
+    ('27979', 'Hoà Khánh', 'Xã Hoà Khánh', 'hoa_khanh', '80'),
+    ('27991', 'Bến Lức', 'Xã Bến Lức', 'ben_luc', '80');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('27994', 'Thạnh Lợi', 'Xã Thạnh Lợi', 'thanh_loi', '80'),
+    ('28003', 'Lương Hoà', 'Xã Lương Hoà', 'luong_hoa', '80'),
+    ('28015', 'Bình Đức', 'Xã Bình Đức', 'binh_duc', '80'),
+    ('28018', 'Mỹ Yên', 'Xã Mỹ Yên', 'my_yen', '80'),
+    ('28036', 'Thủ Thừa', 'Xã Thủ Thừa', 'thu_thua', '80'),
+    ('28051', 'Mỹ Thạnh', 'Xã Mỹ Thạnh', 'my_thanh', '80'),
+    ('28066', 'Mỹ An', 'Xã Mỹ An', 'my_an', '80'),
+    ('28072', 'Tân Long', 'Xã Tân Long', 'tan_long', '80'),
+    ('28075', 'Tân Trụ', 'Xã Tân Trụ', 'tan_tru', '80'),
+    ('28087', 'Nhựt Tảo', 'Xã Nhựt Tảo', 'nhut_tao', '80'),
+    ('28093', 'Vàm Cỏ', 'Xã Vàm Cỏ', 'vam_co', '80'),
+    ('28108', 'Cần Đước', 'Xã Cần Đước', 'can_duoc', '80'),
+    ('28114', 'Rạch Kiến', 'Xã Rạch Kiến', 'rach_kien', '80'),
+    ('28126', 'Long Cang', 'Xã Long Cang', 'long_cang', '80'),
+    ('28132', 'Mỹ Lệ', 'Xã Mỹ Lệ', 'my_le', '80'),
+    ('28138', 'Tân Lân', 'Xã Tân Lân', 'tan_lan', '80'),
+    ('28144', 'Long Hựu', 'Xã Long Hựu', 'long_huu', '80'),
+    ('28159', 'Cần Giuộc', 'Xã Cần Giuộc', 'can_giuoc', '80'),
+    ('28165', 'Phước Lý', 'Xã Phước Lý', 'phuoc_ly', '80'),
+    ('28177', 'Mỹ Lộc', 'Xã Mỹ Lộc', 'my_loc', '80'),
+    ('28201', 'Phước Vĩnh Tây', 'Xã Phước Vĩnh Tây', 'phuoc_vinh_tay', '80'),
+    ('28207', 'Tân Tập', 'Xã Tân Tập', 'tan_tap', '80'),
+    ('28210', 'Tầm Vu', 'Xã Tầm Vu', 'tam_vu', '80'),
+    ('28222', 'Vĩnh Công', 'Xã Vĩnh Công', 'vinh_cong', '80'),
+    ('28225', 'Thuận Mỹ', 'Xã Thuận Mỹ', 'thuan_my', '80'),
+    ('28243', 'An Lục Long', 'Xã An Lục Long', 'an_luc_long', '80'),
+    ('28249', 'Đạo Thạnh', 'Phường Đạo Thạnh', 'dao_thanh', '82'),
+    ('28261', 'Mỹ Tho', 'Phường Mỹ Tho', 'my_tho', '82'),
+    ('28270', 'Thới Sơn', 'Phường Thới Sơn', 'thoi_son', '82'),
+    ('28273', 'Mỹ Phong', 'Phường Mỹ Phong', 'my_phong', '82'),
+    ('28285', 'Trung An', 'Phường Trung An', 'trung_an', '82'),
+    ('28297', 'Long Thuận', 'Phường Long Thuận', 'long_thuan', '82'),
+    ('28306', 'Gò Công', 'Phường Gò Công', 'go_cong', '82'),
+    ('28315', 'Bình Xuân', 'Phường Bình Xuân', 'binh_xuan', '82'),
+    ('28321', 'Tân Phước 1', 'Xã Tân Phước 1', 'tan_phuoc_1', '82'),
+    ('28327', 'Tân Phước 2', 'Xã Tân Phước 2', 'tan_phuoc_2', '82'),
+    ('28336', 'Hưng Thạnh', 'Xã Hưng Thạnh', 'hung_thanh', '82'),
+    ('28345', 'Tân Phước 3', 'Xã Tân Phước 3', 'tan_phuoc_3', '82'),
+    ('28360', 'Cái Bè', 'Xã Cái Bè', 'cai_be', '82'),
+    ('28366', 'Hậu Mỹ', 'Xã Hậu Mỹ', 'hau_my', '82'),
+    ('28378', 'Mỹ Thiện', 'Xã Mỹ Thiện', 'my_thien', '82'),
+    ('28393', 'Hội Cư', 'Xã Hội Cư', 'hoi_cu', '82'),
+    ('28405', 'Mỹ Đức Tây', 'Xã Mỹ Đức Tây', 'my_duc_tay', '82'),
+    ('28414', 'Mỹ Lợi', 'Xã Mỹ Lợi', 'my_loi', '82'),
+    ('28426', 'Thanh Hưng', 'Xã Thanh Hưng', 'thanh_hung', '82'),
+    ('28429', 'An Hữu', 'Xã An Hữu', 'an_huu', '82'),
+    ('28435', 'Mỹ Phước Tây', 'Phường Mỹ Phước Tây', 'my_phuoc_tay', '82'),
+    ('28436', 'Thanh Hoà', 'Phường Thanh Hoà', 'thanh_hoa', '82'),
+    ('28439', 'Cai Lậy', 'Phường Cai Lậy', 'cai_lay', '82'),
+    ('28444', 'Thạnh Phú', 'Xã Thạnh Phú', 'thanh_phu', '82'),
+    ('28456', 'Mỹ Thành', 'Xã Mỹ Thành', 'my_thanh', '82'),
+    ('28468', 'Tân Phú', 'Xã Tân Phú', 'tan_phu', '82'),
+    ('28471', 'Bình Phú', 'Xã Bình Phú', 'binh_phu', '82'),
+    ('28477', 'Nhị Quý', 'Phường Nhị Quý', 'nhi_quy', '82'),
+    ('28501', 'Hiệp Đức', 'Xã Hiệp Đức', 'hiep_duc', '82'),
+    ('28504', 'Long Tiên', 'Xã Long Tiên', 'long_tien', '82'),
+    ('28516', 'Ngũ Hiệp', 'Xã Ngũ Hiệp', 'ngu_hiep', '82'),
+    ('28519', 'Châu Thành', 'Xã Châu Thành', 'chau_thanh', '82'),
+    ('28525', 'Tân Hương', 'Xã Tân Hương', 'tan_huong', '82'),
+    ('28537', 'Long Hưng', 'Xã Long Hưng', 'long_hung', '82'),
+    ('28543', 'Long Định', 'Xã Long Định', 'long_dinh', '82'),
+    ('28564', 'Bình Trưng', 'Xã Bình Trưng', 'binh_trung', '82'),
+    ('28576', 'Vĩnh Kim', 'Xã Vĩnh Kim', 'vinh_kim', '82'),
+    ('28582', 'Kim Sơn', 'Xã Kim Sơn', 'kim_son', '82'),
+    ('28594', 'Chợ Gạo', 'Xã Chợ Gạo', 'cho_gao', '82'),
+    ('28603', 'Mỹ Tịnh An', 'Xã Mỹ Tịnh An', 'my_tinh_an', '82'),
+    ('28615', 'Lương Hoà Lạc', 'Xã Lương Hoà Lạc', 'luong_hoa_lac', '82'),
+    ('28627', 'Tân Thuận Bình', 'Xã Tân Thuận Bình', 'tan_thuan_binh', '82'),
+    ('28633', 'An Thạnh Thuỷ', 'Xã An Thạnh Thuỷ', 'an_thanh_thuy', '82'),
+    ('28648', 'Bình Ninh', 'Xã Bình Ninh', 'binh_ninh', '82'),
+    ('28651', 'Vĩnh Bình', 'Xã Vĩnh Bình', 'vinh_binh', '82'),
+    ('28660', 'Đồng Sơn', 'Xã Đồng Sơn', 'dong_son', '82'),
+    ('28663', 'Phú Thành', 'Xã Phú Thành', 'phu_thanh', '82'),
+    ('28678', 'Vĩnh Hựu', 'Xã Vĩnh Hựu', 'vinh_huu', '82'),
+    ('28687', 'Long Bình', 'Xã Long Bình', 'long_binh', '82'),
+    ('28693', 'Tân Thới', 'Xã Tân Thới', 'tan_thoi', '82'),
+    ('28696', 'Tân Phú Đông', 'Xã Tân Phú Đông', 'tan_phu_dong', '82'),
+    ('28702', 'Tân Hoà', 'Xã Tân Hoà', 'tan_hoa', '82'),
+    ('28720', 'Gia Thuận', 'Xã Gia Thuận', 'gia_thuan', '82'),
+    ('28723', 'Tân Đông', 'Xã Tân Đông', 'tan_dong', '82'),
+    ('28729', 'Sơn Qui', 'Phường Sơn Qui', 'son_qui', '82'),
+    ('28738', 'Tân Điền', 'Xã Tân Điền', 'tan_dien', '82'),
+    ('28747', 'Gò Công Đông', 'Xã Gò Công Đông', 'go_cong_dong', '82'),
+    ('29869', 'Cao Lãnh', 'Phường Cao Lãnh', 'cao_lanh', '82'),
+    ('29884', 'Mỹ Ngãi', 'Phường Mỹ Ngãi', 'my_ngai', '82'),
+    ('29888', 'Mỹ Trà', 'Phường Mỹ Trà', 'my_tra', '82'),
+    ('29905', 'Sa Đéc', 'Phường Sa Đéc', 'sa_dec', '82'),
+    ('29926', 'Tân Hồng', 'Xã Tân Hồng', 'tan_hong', '82'),
+    ('29929', 'Tân Hộ Cơ', 'Xã Tân Hộ Cơ', 'tan_ho_co', '82'),
+    ('29938', 'Tân Thành', 'Xã Tân Thành', 'tan_thanh', '82'),
+    ('29944', 'An Phước', 'Xã An Phước', 'an_phuoc', '82'),
+    ('29954', 'An Bình', 'Phường An Bình', 'an_binh', '82'),
+    ('29955', 'Hồng Ngự', 'Phường Hồng Ngự', 'hong_ngu', '82'),
+    ('29971', 'Thường Phước', 'Xã Thường Phước', 'thuong_phuoc', '82'),
+    ('29978', 'Thường Lạc', 'Phường Thường Lạc', 'thuong_lac', '82'),
+    ('29983', 'Long Khánh', 'Xã Long Khánh', 'long_khanh', '82'),
+    ('29992', 'Long Phú Thuận', 'Xã Long Phú Thuận', 'long_phu_thuan', '82'),
+    ('30001', 'Tràm Chim', 'Xã Tràm Chim', 'tram_chim', '82'),
+    ('30010', 'Tam Nông', 'Xã Tam Nông', 'tam_nong', '82'),
+    ('30019', 'An Hoà', 'Xã An Hoà', 'an_hoa', '82'),
+    ('30025', 'Phú Cường', 'Xã Phú Cường', 'phu_cuong', '82'),
+    ('30028', 'An Long', 'Xã An Long', 'an_long', '82'),
+    ('30034', 'Phú Thọ', 'Xã Phú Thọ', 'phu_tho', '82'),
+    ('30037', 'Tháp Mười', 'Xã Tháp Mười', 'thap_muoi', '82'),
+    ('30043', 'Phương Thịnh', 'Xã Phương Thịnh', 'phuong_thinh', '82'),
+    ('30046', 'Trường Xuân', 'Xã Trường Xuân', 'truong_xuan', '82'),
+    ('30055', 'Mỹ Quí', 'Xã Mỹ Quí', 'my_qui', '82'),
+    ('30061', 'Đốc Binh Kiều', 'Xã Đốc Binh Kiều', 'doc_binh_kieu', '82'),
+    ('30073', 'Thanh Mỹ', 'Xã Thanh Mỹ', 'thanh_my', '82'),
+    ('30076', 'Mỹ Thọ', 'Xã Mỹ Thọ', 'my_tho', '82'),
+    ('30085', 'Ba Sao', 'Xã Ba Sao', 'ba_sao', '82'),
+    ('30088', 'Phong Mỹ', 'Xã Phong Mỹ', 'phong_my', '82'),
+    ('30112', 'Mỹ Hiệp', 'Xã Mỹ Hiệp', 'my_hiep', '82'),
+    ('30118', 'Bình Hàng Trung', 'Xã Bình Hàng Trung', 'binh_hang_trung', '82'),
+    ('30130', 'Thanh Bình', 'Xã Thanh Bình', 'thanh_binh', '82'),
+    ('30154', 'Tân Long', 'Xã Tân Long', 'tan_long', '82'),
+    ('30157', 'Tân Thạnh', 'Xã Tân Thạnh', 'tan_thanh', '82'),
+    ('30163', 'Bình Thành', 'Xã Bình Thành', 'binh_thanh', '82'),
+    ('30169', 'Lấp Vò', 'Xã Lấp Vò', 'lap_vo', '82'),
+    ('30178', 'Mỹ An Hưng', 'Xã Mỹ An Hưng', 'my_an_hung', '82'),
+    ('30184', 'Tân Khánh Trung', 'Xã Tân Khánh Trung', 'tan_khanh_trung', '82'),
+    ('30208', 'Hoà Long', 'Xã Hoà Long', 'hoa_long', '82'),
+    ('30214', 'Tân Dương', 'Xã Tân Dương', 'tan_duong', '82'),
+    ('30226', 'Lai Vung', 'Xã Lai Vung', 'lai_vung', '82'),
+    ('30235', 'Phong Hoà', 'Xã Phong Hoà', 'phong_hoa', '82'),
+    ('30244', 'Phú Hựu', 'Xã Phú Hựu', 'phu_huu', '82'),
+    ('30253', 'Tân Nhuận Đông', 'Xã Tân Nhuận Đông', 'tan_nhuan_dong', '82'),
+    ('30259', 'Tân Phú Trung', 'Xã Tân Phú Trung', 'tan_phu_trung', '82'),
+    ('28756', 'Phú Khương', 'Phường Phú Khương', 'phu_khuong', '86'),
+    ('28777', 'An Hội', 'Phường An Hội', 'an_hoi', '86'),
+    ('28783', 'Sơn Đông', 'Phường Sơn Đông', 'son_dong', '86'),
+    ('28789', 'Bến Tre', 'Phường Bến Tre', 'ben_tre', '86'),
+    ('28807', 'Giao Long', 'Xã Giao Long', 'giao_long', '86'),
+    ('28810', 'Phú Túc', 'Xã Phú Túc', 'phu_tuc', '86'),
+    ('28840', 'Tân Phú', 'Xã Tân Phú', 'tan_phu', '86'),
+    ('28858', 'Phú Tân', 'Phường Phú Tân', 'phu_tan', '86'),
+    ('28861', 'Tiên Thuỷ', 'Xã Tiên Thuỷ', 'tien_thuy', '86'),
+    ('28870', 'Chợ Lách', 'Xã Chợ Lách', 'cho_lach', '86'),
+    ('28879', 'Phú Phụng', 'Xã Phú Phụng', 'phu_phung', '86'),
+    ('28894', 'Vĩnh Thành', 'Xã Vĩnh Thành', 'vinh_thanh', '86'),
+    ('28901', 'Hưng Khánh Trung', 'Xã Hưng Khánh Trung', 'hung_khanh_trung', '86'),
+    ('28903', 'Mỏ Cày', 'Xã Mỏ Cày', 'mo_cay', '86'),
+    ('28915', 'Phước Mỹ Trung', 'Xã Phước Mỹ Trung', 'phuoc_my_trung', '86'),
+    ('28921', 'Tân Thành Bình', 'Xã Tân Thành Bình', 'tan_thanh_binh', '86'),
+    ('28945', 'Đồng Khởi', 'Xã Đồng Khởi', 'dong_khoi', '86'),
+    ('28948', 'Nhuận Phú Tân', 'Xã Nhuận Phú Tân', 'nhuan_phu_tan', '86'),
+    ('28957', 'An Định', 'Xã An Định', 'an_dinh', '86'),
+    ('28969', 'Thành Thới', 'Xã Thành Thới', 'thanh_thoi', '86'),
+    ('28981', 'Hương Mỹ', 'Xã Hương Mỹ', 'huong_my', '86'),
+    ('28984', 'Giồng Trôm', 'Xã Giồng Trôm', 'giong_trom', '86'),
+    ('28987', 'Lương Hoà', 'Xã Lương Hoà', 'luong_hoa', '86'),
+    ('28993', 'Lương Phú', 'Xã Lương Phú', 'luong_phu', '86'),
+    ('28996', 'Châu Hoà', 'Xã Châu Hoà', 'chau_hoa', '86'),
+    ('29020', 'Phước Long', 'Xã Phước Long', 'phuoc_long', '86'),
+    ('29029', 'Tân Hào', 'Xã Tân Hào', 'tan_hao', '86'),
+    ('29044', 'Hưng Nhượng', 'Xã Hưng Nhượng', 'hung_nhuong', '86'),
+    ('29050', 'Bình Đại', 'Xã Bình Đại', 'binh_dai', '86'),
+    ('29062', 'Phú Thuận', 'Xã Phú Thuận', 'phu_thuan', '86'),
+    ('29077', 'Lộc Thuận', 'Xã Lộc Thuận', 'loc_thuan', '86'),
+    ('29083', 'Châu Hưng', 'Xã Châu Hưng', 'chau_hung', '86'),
+    ('29089', 'Thạnh Trị', 'Xã Thạnh Trị', 'thanh_tri', '86'),
+    ('29104', 'Thạnh Phước', 'Xã Thạnh Phước', 'thanh_phuoc', '86'),
+    ('29107', 'Thới Thuận', 'Xã Thới Thuận', 'thoi_thuan', '86'),
+    ('29110', 'Ba Tri', 'Xã Ba Tri', 'ba_tri', '86'),
+    ('29122', 'Mỹ Chánh Hoà', 'Xã Mỹ Chánh Hoà', 'my_chanh_hoa', '86'),
+    ('29125', 'Bảo Thạnh', 'Xã Bảo Thạnh', 'bao_thanh', '86'),
+    ('29137', 'Tân Xuân', 'Xã Tân Xuân', 'tan_xuan', '86'),
+    ('29143', 'An Ngãi Trung', 'Xã An Ngãi Trung', 'an_ngai_trung', '86'),
+    ('29158', 'An Hiệp', 'Xã An Hiệp', 'an_hiep', '86'),
+    ('29167', 'Tân Thuỷ', 'Xã Tân Thuỷ', 'tan_thuy', '86'),
+    ('29182', 'Thạnh Phú', 'Xã Thạnh Phú', 'thanh_phu', '86'),
+    ('29191', 'Quới Điền', 'Xã Quới Điền', 'quoi_dien', '86'),
+    ('29194', 'Đại Điền', 'Xã Đại Điền', 'dai_dien', '86'),
+    ('29221', 'Thạnh Hải', 'Xã Thạnh Hải', 'thanh_hai', '86'),
+    ('29224', 'An Qui', 'Xã An Qui', 'an_qui', '86'),
+    ('29227', 'Thạnh Phong', 'Xã Thạnh Phong', 'thanh_phong', '86'),
+    ('29242', 'Trà Vinh', 'Phường Trà Vinh', 'tra_vinh', '86'),
+    ('29254', 'Nguyệt Hoá', 'Phường Nguyệt Hoá', 'nguyet_hoa', '86'),
+    ('29263', 'Long Đức', 'Phường Long Đức', 'long_duc', '86'),
+    ('29266', 'Càng Long', 'Xã Càng Long', 'cang_long', '86'),
+    ('29275', 'An Trường', 'Xã An Trường', 'an_truong', '86'),
+    ('29278', 'Tân An', 'Xã Tân An', 'tan_an', '86'),
+    ('29287', 'Bình Phú', 'Xã Bình Phú', 'binh_phu', '86'),
+    ('29302', 'Nhị Long', 'Xã Nhị Long', 'nhi_long', '86'),
+    ('29308', 'Cầu Kè', 'Xã Cầu Kè', 'cau_ke', '86'),
+    ('29317', 'An Phú Tân', 'Xã An Phú Tân', 'an_phu_tan', '86'),
+    ('29329', 'Phong Thạnh', 'Xã Phong Thạnh', 'phong_thanh', '86'),
+    ('29335', 'Tam Ngãi', 'Xã Tam Ngãi', 'tam_ngai', '86'),
+    ('29341', 'Tiểu Cần', 'Xã Tiểu Cần', 'tieu_can', '86'),
+    ('29362', 'Hùng Hoà', 'Xã Hùng Hoà', 'hung_hoa', '86'),
+    ('29365', 'Tập Ngãi', 'Xã Tập Ngãi', 'tap_ngai', '86'),
+    ('29371', 'Tân Hoà', 'Xã Tân Hoà', 'tan_hoa', '86'),
+    ('29374', 'Châu Thành', 'Xã Châu Thành', 'chau_thanh', '86'),
+    ('29386', 'Song Lộc', 'Xã Song Lộc', 'song_loc', '86'),
+    ('29398', 'Hoà Thuận', 'Phường Hoà Thuận', 'hoa_thuan', '86'),
+    ('29407', 'Hưng Mỹ', 'Xã Hưng Mỹ', 'hung_my', '86'),
+    ('29410', 'Hoà Minh', 'Xã Hoà Minh', 'hoa_minh', '86'),
+    ('29413', 'Long Hoà', 'Xã Long Hoà', 'long_hoa', '86'),
+    ('29416', 'Cầu Ngang', 'Xã Cầu Ngang', 'cau_ngang', '86'),
+    ('29419', 'Mỹ Long', 'Xã Mỹ Long', 'my_long', '86');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('29431', 'Vinh Kim', 'Xã Vinh Kim', 'vinh_kim', '86'),
+    ('29446', 'Nhị Trường', 'Xã Nhị Trường', 'nhi_truong', '86'),
+    ('29455', 'Hiệp Mỹ', 'Xã Hiệp Mỹ', 'hiep_my', '86'),
+    ('29461', 'Trà Cú', 'Xã Trà Cú', 'tra_cu', '86'),
+    ('29467', 'Tập Sơn', 'Xã Tập Sơn', 'tap_son', '86'),
+    ('29476', 'Lưu Nghiệp Anh', 'Xã Lưu Nghiệp Anh', 'luu_nghiep_anh', '86'),
+    ('29489', 'Hàm Giang', 'Xã Hàm Giang', 'ham_giang', '86'),
+    ('29491', 'Đại An', 'Xã Đại An', 'dai_an', '86'),
+    ('29497', 'Đôn Châu', 'Xã Đôn Châu', 'don_chau', '86'),
+    ('29506', 'Long Hiệp', 'Xã Long Hiệp', 'long_hiep', '86'),
+    ('29512', 'Duyên Hải', 'Phường Duyên Hải', 'duyen_hai', '86'),
+    ('29513', 'Long Thành', 'Xã Long Thành', 'long_thanh', '86'),
+    ('29516', 'Trường Long Hoà', 'Phường Trường Long Hoà', 'truong_long_hoa', '86'),
+    ('29518', 'Long Hữu', 'Xã Long Hữu', 'long_huu', '86'),
+    ('29530', 'Ngũ Lạc', 'Xã Ngũ Lạc', 'ngu_lac', '86'),
+    ('29533', 'Long Vĩnh', 'Xã Long Vĩnh', 'long_vinh', '86'),
+    ('29536', 'Đông Hải', 'Xã Đông Hải', 'dong_hai', '86'),
+    ('29551', 'Long Châu', 'Phường Long Châu', 'long_chau', '86'),
+    ('29557', 'Phước Hậu', 'Phường Phước Hậu', 'phuoc_hau', '86'),
+    ('29566', 'Tân Ngãi', 'Phường Tân Ngãi', 'tan_ngai', '86'),
+    ('29584', 'An Bình', 'Xã An Bình', 'an_binh', '86'),
+    ('29590', 'Thanh Đức', 'Phường Thanh Đức', 'thanh_duc', '86'),
+    ('29593', 'Tân Hạnh', 'Phường Tân Hạnh', 'tan_hanh', '86'),
+    ('29602', 'Long Hồ', 'Xã Long Hồ', 'long_ho', '86'),
+    ('29611', 'Phú Quới', 'Xã Phú Quới', 'phu_quoi', '86'),
+    ('29623', 'Nhơn Phú', 'Xã Nhơn Phú', 'nhon_phu', '86'),
+    ('29638', 'Bình Phước', 'Xã Bình Phước', 'binh_phuoc', '86'),
+    ('29641', 'Cái Nhum', 'Xã Cái Nhum', 'cai_nhum', '86'),
+    ('29653', 'Tân Long Hội', 'Xã Tân Long Hội', 'tan_long_hoi', '86'),
+    ('29659', 'Trung Thành', 'Xã Trung Thành', 'trung_thanh', '86'),
+    ('29668', 'Quới An', 'Xã Quới An', 'quoi_an', '86'),
+    ('29677', 'Quới Thiện', 'Xã Quới Thiện', 'quoi_thien', '86'),
+    ('29683', 'Trung Hiệp', 'Xã Trung Hiệp', 'trung_hiep', '86'),
+    ('29698', 'Trung Ngãi', 'Xã Trung Ngãi', 'trung_ngai', '86'),
+    ('29701', 'Hiếu Phụng', 'Xã Hiếu Phụng', 'hieu_phung', '86'),
+    ('29713', 'Hiếu Thành', 'Xã Hiếu Thành', 'hieu_thanh', '86'),
+    ('29719', 'Tam Bình', 'Xã Tam Bình', 'tam_binh', '86'),
+    ('29728', 'Cái Ngang', 'Xã Cái Ngang', 'cai_ngang', '86'),
+    ('29734', 'Hoà Hiệp', 'Xã Hoà Hiệp', 'hoa_hiep', '86'),
+    ('29740', 'Song Phú', 'Xã Song Phú', 'song_phu', '86'),
+    ('29767', 'Ngãi Tứ', 'Xã Ngãi Tứ', 'ngai_tu', '86'),
+    ('29770', 'Cái Vồn', 'Phường Cái Vồn', 'cai_von', '86'),
+    ('29771', 'Bình Minh', 'Phường Bình Minh', 'binh_minh', '86'),
+    ('29785', 'Tân Lược', 'Xã Tân Lược', 'tan_luoc', '86'),
+    ('29788', 'Mỹ Thuận', 'Xã Mỹ Thuận', 'my_thuan', '86'),
+    ('29800', 'Tân Quới', 'Xã Tân Quới', 'tan_quoi', '86'),
+    ('29812', 'Đông Thành', 'Phường Đông Thành', 'dong_thanh', '86'),
+    ('29821', 'Trà Ôn', 'Xã Trà Ôn', 'tra_on', '86'),
+    ('29830', 'Hoà Bình', 'Xã Hoà Bình', 'hoa_binh', '86'),
+    ('29836', 'Trà Côn', 'Xã Trà Côn', 'tra_con', '86'),
+    ('29845', 'Vĩnh Xuân', 'Xã Vĩnh Xuân', 'vinh_xuan', '86'),
+    ('29857', 'Lục Sĩ Thành', 'Xã Lục Sĩ Thành', 'luc_si_thanh', '86'),
+    ('30292', 'Bình Đức', 'Phường Bình Đức', 'binh_duc', '91'),
+    ('30301', 'Mỹ Thới', 'Phường Mỹ Thới', 'my_thoi', '91'),
+    ('30307', 'Long Xuyên', 'Phường Long Xuyên', 'long_xuyen', '91'),
+    ('30313', 'Mỹ Hoà Hưng', 'Xã Mỹ Hoà Hưng', 'my_hoa_hung', '91'),
+    ('30316', 'Châu Đốc', 'Phường Châu Đốc', 'chau_doc', '91'),
+    ('30325', 'Vĩnh Tế', 'Phường Vĩnh Tế', 'vinh_te', '91'),
+    ('30337', 'An Phú', 'Xã An Phú', 'an_phu', '91'),
+    ('30341', 'Khánh Bình', 'Xã Khánh Bình', 'khanh_binh', '91'),
+    ('30346', 'Nhơn Hội', 'Xã Nhơn Hội', 'nhon_hoi', '91'),
+    ('30352', 'Phú Hữu', 'Xã Phú Hữu', 'phu_huu', '91'),
+    ('30367', 'Vĩnh Hậu', 'Xã Vĩnh Hậu', 'vinh_hau', '91'),
+    ('30376', 'Tân Châu', 'Phường Tân Châu', 'tan_chau', '91'),
+    ('30377', 'Long Phú', 'Phường Long Phú', 'long_phu', '91'),
+    ('30385', 'Vĩnh Xương', 'Xã Vĩnh Xương', 'vinh_xuong', '91'),
+    ('30388', 'Tân An', 'Xã Tân An', 'tan_an', '91'),
+    ('30403', 'Châu Phong', 'Xã Châu Phong', 'chau_phong', '91'),
+    ('30406', 'Phú Tân', 'Xã Phú Tân', 'phu_tan', '91'),
+    ('30409', 'Chợ Vàm', 'Xã Chợ Vàm', 'cho_vam', '91'),
+    ('30421', 'Phú Lâm', 'Xã Phú Lâm', 'phu_lam', '91'),
+    ('30430', 'Hoà Lạc', 'Xã Hoà Lạc', 'hoa_lac', '91'),
+    ('30436', 'Phú An', 'Xã Phú An', 'phu_an', '91'),
+    ('30445', 'Bình Thạnh Đông', 'Xã Bình Thạnh Đông', 'binh_thanh_dong', '91'),
+    ('30463', 'Châu Phú', 'Xã Châu Phú', 'chau_phu', '91'),
+    ('30469', 'Mỹ Đức', 'Xã Mỹ Đức', 'my_duc', '91'),
+    ('30478', 'Vĩnh Thạnh Trung', 'Xã Vĩnh Thạnh Trung', 'vinh_thanh_trung', '91'),
+    ('30481', 'Thạnh Mỹ Tây', 'Xã Thạnh Mỹ Tây', 'thanh_my_tay', '91'),
+    ('30487', 'Bình Mỹ', 'Xã Bình Mỹ', 'binh_my', '91'),
+    ('30502', 'Thới Sơn', 'Phường Thới Sơn', 'thoi_son', '91'),
+    ('30505', 'Chi Lăng', 'Phường Chi Lăng', 'chi_lang', '91'),
+    ('30520', 'Tịnh Biên', 'Phường Tịnh Biên', 'tinh_bien', '91'),
+    ('30526', 'An Cư', 'Xã An Cư', 'an_cu', '91'),
+    ('30538', 'Núi Cấm', 'Xã Núi Cấm', 'nui_cam', '91'),
+    ('30544', 'Tri Tôn', 'Xã Tri Tôn', 'tri_ton', '91'),
+    ('30547', 'Ba Chúc', 'Xã Ba Chúc', 'ba_chuc', '91'),
+    ('30568', 'Vĩnh Gia', 'Xã Vĩnh Gia', 'vinh_gia', '91'),
+    ('30577', 'Ô Lâm', 'Xã Ô Lâm', 'o_lam', '91'),
+    ('30580', 'Cô Tô', 'Xã Cô Tô', 'co_to', '91'),
+    ('30589', 'An Châu', 'Xã An Châu', 'an_chau', '91'),
+    ('30595', 'Cần Đăng', 'Xã Cần Đăng', 'can_dang', '91'),
+    ('30604', 'Vĩnh An', 'Xã Vĩnh An', 'vinh_an', '91'),
+    ('30607', 'Bình Hoà', 'Xã Bình Hoà', 'binh_hoa', '91'),
+    ('30619', 'Vĩnh Hanh', 'Xã Vĩnh Hanh', 'vinh_hanh', '91'),
+    ('30628', 'Chợ Mới', 'Xã Chợ Mới', 'cho_moi', '91'),
+    ('30631', 'Long Điền', 'Xã Long Điền', 'long_dien', '91'),
+    ('30643', 'Cù Lao Giêng', 'Xã Cù Lao Giêng', 'cu_lao_gieng', '91'),
+    ('30658', 'Nhơn Mỹ', 'Xã Nhơn Mỹ', 'nhon_my', '91'),
+    ('30664', 'Long Kiến', 'Xã Long Kiến', 'long_kien', '91'),
+    ('30673', 'Hội An', 'Xã Hội An', 'hoi_an', '91'),
+    ('30682', 'Thoại Sơn', 'Xã Thoại Sơn', 'thoai_son', '91'),
+    ('30685', 'Phú Hoà', 'Xã Phú Hoà', 'phu_hoa', '91'),
+    ('30688', 'Óc Eo', 'Xã Óc Eo', 'oc_eo', '91'),
+    ('30691', 'Tây Phú', 'Xã Tây Phú', 'tay_phu', '91'),
+    ('30697', 'Vĩnh Trạch', 'Xã Vĩnh Trạch', 'vinh_trach', '91'),
+    ('30709', 'Định Mỹ', 'Xã Định Mỹ', 'dinh_my', '91'),
+    ('30742', 'Rạch Giá', 'Phường Rạch Giá', 'rach_gia', '91'),
+    ('30760', 'Vĩnh Thông', 'Phường Vĩnh Thông', 'vinh_thong', '91'),
+    ('30766', 'Tô Châu', 'Phường Tô Châu', 'to_chau', '91'),
+    ('30769', 'Hà Tiên', 'Phường Hà Tiên', 'ha_tien', '91'),
+    ('30781', 'Tiên Hải', 'Xã Tiên Hải', 'tien_hai', '91'),
+    ('30787', 'Kiên Lương', 'Xã Kiên Lương', 'kien_luong', '91'),
+    ('30790', 'Hoà Điền', 'Xã Hoà Điền', 'hoa_dien', '91'),
+    ('30793', 'Vĩnh Điều', 'Xã Vĩnh Điều', 'vinh_dieu', '91'),
+    ('30796', 'Giang Thành', 'Xã Giang Thành', 'giang_thanh', '91'),
+    ('30811', 'Sơn Hải', 'Xã Sơn Hải', 'son_hai', '91'),
+    ('30814', 'Hòn Nghệ', 'Xã Hòn Nghệ', 'hon_nghe', '91'),
+    ('30817', 'Hòn Đất', 'Xã Hòn Đất', 'hon_dat', '91'),
+    ('30823', 'Bình Sơn', 'Xã Bình Sơn', 'binh_son', '91'),
+    ('30826', 'Bình Giang', 'Xã Bình Giang', 'binh_giang', '91'),
+    ('30835', 'Sơn Kiên', 'Xã Sơn Kiên', 'son_kien', '91'),
+    ('30838', 'Mỹ Thuận', 'Xã Mỹ Thuận', 'my_thuan', '91'),
+    ('30850', 'Tân Hiệp', 'Xã Tân Hiệp', 'tan_hiep', '91'),
+    ('30856', 'Tân Hội', 'Xã Tân Hội', 'tan_hoi', '91'),
+    ('30874', 'Thạnh Đông', 'Xã Thạnh Đông', 'thanh_dong', '91'),
+    ('30880', 'Châu Thành', 'Xã Châu Thành', 'chau_thanh', '91'),
+    ('30886', 'Thạnh Lộc', 'Xã Thạnh Lộc', 'thanh_loc', '91'),
+    ('30898', 'Bình An', 'Xã Bình An', 'binh_an', '91'),
+    ('30904', 'Giồng Riềng', 'Xã Giồng Riềng', 'giong_rieng', '91'),
+    ('30910', 'Thạnh Hưng', 'Xã Thạnh Hưng', 'thanh_hung', '91'),
+    ('30928', 'Ngọc Chúc', 'Xã Ngọc Chúc', 'ngoc_chuc', '91'),
+    ('30934', 'Hoà Hưng', 'Xã Hoà Hưng', 'hoa_hung', '91'),
+    ('30943', 'Long Thạnh', 'Xã Long Thạnh', 'long_thanh', '91'),
+    ('30949', 'Hoà Thuận', 'Xã Hoà Thuận', 'hoa_thuan', '91'),
+    ('30952', 'Gò Quao', 'Xã Gò Quao', 'go_quao', '91'),
+    ('30958', 'Định Hoà', 'Xã Định Hoà', 'dinh_hoa', '91'),
+    ('30970', 'Vĩnh Hoà Hưng', 'Xã Vĩnh Hoà Hưng', 'vinh_hoa_hung', '91'),
+    ('30982', 'Vĩnh Tuy', 'Xã Vĩnh Tuy', 'vinh_tuy', '91'),
+    ('30985', 'An Biên', 'Xã An Biên', 'an_bien', '91'),
+    ('30988', 'Tây Yên', 'Xã Tây Yên', 'tay_yen', '91'),
+    ('31006', 'Đông Thái', 'Xã Đông Thái', 'dong_thai', '91'),
+    ('31012', 'Vĩnh Hoà', 'Xã Vĩnh Hoà', 'vinh_hoa', '91'),
+    ('31018', 'An Minh', 'Xã An Minh', 'an_minh', '91'),
+    ('31024', 'Đông Hoà', 'Xã Đông Hoà', 'dong_hoa', '91'),
+    ('31027', 'U Minh Thượng', 'Xã U Minh Thượng', 'u_minh_thuong', '91'),
+    ('31031', 'Tân Thạnh', 'Xã Tân Thạnh', 'tan_thanh', '91'),
+    ('31036', 'Đông Hưng', 'Xã Đông Hưng', 'dong_hung', '91'),
+    ('31042', 'Vân Khánh', 'Xã Vân Khánh', 'van_khanh', '91'),
+    ('31051', 'Vĩnh Phong', 'Xã Vĩnh Phong', 'vinh_phong', '91'),
+    ('31064', 'Vĩnh Bình', 'Xã Vĩnh Bình', 'vinh_binh', '91'),
+    ('31069', 'Vĩnh Thuận', 'Xã Vĩnh Thuận', 'vinh_thuan', '91'),
+    ('31078', 'Phú Quốc', 'Đặc khu Phú Quốc', 'phu_quoc', '91'),
+    ('31105', 'Thổ Châu', 'Đặc khu Thổ Châu', 'tho_chau', '91'),
+    ('31108', 'Kiên Hải', 'Đặc khu Kiên Hải', 'kien_hai', '91'),
+    ('31120', 'Cái Khế', 'Phường Cái Khế', 'cai_khe', '92'),
+    ('31135', 'Ninh Kiều', 'Phường Ninh Kiều', 'ninh_kieu', '92'),
+    ('31147', 'Tân An', 'Phường Tân An', 'tan_an', '92'),
+    ('31150', 'An Bình', 'Phường An Bình', 'an_binh', '92'),
+    ('31153', 'Ô Môn', 'Phường Ô Môn', 'o_mon', '92'),
+    ('31157', 'Thới Long', 'Phường Thới Long', 'thoi_long', '92'),
+    ('31162', 'Phước Thới', 'Phường Phước Thới', 'phuoc_thoi', '92'),
+    ('31168', 'Bình Thuỷ', 'Phường Bình Thuỷ', 'binh_thuy', '92'),
+    ('31174', 'Thới An Đông', 'Phường Thới An Đông', 'thoi_an_dong', '92'),
+    ('31183', 'Long Tuyền', 'Phường Long Tuyền', 'long_tuyen', '92'),
+    ('31186', 'Cái Răng', 'Phường Cái Răng', 'cai_rang', '92'),
+    ('31201', 'Hưng Phú', 'Phường Hưng Phú', 'hung_phu', '92'),
+    ('31207', 'Thốt Nốt', 'Phường Thốt Nốt', 'thot_not', '92'),
+    ('31213', 'Tân Lộc', 'Phường Tân Lộc', 'tan_loc', '92'),
+    ('31217', 'Trung Nhứt', 'Phường Trung Nhứt', 'trung_nhut', '92'),
+    ('31228', 'Thuận Hưng', 'Phường Thuận Hưng', 'thuan_hung', '92'),
+    ('31231', 'Thạnh An', 'Xã Thạnh An', 'thanh_an', '92'),
+    ('31232', 'Vĩnh Thạnh', 'Xã Vĩnh Thạnh', 'vinh_thanh', '92'),
+    ('31237', 'Vĩnh Trinh', 'Xã Vĩnh Trinh', 'vinh_trinh', '92'),
+    ('31246', 'Thạnh Quới', 'Xã Thạnh Quới', 'thanh_quoi', '92'),
+    ('31249', 'Thạnh Phú', 'Xã Thạnh Phú', 'thanh_phu', '92'),
+    ('31255', 'Trung Hưng', 'Xã Trung Hưng', 'trung_hung', '92'),
+    ('31258', 'Thới Lai', 'Xã Thới Lai', 'thoi_lai', '92'),
+    ('31261', 'Cờ Đỏ', 'Xã Cờ Đỏ', 'co_do', '92'),
+    ('31264', 'Thới Hưng', 'Xã Thới Hưng', 'thoi_hung', '92'),
+    ('31273', 'Đông Hiệp', 'Xã Đông Hiệp', 'dong_hiep', '92'),
+    ('31282', 'Đông Thuận', 'Xã Đông Thuận', 'dong_thuan', '92'),
+    ('31288', 'Trường Thành', 'Xã Trường Thành', 'truong_thanh', '92'),
+    ('31294', 'Trường Xuân', 'Xã Trường Xuân', 'truong_xuan', '92'),
+    ('31299', 'Phong Điền', 'Xã Phong Điền', 'phong_dien', '92'),
+    ('31309', 'Trường Long', 'Xã Trường Long', 'truong_long', '92'),
+    ('31315', 'Nhơn Ái', 'Xã Nhơn Ái', 'nhon_ai', '92'),
+    ('31321', 'Vị Thanh', 'Phường Vị Thanh', 'vi_thanh', '92'),
+    ('31333', 'Vị Tân', 'Phường Vị Tân', 'vi_tan', '92'),
+    ('31338', 'Hoả Lựu', 'Xã Hoả Lựu', 'hoa_luu', '92'),
+    ('31340', 'Ngã Bảy', 'Phường Ngã Bảy', 'nga_bay', '92'),
+    ('31342', 'Tân Hoà', 'Xã Tân Hoà', 'tan_hoa', '92'),
+    ('31348', 'Trường Long Tây', 'Xã Trường Long Tây', 'truong_long_tay', '92'),
+    ('31360', 'Thạnh Xuân', 'Xã Thạnh Xuân', 'thanh_xuan', '92'),
+    ('31366', 'Châu Thành', 'Xã Châu Thành', 'chau_thanh', '92'),
+    ('31369', 'Đông Phước', 'Xã Đông Phước', 'dong_phuoc', '92'),
+    ('31378', 'Phú Hữu', 'Xã Phú Hữu', 'phu_huu', '92'),
+    ('31393', 'Hoà An', 'Xã Hoà An', 'hoa_an', '92'),
+    ('31396', 'Hiệp Hưng', 'Xã Hiệp Hưng', 'hiep_hung', '92'),
+    ('31399', 'Tân Bình', 'Xã Tân Bình', 'tan_binh', '92'),
+    ('31408', 'Thạnh Hoà', 'Xã Thạnh Hoà', 'thanh_hoa', '92');
+INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
+    ('31411', 'Đại Thành', 'Phường Đại Thành', 'dai_thanh', '92'),
+    ('31420', 'Phụng Hiệp', 'Xã Phụng Hiệp', 'phung_hiep', '92'),
+    ('31426', 'Phương Bình', 'Xã Phương Bình', 'phuong_binh', '92'),
+    ('31432', 'Tân Phước Hưng', 'Xã Tân Phước Hưng', 'tan_phuoc_hung', '92'),
+    ('31441', 'Vị Thuỷ', 'Xã Vị Thuỷ', 'vi_thuy', '92'),
+    ('31453', 'Vĩnh Thuận Đông', 'Xã Vĩnh Thuận Đông', 'vinh_thuan_dong', '92'),
+    ('31459', 'Vĩnh Tường', 'Xã Vĩnh Tường', 'vinh_tuong', '92'),
+    ('31465', 'Vị Thanh 1', 'Xã Vị Thanh 1', 'vi_thanh_1', '92'),
+    ('31471', 'Long Mỹ', 'Phường Long Mỹ', 'long_my', '92'),
+    ('31473', 'Long Bình', 'Phường Long Bình', 'long_binh', '92'),
+    ('31480', 'Long Phú 1', 'Phường Long Phú 1', 'long_phu_1', '92'),
+    ('31489', 'Vĩnh Viễn', 'Xã Vĩnh Viễn', 'vinh_vien', '92'),
+    ('31492', 'Lương Tâm', 'Xã Lương Tâm', 'luong_tam', '92'),
+    ('31495', 'Xà Phiên', 'Xã Xà Phiên', 'xa_phien', '92'),
+    ('31507', 'Sóc Trăng', 'Phường Sóc Trăng', 'soc_trang', '92'),
+    ('31510', 'Phú Lợi', 'Phường Phú Lợi', 'phu_loi', '92'),
+    ('31528', 'Kế Sách', 'Xã Kế Sách', 'ke_sach', '92'),
+    ('31531', 'An Lạc Thôn', 'Xã An Lạc Thôn', 'an_lac_thon', '92'),
+    ('31537', 'Phong Nẫm', 'Xã Phong Nẫm', 'phong_nam', '92'),
+    ('31540', 'Thới An Hội', 'Xã Thới An Hội', 'thoi_an_hoi', '92'),
+    ('31552', 'Nhơn Mỹ', 'Xã Nhơn Mỹ', 'nhon_my', '92'),
+    ('31561', 'Đại Hải', 'Xã Đại Hải', 'dai_hai', '92'),
+    ('31567', 'Mỹ Tú', 'Xã Mỹ Tú', 'my_tu', '92'),
+    ('31569', 'Phú Tâm', 'Xã Phú Tâm', 'phu_tam', '92'),
+    ('31570', 'Hồ Đắc Kiện', 'Xã Hồ Đắc Kiện', 'ho_dac_kien', '92'),
+    ('31579', 'Long Hưng', 'Xã Long Hưng', 'long_hung', '92'),
+    ('31582', 'Thuận Hoà', 'Xã Thuận Hoà', 'thuan_hoa', '92'),
+    ('31591', 'Mỹ Hương', 'Xã Mỹ Hương', 'my_huong', '92'),
+    ('31594', 'An Ninh', 'Xã An Ninh', 'an_ninh', '92'),
+    ('31603', 'Mỹ Phước', 'Xã Mỹ Phước', 'my_phuoc', '92'),
+    ('31615', 'An Thạnh', 'Xã An Thạnh', 'an_thanh', '92'),
+    ('31633', 'Cù Lao Dung', 'Xã Cù Lao Dung', 'cu_lao_dung', '92'),
+    ('31639', 'Long Phú', 'Xã Long Phú', 'long_phu', '92'),
+    ('31645', 'Đại Ngãi', 'Xã Đại Ngãi', 'dai_ngai', '92'),
+    ('31654', 'Trường Khánh', 'Xã Trường Khánh', 'truong_khanh', '92'),
+    ('31666', 'Tân Thạnh', 'Xã Tân Thạnh', 'tan_thanh', '92'),
+    ('31673', 'Trần Đề', 'Xã Trần Đề', 'tran_de', '92'),
+    ('31675', 'Liêu Tú', 'Xã Liêu Tú', 'lieu_tu', '92'),
+    ('31679', 'Lịch Hội Thượng', 'Xã Lịch Hội Thượng', 'lich_hoi_thuong', '92'),
+    ('31684', 'Mỹ Xuyên', 'Phường Mỹ Xuyên', 'my_xuyen', '92'),
+    ('31687', 'Tài Văn', 'Xã Tài Văn', 'tai_van', '92'),
+    ('31699', 'Thạnh Thới An', 'Xã Thạnh Thới An', 'thanh_thoi_an', '92'),
+    ('31708', 'Nhu Gia', 'Xã Nhu Gia', 'nhu_gia', '92'),
+    ('31717', 'Hoà Tú', 'Xã Hoà Tú', 'hoa_tu', '92'),
+    ('31723', 'Ngọc Tố', 'Xã Ngọc Tố', 'ngoc_to', '92'),
+    ('31726', 'Gia Hoà', 'Xã Gia Hoà', 'gia_hoa', '92'),
+    ('31732', 'Ngã Năm', 'Phường Ngã Năm', 'nga_nam', '92'),
+    ('31741', 'Tân Long', 'Xã Tân Long', 'tan_long', '92'),
+    ('31753', 'Mỹ Quới', 'Phường Mỹ Quới', 'my_quoi', '92'),
+    ('31756', 'Phú Lộc', 'Xã Phú Lộc', 'phu_loc', '92'),
+    ('31759', 'Lâm Tân', 'Xã Lâm Tân', 'lam_tan', '92'),
+    ('31777', 'Vĩnh Lợi', 'Xã Vĩnh Lợi', 'vinh_loi', '92'),
+    ('31783', 'Vĩnh Châu', 'Phường Vĩnh Châu', 'vinh_chau', '92'),
+    ('31789', 'Khánh Hoà', 'Phường Khánh Hoà', 'khanh_hoa', '92'),
+    ('31795', 'Vĩnh Hải', 'Xã Vĩnh Hải', 'vinh_hai', '92'),
+    ('31804', 'Vĩnh Phước', 'Phường Vĩnh Phước', 'vinh_phuoc', '92'),
+    ('31810', 'Lai Hoà', 'Xã Lai Hoà', 'lai_hoa', '92'),
+    ('31825', 'Bạc Liêu', 'Phường Bạc Liêu', 'bac_lieu', '96'),
+    ('31834', 'Vĩnh Trạch', 'Phường Vĩnh Trạch', 'vinh_trach', '96'),
+    ('31840', 'Hiệp Thành', 'Phường Hiệp Thành', 'hiep_thanh', '96'),
+    ('31843', 'Hồng Dân', 'Xã Hồng Dân', 'hong_dan', '96'),
+    ('31849', 'Ninh Quới', 'Xã Ninh Quới', 'ninh_quoi', '96'),
+    ('31858', 'Vĩnh Lộc', 'Xã Vĩnh Lộc', 'vinh_loc', '96'),
+    ('31864', 'Ninh Thạnh Lợi', 'Xã Ninh Thạnh Lợi', 'ninh_thanh_loi', '96'),
+    ('31867', 'Phước Long', 'Xã Phước Long', 'phuoc_long', '96'),
+    ('31876', 'Vĩnh Phước', 'Xã Vĩnh Phước', 'vinh_phuoc', '96'),
+    ('31882', 'Vĩnh Thanh', 'Xã Vĩnh Thanh', 'vinh_thanh', '96'),
+    ('31885', 'Phong Hiệp', 'Xã Phong Hiệp', 'phong_hiep', '96'),
+    ('31891', 'Hoà Bình', 'Xã Hoà Bình', 'hoa_binh', '96'),
+    ('31894', 'Châu Thới', 'Xã Châu Thới', 'chau_thoi', '96'),
+    ('31900', 'Vĩnh Lợi', 'Xã Vĩnh Lợi', 'vinh_loi', '96'),
+    ('31906', 'Hưng Hội', 'Xã Hưng Hội', 'hung_hoi', '96'),
+    ('31918', 'Vĩnh Mỹ', 'Xã Vĩnh Mỹ', 'vinh_my', '96'),
+    ('31927', 'Vĩnh Hậu', 'Xã Vĩnh Hậu', 'vinh_hau', '96'),
+    ('31942', 'Giá Rai', 'Phường Giá Rai', 'gia_rai', '96'),
+    ('31951', 'Láng Tròn', 'Phường Láng Tròn', 'lang_tron', '96'),
+    ('31957', 'Phong Thạnh', 'Xã Phong Thạnh', 'phong_thanh', '96'),
+    ('31972', 'Gành Hào', 'Xã Gành Hào', 'ganh_hao', '96'),
+    ('31975', 'Đông Hải', 'Xã Đông Hải', 'dong_hai', '96'),
+    ('31985', 'Long Điền', 'Xã Long Điền', 'long_dien', '96'),
+    ('31988', 'An Trạch', 'Xã An Trạch', 'an_trach', '96'),
+    ('31993', 'Định Thành', 'Xã Định Thành', 'dinh_thanh', '96'),
+    ('32002', 'An Xuyên', 'Phường An Xuyên', 'an_xuyen', '96'),
+    ('32014', 'Lý Văn Lâm', 'Phường Lý Văn Lâm', 'ly_van_lam', '96'),
+    ('32025', 'Tân Thành', 'Phường Tân Thành', 'tan_thanh', '96'),
+    ('32041', 'Hoà Thành', 'Phường Hoà Thành', 'hoa_thanh', '96'),
+    ('32044', 'Nguyễn Phích', 'Xã Nguyễn Phích', 'nguyen_phich', '96'),
+    ('32047', 'U Minh', 'Xã U Minh', 'u_minh', '96'),
+    ('32059', 'Khánh An', 'Xã Khánh An', 'khanh_an', '96'),
+    ('32062', 'Khánh Lâm', 'Xã Khánh Lâm', 'khanh_lam', '96'),
+    ('32065', 'Thới Bình', 'Xã Thới Bình', 'thoi_binh', '96'),
+    ('32069', 'Biển Bạch', 'Xã Biển Bạch', 'bien_bach', '96'),
+    ('32071', 'Trí Phải', 'Xã Trí Phải', 'tri_phai', '96'),
+    ('32083', 'Tân Lộc', 'Xã Tân Lộc', 'tan_loc', '96'),
+    ('32092', 'Hồ Thị Kỷ', 'Xã Hồ Thị Kỷ', 'ho_thi_ky', '96'),
+    ('32095', 'Trần Văn Thời', 'Xã Trần Văn Thời', 'tran_van_thoi', '96'),
+    ('32098', 'Sông Đốc', 'Xã Sông Đốc', 'song_doc', '96'),
+    ('32104', 'Đá Bạc', 'Xã Đá Bạc', 'da_bac', '96'),
+    ('32110', 'Khánh Bình', 'Xã Khánh Bình', 'khanh_binh', '96'),
+    ('32119', 'Khánh Hưng', 'Xã Khánh Hưng', 'khanh_hung', '96'),
+    ('32128', 'Cái Nước', 'Xã Cái Nước', 'cai_nuoc', '96'),
+    ('32134', 'Lương Thế Trân', 'Xã Lương Thế Trân', 'luong_the_tran', '96'),
+    ('32137', 'Tân Hưng', 'Xã Tân Hưng', 'tan_hung', '96'),
+    ('32140', 'Hưng Mỹ', 'Xã Hưng Mỹ', 'hung_my', '96'),
+    ('32152', 'Đầm Dơi', 'Xã Đầm Dơi', 'dam_doi', '96'),
+    ('32155', 'Tạ An Khương', 'Xã Tạ An Khương', 'ta_an_khuong', '96'),
+    ('32161', 'Trần Phán', 'Xã Trần Phán', 'tran_phan', '96'),
+    ('32167', 'Tân Thuận', 'Xã Tân Thuận', 'tan_thuan', '96'),
+    ('32182', 'Quách Phẩm', 'Xã Quách Phẩm', 'quach_pham', '96'),
+    ('32185', 'Thanh Tùng', 'Xã Thanh Tùng', 'thanh_tung', '96'),
+    ('32188', 'Tân Tiến', 'Xã Tân Tiến', 'tan_tien', '96'),
+    ('32191', 'Năm Căn', 'Xã Năm Căn', 'nam_can', '96'),
+    ('32201', 'Đất Mới', 'Xã Đất Mới', 'dat_moi', '96'),
+    ('32206', 'Tam Giang', 'Xã Tam Giang', 'tam_giang', '96'),
+    ('32212', 'Cái Đôi Vàm', 'Xã Cái Đôi Vàm', 'cai_doi_vam', '96'),
+    ('32214', 'Phú Mỹ', 'Xã Phú Mỹ', 'phu_my', '96'),
+    ('32218', 'Phú Tân', 'Xã Phú Tân', 'phu_tan', '96'),
+    ('32227', 'Nguyễn Việt Khái', 'Xã Nguyễn Việt Khái', 'nguyen_viet_khai', '96'),
+    ('32236', 'Tân Ân', 'Xã Tân Ân', 'tan_an', '96'),
+    ('32244', 'Phan Ngọc Hiển', 'Xã Phan Ngọc Hiển', 'phan_ngoc_hien', '96'),
+    ('32248', 'Đất Mũi', 'Xã Đất Mũi', 'dat_mui', '96');
 
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict EIJOb0UIGpkwC5RTmPm3yCsuGFsffgXXTchqLXmyLYmoEcr928wXkEyfZbGduRW
-
 
 SET session_replication_role = DEFAULT;
