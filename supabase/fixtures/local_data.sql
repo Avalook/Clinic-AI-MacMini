@@ -1,6 +1,6 @@
 -- Clinic-side fixtures the local end-to-end scripts need.
 --
--- The companion to fixtures_staff_logins.sql: that one creates the people, this
+-- The companion to staff_logins.sql: that one creates the people, this
 -- one creates the things they work on. Both exist for the same reason — the
 -- scripts used to depend on rows somebody typed into this Mac once, so nobody
 -- else could run them and `supabase db reset` silently removed the
@@ -34,7 +34,7 @@ BEGIN
         RAISE EXCEPTION 'clinic_location/service_type missing — apply seed.sql first';
     END IF;
     IF v_doctor IS NULL THEN
-        RAISE EXCEPTION 'staff missing — run fixtures_staff_logins.sql first';
+        RAISE EXCEPTION 'staff missing — run supabase/fixtures/staff_logins.sql first';
     END IF;
 
     INSERT INTO public.patient (

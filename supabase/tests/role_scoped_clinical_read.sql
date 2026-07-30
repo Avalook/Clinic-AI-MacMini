@@ -17,19 +17,16 @@ INSERT INTO public.clinic (id, code, name)
 VALUES ('c1000000-0000-4000-8000-000000000001', 'ROLE02', 'Phòng khám ROLE-02')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO auth.users (
-    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-    confirmation_token, recovery_token, email_change_token_new, email_change,
-    created_at, updated_at
-)
-SELECT '00000000-0000-0000-0000-000000000000', u.id, 'authenticated',
-       'authenticated', u.email, '', now(), '', '', '', '', now(), now()
-  FROM (VALUES
-        ('a1000000-0000-4000-8000-000000000001'::uuid, 'role02.bs@test.local'),
-        ('a1000000-0000-4000-8000-000000000002'::uuid, 'role02.letan@test.local'),
-        ('a1000000-0000-4000-8000-000000000003'::uuid, 'role02.thungan@test.local'),
-        ('a1000000-0000-4000-8000-000000000004'::uuid, 'role02.ql@test.local')
-       ) AS u(id, email)
+-- Only `id`: this test runs in CI against the minimal auth fixture in
+-- bootstrap_plain_postgres.sql, where auth.users has that one column. The
+-- password columns belong to a real GoTrue and are irrelevant here — nothing
+-- logs in, the JWT subject is set directly with set_config below.
+INSERT INTO auth.users (id)
+VALUES
+    ('a1000000-0000-4000-8000-000000000001'),
+    ('a1000000-0000-4000-8000-000000000002'),
+    ('a1000000-0000-4000-8000-000000000003'),
+    ('a1000000-0000-4000-8000-000000000004')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.staff (id, full_name, primary_department, auth_user_id, is_active)

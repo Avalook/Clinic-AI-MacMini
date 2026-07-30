@@ -182,7 +182,7 @@ Cookie do chính `@supabase/ssr` của dashboard sinh ra
 (`src/dashboard/scripts/mint-session-cookie.mjs`) chứ không tự chế — tên cookie và cách
 mã hoá là chuyện nội bộ của thư viện, đoán là hỏng ở lần nâng cấp sau.
 
-Tài khoản test: `supabase/tests/fixtures_staff_logins.sql` (6 vai, idempotent). Trước
+Tài khoản test: `supabase/fixtures/staff_logins.sql` (6 vai, idempotent). Trước
 đây 2 tài khoản tạo tay trên máy này nên không ai chạy lại được, và `db reset` là mất.
 
 ### Chặn: `CLINICAL_FORM_VIA_BACKEND` phải để **0**
@@ -266,7 +266,7 @@ SELECT full_name, primary_department FROM staff
 
 ### Fixtures
 
-`supabase/tests/fixtures_staff_logins.sql` (6 vai) + `fixtures_local_data.sql` (bệnh nhân,
+`supabase/fixtures/staff_logins.sql` (6 vai) + `local_data.sql` (bệnh nhân,
 ca trực, đợt khám). Trước đây dữ liệu test là mấy dòng gõ tay trên máy này: người khác
 không chạy được script, và `supabase db reset` là mất sạch — đúng như đã xảy ra khi reset
 để kiểm chuỗi migration. Vài assertion trong `supabase/tests/*.sql` cũng đổi từ đếm số

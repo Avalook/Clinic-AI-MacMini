@@ -8,7 +8,7 @@
 -- The e2e scripts used to depend on two accounts created by hand on this Mac,
 -- which meant nobody else could run them and a `db reset` silently deleted the
 -- prerequisite. This file is idempotent — run it as often as you like:
---   psql "$DB" -f supabase/tests/fixtures_staff_logins.sql
+--   psql "$DB" -f supabase/fixtures/staff_logins.sql
 --
 -- LOCAL/STAGING ONLY. Fake people, one shared weak password, fake @.local
 -- addresses. Never run against a database holding real patient data.

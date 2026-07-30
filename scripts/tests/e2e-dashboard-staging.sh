@@ -14,7 +14,8 @@
 #
 # Prerequisites:
 #   npx supabase start
-#   psql "$DB" -f supabase/tests/fixtures_staff_logins.sql
+#   psql "$DB" -f supabase/fixtures/staff_logins.sql
+#   psql "$DB" -f supabase/fixtures/local_data.sql
 #   CLINIC_ENV_FILE=.env.staging docker compose --env-file .env.staging \
 #     -p clinicai_staging up -d --build api dashboard
 set -uo pipefail
