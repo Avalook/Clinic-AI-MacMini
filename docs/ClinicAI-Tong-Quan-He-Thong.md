@@ -73,7 +73,7 @@ flowchart LR
   WEB --> AUTH["Supabase Auth"]
   WEB -->|auth + realtime| DB
   WEB --> API
-  API --> DB["Supabase Postgres<br/>(33 bảng)"]
+  API --> DB["Supabase Postgres<br/>(35 bảng)"]
   API --> ST["Supabase Storage<br/>(bucket private)"]
   API --> OUT["event_log + Outbox<br/>(trong Postgres)"]
   OUT --> MQ["RabbitMQ (opt-in)"]
@@ -88,7 +88,7 @@ flowchart LR
 |---|---|---|
 | Frontend | **Next.js** (`src/dashboard`, ~160 file ts/tsx) | UI only. ⚠️ bản Next đã tuỳ biến (xem `src/dashboard/AGENTS.md`). |
 | Backend | **FastAPI** (`src/clinicai`, ~224 file Python) | Toàn bộ logic nghiệp vụ + AI. |
-| DB | **Supabase Postgres** — 33 bảng (migrations) | Schema quản lý bằng `supabase/migrations/*.sql`. Chi tiết: [`docs/database/ERD.md`](database/ERD.md). |
+| DB | **Supabase Postgres** — 35 bảng (migrations) | Schema quản lý bằng `supabase/migrations/*.sql`. Chi tiết: [`docs/database/ERD.md`](database/ERD.md). |
 | Auth | Supabase Auth (JWT) + RLS | FastAPI verify JWT; `staff.auth_user_id` liên kết. |
 | Queue/Event | **RabbitMQ** (opt-in) + Worker + `event_log`/Outbox trong PG | Nguồn sự thật workflow ở **Postgres**, không phải queue. |
 | AI | **LangGraph** (graphs/tools/orchestrator) + Ollama local / model cloud | RAG bằng pgvector (mục tiêu). |
@@ -134,9 +134,16 @@ flowchart TB
   CFG --> S4["Mẫu form khám (5 chuyên khoa)"]
 ```
 
-- **Định danh theo membership, không theo user** 🔵: một người có thể có vai trò khác nhau ở các cơ sở khác nhau → role gắn ở `clinic_membership`, không gắn cứng vào user. *(Hiện tại V1: vai trò suy ra từ `staff.primary_department` — xem §7; end-state là 1 login/nhân viên + membership.)*
-- **Mọi bảng nghiệp vụ (mục tiêu V2)** phải có tối thiểu: `id, clinic_id, created_at, created_by, updated_at, version`. *(V1 hiện chưa có cột `clinic_id` ở mọi bảng vì mới 1 tenant — đây là hạng mục ready-to-sell.)*
+**Trạng thái: nền tảng đã dựng xong (W2, migration `20260730000003`).**
+
+- **`clinic` + `clinic_membership` đã có trong schema.** Dr4Women là row tenant #1 với id cố định `a0000000-…-0001`, giống nhau ở mọi môi trường.
+- **Định danh theo membership, không theo user** 🔵: một người có thể có vai trò khác nhau ở các cơ sở khác nhau → role gắn ở `clinic_membership`. Vì vậy `staff` **cố ý không** mang `clinic_id`: một bác sĩ làm ở 2 phòng khám là chuyện bình thường. *(V1 vẫn suy vai trò từ `staff.primary_department` — xem §7; cutover sang membership là W3.)*
+- **27 bảng đã mang `clinic_id NOT NULL`** + FK + index. Không mang `clinic_id`: `province`/`ward` (danh mục quốc gia), `staff`/`staff_capability` (qua membership), `idempotency_key`/`schema_migrations` (hạ tầng).
+- **Khoá duy nhất đã mang tenant**: mã bệnh nhân, mã dịch vụ, mã kênh đặt lịch, mã cơ sở, tên thuốc, CCCD, bảng giá, block budget — trước đây duy nhất *toàn cục*, nay duy nhất *trong một phòng khám*. Hai phòng khám dùng chung mã "BN001" không còn đụng nhau.
+- **Helper cho RLS**: `current_staff_id()`, `current_clinic_ids()`, `current_clinic_roles(clinic_id)` — `STABLE SECURITY DEFINER`, suy tenant từ JWT chứ **không** nhận `clinic_id` do client gửi lên.
+- **Nợ tạm thời có kiểm soát**: `clinic_id` đang có `DEFAULT default_clinic_id()` để code V1 (chưa biết tenant) chạy tiếp. Hàm này trả NULL ngay khi có phòng khám thứ 2 → gán nhầm sẽ *báo lỗi* chứ không âm thầm. W5 gỡ default.
 - **Onboard phòng khám thứ 2** = tạo `clinic` + nạp cấu hình (slot policy, vai trò, giá, form) + tạo tài khoản nhân viên. Không sửa code.
+- Bất biến được ép bằng test, không bằng lời hứa: `supabase/tests/multi_tenant_foundation.sql` chạy trong CI (job `database`), gồm cả kiểm chứng hành vi *nhân viên phòng khám A không đọc được phòng khám B*.
 
 ---
 
@@ -200,7 +207,7 @@ Mỗi event phải: **tên ở thì quá khứ** (`AppointmentCreated`, `ResultR
 
 ## 6. Mô hình dữ liệu
 
-**Hiện trạng:** 33 bảng theo migrations (+3 bảng "retired" còn sót ở prod, +`idempotency_key` chưa lên prod). Sơ đồ ERD đầy đủ: **[`docs/database/ERD.md`](database/ERD.md)**.
+**Hiện trạng:** 35 bảng theo migrations (+3 bảng "retired" còn sót ở prod, +`idempotency_key` chưa lên prod). Sơ đồ ERD đầy đủ: **[`docs/database/ERD.md`](database/ERD.md)**.
 
 Nhóm theo domain (V1 đang chạy):
 
@@ -424,25 +431,32 @@ flowchart TB
 - Next.js dashboard đầy đủ màn theo 11 vai trò + phân quyền `lib/roles.ts`.
 - FastAPI đã wire **14 router** (`health, identity, queue, patients, staff, scheduling, payment, tools, orchestrator, brief, catalog, ops, lab, voice` — `src/clinicai/main.py:98-111`) + service nghiệp vụ (Phase 4).
 - Event bus (RabbitMQ + `event_log`/worker), MPI dedup, AI tầng 1 (LangGraph graphs/tools).
-- 33 bảng, chống trùng slot (advisory lock, đã test đua), CI/CD có rollback, monitoring.
+- 35 bảng, chống trùng slot (advisory lock, đã test đua), CI/CD có rollback, monitoring.
 
 ### 12.2 Khoảng cách tới V2 / ready-to-sell
 | Hạng mục | Trạng thái | Việc |
 |---|---|---|
 | Vá RLS `care_episode` | 🟢 xong (chưa push) | Migration `20260730000001` — đã kiểm trên Postgres 17 dùng một lần (W1) |
 | Vá RLS bảng tham chiếu | 🟢 xong (chưa push) | Cùng lỗi: 8 bảng bật RLS mà **0 policy**. `/reports` đọc `booking_channel` bằng session người dùng ⇒ luôn rỗng. Migration `20260730000002` mở SELECT cho `booking_channel`/`province`/`ward`; cố ý **không** mở `ultrasound_record`, `mpi_merge_queue`, `block_budget`, `staff_capability` (W1b) |
-| Slot config-driven | 🔴 hardcode | Bảng `slot_capacity_rule` + đọc động (W2) |
-| `release_state` cho kết quả | 🔵 thiếu | `DRAFT→PENDING_REVIEW→SIGNED→RELEASED|HELD_SENSITIVE→DELIVERED` trên `lab_result`+`ultrasound_record` (W3) |
-| Siết RLS đọc lâm sàng | 🟡 quá rộng | Đọc qua FastAPI service_role (Phase 4) (W4) |
-| Payment ledger nội bộ | 🔵 | `billable_item`/`payment_transaction`/`payment_allocation`/`cashier_shift` (W5) |
-| Inventory (kho thuốc) | 🔵 | `drug_batch`/`stock_movement`/`dispense_record`/`stock_policy`, FEFO (W6) |
-| Workflow kernel đầy đủ | 🔵 | `node_*`/`work_item_*`/`follow_up_case` + Command API (M2) |
-| Multi-tenant thật (`clinic_id`) | 🔵 | Thêm `clinic`/`clinic_membership` + `clinic_id` mọi bảng |
-| RAG có kiểm soát | 🟡 | pgvector + citation + eval (M6) |
+| Multi-tenant thật (`clinic_id`) | 🟢 xong (chưa push) | `clinic` + `clinic_membership` + `clinic_id` trên 27 bảng + khoá duy nhất mang tenant + helper RLS. Migration `20260730000003`, test `supabase/tests/multi_tenant_foundation.sql` chạy trong CI (W2) |
+| 1 login/nhân viên + siết RLS | 🟡 nền đã có | `staff.auth_user_id` đã có sẵn trong schema; cần backfill, bỏ role-picker, thay 27 policy `USING (true)` bằng policy theo `current_clinic_ids()` (W3) |
+| Workflow kernel đầy đủ | 🔵 | `node_*`/`work_item_*`/`follow_up_case` + Command API + seed 37 node §13 (W4) |
+| Backend sở hữu hợp đồng | 🔴 vi phạm | Gỡ `getSupabaseService()` khỏi dashboard, mọi ghi qua FastAPI, sinh type từ OpenAPI (W5) |
+| Sẵn sàng lên VPS | 🟡 chưa kiểm chứng | Build multi-arch + CI dựng stack trên Linux (W6) |
+| Cổng POS / KiotViet | 🔵 | `PosPort` + `NullPosAdapter` + adapter KiotViet, đồng bộ qua outbox (W7) |
+| Slot config-driven | 🔴 hardcode | Bảng `slot_capacity_rule` + đọc động (W8) |
+| `release_state` cho kết quả | 🔵 thiếu | `DRAFT→PENDING_REVIEW→SIGNED→RELEASED\|HELD_SENSITIVE→DELIVERED` trên `lab_result`+`ultrasound_record` (W9) |
+| Payment ledger nội bộ | 🔵 | `billable_item`/`payment_transaction`/`payment_allocation`/`cashier_shift` (W10) |
+| Inventory (kho thuốc) | 🔵 | `drug_batch`/`stock_movement`/`dispense_record`/`stock_policy`, FEFO (W11) |
+| Ký số EMR + CCCD | 🔵 | Chưa có trong kiến trúc — xem §14, cần chốt lại phạm vi |
+| RAG có kiểm soát | 🟡 | pgvector + citation + eval (W12) |
 | Drift prod↔migrations | 🟡 | Migration reconcile (xem `docs/database/drift-report.md`) |
 
-### 12.3 Thứ tự đề xuất (theo phụ thuộc)
-`W1 (vá care_episode) → W2 (slot config) → W3 (release_state) → W4 (siết RLS) → W5 (payment) → W6 (inventory) → kernel workflow M2 → multi-tenant → RAG M6`.
+### 12.3 Thứ tự thực hiện (theo phụ thuộc)
+`W1 vá RLS ✅ → W2 multi-tenant ✅ → W3 login riêng + siết RLS → W4 kernel workflow → W5 backend sở hữu hợp đồng → W6 CI amd64 → W7 cổng POS → W8 slot config → W9 release_state → W10 payment ledger → W11 inventory → W12 RAG`.
+
+W3 phải đứng trước W4/W5 vì policy theo tenant cần `auth_user_id` đã backfill; W5 phải đứng sau W3 vì chỉ khi RLS đủ chặt mới gỡ được service_role khỏi frontend mà không mở toang dữ liệu.
+
 **Quy ước:** mỗi việc branch riêng · chạy staging trước · không merge thẳng `main`.
 
 ### 12.4 "Definition of Done" cho MỖI tính năng (không chỉ có UI là xong)

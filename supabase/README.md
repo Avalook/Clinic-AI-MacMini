@@ -16,11 +16,29 @@ supabase/
     20260714000005_idempotency_scope_and_reservation.sql # atomic actor-scoped reservation
     20260717000001_event_log_least_privilege.sql # MANAGEMENT-only audit reads
     20260717000002_atomic_queue_checkin.sql # atomic daily queue allocation + check-in
+    20260730000001_care_episode_select_policy.sql        # RLS on, zero policies -> /episodes was empty
+    20260730000002_reference_lookup_select_policies.sql  # same bug class on the lookup tables
+    20260730000003_multi_tenant_foundation.sql           # clinic + clinic_membership + clinic_id (ADR-0009)
   tests/
     bootstrap_plain_postgres.sql           # disposable stock-Postgres fixture
     event_log_rls.sql                      # forward-migration policy assertions
+    multi_tenant_foundation.sql            # tenant invariants + cross-clinic isolation
+    run-local.sh                           # apply the chain to a throwaway container, run the assertions
   seed.sql                                  # reference/lookup data only (NO patient PII)
 ```
+
+## Run the schema tests
+
+```bash
+supabase/tests/run-local.sh     # needs Docker; touches no Supabase project
+```
+
+CI runs the same assertion files against a `postgres:17` service container (job
+`database` in `.github/workflows/ci.yml`).
+
+**Migrations from `20260730000000` onward must be idempotent** — `db push` retries and
+restore drills replay them, and the test harness asserts it by applying each one twice.
+Earlier migrations are already in production and are not edited retroactively.
 
 ## How this was built
 The baseline was frozen from the live schema (`pg_dump --schema=public --schema-only`)

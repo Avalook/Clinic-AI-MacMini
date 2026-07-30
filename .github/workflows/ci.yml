@@ -88,3 +88,59 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  database:
+    # Applies the migration chain to a throwaway Postgres and asserts the schema
+    # invariants (tenant isolation, RLS). Never touches a Supabase project.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PSQL: psql -q -v ON_ERROR_STOP=1 -h localhost -U postgres -d postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Supabase auth fixture
+        run: $PSQL -f supabase/tests/bootstrap_plain_postgres.sql
+
+      - name: Apply migrations
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            echo "-- $migration"
+            $PSQL -f "$migration"
+          done
+
+      - name: Migrations from 20260730 onward must be re-appliable
+        # `db push` retries and restore drills replay migrations, so new ones have
+        # to be safe to run twice. Older migrations are already in production and
+        # are not edited retroactively.
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            version="$(basename "$migration" | cut -d_ -f1)"
+            [ "$version" \< "20260730000000" ] && continue
+            $PSQL -f "$migration"
+          done
+
+      - name: Schema assertions
+        run: |
+          for test_file in supabase/tests/*.sql; do
+            case "$(basename "$test_file")" in
+              bootstrap_plain_postgres.sql) continue ;;
+            esac
+            echo "-- $test_file"
+            $PSQL -f "$test_file"
+          done

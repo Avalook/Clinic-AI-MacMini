@@ -20,11 +20,19 @@ sửa mọi query. Chi phí đó chỉ tăng theo thời gian.
 ## Decision
 1. **Bảng gốc**: `clinic` (tenant) và `clinic_membership` (`staff_id × clinic_id × role`).
    `clinic_location` trở thành con của `clinic`.
-2. **`clinic_id NOT NULL`** trên mọi bảng nghiệp vụ (patient, appointment, visit,
-   clinical_record, payment, work_roster, …). Bảng tham chiếu dùng chung
-   (`province`, `ward`, `service_type`, `drug_catalog`) **không** mang `clinic_id`;
-   bảng cấu hình theo phòng khám (`service_price`, `block_budget`, `booking_channel`)
-   **có** `clinic_id`.
+2. **`clinic_id NOT NULL`** trên **27 bảng**: mọi bảng nghiệp vụ (patient, appointment,
+   visit, clinical_record, payment, work_roster, …) **và** mọi bảng danh mục/cấu hình
+   riêng của phòng khám (`service_type`, `drug_catalog`, `service_price`,
+   `block_budget`, `booking_channel`, `clinic_location`).
+   **Không** mang `clinic_id`:
+   - `province`, `ward` — danh mục hành chính quốc gia, dùng chung thật;
+   - `staff`, `staff_capability` — một bác sĩ có thể làm ở nhiều phòng khám, nên tenant
+     nằm ở `clinic_membership` chứ không phải một cột trên `staff`;
+   - `idempotency_key`, `schema_migrations` — hạ tầng.
+
+   *(Sửa so với bản nháp đầu: `service_type` và `drug_catalog` từng bị xếp nhầm vào nhóm
+   dùng chung. Danh mục dịch vụ và danh mục thuốc là của từng phòng khám, không phải
+   chuẩn quốc gia — nếu dùng chung thì tenant thứ 2 sẽ thấy bảng giá của tenant thứ 1.)*
 3. **Tenant lấy từ JWT, không từ client**: backend suy `clinic_id` từ
    `auth.uid() → staff.auth_user_id → clinic_membership`. Không nhận `clinic_id` trong
    body/query của request người dùng.
@@ -50,3 +58,14 @@ dữ liệu chéo bị chặn ở tầng DB chứ không phụ thuộc code ứn
 một lần, có downtime ngắn; mọi service function phải nhận `clinic_id` — cần sửa cả test.
 **Rủi ro:** quên `clinic_id` ở một bảng = lỗ rò. Bù bằng test khẳng định: không bảng
 nghiệp vụ nào thiếu `clinic_id`, và không policy nào còn `USING (true)`.
+
+## Trạng thái thực hiện
+- **Xong (W2)** — `supabase/migrations/20260730000003_multi_tenant_foundation.sql`:
+  `clinic` + `clinic_membership`, `clinic_id` trên 27 bảng, khoá duy nhất mang tenant,
+  helper `current_staff_id()` / `current_clinic_ids()` / `current_clinic_roles()`.
+  Kiểm bằng `supabase/tests/multi_tenant_foundation.sql` (chạy trong CI, job `database`).
+- **Còn lại (W3)** — thay policy `USING (true)` trên 27 bảng bằng policy theo
+  `current_clinic_ids()`; cần `staff.auth_user_id` được backfill trước.
+- **Nợ tạm thời:** `clinic_id` có `DEFAULT public.default_clinic_id()` để V1 (chưa biết
+  tenant) chạy tiếp. Hàm này trả về NULL ngay khi có phòng khám thứ 2, nên không thể gán
+  nhầm âm thầm. **W5 phải gỡ default** khi backend luôn truyền `clinic_id` từ JWT.
