@@ -69,6 +69,66 @@ tables=$(psql -tA "$DB_URL" -c \
     "SELECT count(*) FROM pg_tables WHERE schemaname='public'" 2>/dev/null | tr -d ' ')
 green "  $tables tables, fixtures loaded"
 
+# ---- 2b. something to actually click ----------------------------------------
+# A stack that is "up" with empty boards is not runnable, it is just running.
+# After a reset there are no visits, so every board renders its empty state and
+# there is nothing to try the roles against. If no work is open, check a few
+# patients in so the queue, the doctor's board and the cashier's board all have
+# rows the moment somebody logs in.
+#
+# Local only by construction: this speaks to 127.0.0.1 and uses the fixture
+# patient. It never runs against anything else because nothing else is reachable
+# from here.
+open_items=$(psql -tA "$DB_URL" -c \
+    "SELECT count(*) FROM work_item WHERE status IN ('PENDING','IN_PROGRESS')" \
+    2>/dev/null | tr -d ' ')
+if [ "${open_items:-0}" = "0" ]; then
+    blue "2b/5 dựng tình huống thử (không có việc nào đang mở)"
+    psql -q "$DB_URL" >/dev/null 2>&1 <<'SEED' || true
+DO $seed$
+DECLARE
+    v_clinic uuid := 'a0000000-0000-4000-8000-000000000001';
+    v_pat    uuid;
+    v_loc    uuid;
+    v_svc    uuid;
+    v_doc    uuid;
+    v_appt   uuid;
+    v_visit  uuid;
+    v_staff  uuid;
+    i        integer;
+BEGIN
+    SELECT clinic_patient_id INTO v_pat FROM patient WHERE clinic_id = v_clinic LIMIT 1;
+    SELECT id INTO v_loc FROM clinic_location WHERE clinic_id = v_clinic AND is_active LIMIT 1;
+    SELECT id INTO v_svc FROM service_type WHERE clinic_id = v_clinic AND is_active LIMIT 1;
+    SELECT id INTO v_doc FROM staff WHERE full_name = 'BS A local' LIMIT 1;
+    SELECT id INTO v_staff FROM staff WHERE full_name = 'Le tan local' LIMIT 1;
+    IF v_pat IS NULL OR v_loc IS NULL OR v_svc IS NULL THEN RETURN; END IF;
+
+    FOR i IN 1..3 LOOP
+        v_appt := gen_random_uuid();
+        INSERT INTO appointment (id, clinic_id, clinic_patient_id, location_id,
+                                 service_type_id, doctor_id, slot_start, slot_end, status)
+        VALUES (v_appt, v_clinic, v_pat, v_loc, v_svc, v_doc,
+                now() + (i * interval '20 minutes'),
+                now() + (i * interval '20 minutes') + interval '20 minutes',
+                'CHECKED_IN');
+
+        INSERT INTO visit (clinic_id, clinic_patient_id, appointment_id,
+                           attending_doctor_id, status, checked_in_at, checked_in_by)
+        VALUES (v_clinic, v_pat, v_appt, v_doc, 'OPEN', now(), v_staff)
+        RETURNING visit_id INTO v_visit;
+
+        PERFORM public.instantiate_visit_workflow(v_clinic, v_visit, v_staff, 'RECEPTION');
+    END LOOP;
+END
+$seed$;
+SEED
+    made=$(psql -tA "$DB_URL" -c \
+        "SELECT count(*) FROM work_item WHERE status IN ('PENDING','IN_PROGRESS')" \
+        2>/dev/null | tr -d ' ')
+    green "  3 lượt khám đã check-in → ${made} việc đang mở"
+fi
+
 # ---- 3. API -----------------------------------------------------------------
 blue "3/5  FastAPI"
 stop_services
