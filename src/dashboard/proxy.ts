@@ -9,6 +9,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/enter", "/auth", "/forgot-password", "/reset-password"];
 
+// The living style guide holds no patient data and must not look like it needs
+// a clinical session. The page itself 404s outside development, so this entry
+// opens nothing in production.
+if (process.env.NODE_ENV === "development") PUBLIC_PATHS.push("/design-system");
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 

@@ -1,8 +1,22 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+ * ClinicAI design tokens
+ *
+ * Taken from the v1.0 design set (bộ icon 61 symbol + 45 màn thiết kế). Two
+ * rules from the icon system's "Quy tắc sử dụng nhanh" are encoded here rather
+ * than left to each screen to remember:
+ *
+ *   - Colour is never the only signal. Every status token pairs a fill with a
+ *     text colour that holds WCAG AA on it, and StatusChip always renders a
+ *     label beside the dot.
+ *   - No pink/blue gender coding. The previous pink scrollbar is gone for that
+ *     reason, not for taste.
+ * ------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,11 +26,86 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Design tokens live in a plain @theme, NOT @theme inline. `inline` folds the
+ * value into the generated utility and emits no custom property, so
+ * var(--color-brand-500) resolved to nothing — the style guide rendered ten
+ * blank swatches, which is how this was caught. Anything referenced from an
+ * inline style or a chart has to be a real variable. `static` is what forces
+ * them all out: without it Tailwind emits only the variables it can see used in
+ * a class, so eight of the ten brand shades were still blank on the style guide
+ * even after moving off `inline`. A palette that exists only where it happens
+ * to be used already is not a palette. */
+@theme static {
+  /* Brand. Teal is the clinic's colour; it carries primary actions and the
+   * active nav item, and nothing else competes with it. */
+  --color-brand-50: #eefbf8;
+  --color-brand-100: #d3f4ee;
+  --color-brand-200: #a9e9de;
+  --color-brand-300: #71d7c9;
+  --color-brand-400: #3cbcac;
+  --color-brand-500: #1a9d8f;
+  --color-brand-600: #0e7c6b;
+  --color-brand-700: #0f6357;
+  --color-brand-800: #114f47;
+  --color-brand-900: #12423c;
+
+  /* Surfaces and text. */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-surface-sunken: #f1f5f9;
+  --color-line: #e2e8f0;
+  --color-line-strong: #cbd5e1;
+  --color-ink: #0f172a;
+  --color-ink-soft: #475569;
+  --color-ink-muted: #64748b;
+  --color-ink-faint: #94a3b8;
+
+  /* ---------------------------------------------------------------------
+   * Work-item status palette — section 05 of the icon system.
+   *
+   * Twelve statuses, and the kernel stores only five of them. The rest are
+   * derived (see lib/work-item-status.ts); they still need colours because a
+   * derived status looks exactly like a stored one to the person reading the
+   * screen.
+   * ------------------------------------------------------------------- */
+  --color-status-draft: #64748b;
+  --color-status-draft-bg: #f1f5f9;
+  --color-status-ready: #0e7c6b;
+  --color-status-ready-bg: #d3f4ee;
+  --color-status-assigned: #0369a1;
+  --color-status-assigned-bg: #e0f2fe;
+  --color-status-called: #1d4ed8;
+  --color-status-called-bg: #dbeafe;
+  --color-status-in-progress: #1d4ed8;
+  --color-status-in-progress-bg: #dbeafe;
+  --color-status-on-hold: #b45309;
+  --color-status-on-hold-bg: #fef3c7;
+  --color-status-blocked: #b91c1c;
+  --color-status-blocked-bg: #fee2e2;
+  --color-status-completed: #15803d;
+  --color-status-completed-bg: #dcfce7;
+  --color-status-rejected: #c2410c;
+  --color-status-rejected-bg: #ffedd5;
+  --color-status-cancelled: #64748b;
+  --color-status-cancelled-bg: #f1f5f9;
+  --color-status-failed: #b91c1c;
+  --color-status-failed-bg: #fee2e2;
+  --color-status-overdue: #b91c1c;
+  --color-status-overdue-bg: #fee2e2;
+
+  /* Priority. P0 is not an emergency colour on its own — the screens use it as
+   * a quiet marker beside the status, which is the loud one. */
+  --color-priority-p0: #b91c1c;
+  --color-priority-p1: #b45309;
+  --color-priority-p2: #64748b;
+
+  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-chip: 9999px;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04),
+    0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-panel: 0 4px 16px -2px rgb(15 23 42 / 0.08);
 }
 
 body {
@@ -74,21 +163,11 @@ body {
   }
 }
 
-/* ===== Tay nắm KÉO CO DÃN bảng đơn (góc dưới-phải) =====
- * Bảng đơn lẻ (không có panel cạnh) vẫn dùng resize góc. Tô nhẹ tông hồng để
- * thấy nhưng KHÔNG chói. Chỉ WebKit/Chrome/Safari. */
-::-webkit-resizer {
-  background-color: #f7dbe8;
-  border-right: 2px solid #ec4899;
-  border-bottom: 2px solid #ec4899;
-}
-
-/* ===== Thanh cuộn MẢNH, overlay (kiểu Linear / Vercel / macOS) =====
- * Mảnh, bo tròn, tông nhạt; đậm lên khi hover. `border trong suốt +
- * background-clip` tạo "đệm" để thumb trông thanh mảnh, sang hơn. */
+/* Scrollbar: neutral, not pink. The icon system forbids gender-coded colour and
+ * a pink chrome on a women's-health product is exactly that. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #ecc9da transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
 ::-webkit-scrollbar {
   width: 11px;
@@ -98,13 +177,13 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #f0d4e2;
+  background-color: #cbd5e1;
   border-radius: 9999px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #e29ec0;
+  background-color: #94a3b8;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-corner {
