@@ -440,15 +440,15 @@ flowchart TB
 ### 12.2 Khoảng cách tới V2 / ready-to-sell
 | Hạng mục | Trạng thái | Việc |
 |---|---|---|
-| Vá RLS `care_episode` | 🟢 xong (chưa push) | Migration `20260730000001` — đã kiểm trên Postgres 17 dùng một lần (W1) |
-| Vá RLS bảng tham chiếu | 🟢 xong (chưa push) | Cùng lỗi: 8 bảng bật RLS mà **0 policy**. `/reports` đọc `booking_channel` bằng session người dùng ⇒ luôn rỗng. Migration `20260730000002` mở SELECT cho `booking_channel`/`province`/`ward`; cố ý **không** mở `ultrasound_record`, `mpi_merge_queue`, `block_budget`, `staff_capability` (W1b) |
-| Multi-tenant thật (`clinic_id`) | 🟢 xong (chưa push) | `clinic` + `clinic_membership` + `clinic_id` trên 27 bảng + khoá duy nhất mang tenant + helper RLS. Migration `20260730000003`, test `supabase/tests/multi_tenant_foundation.sql` chạy trong CI (W2) |
-| Siết RLS theo tenant | 🟢 xong (chưa push) | 26 policy `USING (true)` → `current_clinic_ids()`; `idempotency_key` bật RLS; role-picker xoá hẳn; migration có precondition chặn nếu còn staff chưa link. Migration `20260730000004`, test `supabase/tests/tenant_scoped_rls.sql` (W3) |
+| Vá RLS `care_episode` | 🟢 xong (đã push) | Migration `20260730000001` — đã kiểm trên Postgres 17 dùng một lần (W1) |
+| Vá RLS bảng tham chiếu | 🟢 xong (đã push) | Cùng lỗi: 8 bảng bật RLS mà **0 policy**. `/reports` đọc `booking_channel` bằng session người dùng ⇒ luôn rỗng. Migration `20260730000002` mở SELECT cho `booking_channel`/`province`/`ward`; cố ý **không** mở `ultrasound_record`, `mpi_merge_queue`, `block_budget`, `staff_capability` (W1b) |
+| Multi-tenant thật (`clinic_id`) | 🟢 xong (đã push) | `clinic` + `clinic_membership` + `clinic_id` trên 27 bảng + khoá duy nhất mang tenant + helper RLS. Migration `20260730000003`, test `supabase/tests/multi_tenant_foundation.sql` chạy trong CI (W2) |
+| Siết RLS theo tenant | 🟢 xong (đã push) | 26 policy `USING (true)` → `current_clinic_ids()`; `idempotency_key` bật RLS; role-picker xoá hẳn; migration có precondition chặn nếu còn staff chưa link. Migration `20260730000004`, test `supabase/tests/tenant_scoped_rls.sql` (W3) |
 | 1 login/nhân viên | 🟡 code xong, chờ vận hành | Luồng đã đúng (`getCurrentStaff` suy từ `auth.uid()`), UI cấp tài khoản đã có ở `/settings/new-user`. Còn: cấp tài khoản cho từng nhân viên chưa link, rồi quyết định bỏ cổng `/enter` dùng chung |
 | Siết RLS theo **vai trò** | 🟢 xong | ROLE-02: Lễ tân/Thu ngân/Quản lý đọc `clinical_record` ra 0 dòng; `/home` lấy cờ tiến trình qua `GET /api/v1/visits/progress`. Kiểm: `supabase/tests/role_scoped_clinical_read.sql` |
-| Workflow kernel | 🟢 xong (chưa push) | 7 bảng + gate SQL + Command API + **37 node đã seed**. Migration `20260730000005`/`20260730000006`, test `supabase/tests/workflow_kernel.sql` (W4) |
+| Workflow kernel | 🟢 xong (đã push) | 7 bảng + gate SQL + Command API + **37 node đã seed**. Migration `20260730000005`/`20260730000006`, test `supabase/tests/workflow_kernel.sql` (W4) |
 | Sinh work item tự động + bỏ `staff_task` | 🔴 chưa | Chưa có gì tự tạo `work_item` khi check-in; `staff_task` vẫn chạy thật. Cần chốt "một lượt khám sinh ra node nào" + viết lại màn `/tasks` (sau W5) |
-| Backend sở hữu hợp đồng | 🟡 đợt 1 xong | Gỡ service-role khỏi 3 chỗ (`wards`, `check-phone`, `patients/new`); hàng rào CI `service-role-boundary.test.mts` với danh sách trắng **chỉ được ngắn đi**, trần 19 file → đích 2; `care_episode` đã dời trọn sang FastAPI làm mẫu (`PATCH /api/v1/episodes/{id}`, cờ `EPISODE_VIA_BACKEND`). Còn 14 route nghiệp vụ (W5) |
+| Backend sở hữu hợp đồng | 🟢 xong | Đã xoá **toàn bộ 14 nhánh cũ** đi thẳng Supabase (−2.246 dòng) + 11 cờ `*_VIA_BACKEND`; allowlist service-role **17 → 2** (Auth admin API + factory) và test chặn hai chiều. Route Next giờ là proxy thuần. |
 | Sẵn sàng lên VPS | 🟢 xong | Job CI `portability`: chặn đường dẫn `/Users/…`, build 2 image `linux/amd64`, chạy thật + smoke `/health` & `/health/db`. Đã sửa 1 lỗi thật: bind mount `OPS_STATUS_DIR` mặc định trỏ vào home của Mac (W6) |
 | Cổng POS / KiotViet | 🟢 cổng đã mở | `PosPort` + `NullPosAdapter` (mặc định) + `pos_outbox` ghi **trong cùng transaction với payment** + relay có backoff & dead-letter (`--profile pos`). Adapter KiotViet **cố ý chưa hiện thực HTTP** — thiếu credential, từ chối to tiếng thay vì đoán endpoint (W7) |
 | Slot config-driven | 🔴 hardcode | Bảng `slot_capacity_rule` + đọc động (W8) |
