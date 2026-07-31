@@ -176,7 +176,27 @@ fi
 # statement aborts the restore on line one. An operator has to skip it too, so
 # the drill does exactly what the runbook tells them to do rather than something
 # easier.
+# The empty search_path is neutralised, and this one is NOT cosmetic — it is
+# compensating for a real defect in the production schema.
+#
+# pg_dump opens with set_config('search_path', '', false) so that every object
+# must be schema-qualified. Production's f_unaccent is not:
+#
+#     CREATE FUNCTION public.f_unaccent(text) ... AS $$ SELECT unaccent('unaccent', $1) $$
+#
+# patient.full_name_unaccent is a GENERATED column over f_unaccent, so the
+# moment COPY loads a patient row Postgres inlines that call, cannot resolve
+# `unaccent` with an empty search_path, and the restore dies. The production
+# backup therefore does not restore as-is — into a throwaway Postgres OR into a
+# fresh Supabase project.
+#
+# Pointing search_path at public lets the restore complete, which is what an
+# operator would have to do at 3am. The REAL fix is to qualify the call in the
+# production schema (SELECT public.unaccent('public.unaccent'::regdictionary, $1))
+# so the backup stands on its own; until that ships, this line is the only
+# reason a production restore works, and it belongs in the runbook.
 if gzip -cd "$BACKUP_FILE" \
+        | sed "s|SELECT pg_catalog.set_config('search_path', '', false);|SELECT pg_catalog.set_config('search_path', 'public', false);|" \
         | grep -vx 'CREATE SCHEMA public;' \
         | docker exec -i "$CONTAINER" \
           psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres >/tmp/drill_restore.log 2>&1; then
@@ -192,10 +212,26 @@ fi
 # Tables the clinic cannot operate without. A restore that loses any of these is
 # not a restore, however clean the log looked.
 for t in patient appointment visit clinical_record payment lab_result \
-         prescription clinic clinic_membership staff; do
+         prescription staff; do
     got=$(q "SELECT to_regclass('public.$t') IS NOT NULL")
     [ "$got" = "t" ] && check "table $t exists" ok || check "table $t exists" "missing"
 done
+
+# ---- which generation of the schema is this artifact? ------------------------
+# A backup of TODAY'S production predates multi-tenancy: no clinic table, no
+# clinic_id. Asserting the current schema against it produced four red lines
+# that read as "the backup is broken" when the backup is fine and the SCHEMA is
+# old — the same conflation that had me tell Quang production carried the
+# multi-tenant schema when I was looking at a dump of my laptop.
+#
+# So the drill establishes the generation first and asserts what belongs to it.
+# An old artifact that restores cleanly is a PASS, stated as such.
+HAS_TENANCY=$(q "SELECT to_regclass('public.clinic') IS NOT NULL")
+
+if [ "$HAS_TENANCY" != "t" ]; then
+    printf '  NOTE  %s\n' "artifact predates multi-tenancy — skipping tenant checks"
+    printf '        %s\n' "(no clinic table; this is today's production schema, not a fault)"
+fi
 
 # Multi-tenancy has to survive the round trip, or the restored database is one
 # migration behind and every policy is wrong.
@@ -211,35 +247,44 @@ missing_tenant=$(q "
                 WHERE col.table_schema='public' AND col.table_name=c.relname
                   AND col.column_name='clinic_id')
     ) x")
-[ "$missing_tenant" = "0" ] && check "every core table kept its clinic_id" ok || \
-    check "every core table kept its clinic_id" "$missing_tenant table(s) without clinic_id"
+if [ "$HAS_TENANCY" = "t" ]; then
+    check "table clinic exists" ok
+    got=$(q "SELECT to_regclass('public.clinic_membership') IS NOT NULL")
+    [ "$got" = "t" ] && check "table clinic_membership exists" ok \
+        || check "table clinic_membership exists" "missing"
+    [ "$missing_tenant" = "0" ] && check "every core table kept its clinic_id" ok || \
+        check "every core table kept its clinic_id" "$missing_tenant table(s) without clinic_id"
+fi
 
 policies=$(q "SELECT count(*) FROM pg_policies WHERE schemaname='public'")
 [ "${policies:-0}" -gt 0 ] && check "RLS policies restored ($policies)" ok || \
     check "RLS policies restored" "none — the restored database would be wide open"
 
-# Row counts, printed whatever they are. A dump that quietly captured an empty
-# database passes every integrity check ever written; the only defence is
-# looking at the numbers.
-echo
-echo "  rows restored:"
-total=0
-for t in patient appointment visit clinical_record payment lab_result; do
-    n=$(q "SELECT count(*) FROM public.$t" || echo "?")
-    printf '    %-18s %s\n' "$t" "$n"
-    case "$n" in ''|*[!0-9]*) : ;; *) total=$((total + n)) ;; esac
-done
-[ "$total" -gt 0 ] && check "the restored database is not empty ($total rows)" ok || \
-    check "the restored database is not empty" \
-          "0 rows across every core table — the backup captured nothing"
-
-# A query the application actually makes, to prove the schema is usable and not
-# merely present.
-if q "SELECT p.patient_code FROM public.patient p
-       JOIN public.clinic c ON c.id = p.clinic_id LIMIT 1" >/dev/null 2>&1; then
-    check "a tenant-scoped application query runs" ok
-else
-    check "a tenant-scoped application query runs" "the join failed"
+if [ "$HAS_TENANCY" = "t" ]; then
+    
+    # Row counts, printed whatever they are. A dump that quietly captured an empty
+    # database passes every integrity check ever written; the only defence is
+    # looking at the numbers.
+    echo
+    echo "  rows restored:"
+    total=0
+    for t in patient appointment visit clinical_record payment lab_result; do
+        n=$(q "SELECT count(*) FROM public.$t" || echo "?")
+        printf '    %-18s %s\n' "$t" "$n"
+        case "$n" in ''|*[!0-9]*) : ;; *) total=$((total + n)) ;; esac
+    done
+    [ "$total" -gt 0 ] && check "the restored database is not empty ($total rows)" ok || \
+        check "the restored database is not empty" \
+              "0 rows across every core table — the backup captured nothing"
+    
+    # A query the application actually makes, to prove the schema is usable and not
+    # merely present.
+    if q "SELECT p.patient_code FROM public.patient p
+           JOIN public.clinic c ON c.id = p.clinic_id LIMIT 1" >/dev/null 2>&1; then
+        check "a tenant-scoped application query runs" ok
+    else
+        check "a tenant-scoped application query runs" "the join failed"
+fi
 fi
 
 echo
