@@ -12,6 +12,12 @@
  * the tone token drives both fill and text so contrast cannot be broken by
  * picking a nice-looking pair.
  *
+ * Four tones the icon system named — draft, on_hold, rejected, failed — are
+ * deliberately absent: the kernel has no command that produces them (decision
+ * 2026-08-01). A tone that cannot occur is a tone somebody eventually uses for
+ * something else, which is exactly what happened here when the priority chip
+ * borrowed on_hold.
+ *
  * The shape is a soft rectangle (6px), not a pill. I had it as rounded-full
  * from memory of the screenshots; the design set uses a small radius, and at
  * chip size the two read as different products.
@@ -20,35 +26,27 @@
 import type { ReactNode } from "react";
 
 export type StatusTone =
-  | "draft"
   | "ready"
   | "assigned"
   | "called"
   | "in_progress"
-  | "on_hold"
   | "blocked"
   | "completed"
   | "skipped"
   | "cancelled"
-  | "rejected"
-  | "failed"
   | "overdue";
 
 /** Fill + text per tone. Both come from the same token pair in globals.css. */
 const TONE: Record<StatusTone, string> = {
-  draft: "bg-status-draft-bg text-status-draft",
   ready: "bg-status-ready-bg text-status-ready",
   assigned: "bg-status-assigned-bg text-status-assigned",
   called: "bg-status-called-bg text-status-called",
   in_progress:
     "bg-status-in-progress-bg text-status-in-progress",
-  on_hold: "bg-status-on-hold-bg text-status-on-hold",
   blocked: "bg-status-blocked-bg text-status-blocked",
   completed: "bg-status-completed-bg text-status-completed",
   skipped: "bg-status-cancelled-bg text-status-cancelled",
   cancelled: "bg-status-cancelled-bg text-status-cancelled",
-  rejected: "bg-status-rejected-bg text-status-rejected",
-  failed: "bg-status-failed-bg text-status-failed",
   overdue: "bg-status-overdue-bg text-status-overdue",
 };
 

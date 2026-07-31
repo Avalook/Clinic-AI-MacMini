@@ -10,11 +10,13 @@
 import { notFound } from "next/navigation";
 
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import PriorityChip from "@/components/ui/PriorityChip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import Stepper from "@/components/ui/Stepper";
 import {
+  BELONGS_TO_QUEUE_NOT_KERNEL,
+  DROPPED_FROM_DESIGN,
   STATUS_PRESENTATION,
-  UNSUPPORTED_BY_KERNEL,
   type DisplayStatus,
 } from "@/lib/work-item-status";
 
@@ -93,10 +95,16 @@ export default function DesignSystemPage() {
           ))}
         </div>
         <p className="mt-4 text-sm text-ink-muted">
-          Thiết kế có nhưng kernel <strong>chưa</strong> lưu được — UI không được
-          hiển thị cho tới khi có lệnh thật:{" "}
+          Đã <strong>bỏ khỏi thiết kế</strong>{" "}(01/08/2026) vì mỗi cái cần một
+          lệnh kernel thật, mà chưa ai trả lời được &ldquo;nó làm gì với cổng
+          chặn phía sau&rdquo;:{" "}
+          <code className="text-ink-soft">{DROPPED_FROM_DESIGN.join(", ")}</code>
+        </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Thuộc <strong>hàng đợi</strong>, không phải trạng thái work item — gọi
+          số là việc của quầy:{" "}
           <code className="text-ink-soft">
-            {UNSUPPORTED_BY_KERNEL.join(", ")}
+            {BELONGS_TO_QUEUE_NOT_KERNEL.join(", ")}
           </code>
         </p>
       </Section>
@@ -138,6 +146,17 @@ export default function DesignSystemPage() {
             { label: "Hoàn tất", state: "upcoming" },
           ]}
         />
+      </Section>
+
+      <Section
+        title="Ưu tiên — KHÔNG phải trạng thái"
+        note="Trạng thái là tín hiệu lớn (đang xảy ra gì); ưu tiên là dấu nhỏ bên cạnh (xếp trước ai). Trước đây chip ưu tiên mượn màu on_hold."
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <PriorityChip priority="P0" />
+          <PriorityChip priority="P1" />
+          <PriorityChip priority="P2" />
+        </div>
       </Section>
 
       <Section

@@ -15,6 +15,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import PriorityChip from "@/components/ui/PriorityChip";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import Stepper, { type Step } from "@/components/ui/Stepper";
 import {
@@ -84,9 +85,7 @@ function Row({
             <span className="font-medium text-ink">
               {item.patient.full_name ?? "Chưa rõ tên"}
             </span>
-            {item.is_priority_slot ? (
-              <StatusChip tone="on_hold" label="★ Ưu tiên" />
-            ) : null}
+            {item.is_priority_slot ? <PriorityChip priority="P0" /> : null}
           </span>
           <span className="block text-xs text-ink-muted">
             {patientLine(item.patient)}
@@ -267,7 +266,7 @@ function Actions({ item }: { item: WorklistItem }) {
   return (
     <div className="flex flex-col gap-2">
       {error ? (
-        <p className="rounded-control bg-status-failed-bg px-3 py-2 text-sm text-status-failed">
+        <p className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}

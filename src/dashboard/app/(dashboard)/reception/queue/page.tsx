@@ -45,11 +45,11 @@ export default async function ReceptionQueuePage() {
 
       {!result.ok ? (
         /* An outage must not look like an empty waiting room. */
-        <div className="rounded-card border border-status-blocked bg-status-blocked-bg p-5">
-          <p className="font-medium text-status-blocked">
+        <div className="rounded-card border border-danger bg-danger-bg p-5">
+          <p className="font-medium text-danger">
             Không tải được hàng đợi
           </p>
-          <p className="mt-1 text-sm text-status-blocked">
+          <p className="mt-1 text-sm text-danger">
             {result.reason === "no-session"
               ? "Phiên đăng nhập đã hết hạn — đăng nhập lại để xem hàng đợi."
               : result.reason === "unreachable"

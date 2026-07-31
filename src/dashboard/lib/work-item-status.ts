@@ -17,15 +17,9 @@
  *   blocked    PENDING with a shut gate                → API returns `blocked`
  *   overdue    due_at has passed and it is still open  → overlays the others
  *
- * What the kernel CANNOT express today — deliberately listed rather than faked:
- *   draft, on-hold, rejected, failed, called
- *
- * `called` is not a work-item state at all: calling a patient's number belongs
- * to the queue (appointment.queue_number), and the icon system's own rule 2
- * says a node's capability is not the same thing as a work item. The other four
- * would need real kernel commands (hold/resume, reject, fail) and a decision
- * about what they do to downstream gates. Until that decision is made, nothing
- * in the UI may claim an item is on hold, because the kernel would not agree.
+ * Four of the twelve — draft, on_hold, rejected, failed — were DROPPED from the
+ * design on 2026-08-01 rather than left pending; see DROPPED_FROM_DESIGN below
+ * for why. `called` was never a work-item status and moved to the queue domain.
  *
  * Conversely the design has no chip for SKIPPED, which the kernel really does
  * store, so one is added here — a skipped step must be visible or the board
@@ -51,14 +45,33 @@ export type DisplayStatus =
   | "cancelled"
   | "overdue";
 
-/** Statuses the design names but the kernel cannot back yet. */
-export const UNSUPPORTED_BY_KERNEL = [
+/**
+ * Dropped from the design on 2026-08-01, by decision rather than oversight.
+ *
+ * Each of these would have needed a real kernel command, and every command has
+ * to answer one question first: what does it do to the gates downstream? Does a
+ * held step keep its successors shut, or release them? Does a rejected step
+ * behave like SKIPPED, which opens the gate, or like CANCELLED, which does not?
+ * Nobody had an answer, and a status whose effect on the flow is undecided is
+ * worse than no status: the board would show a state the kernel cannot reason
+ * about, and the gate would disagree with the screen.
+ *
+ * Kept here as a record so this is not rediscovered as a gap later.
+ */
+export const DROPPED_FROM_DESIGN = [
   "draft",
-  "called",
   "on_hold",
   "rejected",
   "failed",
 ] as const;
+
+/**
+ * `called` is not a work-item status and never was — calling a patient's number
+ * belongs to the queue, and the icon system's own rule 2 says a node's
+ * capability is not the same thing as a work item. It is not dropped; it lives
+ * in the queue domain, which has no schema yet (no counter table, no called_at).
+ */
+export const BELONGS_TO_QUEUE_NOT_KERNEL = ["called"] as const;
 
 export interface StatusPresentation {
   /** Vietnamese label. Always rendered — colour is never the only signal. */

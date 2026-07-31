@@ -68,13 +68,20 @@
   /* ---------------------------------------------------------------------
    * Work-item status palette — section 05 of the icon system.
    *
-   * Twelve statuses, and the kernel stores only five of them. The rest are
-   * derived (see lib/work-item-status.ts); they still need colours because a
-   * derived status looks exactly like a stored one to the person reading the
-   * screen.
+   * The icon system named twelve. Four of them — draft, on_hold, rejected,
+   * failed — were dropped from the design on 2026-08-01: each would have
+   * needed a real kernel command, and every one of those commands has to
+   * answer "what does it do to the gates downstream". Nobody had an answer, so
+   * they are gone rather than sitting in a palette waiting to be misused.
+   *
+   * `called` is kept but is NOT a work-item status: calling a number belongs to
+   * the queue. It is here so the queue screens have one place to take it from
+   * when the counter schema lands.
+   *
+   * Of what remains the kernel stores five and the rest are derived (see
+   * lib/work-item-status.ts) — a derived status looks exactly like a stored one
+   * to the person reading the screen, so both need colours.
    * ------------------------------------------------------------------- */
-  --color-status-draft: #627d98;
-  --color-status-draft-bg: #eef3f8;
   --color-status-ready: #0e7c6b;
   --color-status-ready-bg: #d3f4ee;
   --color-status-assigned: #0369a1;
@@ -83,20 +90,23 @@
   --color-status-called-bg: #dbeafe;
   --color-status-in-progress: #1d4ed8;
   --color-status-in-progress-bg: #dbeafe;
-  --color-status-on-hold: #b45309;
-  --color-status-on-hold-bg: #fef3c7;
   --color-status-blocked: #b91c1c;
   --color-status-blocked-bg: #fee2e2;
   --color-status-completed: #15803d;
   --color-status-completed-bg: #dcfce7;
-  --color-status-rejected: #c2410c;
-  --color-status-rejected-bg: #ffedd5;
   --color-status-cancelled: #627d98;
   --color-status-cancelled-bg: #eef3f8;
-  --color-status-failed: #b91c1c;
-  --color-status-failed-bg: #fee2e2;
   --color-status-overdue: #b91c1c;
   --color-status-overdue-bg: #fee2e2;
+
+  /* Feedback — messages to the operator, nothing to do with work items. Kept
+   * separate so removing a work-item status can never blank out an error box. */
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fee2e2;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
+  --color-success: #15803d;
+  --color-success-bg: #dcfce7;
 
   /* Specialty hues, used on service icons to say WHICH clinic area a task
    * belongs to. These are not gender colours: the icon system's own rules
