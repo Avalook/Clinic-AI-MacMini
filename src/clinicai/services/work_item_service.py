@@ -19,6 +19,7 @@ transaction, so history cannot disagree with state.
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Literal
 
 import asyncpg
@@ -330,6 +331,146 @@ class WorkItemService:
                 "blocked": bool(r["blocked"]),
                 "started_at": r["started_at"],
                 "finished_at": r["finished_at"],
+            }
+            for r in rows
+        ]
+
+    async def list_worklist(
+        self,
+        *,
+        workspace: str,
+        identity: StaffIdentity,
+        day: date | None = None,
+        mine_only: bool = False,
+    ) -> list[dict[str, object]]:
+        """One workspace's open work for a day, across every visit.
+
+        list_for_visit answers "what is left for this patient"; a front desk
+        needs the transpose — "who is waiting for me" — and there was no query
+        for it, which is why the reception screen had nothing to read.
+
+        The filter is `workspace`, a column the node catalogue already carries
+        (bang_dieu_phoi, thu_ngan_dong_luot, khu_dat_lich…). Filtering on that
+        rather than on a list of node codes in Python keeps the board
+        data-driven: a clinic that adds a node to its reception desk gets it on
+        the board without a deploy, which is the same reason instantiate walks
+        node_dependency instead of a hard-coded spine.
+
+        Finished work is excluded. A queue is what is still to do; completed
+        items belong to the visit's history, which list_for_visit already
+        serves.
+
+        `day` is OPTIONAL and defaults to every open item, not to today. The
+        first version filtered on created_at::date = today and the board emptied
+        itself at midnight: a patient who arrived at 23:50 and was still waiting
+        at 00:10 vanished from the desk's screen while she sat in the waiting
+        room. Open work does not stop being open because a calendar day ended.
+        The parameter stays for looking back at a specific day.
+        """
+        rows = await self._pool.fetch(
+            """
+            SELECT w.id,
+                   w.node_code,
+                   w.status,
+                   w.priority,
+                   w.version,
+                   w.visit_id,
+                   w.appointment_id,
+                   w.assigned_to,
+                   w.assigned_role,
+                   w.due_at,
+                   w.created_at,
+                   w.started_at,
+                   n.name        AS node_name,
+                   n.actor_roles,
+                   p.clinic_patient_id,
+                   p.patient_code,
+                   p.full_name,
+                   p.date_of_birth,
+                   p.gender,
+                   p.phone_primary,
+                   a.queue_number,
+                   a.slot_start,
+                   a.booking_channel,
+                   a.is_priority_slot,
+                   v.checked_in_at,
+                   (n.actor_roles IS NULL
+                    OR cardinality(n.actor_roles) = 0
+                    OR m.role = ANY (n.actor_roles))   AS actionable_by_me,
+                   EXISTS (
+                       SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
+                   )                                    AS blocked
+              FROM work_item w
+              JOIN clinic_membership m
+                ON m.clinic_id = w.clinic_id
+               AND m.staff_id = $4::uuid
+               AND m.is_active
+               AND m.role = $5
+              JOIN node_definition n
+                ON n.clinic_id = w.clinic_id
+               AND n.code = w.node_code
+               AND n.workspace = $1
+              LEFT JOIN patient p
+                ON p.clinic_patient_id = w.clinic_patient_id
+               AND p.clinic_id = w.clinic_id
+              LEFT JOIN appointment a
+                ON a.id = w.appointment_id
+               AND a.clinic_id = w.clinic_id
+              LEFT JOIN visit v
+                ON v.visit_id = w.visit_id
+               AND v.clinic_id = w.clinic_id
+             WHERE w.clinic_id = $3::uuid
+               AND w.status IN ('PENDING', 'IN_PROGRESS')
+               AND ($2::date IS NULL
+                    OR (w.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2)
+               AND ($6::boolean IS NOT TRUE
+                    OR w.assigned_to = $4::uuid
+                    OR m.role = ANY (n.actor_roles))
+             ORDER BY w.priority, w.created_at
+            """,
+            workspace,
+            day,
+            identity.clinic_id,
+            identity.staff_id,
+            identity.role.value,
+            mine_only,
+        )
+
+        return [
+            {
+                "id": str(r["id"]),
+                "node_code": r["node_code"],
+                "node_name": r["node_name"],
+                "status": r["status"],
+                "priority": r["priority"],
+                "version": r["version"],
+                "visit_id": str(r["visit_id"]) if r["visit_id"] else None,
+                "appointment_id": (
+                    str(r["appointment_id"]) if r["appointment_id"] else None
+                ),
+                "assigned_to": str(r["assigned_to"]) if r["assigned_to"] else None,
+                "assigned_role": r["assigned_role"],
+                "actor_roles": list(r["actor_roles"] or []),
+                "actionable_by_me": bool(r["actionable_by_me"]),
+                "blocked": bool(r["blocked"]),
+                "due_at": r["due_at"],
+                "created_at": r["created_at"],
+                "started_at": r["started_at"],
+                "patient": {
+                    "clinic_patient_id": (
+                        str(r["clinic_patient_id"]) if r["clinic_patient_id"] else None
+                    ),
+                    "patient_code": r["patient_code"],
+                    "full_name": r["full_name"],
+                    "date_of_birth": r["date_of_birth"],
+                    "gender": r["gender"],
+                    "phone_primary": r["phone_primary"],
+                },
+                "queue_number": r["queue_number"],
+                "slot_start": r["slot_start"],
+                "booking_channel": r["booking_channel"],
+                "is_priority_slot": bool(r["is_priority_slot"]),
+                "checked_in_at": r["checked_in_at"],
             }
             for r in rows
         ]

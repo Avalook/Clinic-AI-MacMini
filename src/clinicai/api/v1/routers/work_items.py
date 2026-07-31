@@ -13,9 +13,10 @@ it cannot live in a decorator.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
@@ -27,6 +28,9 @@ from clinicai.core.database import get_db_pool
 from clinicai.services.work_item_service import WorkItemService
 
 router = APIRouter()
+
+# The clinic's day, not the server's.
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
 # Every clinical and front-desk role works the flow; the node's own actor list
 # is what narrows it per station.
@@ -163,6 +167,68 @@ class VisitWorkItem(BaseModel):
     blocked: bool
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+class WorklistPatient(BaseModel):
+    clinic_patient_id: UUID | None = None
+    patient_code: str | None = None
+    full_name: str | None = None
+    date_of_birth: date | None = None
+    gender: str | None = None
+    phone_primary: str | None = None
+
+
+class WorklistItem(BaseModel):
+    """One row of a workspace's queue."""
+
+    id: UUID
+    node_code: str
+    node_name: str | None = None
+    status: str
+    priority: str
+    version: int
+    visit_id: UUID | None = None
+    appointment_id: UUID | None = None
+    assigned_to: UUID | None = None
+    assigned_role: str | None = None
+    actor_roles: list[str] = Field(default_factory=list)
+    actionable_by_me: bool
+    blocked: bool
+    due_at: datetime | None = None
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    patient: WorklistPatient
+    queue_number: str | None = None
+    slot_start: datetime | None = None
+    booking_channel: str | None = None
+    is_priority_slot: bool = False
+    checked_in_at: datetime | None = None
+
+
+@router.get("/work-items", response_model=list[WorklistItem])
+async def worklist(
+    workspace: str = Query(min_length=1, max_length=64),
+    day: date | None = Query(default=None, alias="date"),
+    mine_only: bool = Query(default=False),
+    identity: StaffIdentity = Depends(_WORK_ITEM_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[WorklistItem]:
+    """A workspace's open work — the front desk's own queue.
+
+    `workspace` comes from the node catalogue, so what appears on a board is a
+    property of the clinic's configuration rather than of this function.
+
+    With no `date`, this returns everything still open rather than only today's.
+    A queue that resets at midnight loses the patient who is still sitting
+    there, which is the one person it must not lose.
+    """
+    rows = await WorkItemService(pool).list_worklist(
+        workspace=workspace,
+        day=day,
+        identity=identity,
+        mine_only=mine_only,
+    )
+    return [WorklistItem(**row) for row in rows]  # type: ignore[arg-type]
 
 
 @router.get("/visits/{visit_id}/work-items", response_model=list[VisitWorkItem])
