@@ -21,6 +21,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import { patientLine, waitedMinutes, type WorklistItem } from "@/lib/worklist";
 
@@ -221,7 +222,6 @@ function Detail({ item }: { item: WorklistItem }) {
     startTransition(() => router.refresh());
   }
 
-  const disabled = pending || item.blocked || !item.actionable_by_me;
 
   return (
     <section className="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 shadow-card">
@@ -248,61 +248,17 @@ function Detail({ item }: { item: WorklistItem }) {
         <Field label="Đã chờ" value={`${waitedMinutes(item)} phút`} />
       </dl>
 
-      {/* The doctor's actual question about a patient she cannot start. */}
-      {item.blocked ? (
-        <div className="rounded-control bg-status-blocked-bg px-3 py-2.5 text-sm text-status-blocked">
-          <p className="font-medium">Chưa khám được</p>
-          {blockers === null ? (
-            <p className="mt-0.5 text-xs">Đang kiểm tra bước còn thiếu…</p>
-          ) : blockers.length === 0 ? (
-            <p className="mt-0.5 text-xs">
-              Cổng đã mở — tải lại trang để cập nhật.
-            </p>
-          ) : (
-            <ul className="mt-1 list-inside list-disc text-xs">
-              {blockers.map((b) => (
-                <li key={`${b.node_code}-${b.dependency_type}`}>
-                  {b.node_code}{" "}
-                  <span className="text-ink-muted">({b.dependency_type})</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
-      {!item.actionable_by_me ? (
-        <p className="rounded-control bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
-          Bước này thuộc vai trò {item.actor_roles.join(", ") || "khác"}.
-        </p>
-      ) : null}
-
-      {error ? (
-        <p className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {item.status === "PENDING" ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => issue("start")}
-            className="rounded-control border border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Bắt đầu khám
-          </button>
-        ) : null}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => issue("complete")}
-          className="rounded-control bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {pending ? "Đang lưu…" : "Hoàn tất bước này"}
-        </button>
-      </div>
+      <WorkItemActions
+        status={item.status}
+        blocked={item.blocked}
+        actionableByMe={item.actionable_by_me}
+        actorRoles={item.actor_roles}
+        blockedBy={(blockers ?? []).map((b) => b.node_code)}
+        pending={pending}
+        error={error}
+        onIssue={issue}
+        startLabel="Bắt đầu khám"
+      />
 
       <p className="rounded-control border border-dashed border-line-strong px-3 py-2 text-xs text-ink-muted">
         Chưa có ở màn này: ghi chẩn đoán, soạn chỉ định dịch vụ, ký duyệt kết

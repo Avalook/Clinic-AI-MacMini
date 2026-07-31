@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import { patientLine, waitedMinutes, type WorklistItem } from "@/lib/worklist";
 
@@ -151,7 +152,6 @@ function Detail({ item }: { item: WorklistItem }) {
     startTransition(() => router.refresh());
   }
 
-  const disabled = pending || item.blocked || !item.actionable_by_me;
 
   return (
     <section className="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 shadow-card">
@@ -250,37 +250,15 @@ function Detail({ item }: { item: WorklistItem }) {
         </dl>
       ) : null}
 
-      {item.blocked ? (
-        <p className="rounded-control bg-status-blocked-bg px-3 py-2 text-sm text-status-blocked">
-          Chưa xử lý được — còn bước phía trước chưa hoàn tất.
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {item.status === "PENDING" ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => issue("start")}
-            className="rounded-control border border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Bắt đầu
-          </button>
-        ) : null}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => issue("complete")}
-          className="rounded-control bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {pending ? "Đang lưu…" : "Hoàn tất bước này"}
-        </button>
-      </div>
+      <WorkItemActions
+        status={item.status}
+        blocked={item.blocked}
+        actionableByMe={item.actionable_by_me}
+        actorRoles={item.actor_roles}
+        pending={pending}
+        error={error}
+        onIssue={issue}
+      />
 
       <p className="rounded-control border border-dashed border-line-strong px-3 py-2 text-xs text-ink-muted">
         Chưa có ở màn này: thu tiền thật (cần bảng giá), in hoá đơn, cổng POS.

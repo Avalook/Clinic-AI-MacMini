@@ -17,6 +17,7 @@ import { useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import WorkItemActions from "@/components/ui/WorkItemActions";
 import Stepper, { type Step } from "@/components/ui/Stepper";
 import {
   STATUS_PRESENTATION,
@@ -154,6 +155,26 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
 function Detail({ item }: { item: WorklistItem }) {
   const tone = resolveStatus(item);
   const waited = waitedMinutes(item);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  async function issue(command: "start" | "complete") {
+    setError(null);
+    const res = await fetch(`/api/work-items/${item.id}/commands/${command}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // The version this screen last read: someone else moving the patient
+      // along becomes a refusal the desk can see, not a silent overwrite.
+      body: JSON.stringify({ expected_version: item.version }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error ?? `Không thực hiện được (HTTP ${res.status})`);
+      return;
+    }
+    startTransition(() => router.refresh());
+  }
 
   return (
     <section className="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 shadow-card">
@@ -201,21 +222,16 @@ function Detail({ item }: { item: WorklistItem }) {
         <Stepper steps={receptionSteps(item)} />
       </div>
 
-      {item.blocked ? (
-        <p className="rounded-control bg-status-blocked-bg px-3 py-2 text-sm text-status-blocked">
-          Bước này đang bị chặn bởi một bước chưa xong. Cổng quy trình sẽ mở khi
-          bước trước hoàn tất.
-        </p>
-      ) : null}
-
-      {!item.actionable_by_me ? (
-        <p className="rounded-control bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
-          Bước này thuộc vai trò {item.actor_roles.join(", ") || "khác"} — bạn xem
-          được nhưng không thao tác được.
-        </p>
-      ) : null}
-
-      <Actions item={item} />
+      <WorkItemActions
+        status={item.status}
+        blocked={item.blocked}
+        actionableByMe={item.actionable_by_me}
+        actorRoles={item.actor_roles}
+        pending={pending}
+        error={error}
+        onIssue={issue}
+        startLabel="Bắt đầu xử lý"
+      />
 
       {/* The counter dispatch column of the design lives here in spirit. It is
        * named rather than drawn, because inventing a counter number would be
@@ -238,58 +254,3 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Actions({ item }: { item: WorklistItem }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  const disabled = pending || item.blocked || !item.actionable_by_me;
-
-  async function issue(command: "start" | "complete") {
-    setError(null);
-    const res = await fetch(`/api/work-items/${item.id}/commands/${command}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // The version this screen last read. Sending it turns "someone else
-      // already moved this patient along" into a refusal the desk can see,
-      // instead of one clerk silently overwriting another.
-      body: JSON.stringify({ expected_version: item.version }),
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? `Không thực hiện được (HTTP ${res.status})`);
-      return;
-    }
-    startTransition(() => router.refresh());
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {error ? (
-        <p className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        {item.status === "PENDING" ? (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => issue("start")}
-            className="rounded-control border border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Bắt đầu xử lý
-          </button>
-        ) : null}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => issue("complete")}
-          className="rounded-control bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {pending ? "Đang lưu…" : "Hoàn tất bước này"}
-        </button>
-      </div>
-    </div>
-  );
-}
