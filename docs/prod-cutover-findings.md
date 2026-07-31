@@ -83,6 +83,33 @@ Làm được bao nhiêu lần tuỳ thích trước khi đụng vào production
 Điều kiện bắt buộc của (c): **giữ 3 bảng chỉ-có-ở-prod**. Chúng phải được thêm vào
 schema đích bằng migration trước, không phải bỏ lại.
 
+## 5b. Hotfix `f_unaccent` — đã viết và đã chứng minh, **chưa áp lên production**
+
+Backup production hiện **không khôi phục được**: `pg_dump` mở dump bằng
+`search_path = ''`, còn `f_unaccent` của production gọi `unaccent(...)` không ghi
+rõ schema; `patient.full_name_unaccent` là cột GENERATED nên dòng bệnh nhân đầu
+tiên được COPY là restore chết. Repo này vốn đã đúng — chỉ bản của production sai.
+
+Đã chứng minh trên **bản sao thật của production (48 bệnh nhân)**:
+
+| Bước | Kết quả |
+|---|---|
+| Khôi phục production vào postgres:17 (có workaround) | 48 bệnh nhân |
+| Áp `supabase/hotfix/20260801_prod_f_unaccent_qualify.sql` | OK — `Nguyễn Thị Hằng → Nguyen Thi Hang` |
+| Cột GENERATED sau khi sửa | nguyên vẹn, đúng |
+| Dump lại rồi khôi phục **KHÔNG workaround** | **sạch, 48 bệnh nhân** |
+
+Câu lệnh áp lên production (một câu, giữ nguyên oid, không đổi kết quả hàm, chạy
+lại nhiều lần vẫn an toàn):
+
+```bash
+psql "$(grep '^DATABASE_URL=' .env.prod | cut -d= -f2- | sed 's/postgresql+asyncpg:/postgresql:/')" \
+     -v ON_ERROR_STOP=1 -f supabase/hotfix/20260801_prod_f_unaccent_qualify.sql
+```
+
+Sau khi áp, chạy lại `bash scripts/restore-drill.sh` trên bản backup production
+kế tiếp — nó phải xanh mà **không cần** dòng `sed` trong drill.
+
 ## 6. Việc phải làm trước khi bàn tiếp
 
 1. Thêm `visit_amendment`, `patient_contact_channel`, `patient_next_of_kin` (kèm
