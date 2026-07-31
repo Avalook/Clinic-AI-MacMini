@@ -1,4 +1,5 @@
--- The daily queue number is per clinic (20260731000001).
+-- Every per-day counter on appointment is scoped to one clinic
+-- (migrations 20260731000001 and 20260731000002).
 --
 -- Before the fix, check_in_appointment() took max(queue_number) across every
 -- clinic for the day, so a second clinic's FIRST patient of the morning was
@@ -112,5 +113,54 @@ BEGIN
     END IF;
 END
 $clinic_a_is_unaffected$;
+
+-- ---------------------------------------------------------------------------
+-- CAP-01 capacity is per clinic too (20260731000002)
+-- ---------------------------------------------------------------------------
+-- enforce_slot_capacity() matched on doctor_id alone, and a NULL doctor
+-- collapses to one sentinel — so every clinic's unassigned bookings shared a
+-- single 15-minute bucket. Clinic A taking its two 09:00 slots told clinic B
+-- "khung giờ đã đầy" for a doctor clinic B has never heard of.
+
+DO $capacity_is_per_clinic$
+DECLARE
+    slot_a timestamptz := ((CURRENT_DATE + 40)::timestamp + time '09:00')
+                          AT TIME ZONE 'Asia/Ho_Chi_Minh';
+    slot_b timestamptz := ((CURRENT_DATE + 40)::timestamp + time '09:30')
+                          AT TIME ZONE 'Asia/Ho_Chi_Minh';
+    loc_a uuid;
+    svc_a uuid;
+BEGIN
+    SELECT id INTO loc_a FROM public.clinic_location
+      WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001' AND is_active
+      ORDER BY code LIMIT 1;
+    SELECT id INTO svc_a FROM public.service_type
+      WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001' AND is_active
+      ORDER BY code LIMIT 1;
+
+    -- Clinic A fills the bucket (cap is 2 for booked appointments).
+    INSERT INTO public.appointment
+        (clinic_id, clinic_patient_id, location_id, service_type_id,
+         slot_start, slot_end, status)
+    SELECT 'a0000000-0000-4000-8000-000000000001',
+           'e0000000-0000-4000-8000-0000000000f1', loc_a, svc_a,
+           slot_a, slot_b, 'SCHEDULED'
+      FROM generate_series(1, 2);
+
+    -- Clinic B must still be able to book its own 09:00.
+    INSERT INTO public.appointment
+        (clinic_id, clinic_patient_id, location_id, service_type_id,
+         slot_start, slot_end, status)
+    VALUES ('cb000000-0000-4000-8000-0000000000bb',
+            'cb300000-0000-4000-8000-0000000000bb',
+            'cb100000-0000-4000-8000-0000000000bb',
+            'cb200000-0000-4000-8000-0000000000bb',
+            slot_a, slot_b, 'SCHEDULED');
+EXCEPTION WHEN check_violation THEN
+    RAISE EXCEPTION
+        'clinic B was refused its own 09:00 because clinic A filled that '
+        'bucket — CAP-01 must count per clinic';
+END
+$capacity_is_per_clinic$;
 
 ROLLBACK;
