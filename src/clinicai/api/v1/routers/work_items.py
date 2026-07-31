@@ -13,6 +13,7 @@ it cannot live in a decorator.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -138,6 +139,48 @@ async def cancel_work_item(
 ) -> dict[str, object]:
     """Call the step off. Unlike skip, successors stay blocked."""
     return await _run("cancel", work_item_id, body, identity, pool, idem)
+
+
+class VisitWorkItem(BaseModel):
+    """One step of a visit, as the board needs to draw it."""
+
+    id: UUID
+    node_code: str
+    node_name: str | None = None
+    flow_group: str | None = None
+    workspace: str | None = None
+    status: str
+    priority: str
+    version: int
+    assigned_role: str | None = None
+    assigned_to: UUID | None = None
+    actor_roles: list[str] = Field(default_factory=list)
+    # Whether THIS caller's role is on the node's actor list, and whether the
+    # gates are still shut. Together they are the difference between a button
+    # that is hidden, greyed out, or live — computed here so every client draws
+    # it the same way and none of them re-implements the rule.
+    actionable_by_me: bool
+    blocked: bool
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+@router.get("/visits/{visit_id}/work-items", response_model=list[VisitWorkItem])
+async def visit_work_items(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_WORK_ITEM_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[VisitWorkItem]:
+    """The visit's steps, in flow order.
+
+    Cancelled items are omitted: an undone arrival leaves a cancelled
+    generation behind as history, and a board that showed it would be showing
+    work nobody is expected to do.
+    """
+    rows = await WorkItemService(pool).list_for_visit(
+        visit_id=str(visit_id), identity=identity
+    )
+    return [VisitWorkItem(**row) for row in rows]  # type: ignore[arg-type]
 
 
 @router.get("/work-items/{work_item_id}/blockers")

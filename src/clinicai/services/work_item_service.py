@@ -225,6 +225,115 @@ class WorkItemService:
             "version": updated["version"],
         }
 
+    async def list_for_visit(
+        self,
+        *,
+        visit_id: str,
+        identity: StaffIdentity,
+    ) -> list[dict[str, object]]:
+        """The visit's work items, in flow order, with what the caller may do.
+
+        Joins the LIVE node_definition, not the pinned
+        node_definition_version.snapshot. The two can differ, and `issue()`
+        authorises from the live row — so displaying the snapshot's actor_roles
+        would produce an item that looks actionable to a role the gate then
+        refuses. Pinning is for history; authorisation is live, and the read
+        path has to agree with the write path or the UI lies.
+
+        Membership is re-checked in the query rather than trusted from the
+        identity, the same way issue() does it: the backend bypasses RLS, so
+        this join is the only thing standing between a caller and another
+        clinic's board.
+        """
+        rows = await self._pool.fetch(
+            """
+            -- Flow order, not alphabetical. Ordering by flow_group sorted the
+            -- board kham → sinh_hieu → thu_ngan → tiep_nhan, i.e. "tạo chỉ
+            -- định" above the check-in that has to happen first. Depth is
+            -- distance from a node nothing depends on, so the board reads in
+            -- the order the day actually happens, for any catalogue.
+            WITH RECURSIVE depth AS (
+                SELECT n.code, 0 AS level
+                  FROM node_definition n
+                 WHERE n.clinic_id = $2::uuid
+                   AND NOT EXISTS (
+                       SELECT 1 FROM node_dependency d
+                        WHERE d.clinic_id = n.clinic_id
+                          AND d.successor_code = n.code)
+                UNION
+                SELECT d.successor_code, p.level + 1
+                  FROM node_dependency d
+                  JOIN depth p ON p.code = d.predecessor_code
+                 WHERE d.clinic_id = $2::uuid
+                   AND p.level < 64          -- a cycle terminates, not hangs
+            ),
+            flow AS (
+                SELECT code, max(level) AS level FROM depth GROUP BY code
+            )
+            SELECT w.id,
+                   w.node_code,
+                   w.status,
+                   w.priority,
+                   w.version,
+                   w.assigned_role,
+                   w.assigned_to,
+                   w.started_at,
+                   w.finished_at,
+                   n.name        AS node_name,
+                   n.flow_group,
+                   n.workspace,
+                   n.actor_roles,
+                   -- Mine to act on? The node's own actor list is what narrows
+                   -- the flow per station; an empty list means anyone working
+                   -- the flow may take it.
+                   (n.actor_roles IS NULL
+                    OR cardinality(n.actor_roles) = 0
+                    OR m.role = ANY (n.actor_roles))  AS actionable_by_me,
+                   EXISTS (
+                       SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
+                   )                                   AS blocked
+              FROM work_item w
+              JOIN clinic_membership m
+                ON m.clinic_id = w.clinic_id
+               AND m.staff_id = $3::uuid
+               AND m.is_active
+               AND m.role = $4
+              LEFT JOIN node_definition n
+                ON n.clinic_id = w.clinic_id
+               AND n.code = w.node_code
+              LEFT JOIN flow f ON f.code = w.node_code
+             WHERE w.visit_id = $1::uuid
+               AND w.clinic_id = $2::uuid
+               AND w.status <> 'CANCELLED'
+             ORDER BY f.level NULLS LAST, w.node_code
+            """,
+            visit_id,
+            identity.clinic_id,
+            identity.staff_id,
+            identity.role.value,
+        )
+
+        return [
+            {
+                "id": str(r["id"]),
+                "node_code": r["node_code"],
+                "node_name": r["node_name"],
+                "flow_group": r["flow_group"],
+                "workspace": r["workspace"],
+                "status": r["status"],
+                "priority": r["priority"],
+                "version": r["version"],
+                "assigned_role": r["assigned_role"],
+                "assigned_to": str(r["assigned_to"]) if r["assigned_to"] else None,
+                "actor_roles": list(r["actor_roles"] or []),
+                "actionable_by_me": bool(r["actionable_by_me"]),
+                "blocked": bool(r["blocked"]),
+                "started_at": r["started_at"],
+                "finished_at": r["finished_at"],
+            }
+            for r in rows
+        ]
+
     async def blockers(
         self,
         *,

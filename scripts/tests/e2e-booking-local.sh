@@ -104,6 +104,29 @@ else
   printf '  FAIL  %-52s not gated\n' "vitals stay gated behind verification"; fail=$((fail+1))
 fi
 
+# The read path. Without it the feature is unverifiable in staging and the first
+# "why is the cashier's button greyed out?" ticket is unanswerable.
+VISIT2=$(psql "$DB" -tAc "SELECT visit_id FROM visit WHERE appointment_id = '$APPT2';" | tr -d ' ')
+board=$(curl -s "$API/api/v1/visits/$VISIT2/work-items" \
+        -H "Authorization: Bearer $RECEPTION" -H "X-API-Key: $KEY")
+check "the board lists the visit's steps" "7" \
+  "$(printf '%s' "$board" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')"
+
+# Flow order, not alphabetical: ordering by flow_group put "tạo chỉ định" above
+# the check-in that has to happen first.
+check "…in flow order, arrival first" "LUOTKHAM-01" \
+  "$(printf '%s' "$board" | python3 -c 'import sys,json;print(json.load(sys.stdin)[0]["node_code"])')"
+
+# The board tells the client what this role may act on, so no client has to
+# re-implement the rule — and so it agrees with what the gate will allow.
+check "…and says which step is reception's to do next" "LUOTKHAM-02" \
+  "$(printf '%s' "$board" | python3 -c '
+import sys, json
+rows = json.load(sys.stdin)
+nxt = [r for r in rows if r["actionable_by_me"] and not r["blocked"]
+       and r["status"] == "PENDING"]
+print(nxt[0]["node_code"] if nxt else "(none)")')"
+
 echo "        audit: $(psql "$DB" -tAc "SELECT string_agg(replace(event_type,'appointment.',''), ' -> ' ORDER BY occurred_at) FROM event_log WHERE aggregate_id='$APPT';")"
 printf '=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
