@@ -23,6 +23,7 @@ check() { if [ "$3" = "$2" ]; then printf '  PASS  %-52s %s\n' "$1" "$3"; pass=$
 DOCTOR=$(tok bs.a@dr4women.local)
 CSKH=$(tok cskh@dr4women.local)
 RECEPTION=$(tok letan@dr4women.local)
+NURSE=$(tok dd.sa@dr4women.local)
 [ -z "$DOCTOR" ] || [ -z "$CSKH" ] || [ -z "$RECEPTION" ] && {
   echo "missing test logins"
   exit 1
@@ -126,6 +127,48 @@ rows = json.load(sys.stdin)
 nxt = [r for r in rows if r["actionable_by_me"] and not r["blocked"]
        and r["status"] == "PENDING"]
 print(nxt[0]["node_code"] if nxt else "(none)")')"
+
+# The doctor's board is the SAME query with one parameter changed
+# (workspace=khu_bac_si). If that stops being true, two boards have quietly
+# become two implementations.
+doc=$(curl -s "$API/api/v1/work-items?workspace=khu_bac_si" \
+      -H "Authorization: Bearer $DOCTOR" -H "X-API-Key: $KEY")
+check "the doctor's board is the same endpoint, different workspace" "LUOTKHAM-05" \
+  "$(printf '%s' "$doc" | python3 -c '
+import sys, json
+rows = [r for r in json.load(sys.stdin) if r["visit_id"] == sys.argv[1]]
+print(rows[0]["node_code"] if rows else "(none)")' "$VISIT2")"
+
+# Gate chain across three roles. This is the whole point of the kernel: the
+# doctor cannot start until the nurse has finished, and nobody had to encode
+# that in a screen.
+w05=$(psql "$DB" -tAc "SELECT id FROM work_item WHERE visit_id='$VISIT2'
+                        AND node_code='LUOTKHAM-05' AND status <> 'CANCELLED';" | tr -d ' ')
+blockers_of() { psql "$DB" -tAc "SELECT count(*) FROM work_item_gate_blockers('$1','start');" | tr -d ' '; }
+before=$(blockers_of "$w05")
+if [ "${before:-0}" -gt 0 ]; then
+  printf '  PASS  %-52s %s\n' "doctor is gated behind the nurse" "$before blocker"; pass=$((pass+1))
+else
+  printf '  FAIL  %-52s not gated\n' "doctor is gated behind the nurse"; fail=$((fail+1))
+fi
+
+# Each step is done by the role that owns it. Using one token for both fails,
+# and that failure is the role gate working: sinh hiệu belongs to the nurse, and
+# reception cannot complete it however convenient that would be for a test.
+advance() {  # node token
+  wi=$(psql "$DB" -tAc "SELECT id FROM work_item WHERE visit_id='$VISIT2'
+                          AND node_code='$1' AND status <> 'CANCELLED';" | tr -d ' ')
+  for c in start complete; do
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+      "$API/api/v1/work-items/$wi/commands/$c" \
+      -H "Authorization: Bearer $2" -H "X-API-Key: $KEY" \
+      -H 'Content-Type: application/json' -d '{}')
+    [ "$code" = "200" ] || echo "        (advance $1 $c → HTTP $code)"
+  done
+}
+advance LUOTKHAM-02 "$RECEPTION"
+advance LUOTKHAM-03 "$NURSE"
+check "…and is released once the upstream steps finish" "0" "$(blockers_of "$w05")"
 
 echo "        audit: $(psql "$DB" -tAc "SELECT string_agg(replace(event_type,'appointment.',''), ' -> ' ORDER BY occurred_at) FROM event_log WHERE aggregate_id='$APPT';")"
 printf '=== %d passed, %d failed ===\n' "$pass" "$fail"
