@@ -53,6 +53,32 @@ check "now it can be finished" 200 "$(call PATCH "/api/v1/appointments/$APPT" "$
 check "a doctor may not cancel" 403 "$(call PATCH "/api/v1/appointments/$APPT" "$DOCTOR" '{"action":"cancel"}')"
 check "and a finished appointment cannot be cancelled" 409 "$(call PATCH "/api/v1/appointments/$APPT" "$CSKH" '{"action":"cancel"}')"
 
+# Re-check-in after an undo. This returned 200 while changing NOTHING: the visit
+# row survives undo_checkin, so the second check-in hit uq_visit_appointment_id,
+# _open_visit swallowed the UniqueViolationError, and the already-aborted
+# transaction committed as a rollback — status, queue number and audit event all
+# discarded behind {"ok": true}. The receptionist is told the patient arrived.
+APPT2=$(uuidgen | tr 'A-Z' 'a-z')
+OFF2=$(( (RANDOM % 9000 + 100) * 20 ))
+psql "$DB" -q -v appt="$APPT2" -v mins="$OFF2" <<SQL
+INSERT INTO appointment (id, clinic_id, clinic_patient_id, location_id,
+                         service_type_id, slot_start, slot_end, status)
+SELECT :'appt'::uuid, '$CLINIC', '$PATIENT',
+       (SELECT id FROM clinic_location WHERE clinic_id='$CLINIC' AND is_active
+         ORDER BY code LIMIT 1),
+       (SELECT id FROM service_type WHERE clinic_id='$CLINIC' AND is_active
+         ORDER BY code LIMIT 1),
+       now() + (:mins * interval '1 minute'),
+       now() + (:mins * interval '1 minute') + interval '30 minutes',
+       'SCHEDULED';
+SQL
+call PATCH "/api/v1/appointments/$APPT2" "$RECEPTION" '{"action":"checkin"}' >/dev/null
+call PATCH "/api/v1/appointments/$APPT2" "$RECEPTION" '{"action":"undo_checkin"}' >/dev/null
+check "re-check-in after undo is accepted" 200 \
+  "$(call PATCH "/api/v1/appointments/$APPT2" "$RECEPTION" '{"action":"checkin"}')"
+actual=$(psql "$DB" -tAc "SELECT status FROM appointment WHERE id='$APPT2';" | tr -d ' ')
+check "…and it actually persisted (not a silent rollback)" "CHECKED_IN" "$actual"
+
 echo "        audit: $(psql "$DB" -tAc "SELECT string_agg(replace(event_type,'appointment.',''), ' -> ' ORDER BY occurred_at) FROM event_log WHERE aggregate_id='$APPT';")"
 printf '=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

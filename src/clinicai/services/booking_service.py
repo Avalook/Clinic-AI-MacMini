@@ -957,25 +957,38 @@ class BookingService:
         doctor_id: str | None,
         identity: StaffIdentity,
     ) -> None:
-        """Open the visit so the patient appears on the board immediately."""
-        try:
-            await conn.execute(
-                """
-                INSERT INTO visit (
-                    clinic_id, clinic_patient_id, appointment_id,
-                    attending_doctor_id, status, checked_in_at
-                )
-                VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now())
-                """,
-                identity.clinic_id,
-                clinic_patient_id,
-                appointment_id,
-                doctor_id,
+        """Open the visit so the patient appears on the board immediately.
+
+        ON CONFLICT rather than catching UniqueViolationError. Catching it looks
+        equivalent and is not: by the time asyncpg raises, Postgres has already
+        aborted the transaction, so swallowing the exception leaves a dead
+        transaction whose COMMIT silently degrades to ROLLBACK. This runs LAST
+        in the check-in transaction, so the status change, the queue number and
+        the audit event all disappeared with it — while the API answered
+        {"ok": true, "status": "CHECKED_IN"}.
+
+        Reproduced end to end: check in, undo, check in again (undo_checkin only
+        patches the appointment, so the visit row survives). The second check-in
+        returned 200 and left the appointment CONFIRMED. A receptionist is told
+        the patient has arrived and the patient never reaches the board.
+
+        clinical_record_service._ensure_visit has always done it this way.
+        """
+        await conn.execute(
+            """
+            INSERT INTO visit (
+                clinic_id, clinic_patient_id, appointment_id,
+                attending_doctor_id, status, checked_in_at
             )
-        except asyncpg.UniqueViolationError:
-            # A visit already exists for this appointment — the nurse got there
-            # first. Nothing to do.
-            pass
+            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now())
+            ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
+            DO NOTHING
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
+            appointment_id,
+            doctor_id,
+        )
 
     def _is_today(self, moment: datetime) -> bool:
         local = moment.astimezone(CLINIC_TZ).date()
