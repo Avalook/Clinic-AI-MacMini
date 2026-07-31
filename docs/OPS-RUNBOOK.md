@@ -82,6 +82,35 @@ nhỏ hơn 1 KiB. `verify-backup.sh` mặc định coi artifact quá 30 giờ l�
 monitor/test có thể chỉnh bằng `BACKUP_MIN_ARCHIVE_BYTES` và
 `BACKUP_MAX_AGE_HOURS`.
 
+### Diễn tập khôi phục (`restore-drill.sh`) — chạy **hằng tháng**
+
+`verify-backup.sh` chỉ **soi cái file**. Một archive có thể hoàn hảo về mọi mặt
+và vẫn không restore nổi. Bài diễn tập nạp thật vào một Postgres dùng-một-lần
+rồi kiểm thứ chui ra:
+
+```bash
+./scripts/restore-drill.sh                    # bản mới nhất
+./scripts/restore-drill.sh ~/backups/clinicai/<file>.sql.gz
+DRILL_KEEP=1 ./scripts/restore-drill.sh       # giữ container lại để soi
+```
+
+Cần `docker`. Không đụng gì tới prod/staging.
+
+**Lần chạy đầu tiên phát hiện backup KHÔNG restore được** — `staff.auth_user_id`
+tham chiếu `auth.users`, mà bản dump `--schema=public` không có bảng đó, nên
+restore đứt giữa chừng vì vi phạm khoá ngoại. Vì thế backup nay đẻ kèm
+`*_auth.sql.gz` và manifest ghi `restore_order=auth-then-public`.
+
+Restore thật cần sẵn 3 thứ mà archive KHÔNG mang theo (Supabase project mới có
+đủ, Postgres trắng thì không): schema `auth` + `auth.uid()` + 3 role
+`authenticated`/`anon`/`service_role`; 4 extension `unaccent`, `pg_trgm`,
+`btree_gist`, `pgcrypto`; và phải **bỏ dòng `CREATE SCHEMA public;`** trong dump
+(`restore-db.sh` đã tự bỏ).
+
+Coi là **đạt** khi drill in `=== 16 passed, 0 failed ===`. Ghi ngày diễn tập vào
+nhật ký vận hành — backup chưa từng restore thử thì chỉ là một file, không phải
+một bản sao lưu.
+
 ### Backup tự động
 LaunchDaemon chạy hàng đêm lúc 2h sáng. Kiểm tra:
 ```bash

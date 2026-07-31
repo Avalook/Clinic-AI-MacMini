@@ -386,6 +386,15 @@ test_deploy_is_pinned_and_serialized() {
 
   grep -Fq './scripts/tests/test-infra-safety.sh' "$ROOT/.github/workflows/ci.yml" || \
     fail "CI does not execute the infrastructure safety smoke tests"
+
+  # A restore drill that nobody is told to run decays into a file in scripts/.
+  # It found that the backup could not be restored at all, so the runbook has to
+  # keep telling people to run it.
+  [ -x "$ROOT/scripts/restore-drill.sh" ] || fail "restore drill is missing or not executable"
+  grep -Fq './scripts/restore-drill.sh' "$ROOT/docs/OPS-RUNBOOK.md" || \
+    fail "runbook does not tell anyone to run the restore drill"
+  grep -Fq 'restore_order=auth-then-public' "$ROOT/scripts/backup-db.sh" || \
+    fail "backup no longer records the restore order the drill depends on"
   for workflow in ci.yml cd.yml; do
     grep -Fq 'contents: read' "$ROOT/.github/workflows/$workflow" || \
       fail "$workflow does not use least-privilege repository contents access"
