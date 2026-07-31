@@ -69,8 +69,8 @@ function toForm(p: PatientAdmin): Form {
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2 text-sm">
-      <dt className="w-24 shrink-0 text-[#888888]">{label}</dt>
-      <dd className="min-w-0 break-words font-medium text-[#171717]">
+      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
+      <dd className="min-w-0 break-words font-medium text-ink">
         {value || "—"}
       </dd>
     </div>
@@ -152,11 +152,11 @@ export default function PatientAdminEditor({
         <div className="flex items-center gap-2">
           <button
             onClick={startEdit}
-            className="inline-flex min-h-8 items-center gap-1 rounded-md border border-[#f3cfe0] bg-white px-2.5 text-xs font-medium text-[#9d2463] hover:bg-[#fdf2f8]"
+            className="inline-flex min-h-8 items-center gap-1 rounded-md border border-brand-100 bg-white px-2.5 text-xs font-medium text-brand-800 hover:bg-brand-50"
           >
             <Pencil size={12} /> Sửa thông tin
           </button>
-          {msg && <span className="text-xs text-[#15803d]">{msg}</span>}
+          {msg && <span className="text-xs text-success">{msg}</span>}
         </div>
       </div>
     );
@@ -272,12 +272,12 @@ export default function PatientAdminEditor({
           />
         </div>
       </div>
-      {error && <p className="text-xs text-[#dc2626]">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button
           onClick={save}
           disabled={busy}
-          className="min-h-10 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+          className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {busy ? "Đang lưu..." : "Lưu thông tin"}
         </button>
@@ -287,7 +287,7 @@ export default function PatientAdminEditor({
             setError(null);
           }}
           disabled={busy}
-          className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
+          className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
         >
           Huỷ
         </button>

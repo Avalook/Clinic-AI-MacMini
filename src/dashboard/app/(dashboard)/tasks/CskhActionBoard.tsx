@@ -152,29 +152,29 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
   return (
     <>
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1 h-[520px] min-h-[260px] max-h-[88vh] resize-y overflow-x-auto overflow-y-hidden rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
-        <div className="flex h-full divide-x divide-[#f6e0ec]">
+      <div className="min-w-0 flex-1 h-[520px] min-h-[260px] max-h-[88vh] resize-y overflow-x-auto overflow-y-hidden rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+        <div className="flex h-full divide-x divide-brand-100">
           {cols.map((col) => {
             const items = byKey.get(col.key) ?? [];
             return (
               <div key={col.key} className="flex min-w-[200px] flex-1 flex-col">
-                <div className="flex items-center gap-2 border-b border-[#f3cfe0] bg-[#fce7f3] px-3 py-2">
+                <div className="flex items-center gap-2 border-b border-brand-100 bg-brand-100 px-3 py-2">
                   <span
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: col.dot }}
                   />
-                  <span className="text-sm font-semibold text-[#171717]">
+                  <span className="text-sm font-semibold text-ink">
                     {col.label}
                   </span>
                   <div className="ml-auto flex items-center gap-1">
-                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#71717a]">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-ink-muted">
                       {items.length}
                     </span>
                     {col.key !== OTHER.key && (
                       <button
                         onClick={() => openAdd(col.label)}
                         title={`Thêm việc: ${col.label}`}
-                        className="rounded-md p-1 text-[#9d2463] hover:bg-white/70"
+                        className="rounded-md p-1 text-brand-800 hover:bg-white/70"
                       >
                         <Plus size={15} />
                       </button>
@@ -183,7 +183,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
                   {items.length === 0 && (
-                    <p className="py-6 text-center text-xs text-[#a1a1aa]">
+                    <p className="py-6 text-center text-xs text-ink-faint">
                       Trống
                     </p>
                   )}
@@ -194,19 +194,19 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                       className={
                         "w-full rounded-lg border bg-white p-2.5 text-left transition-colors " +
                         (selId === r.id
-                          ? "border-[#ec4899] ring-2 ring-[#ec4899]/20"
-                          : "border-[#e4e4e7] hover:border-[#ec4899]/50")
+                          ? "border-brand-600 ring-2 ring-brand-600/20"
+                          : "border-line hover:border-brand-600/50")
                       }
                     >
-                      <span className="block truncate text-sm font-medium text-[#171717]">
+                      <span className="block truncate text-sm font-medium text-ink">
                         {r.patient?.full_name ?? "(chưa gắn khách)"}
                       </span>
                       {content(r) && (
-                        <span className="mt-0.5 block truncate text-xs text-[#52525b]">
+                        <span className="mt-0.5 block truncate text-xs text-ink-soft">
                           {content(r)}
                         </span>
                       )}
-                      <span className="mt-1 block truncate text-[11px] text-[#888888]">
+                      <span className="mt-1 block truncate text-[11px] text-ink-muted">
                         {fmtDateTimeOrDate(r.source_created_at)}
                         {r.status ? ` · ${r.status}` : ""}
                       </span>
@@ -220,13 +220,13 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
       </div>
 
       {sel && (
-        <aside className="w-full shrink-0 rounded-xl border border-[#f9a8d4] bg-[#fdf2f8] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:sticky lg:top-4 lg:w-[360px]">
+        <aside className="w-full shrink-0 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:sticky lg:top-4 lg:w-[360px]">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[#9d174d]">Chi tiết việc CSKH</h3>
+            <h3 className="text-sm font-semibold text-status-cancelled">Chi tiết việc CSKH</h3>
             <button
               onClick={() => setSelId(null)}
               aria-label="Đóng"
-              className="rounded-md p-1 text-[#9d174d] hover:bg-white/60"
+              className="rounded-md p-1 text-status-cancelled hover:bg-white/60"
             >
               <X size={16} />
             </button>
@@ -244,7 +244,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
             <div className="mt-4">
               <Link
                 href={`/patients/${sel.patient.clinic_patient_id}`}
-                className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm font-medium text-[#52525b] hover:bg-[#f4f4f5]"
+                className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-line bg-white px-4 text-sm font-medium text-ink-soft hover:bg-surface-sunken"
               >
                 <ExternalLink size={14} /> Mở hồ sơ khách
               </Link>
@@ -265,14 +265,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="cskh-add-dialog-title"
-          className="w-full max-w-md rounded-xl border border-[#f3cfe0] bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+          className="w-full max-w-md rounded-xl border border-brand-100 bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={keepAddFocusInside}
         >
           <div className="mb-3 flex items-center justify-between">
             <h3
               id="cskh-add-dialog-title"
-              className="text-sm font-semibold text-[#9d174d]"
+              className="text-sm font-semibold text-status-cancelled"
             >
               Thêm việc: {addCat}
             </h3>
@@ -281,7 +281,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
               type="button"
               onClick={closeAdd}
               aria-label="Đóng"
-              className="rounded-md p-1 text-[#9d174d] hover:bg-[#fdf2f8]"
+              className="rounded-md p-1 text-status-cancelled hover:bg-brand-50"
             >
               <X size={16} />
             </button>
@@ -327,7 +327,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
               </div>
             </div>
             {err && (
-              <p role="alert" className="text-xs text-[#dc2626]">
+              <p role="alert" className="text-xs text-danger">
                 {err}
               </p>
             )}
@@ -336,14 +336,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                className="min-h-10 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+                className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 {busy ? "Đang lưu..." : "Lưu việc"}
               </button>
               <button
                 type="button"
                 onClick={closeAdd}
-                className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
+                className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
               >
                 Huỷ
               </button>
@@ -359,8 +359,8 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-[#888888]">{label}</dt>
-      <dd className="min-w-0 break-words text-[#171717]">{value || "—"}</dd>
+      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
+      <dd className="min-w-0 break-words text-ink">{value || "—"}</dd>
     </div>
   );
 }

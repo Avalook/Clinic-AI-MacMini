@@ -81,7 +81,7 @@ interface IntakeAppointment extends SlotApptLite {
 }
 
 function Req() {
-  return <span className="text-[#ec4899]">*</span>;
+  return <span className="text-brand-600">*</span>;
 }
 
 function findServiceIdByLinhVuc(code: string, services: Option[]): string {
@@ -115,13 +115,13 @@ function SectionHeader({
   hint?: string;
 }) {
   return (
-    <div className="mb-4 flex items-center gap-2.5 border-b border-[#f4f4f5] pb-3">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fce7f3] text-[#db2777]">
+    <div className="mb-4 flex items-center gap-2.5 border-b border-surface-sunken pb-3">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
         {icon}
       </span>
       <div>
-        <h2 className="text-sm font-semibold text-[#171717]">{title}</h2>
-        {hint && <p className="text-xs text-[#888888]">{hint}</p>}
+        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+        {hint && <p className="text-xs text-ink-muted">{hint}</p>}
       </div>
     </div>
   );
@@ -667,12 +667,12 @@ export default function NewPatientForm({
               <label className={LABEL + " mb-0"}>
                 {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
               </label>
-              <label className="flex cursor-pointer items-center gap-1 text-[12px] text-[#888888]">
+              <label className="flex cursor-pointer items-center gap-1 text-[12px] text-ink-muted">
                 <input
                   type="checkbox"
                   checked={dobYearOnly}
                   onChange={(e) => setDobYearOnly(e.target.checked)}
-                  className="accent-[#ec4899]"
+                  className="accent-brand-600"
                 />
                 Chỉ biết năm
               </label>
@@ -691,11 +691,11 @@ export default function NewPatientForm({
                     if (v.length === 4 && Number(v) > CUR_YEAR) v = String(CUR_YEAR);
                     setBirthYear(v);
                   }}
-                  className={INPUT + (birthYearErr ? " border-[#dc2626]" : "")}
+                  className={INPUT + (birthYearErr ? " border-danger" : "")}
                   placeholder="VD: 1990"
                 />
                 {birthYearErr && (
-                  <p className="mt-1 text-[12px] text-[#dc2626]">{birthYearErr}</p>
+                  <p className="mt-1 text-[12px] text-danger">{birthYearErr}</p>
                 )}
               </div>
             ) : (
@@ -708,7 +708,7 @@ export default function NewPatientForm({
                   invalid={!!dobErr}
                 />
                 {dobErr && (
-                  <p className="mt-1 text-[12px] text-[#dc2626]">{dobErr}</p>
+                  <p className="mt-1 text-[12px] text-danger">{dobErr}</p>
                 )}
               </div>
             )}
@@ -720,27 +720,27 @@ export default function NewPatientForm({
             <input
               value={phone}
               onChange={(e) => setPhone(normalizePhoneVi(e.target.value))}
-              className={INPUT + (phoneErr ? " border-[#dc2626]" : "")}
+              className={INPUT + (phoneErr ? " border-danger" : "")}
               placeholder="10 chữ số, bắt đầu bằng 0 — vd 0901234567"
               inputMode="numeric"
               maxLength={10}
             />
             {phoneErr && (
-              <p className="mt-1 text-[12px] text-[#dc2626]">{phoneErr}</p>
+              <p className="mt-1 text-[12px] text-danger">{phoneErr}</p>
             )}
             {/* Cảnh báo MỀM trùng SĐT (feedback #9) — KHÔNG chặn lưu. */}
             {phoneDupes.length > 0 && (
-              <div className="mt-1.5 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#a16207]">
+              <div className="mt-1.5 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-warning">
                 <p className="font-medium">⚠ Số này đã có trong hệ thống:</p>
                 <ul className="mt-1 space-y-0.5">
                   {phoneDupes.map((m) => (
                     <li key={m.patient_code}>
                       {m.full_name}{" "}
-                      <span className="font-mono text-[#888888]">
+                      <span className="font-mono text-ink-muted">
                         {m.patient_code}
                       </span>
                       {m.birth_year && (
-                        <span className="text-[#888888]"> · {m.birth_year}</span>
+                        <span className="text-ink-muted"> · {m.birth_year}</span>
                       )}
                     </li>
                   ))}
@@ -757,13 +757,13 @@ export default function NewPatientForm({
             <input
               value={phone2}
               onChange={(e) => setPhone2(normalizePhoneVi(e.target.value))}
-              className={INPUT + (phone2Err ? " border-[#dc2626]" : "")}
+              className={INPUT + (phone2Err ? " border-danger" : "")}
               placeholder="10 chữ số, bắt đầu bằng 0"
               inputMode="numeric"
               maxLength={10}
             />
             {phone2Err && (
-              <p className="mt-1 text-[12px] text-[#dc2626]">{phone2Err}</p>
+              <p className="mt-1 text-[12px] text-danger">{phone2Err}</p>
             )}
           </div>
           <div>
@@ -771,13 +771,13 @@ export default function NewPatientForm({
             <input
               value={cccd}
               onChange={(e) => setCccd(digitsOnly(e.target.value).slice(0, 12))}
-              className={INPUT + (cccdErr ? " border-[#dc2626]" : "")}
+              className={INPUT + (cccdErr ? " border-danger" : "")}
               placeholder="12 chữ số"
               inputMode="numeric"
               maxLength={12}
             />
             {cccdErr && (
-              <p className="mt-1 text-[12px] text-[#dc2626]">{cccdErr}</p>
+              <p className="mt-1 text-[12px] text-danger">{cccdErr}</p>
             )}
           </div>
           <div>
@@ -935,19 +935,19 @@ export default function NewPatientForm({
                     autoComplete="off"
                   />
                   {doctorOpen && (
-                    <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg">
+                    <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
                       <li
                         onMouseDown={() => {
                           setDoctorId("");
                           setDoctorQ("");
                           setDoctorOpen(false);
                         }}
-                        className="cursor-pointer px-3 py-2 text-sm text-[#71717a] hover:bg-[#fdf2f8]"
+                        className="cursor-pointer px-3 py-2 text-sm text-ink-muted hover:bg-brand-50"
                       >
                         — Chưa phân bác sĩ —
                       </li>
                       {filteredDoctors.length === 0 ? (
-                        <li className="px-3 py-2 text-sm text-[#a1a1aa]">
+                        <li className="px-3 py-2 text-sm text-ink-faint">
                           Không tìm thấy bác sĩ
                         </li>
                       ) : (
@@ -960,10 +960,10 @@ export default function NewPatientForm({
                               setDoctorOpen(false);
                             }}
                             className={
-                              "cursor-pointer px-3 py-2 text-sm hover:bg-[#fdf2f8] " +
+                              "cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 " +
                               (d.id === doctorId
-                                ? "bg-[#fce7f3] font-medium text-[#9d2463]"
-                                : "text-[#171717]")
+                                ? "bg-brand-100 font-medium text-brand-800"
+                                : "text-ink")
                             }
                           >
                             {d.label}
@@ -1021,7 +1021,7 @@ export default function NewPatientForm({
                 {apptTime && (
                   <p
                     className={`mt-1 text-[11px] font-medium ${
-                      isSlotBooked ? "text-[#dc2626]" : "text-[#15803d]"
+                      isSlotBooked ? "text-danger" : "text-success"
                     }`}
                   >
                     {isSlotBooked
@@ -1084,19 +1084,19 @@ export default function NewPatientForm({
                 autoComplete="off"
               />
               {doctorOpen && (
-                <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg">
+                <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
                   <li
                     onMouseDown={() => {
                       setDoctorId("");
                       setDoctorQ("");
                       setDoctorOpen(false);
                     }}
-                    className="cursor-pointer px-3 py-2 text-sm text-[#71717a] hover:bg-[#fdf2f8]"
+                    className="cursor-pointer px-3 py-2 text-sm text-ink-muted hover:bg-brand-50"
                   >
                     — Chưa phân bác sĩ —
                   </li>
                   {filteredDoctors.length === 0 ? (
-                    <li className="px-3 py-2 text-sm text-[#a1a1aa]">
+                    <li className="px-3 py-2 text-sm text-ink-faint">
                       Không tìm thấy bác sĩ
                     </li>
                   ) : (
@@ -1109,10 +1109,10 @@ export default function NewPatientForm({
                           setDoctorOpen(false);
                         }}
                         className={
-                          "cursor-pointer px-3 py-2 text-sm hover:bg-[#fdf2f8] " +
+                          "cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 " +
                           (d.id === doctorId
-                            ? "bg-[#fce7f3] font-medium text-[#9d2463]"
-                            : "text-[#171717]")
+                            ? "bg-brand-100 font-medium text-brand-800"
+                            : "text-ink")
                         }
                       >
                         {d.label}
@@ -1145,11 +1145,11 @@ export default function NewPatientForm({
               maxHour={apptMaxHour}
               minutesOptions={["00", "15", "30", "45"]}
             />
-            <p className="mt-1 text-[11px] text-[#dc2626] font-medium leading-normal">
+            <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
               ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
             </p>
             {apptCh && (
-              <p className="mt-1 text-[11px] text-[#a1a1aa]">
+              <p className="mt-1 text-[11px] text-ink-faint">
                 Giờ mở cửa: {apptCh.open}–{apptCh.close}
               </p>
             )}
@@ -1195,7 +1195,7 @@ export default function NewPatientForm({
             {apptDate && apptTime && (
               <p
                 className={`mt-1 text-[11px] font-medium ${
-                  isSlotBooked ? "text-[#dc2626]" : "text-[#15803d]"
+                  isSlotBooked ? "text-danger" : "text-success"
                 }`}
               >
                 {isSlotBooked
@@ -1204,7 +1204,7 @@ export default function NewPatientForm({
               </p>
             )}
             {priority && (
-              <p className="mt-1 text-[11px] font-medium text-[#15803d]">
+              <p className="mt-1 text-[11px] font-medium text-success">
                 Đang xếp chỗ Ưu tiên (chỗ thứ 3) — không cần chọn Kênh đặt.
               </p>
             )}
@@ -1232,7 +1232,7 @@ export default function NewPatientForm({
 
       {/* Duplicate-phone warning */}
       {dupes && dupes.length > 0 && (
-        <div className="space-y-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#a16207]">
+        <div className="space-y-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-warning">
           <p className="font-medium">
             ⚠️ Đã có bệnh nhân dùng SĐT này. Chọn đúng người để đặt lịch, hoặc
             vẫn tạo mới:
@@ -1243,13 +1243,13 @@ export default function NewPatientForm({
                 key={m.clinic_patient_id}
                 className="flex flex-col gap-2 rounded-lg bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
               >
-                <span className="text-[#171717]">
+                <span className="text-ink">
                   {m.full_name}{" "}
-                  <span className="font-mono text-xs text-[#888888]">
+                  <span className="font-mono text-xs text-ink-muted">
                     {m.patient_code}
                   </span>
                   {m.date_of_birth && (
-                    <span className="ml-2 text-xs text-[#888888]">
+                    <span className="ml-2 text-xs text-ink-muted">
                       {m.date_of_birth}
                     </span>
                   )}
@@ -1257,7 +1257,7 @@ export default function NewPatientForm({
                 <button
                   onClick={() => proceed(m.clinic_patient_id)}
                   disabled={submitting}
-                  className="min-h-10 shrink-0 rounded-lg bg-[#ec4899] px-3 py-2 text-xs font-semibold text-white hover:bg-[#db2777] active:bg-[#db2777] disabled:opacity-50 sm:min-h-0 sm:py-1.5"
+                  className="min-h-10 shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50 sm:min-h-0 sm:py-1.5"
                 >
                   Dùng bệnh nhân này
                 </button>
@@ -1267,7 +1267,7 @@ export default function NewPatientForm({
           <button
             onClick={() => save(true)}
             disabled={submitting}
-            className="text-xs font-medium text-[#dc2626] underline disabled:opacity-50"
+            className="text-xs font-medium text-danger underline disabled:opacity-50"
           >
             Vẫn tạo bệnh nhân mới
           </button>
@@ -1275,7 +1275,7 @@ export default function NewPatientForm({
       )}
 
       {error && (
-        <div className="space-y-2 rounded-lg bg-[#fee2e2] px-4 py-3 text-sm text-[#dc2626]">
+        <div className="space-y-2 rounded-lg bg-danger-bg px-4 py-3 text-sm text-danger">
           <p>{error}</p>
         </div>
       )}

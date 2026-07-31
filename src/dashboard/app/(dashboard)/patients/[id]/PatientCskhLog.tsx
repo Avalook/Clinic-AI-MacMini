@@ -23,10 +23,10 @@ interface CskhRow {
 
 function groupColor(g: string | null): string {
   const s = (g ?? "").toLowerCase();
-  if (s.includes("nhóm a")) return "bg-[#dcfce7] text-[#15803d]";
-  if (s.includes("nhóm b")) return "bg-[#fef9c3] text-[#a16207]";
-  if (s.includes("nhóm c")) return "bg-[#fee2e2] text-[#dc2626]";
-  return "bg-[#f4f4f5] text-[#71717a]";
+  if (s.includes("nhóm a")) return "bg-success-bg text-success";
+  if (s.includes("nhóm b")) return "bg-warning-bg text-warning";
+  if (s.includes("nhóm c")) return "bg-danger-bg text-danger";
+  return "bg-surface-sunken text-ink-muted";
 }
 
 export default async function PatientCskhLog({ id }: { id: string }) {
@@ -47,9 +47,9 @@ export default async function PatientCskhLog({ id }: { id: string }) {
 
   return (
     <section className="space-y-3">
-      <h3 className="text-base font-semibold text-[#171717]">
+      <h3 className="text-base font-semibold text-ink">
         Chăm sóc khách hàng (CSKH)
-        <span className="ml-2 text-sm font-normal text-[#888888]">
+        <span className="ml-2 text-sm font-normal text-ink-muted">
           ({rows.length})
         </span>
       </h3>
@@ -58,15 +58,15 @@ export default async function PatientCskhLog({ id }: { id: string }) {
         {rows.map((r) => (
           <li
             key={r.id}
-            className="rounded-xl border border-[#e4e4e7] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+            className="rounded-xl border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
           >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-[#171717]">
+              <span className="text-sm font-semibold text-ink">
                 {r.work_date ? fmtDate(r.work_date) : "—"}
                 {r.slot_time ? ` · ${r.slot_time}` : ""}
               </span>
               {r.visit_type && (
-                <span className="rounded-full bg-[#f4f4f5] px-2 py-0.5 text-xs text-[#52525b]">
+                <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-xs text-ink-soft">
                   {r.visit_type}
                 </span>
               )}
@@ -74,8 +74,8 @@ export default async function PatientCskhLog({ id }: { id: string }) {
                 className={
                   "rounded-full px-2 py-0.5 text-xs font-medium " +
                   (r.arrived
-                    ? "bg-[#dcfce7] text-[#15803d]"
-                    : "bg-[#fee2e2] text-[#dc2626]")
+                    ? "bg-success-bg text-success"
+                    : "bg-danger-bg text-danger")
                 }
               >
                 {r.arrived ? "Đã đến" : "Không đến"}
@@ -90,28 +90,28 @@ export default async function PatientCskhLog({ id }: { id: string }) {
             </div>
 
             {(r.tests || r.has_test) && (
-              <p className="mt-1.5 text-sm text-[#4d4d4d]">
-                <span className="text-[#888888]">Xét nghiệm: </span>
+              <p className="mt-1.5 text-sm text-ink-soft">
+                <span className="text-ink-muted">Xét nghiệm: </span>
                 {r.tests ?? (r.has_test ? "Có" : "—")}
               </p>
             )}
             {r.cskh_status && (
-              <p className="mt-1 text-sm text-[#4d4d4d]">
-                <span className="text-[#888888]">Tình trạng CSKH: </span>
+              <p className="mt-1 text-sm text-ink-soft">
+                <span className="text-ink-muted">Tình trạng CSKH: </span>
                 {r.cskh_status}
               </p>
             )}
             {r.cskh_followup && (
-              <p className="mt-1 text-sm text-[#4d4d4d]">
-                <span className="text-[#888888]">Hẹn chăm sóc: </span>
+              <p className="mt-1 text-sm text-ink-soft">
+                <span className="text-ink-muted">Hẹn chăm sóc: </span>
                 {r.cskh_followup}
               </p>
             )}
             {r.note && (
-              <p className="mt-1 text-xs italic text-[#71717a]">“{r.note}”</p>
+              <p className="mt-1 text-xs italic text-ink-muted">“{r.note}”</p>
             )}
             {(r.cskh_by || r.last_cskh_date) && (
-              <p className="mt-1.5 text-xs text-[#a1a1aa]">
+              <p className="mt-1.5 text-xs text-ink-faint">
                 {r.cskh_by ? `Người CSKH: ${r.cskh_by}` : ""}
                 {r.cskh_by && r.last_cskh_date ? " · " : ""}
                 {r.last_cskh_date ? `Gần nhất: ${fmtDate(r.last_cskh_date)}` : ""}

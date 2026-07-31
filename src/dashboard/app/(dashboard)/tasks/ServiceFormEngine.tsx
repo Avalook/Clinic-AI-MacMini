@@ -49,14 +49,14 @@ function normalOption(field: FormField): string | null {
 // ===== Tokens trình bày (giữ theme: hồng #9d2463 / accent #ec4899) =====
 const TAB =
   "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors";
-const TAB_ON = " bg-[#fce7f3] font-semibold text-[#9d2463]";
-const TAB_OFF = " text-[#52525b] hover:bg-[#f4f4f5]";
+const TAB_ON = " bg-brand-100 font-semibold text-brand-800";
+const TAB_OFF = " text-ink-soft hover:bg-surface-sunken";
 const CHIP =
   "rounded-full border px-3 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
-const CHIP_ON = " border-[#ec4899] bg-[#fce7f3] font-semibold text-[#9d2463]";
-const CHIP_OFF = " border-[#e4e4e7] bg-white text-[#3f3f46] hover:bg-[#fdf2f8]";
+const CHIP_ON = " border-brand-600 bg-brand-100 font-semibold text-brand-800";
+const CHIP_OFF = " border-line bg-white text-ink-soft hover:bg-brand-50";
 const NAV_BTN =
-  "min-h-9 shrink-0 rounded-lg border border-[#e4e4e7] bg-white px-3 text-sm font-medium text-[#52525b] transition-colors hover:bg-[#f4f4f5] disabled:opacity-40";
+  "min-h-9 shrink-0 rounded-lg border border-line bg-white px-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-sunken disabled:opacity-40";
 
 export default function ServiceFormEngine({
   visitId,
@@ -153,25 +153,25 @@ export default function ServiceFormEngine({
   };
 
   return (
-    <div className="rounded-xl border border-[#e4e4e7] bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="rounded-xl border border-line bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-[#171717]">
+        <h4 className="text-sm font-semibold text-ink">
           Phiếu {schema.title}
           <span className="ml-2 rounded bg-[#ede9fe] px-1.5 py-0.5 text-[10px] font-medium text-[#6d28d9]">
             form chuyên khoa
           </span>
         </h4>
         {readOnly && (
-          <span className="text-xs text-[#dc2626]">🔒 chỉ xem</span>
+          <span className="text-xs text-danger">🔒 chỉ xem</span>
         )}
       </div>
 
       {loading ? (
-        <p className="text-sm text-[#a1a1aa]">Đang tải phiếu…</p>
+        <p className="text-sm text-ink-faint">Đang tải phiếu…</p>
       ) : (
         <>
           {/* Thanh TAB theo section — chỉ render section đang chọn → giảm cuộn. */}
-          <div className="sticky top-0 z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-[#f4f4f5] bg-white px-3 pb-2">
+          <div className="sticky top-0 z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-surface-sunken bg-white px-3 pb-2">
             {sections.map((s, i) => (
               <button
                 key={s.title}
@@ -181,7 +181,7 @@ export default function ServiceFormEngine({
               >
                 {s.title}
                 {sectionFilled(s, values) && (
-                  <span className="ml-1 text-[#ec4899]">✓</span>
+                  <span className="ml-1 text-brand-600">✓</span>
                 )}
               </button>
             ))}
@@ -194,7 +194,7 @@ export default function ServiceFormEngine({
                   <button
                     type="button"
                     onClick={setSectionNormal}
-                    className="rounded-lg border border-[#f3cfe0] bg-[#fdf2f8] px-2.5 py-1 text-xs font-medium text-[#9d2463] transition-colors hover:bg-[#fce7f3]"
+                    className="rounded-lg border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 transition-colors hover:bg-brand-100"
                   >
                     Tất cả bình thường
                   </button>
@@ -218,7 +218,7 @@ export default function ServiceFormEngine({
           )}
 
           {/* Thanh điều hướng dưới — LUÔN hiện: prev/next + nút Lưu (khỏi cuộn đáy). */}
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#f4f4f5] pt-3">
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-surface-sunken pt-3">
             <button
               type="button"
               onClick={() => setActiveIdx(Math.max(0, idx - 1))}
@@ -227,7 +227,7 @@ export default function ServiceFormEngine({
             >
               ← Mục trước
             </button>
-            <span className="min-w-0 truncate text-center text-xs text-[#71717a]">
+            <span className="min-w-0 truncate text-center text-xs text-ink-muted">
               Mục {idx + 1}/{total}
               {section ? ` · ${section.title}` : ""}
             </span>
@@ -256,7 +256,7 @@ export default function ServiceFormEngine({
             <p
               className={
                 "mt-2 text-right text-xs " +
-                (msg.startsWith("Đã lưu") ? "text-[#15803d]" : "text-[#dc2626]")
+                (msg.startsWith("Đã lưu") ? "text-success" : "text-danger")
               }
             >
               {msg}
@@ -312,7 +312,7 @@ function Field({
             onChange={(e) => onChange(e.target.value)}
           />
           {field.unit && (
-            <span className="shrink-0 text-xs text-[#a1a1aa]">{field.unit}</span>
+            <span className="shrink-0 text-xs text-ink-faint">{field.unit}</span>
           )}
         </div>
       );
@@ -348,10 +348,10 @@ function Field({
       break;
     case "checkbox":
       control = (
-        <label className="inline-flex items-center gap-1.5 text-sm text-[#3f3f46]">
+        <label className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
           <input
             type="checkbox"
-            className="h-4 w-4 accent-[#ec4899]"
+            className="h-4 w-4 accent-brand-600"
             checked={value === true}
             disabled={disabled}
             onChange={(e) => onChange(e.target.checked)}

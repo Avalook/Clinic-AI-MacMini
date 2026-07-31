@@ -73,33 +73,33 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fafafa] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface-muted px-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm space-y-4 rounded-lg bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
       >
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-[#171717]">
-            <span className="h-2 w-2 rounded-full bg-[#ec4899]" />
+          <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
+            <span className="h-2 w-2 rounded-full bg-brand-600" />
             Đặt lại mật khẩu
           </h1>
           {stage === "ready" && (
-            <p className="text-sm text-[#888888]">Chọn mật khẩu mới.</p>
+            <p className="text-sm text-ink-muted">Chọn mật khẩu mới.</p>
           )}
         </div>
 
         {stage === "waiting" && (
-          <p className="text-sm text-[#888888]">Đang xác thực link...</p>
+          <p className="text-sm text-ink-muted">Đang xác thực link...</p>
         )}
 
         {stage === "no-session" && (
           <>
-            <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+            <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
               Link đặt lại không hợp lệ hoặc đã hết hạn.
             </div>
             <Link
               href="/forgot-password"
-              className="block text-center text-sm text-[#ec4899] hover:underline"
+              className="block text-center text-sm text-brand-600 hover:underline"
             >
               Yêu cầu link mới
             </Link>
@@ -108,12 +108,12 @@ export default function ResetPasswordForm() {
 
         {stage === "done" && (
           <>
-            <div className="rounded-md bg-[#dcfce7] px-3 py-2 text-sm text-[#15803d]">
+            <div className="rounded-md bg-success-bg px-3 py-2 text-sm text-success">
               Đặt lại mật khẩu thành công. Đang chuyển về trang đăng nhập...
             </div>
             <Link
               href="/login"
-              className="block text-center text-sm text-[#ec4899] hover:underline"
+              className="block text-center text-sm text-brand-600 hover:underline"
             >
               Về trang đăng nhập ngay
             </Link>
@@ -125,7 +125,7 @@ export default function ResetPasswordForm() {
             <div className="space-y-1">
               <label
                 htmlFor="password"
-                className="text-sm font-medium text-[#4d4d4d]"
+                className="text-sm font-medium text-ink-soft"
               >
                 Mật khẩu mới
               </label>
@@ -136,7 +136,7 @@ export default function ResetPasswordForm() {
                 minLength={MIN_PASSWORD}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-md border border-[#e4e4e7] px-3 py-2.5 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:py-2 sm:text-sm"
+                className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
                 autoComplete="new-password"
               />
             </div>
@@ -144,7 +144,7 @@ export default function ResetPasswordForm() {
             <div className="space-y-1">
               <label
                 htmlFor="confirm"
-                className="text-sm font-medium text-[#4d4d4d]"
+                className="text-sm font-medium text-ink-soft"
               >
                 Xác nhận mật khẩu
               </label>
@@ -155,13 +155,13 @@ export default function ResetPasswordForm() {
                 minLength={MIN_PASSWORD}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="w-full rounded-md border border-[#e4e4e7] px-3 py-2.5 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:py-2 sm:text-sm"
+                className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
                 autoComplete="new-password"
               />
             </div>
 
             {error && (
-              <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+              <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
                 {error}
               </p>
             )}
@@ -169,7 +169,7 @@ export default function ResetPasswordForm() {
             <button
               type="submit"
               disabled={loading}
-              className="min-h-11 w-full rounded-md bg-[#ec4899] px-3 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#db2777] active:bg-[#db2777] disabled:opacity-50"
+              className="min-h-11 w-full rounded-md bg-brand-600 px-3 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50"
             >
               {loading ? "Đang lưu..." : "Đặt mật khẩu mới"}
             </button>

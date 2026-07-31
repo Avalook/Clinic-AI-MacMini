@@ -55,8 +55,8 @@ export default function QuickBookingModal({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-[#171717]">Đặt lịch hẹn</h3>
-            <p className="text-sm text-[#71717a]">
+            <h3 className="text-base font-semibold text-ink">Đặt lịch hẹn</h3>
+            <p className="text-sm text-ink-muted">
               {patient.full_name} · {patient.patient_code}
             </p>
           </div>
@@ -64,7 +64,7 @@ export default function QuickBookingModal({
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="rounded-lg px-2 py-1 text-sm text-[#71717a] hover:bg-[#f4f4f5] hover:text-[#171717]"
+            className="rounded-lg px-2 py-1 text-sm text-ink-muted hover:bg-surface-sunken hover:text-ink"
           >
             ✕
           </button>

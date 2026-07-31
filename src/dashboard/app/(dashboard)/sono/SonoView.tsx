@@ -25,9 +25,9 @@ export interface SonoRow {
 // (a) Nhãn + màu trạng thái SA.
 const SA_STATUS: Record<string, { label: string; cls: string }> = {
   WAITING: { label: "Chờ khám", cls: "bg-[#dbeafe] text-[#1d4ed8]" },
-  IN_PROGRESS: { label: "Đang khám", cls: "bg-[#fef9c3] text-[#a16207]" },
-  DONE: { label: "Hoàn tất", cls: "bg-[#dcfce7] text-[#15803d]" },
-  CANCELLED: { label: "Đã hủy", cls: "bg-[#fee2e2] text-[#dc2626]" },
+  IN_PROGRESS: { label: "Đang khám", cls: "bg-warning-bg text-warning" },
+  DONE: { label: "Hoàn tất", cls: "bg-success-bg text-success" },
+  CANCELLED: { label: "Đã hủy", cls: "bg-danger-bg text-danger" },
 };
 
 function SaBadge({ status }: { status: string | null }) {
@@ -55,7 +55,7 @@ function PrintLink({ id }: { id: string }) {
   );
 }
 
-const TH = "border-b border-[#ececec] px-3 py-2 text-left font-semibold text-[#525252]";
+const TH = "border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]";
 const TD = "border-b border-[#f3f3f3] px-3 py-2 align-middle";
 
 export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
@@ -83,16 +83,16 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
   function patientCell(r: SonoRow) {
     return (
       <>
-        <span className="font-medium text-[#171717]">
+        <span className="font-medium text-ink">
           {r.patient?.full_name ?? r.service_name_raw ?? "—"}
         </span>
         {r.patient?.patient_code && (
-          <span className="ml-1.5 text-xs text-[#888888]">
+          <span className="ml-1.5 text-xs text-ink-muted">
             {r.patient.patient_code}
           </span>
         )}
         {r.patient && r.service_name_raw && (
-          <span className="block text-xs text-[#a1a1aa]">{r.service_name_raw}</span>
+          <span className="block text-xs text-ink-faint">{r.service_name_raw}</span>
         )}
       </>
     );
@@ -101,18 +101,18 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
   return (
     <div className="space-y-8">
       {error && (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">{error}</p>
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
       )}
 
       {/* ===================== (a) HÀNG ĐỢI SIÊU ÂM ===================== */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-[#171717]">
+        <h2 className="text-sm font-semibold text-ink">
           (a) Hàng đợi siêu âm — BN sắp khám
         </h2>
         <AddForm kind="SA" busy={busy} onAdd={(b) => send("POST", b)} />
-        <div className="overflow-auto rounded-xl border border-[#ececec] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <table className="w-full min-w-max border-collapse text-sm">
-            <thead className="bg-[#fafafa]">
+            <thead className="bg-surface-muted">
               <tr>
                 <th className={TH}>Giờ tạo</th>
                 <th className={TH}>Bệnh nhân</th>
@@ -124,7 +124,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
             <tbody>
               {sa.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-6 text-center text-[#888888]" colSpan={5}>
+                  <td className="px-3 py-6 text-center text-ink-muted" colSpan={5}>
                     Chưa có BN trong hàng đợi siêu âm.
                   </td>
                 </tr>
@@ -133,8 +133,8 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                   const st = r.status ?? "WAITING";
                   const done = st === "DONE" || st === "CANCELLED";
                   return (
-                    <tr key={r.id} className="hover:bg-[#fafafa]">
-                      <td className={`${TD} whitespace-nowrap tabular-nums text-[#52525b]`}>
+                    <tr key={r.id} className="hover:bg-surface-muted">
+                      <td className={`${TD} whitespace-nowrap tabular-nums text-ink-soft`}>
                         {fmtTime(r.created_at)}
                       </td>
                       <td className={TD}>{patientCell(r)}</td>
@@ -147,7 +147,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                             <button
                               onClick={() => send("PATCH", { id: r.id, action: "start" })}
                               disabled={busy}
-                              className="rounded-md bg-[#fef9c3] px-2 py-1 text-xs font-medium text-[#a16207] hover:brightness-95 disabled:opacity-50"
+                              className="rounded-md bg-warning-bg px-2 py-1 text-xs font-medium text-warning hover:brightness-95 disabled:opacity-50"
                             >
                               Bắt đầu
                             </button>
@@ -156,7 +156,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                             <button
                               onClick={() => send("PATCH", { id: r.id, action: "finish" })}
                               disabled={busy}
-                              className="rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-medium text-[#15803d] hover:brightness-95 disabled:opacity-50"
+                              className="rounded-md bg-success-bg px-2 py-1 text-xs font-medium text-success hover:brightness-95 disabled:opacity-50"
                             >
                               Hoàn tất
                             </button>
@@ -165,12 +165,12 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                             <button
                               onClick={() => send("PATCH", { id: r.id, action: "cancel" })}
                               disabled={busy}
-                              className="rounded-md bg-[#fee2e2] px-2 py-1 text-xs font-medium text-[#dc2626] hover:brightness-95 disabled:opacity-50"
+                              className="rounded-md bg-danger-bg px-2 py-1 text-xs font-medium text-danger hover:brightness-95 disabled:opacity-50"
                             >
                               Hủy
                             </button>
                           )}
-                          {done && <span className="text-xs text-[#a1a1aa]">—</span>}
+                          {done && <span className="text-xs text-ink-faint">—</span>}
                         </div>
                       </td>
                       <td className={`${TD} whitespace-nowrap text-right`}>
@@ -180,7 +180,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                             onClick={() => send("DELETE", { id: r.id })}
                             disabled={busy}
                             aria-label="Xoá"
-                            className="rounded-md p-1.5 text-[#a1a1aa] hover:bg-[#fee2e2] hover:text-[#dc2626] disabled:opacity-50"
+                            className="rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
                           >
                             <Trash2 size={15} />
                           </button>
@@ -197,13 +197,13 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
 
       {/* ===================== (b) HÀNG ĐỢI XÉT NGHIỆM ===================== */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-[#171717]">
+        <h2 className="text-sm font-semibold text-ink">
           (b) Hàng đợi xét nghiệm — 3 trạng thái
         </h2>
         <AddForm kind="XN" busy={busy} onAdd={(b) => send("POST", b)} />
-        <div className="overflow-auto rounded-xl border border-[#ececec] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <table className="w-full min-w-max border-collapse text-sm">
-            <thead className="bg-[#fafafa]">
+            <thead className="bg-surface-muted">
               <tr>
                 <th className={TH}>Bệnh nhân</th>
                 <th className={`${TH} text-center`}>Lấy mẫu</th>
@@ -215,13 +215,13 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
             <tbody>
               {xn.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-6 text-center text-[#888888]" colSpan={5}>
+                  <td className="px-3 py-6 text-center text-ink-muted" colSpan={5}>
                     Chưa có mẫu trong hàng đợi xét nghiệm.
                   </td>
                 </tr>
               ) : (
                 xn.map((r) => (
-                  <tr key={r.id} className="hover:bg-[#fafafa]">
+                  <tr key={r.id} className="hover:bg-surface-muted">
                     <td className={TD}>{patientCell(r)}</td>
                     <MilestoneCell
                       busy={busy}
@@ -251,7 +251,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                           onClick={() => send("DELETE", { id: r.id })}
                           disabled={busy}
                           aria-label="Xoá"
-                          className="rounded-md p-1.5 text-[#a1a1aa] hover:bg-[#fee2e2] hover:text-[#dc2626] disabled:opacity-50"
+                          className="rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -286,10 +286,10 @@ function MilestoneCell({
           onClick={() => onToggle(false)}
           disabled={busy}
           title="Bấm để bỏ đánh dấu"
-          className="inline-flex flex-col items-center rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-medium text-[#15803d] hover:brightness-95 disabled:opacity-50"
+          className="inline-flex flex-col items-center rounded-md bg-success-bg px-2 py-1 text-xs font-medium text-success hover:brightness-95 disabled:opacity-50"
         >
           <span>✓ Có</span>
-          <span className="tabular-nums text-[10px] text-[#15803d]/70">
+          <span className="tabular-nums text-[10px] text-success/70">
             {fmtTime(at)}
           </span>
         </button>
@@ -297,7 +297,7 @@ function MilestoneCell({
         <button
           onClick={() => onToggle(true)}
           disabled={busy}
-          className="rounded-md border border-[#e4e4e7] px-2 py-1 text-xs text-[#71717a] hover:border-[#ec4899] hover:text-[#ec4899] disabled:opacity-50"
+          className="rounded-md border border-line px-2 py-1 text-xs text-ink-muted hover:border-brand-600 hover:text-brand-600 disabled:opacity-50"
         >
           Đánh dấu
         </button>
@@ -330,7 +330,7 @@ function AddForm({
     }
   }
   return (
-    <div className="rounded-xl border border-[#e4e4e7] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+    <div className="rounded-xl border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px_auto] sm:items-end">
         <div>
           <label className={LABEL}>

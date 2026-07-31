@@ -67,16 +67,16 @@ export function ProgressStepper({
         // upcoming = viền nhạt.
         const node =
           state === "done"
-            ? "bg-[#16a34a] border-[#16a34a] text-white"
+            ? "bg-success border-success text-white"
             : state === "current"
-              ? "bg-white border-[#ec4899] ring-4 ring-[#ec4899]/15 animate-pulse motion-reduce:animate-none"
-              : "bg-white border-[#e4e4e7]";
+              ? "bg-white border-brand-600 ring-4 ring-brand-600/15 animate-pulse motion-reduce:animate-none"
+              : "bg-white border-line";
         const txt =
           state === "done"
-            ? "text-[#15803d] font-medium"
+            ? "text-success font-medium"
             : state === "current"
-              ? "text-[#ec4899] font-semibold"
-              : "text-[#a1a1aa]";
+              ? "text-brand-600 font-semibold"
+              : "text-ink-faint";
 
         return (
           <div key={m.key} className="flex flex-1 items-start">
@@ -87,7 +87,7 @@ export function ProgressStepper({
               <div className="flex w-full items-center">
                 {/* nửa đoạn nối TRÁI (ẩn ở mốc đầu) — xanh khi mốc trước đã done */}
                 <span
-                  className={`h-0.5 flex-1 ${i === 0 ? "opacity-0" : i <= reached ? "bg-[#16a34a]" : "bg-[#e4e4e7]"}`}
+                  className={`h-0.5 flex-1 ${i === 0 ? "opacity-0" : i <= reached ? "bg-success" : "bg-line"}`}
                 />
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${node}`}
@@ -95,12 +95,12 @@ export function ProgressStepper({
                   {state === "done" ? (
                     <Check size={13} strokeWidth={3} />
                   ) : state === "current" ? (
-                    <span className="h-2 w-2 rounded-full bg-[#ec4899]" />
+                    <span className="h-2 w-2 rounded-full bg-brand-600" />
                   ) : null}
                 </span>
                 {/* nửa đoạn nối PHẢI (ẩn ở mốc cuối) — xanh khi mốc này đã done */}
                 <span
-                  className={`h-0.5 flex-1 ${i === MILESTONES.length - 1 ? "opacity-0" : i < reached ? "bg-[#16a34a]" : "bg-[#e4e4e7]"}`}
+                  className={`h-0.5 flex-1 ${i === MILESTONES.length - 1 ? "opacity-0" : i < reached ? "bg-success" : "bg-line"}`}
                 />
               </div>
               <span className={`whitespace-nowrap text-[11px] leading-none ${txt}`}>
@@ -140,18 +140,18 @@ export function WaitClock({
   }, [checkedInAt, active]);
 
   if (!checkedInAt) return <span className="text-[11px] text-[#c4c4c8]">—</span>;
-  if (!active) return <span className="text-[11px] text-[#a1a1aa]">—</span>;
-  if (nowMs === null) return <span className="text-[11px] text-[#a1a1aa]">…</span>;
+  if (!active) return <span className="text-[11px] text-ink-faint">—</span>;
+  if (nowMs === null) return <span className="text-[11px] text-ink-faint">…</span>;
 
   const totalSec = Math.max(0, Math.floor((nowMs - new Date(checkedInAt).getTime()) / 1000));
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   const cls =
     min < WAIT_GREEN_MAX
-      ? "bg-[#dcfce7] text-[#15803d]"
+      ? "bg-success-bg text-success"
       : min < WAIT_YELLOW_MAX
-        ? "bg-[#fef9c3] text-[#a16207]"
-        : "bg-[#fee2e2] text-[#dc2626]";
+        ? "bg-warning-bg text-warning"
+        : "bg-danger-bg text-danger";
 
   return (
     <span

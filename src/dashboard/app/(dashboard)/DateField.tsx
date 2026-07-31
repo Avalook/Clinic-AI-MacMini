@@ -182,13 +182,13 @@ export default function DateField({
         onBlur={onBlur}
         placeholder="DD/MM/YYYY"
         aria-label={ariaLabel}
-        className={(className ?? INPUT) + (invalid ? " border-[#dc2626]" : "")}
+        className={(className ?? INPUT) + (invalid ? " border-danger" : "")}
       />
       <button
         type="button"
         onClick={openPicker}
         aria-label="Chọn ngày từ lịch"
-        className="shrink-0 rounded-lg border border-[#e4e4e7] bg-white p-2 text-[#71717a] hover:bg-[#f4f4f5]"
+        className="shrink-0 rounded-lg border border-line bg-white p-2 text-ink-muted hover:bg-surface-sunken"
       >
         <CalendarDays size={18} />
       </button>

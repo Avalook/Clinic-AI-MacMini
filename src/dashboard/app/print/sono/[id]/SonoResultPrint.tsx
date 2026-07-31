@@ -63,49 +63,49 @@ export default function SonoResultPrint({ data }: { data: SonoPrintData }) {
       <div className="no-print flex gap-2">
         <button
           onClick={() => window.print()}
-          className="rounded-lg bg-[#ec4899] px-4 py-2 text-sm font-medium text-white hover:brightness-95"
+          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:brightness-95"
         >
           In phiếu (khổ ngang)
         </button>
       </div>
 
       <div className="sheet">
-        <header className="mb-4 flex items-start justify-between border-b-2 border-[#171717] pb-3">
+        <header className="mb-4 flex items-start justify-between border-b-2 border-ink pb-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-[#52525b]">
+            <p className="text-xs uppercase tracking-wide text-ink-soft">
               Phòng khám Dr4women
             </p>
             <h1 className="text-lg font-bold">{title}</h1>
           </div>
-          <div className="text-right text-xs text-[#52525b]">
+          <div className="text-right text-xs text-ink-soft">
             <p>Ngày in: {fmtVn(new Date().toISOString())}</p>
           </div>
         </header>
 
         {/* Thông tin BN — 2 cột ngang */}
         <section className="mb-4 grid grid-cols-2 gap-x-10 gap-y-1 text-sm">
-          <div className="flex justify-between border-b border-[#e4e4e7] py-1">
-            <span className="text-[#71717a]">Họ tên</span>
+          <div className="flex justify-between border-b border-line py-1">
+            <span className="text-ink-muted">Họ tên</span>
             <span className="font-medium">{data.patient_name || "—"}</span>
           </div>
-          <div className="flex justify-between border-b border-[#e4e4e7] py-1">
-            <span className="text-[#71717a]">Mã BN</span>
+          <div className="flex justify-between border-b border-line py-1">
+            <span className="text-ink-muted">Mã BN</span>
             <span className="font-medium">{data.patient_code || "—"}</span>
           </div>
-          <div className="flex justify-between border-b border-[#e4e4e7] py-1">
-            <span className="text-[#71717a]">Ngày sinh</span>
+          <div className="flex justify-between border-b border-line py-1">
+            <span className="text-ink-muted">Ngày sinh</span>
             <span className="font-medium">{ymdToDmy(data.date_of_birth)}</span>
           </div>
-          <div className="flex justify-between border-b border-[#e4e4e7] py-1">
-            <span className="text-[#71717a]">Giới tính</span>
+          <div className="flex justify-between border-b border-line py-1">
+            <span className="text-ink-muted">Giới tính</span>
             <span className="font-medium">{data.gender || "—"}</span>
           </div>
-          <div className="flex justify-between border-b border-[#e4e4e7] py-1">
-            <span className="text-[#71717a]">SĐT</span>
+          <div className="flex justify-between border-b border-line py-1">
+            <span className="text-ink-muted">SĐT</span>
             <span className="font-medium">{data.phone || "—"}</span>
           </div>
-          <div className="flex justify-between border-b border-[#e4e4e7] py-1">
-            <span className="text-[#71717a]">Dịch vụ</span>
+          <div className="flex justify-between border-b border-line py-1">
+            <span className="text-ink-muted">Dịch vụ</span>
             <span className="font-medium">{data.service_name || "—"}</span>
           </div>
         </section>
@@ -114,17 +114,17 @@ export default function SonoResultPrint({ data }: { data: SonoPrintData }) {
         <section className="mb-4">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="bg-[#fafafa]">
+              <tr className="bg-surface-muted">
                 {isXn ? (
                   <>
-                    <th className="border border-[#e4e4e7] px-3 py-1.5 text-left">Lấy mẫu</th>
-                    <th className="border border-[#e4e4e7] px-3 py-1.5 text-left">Gửi lab</th>
-                    <th className="border border-[#e4e4e7] px-3 py-1.5 text-left">Có kết quả</th>
+                    <th className="border border-line px-3 py-1.5 text-left">Lấy mẫu</th>
+                    <th className="border border-line px-3 py-1.5 text-left">Gửi lab</th>
+                    <th className="border border-line px-3 py-1.5 text-left">Có kết quả</th>
                   </>
                 ) : (
                   <>
-                    <th className="border border-[#e4e4e7] px-3 py-1.5 text-left">Bắt đầu</th>
-                    <th className="border border-[#e4e4e7] px-3 py-1.5 text-left">Hoàn tất</th>
+                    <th className="border border-line px-3 py-1.5 text-left">Bắt đầu</th>
+                    <th className="border border-line px-3 py-1.5 text-left">Hoàn tất</th>
                   </>
                 )}
               </tr>
@@ -133,14 +133,14 @@ export default function SonoResultPrint({ data }: { data: SonoPrintData }) {
               <tr>
                 {isXn ? (
                   <>
-                    <td className="border border-[#e4e4e7] px-3 py-1.5">{fmtVn(data.started_at)}</td>
-                    <td className="border border-[#e4e4e7] px-3 py-1.5">{fmtVn(data.sent_to_lab_at)}</td>
-                    <td className="border border-[#e4e4e7] px-3 py-1.5">{fmtVn(data.finished_at)}</td>
+                    <td className="border border-line px-3 py-1.5">{fmtVn(data.started_at)}</td>
+                    <td className="border border-line px-3 py-1.5">{fmtVn(data.sent_to_lab_at)}</td>
+                    <td className="border border-line px-3 py-1.5">{fmtVn(data.finished_at)}</td>
                   </>
                 ) : (
                   <>
-                    <td className="border border-[#e4e4e7] px-3 py-1.5">{fmtVn(data.started_at)}</td>
-                    <td className="border border-[#e4e4e7] px-3 py-1.5">{fmtVn(data.finished_at)}</td>
+                    <td className="border border-line px-3 py-1.5">{fmtVn(data.started_at)}</td>
+                    <td className="border border-line px-3 py-1.5">{fmtVn(data.finished_at)}</td>
                   </>
                 )}
               </tr>
@@ -151,21 +151,21 @@ export default function SonoResultPrint({ data }: { data: SonoPrintData }) {
         {/* Kết quả */}
         <section className="mb-6">
           <p className="mb-1 text-sm font-semibold">Kết quả / Mô tả</p>
-          <div className="min-h-[120px] whitespace-pre-wrap rounded border border-[#e4e4e7] p-3 text-sm">
+          <div className="min-h-[120px] whitespace-pre-wrap rounded border border-line p-3 text-sm">
             {data.result_text || ""}
           </div>
         </section>
 
         <footer className="mt-8 flex justify-end gap-16 text-center text-sm">
           <div>
-            <p className="text-[#71717a]">Người thực hiện</p>
-            <div className="mt-12 border-t border-[#171717] px-8 pt-1 text-xs text-[#71717a]">
+            <p className="text-ink-muted">Người thực hiện</p>
+            <div className="mt-12 border-t border-ink px-8 pt-1 text-xs text-ink-muted">
               Ký, ghi rõ họ tên
             </div>
           </div>
           <div>
-            <p className="text-[#71717a]">Bác sĩ phụ trách</p>
-            <div className="mt-12 border-t border-[#171717] px-8 pt-1 text-xs text-[#71717a]">
+            <p className="text-ink-muted">Bác sĩ phụ trách</p>
+            <div className="mt-12 border-t border-ink px-8 pt-1 text-xs text-ink-muted">
               Ký, ghi rõ họ tên
             </div>
           </div>

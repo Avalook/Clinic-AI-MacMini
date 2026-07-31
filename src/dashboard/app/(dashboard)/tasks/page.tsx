@@ -234,7 +234,7 @@ async function CashierTasks(modes: CashierMode[]) {
 
   if (error) {
     return (
-      <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+      <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
         {error.message}
       </div>
     );
@@ -357,25 +357,25 @@ async function DoctorTasks(
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">Công việc của tôi</h1>
+        <h1 className="text-xl font-semibold text-ink">Công việc của tôi</h1>
         {readOnly && (
-          <p className="mt-0.5 text-sm text-[#888888]">
+          <p className="mt-0.5 text-sm text-ink-muted">
             Xem lịch khám của tất cả bác sĩ — bấm tên bệnh nhân để sửa thông tin hành chính.
           </p>
         )}
         {allDoctors && !readOnly && (
-          <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-[#9d2463]">
-            <span className="rounded bg-[#fce7f3] px-1.5 py-0.5 text-[11px] font-medium">
+          <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-brand-800">
+            <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[11px] font-medium">
               ✍ Nhập hộ bệnh án
             </span>
-            <span className="text-[#888888]">
+            <span className="text-ink-muted">
               Xem hàng đợi của tất cả bác sĩ & nhập hồ sơ — bác sĩ chốt khám xong.
             </span>
           </p>
         )}
       </header>
       {error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       ) : (
@@ -500,16 +500,16 @@ export default async function TasksPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">
+        <h1 className="text-xl font-semibold text-ink">
           Tình trạng lịch hẹn
         </h1>
-        <p className="text-sm text-[#888888]">
+        <p className="text-sm text-ink-muted">
           Theo dõi hồ sơ · click tên khách hàng để xem thông tin & xác nhận lịch.
         </p>
       </header>
 
       {apptRes.error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {apptRes.error.message}
         </div>
       ) : (
@@ -522,7 +522,7 @@ export default async function TasksPage() {
           />
 
           {/* Ý nghĩa từng trạng thái — để phòng khám đọc hiểu (PM yêu cầu) */}
-          <dl className="grid gap-2.5 rounded-lg border border-[#e4e4e7] bg-[#fafafa] px-4 py-3 text-xs text-[#52525b] sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="grid gap-2.5 rounded-lg border border-line bg-surface-muted px-4 py-3 text-xs text-ink-soft sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 dot: "#2563eb",
@@ -551,7 +551,7 @@ export default async function TasksPage() {
                   style={{ backgroundColor: s.dot }}
                 />
                 <div>
-                  <dt className="font-semibold text-[#171717]">{s.term}</dt>
+                  <dt className="font-semibold text-ink">{s.term}</dt>
                   <dd>{s.desc}</dd>
                 </div>
               </div>
@@ -562,15 +562,15 @@ export default async function TasksPage() {
               khi nối Zalo/Pancake; hiện CSKH có thể ghi tay 1 việc qua nút "+". */}
           <section className="space-y-2">
             <div>
-              <h2 className="text-base font-semibold text-[#171717]">
+              <h2 className="text-base font-semibold text-ink">
                 Nhật ký chăm sóc khách hàng (CSKH)
               </h2>
-              <p className="text-sm text-[#888888]">
+              <p className="text-sm text-ink-muted">
                 Các việc CSKH theo loại (từ bảng CSKH-Action) · mỗi thẻ = 1 lần
                 thao tác với khách. Bấm “+ Thêm việc” trên mỗi cột để ghi tay.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 rounded-md bg-[#fef3c7] px-2 py-0.5 text-xs font-medium text-[#a16207]">
+                <span className="inline-flex items-center gap-1 rounded-md bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning">
                   🚧 Đang xây dựng
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-md bg-[#eff6ff] px-2 py-0.5 text-xs text-[#1d4ed8]">
@@ -580,7 +580,7 @@ export default async function TasksPage() {
               </div>
             </div>
             {cskhRes.error ? (
-              <div className="rounded-md bg-[#fef9c3] px-3 py-2 text-sm text-[#a16207]">
+              <div className="rounded-md bg-warning-bg px-3 py-2 text-sm text-warning">
                 Chưa đọc được CSKH-Action: {cskhRes.error.message}
               </div>
             ) : (

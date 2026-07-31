@@ -45,14 +45,14 @@ export default async function EpisodesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-[#171717]">Đóng đợt khám</h1>
-        <p className="mt-1 text-sm text-[#71717a]">
+        <h1 className="text-lg font-semibold text-ink">Đóng đợt khám</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           Bác sĩ đã khám xong mà chưa hẹn lần sau. Xác nhận giúp: đợt đã{" "}
           <b>kết thúc</b> (đóng) hay bệnh nhân còn <b>theo dõi tiếp</b> (để mở).
         </p>
       </div>
       {error ? (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
           Lỗi tải danh sách: {error.message}
         </p>
       ) : (

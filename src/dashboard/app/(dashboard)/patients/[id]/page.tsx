@@ -90,15 +90,15 @@ export default async function PatientDetailPage({
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">Hồ sơ bệnh nhân</h1>
-        <p className="text-sm text-[#888888]">
+        <h1 className="text-xl font-semibold text-ink">Hồ sơ bệnh nhân</h1>
+        <p className="text-sm text-ink-muted">
           Thông tin hành chính bệnh nhân + lịch hẹn. CCCD KHÔNG hiển thị (bảo mật
           D-identity). · Hồ sơ khám bệnh (phiếu khám) do bác sĩ xem ở mục “Công
           việc của tôi”.
         </p>
       </header>
       {isNew && (
-        <div className="rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-sm text-[#15803d]">
+        <div className="rounded-lg border border-success-bg bg-success-bg px-4 py-3 text-sm text-success">
           ✓ Đã tạo hồ sơ bệnh nhân
           {code ? (
             <>
@@ -125,7 +125,7 @@ export default async function PatientDetailPage({
       {canSeeClinicalHistory ? (
         <PatientHistory id={id} canReviewLabs={isDoctorRole(role)} />
       ) : (
-        <section className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-3 text-sm text-[#71717a]">
+        <section className="rounded-lg border border-line bg-white px-4 py-3 text-sm text-ink-muted">
           Hồ sơ lâm sàng chỉ hiển thị cho bác sĩ, điều dưỡng và thư ký y khoa.
           Thông tin hành chính và nhật ký CSKH vẫn hiển thị ở trên.
         </section>

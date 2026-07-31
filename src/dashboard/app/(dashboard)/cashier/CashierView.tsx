@@ -110,7 +110,7 @@ export default function CashierView({
       {/* Toggle 2 view — chỉ hiện khi KHÔNG khoá nhóm (trang gộp cũ). Trang
           Bảng giá thuốc / dịch vụ truyền group → ẩn toggle. */}
       {!lockedGroup && (
-        <div className="inline-flex rounded-xl border border-[#e4e4e7] bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="inline-flex rounded-xl border border-line bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {VIEWS.map((v) => (
             <button
               key={v}
@@ -118,8 +118,8 @@ export default function CashierView({
               className={
                 "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors " +
                 (view === v
-                  ? "bg-[#ec4899] text-white"
-                  : "text-[#52525b] hover:bg-[#fdf2f8]")
+                  ? "bg-brand-600 text-white"
+                  : "text-ink-soft hover:bg-brand-50")
               }
             >
               {VIEW_LABEL[v]}
@@ -129,14 +129,14 @@ export default function CashierView({
       )}
 
       {error && (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
 
       {/* Form thêm dòng giá */}
-      <div className="rounded-xl border border-[#e4e4e7] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-[#171717]">
+      <div className="rounded-xl border border-line bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <h2 className="mb-3 text-sm font-semibold text-ink">
           Thêm vào bảng giá — {VIEW_LABEL[view]}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -177,23 +177,23 @@ export default function CashierView({
       </div>
 
       {/* Bảng giá */}
-      <div className="overflow-auto rounded-xl border border-[#ececec] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <table className="w-full min-w-max border-collapse text-sm">
-          <thead className="bg-[#fafafa]">
+          <thead className="bg-surface-muted">
             <tr>
-              <th className="border-b border-[#ececec] px-3 py-2 text-left font-semibold text-[#525252]">
+              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
                 Mã
               </th>
-              <th className="border-b border-[#ececec] px-3 py-2 text-left font-semibold text-[#525252]">
+              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
                 Tên
               </th>
-              <th className="border-b border-[#ececec] px-3 py-2 text-left font-semibold text-[#525252]">
+              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
                 Đơn giá
               </th>
-              <th className="border-b border-[#ececec] px-3 py-2 text-left font-semibold text-[#525252]">
+              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
                 Hiệu lực
               </th>
-              <th className="border-b border-[#ececec] px-3 py-2 text-right font-semibold text-[#525252]">
+              <th className="border-b border-surface-sunken px-3 py-2 text-right font-semibold text-[#525252]">
                 {""}
               </th>
             </tr>
@@ -201,7 +201,7 @@ export default function CashierView({
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-center text-[#888888]" colSpan={5}>
+                <td className="px-3 py-6 text-center text-ink-muted" colSpan={5}>
                   Chưa có dòng giá nào trong {VIEW_LABEL[view].toLowerCase()}.
                 </td>
               </tr>
@@ -210,17 +210,17 @@ export default function CashierView({
                 const d = draft[r.id];
                 const editing = d !== undefined;
                 return (
-                  <tr key={r.id} className="hover:bg-[#fafafa]">
-                    <td className="border-b border-[#f3f3f3] px-3 py-2 font-mono text-xs text-[#52525b]">
+                  <tr key={r.id} className="hover:bg-surface-muted">
+                    <td className="border-b border-[#f3f3f3] px-3 py-2 font-mono text-xs text-ink-soft">
                       {r.service_code}
                     </td>
-                    <td className="border-b border-[#f3f3f3] px-3 py-2 text-[#171717]">
+                    <td className="border-b border-[#f3f3f3] px-3 py-2 text-ink">
                       {r.name}
                     </td>
                     <td className="border-b border-[#f3f3f3] px-3 py-2">
                       <div className="flex items-center gap-2">
                         <input
-                          className="h-8 w-32 rounded-md border border-[#e4e4e7] px-2 text-sm tabular-nums outline-none focus:border-[#ec4899]"
+                          className="h-8 w-32 rounded-md border border-line px-2 text-sm tabular-nums outline-none focus:border-brand-600"
                           inputMode="numeric"
                           value={
                             editing ? d : r.unit_price === null ? "" : String(r.unit_price)
@@ -234,19 +234,19 @@ export default function CashierView({
                           <button
                             onClick={() => savePrice(r.id)}
                             disabled={busy}
-                            className="rounded-md bg-[#ec4899] px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+                            className="rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
                           >
                             Lưu
                           </button>
                         ) : (
-                          <span className="text-xs text-[#a1a1aa]">
+                          <span className="text-xs text-ink-faint">
                             {fmtVnd(r.unit_price)}
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="border-b border-[#f3f3f3] px-3 py-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-[#52525b]">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
                         <input
                           type="checkbox"
                           checked={r.active}
@@ -261,7 +261,7 @@ export default function CashierView({
                         onClick={() => remove(r.id)}
                         disabled={busy}
                         aria-label="Xoá"
-                        className="rounded-md p-1.5 text-[#a1a1aa] hover:bg-[#fee2e2] hover:text-[#dc2626] disabled:opacity-50"
+                        className="rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
                       >
                         <Trash2 size={15} />
                       </button>

@@ -79,7 +79,7 @@ export default function SearchSelect({
         style={selected && !disabled ? { paddingRight: 34 } : undefined}
         className={
           INPUT +
-          (invalid ? " border-[#dc2626]" : "") +
+          (invalid ? " border-danger" : "") +
           (disabled ? " cursor-not-allowed opacity-60" : "")
         }
         onFocus={() => {
@@ -127,7 +127,7 @@ export default function SearchSelect({
             e.preventDefault();
             clear();
           }}
-          className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[15px] leading-none text-[#a1a1aa] hover:bg-[#fce7f3] hover:text-[#dc2626]"
+          className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[15px] leading-none text-ink-faint hover:bg-brand-100 hover:text-danger"
         >
           ×
         </button>
@@ -136,14 +136,14 @@ export default function SearchSelect({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg"
+          className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg"
         >
           {filtered.length === 0 ? (
             <li
               role="option"
               aria-disabled="true"
               aria-selected="false"
-              className="px-3 py-2 text-sm text-[#a1a1aa]"
+              className="px-3 py-2 text-sm text-ink-faint"
             >
               {emptyText}
             </li>
@@ -161,10 +161,10 @@ export default function SearchSelect({
                 onMouseEnter={() => setHi(i)}
                 className={
                   "cursor-pointer px-3 py-2 text-sm " +
-                  (i === hi ? "bg-[#fce7f3] " : "hover:bg-[#fdf2f8] ") +
+                  (i === hi ? "bg-brand-100 " : "hover:bg-brand-50 ") +
                   (o.value === value
-                    ? "font-medium text-[#9d2463]"
-                    : "text-[#171717]")
+                    ? "font-medium text-brand-800"
+                    : "text-ink")
                 }
               >
                 {o.label}

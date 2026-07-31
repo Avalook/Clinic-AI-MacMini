@@ -94,7 +94,7 @@ export default function DoctorLoadBoard({
 
   if (doctorIds.length === 0) {
     return (
-      <p className="rounded-lg border border-[#e4e4e7] bg-gray-50 px-3 py-2 text-xs text-[#71717a]">
+      <p className="rounded-lg border border-line bg-gray-50 px-3 py-2 text-xs text-ink-muted">
         Chọn cơ sở để xem danh sách bác sĩ.
       </p>
     );
@@ -106,34 +106,34 @@ export default function DoctorLoadBoard({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#71717a]">
-        <span className="font-medium text-[#171717]">Tải hôm nay theo bác sĩ</span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
+        <span className="font-medium text-ink">Tải hôm nay theo bác sĩ</span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded border border-[#f3cfe0] bg-white" /> Chưa đến
+          <span className="inline-block h-3 w-3 rounded border border-brand-100 bg-white" /> Chưa đến
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-[#15803d]" /> Đã đến
+          <span className="inline-block h-3 w-3 rounded bg-success" /> Đã đến
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-[#e5e7eb]" /> Đã xong
+          <span className="inline-block h-3 w-3 rounded bg-line" /> Đã xong
         </span>
         {onPick && (
-          <span className="font-medium text-[#9d2463]">— Bấm tên/ô để chọn bác sĩ đỡ nghẽn</span>
+          <span className="font-medium text-brand-800">— Bấm tên/ô để chọn bác sĩ đỡ nghẽn</span>
         )}
       </div>
-      <div className="overflow-x-auto rounded-xl border border-[#f3cfe0]">
+      <div className="overflow-x-auto rounded-xl border border-brand-100">
         <table className="border-separate border-spacing-1 p-2">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-white px-2 text-left text-[11px] font-medium text-[#71717a]">
+              <th className="sticky left-0 z-10 bg-white px-2 text-left text-[11px] font-medium text-ink-muted">
                 Bác sĩ \ Giờ
               </th>
               {times.map((t) => (
-                <th key={t} className="px-0.5 text-[10px] font-normal text-[#a1a1aa]">
+                <th key={t} className="px-0.5 text-[10px] font-normal text-ink-faint">
                   {t}
                 </th>
               ))}
-              <th className="px-1 text-[10px] font-normal text-[#a1a1aa]">Tổng</th>
+              <th className="px-1 text-[10px] font-normal text-ink-faint">Tổng</th>
             </tr>
           </thead>
           <tbody>
@@ -141,10 +141,10 @@ export default function DoctorLoadBoard({
               const isSel = id === selectedDoctorId;
               const pickable = id !== "" && !!onPick;
               return (
-                <tr key={id || NO_DOCTOR} className={isSel ? "bg-[#fdf2f8]" : undefined}>
+                <tr key={id || NO_DOCTOR} className={isSel ? "bg-brand-50" : undefined}>
                   <td
                     className={
-                      "sticky left-0 z-10 p-0 " + (isSel ? "bg-[#fdf2f8]" : "bg-white")
+                      "sticky left-0 z-10 p-0 " + (isSel ? "bg-brand-50" : "bg-white")
                     }
                   >
                     <button
@@ -154,9 +154,9 @@ export default function DoctorLoadBoard({
                       className={
                         "w-full whitespace-nowrap px-2 py-1 text-left text-xs " +
                         (isSel
-                          ? "font-semibold text-[#9d2463]"
-                          : "font-medium text-[#171717]") +
-                        (pickable ? " cursor-pointer hover:bg-[#fce7f3]" : " cursor-default")
+                          ? "font-semibold text-brand-800"
+                          : "font-medium text-ink") +
+                        (pickable ? " cursor-pointer hover:bg-brand-100" : " cursor-default")
                       }
                     >
                       {labelOf(id)}
@@ -173,7 +173,7 @@ export default function DoctorLoadBoard({
                           title={pickable ? `Chọn ${labelOf(id)} cho ca này` : undefined}
                           className={
                             "flex min-h-7 w-full flex-col items-center gap-0.5 rounded px-0.5 " +
-                            (pickable ? "cursor-pointer hover:bg-[#fce7f3]" : "cursor-default")
+                            (pickable ? "cursor-pointer hover:bg-brand-100" : "cursor-default")
                           }
                         >
                           {cell.map((a, i) => {
@@ -188,10 +188,10 @@ export default function DoctorLoadBoard({
                                 className={
                                   "flex h-6 min-w-8 items-center justify-center rounded px-1 text-[10px] font-semibold " +
                                   (arrived
-                                    ? "bg-[#15803d] text-white"
+                                    ? "bg-success text-white"
                                     : done
-                                      ? "bg-[#e5e7eb] text-[#a1a1aa]"
-                                      : "border border-[#f3cfe0] bg-white text-[#9d2463]")
+                                      ? "bg-line text-ink-faint"
+                                      : "border border-brand-100 bg-white text-brand-800")
                                 }
                               >
                                 {label}
@@ -205,12 +205,12 @@ export default function DoctorLoadBoard({
                   <td
                     className={
                       "px-1 text-center text-[11px] " +
-                      (isSel ? "font-semibold text-[#9d2463]" : "text-[#71717a]")
+                      (isSel ? "font-semibold text-brand-800" : "text-ink-muted")
                     }
                   >
                     {countFor(id)}
                     {arrivedFor(id) > 0 && (
-                      <span className="text-[#15803d]"> ({arrivedFor(id)}↩)</span>
+                      <span className="text-success"> ({arrivedFor(id)}↩)</span>
                     )}
                   </td>
                 </tr>

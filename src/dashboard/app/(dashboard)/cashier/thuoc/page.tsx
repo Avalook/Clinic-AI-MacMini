@@ -24,14 +24,14 @@ export default async function PriceThuocPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">Bảng giá thuốc</h1>
-        <p className="text-sm text-[#888888]">
+        <h1 className="text-xl font-semibold text-ink">Bảng giá thuốc</h1>
+        <p className="text-sm text-ink-muted">
           Danh mục giá thuốc. Đơn giá để trống = chưa chốt giá (nhập sau).
         </p>
       </header>
 
       {error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       ) : (

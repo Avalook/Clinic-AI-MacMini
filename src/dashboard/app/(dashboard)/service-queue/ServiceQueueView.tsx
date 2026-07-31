@@ -45,23 +45,23 @@ function ActiveCard({ row }: { row: ServiceRow }) {
   }
 
   return (
-    <div className="rounded-xl border border-[#f3cfe0] bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+    <div className="rounded-xl border border-brand-100 bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-[#171717]">
+        <span className="text-sm font-semibold text-ink">
           {row.service_name_raw}
         </span>
-        <span className="shrink-0 rounded-full bg-[#fce7f3] px-2 py-0.5 text-[11px] font-medium text-[#9d2463]">
+        <span className="shrink-0 rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-medium text-brand-800">
           {started ? "Đang làm" : "Chờ làm"}
         </span>
       </div>
-      <span className="block truncate text-xs text-[#888888]">
+      <span className="block truncate text-xs text-ink-muted">
         {row.patient
           ? `${row.patient.full_name} · ${row.patient.patient_code}`
           : "(không gắn BN)"}
         {row.performer_text ? ` · ${row.performer_text}` : ""}
       </span>
       {started && (
-        <span className="mt-0.5 block text-[11px] text-[#a1a1aa]">
+        <span className="mt-0.5 block text-[11px] text-ink-faint">
           Bắt đầu: {isVnMidnight(row.started_at) ? "—" : fmtTime(row.started_at)}
         </span>
       )}
@@ -75,7 +75,7 @@ function ActiveCard({ row }: { row: ServiceRow }) {
             placeholder="Kết quả / ghi chú khi hoàn tất"
           />
         )}
-        {err && <p className="text-xs text-[#dc2626]">{err}</p>}
+        {err && <p className="text-xs text-danger">{err}</p>}
         <div className="flex gap-2">
           {!started && (
             <button
@@ -89,7 +89,7 @@ function ActiveCard({ row }: { row: ServiceRow }) {
           <button
             onClick={() => act("finish")}
             disabled={busy}
-            className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-[#16a34a] px-3 text-sm font-semibold text-white hover:bg-[#15803d] disabled:opacity-50"
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-success px-3 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
           >
             <Check size={14} /> Hoàn tất
           </button>
@@ -143,7 +143,7 @@ export default function ServiceQueueView({
   return (
     <div className="space-y-4">
       {/* Tạo việc dịch vụ */}
-      <div className="rounded-xl border border-[#f3cfe0] bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+      <div className="rounded-xl border border-brand-100 bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <div className="sm:col-span-1">
             <label className={LABEL}>Tên dịch vụ / thủ thuật *</label>
@@ -173,11 +173,11 @@ export default function ServiceQueueView({
             />
           </div>
         </div>
-        {err && <p className="mt-2 text-xs text-[#dc2626]">{err}</p>}
+        {err && <p className="mt-2 text-xs text-danger">{err}</p>}
         <button
           onClick={create}
           disabled={busy}
-          className="mt-2 inline-flex min-h-9 items-center gap-1 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+          className="mt-2 inline-flex min-h-9 items-center gap-1 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           <Plus size={14} /> {busy ? "Đang tạo…" : "Thêm việc"}
         </button>
@@ -185,11 +185,11 @@ export default function ServiceQueueView({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section>
-          <h2 className="mb-2 text-base font-semibold text-[#171717]">
+          <h2 className="mb-2 text-base font-semibold text-ink">
             Đang làm / chờ ({active.length})
           </h2>
           {active.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-[#f3cfe0] bg-white px-4 py-10 text-center text-sm text-[#a1a1aa]">
+            <p className="rounded-xl border border-dashed border-brand-100 bg-white px-4 py-10 text-center text-sm text-ink-faint">
               Không có việc dịch vụ nào đang chờ.
             </p>
           ) : (
@@ -202,31 +202,31 @@ export default function ServiceQueueView({
         </section>
 
         <section>
-          <h2 className="mb-2 text-base font-semibold text-[#171717]">
+          <h2 className="mb-2 text-base font-semibold text-ink">
             Đã hoàn tất gần đây ({done.length})
           </h2>
-          <div className="max-h-[70vh] space-y-2 overflow-y-auto rounded-xl border border-[#f3cfe0] bg-white p-2 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+          <div className="max-h-[70vh] space-y-2 overflow-y-auto rounded-xl border border-brand-100 bg-white p-2 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
             {done.length === 0 ? (
-              <p className="px-2 py-10 text-center text-sm text-[#a1a1aa]">
+              <p className="px-2 py-10 text-center text-sm text-ink-faint">
                 Chưa có việc nào hoàn tất.
               </p>
             ) : (
               done.map((r) => (
-                <div key={r.id} className="rounded-lg border border-[#e4e4e7] p-2.5">
-                  <span className="block truncate text-sm font-medium text-[#171717]">
+                <div key={r.id} className="rounded-lg border border-line p-2.5">
+                  <span className="block truncate text-sm font-medium text-ink">
                     {r.service_name_raw}
                   </span>
-                  <span className="block truncate text-xs text-[#888888]">
+                  <span className="block truncate text-xs text-ink-muted">
                     {r.patient
                       ? `${r.patient.full_name} · ${r.patient.patient_code}`
                       : "(không gắn BN)"}
                   </span>
                   {r.result_text && (
-                    <span className="mt-0.5 block text-xs text-[#52525b]">
+                    <span className="mt-0.5 block text-xs text-ink-soft">
                       {r.result_text}
                     </span>
                   )}
-                  <span className="mt-0.5 block text-[11px] text-[#a1a1aa]">
+                  <span className="mt-0.5 block text-[11px] text-ink-faint">
                     {fmtDateTimeOrDate(r.finished_at)}
                   </span>
                 </div>

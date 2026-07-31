@@ -40,7 +40,7 @@ export default function EpisodesBoard({ rows }: { rows: EpisodeRow[] }) {
 
   if (rows.length === 0) {
     return (
-      <p className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-6 text-center text-sm text-[#71717a]">
+      <p className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
         Không có đợt khám nào đang chờ xác nhận. 🎉
       </p>
     );
@@ -49,25 +49,25 @@ export default function EpisodesBoard({ rows }: { rows: EpisodeRow[] }) {
   return (
     <div className="space-y-3">
       {error && (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">{error}</p>
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
       )}
       <ul className="space-y-2">
         {rows.map((r) => (
           <li
             key={r.id}
-            className="flex flex-col gap-3 rounded-lg border border-[#f3cfe0] bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-3 rounded-lg border border-brand-100 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="min-w-0">
-              <p className="font-medium text-[#171717]">
+              <p className="font-medium text-ink">
                 {r.patient_name}
                 {r.patient_code && (
-                  <span className="ml-2 text-xs text-[#a1a1aa]">{r.patient_code}</span>
+                  <span className="ml-2 text-xs text-ink-faint">{r.patient_code}</span>
                 )}
               </p>
-              <p className="text-sm text-[#52525b]">
+              <p className="text-sm text-ink-soft">
                 {r.service_name}
                 {" · "}
-                <span className="text-[#71717a]">
+                <span className="text-ink-muted">
                   lượt gần nhất{" "}
                   {r.last_visit_at ? fmtDate(r.last_visit_at) : fmtDate(r.opened_at)}
                 </span>
@@ -77,14 +77,14 @@ export default function EpisodesBoard({ rows }: { rows: EpisodeRow[] }) {
               <button
                 onClick={() => act(r.id, "close")}
                 disabled={busyId === r.id}
-                className="min-h-9 rounded-lg bg-[#ec4899] px-3 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+                className="min-h-9 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 Xác nhận đóng
               </button>
               <button
                 onClick={() => act(r.id, "reopen")}
                 disabled={busyId === r.id}
-                className="min-h-9 rounded-lg border border-[#e4e4e7] bg-white px-3 text-sm text-[#52525b] hover:bg-[#f4f4f5] disabled:opacity-50"
+                className="min-h-9 rounded-lg border border-line bg-white px-3 text-sm text-ink-soft hover:bg-surface-sunken disabled:opacity-50"
               >
                 Còn theo dõi
               </button>

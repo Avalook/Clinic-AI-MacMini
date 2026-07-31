@@ -152,28 +152,28 @@ export default function AppointmentEditModal({
           <div className="min-w-0">
             <h3
               id="appointment-edit-title"
-              className="text-base font-semibold text-[#171717]"
+              className="text-base font-semibold text-ink"
             >
               Đổi / hủy lịch hẹn
             </h3>
-            <p className="truncate text-xs text-[#888888]">{patientName}</p>
+            <p className="truncate text-xs text-ink-muted">{patientName}</p>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="rounded-md p-1 text-[#71717a] hover:bg-[#f4f4f5]"
+            className="rounded-md p-1 text-ink-muted hover:bg-surface-sunken"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="mb-4 rounded-lg border border-[#f3cfe0] bg-[#fdf2f8] px-3 py-2 text-sm text-[#9d2463]">
+        <div className="mb-4 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm text-brand-800">
           Lịch hiện tại: <b>{fmtDateTimeOrDate(appt.slot_start)}</b>
           {appt.doctor_name ? ` · ${appt.doctor_name}` : ""}
           {appt.service_name ? ` · ${appt.service_name}` : ""}
-          <span className="mt-1 block text-xs text-[#9d2463]/80">
+          <span className="mt-1 block text-xs text-brand-800/80">
             Chọn ngày/giờ mới bên dưới rồi bấm “Đổi lịch hẹn”. Chưa đổi thì nút
             vẫn khoá.
           </span>
@@ -192,7 +192,7 @@ export default function AppointmentEditModal({
               type="button"
               onClick={() => setShowCancel((v) => !v)}
               disabled={busy}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#fecaca] px-4 text-sm font-medium text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50 sm:min-h-0 sm:py-2"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#fecaca] px-4 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-50 sm:min-h-0 sm:py-2"
             >
               Hủy lịch hẹn
             </button>
@@ -216,14 +216,14 @@ export default function AppointmentEditModal({
                 type="button"
                 onClick={doCancel}
                 disabled={busy}
-                className="min-h-10 rounded-lg bg-[#dc2626] px-4 text-sm font-semibold text-white hover:bg-[#b91c1c] disabled:opacity-50"
+                className="min-h-10 rounded-lg bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
               >
                 {busy ? "Đang hủy…" : "Xác nhận hủy lịch"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCancel(false)}
-                className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
+                className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
               >
                 Thôi
               </button>
@@ -231,7 +231,7 @@ export default function AppointmentEditModal({
           </div>
         )}
         {err && (
-          <p role="alert" className="mt-2 text-sm text-[#dc2626]">
+          <p role="alert" className="mt-2 text-sm text-danger">
             {err}
           </p>
         )}

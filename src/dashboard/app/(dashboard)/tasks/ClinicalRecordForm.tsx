@@ -136,8 +136,8 @@ const TABS = [
 // Tokens thanh tab (đồng bộ theme hồng — khớp ServiceFormEngine).
 const TAB =
   "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors";
-const TAB_ON = " bg-[#fce7f3] font-semibold text-[#9d2463]";
-const TAB_OFF = " text-[#52525b] hover:bg-[#f4f4f5]";
+const TAB_ON = " bg-brand-100 font-semibold text-brand-800";
+const TAB_OFF = " text-ink-soft hover:bg-surface-sunken";
 const splitComma = (s: string): string[] =>
   s.split(",").map((x) => x.trim()).filter(Boolean);
 
@@ -198,8 +198,8 @@ function readTaiKham(d: Data["draft"]): TkFields {
 function AdminRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2 text-sm">
-      <dt className="w-24 shrink-0 text-[#888888]">{label}</dt>
-      <dd className="min-w-0 break-words font-medium text-[#171717]">{value || "—"}</dd>
+      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
+      <dd className="min-w-0 break-words font-medium text-ink">{value || "—"}</dd>
     </div>
   );
 }
@@ -208,12 +208,12 @@ function Section({ no, title, synced, editorLabel = "bác sĩ điền", children
   no: string; title: string; synced?: boolean; editorLabel?: string; children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-[#f4f4f5] pt-3">
-      <h4 className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-[#171717]">
-        <span>{no && <span className="text-[#ec4899]">{no}.</span>} {title}</span>
+    <section className="border-t border-surface-sunken pt-3">
+      <h4 className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+        <span>{no && <span className="text-brand-600">{no}.</span>} {title}</span>
         <span className={
           "rounded px-1.5 py-0.5 text-[10px] font-medium " +
-          (synced ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#fef9c3] text-[#a16207]")
+          (synced ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
         }>
           {synced ? "đồng bộ" : editorLabel}
         </span>
@@ -629,7 +629,7 @@ export default function ClinicalRecordForm({
   return (
     <div
       className={
-        "flex flex-col rounded-xl border border-[#e4e4e7] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] " +
+        "flex flex-col rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] " +
         (fill
           ? "max-h-[calc(100vh-2rem)] md:max-h-none md:h-full"
           : "max-h-[calc(100vh-2rem)]")
@@ -651,43 +651,43 @@ export default function ClinicalRecordForm({
           </option>
         ))}
       </datalist>
-      <div className="flex items-center justify-between border-b border-[#e4e4e7] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <div className="min-w-0">
-          <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase text-[#171717]">
+          <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase text-ink">
             <span>Phiếu khám bệnh</span>
             {vitalsOnly && (
-              <span className="rounded bg-[#fef9c3] px-1.5 py-0.5 text-[10px] font-medium normal-case text-[#a16207]">
+              <span className="rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-medium normal-case text-warning">
                 Chỉ ghi Sinh hiệu
               </span>
             )}
           </h3>
-          <p className="text-xs text-[#888888]">
+          <p className="text-xs text-ink-muted">
             {p?.full_name} · {p?.patient_code}
             {viewingPast
               ? `${pages[pageIdx]?.service ? ` · ${pages[pageIdx]?.service}` : ""} · ${fmtDateTimeOrDate(pages[pageIdx]?.date ?? appt.slot_start)}`
               : `${appt.service?.name ? ` · ${appt.service.name}` : ""} · ${fmtDateTimeOrDate(appt.slot_start)}`}
           </p>
         </div>
-        <button onClick={onClose} aria-label="Đóng" className="shrink-0 rounded-md p-1 text-[#71717a] hover:bg-[#f4f4f5]">
+        <button onClick={onClose} aria-label="Đóng" className="shrink-0 rounded-md p-1 text-ink-muted hover:bg-surface-sunken">
           <X size={18} />
         </button>
       </div>
 
       {/* Banner cảnh báo = vùng TRÊN cố định (không cuộn cùng nội dung). */}
       {!viewingPast && ((readOnly && !vitalsOnly) || locked || (arrivalPending && !readOnly)) && (
-        <div className="space-y-1.5 border-b border-[#e4e4e7] px-4 py-2">
+        <div className="space-y-1.5 border-b border-line px-4 py-2">
           {readOnly && !vitalsOnly && (
-            <p className="rounded-md bg-[#fce7f3] px-3 py-1.5 text-xs text-[#9d2463]">
+            <p className="rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800">
               👁 Hồ sơ lâm sàng chỉ xem (Lễ tân/CSKH có thể sửa thông tin Hành chính ở tab tương ứng).
             </p>
           )}
           {locked && (
-            <p className="rounded-md bg-[#fee2e2] px-3 py-1.5 text-xs text-[#dc2626]">
+            <p className="rounded-md bg-danger-bg px-3 py-1.5 text-xs text-danger">
               🔒 Hồ sơ đã chốt (FINALIZED) — luật cấm sửa, chỉ xem.
             </p>
           )}
           {arrivalPending && !readOnly && (
-            <p className="rounded-md bg-[#fef9c3] px-3 py-1.5 text-xs text-[#a16207]">
+            <p className="rounded-md bg-warning-bg px-3 py-1.5 text-xs text-warning">
               🕓 Chờ lễ tân check-in (bệnh nhân đã đến) —{" "}
               {vitalsOnly ? "chưa điền được sinh hiệu." : "chưa khám được."}
             </p>
@@ -697,9 +697,9 @@ export default function ClinicalRecordForm({
 
       {/* Hàng 1: Khám mới / Khám cũ (chỉ hiển thị khi có >1 lượt khám) */}
       {pages.length > 1 && (
-        <div className="flex shrink-0 items-center border-b border-[#e4e4e7] bg-[#fafafa] px-3 py-1.5 select-none">
+        <div className="flex shrink-0 items-center border-b border-line bg-surface-muted px-3 py-1.5 select-none">
           {/* Cụm nút chuyển đổi (đứng yên) */}
-          <div className="flex shrink-0 items-center gap-1.5 pr-3 border-r border-[#e4e4e7]">
+          <div className="flex shrink-0 items-center gap-1.5 pr-3 border-r border-line">
             <button
               type="button"
               onClick={() => {
@@ -707,8 +707,8 @@ export default function ClinicalRecordForm({
               }}
               className={`rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
                 !viewingPast
-                  ? "bg-[#ec4899] text-white shadow-sm"
-                  : "bg-white border border-[#e4e4e7] text-[#52525b] hover:bg-[#f4f4f5]"
+                  ? "bg-brand-600 text-white shadow-sm"
+                  : "bg-white border border-line text-ink-soft hover:bg-surface-sunken"
               }`}
             >
               Khám mới
@@ -722,8 +722,8 @@ export default function ClinicalRecordForm({
               }}
               className={`rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
                 viewingPast
-                  ? "bg-[#ec4899] text-white shadow-sm"
-                  : "bg-white border border-[#e4e4e7] text-[#52525b] hover:bg-[#f4f4f5]"
+                  ? "bg-brand-600 text-white shadow-sm"
+                  : "bg-white border border-line text-ink-soft hover:bg-surface-sunken"
               }`}
             >
               Khám cũ
@@ -752,7 +752,7 @@ export default function ClinicalRecordForm({
                     className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium border transition-colors duration-150 ${
                       isSelected
                         ? "bg-[#eff6ff] font-semibold text-[#1e40af] border-[#bfdbfe]"
-                        : "bg-white border-[#e4e4e7] text-[#52525b] hover:bg-[#f4f4f5]"
+                        : "bg-white border-line text-ink-soft hover:bg-surface-sunken"
                     }`}
                   >
                     {lanLabel}: {fmtDate(pg.date)}
@@ -766,7 +766,7 @@ export default function ClinicalRecordForm({
 
       {/* Thanh TAB (cố định) — chia 4 mục theo luồng khám; chỉ render tab đang chọn. */}
       {!viewingPast && (
-        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[#e4e4e7] px-3 py-1.5">
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-line px-3 py-1.5">
           {TABS.map((t, i) => (
             <button
               key={t}
@@ -775,7 +775,7 @@ export default function ClinicalRecordForm({
               className={TAB + (i === tab ? TAB_ON : TAB_OFF)}
             >
               {t}
-              {tabFilled(i) && <span className="ml-1 text-[#ec4899]">✓</span>}
+              {tabFilled(i) && <span className="ml-1 text-brand-600">✓</span>}
             </button>
           ))}
         </div>
@@ -823,33 +823,33 @@ export default function ClinicalRecordForm({
         )}
 
         {tab === 0 && !showAll && (data?.history?.length ?? 0) > 0 && (
-          <details className="border-t border-[#f4f4f5] pt-3" open>
-            <summary className="cursor-pointer text-sm font-semibold text-[#171717]">
+          <details className="border-t border-surface-sunken pt-3" open>
+            <summary className="cursor-pointer text-sm font-semibold text-ink">
               Lịch sử khám trước ({data!.history.length})
             </summary>
             <ul className="mt-2 space-y-2">
               {data!.history.map((h) => (
                 <li
                   key={h.visit_id}
-                  className="rounded-lg border border-[#e4e4e7] bg-[#fafafa] p-2.5 text-sm"
+                  className="rounded-lg border border-line bg-surface-muted p-2.5 text-sm"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-1">
-                    <span className="font-medium text-[#171717]">
+                    <span className="font-medium text-ink">
                       {fmtDate(h.created_at)}
                     </span>
-                    <span className="text-xs text-[#888888]">
+                    <span className="text-xs text-ink-muted">
                       {[h.service, h.doctor].filter(Boolean).join(" · ") || "—"}
                     </span>
                   </div>
                   {h.chief_complaint && (
-                    <p className="mt-1 line-clamp-3 text-[#52525b]">
-                      <span className="text-[#888888]">Lý do: </span>
+                    <p className="mt-1 line-clamp-3 text-ink-soft">
+                      <span className="text-ink-muted">Lý do: </span>
                       {h.chief_complaint}
                     </p>
                   )}
                   {h.assessment && (
-                    <p className="mt-0.5 line-clamp-2 text-[#52525b]">
-                      <span className="text-[#888888]">Chuẩn đoán: </span>
+                    <p className="mt-0.5 line-clamp-2 text-ink-soft">
+                      <span className="text-ink-muted">Chuẩn đoán: </span>
                       {h.assessment}
                     </p>
                   )}
@@ -893,7 +893,7 @@ export default function ClinicalRecordForm({
                   <div key={k}>
                     <label className={LABEL}>
                       {lbl}
-                      {required && <span className="text-[#ec4899]"> *</span>}
+                      {required && <span className="text-brand-600"> *</span>}
                     </label>
                     <input
                       type={ty}
@@ -902,13 +902,13 @@ export default function ClinicalRecordForm({
                       min={ty === "number" ? lo : undefined}
                       max={ty === "number" ? hi : undefined}
                       placeholder={k === "huyet_ap" ? "vd 120/80" : undefined}
-                      className={INPUT + (warn || missing ? " border-[#dc2626]" : "")}
+                      className={INPUT + (warn || missing ? " border-danger" : "")}
                       value={f[k]}
                       disabled={vitalsRo}
                       onChange={(e) => set(k, e.target.value)}
                     />
                     {(missing || warn) && (
-                      <p className="mt-0.5 text-[11px] text-[#dc2626]">
+                      <p className="mt-0.5 text-[11px] text-danger">
                         {missing ? "Bắt buộc" : warn}
                       </p>
                     )}
@@ -1006,13 +1006,13 @@ export default function ClinicalRecordForm({
                     inputMode={ty === "number" ? "decimal" : undefined}
                     min={ty === "number" ? lo : undefined}
                     max={ty === "number" ? hi : undefined}
-                    className={INPUT + (oor ? " border-[#dc2626]" : "")}
+                    className={INPUT + (oor ? " border-danger" : "")}
                     value={f[k]}
                     disabled={roRest}
                     onChange={(e) => set(k, e.target.value)}
                   />
                   {oor && (
-                    <p className="mt-0.5 text-[11px] text-[#dc2626]">
+                    <p className="mt-0.5 text-[11px] text-danger">
                       Nên trong {lo}–{hi}
                     </p>
                   )}
@@ -1026,7 +1026,7 @@ export default function ClinicalRecordForm({
         {/* Số đo siêu âm thai — CHỈ Bác sĩ Siêu âm (showSono). Lưu riêng qua
             /api/ultrasound (ultrasound_record), KHÔNG dính nút Lưu hồ sơ chính. */}
         {(tab === 1 || showAll) && showSono && !viewingPast && p?.clinic_patient_id && (
-          <div className="border-t border-[#f4f4f5] pt-3">
+          <div className="border-t border-surface-sunken pt-3">
             <SonoBiometry
               appointmentId={appt.id}
               clinicPatientId={p.clinic_patient_id}
@@ -1039,12 +1039,12 @@ export default function ClinicalRecordForm({
           {loading ? (
             <Loading />
           ) : labs.length === 0 ? (
-            <p className="text-sm text-[#a1a1aa]">— chưa chỉ định / chưa có kết quả —</p>
+            <p className="text-sm text-ink-faint">— chưa chỉ định / chưa có kết quả —</p>
           ) : (
-            <ul className="divide-y divide-[#f4f4f5] rounded-lg border border-[#e4e4e7]">
+            <ul className="divide-y divide-surface-sunken rounded-lg border border-line">
               {labs.map((l, i) => (
                 <li key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
-                  <span className="min-w-0 truncate text-[#171717]">{cleanTestName(l.test_name)}</span>
+                  <span className="min-w-0 truncate text-ink">{cleanTestName(l.test_name)}</span>
                   <span className="flex shrink-0 items-center gap-2">
                     <span className="font-medium">
                       {l.result_value ?? l.result_numeric ?? (l.external_ref ? "có phiếu" : "chờ KQ")}
@@ -1061,7 +1061,7 @@ export default function ClinicalRecordForm({
                       </a>
                     )}
                     {l.flag && l.flag !== "NORMAL" && (
-                      <span className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#dc2626]">{l.flag}</span>
+                      <span className="rounded bg-danger-bg px-1.5 py-0.5 text-[10px] font-medium text-danger">{l.flag}</span>
                     )}
                   </span>
                 </li>
@@ -1087,7 +1087,7 @@ export default function ClinicalRecordForm({
               <button
                 onClick={orderLab}
                 disabled={roRest || labBusy || !labOrder.trim()}
-                className="shrink-0 rounded-lg border border-[#f3cfe0] px-3 py-2 text-sm font-medium text-[#9d2463] hover:bg-[#fdf2f8] disabled:opacity-50"
+                className="shrink-0 rounded-lg border border-brand-100 px-3 py-2 text-sm font-medium text-brand-800 hover:bg-brand-50 disabled:opacity-50"
               >
                 {labBusy ? "..." : "Chỉ định"}
               </button>
@@ -1112,10 +1112,10 @@ export default function ClinicalRecordForm({
           <Section no="IX" title="Đơn thuốc">
             <div className="space-y-2">
               {rx.length === 0 && (
-                <p className="text-sm text-[#a1a1aa]">— chưa kê thuốc —</p>
+                <p className="text-sm text-ink-faint">— chưa kê thuốc —</p>
               )}
               {rx.map((row, i) => (
-                <div key={i} className="rounded-lg border border-[#e4e4e7] p-2">
+                <div key={i} className="rounded-lg border border-line p-2">
                   <div className="flex items-center gap-2">
                     <input
                       className={INPUT}
@@ -1129,7 +1129,7 @@ export default function ClinicalRecordForm({
                       <button
                         onClick={() => removeRx(i)}
                         aria-label="Xoá thuốc"
-                        className="shrink-0 rounded-md p-1.5 text-[#dc2626] hover:bg-[#fef2f2]"
+                        className="shrink-0 rounded-md p-1.5 text-danger hover:bg-danger-bg"
                       >
                         <X size={15} />
                       </button>
@@ -1163,7 +1163,7 @@ export default function ClinicalRecordForm({
               {!roRest && (
                 <button
                   onClick={addRx}
-                  className="inline-flex items-center gap-1 rounded-lg border border-dashed border-[#f3cfe0] px-3 py-1.5 text-sm font-medium text-[#9d2463] hover:bg-[#fdf2f8]"
+                  className="inline-flex items-center gap-1 rounded-lg border border-dashed border-brand-100 px-3 py-1.5 text-sm font-medium text-brand-800 hover:bg-brand-50"
                 >
                   <Plus size={14} /> Thêm thuốc
                 </button>
@@ -1194,11 +1194,11 @@ export default function ClinicalRecordForm({
                 {TAIKHAM_XN.map(([code, label]) => (
                   <label
                     key={code}
-                    className="inline-flex items-center gap-1.5 text-sm text-[#3f3f46]"
+                    className="inline-flex items-center gap-1.5 text-sm text-ink-soft"
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-[#ec4899]"
+                      className="h-4 w-4 accent-brand-600"
                       checked={tk.xn.includes(code)}
                       disabled={roRest}
                       onChange={() => toggleTkXn(code)}
@@ -1226,7 +1226,7 @@ export default function ClinicalRecordForm({
             cho bác sĩ (KHÔNG ở luồng đón-khám vitalsOnly) khi dịch vụ có config +
             đã có visit. FINALIZED / lễ tân chỉ-đọc → read-only (route cũng chặn ghi). */}
         {tab === 2 && !vitalsOnly && !showAll && serviceCode && data?.visit?.visit_id && (
-          <div className="border-t border-[#f4f4f5] pt-3">
+          <div className="border-t border-surface-sunken pt-3">
             <ServiceFormEngine
               visitId={data.visit.visit_id}
               serviceCode={serviceCode}
@@ -1236,17 +1236,17 @@ export default function ClinicalRecordForm({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-[#e4e4e7] px-4 py-3">
+      <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
         <span
           className={
             "text-xs " +
             (viewingPast
               ? "text-[#1e40af]"
               : readOnly && !vitalsOnly
-                ? "text-[#9d2463]"
+                ? "text-brand-800"
                 : msg?.startsWith("Đã lưu")
-                  ? "text-[#15803d]"
-                  : "text-[#dc2626]")
+                  ? "text-success"
+                  : "text-danger")
           }
         >
           {viewingPast ? "" : readOnly && !vitalsOnly ? "👁 Hồ sơ lâm sàng chỉ xem." : (msg ?? "")}
@@ -1257,7 +1257,7 @@ export default function ClinicalRecordForm({
             <button
               onClick={save}
               disabled={vitalsOnly ? vitalsRo : ro}
-              className="min-h-10 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+              className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
             >
               {saving
                 ? "Đang lưu…"
@@ -1277,12 +1277,12 @@ export default function ClinicalRecordForm({
                   ? onRebook(p.clinic_patient_id)
                   : router.push(`/patients/${p.clinic_patient_id}`)
               }
-              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#f3cfe0] bg-white px-4 text-sm font-semibold text-[#9d2463] hover:bg-[#fdf2f8]"
+              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-brand-100 bg-white px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50"
             >
               <CalendarPlus size={15} /> Tái khám
             </button>
           )}
-          <button onClick={onClose} className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]">
+          <button onClick={onClose} className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken">
             Đóng
           </button>
         </div>
@@ -1292,5 +1292,5 @@ export default function ClinicalRecordForm({
 }
 
 function Loading() {
-  return <p className="text-sm text-[#a1a1aa]">Đang tải…</p>;
+  return <p className="text-sm text-ink-faint">Đang tải…</p>;
 }

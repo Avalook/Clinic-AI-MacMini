@@ -47,7 +47,7 @@ export default function VisitStatusRealtime() {
   }, [router]);
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-[#71717a]">
+    <span className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
       <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-green-500 motion-reduce:animate-none" />
       Cập nhật liên tục
       {eventCount > 0 && (

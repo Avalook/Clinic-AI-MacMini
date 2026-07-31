@@ -39,7 +39,7 @@ function PhanLoai({ value }: { value: ExaminedRow["phan_loai"] }) {
     <span
       className={
         "inline-block rounded-full px-2 py-0.5 text-[11px] font-medium " +
-        (first ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#fef3c7] text-[#b45309]")
+        (first ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
       }
     >
       {value}
@@ -124,8 +124,8 @@ export default function PatientListView({
               className={
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
                 (filter === f.key
-                  ? "bg-[#ec4899] text-white"
-                  : "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fdf2f8]")
+                  ? "bg-brand-600 text-white"
+                  : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
               }
             >
               {f.label}
@@ -136,7 +136,7 @@ export default function PatientListView({
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           placeholder="Tìm tên / mã BN / SĐT…"
-          className="min-h-9 w-full rounded-lg border border-[#e4e4e7] bg-white px-3 text-sm outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/15 sm:w-64"
+          className="min-h-9 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 sm:w-64"
         />
       </div>
 
@@ -155,41 +155,41 @@ export default function PatientListView({
           <tbody className={TBL_DIV}>
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-12 text-center text-[#a1a1aa]">
+                <td colSpan={6} className="px-3 py-12 text-center text-ink-faint">
                   Chưa có bệnh nhân đã khám nào.
                 </td>
               </tr>
             ) : (
               shown.map((r) => (
-                <tr key={r.clinic_patient_id} className="hover:bg-[#fdf2f8]">
+                <tr key={r.clinic_patient_id} className="hover:bg-brand-50">
                   <td className="px-3 py-2">
                     {enablePopup ? (
                       // Bật popup hồ sơ lâm sàng (chỉ đọc) — không chuyển trang.
                       <button
                         onClick={() => setOpenAppt(r.appt)}
-                        className="text-left font-medium text-[#9d174d] hover:underline"
+                        className="text-left font-medium text-status-cancelled hover:underline"
                       >
                         {r.full_name}
                       </button>
                     ) : (
                       <Link
                         href={`/patients/${r.clinic_patient_id}`}
-                        className="font-medium text-[#9d174d] hover:underline"
+                        className="font-medium text-status-cancelled hover:underline"
                       >
                         {r.full_name}
                       </Link>
                     )}
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs text-[#52525b]">
+                  <td className="px-3 py-2 font-mono text-xs text-ink-soft">
                     {r.patient_code}
                   </td>
-                  <td className="px-3 py-2 text-[#52525b]">
+                  <td className="px-3 py-2 text-ink-soft">
                     {r.phone_primary ?? "—"}
                   </td>
-                  <td className="px-3 py-2 text-center font-medium text-[#171717]">
+                  <td className="px-3 py-2 text-center font-medium text-ink">
                     {r.visit_count}
                   </td>
-                  <td className="px-3 py-2 text-[#52525b]">{fmtDate(r.latest)}</td>
+                  <td className="px-3 py-2 text-ink-soft">{fmtDate(r.latest)}</td>
                   <td className="px-3 py-2">
                     <PhanLoai value={r.phan_loai} />
                   </td>
@@ -208,7 +208,7 @@ export default function PatientListView({
   // "Công việc của tôi" của bác sĩ (cùng SplitPane), KHÔNG phải modal nhảy giữa.
   return (
     <>
-      <p className="mb-2 text-[11px] text-[#c084a8]">
+      <p className="mb-2 text-[11px] text-brand-300">
         ↔ Kéo thanh hồng ở GIỮA 2 bảng để chỉnh độ rộng (kéo trái: bảng co, hồ
         sơ rộng ra).
       </p>

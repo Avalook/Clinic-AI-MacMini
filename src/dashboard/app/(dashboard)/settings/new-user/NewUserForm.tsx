@@ -69,12 +69,12 @@ export default function NewUserForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-md space-y-4 rounded-lg border border-[#e4e4e7] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+      className="max-w-md space-y-4 rounded-lg border border-line bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
     >
       <div className="space-y-1">
         <label
           htmlFor="staff"
-          className="text-sm font-medium text-[#4d4d4d]"
+          className="text-sm font-medium text-ink-soft"
         >
           Nhân viên
         </label>
@@ -83,7 +83,7 @@ export default function NewUserForm({
           required
           value={staffId}
           onChange={(e) => setStaffId(e.target.value)}
-          className="w-full rounded-md border border-[#e4e4e7] px-3 py-2.5 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:py-2 sm:text-sm"
+          className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
         >
           {staffOptions.map((o) => (
             <option key={o.id} value={o.id}>
@@ -94,7 +94,7 @@ export default function NewUserForm({
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="email" className="text-sm font-medium text-[#4d4d4d]">
+        <label htmlFor="email" className="text-sm font-medium text-ink-soft">
           Email đăng nhập
         </label>
         <input
@@ -103,7 +103,7 @@ export default function NewUserForm({
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-[#e4e4e7] px-3 py-2.5 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:py-2 sm:text-sm"
+          className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
           autoComplete="off"
         />
       </div>
@@ -111,7 +111,7 @@ export default function NewUserForm({
       <div className="space-y-1">
         <label
           htmlFor="password"
-          className="text-sm font-medium text-[#4d4d4d]"
+          className="text-sm font-medium text-ink-soft"
         >
           Mật khẩu tạm thời
         </label>
@@ -122,24 +122,24 @@ export default function NewUserForm({
           minLength={MIN_PASSWORD}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-[#e4e4e7] px-3 py-2.5 text-base text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/20 sm:py-2 sm:text-sm"
+          className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
           autoComplete="new-password"
           placeholder="Gửi cho NV qua kênh an toàn — NV sẽ tự đổi sau đăng nhập đầu"
         />
-        <p className="text-xs text-[#888888]">
+        <p className="text-xs text-ink-muted">
           Tối thiểu {MIN_PASSWORD} ký tự. NV nên đổi mật khẩu lần đăng nhập
           đầu (Quên mật khẩu → đặt lại).
         </p>
       </div>
 
       {error && (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
 
       {success && (
-        <p className="rounded bg-[#dcfce7] px-3 py-2 text-sm text-[#15803d]">
+        <p className="rounded bg-success-bg px-3 py-2 text-sm text-success">
           {success}
         </p>
       )}
@@ -148,13 +148,13 @@ export default function NewUserForm({
         <button
           type="submit"
           disabled={loading}
-          className="min-h-11 w-full rounded-md bg-[#ec4899] px-3.5 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#db2777] active:bg-[#db2777] disabled:opacity-50 sm:min-h-0 sm:w-auto sm:py-2"
+          className="min-h-11 w-full rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50 sm:min-h-0 sm:w-auto sm:py-2"
         >
           {loading ? "Đang tạo..." : "Tạo tài khoản"}
         </button>
         <Link
           href="/settings"
-          className="py-2 text-center text-sm text-[#71717a] hover:text-[#171717] sm:py-0"
+          className="py-2 text-center text-sm text-ink-muted hover:text-ink sm:py-0"
         >
           ← Về Cài đặt
         </Link>

@@ -42,15 +42,15 @@ export default async function SonoPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">ĐD siêu âm</h1>
-        <p className="text-sm text-[#888888]">
+        <h1 className="text-xl font-semibold text-ink">ĐD siêu âm</h1>
+        <p className="text-sm text-ink-muted">
           Hàng đợi BN siêu âm (bắt đầu → hoàn tất → hủy) và hàng đợi xét nghiệm 3
           trạng thái (lấy mẫu → gửi lab → có KQ). In phiếu kết quả từ từng dòng.
         </p>
       </header>
 
       {error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       ) : (

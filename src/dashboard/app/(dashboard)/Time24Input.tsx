@@ -58,7 +58,7 @@ export default function Time24Input({
           </option>
         ))}
       </select>
-      <span className="shrink-0 text-[#a1a1aa]">:</span>
+      <span className="shrink-0 text-ink-faint">:</span>
       <select
         value={m ?? ""}
         onChange={(e) => emit(h ?? "", e.target.value)}
@@ -77,7 +77,7 @@ export default function Time24Input({
         type="button"
         onClick={openPicker}
         aria-label="Mở bảng chọn giờ"
-        className="shrink-0 rounded-lg border border-[#e4e4e7] bg-white p-2 text-[#71717a] hover:bg-[#f4f4f5]"
+        className="shrink-0 rounded-lg border border-line bg-white p-2 text-ink-muted hover:bg-surface-sunken"
       >
         <Clock size={16} />
       </button>

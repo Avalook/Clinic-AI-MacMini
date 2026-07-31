@@ -5,7 +5,7 @@ export interface LabReleaseDecision {
 }
 
 const BLOCKED_CLASS =
-  "shrink-0 rounded-md bg-[#fee2e2] px-2 py-0.5 text-xs font-semibold text-[#dc2626]";
+  "shrink-0 rounded-md bg-danger-bg px-2 py-0.5 text-xs font-semibold text-danger";
 
 /**
  * Patient notification is a clinical safety boundary, not presentation logic.
@@ -21,7 +21,7 @@ export function labReleaseDecision(
       allowed: true,
       label: "Được báo BN",
       className:
-        "shrink-0 rounded-md bg-[#dcfce7] px-2 py-0.5 text-xs font-semibold text-[#16a34a]",
+        "shrink-0 rounded-md bg-success-bg px-2 py-0.5 text-xs font-semibold text-success",
     };
   }
 

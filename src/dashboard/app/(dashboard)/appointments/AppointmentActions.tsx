@@ -37,18 +37,18 @@ export default function AppointmentActions({
       <button
         onClick={() => act("confirm")}
         disabled={busy !== null}
-        className="min-h-9 flex-1 rounded-md bg-[#16a34a] px-2.5 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-[#15803d] active:bg-[#15803d] disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1"
+        className="min-h-9 flex-1 rounded-md bg-success px-2.5 py-1.5 text-xs font-medium text-white transition-colors duration-150 hover:bg-success active:bg-success disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1"
       >
         {busy === "confirm" ? "..." : "Xác nhận"}
       </button>
       <button
         onClick={() => act("decline")}
         disabled={busy !== null}
-        className="min-h-9 flex-1 rounded-md border border-[#dc2626] px-2.5 py-1.5 text-xs font-medium text-[#dc2626] transition-colors duration-150 hover:bg-[#fee2e2] active:bg-[#fee2e2] disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1"
+        className="min-h-9 flex-1 rounded-md border border-danger px-2.5 py-1.5 text-xs font-medium text-danger transition-colors duration-150 hover:bg-danger-bg active:bg-danger-bg disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1"
       >
         {busy === "decline" ? "..." : "Từ chối"}
       </button>
-      {error && <span className="w-full text-xs text-[#dc2626]">{error}</span>}
+      {error && <span className="w-full text-xs text-danger">{error}</span>}
     </div>
   );
 }

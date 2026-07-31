@@ -52,8 +52,8 @@ function fmtVnd(v: number | null): string {
 }
 
 const TH =
-  "border-b border-[#ececec] px-4 py-2.5 text-left font-semibold text-[#525252]";
-const TD = "border-b border-[#f3f3f3] px-4 py-3 align-top text-[#171717]";
+  "border-b border-surface-sunken px-4 py-2.5 text-left font-semibold text-[#525252]";
+const TD = "border-b border-[#f3f3f3] px-4 py-3 align-top text-ink";
 
 export default function CashierWorkBoard({
   rows,
@@ -152,8 +152,8 @@ export default function CashierWorkBoard({
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">Công việc của tôi</h1>
-        <p className="text-sm text-[#888888]">
+        <h1 className="text-xl font-semibold text-ink">Công việc của tôi</h1>
+        <p className="text-sm text-ink-muted">
           Thu tiền theo buổi khám hôm nay. Dịch vụ &amp; thuốc lấy thật từ hồ sơ khám.
           Trạng thái “Đã thanh toán” được LƯU &amp; đồng bộ với thanh tiến trình bên
           Lễ tân. Mã QR là placeholder (chưa nối cổng thanh toán thật).
@@ -161,12 +161,12 @@ export default function CashierWorkBoard({
       </header>
 
       {err && (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">{err}</p>
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">{err}</p>
       )}
 
       {/* Toggle 2 mode — chỉ khi vai thấy cả hai (CASHIER superset). */}
       {modes.length > 1 && (
-        <div className="inline-flex rounded-xl border border-[#e4e4e7] bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="inline-flex rounded-xl border border-line bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {modes.map((m) => (
             <button
               key={m}
@@ -179,8 +179,8 @@ export default function CashierWorkBoard({
               className={
                 "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors " +
                 (mode === m
-                  ? "bg-[#ec4899] text-white"
-                  : "text-[#52525b] hover:bg-[#fdf2f8]")
+                  ? "bg-brand-600 text-white"
+                  : "text-ink-soft hover:bg-brand-50")
               }
             >
               {MODE_META[m].label}
@@ -189,9 +189,9 @@ export default function CashierWorkBoard({
         </div>
       )}
 
-      <div className="overflow-auto rounded-xl border border-[#ececec] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <table className="w-full min-w-max border-collapse text-sm">
-          <thead className="bg-[#fafafa]">
+          <thead className="bg-surface-muted">
             <tr>
               <th className={`${TH} min-w-[220px]`}>Bệnh nhân</th>
               <th className={`${TH} min-w-[360px]`}>{meta.payLabel}</th>
@@ -200,7 +200,7 @@ export default function CashierWorkBoard({
           <tbody>
             {shown.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center text-[#888888]" colSpan={2}>
+                <td className="px-4 py-6 text-center text-ink-muted" colSpan={2}>
                   Chưa có bệnh nhân đang khám hôm nay.
                 </td>
               </tr>
@@ -215,16 +215,16 @@ export default function CashierWorkBoard({
                   r.drugs,
                 );
                 return (
-                  <tr key={r.visit_id} className="hover:bg-[#fafafa]">
+                  <tr key={r.visit_id} className="hover:bg-surface-muted">
                     {/* Ô 1 — BN gộp: tên + mã + SĐT. */}
                     <td className={TD}>
-                      <div className="font-semibold text-[#171717]">
+                      <div className="font-semibold text-ink">
                         {r.full_name ?? "—"}
                       </div>
-                      <div className="mt-0.5 font-mono text-xs text-[#888888]">
+                      <div className="mt-0.5 font-mono text-xs text-ink-muted">
                         {r.patient_code ?? "—"}
                       </div>
-                      <div className="text-xs text-[#71717a]">
+                      <div className="text-xs text-ink-muted">
                         {r.phone ?? "—"}
                       </div>
                     </td>
@@ -232,22 +232,22 @@ export default function CashierWorkBoard({
                     {/* Ô 2 — khoản thu (dịch vụ/thuốc) + nút Thanh toán → QR. */}
                     <td className={TD}>
                       {!hasItems(r) ? (
-                        <span className="text-sm text-[#a1a1aa]">
+                        <span className="text-sm text-ink-faint">
                           — chưa có {mode === "thuoc" ? "thuốc" : "dịch vụ"} —
                         </span>
                       ) : (
                         <div className="space-y-2">
-                          <ul className="divide-y divide-[#f4f4f5] rounded-lg border border-[#eee]">
+                          <ul className="divide-y divide-surface-sunken rounded-lg border border-[#eee]">
                             {mode === "dich_vu"
                               ? r.services.map((s) => (
                                   <li
                                     key={s.id}
                                     className="flex items-center justify-between gap-3 px-3 py-1.5"
                                   >
-                                    <span className="min-w-0 truncate text-[#171717]">
+                                    <span className="min-w-0 truncate text-ink">
                                       {s.name}
                                     </span>
-                                    <span className="shrink-0 tabular-nums text-[#52525b]">
+                                    <span className="shrink-0 tabular-nums text-ink-soft">
                                       {fmtVnd(s.price)}
                                     </span>
                                   </li>
@@ -258,16 +258,16 @@ export default function CashierWorkBoard({
                                     className="flex items-center justify-between gap-3 px-3 py-1.5"
                                   >
                                     <span className="min-w-0">
-                                      <span className="text-[#171717]">{d.name}</span>
+                                      <span className="text-ink">{d.name}</span>
                                       {(d.quantity || d.dosage) && (
-                                        <span className="ml-1 text-xs text-[#888888]">
+                                        <span className="ml-1 text-xs text-ink-muted">
                                           {[d.quantity, d.dosage]
                                             .filter(Boolean)
                                             .join(" · ")}
                                         </span>
                                       )}
                                     </span>
-                                    <span className="shrink-0 tabular-nums text-[#52525b]">
+                                    <span className="shrink-0 tabular-nums text-ink-soft">
                                       {fmtVnd(d.price)}
                                     </span>
                                   </li>
@@ -275,13 +275,13 @@ export default function CashierWorkBoard({
                           </ul>
 
                           <div className="flex items-center justify-between gap-2 text-sm">
-                            <span className="text-[#71717a]">
+                            <span className="text-ink-muted">
                               Tạm tính:{" "}
-                              <span className="font-semibold text-[#171717] tabular-nums">
+                              <span className="font-semibold text-ink tabular-nums">
                                 {fmtVnd(sum)}
                               </span>
                               {missing && (
-                                <span className="ml-1 text-xs text-[#a16207]">
+                                <span className="ml-1 text-xs text-warning">
                                   (thiếu giá hoặc số lượng hợp lệ — chưa thể thu)
                                 </span>
                               )}
@@ -292,7 +292,7 @@ export default function CashierWorkBoard({
                           {isPaid ? (
                             <div className="space-y-2">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dcfce7] px-2.5 py-1 text-xs font-semibold text-[#15803d]">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-success-bg px-2.5 py-1 text-xs font-semibold text-success">
                                   <CheckCircle2 size={14} /> Đã thanh toán
                                 </span>
                                 <button
@@ -302,7 +302,7 @@ export default function CashierWorkBoard({
                                     setErr(null);
                                   }}
                                   disabled={busy === k}
-                                  className="inline-flex items-center gap-1 text-xs text-[#71717a] hover:text-[#dc2626] disabled:opacity-50"
+                                  className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-danger disabled:opacity-50"
                                 >
                                   <RotateCcw size={13} /> Hoàn tác
                                 </button>
@@ -324,7 +324,7 @@ export default function CashierWorkBoard({
                                     maxLength={500}
                                     rows={2}
                                     placeholder="Ví dụ: Khách đổi phương thức thanh toán"
-                                    className="mt-1 w-full rounded-md border border-[#fecaca] bg-white px-2 py-1.5 text-sm text-[#171717] outline-none focus:border-[#dc2626]"
+                                    className="mt-1 w-full rounded-md border border-[#fecaca] bg-white px-2 py-1.5 text-sm text-ink outline-none focus:border-danger"
                                   />
                                   <div className="mt-2 flex items-center gap-2">
                                     <button
@@ -333,7 +333,7 @@ export default function CashierWorkBoard({
                                         busy === k ||
                                         voidReason.trim().length < 5
                                       }
-                                      className="rounded-md bg-[#dc2626] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                                      className="rounded-md bg-danger px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                                     >
                                       {busy === k
                                         ? "Đang hoàn tác…"
@@ -345,7 +345,7 @@ export default function CashierWorkBoard({
                                         setVoidReason("");
                                       }}
                                       disabled={busy === k}
-                                      className="px-2 py-1.5 text-xs text-[#71717a] disabled:opacity-50"
+                                      className="px-2 py-1.5 text-xs text-ink-muted disabled:opacity-50"
                                     >
                                       Hủy
                                     </button>
@@ -363,24 +363,24 @@ export default function CashierWorkBoard({
                                     ? "Cần bổ sung đầy đủ giá và số lượng thuốc trước khi thu"
                                     : undefined
                                 }
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#ec4899] px-3 py-2 text-sm font-semibold text-white hover:bg-[#db2777] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <QrCode size={15} />
                                 {open ? "Ẩn mã QR" : "Thanh toán"}
                               </button>
 
                               {open && (
-                                <div className="rounded-lg border border-dashed border-[#f3cfe0] bg-[#fdf7fb] p-3">
+                                <div className="rounded-lg border border-dashed border-brand-100 bg-brand-50 p-3">
                                   <div className="flex items-center gap-3">
                                     {/* Ô QR placeholder — chưa nối cổng thanh toán. */}
-                                    <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-lg border border-[#e4e4e7] bg-white text-[#c9a3b8]">
+                                    <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-lg border border-line bg-white text-[#c9a3b8]">
                                       <QrCode size={40} />
                                       <span className="mt-1 text-[8px] leading-none">
                                         QR demo
                                       </span>
                                     </div>
-                                    <div className="min-w-0 text-xs text-[#71717a]">
-                                      <p className="font-medium text-[#9d2463]">
+                                    <div className="min-w-0 text-xs text-ink-muted">
+                                      <p className="font-medium text-brand-800">
                                         Quét mã để thanh toán
                                       </p>
                                       <p className="mt-1">
@@ -392,7 +392,7 @@ export default function CashierWorkBoard({
                                   <button
                                     onClick={() => togglePaid(r)}
                                     disabled={busy === k || missing || sum <= 0}
-                                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#bbf7d0] bg-white px-3 py-1.5 text-sm font-semibold text-[#15803d] hover:bg-[#f0fdf4] disabled:opacity-50"
+                                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-success-bg bg-white px-3 py-1.5 text-sm font-semibold text-success hover:bg-success-bg disabled:opacity-50"
                                   >
                                     <Check size={15} /> {busy === k ? "Đang lưu…" : "Đã thanh toán"}
                                   </button>

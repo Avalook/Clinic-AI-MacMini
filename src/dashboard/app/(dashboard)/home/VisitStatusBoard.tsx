@@ -17,15 +17,15 @@ function displayStatus(
   paid: boolean,
 ): { label: string; style: string } {
   if (paid)
-    return { label: "Đã thanh toán", style: "bg-[#dcfce7] text-[#15803d]" };
+    return { label: "Đã thanh toán", style: "bg-success-bg text-success" };
   if (visitStatus === "AMENDED")
     return { label: "Đã bổ sung", style: "bg-[#f3e8ff] text-[#7e22ce]" };
   if (visitStatus === "FINALIZED")
-    return { label: "Đã chốt hồ sơ", style: "bg-[#dcfce7] text-[#15803d]" };
+    return { label: "Đã chốt hồ sơ", style: "bg-success-bg text-success" };
   if (apptStatus === "COMPLETED")
-    return { label: "Đã khám xong — chờ thu", style: "bg-[#fef9c3] text-[#a16207]" };
+    return { label: "Đã khám xong — chờ thu", style: "bg-warning-bg text-warning" };
   if (visitStatus === "IN_PROGRESS")
-    return { label: "Đang khám", style: "bg-[#fef9c3] text-[#a16207]" };
+    return { label: "Đang khám", style: "bg-warning-bg text-warning" };
   return { label: "Chờ khám", style: "bg-[#dbeafe] text-[#1d4ed8]" };
 }
 
@@ -74,14 +74,14 @@ function examMinutes(
 }
 
 const TH =
-  "border-b border-[#ececec] px-4 py-2.5 text-left font-semibold text-[#525252]";
-const TD = "border-b border-[#f3f3f3] px-4 py-3 align-middle text-[#171717]";
+  "border-b border-surface-sunken px-4 py-2.5 text-left font-semibold text-[#525252]";
+const TD = "border-b border-[#f3f3f3] px-4 py-3 align-middle text-ink";
 
 export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
   return (
-    <div className="overflow-auto rounded-xl border border-[#ececec] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <table className="w-full min-w-max border-collapse text-sm">
-        <thead className="bg-[#fafafa]">
+        <thead className="bg-surface-muted">
           <tr>
             {/* Ô đầu: thông tin BN gộp. Còn lại: thanh tiến trình 3 mốc. */}
             <th className={`${TH} min-w-[240px]`}>Bệnh nhân</th>
@@ -91,7 +91,7 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td className="px-4 py-6 text-center text-[#888888]" colSpan={2}>
+              <td className="px-4 py-6 text-center text-ink-muted" colSpan={2}>
                 Chưa có buổi khám nào hôm nay.
               </td>
             </tr>
@@ -102,25 +102,25 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
               const disp = displayStatus(r.status, apptStatus, paid);
               const examMin = examMinutes(r.checked_in_at, r.exam_completed_at);
               return (
-                <tr key={r.visit_id} className="hover:bg-[#fafafa]">
+                <tr key={r.visit_id} className="hover:bg-surface-muted">
                   {/* Ô 1 — thông tin gộp: tên BN + mã · bác sĩ · dịch vụ · trạng thái
                       (live badge) + đồng hồ chờ (đếm liên tục từ check-in). */}
                   <td className={TD}>
                     <div className="space-y-1">
                       <div className="flex items-baseline gap-1.5">
-                        <span className="font-semibold text-[#171717]">
+                        <span className="font-semibold text-ink">
                           {r.patient?.full_name ?? "—"}
                         </span>
                         {r.patient?.patient_code && (
-                          <span className="font-mono text-xs text-[#888888]">
+                          <span className="font-mono text-xs text-ink-muted">
                             {r.patient.patient_code}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-[#71717a]">
-                        <span className="text-[#a1a1aa]">BS:</span>{" "}
+                      <div className="text-xs text-ink-muted">
+                        <span className="text-ink-faint">BS:</span>{" "}
                         {r.doctor?.full_name ?? "—"}
-                        <span className="mx-1 text-[#d4d4d8]">·</span>
+                        <span className="mx-1 text-line-strong">·</span>
                         {r.service?.name ?? "—"}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">

@@ -11,7 +11,7 @@ import {
 } from "../../lib/roster";
 
 const BTN =
-  "rounded-md border border-[#f3cfe0] px-2.5 py-1 text-xs font-medium text-[#9d2463] transition-colors hover:bg-[#fdf2f8]";
+  "rounded-md border border-brand-100 px-2.5 py-1 text-xs font-medium text-brand-800 transition-colors hover:bg-brand-50";
 
 export default function WeekNav({
   week,
@@ -39,9 +39,9 @@ export default function WeekNav({
       <Link href={href(shiftWeek(week, -1))} className={BTN}>
         ← Tuần trước
       </Link>
-      <span className="text-xs font-medium text-[#171717]">
+      <span className="text-xs font-medium text-ink">
         Tuần {label}
-        {week === cur && <span className="text-[#c084a8]"> · tuần này</span>}
+        {week === cur && <span className="text-brand-300"> · tuần này</span>}
       </span>
       <Link href={href(shiftWeek(week, 1))} className={BTN}>
         Tuần sau →

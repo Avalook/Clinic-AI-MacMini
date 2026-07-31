@@ -60,12 +60,12 @@ function PendingCard({ row }: { row: LabRow }) {
   }
 
   return (
-    <div className="rounded-xl border border-[#f3cfe0] bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+    <div className="rounded-xl border border-brand-100 bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
       <div className="mb-2">
-        <span className="block text-sm font-semibold text-[#171717]">
+        <span className="block text-sm font-semibold text-ink">
           {row.test_name}
         </span>
-        <span className="block truncate text-xs text-[#888888]">
+        <span className="block truncate text-xs text-ink-muted">
           {row.patient?.full_name ?? "—"} ·{" "}
           <span className="font-mono">{row.patient?.patient_code}</span>
           {row.patient?.phone_primary ? ` · ${row.patient.phone_primary}` : ""}
@@ -102,11 +102,11 @@ function PendingCard({ row }: { row: LabRow }) {
             />
           </div>
         </div>
-        {err && <p className="text-xs text-[#dc2626]">{err}</p>}
+        {err && <p className="text-xs text-danger">{err}</p>}
         <button
           onClick={save}
           disabled={busy}
-          className="min-h-10 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+          className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {busy ? "Đang lưu…" : "Lưu kết quả"}
         </button>
@@ -125,12 +125,12 @@ export default function LabQueueView({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <section>
-        <h2 className="mb-2 flex items-center gap-2 text-base font-semibold text-[#171717]">
-          <FlaskConical size={16} className="text-[#ec4899]" /> Chờ kết quả (
+        <h2 className="mb-2 flex items-center gap-2 text-base font-semibold text-ink">
+          <FlaskConical size={16} className="text-brand-600" /> Chờ kết quả (
           {pending.length})
         </h2>
         {pending.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-[#f3cfe0] bg-white px-4 py-10 text-center text-sm text-[#a1a1aa]">
+          <p className="rounded-xl border border-dashed border-brand-100 bg-white px-4 py-10 text-center text-sm text-ink-faint">
             Không có xét nghiệm nào đang chờ.
           </p>
         ) : (
@@ -143,22 +143,22 @@ export default function LabQueueView({
       </section>
 
       <section>
-        <h2 className="mb-2 text-base font-semibold text-[#171717]">
+        <h2 className="mb-2 text-base font-semibold text-ink">
           Đã trả gần đây ({done.length})
         </h2>
-        <div className="max-h-[70vh] space-y-2 overflow-y-auto rounded-xl border border-[#f3cfe0] bg-white p-2 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+        <div className="max-h-[70vh] space-y-2 overflow-y-auto rounded-xl border border-brand-100 bg-white p-2 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
           {done.length === 0 ? (
-            <p className="px-2 py-10 text-center text-sm text-[#a1a1aa]">
+            <p className="px-2 py-10 text-center text-sm text-ink-faint">
               Chưa có kết quả nào.
             </p>
           ) : (
             done.map((r) => (
               <div
                 key={r.lab_result_id}
-                className="rounded-lg border border-[#e4e4e7] p-2.5"
+                className="rounded-lg border border-line p-2.5"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-[#171717]">
+                  <span className="truncate text-sm font-medium text-ink">
                     {r.test_name}
                   </span>
                   {toHref(r.external_ref) && (
@@ -172,16 +172,16 @@ export default function LabQueueView({
                     </a>
                   )}
                 </div>
-                <span className="block truncate text-xs text-[#888888]">
+                <span className="block truncate text-xs text-ink-muted">
                   {r.patient?.full_name ?? "—"} · {r.patient?.patient_code}
                 </span>
                 {r.result_value && (
-                  <span className="mt-0.5 block text-xs text-[#52525b]">
+                  <span className="mt-0.5 block text-xs text-ink-soft">
                     {r.result_value}
                     {r.lab_provider ? ` · ${r.lab_provider}` : ""}
                   </span>
                 )}
-                <span className="mt-0.5 block text-[11px] text-[#a1a1aa]">
+                <span className="mt-0.5 block text-[11px] text-ink-faint">
                   {fmtDateTimeOrDate(r.result_received_at)}
                 </span>
               </div>

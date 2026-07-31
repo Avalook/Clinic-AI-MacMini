@@ -36,13 +36,13 @@ export interface RegisterRow {
 }
 
 const STATUS_BADGE: Record<RegisterRow["status"], { cls: string; label: string }> = {
-  PENDING: { cls: "bg-[#fef9c3] text-[#854d0e]", label: "Chờ duyệt" },
-  APPROVED: { cls: "bg-[#dcfce7] text-[#166534]", label: "Đã duyệt" },
-  REJECTED: { cls: "bg-[#fee2e2] text-[#dc2626]", label: "Từ chối" },
+  PENDING: { cls: "bg-warning-bg text-[#854d0e]", label: "Chờ duyệt" },
+  APPROVED: { cls: "bg-success-bg text-[#166534]", label: "Đã duyệt" },
+  REJECTED: { cls: "bg-danger-bg text-danger", label: "Từ chối" },
 };
 
 const TH_BASE =
-  "border-b border-r border-[#f3cfe0] px-2 py-2 text-center align-middle font-semibold text-[#9d2463]";
+  "border-b border-r border-brand-100 px-2 py-2 text-center align-middle font-semibold text-brand-800";
 
 function cellKey(date: string, station: string) {
   return `${date}|${station}`;
@@ -205,13 +205,13 @@ export default function RosterRegisterTable({
 
   return (
     <>
-      <div className="overflow-auto rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] max-w-full">
+      <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] max-w-full">
         <table className="w-full min-w-max border-collapse text-xs">
           <thead>
-            <tr className="bg-[#fce7f3]">
+            <tr className="bg-brand-100">
               <th
                 rowSpan={2}
-                className="sticky left-0 z-20 border-b border-r border-[#f3cfe0] bg-[#fce7f3] px-2 py-2 text-left font-semibold text-[#9d2463]"
+                className="sticky left-0 z-20 border-b border-r border-brand-100 bg-brand-100 px-2 py-2 text-left font-semibold text-brand-800"
               >
                 Ngày
               </th>
@@ -234,11 +234,11 @@ export default function RosterRegisterTable({
                 ),
               )}
             </tr>
-            <tr className="bg-[#fdf2f8]">
+            <tr className="bg-brand-50">
               {STATIONS.filter((s) => s.floor !== "").map((s) => (
                 <th
                   key={s.key}
-                  className="min-w-[104px] border-b border-r border-[#f3cfe0] px-2 py-1.5 text-center font-medium text-[#b83280]"
+                  className="min-w-[104px] border-b border-r border-brand-100 px-2 py-1.5 text-center font-medium text-[#b83280]"
                 >
                   {s.short}
                 </th>
@@ -247,8 +247,8 @@ export default function RosterRegisterTable({
           </thead>
           <tbody>
             {dates.map((d, ri) => (
-              <tr key={d} className={"align-top " + (ri % 2 ? "bg-[#fdf7fb]" : "bg-white")}>
-                <td className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-[#f3cfe0] bg-inherit px-2 py-2 font-medium text-[#171717]">
+              <tr key={d} className={"align-top " + (ri % 2 ? "bg-brand-50" : "bg-white")}>
+                <td className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-brand-100 bg-inherit px-2 py-2 font-medium text-ink">
                   {dayShort(d)} · {fmtDayMonth(d)}
                 </td>
                 {STATIONS.map((s) => {
@@ -256,7 +256,7 @@ export default function RosterRegisterTable({
                   return (
                     <td
                       key={s.key}
-                      className="border-b border-r border-[#f3cfe0] p-0"
+                      className="border-b border-r border-brand-100 p-0"
                     >
                       <button
                         type="button"
@@ -281,7 +281,7 @@ export default function RosterRegisterTable({
                                   "block whitespace-nowrap rounded px-1 leading-snug " +
                                   b.cls +
                                   (r.status === "REJECTED" ? " line-through" : "") +
-                                  (r.staff_id === myStaffId ? " ring-1 ring-[#ec4899]/40" : "")
+                                  (r.staff_id === myStaffId ? " ring-1 ring-brand-600/40" : "")
                                 }
                                 title={`${b.label}${r.reject_reason ? " — " + r.reject_reason : ""}`}
                               >
@@ -308,20 +308,20 @@ export default function RosterRegisterTable({
           onClick={() => setOpen(null)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-[#e4e4e7] bg-white p-4 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-line bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-start justify-between gap-2">
-              <h3 className="text-sm font-semibold text-[#171717]">
+              <h3 className="text-sm font-semibold text-ink">
                 Đăng ký ca · {dayShort(open.date)} {fmtDayMonth(open.date)}
-                <span className="block text-xs font-normal text-[#71717a]">
+                <span className="block text-xs font-normal text-ink-muted">
                   {STATION_LABEL[open.station] ?? open.station}
                 </span>
               </h3>
               <button
                 onClick={() => setOpen(null)}
                 aria-label="Đóng"
-                className="rounded-md p-1 text-[#a1a1aa] hover:bg-[#f4f4f5]"
+                className="rounded-md p-1 text-ink-faint hover:bg-surface-sunken"
               >
                 <X size={16} />
               </button>
@@ -329,22 +329,22 @@ export default function RosterRegisterTable({
 
             {/* Ai đã đăng ký ô này (để biết lịch dự kiến của người khác). */}
             {openCellRows.length > 0 && (
-              <div className="mb-3 rounded-lg border border-[#f4f4f5] bg-[#fafafa] p-2">
-                <p className="mb-1 text-xs font-medium text-[#71717a]">
+              <div className="mb-3 rounded-lg border border-surface-sunken bg-surface-muted p-2">
+                <p className="mb-1 text-xs font-medium text-ink-muted">
                   Đã đăng ký ô này
                 </p>
                 <ul className="space-y-1">
                   {openCellRows.map((r) => {
                     const b = STATUS_BADGE[r.status];
                     return (
-                      <li key={r.id} className="text-xs text-[#4d4d4d]">
+                      <li key={r.id} className="text-xs text-ink-soft">
                         <div className="flex items-center justify-between gap-2">
                           <span className="min-w-0">
-                            <span className="font-medium text-[#171717]">
+                            <span className="font-medium text-ink">
                               {r.staff_name}
                             </span>
                             {r.shift !== "FULL" && (
-                              <span className="text-[#a1a1aa]">
+                              <span className="text-ink-faint">
                                 {" "}
                                 ({SHIFT_LABEL[r.shift]})
                               </span>
@@ -355,7 +355,7 @@ export default function RosterRegisterTable({
                               {b.label}
                             </span>
                             {r.status === "REJECTED" && r.reject_reason && (
-                              <span className="block text-[#dc2626]">
+                              <span className="block text-danger">
                                 Lý do: {r.reject_reason}
                               </span>
                             )}
@@ -364,7 +364,7 @@ export default function RosterRegisterTable({
                             <button
                               onClick={() => remove(r.id)}
                               aria-label="Xoá ca của tôi"
-                              className="shrink-0 rounded p-1 text-[#a1a1aa] hover:bg-[#fee2e2] hover:text-[#dc2626] disabled:opacity-50"
+                              className="shrink-0 rounded p-1 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -382,7 +382,7 @@ export default function RosterRegisterTable({
                                   rows={2}
                                   autoFocus
                                   placeholder="Lý do từ chối (gửi cho người đăng ký)…"
-                                  className="w-full resize-none rounded-md border border-[#e4e4e7] px-2.5 py-1.5 text-xs focus:border-[#ec4899] focus:outline-none"
+                                  className="w-full resize-none rounded-md border border-line px-2.5 py-1.5 text-xs focus:border-brand-600 focus:outline-none"
                                 />
                                 <div className="mt-1.5 flex justify-end gap-1.5">
                                   <button
@@ -390,14 +390,14 @@ export default function RosterRegisterTable({
                                       setRejectingId(null);
                                       setReason("");
                                     }}
-                                    className="rounded-md border border-[#e4e4e7] bg-white px-2.5 py-1 text-xs text-[#4d4d4d] hover:bg-[#f4f4f5]"
+                                    className="rounded-md border border-line bg-white px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-sunken"
                                   >
                                     Huỷ
                                   </button>
                                   <button
                                     onClick={() => decide(r.id, "reject", reason)}
                                     disabled={!reason.trim()}
-                                    className="rounded-md bg-[#dc2626] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#b91c1c] disabled:opacity-50"
+                                    className="rounded-md bg-danger px-2.5 py-1 text-xs font-medium text-white hover:bg-danger disabled:opacity-50"
                                   >
                                     Xác nhận từ chối
                                   </button>
@@ -407,7 +407,7 @@ export default function RosterRegisterTable({
                               <div className="flex gap-1.5">
                                 <button
                                   onClick={() => decide(r.id, "approve")}
-                                  className="flex items-center gap-1 rounded-md bg-[#16a34a] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#15803d] disabled:opacity-50"
+                                  className="flex items-center gap-1 rounded-md bg-success px-2.5 py-1 text-xs font-medium text-white hover:bg-success disabled:opacity-50"
                                 >
                                   <Check size={13} /> Duyệt
                                 </button>
@@ -417,7 +417,7 @@ export default function RosterRegisterTable({
                                     setReason("");
                                     setRejectingId(r.id);
                                   }}
-                                  className="flex items-center gap-1 rounded-md border border-[#e4e4e7] bg-white px-2.5 py-1 text-xs font-medium text-[#dc2626] hover:bg-[#fee2e2] disabled:opacity-50"
+                                  className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
                                 >
                                   <X size={13} /> Từ chối
                                 </button>
@@ -433,13 +433,13 @@ export default function RosterRegisterTable({
             )}
 
             {error && (
-              <p className="mb-2 rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+              <p className="mb-2 rounded bg-danger-bg px-3 py-2 text-sm text-danger">
                 {error}
               </p>
             )}
 
             {isApprover && openCellRows.length === 0 && (
-              <p className="rounded bg-[#fafafa] px-3 py-2 text-sm text-[#71717a]">
+              <p className="rounded bg-surface-muted px-3 py-2 text-sm text-ink-muted">
                 Chưa có ai đăng ký ô này.
               </p>
             )}
@@ -449,7 +449,7 @@ export default function RosterRegisterTable({
             {!isApprover && (
               <>
             {myStaffId == null ? (
-              <p className="rounded bg-[#fef9c3] px-3 py-2 text-sm text-[#854d0e]">
+              <p className="rounded bg-warning-bg px-3 py-2 text-sm text-[#854d0e]">
                 Chưa chọn danh tính nhân viên — không thể tự đăng ký ca.
               </p>
             ) : myHere ? (
@@ -462,11 +462,11 @@ export default function RosterRegisterTable({
             ) : (
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <label className="mb-1 block text-xs font-medium text-[#71717a]">
+                  <label className="mb-1 block text-xs font-medium text-ink-muted">
                     Ca
                   </label>
                   <select
-                    className="w-full rounded-lg border border-[#e4e4e7] px-3 py-2 text-sm focus:border-[#ec4899] focus:outline-none"
+                    className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
                     value={shift}
                     onChange={(e) => setShift(e.target.value as Shift)}
                   >
@@ -479,13 +479,13 @@ export default function RosterRegisterTable({
                 </div>
                 <button
                   onClick={register}
-                  className="rounded-lg bg-[#ec4899] px-4 py-2 text-sm font-medium text-white hover:bg-[#db2777]"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Đăng ký
                 </button>
               </div>
             )}
-            <p className="mt-3 text-xs text-[#a1a1aa]">
+            <p className="mt-3 text-xs text-ink-faint">
               Ca đăng ký sẽ ở trạng thái “Chờ duyệt” đến khi quản lý xác nhận.
             </p>
               </>

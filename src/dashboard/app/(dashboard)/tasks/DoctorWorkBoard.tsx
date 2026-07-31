@@ -78,7 +78,7 @@ function PhanLoai({ value }: { value?: string }) {
     <span
       className={
         "inline-block rounded-full px-2 py-0.5 text-[10px] font-medium " +
-        (first ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#fef3c7] text-[#b45309]")
+        (first ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
       }
     >
       {value}
@@ -86,7 +86,7 @@ function PhanLoai({ value }: { value?: string }) {
   );
 }
 
-const CELL = "border-b border-r border-[#f3cfe0] px-2 py-1.5 align-top";
+const CELL = "border-b border-r border-brand-100 px-2 py-1.5 align-top";
 
 export default function DoctorWorkBoard({
   rows,
@@ -169,14 +169,14 @@ export default function DoctorWorkBoard({
             className={
               "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
               (period === p.key
-                ? "bg-[#ec4899] text-white"
-                : "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fdf2f8]")
+                ? "bg-brand-600 text-white"
+                : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
             }
           >
             {p.label}
           </button>
         ))}
-        <span className="px-0.5 text-[#d4d4d8]">·</span>
+        <span className="px-0.5 text-line-strong">·</span>
         {STATUS_GROUPS.map((g) => (
           <button
             key={g.key}
@@ -184,8 +184,8 @@ export default function DoctorWorkBoard({
             className={
               "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors " +
               (statusFilter === g.key
-                ? "bg-[#9d2463] text-white"
-                : "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fdf2f8]")
+                ? "bg-brand-800 text-white"
+                : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
             }
           >
             {g.label}
@@ -194,22 +194,22 @@ export default function DoctorWorkBoard({
       </div>
 
       {/* Bảng lịch — khung kéo co dãn + cuộn (co thì cuộn, không vỡ cấu trúc). */}
-      <div className="overflow-auto rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[78vh] min-h-[200px] max-w-full">
+      <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[78vh] min-h-[200px] max-w-full">
         <table className="w-full min-w-max border-collapse text-xs">
-          <thead className="sticky top-0 z-10 bg-[#fce7f3] text-left text-[10px] font-semibold uppercase tracking-wide text-[#9d2463]">
+          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[10px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
-              <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[96px]">Ngày</th>
-              <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[64px]">Giờ</th>
-              <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[190px]">Bệnh nhân</th>
-              <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[96px]">Phân loại</th>
-              <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[110px]">Trạng thái</th>
-              <th className="border-b border-[#f3cfe0] px-2 py-1.5 min-w-[150px]">Hành động</th>
+              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[96px]">Ngày</th>
+              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[64px]">Giờ</th>
+              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[190px]">Bệnh nhân</th>
+              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[96px]">Phân loại</th>
+              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[110px]">Trạng thái</th>
+              <th className="border-b border-brand-100 px-2 py-1.5 min-w-[150px]">Hành động</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-xs text-[#a1a1aa]">
+                <td colSpan={6} className="px-3 py-8 text-center text-xs text-ink-faint">
                   Không có lịch trong kỳ / trạng thái đã chọn.
                 </td>
               </tr>
@@ -221,14 +221,14 @@ export default function DoctorWorkBoard({
                 return (
                   <tr
                     key={a.id}
-                    className={active ? "bg-[#fce7f3]" : i % 2 ? "bg-[#fdf7fb]" : "bg-white"}
+                    className={active ? "bg-brand-100" : i % 2 ? "bg-brand-50" : "bg-white"}
                   >
-                    <td className={`${CELL} whitespace-nowrap font-medium text-[#9d2463]`}>
+                    <td className={`${CELL} whitespace-nowrap font-medium text-brand-800`}>
                       {newDay ? `${dayLabel(d)} · ${fmtDayMonth(d)}` : ""}
                     </td>
-                    <td className={`${CELL} whitespace-nowrap text-[#171717]`}>
+                    <td className={`${CELL} whitespace-nowrap text-ink`}>
                       {a.queue_number ? (
-                        <span className="mr-1 rounded-full bg-[#fce7f3] px-1.5 text-[10px] font-medium text-[#9d2463]">
+                        <span className="mr-1 rounded-full bg-brand-100 px-1.5 text-[10px] font-medium text-brand-800">
                           {a.queue_number}
                         </span>
                       ) : null}
@@ -238,10 +238,10 @@ export default function DoctorWorkBoard({
                       {readOnly ? (
                         <span className="flex items-start gap-1.5 text-left">
                           <span>
-                            <span className="block font-medium text-[#171717]">
+                            <span className="block font-medium text-ink">
                               {a.patient?.full_name ?? "—"}
                             </span>
-                            <span className="block font-mono text-[10px] text-[#888888]">
+                            <span className="block font-mono text-[10px] text-ink-muted">
                               {a.patient?.patient_code}
                               {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
                               {a.service?.name ? ` · ${a.service.name}` : ""}
@@ -253,12 +253,12 @@ export default function DoctorWorkBoard({
                           onClick={() => setOpenId(a.id)}
                           className="flex items-start gap-1.5 text-left"
                         >
-                          <FileText size={13} className="mt-0.5 shrink-0 text-[#ec4899]" />
+                          <FileText size={13} className="mt-0.5 shrink-0 text-brand-600" />
                           <span>
-                            <span className="block font-medium text-[#171717] hover:text-[#ec4899]">
+                            <span className="block font-medium text-ink hover:text-brand-600">
                               {a.patient?.full_name ?? "—"}
                             </span>
-                            <span className="block font-mono text-[10px] text-[#888888]">
+                            <span className="block font-mono text-[10px] text-ink-muted">
                               {a.patient?.patient_code}
                               {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
                               {a.service?.name ? ` · ${a.service.name}` : ""}
@@ -270,7 +270,7 @@ export default function DoctorWorkBoard({
                     <td className={CELL}>
                       <div className="flex flex-col items-start gap-1">
                         {a.b3_ready && (
-                          <span className="rounded-full bg-[#fef3c7] px-2 py-0.5 text-[10px] font-medium text-[#b45309]">
+                          <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10px] font-medium text-warning">
                             🔔 Chờ đọc KQ
                           </span>
                         )}
@@ -282,7 +282,7 @@ export default function DoctorWorkBoard({
                     </td>
                     <td className={`${CELL} whitespace-nowrap`}>
                       {readOnly ? (
-                        <span className="text-[11px] text-[#a1a1aa]">
+                        <span className="text-[11px] text-ink-faint">
                           Chỉ xem lịch
                         </span>
                       ) : a.status === "CHECKED_IN" ? (
@@ -295,18 +295,18 @@ export default function DoctorWorkBoard({
                       ) : a.status === "SCHEDULED" ||
                         a.status === "CSKH_CONFIRMED" ||
                         a.status === "CONFIRMED" ? (
-                        <span className="text-[11px] text-[#a1a1aa]">Chờ lễ tân check-in</span>
+                        <span className="text-[11px] text-ink-faint">Chờ lễ tân check-in</span>
                       ) : a.status === "COMPLETED" ? (
                         <a
                           href={`/print/${a.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex min-h-8 items-center gap-1 rounded-md border border-[#bbf7d0] bg-white px-2.5 text-xs font-semibold text-[#15803d] hover:bg-[#f0fdf4]"
+                          className="inline-flex min-h-8 items-center gap-1 rounded-md border border-success-bg bg-white px-2.5 text-xs font-semibold text-success hover:bg-success-bg"
                         >
                           <Printer size={12} /> In phiếu
                         </a>
                       ) : (
-                        <span className="text-[11px] text-[#a1a1aa]">—</span>
+                        <span className="text-[11px] text-ink-faint">—</span>
                       )}
                     </td>
                   </tr>
@@ -323,7 +323,7 @@ export default function DoctorWorkBoard({
     <>
       {open ? (
         <>
-          <p className="mb-2 text-[11px] text-[#c084a8]">
+          <p className="mb-2 text-[11px] text-brand-300">
             ↔ Kéo thanh hồng ở GIỮA 2 bảng để chỉnh độ rộng (kéo trái: bảng trái
             co, hồ sơ rộng ra).
           </p>

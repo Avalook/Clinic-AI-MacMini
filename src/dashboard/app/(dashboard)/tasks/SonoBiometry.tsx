@@ -109,22 +109,22 @@ export default function SonoBiometry({
   const set = (k: string, v: string) => setM((o) => ({ ...o, [k]: v }));
 
   return (
-    <section className="space-y-3 rounded-xl border border-[#f3cfe0] bg-[#fdf7fb] p-4">
+    <section className="space-y-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-[#9d2463]">Số đo siêu âm thai</h3>
+        <h3 className="text-sm font-semibold text-brand-800">Số đo siêu âm thai</h3>
         <div className="flex items-center gap-2 text-[11px]">
           {status === "completed" && (
-            <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 font-medium text-[#15803d]">
+            <span className="rounded-full bg-success-bg px-2 py-0.5 font-medium text-success">
               Đã hoàn tất
             </span>
           )}
           {status === "in_progress" && (
-            <span className="rounded-full bg-[#fef3c7] px-2 py-0.5 font-medium text-[#b45309]">
+            <span className="rounded-full bg-warning-bg px-2 py-0.5 font-medium text-warning">
               Đang siêu âm
             </span>
           )}
           {isAbnormal && (
-            <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 font-medium text-[#dc2626]">
+            <span className="rounded-full bg-danger-bg px-2 py-0.5 font-medium text-danger">
               ⚠ Bất thường
             </span>
           )}
@@ -157,26 +157,26 @@ export default function SonoBiometry({
         <button
           onClick={saveResult}
           disabled={busy !== null}
-          className="min-h-9 rounded-md bg-[#ec4899] px-3 text-xs font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+          className="min-h-9 rounded-md bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           Lưu kết quả
         </button>
         <button
           onClick={toggleAbnormal}
           disabled={busy !== null}
-          className="min-h-9 rounded-md border border-[#fca5a5] bg-white px-3 text-xs font-medium text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50"
+          className="min-h-9 rounded-md border border-[#fca5a5] bg-white px-3 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
         >
           {isAbnormal ? "Bỏ đánh dấu bất thường" : "Đánh dấu bất thường"}
         </button>
         <button
           onClick={complete}
           disabled={busy !== null}
-          className="min-h-9 rounded-md bg-[#16a34a] px-3 text-xs font-semibold text-white hover:bg-[#15803d] disabled:opacity-50"
+          className="min-h-9 rounded-md bg-success px-3 text-xs font-semibold text-white hover:bg-success disabled:opacity-50"
         >
           Hoàn tất
         </button>
       </div>
-      {msg && <p className="text-xs text-[#15803d]">{msg}</p>}
+      {msg && <p className="text-xs text-success">{msg}</p>}
     </section>
   );
 }

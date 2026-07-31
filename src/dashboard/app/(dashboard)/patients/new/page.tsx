@@ -82,17 +82,17 @@ export default async function NewPatientPage({
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <header className="space-y-3">
-        <h1 className="text-xl font-semibold text-[#171717]">{h1}</h1>
+        <h1 className="text-xl font-semibold text-ink">{h1}</h1>
         {/* Trưởng ca: 2 nút chọn luồng — CSKH (online) hoặc Lễ tân (vãng lai). */}
         {canBothFlows && (
-          <div className="inline-flex rounded-lg border border-[#e4e4e7] bg-[#fafafa] p-1 text-sm">
+          <div className="inline-flex rounded-lg border border-line bg-surface-muted p-1 text-sm">
             <Link
               href="/patients/new"
               className={
                 "rounded-md px-3 py-1.5 font-medium transition-colors " +
                 (!walkinMode
-                  ? "bg-white text-[#db2777] shadow-sm"
-                  : "text-[#71717a] hover:text-[#171717]")
+                  ? "bg-white text-brand-700 shadow-sm"
+                  : "text-ink-muted hover:text-ink")
               }
             >
               Nhập thông tin khách hàng mới
@@ -102,8 +102,8 @@ export default async function NewPatientPage({
               className={
                 "rounded-md px-3 py-1.5 font-medium transition-colors " +
                 (walkinMode
-                  ? "bg-white text-[#db2777] shadow-sm"
-                  : "text-[#71717a] hover:text-[#171717]")
+                  ? "bg-white text-brand-700 shadow-sm"
+                  : "text-ink-muted hover:text-ink")
               }
             >
               Tạo bệnh nhân mới

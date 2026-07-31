@@ -23,10 +23,10 @@ export interface FollowupBucket {
 }
 
 const TIER_STYLE: Record<number, string> = {
-  2: "bg-[#fef9c3] text-[#a16207]",
+  2: "bg-warning-bg text-warning",
   10: "bg-[#fed7aa] text-[#c2410c]",
-  20: "bg-[#fecaca] text-[#dc2626]",
-  30: "bg-[#fee2e2] text-[#b91c1c]",
+  20: "bg-[#fecaca] text-danger",
+  30: "bg-danger-bg text-danger",
 };
 
 export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[] }) {
@@ -57,7 +57,7 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
 
   if (total === 0) {
     return (
-      <div className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-6 text-center text-sm text-[#888888]">
+      <div className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
         Không có BN quá hạn tái khám cần nhắc gọi.
       </div>
     );
@@ -66,7 +66,7 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">{error}</div>
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{error}</div>
       )}
       {buckets
         .filter((b) => b.rows.length > 0)
@@ -74,13 +74,13 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
           <div key={b.tier}>
             <div className="mb-1.5 flex items-center gap-2">
               <span
-                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_STYLE[b.tier] ?? "bg-[#f4f4f5] text-[#52525b]"}`}
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_STYLE[b.tier] ?? "bg-surface-sunken text-ink-soft"}`}
               >
                 {b.label}
               </span>
-              <span className="text-xs text-[#888888]">{b.rows.length} BN</span>
+              <span className="text-xs text-ink-muted">{b.rows.length} BN</span>
             </div>
-            <ul className="divide-y divide-[#e4e4e7] rounded-lg border border-[#e4e4e7] bg-white">
+            <ul className="divide-y divide-line rounded-lg border border-line bg-white">
               {b.rows.map((r) => {
                 const called = calledIds.has(r.clinic_patient_id);
                 return (
@@ -88,17 +88,17 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
                     key={r.clinic_patient_id}
                     className="flex items-center gap-3 px-4 py-2.5"
                   >
-                    <span className="w-24 shrink-0 text-sm font-semibold text-[#171717]">
+                    <span className="w-24 shrink-0 text-sm font-semibold text-ink">
                       {fmtDate(r.ngay)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[#171717]">
+                      <p className="truncate text-sm font-medium text-ink">
                         {r.full_name}
-                        <span className="ml-2 font-normal text-[#888888]">
+                        <span className="ml-2 font-normal text-ink-muted">
                           {r.phone_primary ?? "— chưa có SĐT"}
                         </span>
                       </p>
-                      <p className="truncate text-xs text-[#dc2626]">
+                      <p className="truncate text-xs text-danger">
                         Quá hạn {r.overdue_days} ngày
                       </p>
                     </div>
@@ -108,8 +108,8 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
                       className={
                         "shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-60 " +
                         (called
-                          ? "border-[#bbf7d0] bg-[#f0fdf4] text-[#15803d]"
-                          : "border-[#f3cfe0] text-[#9d2463] hover:bg-[#fdf2f8]")
+                          ? "border-success-bg bg-success-bg text-success"
+                          : "border-brand-100 text-brand-800 hover:bg-brand-50")
                       }
                     >
                       {busyId === r.clinic_patient_id

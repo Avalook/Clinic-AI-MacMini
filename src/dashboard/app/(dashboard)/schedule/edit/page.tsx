@@ -72,15 +72,15 @@ export default async function ScheduleEditPage({
     <div className="mx-auto max-w-3xl space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#171717]">Sửa lịch làm việc</h1>
-          <p className="text-sm text-[#888888]">
+          <h1 className="text-xl font-semibold text-ink">Sửa lịch làm việc</h1>
+          <p className="text-sm text-ink-muted">
             Tuần {fmtDayMonth(dates[0])} – {fmtDayMonth(dates[6])}. Thêm từng phân
             công (ngày · vị trí · nhân viên).
           </p>
         </div>
         <Link
           href={`/schedule?week=${week}`}
-          className="rounded-lg border border-[#e4e4e7] px-3.5 py-1.5 text-sm text-[#4d4d4d] hover:bg-[#f4f4f5]"
+          className="rounded-lg border border-line px-3.5 py-1.5 text-sm text-ink-soft hover:bg-surface-sunken"
         >
           ← Xem lịch
         </Link>

@@ -22,7 +22,7 @@ export interface RosterRow {
 }
 
 const TH_BASE =
-  "border-b border-r border-[#f3cfe0] px-2 py-2 text-center align-middle font-semibold text-[#9d2463]";
+  "border-b border-r border-brand-100 px-2 py-2 text-center align-middle font-semibold text-brand-800";
 
 export default function WorkRosterTable({
   dates,
@@ -47,14 +47,14 @@ export default function WorkRosterTable({
   }
 
   return (
-    <div className="overflow-auto rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] max-w-full">
+    <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] max-w-full">
       <table className="w-full min-w-max border-collapse text-xs">
         <thead>
           {/* Hàng 1: TẦNG (gộp cột) */}
-          <tr className="bg-[#fce7f3]">
+          <tr className="bg-brand-100">
             <th
               rowSpan={2}
-              className="sticky left-0 z-20 border-b border-r border-[#f3cfe0] bg-[#fce7f3] px-2 py-2 text-left font-semibold text-[#9d2463]"
+              className="sticky left-0 z-20 border-b border-r border-brand-100 bg-brand-100 px-2 py-2 text-left font-semibold text-brand-800"
             >
               Ngày
             </th>
@@ -78,11 +78,11 @@ export default function WorkRosterTable({
             )}
           </tr>
           {/* Hàng 2: tên TRẠM (các cột thuộc tầng) */}
-          <tr className="bg-[#fdf2f8]">
+          <tr className="bg-brand-50">
             {STATIONS.filter((s) => s.floor !== "").map((s) => (
               <th
                 key={s.key}
-                className="min-w-[92px] border-b border-r border-[#f3cfe0] px-2 py-1.5 text-center font-medium text-[#b83280]"
+                className="min-w-[92px] border-b border-r border-brand-100 px-2 py-1.5 text-center font-medium text-[#b83280]"
               >
                 {s.short}
               </th>
@@ -93,8 +93,8 @@ export default function WorkRosterTable({
           {dates.map((d, ri) => {
             const dm = byDate.get(d);
             return (
-              <tr key={d} className={"align-top " + (ri % 2 ? "bg-[#fdf7fb]" : "bg-white")}>
-                <td className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-[#f3cfe0] bg-inherit px-2 py-2 font-medium text-[#171717]">
+              <tr key={d} className={"align-top " + (ri % 2 ? "bg-brand-50" : "bg-white")}>
+                <td className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-brand-100 bg-inherit px-2 py-2 font-medium text-ink">
                   {dayShort(d)} · {fmtDayMonth(d)}
                 </td>
                 {STATIONS.map((s) => {
@@ -104,10 +104,10 @@ export default function WorkRosterTable({
                     <td
                       key={s.key}
                       className={
-                        "border-b border-r border-[#f3cfe0] px-2 py-2 text-center " +
+                        "border-b border-r border-brand-100 px-2 py-2 text-center " +
                         (isDoctor
                           ? "font-semibold text-[#b83280]"
-                          : "text-[#171717]")
+                          : "text-ink")
                       }
                     >
                       {names.length === 0 ? (

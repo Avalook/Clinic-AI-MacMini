@@ -29,7 +29,7 @@ export default function PatientBooking({
   if (bookedId) {
     return (
       <section className={`${CARD} space-y-3`}>
-        <p className="rounded bg-[#dcfce7] px-3 py-2 text-sm text-[#15803d]">
+        <p className="rounded bg-success-bg px-3 py-2 text-sm text-success">
           ✓ Đã đặt lịch hẹn.
         </p>
         <button
@@ -56,10 +56,10 @@ export default function PatientBooking({
   return (
     <section className={`${CARD} space-y-4`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-[#171717]">Đặt lịch hẹn</h3>
+        <h3 className="text-base font-semibold text-ink">Đặt lịch hẹn</h3>
         <button
           onClick={() => setOpen(false)}
-          className="text-sm text-[#71717a] hover:underline"
+          className="text-sm text-ink-muted hover:underline"
         >
           Đóng
         </button>

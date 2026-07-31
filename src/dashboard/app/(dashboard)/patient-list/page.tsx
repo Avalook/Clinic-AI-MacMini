@@ -146,13 +146,13 @@ export default async function PatientListPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">
+        <h1 className="text-xl font-semibold text-ink">
           Danh sách bệnh nhân
         </h1>
       </header>
 
       {error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       ) : (

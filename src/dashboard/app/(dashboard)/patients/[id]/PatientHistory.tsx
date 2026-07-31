@@ -104,11 +104,11 @@ function cleanTestName(s: string): string {
   return out || (s ?? "");
 }
 
-const SECTION = "text-base font-semibold text-[#171717]";
+const SECTION = "text-base font-semibold text-ink";
 const TH = "px-4 py-2.5 font-medium";
 const TD = "px-4 py-2.5";
 const CARD =
-  "rounded-lg border border-[#e4e4e7] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]";
+  "rounded-lg border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]";
 
 // Note lâm sàng ("Lý do khám") nguồn viết liền — tách thành mục dễ đọc:
 // chèn xuống dòng trước ➤<nhãn>:, mục đánh số (1. Hành chính…), và mốc ngày
@@ -125,13 +125,13 @@ function ClinicalNote({ text }: { text: string }) {
     .filter(Boolean);
 
   return (
-    <div className="space-y-1 text-sm leading-relaxed text-[#171717]">
+    <div className="space-y-1 text-sm leading-relaxed text-ink">
       {lines.map((line, i) => {
         const arrow = line.match(/^➤\s*([^:]+):\s*([\s\S]*)$/);
         if (arrow) {
           return (
             <p key={i} className="whitespace-pre-line">
-              <span className="font-semibold text-[#db2777]">
+              <span className="font-semibold text-brand-700">
                 {arrow[1].trim()}:{" "}
               </span>
               {arrow[2].trim()}
@@ -142,7 +142,7 @@ function ClinicalNote({ text }: { text: string }) {
         if (num) {
           return (
             <p key={i} className="whitespace-pre-line pt-1">
-              <span className="font-semibold text-[#52525b]">{num[1]}. </span>
+              <span className="font-semibold text-ink-soft">{num[1]}. </span>
               {num[2].trim()}
             </p>
           );
@@ -151,8 +151,8 @@ function ClinicalNote({ text }: { text: string }) {
         if (date) {
           return (
             <p key={i} className="whitespace-pre-line pt-1">
-              <span className="font-medium text-[#171717]">{date[1]}</span>
-              <span className="text-[#52525b]">{date[2]}</span>
+              <span className="font-medium text-ink">{date[1]}</span>
+              <span className="text-ink-soft">{date[2]}</span>
             </p>
           );
         }
@@ -214,31 +214,31 @@ export default async function PatientHistory({
             {pregnancies.map((p) => (
               <div key={p.id} className={`${CARD} p-4`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[#171717]">
+                  <span className="text-sm font-medium text-ink">
                     {p.outcome}
                   </span>
                   {p.is_high_risk && (
-                    <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 text-xs font-medium text-[#dc2626]">
+                    <span className="rounded-full bg-danger-bg px-2 py-0.5 text-xs font-medium text-danger">
                       Nguy cơ cao
                     </span>
                   )}
                 </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs text-[#4d4d4d]">
+                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs text-ink-soft">
                   <div>
-                    <dt className="text-[#888888]">LMP</dt>
+                    <dt className="text-ink-muted">LMP</dt>
                     <dd>{fmtDate(p.lmp_date)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[#888888]">Dự sinh</dt>
+                    <dt className="text-ink-muted">Dự sinh</dt>
                     <dd>{fmtDate(p.edd_date)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[#888888]">Tuổi thai (đăng ký)</dt>
+                    <dt className="text-ink-muted">Tuổi thai (đăng ký)</dt>
                     <dd>{p.gestational_age_at_registration ?? "—"}</dd>
                   </div>
                 </dl>
                 {p.high_risk_reason && (
-                  <p className="mt-2 text-xs text-[#dc2626]">
+                  <p className="mt-2 text-xs text-danger">
                     {p.high_risk_reason}
                   </p>
                 )}
@@ -252,12 +252,12 @@ export default async function PatientHistory({
       <section className="space-y-3">
         <h3 className={SECTION}>Lịch sử khám ({visits.length})</h3>
         {visitRes.error && (
-          <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+          <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
             {visitRes.error.message}
           </div>
         )}
         {visits.length === 0 ? (
-          <div className={`${CARD} px-4 py-6 text-center text-sm text-[#888888]`}>
+          <div className={`${CARD} px-4 py-6 text-center text-sm text-ink-muted`}>
             Chưa có lần khám nào.
           </div>
         ) : (
@@ -274,9 +274,9 @@ export default async function PatientHistory({
               return (
                 <div key={v.visit_id} className={`${CARD} p-4`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-[#171717]">
+                    <span className="text-sm font-medium text-ink">
                       {fmtDate(v.created_at)}
-                      <span className="ml-2 text-xs font-normal text-[#888888]">
+                      <span className="ml-2 text-xs font-normal text-ink-muted">
                         {v.service?.name ?? "—"} ·{" "}
                         {v.doctor?.full_name ?? "—"}
                       </span>
@@ -290,8 +290,8 @@ export default async function PatientHistory({
                           key={s.label}
                           className="grid grid-cols-1 gap-0.5 sm:grid-cols-[120px_1fr] sm:gap-2"
                         >
-                          <dt className="text-xs text-[#888888]">{s.label}</dt>
-                          <dd className="text-sm text-[#171717]">
+                          <dt className="text-xs text-ink-muted">{s.label}</dt>
+                          <dd className="text-sm text-ink">
                             {s.label === "Lý do khám" ? (
                               <ClinicalNote text={s.value} />
                             ) : (
@@ -304,7 +304,7 @@ export default async function PatientHistory({
                       ))}
                     </dl>
                   ) : (
-                    <p className="mt-2 text-xs italic text-[#888888]">
+                    <p className="mt-2 text-xs italic text-ink-muted">
                       Không có ghi chú khám.
                     </p>
                   )}
@@ -319,7 +319,7 @@ export default async function PatientHistory({
       <section className="space-y-3">
         <h3 className={SECTION}>Xét nghiệm ({labs.length})</h3>
         {labs.length === 0 ? (
-          <div className={`${CARD} px-4 py-6 text-center text-sm text-[#888888]`}>
+          <div className={`${CARD} px-4 py-6 text-center text-sm text-ink-muted`}>
             Chưa có kết quả xét nghiệm.
           </div>
         ) : (
@@ -329,21 +329,21 @@ export default async function PatientHistory({
               {labs.map((l) => (
                 <div key={l.lab_result_id} className={`${CARD} p-3`}>
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium text-[#171717]">
+                    <span className="font-medium text-ink">
                       {cleanTestName(l.test_name)}
                     </span>
-                    <span className="shrink-0 font-mono text-xs text-[#888888]">
+                    <span className="shrink-0 font-mono text-xs text-ink-muted">
                       {fmtDate(l.result_received_at)}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-[#4d4d4d]">
+                  <p className="mt-1 text-sm text-ink-soft">
                     {l.result_value ??
                       (l.result_numeric != null
                         ? String(l.result_numeric)
                         : "—")}
                     {l.result_unit ? ` ${l.result_unit}` : ""}
                   </p>
-                  <p className="mt-0.5 text-xs text-[#888888]">
+                  <p className="mt-0.5 text-xs text-ink-muted">
                     Cờ: {l.flag ?? "—"} · Phân nhóm: {l.triage_group}
                   </p>
                   {canReviewLabs && (
@@ -363,8 +363,8 @@ export default async function PatientHistory({
 
             {/* Desktop: table (≥md). */}
             <div className={`hidden overflow-auto max-h-[88vh] min-h-[180px] md:block ${CARD}`}>
-              <table className="min-w-full divide-y divide-[#f6e0ec] text-sm">
-              <thead className="sticky top-0 z-10 bg-[#fce7f3] text-left text-[11px] font-semibold uppercase tracking-wide text-[#9d2463]">
+              <table className="min-w-full divide-y divide-brand-100 text-sm">
+              <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
                   <th className={TH}>Ngày</th>
                   <th className={TH}>Xét nghiệm</th>
@@ -374,20 +374,20 @@ export default async function PatientHistory({
                   {canReviewLabs && <th className={TH}>Duyệt</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f6e0ec]">
+              <tbody className="divide-y divide-brand-100">
                 {labs.map((l) => (
-                  <tr key={l.lab_result_id} className="hover:bg-[#fdf2f8]">
-                    <td className={`${TD} font-mono text-xs text-[#4d4d4d]`}>
+                  <tr key={l.lab_result_id} className="hover:bg-brand-50">
+                    <td className={`${TD} font-mono text-xs text-ink-soft`}>
                       {fmtDate(l.result_received_at)}
                     </td>
-                    <td className={`${TD} text-[#171717]`}>{cleanTestName(l.test_name)}</td>
-                    <td className={`${TD} text-[#4d4d4d]`}>
+                    <td className={`${TD} text-ink`}>{cleanTestName(l.test_name)}</td>
+                    <td className={`${TD} text-ink-soft`}>
                       {l.result_value ??
                         (l.result_numeric != null ? String(l.result_numeric) : "—")}
                       {l.result_unit ? ` ${l.result_unit}` : ""}
                     </td>
-                    <td className={`${TD} text-[#4d4d4d]`}>{l.flag ?? "—"}</td>
-                    <td className={`${TD} text-[#4d4d4d]`}>{l.triage_group}</td>
+                    <td className={`${TD} text-ink-soft`}>{l.flag ?? "—"}</td>
+                    <td className={`${TD} text-ink-soft`}>{l.triage_group}</td>
                     {canReviewLabs && (
                       <td className={TD}>
                         <LabReviewActions

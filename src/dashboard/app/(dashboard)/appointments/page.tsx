@@ -97,11 +97,11 @@ export default async function AppointmentsPage({
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-[#171717]">
+          <h1 className="text-xl font-semibold text-ink">
             Lịch hẹn{isDoctor && staff ? ` của ${staff.full_name}` : ""}
           </h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p className="text-sm text-[#888888]">
+            <p className="text-sm text-ink-muted">
               {isDoctor
                 ? "Chỉ hiển thị lịch hẹn của bạn."
                 : "Bảng theo dõi xác nhận lịch. Read-only."}
@@ -112,7 +112,7 @@ export default async function AppointmentsPage({
       </header>
 
       {error && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       )}
@@ -126,15 +126,15 @@ export default async function AppointmentsPage({
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-[#171717]">
+          <h2 className="text-base font-semibold text-ink">
             Sắp tới
-            <span className="ml-2 text-sm font-normal text-[#888888]">
+            <span className="ml-2 text-sm font-normal text-ink-muted">
               ({upcoming.length} · {RANGE_DAYS[range]} ngày tới)
             </span>
           </h2>
           {/* Range filter: Ngày / Tuần / Tháng. */}
           <div
-            className="flex gap-1 rounded-lg bg-[#f4f4f5] p-1"
+            className="flex gap-1 rounded-lg bg-surface-sunken p-1"
             role="group"
             aria-label="Khoảng thời gian"
           >
@@ -144,8 +144,8 @@ export default async function AppointmentsPage({
                 href={rangeHref(r)}
                 className={
                   r === range
-                    ? "rounded-md bg-white px-3 py-1 text-xs font-medium text-[#171717] shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                    : "rounded-md px-3 py-1 text-xs text-[#71717a] hover:text-[#171717]"
+                    ? "rounded-md bg-white px-3 py-1 text-xs font-medium text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+                    : "rounded-md px-3 py-1 text-xs text-ink-muted hover:text-ink"
                 }
               >
                 {RANGE_LABEL[r]}

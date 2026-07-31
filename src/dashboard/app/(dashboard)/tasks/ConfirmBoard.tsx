@@ -303,14 +303,14 @@ export default function ConfirmBoard({
               className={
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
                 (period === p.key
-                  ? "bg-[#ec4899] text-white"
-                  : "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fdf2f8]")
+                  ? "bg-brand-600 text-white"
+                  : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
               }
             >
               {p.label}
             </button>
           ))}
-          <span className="px-0.5 text-[#d4d4d8]">·</span>
+          <span className="px-0.5 text-line-strong">·</span>
           {STATUS_GROUPS.map((g) => (
             <button
               key={g.key}
@@ -318,8 +318,8 @@ export default function ConfirmBoard({
               className={
                 "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors " +
                 (statusFilter === g.key
-                  ? "bg-[#9d2463] text-white"
-                  : "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fdf2f8]")
+                  ? "bg-brand-800 text-white"
+                  : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
               }
             >
               {g.label}
@@ -328,22 +328,22 @@ export default function ConfirmBoard({
         </div>
 
         {/* Khung kéo co dãn + cuộn: bảng co thì CUỘN, không vỡ cấu trúc. */}
-        <div className="overflow-auto rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[80vh] min-h-[200px] max-w-full">
+        <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[80vh] min-h-[200px] max-w-full">
           <table className="w-full min-w-max border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-[#fce7f3] text-left text-[10px] font-semibold uppercase tracking-wide text-[#9d2463]">
+            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[10px] font-semibold uppercase tracking-wide text-brand-800">
               <tr>
-                <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[96px]">Ngày</th>
-                <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[60px]">Giờ</th>
-                <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[180px]">Bệnh nhân</th>
-                <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[120px]">Dịch vụ</th>
-                <th className="border-b border-r border-[#f3cfe0] px-2 py-1.5 min-w-[110px]">Bác sĩ</th>
-                <th className="border-b border-[#f3cfe0] px-2 py-1.5 min-w-[110px]">Trạng thái</th>
+                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[96px]">Ngày</th>
+                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[60px]">Giờ</th>
+                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[180px]">Bệnh nhân</th>
+                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[120px]">Dịch vụ</th>
+                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[110px]">Bác sĩ</th>
+                <th className="border-b border-brand-100 px-2 py-1.5 min-w-[110px]">Trạng thái</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-xs text-[#a1a1aa]">
+                  <td colSpan={6} className="px-3 py-8 text-center text-xs text-ink-faint">
                     Không có lịch trong kỳ / trạng thái đã chọn.
                   </td>
                 </tr>
@@ -357,30 +357,30 @@ export default function ConfirmBoard({
                       key={a.id}
                       onClick={() => select(a)}
                       className={
-                        "cursor-pointer border-b border-[#f3cfe0] " +
+                        "cursor-pointer border-b border-brand-100 " +
                         (active
-                          ? "bg-[#fce7f3]"
-                          : (i % 2 ? "bg-[#fdf7fb]" : "bg-white") +
-                            " hover:bg-[#fdf2f8]")
+                          ? "bg-brand-100"
+                          : (i % 2 ? "bg-brand-50" : "bg-white") +
+                            " hover:bg-brand-50")
                       }
                     >
-                      <td className="border-r border-[#f3cfe0] px-2 py-1.5 whitespace-nowrap font-medium text-[#9d2463]">
+                      <td className="border-r border-brand-100 px-2 py-1.5 whitespace-nowrap font-medium text-brand-800">
                         {newDay ? `${dayLabel(d)} · ${fmtDayMonth(d)}` : ""}
                       </td>
-                      <td className="border-r border-[#f3cfe0] px-2 py-1.5 whitespace-nowrap text-[#171717]">
+                      <td className="border-r border-brand-100 px-2 py-1.5 whitespace-nowrap text-ink">
                         {fmtTimeOrNone(a.slot_start)}
                       </td>
-                      <td className="border-r border-[#f3cfe0] px-2 py-1.5 text-[#171717]">
+                      <td className="border-r border-brand-100 px-2 py-1.5 text-ink">
                         <span className="block">{a.patient?.full_name ?? "—"}</span>
-                        <span className="block font-mono text-[10px] text-[#888888]">
+                        <span className="block font-mono text-[10px] text-ink-muted">
                           {a.patient?.patient_code}
                           {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
                         </span>
                       </td>
-                      <td className="border-r border-[#f3cfe0] px-2 py-1.5 text-[#52525b]">
+                      <td className="border-r border-brand-100 px-2 py-1.5 text-ink-soft">
                         {a.service?.name ?? "—"}
                       </td>
-                      <td className="border-r border-[#f3cfe0] px-2 py-1.5 whitespace-nowrap text-[#52525b]">
+                      <td className="border-r border-brand-100 px-2 py-1.5 whitespace-nowrap text-ink-soft">
                         {a.doctor?.full_name ?? "—"}
                       </td>
                       <td className="px-2 py-1.5">
@@ -397,15 +397,15 @@ export default function ConfirmBoard({
 
       {/* Panel chi tiết — BÊN CẠNH bảng (ngang); mobile thì xuống dưới */}
       {sel && (
-        <aside className="w-full shrink-0 overflow-y-auto rounded-xl border border-[#f9a8d4] bg-[#fdf2f8] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-[360px]">
+        <aside className="w-full shrink-0 overflow-y-auto rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-[360px]">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[#9d174d]">
+            <h3 className="text-sm font-semibold text-status-cancelled">
               Thông tin khách hàng
             </h3>
             <button
               onClick={close}
               aria-label="Đóng"
-              className="rounded-md p-1 text-[#9d174d] hover:bg-white/60"
+              className="rounded-md p-1 text-status-cancelled hover:bg-white/60"
             >
               <X size={16} />
             </button>
@@ -434,21 +434,21 @@ export default function ConfirmBoard({
                   <Row label="Lý do hủy" value={sel.cancellation_reason} />
                 )}
                 <div className="flex gap-2 pt-0.5">
-                  <dt className="w-28 shrink-0 text-[#888888]">Trạng thái</dt>
+                  <dt className="w-28 shrink-0 text-ink-muted">Trạng thái</dt>
                   <dd>
                     <StatusBadge status={sel.status} />
                   </dd>
                 </div>
               </dl>
 
-              {error && <p className="mt-2 text-xs text-[#dc2626]">{error}</p>}
+              {error && <p className="mt-2 text-xs text-danger">{error}</p>}
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {sel.status === "SCHEDULED" && (
                   <button
                     onClick={confirm}
                     disabled={busy}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#16a34a] px-4 text-sm font-semibold text-white hover:bg-[#15803d] disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-success px-4 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
                   >
                     <Check size={15} /> Xác nhận
                   </button>
@@ -456,7 +456,7 @@ export default function ConfirmBoard({
                 <button
                   onClick={startEdit}
                   disabled={busy}
-                  className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm font-medium text-[#52525b] hover:bg-[#f4f4f5] disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-line bg-white px-4 text-sm font-medium text-ink-soft hover:bg-surface-sunken disabled:opacity-50"
                 >
                   <Pencil size={14} />
                   {sel.status === "SCHEDULED" ? "Không xác nhận / Sửa" : "Sửa"}
@@ -484,7 +484,7 @@ export default function ConfirmBoard({
                       setShowResched(false);
                     }}
                     disabled={busy}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#fecaca] bg-white px-4 text-sm font-medium text-[#dc2626] hover:bg-[#fef2f2] disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#fecaca] bg-white px-4 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
                   >
                     <Ban size={14} /> Hủy lịch
                   </button>
@@ -505,13 +505,13 @@ export default function ConfirmBoard({
                     <button
                       onClick={cancelAppt}
                       disabled={busy}
-                      className="min-h-10 rounded-lg bg-[#dc2626] px-4 text-sm font-semibold text-white hover:bg-[#b91c1c] disabled:opacity-50"
+                      className="min-h-10 rounded-lg bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
                     >
                       {busy ? "Đang hủy…" : "Xác nhận hủy"}
                     </button>
                     <button
                       onClick={() => setShowCancel(false)}
-                      className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
+                      className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
                     >
                       Thôi
                     </button>
@@ -560,19 +560,19 @@ export default function ConfirmBoard({
                         autoComplete="off"
                       />
                       {reschedDocOpen && (
-                        <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg">
+                        <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
                           <li
                             onMouseDown={() => {
                               setReschedDoc("");
                               setReschedDocQ("");
                               setReschedDocOpen(false);
                             }}
-                            className="cursor-pointer px-3 py-2 text-sm text-[#71717a] hover:bg-[#fdf2f8]"
+                            className="cursor-pointer px-3 py-2 text-sm text-ink-muted hover:bg-brand-50"
                           >
                             — Giữ bác sĩ hiện tại —
                           </li>
                           {filteredDoctors.length === 0 ? (
-                            <li className="px-3 py-2 text-sm text-[#a1a1aa]">
+                            <li className="px-3 py-2 text-sm text-ink-faint">
                               Không tìm thấy bác sĩ
                             </li>
                           ) : (
@@ -585,10 +585,10 @@ export default function ConfirmBoard({
                                   setReschedDocOpen(false);
                                 }}
                                 className={
-                                  "cursor-pointer px-3 py-2 text-sm hover:bg-[#fdf2f8] " +
+                                  "cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 " +
                                   (d.id === reschedDoc
-                                    ? "bg-[#fce7f3] font-medium text-[#9d2463]"
-                                    : "text-[#171717]")
+                                    ? "bg-brand-100 font-medium text-brand-800"
+                                    : "text-ink")
                                 }
                               >
                                 {d.label}
@@ -720,19 +720,19 @@ export default function ConfirmBoard({
                     placeholder="Số nhà, đường, phường/xã, tỉnh/thành"
                   />
                 </div>
-                {error && <p className="text-xs text-[#dc2626]">{error}</p>}
+                {error && <p className="text-xs text-danger">{error}</p>}
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={save}
                     disabled={busy}
-                    className="min-h-10 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+                    className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                   >
                     {busy ? "Đang lưu..." : "Lưu thông tin"}
                   </button>
                   <button
                     onClick={() => setEditing(false)}
                     disabled={busy}
-                    className="min-h-10 rounded-lg border border-[#e4e4e7] bg-white px-4 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
+                    className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
                   >
                     Huỷ
                   </button>
@@ -750,8 +750,8 @@ export default function ConfirmBoard({
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-28 shrink-0 text-[#888888]">{label}</dt>
-      <dd className="min-w-0 break-words text-[#171717]">{value || "—"}</dd>
+      <dt className="w-28 shrink-0 text-ink-muted">{label}</dt>
+      <dd className="min-w-0 break-words text-ink">{value || "—"}</dd>
     </div>
   );
 }

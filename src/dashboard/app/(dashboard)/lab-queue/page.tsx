@@ -40,17 +40,17 @@ export default async function LabQueuePage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">
+        <h1 className="text-xl font-semibold text-ink">
           Hàng đợi xét nghiệm
         </h1>
-        <p className="text-sm text-[#888888]">
+        <p className="text-sm text-ink-muted">
           Bác sĩ chỉ định → đính tóm tắt + link phiếu (PDF/Drive) + nhà cung cấp
           lab. Bác sĩ xem lại ở mục VI hồ sơ khám.
         </p>
       </header>
 
       {error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       ) : (

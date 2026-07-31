@@ -89,14 +89,14 @@ export default function CinemaSlotPicker({
 
   if (!date) {
     return (
-      <p className="rounded-lg border border-[#e4e4e7] bg-gray-50 px-3 py-2 text-sm text-[#71717a]">
+      <p className="rounded-lg border border-line bg-gray-50 px-3 py-2 text-sm text-ink-muted">
         Chọn ngày khám để hiện sơ đồ chỗ trống.
       </p>
     );
   }
   if (slots.length === 0) {
     return (
-      <p className="rounded-lg border border-[#e4e4e7] bg-gray-50 px-3 py-2 text-sm text-[#71717a]">
+      <p className="rounded-lg border border-line bg-gray-50 px-3 py-2 text-sm text-ink-muted">
         Ngày này phòng khám không có khung giờ mở cửa.
       </p>
     );
@@ -119,41 +119,41 @@ export default function CinemaSlotPicker({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#71717a]">
+      <div className="flex flex-wrap items-center gap-3 text-[11px] text-ink-muted">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded border border-[#f3cfe0] bg-white" />{" "}
+          <span className="inline-block h-3 w-3 rounded border border-brand-100 bg-white" />{" "}
           Chỗ hẹn trống (BN1/BN2)
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded border border-[#bbf7d0] bg-[#dcfce7]" />{" "}
+          <span className="inline-block h-3 w-3 rounded border border-success-bg bg-success-bg" />{" "}
           Chỗ Ưu tiên trống
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-[#9d2463]" /> Đang chọn
+          <span className="inline-block h-3 w-3 rounded bg-brand-800" /> Đang chọn
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-[#e5e7eb]" /> Đã kín / quá giờ
+          <span className="inline-block h-3 w-3 rounded bg-line" /> Đã kín / quá giờ
         </span>
       </div>
       {noDuty && (
-        <p className="rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-1.5 text-[11px] text-[#a16207]">
+        <p className="rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-1.5 text-[11px] text-warning">
           Ngày này chưa có lịch trực bác sĩ (Lịch làm việc) — đang hiện tất cả bác sĩ.
         </p>
       )}
-      <div className="overflow-x-auto rounded-xl border border-[#f3cfe0]">
+      <div className="overflow-x-auto rounded-xl border border-brand-100">
         <table className="border-separate border-spacing-x-1 border-spacing-y-0.5 p-2">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-white px-2 text-left text-[11px] font-medium text-[#71717a]">
+              <th className="sticky left-0 z-10 bg-white px-2 text-left text-[11px] font-medium text-ink-muted">
                 Bác sĩ
               </th>
-              <th className="sticky left-[110px] z-10 bg-white px-1 text-left text-[10px] font-normal text-[#a1a1aa]">
+              <th className="sticky left-[110px] z-10 bg-white px-1 text-left text-[10px] font-normal text-ink-faint">
                 Chỗ
               </th>
               {slots.map((t) => (
                 <th
                   key={t}
-                  className="whitespace-nowrap px-0.5 text-[10px] font-normal text-[#a1a1aa]"
+                  className="whitespace-nowrap px-0.5 text-[10px] font-normal text-ink-faint"
                 >
                   {slotRange(t)}
                 </th>
@@ -167,7 +167,7 @@ export default function CinemaSlotPicker({
                   {si === 0 && (
                     <td
                       rowSpan={SUBROWS.length}
-                      className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 align-middle text-xs font-medium text-[#171717]"
+                      className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 align-middle text-xs font-medium text-ink"
                     >
                       {d.label}
                     </td>
@@ -175,7 +175,7 @@ export default function CinemaSlotPicker({
                   <td
                     className={
                       "sticky left-[110px] z-10 whitespace-nowrap bg-white px-1 text-[10px] " +
-                      (sub.kind === "walkin" ? "text-[#15803d]" : "text-[#a1a1aa]")
+                      (sub.kind === "walkin" ? "text-success" : "text-ink-faint")
                     }
                   >
                     {sub.label}
@@ -230,16 +230,16 @@ export default function CinemaSlotPicker({
                     const cls =
                       "h-6 w-full min-w-[3.75rem] rounded text-[10px] font-medium transition " +
                       (isSelected
-                        ? "bg-[#9d2463] text-white"
+                        ? "bg-brand-800 text-white"
                         : isPast || isTaken
-                          ? "cursor-not-allowed bg-[#e5e7eb] text-[#a1a1aa]"
+                          ? "cursor-not-allowed bg-line text-ink-faint"
                           : sub.kind === "walkin"
                             ? pickable
-                              ? "border border-[#86efac] bg-[#dcfce7] text-[#15803d] hover:bg-[#bbf7d0]"
-                              : "cursor-not-allowed border border-[#d1fae5] bg-[#f0fdf4] text-[#86efac]"
+                              ? "border border-[#86efac] bg-success-bg text-success hover:bg-success-bg"
+                              : "cursor-not-allowed border border-[#d1fae5] bg-success-bg text-[#86efac]"
                             : pickable
-                              ? "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fce7f3]"
-                              : "cursor-not-allowed border border-[#f4e4ee] bg-[#fdf7fb] text-[#e3c1d6]");
+                              ? "border border-brand-100 bg-white text-brand-800 hover:bg-brand-100"
+                              : "cursor-not-allowed border border-[#f4e4ee] bg-brand-50 text-[#e3c1d6]");
                     return (
                       <td key={t} className="p-0">
                         <button

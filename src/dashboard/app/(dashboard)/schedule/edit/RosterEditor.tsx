@@ -109,8 +109,8 @@ export default function RosterEditor({
   return (
     <div className="space-y-4">
       {/* Form thêm */}
-      <div className="rounded-xl border border-[#e4e4e7] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-4 text-sm font-semibold text-[#171717]">
+      <div className="rounded-xl border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <h2 className="mb-4 text-sm font-semibold text-ink">
           Thêm phân công
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -143,7 +143,7 @@ export default function RosterEditor({
               ))}
             </select>
             {!staffId && (
-              <p className="mt-1 text-[11px] text-[#a1a1aa]">
+              <p className="mt-1 text-[11px] text-ink-faint">
                 Chọn nhân viên trước — vị trí sẽ lọc theo chức danh.
               </p>
             )}
@@ -185,7 +185,7 @@ export default function RosterEditor({
           </div>
         </div>
         {error && (
-          <p className="mt-3 rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+          <p className="mt-3 rounded bg-danger-bg px-3 py-2 text-sm text-danger">
             {error}
           </p>
         )}
@@ -198,7 +198,7 @@ export default function RosterEditor({
 
       {/* Danh sách đã phân công */}
       {byDate.length === 0 ? (
-        <div className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-8 text-center text-sm text-[#888888]">
+        <div className="rounded-lg border border-line bg-white px-4 py-8 text-center text-sm text-ink-muted">
           Tuần này chưa có phân công nào.
         </div>
       ) : (
@@ -206,24 +206,24 @@ export default function RosterEditor({
           {byDate.map((g) => (
             <div
               key={g.date}
-              className="rounded-lg border border-[#e4e4e7] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+              className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
             >
-              <p className="mb-2 text-sm font-semibold text-[#171717]">
+              <p className="mb-2 text-sm font-semibold text-ink">
                 {dayShort(g.date)} · {fmtDayMonth(g.date)}
               </p>
-              <ul className="divide-y divide-[#f4f4f5]">
+              <ul className="divide-y divide-surface-sunken">
                 {g.items.map((it) => (
                   <li
                     key={it.id}
                     className="flex items-center justify-between gap-2 py-1.5 text-sm"
                   >
-                    <span className="min-w-0 text-[#4d4d4d]">
-                      <span className="font-medium text-[#171717]">
+                    <span className="min-w-0 text-ink-soft">
+                      <span className="font-medium text-ink">
                         {it.staff_name}
                       </span>{" "}
                       · {STATION_LABEL[it.station] ?? it.station}
                       {it.shift !== "FULL" && (
-                        <span className="text-[#a1a1aa]">
+                        <span className="text-ink-faint">
                           {" "}
                           ({SHIFT_LABEL[it.shift]})
                         </span>
@@ -233,7 +233,7 @@ export default function RosterEditor({
                       onClick={() => remove(it.id)}
                       disabled={busy}
                       aria-label="Xoá"
-                      className="shrink-0 rounded-md p-1.5 text-[#a1a1aa] hover:bg-[#fee2e2] hover:text-[#dc2626] disabled:opacity-50"
+                      className="shrink-0 rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
                     >
                       <Trash2 size={15} />
                     </button>

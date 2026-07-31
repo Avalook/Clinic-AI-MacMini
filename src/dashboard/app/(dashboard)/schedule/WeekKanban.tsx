@@ -55,14 +55,14 @@ export default function WeekKanban({
               className={
                 "mb-2 rounded-lg px-3 py-2 text-center " +
                 (isToday
-                  ? "bg-[#ec4899] text-white"
-                  : "bg-[#fce7f3] text-[#9d2463]")
+                  ? "bg-brand-600 text-white"
+                  : "bg-brand-100 text-brand-800")
               }
             >
               <div className="text-xs font-semibold uppercase tracking-wide">
                 {dayShort(d)}
               </div>
-              <div className={isToday ? "text-sm" : "text-sm text-[#171717]"}>
+              <div className={isToday ? "text-sm" : "text-sm text-ink"}>
                 {fmtDayMonth(d)}
               </div>
             </div>
@@ -70,7 +70,7 @@ export default function WeekKanban({
             {/* Thẻ */}
             <div className="space-y-1.5">
               {items.length === 0 && (
-                <p className="rounded-lg border border-dashed border-[#e4e4e7] py-4 text-center text-[11px] text-[#c4c4c8]">
+                <p className="rounded-lg border border-dashed border-line py-4 text-center text-[11px] text-[#c4c4c8]">
                   —
                 </p>
               )}
@@ -90,8 +90,8 @@ export default function WeekKanban({
                     onClick={() => setOpenId(open ? null : it.id)}
                     style={{ borderLeftColor: color }}
                     className={
-                      "w-full rounded-lg border border-l-4 border-[#e4e4e7] bg-white p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md " +
-                      (open ? "ring-2 ring-[#ec4899]/30" : "")
+                      "w-full rounded-lg border border-l-4 border-line bg-white p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md " +
+                      (open ? "ring-2 ring-brand-600/30" : "")
                     }
                   >
                     <div className="flex items-center gap-1.5">
@@ -99,11 +99,11 @@ export default function WeekKanban({
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: color }}
                       />
-                      <span className="truncate text-sm font-medium text-[#171717]">
+                      <span className="truncate text-sm font-medium text-ink">
                         {primary}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate pl-3.5 text-xs text-[#71717a]">
+                    <p className="mt-0.5 truncate pl-3.5 text-xs text-ink-muted">
                       {secondary}
                       {!personal && it.shift !== "FULL"
                         ? ` · ${SHIFT_LABEL[it.shift]}`
@@ -112,21 +112,21 @@ export default function WeekKanban({
 
                     {/* Chi tiết khi click */}
                     {open && (
-                      <div className="mt-2 space-y-1 border-t border-[#f4f4f5] pt-2 text-xs text-[#4d4d4d]">
+                      <div className="mt-2 space-y-1 border-t border-surface-sunken pt-2 text-xs text-ink-soft">
                         <p>
-                          <span className="text-[#a1a1aa]">Vị trí: </span>
+                          <span className="text-ink-faint">Vị trí: </span>
                           {STATION_LABEL[it.station] ?? it.station}
                         </p>
                         <p>
-                          <span className="text-[#a1a1aa]">Ca: </span>
+                          <span className="text-ink-faint">Ca: </span>
                           {SHIFT_LABEL[it.shift]}
                         </p>
                         <p>
-                          <span className="text-[#a1a1aa]">Người: </span>
+                          <span className="text-ink-faint">Người: </span>
                           {it.staff_name}
                         </p>
                         <p>
-                          <span className="text-[#a1a1aa]">Ngày: </span>
+                          <span className="text-ink-faint">Ngày: </span>
                           {dayLabel(it.work_date)} · {fmtDayMonth(it.work_date)}
                         </p>
                       </div>

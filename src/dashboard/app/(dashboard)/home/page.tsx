@@ -384,10 +384,10 @@ export default async function HomePage({
     <div className="space-y-6">
       <RosterBell />
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">
+        <h1 className="text-xl font-semibold text-ink">
           {greet(role, staff)}
         </h1>
-        <p className="text-sm text-[#888888]">Hôm nay · {fmtDate(new Date())}</p>
+        <p className="text-sm text-ink-muted">Hôm nay · {fmtDate(new Date())}</p>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -411,7 +411,7 @@ export default async function HomePage({
       {isReception && (
         <section>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-[#171717]">
+            <h2 className="text-sm font-semibold text-ink">
               Trạng thái BN buổi khám hôm nay
             </h2>
             <VisitStatusRealtime />
@@ -423,7 +423,7 @@ export default async function HomePage({
       {/* Lịch hẹn khám — nút tuần RIÊNG (weekAppt), KHÔNG đụng Lịch làm việc. */}
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-[#171717]">
+          <h2 className="text-sm font-semibold text-ink">
             Lịch hẹn khám (check đặt lịch)
           </h2>
           <WeekNav
@@ -445,7 +445,7 @@ export default async function HomePage({
       {/* Lịch làm việc — nút tuần RIÊNG (weekRoster), KHÔNG đụng Lịch hẹn khám. */}
       <section>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-[#171717]">Lịch làm việc</h2>
+          <h2 className="text-sm font-semibold text-ink">Lịch làm việc</h2>
           <WeekNav
             week={weekRoster}
             basePath="/home"

@@ -38,14 +38,14 @@ export default async function WorkSessionsPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">Ca trực</h1>
-        <p className="text-sm text-[#888888]">
+        <h1 className="text-xl font-semibold text-ink">Ca trực</h1>
+        <p className="text-sm text-ink-muted">
           100 ca làm gần nhất, sắp theo ngày giảm dần. Read-only.
         </p>
       </header>
 
       {error && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       )}
@@ -55,18 +55,18 @@ export default async function WorkSessionsPage() {
         {(data as WorkSessionRow[] | null)?.map((s) => (
           <li
             key={s.id}
-            className="rounded-lg border border-[#e4e4e7] bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="font-mono text-xs text-[#4d4d4d]">
+              <span className="font-mono text-xs text-ink-soft">
                 {s.session_date}
               </span>
-              <span className="text-xs text-[#171717]">{s.session_type}</span>
+              <span className="text-xs text-ink">{s.session_type}</span>
             </div>
-            <p className="mt-1 font-mono text-xs text-[#4d4d4d]">
+            <p className="mt-1 font-mono text-xs text-ink-soft">
               {s.start_time} – {s.end_time}
             </p>
-            <p className="text-xs text-[#4d4d4d]">
+            <p className="text-xs text-ink-soft">
               {s.clinic_location?.name ?? "—"}
               {" · "}Staff: {s.work_session_staff?.[0]?.count ?? 0}
               {" · "}Max BN: {s.max_patients ?? "—"}
@@ -74,16 +74,16 @@ export default async function WorkSessionsPage() {
           </li>
         ))}
         {(!data || data.length === 0) && (
-          <li className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-6 text-center text-sm text-[#888888]">
+          <li className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
             Chưa có ca làm nào.
           </li>
         )}
       </ul>
 
       {/* Desktop: table (≥md). */}
-      <div className="hidden overflow-auto rounded-lg border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] md:block">
-        <table className="min-w-full divide-y divide-[#f6e0ec] text-sm">
-          <thead className="sticky top-0 z-10 bg-[#fce7f3] text-left text-[11px] font-semibold uppercase tracking-wide text-[#9d2463]">
+      <div className="hidden overflow-auto rounded-lg border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] md:block">
+        <table className="min-w-full divide-y divide-brand-100 text-sm">
+          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className="px-4 py-2.5 font-semibold">Ngày</th>
               <th className="px-4 py-2.5 font-semibold">Session</th>
@@ -93,33 +93,33 @@ export default async function WorkSessionsPage() {
               <th className="px-4 py-2.5 font-semibold">Max BN</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#f6e0ec]">
+          <tbody className="divide-y divide-brand-100">
             {(data as WorkSessionRow[] | null)?.map((s) => (
               <tr
                 key={s.id}
-                className="transition-colors duration-150 hover:bg-[#fdf2f8]"
+                className="transition-colors duration-150 hover:bg-brand-50"
               >
-                <td className="px-4 py-2.5 font-mono text-xs text-[#4d4d4d]">
+                <td className="px-4 py-2.5 font-mono text-xs text-ink-soft">
                   {s.session_date}
                 </td>
-                <td className="px-4 py-2.5 text-[#171717]">{s.session_type}</td>
-                <td className="px-4 py-2.5 font-mono text-xs text-[#4d4d4d]">
+                <td className="px-4 py-2.5 text-ink">{s.session_type}</td>
+                <td className="px-4 py-2.5 font-mono text-xs text-ink-soft">
                   {s.start_time} – {s.end_time}
                 </td>
-                <td className="px-4 py-2.5 text-[#4d4d4d]">
+                <td className="px-4 py-2.5 text-ink-soft">
                   {s.clinic_location?.name ?? "—"}
                 </td>
-                <td className="px-4 py-2.5 text-[#4d4d4d]">
+                <td className="px-4 py-2.5 text-ink-soft">
                   {s.work_session_staff?.[0]?.count ?? 0}
                 </td>
-                <td className="px-4 py-2.5 text-[#4d4d4d]">
+                <td className="px-4 py-2.5 text-ink-soft">
                   {s.max_patients ?? "—"}
                 </td>
               </tr>
             ))}
             {(!data || data.length === 0) && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-[#888888]">
+                <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
                   Chưa có ca làm nào.
                 </td>
               </tr>

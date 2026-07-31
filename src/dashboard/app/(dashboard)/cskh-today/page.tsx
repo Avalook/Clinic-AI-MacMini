@@ -139,20 +139,20 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-2">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-[#171717]">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
         {title}
-        <span className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-[#f4f4f5] px-1.5 py-0.5 text-xs font-semibold text-[#171717]">
+        <span className="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-surface-sunken px-1.5 py-0.5 text-xs font-semibold text-ink">
           {count}
         </span>
       </h2>
-      {sub && <p className="text-xs text-[#888888]">{sub}</p>}
+      {sub && <p className="text-xs text-ink-muted">{sub}</p>}
     </div>
   );
 }
 
 function EmptyRow({ text }: { text: string }) {
   return (
-    <div className="rounded-lg border border-[#e4e4e7] bg-white px-4 py-6 text-center text-sm text-[#888888]">
+    <div className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
       {text}
     </div>
   );
@@ -162,7 +162,7 @@ function TasksLink() {
   return (
     <Link
       href="/tasks"
-      className="shrink-0 rounded-md border border-[#e4e4e7] px-2 py-1 text-xs font-medium text-[#171717] hover:bg-[#f4f4f5]"
+      className="shrink-0 rounded-md border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-surface-sunken"
     >
       Mở board →
     </Link>
@@ -247,15 +247,15 @@ export default async function CskhTodayPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">Cần làm hôm nay</h1>
-        <p className="text-sm text-[#888888]">
+        <h1 className="text-xl font-semibold text-ink">Cần làm hôm nay</h1>
+        <p className="text-sm text-ink-muted">
           Việc CSKH tự sinh từ dữ liệu · {fmtDate(new Date())} · thao tác xác
           nhận / phân lại lịch làm ở &quot;Công việc của tôi&quot;.
         </p>
       </header>
 
       {error && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       )}
@@ -276,20 +276,20 @@ export default async function CskhTodayPage() {
         {tomorrowAppts.length === 0 ? (
           <EmptyRow text="Không có lịch ngày mai cần gọi xác nhận." />
         ) : (
-          <ul className="divide-y divide-[#e4e4e7] rounded-lg border border-[#e4e4e7] bg-white">
+          <ul className="divide-y divide-line rounded-lg border border-line bg-white">
             {tomorrowAppts.map((a) => (
               <li key={a.id} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="w-20 shrink-0 text-sm font-semibold text-[#171717]">
+                <span className="w-20 shrink-0 text-sm font-semibold text-ink">
                   {fmtTimeOrNone(a.slot_start)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#171717]">
+                  <p className="truncate text-sm font-medium text-ink">
                     {a.patient?.full_name ?? "(không rõ tên)"}
-                    <span className="ml-2 font-normal text-[#888888]">
+                    <span className="ml-2 font-normal text-ink-muted">
                       {a.patient?.phone_primary ?? "— chưa có SĐT"}
                     </span>
                   </p>
-                  <p className="truncate text-xs text-[#888888]">
+                  <p className="truncate text-xs text-ink-muted">
                     {a.service?.name ?? "Chưa chọn dịch vụ"}
                     {a.doctor?.full_name ? ` · ${doctorName(a.doctor.full_name)}` : ""}
                   </p>
@@ -311,20 +311,20 @@ export default async function CskhTodayPage() {
         {declinedAppts.length === 0 ? (
           <EmptyRow text="Không có lịch nào bị bác sĩ từ chối." />
         ) : (
-          <ul className="divide-y divide-[#e4e4e7] rounded-lg border border-[#e4e4e7] bg-white">
+          <ul className="divide-y divide-line rounded-lg border border-line bg-white">
             {declinedAppts.map((a) => (
               <li key={a.id} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="w-28 shrink-0 text-sm font-semibold text-[#171717]">
+                <span className="w-28 shrink-0 text-sm font-semibold text-ink">
                   {fmtDate(a.slot_start)} {fmtTimeOrNone(a.slot_start)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#171717]">
+                  <p className="truncate text-sm font-medium text-ink">
                     {a.patient?.full_name ?? "(không rõ tên)"}
-                    <span className="ml-2 font-normal text-[#888888]">
+                    <span className="ml-2 font-normal text-ink-muted">
                       {a.patient?.phone_primary ?? "— chưa có SĐT"}
                     </span>
                   </p>
-                  <p className="truncate text-xs text-[#dc2626]">
+                  <p className="truncate text-xs text-danger">
                     BS đã từ chối: {a.doctor?.full_name ?? "(không rõ)"}
                   </p>
                 </div>
@@ -345,23 +345,23 @@ export default async function CskhTodayPage() {
         {recalls.length === 0 ? (
           <EmptyRow text="Chưa có BN đến hạn tái khám trong 7 ngày tới." />
         ) : (
-          <ul className="divide-y divide-[#e4e4e7] rounded-lg border border-[#e4e4e7] bg-white">
+          <ul className="divide-y divide-line rounded-lg border border-line bg-white">
             {recalls.map((r) => (
               <li
                 key={r.clinic_patient_id}
                 className="flex items-center gap-3 px-4 py-2.5"
               >
-                <span className="w-24 shrink-0 text-sm font-semibold text-[#171717]">
+                <span className="w-24 shrink-0 text-sm font-semibold text-ink">
                   {fmtDate(r.tai_kham.ngay)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#171717]">
+                  <p className="truncate text-sm font-medium text-ink">
                     {r.full_name}
-                    <span className="ml-2 font-normal text-[#888888]">
+                    <span className="ml-2 font-normal text-ink-muted">
                       {r.phone_primary ?? "— chưa có SĐT"}
                     </span>
                   </p>
-                  <p className="truncate text-xs text-[#888888]">
+                  <p className="truncate text-xs text-ink-muted">
                     {r.tai_kham.xn.length > 0 && (
                       <>
                         XN cần làm lại:{" "}
@@ -400,7 +400,7 @@ export default async function CskhTodayPage() {
         {labResults.length === 0 ? (
           <EmptyRow text="Chưa có kết quả XN mới hôm nay." />
         ) : (
-          <ul className="divide-y divide-[#e4e4e7] rounded-lg border border-[#e4e4e7] bg-white">
+          <ul className="divide-y divide-line rounded-lg border border-line bg-white">
             {labResults.map((l) => {
               const release = labReleaseDecision(
                 l.triage_group,
@@ -411,17 +411,17 @@ export default async function CskhTodayPage() {
                   key={l.lab_result_id}
                   className="flex items-center gap-3 px-4 py-2.5"
                 >
-                <span className="w-14 shrink-0 text-sm font-semibold text-[#171717]">
+                <span className="w-14 shrink-0 text-sm font-semibold text-ink">
                   {fmtTimeOrNone(l.result_received_at)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#171717]">
+                  <p className="truncate text-sm font-medium text-ink">
                     {l.patient?.full_name ?? "(không rõ tên)"}
-                    <span className="ml-2 font-normal text-[#888888]">
+                    <span className="ml-2 font-normal text-ink-muted">
                       {l.patient?.phone_primary ?? "— chưa có SĐT"}
                     </span>
                   </p>
-                  <p className="truncate text-xs text-[#888888]">
+                  <p className="truncate text-xs text-ink-muted">
                     {l.test_name ?? "Xét nghiệm"}
                   </p>
                 </div>

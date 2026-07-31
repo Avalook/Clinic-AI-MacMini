@@ -262,13 +262,13 @@ export default async function CustomersPage({
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-[#171717]">
+        <h1 className="text-xl font-semibold text-ink">
           Thông tin khách hàng
         </h1>
       </header>
 
       {error ? (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
       ) : (

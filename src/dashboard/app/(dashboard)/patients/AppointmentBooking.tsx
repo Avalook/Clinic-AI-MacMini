@@ -383,7 +383,7 @@ export default function AppointmentBooking({
           {edit ? (
             // Sửa lịch: dịch vụ giữ nguyên (reschedule không đổi dịch vụ) → chỉ hiển thị.
             <div
-              className={INPUT + " flex items-center bg-[#fafafa] text-[#52525b]"}
+              className={INPUT + " flex items-center bg-surface-muted text-ink-soft"}
             >
               {edit.serviceLabel || "—"}
             </div>
@@ -425,19 +425,19 @@ export default function AppointmentBooking({
               autoComplete="off"
             />
             {doctorOpen && (
-              <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-[#e4e4e7] bg-white shadow-lg">
+              <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
                 <li
                   onMouseDown={() => {
                     setDoctorId("");
                     setDoctorQ("");
                     setDoctorOpen(false);
                   }}
-                  className="cursor-pointer px-3 py-2 text-sm text-[#71717a] hover:bg-[#fdf2f8]"
+                  className="cursor-pointer px-3 py-2 text-sm text-ink-muted hover:bg-brand-50"
                 >
                   — Chưa phân bác sĩ —
                 </li>
                 {filteredDoctors.length === 0 ? (
-                  <li className="px-3 py-2 text-sm text-[#a1a1aa]">
+                  <li className="px-3 py-2 text-sm text-ink-faint">
                     Không tìm thấy bác sĩ
                   </li>
                 ) : (
@@ -450,10 +450,10 @@ export default function AppointmentBooking({
                         setDoctorOpen(false);
                       }}
                       className={
-                        "cursor-pointer px-3 py-2 text-sm hover:bg-[#fdf2f8] " +
+                        "cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 " +
                         (d.id === doctorId
-                          ? "bg-[#fce7f3] font-medium text-[#9d2463]"
-                          : "text-[#171717]")
+                          ? "bg-brand-100 font-medium text-brand-800"
+                          : "text-ink")
                       }
                     >
                       {d.label}
@@ -482,11 +482,11 @@ export default function AppointmentBooking({
             maxHour={maxHour}
             minutesOptions={["00", "15", "30", "45"]}
           />
-          <p className="mt-1 text-[11px] text-[#dc2626] font-medium leading-normal">
+          <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
             ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
           </p>
           {ch && (
-            <p className="mt-1 text-[11px] text-[#a1a1aa]">
+            <p className="mt-1 text-[11px] text-ink-faint">
               Giờ mở cửa: {ch.open}–{ch.close}
             </p>
           )}
@@ -519,7 +519,7 @@ export default function AppointmentBooking({
           {apptDate && apptTime && (
             <p
               className={`text-[11px] font-medium ${
-                isSlotBooked ? "text-[#dc2626]" : "text-[#15803d]"
+                isSlotBooked ? "text-danger" : "text-success"
               }`}
             >
               {isSlotBooked
@@ -562,7 +562,7 @@ export default function AppointmentBooking({
         <div className="space-y-1">
           <label className={LABEL}>{walkin ? "Kênh đặt" : "Kênh đặt *"}</label>
           {walkin ? (
-            <div className={INPUT + " flex items-center bg-[#f0fdf4] text-[#15803d]"}>
+            <div className={INPUT + " flex items-center bg-success-bg text-success"}>
               Ưu tiên — khách tới trực tiếp
             </div>
           ) : (
@@ -616,7 +616,7 @@ export default function AppointmentBooking({
       </div>
 
       {error && (
-        <p className="rounded bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}

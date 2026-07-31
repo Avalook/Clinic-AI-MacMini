@@ -107,22 +107,22 @@ export default function HomeCheckin({
       <div className="relative">
         <Search
           size={15}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#a1a1aa]"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
         />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm tên, mã BN, SĐT..."
-          className="h-10 w-full rounded-lg border border-[#f3cfe0] bg-white pl-9 pr-3 text-sm text-[#171717] outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/15"
+          className="h-10 w-full rounded-lg border border-brand-100 bg-white pl-9 pr-3 text-sm text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
         />
       </div>
       {error && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-xs text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-xs text-danger">
           {error}
         </div>
       )}
       {shown.length === 0 ? (
-        <p className="px-2 py-6 text-center text-sm text-[#a1a1aa]">
+        <p className="px-2 py-6 text-center text-sm text-ink-faint">
           {rows.length === 0
             ? "Hôm nay chưa có lịch hẹn."
             : "Không tìm thấy bệnh nhân."}
@@ -145,20 +145,20 @@ export default function HomeCheckin({
                 className={
                   "flex items-center gap-3 rounded-xl border bg-white p-2.5 " +
                   (active
-                    ? "border-[#ec4899] ring-2 ring-[#ec4899]/20"
+                    ? "border-brand-600 ring-2 ring-brand-600/20"
                     : completed
-                      ? "border-[#e4e4e7] bg-[#fafafa]"
+                      ? "border-line bg-surface-muted"
                       : checkedIn
-                        ? "border-[#bbf7d0]"
-                        : "border-[#f3cfe0]")
+                        ? "border-success-bg"
+                        : "border-brand-100")
                 }
               >
                 <div className="flex w-12 shrink-0 flex-col items-center">
-                  <span className="text-xs font-semibold text-[#171717]">
+                  <span className="text-xs font-semibold text-ink">
                     {isVnMidnight(r.slot_start) ? "—" : fmtTime(r.slot_start)}
                   </span>
                   {r.queue_number && (
-                    <span className="mt-0.5 rounded-full bg-[#fce7f3] px-1.5 text-[10px] font-medium text-[#9d2463]">
+                    <span className="mt-0.5 rounded-full bg-brand-100 px-1.5 text-[10px] font-medium text-brand-800">
                       {r.queue_number}
                     </span>
                   )}
@@ -171,13 +171,13 @@ export default function HomeCheckin({
                   className="flex min-w-0 flex-1 items-start gap-1.5 text-left disabled:cursor-default"
                 >
                   {canWriteClinical && (
-                    <FileText size={13} className="mt-0.5 shrink-0 text-[#ec4899]" />
+                    <FileText size={13} className="mt-0.5 shrink-0 text-brand-600" />
                   )}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-[#171717] hover:text-[#ec4899]">
+                    <span className="block truncate text-sm font-medium text-ink hover:text-brand-600">
                       {r.patient?.full_name ?? "—"}
                     </span>
-                    <span className="block truncate text-[11px] text-[#888888]">
+                    <span className="block truncate text-[11px] text-ink-muted">
                       <span className="font-mono">{r.patient?.patient_code}</span>
                       {r.patient?.phone_primary ? ` · ${r.patient.phone_primary}` : ""}
                       {r.service?.name ? ` · ${r.service.name}` : ""}
@@ -189,14 +189,14 @@ export default function HomeCheckin({
                   className={
                     "shrink-0 rounded-full px-2.5 py-0.5 text-center text-[10px] font-medium " +
                     (completed
-                      ? "bg-[#f4f4f5] text-[#52525b]"
+                      ? "bg-surface-sunken text-ink-soft"
                       : checkedIn
-                        ? "bg-[#dcfce7] text-[#15803d]"
+                        ? "bg-success-bg text-success"
                         : r.status === "SCHEDULED"
-                          ? "bg-[#fef9c3] text-[#a16207]"
+                          ? "bg-warning-bg text-warning"
                           : canCheckIn
-                            ? "bg-[#fce7f3] text-[#9d2463]"
-                            : "bg-[#f4f4f5] text-[#52525b]")
+                            ? "bg-brand-100 text-brand-800"
+                            : "bg-surface-sunken text-ink-soft")
                   }
                 >
                   {statusVN}
@@ -211,7 +211,7 @@ export default function HomeCheckin({
                       href={`/print/${r.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-[#bbf7d0] bg-white px-2.5 text-xs font-semibold text-[#15803d] hover:bg-[#f0fdf4]"
+                      className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-success-bg bg-white px-2.5 text-xs font-semibold text-success hover:bg-success-bg"
                     >
                       <Printer size={13} /> In phiếu
                     </a>
@@ -222,7 +222,7 @@ export default function HomeCheckin({
                     href={`/print/${r.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-[#bbf7d0] bg-white px-2.5 text-xs font-semibold text-[#15803d] hover:bg-[#f0fdf4]"
+                    className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-success-bg bg-white px-2.5 text-xs font-semibold text-success hover:bg-success-bg"
                   >
                     <Printer size={13} /> In phiếu
                   </a>
@@ -230,13 +230,13 @@ export default function HomeCheckin({
                   // Đã check-in = ĐÃ vào hàng khám của bác sĩ. Không có nút đổi pha
                   // ở đây (việc khám là của bác sĩ); chỉ cho Hoàn tác nếu nhầm.
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-center text-[10px] font-medium text-[#15803d]">
+                    <span className="rounded-full bg-success-bg px-2 py-0.5 text-center text-[10px] font-medium text-success">
                       Đang chờ bác sĩ khám
                     </span>
                     <button
                       onClick={() => act(r.id, "undo_checkin")}
                       disabled={busyId === r.id}
-                      className="text-[11px] text-[#a1a1aa] hover:text-[#71717a] disabled:opacity-50"
+                      className="text-[11px] text-ink-faint hover:text-ink-muted disabled:opacity-50"
                     >
                       Hoàn tác check-in
                     </button>
@@ -247,14 +247,14 @@ export default function HomeCheckin({
                     <button
                       onClick={() => act(r.id, "checkin")}
                       disabled={busyId === r.id}
-                      className="min-h-9 rounded-lg bg-[#ec4899] px-3 text-xs font-semibold text-white hover:bg-[#db2777] disabled:opacity-50"
+                      className="min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                     >
                       {busyId === r.id ? "..." : "Check-in"}
                     </button>
                     <button
                       onClick={() => act(r.id, "no_show")}
                       disabled={busyId === r.id}
-                      className="text-[11px] text-[#a1a1aa] hover:text-[#dc2626] disabled:opacity-50"
+                      className="text-[11px] text-ink-faint hover:text-danger disabled:opacity-50"
                     >
                       Không đến
                     </button>
@@ -275,11 +275,11 @@ export default function HomeCheckin({
     <section>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-xl border border-[#f3cfe0] bg-[#fce7f3] px-4 py-2.5 text-sm font-semibold text-[#9d2463] transition-colors hover:bg-[#fbcfe8]"
+        className="flex w-full items-center gap-2 rounded-xl border border-brand-100 bg-brand-100 px-4 py-2.5 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-100"
       >
         <UserCheck size={16} />
         {triggerLabel}
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-[#9d2463]">
+        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-brand-800">
           {arrived}/{rows.length} đã đến
         </span>
         <ChevronDown
@@ -293,7 +293,7 @@ export default function HomeCheckin({
           // Tách đôi: danh sách (trái) + hồ sơ (phải). KHUNG CỐ ĐỊNH chiều cao,
           // mỗi cột tự cuộn ĐỘC LẬP — lăn danh sách trái KHÔNG làm panel phải nhúc
           // nhích (panel tóm tắt giữ nguyên).
-          <div className="mt-3 overflow-hidden rounded-xl border border-[#f3cfe0] bg-[#fdf2f8] shadow-[0_1px_3px_rgba(236,72,153,0.08)] md:h-[78vh]">
+          <div className="mt-3 overflow-hidden rounded-xl border border-brand-100 bg-brand-50 shadow-[0_1px_3px_rgba(236,72,153,0.08)] md:h-[78vh]">
             <SplitPane
               className="h-full"
               left={list}
@@ -311,7 +311,7 @@ export default function HomeCheckin({
             />
           </div>
         ) : (
-          <div className="mt-3 overflow-auto rounded-xl border border-[#f3cfe0] bg-[#fdf2f8] shadow-[0_1px_3px_rgba(236,72,153,0.08)] md:h-[78vh]">
+          <div className="mt-3 overflow-auto rounded-xl border border-brand-100 bg-brand-50 shadow-[0_1px_3px_rgba(236,72,153,0.08)] md:h-[78vh]">
             {list}
           </div>
         ))}

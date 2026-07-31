@@ -42,7 +42,7 @@ export default function PreVisitBrief({ id }: { id: string }) {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-base font-semibold text-[#171717]">
+        <h3 className="text-base font-semibold text-ink">
           Tóm tắt trước khám
         </h3>
         <button
@@ -63,30 +63,30 @@ export default function PreVisitBrief({ id }: { id: string }) {
               : "Tạo lại tóm tắt"}
         </button>
         {status === "done" && elapsedMs != null && (
-          <span className="text-xs text-[#a1a1aa]">
+          <span className="text-xs text-ink-faint">
             ({(elapsedMs / 1000).toFixed(1)}s)
           </span>
         )}
       </div>
 
-      <p className="text-sm text-[#888888]">
+      <p className="text-sm text-ink-muted">
         Bản tổng hợp do trợ lý AI sinh từ hồ sơ bệnh nhân (tiền sử, lần khám,
         xét nghiệm). Chỉ để tham khảo trước khi khám — không tự lưu vào hồ sơ.
       </p>
 
       {status === "error" && (
-        <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#dc2626]">
+        <div className="rounded-lg border border-[#fecaca] bg-danger-bg px-4 py-3 text-sm text-danger">
           {errorMsg}
         </div>
       )}
 
       {status === "done" &&
         (markdown.trim() ? (
-          <pre className="whitespace-pre-wrap rounded-xl border border-[#e4e4e7] bg-white p-4 font-sans text-sm leading-relaxed text-[#171717] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <pre className="whitespace-pre-wrap rounded-xl border border-line bg-white p-4 font-sans text-sm leading-relaxed text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             {markdown}
           </pre>
         ) : (
-          <div className="rounded-lg border border-[#e4e4e7] bg-[#fafafa] px-4 py-3 text-sm text-[#888888]">
+          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-ink-muted">
             Chưa đủ dữ liệu để tạo tóm tắt cho bệnh nhân này.
           </div>
         ))}

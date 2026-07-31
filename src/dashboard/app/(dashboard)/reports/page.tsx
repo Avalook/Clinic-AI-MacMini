@@ -216,8 +216,8 @@ export default async function ReportsPage() {
 
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#171717]">Báo cáo</h1>
-          <p className="text-sm text-[#888888]">
+          <h1 className="text-xl font-semibold text-ink">Báo cáo</h1>
+          <p className="text-sm text-ink-muted">
             KPI vận hành phòng khám · {fmtDate(new Date())} · Read-only
           </p>
         </div>
@@ -225,7 +225,7 @@ export default async function ReportsPage() {
       </header>
 
       {queryError && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           {queryError.message}
         </div>
       )}
@@ -261,10 +261,10 @@ export default async function ReportsPage() {
 
       {/* Khối 3 — Theo bác sĩ (hôm nay) */}
       <Section title="Theo bác sĩ (hôm nay)">
-        <div className="overflow-x-auto rounded-lg border border-[#e4e4e7] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-[#e4e4e7] bg-[#fafafa] text-left text-xs text-[#888888]">
+              <tr className="border-b border-line bg-surface-muted text-left text-xs text-ink-muted">
                 <th className="px-4 py-2 font-medium">Bác sĩ</th>
                 <th className="px-4 py-2 text-right font-medium">Số ca</th>
                 <th className="px-4 py-2 text-right font-medium">
@@ -278,7 +278,7 @@ export default async function ReportsPage() {
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-4 py-6 text-center text-[#888888]"
+                    className="px-4 py-6 text-center text-ink-muted"
                   >
                     Hôm nay chưa có lịch hẹn.
                   </td>
@@ -287,16 +287,16 @@ export default async function ReportsPage() {
                 doctorStats.map((d) => (
                   <tr
                     key={d.name}
-                    className="border-b border-[#f4f4f5] last:border-b-0"
+                    className="border-b border-surface-sunken last:border-b-0"
                   >
-                    <td className="px-4 py-2 text-[#171717]">{d.name}</td>
-                    <td className="px-4 py-2 text-right text-[#171717]">
+                    <td className="px-4 py-2 text-ink">{d.name}</td>
+                    <td className="px-4 py-2 text-right text-ink">
                       {d.total}
                     </td>
-                    <td className="px-4 py-2 text-right text-[#171717]">
+                    <td className="px-4 py-2 text-right text-ink">
                       {d.done}
                     </td>
-                    <td className="px-4 py-2 text-right text-[#171717]">
+                    <td className="px-4 py-2 text-right text-ink">
                       {d.waiting}
                     </td>
                   </tr>
@@ -325,20 +325,20 @@ export default async function ReportsPage() {
 
       {/* Khối 5 — 7 ngày gần nhất: bar CSS thuần */}
       <Section title="Lịch hẹn 7 ngày gần nhất">
-        <div className="rounded-lg border border-[#e4e4e7] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="rounded-lg border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           <div className="space-y-2">
             {dayBuckets.map((b) => (
               <div key={b.label} className="flex items-center gap-3 text-sm">
-                <span className="w-24 shrink-0 text-xs text-[#888888]">
+                <span className="w-24 shrink-0 text-xs text-ink-muted">
                   {b.label}
                 </span>
-                <div className="h-4 flex-1 rounded bg-[#f4f4f5]">
+                <div className="h-4 flex-1 rounded bg-surface-sunken">
                   <div
-                    className="h-4 rounded bg-[#171717]"
+                    className="h-4 rounded bg-ink"
                     style={{ width: `${(b.count / maxDay) * 100}%` }}
                   />
                 </div>
-                <span className="w-8 shrink-0 text-right text-[#171717]">
+                <span className="w-8 shrink-0 text-right text-ink">
                   {b.count}
                 </span>
               </div>
@@ -349,9 +349,9 @@ export default async function ReportsPage() {
 
       {/* Khối 6 — Nguồn đặt lịch (booking_channel, 30 ngày) */}
       <Section title="Nguồn đặt lịch (30 ngày)">
-        <div className="rounded-lg border border-[#e4e4e7] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="rounded-lg border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           {channelStats.length === 0 && nullChannel === 0 && otherChannel === 0 ? (
-            <p className="text-sm text-[#888888]">
+            <p className="text-sm text-ink-muted">
               Chưa có lịch hẹn trong 30 ngày qua.
             </p>
           ) : (
@@ -366,16 +366,16 @@ export default async function ReportsPage() {
                   : []),
               ].map((c) => (
                 <div key={c.name} className="flex items-center gap-3 text-sm">
-                  <span className="w-44 shrink-0 truncate text-xs text-[#888888]">
+                  <span className="w-44 shrink-0 truncate text-xs text-ink-muted">
                     {c.name}
                   </span>
-                  <div className="h-4 flex-1 rounded bg-[#f4f4f5]">
+                  <div className="h-4 flex-1 rounded bg-surface-sunken">
                     <div
-                      className="h-4 rounded bg-[#171717]"
+                      className="h-4 rounded bg-ink"
                       style={{ width: `${(c.count / maxChannel) * 100}%` }}
                     />
                   </div>
-                  <span className="w-8 shrink-0 text-right text-[#171717]">
+                  <span className="w-8 shrink-0 text-right text-ink">
                     {c.count}
                   </span>
                 </div>
@@ -385,7 +385,7 @@ export default async function ReportsPage() {
         </div>
       </Section>
 
-      <p className="text-xs text-[#888888]">
+      <p className="text-xs text-ink-muted">
         Chưa gồm doanh thu — chờ module thu ngân.
       </p>
     </div>
@@ -401,7 +401,7 @@ function Section({
 }) {
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-semibold text-[#171717]">{title}</h2>
+      <h2 className="text-sm font-semibold text-ink">{title}</h2>
       {children}
     </section>
   );

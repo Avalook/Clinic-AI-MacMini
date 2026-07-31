@@ -162,7 +162,7 @@ export default function CustomersView({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Chiều lọc: theo ngày TẠO hay ngày HẸN */}
-          <div className="inline-flex rounded-full border border-[#f3cfe0] bg-white p-0.5">
+          <div className="inline-flex rounded-full border border-brand-100 bg-white p-0.5">
             {BY_OPTS.map((b) => (
               <button
                 key={b.key}
@@ -170,15 +170,15 @@ export default function CustomersView({
                 className={
                   "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors " +
                   (by === b.key
-                    ? "bg-[#9d2463] text-white"
-                    : "text-[#9d2463] hover:bg-[#fdf2f8]")
+                    ? "bg-brand-800 text-white"
+                    : "text-brand-800 hover:bg-brand-50")
                 }
               >
                 {b.label}
               </button>
             ))}
           </div>
-          <span className="px-0.5 text-[#d4d4d8]">·</span>
+          <span className="px-0.5 text-line-strong">·</span>
           {PERIODS.map((p) => (
             <button
               key={p.key}
@@ -186,8 +186,8 @@ export default function CustomersView({
               className={
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
                 (period === p.key
-                  ? "bg-[#ec4899] text-white"
-                  : "border border-[#f3cfe0] bg-white text-[#9d2463] hover:bg-[#fdf2f8]")
+                  ? "bg-brand-600 text-white"
+                  : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
               }
             >
               {p.label}
@@ -204,13 +204,13 @@ export default function CustomersView({
           <div className="relative">
             <Search
               size={15}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#a1a1aa]"
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
             />
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               placeholder="Tìm tên / mã BN / SĐT…"
-              className="min-h-9 w-full rounded-lg border border-[#e4e4e7] bg-white pl-8 pr-3 text-sm outline-none focus:border-[#ec4899] focus:ring-2 focus:ring-[#ec4899]/15 sm:w-64"
+              className="min-h-9 w-full rounded-lg border border-line bg-white pl-8 pr-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 sm:w-64"
             />
           </div>
           {term && (
@@ -220,7 +220,7 @@ export default function CustomersView({
                 setTerm("");
                 startTransition(() => go(period, "", by));
               }}
-              className="min-h-9 rounded-lg border border-[#e4e4e7] bg-white px-3 text-sm text-[#52525b] hover:bg-[#f4f4f5]"
+              className="min-h-9 rounded-lg border border-line bg-white px-3 text-sm text-ink-soft hover:bg-surface-sunken"
             >
               Xoá
             </button>
@@ -229,18 +229,18 @@ export default function CustomersView({
       </div>
 
       {by === "appt" && period !== "all" && (
-        <p className="text-xs text-[#9d2463]">
+        <p className="text-xs text-brand-800">
           Đang xem khách có <b>lịch hẹn</b> trong kỳ đã chọn.
         </p>
       )}
 
       {/* Dòng đếm ĐẶT TRÊN cả 2 cột → list + chi tiết bắt đầu cùng 1 mốc (canh đều). */}
-      <div className="text-xs text-[#888888]">
+      <div className="text-xs text-ink-muted">
         {shown.length} khách hàng
         {isPending && " · đang tìm…"}
         {rows.length >= 300 && " (300 gần nhất — lọc hẹp hơn nếu cần)"}
         {selected && (
-          <span className="text-[#9d2463]">
+          <span className="text-brand-800">
             {" "}
             · đang xem 1 khách (bấm khách khác để đổi)
           </span>
@@ -250,9 +250,9 @@ export default function CustomersView({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* DANH SÁCH (trái) */}
         <div className="min-w-0 flex-1">
-          <div className="h-[560px] max-h-[80vh] overflow-y-auto rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+          <div className="h-[560px] max-h-[80vh] overflow-y-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
             {shown.length === 0 ? (
-              <p className="px-4 py-12 text-center text-sm text-[#a1a1aa]">
+              <p className="px-4 py-12 text-center text-sm text-ink-faint">
                 {term.trim()
                   ? "Không tìm thấy khách khớp từ khoá."
                   : by === "appt"
@@ -260,7 +260,7 @@ export default function CustomersView({
                     : "Chưa có bệnh nhân nào trong khoảng lọc này. Tạo ở “Tạo bệnh nhân”."}
               </p>
             ) : (
-              <ul className="divide-y divide-[#f6e0ec]">
+              <ul className="divide-y divide-brand-100">
                 {shown.map((r) => {
                   const active =
                     r.clinic_patient_id === selected?.clinic_patient_id;
@@ -271,18 +271,18 @@ export default function CustomersView({
                         onClick={() => setSel(r.clinic_patient_id)}
                         className={
                           "flex w-full flex-col items-start px-3 py-2.5 text-left transition-colors " +
-                          (active ? "bg-[#fce7f3]" : "hover:bg-[#fdf2f8]")
+                          (active ? "bg-brand-100" : "hover:bg-brand-50")
                         }
                       >
                         <span
                           className={
                             "truncate text-sm font-semibold " +
-                            (active ? "text-[#9d174d]" : "text-[#171717]")
+                            (active ? "text-status-cancelled" : "text-ink")
                           }
                         >
                           {r.full_name}
                         </span>
-                        <span className="mt-0.5 truncate font-mono text-[11px] text-[#888888]">
+                        <span className="mt-0.5 truncate font-mono text-[11px] text-ink-muted">
                           {r.patient_code}
                           {r.phone_primary ? ` · ${r.phone_primary}` : ""}
                         </span>
@@ -291,8 +291,8 @@ export default function CustomersView({
                             className={
                               "mt-0.5 inline-flex items-center gap-1 truncate text-[11px] " +
                               (ap.upcoming
-                                ? "font-medium text-[#9d2463]"
-                                : "text-[#a1a1aa]")
+                                ? "font-medium text-brand-800"
+                                : "text-ink-faint")
                             }
                           >
                             <CalendarClock size={11} />
@@ -317,20 +317,20 @@ export default function CustomersView({
         {/* CHI TIẾT (phải) — CHỈ hiện khi đã bấm chọn 1 khách; cùng chiều cao + mốc
             trên với list cho đều. Bấm X để đóng, về lại chỉ-danh-sách. */}
         {selected && (
-          <aside className="h-[560px] max-h-[80vh] w-full shrink-0 overflow-y-auto rounded-xl border border-[#f9a8d4] bg-[#fdf2f8] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:w-[400px]">
+          <aside className="h-[560px] max-h-[80vh] w-full shrink-0 overflow-y-auto rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:w-[400px]">
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="truncate text-base font-semibold text-[#9d174d]">
+                  <h3 className="truncate text-base font-semibold text-status-cancelled">
                     {selected.full_name}
                   </h3>
-                  <p className="font-mono text-xs text-[#888888]">
+                  <p className="font-mono text-xs text-ink-muted">
                     {selected.patient_code}
                   </p>
                 </div>
                 <button
                   onClick={() => setSel(null)}
                   aria-label="Đóng chi tiết"
-                  className="rounded-md p-1 text-[#9d174d] hover:bg-white/60"
+                  className="rounded-md p-1 text-status-cancelled hover:bg-white/60"
                 >
                   <X size={16} />
                 </button>
@@ -341,43 +341,43 @@ export default function CustomersView({
               {canManage && selectedAppt?.appt ? (
                 <button
                   onClick={() => setEditOpen(true)}
-                  className="mb-3 flex w-full items-center gap-2 rounded-lg border border-[#f3cfe0] bg-white px-3 py-2 text-left transition-colors hover:border-[#ec4899] hover:bg-[#fdf2f8]"
+                  className="mb-3 flex w-full items-center gap-2 rounded-lg border border-brand-100 bg-white px-3 py-2 text-left transition-colors hover:border-brand-600 hover:bg-brand-50"
                 >
-                  <CalendarClock size={15} className="shrink-0 text-[#ec4899]" />
-                  <span className="text-sm text-[#171717]">
-                    <span className="text-[#888888]">Lịch hẹn sắp tới: </span>
+                  <CalendarClock size={15} className="shrink-0 text-brand-600" />
+                  <span className="text-sm text-ink">
+                    <span className="text-ink-muted">Lịch hẹn sắp tới: </span>
                     <b>{fmtDateTimeOrDate(selectedAppt.slot_start)}</b>
                     {selectedAppt.count > 1 && (
-                      <span className="text-[#888888]">
+                      <span className="text-ink-muted">
                         {" "}
                         · {selectedAppt.count} lịch
                       </span>
                     )}
-                    <span className="ml-1 font-medium text-[#ec4899]">
+                    <span className="ml-1 font-medium text-brand-600">
                       · bấm để đổi / hủy
                     </span>
                   </span>
                 </button>
               ) : (
-                <div className="mb-3 flex items-center gap-2 rounded-lg border border-[#f3cfe0] bg-white px-3 py-2">
-                  <CalendarClock size={15} className="shrink-0 text-[#ec4899]" />
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-brand-100 bg-white px-3 py-2">
+                  <CalendarClock size={15} className="shrink-0 text-brand-600" />
                   {selectedAppt ? (
-                    <span className="text-sm text-[#171717]">
-                      <span className="text-[#888888]">
+                    <span className="text-sm text-ink">
+                      <span className="text-ink-muted">
                         {selectedAppt.upcoming
                           ? "Lịch hẹn sắp tới: "
                           : "Lịch gần nhất: "}
                       </span>
                       <b>{fmtDateTimeOrDate(selectedAppt.slot_start)}</b>
                       {selectedAppt.count > 1 && (
-                        <span className="text-[#888888]">
+                        <span className="text-ink-muted">
                           {" "}
                           · {selectedAppt.count} lịch
                         </span>
                       )}
                     </span>
                   ) : (
-                    <span className="text-sm text-[#a1a1aa]">
+                    <span className="text-sm text-ink-faint">
                       Chưa có lịch hẹn nào.
                     </span>
                   )}
@@ -388,7 +388,7 @@ export default function CustomersView({
               {canEdit && !selectedAppt?.upcoming && (
                 <button
                   onClick={() => setBookOpen(true)}
-                  className="mb-3 inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777]"
+                  className="mb-3 inline-flex min-h-10 items-center gap-1 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
                 >
                   + Đặt lịch
                 </button>
@@ -451,7 +451,7 @@ export default function CustomersView({
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link
                     href={`/patients/${selected.clinic_patient_id}`}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#ec4899] px-4 text-sm font-semibold text-white hover:bg-[#db2777]"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
                   >
                     <ExternalLink size={14} /> Hồ sơ & lịch sử khám
                   </Link>
@@ -499,8 +499,8 @@ export default function CustomersView({
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-28 shrink-0 text-[#888888]">{label}</dt>
-      <dd className="min-w-0 break-words text-[#171717]">{value || "—"}</dd>
+      <dt className="w-28 shrink-0 text-ink-muted">{label}</dt>
+      <dd className="min-w-0 break-words text-ink">{value || "—"}</dd>
     </div>
   );
 }

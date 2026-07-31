@@ -61,10 +61,10 @@ export default function QueueBoard({
   return (
     <div className="space-y-6">
       <header className="flex items-center gap-2">
-        <ListOrdered size={22} className="text-[#9d2463]" />
+        <ListOrdered size={22} className="text-brand-800" />
         <div>
-          <h1 className="text-xl font-semibold text-[#171717]">Số thứ tự gọi khám</h1>
-          <p className="text-sm text-[#888888]">
+          <h1 className="text-xl font-semibold text-ink">Số thứ tự gọi khám</h1>
+          <p className="text-sm text-ink-muted">
             Gọi theo TÊN · người có hẹn đến đúng giờ được ưu tiên trước khách vãng lai ·
             số vé chỉ là nhãn định danh
           </p>
@@ -72,13 +72,13 @@ export default function QueueBoard({
       </header>
 
       {error && (
-        <div className="rounded-md bg-[#fee2e2] px-3 py-2 text-sm text-[#dc2626]">
+        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
           Lỗi tải hàng đợi: {error}
         </div>
       )}
 
       {doctors.length === 0 ? (
-        <p className="rounded-xl border border-[#f3cfe0] bg-[#fdf2f8] px-4 py-10 text-center text-sm text-[#a1a1aa]">
+        <p className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-10 text-center text-sm text-ink-faint">
           Chưa có bệnh nhân nào đang chờ khám.
         </p>
       ) : (
@@ -99,20 +99,20 @@ export default function QueueBoard({
             return (
               <section
                 key={name}
-                className="overflow-hidden rounded-xl border border-[#f3cfe0] bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]"
+                className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]"
               >
-                <div className="flex items-center justify-between bg-[#fce7f3] px-4 py-2.5">
-                  <span className="flex items-center gap-1.5 text-sm font-semibold text-[#9d2463]">
+                <div className="flex items-center justify-between bg-brand-100 px-4 py-2.5">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-800">
                     <Stethoscope size={15} /> {name}
                   </span>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-[#9d2463]">
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-brand-800">
                     {list.length} chờ
                   </span>
                 </div>
 
                 {b3.length > 0 && (
                   <div className="border-b border-[#fde68a] bg-[#fffbeb] px-3 py-2">
-                    <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#b45309]">
+                    <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-warning">
                       <BellRing size={12} /> Chờ đọc kết quả
                     </p>
                     <ul className="space-y-1">
@@ -124,8 +124,8 @@ export default function QueueBoard({
                 )}
 
                 {inExam.length > 0 && (
-                  <div className="border-b border-[#dcfce7] bg-[#f0fdf4] px-3 py-2">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#15803d]">
+                  <div className="border-b border-success-bg bg-success-bg px-3 py-2">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-success">
                       Đang khám
                     </p>
                     <ul className="space-y-1">
@@ -136,12 +136,12 @@ export default function QueueBoard({
                   </div>
                 )}
 
-                <ul className="divide-y divide-[#f3cfe0]">
+                <ul className="divide-y divide-brand-100">
                   {waiting.map((r, i) => (
                     <QueueLine key={r.id} r={r} order={i + 1} />
                   ))}
                   {waiting.length === 0 && inExam.length === 0 && (
-                    <li className="px-4 py-4 text-center text-xs text-[#a1a1aa]">
+                    <li className="px-4 py-4 text-center text-xs text-ink-faint">
                       Không còn ai chờ.
                     </li>
                   )}
@@ -170,17 +170,17 @@ function QueueLine({
   return (
     <li className="flex items-center gap-3 px-3 py-2">
       {!examining && !readback && (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#fce7f3] text-xs font-bold text-[#9d2463]">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">
           {order}
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-[#171717]">
+        <p className="truncate text-sm font-semibold text-ink">
           {r.patient?.full_name ?? "—"}
         </p>
-        <p className="truncate text-[11px] text-[#888888]">
+        <p className="truncate text-[11px] text-ink-muted">
           {r.queue_number ? (
-            <span className="font-mono text-[#9d2463]">Vé {r.queue_number}</span>
+            <span className="font-mono text-brand-800">Vé {r.queue_number}</span>
           ) : (
             <span className="text-[#c4c4c8]">Chưa cấp vé</span>
           )}
@@ -192,10 +192,10 @@ function QueueLine({
         className={
           "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium " +
           (readback
-            ? "bg-[#fef3c7] text-[#b45309]"
+            ? "bg-warning-bg text-warning"
             : booked
-              ? "bg-[#fce7f3] text-[#9d2463]"
-              : "bg-[#f4f4f5] text-[#52525b]")
+              ? "bg-brand-100 text-brand-800"
+              : "bg-surface-sunken text-ink-soft")
         }
       >
         {readback ? "🔔 Chờ đọc" : booked ? "Có hẹn" : "Vãng lai"}

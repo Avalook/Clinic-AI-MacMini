@@ -3,11 +3,11 @@
 const STATUS_STYLE: Record<string, string> = {
   SCHEDULED: "bg-[#dbeafe] text-[#1d4ed8]",
   CSKH_CONFIRMED: "bg-[#ccfbf1] text-[#0f766e]",
-  CONFIRMED: "bg-[#dcfce7] text-[#15803d]",
-  CHECKED_IN: "bg-[#fef9c3] text-[#a16207]",
-  COMPLETED: "bg-[#f4f4f5] text-[#71717a]",
-  CANCELLED: "bg-[#fee2e2] text-[#dc2626]",
-  NO_SHOW: "bg-[#fce7f3] text-[#9d174d]",
+  CONFIRMED: "bg-success-bg text-success",
+  CHECKED_IN: "bg-warning-bg text-warning",
+  COMPLETED: "bg-surface-sunken text-ink-muted",
+  CANCELLED: "bg-danger-bg text-danger",
+  NO_SHOW: "bg-brand-100 text-status-cancelled",
   DOCTOR_DECLINED: "bg-[#ffedd5] text-[#c2410c]",
 };
 
@@ -24,7 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function StatusBadge({ status }: { status: string }) {
-  const style = STATUS_STYLE[status] ?? "bg-[#f4f4f5] text-[#71717a]";
+  const style = STATUS_STYLE[status] ?? "bg-surface-sunken text-ink-muted";
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${style}`}
