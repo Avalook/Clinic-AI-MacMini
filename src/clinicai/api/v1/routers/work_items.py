@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services.service_order_service import ServiceOrderService
 from clinicai.services.work_item_service import WorkItemService
 
 router = APIRouter()
@@ -263,3 +264,94 @@ async def work_item_blockers(
         identity=identity,
     )
     return {"phase": phase, "blockers": blockers, "open": not blockers}
+
+
+# ---------------------------------------------------------------------------
+# Chỉ định dịch vụ — what LUOTKHAM-05 produces
+# ---------------------------------------------------------------------------
+
+_ORDERING_ROLES = require_role(
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+)
+
+
+class CatalogueEntry(BaseModel):
+    service_code: str
+    name: str
+    group: str | None = None
+    category: str | None = None
+    unit_price: float | None = None
+    node_code: str | None = None
+    node_name: str | None = None
+    workspace: str | None = None
+    # False when the clinic has not said which node performs it. Shown greyed
+    # with a reason rather than hidden: a missing row reads as a bug, a visibly
+    # unconfigured row reads as configuration.
+    orderable: bool
+
+
+class OrderRequest(BaseModel):
+    service_codes: list[str] = Field(min_length=1, max_length=50)
+
+
+class OrderedRoom(BaseModel):
+    node_code: str
+    work_item_id: UUID
+    service_count: int
+    created: bool
+
+
+class DuplicateService(BaseModel):
+    service_code: str
+    name: str | None = None
+    ordered_at: datetime
+
+
+@router.get("/service-catalogue", response_model=list[CatalogueEntry])
+async def service_catalogue(
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[CatalogueEntry]:
+    """The clinic's orderable services, with the room each one is performed in."""
+    rows = await ServiceOrderService(pool).catalogue(identity=identity)
+    return [CatalogueEntry(**r) for r in rows]  # type: ignore[arg-type]
+
+
+@router.post("/visits/{visit_id}/service-orders", response_model=list[OrderedRoom])
+async def order_services(
+    visit_id: UUID,
+    body: OrderRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[OrderedRoom]:
+    """Order services on a visit; work appears in the room that performs each.
+
+    Does not complete LUOTKHAM-05 — see ServiceOrderService for why.
+    """
+    rows = await ServiceOrderService(pool).create(
+        visit_id=str(visit_id), codes=body.service_codes, identity=identity
+    )
+    return [OrderedRoom(**r) for r in rows]  # type: ignore[arg-type]
+
+
+@router.post(
+    "/visits/{visit_id}/service-orders/duplicates",
+    response_model=list[DuplicateService],
+)
+async def check_duplicates(
+    visit_id: UUID,
+    body: OrderRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[DuplicateService]:
+    """Which of these the patient already had ordered in the last 30 days.
+
+    POST because the list of codes is the question and can be long; nothing is
+    written.
+    """
+    rows = await ServiceOrderService(pool).duplicates(
+        visit_id=str(visit_id), codes=body.service_codes, identity=identity
+    )
+    return [DuplicateService(**r) for r in rows]  # type: ignore[arg-type]

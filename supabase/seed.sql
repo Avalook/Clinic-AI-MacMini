@@ -3699,3 +3699,9 @@ INSERT INTO public.ward (code, name, full_name, code_name, province_code) VALUES
 --
 
 SET session_replication_role = DEFAULT;
+
+-- Map the seeded services to the nodes that perform them. The rules live in
+-- one place (migration 20260801000001) and are called from here because seed.sql
+-- runs AFTER migrations: at migration time this table is still empty on a fresh
+-- database, so the migration's own call maps nothing locally.
+SELECT public.map_services_to_nodes();
