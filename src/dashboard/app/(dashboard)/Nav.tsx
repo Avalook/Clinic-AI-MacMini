@@ -2,6 +2,11 @@
 
 // Desktop sidebar nav links + the drawer's link list. Visibility is per-role
 // (see canSeeNav). Client component so it can highlight the active route.
+//
+// Light surface, teal active state, per the design set. It was a dark rail with
+// a #ec4899 active border — pink chrome on a women's-health product is the
+// gender-coded colour the icon system explicitly forbids, and it was the last
+// place in the shell still using it.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -41,8 +46,8 @@ export default function Nav({
             title={isCollapsed ? label : undefined}
             className={
               active
-                ? `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} border-l-2 border-[#ec4899] bg-[#1f1f1f] px-3 py-2.5 text-sm font-medium text-white transition-all duration-150`
-                : `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} border-l-2 border-transparent px-3 py-2.5 text-sm text-[#a1a1aa] transition-all duration-150 hover:bg-[#1a1a1a] hover:text-[#d4d4d8] active:bg-[#1a1a1a]`
+                ? `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-[3px] border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors`
+                : `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-[3px] border-transparent px-3 py-2.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken`
             }
           >
             <span className="relative shrink-0">
@@ -53,9 +58,11 @@ export default function Nav({
                 </span>
               )}
             </span>
-            {!isCollapsed && <span className="min-w-0 flex-1">{label}</span>}
+            {!isCollapsed && (
+              <span className="min-w-0 flex-1 truncate">{label}</span>
+            )}
             {!isCollapsed && badge && (
-              <span className="shrink-0 rounded-full bg-[#3f3f46] px-1.5 py-0.5 text-[10px] font-medium text-[#d4d4d8]">
+              <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
                 {badge}
               </span>
             )}

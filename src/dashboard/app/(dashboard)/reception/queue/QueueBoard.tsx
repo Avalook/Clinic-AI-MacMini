@@ -71,7 +71,7 @@ function Row({
       aria-current={selected ? "true" : undefined}
       className={`w-full rounded-card border px-4 py-3 text-left transition-colors ${
         selected
-          ? "border-brand-600 bg-brand-50"
+          ? "border-l-[3px] border-brand-600 bg-surface-selected"
           : "border-line bg-surface hover:bg-surface-sunken"
       }`}
     >

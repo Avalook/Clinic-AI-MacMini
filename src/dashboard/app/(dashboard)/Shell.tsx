@@ -29,7 +29,7 @@ export default function Shell({
   const menuTriggerRef = useRef<HTMLElement | null>(null);
 
   // Desktop sidebar resizing and collapse state
-  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [sidebarWidth, setSidebarWidth] = useState(248);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
@@ -120,7 +120,7 @@ export default function Shell({
             footer 'Thoát' + nút thu/mở ra ngoài màn hình. Footer ghim đáy. */}
         <div className="flex-1 min-h-0 space-y-6 overflow-y-auto">
           <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3`}>
-            <h1 className="flex items-center gap-2 text-base font-medium text-white">
+            <h1 className="flex items-center gap-2 text-base font-medium text-ink">
               <Image
                 src="/logo.png"
                 alt="Dr4Women"
@@ -136,7 +136,7 @@ export default function Shell({
                 type="button"
                 onClick={closeDrawer}
                 aria-label="Đóng menu"
-                className="-mr-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-[#a1a1aa] hover:bg-[#1a1a1a] hover:text-white md:hidden"
+                className="-mr-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink md:hidden"
               >
                 <X size={20} />
               </button>
@@ -149,16 +149,16 @@ export default function Shell({
           />
         </div>
 
-        <div className="shrink-0 space-y-3 border-t border-[#1f1f1f] px-3 pt-4">
+        <div className="shrink-0 space-y-3 border-t border-line px-3 pt-4">
           {!collapsed && (
-            <p className="truncate text-xs text-[#71717a]" title={identity}>
+            <p className="truncate text-xs text-ink-muted" title={identity}>
               {identity}
             </p>
           )}
           <form action={leaveAction}>
             <button
               type="submit"
-              className={`w-full rounded-md border border-[#262626] py-2 text-sm text-[#a1a1aa] transition-colors duration-150 hover:bg-[#1a1a1a] hover:text-[#d4d4d8] active:bg-[#1a1a1a] flex items-center justify-center ${collapsed ? "px-1" : "px-3 gap-2"}`}
+              className={`w-full rounded-md border border-line py-2 text-sm text-ink-muted transition-colors duration-150 hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken flex items-center justify-center ${collapsed ? "px-1" : "px-3 gap-2"}`}
               title={collapsed ? "Thoát" : undefined}
             >
               <LogOut size={14} className="shrink-0" />
@@ -171,7 +171,7 @@ export default function Shell({
             <button
               type="button"
               onClick={() => setIsCollapsed(!collapsed)}
-              className="hidden md:flex h-8 w-full items-center justify-center rounded-md border border-[#1f1f1f] text-[#a1a1aa] hover:bg-[#1a1a1a] hover:text-white transition-colors"
+              className="hidden md:flex h-8 w-full items-center justify-center rounded-md border border-line text-ink-muted hover:bg-surface-sunken hover:text-ink transition-colors"
               title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
             >
               {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -183,10 +183,10 @@ export default function Shell({
   };
 
   return (
-    <div className={`flex min-h-screen bg-[#fafafa] font-sans ${isResizing ? "select-none" : ""}`}>
+    <div className={`flex min-h-screen bg-surface-muted font-sans ${isResizing ? "select-none" : ""}`}>
       {/* Mobile top bar (brand only). Hidden on ≥md. */}
-      <header className="fixed inset-x-0 top-0 z-20 flex h-12 items-center justify-center border-b border-[#1f1f1f] bg-[#0a0a0a] px-3 md:hidden">
-        <span className="flex items-center gap-2 text-sm font-medium text-white">
+      <header className="fixed inset-x-0 top-0 z-20 flex h-12 items-center justify-center border-b border-line bg-surface px-3 md:hidden">
+        <span className="flex items-center gap-2 text-sm font-medium text-ink">
           <Image
             src="/logo.png"
             alt="Dr4Women"
@@ -200,7 +200,7 @@ export default function Shell({
 
       {/* Desktop sidebar (≥md). */}
       <aside
-        className="hidden flex-col bg-[#0a0a0a] px-3 py-5 md:flex shrink-0 min-h-screen sticky top-0 h-screen relative select-none"
+        className="hidden flex-col bg-surface px-3 py-5 md:flex shrink-0 min-h-screen sticky top-0 h-screen relative select-none"
         style={{ width: isCollapsed ? 64 : sidebarWidth }}
       >
         {renderSidebar(isCollapsed, false)}
@@ -208,7 +208,7 @@ export default function Shell({
         {/* Resize handle */}
         <div
           onMouseDown={startResizing}
-          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#ec4899]/50 active:bg-[#ec4899] transition-colors"
+          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-700/50 active:bg-brand-600 transition-colors"
           style={{ zIndex: 50 }}
         />
       </aside>
@@ -229,7 +229,7 @@ export default function Shell({
         aria-hidden={!open}
         inert={!open}
         onKeyDown={handleDrawerKeyDown}
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] flex-col bg-[#0a0a0a] px-3 py-5 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] flex-col bg-surface px-3 py-5 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none md:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

@@ -15,14 +15,13 @@
  * ------------------------------------------------------------------------- */
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f5f8fb;
+  --foreground: #102a43;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -36,29 +35,35 @@
  * even after moving off `inline`. A palette that exists only where it happens
  * to be used already is not a palette. */
 @theme static {
-  /* Brand. Teal is the clinic's colour; it carries primary actions and the
-   * active nav item, and nothing else competes with it. */
-  --color-brand-50: #eefbf8;
-  --color-brand-100: #d3f4ee;
-  --color-brand-200: #a9e9de;
-  --color-brand-300: #71d7c9;
-  --color-brand-400: #3cbcac;
-  --color-brand-500: #1a9d8f;
-  --color-brand-600: #0e7c6b;
-  --color-brand-700: #0f6357;
-  --color-brand-800: #114f47;
-  --color-brand-900: #12423c;
+  /* Brand. #0F8B8D is the teal in the icon-system source (2332.svg) — the logo
+   * and the "Vận hành" group. The previous ramp was built around #0E7C6B,
+   * which appears nowhere in the design files; I had matched it by eye off a
+   * screenshot. Anchored on 500 now, with 600 carrying primary buttons. */
+  --color-brand-50: #eaf7f7;
+  --color-brand-100: #b8e2e2;
+  --color-brand-200: #8ed2d3;
+  --color-brand-300: #5cbfc1;
+  --color-brand-400: #2ea6a9;
+  --color-brand-500: #0f8b8d;
+  --color-brand-600: #0c7476;
+  --color-brand-700: #0a5e60;
+  --color-brand-800: #094b4d;
+  --color-brand-900: #083e40;
 
-  /* Surfaces and text. */
+  /* Surfaces and text — the Refactoring UI blue-grey ramp the designs actually
+   * use (#102A43 … #F5F8FB, all present in 2332.svg), NOT Tailwind slate. The
+   * difference is visible: slate reads cooler-grey, this reads slightly blue,
+   * and mixing the two makes a screen look subtly dirty. */
   --color-surface: #ffffff;
-  --color-surface-muted: #f8fafc;
-  --color-surface-sunken: #f1f5f9;
-  --color-line: #e2e8f0;
-  --color-line-strong: #cbd5e1;
-  --color-ink: #0f172a;
-  --color-ink-soft: #475569;
-  --color-ink-muted: #64748b;
-  --color-ink-faint: #94a3b8;
+  --color-surface-muted: #f5f8fb;
+  --color-surface-sunken: #eef3f8;
+  --color-surface-selected: #eaf7f7; /* the selected row/card fill */
+  --color-line: #d9e2ec;
+  --color-line-strong: #bcccdc;
+  --color-ink: #102a43;
+  --color-ink-soft: #243b53;
+  --color-ink-muted: #627d98;
+  --color-ink-faint: #829ab1;
 
   /* ---------------------------------------------------------------------
    * Work-item status palette — section 05 of the icon system.
@@ -68,8 +73,8 @@
    * derived status looks exactly like a stored one to the person reading the
    * screen.
    * ------------------------------------------------------------------- */
-  --color-status-draft: #64748b;
-  --color-status-draft-bg: #f1f5f9;
+  --color-status-draft: #627d98;
+  --color-status-draft-bg: #eef3f8;
   --color-status-ready: #0e7c6b;
   --color-status-ready-bg: #d3f4ee;
   --color-status-assigned: #0369a1;
@@ -86,22 +91,30 @@
   --color-status-completed-bg: #dcfce7;
   --color-status-rejected: #c2410c;
   --color-status-rejected-bg: #ffedd5;
-  --color-status-cancelled: #64748b;
-  --color-status-cancelled-bg: #f1f5f9;
+  --color-status-cancelled: #627d98;
+  --color-status-cancelled-bg: #eef3f8;
   --color-status-failed: #b91c1c;
   --color-status-failed-bg: #fee2e2;
   --color-status-overdue: #b91c1c;
   --color-status-overdue-bg: #fee2e2;
 
+  /* Specialty hues, used on service icons to say WHICH clinic area a task
+   * belongs to. These are not gender colours: the icon system's own rules
+   * forbid gender-coding, and plum here means phụ khoa, indigo means nam khoa.
+   * Both areas serve patients of any gender. */
+  --color-specialty-gyn: #a8447a;
+  --color-specialty-andro: #4f46e5;
+  --color-specialty-service: #2563eb;
+
   /* Priority. P0 is not an emergency colour on its own — the screens use it as
    * a quiet marker beside the status, which is the loud one. */
   --color-priority-p0: #b91c1c;
   --color-priority-p1: #b45309;
-  --color-priority-p2: #64748b;
+  --color-priority-p2: #627d98;
 
   --radius-card: 12px;
   --radius-control: 10px;
-  --radius-chip: 9999px;
+  --radius-chip: 6px; /* the designs use a soft rectangle, not a pill */
 
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04),
     0 1px 3px 0 rgb(15 23 42 / 0.06);
@@ -111,7 +124,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
 /* Hiện tức thì khi đổi trang: chỉ opacity rất nhanh, KHÔNG trượt (tránh cảm
@@ -167,7 +180,7 @@ body {
  * a pink chrome on a women's-health product is exactly that. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: #bcccdc transparent;
 }
 ::-webkit-scrollbar {
   width: 11px;
@@ -177,13 +190,13 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: #bcccdc;
   border-radius: 9999px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: #829ab1;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-corner {

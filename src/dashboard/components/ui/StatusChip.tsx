@@ -11,6 +11,10 @@
  * callers: the label is always rendered (colour is never the only signal), and
  * the tone token drives both fill and text so contrast cannot be broken by
  * picking a nice-looking pair.
+ *
+ * The shape is a soft rectangle (6px), not a pill. I had it as rounded-full
+ * from memory of the screenshots; the design set uses a small radius, and at
+ * chip size the two read as different products.
  */
 
 import type { ReactNode } from "react";
@@ -70,7 +74,7 @@ export default function StatusChip({
   const pad = size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap ${pad} ${TONE[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-chip font-medium whitespace-nowrap ${pad} ${TONE[tone]}`}
       title={title}
     >
       {icon}

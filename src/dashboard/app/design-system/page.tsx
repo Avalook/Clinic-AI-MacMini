@@ -140,6 +140,54 @@ export default function DesignSystemPage() {
         />
       </Section>
 
+      <Section
+        title="Thang trung tính (blue-grey)"
+        note="Thang Refactoring UI mà thiết kế dùng — KHÔNG phải slate của Tailwind. Trộn hai thang làm màn hình trông bẩn."
+      >
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["ink", "#102A43"],
+            ["ink-soft", "#243B53"],
+            ["ink-muted", "#627D98"],
+            ["ink-faint", "#829AB1"],
+            ["line-strong", "#BCCCDC"],
+            ["line", "#D9E2EC"],
+            ["surface-sunken", "#EEF3F8"],
+            ["surface-muted", "#F5F8FB"],
+          ].map(([name, hex]) => (
+            <div key={name} className="flex flex-col items-center gap-1">
+              <div
+                className="h-12 w-24 rounded-control border border-line"
+                style={{ background: `var(--color-${name})` }}
+              />
+              <span className="text-[11px] text-ink-muted">{name}</span>
+              <span className="text-[10px] text-ink-faint">{hex}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="Màu chuyên khoa — KHÔNG phải màu giới tính"
+        note="Plum = phụ khoa, indigo = nam khoa. Cả hai khoa đều phục vụ người bệnh thuộc mọi giới."
+      >
+        <div className="flex flex-wrap gap-3">
+          {[
+            ["specialty-gyn", "Phụ khoa"],
+            ["specialty-andro", "Nam khoa"],
+            ["specialty-service", "Dịch vụ / CLS"],
+          ].map(([token, label]) => (
+            <span key={token} className="flex items-center gap-2 text-sm text-ink">
+              <span
+                className="h-5 w-5 rounded-control"
+                style={{ background: `var(--color-${token})` }}
+              />
+              {label}
+            </span>
+          ))}
+        </div>
+      </Section>
+
       <Section title="Bị chặn trông thế nào" note="Cổng đóng là thông tin, không phải lỗi.">
         <Stepper
           orientation="vertical"
