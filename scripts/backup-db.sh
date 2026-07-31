@@ -184,12 +184,21 @@ load_libpq_env
 # The target's host now goes in the filename, so `ls` alone tells you. No
 # credentials: just the host label (the Supabase project ref, or "local").
 backup_target_tag() {
-    local host
+    local userinfo host ref
+    userinfo=$(printf '%s' "$1" | sed -E 's|^[a-z+]+://||; s|@.*$||; s|:.*$||')
     host=$(printf '%s' "$1" | sed -E 's|^[a-z+]+://[^@]*@?||; s|[:/].*$||')
+
+    # The project ref first, wherever it is. On a POOLER connection the host is
+    # shared by every project in the region (aws-1-ap-northeast-2-pooler...) and
+    # the ref is in the username as postgres.<ref> — tagging by host there would
+    # have produced a name that still did not say which database it was, which
+    # is the whole failure being fixed. Caught by running it for real.
+    ref=$(printf '%s' "$userinfo" | sed -nE 's|^postgres\.([a-z0-9]{16,})$|\1|p')
+    if [ -n "$ref" ]; then printf '%s' "$ref"; return; fi
+
     case "$host" in
         127.0.0.1|localhost|host.docker.internal) printf 'local' ;;
         db.*.supabase.co|*.supabase.co)
-            # db.<ref>.supabase.co → <ref>, which names the project.
             printf '%s' "$host" | sed -E 's|^db\.||; s|\.supabase\.co$||' ;;
         "") printf 'unknown' ;;
         *) printf '%s' "$host" | tr -c 'a-zA-Z0-9' '-' ;;
