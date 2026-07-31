@@ -88,6 +88,7 @@ write_failure_status() {
       '  "format_version": 1,' \
       "  \"attempted_at\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"," \
       "  \"source_app_env\": \"${SOURCE_APP_ENV}\"," \
+      "  \"target\": \"${TARGET_TAG:-unknown}\"," \
       '  "succeeded": false,' \
       '  "verified": false,' \
       '  "offsite_uploaded": false,' \
@@ -171,9 +172,35 @@ load_libpq_env() {
 }
 load_libpq_env
 
+# ---- name the file after WHICH DATABASE it came from ------------------------
+# A dump of the wrong database, filed beside the real ones under an identical
+# name, is worse than no backup: it looks like protection. That happened here —
+# three manual restore-drill runs against the local database landed in the
+# production backup folder as clinicai_<timestamp>.sql.gz, and reading one of
+# them led to the confident, wrong conclusion that production carried the
+# multi-tenant schema. The only thing that distinguished them was fixture data
+# buried inside the dump.
+#
+# The target's host now goes in the filename, so `ls` alone tells you. No
+# credentials: just the host label (the Supabase project ref, or "local").
+backup_target_tag() {
+    local host
+    host=$(printf '%s' "$1" | sed -E 's|^[a-z+]+://[^@]*@?||; s|[:/].*$||')
+    case "$host" in
+        127.0.0.1|localhost|host.docker.internal) printf 'local' ;;
+        db.*.supabase.co|*.supabase.co)
+            # db.<ref>.supabase.co → <ref>, which names the project.
+            printf '%s' "$host" | sed -E 's|^db\.||; s|\.supabase\.co$||' ;;
+        "") printf 'unknown' ;;
+        *) printf '%s' "$host" | tr -c 'a-zA-Z0-9' '-' ;;
+    esac
+}
+TARGET_TAG=$(backup_target_tag "$PG_URL")
+log "Backup target: ${SOURCE_APP_ENV} / ${TARGET_TAG}"
+
 # Generate timestamped filename.
 TIMESTAMP=$(date "+%Y%m%d_%H%M%S")
-BACKUP_FILE="${BACKUP_DIR}/clinicai_${TIMESTAMP}.sql.gz"
+BACKUP_FILE="${BACKUP_DIR}/clinicai_${SOURCE_APP_ENV}_${TARGET_TAG}_${TIMESTAMP}.sql.gz"
 TEMP_FILE="${BACKUP_FILE}.tmp"
 MANIFEST_FILE="${BACKUP_FILE}.manifest"
 TEMP_MANIFEST="${MANIFEST_FILE}.tmp"
@@ -239,7 +266,10 @@ fi
 # (sessions, refresh tokens, MFA challenges) is deliberately excluded: it is
 # short-lived state that GoTrue rebuilds, and restoring it into a managed
 # project fights the platform's own migrations.
-AUTH_FILE="${BACKUP_DIR}/clinicai_${TIMESTAMP}_auth.sql.gz"
+# Same base as its public companion, so the pair is obvious and the auth dump
+# carries the target in its name too — it holds the login rows, so a copy from
+# the wrong database is exactly as misleading as the schema one.
+AUTH_FILE="${BACKUP_FILE%.sql.gz}_auth.sql.gz"
 TEMP_AUTH="${AUTH_FILE}.tmp"
 trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST" "$TEMP_AUTH"; release_lock; write_failure_status' EXIT
 
