@@ -155,6 +155,21 @@ cần phòng khám quyết:
 - **(b)** Thanh toán 0đ là hợp lệ (miễn phí, bảo hiểm chi trả toàn bộ) → phải nới
   CHECK ở schema đích thành `>= 0`.
 
+**Cả hai đường đã dựng sẵn**, mặc định là **báo lỗi to** — một lần cutover âm
+thầm vứt dòng thanh toán là điều tệ nhất script này có thể làm.
+
+```bash
+bash scripts/rehearse-data-migration.sh                    # mặc định: đỏ, không chép payment
+PAYMENT_POLICY=drop bash scripts/rehearse-data-migration.sh   # (a) bỏ, IN RA từng dòng bị bỏ
+# (b) nới CHECK: supabase/hotfix/optional_allow_zero_payment.sql — CHƯA áp
+```
+
+Với `PAYMENT_POLICY=drop` diễn tập **xanh 4/4** và in đủ 5 `id` bị bỏ, để chỗ
+thiếu nằm trong log chứ không nằm trong trí nhớ ai đó.
+
+Bằng chứng thêm cho phương án (a): **cả 5 dòng đều không có người thu tiền** —
+`paid_by_staff_id` và `paid_by_text` đều NULL. Một khoản thu thật luôn có thu ngân.
+
 Không được im lặng bỏ 5 dòng đó. Nhắc lại bối cảnh: toàn bộ production có
 `service_price.unit_price` rỗng, `drug_catalog.unit_price` rỗng, và cả 5 payment
 đều bằng 0 — nhiều khả năng là (a), nhưng đó là kết luận của phòng khám.

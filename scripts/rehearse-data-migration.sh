@@ -31,6 +31,25 @@ CONTAINER="clinicai_migrate_rehearsal"
 # a tenancy bug that no test could see.
 CLINIC_ID="${CLINIC_ID:-a0000000-0000-4000-8000-000000000001}"
 
+# What to do with production's five zero-amount payments, which the target
+# schema's payment_positive_amount CHECK rejects.
+#
+#   (unset)     fail loudly and copy nothing — the default, and the honest one.
+#               A cutover that silently discarded payment rows would be the
+#               worst possible thing this script could do quietly.
+#   drop        skip them, and print every row skipped so the omission is on the
+#               record rather than in someone's memory.
+#   allow-zero  requires relaxing the CHECK to >= 0 in the target schema; the
+#               migration is written but NOT applied
+#               (supabase/hotfix/optional_allow_zero_payment.sql).
+#
+# The evidence, so whoever chooses is choosing informed: all five rows are
+# amount=0, status=PAID, dated 24–29/06/2026, and paid_by_staff_id AND
+# paid_by_text are both NULL — nobody is recorded as having taken the money.
+# Production also has no prices at all (service_price and drug_catalog are
+# entirely unpriced). That points at test data, but it is the clinic's call.
+PAYMENT_POLICY="${PAYMENT_POLICY:-}"
+
 BACKUP_FILE="${1:-}"
 if [ -z "$BACKUP_FILE" ]; then
     BACKUP_FILE=$(find "$BACKUP_DIR" -maxdepth 1 -name 'clinicai_production_*.sql.gz' \
@@ -163,6 +182,21 @@ for t in $TABLES; do
     # No `bash -c` wrapper: the nested quoting swallowed the identifier quotes
     # and turned the "group" column back into a syntax error. Two plain docker
     # execs joined by a pipe keep the quoting the shell already got right.
+    # The one table where a filter is a decision, not a mechanism.
+    where=""
+    if [ "$t" = "payment" ] && [ "$PAYMENT_POLICY" = "drop" ]; then
+        bad=$(q src "SELECT count(*) FROM public.payment WHERE amount IS NULL OR amount <= 0")
+        if [ "${bad:-0}" != "0" ]; then
+            echo "  DROPPING $bad payment row(s) with amount <= 0 (PAYMENT_POLICY=drop):"
+            docker exec "$CONTAINER" psql -tA -U postgres -d src -c \
+              "SELECT '    id='||id||' amount='||coalesce(amount::text,'NULL')||
+                      ' kind='||coalesce(kind,'?')||' paid_at='||coalesce(paid_at::text,'?')
+                 FROM public.payment WHERE amount IS NULL OR amount <= 0" 2>/dev/null
+        fi
+        where=" WHERE amount > 0"
+    fi
+    sel="${sel}${where}"
+
     if docker exec "$CONTAINER" psql -tA -U postgres -d src \
             -c "COPY ($sel) TO STDOUT" 2>/tmp/rehearse_src_err.log \
        | docker exec -i "$CONTAINER" psql -q -v ON_ERROR_STOP=1 -U postgres -d tgt \
@@ -186,7 +220,14 @@ for t in $TABLES; do
     [ "$(q tgt "SELECT to_regclass('public.$t') IS NOT NULL")" = "t" ] || continue
     s=$(q src "SELECT count(*) FROM public.$t"); d=$(q tgt "SELECT count(*) FROM public.$t")
     total_src=$((total_src + ${s:-0}))
-    if [ "${s:-0}" != "${d:-0}" ]; then
+    if [ "$t" = "payment" ] && [ "$PAYMENT_POLICY" = "drop" ]; then
+        kept=$(q src "SELECT count(*) FROM public.payment WHERE amount > 0")
+        if [ "${kept:-0}" = "${d:-0}" ]; then
+            printf '  ok(drop) %-26s kept %s of %s (amount > 0)\n' "$t" "$d" "$s"
+        else
+            printf '  MISMATCH  %-26s src>0=%-6s tgt=%s\n' "$t" "$kept" "$d"; mismatch=$((mismatch+1))
+        fi
+    elif [ "${s:-0}" != "${d:-0}" ]; then
         printf '  MISMATCH  %-26s src=%-6s tgt=%s\n' "$t" "$s" "$d"; mismatch=$((mismatch+1))
     elif [ "${s:-0}" != "0" ]; then
         printf '  ok        %-26s %s\n' "$t" "$s"
