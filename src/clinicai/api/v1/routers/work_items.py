@@ -355,3 +355,64 @@ async def check_duplicates(
         visit_id=str(visit_id), codes=body.service_codes, identity=identity
     )
     return [DuplicateService(**r) for r in rows]  # type: ignore[arg-type]
+
+
+_CASHIER_ROLES = require_role(
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_THUOC,
+    ClinicRole.CASHIER_DV,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.MANAGEMENT,
+    # The doctor who raised the orders may see what they cost. Reception may
+    # not: closing a visit is theirs, the money is not.
+    ClinicRole.DOCTOR,
+)
+
+
+class ChargeLine(BaseModel):
+    node_code: str
+    node_name: str | None = None
+    node_status: str
+    service_code: str | None = None
+    name: str | None = None
+    unit_price: float | None = None
+
+
+class PaymentLine(BaseModel):
+    id: UUID
+    kind: str | None = None
+    status: str | None = None
+    amount: float
+    paid_at: datetime | None = None
+    voided_at: datetime | None = None
+    void_reason: str | None = None
+
+
+class VisitCharges(BaseModel):
+    visit_id: UUID
+    visit_status: str | None = None
+    lines: list[ChargeLine]
+    payments: list[PaymentLine]
+    line_count: int
+    unpriced_lines: int
+    subtotal: float
+    collected: float
+    outstanding: float
+
+
+@router.get("/visits/{visit_id}/charges", response_model=VisitCharges)
+async def visit_charges(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_CASHIER_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> VisitCharges:
+    """What the visit owes for and what has been paid.
+
+    Lines come from the work items, because the work item is the order. See
+    ServiceOrderService.charges — in particular why `unpriced_lines` is part of
+    the contract rather than an implementation detail.
+    """
+    data = await ServiceOrderService(pool).charges(
+        visit_id=str(visit_id), identity=identity
+    )
+    return VisitCharges(**data)  # type: ignore[arg-type]

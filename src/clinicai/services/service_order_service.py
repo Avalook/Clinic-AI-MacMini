@@ -144,3 +144,105 @@ class ServiceOrderService:
             }
             for r in rows
         ]
+
+    async def charges(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, object]:
+        """What this visit owes for, and what has been paid.
+
+        The bill lines come from the work items themselves — every DICHVU node
+        carries the services ordered onto it in its payload — because the work
+        item IS the order. A separate billing table would be a second truth, and
+        the first argument between them would be in front of a patient holding a
+        card.
+
+        Amounts are whatever the price list says, INCLUDING nothing: production
+        has no prices at all (service_price and drug_catalog are entirely
+        unpriced). This returns unit_price as it finds it and reports how many
+        lines lack one, so the screen can say so rather than presenting a total
+        that quietly means "we could not work it out".
+        """
+        visit = await self._pool.fetchrow(
+            "SELECT visit_id, clinic_patient_id, status FROM visit "
+            "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
+            visit_id,
+            identity.clinic_id,
+        )
+        if visit is None:
+            raise NotFoundError("Không tìm thấy lượt khám")
+
+        rows = await self._pool.fetch(
+            """
+            SELECT w.node_code,
+                   w.status AS node_status,
+                   n.name   AS node_name,
+                   s ->> 'service_code' AS service_code,
+                   s ->> 'name'         AS name,
+                   (s ->> 'unit_price')::numeric AS unit_price
+              FROM work_item w
+              JOIN node_definition n
+                ON n.clinic_id = w.clinic_id AND n.code = w.node_code
+             CROSS JOIN LATERAL jsonb_array_elements(
+                   coalesce(w.payload -> 'services', '[]'::jsonb)) AS s
+             WHERE w.clinic_id = $2::uuid
+               AND w.visit_id = $1::uuid
+               AND w.status <> 'CANCELLED'
+             ORDER BY n.name, s ->> 'name'
+            """,
+            visit_id,
+            identity.clinic_id,
+        )
+
+        # Voided payments are history, not money. They are returned separately
+        # so a cashier can see a correction was made without it counting twice.
+        paid = await self._pool.fetch(
+            """
+            SELECT id, kind, status, amount, paid_at, voided_at, void_reason
+              FROM payment
+             WHERE clinic_id = $2::uuid AND visit_id = $1::uuid
+             ORDER BY paid_at NULLS LAST
+            """,
+            visit_id,
+            identity.clinic_id,
+        )
+
+        lines = [
+            {
+                "node_code": r["node_code"],
+                "node_name": r["node_name"],
+                "node_status": r["node_status"],
+                "service_code": r["service_code"],
+                "name": r["name"],
+                "unit_price": float(r["unit_price"]) if r["unit_price"] else None,
+            }
+            for r in rows
+        ]
+        unpriced = sum(1 for line in lines if line["unit_price"] is None)
+        subtotal = sum(
+            float(line["unit_price"] or 0) for line in lines if line["unit_price"]
+        )
+        collected = sum(float(p["amount"] or 0) for p in paid if p["voided_at"] is None)
+
+        return {
+            "visit_id": str(visit["visit_id"]),
+            "visit_status": visit["status"],
+            "lines": lines,
+            "payments": [
+                {
+                    "id": str(p["id"]),
+                    "kind": p["kind"],
+                    "status": p["status"],
+                    "amount": float(p["amount"] or 0),
+                    "paid_at": p["paid_at"],
+                    "voided_at": p["voided_at"],
+                    "void_reason": p["void_reason"],
+                }
+                for p in paid
+            ],
+            "line_count": len(lines),
+            # The number that decides whether the total may be shown at all.
+            "unpriced_lines": unpriced,
+            "subtotal": subtotal,
+            "collected": collected,
+            "outstanding": subtotal - collected,
+        }
