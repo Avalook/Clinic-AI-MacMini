@@ -116,15 +116,22 @@ VALUES ('a0000000-0000-4000-8000-000000000001',
         'd0000000-0000-4000-8000-0000000000a1');
 
 -- Three items: check-in, vitals, close. Vitals waits on check-in (FS).
+-- node_version_id is looked up rather than left NULL: it became NOT NULL in
+-- 20260730000003 so every item records the definition version it was created
+-- under, and a fixture that skips it is no longer a valid work item.
 INSERT INTO public.work_item
-    (clinic_id, id, node_code, clinic_patient_id, status, priority)
-VALUES
-    ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000a', 'LUOTKHAM-01',
-     'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0'),
-    ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000b', 'LUOTKHAM-03',
-     'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0'),
-    ('a0000000-0000-4000-8000-000000000001', 'f0000000-0000-4000-8000-00000000000c', 'LUOTKHAM-15',
-     'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0');
+    (clinic_id, id, node_code, node_version_id, clinic_patient_id, status, priority)
+SELECT 'a0000000-0000-4000-8000-000000000001', v.id, v.code, nv.id,
+       'e0000000-0000-4000-8000-0000000000a1', 'PENDING', 'P0'
+  FROM (VALUES
+        ('f0000000-0000-4000-8000-00000000000a'::uuid, 'LUOTKHAM-01'),
+        ('f0000000-0000-4000-8000-00000000000b'::uuid, 'LUOTKHAM-03'),
+        ('f0000000-0000-4000-8000-00000000000c'::uuid, 'LUOTKHAM-15')
+       ) AS v(id, code)
+  JOIN public.node_definition n
+    ON n.code = v.code AND n.clinic_id = 'a0000000-0000-4000-8000-000000000001'
+  JOIN public.node_definition_version nv
+    ON nv.node_definition_id = n.id AND nv.version = n.current_version;
 
 INSERT INTO public.work_item_dependency
     (clinic_id, predecessor_work_item_id, successor_work_item_id, dependency_type)

@@ -109,6 +109,12 @@ _ALIVE = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"})
 _PRE_ARRIVAL = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"})
 _AWAITING_DOCTOR = frozenset({"SCHEDULED", "CSKH_CONFIRMED"})
 
+# Actions that take the visit off the board again. undo_checkin and cancel mean
+# the arrival did not stand, so the still-open steps of that visit are cancelled
+# and stop appearing in worklists. no_show is deliberately absent: a patient who
+# never arrived never had a visit opened, so there is nothing to cancel.
+_WORKFLOW_CANCELLING: frozenset[str] = frozenset({"undo_checkin", "cancel"})
+
 TRANSITIONS: dict[str, Transition] = {
     # The doctor takes the case, even one CSKH already confirmed with the
     # patient — confirmation is two-step and these are the second step.
@@ -542,6 +548,13 @@ class BookingService:
                         doctor_id=effective_doctor_id,
                         identity=identity,
                     )
+                elif action in _WORKFLOW_CANCELLING:
+                    await self._cancel_visit_workflow(
+                        conn,
+                        appointment_id=appointment_id,
+                        identity=identity,
+                        reason=action,
+                    )
 
         logger.info(
             "appointment_action",
@@ -973,21 +986,93 @@ class BookingService:
         the patient has arrived and the patient never reaches the board.
 
         clinical_record_service._ensure_visit has always done it this way.
+
+        Also instantiates the visit's work items. Both check-in paths — the
+        walk-in auto-check-in in create() and the checkin action — already funnel
+        through here, so hanging the kernel off this one place covers walk-ins by
+        construction instead of by remembering to add a second call.
         """
-        await conn.execute(
+        visit_id = await conn.fetchval(
             """
             INSERT INTO visit (
                 clinic_id, clinic_patient_id, appointment_id,
-                attending_doctor_id, status, checked_in_at
+                attending_doctor_id, status, checked_in_at, checked_in_by
             )
-            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now())
+            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now(), $5::uuid)
             ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
             DO NOTHING
+            RETURNING visit_id
             """,
             identity.clinic_id,
             clinic_patient_id,
             appointment_id,
             doctor_id,
+            identity.staff_id,
+        )
+
+        if visit_id is None:
+            # Somebody opened the visit first — a nurse recording vitals, a
+            # sonographer. It still needs its work items.
+            visit_id = await conn.fetchval(
+                "SELECT visit_id FROM visit "
+                "WHERE appointment_id = $1 AND clinic_id = $2::uuid",
+                appointment_id,
+                identity.clinic_id,
+            )
+
+        if visit_id is None:
+            return
+
+        created = await conn.fetchval(
+            "SELECT public.instantiate_visit_workflow("
+            "$1::uuid, $2::uuid, $3::uuid, $4::text)",
+            identity.clinic_id,
+            visit_id,
+            identity.staff_id,
+            identity.role.value,
+        )
+        if not created:
+            # Zero is normal on a re-check-in (the items are already there) but
+            # also what a clinic with no seeded node catalogue returns, and that
+            # one is worth seeing in the log rather than discovering when the
+            # board is empty.
+            logger.info(
+                "visit_workflow_no_new_items",
+                visit_id=str(visit_id),
+                clinic_id=identity.clinic_id,
+            )
+
+    async def _cancel_visit_workflow(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        appointment_id: Any,
+        identity: StaffIdentity,
+        reason: str,
+    ) -> None:
+        """Cancel the still-open work items of this appointment's visit.
+
+        Completed steps stay completed: the patient really did arrive and
+        really did have their vitals taken, and undoing a mis-click does not
+        make that untrue.
+        """
+        visit_id = await conn.fetchval(
+            "SELECT visit_id FROM visit "
+            "WHERE appointment_id = $1 AND clinic_id = $2::uuid",
+            appointment_id,
+            identity.clinic_id,
+        )
+        if visit_id is None:
+            return
+
+        await conn.fetchval(
+            "SELECT public.cancel_visit_workflow("
+            "$1::uuid, $2::uuid, $3::uuid, $4::text, $5::text)",
+            identity.clinic_id,
+            visit_id,
+            identity.staff_id,
+            identity.role.value,
+            reason,
         )
 
     def _is_today(self, moment: datetime) -> bool:

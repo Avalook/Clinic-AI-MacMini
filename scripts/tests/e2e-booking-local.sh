@@ -79,6 +79,31 @@ check "re-check-in after undo is accepted" 200 \
 actual=$(psql "$DB" -tAc "SELECT status FROM appointment WHERE id='$APPT2';" | tr -d ' ')
 check "…and it actually persisted (not a silent rollback)" "CHECKED_IN" "$actual"
 
+# The workflow kernel had 37 node definitions and zero work items until now:
+# nothing created one, so the clinic ran on staff_task. Checking a patient in
+# must materialise their visit spine.
+spine=$(psql "$DB" -tAc "SELECT count(*) FROM work_item w JOIN visit v ON v.visit_id = w.visit_id
+                          WHERE v.appointment_id = '$APPT2' AND w.status <> 'CANCELLED';" | tr -d ' ')
+check "check-in materialises the 7-step visit spine" "7" "$spine"
+
+arrival=$(psql "$DB" -tAc "SELECT w.status FROM work_item w JOIN visit v ON v.visit_id = w.visit_id
+                            WHERE v.appointment_id = '$APPT2' AND w.node_code = 'LUOTKHAM-01'
+                              AND w.status <> 'CANCELLED';" | tr -d ' ')
+check "the arrival step itself is already done" "COMPLETED" "$arrival"
+
+# Materialising the chain must not let anyone jump it: vitals waits on
+# verification, which is what the FS gates are for.
+blocked=$(psql "$DB" -tAc "SELECT count(*) FROM work_item_gate_blockers(
+    (SELECT w.id FROM work_item w JOIN visit v ON v.visit_id = w.visit_id
+      WHERE v.appointment_id = '$APPT2' AND w.node_code = 'LUOTKHAM-03'
+        AND w.status <> 'CANCELLED'), 'start');" | tr -d ' ')
+if [ "${blocked:-0}" -gt 0 ]; then
+  printf '  PASS  %-52s %s\n' "vitals stay gated behind verification" "$blocked blocker"
+  pass=$((pass+1))
+else
+  printf '  FAIL  %-52s not gated\n' "vitals stay gated behind verification"; fail=$((fail+1))
+fi
+
 echo "        audit: $(psql "$DB" -tAc "SELECT string_agg(replace(event_type,'appointment.',''), ' -> ' ORDER BY occurred_at) FROM event_log WHERE aggregate_id='$APPT';")"
 printf '=== %d passed, %d failed ===\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
