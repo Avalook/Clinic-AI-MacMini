@@ -20,6 +20,9 @@ import {
   ListOrdered,
   CheckCheck,
   Gauge,
+  Users,
+  Receipt,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -36,6 +39,30 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { href: "/home", label: "Trang chủ", shortLabel: "Trang chủ", icon: Home },
+  // Bảng chạy trên workflow kernel. Đặt cạnh màn cũ (chưa thay thế) và gắn
+  // badge để nhân viên biết đây là bản mới đang chạy song song — bỏ badge khi
+  // staff_task được gỡ.
+  {
+    href: "/reception/queue",
+    label: "Hàng đợi tiếp nhận",
+    shortLabel: "Hàng đợi",
+    icon: Users,
+    badge: "Mới",
+  },
+  {
+    href: "/doctor/board",
+    label: "Bàn khám",
+    shortLabel: "Bàn khám",
+    icon: Stethoscope,
+    badge: "Mới",
+  },
+  {
+    href: "/cashier/board",
+    label: "Bàn thu ngân",
+    shortLabel: "Thu ngân",
+    icon: Receipt,
+    badge: "Mới",
+  },
   {
     href: "/cskh-today",
     label: "Cần làm hôm nay",
@@ -112,6 +139,12 @@ export const NAV: NavItem[] = [
   { href: "/sono", label: "ĐD siêu âm", shortLabel: "Siêu âm", icon: ScanLine },
   { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
+  {
+    href: "/ops/telemetry",
+    label: "Sức khoẻ API",
+    shortLabel: "Sức khoẻ",
+    icon: Timer,
+  },
   { href: "/ops", label: "Vận hành hệ thống", shortLabel: "Hệ thống", icon: Gauge },
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];

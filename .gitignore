@@ -112,3 +112,4 @@ scripts/maintenance/backups/
 
 # Supabase CLI local state
 /supabase/.branches/
+.dev-logs/

@@ -181,6 +181,26 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
 const DOCTOR_ROLES_LIST: ClinicRole[] = ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"];
 
 const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
+  // --- bảng chạy trên workflow kernel -------------------------------------
+  // Vai được thấy bảng nào là theo actor_roles của node trong danh mục, không
+  // phải theo cảm tính: hàng đợi tiếp nhận là workspace bang_dieu_phoi
+  // (RECEPTION + NURSE_ULTRASOUND cho bước xác minh), bàn khám là khu_bac_si,
+  // bàn thu ngân là thu_ngan_dong_luot (đóng lượt có cả lễ tân).
+  // Trưởng ca và quản lý xem được tất cả để điều phối.
+  "/reception/queue": [
+    "RECEPTION", "NURSE_ULTRASOUND", "TRUONG_CA", "MANAGEMENT",
+  ],
+  "/doctor/board": [
+    "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "TRUONG_CA", "MANAGEMENT",
+  ],
+  "/cashier/board": [
+    "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "RECEPTION", "TRUONG_CA",
+    "MANAGEMENT",
+  ],
+  // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho
+  // MANAGEMENT, nên hiện mục này cho vai khác chỉ dẫn tới một trang 403.
+  "/ops/telemetry": ["MANAGEMENT"],
+
   "/home": "all",
   // "Cần làm hôm nay" — danh sách việc CSKH tự sinh từ dữ liệu (gọi xác nhận,
   // phân lại lịch bị từ chối, tái khám đến hạn, KQ XN mới về).
