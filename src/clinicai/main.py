@@ -11,7 +11,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
-from clinicai.api.middleware import DbErrorMiddleware, RequestIdMiddleware
+from clinicai.api.middleware import (
+    DbErrorMiddleware,
+    RequestIdMiddleware,
+    TimingMiddleware,
+)
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.booking import router as booking_router
@@ -105,6 +109,9 @@ app = FastAPI(
 # 1. Request-ID: assign/reuse X-Request-ID, bind to structlog context.
 app.add_middleware(RequestIdMiddleware)
 # 2. API-key gate: reject unauthenticated callers (see api.auth).
+# 2. Timing: outside the API-key gate so rejected floods are visible too.
+app.add_middleware(TimingMiddleware)
+
 app.middleware("http")(api_key_middleware)
 # 3. DB-error guard: catch transient connection errors → 503 (no crash loop).
 app.add_middleware(DbErrorMiddleware)
