@@ -44,24 +44,32 @@ nhưng không nối tiếp nhau.
 `node_definition`, `node_definition_version`, `node_dependency`, `pos_outbox`,
 `work_item`, `work_item_dependency`, `work_item_event`.
 
-## 3. Phát hiện quan trọng nhất: 3 bảng chỉ có ở production
+## 3. Ba bảng chỉ có ở production — **đều RỖNG** (đã đính chính 01/08)
 
-| Bảng | Số dòng | Ghi chú |
-|---|---|---|
-| **`visit_amendment`** | **3.326** | **Bảng lớn nhất production.** Lịch sử đính chính hồ sơ |
-| `patient_contact_channel` | 14 | Kênh liên hệ bệnh nhân |
-| `patient_next_of_kin` | 10 | Người thân |
+| Bảng | Số dòng thật |
+|---|---|
+| `visit_amendment` | **0** |
+| `patient_contact_channel` | **0** |
+| `patient_next_of_kin` | **0** |
 
-`visit_amendment` có **3.326 dòng** và **không tồn tại trong schema đích**. Đây là
-vết đính chính hồ sơ — đúng thứ Thông tư 13/2025 yêu cầu bệnh án điện tử phải
-giữ. Một lần rebuild ngây thơ sẽ **xoá sạch nó**.
+> **Đính chính.** Bản đầu của tài liệu này ghi `visit_amendment` có **3.326 dòng**
+> và gọi nó là "bảng lớn nhất production". **Sai.** Con số đó do lỗi regex khi
+> đọc dump: biểu thức không dừng ở dấu kết thúc khối COPY của `visit_amendment`
+> (khối rỗng) mà chạy tiếp sang khối `ward` ngay dưới và đếm luôn 3.321 dòng của
+> `ward`. Số thật là **0**.
+>
+> Migration `20260801000003` **vẫn đúng và vẫn nên giữ** — ba bảng này có thật
+> trong schema production và schema đích phải khớp thì mới chuyển dữ liệu được.
+> Nhưng mức khẩn cấp tôi gán cho nó ("sẽ xoá 3.326 dòng lịch sử pháp lý") là
+> **không có thật**. Chúng là cấu trúc rỗng.
 
 Nó cũng đi kèm function `visit_amendment_append_only` — function duy nhất có ở
 production mà repo này không có.
 
 ## 4. Khối lượng dữ liệu thật
 
-**~4.438 dòng** trên toàn bộ production. Nhỏ. Đây là tin tốt: mọi phương án đều
+**4.388 dòng** trên toàn bộ production — trong đó `ward` chiếm 3.321 (dữ liệu
+tham chiếu hành chính). Dữ liệu lâm sàng thật chỉ khoảng **1.000 dòng**. Nhỏ. Đây là tin tốt: mọi phương án đều
 khả thi ở quy mô này, và kiểm chứng được từng dòng nếu cần.
 
 ## 5. Ba phương án
@@ -121,6 +129,34 @@ kế tiếp — nó phải xanh mà **không cần** dòng `sed` trong drill.
    tenant chuyển 36 → 39, và vẫn bắt được khi một bảng mất `clinic_id`.
 2. Viết script chuyển dữ liệu, chạy trên bản sao, **so từng bảng theo số dòng**.
 3. Quyết `clinic_id` cho dữ liệu cũ — tất cả thuộc Dr4Women, nhưng phải ghi rõ.
-4. Chỉ khi (1)–(3) xanh mới bàn tới lịch cutover.
+4. **`payment` chặn cutover** — xem §7.
+5. Chỉ khi (1)–(4) xanh mới bàn tới lịch cutover.
+
+## 7. Diễn tập chuyển dữ liệu — `scripts/rehearse-data-migration.sh`
+
+Đã chạy thật trên bản backup production, trong container dùng-một-lần. **Không
+chạm production.**
+
+**33/34 bảng chuyển đúng từng dòng**, trong đó `ward` 3.321 · `work_roster` 436 ·
+`event_log` 133 · `patient` 48 · `visit` 24 · `staff` 56. Khoá ngoại validate lại
+sau khi nạp: **0 khoá gãy**.
+
+**Một bảng chặn: `payment`.**
+
+```
+ERROR: new row for relation "payment" violates check constraint "payment_positive_amount_ch..."
+```
+
+5 dòng payment của production **đều có `amount = 0`**, còn schema đích có CHECK
+bắt buộc số tiền > 0. Đây là **xung đột dữ liệu thật**, không phải lỗi script, và
+cần phòng khám quyết:
+
+- **(a)** 5 dòng đó là dữ liệu test → bỏ khi chuyển, ghi rõ trong log cutover.
+- **(b)** Thanh toán 0đ là hợp lệ (miễn phí, bảo hiểm chi trả toàn bộ) → phải nới
+  CHECK ở schema đích thành `>= 0`.
+
+Không được im lặng bỏ 5 dòng đó. Nhắc lại bối cảnh: toàn bộ production có
+`service_price.unit_price` rỗng, `drug_catalog.unit_price` rỗng, và cả 5 payment
+đều bằng 0 — nhiều khả năng là (a), nhưng đó là kết luận của phòng khám.
 
 **Chưa có gì bị thay đổi trên production.** Toàn bộ phần trên là đọc và dry-run.
