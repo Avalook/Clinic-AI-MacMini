@@ -112,8 +112,13 @@ kế tiếp — nó phải xanh mà **không cần** dòng `sed` trong drill.
 
 ## 6. Việc phải làm trước khi bàn tiếp
 
-1. Thêm `visit_amendment`, `patient_contact_channel`, `patient_next_of_kin` (kèm
-   trigger append-only) vào schema đích bằng migration mới.
+1. ~~Thêm `visit_amendment`, `patient_contact_channel`, `patient_next_of_kin`
+   (kèm trigger append-only) vào schema đích bằng migration mới.~~
+   **XONG** — migration `20260801000003_adopt_prod_only_tables.sql`. Schema đích
+   giờ 47 bảng, **không còn bảng nào chỉ có ở production**. Ba bảng được thêm
+   `clinic_id` + RLS + khoá ngoại mà bản production chưa có; trigger append-only
+   của `visit_amendment` giữ nguyên ý (đã test: UPDATE bị chặn). Gate đếm bảng
+   tenant chuyển 36 → 39, và vẫn bắt được khi một bảng mất `clinic_id`.
 2. Viết script chuyển dữ liệu, chạy trên bản sao, **so từng bảng theo số dòng**.
 3. Quyết `clinic_id` cho dữ liệu cũ — tất cả thuộc Dr4Women, nhưng phải ghi rõ.
 4. Chỉ khi (1)–(3) xanh mới bàn tới lịch cutover.
