@@ -92,18 +92,7 @@ và nút **Bắt đầu khám** hiện ra rõ ràng.
 
 ### Bước 5 — Bác sĩ ra chỉ định
 
-Vào thẳng URL (chưa có link trên menu — xem phần Biết trước):
-
-```
-http://127.0.0.1:3100/doctor/orders/<visit_id>
-```
-
-Lấy `visit_id` ở Supabase Studio → bảng `visit`, hoặc:
-
-```bash
-psql postgresql://postgres:postgres@127.0.0.1:54322/postgres \
-  -c "SELECT visit_id FROM work_item WHERE node_code='LUOTKHAM-05' AND status='IN_PROGRESS'"
-```
+Ngay trên panel phải, bấm **"Mở màn chỉ định dịch vụ →"**.
 
 Màn *Chỉ định dịch vụ*: 29 dịch vụ **gom theo PHÒNG THỰC HIỆN**, không theo bảng
 giá — vì gom theo phòng thì mới thấy 4 thứ cùng làm ở phòng siêu âm là **một lượt
@@ -189,7 +178,10 @@ khác mô tả ở đây.
 | | |
 |---|---|
 | **Bảng giá trống hoàn toàn** | `service_price` và `drug_catalog` không có giá nào, ở cả production. Nên **không thu tiền được**, tạm tính luôn là `—`, báo cáo doanh thu bằng 0. Cần anh cung cấp bảng giá. |
-| **Chỉ định dịch vụ chưa có link menu** | Phải gõ URL kèm `visit_id`. Đang chờ quyết định đặt nút ở đâu trên Bàn khám. |
+
+Màn *Chỉ định dịch vụ* chỉ vào được từ nút trên Bàn khám (chưa có mục riêng trên
+menu bên trái) — vì nó luôn thuộc về **một lượt khám cụ thể**, không phải một nơi
+để "ghé vào xem".
 
 ### Chưa làm
 

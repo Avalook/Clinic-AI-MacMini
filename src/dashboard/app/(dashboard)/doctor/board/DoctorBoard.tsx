@@ -16,6 +16,7 @@
  * yet, so it is not faked here.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -247,6 +248,18 @@ function Detail({ item }: { item: WorklistItem }) {
         <Field label="Số thứ tự" value={item.queue_number ?? "—"} />
         <Field label="Đã chờ" value={`${waitedMinutes(item)} phút`} />
       </dl>
+
+      {/* The order composer needed its visit_id typed into the URL, which meant
+          the walkthrough told a doctor to run psql. A screen you reach by
+          querying the database is a screen nobody reaches. */}
+      {item.visit_id && item.node_code === "LUOTKHAM-05" && !item.blocked ? (
+        <Link
+          href={`/doctor/orders/${item.visit_id}`}
+          className="inline-flex w-fit items-center gap-2 rounded-control border border-brand-600 px-4 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+        >
+          Mở màn chỉ định dịch vụ →
+        </Link>
+      ) : null}
 
       <WorkItemActions
         status={item.status}
