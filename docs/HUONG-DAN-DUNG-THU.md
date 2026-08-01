@@ -51,6 +51,59 @@ thao tác lâm sàng đều ghi tên người thật, không ghi "phòng khám".
 
 ---
 
+## 0b. Test từ máy khác / nhiều tài khoản cùng lúc
+
+Bấm từng màn một mình **không bắt được** lỗi tranh chấp, thứ tự hàng đợi khi
+đông, hay phân quyền chéo vai. Muốn test đúng thì mở nhiều máy / nhiều Chrome
+profile cùng lúc.
+
+**Cần HAI tunnel**, không phải một — và đây là chỗ dễ sai:
+
+```bash
+# 1. Tunnel cho Supabase (trình duyệt gọi thẳng, không qua Next)
+cloudflared tunnel --url http://127.0.0.1:54321
+#    → https://AAA.trycloudflare.com
+
+# 2. Dựng lại dashboard trỏ trình duyệt vào URL đó
+PUBLIC_SUPABASE_URL=https://AAA.trycloudflare.com scripts/dev-up.sh
+
+# 3. Tunnel cho dashboard — đây là link chia sẻ
+cloudflared tunnel --url http://127.0.0.1:3100
+#    → https://BBB.trycloudflare.com
+```
+
+**Chỉ mở tunnel 2 (dashboard) mà quên tunnel 1** thì máy khác vẫn **vào và đăng
+nhập được** — vì đăng nhập chạy phía server. Nhưng ba thứ sau hỏng âm thầm:
+
+| Hỏng | Vì sao |
+|---|---|
+| Bảng không tự cập nhật (realtime) | trình duyệt gọi Supabase ở `127.0.0.1` |
+| Nút **Thoát** | như trên |
+| Quên / đặt lại mật khẩu | như trên |
+
+Bảng, nút thao tác, chỉ định dịch vụ thì **vẫn chạy bình thường** vì chúng render
+phía server.
+
+> **Lưu ý an toàn:** `trycloudflare` là **công khai ra internet**. Dữ liệu hiện
+> tại là giả hoàn toàn nên rủi ro thấp, nhưng ai có link + đoán được mật khẩu
+> chung là vào được. **Đừng bật tunnel khi database đang trỏ vào dữ liệu thật.**
+> URL đổi mỗi lần khởi động lại tunnel, và tunnel chết khi tắt terminal.
+
+### Nên chia vai thế nào khi test đông
+
+| Cửa sổ | Vai | Việc |
+|---|---|---|
+| 1 | `letan@` | Tiếp nhận, gọi người bệnh |
+| 2 | `dd.sa@` | Đo sinh hiệu |
+| 3 | `bs.a@` | Khám + chỉ định |
+| 4 | `thungan@` | Đối soát |
+| 5 | `ql@` | Mở **Sức khoẻ API** và nhìn p95 + lỗi 5xx trong lúc 4 người kia bấm |
+
+Cửa sổ 5 là cái đáng giá nhất khi test đông: nó cho thấy hệ **chậm ở đâu** ngay
+lúc đang bị bấm.
+
+---
+
 ## 1. Luồng chính — đi trọn một lượt khám (15 phút)
 
 Đây là phần đáng thử nhất, vì nó là thứ mới và là xương sống của hệ.

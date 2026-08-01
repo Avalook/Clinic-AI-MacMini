@@ -18,6 +18,20 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO"
 
+# Địa chỉ Supabase mà TRÌNH DUYỆT sẽ gọi. Mặc định là 127.0.0.1 — đúng khi mở
+# trên chính máy này, SAI khi mở từ máy khác qua tunnel: lúc đó 127.0.0.1 trỏ về
+# máy của người đang xem, không phải Mac mini.
+#
+# Đăng nhập vẫn chạy được vì nó là server action (máy này tự gọi Supabase của
+# nó). Thứ hỏng là những phần trình duyệt gọi thẳng Supabase: realtime tự cập
+# nhật, nút Thoát, quên/đặt lại mật khẩu.
+#
+# Muốn dùng từ máy khác: mở thêm một tunnel cho Supabase rồi truyền vào đây.
+#   cloudflared tunnel --url http://127.0.0.1:54321      # → URL_SUPABASE
+#   PUBLIC_SUPABASE_URL=<URL_SUPABASE> scripts/dev-up.sh
+#   cloudflared tunnel --url http://127.0.0.1:3100       # → link để chia sẻ
+PUBLIC_SUPABASE_URL="${PUBLIC_SUPABASE_URL:-http://127.0.0.1:54321}"
+
 API_PORT="${API_PORT:-8100}"
 WEB_PORT="${WEB_PORT:-3100}"
 LOG_DIR="${LOG_DIR:-$REPO/.dev-logs}"
@@ -121,7 +135,7 @@ cd src/dashboard
 # before anyone says which member of staff they are. Without it the very first
 # screen a person sees is "Server chưa cấu hình CLINIC_SHARED_EMAIL", which is
 # exactly what Quang hit: the stack was up and the front door was locked.
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+NEXT_PUBLIC_SUPABASE_URL="$PUBLIC_SUPABASE_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
 BACKEND_API_KEY=staging-local-api-key \
@@ -130,7 +144,7 @@ CLINIC_SHARED_EMAIL=clinic@dr4women.local \
         red "  build failed — see $LOG_DIR/web-build.log"
         grep -m5 -E "Error|error" "$LOG_DIR/web-build.log" | sed 's/^/    /'; exit 1; }
 
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+NEXT_PUBLIC_SUPABASE_URL="$PUBLIC_SUPABASE_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
 BACKEND_API_KEY=staging-local-api-key \
@@ -179,5 +193,6 @@ $(green "Ready.")
     thungan@dr4women.local   Thu ngân    → Bàn thu ngân
     ql@dr4women.local        Quản lý     → Sức khoẻ API, Vận hành
 
+  Supabase (trình duyệt gọi): ${PUBLIC_SUPABASE_URL}
   Dừng:  scripts/dev-up.sh --down
 EOF
