@@ -11,6 +11,29 @@
 
 BEGIN;
 
+-- Clinic A's fixtures are created here, not borrowed. CI applies migrations
+-- ONLY — no seed.sql, no fixtures/local_data.sql — so the previous version of
+-- this test, which subselected A's location and service type and used a patient
+-- from the developer machine, passed locally and had never once run in CI.
+-- Migrations create clinic A itself; everything under it is ours.
+INSERT INTO public.clinic_location (id, clinic_id, code, name)
+VALUES ('a1100000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000001', 'TEST-A', 'Cơ sở A (test)')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.service_type
+    (id, clinic_id, code, name, default_duration_minutes)
+VALUES ('a1200000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000001', 'TEST-A1', 'Dịch vụ A (test)', 30)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.patient
+    (clinic_id, clinic_patient_id, patient_code, full_name, location_id)
+VALUES ('a0000000-0000-4000-8000-000000000001',
+        'e0000000-0000-4000-8000-0000000000f1', 'BN-TEST-A1', 'BN test A1',
+        'a1100000-0000-4000-8000-000000000001')
+ON CONFLICT (clinic_patient_id) DO NOTHING;
+
 INSERT INTO public.clinic (id, code, name)
 VALUES ('cb000000-0000-4000-8000-0000000000bb', 'QUEUEB', 'Phòng khám queue B')
 ON CONFLICT (id) DO NOTHING;
@@ -37,18 +60,14 @@ ON CONFLICT (clinic_patient_id) DO NOTHING;
 INSERT INTO public.appointment
     (id, clinic_id, clinic_patient_id, location_id, service_type_id,
      slot_start, slot_end, status, queue_number)
-SELECT 'cb400000-0000-4000-8000-0000000000aa',
-       'a0000000-0000-4000-8000-000000000001',
-       'e0000000-0000-4000-8000-0000000000f1',
-       (SELECT id FROM public.clinic_location
-         WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001'
-           AND is_active ORDER BY code LIMIT 1),
-       (SELECT id FROM public.service_type
-         WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001'
-           AND is_active ORDER BY code LIMIT 1),
-       ((CURRENT_DATE + 30)::timestamp + time '08:00') AT TIME ZONE 'Asia/Ho_Chi_Minh',
-       ((CURRENT_DATE + 30)::timestamp + time '08:30') AT TIME ZONE 'Asia/Ho_Chi_Minh',
-       'CHECKED_IN', '46';
+VALUES ('cb400000-0000-4000-8000-0000000000aa',
+        'a0000000-0000-4000-8000-000000000001',
+        'e0000000-0000-4000-8000-0000000000f1',
+        'a1100000-0000-4000-8000-000000000001',
+        'a1200000-0000-4000-8000-000000000001',
+        ((CURRENT_DATE + 30)::timestamp + time '08:00') AT TIME ZONE 'Asia/Ho_Chi_Minh',
+        ((CURRENT_DATE + 30)::timestamp + time '08:30') AT TIME ZONE 'Asia/Ho_Chi_Minh',
+        'CHECKED_IN', '46');
 
 -- Clinic B's first patient of the same day.
 INSERT INTO public.appointment
@@ -84,18 +103,14 @@ $first_patient_starts_at_one$;
 INSERT INTO public.appointment
     (id, clinic_id, clinic_patient_id, location_id, service_type_id,
      slot_start, slot_end, status)
-SELECT 'cb600000-0000-4000-8000-0000000000aa',
-       'a0000000-0000-4000-8000-000000000001',
-       'e0000000-0000-4000-8000-0000000000f1',
-       (SELECT id FROM public.clinic_location
-         WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001'
-           AND is_active ORDER BY code LIMIT 1),
-       (SELECT id FROM public.service_type
-         WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001'
-           AND is_active ORDER BY code LIMIT 1),
-       ((CURRENT_DATE + 30)::timestamp + time '10:00') AT TIME ZONE 'Asia/Ho_Chi_Minh',
-       ((CURRENT_DATE + 30)::timestamp + time '10:30') AT TIME ZONE 'Asia/Ho_Chi_Minh',
-       'SCHEDULED';
+VALUES ('cb600000-0000-4000-8000-0000000000aa',
+        'a0000000-0000-4000-8000-000000000001',
+        'e0000000-0000-4000-8000-0000000000f1',
+        'a1100000-0000-4000-8000-000000000001',
+        'a1200000-0000-4000-8000-000000000001',
+        ((CURRENT_DATE + 30)::timestamp + time '10:00') AT TIME ZONE 'Asia/Ho_Chi_Minh',
+        ((CURRENT_DATE + 30)::timestamp + time '10:30') AT TIME ZONE 'Asia/Ho_Chi_Minh',
+        'SCHEDULED');
 
 DO $clinic_a_is_unaffected$
 DECLARE
@@ -128,15 +143,9 @@ DECLARE
                           AT TIME ZONE 'Asia/Ho_Chi_Minh';
     slot_b timestamptz := ((CURRENT_DATE + 40)::timestamp + time '09:30')
                           AT TIME ZONE 'Asia/Ho_Chi_Minh';
-    loc_a uuid;
-    svc_a uuid;
+    loc_a uuid := 'a1100000-0000-4000-8000-000000000001';
+    svc_a uuid := 'a1200000-0000-4000-8000-000000000001';
 BEGIN
-    SELECT id INTO loc_a FROM public.clinic_location
-      WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001' AND is_active
-      ORDER BY code LIMIT 1;
-    SELECT id INTO svc_a FROM public.service_type
-      WHERE clinic_id = 'a0000000-0000-4000-8000-000000000001' AND is_active
-      ORDER BY code LIMIT 1;
 
     -- Clinic A fills the bucket (cap is 2 for booked appointments).
     INSERT INTO public.appointment

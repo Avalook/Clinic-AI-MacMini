@@ -13,8 +13,13 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.v1.routers.work_items import (
+    require_visit_work_items_read_access,
+    require_workspace_read_access,
+)
 from clinicai.services.work_item_service import WorkItemService
 
 IDENTITY = StaffIdentity(
@@ -119,3 +124,191 @@ async def test_actionability_reads_the_live_definition() -> None:
     sql, *_ = pool.fetch.call_args.args
     assert "node_definition n" in sql
     assert "snapshot" not in sql
+
+
+@pytest.mark.asyncio
+async def test_a_role_cannot_read_an_unrelated_workspace_by_typing_its_name() -> None:
+    """The board's query parameter is not an authorization boundary.
+
+    A CSKH login is allowed to authenticate to the general work-item API, but
+    it cannot use ``workspace=khu_bac_si`` to obtain another station's patient
+    queue.  This check must happen before the service reads the worklist.
+    """
+    pool = _pool()
+    pool.fetchval = AsyncMock(return_value=False)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await require_workspace_read_access(
+            workspace="khu_bac_si", identity=IDENTITY, pool=pool
+        )
+
+    assert getattr(excinfo.value, "status_code", None) == 403
+
+
+@pytest.mark.asyncio
+async def test_an_unassigned_workspace_node_does_not_authorize_every_role() -> None:
+    """An empty actor list is deliberately *not* a public queue.
+
+    ``node_definition.actor_roles`` defaults to ``{}``, whose schema contract is
+    "nobody yet."  Model the dangerous database result here: a query that
+    contains the old empty-list bypass would find such a node and return true;
+    the fail-closed query must instead receive false and return 403.
+    """
+    pool = _pool()
+
+    async def _empty_role_node_matches_only_an_unsafe_query(
+        sql: str, *_: object
+    ) -> bool:
+        return "cardinality(n.actor_roles) = 0" in " ".join(sql.split())
+
+    pool.fetchval = AsyncMock(side_effect=_empty_role_node_matches_only_an_unsafe_query)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await require_workspace_read_access(
+            workspace="bang_dieu_phoi", identity=IDENTITY, pool=pool
+        )
+
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_management_can_read_any_configured_workspace_for_coordination() -> None:
+    """Management and the shift lead retain the read-only operational view."""
+    pool = _pool()
+    management = StaffIdentity(**{**IDENTITY.__dict__, "role": ClinicRole.MANAGEMENT})
+
+    await require_workspace_read_access(
+        workspace="khu_bac_si", identity=management, pool=pool
+    )
+    pool.fetchval.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_workspace_reader_only_receives_nodes_for_its_role() -> None:
+    """Opening checkout must not leak reconciliation and payment rows to reception.
+
+    Reception is an actor on LUOTKHAM-15, so it may eventually receive a
+    redacted checkout view. It is not an actor on LUOTKHAM-13/14, therefore the
+    generic worklist query must scope normal users to their own node rows.
+    """
+    pool = _pool()
+    reception = StaffIdentity(**{**IDENTITY.__dict__, "role": ClinicRole.RECEPTION})
+    await WorkItemService(pool).list_worklist(
+        workspace="thu_ngan_dong_luot", identity=reception
+    )
+
+    sql, *_ = pool.fetch.call_args.args
+    assert "AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')" in sql
+    assert "OR m.role = ANY(n.actor_roles))" in sql
+    assert "cardinality(n.actor_roles) = 0" not in sql
+    assert "n.actor_roles IS NULL" not in sql
+
+
+@pytest.mark.asyncio
+async def test_visit_work_items_do_not_become_a_cross_station_patient_lookup() -> None:
+    """A raw visit UUID must not bypass the workspace read policy."""
+    pool = _pool()
+    pool.fetchval = AsyncMock(return_value=False)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await require_visit_work_items_read_access(
+            visit_id="33333333-3333-4333-8333-333333333333",
+            identity=IDENTITY,
+            pool=pool,
+        )
+
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_a_future_or_terminal_role_step_cannot_authorize_visit_pii() -> None:
+    """An active reception task must exist before its visit projection opens.
+
+    A routine workflow already has future RECEPTION nodes.  The old ``EXISTS``
+    query treated one as enough authorization and then returned clinical and
+    cashier rows for the whole visit.  This fake models precisely that positive
+    database match: only a query missing the live-status predicate gets true.
+    """
+    pool = _pool()
+
+    async def _future_or_terminal_step_matches_only_an_unsafe_query(
+        sql: str, *_: object
+    ) -> bool:
+        normalized = " ".join(sql.split())
+        return (
+            "$3 = ANY(n.actor_roles)" in normalized
+            and "w.status = 'IN_PROGRESS'" not in normalized
+            and "w.status = 'PENDING'" not in normalized
+        )
+
+    pool.fetchval = AsyncMock(
+        side_effect=_future_or_terminal_step_matches_only_an_unsafe_query
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        await require_visit_work_items_read_access(
+            visit_id="33333333-3333-4333-8333-333333333333",
+            identity=IDENTITY,
+            pool=pool,
+        )
+
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_a_future_pending_but_blocked_step_cannot_authorize_visit_pii() -> None:
+    """Instantiated downstream rows are PENDING before they are ready to work.
+
+    A status check alone is not enough: the workflow creates future nodes as
+    PENDING, then its dependency gate keeps them blocked.  Model that exact
+    positive result so a regression to status-only authorization grants no
+    access in this test.
+    """
+    pool = _pool()
+
+    async def _blocked_pending_step_matches_only_an_unsafe_query(
+        sql: str, *_: object
+    ) -> bool:
+        normalized = " ".join(sql.split())
+        return (
+            "w.status IN ('PENDING', 'IN_PROGRESS')" in normalized
+            and "work_item_gate_blockers(w.id, 'start')" not in normalized
+        )
+
+    pool.fetchval = AsyncMock(
+        side_effect=_blocked_pending_step_matches_only_an_unsafe_query
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        await require_visit_work_items_read_access(
+            visit_id="33333333-3333-4333-8333-333333333333",
+            identity=IDENTITY,
+            pool=pool,
+        )
+
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_active_owned_step_is_the_only_normal_visit_read_grant() -> None:
+    """The visit guard asks SQL for an active step owned by the caller."""
+    pool = _pool()
+    pool.fetchval = AsyncMock(return_value=True)
+
+    await require_visit_work_items_read_access(
+        visit_id="33333333-3333-4333-8333-333333333333",
+        identity=IDENTITY,
+        pool=pool,
+    )
+
+    # await_args is None until the guard actually queries. Asserting that first
+    # keeps a guard that never ran from failing as an attribute error.
+    awaited = pool.fetchval.await_args
+    assert awaited is not None
+    normalized = " ".join(awaited.args[0].split())
+    assert "w.status = 'IN_PROGRESS'" in normalized
+    assert "w.status = 'PENDING'" in normalized
+    assert "work_item_gate_blockers(w.id, 'start')" in normalized
+    assert "$3 = ANY(n.actor_roles)" in normalized
+    assert "cardinality(n.actor_roles) = 0" not in normalized
+    assert "n.actor_roles IS NULL" not in normalized

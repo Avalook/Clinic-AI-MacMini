@@ -14,6 +14,7 @@ import pytest
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers.work_items import _WORK_ITEM_GUARD
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.work_item_service import (
     CANCELLED,
     COMPLETED,
@@ -142,6 +143,48 @@ async def test_command_is_bound_to_identity_clinic_and_membership_role() -> None
     event_args = conn.execute.await_args.args
     assert event_args[1] == identity.clinic_id
     assert event_args[7] == "RECEPTION"
+
+
+@pytest.mark.asyncio
+async def test_an_unassigned_node_cannot_be_commanded_by_any_role() -> None:
+    """The schema defines an empty actor list as \"nobody yet\", not public."""
+    pool = MagicMock()
+    conn = AsyncMock()
+    acquire = AsyncMock()
+    acquire.__aenter__.return_value = conn
+    pool.acquire.return_value = acquire
+    transaction = MagicMock()
+    transaction.__aenter__ = AsyncMock(return_value=None)
+    transaction.__aexit__ = AsyncMock(return_value=None)
+    conn.transaction = MagicMock(return_value=transaction)
+    conn.fetchrow.return_value = {
+        "id": "10000000-0000-4000-8000-000000000001",
+        "status": PENDING,
+        "version": 1,
+        "node_code": "UNASSIGNED",
+        "clinic_id": "a0000000-0000-4000-8000-000000000001",
+        "actor_roles": [],
+        "membership_role": "RECEPTION",
+        "node_name": "Chưa phân công",
+    }
+    identity = StaffIdentity(
+        staff_id="20000000-0000-4000-8000-000000000001",
+        auth_user_id="30000000-0000-4000-8000-000000000001",
+        full_name="Lễ tân A",
+        department="RECEPTION",
+        role=ClinicRole.RECEPTION,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
+    )
+
+    with pytest.raises(SafetyGateError, match="không phụ trách"):
+        await WorkItemService(pool).issue(
+            work_item_id="10000000-0000-4000-8000-000000000001",
+            command="start",
+            identity=identity,
+        )
+
+    conn.fetch.assert_not_awaited()
+    conn.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio

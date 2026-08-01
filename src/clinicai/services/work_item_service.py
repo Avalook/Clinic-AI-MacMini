@@ -136,7 +136,10 @@ class WorkItemService:
 
                 actor_roles: list[str] = list(item["actor_roles"] or [])
                 membership_role = str(item["membership_role"])
-                if actor_roles and membership_role not in actor_roles:
+                # The catalogue's empty default means "nobody yet", never
+                # "every working role".  Fail closed if configuration is
+                # incomplete or the live node no longer names this role.
+                if not actor_roles or membership_role not in actor_roles:
                     logger.info(
                         "work_item_role_forbidden",
                         node_code=item["node_code"],
@@ -232,7 +235,7 @@ class WorkItemService:
         visit_id: str,
         identity: StaffIdentity,
     ) -> list[dict[str, object]]:
-        """The visit's work items, in flow order, with what the caller may do.
+        """The caller's visit work items, in flow order, with what they may do.
 
         Joins the LIVE node_definition, not the pinned
         node_definition_version.snapshot. The two can differ, and `issue()`
@@ -244,7 +247,8 @@ class WorkItemService:
         Membership is re-checked in the query rather than trusted from the
         identity, the same way issue() does it: the backend bypasses RLS, so
         this join is the only thing standing between a caller and another
-        clinic's board.
+        clinic's board.  It also scopes normal roles to nodes they own;
+        management and the shift lead are the explicit coordination exception.
         """
         rows = await self._pool.fetch(
             """
@@ -295,12 +299,9 @@ class WorkItemService:
                    p.date_of_birth,
                    p.gender,
                    p.phone_primary,
-                   -- Mine to act on? The node's own actor list is what narrows
-                   -- the flow per station; an empty list means anyone working
-                   -- the flow may take it.
-                   (n.actor_roles IS NULL
-                    OR cardinality(n.actor_roles) = 0
-                    OR m.role = ANY (n.actor_roles))  AS actionable_by_me,
+                   -- Mine to act on? An empty actor list means "nobody yet"
+                   -- in the catalogue, so it must never light up a command.
+                   (m.role = ANY (n.actor_roles))     AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
                    )                                   AS blocked
@@ -320,6 +321,14 @@ class WorkItemService:
              WHERE w.visit_id = $1::uuid
                AND w.clinic_id = $2::uuid
                AND w.status <> 'CANCELLED'
+               -- The route guard establishes a normal role owns a current
+               -- task on this visit.  Keep the returned rows scoped too: an
+               -- otherwise valid reception step must not reveal a doctor's
+               -- or cashier's work (or its patient data) on the same visit.
+               -- Management and shift leads are the deliberate read-only
+               -- cross-station exception.
+               AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')
+                    OR m.role = ANY(n.actor_roles))
              ORDER BY f.level NULLS LAST, w.node_code
             """,
             visit_id,
@@ -418,9 +427,7 @@ class WorkItemService:
                    a.booking_channel,
                    a.is_priority_slot,
                    v.checked_in_at,
-                   (n.actor_roles IS NULL
-                    OR cardinality(n.actor_roles) = 0
-                    OR m.role = ANY (n.actor_roles))   AS actionable_by_me,
+                   (m.role = ANY (n.actor_roles))      AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
                    )                                    AS blocked
@@ -445,6 +452,13 @@ class WorkItemService:
                AND v.clinic_id = w.clinic_id
              WHERE w.clinic_id = $3::uuid
                AND w.status IN ('PENDING', 'IN_PROGRESS')
+               -- A role can be admitted to the workspace because it owns one
+               -- node there (for example Reception owns checkout), but that
+               -- must not turn into read access to every other station's
+               -- financial or clinical rows.  Coordinators are deliberately
+               -- the only cross-node exception.
+               AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')
+                    OR m.role = ANY(n.actor_roles))
                AND ($2::date IS NULL
                     OR (w.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2)
                AND ($6::boolean IS NOT TRUE

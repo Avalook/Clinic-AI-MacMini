@@ -10,6 +10,35 @@
 
 BEGIN;
 
+-- The test owns its fixtures. CI applies migrations ONLY — no seed.sql, no
+-- fixtures/local_data.sql — so a test that borrows a patient from the developer
+-- machine passes locally and has never once run in CI. Migrations create the
+-- clinic; everything below it is ours to create.
+INSERT INTO public.clinic_location (id, clinic_id, code, name)
+VALUES ('a1100000-0000-4000-8000-000000000001',
+        'a0000000-0000-4000-8000-000000000001', 'TEST-A', 'Cơ sở A (test)')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.patient
+    (clinic_id, clinic_patient_id, patient_code, full_name, location_id)
+VALUES ('a0000000-0000-4000-8000-000000000001',
+        'e0000000-0000-4000-8000-0000000000f1', 'BN-TEST-A1', 'BN test A1',
+        'a1100000-0000-4000-8000-000000000001')
+ON CONFLICT (clinic_patient_id) DO NOTHING;
+
+-- The actor. Migrations create no staff — fixtures/staff_logins.sql does, and
+-- CI never runs it, so looking one up by display name resolved to NULL and the
+-- check-in step was born PENDING instead of COMPLETED. Own the row, address it
+-- by id: a display name was never a key.
+INSERT INTO public.staff (id, full_name, primary_department)
+VALUES ('a1300000-0000-4000-8000-000000000001', 'BS test A', 'DOCTOR')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.clinic_membership (clinic_id, staff_id, role, is_active)
+VALUES ('a0000000-0000-4000-8000-000000000001',
+        'a1300000-0000-4000-8000-000000000001', 'DOCTOR', true)
+ON CONFLICT DO NOTHING;
+
 INSERT INTO public.visit (visit_id, clinic_id, clinic_patient_id, status)
 VALUES ('aa000000-0000-4000-8000-00000000000f',
         'a0000000-0000-4000-8000-000000000001',
@@ -24,7 +53,7 @@ DECLARE
     codes   text;
     actor   uuid;
 BEGIN
-    SELECT id INTO actor FROM public.staff WHERE full_name = 'BS A local';
+    actor := 'a1300000-0000-4000-8000-000000000001';
 
     created := public.instantiate_visit_workflow(
         'a0000000-0000-4000-8000-000000000001',
@@ -111,7 +140,7 @@ DECLARE
     again integer;
     actor uuid;
 BEGIN
-    SELECT id INTO actor FROM public.staff WHERE full_name = 'BS A local';
+    actor := 'a1300000-0000-4000-8000-000000000001';
     again := public.instantiate_visit_workflow(
         'a0000000-0000-4000-8000-000000000001',
         'aa000000-0000-4000-8000-00000000000f', actor, 'RECEPTION');
@@ -134,7 +163,7 @@ DECLARE
     cancelled integer;
     actor uuid;
 BEGIN
-    SELECT id INTO actor FROM public.staff WHERE full_name = 'BS A local';
+    actor := 'a1300000-0000-4000-8000-000000000001';
     cancelled := public.cancel_visit_workflow(
         'a0000000-0000-4000-8000-000000000001',
         'aa000000-0000-4000-8000-00000000000f', actor, 'RECEPTION',
@@ -162,7 +191,7 @@ DECLARE
     live    integer;
     actor   uuid;
 BEGIN
-    SELECT id INTO actor FROM public.staff WHERE full_name = 'BS A local';
+    actor := 'a1300000-0000-4000-8000-000000000001';
     created := public.instantiate_visit_workflow(
         'a0000000-0000-4000-8000-000000000001',
         'aa000000-0000-4000-8000-00000000000f', actor, 'RECEPTION');
@@ -191,7 +220,7 @@ DECLARE
     refused boolean := false;
     actor uuid;
 BEGIN
-    SELECT id INTO actor FROM public.staff WHERE full_name = 'BS A local';
+    actor := 'a1300000-0000-4000-8000-000000000001';
     INSERT INTO public.clinic (id, code, name)
     VALUES ('ab000000-0000-4000-8000-0000000000ab', 'WFOTHER', 'PK khác')
     ON CONFLICT (id) DO NOTHING;

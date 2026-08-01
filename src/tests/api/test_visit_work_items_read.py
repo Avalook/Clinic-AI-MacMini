@@ -139,6 +139,26 @@ async def test_authorisation_reads_the_live_definition_not_the_pinned_snapshot()
 
 
 @pytest.mark.asyncio
+async def test_normal_roles_only_receive_their_own_visit_nodes() -> None:
+    """A visit UUID must not turn one active task into cross-station PII.
+
+    The route guard establishes there is an active role-owned task.  This query
+    remains row-scoped afterwards, so a receptionist cannot receive doctor or
+    cashier work just because they legitimately own a reception step.
+    """
+    pool = _pool([])
+    await WorkItemService(pool).list_for_visit(
+        visit_id="44444444-4444-4444-8444-444444444444", identity=IDENTITY
+    )
+
+    sql, *_ = pool.fetch.call_args.args
+    assert "AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')" in sql
+    assert "OR m.role = ANY(n.actor_roles))" in sql
+    assert "cardinality(n.actor_roles) = 0" not in sql
+    assert "n.actor_roles IS NULL" not in sql
+
+
+@pytest.mark.asyncio
 async def test_board_is_ordered_by_flow_not_alphabetically() -> None:
     """Ordering by flow_group put "tạo chỉ định" above the check-in.
 

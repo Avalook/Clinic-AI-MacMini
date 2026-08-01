@@ -19,7 +19,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
@@ -48,6 +48,105 @@ _WORK_ITEM_GUARD = require_role(
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )
+
+# A worklist is a patient-data surface.  The general work-item guard admits
+# every role that can participate somewhere in the workflow, but that does not
+# make an arbitrary ``workspace`` query safe.  Resolve read authority from the
+# live node catalogue: a role may open a workspace when it is an actor on at
+# least one node there.  Management and the shift lead retain their explicit
+# cross-station coordination view.  This mirrors the server-rendered nav gate,
+# so hiding a link can never be the only protection for a direct API request.
+_WORKSPACE_COORDINATOR_ROLES = frozenset({ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA})
+
+
+async def require_workspace_read_access(
+    *,
+    workspace: str,
+    identity: StaffIdentity,
+    pool: asyncpg.Pool,
+) -> None:
+    """Fail closed before a workspace query can expose another station's PII."""
+    if identity.role in _WORKSPACE_COORDINATOR_ROLES:
+        return
+
+    may_read = await pool.fetchval(
+        """
+        SELECT EXISTS (
+            SELECT 1
+             FROM node_definition n
+             WHERE n.clinic_id = $1::uuid
+               AND n.workspace = $2
+               -- ``{}`` is deliberately "nobody yet" in the catalogue, so
+               -- neither an empty nor a NULL actor list may grant a read.
+               AND $3 = ANY(n.actor_roles)
+        )
+        """,
+        identity.clinic_id,
+        workspace,
+        identity.role.value,
+    )
+    if not may_read:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vai trò của bạn không được xem khu vực công việc này",
+        )
+
+
+async def require_visit_work_items_read_access(
+    *,
+    visit_id: str,
+    identity: StaffIdentity,
+    pool: asyncpg.Pool,
+) -> None:
+    """Authorize a visit projection without turning its UUID into a PII key.
+
+    The visit projection lets a legitimate actor identify the patient attached
+    to work at their own station.  It cannot be a generic patient lookup:
+    ordinary roles must own one *ready or in-progress* node on that visit, and
+    the service row-scopes the projection to their nodes.  Return the same 403
+    for a missing and an unauthorized visit so the endpoint does not become an
+    identifier oracle.
+    """
+    if identity.role in _WORKSPACE_COORDINATOR_ROLES:
+        return
+
+    may_read = await pool.fetchval(
+        """
+        SELECT EXISTS (
+            SELECT 1
+              FROM work_item w
+              JOIN node_definition n
+                ON n.clinic_id = w.clinic_id
+               AND n.code = w.node_code
+             WHERE w.visit_id = $1::uuid
+               AND w.clinic_id = $2::uuid
+               -- Do not let a future or terminal step make a raw visit UUID
+               -- into a cross-station PII lookup.  Instantiation creates
+               -- downstream work as PENDING, so PENDING alone is not current:
+               -- it must also have no start gate blockers.  IN_PROGRESS is
+               -- current by definition.
+               AND (
+                    w.status = 'IN_PROGRESS'
+                    OR (
+                        w.status = 'PENDING'
+                        AND NOT EXISTS (
+                            SELECT 1
+                              FROM work_item_gate_blockers(w.id, 'start')
+                        )
+                    )
+               )
+               AND $3 = ANY(n.actor_roles)
+        )
+        """,
+        visit_id,
+        identity.clinic_id,
+        identity.role.value,
+    )
+    if not may_read:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vai trò của bạn không được xem hành trình lượt khám này",
+        )
 
 
 class CommandRequest(BaseModel):
@@ -227,6 +326,9 @@ async def worklist(
     A queue that resets at midnight loses the patient who is still sitting
     there, which is the one person it must not lose.
     """
+    await require_workspace_read_access(
+        workspace=workspace, identity=identity, pool=pool
+    )
     rows = await WorkItemService(pool).list_worklist(
         workspace=workspace,
         day=day,
@@ -248,6 +350,9 @@ async def visit_work_items(
     generation behind as history, and a board that showed it would be showing
     work nobody is expected to do.
     """
+    await require_visit_work_items_read_access(
+        visit_id=str(visit_id), identity=identity, pool=pool
+    )
     rows = await WorkItemService(pool).list_for_visit(
         visit_id=str(visit_id), identity=identity
     )
