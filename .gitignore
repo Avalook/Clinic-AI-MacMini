@@ -113,3 +113,10 @@ scripts/maintenance/backups/
 # Supabase CLI local state
 /supabase/.branches/
 .dev-logs/
+
+# Trạng thái của công cụ dev (headroom/serena/codex). Chúng đổi mỗi phiên làm
+# việc và không phải mã nguồn — để tracked thì worktree lúc nào cũng "bẩn" và
+# scripts/deploy-backend.sh từ chối deploy, đúng như đã xảy ra.
+.headroom/
+.serena/
+.codex/
