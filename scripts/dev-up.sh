@@ -156,10 +156,15 @@ cd src/dashboard
 # A production build, not `next dev`: dev mode did not hydrate client components
 # under headless Chromium during this work, and a board whose buttons do nothing
 # is worse than one that is honestly still building.
+# CLINIC_SHARED_EMAIL is the account /enter signs in as — the clinic gate,
+# before anyone says which member of staff they are. Without it the very first
+# screen a person sees is "Server chưa cấu hình CLINIC_SHARED_EMAIL", which is
+# exactly what Quang hit: the stack was up and the front door was locked.
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
 BACKEND_API_KEY=staging-local-api-key \
+CLINIC_SHARED_EMAIL=clinic@dr4women.local \
     npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
         red "  build failed — see $LOG_DIR/web-build.log"
         grep -m5 -E "Error|error" "$LOG_DIR/web-build.log" | sed 's/^/    /'; exit 1; }
@@ -168,6 +173,7 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
 BACKEND_API_KEY=staging-local-api-key \
+CLINIC_SHARED_EMAIL=clinic@dr4women.local \
     nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
 cd "$REPO"
 
@@ -202,7 +208,10 @@ $(green "Ready.")
   Supabase    http://127.0.0.1:54323
   Logs        ${LOG_DIR}/
 
-  Đăng nhập (mật khẩu chung: clinic-test-pw-123)
+  Đăng nhập 2 bước — cả hai bước đều dùng mật khẩu: clinic-test-pw-123
+    1) Cổng phòng khám  → nhập mật khẩu chung
+    2) Đăng nhập cá nhân → chọn tài khoản bên dưới
+
     letan@dr4women.local     Lễ tân      → Hàng đợi tiếp nhận
     bs.a@dr4women.local      Bác sĩ      → Bàn khám, Chỉ định dịch vụ
     dd.sa@dr4women.local     Điều dưỡng  → Sinh hiệu

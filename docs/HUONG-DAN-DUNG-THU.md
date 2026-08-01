@@ -23,7 +23,18 @@ scripts/dev-up.sh --down     # dừng
 | Supabase Studio (xem thẳng DB) | http://127.0.0.1:54323 |
 | Log | `.dev-logs/api.log`, `.dev-logs/web.log` |
 
-**Mật khẩu chung cho mọi tài khoản: `clinic-test-pw-123`**
+### Đăng nhập là **hai bước**
+
+Mở http://127.0.0.1:3100 sẽ vào **cổng phòng khám** trước, chưa phải đăng nhập
+cá nhân:
+
+1. **Cổng phòng khám** (`/enter`) — nhập mật khẩu chung: `clinic-test-pw-123`
+2. **Đăng nhập cá nhân** (`/login`) — email + mật khẩu của từng vai bên dưới
+
+Hai bước là **cố ý**: bước 1 mở cửa phòng khám, bước 2 nói *"tôi là ai"* — mọi
+thao tác lâm sàng đều ghi tên người thật, không ghi "phòng khám".
+
+**Mật khẩu cho cả hai bước đều là: `clinic-test-pw-123`**
 
 | Vai | Email |
 |---|---|
