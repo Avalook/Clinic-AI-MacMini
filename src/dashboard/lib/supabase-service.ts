@@ -7,7 +7,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /** Returns a service-role client, or null if the key is not configured. */
 export function getSupabaseService(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = // service-role client chạy phía server → dùng địa chỉ container tới được.
+  (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, {
