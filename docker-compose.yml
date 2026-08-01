@@ -71,7 +71,15 @@ services:
       dockerfile: Dockerfile.dashboard
       args:
         # PUBLIC anon-tier values, inlined into the client bundle at build time.
-        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        # Địa chỉ Supabase mà TRÌNH DUYỆT gọi — khác địa chỉ container gọi.
+        #
+        # Trước đây dùng thẳng ${SUPABASE_URL}, mà ở staging nó là
+        # host.docker.internal:54321 — chỉ phân giải được BÊN TRONG container.
+        # Nó bị nung vào bundle JS nên mọi trình duyệt (kể cả trên chính máy
+        # này) không gọi nổi Supabase: realtime không cập nhật, nút Thoát không
+        # ăn, quên mật khẩu hỏng. Đăng nhập vẫn chạy vì là server action — nên
+        # lỗi này im lặng.
+        NEXT_PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
