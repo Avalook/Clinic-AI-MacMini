@@ -7,10 +7,12 @@
  * this file.
  */
 
+import { CalendarDays, Hourglass, ShieldCheck, UsersRound, Activity } from "lucide-react";
+
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import { waitedMinutes } from "@/lib/worklist";
 import { fetchWorklist } from "@/lib/worklist-server";
-import { isOverdue, resolveStatus } from "@/lib/work-item-status";
+import { isOverdue } from "@/lib/work-item-status";
 
 import QueueBoard from "./QueueBoard";
 
@@ -22,25 +24,28 @@ export const dynamic = "force-dynamic";
 export default async function ReceptionQueuePage() {
   const result = await fetchWorklist("bang_dieu_phoi");
 
-  const today = new Date().toLocaleDateString("vi-VN", {
+  const now = new Date();
+  const today = now.toLocaleDateString("vi-VN", {
     weekday: "long",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
-
   return (
-    <main className="page-in flex flex-col gap-5 p-6">
+    <main className="page-in flex min-w-0 flex-col gap-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Hàng đợi tiếp nhận</h1>
-          <p className="text-sm text-ink-muted">
+          <p className="mt-0.5 text-sm text-ink-muted">
             Gọi người bệnh và xử lý hàng chờ tại khu vực tiếp nhận.
           </p>
         </div>
-        <span className="rounded-control border border-line bg-surface px-3 py-1.5 text-sm text-ink-soft">
-          {today}
-        </span>
+        <div className="flex items-center gap-2 text-sm text-ink-soft">
+          <span className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2">
+            <CalendarDays size={16} className="text-brand-600" aria-hidden />
+            {today}
+          </span>
+        </div>
       </header>
 
       {!result.ok ? (
@@ -65,21 +70,25 @@ export default async function ReceptionQueuePage() {
               label="Đang chờ tiếp nhận"
               value={result.items.filter((i) => i.status === "PENDING").length}
               tone="brand"
+              icon={<UsersRound size={23} />}
             />
             <StatCard
               label="Đang xử lý"
               value={result.items.filter((i) => i.status === "IN_PROGRESS").length}
               tone="neutral"
+              icon={<Activity size={23} />}
             />
             <StatCard
-              label="Bị chặn"
-              value={result.items.filter((i) => resolveStatus(i) === "blocked").length}
+              label="Cần xác minh"
+              value={result.items.filter((i) => i.node_code === "LUOTKHAM-02").length}
               tone="warning"
+              icon={<ShieldCheck size={23} />}
             />
             <StatCard
               label="Quá SLA"
               value={result.items.filter((i) => isOverdue(i)).length}
               tone="danger"
+              icon={<Hourglass size={23} />}
             />
           </StatRow>
 

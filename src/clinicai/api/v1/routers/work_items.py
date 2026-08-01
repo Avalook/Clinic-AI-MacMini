@@ -146,6 +146,15 @@ async def cancel_work_item(
     return await _run("cancel", work_item_id, body, identity, pool, idem)
 
 
+class WorklistPatient(BaseModel):
+    clinic_patient_id: UUID | None = None
+    patient_code: str | None = None
+    full_name: str | None = None
+    date_of_birth: date | None = None
+    gender: str | None = None
+    phone_primary: str | None = None
+
+
 class VisitWorkItem(BaseModel):
     """One step of a visit, as the board needs to draw it."""
 
@@ -168,15 +177,10 @@ class VisitWorkItem(BaseModel):
     blocked: bool
     started_at: datetime | None = None
     finished_at: datetime | None = None
-
-
-class WorklistPatient(BaseModel):
-    clinic_patient_id: UUID | None = None
-    patient_code: str | None = None
-    full_name: str | None = None
-    date_of_birth: date | None = None
-    gender: str | None = None
-    phone_primary: str | None = None
+    # Who the step is about. Every row of one visit carries the same patient,
+    # which is redundant on the wire but keeps one shape for "who is this work
+    # about" across both boards, so no client has to learn two of them.
+    patient: WorklistPatient
 
 
 class WorklistItem(BaseModel):

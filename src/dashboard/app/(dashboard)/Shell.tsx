@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import Nav from "./Nav";
 import BottomNav from "./BottomNav";
-import { type ClinicRole } from "../../lib/roles";
+import { ROLE_LABEL, type ClinicRole } from "../../lib/roles";
 
 interface ShellProps {
   role: ClinicRole;
@@ -24,6 +24,18 @@ export default function Shell({
   // Drawer is opened from the bottom bar's "Menu"; each link / action closes it.
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const isClinicalWorkspace =
+    pathname.startsWith("/reception/queue") ||
+    pathname.startsWith("/doctor/board") ||
+    pathname.startsWith("/doctor/orders/") ||
+    pathname.startsWith("/cashier/board");
+  const staffName = identity.split(" · ").at(-1) ?? identity;
+  const staffInitials = staffName
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((word) => word[0]?.toLocaleUpperCase("vi-VN") ?? "")
+    .join("");
   const drawerRef = useRef<HTMLElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const menuTriggerRef = useRef<HTMLElement | null>(null);
@@ -120,15 +132,15 @@ export default function Shell({
             footer 'Thoát' + nút thu/mở ra ngoài màn hình. Footer ghim đáy. */}
         <div className="flex-1 min-h-0 space-y-6 overflow-y-auto">
           <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3`}>
-            <h1 className="flex items-center gap-2 text-base font-medium text-ink">
+            <h1 className="flex items-center text-base font-medium text-ink">
               <Image
-                src="/logo.png"
-                alt="Dr4Women"
-                width={24}
-                height={24}
-                className="rounded-full object-contain"
+                src="/clinicai-logo.svg"
+                alt="ClinicAI"
+                width={collapsed ? 42 : 174}
+                height={collapsed ? 34 : 49}
+                priority
+                className="object-contain object-left"
               />
-              {!collapsed && "Dr4Women"}
             </h1>
             {!collapsed && isMobile && (
               <button
@@ -150,7 +162,7 @@ export default function Shell({
         </div>
 
         <div className="shrink-0 space-y-3 border-t border-line px-3 pt-4">
-          {!collapsed && (
+          {!collapsed && !isClinicalWorkspace && (
             <p className="truncate text-xs text-ink-muted" title={identity}>
               {identity}
             </p>
@@ -188,13 +200,13 @@ export default function Shell({
       <header className="fixed inset-x-0 top-0 z-20 flex h-12 items-center justify-center border-b border-line bg-surface px-3 md:hidden">
         <span className="flex items-center gap-2 text-sm font-medium text-ink">
           <Image
-            src="/logo.png"
-            alt="Dr4Women"
-            width={24}
-            height={24}
-            className="rounded-full object-contain"
+            src="/clinicai-logo.svg"
+            alt="ClinicAI"
+            width={92}
+            height={30}
+            priority
+            className="object-contain"
           />
-          Dr4Women
         </span>
       </header>
 
@@ -237,9 +249,29 @@ export default function Shell({
       </aside>
 
       {/* Content. Padding leaves room for the mobile top bar + bottom nav. */}
-      <main className="min-w-0 flex-1 p-4 pb-24 pt-16 md:p-8 md:pb-8 md:pt-8">
+      <main
+        className={
+          isClinicalWorkspace
+            ? "relative min-w-0 flex-1 p-3 pb-24 pt-16 md:p-4 md:pb-4 md:pt-4"
+            : "min-w-0 flex-1 p-4 pb-24 pt-16 md:p-8 md:pb-8 md:pt-8"
+        }
+      >
+        {isClinicalWorkspace ? (
+          <div className="absolute right-4 top-3 hidden items-center gap-2 border-l border-line pl-3 md:flex">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface-sunken text-xs font-semibold text-ink-soft">
+              {staffInitials || "NV"}
+            </span>
+            <span className="max-w-36">
+              <span className="block truncate text-xs font-semibold text-ink">{staffName}</span>
+              <span className="block text-[11px] text-ink-muted">{ROLE_LABEL[role]}</span>
+            </span>
+          </div>
+        ) : null}
         {/* key=pathname → fade chạy lại mỗi lần đổi trang */}
-        <div key={pathname} className="page-in">
+        <div
+          key={pathname}
+          className={isClinicalWorkspace ? "page-in [&>main>header]:pr-44" : "page-in"}
+        >
           {children}
         </div>
       </main>

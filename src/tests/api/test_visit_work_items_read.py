@@ -43,6 +43,12 @@ def _row(**over: Any) -> dict[str, Any]:
         "actor_roles": ["RECEPTION"],
         "actionable_by_me": True,
         "blocked": False,
+        "clinic_patient_id": "55555555-5555-4555-8555-555555555555",
+        "patient_code": "BN-000123",
+        "full_name": "Trần Hồng Dung",
+        "date_of_birth": None,
+        "gender": "Nữ",
+        "phone_primary": "0900016081",
     }
     base.update(over)
     return base
@@ -70,6 +76,31 @@ async def test_returns_the_board_fields_a_client_needs() -> None:
     assert item["blocked"] is False
     assert item["node_name"] == "Xác minh người bệnh"
     assert item["actor_roles"] == ["RECEPTION"]
+
+
+@pytest.mark.asyncio
+async def test_each_step_names_the_patient_it_is_about() -> None:
+    """A screen that acts on a visit has to be able to name the patient.
+
+    The order composer read this endpoint and had nothing to show, so a doctor
+    could pick an ultrasound for an unnamed visit — a wrong-patient risk, not a
+    blank field. Same shape as list_worklist so no client learns two of them.
+    """
+    pool = _pool([_row()])
+    out = await WorkItemService(pool).list_for_visit(
+        visit_id="44444444-4444-4444-8444-444444444444", identity=IDENTITY
+    )
+
+    patient = out[0]["patient"]
+    assert isinstance(patient, dict)
+    assert patient["full_name"] == "Trần Hồng Dung"
+    assert patient["patient_code"] == "BN-000123"
+
+    # The join must be tenant-scoped like every other one here: the backend
+    # bypasses RLS, so an unqualified patient join would reach across clinics.
+    sql, *_ = pool.fetch.call_args.args
+    assert "LEFT JOIN patient p" in sql
+    assert "p.clinic_id = w.clinic_id" in sql
 
 
 @pytest.mark.asyncio

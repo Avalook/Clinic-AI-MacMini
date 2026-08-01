@@ -25,15 +25,17 @@ export default async function DoctorBoardPage() {
   });
 
   return (
-    <main className="page-in flex flex-col gap-5 p-6">
+    <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Bàn khám</h1>
+          <h1 className="text-2xl font-semibold text-ink">
+            Danh sách khám bệnh đang mở
+          </h1>
           <p className="text-sm text-ink-muted">
-            Người bệnh đang chờ bác sĩ, và bước còn thiếu của từng người.
+            Khám, ra chỉ định và hoàn tất lượt khám trong một workspace.
           </p>
         </div>
-        <span className="rounded-control border border-line bg-surface px-3 py-1.5 text-sm text-ink-soft">
+        <span className="rounded-control border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft shadow-card">
           {today}
         </span>
       </header>
@@ -53,7 +55,7 @@ export default async function DoctorBoardPage() {
         <>
           <StatRow>
             <StatCard
-              label="Sẵn sàng khám"
+              label="Chờ khám"
               value={
                 result.items.filter((i) => i.status === "PENDING" && !i.blocked).length
               }
@@ -71,7 +73,7 @@ export default async function DoctorBoardPage() {
               }
               tone="warning"
             />
-            <StatCard label="Tổng đang mở" value={result.items.length} tone="neutral" />
+            <StatCard label="Tổng bước đang mở" value={result.items.length} tone="neutral" />
           </StatRow>
 
           <DoctorBoard

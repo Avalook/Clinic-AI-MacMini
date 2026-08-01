@@ -43,16 +43,23 @@ export default async function OrdersPage({
   if (catalogue.data.length === 0) notFound();
 
   return (
-    <main className="page-in flex flex-col gap-5 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-ink">Chỉ định dịch vụ</h1>
-        <p className="text-sm text-ink-muted">
-          Chọn dịch vụ — mỗi dịch vụ sẽ tạo việc ở đúng phòng thực hiện.
+    <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-ink lg:text-2xl">
+            Khám phụ khoa &amp; Tạo chỉ định
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            Thăm khám, đánh giá và chỉ định dịch vụ phù hợp.
+          </p>
+        </div>
+        <p className="rounded-control border border-line bg-surface px-3 py-2 text-xs text-ink-muted shadow-card">
+          Dịch vụ được chuyển tới đúng phòng thực hiện
         </p>
       </header>
       <OrderComposer
         visitId={visitId}
-        patientName={patient ?? "Lượt khám"}
+        patient={patient}
         catalogue={catalogue.data}
       />
     </main>

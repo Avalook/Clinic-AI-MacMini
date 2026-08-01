@@ -10,7 +10,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { canSeeNav, type ClinicRole } from "../../lib/roles";
+import { canSeeNav, ROLE_LABEL, type ClinicRole } from "../../lib/roles";
 import { NAV, isActiveNav, navLabelFor } from "./nav-items";
 import { useNotifications } from "./NotificationContext";
 
@@ -34,6 +34,11 @@ export default function Nav({
 
   return (
     <nav className="space-y-0.5">
+      {!isCollapsed && role ? (
+        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+          {ROLE_LABEL[role]}
+        </p>
+      ) : null}
       {visible.map((item) => {
         const { href, badge, icon: Icon } = item;
         const active = isActiveNav(href, pathname, hrefs);

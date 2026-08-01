@@ -1,23 +1,29 @@
 "use client";
 
-/**
- * Hàng đợi tiếp nhận — the reception desk's board.
- *
- * Two columns, not the design's three. The third column ("Điều phối tại quầy",
- * with the counter occupancy and the TV preview) has no schema behind it: there
- * is no counter table, no called_at, and no display device anywhere in the
- * system. Drawing it with invented numbers would make the desk trust a panel
- * that reports nothing, so it is left out and named as missing on the screen
- * instead. What IS real — the queue, the patient, the step they are on, what
- * comes next — is here.
- */
-
+import {
+  AlertTriangle,
+  ArrowDownAZ,
+  CheckCircle2,
+  ChevronDown,
+  CirclePause,
+  Clock3,
+  Filter,
+  History,
+  IdCard,
+  MapPin,
+  Monitor,
+  Phone,
+  Search,
+  ShieldCheck,
+  UserRoundX,
+  UsersRound,
+  Volume2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
-import WorkItemActions from "@/components/ui/WorkItemActions";
 import Stepper, { type Step } from "@/components/ui/Stepper";
 import {
   STATUS_PRESENTATION,
@@ -30,26 +36,62 @@ import {
   type WorklistItem,
 } from "@/lib/worklist";
 
-/** The sub-steps of reception, as the design draws them. */
+type QueueTab = "all" | "priority" | "verify";
+type ArrivalFilter = "all" | "appointment" | "walk-in";
+type SortMode = "wait" | "queue";
+type KernelCommand = "start" | "complete";
+
+const EXCEPTION_REASONS = [
+  "Vắng mặt",
+  "Sai chuyên khoa",
+  "Trùng hồ sơ",
+  "Thiếu giấy tờ",
+] as const;
+
+function time(value: string | null): string {
+  return value
+    ? new Date(value).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+}
+
+function initials(name: string | null): string {
+  if (!name) return "BN";
+  const words = name.trim().split(/\s+/);
+  return words
+    .slice(-2)
+    .map((word) => word[0]?.toLocaleUpperCase("vi-VN") ?? "")
+    .join("");
+}
+
 function receptionSteps(item: WorklistItem): Step[] {
   const arrived = item.checked_in_at ?? item.created_at;
-  const t = (v: string | null) =>
-    v ? new Date(v).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : undefined;
-
   const started = item.status === "IN_PROGRESS";
+  const completed = item.status === "COMPLETED";
   return [
-    { label: "Vào hàng đợi", state: "done", detail: t(arrived) },
+    { label: "Vào hàng đợi", state: "done", detail: time(arrived) },
     {
-      label: "Đang xử lý",
-      state: started ? "done" : "current",
-      detail: started ? t(item.started_at) : "Chưa bắt đầu",
+      label: "Đã gán quầy",
+      state: "upcoming",
+      detail: "Chưa có dữ liệu quầy",
     },
     {
-      label: item.node_name ?? item.node_code,
-      state: started ? "current" : "upcoming",
-      detail: item.blocked ? "Đang bị chặn" : undefined,
+      label: "Gọi bệnh nhân",
+      state: "upcoming",
+      detail: "Chưa có mốc gọi số",
     },
-    { label: "Hoàn tất tiếp nhận", state: "upcoming", detail: "Chưa hoàn tất" },
+    {
+      label: "Xác nhận có mặt",
+      state: completed ? "done" : started ? "current" : "upcoming",
+      detail: completed ? "Đã xác nhận" : "Chưa xác nhận",
+    },
+    {
+      label: "Hoàn tất tiếp nhận",
+      state: completed ? "done" : "upcoming",
+      detail: completed ? "Đã hoàn tất" : "Chưa hoàn tất",
+    },
   ];
 }
 
@@ -71,52 +113,89 @@ function Row({
       type="button"
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
-      className={`w-full rounded-card border px-4 py-3 text-left transition-colors ${
+      className={`w-full border-b border-line px-3 py-3 text-left transition-colors last:border-b-0 ${
         selected
-          ? "border-l-[3px] border-brand-600 bg-surface-selected"
-          : "border-line bg-surface hover:bg-surface-sunken"
+          ? "rounded-control border border-brand-500 bg-surface-selected shadow-card"
+          : "hover:bg-surface-sunken"
       }`}
     >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 min-w-14 rounded-control bg-surface-sunken px-2 py-1 text-center text-sm font-semibold text-ink">
+      <span className="grid grid-cols-[42px_minmax(0,1fr)_44px] items-start gap-2">
+        <span className="rounded-control border border-line bg-surface-sunken px-1 py-2 text-center text-sm font-semibold text-ink">
           {item.queue_number ?? "—"}
         </span>
-        <span className="flex-1">
-          <span className="flex items-center gap-2">
-            <span className="font-medium text-ink">
+        <span className="min-w-0">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-ink">
               {item.patient.full_name ?? "Chưa rõ tên"}
             </span>
             {item.is_priority_slot ? <PriorityChip priority="P0" /> : null}
           </span>
-          <span className="block text-xs text-ink-muted">
-            {patientLine(item.patient)}
-            {item.patient.patient_code ? ` · ${item.patient.patient_code}` : ""}
+          <span className="block truncate text-xs text-ink-muted">
+            {patientLine(item.patient) || item.patient.patient_code || "Chưa đủ thông tin"}
           </span>
-          <span className="mt-1 block text-xs text-ink-soft">
-            {item.node_name ?? item.node_code}
-          </span>
-        </span>
-        <span className="flex flex-col items-end gap-1">
-          <StatusChip
-            tone={STATUS_PRESENTATION[tone].token as StatusTone}
-            label={STATUS_PRESENTATION[tone].label}
-          />
-          <span
-            className={`text-xs ${
-              late !== null && late > 0 ? "text-status-overdue" : "text-ink-muted"
-            }`}
-          >
-            {late !== null && late > 0 ? `quá hạn ${late}′` : `chờ ${waited}′`}
+          <span className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+            <StatusChip
+              tone={STATUS_PRESENTATION[tone].token as StatusTone}
+              label={STATUS_PRESENTATION[tone].label}
+            />
+            <span className="truncate text-ink-muted">
+              {item.booking_channel === "WALK_IN" ? "Đến trực tiếp" : "Đặt hẹn"}
+            </span>
           </span>
         </span>
-      </div>
+        <span
+          className={`pt-1 text-right text-xs font-semibold tabular-nums ${
+            late !== null && late > 0 ? "text-status-overdue" : "text-warning"
+          }`}
+        >
+          {late !== null && late > 0 ? `${late}′ quá` : `${waited}′`}
+        </span>
+      </span>
     </button>
   );
 }
 
 export default function QueueBoard({ items }: { items: WorklistItem[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
-  const selected = items.find((i) => i.id === selectedId) ?? items[0] ?? null;
+  const [tab, setTab] = useState<QueueTab>("all");
+  const [query, setQuery] = useState("");
+  const [arrival, setArrival] = useState<ArrivalFilter>("all");
+  const [sort, setSort] = useState<SortMode>("wait");
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("vi-VN");
+    const matching = items.filter((item) => {
+      const matchesTab =
+        tab === "all" ||
+        (tab === "priority" && item.is_priority_slot) ||
+        (tab === "verify" && item.node_code === "LUOTKHAM-02");
+      const matchesArrival =
+        arrival === "all" ||
+        (arrival === "walk-in" && item.booking_channel === "WALK_IN") ||
+        (arrival === "appointment" && item.booking_channel !== "WALK_IN");
+      const haystack = [
+        item.patient.full_name,
+        item.patient.patient_code,
+        item.queue_number,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("vi-VN");
+      return matchesTab && matchesArrival && (!needle || haystack.includes(needle));
+    });
+    return [...matching].sort((a, b) =>
+      sort === "wait"
+        ? waitedMinutes(b) - waitedMinutes(a)
+        : (a.queue_number ?? "").localeCompare(b.queue_number ?? "", "vi-VN", {
+            numeric: true,
+          }),
+    );
+  }, [arrival, items, query, sort, tab]);
+
+  const selected =
+    filtered.find((item) => item.id === selectedId) ??
+    filtered[0] ??
+    null;
 
   if (items.length === 0) {
     return (
@@ -130,127 +209,438 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(340px,420px)_1fr]">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-ink-soft">
-          Danh sách hàng đợi ({items.length})
-        </h2>
-        <div className="flex flex-col gap-2">
-          {items.map((item) => (
-            <Row
-              key={item.id}
-              item={item}
-              selected={item.id === selected?.id}
-              onSelect={() => setSelectedId(item.id)}
+    <div className="grid items-start gap-3 xl:grid-cols-[minmax(280px,0.9fr)_minmax(380px,1.25fr)_minmax(240px,0.8fr)]">
+      <section
+        aria-label="Danh sách hàng đợi"
+        className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      >
+        <header className="border-b border-line p-3">
+          <h2 className="text-sm font-semibold text-ink">Danh sách hàng đợi</h2>
+          <div className="mt-3 flex border-b border-line text-xs">
+            {(
+              [
+                ["all", "Tất cả"],
+                ["priority", "Ưu tiên"],
+                ["verify", "Cần xác minh"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTab(value)}
+                aria-pressed={tab === value}
+                className={`border-b-2 px-3 py-2 font-medium ${
+                  tab === value
+                    ? "border-brand-600 text-brand-700"
+                    : "border-transparent text-ink-muted hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="mt-3 flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+            <Search size={15} aria-hidden />
+            <span className="sr-only">Tìm tên, mã BN hoặc số thứ tự</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tìm tên, mã BN hoặc số thứ tự"
+              className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
             />
-          ))}
+          </label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 rounded-control border border-line px-2.5 py-2 text-xs text-ink-soft">
+              <Filter size={14} aria-hidden />
+              <span className="sr-only">Bộ lọc</span>
+              <select
+                value={arrival}
+                onChange={(event) => setArrival(event.target.value as ArrivalFilter)}
+                aria-label="Bộ lọc"
+                className="min-w-0 flex-1 appearance-none bg-transparent outline-none"
+              >
+                <option value="all">Bộ lọc</option>
+                <option value="appointment">Đặt hẹn</option>
+                <option value="walk-in">Đến trực tiếp</option>
+              </select>
+              <ChevronDown size={13} aria-hidden />
+            </label>
+            <label className="flex items-center gap-2 rounded-control border border-line px-2.5 py-2 text-xs text-ink-soft">
+              <ArrowDownAZ size={14} aria-hidden />
+              <span className="sr-only">Sắp xếp</span>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as SortMode)}
+                aria-label="Sắp xếp"
+                className="min-w-0 flex-1 appearance-none bg-transparent outline-none"
+              >
+                <option value="wait">Sắp xếp: chờ lâu</option>
+                <option value="queue">Sắp xếp: số thứ tự</option>
+              </select>
+              <ChevronDown size={13} aria-hidden />
+            </label>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-[42px_minmax(0,1fr)_44px] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-faint">
+          <span>STT</span>
+          <span>Người bệnh</span>
+          <span className="text-right">Chờ</span>
         </div>
+        <div className="max-h-[610px] overflow-y-auto px-1">
+          {filtered.length > 0 ? (
+            filtered.map((item) => (
+              <Row
+                key={item.id}
+                item={item}
+                selected={item.id === selected?.id}
+                onSelect={() => setSelectedId(item.id)}
+              />
+            ))
+          ) : (
+            <p className="px-4 py-10 text-center text-sm text-ink-muted">
+              Không có người bệnh khớp bộ lọc.
+            </p>
+          )}
+        </div>
+        <footer className="flex items-center justify-between border-t border-line px-3 py-3 text-xs text-ink-muted">
+          <span>Hiển thị {filtered.length} trong {items.length} người bệnh</span>
+          <button type="button" onClick={() => { setTab("all"); setArrival("all"); setQuery(""); }} className="text-brand-700 hover:underline">
+            Xem tất cả
+          </button>
+        </footer>
       </section>
 
-      {selected ? <Detail item={selected} /> : null}
+      {selected ? <PatientDetail item={selected} /> : null}
+      {selected ? <CounterPanel item={selected} items={items} /> : null}
     </div>
   );
 }
 
-function Detail({ item }: { item: WorklistItem }) {
+function PatientDetail({ item }: { item: WorklistItem }) {
   const tone = resolveStatus(item);
   const waited = waitedMinutes(item);
+  const targetMinutes = (() => {
+    const from = item.checked_in_at ?? item.created_at;
+    if (!from || !item.due_at) return null;
+    return Math.max(
+      0,
+      Math.round((new Date(item.due_at).getTime() - new Date(from).getTime()) / 60000),
+    );
+  })();
+
+  return (
+    <section
+      aria-label="Thông tin người bệnh"
+      className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
+    >
+      <header className="flex items-center justify-between border-b border-line px-4 py-3">
+        <h2 className="text-sm font-semibold text-ink">Thông tin người bệnh</h2>
+        <StatusChip
+          tone={STATUS_PRESENTATION[tone].token as StatusTone}
+          label={STATUS_PRESENTATION[tone].label}
+        />
+      </header>
+
+      <div className="grid gap-4 border-b border-line p-4 md:grid-cols-[1.1fr_0.8fr_96px]">
+        <div className="flex gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-line bg-surface-sunken text-base font-semibold text-ink-soft">
+            {initials(item.patient.full_name)}
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-lg font-semibold text-ink">
+              {item.patient.full_name ?? "Chưa rõ tên"}
+            </h3>
+            <p className="text-xs text-ink-muted">{patientLine(item.patient) || "—"}</p>
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-soft">
+              <Phone size={13} aria-hidden /> {item.patient.phone_primary ?? "—"}
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-soft">
+              <IdCard size={13} aria-hidden /> Mã BN: {item.patient.patient_code ?? "—"}
+            </p>
+          </div>
+        </div>
+        <dl className="border-l border-line pl-4 text-xs">
+          <Field label="Mã số" value={item.queue_number ?? "—"} />
+          <Field label="Ngày sinh" value={item.patient.date_of_birth ? new Date(item.patient.date_of_birth).toLocaleDateString("vi-VN") : "—"} />
+          <div className="mt-2 flex items-start gap-1.5 text-ink-muted">
+            <MapPin size={13} className="mt-0.5 shrink-0" aria-hidden />
+            <span>Địa chỉ: Chưa có trong dữ liệu hàng đợi</span>
+          </div>
+        </dl>
+        <div className="rounded-control border border-line p-2 text-center">
+          <p className="text-[11px] text-ink-muted">SLA mục tiêu</p>
+          <p className="mt-1 font-semibold text-ink">
+            {targetMinutes === null ? "—" : `${targetMinutes} phút`}
+          </p>
+          <div className="my-2 h-1 overflow-hidden rounded-full bg-surface-sunken">
+            <div
+              className={`h-full ${waited > (targetMinutes ?? Number.POSITIVE_INFINITY) ? "bg-status-overdue" : "bg-warning"}`}
+              style={{ width: `${Math.min(100, targetMinutes ? (waited / targetMinutes) * 100 : 0)}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-ink-muted">Thời gian chờ</p>
+          <p className="font-semibold text-warning">{waited} phút</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 border-b border-line p-3 md:grid-cols-3">
+        <InfoCard title="Lịch hẹn" icon={<Clock3 size={15} />}>
+          <Field label="Ngày / giờ" value={item.slot_start ? new Date(item.slot_start).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"} />
+          <Field label="Hình thức" value={item.booking_channel === "WALK_IN" ? "Đến trực tiếp" : "Đặt hẹn"} />
+          <Field label="Bước" value={item.node_name ?? item.node_code} />
+        </InfoCard>
+        <InfoCard title="Thông tin hàng đợi" icon={<UsersRound size={15} />}>
+          <Field label="Thời điểm đến" value={time(item.checked_in_at ?? item.created_at)} />
+          <Field label="Vào hàng đợi lúc" value={time(item.created_at)} />
+          <Field label="Bắt đầu xử lý" value={time(item.started_at)} />
+        </InfoCard>
+        <InfoCard title="Bảo hiểm y tế" icon={<ShieldCheck size={15} />}>
+          <p className="rounded-control bg-surface-sunken px-2 py-2 text-xs text-ink-muted">
+            Chưa có dữ liệu BHYT trong API hàng đợi.
+          </p>
+        </InfoCard>
+      </div>
+
+      <div className="border-b border-line p-4">
+        <h3 className="mb-4 text-sm font-semibold text-ink">Trạng thái xử lý</h3>
+        <Stepper steps={receptionSteps(item)} />
+      </div>
+
+      <ExceptionPanel />
+    </section>
+  );
+}
+
+function ExceptionPanel() {
+  const [reason, setReason] = useState("");
+  return (
+    <fieldset className="p-4">
+      <legend className="text-sm font-semibold text-ink">
+        Xử lý ngoại lệ <span className="font-normal text-ink-muted">(bắt buộc chọn lý do)</span>
+      </legend>
+      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {EXCEPTION_REASONS.map((label) => (
+          <label
+            key={label}
+            className={`cursor-pointer rounded-control border px-2 py-3 text-center text-xs ${
+              reason === label
+                ? "border-brand-600 bg-brand-50 text-brand-700"
+                : "border-line text-ink-soft hover:bg-surface-sunken"
+            }`}
+          >
+            <input
+              type="radio"
+              name="exception-reason"
+              value={label}
+              required
+              checked={reason === label}
+              onChange={(event) => setReason(event.target.value)}
+              className="sr-only"
+            />
+            <AlertTriangle size={17} className="mx-auto mb-1" aria-hidden />
+            {label}
+          </label>
+        ))}
+      </div>
+      <label className="mt-3 block text-xs text-ink-muted">
+        Lý do (bắt buộc)
+        <select
+          required
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-500"
+        >
+          <option value="">Chọn hoặc nhập lý do ngoại lệ</option>
+          {EXCEPTION_REASONS.map((label) => <option key={label}>{label}</option>)}
+        </select>
+      </label>
+      <label className="mt-3 block text-xs text-ink-muted">
+        Ghi chú (không bắt buộc)
+        <textarea
+          rows={2}
+          maxLength={200}
+          placeholder="Nhập ghi chú (nếu có)"
+          className="mt-1 w-full resize-none rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-brand-500"
+        />
+      </label>
+      <button
+        type="button"
+        disabled
+        title="Backend chưa có command ghi nhận ngoại lệ tiếp nhận"
+        className="mt-3 w-full rounded-control bg-surface-sunken px-3 py-2 text-sm font-medium text-ink-faint"
+      >
+        Xử lý ngoại lệ — chưa khả dụng
+      </button>
+    </fieldset>
+  );
+}
+
+function CounterPanel({ item, items }: { item: WorklistItem; items: WorklistItem[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  async function issue(command: "start" | "complete") {
+  async function issue(command: KernelCommand, reason?: string) {
     setError(null);
-    const res = await fetch(`/api/work-items/${item.id}/commands/${command}`, {
+    const response = await fetch(`/api/work-items/${item.id}/commands/${command}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // The version this screen last read: someone else moving the patient
-      // along becomes a refusal the desk can see, not a silent overwrite.
-      body: JSON.stringify({ expected_version: item.version }),
+      body: JSON.stringify({ expected_version: item.version, reason }),
     });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? `Không thực hiện được (HTTP ${res.status})`);
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error ?? `Không thực hiện được (HTTP ${response.status})`);
       return;
     }
     startTransition(() => router.refresh());
   }
 
+  const canAct = item.actionable_by_me && !item.blocked;
+  const finished = ["COMPLETED", "SKIPPED", "CANCELLED"].includes(item.status);
+  const started = item.status === "IN_PROGRESS";
+
   return (
-    <section className="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 shadow-card">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">
-            {item.patient.full_name ?? "Chưa rõ tên"}
-          </h2>
-          <p className="text-sm text-ink-muted">
-            {patientLine(item.patient)}
-            {item.patient.patient_code ? ` · ${item.patient.patient_code}` : ""}
+    <aside aria-label="Điều phối tại quầy" className="flex flex-col gap-3">
+      <section className="rounded-card border border-line bg-surface p-3 shadow-card">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">Điều phối tại quầy</h2>
+          <span className="text-xs text-brand-700">Dữ liệu thật</span>
+        </div>
+        <div className="mt-3 rounded-control border border-line p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-ink">Hiện trạng quầy</h3>
+            <span className="text-[11px] text-warning">Chưa kết nối schema quầy</span>
+          </div>
+          <dl className="mt-3 grid grid-cols-4 divide-x divide-line text-center">
+            {[
+              ["Sức chứa", "—"],
+              ["Đang phục vụ", items.filter((candidate) => candidate.status === "IN_PROGRESS").length],
+              ["Đang chờ", items.filter((candidate) => candidate.status === "PENDING").length],
+              ["Trống", "—"],
+            ].map(([label, value]) => (
+              <div key={label} className="px-1">
+                <dt className="text-[10px] text-ink-muted">{label}</dt>
+                <dd className="mt-1 text-sm font-semibold text-ink">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="mt-3 rounded-control border border-line p-3">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-ink">
+            <Monitor size={15} className="text-brand-600" aria-hidden />
+            Xem trước màn hình hiển thị
+          </h3>
+          <div className="mt-3 grid grid-cols-[66px_1fr_62px] overflow-hidden rounded-control border border-brand-500 text-center">
+            <div className="bg-brand-600 px-2 py-3 text-white">
+              <p className="text-[10px] uppercase">Quầy</p>
+              <p className="text-2xl font-semibold">—</p>
+            </div>
+            <div className="bg-surface px-2 py-3">
+              <p className="text-[10px] uppercase text-ink-muted">Mời số</p>
+              <p className="text-3xl font-semibold tracking-wide text-ink">{item.queue_number ?? "—"}</p>
+            </div>
+            <div className="border-l border-line bg-surface px-2 py-3">
+              <p className="text-[10px] uppercase text-ink-muted">Chờ</p>
+              <p className="text-xl font-semibold text-ink">{waitedMinutes(item)}′</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-control border border-line p-3">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-ink">
+            <History size={15} className="text-brand-600" aria-hidden /> Nhật ký thao tác
+          </h3>
+          <ul className="mt-2 space-y-2 text-[11px] text-ink-muted">
+            <li className="grid grid-cols-[40px_1fr] gap-2">
+              <span>{time(item.created_at)}</span><span>Đã vào hàng đợi tiếp nhận</span>
+            </li>
+            {item.started_at ? (
+              <li className="grid grid-cols-[40px_1fr] gap-2">
+                <span>{time(item.started_at)}</span><span>Đã bắt đầu xử lý</span>
+              </li>
+            ) : null}
+          </ul>
+        </div>
+
+        <div className="mt-3 rounded-control border border-line p-3">
+          <h3 className="text-xs font-semibold text-ink">Bước tiếp theo</h3>
+          <p className="mt-2 flex items-center gap-2 text-xs text-ink-soft">
+            <CheckCircle2 size={16} className="text-brand-600" aria-hidden />
+            Sau khi xác nhận, kernel sẽ mở bước kế tiếp đủ điều kiện.
           </p>
         </div>
-        <StatusChip
-          tone={STATUS_PRESENTATION[tone].token as StatusTone}
-          label={STATUS_PRESENTATION[tone].label}
-          size="md"
-        />
-      </header>
+      </section>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 border-y border-line py-4 text-sm sm:grid-cols-3">
-        <Field label="Số thứ tự" value={item.queue_number ?? "—"} />
-        <Field label="Điện thoại" value={item.patient.phone_primary ?? "—"} />
-        <Field label="Thời gian chờ" value={`${waited} phút`} />
-        <Field
-          label="Giờ hẹn"
-          value={
-            item.slot_start
-              ? new Date(item.slot_start).toLocaleTimeString("vi-VN", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "—"
-          }
-        />
-        <Field
-          label="Kênh đặt"
-          value={item.booking_channel === "WALK_IN" ? "Đến trực tiếp" : "Đặt hẹn"}
-        />
-        <Field label="Ưu tiên" value={item.is_priority_slot ? "Có" : "Không"} />
-      </dl>
+      {error ? <p className="rounded-control bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p> : null}
 
-      <div>
-        <h3 className="mb-3 text-sm font-medium text-ink-soft">Trạng thái xử lý</h3>
-        <Stepper steps={receptionSteps(item)} />
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          disabled
+          title="Kernel không có trạng thái tạm giữ"
+          className="flex items-center justify-center gap-1.5 rounded-control border border-line bg-surface px-2 py-2 text-xs text-ink-faint"
+        >
+          <CirclePause size={15} /> Tạm giữ
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Backend chưa có lệnh vắng mặt với quy tắc không mở nhầm bước sau"
+          className="flex items-center justify-center gap-1.5 rounded-control border border-line bg-surface-sunken px-2 py-2 text-xs text-ink-faint"
+        >
+          <UserRoundX size={15} /> Đánh dấu vắng mặt
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Backend chưa có lệnh gọi số và mốc thời gian gọi"
+          className="flex items-center justify-center gap-1.5 rounded-control border border-brand-500 bg-surface px-2 py-2 text-xs text-brand-700 disabled:border-line disabled:bg-surface-sunken disabled:text-ink-faint"
+        >
+          <Volume2 size={15} /> Gọi số {item.queue_number ?? ""}
+        </button>
       </div>
+      {item.status === "PENDING" ? (
+        <button
+          type="button"
+          disabled={!canAct || pending}
+          onClick={() => issue("start")}
+          className="flex w-full items-center justify-center gap-2 rounded-control border border-brand-600 bg-surface px-4 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-sunken disabled:text-ink-faint"
+        >
+          {pending ? "Đang lưu…" : "Bắt đầu xử lý"}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        disabled={!canAct || !started || finished || pending}
+        onClick={() => issue("complete")}
+        className="flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
+      >
+        <CheckCircle2 size={19} />
+        {pending ? "Đang lưu…" : "Xác nhận có mặt & hoàn tất"}
+      </button>
+    </aside>
+  );
+}
 
-      <WorkItemActions
-        status={item.status}
-        blocked={item.blocked}
-        actionableByMe={item.actionable_by_me}
-        actorRoles={item.actor_roles}
-        pending={pending}
-        error={error}
-        onIssue={issue}
-        startLabel="Bắt đầu xử lý"
-      />
-
-      {/* The counter dispatch column of the design lives here in spirit. It is
-       * named rather than drawn, because inventing a counter number would be
-       * worse than admitting there is not one yet. */}
-      <p className="rounded-control border border-dashed border-line-strong px-3 py-2 text-xs text-ink-muted">
-        Chưa có: điều phối quầy, số đã gọi, màn hình TV phòng chờ. Hệ thống chưa
-        có bảng quầy hay mốc thời điểm gọi số — cần quyết định schema trước khi
-        dựng phần này.
-      </p>
+function InfoCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="rounded-control border border-line p-3">
+      <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold text-ink">
+        <span className="text-brand-600">{icon}</span>{title}
+      </h3>
+      <dl className="space-y-1.5 text-xs">{children}</dl>
     </section>
   );
 }
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="text-ink">{value}</dd>
+    <div className="flex items-start justify-between gap-2">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="text-right text-ink">{value}</dd>
     </div>
   );
 }
-

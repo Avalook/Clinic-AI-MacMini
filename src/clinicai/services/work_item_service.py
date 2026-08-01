@@ -284,6 +284,17 @@ class WorkItemService:
                    n.flow_group,
                    n.workspace,
                    n.actor_roles,
+                   -- Who the step is about. A screen that acts on a visit has
+                   -- to be able to name the patient: the order composer read
+                   -- this endpoint and had nothing to show, so a doctor picked
+                   -- an ultrasound for an unnamed visit. Same join, same shape
+                   -- as list_worklist, so both boards name a patient alike.
+                   p.clinic_patient_id,
+                   p.patient_code,
+                   p.full_name,
+                   p.date_of_birth,
+                   p.gender,
+                   p.phone_primary,
                    -- Mine to act on? The node's own actor list is what narrows
                    -- the flow per station; an empty list means anyone working
                    -- the flow may take it.
@@ -302,6 +313,9 @@ class WorkItemService:
               LEFT JOIN node_definition n
                 ON n.clinic_id = w.clinic_id
                AND n.code = w.node_code
+              LEFT JOIN patient p
+                ON p.clinic_patient_id = w.clinic_patient_id
+               AND p.clinic_id = w.clinic_id
               LEFT JOIN flow f ON f.code = w.node_code
              WHERE w.visit_id = $1::uuid
                AND w.clinic_id = $2::uuid
@@ -331,6 +345,16 @@ class WorkItemService:
                 "blocked": bool(r["blocked"]),
                 "started_at": r["started_at"],
                 "finished_at": r["finished_at"],
+                "patient": {
+                    "clinic_patient_id": (
+                        str(r["clinic_patient_id"]) if r["clinic_patient_id"] else None
+                    ),
+                    "patient_code": r["patient_code"],
+                    "full_name": r["full_name"],
+                    "date_of_birth": r["date_of_birth"],
+                    "gender": r["gender"],
+                    "phone_primary": r["phone_primary"],
+                },
             }
             for r in rows
         ]

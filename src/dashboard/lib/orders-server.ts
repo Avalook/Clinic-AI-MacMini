@@ -9,12 +9,14 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 
 import type { CatalogueEntry } from "@/app/(dashboard)/doctor/orders/[visitId]/OrderComposer";
+import type { WorklistPatient } from "@/lib/worklist";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
 export type CatalogueResult =
   | { ok: true; data: CatalogueEntry[] }
   | { ok: false; reason: "no-session" | "unreachable" | "refused" | "forbidden" };
+
 
 async function authHeaders(): Promise<Record<string, string> | null> {
   const supabase = await getSupabaseServer();
@@ -47,7 +49,18 @@ export async function fetchCatalogue(): Promise<CatalogueResult> {
 }
 
 /** The patient's name for the summary panel. Null is fine — it is a label. */
-export async function fetchVisitPatient(visitId: string): Promise<string | null> {
+/**
+ * Ai là người bệnh của lượt khám này.
+ *
+ * Trước đây hàm này chỉ trả "Lượt khám đang mở" — một câu về TRẠNG THÁI, không
+ * phải một cái tên. Bác sĩ mở màn chỉ định và không thấy mình đang chỉ định
+ * siêu âm cho ai; đó là rủi ro nhầm người, không phải lỗi thẩm mỹ.
+ *
+ * Mọi dòng của một lượt khám cùng một người bệnh, nên đọc dòng đầu là đủ.
+ */
+export async function fetchVisitPatient(
+  visitId: string,
+): Promise<WorklistPatient | null> {
   if (!API_BASE) return null;
   const headers = await authHeaders();
   if (!headers) return null;
@@ -57,8 +70,8 @@ export async function fetchVisitPatient(visitId: string): Promise<string | null>
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const rows = (await res.json()) as { node_code: string }[];
-    return rows.length > 0 ? "Lượt khám đang mở" : null;
+    const rows = (await res.json()) as { patient?: WorklistPatient }[];
+    return rows[0]?.patient ?? null;
   } catch {
     return null;
   }
