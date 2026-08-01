@@ -26,6 +26,7 @@ from clinicai.api.v1.routers.clinical_records import (
     router as clinical_records_router,
 )
 from clinicai.api.v1.routers.config import router as config_router
+from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.identity import router as identity_router
@@ -119,6 +120,8 @@ app.add_middleware(DbErrorMiddleware)
 app.include_router(health_router)
 app.include_router(identity_router, prefix="/api/v1", tags=["identity"])
 app.include_router(queue_router, prefix="/api/v1", tags=["queue"])
+# Bảng điều khiển chủ sản phẩm — router tự từ chối khi APP_ENV=production.
+app.include_router(console_router, prefix="/api/v1", tags=["console"])
 app.include_router(patients_router, prefix="/api/v1")
 app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
 app.include_router(scheduling_router, prefix="/api/v1", tags=["scheduling"])

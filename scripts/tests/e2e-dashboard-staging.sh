@@ -41,8 +41,13 @@ ANON=$(cd "$REPO" && npx --yes supabase@latest status -o env 2>/dev/null \
 # @supabase/ssr decides both the cookie name (from the Supabase URL) and the
 # encoding. Hand-rolling that would be a guess that breaks on the next upgrade,
 # so the dashboard's own copy of the library does it.
+# Địa chỉ Supabase mà STACK ĐANG CHẠY dùng — quyết định tên cookie. Đọc thẳng
+# từ container thay vì đoán, để test bám theo deployment chứ không ngược lại.
+STACK_SUPABASE_URL=$(docker exec clinicai_staging-dashboard-1 sh -c 'echo $SUPABASE_URL' 2>/dev/null || true)
+
 cookie() {  # email → "name=value; name=value"
-  ANON_KEY="$ANON" node "$REPO/src/dashboard/scripts/mint-session-cookie.mjs" "$1" \
+  ANON_KEY="$ANON" SUPABASE_URL="${STACK_SUPABASE_URL:-}" \
+    node "$REPO/src/dashboard/scripts/mint-session-cookie.mjs" "$1" \
     'clinic-test-pw-123' 2>/dev/null
 }
 
