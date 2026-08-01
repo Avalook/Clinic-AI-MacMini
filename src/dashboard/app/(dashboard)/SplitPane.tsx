@@ -99,7 +99,7 @@ export default function SplitPane({
             "my-2 rounded-full transition-all duration-150 " +
             (active
               ? "w-[3px] bg-brand-700"
-              : "w-px bg-[#f0d4e2] group-hover:w-[3px] group-hover:bg-brand-600")
+              : "w-px bg-line group-hover:w-[3px] group-hover:bg-brand-600")
           }
         />
       </div>

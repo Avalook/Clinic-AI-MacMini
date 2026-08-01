@@ -109,7 +109,7 @@ export default function RosterEditor({
   return (
     <div className="space-y-4">
       {/* Form thêm */}
-      <div className="rounded-xl border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <section className="rounded-card border border-line bg-surface p-5 shadow-card">
         <h2 className="mb-4 text-sm font-semibold text-ink">
           Thêm phân công
         </h2>
@@ -194,11 +194,11 @@ export default function RosterEditor({
             {busy ? "Đang lưu..." : "+ Thêm vào lịch"}
           </button>
         </div>
-      </div>
+      </section>
 
       {/* Danh sách đã phân công */}
       {byDate.length === 0 ? (
-        <div className="rounded-lg border border-line bg-white px-4 py-8 text-center text-sm text-ink-muted">
+        <div className="rounded-card border border-line bg-surface px-4 py-8 text-center text-sm text-ink-muted shadow-card">
           Tuần này chưa có phân công nào.
         </div>
       ) : (
@@ -206,7 +206,7 @@ export default function RosterEditor({
           {byDate.map((g) => (
             <div
               key={g.date}
-              className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+              className="rounded-card border border-line bg-surface p-3 shadow-card"
             >
               <p className="mb-2 text-sm font-semibold text-ink">
                 {dayShort(g.date)} · {fmtDayMonth(g.date)}

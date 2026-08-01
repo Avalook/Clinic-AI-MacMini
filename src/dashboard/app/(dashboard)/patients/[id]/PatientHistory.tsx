@@ -108,7 +108,7 @@ const SECTION = "text-base font-semibold text-ink";
 const TH = "px-4 py-2.5 font-medium";
 const TD = "px-4 py-2.5";
 const CARD =
-  "rounded-lg border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]";
+  "rounded-card border border-line bg-surface shadow-card";
 
 // Note lâm sàng ("Lý do khám") nguồn viết liền — tách thành mục dễ đọc:
 // chèn xuống dòng trước ➤<nhãn>:, mục đánh số (1. Hành chính…), và mốc ngày

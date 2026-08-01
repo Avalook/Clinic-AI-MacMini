@@ -40,7 +40,7 @@ export default async function LabQueuePage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-ink">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
           Hàng đợi xét nghiệm
         </h1>
         <p className="text-sm text-ink-muted">

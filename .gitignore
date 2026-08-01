@@ -10,8 +10,12 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the repo root on purpose. Unanchored, `lib/` matches a directory
+# named lib at ANY depth, which silently swallowed scripts/lib/ — CI then failed
+# for three weeks on a helper that existed on every developer machine and in no
+# checkout. These two are setuptools build output at the root, nothing else.
+/lib/
+/lib64/
 parts/
 sdist/
 var/

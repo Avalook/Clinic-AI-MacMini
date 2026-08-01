@@ -23,8 +23,8 @@ export default function PrintReportButton() {
       onClick={handlePrint}
       disabled={printing}
       className={
-        "inline-flex shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors " +
-        "border-brand-800 bg-brand-800 text-white hover:bg-[#831e53] disabled:opacity-60 " +
+        "inline-flex shrink-0 items-center gap-2 rounded-control border px-4 py-2 text-sm font-medium shadow-card transition-colors " +
+        "border-brand-700 bg-brand-700 text-surface hover:bg-brand-800 disabled:opacity-60 " +
         "print:hidden"
       }
     >

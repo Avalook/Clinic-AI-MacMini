@@ -1,28 +1,41 @@
 "use client";
 
-// "Công việc của tôi" cho BÁC SĨ — LỊCH theo NGÀY (như board CSKH): cột Ngày · Giờ
-// · Bệnh nhân · Phân loại · Trạng thái · Hành động; lọc theo KỲ (Hôm nay/Tuần/Tháng)
-// + TRẠNG THÁI. Bấm tên BN → hồ sơ lâm sàng (ClinicalRecordForm) ở cột PHẢI
-// (SplitPane). LUỒNG ĐƠN GIẢN (T-DASH-DOCTOR-CLEANUP-01): KHÔNG còn bước "Nhận/Từ
-// chối lịch" — Lễ tân check-in → BN tự vào hàng BS (CHECKED_IN) → BS mở hồ sơ khám →
-// điền Chuẩn đoán + Lời dặn rồi Lưu thì lịch TỰ COMPLETED (không nút "Khám xong").
+// Workspace khám bệnh. Hàng đợi vẫn lấy từ appointment và mở đúng
+// ClinicalRecordForm cũ; thay đổi ở đây chỉ là cấu trúc hiển thị V2.
 
 import { useState } from "react";
-import { FileText, Printer } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  FlaskConical,
+  Printer,
+  Search,
+  Stethoscope,
+  UsersRound,
+} from "lucide-react";
+
 import { fmtTimeOrNone } from "../../../lib/datetime";
 import { compareQueue } from "../../../lib/queue";
 import {
-  todayVn,
   currentWeekStartVn,
-  shiftWeek,
-  weekDates,
   dayLabel,
   fmtDayMonth,
+  shiftWeek,
+  todayVn,
+  weekDates,
 } from "../../../lib/roster";
 import { daysInMonth } from "../../../lib/validation";
 import StatusBadge from "../StatusBadge";
 import ClinicalRecordForm from "./ClinicalRecordForm";
-import SplitPane from "../SplitPane";
+import {
+  EmptyWorkspace,
+  Monogram,
+  PanelHeading,
+  WorkspaceMetric,
+  WorkspaceMetricRow,
+} from "./WorkspacePrimitives";
+import workspaceStyles from "./WorkspacePrimitives.module.css";
 
 export interface DoctorApptRow {
   id: string;
@@ -48,11 +61,11 @@ export interface DoctorApptRow {
     guardian_name: string | null;
   } | null;
   service: { name: string } | null;
-  /** Kênh đặt — "WALK_IN" = vãng lai; còn lại = đặt hẹn online. Cho THỨ TỰ GỌI (Model ②). */
+  /** Kênh đặt — "WALK_IN" = vãng lai; còn lại = đặt hẹn online. */
   booking_channel?: string | null;
-  /** Mốc giờ ĐẾN thật (visit.checked_in_at). Cho THỨ TỰ GỌI ưu tiên người có hẹn đúng giờ. */
+  /** Mốc giờ đến thật (visit.checked_in_at). */
   checked_in_at?: string | null;
-  /** ĐÃ có KQ lab về hết → chờ bác sĩ đọc (B3). callRank kéo lên đầu (T-QUEUE-B3). */
+  /** Đã có KQ lab về hết → chờ bác sĩ đọc. */
   b3_ready?: boolean | null;
 }
 
@@ -63,6 +76,7 @@ const STATUS_GROUPS: { key: string; label: string; statuses: string[] }[] = [
   { key: "done", label: "Đã khám xong", statuses: ["COMPLETED"] },
   { key: "off", label: "Từ chối / Hủy", statuses: ["DOCTOR_DECLINED", "CANCELLED", "NO_SHOW"] },
 ];
+
 const PERIODS: { key: string; label: string }[] = [
   { key: "all", label: "Tất cả" },
   { key: "today", label: "Hôm nay" },
@@ -72,21 +86,123 @@ const PERIODS: { key: string; label: string }[] = [
 ];
 
 function PhanLoai({ value }: { value?: string }) {
-  if (!value) return <span className="text-[#c9a3b8]">—</span>;
+  if (!value) return <span className="text-ink-faint">Chưa phân loại</span>;
   const first = value === "Khám lần đầu";
   return (
     <span
-      className={
-        "inline-block rounded-full px-2 py-0.5 text-[10px] font-medium " +
-        (first ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
-      }
+      className={`inline-flex rounded-chip px-2 py-0.5 text-xs font-medium ${
+        first ? "bg-success-bg text-success" : "bg-warning-bg text-warning"
+      }`}
     >
       {value}
     </span>
   );
 }
 
-const CELL = "border-b border-r border-brand-100 px-2 py-1.5 align-top";
+function dateInVn(iso: string): string {
+  return new Date(new Date(iso).getTime() + 7 * 3_600_000).toISOString().slice(0, 10);
+}
+
+function patientMeta(row: DoctorApptRow): string {
+  const bits = [row.patient?.patient_code, row.patient?.phone_primary].filter(Boolean);
+  return bits.length ? bits.join(" · ") : "Chưa có dữ liệu liên hệ";
+}
+
+function QueueRow({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: DoctorApptRow;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={selected ? "true" : undefined}
+      className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+        selected
+          ? "border-brand-500 bg-surface-selected"
+          : "border-transparent bg-surface hover:bg-surface-sunken"
+      }`}
+    >
+      <span className="flex items-start gap-2.5">
+        <Monogram value={row.patient?.full_name} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-sm font-semibold text-ink">
+              {row.patient?.full_name ?? "Chưa rõ tên"}
+            </span>
+            <span className="shrink-0 text-xs tabular-nums text-ink-muted">
+              {fmtTimeOrNone(row.slot_start)}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-ink-muted">
+            {patientMeta(row)}
+          </span>
+          <span className="mt-1 flex items-center justify-between gap-2">
+            <span className="truncate text-xs text-ink-faint">
+              {row.service?.name ?? "Chưa có dịch vụ"}
+            </span>
+            {row.queue_number ? (
+              <span className="shrink-0 rounded-chip bg-surface-sunken px-1.5 py-0.5 text-[11px] font-medium text-ink-soft">
+                {row.queue_number}
+              </span>
+            ) : null}
+          </span>
+          {row.b3_ready ? (
+            <span className="mt-1 inline-flex rounded-chip bg-warning-bg px-1.5 py-0.5 text-[11px] font-medium text-warning">
+              Chờ đọc kết quả
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function SelectedPatientSummary({ row }: { row: DoctorApptRow }) {
+  return (
+    <div className="border-b border-line px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <Monogram value={row.patient?.full_name} className="size-11 text-sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-base font-semibold text-ink">
+                {row.patient?.full_name ?? "Chưa rõ tên người bệnh"}
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">{patientMeta(row)}</p>
+            </div>
+            <StatusBadge status={row.status} />
+          </div>
+          <div className="mt-3 grid gap-2 text-xs text-ink-muted sm:grid-cols-3">
+            <span>
+              <span className="block text-ink-faint">Dịch vụ</span>
+              <span className="mt-0.5 block truncate font-medium text-ink-soft">
+                {row.service?.name ?? "Chưa có dữ liệu"}
+              </span>
+            </span>
+            <span>
+              <span className="block text-ink-faint">Lịch hẹn</span>
+              <span className="mt-0.5 block font-medium text-ink-soft">
+                {dayLabel(dateInVn(row.slot_start))} · {fmtTimeOrNone(row.slot_start)}
+              </span>
+            </span>
+            <span>
+              <span className="block text-ink-faint">Số thứ tự</span>
+              <span className="mt-0.5 block font-medium text-ink-soft">
+                {row.queue_number ?? "Chưa được cấp"}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DoctorWorkBoard({
   rows,
@@ -103,256 +219,347 @@ export default function DoctorWorkBoard({
   readOnly?: boolean;
   /** Cho sửa mục I Hành chính trong hồ sơ lâm sàng. */
   canEditAdmin?: boolean;
-  /** Hiện nút "Xem tóm tắt trước khám" trong hồ sơ — chỉ BÁC SĨ bật từ server. */
+  /** Hiện nút tóm tắt trước khám — chỉ BÁC SĨ bật từ server. */
   showPreVisitBrief?: boolean;
-  /** Hiện form số đo siêu âm thai — chỉ Bác sĩ Siêu âm (server bật theo vai). */
+  /** Hiện form số đo siêu âm thai — chỉ Bác sĩ Siêu âm bật theo vai. */
   showSono?: boolean;
   vitalsOnly?: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [period, setPeriod] = useState("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [period, setPeriod] = useState("today");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [query, setQuery] = useState("");
 
-  // readOnly is used only by operational viewers. Keep the appointment board,
-  // but do not mount the clinical panel even if stale client state has an id.
+  // Operational viewers never receive the clinical form even if a stale client
+  // state still holds an appointment id.
   const open = readOnly ? null : (rows.find((a) => a.id === openId) ?? null);
 
-  // ---- Lọc theo KỲ + TRẠNG THÁI; gom theo NGÀY, trong ngày theo thứ tự khám ----
-  const vnDate = (iso: string) =>
-    new Date(new Date(iso).getTime() + 7 * 3_600_000).toISOString().slice(0, 10);
   const today = todayVn();
-  const wk = weekDates(currentWeekStartVn());
-  const nwk = weekDates(shiftWeek(currentWeekStartVn(), 1));
-  const monthStart = today.slice(0, 7) + "-01";
-  const monthEnd =
-    today.slice(0, 7) +
-    "-" +
-    String(
-      daysInMonth(Number(today.slice(5, 7)), Number(today.slice(0, 4))),
-    ).padStart(2, "0");
-  const RANGE: Record<string, [string, string] | null> = {
+  const week = weekDates(currentWeekStartVn());
+  const nextWeek = weekDates(shiftWeek(currentWeekStartVn(), 1));
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const monthEnd = `${today.slice(0, 7)}-${String(
+    daysInMonth(Number(today.slice(5, 7)), Number(today.slice(0, 4))),
+  ).padStart(2, "0")}`;
+  const ranges: Record<string, [string, string] | null> = {
     all: null,
     today: [today, today],
-    week: [wk[0], wk[6]],
-    next: [nwk[0], nwk[6]],
+    week: [week[0], week[6]],
+    next: [nextWeek[0], nextWeek[6]],
     month: [monthStart, monthEnd],
   };
-  const statusGroup = STATUS_GROUPS.find((g) => g.key === statusFilter);
-  const range = RANGE[period];
-  const filtered = rows
-    .filter((r) => {
-      const d = vnDate(r.slot_start);
-      if (range && (d < range[0] || d > range[1])) return false;
-      if (
-        statusGroup &&
-        statusGroup.statuses.length &&
-        !statusGroup.statuses.includes(r.status)
-      )
+  const range = ranges[period];
+  const statusGroup = STATUS_GROUPS.find((group) => group.key === statusFilter);
+  const normalizedQuery = query.trim().toLocaleLowerCase("vi-VN");
+  const periodRows = rows.filter((row) => {
+    const date = dateInVn(row.slot_start);
+    return !(range && (date < range[0] || date > range[1]));
+  });
+  const visible = periodRows
+    .filter((row) => {
+      if (statusGroup?.statuses.length && !statusGroup.statuses.includes(row.status)) {
         return false;
-      return true;
+      }
+      if (!normalizedQuery) return true;
+      return [
+        row.patient?.full_name,
+        row.patient?.patient_code,
+        row.queue_number,
+        row.service?.name,
+      ]
+        .filter(Boolean)
+        .some((value) => value?.toLocaleLowerCase("vi-VN").includes(normalizedQuery));
     })
     .sort((a, b) => {
-      const da = vnDate(a.slot_start);
-      const db = vnDate(b.slot_start);
-      if (da !== db) return da < db ? -1 : 1;
-      return compareQueue(a, b); // trong ngày: ƯT → số → giờ
+      const dateA = dateInVn(a.slot_start);
+      const dateB = dateInVn(b.slot_start);
+      if (dateA !== dateB) return dateA < dateB ? -1 : 1;
+      return compareQueue(a, b);
     });
+  const selected = visible.find((row) => row.id === selectedId) ?? visible[0] ?? null;
 
-  const boardEl = (
-    <div className="min-w-0 flex-1 space-y-2">
-      {/* Lọc KỲ + TRẠNG THÁI */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {PERIODS.map((p) => (
-          <button
-            key={p.key}
-            onClick={() => setPeriod(p.key)}
-            className={
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
-              (period === p.key
-                ? "bg-brand-600 text-white"
-                : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
-            }
-          >
-            {p.label}
-          </button>
-        ))}
-        <span className="px-0.5 text-line-strong">·</span>
-        {STATUS_GROUPS.map((g) => (
-          <button
-            key={g.key}
-            onClick={() => setStatusFilter(g.key)}
-            className={
-              "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors " +
-              (statusFilter === g.key
-                ? "bg-brand-800 text-white"
-                : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
-            }
-          >
-            {g.label}
-          </button>
-        ))}
-      </div>
+  const waitingCount = periodRows.filter((row) => row.status === "CHECKED_IN").length;
+  const scheduledCount = periodRows.filter((row) =>
+    ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(row.status),
+  ).length;
+  const completedCount = periodRows.filter((row) => row.status === "COMPLETED").length;
+  const b3Count = periodRows.filter((row) => row.b3_ready).length;
 
-      {/* Bảng lịch — khung kéo co dãn + cuộn (co thì cuộn, không vỡ cấu trúc). */}
-      <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[78vh] min-h-[200px] max-w-full">
-        <table className="w-full min-w-max border-collapse text-xs">
-          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[10px] font-semibold uppercase tracking-wide text-brand-800">
-            <tr>
-              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[96px]">Ngày</th>
-              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[64px]">Giờ</th>
-              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[190px]">Bệnh nhân</th>
-              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[96px]">Phân loại</th>
-              <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[110px]">Trạng thái</th>
-              <th className="border-b border-brand-100 px-2 py-1.5 min-w-[150px]">Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-xs text-ink-faint">
-                  Không có lịch trong kỳ / trạng thái đã chọn.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((a, i) => {
-                const d = vnDate(a.slot_start);
-                const newDay = i === 0 || vnDate(filtered[i - 1].slot_start) !== d;
-                const active = openId === a.id;
-                return (
-                  <tr
-                    key={a.id}
-                    className={active ? "bg-brand-100" : i % 2 ? "bg-brand-50" : "bg-white"}
-                  >
-                    <td className={`${CELL} whitespace-nowrap font-medium text-brand-800`}>
-                      {newDay ? `${dayLabel(d)} · ${fmtDayMonth(d)}` : ""}
-                    </td>
-                    <td className={`${CELL} whitespace-nowrap text-ink`}>
-                      {a.queue_number ? (
-                        <span className="mr-1 rounded-full bg-brand-100 px-1.5 text-[10px] font-medium text-brand-800">
-                          {a.queue_number}
-                        </span>
-                      ) : null}
-                      {fmtTimeOrNone(a.slot_start)}
-                    </td>
-                    <td className={`${CELL}`}>
-                      {readOnly ? (
-                        <span className="flex items-start gap-1.5 text-left">
-                          <span>
-                            <span className="block font-medium text-ink">
-                              {a.patient?.full_name ?? "—"}
-                            </span>
-                            <span className="block font-mono text-[10px] text-ink-muted">
-                              {a.patient?.patient_code}
-                              {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
-                              {a.service?.name ? ` · ${a.service.name}` : ""}
-                            </span>
-                          </span>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setOpenId(a.id)}
-                          className="flex items-start gap-1.5 text-left"
-                        >
-                          <FileText size={13} className="mt-0.5 shrink-0 text-brand-600" />
-                          <span>
-                            <span className="block font-medium text-ink hover:text-brand-600">
-                              {a.patient?.full_name ?? "—"}
-                            </span>
-                            <span className="block font-mono text-[10px] text-ink-muted">
-                              {a.patient?.patient_code}
-                              {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
-                              {a.service?.name ? ` · ${a.service.name}` : ""}
-                            </span>
-                          </span>
-                        </button>
-                      )}
-                    </td>
-                    <td className={CELL}>
-                      <div className="flex flex-col items-start gap-1">
-                        {a.b3_ready && (
-                          <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10px] font-medium text-warning">
-                            🔔 Chờ đọc KQ
-                          </span>
-                        )}
-                        <PhanLoai value={a.phan_loai} />
-                      </div>
-                    </td>
-                    <td className={CELL}>
-                      <StatusBadge status={a.status} />
-                    </td>
-                    <td className={`${CELL} whitespace-nowrap`}>
-                      {readOnly ? (
-                        <span className="text-[11px] text-ink-faint">
-                          Chỉ xem lịch
-                        </span>
-                      ) : a.status === "CHECKED_IN" ? (
-                        <button
-                          onClick={() => setOpenId(a.id)}
-                          className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[#7c3aed] px-2.5 text-xs font-semibold text-white hover:bg-[#6d28d9]"
-                        >
-                          Mở hồ sơ → khám
-                        </button>
-                      ) : a.status === "SCHEDULED" ||
-                        a.status === "CSKH_CONFIRMED" ||
-                        a.status === "CONFIRMED" ? (
-                        <span className="text-[11px] text-ink-faint">Chờ lễ tân check-in</span>
-                      ) : a.status === "COMPLETED" ? (
-                        <a
-                          href={`/print/${a.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex min-h-8 items-center gap-1 rounded-md border border-success-bg bg-white px-2.5 text-xs font-semibold text-success hover:bg-success-bg"
-                        >
-                          <Printer size={12} /> In phiếu
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-ink-faint">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  if (open) {
+    return (
+      <section className="rounded-card border border-line bg-surface shadow-panel" aria-label="Hồ sơ lâm sàng đang mở">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">Hồ sơ lâm sàng</p>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {open.patient?.full_name ?? "Người bệnh chưa rõ tên"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpenId(null)}
+            className="rounded-control border border-line bg-surface px-3 py-2 text-xs font-medium text-ink-soft hover:bg-surface-sunken"
+          >
+            Quay lại hàng đợi
+          </button>
+        </div>
+        <ClinicalRecordForm
+          key={open.id}
+          appt={open}
+          staffId={staffId}
+          fill
+          readOnly={readOnly}
+          vitalsOnly={vitalsOnly}
+          canEditAdmin={canEditAdmin}
+          showPreVisitBrief={showPreVisitBrief}
+          showSono={showSono}
+          enableVisitPager
+          onClose={() => setOpenId(null)}
+        />
+      </section>
+    );
+  }
 
   return (
-    <>
-      {open ? (
-        <>
-          <p className="mb-2 text-[11px] text-brand-300">
-            ↔ Kéo thanh hồng ở GIỮA 2 bảng để chỉnh độ rộng (kéo trái: bảng trái
-            co, hồ sơ rộng ra).
-          </p>
-          <SplitPane
-            className="md:h-[78vh]"
-            initialLeftPct={52}
-            left={boardEl}
-            right={
-              <ClinicalRecordForm
-                key={open.id}
-                appt={open}
-                staffId={staffId}
-                fill
-                readOnly={readOnly}
-                vitalsOnly={vitalsOnly}
-                canEditAdmin={canEditAdmin}
-                showPreVisitBrief={showPreVisitBrief}
-                showSono={showSono}
-                /* Bác sĩ / TKYK (+ Lễ tân chỉ-đọc): pager ◀ ▶ xem lượt khám
-                   trước/sau của BN ngay trong phiếu (chỉ đọc). */
-                enableVisitPager
-                onClose={() => setOpenId(null)}
+    <div className="space-y-4">
+      <WorkspaceMetricRow>
+        <WorkspaceMetric
+          label="Lịch trong kỳ"
+          value={visible.length}
+          icon={<CalendarDays className="size-5" />}
+          tone="brand"
+          detail={PERIODS.find((item) => item.key === period)?.label}
+        />
+        <WorkspaceMetric
+          label="Chờ lễ tân / bác sĩ"
+          value={scheduledCount}
+          icon={<UsersRound className="size-5" />}
+          tone="warning"
+        />
+        <WorkspaceMetric
+          label="Đã check-in"
+          value={waitingCount}
+          icon={<Stethoscope className="size-5" />}
+          tone="brand"
+        />
+        <WorkspaceMetric
+          label="Chờ đọc kết quả"
+          value={b3Count}
+          icon={<FlaskConical className="size-5" />}
+          tone={b3Count ? "warning" : "neutral"}
+          detail={`${completedCount} lượt đã khám xong`}
+        />
+      </WorkspaceMetricRow>
+
+      <div className={workspaceStyles.workspace}>
+      <div className={`${workspaceStyles.threeColumn} ${workspaceStyles.doctor}`}>
+        <aside
+          aria-label="Hàng đợi khám bệnh"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title="Hàng đợi hôm nay" detail={`${visible.length} lượt theo bộ lọc`} />
+          <div className="space-y-3 border-b border-line p-3">
+            <label className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+              <Search className="size-4 shrink-0" aria-hidden="true" />
+              <span className="sr-only">Tìm bệnh nhân hoặc mã hồ sơ</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Tìm bệnh nhân, mã hồ sơ"
+                className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
               />
-            }
+            </label>
+            <div className="flex flex-wrap gap-1.5" aria-label="Lọc kỳ khám">
+              {PERIODS.map((item) => (
+                <button
+                  type="button"
+                  key={item.key}
+                  onClick={() => setPeriod(item.key)}
+                  aria-pressed={period === item.key}
+                  className={`rounded-chip px-2 py-1 text-xs font-medium transition-colors ${
+                    period === item.key
+                      ? "bg-brand-600 text-white"
+                      : "bg-surface-sunken text-ink-muted hover:bg-brand-50 hover:text-brand-800"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="max-h-[620px] overflow-y-auto">
+            {visible.length ? (
+              visible.map((row) => (
+                <QueueRow
+                  key={row.id}
+                  row={row}
+                  selected={row.id === selected?.id}
+                  onSelect={() => setSelectedId(row.id)}
+                />
+              ))
+            ) : (
+              <EmptyWorkspace
+                title="Không có lượt phù hợp"
+                detail="Thử đổi kỳ, trạng thái hoặc từ khóa tìm kiếm."
+                icon={<UsersRound className="size-6" />}
+              />
+            )}
+          </div>
+        </aside>
+
+        <section
+          aria-label="Lịch khám và hồ sơ"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading
+            title="Lịch khám và hồ sơ"
+            detail="Chọn người bệnh để xem thông tin có sẵn trước khi mở hồ sơ lâm sàng."
           />
-        </>
-      ) : (
-        boardEl
-      )}
-    </>
+          {selected ? (
+            <>
+              <SelectedPatientSummary row={selected} />
+              <div className="border-b border-line bg-surface-muted px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <ClipboardList className="mt-0.5 size-4 shrink-0 text-brand-600" aria-hidden="true" />
+                  <div>
+                    <p className="text-xs font-medium text-ink-soft">Hồ sơ lâm sàng</p>
+                    <p className="mt-0.5 text-xs leading-5 text-ink-muted">
+                      Nội dung khám, sinh hiệu và chỉ định được mở trong hồ sơ chuyên sâu
+                      để giữ đúng nguồn dữ liệu và quyền theo vai trò.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-4">
+              <EmptyWorkspace
+                title="Chưa có người bệnh được chọn"
+                detail="Hàng đợi chưa có lượt khám phù hợp với bộ lọc hiện tại."
+                icon={<Stethoscope className="size-7" />}
+              />
+            </div>
+          )}
+
+          <div className="max-h-[430px] overflow-auto">
+            <table className="w-full min-w-[600px] border-collapse text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-surface-muted text-ink-muted">
+                <tr>
+                  <th className="border-b border-line px-3 py-2 font-semibold">Ngày</th>
+                  <th className="border-b border-line px-3 py-2 font-semibold">Giờ</th>
+                  <th className="border-b border-line px-3 py-2 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-line px-3 py-2 font-semibold">Phân loại</th>
+                  <th className="border-b border-line px-3 py-2 font-semibold">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={row.id === selected?.id ? "bg-surface-selected" : "hover:bg-surface-muted"}
+                  >
+                    <td className="border-b border-line px-3 py-2.5 text-ink-soft">
+                      {dayLabel(dateInVn(row.slot_start))} · {fmtDayMonth(dateInVn(row.slot_start))}
+                    </td>
+                    <td className="border-b border-line px-3 py-2.5 tabular-nums text-ink-soft">
+                      {fmtTimeOrNone(row.slot_start)}
+                    </td>
+                    <td className="border-b border-line px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(row.id)}
+                        className="text-left font-medium text-ink hover:text-brand-700"
+                      >
+                        {row.patient?.full_name ?? "Chưa rõ tên"}
+                      </button>
+                      <span className="mt-0.5 block text-ink-faint">{row.service?.name ?? "Chưa có dịch vụ"}</span>
+                    </td>
+                    <td className="border-b border-line px-3 py-2.5"><PhanLoai value={row.phan_loai} /></td>
+                    <td className="border-b border-line px-3 py-2.5"><StatusBadge status={row.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside
+          aria-label="Điều phối lượt khám"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title="Việc còn thiếu & điều phối" detail="Thông tin hiển thị từ lịch hẹn hiện có." />
+          {selected ? (
+            <div className="space-y-4 p-3.5">
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Lượt khám hiện tại</h3>
+                <dl className="space-y-2 rounded-control border border-line bg-surface-muted p-3 text-xs">
+                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Số thứ tự</dt><dd className="font-medium text-ink">{selected.queue_number ?? "Chưa cấp"}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Đã check-in</dt><dd className="font-medium text-ink">{selected.checked_in_at ? fmtTimeOrNone(selected.checked_in_at) : "Chưa có mốc"}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-ink-muted">Kết quả cận lâm sàng</dt><dd className="font-medium text-ink">{selected.b3_ready ? "Đã sẵn sàng đọc" : "Chưa có tín hiệu"}</dd></div>
+                </dl>
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Thao tác</h3>
+                {readOnly ? (
+                  <p className="rounded-control border border-dashed border-line-strong bg-surface-muted px-3 py-3 text-xs leading-5 text-ink-muted">
+                    Vai trò hiện tại chỉ được xem lịch, không mở hồ sơ lâm sàng.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(selected.id)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+                  >
+                    <FileText className="size-4" /> Mở hồ sơ lâm sàng
+                  </button>
+                )}
+                {selected.status === "COMPLETED" ? (
+                  <a
+                    href={`/print/${selected.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-control border border-success bg-surface px-3 py-2.5 text-sm font-semibold text-success hover:bg-success-bg"
+                  >
+                    <Printer className="size-4" /> In phiếu khám
+                  </a>
+                ) : null}
+              </section>
+              {showSono ? (
+                <p className="rounded-control border border-brand-100 bg-brand-50 px-3 py-2.5 text-xs leading-5 text-brand-800">
+                  Vai trò này có biểu mẫu số đo siêu âm trong hồ sơ lâm sàng.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="p-3.5">
+              <EmptyWorkspace
+                title="Chưa có lượt để điều phối"
+                detail="Chọn một người bệnh từ hàng đợi để xem tình trạng thực tế."
+              />
+            </div>
+          )}
+        </aside>
+      </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5" aria-label="Lọc trạng thái lịch khám">
+        {STATUS_GROUPS.map((group) => (
+          <button
+            type="button"
+            key={group.key}
+            onClick={() => setStatusFilter(group.key)}
+            aria-pressed={statusFilter === group.key}
+            className={`rounded-chip border px-2.5 py-1 text-xs font-medium transition-colors ${
+              statusFilter === group.key
+                ? "border-brand-600 bg-brand-50 text-brand-800"
+                : "border-line bg-surface text-ink-muted hover:bg-surface-sunken"
+            }`}
+          >
+            {group.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

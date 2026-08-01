@@ -135,7 +135,7 @@ export default function AppointmentEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 p-4"
       onClick={onClose}
       role="presentation"
     >
@@ -144,7 +144,7 @@ export default function AppointmentEditModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="appointment-edit-title"
-        className="my-8 w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl"
+        className="my-8 w-full max-w-2xl rounded-card bg-surface p-5 shadow-panel"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={keepFocusInside}
       >
@@ -192,7 +192,7 @@ export default function AppointmentEditModal({
               type="button"
               onClick={() => setShowCancel((v) => !v)}
               disabled={busy}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#fecaca] px-4 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-50 sm:min-h-0 sm:py-2"
+              className="inline-flex min-h-11 items-center justify-center rounded-control border border-danger px-4 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-50 sm:min-h-0 sm:py-2"
             >
               Hủy lịch hẹn
             </button>
@@ -200,7 +200,7 @@ export default function AppointmentEditModal({
         />
 
         {showCancel && (
-          <div className="mt-3 space-y-2 rounded-lg border border-[#fecaca] bg-[#fff7f7] p-3">
+          <div className="mt-3 space-y-2 rounded-control border border-danger bg-danger-bg p-3">
             <label htmlFor="appointment-cancel-reason" className={LABEL}>
               Lý do hủy (tuỳ chọn)
             </label>
@@ -216,14 +216,14 @@ export default function AppointmentEditModal({
                 type="button"
                 onClick={doCancel}
                 disabled={busy}
-                className="min-h-10 rounded-lg bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
+                className="min-h-10 rounded-control bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
               >
                 {busy ? "Đang hủy…" : "Xác nhận hủy lịch"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCancel(false)}
-                className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
+                className="min-h-10 rounded-control border border-line bg-surface px-4 text-sm text-ink-soft hover:bg-surface-sunken"
               >
                 Thôi
               </button>

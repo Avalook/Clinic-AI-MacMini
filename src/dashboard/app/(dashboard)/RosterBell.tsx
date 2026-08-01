@@ -58,7 +58,7 @@ export default function RosterBell() {
                       className={
                         "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full " +
                         (n.approved
-                          ? "bg-success-bg text-[#166534]"
+                          ? "bg-success-bg text-success"
                           : "bg-danger-bg text-danger")
                       }
                     >
@@ -87,14 +87,14 @@ export default function RosterBell() {
                 "rounded-xl border p-3 shadow-lg " +
                 (t.approved
                   ? "border-success-bg bg-success-bg"
-                  : "border-[#fecaca] bg-danger-bg")
+                  : "border-danger bg-danger-bg")
               }
             >
               <div className="flex items-start justify-between gap-2">
                 <p
                   className={
                     "text-sm font-semibold " +
-                    (t.approved ? "text-[#166534]" : "text-danger")
+                    (t.approved ? "text-success" : "text-danger")
                   }
                 >
                   {t.title}

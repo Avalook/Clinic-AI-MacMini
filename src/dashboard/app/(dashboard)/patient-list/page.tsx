@@ -6,6 +6,7 @@
 // độc lập để không thể bypass bằng cách gọi API trực tiếp.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { Activity, CalendarClock, RotateCcw, UsersRound } from "lucide-react";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
 import {
   canEditPatient,
@@ -142,14 +143,26 @@ export default async function PatientListPage() {
       }),
     )
     .sort((a, b) => (a.latest < b.latest ? 1 : -1));
+  const activeVisits = rows.filter((row) =>
+    ["CHECKED_IN", "IN_PROGRESS"].includes(row.appt.status),
+  ).length;
+  const firstVisits = rows.filter((row) => row.phan_loai === "Khám lần đầu").length;
+  const returnVisits = rows.length - firstVisits;
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">
-          Danh sách bệnh nhân
-        </h1>
+    <div className="mx-auto max-w-[1540px] space-y-4">
+      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Hồ sơ & hành trình</p>
+        <h1 className="mt-1 text-xl font-semibold text-ink">Danh sách bệnh nhân</h1>
+        <p className="mt-1 text-sm text-ink-muted">Tra cứu hồ sơ hành chính và lượt hẹn gần nhất của người bệnh.</p>
       </header>
+
+      <section aria-label="Tổng quan danh sách bệnh nhân" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard icon={<UsersRound size={17} />} label="Hồ sơ trong danh sách" value={rows.length} tone="brand" />
+        <SummaryCard icon={<Activity size={17} />} label="Có lượt đang mở" value={activeVisits} tone="success" />
+        <SummaryCard icon={<CalendarClock size={17} />} label="Khám lần đầu" value={firstVisits} tone="warning" />
+        <SummaryCard icon={<RotateCcw size={17} />} label="Tái khám" value={returnVisits} tone="brand" />
+      </section>
 
       {error ? (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
@@ -175,5 +188,32 @@ export default async function PatientListPage() {
         />
       )}
     </div>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone: "brand" | "success" | "warning";
+}) {
+  const tones = {
+    brand: "bg-brand-50 text-brand-700",
+    success: "bg-success-bg text-success",
+    warning: "bg-warning-bg text-warning",
+  };
+  return (
+    <article className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-card">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-control ${tones[tone]}`}>{icon}</span>
+      <div>
+        <p className="text-xs text-ink-muted">{label}</p>
+        <p className="mt-0.5 text-xl font-semibold tabular-nums text-ink">{value}</p>
+      </div>
+    </article>
   );
 }

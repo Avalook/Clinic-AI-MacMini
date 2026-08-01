@@ -43,9 +43,12 @@ export default async function EpisodesPage() {
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <h1 className="text-lg font-semibold text-ink">Đóng đợt khám</h1>
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
+          CSKH · kết thúc theo dõi
+        </p>
+        <h1 className="mt-1 text-xl font-semibold text-ink">Đóng đợt khám</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Bác sĩ đã khám xong mà chưa hẹn lần sau. Xác nhận giúp: đợt đã{" "}
           <b>kết thúc</b> (đóng) hay bệnh nhân còn <b>theo dõi tiếp</b> (để mở).

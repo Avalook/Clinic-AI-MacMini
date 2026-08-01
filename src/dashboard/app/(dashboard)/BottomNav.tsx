@@ -3,7 +3,7 @@
 // Mobile bottom tab bar (thumb-reach navigation, like a native app). Shows the
 // first few role-visible destinations + a "Menu" button that opens the full
 // drawer (secondary items, role switch, logout). Hidden on ≥md, where the
-// sidebar takes over. The active tab is highlighted in the brand rose.
+// sidebar takes over. The active tab uses the shared brand teal token.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,7 +35,7 @@ export default function BottomNav({
   return (
     <nav
       aria-label="Điều hướng"
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.06)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-white pb-[env(safe-area-inset-bottom)] shadow-panel md:hidden"
     >
       {tabs.map((item) => {
         const { href, icon: Icon } = item;

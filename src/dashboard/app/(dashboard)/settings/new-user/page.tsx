@@ -59,18 +59,18 @@ export default async function NewUserPage() {
   const hasServiceKey = hasServiceRoleKey();
 
   return (
-    <div className="space-y-4">
+    <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       <header>
-        <h1 className="text-xl font-semibold text-ink">
+        <h1 className="text-xl font-semibold text-ink lg:text-2xl">
           Thêm tài khoản đăng nhập
         </h1>
-        <p className="text-sm text-ink-muted">
+        <p className="mt-1 text-sm text-ink-muted">
           Tạo Supabase Auth user và link với một nhân viên hiện có.
         </p>
       </header>
 
       {!hasServiceKey && (
-        <div className="rounded-md bg-warning-bg px-3 py-2 text-sm text-warning">
+        <div className="rounded-card border border-warning bg-warning-bg px-4 py-3 text-sm text-warning">
           ⚠️ <code className="text-xs font-mono">{SERVICE_ROLE_ENV}</code>{" "}
           chưa được cấu hình trên server. Form bên dưới sẽ trả lỗi 503 đến
           khi key được thêm vào <code className="text-xs font-mono">.env</code>{" "}
@@ -80,13 +80,13 @@ export default async function NewUserPage() {
       )}
 
       {error && (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+        <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
           {error.message}
         </div>
       )}
 
       {unlinked.length === 0 ? (
-        <div className="rounded-md border border-line bg-white px-4 py-6 text-sm text-ink-muted">
+        <div className="rounded-card border border-line bg-surface px-4 py-8 text-sm text-ink-muted shadow-card">
           Mọi nhân viên active đã được link với tài khoản. Để link thêm,
           tạo staff mới trong Notion + chạy{" "}
           <code className="text-xs font-mono">
@@ -97,6 +97,6 @@ export default async function NewUserPage() {
       ) : (
         <NewUserForm staffOptions={options} />
       )}
-    </div>
+    </main>
   );
 }

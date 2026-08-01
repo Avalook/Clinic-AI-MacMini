@@ -380,21 +380,30 @@ export default async function HomePage({
     return { date, items };
   });
 
+  const homeTitle = isReception ? "Tổng quan tiếp nhận" : greet(role, staff);
+  const homeSubtitle = isReception
+    ? "Theo dõi lịch hẹn, tình trạng buổi khám và lịch trực trong cùng một không gian."
+    : `Hôm nay · ${fmtDate(new Date())}`;
+
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1540px] space-y-5">
       <RosterBell />
-      <header>
-        <h1 className="text-xl font-semibold text-ink">
-          {greet(role, staff)}
-        </h1>
-        <p className="text-sm text-ink-muted">Hôm nay · {fmtDate(new Date())}</p>
+      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+          {isReception ? "Lễ tân" : "Không gian làm việc"}
+        </p>
+        <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>
+        <p className="mt-1 text-sm text-ink-muted">{homeSubtitle}</p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <section
+        aria-label={isReception ? "Tổng quan tiếp nhận" : "Tổng quan ca làm việc"}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+      >
         {cards.map((c) => (
           <StatCard key={c.label} label={c.label} value={c.value} />
         ))}
-      </div>
+      </section>
 
       {/* Check-in bệnh nhân — TRÊN Lịch hẹn khám (ĐD/Lễ tân/Quản lý).
           Bấm mở danh sách ngay dưới nút; Lịch hẹn khám tự đẩy xuống. */}
@@ -409,7 +418,7 @@ export default async function HomePage({
       {/* Trạng thái BN buổi khám hôm nay — CHỈ Lễ tân, READ-ONLY (theo visit.status).
           Thanh tiến trình kiểu Grab + tự cập nhật liên tục (realtime visit). */}
       {isReception && (
-        <section>
+        <section aria-label="Trạng thái buổi khám hôm nay" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-ink">
               Trạng thái BN buổi khám hôm nay
@@ -421,7 +430,7 @@ export default async function HomePage({
       )}
 
       {/* Lịch hẹn khám — nút tuần RIÊNG (weekAppt), KHÔNG đụng Lịch làm việc. */}
-      <section>
+      <section aria-label="Lịch hẹn khám" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-ink">
             Lịch hẹn khám (check đặt lịch)
@@ -443,7 +452,7 @@ export default async function HomePage({
       </section>
 
       {/* Lịch làm việc — nút tuần RIÊNG (weekRoster), KHÔNG đụng Lịch hẹn khám. */}
-      <section>
+      <section aria-label="Lịch làm việc" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-ink">Lịch làm việc</h2>
           <WeekNav

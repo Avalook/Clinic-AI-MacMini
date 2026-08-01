@@ -112,13 +112,13 @@ export default function AccountActions({
             onChange={(e) => setPassword(e.target.value)}
             placeholder={`Mật khẩu mới (≥${MIN_PASSWORD})`}
             autoComplete="new-password"
-            className="w-full rounded-md border border-line px-2 py-2 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:w-48 sm:py-1 sm:text-xs"
+            className="w-full rounded-control border border-line bg-surface px-2 py-2 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 sm:w-48 sm:py-1 sm:text-xs"
           />
           <button
             type="button"
             disabled={busy}
             onClick={submitReset}
-            className="rounded bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            className="rounded-chip bg-brand-600 px-2 py-1 text-xs font-medium text-surface hover:bg-brand-700 disabled:opacity-50"
           >
             {busy ? "..." : "Lưu"}
           </button>
@@ -139,7 +139,7 @@ export default function AccountActions({
             type="button"
             disabled={busy}
             onClick={submitUnlink}
-            className="rounded bg-danger px-2 py-1 text-xs font-medium text-white hover:bg-danger disabled:opacity-50"
+            className="rounded-chip bg-danger px-2 py-1 text-xs font-medium text-surface disabled:opacity-50"
           >
             {busy ? "..." : "Xác nhận gỡ"}
           </button>

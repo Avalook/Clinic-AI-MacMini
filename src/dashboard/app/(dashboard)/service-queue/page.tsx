@@ -39,7 +39,7 @@ export default async function ServiceQueuePage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-ink">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
           Hàng đợi dịch vụ / thủ thuật
         </h1>
         <p className="text-sm text-ink-muted">

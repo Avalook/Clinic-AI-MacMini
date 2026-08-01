@@ -69,18 +69,18 @@ export default async function ScheduleEditPage({
     .filter((s): s is NonNullable<typeof s> => s !== null);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <main className="page-in mx-auto min-w-0 max-w-5xl space-y-5 p-4 lg:p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Sửa lịch làm việc</h1>
-          <p className="text-sm text-ink-muted">
+          <h1 className="text-xl font-semibold text-ink lg:text-2xl">Sửa lịch làm việc</h1>
+          <p className="mt-1 text-sm text-ink-muted">
             Tuần {fmtDayMonth(dates[0])} – {fmtDayMonth(dates[6])}. Thêm từng phân
             công (ngày · vị trí · nhân viên).
           </p>
         </div>
         <Link
           href={`/schedule?week=${week}`}
-          className="rounded-lg border border-line px-3.5 py-1.5 text-sm text-ink-soft hover:bg-surface-sunken"
+          className="rounded-control border border-line bg-surface px-3.5 py-2 text-sm text-ink-soft shadow-card hover:bg-surface-sunken"
         >
           ← Xem lịch
         </Link>
@@ -92,6 +92,6 @@ export default async function ScheduleEditPage({
         staff={staff}
         initialRows={rows as (EditorRow & { shift: Shift })[]}
       />
-    </div>
+    </main>
   );
 }

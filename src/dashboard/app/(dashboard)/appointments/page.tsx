@@ -1,28 +1,23 @@
-// Appointments page — two Kanban boards ("Hôm nay" / "Sắp tới"), each with
-// three status columns: Chờ xác nhận → Đã xác nhận → Đã khám xong.
-// Read-only data; CCCD is never shown (D-identity gate).
-// PER-DOCTOR SCOPE: ?scope=me narrows to the logged-in doctor's appointments.
-// UPCOMING RANGE: ?range=day|week|month limits the "Sắp tới" board window.
+// Appointment tracking workspace. The page only reads the caller-visible rows;
+// capacity and temporary holds are deliberately not represented until FastAPI
+// exposes their contract.
 
-import Link from "next/link";
-import AppointmentsKanban, {
-  KANBAN_SELECT,
-  type KanbanRow,
-} from "./AppointmentsKanban";
-import AppointmentsRealtime from "./AppointmentsRealtime";
-import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
-  getClinicRole,
   getActiveStaff,
+  getClinicRole,
   requireNavAccess,
 } from "../../../lib/clinic-session";
-import { isDoctorRole } from "../../../lib/roles";
 import { vnTodayRangeUtc } from "../../../lib/datetime";
+import { isDoctorRole } from "../../../lib/roles";
+import { getSupabaseServer } from "../../../lib/supabase-server";
+import AppointmentsRealtime from "./AppointmentsRealtime";
+import AppointmentsWorkspace, {
+  type AppointmentRange,
+} from "./AppointmentsWorkspace";
+import { KANBAN_SELECT, type KanbanRow } from "./AppointmentsKanban";
 
 export const dynamic = "force-dynamic";
 
-// Happy-path workflow statuses (DOCTOR_DECLINED is surfaced separately via the
-// reassign notice; CANCELLED / NO_SHOW live in patient history).
 const BOARD_STATUSES = [
   "SCHEDULED",
   "CSKH_CONFIRMED",
@@ -32,12 +27,10 @@ const BOARD_STATUSES = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-type Range = "day" | "week" | "month";
-const RANGE_DAYS: Record<Range, number> = { day: 1, week: 7, month: 30 };
-const RANGE_LABEL: Record<Range, string> = {
-  day: "Ngày",
-  week: "Tuần",
-  month: "Tháng",
+const RANGE_DAYS: Record<AppointmentRange, number> = {
+  day: 1,
+  week: 7,
+  month: 30,
 };
 
 export default async function AppointmentsPage({
@@ -47,121 +40,74 @@ export default async function AppointmentsPage({
 }) {
   await requireNavAccess("/appointments");
   const { range: rawRange } = await searchParams;
+  const range: AppointmentRange =
+    rawRange === "day" || rawRange === "month" ? rawRange : "week";
 
   const role = await getClinicRole();
   const staff = await getActiveStaff();
-  // Bác sĩ CHỈ xem lịch của mình (không có lựa chọn "Tất cả"). CSKH/Quản lý
-  // điều phối nên xem toàn bộ.
   const isDoctor = isDoctorRole(role);
-  const meId = isDoctor && staff ? staff.id : null;
-
-  const range: Range =
-    rawRange === "day" || rawRange === "month" ? rawRange : "week";
-
+  const doctorId = isDoctor && staff ? staff.id : null;
   const supabase = await getSupabaseServer();
   const { startUtc: dayStart, endUtc: dayEnd } = vnTodayRangeUtc();
-  // Upcoming window: from end-of-today out to N days, per the range filter.
   const upcomingEnd = new Date(
     new Date(dayEnd).getTime() + RANGE_DAYS[range] * DAY_MS,
   ).toISOString();
 
-  // Today + upcoming fetched in parallel (cheap now the function runs in the
-  // same region as Supabase).
-  const buildQuery = (which: "today" | "upcoming") => {
-    let q = supabase
+  const buildQuery = (window: "today" | "upcoming") => {
+    let query = supabase
       .from("appointment")
       .select(KANBAN_SELECT)
       .in("status", BOARD_STATUSES);
-    q =
-      which === "today"
-        ? q.gte("slot_start", dayStart).lt("slot_start", dayEnd)
-        : q.gte("slot_start", dayEnd).lt("slot_start", upcomingEnd);
-    q = q.order("slot_start", { ascending: true }).limit(300);
-    if (meId) q = q.eq("doctor_id", meId);
-    return q;
+    query =
+      window === "today"
+        ? query.gte("slot_start", dayStart).lt("slot_start", dayEnd)
+        : query.gte("slot_start", dayEnd).lt("slot_start", upcomingEnd);
+    query = query.order("slot_start", { ascending: true }).limit(300);
+    return doctorId ? query.eq("doctor_id", doctorId) : query;
   };
 
   const [todayRes, upcomingRes] = await Promise.all([
     buildQuery("today"),
     buildQuery("upcoming"),
   ]);
-
   const today = (todayRes.data as KanbanRow[] | null) ?? [];
   const upcoming = (upcomingRes.data as KanbanRow[] | null) ?? [];
   const error = todayRes.error ?? upcomingRes.error;
 
-  const rangeHref = (r: Range): string =>
-    r === "week" ? "/appointments" : `/appointments?range=${r}`;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-ink">
+          <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
+            Điều phối lịch hẹn
+          </p>
+          <h1 className="mt-1 text-xl font-semibold text-ink">
             Lịch hẹn{isDoctor && staff ? ` của ${staff.full_name}` : ""}
           </h1>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
             <p className="text-sm text-ink-muted">
               {isDoctor
                 ? "Chỉ hiển thị lịch hẹn của bạn."
-                : "Bảng theo dõi xác nhận lịch. Read-only."}
+                : "Theo dõi lịch hẹn từ dữ liệu hiện có."}
             </p>
             <AppointmentsRealtime />
           </div>
         </div>
       </header>
 
-      {error && (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+      {error ? (
+        <div className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
           {error.message}
         </div>
-      )}
+      ) : null}
 
-      <AppointmentsKanban
-        title="Hôm nay"
-        rows={today}
+      <AppointmentsWorkspace
+        today={today}
+        upcoming={upcoming}
+        range={range}
         canAct={isDoctor}
         staffId={staff?.id ?? null}
       />
-
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-ink">
-            Sắp tới
-            <span className="ml-2 text-sm font-normal text-ink-muted">
-              ({upcoming.length} · {RANGE_DAYS[range]} ngày tới)
-            </span>
-          </h2>
-          {/* Range filter: Ngày / Tuần / Tháng. */}
-          <div
-            className="flex gap-1 rounded-lg bg-surface-sunken p-1"
-            role="group"
-            aria-label="Khoảng thời gian"
-          >
-            {(["day", "week", "month"] as Range[]).map((r) => (
-              <Link
-                key={r}
-                href={rangeHref(r)}
-                className={
-                  r === range
-                    ? "rounded-md bg-white px-3 py-1 text-xs font-medium text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                    : "rounded-md px-3 py-1 text-xs text-ink-muted hover:text-ink"
-                }
-              >
-                {RANGE_LABEL[r]}
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <AppointmentsKanban
-          title=""
-          rows={upcoming}
-          withDate
-          canAct={isDoctor}
-          staffId={staff?.id ?? null}
-        />
-      </div>
     </div>
   );
 }

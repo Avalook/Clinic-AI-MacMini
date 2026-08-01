@@ -7,6 +7,7 @@
  */
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
+import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchWorklist } from "@/lib/worklist-server";
 
 import DoctorBoard from "./DoctorBoard";
@@ -15,6 +16,7 @@ export const metadata = { title: "Bàn khám · ClinicAI" };
 export const dynamic = "force-dynamic";
 
 export default async function DoctorBoardPage() {
+  await requireNavAccess("/doctor/board");
   const result = await fetchWorklist("khu_bac_si");
 
   const today = new Date().toLocaleDateString("vi-VN", {

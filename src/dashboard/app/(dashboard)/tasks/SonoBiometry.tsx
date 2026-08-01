@@ -150,7 +150,7 @@ export default function SonoBiometry({
         <button
           onClick={start}
           disabled={busy !== null}
-          className="min-h-9 rounded-md bg-[#7c3aed] px-3 text-xs font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-50"
+          className="min-h-9 rounded-control bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           Bắt đầu siêu âm
         </button>
@@ -164,7 +164,7 @@ export default function SonoBiometry({
         <button
           onClick={toggleAbnormal}
           disabled={busy !== null}
-          className="min-h-9 rounded-md border border-[#fca5a5] bg-white px-3 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
+          className="min-h-9 rounded-control border border-danger bg-surface px-3 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
         >
           {isAbnormal ? "Bỏ đánh dấu bất thường" : "Đánh dấu bất thường"}
         </button>

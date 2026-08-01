@@ -1,15 +1,30 @@
 "use client";
 
-// "Hàng đợi xét nghiệm" cho ĐD/KTV. XN Dr4Women chủ yếu gửi lab ngoài → kết quả
-// về dạng PDF. Mỗi việc: BÁC SĨ đã chỉ định (PENDING) → ĐD đính TÓM TẮT + LINK
-// phiếu (Drive/lab) + nhà cung cấp → "Lưu kết quả". Cột phải/dưới = đã trả.
+// Hàng đợi xét nghiệm: dữ liệu vẫn là lab_result qua RLS và chỉ lưu qua
+// /api/lab-result. Bố cục ba vùng theo workspace lâm sàng không tạo thêm KQ giả.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, FlaskConical } from "lucide-react";
+import {
+  CircleAlert,
+  ExternalLink,
+  FileCheck2,
+  FileText,
+  FlaskConical,
+  Search,
+} from "lucide-react";
+
 import { fmtDateTimeOrDate } from "../../../lib/datetime";
-import { INPUT, LABEL } from "../form-ui";
 import { toHref } from "../../../lib/url";
+import { INPUT, LABEL } from "../form-ui";
+import {
+  EmptyWorkspace,
+  Monogram,
+  PanelHeading,
+  WorkspaceMetric,
+  WorkspaceMetricRow,
+} from "../tasks/WorkspacePrimitives";
+import workspaceStyles from "../tasks/WorkspacePrimitives.module.css";
 
 export interface LabRow {
   lab_result_id: string;
@@ -26,7 +41,11 @@ export interface LabRow {
   } | null;
 }
 
-function PendingCard({ row }: { row: LabRow }) {
+function patientLabel(row: LabRow): string {
+  return row.patient?.full_name ?? "Chưa gắn người bệnh";
+}
+
+function LabResultEditor({ row }: { row: LabRow }) {
   const router = useRouter();
   const [summary, setSummary] = useState("");
   const [link, setLink] = useState("");
@@ -41,76 +60,87 @@ function PendingCard({ row }: { row: LabRow }) {
     }
     setBusy(true);
     setErr(null);
-    const res = await fetch("/api/lab-result", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lab_result_id: row.lab_result_id,
-        result_value: summary,
-        result_link: link,
-        lab_provider: provider,
-      }),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setErr((await res.json()).error ?? "Lỗi lưu kết quả.");
-      return;
+    try {
+      const response = await fetch("/api/lab-result", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lab_result_id: row.lab_result_id,
+          result_value: summary,
+          result_link: link,
+          lab_provider: provider,
+        }),
+      });
+      if (!response.ok) {
+        setErr((await response.json().catch(() => ({})))?.error ?? "Lỗi lưu kết quả.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setErr("Không kết nối được máy chủ. Vui lòng thử lại.");
+    } finally {
+      setBusy(false);
     }
-    router.refresh();
   }
 
   return (
-    <div className="rounded-xl border border-brand-100 bg-white p-3 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
-      <div className="mb-2">
-        <span className="block text-sm font-semibold text-ink">
-          {row.test_name}
-        </span>
-        <span className="block truncate text-xs text-ink-muted">
-          {row.patient?.full_name ?? "—"} ·{" "}
-          <span className="font-mono">{row.patient?.patient_code}</span>
-          {row.patient?.phone_primary ? ` · ${row.patient.phone_primary}` : ""}
-        </span>
+    <div className="space-y-4 p-4">
+      <div className="rounded-control border border-line bg-surface-muted p-3">
+        <div className="flex items-start gap-3">
+          <Monogram value={row.patient?.full_name} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">{patientLabel(row)}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {row.patient?.patient_code ?? "Chưa có mã BN"}
+              {row.patient?.phone_primary ? ` · ${row.patient.phone_primary}` : ""}
+            </p>
+            <p className="mt-2 text-sm font-medium text-brand-800">{row.test_name}</p>
+          </div>
+        </div>
       </div>
-      <div className="space-y-2">
+
+      <div>
+        <label className={LABEL} htmlFor={`lab-summary-${row.lab_result_id}`}>Tóm tắt kết quả</label>
+        <input
+          id={`lab-summary-${row.lab_result_id}`}
+          className={INPUT}
+          value={summary}
+          onChange={(event) => setSummary(event.target.value)}
+          placeholder="Ví dụ: HPV âm tính, chưa phát hiện bất thường…"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className={LABEL}>Tóm tắt kết quả</label>
+          <label className={LABEL} htmlFor={`lab-link-${row.lab_result_id}`}>Link phiếu (PDF / Drive)</label>
           <input
+            id={`lab-link-${row.lab_result_id}`}
             className={INPUT}
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            placeholder="VD: HPV (-), NIPT: chưa phát hiện bất thường…"
+            value={link}
+            onChange={(event) => setLink(event.target.value)}
+            placeholder="https://…"
+            inputMode="url"
           />
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div>
-            <label className={LABEL}>Link phiếu (PDF/Drive)</label>
-            <input
-              className={INPUT}
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              placeholder="https://…"
-              inputMode="url"
-            />
-          </div>
-          <div>
-            <label className={LABEL}>Lab (nếu gửi ngoài)</label>
-            <input
-              className={INPUT}
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              placeholder="VD: GreenLab, Phacogen…"
-            />
-          </div>
+        <div>
+          <label className={LABEL} htmlFor={`lab-provider-${row.lab_result_id}`}>Nhà cung cấp lab</label>
+          <input
+            id={`lab-provider-${row.lab_result_id}`}
+            className={INPUT}
+            value={provider}
+            onChange={(event) => setProvider(event.target.value)}
+            placeholder="Tên nhà cung cấp (nếu có)"
+          />
         </div>
-        {err && <p className="text-xs text-danger">{err}</p>}
-        <button
-          onClick={save}
-          disabled={busy}
-          className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-        >
-          {busy ? "Đang lưu…" : "Lưu kết quả"}
-        </button>
       </div>
+      {err ? <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-xs text-danger">{err}</p> : null}
+      <button
+        type="button"
+        onClick={save}
+        disabled={busy}
+        className="inline-flex min-h-10 items-center gap-2 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+      >
+        <FileCheck2 className="size-4" /> {busy ? "Đang lưu…" : "Lưu kết quả"}
+      </button>
     </div>
   );
 }
@@ -122,73 +152,128 @@ export default function LabQueueView({
   pending: LabRow[];
   done: LabRow[];
 }) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <section>
-        <h2 className="mb-2 flex items-center gap-2 text-base font-semibold text-ink">
-          <FlaskConical size={16} className="text-brand-600" /> Chờ kết quả (
-          {pending.length})
-        </h2>
-        {pending.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-brand-100 bg-white px-4 py-10 text-center text-sm text-ink-faint">
-            Không có xét nghiệm nào đang chờ.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {pending.map((r) => (
-              <PendingCard key={r.lab_result_id} row={r} />
-            ))}
-          </div>
-        )}
-      </section>
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const normalizedQuery = query.trim().toLocaleLowerCase("vi-VN");
+  const visiblePending = useMemo(
+    () =>
+      pending.filter((row) =>
+        !normalizedQuery
+          ? true
+          : [row.test_name, row.patient?.full_name, row.patient?.patient_code]
+              .filter(Boolean)
+              .some((value) => value?.toLocaleLowerCase("vi-VN").includes(normalizedQuery)),
+      ),
+    [normalizedQuery, pending],
+  );
+  const selected = visiblePending.find((row) => row.lab_result_id === selectedId) ?? visiblePending[0] ?? null;
+  const withExternalFile = done.filter((row) => Boolean(toHref(row.external_ref))).length;
 
-      <section>
-        <h2 className="mb-2 text-base font-semibold text-ink">
-          Đã trả gần đây ({done.length})
-        </h2>
-        <div className="max-h-[70vh] space-y-2 overflow-y-auto rounded-xl border border-brand-100 bg-white p-2 shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
-          {done.length === 0 ? (
-            <p className="px-2 py-10 text-center text-sm text-ink-faint">
-              Chưa có kết quả nào.
-            </p>
+  return (
+    <div className="space-y-4">
+      <WorkspaceMetricRow>
+        <WorkspaceMetric label="Chờ nhập kết quả" value={pending.length} icon={<FlaskConical className="size-5" />} tone="warning" />
+        <WorkspaceMetric label="Đã trả gần đây" value={done.length} icon={<FileCheck2 className="size-5" />} tone="success" />
+        <WorkspaceMetric label="Có phiếu đính kèm" value={withExternalFile} icon={<FileText className="size-5" />} tone="brand" />
+        <WorkspaceMetric label="Cần chọn để nhập" value={visiblePending.length} icon={<CircleAlert className="size-5" />} tone={visiblePending.length ? "neutral" : "success"} />
+      </WorkspaceMetricRow>
+
+      <div className={workspaceStyles.workspace}>
+      <div className={`${workspaceStyles.threeColumn} ${workspaceStyles.lab}`}>
+        <aside
+          aria-label="Danh sách xét nghiệm"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title="Danh sách xét nghiệm" detail={`${visiblePending.length} kết quả chưa nhập`} />
+          <div className="border-b border-line p-3">
+            <label className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+              <Search className="size-4 shrink-0" aria-hidden="true" />
+              <span className="sr-only">Tìm xét nghiệm, bệnh nhân hoặc mã BN</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Tìm xét nghiệm, bệnh nhân"
+                className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
+              />
+            </label>
+          </div>
+          <div className="max-h-[620px] overflow-y-auto">
+            {visiblePending.length ? (
+              visiblePending.map((row) => (
+                <button
+                  type="button"
+                  key={row.lab_result_id}
+                  onClick={() => setSelectedId(row.lab_result_id)}
+                  aria-current={row.lab_result_id === selected?.lab_result_id ? "true" : undefined}
+                  className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+                    row.lab_result_id === selected?.lab_result_id
+                      ? "border-brand-500 bg-surface-selected"
+                      : "border-transparent bg-surface hover:bg-surface-sunken"
+                  }`}
+                >
+                  <span className="flex gap-2.5">
+                    <Monogram value={row.patient?.full_name} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-ink">{patientLabel(row)}</span>
+                      <span className="mt-0.5 block truncate text-xs text-ink-muted">{row.patient?.patient_code ?? "Chưa có mã BN"}</span>
+                      <span className="mt-1 block truncate text-xs text-brand-800">{row.test_name}</span>
+                    </span>
+                  </span>
+                </button>
+              ))
+            ) : (
+              <EmptyWorkspace title="Không có kết quả phù hợp" detail="Thử đổi từ khóa tìm kiếm hoặc chờ chỉ định mới từ bác sĩ." icon={<FlaskConical className="size-7" />} />
+            )}
+          </div>
+        </aside>
+
+        <section
+          aria-label="Nhập kết quả xét nghiệm"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title="Nhập kết quả xét nghiệm" detail="Nhập tóm tắt và/hoặc liên kết phiếu do lab gửi." />
+          {selected ? (
+            <LabResultEditor key={selected.lab_result_id} row={selected} />
           ) : (
-            done.map((r) => (
-              <div
-                key={r.lab_result_id}
-                className="rounded-lg border border-line p-2.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-ink">
-                    {r.test_name}
-                  </span>
-                  {toHref(r.external_ref) && (
-                    <a
-                      href={toHref(r.external_ref)!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#2563eb] hover:underline"
-                    >
-                      <ExternalLink size={12} /> Phiếu
-                    </a>
-                  )}
-                </div>
-                <span className="block truncate text-xs text-ink-muted">
-                  {r.patient?.full_name ?? "—"} · {r.patient?.patient_code}
-                </span>
-                {r.result_value && (
-                  <span className="mt-0.5 block text-xs text-ink-soft">
-                    {r.result_value}
-                    {r.lab_provider ? ` · ${r.lab_provider}` : ""}
-                  </span>
-                )}
-                <span className="mt-0.5 block text-[11px] text-ink-faint">
-                  {fmtDateTimeOrDate(r.result_received_at)}
-                </span>
-              </div>
-            ))
+            <div className="p-4"><EmptyWorkspace title="Chưa có kết quả để nhập" detail="Khi có chỉ định xét nghiệm chưa trả, nó sẽ xuất hiện trong danh sách bên trái." icon={<FlaskConical className="size-7" />} /></div>
           )}
-        </div>
-      </section>
+        </section>
+
+        <aside
+          aria-label="Kết quả đã trả"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title="Kết quả đã trả" detail={`${done.length} bản ghi gần đây`} />
+          <div className="max-h-[690px] space-y-2 overflow-y-auto p-2.5">
+            {done.length ? (
+              done.map((row) => {
+                const href = toHref(row.external_ref);
+                return (
+                  <article key={row.lab_result_id} className="rounded-control border border-line bg-surface p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">{row.test_name}</p>
+                        <p className="mt-0.5 truncate text-xs text-ink-muted">{patientLabel(row)} · {row.patient?.patient_code ?? "Chưa có mã"}</p>
+                      </div>
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 rounded-chip bg-brand-50 px-2 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100">
+                          <ExternalLink className="size-3" /> Phiếu
+                        </a>
+                      ) : null}
+                    </div>
+                    {row.result_value ? <p className="mt-2 text-xs leading-5 text-ink-soft">{row.result_value}</p> : null}
+                    {row.lab_provider ? <p className="mt-1 text-xs text-ink-muted">{row.lab_provider}</p> : null}
+                    <p className="mt-2 text-[11px] text-ink-faint">{fmtDateTimeOrDate(row.result_received_at)}</p>
+                  </article>
+                );
+              })
+            ) : (
+              <EmptyWorkspace title="Chưa có kết quả đã trả" detail="Các bản ghi có tóm tắt hoặc phiếu đính kèm sẽ xuất hiện tại đây." icon={<FileCheck2 className="size-7" />} />
+            )}
+          </div>
+        </aside>
+      </div>
+      </div>
     </div>
   );
 }

@@ -21,16 +21,16 @@ export interface TaskRow {
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
-  URGENT: "bg-red-100 text-red-800",
-  HIGH: "bg-orange-100 text-orange-800",
-  NORMAL: "bg-gray-100 text-gray-800",
+  URGENT: "bg-status-overdue-bg text-status-overdue",
+  HIGH: "bg-warning-bg text-warning",
+  NORMAL: "bg-surface-sunken text-ink-soft",
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  IN_PROGRESS: "bg-blue-100 text-blue-800",
-  DONE: "bg-green-100 text-green-800",
-  CANCELLED: "bg-gray-100 text-gray-500",
+  PENDING: "bg-status-ready-bg text-status-ready",
+  IN_PROGRESS: "bg-status-in-progress-bg text-status-in-progress",
+  DONE: "bg-status-completed-bg text-status-completed",
+  CANCELLED: "bg-status-cancelled-bg text-status-cancelled",
 };
 
 export default function TasksRealtime({
@@ -87,11 +87,11 @@ export default function TasksRealtime({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-green-500 motion-reduce:animate-none" />
-        <span className="text-xs text-gray-600">
+        <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-success motion-reduce:animate-none" />
+        <span className="text-xs text-ink-muted">
           Realtime live
           {liveCount > 0 && (
-            <span className="ml-2 rounded bg-green-100 px-2 py-0.5 font-medium text-green-800">
+            <span className="ml-2 rounded-chip bg-success-bg px-2 py-0.5 font-medium text-success">
               +{liveCount} mới
             </span>
           )}
@@ -103,25 +103,25 @@ export default function TasksRealtime({
         {rows.map((t) => (
           <li
             key={t.task_id}
-            className="rounded-lg border border-gray-200 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            className="rounded-card border border-line bg-surface p-3 shadow-card"
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="font-medium text-gray-900">{t.title}</p>
+              <p className="font-medium text-ink">{t.title}</p>
               <span
-                className={`shrink-0 rounded px-2 py-0.5 text-[11px] ${STATUS_COLOR[t.status] ?? ""}`}
+                className={`shrink-0 rounded-chip px-2 py-0.5 text-[11px] ${STATUS_COLOR[t.status] ?? ""}`}
               >
                 {t.status}
               </span>
             </div>
-            <p className="mt-1 text-xs text-gray-600">
+            <p className="mt-1 text-xs text-ink-muted">
               <span
-                className={`mr-1 rounded px-1.5 py-0.5 text-[11px] ${PRIORITY_COLOR[t.priority] ?? ""}`}
+                className={`mr-1 rounded-chip px-1.5 py-0.5 text-[11px] ${PRIORITY_COLOR[t.priority] ?? ""}`}
               >
                 {t.priority}
               </span>
               <span className="font-mono">{t.task_type}</span>
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-ink-faint">
               {t.staff?.full_name ?? t.staff?.short_name ?? "—"}
               {" · "}SLA {t.sla_hours}h{" · "}
               <span className="font-mono">
@@ -131,16 +131,16 @@ export default function TasksRealtime({
           </li>
         ))}
         {rows.length === 0 && (
-          <li className="rounded-lg border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-500">
+          <li className="rounded-card border border-line bg-surface px-4 py-6 text-center text-sm text-ink-faint">
             Chưa có task.
           </li>
         )}
       </ul>
 
       {/* Desktop: table (≥md). */}
-      <div className="hidden overflow-x-auto rounded border border-gray-200 bg-white md:block">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase text-gray-600">
+      <div className="hidden overflow-x-auto rounded-card border border-line bg-surface md:block">
+        <table className="min-w-full divide-y divide-line text-sm">
+          <thead className="bg-surface-muted text-left text-xs uppercase text-ink-muted">
             <tr>
               <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Status</th>
@@ -151,20 +151,20 @@ export default function TasksRealtime({
               <th className="px-3 py-2">Tạo lúc</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-line">
             {rows.map((t) => (
               <tr key={t.task_id}>
                 <td className="px-3 py-2 font-mono text-xs">{t.task_type}</td>
                 <td className="px-3 py-2">
                   <span
-                    className={`rounded px-2 py-0.5 text-xs ${STATUS_COLOR[t.status] ?? ""}`}
+                    className={`rounded-chip px-2 py-0.5 text-xs ${STATUS_COLOR[t.status] ?? ""}`}
                   >
                     {t.status}
                   </span>
                 </td>
                 <td className="px-3 py-2">
                   <span
-                    className={`rounded px-2 py-0.5 text-xs ${PRIORITY_COLOR[t.priority] ?? ""}`}
+                    className={`rounded-chip px-2 py-0.5 text-xs ${PRIORITY_COLOR[t.priority] ?? ""}`}
                   >
                     {t.priority}
                   </span>
@@ -181,7 +181,7 @@ export default function TasksRealtime({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
+                <td colSpan={7} className="px-3 py-6 text-center text-ink-faint">
                   Chưa có task.
                 </td>
               </tr>

@@ -10,7 +10,7 @@
  * left for someone to discover after trusting a graph.
  */
 
-import StatCard, { StatRow } from "@/components/ui/StatCard";
+import StatCard from "@/components/ui/StatCard";
 import { fetchTelemetry } from "@/lib/telemetry-server";
 
 export const metadata = { title: "Sức khoẻ API · ClinicAI" };
@@ -33,10 +33,10 @@ export default async function TelemetryPage() {
   const result = await fetchTelemetry(WINDOW_MINUTES * 60);
 
   return (
-    <main className="page-in flex flex-col gap-5 p-6">
+    <main className="page-in min-w-0 flex flex-col gap-5 p-4 lg:p-5">
       <header>
-        <h1 className="text-2xl font-semibold text-ink">Sức khoẻ API</h1>
-        <p className="text-sm text-ink-muted">
+        <h1 className="text-xl font-semibold text-ink lg:text-2xl">Sức khoẻ API</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           Thời gian phản hồi và lỗi gần đây — {WINDOW_MINUTES} phút vừa qua.
         </p>
       </header>
@@ -55,7 +55,7 @@ export default async function TelemetryPage() {
         </div>
       ) : (
         <>
-          <StatRow>
+          <div className="grid min-w-0 grid-cols-1 divide-y divide-line rounded-card border border-line bg-surface shadow-card sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4">
             <StatCard label="Số request" value={result.data.total} tone="brand" />
             <StatCard label="p50" value={ms(result.data.p50_ms)} tone="neutral" />
             <StatCard
@@ -68,7 +68,7 @@ export default async function TelemetryPage() {
               value={result.data.statuses["5xx"] ?? 0}
               tone={(result.data.statuses["5xx"] ?? 0) > 0 ? "danger" : "success"}
             />
-          </StatRow>
+          </div>
 
           <section className="rounded-card border border-line bg-surface shadow-card">
             <header className="flex items-baseline justify-between border-b border-line px-5 py-3">
@@ -83,7 +83,8 @@ export default async function TelemetryPage() {
                 Chưa có request nào trong {WINDOW_MINUTES} phút qua.
               </p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="min-w-[640px] w-full text-sm">
                 <thead>
                   <tr className="border-b border-line text-left text-[13px] text-ink-muted">
                     <th className="px-5 py-2 font-medium">Route</th>
@@ -117,6 +118,7 @@ export default async function TelemetryPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </section>
 

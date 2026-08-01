@@ -1,13 +1,12 @@
-// Kanban board for appointments: three status columns side-by-side on desktop,
-// stacked on mobile (no horizontal swipe). Each appointment is a card with the
-// patient + slot + doctor info; the doctor can confirm/decline their own
-// pending cards inline. Presentational — the page fetches the rows.
-// SECURITY: national_id_number (CCCD) is never selected — D-identity gate.
+// Reusable status board for appointment rows. The CSKH workspace uses a richer
+// list-detail composition, while this component remains available to routes
+// that only need the compact board.
 
 import Link from "next/link";
+
+import { fmtDate, fmtTimeOrNone } from "@/lib/datetime";
+import { doctorName } from "@/lib/doctor-name";
 import AppointmentActions from "./AppointmentActions";
-import { fmtTimeOrNone, fmtDate } from "../../../lib/datetime";
-import { doctorName } from "../../../lib/doctor-name";
 
 export interface KanbanRow {
   id: string;
@@ -37,8 +36,8 @@ interface Column {
   key: string;
   label: string;
   statuses: string[];
-  accent: string; // left-border / dot colour
-  tint: string; // soft header background
+  dotClass: string;
+  headerClass: string;
 }
 
 const COLUMNS: Column[] = [
@@ -46,79 +45,73 @@ const COLUMNS: Column[] = [
     key: "pending",
     label: "Chờ xác nhận",
     statuses: ["SCHEDULED"],
-    accent: "#2563eb",
-    tint: "#eff6ff",
+    dotClass: "bg-status-ready",
+    headerClass: "bg-status-ready-bg",
   },
   {
     key: "confirmed",
     label: "Đã xác nhận",
     statuses: ["CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"],
-    accent: "#16a34a",
-    tint: "#f0fdf4",
+    dotClass: "bg-status-assigned",
+    headerClass: "bg-status-assigned-bg",
   },
   {
     key: "done",
     label: "Đã khám xong",
     statuses: ["COMPLETED"],
-    accent: "#71717a",
-    tint: "#f4f4f5",
+    dotClass: "bg-status-completed",
+    headerClass: "bg-status-completed-bg",
   },
 ];
 
 function Card({
-  a,
+  row,
   withDate,
   canAct,
   staffId,
 }: {
-  a: KanbanRow;
+  row: KanbanRow;
   withDate: boolean;
   canAct: boolean;
   staffId: string | null;
 }) {
   const showActions =
-    canAct && a.status === "SCHEDULED" && !!staffId && a.doctor_id === staffId;
+    canAct && row.status === "SCHEDULED" && Boolean(staffId) && row.doctor_id === staffId;
   return (
-    <div className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-      {/* Patient + code */}
+    <div className="rounded-control border border-line bg-surface p-3 shadow-card">
       <div className="flex items-start justify-between gap-2">
         <Link
-          href={`/patients/${a.clinic_patient_id}`}
+          href={`/patients/${row.clinic_patient_id}`}
           className="font-medium text-ink hover:text-brand-600 hover:underline"
         >
-          {a.patient?.full_name ?? "—"}
+          {row.patient?.full_name ?? "—"}
         </Link>
-        {a.queue_number && (
-          <span className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-ink-muted">
-            STT {a.queue_number}
+        {row.queue_number ? (
+          <span className="rounded-chip bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-ink-muted">
+            STT {row.queue_number}
           </span>
-        )}
+        ) : null}
       </div>
       <p className="mt-0.5 font-mono text-xs text-ink-muted">
-        {a.patient?.patient_code ?? "—"}
-        {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
+        {row.patient?.patient_code ?? "—"}
+        {row.patient?.phone_primary ? ` · ${row.patient.phone_primary}` : ""}
       </p>
-
-      {/* Time + service */}
       <p className="mt-2 text-sm text-ink">
         <span className="font-medium">
-          {withDate ? `${fmtDate(a.slot_start)} · ` : ""}
-          {fmtTimeOrNone(a.slot_start)}
+          {withDate ? `${fmtDate(row.slot_start)} · ` : ""}
+          {fmtTimeOrNone(row.slot_start)}
         </span>
-        {a.service?.name ? ` · ${a.service.name}` : ""}
+        {row.service?.name ? ` · ${row.service.name}` : ""}
       </p>
-
-      {/* Doctor + channel */}
       <p className="mt-0.5 text-xs text-ink-muted">
-        {a.doctor?.full_name ? doctorName(a.doctor.full_name) : "—"}
-        {a.booking_channel ? ` · ${a.booking_channel}` : ""}
+        {row.doctor?.full_name ? doctorName(row.doctor.full_name) : "—"}
+        {row.booking_channel ? ` · ${row.booking_channel}` : ""}
       </p>
-
-      {showActions && (
-        <div className="mt-2 border-t border-surface-sunken pt-2">
-          <AppointmentActions appointmentId={a.id} />
+      {showActions ? (
+        <div className="mt-2 border-t border-line pt-2">
+          <AppointmentActions appointmentId={row.id} />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -132,62 +125,39 @@ export default function AppointmentsKanban({
 }: {
   title: string;
   rows: KanbanRow[];
-  /** Show the date on cards (used by the "upcoming" board). */
   withDate?: boolean;
-  /** Caller is a doctor → confirm/decline controls on own pending cards. */
   canAct: boolean;
   staffId: string | null;
 }) {
   return (
     <section className="space-y-3">
-      {title && (
+      {title ? (
         <h2 className="text-base font-semibold text-ink">
           {title}
-          <span className="ml-2 text-sm font-normal text-ink-muted">
-            ({rows.length})
-          </span>
+          <span className="ml-2 text-sm font-normal text-ink-muted">({rows.length})</span>
         </h2>
-      )}
-
+      ) : null}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {COLUMNS.map((col) => {
-          const cards = rows.filter((r) => col.statuses.includes(r.status));
+        {COLUMNS.map((column) => {
+          const cards = rows.filter((row) => column.statuses.includes(row.status));
           return (
-            <div
-              key={col.key}
-              className="flex flex-col rounded-lg border border-brand-100 bg-brand-50"
-            >
-              <div
-                className="flex items-center justify-between gap-2 rounded-t-lg border-b border-line px-3 py-2"
-                style={{ backgroundColor: col.tint }}
-              >
+            <div key={column.key} className="flex flex-col rounded-card border border-line bg-surface">
+              <div className={`flex items-center justify-between gap-2 border-b border-line px-3 py-2 ${column.headerClass}`}>
                 <span className="flex items-center gap-2 text-sm font-medium text-ink">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: col.accent }}
-                  />
-                  {col.label}
+                  <span className={`size-2 rounded-full ${column.dotClass}`} aria-hidden="true" />
+                  {column.label}
                 </span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-ink-muted">
+                <span className="rounded-chip bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">
                   {cards.length}
                 </span>
               </div>
-
               <div className="flex-1 space-y-2 p-2">
-                {cards.map((a) => (
-                  <Card
-                    key={a.id}
-                    a={a}
-                    withDate={withDate}
-                    canAct={canAct}
-                    staffId={staffId}
-                  />
+                {cards.map((row) => (
+                  <Card key={row.id} row={row} withDate={withDate} canAct={canAct} staffId={staffId} />
                 ))}
-                {cards.length === 0 && (
-                  <p className="px-2 py-6 text-center text-xs text-ink-faint">
-                    Trống
-                  </p>
-                )}
+                {cards.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-xs text-ink-faint">Trống</p>
+                ) : null}
               </div>
             </div>
           );

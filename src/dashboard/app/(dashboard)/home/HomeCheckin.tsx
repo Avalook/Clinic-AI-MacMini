@@ -261,7 +261,7 @@ export default function HomeCheckin({
                   </div>
                 ) : (
                   // NO_SHOW / CANCELLED / DOCTOR_DECLINED — không thao tác từ hàng đợi.
-                  <span className="shrink-0 text-[11px] text-[#c4c4c8]">—</span>
+                  <span className="shrink-0 text-[11px] text-ink-faint">—</span>
                 )}
               </li>
             );
@@ -293,7 +293,7 @@ export default function HomeCheckin({
           // Tách đôi: danh sách (trái) + hồ sơ (phải). KHUNG CỐ ĐỊNH chiều cao,
           // mỗi cột tự cuộn ĐỘC LẬP — lăn danh sách trái KHÔNG làm panel phải nhúc
           // nhích (panel tóm tắt giữ nguyên).
-          <div className="mt-3 overflow-hidden rounded-xl border border-brand-100 bg-brand-50 shadow-[0_1px_3px_rgba(236,72,153,0.08)] md:h-[78vh]">
+          <div className="mt-3 overflow-hidden rounded-card border border-line bg-surface-selected shadow-card md:h-[78vh]">
             <SplitPane
               className="h-full"
               left={list}
@@ -311,7 +311,7 @@ export default function HomeCheckin({
             />
           </div>
         ) : (
-          <div className="mt-3 overflow-auto rounded-xl border border-brand-100 bg-brand-50 shadow-[0_1px_3px_rgba(236,72,153,0.08)] md:h-[78vh]">
+          <div className="mt-3 overflow-auto rounded-card border border-line bg-surface-selected shadow-card md:h-[78vh]">
             {list}
           </div>
         ))}

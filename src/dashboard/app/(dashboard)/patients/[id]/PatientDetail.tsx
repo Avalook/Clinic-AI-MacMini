@@ -144,8 +144,11 @@ export default async function PatientDetail({
   }
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="space-y-5">
+      <section
+        aria-label="Thông tin hành chính bệnh nhân"
+        className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      >
         <div className="flex items-center gap-4 border-b border-surface-sunken bg-gradient-to-r from-brand-50 to-white p-4 sm:p-6">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xl font-semibold text-white">
             {patient.full_name.trim().charAt(0).toUpperCase() || "?"}
@@ -206,17 +209,21 @@ export default async function PatientDetail({
         )}
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-base font-semibold text-ink">
-          Lịch sử lịch hẹn
-        </h3>
+      <section aria-label="Lịch sử lịch hẹn" className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
+          <div>
+            <h3 className="text-base font-semibold text-ink">Lịch sử lịch hẹn</h3>
+            <p className="mt-0.5 text-xs text-ink-muted">{appointments.length >= 20 ? "20+" : appointments.length} lượt hẹn gần đây</p>
+          </div>
+          <span className="rounded-chip bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-800">{appointments.length}</span>
+        </header>
 
         {/* Mobile: card list (<md). */}
-        <div className="space-y-2 md:hidden">
+        <div className="space-y-2 p-3 md:hidden">
           {appointments.map((a) => (
             <div
               key={a.id}
-              className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+              className="rounded-control border border-line bg-white p-3 shadow-card"
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="font-mono text-xs text-ink-soft">
@@ -241,7 +248,7 @@ export default async function PatientDetail({
         </div>
 
         {/* Desktop: table (≥md). */}
-        <div className="hidden overflow-auto rounded-lg border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] md:block">
+        <div className="hidden max-h-[88vh] min-h-[180px] overflow-auto md:block">
           <table className="min-w-full divide-y divide-brand-100 text-sm">
             <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] uppercase tracking-wide text-brand-800">
               <tr>

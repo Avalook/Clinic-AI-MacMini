@@ -21,9 +21,9 @@ import {
   shiftWeek,
   currentWeekStartVn,
 } from "../../../lib/roster";
-import WorkRosterTable, {
-  type RosterRow,
-} from "../home/WorkRosterTable";
+import OfficialRosterTable, {
+  type OfficialRosterRow,
+} from "./OfficialRosterTable";
 import RosterRegisterTable, {
   type RegisterRow,
 } from "./RosterRegisterTable";
@@ -31,7 +31,7 @@ import RosterRegisterTable, {
 export const dynamic = "force-dynamic";
 
 // Row kèm id + trạng thái để bảng đăng ký phân biệt ca của mình & lý do từ chối.
-interface RosterRowWithId extends RosterRow {
+interface RosterRowWithId extends OfficialRosterRow {
   id: string;
   reject_reason: string | null;
   staff_id: string | null;
@@ -74,15 +74,18 @@ export default async function SchedulePage({
   const navHref = (w: string) => `/schedule?week=${w}`;
 
   return (
-    <div className="space-y-4">
+    <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-ink">Lịch làm việc</h1>
+          <h1 className="text-xl font-semibold text-ink lg:text-2xl">Lịch làm việc</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            Theo dõi lịch đã duyệt và đăng ký ca theo tuần.
+          </p>
         </div>
         {isAdmin && (
           <Link
             href={`/schedule/edit?week=${week}`}
-            className="rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+            className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-surface hover:bg-brand-700"
           >
             Sửa lịch
           </Link>
@@ -90,32 +93,32 @@ export default async function SchedulePage({
       </header>
 
       {/* Điều hướng tuần */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-line bg-surface px-3 py-2 shadow-card">
         <Link
           href={navHref(shiftWeek(week, -1))}
-          className="rounded-md border border-line px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken"
+          className="rounded-control border border-line px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken"
         >
           ← Tuần trước
         </Link>
         <span className="text-sm font-medium text-ink">Tuần {weekLabel}</span>
         <Link
           href={navHref(shiftWeek(week, 1))}
-          className="rounded-md border border-line px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken"
+          className="rounded-control border border-line px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken"
         >
           Tuần sau →
         </Link>
       </div>
 
       {/* BẢNG 1 — Lịch làm việc chính thức (chỉ ca ĐÃ DUYỆT). */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-ink">Lịch làm việc</h2>
-        <WorkRosterTable dates={dates} rows={approvedRows} />
+      <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+        <h2 className="font-semibold text-ink">Lịch làm việc chính thức</h2>
+        <OfficialRosterTable dates={dates} rows={approvedRows} />
       </section>
 
       {/* BẢNG 2 — Đăng ký lịch làm việc (tương tác: click ô → tự đăng ký ca;
           Quản lý duyệt / từ chối ngay trong popup của ô). */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-ink">
+      <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+        <h2 className="font-semibold text-ink">
           Đăng ký lịch làm việc
         </h2>
         <p className="text-xs text-ink-muted">
@@ -144,6 +147,6 @@ export default async function SchedulePage({
           )}
         />
       </section>
-    </div>
+    </main>
   );
 }

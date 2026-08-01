@@ -45,11 +45,11 @@ export default function AppointmentsRealtime() {
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-green-500 motion-reduce:animate-none" />
+      <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-status-completed motion-reduce:animate-none" />
       <span className="text-ink-muted">
         Realtime
         {eventCount > 0 && (
-          <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 font-medium text-green-800">
+          <span className="ml-2 rounded-chip bg-status-completed-bg px-1.5 py-0.5 font-medium text-status-completed">
             +{eventCount} cập nhật
           </span>
         )}

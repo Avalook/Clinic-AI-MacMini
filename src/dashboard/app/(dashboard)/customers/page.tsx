@@ -260,11 +260,17 @@ export default async function CustomersPage({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <header>
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
+          CSKH · khách hàng
+        </p>
         <h1 className="text-xl font-semibold text-ink">
           Thông tin khách hàng
         </h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Theo dõi hồ sơ hành chính, lịch hẹn và bước xử lý tiếp theo từ dữ liệu hiện có.
+        </p>
       </header>
 
       {error ? (

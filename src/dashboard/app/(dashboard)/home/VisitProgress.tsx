@@ -20,7 +20,7 @@ const WAIT_YELLOW_MAX = 20; // 10–20p → vàng;  > 20p → đỏ
 //     appointment, không phải visit — nếu không mốc này không bao giờ xanh.
 //   • Đã thanh toán  → bảng payment: khi mọi khâu PHẢI thu (dịch vụ + thuốc nếu có
 //     đơn) đã có dòng PAID → `paid=true` → tích xanh. Chưa thu xong thì hiện "đang
-//     tới" (hồng pulse) chờ thu ngân.
+//     tới" (nhấn pulse) chờ thu ngân.
 const MILESTONES: { key: string; label: string }[] = [
   { key: "dang_kham", label: "Đang khám" },
   { key: "kham_xong", label: "Khám xong" },
@@ -63,7 +63,7 @@ export function ProgressStepper({
         else if (i === reached) state = "current";
         else state = "upcoming";
 
-        // Node tròn kiểu Grab: done = xanh đặc + ✓; current = viền hồng nhấn (pulse);
+        // Node tròn kiểu Grab: done = xanh đặc + ✓; current = viền nhấn (pulse);
         // upcoming = viền nhạt.
         const node =
           state === "done"
@@ -139,7 +139,7 @@ export function WaitClock({
     };
   }, [checkedInAt, active]);
 
-  if (!checkedInAt) return <span className="text-[11px] text-[#c4c4c8]">—</span>;
+  if (!checkedInAt) return <span className="text-[11px] text-ink-faint">—</span>;
   if (!active) return <span className="text-[11px] text-ink-faint">—</span>;
   if (nowMs === null) return <span className="text-[11px] text-ink-faint">…</span>;
 

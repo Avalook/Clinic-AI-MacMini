@@ -19,14 +19,17 @@ function displayStatus(
   if (paid)
     return { label: "Đã thanh toán", style: "bg-success-bg text-success" };
   if (visitStatus === "AMENDED")
-    return { label: "Đã bổ sung", style: "bg-[#f3e8ff] text-[#7e22ce]" };
+    return { label: "Đã bổ sung", style: "bg-brand-50 text-brand-800" };
   if (visitStatus === "FINALIZED")
     return { label: "Đã chốt hồ sơ", style: "bg-success-bg text-success" };
   if (apptStatus === "COMPLETED")
     return { label: "Đã khám xong — chờ thu", style: "bg-warning-bg text-warning" };
   if (visitStatus === "IN_PROGRESS")
     return { label: "Đang khám", style: "bg-warning-bg text-warning" };
-  return { label: "Chờ khám", style: "bg-[#dbeafe] text-[#1d4ed8]" };
+  return {
+    label: "Chờ khám",
+    style: "bg-status-in-progress-bg text-status-in-progress",
+  };
 }
 
 // Đồng hồ chờ chạy tới khi KHÁM XONG (appt COMPLETED) / hồ sơ chốt. Sau đó dừng.
@@ -74,12 +77,12 @@ function examMinutes(
 }
 
 const TH =
-  "border-b border-surface-sunken px-4 py-2.5 text-left font-semibold text-[#525252]";
-const TD = "border-b border-[#f3f3f3] px-4 py-3 align-middle text-ink";
+  "border-b border-line px-4 py-2.5 text-left font-semibold text-ink-soft";
+const TD = "border-b border-line px-4 py-3 align-middle text-ink";
 
 export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
   return (
-    <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="overflow-auto rounded-card border border-line bg-surface shadow-card">
       <table className="w-full min-w-max border-collapse text-sm">
         <thead className="bg-surface-muted">
           <tr>
@@ -129,12 +132,12 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                           checkedInAt={r.checked_in_at}
                           active={stillWaiting(r.status, apptStatus)}
                         />
-                        <span className="text-[10px] text-[#bcbcbc] tabular-nums">
+                        <span className="text-[10px] text-ink-faint tabular-nums">
                           vào {fmtTime(r.checked_in_at ?? r.created_at)}
                         </span>
                         {examMin !== null && (
                           <span
-                            className="rounded-full bg-[#eef2ff] px-2 py-0.5 text-[10px] font-medium text-[#4338ca] tabular-nums"
+                            className="rounded-chip bg-status-in-progress-bg px-2 py-0.5 text-[10px] font-medium text-status-in-progress tabular-nums"
                             title="Thời gian khám (khám xong − bắt đầu khám)"
                           >
                             khám {examMin} phút

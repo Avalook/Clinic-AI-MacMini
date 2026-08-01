@@ -1,13 +1,26 @@
 "use client";
 
-// 2 view "Thu ngân thuốc" / "Thu ngân dịch vụ" + bảng giá khung CRUD scaffold.
-// Ghi qua /api/service-price (service-role) rồi router.refresh() nạp lại từ server.
-// DỰNG KHUNG: đơn giá có thể để trống (nhập sau); chưa có luồng thu tiền thực tế.
+/**
+ * Price-catalog workspace shared by the medicine and service routes.
+ *
+ * These routes configure prices; they do not collect payment or dispense
+ * medicine. The V2 treatment therefore borrows the references' dense catalog,
+ * summary strip and right-hand action panel without inventing patient,
+ * obligation, stock or transaction data that this endpoint does not provide.
+ */
 
-import { useMemo, useState } from "react";
+import {
+  CircleAlert,
+  CircleCheck,
+  CirclePause,
+  ClipboardList,
+  Info,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
-import { INPUT, LABEL, BTN } from "../form-ui";
+import { useMemo, useState } from "react";
 
 export type PriceGroup = "thuoc" | "dich_vu";
 
@@ -20,15 +33,23 @@ export interface PriceRow {
   active: boolean;
 }
 
+type CatalogFilter = "ALL" | "ACTIVE" | "INACTIVE" | "UNPRICED";
+
 const VIEW_LABEL: Record<PriceGroup, string> = {
-  thuoc: "Thu ngân thuốc",
-  dich_vu: "Thu ngân dịch vụ",
+  thuoc: "Bảng giá thuốc",
+  dich_vu: "Bảng giá dịch vụ",
 };
+
 const VIEWS: PriceGroup[] = ["thuoc", "dich_vu"];
 
-function fmtVnd(v: number | null): string {
-  if (v === null) return "— chưa nhập";
-  return new Intl.NumberFormat("vi-VN").format(v) + " ₫";
+const inputClass =
+  "h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink " +
+  "outline-none placeholder:text-ink-faint focus:border-brand-500 focus:ring-2 focus:ring-brand-100 " +
+  "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint";
+
+function formatVnd(value: number | null): string {
+  if (value === null) return "— Chưa nhập";
+  return `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
 }
 
 export default function CashierView({
@@ -36,44 +57,71 @@ export default function CashierView({
   group: lockedGroup,
 }: {
   rows: PriceRow[];
-  /** Khoá vào 1 nhóm (trang Bảng giá thuốc / dịch vụ riêng) → ẩn toggle. */
   group?: PriceGroup;
 }) {
   const router = useRouter();
   const [view, setView] = useState<PriceGroup>(lockedGroup ?? "thuoc");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Form thêm dòng giá mới.
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<CatalogFilter>("ALL");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  // Bản nháp đơn giá đang sửa theo từng dòng (id → chuỗi nhập).
   const [draft, setDraft] = useState<Record<string, string>>({});
 
-  const visible = useMemo(
-    () => rows.filter((r) => r.group === view),
-    [rows, view],
-  );
+  const activeCount = rows.filter((row) => row.active).length;
+  const missingPriceCount = rows.filter((row) => row.unit_price === null).length;
+  const inactiveCount = rows.length - activeCount;
 
-  async function send(method: string, body: unknown): Promise<boolean> {
+  const visible = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("vi");
+    return rows.filter((row) => {
+      if (row.group !== view) return false;
+      const matchesQuery =
+        needle.length === 0 ||
+        row.service_code.toLocaleLowerCase("vi").includes(needle) ||
+        row.name.toLocaleLowerCase("vi").includes(needle);
+      const matchesFilter =
+        filter === "ALL" ||
+        (filter === "ACTIVE" && row.active) ||
+        (filter === "INACTIVE" && !row.active) ||
+        (filter === "UNPRICED" && row.unit_price === null);
+      return matchesQuery && matchesFilter;
+    });
+  }, [filter, query, rows, view]);
+
+  async function send(method: "POST" | "PATCH" | "DELETE", body: unknown) {
     setError(null);
     setBusy(true);
-    const res = await fetch("/api/service-price", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setError((await res.json().catch(() => ({}))).error ?? "Có lỗi xảy ra.");
+    try {
+      const response = await fetch("/api/service-price", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(result?.error ?? "Không lưu được thay đổi. Vui lòng thử lại.");
+        return false;
+      }
+      router.refresh();
+      return true;
+    } catch {
+      setError("Không kết nối được máy chủ. Thay đổi chưa được lưu.");
       return false;
+    } finally {
+      setBusy(false);
     }
-    router.refresh();
-    return true;
   }
 
   async function add() {
+    if (!code.trim() || !name.trim()) {
+      setError("Mã và tên là hai trường bắt buộc.");
+      return;
+    }
     const ok = await send("POST", {
       service_code: code.trim(),
       name: name.trim(),
@@ -94,185 +142,307 @@ export default function CashierView({
       id,
       unit_price: raw.trim() === "" ? null : raw.trim(),
     });
-    if (ok) setDraft((d) => ({ ...d, [id]: undefined as unknown as string }));
+    if (ok) {
+      setDraft((current) =>
+        Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)),
+      );
+    }
   }
 
-  async function toggleActive(r: PriceRow) {
-    await send("PATCH", { id: r.id, active: !r.active });
+  async function toggleActive(row: PriceRow) {
+    await send("PATCH", { id: row.id, active: !row.active });
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, rowName: string) {
+    if (!window.confirm(`Xoá “${rowName}” khỏi bảng giá? Thao tác này không thể hoàn tác.`)) {
+      return;
+    }
     await send("DELETE", { id });
   }
 
   return (
     <div className="space-y-4">
-      {/* Toggle 2 view — chỉ hiện khi KHÔNG khoá nhóm (trang gộp cũ). Trang
-          Bảng giá thuốc / dịch vụ truyền group → ẩn toggle. */}
-      {!lockedGroup && (
-        <div className="inline-flex rounded-xl border border-line bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          {VIEWS.map((v) => (
+      {!lockedGroup ? (
+        <div className="inline-flex rounded-control border border-line bg-surface p-1 shadow-card">
+          {VIEWS.map((group) => (
             <button
-              key={v}
-              onClick={() => setView(v)}
-              className={
-                "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors " +
-                (view === v
+              key={group}
+              type="button"
+              onClick={() => setView(group)}
+              aria-pressed={view === group}
+              className={`rounded-chip px-4 py-2 text-sm font-medium transition-colors ${
+                view === group
                   ? "bg-brand-600 text-white"
-                  : "text-ink-soft hover:bg-brand-50")
-              }
+                  : "text-ink-soft hover:bg-surface-sunken"
+              }`}
             >
-              {VIEW_LABEL[v]}
+              {VIEW_LABEL[group]}
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {error && (
-        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
+      <section
+        aria-label="Tổng quan bảng giá"
+        className="grid overflow-hidden rounded-card border border-line bg-surface shadow-card sm:grid-cols-2 xl:grid-cols-4"
+      >
+        <Metric icon={<ClipboardList className="size-5" />} label="Tổng danh mục" value={rows.length} />
+        <Metric icon={<CircleCheck className="size-5" />} label="Đang áp dụng" value={activeCount} tone="success" />
+        <Metric icon={<CirclePause className="size-5" />} label="Tạm ngưng" value={inactiveCount} />
+        <Metric icon={<CircleAlert className="size-5" />} label="Thiếu giá" value={missingPriceCount} tone="warning" />
+      </section>
+
+      {error ? (
+        <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2.5 text-sm text-danger">
           {error}
         </p>
-      )}
+      ) : null}
 
-      {/* Form thêm dòng giá */}
-      <div className="rounded-xl border border-line bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        <h2 className="mb-3 text-sm font-semibold text-ink">
-          Thêm vào bảng giá — {VIEW_LABEL[view]}
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className={LABEL}>Mã</label>
-            <input
-              className={INPUT}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="VD: KH01"
-            />
-          </div>
-          <div>
-            <label className={LABEL}>Tên</label>
-            <input
-              className={INPUT}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Tên dịch vụ / thuốc"
-            />
-          </div>
-          <div>
-            <label className={LABEL}>Đơn giá (₫) — để trống nếu chưa chốt</label>
-            <input
-              className={INPUT}
-              value={price}
-              inputMode="numeric"
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="(trống)"
-            />
-          </div>
-        </div>
-        <div className="mt-3">
-          <button onClick={add} disabled={busy} className={BTN}>
-            {busy ? "Đang lưu..." : "+ Thêm dòng giá"}
-          </button>
-        </div>
-      </div>
+      <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
+        <section
+          aria-label="Danh mục bảng giá"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">Danh mục hiện tại</h2>
+              <p className="text-xs text-ink-muted">Hiển thị {visible.length} trong {rows.length} dòng</p>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <label className="flex h-9 min-w-60 items-center gap-2 rounded-control border border-line bg-surface px-2.5 focus-within:border-brand-500">
+                <Search aria-hidden className="size-4 shrink-0 text-ink-muted" />
+                <span className="sr-only">Tìm theo mã hoặc tên</span>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Tìm theo mã hoặc tên"
+                  className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
+                />
+              </label>
+              <label>
+                <span className="sr-only">Lọc trạng thái giá</span>
+                <select
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value as CatalogFilter)}
+                  className="h-9 w-full rounded-control border border-line bg-surface px-2.5 text-xs text-ink-soft outline-none focus:border-brand-500 sm:w-40"
+                >
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="ACTIVE">Đang áp dụng</option>
+                  <option value="INACTIVE">Tạm ngưng</option>
+                  <option value="UNPRICED">Thiếu giá</option>
+                </select>
+              </label>
+            </div>
+          </header>
 
-      {/* Bảng giá */}
-      <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <table className="w-full min-w-max border-collapse text-sm">
-          <thead className="bg-surface-muted">
-            <tr>
-              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
-                Mã
-              </th>
-              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
-                Tên
-              </th>
-              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
-                Đơn giá
-              </th>
-              <th className="border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]">
-                Hiệu lực
-              </th>
-              <th className="border-b border-surface-sunken px-3 py-2 text-right font-semibold text-[#525252]">
-                {""}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.length === 0 ? (
-              <tr>
-                <td className="px-3 py-6 text-center text-ink-muted" colSpan={5}>
-                  Chưa có dòng giá nào trong {VIEW_LABEL[view].toLowerCase()}.
-                </td>
-              </tr>
-            ) : (
-              visible.map((r) => {
-                const d = draft[r.id];
-                const editing = d !== undefined;
-                return (
-                  <tr key={r.id} className="hover:bg-surface-muted">
-                    <td className="border-b border-[#f3f3f3] px-3 py-2 font-mono text-xs text-ink-soft">
-                      {r.service_code}
-                    </td>
-                    <td className="border-b border-[#f3f3f3] px-3 py-2 text-ink">
-                      {r.name}
-                    </td>
-                    <td className="border-b border-[#f3f3f3] px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          className="h-8 w-32 rounded-md border border-line px-2 text-sm tabular-nums outline-none focus:border-brand-600"
-                          inputMode="numeric"
-                          value={
-                            editing ? d : r.unit_price === null ? "" : String(r.unit_price)
-                          }
-                          placeholder="(trống)"
-                          onChange={(e) =>
-                            setDraft((s) => ({ ...s, [r.id]: e.target.value }))
-                          }
-                        />
-                        {editing ? (
-                          <button
-                            onClick={() => savePrice(r.id)}
-                            disabled={busy}
-                            className="rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
-                          >
-                            Lưu
-                          </button>
-                        ) : (
-                          <span className="text-xs text-ink-faint">
-                            {fmtVnd(r.unit_price)}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="border-b border-[#f3f3f3] px-3 py-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft">
-                        <input
-                          type="checkbox"
-                          checked={r.active}
-                          disabled={busy}
-                          onChange={() => toggleActive(r)}
-                        />
-                        {r.active ? "Đang dùng" : "Tắt"}
-                      </label>
-                    </td>
-                    <td className="border-b border-[#f3f3f3] px-3 py-2 text-right">
-                      <button
-                        onClick={() => remove(r.id)}
-                        disabled={busy}
-                        aria-label="Xoá"
-                        className="rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-sm">
+              <thead className="bg-surface-muted text-xs text-ink-muted">
+                <tr>
+                  <th className="border-b border-line px-4 py-2.5 text-left font-medium">Mã danh mục</th>
+                  <th className="border-b border-line px-4 py-2.5 text-left font-medium">Tên thuốc / dịch vụ</th>
+                  <th className="border-b border-line px-4 py-2.5 text-left font-medium">Đơn giá</th>
+                  <th className="border-b border-line px-4 py-2.5 text-left font-medium">Trạng thái</th>
+                  <th className="border-b border-line px-4 py-2.5 text-right font-medium">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {visible.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-12 text-center text-sm text-ink-muted" colSpan={5}>
+                      Không có dòng bảng giá phù hợp.
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ) : (
+                  visible.map((row) => {
+                    const editedPrice = draft[row.id];
+                    const editing = editedPrice !== undefined;
+                    return (
+                      <tr key={row.id} className="hover:bg-surface-muted">
+                        <td className="px-4 py-3 font-mono text-xs font-medium text-ink-soft">
+                          {row.service_code}
+                        </td>
+                        <td className="px-4 py-3 text-ink">{row.name}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              aria-label={`Đơn giá ${row.name}`}
+                              className="h-9 w-32 rounded-control border border-line bg-surface px-2.5 text-right text-sm text-ink tabular-nums outline-none placeholder:text-ink-faint focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                              inputMode="numeric"
+                              value={editing ? editedPrice : row.unit_price ?? ""}
+                              placeholder="Chưa nhập"
+                              disabled={busy}
+                              onChange={(event) =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  [row.id]: event.target.value,
+                                }))
+                              }
+                            />
+                            {editing ? (
+                              <button
+                                type="button"
+                                onClick={() => savePrice(row.id)}
+                                disabled={busy}
+                                className="rounded-control bg-brand-600 px-3 py-2 text-xs font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
+                              >
+                                Lưu
+                              </button>
+                            ) : (
+                              <span className="whitespace-nowrap text-xs text-ink-muted">
+                                {formatVnd(row.unit_price)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+                            <input
+                              type="checkbox"
+                              checked={row.active}
+                              disabled={busy}
+                              onChange={() => toggleActive(row)}
+                              className="size-4 accent-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                            />
+                            {row.active ? "Đang áp dụng" : "Tạm ngưng"}
+                          </label>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => remove(row.id, row.name)}
+                            disabled={busy}
+                            aria-label={`Xoá ${row.name}`}
+                            className="rounded-control p-2 text-ink-faint hover:bg-danger-bg hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 aria-hidden className="size-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside
+          aria-label="Thêm dòng bảng giá"
+          className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <header className="border-b border-line px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Plus aria-hidden className="size-4 text-brand-600" />
+              Thêm vào {VIEW_LABEL[view].toLocaleLowerCase("vi")}
+            </h2>
+            <p className="mt-1 text-xs text-ink-muted">Tạo một mã mới trong danh mục đang chọn.</p>
+          </header>
+
+          <div className="space-y-4 p-4">
+            <Field label="Mã danh mục" required>
+              <input
+                className={inputClass}
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                placeholder={view === "thuoc" ? "VD: MED001" : "VD: DV001"}
+                maxLength={64}
+                required
+              />
+            </Field>
+            <Field label={view === "thuoc" ? "Tên thuốc" : "Tên dịch vụ"} required>
+              <input
+                className={inputClass}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Nhập tên hiển thị"
+                maxLength={200}
+                required
+              />
+            </Field>
+            <Field label="Đơn giá (₫)">
+              <input
+                className={inputClass}
+                value={price}
+                inputMode="numeric"
+                onChange={(event) => setPrice(event.target.value)}
+                placeholder="Có thể để trống"
+              />
+            </Field>
+
+            <div className="rounded-control border border-warning bg-warning-bg px-3 py-2.5 text-xs text-warning">
+              <p className="flex items-center gap-1.5 font-medium">
+                <Info aria-hidden className="size-4" />
+                Giá trống chưa thể dùng để thu tiền
+              </p>
+              <p className="mt-1">
+                Dòng vẫn được lưu để hoàn thiện danh mục, nhưng màn thu ngân phải tiếp tục khóa tổng tiền.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={add}
+              disabled={busy || !code.trim() || !name.trim()}
+              className="flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
+            >
+              <Plus aria-hidden className="size-4" />
+              {busy ? "Đang lưu…" : "Thêm dòng bảng giá"}
+            </button>
+          </div>
+        </aside>
       </div>
     </div>
+  );
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+  tone = "neutral",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone?: "neutral" | "success" | "warning";
+}) {
+  const iconTone =
+    tone === "success"
+      ? "bg-success-bg text-success"
+      : tone === "warning"
+        ? "bg-warning-bg text-warning"
+        : "bg-brand-50 text-brand-600";
+  return (
+    <div className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0 sm:[&:nth-child(odd)]:border-r xl:border-b-0 xl:border-r xl:last:border-r-0">
+      <span aria-hidden className={`flex size-10 shrink-0 items-center justify-center rounded-full ${iconTone}`}>
+        {icon}
+      </span>
+      <span>
+        <span className="block text-xs text-ink-muted">{label}</span>
+        <span className="block text-xl font-semibold text-ink tabular-nums">{value}</span>
+      </span>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required = false,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium text-ink-soft">
+        {label}
+        {required ? <span className="text-danger"> *</span> : null}
+      </span>
+      {children}
+    </label>
   );
 }

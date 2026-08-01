@@ -94,7 +94,7 @@ export default function DoctorLoadBoard({
 
   if (doctorIds.length === 0) {
     return (
-      <p className="rounded-lg border border-line bg-gray-50 px-3 py-2 text-xs text-ink-muted">
+      <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-xs text-ink-muted">
         Chọn cơ sở để xem danh sách bác sĩ.
       </p>
     );

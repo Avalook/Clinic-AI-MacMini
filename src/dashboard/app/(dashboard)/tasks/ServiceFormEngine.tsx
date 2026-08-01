@@ -46,7 +46,7 @@ function normalOption(field: FormField): string | null {
   return opt ? opt.value : null;
 }
 
-// ===== Tokens trình bày (giữ theme: hồng #9d2463 / accent #ec4899) =====
+// ===== Tokens trình bày ClinicAI dùng chung với workspace lâm sàng =====
 const TAB =
   "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors";
 const TAB_ON = " bg-brand-100 font-semibold text-brand-800";
@@ -54,9 +54,9 @@ const TAB_OFF = " text-ink-soft hover:bg-surface-sunken";
 const CHIP =
   "rounded-full border px-3 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const CHIP_ON = " border-brand-600 bg-brand-100 font-semibold text-brand-800";
-const CHIP_OFF = " border-line bg-white text-ink-soft hover:bg-brand-50";
+const CHIP_OFF = " border-line bg-surface text-ink-soft hover:bg-brand-50";
 const NAV_BTN =
-  "min-h-9 shrink-0 rounded-lg border border-line bg-white px-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-sunken disabled:opacity-40";
+  "min-h-9 shrink-0 rounded-control border border-line bg-surface px-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-sunken disabled:opacity-40";
 
 export default function ServiceFormEngine({
   visitId,
@@ -153,11 +153,11 @@ export default function ServiceFormEngine({
   };
 
   return (
-    <div className="rounded-xl border border-line bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <div className="rounded-card border border-line bg-surface p-3 shadow-card">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-sm font-semibold text-ink">
           Phiếu {schema.title}
-          <span className="ml-2 rounded bg-[#ede9fe] px-1.5 py-0.5 text-[10px] font-medium text-[#6d28d9]">
+          <span className="ml-2 rounded-chip bg-status-assigned-bg px-1.5 py-0.5 text-[10px] font-medium text-status-assigned">
             form chuyên khoa
           </span>
         </h4>
@@ -171,7 +171,7 @@ export default function ServiceFormEngine({
       ) : (
         <>
           {/* Thanh TAB theo section — chỉ render section đang chọn → giảm cuộn. */}
-          <div className="sticky top-0 z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-surface-sunken bg-white px-3 pb-2">
+          <div className="sticky top-0 z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-surface-sunken bg-surface px-3 pb-2">
             {sections.map((s, i) => (
               <button
                 key={s.title}
@@ -244,7 +244,7 @@ export default function ServiceFormEngine({
                 <button
                   onClick={save}
                   disabled={saving}
-                  className="min-h-9 shrink-0 rounded-lg bg-[#7c3aed] px-4 text-sm font-semibold text-white hover:brightness-95 disabled:opacity-50"
+                  className="min-h-9 shrink-0 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                 >
                   {saving ? "Đang lưu…" : "Lưu phiếu"}
                 </button>

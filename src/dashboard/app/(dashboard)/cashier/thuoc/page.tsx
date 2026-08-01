@@ -22,21 +22,26 @@ export default async function PriceThuocPage() {
   const rows = (data as PriceRow[] | null) ?? [];
 
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">Bảng giá thuốc</h1>
-        <p className="text-sm text-ink-muted">
-          Danh mục giá thuốc. Đơn giá để trống = chưa chốt giá (nhập sau).
-        </p>
+    <main className="page-in space-y-4 p-4 lg:p-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Bảng giá thuốc</h1>
+          <p className="text-sm text-ink-muted">
+            Quản lý mã thuốc, đơn giá và trạng thái áp dụng tại quầy thu ngân.
+          </p>
+        </div>
+        <span className="rounded-control border border-line bg-surface px-3 py-1.5 text-xs text-ink-muted">
+          Danh mục nhà thuốc
+        </span>
       </header>
 
       {error ? (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-          {error.message}
+        <div className="rounded-control border border-danger bg-danger-bg px-3 py-2.5 text-sm text-danger">
+          Không tải được bảng giá thuốc. Vui lòng thử lại sau.
         </div>
       ) : (
         <CashierView rows={rows} group="thuoc" />
       )}
-    </div>
+    </main>
   );
 }

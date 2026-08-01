@@ -133,7 +133,7 @@ const TABS = [
   "Cận lâm sàng & Chuyên khoa", // VI CLS · Phiếu chuyên khoa
   "Chẩn đoán & Xử trí", // VII Chẩn đoán · VIII Lời dặn · IX Đơn thuốc · X Tái khám
 ];
-// Tokens thanh tab (đồng bộ theme hồng — khớp ServiceFormEngine).
+// Tokens thanh tab đồng bộ ClinicAI — khớp ServiceFormEngine.
 const TAB =
   "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors";
 const TAB_ON = " bg-brand-100 font-semibold text-brand-800";
@@ -629,7 +629,7 @@ export default function ClinicalRecordForm({
   return (
     <div
       className={
-        "flex flex-col rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] " +
+        "flex flex-col rounded-card border border-line bg-surface shadow-card " +
         (fill
           ? "max-h-[calc(100vh-2rem)] md:max-h-none md:h-full"
           : "max-h-[calc(100vh-2rem)]")
@@ -708,7 +708,7 @@ export default function ClinicalRecordForm({
               className={`rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
                 !viewingPast
                   ? "bg-brand-600 text-white shadow-sm"
-                  : "bg-white border border-line text-ink-soft hover:bg-surface-sunken"
+                  : "bg-surface border border-line text-ink-soft hover:bg-surface-sunken"
               }`}
             >
               Khám mới
@@ -723,7 +723,7 @@ export default function ClinicalRecordForm({
               className={`rounded-lg px-3 py-1 text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
                 viewingPast
                   ? "bg-brand-600 text-white shadow-sm"
-                  : "bg-white border border-line text-ink-soft hover:bg-surface-sunken"
+                  : "bg-surface border border-line text-ink-soft hover:bg-surface-sunken"
               }`}
             >
               Khám cũ
@@ -751,8 +751,8 @@ export default function ClinicalRecordForm({
                     onClick={() => goPage(visitIdx)}
                     className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium border transition-colors duration-150 ${
                       isSelected
-                        ? "bg-[#eff6ff] font-semibold text-[#1e40af] border-[#bfdbfe]"
-                        : "bg-white border-line text-ink-soft hover:bg-surface-sunken"
+                        ? "bg-status-assigned-bg font-semibold text-status-assigned border-status-assigned"
+                        : "bg-surface border-line text-ink-soft hover:bg-surface-sunken"
                     }`}
                   >
                     {lanLabel}: {fmtDate(pg.date)}
@@ -1055,7 +1055,7 @@ export default function ClinicalRecordForm({
                         href={toHref(l.external_ref)!}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-medium text-[#2563eb] hover:underline"
+                        className="text-xs font-medium text-specialty-service hover:underline"
                       >
                         Phiếu
                       </a>
@@ -1241,7 +1241,7 @@ export default function ClinicalRecordForm({
           className={
             "text-xs " +
             (viewingPast
-              ? "text-[#1e40af]"
+              ? "text-brand-800"
               : readOnly && !vitalsOnly
                 ? "text-brand-800"
                 : msg?.startsWith("Đã lưu")
@@ -1277,12 +1277,12 @@ export default function ClinicalRecordForm({
                   ? onRebook(p.clinic_patient_id)
                   : router.push(`/patients/${p.clinic_patient_id}`)
               }
-              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-brand-100 bg-white px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50"
+              className="inline-flex min-h-10 items-center gap-1 rounded-control border border-brand-100 bg-surface px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50"
             >
               <CalendarPlus size={15} /> Tái khám
             </button>
           )}
-          <button onClick={onClose} className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken">
+          <button onClick={onClose} className="min-h-10 rounded-control border border-line bg-surface px-4 text-sm text-ink-soft hover:bg-surface-sunken">
             Đóng
           </button>
         </div>

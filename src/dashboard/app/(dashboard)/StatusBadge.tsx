@@ -1,14 +1,14 @@
 // Status pill for appointment.status. Colors are design tokens — do not drift.
 
 const STATUS_STYLE: Record<string, string> = {
-  SCHEDULED: "bg-[#dbeafe] text-[#1d4ed8]",
-  CSKH_CONFIRMED: "bg-[#ccfbf1] text-[#0f766e]",
-  CONFIRMED: "bg-success-bg text-success",
+  SCHEDULED: "bg-status-ready-bg text-status-ready",
+  CSKH_CONFIRMED: "bg-status-assigned-bg text-status-assigned",
+  CONFIRMED: "bg-status-completed-bg text-status-completed",
   CHECKED_IN: "bg-warning-bg text-warning",
-  COMPLETED: "bg-surface-sunken text-ink-muted",
+  COMPLETED: "bg-status-completed-bg text-status-completed",
   CANCELLED: "bg-danger-bg text-danger",
-  NO_SHOW: "bg-brand-100 text-status-cancelled",
-  DOCTOR_DECLINED: "bg-[#ffedd5] text-[#c2410c]",
+  NO_SHOW: "bg-status-cancelled-bg text-status-cancelled",
+  DOCTOR_DECLINED: "bg-warning-bg text-warning",
 };
 
 // Nhãn tiếng Việt cho mọi trạng thái (chuyên nghiệp hơn mã code trần).
@@ -27,7 +27,7 @@ export default function StatusBadge({ status }: { status: string }) {
   const style = STATUS_STYLE[status] ?? "bg-surface-sunken text-ink-muted";
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${style}`}
+      className={`inline-flex items-center rounded-chip px-2 py-0.5 text-xs font-medium ${style}`}
     >
       {STATUS_LABEL[status] ?? status}
     </span>

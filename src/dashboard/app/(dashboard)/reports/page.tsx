@@ -203,29 +203,29 @@ export default async function ReportsPage() {
     channelsRes.error;
 
   return (
-    <div className="space-y-6">
+    <main className="page-in min-w-0 space-y-6 p-4 lg:p-5">
       {/* Print CSS: khi in / lưu PDF ẩn sidebar, nav, nút bấm */}
       <style>{`
         @media print {
           [data-sidebar], nav, aside, [class*="sidebar"],
           #print-report-btn { display: none !important; }
-          body { background: white !important; }
+          body { background: var(--color-surface) !important; }
           .space-y-6 > * { page-break-inside: avoid; }
         }
       `}</style>
 
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Báo cáo</h1>
-          <p className="text-sm text-ink-muted">
-            KPI vận hành phòng khám · {fmtDate(new Date())} · Read-only
+          <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo vận hành</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            KPI vận hành phòng khám · {fmtDate(new Date())} · chỉ đọc
           </p>
         </div>
         <PrintReportButton />
       </header>
 
       {queryError && (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+        <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
           {queryError.message}
         </div>
       )}
@@ -261,7 +261,7 @@ export default async function ReportsPage() {
 
       {/* Khối 3 — Theo bác sĩ (hôm nay) */}
       <Section title="Theo bác sĩ (hôm nay)">
-        <div className="overflow-x-auto rounded-lg border border-line bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-line bg-surface-muted text-left text-xs text-ink-muted">
@@ -325,7 +325,7 @@ export default async function ReportsPage() {
 
       {/* Khối 5 — 7 ngày gần nhất: bar CSS thuần */}
       <Section title="Lịch hẹn 7 ngày gần nhất">
-        <div className="rounded-lg border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="rounded-card border border-line bg-surface p-5 shadow-card">
           <div className="space-y-2">
             {dayBuckets.map((b) => (
               <div key={b.label} className="flex items-center gap-3 text-sm">
@@ -349,7 +349,7 @@ export default async function ReportsPage() {
 
       {/* Khối 6 — Nguồn đặt lịch (booking_channel, 30 ngày) */}
       <Section title="Nguồn đặt lịch (30 ngày)">
-        <div className="rounded-lg border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div className="rounded-card border border-line bg-surface p-5 shadow-card">
           {channelStats.length === 0 && nullChannel === 0 && otherChannel === 0 ? (
             <p className="text-sm text-ink-muted">
               Chưa có lịch hẹn trong 30 ngày qua.
@@ -388,7 +388,7 @@ export default async function ReportsPage() {
       <p className="text-xs text-ink-muted">
         Chưa gồm doanh thu — chờ module thu ngân.
       </p>
-    </div>
+    </main>
   );
 }
 
@@ -400,8 +400,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold text-ink">{title}</h2>
+    <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+      <h2 className="font-semibold text-ink">{title}</h2>
       {children}
     </section>
   );

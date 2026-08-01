@@ -49,7 +49,7 @@ export default function PreVisitBrief({ id }: { id: string }) {
           type="button"
           onClick={load}
           disabled={status === "loading"}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4f46e5] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-control bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "loading" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -75,18 +75,18 @@ export default function PreVisitBrief({ id }: { id: string }) {
       </p>
 
       {status === "error" && (
-        <div className="rounded-lg border border-[#fecaca] bg-danger-bg px-4 py-3 text-sm text-danger">
+        <div className="rounded-control border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
           {errorMsg}
         </div>
       )}
 
       {status === "done" &&
         (markdown.trim() ? (
-          <pre className="whitespace-pre-wrap rounded-xl border border-line bg-white p-4 font-sans text-sm leading-relaxed text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <pre className="whitespace-pre-wrap rounded-card border border-line bg-white p-4 font-sans text-sm leading-relaxed text-ink shadow-card">
             {markdown}
           </pre>
         ) : (
-          <div className="rounded-lg border border-line bg-surface-muted px-4 py-3 text-sm text-ink-muted">
+          <div className="rounded-control border border-line bg-surface-muted px-4 py-3 text-sm text-ink-muted">
             Chưa đủ dữ liệu để tạo tóm tắt cho bệnh nhân này.
           </div>
         ))}

@@ -58,7 +58,7 @@ export default async function PatientCskhLog({ id }: { id: string }) {
         {rows.map((r) => (
           <li
             key={r.id}
-            className="rounded-xl border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+            className="rounded-card border border-line bg-surface p-3 shadow-card"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold text-ink">

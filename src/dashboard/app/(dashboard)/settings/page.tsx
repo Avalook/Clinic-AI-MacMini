@@ -53,23 +53,23 @@ export default async function SettingsPage() {
   const linked = rows.filter((r) => r.auth_user_id !== null).length;
 
   return (
-    <div className="space-y-4">
+    <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-ink">Cài đặt</h1>
-          <p className="text-sm text-ink-muted">
+          <h1 className="text-xl font-semibold text-ink lg:text-2xl">Cài đặt tài khoản</h1>
+          <p className="mt-1 text-sm text-ink-muted">
             Nhân viên + trạng thái liên kết tài khoản đăng nhập.
           </p>
         </div>
         <Link
           href="/settings/new-user"
-          className="shrink-0 rounded-md bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-brand-700"
+          className="shrink-0 rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-surface transition-colors duration-150 hover:bg-brand-700"
         >
           + Thêm tài khoản
         </Link>
       </header>
 
-      <div className="rounded-md border border-line bg-white px-4 py-3 text-sm text-ink-soft">
+      <div className="rounded-card border border-line bg-brand-50 px-4 py-3 text-sm text-ink-soft shadow-card">
         <span className="font-medium text-ink">{linked}</span> /{" "}
         <span className="font-medium text-ink">{rows.length}</span>{" "}
         nhân viên đã được link với tài khoản đăng nhập. Bấm{" "}
@@ -80,7 +80,7 @@ export default async function SettingsPage() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+        <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
           {error.message}
         </div>
       )}
@@ -90,7 +90,7 @@ export default async function SettingsPage() {
         {rows.map((r) => (
           <li
             key={r.id}
-            className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            className="rounded-card border border-line bg-surface p-4 shadow-card"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -103,7 +103,7 @@ export default async function SettingsPage() {
               </div>
               {r.is_active ? (
                 <span className="inline-flex shrink-0 items-center gap-1 text-xs text-success">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
                   Active
                 </span>
               ) : (
@@ -113,12 +113,12 @@ export default async function SettingsPage() {
             <div className="mt-2 flex items-center justify-between gap-2">
               {r.auth_user_id ? (
                 <span className="inline-flex items-center gap-1 text-xs text-success">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
                   Đã link
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-xs text-warning">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#eab308]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-warning" />
                   Chưa link
                 </span>
               )}
@@ -136,14 +136,14 @@ export default async function SettingsPage() {
           </li>
         ))}
         {rows.length === 0 && (
-          <li className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
+          <li className="rounded-card border border-line bg-surface px-4 py-8 text-center text-sm text-ink-muted shadow-card">
             Chưa có nhân viên.
           </li>
         )}
       </ul>
 
       {/* Desktop: table (≥md). */}
-      <div className="hidden overflow-auto rounded-lg border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] md:block">
+      <div className="hidden min-h-[180px] max-h-[88vh] overflow-x-auto overflow-y-auto rounded-card border border-line bg-surface shadow-card md:block">
         <table className="min-w-full divide-y divide-brand-100 text-sm">
           <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
@@ -178,7 +178,7 @@ export default async function SettingsPage() {
                 <td className={TD}>
                   {r.is_active ? (
                     <span className="inline-flex items-center gap-1 text-xs text-success">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
                       Active
                     </span>
                   ) : (
@@ -188,12 +188,12 @@ export default async function SettingsPage() {
                 <td className={TD}>
                   {r.auth_user_id ? (
                     <span className="inline-flex items-center gap-1 text-xs text-success">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
                       Đã link
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs text-warning">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#eab308]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-warning" />
                       Chưa link
                     </span>
                   )}
@@ -222,6 +222,6 @@ export default async function SettingsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </main>
   );
 }

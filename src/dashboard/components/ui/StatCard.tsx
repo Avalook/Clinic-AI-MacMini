@@ -17,7 +17,7 @@ export type StatTone = "neutral" | "brand" | "warning" | "danger" | "success";
 const TONE: Record<StatTone, { icon: string; value: string }> = {
   neutral: { icon: "text-ink-muted bg-surface-sunken", value: "text-ink" },
   brand: { icon: "text-brand-600 bg-brand-50", value: "text-ink" },
-  warning: { icon: "text-status-on-hold bg-status-on-hold-bg", value: "text-status-on-hold" },
+  warning: { icon: "text-warning bg-warning-bg", value: "text-warning" },
   danger: { icon: "text-status-overdue bg-status-overdue-bg", value: "text-status-overdue" },
   success: { icon: "text-status-completed bg-status-completed-bg", value: "text-status-completed" },
 };

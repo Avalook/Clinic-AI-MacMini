@@ -7,7 +7,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ListOrdered, Stethoscope, BellRing } from "lucide-react";
+import { BellRing, ListOrdered, Stethoscope, UsersRound } from "lucide-react";
 import { fmtTime, isVnMidnight } from "../../../lib/datetime";
 
 export interface QueueRow {
@@ -57,19 +57,36 @@ export default function QueueBoard({
     else groups.set(key, [r]);
   }
   const doctors = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const waitingCount = rows.filter(
+    (row) => row.visit_status !== "IN_PROGRESS" && !row.b3_ready,
+  ).length;
+  const inExamCount = rows.filter(
+    (row) => row.visit_status === "IN_PROGRESS" && !row.b3_ready,
+  ).length;
+  const readbackCount = rows.filter((row) => row.b3_ready).length;
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center gap-2">
-        <ListOrdered size={22} className="text-brand-800" />
-        <div>
-          <h1 className="text-xl font-semibold text-ink">Số thứ tự gọi khám</h1>
-          <p className="text-sm text-ink-muted">
-            Gọi theo TÊN · người có hẹn đến đúng giờ được ưu tiên trước khách vãng lai ·
-            số vé chỉ là nhãn định danh
-          </p>
+    <div aria-label="Bảng điều phối hàng đợi nội bộ" className="mx-auto max-w-[1540px] space-y-4">
+      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-100 text-brand-700">
+            <ListOrdered size={18} />
+          </span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Nội bộ</p>
+            <h1 className="mt-1 text-xl font-semibold text-ink">Hàng đợi khám</h1>
+            <p className="mt-1 text-sm text-ink-muted">
+              Danh sách có dữ liệu định danh, chỉ dành cho nhân sự đã được cấp quyền.
+            </p>
+          </div>
         </div>
       </header>
+
+      <section className="grid gap-3 sm:grid-cols-3" aria-label="Tổng quan hàng đợi">
+        <QueueMetric icon={<UsersRound size={17} />} label="Đang chờ" value={waitingCount} tone="brand" />
+        <QueueMetric icon={<Stethoscope size={17} />} label="Đang khám" value={inExamCount} tone="success" />
+        <QueueMetric icon={<BellRing size={17} />} label="Chờ đọc kết quả" value={readbackCount} tone="warning" />
+      </section>
 
       {error && (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
@@ -78,11 +95,11 @@ export default function QueueBoard({
       )}
 
       {doctors.length === 0 ? (
-        <p className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-10 text-center text-sm text-ink-faint">
+        <p className="rounded-card border border-line bg-surface px-4 py-10 text-center text-sm text-ink-faint shadow-card">
           Chưa có bệnh nhân nào đang chờ khám.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Hàng đợi theo bác sĩ">
           {doctors.map(([name, list]) => {
             // Order is authoritative from the backend (/api/v1/queue → call_rank).
             // The board only groups + splits by flags; it does NOT rank.
@@ -99,9 +116,9 @@ export default function QueueBoard({
             return (
               <section
                 key={name}
-                className="overflow-hidden rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]"
+                className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
               >
-                <div className="flex items-center justify-between bg-brand-100 px-4 py-2.5">
+                <div className="flex items-center justify-between border-b border-line bg-surface-muted px-4 py-3">
                   <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-800">
                     <Stethoscope size={15} /> {name}
                   </span>
@@ -111,7 +128,7 @@ export default function QueueBoard({
                 </div>
 
                 {b3.length > 0 && (
-                  <div className="border-b border-[#fde68a] bg-[#fffbeb] px-3 py-2">
+                  <div className="border-b border-warning-bg bg-warning-bg px-3 py-2">
                     <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-warning">
                       <BellRing size={12} /> Chờ đọc kết quả
                     </p>
@@ -136,7 +153,7 @@ export default function QueueBoard({
                   </div>
                 )}
 
-                <ul className="divide-y divide-brand-100">
+                <ul className="divide-y divide-line">
                   {waiting.map((r, i) => (
                     <QueueLine key={r.id} r={r} order={i + 1} />
                   ))}
@@ -152,6 +169,35 @@ export default function QueueBoard({
         </div>
       )}
     </div>
+  );
+}
+
+function QueueMetric({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone: "brand" | "success" | "warning";
+}) {
+  const tones = {
+    brand: "bg-brand-50 text-brand-700",
+    success: "bg-success-bg text-success",
+    warning: "bg-warning-bg text-warning",
+  };
+  return (
+    <article className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-card">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-control ${tones[tone]}`}>
+        {icon}
+      </span>
+      <div>
+        <p className="text-xs text-ink-muted">{label}</p>
+        <p className="mt-0.5 text-xl font-semibold tabular-nums text-ink">{value}</p>
+      </div>
+    </article>
   );
 }
 
@@ -182,7 +228,7 @@ function QueueLine({
           {r.queue_number ? (
             <span className="font-mono text-brand-800">Vé {r.queue_number}</span>
           ) : (
-            <span className="text-[#c4c4c8]">Chưa cấp vé</span>
+            <span className="text-ink-faint">Chưa cấp vé</span>
           )}
           {!isVnMidnight(r.slot_start) && booked ? ` · hẹn ${fmtTime(r.slot_start)}` : ""}
           {r.service?.name ? ` · ${r.service.name}` : ""}

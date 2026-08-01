@@ -10,6 +10,7 @@
 import { CircleCheck, Clock3, Hand, TriangleAlert } from "lucide-react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
+import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchWorklist } from "@/lib/worklist-server";
 
 import CashierBoard from "./CashierBoard";
@@ -18,6 +19,7 @@ export const metadata = { title: "Bàn thu ngân · ClinicAI" };
 export const dynamic = "force-dynamic";
 
 export default async function CashierBoardPage() {
+  await requireNavAccess("/cashier/board");
   const result = await fetchWorklist("thu_ngan_dong_luot");
   const today = new Date().toLocaleDateString("vi-VN", {
     weekday: "long",

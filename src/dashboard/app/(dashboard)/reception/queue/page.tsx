@@ -10,6 +10,7 @@
 import { CalendarDays, Hourglass, ShieldCheck, UsersRound, Activity } from "lucide-react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
+import { requireNavAccess } from "@/lib/clinic-session";
 import { waitedMinutes } from "@/lib/worklist";
 import { fetchWorklist } from "@/lib/worklist-server";
 import { isOverdue } from "@/lib/work-item-status";
@@ -22,6 +23,7 @@ export const metadata = { title: "Hàng đợi tiếp nhận · ClinicAI" };
 export const dynamic = "force-dynamic";
 
 export default async function ReceptionQueuePage() {
+  await requireNavAccess("/reception/queue");
   const result = await fetchWorklist("bang_dieu_phoi");
 
   const now = new Date();

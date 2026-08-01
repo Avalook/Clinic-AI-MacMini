@@ -3,10 +3,9 @@
 // Desktop sidebar nav links + the drawer's link list. Visibility is per-role
 // (see canSeeNav). Client component so it can highlight the active route.
 //
-// Light surface, teal active state, per the design set. It was a dark rail with
-// a #ec4899 active border — pink chrome on a women's-health product is the
-// gender-coded colour the icon system explicitly forbids, and it was the last
-// place in the shell still using it.
+// Light surface, teal active state, per the design set. The old dark rail used
+// a gender-coded accent; the icon system explicitly forbids that treatment,
+// and the shared teal token keeps the shell neutral.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";

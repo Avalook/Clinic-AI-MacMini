@@ -55,7 +55,7 @@ export default function WeekKanban({
               className={
                 "mb-2 rounded-lg px-3 py-2 text-center " +
                 (isToday
-                  ? "bg-brand-600 text-white"
+                  ? "bg-brand-600 text-surface"
                   : "bg-brand-100 text-brand-800")
               }
             >
@@ -70,13 +70,13 @@ export default function WeekKanban({
             {/* Thẻ */}
             <div className="space-y-1.5">
               {items.length === 0 && (
-                <p className="rounded-lg border border-dashed border-line py-4 text-center text-[11px] text-[#c4c4c8]">
+                <p className="rounded-control border border-dashed border-line py-4 text-center text-[11px] text-ink-faint">
                   —
                 </p>
               )}
               {items.map((it) => {
                 const group = STATION_GROUP[it.station] ?? "";
-                const color = GROUP_COLOR[group] ?? "#71717a";
+                const color = GROUP_COLOR[group] ?? "var(--color-ink-muted)";
                 const open = openId === it.id;
                 const primary = personal
                   ? STATION_SHORT[it.station] ?? it.station
@@ -90,7 +90,7 @@ export default function WeekKanban({
                     onClick={() => setOpenId(open ? null : it.id)}
                     style={{ borderLeftColor: color }}
                     className={
-                      "w-full rounded-lg border border-l-4 border-line bg-white p-2 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md " +
+                      "w-full rounded-control border border-l-4 border-line bg-surface p-2 text-left shadow-card transition-all duration-150 hover:-translate-y-0.5 hover:shadow-panel " +
                       (open ? "ring-2 ring-brand-600/30" : "")
                     }
                   >

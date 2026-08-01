@@ -42,10 +42,12 @@ export default async function SonoPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-ink">ĐD siêu âm</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          Điều phối siêu âm &amp; xét nghiệm
+        </h1>
         <p className="text-sm text-ink-muted">
-          Hàng đợi BN siêu âm (bắt đầu → hoàn tất → hủy) và hàng đợi xét nghiệm 3
-          trạng thái (lấy mẫu → gửi lab → có KQ). In phiếu kết quả từ từng dòng.
+          Theo dõi hàng đợi siêu âm và các mốc xét nghiệm hiện có. Chức năng phân
+          phòng SA1–SA3 chỉ hiển thị khi backend cung cấp dữ liệu phòng.
         </p>
       </header>
 

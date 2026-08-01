@@ -24,18 +24,21 @@ export interface FollowupBucket {
 
 const TIER_STYLE: Record<number, string> = {
   2: "bg-warning-bg text-warning",
-  10: "bg-[#fed7aa] text-[#c2410c]",
-  20: "bg-[#fecaca] text-danger",
+  10: "bg-warning-bg text-warning",
+  20: "bg-danger-bg text-danger",
   30: "bg-danger-bg text-danger",
 };
 
-export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[] }) {
+/**
+ * The one existing follow-up mutation, shared by the full list and the V2
+ * workspace detail panel. It only records an already-made call; it does not
+ * alter appointments or clinical information.
+ */
+export function FollowupMarkButton({ patientId }: { patientId: string }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-
-  const total = buckets.reduce((n, b) => n + b.rows.length, 0);
 
   async function markCalled(clinicPatientId: string) {
     if (busyId) return;
@@ -55,9 +58,37 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
     router.refresh(); // BN có lịch mới / log mới → cập nhật danh sách
   }
 
+  const called = calledIds.has(patientId);
+  return (
+    <div className="space-y-2">
+      {error && (
+        <div className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
+          {error}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => markCalled(patientId)}
+        disabled={busyId === patientId || called}
+        className={
+          "flex min-h-10 w-full items-center justify-center rounded-control px-3 text-sm font-semibold disabled:opacity-60 " +
+          (called
+            ? "bg-success-bg text-success"
+            : "bg-brand-600 text-white hover:bg-brand-700")
+        }
+      >
+        {busyId === patientId ? "Đang ghi…" : called ? "Đã ghi nhật ký cuộc gọi" : "Đã gọi"}
+      </button>
+    </div>
+  );
+}
+
+export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[] }) {
+  const total = buckets.reduce((n, b) => n + b.rows.length, 0);
+
   if (total === 0) {
     return (
-      <div className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
+      <div className="rounded-card border border-line bg-surface px-4 py-6 text-center text-sm text-ink-muted">
         Không có BN quá hạn tái khám cần nhắc gọi.
       </div>
     );
@@ -65,9 +96,6 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
 
   return (
     <div className="space-y-4">
-      {error && (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{error}</div>
-      )}
       {buckets
         .filter((b) => b.rows.length > 0)
         .map((b) => (
@@ -80,9 +108,8 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
               </span>
               <span className="text-xs text-ink-muted">{b.rows.length} BN</span>
             </div>
-            <ul className="divide-y divide-line rounded-lg border border-line bg-white">
+            <ul className="divide-y divide-line rounded-card border border-line bg-surface">
               {b.rows.map((r) => {
-                const called = calledIds.has(r.clinic_patient_id);
                 return (
                   <li
                     key={r.clinic_patient_id}
@@ -102,22 +129,9 @@ export default function CskhFollowupList({ buckets }: { buckets: FollowupBucket[
                         Quá hạn {r.overdue_days} ngày
                       </p>
                     </div>
-                    <button
-                      onClick={() => markCalled(r.clinic_patient_id)}
-                      disabled={busyId === r.clinic_patient_id || called}
-                      className={
-                        "shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-60 " +
-                        (called
-                          ? "border-success-bg bg-success-bg text-success"
-                          : "border-brand-100 text-brand-800 hover:bg-brand-50")
-                      }
-                    >
-                      {busyId === r.clinic_patient_id
-                        ? "..."
-                        : called
-                          ? "✓ Đã ghi"
-                          : "Đã gọi"}
-                    </button>
+                    <div className="w-28 shrink-0">
+                      <FollowupMarkButton patientId={r.clinic_patient_id} />
+                    </div>
                   </li>
                 );
               })}

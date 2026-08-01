@@ -1,11 +1,11 @@
 // Shared form design tokens + option lists, so the intake form and the
 // appointment-booking form look identical and stay consistent. Aesthetic
-// matches the dashboard (rose accent, hairline borders, 8-12px radius,
-// soft shadow). text-base on mobile prevents iOS auto-zoom; denser at ≥sm.
+// matches the dashboard (teal accent, hairline borders, 8-12px radius,
+// token shadow). text-base on mobile prevents iOS auto-zoom; denser at ≥sm.
 
 export const INPUT =
-  "w-full min-h-11 rounded-lg border border-line bg-white px-3 py-2.5 " +
-  "text-base text-ink shadow-[0_1px_2px_rgba(0,0,0,0.03)] outline-none " +
+  "w-full min-h-11 rounded-lg border border-line bg-surface px-3 py-2.5 " +
+  "text-base text-ink shadow-card outline-none " +
   "transition-colors placeholder:text-ink-faint focus:border-brand-600 " +
   "focus:ring-2 focus:ring-brand-600/15 sm:min-h-0 sm:py-2 sm:text-sm";
 
@@ -13,7 +13,7 @@ export const LABEL = "mb-1 block text-[13px] font-medium text-ink-soft";
 
 export const BTN =
   "min-h-11 w-full rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold " +
-  "text-white shadow-[0_1px_2px_rgba(236,72,153,0.3)] transition-colors " +
+  "text-white shadow-card transition-colors " +
   "hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50 sm:w-auto";
 
 export const BTN_GHOST =
@@ -22,19 +22,18 @@ export const BTN_GHOST =
   "active:bg-surface-sunken sm:w-auto";
 
 export const CARD =
-  "rounded-xl border border-line bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:p-6";
+  "rounded-card border border-line bg-surface p-5 shadow-card sm:p-6";
 
-// ===== Bảng — tông hồng nhẹ dùng CHUNG cho mọi bảng trong dashboard =====
-// (khớp gradient thẻ thông tin BN: nền hồng #fdf2f8, viền #f9d9e8, header #fce7f3).
-// TBL_WRAP: khung ngoài bảng · TBL_HEAD: hàng tiêu đề · TBL_ROW: hàng cuộn (zebra hồng)
+// ===== Bảng — token bề mặt dùng CHUNG cho mọi bảng trong dashboard =====
+// TBL_WRAP: khung ngoài bảng · TBL_HEAD: hàng tiêu đề · TBL_ROW: hàng cuộn (zebra nhẹ)
 // · TBL_DIV: đường kẻ ngang giữa các hàng.
 export const TBL_WRAP =
-  "overflow-hidden rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]";
+  "overflow-hidden rounded-card border border-line bg-surface shadow-card";
 export const TBL_HEAD =
-  "bg-brand-100 text-[11px] font-semibold uppercase tracking-wide text-brand-800";
+  "bg-surface-muted text-[11px] font-semibold uppercase tracking-wide text-ink-soft";
 export const TBL_ROW = "transition-colors hover:bg-brand-50";
-export const TBL_ROW_ALT = "bg-white even:bg-[#fdf5f9]";
-export const TBL_DIV = "divide-y divide-brand-100";
+export const TBL_ROW_ALT = "bg-surface even:bg-surface-muted";
+export const TBL_DIV = "divide-y divide-line";
 
 // Khung bảng cuộn ngang+dọc: dùng overflow-auto + max-h để giới hạn chiều cao.
 // Bắt buộc đặt thead className sticky top-0 z-10 để header cố định khi cuộn.

@@ -39,18 +39,18 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 const STATE_STYLE = {
-  healthy: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  degraded: "border-amber-200 bg-amber-50 text-amber-700",
-  critical: "border-red-200 bg-red-50 text-red-700",
-  down: "border-red-200 bg-red-50 text-red-700",
-  unknown: "border-zinc-200 bg-zinc-50 text-zinc-600",
-  disabled: "border-zinc-200 bg-zinc-50 text-zinc-500",
-  fresh: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  stale: "border-amber-200 bg-amber-50 text-amber-700",
-  expired: "border-red-200 bg-red-50 text-red-700",
-  invalid: "border-red-200 bg-red-50 text-red-700",
-  good: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  warning: "border-amber-200 bg-amber-50 text-amber-700",
+  healthy: "border-success bg-success-bg text-success",
+  degraded: "border-warning bg-warning-bg text-warning",
+  critical: "border-danger bg-danger-bg text-danger",
+  down: "border-danger bg-danger-bg text-danger",
+  unknown: "border-line bg-surface-muted text-ink-muted",
+  disabled: "border-line bg-surface-sunken text-ink-faint",
+  fresh: "border-success bg-success-bg text-success",
+  stale: "border-warning bg-warning-bg text-warning",
+  expired: "border-danger bg-danger-bg text-danger",
+  invalid: "border-danger bg-danger-bg text-danger",
+  good: "border-success bg-success-bg text-success",
+  warning: "border-warning bg-warning-bg text-warning",
 } as const;
 
 function StateIcon({ state }: { state: string }) {
@@ -65,7 +65,7 @@ function StateIcon({ state }: { state: string }) {
 
 function Badge({ state, text }: { state: keyof typeof STATE_STYLE; text: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${STATE_STYLE[state]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-chip border px-2.5 py-1 text-xs font-medium ${STATE_STYLE[state]}`}>
       <StateIcon state={state} />
       {text}
     </span>
@@ -84,11 +84,11 @@ function fmtBytes(value: number | null) {
 
 function ServiceCard({ label, state, latency, restarts }: { label: string; state: ServiceState; latency?: number | null; restarts?: number }) {
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <article className="rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-zinc-900">{label}</p>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="text-sm font-medium text-ink">{label}</p>
+          <p className="mt-1 text-xs text-ink-muted">
             {latency !== undefined ? `Độ trễ ${fmtNumber(latency, " ms")}` : `Restart ${restarts ?? 0}`}
           </p>
         </div>
@@ -100,13 +100,13 @@ function ServiceCard({ label, state, latency, restarts }: { label: string; state
 
 function FindingCard({ item }: { item: { label: string; detail: string; state: FindingState } }) {
   return (
-    <li className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-white p-3">
-      <span className={`mt-0.5 rounded-full border p-1.5 ${STATE_STYLE[item.state]}`}>
+    <li className="flex items-start gap-3 rounded-control border border-line bg-surface p-3">
+      <span className={`mt-0.5 rounded-chip border p-1.5 ${STATE_STYLE[item.state]}`}>
         <StateIcon state={item.state} />
       </span>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-zinc-900">{item.label}</p>
-        <p className="mt-0.5 text-xs leading-5 text-zinc-600">{item.detail}</p>
+        <p className="text-sm font-medium text-ink">{item.label}</p>
+        <p className="mt-0.5 text-xs leading-5 text-ink-muted">{item.detail}</p>
       </div>
     </li>
   );
@@ -115,16 +115,16 @@ function FindingCard({ item }: { item: { label: string; detail: string; state: F
 function ToolLink({ href, title, detail, icon }: { href: string | null; title: string; detail: string; icon: React.ReactNode }) {
   if (!href) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-zinc-500">
+      <div className="flex items-center gap-3 rounded-card border border-dashed border-line bg-surface-muted p-4 text-ink-muted">
         {icon}<div><p className="text-sm font-medium">{title}</p><p className="text-xs">Chưa cấu hình đường dẫn an toàn.</p></div>
       </div>
     );
   }
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-pink-300 hover:bg-pink-50/40">
-      <span className="rounded-lg bg-pink-50 p-2 text-pink-600">{icon}</span>
-      <div className="min-w-0 flex-1"><p className="text-sm font-medium text-zinc-900">{title}</p><p className="text-xs text-zinc-500">{detail}</p></div>
-      <ExternalLink size={16} className="text-zinc-400 group-hover:text-pink-600" aria-hidden />
+    <a href={href} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition hover:border-brand-300 hover:bg-brand-50">
+      <span className="rounded-control bg-brand-50 p-2 text-brand-600">{icon}</span>
+      <div className="min-w-0 flex-1"><p className="text-sm font-medium text-ink">{title}</p><p className="text-xs text-ink-muted">{detail}</p></div>
+      <ExternalLink size={16} className="text-ink-faint group-hover:text-brand-600" aria-hidden />
     </a>
   );
 }
@@ -177,24 +177,24 @@ export default function OpsCenter() {
   const overallStyle = STATE_STYLE[summary.overall];
 
   return (
-    <div className="space-y-6">
+    <main className="page-in min-w-0 space-y-6 p-4 lg:p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2"><Gauge size={22} className="text-pink-600" /><h1 className="text-xl font-semibold text-zinc-900">Vận hành hệ thống</h1></div>
-          <p className="mt-1 text-sm text-zinc-500">Một cửa theo dõi hiệu năng, backup và bảo mật · chỉ dành cho Quản lý</p>
+          <div className="flex items-center gap-2"><Gauge size={22} className="text-brand-600" /><h1 className="text-xl font-semibold text-ink lg:text-2xl">Vận hành hệ thống</h1></div>
+          <p className="mt-1 text-sm text-ink-muted">Một cửa theo dõi hiệu năng, backup và bảo mật · chỉ dành cho Quản lý</p>
         </div>
-        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 disabled:opacity-60">
+        <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-sm font-medium text-ink-soft shadow-card hover:bg-surface-muted disabled:opacity-60">
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Làm mới
         </button>
       </header>
 
-      <section className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 ${overallStyle}`}>
+      <section className={`flex flex-wrap items-center justify-between gap-4 rounded-card border p-4 shadow-card ${overallStyle}`}>
         <div className="flex items-center gap-3"><StateIcon state={summary.overall} /><div><p className="font-semibold">{overallText}</p><p className="text-xs opacity-80">{sourceUnavailable ? "Nguồn trạng thái tạm thời chưa phản hồi." : `Snapshot ${summary.snapshotState} · ${summary.environment}`}</p></div></div>
         <div className="flex items-center gap-2 text-xs"><Clock3 size={15} /> Cập nhật {summary.generatedAt === new Date(0).toISOString() ? "—" : new Date(summary.generatedAt).toLocaleTimeString("vi-VN")}</div>
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-900"><Activity size={17} /> Dịch vụ & hiệu năng</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><Activity size={17} /> Dịch vụ & hiệu năng</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <ServiceCard label="Database" state={summary.database.state} latency={summary.database.latencyMs} />
           {summary.services.map((service) => <ServiceCard key={service.id} label={SERVICE_LABELS[service.id] ?? service.id} state={service.state} restarts={service.restartCount} />)}
@@ -202,31 +202,31 @@ export default function OpsCenter() {
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <section className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-900"><FileClock size={17} /> Backup & tài nguyên</h2>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section className="rounded-card border border-line bg-surface-muted p-4 shadow-card">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><FileClock size={17} /> Backup & tài nguyên</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-zinc-200 bg-white p-3"><p className="text-xs text-zinc-500">Backup gần nhất</p><p className="mt-1 text-lg font-semibold text-zinc-900">{summary.backup.ageHours === null ? "Chưa rõ" : `${fmtNumber(summary.backup.ageHours)} giờ trước`}</p><div className="mt-2"><Badge state={summary.backup.state} text={summary.backup.state === "fresh" ? "Còn mới" : summary.backup.state === "stale" ? "Sắp quá hạn" : summary.backup.state === "critical" ? "Quá hạn/lỗi" : "Chưa có dữ liệu"} /></div></div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-3"><p className="text-xs text-zinc-500">Dung lượng backup</p><p className="mt-1 text-lg font-semibold text-zinc-900">{fmtBytes(summary.backup.archiveBytes)}</p><p className="mt-2 text-xs text-zinc-500">Public schema · cần Supabase PITR/Auth riêng</p></div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-3"><p className="flex items-center gap-1.5 text-xs text-zinc-500"><HardDrive size={14} /> SSD đã dùng</p><p className="mt-1 text-lg font-semibold text-zinc-900">{fmtNumber(summary.host?.diskUsedPercent ?? null, "%")}</p></div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-3"><p className="text-xs text-zinc-500">Log 15 phút</p><p className="mt-1 text-lg font-semibold text-zinc-900">{summary.logCounts ? `${summary.logCounts.errors} lỗi · ${summary.logCounts.warnings} cảnh báo` : "Chưa rõ"}</p><p className="mt-2 text-xs text-zinc-500">Chỉ đếm mức độ, không đọc nội dung log.</p></div>
+            <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Backup gần nhất</p><p className="mt-1 text-lg font-semibold text-ink">{summary.backup.ageHours === null ? "Chưa rõ" : `${fmtNumber(summary.backup.ageHours)} giờ trước`}</p><div className="mt-2"><Badge state={summary.backup.state} text={summary.backup.state === "fresh" ? "Còn mới" : summary.backup.state === "stale" ? "Sắp quá hạn" : summary.backup.state === "critical" ? "Quá hạn/lỗi" : "Chưa có dữ liệu"} /></div></div>
+            <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Dung lượng backup</p><p className="mt-1 text-lg font-semibold text-ink">{fmtBytes(summary.backup.archiveBytes)}</p><p className="mt-2 text-xs text-ink-muted">Public schema · cần Supabase PITR/Auth riêng</p></div>
+            <div className="rounded-control border border-line bg-surface p-3"><p className="flex items-center gap-1.5 text-xs text-ink-muted"><HardDrive size={14} /> SSD đã dùng</p><p className="mt-1 text-lg font-semibold text-ink">{fmtNumber(summary.host?.diskUsedPercent ?? null, "%")}</p></div>
+            <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Log 15 phút</p><p className="mt-1 text-lg font-semibold text-ink">{summary.logCounts ? `${summary.logCounts.errors} lỗi · ${summary.logCounts.warnings} cảnh báo` : "Chưa rõ"}</p><p className="mt-2 text-xs text-ink-muted">Chỉ đếm mức độ, không đọc nội dung log.</p></div>
           </div>
         </section>
 
-        <section className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-900"><ShieldCheck size={17} /> Bảo mật</h2>
+        <section className="rounded-card border border-line bg-surface-muted p-4 shadow-card">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><ShieldCheck size={17} /> Bảo mật</h2>
           <ul className="space-y-2">{summary.security.length > 0 ? summary.security.map((item) => <FindingCard key={item.id} item={item} />) : <FindingCard item={{ label: "Kiểm tra host", detail: "Chưa có snapshot host hợp lệ; không tự giả định trạng thái an toàn.", state: "unknown" }} />}</ul>
         </section>
       </div>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-900"><ScrollText size={17} /> Công cụ chuyên sâu</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><ScrollText size={17} /> Công cụ chuyên sâu</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <ToolLink href={links.logs} title="Log realtime · Dozzle" detail="Mở ở tab riêng, không đưa log bệnh nhân vào dashboard." icon={<ScrollText size={18} />} />
           <ToolLink href={links.uptime} title="Uptime Kuma" detail="Theo dõi uptime và cấu hình cảnh báo." icon={<Activity size={18} />} />
           <ToolLink href={links.sentry} title="Sentry" detail="Điều tra exception theo request ID." icon={<Database size={18} />} />
         </div>
       </section>
-    </div>
+    </main>
   );
 }

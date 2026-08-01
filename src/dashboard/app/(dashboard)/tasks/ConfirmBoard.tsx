@@ -304,7 +304,7 @@ export default function ConfirmBoard({
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
                 (period === p.key
                   ? "bg-brand-600 text-white"
-                  : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
+                  : "border border-brand-100 bg-surface text-brand-800 hover:bg-brand-50")
               }
             >
               {p.label}
@@ -319,7 +319,7 @@ export default function ConfirmBoard({
                 "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors " +
                 (statusFilter === g.key
                   ? "bg-brand-800 text-white"
-                  : "border border-brand-100 bg-white text-brand-800 hover:bg-brand-50")
+                  : "border border-brand-100 bg-surface text-brand-800 hover:bg-brand-50")
               }
             >
               {g.label}
@@ -328,7 +328,7 @@ export default function ConfirmBoard({
         </div>
 
         {/* Khung kéo co dãn + cuộn: bảng co thì CUỘN, không vỡ cấu trúc. */}
-        <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[80vh] min-h-[200px] max-w-full">
+        <div className="max-h-[80vh] min-h-[200px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
           <table className="w-full min-w-max border-collapse text-xs">
             <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[10px] font-semibold uppercase tracking-wide text-brand-800">
               <tr>
@@ -360,7 +360,7 @@ export default function ConfirmBoard({
                         "cursor-pointer border-b border-brand-100 " +
                         (active
                           ? "bg-brand-100"
-                          : (i % 2 ? "bg-brand-50" : "bg-white") +
+                          : (i % 2 ? "bg-brand-50" : "bg-surface") +
                             " hover:bg-brand-50")
                       }
                     >
@@ -397,7 +397,7 @@ export default function ConfirmBoard({
 
       {/* Panel chi tiết — BÊN CẠNH bảng (ngang); mobile thì xuống dưới */}
       {sel && (
-        <aside className="w-full shrink-0 overflow-y-auto rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-[360px]">
+        <aside className="w-full shrink-0 overflow-y-auto rounded-card border border-brand-100 bg-brand-50 p-4 shadow-card lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-[360px]">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-status-cancelled">
               Thông tin khách hàng
@@ -405,7 +405,7 @@ export default function ConfirmBoard({
             <button
               onClick={close}
               aria-label="Đóng"
-              className="rounded-md p-1 text-status-cancelled hover:bg-white/60"
+              className="rounded-md p-1 text-status-cancelled hover:bg-surface-sunken"
             >
               <X size={16} />
             </button>
@@ -448,7 +448,7 @@ export default function ConfirmBoard({
                   <button
                     onClick={confirm}
                     disabled={busy}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-success px-4 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control bg-success px-4 text-sm font-semibold text-white hover:bg-success disabled:opacity-50"
                   >
                     <Check size={15} /> Xác nhận
                   </button>
@@ -456,7 +456,7 @@ export default function ConfirmBoard({
                 <button
                   onClick={startEdit}
                   disabled={busy}
-                  className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-line bg-white px-4 text-sm font-medium text-ink-soft hover:bg-surface-sunken disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-control border border-line bg-surface px-4 text-sm font-medium text-ink-soft hover:bg-surface-sunken disabled:opacity-50"
                 >
                   <Pencil size={14} />
                   {sel.status === "SCHEDULED" ? "Không xác nhận / Sửa" : "Sửa"}
@@ -470,7 +470,7 @@ export default function ConfirmBoard({
                       setShowCancel(false);
                     }}
                     disabled={busy}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#bfdbfe] bg-white px-4 text-sm font-medium text-[#2563eb] hover:bg-[#eff6ff] disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-status-assigned bg-surface px-4 text-sm font-medium text-status-assigned hover:bg-status-assigned-bg disabled:opacity-50"
                   >
                     <CalendarClock size={14} /> Đổi lịch
                   </button>
@@ -484,7 +484,7 @@ export default function ConfirmBoard({
                       setShowResched(false);
                     }}
                     disabled={busy}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#fecaca] bg-white px-4 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control border border-danger bg-surface px-4 text-sm font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
                   >
                     <Ban size={14} /> Hủy lịch
                   </button>
@@ -493,7 +493,7 @@ export default function ConfirmBoard({
 
               {/* Form lý do hủy (ẩn/hiện) */}
               {canManage && showCancel && LIVE.includes(sel.status) && (
-                <div className="mt-3 space-y-2 rounded-lg border border-[#fecaca] bg-white p-3">
+                <div className="mt-3 space-y-2 rounded-control border border-danger bg-surface p-3">
                   <label className={LABEL}>Lý do hủy (tuỳ chọn)</label>
                   <input
                     className={INPUT}
@@ -505,13 +505,13 @@ export default function ConfirmBoard({
                     <button
                       onClick={cancelAppt}
                       disabled={busy}
-                      className="min-h-10 rounded-lg bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
+                      className="min-h-10 rounded-control bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
                     >
                       {busy ? "Đang hủy…" : "Xác nhận hủy"}
                     </button>
                     <button
                       onClick={() => setShowCancel(false)}
-                      className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
+                      className="min-h-10 rounded-control border border-line bg-surface px-4 text-sm text-ink-soft hover:bg-surface-sunken"
                     >
                       Thôi
                     </button>
@@ -521,7 +521,7 @@ export default function ConfirmBoard({
 
               {/* Đổi lịch (CSKH/QL) — đổi ngày/giờ (+ tuỳ chọn bác sĩ) */}
               {canManage && showResched && LIVE.includes(sel.status) && (
-                <div className="mt-3 space-y-2 rounded-lg border border-[#bfdbfe] bg-white p-3">
+                <div className="mt-3 space-y-2 rounded-control border border-status-assigned bg-surface p-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className={LABEL}>Ngày mới</label>
@@ -560,7 +560,7 @@ export default function ConfirmBoard({
                         autoComplete="off"
                       />
                       {reschedDocOpen && (
-                        <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
+                        <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-control border border-line bg-surface shadow-panel">
                           <li
                             onMouseDown={() => {
                               setReschedDoc("");
@@ -602,7 +602,7 @@ export default function ConfirmBoard({
                   <button
                     onClick={reschedule}
                     disabled={busy}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#2563eb] px-4 text-sm font-semibold text-white hover:bg-[#1d4ed8] disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                   >
                     <CalendarClock size={14} /> {busy ? "Đang đổi…" : "Xác nhận đổi lịch"}
                   </button>
@@ -725,14 +725,14 @@ export default function ConfirmBoard({
                   <button
                     onClick={save}
                     disabled={busy}
-                    className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                    className="min-h-10 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                   >
                     {busy ? "Đang lưu..." : "Lưu thông tin"}
                   </button>
                   <button
                     onClick={() => setEditing(false)}
                     disabled={busy}
-                    className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
+                    className="min-h-10 rounded-control border border-line bg-surface px-4 text-sm text-ink-soft hover:bg-surface-sunken"
                   >
                     Huỷ
                   </button>

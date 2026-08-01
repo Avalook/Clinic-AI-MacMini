@@ -185,7 +185,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Vai được thấy bảng nào là theo actor_roles của node trong danh mục, không
   // phải theo cảm tính: hàng đợi tiếp nhận là workspace bang_dieu_phoi
   // (RECEPTION + NURSE_ULTRASOUND cho bước xác minh), bàn khám là khu_bac_si,
-  // bàn thu ngân là thu_ngan_dong_luot (đóng lượt có cả lễ tân).
+  // bàn thu ngân là thu_ngan_dong_luot. Lễ tân chỉ có actor ở node đóng lượt,
+  // không được mở board đối soát vì nó còn chứa hàng thanh toán/đối soát.
   // Trưởng ca và quản lý xem được tất cả để điều phối.
   "/reception/queue": [
     "RECEPTION", "NURSE_ULTRASOUND", "TRUONG_CA", "MANAGEMENT",
@@ -194,7 +195,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
     "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "TRUONG_CA", "MANAGEMENT",
   ],
   "/cashier/board": [
-    "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "RECEPTION", "TRUONG_CA",
+    "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA",
     "MANAGEMENT",
   ],
   // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho

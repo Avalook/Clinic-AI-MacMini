@@ -642,11 +642,40 @@ export default function NewPatientForm({
   }
 
   return (
-    <div className="space-y-4">
-      <section className={CARD}>
+    <div aria-label="Luồng tạo hồ sơ và đặt lịch" className="space-y-4">
+      <header className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+        <div className="border-b border-line px-4 py-3 sm:px-5">
+          <p className="text-sm font-semibold text-ink">
+            {walkin ? "Luồng tiếp nhận khách vãng lai" : "Luồng tạo hồ sơ và đặt lịch"}
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            {walkin
+              ? "Xác minh thông tin, chọn dịch vụ và tạo lượt khám khi đủ điều kiện."
+              : "Hồ sơ và lịch hẹn được tạo qua hai bước, dùng cùng một nguồn dữ liệu."}
+          </p>
+        </div>
+        <ol className="grid grid-cols-2 divide-x divide-line text-xs sm:grid-cols-3" aria-label="Các bước tiếp nhận">
+          <li className="flex items-center gap-2 px-4 py-3 text-brand-800">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">1</span>
+            <span className="font-semibold">Thông tin hồ sơ</span>
+          </li>
+          <li className="flex items-center gap-2 px-4 py-3 text-ink-muted">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">2</span>
+            <span>{walkin ? "Dịch vụ & lượt khám" : "Lịch hẹn khám"}</span>
+          </li>
+          {!walkin && (
+            <li className="hidden items-center gap-2 px-4 py-3 text-ink-muted sm:flex">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">3</span>
+              <span>Xác nhận & lưu</span>
+            </li>
+          )}
+        </ol>
+      </header>
+
+      <section aria-label="Thông tin hồ sơ" className={CARD}>
         <SectionHeader
           icon={<UserRound size={16} />}
-          title="Thông tin bệnh nhân"
+          title="Thông tin hồ sơ"
           hint="Mục có dấu * là bắt buộc (Họ tên, Ngày sinh, SĐT, Giới tính, Cơ sở)."
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -730,7 +759,7 @@ export default function NewPatientForm({
             )}
             {/* Cảnh báo MỀM trùng SĐT (feedback #9) — KHÔNG chặn lưu. */}
             {phoneDupes.length > 0 && (
-              <div className="mt-1.5 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-warning">
+              <div className="mt-1.5 rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-[12px] text-warning">
                 <p className="font-medium">⚠ Số này đã có trong hệ thống:</p>
                 <ul className="mt-1 space-y-0.5">
                   {phoneDupes.map((m) => (
@@ -1036,7 +1065,7 @@ export default function NewPatientForm({
       </section>
 
       {!walkin && (
-      <section className={CARD}>
+      <section aria-label="Lịch hẹn khám" className={CARD}>
         <SectionHeader
           icon={<CalendarClock size={16} />}
           title="Lịch hẹn khám"
@@ -1232,7 +1261,7 @@ export default function NewPatientForm({
 
       {/* Duplicate-phone warning */}
       {dupes && dupes.length > 0 && (
-        <div className="space-y-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-warning">
+        <div className="space-y-2 rounded-xl border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
           <p className="font-medium">
             ⚠️ Đã có bệnh nhân dùng SĐT này. Chọn đúng người để đặt lịch, hoặc
             vẫn tạo mới:

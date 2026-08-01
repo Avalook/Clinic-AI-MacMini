@@ -23,14 +23,18 @@ import {
   type SlotApptLite,
 } from "../../../lib/slot-capacity";
 
-// Capacity Phase 1 — màu/nhãn 6 trạng thái ô khung-giờ (khớp CellState ở lib/capacity.ts).
-const CELL_UI: Record<string, { label: string; bg: string; fg: string }> = {
-  free: { label: "Trống", bg: "#dcfce7", fg: "#166534" },
-  few: { label: "Còn ít", bg: "#fef9c3", fg: "#854d0e" },
-  return_only: { label: "Chỉ tái khám", bg: "#ffedd5", fg: "#9a3412" },
-  full_thanh: { label: "Đầy-Thành", bg: "#fee2e2", fg: "#991b1b" },
-  walkin_hold: { label: "Giữ vãng lai", bg: "#e0e7ff", fg: "#3730a3" },
-  locked: { label: "Khoá", bg: "#e5e7eb", fg: "#374151" },
+// Capacity Phase 1 — nhãn/lớp token của 6 trạng thái ô khung-giờ
+// (khớp CellState ở lib/capacity.ts).
+const CELL_UI: Record<string, { label: string; className: string }> = {
+  free: { label: "Trống", className: "bg-success-bg text-success" },
+  few: { label: "Còn ít", className: "bg-warning-bg text-warning" },
+  return_only: { label: "Chỉ tái khám", className: "bg-warning-bg text-warning" },
+  full_thanh: { label: "Đầy-Thành", className: "bg-danger-bg text-danger" },
+  walkin_hold: {
+    label: "Giữ vãng lai",
+    className: "bg-status-in-progress-bg text-status-in-progress",
+  },
+  locked: { label: "Khoá", className: "bg-surface-sunken text-ink-soft" },
 };
 
 function findServiceIdByLinhVuc(code: string, services: Option[]): string {
@@ -535,8 +539,7 @@ export default function AppointmentBooking({
                   <span
                     key={b.hour_start}
                     title={ui.label}
-                    className="rounded px-1.5 py-0.5 text-[11px]"
-                    style={{ background: ui.bg, color: ui.fg }}
+                    className={`rounded-chip px-1.5 py-0.5 text-[11px] ${ui.className}`}
                   >
                     {String(b.hour_start).padStart(2, "0")}h · {ui.label}
                   </span>
@@ -592,7 +595,7 @@ export default function AppointmentBooking({
             <option value="NEW">Khám mới — đợt trước đã xong, vấn đề mới</option>
           </select>
           {visibleSvcHistory && visibleSvcHistory.serviceVisitCount > 0 && (
-            <p className="text-[11px] leading-normal text-[#3730a3]">
+            <p className="text-[11px] leading-normal text-status-in-progress">
               Đã khám dịch vụ này {visibleSvcHistory.serviceVisitCount} lần ·{" "}
               {visibleSvcHistory.liveEpisode
                 ? visibleSvcHistory.liveEpisode.status === "PENDING_CLOSE"

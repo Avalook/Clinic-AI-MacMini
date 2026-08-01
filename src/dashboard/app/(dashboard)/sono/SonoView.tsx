@@ -1,13 +1,41 @@
 "use client";
 
-// (a) Hàng đợi SA: bắt đầu → hoàn tất → hủy. (b) Hàng đợi XN: 3 ô toggle có/chưa.
-// Ghi qua /api/sono (service-role) rồi router.refresh(). In phiếu mở /print/sono/[id].
+// Điều phối siêu âm / xét nghiệm. service_log hiện chưa có phòng SA1–SA3 hay
+// SLA, vì vậy UI không giả lập phân phòng; chỉ render các mốc thực có trong dữ liệu.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Printer } from "lucide-react";
-import { INPUT, LABEL, BTN } from "../form-ui";
+import {
+  Check,
+  ClipboardList,
+  Clock3,
+  FlaskConical,
+  PauseCircle,
+  Play,
+  Printer,
+  Search,
+  Stethoscope,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import StatusChip, { type StatusTone } from "../../../components/ui/StatusChip";
+import Stepper, { type Step } from "../../../components/ui/Stepper";
 import { fmtTime } from "../../../lib/datetime";
+import {
+  resolveSaWorkflowStatus,
+  sonoPatientDisplayName,
+  type SaWorkflowStatus,
+} from "../../../lib/clinical-workspace-policy";
+import { INPUT, LABEL } from "../form-ui";
+import {
+  EmptyWorkspace,
+  Monogram,
+  PanelHeading,
+  WorkspaceMetric,
+  WorkspaceMetricRow,
+} from "../tasks/WorkspacePrimitives";
+import workspaceStyles from "../tasks/WorkspacePrimitives.module.css";
 
 export interface SonoRow {
   id: string;
@@ -22,23 +50,23 @@ export interface SonoRow {
   patient: { full_name: string | null; patient_code: string | null } | null;
 }
 
-// (a) Nhãn + màu trạng thái SA.
-const SA_STATUS: Record<string, { label: string; cls: string }> = {
-  WAITING: { label: "Chờ khám", cls: "bg-[#dbeafe] text-[#1d4ed8]" },
-  IN_PROGRESS: { label: "Đang khám", cls: "bg-warning-bg text-warning" },
-  DONE: { label: "Hoàn tất", cls: "bg-success-bg text-success" },
-  CANCELLED: { label: "Đã hủy", cls: "bg-danger-bg text-danger" },
+type QueueKind = "SA" | "XN";
+
+const SA_STATUS: Record<SaWorkflowStatus, { label: string; tone: StatusTone }> = {
+  WAITING: { label: "Chờ khám", tone: "ready" },
+  IN_PROGRESS: { label: "Đang thực hiện", tone: "in_progress" },
+  DONE: { label: "Hoàn tất", tone: "completed" },
+  CANCELLED: { label: "Đã hủy", tone: "cancelled" },
+};
+const UNKNOWN_SA_STATUS: { label: string; tone: StatusTone } = {
+  label: "Chưa xác định",
+  tone: "blocked",
 };
 
 function SaBadge({ status }: { status: string | null }) {
-  const s = SA_STATUS[status ?? "WAITING"] ?? SA_STATUS.WAITING;
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${s.cls}`}
-    >
-      {s.label}
-    </span>
-  );
+  const resolvedStatus = resolveSaWorkflowStatus(status);
+  const item = resolvedStatus ? SA_STATUS[resolvedStatus] : UNKNOWN_SA_STATUS;
+  return <StatusChip tone={item.tone} label={item.label} />;
 }
 
 function PrintLink({ id }: { id: string }) {
@@ -48,276 +76,185 @@ function PrintLink({ id }: { id: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="In phiếu"
-      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#7c3aed] hover:bg-[#f3e8ff]"
+      className="inline-flex items-center gap-1.5 rounded-control border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-sunken"
     >
-      <Printer size={14} /> In
+      <Printer className="size-3.5" /> In phiếu
     </a>
   );
 }
 
-const TH = "border-b border-surface-sunken px-3 py-2 text-left font-semibold text-[#525252]";
-const TD = "border-b border-[#f3f3f3] px-3 py-2 align-middle";
+function patientLabel(row: SonoRow): string {
+  return sonoPatientDisplayName(row.patient?.full_name);
+}
 
-export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function send(method: string, body: unknown): Promise<boolean> {
-    setError(null);
-    setBusy(true);
-    const res = await fetch("/api/sono", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      setError((await res.json().catch(() => ({}))).error ?? "Có lỗi xảy ra.");
-      return false;
-    }
-    router.refresh();
-    return true;
-  }
-
-  function patientCell(r: SonoRow) {
-    return (
-      <>
-        <span className="font-medium text-ink">
-          {r.patient?.full_name ?? r.service_name_raw ?? "—"}
-        </span>
-        {r.patient?.patient_code && (
-          <span className="ml-1.5 text-xs text-ink-muted">
-            {r.patient.patient_code}
-          </span>
-        )}
-        {r.patient && r.service_name_raw && (
-          <span className="block text-xs text-ink-faint">{r.service_name_raw}</span>
-        )}
-      </>
-    );
-  }
+function SonoWorkflow({
+  row,
+  busy,
+  onAction,
+}: {
+  row: SonoRow;
+  busy: boolean;
+  onAction: (action: "start" | "finish" | "cancel") => void;
+}) {
+  const status = resolveSaWorkflowStatus(row.status);
+  const steps: Step[] = [
+    {
+      label: "Chờ thực hiện",
+      state: status === null ? "upcoming" : status === "WAITING" ? "current" : "done",
+      detail: status === null ? "Chưa xác định" : fmtTime(row.created_at),
+    },
+    {
+      label: "Đang thực hiện",
+      state:
+        status === null
+          ? "upcoming"
+          : status === "IN_PROGRESS"
+            ? "current"
+            : status === "DONE"
+              ? "done"
+              : "upcoming",
+      detail: status === null ? "Chưa xác định" : row.started_at ? fmtTime(row.started_at) : "Chưa bắt đầu",
+    },
+    {
+      label: "Hoàn tất",
+      state: status === "DONE" ? "done" : "upcoming",
+      detail: status === null ? "Chưa xác định" : row.finished_at ? fmtTime(row.finished_at) : "Chưa hoàn tất",
+    },
+  ];
+  const done = status === "DONE" || status === "CANCELLED";
 
   return (
-    <div className="space-y-8">
-      {error && (
-        <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
-      )}
-
-      {/* ===================== (a) HÀNG ĐỢI SIÊU ÂM ===================== */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-ink">
-          (a) Hàng đợi siêu âm — BN sắp khám
-        </h2>
-        <AddForm kind="SA" busy={busy} onAdd={(b) => send("POST", b)} />
-        <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <table className="w-full min-w-max border-collapse text-sm">
-            <thead className="bg-surface-muted">
-              <tr>
-                <th className={TH}>Giờ tạo</th>
-                <th className={TH}>Bệnh nhân</th>
-                <th className={TH}>Trạng thái</th>
-                <th className={TH}>Thao tác</th>
-                <th className={`${TH} text-right`}>{""}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sa.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-6 text-center text-ink-muted" colSpan={5}>
-                    Chưa có BN trong hàng đợi siêu âm.
-                  </td>
-                </tr>
-              ) : (
-                sa.map((r) => {
-                  const st = r.status ?? "WAITING";
-                  const done = st === "DONE" || st === "CANCELLED";
-                  return (
-                    <tr key={r.id} className="hover:bg-surface-muted">
-                      <td className={`${TD} whitespace-nowrap tabular-nums text-ink-soft`}>
-                        {fmtTime(r.created_at)}
-                      </td>
-                      <td className={TD}>{patientCell(r)}</td>
-                      <td className={`${TD} whitespace-nowrap`}>
-                        <SaBadge status={st} />
-                      </td>
-                      <td className={`${TD} whitespace-nowrap`}>
-                        <div className="flex gap-1.5">
-                          {st === "WAITING" && (
-                            <button
-                              onClick={() => send("PATCH", { id: r.id, action: "start" })}
-                              disabled={busy}
-                              className="rounded-md bg-warning-bg px-2 py-1 text-xs font-medium text-warning hover:brightness-95 disabled:opacity-50"
-                            >
-                              Bắt đầu
-                            </button>
-                          )}
-                          {st === "IN_PROGRESS" && (
-                            <button
-                              onClick={() => send("PATCH", { id: r.id, action: "finish" })}
-                              disabled={busy}
-                              className="rounded-md bg-success-bg px-2 py-1 text-xs font-medium text-success hover:brightness-95 disabled:opacity-50"
-                            >
-                              Hoàn tất
-                            </button>
-                          )}
-                          {!done && (
-                            <button
-                              onClick={() => send("PATCH", { id: r.id, action: "cancel" })}
-                              disabled={busy}
-                              className="rounded-md bg-danger-bg px-2 py-1 text-xs font-medium text-danger hover:brightness-95 disabled:opacity-50"
-                            >
-                              Hủy
-                            </button>
-                          )}
-                          {done && <span className="text-xs text-ink-faint">—</span>}
-                        </div>
-                      </td>
-                      <td className={`${TD} whitespace-nowrap text-right`}>
-                        <div className="flex items-center justify-end gap-1">
-                          <PrintLink id={r.id} />
-                          <button
-                            onClick={() => send("DELETE", { id: r.id })}
-                            disabled={busy}
-                            aria-label="Xoá"
-                            className="rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+    <section className="space-y-4">
+      <div className="rounded-control border border-line bg-surface-muted p-3.5">
+        <Stepper steps={steps} />
+      </div>
+      {status === null ? (
+        <p className="rounded-control border border-warning bg-warning-bg px-3 py-2.5 text-xs text-warning">
+          Trạng thái nguồn chưa xác định; các thao tác siêu âm được khóa để tránh suy diễn dữ liệu.
+        </p>
+      ) : status === "CANCELLED" ? (
+        <p className="rounded-control border border-danger bg-danger-bg px-3 py-2.5 text-xs text-danger">
+          Yêu cầu này đã được hủy qua luồng hiện có.
+        </p>
+      ) : null}
+      {status !== null && !done ? (
+        <div className="flex flex-wrap gap-2">
+          {status === "WAITING" ? (
+            <button
+              type="button"
+              onClick={() => onAction("start")}
+              disabled={busy}
+              className="inline-flex min-h-10 items-center gap-2 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              <Play className="size-4" /> Bắt đầu
+            </button>
+          ) : null}
+          {status === "IN_PROGRESS" ? (
+            <button
+              type="button"
+              onClick={() => onAction("finish")}
+              disabled={busy}
+              className="inline-flex min-h-10 items-center gap-2 rounded-control border border-success bg-surface px-4 text-sm font-semibold text-success hover:bg-success-bg disabled:opacity-50"
+            >
+              <Check className="size-4" /> Hoàn tất
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onAction("cancel")}
+            disabled={busy}
+            className="inline-flex min-h-10 items-center gap-2 rounded-control border border-danger bg-surface px-4 text-sm font-semibold text-danger hover:bg-danger-bg disabled:opacity-50"
+          >
+            <X className="size-4" /> Hủy yêu cầu
+          </button>
         </div>
-      </section>
-
-      {/* ===================== (b) HÀNG ĐỢI XÉT NGHIỆM ===================== */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-ink">
-          (b) Hàng đợi xét nghiệm — 3 trạng thái
-        </h2>
-        <AddForm kind="XN" busy={busy} onAdd={(b) => send("POST", b)} />
-        <div className="overflow-auto rounded-xl border border-surface-sunken bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <table className="w-full min-w-max border-collapse text-sm">
-            <thead className="bg-surface-muted">
-              <tr>
-                <th className={TH}>Bệnh nhân</th>
-                <th className={`${TH} text-center`}>Lấy mẫu</th>
-                <th className={`${TH} text-center`}>Gửi lab</th>
-                <th className={`${TH} text-center`}>Có KQ</th>
-                <th className={`${TH} text-right`}>{""}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {xn.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-6 text-center text-ink-muted" colSpan={5}>
-                    Chưa có mẫu trong hàng đợi xét nghiệm.
-                  </td>
-                </tr>
-              ) : (
-                xn.map((r) => (
-                  <tr key={r.id} className="hover:bg-surface-muted">
-                    <td className={TD}>{patientCell(r)}</td>
-                    <MilestoneCell
-                      busy={busy}
-                      at={r.started_at}
-                      onToggle={(v) =>
-                        send("PATCH", { id: r.id, milestone: "sample", value: v })
-                      }
-                    />
-                    <MilestoneCell
-                      busy={busy}
-                      at={r.sent_to_lab_at}
-                      onToggle={(v) =>
-                        send("PATCH", { id: r.id, milestone: "sendlab", value: v })
-                      }
-                    />
-                    <MilestoneCell
-                      busy={busy}
-                      at={r.finished_at}
-                      onToggle={(v) =>
-                        send("PATCH", { id: r.id, milestone: "result", value: v })
-                      }
-                    />
-                    <td className={`${TD} whitespace-nowrap text-right`}>
-                      <div className="flex items-center justify-end gap-1">
-                        <PrintLink id={r.id} />
-                        <button
-                          onClick={() => send("DELETE", { id: r.id })}
-                          disabled={busy}
-                          aria-label="Xoá"
-                          className="rounded-md p-1.5 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+      ) : null}
+    </section>
   );
 }
 
-// 1 ô mốc XN: nút "có / chưa" (toggle). Đã đạt → hiện giờ + cho bỏ; chưa → nút "Đánh dấu".
-function MilestoneCell({
+function MilestoneButton({
+  label,
   at,
   busy,
   onToggle,
 }: {
+  label: string;
   at: string | null;
   busy: boolean;
   onToggle: (value: boolean) => void;
 }) {
-  const has = !!at;
+  const reached = Boolean(at);
   return (
-    <td className="border-b border-[#f3f3f3] px-3 py-2 text-center">
-      {has ? (
-        <button
-          onClick={() => onToggle(false)}
-          disabled={busy}
-          title="Bấm để bỏ đánh dấu"
-          className="inline-flex flex-col items-center rounded-md bg-success-bg px-2 py-1 text-xs font-medium text-success hover:brightness-95 disabled:opacity-50"
-        >
-          <span>✓ Có</span>
-          <span className="tabular-nums text-[10px] text-success/70">
-            {fmtTime(at)}
-          </span>
-        </button>
-      ) : (
-        <button
-          onClick={() => onToggle(true)}
-          disabled={busy}
-          className="rounded-md border border-line px-2 py-1 text-xs text-ink-muted hover:border-brand-600 hover:text-brand-600 disabled:opacity-50"
-        >
-          Đánh dấu
-        </button>
-      )}
-    </td>
+    <button
+      type="button"
+      onClick={() => onToggle(!reached)}
+      disabled={busy}
+      aria-pressed={reached}
+      title={reached ? "Bỏ đánh dấu mốc này" : `Đánh dấu ${label}`}
+      className={`flex w-full items-center justify-between gap-3 rounded-control border px-3 py-2.5 text-left text-xs font-medium disabled:opacity-50 ${
+        reached
+          ? "border-success bg-success-bg text-success"
+          : "border-line bg-surface text-ink-muted hover:bg-surface-sunken"
+      }`}
+    >
+      <span>{label}</span>
+      <span className="shrink-0">{reached ? `Có · ${fmtTime(at)}` : "Đánh dấu"}</span>
+    </button>
   );
 }
 
-// Form thêm dòng vào hàng đợi (dùng chung cho SA và XN).
+function LabWorkflow({
+  row,
+  busy,
+  onToggle,
+}: {
+  row: SonoRow;
+  busy: boolean;
+  onToggle: (milestone: "sample" | "sendlab" | "result", value: boolean) => void;
+}) {
+  const steps: Step[] = [
+    {
+      label: "Lấy mẫu",
+      state: row.started_at ? "done" : "current",
+      detail: row.started_at ? fmtTime(row.started_at) : "Chưa đánh dấu",
+    },
+    {
+      label: "Gửi lab",
+      state: row.sent_to_lab_at ? "done" : row.started_at ? "current" : "upcoming",
+      detail: row.sent_to_lab_at ? fmtTime(row.sent_to_lab_at) : "Chưa đánh dấu",
+    },
+    {
+      label: "Có kết quả",
+      state: row.finished_at ? "done" : row.sent_to_lab_at ? "current" : "upcoming",
+      detail: row.finished_at ? fmtTime(row.finished_at) : "Chưa đánh dấu",
+    },
+  ];
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-control border border-line bg-surface-muted p-3.5"><Stepper steps={steps} /></div>
+      <div className="space-y-2">
+        <MilestoneButton label="Lấy mẫu" at={row.started_at} busy={busy} onToggle={(value) => onToggle("sample", value)} />
+        <MilestoneButton label="Gửi lab" at={row.sent_to_lab_at} busy={busy} onToggle={(value) => onToggle("sendlab", value)} />
+        <MilestoneButton label="Có KQ" at={row.finished_at} busy={busy} onToggle={(value) => onToggle("result", value)} />
+      </div>
+    </section>
+  );
+}
+
 function AddForm({
   kind,
   busy,
   onAdd,
 }: {
-  kind: "SA" | "XN";
+  kind: QueueKind;
   busy: boolean;
   onAdd: (body: unknown) => Promise<boolean>;
 }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+
   async function submit() {
     const ok = await onAdd({
       kind,
@@ -329,32 +266,237 @@ function AddForm({
       setCode("");
     }
   }
+
   return (
-    <div className="rounded-xl border border-line bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_220px_auto] sm:items-end">
-        <div>
-          <label className={LABEL}>
-            {kind === "SA" ? "Dịch vụ siêu âm" : "Xét nghiệm"}
-          </label>
-          <input
-            className={INPUT}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={kind === "SA" ? "VD: Siêu âm thai" : "VD: Công thức máu"}
-          />
-        </div>
-        <div>
-          <label className={LABEL}>Mã BN (tuỳ chọn)</label>
-          <input
-            className={INPUT}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="VD: BN0001"
-          />
-        </div>
-        <button onClick={submit} disabled={busy} className={BTN}>
-          {busy ? "Đang lưu..." : "+ Thêm"}
-        </button>
+    <div className="space-y-3 p-3.5">
+      <div>
+        <label className={LABEL} htmlFor={`sono-name-${kind}`}>{kind === "SA" ? "Dịch vụ siêu âm" : "Xét nghiệm"}</label>
+        <input
+          id={`sono-name-${kind}`}
+          className={INPUT}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={kind === "SA" ? "Ví dụ: Siêu âm thai" : "Ví dụ: Công thức máu"}
+        />
+      </div>
+      <div>
+        <label className={LABEL} htmlFor={`sono-code-${kind}`}>Mã BN (tùy chọn)</label>
+        <input
+          id={`sono-code-${kind}`}
+          className={INPUT}
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          placeholder="Mã bệnh nhân"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={submit}
+        disabled={busy}
+        className="inline-flex min-h-10 items-center gap-2 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+      >
+        <ClipboardList className="size-4" /> {busy ? "Đang lưu…" : "Thêm yêu cầu"}
+      </button>
+    </div>
+  );
+}
+
+export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
+  const router = useRouter();
+  const [kind, setKind] = useState<QueueKind>("SA");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const activeRows = kind === "SA" ? sa : xn;
+  const normalizedQuery = query.trim().toLocaleLowerCase("vi-VN");
+  const visibleRows = useMemo(
+    () =>
+      activeRows.filter((row) =>
+        !normalizedQuery
+          ? true
+          : [row.service_name_raw, row.patient?.full_name, row.patient?.patient_code]
+              .filter(Boolean)
+              .some((value) => value?.toLocaleLowerCase("vi-VN").includes(normalizedQuery)),
+      ),
+    [activeRows, normalizedQuery],
+  );
+  const selected = visibleRows.find((row) => row.id === selectedId) ?? visibleRows[0] ?? null;
+  const selectedUnknownSaStatus =
+    kind === "SA" &&
+    selected !== null &&
+    resolveSaWorkflowStatus(selected.status) === null;
+  const waiting = sa.filter((row) => resolveSaWorkflowStatus(row.status) === "WAITING").length;
+  const inProgress = sa.filter((row) => resolveSaWorkflowStatus(row.status) === "IN_PROGRESS").length;
+  const completed = sa.filter((row) => resolveSaWorkflowStatus(row.status) === "DONE").length;
+  const resultReady = xn.filter((row) => Boolean(row.finished_at)).length;
+
+  async function send(method: string, body: unknown): Promise<boolean> {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch("/api/sono", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        setError((await response.json().catch(() => ({}))).error ?? "Có lỗi xảy ra.");
+        return false;
+      }
+      router.refresh();
+      return true;
+    } catch {
+      setError("Không kết nối được máy chủ. Vui lòng thử lại.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <WorkspaceMetricRow>
+        <WorkspaceMetric label="Yêu cầu siêu âm" value={sa.length} icon={<Stethoscope className="size-5" />} tone="brand" />
+        <WorkspaceMetric label="Chờ khám" value={waiting} icon={<Clock3 className="size-5" />} tone={waiting ? "warning" : "neutral"} />
+        <WorkspaceMetric label="Đang thực hiện" value={inProgress} icon={<Play className="size-5" />} tone={inProgress ? "brand" : "neutral"} />
+        <WorkspaceMetric label="Mẫu đã có KQ" value={resultReady} icon={<FlaskConical className="size-5" />} tone={resultReady ? "success" : "neutral"} detail={`${completed} yêu cầu SA hoàn tất`} />
+      </WorkspaceMetricRow>
+
+      {error ? <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p> : null}
+
+      <div className={workspaceStyles.workspace}>
+      <div className={`${workspaceStyles.threeColumn} ${workspaceStyles.sono}`}>
+        <aside
+          aria-label="Hàng đợi siêu âm"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title="Hàng đợi siêu âm" detail={kind === "SA" ? `${visibleRows.length} yêu cầu hiển thị` : `${visibleRows.length} mẫu xét nghiệm hiển thị`} />
+          <div className="space-y-3 border-b border-line p-3">
+            <div className="grid grid-cols-2 gap-1 rounded-control bg-surface-muted p-1" aria-label="Chọn loại hàng đợi">
+              {(["SA", "XN"] as QueueKind[]).map((candidate) => (
+                <button
+                  type="button"
+                  key={candidate}
+                  onClick={() => { setKind(candidate); setSelectedId(null); }}
+                  aria-pressed={kind === candidate}
+                  className={`rounded-chip px-2 py-1.5 text-xs font-medium transition-colors ${
+                    kind === candidate ? "bg-brand-600 text-white" : "text-ink-muted hover:bg-surface"
+                  }`}
+                >
+                  {candidate === "SA" ? `Siêu âm (${sa.length})` : `Xét nghiệm (${xn.length})`}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+              <Search className="size-4 shrink-0" aria-hidden="true" />
+              <span className="sr-only">Tìm bệnh nhân hoặc dịch vụ</span>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm bệnh nhân, dịch vụ" className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint" />
+            </label>
+          </div>
+          <div className="max-h-[620px] overflow-y-auto">
+            {visibleRows.length ? (
+              visibleRows.map((row) => (
+                <button
+                  type="button"
+                  key={row.id}
+                  onClick={() => setSelectedId(row.id)}
+                  aria-current={row.id === selected?.id ? "true" : undefined}
+                  className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+                    row.id === selected?.id ? "border-brand-500 bg-surface-selected" : "border-transparent bg-surface hover:bg-surface-sunken"
+                  }`}
+                >
+                  <span className="flex gap-2.5">
+                    <Monogram value={row.patient?.full_name} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-semibold text-ink">{patientLabel(row)}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-ink-muted">{fmtTime(row.created_at)}</span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-ink-muted">{row.patient?.patient_code ?? "Chưa có mã BN"}</span>
+                      <span className="mt-1 flex items-center justify-between gap-2">
+                        <span className="truncate text-xs text-ink-faint">{row.service_name_raw ?? "Chưa có tên dịch vụ"}</span>
+                        {kind === "SA" ? <SaBadge status={row.status} /> : <span className={`rounded-chip px-1.5 py-0.5 text-[11px] font-medium ${row.finished_at ? "bg-success-bg text-success" : "bg-surface-sunken text-ink-muted"}`}>{row.finished_at ? "Có KQ" : "Đang xử lý"}</span>}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              ))
+            ) : (
+              <EmptyWorkspace title="Không có yêu cầu phù hợp" detail="Thử đổi loại hàng đợi hoặc từ khóa tìm kiếm." icon={<Search className="size-7" />} />
+            )}
+          </div>
+        </aside>
+
+        <section
+          aria-label="Điều phối yêu cầu siêu âm"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title={kind === "SA" ? "Điều phối yêu cầu siêu âm" : "Luồng xét nghiệm"} detail="Thao tác chỉ dựa trên các mốc service_log hiện có." />
+          {selected ? (
+            <div className="space-y-4 p-4">
+              <div className="rounded-control border border-line bg-surface-muted p-3.5">
+                <div className="flex items-start gap-3">
+                  <Monogram value={selected.patient?.full_name} className="size-11 text-sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-ink">{patientLabel(selected)}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{selected.patient?.patient_code ?? "Chưa có mã BN"}</p>
+                    <p className="mt-2 text-sm font-medium text-brand-800">{selected.service_name_raw ?? "Chưa có tên dịch vụ"}</p>
+                  </div>
+                  {kind === "SA" ? <SaBadge status={selected.status} /> : null}
+                </div>
+              </div>
+              {kind === "SA" ? (
+                <>
+                  <p className="flex gap-2 rounded-control border border-brand-100 bg-brand-50 px-3 py-2.5 text-xs leading-5 text-brand-800">
+                    <PauseCircle className="mt-0.5 size-4 shrink-0" />
+                    Chưa có dữ liệu phòng SA1–SA3 hoặc phép gán phòng trong nguồn hiện tại; màn này không tự gán hoặc chuyển phòng.
+                  </p>
+                  <SonoWorkflow row={selected} busy={busy} onAction={(action) => { void send("PATCH", { id: selected.id, action }); }} />
+                </>
+              ) : (
+                <LabWorkflow row={selected} busy={busy} onToggle={(milestone, value) => { void send("PATCH", { id: selected.id, milestone, value }); }} />
+              )}
+            </div>
+          ) : (
+            <div className="p-4"><EmptyWorkspace title="Chưa có yêu cầu được chọn" detail="Chọn một dòng ở hàng đợi để cập nhật các mốc thực hiện." icon={<Stethoscope className="size-7" />} /></div>
+          )}
+        </section>
+
+        <aside
+          aria-label="Chi tiết yêu cầu siêu âm"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+        >
+          <PanelHeading title={kind === "SA" ? "Chi tiết yêu cầu" : "Chi tiết mẫu xét nghiệm"} detail="Không hiển thị thông tin phòng, SLA hay chỉ định khi backend chưa cung cấp." />
+          {selected ? (
+            <div className="space-y-4 p-3.5">
+              <dl className="space-y-2 rounded-control border border-line bg-surface-muted p-3 text-xs">
+                <div className="flex justify-between gap-3"><dt className="text-ink-muted">Tạo lúc</dt><dd className="font-medium tabular-nums text-ink">{fmtTime(selected.created_at)}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-muted">Bệnh nhân</dt><dd className="max-w-[65%] truncate text-right font-medium text-ink">{patientLabel(selected)}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-ink-muted">Mã BN</dt><dd className="font-medium text-ink">{selected.patient?.patient_code ?? "Chưa có"}</dd></div>
+                {kind === "SA" ? <div className="flex justify-between gap-3"><dt className="text-ink-muted">Trạng thái</dt><dd><SaBadge status={selected.status} /></dd></div> : null}
+              </dl>
+              {selected.result_text ? <section className="rounded-control border border-line bg-surface p-3"><h3 className="text-xs font-semibold text-ink-soft">Ghi chú / kết quả</h3><p className="mt-2 text-xs leading-5 text-ink-muted">{selected.result_text}</p></section> : null}
+              <div className="flex flex-wrap gap-2">
+                <PrintLink id={selected.id} />
+                <button
+                  type="button"
+                  onClick={() => { void send("DELETE", { id: selected.id }); }}
+                  disabled={busy || selectedUnknownSaStatus}
+                  title={selectedUnknownSaStatus ? "Không thể xóa khi trạng thái siêu âm chưa xác định" : undefined}
+                  className="inline-flex items-center gap-1.5 rounded-control border border-danger bg-surface px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
+                >
+                  <Trash2 className="size-3.5" /> Xóa dòng
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className={selected ? "border-t border-line" : ""}>
+            <PanelHeading title={kind === "SA" ? "Thêm yêu cầu siêu âm" : "Thêm mẫu xét nghiệm"} />
+            <AddForm kind={kind} busy={busy} onAdd={(body) => send("POST", body)} />
+          </div>
+        </aside>
+      </div>
       </div>
     </div>
   );

@@ -9,14 +9,13 @@
 //     khi được duyệt. Ca PENDING của chính mình có nút xoá.
 // Ghi qua /api/roster (POST đăng ký, DELETE huỷ) rồi router.refresh().
 
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X, Trash2, Check } from "lucide-react";
 import {
   STATIONS,
   STATION_SEGMENTS,
   STATION_LABEL,
-  FLOOR_COLOR,
   SHIFTS,
   SHIFT_LABEL,
   dayShort,
@@ -36,8 +35,8 @@ export interface RegisterRow {
 }
 
 const STATUS_BADGE: Record<RegisterRow["status"], { cls: string; label: string }> = {
-  PENDING: { cls: "bg-warning-bg text-[#854d0e]", label: "Chờ duyệt" },
-  APPROVED: { cls: "bg-success-bg text-[#166534]", label: "Đã duyệt" },
+  PENDING: { cls: "bg-warning-bg text-warning", label: "Chờ duyệt" },
+  APPROVED: { cls: "bg-success-bg text-success", label: "Đã duyệt" },
   REJECTED: { cls: "bg-danger-bg text-danger", label: "Từ chối" },
 };
 
@@ -67,6 +66,8 @@ export default function RosterRegisterTable({
   isApprover?: boolean;
 }) {
   const router = useRouter();
+  const dialogTitleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<{ date: string; station: string } | null>(null);
   const [shift, setShift] = useState<Shift>("FULL");
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +75,34 @@ export default function RosterRegisterTable({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const containDialogFocus = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(null);
+      if (event.key !== "Tab") return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialogRef.current?.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", containDialogFocus);
+    return () => {
+      document.removeEventListener("keydown", containDialogFocus);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
 
   // OPTIMISTIC UI — cập nhật ngay khi bấm (khỏi chờ refetch cả trang cho mượt).
   //   overrides: ghi đè trạng thái theo id ("REMOVED" = ẩn ca).
@@ -205,7 +234,7 @@ export default function RosterRegisterTable({
 
   return (
     <>
-      <div className="overflow-auto rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] max-w-full">
+      <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <thead>
             <tr className="bg-brand-100">
@@ -226,8 +255,7 @@ export default function RosterRegisterTable({
                   <th
                     key={seg.floor}
                     colSpan={seg.stations.length}
-                    className={`${TH_BASE} border-t-2`}
-                    style={{ borderTopColor: FLOOR_COLOR[seg.floor] ?? "#ec4899" }}
+                    className={`${TH_BASE} border-t-2 border-t-brand-400`}
                   >
                     {seg.floor}
                   </th>
@@ -238,7 +266,7 @@ export default function RosterRegisterTable({
               {STATIONS.filter((s) => s.floor !== "").map((s) => (
                 <th
                   key={s.key}
-                  className="min-w-[104px] border-b border-r border-brand-100 px-2 py-1.5 text-center font-medium text-[#b83280]"
+                  className="min-w-[104px] border-b border-r border-brand-100 px-2 py-1.5 text-center font-medium text-brand-700"
                 >
                   {s.short}
                 </th>
@@ -247,7 +275,7 @@ export default function RosterRegisterTable({
           </thead>
           <tbody>
             {dates.map((d, ri) => (
-              <tr key={d} className={"align-top " + (ri % 2 ? "bg-brand-50" : "bg-white")}>
+              <tr key={d} className={"align-top " + (ri % 2 ? "bg-brand-50" : "bg-surface")}>
                 <td className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-brand-100 bg-inherit px-2 py-2 font-medium text-ink">
                   {dayShort(d)} · {fmtDayMonth(d)}
                 </td>
@@ -267,10 +295,10 @@ export default function RosterRegisterTable({
                           setReason("");
                           setOpen({ date: d, station: s.key });
                         }}
-                        className="flex h-full min-h-[40px] w-full flex-col gap-0.5 px-1.5 py-1.5 text-center transition-colors hover:bg-[#fdeef6]"
+                        className="flex h-full min-h-[40px] w-full flex-col gap-0.5 px-1.5 py-1.5 text-center transition-colors hover:bg-brand-50"
                       >
                         {list.length === 0 ? (
-                          <span className="text-[#e0b9cd]">+</span>
+                          <span className="text-brand-200">+</span>
                         ) : (
                           list.map((r) => {
                             const b = STATUS_BADGE[r.status];
@@ -304,15 +332,19 @@ export default function RosterRegisterTable({
       {/* Modal "nảy ra" khi click 1 ô */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4"
           onClick={() => setOpen(null)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-line bg-white p-4 shadow-xl"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-card border border-line bg-surface p-4 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-start justify-between gap-2">
-              <h3 className="text-sm font-semibold text-ink">
+              <h3 id={dialogTitleId} className="text-sm font-semibold text-ink">
                 Đăng ký ca · {dayShort(open.date)} {fmtDayMonth(open.date)}
                 <span className="block text-xs font-normal text-ink-muted">
                   {STATION_LABEL[open.station] ?? open.station}
@@ -321,6 +353,7 @@ export default function RosterRegisterTable({
               <button
                 onClick={() => setOpen(null)}
                 aria-label="Đóng"
+                autoFocus
                 className="rounded-md p-1 text-ink-faint hover:bg-surface-sunken"
               >
                 <X size={16} />
@@ -375,14 +408,14 @@ export default function RosterRegisterTable({
                         {isApprover && r.status === "PENDING" && (
                           <div className="mt-1.5">
                             {rejectingId === r.id ? (
-                              <div className="rounded-lg border border-[#fde68a] bg-[#fffbeb] p-2">
+                              <div className="rounded-control border border-warning bg-warning-bg p-2">
                                 <textarea
                                   value={reason}
                                   onChange={(e) => setReason(e.target.value)}
                                   rows={2}
                                   autoFocus
                                   placeholder="Lý do từ chối (gửi cho người đăng ký)…"
-                                  className="w-full resize-none rounded-md border border-line px-2.5 py-1.5 text-xs focus:border-brand-600 focus:outline-none"
+                                  className="w-full resize-none rounded-control border border-line bg-surface px-2.5 py-1.5 text-xs focus:border-brand-600 focus:outline-none"
                                 />
                                 <div className="mt-1.5 flex justify-end gap-1.5">
                                   <button
@@ -390,14 +423,14 @@ export default function RosterRegisterTable({
                                       setRejectingId(null);
                                       setReason("");
                                     }}
-                                    className="rounded-md border border-line bg-white px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-sunken"
+                                    className="rounded-control border border-line bg-surface px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-sunken"
                                   >
                                     Huỷ
                                   </button>
                                   <button
                                     onClick={() => decide(r.id, "reject", reason)}
                                     disabled={!reason.trim()}
-                                    className="rounded-md bg-danger px-2.5 py-1 text-xs font-medium text-white hover:bg-danger disabled:opacity-50"
+                                    className="rounded-control bg-danger px-2.5 py-1 text-xs font-medium text-surface disabled:opacity-50"
                                   >
                                     Xác nhận từ chối
                                   </button>
@@ -407,7 +440,7 @@ export default function RosterRegisterTable({
                               <div className="flex gap-1.5">
                                 <button
                                   onClick={() => decide(r.id, "approve")}
-                                  className="flex items-center gap-1 rounded-md bg-success px-2.5 py-1 text-xs font-medium text-white hover:bg-success disabled:opacity-50"
+                                  className="flex items-center gap-1 rounded-control bg-success px-2.5 py-1 text-xs font-medium text-surface disabled:opacity-50"
                                 >
                                   <Check size={13} /> Duyệt
                                 </button>
@@ -417,7 +450,7 @@ export default function RosterRegisterTable({
                                     setReason("");
                                     setRejectingId(r.id);
                                   }}
-                                  className="flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
+                                  className="flex items-center gap-1 rounded-control border border-line bg-surface px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
                                 >
                                   <X size={13} /> Từ chối
                                 </button>
@@ -449,11 +482,11 @@ export default function RosterRegisterTable({
             {!isApprover && (
               <>
             {myStaffId == null ? (
-              <p className="rounded bg-warning-bg px-3 py-2 text-sm text-[#854d0e]">
+              <p className="rounded-control bg-warning-bg px-3 py-2 text-sm text-warning">
                 Chưa chọn danh tính nhân viên — không thể tự đăng ký ca.
               </p>
             ) : myHere ? (
-              <p className="rounded bg-[#eff6ff] px-3 py-2 text-sm text-[#1d4ed8]">
+              <p className="rounded-control bg-status-in-progress-bg px-3 py-2 text-sm text-status-in-progress">
                 Bạn đã đăng ký ô này
                 {myHere.status === "PENDING"
                   ? " — đang chờ quản lý duyệt."
@@ -466,7 +499,7 @@ export default function RosterRegisterTable({
                     Ca
                   </label>
                   <select
-                    className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
+                    className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
                     value={shift}
                     onChange={(e) => setShift(e.target.value as Shift)}
                   >
@@ -479,7 +512,7 @@ export default function RosterRegisterTable({
                 </div>
                 <button
                   onClick={register}
-                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                  className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-surface hover:bg-brand-700"
                 >
                   Đăng ký
                 </button>

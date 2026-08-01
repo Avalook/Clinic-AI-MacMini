@@ -7,6 +7,7 @@
 
 import { notFound } from "next/navigation";
 
+import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchCatalogue, fetchVisitPatient } from "@/lib/orders-server";
 
 import OrderComposer from "./OrderComposer";
@@ -19,6 +20,7 @@ export default async function OrdersPage({
 }: {
   params: Promise<{ visitId: string }>;
 }) {
+  await requireNavAccess("/doctor/board");
   const { visitId } = await params;
   const [catalogue, patient] = await Promise.all([
     fetchCatalogue(),

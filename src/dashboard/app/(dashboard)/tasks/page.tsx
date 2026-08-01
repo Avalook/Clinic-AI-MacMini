@@ -34,6 +34,7 @@ import CashierWorkBoard, {
   type CashierDrugItem,
 } from "./CashierWorkBoard";
 import type { ClinicRole } from "../../../lib/roles";
+import { paidCashierPaymentSeeds } from "../../../lib/clinical-workspace-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -143,13 +144,17 @@ async function CashierTasks(modes: CashierMode[]) {
     // Khâu ĐÃ THU (bảng payment) — seed trạng thái "Đã thanh toán". Bảng có thể
     // chưa tồn tại (migration 056 chưa apply) → error → coi như rỗng (graceful).
     visitIds.length
-      ? supabase.from("payment").select("visit_id, kind").in("visit_id", visitIds)
+      ? supabase
+          .from("payment")
+          .select("visit_id, kind, status")
+          .eq("status", "PAID")
+          .in("visit_id", visitIds)
       : Promise.resolve({ data: [] }),
   ]);
 
-  const paidInit = ((payRes.data as { visit_id: string; kind: string }[] | null) ?? [])
-    .filter((p) => p.kind === "thuoc" || p.kind === "dich_vu")
-    .map((p) => ({ visit_id: p.visit_id, kind: p.kind as CashierMode }));
+  const paidInit = paidCashierPaymentSeeds(
+    (payRes.data as { visit_id: string; kind: string; status: string | null }[] | null) ?? [],
+  );
 
   // Bảng giá theo tên đã chuẩn hoá (chỉ dòng có đơn giá).
   const priceThuoc = new Map<string, number>();
@@ -357,10 +362,12 @@ async function DoctorTasks(
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-xl font-semibold text-ink">Công việc của tôi</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          {showSono ? "Bàn khám & siêu âm" : "Danh sách khám bệnh"}
+        </h1>
         {readOnly && (
           <p className="mt-0.5 text-sm text-ink-muted">
-            Xem lịch khám của tất cả bác sĩ — bấm tên bệnh nhân để sửa thông tin hành chính.
+            Xem lịch khám của tất cả bác sĩ. Vai trò hiện tại không mở hồ sơ lâm sàng.
           </p>
         )}
         {allDoctors && !readOnly && (
@@ -525,31 +532,28 @@ export default async function TasksPage() {
           <dl className="grid gap-2.5 rounded-lg border border-line bg-surface-muted px-4 py-3 text-xs text-ink-soft sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
-                dot: "#2563eb",
+                dotClass: "bg-status-assigned",
                 term: "Chờ xác nhận",
                 desc: "Lịch mới đặt, CSKH chưa gọi xác nhận với khách.",
               },
               {
-                dot: "#16a34a",
+                dotClass: "bg-success",
                 term: "Đã xác nhận",
                 desc: "CSKH đã gọi xác nhận với khách (chờ bác sĩ nhận ca), hoặc bác sĩ đã nhận / khách đã đến.",
               },
               {
-                dot: "#71717a",
+                dotClass: "bg-ink-muted",
                 term: "Đã khám xong",
                 desc: "Khách đã khám xong lượt này.",
               },
               {
-                dot: "#dc2626",
+                dotClass: "bg-danger",
                 term: "Đã huỷ / Từ chối",
                 desc: "Lịch bị hủy, bác sĩ từ chối, hoặc khách không đến.",
               },
             ].map((s) => (
               <div key={s.term} className="flex gap-2">
-                <span
-                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: s.dot }}
-                />
+                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${s.dotClass}`} />
                 <div>
                   <dt className="font-semibold text-ink">{s.term}</dt>
                   <dd>{s.desc}</dd>
@@ -573,7 +577,7 @@ export default async function TasksPage() {
                 <span className="inline-flex items-center gap-1 rounded-md bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning">
                   🚧 Đang xây dựng
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-[#eff6ff] px-2 py-0.5 text-xs text-[#1d4ed8]">
+                <span className="inline-flex items-center gap-1 rounded-chip bg-status-assigned-bg px-2 py-0.5 text-xs text-status-assigned">
                   🤖 Tự ghi khi CSKH thao tác (xác nhận lịch → vào “Đặt hẹn”
                   ngay) + về sau khi nối Zalo / Pancake.
                 </span>

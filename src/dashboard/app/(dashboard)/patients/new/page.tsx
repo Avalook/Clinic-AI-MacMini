@@ -80,12 +80,18 @@ export default async function NewPatientPage({
   }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <header className="space-y-3">
-        <h1 className="text-xl font-semibold text-ink">{h1}</h1>
+    <div className="mx-auto max-w-5xl space-y-4">
+      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Tiếp nhận & đặt lịch</p>
+        <h1 className="mt-1 text-xl font-semibold text-ink">{h1}</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          {walkinMode
+            ? "Tạo hồ sơ hành chính, xác minh thông tin và đưa khách vào đúng luồng tiếp nhận."
+            : "Ghi nhận hồ sơ khách hàng và đặt lịch bằng dữ liệu sức chứa thực tế."}
+        </p>
         {/* Trưởng ca: 2 nút chọn luồng — CSKH (online) hoặc Lễ tân (vãng lai). */}
         {canBothFlows && (
-          <div className="inline-flex rounded-lg border border-line bg-surface-muted p-1 text-sm">
+          <div className="mt-4 inline-flex rounded-control border border-line bg-surface-muted p-1 text-sm">
             <Link
               href="/patients/new"
               className={

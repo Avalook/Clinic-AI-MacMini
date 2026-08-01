@@ -89,14 +89,14 @@ export default function CinemaSlotPicker({
 
   if (!date) {
     return (
-      <p className="rounded-lg border border-line bg-gray-50 px-3 py-2 text-sm text-ink-muted">
+      <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
         Chọn ngày khám để hiện sơ đồ chỗ trống.
       </p>
     );
   }
   if (slots.length === 0) {
     return (
-      <p className="rounded-lg border border-line bg-gray-50 px-3 py-2 text-sm text-ink-muted">
+      <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
         Ngày này phòng khám không có khung giờ mở cửa.
       </p>
     );
@@ -136,7 +136,7 @@ export default function CinemaSlotPicker({
         </span>
       </div>
       {noDuty && (
-        <p className="rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-1.5 text-[11px] text-warning">
+        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-[11px] text-warning">
           Ngày này chưa có lịch trực bác sĩ (Lịch làm việc) — đang hiện tất cả bác sĩ.
         </p>
       )}
@@ -235,11 +235,11 @@ export default function CinemaSlotPicker({
                           ? "cursor-not-allowed bg-line text-ink-faint"
                           : sub.kind === "walkin"
                             ? pickable
-                              ? "border border-[#86efac] bg-success-bg text-success hover:bg-success-bg"
-                              : "cursor-not-allowed border border-[#d1fae5] bg-success-bg text-[#86efac]"
+                              ? "border border-success bg-success-bg text-success hover:bg-success-bg"
+                              : "cursor-not-allowed border border-success-bg bg-success-bg text-success/70"
                             : pickable
                               ? "border border-brand-100 bg-white text-brand-800 hover:bg-brand-100"
-                              : "cursor-not-allowed border border-[#f4e4ee] bg-brand-50 text-[#e3c1d6]");
+                              : "cursor-not-allowed border border-line bg-surface-muted text-ink-faint");
                     return (
                       <td key={t} className="p-0">
                         <button

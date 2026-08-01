@@ -51,12 +51,12 @@ export const STATION_SEGMENTS: FloorSegment[] = STATIONS.reduce<FloorSegment[]>(
 
 // Màu nhấn theo TẦNG (viền trên header tầng cho dễ phân biệt khối).
 export const FLOOR_COLOR: Record<string, string> = {
-  "Thủ thuật ngoài giờ": "#7c3aed",
-  "HSS + Thủ thuật trong giờ": "#7c3aed",
-  "Tầng 1 (ko SÂ)": "#2563eb",
-  "Tầng 2 · Khám Sản E10 + Mor": "#16a34a",
-  "Tầng 4": "#d97706",
-  "Tầng 4 phòng trong": "#db2777",
+  "Thủ thuật ngoài giờ": "var(--color-specialty-andro)",
+  "HSS + Thủ thuật trong giờ": "var(--color-specialty-andro)",
+  "Tầng 1 (ko SÂ)": "var(--color-specialty-service)",
+  "Tầng 2 · Khám Sản E10 + Mor": "var(--color-success)",
+  "Tầng 4": "var(--color-warning)",
+  "Tầng 4 phòng trong": "var(--color-brand-500)",
 };
 
 export const STATION_LABEL: Record<string, string> = Object.fromEntries(
@@ -73,11 +73,11 @@ export const STATION_GROUP: Record<string, string> = Object.fromEntries(
 
 // Màu theo nhóm trạm (chấm/viền thẻ kanban).
 export const GROUP_COLOR: Record<string, string> = {
-  "Bác sĩ": "#ec4899",
-  "Tầng 1": "#2563eb",
-  "Tầng 2": "#16a34a",
-  "Tầng 4": "#d97706",
-  "Ngoài giờ": "#7c3aed",
+  "Bác sĩ": "var(--color-brand-600)",
+  "Tầng 1": "var(--color-specialty-service)",
+  "Tầng 2": "var(--color-success)",
+  "Tầng 4": "var(--color-warning)",
+  "Ngoài giờ": "var(--color-specialty-andro)",
 };
 
 export type Shift = "FULL" | "SANG" | "CHIEU";

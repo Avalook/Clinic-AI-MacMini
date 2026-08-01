@@ -36,16 +36,16 @@ export default async function WorkSessionsPage() {
     .limit(100);
 
   return (
-    <div className="space-y-4">
+    <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       <header>
-        <h1 className="text-xl font-semibold text-ink">Ca trực</h1>
-        <p className="text-sm text-ink-muted">
-          100 ca làm gần nhất, sắp theo ngày giảm dần. Read-only.
+        <h1 className="text-xl font-semibold text-ink lg:text-2xl">Ca trực</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          100 ca làm gần nhất, sắp theo ngày giảm dần · chỉ đọc.
         </p>
       </header>
 
       {error && (
-        <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
+        <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
           {error.message}
         </div>
       )}
@@ -55,7 +55,7 @@ export default async function WorkSessionsPage() {
         {(data as WorkSessionRow[] | null)?.map((s) => (
           <li
             key={s.id}
-            className="rounded-lg border border-line bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+            className="rounded-card border border-line bg-surface p-4 shadow-card"
           >
             <div className="flex items-start justify-between gap-2">
               <span className="font-mono text-xs text-ink-soft">
@@ -68,29 +68,29 @@ export default async function WorkSessionsPage() {
             </p>
             <p className="text-xs text-ink-soft">
               {s.clinic_location?.name ?? "—"}
-              {" · "}Staff: {s.work_session_staff?.[0]?.count ?? 0}
-              {" · "}Max BN: {s.max_patients ?? "—"}
+              {" · "}Nhân sự: {s.work_session_staff?.[0]?.count ?? 0}
+              {" · "}Tối đa BN: {s.max_patients ?? "—"}
             </p>
           </li>
         ))}
         {(!data || data.length === 0) && (
-          <li className="rounded-lg border border-line bg-white px-4 py-6 text-center text-sm text-ink-muted">
+          <li className="rounded-card border border-line bg-surface px-4 py-8 text-center text-sm text-ink-muted shadow-card">
             Chưa có ca làm nào.
           </li>
         )}
       </ul>
 
       {/* Desktop: table (≥md). */}
-      <div className="hidden overflow-auto rounded-lg border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)] max-h-[88vh] min-h-[180px] md:block">
+      <div className="hidden min-h-[180px] max-h-[88vh] overflow-x-auto overflow-y-auto rounded-card border border-line bg-surface shadow-card md:block">
         <table className="min-w-full divide-y divide-brand-100 text-sm">
           <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className="px-4 py-2.5 font-semibold">Ngày</th>
-              <th className="px-4 py-2.5 font-semibold">Session</th>
+              <th className="px-4 py-2.5 font-semibold">Loại ca</th>
               <th className="px-4 py-2.5 font-semibold">Giờ</th>
-              <th className="px-4 py-2.5 font-semibold">Location</th>
-              <th className="px-4 py-2.5 font-semibold">Số staff</th>
-              <th className="px-4 py-2.5 font-semibold">Max BN</th>
+              <th className="px-4 py-2.5 font-semibold">Địa điểm</th>
+              <th className="px-4 py-2.5 font-semibold">Nhân sự</th>
+              <th className="px-4 py-2.5 font-semibold">Tối đa BN</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-brand-100">
@@ -127,6 +127,6 @@ export default async function WorkSessionsPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </main>
   );
 }

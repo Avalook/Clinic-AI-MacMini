@@ -32,15 +32,15 @@ export interface CskhActionRow {
 // 7 nhóm Phân loại (taxonomy phòng khám tự định nghĩa). `match` = từ khoá để gom
 // dữ liệu thô (category có thể là kịch bản con) — khớp lỏng để không rớt dòng.
 const COLUMNS = [
-  { key: "dat_hen", label: "Đặt hẹn", dot: "#2563eb", match: ["đặt hẹn", "đặt lịch", "đổi lịch", "hủy", "huỷ", "nhắc lịch"] },
-  { key: "tu_van", label: "Tư vấn", dot: "#7c3aed", match: ["tư vấn"] },
-  { key: "tra_xn", label: "Trả xét nghiệm", dot: "#0ea5e9", match: ["xét nghiệm", "trả kết quả", "trả kq", "kết quả"] },
-  { key: "sau_kham", label: "CSKH sau khám", dot: "#16a34a", match: ["sau khám", "tái khám", "chăm sóc"] },
-  { key: "thu_thuat", label: "Mổ và thủ thuật", dot: "#db2777", match: ["mổ", "thủ thuật"] },
-  { key: "su_co", label: "Xử lí sự cố", dot: "#dc2626", match: ["sự cố", "khiếu nại", "thắc mắc"] },
-  { key: "ghi_chu", label: "Ghi chú", dot: "#a16207", match: ["ghi chú"] },
+  { key: "dat_hen", label: "Đặt hẹn", dotClass: "bg-status-assigned", match: ["đặt hẹn", "đặt lịch", "đổi lịch", "hủy", "huỷ", "nhắc lịch"] },
+  { key: "tu_van", label: "Tư vấn", dotClass: "bg-brand-500", match: ["tư vấn"] },
+  { key: "tra_xn", label: "Trả xét nghiệm", dotClass: "bg-specialty-service", match: ["xét nghiệm", "trả kết quả", "trả kq", "kết quả"] },
+  { key: "sau_kham", label: "CSKH sau khám", dotClass: "bg-success", match: ["sau khám", "tái khám", "chăm sóc"] },
+  { key: "thu_thuat", label: "Mổ và thủ thuật", dotClass: "bg-brand-600", match: ["mổ", "thủ thuật"] },
+  { key: "su_co", label: "Xử lí sự cố", dotClass: "bg-danger", match: ["sự cố", "khiếu nại", "thắc mắc"] },
+  { key: "ghi_chu", label: "Ghi chú", dotClass: "bg-warning", match: ["ghi chú"] },
 ];
-const OTHER = { key: "khac", label: "Khác", dot: "#a1a1aa", match: [] as string[] };
+const OTHER = { key: "khac", label: "Khác", dotClass: "bg-ink-faint", match: [] as string[] };
 
 function bucketKey(category: string | null): string {
   const c = (category ?? "").toLowerCase();
@@ -152,29 +152,26 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
   return (
     <>
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1 h-[520px] min-h-[260px] max-h-[88vh] resize-y overflow-x-auto overflow-y-hidden rounded-xl border border-brand-100 bg-white shadow-[0_1px_3px_rgba(236,72,153,0.08)]">
+      <div className="min-w-0 flex-1 h-[520px] min-h-[260px] max-h-[88vh] resize-y overflow-x-auto overflow-y-hidden rounded-card border border-line bg-surface shadow-card">
         <div className="flex h-full divide-x divide-brand-100">
           {cols.map((col) => {
             const items = byKey.get(col.key) ?? [];
             return (
               <div key={col.key} className="flex min-w-[200px] flex-1 flex-col">
                 <div className="flex items-center gap-2 border-b border-brand-100 bg-brand-100 px-3 py-2">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: col.dot }}
-                  />
+                  <span className={`h-2 w-2 rounded-full ${col.dotClass}`} />
                   <span className="text-sm font-semibold text-ink">
                     {col.label}
                   </span>
                   <div className="ml-auto flex items-center gap-1">
-                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-ink-muted">
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-ink-muted">
                       {items.length}
                     </span>
                     {col.key !== OTHER.key && (
                       <button
                         onClick={() => openAdd(col.label)}
                         title={`Thêm việc: ${col.label}`}
-                        className="rounded-md p-1 text-brand-800 hover:bg-white/70"
+                        className="rounded-md p-1 text-brand-800 hover:bg-surface-sunken"
                       >
                         <Plus size={15} />
                       </button>
@@ -192,7 +189,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                       key={r.id}
                       onClick={() => setSelId(r.id)}
                       className={
-                        "w-full rounded-lg border bg-white p-2.5 text-left transition-colors " +
+                        "w-full rounded-control border bg-surface p-2.5 text-left transition-colors " +
                         (selId === r.id
                           ? "border-brand-600 ring-2 ring-brand-600/20"
                           : "border-line hover:border-brand-600/50")
@@ -220,13 +217,13 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
       </div>
 
       {sel && (
-        <aside className="w-full shrink-0 rounded-xl border border-brand-200 bg-brand-50 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] lg:sticky lg:top-4 lg:w-[360px]">
+        <aside className="w-full shrink-0 rounded-card border border-brand-100 bg-brand-50 p-4 shadow-card lg:sticky lg:top-4 lg:w-[360px]">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-status-cancelled">Chi tiết việc CSKH</h3>
             <button
               onClick={() => setSelId(null)}
               aria-label="Đóng"
-              className="rounded-md p-1 text-status-cancelled hover:bg-white/60"
+              className="rounded-md p-1 text-status-cancelled hover:bg-surface-sunken"
             >
               <X size={16} />
             </button>
@@ -244,7 +241,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
             <div className="mt-4">
               <Link
                 href={`/patients/${sel.patient.clinic_patient_id}`}
-                className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-line bg-white px-4 text-sm font-medium text-ink-soft hover:bg-surface-sunken"
+                className="inline-flex min-h-10 items-center gap-1 rounded-control border border-line bg-surface px-4 text-sm font-medium text-ink-soft hover:bg-surface-sunken"
               >
                 <ExternalLink size={14} /> Mở hồ sơ khách
               </Link>
@@ -256,7 +253,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
 
     {addCat !== null && (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4"
         onClick={closeAdd}
         role="presentation"
       >
@@ -265,7 +262,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="cskh-add-dialog-title"
-          className="w-full max-w-md rounded-xl border border-brand-100 bg-white p-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+          className="w-full max-w-md rounded-card border border-line bg-surface p-4 shadow-panel"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={keepAddFocusInside}
         >
@@ -336,14 +333,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                className="min-h-10 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 {busy ? "Đang lưu..." : "Lưu việc"}
               </button>
               <button
                 type="button"
                 onClick={closeAdd}
-                className="min-h-10 rounded-lg border border-line bg-white px-4 text-sm text-ink-soft hover:bg-surface-sunken"
+                className="min-h-10 rounded-control border border-line bg-surface px-4 text-sm text-ink-soft hover:bg-surface-sunken"
               >
                 Huỷ
               </button>

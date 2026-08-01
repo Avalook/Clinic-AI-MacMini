@@ -88,17 +88,17 @@ export default async function PatientDetailPage({
   }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">Hồ sơ bệnh nhân</h1>
-        <p className="text-sm text-ink-muted">
-          Thông tin hành chính bệnh nhân + lịch hẹn. CCCD KHÔNG hiển thị (bảo mật
-          D-identity). · Hồ sơ khám bệnh (phiếu khám) do bác sĩ xem ở mục “Công
-          việc của tôi”.
+    <div className="mx-auto max-w-[1320px] space-y-5">
+      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Hồ sơ & hành trình</p>
+        <h1 className="mt-1 text-xl font-semibold text-ink">Hồ sơ bệnh nhân</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Thông tin hành chính và lịch hẹn. CCCD không hiển thị; nội dung lâm sàng
+          vẫn được phân quyền riêng theo vai trò.
         </p>
       </header>
       {isNew && (
-        <div className="rounded-lg border border-success-bg bg-success-bg px-4 py-3 text-sm text-success">
+        <div className="rounded-card border border-success-bg bg-success-bg px-4 py-3 text-sm text-success">
           ✓ Đã tạo hồ sơ bệnh nhân
           {code ? (
             <>

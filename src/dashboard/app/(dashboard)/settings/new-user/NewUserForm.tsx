@@ -69,7 +69,7 @@ export default function NewUserForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-md space-y-4 rounded-lg border border-line bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+      className="max-w-xl space-y-5 rounded-card border border-line bg-surface p-5 shadow-card sm:p-6"
     >
       <div className="space-y-1">
         <label
@@ -83,7 +83,7 @@ export default function NewUserForm({
           required
           value={staffId}
           onChange={(e) => setStaffId(e.target.value)}
-          className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
+          className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 sm:py-2 sm:text-sm"
         >
           {staffOptions.map((o) => (
             <option key={o.id} value={o.id}>
@@ -103,7 +103,7 @@ export default function NewUserForm({
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
+          className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 sm:py-2 sm:text-sm"
           autoComplete="off"
         />
       </div>
@@ -122,7 +122,7 @@ export default function NewUserForm({
           minLength={MIN_PASSWORD}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-line px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
+          className="w-full rounded-control border border-line bg-surface px-3 py-2.5 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 sm:py-2 sm:text-sm"
           autoComplete="new-password"
           placeholder="Gửi cho NV qua kênh an toàn — NV sẽ tự đổi sau đăng nhập đầu"
         />
@@ -148,7 +148,7 @@ export default function NewUserForm({
         <button
           type="submit"
           disabled={loading}
-          className="min-h-11 w-full rounded-md bg-brand-600 px-3.5 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50 sm:min-h-0 sm:w-auto sm:py-2"
+          className="min-h-11 w-full rounded-control bg-brand-600 px-4 py-2.5 text-sm font-medium text-surface transition-colors duration-150 hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50 sm:min-h-0 sm:w-auto sm:py-2"
         >
           {loading ? "Đang tạo..." : "Tạo tài khoản"}
         </button>

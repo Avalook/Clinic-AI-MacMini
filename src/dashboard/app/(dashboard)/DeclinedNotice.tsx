@@ -18,7 +18,7 @@ export default function DeclinedNotice({ items }: { items: DeclinedItem[] }) {
   if (dismissed || items.length === 0) return null;
 
   return (
-    <div className="fixed inset-x-3 top-14 z-20 rounded-lg border border-[#fecaca] bg-white p-3 shadow-[0_4px_12px_rgba(0,0,0,0.12)] sm:inset-x-auto sm:right-16 sm:top-4 sm:z-50 sm:w-80">
+    <div className="fixed inset-x-3 top-14 z-20 rounded-control border border-danger bg-surface p-3 shadow-panel sm:inset-x-auto sm:right-16 sm:top-4 sm:z-50 sm:w-80">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-danger">
           🔔 {items.length} lịch bị bác sĩ từ chối
