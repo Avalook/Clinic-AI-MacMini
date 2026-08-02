@@ -263,8 +263,8 @@ async def _log(
         """
         INSERT INTO event_log
             (clinic_id, event_type, aggregate_type, aggregate_id, payload,
-             metadata, source, event_published)
-        VALUES ($1::uuid, $2, 'service_log', $3, $4, $5, $6, FALSE)
+             metadata, source, actor_staff_id, event_published)
+        VALUES ($1::uuid, $2, 'service_log', $3, $4, $5, $6, $7::uuid, FALSE)
         """,
         identity.clinic_id,
         event_type,
@@ -273,10 +273,10 @@ async def _log(
         json.dumps(
             {
                 "clinic_role": identity.role.value,
-                "clinic_staff_id": identity.staff_id,
                 "actor_auth_user_id": identity.auth_user_id,
                 "origin": origin,
             }
         ),
         origin,
+        identity.staff_id,
     )

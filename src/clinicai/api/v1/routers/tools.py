@@ -195,6 +195,7 @@ async def _event_log_append(
     trusted_input = AppendEventInput(
         **input.model_dump(),
         clinic_id=_clinic_uuid(identity),
+        actor_staff_id=UUID(identity.staff_id),
     )
     return await append_event(trusted_input, pool, publisher)
 

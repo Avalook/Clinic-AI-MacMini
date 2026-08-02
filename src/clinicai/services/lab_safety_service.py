@@ -330,9 +330,9 @@ async def _append_finalized_event(
         """
         INSERT INTO event_log
             (clinic_id, event_type, aggregate_type, aggregate_id, payload,
-             metadata, source, event_published)
+             metadata, source, actor_staff_id, event_published)
         VALUES ($1::uuid, 'lab_result.finalized', 'lab_result', $2::uuid,
-                $3::jsonb, $4::jsonb, 'api:lab-review', FALSE)
+                $3::jsonb, $4::jsonb, 'api:lab-review', $5::uuid, FALSE)
         """,
         identity.clinic_id,
         lab_result_id,
@@ -345,9 +345,9 @@ async def _append_finalized_event(
         json.dumps(
             {
                 "clinic_role": identity.role.value,
-                "clinic_staff_id": identity.staff_id,
                 "actor_auth_user_id": identity.auth_user_id,
                 "origin": "api:lab-review",
             }
         ),
+        identity.staff_id,
     )

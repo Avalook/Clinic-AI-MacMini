@@ -104,8 +104,9 @@ class EpisodeService:
                     """
                     INSERT INTO event_log
                         (clinic_id, event_type, aggregate_type, aggregate_id,
-                         payload, metadata, source, event_published)
-                    VALUES ($6::uuid, $1, 'care_episode', $2, $3, $4, $5, FALSE)
+                         payload, metadata, source, actor_staff_id, event_published)
+                    VALUES ($6::uuid, $1, 'care_episode', $2, $3, $4, $5,
+                            $7::uuid, FALSE)
                     """,
                     event_type,
                     str(updated_id),
@@ -113,12 +114,12 @@ class EpisodeService:
                     json.dumps(
                         {
                             "clinic_role": identity.role.value,
-                            "clinic_staff_id": identity.staff_id,
                             "actor_auth_user_id": identity.auth_user_id,
                         }
                     ),
                     f"api:episode-{action}",
                     identity.clinic_id,
+                    identity.staff_id,
                 )
 
         logger.info(

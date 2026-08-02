@@ -47,8 +47,9 @@ class EventService:
                     """
                     INSERT INTO event_log
                       (event_id, clinic_id, event_type, aggregate_type,
-                       aggregate_id, payload, metadata, source, event_published)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE)
+                       aggregate_id, payload, metadata, source, actor_staff_id,
+                       event_published)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid, FALSE)
                     RETURNING event_id
                     """,
                     event.event_id,
@@ -59,6 +60,7 @@ class EventService:
                     json.dumps(event.payload),
                     json.dumps({"trace_id": str(event.trace_id)}),
                     event.source_channel,
+                    event.actor_staff_id,
                 )
                 persisted_event_id = UUID(str(event_id_raw))
                 if persisted_event_id != event.event_id:

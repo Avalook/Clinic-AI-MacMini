@@ -386,9 +386,9 @@ async def _log_payment_event(
         """
         INSERT INTO event_log (
             clinic_id, event_type, aggregate_type, aggregate_id, payload,
-            metadata, source, event_published
+            metadata, source, actor_staff_id, event_published
         )
-        VALUES ($6::uuid, $1, 'payment', $2::uuid, $3, $4, $5, FALSE)
+        VALUES ($6::uuid, $1, 'payment', $2::uuid, $3, $4, $5, $7::uuid, FALSE)
         """,
         event_type,
         payment_id,
@@ -411,10 +411,10 @@ async def _log_payment_event(
         json.dumps(
             {
                 "clinic_role": identity.role.value,
-                "clinic_staff_id": identity.staff_id,
                 "actor_auth_user_id": identity.auth_user_id,
             }
         ),
         f"api:{event_type.replace('.', '-')}",
         identity.clinic_id,
+        identity.staff_id,
     )

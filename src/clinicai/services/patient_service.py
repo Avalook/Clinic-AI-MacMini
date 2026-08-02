@@ -154,9 +154,9 @@ class PatientService:
                 """
                 INSERT INTO event_log
                     (clinic_id, event_type, aggregate_type, aggregate_id,
-                     payload, metadata, source, event_published)
+                     payload, metadata, source, actor_staff_id, event_published)
                 VALUES ($5::uuid,
-                        'patient.created', 'patient', $1, $2, $3, $4, FALSE)
+                        'patient.created', 'patient', $1, $2, $3, $4, $6::uuid, FALSE)
                 """,
                 str(dto.clinic_patient_id),
                 json.dumps(
@@ -180,12 +180,12 @@ class PatientService:
                 json.dumps(
                     {
                         "clinic_role": identity.role.value,
-                        "clinic_staff_id": identity.staff_id,
                         "actor_auth_user_id": identity.auth_user_id,
                     }
                 ),
                 "api:patient-intake",
                 identity.clinic_id,
+                identity.staff_id,
             )
 
         # 5) MPI deduplication (non-blocking — must never fail the create).

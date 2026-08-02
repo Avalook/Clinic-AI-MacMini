@@ -13,7 +13,18 @@ interface AuditEvent {
   payload: Record<string, unknown> | null;
   source: string;
   occurred_at: string;
+  actor_staff_id: string | null;
+  actor: { full_name: string } | null;
 }
+
+// Ba trạng thái khác nhau, không được gộp: có người và đọc được tên; máy sinh
+// (relay, worker, Zalo, khách vãng lai) nên không có ai; và có người nhưng RLS
+// không cho đọc tên — nói "Hệ thống" ở ca thứ ba là ghi sai lịch sử.
+const actorLabel = (e: AuditEvent) => {
+  if (e.actor?.full_name) return e.actor.full_name;
+  if (e.actor_staff_id) return "Không đọc được tên";
+  return "Hệ thống";
+};
 
 interface Props {
   events: AuditEvent[];
@@ -37,9 +48,15 @@ const fmtDate = (iso: string) =>
 export default function AuditLogBoard({ events }: Props) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [actorFilter, setActorFilter] = useState<string>("all");
 
   const types = useMemo(
     () => [...new Set(events.map((e) => e.event_type))].sort(),
+    [events],
+  );
+
+  const actors = useMemo(
+    () => [...new Set(events.map(actorLabel))].sort((a, b) => a.localeCompare(b, "vi")),
     [events],
   );
 
@@ -47,15 +64,17 @@ export default function AuditLogBoard({ events }: Props) {
     const q = search.trim().toLowerCase();
     return events.filter((e) => {
       if (typeFilter !== "all" && e.event_type !== typeFilter) return false;
+      if (actorFilter !== "all" && actorLabel(e) !== actorFilter) return false;
       if (!q) return true;
       return (
         e.event_type.toLowerCase().includes(q) ||
         e.aggregate_type.toLowerCase().includes(q) ||
         e.source.toLowerCase().includes(q) ||
+        actorLabel(e).toLowerCase().includes(q) ||
         JSON.stringify(e.payload ?? {}).toLowerCase().includes(q)
       );
     });
-  }, [events, search, typeFilter]);
+  }, [events, search, typeFilter, actorFilter]);
 
   // Gom theo ngày
   const byDay = useMemo(() => {
@@ -87,6 +106,18 @@ export default function AuditLogBoard({ events }: Props) {
           {types.map((t) => (
             <option key={t} value={t}>
               {t}
+            </option>
+          ))}
+        </select>
+        <select
+          value={actorFilter}
+          onChange={(e) => setActorFilter(e.target.value)}
+          className="rounded-control border border-line bg-surface-muted px-2.5 py-1.5 text-sm text-ink outline-none"
+        >
+          <option value="all">Tất cả người thao tác</option>
+          {actors.map((a) => (
+            <option key={a} value={a}>
+              {a}
             </option>
           ))}
         </select>
@@ -122,6 +153,13 @@ export default function AuditLogBoard({ events }: Props) {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
                           {e.event_type}
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${
+                            e.actor?.full_name ? "text-ink" : "text-ink-faint"
+                          }`}
+                        >
+                          {actorLabel(e)}
                         </span>
                         <span className="text-xs text-ink-muted">
                           {e.aggregate_type} · {e.source}

@@ -11,9 +11,13 @@ export default async function AuditLogPage() {
   await requireNavAccess("/audit-log");
   const supabase = await getSupabaseServer();
 
+  // actor_staff_id (migration 20260802000003) là cột thật có khoá ngoại, nên
+  // tên người thao tác lấy được bằng một lần join của PostgREST — không phải
+  // đọc bảng staff rồi ghép tay ở client. RLS trên staff vẫn áp: chỉ nhân sự
+  // cùng phòng khám mới hiện tên.
   const { data: events, error } = await supabase
     .from("event_log")
-    .select("*")
+    .select("*, actor:staff!event_log_actor_staff_id_fkey(full_name)")
     .order("occurred_at", { ascending: false })
     .limit(200);
 

@@ -21,3 +21,8 @@ class InteractionEvent(BaseModel):
     trace_id: UUID
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source_channel: str  # e.g., "zalo", "pancake", "walkin", "system"
+    # Nhân sự đứng sau event, nếu có. None = hệ thống: tin Zalo, khách vãng lai,
+    # worker chạy nền — những event không ai bấm nút. Ép bắt buộc ở đây sẽ buộc
+    # các kênh đó bịa ra một nhân sự, đúng thứ mà event_log.actor_staff_id
+    # (20260802000003) tồn tại để tránh.
+    actor_staff_id: UUID | None = None

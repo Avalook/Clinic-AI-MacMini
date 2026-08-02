@@ -31,6 +31,9 @@ class AppendEventInput(BaseModel):
     entity_id: UUID
     payload: dict[str, Any]
     ctx: TraceContext
+    # Suy từ JWT ở router, không nhận từ body — cùng luật với clinic_id
+    # (ADR-0009). None khi tool được gọi trong tiến trình nền.
+    actor_staff_id: UUID | None = None
 
 
 class AppendEventOutput(BaseModel):
@@ -61,6 +64,7 @@ async def append_event(
         payload=input.payload,
         trace_id=input.ctx.trace_id,
         source_channel=input.ctx.source_channel,
+        actor_staff_id=input.actor_staff_id,
     )
 
     service = EventService(pool, publisher)
