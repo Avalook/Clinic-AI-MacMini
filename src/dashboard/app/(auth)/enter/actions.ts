@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../../lib/clinic-session";
+import { ACTIVE_CLINIC_COOKIE } from "../../../lib/active-clinic";
 
 export async function enterClinic(
   _prev: { error: string } | null,
@@ -39,5 +40,7 @@ export async function leaveClinic(): Promise<void> {
   const c = await cookies();
   c.delete(ROLE_COOKIE);
   c.delete(STAFF_COOKIE);
+  // Người tiếp theo trên cùng máy này phải chọn lại nơi làm việc của họ.
+  c.delete(ACTIVE_CLINIC_COOKIE);
   redirect("/enter");
 }

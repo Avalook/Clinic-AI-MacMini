@@ -120,6 +120,10 @@ test("the Auth-admin exception remains tenant- and membership-scoped", () => {
   assert.ok(adminRoute);
   assert.match(adminRoute.text, /\.from\(["']clinic_membership["']\)/);
   assert.match(adminRoute.text, /\.eq\(["']clinic_id["'], clinicId\)/);
-  assert.match(adminRoute.text, /resolveSingleManagementClinic/);
+  assert.match(adminRoute.text, /resolveManagementClinic/);
+  // The selector must come from the session, never from the request body — an
+  // Auth-admin route that trusted a posted clinic_id would hand a manager of
+  // one clinic the user list of every other one.
+  assert.match(adminRoute.text, /getActiveClinicId\(\)/);
   assert.match(adminRoute.text, /\.eq\(["']auth_user_id["'], target\.auth_user_id\)/);
 });

@@ -6,6 +6,7 @@ import RealtimeRefresher from "./RealtimeRefresher";
 import { leaveClinic } from "../(auth)/enter/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getClinicRole, getClinicStaffId } from "../../lib/clinic-session";
+import { getStaffContext } from "../../lib/current-staff";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 
@@ -21,6 +22,11 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const context = await getStaffContext();
+  // Nhiều membership không phải là "không có quyền" — trước đây cả hai trường
+  // hợp đều bị đá về trang đăng nhập, bác sĩ chạy sô ra khỏi app không kèm lý do.
+  if (context.status === "must_choose_clinic") redirect("/choose-clinic");
+
   const role = await getClinicRole();
   if (!role) redirect("/login");
 
@@ -62,7 +68,16 @@ export default async function DashboardLayout({
 
   return (
     <NotificationProvider staffId={staffId}>
-      <Shell role={role} identity={identity} leaveAction={leaveClinic}>
+      <Shell
+        role={role}
+        identity={identity}
+        leaveAction={leaveClinic}
+        clinicSwitchHref={
+          context.status === "resolved" && context.choices.length > 1
+            ? "/choose-clinic?switch=1"
+            : null
+        }
+      >
         {children}
         <DeclinedNotice items={declined} />
         <RealtimeRefresher />

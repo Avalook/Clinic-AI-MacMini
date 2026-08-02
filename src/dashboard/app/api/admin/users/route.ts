@@ -18,10 +18,11 @@
 
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getActiveClinicId } from "../../../../lib/active-clinic";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import {
   resolveLinkedStaffAuthority,
-  resolveSingleManagementClinic,
+  resolveManagementClinic,
 } from "../../../../lib/identity-authority";
 
 const MIN_PASSWORD = 8;
@@ -81,7 +82,12 @@ async function authorizeAdmin(): Promise<AuthResult> {
     .select("clinic_id, role, is_active")
     .eq("staff_id", callerIdentity.id)
     .eq("is_active", true);
-  const clinicId = resolveSingleManagementClinic(memberships ?? []);
+  // Chủ chuỗi giữ MANAGEMENT ở nhiều phòng khám: nơi đang làm việc quyết định
+  // tài khoản mới thuộc về đâu, còn quyền vẫn do role của chính membership đó.
+  const clinicId = resolveManagementClinic(
+    memberships ?? [],
+    await getActiveClinicId(),
+  );
   if (membershipError || !clinicId) {
     return {
       ok: false,

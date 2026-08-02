@@ -36,6 +36,12 @@ sửa mọi query. Chi phí đó chỉ tăng theo thời gian.
 3. **Tenant lấy từ JWT, không từ client**: backend suy `clinic_id` từ
    `auth.uid() → staff.auth_user_id → clinic_membership`. Không nhận `clinic_id` trong
    body/query của request người dùng.
+   *(Làm rõ, 2026-08-02:* header `X-Clinic-ID` **không** phải ngoại lệ. Nó là **bộ
+   chọn**, không phải thẩm quyền: `identity.py` giao nó với chính membership của
+   `auth.uid()`, nên giá trị giả mạo chỉ có hai kết cục — trỏ vào phòng khám người
+   đó vốn đã thuộc về, hoặc 403. Nó tồn tại vì người làm ở nhiều nơi cần *nói* họ
+   đang trực ở đâu; suy ngầm chỉ đúng khi mỗi người có đúng một phòng khám, và bác
+   sĩ chạy sô đầu tiên biến suy ngầm thành khoá tài khoản im lặng.*)*
 4. **RLS theo tenant** thay cho `USING (true)`: mọi policy đọc đều kèm điều kiện
    `clinic_id IN (SELECT clinic_id FROM clinic_membership WHERE staff_id = current_staff())`.
    Ghi vẫn service_role-only (ADR-0004).

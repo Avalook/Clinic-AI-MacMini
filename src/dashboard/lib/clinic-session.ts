@@ -3,7 +3,7 @@
 // server-side role/staff decision comes from auth.uid() → staff.auth_user_id.
 
 import { redirect } from "next/navigation";
-import { getCurrentStaff } from "./current-staff";
+import { getCurrentStaff, getStaffContext } from "./current-staff";
 import {
   departmentToRole,
   canReadClinical,
@@ -39,6 +39,10 @@ export async function requireClinicRole(): Promise<ClinicRole> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  // Trang in nằm ngoài (dashboard), nên layout không hỏi hộ được: người làm ở
+  // nhiều phòng khám phải được hỏi ở đây, thay vì bị coi như chưa đăng nhập.
+  const context = await getStaffContext();
+  if (context.status === "must_choose_clinic") redirect("/choose-clinic");
   const role = await getClinicRole();
   if (!role) redirect("/login");
   return role;

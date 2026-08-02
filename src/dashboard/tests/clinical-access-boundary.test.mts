@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  resolveSingleActiveMembership,
-  resolveSingleManagementClinic,
+  resolveActiveMembership,
+  resolveManagementClinic,
 } from "../lib/identity-authority.ts";
 import { labReleaseDecision } from "../lib/lab-release.ts";
 import {
@@ -50,9 +50,9 @@ test("medical notes are readable only by the four clinical roles", () => {
   }
 });
 
-test("admin authority resolves from exactly one active MANAGEMENT membership", () => {
+test("admin authority resolves from an active MANAGEMENT membership", () => {
   assert.equal(
-    resolveSingleManagementClinic([
+    resolveManagementClinic([
       {
         clinic_id: "clinic-a",
         role: "MANAGEMENT",
@@ -62,19 +62,19 @@ test("admin authority resolves from exactly one active MANAGEMENT membership", (
     "clinic-a",
   );
   assert.equal(
-    resolveSingleManagementClinic([
+    resolveManagementClinic([
       { clinic_id: "clinic-a", role: "RECEPTION", is_active: true },
     ]),
     null,
   );
   assert.equal(
-    resolveSingleManagementClinic([
+    resolveManagementClinic([
       { clinic_id: "clinic-a", role: "MANAGEMENT", is_active: false },
     ]),
     null,
   );
   assert.equal(
-    resolveSingleManagementClinic([
+    resolveManagementClinic([
       { clinic_id: "clinic-a", role: "MANAGEMENT", is_active: true },
       { clinic_id: "clinic-b", role: "MANAGEMENT", is_active: true },
     ]),
@@ -82,7 +82,7 @@ test("admin authority resolves from exactly one active MANAGEMENT membership", (
     "an absent clinic selector must never pick a tenant implicitly",
   );
   assert.equal(
-    resolveSingleManagementClinic([
+    resolveManagementClinic([
       { clinic_id: "clinic-a", role: "MANAGEMENT", is_active: true },
       { clinic_id: "clinic-a", role: "RECEPTION", is_active: true },
     ]),
@@ -91,18 +91,85 @@ test("admin authority resolves from exactly one active MANAGEMENT membership", (
   );
 });
 
-test("frontend authority refuses to guess between memberships", () => {
-  assert.deepEqual(
-    resolveSingleActiveMembership([
-      { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
-    ]),
-    { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
+test("the selector picks the tenant, the role check still decides access", () => {
+  const chainOwner = [
+    { clinic_id: "clinic-a", role: "MANAGEMENT", is_active: true },
+    { clinic_id: "clinic-b", role: "DOCTOR", is_active: true },
+  ];
+  assert.equal(resolveManagementClinic(chainOwner, "clinic-a"), "clinic-a");
+  assert.equal(
+    resolveManagementClinic(chainOwner, "clinic-b"),
+    null,
+    "selecting a clinic they only practise in must not grant admin there",
   );
   assert.equal(
-    resolveSingleActiveMembership([
-      { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
-      { clinic_id: "clinic-b", role: "MANAGEMENT", is_active: true },
-    ]),
+    resolveManagementClinic(chainOwner, "clinic-c"),
     null,
+    "a clinic they are not a member of is never selectable",
+  );
+});
+
+test("frontend authority asks instead of guessing between memberships", () => {
+  assert.deepEqual(
+    resolveActiveMembership([
+      { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
+    ]),
+    {
+      status: "resolved",
+      membership: { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
+    },
+  );
+
+  const twoClinics = [
+    { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
+    { clinic_id: "clinic-b", role: "MANAGEMENT", is_active: true },
+  ];
+  assert.equal(
+    resolveActiveMembership(twoClinics).status,
+    "ambiguous",
+    "two clinics is a question to ask, not a reason to deny",
+  );
+  assert.deepEqual(resolveActiveMembership(twoClinics, "clinic-b"), {
+    status: "resolved",
+    membership: { clinic_id: "clinic-b", role: "MANAGEMENT", is_active: true },
+  });
+});
+
+test("a clinic selector is never authority on its own", () => {
+  assert.equal(
+    resolveActiveMembership([], "clinic-a").status,
+    "none",
+    "no membership means no access, whatever the cookie says",
+  );
+  assert.equal(
+    resolveActiveMembership(
+      [{ clinic_id: "clinic-a", role: "DOCTOR", is_active: false }],
+      "clinic-a",
+    ).status,
+    "none",
+    "a revoked membership is not resurrected by selecting it",
+  );
+  // A stale selection (membership removed while the cookie survived) falls back
+  // to the remaining membership rather than locking the account out.
+  assert.deepEqual(
+    resolveActiveMembership(
+      [{ clinic_id: "clinic-a", role: "DOCTOR", is_active: true }],
+      "clinic-gone",
+    ),
+    {
+      status: "resolved",
+      membership: { clinic_id: "clinic-a", role: "DOCTOR", is_active: true },
+    },
+  );
+  assert.equal(
+    resolveActiveMembership(
+      [
+        { clinic_id: "clinic-a", role: "MANAGEMENT", is_active: true },
+        { clinic_id: "clinic-a", role: "RECEPTION", is_active: true },
+      ],
+      "clinic-a",
+    ).status,
+    "none",
+    "two active roles in one clinic is malformed provisioning, not a choice",
   );
 });

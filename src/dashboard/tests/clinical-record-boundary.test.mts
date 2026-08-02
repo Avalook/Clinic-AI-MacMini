@@ -45,7 +45,16 @@ test("the clinical role authority comes from clinic_membership, not department o
     /getCurrentStaff\(\)[\s\S]*departmentToRole\(staff\.clinic_role\)/,
   );
   assert.match(currentStaffSource, /\.from\(["']clinic_membership["']\)/);
-  assert.match(currentStaffSource, /clinic_role:\s*membership\.role/);
+  assert.match(
+    currentStaffSource,
+    /clinic_role:\s*selection\.membership\.role/,
+  );
+  // The active-clinic cookie chooses *which* membership, and nothing else: the
+  // role still comes from the row that membership query returned.
+  assert.match(
+    currentStaffSource,
+    /resolveActiveMembership\(active, await getActiveClinicId\(\)\)/,
+  );
 });
 
 test("operational roles cannot open a clinical-record popup", () => {

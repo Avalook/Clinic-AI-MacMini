@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, LogOut, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import Nav from "./Nav";
 import BottomNav from "./BottomNav";
 import { ROLE_LABEL, type ClinicRole } from "../../lib/roles";
@@ -12,6 +13,8 @@ interface ShellProps {
   role: ClinicRole;
   identity: string;
   leaveAction: () => void | Promise<void>;
+  /** Set only for staff who work at more than one clinic; null hides the link. */
+  clinicSwitchHref?: string | null;
   children: React.ReactNode;
 }
 
@@ -19,6 +22,7 @@ export default function Shell({
   role,
   identity,
   leaveAction,
+  clinicSwitchHref = null,
   children,
 }: ShellProps) {
   // Drawer is opened from the bottom bar's "Menu"; each link / action closes it.
@@ -166,6 +170,17 @@ export default function Shell({
             <p className="truncate text-xs text-ink-muted" title={identity}>
               {identity}
             </p>
+          )}
+          {clinicSwitchHref && (
+            <Link
+              href={clinicSwitchHref}
+              onClick={isMobile ? closeDrawer : undefined}
+              className={`w-full rounded-md border border-line py-2 text-sm text-ink-muted transition-colors duration-150 hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken flex items-center justify-center ${collapsed ? "px-1" : "px-3 gap-2"}`}
+              title={collapsed ? "Đổi phòng khám" : undefined}
+            >
+              <Building2 size={14} className="shrink-0" />
+              {!collapsed && <span>Đổi phòng khám</span>}
+            </Link>
           )}
           <form action={leaveAction}>
             <button
