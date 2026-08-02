@@ -19,6 +19,17 @@ fail() {
   exit 1
 }
 
+# `stat` has two incompatible dialects, and the naive BSD-first form does not
+# merely fail on Linux — it answers wrongly. GNU's -f is --file-system, so
+# `stat -f '%Lp' path` treats the format as a second FILE: it errors on that
+# one, prints the filesystem block for path, and exits 1. The `||` fallback
+# then appends the real mode, and the caller compares a six-line dump against
+# "600". Ask GNU first instead: BSD stat has no -c at all, so it rejects the
+# option outright and prints nothing before the fallback runs.
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"
+}
+
 backup_test_env() {
   local lock_path="${CLINIC_BACKUP_LOCK:-$TMP_ROOT/backup.lock}"
   HOME="$TEST_HOME" \
@@ -560,7 +571,7 @@ DOCKER
   [ -f "$deploy_secrets/.active-state-prod" ] || fail "deploy did not atomically record active release state"
   active_env="$(grep -E '^env=' "$deploy_secrets/.active-state-prod" | cut -d= -f2-)"
   [ -f "$active_env" ] || fail "active env revision does not exist"
-  [ "$(stat -f '%Lp' "$active_env" 2>/dev/null || stat -c '%a' "$active_env")" = "600" ] || \
+  [ "$(file_mode "$active_env")" = "600" ] || \
     fail "active env revision is not mode 600"
 
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
