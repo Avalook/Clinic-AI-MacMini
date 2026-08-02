@@ -41,10 +41,43 @@ blue()  { printf '\033[36m%s\033[0m\n' "$*"; }
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
 red()   { printf '\033[31m%s\033[0m\n' "$*"; }
 
+# Chờ một URL phản hồi tối đa 120s. Lần đầu khởi động API/dashboard trên Mac mini
+# (poetry resolve + import FastAPI/LangGraph + next build lạnh) có thể lâu hơn 40s.
+wait_for_http() {
+    local url="$1" name="$2" i
+    for i in $(seq 1 120); do
+        if curl -sf -o /dev/null "$url" 2>/dev/null; then
+            return 0
+        fi
+        if [ $((i % 10)) -eq 0 ]; then
+            green "  ...đang chờ $name ($i/120s)"
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+# Báo process đang giữ một cổng — giúp chẩn đoán "address already in use".
+port_owner() {
+    lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (PID "$2")"}' || true
+}
+
 stop_services() {
     pkill -f "uvicorn clinicai.main.*--port ${API_PORT}" 2>/dev/null || true
     pkill -f "next start -p ${WEB_PORT}" 2>/dev/null || true
     pkill -f "next dev -p ${WEB_PORT}" 2>/dev/null || true
+    # Đợi cổng được giải phóng — uvicorn/next có thể mất vài giây để shutdown sạch.
+    for _ in $(seq 1 15); do
+        if ! lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1 \
+           && ! lsof -nP -iTCP:"${WEB_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    if lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+        owner="$(port_owner "$API_PORT")"
+        red "  cổng $API_PORT vẫn bị chiếm bởi $owner — dừng thủ công hoặc chọn API_PORT khác"
+    fi
 }
 
 if [ "${1:-}" = "--down" ]; then
@@ -106,6 +139,12 @@ fi
 
 # ---- 3. API -----------------------------------------------------------------
 blue "3/5  FastAPI"
+if lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1 \
+   && ! pgrep -f "uvicorn clinicai.main.*--port ${API_PORT}" >/dev/null 2>&1; then
+    owner="$(port_owner "$API_PORT")"
+    red "  cổng $API_PORT đang bị chiếm bởi $owner (không phải uvicorn clinicai) — dừng process đó hoặc đổi API_PORT"
+    exit 1
+fi
 stop_services
 PYTHONPATH=src \
 SUPABASE_URL=http://127.0.0.1:54321 \
@@ -118,12 +157,9 @@ CHECKPOINTER_BACKEND=memory APP_ENV=staging POS_ADAPTER=none \
     nohup poetry run uvicorn clinicai.main:app \
         --host 127.0.0.1 --port "$API_PORT" >"$LOG_DIR/api.log" 2>&1 &
 
-for _ in $(seq 1 40); do
-    curl -sf "http://127.0.0.1:${API_PORT}/health" >/dev/null 2>&1 && break; sleep 1
-done
-curl -sf "http://127.0.0.1:${API_PORT}/health" >/dev/null 2>&1 \
+wait_for_http "http://127.0.0.1:${API_PORT}/health" "API" \
     && green "  healthy on ${API_PORT}" \
-    || { red "  API did not come up — see $LOG_DIR/api.log"; tail -5 "$LOG_DIR/api.log"; exit 1; }
+    || { red "  API did not come up — see $LOG_DIR/api.log"; tail -20 "$LOG_DIR/api.log"; exit 1; }
 
 # ---- 4. dashboard -----------------------------------------------------------
 blue "4/5  Next.js dashboard"
@@ -152,12 +188,9 @@ CLINIC_SHARED_EMAIL=clinic@dr4women.local \
     nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
 cd "$REPO"
 
-for _ in $(seq 1 40); do
-    curl -sf -o /dev/null "http://127.0.0.1:${WEB_PORT}/" 2>/dev/null && break; sleep 1
-done
-curl -sf -o /dev/null "http://127.0.0.1:${WEB_PORT}/" 2>/dev/null \
+wait_for_http "http://127.0.0.1:${WEB_PORT}/" "dashboard" \
     && green "  serving on ${WEB_PORT}" \
-    || { red "  dashboard did not come up — see $LOG_DIR/web.log"; exit 1; }
+    || { red "  dashboard did not come up — see $LOG_DIR/web.log"; tail -20 "$LOG_DIR/web.log"; exit 1; }
 
 # ---- 5. prove the stack talks to itself -------------------------------------
 blue "5/5  end-to-end check"
@@ -189,9 +222,11 @@ $(green "Ready.")
 
     letan@dr4women.local     Lễ tân      → Hàng đợi tiếp nhận
     bs.a@dr4women.local      Bác sĩ      → Bàn khám, Chỉ định dịch vụ
+    cskh@dr4women.local      CSKH        → Cần làm hôm nay, Đặt lịch
     dd.sa@dr4women.local     Điều dưỡng  → Sinh hiệu
+    bs.sa@dr4women.local     BS siêu âm  → Siêu âm, số đo thai
     thungan@dr4women.local   Thu ngân    → Bàn thu ngân
-    ql@dr4women.local        Quản lý     → Sức khoẻ API, Vận hành
+    ql@dr4women.local        Quản lý     → Sức khoẻ API, Vận hành, Command Center
 
   Supabase (trình duyệt gọi): ${PUBLIC_SUPABASE_URL}
   Dừng:  scripts/dev-up.sh --down
