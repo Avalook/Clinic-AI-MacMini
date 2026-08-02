@@ -1,14 +1,21 @@
 "use server";
 
-// Đăng nhập CÁ NHÂN (email + mật khẩu do quản lý tạo ở Cài đặt). Sau khi vào
-// "cổng" phòng khám (/enter), mỗi nhân viên đăng nhập tài khoản của mình → vào
-// thẳng phần việc. Vai trò suy từ staff gắn với tài khoản (auth_user_id),
-// không cần chọn tên.
+// Đăng nhập CÁ NHÂN (email + mật khẩu do quản lý tạo ở Cài đặt) — cửa duy nhất
+// vào hệ thống. Vai trò suy từ staff gắn với tài khoản (auth_user_id), không
+// cần chọn tên.
+//
+// Trước đây còn một cổng đứng trước: /enter, mật khẩu chung của phòng khám.
+// Nó đã bị xoá — một tài khoản dùng chung cho cả toà nhà thì không nói được ai
+// làm gì, và một biến môi trường CLINIC_SHARED_EMAIL thì chỉ phục vụ được đúng
+// một phòng khám.
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../../lib/clinic-session";
-import { setActiveClinicId } from "../../../lib/active-clinic";
+import {
+  ACTIVE_CLINIC_COOKIE,
+  setActiveClinicId,
+} from "../../../lib/active-clinic";
 import {
   resolveActiveMembership,
   resolveLinkedStaffAuthority,
@@ -84,4 +91,18 @@ export async function loginStaff(
   await setActiveClinicId(membership.clinic_id);
 
   redirect(roleLanding(role));
+}
+
+// Đăng xuất: kết thúc phiên Supabase và xoá mọi thứ thuộc về người vừa dùng máy
+// này. Máy ở quầy lễ tân là máy dùng chung — người tiếp theo phải bắt đầu từ
+// một màn hình đăng nhập trống, không phải từ vai trò và phòng khám của người
+// trước.
+export async function signOutStaff(): Promise<void> {
+  const supabase = await getSupabaseServer();
+  await supabase.auth.signOut();
+  const c = await cookies();
+  c.delete(ROLE_COOKIE);
+  c.delete(STAFF_COOKIE);
+  c.delete(ACTIVE_CLINIC_COOKIE);
+  redirect("/login");
 }

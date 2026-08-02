@@ -37,11 +37,6 @@ BEGIN
             ('thungan@dr4women.local',  'Thu ngan local','TN',    'CASHIER'),
             ('duocsi@dr4women.local',   'Duoc si local', 'DS',    'PHARMACIST'),
             ('ql@dr4women.local',       'Quan ly local', 'QL',    'MANAGEMENT')
-            -- Cổng phòng khám. CỐ Ý không gắn với dòng staff nào: /enter đăng
-            -- nhập bằng tài khoản này để qua cổng, rồi proxy thấy chưa có
-            -- staff_id nên đẩy tiếp sang /login để hỏi "bạn là ai". Nếu gắn nó
-            -- vào một nhân viên thì mọi người qua cổng đều thành nhân viên đó.
-            ,('clinic@dr4women.local',  NULL,            NULL,    NULL)
         ) AS t(email, full_name, short_name, department)
     LOOP
         -- crypt() lives in the extensions schema on Supabase; auth.users is
@@ -51,7 +46,6 @@ BEGIN
         -- into non-nullable strings, so a NULL turns every login into
         -- "Database error querying schema" — which looks like a broken database
         -- rather than a malformed fixture row.
-        -- Tài khoản cổng chỉ cần auth.users, không cần staff.
         INSERT INTO auth.users (
             instance_id, id, aud, role, email, encrypted_password,
             email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
@@ -74,12 +68,6 @@ BEGIN
             email_change           = '',
             updated_at             = now()
         RETURNING id INTO uid;
-
-        -- Tài khoản cổng dừng ở đây: nó chỉ để qua /enter, không phải một
-        -- con người. Không có dòng staff nào → proxy đẩy tiếp sang /login.
-        IF person.full_name IS NULL THEN
-            CONTINUE;
-        END IF;
 
         -- staff itself carries no clinic_id: who someone works for lives in
         -- clinic_membership, so one person can be lent to a second clinic
@@ -106,6 +94,15 @@ BEGIN
         VALUES (v_clinic, sid, person.department, TRUE)
         ON CONFLICT (clinic_id, staff_id, role) DO UPDATE SET is_active = TRUE;
     END LOOP;
+    -- Cổng phòng khám dùng chung đã bị xoá khỏi app (2026-08-02). Fixture này
+    -- idempotent nên chỉ bỏ dòng ở trên thì máy nào đã chạy bản cũ vẫn còn tài
+    -- khoản đó: một login còn sống, không gắn nhân viên nào, không vào được
+    -- đâu. Dọn hẳn — chỉ đúng email giả này, và file này chỉ chạy ở local.
+    DELETE FROM auth.users
+     WHERE email = 'clinic@dr4women.local'
+       AND NOT EXISTS (
+           SELECT 1 FROM public.staff s WHERE s.auth_user_id = auth.users.id
+       );
 END $$;
 
 SELECT u.email, s.primary_department, m.role, s.is_active

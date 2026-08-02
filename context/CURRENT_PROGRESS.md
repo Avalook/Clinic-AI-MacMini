@@ -5,7 +5,7 @@
 ## 📍 2026-07-03 — APP ĐẦY ĐỦ CHẠY 24/7 TRÊN MAC MINI M4 (LIVE) 🟢
 
 **Link app (WEB + backend) — mở trình duyệt ra trang Dr4Women Dashboard:**
-`https://mac-mini-ca-quang.tailc94236.ts.net` (→ `/enter`). API nội bộ `api:8000`.
+`https://mac-mini-ca-quang.tailc94236.ts.net` (→ `/login`). API nội bộ `api:8000`.
 
 **Kiến trúc hiện tại:** Mac mini chạy **BẢN ĐẦY ĐỦ RIÊNG** = `dashboard` (Next.js :3000, phơi qua Tailscale Funnel) + `api` (FastAPI/LangGraph :8000 nội bộ, dashboard gọi qua `http://api:8000`). **Vercel là bản SONG SONG cho khách**; Mac là bản độc lập của mình. **Cả hai chung 1 Supabase.** (Quang chốt: Mac = full app riêng, Vercel giữ cho khách vì Vercel không sợ mất điện/mạng nhà.)
 

@@ -63,6 +63,12 @@ role = `staff.primary_department` suy từ JWT, bỏ role-picker.
   nó không có dòng `staff` nên `current_clinic_ids()` rỗng ⇒ 0 dòng ở mọi bảng. Cổng vẫn
   còn để vào được trang `/login`; **bỏ hẳn cổng này là quyết định của bạn**, vì nó đổi
   cách cả phòng khám đăng nhập.
+  - **Cập nhật 2026-08-02 — đã bỏ hẳn.** Quyết định đã chốt trong lộ trình đa phòng khám
+    (A.9). Hai lý do: (1) sau W3 cổng không còn chặn gì, nó chỉ là một mật khẩu cả toà nhà
+    cùng biết đứng trước trang đăng nhập thật — chi phí thao tác có, giá trị an toàn bằng 0;
+    (2) `CLINIC_SHARED_EMAIL` là một biến môi trường cho một phòng khám, không thể tồn tại
+    trong bản pooled nhiều phòng khám chung một deployment. `/enter`, `enterClinic` và biến
+    môi trường đó đã bị xoá; `proxy.ts` nay chỉ còn một cổng: `/login`.
 - **✅ ROLE-02 xong (migration `20260730000013`, 2026-07-30):** trong cùng phòng khám,
   Lễ tân/Thu ngân/Quản lý đọc `clinical_record` + `clinical_form_response` ra **0 dòng**;
   bốn vai lâm sàng (`DOCTOR`, `ULTRASOUND_DOCTOR`, `TKYK`, `NURSE_ULTRASOUND` — đúng danh

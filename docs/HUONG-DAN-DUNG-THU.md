@@ -23,18 +23,14 @@ scripts/dev-up.sh --down     # dừng
 | Supabase Studio (xem thẳng DB) | http://127.0.0.1:54323 |
 | Log | `.dev-logs/api.log`, `.dev-logs/web.log` |
 
-### Đăng nhập là **hai bước**
+### Đăng nhập: **một tài khoản một người**
 
-Mở http://127.0.0.1:3100 sẽ vào **cổng phòng khám** trước, chưa phải đăng nhập
-cá nhân:
+Mở http://127.0.0.1:3100 sẽ vào thẳng `/login` — email + mật khẩu của từng vai
+bên dưới. Không còn "mật khẩu chung của phòng khám": mọi thao tác lâm sàng đều
+ghi tên người thật, mà một tài khoản cả toà nhà cùng dùng thì không ghi được
+tên ai.
 
-1. **Cổng phòng khám** (`/enter`) — nhập mật khẩu chung: `clinic-test-pw-123`
-2. **Đăng nhập cá nhân** (`/login`) — email + mật khẩu của từng vai bên dưới
-
-Hai bước là **cố ý**: bước 1 mở cửa phòng khám, bước 2 nói *"tôi là ai"* — mọi
-thao tác lâm sàng đều ghi tên người thật, không ghi "phòng khám".
-
-**Mật khẩu cho cả hai bước đều là: `clinic-test-pw-123`**
+**Mật khẩu của mọi tài khoản thử: `clinic-test-pw-123`**
 
 | Vai | Email |
 |---|---|

@@ -332,9 +332,11 @@ SELECT set_config('request.jwt.claim.sub', '99999999-9999-4999-8999-999999999999
 
 DO $shared_gate_account$
 BEGIN
-    -- app/(auth)/enter signs in as one shared account with no staff row. Under
-    -- the old USING(true) policies that account could read every patient in the
-    -- database; now it must read none.
+    -- An authenticated Supabase account with no staff row: a login created
+    -- before anyone linked it, or one whose staff row was deactivated. Under
+    -- the old USING(true) policies such an account read every patient in the
+    -- database — this is how the shared clinic-gate account was shown to be
+    -- worthless before it was deleted. It must read none.
     IF EXISTS (SELECT 1 FROM public.patient) THEN
         RAISE EXCEPTION 'an authenticated account with no staff row must read no patients';
     END IF;

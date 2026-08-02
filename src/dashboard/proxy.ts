@@ -1,13 +1,21 @@
-// Next 16 proxy (renamed from `middleware`). Two-stage gate:
-//   1. No Supabase session                       → /enter.
-//   2. Session without an active linked staff    → /login.
+// Next 16 proxy (renamed from `middleware`). One gate:
+//   No Supabase session, or a session with no active linked staff → /login.
+//
+// There used to be a stage in front of that: /enter, a single shared Supabase
+// account per deployment (CLINIC_SHARED_EMAIL). It was removed because one env
+// var meant one clinic — the opposite of a pooled multi-tenant product — and
+// because it had already stopped protecting anything: ADR-0004 gave that
+// account no staff row, so tenant-scoped RLS let it read zero rows. What was
+// left was a password every person in the building shared, in front of the
+// login that actually decides who they are.
+//
 // clinic_role is a legacy compatibility cookie; it is never read here.
 // API routes enforce their own auth and are never redirected to HTML pages.
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/enter", "/auth", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
 
 // The living style guide holds no patient data and must not look like it needs
 // a clinical session. The page itself 404s outside development, so this entry
@@ -65,24 +73,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   };
 
-  // Luồng: /enter (mật khẩu phòng khám) → /login (đăng nhập cá nhân) → phần việc.
+  // Luồng: /login (đăng nhập cá nhân) → phần việc.
 
-  // 1. Chưa qua cổng (không có session). /login KHÔNG public → cũng đẩy về /enter.
+  // 1. Chưa đăng nhập.
   if (!user) {
-    return isPublic ? response : redirectTo("/enter");
+    return isPublic ? response : redirectTo("/login");
   }
 
-  // 2. Đã qua cổng, đang ở trang /enter → đi tiếp.
-  if (pathname.startsWith("/enter")) {
-    return redirectTo(hasStaffIdentity ? "/home" : "/login");
-  }
-
-  // 3. Đã qua cổng nhưng CHƯA có nhân viên liên kết → /login.
-  if (!hasStaffIdentity && pathname !== "/login" && !isPublic) {
+  // 2. Có phiên nhưng CHƯA gắn với nhân viên nào → /login nói lý do.
+  if (!hasStaffIdentity && !isPublic) {
     return redirectTo("/login");
   }
 
-  // 4. Đã đăng nhập cá nhân mà còn ở /login → vào việc.
+  // 3. Đã đăng nhập mà còn ở /login → vào việc. /home đi qua layout, nên ai làm
+  // nhiều phòng khám sẽ được hỏi nơi trực ở đó chứ không phải ở đây.
   if (hasStaffIdentity && pathname === "/login") {
     return redirectTo("/home");
   }

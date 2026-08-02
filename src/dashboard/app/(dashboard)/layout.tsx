@@ -3,7 +3,7 @@ import Shell from "./Shell";
 import DeclinedNotice, { type DeclinedItem } from "./DeclinedNotice";
 import { NotificationProvider } from "./NotificationContext";
 import RealtimeRefresher from "./RealtimeRefresher";
-import { leaveClinic } from "../(auth)/enter/actions";
+import { signOutStaff } from "../(auth)/login/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getClinicRole, getClinicStaffId } from "../../lib/clinic-session";
 import { getStaffContext } from "../../lib/current-staff";
@@ -71,7 +71,7 @@ export default async function DashboardLayout({
       <Shell
         role={role}
         identity={identity}
-        leaveAction={leaveClinic}
+        leaveAction={signOutStaff}
         clinicSwitchHref={
           context.status === "resolved" && context.choices.length > 1
             ? "/choose-clinic?switch=1"

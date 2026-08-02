@@ -103,7 +103,7 @@ Cần **đo token thật 1 tuần** rồi chốt thay vì ước lượng.
 
 | Lớp | Công cụ free-tier | Mục tiêu |
 |---|---|---|
-| Uptime | UptimeRobot ping `/health` `/enter` | biết sập trước khi PK gọi |
+| Uptime | UptimeRobot ping `/health` `/login` | biết sập trước khi PK gọi |
 | Error | Sentry (Next + FastAPI) | trace lỗi có context |
 | Log | structlog (đã có) → JSON tập trung | truy vết |
 | Cost AI | script đếm token/agent | kiểm soát chi phí Claude |
@@ -163,7 +163,7 @@ Cần **đo token thật 1 tuần** rồi chốt thay vì ước lượng.
 
 ## 10. Chống bus factor (rủi ro lớn nhất)
 
-- **Infrastructure-as-Code**: `render.yaml`/`docker-compose` (đã có) + Terraform cho Supabase/Cloudflare sau.
+- **Infrastructure-as-Code**: `docker-compose` + `Caddyfile` (đã có) + Terraform cho Supabase/Cloudflare sau.
 - Runbook 1 trang ("Dashboard sập → làm gì", "Mac Mini mất điện → lễ tân ghi tay tạm").
 - Credentials vault PK truy cập được khi dev vắng.
 - Backup-of-dev: ít nhất 1 người nữa biết deploy + restore.

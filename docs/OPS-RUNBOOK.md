@@ -15,7 +15,7 @@ CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai
 docker exec clinicai_prod-api-1 curl -fsS http://localhost:8000/health
 docker exec clinicai_prod-api-1 curl -fsS http://localhost:8000/health/db
 curl -fsS http://127.0.0.1/health
-curl -sS http://127.0.0.1/enter -o /dev/null -w "%{http_code}\n"
+curl -sS http://127.0.0.1/login -o /dev/null -w "%{http_code}\n"
 ```
 
 ---
