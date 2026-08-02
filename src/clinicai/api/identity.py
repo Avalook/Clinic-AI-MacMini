@@ -54,6 +54,7 @@ class ClinicRole(str, Enum):
     CASHIER_DV = "CASHIER_DV"
     TKYK = "TKYK"
     TRUONG_CA = "TRUONG_CA"
+    PHARMACIST = "PHARMACIST"
 
 
 _VALID_ROLES = {r.value for r in ClinicRole}

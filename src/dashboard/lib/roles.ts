@@ -15,7 +15,8 @@ export type ClinicRole =
   | "CASHIER"
   | "CASHIER_THUOC"
   | "CASHIER_DV"
-  | "TRUONG_CA";
+  | "TRUONG_CA"
+  | "PHARMACIST";
 
 export const ALL_ROLES: ClinicRole[] = [
   "DOCTOR",
@@ -29,6 +30,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "CASHIER_THUOC",
   "CASHIER_DV",
   "TRUONG_CA",
+  "PHARMACIST",
 ];
 
 // Convert a trusted role value into the closed application enum. Unknown data
@@ -165,6 +167,7 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
   CASHIER_THUOC: "Thu ngân thuốc",
   CASHIER_DV: "Thu ngân dịch vụ",
   TRUONG_CA: "Trưởng ca",
+  PHARMACIST: "Dược sĩ",
 };
 
 // Which roles may see each sidebar destination. Anything not listed = everyone.
@@ -206,6 +209,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // "Cần làm hôm nay" — danh sách việc CSKH tự sinh từ dữ liệu (gọi xác nhận,
   // phân lại lịch bị từ chối, tái khám đến hạn, KQ XN mới về).
   "/cskh-today": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  // Bàn làm việc CSKH — lịch cần xác nhận + follow-up cần gọi.
+  "/cskh/board": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
   "/appointments": ["MANAGEMENT", "TRUONG_CA"],
   // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
   // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
@@ -243,15 +248,27 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // ("Công việc của tôi" thu ngân nằm ở /tasks, gate bằng entry /tasks bên dưới.)
   "/cashier/thuoc": ["CASHIER_THUOC", "CASHIER", "MANAGEMENT", "TRUONG_CA"],
   "/cashier/dich-vu": ["CASHIER_DV", "CASHIER", "MANAGEMENT", "TRUONG_CA"],
+  // Nhà thuốc — Dược sĩ (PHARMACIST) + Quản lý/Trưởng ca xem.
+  "/pharmacy": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
+  "/pharmacy/history": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
+  "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
+  "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
   // MỌI vai trò tự đăng ký ca của mình (CSKH, thu ngân... cũng cần); Quản lý +
   // Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem /api/roster).
   "/schedule": "all",
   "/work-sessions": ["MANAGEMENT", "TRUONG_CA"],
   "/reports": ["MANAGEMENT", "TRUONG_CA"],
+  // Lịch sử thao tác (audit log) — chỉ Quản lý + Trưởng ca.
+  "/audit-log": ["MANAGEMENT", "TRUONG_CA"],
+  // Duyệt kết quả — Bác sĩ + TKYK + Quản lý/Trưởng ca xem.
+  "/result-review": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT", "TRUONG_CA"],
   "/ops": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
+  // Command Center — Cổng trung tâm điều khiển toàn hệ thống.
+  // Chỉ Quản lý + Trưởng ca (isOpsAdmin) mới được vào.
+  "/portal": ["MANAGEMENT", "TRUONG_CA"],
 };
 
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {

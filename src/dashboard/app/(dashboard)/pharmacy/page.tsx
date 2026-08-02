@@ -1,0 +1,97 @@
+// Nhà thuốc — Đơn thuốc chờ cấp + Chuẩn bị thuốc (image_8 + image_9).
+// Dược sĩ (PHARMACIST) quản lý hàng đợi đơn thuốc, soạn thuốc theo đơn,
+// kiểm tra trước bàn giao. Kho đầy đủ (lô/hạn dùng) qua drug_batch + inventory_txn.
+
+import { getSupabaseServer } from "../../../lib/supabase-server";
+import { requireNavAccess } from "../../../lib/clinic-session";
+import { vnTodayRangeUtc } from "../../../lib/datetime";
+import PharmacyBoard from "./PharmacyBoard";
+
+export const dynamic = "force-dynamic";
+
+export default async function PharmacyPage() {
+  await requireNavAccess("/pharmacy");
+  const supabase = await getSupabaseServer();
+
+  // Đơn thuốc hôm nay (prescription) + bệnh nhân + lượt khám
+  const { startUtc, endUtc } = vnTodayRangeUtc();
+  const { data: prescriptions, error: rxErr } = await supabase
+    .from("prescription")
+    .select(
+      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
+       created_at,
+       patient:clinic_patient_id(full_name, phone_primary),
+       visit:visit_id(visit_id)`,
+    )
+    .gte("created_at", startUtc)
+    .lte("created_at", endUtc)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (rxErr) {
+    return (
+      <div className="p-6 text-sm text-danger">
+        Không đọc được đơn thuốc: {rxErr.message}
+      </div>
+    );
+  }
+
+  // Supabase trả FK relationship dạng mảng — chuẩn hoá về object|null.
+  interface RxPatientRaw {
+    full_name: string | null;
+    phone_primary: string | null;
+  }
+  interface RxVisitRaw {
+    visit_id: string;
+  }
+  type RxRaw = Omit<
+    (typeof prescriptions)[number],
+    "patient" | "visit"
+  > & {
+    patient: RxPatientRaw[] | null;
+    visit: RxVisitRaw[] | null;
+  };
+  const normalizedRxs = (prescriptions ?? []).map((p: RxRaw) => ({
+    ...p,
+    patient: p.patient?.[0] ?? null,
+    visit: p.visit?.[0] ?? null,
+  }));
+
+  // Tồn kho theo thuốc (drug_catalog + drug_batch)
+  const { data: inventory, error: invErr } = await supabase
+    .from("drug_batch")
+    .select(
+      `id, batch_code, expiry_date, quantity_on_hand, unit, cost_price,
+       drug:drug_catalog_id(name_base, name_raw, variant)`,
+    )
+    .gt("quantity_on_hand", 0)
+    .order("expiry_date", { ascending: true });
+
+  if (invErr) {
+    return (
+      <div className="p-6 text-sm text-danger">
+        Không đọc được tồn kho: {invErr.message}
+      </div>
+    );
+  }
+
+  interface BatchDrugRaw {
+    name_base: string | null;
+    name_raw: string | null;
+    variant: string | null;
+  }
+  type BatchRaw = Omit<(typeof inventory)[number], "drug"> & {
+    drug: BatchDrugRaw[] | null;
+  };
+  const normalizedInv = (inventory ?? []).map((b: BatchRaw) => ({
+    ...b,
+    drug: b.drug?.[0] ?? null,
+  }));
+
+  return (
+    <PharmacyBoard
+      prescriptions={normalizedRxs}
+      inventory={normalizedInv}
+    />
+  );
+}

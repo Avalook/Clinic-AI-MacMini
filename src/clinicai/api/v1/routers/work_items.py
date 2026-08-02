@@ -45,6 +45,7 @@ _WORK_ITEM_GUARD = require_role(
     ClinicRole.CASHIER,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
+    ClinicRole.PHARMACIST,
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )

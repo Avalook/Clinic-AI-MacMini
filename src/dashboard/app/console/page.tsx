@@ -52,6 +52,7 @@ const WORKSPACE_VI: Record<string, { ten: string; man: string | null }> = {
   khu_dat_lich: { ten: "Đặt lịch", man: null },
   bang_theo_doi_sau_kham: { ten: "Theo dõi sau khám", man: null },
   khu_lich_nhan_su: { ten: "Lịch nhân sự", man: null },
+  khu_nha_thuoc: { ten: "Nhà thuốc", man: "/pharmacy" },
 };
 
 const SEVERITY_VI: Record<string, { label: string; tone: "blocked" | "overdue" | "assigned" | "ready" }> = {

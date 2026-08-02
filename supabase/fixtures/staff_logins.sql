@@ -35,6 +35,7 @@ BEGIN
             ('bs.sa@dr4women.local',    'BS SA local',   'BS SA', 'ULTRASOUND_DOCTOR'),
             ('dd.sa@dr4women.local',    'DD SA local',   'DD SA', 'NURSE_ULTRASOUND'),
             ('thungan@dr4women.local',  'Thu ngan local','TN',    'CASHIER'),
+            ('duocsi@dr4women.local',   'Duoc si local', 'DS',    'PHARMACIST'),
             ('ql@dr4women.local',       'Quan ly local', 'QL',    'MANAGEMENT')
             -- Cổng phòng khám. CỐ Ý không gắn với dòng staff nào: /enter đăng
             -- nhập bằng tài khoản này để qua cổng, rồi proxy thấy chưa có

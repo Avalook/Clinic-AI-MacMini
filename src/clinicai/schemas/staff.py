@@ -23,6 +23,7 @@ class PrimaryDepartment(str, Enum):
     CASHIER_DV = "CASHIER_DV"
     TKYK = "TKYK"
     TRUONG_CA = "TRUONG_CA"
+    PHARMACIST = "PHARMACIST"
 
 
 class EmploymentType(str, Enum):

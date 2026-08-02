@@ -23,6 +23,7 @@ import {
   Users,
   Receipt,
   Timer,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -124,6 +125,35 @@ export const NAV: NavItem[] = [
   // Bảng giá tách 2 trang, đặt NGAY DƯỚI "Công việc của tôi" (sidebar Thu ngân).
   { href: "/cashier/thuoc", label: "Bảng giá thuốc", shortLabel: "Giá thuốc", icon: Pill },
   { href: "/cashier/dich-vu", label: "Bảng giá dịch vụ", shortLabel: "Giá DV", icon: Tag },
+  // Nhà thuốc — Dược sĩ (PHARMACIST). Đơn chờ cấp + Chuẩn bị + Kho.
+  {
+    href: "/pharmacy",
+    label: "Đơn thuốc chờ cấp",
+    shortLabel: "Đơn thuốc",
+    icon: Pill,
+    badge: "Mới",
+  },
+  {
+    href: "/pharmacy/inventory",
+    label: "Kho & tồn kho",
+    shortLabel: "Kho",
+    icon: ClipboardList,
+    badge: "Mới",
+  },
+  {
+    href: "/pharmacy/history",
+    label: "Lịch sử bàn giao",
+    shortLabel: "Lịch sử",
+    icon: ClipboardCheck,
+    badge: "Mới",
+  },
+  {
+    href: "/pharmacy/consult",
+    label: "Tư vấn dùng thuốc",
+    shortLabel: "Tư vấn",
+    icon: CheckCheck,
+    badge: "Mới",
+  },
   {
     href: "/lab-queue",
     label: "Hàng đợi xét nghiệm",
@@ -140,6 +170,20 @@ export const NAV: NavItem[] = [
   { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   {
+    href: "/audit-log",
+    label: "Lịch sử thao tác",
+    shortLabel: "Lịch sử",
+    icon: ClipboardCheck,
+    badge: "Mới",
+  },
+  {
+    href: "/result-review",
+    label: "Duyệt kết quả",
+    shortLabel: "Duyệt KQ",
+    icon: CheckCheck,
+    badge: "Mới",
+  },
+  {
     href: "/ops/telemetry",
     label: "Sức khoẻ API",
     shortLabel: "Sức khoẻ",
@@ -147,6 +191,13 @@ export const NAV: NavItem[] = [
   },
   { href: "/ops", label: "Vận hành hệ thống", shortLabel: "Hệ thống", icon: Gauge },
   { href: "/settings", label: "Cài đặt", icon: Settings },
+  {
+    href: "/portal",
+    label: "Command Center",
+    shortLabel: "Trung tâm",
+    icon: Zap,
+    badge: "Mới",
+  },
 ];
 
 // Nhãn nav theo vai. Wording ĐỒNG BỘ: mọi vai (kể cả điều dưỡng) đều "Tạo bệnh
