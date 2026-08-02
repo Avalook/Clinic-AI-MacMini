@@ -20,17 +20,15 @@ from clinicai.services.booking_service import (
     DEAD_STATUSES,
     DOCTOR_OVERLAP_CAP,
     KEEP_STATUS,
-    REGULAR_CAP,
     TRANSITIONS,
-    WALKIN_CAP,
     Action,
     BookingService,
     is_dead,
     is_walkin,
     resolve_action,
-    slot_bucket,
     suggest_load,
 )
+from clinicai.services.clinic_policy import DEFAULT_POLICY, ClinicPolicy
 
 
 class TestTransitions:
@@ -125,9 +123,20 @@ class TestRoleGates:
 
 
 class TestSeatRule:
-    def test_two_plus_one(self) -> None:
-        # Each doctor × 15 minutes: two booked seats, one held for a walk-in.
-        assert (REGULAR_CAP, WALKIN_CAP) == (2, 1)
+    def test_dr4women_still_gets_two_plus_one(self) -> None:
+        # Đây là luật của Dr4Women, không phải của sản phẩm (C.3) — nhưng nó vẫn
+        # phải là cái phòng khám nhận được khi không khai gì, nếu không thì
+        # migration đã lặng lẽ đổi cách một phòng khám đang chạy vận hành.
+        assert (DEFAULT_POLICY.regular_cap, DEFAULT_POLICY.walkin_cap) == (2, 1)
+        assert DEFAULT_POLICY.slot_minutes == 15
+
+    def test_a_clinic_can_have_a_different_rule(self) -> None:
+        # Cái test này là toàn bộ lý do C.3 tồn tại: khung 30 phút, 4 chỗ đặt
+        # trước, không nhận vãng lai — không phải sửa dòng code nào.
+        other = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=0)
+        assert other.cap_for(walkin=False) == 4
+        assert other.cap_for(walkin=True) == 0
+        assert other.total_seats == 4
 
     def test_a_freed_seat_is_reusable(self) -> None:
         # Cancelled, no-show and declined stop holding the slot; anything else
@@ -153,9 +162,21 @@ class TestSlotBucket:
         ("minute", "expected"), [(0, 0), (7, 0), (14, 0), (15, 15), (44, 30), (59, 45)]
     )
     def test_a_time_lands_in_its_quarter(self, minute: int, expected: int) -> None:
-        begin, end = slot_bucket(datetime(2026, 7, 30, 9, minute, tzinfo=timezone.utc))
+        moment = datetime(2026, 7, 30, 9, minute, tzinfo=timezone.utc)
+        begin, end = DEFAULT_POLICY.bucket(moment)
         assert begin.minute == expected
         assert (end - begin).total_seconds() == 15 * 60
+
+    @pytest.mark.parametrize(
+        ("minute", "expected"), [(0, 0), (14, 0), (29, 0), (30, 30), (59, 30)]
+    )
+    def test_a_half_hour_clinic_lands_in_its_half(
+        self, minute: int, expected: int
+    ) -> None:
+        moment = datetime(2026, 7, 30, 9, minute, tzinfo=timezone.utc)
+        begin, end = ClinicPolicy(slot_minutes=30).bucket(moment)
+        assert begin.minute == expected
+        assert (end - begin).total_seconds() == 30 * 60
 
     def test_buckets_line_up_with_the_clinic_grid(self) -> None:
         # Flooring on the UTC epoch is only safe because Vietnam's offset is a
@@ -222,7 +243,7 @@ class TestSeatMessages:
 
     def test_a_full_booked_slot_says_the_third_seat_is_for_walk_ins(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(REGULAR_CAP, 0))
+        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -230,16 +251,17 @@ class TestSeatMessages:
                 datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                 "ZALO",
                 _identity(),
+                DEFAULT_POLICY,
             )
         )
         assert message is not None
-        assert "BN1, BN2" in message and "vãng lai" in message
+        assert "2 chỗ đặt hẹn" in message and "vãng lai" in message
         # The window is stated in clinic time, not UTC.
         assert "16:15–16:30" in message
 
     def test_the_reserved_seat_is_still_free_for_a_walk_in(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(REGULAR_CAP, 0))
+        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
         assert (
             asyncio.run(
                 service._slot_full(
@@ -248,6 +270,7 @@ class TestSeatMessages:
                     datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                     "WALK_IN",
                     _identity(),
+                    DEFAULT_POLICY,
                 )
             )
             is None
@@ -255,7 +278,7 @@ class TestSeatMessages:
 
     def test_a_second_walk_in_is_turned_away(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(0, WALKIN_CAP))
+        conn = _Conn(self._rows(0, DEFAULT_POLICY.walkin_cap))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -263,6 +286,7 @@ class TestSeatMessages:
                 datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                 "WALK_IN",
                 _identity(),
+                DEFAULT_POLICY,
             )
         )
         assert message is not None and "khung 15 phút kế tiếp" in message
@@ -278,10 +302,50 @@ class TestSeatMessages:
                     datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                     "ZALO",
                     _identity(),
+                    DEFAULT_POLICY,
                 )
             )
             is None
         )
+
+    def test_the_sentence_follows_the_clinic_not_the_code(self) -> None:
+        # Phòng khám khung 30 phút, 4 chỗ: cùng một hàng dữ liệu, khác câu trả
+        # lời. Nếu câu này vẫn nói "15 phút" thì lễ tân được bảo đi tìm một
+        # khung không tồn tại trên lưới của họ.
+        service = BookingService(MagicMock())
+        policy = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=1)
+        conn = _Conn(self._rows(4, 0))
+        message = asyncio.run(
+            service._slot_full(
+                conn,
+                None,
+                datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
+                "ZALO",
+                _identity(),
+                policy,
+            )
+        )
+        assert message is not None
+        assert "4 chỗ đặt hẹn" in message
+        # 09:00–09:30 UTC = 16:00–16:30 giờ phòng khám, không phải 16:15–16:30.
+        assert "16:00–16:30" in message
+
+    def test_a_clinic_that_takes_no_walk_ins_says_so_on_the_first_one(self) -> None:
+        service = BookingService(MagicMock())
+        policy = ClinicPolicy(walkin_cap=0)
+        conn = _Conn(self._rows(0, 0))
+        message = asyncio.run(
+            service._slot_full(
+                conn,
+                None,
+                datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
+                "WALK_IN",
+                _identity(),
+                policy,
+            )
+        )
+        assert message is not None
+        assert "0 chỗ vãng lai" in message
 
     def test_the_overlap_message_names_the_doctor_and_the_window(self) -> None:
         service = BookingService(MagicMock())

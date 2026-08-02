@@ -2,12 +2,14 @@ import { redirect } from "next/navigation";
 import Shell from "./Shell";
 import DeclinedNotice, { type DeclinedItem } from "./DeclinedNotice";
 import { NotificationProvider } from "./NotificationContext";
+import { BookingPolicyProvider } from "./BookingPolicyContext";
 import RealtimeRefresher from "./RealtimeRefresher";
 import { leaveClinic } from "../(auth)/enter/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getClinicRole, getClinicStaffId } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
+import { getBookingPolicy } from "../../lib/booking-policy";
 
 interface DeclinedRow {
   id: string;
@@ -60,13 +62,19 @@ export default async function DashboardLayout({
     }));
   }
 
+  // Đọc một lần cho cả cây: mọi lưới khung giờ phía dưới phải vẽ theo đúng luật
+  // mà trigger enforce_slot_capacity sẽ dùng để từ chối, không theo hằng số.
+  const bookingPolicy = await getBookingPolicy();
+
   return (
     <NotificationProvider staffId={staffId}>
-      <Shell role={role} identity={identity} leaveAction={leaveClinic}>
-        {children}
-        <DeclinedNotice items={declined} />
-        <RealtimeRefresher />
-      </Shell>
+      <BookingPolicyProvider policy={bookingPolicy}>
+        <Shell role={role} identity={identity} leaveAction={leaveClinic}>
+          {children}
+          <DeclinedNotice items={declined} />
+          <RealtimeRefresher />
+        </Shell>
+      </BookingPolicyProvider>
     </NotificationProvider>
   );
 }

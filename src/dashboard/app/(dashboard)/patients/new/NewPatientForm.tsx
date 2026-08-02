@@ -15,10 +15,11 @@ import CinemaSlotPicker from "../CinemaSlotPicker";
 import {
   buildSlotUsage,
   usageAt,
-  REGULAR_CAP,
-  WALKIN_CAP,
+  slotBucketMs,
+  slotMinuteOptions,
   type SlotApptLite,
 } from "../../../../lib/slot-capacity";
+import { useBookingPolicy } from "../../BookingPolicyContext";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
 import {
   todayVn,
@@ -248,7 +249,10 @@ export default function NewPatientForm({
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
   const [seatKind, setSeatKind] = useState<"regular" | "walkin">("regular");
   const priority = !walkin && seatKind === "walkin";
-  const [duration] = useState(15);
+  // Luật đặt lịch của phòng khám (C.3). `null` = chưa đọc được → không đoán.
+  const policy = useBookingPolicy();
+  // Lịch dài đúng một khung của PHÒNG KHÁM NÀY, không phải 15' cố định.
+  const duration = policy?.slotMinutes ?? 0;
   const [existingAppts, setExistingAppts] = useState<IntakeAppointment[]>([]);
   // Bác sĩ TRỰC CA (work_roster LICH_KHAM) của ngày đang đặt — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
@@ -327,26 +331,35 @@ export default function NewPatientForm({
     [walkin, apptDate, existingAppts],
   );
 
-  // Khung đang chọn còn chỗ ĐÚNG LOẠI không? Luật 2+1 (slot-capacity): kênh
-  // thường xét 2 chỗ BN1/BN2; walk-in xét chỗ thứ 3 (1 khách vãng lai/khung).
+  // Khung đang chọn còn chỗ ĐÚNG LOẠI không? Số chỗ mỗi loại là cấu hình của
+  // phòng khám (clinic.settings.booking), không phải hằng số 2+1.
   const isSlotBooked = useMemo(() => {
     const day = walkin ? TODAY : apptDate;
-    if (!day || !apptTime) return false;
+    if (!day || !apptTime || !policy) return false;
     try {
-      const bucketMs = Date.parse(vnLocalToUtcISO(day, apptTime));
+      const bucketMs = slotBucketMs(vnLocalToUtcISO(day, apptTime), policy);
       const u = usageAt(
-        buildSlotUsage(visibleExistingAppts),
+        buildSlotUsage(visibleExistingAppts, policy),
         doctorId || null,
         bucketMs,
       );
-      // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế thứ 3.
+      // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế vãng lai.
       return walkin || priority
-        ? u.walkin >= WALKIN_CAP
-        : u.regular >= REGULAR_CAP;
+        ? u.walkin >= policy.walkinCap
+        : u.regular >= policy.regularCap;
     } catch {
       return false;
     }
-  }, [walkin, priority, TODAY, apptDate, apptTime, doctorId, visibleExistingAppts]);
+  }, [
+    walkin,
+    priority,
+    TODAY,
+    apptDate,
+    apptTime,
+    doctorId,
+    visibleExistingAppts,
+    policy,
+  ]);
 
   // CSKH: số khám ĐỂ TRỐNG — hệ thống cấp SỐ CHUNG THEO THỜI GIAN lúc check-in.
   // KHÔNG tự dập "ƯT" theo phút (sai nghĩa): ƯT chỉ dành cho NGƯỜI QUEN nhà bác sĩ,
@@ -432,6 +445,12 @@ export default function NewPatientForm({
 
   async function bookFor(clinicPatientId: string): Promise<boolean> {
     if (!wantsAppointment) return true;
+    if (!policy) {
+      setError(
+        "Chưa đọc được luật đặt lịch của phòng khám — hồ sơ đã lưu, nhưng chưa đặt được lịch. Tải lại trang rồi đặt lại.",
+      );
+      return false;
+    }
     // Walk-in: Lễ tân đã bấm ô xanh trên sơ đồ → dùng đúng khung đó; chưa bấm
     // (khám ngay) → giờ hiện tại. Server vẫn chặn nếu khung đã có khách vãng lai.
     const start = walkin
@@ -1047,7 +1066,7 @@ export default function NewPatientForm({
                     );
                   }}
                 />
-                {apptTime && (
+                {apptTime && policy && (
                   <p
                     className={`mt-1 text-[11px] font-medium ${
                       isSlotBooked ? "text-danger" : "text-success"
@@ -1055,7 +1074,7 @@ export default function NewPatientForm({
                   >
                     {isSlotBooked
                       ? "Khung đang chọn đã có khách vãng lai — chuyển sang khung kế tiếp."
-                      : `Xếp khách vào chỗ vãng lai khung ${slotRange(apptTime)}.`}
+                      : `Xếp khách vào chỗ vãng lai khung ${slotRange(apptTime, policy.slotMinutes)}.`}
                   </p>
                 )}
               </div>
@@ -1172,7 +1191,7 @@ export default function NewPatientForm({
               onChange={setApptTime}
               minHour={apptMinHour}
               maxHour={apptMaxHour}
-              minutesOptions={["00", "15", "30", "45"]}
+              minutesOptions={policy ? slotMinuteOptions(policy) : []}
             />
             <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
               ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).

@@ -16,10 +16,16 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
+from clinicai.services.clinic_policy import load_clinic_policy
 
 router = APIRouter()
 
@@ -120,6 +126,30 @@ async def capacity_quote(
         doctor_id=doctor_id,
         clinic_id=identity.clinic_id,
     )
+
+
+@router.get("/appointments/policy")
+async def booking_policy(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, int]:
+    """Độ dài khung và số chỗ của phòng khám đang đăng nhập (C.3).
+
+    Không dùng ``_BOOKING_GUARD``: bảng lịch tuần ở màn chủ vẽ đúng cái lưới
+    này, và bác sĩ xem lịch của mình không phải người đặt lịch. Ba con số này
+    không phải dữ liệu bệnh nhân — giấu chúng khỏi một nửa phòng khám chỉ làm
+    lưới vẽ sai, không làm ai an toàn hơn.
+
+    Đây là NGUỒN DUY NHẤT trình duyệt được biết luật. Frontend không đọc thẳng
+    ``clinic.settings``: A.5 đã bỏ cột đó khỏi GRANT cho ``authenticated``.
+    """
+    async with pool.acquire() as conn:
+        policy = await load_clinic_policy(conn, identity.clinic_id)
+    return {
+        "slot_minutes": policy.slot_minutes,
+        "regular_cap": policy.regular_cap,
+        "walkin_cap": policy.walkin_cap,
+    }
 
 
 @router.patch("/appointments/{appointment_id}")

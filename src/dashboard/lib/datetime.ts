@@ -98,12 +98,14 @@ export function fmtDate(ts: TimeInput): string {
     : "—";
 }
 
-/** Số phút của một khung đặt lịch (mọi cột lưới = 1 khung 15'). */
-export const SLOT_MINUTES = 15;
-
-/** "HH:mm" (mốc bắt đầu khung) → "HH:mm-HH:mm" (khung 15'), ví dụ
- *  "17:00" → "17:00-17:15". Dùng cho nhãn cột & tooltip lưới đặt chỗ. */
-export function slotRange(hhmm: string, minutes: number = SLOT_MINUTES): string {
+/** "HH:mm" (mốc bắt đầu khung) + độ dài khung → "HH:mm-HH:mm", ví dụ
+ *  ("17:00", 15) → "17:00-17:15". Dùng cho nhãn cột & tooltip lưới đặt chỗ.
+ *
+ *  C.3: `minutes` KHÔNG có mặc định 15. Độ dài khung là cấu hình của từng
+ *  phòng khám (clinic.settings.booking.slot_minutes), nên một mặc định ở đây
+ *  chỉ có tác dụng duy nhất là để một chỗ gọi thiếu tham số dán nhãn sai giờ
+ *  lên đúng cái ô mà server sẽ từ chối. Thiếu thì báo lỗi biên dịch. */
+export function slotRange(hhmm: string, minutes: number): string {
   const [h, m] = hhmm.split(":").map(Number);
   if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
   const end = h * 60 + m + minutes;

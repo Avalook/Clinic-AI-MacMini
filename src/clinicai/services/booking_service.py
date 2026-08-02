@@ -8,15 +8,22 @@ most rule-dense route in the dashboard. Two entry points:
 
 WHERE THE REAL GUARANTEES LIVE. Two invariants are enforced by Postgres, not
 here: ``appointment_no_doctor_overlap`` (a doctor cannot be in two places) and
-the atomic 2+1 slot-capacity trigger (20260714000002). The checks in this module
+the atomic slot-capacity trigger (20260714000002, per-clinic since
+20260803000001). The checks in this module
 run *before* the write purely to produce a sentence a receptionist can act on —
 "khung 09:15–09:30 đã đủ 2 chỗ" rather than a constraint name. They are
 best-effort and fail open, because the database is the actual net; that is why
 the SQLSTATE handlers below matter more than the pre-checks do.
 
-THE 2+1 RULE, in the clinic's words: each doctor × 15-minute window has three
-seats — two for booked patients and a third reserved for a walk-in. A row with
-no doctor assigned is its own queue with the same limits.
+THE SEAT RULE, in the clinic's words: each doctor × slot has a few seats — some
+for booked patients, the rest reserved for walk-ins. A row with no doctor
+assigned is its own queue with the same limits.
+
+The slot length and the two counts are that clinic's, not the product's: they
+come from ``clinic.settings`` via ``clinic_policy.py`` (C.3). Dr4Women reads
+15 minutes / 2 + 1, which is where the "2+1" in older comments came from. The
+trigger reads the same row, so a clinic that changes its numbers changes both
+the sentence below and the guarantee behind it in one UPDATE, with no deploy.
 
 Check-in is the one transition that is not an optimistic update. Allocating the
 daily queue number and moving the status have to be one serialized transaction,
@@ -29,7 +36,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -39,15 +46,18 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.clinic_policy import ClinicPolicy, load_clinic_policy
 
 logger = structlog.get_logger()
 
 CLINIC_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-SLOT_MINUTES = 15
-REGULAR_CAP = 2  # BN1 + BN2
-WALKIN_CAP = 1  # the third seat, reserved
-# A doctor's hard ceiling on overlapping appointments, matching the DB constraint.
+# The slot length and the two seat counts are NOT here: they are the clinic's
+# configuration, read per booking from clinic.settings (C.3, clinic_policy.py).
+#
+# A doctor's hard ceiling on overlapping appointments stays a constant, because
+# it is not a preference — it mirrors `appointment_no_doctor_overlap`, a DB
+# constraint that is the same for every tenant.
 DOCTOR_OVERLAP_CAP = 6
 
 # Statuses that no longer hold a seat.
@@ -186,18 +196,6 @@ def is_dead(status: str | None) -> bool:
     return (status or "").strip() in DEAD_STATUSES
 
 
-def slot_bucket(moment: datetime) -> tuple[datetime, datetime]:
-    """The 15-minute window containing ``moment``.
-
-    Floor on the UTC epoch: 15 divides 60, and Vietnam's offset is a whole
-    number of hours, so the UTC buckets line up with the grid the UI draws.
-    """
-    epoch = int(moment.timestamp())
-    start = epoch - (epoch % (SLOT_MINUTES * 60))
-    begin = datetime.fromtimestamp(start, tz=timezone.utc)
-    return begin, begin + timedelta(minutes=SLOT_MINUTES)
-
-
 def suggest_load(
     patient_kind: str | None, need_sono: bool
 ) -> tuple[int | None, int | None]:
@@ -277,8 +275,9 @@ class BookingService:
                     if busy:
                         raise ConflictError(busy)
 
+                policy = await load_clinic_policy(conn, identity.clinic_id)
                 full = await self._slot_full(
-                    conn, doctor_id, slot_start, channel, identity
+                    conn, doctor_id, slot_start, channel, identity, policy
                 )
                 if full:
                     raise ConflictError(full)
@@ -316,7 +315,7 @@ class BookingService:
                         "Bác sĩ đã có lịch trùng khung giờ này."
                     ) from exc
                 except asyncpg.CheckViolationError as exc:
-                    # The atomic 2+1 trigger lost the race to us and won.
+                    # The atomic capacity trigger lost the race to us and won.
                     if "Khung giờ đã đầy" in str(exc):
                         raise ConflictError(str(exc)) from exc
                     raise
@@ -646,8 +645,9 @@ class BookingService:
             )
             if busy:
                 raise ConflictError(busy)
+        policy = await load_clinic_policy(conn, identity.clinic_id)
         full = await self._slot_full(
-            conn, doctor_id, slot_start, channel or "", identity, exclude_id
+            conn, doctor_id, slot_start, channel or "", identity, policy, exclude_id
         )
         if full:
             raise ConflictError(full)
@@ -841,10 +841,16 @@ class BookingService:
         slot_start: datetime,
         channel: str,
         identity: StaffIdentity,
+        policy: ClinicPolicy,
         exclude_id: str | None = None,
     ) -> str | None:
-        """The 2+1 rule, as a sentence. Advisory; the DB trigger is the net."""
-        begin, end = slot_bucket(slot_start)
+        """The seat rule, as a sentence. Advisory; the DB trigger is the net.
+
+        ``policy`` is passed in rather than read here so that the sentence and
+        the trigger that will reject the write are looking at the same numbers —
+        both come from the one row read at the top of this transaction.
+        """
+        begin, end = policy.bucket(slot_start)
         rows = await conn.fetch(
             """
             SELECT booking_channel, status
@@ -873,16 +879,17 @@ class BookingService:
 
         window = f"{_hhmm(begin)}–{_hhmm(end)}"
         if is_walkin(channel):
-            if walkin >= WALKIN_CAP:
+            if walkin >= policy.walkin_cap:
                 return (
-                    f"Khung {window} đã có khách vãng lai — "
-                    "chuyển khách sang khung 15 phút kế tiếp."
+                    f"Khung {window} đã đủ {policy.walkin_cap} chỗ vãng lai — "
+                    f"chuyển khách sang khung {policy.slot_minutes} phút kế tiếp."
                 )
             return None
-        if regular >= REGULAR_CAP:
+        if regular >= policy.regular_cap:
             return (
-                f"Khung {window} đã đủ {REGULAR_CAP} chỗ đặt hẹn (BN1, BN2) — "
-                "chọn khung khác. Chỗ thứ 3 chỉ dành cho khách vãng lai."
+                f"Khung {window} đã đủ {policy.regular_cap} chỗ đặt hẹn — "
+                f"chọn khung khác. {policy.walkin_cap} chỗ còn lại chỉ dành cho "
+                "khách vãng lai."
             )
         return None
 
