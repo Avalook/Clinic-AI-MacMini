@@ -144,7 +144,17 @@ jobs:
           fi
 
       - name: The compose stack resolves from the shipped example env
-        run: docker compose --env-file .env.prod.example config > /dev/null
+        # CLINIC_ENV_FILE is overridden in the shell because the examples point
+        # it at .env.prod / .env.staging, which are gitignored secrets that no
+        # CI checkout has. Compose reads env_file at config time, so without
+        # this the gate can only ever pass on a machine that already holds the
+        # secrets — which is the opposite of what it is meant to prove.
+        run: |
+          for example in .env.prod.example .env.staging.example; do
+            echo "-- $example"
+            CLINIC_ENV_FILE="$example" \
+              docker compose --env-file "$example" config > /dev/null
+          done
 
       - name: Build api for linux/amd64
         uses: docker/build-push-action@v6
