@@ -218,3 +218,59 @@ async def triage_lab_result(
         task_ids=list(result.get("task_ids") or []),
         error=result.get("error"),
     )
+
+
+# ─── Lab release decision (Phase 4, cluster #4) ──────────────────────────────
+# Ported from src/dashboard/lib/lab-release.ts. Patient notification is a
+# clinical safety boundary, not presentation logic. Only a finalized GROUP_A
+# result may cross it; every unknown value fails closed per
+# docs/lab_triage_spec_v1.md.
+
+
+class LabReleaseDecision(BaseModel):
+    """Whether a lab result may be released to the patient, and why."""
+
+    allowed: bool
+    label: str
+
+
+@router.get(
+    "/results/{lab_result_id}/release",
+    response_model=LabReleaseDecision,
+)
+async def lab_release_decision(
+    lab_result_id: UUID,
+    identity: StaffIdentity = Depends(_RESULT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> LabReleaseDecision:
+    """Can this lab result be told to the patient?
+
+    Only GROUP_A + finalized → allowed=True. Everything else fails closed.
+    """
+    row = await pool.fetchrow(
+        """
+        SELECT triage_group, is_finalized
+          FROM lab_result
+         WHERE lab_result_id = $1
+           AND clinic_id = $2::uuid
+        """,
+        lab_result_id,
+        identity.clinic_id,
+    )
+    if row is None:
+        return LabReleaseDecision(
+            allowed=False, label="Không tìm thấy kết quả xét nghiệm"
+        )
+
+    triage = row["triage_group"]
+    finalized = bool(row["is_finalized"])
+
+    if triage == "GROUP_A" and finalized:
+        return LabReleaseDecision(allowed=True, label="Được báo BN")
+    if triage == "GROUP_C":
+        return LabReleaseDecision(allowed=False, label="Khẩn cấp — KHÔNG báo BN")
+    if triage == "GROUP_B":
+        return LabReleaseDecision(allowed=False, label="Chờ BS duyệt — KHÔNG báo BN")
+    if triage == "GROUP_A":
+        return LabReleaseDecision(allowed=False, label="Chưa hoàn tất — KHÔNG báo BN")
+    return LabReleaseDecision(allowed=False, label="Chưa phân loại — KHÔNG báo BN")

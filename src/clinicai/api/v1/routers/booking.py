@@ -19,6 +19,7 @@ from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
+from clinicai.services.capacity_service import CapacityService
 
 router = APIRouter()
 
@@ -96,6 +97,29 @@ async def create_booking(
     payload = {"ok": True, **result}
     await idem.save(pool, payload, status_code=201)
     return payload
+
+
+@router.get("/appointments/quote")
+async def capacity_quote(
+    date: str,
+    location_id: str,
+    doctor_id: str | None = None,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Read-only capacity quote for the slot picker UI (CAP-01).
+
+    Returns budget + current usage per hour so the UI can colour cells.
+    Does NOT decide whether a booking is allowed — that is the DB trigger
+    + the pre-check in BookingService.
+    """
+    svc = CapacityService(pool)
+    return await svc.quote(
+        date=date,
+        location_id=location_id,
+        doctor_id=doctor_id,
+        clinic_id=identity.clinic_id,
+    )
 
 
 @router.patch("/appointments/{appointment_id}")
