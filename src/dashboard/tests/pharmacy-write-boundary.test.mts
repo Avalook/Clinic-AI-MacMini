@@ -132,7 +132,9 @@ test("the backend service never writes quantity_on_hand either", () => {
 });
 
 test("frontend and backend agree on who may change stock", () => {
-  const guard = backendRouter.match(/_PHARMACY_GUARD = require_role\(([^)]*)\)/s);
+  // [^)] already spans newlines; the /s flag would be a compile error here
+  // (TS1501 — tsconfig targets ES2017).
+  const guard = backendRouter.match(/_PHARMACY_GUARD = require_role\(([^)]*)\)/);
   assert.ok(guard, "Không tìm thấy _PHARMACY_GUARD trong routers/pharmacy.py");
   const backendRoles = [...guard[1].matchAll(/ClinicRole\.([A-Z_]+)/g)]
     .map((m) => m[1])
