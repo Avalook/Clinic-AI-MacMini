@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -47,6 +48,15 @@ INTAKE_ROLES: frozenset[ClinicRole] = frozenset(
     }
 )
 
+# What a CSKH staffer can say about a piece of work when they close it (B.4).
+# A closed vocabulary rather than free text: the board filters on these, and
+# "Đã gọi " with a trailing space would quietly become a fourth state.
+RESOLUTIONS: dict[str, str] = {
+    "called": "Đã gọi",
+    "closed": "Đã đóng",
+}
+MAX_RESULT_TEXT = 2000
+
 FOLLOWUP_STATUS = "Đã gọi nhắc tái khám"
 FOLLOWUP_KIND = "Nhắc gọi tái khám"
 
@@ -70,6 +80,15 @@ def manual_source_ref() -> str:
     return (
         f"dash-manual-{int(datetime.now().timestamp() * 1000)}-{secrets.token_hex(4)}"
     )
+
+
+@dataclass(frozen=True)
+class CskhActionOutcome:
+    """State of one care action after somebody closed it."""
+
+    action_id: str
+    status: str
+    changed: bool
 
 
 class CskhService:
@@ -212,6 +231,88 @@ class CskhService:
             "cskh_followup_logged", log_id=str(log_id), by_staff_id=identity.staff_id
         )
         return str(log_id)
+
+    async def resolve_action(
+        self,
+        *,
+        action_id: str,
+        outcome: str,
+        note: str | None,
+        identity: StaffIdentity,
+    ) -> CskhActionOutcome:
+        """Close one care action: called back, or done with entirely.
+
+        Until now the CSKH board's buttons only hid the row in the browser, so
+        a refresh brought the work back and two people could call the same
+        patient. Writing the outcome down is the whole point of the screen.
+
+        Repeating the same outcome with no new note changes nothing and says
+        so, but "called" followed by "closed" is a real progression, not a
+        double-click, so it is allowed through.
+        """
+        status = RESOLUTIONS.get(outcome)
+        if status is None:
+            raise ValidationError("Kết quả xử lý không hợp lệ")
+        text = (note or "").strip()[:MAX_RESULT_TEXT] or None
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                current = await conn.fetchrow(
+                    """
+                    SELECT id, status
+                    FROM cskh_action
+                    WHERE id = $1::uuid
+                      AND clinic_id = $2::uuid
+                    FOR UPDATE
+                    """,
+                    action_id,
+                    identity.clinic_id,
+                )
+                if current is None:
+                    raise NotFoundError("Không tìm thấy việc CSKH")
+
+                if str(current["status"] or "") == status and text is None:
+                    return CskhActionOutcome(
+                        action_id=action_id, status=status, changed=False
+                    )
+
+                await conn.execute(
+                    """
+                    UPDATE cskh_action
+                       SET status = $2,
+                           result_text = COALESCE($3, result_text),
+                           last_edited_by_text = $4,
+                           source_updated_at = now(),
+                           updated_at = now()
+                     WHERE id = $1::uuid
+                       AND clinic_id = $5::uuid
+                    """,
+                    action_id,
+                    status,
+                    text,
+                    f"{identity.full_name} · {identity.role.value}",
+                    identity.clinic_id,
+                )
+
+                await _log(
+                    conn,
+                    aggregate_type="cskh_action",
+                    event_type="cskh_action.resolved",
+                    aggregate_id=action_id,
+                    # The note may quote what the patient said, so it stays in
+                    # the row the clinic reads, not in the audit trail.
+                    payload={"id": action_id, "status": status},
+                    identity=identity,
+                    origin="api:cskh-action-resolve",
+                )
+
+        logger.info(
+            "cskh_action_resolved",
+            action_id=action_id,
+            status=status,
+            by_staff_id=identity.staff_id,
+        )
+        return CskhActionOutcome(action_id=action_id, status=status, changed=True)
 
 
 async def _log(

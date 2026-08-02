@@ -37,7 +37,13 @@ from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.services.lab_order_service import LabOrderService
-from clinicai.services.lab_safety_service import LabReviewOutcome, LabSafetyService
+from clinicai.services.lab_safety_service import (
+    MAX_SEND_BACK_REASON,
+    MIN_SEND_BACK_REASON,
+    LabReviewOutcome,
+    LabSafetyService,
+    LabSendBackOutcome,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -149,6 +155,49 @@ async def review_and_finalize_lab_result(
         reviewed_by_staff_id=outcome.reviewed_by_staff_id,
         reviewed_at=outcome.reviewed_at,
         already_finalized=outcome.already_finalized,
+    )
+
+
+class LabSendBackRequest(BaseModel):
+    """Refuse a result and say what has to be redone."""
+
+    clinic_patient_id: UUID
+    reason: str = Field(
+        min_length=MIN_SEND_BACK_REASON, max_length=MAX_SEND_BACK_REASON
+    )
+
+
+class LabSendBackResponse(BaseModel):
+    lab_result_id: UUID
+    task_id: UUID
+    already_open: bool
+
+
+@router.post(
+    "/results/{lab_result_id}/send-back",
+    response_model=LabSendBackResponse,
+)
+async def send_lab_result_back(
+    lab_result_id: UUID,
+    body: LabSendBackRequest,
+    identity: StaffIdentity = Depends(_REVIEW_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> LabSendBackResponse:
+    """Doctor-only: hand a result back to be corrected, opening a task (B.4).
+
+    Same guard as review because it is the same decision seen from the other
+    side — whoever may sign a result is whoever may refuse it.
+    """
+    outcome: LabSendBackOutcome = await LabSafetyService(pool).send_back_for_correction(
+        lab_result_id=lab_result_id,
+        clinic_patient_id=body.clinic_patient_id,
+        reason=body.reason,
+        identity=identity,
+    )
+    return LabSendBackResponse(
+        lab_result_id=outcome.lab_result_id,
+        task_id=outcome.task_id,
+        already_open=outcome.already_open,
     )
 
 

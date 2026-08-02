@@ -29,6 +29,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.lab_safety_service import SEND_BACK_TASK_TYPE
 
 logger = structlog.get_logger()
 
@@ -181,6 +182,27 @@ class LabOrderService:
                     raise NotFoundError(
                         "Không tìm thấy kết quả xét nghiệm hoặc kết quả đã chốt"
                     )
+
+                # A result that was sent back for correction has an open task
+                # naming what to fix. Entering a new result IS the fix, so the
+                # task closes here — otherwise the lab's list fills up with
+                # work that was already done, and people stop reading it.
+                await conn.execute(
+                    """
+                    UPDATE staff_task
+                       SET status = 'DONE',
+                           completed_at = COALESCE(completed_at, now()),
+                           updated_at = now()
+                     WHERE clinic_id = $1::uuid
+                       AND task_type = $3
+                       AND source_type = 'LAB_RESULT'
+                       AND source_id = $2::uuid
+                       AND status IN ('PENDING', 'IN_PROGRESS')
+                    """,
+                    identity.clinic_id,
+                    lab_result_id,
+                    SEND_BACK_TASK_TYPE,
+                )
 
                 await _log(
                     conn,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 from uuid import UUID
 
 import asyncpg
@@ -43,6 +44,15 @@ class CskhFollowupRequest(BaseModel):
     """A recall reminder call that was actually made."""
 
     clinic_patient_id: UUID
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class CskhResolveRequest(BaseModel):
+    """How a piece of care work ended."""
+
+    # Literal, not str: an unknown outcome is a 422 at the door instead of a
+    # status nobody's filter matches.
+    outcome: Literal["called", "closed"]
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -98,3 +108,25 @@ async def record_followup_call(
         identity=identity,
     )
     return {"ok": True, "id": log_id}
+
+
+@router.post("/cskh/actions/{action_id}/resolve")
+async def resolve_cskh_action(
+    action_id: UUID,
+    body: CskhResolveRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Close one piece of care work — called back, or done with (B.4)."""
+    outcome = await CskhService(pool).resolve_action(
+        action_id=str(action_id),
+        outcome=body.outcome,
+        note=body.note,
+        identity=identity,
+    )
+    return {
+        "ok": True,
+        "id": outcome.action_id,
+        "status": outcome.status,
+        "changed": outcome.changed,
+    }

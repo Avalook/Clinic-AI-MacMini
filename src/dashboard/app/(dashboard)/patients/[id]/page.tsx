@@ -14,6 +14,7 @@ import {
   canReadClinical,
   canWriteIntake,
   isDoctorRole,
+  canReviewLabResult,
   canEditPatient,
 } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
@@ -123,7 +124,7 @@ export default async function PatientDetailPage({
       )}
       <PatientCskhLog id={id} />
       {canSeeClinicalHistory ? (
-        <PatientHistory id={id} canReviewLabs={isDoctorRole(role)} />
+        <PatientHistory id={id} canReviewLabs={canReviewLabResult(role)} />
       ) : (
         <section className="rounded-lg border border-line bg-white px-4 py-3 text-sm text-ink-muted">
           Hồ sơ lâm sàng chỉ hiển thị cho bác sĩ, điều dưỡng và thư ký y khoa.

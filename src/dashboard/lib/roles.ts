@@ -160,6 +160,17 @@ export function canWriteInventory(role: ClinicRole | null): boolean {
   return role === "PHARMACIST" || role === "MANAGEMENT";
 }
 
+/** Roles được KÝ DUYỆT / TRẢ LẠI kết quả xét nghiệm.
+ *
+ * Hẹp hơn `isDoctorRole`: Thư ký Y khoa (TKYK) nhập được kết quả nhưng không ký
+ * duyệt được — chữ ký trên kết quả là của bác sĩ. Đây là bản sao của
+ * `DOCTOR_ROLES` trong `api/identity.py` (`_REVIEW_GUARD`), và backend mới là
+ * bên quyết định. Trước B.4 phía web dùng `isDoctorRole`, nên TKYK thấy nút
+ * "Duyệt & hoàn tất" và bấm là nhận 403: nút có mà không bao giờ dùng được. */
+export function canReviewLabResult(role: ClinicRole | null): boolean {
+  return role === "DOCTOR" || role === "ULTRASOUND_DOCTOR";
+}
+
 /** Landing path after a role is picked. */
 export function roleLanding(role: ClinicRole | null): string {
   if (isDoctorRole(role)) return "/tasks";

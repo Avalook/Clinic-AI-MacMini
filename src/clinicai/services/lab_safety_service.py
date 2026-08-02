@@ -55,6 +55,32 @@ class LabReviewOutcome:
     already_finalized: bool
 
 
+@dataclass(frozen=True)
+class LabSendBackOutcome:
+    """What a doctor's "send back for correction" left behind."""
+
+    lab_result_id: UUID
+    task_id: UUID
+    already_open: bool
+
+
+# Free text, not an enum: staff_task.task_type has no CHECK constraint, and
+# finalize_review already closes 'LAB_REVIEW' the same way.
+SEND_BACK_TASK_TYPE = "LAB_RESULT_FIX"
+SEND_BACK_TASK_PRIORITY = "HIGH"
+# A reason is what the lab has to act on. "sai" tells nobody what to redo.
+MIN_SEND_BACK_REASON = 5
+MAX_SEND_BACK_REASON = 500
+
+
+def normalize_send_back_reason(raw: str | None) -> str:
+    """Trim and bound the doctor's reason, or refuse the send-back."""
+    reason = (raw or "").strip()
+    if len(reason) < MIN_SEND_BACK_REASON:
+        raise ValidationError(f"Lý do trả lại phải từ {MIN_SEND_BACK_REASON} ký tự")
+    return reason[:MAX_SEND_BACK_REASON]
+
+
 class LabSafetyService:
     """Persist triage and atomically finalise a reviewed lab result."""
 
@@ -287,6 +313,111 @@ class LabSafetyService:
         )
         return _review_outcome(finalized, already_finalized=False)
 
+    async def send_back_for_correction(
+        self,
+        *,
+        lab_result_id: UUID,
+        clinic_patient_id: UUID,
+        reason: str,
+        identity: StaffIdentity,
+    ) -> LabSendBackOutcome:
+        """Refuse a result and put the correction back on somebody's list.
+
+        Deliberately touches nothing on the result row. The value stays exactly
+        as the lab sent it — that is the evidence of what was rejected — and
+        the safety gate stays closed, because ``requires_doctor_review`` and
+        ``is_finalized`` are left alone. What changes is that the fix now has
+        an owner instead of living in a doctor's head.
+
+        Clicking twice does not file two tasks: an open one is reused.
+        """
+        clinic_id = UUID(identity.clinic_id)
+        text = normalize_send_back_reason(reason)
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                current = await conn.fetchrow(
+                    """
+                    SELECT lab_result_id, is_finalized
+                    FROM lab_result
+                    WHERE lab_result_id = $1
+                      AND clinic_id = $2::uuid
+                      AND clinic_patient_id = $3::uuid
+                    FOR UPDATE
+                    """,
+                    lab_result_id,
+                    clinic_id,
+                    clinic_patient_id,
+                )
+                if current is None:
+                    # One answer for absent, cross-tenant and wrong-patient,
+                    # exactly as finalize_review: not an ID oracle.
+                    raise NotFoundError("Không tìm thấy kết quả xét nghiệm")
+                if bool(current["is_finalized"]):
+                    # Finalising is the doctor's signature. Taking it back is a
+                    # different act with different rules, not this endpoint.
+                    raise ConflictError(
+                        "Kết quả đã được duyệt; không trả lại chỉnh sửa được"
+                    )
+
+                open_task = await conn.fetchval(
+                    """
+                    SELECT task_id
+                    FROM staff_task
+                    WHERE clinic_id = $1::uuid
+                      AND task_type = $2
+                      AND source_type = 'LAB_RESULT'
+                      AND source_id = $3::uuid
+                      AND status IN ('PENDING', 'IN_PROGRESS')
+                    ORDER BY created_at
+                    LIMIT 1
+                    """,
+                    clinic_id,
+                    SEND_BACK_TASK_TYPE,
+                    lab_result_id,
+                )
+                if open_task is not None:
+                    return LabSendBackOutcome(
+                        lab_result_id=lab_result_id,
+                        task_id=UUID(str(open_task)),
+                        already_open=True,
+                    )
+
+                task_id = await conn.fetchval(
+                    """
+                    INSERT INTO staff_task
+                        (clinic_id, task_type, priority, status, source_type,
+                         source_id, title, description)
+                    VALUES ($1::uuid, $2, $3, 'PENDING', 'LAB_RESULT',
+                            $4::uuid, $5, $6)
+                    RETURNING task_id
+                    """,
+                    clinic_id,
+                    SEND_BACK_TASK_TYPE,
+                    SEND_BACK_TASK_PRIORITY,
+                    lab_result_id,
+                    "Kết quả XN bị trả lại chỉnh sửa",
+                    text,
+                )
+                await _append_send_back_event(
+                    conn,
+                    lab_result_id=lab_result_id,
+                    task_id=UUID(str(task_id)),
+                    identity=identity,
+                )
+
+        logger.info(
+            "lab_result_sent_back",
+            lab_result_id=str(lab_result_id),
+            clinic_id=str(clinic_id),
+            by_staff_id=identity.staff_id,
+        )
+        return LabSendBackOutcome(
+            lab_result_id=lab_result_id,
+            task_id=UUID(str(task_id)),
+            already_open=False,
+        )
+
 
 def _review_outcome(row: Any, *, already_finalized: bool) -> LabReviewOutcome:
     reviewed_by = row["reviewed_by_staff_id"]
@@ -301,6 +432,45 @@ def _review_outcome(row: Any, *, already_finalized: bool) -> LabReviewOutcome:
         reviewed_by_staff_id=UUID(str(reviewed_by)),
         reviewed_at=reviewed_at,
         already_finalized=already_finalized,
+    )
+
+
+async def _append_send_back_event(
+    conn: asyncpg.Connection,
+    *,
+    lab_result_id: UUID,
+    task_id: UUID,
+    identity: StaffIdentity,
+) -> None:
+    """Record that a result was refused — without copying the result into it.
+
+    The doctor's reason lives in ``staff_task.description``, where the person
+    who has to redo the work will read it. ``event_log`` keeps the pointer.
+    """
+    await conn.execute(
+        """
+        INSERT INTO event_log
+            (clinic_id, event_type, aggregate_type, aggregate_id, payload,
+             metadata, source, actor_staff_id, event_published)
+        VALUES ($1::uuid, 'lab_result.sent_back', 'lab_result', $2::uuid,
+                $3::jsonb, $4::jsonb, 'api:lab-send-back', $5::uuid, FALSE)
+        """,
+        identity.clinic_id,
+        str(lab_result_id),
+        json.dumps(
+            {
+                "lab_result_id": str(lab_result_id),
+                "task_id": str(task_id),
+            }
+        ),
+        json.dumps(
+            {
+                "actor_role": identity.role.value,
+                "actor_auth_user_id": identity.auth_user_id,
+                "origin": "api:lab-send-back",
+            }
+        ),
+        identity.staff_id,
     )
 
 

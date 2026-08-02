@@ -3,7 +3,8 @@
 // Có nút xử lý: Xác nhận lịch, Đã gọi, Đóng case.
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { requireNavAccess } from "../../../../lib/clinic-session";
+import { getClinicRole, requireNavAccess } from "../../../../lib/clinic-session";
+import { canWriteIntake } from "../../../../lib/roles";
 import { vnTodayRangeUtc } from "../../../../lib/datetime";
 import CskhBoard from "./CskhBoard";
 
@@ -13,6 +14,11 @@ export default async function CskhBoardPage() {
   await requireNavAccess("/cskh/board");
   const supabase = await getSupabaseServer();
   const { startUtc, endUtc } = vnTodayRangeUtc();
+  // Hôm nay cả ba vai mở được màn này (CSKH/Quản lý/Trưởng ca) đều nằm trong
+  // canWriteIntake, nên cờ này chưa giấu nút của ai. Nó ở đây để bộ nút đi theo
+  // hàng rào của backend (/cskh/actions/{id}/resolve) chứ không đi theo NAV_ROLES:
+  // mở màn cho một vai chỉ-xem là việc một dòng, và khi đó nút phải tự tắt.
+  const canWrite = canWriteIntake(await getClinicRole());
 
   // Lịch hẹn hôm nay cần xác nhận
   const { data: appts, error: apptErr } = await supabase
@@ -73,5 +79,7 @@ export default async function CskhBoardPage() {
     patient: f.patient?.[0] ?? null,
   }));
 
-  return <CskhBoard appts={normAppts} followups={normFus} />;
+  return (
+    <CskhBoard appts={normAppts} followups={normFus} canWrite={canWrite} />
+  );
 }
