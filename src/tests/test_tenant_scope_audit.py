@@ -11,7 +11,17 @@ _REPO = Path(__file__).resolve().parents[2]
 _AUDIT = runpy.run_path(str(_REPO / "scripts/tests/tenant-scope-audit.py"))
 has_clinic_scope = cast(Callable[[str], bool], _AUDIT["has_clinic_scope"])
 or_bypasses_tenant = cast(Callable[[str], bool], _AUDIT["or_bypasses_tenant"])
-stale_exemptions = cast(Callable[[], list[str]], _AUDIT["stale_exemptions"])
+stale_exemptions = cast(
+    Callable[[frozenset[str]], list[str]], _AUDIT["stale_exemptions"]
+)
+stale_markers = cast(Callable[[frozenset[str]], list[str]], _AUDIT["stale_markers"])
+
+# The audit reads its table list from a live schema (supabase/tests/
+# derive_tenant_tables.sql); this job has no database. These are only the
+# tables the exempted and marked statements actually name, and getting the
+# list wrong fails these tests rather than passing them: too few tables means
+# no tenant table is touched, which reports the exemption as unearned.
+_TENANT_TABLES = frozenset({"pos_outbox", "clinic_membership"})
 
 
 def test_projection_or_comment_does_not_count_as_tenant_scope() -> None:
@@ -74,4 +84,14 @@ def test_no_cross_tenant_exemption_is_stale() -> None:
     been scoped per clinic — at which point "exempt from the tenant audit" reads
     as "someone reviewed this and it is fine", which nobody had.
     """
-    assert stale_exemptions() == []
+    assert stale_exemptions(_TENANT_TABLES) == []
+
+
+def test_no_inline_cross_tenant_marker_is_stale() -> None:
+    """Same rule for the per-statement marks, checked the same way.
+
+    A `-- tenant-scope:` comment on a query that has since been scoped is the
+    file-level failure in miniature: the mark stays, the reason evaporates, and
+    the next reader takes it for a review.
+    """
+    assert stale_markers(_TENANT_TABLES) == []
