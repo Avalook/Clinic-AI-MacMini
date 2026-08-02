@@ -2,13 +2,15 @@
 // Dược sĩ xem tồn theo lô/hạn dùng, nhập lô mới, điều chỉnh tồn.
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { requireNavAccess } from "../../../../lib/clinic-session";
+import { getClinicRole, requireNavAccess } from "../../../../lib/clinic-session";
+import { canWriteInventory } from "../../../../lib/roles";
 import InventoryBoard from "./InventoryBoard";
 
 export const dynamic = "force-dynamic";
 
 export default async function PharmacyInventoryPage() {
   await requireNavAccess("/pharmacy/inventory");
+  const canWrite = canWriteInventory(await getClinicRole());
   const supabase = await getSupabaseServer();
 
   const { data: batches, error } = await supabase
@@ -18,6 +20,16 @@ export default async function PharmacyInventoryPage() {
        drug:drug_catalog_id(name_base, name_raw, variant)`,
     )
     .order("expiry_date", { ascending: true });
+
+  // Danh mục thuốc cho ô chọn khi nhập/xuất. Chỉ nạp khi người này ghi được:
+  // không có nút nào dùng tới nó thì một câu query nữa là phí.
+  const { data: drugRows } = canWrite
+    ? await supabase
+        .from("drug_catalog")
+        .select("id, name_base, name_raw, variant")
+        .eq("is_active", true)
+        .order("name_base", { ascending: true })
+    : { data: [] };
 
   if (error) {
     return (
@@ -40,5 +52,12 @@ export default async function PharmacyInventoryPage() {
     drug: b.drug?.[0] ?? null,
   }));
 
-  return <InventoryBoard batches={normalized} />;
+  const drugs = (drugRows ?? []).map((d) => ({
+    id: d.id,
+    label: `${d.name_base ?? d.name_raw ?? "—"}${d.variant ? ` (${d.variant})` : ""}`,
+  }));
+
+  return (
+    <InventoryBoard batches={normalized} drugs={drugs} canWrite={canWrite} />
+  );
 }

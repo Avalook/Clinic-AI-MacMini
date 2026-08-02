@@ -4,6 +4,12 @@
 // Bảng lô thuốc: mã lô, hạn dùng, tồn, đơn vị, giá nhập, trạng thái (còn hạn/sắp hết hạn/hết hạn).
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import StockDialog, {
+  type BatchTarget,
+  type DrugOption,
+  type StockMode,
+} from "./StockDialog";
 
 interface InvDrug {
   name_base: string | null;
@@ -24,6 +30,10 @@ interface InvBatch {
 
 interface Props {
   batches: InvBatch[];
+  /** Danh mục thuốc cho ô chọn khi nhập/xuất. */
+  drugs: DrugOption[];
+  /** Trưởng ca xem được kho nhưng không đổi được số dư (xem canWriteInventory). */
+  canWrite: boolean;
 }
 
 const fmtDate = (iso: string | null) =>
@@ -31,6 +41,11 @@ const fmtDate = (iso: string | null) =>
 
 const fmtQty = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
+
+const drugLabel = (b: InvBatch) =>
+  `${b.drug?.name_base ?? b.drug?.name_raw ?? "—"}${
+    b.drug?.variant ? ` (${b.drug.variant})` : ""
+  }`;
 
 type ExpiryState = "ok" | "soon" | "expired";
 
@@ -47,7 +62,37 @@ const STATE_LABEL: Record<ExpiryState, string> = {
   expired: "Hết hạn",
 };
 
-export default function InventoryBoard({ batches }: Props) {
+export default function InventoryBoard({ batches, drugs, canWrite }: Props) {
+  const router = useRouter();
+  const [dialog, setDialog] = useState<{
+    mode: StockMode;
+    batch: BatchTarget | null;
+  } | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const openDialog = (mode: StockMode, b?: InvBatch) => {
+    setFlash(null);
+    setDialog({
+      mode,
+      batch: b
+        ? {
+            id: b.id,
+            batch_code: b.batch_code,
+            quantity_on_hand: b.quantity_on_hand,
+            unit: b.unit,
+            drugLabel: drugLabel(b),
+          }
+        : null,
+    });
+  };
+
+  // Bảng vẽ từ dữ liệu server, nên sau mỗi lần ghi phải nạp lại — nếu không,
+  // dược sĩ nhập xong vẫn thấy con số cũ và sẽ nhập lại lần nữa.
+  const onDone = (message: string) => {
+    setDialog(null);
+    setFlash(message);
+    router.refresh();
+  };
   const [filter, setFilter] = useState<"all" | ExpiryState>("all");
   const [search, setSearch] = useState("");
   // Lazy init — chạy đúng 1 lần khi mount, không gọi Date.now() trong render.
@@ -82,6 +127,34 @@ export default function InventoryBoard({ batches }: Props) {
 
   return (
     <div className="flex h-full flex-col gap-4 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-base font-semibold text-ink">Kho &amp; tồn kho</h1>
+        {canWrite ? (
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => openDialog("dispense")}
+              className="rounded-control border border-line-strong bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-sunken"
+            >
+              Xuất kho
+            </button>
+            <button
+              type="button"
+              onClick={() => openDialog("receive")}
+              className="rounded-control bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              Nhập lô
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {flash ? (
+        <p className="rounded-control bg-success-bg px-3 py-2 text-sm text-success">
+          {flash}
+        </p>
+      ) : null}
+
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-control border border-line bg-surface p-3">
@@ -151,12 +224,13 @@ export default function InventoryBoard({ batches }: Props) {
               <th className="px-3 py-2">Đơn vị</th>
               <th className="px-3 py-2 text-right">Giá nhập</th>
               <th className="px-3 py-2">Trạng thái</th>
+                {canWrite ? <th className="px-3 py-2" /> : null}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-ink-muted">
+                <td colSpan={canWrite ? 8 : 7} className="px-3 py-6 text-center text-ink-muted">
                   Không có lô thuốc nào.
                 </td>
               </tr>
@@ -195,6 +269,24 @@ export default function InventoryBoard({ batches }: Props) {
                         {STATE_LABEL[st]}
                       </span>
                     </td>
+                      {canWrite ? (
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => openDialog("adjust", b)}
+                            className="rounded-control border border-line px-2 py-1 text-xs font-medium text-ink hover:bg-surface-sunken"
+                          >
+                            Điều chỉnh
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDialog("discard", b)}
+                            className="ml-1.5 rounded-control border border-line px-2 py-1 text-xs font-medium text-danger hover:bg-danger-bg"
+                          >
+                            Huỷ
+                          </button>
+                        </td>
+                      ) : null}
                   </tr>
                 );
               })
@@ -202,9 +294,15 @@ export default function InventoryBoard({ batches }: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-ink-faint">
-        Ghi chú: thêm/nhập lô mới cần API backend (FastAPI service, service_role).
-      </p>
+      {dialog ? (
+        <StockDialog
+          mode={dialog.mode}
+          drugs={drugs}
+          batch={dialog.batch}
+          onClose={() => setDialog(null)}
+          onDone={onDone}
+        />
+      ) : null}
     </div>
   );
 }

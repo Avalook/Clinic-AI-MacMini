@@ -147,6 +147,19 @@ export function isTasksReadOnly(role: ClinicRole | null): boolean {
   return role === "RECEPTION" || isCashierRole(role);
 }
 
+/** Roles được GHI vào kho thuốc: nhập, xuất, điều chỉnh, huỷ lô.
+ *
+ * Hẹp hơn quyền XEM (`/pharmacy` mở cho cả Trưởng ca): người trực ca đọc được
+ * tồn kho để biết còn hàng hay không, nhưng số dư trong kho chỉ đổi bởi người
+ * chịu trách nhiệm về nó.
+ *
+ * Đây là bản sao của `_PHARMACY_GUARD` trong `api/v1/routers/pharmacy.py`, và
+ * backend mới là bên quyết định. Hàm này chỉ để nút không hiện ra cho người bấm
+ * vào sẽ nhận 403 — lệch nhau làm nút vô dụng, không làm thủng quyền. */
+export function canWriteInventory(role: ClinicRole | null): boolean {
+  return role === "PHARMACIST" || role === "MANAGEMENT";
+}
+
 /** Landing path after a role is picked. */
 export function roleLanding(role: ClinicRole | null): string {
   if (isDoctorRole(role)) return "/tasks";

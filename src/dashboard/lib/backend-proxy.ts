@@ -20,11 +20,18 @@ const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
  * Forward a JSON body to a FastAPI endpoint, attaching the caller's Supabase
  * access token (Bearer) + the shared X-API-Key, and mirror the backend's
  * status/body back to the browser as the { ok } / { error } shape the UI expects.
+ *
+ * `extraHeaders` is for headers the route handler decides to send — today only
+ * `Idempotency-Key`, which has to come from the browser (a key minted here would
+ * be new on every retry, which is the one thing an idempotency key must not be).
+ * The route names the headers explicitly; nothing forwards a client header list
+ * wholesale, so a caller cannot smuggle in Authorization or X-Clinic-ID.
  */
 export async function proxyJsonToBackend(
   method: "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<NextResponse> {
   if (!API_BASE) {
     // Previously a flag returned false here and the route quietly used its
@@ -44,10 +51,14 @@ export async function proxyJsonToBackend(
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+  // Extras go in first, then the identity headers overwrite them: whatever a
+  // route passes, it cannot end up replacing the caller's own token.
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(extraHeaders ?? {})) {
+    if (value) headers[name] = value;
+  }
+  headers["Content-Type"] = "application/json";
+  headers.Authorization = `Bearer ${token}`;
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
 
