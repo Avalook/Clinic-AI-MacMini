@@ -1,6 +1,6 @@
 # supabase/fixtures — setup data, not assertions
 
-Everything in `supabase/tests/` is run by CI's `database` job, in a loop, against a
+Everything in `supabase/tests/` is run by CI's `db_fresh` job, in a loop, against a
 throwaway Postgres. That loop treats each file as a test: if it errors, the build
 is red.
 

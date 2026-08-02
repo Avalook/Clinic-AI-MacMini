@@ -49,13 +49,6 @@ jobs:
       - name: Mypy
         run: poetry run mypy src/
 
-      - name: Tenant-scope audit
-        # The backend connects as the database owner, so RLS does not apply to
-        # it: a query naming a tenant table without clinic_id reads every
-        # clinic. This holds the count while it comes down to zero, which is
-        # required before a second clinic is onboarded (ADR-0009).
-        run: python3 scripts/tests/tenant-scope-audit.py --check
-
       - name: Pytest with coverage (unit tests only)
         env:
           ANTHROPIC_API_KEY: ""
@@ -231,9 +224,18 @@ jobs:
           echo
           docker rm -f dash-smoke
 
-  database:
-    # Applies the migration chain to a throwaway Postgres and asserts the schema
-    # invariants (tenant isolation, RLS). Never touches a Supabase project.
+  db_fresh:
+    # Applies the migration chain EXACTLY ONCE — the shape `supabase db push`
+    # produces in production — and runs every assertion against that.
+    #
+    # This used to be one job that applied the migrations, applied them again,
+    # and only then asserted. That order inverts production's schema on two axes
+    # at once: 20260730000014 sweeps away every clinic_id DEFAULT and
+    # 20260730000008 grants SELECT wherever a policy exists, so the second pass
+    # repaired both pharmacy bugs before a single assertion could see them. The
+    # gates were not weak; they were reading a schema no server would ever have.
+    #
+    # Idempotency is a different property from correctness. db_replay checks it.
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -270,21 +272,10 @@ jobs:
       - name: Supabase auth fixture
         run: $PSQL -f supabase/tests/bootstrap_plain_postgres.sql
 
-      - name: Apply migrations
+      - name: Apply migrations once
         run: |
           for migration in supabase/migrations/*.sql; do
             echo "-- $migration"
-            $PSQL -f "$migration"
-          done
-
-      - name: Migrations from 20260730 onward must be re-appliable
-        # `db push` retries and restore drills replay migrations, so new ones have
-        # to be safe to run twice. Older migrations are already in production and
-        # are not edited retroactively.
-        run: |
-          for migration in supabase/migrations/*.sql; do
-            version="$(basename "$migration" | cut -d_ -f1)"
-            [ "$version" \< "20260730000000" ] && continue
             $PSQL -f "$migration"
           done
 
@@ -292,8 +283,75 @@ jobs:
         run: |
           for test_file in supabase/tests/*.sql; do
             case "$(basename "$test_file")" in
-              bootstrap_plain_postgres.sql) continue ;;
+              bootstrap_plain_postgres.sql|derive_tenant_tables.sql) continue ;;
             esac
             echo "-- $test_file"
             $PSQL -f "$test_file"
+          done
+
+      - name: Tenant table list, derived from the schema
+        # Not a list anybody maintains. Table 51 is covered the day it is
+        # created, by nobody remembering to add it here.
+        run: |
+          $PSQL -At -f supabase/tests/derive_tenant_tables.sql > tenant-tables.txt
+          echo "$(wc -l < tenant-tables.txt) tenant-scoped tables"
+          cat tenant-tables.txt
+
+      - name: Tenant-scope audit
+        # The backend connects as the database owner, so RLS does not apply to
+        # it: a query naming a tenant table without clinic_id reads every
+        # clinic. This ran in the `backend` job while it carried its own list of
+        # table names; it lives here now because the list comes from the schema,
+        # and `backend` has no database to ask (ADR-0009).
+        run: |
+          python3 scripts/tests/tenant-scope-audit.py --check \
+            --tenant-tables tenant-tables.txt
+
+  db_replay:
+    # The same migrations applied twice. Asserts one thing only: that replaying
+    # them raises no error. `db push` retries and restore drills replay, so
+    # migrations from 20260730 onward have to survive a second run — but what
+    # the second run leaves behind is not a schema this project ever ships, so
+    # nothing here is allowed to assert on it. That confusion is what hid the
+    # pharmacy bugs; keeping the two jobs apart is what stops it recurring.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PSQL: psql -q -v ON_ERROR_STOP=1 -h localhost -U postgres -d postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Supabase auth fixture
+        run: $PSQL -f supabase/tests/bootstrap_plain_postgres.sql
+
+      - name: Apply migrations
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            $PSQL -f "$migration"
+          done
+
+      - name: Migrations from 20260730 onward must be re-appliable
+        # Older migrations are already in production and are not edited
+        # retroactively, so only the ones still being written are replayed.
+        run: |
+          for migration in supabase/migrations/*.sql; do
+            version="$(basename "$migration" | cut -d_ -f1)"
+            [ "$version" \< "20260730000000" ] && continue
+            echo "-- replay $migration"
+            $PSQL -f "$migration"
           done

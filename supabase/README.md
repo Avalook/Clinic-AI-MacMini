@@ -26,6 +26,8 @@ supabase/
     bootstrap_plain_postgres.sql           # disposable stock-Postgres fixture
     event_log_rls.sql                      # forward-migration policy assertions
     multi_tenant_foundation.sql            # tenant invariants + cross-clinic isolation
+    tenant_invariants.sql                  # every table with clinic_id, derived — not listed
+    derive_tenant_tables.sql               # emits that list for scripts/tests/tenant-scope-audit.py
     tenant_scoped_rls.sql                  # no blanket reads; a clinic sees only itself
     workflow_kernel.sql                    # the 37-node catalogue + FS/SS/FF/SF and AND/OR/XOR gates
     run-local.sh                           # apply the chain to a throwaway container, run the assertions
@@ -38,11 +40,22 @@ supabase/
 supabase/tests/run-local.sh     # needs Docker; touches no Supabase project
 ```
 
-CI runs the same assertion files against a `postgres:17` service container (job
-`database` in `.github/workflows/ci.yml`).
+CI runs the same assertion files against `postgres:17` service containers, in the
+same two shapes the harness uses locally (jobs `db_fresh` and `db_replay` in
+`.github/workflows/ci.yml`):
+
+- **`db_fresh`** applies the chain **once** — what `supabase db push` produces on a
+  real project — and runs every assertion against that.
+- **`db_replay`** applies it twice and asserts nothing beyond "no error".
+
+They are separate because assertions run after a second pass describe a schema
+nobody deploys. `20260730000014` drops every `clinic_id` DEFAULT and
+`20260730000008` grants `SELECT` wherever a policy exists, so replaying quietly
+repaired the two pharmacy bugs of `20260802000001` before any gate could see
+them.
 
 **Migrations from `20260730000000` onward must be idempotent** — `db push` retries and
-restore drills replay them, and the test harness asserts it by applying each one twice.
+restore drills replay them, which is the property `db_replay` checks.
 Earlier migrations are already in production and are not edited retroactively.
 
 ## How this was built

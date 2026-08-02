@@ -10,7 +10,7 @@ That is invisible today, because there is one real clinic. It becomes a
 cross-tenant read or write the day there are two, which is why this has to reach
 zero before a second tenant is onboarded (ADR-0009, ADR-0012).
 
-Run:  python3 scripts/tests/tenant-scope-audit.py [--check]
+Run: python3 scripts/tests/tenant-scope-audit.py [--check] --tenant-tables <file>
 
 ``--check`` exits non-zero if the count exceeds the ceiling below. The count is
 now 0 and the ceiling is 0: the gate no longer tracks a backlog, it keeps one
@@ -45,24 +45,70 @@ DELIBERATELY_CROSS_TENANT = {
 # CI fails the PR that adds one rather than logging it for later.
 CEILING = 0
 
-TENANT_TABLES = {
-    "appointment", "block_budget", "booking_channel", "care_episode",
-    "clinic_location", "clinical_form_response", "clinical_record",
-    "cskh_action", "cskh_log", "drug_catalog", "event_log", "follow_up_case",
-    "lab_result", "mpi_merge_queue", "node_definition",
-    "node_definition_version", "node_dependency", "patient",
-    "patient_medical_profile", "payment", "pos_outbox", "pregnancy",
-    "prescription", "service_log", "service_price", "service_type",
-    "staff_capability", "staff_task", "ultrasound_record", "visit", "work_item",
-    "work_item_dependency", "work_item_event", "work_roster", "work_session",
-    "work_session_staff",
-}
+# Which tables are tenant-scoped is a question the database already answers:
+# every table carrying a clinic_id. It used to be answered here instead, by 36
+# names typed out by hand, and a hand-written list rots in both directions at
+# once. This one had come to include staff_capability, which has no clinic_id,
+# while never having heard of drug_batch or inventory_txn, which do — so the two
+# pharmacy tables shipped past a gate that reported zero findings.
+#
+# The list now arrives from a database with the migrations applied: CI generates
+# it in the db_fresh job, supabase/tests/run-local.sh does it locally. There is
+# deliberately no built-in fallback. An audit that quietly checks nothing looks
+# exactly like an audit that passes.
+def load_tenant_tables(path: pathlib.Path) -> frozenset[str]:
+    """Read table names, one per line. Blank lines and ``#`` comments ignored."""
+    if not path.exists():
+        raise SystemExit(
+            f"tenant table list not found: {path}\n"
+            "It is derived from the schema, not stored in this script. Generate "
+            "it with supabase/tests/run-local.sh, or point --tenant-tables at a "
+            "file produced from a database with the migrations applied."
+        )
+    names = frozenset(
+        line.split("#", 1)[0].strip()
+        for line in path.read_text().splitlines()
+        if line.split("#", 1)[0].strip()
+    )
+    # Not a description of the schema — a floor under a broken generator. A
+    # psql call that fails and leaves an empty file would otherwise turn
+    # --check into a no-op that passes.
+    if len(names) < 30:
+        raise SystemExit(
+            f"{path} lists only {len(names)} tenant tables; there have been more "
+            "than 40 since 20260730. Refusing to audit against a list that short."
+        )
+    return names
+
+
+def tenant_tables_path() -> pathlib.Path:
+    if "--tenant-tables" not in sys.argv:
+        raise SystemExit(
+            "usage: tenant-scope-audit.py [--check] --tenant-tables <file>\n"
+            "The tenant table list comes from the database. See "
+            "supabase/tests/run-local.sh."
+        )
+    index = sys.argv.index("--tenant-tables") + 1
+    if index >= len(sys.argv):
+        raise SystemExit("--tenant-tables needs a file path")
+    return pathlib.Path(sys.argv[index])
 
 STATEMENT = re.compile(
     r"\b(FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:public\.)?([a-z_]+)",
     re.IGNORECASE,
 )
 SQL_COMMENT = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
+
+# One statement that spans clinics on purpose, marked where it lives.
+# DELIBERATELY_CROSS_TENANT exempts an entire file, which is right for
+# pos_relay.py (cross-tenant end to end) and far too blunt for a file like
+# staff_service.py, where a single query must look across clinics and the forty
+# around it must not. Written as an SQL comment so the reason travels with the
+# statement instead of living in a list somebody has to remember to open:
+#     -- tenant-scope: cross-tenant by design, <why>
+# Checked in both directions, like every allowlist here: mark a statement that
+# turns out to be scoped and stale_markers() reports the mark.
+CROSS_TENANT_MARKER = re.compile(r"--\s*tenant-scope:\s*\S")
 INSERT_CLINIC_COLUMN = re.compile(
     r"\bINSERT\s+INTO\s+(?:public\.)?[a-z_]+\s*"
     r"\([^)]*\bclinic_id\b",
@@ -199,7 +245,7 @@ def sql_literals(path: pathlib.Path) -> list[tuple[int, str]]:
     return found
 
 
-def stale_exemptions() -> list[str]:
+def stale_exemptions(tenant_tables: frozenset[str]) -> list[str]:
     """Exempted files that no longer contain an unscoped statement."""
     stale: list[str] = []
     for rel in sorted(DELIBERATELY_CROSS_TENANT):
@@ -212,7 +258,7 @@ def stale_exemptions() -> list[str]:
             touched = {
                 m.group(2).lower()
                 for m in STATEMENT.finditer(sql)
-                if m.group(2).lower() in TENANT_TABLES
+                if m.group(2).lower() in tenant_tables
             }
             if touched and (not has_clinic_scope(sql) or or_bypasses_tenant(sql)):
                 needs_exemption = True
@@ -222,7 +268,29 @@ def stale_exemptions() -> list[str]:
     return stale
 
 
-def audit() -> list[tuple[str, int, str, str]]:
+def stale_markers(tenant_tables: frozenset[str]) -> list[str]:
+    """Marked statements that no longer read across clinics."""
+    stale: list[str] = []
+    for path in sorted(SRC.rglob("*.py")):
+        rel = str(path.relative_to(SRC))
+        if rel in DELIBERATELY_CROSS_TENANT:
+            continue
+        for lineno, sql in sql_literals(path):
+            if not CROSS_TENANT_MARKER.search(sql):
+                continue
+            touched = {
+                m.group(2).lower()
+                for m in STATEMENT.finditer(sql)
+                if m.group(2).lower() in tenant_tables
+            }
+            if not touched:
+                stale.append(f"{rel}:{lineno} (marked, reads no tenant table)")
+            elif has_clinic_scope(sql) and not or_bypasses_tenant(sql):
+                stale.append(f"{rel}:{lineno} (marked, but the statement is scoped)")
+    return stale
+
+
+def audit(tenant_tables: frozenset[str]) -> list[tuple[str, int, str, str]]:
     unscoped: list[tuple[str, int, str, str]] = []
     for path in sorted(SRC.rglob("*.py")):
         rel = str(path.relative_to(SRC))
@@ -233,10 +301,12 @@ def audit() -> list[tuple[str, int, str, str]]:
                 {
                     m.group(2).lower()
                     for m in STATEMENT.finditer(sql)
-                    if m.group(2).lower() in TENANT_TABLES
+                    if m.group(2).lower() in tenant_tables
                 }
             )
             if not touched:
+                continue
+            if CROSS_TENANT_MARKER.search(sql):
                 continue
             if not has_clinic_scope(sql):
                 unscoped.append(
@@ -256,7 +326,8 @@ def audit() -> list[tuple[str, int, str, str]]:
 
 
 def main() -> int:
-    unscoped = audit()
+    tenant_tables = load_tenant_tables(tenant_tables_path())
+    unscoped = audit(tenant_tables)
     by_file: dict[str, list[tuple[int, str, str]]] = {}
     for rel, lineno, tables, snippet in unscoped:
         by_file.setdefault(rel, []).append((lineno, tables, snippet))
@@ -266,7 +337,7 @@ def main() -> int:
         for lineno, tables, snippet in sorted(items):
             print(f"    L{lineno:<5} [{tables}] {snippet}")
 
-    stale = stale_exemptions()
+    stale = stale_exemptions(tenant_tables) + stale_markers(tenant_tables)
     if stale:
         print("\nstale cross-tenant exemptions — delete these entries:")
         for entry in stale:

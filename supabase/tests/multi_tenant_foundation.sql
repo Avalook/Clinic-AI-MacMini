@@ -23,32 +23,18 @@ DECLARE
         'staff_capability',   -- scoped via staff
         'idempotency_key',    -- infra, actor-scoped
         'schema_migrations',  -- CLI bookkeeping
-        'clinic'              -- is the tenant
+        'clinic',             -- is the tenant
+        'owner_feedback'      -- feedback about the software, not a clinic's data
     ];
-    -- 27 from W2 + 7 workflow-kernel tables (W4) + pos_outbox (W7).
-    -- Pinned on purpose, and it catches BOTH directions: a new table that
-    -- forgot clinic_id, and an existing one that lost it. Moves only when the
-    -- change is deliberate — 36 → 39 on 01/08/2026, when visit_amendment,
-    -- patient_contact_channel and patient_next_of_kin were adopted from the
-    -- production schema (migration 20260801000003) and brought under tenancy;
-    -- 39 → 41 on 02/08/2026 for drug_batch + inventory_txn (migration
-    -- 20260802000001, kho thuốc theo lô).
-    expected_tenant_tables constant integer := 41;
-    actual_tenant_tables integer;
 BEGIN
-    SELECT count(*) INTO actual_tenant_tables
-      FROM information_schema.columns c
-      JOIN information_schema.tables t
-        ON t.table_schema = c.table_schema AND t.table_name = c.table_name
-     WHERE c.table_schema = 'public'
-       AND c.column_name = 'clinic_id'
-       AND t.table_type = 'BASE TABLE'
-       AND c.table_name <> 'clinic_membership';
-
-    IF actual_tenant_tables <> expected_tenant_tables THEN
-        RAISE EXCEPTION 'expected % tenant-scoped tables, found %',
-            expected_tenant_tables, actual_tenant_tables;
-    END IF;
+    -- The count of tenant tables used to be pinned here, at 41, with a comment
+    -- claiming it caught both directions. It caught neither one that mattered:
+    -- a new table that forgets clinic_id does not change the count, so
+    -- owner_feedback sat outside tenancy unnoticed, and drug_batch was counted
+    -- while shipping with a DEFAULT and no GRANT. tenant_invariants.sql now
+    -- derives the whole classification from the schema and requires every
+    -- public table to be either tenant-scoped or named on an allowlist, which
+    -- is the check this number was standing in for.
 
     -- A nullable clinic_id is a hole: rows could land outside every tenant.
     SELECT string_agg(c.table_name, ', ') INTO nullable

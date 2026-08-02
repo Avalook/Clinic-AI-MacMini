@@ -330,6 +330,10 @@ class StaffService:
         """Deactivate the global person only after their last membership ends."""
         await conn.execute(
             """
+            -- tenant-scope: cross-tenant by design. Asking "does this person
+            -- still work anywhere?" means reading every clinic's memberships.
+            -- Scoped to one clinic it would answer a different question and
+            -- deactivate a doctor who still sees patients at the other.
             UPDATE staff
             SET is_active = FALSE, updated_at = NOW()
             WHERE id = $1
