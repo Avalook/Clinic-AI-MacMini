@@ -38,6 +38,7 @@ def _row(**overrides: Any) -> dict[str, Any]:
         "attempts": 0,
         "max_attempts": 5,
         "settings": {},
+        "pos_secret": None,
     }
     row.update(overrides)
     return row

@@ -47,9 +47,15 @@ async def poll_and_push(pool: asyncpg.Pool, adapter: PosPort | None = None) -> i
         rows = await conn.fetch(
             """
             SELECT o.id, o.clinic_id, o.kind, o.subject_id, o.payload,
-                   o.attempts, o.max_attempts, c.settings
+                   o.attempts, o.max_attempts, c.settings,
+                   s.secret AS pos_secret
               FROM pos_outbox o
               JOIN clinic c ON c.id = o.clinic_id
+              -- LEFT JOIN: phòng khám chưa cấu hình credential vẫn phải hiện ra
+              -- để build_adapter trả null adapter và hàng được dead-letter kèm
+              -- lý do — thay vì biến mất khỏi kết quả và im lặng nằm PENDING.
+              LEFT JOIN clinic_secret s
+                     ON s.clinic_id = o.clinic_id AND s.scope = 'pos'
              WHERE o.status = 'PENDING'
                AND o.next_attempt_at <= now()
              ORDER BY o.created_at
@@ -83,7 +89,10 @@ async def poll_and_push(pool: asyncpg.Pool, adapter: PosPort | None = None) -> i
                     if not still_pending:
                         continue
 
-                    port = adapter or build_adapter(_as_dict(row["settings"]))
+                    port = adapter or build_adapter(
+                        _as_dict(row["settings"]),
+                        _as_dict(row["pos_secret"]),
+                    )
                     if await _deliver(conn, row, port):
                         sent += 1
                 finally:

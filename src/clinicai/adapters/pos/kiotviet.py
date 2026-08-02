@@ -17,8 +17,9 @@ To finish it you need, per clinic:
   * a branch id, and the mapping from ClinicAI ``service_code`` to KiotViet
     product codes.
 
-Put them in ``clinic.settings -> 'pos'`` (see ``clinicai.services.pos_config``),
-never in code, because they differ per tenant.
+Put them in ``clinic_secret`` scope ``pos`` (see ``clinicai.services.pos_config``),
+never in code and never in ``clinic.settings``: they differ per tenant, and
+settings is readable by any staff JWT one column at a time (20260802000004).
 """
 
 from __future__ import annotations

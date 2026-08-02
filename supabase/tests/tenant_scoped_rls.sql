@@ -193,6 +193,13 @@ BEGIN
     -- written in W1-W4 was unreachable and the app died on permission denied —
     -- invisible in production, fatal in a new environment. 20260730000008
     -- restores them; this makes sure they stay.
+    --
+    -- "Can read something", not "holds table-wide SELECT": since 20260802000004
+    -- clinic is granted per column, so that settings — where the POS credentials
+    -- used to live — is out of reach of a staff JWT while name and timezone stay
+    -- readable. has_table_privilege() answers FALSE for a column-only grant, and
+    -- reading that as "the policy is unreachable" would be the opposite of the
+    -- truth.
     SELECT string_agg(DISTINCT c.relname, ', ')
       INTO ungranted
       FROM pg_class c
@@ -201,7 +208,14 @@ BEGIN
      WHERE n.nspname = 'public'
        AND c.relkind = 'r'
        AND p.polcmd IN ('r', '*')
-       AND NOT has_table_privilege('authenticated', c.oid, 'SELECT');
+       AND NOT has_table_privilege('authenticated', c.oid, 'SELECT')
+       AND NOT EXISTS (
+           SELECT 1
+             FROM pg_attribute a
+            WHERE a.attrelid = c.oid
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+              AND has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT'));
 
     IF ungranted IS NOT NULL THEN
         RAISE EXCEPTION

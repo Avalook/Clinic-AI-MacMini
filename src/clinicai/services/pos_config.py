@@ -7,8 +7,12 @@ Two levels, on purpose:
 * ``clinic.settings -> 'pos'`` overrides it per tenant, because a multi-tenant
   product cannot assume every clinic uses the same till.
 
-Credentials live in ``clinic.settings``, never in code and never in a column
-that ends up in a client-readable view.
+Which POS is configuration; what to log into it with is a secret, and the two
+live in different tables. Credentials come from ``clinic_secret`` (scope
+``pos``), which has no policy and no grant to ``authenticated`` — only the
+backend can read it. ``clinic.settings`` used to hold them while
+``authenticated`` held ``SELECT`` on the whole ``clinic`` row; see
+20260802000004.
 """
 
 from __future__ import annotations
@@ -35,8 +39,14 @@ def configured_adapter_name(settings: dict[str, Any] | None = None) -> str:
     return os.environ.get("POS_ADAPTER", DEFAULT_ADAPTER).strip().lower()
 
 
-def build_adapter(settings: dict[str, Any] | None = None) -> PosPort:
+def build_adapter(
+    settings: dict[str, Any] | None = None,
+    secret: dict[str, Any] | None = None,
+) -> PosPort:
     """Construct the adapter for one clinic.
+
+    ``settings`` says which POS; ``secret`` (``clinic_secret`` scope ``pos``)
+    says how to authenticate to it.
 
     Unknown names and missing credentials return the null adapter rather than
     crashing the payment path. The relay recognizes it and dead-letters the
@@ -48,7 +58,7 @@ def build_adapter(settings: dict[str, Any] | None = None) -> PosPort:
         return NullPosAdapter()
 
     if name == "kiotviet":
-        pos = (settings or {}).get("pos") or {}
+        pos = secret or {}
         missing = [
             key
             for key in ("retailer", "client_id", "client_secret")

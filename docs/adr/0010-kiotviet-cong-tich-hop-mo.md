@@ -53,9 +53,13 @@ một adapter giả trong test, nếu không nó sẽ mục.
   hành xử như adapter thật để relay *thoát hàng* thay vì để outbox phình mãi, và để
   đường code đó được chạy ở production chứ không chỉ trong test.
 - **Cấu hình 2 tầng**: `POS_ADAPTER` (mức deployment, tắt được cả hệ thống bằng một chỗ)
-  và `clinic.settings->'pos'` (mức tenant, đè lên) — vì multi-tenant không thể giả định
-  mọi phòng khám dùng chung một cái quầy. Credential nằm trong `clinic.settings`, không
-  bao giờ trong code.
+  và `clinic.settings->'pos'->>'adapter'` (mức tenant, đè lên) — vì multi-tenant không
+  thể giả định mọi phòng khám dùng chung một cái quầy. **Dùng POS nào** là cấu hình
+  (`clinic.settings`); **đăng nhập POS bằng gì** là bí mật và nằm ở bảng `clinic_secret`
+  scope `pos` — không policy, không grant cho `authenticated` (`20260802000004`). Trước
+  đó credential nằm chung trong `clinic.settings`, mà `clinic` thì đã `GRANT SELECT` cho
+  `authenticated`: policy lọc dòng, không lọc cột, nên mọi nhân sự đăng nhập đều đọc
+  được `client_secret` bằng anon key. Không bao giờ trong code.
 - **Outbox có transaction**: bảng `pos_outbox` (`20260730000007`). Dòng outbox được ghi
   **trong cùng transaction với payment** — payment commit thì push chắc chắn đã vào hàng
   đợi; payment rollback thì không có gì trong hàng đợi. Đẩy đi sau, nên **KiotViet sập

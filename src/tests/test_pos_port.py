@@ -81,6 +81,23 @@ class TestConfiguration:
     ) -> None:
         # A multi-tenant product cannot assume every clinic uses the same till.
         monkeypatch.setenv("POS_ADAPTER", "none")
+        settings = {"pos": {"adapter": "kiotviet"}}
+        secret = {
+            "retailer": "dr4women",
+            "client_id": "id",
+            "client_secret": "secret",
+        }
+        assert configured_adapter_name(settings) == "kiotviet"
+        assert isinstance(build_adapter(settings, secret), KiotVietPosAdapter)
+
+    def test_credentials_are_not_read_from_settings(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # 20260802000004 moved credentials into clinic_secret because
+        # `authenticated` could read clinic.settings with an anon key. A copy
+        # left behind in settings must not keep the integration alive — that is
+        # how the old location survives a migration nobody finishes.
+        monkeypatch.setenv("POS_ADAPTER", "none")
         settings = {
             "pos": {
                 "adapter": "kiotviet",
@@ -89,17 +106,14 @@ class TestConfiguration:
                 "client_secret": "secret",
             }
         }
-        assert configured_adapter_name(settings) == "kiotviet"
-        assert isinstance(build_adapter(settings), KiotVietPosAdapter)
+        assert isinstance(build_adapter(settings), NullPosAdapter)
 
     def test_missing_credentials_fall_back_instead_of_crashing(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # A typo in configuration must not stop the clinic taking money.
         monkeypatch.setenv("POS_ADAPTER", "kiotviet")
-        assert isinstance(
-            build_adapter({"pos": {"retailer": "only-this"}}), NullPosAdapter
-        )
+        assert isinstance(build_adapter({}, {"retailer": "only-this"}), NullPosAdapter)
 
     def test_unknown_adapter_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("POS_ADAPTER", "square")

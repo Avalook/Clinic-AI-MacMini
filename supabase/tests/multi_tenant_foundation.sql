@@ -32,8 +32,9 @@ DECLARE
     -- patient_contact_channel and patient_next_of_kin were adopted from the
     -- production schema (migration 20260801000003) and brought under tenancy;
     -- 39 → 41 on 02/08/2026 for drug_batch + inventory_txn (migration
-    -- 20260802000001, kho thuốc theo lô).
-    expected_tenant_tables constant integer := 41;
+    -- 20260802000001, kho thuốc theo lô); 41 → 42 for clinic_secret
+    -- (20260802000004, credential POS ra khỏi clinic.settings).
+    expected_tenant_tables constant integer := 42;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
