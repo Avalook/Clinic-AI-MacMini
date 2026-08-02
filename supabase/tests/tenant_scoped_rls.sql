@@ -102,8 +102,10 @@ BEGIN
     -- 23 tenant tables + staff + 7 workflow-kernel tables (W4)
     -- + block_budget, which became client-readable in W5. clinical_record and
     -- clinical_form_response keep this name but a narrower rule (ROLE-02).
-    IF scoped_count <> 32 THEN
-        RAISE EXCEPTION 'expected 32 tenant-scoped read policies, found %', scoped_count;
+    -- 32 → 34 on 02/08/2026: drug_batch + inventory_txn (migration
+    -- 20260802000001, kho thuốc theo lô).
+    IF scoped_count <> 34 THEN
+        RAISE EXCEPTION 'expected 34 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

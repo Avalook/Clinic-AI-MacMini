@@ -1,7 +1,7 @@
 -- Regression assertions for the workflow kernel (W4, ADR-0011).
 --   psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/workflow_kernel.sql
 --
--- Two things are worth pinning here. First, that the 37-node catalogue really is
+-- Two things are worth pinning here. First, that the node catalogue really is
 -- data — if the seed drifts from docs §13 the clinic's flow has silently
 -- changed. Second, the gate rules, because "can this patient move on yet" is the
 -- question the whole kernel exists to answer, and getting FS/SS/FF/SF or
@@ -18,8 +18,10 @@ DECLARE
     roleless text;
 BEGIN
     SELECT count(*) INTO total FROM public.node_definition WHERE clinic_id = dr4women;
-    IF total <> 37 THEN
-        RAISE EXCEPTION 'expected the 37 nodes of docs §13, found %', total;
+    -- 37 nodes of docs §13 + THUOC-01..04, the nhà thuốc chain added by
+    -- migration 20260802000001 (soạn → kiểm tra → tư vấn → bàn giao).
+    IF total <> 41 THEN
+        RAISE EXCEPTION 'expected the 41 nodes of docs §13 + nhà thuốc, found %', total;
     END IF;
 
     -- Spot-check one node per flow group, so a wholesale re-seed cannot quietly

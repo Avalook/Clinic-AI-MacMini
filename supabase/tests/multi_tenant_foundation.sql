@@ -30,8 +30,10 @@ DECLARE
     -- forgot clinic_id, and an existing one that lost it. Moves only when the
     -- change is deliberate — 36 → 39 on 01/08/2026, when visit_amendment,
     -- patient_contact_channel and patient_next_of_kin were adopted from the
-    -- production schema (migration 20260801000003) and brought under tenancy.
-    expected_tenant_tables constant integer := 39;
+    -- production schema (migration 20260801000003) and brought under tenancy;
+    -- 39 → 41 on 02/08/2026 for drug_batch + inventory_txn (migration
+    -- 20260802000001, kho thuốc theo lô).
+    expected_tenant_tables constant integer := 41;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
