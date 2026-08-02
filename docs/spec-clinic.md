@@ -108,6 +108,13 @@ Chuyển từ **(Vercel frontend + Supabase + Mac backend)** sang **mọi thứ 
 - **XONG khi:** có danh sách logic đã chuyển; frontend không còn quy tắc nghiệp vụ nào; app vẫn chạy đúng.
 
 ### Phase 5 — CI/CD (GitHub Actions + self-hosted runner trên Mac)
+
+> **Sửa 2026-08-02 — mô hình nhánh:** hai nhánh dài hạn ở dưới đã bị bỏ. Với một
+> dev và không PR nào, `main` tụt sau `staging` 63 commit mà không ai thấy, và
+> toàn bộ nền multi-tenant chỉ nằm trên `staging`. Nay trunk-based: `main` là
+> nhánh dài hạn duy nhất, staging deploy bằng tag `staging-*`. Mọi chỗ nói
+> "nhánh staging" ở dưới đọc thành "tag `staging-*`". Xem `CLAUDE.md`.
+
 - [ ] Cài **self-hosted GitHub Actions runner** trên Mac mini.
 - [ ] Workflow **CI** (chạy trên **đúng nhánh prod + staging + mọi pull request** — sửa lỗi hiện tại CI đang trỏ `main`): `ruff` + `mypy` + `pytest` (backend) và `tsc` + `next build` (frontend). Đỏ thì chặn merge.
 - [ ] Workflow **CD**: merge vào staging → deploy stack staging; merge vào prod → deploy stack prod (runner chạy: `git pull` → `docker compose build` → `up` → **health check** → nếu fail thì rollback về image cũ).

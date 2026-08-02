@@ -23,20 +23,35 @@ curl -sS http://127.0.0.1/enter -o /dev/null -w "%{http_code}\n"
 ## 2. Deploy / Cập nhật code
 
 ### Tự động (khuyến nghị)
-Push code lên `main`/`staging` → workflow **CI** chạy trước. CD chỉ nhận
-`workflow_run` từ một lần CI `push` thành công, checkout đúng `head_sha` đã kiểm
-chứng rồi mới chạy trên Mac mini. CI đỏ hoặc run từ pull request không được vào
-self-hosted runner.
+Trunk-based: chỉ còn **một** nhánh dài hạn là `main`.
+
+| Muốn deploy | Làm gì |
+|---|---|
+| **prod** | merge PR vào `main` |
+| **staging** | `git tag staging-$(date +%Y%m%d-%H%M) <sha> && git push origin <tag>` |
+
+Cả hai đều chạy workflow **CI** trước. CD chỉ nhận `workflow_run` từ một lần CI
+`push` thành công, checkout đúng `head_sha` đã kiểm chứng rồi mới chạy trên Mac
+mini. CI đỏ hoặc run từ pull request không được vào self-hosted runner.
+
+Staging deploy bằng **tag chứ không phải nhánh**: tag là một commit cố định, nên
+thứ được test đúng là thứ được deploy — không có nhánh nào âm thầm trôi đi (nhánh
+`staging` cũ từng bỏ `main` lại sau 63 commit mà không ai thấy).
 
 ### Thủ công
 ```bash
 cd ~/Projects/Dr4Women-MacMini
-./scripts/deploy-backend.sh prod      # Deploy production
-./scripts/deploy-backend.sh staging   # Deploy staging
+git checkout main && ./scripts/deploy-backend.sh prod   # Deploy production
+
+git checkout staging-20260802-1200                       # detached HEAD, đúng ý
+./scripts/deploy-backend.sh staging                      # Deploy staging
 ```
 
+Script từ chối chạy nếu prod không đứng trên `main`, hoặc staging không đứng đúng
+trên một tag `staging-*`.
+
 Script sẽ tự động:
-1. `git pull` code mới
+1. `git pull` code mới (chỉ prod — tag thì đã là commit cố định rồi)
 2. Build Docker images
 3. Khởi động containers mới
 4. Health check (120s timeout)

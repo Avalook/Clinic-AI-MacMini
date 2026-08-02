@@ -17,11 +17,16 @@ client → Caddy (TLS/ingress) → dashboard (Next.js, UI only) → api (FastAPI
 - **Everything is containerised + env-driven** (no hardcoded URLs/keys) → lift-and-shift to a VPS later.
 
 ## Environments & branches
+- **Trunk-based: `main` is the only long-lived branch.** Feature branch → PR → `main`.
 - `main` → **prod** stack → Supabase **prod**.
-- `staging` → **staging** stack → Supabase **staging** (fake/anonymised data only).
+- Tag `staging-<something>` → **staging** stack → Supabase **staging** (fake/anonymised
+  data only). Staging is a *deployment of a commit*, not a branch that can drift.
 - Both run side-by-side on the Mac (different project names + Caddy ports).
-- CI runs on every PR + push (ruff/mypy/pytest + tsc/lint/build). CD auto-deploys on
-  merge to `main`/`staging` via the self-hosted runner (build → up → health → rollback).
+- CI runs on every PR + push to `main` + `staging-*` tags (ruff/mypy/pytest +
+  tsc/lint/build). CD deploys the CI-verified SHA (build → up → health → rollback).
+- Why not two long-lived branches: with one dev and no PRs, `main` fell **63 commits**
+  behind `staging` and nobody saw it. The whole multi-tenant foundation lived only on
+  `staging`; had CD ever fired, prod would have got pre-tenancy code.
 
 ## Database — Supabase CLI ONLY
 - Schema = `supabase/migrations/*.sql` (git-tracked). Apply with `supabase db push`.

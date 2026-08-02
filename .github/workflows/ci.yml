@@ -1,9 +1,12 @@
 name: CI
 
-# Runs on both deploy branches AND every PR (spec Phase 5: red blocks merge).
+# Runs on every PR (spec Phase 5: red blocks merge) and on everything that can be
+# deployed. Trunk-based: that means `main` and the `staging-*` tags — there is no
+# long-lived `staging` branch any more.
 on:
   push:
-    branches: [main, staging]
+    branches: [main]
+    tags: ["staging-*"]
   pull_request:
 
 permissions:

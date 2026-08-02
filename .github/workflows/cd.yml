@@ -1,16 +1,19 @@
 name: CD
 
-# Deploy only after CI succeeds for a push to a deploy branch. Runs on the Mac
+# Deploy only after CI succeeds for a push to a deployable ref. Runs on the Mac
 # mini self-hosted runner.
-#   main    → prod stack    (Supabase prod)
-#   staging → staging stack  (Supabase staging)
+#   main          → prod stack     (Supabase prod)
+#   tag staging-* → staging stack  (Supabase staging)
 # The deploy script verifies the CI SHA, then builds, starts, health-checks and
 # rolls back on failure.
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main, staging]
+    # No `branches:` filter. It matches head_branch, and for a tag push GitHub
+    # puts the TAG name there — so filtering by branch would silently drop every
+    # staging deploy. The ref is checked in the job condition below instead,
+    # where the tag case can be spelled out.
 
 permissions:
   contents: read
@@ -23,56 +26,66 @@ concurrency:
 jobs:
   deploy:
     # workflow_run executes with the default-branch workflow definition. Accept
-    # only a successful push from the two first-party deploy branches; a PR run
-    # must never reach the secrets-bearing self-hosted runner.
+    # only a successful push to a first-party deployable ref; a PR run must never
+    # reach the secrets-bearing self-hosted runner.
     #
     # head_repository is checked explicitly because this repository is public:
-    # anyone may fork it and run CI. Branch and event alone would let a run
-    # whose head_branch happens to be 'main' in SOMEBODY ELSE'S fork satisfy
-    # this condition, and the job it gates runs on a self-hosted Mac with
-    # production credentials.
+    # anyone may fork it and run CI. Ref and event alone would let a run whose
+    # head_branch happens to be 'main' in SOMEBODY ELSE'S fork satisfy this
+    # condition, and the job it gates runs on a self-hosted Mac with production
+    # credentials.
+    #
+    # A fork cannot push a `staging-*` tag into this repository either, so the
+    # prefix match is as safe as the exact one once head_repository is pinned.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       (github.event.workflow_run.head_branch == 'main' ||
-       github.event.workflow_run.head_branch == 'staging')
+       startsWith(github.event.workflow_run.head_branch, 'staging-'))
     runs-on: [self-hosted, macmini]
     steps:
       - name: Select environment
         id: env
         env:
-          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_REF: ${{ github.event.workflow_run.head_branch }}
         run: |
-          case "$SOURCE_BRANCH" in
+          # head_branch holds a branch name for a branch push and a tag name for
+          # a tag push; the field is named for the common case, not the contents.
+          case "$SOURCE_REF" in
             main) echo "target=prod" >> "$GITHUB_OUTPUT" ;;
-            staging) echo "target=staging" >> "$GITHUB_OUTPUT" ;;
-            *) echo "::error::unsupported deploy branch: $SOURCE_BRANCH"; exit 1 ;;
+            staging-*) echo "target=staging" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::unsupported deploy ref: $SOURCE_REF"; exit 1 ;;
           esac
 
       # workflow_run can arrive late — a slow CI run, a re-run of an old one, a
       # queue backlog. Deploying its head_sha then puts OLDER code into
       # production on top of newer, which looks like a spontaneous rollback and
-      # is very hard to diagnose at the time. Compare against the branch tip and
-      # skip instead; the newer commit's own CI run deploys it.
+      # is very hard to diagnose at the time. Compare against the ref's current
+      # tip and skip instead; the newer commit's own CI run deploys it.
+      #
+      # For a `staging-*` tag this normally resolves to itself, which is the
+      # point of deploying staging from tags: the thing that was tested is the
+      # thing that ships, and it cannot drift between CI and deploy. It still
+      # catches a tag that was force-moved after CI ran.
       - name: Refuse to deploy a superseded commit
         id: freshness
         env:
           GH_TOKEN: ${{ github.token }}
           VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_REF: ${{ github.event.workflow_run.head_branch }}
         run: |
-          head_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_BRANCH}" \
+          head_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_REF}" \
                        --jq .sha 2>/dev/null || echo "")
           if [ -z "$head_sha" ]; then
-            echo "::error::could not resolve the current head of ${SOURCE_BRANCH}"
+            echo "::error::could not resolve the current head of ${SOURCE_REF}"
             exit 1
           fi
           if [ "$head_sha" = "$VERIFIED_SHA" ]; then
             echo "deploy=true" >> "$GITHUB_OUTPUT"
           else
             echo "deploy=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::skipping ${VERIFIED_SHA}: ${SOURCE_BRANCH} has moved to ${head_sha}"
+            echo "::notice::skipping ${VERIFIED_SHA}: ${SOURCE_REF} has moved to ${head_sha}"
           fi
 
       - name: Checkout CI-verified commit
@@ -96,7 +109,7 @@ jobs:
         env:
           DEPLOY_TARGET: ${{ steps.env.outputs.target }}
           VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
-          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SOURCE_REF: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           SECRET_DIR="${CLINIC_DEPLOY_DIR:-$HOME/Projects/Dr4Women-MacMini}"
@@ -104,5 +117,5 @@ jobs:
           test -f "$SECRET_DIR/.env.$DEPLOY_TARGET"
           CLINIC_ENV_DIR="$SECRET_DIR" \
           DEPLOY_EXPECTED_SHA="$VERIFIED_SHA" \
-          DEPLOY_SOURCE_BRANCH="$SOURCE_BRANCH" \
+          DEPLOY_SOURCE_REF="$SOURCE_REF" \
             "$RELEASE_DIR/scripts/deploy-backend.sh" "$DEPLOY_TARGET"

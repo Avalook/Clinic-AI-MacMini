@@ -489,7 +489,7 @@ DOCKER
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
-    DEPLOY_SOURCE_BRANCH=main FAKE_DOCKER_LOG="$docker_log" \
+    DEPLOY_SOURCE_REF=main FAKE_DOCKER_LOG="$docker_log" \
     "$deploy_repo/scripts/deploy-backend.sh" prod >"$deploy_output" 2>&1; then
     fail "deploy reported success after the new compose up failed"
   fi
@@ -508,7 +508,7 @@ DOCKER
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
-    DEPLOY_SOURCE_BRANCH=main FAKE_DOCKER_LOG="$docker_log" \
+    DEPLOY_SOURCE_REF=main FAKE_DOCKER_LOG="$docker_log" \
     FAKE_ROLLBACK_UP_FAIL=43 \
     "$deploy_repo/scripts/deploy-backend.sh" prod >"$deploy_output" 2>&1; then
     fail "deploy reported success when both new and rollback compose up failed"
@@ -566,7 +566,7 @@ DOCKER
   HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
-    DEPLOY_SOURCE_BRANCH=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null
+    DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null
   [ ! -e "$deploy_repo/.env" ] || fail "deploy copied secrets into a shared .env"
   [ -f "$deploy_secrets/.active-state-prod" ] || fail "deploy did not atomically record active release state"
   active_env="$(grep -E '^env=' "$deploy_secrets/.active-state-prod" | cut -d= -f2-)"
@@ -577,9 +577,36 @@ DOCKER
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA=0000000000000000000000000000000000000000 \
-    DEPLOY_SOURCE_BRANCH=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
+    DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
     fail "deploy accepted the wrong commit SHA"
   fi
+
+  # Trunk-based moved this check from an equality test on a branch name to a
+  # pattern test on a ref, and a pattern is much easier to get subtly wrong.
+  # Both directions matter: prod must not accept a staging tag, and staging must
+  # not accept main. The second one is what stops "just deploy staging quickly"
+  # from putting untagged trunk on the staging stack.
+  local ref_output="$deploy_tmp/wrong-ref.log"
+  cp "$deploy_secrets/.env.prod" "$deploy_secrets/.env.staging"
+
+  # The assertion is on the message, not just on a non-zero exit. Every later
+  # gate in this script also exits non-zero, so "it failed" would keep passing
+  # even if the ref check were deleted outright.
+  local pair
+  for pair in "prod staging-2026-01-01" "staging main"; do
+    set -- $pair
+    if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
+      CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
+      CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
+      DEPLOY_SOURCE_REF="$2" \
+      "$deploy_repo/scripts/deploy-backend.sh" "$1" >"$ref_output" 2>&1; then
+      fail "$1 accepted ref $2"
+    fi
+    grep -q "must deploy from" "$ref_output" || \
+      fail "$1 rejected ref $2, but not because of the ref: $(cat "$ref_output")"
+  done
+
+  rm -f "$deploy_secrets/.env.staging"
 
   printf '%s\n' \
     'COMPOSE_PROFILES=workers' \
@@ -588,7 +615,7 @@ DOCKER
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
-    DEPLOY_SOURCE_BRANCH=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
+    DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
     fail "workers profile accepted an empty RabbitMQ password/URL"
   fi
 }

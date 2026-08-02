@@ -7,7 +7,7 @@ Data lives in **Supabase cloud**. A Mac crash = *temporarily unreachable*, **nev
 | Need | Command (in the deploy clone) |
 |---|---|
 | Bring prod up | `./scripts/deploy-backend.sh prod` |
-| Bring staging up | `./scripts/deploy-backend.sh staging` |
+| Bring staging up | `git checkout <staging-* tag> && ./scripts/deploy-backend.sh staging` |
 | See status | `CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod ps` |
 | Tail logs | `CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod logs -f --tail=100` |
 | Log viewer (web) | Dozzle → `http://127.0.0.1:8888` (via Tailscale) |

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Deploy the ClinicAI self-host stack on the Mac mini.
-#   ./scripts/deploy-backend.sh prod      # main    → prod stack    (Supabase prod)
-#   ./scripts/deploy-backend.sh staging   # staging → staging stack (Supabase staging)
+#   ./scripts/deploy-backend.sh prod      # branch main  → prod stack    (Supabase prod)
+#   ./scripts/deploy-backend.sh staging   # tag staging-* → staging stack (Supabase staging)
 #
 # Flow (spec Phase 5/7): verify exact source → build → up → health → rollback.
 # CLINIC_ENV_DIR may point at a separate secrets directory (used by CI checkouts).
@@ -11,10 +11,21 @@ set -euo pipefail
 
 ENVN="${1:-}"
 case "$ENVN" in
-  prod) EXPECTED_BRANCH="main"; EXPECTED_APP_ENV="production" ;;
-  staging) EXPECTED_BRANCH="staging"; EXPECTED_APP_ENV="staging" ;;
+  prod) EXPECTED_REF="branch main"; EXPECTED_APP_ENV="production" ;;
+  staging) EXPECTED_REF="tag staging-*"; EXPECTED_APP_ENV="staging" ;;
   *) echo "usage: $0 [prod|staging]" >&2; exit 2 ;;
 esac
+
+# Trunk-based (see CLAUDE.md): `main` is the only long-lived branch, and staging
+# deploys a tag. So the source check below is on a ref PATTERN, not a branch
+# name — a tag checkout is a detached HEAD and has no branch to compare at all.
+ref_is_expected() {
+  case "$ENVN:$1" in
+    prod:main) return 0 ;;
+    staging:staging-*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 export PATH="${CLINIC_PATH_PREFIX:-/opt/homebrew/bin:/usr/local/bin}:$PATH"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -48,19 +59,28 @@ if [ -n "${DEPLOY_EXPECTED_SHA:-}" ]; then
     echo "!! checkout SHA $ACTUAL_SHA does not match requested $DEPLOY_EXPECTED_SHA" >&2
     exit 1
   }
-  if [ -n "${DEPLOY_SOURCE_BRANCH:-}" ] && [ "$DEPLOY_SOURCE_BRANCH" != "$EXPECTED_BRANCH" ]; then
-    echo "!! $ENVN must deploy from $EXPECTED_BRANCH, not $DEPLOY_SOURCE_BRANCH" >&2
+  if [ -n "${DEPLOY_SOURCE_REF:-}" ] && ! ref_is_expected "$DEPLOY_SOURCE_REF"; then
+    echo "!! $ENVN must deploy from $EXPECTED_REF, not $DEPLOY_SOURCE_REF" >&2
     exit 1
   fi
 else
   PINNED_CHECKOUT=0
-  CURRENT_BRANCH="$(git branch --show-current)"
-  [ "$CURRENT_BRANCH" = "$EXPECTED_BRANCH" ] || {
-    echo "!! $ENVN must deploy from branch $EXPECTED_BRANCH (currently ${CURRENT_BRANCH:-detached})" >&2
+  CURRENT_REF="$(git branch --show-current)"
+  if [ -z "$CURRENT_REF" ]; then
+    # Detached HEAD — the normal shape of a staging deploy. Accept it only when
+    # HEAD sits exactly on a tag, so the release has a name a human can say out
+    # loud in the runbook, not just a SHA nobody will recognise later.
+    CURRENT_REF="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
+  fi
+  ref_is_expected "$CURRENT_REF" || {
+    echo "!! $ENVN must deploy from $EXPECTED_REF (currently ${CURRENT_REF:-detached, not on a tag})" >&2
     exit 1
   }
-  # Preserve the old manual workflow, but never continue with stale code.
-  git pull --ff-only
+  # Preserve the old manual workflow, but never continue with stale code. Only a
+  # branch can fall behind; a tag is already the exact commit that was tested.
+  if [ "$ENVN" = "prod" ]; then
+    git pull --ff-only
+  fi
 fi
 
 # Freeze the exact env revision used by this release in the private secrets
