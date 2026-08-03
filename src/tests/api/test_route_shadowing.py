@@ -41,7 +41,9 @@ def app_routes() -> list[tuple[frozenset[str], str, str]]:
     return out
 
 
-def _resolve(app_routes: list[tuple[frozenset[str], str, str]], method: str, url: str) -> str:
+def _resolve(
+    app_routes: list[tuple[frozenset[str], str, str]], method: str, url: str
+) -> str:
     """Hàm nào thật sự nhận request này, theo đúng luật khớp của Starlette."""
     from starlette.routing import compile_path
 
