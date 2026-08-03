@@ -80,6 +80,48 @@ class CapacityService:
             ) from exc
 
         async with self._pool.acquire() as conn:
+            # LỊCH TRỰC LÀ LUẬT CAO NHẤT — cao hơn cả ba tầng sức chứa.
+            #
+            # Một luật "BS Thành 18:00–18:15 tám chỗ" không có nghĩa gì vào ngày
+            # bác sĩ ấy không đi làm. Trước đây lưới không hỏi lịch trực lần
+            # nào: nó mời CSKH đặt vào một buổi chiều mà bác sĩ không có mặt, và
+            # sai đó chỉ vỡ ra lúc bệnh nhân đã tới nơi.
+            #
+            # Chỉ có hiệu lực KHI NGÀY ĐÓ ĐÃ XẾP CA. CSKH đặt trước cả tháng,
+            # lúc ấy lịch trực chưa có — coi "chưa xếp" là "không đi làm" sẽ
+            # khoá sạch tương lai. Cùng cách phân biệt mà booking_service dùng
+            # cho câu cảnh báo của nó, để hai nơi không nói hai điều khác nhau.
+            duty = await conn.fetchrow(
+                """
+                SELECT
+                  EXISTS (
+                    SELECT 1 FROM work_roster
+                     WHERE clinic_id = $1::uuid AND work_date = $2
+                       AND status = 'APPROVED'
+                  ) AS roster_known,
+                  ($3::uuid IS NULL OR EXISTS (
+                    SELECT 1 FROM work_roster
+                     WHERE clinic_id = $1::uuid AND work_date = $2
+                       AND status = 'APPROVED' AND staff_id = $3::uuid
+                  )) AS on_duty
+                """,
+                clinic_id,
+                day,
+                doctor_id,
+            )
+            roster_known = bool(duty and duty["roster_known"])
+            off_duty = roster_known and not (duty and duty["on_duty"])
+            if off_duty:
+                return {
+                    "date": date,
+                    "location_id": location_id,
+                    "doctor_id": doctor_id,
+                    "closed": True,
+                    "off_duty": True,
+                    "roster_known": True,
+                    "slots": [],
+                }
+
             rows = await conn.fetch(
                 """
                 WITH hours AS (
@@ -170,6 +212,11 @@ class CapacityService:
             # trả dòng nào). Khác hẳn "mở cửa nhưng hết chỗ", và giao diện phải
             # nói được hai điều đó bằng hai câu khác nhau.
             "closed": not slots_out,
+            # Ba câu khác nhau, đừng gộp: "phòng khám đóng cửa", "bác sĩ không
+            # có ca trực", "còn chỗ". Gộp thành một ô xám thì người dùng không
+            # biết nên đổi NGÀY hay đổi BÁC SĨ.
+            "off_duty": False,
+            "roster_known": roster_known,
             "slots": slots_out,
         }
 

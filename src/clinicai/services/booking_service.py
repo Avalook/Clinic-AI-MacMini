@@ -935,27 +935,38 @@ class BookingService:
             "SELECT full_name FROM staff WHERE id = $1::uuid", doctor_id
         )
         return (
-            f"{name or 'Bác sĩ này'} không có ca trực ngày "
-            f"{work_date:%d/%m/%Y}. Lịch vẫn được tạo — kiểm tra lại lịch trực "
-            "hoặc đổi bác sĩ."
+            f"{name or 'Bác sĩ này'} không có lịch làm việc ngày "
+            f"{work_date:%d/%m/%Y}. Chọn ngày khác hoặc bác sĩ khác — hoặc xếp "
+            "ca cho bác sĩ này ở màn Lịch làm việc trước."
         )
 
     @staticmethod
     async def _roster_is_required(
         conn: asyncpg.Connection, identity: StaffIdentity
     ) -> bool:
-        """Phòng khám có chặn hẳn việc đặt cho bác sĩ không trực không?
+        """Có TỪ CHỐI khi đặt cho bác sĩ không có ca trực không? Mặc định CÓ.
 
-        Mặc định KHÔNG. Ở phòng khám thật, đặt trước rồi mới xếp ca là chuyện
-        bình thường, và chặn cứng sẽ làm hỏng đúng luồng đó. Phòng khám nào muốn
-        siết thì đặt `settings.booking.require_roster = true` — một cờ, không
-        phải một bản build khác.
+        Mặc định cũ là KHÔNG, vì "đặt trước rồi mới xếp ca là chuyện bình
+        thường". Điều đó vẫn đúng, nhưng nó đã được giải quyết ở chỗ khác:
+        ``_roster_warning`` chỉ lên tiếng KHI NGÀY ĐÓ ĐÃ XẾP CA. Ngày chưa xếp
+        thì hàm này không bao giờ được gọi tới, nên luồng đặt trước cả tháng
+        không hề bị chạm.
+
+        Nghĩa là cờ này chỉ quyết định đúng một tình huống: ngày đã có lịch
+        trực, và bác sĩ được chọn CHẮC CHẮN không đi làm hôm ấy. Để mặc định
+        cho qua tình huống đó là tạo một cái hẹn mà không ai khám — sai lầm chỉ
+        vỡ ra lúc bệnh nhân đã tới nơi, và người chịu là bệnh nhân.
+
+        Quyết định của Quang (2026-08-04): *lịch của bác sĩ là luật cao nhất.*
+        Phòng khám nào muốn quay lại kiểu chỉ-cảnh-báo thì đặt
+        ``settings.booking.require_roster = false`` — một cờ, không phải một
+        bản build khác.
         """
         return bool(
             await conn.fetchval(
                 """
                 SELECT coalesce(
-                    (settings #> '{booking,require_roster}')::boolean, false)
+                    (settings #> '{booking,require_roster}')::boolean, true)
                   FROM clinic WHERE id = $1::uuid
                 """,
                 identity.clinic_id,

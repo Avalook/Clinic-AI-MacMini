@@ -31,6 +31,7 @@ import {
 import Link from "next/link";
 import { fmtTime, slotRange, VN_TZ, vnLocalToUtcISO } from "@/lib/datetime";
 import { isDeadStatus } from "@/lib/slot-capacity";
+import { dayLabel } from "@/lib/roster";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import NewPatientForm, {
   type Option,
@@ -152,6 +153,8 @@ type SlotTone = "available" | "few" | "holding" | "full" | "selected";
 /** Trả lời của GET /api/appointments/quote — sức chứa hiệu lực từng khung. */
 interface QuoteResponse {
   closed?: boolean;
+  /** Ngày đó đã xếp ca và bác sĩ này KHÔNG có tên trong lịch. */
+  off_duty?: boolean;
   slots?: {
     time: string;
     regular_cap: number;
@@ -323,6 +326,19 @@ export default function BookingHub({
   const [fetchedByDate, setFetchedByDate] = useState<
     Record<string, ApptLite[]>
   >({});
+  // SỐ KHÔNG TĂNG SAU KHI ĐẶT — đây là chỗ gây ra nó.
+  //
+  // `router.refresh()` chỉ nạp lại prop từ server, mà prop đó CHỈ CHỨA LỊCH
+  // HÔM NAY. Lịch của ngày khác nằm trong `fetchedByDate`, là state của trình
+  // duyệt: nó không biết vừa có một lịch mới, nên ô vừa đặt vẫn vẽ "0/8" ngay
+  // sau dòng chữ "Đã đặt lịch hẹn thành công". Người đặt tin vào con số đó và
+  // đặt tiếp — đúng cái mà lưới sức chứa sinh ra để ngăn.
+  //
+  // Cách sửa: sau khi đặt xong, XOÁ ô nhớ đệm của ngày đó. Effect bên dưới đã
+  // sẵn sàng nạp lại khi giá trị là `undefined`, nên không cần thêm cờ nào —
+  // và tránh setState trong thân effect, thứ mà react-hooks chặn ở repo này.
+  // `bookingSeq` thì để bắt effect sức chứa đọc lại phần ĐÃ DÙNG.
+  const [bookingSeq, setBookingSeq] = useState(0);
 
   const isToday = selectedDateIso === todayIso;
   const apptsForDate = isToday ? appts : fetchedByDate[selectedDateIso];
@@ -362,6 +378,9 @@ export default function BookingHub({
   const [capByCell, setCapByCell] = useState<
     Record<string, { regular: number; walkin: number }>
   >({});
+  // Bác sĩ nào KHÔNG có lịch làm việc ngày đang chọn. Khoá theo `bác sĩ|ngày`
+  // để đổi ngày không kéo theo câu trả lời của ngày cũ.
+  const [offDuty, setOffDuty] = useState<Record<string, boolean>>({});
   const activeDoctorIds = activeDoctors.map((d) => d.id).join(",");
 
   useEffect(() => {
@@ -381,7 +400,9 @@ export default function BookingHub({
     ).then((pairs) => {
       if (ctrl.signal.aborted) return;
       const next: Record<string, { regular: number; walkin: number }> = {};
+      const off: Record<string, boolean> = {};
       for (const [docId, d] of pairs) {
+        off[`${docId}|${selectedDateIso}`] = d?.off_duty === true;
         for (const s of d?.slots ?? []) {
           next[`${docId}|${selectedDateIso}|${s.time}`] = {
             regular: s.regular_cap,
@@ -392,9 +413,12 @@ export default function BookingHub({
       // Gộp thay vì thay: đổi bộ lọc bác sĩ không nên xoá số chỗ của các cột
       // vừa đọc xong, nếu không lưới nhấp nháy về "chưa biết" mỗi lần lọc.
       setCapByCell((prev) => ({ ...prev, ...next }));
+      setOffDuty((prev) => ({ ...prev, ...off }));
     });
     return () => ctrl.abort();
-  }, [selectedDateIso, activeDoctorIds, policy]);
+    // `bookingSeq` đổi sau mỗi lần đặt thành công: số chỗ ĐÃ DÙNG nằm trong
+    // chính câu trả lời này, nên không đọc lại thì ô vừa đặt vẫn vẽ là trống.
+  }, [selectedDateIso, activeDoctorIds, policy, bookingSeq]);
 
   // Số lịch còn giữ chỗ, gom theo (bác sĩ, ngày VN, giờ VN).
   //
@@ -428,6 +452,20 @@ export default function BookingHub({
   }, [apptsForDate]);
 
   function getCellStatus(docId: string, time: string): CellStatus {
+    // LỊCH LÀM VIỆC LÀ LUẬT CAO NHẤT — trước cả sức chứa.
+    //
+    // Một luật "18:00–18:15 tám chỗ" không có nghĩa gì vào ngày bác sĩ không đi
+    // làm. Backend đã trả lời câu đó (quote.off_duty, chỉ bật khi ngày ấy ĐÃ
+    // xếp ca), nên ở đây chỉ việc nói ra thay vì mời đặt.
+    if (offDuty[`${docId}|${selectedDateIso}`]) {
+      return {
+        tone: "full",
+        label: "Không có lịch",
+        sub: "—",
+        bookedCount: 0,
+        maxCap: 0,
+      };
+    }
     // Luật riêng của ô này nếu đã đọc được; chưa đọc xong thì tạm dùng mặc định
     // phòng khám — cùng con số mà backend sẽ trả về nếu ô không có luật riêng,
     // nên nó không phải một phỏng đoán mới.
@@ -527,7 +565,7 @@ export default function BookingHub({
     // capByCell nằm trong deps: nếu không, thẻ tóm tắt bên phải giữ nguyên số
     // chỗ mặc định sau khi luật riêng của bác sĩ đã về, và hai chỗ trên cùng
     // màn hình nói hai con số khác nhau cho cùng một ô.
-    [selectedSlot, appts, capByCell],
+    [selectedSlot, appts, capByCell, offDuty],
   );
 
   async function handleConfirmBooking() {
@@ -601,9 +639,18 @@ export default function BookingHub({
             (warn ? ` ⚠️ ${warn}` : ""),
         );
         setNote("");
-        // Không có dòng này, ô vừa đặt vẫn vẽ là còn trống cho tới nhịp poll kế
-        // tiếp: người đặt tiếp lịch thứ hai vào đúng khung đó rồi nhận 409 ngay
-        // sau một thông báo "thành công".
+        // BA THỨ PHẢI ĐỌC LẠI, không phải một.
+        //
+        // `router.refresh()` một mình là chưa đủ và đó chính là lỗi "đặt xong
+        // số không tăng": nó chỉ nạp lại prop từ server, mà prop đó chỉ chứa
+        // lịch HÔM NAY. Đặt cho ngày khác thì con số đến từ `fetchedByDate`
+        // (bộ nhớ trình duyệt) và từ /quote — cả hai đều không biết gì.
+        setFetchedByDate((prev) => {
+          const next = { ...prev };
+          delete next[targetDate];
+          return next;
+        });
+        setBookingSeq((n) => n + 1);
         router.refresh();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -1009,9 +1056,18 @@ export default function BookingHub({
                       <div className="truncate font-bold text-ink">
                         {doc.label}
                       </div>
-                      <div className="text-[11px] font-normal text-ink-muted truncate">
-                        Phụ khoa
-                      </div>
+                      {/* Câu trả lời đặt ngay dưới TÊN BÁC SĨ, không phải ở
+                          một góc màn hình: nó nói về đúng người này, và nó là
+                          lý do cả cột bên dưới không bấm được. */}
+                      {offDuty[`${doc.id}|${selectedDateIso}`] ? (
+                        <div className="truncate text-[11px] font-medium text-warning">
+                          Không có lịch làm việc ngày này
+                        </div>
+                      ) : (
+                        <div className="text-[11px] font-normal text-ink-muted truncate">
+                          Phụ khoa
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1019,7 +1075,10 @@ export default function BookingHub({
                 {/* Slot Rows */}
                 <div className="max-h-[480px] overflow-y-auto space-y-1 pt-1.5">
                   {timeSlots.map((time) => {
-                    const timeRangeStr = slotRange(time, 15);
+                    // Độ dài khung từ LUẬT, không phải hằng số 15. Phòng khám
+                    // đổi sang khung 30 phút thì nhãn "18:00 - 18:15" sẽ nói
+                    // sai về đúng cái ô nằm ngay cạnh nó.
+                    const timeRangeStr = slotRange(time, slotMinutes);
                     return (
                       <div
                         key={time}
@@ -1190,11 +1249,18 @@ export default function BookingHub({
                   <CalendarIcon size={18} />
                 </div>
                 <div>
+                  {/* NGÀY THẬT, KHÔNG PHẢI CHUỖI VIẾT CỨNG. Chỗ này từng ghi
+                      thẳng "Thứ Sáu, 15/05/2026" và độ dài khung 15 phút, nên
+                      thẻ xác nhận nói một ngày khác hẳn ngày đang chọn trên
+                      lưới. Người đặt đọc dòng này ngay trước khi bấm — nó là
+                      cơ hội cuối để phát hiện đặt nhầm ngày, và nó đang nói
+                      dối. */}
                   <div className="text-xs font-bold text-teal-800">
-                    {slotRange(selectedSlot.time, 15)}
+                    {slotRange(selectedSlot.time, slotMinutes)}
                   </div>
                   <div className="text-[11px] text-teal-700 font-medium">
-                    Thứ Sáu, 15/05/2026
+                    {dayLabel(selectedDateIso)},{" "}
+                    {selectedDateIso.split("-").reverse().join("/")}
                   </div>
                 </div>
               </div>
@@ -1290,7 +1356,15 @@ export default function BookingHub({
                 <button
                   type="button"
                   onClick={handleConfirmBooking}
-                  disabled={bookingLoading || !activePatient || !policy}
+                  // Bác sĩ không có lịch ⇒ backend sẽ từ chối. Tắt nút ở đây để
+                  // người dùng biết TRƯỚC khi bấm, thay vì gõ xong ghi chú rồi
+                  // mới nhận một câu từ chối.
+                  disabled={
+                    bookingLoading ||
+                    !activePatient ||
+                    !policy ||
+                    offDuty[`${selectedSlot.doctorId}|${selectedDateIso}`] === true
+                  }
                   className="flex-[1.5] rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 disabled:opacity-50"
                 >
                   {bookingLoading ? "Đang xử lý..." : "Đặt lịch hẹn"}
