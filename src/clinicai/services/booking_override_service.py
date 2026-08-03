@@ -7,7 +7,7 @@ guards; Python validates early so a bad number becomes a 422 instead of an
 opaque constraint error.
 
 Override layers (resolve order):
-  Tầng 3  slot_booking_override   — date range × hour range × doctor
+  Tầng 3  slot_booking_override   — date range × MINUTE range × doctor
   Tầng 2  doctor_booking_override — per doctor, optionally per weekday
   Tầng 1  clinic.settings.booking — clinic default (C.3)
 
@@ -62,8 +62,11 @@ class SlotOverrideDTO:
     doctor_id: str | None
     date_start: date
     date_end: date
-    hour_start: int
-    hour_end: int
+    # PHÚT-trong-ngày, không phải giờ. Luật phòng khám khác nhau giữa 18:00 và
+    # 18:15 (BS Thành: 10 ca rồi 4 ca), nên độ mịn theo giờ không ghi lại được
+    # điều khách hàng thật sự nói. Xem 20260803000009.
+    minute_start: int
+    minute_end: int
     regular_cap: int | None
     walkin_cap: int | None
     reason: str
@@ -264,18 +267,18 @@ class BookingOverrideService:
         doctor_id: str | None = None,
         date_start: date,
         date_end: date,
-        hour_start: int,
-        hour_end: int,
+        minute_start: int,
+        minute_end: int,
         regular_cap: int | None = None,
         walkin_cap: int | None = None,
         reason: str,
     ) -> dict[str, Any]:
-        """Create a per-slot booking capacity override (date range)."""
+        """Create a per-slot booking capacity override (date × minute range)."""
         self._validate_slot_fields(
             date_start=date_start,
             date_end=date_end,
-            hour_start=hour_start,
-            hour_end=hour_end,
+            minute_start=minute_start,
+            minute_end=minute_end,
             regular_cap=regular_cap,
             walkin_cap=walkin_cap,
             reason=reason,
@@ -300,26 +303,54 @@ class BookingOverrideService:
                             "Bác sĩ không thuộc phòng khám này hoặc đã bị vô hiệu."
                         )
 
-                override_id = await conn.fetchval(
-                    """
-                    INSERT INTO slot_booking_override
-                        (clinic_id, doctor_id, date_start, date_end,
-                         hour_start, hour_end, regular_cap, walkin_cap,
-                         reason, created_by)
-                    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10::uuid)
-                    RETURNING id
-                    """,
-                    identity.clinic_id,
-                    doctor_id,
-                    date_start,
-                    date_end,
-                    hour_start,
-                    hour_end,
-                    regular_cap,
-                    walkin_cap,
-                    reason,
-                    identity.auth_user_id,
-                )
+                try:
+                    override_id = await conn.fetchval(
+                        """
+                        INSERT INTO slot_booking_override
+                            (clinic_id, doctor_id, date_start, date_end,
+                             minute_start, minute_end, regular_cap, walkin_cap,
+                             reason, created_by)
+                        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9,
+                                $10::uuid)
+                        RETURNING id
+                        """,
+                        identity.clinic_id,
+                        doctor_id,
+                        date_start,
+                        date_end,
+                        minute_start,
+                        minute_end,
+                        regular_cap,
+                        walkin_cap,
+                        reason,
+                        identity.auth_user_id,
+                    )
+                except asyncpg.ExclusionViolationError as exc:
+                    # PHẢI BẮT Ở ĐÂY. main.py có handler toàn cục cho
+                    # ExclusionViolationError, và nó trả về "Lịch hẹn xung đột
+                    # khung giờ với appointment khác" — đúng cho ràng buộc
+                    # appointment_no_doctor_overlap, hoàn toàn sai cho ràng buộc
+                    # này. Trưởng ca đang sửa LUẬT sẽ nhận một câu nói về LỊCH
+                    # HẸN và đi tìm một lịch hẹn không tồn tại.
+                    #
+                    # Đây cũng là lúc duy nhất nói được điều hữu ích: đã có một
+                    # luật phủ khung này rồi, hãy sửa hoặc xoá nó — chứ không
+                    # phải thêm một luật thứ hai mà database sẽ phải chọn bừa.
+                    overlapping = await self._find_overlap(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        doctor_id=doctor_id,
+                        date_start=date_start,
+                        date_end=date_end,
+                        minute_start=minute_start,
+                        minute_end=minute_end,
+                    )
+                    raise ValidationError(
+                        "Đã có một luật khác phủ khung giờ này"
+                        + (f" ({overlapping})" if overlapping else "")
+                        + ". Sửa hoặc xoá luật đó trước — hai luật cho cùng một "
+                        "khung thì không có cách nào biết luật nào đúng."
+                    ) from exc
 
                 await self._log_event(
                     conn,
@@ -330,8 +361,8 @@ class BookingOverrideService:
                         "doctor_id": doctor_id,
                         "date_start": str(date_start),
                         "date_end": str(date_end),
-                        "hour_start": hour_start,
-                        "hour_end": hour_end,
+                        "minute_start": minute_start,
+                        "minute_end": minute_end,
                         "regular_cap": regular_cap,
                         "walkin_cap": walkin_cap,
                         "reason": reason,
@@ -363,7 +394,7 @@ class BookingOverrideService:
             rows = await conn.fetch(
                 """
                 SELECT id, doctor_id, date_start, date_end,
-                       hour_start, hour_end, regular_cap, walkin_cap,
+                       minute_start, minute_end, regular_cap, walkin_cap,
                        reason, created_by, created_at
                   FROM slot_booking_override
                  WHERE clinic_id = $1::uuid
@@ -371,7 +402,7 @@ class BookingOverrideService:
                    AND date_start <= $3
                    AND ($4::uuid IS NULL OR doctor_id = $4::uuid
                         OR doctor_id IS NULL)
-                 ORDER BY date_start, hour_start
+                 ORDER BY date_start, minute_start
                 """,
                 identity.clinic_id,
                 query_date,
@@ -456,8 +487,8 @@ class BookingOverrideService:
         *,
         date_start: date,
         date_end: date,
-        hour_start: int,
-        hour_end: int,
+        minute_start: int,
+        minute_end: int,
         regular_cap: int | None,
         walkin_cap: int | None,
         reason: str,
@@ -468,12 +499,18 @@ class BookingOverrideService:
             raise ValidationError(
                 f"Khoảng thời gian tối đa {MAX_SLOT_RANGE_DAYS} ngày"
             )
-        if not 0 <= hour_start <= 23:
-            raise ValidationError("hour_start phải từ 0 đến 23")
-        if not 1 <= hour_end <= 24:
-            raise ValidationError("hour_end phải từ 1 đến 24")
-        if hour_end <= hour_start:
-            raise ValidationError("hour_end phải lớn hơn hour_start")
+        if not 0 <= minute_start <= 1439:
+            raise ValidationError("Giờ bắt đầu không hợp lệ")
+        if not 1 <= minute_end <= 1440:
+            raise ValidationError("Giờ kết thúc không hợp lệ")
+        if minute_end <= minute_start:
+            raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
+        # Bội số 5 — mọi độ dài khung hợp lệ (chia hết 60) là bội số của 5, nên
+        # một mốc lẻ chắc chắn cắt ngang một khung và để lại vùng không luật nào
+        # phủ. Chặn ở đây để người dùng nhận một câu tiếng Việt, thay vì nhận
+        # tên ràng buộc CHECK từ database.
+        if minute_start % 5 or minute_end % 5:
+            raise ValidationError("Mốc giờ phải theo bội số 5 phút")
         if regular_cap is None and walkin_cap is None:
             raise ValidationError(
                 "Ít nhất một trường (regular_cap, walkin_cap) phải có giá trị."
@@ -484,6 +521,54 @@ class BookingOverrideService:
             raise ValidationError(f"walkin_cap phải từ 0 đến {MAX_CAP}")
         if not reason or not reason.strip():
             raise ValidationError("Lý do thay đổi không được để trống.")
+
+    @staticmethod
+    async def _find_overlap(
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        doctor_id: str | None,
+        date_start: date,
+        date_end: date,
+        minute_start: int,
+        minute_end: int,
+    ) -> str | None:
+        """Describe the rule that already covers this window, for the error text.
+
+        The EXCLUDE constraint names itself, not the row it collided with. A
+        person who has to go and fix the other rule needs to know which one it
+        is; "slot_override_no_overlap" tells them nothing.
+        """
+        row = await conn.fetchrow(
+            """
+            SELECT date_start, date_end, minute_start, minute_end, reason
+              FROM slot_booking_override
+             WHERE clinic_id = $1::uuid
+               AND coalesce(doctor_id, '00000000-0000-0000-0000-000000000000')
+                 = coalesce($2::uuid, '00000000-0000-0000-0000-000000000000')
+               AND daterange(date_start, date_end, '[]')
+                && daterange($3::date, $4::date, '[]')
+               AND int4range(minute_start, minute_end) && int4range($5, $6)
+             LIMIT 1
+            """,
+            clinic_id,
+            doctor_id,
+            date_start,
+            date_end,
+            minute_start,
+            minute_end,
+        )
+        if row is None:
+            return None
+
+        def hhmm(minutes: int) -> str:
+            return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+        return (
+            f"{row['date_start']:%d/%m} – {row['date_end']:%d/%m}, "
+            f"{hhmm(row['minute_start'])}–{hhmm(row['minute_end'])}"
+            + (f", lý do: {row['reason']}" if row["reason"] else "")
+        )
 
     @staticmethod
     async def _log_event(
@@ -541,8 +626,8 @@ def _slot_row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
         "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "date_start": r["date_start"].isoformat(),
         "date_end": r["date_end"].isoformat(),
-        "hour_start": r["hour_start"],
-        "hour_end": r["hour_end"],
+        "minute_start": r["minute_start"],
+        "minute_end": r["minute_end"],
         "regular_cap": r["regular_cap"],
         "walkin_cap": r["walkin_cap"],
         "reason": r["reason"],

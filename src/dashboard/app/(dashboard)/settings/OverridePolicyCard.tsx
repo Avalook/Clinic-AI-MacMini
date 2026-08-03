@@ -7,7 +7,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { INPUT, LABEL, BTN, BTN_GHOST, CARD, TBL_WRAP, TBL_HEAD, TBL_ROW } from "../form-ui";
 import { Calendar, User, Clock, CheckCircle2, AlertCircle } from "lucide-react";
-import { slotRange } from "../../../lib/datetime";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 
 export interface DoctorOpt {
@@ -36,7 +35,9 @@ export default function OverridePolicyCard({
   const [toDate, setToDate] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
-  const [slotTime, setSlotTime] = useState<string>("18:00");
+  // Khung TỪ – ĐẾN. Mặc định 18:00–19:00 = trọn tiếng bận nhất của phòng khám.
+  const [slotFrom, setSlotFrom] = useState<string>("18:00");
+  const [slotTo, setSlotTo] = useState<string>("19:00");
   const [slotRegularCap, setSlotRegularCap] = useState<number>(5);
   const [slotWalkinCap, setSlotWalkinCap] = useState<number>(1);
   const [reason, setReason] = useState<string>("");
@@ -77,8 +78,42 @@ export default function OverridePolicyCard({
       setMsg({ kind: "err", text: "Vui lòng chọn từ ngày và đến ngày." });
       return;
     }
+    if (!policy) {
+      setMsg({
+        kind: "err",
+        text: "Chưa đọc được luật đặt lịch — không xác định được độ dài khung.",
+      });
+      return;
+    }
     setBusy(true);
     setMsg(null);
+
+    // KHUNG TỪ – ĐẾN, nửa mở [từ, đến).
+    //
+    // Bản cũ gửi `hour_start = parseInt("18:15") = 18`, `hour_end = 19`: nó VỨT
+    // BỎ PHÚT mà Trưởng ca vừa chọn, nên chọn 18:15 hay 18:45 đều tạo một luật
+    // y hệt phủ trọn tiếng 18h. Không đặt được "18:00 nhận 10 ca, sau 18:15
+    // nhận 4 ca", và mỗi lần thử lại sinh thêm một luật chồng lên luật cũ —
+    // prod có ba dòng như vậy và luật nào thắng là ngẫu nhiên.
+    //
+    // Nửa mở, không phải nửa đóng: 18:00–19:00 phủ các khung 18:00, 18:15,
+    // 18:30, 18:45 và DỪNG trước 19:00. Nếu bao gồm mốc cuối thì hai ngoại lệ
+    // liền kề (18:00–19:00 và 19:00–20:00) sẽ đụng nhau ở đúng khung 19:00, và
+    // ràng buộc EXCLUDE sẽ từ chối một thao tác hoàn toàn hợp lý.
+    const toMinutes = (hhmm: string): number => {
+      const [h, m] = hhmm.split(":").map(Number);
+      return (h ?? 0) * 60 + (m ?? 0);
+    };
+    const minuteStart = toMinutes(slotFrom);
+    // "24:00" không nhập được từ <input type="time">, nên 00:00 ở ô ĐẾN nghĩa là
+    // hết ngày — chứ không phải một khung rỗng.
+    const minuteEnd = slotTo === "00:00" ? 1440 : toMinutes(slotTo);
+
+    if (minuteEnd <= minuteStart) {
+      setBusy(false);
+      setMsg({ kind: "err", text: "Giờ kết thúc phải sau giờ bắt đầu." });
+      return;
+    }
 
     try {
       const res = await fetch("/api/booking-overrides/slot", {
@@ -88,8 +123,8 @@ export default function OverridePolicyCard({
           doctor_id: selectedDoctorId || null,
           date_start: fromDate,
           date_end: toDate,
-          hour_start: parseInt(slotTime.split(":")[0], 10),
-          hour_end: parseInt(slotTime.split(":")[0], 10) + 1,
+          minute_start: minuteStart,
+          minute_end: minuteEnd,
           regular_cap: slotRegularCap,
           walkin_cap: slotWalkinCap,
           reason: reason || "Điều chỉnh khung giờ",
@@ -109,11 +144,10 @@ export default function OverridePolicyCard({
       const now = new Date();
       const todayYmd = now.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
-      // `?? 15` cũ dán nhãn khung 15 phút lên một ngoại lệ của phòng khám dùng độ
-      // dài khác. Chưa đọc được luật thì hiện mốc bắt đầu, đừng bịa mốc kết thúc.
-      const displaySlot = policy
-        ? slotRange(slotTime, policy.slotMinutes)
-        : slotTime;
+      // Hiện đúng khung người dùng vừa nhập. Trước đây chỗ này gọi
+      // slotRange(mốc, độ_dài) và dán nhãn một khung đơn lên một ngoại lệ có thể
+      // dài nhiều khung — nhãn nói một đằng, luật vừa ghi nói một nẻo.
+      const displaySlot = `${slotFrom}–${slotTo}`;
       let successText = "";
       if (fromDate === toDate) {
         const fullDateStr = `Ngày ${d1} tháng ${m1} năm ${y1}`;
@@ -282,14 +316,33 @@ export default function OverridePolicyCard({
               />
             </div>
 
+            {/* TỪ – ĐẾN, không phải một mốc.
+                Bản trước chỉ có một ô giờ và ngoại lệ phủ đúng một khung, nên
+                "18:00–19:30 nhận 5 ca" phải nhập thành sáu lần. Sáu lần nhập
+                cho một ý định là sáu cơ hội nhập lệch nhau. */}
             <div>
-              <label className={LABEL}>Khung giờ cụ thể</label>
+              <label className={LABEL}>Từ giờ</label>
               <input
                 type="time"
-                value={slotTime}
-                onChange={(e) => setSlotTime(e.target.value)}
+                step={300}
+                value={slotFrom}
+                onChange={(e) => setSlotFrom(e.target.value)}
                 className={INPUT}
               />
+            </div>
+
+            <div>
+              <label className={LABEL}>Đến giờ</label>
+              <input
+                type="time"
+                step={300}
+                value={slotTo}
+                onChange={(e) => setSlotTo(e.target.value)}
+                className={INPUT}
+              />
+              <p className="mt-1 text-xs text-ink-muted">
+                Không bao gồm mốc cuối: 18:00–19:00 là các khung 18:00 tới 18:45.
+              </p>
             </div>
 
             <div>

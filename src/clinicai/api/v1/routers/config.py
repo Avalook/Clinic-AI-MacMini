@@ -208,8 +208,11 @@ class SlotOverrideRequest(BaseModel):
     doctor_id: UUID | None = None
     date_start: date
     date_end: date
-    hour_start: int = Field(ge=0, le=23)
-    hour_end: int = Field(ge=1, le=24)
+    # PHÚT-trong-ngày, không phải giờ (20260803000009). Luật của phòng khám
+    # khác nhau giữa 18:00 và 18:15, nên một ngoại lệ chỉ định được tới giờ là
+    # một ngoại lệ không ghi lại được điều người vận hành muốn nói.
+    minute_start: int = Field(ge=0, le=1439)
+    minute_end: int = Field(ge=1, le=1440)
     regular_cap: int | None = Field(default=None, ge=1, le=100)
     walkin_cap: int | None = Field(default=None, ge=0, le=100)
     reason: str = Field(min_length=1, max_length=500)
@@ -288,8 +291,8 @@ async def create_slot_override(
         doctor_id=str(body.doctor_id) if body.doctor_id else None,
         date_start=body.date_start,
         date_end=body.date_end,
-        hour_start=body.hour_start,
-        hour_end=body.hour_end,
+        minute_start=body.minute_start,
+        minute_end=body.minute_end,
         regular_cap=body.regular_cap,
         walkin_cap=body.walkin_cap,
         reason=body.reason,
