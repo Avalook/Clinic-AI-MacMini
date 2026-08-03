@@ -24,10 +24,13 @@ nhận hay từ chối. Nếu lưới nói còn chỗ thì đặt được; nế
 
 from __future__ import annotations
 
+from datetime import date as _date
 from typing import Any, Literal
 
 import asyncpg
 import structlog
+
+from clinicai.api.exceptions import ValidationError
 
 logger = structlog.get_logger()
 
@@ -61,6 +64,21 @@ class CapacityService:
         vòng lặp Python cũng ra kết quả ấy nhưng tốn một vòng mạng cho mỗi khung,
         và mở ra khả năng hai khung đọc hai trạng thái khác nhau giữa chừng.
         """
+        # ĐỔI SANG date THẬT TRƯỚC KHI GỬI XUỐNG. Tham số `$2::date` khiến
+        # Postgres khai kiểu là date, và asyncpg KHÔNG tự đọc chuỗi cho kiểu đó
+        # — nó gọi thẳng .toordinal() và ném AttributeError, thành lỗi 500.
+        #
+        # Chỗ này 500 suốt mà không ai thấy: endpoint /appointments/quote bị
+        # route `{id}` nuốt nên chưa bao giờ chạy tới đây, và mọi test đều gọi
+        # cell_state() — hàm thuần — chứ không đi qua asyncpg. Nó chỉ lộ ra
+        # đúng lúc lưới đặt lịch bắt đầu gọi thật.
+        try:
+            day = _date.fromisoformat(date)
+        except ValueError as exc:
+            raise ValidationError(
+                f"Ngày không hợp lệ: {date!r}. Định dạng đúng là YYYY-MM-DD."
+            ) from exc
+
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -125,7 +143,7 @@ class CapacityService:
                  ORDER BY sl.minute_of_day
                 """,
                 clinic_id,
-                date,
+                day,
                 doctor_id,
                 location_id,
             )
