@@ -21,22 +21,27 @@ from datetime import date
 import pytest
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.services.booking_override_service import BookingOverrideService
+from clinicai.services.booking_override_service import validate_rule
 
 
 def _validate(**over: object) -> None:
-    """Chạy validate với một bộ tham số hợp lệ, ghi đè phần cần thử."""
+    """Chạy validate với một bộ tham số hợp lệ, ghi đè phần cần thử.
+
+    Trỏ vào ``validate_rule`` — đường ghi hợp nhất — chứ không còn vào phần
+    kiểm riêng của bảng ngoại lệ. Hai tab đã gộp làm một, nên hai bộ luật kiểm
+    tra cũng phải gộp: giữ hai bộ là cách chắc chắn để chúng lệch nhau.
+    """
     base: dict[str, object] = {
+        "weekday": None,
         "date_start": date(2026, 8, 3),
         "date_end": date(2026, 8, 3),
         "minute_start": 18 * 60,
         "minute_end": 18 * 60 + 15,
         "regular_cap": 8,
         "walkin_cap": 2,
-        "reason": "Điều chỉnh khung giờ",
     }
     base.update(over)
-    BookingOverrideService._validate_slot_fields(**base)  # type: ignore[arg-type]
+    validate_rule(**base)  # type: ignore[arg-type]
 
 
 class TestTheClinicsRuleIsExpressible:
@@ -98,15 +103,15 @@ class TestBoundariesThatWouldLeaveGaps:
 
 
 class TestARuleMustSayWhatItDoes:
-    def test_a_rule_with_no_numbers_is_refused(self) -> None:
-        """Một ngoại lệ không đổi con số nào chỉ làm nhiễu bảng luật."""
-        with pytest.raises(ValidationError, match="Ít nhất một trường"):
-            _validate(regular_cap=None, walkin_cap=None)
+    """Hai con số là BẮT BUỘC, không còn là tuỳ chọn.
 
-    def test_a_rule_with_no_reason_is_refused(self) -> None:
-        """Trưởng ca sửa sức chứa thì người đọc audit phải biết vì sao."""
-        with pytest.raises(ValidationError, match="Lý do"):
-            _validate(reason="   ")
+    Bản cũ cho cả hai để trống rồi mới từ chối ("Ít nhất một trường…"). Trong
+    một khung thiết lập chung thì cách đó sai: người dùng điền một luật và phải
+    thấy CẢ HAI con số của nó, chứ không phải để trống một ô rồi tự đoán ô đó
+    lấy giá trị từ đâu. Giờ cả hai là trường bắt buộc ở ``BookingRuleRequest``,
+    nên "để trống" không còn biểu diễn được — điều kiện được dời từ lúc chạy
+    lên lúc gõ.
+    """
 
     def test_walkin_zero_is_allowed_but_regular_zero_is_not(self) -> None:
         """Không chỗ vãng lai là một quyết định; không chỗ đặt hẹn là đóng cửa.
@@ -115,7 +120,7 @@ class TestARuleMustSayWhatItDoes:
         regular_cap = 0 sẽ giấu ý định đó trong bảng ngoại lệ.
         """
         _validate(walkin_cap=0)
-        with pytest.raises(ValidationError, match="regular_cap"):
+        with pytest.raises(ValidationError, match="Số ca đặt trước"):
             _validate(regular_cap=0)
 
 
@@ -125,5 +130,25 @@ class TestRangeSanity:
             _validate(date_start=date(2026, 1, 1), date_end=date(2026, 12, 31))
 
     def test_end_before_start_is_refused(self) -> None:
-        with pytest.raises(ValidationError, match="date_end"):
+        with pytest.raises(ValidationError, match="sau ngày bắt đầu"):
             _validate(date_start=date(2026, 8, 10), date_end=date(2026, 8, 3))
+
+    def test_one_date_alone_is_refused(self) -> None:
+        """Nửa khoảng ngày là một luật không đọc được: tới bao giờ thì hết?"""
+        with pytest.raises(ValidationError, match="cả ngày bắt đầu"):
+            _validate(date_start=date(2026, 8, 3), date_end=None)
+
+
+class TestScopeAndWeekdayDoNotContradict:
+    def test_forever_rule_may_pick_a_weekday(self) -> None:
+        """Luật mãi mãi = lặp mỗi tuần, nên "thứ 3 hằng tuần" là câu hợp lệ."""
+        _validate(weekday=2, date_start=None, date_end=None)
+
+    def test_dated_rule_may_not_also_pick_a_weekday(self) -> None:
+        """Bảng luật tạm không có cột thứ.
+
+        Nhận rồi lặng lẽ bỏ qua là dạng sai tệ nhất: người dùng chọn "thứ 3",
+        luật áp cho cả bảy ngày trong khoảng, và không có gì nói ra điều đó.
+        """
+        with pytest.raises(ValidationError, match=r"không\s+chọn riêng thứ"):
+            _validate(weekday=2)

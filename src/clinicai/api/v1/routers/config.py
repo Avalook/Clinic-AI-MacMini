@@ -189,86 +189,70 @@ async def update_booking_policy(
 # ── Booking capacity overrides (C.4) ──────────────────────────────────
 
 
-class DoctorOverrideRequest(BaseModel):
-    """Luật đặt lịch THƯỜNG TRỰC cho một khung giờ (tầng 2).
+class BookingRuleRequest(BaseModel):
+    """MỘT luật số chỗ: ai — thứ mấy — khung giờ nào — mấy chỗ — tới bao giờ.
 
-    ``doctor_id`` để trống = luật cho mọi bác sĩ; ``minute_start``/``minute_end``
-    để trống = áp cho cả ngày. Khoảng phút chứ không phải giờ tròn: luật của
-    Dr4Women khác nhau giữa 18:00 và 18:15, nên độ mịn theo giờ không ghi lại
-    được điều Trưởng ca muốn nói.
+    Người dùng không chọn "tầng"; service chọn hộ theo việc có khoảng ngày hay
+    không (xem ``save_rule``). Trước đây chỗ này là hai request khác nhau trên
+    hai tab, và câu hỏi đầu tiên của người vận hành là *"tại sao không gộp một
+    khung thiết lập chung?"* — đúng, ba tầng là cách LƯU chứ không phải cách
+    NGHĨ.
+
+    ``doctor_ids`` rỗng = mọi bác sĩ. ``weekday`` để trống = mọi thứ.
+    ``date_start``/``date_end`` để trống = áp dụng mãi mãi.
     """
 
-    doctor_id: UUID | None = None
+    doctor_ids: list[UUID] = Field(default_factory=list, max_length=50)
     weekday: int | None = Field(default=None, ge=0, le=6)
-    minute_start: int | None = Field(default=None, ge=0, le=1439)
-    minute_end: int | None = Field(default=None, ge=1, le=1440)
-    slot_minutes: int | None = Field(default=None, ge=1, le=60)
-    regular_cap: int | None = Field(default=None, ge=1, le=100)
-    walkin_cap: int | None = Field(default=None, ge=0, le=100)
-    effective_from: date | None = None
-    effective_to: date | None = None
+    # PHÚT-trong-ngày, không phải giờ tròn (20260803000009). Luật của phòng
+    # khám khác nhau giữa 18:00 và 18:15, nên độ mịn theo giờ không ghi lại
+    # được điều Trưởng ca muốn nói.
+    minute_start: int = Field(ge=0, le=1439)
+    minute_end: int = Field(ge=1, le=1440)
+    regular_cap: int = Field(ge=1, le=100)
+    walkin_cap: int = Field(ge=0, le=100)
+    date_start: date | None = None
+    date_end: date | None = None
     reason: str | None = Field(default=None, max_length=500)
 
 
-class SlotOverrideRequest(BaseModel):
-    """Create a per-slot booking capacity override (date range)."""
-
-    doctor_id: UUID | None = None
-    date_start: date
-    date_end: date
-    # PHÚT-trong-ngày, không phải giờ (20260803000009). Luật của phòng khám
-    # khác nhau giữa 18:00 và 18:15, nên một ngoại lệ chỉ định được tới giờ là
-    # một ngoại lệ không ghi lại được điều người vận hành muốn nói.
-    minute_start: int = Field(ge=0, le=1439)
-    minute_end: int = Field(ge=1, le=1440)
-    regular_cap: int | None = Field(default=None, ge=1, le=100)
-    walkin_cap: int | None = Field(default=None, ge=0, le=100)
-    reason: str = Field(min_length=1, max_length=500)
-
-
-@router.post("/booking-overrides/doctor", status_code=201)
-async def create_doctor_override(
-    body: DoctorOverrideRequest,
+@router.post("/booking-rules", status_code=201)
+async def save_booking_rule(
+    body: BookingRuleRequest,
     identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Ghi luật thường trực cho một khung giờ (C.4 Tầng 2).
+    """Ghi một luật số chỗ (C.4).
 
-    Luật mới thắng: luật cũ phủ cùng khung sẽ bị cắt quanh nó, không phải báo
-    lỗi bắt người dùng đi dọn trước. Xem docstring của service.
+    Luật mới thắng: luật cũ cùng bác sĩ + cùng thứ phủ chung khung sẽ bị cắt
+    quanh nó, không phải báo lỗi bắt người dùng đi dọn trước.
     """
     from clinicai.services.booking_override_service import BookingOverrideService
 
-    return await BookingOverrideService(pool).create_doctor_override(
+    result: dict[str, object] = await BookingOverrideService(pool).save_rule(
         identity=identity,
-        doctor_id=str(body.doctor_id) if body.doctor_id else None,
+        doctor_ids=[str(d) for d in body.doctor_ids],
         weekday=body.weekday,
         minute_start=body.minute_start,
         minute_end=body.minute_end,
-        slot_minutes=body.slot_minutes,
         regular_cap=body.regular_cap,
         walkin_cap=body.walkin_cap,
-        effective_from=body.effective_from,
-        effective_to=body.effective_to,
+        date_start=body.date_start,
+        date_end=body.date_end,
         reason=body.reason,
     )
+    return result
 
 
-@router.get("/booking-overrides/doctor")
-async def list_doctor_overrides(
-    doctor_id: UUID | None = None,
-    active_only: bool = True,
+@router.get("/booking-rules")
+async def list_booking_rules(
     identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Xem override per-doctor hiện tại."""
+    """Mọi luật còn hiệu lực, hai tầng gộp làm một danh sách."""
     from clinicai.services.booking_override_service import BookingOverrideService
 
-    items = await BookingOverrideService(pool).list_doctor_overrides(
-        identity=identity,
-        doctor_id=str(doctor_id) if doctor_id else None,
-        active_only=active_only,
-    )
+    items = await BookingOverrideService(pool).list_rules(identity=identity)
     return {"ok": True, "items": items}
 
 
@@ -285,52 +269,6 @@ async def delete_doctor_override(
         identity=identity, override_id=str(override_id)
     )
     return {"ok": True}
-
-
-@router.post("/booking-overrides/slot", status_code=201)
-async def create_slot_override(
-    body: SlotOverrideRequest,
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, object]:
-    """Tạo override số chỗ cho khung giờ cụ thể (C.4 Tầng 3).
-
-    Hỗ trợ date range: ``date_start`` đến ``date_end`` (tối đa 90 ngày).
-    Dùng cho "tuần này", "tháng này", hoặc "từ ngày X đến ngày Y".
-    """
-    from clinicai.services.booking_override_service import BookingOverrideService
-
-    return await BookingOverrideService(pool).create_slot_override(
-        identity=identity,
-        doctor_id=str(body.doctor_id) if body.doctor_id else None,
-        date_start=body.date_start,
-        date_end=body.date_end,
-        minute_start=body.minute_start,
-        minute_end=body.minute_end,
-        regular_cap=body.regular_cap,
-        walkin_cap=body.walkin_cap,
-        reason=body.reason,
-    )
-
-
-@router.get("/booking-overrides/slot")
-async def list_slot_overrides(
-    date_from: date | None = None,
-    date_to: date | None = None,
-    doctor_id: UUID | None = None,
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, object]:
-    """Xem slot overrides, lọc theo ngày và/hoặc bác sĩ."""
-    from clinicai.services.booking_override_service import BookingOverrideService
-
-    items = await BookingOverrideService(pool).list_slot_overrides(
-        identity=identity,
-        date_from=date_from,
-        date_to=date_to,
-        doctor_id=str(doctor_id) if doctor_id else None,
-    )
-    return {"ok": True, "items": items}
 
 
 @router.delete("/booking-overrides/slot/{override_id}")
