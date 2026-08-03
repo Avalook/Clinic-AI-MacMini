@@ -11,6 +11,7 @@
  */
 
 import StatCard from "@/components/ui/StatCard";
+import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchTelemetry } from "@/lib/telemetry-server";
 
 export const metadata = { title: "Sức khoẻ API · ClinicAI" };
@@ -30,6 +31,11 @@ function timingTone(p95: number, threshold: number): string {
 }
 
 export default async function TelemetryPage() {
+  // Màn duy nhất trong nhóm /ops thiếu guard phía trang: nó chỉ dựa vào 403 của
+  // backend. Điều đó "an toàn" nhưng vẫn render một trang lỗi cho vai không có
+  // quyền, thay vì đưa họ về chỗ làm việc như mọi màn khác trong nhóm — và nó
+  // để ranh giới quyền nằm ở hai chỗ khác nhau tuỳ màn.
+  await requireNavAccess("/ops/telemetry");
   const result = await fetchTelemetry(WINDOW_MINUTES * 60);
 
   return (

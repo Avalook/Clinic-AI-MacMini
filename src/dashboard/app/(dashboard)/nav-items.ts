@@ -168,6 +168,14 @@ export const NAV: NavItem[] = [
   },
   { href: "/sono", label: "ĐD siêu âm", shortLabel: "Siêu âm", icon: ScanLine },
   { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
+  // Có trong NAV_ROLES (Quản lý + Trưởng ca) nhưng CHƯA TỪNG có mục ở đây, nên
+  // trang chỉ vào được bằng cách gõ URL — quyền đã cấp mà không có đường đi.
+  {
+    href: "/work-sessions",
+    label: "Buổi làm việc",
+    shortLabel: "Buổi",
+    icon: Timer,
+  },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   {
     href: "/audit-log",

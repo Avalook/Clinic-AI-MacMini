@@ -6,7 +6,8 @@ import { BookingPolicyProvider } from "./BookingPolicyContext";
 import RealtimeRefresher from "./RealtimeRefresher";
 import { leaveClinic } from "../(auth)/enter/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
-import { getClinicRole, getClinicStaffId } from "../../lib/clinic-session";
+import { getCurrentStaff } from "../../lib/current-staff";
+import { getClinicId, getClinicRole } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
@@ -28,17 +29,25 @@ export default async function DashboardLayout({
   if (!role) redirect("/login");
 
   // Identity comes from the staff row linked to the authenticated user.
-  let identity = ROLE_LABEL[role];
-  const staffId = await getClinicStaffId();
-  if (staffId) {
-    const supabase = await getSupabaseServer();
-    const { data } = await supabase
-      .from("staff")
-      .select("full_name, short_name")
-      .eq("id", staffId)
-      .maybeSingle();
-    if (data) identity = `${ROLE_LABEL[role]} · ${data.full_name ?? data.short_name}`;
-  }
+  //
+  // PHÒNG KHÁM + CƠ SỞ ĐI KÈM TÊN, KHÔNG PHẢI TUỲ CHỌN. Yêu cầu "tài khoản nào
+  // cũng phải có id phòng khám, cơ sở khám để không bị nhầm nữa" chỉ có tác dụng
+  // nếu người dùng ĐỌC được nó. Lưu đúng trong database mà không hiện ra thì
+  // đúng cái nhầm đó vẫn xảy ra — lễ tân đặt lịch cho cơ sở khác mà không có gì
+  // trên màn hình mâu thuẫn với họ.
+  //
+  // Một truy vấn ít hơn: getCurrentStaff() đã đọc staff + membership + tên cơ
+  // sở và được cache theo lượt render, còn khối cũ ở đây gọi lại bảng staff lần
+  // thứ hai cho đúng một cột.
+  const staff = await getCurrentStaff();
+  const staffId = staff?.id ?? null;
+  const who = staff?.full_name ?? staff?.short_name ?? "";
+  const place = [staff?.clinic_name, staff?.location_name]
+    .filter(Boolean)
+    .join(" · ");
+  const identity = [ROLE_LABEL[role], who, place]
+    .filter(Boolean)
+    .join(" · ");
 
   // Reception / CSKH / management get a top-right notice of appointments a
   // doctor declined (from today onward), so they can re-assign them.
@@ -67,6 +76,9 @@ export default async function DashboardLayout({
   // mà trigger enforce_slot_capacity sẽ dùng để từ chối, không theo hằng số.
   const bookingPolicy = await getBookingPolicy();
   const featureMode = await getFeatureMode();
+  // Truyền xuống để realtime lọc theo tenant NGAY TẠI SERVER thay vì đẩy thay
+  // đổi của phòng khám khác qua websocket rồi mới để RLS chặn.
+  const clinicId = await getClinicId();
 
   return (
     <NotificationProvider staffId={staffId}>
@@ -74,7 +86,7 @@ export default async function DashboardLayout({
         <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={leaveClinic}>
           {children}
           <DeclinedNotice items={declined} />
-          <RealtimeRefresher />
+          <RealtimeRefresher clinicId={clinicId} />
         </Shell>
       </BookingPolicyProvider>
     </NotificationProvider>

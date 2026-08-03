@@ -9,6 +9,10 @@ import { getBookingPolicy } from "../../../../lib/booking-policy";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import BookingPolicyCard from "../BookingPolicyCard";
 import OverridePolicyCard, { type DoctorOpt } from "../OverridePolicyCard";
+import MeasuredDurationCard, {
+  type DurationStatRow,
+} from "../MeasuredDurationCard";
+import { listBookableDoctors } from "../../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,19 +21,44 @@ export default async function BookingPolicyPage() {
   if (!isOpsAdmin(role)) redirect("/home");
 
   const supabase = await getSupabaseServer();
-  const [bookingPolicy, staffRes] = await Promise.all([
+  const [bookingPolicy, staffRes, durationRes] = await Promise.all([
     getBookingPolicy(),
+    listBookableDoctors(),
+    // Thời lượng ĐO ĐƯỢC, đặt cạnh chỗ chỉnh số chỗ. RLS của view là
+    // security_invoker nên nó chỉ trả số liệu của phòng khám đang đăng nhập.
+    // Giới hạn 40 dòng, ưu tiên khung có nhiều ca nhất — bảng này để cân lịch,
+    // không phải để tra cứu toàn bộ lịch sử.
     supabase
-      .from("staff")
-      .select("id, full_name")
-      .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-      .eq("is_active", true)
-      .order("full_name"),
+      .from("v_consultation_duration_stats")
+      .select(
+        "doctor_id, vn_weekday, vn_hour, patient_kind, sample_count, median_minutes, p90_minutes",
+      )
+      .order("sample_count", { ascending: false })
+      .limit(40),
   ]);
 
-  const doctors: DoctorOpt[] = (staffRes.data ?? []).map((s) => ({
-    id: s.id,
-    name: s.full_name,
+  // DoctorOpt dùng `name`, helper trả `label` — đổi tên trường, không đổi nguồn.
+  const doctors: DoctorOpt[] = staffRes.map((d) => ({
+    id: d.id,
+    name: d.label,
+  }));
+
+  // View trả doctor_id; đổi sang tên ở đây thay vì embed trong truy vấn —
+  // v_consultation_duration_stats là view, PostgREST không suy ra được khoá
+  // ngoại để nhúng, và danh sách bác sĩ vừa đọc xong ngay trên.
+  const doctorName = new Map(doctors.map((d) => [d.id, d.name]));
+  const durationRows: DurationStatRow[] = (
+    (durationRes.data as
+      | (Omit<DurationStatRow, "doctor_name"> & { doctor_id: string | null })[]
+      | null) ?? []
+  ).map((r) => ({
+    doctor_name: r.doctor_id ? (doctorName.get(r.doctor_id) ?? null) : null,
+    vn_weekday: r.vn_weekday,
+    vn_hour: r.vn_hour,
+    patient_kind: r.patient_kind,
+    sample_count: r.sample_count,
+    median_minutes: r.median_minutes,
+    p90_minutes: r.p90_minutes,
   }));
 
   return (
@@ -46,6 +75,8 @@ export default async function BookingPolicyPage() {
       <BookingPolicyCard policy={bookingPolicy} />
 
       <OverridePolicyCard doctors={doctors} policy={bookingPolicy} />
+
+      <MeasuredDurationCard rows={durationRows} />
     </main>
   );
 }

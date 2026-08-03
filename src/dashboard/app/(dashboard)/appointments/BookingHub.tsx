@@ -5,7 +5,8 @@
 // Cột 2 (Giữa - 1fr): Bảng lưới giờ chuẩn mockup (Cột đầu = Giờ, các ô KHÔNG ghi lại giờ, màu & trạng thái Có thể đặt / Còn 1 chỗ / Đã đầy / Đang giữ / Đang chọn ✓).
 // Cột 3 (Phải - 320px): Panel Xác nhận thông tin đặt lịch (Sức chứa 1/3 đã đặt, Checklist, Đặt lịch hẹn).
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -28,7 +29,8 @@ import {
   History,
 } from "lucide-react";
 import Link from "next/link";
-import { slotRange } from "@/lib/datetime";
+import { fmtTime, slotRange, VN_TZ, vnLocalToUtcISO } from "@/lib/datetime";
+import { isDeadStatus } from "@/lib/slot-capacity";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import NewPatientForm, {
   type Option,
@@ -43,6 +45,7 @@ export interface PatientLite {
   date_of_birth: string | null;
   gender: string | null;
   address: string | null;
+  location_id?: string | null;
 }
 
 export interface ApptLite {
@@ -63,54 +66,56 @@ interface Props {
   appts: ApptLite[];
 }
 
-const TIME_SLOTS = [
-  "08:00",
-  "08:15",
-  "08:30",
-  "08:45",
-  "09:00",
-  "09:15",
-  "09:30",
-  "09:45",
-  "10:00",
-  "10:15",
-  "10:30",
-  "10:45",
-  "11:00",
-  "11:15",
-  "11:30",
-  "11:45",
-  "14:00",
-  "14:15",
-  "14:30",
-  "14:45",
-  "15:00",
-  "15:15",
-  "15:30",
-  "15:45",
-  "16:00",
-  "16:15",
-  "16:30",
-  "16:45",
-  "17:00",
-];
+const DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
-const WEEK_DAYS = [
-  { dayName: "T2", dateStr: "11/05", isoDate: "2026-05-11" },
-  { dayName: "T3", dateStr: "12/05", isoDate: "2026-05-12" },
-  { dayName: "T4", dateStr: "13/05", isoDate: "2026-05-13" },
-  { dayName: "T5", dateStr: "14/05", isoDate: "2026-05-14" },
-  { dayName: "T6", dateStr: "15/05", isoDate: "2026-05-15" },
-  { dayName: "T7", dateStr: "16/05", isoDate: "2026-05-16" },
-  { dayName: "CN", dateStr: "17/05", isoDate: "2026-05-17" },
-];
+/** Ngày hôm nay theo giờ VN, dạng "YYYY-MM-DD".
+ *
+ *  KHÔNG dùng toISOString().slice(0,10): nó cho ngày UTC, nên từ 00:00 đến
+ *  07:00 giờ VN nó trả về NGÀY HÔM QUA — đúng khung giờ ca đêm đang làm việc. */
+function vnToday(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: VN_TZ });
+}
+
+/** Tuần (T2→CN) chứa `anchor`, lệch đi `offset` tuần.
+ *
+ *  TRƯỚC ĐÂY BẢY NGÀY NÀY LÀ HẰNG SỐ: 11/05–17/05/2026, viết cứng trong mã.
+ *  Màn "Đặt lịch" vì thế luôn mở ra một tuần của tháng Năm và KHÔNG có cách nào
+ *  chọn ngày khác — CSKH không đặt được lịch cho hôm nay từ chính màn đặt lịch.
+ *  Nó không báo lỗi, chỉ hiện sai ngày, nên nhìn qua vẫn như đang chạy. */
+function weekOf(anchorIso: string, offset: number): {
+  dayName: string;
+  dateStr: string;
+  isoDate: string;
+}[] {
+  const anchor = new Date(`${anchorIso}T12:00:00+07:00`);
+  // getUTCDay trên mốc 12:00 VN vẫn ra đúng thứ trong ngày VN (12:00+07 = 05:00Z).
+  const dow = anchor.getUTCDay(); // 0=CN
+  const mondayShift = (dow + 6) % 7; // CN→6, T2→0
+  const monday = new Date(anchor);
+  monday.setUTCDate(monday.getUTCDate() - mondayShift + offset * 7);
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setUTCDate(d.getUTCDate() + i);
+    const iso = d.toLocaleDateString("en-CA", { timeZone: VN_TZ });
+    const [, mm, dd] = iso.split("-");
+    return {
+      dayName: DAY_NAMES[(dow - mondayShift + i + 7) % 7] ?? "",
+      dateStr: `${dd}/${mm}`,
+      isoDate: iso,
+    };
+  });
+}
 
 /** Giờ mở cửa theo luật Dr4Women (lib/roster.ts):
  *  T2–T6 (Ngày thường): Chỉ khám ngoài giờ/buổi tối 17:00 – 23:00.
  *  T7–CN (Cuối tuần): Khám cả ngày 08:00 – 23:00.
- */
-function generateSlotsForDate(isoDate: string): string[] {
-  const dow = new Date(isoDate + "T00:00:00Z").getUTCDay();
+ *
+ *  `stepMinutes` đến từ clinic.settings — KHÔNG viết cứng 15 ở đây. Lưới vẽ 15
+ *  phút trong một phòng khám cấu hình 30 phút nghĩa là mời lễ tân bấm vào những
+ *  ô mà trigger sức chứa sẽ từ chối, và thông báo lỗi không nói được vì sao. */
+function generateSlotsForDate(isoDate: string, stepMinutes: number): string[] {
+  const dow = new Date(`${isoDate}T12:00:00+07:00`).getUTCDay();
   const isWeekend = dow === 0 || dow === 6;
   const startHour = isWeekend ? 8 : 17;
   const endHour = 22;
@@ -118,7 +123,7 @@ function generateSlotsForDate(isoDate: string): string[] {
   const slots: string[] = [];
   for (let h = startHour; h <= endHour; h++) {
     const hh = String(h).padStart(2, "0");
-    for (let m = 0; m < 60; m += 15) {
+    for (let m = 0; m < 60; m += stepMinutes) {
       const mm = String(m).padStart(2, "0");
       slots.push(`${hh}:${mm}`);
     }
@@ -144,15 +149,42 @@ export default function BookingHub({
   patients,
   appts,
 }: Props) {
+  const router = useRouter();
   const policy = useBookingPolicy();
-  const dynamicCap = (policy?.regularCap ?? 3) + (policy?.walkinCap ?? 0);
+  // SỐ CHỖ KHÔNG CÓ MẶC ĐỊNH. Trước đây là `(policy?.regularCap ?? 3) +
+  // (policy?.walkinCap ?? 0)` — số 3 không trùng với mặc định 2 ở bất kỳ chỗ nào
+  // khác trong hệ thống, nên khi backend im lặng thì lưới mời đặt vào chỗ thứ ba
+  // mà trigger sẽ từ chối. Thiếu luật ⇒ 0 ⇒ lưới khoá (xem gridLocked bên dưới).
+  const dynamicCap = policy ? policy.regularCap + policy.walkinCap : 0;
+
+  // LƯỚI VẪN PHẢI HIỆN KHI CHƯA ĐỌC ĐƯỢC LUẬT — CHỈ LÀ KHÔNG ĐẶT ĐƯỢC.
+  //
+  // Tôi từng để `slotMinutes ? generateSlots(...) : []`, và đó là một lỗi tệ hơn
+  // cái nó định sửa: backend không trả lời thì màn "Đặt lịch" hiện ra TRỐNG
+  // TRƠN. Một màn trắng không nói được nó đang hỏng hay đang tải hay hôm nay
+  // không có ca — người dùng chỉ thấy hệ thống biến mất.
+  //
+  // Hai điều cần đồng thời đúng:
+  //   * KHÔNG mời đặt vào một lưới vẽ theo con số bịa (booking-policy.ts);
+  //   * KHÔNG xoá màn hình của người đang làm việc.
+  //
+  // Nên khi thiếu luật, lưới vẫn vẽ ở bước 15 phút NHƯNG mọi ô bị khoá và nút
+  // đặt lịch tắt. Không có gì sai có thể được ghi xuống, mà bố cục vẫn còn đó để
+  // người dùng biết mình đang ở đâu. Đây là khung xương, không phải một luật —
+  // khác biệt nằm ở chỗ không bấm được.
+  const gridLocked = !policy;
+  const PROVISIONAL_STEP_MIN = 15;
+  const slotMinutes = policy?.slotMinutes ?? PROVISIONAL_STEP_MIN;
 
   const [mode, setMode] = useState<"grid" | "new_patient">("grid");
-  const [selectedDateIso, setSelectedDateIso] = useState("2026-05-15");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDateIso, setSelectedDateIso] = useState(vnToday);
+
+  const weekDays = useMemo(() => weekOf(vnToday(), weekOffset), [weekOffset]);
 
   const timeSlots = useMemo(
-    () => generateSlotsForDate(selectedDateIso),
-    [selectedDateIso],
+    () => generateSlotsForDate(selectedDateIso, slotMinutes),
+    [selectedDateIso, slotMinutes],
   );
 
   // Clean Service Names
@@ -198,9 +230,19 @@ export default function BookingHub({
   const [chkService, setChkService] = useState(true);
   const [chkDocSlot, setChkDocSlot] = useState(true);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
 
-  // Active doctors list
+  // Ba cột bác sĩ ở chế độ "Tất cả" — ĐÚNG THIẾT KẾ, không phải giới hạn nhầm.
+  //
+  // Tôi đã có lần đổi chỗ này thành `doctors` (bỏ slice) vì tưởng nó khiến các
+  // bác sĩ còn lại không đặt lịch được. Sai: ô lọc bác sĩ ngay phía trên liệt kê
+  // ĐỦ danh sách (`doctors.map` ở phần render), chọn ai thì lưới đổi sang đúng
+  // người đó. `slice` chỉ quyết định xem lưới tổng quan hiện mấy cột.
+  //
+  // Và ba là con số của bố cục: lưới ba cột nằm vừa khung giữa mà không cuộn
+  // ngang. Đổ mười lăm cột vào đó làm hỏng màn hình để giải quyết một vấn đề
+  // không tồn tại.
   const activeDoctors = useMemo(() => {
     if (selectedDoctorId === "all") return doctors.slice(0, 3);
     const doc = doctors.find((d) => d.id === selectedDoctorId);
@@ -234,27 +276,128 @@ export default function BookingHub({
     );
   }, [patients, searchQuery]);
 
-  // Calculate Cell Status with dynamic capacity from booking policy!
+  // Lịch của NGÀY ĐANG CHỌN.
+  //
+  // `appts` từ server chỉ chứa lịch HÔM NAY (page.tsx dùng vnTodayRangeUtc).
+  // Chừng nào dải ngày còn là bảy hằng số của tháng Năm thì điều đó không lộ ra;
+  // khi lưới đi được sang ngày khác, mọi ngày không phải hôm nay sẽ hiện trống
+  // trơn — tệ hơn hẳn con số sai, vì nó trông như một ngày thật sự còn chỗ.
+  //
+  // GET /api/appointments?date= đã có sẵn (và giờ đã có gate vai + trần 500
+  // dòng). Ngày hôm nay dùng luôn dữ liệu server để không tốn một vòng mạng cho
+  // thứ vừa render xong.
+  // DẪN XUẤT, KHÔNG SAO CHÉP VÀO STATE. Bản đầu giữ một `apptsForDate` rồi
+  // đồng bộ nó trong effect bằng setState cho nhánh "hôm nay" — đúng thứ
+  // react-hooks/set-state-in-effect chặn, và có lý do: nó render hai lần cho một
+  // dữ liệu vốn đã có sẵn trong props.
+  const [todayIso] = useState(vnToday);
+  const [fetchedByDate, setFetchedByDate] = useState<
+    Record<string, ApptLite[]>
+  >({});
+
+  const isToday = selectedDateIso === todayIso;
+  const apptsForDate = isToday ? appts : fetchedByDate[selectedDateIso];
+  // undefined = CHƯA BIẾT, khác hẳn [] = "ngày này trống". Phân biệt hai thứ đó
+  // là điều quan trọng nhất ở đây: coi "chưa tải xong" là "còn chỗ" thì lưới
+  // mời đặt vào một khung có thể đã kín.
+  const dateLoading = !isToday && apptsForDate === undefined;
+
+  useEffect(() => {
+    if (isToday || fetchedByDate[selectedDateIso] !== undefined) return;
+    const ctrl = new AbortController();
+    fetch(`/api/appointments?date=${selectedDateIso}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
+      .then((d: { appointments?: ApptLite[] }) =>
+        setFetchedByDate((prev) => ({
+          ...prev,
+          [selectedDateIso]: d.appointments ?? [],
+        })),
+      )
+      .catch(() => {
+        // Để nguyên `undefined` → lưới tiếp tục nói "đang tải" thay vì tự tin
+        // báo còn chỗ. Chỉ báo realtime ở đầu màn nói kênh có hỏng hay không.
+      });
+    return () => ctrl.abort();
+  }, [selectedDateIso, isToday, fetchedByDate]);
+
+  // Số lịch còn giữ chỗ, gom theo (bác sĩ, ngày VN, giờ VN).
+  //
+  // HAI LỖI ĐƯỢC SỬA Ở ĐÂY, VÀ CẢ HAI ĐỀU IM LẶNG.
+  //
+  // 1. So sánh múi giờ. Bản cũ làm `a.slot_start.slice(11, 16)` — cắt chuỗi ISO
+  //    UTC để lấy "HH:mm" rồi đem so với nhãn giờ VN trên lưới. Một lịch 18:00
+  //    giờ VN nằm trong database là 11:00Z, nên phép so sánh KHÔNG BAO GIỜ đúng.
+  //    Hệ quả: mọi ô luôn hiện "Có thể đặt · 0/N", kể cả khung đã kín, và CSKH
+  //    chỉ biết mình đặt trùng khi trigger trả về lỗi 409.
+  //
+  // 2. Không lọc theo NGÀY. Bản cũ chỉ so giờ, nên nếu phép so sánh có đúng thì
+  //    một lịch 18:00 của thứ Ba vẫn được đếm vào ô 18:00 của thứ Năm.
+  //
+  // Trạng thái chết (CANCELLED/NO_SHOW/DOCTOR_DECLINED) không giữ chỗ — cùng
+  // danh sách với lib/slot-capacity.ts và DEAD_STATUSES ở booking_service.py.
+  const usageByCell = useMemo(() => {
+    const m = new Map<string, ApptLite[]>();
+    for (const a of apptsForDate ?? []) {
+      if (!a.slot_start || isDeadStatus(a.status)) continue;
+      const d = new Date(a.slot_start);
+      if (Number.isNaN(d.getTime())) continue;
+      const isoDate = d.toLocaleDateString("en-CA", { timeZone: VN_TZ });
+      const hhmm = fmtTime(d);
+      const key = `${a.doctor_id ?? ""}|${isoDate}|${hhmm}`;
+      const arr = m.get(key);
+      if (arr) arr.push(a);
+      else m.set(key, [a]);
+    }
+    return m;
+  }, [apptsForDate]);
+
   function getCellStatus(docId: string, time: string): CellStatus {
     const maxCap = Math.max(1, dynamicCap);
+    // Chưa có luật ⇒ chưa biết khung này mấy chỗ. Trả về "full" để mọi ô render
+    // ở nhánh disabled sẵn có, thay vì thêm một tone mới chỉ dùng cho lúc hỏng.
+    if (gridLocked) {
+      return {
+        tone: "full",
+        label: "Chưa có luật",
+        sub: "—",
+        bookedCount: 0,
+        maxCap,
+      };
+    }
+    // Chưa biết ngày này có gì thì nói là chưa biết. Vẽ "Có thể đặt" trong lúc
+    // còn đang tải là câu khẳng định duy nhất ở màn này có thể gây đặt trùng.
+    if (dateLoading) {
+      return {
+        tone: "holding",
+        label: "Đang tải…",
+        sub: "—",
+        bookedCount: 0,
+        maxCap,
+      };
+    }
+    const matchingAppts =
+      usageByCell.get(`${docId}|${selectedDateIso}|${time}`) ?? [];
+    const bookedCount = matchingAppts.length;
     const isSelected =
       selectedSlot.doctorId === docId && selectedSlot.time === time;
+
+    // Ô đang chọn vẫn phải nói SỰ THẬT về sức chứa. Bản cũ trả cứng
+    // bookedCount: 1 cho ô được chọn, nên bấm vào một khung đã đầy thì nhãn đổi
+    // thành "Còn N chỗ" — giao diện tự trấn an người dùng ngay trước khi server
+    // từ chối.
     if (isSelected) {
       return {
         tone: "selected",
-        label: `Còn ${Math.max(0, maxCap - 1)} chỗ`,
-        sub: `1/${maxCap}`,
-        bookedCount: 1,
+        label:
+          bookedCount >= maxCap
+            ? "Đã đầy — chọn khung khác"
+            : `Còn ${maxCap - bookedCount} chỗ`,
+        sub: `${bookedCount}/${maxCap}`,
+        bookedCount,
         maxCap,
       };
     }
 
-    const matchingAppts = appts.filter((a) => {
-      if (a.doctor_id !== docId) return false;
-      const apptTime = a.slot_start.slice(11, 16);
-      return apptTime === time && a.status !== "CANCELLED";
-    });
-    const bookedCount = matchingAppts.length;
     const isHolding = matchingAppts.some(
       (a) => a.status === "WAITING" || a.status === "CSKH_CONFIRMED",
     );
@@ -263,7 +406,7 @@ export default function BookingHub({
       return {
         tone: "full",
         label: "Đã đầy",
-        sub: `${maxCap}/${maxCap}`,
+        sub: `${bookedCount}/${maxCap}`,
         bookedCount,
         maxCap,
       };
@@ -278,10 +421,9 @@ export default function BookingHub({
       };
     }
     if (bookedCount > 0) {
-      const remaining = maxCap - bookedCount;
       return {
         tone: "few",
-        label: `Còn ${remaining} chỗ`,
+        label: `Còn ${maxCap - bookedCount} chỗ`,
         sub: `${bookedCount}/${maxCap}`,
         bookedCount,
         maxCap,
@@ -304,21 +446,41 @@ export default function BookingHub({
 
   async function handleConfirmBooking() {
     if (!activePatient || !selectedSlot.doctorId) return;
+    // Không có luật thì không có lưới, và không có lưới thì không đặt được: gửi
+    // đi lúc này chỉ tạo một lịch dài sai giờ. Nút đã bị vô hiệu hoá ở phần
+    // render; đây là chốt chặn thứ hai.
+    if (!policy) {
+      setBookingError("Chưa đọc được luật đặt lịch của phòng khám — thử tải lại trang.");
+      return;
+    }
+    const serviceId = selectedServiceId || cleanServices[0]?.id;
+    if (!serviceId) {
+      setBookingError("Chưa chọn dịch vụ.");
+      return;
+    }
+
     setBookingLoading(true);
+    setBookingError(null);
     try {
-      const slotMins = policy?.slotMinutes ?? 15;
+      const slotMins = policy.slotMinutes;
       const timeDisplay = slotRange(selectedSlot.time, slotMins);
 
-      // Compute slot_start and slot_end in ISO string format
-      const targetDate = selectedDateIso || new Date().toISOString().slice(0, 10);
+      const targetDate = selectedDateIso || vnToday();
       const [startH, startM] = selectedSlot.time.split(":").map(Number);
       const totalStartMin = (startH ?? 0) * 60 + (startM ?? 0);
       const totalEndMin = totalStartMin + slotMins;
-      const endH = String(Math.floor(totalEndMin / 60)).padStart(2, "0");
+      // `% 24` để khung cuối ngày không sinh ra "24:00", một giờ không tồn tại
+      // trong ISO-8601 mà Date.parse trả về NaN. Khung 23:45 + 15' là 00:00 hôm
+      // sau; vnLocalToUtcISO nhận ngày kế tiếp nên mốc UTC vẫn đúng.
+      const endDayShift = Math.floor(totalEndMin / (24 * 60));
+      const endH = String(Math.floor(totalEndMin / 60) % 24).padStart(2, "0");
       const endM = String(totalEndMin % 60).padStart(2, "0");
-
-      const slotStartIso = `${targetDate}T${selectedSlot.time}:00+07:00`;
-      const slotEndIso = `${targetDate}T${endH}:${endM}:00+07:00`;
+      const endDate = endDayShift
+        ? new Date(
+            new Date(`${targetDate}T00:00:00+07:00`).getTime() +
+              endDayShift * 86_400_000,
+          ).toLocaleDateString("en-CA", { timeZone: VN_TZ })
+        : targetDate;
 
       const res = await fetch("/api/appointments", {
         method: "POST",
@@ -326,10 +488,15 @@ export default function BookingHub({
         body: JSON.stringify({
           clinic_patient_id: activePatient.clinic_patient_id,
           doctor_id: selectedSlot.doctorId,
-          service_type_id: selectedServiceId || cleanServices[0]?.id,
-          location_id: locations[0]?.id,
-          slot_start: slotStartIso,
-          slot_end: slotEndIso,
+          service_type_id: serviceId,
+          // KHÔNG gửi location_id. Server dùng cơ sở của người đang đăng nhập
+          // (identity.location_id) — nó biết chắc, còn trình duyệt thì đoán.
+          slot_start: vnLocalToUtcISO(targetDate, selectedSlot.time),
+          slot_end: vnLocalToUtcISO(endDate, `${endH}:${endM}`),
+          // ĐẶT TRƯỚC, KHÔNG PHẢI VÃNG LAI. Màn này không gửi trường nào và
+          // backend mặc định "WALK_IN", nên mọi lịch CSKH đặt đều ăn vào ô để
+          // dành cho khách đến thẳng quầy, còn ô đặt trước thì trống. Nói rõ ra.
+          booking_channel: "HOTLINE",
           notes: note,
         }),
       });
@@ -338,12 +505,21 @@ export default function BookingHub({
         setConfirmedMsg(
           `Đã đặt lịch hẹn thành công cho ${activePatient.full_name} vào khung giờ ${timeDisplay} với ${selectedSlot.doctorName}!`,
         );
+        setNote("");
+        // Không có dòng này, ô vừa đặt vẫn vẽ là còn trống cho tới nhịp poll kế
+        // tiếp: người đặt tiếp lịch thứ hai vào đúng khung đó rồi nhận 409 ngay
+        // sau một thông báo "thành công".
+        router.refresh();
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(
-          `Lỗi đặt lịch: ${err.error || err.message || err.detail || "Không thể đặt lịch"}`,
+        // alert() chặn luồng, không đọc được trên điện thoại và là chỗ duy nhất
+        // trong toàn app dùng nó. Lỗi hiện ngay cạnh nút đã bấm.
+        setBookingError(
+          err.error || err.message || err.detail || "Không thể đặt lịch.",
         );
       }
+    } catch {
+      setBookingError("Mất kết nối tới máy chủ — lịch chưa được lưu.");
     } finally {
       setBookingLoading(false);
     }
@@ -356,6 +532,21 @@ export default function BookingHub({
   return (
     <div className="space-y-4">
 
+
+      {/* Không đọc được luật đặt lịch thì lưới KHÔNG được đoán. Trước đây nó âm
+          thầm rơi về 15 phút / 3 chỗ — những con số không phải của phòng khám
+          nào — rồi mời lễ tân bấm vào các ô mà database sẽ từ chối. */}
+      {!policy && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-warning/40 bg-warning-bg p-3.5 text-xs text-warning"
+        >
+          <span className="font-semibold">Chưa đọc được luật đặt lịch.</span>{" "}
+          Lưới giờ và số chỗ đến từ cấu hình phòng khám; khi chưa đọc được, màn
+          này không vẽ lưới thay vì vẽ một lưới sai. Thử tải lại trang — nếu vẫn
+          vậy thì máy chủ xử lý đang không phản hồi và hiện chưa đặt lịch được.
+        </div>
+      )}
 
       {confirmedMsg && (
         <div className="flex items-center justify-between rounded-2xl border border-success/30 bg-success/10 p-3.5 text-xs text-success shadow-xs">
@@ -621,26 +812,48 @@ export default function BookingHub({
               {/* Date navigator & legend */}
               <div className="space-y-2.5 rounded-2xl border border-line bg-surface p-3.5 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
+                  {/* Ba nút này TRƯỚC ĐÂY KHÔNG CÓ onClick: mũi tên trái/phải và
+                      "Hôm nay" vẽ ra rồi không làm gì, còn nhãn tuần là chuỗi
+                      viết cứng "11–16/05/2026". Bấm vào không có phản hồi nào,
+                      nên không phân biệt được với một trang đang treo. */}
                   <div className="flex items-center gap-2">
                     <div className="flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
-                      <button className="p-1 hover:text-brand-600">
+                      <button
+                        type="button"
+                        aria-label="Tuần trước"
+                        onClick={() => setWeekOffset((w) => w - 1)}
+                        className="p-1 hover:text-brand-600"
+                      >
                         <ChevronLeft size={14} />
                       </button>
-                      <span className="px-2 font-bold text-ink">
-                        11–16/05/2026
+                      <span className="px-2 font-bold text-ink tabular-nums">
+                        {weekDays[0]?.dateStr}–{weekDays[6]?.dateStr}/
+                        {weekDays[0]?.isoDate.slice(0, 4)}
                       </span>
-                      <button className="p-1 hover:text-brand-600">
+                      <button
+                        type="button"
+                        aria-label="Tuần sau"
+                        onClick={() => setWeekOffset((w) => w + 1)}
+                        className="p-1 hover:text-brand-600"
+                      >
                         <ChevronRight size={14} />
                       </button>
                     </div>
-                    <button className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWeekOffset(0);
+                        setSelectedDateIso(vnToday());
+                      }}
+                      className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
+                    >
                       Hôm nay
                     </button>
                   </div>
 
                   {/* Day Tabs */}
                   <div className="flex items-center gap-1 overflow-x-auto text-xs">
-                    {WEEK_DAYS.map((d) => {
+                    {weekDays.map((d) => {
                       const isSelectedDay = d.isoDate === selectedDateIso;
                       return (
                         <button
@@ -958,6 +1171,18 @@ export default function BookingHub({
                 <span>Lịch hẹn sẽ được tạo ngay khi bạn đặt. 10 phút ưu tiên chỉ áp dụng lúc bệnh nhân check-in (theo giờ hẹn).</span>
               </div>
 
+              {/* Lỗi hiện ngay cạnh nút vừa bấm, thay cho alert() — hộp thoại
+                  native chặn luồng, không theo giao diện chung và trên điện
+                  thoại thì gần như không đọc được. */}
+              {bookingError ? (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-danger/30 bg-danger-bg px-3 py-2 text-xs text-danger"
+                >
+                  {bookingError}
+                </p>
+              ) : null}
+
               {/* Action Buttons */}
               <div className="flex items-center gap-2 pt-1">
                 <button
@@ -970,7 +1195,7 @@ export default function BookingHub({
                 <button
                   type="button"
                   onClick={handleConfirmBooking}
-                  disabled={bookingLoading || !activePatient}
+                  disabled={bookingLoading || !activePatient || !policy}
                   className="flex-[1.5] rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 disabled:opacity-50"
                 >
                   {bookingLoading ? "Đang xử lý..." : "Đặt lịch hẹn"}

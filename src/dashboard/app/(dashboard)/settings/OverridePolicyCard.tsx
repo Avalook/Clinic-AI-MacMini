@@ -109,7 +109,11 @@ export default function OverridePolicyCard({
       const now = new Date();
       const todayYmd = now.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
-      const displaySlot = slotRange(slotTime, policy?.slotMinutes ?? 15);
+      // `?? 15` cũ dán nhãn khung 15 phút lên một ngoại lệ của phòng khám dùng độ
+      // dài khác. Chưa đọc được luật thì hiện mốc bắt đầu, đừng bịa mốc kết thúc.
+      const displaySlot = policy
+        ? slotRange(slotTime, policy.slotMinutes)
+        : slotTime;
       let successText = "";
       if (fromDate === toDate) {
         const fullDateStr = `Ngày ${d1} tháng ${m1} năm ${y1}`;

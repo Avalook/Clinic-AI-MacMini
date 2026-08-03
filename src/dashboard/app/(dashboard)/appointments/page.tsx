@@ -8,6 +8,7 @@ import BookingHub, {
   type ApptLite,
 } from "./BookingHub";
 import type { Option, ProvinceOpt } from "../patients/new/NewPatientForm";
+import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,18 +20,13 @@ export default async function AppointmentsPage() {
 
   // Load real locations, services, doctors, provinces, patients, and today's appointments
   const [locRes, svcRes, docRes, provRes, patRes, apptRes] = await Promise.all([
-    supabase.from("clinic_location").select("id, name").order("name"),
-    supabase.from("service_type").select("id, name").order("name"),
-    supabase
-      .from("staff")
-      .select("id, full_name")
-      .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-      .eq("is_active", true)
-      .order("full_name"),
+    supabase.from("clinic_location").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("service_type").select("id, name").eq("is_active", true).order("name"),
+    listBookableDoctors(),
     supabase.from("province").select("code, name, full_name").order("name"),
     supabase
       .from("patient")
-      .select("clinic_patient_id, patient_code, full_name, phone_primary, date_of_birth, gender, address")
+      .select("clinic_patient_id, patient_code, full_name, phone_primary, date_of_birth, gender, address, location_id")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase
@@ -52,10 +48,7 @@ export default async function AppointmentsPage() {
       id: r.id,
       label: (r.name ?? "").replace(/^[\*\#\s]+/, "").trim(),
     }));
-  const doctors: Option[] = (docRes.data ?? []).map((r) => ({
-    id: r.id,
-    label: r.full_name,
-  }));
+  const doctors: Option[] = docRes;
   const provinces: ProvinceOpt[] = (provRes.data ?? []).map((r) => ({
     code: r.code,
     name: r.name,
@@ -64,7 +57,9 @@ export default async function AppointmentsPage() {
   const patients: PatientLite[] = (patRes.data ?? []) as PatientLite[];
   const appts: ApptLite[] = (apptRes.data ?? []) as ApptLite[];
 
-  const error = locRes.error ?? svcRes.error ?? docRes.error ?? patRes.error;
+  // docRes không còn là PostgrestResponse: listBookableDoctors đã tự nuốt lỗi
+  // và trả mảng rỗng (ô chọn trống nhìn thấy được; một trang lỗi thì che mọi thứ).
+  const error = locRes.error ?? svcRes.error ?? patRes.error;
 
   return (
     <div className="space-y-3">

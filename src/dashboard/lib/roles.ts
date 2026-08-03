@@ -45,11 +45,39 @@ export function isClinicRole(v: string | undefined | null): v is ClinicRole {
   return !!v && (ALL_ROLES as string[]).includes(v);
 }
 
-const DOCTOR_ROLES = new Set<ClinicRole>(["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"]);
+// TWO DIFFERENT QUESTIONS, AND CONFLATING THEM BROKE A BUTTON.
+//
+// "Works at the doctor's desk" includes the medical secretary: TKYK opens the
+// same board, types the note for the doctor, moves the same appointment.
+//
+// "Is a physician" does not. Ordering a test and signing off a lab result are
+// acts a secretary must not perform, and the backend has always agreed —
+// lab.py gates both on {DOCTOR, ULTRASOUND_DOCTOR}.
+//
+// For months only the second half of that was true on the server. The browser
+// asked isDoctorRole (which includes TKYK) before drawing "Chỉ định XN" and
+// "Duyệt kết quả", so a medical secretary saw both buttons, pressed them, and
+// got a 403 with no way to tell whether the system was broken or they were.
+// The server was right; the screen was lying. Keep the two questions apart.
+const DOCTOR_DESK_ROLES = new Set<ClinicRole>([
+  "DOCTOR",
+  "ULTRASOUND_DOCTOR",
+  "TKYK",
+]);
+const PHYSICIAN_ROLES = new Set<ClinicRole>(["DOCTOR", "ULTRASOUND_DOCTOR"]);
 
-/** Doctor / ultrasound doctor — can scope appointments to themselves. */
+/** Works the doctor's board: doctor, ultrasound doctor, medical secretary. */
 export function isDoctorRole(role: ClinicRole | null): boolean {
-  return role !== null && DOCTOR_ROLES.has(role);
+  return role !== null && DOCTOR_DESK_ROLES.has(role);
+}
+
+/** Holds a medical licence: may ORDER tests and SIGN OFF results.
+ *
+ *  Mirrors `PHYSICIAN_ROLES` in clinicai/api/identity.py, which is what
+ *  lab.py's _ORDER_GUARD and _REVIEW_GUARD actually enforce. Any screen that
+ *  draws a control those guards protect must ask this, not isDoctorRole. */
+export function isPhysicianRole(role: ClinicRole | null): boolean {
+  return role !== null && PHYSICIAN_ROLES.has(role);
 }
 
 /** MANAGEMENT only — sees Reports + Settings + Ca trực. */
@@ -132,8 +160,17 @@ export function canEditPatient(role: ClinicRole | null): boolean {
   return canWriteIntake(role) || isDoctorRole(role);
 }
 
-/** Họ thu ngân: CASHIER (superset) + 2 vai tách CASHIER_THUOC / CASHIER_DV.
- *  Dùng cho các quyền/nav chung của thu ngân (xem khách, board read-only…). */
+/** Họ thu ngân.
+ *
+ *  MỘT VAI, KHÔNG PHẢI BA (Quang chốt 2026-08-03: "thu ngân giờ ghép thành 1
+ *  thu ngân duy nhất"). Phòng khám có một quầy; tách làm ba chỉ tạo ra ba chỗ
+ *  phải nhớ liệt kê trong NAV_ROLES — quên một chỗ là một vai mất màn hình mà
+ *  không ai biết — và ba giá trị khác nhau trong audit log cho cùng một việc.
+ *
+ *  20260803000007 gộp mọi membership về CASHIER. CASHIER_THUOC / CASHIER_DV
+ *  được GIỮ trong kiểu và trong hàm này vì event_log cũ có chứa chúng: một bản
+ *  ghi kiểm toán không đọc lại được là một bản ghi kiểm toán vô dụng. Đừng gán
+ *  chúng cho người mới. */
 export function isCashierRole(role: ClinicRole | null): boolean {
   return role === "CASHIER" || role === "CASHIER_THUOC" || role === "CASHIER_DV";
 }

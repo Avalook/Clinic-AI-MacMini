@@ -224,6 +224,13 @@ export default function Shell({
           role={role}
         />
         <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-8">
+          {/* key={pathname} PHẢI Ở ĐÂY. Bỏ nó đi thì React coi cây con của hai
+              trang khác nhau là "cùng một chỗ" khi hình dạng trùng nhau, nên nó
+              TÁI DÙNG instance component thay vì dựng mới: state chưa kiểm soát
+              (ô nhập đang gõ dở, vị trí cuộn, dòng đang chọn) đi theo sang trang
+              sau. Trên màn lâm sàng, một ô còn nội dung của bệnh nhân trước là
+              lỗi không được phép có. Nó cũng là thứ khiến animation `page-in`
+              chạy lại mỗi lần chuyển trang thay vì chỉ một lần khi mount. */}
           <div key={pathname} className="page-in">
             {children}
           </div>

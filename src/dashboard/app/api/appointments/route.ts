@@ -26,10 +26,7 @@ import {
   canCheckin,
 } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
-import {
-  suggestLoad,
-  type PatientKind,
-} from "../../../lib/capacity";
+import { type PatientKind } from "../../../lib/capacity";
 
 interface Body {
   clinic_patient_id?: string;
@@ -45,6 +42,10 @@ interface Body {
   thanh_min?: number;
   sono_min?: number;
   need_sono?: boolean;
+  // Ghi chú vận hành của CSKH. BookingHub đã gửi trường này từ đầu; nó không
+  // được khai báo ở đây nên rơi ngay tại tầng này, và appointment cũng chưa có
+  // cột để nhận. Người dùng gõ, bấm lưu, hệ thống báo thành công, chữ biến mất.
+  notes?: string;
 }
 
 export async function GET(request: Request) {
@@ -66,13 +67,30 @@ export async function GET(request: Request) {
   const startOfDay = new Date(`${date}T00:00:00+07:00`).toISOString();
   const endOfDay = new Date(`${date}T23:59:59+07:00`).toISOString();
 
+  // GATE + BOUND. Trước đây route này chỉ kiểm "đã đăng nhập chưa": dược sĩ,
+  // thu ngân, bất kỳ ai có phiên đều đọc được toàn bộ lịch hẹn trong ngày, và
+  // không có .limit() nên một ngày bận trả về bao nhiêu dòng cũng phải trả hết.
+  // Việc phân tách tenant thì phó mặc hoàn toàn cho RLS.
+  //
+  // Lịch hẹn là dữ liệu vận hành: những vai nhìn thấy nó trên màn hình là nhóm
+  // đặt lịch/tiếp nhận + bàn khám. Cùng ranh giới mà /appointments và /tasks
+  // đang dùng, chỉ là ở đây nói thành lời.
+  const role = await getClinicRole();
+  if (!canWriteIntake(role) && !isDoctorRole(role) && !canCheckin(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   let query = caller
     .from("appointment")
     .select("id, slot_start, queue_number, status, doctor_id, booking_channel")
     .gte("slot_start", startOfDay)
     .lte("slot_start", endOfDay)
     .not("status", "eq", "CANCELLED")
-    .not("status", "eq", "NO_SHOW");
+    .not("status", "eq", "NO_SHOW")
+    // Một ngày của Dr4Women vào khoảng 40–60 lượt; 500 là trần an toàn để một
+    // ngày bất thường không kéo cả trang xuống mà vẫn không cắt mất dữ liệu thật.
+    .order("slot_start")
+    .limit(500);
 
   if (doctorId) {
     query = query.eq("doctor_id", doctorId);
@@ -107,9 +125,12 @@ export async function POST(request: Request) {
   const location_id = (body.location_id ?? "").trim();
   const slot_start = (body.slot_start ?? "").trim();
   const slot_end = (body.slot_end ?? "").trim();
-  if (!clinic_patient_id || !service_type_id || !location_id) {
+  // location_id KHÔNG còn bắt buộc: bỏ trống thì backend dùng cơ sở của chính
+  // người đang đặt (identity.location_id). Trước đây trình duyệt buộc phải nghĩ
+  // ra một giá trị, và giá trị nó nghĩ ra là "cơ sở đầu tiên trong danh sách".
+  if (!clinic_patient_id || !service_type_id) {
     return NextResponse.json(
-      { error: "Thiếu bệnh nhân / dịch vụ / cơ sở." },
+      { error: "Thiếu bệnh nhân hoặc dịch vụ." },
       { status: 400 },
     );
   }
@@ -133,14 +154,13 @@ export async function POST(request: Request) {
     rawKind === "NEW" || rawKind === "RETURN" ? (rawKind as PatientKind) : null;
   const need_sono =
     typeof body.need_sono === "boolean" ? body.need_sono : null;
-  const suggested =
-    patient_kind != null
-      ? suggestLoad(patient_kind, need_sono ?? false)
-      : { thanh_min: null as number | null, sono_min: null as number | null };
+  // KHÔNG suy ra phút từ loại khách nữa (20260803000005). Bảng 15'/5'/+12'/+8'
+  // là con số bịa, và nó điều khiển màu của mọi ô lịch. Thời lượng thật đo từ
+  // work_item (view v_consultation_duration); ở đây chỉ chuyển tiếp thứ người
+  // dùng thật sự gõ vào, hoặc null.
   const thanh_min =
-    typeof body.thanh_min === "number" ? body.thanh_min : suggested.thanh_min;
-  const sono_min =
-    typeof body.sono_min === "number" ? body.sono_min : suggested.sono_min;
+    typeof body.thanh_min === "number" ? body.thanh_min : null;
+  const sono_min = typeof body.sono_min === "number" ? body.sono_min : null;
 
   // KHÁCH TỚI TRỰC TIẾP cho HÔM NAY → tạo lịch là ĐÃ CHECK-IN luôn (PK chốt: walk-in
   // auto check-in — khách đã có mặt ở quầy, không phải chờ "Gọi xác nhận"), tự cấp
@@ -150,7 +170,7 @@ export async function POST(request: Request) {
   return proxyJsonToBackend("POST", "/api/v1/appointments/bookings", {
     clinic_patient_id,
     service_type_id,
-    location_id,
+    location_id: location_id || null,
     slot_start,
     slot_end,
     doctor_id,
@@ -160,6 +180,7 @@ export async function POST(request: Request) {
     need_sono,
     thanh_min,
     sono_min,
+    notes: (body.notes ?? "").trim() || null,
   });
 }
 
@@ -253,7 +274,7 @@ export async function PATCH(request: Request) {
   } else if (action === "no_show") {
     if (!canCheckin(role)) {
       return NextResponse.json(
-        { error: "Chỉ Lễ tân / Điều dưỡng / Quản lý mới đánh không đến." },
+        { error: "Chỉ Lễ tân / Quản lý mới đánh không đến." },
         { status: 403 },
       );
     }

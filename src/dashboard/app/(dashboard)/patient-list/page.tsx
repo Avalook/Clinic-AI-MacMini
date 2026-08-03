@@ -18,6 +18,7 @@ import { vnTodayRangeUtc } from "../../../lib/datetime";
 import PatientListView, { type ExaminedRow } from "./PatientListView";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
 import type { Option } from "../patients/AppointmentBooking";
+import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -68,12 +69,7 @@ export default async function PatientListPage() {
     const [locRes, svcRes, docRes] = await Promise.all([
       supabase.from("clinic_location").select("id, name").order("name"),
       supabase.from("service_type").select("id, name").order("name"),
-      supabase
-        .from("staff")
-        .select("id, full_name")
-        .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-        .eq("is_active", true)
-        .order("full_name"),
+      listBookableDoctors(),
     ]);
     locations = (locRes.data ?? []).map((r) => ({
       id: r.id as string,
@@ -82,10 +78,7 @@ export default async function PatientListPage() {
     services = (svcRes.data ?? [])
       .filter((r) => (r.name as string)?.trim().toUpperCase() !== "FREE")
       .map((r) => ({ id: r.id as string, label: r.name as string }));
-    doctors = (docRes.data ?? []).map((r) => ({
-      id: r.id as string,
-      label: r.full_name as string,
-    }));
+    doctors = docRes;
   }
 
   // BN xuất hiện ở "Danh sách bệnh nhân" khi: (a) đã khám xong (COMPLETED) — lịch

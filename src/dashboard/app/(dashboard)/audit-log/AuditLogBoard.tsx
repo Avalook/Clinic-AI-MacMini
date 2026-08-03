@@ -33,7 +33,10 @@ const TABS: { key: AuditTab; label: string }[] = [
 function aggregateToTab(agg: string): AuditTab {
   if (agg === "patient" || agg === "clinic_patient") return "patient";
   if (agg === "appointment") return "appointment";
-  if (agg === "cskh_action" || agg === "staff_task") return "task";
+  // work_item = một bước trong quy trình khám (workflow kernel). Nó là "công
+  // việc" theo đúng nghĩa tab này, chứ không phải "hệ thống".
+  if (agg === "cskh_action" || agg === "staff_task" || agg === "work_item")
+    return "task";
   return "system";
 }
 
@@ -53,6 +56,13 @@ function eventLabel(type: string): string {
     "staff_task.completed": "Hoàn thành công việc",
     "visit.created": "Tạo lượt khám",
     "visit.completed": "Hoàn thành lượt khám",
+    // Workflow kernel — trộn vào từ work_item_event (xem page.tsx).
+    "work_item.create": "Mở bước công việc",
+    "work_item.start": "Bắt đầu bước",
+    "work_item.complete": "Hoàn tất bước",
+    "work_item.skip": "Bỏ qua bước",
+    "work_item.cancel": "Huỷ bước",
+    "work_item.reassign": "Bàn giao bước",
   };
   return map[type] ?? type;
 }

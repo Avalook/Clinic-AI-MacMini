@@ -35,6 +35,7 @@ import CashierWorkBoard, {
 } from "./CashierWorkBoard";
 import type { ClinicRole } from "../../../lib/roles";
 import { paidCashierPaymentSeeds } from "../../../lib/clinical-workspace-policy";
+import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -485,12 +486,7 @@ export default async function TasksPage() {
       .order("source_created_at", { ascending: false, nullsFirst: false })
       .limit(200),
     // Bác sĩ để PHÂN LẠI lịch bị từ chối.
-    supabase
-      .from("staff")
-      .select("id, full_name")
-      .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-      .eq("is_active", true)
-      .order("full_name"),
+    listBookableDoctors(),
   ]);
 
   const rows = (apptRes.data as ApptRow[] | null) ?? [];
@@ -499,10 +495,7 @@ export default async function TasksPage() {
     id: r.id as string,
     label: r.name as string,
   }));
-  const doctors: Opt[] = (docRes.data ?? []).map((r) => ({
-    id: r.id as string,
-    label: r.full_name as string,
-  }));
+  const doctors: Opt[] = docRes;
 
   return (
     <div className="space-y-4">

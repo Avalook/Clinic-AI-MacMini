@@ -56,6 +56,16 @@ export async function getClinicStaffId(): Promise<string | null> {
   return (await getCurrentStaff())?.id ?? null;
 }
 
+/** The tenant this session acts in, from the single active clinic_membership.
+ *
+ *  Only a *filter hint* for the browser (realtime subscriptions narrow on it so
+ *  another tenant's writes are dropped server-side instead of crossing the wire
+ *  and being refused by RLS). It grants nothing: every read is still bounded by
+ *  RLS and every write by identity.py's own membership lookup. */
+export async function getClinicId(): Promise<string | null> {
+  return (await getCurrentStaff())?.clinic_id ?? null;
+}
+
 export interface ActiveStaff {
   id: string;
   full_name: string;

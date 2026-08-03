@@ -21,6 +21,7 @@ import CustomersView, {
   type Period,
   type ByDim,
 } from "./CustomersView";
+import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -158,14 +159,7 @@ export default async function CustomersPage({
     canEdit
       ? supabase.from("service_type").select("id, name").order("name")
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    canEdit
-      ? supabase
-          .from("staff")
-          .select("id, full_name")
-          .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-          .eq("is_active", true)
-          .order("full_name")
-      : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+    canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
 
   let { data, error } = patRes;
@@ -183,9 +177,7 @@ export default async function CustomersPage({
   const services: Opt[] = ((svcRes.data ?? []) as { id: string; name: string }[])
     .filter((r) => (r.name ?? "").trim().toUpperCase() !== "FREE")
     .map((r) => ({ id: r.id, label: r.name }));
-  const doctors: Opt[] = (
-    (docRes.data ?? []) as { id: string; full_name: string }[]
-  ).map((r) => ({ id: r.id, label: r.full_name }));
+  const doctors: Opt[] = docRes;
 
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
   // nếu không có thì lịch GẦN NHẤT trong quá khứ. Kèm tổng số lịch.
