@@ -38,7 +38,11 @@ function asInt(value: unknown): number | null {
  */
 export async function getBookingPolicy(): Promise<BookingPolicy | null> {
   const raw = await fetchFromBackend<PolicyResponse>("/api/v1/appointments/policy");
-  if (!raw) return null;
+  if (!raw) {
+    // Không đoán 15/2/1 (xem header file): lưới vẽ sai luật đúng lúc backend chết
+    // là lúc nguy hiểm nhất. Trả null để người gọi nói thẳng là đọc không được.
+    return null;
+  }
 
   const slotMinutes = asInt(raw.slot_minutes);
   const regularCap = asInt(raw.regular_cap);

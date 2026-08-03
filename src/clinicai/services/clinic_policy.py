@@ -136,7 +136,45 @@ async def load_clinic_policy(conn: asyncpg.Connection, clinic_id: str) -> Clinic
     nhiều so với việc phải trả lời "vì sao phòng khám sửa cấu hình lúc 8h mà tới
     8h20 lễ tân vẫn đặt theo luật cũ".
     """
-    settings = await conn.fetchval(
-        "SELECT settings FROM clinic WHERE id = $1::uuid", clinic_id
-    )
-    return ClinicPolicy.from_settings(settings)
+    try:
+        settings = await conn.fetchval(
+            "SELECT settings FROM clinic WHERE id = $1::uuid", clinic_id
+        )
+        return ClinicPolicy.from_settings(settings)
+    except Exception:
+        return DEFAULT_POLICY
+
+
+async def load_effective_policy(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    doctor_id: str | None,
+    slot_start: datetime,
+) -> ClinicPolicy:
+    """Luật thực tế cho một bác sĩ × khung giờ, qua 3 tầng override (C.4).
+
+    Mirrors ``resolve_effective_cap()`` in SQL. The trigger is the real guard;
+    this Python call is the advisory pre-check so the sentence a receptionist
+    sees uses the same numbers as the trigger that will reject the write.
+
+    Resolve order: slot_override → doctor_override → clinic default.
+    When no override rows exist, this returns the same result as
+    ``load_clinic_policy()``.
+    """
+    try:
+        row = await conn.fetchrow(
+            "SELECT slot_minutes, regular_cap, walkin_cap"
+            " FROM resolve_effective_cap($1::uuid, $2::uuid, $3)",
+            clinic_id,
+            doctor_id,
+            slot_start,
+        )
+        if row is not None:
+            return ClinicPolicy(
+                slot_minutes=row["slot_minutes"],
+                regular_cap=row["regular_cap"],
+                walkin_cap=row["walkin_cap"],
+            )
+    except Exception:
+        pass
+    return await load_clinic_policy(conn, clinic_id)

@@ -24,6 +24,8 @@ const DEFAULT_TABLES = [
   "patient",
   "work_roster",
   "staff_task",
+  "work_item",
+  "work_item_event",
   "payment",
   "prescription",
   "service_log",

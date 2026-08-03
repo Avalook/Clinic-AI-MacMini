@@ -8,7 +8,11 @@ import { redirect } from "next/navigation";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
+import { getBookingPolicy } from "../../../lib/booking-policy";
 import AccountActions from "./AccountActions";
+import BookingPolicyCard from "./BookingPolicyCard";
+import FeatureModeCard from "./FeatureModeCard";
+import { getFeatureMode } from "../../../lib/feature-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +53,12 @@ export default async function SettingsPage() {
     .order("primary_department", { ascending: true })
     .order("full_name", { ascending: true });
 
+  // Luật đặt lịch của phòng khám — hiển thị + cho phép Trưởng ca/Quản lý sửa.
+  const bookingPolicy = await getBookingPolicy();
+
   const rows = (data as StaffRow[] | null) ?? [];
   const linked = rows.filter((r) => r.auth_user_id !== null).length;
+  const featureMode = await getFeatureMode();
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
@@ -78,6 +86,10 @@ export default async function SettingsPage() {
         khẩu / gỡ tài khoản — tất cả ngay trong dashboard, không cần vào
         console Supabase.
       </div>
+
+      <FeatureModeCard currentMode={featureMode} />
+
+      <BookingPolicyCard policy={bookingPolicy} />
 
       {error && (
         <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">

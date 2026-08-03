@@ -13,7 +13,7 @@ export default async function AuditLogPage() {
 
   const { data: events, error } = await supabase
     .from("event_log")
-    .select("*")
+    .select("event_id, event_type, aggregate_type, aggregate_id, payload, metadata, source, occurred_at")
     .order("occurred_at", { ascending: false })
     .limit(200);
 

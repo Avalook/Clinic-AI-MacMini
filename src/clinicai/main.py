@@ -28,6 +28,7 @@ from clinicai.api.v1.routers.clinical_records import (
 from clinicai.api.v1.routers.config import router as config_router
 from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
+from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
@@ -143,6 +144,7 @@ app.include_router(config_router, prefix="/api/v1", tags=["config"])
 app.include_router(service_log_router, prefix="/api/v1", tags=["service-log"])
 app.include_router(visit_progress_router, prefix="/api/v1", tags=["visit-progress"])
 app.include_router(voice_router, prefix="/api/v1")
+app.include_router(display_router, prefix="/api/v1", tags=["display"])
 
 
 @app.exception_handler(asyncpg.exceptions.ExclusionViolationError)

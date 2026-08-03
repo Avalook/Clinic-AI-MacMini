@@ -67,24 +67,19 @@ export async function proxy(request: NextRequest) {
 
   // Luồng: /enter (mật khẩu phòng khám) → /login (đăng nhập cá nhân) → phần việc.
 
-  // 1. Chưa qua cổng (không có session). /login KHÔNG public → cũng đẩy về /enter.
+  // 1. Chưa qua cổng (không có session).
   if (!user) {
     return isPublic ? response : redirectTo("/enter");
   }
 
-  // 2. Đã qua cổng, đang ở trang /enter → đi tiếp.
+  // 2. Trang /login: Luôn cho phép hiển thị form đăng nhập cá nhân khi đã qua cổng.
+  if (pathname === "/login") {
+    return response;
+  }
+
+  // 3. Trang /enter: Đã qua cổng nhưng gõ lại /enter → chuyển sang /login để chọn tài khoản cá nhân.
   if (pathname.startsWith("/enter")) {
-    return redirectTo(hasStaffIdentity ? "/home" : "/login");
-  }
-
-  // 3. Đã qua cổng nhưng CHƯA có nhân viên liên kết → /login.
-  if (!hasStaffIdentity && pathname !== "/login" && !isPublic) {
     return redirectTo("/login");
-  }
-
-  // 4. Đã đăng nhập cá nhân mà còn ở /login → vào việc.
-  if (hasStaffIdentity && pathname === "/login") {
-    return redirectTo("/home");
   }
 
   return response;

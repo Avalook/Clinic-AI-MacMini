@@ -10,6 +10,7 @@ import { getClinicRole, getClinicStaffId } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
+import { getFeatureMode } from "../../lib/feature-mode";
 
 interface DeclinedRow {
   id: string;
@@ -65,11 +66,12 @@ export default async function DashboardLayout({
   // Đọc một lần cho cả cây: mọi lưới khung giờ phía dưới phải vẽ theo đúng luật
   // mà trigger enforce_slot_capacity sẽ dùng để từ chối, không theo hằng số.
   const bookingPolicy = await getBookingPolicy();
+  const featureMode = await getFeatureMode();
 
   return (
     <NotificationProvider staffId={staffId}>
       <BookingPolicyProvider policy={bookingPolicy}>
-        <Shell role={role} identity={identity} leaveAction={leaveClinic}>
+        <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={leaveClinic}>
           {children}
           <DeclinedNotice items={declined} />
           <RealtimeRefresher />

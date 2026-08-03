@@ -46,7 +46,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.services.clinic_policy import ClinicPolicy, load_clinic_policy
+from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 
 logger = structlog.get_logger()
 
@@ -275,7 +275,9 @@ class BookingService:
                     if busy:
                         raise ConflictError(busy)
 
-                policy = await load_clinic_policy(conn, identity.clinic_id)
+                policy = await load_effective_policy(
+                    conn, identity.clinic_id, doctor_id, slot_start
+                )
                 full = await self._slot_full(
                     conn, doctor_id, slot_start, channel, identity, policy
                 )
@@ -645,7 +647,9 @@ class BookingService:
             )
             if busy:
                 raise ConflictError(busy)
-        policy = await load_clinic_policy(conn, identity.clinic_id)
+        policy = await load_effective_policy(
+            conn, identity.clinic_id, doctor_id, slot_start
+        )
         full = await self._slot_full(
             conn, doctor_id, slot_start, channel or "", identity, policy, exclude_id
         )

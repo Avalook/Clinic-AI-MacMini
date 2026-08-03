@@ -36,6 +36,11 @@ export async function proxyJsonToBackend(
     );
   }
   const supabase = await getSupabaseServer();
+  // getSession() chỉ đọc cookie cục bộ — không refresh. Khi access token hết
+  // hạn, nó trả null dù người dùng vẫn còn phiên hợp lệ. getUser() đổi refresh
+  // token lấy access token mới trong bộ nhớ client; gọi trước getSession() để
+  // có token dùng được, kể cả trong server component nơi setAll() là no-op.
+  await supabase.auth.getUser();
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -101,6 +106,8 @@ export async function fetchFromBackend<T>(path: string): Promise<T | null> {
   if (!API_BASE) return null;
 
   const supabase = await getSupabaseServer();
+  // Cùng lý do — xem proxyJsonToBackend. getSession() không refresh; getUser() thì có.
+  await supabase.auth.getUser();
   const {
     data: { session },
   } = await supabase.auth.getSession();

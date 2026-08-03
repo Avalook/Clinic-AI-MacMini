@@ -31,6 +31,7 @@ export function fmtDateTime(ts: TimeInput): string {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
       })
     : "—";
 }
@@ -45,6 +46,7 @@ export function isVnMidnight(ts: TimeInput): boolean {
       timeZone: VN_TZ,
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     }) === "00:00"
   );
 }
@@ -59,7 +61,7 @@ export function fmtDateTimeOrDate(ts: TimeInput): string {
   return isVnMidnight(ts) ? fmtDate(ts) : fmtDateTime(ts);
 }
 
-/** "HH:mm" in Vietnam time. */
+/** "HH:mm" in Vietnam time (24h format). */
 export function fmtTime(ts: TimeInput): string {
   const d = toDate(ts);
   return d
@@ -67,6 +69,7 @@ export function fmtTime(ts: TimeInput): string {
         timeZone: VN_TZ,
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
       })
     : "—";
 }
@@ -81,6 +84,7 @@ export function fmtDayTime(ts: TimeInput): string {
         month: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
       })
     : "—";
 }
@@ -98,6 +102,15 @@ export function fmtDate(ts: TimeInput): string {
     : "—";
 }
 
+/** "Ngày D tháng M năm YYYY" in Vietnam time. */
+export function fmtVietnameseFullDate(ts: TimeInput): string {
+  const d = toDate(ts);
+  if (!d) return "—";
+  const ymd = d.toLocaleDateString("en-CA", { timeZone: VN_TZ });
+  const [y, m, dayNum] = ymd.split("-").map(Number);
+  return `Ngày ${dayNum} tháng ${m} năm ${y}`;
+}
+
 /** "HH:mm" (mốc bắt đầu khung) + độ dài khung → "HH:mm-HH:mm", ví dụ
  *  ("17:00", 15) → "17:00-17:15". Dùng cho nhãn cột & tooltip lưới đặt chỗ.
  *
@@ -112,7 +125,7 @@ export function slotRange(hhmm: string, minutes: number): string {
   const eh = Math.floor(end / 60) % 24;
   const em = end % 60;
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(h)}:${pad(m)}-${pad(eh)}:${pad(em)}`;
+  return `${pad(h)}:${pad(m)} - ${pad(eh)}:${pad(em)}`;
 }
 
 /** A naive date ("YYYY-MM-DD") + time ("HH:mm") a Vietnam user typed → the

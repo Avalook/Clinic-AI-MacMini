@@ -78,9 +78,9 @@ export default async function PortalPage() {
       .gte("created_at", dayStart)
       .lt("created_at", dayEnd),
     supabase
-      .from("staff_task")
+      .from("work_item")
       .select("*", { count: "exact", head: true })
-      .eq("status", "PENDING"),
+      .in("status", ["PENDING", "IN_PROGRESS"]),
     supabase
       .from("event_log")
       .select("event_id, event_type, aggregate_type, source, occurred_at")

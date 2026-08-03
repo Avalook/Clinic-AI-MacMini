@@ -519,19 +519,31 @@ export default function NewPatientForm({
     goToProfile(clinicPatientId, code);
   }
 
+  // Auto-sync locationId if initially empty
+  useEffect(() => {
+    if (!locationId && locations.length > 0) {
+      setLocationId(locations[0].id);
+    }
+  }, [locations, locationId]);
+
   async function save(force: boolean) {
     setError(null);
+    const effLocationId = locationId || locations[0]?.id || "";
+    if (!effLocationId) {
+      setError("Chưa chọn cơ sở khám.");
+      return;
+    }
     // BẮT BUỘC điền (mục có dấu *): Họ tên + SĐT + Giới tính.
     if (!fullName.trim()) {
-      setError("Nhập họ tên bệnh nhân.");
+      setError("Vui lòng nhập Họ và tên bệnh nhân (ở mục Thông tin hành chính phía trên).");
       return;
     }
     if (!phone.trim()) {
-      setError("Nhập số điện thoại chính (10 chữ số).");
+      setError("Vui lòng nhập Số điện thoại chính (10 chữ số).");
       return;
     }
     if (!gender) {
-      setError("Chọn giới tính.");
+      setError("Vui lòng chọn Giới tính (Nam / Nữ).");
       return;
     }
     // Quy tắc nhập liệu CỨNG: SĐT 10 số / CCCD 12 số (chặn ngay trước khi gửi).
@@ -563,11 +575,11 @@ export default function NewPatientForm({
     // BẮT BUỘC địa chỉ: CSKH (full) + Lễ tân (RECEPTION) phải có Tỉnh/TP + Phường/Xã.
     if (requireAddress) {
       if (!provinceCode) {
-        setError("Chọn Tỉnh / Thành phố.");
+        setError("Vui lòng chọn Tỉnh / Thành phố.");
         return;
       }
       if (!wardCode) {
-        setError("Chọn Phường / Xã.");
+        setError("Vui lòng chọn Phường / Xã.");
         return;
       }
     }
@@ -575,23 +587,23 @@ export default function NewPatientForm({
     // + Kênh đặt — đủ thì mới tạo được lượt khám.
     if (!walkin) {
       if (!serviceId) {
-        setError("Chọn dịch vụ khám.");
+        setError("Vui lòng chọn dịch vụ khám.");
         return;
       }
       if (!doctorId) {
-        setError("Chọn bác sĩ.");
+        setError("Vui lòng chọn bác sĩ.");
         return;
       }
       if (!apptDate) {
-        setError("Chọn ngày khám.");
+        setError("Vui lòng chọn ngày khám.");
         return;
       }
       if (!apptTime) {
-        setError("Chọn giờ khám.");
+        setError("Vui lòng chọn giờ khám.");
         return;
       }
       if (!priority && !channel) {
-        setError("Chọn kênh đặt.");
+        setError("Vui lòng chọn kênh đặt.");
         return;
       }
     }
@@ -1329,7 +1341,7 @@ export default function NewPatientForm({
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <button onClick={() => save(false)} disabled={!canSubmit} className={BTN}>
+        <button type="button" onClick={() => save(false)} disabled={submitting} className={BTN}>
           {submitting
             ? "Đang lưu..."
             : walkin

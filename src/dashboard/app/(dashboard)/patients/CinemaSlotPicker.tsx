@@ -89,12 +89,17 @@ export default function CinemaSlotPicker({
   // Lọc bác sĩ theo ca trực; ngày chưa phân trực → hiện tất cả + ghi chú.
   const noDuty = Array.isArray(dutyDoctorIds) && dutyDoctorIds.length === 0;
   const dutyDoctors = useMemo(() => {
+    // Nếu đã chọn bác sĩ cụ thể từ dropdown → chỉ hiện bác sĩ đó trong lưới.
+    if (selectedDoctorId) {
+      const picked = doctors.find((d) => d.id === selectedDoctorId);
+      if (picked) return [picked];
+    }
     if (!dutyDoctorIds || dutyDoctorIds.length === 0) return doctors;
     const set = new Set(dutyDoctorIds);
     const filtered = doctors.filter((d) => set.has(d.id));
     // Lịch trực trỏ tới staff không còn trong combobox → đừng để bảng rỗng.
     return filtered.length > 0 ? filtered : doctors;
-  }, [doctors, dutyDoctorIds]);
+  }, [doctors, dutyDoctorIds, selectedDoctorId]);
 
   // Không đoán 15 phút / 2+1: vẽ lưới sai luật thì lễ tân bấm vào ô mà server
   // sẽ từ chối, và không hiểu vì sao. Thà nói thẳng là chưa đọc được.
@@ -121,9 +126,11 @@ export default function CinemaSlotPicker({
     );
   }
 
-  // LUÔN thêm hàng "Chưa phân bác sĩ": lịch online chưa phân BS vẫn phải hiện
-  // "đã kín", và vẫn bị giới hạn chỗ như một hàng riêng.
-  const rows: Option[] = [...dutyDoctors, { id: "", label: "Chưa phân bác sĩ" }];
+  // Hàng \"Chưa phân bác sĩ\" chỉ cần khi CHƯA chọn bác sĩ cụ thể — lịch online
+  // chưa phân BS vẫn phải hiện \"đã kín\" và bị giới hạn chỗ như một hàng riêng.
+  const rows: Option[] = selectedDoctorId
+    ? dutyDoctors
+    : [...dutyDoctors, { id: "", label: "Chưa phân bác sĩ" }];
   const now = nowMs();
   const walkinMode = mode === "walkin";
   const effSelectedKind = selectedKind ?? (walkinMode ? "walkin" : "regular");

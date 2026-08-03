@@ -206,12 +206,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/ops/telemetry": ["MANAGEMENT"],
 
   "/home": "all",
-  // "Cần làm hôm nay" — danh sách việc CSKH tự sinh từ dữ liệu (gọi xác nhận,
-  // phân lại lịch bị từ chối, tái khám đến hạn, KQ XN mới về).
-  "/cskh-today": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
-  // Bàn làm việc CSKH — lịch cần xác nhận + follow-up cần gọi.
-  "/cskh/board": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
-  "/appointments": ["MANAGEMENT", "TRUONG_CA"],
+  // Nhiệm vụ chăm sóc — thay thế cũ /cskh-today + /cskh/board.
+  "/cskh-tasks": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  "/appointments": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
   // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
   // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
   "/customers": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA"],
@@ -222,15 +219,15 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // patients/[id] (chỉ mở được BN của mình) — đúng mô hình quyền hiện tại.
   // + ĐIỀU DƯỠNG (feedback PM 23/6): nav "Thông tin bệnh nhân" để tra cứu BN +
   // xem lịch sử khám (giống bác sĩ). Sửa lâm sàng/sinh hiệu vẫn theo buổi khám.
-  "/patient-list": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
+  "/patient-list": ["RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
-  "/patients/new": ["CSKH", "RECEPTION", "MANAGEMENT", "TRUONG_CA"],
+  "/patients/new": ["RECEPTION", "MANAGEMENT", "TRUONG_CA"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
   // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
   // (clone giao diện board bác sĩ, khóa mọi nút sửa — xem isTasksReadOnly).
   // TKYK (Thư ký Y khoa): vào hàng đợi khám của MỌI bác sĩ để NHẬP HỘ bệnh án
   // (canWriteClinical đã =true). Routing → DoctorWorkBoard (xem tasks/page.tsx).
-  "/tasks": ["CSKH", "MANAGEMENT", "RECEPTION", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
+  "/tasks": ["MANAGEMENT", "RECEPTION", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // Hàng đợi XN + Dịch vụ: điều dưỡng/KTV thực hiện (+ Quản lý xem).
   "/lab-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
   "/service-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
@@ -242,7 +239,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // ["CSKH", "MANAGEMENT", "RECEPTION", "TRUONG_CA", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST]
   "/queue": [],
   // Đóng "đợt khám" chờ xác nhận (BS khám xong không hẹn lần sau) — việc CSKH/vận hành.
-  "/episodes": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  "/episodes": ["MANAGEMENT", "TRUONG_CA"],
   // Thu ngân: bảng giá tách 2 trang (thuốc / dịch vụ), gate theo VAI tách (mỗi
   // vai chỉ thấy màn của mình). CASHIER = superset (thấy cả hai), Quản lý xem/sửa cả hai.
   // ("Công việc của tôi" thu ngân nằm ở /tasks, gate bằng entry /tasks bên dưới.)
@@ -258,11 +255,14 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/schedule": "all",
   "/work-sessions": ["MANAGEMENT", "TRUONG_CA"],
   "/reports": ["MANAGEMENT", "TRUONG_CA"],
-  // Lịch sử thao tác (audit log) — chỉ Quản lý + Trưởng ca.
-  "/audit-log": ["MANAGEMENT", "TRUONG_CA"],
+  // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
+  "/audit-log": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
   // Duyệt kết quả — Bác sĩ + TKYK + Quản lý/Trưởng ca xem.
   "/result-review": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT", "TRUONG_CA"],
   "/ops": ["MANAGEMENT"],
+  // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
+  // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.
+  "/settings/booking-policy": ["TRUONG_CA", "MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],

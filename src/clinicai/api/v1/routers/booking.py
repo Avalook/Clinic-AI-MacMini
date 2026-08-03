@@ -25,7 +25,10 @@ from clinicai.api.identity import (
 from clinicai.core.database import get_db_pool
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
-from clinicai.services.clinic_policy import load_clinic_policy
+from clinicai.services.clinic_policy import (
+    load_clinic_policy,
+    load_effective_policy,
+)
 
 router = APIRouter()
 
@@ -130,21 +133,36 @@ async def capacity_quote(
 
 @router.get("/appointments/policy")
 async def booking_policy(
+    doctor_id: str | None = None,
+    date: str | None = None,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, int]:
-    """Độ dài khung và số chỗ của phòng khám đang đăng nhập (C.3).
+    """Độ dài khung và số chỗ, có tính override per-doctor/per-slot (C.4).
 
     Không dùng ``_BOOKING_GUARD``: bảng lịch tuần ở màn chủ vẽ đúng cái lưới
     này, và bác sĩ xem lịch của mình không phải người đặt lịch. Ba con số này
     không phải dữ liệu bệnh nhân — giấu chúng khỏi một nửa phòng khám chỉ làm
     lưới vẽ sai, không làm ai an toàn hơn.
 
-    Đây là NGUỒN DUY NHẤT trình duyệt được biết luật. Frontend không đọc thẳng
-    ``clinic.settings``: A.5 đã bỏ cột đó khỏi GRANT cho ``authenticated``.
+    Khi ``doctor_id`` và ``date`` được truyền, trả về luật effective (3-tier
+    resolve: slot → doctor → clinic). Khi không truyền, trả clinic default.
     """
     async with pool.acquire() as conn:
-        policy = await load_clinic_policy(conn, identity.clinic_id)
+        if doctor_id and date:
+            from datetime import datetime as dt
+            from zoneinfo import ZoneInfo
+
+            # Build a representative slot_start at noon on the date in VN tz.
+            vn_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+            slot_start = dt.strptime(date, "%Y-%m-%d").replace(
+                hour=12, tzinfo=vn_tz
+            )
+            policy = await load_effective_policy(
+                conn, identity.clinic_id, doctor_id, slot_start
+            )
+        else:
+            policy = await load_clinic_policy(conn, identity.clinic_id)
     return {
         "slot_minutes": policy.slot_minutes,
         "regular_cap": policy.regular_cap,

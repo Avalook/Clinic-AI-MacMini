@@ -28,7 +28,6 @@ import WeeklyAppointmentsTable, {
 import WorkRosterTable, { type RosterRow } from "./WorkRosterTable";
 import VisitStatusBoard, { type VisitStatusRow } from "./VisitStatusBoard";
 import VisitStatusRealtime from "./VisitStatusRealtime";
-import RosterBell from "../RosterBell";
 
 export const dynamic = "force-dynamic";
 
@@ -147,9 +146,9 @@ export default async function HomePage({
     visitStatusRes,
   ] = await Promise.all([
     supabase
-      .from("staff_task")
+      .from("work_item")
       .select("*", { count: "exact", head: true })
-      .eq("status", "PENDING"),
+      .in("status", ["PENDING", "IN_PROGRESS"]),
     supabase
       .from("patient")
       .select("*", { count: "exact", head: true })
@@ -388,7 +387,6 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-5">
-      <RosterBell />
       <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
           {isReception ? "Lễ tân" : "Không gian làm việc"}

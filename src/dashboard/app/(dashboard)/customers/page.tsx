@@ -259,6 +259,62 @@ export default async function CustomersPage({
     }
   }
 
+  // Lịch hẹn + CSKH actions (trạng thái, tương tác, hạn xử lý, phụ trách)
+  type CskhRaw = {
+    id: string;
+    clinic_patient_id: string;
+    category: string | null;
+    step: string | null;
+    status: string | null;
+    description: string | null;
+    deadline_at: string | null;
+    source_created_at: string | null;
+    created_by_text: string | null;
+    last_edited_by_text: string | null;
+  };
+  const cskhByPatient: Record<
+    string,
+    {
+      status: string;
+      lastInteraction: string | null;
+      nextStep: string | null;
+      deadline: string | null;
+      assignee: string | null;
+    }
+  > = {};
+
+  if (rows.length) {
+    const ids = rows.map((r) => r.clinic_patient_id);
+    const { data: cskhActions } = await supabase
+      .from("cskh_action")
+      .select(
+        "id, clinic_patient_id, category, step, status, description, deadline_at, source_created_at, created_by_text, last_edited_by_text",
+      )
+      .in("clinic_patient_id", ids)
+      .order("source_created_at", { ascending: false })
+      .limit(1000);
+
+    // Group by patient, pick latest action
+    const grouped: Record<string, CskhRaw[]> = {};
+    for (const a of (cskhActions as CskhRaw[] | null) ?? []) {
+      if (a.clinic_patient_id) {
+        (grouped[a.clinic_patient_id] ??= []).push(a);
+      }
+    }
+    for (const [pid, actionList] of Object.entries(grouped)) {
+      const latest = actionList[0]; // already sorted DESC
+      if (!latest) continue;
+      cskhByPatient[pid] = {
+        status: latest.status ?? "OPEN",
+        lastInteraction: latest.description ?? null,
+        nextStep: latest.step ?? null,
+        deadline: latest.deadline_at ?? null,
+        assignee:
+          latest.last_edited_by_text ?? latest.created_by_text ?? null,
+      };
+    }
+  }
+
   return (
     <div className="space-y-3">
       <header>
@@ -266,10 +322,10 @@ export default async function CustomersPage({
           CSKH · khách hàng
         </p>
         <h1 className="text-xl font-semibold text-ink">
-          Thông tin khách hàng
+          Quản lý khách hàng
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Theo dõi hồ sơ hành chính, lịch hẹn và bước xử lý tiếp theo từ dữ liệu hiện có.
+          Theo dõi trạng thái và bước tiếp theo của từng khách hàng
         </p>
       </header>
 
@@ -281,6 +337,7 @@ export default async function CustomersPage({
         <CustomersView
           rows={rows}
           apptByPatient={apptByPatient}
+          cskhByPatient={cskhByPatient}
           locations={locations}
           q={q}
           period={period}
