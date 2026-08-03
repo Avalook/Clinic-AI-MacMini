@@ -152,6 +152,14 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      # Consumer không có vòng poll, nên nhịp tim là "kết nối broker còn mở",
+      # đánh dấu mỗi WORKER_HEARTBEAT_INTERVAL (30s). Cửa sổ 180s = 6 nhịp.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 180"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [internal]
 
   # POS outbox relay (ADR-0010). Opt-in only after configuring a real adapter;
@@ -172,6 +180,13 @@ services:
     environment:
       POS_ADAPTER: ${POS_ADAPTER:-none}
     command: ["python", "-m", "clinicai.worker", "--pos-relay"]
+    healthcheck:
+      # POS_RELAY_POLL_INTERVAL = 60s → cửa sổ 300s (5 lần).
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 300"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     networks: [internal]
 
   # Lightweight notification outbox relay. It polls Supabase directly and does
@@ -192,6 +207,21 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      # Vòng lặp CÓ QUAY, không phải tiến trình CÒN SỐNG. `restart:
+      # unless-stopped` chỉ bắt được tiến trình chết; nó không nhìn thấy vòng
+      # lặp treo — kết nối không timeout, một await không bao giờ về — và đó mới
+      # là kiểu hỏng thật của một relay. Container xanh, Kuma xanh, còn tin nhắn
+      # thì ngừng gửi cho tới khi có người nhắn hỏi.
+      #
+      # Mỗi vòng poll chạm vào file nhịp tim (worker._beat). Cửa sổ 180s = 6 lần
+      # RELAY_POLL_INTERVAL (30s): đủ rộng để một lần poll chậm không báo động,
+      # đủ hẹp để một relay đứng hình bị phát hiện trong vài phút.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 180"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [internal]
 
   rabbitmq:
@@ -240,6 +270,19 @@ services:
       - "127.0.0.1:${KUMA_PORT:-3001}:3001"
     volumes:
       - kuma_data:/app/data
+      # Cấu hình monitor bằng file, giữ trong git (xem monitoring/README.md).
+      # Trước đây toàn bộ danh sách "đang giám sát cái gì" chỉ nằm trong volume
+      # kuma_data: không ai đọc lại được, và mất volume là mất sạch giám sát
+      # trong im lặng.
+      - ./monitoring:/monitoring:ro
+    healthcheck:
+      # Bản thân hệ giám sát cũng phải được giám sát. Kuma chết thì mọi cảnh báo
+      # ngừng gửi, và "không có cảnh báo" trông y hệt "mọi thứ đều ổn".
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3001 || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks: [internal]
 
   dozzle:

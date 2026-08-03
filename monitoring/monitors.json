@@ -1,0 +1,93 @@
+{
+  "$comment": [
+    "Khai báo monitor cho Uptime Kuma. KHÔNG tự nạp — Kuma 1.x không import theo",
+    "file. Đây là nguồn sự thật để dựng lại sau khi mất volume, và để",
+    "scripts/check-monitoring.sh đối chiếu với thực tế.",
+    "",
+    "url dùng tên service trong compose (kuma nằm chung network `internal`).",
+    "Đừng thay bằng localhost: bên trong container Kuma, localhost là chính nó."
+  ],
+  "version": 1,
+  "monitors": [
+    {
+      "name": "API — sẵn sàng phục vụ (DB)",
+      "type": "http",
+      "url": "http://api:8000/health/db",
+      "interval_seconds": 60,
+      "retries": 2,
+      "accepted_status_codes": ["200"],
+      "why": [
+        "KHÔNG dùng /health. /health chỉ nói tiến trình còn sống — nó trả 200",
+        "kể cả khi Supabase đã mất kết nối, tức đúng lúc phòng khám không làm",
+        "được gì thì đèn vẫn xanh. /health/db chạy SELECT 1 qua pool thật."
+      ],
+      "notification_channels": ["ops-telegram"]
+    },
+    {
+      "name": "Dashboard — trang phục vụ được",
+      "type": "http",
+      "url": "http://dashboard:3000/health",
+      "interval_seconds": 60,
+      "retries": 2,
+      "accepted_status_codes": ["200"],
+      "why": "Next.js đứng dậy được nhưng không render được là một trạng thái thật.",
+      "notification_channels": ["ops-telegram"]
+    },
+    {
+      "name": "Caddy — cổng vào công khai",
+      "type": "http",
+      "url": "http://caddy:80/health",
+      "interval_seconds": 60,
+      "retries": 2,
+      "accepted_status_codes": ["200"],
+      "why": [
+        "Là dịch vụ DUY NHẤT bind ra cổng host. api và dashboard xanh mà Caddy",
+        "chết thì từ ngoài nhìn vào hệ thống đã sập hoàn toàn."
+      ],
+      "notification_channels": ["ops-telegram"]
+    },
+    {
+      "name": "Relay thông báo — vòng lặp còn quay",
+      "type": "docker",
+      "docker_container": "clinicai_prod-notification-relay-1",
+      "interval_seconds": 120,
+      "retries": 2,
+      "why": [
+        "Theo dõi HEALTH của container, không phải trạng thái running. Healthcheck",
+        "của service này đọc file nhịp tim mà mỗi vòng poll ghi (worker._beat), nên",
+        "nó phân biệt được 'đang chạy' với 'còn sống nhưng vòng lặp đã treo' — kiểu",
+        "hỏng mà restart: unless-stopped không bao giờ thấy.",
+        "",
+        "Chỉ bật khi chạy --profile workers/notifications."
+      ],
+      "notification_channels": ["ops-telegram"],
+      "enabled_when": "profile: workers hoặc notifications"
+    },
+    {
+      "name": "Backup — bản gần nhất còn tươi",
+      "type": "push",
+      "push_interval_seconds": 93600,
+      "why": [
+        "93600s = 26 giờ, khớp _BACKUP_STALE_HOURS trong services/ops_status.py.",
+        "scripts/backup-db.sh gọi push URL khi backup xong VÀ đã verify. Kiểu",
+        "'push' đúng ở đây vì thứ cần cảnh báo là backup KHÔNG chạy — một monitor",
+        "đi hỏi thì không phát hiện được sự vắng mặt."
+      ],
+      "notification_channels": ["ops-telegram"]
+    },
+    {
+      "name": "Chứng chỉ TLS",
+      "type": "http",
+      "url": "https://${SITE_ADDRESS}/health",
+      "interval_seconds": 3600,
+      "certificate_expiry_days_warning": 14,
+      "why": [
+        "Chỉ áp dụng khi SITE_ADDRESS là tên miền thật (Caddy tự cấp Let's",
+        "Encrypt). Ở chế độ :80 sau Cloudflare/Tailscale thì TLS do tunnel lo —",
+        "bỏ monitor này."
+      ],
+      "notification_channels": ["ops-telegram"],
+      "enabled_when": "SITE_ADDRESS là domain, không phải :80"
+    }
+  ]
+}
