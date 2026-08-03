@@ -300,12 +300,21 @@ class BookingService:
                     identity=identity,
                 )
 
+                warnings: list[str] = []
                 if doctor_id:
                     busy = await self._doctor_conflict(
                         conn, doctor_id, slot_start, slot_end, identity
                     )
                     if busy:
                         raise ConflictError(busy)
+
+                    off_duty = await self._roster_warning(
+                        conn, doctor_id, slot_start, identity
+                    )
+                    if off_duty:
+                        if await self._roster_is_required(conn, identity):
+                            raise ConflictError(off_duty)
+                        warnings.append(off_duty)
 
                 policy = await load_effective_policy(
                     conn, identity.clinic_id, doctor_id, slot_start
@@ -412,8 +421,15 @@ class BookingService:
             appointment_id=str(appointment_id),
             status=status,
             by_staff_id=identity.staff_id,
+            warning_count=len(warnings),
         )
-        return {"appointment_id": str(appointment_id), "status": status}
+        return {
+            "appointment_id": str(appointment_id),
+            "status": status,
+            # Cảnh báo KHÔNG phải lỗi: lịch đã được ghi. Nhưng người đặt phải
+            # thấy điều bất thường ngay lúc đặt, không phải lúc bệnh nhân đến.
+            "warnings": warnings,
+        }
 
     # ---------------------------------------------------------------- action
 
@@ -872,6 +888,76 @@ class BookingService:
             f"{DOCTOR_OVERLAP_CAP} lịch hẹn trong khung giờ "
             f"{_hhmm(slot_start)}–{_hhmm(slot_end)} ngày {day}. "
             "Vui lòng chọn khung giờ khác."
+        )
+
+    async def _roster_warning(
+        self,
+        conn: asyncpg.Connection,
+        doctor_id: str,
+        slot_start: datetime,
+        identity: StaffIdentity,
+    ) -> str | None:
+        """Câu cảnh báo nếu bác sĩ không có ca trực hôm đó; None nếu ổn.
+
+        CHỈ CẢNH BÁO KHI ĐÃ CÓ LỊCH TRỰC CHO NGÀY ĐÓ. Đây là điểm mấu chốt:
+        CSKH đặt lịch trước cả tháng, lúc đó lịch trực chưa xếp. Cảnh báo mọi
+        lịch tương lai sẽ biến cảnh báo thành tiếng ồn, và tiếng ồn thì bị bỏ
+        qua đúng vào lần nó nói thật.
+
+        Vậy nên: ngày chưa xếp ca → im lặng. Ngày đã xếp ca mà bác sĩ này không
+        có tên → nói ra.
+        """
+        work_date = slot_start.astimezone(CLINIC_TZ).date()
+        row = await conn.fetchrow(
+            """
+            SELECT
+              EXISTS (
+                SELECT 1 FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = $2
+                   AND status = 'APPROVED'
+              ) AS roster_exists,
+              EXISTS (
+                SELECT 1 FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = $2
+                   AND status = 'APPROVED' AND staff_id = $3::uuid
+              ) AS on_duty
+            """,
+            identity.clinic_id,
+            work_date,
+            doctor_id,
+        )
+        if row is None or not row["roster_exists"] or row["on_duty"]:
+            return None
+
+        name = await conn.fetchval(
+            "SELECT full_name FROM staff WHERE id = $1::uuid", doctor_id
+        )
+        return (
+            f"{name or 'Bác sĩ này'} không có ca trực ngày "
+            f"{work_date:%d/%m/%Y}. Lịch vẫn được tạo — kiểm tra lại lịch trực "
+            "hoặc đổi bác sĩ."
+        )
+
+    @staticmethod
+    async def _roster_is_required(
+        conn: asyncpg.Connection, identity: StaffIdentity
+    ) -> bool:
+        """Phòng khám có chặn hẳn việc đặt cho bác sĩ không trực không?
+
+        Mặc định KHÔNG. Ở phòng khám thật, đặt trước rồi mới xếp ca là chuyện
+        bình thường, và chặn cứng sẽ làm hỏng đúng luồng đó. Phòng khám nào muốn
+        siết thì đặt `settings.booking.require_roster = true` — một cờ, không
+        phải một bản build khác.
+        """
+        return bool(
+            await conn.fetchval(
+                """
+                SELECT coalesce(
+                    (settings #> '{booking,require_roster}')::boolean, false)
+                  FROM clinic WHERE id = $1::uuid
+                """,
+                identity.clinic_id,
+            )
         )
 
     async def _slot_full(

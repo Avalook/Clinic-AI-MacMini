@@ -107,26 +107,42 @@ function weekOf(anchorIso: string, offset: number): {
   });
 }
 
-/** Giờ mở cửa theo luật Dr4Women (lib/roster.ts):
- *  T2–T6 (Ngày thường): Chỉ khám ngoài giờ/buổi tối 17:00 – 23:00.
- *  T7–CN (Cuối tuần): Khám cả ngày 08:00 – 23:00.
+/** Các khung giờ của một ngày, theo GIỜ MỞ CỬA CỦA PHÒNG KHÁM.
  *
- *  `stepMinutes` đến từ clinic.settings — KHÔNG viết cứng 15 ở đây. Lưới vẽ 15
- *  phút trong một phòng khám cấu hình 30 phút nghĩa là mời lễ tân bấm vào những
- *  ô mà trigger sức chứa sẽ từ chối, và thông báo lỗi không nói được vì sao. */
-function generateSlotsForDate(isoDate: string, stepMinutes: number): string[] {
+ *  Trước đây hàm này viết cứng `startHour = isWeekend ? 8 : 17; endHour = 22`
+ *  — lịch của Dr4Women nung vào bundle. Hai vấn đề, và cái đầu đã xảy ra:
+ *
+ *   * lib/roster.ts nói phòng khám đóng cửa lúc 23:00, hàm này nói 22:00. Bác
+ *     sĩ đăng ký được ca 22:00–23:00 mà CSKH không đặt lịch vào được — một
+ *     tiếng mỗi tối biến mất giữa hai file, không ai báo lỗi;
+ *   * phòng khám thứ hai không thể có giờ khác chừng nào nó còn là hằng số.
+ *
+ *  Giờ cả hai đọc `clinic.settings.hours` qua BookingPolicy. `stepMinutes`
+ *  cũng từ đó — lưới 15 phút trong một phòng khám cấu hình 30 phút là mời lễ
+ *  tân bấm vào ô mà trigger sẽ từ chối. */
+function generateSlotsForDate(
+  isoDate: string,
+  stepMinutes: number,
+  hours: Record<string, { open: string; close: string }>,
+): string[] {
   const dow = new Date(`${isoDate}T12:00:00+07:00`).getUTCDay();
-  const isWeekend = dow === 0 || dow === 6;
-  const startHour = isWeekend ? 8 : 17;
-  const endHour = 22;
+  const today = hours[String(dow)];
+  if (!today) return []; // thứ không có trong cấu hình = đóng cửa
+
+  const toMin = (hhmm: string): number => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return (h ?? 0) * 60 + (m ?? 0);
+  };
+  const open = toMin(today.open);
+  const close = toMin(today.close);
+  if (close <= open) return []; // open === close = nghỉ
 
   const slots: string[] = [];
-  for (let h = startHour; h <= endHour; h++) {
-    const hh = String(h).padStart(2, "0");
-    for (let m = 0; m < 60; m += stepMinutes) {
-      const mm = String(m).padStart(2, "0");
-      slots.push(`${hh}:${mm}`);
-    }
+  // Nửa mở: khung cuối BẮT ĐẦU trước giờ đóng cửa, không phải kết thúc đúng nó.
+  for (let m = open; m < close; m += stepMinutes) {
+    slots.push(
+      `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`,
+    );
   }
   return slots;
 }
@@ -183,8 +199,11 @@ export default function BookingHub({
   const weekDays = useMemo(() => weekOf(vnToday(), weekOffset), [weekOffset]);
 
   const timeSlots = useMemo(
-    () => generateSlotsForDate(selectedDateIso, slotMinutes),
-    [selectedDateIso, slotMinutes],
+    () =>
+      policy
+        ? generateSlotsForDate(selectedDateIso, slotMinutes, policy.hours)
+        : [],
+    [selectedDateIso, slotMinutes, policy],
   );
 
   // Clean Service Names
@@ -502,8 +521,17 @@ export default function BookingHub({
       });
 
       if (res.ok) {
+        // Cảnh báo đi CÙNG thông báo thành công, không thay nó: lịch đã được
+        // ghi thật. Ví dụ hay gặp nhất là bác sĩ không có ca trực hôm đó —
+        // không sai đủ để từ chối, nhưng người đặt phải biết ngay bây giờ chứ
+        // không phải lúc bệnh nhân tới nơi.
+        const body = (await res.json().catch(() => ({}))) as {
+          warnings?: string[];
+        };
+        const warn = (body.warnings ?? []).join(" ");
         setConfirmedMsg(
-          `Đã đặt lịch hẹn thành công cho ${activePatient.full_name} vào khung giờ ${timeDisplay} với ${selectedSlot.doctorName}!`,
+          `Đã đặt lịch hẹn thành công cho ${activePatient.full_name} vào khung giờ ${timeDisplay} với ${selectedSlot.doctorName}!` +
+            (warn ? ` ⚠️ ${warn}` : ""),
         );
         setNote("");
         // Không có dòng này, ô vừa đặt vẫn vẽ là còn trống cho tới nhịp poll kế

@@ -65,7 +65,7 @@ export default function CinemaSlotPicker({
   // Các cột giờ (HH:mm) nằm trong giờ mở cửa của NGÀY đã chọn.
   const slots = useMemo(() => {
     if (!date || !policy) return [] as string[];
-    const ch = clinicHoursForDate(date);
+    const ch = clinicHoursForDate(date, policy.hours);
     if (!ch) return [] as string[];
     const minHour = Number(ch.open.slice(0, 2));
     const maxHour = Number(ch.close.slice(0, 2)); // giờ đóng cửa = mốc loại trừ

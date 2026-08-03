@@ -434,7 +434,8 @@ export default function NewPatientForm({
     requiredForCustomer &&
     !submitting;
   // Giờ mở cửa PK theo ngày khám đã chọn (T2–T6 17–23h; T7+CN cả ngày).
-  const apptCh = apptDate ? clinicHoursForDate(apptDate) : null;
+  const apptCh =
+    apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
   const apptMinHour = apptCh ? Number(apptCh.open.slice(0, 2)) : 0;
   const apptMaxHour = apptCh ? Number(apptCh.close.slice(0, 2)) - 1 : 23;
   // Lỗi nhỏ ngay cạnh ô SĐT/CCCD (live) — rõ ô NÀO sai (chính/người nhà/CCCD),
@@ -614,7 +615,9 @@ export default function NewPatientForm({
         setError("Không thể đặt lịch khám trong quá khứ. Chọn ngày/giờ từ hiện tại trở đi.");
         return;
       }
-      const chErr = clinicHoursError(apptDate, apptTime);
+      const chErr = policy
+        ? clinicHoursError(apptDate, apptTime, policy.hours)
+        : "Chưa đọc được giờ mở cửa của phòng khám.";
       if (chErr) {
         setError(chErr);
         return;

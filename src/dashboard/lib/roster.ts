@@ -150,18 +150,27 @@ export function todayVn(): string {
 }
 
 // ===== GIỜ MỞ CỬA PHÒNG KHÁM =====
-// T2–T6: 17:00–23:00 (chỉ buổi tối). T7 + Chủ nhật: cả ngày (08:00–23:00).
-// Dùng cho: đặt lịch hẹn (chặn ngoài giờ) + tham chiếu ca làm việc.
-export interface ClinicHours {
-  open: string; // "HH:MM"
-  close: string; // "HH:MM"
-}
-export function clinicHoursForDate(isoDate: string): ClinicHours {
+//
+// CẤU HÌNH, KHÔNG PHẢI HẰNG SỐ. File này từng trả cứng T2–T6 17:00–23:00 và
+// cuối tuần 08:00–23:00, còn BookingHub trả 22:00 cho giờ đóng cửa. Hai nguồn,
+// hai con số: bác sĩ đăng ký được ca 22:00–23:00 mà CSKH không đặt lịch vào
+// được, và không có lỗi nào chỉ ra điều đó.
+//
+// Giờ cả hai đọc `clinic.settings.hours` (migration 20260803000011), truyền
+// vào qua BookingPolicy. `hours` là bắt buộc — không có tham số mặc định, vì
+// một mặc định ở đây chính là cách hai con số cũ sống sót lâu như vậy.
+export type { ClinicHours } from "./booking-policy";
+import type { ClinicHours } from "./booking-policy";
+
+/** Giờ mở cửa của một ngày; `null` = phòng khám đóng cửa hôm đó. */
+export function clinicHoursForDate(
+  isoDate: string,
+  hours: Record<string, ClinicHours>,
+): ClinicHours | null {
   const dow = new Date(isoDate + "T00:00:00Z").getUTCDay(); // 0=CN, 6=T7
-  const weekend = dow === 0 || dow === 6;
-  return weekend
-    ? { open: "08:00", close: "23:00" }
-    : { open: "17:00", close: "23:00" };
+  const today = hours[String(dow)];
+  if (!today || today.open === today.close) return null;
+  return today;
 }
 
 /**
@@ -171,15 +180,15 @@ export function clinicHoursForDate(isoDate: string): ClinicHours {
 export function clinicHoursError(
   isoDate: string,
   time: string,
+  hours: Record<string, ClinicHours>,
 ): string | null {
   if (!isoDate || !time) return null;
-  const { open, close } = clinicHoursForDate(isoDate);
-  if (time < open || time >= close) {
-    const dow = new Date(isoDate + "T00:00:00Z").getUTCDay();
-    const weekend = dow === 0 || dow === 6;
-    return weekend
-      ? `Cuối tuần phòng khám nhận khám ${open}–${close}. Hãy chọn giờ trong khoảng này.`
-      : `T2–T6 phòng khám chỉ nhận khám ${open}–${close} (buổi tối). Hãy chọn giờ trong khoảng này.`;
+  const today = clinicHoursForDate(isoDate, hours);
+  if (!today) return "Phòng khám không làm việc ngày này.";
+  if (time < today.open || time >= today.close) {
+    // Câu cũ phân biệt "cuối tuần" với "T2–T6" — đúng với lịch Dr4Women và sai
+    // với bất kỳ phòng khám nào chia lịch khác. Nói thẳng giờ của ĐÚNG ngày đó.
+    return `Ngày này phòng khám nhận khám ${today.open}–${today.close}. Hãy chọn giờ trong khoảng này.`;
   }
   return null;
 }

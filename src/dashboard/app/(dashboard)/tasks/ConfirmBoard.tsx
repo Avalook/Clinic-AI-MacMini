@@ -23,6 +23,7 @@ import { digitsOnly, phoneError, daysInMonth, unaccentVi } from "../../../lib/va
 import { INPUT, LABEL } from "../form-ui";
 import Time24Input from "../Time24Input";
 import StatusBadge from "../StatusBadge";
+import { useBookingPolicy } from "../BookingPolicyContext";
 
 export interface Opt {
   id: string;
@@ -102,6 +103,9 @@ export default function ConfirmBoard({
   canManage?: boolean;
 }) {
   const router = useRouter();
+  // Giờ mở cửa để chặn đổi lịch ra ngoài giờ — đọc từ cấu hình phòng khám,
+  // không còn là hằng số trong lib/roster.ts.
+  const policy = useBookingPolicy();
   const [selId, setSelId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Form | null>(null);
@@ -128,7 +132,8 @@ export default function ConfirmBoard({
   // Còn "sống" → hủy / đổi lịch được (gồm CSKH đã xác nhận, chờ bác sĩ).
   const LIVE = ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"];
   // Giới hạn giờ đổi lịch theo giờ mở cửa của ngày mới.
-  const rCh = reschedDate ? clinicHoursForDate(reschedDate) : null;
+  const rCh =
+    reschedDate && policy ? clinicHoursForDate(reschedDate, policy.hours) : null;
   const rMinHour = rCh ? Number(rCh.open.slice(0, 2)) : 0;
   const rMaxHour = rCh ? Number(rCh.close.slice(0, 2)) - 1 : 23;
 
@@ -211,7 +216,9 @@ export default function ConfirmBoard({
       setError("Không thể đổi sang ngày/giờ trong quá khứ.");
       return;
     }
-    const chErr = clinicHoursError(reschedDate, reschedTime);
+    const chErr = policy
+        ? clinicHoursError(reschedDate, reschedTime, policy.hours)
+        : "Chưa đọc được giờ mở cửa của phòng khám.";
     if (chErr) {
       setError(chErr);
       return;

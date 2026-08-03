@@ -13,6 +13,12 @@
 
 import { fetchFromBackend } from "./backend-proxy";
 
+export interface ClinicHours {
+  /** "HH:MM" */
+  open: string;
+  close: string;
+}
+
 export interface BookingPolicy {
   /** Độ dài 1 khung (phút). Luôn chia hết 60. */
   slotMinutes: number;
@@ -20,12 +26,37 @@ export interface BookingPolicy {
   regularCap: number;
   /** Số chỗ vãng lai mỗi bác sĩ mỗi khung. */
   walkinCap: number;
+  /**
+   * Giờ mở cửa theo thứ, khoá "0"=CN … "6"=T7. Thứ vắng mặt = đóng cửa.
+   *
+   * ĐI CÙNG LUẬT, KHÔNG PHẢI HẰNG SỐ TRONG MÃ. Trước đây nó nằm ở hai file —
+   * BookingHub (đóng lúc 22:00) và lib/roster.ts (23:00) — nên bác sĩ đăng ký
+   * được ca 22:00–23:00 mà CSKH không đặt lịch vào được: một tiếng mỗi tối
+   * biến mất giữa hai file. Và một hằng số trong bundle nghĩa là phòng khám
+   * thứ hai không thể có giờ khác.
+   */
+  hours: Record<string, ClinicHours>;
 }
 
 interface PolicyResponse {
   slot_minutes?: unknown;
   regular_cap?: unknown;
   walkin_cap?: unknown;
+  hours?: unknown;
+}
+
+/** Giờ mở cửa hợp lệ hay không — dữ liệu xấu ở đây là lưới vẽ sai giờ. */
+function asHours(value: unknown): Record<string, ClinicHours> | null {
+  if (typeof value !== "object" || value === null) return null;
+  const out: Record<string, ClinicHours> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v !== "object" || v === null) return null;
+    const { open, close } = v as { open?: unknown; close?: unknown };
+    if (typeof open !== "string" || typeof close !== "string") return null;
+    if (!/^\d{2}:\d{2}$/.test(open) || !/^\d{2}:\d{2}$/.test(close)) return null;
+    out[k] = { open, close };
+  }
+  return out;
 }
 
 function asInt(value: unknown): number | null {
@@ -56,5 +87,9 @@ export async function getBookingPolicy(): Promise<BookingPolicy | null> {
   if (slotMinutes < 1 || slotMinutes > 60 || 60 % slotMinutes !== 0) return null;
   if (regularCap < 1 || walkinCap < 0) return null;
 
-  return { slotMinutes, regularCap, walkinCap };
+  // Cùng lý do như ba con số trên: thiếu giờ mở cửa thì màn nói ra, không đoán.
+  const hours = asHours(raw.hours);
+  if (hours === null) return null;
+
+  return { slotMinutes, regularCap, walkinCap, hours };
 }

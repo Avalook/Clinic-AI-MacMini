@@ -150,7 +150,7 @@ async def booking_policy(
     date: str | None = None,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """Độ dài khung và số chỗ, có tính override per-doctor/per-slot (C.4).
 
     Không dùng ``_BOOKING_GUARD``: bảng lịch tuần ở màn chủ vẽ đúng cái lưới
@@ -176,10 +176,32 @@ async def booking_policy(
             )
         else:
             policy = await load_clinic_policy(conn, identity.clinic_id)
+        # GIỜ MỞ CỬA ĐI CÙNG LUẬT, KHÔNG NẰM TRONG BUNDLE.
+        #
+        # Trước đây nó là hằng số ở hai file — BookingHub (…–22:00) và
+        # lib/roster.ts (…–23:00) — với hai giá trị khác nhau, nên bác sĩ đăng ký
+        # được ca 22:00–23:00 mà CSKH không đặt lịch vào được. Và một hằng số
+        # trong bundle nghĩa là phòng khám thứ hai không thể có giờ khác.
+        hours_rows = await conn.fetch(
+            """
+            SELECT key::int AS weekday,
+                   value ->> 'open'  AS open,
+                   value ->> 'close' AS close
+              FROM clinic c, jsonb_each(c.settings -> 'hours')
+             WHERE c.id = $1::uuid
+            """,
+            identity.clinic_id,
+        )
+
     return {
         "slot_minutes": policy.slot_minutes,
         "regular_cap": policy.regular_cap,
         "walkin_cap": policy.walkin_cap,
+        # {"0": {"open": "08:00", "close": "23:00"}, …} — khoá là thứ, 0=CN.
+        "hours": {
+            str(r["weekday"]): {"open": r["open"], "close": r["close"]}
+            for r in hours_rows
+        },
     }
 
 
