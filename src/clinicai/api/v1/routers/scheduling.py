@@ -160,8 +160,29 @@ async def assign_staff_to_session(
 # ---------------------------------------------------------------------------
 
 
+# `{id:uuid}`, KHÔNG PHẢI `{id}` — và đây là một lỗi đã im lặng rất lâu.
+#
+# Route này đăng ký TRƯỚC booking_router (xem thứ tự include_router ở main.py),
+# nên với `{id}` trần nó nuốt luôn hai đường anh em của nó:
+#
+#     GET /api/v1/appointments/policy   → id = "policy" → 422
+#     GET /api/v1/appointments/quote    → id = "quote"  → 422
+#
+# Starlette so khớp theo MẪU ĐƯỜNG DẪN, không theo kiểu. `{id}` khớp mọi chuỗi,
+# rồi FastAPI mới validate UUID và trả 422 — nó KHÔNG rơi xuống route kế tiếp.
+# Nên hai endpoint kia chưa bao giờ chạy được, dù chúng tồn tại và có test.
+#
+# Không ai thấy vì phía trình duyệt có `?? 15` / `?? 3`: getBookingPolicy() trả
+# null, các màn lặng lẽ dùng con số viết cứng, và lưới vẫn vẽ ra một thứ trông
+# hợp lý. Bỏ mấy cái mặc định đó đi thì lỗi lộ ra ngay lập tức.
+#
+# Bộ chuyển đổi `:uuid` bắt Starlette chỉ khớp khi đoạn đường dẫn THẬT SỰ là
+# UUID; "policy" không khớp và request đi tiếp tới đúng route của nó. Sửa bằng
+# cách đổi thứ tự include_router cũng chạy, nhưng nó biến một lỗi 422 thành thứ
+# phụ thuộc vào thứ tự vài dòng ở file khác — kiểu ràng buộc vô hình mà chính
+# lỗi này là ví dụ.
 @router.get(
-    "/appointments/{id}",
+    "/appointments/{id:uuid}",
     response_model=AppointmentRead,
 )
 async def get_appointment_by_id(
