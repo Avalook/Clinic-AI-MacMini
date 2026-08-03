@@ -149,6 +149,16 @@ function generateSlotsForDate(
 
 type SlotTone = "available" | "few" | "holding" | "full" | "selected";
 
+/** Trả lời của GET /api/appointments/quote — sức chứa hiệu lực từng khung. */
+interface QuoteResponse {
+  closed?: boolean;
+  slots?: {
+    time: string;
+    regular_cap: number;
+    walkin_cap: number;
+  }[];
+}
+
 interface CellStatus {
   tone: SlotTone;
   label: string;
@@ -339,6 +349,53 @@ export default function BookingHub({
     return () => ctrl.abort();
   }, [selectedDateIso, isToday, fetchedByDate]);
 
+  // SỐ CHỖ THẬT CỦA TỪNG Ô, đọc từ chính hàm mà trigger dùng để chặn.
+  //
+  // Trước đây mọi ô dùng chung `dynamicCap` = số chỗ mặc định của phòng khám,
+  // nên luật riêng của một bác sĩ KHÔNG hiện ra: Trưởng ca đặt BS Thành 18:00
+  // được 10 ca, lưới vẫn vẽ 3/3 rồi khoá ô ở ca thứ tư — cấu hình lưu thành
+  // công mà màn hình không đổi, đúng loại "chỉnh xong chẳng thấy gì" tệ nhất.
+  //
+  // /appointments/quote gọi resolve_effective_cap cho TỪNG khung của ngày, nên
+  // ô dãn hay co theo đúng luật ba tầng. Một request cho mỗi bác sĩ đang hiện
+  // (tối đa ba cột), huỷ khi đổi ngày.
+  const [capByCell, setCapByCell] = useState<
+    Record<string, { regular: number; walkin: number }>
+  >({});
+  const activeDoctorIds = activeDoctors.map((d) => d.id).join(",");
+
+  useEffect(() => {
+    if (!policy || !activeDoctorIds) return;
+    const ctrl = new AbortController();
+    const ids = activeDoctorIds.split(",");
+    Promise.all(
+      ids.map((docId) =>
+        fetch(
+          `/api/appointments/quote?date=${selectedDateIso}&doctor_id=${docId}`,
+          { signal: ctrl.signal },
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d: QuoteResponse | null) => [docId, d] as const)
+          .catch(() => [docId, null] as const),
+      ),
+    ).then((pairs) => {
+      if (ctrl.signal.aborted) return;
+      const next: Record<string, { regular: number; walkin: number }> = {};
+      for (const [docId, d] of pairs) {
+        for (const s of d?.slots ?? []) {
+          next[`${docId}|${selectedDateIso}|${s.time}`] = {
+            regular: s.regular_cap,
+            walkin: s.walkin_cap,
+          };
+        }
+      }
+      // Gộp thay vì thay: đổi bộ lọc bác sĩ không nên xoá số chỗ của các cột
+      // vừa đọc xong, nếu không lưới nhấp nháy về "chưa biết" mỗi lần lọc.
+      setCapByCell((prev) => ({ ...prev, ...next }));
+    });
+    return () => ctrl.abort();
+  }, [selectedDateIso, activeDoctorIds, policy]);
+
   // Số lịch còn giữ chỗ, gom theo (bác sĩ, ngày VN, giờ VN).
   //
   // HAI LỖI ĐƯỢC SỬA Ở ĐÂY, VÀ CẢ HAI ĐỀU IM LẶNG.
@@ -371,7 +428,14 @@ export default function BookingHub({
   }, [apptsForDate]);
 
   function getCellStatus(docId: string, time: string): CellStatus {
-    const maxCap = Math.max(1, dynamicCap);
+    // Luật riêng của ô này nếu đã đọc được; chưa đọc xong thì tạm dùng mặc định
+    // phòng khám — cùng con số mà backend sẽ trả về nếu ô không có luật riêng,
+    // nên nó không phải một phỏng đoán mới.
+    const cell = capByCell[`${docId}|${selectedDateIso}|${time}`];
+    const maxCap = Math.max(
+      1,
+      cell ? cell.regular + cell.walkin : dynamicCap,
+    );
     // Chưa có luật ⇒ chưa biết khung này mấy chỗ. Trả về "full" để mọi ô render
     // ở nhánh disabled sẵn có, thay vì thêm một tone mới chỉ dùng cho lúc hỏng.
     if (gridLocked) {
@@ -460,7 +524,10 @@ export default function BookingHub({
   // Current slot capacity summary for right panel
   const selectedCellStatus = useMemo(
     () => getCellStatus(selectedSlot.doctorId, selectedSlot.time),
-    [selectedSlot, appts],
+    // capByCell nằm trong deps: nếu không, thẻ tóm tắt bên phải giữ nguyên số
+    // chỗ mặc định sau khi luật riêng của bác sĩ đã về, và hai chỗ trên cùng
+    // màn hình nói hai con số khác nhau cho cùng một ô.
+    [selectedSlot, appts, capByCell],
   );
 
   async function handleConfirmBooking() {

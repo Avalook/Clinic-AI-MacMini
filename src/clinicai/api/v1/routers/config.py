@@ -190,10 +190,18 @@ async def update_booking_policy(
 
 
 class DoctorOverrideRequest(BaseModel):
-    """Create a per-doctor booking capacity override."""
+    """Luật đặt lịch THƯỜNG TRỰC cho một khung giờ (tầng 2).
 
-    doctor_id: UUID
+    ``doctor_id`` để trống = luật cho mọi bác sĩ; ``minute_start``/``minute_end``
+    để trống = áp cho cả ngày. Khoảng phút chứ không phải giờ tròn: luật của
+    Dr4Women khác nhau giữa 18:00 và 18:15, nên độ mịn theo giờ không ghi lại
+    được điều Trưởng ca muốn nói.
+    """
+
+    doctor_id: UUID | None = None
     weekday: int | None = Field(default=None, ge=0, le=6)
+    minute_start: int | None = Field(default=None, ge=0, le=1439)
+    minute_end: int | None = Field(default=None, ge=1, le=1440)
     slot_minutes: int | None = Field(default=None, ge=1, le=60)
     regular_cap: int | None = Field(default=None, ge=1, le=100)
     walkin_cap: int | None = Field(default=None, ge=0, le=100)
@@ -224,13 +232,19 @@ async def create_doctor_override(
     identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Tạo override số chỗ cho một bác sĩ (C.4 Tầng 2)."""
+    """Ghi luật thường trực cho một khung giờ (C.4 Tầng 2).
+
+    Luật mới thắng: luật cũ phủ cùng khung sẽ bị cắt quanh nó, không phải báo
+    lỗi bắt người dùng đi dọn trước. Xem docstring của service.
+    """
     from clinicai.services.booking_override_service import BookingOverrideService
 
     return await BookingOverrideService(pool).create_doctor_override(
         identity=identity,
-        doctor_id=str(body.doctor_id),
+        doctor_id=str(body.doctor_id) if body.doctor_id else None,
         weekday=body.weekday,
+        minute_start=body.minute_start,
+        minute_end=body.minute_end,
         slot_minutes=body.slot_minutes,
         regular_cap=body.regular_cap,
         walkin_cap=body.walkin_cap,

@@ -7,22 +7,47 @@ import { useState } from "react";
 import { VN_TZ } from "../../../lib/datetime";
 import { useRouter } from "next/navigation";
 import { INPUT, LABEL, BTN, BTN_GHOST, CARD, TBL_WRAP, TBL_HEAD, TBL_ROW } from "../form-ui";
-import { Calendar, User, Clock, CheckCircle2, AlertCircle } from "lucide-react";
-import type { BookingPolicy } from "../../../lib/booking-policy";
+import { User, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import type {
+  BookingPolicy,
+  StandingRule,
+  TempException,
+} from "../../../lib/booking-policy";
 
 export interface DoctorOpt {
   id: string;
   name: string;
 }
 
+const WEEKDAY_LABEL = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+function hhmm(minuteOfDay: number): string {
+  const h = Math.floor(minuteOfDay / 60);
+  const m = minuteOfDay % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function toMinutes(value: string): number {
+  const [h, m] = value.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
 export default function OverridePolicyCard({
   doctors,
   policy,
+  standingRules,
+  tempExceptions,
 }: {
   doctors: DoctorOpt[];
   /** Luật đặt lịch của phòng khám — để nhãn khung giờ hiển thị đúng độ dài
    *  thực (clinic.settings.booking.slot_minutes) thay vì đoán 15 phút. */
   policy: BookingPolicy | null;
+  /** Luật thường trực đang có hiệu lực. Không có danh sách này thì màn chỉ có
+   *  ô nhập, và người dùng không thấy được thứ mình đang sửa. */
+  standingRules: StandingRule[];
+  /** Điều chỉnh tạm thời còn hạn — chúng ĐÈ LÊN luật thường trực, nên một
+   *  ngoại lệ quên xoá làm luật vừa lưu trông như không chạy. */
+  tempExceptions: TempException[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"doctor" | "slot">("slot");
@@ -43,8 +68,20 @@ export default function OverridePolicyCard({
   const [slotWalkinCap, setSlotWalkinCap] = useState<number>(1);
   const [reason, setReason] = useState<string>("");
 
-  // Form states - Doctor Capacity Override
+  // Form states - luật thường trực theo bác sĩ.
+  //
+  // KHUNG GIỜ, KHÔNG PHẢI MỘT CON SỐ CHO CẢ NGÀY. Bản trước chỉ có ô "số ca",
+  // nên luật duy nhất viết được là "BS Thành, mọi khung, 9 ca" — trong khi luật
+  // thật của phòng khám là 18:00 mười ca rồi 18:15 trở đi bốn ca. Và vì luật
+  // cả-ngày phủ trọn 0–1440, lần lưu thứ hai luôn đụng luật cũ.
   const [docOverrideCap, setDocOverrideCap] = useState<number>(4);
+  const [docWalkinCap, setDocWalkinCap] = useState<number>(1);
+  const [docFrom, setDocFrom] = useState<string>("18:00");
+  const [docTo, setDocTo] = useState<string>("18:15");
+  const [docWeekday, setDocWeekday] = useState<string>("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const doctorName = new Map(doctors.map((d) => [d.id, d.name]));
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -101,10 +138,6 @@ export default function OverridePolicyCard({
     // 18:30, 18:45 và DỪNG trước 19:00. Nếu bao gồm mốc cuối thì hai ngoại lệ
     // liền kề (18:00–19:00 và 19:00–20:00) sẽ đụng nhau ở đúng khung 19:00, và
     // ràng buộc EXCLUDE sẽ từ chối một thao tác hoàn toàn hợp lý.
-    const toMinutes = (hhmm: string): number => {
-      const [h, m] = hhmm.split(":").map(Number);
-      return (h ?? 0) * 60 + (m ?? 0);
-    };
     const minuteStart = toMinutes(slotFrom);
     // "24:00" không nhập được từ <input type="time">, nên 00:00 ở ô ĐẾN nghĩa là
     // hết ngày — chứ không phải một khung rỗng.
@@ -175,8 +208,12 @@ export default function OverridePolicyCard({
   }
 
   async function saveDoctorOverride() {
-    if (!selectedDoctorId) {
-      setMsg({ kind: "err", text: "Vui lòng chọn bác sĩ." });
+    const minuteStart = toMinutes(docFrom);
+    // "24:00" không nhập được từ <input type="time">, nên 00:00 ở ô ĐẾN nghĩa là
+    // hết ngày — giống hệt quy ước ở tab khung giờ bên trên.
+    const minuteEnd = docTo === "00:00" ? 1440 : toMinutes(docTo);
+    if (minuteEnd <= minuteStart) {
+      setMsg({ kind: "err", text: "Giờ kết thúc phải sau giờ bắt đầu." });
       return;
     }
     setBusy(true);
@@ -187,13 +224,25 @@ export default function OverridePolicyCard({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          doctor_id: selectedDoctorId,
+          // Để trống = luật cho MỌI bác sĩ. Bảng luật của phòng khám có cả hai
+          // loại dòng ("BS Thành 18:00" và "các bác sĩ khác 18:00"), nên ô này
+          // phải nói được cả hai.
+          doctor_id: selectedDoctorId || null,
+          weekday: docWeekday === "" ? null : Number(docWeekday),
+          minute_start: minuteStart,
+          minute_end: minuteEnd,
           regular_cap: docOverrideCap,
-          reason: reason || "Điều chỉnh công suất bác sĩ",
+          walkin_cap: docWalkinCap,
+          reason: reason || "Luật thường trực",
         }),
       });
 
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        replaced?: { action: string }[];
+        shadowed_by?: { date_end: string }[];
+      };
       setBusy(false);
 
       if (!res.ok || !data.ok) {
@@ -201,13 +250,64 @@ export default function OverridePolicyCard({
         return;
       }
 
+      const who = selectedDoctorId
+        ? (doctorName.get(selectedDoctorId) ?? "bác sĩ đã chọn")
+        : "mọi bác sĩ";
+      const when = docWeekday === "" ? "mọi ngày" : WEEKDAY_LABEL[Number(docWeekday)];
+      // Luật cũ bị cắt là chuyện phải NÓI RA. Nó xảy ra mà không ai bấm nút
+      // xoá, và bảng luật ngay bên dưới sẽ đổi theo — im lặng ở đây nghĩa là
+      // người dùng phải tự phát hiện.
+      const n = data.replaced?.length ?? 0;
+      // "Đã lưu" mà lưới không đổi là cách nhanh nhất để người dùng kết luận
+      // chức năng hỏng. Nếu còn một điều chỉnh tạm thời đè lên khung này thì
+      // nói ngay, kèm ngày nó hết hạn.
+      const shadow = data.shadowed_by ?? [];
+      const shadowText =
+        shadow.length > 0
+          ? ` Lưu ý: khung này đang bị một điều chỉnh tạm thời đè lên (đến ${shadow
+              .map((s) => s.date_end.split("-").reverse().join("/"))
+              .join(", ")}) — xoá nó ở tab “Theo Khung giờ & Ngày” thì luật này mới có hiệu lực.`
+          : "";
       setMsg({
         kind: "ok",
-        text: `Đã điều chỉnh công suất riêng cho bác sĩ (${docOverrideCap} ca/khung).`,
+        text:
+          `Đã áp dụng: ${who}, ${when}, khung ${docFrom}–${docTo} — ` +
+          `${docOverrideCap} ca đặt trước, ${docWalkinCap} ca vãng lai.` +
+          (n > 0 ? ` (${n} luật cũ phủ khung này đã được cắt lại.)` : "") +
+          shadowText,
       });
       router.refresh();
     } catch {
       setBusy(false);
+      setMsg({ kind: "err", text: "Không kết nối được máy chủ" });
+    }
+  }
+
+  async function deleteOverride(kind: "doctor" | "slot", id: string) {
+    setDeletingId(id);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/booking-overrides/${kind}/${id}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      setDeletingId(null);
+      if (!res.ok || !data.ok) {
+        setMsg({ kind: "err", text: data.error ?? `Lỗi máy chủ (${res.status})` });
+        return;
+      }
+      // Xoá KHÔNG để lại khoảng trống rỗng: khung đó rơi xuống tầng dưới. Nói
+      // ra, vì "đã xoá" một mình dễ bị hiểu là khung ấy không còn đặt được.
+      setMsg({
+        kind: "ok",
+        text:
+          kind === "doctor"
+            ? "Đã xoá luật. Khung giờ đó quay về số chỗ mặc định của phòng khám."
+            : "Đã xoá điều chỉnh tạm thời. Khung giờ đó quay về luật thường trực.",
+      });
+      router.refresh();
+    } catch {
+      setDeletingId(null);
       setMsg({ kind: "err", text: "Không kết nối được máy chủ" });
     }
   }
@@ -405,18 +505,89 @@ export default function OverridePolicyCard({
               {busy ? "Đang áp dụng..." : "Áp dụng điều chỉnh khung giờ"}
             </button>
           </div>
+
+          {/* Ngoại lệ tạm thời ĐÈ LÊN luật thường trực. Không có danh sách này,
+              một dòng quên xoá khiến mọi luật lưu sau đó trông như vô tác dụng
+              — và không có màn nào trong hệ thống cho thấy nó tồn tại. */}
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-ink">
+              Điều chỉnh tạm thời còn hạn
+            </h3>
+            {tempExceptions.length === 0 ? (
+              <p className="text-xs text-ink-muted">
+                Không có — mọi khung đang chạy theo luật thường trực.
+              </p>
+            ) : (
+              <div className={TBL_WRAP}>
+                <table className="w-full text-sm">
+                  <thead className={TBL_HEAD}>
+                    <tr>
+                      <th className="px-3 py-2 text-left">Bác sĩ</th>
+                      <th className="px-3 py-2 text-left">Từ – đến ngày</th>
+                      <th className="px-3 py-2 text-left">Khung giờ</th>
+                      <th className="px-3 py-2 text-right">Đặt trước</th>
+                      <th className="px-3 py-2 text-right">Vãng lai</th>
+                      <th className="px-3 py-2 text-left">Lý do</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tempExceptions.map((r) => (
+                      <tr key={r.id} className={TBL_ROW}>
+                        <td className="px-3 py-2">
+                          {r.doctor_id
+                            ? (doctorName.get(r.doctor_id) ?? "—")
+                            : "Tất cả bác sĩ"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {r.date_start === r.date_end
+                            ? r.date_start
+                            : `${r.date_start} → ${r.date_end}`}
+                        </td>
+                        <td className="px-3 py-2">
+                          {hhmm(r.minute_start)}–{hhmm(r.minute_end)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {r.regular_cap ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {r.walkin_cap ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-ink-muted">{r.reason}</td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => deleteOverride("slot", r.id)}
+                            disabled={deletingId === r.id}
+                            className={BTN_GHOST}
+                          >
+                            {deletingId === r.id ? "Đang xoá…" : "Xoá"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <p className="text-xs text-ink-muted">
+            Luật <b>thường trực</b>: lặp lại mỗi ngày, không hết hạn. Lưu đè lên
+            luật cũ phủ cùng khung — phần giờ không trùng vẫn giữ nguyên.
+          </p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className={LABEL}>Chọn Bác sĩ</label>
+              <label className={LABEL}>Bác sĩ (để trống = tất cả)</label>
               <select
                 value={selectedDoctorId}
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
                 className={INPUT}
               >
-                <option value="">-- Chọn bác sĩ --</option>
+                <option value="">-- Tất cả bác sĩ --</option>
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -426,13 +597,68 @@ export default function OverridePolicyCard({
             </div>
 
             <div>
-              <label className={LABEL}>Số ca / khung giờ riêng</label>
+              <label className={LABEL}>Áp dụng thứ</label>
+              <select
+                value={docWeekday}
+                onChange={(e) => setDocWeekday(e.target.value)}
+                className={INPUT}
+              >
+                <option value="">-- Mọi ngày --</option>
+                {WEEKDAY_LABEL.map((w, i) => (
+                  <option key={w} value={String(i)}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={LABEL}>Từ giờ</label>
+              <input
+                type="time"
+                step={300}
+                value={docFrom}
+                onChange={(e) => setDocFrom(e.target.value)}
+                className={INPUT}
+              />
+            </div>
+
+            <div>
+              <label className={LABEL}>Đến giờ</label>
+              <input
+                type="time"
+                step={300}
+                value={docTo}
+                onChange={(e) => setDocTo(e.target.value)}
+                className={INPUT}
+              />
+              <p className="mt-1 text-xs text-ink-muted">
+                Không bao gồm mốc cuối: 18:00–18:15 là đúng một khung 18:00.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className={LABEL}>Số ca đặt trước / khung</label>
               <input
                 type="number"
                 min={1}
                 max={50}
                 value={docOverrideCap}
                 onChange={(e) => setDocOverrideCap(Number(e.target.value))}
+                className={INPUT}
+              />
+            </div>
+
+            <div>
+              <label className={LABEL}>Số ca vãng lai / khung</label>
+              <input
+                type="number"
+                min={0}
+                max={50}
+                value={docWalkinCap}
+                onChange={(e) => setDocWalkinCap(Number(e.target.value))}
                 className={INPUT}
               />
             </div>
@@ -451,8 +677,78 @@ export default function OverridePolicyCard({
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button onClick={saveDoctorOverride} disabled={busy} className={BTN}>
-              {busy ? "Đang lưu..." : "Lưu điều chỉnh theo bác sĩ"}
+              {busy ? "Đang lưu..." : "Lưu luật thường trực"}
             </button>
+          </div>
+
+          {/* Danh sách luật đang chạy. Đây là nửa còn lại của màn hình: không
+              có nó, người dùng sửa một thứ mình không nhìn thấy. */}
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-ink">
+              Luật thường trực đang áp dụng
+            </h3>
+            {standingRules.length === 0 ? (
+              <p className="text-xs text-ink-muted">
+                Chưa có luật riêng — mọi khung dùng số chỗ mặc định của phòng khám
+                ở thẻ trên.
+              </p>
+            ) : (
+              <div className={TBL_WRAP}>
+                <table className="w-full text-sm">
+                  <thead className={TBL_HEAD}>
+                    <tr>
+                      <th className="px-3 py-2 text-left">Bác sĩ</th>
+                      <th className="px-3 py-2 text-left">Thứ</th>
+                      <th className="px-3 py-2 text-left">Khung giờ</th>
+                      <th className="px-3 py-2 text-right">Đặt trước</th>
+                      <th className="px-3 py-2 text-right">Vãng lai</th>
+                      <th className="px-3 py-2 text-left">Lý do</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standingRules.map((r) => (
+                      <tr key={r.id} className={TBL_ROW}>
+                        <td className="px-3 py-2">
+                          {r.doctor_id
+                            ? (doctorName.get(r.doctor_id) ?? "—")
+                            : "Tất cả bác sĩ"}
+                        </td>
+                        <td className="px-3 py-2">
+                          {r.weekday === null
+                            ? "Mọi ngày"
+                            : WEEKDAY_LABEL[r.weekday]}
+                        </td>
+                        <td className="px-3 py-2">
+                          {r.minute_start === null || r.minute_end === null
+                            ? "Cả ngày"
+                            : `${hhmm(r.minute_start)}–${hhmm(r.minute_end)}`}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {r.regular_cap ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {r.walkin_cap ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-ink-muted">
+                          {r.reason ?? ""}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => deleteOverride("doctor", r.id)}
+                            disabled={deletingId === r.id}
+                            className={BTN_GHOST}
+                          >
+                            {deletingId === r.id ? "Đang xoá…" : "Xoá"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

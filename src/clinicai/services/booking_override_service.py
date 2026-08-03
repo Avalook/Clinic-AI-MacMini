@@ -35,6 +35,49 @@ MAX_CAP = 100
 MAX_SLOT_RANGE_DAYS = 90
 
 
+# ── Cắt khoảng phút ────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class WindowTrim:
+    """Chuyện gì xảy ra với MỘT luật cũ khi một luật mới phủ lên nó."""
+
+    action: str  # "deleted" | "trimmed" | "split"
+    keep: tuple[int, int] | None
+    keep_extra: tuple[int, int] | None = None
+
+
+def plan_window_trim(
+    old_start: int, old_end: int, new_start: int, new_end: int
+) -> WindowTrim:
+    """Phần nào của luật cũ sống sót khi khung ``[new_start, new_end)`` chiếm chỗ.
+
+    Tách khỏi phần chạy SQL vì đây là chỗ dễ sai nhất và cũng dễ kiểm nhất:
+    bốn nhánh, toàn số nguyên, không cần database. Ghép chung với INSERT/UPDATE
+    thì muốn thử một trường hợp biên phải dựng cả một phòng khám.
+
+    Mọi khoảng đều NỬA MỞ ``[start, end)`` — cùng quy ước với int4range trong
+    ràng buộc EXCLUDE và với ``resolve_effective_cap`` (``>= start AND < end``).
+    Nhờ vậy hai khung liền kề (18:00–18:15 và 18:15–18:30) KHÔNG coi là chồng
+    lấn, và luật cũ bị cắt tới đúng mốc của luật mới không để lại phút hở.
+    """
+    if old_start >= new_start and old_end <= new_end:
+        # Nằm trọn bên trong — không còn gì để giữ.
+        return WindowTrim(action="deleted", keep=None)
+    if old_start < new_start and old_end > new_end:
+        # Khung mới nằm giữa: cắt đôi.
+        return WindowTrim(
+            action="split",
+            keep=(old_start, new_start),
+            keep_extra=(new_end, old_end),
+        )
+    if old_start < new_start:
+        # Thò đầu bên trái.
+        return WindowTrim(action="trimmed", keep=(old_start, new_start))
+    # Thò đuôi bên phải.
+    return WindowTrim(action="trimmed", keep=(new_end, old_end))
+
+
 # ── DTOs ───────────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -42,8 +85,11 @@ class DoctorOverrideDTO:
     """One doctor_booking_override row."""
 
     id: str
-    doctor_id: str
+    doctor_id: str | None
     weekday: int | None
+    # Phút-trong-ngày, nửa mở [start, end). NULL/NULL = cả ngày.
+    minute_start: int | None
+    minute_end: int | None
     slot_minutes: int | None
     regular_cap: int | None
     walkin_cap: int | None
@@ -88,8 +134,10 @@ class BookingOverrideService:
         self,
         *,
         identity: StaffIdentity,
-        doctor_id: str,
+        doctor_id: str | None,
         weekday: int | None = None,
+        minute_start: int | None = None,
+        minute_end: int | None = None,
         slot_minutes: int | None = None,
         regular_cap: int | None = None,
         walkin_cap: int | None = None,
@@ -97,12 +145,37 @@ class BookingOverrideService:
         effective_to: date | None = None,
         reason: str | None = None,
     ) -> dict[str, Any]:
-        """Create a per-doctor booking capacity override.
+        """Ghi luật thường trực cho một khung giờ — LUẬT MỚI THẮNG.
 
-        Returns ``{"ok": True, "id": "<uuid>"}``.
+        KHÔNG phải "create". Trưởng ca nói *"BS Thành, 18:00–18:15, 9 ca"* và
+        điều đó phải trở thành sự thật, kể cả khi đã có luật khác phủ khung ấy.
+        Bản trước chỉ INSERT, nên lần lưu thứ hai đụng ràng buộc
+        ``doctor_override_no_overlap`` và trả về — qua handler toàn cục —
+        *"Lịch hẹn xung đột khung giờ với appointment khác"*: một câu nói về
+        LỊCH HẸN cho người đang sửa LUẬT, và không có lịch hẹn nào để đi tìm.
+
+        Ràng buộc EXCLUDE vẫn đúng và vẫn còn: hai luật cùng phủ một khung thì
+        không phải "luật nào thắng" mà là không có luật nào. Chỗ sai là bắt
+        người dùng tự dọn. Ở đây luật cũ bị CẮT quanh khung mới — phần không
+        chồng lấn giữ nguyên hiệu lực:
+
+            cũ  18:00 ─────────────── 19:00   (4 ca)
+            mới        18:15 ─ 18:30          (9 ca)
+            ⇒   18:00 ─ 18:15 (4)  18:15 ─ 18:30 (9)  18:30 ─ 19:00 (4)
+
+        Ba trường hợp còn lại — cũ nằm trọn trong mới, cũ thò một đầu — cũng
+        cùng một phép cắt. Mọi lần cắt đều ghi vào ``event_log`` kèm id, vì đây
+        là lần duy nhất một luật biến mất mà không ai bấm nút xoá.
+
+        ``doctor_id=None`` = luật cho MỌI bác sĩ; luật riêng của một bác sĩ đè
+        lên nó (thứ tự ưu tiên nằm trong ``resolve_effective_cap``).
+
+        Returns ``{"ok": True, "id": "<uuid>", "replaced": [...]}``.
         """
         self._validate_doctor_fields(
             weekday=weekday,
+            minute_start=minute_start,
+            minute_end=minute_end,
             slot_minutes=slot_minutes,
             regular_cap=regular_cap,
             walkin_cap=walkin_cap,
@@ -114,34 +187,49 @@ class BookingOverrideService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                # Verify doctor belongs to this clinic.
-                exists = await conn.fetchval(
-                    """
-                    SELECT 1 FROM clinic_membership
-                     WHERE clinic_id = $1::uuid
-                       AND staff_id  = $2::uuid
-                       AND is_active = true
-                    """,
-                    identity.clinic_id,
-                    doctor_id,
-                )
-                if not exists:
-                    raise ValidationError(
-                        "Bác sĩ không thuộc phòng khám này hoặc đã bị vô hiệu."
+                if doctor_id:
+                    # Verify doctor belongs to this clinic.
+                    exists = await conn.fetchval(
+                        """
+                        SELECT 1 FROM clinic_membership
+                         WHERE clinic_id = $1::uuid
+                           AND staff_id  = $2::uuid
+                           AND is_active = true
+                        """,
+                        identity.clinic_id,
+                        doctor_id,
                     )
+                    if not exists:
+                        raise ValidationError(
+                            "Bác sĩ không thuộc phòng khám này hoặc đã bị vô hiệu."
+                        )
+
+                replaced = await self._clear_minute_window(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    doctor_id=doctor_id,
+                    weekday=weekday,
+                    effective_from=eff_from,
+                    effective_to=effective_to,
+                    minute_start=minute_start,
+                    minute_end=minute_end,
+                )
 
                 override_id = await conn.fetchval(
                     """
                     INSERT INTO doctor_booking_override
-                        (clinic_id, doctor_id, weekday, slot_minutes,
-                         regular_cap, walkin_cap,
+                        (clinic_id, doctor_id, weekday, minute_start, minute_end,
+                         slot_minutes, regular_cap, walkin_cap,
                          effective_from, effective_to, created_by, reason)
-                    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid, $10)
+                    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10,
+                            $11::uuid, $12)
                     RETURNING id
                     """,
                     identity.clinic_id,
                     doctor_id,
                     weekday,
+                    minute_start,
+                    minute_end,
                     slot_minutes,
                     regular_cap,
                     walkin_cap,
@@ -149,6 +237,25 @@ class BookingOverrideService:
                     effective_to,
                     identity.auth_user_id,
                     reason,
+                )
+
+                # MỘT LUẬT ĐÚNG VẪN CÓ THỂ KHÔNG CÓ TÁC DỤNG HÔM NAY.
+                #
+                # Tầng 3 (ngoại lệ tạm thời) đè lên tầng 2. Nên nếu còn một
+                # ngoại lệ cũ phủ đúng khung vừa lưu, Trưởng ca sẽ lưu thành
+                # công, quay ra lưới, và KHÔNG THẤY GÌ ĐỔI — rồi kết luận là
+                # chức năng hỏng. Prod đang có đúng một dòng như thế cho BS
+                # Thành (18:00–19:00, hết hạn 09/08), và nó là thứ đầu tiên sẽ
+                # gây hiểu lầm sau khi phần lưu này chạy được.
+                #
+                # Không tự xoá nó: một ngoại lệ tạm thời có lý do bắt buộc và
+                # có người chịu trách nhiệm. Chỉ nói ra.
+                shadowed = await self._find_shadowing_exceptions(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    doctor_id=doctor_id,
+                    minute_start=minute_start,
+                    minute_end=minute_end,
                 )
 
                 await self._log_event(
@@ -159,12 +266,18 @@ class BookingOverrideService:
                         "override_id": str(override_id),
                         "doctor_id": doctor_id,
                         "weekday": weekday,
+                        "minute_start": minute_start,
+                        "minute_end": minute_end,
                         "slot_minutes": slot_minutes,
                         "regular_cap": regular_cap,
                         "walkin_cap": walkin_cap,
                         "effective_from": str(eff_from),
                         "effective_to": str(effective_to) if effective_to else None,
                         "reason": reason,
+                        # Luật cũ nào bị cắt/xoá để chỗ cho luật này. Không có
+                        # nút nào tạo ra dòng này, nên nếu không ghi ở đây thì
+                        # nó biến mất không dấu vết.
+                        "replaced": replaced,
                     },
                 )
 
@@ -174,8 +287,15 @@ class BookingOverrideService:
             doctor_id=doctor_id,
             clinic_id=identity.clinic_id,
             by_staff_id=identity.staff_id,
+            replaced_count=len(replaced),
+            shadowed_count=len(shadowed),
         )
-        return {"ok": True, "id": str(override_id)}
+        return {
+            "ok": True,
+            "id": str(override_id),
+            "replaced": replaced,
+            "shadowed_by": shadowed,
+        }
 
     async def list_doctor_overrides(
         self,
@@ -189,7 +309,8 @@ class BookingOverrideService:
             if doctor_id:
                 rows = await conn.fetch(
                     """
-                    SELECT id, doctor_id, weekday, slot_minutes,
+                    SELECT id, doctor_id, weekday,
+                           minute_start, minute_end, slot_minutes,
                            regular_cap, walkin_cap,
                            effective_from, effective_to, reason,
                            created_by, created_at
@@ -207,7 +328,8 @@ class BookingOverrideService:
             else:
                 rows = await conn.fetch(
                     """
-                    SELECT id, doctor_id, weekday, slot_minutes,
+                    SELECT id, doctor_id, weekday,
+                           minute_start, minute_end, slot_minutes,
                            regular_cap, walkin_cap,
                            effective_from, effective_to, reason,
                            created_by, created_at
@@ -450,9 +572,166 @@ class BookingOverrideService:
     # ── Internals ──────────────────────────────────────────────────────
 
     @staticmethod
+    async def _clear_minute_window(
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        doctor_id: str | None,
+        weekday: int | None,
+        effective_from: date,
+        effective_to: date | None,
+        minute_start: int | None,
+        minute_end: int | None,
+    ) -> list[dict[str, Any]]:
+        """Dọn đúng khoảng phút mà luật mới sắp chiếm, giữ nguyên phần còn lại.
+
+        Chỉ đụng những luật mà ràng buộc EXCLUDE coi là chồng lấn — cùng phòng
+        khám, cùng bác sĩ (NULL = mọi bác sĩ, và NULL chỉ chồng với NULL), cùng
+        thứ, khoảng NGÀY giao nhau. Luật của bác sĩ khác, thứ khác hay đợt hiệu
+        lực khác không bị chạm tới.
+
+        Cắt theo TRỤC PHÚT, không theo trục ngày. Giao diện luôn ghi luật thường
+        trực từ hôm nay và không có ngày kết thúc, nên trục ngày không có gì để
+        cắt; làm cả hai trục sẽ sinh ra tới chín mảnh cho một thao tác và không
+        ai đọc nổi bảng luật sau đó.
+        """
+        # NULL = cả ngày. Quy về [0, 1440) một lần ở đây để bốn nhánh bên dưới
+        # chỉ phải nghĩ về số, giống hệt cách EXCLUDE coalesce trong chỉ mục.
+        new_start = 0 if minute_start is None else minute_start
+        new_end = 1440 if minute_end is None else minute_end
+
+        rows = await conn.fetch(
+            """
+            SELECT id, minute_start, minute_end, regular_cap, walkin_cap,
+                   slot_minutes, effective_from, effective_to, reason
+              FROM doctor_booking_override
+             WHERE clinic_id = $1::uuid
+               AND coalesce(doctor_id, '00000000-0000-0000-0000-000000000000')
+                 = coalesce($2::uuid, '00000000-0000-0000-0000-000000000000')
+               AND coalesce(weekday, -1) = coalesce($3::int, -1)
+               AND daterange(effective_from, effective_to, '[]')
+                && daterange($4::date, $5::date, '[]')
+               AND int4range(coalesce(minute_start, 0), coalesce(minute_end, 1440))
+                && int4range($6, $7)
+             FOR UPDATE
+            """,
+            clinic_id,
+            doctor_id,
+            weekday,
+            effective_from,
+            effective_to,
+            new_start,
+            new_end,
+        )
+
+        replaced: list[dict[str, Any]] = []
+        for r in rows:
+            old_start = 0 if r["minute_start"] is None else r["minute_start"]
+            old_end = 1440 if r["minute_end"] is None else r["minute_end"]
+            plan = plan_window_trim(old_start, old_end, new_start, new_end)
+
+            if plan.action == "deleted":
+                await conn.execute(
+                    "DELETE FROM doctor_booking_override WHERE id = $1", r["id"]
+                )
+            else:
+                assert plan.keep is not None  # noqa: S101 — plan_window_trim đảm bảo
+                await conn.execute(
+                    "UPDATE doctor_booking_override SET minute_start = $2,"
+                    " minute_end = $3 WHERE id = $1",
+                    r["id"],
+                    plan.keep[0],
+                    plan.keep[1],
+                )
+            if plan.keep_extra is not None:
+                # Mảnh thứ hai của một luật bị cắt đôi. Copy từ chính dòng vừa
+                # thu hẹp nên mọi trường khác (số chỗ, hiệu lực, lý do, người
+                # tạo) đi theo — liệt kê tay ở đây là chỗ để quên một cột.
+                await conn.execute(
+                    """
+                    INSERT INTO doctor_booking_override
+                        (clinic_id, doctor_id, weekday, minute_start, minute_end,
+                         slot_minutes, regular_cap, walkin_cap,
+                         effective_from, effective_to, created_by, reason)
+                    SELECT clinic_id, doctor_id, weekday, $2, $3,
+                           slot_minutes, regular_cap, walkin_cap,
+                           effective_from, effective_to, created_by, reason
+                      FROM doctor_booking_override WHERE id = $1
+                    """,
+                    r["id"],
+                    plan.keep_extra[0],
+                    plan.keep_extra[1],
+                )
+
+            replaced.append(
+                {
+                    "id": str(r["id"]),
+                    "action": plan.action,
+                    "was": [old_start, old_end],
+                    "kept": [
+                        list(w)
+                        for w in (plan.keep, plan.keep_extra)
+                        if w is not None
+                    ],
+                    "regular_cap": r["regular_cap"],
+                    "walkin_cap": r["walkin_cap"],
+                    "reason": r["reason"],
+                }
+            )
+
+        return replaced
+
+    @staticmethod
+    async def _find_shadowing_exceptions(
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        doctor_id: str | None,
+        minute_start: int | None,
+        minute_end: int | None,
+    ) -> list[dict[str, Any]]:
+        """Ngoại lệ tạm thời (tầng 3) còn hiệu lực đang phủ khung này.
+
+        Chỉ đọc, không sửa. Câu trả lời đi thẳng lên màn hình để "đã lưu" không
+        bị hiểu thành "đã có tác dụng ngay".
+        """
+        start = 0 if minute_start is None else minute_start
+        end = 1440 if minute_end is None else minute_end
+        rows = await conn.fetch(
+            """
+            SELECT date_start, date_end, minute_start, minute_end,
+                   regular_cap, walkin_cap, reason
+              FROM slot_booking_override
+             WHERE clinic_id = $1::uuid
+               AND (doctor_id = $2::uuid OR doctor_id IS NULL)
+               AND date_end >= current_date
+               AND int4range(minute_start, minute_end) && int4range($3, $4)
+             ORDER BY date_start, minute_start
+            """,
+            clinic_id,
+            doctor_id,
+            start,
+            end,
+        )
+        return [
+            {
+                "date_start": r["date_start"].isoformat(),
+                "date_end": r["date_end"].isoformat(),
+                "minute_start": r["minute_start"],
+                "minute_end": r["minute_end"],
+                "regular_cap": r["regular_cap"],
+                "walkin_cap": r["walkin_cap"],
+                "reason": r["reason"],
+            }
+            for r in rows
+        ]
+
+    @staticmethod
     def _validate_doctor_fields(
         *,
         weekday: int | None,
+        minute_start: int | None,
+        minute_end: int | None,
         slot_minutes: int | None,
         regular_cap: int | None,
         walkin_cap: int | None,
@@ -461,6 +740,22 @@ class BookingOverrideService:
     ) -> None:
         if weekday is not None and not 0 <= weekday <= 6:
             raise ValidationError("weekday phải từ 0 (CN) đến 6 (T7)")
+        # Cùng luật với CHECK doctor_override_minute_range (20260803000011) —
+        # kiểm ở đây để người dùng nhận một câu tiếng Việt thay vì tên ràng buộc.
+        if (minute_start is None) != (minute_end is None):
+            raise ValidationError(
+                "Khung giờ phải có cả giờ bắt đầu và giờ kết thúc"
+                " (để trống cả hai = áp cho cả ngày)."
+            )
+        if minute_start is not None and minute_end is not None:
+            if not 0 <= minute_start <= 1439:
+                raise ValidationError("Giờ bắt đầu không hợp lệ")
+            if not 1 <= minute_end <= 1440:
+                raise ValidationError("Giờ kết thúc không hợp lệ")
+            if minute_end <= minute_start:
+                raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
+            if minute_start % 5 or minute_end % 5:
+                raise ValidationError("Mốc giờ phải theo bội số 5 phút")
         if slot_minutes is not None:
             if not 1 <= slot_minutes <= 60:
                 raise ValidationError("slot_minutes phải từ 1 đến 60")
@@ -607,8 +902,12 @@ class BookingOverrideService:
 def _doctor_row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
     return {
         "id": str(r["id"]),
-        "doctor_id": str(r["doctor_id"]),
+        # NULL = luật cho mọi bác sĩ (20260803000011) — không ép sang chuỗi
+        # "None", vì giao diện phân biệt hai trường hợp này.
+        "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "weekday": r["weekday"],
+        "minute_start": r["minute_start"],
+        "minute_end": r["minute_end"],
         "slot_minutes": r["slot_minutes"],
         "regular_cap": r["regular_cap"],
         "walkin_cap": r["walkin_cap"],

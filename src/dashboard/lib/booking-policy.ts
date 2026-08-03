@@ -93,3 +93,66 @@ export async function getBookingPolicy(): Promise<BookingPolicy | null> {
 
   return { slotMinutes, regularCap, walkinCap, hours };
 }
+
+/** Một luật thường trực (tầng 2) — số chỗ cho một khung giờ, lặp lại mãi. */
+export interface StandingRule {
+  id: string;
+  /** null = áp cho mọi bác sĩ. */
+  doctor_id: string | null;
+  /** null = mọi thứ trong tuần. 0 = CN … 6 = T7. */
+  weekday: number | null;
+  /** Phút-trong-ngày, nửa mở [start, end). null = cả ngày. */
+  minute_start: number | null;
+  minute_end: number | null;
+  regular_cap: number | null;
+  walkin_cap: number | null;
+  reason: string | null;
+}
+
+/**
+ * Các luật thường trực đang có hiệu lực.
+ *
+ * Màn cấu hình trước đây chỉ có ô NHẬP, không có chỗ XEM. Nên khi lưu bị từ
+ * chối vì trùng khung, không có cách nào biết luật nào đang chiếm khung đó —
+ * người dùng chỉ thấy một câu báo lỗi và một cái form trắng. Danh sách này là
+ * nửa còn lại của màn hình.
+ */
+export async function listStandingRules(): Promise<StandingRule[]> {
+  const raw = await fetchFromBackend<{ items?: StandingRule[] }>(
+    "/api/v1/booking-overrides/doctor",
+  );
+  return raw?.items ?? [];
+}
+
+/** Một điều chỉnh TẠM THỜI (tầng 3) — có khoảng ngày, hết hạn thì thôi. */
+export interface TempException {
+  id: string;
+  doctor_id: string | null;
+  date_start: string;
+  date_end: string;
+  minute_start: number;
+  minute_end: number;
+  regular_cap: number | null;
+  walkin_cap: number | null;
+  reason: string;
+}
+
+/**
+ * Điều chỉnh tạm thời còn hiệu lực, từ hôm nay trở đi.
+ *
+ * Phải hiện ra vì tầng 3 ĐÈ LÊN luật thường trực: một ngoại lệ quên xoá khiến
+ * luật vừa lưu trông như không có tác dụng, và không có màn nào cho thấy nó tồn
+ * tại. Dải 90 ngày là trần của chính bảng đó, nên nó bao trọn mọi ngoại lệ.
+ */
+export async function listTempExceptions(): Promise<TempException[]> {
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  const until = new Date(Date.now() + 90 * 86_400_000).toLocaleDateString("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  const raw = await fetchFromBackend<{ items?: TempException[] }>(
+    `/api/v1/booking-overrides/slot?date_from=${today}&date_to=${until}`,
+  );
+  return raw?.items ?? [];
+}

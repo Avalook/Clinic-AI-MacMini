@@ -209,7 +209,38 @@ app.include_router(display_router, prefix="/api/v1", tags=["display"])
 async def exclusion_violation_handler(
     request: Request, exc: asyncpg.exceptions.ExclusionViolationError
 ) -> JSONResponse:
-    """Global handler for database exclusion violation errors (HTTP 409)."""
+    """Global handler for database exclusion violation errors (HTTP 409).
+
+    MỘT CÂU CHO MỌI RÀNG BUỘC LÀ MỘT CÂU SAI CHO GẦN HẾT SỐ ĐÓ.
+
+    Handler này từng luôn trả "Lịch hẹn xung đột khung giờ với appointment
+    khác". Đúng cho `appointment_no_doctor_overlap`, và sai cho ba ràng buộc
+    EXCLUDE còn lại — trong đó có hai ràng buộc LUẬT ĐẶT LỊCH. Trưởng ca lưu một
+    luật cho BS Thành nhận về một câu nói về LỊCH HẸN, rồi đi tìm một lịch hẹn
+    không tồn tại. Chúng tôi mất một buổi vì đúng câu này.
+
+    Tên ràng buộc là thứ duy nhất phân biệt được, nên nó quyết định câu trả lời.
+    Ràng buộc lạ thì nói thẳng là không nhận ra, kèm tên — mơ hồ mà đúng còn hơn
+    cụ thể mà bịa.
+    """
+    constraint = getattr(exc, "constraint_name", None) or ""
+    known = {
+        "appointment_no_doctor_overlap": (
+            "Lịch hẹn xung đột khung giờ với appointment khác"
+        ),
+        "slot_override_no_overlap": (
+            "Đã có một điều chỉnh khác phủ khung giờ này — sửa hoặc xoá nó trước."
+        ),
+        "doctor_override_no_overlap": (
+            "Đã có một luật khác phủ khung giờ này — sửa hoặc xoá nó trước."
+        ),
+    }
+    message = known.get(
+        constraint,
+        "Bản ghi xung đột với một bản ghi khác"
+        + (f" (ràng buộc {constraint})" if constraint else "")
+        + ".",
+    )
     # `reason`, not `message`: core.logging treats a structured `message` field
     # as patient content and replaces it with [REDACTED]. That is right for a
     # field that can carry a note, and wrong here — it blanked the one sentence
@@ -217,14 +248,12 @@ async def exclusion_violation_handler(
     # {"error_code": …, "message": "[REDACTED]"} and told an operator nothing.
     logger.warning(
         "exclusion_violation",
-        reason="Lịch hẹn xung đột khung giờ với appointment khác",
+        reason=message,
+        constraint=constraint,
     )
     return JSONResponse(
         status_code=409,
-        content={
-            "error": "CONFLICT_ERROR",
-            "message": "Lịch hẹn xung đột khung giờ với appointment khác",
-        },
+        content={"error": "CONFLICT_ERROR", "message": message},
     )
 
 

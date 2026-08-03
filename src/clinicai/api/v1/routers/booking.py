@@ -124,7 +124,7 @@ async def create_booking(
 @router.get("/appointments/quote")
 async def capacity_quote(
     date: str,
-    location_id: str,
+    location_id: str | None = None,
     doctor_id: str | None = None,
     identity: StaffIdentity = Depends(_BOOKING_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
@@ -134,11 +134,16 @@ async def capacity_quote(
     Returns budget + current usage per hour so the UI can colour cells.
     Does NOT decide whether a booking is allowed — that is the DB trigger
     + the pre-check in BookingService.
+
+    ``location_id`` là tuỳ chọn, và mặc định là cơ sở của người đang đăng nhập —
+    cùng quy tắc mà POST /appointments dùng khi tạo lịch. Bắt buộc nó nghĩa là
+    trình duyệt phải ĐOÁN cơ sở, rồi tô màu lưới theo một cơ sở khác với cơ sở
+    mà lịch sẽ được ghi vào: lưới nói còn chỗ, trigger từ chối.
     """
     svc = CapacityService(pool)
     return await svc.quote(
         date=date,
-        location_id=location_id,
+        location_id=location_id or identity.location_id,
         doctor_id=doctor_id,
         clinic_id=identity.clinic_id,
     )

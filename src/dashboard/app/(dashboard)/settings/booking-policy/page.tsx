@@ -5,7 +5,11 @@
 import { redirect } from "next/navigation";
 import { getClinicRole } from "../../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../../lib/roles";
-import { getBookingPolicy } from "../../../../lib/booking-policy";
+import {
+  getBookingPolicy,
+  listStandingRules,
+  listTempExceptions,
+} from "../../../../lib/booking-policy";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import BookingPolicyCard from "../BookingPolicyCard";
 import OverridePolicyCard, { type DoctorOpt } from "../OverridePolicyCard";
@@ -21,9 +25,12 @@ export default async function BookingPolicyPage() {
   if (!isOpsAdmin(role)) redirect("/home");
 
   const supabase = await getSupabaseServer();
-  const [bookingPolicy, staffRes, durationRes] = await Promise.all([
+  const [bookingPolicy, staffRes, standingRules, tempExceptions, durationRes] =
+    await Promise.all([
     getBookingPolicy(),
     listBookableDoctors(),
+    listStandingRules(),
+    listTempExceptions(),
     // Thời lượng ĐO ĐƯỢC, đặt cạnh chỗ chỉnh số chỗ. RLS của view là
     // security_invoker nên nó chỉ trả số liệu của phòng khám đang đăng nhập.
     // Giới hạn 40 dòng, ưu tiên khung có nhiều ca nhất — bảng này để cân lịch,
@@ -85,7 +92,12 @@ export default async function BookingPolicyPage() {
         policy={bookingPolicy}
       />
 
-      <OverridePolicyCard doctors={doctors} policy={bookingPolicy} />
+      <OverridePolicyCard
+        doctors={doctors}
+        policy={bookingPolicy}
+        standingRules={standingRules}
+        tempExceptions={tempExceptions}
+      />
 
       <MeasuredDurationCard rows={durationRows} />
     </main>
