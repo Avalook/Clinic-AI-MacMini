@@ -83,7 +83,12 @@ BEGIN
         SELECT s.clinic_id,
                'booking_override.slot_superseded',
                'booking_override',
-               s.id::text,
+               -- KHÔNG ::text. event_log.aggregate_id là uuid; ép sang text làm
+               -- INSERT đổ với "column aggregate_id is of type uuid but
+               -- expression is of type text". Các service Python ghi cột này
+               -- bằng chuỗi và asyncpg tự ép — nên đọc code Python rồi suy ra
+               -- kiểu cột là suy sai.
+               s.id,
                jsonb_build_object(
                    'doctor_id',    s.doctor_id,
                    'date_start',   s.date_start,
