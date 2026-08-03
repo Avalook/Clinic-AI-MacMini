@@ -58,7 +58,11 @@ psql "$PSQL_URL" -At <<'SQL'
 -- bị báo "LỆCH", suýt nữa thì repair rồi chạy lại một cách vô ích. Một công cụ
 -- kiểm tra báo động giả cũng làm mất niềm tin đúng bằng một công cụ bỏ sót.
 WITH sig(version, kind, obj) AS (VALUES
-  ('20260714000002','func','public.enforce_slot_capacity()'),
+  -- HÀM tồn tại KHÔNG chứng minh luật đang được thi hành. Trên prod ngày
+  -- 2026-08-03, enforce_slot_capacity() có mặt còn TRIGGER gọi nó thì không —
+  -- nên script này báo OK trong khi sức chứa không chặn gì suốt thời gian đó.
+  -- Chữ ký phải là thứ THI HÀNH luật, không phải thứ chứa luật.
+  ('20260714000002','trg' ,'appointment.trg_enforce_slot_capacity'),
   ('20260714000003','tbl' ,'public.idempotency_key'),
   ('20260714000004','idx' ,'idx_appointment_slot_start_status'),
   ('20260714000005','col' ,'idempotency_key.state'),
@@ -100,7 +104,9 @@ WITH sig(version, kind, obj) AS (VALUES
   ('20260803000007','trg' ,'staff.trg_staff_location_matches_clinic'),
   -- 20260803000008 chỉ GỠ bảng khỏi publication, không tạo gì. Kiểm ngược: nó
   -- đã chạy khi `patient` KHÔNG còn trong supabase_realtime.
-  ('20260803000008','unpub','patient')
+  ('20260803000008','unpub','patient'),
+  ('20260803000009','col' ,'slot_booking_override.minute_start'),
+  ('20260803000010','trg' ,'appointment.trg_enforce_slot_capacity')
 ),
 checked AS (
   SELECT s.version,
