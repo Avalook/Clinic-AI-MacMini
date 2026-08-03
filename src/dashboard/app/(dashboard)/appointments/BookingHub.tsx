@@ -155,6 +155,12 @@ interface QuoteResponse {
   closed?: boolean;
   /** Ngày đó đã xếp ca và bác sĩ này KHÔNG có tên trong lịch. */
   off_duty?: boolean;
+  /** Ca trực của bác sĩ hôm đó, theo phút-trong-ngày `[[bắt đầu, kết thúc]]`.
+   *  Rỗng = không giới hạn (ngày chưa xếp ca, hoặc lưới không lọc bác sĩ). */
+  shift_windows?: [number, number][];
+  /** Ca trực KHÔNG phủ trọn giờ mở cửa — backend tính, vì chỉ nó biết giờ mở
+   *  cửa của ngày đó. */
+  partial_shift?: boolean;
   slots?: {
     time: string;
     regular_cap: number;
@@ -322,6 +328,10 @@ export default function BookingHub({
   // đồng bộ nó trong effect bằng setState cho nhánh "hôm nay" — đúng thứ
   // react-hooks/set-state-in-effect chặn, và có lý do: nó render hai lần cho một
   // dữ liệu vốn đã có sẵn trong props.
+  /** Phút-trong-ngày → "HH:MM", cho nhãn ca trực. */
+  const minLabel = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
   const [todayIso] = useState(vnToday);
   const [fetchedByDate, setFetchedByDate] = useState<
     Record<string, ApptLite[]>
@@ -381,6 +391,16 @@ export default function BookingHub({
   // Bác sĩ nào KHÔNG có lịch làm việc ngày đang chọn. Khoá theo `bác sĩ|ngày`
   // để đổi ngày không kéo theo câu trả lời của ngày cũ.
   const [offDuty, setOffDuty] = useState<Record<string, boolean>>({});
+  // Ca trực, để nói "chỉ trực 08:00–12:00" thay vì lặng lẽ bớt nửa lưới. Một
+  // nửa lưới biến mất không lời giải thích trông y hệt lỗi tải dữ liệu.
+  const [shiftLabel, setShiftLabel] = useState<Record<string, string>>({});
+  // ĐÃ ĐỌC XONG SỨC CHỨA CỦA (bác sĩ, ngày) NÀY CHƯA.
+  //
+  // Cần vì "chưa tải" và "ngoài ca trực" đều biểu hiện là KHÔNG CÓ dữ liệu cho
+  // ô đó, mà hai thứ ấy phải hiện hai câu khác nhau: một bên là "đợi chút",
+  // một bên là "bác sĩ không có mặt giờ này". Thiếu cờ này thì mọi khung ngoài
+  // ca trực lại rơi về số mặc định và tiếp tục mời đặt — đúng cái vừa sửa.
+  const [capLoaded, setCapLoaded] = useState<Record<string, boolean>>({});
   const activeDoctorIds = activeDoctors.map((d) => d.id).join(",");
 
   useEffect(() => {
@@ -401,8 +421,19 @@ export default function BookingHub({
       if (ctrl.signal.aborted) return;
       const next: Record<string, { regular: number; walkin: number }> = {};
       const off: Record<string, boolean> = {};
+      const shifts: Record<string, string> = {};
+      const loaded: Record<string, boolean> = {};
       for (const [docId, d] of pairs) {
+        // `d === null` = request hỏng ⇒ KHÔNG đánh dấu đã tải, để lưới nói
+        // "đang tải" thay vì kết luận cả ngày ngoài ca trực.
+        loaded[`${docId}|${selectedDateIso}`] = d !== null;
         off[`${docId}|${selectedDateIso}`] = d?.off_duty === true;
+        // Chỉ nói khi ca KHÔNG phủ trọn giờ mở cửa — trực cả ngày là chuyện
+        // thường, dán nhãn cho mọi cột chỉ làm loãng cái nhãn cần đọc.
+        const w = d?.shift_windows ?? [];
+        shifts[`${docId}|${selectedDateIso}`] = d?.partial_shift
+          ? w.map(([a, b]) => `${minLabel(a)}–${minLabel(b)}`).join(", ")
+          : "";
         for (const s of d?.slots ?? []) {
           next[`${docId}|${selectedDateIso}|${s.time}`] = {
             regular: s.regular_cap,
@@ -414,6 +445,8 @@ export default function BookingHub({
       // vừa đọc xong, nếu không lưới nhấp nháy về "chưa biết" mỗi lần lọc.
       setCapByCell((prev) => ({ ...prev, ...next }));
       setOffDuty((prev) => ({ ...prev, ...off }));
+      setShiftLabel((prev) => ({ ...prev, ...shifts }));
+      setCapLoaded((prev) => ({ ...prev, ...loaded }));
     });
     return () => ctrl.abort();
     // `bookingSeq` đổi sau mỗi lần đặt thành công: số chỗ ĐÃ DÙNG nằm trong
@@ -470,6 +503,17 @@ export default function BookingHub({
     // phòng khám — cùng con số mà backend sẽ trả về nếu ô không có luật riêng,
     // nên nó không phải một phỏng đoán mới.
     const cell = capByCell[`${docId}|${selectedDateIso}|${time}`];
+    // Đã đọc xong mà khung này KHÔNG có trong câu trả lời ⇒ nó nằm ngoài ca
+    // trực của bác sĩ (hoặc ngoài giờ mở cửa). Không phải "còn chỗ".
+    if (!cell && capLoaded[`${docId}|${selectedDateIso}`]) {
+      return {
+        tone: "full",
+        label: "Ngoài ca trực",
+        sub: "—",
+        bookedCount: 0,
+        maxCap: 0,
+      };
+    }
     const maxCap = Math.max(
       1,
       cell ? cell.regular + cell.walkin : dynamicCap,
@@ -565,7 +609,7 @@ export default function BookingHub({
     // capByCell nằm trong deps: nếu không, thẻ tóm tắt bên phải giữ nguyên số
     // chỗ mặc định sau khi luật riêng của bác sĩ đã về, và hai chỗ trên cùng
     // màn hình nói hai con số khác nhau cho cùng một ô.
-    [selectedSlot, appts, capByCell, offDuty],
+    [selectedSlot, appts, capByCell, offDuty, capLoaded],
   );
 
   async function handleConfirmBooking() {
@@ -1062,6 +1106,10 @@ export default function BookingHub({
                       {offDuty[`${doc.id}|${selectedDateIso}`] ? (
                         <div className="truncate text-[11px] font-medium text-warning">
                           Không có lịch làm việc ngày này
+                        </div>
+                      ) : shiftLabel[`${doc.id}|${selectedDateIso}`] ? (
+                        <div className="truncate text-[11px] font-medium text-warning">
+                          Chỉ trực {shiftLabel[`${doc.id}|${selectedDateIso}`]}
                         </div>
                       ) : (
                         <div className="text-[11px] font-normal text-ink-muted truncate">

@@ -46,6 +46,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import DOCTOR_DESK_ROLES, ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.shifts import covers, describe, merge_windows, shift_window
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 
 logger = structlog.get_logger()
@@ -909,7 +910,9 @@ class BookingService:
         Vậy nên: ngày chưa xếp ca → im lặng. Ngày đã xếp ca mà bác sĩ này không
         có tên → nói ra.
         """
-        work_date = slot_start.astimezone(CLINIC_TZ).date()
+        local = slot_start.astimezone(CLINIC_TZ)
+        work_date = local.date()
+        minute = local.hour * 60 + local.minute
         row = await conn.fetchrow(
             """
             SELECT
@@ -918,26 +921,54 @@ class BookingService:
                  WHERE clinic_id = $1::uuid AND work_date = $2
                    AND status = 'APPROVED'
               ) AS roster_exists,
-              EXISTS (
-                SELECT 1 FROM work_roster
+              coalesce((
+                SELECT array_agg(DISTINCT shift) FROM work_roster
                  WHERE clinic_id = $1::uuid AND work_date = $2
                    AND status = 'APPROVED' AND staff_id = $3::uuid
-              ) AS on_duty
+              ), ARRAY[]::text[]) AS shifts,
+              (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
+                AS open_minute,
+              (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
+                AS close_minute
             """,
             identity.clinic_id,
             work_date,
             doctor_id,
         )
-        if row is None or not row["roster_exists"] or row["on_duty"]:
+        if row is None or not row["roster_exists"]:
             return None
 
         name = await conn.fetchval(
             "SELECT full_name FROM staff WHERE id = $1::uuid", doctor_id
         )
+        who = name or "Bác sĩ này"
+
+        shifts: list[str] = list(row["shifts"])
+        if not shifts:
+            return (
+                f"{who} không có lịch làm việc ngày {work_date:%d/%m/%Y}. "
+                "Chọn ngày khác hoặc bác sĩ khác — hoặc xếp ca cho bác sĩ này "
+                "ở màn Lịch làm việc trước."
+            )
+
+        # CÓ TÊN TRONG NGÀY VẪN CÓ THỂ SAI GIỜ. Ca sáng không phải cả ngày; mốc
+        # 12:00 là quyết định của phòng khám, khai ở core/shifts.py.
+        open_min, close_min = row["open_minute"], row["close_minute"]
+        if open_min is None or close_min is None:
+            return None
+        windows = merge_windows(
+            [
+                w
+                for s in shifts
+                if (w := shift_window(s, open_min, close_min)) is not None
+            ]
+        )
+        if not windows or covers(windows, minute):
+            return None
         return (
-            f"{name or 'Bác sĩ này'} không có lịch làm việc ngày "
-            f"{work_date:%d/%m/%Y}. Chọn ngày khác hoặc bác sĩ khác — hoặc xếp "
-            "ca cho bác sĩ này ở màn Lịch làm việc trước."
+            f"{who} ngày {work_date:%d/%m/%Y} chỉ trực {describe(windows)}, "
+            f"không có mặt lúc {minute // 60:02d}:{minute % 60:02d}. "
+            "Chọn khung giờ trong ca trực hoặc đổi bác sĩ."
         )
 
     @staticmethod

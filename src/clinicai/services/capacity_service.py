@@ -31,6 +31,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.core.shifts import covers, merge_windows, shift_window
 
 logger = structlog.get_logger()
 
@@ -91,6 +92,9 @@ class CapacityService:
             # lúc ấy lịch trực chưa có — coi "chưa xếp" là "không đi làm" sẽ
             # khoá sạch tương lai. Cùng cách phân biệt mà booking_service dùng
             # cho câu cảnh báo của nó, để hai nơi không nói hai điều khác nhau.
+            # KHÔNG lọc theo TRẠM (quyết định của Quang, 2026-08-04): có tên
+            # trong lịch trực hôm đó là nhận đặt được, dù trạm ghi là MAY_TRONG
+            # hay LICH_KHAM. BSNT. Khánh Linh là ví dụ có thật.
             duty = await conn.fetchrow(
                 """
                 SELECT
@@ -99,18 +103,26 @@ class CapacityService:
                      WHERE clinic_id = $1::uuid AND work_date = $2
                        AND status = 'APPROVED'
                   ) AS roster_known,
-                  ($3::uuid IS NULL OR EXISTS (
-                    SELECT 1 FROM work_roster
+                  coalesce((
+                    SELECT array_agg(DISTINCT shift) FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
                        AND status = 'APPROVED' AND staff_id = $3::uuid
-                  )) AS on_duty
+                  ), ARRAY[]::text[]) AS shifts,
+                  (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
+                    AS open_minute,
+                  (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
+                    AS close_minute
                 """,
                 clinic_id,
                 day,
                 doctor_id,
             )
             roster_known = bool(duty and duty["roster_known"])
-            off_duty = roster_known and not (duty and duty["on_duty"])
+            shifts: list[str] = list(duty["shifts"]) if duty else []
+            # doctor_id = None nghĩa là "lưới chung, không lọc bác sĩ" — không
+            # có ai để tra ca trực, và không được coi đó là nghỉ.
+            on_duty = doctor_id is None or bool(shifts)
+            off_duty = roster_known and not on_duty
             if off_duty:
                 return {
                     "date": date,
@@ -119,8 +131,25 @@ class CapacityService:
                     "closed": True,
                     "off_duty": True,
                     "roster_known": True,
+                    "shift_windows": [],
                     "slots": [],
                 }
+
+            # CA SÁNG KHÔNG PHẢI CẢ NGÀY. Bản trước dừng ở mức NGÀY, nên BS
+            # Thành chỉ trực ca sáng ngày 08/08 vẫn được mời đặt lúc 18:00 —
+            # luật lịch trực đúng một nửa còn khó chịu hơn không có, vì nó tạo
+            # cảm giác đã được kiểm.
+            open_min = duty["open_minute"] if duty else None
+            close_min = duty["close_minute"] if duty else None
+            windows: list[tuple[int, int]] = []
+            if shifts and open_min is not None and close_min is not None:
+                windows = merge_windows(
+                    [
+                        w
+                        for s in shifts
+                        if (w := shift_window(s, open_min, close_min)) is not None
+                    ]
+                )
 
             rows = await conn.fetch(
                 """
@@ -202,6 +231,10 @@ class CapacityService:
                 "state": cell_state(r["regular_cap"], r["regular_used"]),
             }
             for r in rows
+            # Ngoài ca trực thì khung đó không tồn tại với bác sĩ này. Bỏ hẳn
+            # khỏi danh sách chứ không đánh dấu "đầy": đầy là hết chỗ, còn đây
+            # là không có mặt, và hai thứ đó cần hai cách xử lý khác nhau.
+            if not windows or covers(windows, r["minute_of_day"])
         ]
 
         return {
@@ -217,6 +250,13 @@ class CapacityService:
             # biết nên đổi NGÀY hay đổi BÁC SĨ.
             "off_duty": False,
             "roster_known": roster_known,
+            # Ca trực của bác sĩ hôm đó, để màn hình nói được "chỉ trực buổi
+            # sáng" thay vì im lặng bỏ bớt nửa lưới.
+            "shift_windows": [list(w) for w in windows],
+            # CÓ PHẢI CA LẺ KHÔNG — tính ở đây vì chỉ ở đây mới biết giờ mở
+            # cửa. Để trình duyệt tự suy ra (đếm số ô rồi so với lưới) là một
+            # phép đoán gián tiếp, sai mỗi khi lưới đổi vì lý do khác.
+            "partial_shift": bool(windows) and windows != [(open_min, close_min)],
             "slots": slots_out,
         }
 

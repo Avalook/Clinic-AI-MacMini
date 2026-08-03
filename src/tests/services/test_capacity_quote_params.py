@@ -45,7 +45,12 @@ class _RecordingConn:
     async def fetchrow(self, _query: str, *_args: Any) -> dict[str, Any]:
         # Câu hỏi lịch trực chạy TRƯỚC (xem test_capacity_roster_gate). Ở đây
         # trả "ngày chưa xếp ca" để nó không chặn, vì file này kiểm chuyện khác.
-        return {"roster_known": False, "on_duty": False}
+        return {
+            "roster_known": False,
+            "shifts": [],
+            "open_minute": 17 * 60,
+            "close_minute": 23 * 60,
+        }
 
     async def fetch(self, _query: str, *args: Any) -> list[Any]:
         self.args = args
