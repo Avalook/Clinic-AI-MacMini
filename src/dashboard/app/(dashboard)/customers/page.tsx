@@ -12,6 +12,7 @@ import {
   vnTodayRangeUtc,
   vnMonthStartUtc,
   vnLocalToUtcISO,
+  VN_TZ,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
 import CustomersView, {
@@ -28,7 +29,7 @@ export const dynamic = "force-dynamic";
 /** Đầu tháng SAU theo giờ VN, dạng UTC ISO (chặn cuối cửa sổ "Tháng này"). */
 function vnNextMonthStartUtc(): string {
   const ymd = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
   const [y, m] = ymd.split("-").map(Number);
   const ny = m === 12 ? y + 1 : y;

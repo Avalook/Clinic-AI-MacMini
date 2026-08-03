@@ -164,12 +164,12 @@ async def booking_policy(
     async with pool.acquire() as conn:
         if doctor_id and date:
             from datetime import datetime as dt
-            from zoneinfo import ZoneInfo
+
+            from clinicai.core.clock import CLINIC_TZ
 
             # Build a representative slot_start at noon on the date in VN tz.
-            vn_tz = ZoneInfo("Asia/Ho_Chi_Minh")
             slot_start = dt.strptime(date, "%Y-%m-%d").replace(
-                hour=12, tzinfo=vn_tz
+                hour=12, tzinfo=CLINIC_TZ
             )
             policy = await load_effective_policy(
                 conn, identity.clinic_id, doctor_id, slot_start

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { VN_TZ } from "../../lib/datetime";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
@@ -53,7 +54,7 @@ export default function GlobalHeader({
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
-          timeZone: "Asia/Ho_Chi_Minh",
+          timeZone: VN_TZ,
         }),
       );
     };
@@ -102,7 +103,7 @@ export default function GlobalHeader({
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
   const formattedDateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 

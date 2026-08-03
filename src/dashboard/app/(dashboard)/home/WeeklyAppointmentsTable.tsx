@@ -21,7 +21,7 @@ import {
 } from "../../../lib/roles";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
-import { nowMs } from "../../../lib/datetime";
+import { nowMs, VN_TZ } from "../../../lib/datetime";
 import { compareQueue } from "../../../lib/queue";
 import { doctorName } from "../../../lib/doctor-name";
 import {
@@ -107,7 +107,7 @@ const STATUS_VN: Record<string, string> = {
 function bucketLabel(bucketMs: number, policy: BookingPolicy): string {
   const hhmm = (ms: number) =>
     new Date(ms).toLocaleTimeString("vi-VN", {
-      timeZone: "Asia/Ho_Chi_Minh",
+      timeZone: VN_TZ,
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
@@ -118,7 +118,7 @@ function bucketLabel(bucketMs: number, policy: BookingPolicy): string {
 // Giờ HH:MM (VN) của đầu khung — làm query ?time= cho link "đặt vào đây".
 function bucketHHMM(bucketMs: number): string {
   return new Date(bucketMs).toLocaleTimeString("en-GB", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,

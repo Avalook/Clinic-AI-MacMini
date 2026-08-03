@@ -3,6 +3,7 @@
 // Tổng hợp: trạng thái hệ thống, vai trò, màn hình, hạ tầng, số liệu vận hành.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { VN_TZ } from "../../../lib/datetime";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import PortalBoard from "./PortalBoard";
@@ -31,7 +32,7 @@ export default async function PortalPage() {
   // Lấy số liệu hôm nay: lịch hẹn, bệnh nhân, lượt khám
   const vnNow = new Date();
   const vnToday = new Date(
-    vnNow.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+    vnNow.toLocaleString("en-US", { timeZone: VN_TZ }),
   );
   const dayStart = new Date(
     Date.UTC(

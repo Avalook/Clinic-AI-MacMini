@@ -16,7 +16,6 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -24,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.services.service_order_service import ServiceOrderService
 from clinicai.services.work_item_service import WorkItemService
@@ -31,7 +31,7 @@ from clinicai.services.work_item_service import WorkItemService
 router = APIRouter()
 
 # The clinic's day, not the server's.
-VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+VN_TZ = _CLINIC_TZ
 
 # Every clinical and front-desk role works the flow; the node's own actor list
 # is what narrows it per station.

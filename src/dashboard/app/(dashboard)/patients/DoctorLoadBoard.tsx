@@ -6,6 +6,7 @@
 // hiện tại nên chỉ điền bác sĩ. Số khám hệ tự cấp khi check-in — không nhập ở đây.
 
 import type { Option } from "./AppointmentBooking";
+import { VN_TZ } from "../../../lib/datetime";
 
 interface LoadAppt {
   slot_start: string;
@@ -30,7 +31,7 @@ const NO_DOCTOR = "Chưa phân bác sĩ";
 
 function vnHHmm(iso: string): string {
   return new Date(iso).toLocaleTimeString("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,

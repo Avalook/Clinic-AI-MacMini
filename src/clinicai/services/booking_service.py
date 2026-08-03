@@ -38,19 +38,21 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal
-from zoneinfo import ZoneInfo
 
 import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import DOCTOR_DESK_ROLES, ClinicRole, StaffIdentity
+from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 
 logger = structlog.get_logger()
 
-CLINIC_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+# Múi giờ khai báo ở core.clock — xem lý do ở đó (một hằng số ở nhiều bản
+# sao là hằng số sẽ sai ở một trong các bản).
+CLINIC_TZ = _CLINIC_TZ
 
 # The slot length and the two seat counts are NOT here: they are the clinic's
 # configuration, read per booking from clinic.settings (C.3, clinic_policy.py).

@@ -5,6 +5,7 @@
 // Logic xếp hạng KHÔNG còn ở frontend (Phase 4 cluster #5). Chỉ đọc, tự refresh 30s.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { VN_TZ } from "../../../lib/datetime";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import QueueBoard, { type QueueRow } from "./QueueBoard";
 
@@ -16,7 +17,7 @@ export default async function QueuePage() {
   const base = process.env.CLINIC_API_URL;
   // VN calendar day (YYYY-MM-DD); the backend filters by Asia/Ho_Chi_Minh bounds.
   const day = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
 
   let rows: QueueRow[] = [];

@@ -28,7 +28,7 @@ import {
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
-import { fmtDate, fmtDateTimeOrDate, fmtTimeOrNone } from "@/lib/datetime";
+import { fmtDate, fmtDateTimeOrDate, fmtTimeOrNone, VN_TZ } from "@/lib/datetime";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -159,7 +159,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
 
   const nowIso = new Date().toISOString();
   const todayStart = new Date(
-    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }) +
+    new Date().toLocaleDateString("en-CA", { timeZone: VN_TZ }) +
       "T00:00:00+07:00",
   ).toISOString();
   const todayEnd = new Date(

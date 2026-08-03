@@ -4,6 +4,7 @@
 // Sử dụng chuẩn form-ui (INPUT, LABEL, BTN, CARD).
 
 import { useState } from "react";
+import { VN_TZ } from "../../../lib/datetime";
 import { useRouter } from "next/navigation";
 import { INPUT, LABEL, BTN, BTN_GHOST, CARD, TBL_WRAP, TBL_HEAD, TBL_ROW } from "../form-ui";
 import { Calendar, User, Clock, CheckCircle2, AlertCircle } from "lucide-react";
@@ -142,7 +143,7 @@ export default function OverridePolicyCard({
       const [y1, m1, d1] = fromDate.split("-").map(Number);
       const [y2, m2, d2] = toDate.split("-").map(Number);
       const now = new Date();
-      const todayYmd = now.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+      const todayYmd = now.toLocaleDateString("en-CA", { timeZone: VN_TZ });
 
       // Hiện đúng khung người dùng vừa nhập. Trước đây chỗ này gọi
       // slotRange(mốc, độ_dài) và dán nhãn một khung đơn lên một ngoại lệ có thể
