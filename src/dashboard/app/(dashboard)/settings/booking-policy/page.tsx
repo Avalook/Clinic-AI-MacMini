@@ -72,7 +72,18 @@ export default async function BookingPolicyPage() {
         </p>
       </header>
 
-      <BookingPolicyCard policy={bookingPolicy} />
+      {/* key theo chính giá trị của luật: sau khi Lưu, router.refresh() đọc lại
+          luật mới nhưng useState bên trong form chỉ khởi tạo lúc MOUNT, nên form
+          sẽ hiện số CŨ và Trưởng ca tưởng chưa lưu được rồi bấm lại. Đổi key là
+          remount, và form nói đúng thứ vừa ghi. */}
+      <BookingPolicyCard
+        key={
+          bookingPolicy
+            ? `${bookingPolicy.slotMinutes}-${bookingPolicy.regularCap}-${bookingPolicy.walkinCap}`
+            : "chua-doc-duoc"
+        }
+        policy={bookingPolicy}
+      />
 
       <OverridePolicyCard doctors={doctors} policy={bookingPolicy} />
 
