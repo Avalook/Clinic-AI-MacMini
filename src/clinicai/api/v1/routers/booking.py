@@ -51,7 +51,17 @@ _ACTION_GUARD = require_role(
 class BookingRequest(BaseModel):
     clinic_patient_id: UUID
     service_type_id: UUID
-    location_id: UUID
+    # TUỲ CHỌN, và mặc định là CƠ SỞ CỦA NGƯỜI ĐẶT.
+    #
+    # Bắt buộc trường này nghĩa là trình duyệt phải nghĩ ra một cơ sở, và cái nó
+    # nghĩ ra là `locations[0].id` — "cơ sở đầu tiên trong danh sách", không phải
+    # "nơi buổi khám diễn ra". Lịch rơi vào cơ sở A trong khi lưới sức chứa và
+    # ca trực tra ở cơ sở B, không có gì trên màn hình mâu thuẫn với người dùng.
+    #
+    # identity.location_id là câu trả lời đúng và server đã có sẵn nó
+    # (20260803000007 làm staff.primary_location_id NOT NULL). Client vẫn gửi
+    # được khi đặt hộ cơ sở khác — nhưng phải NÓI RA, không phải mặc định.
+    location_id: UUID | None = None
     slot_start: datetime
     slot_end: datetime
     doctor_id: UUID | None = None
@@ -62,6 +72,8 @@ class BookingRequest(BaseModel):
     need_sono: bool | None = None
     thanh_min: int | None = Field(default=None, ge=0, le=600)
     sono_min: int | None = Field(default=None, ge=0, le=600)
+    # Ghi chú vận hành của CSKH. Bounded: một ô ghi chú không phải nơi dán bệnh án.
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class ActionRequest(BaseModel):
@@ -91,7 +103,7 @@ async def create_booking(
     result = await BookingService(pool).create(
         clinic_patient_id=str(body.clinic_patient_id),
         service_type_id=str(body.service_type_id),
-        location_id=str(body.location_id),
+        location_id=str(body.location_id) if body.location_id else None,
         slot_start=body.slot_start,
         slot_end=body.slot_end,
         identity=identity,
@@ -102,6 +114,7 @@ async def create_booking(
         need_sono=body.need_sono,
         thanh_min=body.thanh_min,
         sono_min=body.sono_min,
+        notes=body.notes,
     )
     payload = {"ok": True, **result}
     await idem.save(pool, payload, status_code=201)

@@ -112,6 +112,26 @@ class ServiceOrderService:
         """Order the services. Returns one row per room the work landed in."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # SERIALISE PER VISIT, INSIDE THE TRANSACTION.
+                #
+                # order_services() avoids creating a second work item for a node
+                # with `WHERE NOT EXISTS (SELECT 1 FROM existing ...)`. That reads
+                # and writes in one statement but nothing stands behind it: two
+                # overlapping orders both evaluate "not there yet" and both
+                # insert. A doctor double-clicking "Chỉ định", or a doctor and a
+                # secretary ordering at once, gets the room queue twice.
+                #
+                # A unique index on (visit_id, node_code) would be the usual
+                # answer and is the wrong one here: a visit may legitimately
+                # repeat a node — two ultrasounds in one session — so the index
+                # would block correct work to stop incorrect work.
+                #
+                # The advisory lock releases when this transaction ends, and is
+                # the same mechanism check_in_appointment uses so two
+                # receptionists cannot hand out one queue number.
+                await conn.execute(
+                    "SELECT order_services_lock_visit($1::uuid)", visit_id
+                )
                 try:
                     rows = await conn.fetch(
                         "SELECT * FROM order_services("

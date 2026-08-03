@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
-    DOCTOR_ROLES,
+    PHYSICIAN_ROLES,
     StaffIdentity,
     require_role,
 )
@@ -44,7 +44,7 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/lab", tags=["lab"])
 
 # Ordering a test is a doctor's decision (W5, ADR-0012).
-_ORDER_GUARD = require_role(*DOCTOR_ROLES)
+_ORDER_GUARD = require_role(*PHYSICIAN_ROLES)
 # Entering a result is clinical work: doctors, nurses and the medical secretary.
 # Reception and management are deliberately excluded.
 _RESULT_GUARD = require_role(*CLINICAL_WRITE_ROLES)
@@ -54,7 +54,7 @@ LAB_TRIAGE_RATE_LIMIT = InMemoryRateLimiter(
     limit=30,
     window_seconds=60,
 )
-_REVIEW_GUARD = require_role(*DOCTOR_ROLES)
+_REVIEW_GUARD = require_role(*PHYSICIAN_ROLES)
 
 
 class LabOrderRequest(BaseModel):

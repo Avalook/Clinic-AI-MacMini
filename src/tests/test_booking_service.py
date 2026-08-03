@@ -8,6 +8,7 @@ should be a conversation rather than a green refactor.
 from __future__ import annotations
 
 import asyncio
+import inspect
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -26,7 +27,6 @@ from clinicai.services.booking_service import (
     is_dead,
     is_walkin,
     resolve_action,
-    suggest_load,
 )
 from clinicai.services.clinic_policy import DEFAULT_POLICY, ClinicPolicy
 
@@ -188,19 +188,41 @@ class TestSlotBucket:
         assert offset.total_seconds() % 3600 == 0
 
 
-class TestSuggestedLoad:
-    def test_a_new_patient_gets_the_longer_slot(self) -> None:
-        assert suggest_load("NEW", False) == (15, 0)
-        assert suggest_load("NEW", True) == (15, 12)
+class TestNoInventedDurations:
+    """The 15'/5'/+12'/+8' table is gone, and must not come back.
 
-    def test_a_returning_patient_is_quicker(self) -> None:
-        assert suggest_load("RETURN", False) == (5, 0)
-        assert suggest_load("RETURN", True) == (7, 8)
+    TestSuggestedLoad used to live here and asserted those four numbers. It
+    passed for months, which is the point worth remembering: the test proved the
+    code returned what someone once typed, not that a new patient takes fifteen
+    minutes. No measurement was ever involved, and nothing in the suite would
+    have noticed if the real figure were twenty-two.
 
-    def test_no_kind_means_no_suggestion(self) -> None:
-        # Rather than guessing a duration onto the schedule.
-        assert suggest_load(None, True) == (None, None)
-        assert suggest_load("SOMETHING", False) == (None, None)
+    Durations are now OBSERVED (work_item.started_at → finished_at, exposed as
+    v_consultation_duration in 20260803000005). Booking limits are the SEAT
+    COUNT that Trưởng ca / Quản lý configure. This test guards the boundary
+    between those two ideas.
+    """
+
+    def test_the_service_no_longer_exports_a_duration_guesser(self) -> None:
+        import clinicai.services.booking_service as mod
+
+        assert not hasattr(mod, "suggest_load"), (
+            "suggest_load is back. Duration belongs to measurement "
+            "(v_consultation_duration), not to a table of constants."
+        )
+
+    def test_absent_minutes_stay_absent(self) -> None:
+        """NULL means 'nobody estimated', and that is a usable answer.
+
+        The old code filled the gap from the constant table, so every row looked
+        estimated even when nobody had estimated anything — which made the
+        guessed numbers indistinguishable from real ones in the data.
+        """
+        from clinicai.services.booking_service import BookingService
+
+        source = inspect.getsource(BookingService.create)
+        assert "suggest_load" not in source
+        assert "thanh = thanh_min" in source
 
 
 class _Conn:
@@ -230,6 +252,8 @@ def _identity() -> StaffIdentity:
         department="CSKH",
         role=ClinicRole.CSKH,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 

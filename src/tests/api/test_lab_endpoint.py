@@ -138,6 +138,8 @@ def _default_overrides() -> Iterator[None]:
         department="BS",
         role=ClinicRole.DOCTOR,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
     yield
     app.dependency_overrides.pop(get_db_pool, None)
@@ -248,6 +250,8 @@ def test_lab_triage__reception_role__is_forbidden(client: TestClient) -> None:
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
     response = client.post(f"/api/v1/lab/triage/{uuid4()}")

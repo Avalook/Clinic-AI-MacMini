@@ -27,6 +27,8 @@ import asyncio
 import os
 import signal
 import sys
+import time
+from pathlib import Path
 from uuid import UUID
 
 import structlog
@@ -37,6 +39,36 @@ logger = structlog.get_logger(__name__)
 # Relay mode (--relay): poll event_log → deliver via Telegram/Zalo
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Liveness heartbeat
+# ---------------------------------------------------------------------------
+# `restart: unless-stopped` in compose restarts a worker whose PROCESS dies. It
+# does nothing about the failure that actually happens to poll loops: the
+# process stays up and the loop stops turning — a connection that never times
+# out, a task awaiting something that will not arrive, an exception swallowed in
+# a nested handler. The container reports healthy, Uptime Kuma is green, and
+# nobody learns that patients stopped getting their SMS until one of them says
+# so.
+#
+# None of the three worker services had a healthcheck at all. This is the
+# cheapest honest one: each completed pass touches a file, and the compose
+# healthcheck fails if that file stops moving. It proves the loop turned, not
+# merely that a PID exists.
+HEARTBEAT_PATH = Path(os.environ.get("WORKER_HEARTBEAT_FILE", "/tmp/worker-alive"))
+
+
+def _beat() -> None:
+    """Record that the loop completed a pass. Never fatal."""
+    try:
+        HEARTBEAT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        HEARTBEAT_PATH.write_text(str(int(time.time())), encoding="utf-8")
+    except OSError:
+        # A worker must not die because it could not write a liveness file; the
+        # healthcheck going stale is already the correct signal.
+        logger.warning("heartbeat_write_failed", path=str(HEARTBEAT_PATH))
+
+
+WORKER_HEARTBEAT_INTERVAL = 30  # consumer liveness tick
 RELAY_POLL_INTERVAL = 30  # seconds between polls
 # The POS is not on the critical path, so it can be told less often.
 POS_RELAY_POLL_INTERVAL = 60
@@ -72,6 +104,7 @@ async def _run_relay() -> None:
                 count = await poll_and_deliver(pool, clinic_id=clinic_id)
                 if count > 0:
                     logger.info("relay_delivered", count=count)
+                _beat()
             except Exception:
                 logger.exception("relay_poll_error")
 
@@ -113,6 +146,7 @@ async def _run_pos_relay() -> None:
         while not stop.is_set():
             try:
                 await poll_and_push(pool)
+                _beat()
             except Exception:
                 # A broken POS must never take the relay down with it.
                 logger.exception("pos_relay_poll_error")
@@ -150,10 +184,33 @@ async def _run_rabbitmq() -> None:
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
 
+    async def _heartbeat() -> None:
+        """Tick while the consumer is connected.
+
+        A consumer has no poll loop to hang a heartbeat off — it sits in
+        ``stop.wait()`` and reacts to deliveries. So liveness is "the broker
+        connection is still open", checked on a timer. Without this the worker
+        container had no healthcheck at all: a consumer whose channel had died
+        silently looked identical to an idle one with nothing to do.
+        """
+        while not stop.is_set():
+            if getattr(consumer, "is_connected", lambda: True)():
+                _beat()
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=WORKER_HEARTBEAT_INTERVAL)
+                return
+            except asyncio.TimeoutError:
+                continue
+
     try:
         await consumer.start()
         logger.info("worker_started", queue=queue)
-        await stop.wait()
+        _beat()
+        beat_task = asyncio.create_task(_heartbeat())
+        try:
+            await stop.wait()
+        finally:
+            beat_task.cancel()
     except ConsumerConnectionError as exc:
         logger.error("worker_broker_unavailable", error=str(exc))
         raise SystemExit(1) from exc

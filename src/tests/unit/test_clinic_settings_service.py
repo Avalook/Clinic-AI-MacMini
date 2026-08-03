@@ -28,6 +28,8 @@ def _identity(clinic_id: str | None = None) -> StaffIdentity:
         department="MANAGEMENT",
         role=ClinicRole.MANAGEMENT,
         clinic_id=clinic_id or str(uuid4()),
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 

@@ -7,7 +7,7 @@ from uuid import UUID
 
 import asyncpg.exceptions
 import structlog
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
@@ -16,6 +16,7 @@ from clinicai.api.middleware import (
     RequestIdMiddleware,
     TimingMiddleware,
 )
+from clinicai.api.runaway_guard import runaway_guard
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.booking import router as booking_router
@@ -107,43 +108,100 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# --- Middleware stack (outermost → innermost) ---
-# 1. Request-ID: assign/reuse X-Request-ID, bind to structlog context.
-app.add_middleware(RequestIdMiddleware)
-# 2. API-key gate: reject unauthenticated callers (see api.auth).
-# 2. Timing: outside the API-key gate so rejected floods are visible too.
-app.add_middleware(TimingMiddleware)
+# --- Middleware stack ---
+#
+# REGISTERED IN REVERSE, ON PURPOSE. Starlette's add_middleware does
+# `user_middleware.insert(0, …)`, so the LAST call ends up OUTERMOST. Written in
+# the intuitive order, this block produced the exact opposite stack at runtime:
+# Timing ran *inside* the API-key gate (blind to the rejected floods it exists to
+# show) and Request-ID ran innermost (so no 401/403/503 ever carried the header).
+# See api/middleware.py for the full account; test_middleware_order pins it.
+#
+# Resulting stack, outermost → innermost:
+#   RequestIdMiddleware → TimingMiddleware → api_key_middleware → DbErrorMiddleware
+app.add_middleware(DbErrorMiddleware)  # innermost: DB error → 503, still timed
+app.middleware("http")(api_key_middleware)  # gate anonymous callers (api.auth)
+app.add_middleware(TimingMiddleware)  # outside the gate: rejections are data too
+app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 
-app.middleware("http")(api_key_middleware)
-# 3. DB-error guard: catch transient connection errors → 503 (no crash loop).
-app.add_middleware(DbErrorMiddleware)
+# --- Runaway-client guard -----------------------------------------------------
+#
+# Applied to every AUTHENTICATED router below, and to none of the three that are
+# deliberately open (health probes, the national ward list, the waiting-room TV
+# config). It counts requests per staff member, warns at 60/minute and refuses
+# past 120 — see api/runaway_guard.py for why the ceiling is set so far above
+# human use rather than close to it.
+#
+# One list, in one file, because the thing it measures is per PERSON: scattering
+# `Depends(runaway_guard)` across endpoints would work, but the next endpoint
+# somebody adds would silently sit outside the count.
+_GUARDED = [Depends(runaway_guard)]
 
 app.include_router(health_router)
-app.include_router(identity_router, prefix="/api/v1", tags=["identity"])
-app.include_router(queue_router, prefix="/api/v1", tags=["queue"])
+app.include_router(
+    identity_router, prefix="/api/v1", tags=["identity"], dependencies=_GUARDED
+)
+app.include_router(
+    queue_router, prefix="/api/v1", tags=["queue"], dependencies=_GUARDED
+)
 # Bảng điều khiển chủ sản phẩm — router tự từ chối khi APP_ENV=production.
-app.include_router(console_router, prefix="/api/v1", tags=["console"])
-app.include_router(patients_router, prefix="/api/v1")
-app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
-app.include_router(scheduling_router, prefix="/api/v1", tags=["scheduling"])
-app.include_router(payment_router, prefix="/api/v1", tags=["payment"])
-app.include_router(episodes_router, prefix="/api/v1", tags=["episodes"])
-app.include_router(work_items_router, prefix="/api/v1", tags=["work-items"])
-app.include_router(tools_router, prefix="/api/v1")
-app.include_router(orchestrator_router, prefix="/api/v1")
-app.include_router(brief_router, prefix="/api/v1")
+app.include_router(
+    console_router, prefix="/api/v1", tags=["console"], dependencies=_GUARDED
+)
+app.include_router(patients_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(
+    staff_router, prefix="/api/v1", tags=["staff"], dependencies=_GUARDED
+)
+app.include_router(
+    scheduling_router, prefix="/api/v1", tags=["scheduling"], dependencies=_GUARDED
+)
+app.include_router(
+    payment_router, prefix="/api/v1", tags=["payment"], dependencies=_GUARDED
+)
+app.include_router(
+    episodes_router, prefix="/api/v1", tags=["episodes"], dependencies=_GUARDED
+)
+app.include_router(
+    work_items_router, prefix="/api/v1", tags=["work-items"], dependencies=_GUARDED
+)
+app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(brief_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
-app.include_router(ops_router, prefix="/api/v1", tags=["ops"])
-app.include_router(lab_router, prefix="/api/v1")
-app.include_router(ultrasound_router, prefix="/api/v1", tags=["ultrasound"])
-app.include_router(clinical_forms_router, prefix="/api/v1", tags=["clinical-forms"])
-app.include_router(clinical_records_router, prefix="/api/v1", tags=["clinical-records"])
-app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"])
-app.include_router(booking_router, prefix="/api/v1", tags=["booking"])
-app.include_router(config_router, prefix="/api/v1", tags=["config"])
-app.include_router(service_log_router, prefix="/api/v1", tags=["service-log"])
-app.include_router(visit_progress_router, prefix="/api/v1", tags=["visit-progress"])
-app.include_router(voice_router, prefix="/api/v1")
+app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
+app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(
+    ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED
+)
+app.include_router(
+    clinical_forms_router,
+    prefix="/api/v1",
+    tags=["clinical-forms"],
+    dependencies=_GUARDED,
+)
+app.include_router(
+    clinical_records_router,
+    prefix="/api/v1",
+    tags=["clinical-records"],
+    dependencies=_GUARDED,
+)
+app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"], dependencies=_GUARDED)
+app.include_router(
+    booking_router, prefix="/api/v1", tags=["booking"], dependencies=_GUARDED
+)
+app.include_router(
+    config_router, prefix="/api/v1", tags=["config"], dependencies=_GUARDED
+)
+app.include_router(
+    service_log_router, prefix="/api/v1", tags=["service-log"], dependencies=_GUARDED
+)
+app.include_router(
+    visit_progress_router,
+    prefix="/api/v1",
+    tags=["visit-progress"],
+    dependencies=_GUARDED,
+)
+app.include_router(voice_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(display_router, prefix="/api/v1", tags=["display"])
 
 
@@ -152,9 +210,14 @@ async def exclusion_violation_handler(
     request: Request, exc: asyncpg.exceptions.ExclusionViolationError
 ) -> JSONResponse:
     """Global handler for database exclusion violation errors (HTTP 409)."""
+    # `reason`, not `message`: core.logging treats a structured `message` field
+    # as patient content and replaces it with [REDACTED]. That is right for a
+    # field that can carry a note, and wrong here — it blanked the one sentence
+    # that says which rule fired, so every domain error logged as
+    # {"error_code": …, "message": "[REDACTED]"} and told an operator nothing.
     logger.warning(
         "exclusion_violation",
-        message="Lịch hẹn xung đột khung giờ với appointment khác",
+        reason="Lịch hẹn xung đột khung giờ với appointment khác",
     )
     return JSONResponse(
         status_code=409,
@@ -172,7 +235,7 @@ async def unique_violation_handler(
     """Global handler for database unique constraint violations (HTTP 409)."""
     logger.warning(
         "unique_violation",
-        message="Resource already exists",
+        reason="Resource already exists",
     )
     return JSONResponse(
         status_code=409,
@@ -188,10 +251,12 @@ async def clinicai_exception_handler(
     request: Request, exc: ClinicAIBaseException
 ) -> JSONResponse:
     """Global handler for all custom ClinicAI exceptions."""
+    # Free text still goes through the text-level scrubber (phones, emails,
+    # bearer tokens), so a message that did pick up a phone number stays safe.
     logger.warning(
         "clinicai_exception",
         error_code=exc.error_code,
-        message=exc.message,
+        reason=exc.message,
         status_code=exc.status_code,
     )
     return JSONResponse(
@@ -206,7 +271,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     # Capture full stack trace in structured JSON logs without leaking it to clients
     logger.exception(
         "unhandled_exception",
-        message=str(exc),
+        reason=str(exc),
     )
     return JSONResponse(
         status_code=500,

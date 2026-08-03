@@ -44,7 +44,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import DOCTOR_DESK_ROLES, ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 
@@ -78,9 +78,14 @@ Action = Literal[
 
 # Who may issue which action. Mirrors roles.ts: isDoctorRole / canManageAppt /
 # canCheckin / canWriteIntake.
-DOCTOR_ROLES: frozenset[ClinicRole] = frozenset(
-    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
-)
+#
+# DOCTOR_ROLES used to be re-declared here with its own membership list, one
+# character away from identity.py's set of the same name and differing by TKYK.
+# Two constants with one name is how a permission drifts without a failing test,
+# so this now imports the one that identity.py publishes. Appointment actions are
+# desk work — the secretary confirms and completes on the doctor's behalf — which
+# is DOCTOR_DESK_ROLES, not the narrower PHYSICIAN_ROLES that gates lab orders.
+DOCTOR_ROLES: frozenset[ClinicRole] = DOCTOR_DESK_ROLES
 MANAGE_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA}
 )
@@ -196,15 +201,23 @@ def is_dead(status: str | None) -> bool:
     return (status or "").strip() in DEAD_STATUSES
 
 
-def suggest_load(
-    patient_kind: str | None, need_sono: bool
-) -> tuple[int | None, int | None]:
-    """Suggested minutes for a booking. A suggestion — CSKH may override it."""
-    if patient_kind == "NEW":
-        return 15, (12 if need_sono else 0)
-    if patient_kind == "RETURN":
-        return (7 if need_sono else 5), (8 if need_sono else 0)
-    return None, None
+# suggest_load() ĐÃ BỊ GỠ (20260803000005).
+#
+# Nó trả về một bảng phút viết cứng — khách mới 15', tái khám 5', siêu âm +12'/+8'
+# — và bốn con số đó không đến từ phép đo nào. Chúng được gõ vào một lần rồi trở
+# thành "sự thật": ô lịch tô màu theo chúng, cảnh báo "khung sắp đầy" tính theo
+# chúng, và không ai từng kiểm xem một khách mới lúc 18:00 thứ Ba có thật sự mất
+# 15 phút hay không.
+#
+# Hai việc vốn khác nhau, giờ tách hẳn:
+#
+#   GIỚI HẠN đặt lịch  = SỐ CHỖ mỗi khung. Trưởng ca / Quản lý đặt, sửa được
+#                        trên giao diện, thi hành bởi trigger trong database.
+#   THỜI LƯỢNG khám    = ĐO từ work_item.started_at → finished_at. Xem view
+#                        v_consultation_duration / _stats.
+#
+# thanh_min/sono_min từ đây chỉ nhận giá trị người dùng NHẬP TAY, và NULL khi
+# không ai ước lượng — chứ không phải một con số hệ thống tự bịa rồi tự tin.
 
 
 def _hhmm(moment: datetime) -> str:
@@ -224,7 +237,7 @@ class BookingService:
         *,
         clinic_patient_id: str,
         service_type_id: str,
-        location_id: str,
+        location_id: str | None,
         slot_start: datetime,
         slot_end: datetime,
         identity: StaffIdentity,
@@ -235,20 +248,39 @@ class BookingService:
         need_sono: bool | None = None,
         thanh_min: int | None = None,
         sono_min: int | None = None,
+        notes: str | None = None,
     ) -> dict[str, Any]:
         """Book one appointment. Returns its id and the status it landed in."""
+        # Không nói cơ sở thì lấy cơ sở CỦA NGƯỜI ĐẶT, không phải cơ sở đầu tiên
+        # trong một danh sách. _validate_booking_refs vẫn kiểm nó thuộc đúng
+        # phòng khám, nên chỉ định cơ sở khác vẫn được — chỉ là phải cố ý.
+        location_id = location_id or identity.location_id
         if slot_end <= slot_start:
             raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
 
         raw_channel = (booking_channel or "").strip()
-        channel = raw_channel or "WALK_IN"
+        # NO INVENTED DEFAULT, and the old one was the wrong way round.
+        #
+        # This used to be `raw_channel or "WALK_IN"`. BookingHub — the screen
+        # CSKH books almost everything from — sends no channel at all, so every
+        # appointment it created was stored as a walk-in. Walk-ins draw from the
+        # small reserved pool (walkin_cap, 1 seat), so the grid filled that pool
+        # and left the booked pool (regular_cap, 2 seats) permanently empty: the
+        # seat rule ran inverted on the busiest screen in the clinic, and the
+        # patient who actually walked in found no seat left for them.
+        #
+        # An unstated channel means "a member of staff entered this booking",
+        # which is a booked seat. NULL says exactly that and nothing more; both
+        # capacity triggers already treat anything that is not the literal
+        # 'WALK_IN' as regular, so the pre-check and the net now agree.
+        channel = raw_channel or None
         kind = (patient_kind or "").strip().upper() or None
         if kind not in (None, "NEW", "RETURN"):
             kind = None
 
-        suggested_thanh, suggested_sono = suggest_load(kind, bool(need_sono))
-        thanh = thanh_min if thanh_min is not None else suggested_thanh
-        sono = sono_min if sono_min is not None else suggested_sono
+        # Người nhập gì thì lưu nấy; không nhập thì NULL. Không suy diễn.
+        thanh = thanh_min
+        sono = sono_min
 
         # A walk-in booked for today is already standing at the desk, so it is
         # checked in on creation. Only when WALK_IN was chosen explicitly and
@@ -291,10 +323,10 @@ class BookingService:
                             clinic_id, clinic_patient_id, doctor_id, service_type_id,
                             location_id, slot_start, slot_end, booking_channel,
                             queue_number, status, patient_kind, thanh_min, sono_min,
-                            need_sono
+                            need_sono, is_walkin, notes
                         )
                         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-                                $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                         RETURNING id
                         """,
                         identity.clinic_id,
@@ -311,6 +343,10 @@ class BookingService:
                         thanh,
                         sono,
                         need_sono,
+                        # is_walkin mirrors booking_channel; the CHECK added in
+                        # 20260803000004 rejects the write if they disagree.
+                        is_walkin(channel),
+                        (notes or "").strip() or None,
                     )
                 except asyncpg.ExclusionViolationError as exc:
                     raise ConflictError(
@@ -843,7 +879,7 @@ class BookingService:
         conn: asyncpg.Connection,
         doctor_id: str | None,
         slot_start: datetime,
-        channel: str,
+        channel: str | None,
         identity: StaffIdentity,
         policy: ClinicPolicy,
         exclude_id: str | None = None,

@@ -24,6 +24,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
+from time import monotonic
 from typing import Any
 from uuid import UUID
 
@@ -68,7 +69,24 @@ CLINICAL_WRITE_ROLES = frozenset(
         ClinicRole.NURSE_ULTRASOUND,
     }
 )
-DOCTOR_ROLES = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
+
+# HOLDS A MEDICAL LICENCE. Ordering a test and signing off a result are acts a
+# medical secretary must not perform, so TKYK is deliberately absent — see
+# lab.py's _ORDER_GUARD / _REVIEW_GUARD.
+#
+# Named PHYSICIAN_ROLES rather than DOCTOR_ROLES because the old name read as
+# "everyone at the doctor's desk", which is a different and wider set (that one
+# is DOCTOR_DESK_ROLES below). The browser mirrored the wide reading and drew
+# "Chỉ định XN"/"Duyệt kết quả" for TKYK, who then got a 403 from these guards.
+# Two names, because they are two questions.
+PHYSICIAN_ROLES = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
+
+# WORKS THE DOCTOR'S DESK. The secretary opens the same board and moves the same
+# appointment on the doctor's behalf. Mirrors roles.ts isDoctorRole.
+DOCTOR_DESK_ROLES = frozenset(
+    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
+)
+
 CASHIER_ROLES = frozenset(
     {ClinicRole.CASHIER, ClinicRole.CASHIER_THUOC, ClinicRole.CASHIER_DV}
 )
@@ -107,11 +125,27 @@ class StaffIdentity:
     # tenant is there instead of the database inventing one.
     clinic_id: str
 
+    # WHICH SITE. "Phòng khám Dr4Women, cơ sở Kim Ngưu" is one fact in two
+    # parts, and only the first half was ever carried on the request.
+    #
+    # location_id decides which branch an appointment belongs to and which row
+    # of block_budget its capacity is read from. Because it was not on the
+    # identity, every caller that needed it took it from the request body —
+    # which is how BookingHub ended up sending `locations[0].id`, i.e. "the
+    # first branch in the dropdown", as the place a patient would be seen.
+    #
+    # Required, like clinic_id, and for the same reason: 20260803000007 makes
+    # staff.primary_location_id NOT NULL, so a request that reaches a service
+    # always knows where its author works. Optional here would just move the
+    # guessing somewhere less visible.
+    location_id: str
+    location_name: str
+
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES
 
     def is_doctor(self) -> bool:
-        return self.role in DOCTOR_ROLES
+        return self.role in PHYSICIAN_ROLES
 
     def is_cashier(self) -> bool:
         return self.role in CASHIER_ROLES
@@ -182,6 +216,69 @@ def _requested_clinic_id(request: Request) -> str | None:
         ) from None
 
 
+# --------------------------------------------------------------------------- #
+# Membership lookup cache
+# --------------------------------------------------------------------------- #
+# ONE SUPABASE ROUND TRIP PER REQUEST, FOR AN ANSWER THAT CHANGES A FEW TIMES A
+# YEAR. Every authenticated call ran the membership query below against Supabase
+# Cloud in Seoul — roughly 60–90ms from Vietnam, before the endpoint did any of
+# its own work. A single button press in the dashboard already pays
+# `supabase.auth.getUser()` plus the hop to FastAPI; this was a third leg on top.
+#
+# WHY A TTL AND NOT INVALIDATION. The honest options were a short TTL or a
+# LISTEN/NOTIFY invalidation channel on clinic_membership. The second is
+# strictly better and strictly more machinery — and this cache lives in one API
+# process on one Mac, so a role change would still have to reach other replicas
+# the day there are any. 30 seconds is chosen so a deactivated account or a
+# changed role stops working within the time it takes to walk to the front desk,
+# which is the actual failure mode being bounded.
+#
+# WHAT IS NOT CACHED. The JWT is verified on EVERY request, always. An expired
+# or forged token is rejected before this cache is consulted, so the cache can
+# never extend a session — it only remembers which staff row a still-valid token
+# maps to. A 403 is not cached either: a staff member who has just been given
+# their membership should not have to wait out a TTL to get in.
+_IDENTITY_TTL_SECONDS = 30.0
+_IDENTITY_CACHE_MAX = 512
+_identity_cache: dict[tuple[str, str | None], tuple[float, StaffIdentity]] = {}
+
+
+def invalidate_identity_cache(auth_user_id: str | None = None) -> None:
+    """Drop cached memberships — all of them, or one login's.
+
+    Call after a write that changes who someone is: staff_service does this so a
+    role change or deactivation takes effect on the next request instead of at
+    the end of the TTL.
+    """
+    if auth_user_id is None:
+        _identity_cache.clear()
+        return
+    for key in [k for k in _identity_cache if k[0] == auth_user_id]:
+        _identity_cache.pop(key, None)
+
+
+def _cache_get(key: tuple[str, str | None], now: float) -> StaffIdentity | None:
+    hit = _identity_cache.get(key)
+    if hit is None:
+        return None
+    expires_at, identity = hit
+    if expires_at <= now:
+        _identity_cache.pop(key, None)
+        return None
+    return identity
+
+
+def _cache_put(
+    key: tuple[str, str | None], identity: StaffIdentity, now: float
+) -> None:
+    if len(_identity_cache) >= _IDENTITY_CACHE_MAX:
+        # A clinic has tens of staff, not hundreds; hitting this bound means
+        # something is wrong (token churn, a load test), and the safe response
+        # is to stop growing rather than to evict cleverly.
+        _identity_cache.clear()
+    _identity_cache[key] = (now + _IDENTITY_TTL_SECONDS, identity)
+
+
 async def get_current_identity(
     request: Request,
     pool: asyncpg.Pool = Depends(get_db_pool),
@@ -193,13 +290,23 @@ async def get_current_identity(
         raise HTTPException(status_code=401, detail="Token missing subject")
 
     requested_clinic_id = _requested_clinic_id(request)
+
+    cache_key = (str(sub), requested_clinic_id)
+    now = monotonic()
+    cached = _cache_get(cache_key, now)
+    if cached is not None:
+        return cached
+
     rows = await pool.fetch(
         """
         SELECT s.id, s.auth_user_id, s.full_name, s.primary_department,
-               m.clinic_id, m.role AS membership_role
+               m.clinic_id, m.role AS membership_role,
+               s.primary_location_id, l.name AS location_name
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
+        LEFT JOIN clinic_location l
+               ON l.id = s.primary_location_id
         WHERE s.auth_user_id = $1::uuid AND s.is_active IS NOT FALSE
           AND ($2::uuid IS NULL OR m.clinic_id = $2::uuid)
         ORDER BY m.created_at, m.id
@@ -248,15 +355,34 @@ async def get_current_identity(
     # A doctor may be MANAGEMENT at clinic A and DOCTOR at clinic B.  The
     # global primary_department describes the person, but only the membership
     # selected alongside clinic_id is authorized to describe this request.
+    location_id = row["primary_location_id"]
+    if location_id is None:
+        # 20260803000007 made this NOT NULL, so reaching here means the row
+        # predates it or the column was cleared by a direct write. Fail closed:
+        # a booking filed under a guessed branch is exactly what that migration
+        # exists to prevent, and it is not visible after the fact.
+        logger.warning("staff_without_location", staff_id=str(row["id"]))
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản chưa được gán cơ sở khám",
+        )
+
     membership_role = row["membership_role"]
-    return StaffIdentity(
+    identity = StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
         full_name=row["full_name"],
         department=dept,
         role=role_from_department(membership_role),
         clinic_id=str(clinic_id),
+        location_id=str(location_id),
+        location_name=row["location_name"] or "",
     )
+    # Only the success path is cached. A 403 stays uncached so a staff member
+    # who has just been granted a membership gets in on their next request
+    # rather than after the TTL.
+    _cache_put(cache_key, identity, now)
+    return identity
 
 
 class RoleGuard:

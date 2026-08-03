@@ -8,6 +8,7 @@ from uuid import UUID
 import asyncpg
 import structlog
 
+from clinicai.api.identity import StaffIdentity, invalidate_identity_cache
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.schemas.staff import (
     StaffCapabilityDTO,
@@ -15,6 +16,7 @@ from clinicai.schemas.staff import (
     StaffDTO,
     StaffUpdateDTO,
 )
+from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
@@ -46,9 +48,50 @@ def _record_to_dto(
 class StaffService:
     """CRUD operations for the staff table."""
 
-    def __init__(self, pool: asyncpg.Pool, clinic_id: str | UUID) -> None:
+    def __init__(
+        self,
+        pool: asyncpg.Pool,
+        clinic_id: str | UUID,
+        actor: StaffIdentity | None = None,
+    ) -> None:
         self._pool = pool
         self._clinic_id = UUID(str(clinic_id))
+        # WHO changed a staff member's role. Creating an account, changing a
+        # role and deactivating a membership are privilege changes — the most
+        # audit-worthy writes in the system — and they left NO record at all:
+        # this service wrote to `staff` and `clinic_membership` and never
+        # touched `event_log`. Optional only so existing unit tests that
+        # construct the service without a request context keep working; every
+        # router path passes it, and the warning below makes an unattributed
+        # write visible instead of silent.
+        self._actor = actor
+
+    async def _audit(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        event_type: str,
+        staff_id: str,
+        payload: dict[str, object],
+    ) -> None:
+        """Record a privilege change, or say loudly that it went unattributed."""
+        if self._actor is None:
+            logger.warning(
+                "staff_write_unattributed",
+                event_type=event_type,
+                staff_id=staff_id,
+                clinic_id=str(self._clinic_id),
+            )
+            return
+        await record_event(
+            conn,
+            event_type=event_type,
+            aggregate_type="staff",
+            aggregate_id=staff_id,
+            identity=self._actor,
+            origin="api:staff",
+            payload=payload,
+        )
 
     async def create_staff(self, data: StaffCreateDTO) -> StaffDTO:
         """Create a staff row and membership in the acting clinic atomically."""
@@ -88,6 +131,17 @@ class StaffService:
                     row["id"],
                     data.primary_department.value,
                     data.is_active,
+                )
+                await self._audit(
+                    conn,
+                    event_type="staff.created",
+                    staff_id=str(row["id"]),
+                    payload={
+                        "staff_id": str(row["id"]),
+                        "role": data.primary_department.value,
+                        "is_active": data.is_active,
+                        "employment_type": data.employment_type.value,
+                    },
                 )
 
         logger.info(
@@ -278,6 +332,25 @@ class StaffService:
                     else:
                         await self._deactivate_global_if_orphaned(conn, staff_id)
 
+                await self._audit(
+                    conn,
+                    event_type="staff.updated",
+                    staff_id=str(staff_id),
+                    payload={
+                        "staff_id": str(staff_id),
+                        # Tên trường đã sửa, không phải giá trị — trừ vai và
+                        # trạng thái hoạt động, vì ĐÓ CHÍNH LÀ quyền hạn và một
+                        # bản ghi kiểm toán không nói ra thì vô dụng.
+                        "fields": sorted(updates.keys()),
+                        "role": membership_role,
+                        "is_active": effective_is_active,
+                    },
+                )
+
+        # Vai và trạng thái hoạt động vừa đổi; identity cache đang giữ bản cũ tới
+        # 30 giây. Với một thay đổi quyền thì 30 giây là quá dài — xoá thẳng.
+        invalidate_identity_cache()
+
         logger.info(
             "staff_updated",
             staff_id=str(staff_id),
@@ -312,9 +385,21 @@ class StaffService:
                 )
                 if row is not None:
                     await self._deactivate_global_if_orphaned(conn, staff_id)
+                    await self._audit(
+                        conn,
+                        event_type="staff.deactivated",
+                        staff_id=str(staff_id),
+                        payload={
+                            "staff_id": str(staff_id),
+                            "clinic_id": str(self._clinic_id),
+                        },
+                    )
 
         if row is None:
             raise ResourceNotFoundError(f"Staff {staff_id} not found")
+
+        # Người vừa bị gỡ khỏi phòng khám phải mất quyền NGAY, không phải sau TTL.
+        invalidate_identity_cache()
 
         logger.info(
             "staff_deactivated",
