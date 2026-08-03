@@ -88,6 +88,16 @@ export default function OverridePolicyCard({
     null,
   );
 
+  /** Luật này có nói thêm điều gì so với luật nền không? */
+  function isRedundant(r: BookingRule): boolean {
+    return (
+      r.kind === "standing" &&
+      !!policy &&
+      r.regular_cap === policy.regularCap &&
+      r.walkin_cap === policy.walkinCap
+    );
+  }
+
   function toggleDoctor(id: string) {
     setDoctorIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -372,10 +382,10 @@ export default function OverridePolicyCard({
           <h3 className="mb-2 text-sm font-semibold text-ink">
             Các luật đang áp dụng
           </h3>
-          {rules.length === 0 ? (
+          {!policy ? (
             <p className="text-xs text-ink-muted">
-              Chưa có luật riêng — mọi khung dùng số chỗ mặc định của phòng khám ở
-              thẻ trên.
+              Chưa đọc được luật mặc định của phòng khám, nên bảng này chưa nói
+              đủ. Tải lại trang.
             </p>
           ) : (
             <div className={TBL_WRAP}>
@@ -392,6 +402,28 @@ export default function OverridePolicyCard({
                   </tr>
                 </thead>
                 <tbody>
+                  {/* LUẬT NỀN, luôn là dòng đầu.
+                      Nó KHÔNG nằm trong `rules` vì nó không phải một hàng trong
+                      bảng ngoại lệ — nó là thẻ "Luật đặt lịch" ở trên. Nhưng bỏ
+                      nó khỏi đây thì bảng chỉ liệt kê NGOẠI LỆ, và người đọc
+                      không có cách nào thấy "mọi khung 15 phút đều 3+1". Tệ hơn:
+                      một ngoại lệ trùng đúng số mặc định (prod đang có một dòng
+                      như thế cho khung 18:00) làm cả bảng trông như 3+1 chỉ áp
+                      cho mỗi khung ấy. Câu hỏi đó đã được hỏi, nên câu trả lời
+                      phải nằm trên màn hình. */}
+                  <tr className={`${TBL_ROW} bg-surface-muted`}>
+                    <td className="px-3 py-2 font-medium">Mặc định · mọi thứ</td>
+                    <td className="px-3 py-2">Tất cả bác sĩ</td>
+                    <td className="px-3 py-2">
+                      Cả ngày — mỗi khung {policy.slotMinutes} phút
+                    </td>
+                    <td className="px-3 py-2 text-right">{policy.regularCap}</td>
+                    <td className="px-3 py-2 text-right">{policy.walkinCap}</td>
+                    <td className="px-3 py-2 text-ink-muted">
+                      Từ thẻ “Luật đặt lịch” ở trên
+                    </td>
+                    <td className="px-3 py-2" />
+                  </tr>
                   {rules.map((r) => (
                     <tr key={r.id} className={TBL_ROW}>
                       <td className="px-3 py-2">
@@ -410,6 +442,16 @@ export default function OverridePolicyCard({
                         {r.shadowed && (
                           <span className="ml-2 rounded bg-warning-bg px-1.5 py-0.5 text-xs text-warning">
                             đang bị luật có ngày đè
+                          </span>
+                        )}
+                        {/* Ngoại lệ đặt đúng bằng số mặc định thì không đổi gì
+                            cả — nó chỉ làm bảng trông như luật nền chỉ áp cho
+                            mỗi khung ấy. Prod đang có một dòng như vậy. Không tự
+                            xoá: đó là dữ liệu người dùng, và họ có thể đang giữ
+                            nó để sắp đổi số. Chỉ nói ra là nó thừa. */}
+                        {isRedundant(r) && (
+                          <span className="ml-2 rounded bg-surface-muted px-1.5 py-0.5 text-xs text-ink-muted">
+                            trùng số mặc định — xoá cũng không đổi gì
                           </span>
                         )}
                       </td>
@@ -441,10 +483,13 @@ export default function OverridePolicyCard({
             </div>
           )}
           <p className="mt-2 text-xs text-ink-muted">
-            Nhiều luật cùng phủ một khung thì hệ thống chọn cái <b>cụ thể nhất</b>:
-            luật có ngày thắng luật mãi mãi · luật ghi rõ bác sĩ thắng luật &ldquo;tất
-            cả bác sĩ&rdquo; · luật ghi rõ thứ thắng luật &ldquo;mọi thứ&rdquo; ·
-            không luật nào phủ thì dùng số mặc định ở thẻ trên.
+            Đọc từ <b>dưới lên</b>: khung nào có luật riêng thì theo luật đó, còn
+            lại theo dòng <b>Mặc định</b> ở trên cùng. Nên một luật riêng cho
+            18:00–18:15 chỉ đổi đúng khung ấy — mọi khung khác của bác sĩ đó vẫn
+            là số mặc định. Nhiều luật cùng phủ một khung thì hệ thống chọn cái{" "}
+            <b>cụ thể nhất</b>: luật có ngày thắng luật mãi mãi · luật ghi rõ bác
+            sĩ thắng luật &ldquo;tất cả bác sĩ&rdquo; · luật ghi rõ thứ thắng luật
+            &ldquo;mọi thứ&rdquo;.
           </p>
         </div>
       </div>
