@@ -8,13 +8,44 @@ kiểm bằng nội dung chứ không bằng đuôi tên.
 
 from __future__ import annotations
 
+import asyncio
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.services.media_service import MAX_BYTES, safe_path, sniff
+from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.services.media_service import (
+    MAX_BYTES,
+    MediaService,
+    safe_path,
+    sniff,
+)
+from tests.services.fake_pool import FakePool
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 REC = "b0000000-0000-4000-8000-000000000002"
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+def _run(coro: Any) -> Any:
+    return asyncio.run(coro)
+
+
+def _who() -> StaffIdentity:
+    return StaffIdentity(
+        auth_user_id="u-1",
+        staff_id="s-1",
+        full_name="KTV",
+        department=ClinicRole.NURSE_ULTRASOUND.value,
+        role=ClinicRole.NURSE_ULTRASOUND,
+        clinic_id=CLINIC,
+        location_id="c1100000-0000-4000-8000-000000000001",
+        location_name="Kim Ngưu",
+    )
 
 
 class TestFileTypeComesFromContent:
@@ -78,3 +109,127 @@ class TestSizeLimit:
         """Ảnh máy siêu âm khoảng 200KB–2MB. 12MB rộng rãi mà vẫn chặn được một
         video bị kéo nhầm vào ô ảnh."""
         assert MAX_BYTES == 12 * 1024 * 1024
+
+
+# ── Phần ghi/đọc thật ──────────────────────────────────────────────────────
+#
+# Hai phương thức dưới đây chạm cả đĩa lẫn database. Chúng là nơi ba luật ở
+# phần trên được THI HÀNH, và cho tới giờ chỉ phần thuần được kiểm.
+
+
+class TestAttachIO:
+    def test_an_empty_file_never_reaches_the_database(self) -> None:
+        pool = FakePool()
+        with pytest.raises(ValidationError, match="rỗng"):
+            _run(
+                MediaService(pool).attach_ultrasound_image(
+                    identity=_who(), ultrasound_id=REC, data=b"", display_name=None
+                )
+            )
+        assert pool.queries() == []
+
+    def test_too_large_never_reaches_the_database(self) -> None:
+        pool = FakePool()
+        with pytest.raises(ValidationError, match="quá lớn"):
+            _run(
+                MediaService(pool).attach_ultrasound_image(
+                    identity=_who(),
+                    ultrasound_id=REC,
+                    data=JPEG + b"\x00" * MAX_BYTES,
+                    display_name=None,
+                )
+            )
+        assert pool.queries() == []
+
+    def test_unknown_record(self) -> None:
+        pool = FakePool(None)
+        with pytest.raises(ValidationError, match="Không tìm thấy bản ghi"):
+            _run(
+                MediaService(pool).attach_ultrasound_image(
+                    identity=_who(), ultrasound_id=REC, data=JPEG, display_name=None
+                )
+            )
+
+    def test_a_signed_report_is_locked_against_new_images(self) -> None:
+        """Bác sĩ ký cái họ đã nhìn thấy. Một phiếu đã ký mà ảnh vẫn thêm được
+        thì chữ ký không còn nói lên điều gì."""
+        pool = FakePool({"ultrasound_id": REC, "signed_at": "2026-08-04"})
+        with pytest.raises(ValidationError, match="đã ký"):
+            _run(
+                MediaService(pool).attach_ultrasound_image(
+                    identity=_who(), ultrasound_id=REC, data=JPEG, display_name=None
+                )
+            )
+
+    def test_a_hostile_display_name_never_touches_the_disk(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Tên người tải lên đặt được giữ lại làm NHÃN và chỉ là nhãn. Khoá
+        trên đĩa do hệ thống sinh, nên "../../../etc/passwd" không đi đâu cả."""
+        monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+        pool = FakePool({"ultrasound_id": REC, "signed_at": None})
+        out = _run(
+            MediaService(pool).attach_ultrasound_image(
+                identity=_who(),
+                ultrasound_id=REC,
+                data=JPEG,
+                display_name="  ../../../etc/passwd  ",
+            )
+        )
+        assert out["display_name"] == "../../../etc/passwd"
+        assert ".." not in out["key"] and out["key"].startswith(f"{CLINIC}/")
+        ghi = tmp_path / out["key"]
+        assert ghi.read_bytes() == JPEG
+        # Ghi tệp tạm rồi đổi tên — không để lại rác khi ghi xong.
+        assert list(ghi.parent.glob("*.tmp")) == []
+        assert pool.wrote("UPDATE public.ultrasound_record")
+
+
+class TestReadIO:
+    def test_a_key_from_another_clinic_stops_before_the_query(self) -> None:
+        pool = FakePool()
+        with pytest.raises(ValidationError, match="không thuộc phòng khám"):
+            _run(
+                MediaService(pool).read_ultrasound_image(
+                    identity=_who(),
+                    key="b0000000-0000-4000-8000-000000000009/ultrasound/x/a.jpg",
+                )
+            )
+        assert pool.queries() == []
+
+    def test_right_clinic_but_not_in_any_record(self) -> None:
+        """Thiếu phép kiểm này thì đoán được một UUID là đọc được ảnh của bệnh
+        nhân bất kỳ trong cùng phòng khám."""
+        pool = FakePool(None)
+        with pytest.raises(ValidationError, match="Không tìm thấy ảnh"):
+            _run(
+                MediaService(pool).read_ultrasound_image(
+                    identity=_who(), key=f"{CLINIC}/ultrasound/{REC}/a.jpg"
+                )
+            )
+
+    def test_the_database_says_yes_but_the_file_is_gone(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+        pool = FakePool(1)
+        with pytest.raises(ValidationError, match="không còn trên máy chủ"):
+            _run(
+                MediaService(pool).read_ultrasound_image(
+                    identity=_who(), key=f"{CLINIC}/ultrasound/{REC}/a.jpg"
+                )
+            )
+
+    def test_the_mime_comes_from_the_bytes_not_the_extension(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+        key = f"{CLINIC}/ultrasound/{REC}/a.jpg"
+        p = tmp_path / key
+        p.parent.mkdir(parents=True)
+        p.write_bytes(PNG)
+        data, mime = _run(
+            MediaService(FakePool(1)).read_ultrasound_image(identity=_who(), key=key)
+        )
+        assert data == PNG
+        assert mime == "image/png"

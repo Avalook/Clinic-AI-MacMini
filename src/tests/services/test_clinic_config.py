@@ -11,6 +11,7 @@ Trưởng ca bị chặn · bỏ bước chính bị chặn · thu hẹp KB01 t�
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -19,9 +20,15 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.clinic_config_service import (
     CONFIG_ROLES,
+    ClinicConfigService,
     _group_locations,
     assert_may_configure,
 )
+from tests.services.fake_pool import FakePool
+
+
+def _run(coro: Any) -> Any:
+    return asyncio.run(coro)
 
 
 def _who(role: ClinicRole) -> StaffIdentity:
@@ -127,3 +134,144 @@ class TestGroupingIntoLocationsAndFloors:
         out = _group_locations([_row("Hào Nam", None, None)])
         assert len(out) == 1
         assert out[0]["floors"] == []
+
+
+# ── Phần chạm database ─────────────────────────────────────────────────────
+#
+# Ba luồng ghi ở đây thay TOÀN BỘ danh sách thay vì thêm/bớt từng cái. Cái đáng
+# kiểm không phải câu SQL, mà THỨ TỰ: từ chối phải xảy ra TRƯỚC khi xoá dòng
+# nào, nếu không một lần bấm nhầm sẽ để lại phòng không phục vụ bước nào.
+
+
+class TestSetRoomFloorIO:
+    def test_blank_means_not_declared_not_an_empty_floor(self) -> None:
+        pool = FakePool("SA1")
+        out = _run(
+            ClinicConfigService(pool).set_room_floor(
+                identity=_who(ClinicRole.MANAGEMENT), room_id="r-1", floor="  "
+            )
+        )
+        assert out["floor"] is None
+
+    def test_unknown_room(self) -> None:
+        pool = FakePool(None)
+        with pytest.raises(ValidationError, match="Không tìm thấy phòng"):
+            _run(
+                ClinicConfigService(pool).set_room_floor(
+                    identity=_who(ClinicRole.MANAGEMENT), room_id="r-1", floor="2"
+                )
+            )
+
+    def test_a_refused_role_never_reaches_the_database(self) -> None:
+        pool = FakePool("SA1")
+        with pytest.raises(ValidationError):
+            _run(
+                ClinicConfigService(pool).set_room_floor(
+                    identity=_who(ClinicRole.TRUONG_CA), room_id="r-1", floor="2"
+                )
+            )
+        assert pool.queries() == []
+
+
+class TestSetRoomNodesIO:
+    def test_dropping_the_primary_step_is_refused_before_any_delete(self) -> None:
+        """Trigger `clinic_room_primary_node_is_served` cũng chặn, nhưng nó ném
+        tên ràng buộc. Ở đây nói bằng câu đọc được — và nói trước khi xoá."""
+        pool = FakePool({"code": "SA1", "node_code": "DICHVU-SIEUAM"})
+        with pytest.raises(ValidationError, match="bước chính"):
+            _run(
+                ClinicConfigService(pool).set_room_nodes(
+                    identity=_who(ClinicRole.MANAGEMENT),
+                    room_id="r-1",
+                    node_codes=["KHAM-SK"],
+                )
+            )
+        assert not any("DELETE" in q for q in pool.queries())
+
+    def test_the_whole_list_is_replaced(self) -> None:
+        pool = FakePool({"code": "SA1", "node_code": None})
+        out = _run(
+            ClinicConfigService(pool).set_room_nodes(
+                identity=_who(ClinicRole.MANAGEMENT),
+                room_id="r-1",
+                node_codes=["DICHVU-SIEUAM", "KHAM-SK"],
+            )
+        )
+        assert out["nodes"] == ["DICHVU-SIEUAM", "KHAM-SK"]
+        assert pool.wrote("DELETE FROM public.clinic_room_node")
+        assert pool.wrote("INSERT INTO public.clinic_room_node")
+
+    def test_an_empty_list_still_clears(self) -> None:
+        pool = FakePool({"code": "KB01", "node_code": None})
+        _run(
+            ClinicConfigService(pool).set_room_nodes(
+                identity=_who(ClinicRole.MANAGEMENT), room_id="r-1", node_codes=[]
+            )
+        )
+        assert pool.wrote("DELETE FROM public.clinic_room_node")
+        assert not pool.wrote("INSERT INTO public.clinic_room_node")
+
+
+class TestSetStaffNodesIO:
+    def test_unknown_staff(self) -> None:
+        pool = FakePool(None)
+        with pytest.raises(ValidationError, match="Không tìm thấy nhân sự"):
+            _run(
+                ClinicConfigService(pool).set_staff_nodes(
+                    identity=_who(ClinicRole.MANAGEMENT),
+                    staff_id="s-9",
+                    node_codes=["KHAM-SK"],
+                )
+            )
+
+    def test_an_empty_list_is_valid_and_means_something(self) -> None:
+        """Lễ tân và thu ngân không đảm nhiệm bước khám nào. Đọc rỗng thành
+        "chưa khai" thì không ai gỡ được năng lực đã khai nhầm."""
+        pool = FakePool("Chị Lễ tân")
+        out = _run(
+            ClinicConfigService(pool).set_staff_nodes(
+                identity=_who(ClinicRole.MANAGEMENT), staff_id="s-1", node_codes=[]
+            )
+        )
+        assert out["nodes"] == []
+        assert pool.wrote("DELETE FROM public.staff_node")
+
+    def test_one_doctor_may_hold_several_steps(self) -> None:
+        pool = FakePool("BS. Thành")
+        out = _run(
+            ClinicConfigService(pool).set_staff_nodes(
+                identity=_who(ClinicRole.MANAGEMENT),
+                staff_id="s-1",
+                node_codes=["KHAM-SK", "KHAM-PK", "DICHVU-SIEUAM"],
+            )
+        )
+        assert len(out["nodes"]) == 3
+        assert pool.wrote("INSERT INTO public.staff_node")
+
+
+class TestReadIO:
+    def test_overview_returns_layout_and_the_step_catalogue(self) -> None:
+        pool = FakePool([], [{"code": "KHAM-SK", "name": "Khám Sản khoa"}])
+        out = _run(
+            ClinicConfigService(pool).overview(identity=_who(ClinicRole.MANAGEMENT))
+        )
+        assert out["locations"] == []
+        assert out["nodes"] == [{"code": "KHAM-SK", "name": "Khám Sản khoa"}]
+
+    def test_staff_returns_capabilities(self) -> None:
+        pool = FakePool(
+            [
+                {
+                    "id": "s-1",
+                    "full_name": "BS. Thành",
+                    "short_name": "Thành",
+                    "role": "DOCTOR",
+                    "location_name": "Kim Ngưu",
+                    "nodes": ["KHAM-SK"],
+                }
+            ]
+        )
+        out = _run(
+            ClinicConfigService(pool).staff(identity=_who(ClinicRole.MANAGEMENT))
+        )
+        assert out["items"][0]["nodes"] == ["KHAM-SK"]

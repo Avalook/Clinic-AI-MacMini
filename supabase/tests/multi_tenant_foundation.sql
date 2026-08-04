@@ -45,7 +45,11 @@ DECLARE
     --   staff_node             (ai làm được bước nào — 20260804000018)
     --   clinical_form_approval (ai duyệt form nào, bản nào — 20260804000019)
     --   semen_reference_range  (ngưỡng WHO theo ấn bản — 20260804000019)
-    expected_tenant_tables constant integer := 55;
+    -- 55 → 57 cùng ngày, hai bảng của quyền riêng tư giữa hai bệnh nhân
+    -- (20260804000020, §6.5 — làm cho mọi dịch vụ khám):
+    --   patient_link           (hai người có quan hệ — đối xứng, một dòng)
+    --   clinical_data_consent  (ai cho ai xem form nào — KHÁC với liên kết)
+    expected_tenant_tables constant integer := 57;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
