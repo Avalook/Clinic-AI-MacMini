@@ -205,7 +205,22 @@ async def apply_route(
 # quyền GHI ở đây rộng hơn phần điều phối bên trên.
 
 
-@router.get("/reception/checkout/{visit_id}")
+@router.get("/reception/checkout")
+async def checkout_list(
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt khám hôm nay chưa đóng, kèm vướng mắc của từng lượt."""
+    from clinicai.services.checkout_service import CheckoutService
+
+    items = await CheckoutService(pool).pending_list(identity=identity)
+    return {"ok": True, "items": items}
+
+
+# `{visit_id:uuid}`, KHÔNG phải `{visit_id}` trần: đường literal
+# "/reception/checkout" ngay trên sẽ bị nuốt — đúng như /appointments/policy đã
+# bị nuốt suốt một thời gian dài mà không ai thấy.
+@router.get("/reception/checkout/{visit_id:uuid}")
 async def checkout_readiness(
     visit_id: UUID,
     identity: StaffIdentity = Depends(_RECEPTION_GUARD),

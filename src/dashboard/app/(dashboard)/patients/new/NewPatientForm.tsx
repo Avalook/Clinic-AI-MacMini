@@ -382,16 +382,34 @@ export default function NewPatientForm({
     // Debounce 450ms — toàn bộ (cả việc xoá cảnh báo cũ) chạy trong timeout để
     // KHÔNG setState đồng bộ trong thân effect (react-hooks/set-state-in-effect).
     const t = setTimeout(() => {
+      // HỎI KHI CÓ ĐỦ MỘT TRONG HAI, không chỉ khi đủ số điện thoại.
+      //
+      // Bản cũ chỉ hỏi khi gõ xong 10 chữ số, nên người khai SĐT mới — hoặc
+      // không khai SĐT — không bao giờ được cảnh báo, dù hồ sơ cũ nằm ngay đó
+      // với đúng tên và đúng năm sinh. Notion đòi kiểm "SĐT đã chuẩn hoá, KẾT
+      // HỢP họ tên và năm sinh".
       const digits = phone.replace(/\D/g, "");
-      if (digits.length !== 10) {
+      const nam = dobYearOnly
+        ? Number(birthYear)
+        : Number(dobIso.slice(0, 4));
+      const coTen = fullName.trim().length >= 3 && nam >= 1900 && nam <= CUR_YEAR;
+      if (digits.length !== 10 && !coTen) {
         if (alive) setPhoneDupes([]);
         return;
       }
       void (async () => {
         try {
-          const res = await fetch(
-            `/api/patients/check-phone?phone=${encodeURIComponent(phone)}`,
-          );
+          // MỘT LUẬT DUY NHẤT: endpoint này gọi đúng hàm mà đường LƯU gọi
+          // (MPIService.find_candidates). Bản cũ dùng /check-phone với một
+          // truy vấn riêng chỉ so SĐT — nên màn hình nói "không trùng", Lễ tân
+          // bấm lưu, rồi hồ sơ rơi vào hàng chờ gộp.
+          const qs = new URLSearchParams();
+          if (digits.length === 10) qs.set("phone", phone);
+          if (coTen) {
+            qs.set("full_name", fullName.trim());
+            qs.set("birth_year", String(nam));
+          }
+          const res = await fetch(`/api/patients/check-duplicate?${qs}`);
           if (!res.ok) return;
           const json = (await res.json()) as {
             exists?: boolean;
@@ -407,7 +425,7 @@ export default function NewPatientForm({
       alive = false;
       clearTimeout(t);
     };
-  }, [phone]);
+  }, [phone, fullName, dobIso, dobYearOnly, birthYear, CUR_YEAR]);
 
   // Walk-in: chỉ cần chọn dịch vụ là tạo lượt khám (giờ = bây giờ). Full: cần đủ
   // dịch vụ + ngày + giờ.

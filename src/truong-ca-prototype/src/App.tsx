@@ -11,13 +11,14 @@ import DispatchHistory from './components/history/DispatchHistory';
 import TvDisplay from './components/tv/TvDisplay';
 import NurseVitalsDashboard from './components/nurse/NurseVitalsDashboard';
 import ReceptionDashboard from './components/reception/ReceptionDashboard';
+import DoctorDashboard from './components/doctor/DoctorDashboard';
 import TransferRoomModal from './components/modals/TransferRoomModal';
 import RouteSelectModal from './components/modals/RouteSelectModal';
 import { ALERTS, type Patient } from './data/mock-data';
-import { UserCheck, Stethoscope, ClipboardList } from 'lucide-react';
+import { UserCheck, Stethoscope, ClipboardList, User } from 'lucide-react';
 
 export default function App() {
-  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan'>('truong_ca');
+  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan' | 'bac_si'>('truong_ca');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -45,7 +46,7 @@ export default function App() {
         borderRadius: 999,
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        gap: 8,
         boxShadow: 'var(--shadow-lg)',
         fontSize: 12,
       }}
@@ -89,6 +90,19 @@ export default function App() {
         }}
       >
         <ClipboardList size={12} /> Lễ tân
+      </button>
+      <button
+        onClick={() => setRoleView('bac_si')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'bac_si' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'bac_si' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <User size={12} /> Bác sĩ
       </button>
     </div>
   );
@@ -134,6 +148,16 @@ export default function App() {
       <div style={{ position: 'relative' }}>
         <RoleSwitcherBar />
         <ReceptionDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Doctor role view
+  if (roleView === 'bac_si') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <DoctorDashboard onSwitchRole={() => setRoleView('truong_ca')} />
       </div>
     );
   }

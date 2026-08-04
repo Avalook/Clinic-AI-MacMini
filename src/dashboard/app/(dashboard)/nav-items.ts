@@ -70,6 +70,13 @@ export const NAV: NavItem[] = [
     badge: "Mới",
   },
   {
+    href: "/reception/checkout",
+    label: "Check-out lượt khám",
+    shortLabel: "Check-out",
+    icon: CheckCheck,
+    badge: "Mới",
+  },
+  {
     href: "/cskh-tasks",
     label: "Nhiệm vụ chăm sóc",
     shortLabel: "Chăm sóc",

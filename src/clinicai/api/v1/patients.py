@@ -1,9 +1,10 @@
 """FastAPI endpoints for Patient CRUD operations."""
 
+from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -72,8 +73,11 @@ async def create_patient(
     return result.patient
 
 
-# NOTE: must be declared BEFORE "/patients/{id}" — otherwise the literal path
-# "check-phone" gets matched against {id} (UUID) and rejected with 422.
+# Thứ tự khai KHÔNG còn là thứ giữ hai đường này khỏi nuốt nhau — "/patients/{id}"
+# bên dưới nay dùng bộ chuyển đổi `{id:uuid}`, nên "check-phone" và
+# "check-duplicate" không thể khớp vào nó nữa. Ràng buộc dựa vào thứ tự vài dòng
+# ở một chỗ khác chính là thứ đã làm /appointments/policy trả 422 rất lâu mà
+# không ai thấy.
 @router.get("/patients/check-phone", response_model=PhoneCheckResult)
 async def check_phone_duplicate(
     phone: str,
@@ -96,7 +100,57 @@ async def check_phone_duplicate(
     )
 
 
-@router.get("/patients/{id}", response_model=PatientDTO)
+@router.get("/patients/check-duplicate")
+async def check_duplicate(
+    phone: str | None = None,
+    full_name: str | None = None,
+    birth_year: int | None = Query(default=None, ge=1900, le=2100),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Cảnh báo SỚM hồ sơ có thể trùng — CÙNG MỘT LUẬT với lúc lưu.
+
+    Trước đây màn hình tạo bệnh nhân tự viết truy vấn trùng của riêng nó (chỉ
+    SĐT), còn lúc lưu thì ``MPIService.find_candidates`` lại so cả CCCD và —
+    từ nay — họ tên + năm sinh. Hai luật khác nhau cho cùng một câu hỏi nghĩa
+    là Lễ tân được báo "không trùng", bấm lưu, rồi hồ sơ vào hàng chờ gộp.
+
+    Endpoint này gọi ĐÚNG hàm mà đường lưu gọi, nên hai bên không thể lệch.
+
+    CHỈ CẢNH BÁO, không chặn: mẹ đăng ký bằng số của mình cho con là hợp lệ, và
+    Notion nói rõ *"chỉ cảnh báo để người có quyền xử lý, không tự động gộp"*.
+    """
+    from datetime import date as _date
+
+    from clinicai.services.mpi_service import MPIService
+
+    if not any([phone, full_name and birth_year]):
+        return {"exists": False, "matches": []}
+
+    probe = PatientCreateDTO(
+        location_id=UUID(identity.location_id),
+        full_name=(full_name or "").strip() or "—",
+        phone_primary=(phone or "").strip() or None,
+        # Ngày 1/1 chỉ để mang NĂM xuống; luật chỉ so năm (xem mpi_service).
+        date_of_birth=_date(birth_year, 1, 1) if birth_year else None,
+    )
+    found = await MPIService.find_candidates(pool, probe, identity.clinic_id)
+    return {
+        "exists": bool(found),
+        # Tối thiểu đủ để nhận ra người: KHÔNG trả CCCD, địa chỉ hay số điện
+        # thoại đầy đủ — màn này chỉ cần trả lời "có phải người này không".
+        "matches": [
+            {
+                "full_name": p.full_name,
+                "patient_code": p.patient_code,
+                "birth_year": p.date_of_birth.year if p.date_of_birth else None,
+            }
+            for p in found[:5]
+        ],
+    }
+
+
+@router.get("/patients/{id:uuid}", response_model=PatientDTO)
 async def get_patient_by_id(
     id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
@@ -123,7 +177,7 @@ async def get_patients_by_phone(
     return await service.get_by_phone(phone, identity.clinic_id)
 
 
-@router.patch("/patients/{id}", response_model=PatientDTO)
+@router.patch("/patients/{id:uuid}", response_model=PatientDTO)
 async def update_patient(
     id: UUID,
     data: PatientUpdateDTO,

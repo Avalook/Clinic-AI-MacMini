@@ -242,6 +242,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // bàn thu ngân là thu_ngan_dong_luot. Lễ tân chỉ có actor ở node đóng lượt,
   // không được mở board đối soát vì nó còn chứa hàng thanh toán/đối soát.
   // Trưởng ca và quản lý xem được tất cả để điều phối.
+  // Check-out lượt khám — Lễ tân là người bấm; Trưởng ca/Quản lý bấm hộ được.
+  "/reception/checkout": ["RECEPTION", "TRUONG_CA", "MANAGEMENT"],
   "/reception/queue": [
     "RECEPTION", "NURSE_ULTRASOUND", "MANAGEMENT",
   ],

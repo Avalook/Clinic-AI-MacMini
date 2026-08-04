@@ -33,6 +33,7 @@ nhìn thấy gì mà vẫn quyết định đóng.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -40,6 +41,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import CLINIC_TZ
 
 logger = structlog.get_logger()
 
@@ -125,6 +127,51 @@ class CheckoutService:
             "blockers": blockers,
             "can_close": not blockers and not row["already_closed"],
         }
+
+    async def pending_list(
+        self, *, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Các lượt khám hôm nay chưa đóng, kèm vướng mắc của từng lượt.
+
+        Một truy vấn cho cả danh sách. Gọi ``readiness()`` trong vòng lặp cũng
+        ra kết quả ấy nhưng tốn một vòng mạng cho mỗi bệnh nhân — với 100 lượt
+        một ngày thì đó là 100 vòng để vẽ một cái bảng.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                _READINESS_SQL.replace(
+                    "WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid",
+                    "WHERE v.clinic_id = $1::uuid"
+                    "   AND v.status <> 'FINALIZED'"
+                    "   AND coalesce(v.checked_in_at, v.created_at) >= $3"
+                    " ORDER BY coalesce(v.checked_in_at, v.created_at) DESC"
+                    " LIMIT 300",
+                ),
+                identity.clinic_id,
+                CLOSE_NODE,
+                _vn_day_start(),
+            )
+
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            blockers = build_blockers(dict(r))
+            out.append(
+                {
+                    "visit_id": str(r["visit_id"]),
+                    "patient_name": r["patient_name"],
+                    "patient_code": r["patient_code"],
+                    "room_name": r["room_name"],
+                    "already_closed": r["already_closed"],
+                    "checked_in_at": (
+                        r["checked_in_at"].isoformat()
+                        if r["checked_in_at"]
+                        else None
+                    ),
+                    "blockers": blockers,
+                    "can_close": not blockers and not r["already_closed"],
+                }
+            )
+        return out
 
     async def close(
         self,
@@ -225,6 +272,17 @@ class CheckoutService:
             "closed": closed is not None,
             "override": bool(blockers),
         }
+
+
+def _vn_day_start() -> datetime:
+    """Nửa đêm HÔM NAY giờ Việt Nam, dạng datetime CÓ múi giờ.
+
+    Có múi giờ vì `checked_in_at` là timestamptz: một datetime trần sẽ được
+    Postgres hiểu theo TimeZone của phiên, và biên ngày lệch bảy tiếng.
+    """
+    return datetime.now(CLINIC_TZ).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
 
 # ── Luật thuần ─────────────────────────────────────────────────────────────
