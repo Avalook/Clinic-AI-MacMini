@@ -19,6 +19,7 @@ from clinicai.api.middleware import (
 from clinicai.api.runaway_guard import runaway_guard
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
+from clinicai.api.v1.routers.audit_log import router as audit_log_router
 from clinicai.api.v1.routers.booking import router as booking_router
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
@@ -175,6 +176,9 @@ app.include_router(
 )
 app.include_router(
     reports_router, prefix="/api/v1", tags=["reports"], dependencies=_GUARDED
+)
+app.include_router(
+    audit_log_router, prefix="/api/v1", tags=["audit-log"], dependencies=_GUARDED
 )
 app.include_router(
     clinic_config_router,

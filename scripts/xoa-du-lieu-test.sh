@@ -87,9 +87,20 @@ read -r answer
 psql "$DSN" -X -q -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 
--- SÁU BẢNG CỐT LÕI CẤM XOÁ CỨNG, và cái cấm đó ĐÚNG.
+-- BẢY BẢNG CẤM XOÁ CỨNG, và cái cấm đó ĐÚNG.
 --
---     appointment · clinical_record · lab_result · patient · payment · visit
+--     prevent_hard_delete()   appointment · clinical_record · lab_result
+--                             patient · payment · visit
+--     enforce_append_only()   event_log
+--
+-- HAI HÀM KHÁC NHAU, và lần chạy thứ hai vấp đúng chỗ đó: tôi liệt kê sáu bảng
+-- theo `prevent_hard_delete` rồi tưởng là đủ, còn event_log dùng hàm riêng nên
+-- lọt lưới. Danh sách này phải lấy theo HÀNH VI (trigger nào bắt DELETE), không
+-- theo tên hàm:
+--
+--     select c.relname, t.tgname from pg_trigger t
+--       join pg_class c on c.oid=t.tgrelid
+--      where not t.tgisinternal and t.tgtype::int & 8 = 8;
 --
 -- `prevent_hard_delete()` giữ cho hồ sơ bệnh án là thứ chỉ ghi thêm: huỷ một
 -- lịch hẹn là đổi trạng thái, không phải làm cho nó chưa từng tồn tại. Lần chạy
@@ -104,11 +115,31 @@ BEGIN;
 -- câu trả lời đúng là KHÔNG XOÁ.
 ALTER TABLE appointment     DISABLE TRIGGER trg_appointment_no_delete;
 ALTER TABLE clinical_record DISABLE TRIGGER trg_clinical_record_no_delete;
+ALTER TABLE event_log       DISABLE TRIGGER trg_event_log_no_delete;
 ALTER TABLE lab_result      DISABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE patient         DISABLE TRIGGER trg_patient_no_delete;
 ALTER TABLE payment         DISABLE TRIGGER trg_payment_no_delete;
 ALTER TABLE visit           DISABLE TRIGGER trg_visit_no_delete;
 
+-- TRÌNH TỰ NÀY LẤY TỪ ĐỒ THỊ KHOÁ NGOẠI, KHÔNG PHẢI TỪ TRÍ NHỚ.
+--
+-- Hai lần chạy trước đổ vì thiếu bảng, mỗi lần lộ ra một cái. Đoán tiếp là cách
+-- để đổ lần thứ ba, nên danh sách dưới đây dựng bằng truy vấn — mọi bảng có
+-- khoá ngoại trỏ vào patient / appointment / visit / care_episode / work_item /
+-- event_log, lần theo tối đa 4 bậc:
+--
+--     select c.relname, f.relname from pg_constraint k
+--       join pg_class c on c.oid=k.conrelid join pg_class f on f.oid=k.confrelid
+--      where k.contype='f' and f.relname in ('patient','appointment','visit', ...);
+--
+-- Bảy bảng lộ ra mà script chưa từng biết: pregnancy, follow_up_case, cskh_log,
+-- mpi_merge_queue, patient_contact_channel, patient_medical_profile,
+-- patient_next_of_kin.
+--
+-- Đã diễn thử trọn bộ trên prod trong một giao dịch rồi ROLLBACK: đi hết, và
+-- giữ nguyên 57 nhân sự · 3262 ca trực · 12 phòng.
+DELETE FROM work_item_event;
+DELETE FROM work_item_dependency;
 DELETE FROM clinical_record;
 DELETE FROM clinical_release;
 DELETE FROM visit_amendment;
@@ -118,20 +149,40 @@ DELETE FROM lab_result;
 DELETE FROM service_log;
 DELETE FROM payment;
 DELETE FROM ultrasound_record;
-DELETE FROM work_item_event;
-DELETE FROM work_item_dependency;
+-- pregnancy SAU clinical_record và ultrasound_record — cả hai trỏ vào nó.
+DELETE FROM pregnancy;
+DELETE FROM follow_up_case;
 DELETE FROM work_item;
 DELETE FROM visit_route;
 DELETE FROM visit;
 DELETE FROM slot_hold;
 DELETE FROM cskh_action;
+DELETE FROM cskh_log;
 DELETE FROM staff_task;
+DELETE FROM mpi_merge_queue;
+DELETE FROM patient_contact_channel;
+DELETE FROM patient_medical_profile;
+DELETE FROM patient_next_of_kin;
+
+-- APPOINTMENT VÀ CARE_EPISODE TRỎ VÀO NHAU — một VÒNG TRÒN khoá ngoại:
+--
+--     appointment.episode_id             → care_episode
+--     care_episode.opened_appointment_id → appointment
+--
+-- Không thứ tự tuyến tính nào thoả được vòng này, nên đảo hai dòng DELETE cho
+-- nhau cũng vẫn đổ, chỉ đổi tên bảng trong thông báo lỗi. Cả hai cột đều CHO
+-- NULL và ràng buộc KHÔNG hoãn được, nên cách duy nhất là cắt vòng trước.
+UPDATE care_episode SET opened_appointment_id = NULL
+ WHERE opened_appointment_id IS NOT NULL;
+UPDATE appointment  SET episode_id = NULL
+ WHERE episode_id IS NOT NULL;
+
 DELETE FROM appointment;
 DELETE FROM care_episode;
--- Hai bảng này trỏ vào bệnh nhân bằng clinic_patient_id và KHÔNG có khoá
--- ngoại, nên xoá bệnh nhân không kéo theo chúng và database cũng không
--- kêu. Bỏ sót thì lần chạy sau còn lại những bản đồng ý chia sẻ hồ sơ
--- giữa hai người không còn tồn tại — và chúng vẫn có hiệu lực.
+-- Hai bảng này trỏ vào bệnh nhân bằng clinic_patient_id và KHÔNG có khoá ngoại,
+-- nên xoá bệnh nhân không kéo theo chúng và database cũng không kêu. Bỏ sót thì
+-- lần chạy sau còn lại những bản đồng ý chia sẻ hồ sơ giữa hai người không còn
+-- tồn tại — và chúng vẫn có hiệu lực.
 DELETE FROM clinical_data_consent;
 DELETE FROM patient_link;
 DELETE FROM patient;
@@ -142,6 +193,7 @@ DELETE FROM event_log;
 
 ALTER TABLE appointment     ENABLE TRIGGER trg_appointment_no_delete;
 ALTER TABLE clinical_record ENABLE TRIGGER trg_clinical_record_no_delete;
+ALTER TABLE event_log       ENABLE TRIGGER trg_event_log_no_delete;
 ALTER TABLE lab_result      ENABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE patient         ENABLE TRIGGER trg_patient_no_delete;
 ALTER TABLE payment         ENABLE TRIGGER trg_payment_no_delete;
