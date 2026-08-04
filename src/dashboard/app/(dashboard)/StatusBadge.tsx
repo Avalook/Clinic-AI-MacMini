@@ -13,9 +13,11 @@ const STATUS_STYLE: Record<string, string> = {
 
 // Nhãn tiếng Việt cho mọi trạng thái (chuyên nghiệp hơn mã code trần).
 const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "Chờ xác nhận",
-  CSKH_CONFIRMED: "Chờ bác sĩ",
-  CONFIRMED: "Đã xác nhận",
+  // SCHEDULED/CSKH_CONFIRMED là trạng thái CŨ — lịch mới vào thẳng
+  // CONFIRMED. Giữ nhãn để 25 lịch đặt trước luật mới vẫn đọc được.
+  SCHEDULED: "Chờ xác nhận (lịch cũ)",
+  CSKH_CONFIRMED: "Chờ bác sĩ (lịch cũ)",
+  CONFIRMED: "Đã đặt lịch",
   CHECKED_IN: "Đã đến",
   COMPLETED: "Đã khám xong",
   CANCELLED: "Đã hủy",

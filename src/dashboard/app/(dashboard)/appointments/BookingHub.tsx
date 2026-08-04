@@ -176,6 +176,13 @@ interface CellStatus {
   maxCap: number;
 }
 
+/** Một chỗ đang được người khác giữ — trả từ /api/appointments/slot-hold. */
+interface SlotHoldLite {
+  doctor_id: string | null;
+  slot_start: string;
+  held_by_name: string | null;
+}
+
 export default function BookingHub({
   locations,
   services,
@@ -468,6 +475,78 @@ export default function BookingHub({
   //
   // Trạng thái chết (CANCELLED/NO_SHOW/DOCTOR_DECLINED) không giữ chỗ — cùng
   // danh sách với lib/slot-capacity.ts và DEAD_STATUSES ở booking_service.py.
+  // CHỖ NGƯỜI KHÁC ĐANG GIỮ — khoá "docId|ngày|giờ", giống usageByCell.
+  //
+  // Trước đây ô bị dán nhãn "Đang giữ" khi có LỊCH HẸN ở trạng thái
+  // WAITING/CSKH_CONFIRMED — tức là gọi một ghế ĐÃ BÁN là "đang giữ". Hai thứ
+  // đó khác nhau, và gộp lại thì CSKH thứ hai không biết khung nào còn chỗ
+  // thật. Giờ nó đọc từ slot_hold: có người đang mở form ở khung này.
+  const [heldByOthers, setHeldByOthers] = useState<Map<string, string>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch(`/api/appointments/slot-hold?date=${selectedDateIso}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { items?: SlotHoldLite[] } | null) => {
+          if (!alive || !d?.items) return;
+          const m = new Map<string, string>();
+          for (const h of d.items) {
+            const dt = new Date(h.slot_start);
+            if (Number.isNaN(dt.getTime())) continue;
+            const isoDate = dt.toLocaleDateString("en-CA", { timeZone: VN_TZ });
+            m.set(
+              `${h.doctor_id ?? ""}|${isoDate}|${fmtTime(dt)}`,
+              h.held_by_name ?? "người khác",
+            );
+          }
+          setHeldByOthers(m);
+        })
+        .catch(() => {
+          // Đọc không được thì giữ bản đồ cũ. Xoá sạch nghĩa là mọi ô đột ngột
+          // hiện "còn trống" — đúng câu khẳng định gây đặt trùng.
+        });
+    const t = setTimeout(load, 0);
+    // Chỗ giữ sống tối đa 10 phút và người khác bấm liên tục, nên phải làm mới.
+    const iv = setInterval(load, 15000);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+      clearInterval(iv);
+    };
+  }, [selectedDateIso]);
+
+  // GIỮ CHỖ KHI ĐANG CHỌN. Bỏ chọn / đổi khung thì backend tự thả cái cũ.
+  useEffect(() => {
+    if (!selectedSlot.time || !selectedDateIso) return;
+    const startIso = vnLocalToUtcISO(selectedDateIso, selectedSlot.time);
+    const endIso = new Date(
+      new Date(startIso).getTime() + slotMinutes * 60000,
+    ).toISOString();
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      void fetch("/api/appointments/slot-hold", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slot_start: startIso,
+          slot_end: endIso,
+          doctor_id: selectedSlot.doctorId || null,
+        }),
+        signal: ctrl.signal,
+      }).catch(() => {
+        // Giữ chỗ là tư vấn, không phải khoá — hỏng thì vẫn đặt lịch được.
+        // Chốt chặn sức chứa thật nằm ở trigger lúc INSERT.
+      });
+    }, 400);
+    return () => {
+      ctrl.abort();
+      clearTimeout(t);
+    };
+  }, [selectedSlot.time, selectedSlot.doctorId, selectedDateIso, slotMinutes]);
+
   const usageByCell = useMemo(() => {
     const m = new Map<string, ApptLite[]>();
     for (const a of apptsForDate ?? []) {
@@ -563,9 +642,8 @@ export default function BookingHub({
       };
     }
 
-    const isHolding = matchingAppts.some(
-      (a) => a.status === "WAITING" || a.status === "CSKH_CONFIRMED",
-    );
+    const holder = heldByOthers.get(`${docId}|${selectedDateIso}|${time}`);
+    const isHolding = Boolean(holder);
 
     if (bookedCount >= maxCap) {
       return {
@@ -579,7 +657,7 @@ export default function BookingHub({
     if (isHolding) {
       return {
         tone: "holding",
-        label: "Đang giữ",
+        label: `${holder} đang chọn`,
         sub: `${bookedCount}/${maxCap}`,
         bookedCount,
         maxCap,
@@ -1377,7 +1455,7 @@ export default function BookingHub({
               {/* Notice */}
               <div className="rounded-xl bg-sky-50 p-2.5 text-[11px] text-sky-800 flex items-start gap-2 border border-sky-200/60">
                 <Info size={14} className="shrink-0 mt-0.5 text-sky-600" />
-                <span>Lịch hẹn sẽ được tạo ngay khi bạn đặt. 10 phút ưu tiên chỉ áp dụng lúc bệnh nhân check-in (theo giờ hẹn).</span>
+                <span>Bấm Đặt lịch hẹn là XONG — lịch có hiệu lực ngay, không cần gọi xác nhận lại. Muốn đổi hoặc huỷ thì vào Quản lý khách hàng, mục Lịch hẹn sắp tới.</span>
               </div>
 
               {/* Lỗi hiện ngay cạnh nút vừa bấm, thay cho alert() — hộp thoại

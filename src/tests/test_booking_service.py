@@ -51,13 +51,44 @@ class TestTransitions:
         # doctor close a visit for someone still in the car park.
         assert TRANSITIONS["complete"].from_statuses == frozenset({"CHECKED_IN"})
 
-    def test_confirmation_is_two_step(self) -> None:
-        # CSKH confirms with the patient (SCHEDULED -> CSKH_CONFIRMED); the slot
-        # still waits on the doctor, so confirm accepts both.
+    def test_a_new_booking_needs_no_confirming(self) -> None:
+        """LUẬT ĐÃ ĐỔI (Quang, 2026-08-04) — không còn vòng gọi xác nhận.
+
+        Trước: đặt lịch ra SCHEDULED ("chờ xác nhận"), rồi CSKH gọi cho bệnh
+        nhân để xác nhận, rồi bác sĩ nhận. Ba bước cho một việc đã xong.
+
+        Lý do của Quang: *"nó vốn phải là cái đã được gọi tới CSKH hoặc nhắn
+        tin rồi mới đặt mà"*. Cuộc gọi ấy CHÍNH LÀ thứ sinh ra lịch hẹn; gọi
+        lại để xác nhận cái vừa thoả thuận là làm hai lần một việc.
+
+        `confirm` và `cskh_confirm` KHÔNG nhận CONFIRMED: lịch mới đã chắc rồi,
+        "nhận" thêm lần nữa chỉ đẻ ra một event không nói thêm gì.
+        """
+        assert "CONFIRMED" not in TRANSITIONS["cskh_confirm"].from_statuses
+        assert "CONFIRMED" not in TRANSITIONS["confirm"].from_statuses
+
+    def test_the_old_confirm_path_still_works_for_old_appointments(self) -> None:
+        """23 lịch SCHEDULED trên prod đặt từ trước luật này.
+
+        Bỏ đường đi của chúng là làm 23 lịch hẹn thật kẹt cứng — người cầm
+        chúng vẫn phải khám được, đổi được, huỷ được.
+        """
         assert TRANSITIONS["cskh_confirm"].from_statuses == frozenset({"SCHEDULED"})
         assert TRANSITIONS["confirm"].from_statuses == frozenset(
             {"SCHEDULED", "CSKH_CONFIRMED"}
         )
+        for act in ("checkin", "cancel", "reschedule"):
+            assert "SCHEDULED" in TRANSITIONS[act].from_statuses
+
+    def test_a_doctor_may_still_decline_an_already_confirmed_appointment(
+        self,
+    ) -> None:
+        """Bỏ vòng xác nhận KHÔNG có nghĩa là bác sĩ hết quyền từ chối.
+
+        Lịch mới sinh ra đã CONFIRMED; nếu decline không nhận CONFIRMED thì kể
+        từ hôm nay không bác sĩ nào từ chối được lịch nào nữa.
+        """
+        assert "CONFIRMED" in TRANSITIONS["decline"].from_statuses
 
     def test_check_in_does_not_wait_for_the_doctor(self) -> None:
         # D21: reception checks in from any live appointment. Requiring CONFIRMED
@@ -75,6 +106,17 @@ class TestTransitions:
 
     def test_reassignment_only_rescues_a_declined_appointment(self) -> None:
         assert TRANSITIONS["reassign"].from_statuses == frozenset({"DOCTOR_DECLINED"})
+
+    def test_reassigning_does_not_send_the_patient_back_to_be_confirmed(
+        self,
+    ) -> None:
+        """Đổi bác sĩ là việc NỘI BỘ.
+
+        Trước đây reassign trả lịch về SCHEDULED — tức là về "chờ xác nhận", và
+        CSKH phải gọi lại bệnh nhân chỉ vì bên trong phòng khám đổi người. Thoả
+        thuận với bệnh nhân không mất đi khi một bác sĩ bận.
+        """
+        assert TRANSITIONS["reassign"].to_status == "CONFIRMED"
 
     def test_a_declined_appointment_is_not_cancelled(self) -> None:
         # It keeps its doctor_id for history and surfaces to CSKH to reassign.
@@ -580,3 +622,30 @@ async def test_doctor_change_audit_records_target_doctor(
 
     assert audit_log.await_args is not None
     assert audit_log.await_args.kwargs["payload"]["doctor_id"] == target_doctor
+
+
+class TestANewBookingIsAlreadyDone:
+    """Đặt xong là xong — không có bước "chờ xác nhận" nào nữa.
+
+    Quang (2026-08-04): *"ngay khi chọn hết các thông tin và giờ đặt rồi thì ấn
+    nút đặt lịch hẹn thì phải hoàn thành luôn rồi chứ nhỉ"*.
+    """
+
+    def test_a_booking_lands_confirmed_not_waiting(self) -> None:
+        from clinicai.services.booking_service import initial_status
+
+        assert initial_status(False) == "CONFIRMED"
+
+    def test_it_is_never_scheduled_again(self) -> None:
+        """SCHEDULED = "Chờ xác nhận" ở mọi màn hình. Sinh ra một dòng SCHEDULED
+        là sinh ra một việc gọi điện mà Quang vừa bỏ."""
+        from clinicai.services.booking_service import initial_status
+
+        assert initial_status(False) != "SCHEDULED"
+        assert initial_status(True) != "SCHEDULED"
+
+    def test_a_walkin_today_is_still_checked_in_on_the_spot(self) -> None:
+        """Người đã đứng ở quầy thì không "chờ" gì cả — luật cũ, giữ nguyên."""
+        from clinicai.services.booking_service import initial_status
+
+        assert initial_status(True) == "CHECKED_IN"

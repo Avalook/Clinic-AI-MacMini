@@ -6,7 +6,6 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
-  CircleSlash2,
   ExternalLink,
   Filter,
   Search,
@@ -92,9 +91,9 @@ function initials(name: string): string {
 
 function appointmentStatus(status: string): { label: string; tone: StatusTone } {
   const known: Record<string, { label: string; tone: StatusTone }> = {
-    SCHEDULED: { label: "Chờ xác nhận", tone: "ready" },
-    CSKH_CONFIRMED: { label: "CSKH đã xác nhận", tone: "assigned" },
-    CONFIRMED: { label: "Đã xác nhận", tone: "assigned" },
+    SCHEDULED: { label: "Chờ xác nhận (lịch cũ)", tone: "ready" },
+    CSKH_CONFIRMED: { label: "Chờ bác sĩ (lịch cũ)", tone: "assigned" },
+    CONFIRMED: { label: "Đã đặt lịch", tone: "assigned" },
     CHECKED_IN: { label: "Đã check-in", tone: "in_progress" },
     COMPLETED: { label: "Đã khám xong", tone: "completed" },
     CANCELLED: { label: "Đã hủy", tone: "cancelled" },
@@ -160,67 +159,9 @@ export default function CustomersView({
   const [term, setTerm] = useState(q);
   const [editOpen, setEditOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionMsg, setActionMsg] = useState<string | null>(null);
+  // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
+  // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
-
-  async function handleConfirmAttending(patientId: string, apptId?: string) {
-    setActionLoading(true);
-    setActionMsg(null);
-    try {
-      if (apptId) {
-        await fetch("/api/appointments", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: apptId, action: "cskh_confirm" }),
-        });
-      }
-      await fetch("/api/cskh-followup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clinic_patient_id: patientId,
-          result: "WILL_ATTEND",
-          note: "CSKH xác nhận khách sẽ tới khám",
-        }),
-      });
-      setActionMsg("Đã xác nhận khách sẽ tới khám và lưu nhật ký log!");
-      router.refresh();
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleMarkNoShow(patientId: string, apptId?: string) {
-    setActionLoading(true);
-    setActionMsg(null);
-    try {
-      if (apptId) {
-        await fetch("/api/appointments", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: apptId,
-            action: "cancel",
-            cancel_reason: "Khách báo không tới",
-          }),
-        });
-      }
-      await fetch("/api/cskh-followup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clinic_patient_id: patientId,
-          result: "NO_ATTEND",
-          note: "CSKH / Lễ tân ghi nhận khách báo không tới",
-        }),
-      });
-      setActionMsg("Đã ghi nhận khách không tới và cập nhật log hệ thống!");
-      router.refresh();
-    } finally {
-      setActionLoading(false);
-    }
-  }
 
   function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
     const params = new URLSearchParams();
@@ -601,41 +542,27 @@ export default function CustomersView({
                     </button>
                   </div>
 
-                  {/* 2. Attending Confirmation / No-Show Buttons */}
+                  {/* KHÔNG CÒN NÚT "XÁC NHẬN KHÁCH SẼ TỚI".
+                      Quang (2026-08-04): lịch hẹn sinh ra từ chính cuộc gọi
+                      hoặc tin nhắn với bệnh nhân, nên nó đã chắc ngay lúc đặt
+                      — gọi lại để xác nhận cái vừa thoả thuận là làm hai lần
+                      một việc. Đổi hoặc huỷ thì bấm vào "Lịch hẹn sắp tới" ở
+                      trên, và phải ghi lý do.
+
+                      "Báo không tới" cũng bỏ khỏi đây: đánh vắng là việc của
+                      Lễ tân TẠI THỜI ĐIỂM bệnh nhân không đến, không phải việc
+                      CSKH đoán trước qua điện thoại. */}
                   <div className="space-y-1.5 pt-1">
                     <button
                       type="button"
-                      disabled={actionLoading}
-                      onClick={() =>
-                        handleConfirmAttending(
-                          selected.clinic_patient_id,
-                          selectedAppt?.appt?.id,
-                        )
-                      }
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-teal-600 py-2.5 px-3 text-xs font-bold text-white shadow-xs hover:bg-teal-700 transition-colors disabled:opacity-50"
+                      disabled={!canManage || !selectedAppt?.appt}
+                      onClick={() => setEditOpen(true)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface py-2 px-3 text-xs font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
                     >
-                      ✅ Xác nhận khách sẽ tới
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() =>
-                        handleMarkNoShow(
-                          selected.clinic_patient_id,
-                          selectedAppt?.appt?.id,
-                        )
-                      }
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 py-2 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-50"
-                    >
-                      ❌ Báo không tới (Hủy lịch)
+                      Đổi / huỷ lịch hẹn (ghi lý do)
                     </button>
                   </div>
 
-                  {actionMsg && (
-                    <p className="text-[11px] font-semibold text-teal-700 pt-1 text-center animate-in fade-in">
-                      {actionMsg}
-                    </p>
-                  )}
                 </div>
 
                 {canEdit && !selectedAppt?.upcoming ? (

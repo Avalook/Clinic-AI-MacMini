@@ -30,6 +30,7 @@ from clinicai.services.clinic_policy import (
     load_clinic_policy,
     load_effective_policy,
 )
+from clinicai.services.slot_hold_service import SlotHoldService
 
 router = APIRouter()
 
@@ -285,3 +286,49 @@ async def apply_appointment_action(
         slot_end=body.slot_end,
     )
     return {"ok": True, **result}
+
+
+class SlotHoldRequest(BaseModel):
+    """Giữ một khung giờ trong lúc CSKH còn đang điền form."""
+
+    slot_start: datetime
+    slot_end: datetime
+    doctor_id: UUID | None = None
+
+
+@router.post("/appointments/slot-hold", status_code=201)
+async def hold_slot(
+    body: SlotHoldRequest,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Báo cho CSKH khác biết khung này đang có người chọn.
+
+    Tư vấn, không phải khoá: chốt chặn sức chứa thật vẫn là trigger lúc đặt
+    lịch. Hết hạn sau 10 phút mà không cần ai dọn.
+    """
+    return await SlotHoldService(pool).hold(
+        identity=identity,
+        slot_start=body.slot_start,
+        slot_end=body.slot_end,
+        doctor_id=str(body.doctor_id) if body.doctor_id else None,
+    )
+
+
+@router.delete("/appointments/slot-hold")
+async def release_slot(
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bỏ chọn, hoặc rời màn hình — thả mọi chỗ người này đang giữ."""
+    return await SlotHoldService(pool).release(identity=identity)
+
+
+@router.get("/appointments/slot-hold")
+async def list_slot_holds(
+    date: str,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỗ NGƯỜI KHÁC đang giữ trong ngày, để lưới tô đúng ô."""
+    return {"items": await SlotHoldService(pool).active(identity=identity, date=date)}

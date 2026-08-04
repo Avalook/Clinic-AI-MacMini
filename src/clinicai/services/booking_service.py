@@ -48,6 +48,7 @@ from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.shifts import covers, describe, merge_windows, shift_window
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
+from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
 
@@ -111,6 +112,24 @@ INTAKE_ROLES: frozenset[ClinicRole] = frozenset(
 KEEP_STATUS = "__keep__"
 
 
+def initial_status(auto_checkin: bool) -> str:
+    """Lịch hẹn vừa đặt ở trạng thái nào. ĐẶT XONG LÀ XONG.
+
+    Quyết định của Quang (2026-08-04): bỏ vòng gọi-xác-nhận. Lý do của anh:
+    *"nó vốn phải là cái đã được gọi tới CSKH hoặc nhắn tin rồi mới đặt mà"*.
+    Cuộc gọi ấy CHÍNH LÀ thứ sinh ra lịch hẹn này; gọi lại lần nữa để xác nhận
+    cái vừa thoả thuận là bắt nhân viên làm hai lần một việc — và tệ hơn, nó
+    dán nhãn "chưa chắc" lên một lịch hẹn vốn đã chắc.
+
+    Muốn đổi/huỷ thì vào Quản lý khách hàng → lịch hẹn sắp tới → đổi hoặc huỷ
+    kèm lý do; mỗi việc đó là một chuyển tiếp riêng và sinh event riêng.
+
+    Hàm thuần, tách khỏi create() vì create() cần mười thứ khác mới chạy được —
+    và luật này thì phải kiểm được mà không cần dựng cả phòng khám.
+    """
+    return "CHECKED_IN" if auto_checkin else "CONFIRMED"
+
+
 @dataclass(frozen=True)
 class Transition:
     """What an action does, and what it may be done from."""
@@ -125,7 +144,14 @@ class Transition:
 
 _ALIVE = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"})
 _PRE_ARRIVAL = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"})
+# SCHEDULED và CSKH_CONFIRMED là TRẠNG THÁI CŨ, không phải trạng thái chết.
+# Lịch hẹn mới vào thẳng CONFIRMED (xem create()), nhưng prod còn 23 dòng
+# SCHEDULED + 2 dòng CSKH_CONFIRMED đặt từ trước, và chúng vẫn phải khám được,
+# đổi được, huỷ được. Xoá khỏi các tập này là làm 25 lịch hẹn thật kẹt cứng.
 _AWAITING_DOCTOR = frozenset({"SCHEDULED", "CSKH_CONFIRMED"})
+# Bác sĩ TỪ CHỐI được cả lịch đã chắc. Nhận thì không: lịch mới sinh ra đã
+# CONFIRMED rồi, "nhận" thêm lần nữa chỉ đẻ ra một event không nói thêm gì.
+_DECLINABLE = _AWAITING_DOCTOR | {"CONFIRMED"}
 
 # Actions that take the visit off the board again. undo_checkin and cancel mean
 # the arrival did not stand, so the still-open steps of that visit are cancelled
@@ -141,7 +167,7 @@ TRANSITIONS: dict[str, Transition] = {
     ),
     # Declining keeps doctor_id for history and surfaces to CSKH for reassignment.
     "decline": Transition(
-        "DOCTOR_DECLINED", _AWAITING_DOCTOR, DOCTOR_ROLES, "appointment.declined", True
+        "DOCTOR_DECLINED", _DECLINABLE, DOCTOR_ROLES, "appointment.declined", True
     ),
     # Finished only from CHECKED_IN: a patient who never arrived cannot have
     # been examined, whatever the doctor pressed.
@@ -163,7 +189,12 @@ TRANSITIONS: dict[str, Transition] = {
         CHECKIN_ROLES,
         "appointment.checkin_undone",
     ),
-    # CSKH confirmed with the patient; the slot still waits on the doctor.
+    # BƯỚC CŨ, GIỮ LẠI CHỈ ĐỂ DỌN LỊCH CŨ.
+    #
+    # Quang bỏ vòng gọi-xác-nhận: lịch mới đặt xong là chắc luôn, nên không có
+    # gì để xác nhận nữa. Nhưng prod còn 23 lịch SCHEDULED đặt từ trước, và
+    # người đang cầm chúng vẫn cần đường đi tiếp — nên chuyển tiếp này chỉ còn
+    # nhận SCHEDULED, và sẽ tự hết việc khi đám cũ khám xong.
     "cskh_confirm": Transition(
         "CSKH_CONFIRMED",
         frozenset({"SCHEDULED"}),
@@ -174,9 +205,11 @@ TRANSITIONS: dict[str, Transition] = {
     "no_show": Transition(
         "NO_SHOW", _PRE_ARRIVAL, CHECKIN_ROLES, "appointment.no_show"
     ),
-    # Reassignment puts a declined appointment back in the pool.
+    # Bác sĩ từ chối thì lịch quay lại hàng chờ — và quay lại ở trạng thái CHẮC,
+    # vì thoả thuận với bệnh nhân không mất đi khi một bác sĩ bận. Đổi bác sĩ là
+    # việc nội bộ, không phải lý do gọi lại bệnh nhân để xác nhận lần nữa.
     "reassign": Transition(
-        "SCHEDULED",
+        "CONFIRMED",
         frozenset({"DOCTOR_DECLINED"}),
         MANAGE_ROLES,
         "appointment.reassigned",
@@ -290,7 +323,7 @@ class BookingService:
         # the slot is today — otherwise a future booking, or one phoned in
         # without a channel, would be checked in for a patient who is not here.
         auto_checkin = raw_channel.upper() == "WALK_IN" and self._is_today(slot_start)
-        status = "CHECKED_IN" if auto_checkin else "SCHEDULED"
+        status = initial_status(auto_checkin)
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -369,6 +402,16 @@ class BookingService:
                     if "Khung giờ đã đầy" in str(exc):
                         raise ConflictError(str(exc)) from exc
                     raise
+
+                # Đặt xong thì thả chỗ giữ, TRONG CÙNG transaction này. Để
+                # dòng giữ chỗ sống tiếp sau khi đã thành lịch hẹn là đếm cùng
+                # một ghế hai lần trên màn hình CSKH bên cạnh.
+                await release_on_booking(
+                    conn,
+                    identity=identity,
+                    appointment_id=str(appointment_id),
+                    slot_start=slot_start,
+                )
 
                 await self._attach_episode(
                     conn,
