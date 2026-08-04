@@ -463,6 +463,9 @@ export default function NewPatientForm({
   const cccdErr = cccdError(cccd);
 
   async function bookFor(clinicPatientId: string): Promise<boolean> {
+    // Cùng lớp đỡ như save(): state có thể còn rỗng nếu danh sách cơ sở tới
+    // sau, và gửi location_id rỗng thì backend từ chối bằng một câu khó hiểu.
+    const effLocationId = locationId || locations[0]?.id || "";
     if (!wantsAppointment) return true;
     if (!policy) {
       setError(
@@ -485,7 +488,7 @@ export default function NewPatientForm({
         clinic_patient_id: clinicPatientId,
         doctor_id: doctorId,
         service_type_id: serviceId,
-        location_id: locationId,
+        location_id: effLocationId,
         slot_start: start.toISOString(),
         slot_end: end.toISOString(),
         // Ghế Ưu tiên (ô xanh) = chỗ thứ 3 → phải là WALK_IN để server xếp đúng
@@ -538,12 +541,15 @@ export default function NewPatientForm({
     goToProfile(clinicPatientId, code);
   }
 
-  // Auto-sync locationId if initially empty
-  useEffect(() => {
-    if (!locationId && locations.length > 0) {
-      setLocationId(locations[0].id);
-    }
-  }, [locations, locationId]);
+  // Cơ sở mặc định TÍNH RA, không phải đặt bằng effect.
+  //
+  // Bản cũ dùng useEffect để nhét locations[0] vào state khi state còn rỗng —
+  // `react-hooks/set-state-in-effect` chặn đúng, vì nó gây một lượt render
+  // thừa và có một nhịp mà form đang ở trạng thái "chưa chọn cơ sở" dù danh
+  // sách đã có. Bấm Lưu trúng nhịp đó thì rơi vào nhánh "Chưa chọn cơ sở khám".
+  //
+  // Không cần thay bằng gì cả: state đã khởi tạo `locations[0]?.id` ngay ở
+  // useState, và `save()` vẫn còn lớp đỡ `locationId || locations[0]?.id`.
 
   async function save(force: boolean) {
     setError(null);
@@ -659,7 +665,7 @@ export default function NewPatientForm({
         phone_primary: phone,
         phone_secondary: phone2,
         national_id_number: cccd,
-        location_id: locationId,
+        location_id: effLocationId,
         gender,
         ethnicity,
         nationality,
