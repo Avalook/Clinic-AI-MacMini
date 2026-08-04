@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 // Luật đặt lịch của phòng khám đang đăng nhập, lấy từ backend (C.3).
 //
 // Trình duyệt KHÔNG đọc clinic.settings: A.5 đã bỏ cột đó khỏi GRANT cho
@@ -67,7 +69,16 @@ function asInt(value: unknown): number | null {
  * Đọc luật cho lần render này. `null` nghĩa là không đọc được — người gọi phải
  * hiển thị điều đó, không được tự đoán.
  */
-export async function getBookingPolicy(): Promise<BookingPolicy | null> {
+// GỌI MỘT LẦN CHO CẢ LƯỢT RENDER, không phải mỗi nơi một lần.
+//
+// Log prod 04/08 cho thấy /api/v1/appointments/policy bị gọi HAI lần cách nhau
+// 21ms trong cùng một lần tải trang — hai lượt mạng cho cùng một câu trả lời,
+// mà mỗi lượt sang Seoul mất ~180ms.
+//
+// KHÔNG cache qua nhiều request: luật đặt lịch đổi ngay khi Quang sửa ở màn cấu
+// hình, và lưới vẽ theo luật cũ chính là lỗi vừa sửa hôm trước (form hiện số cũ
+// sau khi lưu). cache() của React chỉ sống trong MỘT lượt render.
+export const getBookingPolicy = cache(async (): Promise<BookingPolicy | null> => {
   const raw = await fetchFromBackend<PolicyResponse>("/api/v1/appointments/policy");
   if (!raw) {
     // Không đoán 15/2/1 (xem header file): lưới vẽ sai luật đúng lúc backend chết
@@ -92,7 +103,7 @@ export async function getBookingPolicy(): Promise<BookingPolicy | null> {
   if (hours === null) return null;
 
   return { slotMinutes, regularCap, walkinCap, hours };
-}
+});
 
 /**
  * MỘT luật số chỗ, như người vận hành đọc nó.

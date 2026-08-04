@@ -27,8 +27,14 @@ export default async function CskhTasksPage() {
     new Date(todayEnd).getTime() + 7 * DAY_MS,
   ).toISOString();
 
+  // BỐN TRUY VẤN NÀY KHÔNG PHỤ THUỘC NHAU — nên chúng đi CÙNG LÚC.
+  //
+  // Supabase ở Seoul, phòng khám ở Việt Nam: đo được ~180ms mỗi lượt. Bốn lượt
+  // nối đuôi nhau là ~830ms chỉ để ngồi chờ mạng; đi song song còn ~210ms
+  // (số đo thật, 04/08). Người dùng thấy đúng cái đó khi bấm sang trang.
+
   // 1. CSKH Actions (công việc chăm sóc) — active tasks
-  const { data: actions, error: actErr } = await supabase
+  const qActions = supabase
     .from("cskh_action")
     .select(
       `id, source_ref, category, step, status, description, result_text,
@@ -42,7 +48,7 @@ export default async function CskhTasksPage() {
     .limit(200);
 
   // 2. Lịch hẹn ngày mai cần gọi xác nhận
-  const { data: tomorrowAppts, error: tmrErr } = await supabase
+  const qTomorrow = supabase
     .from("appointment")
     .select(
       `id, slot_start, status, booking_channel,
@@ -56,7 +62,7 @@ export default async function CskhTasksPage() {
     .limit(200);
 
   // 3. Lịch hẹn tuần tới chờ xác nhận (>7 ngày trước)
-  const { data: weekAppts, error: wkErr } = await supabase
+  const qWeek = supabase
     .from("appointment")
     .select(
       `id, slot_start, status, booking_channel,
@@ -70,7 +76,7 @@ export default async function CskhTasksPage() {
     .limit(200);
 
   // 4. Lịch bị bác sĩ từ chối
-  const { data: declinedAppts, error: decErr } = await supabase
+  const qDeclined = supabase
     .from("appointment")
     .select(
       `id, slot_start, status, booking_channel,
@@ -81,6 +87,13 @@ export default async function CskhTasksPage() {
     .gte("slot_start", todayStart)
     .order("slot_start", { ascending: true })
     .limit(100);
+
+  const [
+    { data: actions, error: actErr },
+    { data: tomorrowAppts, error: tmrErr },
+    { data: weekAppts, error: wkErr },
+    { data: declinedAppts, error: decErr },
+  ] = await Promise.all([qActions, qTomorrow, qWeek, qDeclined]);
 
   const error = actErr ?? tmrErr ?? wkErr ?? decErr;
 

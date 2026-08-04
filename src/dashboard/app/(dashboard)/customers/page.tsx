@@ -180,24 +180,41 @@ export default async function CustomersPage({
     .map((r) => ({ id: r.id, label: r.name }));
   const doctors: Opt[] = docRes;
 
+  const shownIds = rows.map((r) => r.clinic_patient_id);
+  // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (id/dịch vụ/bác sĩ/
+  // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
+  const apptSelectAll = canManage
+    ? `clinic_patient_id, id, slot_start, status, service_type_id, doctor_id, location_id, booking_channel,
+       service:service_type!service_type_id ( name ),
+       doctor:staff!doctor_id ( full_name )`
+    : "clinic_patient_id, slot_start, status";
+  const apptsPromise = shownIds.length
+    ? supabase
+        .from("appointment")
+        .select(apptSelectAll)
+        .in("clinic_patient_id", shownIds)
+        .order("slot_start", { ascending: true })
+        .limit(3000)
+    : Promise.resolve({ data: [] as unknown[] });
+  const cskhPromise = shownIds.length
+    ? supabase
+        .from("cskh_action")
+        .select(
+          "id, clinic_patient_id, category, step, status, description, deadline_at, source_created_at, created_by_text, last_edited_by_text",
+        )
+        .in("clinic_patient_id", shownIds)
+        .order("source_created_at", { ascending: false })
+        .limit(1000)
+    : Promise.resolve({ data: [] as unknown[] });
+
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
   // nếu không có thì lịch GẦN NHẤT trong quá khứ. Kèm tổng số lịch.
   const apptByPatient: Record<string, ApptInfo> = {};
   if (rows.length) {
-    const ids = rows.map((r) => r.clinic_patient_id);
-    // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (id/dịch vụ/bác sĩ/
-    // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
-    const apptSelect = canManage
-      ? `clinic_patient_id, id, slot_start, status, service_type_id, doctor_id, location_id, booking_channel,
-         service:service_type!service_type_id ( name ),
-         doctor:staff!doctor_id ( full_name )`
-      : "clinic_patient_id, slot_start, status";
-    const { data: appts } = await supabase
-      .from("appointment")
-      .select(apptSelect)
-      .in("clinic_patient_id", ids)
-      .order("slot_start", { ascending: true })
-      .limit(3000);
+    // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
+    // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
+    // quả. `await` ở đây chỉ chờ đúng cái đã bay từ trước.
+    const { data: appts } = await apptsPromise;
     const nowUtc = new Date().toISOString();
     type Raw = {
       clinic_patient_id: string;
@@ -277,15 +294,7 @@ export default async function CustomersPage({
   > = {};
 
   if (rows.length) {
-    const ids = rows.map((r) => r.clinic_patient_id);
-    const { data: cskhActions } = await supabase
-      .from("cskh_action")
-      .select(
-        "id, clinic_patient_id, category, step, status, description, deadline_at, source_created_at, created_by_text, last_edited_by_text",
-      )
-      .in("clinic_patient_id", ids)
-      .order("source_created_at", { ascending: false })
-      .limit(1000);
+    const { data: cskhActions } = await cskhPromise;
 
     // Group by patient, pick latest action
     const grouped: Record<string, CskhRaw[]> = {};
