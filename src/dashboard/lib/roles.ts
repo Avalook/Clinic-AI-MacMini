@@ -291,6 +291,18 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/service-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
   // ĐD siêu âm: hàng đợi BN sắp khám SA + hàng đợi XN 3 trạng thái + in phiếu.
   "/sono": ["NURSE_ULTRASOUND", "MANAGEMENT"],
+  // Bộ phận Siêu âm (4 màn). Khác /sono: đó là hàng đợi điều dưỡng chạy trên
+  // service_log; đây là màn của cả bộ phận — hàng chờ, phòng SA1–SA3, soạn kết
+  // quả, tra cứu phiếu đã ký. Danh sách vai phải khớp ULTRASOUND_ROLES ở
+  // ultrasound_board_service.py; lệch nhau thì có người thấy nút mà bấm vào bị
+  // 403, hoặc tệ hơn: vào được màn mà backend mới là nơi từ chối.
+  "/sieu-am": [
+    "ULTRASOUND_DOCTOR",
+    "NURSE_ULTRASOUND",
+    "TKYK",
+    "TRUONG_CA",
+    "MANAGEMENT",
+  ],
   // Bảng số thứ tự GỌI KHÁM (ưu tiên người có hẹn). Gọi theo tên — xem chung như /tasks.
   // TẠM ẨN (Quang 2026-07-03): [] = không vai nào thấy sidebar + gõ URL bị redirect
   // /home (requireNavAccess). Mở lại: khôi phục danh sách vai dưới đây.

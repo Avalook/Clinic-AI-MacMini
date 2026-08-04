@@ -16,30 +16,16 @@ import {
   Download,
   AlertTriangle,
   FileCheck,
-  Zap,
-  SlidersHorizontal,
-  ArrowRight,
-  ExternalLink,
   PauseCircle,
-  RefreshCw,
-  Send,
   FileText,
-  Building,
-  Lock,
   Pill,
-  DollarSign,
   AlertOctagon,
   Phone,
-  Check,
-  X
 } from 'lucide-react';
 import {
   PHARMACY_PENDING_PRESCRIPTIONS,
   PREPARATION_ORDERS_DATA,
   HANDOVER_PATIENTS_DATA,
-  type PendingPrescription,
-  type PreparationOrder,
-  type PatientHandoverGroup
 } from '../../data/pharmacy-mock-data';
 
 interface PharmacyDashboardProps {
@@ -55,17 +41,11 @@ export default function PharmacyDashboard({ onSwitchRole }: PharmacyDashboardPro
   const [selectedPendingId, setSelectedPendingId] = useState<string>('rx-021');
 
   // Tab 2: Preparation State
-  const [prepSearch, setPrepSearch] = useState('');
   const [selectedPrepId, setSelectedPrepId] = useState<string>('prep-021');
 
   // Tab 3: Handover State
-  const [handoverSearch, setHandoverSearch] = useState('');
   const [selectedHandoverPatientId, setSelectedHandoverPatientId] = useState<string>('p-021');
   const [selectedRecordId, setSelectedRecordId] = useState<string>('ho-021-1');
-
-  // Tab 4: Counseling State
-  const [counselingSearch, setCounselingSearch] = useState('');
-  const [selectedCounselingId, setSelectedCounselingId] = useState<string>('rx-021');
 
   const activePendingRx = PHARMACY_PENDING_PRESCRIPTIONS.find(r => r.id === selectedPendingId) || PHARMACY_PENDING_PRESCRIPTIONS[0];
   const activePrepOrder = PREPARATION_ORDERS_DATA.find(p => p.id === selectedPrepId) || PREPARATION_ORDERS_DATA[0];
@@ -423,7 +403,7 @@ export default function PharmacyDashboard({ onSwitchRole }: PharmacyDashboardPro
                             <span style={{ padding: '2px 6px', borderRadius: 4, background: rx.statusBg, color: rx.statusColor, fontSize: 9, fontWeight: 700 }}>
                               {rx.statusLabel}
                             </span>
-                            <span style={{ fontSize: 10, color: 'var(--brand-600)', fontWeight: 600 }}>Hành động ></span>
+                            <span style={{ fontSize: 10, color: 'var(--brand-600)', fontWeight: 600 }}>Hành động &gt;</span>
                           </div>
                         </div>
                       );
@@ -873,7 +853,7 @@ export default function PharmacyDashboard({ onSwitchRole }: PharmacyDashboardPro
                       return (
                         <div
                           key={rx.id}
-                          onClick={() => setSelectedCounselingId(rx.id)}
+                          onClick={() => setSelectedPendingId(rx.id)}
                           style={{
                             padding: 8,
                             borderRadius: 'var(--radius-control)',
@@ -902,7 +882,7 @@ export default function PharmacyDashboard({ onSwitchRole }: PharmacyDashboardPro
 
                     {/* Detailed Drug Counseling Blocks */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {activePendingRx.items.map((item, idx) => (
+                      {activePendingRx.items.map((item) => (
                         <div key={item.id} style={{ border: '1px solid var(--line)', padding: 12, borderRadius: 8, background: 'var(--surface)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <div>

@@ -208,6 +208,12 @@ export const NAV: NavItem[] = [
     icon: Activity,
   },
   { href: "/sono", label: "ĐD siêu âm", shortLabel: "Siêu âm", icon: ScanLine },
+  {
+    href: "/sieu-am",
+    label: "Bộ phận Siêu âm",
+    shortLabel: "Bộ phận SA",
+    icon: ScanLine,
+  },
   { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
   // Có trong NAV_ROLES (Quản lý + Trưởng ca) nhưng CHƯA TỪNG có mục ở đây, nên
   // trang chỉ vào được bằng cách gõ URL — quyền đã cấp mà không có đường đi.
