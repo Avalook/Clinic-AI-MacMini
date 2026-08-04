@@ -117,6 +117,7 @@ services:
     environment:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
+      MEDIA_ROOT: /var/lib/clinicai/media
     volumes:
       # The default must exist on any host, not just this Mac (ADR-0013): a
       # hard-coded /Users/... path made `up` fail or silently mount an empty
@@ -126,6 +127,16 @@ services:
         source: ${OPS_STATUS_DIR:-./.ops-status}/${APP_ENV:-production}
         target: /run/clinicai-ops
         read_only: true
+      # ẢNH SIÊU ÂM. Quang chọn lưu tạm trên máy (04/08/2026) thay vì Supabase
+      # Storage. Đường dẫn TƯƠNG ĐỐI theo cùng lý do như ổ ở trên (ADR-0013):
+      # một `/Users/...` viết cứng làm `up` hỏng trên VPS. Đặt MEDIA_DIR để
+      # trỏ sang ổ khác — ảnh siêu âm lớn hơn mọi thứ khác trong hệ thống cộng
+      # lại, nên nó sẽ phải rời ổ hệ điều hành sớm.
+      #
+      # KHÔNG read_only: đây là ổ duy nhất backend được ghi.
+      - type: bind
+        source: ${MEDIA_DIR:-./.media}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media
     healthcheck:
       # Readiness, not just process liveness: deploy must roll back when the
       # backend cannot actually reach Supabase/Postgres.

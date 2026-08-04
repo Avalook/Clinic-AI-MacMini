@@ -11,11 +11,12 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services.media_service import MediaService
 from clinicai.services.ultrasound_board_service import (
     ULTRASOUND_ROLES,
     UltrasoundBoardService,
@@ -148,4 +149,51 @@ async def sono_save_draft(
         findings=body.findings,
         impression=body.impression,
         gestational_age_weeks=body.gestational_age_weeks,
+    )
+
+
+# ── Ảnh siêu âm ────────────────────────────────────────────────────────────
+
+
+@router.post("/ultrasound/{ultrasound_id}/image", status_code=201)
+async def upload_image(
+    ultrasound_id: UUID,
+    file: UploadFile = File(...),
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gắn ảnh vào một bản ghi siêu âm.
+
+    Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
+    Kiểu tệp kiểm bằng mấy byte đầu, không bằng đuôi tên.
+    """
+    data = await file.read()
+    return await MediaService(pool).attach_ultrasound_image(
+        identity=identity,
+        ultrasound_id=str(ultrasound_id),
+        data=data,
+        display_name=file.filename,
+    )
+
+
+@router.get("/ultrasound/image")
+async def get_image(
+    key: str,
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Đọc một ảnh. Khoá phải thuộc phòng khám của người hỏi — kiểm ở service."""
+    data, mime = await MediaService(pool).read_ultrasound_image(
+        identity=identity, key=key
+    )
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={
+            # Ảnh bệnh nhân KHÔNG được nằm lại trong bộ đệm dùng chung. `private`
+            # cho phép trình duyệt của chính người xem giữ, không cho proxy giữ.
+            "Cache-Control": "private, max-age=300",
+            # Trình duyệt không được tự đoán kiểu và chạy nội dung như HTML.
+            "X-Content-Type-Options": "nosniff",
+        },
     )
