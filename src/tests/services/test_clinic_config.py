@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ValidationError
@@ -275,3 +276,132 @@ class TestReadIO:
             ClinicConfigService(pool).staff(identity=_who(ClinicRole.MANAGEMENT))
         )
         assert out["items"][0]["nodes"] == ["KHAM-SK"]
+
+
+# ── Phiếu khám theo dịch vụ ────────────────────────────────────────────────
+#
+# Trước 20260805000004, trình duyệt ĐOÁN phiếu bằng từ khoá trong tên dịch vụ.
+# Đo trên 14 dịch vụ thật của Dr4Women: 8 tên đoán ra, 6 tên KHÔNG — và với 6
+# dịch vụ ấy bác sĩ mở lượt khám thì phần phiếu ẩn hẳn, không một lời nào.
+
+
+class TestServiceFormIO:
+    def test_chuoi_rong_la_khong_co_phieu_chu_khong_phai_chua_khai(self) -> None:
+        """Thủ thuật và tư vấn vốn không cần phiếu chuyên khoa. Màn bác sĩ nói
+        ra điều đó thay vì để trống — nên rỗng phải lưu được thành NULL."""
+        pool = FakePool("***#Thủ thuật")
+        out = _run(
+            ClinicConfigService(pool).set_service_form(
+                identity=_who(ClinicRole.MANAGEMENT),
+                service_type_id="s-1",
+                form_code="   ",
+                form_code_nam=None,
+            )
+        )
+        assert out["form_code"] is None
+
+    def test_ma_phieu_duoc_chuan_hoa_hoa(self) -> None:
+        pool = FakePool("Phụ khoa")
+        out = _run(
+            ClinicConfigService(pool).set_service_form(
+                identity=_who(ClinicRole.MANAGEMENT),
+                service_type_id="s-1",
+                form_code=" pk ",
+                form_code_nam=None,
+            )
+        )
+        assert out["form_code"] == "PK"
+
+    def test_tien_hon_nhan_khai_duoc_hai_phieu(self) -> None:
+        """Nội dung khám tiền hôn nhân khác nhau theo giới: nữ khám phụ khoa,
+        nam khám nam khoa (hướng dẫn Bộ Y tế). Một phiếu duy nhất là mô hình
+        sai ngay từ đầu."""
+        pool = FakePool("Tiền hôn nhân")
+        out = _run(
+            ClinicConfigService(pool).set_service_form(
+                identity=_who(ClinicRole.MANAGEMENT),
+                service_type_id="s-1",
+                form_code="PK",
+                form_code_nam="NK",
+            )
+        )
+        assert (out["form_code"], out["form_code_nam"]) == ("PK", "NK")
+
+    def test_khai_phieu_nam_ma_bo_trong_phieu_mac_dinh_bi_chan(self) -> None:
+        """Nếu không thì bệnh nhân nữ không có phiếu nào — và ở một phòng khám
+        phụ sản, đó là phần lớn bệnh nhân."""
+        pool = FakePool("Tiền hôn nhân")
+        with pytest.raises(ValidationError, match="phiếu mặc định"):
+            _run(
+                ClinicConfigService(pool).set_service_form(
+                    identity=_who(ClinicRole.MANAGEMENT),
+                    service_type_id="s-1",
+                    form_code=None,
+                    form_code_nam="NK",
+                )
+            )
+        assert pool.queries() == []
+
+    def test_khong_tim_thay_dich_vu(self) -> None:
+        pool = FakePool(None)
+        with pytest.raises(ValidationError, match="Không tìm thấy dịch vụ"):
+            _run(
+                ClinicConfigService(pool).set_service_form(
+                    identity=_who(ClinicRole.MANAGEMENT),
+                    service_type_id="s-9",
+                    form_code="PK",
+                    form_code_nam=None,
+                )
+            )
+
+    def test_vai_khac_bi_chan_truoc_khi_cham_db(self) -> None:
+        pool = FakePool("Phụ khoa")
+        with pytest.raises(ValidationError):
+            _run(
+                ClinicConfigService(pool).set_service_form(
+                    identity=_who(ClinicRole.TRUONG_CA),
+                    service_type_id="s-1",
+                    form_code="PK",
+                    form_code_nam=None,
+                )
+            )
+        assert pool.queries() == []
+
+    def test_ma_phieu_khong_co_trong_danh_muc(self) -> None:
+        """Trigger `service_type_form_code_exists` ném foreign_key_violation
+        kèm đúng mã sai; service dịch thành câu người vận hành đọc được."""
+        pool = FakePool(
+            asyncpg.ForeignKeyViolationError(
+                "Không có phiếu khám mã XX trong danh mục của phòng "
+                "khám này.\nCONTEXT: ..."
+            )
+        )
+        with pytest.raises(ValidationError, match="Không có phiếu khám mã XX"):
+            _run(
+                ClinicConfigService(pool).set_service_form(
+                    identity=_who(ClinicRole.MANAGEMENT),
+                    service_type_id="s-1",
+                    form_code="XX",
+                    form_code_nam=None,
+                )
+            )
+
+    def test_doc_danh_sach_dich_vu_kem_danh_muc_phieu(self) -> None:
+        pool = FakePool(
+            [
+                {
+                    "id": "s-1",
+                    "code": "PHU_KHOA",
+                    "name": "Phụ khoa",
+                    "form_code": "PK",
+                    "form_code_nam": None,
+                    "is_active": True,
+                }
+            ],
+            [{"form_code": "PK", "title": "Khám phụ khoa"}],
+        )
+        out = _run(
+            ClinicConfigService(pool).services(identity=_who(ClinicRole.MANAGEMENT))
+        )
+        assert out["items"][0]["form_code"] == "PK"
+        assert out["forms"][0]["title"] == "Khám phụ khoa"

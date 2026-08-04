@@ -110,7 +110,22 @@ SELECT g.id, g.slot_start, g.status, g.queue_number, g.booking_channel,
        p.phone_primary, p.phone_secondary, p.gender, p.ethnicity,
        p.nationality, p.occupation, p.patient_objection, p.address,
        p.guardian_name,
-       st.name AS service_name
+       st.name AS service_name,
+       -- PHIẾU KHÁM CHỌN THEO GIỚI, và chọn ở SQL chứ không ở trình duyệt.
+       --
+       -- Trước đây màn hình tự đoán phiếu bằng cách dò từ khoá trong TÊN dịch
+       -- vụ ("nam khoa" → NK, "sản" → SK). Sáu trong mười bốn dịch vụ của
+       -- Dr4Women không dò ra, và bác sĩ mở lượt khám thì phần phiếu ẩn hẳn,
+       -- không một lời nào.
+       --
+       -- `form_code_nam` chỉ khai cho dịch vụ mà nội dung khám khác nhau theo
+       -- giới. Hôm nay đúng một dịch vụ: khám tiền hôn nhân — nữ khám phụ
+       -- khoa, nam khám nam khoa. `coalesce` để mọi dịch vụ còn lại dùng chung
+       -- một phiếu cho cả hai giới, không phải khai hai lần.
+       CASE WHEN p.gender = 'Nam'
+            THEN coalesce(st.form_code_nam, st.form_code)
+            ELSE st.form_code
+       END AS service_form_code
   FROM lich g
   LEFT JOIN patient p
          ON p.clinic_patient_id = g.clinic_patient_id
@@ -198,5 +213,15 @@ def _row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
             if r["clinic_patient_id"]
             else None
         ),
-        "service": {"name": r["service_name"]} if r["service_name"] else None,
+        "service": (
+            {
+                "name": r["service_name"],
+                # `None` = dịch vụ này KHÔNG có phiếu khám chuyên khoa (thủ
+                # thuật, tư vấn). Màn hình phải nói ra điều đó thay vì ẩn — bác
+                # sĩ không phân biệt được "không cần phiếu" với "hệ thống hỏng".
+                "form_code": r["service_form_code"],
+            }
+            if r["service_name"]
+            else None
+        ),
     }

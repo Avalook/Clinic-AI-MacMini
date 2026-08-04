@@ -41,3 +41,21 @@ export interface ConfigStaff {
   location_name: string | null;
   nodes: string[];
 }
+
+export interface ConfigService {
+  service_type_id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+  /** `null` = dịch vụ không có phiếu khám chuyên khoa (thủ thuật, tư vấn).
+   *  Khác với "chưa khai" — màn bác sĩ nói ra điều đó thay vì để trống. */
+  form_code: string | null;
+  /** Chỉ khai khi nội dung khám khác nhau theo giới. Hôm nay đúng một dịch vụ:
+   *  khám tiền hôn nhân — nữ khám phụ khoa, nam khám nam khoa. */
+  form_code_nam: string | null;
+}
+
+export interface FormDef {
+  form_code: string;
+  title: string;
+}

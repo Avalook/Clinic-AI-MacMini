@@ -60,7 +60,17 @@ export interface DoctorApptRow {
     address: string | null;
     guardian_name: string | null;
   } | null;
-  service: { name: string } | null;
+  service: {
+    name: string;
+    /** Mã phiếu khám chuyên khoa, backend CHỌN SẴN theo giới bệnh nhân
+     *  (khám tiền hôn nhân: nữ ra PK, nam ra NK). `null` = dịch vụ này không
+     *  có phiếu riêng — màn hình phải NÓI RA, không được ẩn im lặng.
+     *
+     *  KHÔNG BẮT BUỘC vì hai màn khác (lưới tuần ở Trang chủ, Danh sách bệnh
+     *  nhân) dựng dòng từ truy vấn riêng chưa mang cột này. Thiếu nó thì rơi
+     *  về cách đoán cũ theo tên dịch vụ — kém hơn, nhưng không vỡ. */
+    form_code?: string | null;
+  } | null;
   /** Kênh đặt — "WALK_IN" = vãng lai; còn lại = đặt hẹn online. */
   booking_channel?: string | null;
   /** Mốc giờ đến thật (visit.checked_in_at). */

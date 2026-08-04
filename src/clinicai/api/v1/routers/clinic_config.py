@@ -46,6 +46,39 @@ async def staff(
     return await ClinicConfigService(pool).staff(identity=identity)
 
 
+@router.get("/clinic-config/services")
+async def services(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dịch vụ khám nào dùng phiếu nào, kèm danh mục phiếu đang bật."""
+    return await ClinicConfigService(pool).services(identity=identity)
+
+
+class ServiceFormRequest(BaseModel):
+    service_type_id: UUID
+    #: Rỗng = dịch vụ này không có phiếu khám chuyên khoa (thủ thuật, tư vấn).
+    form_code: str | None = Field(default=None, max_length=32)
+    #: Chỉ khai khi nội dung khám khác nhau theo giới — hôm nay đúng một dịch
+    #: vụ: khám tiền hôn nhân (nữ phụ khoa, nam nam khoa).
+    form_code_nam: str | None = Field(default=None, max_length=32)
+
+
+@router.put("/clinic-config/service-form")
+async def set_service_form(
+    body: ServiceFormRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gán phiếu khám cho một dịch vụ — thay cho việc đoán từ tên."""
+    return await ClinicConfigService(pool).set_service_form(
+        identity=identity,
+        service_type_id=str(body.service_type_id),
+        form_code=body.form_code,
+        form_code_nam=body.form_code_nam,
+    )
+
+
 class RoomFloorRequest(BaseModel):
     room_id: UUID
     #: Nhãn tự do: "1", "Trệt", "B1", "Tòa A – T5". Rỗng = chưa khai.
