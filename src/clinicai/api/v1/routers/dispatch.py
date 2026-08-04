@@ -32,6 +32,10 @@ router = APIRouter()
 
 # Điều phối là quyết định của ca trực.
 _DISPATCH_WRITE = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+# Quầy tiếp nhận: Lễ tân là người bấm, Trưởng ca/Quản lý bấm hộ được.
+_RECEPTION_GUARD = require_role(
+    ClinicRole.RECEPTION, ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT
+)
 
 
 # ── Đọc ────────────────────────────────────────────────────────────────────
@@ -192,6 +196,49 @@ async def apply_route(
         template_code=body.template_code,
         is_exception=body.is_exception,
         reason=body.reason,
+    )
+
+
+# ── Quầy Lễ tân: đối soát và đóng lượt ─────────────────────────────────────
+#
+# Đọc mở cho Lễ tân (đây là màn của họ); đóng lượt cũng là việc của Lễ tân, nên
+# quyền GHI ở đây rộng hơn phần điều phối bên trên.
+
+
+@router.get("/reception/checkout/{visit_id}")
+async def checkout_readiness(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt khám này đóng được chưa, và còn vướng gì."""
+    from clinicai.services.checkout_service import CheckoutService
+
+    return await CheckoutService(pool).readiness(
+        identity=identity, visit_id=str(visit_id)
+    )
+
+
+class CheckoutRequest(BaseModel):
+    visit_id: UUID
+    # Còn vướng mà vẫn muốn đóng thì phải nói vì sao. Trống = chỉ đóng được khi
+    # sạch vướng mắc.
+    override_reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/reception/checkout", status_code=201)
+async def checkout(
+    body: CheckoutRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đóng lượt khám. KHÔNG đụng visit.status — xem checkout_service."""
+    from clinicai.services.checkout_service import CheckoutService
+
+    return await CheckoutService(pool).close(
+        identity=identity,
+        visit_id=str(body.visit_id),
+        override_reason=body.override_reason,
     )
 
 
