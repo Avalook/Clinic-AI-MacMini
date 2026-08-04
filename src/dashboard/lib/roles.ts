@@ -220,6 +220,20 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
 // mình, gate trong page) — CSKH/Lễ tân tra cứu bằng /customers.
 const DOCTOR_ROLES_LIST: ClinicRole[] = ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TRƯỞNG CA CHỈ THẤY VIỆC ĐIỀU PHỐI (Quang, 2026-08-04).
+//
+// Trước đây vai này thấy 28/36 mục — gồm cả kho thuốc, bảng giá, duyệt kết quả,
+// Command Center. Không phải vì ai đó quyết định thế, mà vì mỗi lần thêm một
+// màn người ta thêm TRUONG_CA vào cho chắc. Một thanh bên 28 mục thì mục quan
+// trọng nhất cũng chỉ là một dòng trong hai mươi tám dòng.
+//
+// Nay giữ đúng phần việc của ca trực: năm màn điều phối + Trang chủ, cộng
+// "Luật đặt lịch" (xem ghi chú tại chính dòng đó — đó là một ngoại lệ có chủ ý,
+// không phải sót).
+//
+// Các màn bị bỏ KHÔNG mất đi: Quản lý hệ thống vẫn vào được tất cả, và mỗi bộ
+// phận vẫn giữ màn của mình. Bỏ ở đây chỉ là bỏ khỏi TẦM MẮT của Trưởng ca.
 const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // --- bảng chạy trên workflow kernel -------------------------------------
   // Vai được thấy bảng nào là theo actor_roles của node trong danh mục, không
@@ -229,14 +243,13 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // không được mở board đối soát vì nó còn chứa hàng thanh toán/đối soát.
   // Trưởng ca và quản lý xem được tất cả để điều phối.
   "/reception/queue": [
-    "RECEPTION", "NURSE_ULTRASOUND", "TRUONG_CA", "MANAGEMENT",
+    "RECEPTION", "NURSE_ULTRASOUND", "MANAGEMENT",
   ],
   "/doctor/board": [
-    "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "TRUONG_CA", "MANAGEMENT",
+    "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT",
   ],
   "/cashier/board": [
-    "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA",
-    "MANAGEMENT",
+    "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "MANAGEMENT",
   ],
   // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho
   // MANAGEMENT, nên hiện mục này cho vai khác chỉ dẫn tới một trang 403.
@@ -244,11 +257,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
 
   "/home": "all",
   // Nhiệm vụ chăm sóc — thay thế cũ /cskh-today + /cskh/board.
-  "/cskh-tasks": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
-  "/appointments": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  "/cskh-tasks": ["CSKH", "MANAGEMENT"],
+  "/appointments": ["CSKH", "MANAGEMENT"],
   // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
   // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
-  "/customers": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA"],
+  "/customers": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV"],
   // TRƯỞNG CA — năm màn điều phối. Phải liệt kê TỪNG đường: requireNavAccess()
   // tra chính xác href, không so tiền tố, nên thiếu một dòng ở đây là màn đó đá
   // người dùng về /home mà không báo gì.
@@ -262,9 +275,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // patients/[id] (chỉ mở được BN của mình) — đúng mô hình quyền hiện tại.
   // + ĐIỀU DƯỠNG (feedback PM 23/6): nav "Thông tin bệnh nhân" để tra cứu BN +
   // xem lịch sử khám (giống bác sĩ). Sửa lâm sàng/sinh hiệu vẫn theo buổi khám.
-  "/patient-list": ["RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
+  "/patient-list": ["RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
-  "/patients/new": ["RECEPTION", "MANAGEMENT", "TRUONG_CA"],
+  "/patients/new": ["RECEPTION", "MANAGEMENT"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
   // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
   // (clone giao diện board bác sĩ, khóa mọi nút sửa — xem isTasksReadOnly).
@@ -282,36 +295,46 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // ["CSKH", "MANAGEMENT", "RECEPTION", "TRUONG_CA", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST]
   "/queue": [],
   // Đóng "đợt khám" chờ xác nhận (BS khám xong không hẹn lần sau) — việc CSKH/vận hành.
-  "/episodes": ["MANAGEMENT", "TRUONG_CA"],
+  "/episodes": ["MANAGEMENT"],
   // Thu ngân: bảng giá tách 2 trang (thuốc / dịch vụ), gate theo VAI tách (mỗi
   // vai chỉ thấy màn của mình). CASHIER = superset (thấy cả hai), Quản lý xem/sửa cả hai.
   // ("Công việc của tôi" thu ngân nằm ở /tasks, gate bằng entry /tasks bên dưới.)
-  "/cashier/thuoc": ["CASHIER_THUOC", "CASHIER", "MANAGEMENT", "TRUONG_CA"],
-  "/cashier/dich-vu": ["CASHIER_DV", "CASHIER", "MANAGEMENT", "TRUONG_CA"],
+  "/cashier/thuoc": ["CASHIER_THUOC", "CASHIER", "MANAGEMENT"],
+  "/cashier/dich-vu": ["CASHIER_DV", "CASHIER", "MANAGEMENT"],
   // Nhà thuốc — Dược sĩ (PHARMACIST) + Quản lý/Trưởng ca xem.
-  "/pharmacy": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
-  "/pharmacy/history": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
-  "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
-  "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"],
+  "/pharmacy": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT"],
   // MỌI vai trò tự đăng ký ca của mình (CSKH, thu ngân... cũng cần); Quản lý +
   // Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem /api/roster).
   "/schedule": "all",
-  "/work-sessions": ["MANAGEMENT", "TRUONG_CA"],
-  "/reports": ["MANAGEMENT", "TRUONG_CA"],
+  "/work-sessions": ["MANAGEMENT"],
+  "/reports": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
-  "/audit-log": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  "/audit-log": ["CSKH", "MANAGEMENT"],
   // Duyệt kết quả — Bác sĩ + TKYK + Quản lý/Trưởng ca xem.
-  "/result-review": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT", "TRUONG_CA"],
+  "/result-review": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
   "/ops": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
   // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.
+  // GIỮ CHO TRƯỞNG CA — ngoại lệ có chủ ý giữa đợt dọn thanh bên.
+  //
+  // Quang chốt (2026-08-03): *"trưởng ca và quản lý hệ thống của phòng khám
+  // Dr4women có thể điều chỉnh số lượng slot trong khung giờ nhất định"*. Backend
+  // đã theo đúng quyết định đó (_BOOKING_POLICY_GUARD = TRUONG_CA + MANAGEMENT),
+  // nên bỏ mục này khỏi thanh bên sẽ để lại một quyền mà không có đường đi tới.
+  //
+  // Lưu ý: Notion §CSKH tiêu chí 7 viết "chỉ quản lý hệ thống được thay đổi quy
+  // tắc và sức chứa" — mâu thuẫn với quyết định trên. Quyết định trực tiếp của
+  // Quang thắng; ghi lại ở đây để lần sau không ai "sửa lại cho khớp Notion".
   "/settings/booking-policy": ["TRUONG_CA", "MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
   // Command Center — Cổng trung tâm điều khiển toàn hệ thống.
   // Chỉ Quản lý + Trưởng ca (isOpsAdmin) mới được vào.
-  "/portal": ["MANAGEMENT", "TRUONG_CA"],
+  "/portal": ["MANAGEMENT"],
 };
 
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
