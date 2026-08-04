@@ -64,6 +64,17 @@ class TestLanNaoThang:
         out = semen_params({"tdd_nong_do_l1": "5", "tdd_nong_do_l2": "30"})
         assert out["concentration_m_ml"] == 30.0
 
+    def test_lan_2_bang_0_van_thang_lan_1(self) -> None:
+        """SỐ 0 LÀ FALSY, và đây là chỗ nó cắn.
+
+        `_so(l2) or _so(l1)` bỏ qua lần 2 khi lần 2 bằng 0 — mà 0 ở đây là
+        KHÔNG THẤY TINH TRÙNG, kết quả quan trọng nhất của cả phiếu. Lỗi này đã
+        xảy ra thật: một ca lần 1 = 3, lần 2 = 0 đọc ra 3, và gợi ý thành
+        "thiểu tinh nặng" thay vì "không thấy tinh trùng trong mẫu".
+        """
+        out = semen_params({"tdd_nong_do_l1": "3", "tdd_nong_do_l2": "0"})
+        assert out["concentration_m_ml"] == 0.0
+
     def test_chua_lam_lan_2_thi_doc_lan_1(self) -> None:
         out = semen_params({"tdd_nong_do_l1": "5", "tdd_nong_do_l2": ""})
         assert out["concentration_m_ml"] == 5.0
@@ -153,6 +164,20 @@ class TestReview:
             )
         )
         assert out["semen_flags"] == []
+
+    def test_vo_tinh_o_lan_2_doc_dung_ly_do(self) -> None:
+        """Kiểm cả đường: lần 1 có tinh trùng, lần 2 không. Lý do gợi ý phải
+        nói "không thấy tinh trùng", không phải "thiểu tinh nặng"."""
+        pool = FakePool(NGUONG)
+        out = _run(
+            AndrologyReviewService(pool).review(
+                identity=_who(),
+                form_data={"tdd_nong_do_l1": "3", "tdd_nong_do_l2": "0"},
+            )
+        )
+        ly_do = {g["reason"] for g in out["genetic_suggestions"]}
+        assert any("không thấy tinh trùng" in r for r in ly_do)
+        assert not any("thiểu tinh" in r for r in ly_do)
 
     def test_vo_tinh_thi_goi_y_karyotype_va_azf_kem_ly_do(self) -> None:
         pool = FakePool(NGUONG)
