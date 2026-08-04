@@ -872,7 +872,7 @@ export default function NurseVitalsDashboard({ onSwitchRole }: NurseVitalsDashbo
               {/* History Record Detail Right */}
               <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Record Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', pb: 14, paddingBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', paddingBottom: 14 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                       <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--brand-700)' }}>{activeHistoryRecord.stt}</span>
