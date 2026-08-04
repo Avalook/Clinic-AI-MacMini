@@ -108,6 +108,39 @@ class MPIService:
             params.append(data.national_id_number)
             idx += 1
 
+        # HỌ TÊN + NĂM SINH — vế thứ ba, và là vế duy nhất bắt được người khai
+        # số điện thoại khác.
+        #
+        # Notion §2 Lễ tân, tiêu chí kỹ thuật 2: *"kiểm tra khả năng trùng theo
+        # SĐT đã chuẩn hoá, KẾT HỢP HỌ TÊN VÀ NĂM SINH"*. Trước đây chỉ có SĐT
+        # và CCCD — nên một người khai số mới, hoặc chưa có CCCD, sẽ tạo hồ sơ
+        # thứ hai mà không có gì cảnh báo.
+        #
+        # DÙNG `full_name_unaccent`, KHÔNG gọi unaccent() lúc truy vấn: cột đó
+        # là GENERATED (lower + bỏ dấu + đ→d) nên luôn khớp với chính nó, và nó
+        # có chỉ mục `idx_patient_full_name_unaccent`. Tự tính lại ở vế trái sẽ
+        # bỏ qua chỉ mục và mở đường cho hai công thức chuẩn hoá lệch nhau.
+        # Vế phải dùng ĐÚNG biểu thức của cột để hai bên không bao giờ khác cách
+        # hiểu "Nguyễn" và "Nguyen".
+        #
+        # NĂM SINH thì KHÔNG tin cột `birth_year`: đo trên prod, nó chỉ được
+        # điền ở 25/49 hồ sơ (ứng dụng ghi, không phải cột sinh tự động). Lấy nó
+        # khi có, còn lại tính từ date_of_birth — nếu chỉ dựa vào cột đó thì
+        # đúng một nửa số hồ sơ sẽ âm thầm không bao giờ báo trùng.
+        #
+        # So NĂM chứ không so NGÀY: ngày sinh hay bị nhập lệch, còn trùng cả tên
+        # lẫn năm sinh thì đã đáng để con người nhìn lại.
+        if data.full_name and data.date_of_birth:
+            conditions.append(
+                f"(full_name_unaccent = lower(replace(replace("
+                f"f_unaccent(${idx}), 'đ', 'd'), 'Đ', 'D'))"
+                f" AND coalesce(birth_year, date_part('year', date_of_birth))"
+                f" = ${idx + 1})"
+            )
+            params.append(data.full_name)
+            params.append(float(data.date_of_birth.year))
+            idx += 2
+
         if not conditions:
             return []
 
