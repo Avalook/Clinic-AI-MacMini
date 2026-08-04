@@ -15,6 +15,7 @@ from clinicai.api.identity import (
     require_role,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.services.andrology_review_service import AndrologyReviewService
 from clinicai.services.clinical_form_service import ClinicalFormService
 
 router = APIRouter()
@@ -56,3 +57,27 @@ async def save_clinical_form(
         identity=identity,
     )
     return {"ok": True}
+
+
+class AndrologyReviewRequest(BaseModel):
+    form_data: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/clinical-forms/andrology-review")
+async def andrology_review(
+    body: AndrologyReviewRequest,
+    identity: StaffIdentity = Depends(_FORM_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Cờ dưới ngưỡng WHO, gợi ý xét nghiệm di truyền, và BMI — cho form NK.
+
+    POST chứ không phải GET vì nó nhận cả form đang gõ dở, chưa lưu: bác sĩ cần
+    thấy cờ NGAY khi nhập tinh dịch đồ, không phải sau khi bấm lưu. Và nội dung
+    lâm sàng không nên nằm trong query string, nơi nó vào log máy chủ.
+
+    KHÔNG ghi gì và KHÔNG tạo chỉ định nào — mọi thứ trả về là gợi ý để bác sĩ
+    đọc (Notion §13).
+    """
+    return await AndrologyReviewService(pool).review(
+        identity=identity, form_data=body.form_data
+    )
