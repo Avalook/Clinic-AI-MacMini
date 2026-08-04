@@ -11,11 +11,16 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services.ultrasound_board_service import (
+    ULTRASOUND_ROLES,
+    UltrasoundBoardService,
+    group_by_patient,
+)
 from clinicai.services.ultrasound_service import UltrasoundService
 
 router = APIRouter()
@@ -69,3 +74,78 @@ async def save_ultrasound_measurements(
         identity=identity,
     )
     return {"ok": True, "findings": findings}
+
+
+# ── Bộ phận Siêu âm: bốn màn ────────────────────────────────────────────────
+
+_SONO_GUARD = require_role(*ULTRASOUND_ROLES)
+
+
+@router.get("/ultrasound/queue")
+async def sono_queue(
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hàng chờ siêu âm hôm nay, kèm bốn ô sẵn sàng."""
+    return await UltrasoundBoardService(pool).queue(identity=identity)
+
+
+@router.get("/ultrasound/rooms")
+async def sono_rooms(
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ba phòng siêu âm: đang làm, đang chờ. Lọc theo cơ sở người đang đứng."""
+    return await UltrasoundBoardService(pool).rooms(identity=identity)
+
+
+@router.get("/ultrasound/records")
+async def sono_records(
+    signed: bool = Query(False, description="true = tab đã ký, false = tab soạn"),
+    days: int = Query(1, ge=1, le=90),
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bản ghi siêu âm. Tab đã ký gom theo BỆNH NHÂN, không theo bản ghi —
+    người tra cứu nghĩ theo "chị A có những phiếu nào"."""
+    out = await UltrasoundBoardService(pool).records(
+        identity=identity, signed=signed, days=days
+    )
+    if signed:
+        return {"patients": group_by_patient(out["items"])}
+    return out
+
+
+class SonoDraftRequest(BaseModel):
+    """Soạn kết quả siêu âm. KHÔNG có trường chữ ký — ký là đường riêng."""
+
+    visit_id: UUID
+    ultrasound_type: str = Field(min_length=1, max_length=120)
+    # `findings` có CẤU TRÚC: mô tả từng tạng, từng số đo — không phải một đoạn
+    # văn. Cột trong database là jsonb, và giữ đúng kiểu ở API nghĩa là về sau
+    # tra "mọi ca có nội mạc > 14mm" là một câu truy vấn, không phải đọc chữ.
+    findings: dict[str, Any] | None = None
+    impression: str | None = None
+    gestational_age_weeks: int | None = Field(default=None, ge=0, le=45)
+
+
+@router.post("/ultrasound/draft", status_code=201)
+async def sono_save_draft(
+    body: SonoDraftRequest,
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lưu / cập nhật bản nháp kết quả.
+
+    Bản ĐÃ KÝ không đi qua đây: trigger `ultrasound_signed_block_update` chặn
+    mọi sửa nội dung sau chữ ký, và đó là chốt đúng — sửa một kết quả đã ký phải
+    qua đường đính chính, có lý do, giữ lại bản cũ.
+    """
+    return await UltrasoundBoardService(pool).save_draft(
+        identity=identity,
+        visit_id=str(body.visit_id),
+        ultrasound_type=body.ultrasound_type,
+        findings=body.findings,
+        impression=body.impression,
+        gestational_age_weeks=body.gestational_age_weeks,
+    )

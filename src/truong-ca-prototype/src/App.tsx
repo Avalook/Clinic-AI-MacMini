@@ -13,13 +13,14 @@ import NurseVitalsDashboard from './components/nurse/NurseVitalsDashboard';
 import ReceptionDashboard from './components/reception/ReceptionDashboard';
 import DoctorDashboard from './components/doctor/DoctorDashboard';
 import UltrasoundDashboard from './components/ultrasound/UltrasoundDashboard';
+import PharmacyDashboard from './components/pharmacy/PharmacyDashboard';
 import TransferRoomModal from './components/modals/TransferRoomModal';
 import RouteSelectModal from './components/modals/RouteSelectModal';
 import { ALERTS, type Patient } from './data/mock-data';
-import { UserCheck, Stethoscope, ClipboardList, User, Activity } from 'lucide-react';
+import { UserCheck, Stethoscope, ClipboardList, User, Activity, Pill } from 'lucide-react';
 
 export default function App() {
-  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan' | 'bac_si' | 'sieu_am'>('truong_ca');
+  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan' | 'bac_si' | 'sieu_am' | 'nha_thuoc'>('truong_ca');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -47,7 +48,7 @@ export default function App() {
         borderRadius: 999,
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
         boxShadow: 'var(--shadow-lg)',
         fontSize: 12,
       }}
@@ -118,6 +119,19 @@ export default function App() {
       >
         <Activity size={12} /> Siêu âm
       </button>
+      <button
+        onClick={() => setRoleView('nha_thuoc')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'nha_thuoc' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'nha_thuoc' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <Pill size={12} /> Nhà thuốc
+      </button>
     </div>
   );
 
@@ -182,6 +196,16 @@ export default function App() {
       <div style={{ position: 'relative' }}>
         <RoleSwitcherBar />
         <UltrasoundDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Pharmacy role view
+  if (roleView === 'nha_thuoc') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <PharmacyDashboard onSwitchRole={() => setRoleView('truong_ca')} />
       </div>
     );
   }
