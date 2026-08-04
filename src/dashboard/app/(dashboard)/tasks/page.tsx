@@ -30,31 +30,18 @@ import DoctorWorkBoard, { type DoctorApptRow } from "./DoctorWorkBoard";
 import CashierWorkBoard, {
   type CashierMode,
   type CashierRow,
-  type CashierServiceItem,
-  type CashierDrugItem,
 } from "./CashierWorkBoard";
 import type { ClinicRole } from "../../../lib/roles";
-import { paidCashierPaymentSeeds } from "../../../lib/clinical-workspace-policy";
+import type { CashierPaymentKind } from "../../../lib/clinical-workspace-policy";
 import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Chuẩn hoá tên để khớp bảng giá (service_price): bỏ URL trong ngoặc, gộp khoảng trắng.
-const normName = (s: string): string =>
-  (s ?? "")
-    .toLowerCase()
-    .replace(/\(https?:\/\/[^)]*\)?/g, "")
-    .replace(/[()]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-// Bỏ link Notion "(https://…)" khỏi tên dịch vụ/xét nghiệm cho gọn.
-const cleanName = (s: string | null): string =>
-  (s ?? "").replace(/\s*\(https?:\/\/[^)]*\)?/gi, "").trim();
-
-const oneOf = <T,>(x: T | T[] | null): T | null =>
-  !x ? null : Array.isArray(x) ? (x[0] ?? null) : x;
+// normName / cleanName / oneOf đã chuyển xuống cashier_board_service.py cùng
+// với truy vấn. Chuẩn hoá tên để tra bảng giá là LUẬT, và luật ở backend —
+// giữ một bản sao ở TSX là giữ một bản sẽ lệch.
 
 // Mode thu ngân theo vai: CASHIER_THUOC=[thuoc], CASHIER_DV=[dich_vu], CASHIER=cả hai.
 function cashierModes(role: ClinicRole | null): CashierMode[] {
@@ -70,181 +57,38 @@ function cashierModes(role: ClinicRole | null): CashierMode[] {
 // Giá best-effort khớp tên với service_price; chưa có → để trống. Khu QR + xác
 // nhận thanh toán là khung demo (chưa có bảng billing — KHÔNG bịa trạng thái đã thu).
 async function CashierTasks(modes: CashierMode[]) {
-  const supabase = await getSupabaseServer();
-  const { startUtc, endUtc } = vnTodayRangeUtc();
+  // MỘT VÒNG MẠNG, KHÔNG PHẢI HAI ĐỢT.
+  //
+  // Khối này trước đây đọc PostgREST hai đợt nối tiếp: đợt một lấy lượt khám
+  // hôm nay, đợt hai lấy xét nghiệm / dịch vụ / đơn thuốc / bảng giá / đã thu
+  // *theo id lấy được từ đợt một*. Đo ngày 04/08: một truy vấn PostgREST
+  // ~210ms, một vòng Postgres ~73ms — nên hai đợt là ~420ms ngồi chờ, mỗi lần
+  // thu ngân mở màn hình. Nay là một câu SQL ở cashier_board_service.py: 80ms.
+  //
+  // Và nó sửa một lỗi tiền bạc có sẵn: truy vấn cũ hỏi `lab_result.id`, mà cột
+  // khoá tên là `lab_result_id`. PostgREST trả lỗi 42703, TSX nuốt bằng `?? []`
+  // → XÉT NGHIỆM CHƯA BAO GIỜ vào hoá đơn. Thu ngân thu thiếu tiền mà màn hình
+  // không có gì bất thường.
+  const board = await fetchFromBackend<{
+    items: CashierRow[];
+    paid: { visit_id: string; kind: CashierPaymentKind }[];
+  }>(`/api/v1/cashier/board?modes=${modes.join(",")}`);
 
-  interface VisitRaw {
-    visit_id: string;
-    clinic_patient_id: string;
-    appointment_id: string | null;
-    patient:
-      | { full_name: string | null; patient_code: string | null; phone_primary: string | null }
-      | { full_name: string | null; patient_code: string | null; phone_primary: string | null }[]
-      | null;
-    appointment:
-      | { status: string | null; service: { name: string | null } | { name: string | null }[] | null }
-      | { status: string | null; service: { name: string | null } | { name: string | null }[] | null }[]
-      | null;
-  }
-
-  const { data: visitsRaw, error } = await supabase
-    .from("visit")
-    .select(
-      `visit_id, clinic_patient_id, appointment_id,
-       patient:patient!clinic_patient_id ( full_name, patient_code, phone_primary ),
-       appointment:appointment!appointment_id ( status, service:service_type!service_type_id ( name ) )`,
-    )
-    .gte("created_at", startUtc)
-    .lt("created_at", endUtc)
-    .order("created_at", { ascending: false })
-    .limit(300);
-
-  // CHỈ hiện BN cho thu ngân khi BÁC SĨ ĐÃ KHÁM XONG (appointment.status =
-  // COMPLETED). Trước đây lấy MỌI visit tạo hôm nay (kể cả CHECKED_IN/IN_PROGRESS
-  // = đang khám) → thu ngân thu tiền được khi bác sĩ chưa khám xong. "Khám xong"
-  // = COMPLETED (khớp /patient-list + VisitStatusBoard; dashboard KHÔNG tự set
-  // visit.FINALIZED nên lọc theo appointment.status, không theo visit.status).
-  const visits = ((visitsRaw as VisitRaw[] | null) ?? []).filter(
-    (v) => oneOf(v.appointment)?.status === "COMPLETED",
-  );
-  const patientIds = [
-    ...new Set(visits.map((v) => v.clinic_patient_id).filter((x): x is string => !!x)),
-  ];
-  const apptIds = [
-    ...new Set(visits.map((v) => v.appointment_id).filter((x): x is string => !!x)),
-  ];
-  const visitIds = visits.map((v) => v.visit_id);
-  const wantSvc = modes.includes("dich_vu");
-  const wantRx = modes.includes("thuoc");
-
-  const [labRes, svcRes, rxRes, priceRes, payRes] = await Promise.all([
-    wantSvc && apptIds.length
-      ? supabase
-          .from("lab_result")
-          .select("id, appointment_id, test_name")
-          .in("appointment_id", apptIds)
-          .limit(2000)
-      : Promise.resolve({ data: [] }),
-    wantSvc && patientIds.length
-      ? supabase
-          .from("service_log")
-          .select("id, clinic_patient_id, service_name_raw, service:service_type!service_type_id ( name )")
-          .in("clinic_patient_id", patientIds)
-          .gte("ordered_at", startUtc)
-          .lt("ordered_at", endUtc)
-          .limit(1000)
-      : Promise.resolve({ data: [] }),
-    wantRx && visitIds.length
-      ? supabase
-          .from("prescription")
-          .select("id, visit_id, drug_name_raw, quantity, dosage_instructions")
-          .in("visit_id", visitIds)
-          .limit(2000)
-      : Promise.resolve({ data: [] }),
-    supabase.from("service_price").select("name, group, unit_price").eq("active", true),
-    // Khâu ĐÃ THU (bảng payment) — seed trạng thái "Đã thanh toán". Bảng có thể
-    // chưa tồn tại (migration 056 chưa apply) → error → coi như rỗng (graceful).
-    visitIds.length
-      ? supabase
-          .from("payment")
-          .select("visit_id, kind, status")
-          .eq("status", "PAID")
-          .in("visit_id", visitIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const paidInit = paidCashierPaymentSeeds(
-    (payRes.data as { visit_id: string; kind: string; status: string | null }[] | null) ?? [],
-  );
-
-  // Bảng giá theo tên đã chuẩn hoá (chỉ dòng có đơn giá).
-  const priceThuoc = new Map<string, number>();
-  const priceDV = new Map<string, number>();
-  for (const p of (priceRes.data as { name: string; group: string; unit_price: number | null }[] | null) ?? []) {
-    if (p.unit_price == null) continue;
-    (p.group === "thuoc" ? priceThuoc : priceDV).set(normName(p.name), p.unit_price);
-  }
-  const dvPrice = (name: string): number | null => priceDV.get(normName(name)) ?? null;
-
-  // CLS theo appointment.
-  const labByAppt = new Map<string, { id: string; test_name: string }[]>();
-  for (const l of (labRes.data as { id: string; appointment_id: string | null; test_name: string }[] | null) ?? []) {
-    if (!l.appointment_id) continue;
-    const arr = labByAppt.get(l.appointment_id) ?? [];
-    arr.push({ id: l.id, test_name: l.test_name });
-    labByAppt.set(l.appointment_id, arr);
-  }
-  // service_log theo BN.
-  interface SvcRaw {
-    id: string;
-    clinic_patient_id: string;
-    service_name_raw: string | null;
-    service: { name: string | null } | { name: string | null }[] | null;
-  }
-  const svcByPatient = new Map<string, CashierServiceItem[]>();
-  for (const s of (svcRes.data as SvcRaw[] | null) ?? []) {
-    const name = oneOf(s.service)?.name ?? cleanName(s.service_name_raw);
-    if (!name) continue;
-    const arr = svcByPatient.get(s.clinic_patient_id) ?? [];
-    arr.push({ id: s.id, name, price: dvPrice(name) });
-    svcByPatient.set(s.clinic_patient_id, arr);
-  }
-  // Đơn thuốc theo lượt khám.
-  interface RxRaw {
-    id: string;
-    visit_id: string;
-    drug_name_raw: string | null;
-    quantity: string | null;
-    dosage_instructions: string | null;
-  }
-  const rxByVisit = new Map<string, CashierDrugItem[]>();
-  for (const d of (rxRes.data as RxRaw[] | null) ?? []) {
-    const name = (d.drug_name_raw ?? "").trim();
-    if (!name) continue;
-    const arr = rxByVisit.get(d.visit_id) ?? [];
-    arr.push({
-      id: d.id,
-      name,
-      quantity: d.quantity,
-      dosage: d.dosage_instructions,
-      price: priceThuoc.get(normName(name)) ?? null,
-    });
-    rxByVisit.set(d.visit_id, arr);
-  }
-
-  const rows: CashierRow[] = visits.map((v) => {
-    const p = oneOf(v.patient);
-    const appt = oneOf(v.appointment);
-    const services: CashierServiceItem[] = [];
-    if (wantSvc) {
-      const examName = oneOf(appt?.service ?? null)?.name ?? null;
-      if (examName)
-        services.push({ id: `exam-${v.visit_id}`, name: examName, price: dvPrice(examName) });
-      for (const l of v.appointment_id ? (labByAppt.get(v.appointment_id) ?? []) : []) {
-        const nm = cleanName(l.test_name);
-        if (nm) services.push({ id: l.id, name: nm, price: dvPrice(nm) });
-      }
-      services.push(...(svcByPatient.get(v.clinic_patient_id) ?? []));
-    }
-    return {
-      visit_id: v.visit_id,
-      clinic_patient_id: v.clinic_patient_id,
-      full_name: p?.full_name ?? null,
-      patient_code: p?.patient_code ?? null,
-      phone: p?.phone_primary ?? null,
-      appt_status: appt?.status ?? null,
-      services,
-      drugs: wantRx ? (rxByVisit.get(v.visit_id) ?? []) : [],
-    };
-  });
-
-  if (error) {
+  // Đọc không được thì NÓI RA. Hiện một bảng rỗng ở màn thu tiền nghĩa là
+  // "hôm nay không ai cần thu" — một câu khẳng định sai có thể khiến bệnh nhân
+  // ra về mà chưa thanh toán.
+  if (!board) {
     return (
       <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-        {error.message}
+        Không đọc được danh sách thu ngân. Tải lại trang; nếu vẫn vậy, báo kỹ
+        thuật — ĐỪNG coi đây là &ldquo;không có ai cần thu&rdquo;.
       </div>
     );
   }
+
+  const rows: CashierRow[] = board.items;
+  const paidInit = board.paid;
+
   return <CashierWorkBoard rows={rows} modes={modes} paidInit={paidInit} />;
 }
 

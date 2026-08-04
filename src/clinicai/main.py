@@ -21,6 +21,7 @@ from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.booking import router as booking_router
 from clinicai.api.v1.routers.brief import router as brief_router
+from clinicai.api.v1.routers.cashier import router as cashier_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
 from clinicai.api.v1.routers.clinical_forms import router as clinical_forms_router
 from clinicai.api.v1.routers.clinical_records import (
@@ -159,6 +160,9 @@ app.include_router(
 )
 app.include_router(
     payment_router, prefix="/api/v1", tags=["payment"], dependencies=_GUARDED
+)
+app.include_router(
+    cashier_router, prefix="/api/v1", tags=["cashier"], dependencies=_GUARDED
 )
 app.include_router(
     episodes_router, prefix="/api/v1", tags=["episodes"], dependencies=_GUARDED
