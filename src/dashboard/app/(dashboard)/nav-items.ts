@@ -115,11 +115,13 @@ export const NAV: NavItem[] = [
     shortLabel: "Đóng đợt",
     icon: CheckCheck,
   },
-  // Trưởng ca (hành chính): theo dõi buổi (read-only).
+  // Trưởng ca: bảng điều phối ca (Notion §4). Nhãn cũ là "Theo dõi buổi" — đúng
+  // với trang cũ (bảng chỉ đọc), sai với trang bây giờ. Người dùng đi tìm chữ
+  // "Điều phối" trên thanh bên sẽ không thấy nó, và kết luận là chưa có.
   {
     href: "/truong-ca",
-    label: "Theo dõi buổi",
-    shortLabel: "Theo dõi",
+    label: "Điều phối ca",
+    shortLabel: "Điều phối",
     icon: ClipboardCheck,
   },
   // Bảng giá tách 2 trang, đặt NGAY DƯỚI "Công việc của tôi" (sidebar Thu ngân).

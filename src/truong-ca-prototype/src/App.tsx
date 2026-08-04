@@ -10,13 +10,14 @@ import AlertList from './components/alerts/AlertList';
 import DispatchHistory from './components/history/DispatchHistory';
 import TvDisplay from './components/tv/TvDisplay';
 import NurseVitalsDashboard from './components/nurse/NurseVitalsDashboard';
+import ReceptionDashboard from './components/reception/ReceptionDashboard';
 import TransferRoomModal from './components/modals/TransferRoomModal';
 import RouteSelectModal from './components/modals/RouteSelectModal';
 import { ALERTS, type Patient } from './data/mock-data';
-import { UserCheck, Stethoscope } from 'lucide-react';
+import { UserCheck, Stethoscope, ClipboardList } from 'lucide-react';
 
 export default function App() {
-  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong'>('truong_ca');
+  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan'>('truong_ca');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -29,6 +30,68 @@ export default function App() {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   }
+
+  // Floating Role Switcher Bar Component
+  const RoleSwitcherBar = () => (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 16,
+        left: 256,
+        zIndex: 50,
+        background: 'var(--ink)',
+        color: 'white',
+        padding: '6px 14px',
+        borderRadius: 999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        boxShadow: 'var(--shadow-lg)',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ opacity: 0.8 }}>Đổi vai trò:</span>
+      <button
+        onClick={() => setRoleView('truong_ca')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'truong_ca' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'truong_ca' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <UserCheck size={12} /> Trưởng ca
+      </button>
+      <button
+        onClick={() => setRoleView('dieu_duong')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'dieu_duong' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'dieu_duong' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <Stethoscope size={12} /> Điều dưỡng
+      </button>
+      <button
+        onClick={() => setRoleView('le_tan')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'le_tan' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'le_tan' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <ClipboardList size={12} /> Lễ tân
+      </button>
+    </div>
+  );
 
   // TV mode is full-screen, no sidebar/header
   if (activeTab === 'tv') {
@@ -59,35 +122,18 @@ export default function App() {
   if (roleView === 'dieu_duong') {
     return (
       <div style={{ position: 'relative' }}>
-        {/* Quick Role Switcher Bar */}
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 16,
-            left: 16,
-            zIndex: 50,
-            background: 'var(--ink)',
-            color: 'white',
-            padding: '6px 12px',
-            borderRadius: 999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            boxShadow: 'var(--shadow-lg)',
-            fontSize: 12,
-          }}
-        >
-          <span style={{ opacity: 0.8 }}>Đang ở vai: <strong>Điều dưỡng</strong></span>
-          <button
-            onClick={() => setRoleView('truong_ca')}
-            className="btn btn-primary"
-            style={{ padding: '3px 10px', fontSize: 11, background: 'var(--brand-500)' }}
-          >
-            <UserCheck size={12} /> Sang Trưởng ca
-          </button>
-        </div>
-
+        <RoleSwitcherBar />
         <NurseVitalsDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Receptionist role view
+  if (roleView === 'le_tan') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <ReceptionDashboard onSwitchRole={() => setRoleView('truong_ca')} />
       </div>
     );
   }
@@ -95,33 +141,7 @@ export default function App() {
   // Trưởng Ca role view
   return (
     <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
-      {/* Floating Role Switcher Bar */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 16,
-          left: 256,
-          zIndex: 50,
-          background: 'var(--ink)',
-          color: 'white',
-          padding: '6px 12px',
-          borderRadius: 999,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          boxShadow: 'var(--shadow-lg)',
-          fontSize: 12,
-        }}
-      >
-        <span style={{ opacity: 0.8 }}>Đang ở vai: <strong>Trưởng ca</strong></span>
-        <button
-          onClick={() => setRoleView('dieu_duong')}
-          className="btn btn-primary"
-          style={{ padding: '3px 10px', fontSize: 11, background: 'var(--brand-500)' }}
-        >
-          <Stethoscope size={12} /> Sang Màn hình Điều dưỡng
-        </button>
-      </div>
+      <RoleSwitcherBar />
 
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} alertCount={alertCount} />
 
