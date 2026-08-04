@@ -101,6 +101,89 @@ class ClinicConfigService:
             "nodes": [{"code": n["code"], "name": n["name"]} for n in nodes],
         }
 
+    async def services(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Dịch vụ khám nào dùng phiếu nào.
+
+        Trước 20260805000004 việc này do trình duyệt ĐOÁN bằng từ khoá trong
+        tên dịch vụ, và 6/14 dịch vụ của Dr4Women không đoán ra — bác sĩ mở
+        lượt khám thì phần phiếu ẩn hẳn, không một lời nào.
+        """
+        rows = await self._pool.fetch(
+            "SELECT st.id, st.code, st.name, st.form_code, st.form_code_nam,"
+            "       st.is_active"
+            "  FROM public.service_type st"
+            " WHERE st.clinic_id = $1::uuid"
+            " ORDER BY st.is_active DESC, st.name",
+            identity.clinic_id,
+        )
+        forms = await self._pool.fetch(
+            "SELECT form_code, title FROM public.clinical_form_catalogue"
+            " WHERE clinic_id = $1::uuid AND is_active ORDER BY form_code",
+            identity.clinic_id,
+        )
+        return {
+            "items": [
+                {
+                    "service_type_id": str(r["id"]),
+                    "code": r["code"],
+                    "name": r["name"],
+                    "is_active": r["is_active"],
+                    "form_code": r["form_code"],
+                    #: Chỉ khai khi nội dung khám khác nhau theo giới. Hôm nay
+                    #: đúng một dịch vụ: khám tiền hôn nhân.
+                    "form_code_nam": r["form_code_nam"],
+                }
+                for r in rows
+            ],
+            "forms": [
+                {"form_code": f["form_code"], "title": f["title"]} for f in forms
+            ],
+        }
+
+    async def set_service_form(
+        self,
+        *,
+        identity: StaffIdentity,
+        service_type_id: str,
+        form_code: str | None,
+        form_code_nam: str | None,
+    ) -> dict[str, Any]:
+        """Gán phiếu khám cho một dịch vụ.
+
+        Chuỗi rỗng = KHÔNG có phiếu, khác với "chưa khai": dịch vụ thủ thuật
+        hay tư vấn vốn không cần phiếu chuyên khoa, và màn bác sĩ nói ra điều
+        đó thay vì để trống.
+        """
+        assert_may_configure(identity)
+        nu = (form_code or "").strip().upper() or None
+        nam = (form_code_nam or "").strip().upper() or None
+        if nam and not nu:
+            raise ValidationError(
+                "Khai phiếu cho bệnh nhân nam thì phải khai cả phiếu mặc định "
+                "— nếu không thì bệnh nhân nữ không có phiếu nào."
+            )
+        try:
+            name = await self._pool.fetchval(
+                """
+                UPDATE public.service_type
+                   SET form_code = $3, form_code_nam = $4
+                 WHERE id = $1::uuid AND clinic_id = $2::uuid
+                RETURNING name
+                """,
+                service_type_id,
+                identity.clinic_id,
+                nu,
+                nam,
+            )
+        except asyncpg.ForeignKeyViolationError as exc:
+            # Trigger `service_type_form_code_exists` nói bằng câu người đọc
+            # được, kèm đúng mã sai.
+            raise ValidationError(str(exc).split("\n")[0]) from exc
+        if name is None:
+            raise ValidationError("Không tìm thấy dịch vụ này.")
+        logger.info("service_form_set", service=name, form=nu, form_nam=nam)
+        return {"ok": True, "name": name, "form_code": nu, "form_code_nam": nam}
+
     async def staff(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Ai làm được bước nào."""
         rows = await self._pool.fetch(_STAFF_SQL, identity.clinic_id)

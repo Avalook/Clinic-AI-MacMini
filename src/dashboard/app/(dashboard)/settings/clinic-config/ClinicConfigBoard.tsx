@@ -12,24 +12,35 @@
 // giao diện thì mỗi ô tick giật một nhịp.
 
 import { useState, useTransition } from "react";
-import { Layers, DoorOpen, Users, Check, AlertTriangle } from "lucide-react";
-import type { ConfigLocation, ConfigStaff, NodeDef } from "./types";
+import { Layers, DoorOpen, Users, Check, AlertTriangle, ClipboardList } from "lucide-react";
+import type {
+  ConfigLocation,
+  ConfigService,
+  ConfigStaff,
+  FormDef,
+  NodeDef,
+} from "./types";
 
 const CHUA_KHAI = "— chưa khai tầng —";
 
 export default function ClinicConfigBoard({
   initialLocations,
   initialStaff,
+  initialServices,
   nodes,
+  forms,
   ok,
 }: {
   initialLocations: ConfigLocation[];
   initialStaff: ConfigStaff[];
+  initialServices: ConfigService[];
   nodes: NodeDef[];
+  forms: FormDef[];
   ok: boolean;
 }) {
   const [locations, setLocations] = useState(initialLocations);
   const [staff, setStaff] = useState(initialStaff);
+  const [services, setServices] = useState(initialServices);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -82,6 +93,32 @@ export default function ClinicConfigBoard({
         setSaved(roomId);
       } catch (e) {
         setLocations(truoc);
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  function saveServiceForm(
+    id: string,
+    field: "form_code" | "form_code_nam",
+    value: string,
+  ) {
+    const truoc = services;
+    const sv = services.find((x) => x.service_type_id === id);
+    if (!sv) return;
+    const next = { ...sv, [field]: value || null };
+    setServices(services.map((x) => (x.service_type_id === id ? next : x)));
+    setErr(null);
+    startTransition(async () => {
+      try {
+        await send("service-form", {
+          service_type_id: id,
+          form_code: next.form_code,
+          form_code_nam: next.form_code_nam,
+        });
+        setSaved(id);
+      } catch (e) {
+        setServices(truoc);
         setErr(e instanceof Error ? e.message : String(e));
       }
     });
@@ -246,6 +283,90 @@ export default function ClinicConfigBoard({
           </div>
         </section>
       ))}
+
+      {/* ── Dịch vụ nào dùng phiếu khám nào ─────────────────────────────── */}
+      <section className="rounded-card border border-line bg-surface shadow-card">
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <ClipboardList size={18} className="shrink-0 text-brand-600" />
+          <h2 className="text-base font-semibold text-ink">
+            Dịch vụ nào dùng phiếu khám nào
+          </h2>
+          <span className="ml-auto text-xs text-ink-muted">
+            {services.filter((s) => s.form_code).length}/{services.length} đã gán
+          </span>
+        </header>
+        <p className="border-b border-line px-4 py-2 text-xs text-ink-muted">
+          Bác sĩ mở lượt khám sẽ thấy đúng phiếu khai ở đây. Để trống nghĩa là
+          dịch vụ này không có phiếu chuyên khoa (thủ thuật, tư vấn) — màn bác
+          sĩ sẽ nói rõ điều đó thay vì để trống. Cột{" "}
+          <span className="font-medium text-ink">nam</span> chỉ khai khi nội
+          dung khám khác nhau theo giới, ví dụ khám tiền hôn nhân: nữ khám phụ
+          khoa, nam khám nam khoa.
+        </p>
+        <ul className="divide-y divide-brand-100">
+          {services.map((s) => (
+            <li
+              key={s.service_type_id}
+              className="flex flex-wrap items-center gap-2 px-4 py-2.5"
+            >
+              <span className="min-w-0 flex-1 truncate text-ink">
+                {s.name}
+                {!s.is_active && (
+                  <span className="ml-2 text-[11px] text-ink-muted">(ngưng)</span>
+                )}
+              </span>
+              {saved === s.service_type_id && !isPending && (
+                <Check size={14} className="shrink-0 text-success" />
+              )}
+              <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+                Phiếu
+                <select
+                  value={s.form_code ?? ""}
+                  disabled={isPending}
+                  onChange={(e) =>
+                    saveServiceForm(s.service_type_id, "form_code", e.target.value)
+                  }
+                  className="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink disabled:opacity-60"
+                >
+                  <option value="">— không có —</option>
+                  {forms.map((f) => (
+                    <option key={f.form_code} value={f.form_code}>
+                      {f.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+                nếu là nam
+                <select
+                  value={s.form_code_nam ?? ""}
+                  disabled={isPending || !s.form_code}
+                  onChange={(e) =>
+                    saveServiceForm(
+                      s.service_type_id,
+                      "form_code_nam",
+                      e.target.value,
+                    )
+                  }
+                  className="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink disabled:opacity-60"
+                >
+                  <option value="">— như trên —</option>
+                  {forms.map((f) => (
+                    <option key={f.form_code} value={f.form_code}>
+                      {f.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </li>
+          ))}
+          {services.length === 0 && (
+            <li className="px-4 py-6 text-center text-sm text-ink-muted">
+              Chưa khai dịch vụ nào.
+            </li>
+          )}
+        </ul>
+      </section>
 
       {/* ── Ai làm được bước nào ────────────────────────────────────────── */}
       <section className="rounded-card border border-line bg-surface shadow-card">

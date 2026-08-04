@@ -52,6 +52,8 @@ def _record(**over: Any) -> dict[str, Any]:
         "address": "Hà Nội",
         "guardian_name": None,
         "service_name": "Khám phụ khoa",
+        # Backend chọn sẵn theo giới bệnh nhân — xem doctor_board_service._SQL.
+        "service_form_code": "PK",
     }
     base.update(over)
     return base
@@ -74,8 +76,23 @@ class TestTheShapeTheBoardReads:
         assert out["checked_in_at"] is None
 
     def test_service_is_nested_and_absent_becomes_null(self) -> None:
-        assert _row_to_dict(_record())["service"] == {"name": "Khám phụ khoa"}
+        assert _row_to_dict(_record())["service"]["name"] == "Khám phụ khoa"
         assert _row_to_dict(_record(service_name=None))["service"] is None
+
+    def test_the_form_code_travels_with_the_service(self) -> None:
+        """Màn bác sĩ dùng mã này để dựng phiếu khám. Trước đây nó tự đoán từ
+        TÊN dịch vụ, và 6/14 dịch vụ của Dr4Women không đoán ra."""
+        assert _row_to_dict(_record())["service"] == {
+            "name": "Khám phụ khoa",
+            "form_code": "PK",
+        }
+
+    def test_a_service_without_a_form_says_so_instead_of_vanishing(self) -> None:
+        """`None` = dịch vụ vốn không có phiếu (thủ thuật, tư vấn). Màn hình
+        phải NÓI RA — bác sĩ không phân biệt được "không cần phiếu" với "hệ
+        thống hỏng"."""
+        out = _row_to_dict(_record(service_form_code=None))["service"]
+        assert out == {"name": "Khám phụ khoa", "form_code": None}
 
     def test_the_two_computed_flags_survive_the_mapping(self) -> None:
         """Cả hai đều quyết định THỨ TỰ GỌI BỆNH NHÂN trên bảng khám."""
