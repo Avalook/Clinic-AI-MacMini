@@ -167,8 +167,6 @@ const names = [
   'Tô Thị Vân', 'Mai Hồng Phúc',
 ];
 
-const stationSequence: StationId[] = ['reception', 'vitals', 'doctor', 'sa1', 'lab', 'result_review', 'pharmacy', 'checkout'];
-
 function makeRoute(currentIdx: number, variant: number): RouteStep[] {
   const routes: StationId[][] = [
     ['reception', 'vitals', 'doctor', 'sa1', 'lab', 'result_review', 'pharmacy', 'checkout'],

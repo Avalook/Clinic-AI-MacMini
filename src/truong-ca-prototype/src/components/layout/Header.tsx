@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Calendar, RefreshCw, User } from 'lucide-react';
+import { Clock, Calendar, RefreshCw } from 'lucide-react';
 
 export default function Header() {
   const [time, setTime] = useState(new Date());
