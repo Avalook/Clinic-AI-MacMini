@@ -30,6 +30,7 @@ from clinicai.api.v1.routers.clinical_records import (
 )
 from clinicai.api.v1.routers.clinical_sign import router as clinical_sign_router
 from clinicai.api.v1.routers.config import router as config_router
+from clinicai.api.v1.routers.consent import router as consent_router
 from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
@@ -152,6 +153,12 @@ app.include_router(
 # Bảng điều khiển chủ sản phẩm — router tự từ chối khi APP_ENV=production.
 app.include_router(
     console_router, prefix="/api/v1", tags=["console"], dependencies=_GUARDED
+)
+# TRƯỚC patients_router. `patients.py` dùng `{id:uuid}` nên literal không bị
+# nuốt, nhưng lần trước /appointments/policy đã biến mất đúng theo kiểu này —
+# đăng ký đường dẫn cụ thể trước đường dẫn có tham số không tốn gì.
+app.include_router(
+    consent_router, prefix="/api/v1", tags=["consent"], dependencies=_GUARDED
 )
 app.include_router(patients_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
