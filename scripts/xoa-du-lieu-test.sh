@@ -58,6 +58,8 @@ select rpad(t,26) || lpad(n::text, 6) as \" \"
     union all select 'ultrasound_record', count(*) from ultrasound_record
     union all select 'slot_hold', count(*) from slot_hold
     union all select 'event_log', count(*) from event_log
+    union all select 'clinical_data_consent', count(*) from clinical_data_consent
+    union all select 'patient_link', count(*) from patient_link
   ) x where n > 0 order by n desc;"
 echo
 echo "==> GIỮ NGUYÊN:"
@@ -84,6 +86,30 @@ read -r answer
 # nghĩa là vấp bảng nào thì toàn bộ quay lại như cũ.
 psql "$DSN" -X -q -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
+
+-- SÁU BẢNG CỐT LÕI CẤM XOÁ CỨNG, và cái cấm đó ĐÚNG.
+--
+--     appointment · clinical_record · lab_result · patient · payment · visit
+--
+-- `prevent_hard_delete()` giữ cho hồ sơ bệnh án là thứ chỉ ghi thêm: huỷ một
+-- lịch hẹn là đổi trạng thái, không phải làm cho nó chưa từng tồn tại. Lần chạy
+-- đầu của script này đã đâm vào đúng cái chốt ấy và quay lại sạch — nó làm đúng
+-- việc của nó.
+--
+-- Ở đây ta cố tình mở khoá, VÀ ĐÓNG LẠI TRONG CÙNG GIAO DỊCH. Nếu bất kỳ lệnh
+-- nào phía dưới hỏng thì ROLLBACK trả cả dữ liệu lẫn trigger về nguyên trạng —
+-- không có cửa nào để prod đứng dậy mà thiếu lớp bảo vệ này.
+--
+-- Chỉ dùng khi dữ liệu đang có là dữ liệu chạy thử. Với dữ liệu bệnh nhân thật,
+-- câu trả lời đúng là KHÔNG XOÁ.
+ALTER TABLE appointment     DISABLE TRIGGER trg_appointment_no_delete;
+ALTER TABLE clinical_record DISABLE TRIGGER trg_clinical_record_no_delete;
+ALTER TABLE lab_result      DISABLE TRIGGER trg_lab_result_no_delete;
+ALTER TABLE patient         DISABLE TRIGGER trg_patient_no_delete;
+ALTER TABLE payment         DISABLE TRIGGER trg_payment_no_delete;
+ALTER TABLE visit           DISABLE TRIGGER trg_visit_no_delete;
+
+DELETE FROM clinical_record;
 DELETE FROM clinical_release;
 DELETE FROM visit_amendment;
 DELETE FROM clinical_form_response;
@@ -102,11 +128,46 @@ DELETE FROM cskh_action;
 DELETE FROM staff_task;
 DELETE FROM appointment;
 DELETE FROM care_episode;
+-- Hai bảng này trỏ vào bệnh nhân bằng clinic_patient_id và KHÔNG có khoá
+-- ngoại, nên xoá bệnh nhân không kéo theo chúng và database cũng không
+-- kêu. Bỏ sót thì lần chạy sau còn lại những bản đồng ý chia sẻ hồ sơ
+-- giữa hai người không còn tồn tại — và chúng vẫn có hiệu lực.
+DELETE FROM clinical_data_consent;
+DELETE FROM patient_link;
 DELETE FROM patient;
 -- event_log xoá SAU CÙNG: nó ghi nhật ký của chính mấy bảng trên, và giữ lại
 -- nhật ký của những dòng đã biến mất chỉ làm màn Nhật ký thao tác đầy những
 -- tham chiếu trỏ vào hư không.
 DELETE FROM event_log;
+
+ALTER TABLE appointment     ENABLE TRIGGER trg_appointment_no_delete;
+ALTER TABLE clinical_record ENABLE TRIGGER trg_clinical_record_no_delete;
+ALTER TABLE lab_result      ENABLE TRIGGER trg_lab_result_no_delete;
+ALTER TABLE patient         ENABLE TRIGGER trg_patient_no_delete;
+ALTER TABLE payment         ENABLE TRIGGER trg_payment_no_delete;
+ALTER TABLE visit           ENABLE TRIGGER trg_visit_no_delete;
+
+-- Đếm lại TRƯỚC KHI COMMIT. Một lệnh ENABLE gõ sai tên bảng sẽ đổ ngay ở trên,
+-- nhưng một cái BỊ QUÊN thì im lặng — và prod sẽ chạy tiếp mà không còn lớp
+-- chống xoá cứng, cho tới lúc có người xoá thật.
+DO $kiem$
+DECLARE
+    con_tat text;
+BEGIN
+    SELECT string_agg(c.relname || '.' || t.tgname, ', ')
+      INTO con_tat
+      FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      JOIN pg_proc  p ON p.oid = t.tgfoid
+     WHERE p.proname = 'prevent_hard_delete'
+       AND NOT t.tgisinternal
+       AND t.tgenabled = 'D';
+    IF con_tat IS NOT NULL THEN
+        RAISE EXCEPTION 'còn trigger chống xoá đang TẮT: % — huỷ toàn bộ', con_tat;
+    END IF;
+END
+$kiem$;
+
 COMMIT;
 SQL
 
