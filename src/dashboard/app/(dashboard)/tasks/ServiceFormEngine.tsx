@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { INPUT, LABEL } from "../form-ui";
 import { getFormSchema } from "../../../lib/form-schemas";
+import AndrologyReview from "./AndrologyReview";
 import type {
   FormData,
   FormField,
@@ -216,6 +217,11 @@ export default function ServiceFormEngine({
               </div>
             </section>
           )}
+
+          {/* Chỉ phiếu Nam khoa mới có bảng đối chiếu ngưỡng. Đặt ở đây chứ
+              không trong Field: nó đọc CẢ phiếu (tinh dịch đồ + khám bìu + nội
+              tiết) để suy ra gợi ý, không đọc từng ô rời. */}
+          {schema.service_code === "NK" && <AndrologyReview values={values} />}
 
           {/* Thanh điều hướng dưới — LUÔN hiện: prev/next + nút Lưu (khỏi cuộn đáy). */}
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-surface-sunken pt-3">
