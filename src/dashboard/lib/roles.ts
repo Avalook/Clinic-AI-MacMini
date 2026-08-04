@@ -249,8 +249,14 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
   // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
   "/customers": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TRUONG_CA"],
-  // Trưởng ca: theo dõi buổi (read-only). Vai HÀNH CHÍNH, KHÔNG lâm sàng.
+  // TRƯỞNG CA — năm màn điều phối. Phải liệt kê TỪNG đường: requireNavAccess()
+  // tra chính xác href, không so tiền tố, nên thiếu một dòng ở đây là màn đó đá
+  // người dùng về /home mà không báo gì.
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
+  "/truong-ca/hang-doi": ["TRUONG_CA", "MANAGEMENT"],
+  "/truong-ca/canh-bao": ["TRUONG_CA", "MANAGEMENT"],
+  "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
+  "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
   // Danh sách bệnh nhân ĐÃ KHÁM (lần đầu / tái khám) — CSKH/Lễ tân/QL + BÁC SĨ.
   // Bác sĩ thấy TOÀN BỘ BN đã khám (như front desk); mở hồ sơ vẫn bị guard
   // patients/[id] (chỉ mở được BN của mình) — đúng mô hình quyền hiện tại.

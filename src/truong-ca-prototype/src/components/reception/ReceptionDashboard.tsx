@@ -370,7 +370,7 @@ export default function ReceptionDashboard({ onSwitchRole }: ReceptionDashboardP
 
                     {/* Identity Info */}
                     <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-muted)', uppercase: true, marginBottom: 8 }}>Thông tin định danh</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', marginBottom: 8 }}>Thông tin định danh</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11 }}>
                           <div><span style={{ color: 'var(--ink-muted)' }}>Họ và tên:</span> <strong style={{ color: 'var(--ink)' }}>{activeCheckin.name}</strong></div>
@@ -509,7 +509,7 @@ export default function ReceptionDashboard({ onSwitchRole }: ReceptionDashboardP
                     {/* Next Steps Journey */}
                     <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10, marginBottom: 14 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Hành trình tiếp theo</div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, textCenter: true }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, textAlign: 'center' }}>
                         <div style={{ textAlign: 'center' }}>
                           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--brand-600)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px' }}>📱</div>
                           <span style={{ fontWeight: 600 }}>Tiếp nhận</span>
@@ -656,21 +656,21 @@ export default function ReceptionDashboard({ onSwitchRole }: ReceptionDashboardP
                     {/* 3 Grid Boxes */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, fontSize: 11, marginBottom: 14 }}>
                       <div style={{ background: 'var(--surface-sunken)', padding: 10, borderRadius: 6 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-muted)', uppercase: true, marginBottom: 4 }}>Lịch hẹn</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Lịch hẹn</div>
                         <div>14/05/2026 · 10:00</div>
                         <div>Nội tổng quát</div>
                         <strong style={{ color: 'var(--ink)' }}>BS. Trần Văn Dũng</strong>
                       </div>
 
                       <div style={{ background: 'var(--surface-sunken)', padding: 10, borderRadius: 6 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-muted)', uppercase: true, marginBottom: 4 }}>Thông tin hàng đợi</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Thông tin hàng đợi</div>
                         <div>Thời điểm đến: 10:10</div>
                         <div>Vào hàng đợi lúc: 10:10</div>
                         <div>Được gán quầy: 10:10</div>
                       </div>
 
                       <div style={{ background: 'var(--surface-sunken)', padding: 10, borderRadius: 6 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-muted)', uppercase: true, marginBottom: 4 }}>Bảo hiểm y tế</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Bảo hiểm y tế</div>
                         <div>BHYT: HS4567890123456</div>
                         <div>Nơi ĐK KCB BĐ: BV Quận 3</div>
                         <div style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Hợp lệ</div>
@@ -749,7 +749,7 @@ export default function ReceptionDashboard({ onSwitchRole }: ReceptionDashboardP
 
                     {/* TV Counter Preview */}
                     <div style={{ background: 'var(--brand-700)', color: 'white', padding: 14, borderRadius: 'var(--radius-card)', textAlign: 'center', marginBottom: 12 }}>
-                      <div style={{ fontSize: 10, uppercase: true, letterSpacing: '0.08em', opacity: 0.8 }}>MÀN HÌNH HIỂN THỊ (TV QUẦY 2)</div>
+                      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.8 }}>MÀN HÌNH HIỂN THỊ (TV QUẦY 2)</div>
                       <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>QUẦY 2 &nbsp;|&nbsp; MỜI SỐ</div>
                       <div style={{ fontSize: 36, fontWeight: 900, color: 'white', margin: '4px 0' }}>{activeQueue.stt}</div>
                       <div style={{ fontSize: 11, opacity: 0.8 }}>CHỜ {activeQueue.waitTimeStr}</div>

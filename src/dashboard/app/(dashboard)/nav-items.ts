@@ -17,6 +17,11 @@ import {
   Tag,
   ScanLine,
   ClipboardCheck,
+  LayoutDashboard,
+  Rows3,
+  AlertTriangle,
+  History,
+  Tv,
   ListOrdered,
   CheckCheck,
   Gauge,
@@ -115,14 +120,41 @@ export const NAV: NavItem[] = [
     shortLabel: "Đóng đợt",
     icon: CheckCheck,
   },
-  // Trưởng ca: bảng điều phối ca (Notion §4). Nhãn cũ là "Theo dõi buổi" — đúng
-  // với trang cũ (bảng chỉ đọc), sai với trang bây giờ. Người dùng đi tìm chữ
-  // "Điều phối" trên thanh bên sẽ không thấy nó, và kết luận là chưa có.
+  // TRƯỞNG CA — năm màn điều phối, mỗi màn một mục trên thanh bên.
+  //
+  // Trước đây là MỘT mục dẫn vào một trang có cột tab riêng — tức là một thanh
+  // bên thứ hai nằm ngay cạnh thanh bên thật, và người dùng phải học hai chỗ
+  // điều hướng cho cùng một khu vực. Nay mỗi màn là một URL: mở thẳng được, gửi
+  // link được, nút Quay lại chạy đúng.
   {
     href: "/truong-ca",
-    label: "Điều phối ca",
-    shortLabel: "Điều phối",
-    icon: ClipboardCheck,
+    label: "Toàn cảnh điều phối",
+    shortLabel: "Toàn cảnh",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/truong-ca/hang-doi",
+    label: "Hàng đợi theo trạm",
+    shortLabel: "Hàng đợi",
+    icon: Rows3,
+  },
+  {
+    href: "/truong-ca/canh-bao",
+    label: "Cảnh báo & ngưỡng",
+    shortLabel: "Cảnh báo",
+    icon: AlertTriangle,
+  },
+  {
+    href: "/truong-ca/lich-su",
+    label: "Lịch sử điều phối",
+    shortLabel: "Lịch sử ĐP",
+    icon: History,
+  },
+  {
+    href: "/truong-ca/tv",
+    label: "TV phòng chờ",
+    shortLabel: "TV",
+    icon: Tv,
   },
   // Bảng giá tách 2 trang, đặt NGAY DƯỚI "Công việc của tôi" (sidebar Thu ngân).
   { href: "/cashier/thuoc", label: "Bảng giá thuốc", shortLabel: "Giá thuốc", icon: Pill },
