@@ -26,6 +26,7 @@ from clinicai.api.v1.routers.clinical_forms import router as clinical_forms_rout
 from clinicai.api.v1.routers.clinical_records import (
     router as clinical_records_router,
 )
+from clinicai.api.v1.routers.clinical_sign import router as clinical_sign_router
 from clinicai.api.v1.routers.config import router as config_router
 from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
@@ -195,6 +196,9 @@ app.include_router(
 )
 app.include_router(
     dispatch_router, prefix="/api/v1", tags=["dispatch"], dependencies=_GUARDED
+)
+app.include_router(
+    clinical_sign_router, prefix="/api/v1", tags=["clinical"], dependencies=_GUARDED
 )
 app.include_router(
     service_log_router, prefix="/api/v1", tags=["service-log"], dependencies=_GUARDED
