@@ -96,6 +96,13 @@ SELECT v.visit_id,
 _STATIONS_SQL = """
 SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
        r.show_on_tv, r.floor,
+       -- MỘT PHÒNG PHỤC VỤ NHIỀU BƯỚC. `node_code` chỉ là bước CHÍNH (dùng để
+       -- xếp nhóm); danh sách thật nằm ở clinic_room_node. Giao diện lọc "phòng
+       -- nào chuyển sang được" phải đọc danh sách này, không đọc cột đơn — nếu
+       -- không thì một ca Nam khoa sẽ không thấy phòng khám nào.
+       (SELECT coalesce(array_agg(rn.node_code ORDER BY rn.node_code), '{}')
+          FROM public.clinic_room_node rn WHERE rn.room_id = r.id)
+                                                  AS serves_nodes,
        n.name AS node_name,
        coalesce(t.wait_minutes, d.wait_minutes, 20) AS threshold_minutes,
        coalesce(t.max_waiting,  d.max_waiting,  8)  AS threshold_waiting,
@@ -162,6 +169,7 @@ class DispatchService:
                 # phòng nào ở tầng nào.
                 "floor": r["floor"],
                 "node_code": r["node_code"],
+                "serves_nodes": list(r["serves_nodes"] or []),
                 "node_name": r["node_name"],
                 "capacity": r["capacity"],
                 "accepting": r["accepting"],

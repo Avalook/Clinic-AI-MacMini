@@ -307,8 +307,15 @@ function DetailPanel({
 
   // Chỉ những phòng phục vụ ĐÚNG bước hiện tại mới chuyển sang được — backend
   // cũng từ chối, nhưng hiện sẵn danh sách đúng thì không ai phải thử rồi lỗi.
+  //
+  // Đọc `serves_nodes`, KHÔNG đọc `node_code`. Một phòng khám phục vụ cả năm
+  // chuyên khoa; lọc theo bước chính (đang là KHAM-PHUKHOA cho cả bốn phòng)
+  // thì một ca Nam khoa sẽ thấy danh sách rỗng và Trưởng ca không chuyển được
+  // đi đâu cả.
   const sameStepRooms = rooms.filter(
-    (r) => r.node_code === patient.current_node_code && r.id !== patient.room_id,
+    (r) =>
+      r.serves_nodes.includes(patient.current_node_code ?? "") &&
+      r.id !== patient.room_id,
   );
 
   async function transfer() {

@@ -197,3 +197,38 @@ class TestRoomsCarryTheirFloor:
                 "đừng lấp NULL bằng giá trị mặc định — 'chưa khai tầng' và "
                 "'tầng 1' là hai chuyện khác nhau"
             )
+
+
+class TestARoomServesManySteps:
+    """Chuyên khoa do BÁC SĨ ngồi trong phòng quyết định, không phải bốn bức tường.
+
+    Bốn phòng khám KB01–KB04 đều ghim vào `KHAM-PHUKHOA` trong khi phòng khám
+    có năm chuyên khoa. Hệ quả: `move_visit_to_station` TỪ CHỐI chuyển một ca
+    Nam khoa vào KB02 vì "phòng không phục vụ bước KHAM-NAMKHOA".
+
+    Đã chạy trên prod (rollback): Nam khoa → KB02 nay cho qua; Nam khoa → Nhà
+    thuốc VẪN bị chặn; và đặt bước chính là một bước phòng không phục vụ cũng
+    bị chặn.
+    """
+
+    def test_the_station_query_returns_every_step_a_room_serves(self) -> None:
+        from clinicai.services.dispatch_service import _STATIONS_SQL
+
+        assert "clinic_room_node" in _STATIONS_SQL
+        assert "serves_nodes" in _STATIONS_SQL
+
+    def test_it_aggregates_instead_of_joining_and_duplicating_rooms(
+        self,
+    ) -> None:
+        """Join thẳng bảng nối vào câu chính sẽ nhân KB01 thành năm dòng, và
+        bảng tải từng phòng đếm sai gấp năm."""
+        from clinicai.services.dispatch_service import _STATIONS_SQL
+
+        assert "array_agg(rn.node_code" in _STATIONS_SQL
+
+    def test_an_empty_list_is_an_empty_array_not_null(self) -> None:
+        """Phòng chưa khai bước nào phải ra `[]`, không phải NULL — giao diện
+        gọi `.includes()` trên nó, và NULL thì nổ."""
+        from clinicai.services.dispatch_service import _STATIONS_SQL
+
+        assert "coalesce(array_agg(rn.node_code" in _STATIONS_SQL

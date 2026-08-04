@@ -42,8 +42,14 @@ export interface DispatchRoom {
    *  vậy — đoán một cái tầng rồi đọc lên cho bệnh nhân đang đứng ở sảnh là
    *  chỉ sai đường. */
   floor: string | null;
+  /** Bước CHÍNH — chỉ dùng để xếp nhóm/tiêu đề trên bảng. */
   node_code: string;
   node_name: string | null;
+  /** Các bước phòng này phục vụ được. Lọc "chuyển sang phòng nào" phải đọc
+   *  danh sách NÀY, không đọc `node_code`: bốn phòng khám phục vụ cả năm
+   *  chuyên khoa, nên lọc theo cột đơn thì một ca Nam khoa không thấy phòng
+   *  khám nào. */
+  serves_nodes: string[];
   capacity: number;
   accepting: boolean;
   show_on_tv: boolean;
