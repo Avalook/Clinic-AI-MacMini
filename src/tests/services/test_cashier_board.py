@@ -7,8 +7,11 @@ vì màn hình vẫn hiện đủ các mục khác — đúng chuyện đã xả
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
+from clinicai.api.identity import ClinicRole
 from clinicai.services.cashier_board_service import (
     CASHIER_ROLES,
     build_rows,
@@ -40,7 +43,7 @@ class TestNameNormalisation:
         assert clean_name(None) == ""
 
 
-def _raw(**over: object) -> dict:
+def _raw(**over: object) -> dict[str, Any]:
     base = {
         "visits": [
             {
@@ -182,13 +185,11 @@ class TestWhatCountsAsAlreadyPaid:
 
 
 class TestWhoMaySeeTheCashierBoard:
-    @pytest.mark.parametrize("role", sorted(CASHIER_ROLES, key=lambda r: r.value))
-    def test_the_cashier_roles_and_management(self, role: object) -> None:
+    @pytest.mark.parametrize("role", sorted(CASHIER_ROLES))
+    def test_the_cashier_roles_and_management(self, role: ClinicRole) -> None:
         assert role in CASHIER_ROLES
 
     def test_a_doctor_is_not_a_cashier(self) -> None:
         """Bác sĩ khám, thu ngân thu. Trộn hai vai là bỏ mất một lớp đối soát."""
-        from clinicai.api.identity import ClinicRole
-
         assert ClinicRole.DOCTOR not in CASHIER_ROLES
         assert ClinicRole.CSKH not in CASHIER_ROLES

@@ -7,6 +7,8 @@ bản đã ký bị chặn.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from clinicai.api.identity import ClinicRole
@@ -16,7 +18,7 @@ from clinicai.services.ultrasound_board_service import (
 )
 
 
-def _rec(pid: str | None, name: str, uid: str) -> dict:
+def _rec(pid: str | None, name: str, uid: str) -> dict[str, Any]:
     return {
         "ultrasound_id": uid,
         "clinic_patient_id": pid,
@@ -62,7 +64,7 @@ class TestGroupingSignedReports:
 
 
 class TestWhoWorksInUltrasound:
-    @pytest.mark.parametrize("role", sorted(ULTRASOUND_ROLES, key=lambda r: r.value))
+    @pytest.mark.parametrize("role", sorted(ULTRASOUND_ROLES))
     def test_the_ultrasound_team_and_those_who_type_for_them(
         self, role: ClinicRole
     ) -> None:

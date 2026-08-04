@@ -72,7 +72,7 @@ class _Pool:
 
 
 async def _quote(conn: _Conn) -> dict[str, Any]:
-    return await CapacityService(_Pool(conn)).quote(  # type: ignore[arg-type]
+    return await CapacityService(_Pool(conn)).quote(
         date="2026-08-04",
         location_id=LOCATION,
         doctor_id=DOCTOR,

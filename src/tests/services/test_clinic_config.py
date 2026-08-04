@@ -11,6 +11,8 @@ Trưởng ca bị chặn · bỏ bước chính bị chặn · thu hẹp KB01 t�
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from clinicai.api.exceptions import ValidationError
@@ -30,7 +32,10 @@ def _who(role: ClinicRole) -> StaffIdentity:
         department=role.value,
         role=role,
         clinic_id="a0000000-0000-4000-8000-000000000001",
-        location_id=None,
+        # `location_id` là str BẮT BUỘC, không phải Optional — mọi nhân sự đều
+        # có cơ sở kể từ 20260803000007. Fixture khai None là khai một trạng
+        # thái không tồn tại trong hệ thống thật.
+        location_id="c1100000-0000-4000-8000-000000000001",
         location_name="x",
     )
 
@@ -57,7 +62,9 @@ class TestWhoMayChangeTheLayout:
         assert CONFIG_ROLES == frozenset({ClinicRole.MANAGEMENT})
 
 
-def _row(loc: str, room: str | None, floor: str | None, sort: int = 0) -> dict:
+def _row(
+    loc: str, room: str | None, floor: str | None, sort: int = 0
+) -> dict[str, Any]:
     return {
         "location_id": loc,
         "location_code": loc[:3].upper(),
@@ -112,7 +119,7 @@ class TestGroupingIntoLocationsAndFloors:
             [_row("Kim Ngưu", "SA1", "2"), _row("Hào Nam", "SA9", "2")]
         )
         assert len(out) == 2
-        assert all(len(l["floors"]) == 1 for l in out)
+        assert all(len(loc["floors"]) == 1 for loc in out)
 
     def test_a_location_with_no_rooms_still_appears(self) -> None:
         """Hào Nam có trong hệ thống nhưng chưa khai phòng nào. Ẩn nó đi thì

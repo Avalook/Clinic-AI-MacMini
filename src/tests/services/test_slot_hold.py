@@ -39,7 +39,7 @@ def _identity(role: ClinicRole) -> StaffIdentity:
 
 
 class TestWhoMayHold:
-    @pytest.mark.parametrize("role", sorted(HOLD_ROLES, key=lambda r: r.value))
+    @pytest.mark.parametrize("role", sorted(HOLD_ROLES))
     def test_anyone_who_can_book_can_hold(self, role: ClinicRole) -> None:
         """Giữ chỗ là bước đầu của việc đặt lịch.
 

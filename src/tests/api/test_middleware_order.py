@@ -35,7 +35,13 @@ def app_middleware_names() -> list[str]:
     names: list[str] = []
     for mw in app.user_middleware:
         dispatch = (mw.kwargs or {}).get("dispatch")
-        names.append(dispatch.__name__ if dispatch else mw.cls.__name__)
+        # Starlette khai `kwargs` là dict[str, Any] và `cls` là
+        # _MiddlewareFactory, nên mypy không thấy `__name__` ở cả hai nhánh.
+        # Đây là bài kiểm THỨ TỰ middleware — tên chỉ để đọc, nên lấy bằng
+        # getattr với giá trị dự phòng thay vì ép kiểu một thứ Starlette không
+        # hứa.
+        target = dispatch if dispatch else mw.cls
+        names.append(str(getattr(target, "__name__", target)))
     return names
 
 

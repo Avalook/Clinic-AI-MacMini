@@ -147,7 +147,7 @@ class TestRenotifyTaskCarriesItsVisit:
                 seen.append((sql, args))
 
         await _create_renotify_task(
-            Conn(),  # type: ignore[arg-type]
+            Conn(),
             _identity(ClinicRole.DOCTOR),
             visit,
             "sai chẩn đoán",

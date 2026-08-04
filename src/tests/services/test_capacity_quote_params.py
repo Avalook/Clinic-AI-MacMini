@@ -69,7 +69,7 @@ class _RecordingPool:
 @pytest.mark.asyncio
 async def test_the_day_reaches_the_driver_as_a_date_not_a_string() -> None:
     conn = _RecordingConn()
-    await CapacityService(_RecordingPool(conn)).quote(  # type: ignore[arg-type]
+    await CapacityService(_RecordingPool(conn)).quote(
         date="2026-08-07",
         location_id=LOCATION,
         doctor_id=None,
@@ -88,7 +88,7 @@ async def test_a_junk_date_is_a_clear_refusal_not_a_500() -> None:
     """Ngày hỏng phải thành câu tiếng Việt, không thành traceback của driver."""
     conn = _RecordingConn()
     with pytest.raises(ValidationError, match="YYYY-MM-DD"):
-        await CapacityService(_RecordingPool(conn)).quote(  # type: ignore[arg-type]
+        await CapacityService(_RecordingPool(conn)).quote(
             date="07/08/2026",
             location_id=LOCATION,
             doctor_id=None,
@@ -101,7 +101,7 @@ async def test_a_junk_date_is_a_clear_refusal_not_a_500() -> None:
 async def test_an_empty_day_means_closed_not_an_error() -> None:
     """Không dòng nào = phòng khám đóng cửa hôm đó, khác hẳn "hết chỗ"."""
     conn = _RecordingConn()
-    out = await CapacityService(_RecordingPool(conn)).quote(  # type: ignore[arg-type]
+    out = await CapacityService(_RecordingPool(conn)).quote(
         date="2026-08-07",
         location_id=LOCATION,
         doctor_id=None,

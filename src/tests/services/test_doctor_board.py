@@ -115,7 +115,7 @@ async def test_no_doctor_means_every_doctor_not_zero_rows() -> None:
     thẳng thì bảng của Lễ tân sẽ trống trơn mà không có lỗi nào.
     """
     conn = _Conn()
-    await DoctorBoardService(_Pool(conn)).board(  # type: ignore[arg-type]
+    await DoctorBoardService(_Pool(conn)).board(
         clinic_id=CLINIC,
         start=datetime.datetime(2026, 8, 1, tzinfo=CLINIC_TZ),
         end=datetime.datetime(2026, 9, 1, tzinfo=CLINIC_TZ),
@@ -128,7 +128,7 @@ async def test_no_doctor_means_every_doctor_not_zero_rows() -> None:
 async def test_the_window_reaches_the_driver_as_datetimes() -> None:
     """Chuỗi ở đây là 500, không phải một kết quả sai — xem capacity_service."""
     conn = _Conn()
-    await DoctorBoardService(_Pool(conn)).board(  # type: ignore[arg-type]
+    await DoctorBoardService(_Pool(conn)).board(
         clinic_id=CLINIC,
         start=datetime.datetime(2026, 8, 1, tzinfo=CLINIC_TZ),
         end=datetime.datetime(2026, 9, 1, tzinfo=CLINIC_TZ),

@@ -57,7 +57,7 @@ def _dto(**over: Any) -> PatientCreateDTO:
 
 async def _query_for(dto: PatientCreateDTO) -> tuple[str, tuple[Any, ...]]:
     conn = _Conn()
-    await MPIService.find_candidates(_Pool(conn), dto, CLINIC)  # type: ignore[arg-type]
+    await MPIService.find_candidates(_Pool(conn), dto, CLINIC)
     return conn.query, conn.args
 
 
@@ -107,9 +107,7 @@ async def test_no_birthday_means_no_name_clause() -> None:
 @pytest.mark.asyncio
 async def test_nothing_to_match_on_skips_the_database_entirely() -> None:
     conn = _Conn()
-    out = await MPIService.find_candidates(  # type: ignore[arg-type]
-        _Pool(conn), _dto(), CLINIC
-    )
+    out = await MPIService.find_candidates(_Pool(conn), _dto(), CLINIC)
     assert out == []
     assert conn.query == "", "không có gì để so thì đừng chạm database"
 

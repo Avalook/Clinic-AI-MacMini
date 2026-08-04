@@ -52,7 +52,7 @@ class TestTheWeekBoundary:
         assert (utc.day, utc.hour) == (2, 17)
 
 
-class _Row(dict):
+class _Row(dict[str, Any]):
     """asyncpg.Record đọc bằng [] — dict đủ để kiểm phần ánh xạ."""
 
 
@@ -141,7 +141,7 @@ class _Pool:
 @pytest.mark.asyncio
 async def test_the_range_sent_down_is_exactly_seven_local_days() -> None:
     conn = _Conn()
-    await WeekAppointmentsService(_Pool(conn)).week(  # type: ignore[arg-type]
+    await WeekAppointmentsService(_Pool(conn)).week(
         clinic_id=CLINIC, week_start=datetime.date(2026, 8, 3)
     )
     _clinic, start, end, hidden = conn.args
