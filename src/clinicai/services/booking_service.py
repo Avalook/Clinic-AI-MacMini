@@ -1219,6 +1219,29 @@ class BookingService:
                 clinic_id=identity.clinic_id,
             )
 
+        # ĐẶT BỆNH NHÂN VÀO TRẠM ĐẦU TIÊN — mắt xích còn thiếu giữa Lễ tân và
+        # bảng điều phối.
+        #
+        # Check-in đã tạo lượt khám và cả danh sách bước, nhưng KHÔNG đặt con
+        # trỏ vị trí (`visit.current_node_code`). Đo trên prod trước thay đổi
+        # này: 24 lượt khám đã check-in, con trỏ NULL ở cả 24 — nên bảng điều
+        # phối không thấy ai, dù bệnh nhân đã đứng trong phòng khám.
+        #
+        # Hàm SQL tự bỏ qua nếu lượt đã có vị trí, nên bấm check-in lần hai
+        # không kéo bệnh nhân từ phòng siêu âm về quầy sinh hiệu.
+        placed = await conn.fetchval(
+            "SELECT public.place_visit_at_first_station($1::uuid, $2::uuid, $3::uuid)",
+            identity.clinic_id,
+            visit_id,
+            identity.auth_user_id,
+        )
+        if placed:
+            logger.info(
+                "visit_placed_at_first_station",
+                visit_id=str(visit_id),
+                clinic_id=identity.clinic_id,
+            )
+
     async def _cancel_visit_workflow(
         self,
         conn: asyncpg.Connection,
