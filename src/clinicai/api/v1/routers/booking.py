@@ -176,6 +176,35 @@ async def week_appointments(
     return {"ok": True, "items": items}
 
 
+@router.get("/appointments/doctor-board")
+async def doctor_board(
+    start: datetime,
+    end: datetime,
+    doctor_id: UUID | None = None,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng khám: lịch hẹn trong khoảng, kèm phân loại khám và cờ chờ đọc KQ.
+
+    ``doctor_id`` để trống = mọi bác sĩ. Ai được xem lịch của người khác là
+    quyết định của màn hình gọi (Lễ tân và TKYK xem toàn phòng khám, bác sĩ chỉ
+    xem của mình) — ở đây chỉ chặn theo phòng khám, đúng phạm vi mà RLS cũng
+    chặn khi trình duyệt đọc thẳng.
+
+    ``start``/``end`` khai kiểu ``datetime`` để FastAPI phân tích và từ chối
+    chuỗi hỏng bằng 422, thay vì để chuỗi rơi xuống asyncpg thành 500.
+    """
+    from clinicai.services.doctor_board_service import DoctorBoardService
+
+    items = await DoctorBoardService(pool).board(
+        clinic_id=identity.clinic_id,
+        start=start,
+        end=end,
+        doctor_id=str(doctor_id) if doctor_id else None,
+    )
+    return {"ok": True, "items": items}
+
+
 @router.get("/appointments/policy")
 async def booking_policy(
     doctor_id: str | None = None,
