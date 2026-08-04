@@ -47,7 +47,16 @@ export default async function CskhTasksPage() {
     .order("source_created_at", { ascending: false })
     .limit(200);
 
-  // 2. Lịch hẹn ngày mai cần gọi xác nhận
+  // 2. NHẮC LỊCH NGÀY MAI — không còn là "gọi xác nhận".
+  //
+  // Quang bỏ vòng gọi-xác-nhận từ 04/08: lịch đặt xong là chắc luôn, vì chính
+  // cuộc gọi với bệnh nhân sinh ra nó. Nhưng gọi NHẮC trước một ngày vẫn có
+  // giá trị — nó giảm số người quên, khác hẳn với việc hỏi lại xem có đến
+  // không.
+  //
+  // Nên lọc đổi từ status='SCHEDULED' (nay không lịch mới nào rơi vào) sang
+  // MỌI lịch còn hiệu lực. Để nguyên lọc cũ thì danh sách này cạn dần rồi
+  // trống, và CSKH mất luôn việc nhắc lịch.
   const qTomorrow = supabase
     .from("appointment")
     .select(
@@ -55,13 +64,14 @@ export default async function CskhTasksPage() {
        patient:patient!clinic_patient_id(clinic_patient_id, full_name, phone_primary, patient_code),
        doctor:staff!doctor_id(full_name)`,
     )
-    .eq("status", "SCHEDULED")
+    .in("status", ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"])
     .gte("slot_start", todayEnd)
     .lt("slot_start", tomorrowEnd)
     .order("slot_start", { ascending: true })
     .limit(200);
 
-  // 3. Lịch hẹn tuần tới chờ xác nhận (>7 ngày trước)
+  // 3. Lịch tuần tới — nhắc sớm cho những ca cần chuẩn bị (nhịn ăn, mang hồ
+  //    sơ cũ…). Cùng lý do như khối 2: lọc theo lịch còn hiệu lực.
   const qWeek = supabase
     .from("appointment")
     .select(
@@ -69,7 +79,7 @@ export default async function CskhTasksPage() {
        patient:patient!clinic_patient_id(clinic_patient_id, full_name, phone_primary, patient_code),
        doctor:staff!doctor_id(full_name)`,
     )
-    .eq("status", "SCHEDULED")
+    .in("status", ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"])
     .gte("slot_start", tomorrowEnd)
     .lt("slot_start", weekEnd)
     .order("slot_start", { ascending: true })
@@ -150,10 +160,10 @@ export default async function CskhTasksPage() {
 
   const tasks: CskhTaskRow[] = [
     ...(tomorrowAppts ?? []).map((a) =>
-      apptToTask(a, "NHAC_HEN", "GỌI_XÁC_NHẬN"),
+      apptToTask(a, "NHAC_HEN", "NHẮC_LỊCH"),
     ),
     ...(weekAppts ?? []).map((a) =>
-      apptToTask(a, "XAC_NHAN_LICH", "CHỜ_XÁC_NHẬN"),
+      apptToTask(a, "XAC_NHAN_LICH", "NHẮC_SỚM"),
     ),
     ...(declinedAppts ?? []).map((a) =>
       apptToTask(a, "PHAN_LAI_LICH", "BS_TỪ_CHỐI"),

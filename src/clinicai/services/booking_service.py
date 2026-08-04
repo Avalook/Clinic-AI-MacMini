@@ -945,10 +945,23 @@ class BookingService:
         )
         if row is None:
             return None
+        status_cu = {
+            "SCHEDULED": "chờ xác nhận",
+            "CSKH_CONFIRMED": "CSKH đã xác nhận",
+            "CONFIRMED": "đã đặt lịch",
+            "CHECKED_IN": "đã đến phòng khám",
+        }.get(row["status"], row["status"])
         hhmm = slot_start.astimezone(CLINIC_TZ).strftime("%H:%M")
+        # NÓI RÕ ĐÂY LÀ LẦN THỨ HAI, đừng chỉ từ chối.
+        #
+        # Quang: *"cùng 1 khách mà giờ đặt 2 lần thì hệ thống phải thông báo
+        # đây là lần 2"*. Một câu từ chối trống làm người ta tưởng thao tác
+        # trước đó hỏng và thử lại lần nữa — đúng vòng lặp sinh ra ba lịch
+        # trùng hôm 04/08.
         return (
-            f"Bệnh nhân này đã có lịch hẹn lúc {hhmm} rồi. "
-            "Muốn đổi thì vào Quản lý khách hàng → Lịch hẹn sắp tới."
+            f"Đây là lần đặt thứ hai — bệnh nhân này ĐÃ có lịch lúc {hhmm} "
+            f"({status_cu}). Lần bấm trước đã thành công, không cần đặt lại. "
+            "Muốn đổi giờ thì vào Quản lý khách hàng → Lịch hẹn sắp tới."
         )
 
     async def _doctor_conflict(

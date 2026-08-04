@@ -275,6 +275,21 @@ export default function BookingHub({
   const [chkService, setChkService] = useState(true);
   const [chkDocSlot, setChkDocSlot] = useState(true);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
+  // ĐẶT XONG THÌ PHẢI THẤY NGAY TẠI CHỖ VỪA BẤM.
+  //
+  // Trên prod ngày 04/08 có một bệnh nhân bị đặt BA lịch cùng khung 17:15,
+  // cách nhau 10 và 5 giây. Không phải double-click (nút đã khoá lúc đang gửi)
+  // — mà là bấm, chờ, không thấy gì, bấm lại.
+  //
+  // Lý do: chữ "Đã đặt lịch thành công" hiện ở ĐẦU TRANG (dòng ~815), còn nút
+  // nằm ở panel phải cuối trang. CSKH bấm ở dưới, phản hồi hiện ở trên, ngoài
+  // tầm mắt. Nên nó hiện cả ở đây, và khung giờ được BỎ CHỌN để bấm lại lần
+  // nữa cũng không ra thêm lịch.
+  const [justBooked, setJustBooked] = useState<{
+    name: string;
+    time: string;
+    doctor: string;
+  } | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -761,6 +776,15 @@ export default function BookingHub({
             (warn ? ` ⚠️ ${warn}` : ""),
         );
         setNote("");
+        setJustBooked({
+          name: activePatient.full_name,
+          time: timeDisplay,
+          doctor: selectedSlot.doctorName,
+        });
+        // BỎ CHỌN KHUNG GIỜ. Giữ nguyên lựa chọn nghĩa là nút "Đặt lịch hẹn"
+        // sáng lại với y hệt thông tin cũ — bấm thêm lần nữa là ra lịch thứ
+        // hai, và đó đúng là chuyện đã xảy ra.
+        setSelectedSlot((prev) => ({ ...prev, time: "" }));
         // BA THỨ PHẢI ĐỌC LẠI, không phải một.
         //
         // `router.refresh()` một mình là chưa đủ và đó chính là lỗi "đặt xong
@@ -1470,7 +1494,43 @@ export default function BookingHub({
                 </p>
               ) : null}
 
-              {/* Action Buttons */}
+              {/* XÁC NHẬN NGAY TẠI PANEL — xem ghi chú ở justBooked. */}
+              {justBooked ? (
+                <div className="rounded-xl border border-success/40 bg-success/10 p-3 text-xs text-success">
+                  <div className="flex items-center gap-2 font-bold">
+                    <CheckCircle2 size={16} />
+                    Đã đặt lịch xong
+                  </div>
+                  <div className="mt-1.5 leading-relaxed text-ink">
+                    <b>{justBooked.name}</b> · {justBooked.time} ·{" "}
+                    {justBooked.doctor}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-ink-muted">
+                    Lịch đã có hiệu lực, không cần bấm lại. Muốn đổi hoặc huỷ
+                    thì vào Quản lý khách hàng → Lịch hẹn sắp tới.
+                  </p>
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJustBooked(null);
+                        setSelectedPatientId(null);
+                        setConfirmedMsg(null);
+                      }}
+                      className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-bold text-white hover:bg-brand-700"
+                    >
+                      Đặt cho khách khác
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setJustBooked(null)}
+                      className="flex-1 rounded-lg border border-line bg-surface py-2 text-xs font-semibold text-ink hover:bg-surface-sunken"
+                    >
+                      Đặt thêm cho khách này
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="button"
@@ -1489,6 +1549,10 @@ export default function BookingHub({
                     bookingLoading ||
                     !activePatient ||
                     !policy ||
+                    // Sau khi đặt xong khung giờ bị bỏ chọn (xem justBooked).
+                    // Không chặn ở đây thì bấm "Đặt thêm cho khách này" rồi bấm
+                    // luôn sẽ gửi một giờ rỗng xuống backend.
+                    !selectedSlot.time ||
                     offDuty[`${selectedSlot.doctorId}|${selectedDateIso}`] === true
                   }
                   className="flex-[1.5] rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 disabled:opacity-50"
@@ -1496,6 +1560,7 @@ export default function BookingHub({
                   {bookingLoading ? "Đang xử lý..." : "Đặt lịch hẹn"}
                 </button>
               </div>
+              )}
             </aside>
           </div>
         </div>

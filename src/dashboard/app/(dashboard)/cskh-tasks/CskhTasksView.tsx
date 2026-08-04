@@ -72,8 +72,8 @@ const TABS: { key: TaskTab; label: string }[] = [
 ];
 
 const CATEGORY_LABEL: Record<string, string> = {
-  NHAC_HEN: "Gọi nhắc hẹn",
-  XAC_NHAN_LICH: "Xác nhận lịch trước 7 ngày",
+  NHAC_HEN: "Nhắc lịch ngày mai",
+  XAC_NHAN_LICH: "Nhắc lịch trong tuần",
   PHAN_LAI_LICH: "Phân lại lịch bị từ chối",
   SAU_KHAM: "Theo dõi sau khám",
   TRA_KET_QUA: "Trả kết quả xét nghiệm",
@@ -92,7 +92,7 @@ const CONTACT_RESULTS = [
 
 const CANCEL_REASONS = [
   "BN báo không đến được (trước 7 ngày)",
-  "BN báo không đến (đã xác nhận trước đó)",
+  "BN báo không đến (đã đặt lịch trước đó)",
   "Vào giờ khám mới báo không đến",
   "Lý do khác",
 ] as const;
@@ -108,8 +108,11 @@ function statusTone(status: string): StatusTone {
 
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    SCHEDULED: "Chờ xác nhận",
-    CSKH_CONFIRMED: "Đã xác nhận",
+    // Hai trạng thái CŨ — lịch mới vào thẳng CONFIRMED từ 04/08/2026.
+    SCHEDULED: "Chờ xác nhận (lịch cũ)",
+    CSKH_CONFIRMED: "Đã xác nhận (lịch cũ)",
+    CONFIRMED: "Đã đặt lịch",
+    CHECKED_IN: "Đã đến",
     DOCTOR_DECLINED: "Bị từ chối",
     OPEN: "Đang xử lý",
     WAITING: "Chờ phản hồi",
@@ -451,11 +454,10 @@ export default function CskhTasksView({ tasks, stats }: Props) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">
-                    {selected.category === "NHAC_HEN"
-                      ? "Sau khám"
-                      : selected.category === "XAC_NHAN_LICH"
-                        ? "Trước khám"
-                        : "Chăm sóc"}
+                    {selected.category === "NHAC_HEN" ||
+                    selected.category === "XAC_NHAN_LICH"
+                      ? "Nhắc lịch"
+                      : "Chăm sóc"}
                   </span>
                 </div>
                 <h2 className="mt-2 text-base font-bold text-ink">
