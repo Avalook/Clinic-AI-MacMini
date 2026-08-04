@@ -8,6 +8,7 @@ import { getSupabaseServer } from "../../../../lib/supabase-server";
 import { getClinicRole } from "../../../../lib/clinic-session";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
+import { listBookableDoctors } from "../../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +46,7 @@ export default async function NewPatientPage({
   const [locRes, svcRes, docRes, provRes] = await Promise.all([
     supabase.from("clinic_location").select("id, name").order("name"),
     supabase.from("service_type").select("id, name").order("name"),
-    supabase
-      .from("staff")
-      .select("id, full_name")
-      .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-      .eq("is_active", true)
-      .order("full_name"),
+    listBookableDoctors(),
     // 34 tỉnh/thành sau sáp nhập — phường/xã load runtime theo tỉnh (/api/wards).
     // Trước đây phải đọc bằng service-role vì province bật RLS mà không có policy
     // SELECT nào; 20260730000002 đã thêm policy (ADR-0012).
@@ -69,10 +65,7 @@ export default async function NewPatientPage({
       id: r.id as string,
       label: r.name as string,
     }));
-  const doctors: Option[] = (docRes.data ?? []).map((r) => ({
-    id: r.id as string,
-    label: r.full_name as string,
-  }));
+  const doctors: Option[] = docRes;
   const provinces: ProvinceOpt[] = (provRes.data ?? []).map((r) => ({
     code: r.code as string,
     name: r.name as string,

@@ -1,186 +1,49 @@
-"""Capacity quote service — CAP-01 budget + slot usage (Phase 4, cluster #1).
+"""Sức chứa để VẼ, đọc từ đúng nguồn mà trigger dùng để CHẶN.
 
-Ported from ``src/dashboard/lib/capacity.ts`` and ``src/dashboard/app/api/
-appointments/quote/route.ts`` so the budget/usage calculation lives in ONE
-place (backend) instead of being duplicated/spoofable in TSX.
+VÌ SAO FILE NÀY ĐƯỢC VIẾT LẠI.
 
-The rule (Decision Doc v2): each doctor × hour has a *budget* (thanh_min,
-sono_min, online_quota, walkin_quota, new_cap, max_total). The quote endpoint
-returns the budget + current usage per hour so the UI can colour cells; it
-does NOT decide whether a booking is allowed — that is the DB trigger + the
-pre-check in BookingService.
+Trước đây có hai hệ sức chứa chạy song song:
 
-Pure functions (``resolve_budget``, ``usage_of``, ``cell_state``) are exported
-for unit testing; ``CapacityService.quote`` does the I/O.
+    block_budget            42 dòng, độ mịn theo GIỜ, chỉ dùng để TÔ MÀU ô lịch
+    3 tầng override         độ mịn theo PHÚT, là thứ trigger THI HÀNH
+
+Không ai đối chiếu chúng. Lưới có thể vẽ "còn chỗ" trong khi trigger từ chối, và
+người dùng chỉ biết sau khi bấm — đúng loại mâu thuẫn im lặng mà cả đợt rà soát
+này đi tìm, chỉ là ở một cặp khác.
+
+`block_budget` còn mang một mô hình khác hẳn: ngân sách PHÚT ("bác sĩ có 60 phút
+mỗi giờ, khách mới ăn 15 phút"). Mô hình đó đã bị bỏ — thời lượng khám giờ là số
+liệu ĐO ĐƯỢC (v_consultation_duration), còn giới hạn đặt lịch là SỐ CHỖ do Trưởng
+ca cấu hình. Giữ lại một hệ tô màu theo mô hình đã bỏ nghĩa là màn hình nói một
+thứ mà hệ thống không còn tin.
+
+Giờ chỉ còn một nguồn: `resolve_effective_cap()` — cùng hàm, cùng tham số, cùng
+phòng khám và cùng bác sĩ mà `enforce_slot_capacity()` gọi khi nó quyết định
+nhận hay từ chối. Nếu lưới nói còn chỗ thì đặt được; nếu nói đầy thì đúng là đầy.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import date as _date
 from typing import Any, Literal
-from zoneinfo import ZoneInfo
 
 import asyncpg
 import structlog
 
+from clinicai.api.exceptions import ValidationError
+from clinicai.core.shifts import covers, merge_windows, shift_window
+
 logger = structlog.get_logger()
 
-CLINIC_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+CellState = Literal["free", "few", "full", "closed"]
 
-FALLBACK_THANH_MIN = 12  # V2#9 — conservative default for legacy NULL thanh_min
-
-
-@dataclass(frozen=True)
-class BudgetRow:
-    location_id: str
-    doctor_id: str | None
-    weekday: int | None
-    hour_start: int
-    thanh_budget_min: int
-    sono_budget_min: int
-    online_quota_min: int
-    walkin_quota_min: int
-    buffer_min: int
-    new_cap: int
-    max_total: int
-
-
-@dataclass(frozen=True)
-class ApptLite:
-    patient_kind: str | None
-    thanh_min: int | None
-    booking_channel: str | None
-
-
-@dataclass(frozen=True)
-class Usage:
-    thanh: int
-    online: int
-    walkin: int
-    new_count: int
-    total: int
-
-
-CellState = Literal[
-    "free",
-    "few",
-    "return_only",
-    "full_thanh",
-    "walkin_hold",
-    "locked",
-]
-
-
-def is_walkin(channel: str | None) -> bool:
-    return (channel or "").strip().upper() == "WALK_IN"
-
-
-def load_of_appt(a: ApptLite) -> int:
-    """Thanh load of one appointment; COALESCE NULL → fallback (V2#9)."""
-    return a.thanh_min if a.thanh_min is not None else FALLBACK_THANH_MIN
-
-
-def is_new_explicit(a: ApptLite) -> bool:
-    """Only count ca with patient_kind === 'NEW' toward new_cap."""
-    return a.patient_kind == "NEW"
-
-
-def usage_of(existing: list[ApptLite]) -> Usage:
-    """Aggregate current load of one hour-block."""
-    thanh = 0
-    online = 0
-    walkin = 0
-    new_count = 0
-    for a in existing:
-        load = load_of_appt(a)
-        thanh += load
-        if is_walkin(a.booking_channel):
-            walkin += load
-        else:
-            online += load
-        if is_new_explicit(a):
-            new_count += 1
-    return Usage(
-        thanh=thanh,
-        online=online,
-        walkin=walkin,
-        new_count=new_count,
-        total=len(existing),
-    )
-
-
-def cell_state(budget: BudgetRow, u: Usage) -> CellState:
-    """Display state for a cell — NOT the booking decision."""
-    if u.total >= budget.max_total:
-        return "locked"
-    if u.thanh >= budget.thanh_budget_min:
-        return "full_thanh"
-    if u.new_count >= budget.new_cap:
-        return "return_only"
-    if u.online >= budget.online_quota_min and u.walkin < budget.walkin_quota_min:
-        return "walkin_hold"
-    if u.thanh >= budget.thanh_budget_min - 10:
-        return "few"
-    return "free"
-
-
-def resolve_budget(
-    rows: list[BudgetRow],
-    key: dict[str, Any],
-) -> BudgetRow | None:
-    """DEC-8 — pick the most-specific budget row; None ⇒ fail-open.
-
-    Specificity decreases: doctor+weekday > doctor > location+weekday > location.
-    """
-    at_loc = [
-        r
-        for r in rows
-        if r.location_id == key["location_id"] and r.hour_start == key["hour_start"]
-    ]
-
-    def pick(doc_match: bool, wd_match: bool) -> BudgetRow | None:
-        for r in at_loc:
-            if doc_match:
-                if r.doctor_id != key["doctor_id"]:
-                    continue
-            else:
-                if r.doctor_id is not None:
-                    continue
-            if wd_match:
-                if r.weekday != key["weekday"]:
-                    continue
-            else:
-                if r.weekday is not None:
-                    continue
-            return r
-        return None
-
-    if key["doctor_id"]:
-        return (
-            pick(True, True)
-            or pick(True, False)
-            or pick(False, True)
-            or pick(False, False)
-        )
-    return pick(False, True) or pick(False, False)
-
-
-def vn_block_of(slot_start_iso: str) -> dict[str, int]:
-    """VN weekday + hour of a UTC ISO timestamp.
-
-    weekday: 0=CN .. 6=T7 (matches block_budget.weekday).
-    """
-    d = datetime.fromisoformat(slot_start_iso.replace("Z", "+00:00"))
-    # Format in VN timezone
-    vn = d.astimezone(CLINIC_TZ)
-    # Python weekday(): Mon=0..Sun=6 → convert to 0=CN..6=T7
-    weekday = (vn.weekday() + 1) % 7  # Mon=0 → 1, Sun=6 → 0
-    return {"weekday": weekday, "hour_start": vn.hour}
+# Còn đúng một chỗ = "còn ít". Ngưỡng tính theo CHỖ, không theo phần trăm: với
+# trần 3 thì 66% nghe như còn nhiều, mà thực tế chỉ còn một người nữa là hết.
+FEW_REMAINING = 1
 
 
 class CapacityService:
-    """Read-only capacity quote for the slot picker UI."""
+    """Sức chứa từng khung trong ngày, để giao diện tô màu ô lịch."""
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -193,161 +56,231 @@ class CapacityService:
         doctor_id: str | None,
         clinic_id: str,
     ) -> dict[str, Any]:
-        """Return budget + usage per hour for a date/location[/doctor].
+        """Trả về từng khung của ngày với sức chứa và mức đã dùng.
 
-        ``date`` is a VN date string ``YYYY-MM-DD``.
+        ``date`` là ngày giờ VN, dạng ``YYYY-MM-DD``.
+
+        Một truy vấn duy nhất: giờ mở cửa → sinh các mốc khung → sức chứa hiệu
+        lực của từng mốc → đếm lịch còn sống. Gọi resolve_effective_cap trong
+        vòng lặp Python cũng ra kết quả ấy nhưng tốn một vòng mạng cho mỗi khung,
+        và mở ra khả năng hai khung đọc hai trạng thái khác nhau giữa chừng.
         """
-        # VN weekday of the date (midday to avoid edge offset issues)
-        midday_iso = f"{date}T12:00:00+07:00"
-        block = vn_block_of(midday_iso)
-        weekday = block["weekday"]
-
-        start_of_day = f"{date}T00:00:00+07:00"
-        end_of_day = f"{date}T23:59:59+07:00"
+        # ĐỔI SANG date THẬT TRƯỚC KHI GỬI XUỐNG. Tham số `$2::date` khiến
+        # Postgres khai kiểu là date, và asyncpg KHÔNG tự đọc chuỗi cho kiểu đó
+        # — nó gọi thẳng .toordinal() và ném AttributeError, thành lỗi 500.
+        #
+        # Chỗ này 500 suốt mà không ai thấy: endpoint /appointments/quote bị
+        # route `{id}` nuốt nên chưa bao giờ chạy tới đây, và mọi test đều gọi
+        # cell_state() — hàm thuần — chứ không đi qua asyncpg. Nó chỉ lộ ra
+        # đúng lúc lưới đặt lịch bắt đầu gọi thật.
+        try:
+            day = _date.fromisoformat(date)
+        except ValueError as exc:
+            raise ValidationError(
+                f"Ngày không hợp lệ: {date!r}. Định dạng đúng là YYYY-MM-DD."
+            ) from exc
 
         async with self._pool.acquire() as conn:
-            # Read block_budget rows for this location (tenant-scoped).
-            budget_rows_raw = await conn.fetch(
+            # LỊCH TRỰC LÀ LUẬT CAO NHẤT — cao hơn cả ba tầng sức chứa.
+            #
+            # Một luật "BS Thành 18:00–18:15 tám chỗ" không có nghĩa gì vào ngày
+            # bác sĩ ấy không đi làm. Trước đây lưới không hỏi lịch trực lần
+            # nào: nó mời CSKH đặt vào một buổi chiều mà bác sĩ không có mặt, và
+            # sai đó chỉ vỡ ra lúc bệnh nhân đã tới nơi.
+            #
+            # Chỉ có hiệu lực KHI NGÀY ĐÓ ĐÃ XẾP CA. CSKH đặt trước cả tháng,
+            # lúc ấy lịch trực chưa có — coi "chưa xếp" là "không đi làm" sẽ
+            # khoá sạch tương lai. Cùng cách phân biệt mà booking_service dùng
+            # cho câu cảnh báo của nó, để hai nơi không nói hai điều khác nhau.
+            # KHÔNG lọc theo TRẠM (quyết định của Quang, 2026-08-04): có tên
+            # trong lịch trực hôm đó là nhận đặt được, dù trạm ghi là MAY_TRONG
+            # hay LICH_KHAM. BSNT. Khánh Linh là ví dụ có thật.
+            duty = await conn.fetchrow(
                 """
-                SELECT location_id, doctor_id, weekday, hour_start,
-                       thanh_budget_min, sono_budget_min, online_quota_min,
-                       walkin_quota_min, buffer_min, new_cap, max_total
-                  FROM block_budget
-                 WHERE location_id = $1::uuid
-                   AND clinic_id = $2::uuid
+                SELECT
+                  EXISTS (
+                    SELECT 1 FROM work_roster
+                     WHERE clinic_id = $1::uuid AND work_date = $2
+                       AND status = 'APPROVED'
+                  ) AS roster_known,
+                  coalesce((
+                    SELECT array_agg(DISTINCT shift) FROM work_roster
+                     WHERE clinic_id = $1::uuid AND work_date = $2
+                       AND status = 'APPROVED' AND staff_id = $3::uuid
+                  ), ARRAY[]::text[]) AS shifts,
+                  (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
+                    AS open_minute,
+                  (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
+                    AS close_minute
                 """,
-                location_id,
                 clinic_id,
+                day,
+                doctor_id,
             )
-
-            # Read appointments for this location on this date.
-            if doctor_id:
-                appt_rows = await conn.fetch(
-                    """
-                    SELECT slot_start, patient_kind, thanh_min, booking_channel
-                      FROM appointment
-                     WHERE clinic_id = $3::uuid
-                       AND location_id = $1::uuid
-                       AND doctor_id = $2::uuid
-                       AND slot_start >= $4
-                       AND slot_start <= $5
-                       AND status NOT IN ('CANCELLED', 'NO_SHOW')
-                    """,
-                    location_id,
-                    doctor_id,
-                    clinic_id,
-                    start_of_day,
-                    end_of_day,
-                )
-            else:
-                appt_rows = await conn.fetch(
-                    """
-                    SELECT slot_start, patient_kind, thanh_min, booking_channel
-                      FROM appointment
-                     WHERE clinic_id = $2::uuid
-                       AND location_id = $1::uuid
-                       AND slot_start >= $3
-                       AND slot_start <= $4
-                       AND status NOT IN ('CANCELLED', 'NO_SHOW')
-                    """,
-                    location_id,
-                    clinic_id,
-                    start_of_day,
-                    end_of_day,
-                )
-
-        # Parse budget rows
-        budget_rows: list[BudgetRow] = [
-            BudgetRow(
-                location_id=str(r["location_id"]),
-                doctor_id=str(r["doctor_id"]) if r["doctor_id"] else None,
-                weekday=r["weekday"],
-                hour_start=r["hour_start"],
-                thanh_budget_min=r["thanh_budget_min"],
-                sono_budget_min=r["sono_budget_min"],
-                online_quota_min=r["online_quota_min"],
-                walkin_quota_min=r["walkin_quota_min"],
-                buffer_min=r["buffer_min"],
-                new_cap=r["new_cap"],
-                max_total=r["max_total"],
-            )
-            for r in budget_rows_raw
-        ]
-
-        # Group appointments by VN hour
-        by_hour: dict[int, list[ApptLite]] = {}
-        for r in appt_rows:
-            slot_iso = (
-                r["slot_start"].isoformat()
-                if hasattr(r["slot_start"], "isoformat")
-                else str(r["slot_start"])
-            )
-            block = vn_block_of(slot_iso)
-            hour = block["hour_start"]
-            arr = by_hour.get(hour, [])
-            arr.append(
-                ApptLite(
-                    patient_kind=r["patient_kind"],
-                    thanh_min=r["thanh_min"],
-                    booking_channel=r["booking_channel"],
-                )
-            )
-            by_hour[hour] = arr
-
-        # Return every hour_start that has a budget config at this location
-        hours = sorted(set(r.hour_start for r in budget_rows))
-        blocks_out = []
-        for hour_start in hours:
-            budget = resolve_budget(
-                budget_rows,
-                {
+            roster_known = bool(duty and duty["roster_known"])
+            shifts: list[str] = list(duty["shifts"]) if duty else []
+            # doctor_id = None nghĩa là "lưới chung, không lọc bác sĩ" — không
+            # có ai để tra ca trực, và không được coi đó là nghỉ.
+            on_duty = doctor_id is None or bool(shifts)
+            off_duty = roster_known and not on_duty
+            if off_duty:
+                return {
+                    "date": date,
                     "location_id": location_id,
                     "doctor_id": doctor_id,
-                    "weekday": weekday,
-                    "hour_start": hour_start,
-                },
-            )
-            existing = by_hour.get(hour_start, [])
-            u = usage_of(existing)
-            blocks_out.append(
-                {
-                    "hour_start": hour_start,
-                    "budget": _budget_to_dict(budget) if budget else None,
-                    "usage": _usage_to_dict(u),
-                    "state": cell_state(budget, u) if budget else "free",
+                    "closed": True,
+                    "off_duty": True,
+                    "roster_known": True,
+                    "shift_windows": [],
+                    "slots": [],
                 }
+
+            # CA SÁNG KHÔNG PHẢI CẢ NGÀY. Bản trước dừng ở mức NGÀY, nên BS
+            # Thành chỉ trực ca sáng ngày 08/08 vẫn được mời đặt lúc 18:00 —
+            # luật lịch trực đúng một nửa còn khó chịu hơn không có, vì nó tạo
+            # cảm giác đã được kiểm.
+            open_min = duty["open_minute"] if duty else None
+            close_min = duty["close_minute"] if duty else None
+            windows: list[tuple[int, int]] = []
+            if shifts and open_min is not None and close_min is not None:
+                windows = merge_windows(
+                    [
+                        w
+                        for s in shifts
+                        if (w := shift_window(s, open_min, close_min)) is not None
+                    ]
+                )
+
+            rows = await conn.fetch(
+                """
+                WITH hours AS (
+                    SELECT open_minute, close_minute
+                      FROM clinic_hours_for_date($1::uuid, $2::date)
+                ),
+                -- Độ dài khung đến từ chính resolver, đọc ở mốc mở cửa. Nó có
+                -- thể do bác sĩ này quy định (tầng 2), nên không dùng mặc định
+                -- phòng khám ở đây.
+                step AS (
+                    SELECT r.slot_minutes
+                      FROM hours h
+                      CROSS JOIN LATERAL resolve_effective_cap(
+                          $1::uuid, $3::uuid,
+                          ($2::date + make_interval(mins => h.open_minute))
+                              AT TIME ZONE 'Asia/Ho_Chi_Minh') r
+                ),
+                slots AS (
+                    SELECT generate_series(
+                               h.open_minute,
+                               h.close_minute - 1,
+                               s.slot_minutes) AS minute_of_day,
+                           s.slot_minutes
+                      FROM hours h CROSS JOIN step s
+                )
+                SELECT sl.minute_of_day,
+                       sl.slot_minutes,
+                       cap.regular_cap,
+                       cap.walkin_cap,
+                       coalesce(used.regular_used, 0) AS regular_used,
+                       coalesce(used.walkin_used, 0)  AS walkin_used
+                  FROM slots sl
+                  CROSS JOIN LATERAL resolve_effective_cap(
+                      $1::uuid, $3::uuid,
+                      ($2::date + make_interval(mins => sl.minute_of_day))
+                          AT TIME ZONE 'Asia/Ho_Chi_Minh') cap
+                  LEFT JOIN LATERAL (
+                      SELECT
+                        count(*) FILTER (
+                            WHERE upper(coalesce(a.booking_channel,'')) <> 'WALK_IN'
+                        ) AS regular_used,
+                        count(*) FILTER (
+                            WHERE upper(coalesce(a.booking_channel,'')) =  'WALK_IN'
+                        ) AS walkin_used
+                        FROM appointment a
+                       WHERE a.clinic_id = $1::uuid
+                         AND a.location_id = $4::uuid
+                         -- `coalesce` thay cho `($n IS NULL OR col = $n)`:
+                         -- cùng nghĩa, không nhánh OR nào để bộ lọc tenant lọt
+                         -- qua. Đây là lọc "một bác sĩ hay mọi bác sĩ", không
+                         -- phải lọc tenant — nhưng bài soi không phân biệt được,
+                         -- và nó đúng khi không phân biệt: một OR ở tầng WHERE
+                         -- là chỗ để lộ dữ liệu phòng khám khác.
+                         AND a.doctor_id IS NOT DISTINCT FROM
+                             coalesce($3::uuid, a.doctor_id)
+                         -- Cùng cách gom khung mà trigger dùng: mốc bắt đầu rơi
+                         -- vào [khung, khung + độ dài).
+                         AND a.slot_start >= ($2::date
+                                 + make_interval(mins => sl.minute_of_day))
+                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'
+                         AND a.slot_start <  ($2::date + make_interval(
+                                 mins => sl.minute_of_day + sl.slot_minutes))
+                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'
+                         -- Trạng thái chết không giữ chỗ — cùng danh sách với
+                         -- DEAD_STATUSES ở booking_service và enforce_slot_capacity.
+                         AND a.status NOT IN ('CANCELLED','NO_SHOW','DOCTOR_DECLINED')
+                  ) used ON TRUE
+                 ORDER BY sl.minute_of_day
+                """,
+                clinic_id,
+                day,
+                doctor_id,
+                location_id,
             )
+
+        slots_out = [
+            {
+                "time": _hhmm(r["minute_of_day"]),
+                "minute_of_day": r["minute_of_day"],
+                "slot_minutes": r["slot_minutes"],
+                "regular_cap": r["regular_cap"],
+                "walkin_cap": r["walkin_cap"],
+                "regular_used": r["regular_used"],
+                "walkin_used": r["walkin_used"],
+                "state": cell_state(r["regular_cap"], r["regular_used"]),
+            }
+            for r in rows
+            # Ngoài ca trực thì khung đó không tồn tại với bác sĩ này. Bỏ hẳn
+            # khỏi danh sách chứ không đánh dấu "đầy": đầy là hết chỗ, còn đây
+            # là không có mặt, và hai thứ đó cần hai cách xử lý khác nhau.
+            if not windows or covers(windows, r["minute_of_day"])
+        ]
 
         return {
             "date": date,
             "location_id": location_id,
             "doctor_id": doctor_id,
-            "weekday": weekday,
-            "blocks": blocks_out,
+            # Rỗng = phòng khám đóng cửa ngày đó (clinic_hours_for_date không
+            # trả dòng nào). Khác hẳn "mở cửa nhưng hết chỗ", và giao diện phải
+            # nói được hai điều đó bằng hai câu khác nhau.
+            "closed": not slots_out,
+            # Ba câu khác nhau, đừng gộp: "phòng khám đóng cửa", "bác sĩ không
+            # có ca trực", "còn chỗ". Gộp thành một ô xám thì người dùng không
+            # biết nên đổi NGÀY hay đổi BÁC SĨ.
+            "off_duty": False,
+            "roster_known": roster_known,
+            # Ca trực của bác sĩ hôm đó, để màn hình nói được "chỉ trực buổi
+            # sáng" thay vì im lặng bỏ bớt nửa lưới.
+            "shift_windows": [list(w) for w in windows],
+            # CÓ PHẢI CA LẺ KHÔNG — tính ở đây vì chỉ ở đây mới biết giờ mở
+            # cửa. Để trình duyệt tự suy ra (đếm số ô rồi so với lưới) là một
+            # phép đoán gián tiếp, sai mỗi khi lưới đổi vì lý do khác.
+            "partial_shift": bool(windows) and windows != [(open_min, close_min)],
+            "slots": slots_out,
         }
 
 
-def _budget_to_dict(b: BudgetRow) -> dict[str, Any]:
-    return {
-        "location_id": b.location_id,
-        "doctor_id": b.doctor_id,
-        "weekday": b.weekday,
-        "hour_start": b.hour_start,
-        "thanh_budget_min": b.thanh_budget_min,
-        "sono_budget_min": b.sono_budget_min,
-        "online_quota_min": b.online_quota_min,
-        "walkin_quota_min": b.walkin_quota_min,
-        "buffer_min": b.buffer_min,
-        "new_cap": b.new_cap,
-        "max_total": b.max_total,
-    }
+def cell_state(regular_cap: int, regular_used: int) -> CellState:
+    """Trạng thái ô để tô màu — theo CHỖ ĐẶT HẸN, không tính chỗ vãng lai.
+
+    Chỗ vãng lai là phần để dành cho khách đến thẳng quầy; đếm nó vào ô mà CSKH
+    nhìn khi đặt trước sẽ khiến khung trông còn chỗ trong khi phần đặt trước đã
+    hết — và trigger sẽ từ chối đúng lượt đặt tiếp theo.
+    """
+    if regular_used >= regular_cap:
+        return "full"
+    if regular_cap - regular_used <= FEW_REMAINING:
+        return "few"
+    return "free"
 
 
-def _usage_to_dict(u: Usage) -> dict[str, Any]:
-    return {
-        "thanh": u.thanh,
-        "online": u.online,
-        "walkin": u.walkin,
-        "new_count": u.new_count,
-        "total": u.total,
-    }
+def _hhmm(minute_of_day: int) -> str:
+    return f"{minute_of_day // 60:02d}:{minute_of_day % 60:02d}"

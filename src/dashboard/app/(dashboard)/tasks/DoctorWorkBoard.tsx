@@ -313,6 +313,9 @@ export default function DoctorWorkBoard({
           vitalsOnly={vitalsOnly}
           canEditAdmin={canEditAdmin}
           showPreVisitBrief={showPreVisitBrief}
+          // Bác sĩ mới ký được. `showPreVisitBrief` đã do server bật đúng theo
+          // isDoctorRole, nên nó là tín hiệu sẵn có chính xác nhất ở đây.
+          canSign={showPreVisitBrief}
           showSono={showSono}
           enableVisitPager
           onClose={() => setOpenId(null)}

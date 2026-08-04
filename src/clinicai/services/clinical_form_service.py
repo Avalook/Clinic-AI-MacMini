@@ -36,6 +36,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
@@ -147,6 +148,25 @@ class ClinicalFormService:
                     json.dumps(payload),
                     actor,
                     identity.clinic_id,
+                )
+
+                # Phiếu khám là ghi chép lâm sàng. Lưu MÃ phiếu và các nhóm
+                # trường đã điền, KHÔNG lưu giá trị — /audit-log mở cho vai vận
+                # hành, còn nội dung phiếu thì không.
+                await record_event(
+                    conn,
+                    event_type="clinical_form.saved",
+                    aggregate_type="clinical_form_response",
+                    aggregate_id=visit_id,
+                    identity=identity,
+                    origin="api:clinical-form",
+                    payload={
+                        "visit_id": visit_id,
+                        "service_code": code,
+                        "field_groups": (
+                            sorted(payload.keys()) if isinstance(payload, dict) else []
+                        ),
+                    },
                 )
 
         logger.info(

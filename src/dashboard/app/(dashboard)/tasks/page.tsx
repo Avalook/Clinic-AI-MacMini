@@ -4,13 +4,13 @@
 // CCCD KHÔNG select (D-identity).
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import {
   vnTodayRangeUtc,
   vnLocalToUtcISO,
   vnMonthStartUtc,
 } from "../../../lib/datetime";
 import { currentWeekStartVn } from "../../../lib/roster";
-import { b3ReadyApptIds, type LabLite } from "../../../lib/queue";
 import {
   getClinicRole,
   getClinicStaffId,
@@ -30,30 +30,18 @@ import DoctorWorkBoard, { type DoctorApptRow } from "./DoctorWorkBoard";
 import CashierWorkBoard, {
   type CashierMode,
   type CashierRow,
-  type CashierServiceItem,
-  type CashierDrugItem,
 } from "./CashierWorkBoard";
 import type { ClinicRole } from "../../../lib/roles";
-import { paidCashierPaymentSeeds } from "../../../lib/clinical-workspace-policy";
+import type { CashierPaymentKind } from "../../../lib/clinical-workspace-policy";
+import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Chuẩn hoá tên để khớp bảng giá (service_price): bỏ URL trong ngoặc, gộp khoảng trắng.
-const normName = (s: string): string =>
-  (s ?? "")
-    .toLowerCase()
-    .replace(/\(https?:\/\/[^)]*\)?/g, "")
-    .replace(/[()]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-// Bỏ link Notion "(https://…)" khỏi tên dịch vụ/xét nghiệm cho gọn.
-const cleanName = (s: string | null): string =>
-  (s ?? "").replace(/\s*\(https?:\/\/[^)]*\)?/gi, "").trim();
-
-const oneOf = <T,>(x: T | T[] | null): T | null =>
-  !x ? null : Array.isArray(x) ? (x[0] ?? null) : x;
+// normName / cleanName / oneOf đã chuyển xuống cashier_board_service.py cùng
+// với truy vấn. Chuẩn hoá tên để tra bảng giá là LUẬT, và luật ở backend —
+// giữ một bản sao ở TSX là giữ một bản sẽ lệch.
 
 // Mode thu ngân theo vai: CASHIER_THUOC=[thuoc], CASHIER_DV=[dich_vu], CASHIER=cả hai.
 function cashierModes(role: ClinicRole | null): CashierMode[] {
@@ -69,195 +57,42 @@ function cashierModes(role: ClinicRole | null): CashierMode[] {
 // Giá best-effort khớp tên với service_price; chưa có → để trống. Khu QR + xác
 // nhận thanh toán là khung demo (chưa có bảng billing — KHÔNG bịa trạng thái đã thu).
 async function CashierTasks(modes: CashierMode[]) {
-  const supabase = await getSupabaseServer();
-  const { startUtc, endUtc } = vnTodayRangeUtc();
+  // MỘT VÒNG MẠNG, KHÔNG PHẢI HAI ĐỢT.
+  //
+  // Khối này trước đây đọc PostgREST hai đợt nối tiếp: đợt một lấy lượt khám
+  // hôm nay, đợt hai lấy xét nghiệm / dịch vụ / đơn thuốc / bảng giá / đã thu
+  // *theo id lấy được từ đợt một*. Đo ngày 04/08: một truy vấn PostgREST
+  // ~210ms, một vòng Postgres ~73ms — nên hai đợt là ~420ms ngồi chờ, mỗi lần
+  // thu ngân mở màn hình. Nay là một câu SQL ở cashier_board_service.py: 80ms.
+  //
+  // Và nó sửa một lỗi tiền bạc có sẵn: truy vấn cũ hỏi `lab_result.id`, mà cột
+  // khoá tên là `lab_result_id`. PostgREST trả lỗi 42703, TSX nuốt bằng `?? []`
+  // → XÉT NGHIỆM CHƯA BAO GIỜ vào hoá đơn. Thu ngân thu thiếu tiền mà màn hình
+  // không có gì bất thường.
+  const board = await fetchFromBackend<{
+    items: CashierRow[];
+    paid: { visit_id: string; kind: CashierPaymentKind }[];
+  }>(`/api/v1/cashier/board?modes=${modes.join(",")}`);
 
-  interface VisitRaw {
-    visit_id: string;
-    clinic_patient_id: string;
-    appointment_id: string | null;
-    patient:
-      | { full_name: string | null; patient_code: string | null; phone_primary: string | null }
-      | { full_name: string | null; patient_code: string | null; phone_primary: string | null }[]
-      | null;
-    appointment:
-      | { status: string | null; service: { name: string | null } | { name: string | null }[] | null }
-      | { status: string | null; service: { name: string | null } | { name: string | null }[] | null }[]
-      | null;
-  }
-
-  const { data: visitsRaw, error } = await supabase
-    .from("visit")
-    .select(
-      `visit_id, clinic_patient_id, appointment_id,
-       patient:patient!clinic_patient_id ( full_name, patient_code, phone_primary ),
-       appointment:appointment!appointment_id ( status, service:service_type!service_type_id ( name ) )`,
-    )
-    .gte("created_at", startUtc)
-    .lt("created_at", endUtc)
-    .order("created_at", { ascending: false })
-    .limit(300);
-
-  // CHỈ hiện BN cho thu ngân khi BÁC SĨ ĐÃ KHÁM XONG (appointment.status =
-  // COMPLETED). Trước đây lấy MỌI visit tạo hôm nay (kể cả CHECKED_IN/IN_PROGRESS
-  // = đang khám) → thu ngân thu tiền được khi bác sĩ chưa khám xong. "Khám xong"
-  // = COMPLETED (khớp /patient-list + VisitStatusBoard; dashboard KHÔNG tự set
-  // visit.FINALIZED nên lọc theo appointment.status, không theo visit.status).
-  const visits = ((visitsRaw as VisitRaw[] | null) ?? []).filter(
-    (v) => oneOf(v.appointment)?.status === "COMPLETED",
-  );
-  const patientIds = [
-    ...new Set(visits.map((v) => v.clinic_patient_id).filter((x): x is string => !!x)),
-  ];
-  const apptIds = [
-    ...new Set(visits.map((v) => v.appointment_id).filter((x): x is string => !!x)),
-  ];
-  const visitIds = visits.map((v) => v.visit_id);
-  const wantSvc = modes.includes("dich_vu");
-  const wantRx = modes.includes("thuoc");
-
-  const [labRes, svcRes, rxRes, priceRes, payRes] = await Promise.all([
-    wantSvc && apptIds.length
-      ? supabase
-          .from("lab_result")
-          .select("id, appointment_id, test_name")
-          .in("appointment_id", apptIds)
-          .limit(2000)
-      : Promise.resolve({ data: [] }),
-    wantSvc && patientIds.length
-      ? supabase
-          .from("service_log")
-          .select("id, clinic_patient_id, service_name_raw, service:service_type!service_type_id ( name )")
-          .in("clinic_patient_id", patientIds)
-          .gte("ordered_at", startUtc)
-          .lt("ordered_at", endUtc)
-          .limit(1000)
-      : Promise.resolve({ data: [] }),
-    wantRx && visitIds.length
-      ? supabase
-          .from("prescription")
-          .select("id, visit_id, drug_name_raw, quantity, dosage_instructions")
-          .in("visit_id", visitIds)
-          .limit(2000)
-      : Promise.resolve({ data: [] }),
-    supabase.from("service_price").select("name, group, unit_price").eq("active", true),
-    // Khâu ĐÃ THU (bảng payment) — seed trạng thái "Đã thanh toán". Bảng có thể
-    // chưa tồn tại (migration 056 chưa apply) → error → coi như rỗng (graceful).
-    visitIds.length
-      ? supabase
-          .from("payment")
-          .select("visit_id, kind, status")
-          .eq("status", "PAID")
-          .in("visit_id", visitIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const paidInit = paidCashierPaymentSeeds(
-    (payRes.data as { visit_id: string; kind: string; status: string | null }[] | null) ?? [],
-  );
-
-  // Bảng giá theo tên đã chuẩn hoá (chỉ dòng có đơn giá).
-  const priceThuoc = new Map<string, number>();
-  const priceDV = new Map<string, number>();
-  for (const p of (priceRes.data as { name: string; group: string; unit_price: number | null }[] | null) ?? []) {
-    if (p.unit_price == null) continue;
-    (p.group === "thuoc" ? priceThuoc : priceDV).set(normName(p.name), p.unit_price);
-  }
-  const dvPrice = (name: string): number | null => priceDV.get(normName(name)) ?? null;
-
-  // CLS theo appointment.
-  const labByAppt = new Map<string, { id: string; test_name: string }[]>();
-  for (const l of (labRes.data as { id: string; appointment_id: string | null; test_name: string }[] | null) ?? []) {
-    if (!l.appointment_id) continue;
-    const arr = labByAppt.get(l.appointment_id) ?? [];
-    arr.push({ id: l.id, test_name: l.test_name });
-    labByAppt.set(l.appointment_id, arr);
-  }
-  // service_log theo BN.
-  interface SvcRaw {
-    id: string;
-    clinic_patient_id: string;
-    service_name_raw: string | null;
-    service: { name: string | null } | { name: string | null }[] | null;
-  }
-  const svcByPatient = new Map<string, CashierServiceItem[]>();
-  for (const s of (svcRes.data as SvcRaw[] | null) ?? []) {
-    const name = oneOf(s.service)?.name ?? cleanName(s.service_name_raw);
-    if (!name) continue;
-    const arr = svcByPatient.get(s.clinic_patient_id) ?? [];
-    arr.push({ id: s.id, name, price: dvPrice(name) });
-    svcByPatient.set(s.clinic_patient_id, arr);
-  }
-  // Đơn thuốc theo lượt khám.
-  interface RxRaw {
-    id: string;
-    visit_id: string;
-    drug_name_raw: string | null;
-    quantity: string | null;
-    dosage_instructions: string | null;
-  }
-  const rxByVisit = new Map<string, CashierDrugItem[]>();
-  for (const d of (rxRes.data as RxRaw[] | null) ?? []) {
-    const name = (d.drug_name_raw ?? "").trim();
-    if (!name) continue;
-    const arr = rxByVisit.get(d.visit_id) ?? [];
-    arr.push({
-      id: d.id,
-      name,
-      quantity: d.quantity,
-      dosage: d.dosage_instructions,
-      price: priceThuoc.get(normName(name)) ?? null,
-    });
-    rxByVisit.set(d.visit_id, arr);
-  }
-
-  const rows: CashierRow[] = visits.map((v) => {
-    const p = oneOf(v.patient);
-    const appt = oneOf(v.appointment);
-    const services: CashierServiceItem[] = [];
-    if (wantSvc) {
-      const examName = oneOf(appt?.service ?? null)?.name ?? null;
-      if (examName)
-        services.push({ id: `exam-${v.visit_id}`, name: examName, price: dvPrice(examName) });
-      for (const l of v.appointment_id ? (labByAppt.get(v.appointment_id) ?? []) : []) {
-        const nm = cleanName(l.test_name);
-        if (nm) services.push({ id: l.id, name: nm, price: dvPrice(nm) });
-      }
-      services.push(...(svcByPatient.get(v.clinic_patient_id) ?? []));
-    }
-    return {
-      visit_id: v.visit_id,
-      clinic_patient_id: v.clinic_patient_id,
-      full_name: p?.full_name ?? null,
-      patient_code: p?.patient_code ?? null,
-      phone: p?.phone_primary ?? null,
-      appt_status: appt?.status ?? null,
-      services,
-      drugs: wantRx ? (rxByVisit.get(v.visit_id) ?? []) : [],
-    };
-  });
-
-  if (error) {
+  // Đọc không được thì NÓI RA. Hiện một bảng rỗng ở màn thu tiền nghĩa là
+  // "hôm nay không ai cần thu" — một câu khẳng định sai có thể khiến bệnh nhân
+  // ra về mà chưa thanh toán.
+  if (!board) {
     return (
       <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-        {error.message}
+        Không đọc được danh sách thu ngân. Tải lại trang; nếu vẫn vậy, báo kỹ
+        thuật — ĐỪNG coi đây là &ldquo;không có ai cần thu&rdquo;.
       </div>
     );
   }
+
+  const rows: CashierRow[] = board.items;
+  const paidInit = board.paid;
+
   return <CashierWorkBoard rows={rows} modes={modes} paidInit={paidInit} />;
 }
 
 // Bác sĩ: lịch của MÌNH (đủ trường hành chính để dựng hồ sơ lâm sàng).
-const DOCTOR_SELECT = `
-  id, slot_start, status, queue_number, booking_channel,
-  patient:patient!clinic_patient_id (
-    clinic_patient_id, patient_code, full_name, date_of_birth,
-    phone_primary, phone_secondary, gender, ethnicity, nationality, occupation,
-    patient_objection, address, guardian_name
-  ),
-  service:service_type!service_type_id ( name ),
-  visit:visit!appointment_id ( checked_in_at )
-`;
 
 // readOnly = vai vận hành xem clone giao diện board bác sĩ nhưng KHÔNG được mở
 // hồ sơ lâm sàng. Họ vẫn có staff id liên kết nhưng KHÔNG phải bác sĩ →
@@ -272,7 +107,6 @@ async function DoctorTasks(
   showSono = false,
   vitalsOnly = false,
 ) {
-  const supabase = await getSupabaseServer();
   const staffId = await getClinicStaffId();
   const { startUtc } = vnTodayRangeUtc();
   // Cửa sổ 31 ngày tới: đủ cho bộ lọc Tuần này / Tuần sau / Tháng này ở board bác sĩ.
@@ -287,77 +121,29 @@ async function DoctorTasks(
     vnMonthStartUtc(),
   ].sort()[0];
 
-  let q = supabase
-    .from("appointment")
-    .select(DOCTOR_SELECT)
-    .gte("slot_start", readStartUtc)
-    .lt("slot_start", endUtc)
-    .order("slot_start", { ascending: true })
-    .limit(400);
-  // Bác sĩ: chỉ lịch của MÌNH. Lễ tân (readOnly) + TKYK (allDoctors): KHÔNG lọc → mọi bác sĩ.
-  if (staffId && !readOnly && !allDoctors) q = q.eq("doctor_id", staffId);
-  const { data, error } = await q;
-  const rows = (data as DoctorApptRow[] | null) ?? [];
-
-  // Làn "Chờ đọc KQ (B3)" (T-QUEUE-B3): lượt nào KQ lab đã về hết → callRank (tier −2)
-  // kéo lên ĐẦU board bác sĩ. Match theo appointment_id. Best-effort.
-  const apptIdsB3 = rows
-    .map((r) => (r as { id?: string }).id)
-    .filter((x): x is string => !!x);
-  let b3Ready = new Set<string>();
-  if (apptIdsB3.length) {
-    const { data: labsB3 } = await supabase
-      .from("lab_result")
-      .select("appointment_id, result_value, external_ref")
-      .in("appointment_id", apptIdsB3);
-    b3Ready = b3ReadyApptIds((labsB3 as LabLite[] | null) ?? []);
-  }
-
-  // "Phân loại khám" (Khám lần đầu / Tái khám) — suy từ lịch sử hẹn của BN: lịch
-  // SỚM NHẤT của BN = Khám lần đầu, các lịch sau = Tái khám. DB chưa có cột riêng
-  // → suy luận nhất quán (giống bảng "Lịch hẹn khám" ở Trang chủ), KHÔNG bịa số.
-  const pids = [
-    ...new Set(
-      rows
-        .map((r) => r.patient?.clinic_patient_id)
-        .filter((x): x is string => !!x),
-    ),
-  ];
-  const earliest = new Map<string, number>();
-  if (pids.length) {
-    const { data: prior } = await supabase
-      .from("appointment")
-      .select("clinic_patient_id, slot_start")
-      .in("clinic_patient_id", pids);
-    for (const r of (prior as
-      | { clinic_patient_id: string; slot_start: string }[]
-      | null) ?? []) {
-      const t = new Date(r.slot_start).getTime();
-      const cur = earliest.get(r.clinic_patient_id);
-      if (cur === undefined || t < cur) earliest.set(r.clinic_patient_id, t);
-    }
-  }
-  const withPhanLoai: DoctorApptRow[] = rows.map((r) => {
-    const pid = r.patient?.clinic_patient_id;
-    const e = pid ? earliest.get(pid) : undefined;
-    const phan_loai =
-      e === undefined
-        ? ""
-        : new Date(r.slot_start).getTime() > e
-          ? "Tái khám"
-          : "Khám lần đầu";
-    // visit embed (1-nhiều phía appointment) trả MẢNG → phẳng hoá checked_in_at
-    // cho compareQueue dùng THỨ TỰ GỌI ưu tiên (Model ②).
-    const visit = (r as { visit?: { checked_in_at: string | null }[] | null })
-      .visit;
-    const apptId = (r as { id?: string }).id;
-    return {
-      ...r,
-      phan_loai,
-      checked_in_at: visit?.[0]?.checked_in_at ?? null,
-      b3_ready: apptId ? b3Ready.has(apptId) : false,
-    };
-  });
+  // MỘT LƯỢT GỌI THAY CHO BA.
+  //
+  // Trước đây: đọc lịch hẹn → gom id → đọc lab_result (luật "chờ đọc KQ") →
+  // gom bệnh nhân → đọc TOÀN BỘ lịch sử hẹn (luật "Tái khám / Khám lần đầu").
+  // Ba vòng mạng NỐI TIẾP, và vòng cuối không có `limit` nên lớn theo lịch sử
+  // phòng khám. Hai luật ấy đều là luật nghiệp vụ, và luật "Tái khám" còn là
+  // bản sao của chính nó ở trang chủ.
+  //
+  // Nay cả hai tính trong SQL và về cùng dòng dữ liệu. Đã đối chiếu với đường
+  // cũ trên prod trước khi đổi: 266 dòng qua 6 cửa sổ × 7 bác sĩ khớp từng
+  // trường, và 7 tình huống của luật B3 dựng riêng cũng khớp
+  // (xem doctor_board_service.py).
+  const board = await fetchFromBackend<{ items: DoctorApptRow[] }>(
+    `/api/v1/appointments/doctor-board?start=${encodeURIComponent(readStartUtc)}` +
+      `&end=${encodeURIComponent(endUtc)}` +
+      // Bác sĩ: chỉ lịch của MÌNH. Lễ tân (readOnly) + TKYK (allDoctors) không
+      // lọc → thấy mọi bác sĩ. Giữ nguyên luật cũ, chỉ đổi nơi thực hiện.
+      (staffId && !readOnly && !allDoctors ? `&doctor_id=${staffId}` : ""),
+  );
+  const withPhanLoai: DoctorApptRow[] = board?.items ?? [];
+  // `null` = backend không trả lời. Giữ nguyên khối báo lỗi sẵn có của trang
+  // thay vì hiện một bảng trống — trông y hệt "hôm nay không có ai".
+  const error = board === null ? { message: "Không đọc được danh sách khám." } : null;
 
   return (
     <div className="space-y-4">
@@ -453,6 +239,7 @@ export default async function TasksPage() {
   // Bảng 2 (Nhật ký CSKH) — đọc 200 việc gần nhất từ cskh_action.
   const CSKH_SELECT = `
     id, category, status, description, action_data, source_created_at, created_by_text,
+    visit_link_raw,
     patient:patient!clinic_patient_id (
       clinic_patient_id, full_name, patient_code, phone_primary
     )
@@ -485,12 +272,7 @@ export default async function TasksPage() {
       .order("source_created_at", { ascending: false, nullsFirst: false })
       .limit(200),
     // Bác sĩ để PHÂN LẠI lịch bị từ chối.
-    supabase
-      .from("staff")
-      .select("id, full_name")
-      .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-      .eq("is_active", true)
-      .order("full_name"),
+    listBookableDoctors(),
   ]);
 
   const rows = (apptRes.data as ApptRow[] | null) ?? [];
@@ -499,10 +281,7 @@ export default async function TasksPage() {
     id: r.id as string,
     label: r.name as string,
   }));
-  const doctors: Opt[] = (docRes.data ?? []).map((r) => ({
-    id: r.id as string,
-    label: r.full_name as string,
-  }));
+  const doctors: Opt[] = docRes;
 
   return (
     <div className="space-y-4">

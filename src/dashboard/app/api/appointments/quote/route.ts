@@ -26,11 +26,11 @@ export async function GET(request: Request) {
   const location_id = searchParams.get("location_id");
   const doctor_id = searchParams.get("doctor_id");
 
-  if (!date || !location_id) {
-    return NextResponse.json(
-      { error: "Thiếu date / location_id." },
-      { status: 400 },
-    );
+  // location_id KHÔNG bắt buộc: backend mặc định dùng cơ sở của người đang đăng
+  // nhập, đúng như khi nó ghi lịch. Trình duyệt không có nguồn đáng tin để đoán
+  // cơ sở, và một cú đoán sai ở đây tô màu lưới theo sai chỗ.
+  if (!date) {
+    return NextResponse.json({ error: "Thiếu date." }, { status: 400 });
   }
 
   const {
@@ -48,7 +48,8 @@ export async function GET(request: Request) {
   if (apiKey) headers["X-API-Key"] = apiKey;
 
   // Build query string for backend
-  const params = new URLSearchParams({ date, location_id });
+  const params = new URLSearchParams({ date });
+  if (location_id) params.set("location_id", location_id);
   if (doctor_id) params.set("doctor_id", doctor_id);
 
   try {

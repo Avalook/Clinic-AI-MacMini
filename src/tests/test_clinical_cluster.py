@@ -499,6 +499,8 @@ def _staff(role: ClinicRole, staff_id: str = "s1") -> StaffIdentity:
         department=role.value,
         role=role,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 

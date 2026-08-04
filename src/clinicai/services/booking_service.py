@@ -8,15 +8,22 @@ most rule-dense route in the dashboard. Two entry points:
 
 WHERE THE REAL GUARANTEES LIVE. Two invariants are enforced by Postgres, not
 here: ``appointment_no_doctor_overlap`` (a doctor cannot be in two places) and
-the atomic 2+1 slot-capacity trigger (20260714000002). The checks in this module
+the atomic slot-capacity trigger (20260714000002, per-clinic since
+20260803000001). The checks in this module
 run *before* the write purely to produce a sentence a receptionist can act on —
 "khung 09:15–09:30 đã đủ 2 chỗ" rather than a constraint name. They are
 best-effort and fail open, because the database is the actual net; that is why
 the SQLSTATE handlers below matter more than the pre-checks do.
 
-THE 2+1 RULE, in the clinic's words: each doctor × 15-minute window has three
-seats — two for booked patients and a third reserved for a walk-in. A row with
-no doctor assigned is its own queue with the same limits.
+THE SEAT RULE, in the clinic's words: each doctor × slot has a few seats — some
+for booked patients, the rest reserved for walk-ins. A row with no doctor
+assigned is its own queue with the same limits.
+
+The slot length and the two counts are that clinic's, not the product's: they
+come from ``clinic.settings`` via ``clinic_policy.py`` (C.3). Dr4Women reads
+15 minutes / 2 + 1, which is where the "2+1" in older comments came from. The
+trigger reads the same row, so a clinic that changes its numbers changes both
+the sentence below and the guarantee behind it in one UPDATE, with no deploy.
 
 Check-in is the one transition that is not an optimistic update. Allocating the
 daily queue number and moving the status have to be one serialized transaction,
@@ -29,25 +36,32 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Literal
-from zoneinfo import ZoneInfo
 
 import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import DOCTOR_DESK_ROLES, ClinicRole, StaffIdentity
+from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.shifts import covers, describe, merge_windows, shift_window
+from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
+from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
 
-CLINIC_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+# Múi giờ khai báo ở core.clock — xem lý do ở đó (một hằng số ở nhiều bản
+# sao là hằng số sẽ sai ở một trong các bản).
+CLINIC_TZ = _CLINIC_TZ
 
-SLOT_MINUTES = 15
-REGULAR_CAP = 2  # BN1 + BN2
-WALKIN_CAP = 1  # the third seat, reserved
-# A doctor's hard ceiling on overlapping appointments, matching the DB constraint.
+# The slot length and the two seat counts are NOT here: they are the clinic's
+# configuration, read per booking from clinic.settings (C.3, clinic_policy.py).
+#
+# A doctor's hard ceiling on overlapping appointments stays a constant, because
+# it is not a preference — it mirrors `appointment_no_doctor_overlap`, a DB
+# constraint that is the same for every tenant.
 DOCTOR_OVERLAP_CAP = 6
 
 # Statuses that no longer hold a seat.
@@ -68,9 +82,14 @@ Action = Literal[
 
 # Who may issue which action. Mirrors roles.ts: isDoctorRole / canManageAppt /
 # canCheckin / canWriteIntake.
-DOCTOR_ROLES: frozenset[ClinicRole] = frozenset(
-    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
-)
+#
+# DOCTOR_ROLES used to be re-declared here with its own membership list, one
+# character away from identity.py's set of the same name and differing by TKYK.
+# Two constants with one name is how a permission drifts without a failing test,
+# so this now imports the one that identity.py publishes. Appointment actions are
+# desk work — the secretary confirms and completes on the doctor's behalf — which
+# is DOCTOR_DESK_ROLES, not the narrower PHYSICIAN_ROLES that gates lab orders.
+DOCTOR_ROLES: frozenset[ClinicRole] = DOCTOR_DESK_ROLES
 MANAGE_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA}
 )
@@ -93,6 +112,24 @@ INTAKE_ROLES: frozenset[ClinicRole] = frozenset(
 KEEP_STATUS = "__keep__"
 
 
+def initial_status(auto_checkin: bool) -> str:
+    """Lịch hẹn vừa đặt ở trạng thái nào. ĐẶT XONG LÀ XONG.
+
+    Quyết định của Quang (2026-08-04): bỏ vòng gọi-xác-nhận. Lý do của anh:
+    *"nó vốn phải là cái đã được gọi tới CSKH hoặc nhắn tin rồi mới đặt mà"*.
+    Cuộc gọi ấy CHÍNH LÀ thứ sinh ra lịch hẹn này; gọi lại lần nữa để xác nhận
+    cái vừa thoả thuận là bắt nhân viên làm hai lần một việc — và tệ hơn, nó
+    dán nhãn "chưa chắc" lên một lịch hẹn vốn đã chắc.
+
+    Muốn đổi/huỷ thì vào Quản lý khách hàng → lịch hẹn sắp tới → đổi hoặc huỷ
+    kèm lý do; mỗi việc đó là một chuyển tiếp riêng và sinh event riêng.
+
+    Hàm thuần, tách khỏi create() vì create() cần mười thứ khác mới chạy được —
+    và luật này thì phải kiểm được mà không cần dựng cả phòng khám.
+    """
+    return "CHECKED_IN" if auto_checkin else "CONFIRMED"
+
+
 @dataclass(frozen=True)
 class Transition:
     """What an action does, and what it may be done from."""
@@ -107,7 +144,14 @@ class Transition:
 
 _ALIVE = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"})
 _PRE_ARRIVAL = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"})
+# SCHEDULED và CSKH_CONFIRMED là TRẠNG THÁI CŨ, không phải trạng thái chết.
+# Lịch hẹn mới vào thẳng CONFIRMED (xem create()), nhưng prod còn 23 dòng
+# SCHEDULED + 2 dòng CSKH_CONFIRMED đặt từ trước, và chúng vẫn phải khám được,
+# đổi được, huỷ được. Xoá khỏi các tập này là làm 25 lịch hẹn thật kẹt cứng.
 _AWAITING_DOCTOR = frozenset({"SCHEDULED", "CSKH_CONFIRMED"})
+# Bác sĩ TỪ CHỐI được cả lịch đã chắc. Nhận thì không: lịch mới sinh ra đã
+# CONFIRMED rồi, "nhận" thêm lần nữa chỉ đẻ ra một event không nói thêm gì.
+_DECLINABLE = _AWAITING_DOCTOR | {"CONFIRMED"}
 
 # Actions that take the visit off the board again. undo_checkin and cancel mean
 # the arrival did not stand, so the still-open steps of that visit are cancelled
@@ -123,7 +167,7 @@ TRANSITIONS: dict[str, Transition] = {
     ),
     # Declining keeps doctor_id for history and surfaces to CSKH for reassignment.
     "decline": Transition(
-        "DOCTOR_DECLINED", _AWAITING_DOCTOR, DOCTOR_ROLES, "appointment.declined", True
+        "DOCTOR_DECLINED", _DECLINABLE, DOCTOR_ROLES, "appointment.declined", True
     ),
     # Finished only from CHECKED_IN: a patient who never arrived cannot have
     # been examined, whatever the doctor pressed.
@@ -145,7 +189,12 @@ TRANSITIONS: dict[str, Transition] = {
         CHECKIN_ROLES,
         "appointment.checkin_undone",
     ),
-    # CSKH confirmed with the patient; the slot still waits on the doctor.
+    # BƯỚC CŨ, GIỮ LẠI CHỈ ĐỂ DỌN LỊCH CŨ.
+    #
+    # Quang bỏ vòng gọi-xác-nhận: lịch mới đặt xong là chắc luôn, nên không có
+    # gì để xác nhận nữa. Nhưng prod còn 23 lịch SCHEDULED đặt từ trước, và
+    # người đang cầm chúng vẫn cần đường đi tiếp — nên chuyển tiếp này chỉ còn
+    # nhận SCHEDULED, và sẽ tự hết việc khi đám cũ khám xong.
     "cskh_confirm": Transition(
         "CSKH_CONFIRMED",
         frozenset({"SCHEDULED"}),
@@ -156,9 +205,11 @@ TRANSITIONS: dict[str, Transition] = {
     "no_show": Transition(
         "NO_SHOW", _PRE_ARRIVAL, CHECKIN_ROLES, "appointment.no_show"
     ),
-    # Reassignment puts a declined appointment back in the pool.
+    # Bác sĩ từ chối thì lịch quay lại hàng chờ — và quay lại ở trạng thái CHẮC,
+    # vì thoả thuận với bệnh nhân không mất đi khi một bác sĩ bận. Đổi bác sĩ là
+    # việc nội bộ, không phải lý do gọi lại bệnh nhân để xác nhận lần nữa.
     "reassign": Transition(
-        "SCHEDULED",
+        "CONFIRMED",
         frozenset({"DOCTOR_DECLINED"}),
         MANAGE_ROLES,
         "appointment.reassigned",
@@ -186,27 +237,23 @@ def is_dead(status: str | None) -> bool:
     return (status or "").strip() in DEAD_STATUSES
 
 
-def slot_bucket(moment: datetime) -> tuple[datetime, datetime]:
-    """The 15-minute window containing ``moment``.
-
-    Floor on the UTC epoch: 15 divides 60, and Vietnam's offset is a whole
-    number of hours, so the UTC buckets line up with the grid the UI draws.
-    """
-    epoch = int(moment.timestamp())
-    start = epoch - (epoch % (SLOT_MINUTES * 60))
-    begin = datetime.fromtimestamp(start, tz=timezone.utc)
-    return begin, begin + timedelta(minutes=SLOT_MINUTES)
-
-
-def suggest_load(
-    patient_kind: str | None, need_sono: bool
-) -> tuple[int | None, int | None]:
-    """Suggested minutes for a booking. A suggestion — CSKH may override it."""
-    if patient_kind == "NEW":
-        return 15, (12 if need_sono else 0)
-    if patient_kind == "RETURN":
-        return (7 if need_sono else 5), (8 if need_sono else 0)
-    return None, None
+# suggest_load() ĐÃ BỊ GỠ (20260803000005).
+#
+# Nó trả về một bảng phút viết cứng — khách mới 15', tái khám 5', siêu âm +12'/+8'
+# — và bốn con số đó không đến từ phép đo nào. Chúng được gõ vào một lần rồi trở
+# thành "sự thật": ô lịch tô màu theo chúng, cảnh báo "khung sắp đầy" tính theo
+# chúng, và không ai từng kiểm xem một khách mới lúc 18:00 thứ Ba có thật sự mất
+# 15 phút hay không.
+#
+# Hai việc vốn khác nhau, giờ tách hẳn:
+#
+#   GIỚI HẠN đặt lịch  = SỐ CHỖ mỗi khung. Trưởng ca / Quản lý đặt, sửa được
+#                        trên giao diện, thi hành bởi trigger trong database.
+#   THỜI LƯỢNG khám    = ĐO từ work_item.started_at → finished_at. Xem view
+#                        v_consultation_duration / _stats.
+#
+# thanh_min/sono_min từ đây chỉ nhận giá trị người dùng NHẬP TAY, và NULL khi
+# không ai ước lượng — chứ không phải một con số hệ thống tự bịa rồi tự tin.
 
 
 def _hhmm(moment: datetime) -> str:
@@ -226,7 +273,7 @@ class BookingService:
         *,
         clinic_patient_id: str,
         service_type_id: str,
-        location_id: str,
+        location_id: str | None,
         slot_start: datetime,
         slot_end: datetime,
         identity: StaffIdentity,
@@ -237,27 +284,46 @@ class BookingService:
         need_sono: bool | None = None,
         thanh_min: int | None = None,
         sono_min: int | None = None,
+        notes: str | None = None,
     ) -> dict[str, Any]:
         """Book one appointment. Returns its id and the status it landed in."""
+        # Không nói cơ sở thì lấy cơ sở CỦA NGƯỜI ĐẶT, không phải cơ sở đầu tiên
+        # trong một danh sách. _validate_booking_refs vẫn kiểm nó thuộc đúng
+        # phòng khám, nên chỉ định cơ sở khác vẫn được — chỉ là phải cố ý.
+        location_id = location_id or identity.location_id
         if slot_end <= slot_start:
             raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
 
         raw_channel = (booking_channel or "").strip()
-        channel = raw_channel or "WALK_IN"
+        # NO INVENTED DEFAULT, and the old one was the wrong way round.
+        #
+        # This used to be `raw_channel or "WALK_IN"`. BookingHub — the screen
+        # CSKH books almost everything from — sends no channel at all, so every
+        # appointment it created was stored as a walk-in. Walk-ins draw from the
+        # small reserved pool (walkin_cap, 1 seat), so the grid filled that pool
+        # and left the booked pool (regular_cap, 2 seats) permanently empty: the
+        # seat rule ran inverted on the busiest screen in the clinic, and the
+        # patient who actually walked in found no seat left for them.
+        #
+        # An unstated channel means "a member of staff entered this booking",
+        # which is a booked seat. NULL says exactly that and nothing more; both
+        # capacity triggers already treat anything that is not the literal
+        # 'WALK_IN' as regular, so the pre-check and the net now agree.
+        channel = raw_channel or None
         kind = (patient_kind or "").strip().upper() or None
         if kind not in (None, "NEW", "RETURN"):
             kind = None
 
-        suggested_thanh, suggested_sono = suggest_load(kind, bool(need_sono))
-        thanh = thanh_min if thanh_min is not None else suggested_thanh
-        sono = sono_min if sono_min is not None else suggested_sono
+        # Người nhập gì thì lưu nấy; không nhập thì NULL. Không suy diễn.
+        thanh = thanh_min
+        sono = sono_min
 
         # A walk-in booked for today is already standing at the desk, so it is
         # checked in on creation. Only when WALK_IN was chosen explicitly and
         # the slot is today — otherwise a future booking, or one phoned in
         # without a channel, would be checked in for a patient who is not here.
         auto_checkin = raw_channel.upper() == "WALK_IN" and self._is_today(slot_start)
-        status = "CHECKED_IN" if auto_checkin else "SCHEDULED"
+        status = initial_status(auto_checkin)
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -270,6 +336,28 @@ class BookingService:
                     identity=identity,
                 )
 
+                warnings: list[str] = []
+
+                # MỘT NGƯỜI KHÔNG NGỒI HAI CHỖ CÙNG LÚC.
+                #
+                # Tìm thấy trên prod ngày 04/08: một bệnh nhân có BA lịch hẹn
+                # cùng khung 17:15, tạo cách nhau 10 và 5 giây — tức là bấm
+                # "Đặt lịch hẹn" ba lần. Khung đó sức chứa 3, nên một người đã
+                # chiếm trọn khung, và không luật nào trong hệ chặn lại: bảng
+                # appointment không có ràng buộc duy nhất nào.
+                #
+                # Chuyện này nặng hơn kể từ khi bỏ bước xác nhận: trước đây lịch
+                # thừa còn nằm ở "chờ xác nhận" nên có người rà; giờ nó chắc
+                # ngay.
+                dup = await self._patient_double_booked(
+                    conn,
+                    clinic_patient_id=clinic_patient_id,
+                    slot_start=slot_start,
+                    identity=identity,
+                )
+                if dup:
+                    raise ConflictError(dup)
+
                 if doctor_id:
                     busy = await self._doctor_conflict(
                         conn, doctor_id, slot_start, slot_end, identity
@@ -277,8 +365,19 @@ class BookingService:
                     if busy:
                         raise ConflictError(busy)
 
+                    off_duty = await self._roster_warning(
+                        conn, doctor_id, slot_start, identity
+                    )
+                    if off_duty:
+                        if await self._roster_is_required(conn, identity):
+                            raise ConflictError(off_duty)
+                        warnings.append(off_duty)
+
+                policy = await load_effective_policy(
+                    conn, identity.clinic_id, doctor_id, slot_start
+                )
                 full = await self._slot_full(
-                    conn, doctor_id, slot_start, channel, identity
+                    conn, doctor_id, slot_start, channel, identity, policy
                 )
                 if full:
                     raise ConflictError(full)
@@ -290,10 +389,10 @@ class BookingService:
                             clinic_id, clinic_patient_id, doctor_id, service_type_id,
                             location_id, slot_start, slot_end, booking_channel,
                             queue_number, status, patient_kind, thanh_min, sono_min,
-                            need_sono
+                            need_sono, is_walkin, notes
                         )
                         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-                                $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                         RETURNING id
                         """,
                         identity.clinic_id,
@@ -310,16 +409,30 @@ class BookingService:
                         thanh,
                         sono,
                         need_sono,
+                        # is_walkin mirrors booking_channel; the CHECK added in
+                        # 20260803000004 rejects the write if they disagree.
+                        is_walkin(channel),
+                        (notes or "").strip() or None,
                     )
                 except asyncpg.ExclusionViolationError as exc:
                     raise ConflictError(
                         "Bác sĩ đã có lịch trùng khung giờ này."
                     ) from exc
                 except asyncpg.CheckViolationError as exc:
-                    # The atomic 2+1 trigger lost the race to us and won.
+                    # The atomic capacity trigger lost the race to us and won.
                     if "Khung giờ đã đầy" in str(exc):
                         raise ConflictError(str(exc)) from exc
                     raise
+
+                # Đặt xong thì thả chỗ giữ, TRONG CÙNG transaction này. Để
+                # dòng giữ chỗ sống tiếp sau khi đã thành lịch hẹn là đếm cùng
+                # một ghế hai lần trên màn hình CSKH bên cạnh.
+                await release_on_booking(
+                    conn,
+                    identity=identity,
+                    appointment_id=str(appointment_id),
+                    slot_start=slot_start,
+                )
 
                 await self._attach_episode(
                     conn,
@@ -375,8 +488,15 @@ class BookingService:
             appointment_id=str(appointment_id),
             status=status,
             by_staff_id=identity.staff_id,
+            warning_count=len(warnings),
         )
-        return {"appointment_id": str(appointment_id), "status": status}
+        return {
+            "appointment_id": str(appointment_id),
+            "status": status,
+            # Cảnh báo KHÔNG phải lỗi: lịch đã được ghi. Nhưng người đặt phải
+            # thấy điều bất thường ngay lúc đặt, không phải lúc bệnh nhân đến.
+            "warnings": warnings,
+        }
 
     # ---------------------------------------------------------------- action
 
@@ -646,8 +766,11 @@ class BookingService:
             )
             if busy:
                 raise ConflictError(busy)
+        policy = await load_effective_policy(
+            conn, identity.clinic_id, doctor_id, slot_start
+        )
         full = await self._slot_full(
-            conn, doctor_id, slot_start, channel or "", identity, exclude_id
+            conn, doctor_id, slot_start, channel or "", identity, policy, exclude_id
         )
         if full:
             raise ConflictError(full)
@@ -786,6 +909,61 @@ class BookingService:
         )
         return bool(rows)
 
+    async def _patient_double_booked(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_patient_id: str,
+        slot_start: datetime,
+        identity: StaffIdentity,
+    ) -> str | None:
+        """Bệnh nhân này đã có lịch ở đúng khung giờ này chưa.
+
+        Chặn ĐÚNG cái bấm hai lần: cùng bệnh nhân, cùng thời điểm bắt đầu. Không
+        chặn hai lịch khác giờ trong cùng buổi — đó là chuyện bình thường (khám
+        rồi siêu âm sau).
+
+        Chặn ở tầng dịch vụ, không phải chỉ mục duy nhất, vì prod đang có sẵn 5
+        dòng trùng từ trước; tạo chỉ mục lúc này sẽ hỏng. Nó không chống được
+        hai request thật sự đồng thời — nhưng cái đang xảy ra là một người bấm
+        ba lần cách nhau 5 giây, và với chuyện đó thì câu này đủ.
+        """
+        row = await conn.fetchrow(
+            """
+            SELECT slot_start, status
+              FROM appointment
+             WHERE clinic_id = $1::uuid
+               AND clinic_patient_id = $2::uuid
+               AND slot_start = $3
+               AND status <> ALL ($4::text[])
+             LIMIT 1
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
+            slot_start,
+            list(DEAD_STATUSES),
+        )
+        if row is None:
+            return None
+        status_cu = {
+            "SCHEDULED": "chờ xác nhận",
+            "CSKH_CONFIRMED": "CSKH đã xác nhận",
+            "CONFIRMED": "đã đặt lịch",
+            "CHECKED_IN": "đã đến phòng khám",
+        }.get(row["status"], row["status"])
+        hhmm = slot_start.astimezone(CLINIC_TZ).strftime("%H:%M")
+        # NÓI RÕ ĐÂY LÀ LẦN THỨ HAI, đừng chỉ từ chối.
+        #
+        # Quang: *"cùng 1 khách mà giờ đặt 2 lần thì hệ thống phải thông báo
+        # đây là lần 2"*. Một câu từ chối trống làm người ta tưởng thao tác
+        # trước đó hỏng và thử lại lần nữa — đúng vòng lặp sinh ra ba lịch
+        # trùng hôm 04/08.
+        return (
+            f"Đây là lần đặt thứ hai — bệnh nhân này ĐÃ có lịch lúc {hhmm} "
+            f"({status_cu}). Lần bấm trước đã thành công, không cần đặt lại. "
+            "Muốn đổi giờ thì vào Quản lý khách hàng → Lịch hẹn sắp tới."
+        )
+
     async def _doctor_conflict(
         self,
         conn: asyncpg.Connection,
@@ -834,17 +1012,134 @@ class BookingService:
             "Vui lòng chọn khung giờ khác."
         )
 
+    async def _roster_warning(
+        self,
+        conn: asyncpg.Connection,
+        doctor_id: str,
+        slot_start: datetime,
+        identity: StaffIdentity,
+    ) -> str | None:
+        """Câu cảnh báo nếu bác sĩ không có ca trực hôm đó; None nếu ổn.
+
+        CHỈ CẢNH BÁO KHI ĐÃ CÓ LỊCH TRỰC CHO NGÀY ĐÓ. Đây là điểm mấu chốt:
+        CSKH đặt lịch trước cả tháng, lúc đó lịch trực chưa xếp. Cảnh báo mọi
+        lịch tương lai sẽ biến cảnh báo thành tiếng ồn, và tiếng ồn thì bị bỏ
+        qua đúng vào lần nó nói thật.
+
+        Vậy nên: ngày chưa xếp ca → im lặng. Ngày đã xếp ca mà bác sĩ này không
+        có tên → nói ra.
+        """
+        local = slot_start.astimezone(CLINIC_TZ)
+        work_date = local.date()
+        minute = local.hour * 60 + local.minute
+        row = await conn.fetchrow(
+            """
+            SELECT
+              EXISTS (
+                SELECT 1 FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = $2
+                   AND status = 'APPROVED'
+              ) AS roster_exists,
+              coalesce((
+                SELECT array_agg(DISTINCT shift) FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = $2
+                   AND status = 'APPROVED' AND staff_id = $3::uuid
+              ), ARRAY[]::text[]) AS shifts,
+              (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
+                AS open_minute,
+              (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
+                AS close_minute
+            """,
+            identity.clinic_id,
+            work_date,
+            doctor_id,
+        )
+        if row is None or not row["roster_exists"]:
+            return None
+
+        name = await conn.fetchval(
+            "SELECT full_name FROM staff WHERE id = $1::uuid", doctor_id
+        )
+        who = name or "Bác sĩ này"
+
+        shifts: list[str] = list(row["shifts"])
+        if not shifts:
+            return (
+                f"{who} không có lịch làm việc ngày {work_date:%d/%m/%Y}. "
+                "Chọn ngày khác hoặc bác sĩ khác — hoặc xếp ca cho bác sĩ này "
+                "ở màn Lịch làm việc trước."
+            )
+
+        # CÓ TÊN TRONG NGÀY VẪN CÓ THỂ SAI GIỜ. Ca sáng không phải cả ngày; mốc
+        # 12:00 là quyết định của phòng khám, khai ở core/shifts.py.
+        open_min, close_min = row["open_minute"], row["close_minute"]
+        if open_min is None or close_min is None:
+            return None
+        windows = merge_windows(
+            [
+                w
+                for s in shifts
+                if (w := shift_window(s, open_min, close_min)) is not None
+            ]
+        )
+        if not windows or covers(windows, minute):
+            return None
+        return (
+            f"{who} ngày {work_date:%d/%m/%Y} chỉ trực {describe(windows)}, "
+            f"không có mặt lúc {minute // 60:02d}:{minute % 60:02d}. "
+            "Chọn khung giờ trong ca trực hoặc đổi bác sĩ."
+        )
+
+    @staticmethod
+    async def _roster_is_required(
+        conn: asyncpg.Connection, identity: StaffIdentity
+    ) -> bool:
+        """Có TỪ CHỐI khi đặt cho bác sĩ không có ca trực không? Mặc định CÓ.
+
+        Mặc định cũ là KHÔNG, vì "đặt trước rồi mới xếp ca là chuyện bình
+        thường". Điều đó vẫn đúng, nhưng nó đã được giải quyết ở chỗ khác:
+        ``_roster_warning`` chỉ lên tiếng KHI NGÀY ĐÓ ĐÃ XẾP CA. Ngày chưa xếp
+        thì hàm này không bao giờ được gọi tới, nên luồng đặt trước cả tháng
+        không hề bị chạm.
+
+        Nghĩa là cờ này chỉ quyết định đúng một tình huống: ngày đã có lịch
+        trực, và bác sĩ được chọn CHẮC CHẮN không đi làm hôm ấy. Để mặc định
+        cho qua tình huống đó là tạo một cái hẹn mà không ai khám — sai lầm chỉ
+        vỡ ra lúc bệnh nhân đã tới nơi, và người chịu là bệnh nhân.
+
+        Quyết định của Quang (2026-08-04): *lịch của bác sĩ là luật cao nhất.*
+        Phòng khám nào muốn quay lại kiểu chỉ-cảnh-báo thì đặt
+        ``settings.booking.require_roster = false`` — một cờ, không phải một
+        bản build khác.
+        """
+        return bool(
+            await conn.fetchval(
+                """
+                SELECT coalesce(
+                    (settings #> '{booking,require_roster}')::boolean, true)
+                  FROM clinic WHERE id = $1::uuid
+                """,
+                identity.clinic_id,
+            )
+        )
+
     async def _slot_full(
         self,
         conn: asyncpg.Connection,
         doctor_id: str | None,
         slot_start: datetime,
-        channel: str,
+        channel: str | None,
         identity: StaffIdentity,
+        policy: ClinicPolicy,
         exclude_id: str | None = None,
     ) -> str | None:
-        """The 2+1 rule, as a sentence. Advisory; the DB trigger is the net."""
-        begin, end = slot_bucket(slot_start)
+        """The seat rule, as a sentence. Advisory; the DB trigger is the net.
+
+        ``policy`` is passed in rather than read here so that the sentence and
+        the trigger that will reject the write are looking at the same numbers —
+        both come from the one row read at the top of this transaction.
+        """
+        begin, end = policy.bucket(slot_start)
         rows = await conn.fetch(
             """
             SELECT booking_channel, status
@@ -873,16 +1168,17 @@ class BookingService:
 
         window = f"{_hhmm(begin)}–{_hhmm(end)}"
         if is_walkin(channel):
-            if walkin >= WALKIN_CAP:
+            if walkin >= policy.walkin_cap:
                 return (
-                    f"Khung {window} đã có khách vãng lai — "
-                    "chuyển khách sang khung 15 phút kế tiếp."
+                    f"Khung {window} đã đủ {policy.walkin_cap} chỗ vãng lai — "
+                    f"chuyển khách sang khung {policy.slot_minutes} phút kế tiếp."
                 )
             return None
-        if regular >= REGULAR_CAP:
+        if regular >= policy.regular_cap:
             return (
-                f"Khung {window} đã đủ {REGULAR_CAP} chỗ đặt hẹn (BN1, BN2) — "
-                "chọn khung khác. Chỗ thứ 3 chỉ dành cho khách vãng lai."
+                f"Khung {window} đã đủ {policy.regular_cap} chỗ đặt hẹn — "
+                f"chọn khung khác. {policy.walkin_cap} chỗ còn lại chỉ dành cho "
+                "khách vãng lai."
             )
         return None
 
@@ -1038,6 +1334,29 @@ class BookingService:
             # board is empty.
             logger.info(
                 "visit_workflow_no_new_items",
+                visit_id=str(visit_id),
+                clinic_id=identity.clinic_id,
+            )
+
+        # ĐẶT BỆNH NHÂN VÀO TRẠM ĐẦU TIÊN — mắt xích còn thiếu giữa Lễ tân và
+        # bảng điều phối.
+        #
+        # Check-in đã tạo lượt khám và cả danh sách bước, nhưng KHÔNG đặt con
+        # trỏ vị trí (`visit.current_node_code`). Đo trên prod trước thay đổi
+        # này: 24 lượt khám đã check-in, con trỏ NULL ở cả 24 — nên bảng điều
+        # phối không thấy ai, dù bệnh nhân đã đứng trong phòng khám.
+        #
+        # Hàm SQL tự bỏ qua nếu lượt đã có vị trí, nên bấm check-in lần hai
+        # không kéo bệnh nhân từ phòng siêu âm về quầy sinh hiệu.
+        placed = await conn.fetchval(
+            "SELECT public.place_visit_at_first_station($1::uuid, $2::uuid, $3::uuid)",
+            identity.clinic_id,
+            visit_id,
+            identity.auth_user_id,
+        )
+        if placed:
+            logger.info(
+                "visit_placed_at_first_station",
                 visit_id=str(visit_id),
                 clinic_id=identity.clinic_id,
             )

@@ -40,6 +40,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
@@ -267,6 +268,21 @@ class ClinicalRecordService:
                         chief_complaint=chief_complaint,
                         clinic_id=identity.clinic_id,
                     )
+                    # Sinh hiệu là ghi chép lâm sàng, chỉ hẹp hơn về nội dung —
+                    # nó vẫn phải để lại dấu vết như phần còn lại của bệnh án.
+                    await record_event(
+                        conn,
+                        event_type="clinical_record.vitals_saved",
+                        aggregate_type="visit",
+                        aggregate_id=str(visit_id),
+                        identity=identity,
+                        origin="api:clinical-record",
+                        payload={
+                            "visit_id": str(visit_id),
+                            "appointment_id": appointment_id,
+                            "vitals_only": True,
+                        },
+                    )
                     return {"visit_id": str(visit_id), "vitals_only": True}
 
                 await conn.execute(
@@ -309,6 +325,38 @@ class ClinicalRecordService:
                         prescriptions=prescriptions,
                         clinic_id=identity.clinic_id,
                     )
+
+                # TÊN PHẦN ĐÃ GHI, KHÔNG PHẢI NỘI DUNG. "Ai sửa bệnh án nào,
+                # lúc nào, đụng những mục nào" trả lời được câu hỏi của quản lý
+                # và của thanh tra; nội dung bệnh án thì thuộc màn khác, RLS
+                # khác, và một nhóm người khác được đọc (xem services/audit.py).
+                await record_event(
+                    conn,
+                    event_type="clinical_record.saved",
+                    aggregate_type="visit",
+                    aggregate_id=str(visit_id),
+                    identity=identity,
+                    origin="api:clinical-record",
+                    payload={
+                        "visit_id": str(visit_id),
+                        "appointment_id": appointment_id,
+                        "sections": sorted(
+                            name
+                            for name, value in (
+                                ("chief_complaint", chief_complaint),
+                                ("subjective", subjective),
+                                ("objective", objective),
+                                ("assessment", assessment),
+                                ("plan", plan),
+                                ("profile", profile),
+                            )
+                            if value
+                        ),
+                        "prescription_count": (
+                            len(prescriptions) if prescriptions is not None else None
+                        ),
+                    },
+                )
 
         logger.info(
             "clinical_record_saved",

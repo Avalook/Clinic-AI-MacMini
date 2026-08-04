@@ -7,6 +7,7 @@ the state machine rather than being split across a decorator.
 
 from __future__ import annotations
 
+from datetime import date as date_cls
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -16,10 +17,20 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
+from clinicai.services.clinic_policy import (
+    load_clinic_policy,
+    load_effective_policy,
+)
+from clinicai.services.slot_hold_service import SlotHoldService
 
 router = APIRouter()
 
@@ -42,7 +53,17 @@ _ACTION_GUARD = require_role(
 class BookingRequest(BaseModel):
     clinic_patient_id: UUID
     service_type_id: UUID
-    location_id: UUID
+    # TUỲ CHỌN, và mặc định là CƠ SỞ CỦA NGƯỜI ĐẶT.
+    #
+    # Bắt buộc trường này nghĩa là trình duyệt phải nghĩ ra một cơ sở, và cái nó
+    # nghĩ ra là `locations[0].id` — "cơ sở đầu tiên trong danh sách", không phải
+    # "nơi buổi khám diễn ra". Lịch rơi vào cơ sở A trong khi lưới sức chứa và
+    # ca trực tra ở cơ sở B, không có gì trên màn hình mâu thuẫn với người dùng.
+    #
+    # identity.location_id là câu trả lời đúng và server đã có sẵn nó
+    # (20260803000007 làm staff.primary_location_id NOT NULL). Client vẫn gửi
+    # được khi đặt hộ cơ sở khác — nhưng phải NÓI RA, không phải mặc định.
+    location_id: UUID | None = None
     slot_start: datetime
     slot_end: datetime
     doctor_id: UUID | None = None
@@ -53,6 +74,8 @@ class BookingRequest(BaseModel):
     need_sono: bool | None = None
     thanh_min: int | None = Field(default=None, ge=0, le=600)
     sono_min: int | None = Field(default=None, ge=0, le=600)
+    # Ghi chú vận hành của CSKH. Bounded: một ô ghi chú không phải nơi dán bệnh án.
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class ActionRequest(BaseModel):
@@ -82,7 +105,7 @@ async def create_booking(
     result = await BookingService(pool).create(
         clinic_patient_id=str(body.clinic_patient_id),
         service_type_id=str(body.service_type_id),
-        location_id=str(body.location_id),
+        location_id=str(body.location_id) if body.location_id else None,
         slot_start=body.slot_start,
         slot_end=body.slot_end,
         identity=identity,
@@ -93,6 +116,7 @@ async def create_booking(
         need_sono=body.need_sono,
         thanh_min=body.thanh_min,
         sono_min=body.sono_min,
+        notes=body.notes,
     )
     payload = {"ok": True, **result}
     await idem.save(pool, payload, status_code=201)
@@ -102,7 +126,7 @@ async def create_booking(
 @router.get("/appointments/quote")
 async def capacity_quote(
     date: str,
-    location_id: str,
+    location_id: str | None = None,
     doctor_id: str | None = None,
     identity: StaffIdentity = Depends(_BOOKING_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
@@ -112,14 +136,135 @@ async def capacity_quote(
     Returns budget + current usage per hour so the UI can colour cells.
     Does NOT decide whether a booking is allowed — that is the DB trigger
     + the pre-check in BookingService.
+
+    ``location_id`` là tuỳ chọn, và mặc định là cơ sở của người đang đăng nhập —
+    cùng quy tắc mà POST /appointments dùng khi tạo lịch. Bắt buộc nó nghĩa là
+    trình duyệt phải ĐOÁN cơ sở, rồi tô màu lưới theo một cơ sở khác với cơ sở
+    mà lịch sẽ được ghi vào: lưới nói còn chỗ, trigger từ chối.
     """
     svc = CapacityService(pool)
     return await svc.quote(
         date=date,
-        location_id=location_id,
+        location_id=location_id or identity.location_id,
         doctor_id=doctor_id,
         clinic_id=identity.clinic_id,
     )
+
+
+@router.get("/appointments/week")
+async def week_appointments(
+    week_start: date_cls,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch hẹn 7 ngày, KÈM phân loại Tái khám / Khám lần đầu.
+
+    Không dùng ``_BOOKING_GUARD``: bảng lịch tuần ở trang chủ hiện cho mọi vai,
+    và bác sĩ xem lịch của mình không phải người đặt lịch — cùng lý do với
+    ``/appointments/policy`` ngay bên dưới.
+
+    ``week_start`` khai kiểu ``date`` để FastAPI tự phân tích và từ chối chuỗi
+    hỏng bằng 422, thay vì để chuỗi đi thẳng xuống asyncpg — đúng cái đã làm
+    ``/appointments/quote`` trả 500 suốt (xem capacity_service).
+    """
+    from clinicai.services.week_appointments_service import (
+        WeekAppointmentsService,
+    )
+
+    items = await WeekAppointmentsService(pool).week(
+        clinic_id=identity.clinic_id, week_start=week_start
+    )
+    return {"ok": True, "items": items}
+
+
+@router.get("/appointments/doctor-board")
+async def doctor_board(
+    start: datetime,
+    end: datetime,
+    doctor_id: UUID | None = None,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng khám: lịch hẹn trong khoảng, kèm phân loại khám và cờ chờ đọc KQ.
+
+    ``doctor_id`` để trống = mọi bác sĩ. Ai được xem lịch của người khác là
+    quyết định của màn hình gọi (Lễ tân và TKYK xem toàn phòng khám, bác sĩ chỉ
+    xem của mình) — ở đây chỉ chặn theo phòng khám, đúng phạm vi mà RLS cũng
+    chặn khi trình duyệt đọc thẳng.
+
+    ``start``/``end`` khai kiểu ``datetime`` để FastAPI phân tích và từ chối
+    chuỗi hỏng bằng 422, thay vì để chuỗi rơi xuống asyncpg thành 500.
+    """
+    from clinicai.services.doctor_board_service import DoctorBoardService
+
+    items = await DoctorBoardService(pool).board(
+        clinic_id=identity.clinic_id,
+        start=start,
+        end=end,
+        doctor_id=str(doctor_id) if doctor_id else None,
+    )
+    return {"ok": True, "items": items}
+
+
+@router.get("/appointments/policy")
+async def booking_policy(
+    doctor_id: str | None = None,
+    date: str | None = None,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Độ dài khung và số chỗ, có tính override per-doctor/per-slot (C.4).
+
+    Không dùng ``_BOOKING_GUARD``: bảng lịch tuần ở màn chủ vẽ đúng cái lưới
+    này, và bác sĩ xem lịch của mình không phải người đặt lịch. Ba con số này
+    không phải dữ liệu bệnh nhân — giấu chúng khỏi một nửa phòng khám chỉ làm
+    lưới vẽ sai, không làm ai an toàn hơn.
+
+    Khi ``doctor_id`` và ``date`` được truyền, trả về luật effective (3-tier
+    resolve: slot → doctor → clinic). Khi không truyền, trả clinic default.
+    """
+    async with pool.acquire() as conn:
+        if doctor_id and date:
+            from datetime import datetime as dt
+
+            from clinicai.core.clock import CLINIC_TZ
+
+            # Build a representative slot_start at noon on the date in VN tz.
+            slot_start = dt.strptime(date, "%Y-%m-%d").replace(
+                hour=12, tzinfo=CLINIC_TZ
+            )
+            policy = await load_effective_policy(
+                conn, identity.clinic_id, doctor_id, slot_start
+            )
+        else:
+            policy = await load_clinic_policy(conn, identity.clinic_id)
+        # GIỜ MỞ CỬA ĐI CÙNG LUẬT, KHÔNG NẰM TRONG BUNDLE.
+        #
+        # Trước đây nó là hằng số ở hai file — BookingHub (…–22:00) và
+        # lib/roster.ts (…–23:00) — với hai giá trị khác nhau, nên bác sĩ đăng ký
+        # được ca 22:00–23:00 mà CSKH không đặt lịch vào được. Và một hằng số
+        # trong bundle nghĩa là phòng khám thứ hai không thể có giờ khác.
+        hours_rows = await conn.fetch(
+            """
+            SELECT key::int AS weekday,
+                   value ->> 'open'  AS open,
+                   value ->> 'close' AS close
+              FROM clinic c, jsonb_each(c.settings -> 'hours')
+             WHERE c.id = $1::uuid
+            """,
+            identity.clinic_id,
+        )
+
+    return {
+        "slot_minutes": policy.slot_minutes,
+        "regular_cap": policy.regular_cap,
+        "walkin_cap": policy.walkin_cap,
+        # {"0": {"open": "08:00", "close": "23:00"}, …} — khoá là thứ, 0=CN.
+        "hours": {
+            str(r["weekday"]): {"open": r["open"], "close": r["close"]}
+            for r in hours_rows
+        },
+    }
 
 
 @router.patch("/appointments/{appointment_id}")
@@ -141,3 +286,49 @@ async def apply_appointment_action(
         slot_end=body.slot_end,
     )
     return {"ok": True, **result}
+
+
+class SlotHoldRequest(BaseModel):
+    """Giữ một khung giờ trong lúc CSKH còn đang điền form."""
+
+    slot_start: datetime
+    slot_end: datetime
+    doctor_id: UUID | None = None
+
+
+@router.post("/appointments/slot-hold", status_code=201)
+async def hold_slot(
+    body: SlotHoldRequest,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Báo cho CSKH khác biết khung này đang có người chọn.
+
+    Tư vấn, không phải khoá: chốt chặn sức chứa thật vẫn là trigger lúc đặt
+    lịch. Hết hạn sau 10 phút mà không cần ai dọn.
+    """
+    return await SlotHoldService(pool).hold(
+        identity=identity,
+        slot_start=body.slot_start,
+        slot_end=body.slot_end,
+        doctor_id=str(body.doctor_id) if body.doctor_id else None,
+    )
+
+
+@router.delete("/appointments/slot-hold")
+async def release_slot(
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bỏ chọn, hoặc rời màn hình — thả mọi chỗ người này đang giữ."""
+    return await SlotHoldService(pool).release(identity=identity)
+
+
+@router.get("/appointments/slot-hold")
+async def list_slot_holds(
+    date: str,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỗ NGƯỜI KHÁC đang giữ trong ngày, để lưới tô đúng ô."""
+    return {"items": await SlotHoldService(pool).active(identity=identity, date=date)}

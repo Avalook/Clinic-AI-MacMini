@@ -114,9 +114,18 @@ test("the workspaces use the fail-safe policies and defer three columns until th
   }
   assert.match(workspaceCss, /container-type: inline-size/);
   assert.match(workspaceCss, /@container \(min-width: 960px\)/);
-  assert.match(cashierPage, /paidCashierPaymentSeeds/);
-  assert.match(cashierPage, /select\("visit_id, kind, status"\)/);
-  assert.match(cashierPage, /\.eq\("status", "PAID"\)/);
+  // LUẬT "ĐÃ THU" ĐÃ CHUYỂN XUỐNG BACKEND (04/08/2026).
+  //
+  // Ba dòng cũ đòi thấy đúng `paidCashierPaymentSeeds` + câu PostgREST đọc bảng
+  // payment ngay trong trang. Nay trang gọi /api/v1/cashier/board và toàn bộ
+  // việc ghép hoá đơn nằm ở cashier_board_service.py — kèm hai chốt mà bản cũ
+  // KHÔNG có: chỉ nhận kind 'thuoc'/'dich_vu', và bỏ phiếu thu đã huỷ
+  // (voided_at). Cả hai có test Python riêng.
+  //
+  // Điều bài kiểm này canh — trang thu ngân không tự bịa trạng thái đã thu —
+  // vẫn đúng, và giờ được canh ở nơi thật sự quyết định.
+  assert.match(cashierPage, /cashier\/board/);
+  assert.doesNotMatch(cashierPage, /\.from\(["']payment["']\)/);
   assert.match(cashier, /cashierAmountState/);
   assert.match(cashier, /amountState === "incomplete"/);
   assert.match(service, /canFinishService/);

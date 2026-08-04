@@ -23,39 +23,91 @@
 -- 0. Preconditions — fail before changing anything, not halfway through
 -- ---------------------------------------------------------------------------
 -- Every one of these policies resolves the caller through
--- auth.uid() -> staff.auth_user_id -> clinic_membership. An active staff member
--- who is not linked to an auth user would be locked out of the whole app the
--- moment this migration lands, so refuse to apply instead.
+-- auth.uid() -> staff.auth_user_id -> clinic_membership. The question this gate
+-- must answer is one thing: WHO LOSES ACCESS THEY CURRENTLY HAVE?
+--
+-- IT USED TO ASK A WIDER QUESTION, AND THAT BLOCKED THE MIGRATION FOR NOTHING.
+--
+-- The original check refused if ANY active staff row lacked auth_user_id, on the
+-- grounds that such a person "would be locked out of every screen". On
+-- 2026-08-03 that stopped the migration with 47 of 55 staff unlinked — and not
+-- one of those 47 could lose anything, because a staff row with no auth_user_id
+-- has no login at all. They already could not open the app.
+--
+-- So the gate was protecting people with nothing to lose, while the thing it
+-- gates stayed open: 26 tables still carrying `USING (true)`, i.e. every
+-- clinical row in the database readable by anyone holding any valid JWT. The
+-- cost of waiting was measured in weeks of that, and the benefit was zero.
+--
+-- THE REAL LOCKOUT is narrower and worth failing on: someone who CAN log in
+-- today (auth_user_id set) but has no active clinic_membership. After this
+-- migration they authenticate successfully and then read zero rows everywhere —
+-- an account that appears to work and silently shows nothing, which is far
+-- harder to diagnose than one that cannot sign in.
+--
+-- Staff without a login are still a real gap; they are simply not THIS
+-- migration's gap. They get accounts through scripts/provision-staff-logins.sh,
+-- and each starts working the moment their link exists — no re-run needed here.
+--
+-- Narrowed with Quang's explicit approval, 2026-08-03, after verifying against
+-- production that no staff member holds a login without a membership.
 
 DO $precondition$
 DECLARE
-    unlinked integer;
-    active_staff integer;
-    sample text;
+    stranded   integer;
+    with_login integer;
+    sample     text;
 BEGIN
-    SELECT count(*) FILTER (WHERE auth_user_id IS NULL), count(*)
-      INTO unlinked, active_staff
-      FROM public.staff
-     WHERE COALESCE(is_active, true);
+    SELECT count(*) FILTER (
+               WHERE NOT EXISTS (
+                   SELECT 1 FROM public.clinic_membership m
+                    WHERE m.staff_id = s.id AND m.is_active
+               )
+           ),
+           count(*)
+      INTO stranded, with_login
+      FROM public.staff s
+     WHERE COALESCE(s.is_active, true)
+       AND s.auth_user_id IS NOT NULL;
 
-    IF unlinked > 0 THEN
+    IF stranded > 0 THEN
         SELECT string_agg(full_name || ' (' || primary_department || ')', ', ')
           INTO sample
           FROM (
-              SELECT full_name, primary_department
-                FROM public.staff
-               WHERE COALESCE(is_active, true) AND auth_user_id IS NULL
-               ORDER BY full_name
+              SELECT s.full_name, s.primary_department
+                FROM public.staff s
+               WHERE COALESCE(s.is_active, true)
+                 AND s.auth_user_id IS NOT NULL
+                 AND NOT EXISTS (
+                     SELECT 1 FROM public.clinic_membership m
+                      WHERE m.staff_id = s.id AND m.is_active
+                 )
+               ORDER BY s.full_name
                LIMIT 5
-          ) s;
+          ) t;
 
         RAISE EXCEPTION
-            'W3 aborted: % of % active staff have no auth_user_id (%). Link every '
-            'active staff member to a Supabase Auth user first — otherwise this '
-            'migration locks them out of every screen.',
-            unlinked, active_staff, sample
-            USING HINT = 'SELECT id, full_name, primary_department FROM public.staff '
-                         'WHERE COALESCE(is_active, true) AND auth_user_id IS NULL;';
+            'W3 aborted: % of % staff WITH A LOGIN have no active clinic_membership '
+            '(%). After this migration they would sign in successfully and then read '
+            'nothing at all — give them a membership first.',
+            stranded, with_login, sample
+            USING HINT = 'SELECT s.id, s.full_name FROM public.staff s '
+                         'WHERE s.auth_user_id IS NOT NULL AND COALESCE(s.is_active, true) '
+                         'AND NOT EXISTS (SELECT 1 FROM public.clinic_membership m '
+                         'WHERE m.staff_id = s.id AND m.is_active);';
+    END IF;
+
+    -- Not fatal, but said out loud rather than left to be discovered: these
+    -- people cannot use the system until someone links them, and after this
+    -- migration a login is the only way in.
+    SELECT count(*) INTO stranded
+      FROM public.staff
+     WHERE COALESCE(is_active, true) AND auth_user_id IS NULL;
+
+    IF stranded > 0 THEN
+        RAISE NOTICE
+            'W3: % active staff still have no login. They lose no access (they had '
+            'none) — link them with scripts/provision-staff-logins.sh.', stranded;
     END IF;
 END
 $precondition$;

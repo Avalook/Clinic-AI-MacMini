@@ -16,6 +16,7 @@ import { fetchWorklist } from "@/lib/worklist-server";
 import { isOverdue } from "@/lib/work-item-status";
 
 import QueueBoard from "./QueueBoard";
+import LiveBoardSync from "../../LiveBoardSync";
 
 export const metadata = { title: "Hàng đợi tiếp nhận · ClinicAI" };
 
@@ -34,6 +35,8 @@ export default async function ReceptionQueuePage() {
     year: "numeric",
   });
   return (
+    <>
+      <LiveBoardSync />
     <main className="page-in flex min-w-0 flex-col gap-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -103,5 +106,6 @@ export default async function ReceptionQueuePage() {
         </>
       )}
     </main>
+    </>
   );
 }

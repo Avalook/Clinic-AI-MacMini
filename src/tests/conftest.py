@@ -20,6 +20,7 @@ Set a disposable test DB to actually run them:
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -103,3 +104,28 @@ def pytest_collection_modifyitems(
             item.add_marker(pytest.mark.db)
         if any(hint in nodeid for hint in _EXTERNAL_PATH_HINTS):
             item.add_marker(pytest.mark.integration)
+
+
+@pytest.fixture(autouse=True)
+def _clear_identity_cache() -> Iterator[None]:
+    """Every test starts with a cold membership cache.
+
+    get_current_identity caches (auth_user_id, X-Clinic-ID) → StaffIdentity for
+    30 seconds so an authenticated request does not pay a Supabase round trip
+    just to re-read a membership that changes a few times a year.
+
+    That cache is process-global, and the identity tests all authenticate as
+    "u-1": without this fixture, a test that successfully resolves u-1 leaves an
+    entry behind, and the next test — which stubs the pool to return an
+    ambiguous or empty membership and expects a 403 — gets the earlier hit
+    instead and passes for the wrong reason, or fails for a reason that has
+    nothing to do with what it is testing.
+
+    Autouse rather than opt-in: the tests that need it are exactly the ones
+    whose authors will not know it exists.
+    """
+    from clinicai.api.identity import invalidate_identity_cache
+
+    invalidate_identity_cache()
+    yield
+    invalidate_identity_cache()

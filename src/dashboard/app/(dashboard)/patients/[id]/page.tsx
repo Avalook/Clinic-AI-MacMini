@@ -14,9 +14,11 @@ import {
   canReadClinical,
   canWriteIntake,
   isDoctorRole,
+  isPhysicianRole,
   canEditPatient,
 } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
+import { listBookableDoctors } from "../../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +65,7 @@ export default async function PatientDetailPage({
     const [locRes, svcRes, docRes] = await Promise.all([
       supabase.from("clinic_location").select("id, name").order("name"),
       supabase.from("service_type").select("id, name").order("name"),
-      supabase
-        .from("staff")
-        .select("id, full_name")
-        .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-        .eq("is_active", true)
-        .order("full_name"),
+      listBookableDoctors(),
     ]);
     locations = (locRes.data ?? []).map((r) => ({
       id: r.id as string,
@@ -81,10 +78,7 @@ export default async function PatientDetailPage({
         id: r.id as string,
         label: r.name as string,
       }));
-    doctors = (docRes.data ?? []).map((r) => ({
-      id: r.id as string,
-      label: r.full_name as string,
-    }));
+    doctors = docRes;
   }
 
   return (
@@ -123,7 +117,7 @@ export default async function PatientDetailPage({
       )}
       <PatientCskhLog id={id} />
       {canSeeClinicalHistory ? (
-        <PatientHistory id={id} canReviewLabs={isDoctorRole(role)} />
+        <PatientHistory id={id} canReviewLabs={isPhysicianRole(role)} />
       ) : (
         <section className="rounded-lg border border-line bg-white px-4 py-3 text-sm text-ink-muted">
           Hồ sơ lâm sàng chỉ hiển thị cho bác sĩ, điều dưỡng và thư ký y khoa.

@@ -41,6 +41,8 @@ def test_identity_predicates() -> None:
         "DOCTOR",
         ClinicRole.DOCTOR,
         "a0000000-0000-4000-8000-000000000001",
+        "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        "Kim Ngưu",
     )
     assert doc.is_doctor() and doc.can_write_clinical() and not doc.is_cashier()
     nurse = StaffIdentity(
@@ -50,6 +52,8 @@ def test_identity_predicates() -> None:
         "NURSE_ULTRASOUND",
         ClinicRole.NURSE_ULTRASOUND,
         "a0000000-0000-4000-8000-000000000001",
+        "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        "Kim Ngưu",
     )
     assert nurse.can_write_clinical() and not nurse.is_doctor()
     cashier = StaffIdentity(
@@ -59,6 +63,8 @@ def test_identity_predicates() -> None:
         "CASHIER",
         ClinicRole.CASHIER,
         "a0000000-0000-4000-8000-000000000001",
+        "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        "Kim Ngưu",
     )
     assert cashier.is_cashier() and not cashier.can_write_clinical()
 
@@ -145,6 +151,8 @@ def test_get_current_identity_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             "primary_department": "DOCTOR",
             "membership_role": "DOCTOR",
             "clinic_id": "a0000000-0000-4000-8000-000000000001",
+            "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+            "location_name": "Kim Ngưu",
         }
     )
     ident = asyncio.run(get_current_identity(_req("Bearer abc"), pool))
@@ -175,6 +183,8 @@ def test_get_current_identity_uses_role_of_selected_clinic_membership(
                 "primary_department": "DOCTOR",
                 "membership_role": "DOCTOR",
                 "clinic_id": "a0000000-0000-4000-8000-000000000001",
+                "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+                "location_name": "Kim Ngưu",
             },
             {
                 "id": "staff-9",
@@ -183,6 +193,8 @@ def test_get_current_identity_uses_role_of_selected_clinic_membership(
                 "primary_department": "DOCTOR",
                 "membership_role": "MANAGEMENT",
                 "clinic_id": "b0000000-0000-4000-8000-000000000002",
+                "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+                "location_name": "Kim Ngưu",
             },
         ]
     )
@@ -215,6 +227,8 @@ def test_get_current_identity_refuses_ambiguous_multi_clinic_login(
                 "primary_department": "DOCTOR",
                 "membership_role": "DOCTOR",
                 "clinic_id": "a0000000-0000-4000-8000-000000000001",
+                "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+                "location_name": "Kim Ngưu",
             },
             {
                 "id": "staff-9",
@@ -223,6 +237,8 @@ def test_get_current_identity_refuses_ambiguous_multi_clinic_login(
                 "primary_department": "DOCTOR",
                 "membership_role": "MANAGEMENT",
                 "clinic_id": "b0000000-0000-4000-8000-000000000002",
+                "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+                "location_name": "Kim Ngưu",
             },
         ]
     )
@@ -260,6 +276,8 @@ def test_get_current_identity_rejects_clinic_without_active_membership(
             "primary_department": "DOCTOR",
             "membership_role": "DOCTOR",
             "clinic_id": "a0000000-0000-4000-8000-000000000001",
+            "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+            "location_name": "Kim Ngưu",
         }
     )
 
@@ -317,6 +335,8 @@ def test_require_role_allows_and_blocks(monkeypatch: pytest.MonkeyPatch) -> None
         "DOCTOR",
         ClinicRole.DOCTOR,
         "a0000000-0000-4000-8000-000000000001",
+        "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        "Kim Ngưu",
     )
     dep_ok = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
     assert asyncio.run(dep_ok(ident)) is ident

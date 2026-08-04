@@ -10,7 +10,7 @@ import {
   SERVICE_ROLE_ENV,
 } from "../../../../lib/supabase-service";
 import { getClinicRole } from "../../../../lib/clinic-session";
-import { isAdminRole } from "../../../../lib/roles";
+import { isAdminRole, ROLE_LABEL, type ClinicRole } from "../../../../lib/roles";
 import NewUserForm from "./NewUserForm";
 
 export const dynamic = "force-dynamic";
@@ -22,19 +22,12 @@ interface UnlinkedStaff {
   primary_department: string;
 }
 
-const DEPT_LABEL: Record<string, string> = {
-  DOCTOR: "Bác sĩ",
-  ULTRASOUND_DOCTOR: "Bác sĩ Siêu âm",
-  NURSE_ULTRASOUND: "Điều dưỡng",
-  RECEPTION: "Lễ tân",
-  CSKH: "CSKH",
-  MANAGEMENT: "Quản lý",
-  CASHIER: "Thu ngân",
-  CASHIER_THUOC: "Thu ngân thuốc",
-  CASHIER_DV: "Thu ngân dịch vụ",
-  TKYK: "Thư ký Y khoa",
-  TRUONG_CA: "Trưởng ca",
-};
+// Nhãn vai dùng ROLE_LABEL của lib/roles.ts. Trước đây file này (và
+// settings/page.tsx) mỗi nơi giữ một bản DEPT_LABEL riêng, và CẢ HAI đều
+// thiếu PHARMACIST — vai đã chạy từ khi có màn /pharmacy. Hệ quả: màn tạo
+// user và màn danh sách nhân viên hiện chữ "PHARMACIST" thô cho dược sĩ.
+// Cùng một lỗi đã xảy ra ở ROLE_VI trong WorkItemActions.tsx: một bảng nhãn
+// chép tay là một bảng nhãn sẽ thiếu vai tiếp theo.
 
 export default async function NewUserPage() {
   const role = await getClinicRole();
@@ -51,7 +44,7 @@ export default async function NewUserPage() {
   const unlinked = (data as UnlinkedStaff[] | null) ?? [];
   const options = unlinked.map((s) => ({
     id: s.id,
-    label: `${s.full_name} (${DEPT_LABEL[s.primary_department] ?? s.primary_department})`,
+    label: `${s.full_name} (${ROLE_LABEL[s.primary_department as ClinicRole] ?? s.primary_department})`,
   }));
   // Surface the env-var gap so the operator sees the failure mode
   // before they fill the form (the API returns 503 too — this is a

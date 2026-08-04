@@ -5,6 +5,7 @@
 // Tự refresh mỗi 30s.
 
 import { useEffect, useState } from "react";
+import { VN_TZ } from "../../lib/datetime";
 
 interface DisplayDoctor {
   full_name: string | null;
@@ -65,14 +66,14 @@ export default function DisplayBoard({ appts }: Props) {
   const timeStr = now.toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
   const dateStr = now.toLocaleDateString("vi-VN", {
     weekday: "long",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
 
   return (

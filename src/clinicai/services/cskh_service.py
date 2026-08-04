@@ -25,17 +25,17 @@ import json
 import secrets
 from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import asyncpg
 import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 
 logger = structlog.get_logger()
 
-CLINIC_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+CLINIC_TZ = _CLINIC_TZ
 
 # Mirrors canWriteIntake in src/dashboard/lib/roles.ts.
 INTAKE_ROLES: frozenset[ClinicRole] = frozenset(

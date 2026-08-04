@@ -21,16 +21,17 @@ import {
 } from "../../../lib/roles";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
-import { nowMs } from "../../../lib/datetime";
+import { nowMs, VN_TZ } from "../../../lib/datetime";
 import { compareQueue } from "../../../lib/queue";
 import { doctorName } from "../../../lib/doctor-name";
 import {
-  SLOT_MIN,
-  WALKIN_CAP,
+  slotMs,
   slotBucketMs,
   isWalkinChannel,
   isDeadStatus,
 } from "../../../lib/slot-capacity";
+import { useBookingPolicy } from "../BookingPolicyContext";
+import type { BookingPolicy } from "../../../lib/booking-policy";
 
 export interface WeekApptRow {
   id: string;
@@ -69,7 +70,6 @@ export interface ApptDay {
 export type DutyByDate = Record<string, { id: string; name: string }[]>;
 
 const NO_DOCTOR = "Chưa phân bác sĩ";
-const SLOT_MS = SLOT_MIN * 60_000;
 
 function PhanLoai({ value }: { value: string }) {
   if (!value) return <span className="text-ink-faint">—</span>;
@@ -103,22 +103,22 @@ const STATUS_VN: Record<string, string> = {
   DOCTOR_DECLINED: "Bác sĩ từ chối",
 };
 
-// Nhãn khung 15' theo giờ VN: "17:00 - 17:15".
-function bucketLabel(bucketMs: number): string {
+// Nhãn khung theo giờ VN: "17:00 - 17:15" (dài đúng slotMinutes của PK).
+function bucketLabel(bucketMs: number, policy: BookingPolicy): string {
   const hhmm = (ms: number) =>
     new Date(ms).toLocaleTimeString("vi-VN", {
-      timeZone: "Asia/Ho_Chi_Minh",
+      timeZone: VN_TZ,
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     });
-  return `${hhmm(bucketMs)} - ${hhmm(bucketMs + SLOT_MS)}`;
+  return `${hhmm(bucketMs)} - ${hhmm(bucketMs + slotMs(policy))}`;
 }
 
 // Giờ HH:MM (VN) của đầu khung — làm query ?time= cho link "đặt vào đây".
 function bucketHHMM(bucketMs: number): string {
   return new Date(bucketMs).toLocaleTimeString("en-GB", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -141,12 +141,13 @@ function buildDayRows(
   duty: { id: string; name: string }[],
   now: number,
   canBook: boolean,
+  policy: BookingPolicy,
 ): RowDesc[] {
   const isToday = day.date === todayVn();
   // Khung giờ có ít nhất 1 lịch (mọi trạng thái — lịch huỷ vẫn hiện để check).
   const byBucket = new Map<number, WeekApptRow[]>();
   for (const a of day.items) {
-    const b = slotBucketMs(a.slot_start);
+    const b = slotBucketMs(a.slot_start, policy);
     const list = byBucket.get(b) ?? [];
     list.push(a);
     byBucket.set(b, list);
@@ -196,7 +197,7 @@ function buildDayRows(
       // sau chỉ hiện trạng thái. Nhóm "Chưa phân bác sĩ" không có ô này.
       // CHỈ vai đặt lịch (CSKH/Lễ tân/QL/Trưởng ca) mới thấy hàng này — bác sĩ,
       // điều dưỡng không đặt lịch nên bỏ hẳn cho gọn.
-      if (canBook && g.id && bucketNotPast && walkinAlive < WALKIN_CAP) {
+      if (canBook && g.id && bucketNotPast && walkinAlive < policy.walkinCap) {
         groupRows.push({
           key: `${bucketMs}-${g.id}-free`,
           free: {
@@ -213,7 +214,10 @@ function buildDayRows(
       bucketRows.push(...groupRows);
     }
     if (bucketRows.length === 0) continue;
-    bucketRows[0].bucket = { label: bucketLabel(bucketMs), span: bucketRows.length };
+    bucketRows[0].bucket = {
+      label: bucketLabel(bucketMs, policy),
+      span: bucketRows.length,
+    };
     out.push(...bucketRows);
   }
   return out;
@@ -236,6 +240,9 @@ export default function WeeklyAppointmentsTable({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selAppt, setSelAppt] = useState<WeekApptRow | null>(null);
+  // Bảng này gom lịch theo KHUNG — độ dài khung và số chỗ vãng lai là cấu hình
+  // của phòng khám, nên không có bản mặc định ở đây.
+  const policy = useBookingPolicy();
 
   const showActions = canCheckin(role);
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.
@@ -261,6 +268,17 @@ export default function WeeklyAppointmentsTable({
       return;
     }
     router.refresh();
+  }
+
+  // Gom nhầm khung thì hai lịch khác giờ nằm chung một dòng "Khung giờ" — sai
+  // im lặng, tệ hơn không hiện.
+  if (!policy) {
+    return (
+      <div className="rounded-card border border-danger-bg bg-danger-bg px-4 py-6 text-center text-sm text-danger shadow-card">
+        Chưa đọc được luật đặt lịch của phòng khám (độ dài khung giờ) — chưa hiện
+        được lịch tuần. Thử tải lại trang; còn lỗi thì báo kỹ thuật.
+      </div>
+    );
   }
 
   // Cả tuần KHÔNG có lịch → thẻ rỗng GỌN (không dựng bảng trống huơ).
@@ -304,6 +322,7 @@ export default function WeeklyAppointmentsTable({
                 dutyByDate[day.date] ?? [],
                 now,
                 canWriteIntake(role),
+                policy,
               );
               return (
                 <Fragment key={day.date}>

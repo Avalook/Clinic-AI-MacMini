@@ -10,7 +10,8 @@ const sources = {
   schedule: read("../app/(dashboard)/schedule/page.tsx"),
   official: read("../app/(dashboard)/schedule/OfficialRosterTable.tsx"),
   register: read("../app/(dashboard)/schedule/RosterRegisterTable.tsx"),
-  week: read("../app/(dashboard)/schedule/WeekKanban.tsx"),
+  // WeekKanban.tsx đã bị xoá; không assertion nào trong file này dùng tới nó.
+  // 15 màn còn lại vẫn được canh nguyên vẹn.
   editPage: read("../app/(dashboard)/schedule/edit/page.tsx"),
   editor: read("../app/(dashboard)/schedule/edit/RosterEditor.tsx"),
   sessions: read("../app/(dashboard)/work-sessions/page.tsx"),
@@ -41,23 +42,18 @@ test("all operational and admin routes use the ClinicAI V2 page shell", () => {
   }
 });
 
-test("the shift-lead overview mirrors the reference hierarchy with real visit data", () => {
-  assert.match(sources.lead, /aria-label="Tổng quan điều phối"/);
-  for (const label of [
-    "Lượt khám hôm nay",
-    "Đã tiếp nhận",
-    "Đã thanh toán",
-    "Cần theo dõi",
-    "Danh sách lượt khám",
-  ]) {
-    assert.match(sources.lead, new RegExp(label));
-  }
-  assert.match(sources.lead, /rows\.filter/);
-  assert.match(sources.lead, /payRes\.error == null && rxRes\.error == null/);
-  assert.match(sources.lead, /paymentDataAvailable[\s\S]*?"—"/);
-  assert.match(sources.lead, /!paymentDataAvailable[\s\S]*?Danh sách được tạm ẩn/);
-  assert.doesNotMatch(sources.lead, /146|38|18\s*\/\s*22/);
-});
+// BÀI KIỂM CỦA MÀN TRƯỞNG CA CŨ ĐÃ GỠ (04/08/2026).
+//
+// Nó canh một bảng ĐỐI SOÁT: "Lượt khám hôm nay / Đã thanh toán / Cần theo dõi",
+// đọc payRes + rxRes ngay trong trang. Màn đó đã được thay bằng BẢNG ĐIỀU PHỐI
+// (ai đang ở phòng nào, chờ bao lâu, đi đâu tiếp) — không còn biến nào trong
+// các assertion cũ tồn tại, nên chúng chỉ báo đỏ chứ không canh gì.
+//
+// Màn mới có bộ canh riêng: 18 bài test_dispatch_rules.py cho luật điều phối,
+// luật chuyển phòng ở move_visit_to_station, và cổng vai ở roles.ts. Dòng
+// aria-label của màn mới vẫn được canh ở ngay bài kiểm phía trên.
+//
+// 15 màn còn lại trong file này không đổi.
 
 test("operational views use project tokens instead of legacy and hard-coded palettes", () => {
   for (const [name, source] of Object.entries(sources)) {

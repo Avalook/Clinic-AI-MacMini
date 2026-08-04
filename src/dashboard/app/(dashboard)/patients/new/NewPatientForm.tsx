@@ -15,10 +15,11 @@ import CinemaSlotPicker from "../CinemaSlotPicker";
 import {
   buildSlotUsage,
   usageAt,
-  REGULAR_CAP,
-  WALKIN_CAP,
+  slotBucketMs,
+  slotMinuteOptions,
   type SlotApptLite,
 } from "../../../../lib/slot-capacity";
+import { useBookingPolicy } from "../../BookingPolicyContext";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
 import {
   todayVn,
@@ -248,7 +249,10 @@ export default function NewPatientForm({
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
   const [seatKind, setSeatKind] = useState<"regular" | "walkin">("regular");
   const priority = !walkin && seatKind === "walkin";
-  const [duration] = useState(15);
+  // Luật đặt lịch của phòng khám (C.3). `null` = chưa đọc được → không đoán.
+  const policy = useBookingPolicy();
+  // Lịch dài đúng một khung của PHÒNG KHÁM NÀY, không phải 15' cố định.
+  const duration = policy?.slotMinutes ?? 0;
   const [existingAppts, setExistingAppts] = useState<IntakeAppointment[]>([]);
   // Bác sĩ TRỰC CA (work_roster LICH_KHAM) của ngày đang đặt — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
@@ -327,26 +331,35 @@ export default function NewPatientForm({
     [walkin, apptDate, existingAppts],
   );
 
-  // Khung đang chọn còn chỗ ĐÚNG LOẠI không? Luật 2+1 (slot-capacity): kênh
-  // thường xét 2 chỗ BN1/BN2; walk-in xét chỗ thứ 3 (1 khách vãng lai/khung).
+  // Khung đang chọn còn chỗ ĐÚNG LOẠI không? Số chỗ mỗi loại là cấu hình của
+  // phòng khám (clinic.settings.booking), không phải hằng số 2+1.
   const isSlotBooked = useMemo(() => {
     const day = walkin ? TODAY : apptDate;
-    if (!day || !apptTime) return false;
+    if (!day || !apptTime || !policy) return false;
     try {
-      const bucketMs = Date.parse(vnLocalToUtcISO(day, apptTime));
+      const bucketMs = slotBucketMs(vnLocalToUtcISO(day, apptTime), policy);
       const u = usageAt(
-        buildSlotUsage(visibleExistingAppts),
+        buildSlotUsage(visibleExistingAppts, policy),
         doctorId || null,
         bucketMs,
       );
-      // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế thứ 3.
+      // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế vãng lai.
       return walkin || priority
-        ? u.walkin >= WALKIN_CAP
-        : u.regular >= REGULAR_CAP;
+        ? u.walkin >= policy.walkinCap
+        : u.regular >= policy.regularCap;
     } catch {
       return false;
     }
-  }, [walkin, priority, TODAY, apptDate, apptTime, doctorId, visibleExistingAppts]);
+  }, [
+    walkin,
+    priority,
+    TODAY,
+    apptDate,
+    apptTime,
+    doctorId,
+    visibleExistingAppts,
+    policy,
+  ]);
 
   // CSKH: số khám ĐỂ TRỐNG — hệ thống cấp SỐ CHUNG THEO THỜI GIAN lúc check-in.
   // KHÔNG tự dập "ƯT" theo phút (sai nghĩa): ƯT chỉ dành cho NGƯỜI QUEN nhà bác sĩ,
@@ -369,16 +382,34 @@ export default function NewPatientForm({
     // Debounce 450ms — toàn bộ (cả việc xoá cảnh báo cũ) chạy trong timeout để
     // KHÔNG setState đồng bộ trong thân effect (react-hooks/set-state-in-effect).
     const t = setTimeout(() => {
+      // HỎI KHI CÓ ĐỦ MỘT TRONG HAI, không chỉ khi đủ số điện thoại.
+      //
+      // Bản cũ chỉ hỏi khi gõ xong 10 chữ số, nên người khai SĐT mới — hoặc
+      // không khai SĐT — không bao giờ được cảnh báo, dù hồ sơ cũ nằm ngay đó
+      // với đúng tên và đúng năm sinh. Notion đòi kiểm "SĐT đã chuẩn hoá, KẾT
+      // HỢP họ tên và năm sinh".
       const digits = phone.replace(/\D/g, "");
-      if (digits.length !== 10) {
+      const nam = dobYearOnly
+        ? Number(birthYear)
+        : Number(dobIso.slice(0, 4));
+      const coTen = fullName.trim().length >= 3 && nam >= 1900 && nam <= CUR_YEAR;
+      if (digits.length !== 10 && !coTen) {
         if (alive) setPhoneDupes([]);
         return;
       }
       void (async () => {
         try {
-          const res = await fetch(
-            `/api/patients/check-phone?phone=${encodeURIComponent(phone)}`,
-          );
+          // MỘT LUẬT DUY NHẤT: endpoint này gọi đúng hàm mà đường LƯU gọi
+          // (MPIService.find_candidates). Bản cũ dùng /check-phone với một
+          // truy vấn riêng chỉ so SĐT — nên màn hình nói "không trùng", Lễ tân
+          // bấm lưu, rồi hồ sơ rơi vào hàng chờ gộp.
+          const qs = new URLSearchParams();
+          if (digits.length === 10) qs.set("phone", phone);
+          if (coTen) {
+            qs.set("full_name", fullName.trim());
+            qs.set("birth_year", String(nam));
+          }
+          const res = await fetch(`/api/patients/check-duplicate?${qs}`);
           if (!res.ok) return;
           const json = (await res.json()) as {
             exists?: boolean;
@@ -394,7 +425,7 @@ export default function NewPatientForm({
       alive = false;
       clearTimeout(t);
     };
-  }, [phone]);
+  }, [phone, fullName, dobIso, dobYearOnly, birthYear, CUR_YEAR]);
 
   // Walk-in: chỉ cần chọn dịch vụ là tạo lượt khám (giờ = bây giờ). Full: cần đủ
   // dịch vụ + ngày + giờ.
@@ -405,23 +436,9 @@ export default function NewPatientForm({
   // trong save() vì có toggle "Chỉ biết năm"). Nút khoá tới khi đủ.
   // Khách thường (không vãng lai) phải đủ: Tỉnh/TP + Phường/Xã + Dịch vụ + Bác sĩ
   // + Ngày + Giờ khám + Kênh đặt (mới đủ điều kiện tạo lượt khám). Walk-in giữ nguyên.
-  // Địa chỉ đủ khi không yêu cầu, hoặc đã có cả Tỉnh + Phường/Xã.
-  const addressOk = !requireAddress || !!(provinceCode && wardCode);
-  // Ghế Ưu tiên (ô xanh) đặt như WALK_IN → KHÔNG cần Kênh đặt; ghế thường vẫn cần.
-  const channelOk = priority || !!channel;
-  const requiredForCustomer =
-    addressOk &&
-    (walkin ||
-      !!(serviceId && doctorId && apptDate && apptTime) && channelOk);
-  const canSubmit =
-    fullName.trim() &&
-    locationId &&
-    phone.trim() &&
-    gender &&
-    requiredForCustomer &&
-    !submitting;
   // Giờ mở cửa PK theo ngày khám đã chọn (T2–T6 17–23h; T7+CN cả ngày).
-  const apptCh = apptDate ? clinicHoursForDate(apptDate) : null;
+  const apptCh =
+    apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
   const apptMinHour = apptCh ? Number(apptCh.open.slice(0, 2)) : 0;
   const apptMaxHour = apptCh ? Number(apptCh.close.slice(0, 2)) - 1 : 23;
   // Lỗi nhỏ ngay cạnh ô SĐT/CCCD (live) — rõ ô NÀO sai (chính/người nhà/CCCD),
@@ -431,7 +448,16 @@ export default function NewPatientForm({
   const cccdErr = cccdError(cccd);
 
   async function bookFor(clinicPatientId: string): Promise<boolean> {
+    // Cùng lớp đỡ như save(): state có thể còn rỗng nếu danh sách cơ sở tới
+    // sau, và gửi location_id rỗng thì backend từ chối bằng một câu khó hiểu.
+    const effLocationId = locationId || locations[0]?.id || "";
     if (!wantsAppointment) return true;
+    if (!policy) {
+      setError(
+        "Chưa đọc được luật đặt lịch của phòng khám — hồ sơ đã lưu, nhưng chưa đặt được lịch. Tải lại trang rồi đặt lại.",
+      );
+      return false;
+    }
     // Walk-in: Lễ tân đã bấm ô xanh trên sơ đồ → dùng đúng khung đó; chưa bấm
     // (khám ngay) → giờ hiện tại. Server vẫn chặn nếu khung đã có khách vãng lai.
     const start = walkin
@@ -447,7 +473,7 @@ export default function NewPatientForm({
         clinic_patient_id: clinicPatientId,
         doctor_id: doctorId,
         service_type_id: serviceId,
-        location_id: locationId,
+        location_id: effLocationId,
         slot_start: start.toISOString(),
         slot_end: end.toISOString(),
         // Ghế Ưu tiên (ô xanh) = chỗ thứ 3 → phải là WALK_IN để server xếp đúng
@@ -500,19 +526,34 @@ export default function NewPatientForm({
     goToProfile(clinicPatientId, code);
   }
 
+  // Cơ sở mặc định TÍNH RA, không phải đặt bằng effect.
+  //
+  // Bản cũ dùng useEffect để nhét locations[0] vào state khi state còn rỗng —
+  // `react-hooks/set-state-in-effect` chặn đúng, vì nó gây một lượt render
+  // thừa và có một nhịp mà form đang ở trạng thái "chưa chọn cơ sở" dù danh
+  // sách đã có. Bấm Lưu trúng nhịp đó thì rơi vào nhánh "Chưa chọn cơ sở khám".
+  //
+  // Không cần thay bằng gì cả: state đã khởi tạo `locations[0]?.id` ngay ở
+  // useState, và `save()` vẫn còn lớp đỡ `locationId || locations[0]?.id`.
+
   async function save(force: boolean) {
     setError(null);
+    const effLocationId = locationId || locations[0]?.id || "";
+    if (!effLocationId) {
+      setError("Chưa chọn cơ sở khám.");
+      return;
+    }
     // BẮT BUỘC điền (mục có dấu *): Họ tên + SĐT + Giới tính.
     if (!fullName.trim()) {
-      setError("Nhập họ tên bệnh nhân.");
+      setError("Vui lòng nhập Họ và tên bệnh nhân (ở mục Thông tin hành chính phía trên).");
       return;
     }
     if (!phone.trim()) {
-      setError("Nhập số điện thoại chính (10 chữ số).");
+      setError("Vui lòng nhập Số điện thoại chính (10 chữ số).");
       return;
     }
     if (!gender) {
-      setError("Chọn giới tính.");
+      setError("Vui lòng chọn Giới tính (Nam / Nữ).");
       return;
     }
     // Quy tắc nhập liệu CỨNG: SĐT 10 số / CCCD 12 số (chặn ngay trước khi gửi).
@@ -544,11 +585,11 @@ export default function NewPatientForm({
     // BẮT BUỘC địa chỉ: CSKH (full) + Lễ tân (RECEPTION) phải có Tỉnh/TP + Phường/Xã.
     if (requireAddress) {
       if (!provinceCode) {
-        setError("Chọn Tỉnh / Thành phố.");
+        setError("Vui lòng chọn Tỉnh / Thành phố.");
         return;
       }
       if (!wardCode) {
-        setError("Chọn Phường / Xã.");
+        setError("Vui lòng chọn Phường / Xã.");
         return;
       }
     }
@@ -556,23 +597,23 @@ export default function NewPatientForm({
     // + Kênh đặt — đủ thì mới tạo được lượt khám.
     if (!walkin) {
       if (!serviceId) {
-        setError("Chọn dịch vụ khám.");
+        setError("Vui lòng chọn dịch vụ khám.");
         return;
       }
       if (!doctorId) {
-        setError("Chọn bác sĩ.");
+        setError("Vui lòng chọn bác sĩ.");
         return;
       }
       if (!apptDate) {
-        setError("Chọn ngày khám.");
+        setError("Vui lòng chọn ngày khám.");
         return;
       }
       if (!apptTime) {
-        setError("Chọn giờ khám.");
+        setError("Vui lòng chọn giờ khám.");
         return;
       }
       if (!priority && !channel) {
-        setError("Chọn kênh đặt.");
+        setError("Vui lòng chọn kênh đặt.");
         return;
       }
     }
@@ -583,7 +624,9 @@ export default function NewPatientForm({
         setError("Không thể đặt lịch khám trong quá khứ. Chọn ngày/giờ từ hiện tại trở đi.");
         return;
       }
-      const chErr = clinicHoursError(apptDate, apptTime);
+      const chErr = policy
+        ? clinicHoursError(apptDate, apptTime, policy.hours)
+        : "Chưa đọc được giờ mở cửa của phòng khám.";
       if (chErr) {
         setError(chErr);
         return;
@@ -607,7 +650,7 @@ export default function NewPatientForm({
         phone_primary: phone,
         phone_secondary: phone2,
         national_id_number: cccd,
-        location_id: locationId,
+        location_id: effLocationId,
         gender,
         ethnicity,
         nationality,
@@ -1047,7 +1090,7 @@ export default function NewPatientForm({
                     );
                   }}
                 />
-                {apptTime && (
+                {apptTime && policy && (
                   <p
                     className={`mt-1 text-[11px] font-medium ${
                       isSlotBooked ? "text-danger" : "text-success"
@@ -1055,7 +1098,7 @@ export default function NewPatientForm({
                   >
                     {isSlotBooked
                       ? "Khung đang chọn đã có khách vãng lai — chuyển sang khung kế tiếp."
-                      : `Xếp khách vào chỗ vãng lai khung ${slotRange(apptTime)}.`}
+                      : `Xếp khách vào chỗ vãng lai khung ${slotRange(apptTime, policy.slotMinutes)}.`}
                   </p>
                 )}
               </div>
@@ -1172,7 +1215,7 @@ export default function NewPatientForm({
               onChange={setApptTime}
               minHour={apptMinHour}
               maxHour={apptMaxHour}
-              minutesOptions={["00", "15", "30", "45"]}
+              minutesOptions={policy ? slotMinuteOptions(policy) : []}
             />
             <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
               ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
@@ -1310,7 +1353,7 @@ export default function NewPatientForm({
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <button onClick={() => save(false)} disabled={!canSubmit} className={BTN}>
+        <button type="button" onClick={() => save(false)} disabled={submitting} className={BTN}>
           {submitting
             ? "Đang lưu..."
             : walkin

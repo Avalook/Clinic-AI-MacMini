@@ -116,6 +116,8 @@ async def test_command_is_bound_to_identity_clinic_and_membership_role() -> None
         department="DOCTOR",
         role=ClinicRole.RECEPTION,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
     result = await WorkItemService(pool).issue(
@@ -174,6 +176,8 @@ async def test_an_unassigned_node_cannot_be_commanded_by_any_role() -> None:
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
     with pytest.raises(SafetyGateError, match="không phụ trách"):
@@ -198,6 +202,8 @@ async def test_blocker_read_is_bound_to_identity_clinic_and_membership() -> None
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
     pool = MagicMock()
     pool.fetch = AsyncMock(
@@ -241,6 +247,8 @@ async def test_blocker_read_hides_work_item_outside_identity_scope() -> None:
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
     pool = MagicMock()
     pool.fetch = AsyncMock(return_value=[])
@@ -262,6 +270,8 @@ async def test_authorized_work_item_with_open_gate_has_no_blockers() -> None:
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
     pool = MagicMock()
     pool.fetch = AsyncMock(

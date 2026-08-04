@@ -27,6 +27,8 @@ def override_db() -> Iterator[None]:
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id=CLINIC_ID,
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
     yield
     app.dependency_overrides.clear()

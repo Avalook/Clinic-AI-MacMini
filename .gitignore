@@ -125,3 +125,17 @@ scripts/maintenance/backups/
 .serena/
 .codex/
 .feedback/
+
+# --- Bí mật vận hành để LOCAL, không lên GitHub -----------------------------
+# Repo này PUBLIC (xem .github/workflows/cd.yml: "this repository is public").
+#
+# apply-pending-migrations.sh hiện chứa connection string prod kèm mật khẩu ở
+# dạng thô. Quang giữ nguyên như vậy để agent thao tác được — quyết định đó ổn
+# khi file KHÔNG BAO GIỜ rời khỏi máy. Ignore ở đây giữ đúng hai điều cùng lúc:
+# script vẫn dùng bình thường, và `git add -A` không đẩy mật khẩu prod lên một
+# repo mà ai cũng fork được.
+scripts/apply-pending-migrations.sh
+
+# Email công việc của từng nhân viên (provision-staff-logins.sh). Dữ liệu cá
+# nhân, và cũng là danh sách mục tiêu phishing hoàn chỉnh cho một phòng khám.
+scripts/staff-emails.csv

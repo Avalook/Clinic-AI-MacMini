@@ -9,8 +9,9 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import StaffIdentity, require_role
+from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services.clinic_settings_service import ClinicSettingsService
 from clinicai.services.config_service import (
     PRICE_ROLES,
     ROSTER_ROLES,
@@ -27,6 +28,10 @@ router = APIRouter()
 # who may schedule somebody else.
 _ROSTER_GUARD = require_role(*ROSTER_ROLES)
 _PRICE_GUARD = require_role(*PRICE_ROLES)
+# Chỉ Trưởng ca + Quản lý được đổi luật đặt lịch (khung giờ / số chỗ) của
+# phòng khám. Bác sĩ/CSKH/Lễ tân thấy luật nhưng không sửa được — sửa luật
+# đang chạy khi đang có lịch đặt là một quyết định vận hành.
+_BOOKING_POLICY_GUARD = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
 
 
 class ShiftRequest(BaseModel):
@@ -55,6 +60,14 @@ class PriceUpdateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=300)
     unit_price: float | str | None = None
     active: bool | None = None
+
+
+class BookingPolicyUpdateRequest(BaseModel):
+    """Ba con số của luật đặt lịch (C.3). CHECK constraint ở DB chặn lần cuối."""
+
+    slot_minutes: int = Field(ge=1, le=60)
+    regular_cap: int = Field(ge=1, le=100)
+    walkin_cap: int = Field(ge=0, le=100)
 
 
 @router.post("/roster/shifts", status_code=201)
@@ -150,3 +163,173 @@ async def remove_price(
     """Remove a price-list line."""
     await PriceListService(pool).remove(price_id=str(price_id), identity=identity)
     return {"ok": True}
+
+
+@router.patch("/booking-policy")
+async def update_booking_policy(
+    body: BookingPolicyUpdateRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Thay luật đặt lịch của CHÍNH phòng khám đang đăng nhập (C.3 write path).
+
+    Chỉ Trưởng ca + Quản lý. ``identity.clinic_id`` luôn suy từ membership —
+    KHÔNG nhận clinic_id từ body, nên phòng khám A sửa không thể chạm phòng
+    khám B. CHECK constraint ``clinic_booking_policy_valid`` là lưới cuối.
+    """
+    saved = await ClinicSettingsService(pool).update_booking_policy(
+        identity=identity,
+        slot_minutes=body.slot_minutes,
+        regular_cap=body.regular_cap,
+        walkin_cap=body.walkin_cap,
+    )
+    return {"ok": True, **saved}
+
+
+# ── Booking capacity overrides (C.4) ──────────────────────────────────
+
+
+class BookingRuleRequest(BaseModel):
+    """MỘT luật số chỗ: ai — thứ mấy — khung giờ nào — mấy chỗ — tới bao giờ.
+
+    Người dùng không chọn "tầng"; service chọn hộ theo việc có khoảng ngày hay
+    không (xem ``save_rule``). Trước đây chỗ này là hai request khác nhau trên
+    hai tab, và câu hỏi đầu tiên của người vận hành là *"tại sao không gộp một
+    khung thiết lập chung?"* — đúng, ba tầng là cách LƯU chứ không phải cách
+    NGHĨ.
+
+    ``doctor_ids`` rỗng = mọi bác sĩ. ``weekday`` để trống = mọi thứ.
+    ``date_start``/``date_end`` để trống = áp dụng mãi mãi.
+    """
+
+    doctor_ids: list[UUID] = Field(default_factory=list, max_length=50)
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    # PHÚT-trong-ngày, không phải giờ tròn (20260803000009). Luật của phòng
+    # khám khác nhau giữa 18:00 và 18:15, nên độ mịn theo giờ không ghi lại
+    # được điều Trưởng ca muốn nói.
+    minute_start: int = Field(ge=0, le=1439)
+    minute_end: int = Field(ge=1, le=1440)
+    regular_cap: int = Field(ge=1, le=100)
+    walkin_cap: int = Field(ge=0, le=100)
+    date_start: date | None = None
+    date_end: date | None = None
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/booking-rules", status_code=201)
+async def save_booking_rule(
+    body: BookingRuleRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Ghi một luật số chỗ (C.4).
+
+    Luật mới thắng: luật cũ cùng bác sĩ + cùng thứ phủ chung khung sẽ bị cắt
+    quanh nó, không phải báo lỗi bắt người dùng đi dọn trước.
+    """
+    from clinicai.services.booking_override_service import BookingOverrideService
+
+    result: dict[str, object] = await BookingOverrideService(pool).save_rule(
+        identity=identity,
+        doctor_ids=[str(d) for d in body.doctor_ids],
+        weekday=body.weekday,
+        minute_start=body.minute_start,
+        minute_end=body.minute_end,
+        regular_cap=body.regular_cap,
+        walkin_cap=body.walkin_cap,
+        date_start=body.date_start,
+        date_end=body.date_end,
+        reason=body.reason,
+    )
+    return result
+
+
+@router.get("/booking-rules")
+async def list_booking_rules(
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Mọi luật còn hiệu lực, hai tầng gộp làm một danh sách."""
+    from clinicai.services.booking_override_service import BookingOverrideService
+
+    items = await BookingOverrideService(pool).list_rules(identity=identity)
+    return {"ok": True, "items": items}
+
+
+@router.delete("/booking-overrides/doctor/{override_id}")
+async def delete_doctor_override(
+    override_id: UUID,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Xóa override per-doctor."""
+    from clinicai.services.booking_override_service import BookingOverrideService
+
+    await BookingOverrideService(pool).delete_doctor_override(
+        identity=identity, override_id=str(override_id)
+    )
+    return {"ok": True}
+
+
+@router.delete("/booking-overrides/slot/{override_id}")
+async def delete_slot_override(
+    override_id: UUID,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Xóa slot override."""
+    from clinicai.services.booking_override_service import BookingOverrideService
+
+    await BookingOverrideService(pool).delete_slot_override(
+        identity=identity, override_id=str(override_id)
+    )
+    return {"ok": True}
+
+
+# ── Feature Mode (Phase 1 onboarding) ─────────────────────────────────
+
+_FEATURE_MODE_READ = require_role(
+    ClinicRole.MANAGEMENT,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.CSKH,
+    ClinicRole.RECEPTION,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_THUOC,
+    ClinicRole.CASHIER_DV,
+    ClinicRole.PHARMACIST,
+)
+_FEATURE_MODE_WRITE = require_role(ClinicRole.MANAGEMENT)
+
+
+class FeatureModeUpdateRequest(BaseModel):
+    mode: str = Field(min_length=1, max_length=20)
+
+
+@router.get("/feature-mode")
+async def get_feature_mode(
+    identity: StaffIdentity = Depends(_FEATURE_MODE_READ),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Trả chế độ phòng khám hiện tại (CSKH_ONLY hoặc FULL_CLINIC)."""
+    mode = await ClinicSettingsService(pool).get_feature_mode(
+        clinic_id=identity.clinic_id,
+    )
+    return {"ok": True, "mode": mode}
+
+
+@router.put("/feature-mode")
+async def update_feature_mode(
+    body: FeatureModeUpdateRequest,
+    identity: StaffIdentity = Depends(_FEATURE_MODE_WRITE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đổi chế độ phòng khám. Chỉ MANAGEMENT."""
+    result = await ClinicSettingsService(pool).update_feature_mode(
+        identity=identity,
+        mode=body.mode,
+    )
+    return {"ok": True, **result}

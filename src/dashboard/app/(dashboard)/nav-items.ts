@@ -17,6 +17,11 @@ import {
   Tag,
   ScanLine,
   ClipboardCheck,
+  LayoutDashboard,
+  Rows3,
+  AlertTriangle,
+  History,
+  Tv,
   ListOrdered,
   CheckCheck,
   Gauge,
@@ -24,6 +29,7 @@ import {
   Receipt,
   Timer,
   Zap,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -65,20 +71,27 @@ export const NAV: NavItem[] = [
     badge: "Mới",
   },
   {
-    href: "/cskh-today",
-    label: "Cần làm hôm nay",
-    shortLabel: "Hôm nay",
+    href: "/reception/checkout",
+    label: "Check-out lượt khám",
+    shortLabel: "Check-out",
+    icon: CheckCheck,
+    badge: "Mới",
+  },
+  {
+    href: "/cskh-tasks",
+    label: "Nhiệm vụ chăm sóc",
+    shortLabel: "Chăm sóc",
     icon: ClipboardCheck,
   },
   {
     href: "/appointments",
-    label: "Lịch hẹn (check đặt lịch)",
-    shortLabel: "Lịch hẹn",
+    label: "Đặt lịch",
+    shortLabel: "Đặt lịch",
     icon: ClipboardList,
   },
   {
     href: "/customers",
-    label: "Thông tin khách hàng",
+    label: "Quản lý khách hàng",
     shortLabel: "Khách hàng",
     icon: Contact,
   },
@@ -115,12 +128,41 @@ export const NAV: NavItem[] = [
     shortLabel: "Đóng đợt",
     icon: CheckCheck,
   },
-  // Trưởng ca (hành chính): theo dõi buổi (read-only).
+  // TRƯỞNG CA — năm màn điều phối, mỗi màn một mục trên thanh bên.
+  //
+  // Trước đây là MỘT mục dẫn vào một trang có cột tab riêng — tức là một thanh
+  // bên thứ hai nằm ngay cạnh thanh bên thật, và người dùng phải học hai chỗ
+  // điều hướng cho cùng một khu vực. Nay mỗi màn là một URL: mở thẳng được, gửi
+  // link được, nút Quay lại chạy đúng.
   {
     href: "/truong-ca",
-    label: "Theo dõi buổi",
-    shortLabel: "Theo dõi",
-    icon: ClipboardCheck,
+    label: "Toàn cảnh điều phối",
+    shortLabel: "Toàn cảnh",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/truong-ca/hang-doi",
+    label: "Hàng đợi theo trạm",
+    shortLabel: "Hàng đợi",
+    icon: Rows3,
+  },
+  {
+    href: "/truong-ca/canh-bao",
+    label: "Cảnh báo & ngưỡng",
+    shortLabel: "Cảnh báo",
+    icon: AlertTriangle,
+  },
+  {
+    href: "/truong-ca/lich-su",
+    label: "Lịch sử điều phối",
+    shortLabel: "Lịch sử ĐP",
+    icon: History,
+  },
+  {
+    href: "/truong-ca/tv",
+    label: "TV phòng chờ",
+    shortLabel: "TV",
+    icon: Tv,
   },
   // Bảng giá tách 2 trang, đặt NGAY DƯỚI "Công việc của tôi" (sidebar Thu ngân).
   { href: "/cashier/thuoc", label: "Bảng giá thuốc", shortLabel: "Giá thuốc", icon: Pill },
@@ -167,7 +209,21 @@ export const NAV: NavItem[] = [
     icon: Activity,
   },
   { href: "/sono", label: "ĐD siêu âm", shortLabel: "Siêu âm", icon: ScanLine },
+  {
+    href: "/sieu-am",
+    label: "Bộ phận Siêu âm",
+    shortLabel: "Bộ phận SA",
+    icon: ScanLine,
+  },
   { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
+  // Có trong NAV_ROLES (Quản lý + Trưởng ca) nhưng CHƯA TỪNG có mục ở đây, nên
+  // trang chỉ vào được bằng cách gõ URL — quyền đã cấp mà không có đường đi.
+  {
+    href: "/work-sessions",
+    label: "Buổi làm việc",
+    shortLabel: "Buổi",
+    icon: Timer,
+  },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   {
     href: "/audit-log",
@@ -190,6 +246,18 @@ export const NAV: NavItem[] = [
     icon: Timer,
   },
   { href: "/ops", label: "Vận hành hệ thống", shortLabel: "Hệ thống", icon: Gauge },
+  {
+    href: "/settings/booking-policy",
+    label: "Luật đặt lịch",
+    shortLabel: "Luật đặt lịch",
+    icon: Calendar,
+  },
+  {
+    href: "/settings/clinic-config",
+    label: "Cấu trúc phòng khám",
+    shortLabel: "Cấu trúc",
+    icon: Building2,
+  },
   { href: "/settings", label: "Cài đặt", icon: Settings },
   {
     href: "/portal",

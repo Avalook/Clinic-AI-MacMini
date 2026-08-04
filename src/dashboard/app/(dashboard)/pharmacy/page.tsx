@@ -15,7 +15,10 @@ export default async function PharmacyPage() {
 
   // Đơn thuốc hôm nay (prescription) + bệnh nhân + lượt khám
   const { startUtc, endUtc } = vnTodayRangeUtc();
-  const { data: prescriptions, error: rxErr } = await supabase
+  // HAI TRUY VẤN NÀY KHÔNG LIÊN QUAN GÌ NHAU — đơn thuốc hôm nay và tồn kho.
+  // Xếp hàng chúng là cộng thêm một lượt ~210ms sang Seoul mà không đổi kết
+  // quả. Bắn cùng lúc, chờ một lần.
+  const qRx = supabase
     .from("prescription")
     .select(
       `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
@@ -27,6 +30,21 @@ export default async function PharmacyPage() {
     .lte("created_at", endUtc)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  const qInv = supabase
+    .from("drug_batch")
+    .select(
+      `id, batch_code, expiry_date, quantity_on_hand, unit, cost_price,
+       drug:drug_catalog_id(name_base, name_raw, variant)`,
+    )
+    .gt("quantity_on_hand", 0)
+    .order("expiry_date", { ascending: true });
+
+  // Tồn kho theo thuốc (drug_catalog + drug_batch)
+  const [
+    { data: prescriptions, error: rxErr },
+    { data: inventory, error: invErr },
+  ] = await Promise.all([qRx, qInv]);
 
   if (rxErr) {
     return (
@@ -57,15 +75,7 @@ export default async function PharmacyPage() {
     visit: p.visit?.[0] ?? null,
   }));
 
-  // Tồn kho theo thuốc (drug_catalog + drug_batch)
-  const { data: inventory, error: invErr } = await supabase
-    .from("drug_batch")
-    .select(
-      `id, batch_code, expiry_date, quantity_on_hand, unit, cost_price,
-       drug:drug_catalog_id(name_base, name_raw, variant)`,
-    )
-    .gt("quantity_on_hand", 0)
-    .order("expiry_date", { ascending: true });
+
 
   if (invErr) {
     return (
