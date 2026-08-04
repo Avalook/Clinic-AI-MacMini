@@ -22,6 +22,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.gate_rule_service import enforce as gate_enforce
 
 logger = structlog.get_logger()
 
@@ -129,6 +130,11 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
          ON w.visit_id = v.visit_id AND w.node_code = r.node_code
         AND w.status IN ('PENDING', 'IN_PROGRESS')
  WHERE r.clinic_id = $1::uuid AND r.is_active
+   -- CHỈ PHÒNG CỦA CƠ SỞ ĐANG ĐỨNG. Không lọc thì khi Hào Nam mở, nhân sự ở đó
+   -- thấy nguyên danh sách phòng của Kim Ngưu và bấm chuyển bệnh nhân sang một
+   -- phòng cách vài cây số. NULL = không truyền cơ sở (bảng tổng của quản lý)
+   -- thì hiện tất.
+   AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
  GROUP BY r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
           r.show_on_tv, r.floor, n.name, t.wait_minutes, d.wait_minutes,
           t.max_waiting, d.max_waiting
@@ -152,11 +158,17 @@ class DispatchService:
             )
         return [_overview_row(r) for r in rows]
 
-    async def stations(self, *, clinic_id: str) -> list[dict[str, Any]]:
-        """Tải của từng phòng: đang phục vụ, đang chờ, chờ lâu nhất."""
+    async def stations(
+        self, *, clinic_id: str, location_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Tải của từng phòng: đang phục vụ, đang chờ, chờ lâu nhất.
+
+        `location_id` = cơ sở người đang xem. None = hiện mọi cơ sở (bảng tổng
+        của quản lý).
+        """
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                _STATIONS_SQL, clinic_id, list(LIVE_VISIT_STATUSES)
+                _STATIONS_SQL, clinic_id, list(LIVE_VISIT_STATUSES), location_id
             )
         return [
             {
@@ -198,6 +210,7 @@ class DispatchService:
         Trưởng ca cần tin nó nhất.
         """
         patients = await self.overview(clinic_id=clinic_id)
+        # Cảnh báo tính trên MỌI cơ sở: quản lý cần thấy cả hai nơi đang tắc.
         rooms = await self.stations(clinic_id=clinic_id)
         return build_alerts(patients, rooms)
 
@@ -212,9 +225,22 @@ class DispatchService:
         room_id: str | None,
         reason: str | None,
         event_type: str = "dispatch.moved",
+        target_staff_id: str | None = None,
     ) -> dict[str, Any]:
         """Chuyển bệnh nhân sang bước/phòng khác. Một lời gọi, một giao dịch."""
-        async with self._pool.acquire() as conn:
+        overridden: dict[str, Any] | None = None
+        async with self._pool.acquire() as conn, conn.transaction():
+            # LUẬT THỨ TỰ BẮT BUỘC chạy TRƯỚC, trong cùng transaction. Chạy sau
+            # thì bệnh nhân đã bị chuyển rồi mới báo "không được" — và không có
+            # nút hoàn tác nào cho một người đang đi bộ sang phòng khác.
+            overridden = await gate_enforce(
+                conn,
+                identity=identity,
+                visit_id=visit_id,
+                to_node=node_code,
+                target_staff_id=target_staff_id,
+                override_reason=reason,
+            )
             try:
                 item_id = await conn.fetchval(
                     "SELECT public.move_visit_to_station("
@@ -241,7 +267,12 @@ class DispatchService:
             room_id=room_id,
             by_staff_id=identity.staff_id,
         )
-        return {"ok": True, "work_item_id": str(item_id)}
+        return {
+            "ok": True,
+            "work_item_id": str(item_id),
+            # Màn hình nói rõ vừa bỏ qua luật nào, chứ không im lặng cho qua.
+            "gate_overridden": overridden,
+        }
 
     async def apply_route(
         self,

@@ -51,7 +51,10 @@ async def overview(
     return {
         "ok": True,
         "patients": await svc.overview(clinic_id=identity.clinic_id),
-        "rooms": await svc.stations(clinic_id=identity.clinic_id),
+        # Chỉ phòng của CƠ SỞ người đang đứng — xem ghi chú ở _STATIONS_SQL.
+        "rooms": await svc.stations(
+            clinic_id=identity.clinic_id, location_id=identity.location_id
+        ),
     }
 
 
@@ -99,7 +102,9 @@ async def tv_board(
     cảm vẫn đi qua đường mạng thì chỉ cần mở công cụ nhà phát triển là đọc được.
     """
     svc = DispatchService(pool)
-    rooms = await svc.stations(clinic_id=identity.clinic_id)
+    rooms = await svc.stations(
+        clinic_id=identity.clinic_id, location_id=identity.location_id
+    )
     patients = await svc.overview(clinic_id=identity.clinic_id)
 
     board = []
