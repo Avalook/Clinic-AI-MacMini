@@ -62,15 +62,34 @@ export default async function PatientListPage() {
   // Dữ liệu cho MODAL đặt lịch nhanh ("Tái khám" trong popup). Chỉ nạp khi nút hiện
   // (CSKH/Lễ tân/Quản lý — đều canWriteIntake nên POST /api/appointments cho phép).
   // Giống cách trang chi tiết BN nạp options; bỏ dịch vụ rác "FREE".
+  // Danh sách bệnh nhân KHÔNG phụ thuộc mấy tuỳ chọn của modal đặt lịch — nó
+  // chỉ nằm sau vì được viết sau. Bắn tất cả cùng lúc rồi chờ một lần: mỗi lượt
+  // sang Seoul là ~210ms, và ở đây có hai lượt xếp hàng cho không.
+  const { startUtc: todayStartUtc, endUtc: todayEndUtc } = vnTodayRangeUtc();
+  const qList = supabase
+    .from("appointment")
+    .select(SELECT)
+    .or(
+      `status.eq.COMPLETED,and(status.in.(CHECKED_IN,IN_PROGRESS),slot_start.gte.${todayStartUtc},slot_start.lt.${todayEndUtc})`,
+    )
+    .order("slot_start", { ascending: false })
+    .limit(2000);
+
   let services: Option[] = [];
   let doctors: Option[] = [];
   let locations: Option[] = [];
-  if (showRebook) {
-    const [locRes, svcRes, docRes] = await Promise.all([
-      supabase.from("clinic_location").select("id, name").order("name"),
-      supabase.from("service_type").select("id, name").order("name"),
-      listBookableDoctors(),
-    ]);
+  const [{ data, error }, opts] = await Promise.all([
+    qList,
+    showRebook
+      ? Promise.all([
+          supabase.from("clinic_location").select("id, name").order("name"),
+          supabase.from("service_type").select("id, name").order("name"),
+          listBookableDoctors(),
+        ])
+      : Promise.resolve(null),
+  ]);
+  if (opts) {
+    const [locRes, svcRes, docRes] = opts;
     locations = (locRes.data ?? []).map((r) => ({
       id: r.id as string,
       label: r.name as string,
@@ -87,16 +106,6 @@ export default async function PatientListPage() {
   // khách đến trực tiếp (auto CHECKED_IN) nằm ở "khách hàng" mà không lọt danh sách
   // này. Active giới hạn TRONG NGÀY để không kéo về mọi lượt CHECKED_IN cũ bị bỏ dở.
   // Sắp xếp mới→cũ để lần xuất hiện ĐẦU của mỗi BN chính là lượt gần nhất. Cap 2000.
-  const { startUtc: todayStartUtc, endUtc: todayEndUtc } = vnTodayRangeUtc();
-  const { data, error } = await supabase
-    .from("appointment")
-    .select(SELECT)
-    .or(
-      `status.eq.COMPLETED,and(status.in.(CHECKED_IN,IN_PROGRESS),slot_start.gte.${todayStartUtc},slot_start.lt.${todayEndUtc})`,
-    )
-    .order("slot_start", { ascending: false })
-    .limit(2000);
-
   const raw = (data as ApptJoin[] | null) ?? [];
   const map = new Map<string, ExaminedRow>();
   for (const a of raw) {

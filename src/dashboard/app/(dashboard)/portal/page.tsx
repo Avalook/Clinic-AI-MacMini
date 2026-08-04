@@ -20,8 +20,10 @@ export default async function PortalPage() {
 
   const supabase = await getSupabaseServer();
 
-  // Lấy danh sách nhân viên + trạng thái liên kết tài khoản
-  const { data: staffRows } = await supabase
+  // Danh sách nhân viên KHÔNG phụ thuộc mấy con số bên dưới — nó chỉ nằm
+  // trước vì được viết trước. Đợi nó xong rồi mới bắn khối kia là cộng thêm
+  // một lượt ~210ms sang Seoul cho không.
+  const qStaff = supabase
     .from("staff")
     .select(
       "id, full_name, short_name, primary_department, employment_type, is_active, auth_user_id",
@@ -57,12 +59,14 @@ export default async function PortalPage() {
   ).toISOString();
 
   const [
+    { data: staffRows },
     apptTodayRes,
     patientTodayRes,
     visitTodayRes,
     pendingTaskRes,
     eventLogRes,
   ] = await Promise.all([
+    qStaff,
     supabase
       .from("appointment")
       .select("*", { count: "exact", head: true })
