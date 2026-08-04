@@ -46,8 +46,21 @@ function Queues({
             <div style={{ fontWeight: 700, marginBottom: 8 }}>
               {r.name}{" "}
               <span style={{ fontWeight: 400, color: "var(--ink-muted)" }}>
-                · {here.length} người
+                {r.floor ? `· tầng ${r.floor} ` : ""}· {here.length} người
               </span>
+              {/* Chưa khai tầng thì NÓI RA, đừng im. Im lặng làm người ta tưởng
+                  phòng này cùng tầng với phòng đang đứng. */}
+              {!r.floor && (
+                <span
+                  style={{
+                    fontWeight: 400,
+                    fontSize: 11,
+                    color: "var(--warning)",
+                  }}
+                >
+                  {" "}· chưa khai tầng
+                </span>
+              )}
             </div>
             {here.length === 0 ? (
               <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>

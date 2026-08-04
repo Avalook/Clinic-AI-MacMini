@@ -51,6 +51,7 @@ SELECT v.visit_id,
        r.id                                       AS room_id,
        r.code                                     AS room_code,
        r.name                                     AS room_name,
+       r.floor                                    AS room_floor,
        p.clinic_patient_id,
        p.full_name                                AS patient_name,
        p.patient_code,
@@ -94,7 +95,7 @@ SELECT v.visit_id,
 
 _STATIONS_SQL = """
 SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
-       r.show_on_tv,
+       r.show_on_tv, r.floor,
        n.name AS node_name,
        coalesce(t.wait_minutes, d.wait_minutes, 20) AS threshold_minutes,
        coalesce(t.max_waiting,  d.max_waiting,  8)  AS threshold_waiting,
@@ -122,7 +123,7 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
         AND w.status IN ('PENDING', 'IN_PROGRESS')
  WHERE r.clinic_id = $1::uuid AND r.is_active
  GROUP BY r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
-          r.show_on_tv, n.name, t.wait_minutes, d.wait_minutes,
+          r.show_on_tv, r.floor, n.name, t.wait_minutes, d.wait_minutes,
           t.max_waiting, d.max_waiting
  ORDER BY r.sort, r.code
 """
@@ -155,6 +156,11 @@ class DispatchService:
                 "id": str(r["id"]),
                 "code": r["code"],
                 "name": r["name"],
+                # NULL = chưa khai tầng, và giao diện phải NÓI RA chứ không
+                # đoán. Ba phòng siêu âm của Kim Ngưu đang ở trạng thái này:
+                # báo cáo onsite nói siêu âm ở tầng 2 VÀ tầng 4 nhưng không nói
+                # phòng nào ở tầng nào.
+                "floor": r["floor"],
                 "node_code": r["node_code"],
                 "node_name": r["node_name"],
                 "capacity": r["capacity"],
@@ -562,6 +568,7 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
         "room_id": str(r["room_id"]) if r["room_id"] else None,
         "room_code": r["room_code"],
         "room_name": r["room_name"],
+        "room_floor": r["room_floor"],
         "wait_minutes": r["wait_minutes"],
         "total_minutes": r["total_minutes"],
         "threshold_minutes": r["threshold_minutes"] or 20,

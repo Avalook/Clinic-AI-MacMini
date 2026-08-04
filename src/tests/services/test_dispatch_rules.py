@@ -153,3 +153,47 @@ class TestAlerts:
         msg = alerts[0]["message"]
         assert "Nguyễn Thị A" in msg and "phút" in msg
         assert "DICHVU-" not in msg
+
+
+class TestRoomsCarryTheirFloor:
+    """Tầng phải đi cùng phòng ra tới màn hình.
+
+    Cơ sở Kim Ngưu có ba tầng và SIÊU ÂM NẰM Ở HAI TẦNG KHÁC NHAU (báo cáo
+    onsite 23/04/2026: tầng 2 và tầng 4), mọi thứ khác ở tầng 1. Nên "sang SA2"
+    là câu chưa đủ để chỉ đường — Trưởng ca đang phải tự nhớ phần còn lại,
+    40–60 lần mỗi buổi.
+    """
+
+    def test_the_station_query_selects_the_floor(self) -> None:
+        from clinicai.services.dispatch_service import _STATIONS_SQL
+
+        assert "r.floor" in _STATIONS_SQL
+        # Có trong SELECT thì phải có trong GROUP BY, nếu không Postgres từ chối
+        # cả câu và bảng điều phối trắng.
+        after_group = _STATIONS_SQL.split("GROUP BY", 1)[1]
+        assert "r.floor" in after_group
+
+    def test_the_overview_query_carries_the_floor_of_the_room_they_are_in(
+        self,
+    ) -> None:
+        from clinicai.services.dispatch_service import _OVERVIEW_SQL
+
+        assert "r.floor" in _OVERVIEW_SQL
+        assert "room_floor" in _OVERVIEW_SQL
+
+    def test_an_unassigned_floor_stays_null_instead_of_becoming_a_guess(
+        self,
+    ) -> None:
+        """SA1/SA2/SA3 của Kim Ngưu CỐ Ý để trống.
+
+        Báo cáo nói siêu âm ở tầng 2 VÀ tầng 4 nhưng không nói phòng nào ở tầng
+        nào. Điền đại một cái thì phần lớn khả năng là sai — và cái sai đó được
+        đọc lên thành câu chỉ đường cho bệnh nhân đang đứng ở sảnh.
+        """
+        from clinicai.services.dispatch_service import _STATIONS_SQL
+
+        for bad in ("coalesce(r.floor", "COALESCE(r.floor"):
+            assert bad not in _STATIONS_SQL, (
+                "đừng lấp NULL bằng giá trị mặc định — 'chưa khai tầng' và "
+                "'tầng 1' là hai chuyện khác nhau"
+            )

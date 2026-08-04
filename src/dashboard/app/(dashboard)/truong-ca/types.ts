@@ -21,6 +21,7 @@ export interface DispatchPatient {
   room_id: string | null;
   room_code: string | null;
   room_name: string | null;
+  room_floor: string | null;
   /** Phút đã chờ Ở BƯỚC HIỆN TẠI. */
   wait_minutes: number;
   /** Phút đã ở trong phòng khám, tính từ lúc check-in. Khác hẳn cái trên. */
@@ -37,6 +38,10 @@ export interface DispatchRoom {
   id: string;
   code: string;
   name: string;
+  /** Nhãn tầng do phòng khám tự khai. NULL = chưa khai, và phải HIỆN RA như
+   *  vậy — đoán một cái tầng rồi đọc lên cho bệnh nhân đang đứng ở sảnh là
+   *  chỉ sai đường. */
+  floor: string | null;
   node_code: string;
   node_name: string | null;
   capacity: number;

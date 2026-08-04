@@ -218,3 +218,18 @@ export function Toast({ text }: { text: string | null }) {
   if (!text) return null;
   return <div className="toast">{text}</div>;
 }
+
+/** "Tầng 2 · SA1" — hoặc chỉ tên phòng khi chưa khai tầng.
+ *
+ *  Cơ sở Kim Ngưu có ba tầng và SIÊU ÂM NẰM Ở HAI TẦNG KHÁC NHAU (báo cáo
+ *  onsite 23/04: tầng 2 và tầng 4), còn mọi thứ khác ở tầng 1. Nên "sang SA2"
+ *  là một câu chưa đủ để chỉ đường — Trưởng ca đang phải tự nhớ phần còn lại,
+ *  40–60 lần mỗi buổi.
+ */
+export function roomWithFloor(
+  name: string | null,
+  floor: string | null,
+): string {
+  if (!name) return "—";
+  return floor ? `Tầng ${floor} · ${name}` : name;
+}
