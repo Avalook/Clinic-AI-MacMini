@@ -11,6 +11,8 @@ import { INPUT, LABEL } from "../form-ui";
 export interface CskhActionRow {
   id: string;
   category: string | null;
+  /** Lượt khám gắn với việc này — có thì mới gác được theo chữ ký bác sĩ. */
+  visit_link_raw?: string | null;
   status: string | null;
   description: string | null;
   action_data: string | null;
@@ -45,6 +47,12 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
   const router = useRouter();
   const [selId, setSelId] = useState<string | null>(rows[0]?.id ?? null);
   const sel = rows.find((r) => r.id === selId) ?? null;
+
+  // CHỐT CHẶN CỦA BÁC SĨ — xem ghi chú ở ReleaseBanner bên dưới.
+  const releaseState = useReleaseState(sel?.visit_link_raw ?? null);
+  const isResultTask = bucketKey(sel?.category ?? null) === "tra_xn";
+  const blockedBySign =
+    isResultTask && releaseState !== null && releaseState !== "RELEASED";
 
   // Form states in detail panel (Mockup 3)
   const [callResult, setCallResult] = useState<"success" | "no_answer" | "doctor_help">("success");
@@ -367,6 +375,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
               </select>
             </div>
 
+            {/* CHỐT CHẶN CỦA BÁC SĨ.
+                Notion §6 tiêu chí 2: *"Nút gửi kết quả của CSKH chỉ được mở sau
+                khi bác sĩ duyệt. Quy tắc này phải được hệ thống kiểm soát,
+                không chỉ nhắc người dùng bằng quy trình nội bộ."*
+                Đây là một điều kiện CSKH KHÔNG tự tích được — nó do bác sĩ bấm
+                ở phiếu khám, và hiện ở đây để CSKH biết vì sao chưa gửi được. */}
+            <ReleaseBanner state={releaseState} />
+
             {/* Completion Checklist */}
             <div className="rounded-lg border border-line bg-surface-muted p-2.5 text-xs space-y-1.5">
               <p className="font-semibold text-ink text-[11px]">Điều kiện hoàn thành</p>
@@ -409,8 +425,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
               </button>
               <button
                 type="button"
+                disabled={blockedBySign}
+                title={
+                  blockedBySign
+                    ? "Bác sĩ chưa cho phép gửi kết quả cho bệnh nhân."
+                    : undefined
+                }
                 onClick={() => markCompleted(sel.id)}
-                className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-medium text-white shadow-sm hover:bg-brand-700"
+                className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-medium text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 ✓ Hoàn thành công việc
               </button>
@@ -497,6 +519,77 @@ function Row({ label, value }: { label: string; value?: string | null }) {
     <div className="flex gap-2">
       <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
       <dd className="min-w-0 break-words text-ink">{value || "—"}</dd>
+    </div>
+  );
+}
+
+/** Đọc trạng thái ký/duyệt của lượt khám gắn với việc CSKH này. */
+function useReleaseState(visitId: string | null): string | null {
+  // Kết quả được gắn kèm visitId của chính nó, thay vì đặt lại về null mỗi lần
+  // đổi việc. Cách kia phải setState ngay trong effect (react-hooks chặn, và có
+  // lý do), mà tệ hơn là có một nhịp hiển thị trạng thái của BỆNH NHÂN TRƯỚC.
+  const [seen, setSeen] = useState<{ visit: string; state: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!visitId) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      void fetch(`/api/clinical/${visitId}/status`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { state?: string } | null) => {
+          if (alive && d?.state) setSeen({ visit: visitId, state: d.state });
+        })
+        .catch(() => {
+          // Không đoán. Đọc không được thì để null — và null nghĩa là KHÔNG
+          // chặn, vì chặn nhầm toàn bộ hàng đợi CSKH khi mạng chập là tệ hơn.
+          // Bản thân nút gửi thật nằm ở hệ thống tin nhắn, không phải ở đây.
+        });
+    }, 0);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [visitId]);
+
+  return seen && seen.visit === visitId ? seen.state : null;
+}
+
+/** CHỐT CHẶN CỦA BÁC SĨ.
+ *
+ *  Quyết định của Quang (2026-08-04): ký xong hồ sơ VẪN chưa được gửi kết quả
+ *  cho bệnh nhân — bác sĩ phải bấm thêm "Cho phép CSKH gửi". Lý do của anh:
+ *  *"nếu trường hợp bệnh án nguy hiểm thì phải cảnh báo CSKH chưa được gửi"*.
+ *
+ *  Nên ở đây CSKH phải NHÌN THẤY tình trạng đó, chứ không phải nhớ hỏi. Đây là
+ *  điều kiện duy nhất trong danh sách mà CSKH không tự tích được.
+ */
+function ReleaseBanner({ state }: { state: string | null }) {
+  if (!state) return null;
+  const released = state === "RELEASED";
+  return (
+    <div
+      className={`rounded-lg border p-2.5 text-xs ${
+        released
+          ? "border-success/40 bg-success-bg text-success"
+          : "border-warning/40 bg-warning-bg text-warning"
+      }`}
+    >
+      {released ? (
+        <>✓ Bác sĩ đã cho phép gửi kết quả cho bệnh nhân.</>
+      ) : (
+        <>
+          <b>Chưa được gửi kết quả.</b> Bác sĩ chưa bấm &ldquo;Cho phép CSKH
+          gửi&rdquo;
+          {state === "SIGNED"
+            ? " (hồ sơ đã ký nhưng bác sĩ giữ lại)"
+            : state === "AMENDED"
+              ? " (hồ sơ vừa được đính chính — chờ bác sĩ cho phép lại)"
+              : " (hồ sơ chưa ký)"}
+          . Liên hệ bác sĩ trước khi trả kết quả.
+        </>
+      )}
     </div>
   );
 }

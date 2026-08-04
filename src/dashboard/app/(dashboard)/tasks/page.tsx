@@ -395,6 +395,7 @@ export default async function TasksPage() {
   // Bảng 2 (Nhật ký CSKH) — đọc 200 việc gần nhất từ cskh_action.
   const CSKH_SELECT = `
     id, category, status, description, action_data, source_created_at, created_by_text,
+    visit_link_raw,
     patient:patient!clinic_patient_id (
       clinic_patient_id, full_name, patient_code, phone_primary
     )

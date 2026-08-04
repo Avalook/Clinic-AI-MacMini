@@ -445,14 +445,21 @@ async def _create_renotify_task(
         """
         INSERT INTO public.cskh_action
             (clinic_id, source_ref, clinic_patient_id, category, status,
-             description)
-        VALUES ($1::uuid, $2, $3::uuid, 'Thông báo lại kết quả', 'PENDING', $4)
+             description, visit_link_raw)
+        VALUES ($1::uuid, $2, $3::uuid, 'Thông báo lại kết quả', 'PENDING', $4,
+                $5)
         """,
         identity.clinic_id,
         f"amend:{visit_id}",
         row["clinic_patient_id"],
         f"Kết quả đã gửi cho bệnh nhân vừa được bác sĩ đính chính. Lý do: {reason}."
         " Cần liên hệ lại và gửi bản mới.",
+        # GẮN LƯỢT KHÁM VÀO VIỆC. Không có khoá này thì màn CSKH không biết
+        # việc đang nói về lượt khám nào, nên không đọc được bác sĩ đã cho phép
+        # gửi lại chưa — và một việc "thông báo lại kết quả" mà không tra được
+        # trạng thái duyệt là đúng thứ nguy hiểm mà cái chốt hai bước sinh ra
+        # để chặn.
+        visit_id,
     )
 
 

@@ -121,3 +121,40 @@ class TestRequiredFieldsBeforeSigning:
         một cái form, không phải trước một cái bảng."""
         for label in missing_fields({}):
             assert not label.startswith("soap_")
+
+
+class TestRenotifyTaskCarriesItsVisit:
+    """Việc "thông báo lại kết quả" phải GẮN với lượt khám nào.
+
+    Màn CSKH đọc `cskh_action.visit_link_raw` để tra xem bác sĩ đã cho phép gửi
+    lại chưa. Không có khoá đó thì cái chốt hai bước im lặng bỏ qua đúng tình
+    huống nguy hiểm nhất: một kết quả ĐÃ GỬI vừa bị đính chính.
+
+    Kiểm trên prod (đã rollback): INSERT này ghép được với v_clinical_status và
+    trả về clinical_state <> 'RELEASED' → CSKH bị chặn.
+    """
+
+    @pytest.mark.asyncio
+    async def test_the_insert_records_the_visit_id(self) -> None:
+        from clinicai.services.clinical_sign_service import _create_renotify_task
+
+        visit = "11111111-1111-4111-8111-111111111111"
+        seen: list[tuple[str, tuple[Any, ...]]] = []
+
+        class Conn:
+            async def fetchrow(self, *_: Any) -> dict[str, Any]:
+                return {"clinic_patient_id": "22222222-2222-4222-8222-222222222222"}
+
+            async def execute(self, sql: str, *args: Any) -> None:
+                seen.append((sql, args))
+
+        await _create_renotify_task(
+            Conn(),  # type: ignore[arg-type]
+            _identity(ClinicRole.DOCTOR),
+            visit,
+            "sai chẩn đoán",
+        )
+
+        sql, args = seen[0]
+        assert "visit_link_raw" in sql
+        assert visit in args, "việc CSKH không mang theo lượt khám của nó"
