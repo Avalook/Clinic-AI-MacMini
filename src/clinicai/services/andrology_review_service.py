@@ -83,8 +83,18 @@ def _so(value: Any) -> float | None:
 
 
 def _lan_moi_nhat(form: dict[str, Any], key: str) -> float | None:
-    """Giá trị của lần 2 nếu có, không thì lần 1."""
-    return _so(form.get(f"{key}_l2")) or _so(form.get(f"{key}_l1"))
+    """Giá trị của lần 2 nếu có, không thì lần 1.
+
+    `is not None` CHỨ KHÔNG PHẢI `or`. Số 0 là falsy trong Python, nên
+    `_so(l2) or _so(l1)` sẽ bỏ qua lần 2 khi lần 2 bằng 0 — và 0 ở đây là KHÔNG
+    THẤY TINH TRÙNG, kết quả quan trọng nhất của cả phiếu.
+
+    Đã xảy ra thật: chạy thử một ca lần 1 = 3, lần 2 = 0, màn hình đọc ra 3 và
+    gợi ý "thiểu tinh nặng" thay vì "không thấy tinh trùng trong mẫu" — hai
+    hướng chẩn đoán khác hẳn nhau.
+    """
+    lan2 = _so(form.get(f"{key}_l2"))
+    return lan2 if lan2 is not None else _so(form.get(f"{key}_l1"))
 
 
 def semen_params(form: dict[str, Any]) -> dict[str, float | Decimal | None]:
