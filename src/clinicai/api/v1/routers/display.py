@@ -52,9 +52,7 @@ async def display_config(
         return {"ok": True, **_DEFAULT_DISPLAY}
 
     display = (
-        json.loads(settings_raw)
-        if isinstance(settings_raw, str)
-        else settings_raw
+        json.loads(settings_raw) if isinstance(settings_raw, str) else settings_raw
     )
     if not isinstance(display, dict):
         return {"ok": True, **_DEFAULT_DISPLAY}

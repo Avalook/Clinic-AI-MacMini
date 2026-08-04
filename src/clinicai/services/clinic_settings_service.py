@@ -136,9 +136,7 @@ class ClinicSettingsService:
 
     VALID_MODES = ("CSKH_ONLY", "FULL_CLINIC")
 
-    async def get_feature_mode(
-        self, *, clinic_id: str
-    ) -> str:
+    async def get_feature_mode(self, *, clinic_id: str) -> str:
         """Read the feature_mode for a clinic. Defaults to FULL_CLINIC."""
         async with self._pool.acquire() as conn:
             raw = await conn.fetchval(
@@ -160,9 +158,7 @@ class ClinicSettingsService:
         """Set the feature_mode for the caller's clinic. MANAGEMENT only."""
         if mode not in self.VALID_MODES:
             valid = ", ".join(self.VALID_MODES)
-            raise ValidationError(
-                f"Chế độ không hợp lệ: {mode}. Chấp nhận: {valid}"
-            )
+            raise ValidationError(f"Chế độ không hợp lệ: {mode}. Chấp nhận: {valid}")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():

@@ -128,9 +128,7 @@ class CheckoutService:
             "can_close": not blockers and not row["already_closed"],
         }
 
-    async def pending_list(
-        self, *, identity: StaffIdentity
-    ) -> list[dict[str, Any]]:
+    async def pending_list(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         """Các lượt khám hôm nay chưa đóng, kèm vướng mắc của từng lượt.
 
         Một truy vấn cho cả danh sách. Gọi ``readiness()`` trong vòng lặp cũng
@@ -163,9 +161,7 @@ class CheckoutService:
                     "room_name": r["room_name"],
                     "already_closed": r["already_closed"],
                     "checked_in_at": (
-                        r["checked_in_at"].isoformat()
-                        if r["checked_in_at"]
-                        else None
+                        r["checked_in_at"].isoformat() if r["checked_in_at"] else None
                     ),
                     "blockers": blockers,
                     "can_close": not blockers and not r["already_closed"],
@@ -280,9 +276,7 @@ def _vn_day_start() -> datetime:
     Có múi giờ vì `checked_in_at` là timestamptz: một datetime trần sẽ được
     Postgres hiểu theo TimeZone của phiên, và biên ngày lệch bảy tiếng.
     """
-    return datetime.now(CLINIC_TZ).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    return datetime.now(CLINIC_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 # ── Luật thuần ─────────────────────────────────────────────────────────────
@@ -314,9 +308,7 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     if not row.get("paid_service"):
-        out.append(
-            {"type": "unpaid_service", "message": "Chưa thu tiền dịch vụ khám"}
-        )
+        out.append({"type": "unpaid_service", "message": "Chưa thu tiền dịch vụ khám"})
     # Chỉ đòi thu tiền thuốc KHI CÓ ĐƠN. Đòi ở mọi lượt sẽ chặn mọi bệnh nhân
     # không được kê thuốc — tức là phần lớn.
     if row.get("has_drug") and not row.get("paid_drug"):

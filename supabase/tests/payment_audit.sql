@@ -71,11 +71,16 @@ VALUES (
     'Dịch vụ payment audit'
 );
 
-INSERT INTO public.staff (id, full_name, primary_department)
+-- Bài kiểm này tự tạo thêm cơ sở, nên phòng khám có nhiều hơn một chỗ và hệ
+-- thống KHÔNG đoán hộ (trigger 20260804000015). Fixture phải chỉ rõ.
+INSERT INTO public.staff
+    (id, full_name, primary_department, primary_location_id)
 VALUES (
     'd5000000-0000-4000-8000-000000000001',
     'Thu ngân audit',
-    'CASHIER'
+    'CASHIER',
+    (SELECT id FROM public.clinic_location WHERE is_active
+       ORDER BY created_at, id LIMIT 1)
 );
 
 INSERT INTO public.patient (

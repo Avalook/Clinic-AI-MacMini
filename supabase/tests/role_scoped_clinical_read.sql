@@ -29,16 +29,24 @@ VALUES
     ('a1000000-0000-4000-8000-000000000004')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.staff (id, full_name, primary_department, auth_user_id, is_active)
-VALUES
-    ('b1000000-0000-4000-8000-000000000001', 'ROLE02 BS', 'DOCTOR',
-     'a1000000-0000-4000-8000-000000000001', TRUE),
+-- Phòng khám trong bài kiểm này có nhiều hơn một cơ sở, nên hệ thống KHÔNG
+-- đoán hộ (trigger 20260804000015). Fixture phải chỉ rõ.
+INSERT INTO public.staff
+    (id, full_name, primary_department, auth_user_id, is_active,
+     primary_location_id)
+SELECT v.id, v.nm, v.dept, v.au, TRUE,
+       (SELECT id FROM public.clinic_location WHERE is_active
+      ORDER BY created_at, id LIMIT 1)
+  FROM (VALUES
+    ('b1000000-0000-4000-8000-000000000001'::uuid, 'ROLE02 BS', 'DOCTOR',
+     'a1000000-0000-4000-8000-000000000001'::uuid),
     ('b1000000-0000-4000-8000-000000000002', 'ROLE02 Le tan', 'RECEPTION',
-     'a1000000-0000-4000-8000-000000000002', TRUE),
+     'a1000000-0000-4000-8000-000000000002'),
     ('b1000000-0000-4000-8000-000000000003', 'ROLE02 Thu ngan', 'CASHIER',
-     'a1000000-0000-4000-8000-000000000003', TRUE),
+     'a1000000-0000-4000-8000-000000000003'),
     ('b1000000-0000-4000-8000-000000000004', 'ROLE02 Quan ly', 'MANAGEMENT',
-     'a1000000-0000-4000-8000-000000000004', TRUE)
+     'a1000000-0000-4000-8000-000000000004')
+  ) AS v(id, nm, dept, au)
 ON CONFLICT (id) DO NOTHING;
 
 -- staff_ensure_default_membership may already have added these; force the role.

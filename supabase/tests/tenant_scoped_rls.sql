@@ -224,12 +224,19 @@ VALUES
 INSERT INTO public.clinic (id, code, name)
 VALUES ('b0000000-0000-4000-8000-000000000002', 'OTHER', 'Phòng khám khác');
 
-INSERT INTO public.staff (id, full_name, primary_department, auth_user_id)
+-- Phòng khám trong bài kiểm này có nhiều hơn một cơ sở, nên hệ thống KHÔNG
+-- đoán hộ (trigger 20260804000015). Fixture phải chỉ rõ.
+INSERT INTO public.staff
+    (id, full_name, primary_department, auth_user_id, primary_location_id)
 VALUES
     ('c0000000-0000-4000-8000-00000000000a', 'RLS test A', 'DOCTOR',
-     '11111111-1111-4111-8111-111111111111'),
+     '11111111-1111-4111-8111-111111111111',
+     (SELECT id FROM public.clinic_location WHERE is_active
+      ORDER BY created_at, id LIMIT 1)),
     ('c0000000-0000-4000-8000-00000000000b', 'RLS test B', 'DOCTOR',
-     '22222222-2222-4222-8222-222222222222');
+     '22222222-2222-4222-8222-222222222222',
+     (SELECT id FROM public.clinic_location WHERE is_active
+      ORDER BY created_at, id LIMIT 1));
 
 INSERT INTO public.clinic_membership (clinic_id, staff_id, role)
 VALUES

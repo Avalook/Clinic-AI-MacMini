@@ -436,21 +436,6 @@ export default function NewPatientForm({
   // trong save() vì có toggle "Chỉ biết năm"). Nút khoá tới khi đủ.
   // Khách thường (không vãng lai) phải đủ: Tỉnh/TP + Phường/Xã + Dịch vụ + Bác sĩ
   // + Ngày + Giờ khám + Kênh đặt (mới đủ điều kiện tạo lượt khám). Walk-in giữ nguyên.
-  // Địa chỉ đủ khi không yêu cầu, hoặc đã có cả Tỉnh + Phường/Xã.
-  const addressOk = !requireAddress || !!(provinceCode && wardCode);
-  // Ghế Ưu tiên (ô xanh) đặt như WALK_IN → KHÔNG cần Kênh đặt; ghế thường vẫn cần.
-  const channelOk = priority || !!channel;
-  const requiredForCustomer =
-    addressOk &&
-    (walkin ||
-      !!(serviceId && doctorId && apptDate && apptTime) && channelOk);
-  const canSubmit =
-    fullName.trim() &&
-    locationId &&
-    phone.trim() &&
-    gender &&
-    requiredForCustomer &&
-    !submitting;
   // Giờ mở cửa PK theo ngày khám đã chọn (T2–T6 17–23h; T7+CN cả ngày).
   const apptCh =
     apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;

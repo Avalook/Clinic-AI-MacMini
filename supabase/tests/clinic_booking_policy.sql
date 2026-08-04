@@ -238,9 +238,17 @@ RETURNS boolean
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    -- `is_walkin` PHẢI đặt cùng `booking_channel`.
+    --
+    -- CHECK `appointment_walkin_channel_agree` đòi hai cột này khớp nhau, và
+    -- `is_walkin` mặc định false. Bỏ trống thì dòng WALK_IN bị từ chối vì SAI
+    -- RÀNG BUỘC — mà mã lỗi cũng là 23514, y hệt "hết chỗ". Khối EXCEPTION bên
+    -- dưới nuốt cả hai, nên test báo "chỗ vãng lai bị chỗ hẹn ăn mất" trong khi
+    -- luật sức chứa hoàn toàn đúng. Một bài test chỉ bắt mã lỗi mà không phân
+    -- biệt nguyên nhân sẽ chỉ sai chỗ như vậy.
     INSERT INTO public.appointment
         (clinic_id, clinic_patient_id, location_id, service_type_id,
-         slot_start, slot_end, status, booking_channel)
+         slot_start, slot_end, status, booking_channel, is_walkin)
     VALUES ('a0000000-0000-4000-8000-000000000001',
             'c3310000-0000-4000-8000-0000000000a1',
             'c3110000-0000-4000-8000-0000000000a1',
@@ -248,9 +256,16 @@ BEGIN
             ((CURRENT_DATE + 31)::timestamp + p_time) AT TIME ZONE 'Asia/Ho_Chi_Minh',
             ((CURRENT_DATE + 31)::timestamp + p_time + interval '15 min')
                 AT TIME ZONE 'Asia/Ho_Chi_Minh',
-            'SCHEDULED', p_channel);
+            'SCHEDULED', p_channel,
+            upper(coalesce(p_channel, '')) = 'WALK_IN');
     RETURN true;
 EXCEPTION WHEN sqlstate '23514' THEN
+    -- Chỉ nuốt lỗi ĐÚNG của luật sức chứa. Mọi check_violation khác là hỏng
+    -- thật và phải nổ ra, thay vì bị đọc nhầm thành "khung đã đầy".
+    IF sqlerrm NOT ILIKE '%khung%' AND sqlerrm NOT ILIKE '%đầy%'
+       AND sqlerrm NOT ILIKE '%chỗ%' THEN
+        RAISE;
+    END IF;
     RETURN false;
 END;
 $$;

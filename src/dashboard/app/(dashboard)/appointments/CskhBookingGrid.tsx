@@ -3,14 +3,11 @@
 import { useState } from "react";
 import {
   Calendar,
-  Clock,
-  User,
   Plus,
   History,
   Phone,
   Mail,
   MapPin,
-  FileText,
   ChevronDown,
   Info,
   CheckCircle2,
@@ -48,7 +45,6 @@ const TIME_SLOTS = [
 export default function CskhBookingGrid() {
   const [selectedService, setSelectedService] = useState("Sản");
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("all");
-  const [selectedDate, setSelectedDate] = useState("2026-05-22");
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
 
   const [selectedSlot, setSelectedSlot] = useState<{
@@ -62,8 +58,6 @@ export default function CskhBookingGrid() {
   });
 
   const [note, setNote] = useState("");
-  const [sendSms, setSendSms] = useState(true);
-  const [sendZalo, setSendZalo] = useState(true);
   const [sendEmail, setSendEmail] = useState(true);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
 

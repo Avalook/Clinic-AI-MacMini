@@ -28,3 +28,23 @@ STABLE
 AS $function$
     SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $function$;
+
+-- ---------------------------------------------------------------------------
+-- Publication realtime
+-- ---------------------------------------------------------------------------
+-- Mọi project Supabase đều có sẵn `supabase_realtime`; Postgres thường thì
+-- không. Thiếu nó, migration 20260803000003 dừng ngay ở dòng
+-- `ALTER PUBLICATION supabase_realtime ADD TABLE public.work_item` và cả chuỗi
+-- migration đứt — đúng chỗ CI đang đỏ.
+--
+-- Đây là khoảng trống của FIXTURE, không phải lỗi của migration: trên Supabase
+-- câu đó chạy đúng. Vá ở fixture để môi trường thử giống môi trường thật, thay
+-- vì sửa một migration đã nằm trên production.
+DO $publication$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+    THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+END
+$publication$;

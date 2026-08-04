@@ -451,6 +451,14 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
           <div
             ref={addDialogRef}
+            // BẪY FOCUS ĐÃ ĐƯỢC VIẾT NHƯNG CHƯA TỪNG NỐI VÀO.
+            //
+            // `keepAddFocusInside` nằm đó từ đầu, không ai gọi — nên phím Tab
+            // trong hộp thoại này chạy ra ngoài, xuống nền trang phía sau.
+            // Với người dùng bàn phím thì hộp thoại coi như không đóng được.
+            // Lint báo "defined but never used" chính là báo lỗi đó; xoá hàm đi
+            // là xoá luôn báo cáo lẫn tính năng.
+            onKeyDown={keepAddFocusInside}
             className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-panel"
           >
             <div className="mb-4 flex items-center justify-between">
@@ -514,14 +522,6 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
   );
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
-      <dd className="min-w-0 break-words text-ink">{value || "—"}</dd>
-    </div>
-  );
-}
 
 /** Đọc trạng thái ký/duyệt của lượt khám gắn với việc CSKH này. */
 function useReleaseState(visitId: string | null): string | null {

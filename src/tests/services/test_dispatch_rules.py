@@ -45,9 +45,7 @@ class TestNextStep:
     def test_a_route_changed_mid_way_keeps_finished_steps_out(self) -> None:
         """Đổi sang tuyến C sau khi đã siêu âm: bước đã xong không quay lại."""
         route_c = ["DICHVU-SIEUAM", "DICHVU-DUYET-KETQUA", "DICHVU-LAYMAU-MAU"]
-        assert (
-            next_step_of(route_c, ["DICHVU-SIEUAM"], None) == "DICHVU-DUYET-KETQUA"
-        )
+        assert next_step_of(route_c, ["DICHVU-SIEUAM"], None) == "DICHVU-DUYET-KETQUA"
 
 
 class TestStationColour:
@@ -58,8 +56,8 @@ class TestStationColour:
         )
 
     def test_one_threshold_breached_is_a_warning(self) -> None:
-        assert _station_state(9, 10, 8, 20) == "warning"   # đông nhưng nhanh
-        assert _station_state(3, 25, 8, 20) == "warning"   # vắng nhưng kẹt
+        assert _station_state(9, 10, 8, 20) == "warning"  # đông nhưng nhanh
+        assert _station_state(3, 25, 8, 20) == "warning"  # vắng nhưng kẹt
 
     def test_both_thresholds_breached_is_critical(self) -> None:
         assert _station_state(9, 25, 8, 20) == "critical"
@@ -126,8 +124,8 @@ class TestAlerts:
         báo khiến trưởng ca không biết xử lý việc nào trước."*"""
         alerts = build_alerts(
             [
-                _patient(wait_minutes=25),                       # warning
-                _patient(patient_name="B", wait_minutes=50),     # critical (>2×)
+                _patient(wait_minutes=25),  # warning
+                _patient(patient_name="B", wait_minutes=50),  # critical (>2×)
             ],
             [_room()],
         )
@@ -135,15 +133,11 @@ class TestAlerts:
 
     def test_a_patient_with_no_station_is_flagged(self) -> None:
         """Đã check-in mà không ở trạm nào = bị bỏ quên giữa phòng chờ."""
-        alerts = build_alerts(
-            [_patient(current_node_code=None, room_code=None)], []
-        )
+        alerts = build_alerts([_patient(current_node_code=None, room_code=None)], [])
         assert any(a["type"] == "missing_next_step" for a in alerts)
 
     def test_a_patient_with_no_route_is_flagged(self) -> None:
-        alerts = build_alerts(
-            [_patient(route_steps=None, next_step=None)], [_room()]
-        )
+        alerts = build_alerts([_patient(route_steps=None, next_step=None)], [_room()])
         assert any(a["type"] == "no_route" for a in alerts)
 
     def test_the_message_is_a_sentence_not_a_code(self) -> None:

@@ -62,9 +62,7 @@ class ClinicalSignService:
 
     # ── Đọc ────────────────────────────────────────────────────────────
 
-    async def status(
-        self, *, identity: StaffIdentity, visit_id: str
-    ) -> dict[str, Any]:
+    async def status(self, *, identity: StaffIdentity, visit_id: str) -> dict[str, Any]:
         """Trạng thái hồ sơ + những gì còn thiếu để ký được."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -115,9 +113,7 @@ class ClinicalSignService:
 
     # ── Ghi ────────────────────────────────────────────────────────────
 
-    async def sign(
-        self, *, identity: StaffIdentity, visit_id: str
-    ) -> dict[str, Any]:
+    async def sign(self, *, identity: StaffIdentity, visit_id: str) -> dict[str, Any]:
         """Bác sĩ ký bệnh án. Sau bước này nội dung bị khoá."""
         _assert_doctor(identity)
 
@@ -222,9 +218,7 @@ class ClinicalSignService:
         reason = (reason or "").strip()
         if not reason:
             raise ValidationError("Đính chính bắt buộc phải ghi lý do.")
-        corrected = {
-            k: v for k, v in (corrected or {}).items() if k in REQUIRED_SOAP
-        }
+        corrected = {k: v for k, v in (corrected or {}).items() if k in REQUIRED_SOAP}
         if not corrected:
             raise ValidationError(
                 "Chưa có nội dung nào được sửa. Chọn ít nhất một mục."
@@ -248,9 +242,7 @@ class ClinicalSignService:
                 # asyncpg trả jsonb về dạng CHUỖI. Giải mã để "giá trị
                 # trước" trong visit_amendment là JSON thật, không phải một
                 # chuỗi JSON bị đóng gói hai lần.
-                original = {
-                    k: _loads(before[k]) if before else None for k in corrected
-                }
+                original = {k: _loads(before[k]) if before else None for k in corrected}
 
                 # AMENDED trước: trigger chỉ cho FINALIZED → AMENDED, nên phải
                 # mở khoá rồi mới ghi được nội dung mới.
@@ -389,9 +381,7 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
     vẫn ký được, và cái chốt chặn duy nhất trước chữ ký sẽ luôn nói "đủ rồi".
     """
     return [
-        label
-        for field, label in REQUIRED_SOAP.items()
-        if _blank_json(row.get(field))
+        label for field, label in REQUIRED_SOAP.items() if _blank_json(row.get(field))
     ]
 
 

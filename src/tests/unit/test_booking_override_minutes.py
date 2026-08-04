@@ -50,7 +50,7 @@ class TestTheClinicsRuleIsExpressible:
     @pytest.mark.parametrize(
         "start_min,regular,walkin",
         [
-            (18 * 60 + 0, 8, 2),   # 18:00 — BS Thành: 10 ca
+            (18 * 60 + 0, 8, 2),  # 18:00 — BS Thành: 10 ca
             (18 * 60 + 15, 3, 1),  # 18:15 — 4 ca
             (18 * 60 + 30, 3, 1),  # 18:30
             (18 * 60 + 45, 3, 1),  # 18:45

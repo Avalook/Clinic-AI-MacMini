@@ -17,7 +17,13 @@ const releaseRule = read("lib/lab-release.ts");
 test("both lab safety proxies require a real doctor role", () => {
   for (const source of [triageProxy, reviewProxy]) {
     assert.match(source, /auth\.getUser\(\)/);
-    assert.match(source, /isDoctorRole\(role\)/);
+    // Chốt nay CHẶT HƠN, không lỏng hơn.
+    //
+    // `isPhysicianRole` hẹp hơn `isDoctorRole`: nó KHÔNG gồm TKYK (thư ký y
+    // khoa nhập hộ bệnh án nhưng không duyệt kết quả xét nghiệm). Bài kiểm này
+    // canh "phải là bác sĩ thật"; nhận cả hai tên hàm thì nó vẫn canh đúng điều
+    // đó mà không bắt code phải lỏng lại đúng bằng lúc nó được viết.
+    assert.match(source, /is(Doctor|Physician)Role\(role\)/);
     assert.match(source, /status:\s*403/);
     assert.doesNotMatch(source, /getSupabaseService|SUPABASE_SERVICE_ROLE_KEY/);
   }
@@ -45,7 +51,7 @@ test("doctor UI cannot fabricate or edit a laboratory result", () => {
   );
   assert.match(history, /<LabReviewActions/);
   assert.match(history, /canReviewLabs/);
-  assert.match(patientPage, /canReviewLabs=\{isDoctorRole\(role\)\}/);
+  assert.match(patientPage, /canReviewLabs=\{is(Doctor|Physician)Role\(role\)\}/);
 });
 
 test("CSKH release remains finalized GROUP_A only", () => {

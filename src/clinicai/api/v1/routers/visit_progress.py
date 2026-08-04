@@ -174,9 +174,7 @@ async def visit_workflow_progress(
             ),
             "previous_node_code": visit["previous_node_code"],
             "checked_in_at": (
-                visit["checked_in_at"].isoformat()
-                if visit["checked_in_at"]
-                else None
+                visit["checked_in_at"].isoformat() if visit["checked_in_at"] else None
             ),
             "patient_name": visit["patient_name"],
             "patient_code": visit["patient_code"],
@@ -191,14 +189,10 @@ async def visit_workflow_progress(
                 "assigned_role": r["assigned_role"],
                 "assigned_to_name": r["assigned_to_name"],
                 "started_at": (
-                    r["started_at"].isoformat()
-                    if r["started_at"]
-                    else None
+                    r["started_at"].isoformat() if r["started_at"] else None
                 ),
                 "finished_at": (
-                    r["finished_at"].isoformat()
-                    if r["finished_at"]
-                    else None
+                    r["finished_at"].isoformat() if r["finished_at"] else None
                 ),
                 "priority": r["priority"],
                 "blockers": list(r["blockers"] or []),
@@ -281,9 +275,7 @@ async def active_visits(
                     else None
                 ),
                 "checked_in_at": (
-                    r["checked_in_at"].isoformat()
-                    if r["checked_in_at"]
-                    else None
+                    r["checked_in_at"].isoformat() if r["checked_in_at"] else None
                 ),
                 "patient_name": r["patient_name"],
                 "patient_code": r["patient_code"],
@@ -295,4 +287,3 @@ async def active_visits(
             for r in rows
         ],
     }
-

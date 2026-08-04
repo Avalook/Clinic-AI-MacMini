@@ -46,7 +46,8 @@ MAX_ROWS = 500
 # Trạng thái không hiện trên lưới tuần — huỷ xong thì trả chỗ về ô trống.
 HIDDEN_STATUSES = ("CANCELLED", "NO_SHOW", "DOCTOR_DECLINED")
 
-_SQL = """
+_SQL = (
+    """
 WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
            a.booking_channel, a.clinic_patient_id, a.service_type_id,
@@ -100,7 +101,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   LEFT JOIN staff d    ON d.id = t.doctor_id
   LEFT JOIN service_type st ON st.id = t.service_type_id
  ORDER BY t.slot_start, t.created_at, t.id
-""" % MAX_ROWS
+"""
+    % MAX_ROWS
+)
 
 
 class WeekAppointmentsService:
@@ -109,17 +112,13 @@ class WeekAppointmentsService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def week(
-        self, *, clinic_id: str, week_start: date
-    ) -> list[dict[str, Any]]:
+    async def week(self, *, clinic_id: str, week_start: date) -> list[dict[str, Any]]:
         """Bảy ngày kể từ ``week_start`` (giờ Việt Nam)."""
         start = _vn_midnight(week_start)
         end = _vn_midnight(week_start + timedelta(days=7))
 
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                _SQL, clinic_id, start, end, list(HIDDEN_STATUSES)
-            )
+            rows = await conn.fetch(_SQL, clinic_id, start, end, list(HIDDEN_STATUSES))
 
         logger.info("week_appointments", clinic_id=clinic_id, rows=len(rows))
         return [_row_to_dict(r) for r in rows]

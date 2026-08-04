@@ -122,5 +122,23 @@ UPDATE public.visit v
 -- The RealtimeRefresher in the dashboard subscribes to postgres_changes on
 -- these tables. Without publication membership, no events fire.
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.work_item;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.work_item_event;
+-- `ALTER PUBLICATION ... ADD TABLE` KHÔNG có dạng IF NOT EXISTS: chạy lần hai
+-- là lỗi "already member of publication". CI cố ý áp lại mọi migration từ
+-- 30/07 (vì `db push` có retry, và diễn tập khôi phục phát lại cả chuỗi), nên
+-- hai dòng trần ở đây làm cả bước đó đứt.
+DO $realtime$
+DECLARE
+    t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['work_item', 'work_item_event'] LOOP
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_publication_tables
+             WHERE pubname = 'supabase_realtime'
+               AND schemaname = 'public' AND tablename = t
+        ) THEN
+            EXECUTE format(
+                'ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+        END IF;
+    END LOOP;
+END
+$realtime$;

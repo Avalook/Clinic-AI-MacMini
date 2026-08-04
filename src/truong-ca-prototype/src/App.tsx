@@ -12,13 +12,14 @@ import TvDisplay from './components/tv/TvDisplay';
 import NurseVitalsDashboard from './components/nurse/NurseVitalsDashboard';
 import ReceptionDashboard from './components/reception/ReceptionDashboard';
 import DoctorDashboard from './components/doctor/DoctorDashboard';
+import UltrasoundDashboard from './components/ultrasound/UltrasoundDashboard';
 import TransferRoomModal from './components/modals/TransferRoomModal';
 import RouteSelectModal from './components/modals/RouteSelectModal';
 import { ALERTS, type Patient } from './data/mock-data';
-import { UserCheck, Stethoscope, ClipboardList, User } from 'lucide-react';
+import { UserCheck, Stethoscope, ClipboardList, User, Activity } from 'lucide-react';
 
 export default function App() {
-  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan' | 'bac_si'>('truong_ca');
+  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan' | 'bac_si' | 'sieu_am'>('truong_ca');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -104,6 +105,19 @@ export default function App() {
       >
         <User size={12} /> Bác sĩ
       </button>
+      <button
+        onClick={() => setRoleView('sieu_am')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'sieu_am' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'sieu_am' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <Activity size={12} /> Siêu âm
+      </button>
     </div>
   );
 
@@ -158,6 +172,16 @@ export default function App() {
       <div style={{ position: 'relative' }}>
         <RoleSwitcherBar />
         <DoctorDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Ultrasound role view
+  if (roleView === 'sieu_am') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <UltrasoundDashboard onSwitchRole={() => setRoleView('truong_ca')} />
       </div>
     );
   }

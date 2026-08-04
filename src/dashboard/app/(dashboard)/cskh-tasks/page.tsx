@@ -2,7 +2,7 @@
 // Server component: query cskh_action + appointment data, pass to client view.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
+import { requireNavAccess } from "../../../lib/clinic-session";
 import { vnTodayRangeUtc } from "../../../lib/datetime";
 import CskhTasksView, { type CskhTaskRow } from "./CskhTasksView";
 

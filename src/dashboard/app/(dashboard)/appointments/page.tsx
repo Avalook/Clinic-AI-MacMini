@@ -1,7 +1,7 @@
 // Đặt lịch CSKH — Hub đặt lịch hẹn sử dụng dữ liệu thật từ DB.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole, requireNavAccess } from "../../../lib/clinic-session";
+import { requireNavAccess } from "../../../lib/clinic-session";
 import { vnTodayRangeUtc } from "../../../lib/datetime";
 import BookingHub, {
   type PatientLite,
@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
 
 export default async function AppointmentsPage() {
   await requireNavAccess("/appointments");
-  const role = await getClinicRole();
   const supabase = await getSupabaseServer();
   const { startUtc: dayStart, endUtc: dayEnd } = vnTodayRangeUtc();
 

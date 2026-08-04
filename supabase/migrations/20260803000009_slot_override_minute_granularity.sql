@@ -35,10 +35,24 @@ ALTER TABLE public.slot_booking_override
     ADD COLUMN IF NOT EXISTS minute_start integer,
     ADD COLUMN IF NOT EXISTS minute_end   integer;
 
-UPDATE public.slot_booking_override
-   SET minute_start = hour_start * 60,
-       minute_end   = hour_end   * 60
- WHERE minute_start IS NULL;
+-- Backfill chỉ chạy khi cột CŨ còn đó. Chính migration này bỏ hour_start/
+-- hour_end ở dưới, nên lần chạy thứ hai sẽ không còn cột để đọc — mà CI cố ý
+-- áp lại mọi migration từ 30/07 (db push có retry, diễn tập khôi phục phát lại
+-- cả chuỗi).
+DO $backfill_minutes$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'slot_booking_override'
+           AND column_name = 'hour_start'
+    ) THEN
+        UPDATE public.slot_booking_override
+           SET minute_start = hour_start * 60,
+               minute_end   = hour_end   * 60
+         WHERE minute_start IS NULL;
+    END IF;
+END
+$backfill_minutes$;
 
 -- ---------------------------------------------------------------------------
 -- 2. Dọn chồng lấn TRƯỚC khi cấm nó

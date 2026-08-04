@@ -164,9 +164,7 @@ class ClinicalFormService:
                         "visit_id": visit_id,
                         "service_code": code,
                         "field_groups": (
-                            sorted(payload.keys())
-                            if isinstance(payload, dict)
-                            else []
+                            sorted(payload.keys()) if isinstance(payload, dict) else []
                         ),
                     },
                 )

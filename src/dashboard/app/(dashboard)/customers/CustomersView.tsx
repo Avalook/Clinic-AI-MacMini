@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
   ExternalLink,
   Filter,
   Search,
@@ -13,7 +12,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";

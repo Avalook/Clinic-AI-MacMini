@@ -94,9 +94,9 @@ class TestRequiredFieldsBeforeSigning:
 
     def test_a_json_object_with_only_blank_values_counts_as_missing(self) -> None:
         """Bác sĩ mở form rồi đóng lại: khoá có, giá trị rỗng."""
-        assert missing_fields(
-            _row(soap_plan=json.dumps({"xu_tri": "   "}))
-        ) == ["Hướng xử trí"]
+        assert missing_fields(_row(soap_plan=json.dumps({"xu_tri": "   "}))) == [
+            "Hướng xử trí"
+        ]
 
     def test_an_empty_list_counts_as_missing(self) -> None:
         assert missing_fields(_row(soap_objective="[]")) == ["Khám lâm sàng"]
@@ -104,9 +104,7 @@ class TestRequiredFieldsBeforeSigning:
     def test_a_dict_that_asyncpg_already_decoded_works_too(self) -> None:
         """Không phụ thuộc việc asyncpg trả jsonb dạng chuỗi hay dạng dict —
         hai môi trường có thể cấu hình codec khác nhau."""
-        assert missing_fields(_row(soap_assessment={"chan_doan": ""})) == [
-            "Chẩn đoán"
-        ]
+        assert missing_fields(_row(soap_assessment={"chan_doan": ""})) == ["Chẩn đoán"]
         assert missing_fields(_row(soap_assessment={"chan_doan": "viêm"})) == []
 
     def test_every_missing_field_is_listed_not_just_the_first(self) -> None:
@@ -117,7 +115,7 @@ class TestRequiredFieldsBeforeSigning:
         assert len(missing_fields({})) == len(REQUIRED_SOAP)
 
     def test_the_labels_are_what_a_doctor_reads(self) -> None:
-        """"Chẩn đoán", không phải "soap_assessment" — bác sĩ đang đứng trước
+        """ "Chẩn đoán", không phải "soap_assessment" — bác sĩ đang đứng trước
         một cái form, không phải trước một cái bảng."""
         for label in missing_fields({}):
             assert not label.startswith("soap_")

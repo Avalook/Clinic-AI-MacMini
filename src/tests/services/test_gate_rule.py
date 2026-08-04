@@ -176,8 +176,9 @@ class TestWhichRuleBlocks:
     def test_a_rule_that_does_not_apply_never_blocks(self) -> None:
         rule = dr4women(patient_kind="RETURN")
         assert (
-            first_block([rule], facts(patient_kind="NEW", target_staff_id=HOA),
-                        "KHAM-PHUKHOA")
+            first_block(
+                [rule], facts(patient_kind="NEW", target_staff_id=HOA), "KHAM-PHUKHOA"
+            )
             is None
         )
 
@@ -208,9 +209,7 @@ class TestTheRequiredStepItself:
         assert not satisfied(dr4women(), facts())
 
     def test_a_different_step_does_not_satisfy_it(self) -> None:
-        assert not satisfied(
-            dr4women(), facts(completed=(("DICHVU-SIEUAM", THANH),))
-        )
+        assert not satisfied(dr4women(), facts(completed=(("DICHVU-SIEUAM", THANH),)))
 
     def test_an_unattributed_step_satisfies_a_rule_with_no_named_staff(
         self,
@@ -222,6 +221,4 @@ class TestTheRequiredStepItself:
     def test_an_unattributed_step_does_not_satisfy_a_named_rule(self) -> None:
         """Ngược lại: luật đòi đích danh BS Thành mà không biết ai làm thì coi
         như CHƯA qua. Chặn thừa còn hơn buông lỏng ở một chốt an toàn."""
-        assert not satisfied(
-            dr4women(), facts(completed=(("KHAM-PHUKHOA", None),))
-        )
+        assert not satisfied(dr4women(), facts(completed=(("KHAM-PHUKHOA", None),)))

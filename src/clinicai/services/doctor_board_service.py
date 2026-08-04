@@ -43,7 +43,8 @@ logger = structlog.get_logger()
 # Bằng đúng `.limit(400)` của bản cũ, để một khoảng bất thường không đổi số dòng.
 MAX_ROWS = 400
 
-_SQL = """
+_SQL = (
+    """
 WITH lich AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.booking_channel,
            a.clinic_patient_id, a.service_type_id, a.created_at
@@ -112,7 +113,9 @@ SELECT g.id, g.slot_start, g.status, g.queue_number, g.booking_channel,
        LIMIT 1
   ) v ON TRUE
  ORDER BY g.slot_start, g.created_at, g.id
-""" % MAX_ROWS
+"""
+    % MAX_ROWS
+)
 
 
 class DoctorBoardService:

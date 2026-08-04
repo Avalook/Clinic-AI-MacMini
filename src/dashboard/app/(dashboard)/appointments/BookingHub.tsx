@@ -21,12 +21,8 @@ import {
   ChevronRight,
   Info,
   UserPlus,
-  UserCheck,
-  Mail,
   MapPin,
   Pencil,
-  ChevronDown,
-  History,
 } from "lucide-react";
 import Link from "next/link";
 import { fmtTime, slotRange, VN_TZ, vnLocalToUtcISO } from "@/lib/datetime";
@@ -699,9 +695,16 @@ export default function BookingHub({
   // Current slot capacity summary for right panel
   const selectedCellStatus = useMemo(
     () => getCellStatus(selectedSlot.doctorId, selectedSlot.time),
-    // capByCell nằm trong deps: nếu không, thẻ tóm tắt bên phải giữ nguyên số
+    // CỐ Ý BỎ `getCellStatus` KHỎI DEPS.
+    //
+    // Nó là một hàm thường, dựng lại ở MỌI lần render, nên đưa vào deps thì
+    // useMemo tính lại mỗi lần — tức là không còn là memo nữa. Thứ thật sự
+    // quyết định kết quả là năm giá trị dưới đây, và chúng có đủ.
+    //
+    // capByCell phải nằm trong đó: thiếu nó, thẻ tóm tắt bên phải giữ nguyên số
     // chỗ mặc định sau khi luật riêng của bác sĩ đã về, và hai chỗ trên cùng
     // màn hình nói hai con số khác nhau cho cùng một ô.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedSlot, appts, capByCell, offDuty, capLoaded],
   );
 

@@ -48,15 +48,13 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/api")) return response;
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  let hasStaffIdentity = false;
   if (user) {
-    const { data: staff } = await supabase
+    await supabase
       .from("staff")
       .select("id")
       .eq("auth_user_id", user.id)
       .eq("is_active", true)
       .maybeSingle();
-    hasStaffIdentity = !!staff;
   }
   const redirectTo = (path: string) => {
     const url = request.nextUrl.clone();

@@ -66,6 +66,24 @@ BEGIN
           FROM public.clinic_location
          WHERE clinic_id = v_clinic AND is_active;
 
+        -- KHÔNG CÓ GÌ ĐỂ GẮN THÌ KHÔNG CÓ GÌ ĐỂ QUYẾT.
+        --
+        -- Bản đầu ném lỗi cho MỌI phòng khám thiếu cơ sở, kể cả phòng khám
+        -- chưa có nhân sự nào. Hệ quả: migration này không bao giờ chạy được
+        -- trên một database trắng — CI dựng Postgres mới rồi áp cả chuỗi, nên
+        -- nó đứt ở đây, và cũng đứt trong mọi lần diễn tập khôi phục.
+        --
+        -- Trên production không đổi gì: ở đó có nhân sự VÀ có cơ sở, nên nhánh
+        -- này không chạy tới.
+        IF v_actives = 0 AND NOT EXISTS (
+            SELECT 1 FROM public.staff s
+              JOIN public.clinic_membership m
+                ON m.staff_id = s.id AND m.clinic_id = v_clinic AND m.is_active
+             WHERE s.primary_location_id IS NULL
+        ) THEN
+            CONTINUE;
+        END IF;
+
         IF v_actives = 0 THEN
             RAISE EXCEPTION
                 'Phòng khám % không có cơ sở nào đang hoạt động — tạo cơ sở trước.',

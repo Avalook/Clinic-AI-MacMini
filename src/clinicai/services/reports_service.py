@@ -83,8 +83,7 @@ class ReportsService:
 
         return {
             "items": [
-                {"code": r["code"], "name": r["name"], "count": r["n"]}
-                for r in rows
+                {"code": r["code"], "name": r["name"], "count": r["n"]} for r in rows
             ],
             "unset": extra["chua_khai"],
             "unknown": extra["ngoai_danh_muc"],

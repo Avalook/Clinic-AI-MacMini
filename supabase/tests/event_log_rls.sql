@@ -15,18 +15,32 @@ BEGIN
       FROM pg_policies
      WHERE schemaname = 'public'
        AND tablename = 'event_log'
-       AND policyname = 'event_log_select_management';
+       -- ĐỔI TÊN, có chủ ý: 20260803000004 bỏ event_log_select_management và
+       -- thay bằng event_log_select_ops (tenant-scoped theo vai trong phòng
+       -- khám). Production đã đúng như vậy; chỉ bài kiểm này còn nhắc tên cũ.
+       AND policyname = 'event_log_select_ops';
 
     IF policy_roles IS NULL THEN
-        RAISE EXCEPTION 'missing event_log_select_management policy';
+        RAISE EXCEPTION 'missing event_log_select_ops policy';
     END IF;
 
     IF NOT ('authenticated'::name = ANY (policy_roles)) THEN
         RAISE EXCEPTION 'event_log policy must apply to authenticated';
     END IF;
 
-    IF position('current_staff_department' IN coalesce(policy_using, '')) = 0
-       OR position('MANAGEMENT' IN coalesce(policy_using, '')) = 0 THEN
+    -- Điều cần giữ là "nhật ký chỉ mở cho vai vận hành, và bó trong phòng
+    -- khám của mình" — KHÔNG phải một cách viết cụ thể.
+    --
+    -- Bản cũ đòi thấy chữ `current_staff_department`, nhưng 20260803000004 đã
+    -- chuyển sang `current_clinic_ids_for_roles(...)` để bó theo tenant, và đó
+    -- là thay đổi ĐÚNG. Một bài kiểm ghim vào tên hàm sẽ đỏ mỗi lần cách viết
+    -- đổi, kể cả khi luật vẫn nguyên — nên nó kiểm hai điều thật sự quan trọng:
+    -- có bó theo phòng khám, và có nêu vai.
+    IF position('clinic_id' IN coalesce(policy_using, '')) = 0 THEN
+        RAISE EXCEPTION
+            'event_log policy không bó theo phòng khám: %', policy_using;
+    END IF;
+    IF position('MANAGEMENT' IN coalesce(policy_using, '')) = 0 THEN
         RAISE EXCEPTION 'event_log policy is not scoped to MANAGEMENT: %', policy_using;
     END IF;
 
@@ -67,19 +81,27 @@ VALUES
     ('10000000-0000-0000-0000-000000000002'),
     ('10000000-0000-0000-0000-000000000003');
 
-INSERT INTO public.staff (id, full_name, primary_department, auth_user_id)
+-- `primary_location_id` là NOT NULL từ 20260803000007: một dòng staff không có
+-- cơ sở là một dòng chưa đủ để làm việc. Fixture phải khai theo, chứ không phải
+-- chờ ai đó nới ràng buộc ra.
+INSERT INTO public.staff
+    (id, full_name, primary_department, auth_user_id, primary_location_id)
 VALUES
     (
         '20000000-0000-0000-0000-000000000001',
         'RLS test manager',
         'MANAGEMENT',
-        '10000000-0000-0000-0000-000000000001'
+        '10000000-0000-0000-0000-000000000001',
+        (SELECT id FROM public.clinic_location WHERE is_active
+          ORDER BY created_at, id LIMIT 1)
     ),
     (
         '20000000-0000-0000-0000-000000000002',
         'RLS test receptionist',
         'RECEPTION',
-        '10000000-0000-0000-0000-000000000002'
+        '10000000-0000-0000-0000-000000000002',
+        (SELECT id FROM public.clinic_location WHERE is_active
+          ORDER BY created_at, id LIMIT 1)
     );
 
 -- Since W3 (20260730000004) reading anything also requires active membership of

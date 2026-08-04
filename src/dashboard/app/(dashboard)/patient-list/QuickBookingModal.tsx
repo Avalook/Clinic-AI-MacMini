@@ -14,9 +14,7 @@ interface ModalPatient {
 }
 
 export default function QuickBookingModal({
-  patient,
   onClose,
-  onBooked,
 }: {
   patient: ModalPatient;
   services?: unknown[];

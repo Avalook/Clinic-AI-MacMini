@@ -103,12 +103,17 @@ class TestBuildingTheBill:
     def test_drug_mode_off_means_no_drugs(self) -> None:
         """CASHIER_DV không được thấy ô thuốc — hai quầy, hai người thu."""
         raw = _raw(
-            drugs=[{"id": "d1", "visit_id": "v1", "name": "Paracetamol",
-                    "quantity": "10", "dosage": "1v x 2"}]
+            drugs=[
+                {
+                    "id": "d1",
+                    "visit_id": "v1",
+                    "name": "Paracetamol",
+                    "quantity": "10",
+                    "dosage": "1v x 2",
+                }
+            ]
         )
-        assert build_rows(raw, want_svc=True, want_rx=False)["items"][0][
-            "drugs"
-        ] == []
+        assert build_rows(raw, want_svc=True, want_rx=False)["items"][0]["drugs"] == []
         assert (
             build_rows(raw, want_svc=True, want_rx=True)["items"][0]["drugs"][0][
                 "price"
@@ -117,16 +122,18 @@ class TestBuildingTheBill:
         )
 
     def test_service_mode_off_means_no_services(self) -> None:
-        assert build_rows(_raw(), want_svc=False, want_rx=True)["items"][0][
-            "services"
-        ] == []
+        assert (
+            build_rows(_raw(), want_svc=False, want_rx=True)["items"][0]["services"]
+            == []
+        )
 
     def test_a_nameless_line_is_dropped_not_shown_blank(self) -> None:
         """Một dòng trống trên hoá đơn là thu ngân phải đoán nó là gì."""
         raw = _raw(services=[{"id": "s1", "clinic_patient_id": "p1", "name": "  "}])
-        assert len(build_rows(raw, want_svc=True, want_rx=True)["items"][0][
-            "services"
-        ]) == 1  # chỉ còn tiền khám
+        assert (
+            len(build_rows(raw, want_svc=True, want_rx=True)["items"][0]["services"])
+            == 1
+        )  # chỉ còn tiền khám
 
 
 class TestLabResultsFinallyReachTheBill:
@@ -139,12 +146,13 @@ class TestLabResultsFinallyReachTheBill:
     """
 
     def test_lab_results_appear_as_billable_lines(self) -> None:
-        raw = _raw(
-            labs=[{"id": "l1", "appointment_id": "a1", "test_name": "Siêu âm"}]
-        )
-        names = [s["name"] for s in build_rows(raw, want_svc=True, want_rx=True)[
-            "items"
-        ][0]["services"]]
+        raw = _raw(labs=[{"id": "l1", "appointment_id": "a1", "test_name": "Siêu âm"}])
+        names = [
+            s["name"]
+            for s in build_rows(raw, want_svc=True, want_rx=True)["items"][0][
+                "services"
+            ]
+        ]
         assert "Siêu âm" in names
 
     def test_a_lab_result_of_another_appointment_does_not_leak_in(self) -> None:
@@ -152,9 +160,12 @@ class TestLabResultsFinallyReachTheBill:
         raw = _raw(
             labs=[{"id": "l1", "appointment_id": "a-khac", "test_name": "Siêu âm"}]
         )
-        names = [s["name"] for s in build_rows(raw, want_svc=True, want_rx=True)[
-            "items"
-        ][0]["services"]]
+        names = [
+            s["name"]
+            for s in build_rows(raw, want_svc=True, want_rx=True)["items"][0][
+                "services"
+            ]
+        ]
         assert "Siêu âm" not in names
 
 
@@ -171,9 +182,7 @@ class TestWhatCountsAsAlreadyPaid:
 
 
 class TestWhoMaySeeTheCashierBoard:
-    @pytest.mark.parametrize(
-        "role", sorted(CASHIER_ROLES, key=lambda r: r.value)
-    )
+    @pytest.mark.parametrize("role", sorted(CASHIER_ROLES, key=lambda r: r.value))
     def test_the_cashier_roles_and_management(self, role: object) -> None:
         assert role in CASHIER_ROLES
 

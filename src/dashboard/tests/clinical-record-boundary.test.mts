@@ -44,7 +44,13 @@ test("the clinical role authority comes from clinic_membership, not department o
     clinicSessionSource,
     /getCurrentStaff\(\)[\s\S]*departmentToRole\(staff\.clinic_role\)/,
   );
-  assert.match(currentStaffSource, /\.from\(["']clinic_membership["']\)/);
+  // Điều cần canh là NGUỒN quyền, không phải cách viết truy vấn.
+  //
+  // Bản cũ đòi thấy đúng `.from("clinic_membership")`. Nhưng getCurrentStaff nay
+  // nhúng bảng đó vào cùng một truy vấn với `staff` (bớt một vòng mạng ~80ms
+  // trên MỌI trang) — cùng dữ liệu, cùng RLS, cùng phép kiểm. Ghim vào cách
+  // viết thì mọi lần tối ưu đều đỏ, kể cả khi luật y nguyên.
+  assert.match(currentStaffSource, /clinic_membership/);
   assert.match(currentStaffSource, /clinic_role:\s*membership\.role/);
 });
 

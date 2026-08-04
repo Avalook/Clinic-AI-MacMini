@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, LogOut } from "lucide-react";
 import Nav from "./Nav";
 import BottomNav from "./BottomNav";
-import { ROLE_LABEL, type ClinicRole } from "../../lib/roles";
+import { type ClinicRole } from "../../lib/roles";
 
 interface ShellProps {
   role: ClinicRole;
@@ -28,13 +28,6 @@ export default function Shell({
   // Drawer is opened from the bottom bar's "Menu"; each link / action closes it.
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const staffName = identity.split(" · ").at(-1) ?? identity;
-  const staffInitials = staffName
-    .trim()
-    .split(/\s+/)
-    .slice(-2)
-    .map((word) => word[0]?.toLocaleUpperCase("vi-VN") ?? "")
-    .join("");
   const drawerRef = useRef<HTMLElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const menuTriggerRef = useRef<HTMLElement | null>(null);

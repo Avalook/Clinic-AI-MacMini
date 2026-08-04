@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  X,
   CheckCircle2,
   AlertCircle,
   Info,

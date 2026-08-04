@@ -119,9 +119,22 @@ GRANT INSERT, UPDATE, DELETE ON public.clinic_room TO authenticated;
 -- Lấy đúng danh sách phòng khám xác nhận, không thêm phòng tưởng tượng.
 -- `ON CONFLICT DO NOTHING` để chạy lại migration không nhân đôi.
 
+-- GẮN LUÔN CƠ SỞ khi tạo phòng.
+--
+-- Bản đầu để location_id trống, và hệ quả là 12/12 phòng trên production không
+-- thuộc cơ sở nào — chỉ lộ ra khi khai tầng (20260804000012). Từ khi migration
+-- đó đặt NOT NULL, chèn phòng mà bỏ trống cơ sở là lỗi ngay — kể cả lần chạy
+-- lại của chính migration này.
+--
+-- Cơ sở đầu tiên của chính phòng khám đó, không tìm theo tên: tên là dữ liệu
+-- của một khách hàng, không phải hằng số sản phẩm.
 INSERT INTO public.clinic_room
-    (clinic_id, code, name, node_code, capacity, sort, show_on_tv)
-SELECT c.id, v.code, v.name, v.node_code, v.capacity, v.sort, v.show_on_tv
+    (clinic_id, location_id, code, name, node_code, capacity, sort, show_on_tv)
+SELECT c.id,
+       (SELECT l.id FROM public.clinic_location l
+         WHERE l.clinic_id = c.id AND l.is_active
+         ORDER BY l.created_at, l.id LIMIT 1),
+       v.code, v.name, v.node_code, v.capacity, v.sort, v.show_on_tv
   FROM public.clinic c
   CROSS JOIN (VALUES
       ('TIEPNHAN', 'Tiếp nhận',    'LUOTKHAM-01',   2, 10, true),

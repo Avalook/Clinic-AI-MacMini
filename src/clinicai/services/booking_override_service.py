@@ -156,6 +156,7 @@ def validate_rule(
 
 # ── Service ────────────────────────────────────────────────────────────────
 
+
 class BookingOverrideService:
     """Đọc và ghi luật số chỗ đặt lịch. Xem docstring đầu file."""
 
@@ -257,9 +258,7 @@ class BookingOverrideService:
             "shadowed_by": [s for r in results for s in r["shadowed_by"]],
         }
 
-    async def list_rules(
-        self, *, identity: StaffIdentity
-    ) -> list[dict[str, Any]]:
+    async def list_rules(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         """Mọi luật đang còn hiệu lực, HAI TẦNG GỘP LÀM MỘT DANH SÁCH.
 
         Người vận hành hỏi "phòng khám đang có những luật gì" và phải nhận được
@@ -719,9 +718,7 @@ class BookingOverrideService:
                     "action": plan.action,
                     "was": [old_start, old_end],
                     "kept": [
-                        list(w)
-                        for w in (plan.keep, plan.keep_extra)
-                        if w is not None
+                        list(w) for w in (plan.keep, plan.keep_extra) if w is not None
                     ],
                     "regular_cap": r["regular_cap"],
                     "walkin_cap": r["walkin_cap"],
@@ -853,4 +850,3 @@ class BookingOverrideService:
                 }
             ),
         )
-

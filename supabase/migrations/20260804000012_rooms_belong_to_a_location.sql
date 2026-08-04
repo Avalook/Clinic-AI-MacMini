@@ -17,9 +17,16 @@
 -- HÔM NAY CHƯA AI ĐAU vì Hào Nam có 0 nhân sự (57/57 đều ở Kim Ngưu) — đúng
 -- kiểu lỗi chỉ hiện hình vào ngày mở cơ sở thứ hai, tức là đúng ngày bận nhất.
 
+-- Gán theo CƠ SỞ ĐẦU TIÊN của chính phòng khám đó, không theo tên.
+--
+-- Bản đầu tìm cơ sở tên 'Kim Ngưu' — tên chỉ tồn tại ở Dr4Women, nên trên bất
+-- kỳ database nào khác (CI, diễn tập khôi phục, phòng khám thứ hai) câu UPDATE
+-- không khớp dòng nào và ALTER ... SET NOT NULL ngay bên dưới đổ.
 UPDATE public.clinic_room r
-   SET location_id = (SELECT id FROM public.clinic_location
-                       WHERE name = 'Kim Ngưu' LIMIT 1)
+   SET location_id = (
+       SELECT l.id FROM public.clinic_location l
+        WHERE l.clinic_id = r.clinic_id AND l.is_active
+        ORDER BY l.created_at, l.id LIMIT 1)
  WHERE r.location_id IS NULL;
 
 -- Từ nay không tạo được phòng lơ lửng nữa. Đặt NOT NULL sau khi đã vá dữ liệu:
@@ -35,6 +42,9 @@ ALTER TABLE public.clinic_room
 --
 -- Chín phòng dưới đây nằm gọn trong câu tầng 1.
 
+-- Khai tầng thì ĐƯỢC PHÉP tìm theo tên: đây là dữ liệu vận hành của đúng cơ sở
+-- Kim Ngưu (báo cáo onsite 23/04). Database nào không có cơ sở tên đó thì
+-- không khớp dòng nào — đúng ý, vì không ai biết toà nhà của họ có mấy tầng.
 UPDATE public.clinic_room r
    SET floor = '1'
   FROM public.clinic_location l

@@ -153,9 +153,7 @@ class DispatchService:
     async def overview(self, *, clinic_id: str) -> list[dict[str, Any]]:
         """Mỗi bệnh nhân đang trong phòng khám là một dòng."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                _OVERVIEW_SQL, clinic_id, list(LIVE_VISIT_STATUSES)
-            )
+            rows = await conn.fetch(_OVERVIEW_SQL, clinic_id, list(LIVE_VISIT_STATUSES))
         return [_overview_row(r) for r in rows]
 
     async def stations(
@@ -290,9 +288,7 @@ class DispatchService:
         sau đọc lại được tuyến này đã bỏ qua những gì.
         """
         if is_exception and not (reason or "").strip():
-            raise ValidationError(
-                "Đổi tuyến giữa chừng bắt buộc phải ghi lý do."
-            )
+            raise ValidationError("Đổi tuyến giữa chừng bắt buộc phải ghi lý do.")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -543,8 +539,7 @@ def build_alerts(
                     "type": "missing_next_step",
                     "severity": "warning",
                     "message": (
-                        f"{p['patient_name']} đã check-in nhưng chưa được xếp "
-                        "trạm nào"
+                        f"{p['patient_name']} đã check-in nhưng chưa được xếp trạm nào"
                     ),
                     "room_code": None,
                     "patients": [
@@ -557,9 +552,7 @@ def build_alerts(
                 {
                     "type": "no_route",
                     "severity": "warning",
-                    "message": (
-                        f"{p['patient_name']} chưa được chọn tuyến điều phối"
-                    ),
+                    "message": (f"{p['patient_name']} chưa được chọn tuyến điều phối"),
                     "room_code": p["room_code"],
                     "patients": [
                         {"name": p["patient_name"], "code": p["patient_code"]}

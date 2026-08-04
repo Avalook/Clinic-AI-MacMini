@@ -289,12 +289,18 @@ async def delete_slot_override(
 # ── Feature Mode (Phase 1 onboarding) ─────────────────────────────────
 
 _FEATURE_MODE_READ = require_role(
-    ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA,
-    ClinicRole.CSKH, ClinicRole.RECEPTION,
-    ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.CASHIER, ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV, ClinicRole.PHARMACIST,
+    ClinicRole.MANAGEMENT,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.CSKH,
+    ClinicRole.RECEPTION,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_THUOC,
+    ClinicRole.CASHIER_DV,
+    ClinicRole.PHARMACIST,
 )
 _FEATURE_MODE_WRITE = require_role(ClinicRole.MANAGEMENT)
 
@@ -327,4 +333,3 @@ async def update_feature_mode(
         mode=body.mode,
     )
     return {"ok": True, **result}
-

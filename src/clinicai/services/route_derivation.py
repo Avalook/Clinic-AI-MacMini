@@ -56,9 +56,7 @@ def canonical_order(templates: list[list[str]]) -> list[str]:
     return sorted(first, key=lambda s: (first[s], s))
 
 
-def derive_route(
-    ordered_nodes: list[str], templates: list[list[str]]
-) -> list[str]:
+def derive_route(ordered_nodes: list[str], templates: list[list[str]]) -> list[str]:
     """Tuyến = các bước còn phải đi (theo thứ tự khoa phòng) + đuôi chung.
 
     ``ordered_nodes`` là node của những việc đang chờ/đang làm của lượt khám —

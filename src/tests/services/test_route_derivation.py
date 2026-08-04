@@ -15,12 +15,27 @@ from clinicai.services.route_derivation import (
 )
 
 # Ba tuyến mẫu thật trên prod: khác nhau đúng ở thứ tự siêu âm / lấy máu.
-A = ["DICHVU-SIEUAM", "DICHVU-LAYMAU-MAU", "DICHVU-DUYET-KETQUA", "THUOC-04",
-     "LUOTKHAM-14"]
-B = ["DICHVU-LAYMAU-MAU", "DICHVU-SIEUAM", "DICHVU-DUYET-KETQUA", "THUOC-04",
-     "LUOTKHAM-14"]
-C = ["DICHVU-SIEUAM", "DICHVU-DUYET-KETQUA", "DICHVU-LAYMAU-MAU", "THUOC-04",
-     "LUOTKHAM-14"]
+A = [
+    "DICHVU-SIEUAM",
+    "DICHVU-LAYMAU-MAU",
+    "DICHVU-DUYET-KETQUA",
+    "THUOC-04",
+    "LUOTKHAM-14",
+]
+B = [
+    "DICHVU-LAYMAU-MAU",
+    "DICHVU-SIEUAM",
+    "DICHVU-DUYET-KETQUA",
+    "THUOC-04",
+    "LUOTKHAM-14",
+]
+C = [
+    "DICHVU-SIEUAM",
+    "DICHVU-DUYET-KETQUA",
+    "DICHVU-LAYMAU-MAU",
+    "THUOC-04",
+    "LUOTKHAM-14",
+]
 TPL = [A, B, C]
 TAIL = ["THUOC-04", "LUOTKHAM-14"]
 
@@ -71,7 +86,9 @@ class TestDeriveRoute:
         không hề chỉ định.
         """
         assert derive_route(["DICHVU-SIEUAM"], TPL) == [
-            "DICHVU-SIEUAM", "THUOC-04", "LUOTKHAM-14",
+            "DICHVU-SIEUAM",
+            "THUOC-04",
+            "LUOTKHAM-14",
         ]
 
     def test_two_services_come_out_in_clinic_order_not_click_order(
@@ -79,12 +96,8 @@ class TestDeriveRoute:
     ) -> None:
         """Bác sĩ tích siêu âm trước hay lấy máu trước không đổi đường đi thật
         của bệnh nhân — thứ tự khoa phòng mới đổi."""
-        clicked_backwards = derive_route(
-            ["DICHVU-SIEUAM", "DICHVU-LAYMAU-MAU"], TPL
-        )
-        clicked_forwards = derive_route(
-            ["DICHVU-LAYMAU-MAU", "DICHVU-SIEUAM"], TPL
-        )
+        clicked_backwards = derive_route(["DICHVU-SIEUAM", "DICHVU-LAYMAU-MAU"], TPL)
+        clicked_forwards = derive_route(["DICHVU-LAYMAU-MAU", "DICHVU-SIEUAM"], TPL)
         assert clicked_backwards == clicked_forwards
         assert clicked_backwards[:2] == ["DICHVU-LAYMAU-MAU", "DICHVU-SIEUAM"]
 
@@ -96,7 +109,9 @@ class TestDeriveRoute:
 
     def test_the_same_service_ordered_twice_appears_once(self) -> None:
         assert derive_route(["DICHVU-SIEUAM", "DICHVU-SIEUAM"], TPL) == [
-            "DICHVU-SIEUAM", "THUOC-04", "LUOTKHAM-14",
+            "DICHVU-SIEUAM",
+            "THUOC-04",
+            "LUOTKHAM-14",
         ]
 
     def test_a_service_no_template_mentions_still_gets_into_the_route(
@@ -129,5 +144,7 @@ class TestDeriveRoute:
     def test_a_null_node_code_is_dropped(self) -> None:
         """work_item.node_code có thể rỗng với việc tạo tay."""
         assert derive_route(["", "DICHVU-SIEUAM"], TPL) == [
-            "DICHVU-SIEUAM", "THUOC-04", "LUOTKHAM-14",
+            "DICHVU-SIEUAM",
+            "THUOC-04",
+            "LUOTKHAM-14",
         ]

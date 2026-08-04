@@ -21,6 +21,4 @@ async def booking_channels(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Lịch hẹn theo nguồn đặt — MỘT truy vấn thay cho 8 lượt đếm rời."""
-    return await ReportsService(pool).booking_channels(
-        identity=identity, days=days
-    )
+    return await ReportsService(pool).booking_channels(identity=identity, days=days)

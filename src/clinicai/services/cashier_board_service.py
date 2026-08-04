@@ -160,17 +160,13 @@ class CashierBoardService:
         start = _vn_midnight_today()
         end = start + timedelta(days=1)
 
-        row = await self._pool.fetchval(
-            _SQL, identity.clinic_id, start, end
-        )
+        row = await self._pool.fetchval(_SQL, identity.clinic_id, start, end)
         raw = json.loads(row) if isinstance(row, str) else row
 
         return build_rows(raw, want_svc=want_svc, want_rx=want_rx)
 
 
-def build_rows(
-    raw: dict[str, Any], *, want_svc: bool, want_rx: bool
-) -> dict[str, Any]:
+def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[str, Any]:
     """Ghép sáu tập thành các dòng thu ngân đọc được. Thuần, nên kiểm được."""
     price_thuoc: dict[str, float] = {}
     price_dv: dict[str, float] = {}
@@ -264,6 +260,4 @@ def _vn_midnight_today() -> datetime:
     theo TimeZone của phiên và biên ngày lệch bảy tiếng — thu ngân sẽ thấy bệnh
     nhân của hôm qua nằm lẫn trong danh sách hôm nay.
     """
-    return datetime.now(CLINIC_TZ).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    return datetime.now(CLINIC_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
