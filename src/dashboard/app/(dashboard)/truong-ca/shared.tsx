@@ -11,9 +11,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
+import { getSupabaseBrowser } from "../../../lib/supabase-browser";
 
-/** Yêu cầu kỹ thuật: dữ liệu trên bảng phải mới trong 2–3 giây. */
-const REFRESH_MS = 3000;
+// Yêu cầu kỹ thuật: dữ liệu trên bảng phải mới trong 2–3 giây.
+//
+// TRƯỚC: poll mỗi 3 giây. Đạt yêu cầu, nhưng bằng cách gõ vào server 20 lần
+// mỗi phút cho MỖI tab đang mở — kể cả buổi chiều không có bệnh nhân nào — và
+// vẫn trễ tới 3 giây.
+//
+// NAY: nghe realtime, đọc lại ngay khi có thay đổi thật (≈0,3s), còn nhịp đếm
+// chỉ còn là MẠCH ĐẬP: 30 giây một lần để (a) đỡ lúc websocket rớt, và (b) giữ
+// đồng hồ "cũ X giây" nói thật. Không có mạch đập thì một buổi chiều yên ắng
+// sẽ hiện "cũ 600 giây" trong khi màn hình hoàn toàn đúng — báo động giả, và
+// báo động giả lặp lại là cách nhanh nhất để người ta bỏ qua báo động thật.
+const HEARTBEAT_MS = 30_000;
+
+// Bảng quyết định nội dung bảng điều phối. Đều nằm trong publication
+// `supabase_realtime` (20260803000004) — subscribe một bảng chưa publish thì
+// im lặng không bao giờ bắn, nên danh sách này phải khớp.
+const LIVE_TABLES = ["visit", "work_item", "appointment"] as const;
 
 export interface LiveData {
   patients: DispatchPatient[];
@@ -43,12 +59,14 @@ export function useDispatchLive(initial: {
   const [staleSeconds, setStale] = useState(0);
 
   useEffect(() => {
-    const t = setInterval(async () => {
+    let alive = true;
+    const pull = async () => {
       try {
         const [ov, al] = await Promise.all([
           fetch("/api/dispatch-read?what=overview").then((r) => r.json()),
           fetch("/api/dispatch-read?what=alerts").then((r) => r.json()),
         ]);
+        if (!alive) return;
         if (!ov.ok) {
           setData((d) => ({ ...d, ok: false }));
           return;
@@ -61,10 +79,36 @@ export function useDispatchLive(initial: {
         });
         setFetchedAt(Date.now());
       } catch {
-        setData((d) => ({ ...d, ok: false }));
+        if (alive) setData((d) => ({ ...d, ok: false }));
       }
-    }, REFRESH_MS);
-    return () => clearInterval(t);
+    };
+
+    // Gộp một chuỗi thay đổi của cùng một thao tác (chuyển phòng đụng visit +
+    // work_item) thành một lần đọc.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const bump = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => void pull(), 250);
+    };
+
+    const supabase = getSupabaseBrowser();
+    let channel = supabase.channel("dispatch-live");
+    for (const table of LIVE_TABLES) {
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        bump,
+      );
+    }
+    channel.subscribe();
+
+    const beat = setInterval(pull, HEARTBEAT_MS);
+    return () => {
+      alive = false;
+      if (debounce) clearTimeout(debounce);
+      clearInterval(beat);
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -109,8 +153,19 @@ export function useDispatchAction() {
 export type ActFn = ReturnType<typeof useDispatchAction>["act"];
 
 /** "Cập nhật trực tiếp" hoặc "Dữ liệu cũ X giây" — không bao giờ im lặng. */
+// Ngưỡng báo "dữ liệu cũ" phải BÁM theo mạch đập, không phải một số viết cứng.
+//
+// Bản trước để 10 giây vì lúc đó poll mỗi 3 giây — quá ba nhịp là thật sự có
+// vấn đề. Nay mạch đập 30 giây, nên 10 giây sẽ bật cảnh báo vàng suốt mọi buổi
+// vắng trong khi màn hình hoàn toàn đúng. Báo động giả lặp lại là cách nhanh
+// nhất để Trưởng ca thôi nhìn cái badge này.
+//
+// 1,5 nhịp: đủ để bỏ lỡ một mạch mà chưa kêu, đủ sớm để không im khi mạng hỏng
+// thật (realtime rớt thì lần đọc kế tiếp cũng hỏng theo, và `ok` sẽ tự nói).
+const STALE_AFTER_S = Math.round((HEARTBEAT_MS * 1.5) / 1000);
+
 export function LiveBadge({ seconds, ok }: { seconds: number; ok: boolean }) {
-  const stale = !ok || seconds > 10;
+  const stale = !ok || seconds > STALE_AFTER_S;
   return (
     <div
       style={{

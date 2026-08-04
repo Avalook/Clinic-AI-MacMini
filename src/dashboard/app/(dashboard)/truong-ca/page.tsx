@@ -9,6 +9,7 @@ import { requireNavAccess } from "../../../lib/clinic-session";
 import { loadLive, loadRoutes } from "./load";
 import OverviewClient from "./OverviewClient";
 import "./dispatch.css";
+import LiveBoardSync from "../LiveBoardSync";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export default async function Page() {
   await requireNavAccess("/truong-ca");
   const [live, routes] = await Promise.all([loadLive(), loadRoutes()]);
   return (
+    <>
+      <LiveBoardSync />
     <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
       <header>
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">Toàn cảnh điều phối</h1>
@@ -23,5 +26,6 @@ export default async function Page() {
       </header>
       <OverviewClient initial={live} routes={routes} />
     </main>
+    </>
   );
 }

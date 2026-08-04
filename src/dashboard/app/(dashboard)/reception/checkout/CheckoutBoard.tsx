@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabaseBrowser } from "../../../../lib/supabase-browser";
 import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 
 export interface Blocker {
@@ -60,12 +61,53 @@ export default function CheckoutBoard({
     }
   }, []);
 
-  // Danh sách này đổi khi bộ phận khác làm xong việc (thu tiền, trả kết quả),
-  // nên nó phải tự mới. 5 giây: chậm hơn bảng điều phối vì ở đây không ai đang
-  // đứng chờ được gọi tên.
+  // ĐỔI Ở ĐÂU THÌ HIỆN NGAY Ở ĐÂY — nghe realtime, không đếm giây.
+  //
+  // Bản trước poll mỗi 5 giây. Hai cái sai:
+  //
+  //   1. Lễ tân thấy chậm tới 5 giây sau khi bác sĩ khám xong hay thu ngân thu
+  //      tiền. Khi bệnh nhân đang đứng ở quầy thì 5 giây là lâu, và lễ tân sẽ
+  //      bấm F5 — tức là poll rồi vẫn phải làm tay.
+  //
+  //   2. Nó gõ vào server 12 lần mỗi phút cho MỖI tab đang mở, kể cả lúc phòng
+  //      khám không có ai. Nhân với số máy ở quầy.
+  //
+  // Realtime của Supabase đã publish sẵn đúng ba bảng quyết định danh sách này
+  // (20260803000004): `visit` (đóng lượt), `work_item` (bước còn dở),
+  // `payment` (đã thu chưa). Đăng ký thẳng và tải lại khi có thay đổi thật.
+  //
+  // KHÔNG dựa vào RealtimeRefresher ở layout: nó gọi router.refresh(), tức là
+  // vẽ lại server component — mà `rows` ở đây là state của client, khởi tạo
+  // MỘT LẦN từ prop `initial`. Server có dữ liệu mới cũng không chảy vào được.
   useEffect(() => {
-    const t = setInterval(reload, 5000);
-    return () => clearInterval(t);
+    const supabase = getSupabaseBrowser();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Gộp một chuỗi thay đổi của cùng một thao tác (đóng lượt đụng vài bảng)
+    // thành một lần tải lại. Cùng nhịp với RealtimeRefresher.
+    const bump = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void reload(), 250);
+    };
+
+    let channel = supabase.channel("reception-checkout");
+    for (const table of ["visit", "work_item", "payment"]) {
+      channel = channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        bump,
+      );
+    }
+    channel.subscribe();
+
+    // Lưới an toàn cho lúc websocket rớt — không phải đường đồng bộ chính, nên
+    // thưa. 60 giây, cùng nhịp với RealtimeRefresher.
+    const safety = setInterval(reload, 60_000);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      clearInterval(safety);
+      void supabase.removeChannel(channel);
+    };
   }, [reload]);
 
   function flash(m: string) {

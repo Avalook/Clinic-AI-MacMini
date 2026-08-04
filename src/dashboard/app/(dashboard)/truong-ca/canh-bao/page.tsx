@@ -9,6 +9,7 @@ import { requireNavAccess } from "../../../../lib/clinic-session";
 import { loadLive } from "../load";
 import AlertsClient from "../AlertsClient";
 import "../dispatch.css";
+import LiveBoardSync from "../../LiveBoardSync";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ export default async function Page() {
   await requireNavAccess("/truong-ca/canh-bao");
   const live = await loadLive();
   return (
+    <>
+      <LiveBoardSync />
     <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
       <header>
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">Cảnh báo & ngưỡng</h1>
@@ -23,5 +26,6 @@ export default async function Page() {
       </header>
       <AlertsClient initial={live} />
     </main>
+    </>
   );
 }
