@@ -134,7 +134,11 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
    -- thấy nguyên danh sách phòng của Kim Ngưu và bấm chuyển bệnh nhân sang một
    -- phòng cách vài cây số. NULL = không truyền cơ sở (bảng tổng của quản lý)
    -- thì hiện tất.
-   AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
+   -- `coalesce` thay cho `($3 IS NULL OR col = $3)`: cùng nghĩa, nhưng không có
+   -- nhánh OR nào để một bộ lọc tenant lọt qua. Bài soi phạm vi tenant chặn
+   -- đúng hình dạng đó, và nó chặn đúng — một OR viết vội ở đây là mở đường
+   -- đọc dữ liệu của phòng khám khác.
+   AND r.location_id = coalesce($3::uuid, r.location_id)
  GROUP BY r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
           r.show_on_tv, r.floor, n.name, t.wait_minutes, d.wait_minutes,
           t.max_waiting, d.max_waiting

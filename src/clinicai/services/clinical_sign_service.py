@@ -236,8 +236,10 @@ class ClinicalSignService:
                 before = await conn.fetchrow(
                     "SELECT soap_subjective, soap_objective, soap_assessment,"
                     "       soap_plan"
-                    "  FROM public.clinical_record WHERE visit_id = $1::uuid",
+                    "  FROM public.clinical_record"
+                    " WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
                     visit_id,
+                    identity.clinic_id,
                 )
                 # asyncpg trả jsonb về dạng CHUỖI. Giải mã để "giá trị
                 # trước" trong visit_amendment là JSON thật, không phải một
@@ -258,11 +260,15 @@ class ClinicalSignService:
                 sets = ", ".join(
                     f"{k} = ${i + 2}::jsonb" for i, k in enumerate(corrected)
                 )
+                # clinic_id là tham số CUỐI vì các cột SOAP đánh số từ $2 trở
+                # đi và số lượng thay đổi theo số trường được đính chính.
                 await conn.execute(  # noqa: S608 — khoá cột từ REQUIRED_SOAP
                     f"UPDATE public.clinical_record SET {sets}, updated_at = now()"
-                    " WHERE visit_id = $1::uuid",
+                    f" WHERE visit_id = $1::uuid"
+                    f" AND clinic_id = ${len(corrected) + 2}::uuid",
                     visit_id,
                     *(json.dumps(v, ensure_ascii=False) for v in corrected.values()),
+                    identity.clinic_id,
                 )
                 await conn.execute(
                     """
@@ -353,9 +359,10 @@ class ClinicalSignService:
             await conn.execute(
                 "UPDATE public.ultrasound_record"
                 "   SET signed_by = $2::uuid, signed_at = now(), updated_at = now()"
-                " WHERE ultrasound_id = $1::uuid",
+                " WHERE ultrasound_id = $1::uuid AND clinic_id = $3::uuid",
                 ultrasound_id,
                 identity.staff_id,
+                identity.clinic_id,
             )
 
         logger.info(
@@ -426,8 +433,10 @@ async def _create_renotify_task(
 ) -> None:
     """Việc cho CSKH: gọi lại báo bệnh nhân rằng kết quả đã đính chính."""
     row = await conn.fetchrow(
-        "SELECT clinic_patient_id FROM public.visit WHERE visit_id = $1::uuid",
+        "SELECT clinic_patient_id FROM public.visit"
+        " WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
         visit_id,
+        identity.clinic_id,
     )
     if row is None:
         return

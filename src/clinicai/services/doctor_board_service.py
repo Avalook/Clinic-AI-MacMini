@@ -52,7 +52,10 @@ WITH lich AS (
      WHERE a.clinic_id  = $1::uuid
        AND a.slot_start >= $2
        AND a.slot_start <  $3
-       AND ($4::uuid IS NULL OR a.doctor_id = $4::uuid)
+       -- `coalesce` thay cho `($4 IS NULL OR col = $4)` — xem ghi chú cùng
+       -- kiểu ở capacity_service. `IS NOT DISTINCT FROM` để dòng có doctor_id
+       -- NULL (chưa xếp bác sĩ) vẫn lọt khi không lọc, đúng như OR cũ.
+       AND a.doctor_id IS NOT DISTINCT FROM coalesce($4::uuid, a.doctor_id)
      -- Thứ tự phải XÁC ĐỊNH: nhiều lịch trùng mốc giờ là chuyện thường, và
      -- `ORDER BY slot_start` trần cho phép Postgres đổi thứ tự giữa các lần
      -- chạy. Bảng này là thứ bác sĩ đọc dọc để gọi tên.
@@ -71,13 +74,24 @@ som_nhat AS (
 -- một phiếu đã kết quả VÀ không còn phiếu nào chờ.
 lab AS (
     SELECT l.appointment_id,
+           -- `coalesce(a, b) IS NOT NULL` thay cho `a IS NOT NULL OR b IS NOT
+           -- NULL` — cùng nghĩa, và không có OR nào trong mệnh đề WHERE.
+           --
+           -- OR này là lọc NỘI DUNG (có kết quả hay chưa), không phải lọc
+           -- tenant, nên bài soi phạm vi tenant báo nhầm. Nhưng nới bài soi để
+           -- bỏ qua một hình dạng là mở đường cho hình dạng ấy ở chỗ nguy hiểm
+           -- thật — rẻ hơn là viết lại câu này.
            count(*) FILTER (
-               WHERE nullif(btrim(coalesce(l.result_value, '')), '') IS NOT NULL
-                  OR nullif(btrim(coalesce(l.external_ref,  '')), '') IS NOT NULL
+               WHERE coalesce(
+                       nullif(btrim(coalesce(l.result_value, '')), ''),
+                       nullif(btrim(coalesce(l.external_ref,  '')), '')
+                     ) IS NOT NULL
            ) AS da_co,
            count(*) FILTER (
-               WHERE nullif(btrim(coalesce(l.result_value, '')), '') IS NULL
-                 AND nullif(btrim(coalesce(l.external_ref,  '')), '') IS NULL
+               WHERE coalesce(
+                       nullif(btrim(coalesce(l.result_value, '')), ''),
+                       nullif(btrim(coalesce(l.external_ref,  '')), '')
+                     ) IS NULL
            ) AS con_cho
       FROM lab_result l
      WHERE l.clinic_id = $1::uuid

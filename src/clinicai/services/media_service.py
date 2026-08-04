@@ -134,9 +134,15 @@ class MediaService:
                 "UPDATE public.ultrasound_record"
                 "   SET image_refs = array_append(coalesce(image_refs, '{}'), $2),"
                 "       updated_at = now()"
-                " WHERE ultrasound_id = $1::uuid",
+                # clinic_id ở đây là THỪA về mặt logic (câu SELECT ngay trên đã
+                # xác nhận bản ghi thuộc phòng khám này, cùng transaction) —
+                # nhưng backend chạy bằng service role và BỎ QUA RLS, nên mọi
+                # câu chạm bảng của tenant phải tự mang bộ lọc. Thừa thì không
+                # mất gì; thiếu thì một lần sửa sau này biến nó thành lỗ thật.
+                " WHERE ultrasound_id = $1::uuid AND clinic_id = $3::uuid",
                 ultrasound_id,
                 key,
+                identity.clinic_id,
             )
 
         logger.info(

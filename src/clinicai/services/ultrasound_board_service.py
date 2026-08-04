@@ -116,7 +116,11 @@ SELECT r.id, r.code, r.name, r.floor, r.capacity, r.accepting, r.sort,
  WHERE r.clinic_id = $1::uuid AND r.is_active
    AND EXISTS (SELECT 1 FROM public.clinic_room_node rn
                 WHERE rn.room_id = r.id AND rn.node_code = $2)
-   AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
+   -- `coalesce` thay cho `($3 IS NULL OR col = $3)`: cùng nghĩa, nhưng không có
+   -- nhánh OR nào để một bộ lọc tenant lọt qua. Bài soi phạm vi tenant chặn
+   -- đúng hình dạng đó, và nó chặn đúng — một OR viết vội ở đây là mở đường
+   -- đọc dữ liệu của phòng khám khác.
+   AND r.location_id = coalesce($3::uuid, r.location_id)
  ORDER BY r.sort, r.code
 """
 
@@ -245,7 +249,7 @@ class UltrasoundBoardService:
                     UPDATE public.ultrasound_record
                        SET findings = $2::jsonb, impression = $3,
                            gestational_age_weeks = $4, updated_at = now()
-                     WHERE ultrasound_id = $1::uuid
+                     WHERE ultrasound_id = $1::uuid AND clinic_id = $5::uuid
                     RETURNING ultrasound_id
                     """,
                     existing["ultrasound_id"],

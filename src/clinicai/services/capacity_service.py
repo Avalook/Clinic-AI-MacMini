@@ -198,7 +198,14 @@ class CapacityService:
                         FROM appointment a
                        WHERE a.clinic_id = $1::uuid
                          AND a.location_id = $4::uuid
-                         AND ($3::uuid IS NULL OR a.doctor_id = $3::uuid)
+                         -- `coalesce` thay cho `($n IS NULL OR col = $n)`:
+                         -- cùng nghĩa, không nhánh OR nào để bộ lọc tenant lọt
+                         -- qua. Đây là lọc "một bác sĩ hay mọi bác sĩ", không
+                         -- phải lọc tenant — nhưng bài soi không phân biệt được,
+                         -- và nó đúng khi không phân biệt: một OR ở tầng WHERE
+                         -- là chỗ để lộ dữ liệu phòng khám khác.
+                         AND a.doctor_id IS NOT DISTINCT FROM
+                             coalesce($3::uuid, a.doctor_id)
                          -- Cùng cách gom khung mà trigger dùng: mốc bắt đầu rơi
                          -- vào [khung, khung + độ dài).
                          AND a.slot_start >= ($2::date

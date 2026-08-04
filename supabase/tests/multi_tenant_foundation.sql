@@ -41,7 +41,11 @@ DECLARE
     --   slot_hold                     (giữ chỗ khi CSKH đang chọn)
     --   visit_gate_rule, visit_gate_override  (luật thứ tự bắt buộc)
     --   payment_cycle, pos_receipt    (thu ngân)
-    expected_tenant_tables constant integer := 52;
+    -- 52 → 55 cùng ngày, ba bảng của cấu hình và bộ khám Nam khoa:
+    --   staff_node             (ai làm được bước nào — 20260804000018)
+    --   clinical_form_approval (ai duyệt form nào, bản nào — 20260804000019)
+    --   semen_reference_range  (ngưỡng WHO theo ấn bản — 20260804000019)
+    expected_tenant_tables constant integer := 55;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
