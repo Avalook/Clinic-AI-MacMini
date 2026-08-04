@@ -20,6 +20,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.route_derivation import derive_route
 
 logger = structlog.get_logger()
 
@@ -148,6 +149,8 @@ class ServiceOrderService:
                     # through beats replacing it with a generic 409.
                     raise ConflictError(str(exc)) from exc
 
+                await _sync_route(conn, visit_id=visit_id, identity=identity)
+
         logger.info(
             "services_ordered",
             visit_id=visit_id,
@@ -266,3 +269,86 @@ class ServiceOrderService:
             "collected": collected,
             "outstanding": subtotal - collected,
         }
+
+
+async def _sync_route(
+    conn: asyncpg.Connection, *, visit_id: str, identity: StaffIdentity
+) -> None:
+    """Cập nhật tuyến điều phối cho khớp với chỉ định vừa đặt.
+
+    Bảng Trưởng ca đọc "bước kế tiếp" từ `visit_route`, và trước thay đổi này
+    tuyến chỉ được ghi khi có người bấm tay — nên trên prod 0/25 lượt khám có
+    tuyến, và cột gợi ý trống với mọi bệnh nhân. Chỉ định chính là thứ quyết
+    định bệnh nhân phải đi đâu, nên nó ghi luôn tuyến.
+
+    KHÔNG ĐÈ TUYẾN NGƯỜI TA ĐÃ SỬA TAY. Trưởng ca đổi tuyến giữa chừng phải ghi
+    lý do (`is_exception`), tức là một quyết định có chủ ý của con người, có khi
+    trái với chỉ định — đè lên nó là xoá một quyết định lâm sàng bằng một tác
+    dụng phụ.
+    """
+    manual = await conn.fetchval(
+        "SELECT 1 FROM public.visit_route"
+        " WHERE visit_id = $1::uuid AND superseded_at IS NULL AND is_exception",
+        visit_id,
+    )
+    if manual:
+        return
+
+    pending = await conn.fetch(
+        "SELECT node_code FROM public.work_item"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        "   AND status IN ('PENDING', 'IN_PROGRESS')"
+        " ORDER BY created_at",
+        identity.clinic_id,
+        visit_id,
+    )
+    templates = await conn.fetch(
+        "SELECT steps FROM public.route_template"
+        " WHERE clinic_id = $1::uuid AND is_active",
+        identity.clinic_id,
+    )
+    steps = derive_route(
+        [r["node_code"] for r in pending],
+        [list(t["steps"]) for t in templates],
+    )
+    if not steps:
+        # visit_route_has_steps đòi ít nhất một bước. Không có gì để đi thì
+        # không có tuyến — và tuyến cũ (nếu có) vẫn đúng, cứ để nguyên.
+        return
+
+    done = await conn.fetchval(
+        "SELECT coalesce(array_agg(node_code), '{}') FROM public.work_item"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        "   AND status = 'COMPLETED'",
+        identity.clinic_id,
+        visit_id,
+    )
+    current = await conn.fetchval(
+        "SELECT steps FROM public.visit_route"
+        " WHERE visit_id = $1::uuid AND superseded_at IS NULL",
+        visit_id,
+    )
+    if current is not None and list(current) == steps:
+        # Chỉ định thêm một dịch vụ cùng khoa phòng thì tuyến không đổi. Ghi
+        # một dòng y hệt chỉ làm lịch sử tuyến dài ra mà không nói thêm gì.
+        return
+
+    await conn.execute(
+        "UPDATE public.visit_route SET superseded_at = now()"
+        " WHERE visit_id = $1::uuid AND superseded_at IS NULL",
+        visit_id,
+    )
+    await conn.execute(
+        """
+        INSERT INTO public.visit_route
+            (clinic_id, visit_id, template_id, steps, kept_steps,
+             is_exception, reason, applied_by)
+        VALUES ($1::uuid, $2::uuid, NULL, $3, $4, FALSE, $5, $6::uuid)
+        """,
+        identity.clinic_id,
+        visit_id,
+        steps,
+        list(done or []),
+        "Suy ra từ chỉ định của bác sĩ",
+        identity.auth_user_id,
+    )
