@@ -7,6 +7,7 @@ the state machine rather than being split across a decorator.
 
 from __future__ import annotations
 
+from datetime import date as date_cls
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -147,6 +148,32 @@ async def capacity_quote(
         doctor_id=doctor_id,
         clinic_id=identity.clinic_id,
     )
+
+
+@router.get("/appointments/week")
+async def week_appointments(
+    week_start: date_cls,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch hẹn 7 ngày, KÈM phân loại Tái khám / Khám lần đầu.
+
+    Không dùng ``_BOOKING_GUARD``: bảng lịch tuần ở trang chủ hiện cho mọi vai,
+    và bác sĩ xem lịch của mình không phải người đặt lịch — cùng lý do với
+    ``/appointments/policy`` ngay bên dưới.
+
+    ``week_start`` khai kiểu ``date`` để FastAPI tự phân tích và từ chối chuỗi
+    hỏng bằng 422, thay vì để chuỗi đi thẳng xuống asyncpg — đúng cái đã làm
+    ``/appointments/quote`` trả 500 suốt (xem capacity_service).
+    """
+    from clinicai.services.week_appointments_service import (
+        WeekAppointmentsService,
+    )
+
+    items = await WeekAppointmentsService(pool).week(
+        clinic_id=identity.clinic_id, week_start=week_start
+    )
+    return {"ok": True, "items": items}
 
 
 @router.get("/appointments/policy")

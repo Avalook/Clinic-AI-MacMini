@@ -98,20 +98,6 @@ export default async function HomePage({
   const apptDates = weekDates(weekAppt);
   const rosterDates = weekDates(weekRoster);
   const apptStartUtc = vnLocalToUtcISO(weekAppt, "00:00");
-  const apptEndUtc = new Date(
-    new Date(apptStartUtc).getTime() + 7 * DAY_MS,
-  ).toISOString();
-  const WEEK_APPT_SELECT = `
-    id, slot_start, status, queue_number, doctor_id, booking_channel,
-    patient:patient!clinic_patient_id (
-      clinic_patient_id, patient_code, full_name, date_of_birth,
-      phone_primary, phone_secondary, gender, ethnicity, nationality, occupation,
-      patient_objection, address, guardian_name
-    ),
-    doctor:staff!doctor_id ( full_name ),
-    service:service_type!service_type_id ( name )
-  `;
-
   // Check-in hôm nay (đủ trường hành chính để mở hồ sơ lâm sàng ở cột phải).
   const CHECKIN_SELECT = `
     id, slot_start, status, queue_number, booking_channel,
@@ -144,6 +130,8 @@ export default async function HomePage({
     weekApptRes,
     checkinRes,
     visitStatusRes,
+    dutyRes,
+    progressRes,
   ] = await Promise.all([
     supabase
       .from("work_item")
@@ -165,16 +153,19 @@ export default async function HomePage({
       .select("work_date, station, staff_name, shift")
       .eq("week_start", weekRoster)
       .eq("status", "APPROVED"), // chỉ ca đã duyệt mới lên lịch chung trang chủ
-    supabase
-      .from("appointment")
-      .select(WEEK_APPT_SELECT)
-      .gte("slot_start", apptStartUtc)
-      .lt("slot_start", apptEndUtc)
-      // Bỏ lịch ĐÃ HỦY / không đến / BS từ chối khỏi bảng "Lịch hẹn khám" — hủy
-      // xong thì ẩn khỏi lưới + trả chỗ về ô trống "+ Đặt lịch vào đây".
-      .not("status", "in", "(CANCELLED,NO_SHOW,DOCTOR_DECLINED)")
-      .order("slot_start", { ascending: true })
-      .limit(500),
+    // LỊCH HẸN TUẦN — nay do FastAPI trả, KÈM SẴN phan_loai.
+    //
+    // Trước đây chỗ này là một truy vấn PostgREST, rồi bên dưới còn một truy
+    // vấn NỮA (không giới hạn) để đọc toàn bộ lịch sử hẹn của từng bệnh nhân
+    // chỉ để tính "Tái khám hay Khám lần đầu". Hai vòng mạng nối tiếp cho một
+    // chuỗi ký tự mỗi dòng, và cùng một luật ấy còn được chép lại ở
+    // tasks/page.tsx — hai bản sao chờ ngày lệch nhau.
+    //
+    // Đã đối chiếu với đường cũ trên dữ liệu prod trước khi đổi: 46 dòng qua 13
+    // tuần, mọi trường giống hệt (xem week_appointments_service.py).
+    fetchFromBackend<{ items: WeekApptRow[] }>(
+      `/api/v1/appointments/week?week_start=${weekAppt}`,
+    ),
     showCheckin
       ? supabase
           .from("appointment")
@@ -202,6 +193,18 @@ export default async function HomePage({
           .order("created_at", { ascending: true })
           .limit(300)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("work_roster")
+      .select("work_date, staff_id, staff_name")
+      .in("work_date", apptDates)
+      .eq("station", "LICH_KHAM")
+      .eq("status", "APPROVED")
+      .not("staff_id", "is", null),
+    // Cùng lý do với work_roster ngay trên: đầu vào chỉ là `apptDates`, có từ
+    // dòng 96. Nó từng nằm sau `await` nên đợi cả khối này xong mới chạy.
+    fetchFromBackend<VisitProgressRow[]>(
+      `/api/v1/visits/progress?from=${apptDates[0]}&to=${apptDates[apptDates.length - 1]}`,
+    ),
   ]);
   // visit embed (1-nhiều phía appointment) trả MẢNG → phẳng hoá thành checked_in_at
   // để compareQueue dùng THỨ TỰ GỌI ưu tiên (Model ②) cho người đã check-in.
@@ -269,10 +272,7 @@ export default async function HomePage({
   // đây nó đọc thẳng clinical_record + prescription bằng phiên người dùng, nên
   // policy đọc bệnh án buộc phải mở cho cả những vai không làm lâm sàng. Backend
   // trả về CỜ, không trả nội dung bệnh án.
-  const progress =
-    (await fetchFromBackend<VisitProgressRow[]>(
-      `/api/v1/visits/progress?from=${apptDates[0]}&to=${apptDates[apptDates.length - 1]}`,
-    )) ?? [];
+  const progress = progressRes ?? [];
   const progressByVisit = new Map(
     progress.filter((p) => p.visit_id).map((p) => [p.visit_id as string, p]),
   );
@@ -294,65 +294,27 @@ export default async function HomePage({
   ];
   // Gom lịch hẹn theo ngày (tuần này) cho bảng "Lịch hẹn khám".
   const rosterRows = (rosterRes.data as RosterRow[] | null) ?? [];
-  type RawAppt = Omit<WeekApptRow, "phan_loai">;
-  const weekApptRows = (weekApptRes.data as RawAppt[] | null) ?? [];
-
-  // "Phân loại khám" (Tái khám / Khám lần đầu) — suy từ lịch hẹn: BN có lịch hẹn
-  // nào SỚM HƠN lịch này → Tái khám; nếu đây là lịch sớm nhất của BN → Khám lần
-  // đầu. (DB chưa có cột phân loại riêng; đây là suy luận, không phải bịa số.)
-  const patientIds = [
-    ...new Set(
-      weekApptRows
-        .map((a) => a.patient?.clinic_patient_id)
-        .filter((x): x is string => !!x),
-    ),
-  ];
-  const earliestByPatient = new Map<string, number>();
-  if (patientIds.length) {
-    const { data: prior } = await supabase
-      .from("appointment")
-      .select("clinic_patient_id, slot_start")
-      .in("clinic_patient_id", patientIds);
-    for (const r of (prior as
-      | { clinic_patient_id: string; slot_start: string }[]
-      | null) ?? []) {
-      const t = new Date(r.slot_start).getTime();
-      const cur = earliestByPatient.get(r.clinic_patient_id);
-      if (cur === undefined || t < cur)
-        earliestByPatient.set(r.clinic_patient_id, t);
-    }
-  }
-  const phanLoaiOf = (a: RawAppt): string => {
-    const pid = a.patient?.clinic_patient_id;
-    if (!pid) return "";
-    const earliest = earliestByPatient.get(pid);
-    if (earliest === undefined) return "";
-    return new Date(a.slot_start).getTime() > earliest
-      ? "Tái khám"
-      : "Khám lần đầu";
-  };
+  // Backend trả sẵn phan_loai, nên không còn `RawAppt` (kiểu "thiếu phan_loai")
+  // và không còn bước gắn thêm ở dưới. `?? []` là khi backend không trả lời —
+  // lưới hiện trống, giống mọi nguồn khác của trang này.
+  const weekApptRows: WeekApptRow[] = weekApptRes?.items ?? [];
 
   // Bác sĩ TRỰC CA từng ngày của TUẦN LỊCH HẸN (weekAppt ≠ weekRoster!) — nuôi
-  // các nhóm bác sĩ + ô xanh "đặt vào đây" trong bảng Lịch hẹn khám. Đọc thẳng
-  // work_roster theo work_date (không lọc week_start vì 2 bảng tuần độc lập).
+  // các nhóm bác sĩ + ô xanh "đặt vào đây" trong bảng Lịch hẹn khám.
+  //
+  // Truy vấn này TỪNG nằm ở đây, sau `await` — tức là nó đợi cả Promise.all
+  // xong rồi mới bắt đầu, thêm một vòng mạng (~80ms) vào mọi lần mở trang. Nó
+  // không có lý do gì để đợi: đầu vào duy nhất là `apptDates`, tính ở dòng 96
+  // từ tham số URL, trước Promise.all cả trăm dòng.
   const dutyByDate: DutyByDate = {};
-  {
-    const { data: duty } = await supabase
-      .from("work_roster")
-      .select("work_date, staff_id, staff_name")
-      .in("work_date", apptDates)
-      .eq("station", "LICH_KHAM")
-      .eq("status", "APPROVED")
-      .not("staff_id", "is", null);
-    for (const r of (duty as
-      | { work_date: string; staff_id: string; staff_name: string | null }[]
-      | null) ?? []) {
-      const list = dutyByDate[r.work_date] ?? [];
-      if (!list.some((d) => d.id === r.staff_id)) {
-        list.push({ id: r.staff_id, name: r.staff_name ?? "" });
-      }
-      dutyByDate[r.work_date] = list;
+  for (const r of (dutyRes.data as
+    | { work_date: string; staff_id: string; staff_name: string | null }[]
+    | null) ?? []) {
+    const list = dutyByDate[r.work_date] ?? [];
+    if (!list.some((d) => d.id === r.staff_id)) {
+      list.push({ id: r.staff_id, name: r.staff_name ?? "" });
     }
+    dutyByDate[r.work_date] = list;
   }
 
   // "!" nhắc điều dưỡng điền sinh hiệu chỉ hiện khi lịch đã CHECKED_IN mà CHƯA
@@ -372,11 +334,8 @@ export default async function HomePage({
         const t = new Date(a.slot_start).getTime();
         return t >= s && t < e;
       })
-      .map((a) => ({
-        ...a,
-        phan_loai: phanLoaiOf(a),
-        has_vitals: vitalsRecorded.has(a.id),
-      }));
+      // phan_loai đã do backend tính; ở đây chỉ gắn thêm cờ sinh hiệu.
+      .map((a) => ({ ...a, has_vitals: vitalsRecorded.has(a.id) }));
     return { date, items };
   });
 
