@@ -337,6 +337,27 @@ class BookingService:
                 )
 
                 warnings: list[str] = []
+
+                # MỘT NGƯỜI KHÔNG NGỒI HAI CHỖ CÙNG LÚC.
+                #
+                # Tìm thấy trên prod ngày 04/08: một bệnh nhân có BA lịch hẹn
+                # cùng khung 17:15, tạo cách nhau 10 và 5 giây — tức là bấm
+                # "Đặt lịch hẹn" ba lần. Khung đó sức chứa 3, nên một người đã
+                # chiếm trọn khung, và không luật nào trong hệ chặn lại: bảng
+                # appointment không có ràng buộc duy nhất nào.
+                #
+                # Chuyện này nặng hơn kể từ khi bỏ bước xác nhận: trước đây lịch
+                # thừa còn nằm ở "chờ xác nhận" nên có người rà; giờ nó chắc
+                # ngay.
+                dup = await self._patient_double_booked(
+                    conn,
+                    clinic_patient_id=clinic_patient_id,
+                    slot_start=slot_start,
+                    identity=identity,
+                )
+                if dup:
+                    raise ConflictError(dup)
+
                 if doctor_id:
                     busy = await self._doctor_conflict(
                         conn, doctor_id, slot_start, slot_end, identity
@@ -887,6 +908,48 @@ class BookingService:
             list(transition.from_statuses),
         )
         return bool(rows)
+
+    async def _patient_double_booked(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_patient_id: str,
+        slot_start: datetime,
+        identity: StaffIdentity,
+    ) -> str | None:
+        """Bệnh nhân này đã có lịch ở đúng khung giờ này chưa.
+
+        Chặn ĐÚNG cái bấm hai lần: cùng bệnh nhân, cùng thời điểm bắt đầu. Không
+        chặn hai lịch khác giờ trong cùng buổi — đó là chuyện bình thường (khám
+        rồi siêu âm sau).
+
+        Chặn ở tầng dịch vụ, không phải chỉ mục duy nhất, vì prod đang có sẵn 5
+        dòng trùng từ trước; tạo chỉ mục lúc này sẽ hỏng. Nó không chống được
+        hai request thật sự đồng thời — nhưng cái đang xảy ra là một người bấm
+        ba lần cách nhau 5 giây, và với chuyện đó thì câu này đủ.
+        """
+        row = await conn.fetchrow(
+            """
+            SELECT slot_start, status
+              FROM appointment
+             WHERE clinic_id = $1::uuid
+               AND clinic_patient_id = $2::uuid
+               AND slot_start = $3
+               AND status <> ALL ($4::text[])
+             LIMIT 1
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
+            slot_start,
+            list(DEAD_STATUSES),
+        )
+        if row is None:
+            return None
+        hhmm = slot_start.astimezone(CLINIC_TZ).strftime("%H:%M")
+        return (
+            f"Bệnh nhân này đã có lịch hẹn lúc {hhmm} rồi. "
+            "Muốn đổi thì vào Quản lý khách hàng → Lịch hẹn sắp tới."
+        )
 
     async def _doctor_conflict(
         self,

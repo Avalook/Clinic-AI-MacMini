@@ -649,3 +649,50 @@ class TestANewBookingIsAlreadyDone:
         from clinicai.services.booking_service import initial_status
 
         assert initial_status(True) == "CHECKED_IN"
+
+
+class TestOnePersonCannotSitInTwoChairs:
+    """Bấm "Đặt lịch hẹn" hai lần không được ra hai lịch hẹn.
+
+    Tìm thấy trên prod 04/08/2026: một bệnh nhân có BA lịch cùng khung 17:15,
+    tạo cách nhau 10 và 5 giây. Khung đó sức chứa 3 — một người chiếm trọn cả
+    khung. Bảng appointment không có ràng buộc duy nhất nào chặn việc này.
+
+    Nặng hơn kể từ khi bỏ bước xác nhận: trước đây lịch thừa còn nằm ở "chờ xác
+    nhận" nên có người rà; giờ nó chắc ngay lúc tạo.
+    """
+
+    def test_the_guard_runs_before_the_write(self) -> None:
+        """Phải nằm TRƯỚC INSERT, không phải bắt lỗi sau.
+
+        Không có chỉ mục duy nhất nào để bắt — prod đang có sẵn 5 dòng trùng từ
+        trước nên tạo chỉ mục lúc này sẽ hỏng ngay lúc migrate.
+        """
+        import inspect
+
+        from clinicai.services.booking_service import BookingService
+
+        src = inspect.getsource(BookingService.create)
+        assert "_patient_double_booked" in src
+        assert src.index("_patient_double_booked") < src.index("INSERT INTO")
+
+    def test_a_cancelled_appointment_does_not_block_rebooking(self) -> None:
+        """Huỷ rồi đặt lại đúng khung cũ là chuyện thường ngày."""
+        import inspect
+
+        from clinicai.services.booking_service import BookingService
+
+        src = inspect.getsource(BookingService._patient_double_booked)
+        assert "DEAD_STATUSES" in src
+
+    def test_it_matches_on_the_exact_start_time_only(self) -> None:
+        """Khám 17:15 rồi siêu âm 17:45 là hai lịch hợp lệ trong một buổi.
+
+        Chặn theo khoảng chồng lấn sẽ cấm luôn chuyện đó.
+        """
+        import inspect
+
+        from clinicai.services.booking_service import BookingService
+
+        src = inspect.getsource(BookingService._patient_double_booked)
+        assert "slot_start = $3" in src
