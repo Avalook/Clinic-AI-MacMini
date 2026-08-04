@@ -273,9 +273,20 @@ export default function ClinicalRecordForm({
 }) {
   const router = useRouter();
   const p = appt.patient;
-  // Engine form chuyên khoa (pilot Phụ khoa): suy service_code từ tên dịch vụ.
-  // Không khớp config nào → null → engine tự ẩn.
-  const serviceCode = resolveServiceCode(appt.service?.name);
+  // PHIẾU KHÁM LẤY TỪ CẤU HÌNH, không đoán từ tên dịch vụ nữa.
+  //
+  // `service.form_code` do backend chọn sẵn theo giới bệnh nhân
+  // (service_type.form_code / form_code_nam — xem 20260805000004). Trước đây
+  // chỗ này dò từ khoá trong TÊN dịch vụ, và 6/14 dịch vụ của Dr4Women không
+  // dò ra: bác sĩ mở lượt khám thì phần phiếu ẩn hẳn, không một lời nào.
+  //
+  // `resolveServiceCode` giữ làm lưới đỡ cho dịch vụ chưa kịp khai — nhưng nó
+  // là đường phụ, không phải đường chính.
+  const serviceCode =
+    appt.service?.form_code ?? resolveServiceCode(appt.service?.name);
+  // Phân biệt "dịch vụ này vốn không có phiếu" với "chưa ai khai" — hai câu
+  // khác nhau, và bác sĩ cần biết mình đang gặp câu nào.
+  const khongCoPhieu = !serviceCode && !!appt.service?.name;
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [f, setF] = useState<Fields>(EMPTY);
@@ -1239,6 +1250,20 @@ export default function ClinicalRecordForm({
               serviceCode={serviceCode}
               readOnly={readOnly || locked}
             />
+          </div>
+        )}
+
+        {/* NÓI RA thay vì ẩn. Một khoảng trống ở đúng chỗ lẽ ra có phiếu khám
+            đọc thành "hệ thống hỏng", và bác sĩ sẽ đi hỏi kỹ thuật thay vì ghi
+            tiếp vào bệnh án chung. */}
+        {tab === 2 && !vitalsOnly && !showAll && khongCoPhieu && data?.visit?.visit_id && (
+          <div className="border-t border-surface-sunken pt-3">
+            <p className="rounded-card border border-line bg-brand-50/40 px-3 py-2.5 text-sm text-ink-muted">
+              Dịch vụ <span className="font-medium text-ink">{appt.service?.name}</span>{" "}
+              chưa gắn phiếu khám chuyên khoa — ghi vào bệnh án ở tab bên cạnh.
+              Quản lý gắn phiếu cho dịch vụ này ở{" "}
+              <span className="font-medium text-ink">Cài đặt → Cấu trúc phòng khám</span>.
+            </p>
           </div>
         )}
       </div>

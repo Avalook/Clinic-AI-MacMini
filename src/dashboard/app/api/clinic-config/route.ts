@@ -23,7 +23,9 @@ export async function GET(request: Request) {
   const data = await fetchFromBackend<Record<string, unknown>>(
     what === "staff"
       ? "/api/v1/clinic-config/staff"
-      : "/api/v1/clinic-config/overview",
+      : what === "services"
+        ? "/api/v1/clinic-config/services"
+        : "/api/v1/clinic-config/overview",
   );
   if (data === null) {
     return NextResponse.json(
@@ -40,6 +42,7 @@ const WRITE_PATHS: Record<string, string> = {
   "room-floor": "/api/v1/clinic-config/room-floor",
   "room-nodes": "/api/v1/clinic-config/room-nodes",
   "staff-nodes": "/api/v1/clinic-config/staff-nodes",
+  "service-form": "/api/v1/clinic-config/service-form",
 };
 
 export async function PUT(request: Request) {

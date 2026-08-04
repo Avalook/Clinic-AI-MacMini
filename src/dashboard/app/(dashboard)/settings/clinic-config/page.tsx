@@ -7,18 +7,27 @@
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import ClinicConfigBoard from "./ClinicConfigBoard";
-import type { ConfigLocation, ConfigStaff, NodeDef } from "./types";
+import type {
+  ConfigLocation,
+  ConfigService,
+  ConfigStaff,
+  FormDef,
+  NodeDef,
+} from "./types";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClinicConfigPage() {
   await requireNavAccess("/settings/clinic-config");
 
-  const [overview, staff] = await Promise.all([
+  const [overview, staff, services] = await Promise.all([
     fetchFromBackend<{ locations: ConfigLocation[]; nodes: NodeDef[] }>(
       "/api/v1/clinic-config/overview",
     ),
     fetchFromBackend<{ items: ConfigStaff[] }>("/api/v1/clinic-config/staff"),
+    fetchFromBackend<{ items: ConfigService[]; forms: FormDef[] }>(
+      "/api/v1/clinic-config/services",
+    ),
   ]);
 
   return (
@@ -29,7 +38,8 @@ export default async function ClinicConfigPage() {
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
           Cơ sở nào có mấy tầng, phòng nào nằm ở tầng nào, phòng nào làm việc
-          gì, và ai đảm nhiệm được bước nào. Khai ở đây, không phải sửa code.
+          gì, ai đảm nhiệm được bước nào, và dịch vụ nào dùng phiếu khám nào.
+          Khai ở đây, không phải sửa code.
         </p>
       </header>
 
@@ -37,9 +47,11 @@ export default async function ClinicConfigPage() {
         initialLocations={overview?.locations ?? []}
         initialStaff={staff?.items ?? []}
         nodes={overview?.nodes ?? []}
+        initialServices={services?.items ?? []}
+        forms={services?.forms ?? []}
         // `null` = backend không trả lời. Nói ra, thay vì hiện một sơ đồ trống
         // trông y hệt "phòng khám chưa khai gì" rồi để người ta khai lại.
-        ok={overview !== null && staff !== null}
+        ok={overview !== null && staff !== null && services !== null}
       />
     </main>
   );
