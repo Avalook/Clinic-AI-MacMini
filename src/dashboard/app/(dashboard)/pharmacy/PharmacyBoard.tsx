@@ -5,6 +5,7 @@
 // Dược sĩ xem đơn, kiểm tra tồn kho theo lô/hạn dùng.
 
 import { useMemo, useState } from "react";
+import { VN_TZ } from "../../../lib/datetime";
 
 interface RxPatient {
   full_name: string | null;
@@ -45,7 +46,7 @@ interface Props {
 }
 
 const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
+  iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: VN_TZ }) : "—";
 
 const fmtQty = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);

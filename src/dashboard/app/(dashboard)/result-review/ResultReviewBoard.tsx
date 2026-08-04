@@ -4,6 +4,7 @@
 // Hàng đợi kết quả XN chờ bác sĩ duyệt. Ký duyệt / trả lại chỉnh sửa.
 
 import { useMemo, useState } from "react";
+import { VN_TZ } from "../../../lib/datetime";
 
 interface ReviewPatient {
   full_name: string | null;
@@ -32,7 +33,7 @@ interface Props {
 }
 
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+  new Date(iso).toLocaleString("vi-VN", { timeZone: VN_TZ });
 
 const FLAG_LABEL: Record<string, string> = {
   NORMAL: "Bình thường",

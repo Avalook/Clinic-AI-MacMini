@@ -7,6 +7,7 @@
 import { redirect } from "next/navigation";
 import StatCard from "../StatCard";
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import { vnTodayRangeUtc, fmtDate, VN_TZ } from "../../../lib/datetime";
@@ -35,10 +36,6 @@ interface SlotRow {
   slot_start: string;
 }
 
-interface ChannelRef {
-  code: string;
-  name: string;
-}
 
 function pct(n: number, total: number): string {
   if (total <= 0) return "—";
@@ -84,11 +81,10 @@ export default async function ReportsPage() {
     doneThirtyRes,
     noShowThirtyRes,
     newPatientThirtyRes,
-    totalThirtyRes,
     // Khối 5 — 7 ngày gần nhất (chỉ slot_start)
     weekRowsRes,
-    // Khối 6 — danh mục kênh đặt lịch
-    channelsRes,
+    // Khối 6 (nguồn đặt lịch) nay do FastAPI trả cả danh mục lẫn số đếm trong
+    // một lượt — không cần đọc riêng bảng danh mục ở đây nữa.
   ] = await Promise.all([
     apptCount(dayStart, dayEnd),
     apptCount(dayStart, dayEnd).eq("status", "COMPLETED"),
@@ -109,14 +105,12 @@ export default async function ReportsPage() {
       .from("patient")
       .select("*", { count: "exact", head: true })
       .gte("created_at", start30),
-    apptCount(start30, dayEnd),
     supabase
       .from("appointment")
       .select("slot_start")
       .gte("slot_start", start7)
       .lt("slot_start", dayEnd)
       .limit(2000),
-    supabase.from("booking_channel").select("code, name"),
   ]);
 
   // ---- Khối 1 + 2 ----
@@ -149,7 +143,6 @@ export default async function ReportsPage() {
   // ---- Khối 4: 30 ngày ----
   const done30 = doneThirtyRes.count ?? 0;
   const noShow30 = noShowThirtyRes.count ?? 0;
-  const total30 = totalThirtyRes.count ?? 0;
 
   // ---- Khối 5: đếm lịch hẹn từng ngày (7 ngày gần nhất, theo ngày VN) ----
   const weekRows = (weekRowsRes.data as SlotRow[] | null) ?? [];
@@ -174,21 +167,29 @@ export default async function ReportsPage() {
   });
   const maxDay = Math.max(1, ...dayBuckets.map((b) => b.count));
 
-  // ---- Khối 6: nguồn đặt lịch 30 ngày (count theo từng kênh, head-only) ----
-  const channels = (channelsRes.data as ChannelRef[] | null) ?? [];
-  const channelCounts = await Promise.all([
-    ...channels.map((c) =>
-      apptCount(start30, dayEnd).eq("booking_channel", c.code),
-    ),
-    apptCount(start30, dayEnd).is("booking_channel", null),
-  ]);
-  const channelStats = channels
-    .map((c, i) => ({ name: c.name, count: channelCounts[i].count ?? 0 }))
+  // ---- Khối 6: nguồn đặt lịch 30 ngày ----
+  //
+  // MỘT truy vấn, không phải 8. Trước đây chỗ này lấy danh sách kênh (7 dòng)
+  // rồi bắn một truy vấn đếm cho TỪNG kênh, cộng một truy vấn nữa cho kênh
+  // trống — và số truy vấn lớn dần theo số kênh, nên thêm một kênh Zalo mới là
+  // thêm một lượt mạng. GROUP BY trả tất cả trong một lượt.
+  //
+  // Nó cũng đúng hơn về số liệu: 8 truy vấn rời chạy ở 8 thời điểm khác nhau
+  // nên tổng các phần có thể không bằng tổng.
+  //
+  // Và "ngoài danh mục" nay là con số ĐỌC ĐƯỢC chứ không phải phần dư suy ra.
+  // Trên prod đang có 1 lịch khai kênh "Zalo" trong khi danh mục ghi "ZALO_PK"
+  // — cách cũ nhét nó vào ô "Khác" nên không ai biết là gõ sai chính tả.
+  const chan = await fetchFromBackend<{
+    items: { code: string; name: string; count: number }[];
+    unset: number;
+    unknown: number;
+  }>(`/api/v1/reports/booking-channels?days=30`);
+  const channelStats = (chan?.items ?? [])
     .filter((c) => c.count > 0)
-    .sort((a, b) => b.count - a.count);
-  const nullChannel = channelCounts[channels.length]?.count ?? 0;
-  const knownSum = channelStats.reduce((s, c) => s + c.count, 0);
-  const otherChannel = Math.max(0, total30 - knownSum - nullChannel);
+    .map((c) => ({ name: c.name, count: c.count }));
+  const nullChannel = chan?.unset ?? 0;
+  const otherChannel = chan?.unknown ?? 0;
   const maxChannel = Math.max(
     1,
     ...channelStats.map((c) => c.count),
@@ -196,11 +197,13 @@ export default async function ReportsPage() {
     otherChannel,
   );
 
+  // Số đếm nguồn đặt lịch nay do FastAPI trả; `chan === null` nghĩa là backend
+  // không trả lời — cũng là một lỗi đọc, phải hiện ra như các lỗi kia.
   const queryError =
     todayTotalRes.error ??
     byDoctorRes.error ??
     weekRowsRes.error ??
-    channelsRes.error;
+    (chan ? null : { message: "Không đọc được nguồn đặt lịch từ máy chủ." });
 
   return (
     <main className="page-in min-w-0 space-y-6 p-4 lg:p-5">
@@ -236,8 +239,14 @@ export default async function ReportsPage() {
           <StatCard label="Tổng lịch hẹn" value={todayTotal} />
           <StatCard label="Đã khám xong" value={todayDoneRes.count ?? 0} />
           <StatCard label="Đang chờ" value={todayWaitingRes.count ?? 0} />
+          {/* Ô này đếm status = SCHEDULED, mà từ 04/08/2026 lịch mới vào
+              thẳng CONFIRMED — vòng gọi-xác-nhận đã bỏ. Nên nó chỉ còn đếm
+              LỊCH CŨ đặt trước ngày đó, và sẽ về 0 khi đám cũ khám xong.
+              Giữ ô lại nhưng gọi đúng tên: để nguyên nhãn "Chưa xác nhận" thì
+              một số 0 vĩnh viễn trông như "mọi thứ đều ổn" chứ không như
+              "phép đếm này đã hết ý nghĩa". */}
           <StatCard
-            label="Chưa xác nhận"
+            label="Lịch cũ chờ xác nhận"
             value={todayUnconfirmedRes.count ?? 0}
           />
           <StatCard label="Không đến" value={todayNoShowRes.count ?? 0} />

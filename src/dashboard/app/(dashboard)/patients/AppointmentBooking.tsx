@@ -18,23 +18,28 @@ import CinemaSlotPicker from "./CinemaSlotPicker";
 import {
   buildSlotUsage,
   usageAt,
-  REGULAR_CAP,
-  WALKIN_CAP,
+  slotBucketMs,
+  slotMinuteOptions,
   type SlotApptLite,
 } from "../../../lib/slot-capacity";
+import { useBookingPolicy } from "../BookingPolicyContext";
 
 // Capacity Phase 1 — nhãn/lớp token của 6 trạng thái ô khung-giờ
 // (khớp CellState ở lib/capacity.ts).
+// BA TRẠNG THÁI, KHÔNG PHẢI SÁU.
+//
+// Bảng cũ có return_only / full_thanh / walkin_hold / locked — nhãn của mô hình
+// "ngân sách phút của bác sĩ Thành" (block_budget), đã bị bỏ khi thời lượng
+// khám chuyển thành số liệu ĐO ĐƯỢC và giới hạn đặt lịch chuyển thành SỐ CHỖ do
+// Trưởng ca cấu hình. Giữ lại chúng nghĩa là màn hình còn nói bằng ngôn ngữ của
+// một luật không còn tồn tại — và "Đầy-Thành" thì vô nghĩa với mọi phòng khám
+// không có bác sĩ tên Thành.
+//
+// Backend giờ trả đúng ba trạng thái, tính từ cùng con số mà trigger chặn.
 const CELL_UI: Record<string, { label: string; className: string }> = {
   free: { label: "Trống", className: "bg-success-bg text-success" },
   few: { label: "Còn ít", className: "bg-warning-bg text-warning" },
-  return_only: { label: "Chỉ tái khám", className: "bg-warning-bg text-warning" },
-  full_thanh: { label: "Đầy-Thành", className: "bg-danger-bg text-danger" },
-  walkin_hold: {
-    label: "Giữ vãng lai",
-    className: "bg-status-in-progress-bg text-status-in-progress",
-  },
-  locked: { label: "Khoá", className: "bg-surface-sunken text-ink-soft" },
+  full: { label: "Đã đầy", className: "bg-danger-bg text-danger" },
 };
 
 function findServiceIdByLinhVuc(code: string, services: Option[]): string {
@@ -135,7 +140,13 @@ export default function AppointmentBooking({
   const [linhVuc, setLinhVuc] = useState("");
   const [apptDate, setApptDate] = useState(initial?.apptDate ?? "");
   const [apptTime, setApptTime] = useState(initial?.apptTime ?? "");
-  const [duration] = useState(15);
+  // Luật đặt lịch của phòng khám (độ dài khung + số chỗ). `null` = chưa đọc
+  // được; form vẫn hiện nhưng nút Đặt lịch khoá — xem chỗ dùng bên dưới.
+  const policy = useBookingPolicy();
+  // slot_end = đầu khung + đúng độ dài khung của phòng khám này. Trước đây là
+  // useState(15) — một lịch dài 15' trong phòng khám chạy khung 30' để lại nửa
+  // khung "trống" mà không ai đặt được vào.
+  const duration = policy?.slotMinutes ?? 0;
   // Capacity Phase 1 (T-20260629-CAP-01) — CSKH chọn tay (DEC-3); backend gợi ý tải.
   const [patientKind, setPatientKind] = useState(initial?.patientKind ?? ""); // "" | "RETURN" | "NEW"
   const [needSono, setNeedSono] = useState(initial?.needSono ?? false);
@@ -150,8 +161,17 @@ export default function AppointmentBooking({
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
   // Capacity Phase 1 — tải/khung-giờ để hiển thị (quote, read-only).
+  // Sức chứa từng KHUNG (không phải từng giờ), đọc từ cùng resolver mà trigger
+  // dùng để chặn. Trước đây nó đọc block_budget — một bảng thứ hai, mịn theo
+  // giờ, không ai đối chiếu với thứ thật sự thi hành: lưới vẽ "còn chỗ" trong
+  // khi trigger từ chối là chuyện có thể xảy ra và không ai phát hiện được.
   const [budgetBlocks, setBudgetBlocks] = useState<
-    { hour_start: number; state: string }[]
+    {
+      time: string;
+      state: string;
+      regular_cap: number;
+      regular_used: number;
+    }[]
   >([]);
   const [channel, setChannel] = useState(initial?.channel ?? "");
   const [queueNumber, setQueueNumber] = useState("");
@@ -224,7 +244,7 @@ export default function AppointmentBooking({
     if (doctorId) params.set("doctor_id", doctorId);
     fetch(`/api/appointments/quote?${params.toString()}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setBudgetBlocks(j?.blocks ?? []))
+      .then((j) => setBudgetBlocks(j?.slots ?? []))
       .catch(() => {});
     return () => ctrl.abort();
   }, [apptDate, locationId, doctorId]);
@@ -252,24 +272,25 @@ export default function AppointmentBooking({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId, clinicPatientId]);
 
-  // CSKH: khung đang chọn còn chỗ đặt hẹn không? Luật 2+1 (slot-capacity):
-  // mỗi bác sĩ mỗi khung 15' có 2 chỗ kênh thường; chỗ 3 dành vãng lai nên
-  // KHÔNG tính vào đây.
+  // CSKH: khung đang chọn còn chỗ đặt hẹn không? Số chỗ kênh thường và số chỗ
+  // vãng lai là cấu hình của phòng khám (clinic.settings.booking) — chỗ vãng
+  // lai để dành nên KHÔNG tính vào chỗ đặt hẹn.
   const isSlotBooked = useMemo(() => {
-    if (!apptDate || !apptTime) return false;
+    if (!apptDate || !apptTime || !policy) return false;
     try {
-      const bucketMs = Date.parse(vnLocalToUtcISO(apptDate, apptTime));
+      // Giờ gõ tay có thể rơi giữa khung → phải quy về đầu khung, đúng như
+      // trigger enforce_slot_capacity làm khi đếm.
+      const bucketMs = slotBucketMs(vnLocalToUtcISO(apptDate, apptTime), policy);
       const u = usageAt(
-        buildSlotUsage(visibleExistingAppts),
+        buildSlotUsage(visibleExistingAppts, policy),
         doctorId || null,
         bucketMs,
       );
-      // Vãng lai (Lễ tân) xét chỗ Ưu tiên (ghế 3); đặt hẹn thường xét BN1/BN2.
-      return walkin ? u.walkin >= WALKIN_CAP : u.regular >= REGULAR_CAP;
+      return walkin ? u.walkin >= policy.walkinCap : u.regular >= policy.regularCap;
     } catch {
       return false;
     }
-  }, [walkin, apptDate, apptTime, doctorId, visibleExistingAppts]);
+  }, [walkin, apptDate, apptTime, doctorId, visibleExistingAppts, policy]);
 
   // CSKH: số khám ĐỂ TRỐNG — hệ thống cấp SỐ CHUNG THEO THỜI GIAN lúc check-in.
   // KHÔNG tự dập "ƯT" theo phút (sai nghĩa): ƯT chỉ dành cho NGƯỜI QUEN nhà bác sĩ,
@@ -291,14 +312,23 @@ export default function AppointmentBooking({
     apptDate &&
     apptTime &&
     (walkin || channel) &&
-    changed;
+    changed &&
+    // Không đọc được luật thì không biết lịch dài bao nhiêu phút → không gửi.
+    !!policy;
   // Giới hạn giờ theo ngày đã chọn (giờ mở cửa PK).
-  const ch = apptDate ? clinicHoursForDate(apptDate) : null;
+  const ch =
+    apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
   const minHour = ch ? Number(ch.open.slice(0, 2)) : 0;
   const maxHour = ch ? Number(ch.close.slice(0, 2)) - 1 : 23;
 
   async function book() {
     setError(null);
+    if (!policy) {
+      setError(
+        "Chưa đọc được luật đặt lịch của phòng khám — tải lại trang rồi thử lại.",
+      );
+      return;
+    }
     // Interpret the picked date+time as Vietnam time (GMT+7), not the browser's.
     const start = new Date(vnLocalToUtcISO(apptDate, apptTime));
     // Logic thời gian thực: KHÔNG cho đặt lịch vào quá khứ.
@@ -307,7 +337,7 @@ export default function AppointmentBooking({
       return;
     }
     // Trong giờ mở cửa PK (T2–T6 17–23h; T7+CN cả ngày).
-    const chErr = clinicHoursError(apptDate, apptTime);
+    const chErr = clinicHoursError(apptDate, apptTime, policy.hours);
     if (chErr) {
       setError(chErr);
       return;
@@ -484,7 +514,7 @@ export default function AppointmentBooking({
             onChange={setApptTime}
             minHour={minHour}
             maxHour={maxHour}
-            minutesOptions={["00", "15", "30", "45"]}
+            minutesOptions={policy ? slotMinuteOptions(policy) : []}
           />
           <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
             ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
@@ -537,11 +567,11 @@ export default function AppointmentBooking({
                 const ui = CELL_UI[b.state] ?? CELL_UI.free;
                 return (
                   <span
-                    key={b.hour_start}
-                    title={ui.label}
+                    key={b.time}
+                    title={`${ui.label} — ${b.regular_used}/${b.regular_cap} chỗ đặt hẹn`}
                     className={`rounded-chip px-1.5 py-0.5 text-[11px] ${ui.className}`}
                   >
-                    {String(b.hour_start).padStart(2, "0")}h · {ui.label}
+                    {b.time} · {b.regular_used}/{b.regular_cap}
                   </span>
                 );
               })}

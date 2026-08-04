@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from clinicai.api.identity import (
-    DOCTOR_ROLES,
+    PHYSICIAN_ROLES,
     ClinicRole,
     StaffIdentity,
     require_role,
@@ -35,7 +35,7 @@ from clinicai.tools.brief.generate_brief import PreVisitBrief
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/brief", tags=["brief"])
-_BRIEF_GUARD = require_role(*DOCTOR_ROLES, ClinicRole.TKYK)
+_BRIEF_GUARD = require_role(*PHYSICIAN_ROLES, ClinicRole.TKYK)
 BRIEF_RATE_LIMIT = InMemoryRateLimiter(
     scope="pre-visit-brief",
     limit=20,

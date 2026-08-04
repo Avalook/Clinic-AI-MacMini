@@ -45,7 +45,7 @@ async def create_staff(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffRead:
     """Create a new staff member."""
-    service = StaffService(pool, identity.clinic_id)
+    service = StaffService(pool, identity.clinic_id, actor=identity)
     try:
         return await service.create_staff(data)
     except CoreValidationError as exc:
@@ -59,7 +59,7 @@ async def get_staff_by_id(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffRead:
     """Retrieve a staff member by ID."""
-    service = StaffService(pool, identity.clinic_id)
+    service = StaffService(pool, identity.clinic_id, actor=identity)
     staff = await service.get_by_id(id)
     if staff is None:
         raise NotFoundError(f"Staff {id} not found")
@@ -74,7 +74,7 @@ async def list_staff(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[StaffRead]:
     """List active or assignable staff members, optionally filtered by location."""
-    service = StaffService(pool, identity.clinic_id)
+    service = StaffService(pool, identity.clinic_id, actor=identity)
     if assignable:
         staff_list = await service.list_assignable()
         if location_id is not None:
@@ -92,7 +92,7 @@ async def update_staff(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffRead:
     """Partially update a staff member."""
-    service = StaffService(pool, identity.clinic_id)
+    service = StaffService(pool, identity.clinic_id, actor=identity)
     try:
         return await service.update_staff(id, data)
     except CoreResourceNotFoundError as exc:
@@ -108,7 +108,7 @@ async def delete_staff(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> None:
     """Soft delete (deactivate) a staff member."""
-    service = StaffService(pool, identity.clinic_id)
+    service = StaffService(pool, identity.clinic_id, actor=identity)
     try:
         await service.deactivate(id)
     except CoreResourceNotFoundError as exc:

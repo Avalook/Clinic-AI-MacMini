@@ -4,6 +4,7 @@
 // Dược sĩ xem đơn thuốc + hướng dẫn dùng, ghi chú tư vấn.
 
 import { useMemo, useState } from "react";
+import { VN_TZ } from "../../../../lib/datetime";
 
 interface ConsultPatient {
   full_name: string | null;
@@ -27,7 +28,7 @@ interface Props {
 }
 
 const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
+  iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: VN_TZ }) : "—";
 
 export default function ConsultBoard({ records }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);

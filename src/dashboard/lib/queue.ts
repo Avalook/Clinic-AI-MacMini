@@ -20,33 +20,17 @@ export interface HasQueue {
  *  rỗng (đồng nhất định nghĩa "Đã trả" của /lab-queue). KHÔNG dùng triage_group: API nhập
  *  KQ (lab-result PATCH) không bao giờ đổi cột này (bộ phân loại GROUP_A/B/C chưa wire)
  *  nên nó luôn = 'PENDING' → nếu xét theo nó thì làn B3 không bao giờ sáng. */
-export interface LabLite {
-  appointment_id?: string | null;
-  result_value?: string | null;
-  external_ref?: string | null;
-}
 
-/**
- * Tập appointment "Chờ đọc KQ (B3)": có ≥1 KQ ĐÃ về (result_value/external_ref khác rỗng)
- * VÀ KHÔNG còn KQ nào treo (cả hai rỗng). = mọi chỉ định XN của lượt đã có kết quả → bác sĩ
- * có thể đọc/kết luận ngay. (Phase 1 chỉ lab — lab_result.appointment_id nối sạch.)
- */
-export function b3ReadyApptIds(labs: LabLite[]): Set<string> {
-  const agg = new Map<string, { resulted: number; pending: number }>();
-  for (const l of labs) {
-    const id = (l.appointment_id ?? "").trim();
-    if (!id) continue;
-    const e = agg.get(id) ?? { resulted: 0, pending: 0 };
-    const hasResult =
-      !!(l.result_value ?? "").trim() || !!(l.external_ref ?? "").trim();
-    if (hasResult) e.resulted += 1;
-    else e.pending += 1;
-    agg.set(id, e);
-  }
-  const ready = new Set<string>();
-  for (const [id, e] of agg) if (e.resulted > 0 && e.pending === 0) ready.add(id);
-  return ready;
-}
+// LUẬT B3 ĐÃ CHUYỂN XUỐNG BACKEND (2026-08-04).
+//
+// `b3ReadyApptIds` từng sống ở đây: "lượt nào có kết quả xét nghiệm về đủ thì
+// kéo lên đầu hàng đợi". Đó là một luật quyết định THỨ TỰ GỌI BỆNH NHÂN, và nó
+// còn kéo theo một truy vấn lab_result riêng ở tasks/page.tsx.
+//
+// Nay nó nằm trong doctor_board_service.py, tính cùng truy vấn lấy lịch hẹn —
+// một vòng mạng thay vì hai, và một chỗ thay vì một chỗ-trong-trình-duyệt.
+// Bảy tình huống của luật (chỉ external_ref, toàn khoảng trắng, còn phiếu chờ…)
+// được đối chiếu trực tiếp với bản cũ trước khi đổi.
 
 /** Cửa sổ trễ: người có hẹn check-in muộn quá ngần này thì MẤT ưu tiên giờ hẹn. */
 export const LATE_GRACE_MS = 10 * 60_000;

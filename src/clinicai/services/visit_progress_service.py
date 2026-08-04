@@ -20,17 +20,22 @@ directly (migration 20260730000013).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
 
 import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 
 logger = structlog.get_logger()
 
 # The clinic's day is a Vietnam-local day, not the server's.
-_VN = timezone(timedelta(hours=7))
+# VÙNG IANA, KHÔNG PHẢI OFFSET CỐ ĐỊNH. Dòng này từng là
+# `timezone(timedelta(hours=7))`. Với Việt Nam hai thứ cho cùng kết quả (nước
+# này chưa từng dùng giờ mùa hè), nên sai lệch không bao giờ lộ — cho tới ngày
+# ai đó copy nó sang một chỗ có DST.
+_VN = _CLINIC_TZ
 
 # /home asks for a week. The cap is there so a mistyped range cannot ask for a
 # year of appointments in one query.

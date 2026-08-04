@@ -77,6 +77,7 @@ INSERT INTO public.clinic (id, code, name)
 VALUES ('a0000000-0000-4000-8000-000000000001', 'DR4WOMEN', 'Phòng khám Dr4Women')
 ON CONFLICT (id) DO NOTHING;
 
+
 CREATE OR REPLACE FUNCTION public.default_clinic_id()
 RETURNS uuid
 LANGUAGE sql
@@ -289,3 +290,20 @@ CREATE POLICY clinic_membership_select_own
     FOR SELECT
     TO authenticated
     USING (clinic_id IN (SELECT public.current_clinic_ids()));
+
+-- ---------------------------------------------------------------------------
+-- MỘT PHÒNG KHÁM PHẢI CÓ ÍT NHẤT MỘT CƠ SỞ, ngay từ lúc được tạo.
+--
+-- Đây không phải luật mới — 20260803000007 đã khẳng định đúng điều đó, và
+-- 20260804000012 đặt clinic_room.location_id NOT NULL. Nhưng cả hai đều nằm sau
+-- migration này, nên trên một database TRẮNG có một quãng mà phòng khám tồn tại
+-- và chưa có cơ sở nào; mọi thứ dựng trong quãng đó (phòng, nhân sự) đều lơ
+-- lửng, và cả chuỗi migration đứt ở đúng chỗ đầu tiên đòi hỏi cơ sở.
+--
+-- Trên production không đổi gì: cơ sở đã có sẵn từ seed, ON CONFLICT bỏ qua.
+INSERT INTO public.clinic_location (clinic_id, code, name, is_active)
+SELECT c.id, 'MAIN', c.name, true
+  FROM public.clinic c
+ WHERE NOT EXISTS (SELECT 1 FROM public.clinic_location l
+                    WHERE l.clinic_id = c.id)
+ON CONFLICT ON CONSTRAINT uq_clinic_location_clinic_code DO NOTHING;

@@ -30,6 +30,8 @@ def _doctor() -> StaffIdentity:
         department="DOCTOR",
         role=ClinicRole.DOCTOR,
         clinic_id=str(CLINIC_ID),
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 

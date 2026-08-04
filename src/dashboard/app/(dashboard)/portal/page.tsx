@@ -3,6 +3,7 @@
 // Tổng hợp: trạng thái hệ thống, vai trò, màn hình, hạ tầng, số liệu vận hành.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { VN_TZ } from "../../../lib/datetime";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import PortalBoard from "./PortalBoard";
@@ -19,8 +20,10 @@ export default async function PortalPage() {
 
   const supabase = await getSupabaseServer();
 
-  // Lấy danh sách nhân viên + trạng thái liên kết tài khoản
-  const { data: staffRows } = await supabase
+  // Danh sách nhân viên KHÔNG phụ thuộc mấy con số bên dưới — nó chỉ nằm
+  // trước vì được viết trước. Đợi nó xong rồi mới bắn khối kia là cộng thêm
+  // một lượt ~210ms sang Seoul cho không.
+  const qStaff = supabase
     .from("staff")
     .select(
       "id, full_name, short_name, primary_department, employment_type, is_active, auth_user_id",
@@ -31,7 +34,7 @@ export default async function PortalPage() {
   // Lấy số liệu hôm nay: lịch hẹn, bệnh nhân, lượt khám
   const vnNow = new Date();
   const vnToday = new Date(
-    vnNow.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }),
+    vnNow.toLocaleString("en-US", { timeZone: VN_TZ }),
   );
   const dayStart = new Date(
     Date.UTC(
@@ -56,12 +59,14 @@ export default async function PortalPage() {
   ).toISOString();
 
   const [
+    { data: staffRows },
     apptTodayRes,
     patientTodayRes,
     visitTodayRes,
     pendingTaskRes,
     eventLogRes,
   ] = await Promise.all([
+    qStaff,
     supabase
       .from("appointment")
       .select("*", { count: "exact", head: true })
@@ -78,9 +83,9 @@ export default async function PortalPage() {
       .gte("created_at", dayStart)
       .lt("created_at", dayEnd),
     supabase
-      .from("staff_task")
+      .from("work_item")
       .select("*", { count: "exact", head: true })
-      .eq("status", "PENDING"),
+      .in("status", ["PENDING", "IN_PROGRESS"]),
     supabase
       .from("event_log")
       .select("event_id, event_type, aggregate_type, source, occurred_at")

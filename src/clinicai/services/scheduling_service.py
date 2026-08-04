@@ -19,6 +19,7 @@ from clinicai.schemas.scheduling import (
     WorkSessionStaffAssignDTO,
     WorkSessionStaffDTO,
 )
+from clinicai.services.booking_service import is_walkin
 
 logger = structlog.get_logger()
 
@@ -245,6 +246,20 @@ class SchedulingService:
                             "Doctor is not assigned to the specified work session"
                         )
 
+                # BOTH COLUMNS, DERIVED FROM ONE ANSWER. The capacity triggers
+                # read `booking_channel` and nothing else; this path used to set
+                # only `is_walkin`, so an agent-created walk-in was counted
+                # against the *booked* seats and the reserved walk-in seat stayed
+                # free. Whichever field the caller filled in now decides both,
+                # and 20260803000004 adds a CHECK so they can never disagree
+                # again.
+                walkin = data.is_walkin or is_walkin(data.booking_channel)
+                channel = (
+                    "WALK_IN"
+                    if walkin
+                    else ((data.booking_channel or "").strip() or None)
+                )
+
                 row = await conn.fetchrow(
                     """
                     INSERT INTO appointment (
@@ -266,13 +281,13 @@ class SchedulingService:
                     data.work_session_id,
                     data.location_id,
                     data.service_type_id,
-                    data.booking_channel,
+                    channel,
                     data.slot_start,
                     data.slot_end,
                     data.assigned_station,
                     data.queue_number,
                     data.is_priority_slot,
-                    data.is_walkin,
+                    walkin,
                     self._clinic_id,
                 )
         except asyncpg.exceptions.CheckViolationError as exc:

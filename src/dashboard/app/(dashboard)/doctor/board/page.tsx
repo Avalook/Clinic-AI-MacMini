@@ -11,6 +11,7 @@ import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchWorklist } from "@/lib/worklist-server";
 
 import DoctorBoard from "./DoctorBoard";
+import LiveBoardSync from "../../LiveBoardSync";
 
 export const metadata = { title: "Bàn khám · ClinicAI" };
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ export default async function DoctorBoardPage() {
   });
 
   return (
+    <>
+      <LiveBoardSync />
     <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -88,5 +91,6 @@ export default async function DoctorBoardPage() {
         </>
       )}
     </main>
+    </>
   );
 }

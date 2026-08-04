@@ -31,6 +31,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
@@ -212,6 +213,18 @@ class UltrasoundService:
                         identity.clinic_id,
                     )
                 else:
+                    # ON CONFLICT, VÌ CÂU SELECT Ở TRÊN KHÔNG KHOÁ GÌ CẢ.
+                    #
+                    # Giữa lúc đọc "chưa có phiếu" và lúc ghi, một request khác
+                    # có thể đã ghi xong. Trước 20260803000006 bảng không có ràng
+                    # buộc duy nhất nào, nên kết quả là HAI phiếu siêu âm cho một
+                    # lượt khám, không lỗi, không dấu hiệu — và lần đọc sau lấy
+                    # phiếu nào là tuỳ thứ tự database trả về, tức số đo hiện ra
+                    # có thể là bản cũ.
+                    #
+                    # uq_ultrasound_visit_type biến cuộc đua đó thành xung đột,
+                    # và DO UPDATE hợp nhất nó vào đúng phiếu đang có thay vì bắt
+                    # người dùng nhập lại.
                     await conn.execute(
                         """
                         INSERT INTO ultrasound_record (
@@ -220,6 +233,12 @@ class UltrasoundService:
                         )
                         VALUES ($5::uuid, $1::uuid, $2::uuid, $3::uuid, 'Thai',
                                 $4, now())
+                        ON CONFLICT (clinic_id, visit_id, ultrasound_type)
+                            WHERE visit_id IS NOT NULL
+                        DO UPDATE SET
+                            findings     = EXCLUDED.findings,
+                            performed_by = EXCLUDED.performed_by,
+                            performed_at = now()
                         """,
                         visit_id,
                         clinic_patient_id,
@@ -227,6 +246,30 @@ class UltrasoundService:
                         _json(findings),
                         identity.clinic_id,
                     )
+
+                # Số đo siêu âm là dữ liệu lâm sàng và cũng là căn cứ của quyết
+                # định điều trị — ai nhập, lúc nào, cho lượt khám nào phải có
+                # dấu vết. Ghi TÊN chỉ số đã nhập, không ghi trị số.
+                await record_event(
+                    conn,
+                    event_type=(
+                        "ultrasound.measurements_updated"
+                        if record is not None
+                        else "ultrasound.measurements_created"
+                    ),
+                    aggregate_type="ultrasound_record",
+                    aggregate_id=str(visit_id),
+                    identity=identity,
+                    origin="api:ultrasound",
+                    payload={
+                        "visit_id": str(visit_id),
+                        "measurements": sorted(measurements.keys())
+                        if isinstance(measurements, dict)
+                        else [],
+                        "is_abnormal": is_abnormal,
+                        "status": status,
+                    },
+                )
 
         logger.info(
             "ultrasound_measurements_saved",

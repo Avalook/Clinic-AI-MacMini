@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole } from "../../../lib/clinic-session";
-import { isDoctorRole, canWriteClinical } from "../../../lib/roles";
+import { isPhysicianRole, canWriteClinical } from "../../../lib/roles";
 import { toHref } from "../../../lib/url";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
@@ -32,7 +32,9 @@ export async function POST(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const role = await getClinicRole();
-  if (!isDoctorRole(role)) {
+  // isPhysicianRole, not isDoctorRole: lab.py's _ORDER_GUARD excludes TKYK, and
+  // a screen that offers a button the server will refuse is worse than no button.
+  if (!isPhysicianRole(role)) {
     return NextResponse.json(
       { error: "Chỉ bác sĩ mới chỉ định xét nghiệm." },
       { status: 403 },

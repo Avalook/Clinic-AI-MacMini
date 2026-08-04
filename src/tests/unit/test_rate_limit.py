@@ -21,6 +21,8 @@ def _identity(
         department=ClinicRole.DOCTOR.value,
         role=ClinicRole.DOCTOR,
         clinic_id=clinic_id,
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 

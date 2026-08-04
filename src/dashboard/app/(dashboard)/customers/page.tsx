@@ -12,6 +12,7 @@ import {
   vnTodayRangeUtc,
   vnMonthStartUtc,
   vnLocalToUtcISO,
+  VN_TZ,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
 import CustomersView, {
@@ -21,13 +22,14 @@ import CustomersView, {
   type Period,
   type ByDim,
 } from "./CustomersView";
+import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
 /** Đầu tháng SAU theo giờ VN, dạng UTC ISO (chặn cuối cửa sổ "Tháng này"). */
 function vnNextMonthStartUtc(): string {
   const ymd = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
   const [y, m] = ymd.split("-").map(Number);
   const ny = m === 12 ? y + 1 : y;
@@ -158,14 +160,7 @@ export default async function CustomersPage({
     canEdit
       ? supabase.from("service_type").select("id, name").order("name")
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    canEdit
-      ? supabase
-          .from("staff")
-          .select("id, full_name")
-          .in("primary_department", ["DOCTOR", "ULTRASOUND_DOCTOR"])
-          .eq("is_active", true)
-          .order("full_name")
-      : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+    canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
 
   let { data, error } = patRes;
@@ -183,28 +178,43 @@ export default async function CustomersPage({
   const services: Opt[] = ((svcRes.data ?? []) as { id: string; name: string }[])
     .filter((r) => (r.name ?? "").trim().toUpperCase() !== "FREE")
     .map((r) => ({ id: r.id, label: r.name }));
-  const doctors: Opt[] = (
-    (docRes.data ?? []) as { id: string; full_name: string }[]
-  ).map((r) => ({ id: r.id, label: r.full_name }));
+  const doctors: Opt[] = docRes;
+
+  const shownIds = rows.map((r) => r.clinic_patient_id);
+  // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (id/dịch vụ/bác sĩ/
+  // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
+  const apptSelectAll = canManage
+    ? `clinic_patient_id, id, slot_start, status, service_type_id, doctor_id, location_id, booking_channel,
+       service:service_type!service_type_id ( name ),
+       doctor:staff!doctor_id ( full_name )`
+    : "clinic_patient_id, slot_start, status";
+  const apptsPromise = shownIds.length
+    ? supabase
+        .from("appointment")
+        .select(apptSelectAll)
+        .in("clinic_patient_id", shownIds)
+        .order("slot_start", { ascending: true })
+        .limit(3000)
+    : Promise.resolve({ data: [] as unknown[] });
+  const cskhPromise = shownIds.length
+    ? supabase
+        .from("cskh_action")
+        .select(
+          "id, clinic_patient_id, category, step, status, description, deadline_at, source_created_at, created_by_text, last_edited_by_text",
+        )
+        .in("clinic_patient_id", shownIds)
+        .order("source_created_at", { ascending: false })
+        .limit(1000)
+    : Promise.resolve({ data: [] as unknown[] });
 
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
   // nếu không có thì lịch GẦN NHẤT trong quá khứ. Kèm tổng số lịch.
   const apptByPatient: Record<string, ApptInfo> = {};
   if (rows.length) {
-    const ids = rows.map((r) => r.clinic_patient_id);
-    // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (id/dịch vụ/bác sĩ/
-    // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
-    const apptSelect = canManage
-      ? `clinic_patient_id, id, slot_start, status, service_type_id, doctor_id, location_id, booking_channel,
-         service:service_type!service_type_id ( name ),
-         doctor:staff!doctor_id ( full_name )`
-      : "clinic_patient_id, slot_start, status";
-    const { data: appts } = await supabase
-      .from("appointment")
-      .select(apptSelect)
-      .in("clinic_patient_id", ids)
-      .order("slot_start", { ascending: true })
-      .limit(3000);
+    // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
+    // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
+    // quả. `await` ở đây chỉ chờ đúng cái đã bay từ trước.
+    const { data: appts } = await apptsPromise;
     const nowUtc = new Date().toISOString();
     type Raw = {
       clinic_patient_id: string;
@@ -259,6 +269,54 @@ export default async function CustomersPage({
     }
   }
 
+  // Lịch hẹn + CSKH actions (trạng thái, tương tác, hạn xử lý, phụ trách)
+  type CskhRaw = {
+    id: string;
+    clinic_patient_id: string;
+    category: string | null;
+    step: string | null;
+    status: string | null;
+    description: string | null;
+    deadline_at: string | null;
+    source_created_at: string | null;
+    created_by_text: string | null;
+    last_edited_by_text: string | null;
+  };
+  const cskhByPatient: Record<
+    string,
+    {
+      status: string;
+      lastInteraction: string | null;
+      nextStep: string | null;
+      deadline: string | null;
+      assignee: string | null;
+    }
+  > = {};
+
+  if (rows.length) {
+    const { data: cskhActions } = await cskhPromise;
+
+    // Group by patient, pick latest action
+    const grouped: Record<string, CskhRaw[]> = {};
+    for (const a of (cskhActions as CskhRaw[] | null) ?? []) {
+      if (a.clinic_patient_id) {
+        (grouped[a.clinic_patient_id] ??= []).push(a);
+      }
+    }
+    for (const [pid, actionList] of Object.entries(grouped)) {
+      const latest = actionList[0]; // already sorted DESC
+      if (!latest) continue;
+      cskhByPatient[pid] = {
+        status: latest.status ?? "OPEN",
+        lastInteraction: latest.description ?? null,
+        nextStep: latest.step ?? null,
+        deadline: latest.deadline_at ?? null,
+        assignee:
+          latest.last_edited_by_text ?? latest.created_by_text ?? null,
+      };
+    }
+  }
+
   return (
     <div className="space-y-3">
       <header>
@@ -266,10 +324,10 @@ export default async function CustomersPage({
           CSKH · khách hàng
         </p>
         <h1 className="text-xl font-semibold text-ink">
-          Thông tin khách hàng
+          Quản lý khách hàng
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Theo dõi hồ sơ hành chính, lịch hẹn và bước xử lý tiếp theo từ dữ liệu hiện có.
+          Theo dõi trạng thái và bước tiếp theo của từng khách hàng
         </p>
       </header>
 
@@ -281,6 +339,7 @@ export default async function CustomersPage({
         <CustomersView
           rows={rows}
           apptByPatient={apptByPatient}
+          cskhByPatient={cskhByPatient}
           locations={locations}
           q={q}
           period={period}

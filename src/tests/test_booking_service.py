@@ -8,6 +8,7 @@ should be a conversation rather than a green refactor.
 from __future__ import annotations
 
 import asyncio
+import inspect
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,17 +21,14 @@ from clinicai.services.booking_service import (
     DEAD_STATUSES,
     DOCTOR_OVERLAP_CAP,
     KEEP_STATUS,
-    REGULAR_CAP,
     TRANSITIONS,
-    WALKIN_CAP,
     Action,
     BookingService,
     is_dead,
     is_walkin,
     resolve_action,
-    slot_bucket,
-    suggest_load,
 )
+from clinicai.services.clinic_policy import DEFAULT_POLICY, ClinicPolicy
 
 
 class TestTransitions:
@@ -53,13 +51,44 @@ class TestTransitions:
         # doctor close a visit for someone still in the car park.
         assert TRANSITIONS["complete"].from_statuses == frozenset({"CHECKED_IN"})
 
-    def test_confirmation_is_two_step(self) -> None:
-        # CSKH confirms with the patient (SCHEDULED -> CSKH_CONFIRMED); the slot
-        # still waits on the doctor, so confirm accepts both.
+    def test_a_new_booking_needs_no_confirming(self) -> None:
+        """LUẬT ĐÃ ĐỔI (Quang, 2026-08-04) — không còn vòng gọi xác nhận.
+
+        Trước: đặt lịch ra SCHEDULED ("chờ xác nhận"), rồi CSKH gọi cho bệnh
+        nhân để xác nhận, rồi bác sĩ nhận. Ba bước cho một việc đã xong.
+
+        Lý do của Quang: *"nó vốn phải là cái đã được gọi tới CSKH hoặc nhắn
+        tin rồi mới đặt mà"*. Cuộc gọi ấy CHÍNH LÀ thứ sinh ra lịch hẹn; gọi
+        lại để xác nhận cái vừa thoả thuận là làm hai lần một việc.
+
+        `confirm` và `cskh_confirm` KHÔNG nhận CONFIRMED: lịch mới đã chắc rồi,
+        "nhận" thêm lần nữa chỉ đẻ ra một event không nói thêm gì.
+        """
+        assert "CONFIRMED" not in TRANSITIONS["cskh_confirm"].from_statuses
+        assert "CONFIRMED" not in TRANSITIONS["confirm"].from_statuses
+
+    def test_the_old_confirm_path_still_works_for_old_appointments(self) -> None:
+        """23 lịch SCHEDULED trên prod đặt từ trước luật này.
+
+        Bỏ đường đi của chúng là làm 23 lịch hẹn thật kẹt cứng — người cầm
+        chúng vẫn phải khám được, đổi được, huỷ được.
+        """
         assert TRANSITIONS["cskh_confirm"].from_statuses == frozenset({"SCHEDULED"})
         assert TRANSITIONS["confirm"].from_statuses == frozenset(
             {"SCHEDULED", "CSKH_CONFIRMED"}
         )
+        for act in ("checkin", "cancel", "reschedule"):
+            assert "SCHEDULED" in TRANSITIONS[act].from_statuses
+
+    def test_a_doctor_may_still_decline_an_already_confirmed_appointment(
+        self,
+    ) -> None:
+        """Bỏ vòng xác nhận KHÔNG có nghĩa là bác sĩ hết quyền từ chối.
+
+        Lịch mới sinh ra đã CONFIRMED; nếu decline không nhận CONFIRMED thì kể
+        từ hôm nay không bác sĩ nào từ chối được lịch nào nữa.
+        """
+        assert "CONFIRMED" in TRANSITIONS["decline"].from_statuses
 
     def test_check_in_does_not_wait_for_the_doctor(self) -> None:
         # D21: reception checks in from any live appointment. Requiring CONFIRMED
@@ -77,6 +106,17 @@ class TestTransitions:
 
     def test_reassignment_only_rescues_a_declined_appointment(self) -> None:
         assert TRANSITIONS["reassign"].from_statuses == frozenset({"DOCTOR_DECLINED"})
+
+    def test_reassigning_does_not_send_the_patient_back_to_be_confirmed(
+        self,
+    ) -> None:
+        """Đổi bác sĩ là việc NỘI BỘ.
+
+        Trước đây reassign trả lịch về SCHEDULED — tức là về "chờ xác nhận", và
+        CSKH phải gọi lại bệnh nhân chỉ vì bên trong phòng khám đổi người. Thoả
+        thuận với bệnh nhân không mất đi khi một bác sĩ bận.
+        """
+        assert TRANSITIONS["reassign"].to_status == "CONFIRMED"
 
     def test_a_declined_appointment_is_not_cancelled(self) -> None:
         # It keeps its doctor_id for history and surfaces to CSKH to reassign.
@@ -125,9 +165,20 @@ class TestRoleGates:
 
 
 class TestSeatRule:
-    def test_two_plus_one(self) -> None:
-        # Each doctor × 15 minutes: two booked seats, one held for a walk-in.
-        assert (REGULAR_CAP, WALKIN_CAP) == (2, 1)
+    def test_dr4women_still_gets_two_plus_one(self) -> None:
+        # Đây là luật của Dr4Women, không phải của sản phẩm (C.3) — nhưng nó vẫn
+        # phải là cái phòng khám nhận được khi không khai gì, nếu không thì
+        # migration đã lặng lẽ đổi cách một phòng khám đang chạy vận hành.
+        assert (DEFAULT_POLICY.regular_cap, DEFAULT_POLICY.walkin_cap) == (2, 1)
+        assert DEFAULT_POLICY.slot_minutes == 15
+
+    def test_a_clinic_can_have_a_different_rule(self) -> None:
+        # Cái test này là toàn bộ lý do C.3 tồn tại: khung 30 phút, 4 chỗ đặt
+        # trước, không nhận vãng lai — không phải sửa dòng code nào.
+        other = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=0)
+        assert other.cap_for(walkin=False) == 4
+        assert other.cap_for(walkin=True) == 0
+        assert other.total_seats == 4
 
     def test_a_freed_seat_is_reusable(self) -> None:
         # Cancelled, no-show and declined stop holding the slot; anything else
@@ -153,9 +204,21 @@ class TestSlotBucket:
         ("minute", "expected"), [(0, 0), (7, 0), (14, 0), (15, 15), (44, 30), (59, 45)]
     )
     def test_a_time_lands_in_its_quarter(self, minute: int, expected: int) -> None:
-        begin, end = slot_bucket(datetime(2026, 7, 30, 9, minute, tzinfo=timezone.utc))
+        moment = datetime(2026, 7, 30, 9, minute, tzinfo=timezone.utc)
+        begin, end = DEFAULT_POLICY.bucket(moment)
         assert begin.minute == expected
         assert (end - begin).total_seconds() == 15 * 60
+
+    @pytest.mark.parametrize(
+        ("minute", "expected"), [(0, 0), (14, 0), (29, 0), (30, 30), (59, 30)]
+    )
+    def test_a_half_hour_clinic_lands_in_its_half(
+        self, minute: int, expected: int
+    ) -> None:
+        moment = datetime(2026, 7, 30, 9, minute, tzinfo=timezone.utc)
+        begin, end = ClinicPolicy(slot_minutes=30).bucket(moment)
+        assert begin.minute == expected
+        assert (end - begin).total_seconds() == 30 * 60
 
     def test_buckets_line_up_with_the_clinic_grid(self) -> None:
         # Flooring on the UTC epoch is only safe because Vietnam's offset is a
@@ -167,19 +230,41 @@ class TestSlotBucket:
         assert offset.total_seconds() % 3600 == 0
 
 
-class TestSuggestedLoad:
-    def test_a_new_patient_gets_the_longer_slot(self) -> None:
-        assert suggest_load("NEW", False) == (15, 0)
-        assert suggest_load("NEW", True) == (15, 12)
+class TestNoInventedDurations:
+    """The 15'/5'/+12'/+8' table is gone, and must not come back.
 
-    def test_a_returning_patient_is_quicker(self) -> None:
-        assert suggest_load("RETURN", False) == (5, 0)
-        assert suggest_load("RETURN", True) == (7, 8)
+    TestSuggestedLoad used to live here and asserted those four numbers. It
+    passed for months, which is the point worth remembering: the test proved the
+    code returned what someone once typed, not that a new patient takes fifteen
+    minutes. No measurement was ever involved, and nothing in the suite would
+    have noticed if the real figure were twenty-two.
 
-    def test_no_kind_means_no_suggestion(self) -> None:
-        # Rather than guessing a duration onto the schedule.
-        assert suggest_load(None, True) == (None, None)
-        assert suggest_load("SOMETHING", False) == (None, None)
+    Durations are now OBSERVED (work_item.started_at → finished_at, exposed as
+    v_consultation_duration in 20260803000005). Booking limits are the SEAT
+    COUNT that Trưởng ca / Quản lý configure. This test guards the boundary
+    between those two ideas.
+    """
+
+    def test_the_service_no_longer_exports_a_duration_guesser(self) -> None:
+        import clinicai.services.booking_service as mod
+
+        assert not hasattr(mod, "suggest_load"), (
+            "suggest_load is back. Duration belongs to measurement "
+            "(v_consultation_duration), not to a table of constants."
+        )
+
+    def test_absent_minutes_stay_absent(self) -> None:
+        """NULL means 'nobody estimated', and that is a usable answer.
+
+        The old code filled the gap from the constant table, so every row looked
+        estimated even when nobody had estimated anything — which made the
+        guessed numbers indistinguishable from real ones in the data.
+        """
+        from clinicai.services.booking_service import BookingService
+
+        source = inspect.getsource(BookingService.create)
+        assert "suggest_load" not in source
+        assert "thanh = thanh_min" in source
 
 
 class _Conn:
@@ -209,6 +294,8 @@ def _identity() -> StaffIdentity:
         department="CSKH",
         role=ClinicRole.CSKH,
         clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 
@@ -222,7 +309,7 @@ class TestSeatMessages:
 
     def test_a_full_booked_slot_says_the_third_seat_is_for_walk_ins(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(REGULAR_CAP, 0))
+        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -230,16 +317,17 @@ class TestSeatMessages:
                 datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                 "ZALO",
                 _identity(),
+                DEFAULT_POLICY,
             )
         )
         assert message is not None
-        assert "BN1, BN2" in message and "vãng lai" in message
+        assert "2 chỗ đặt hẹn" in message and "vãng lai" in message
         # The window is stated in clinic time, not UTC.
         assert "16:15–16:30" in message
 
     def test_the_reserved_seat_is_still_free_for_a_walk_in(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(REGULAR_CAP, 0))
+        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
         assert (
             asyncio.run(
                 service._slot_full(
@@ -248,6 +336,7 @@ class TestSeatMessages:
                     datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                     "WALK_IN",
                     _identity(),
+                    DEFAULT_POLICY,
                 )
             )
             is None
@@ -255,7 +344,7 @@ class TestSeatMessages:
 
     def test_a_second_walk_in_is_turned_away(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(0, WALKIN_CAP))
+        conn = _Conn(self._rows(0, DEFAULT_POLICY.walkin_cap))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -263,6 +352,7 @@ class TestSeatMessages:
                 datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                 "WALK_IN",
                 _identity(),
+                DEFAULT_POLICY,
             )
         )
         assert message is not None and "khung 15 phút kế tiếp" in message
@@ -278,10 +368,50 @@ class TestSeatMessages:
                     datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
                     "ZALO",
                     _identity(),
+                    DEFAULT_POLICY,
                 )
             )
             is None
         )
+
+    def test_the_sentence_follows_the_clinic_not_the_code(self) -> None:
+        # Phòng khám khung 30 phút, 4 chỗ: cùng một hàng dữ liệu, khác câu trả
+        # lời. Nếu câu này vẫn nói "15 phút" thì lễ tân được bảo đi tìm một
+        # khung không tồn tại trên lưới của họ.
+        service = BookingService(MagicMock())
+        policy = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=1)
+        conn = _Conn(self._rows(4, 0))
+        message = asyncio.run(
+            service._slot_full(
+                conn,
+                None,
+                datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
+                "ZALO",
+                _identity(),
+                policy,
+            )
+        )
+        assert message is not None
+        assert "4 chỗ đặt hẹn" in message
+        # 09:00–09:30 UTC = 16:00–16:30 giờ phòng khám, không phải 16:15–16:30.
+        assert "16:00–16:30" in message
+
+    def test_a_clinic_that_takes_no_walk_ins_says_so_on_the_first_one(self) -> None:
+        service = BookingService(MagicMock())
+        policy = ClinicPolicy(walkin_cap=0)
+        conn = _Conn(self._rows(0, 0))
+        message = asyncio.run(
+            service._slot_full(
+                conn,
+                None,
+                datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
+                "WALK_IN",
+                _identity(),
+                policy,
+            )
+        )
+        assert message is not None
+        assert "0 chỗ vãng lai" in message
 
     def test_the_overlap_message_names_the_doctor_and_the_window(self) -> None:
         service = BookingService(MagicMock())
@@ -492,3 +622,77 @@ async def test_doctor_change_audit_records_target_doctor(
 
     assert audit_log.await_args is not None
     assert audit_log.await_args.kwargs["payload"]["doctor_id"] == target_doctor
+
+
+class TestANewBookingIsAlreadyDone:
+    """Đặt xong là xong — không có bước "chờ xác nhận" nào nữa.
+
+    Quang (2026-08-04): *"ngay khi chọn hết các thông tin và giờ đặt rồi thì ấn
+    nút đặt lịch hẹn thì phải hoàn thành luôn rồi chứ nhỉ"*.
+    """
+
+    def test_a_booking_lands_confirmed_not_waiting(self) -> None:
+        from clinicai.services.booking_service import initial_status
+
+        assert initial_status(False) == "CONFIRMED"
+
+    def test_it_is_never_scheduled_again(self) -> None:
+        """SCHEDULED = "Chờ xác nhận" ở mọi màn hình. Sinh ra một dòng SCHEDULED
+        là sinh ra một việc gọi điện mà Quang vừa bỏ."""
+        from clinicai.services.booking_service import initial_status
+
+        assert initial_status(False) != "SCHEDULED"
+        assert initial_status(True) != "SCHEDULED"
+
+    def test_a_walkin_today_is_still_checked_in_on_the_spot(self) -> None:
+        """Người đã đứng ở quầy thì không "chờ" gì cả — luật cũ, giữ nguyên."""
+        from clinicai.services.booking_service import initial_status
+
+        assert initial_status(True) == "CHECKED_IN"
+
+
+class TestOnePersonCannotSitInTwoChairs:
+    """Bấm "Đặt lịch hẹn" hai lần không được ra hai lịch hẹn.
+
+    Tìm thấy trên prod 04/08/2026: một bệnh nhân có BA lịch cùng khung 17:15,
+    tạo cách nhau 10 và 5 giây. Khung đó sức chứa 3 — một người chiếm trọn cả
+    khung. Bảng appointment không có ràng buộc duy nhất nào chặn việc này.
+
+    Nặng hơn kể từ khi bỏ bước xác nhận: trước đây lịch thừa còn nằm ở "chờ xác
+    nhận" nên có người rà; giờ nó chắc ngay lúc tạo.
+    """
+
+    def test_the_guard_runs_before_the_write(self) -> None:
+        """Phải nằm TRƯỚC INSERT, không phải bắt lỗi sau.
+
+        Không có chỉ mục duy nhất nào để bắt — prod đang có sẵn 5 dòng trùng từ
+        trước nên tạo chỉ mục lúc này sẽ hỏng ngay lúc migrate.
+        """
+        import inspect
+
+        from clinicai.services.booking_service import BookingService
+
+        src = inspect.getsource(BookingService.create)
+        assert "_patient_double_booked" in src
+        assert src.index("_patient_double_booked") < src.index("INSERT INTO")
+
+    def test_a_cancelled_appointment_does_not_block_rebooking(self) -> None:
+        """Huỷ rồi đặt lại đúng khung cũ là chuyện thường ngày."""
+        import inspect
+
+        from clinicai.services.booking_service import BookingService
+
+        src = inspect.getsource(BookingService._patient_double_booked)
+        assert "DEAD_STATUSES" in src
+
+    def test_it_matches_on_the_exact_start_time_only(self) -> None:
+        """Khám 17:15 rồi siêu âm 17:45 là hai lịch hợp lệ trong một buổi.
+
+        Chặn theo khoảng chồng lấn sẽ cấm luôn chuyện đó.
+        """
+        import inspect
+
+        from clinicai.services.booking_service import BookingService
+
+        src = inspect.getsource(BookingService._patient_double_booked)
+        assert "slot_start = $3" in src

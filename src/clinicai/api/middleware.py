@@ -3,20 +3,41 @@
 Phase 1 of the System Design completion plan.
 
 Middleware order (outermost → innermost):
-  1. request_id_middleware  — assign X-Request-ID, bind to structlog
-  2. timing_middleware      — record duration + status into the ring buffer
-  3. api_key_middleware     — gate on BACKEND_API_KEY (existing)
-  4. db_error_middleware    — catch transient DB errors → 503
+  1. RequestIdMiddleware  — assign X-Request-ID, bind to structlog
+  2. TimingMiddleware     — record duration + status into the ring buffer
+  3. api_key_middleware   — gate on BACKEND_API_KEY (existing)
+  4. DbErrorMiddleware    — catch transient DB errors → 503
 
 Timing sits OUTSIDE the API-key gate on purpose: a flood of rejected requests is
 exactly the kind of thing you want to see on the telemetry screen, and a probe
 that never reaches a route still costs the server time.
+
+HOW THAT ORDER IS ACTUALLY PRODUCED, because it is the opposite of how it reads.
+``Starlette.add_middleware`` does ``user_middleware.insert(0, …)`` — the LAST
+one added ends up OUTERMOST. For three months main.py added them in the order
+written above and got the exact reverse at runtime:
+
+    DbErrorMiddleware → api_key → Timing → RequestId → routes
+
+which quietly cost both things the comments promised. Timing sat *inside* the
+API-key gate, so the rejected flood it exists to show was the one thing it could
+not see; and RequestId sat innermost, so every 401/403/503 went out with no
+``X-Request-ID`` header and every auth log line had no ``request_id`` bound.
+``main.py`` now registers them in reverse and ``test_middleware_order`` asserts
+the resulting stack, so the next person to add one finds out from a red test
+rather than from a debugging session.
+
+WHY DbError IS INNERMOST rather than outermost. It converts a dead connection
+into a 503 *response*. Innermost, Timing then sees status=503 and records it.
+Outermost, the exception would still be flying when Timing's ``finally`` ran and
+the buffer would say 500 for something the client received as 503.
 """
 
 from __future__ import annotations
 
 import time
 import uuid
+from contextvars import ContextVar
 
 import asyncpg
 import structlog
@@ -28,6 +49,24 @@ from clinicai.core.telemetry import route_template, telemetry
 logger = structlog.get_logger()
 
 REQUEST_ID_HEADER = "X-Request-ID"
+
+# The id for the request being served, readable by any middleware inside
+# RequestIdMiddleware.
+#
+# Telemetry used to read ``request.headers.get("X-Request-ID")`` instead, which
+# is only ever set when an upstream proxy happens to send one. Locally and
+# behind Caddy nothing does, so every entry in the error feed carried
+# request_id=None — and the ops screen printed "dùng mã này để tra trong log"
+# next to a value it never had. A generated id cannot be put back into
+# ``request.headers`` (immutable), so it travels here. BaseHTTPMiddleware runs
+# the downstream app in a child task, which inherits contextvars, so an inner
+# middleware sees what an outer one set.
+request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
+
+
+def current_request_id() -> str | None:
+    """The X-Request-ID of the request being served, if one has been assigned."""
+    return request_id_ctx.get()
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -52,8 +91,14 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             method=request.method,
             path=request.url.path,
         )
+        token = request_id_ctx.set(request_id)
 
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        finally:
+            # An unhandled exception must not leave the id bound for whatever
+            # this worker task serves next.
+            request_id_ctx.reset(token)
         response.headers[REQUEST_ID_HEADER] = request_id
         return response
 
@@ -128,7 +173,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
                 method=request.method,
                 status=status,
                 duration_ms=(time.perf_counter() - started) * 1000.0,
-                request_id=request.headers.get(REQUEST_ID_HEADER),
+                request_id=current_request_id(),
                 kind=kind,
                 detail=detail,
             )

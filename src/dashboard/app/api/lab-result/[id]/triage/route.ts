@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
 import { getClinicRole } from "../../../../../lib/clinic-session";
-import { isDoctorRole } from "../../../../../lib/roles";
+import { isPhysicianRole } from "../../../../../lib/roles";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
 
 const UUID_RE =
@@ -20,7 +20,7 @@ export async function POST(
   }
 
   const role = await getClinicRole();
-  if (!isDoctorRole(role)) {
+  if (!isPhysicianRole(role)) {
     return NextResponse.json(
       { error: "Chỉ bác sĩ mới phân loại kết quả xét nghiệm." },
       { status: 403 },

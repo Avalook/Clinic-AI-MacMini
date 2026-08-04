@@ -32,8 +32,24 @@ DECLARE
     -- patient_contact_channel and patient_next_of_kin were adopted from the
     -- production schema (migration 20260801000003) and brought under tenancy;
     -- 39 → 41 on 02/08/2026 for drug_batch + inventory_txn (migration
-    -- 20260802000001, kho thuốc theo lô).
-    expected_tenant_tables constant integer := 41;
+    -- 20260802000001, kho thuốc theo lô);
+    -- 41 → 52 on 04/08/2026, mười một bảng của điều phối, chốt hồ sơ và luật
+    -- vận hành — tất cả đều mang clinic_id ngay từ khi sinh ra:
+    --   clinic_room, clinic_room_node, route_template, visit_route,
+    --   dispatch_threshold            (điều phối Trưởng ca)
+    --   clinical_release              (bác sĩ cho phép gửi kết quả)
+    --   slot_hold                     (giữ chỗ khi CSKH đang chọn)
+    --   visit_gate_rule, visit_gate_override  (luật thứ tự bắt buộc)
+    --   payment_cycle, pos_receipt    (thu ngân)
+    -- 52 → 55 cùng ngày, ba bảng của cấu hình và bộ khám Nam khoa:
+    --   staff_node             (ai làm được bước nào — 20260804000018)
+    --   clinical_form_approval (ai duyệt form nào, bản nào — 20260804000019)
+    --   semen_reference_range  (ngưỡng WHO theo ấn bản — 20260804000019)
+    -- 55 → 57 cùng ngày, hai bảng của quyền riêng tư giữa hai bệnh nhân
+    -- (20260804000020, §6.5 — làm cho mọi dịch vụ khám):
+    --   patient_link           (hai người có quan hệ — đối xứng, một dòng)
+    --   clinical_data_consent  (ai cho ai xem form nào — KHÁC với liên kết)
+    expected_tenant_tables constant integer := 57;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
@@ -220,12 +236,18 @@ BEGIN
 END
 $second_tenant_disables_default$;
 
-INSERT INTO public.staff (id, full_name, primary_department, auth_user_id)
+-- `primary_location_id` NOT NULL từ 20260803000007 — fixture khai theo.
+INSERT INTO public.staff
+    (id, full_name, primary_department, auth_user_id, primary_location_id)
 VALUES
     ('c0000000-0000-4000-8000-00000000000a', 'Tenant test A', 'DOCTOR',
-     '11111111-1111-4111-8111-111111111111'),
+     '11111111-1111-4111-8111-111111111111',
+     (SELECT id FROM public.clinic_location WHERE is_active
+       ORDER BY created_at, id LIMIT 1)),
     ('c0000000-0000-4000-8000-00000000000b', 'Tenant test B', 'DOCTOR',
-     '22222222-2222-4222-8222-222222222222');
+     '22222222-2222-4222-8222-222222222222',
+     (SELECT id FROM public.clinic_location WHERE is_active
+       ORDER BY created_at, id LIMIT 1));
 
 INSERT INTO public.clinic_membership (clinic_id, staff_id, role)
 VALUES

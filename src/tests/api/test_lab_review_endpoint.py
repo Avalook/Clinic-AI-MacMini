@@ -29,6 +29,8 @@ def _identity(role: ClinicRole) -> StaffIdentity:
         department=role.value,
         role=role,
         clinic_id=str(CLINIC_ID),
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
 
 

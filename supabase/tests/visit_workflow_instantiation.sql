@@ -30,8 +30,13 @@ ON CONFLICT (clinic_patient_id) DO NOTHING;
 -- CI never runs it, so looking one up by display name resolved to NULL and the
 -- check-in step was born PENDING instead of COMPLETED. Own the row, address it
 -- by id: a display name was never a key.
-INSERT INTO public.staff (id, full_name, primary_department)
-VALUES ('a1300000-0000-4000-8000-000000000001', 'BS test A', 'DOCTOR')
+-- Bài kiểm này tự tạo thêm cơ sở, nên phòng khám có nhiều hơn một chỗ và hệ
+-- thống KHÔNG đoán hộ (trigger 20260804000015). Fixture phải chỉ rõ.
+INSERT INTO public.staff
+    (id, full_name, primary_department, primary_location_id)
+VALUES ('a1300000-0000-4000-8000-000000000001', 'BS test A', 'DOCTOR',
+        (SELECT id FROM public.clinic_location WHERE is_active
+       ORDER BY created_at, id LIMIT 1))
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.clinic_membership (clinic_id, staff_id, role, is_active)

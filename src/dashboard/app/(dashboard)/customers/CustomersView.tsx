@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
-  CircleSlash2,
   ExternalLink,
   Filter,
   Search,
@@ -14,7 +12,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
@@ -73,9 +71,9 @@ const PERIODS: { key: Period; label: string }[] = [
 
 const CUSTOMER_TABS: { key: CustomerTab; label: string }[] = [
   { key: "all", label: "Tất cả khách hàng" },
-  { key: "upcoming", label: "Có lịch sắp tới" },
-  { key: "examined", label: "Đã khám" },
-  { key: "without_appointment", label: "Chưa có lịch" },
+  { key: "upcoming", label: "Cần theo dõi" },
+  { key: "without_appointment", label: "Quá SLA" },
+  { key: "examined", label: "Nhiệm vụ hôm nay" },
 ];
 
 function initials(name: string): string {
@@ -92,9 +90,9 @@ function initials(name: string): string {
 
 function appointmentStatus(status: string): { label: string; tone: StatusTone } {
   const known: Record<string, { label: string; tone: StatusTone }> = {
-    SCHEDULED: { label: "Chờ xác nhận", tone: "ready" },
-    CSKH_CONFIRMED: { label: "CSKH đã xác nhận", tone: "assigned" },
-    CONFIRMED: { label: "Đã xác nhận", tone: "assigned" },
+    SCHEDULED: { label: "Chờ xác nhận (lịch cũ)", tone: "ready" },
+    CSKH_CONFIRMED: { label: "Chờ bác sĩ (lịch cũ)", tone: "assigned" },
+    CONFIRMED: { label: "Đã đặt lịch", tone: "assigned" },
     CHECKED_IN: { label: "Đã check-in", tone: "in_progress" },
     COMPLETED: { label: "Đã khám xong", tone: "completed" },
     CANCELLED: { label: "Đã hủy", tone: "cancelled" },
@@ -106,11 +104,13 @@ function appointmentStatus(status: string): { label: string; tone: StatusTone } 
 
 function CustomerTableHeader() {
   return (
-    <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(150px,0.9fr)_minmax(150px,0.9fr)_minmax(100px,0.55fr)_20px] gap-3 border-b border-line bg-surface-muted px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+    <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px] gap-3 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
       <span>Khách hàng</span>
-      <span>Lịch hẹn</span>
-      <span>Trạng thái lịch</span>
-      <span>Ngày tạo</span>
+      <span>Trạng thái</span>
+      <span>Tương tác gần nhất</span>
+      <span>Bước tiếp theo</span>
+      <span>Hạn xử lý</span>
+      <span>Phụ trách</span>
       <span aria-hidden="true" />
     </div>
   );
@@ -119,6 +119,7 @@ function CustomerTableHeader() {
 export default function CustomersView({
   rows,
   apptByPatient,
+  cskhByPatient,
   locations,
   q,
   period,
@@ -131,6 +132,16 @@ export default function CustomersView({
 }: {
   rows: CustomerRow[];
   apptByPatient: Record<string, ApptInfo>;
+  cskhByPatient: Record<
+    string,
+    {
+      status: string;
+      lastInteraction: string | null;
+      nextStep: string | null;
+      deadline: string | null;
+      assignee: string | null;
+    }
+  >;
   locations: Opt[];
   q: string;
   period: Period;
@@ -147,19 +158,24 @@ export default function CustomersView({
   const [term, setTerm] = useState(q);
   const [editOpen, setEditOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
+  // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
+  // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
-
-  const locName = (id: string | null) =>
-    locations.find((location) => location.id === id)?.label ?? "—";
 
   function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
     const params = new URLSearchParams();
     if (nextQ.trim()) params.set("q", nextQ.trim());
     if (nextPeriod !== "all") params.set("period", nextPeriod);
     if (nextBy !== "created") params.set("by", nextBy);
+    if (selectedId) params.set("selected", selectedId);
     const query = params.toString();
-    router.push(`/customers${query ? `?${query}` : ""}`);
+    startTransition(() => {
+      router.push(`/customers${query ? `?${query}` : ""}`);
+    });
   }
+
+  const locName = (id: string | null) =>
+    locations?.find((location) => location.id === id)?.label ?? "—";
 
   const searchedRows = useMemo(() => {
     const needle = unaccentVi(term.trim());
@@ -182,56 +198,86 @@ export default function CustomersView({
   }, [apptByPatient, searchedRows, tab]);
 
   const selected =
-    visibleRows.find((row) => row.clinic_patient_id === selectedId) ?? null;
+    selectedId === null
+      ? null
+      : (visibleRows.find((row) => row.clinic_patient_id === selectedId) ?? null);
+
   const selectedAppt = selected
     ? apptByPatient[selected.clinic_patient_id]
     : undefined;
-
-  const firstRun = useRef(true);
-  useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
-    }
-    if (term.trim() === q.trim()) return;
-    const timeoutId = window.setTimeout(() => {
-      startTransition(() => go(period, term, by));
-    }, 350);
-    return () => window.clearTimeout(timeoutId);
-    // go carries only router and the props captured by this screen.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [term]);
 
   const upcomingCount = rows.filter((row) => apptByPatient[row.clinic_patient_id]?.upcoming).length;
   const examinedCount = rows.filter((row) => apptByPatient[row.clinic_patient_id]?.examined).length;
   const noAppointmentCount = rows.filter((row) => !apptByPatient[row.clinic_patient_id]).length;
 
+  // Derive real status from cskh_action + appointment data
+  function customerStatus(row: CustomerRow): { label: string; tone: StatusTone } {
+    const cskh = cskhByPatient[row.clinic_patient_id];
+    const appt = apptByPatient[row.clinic_patient_id];
+    if (cskh) {
+      const statusMap: Record<string, { label: string; tone: StatusTone }> = {
+        DONE: { label: "Hoàn thành", tone: "completed" },
+        CLOSED: { label: "Hoàn thành", tone: "completed" },
+        WAITING: { label: "Chờ phản hồi", tone: "ready" },
+        IN_PROGRESS: { label: "Đang tư vấn", tone: "assigned" },
+        OPEN: { label: "Đang xử lý", tone: "in_progress" },
+      };
+      return statusMap[cskh.status] ?? { label: cskh.status, tone: "ready" };
+    }
+    if (appt) {
+      return appointmentStatus(appt.status);
+    }
+    return { label: "Khách mới", tone: "ready" };
+  }
+
+  function customerDeadline(row: CustomerRow): { text: string; overdue: boolean } {
+    const cskh = cskhByPatient[row.clinic_patient_id];
+    if (!cskh?.deadline) return { text: "—", overdue: false };
+    const now = new Date();
+    const dl = new Date(cskh.deadline);
+    const diffMin = Math.floor((dl.getTime() - now.getTime()) / 60000);
+    if (diffMin < 0) {
+      const overMin = -diffMin;
+      if (overMin < 60) return { text: `Quá hạn ${overMin} phút`, overdue: true };
+      const overHours = Math.floor(overMin / 60);
+      if (overHours < 24) return { text: `Quá hạn ${overHours} giờ`, overdue: true };
+      return { text: `Quá hạn ${Math.floor(overHours / 24)} ngày`, overdue: true };
+    }
+    if (diffMin < 60) return { text: `Còn ${diffMin} phút`, overdue: false };
+    const hours = Math.floor(diffMin / 60);
+    if (hours < 24) return { text: fmtDateTimeOrDate(cskh.deadline), overdue: false };
+    return { text: fmtDate(cskh.deadline), overdue: false };
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <StatRow>
         <StatCard
-          label="Khách hiển thị"
-          value={rows.length}
+          label="Cần xử lý hôm nay"
+          value={upcomingCount + noAppointmentCount}
           tone="brand"
           icon={<UsersRound className="size-5" />}
         />
         <StatCard
-          label="Có lịch sắp tới"
-          value={upcomingCount}
-          tone="warning"
-          icon={<CalendarClock className="size-5" />}
+          label="Quá SLA"
+          value={rows.filter((r) => {
+            const dl = cskhByPatient[r.clinic_patient_id]?.deadline;
+            return dl && new Date(dl) < new Date();
+          }).length}
+          tone="danger"
+          icon={<CalendarClock className="size-5 text-danger" />}
         />
         <StatCard
-          label="Đã khám"
+          label="Chờ xác nhận"
+          value={rows.filter((r) => apptByPatient[r.clinic_patient_id]?.status === "SCHEDULED").length}
+          tone="warning"
+          icon={<CalendarClock className="size-5 text-warning" />}
+        />
+        <StatCard
+          label="Đã hoàn thành"
           value={examinedCount}
           tone="success"
-          icon={<CheckCircle2 className="size-5" />}
-        />
-        <StatCard
-          label="Chưa có lịch"
-          value={noAppointmentCount}
-          tone="neutral"
-          icon={<CircleSlash2 className="size-5" />}
+          icon={<CheckCircle2 className="size-5 text-success" />}
         />
       </StatRow>
 
@@ -256,7 +302,7 @@ export default function CustomersView({
         {canEdit ? (
           <Link
             href="/patients/new"
-            className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-control bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
+            className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 shadow-xs transition-all"
           >
             <UserRoundPlus className="size-4" aria-hidden="true" />
             Thêm khách hàng
@@ -264,11 +310,10 @@ export default function CustomersView({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-card border border-line bg-surface p-3 shadow-card lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <label className="flex min-h-10 min-w-[220px] flex-1 items-center gap-2 rounded-control border border-line bg-surface px-3 text-ink-muted focus-within:border-brand-500 lg:max-w-md">
+          <label className="flex min-h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-ink-muted focus-within:border-brand-500 lg:max-w-md">
             <Search className="size-4" aria-hidden="true" />
-            <span className="sr-only">Tìm theo tên, số điện thoại, mã khách hàng</span>
             <input
               value={term}
               onChange={(event) => setTerm(event.target.value)}
@@ -276,29 +321,28 @@ export default function CustomersView({
               className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
             />
           </label>
-          <label className="flex min-h-10 items-center gap-2 rounded-control border border-line px-3 text-sm text-ink-soft">
+          <label className="flex min-h-10 items-center gap-2 rounded-xl border border-line px-3 text-sm text-ink-soft bg-surface">
             <Filter className="size-4" aria-hidden="true" />
-            <span className="sr-only">Hiển thị theo</span>
             <select
               value={by}
               onChange={(event) => go(period, term, event.target.value as ByDim)}
-              aria-label="Hiển thị theo"
+              aria-label="Bộ lọc"
               className="bg-transparent outline-none"
             >
-              <option value="created">Ngày tạo</option>
+              <option value="created">Bộ lọc</option>
               <option value="appt">Ngày hẹn</option>
             </select>
           </label>
         </div>
-        <div className="flex flex-wrap gap-1 rounded-control bg-surface-sunken p-1" role="group" aria-label="Khoảng thời gian">
+        <div className="flex flex-wrap gap-1 rounded-xl bg-surface-sunken p-1" role="group">
           {PERIODS.map((entry) => (
             <button
               key={entry.key}
               type="button"
               onClick={() => go(entry.key, term, by)}
-              className={`rounded-control px-2.5 py-1.5 text-xs font-medium ${
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
                 entry.key === period
-                  ? "bg-surface text-ink shadow-card"
+                  ? "bg-surface text-ink shadow-card font-bold"
                   : "text-ink-muted hover:text-ink"
               }`}
             >
@@ -308,66 +352,84 @@ export default function CustomersView({
         </div>
       </div>
 
-      {by === "appt" && period !== "all" ? (
-        <p className="text-xs text-ink-muted">
-          Đang xem khách có lịch hẹn trong khoảng thời gian đã chọn.
-        </p>
-      ) : null}
-
-      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+      <div className={`grid items-start gap-3 ${selected ? "xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]" : "grid-cols-1"}`}>
         <section
           aria-label="Danh sách khách hàng"
-          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+          className="min-w-0 overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-3">
+          <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold text-ink">Danh sách khách hàng</h2>
               <p className="mt-0.5 text-xs text-ink-muted">
-                {visibleRows.length} khách hàng
-                {isPending ? " · đang tìm…" : ""}
-                {rows.length >= 300 ? " · 300 khách gần nhất" : ""}
+                {visibleRows.length} khách hàng {isPending ? " · đang tìm…" : ""}
               </p>
             </div>
           </div>
           <div className="overflow-x-auto">
-            <div className="min-w-[720px]">
+            <div className="min-w-[960px]">
               <CustomerTableHeader />
               {visibleRows.length > 0 ? (
                 <div className="divide-y divide-line">
                   {visibleRows.map((row) => {
-                    const appointment = apptByPatient[row.clinic_patient_id];
-                    const status = appointment ? appointmentStatus(appointment.status) : null;
                     const active = selected?.clinic_patient_id === row.clinic_patient_id;
+                    const cskh = cskhByPatient[row.clinic_patient_id];
+                    const st = customerStatus(row);
+                    const dl = customerDeadline(row);
+
                     return (
-                      <button
+                      <div
                         key={row.clinic_patient_id}
-                        type="button"
                         onClick={() => setSelectedId(row.clinic_patient_id)}
-                        aria-current={active ? "true" : undefined}
-                        className={`grid w-full grid-cols-[minmax(180px,1.2fr)_minmax(150px,0.9fr)_minmax(150px,0.9fr)_minmax(100px,0.55fr)_20px] items-center gap-3 px-3 py-3 text-left transition-colors ${
-                          active ? "bg-surface-selected" : "hover:bg-surface-sunken"
+                        className={`grid w-full grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px] items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
+                          active ? "bg-brand-50/60" : "hover:bg-surface-sunken"
                         }`}
                       >
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold text-ink">
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-bold text-ink">
                             {row.full_name}
                           </span>
                           <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
                             {row.patient_code}
-                            {row.phone_primary ? ` · ${row.phone_primary}` : ""}
                           </span>
-                        </span>
-                        <span className="min-w-0 truncate text-sm text-ink-soft">
-                          {appointment
-                            ? `${appointment.upcoming ? "Sắp tới" : "Gần nhất"}: ${fmtDateTimeOrDate(appointment.slot_start)}`
-                            : "Chưa có lịch"}
-                        </span>
-                        <span>{status ? <StatusChip tone={status.tone} label={status.label} /> : "—"}</span>
-                        <span className="text-sm text-ink-muted">
-                          {fmtDate(row.created_at)}
-                        </span>
-                        <ChevronRight className="size-4 text-ink-faint" aria-hidden="true" />
-                      </button>
+                        </div>
+                        <div>
+                          <StatusChip tone={st.tone} label={st.label} />
+                        </div>
+                        <div className="min-w-0 text-xs text-ink-soft truncate">
+                          {cskh?.lastInteraction ?? "—"}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="truncate text-xs font-medium text-ink">
+                            {cskh?.nextStep ?? "—"}
+                          </span>
+                        </div>
+                        <div>
+                          <span
+                            className={`text-xs font-semibold ${
+                              dl.overdue
+                                ? "rounded-md bg-danger-bg px-2 py-0.5 text-danger font-bold"
+                                : "text-ink-muted"
+                            }`}
+                          >
+                            {dl.text}
+                          </span>
+                        </div>
+                        <div className="text-xs font-medium text-ink truncate">
+                          {cskh?.assignee ?? "—"}
+                        </div>
+                        <div className="text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedId(row.clinic_patient_id);
+                            }}
+                            className="rounded-lg p-1 text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                          >
+                            ⋮
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -382,10 +444,11 @@ export default function CustomersView({
           </div>
         </section>
 
-        <aside
-          aria-label="Chi tiết khách hàng"
-          className="min-h-[420px] rounded-card border border-line bg-surface p-4 shadow-card xl:max-h-[720px] xl:overflow-y-auto"
-        >
+        {selected && (
+          <aside
+            aria-label="Chi tiết khách hàng"
+            className="min-h-[420px] rounded-2xl border border-line bg-surface p-4 shadow-card xl:max-h-[720px] xl:overflow-y-auto animate-in fade-in duration-150"
+          >
           {selected ? (
             <>
               <div className="flex items-start gap-3 border-b border-line pb-4">
@@ -438,6 +501,69 @@ export default function CustomersView({
                   </div>
                 )}
 
+                {/* CSKH & Lễ tân: Khung Xác nhận lịch hẹn & Gọi điện */}
+                <div className="space-y-2 rounded-2xl border border-brand-200 bg-brand-50/50 p-3 text-xs shadow-xs">
+                  <div className="flex items-center justify-between font-bold text-brand-800">
+                    <span>XÁC NHẬN LỊCH HẸN &amp; TƯƠNG TÁC</span>
+                    <span className="rounded-full bg-brand-200 px-2 py-0.5 text-[10px] text-brand-800 font-mono">
+                      CSKH / Lễ tân
+                    </span>
+                  </div>
+
+                  {/* 1. Quick Call / SMS Buttons */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {selected.phone_primary ? (
+                      <a
+                        href={`tel:${selected.phone_primary}`}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand-300 bg-white py-2 px-3 font-semibold text-brand-700 hover:bg-brand-50 shadow-xs transition-colors"
+                      >
+                        📞 Gọi nhắc hẹn
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-muted py-2 px-3 font-semibold text-ink-muted cursor-not-allowed opacity-60"
+                      >
+                        📞 Chưa có SĐT
+                      </button>
+                    )}
+                    <button
+                      disabled
+                      type="button"
+                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface-muted py-2 px-2.5 font-medium text-ink-muted cursor-not-allowed opacity-75"
+                      title="Tính năng sẽ ra mắt ở phiên bản tiếp theo"
+                    >
+                      💬 Zalo / SMS
+                      <span className="text-[9px] bg-brand-100 text-brand-700 px-1 py-0.2 rounded font-bold">
+                        Sắp có
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* KHÔNG CÒN NÚT "XÁC NHẬN KHÁCH SẼ TỚI".
+                      Quang (2026-08-04): lịch hẹn sinh ra từ chính cuộc gọi
+                      hoặc tin nhắn với bệnh nhân, nên nó đã chắc ngay lúc đặt
+                      — gọi lại để xác nhận cái vừa thoả thuận là làm hai lần
+                      một việc. Đổi hoặc huỷ thì bấm vào "Lịch hẹn sắp tới" ở
+                      trên, và phải ghi lý do.
+
+                      "Báo không tới" cũng bỏ khỏi đây: đánh vắng là việc của
+                      Lễ tân TẠI THỜI ĐIỂM bệnh nhân không đến, không phải việc
+                      CSKH đoán trước qua điện thoại. */}
+                  <div className="space-y-1.5 pt-1">
+                    <button
+                      type="button"
+                      disabled={!canManage || !selectedAppt?.appt}
+                      onClick={() => setEditOpen(true)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface py-2 px-3 text-xs font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+                    >
+                      Đổi / huỷ lịch hẹn (ghi lý do)
+                    </button>
+                  </div>
+
+                </div>
+
                 {canEdit && !selectedAppt?.upcoming ? (
                   <button
                     type="button"
@@ -445,7 +571,7 @@ export default function CustomersView({
                     className="flex min-h-10 w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
                   >
                     <CalendarClock className="size-4" aria-hidden="true" />
-                    Đặt lịch
+                    Đặt lịch mới
                   </button>
                 ) : null}
 
@@ -514,6 +640,7 @@ export default function CustomersView({
             </div>
           )}
         </aside>
+        )}
       </div>
 
       {editOpen && selected && selectedAppt?.appt ? (

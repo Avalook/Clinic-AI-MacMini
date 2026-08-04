@@ -1,0 +1,331 @@
+import { useState } from 'react';
+import Sidebar, { type TabId } from './components/layout/Sidebar';
+import Header from './components/layout/Header';
+import KpiCards from './components/overview/KpiCards';
+import StationCards from './components/overview/StationCards';
+import PatientTable from './components/overview/PatientTable';
+import PatientDetailPanel from './components/overview/PatientDetailPanel';
+import QueueGrid from './components/queues/QueueGrid';
+import AlertList from './components/alerts/AlertList';
+import DispatchHistory from './components/history/DispatchHistory';
+import TvDisplay from './components/tv/TvDisplay';
+import NurseVitalsDashboard from './components/nurse/NurseVitalsDashboard';
+import ReceptionDashboard from './components/reception/ReceptionDashboard';
+import DoctorDashboard from './components/doctor/DoctorDashboard';
+import UltrasoundDashboard from './components/ultrasound/UltrasoundDashboard';
+import PharmacyDashboard from './components/pharmacy/PharmacyDashboard';
+import TransferRoomModal from './components/modals/TransferRoomModal';
+import RouteSelectModal from './components/modals/RouteSelectModal';
+import { ALERTS, type Patient } from './data/mock-data';
+import { UserCheck, Stethoscope, ClipboardList, User, Activity, Pill } from 'lucide-react';
+
+export default function App() {
+  const [roleView, setRoleView] = useState<'truong_ca' | 'dieu_duong' | 'le_tan' | 'bac_si' | 'sieu_am' | 'nha_thuoc'>('truong_ca');
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showRouteModal, setShowRouteModal] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const alertCount = ALERTS.filter(a => !a.acknowledged).length;
+
+  function showToast(message: string) {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  // Floating Role Switcher Bar Component
+  const RoleSwitcherBar = () => (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 16,
+        left: 256,
+        zIndex: 50,
+        background: 'var(--ink)',
+        color: 'white',
+        padding: '6px 14px',
+        borderRadius: 999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        boxShadow: 'var(--shadow-lg)',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ opacity: 0.8 }}>Đổi vai trò:</span>
+      <button
+        onClick={() => setRoleView('truong_ca')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'truong_ca' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'truong_ca' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <UserCheck size={12} /> Trưởng ca
+      </button>
+      <button
+        onClick={() => setRoleView('dieu_duong')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'dieu_duong' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'dieu_duong' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <Stethoscope size={12} /> Điều dưỡng
+      </button>
+      <button
+        onClick={() => setRoleView('le_tan')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'le_tan' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'le_tan' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <ClipboardList size={12} /> Lễ tân
+      </button>
+      <button
+        onClick={() => setRoleView('bac_si')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'bac_si' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'bac_si' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <User size={12} /> Bác sĩ
+      </button>
+      <button
+        onClick={() => setRoleView('sieu_am')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'sieu_am' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'sieu_am' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <Activity size={12} /> Siêu âm
+      </button>
+      <button
+        onClick={() => setRoleView('nha_thuoc')}
+        className="btn"
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          background: roleView === 'nha_thuoc' ? 'var(--brand-500)' : 'transparent',
+          color: 'white',
+          border: roleView === 'nha_thuoc' ? 'none' : '1px solid rgba(255,255,255,0.3)',
+        }}
+      >
+        <Pill size={12} /> Nhà thuốc
+      </button>
+    </div>
+  );
+
+  // TV mode is full-screen, no sidebar/header
+  if (activeTab === 'tv') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={() => setActiveTab('overview')}
+          className="btn btn-secondary"
+          style={{
+            position: 'fixed',
+            top: 12,
+            left: 12,
+            zIndex: 30,
+            fontSize: 11,
+            padding: '6px 12px',
+            background: 'rgba(255,255,255,0.9)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          ← Về Dashboard
+        </button>
+        <TvDisplay />
+      </div>
+    );
+  }
+
+  // Nurse role view
+  if (roleView === 'dieu_duong') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <NurseVitalsDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Receptionist role view
+  if (roleView === 'le_tan') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <ReceptionDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Doctor role view
+  if (roleView === 'bac_si') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <DoctorDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Ultrasound role view
+  if (roleView === 'sieu_am') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <UltrasoundDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Pharmacy role view
+  if (roleView === 'nha_thuoc') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <RoleSwitcherBar />
+        <PharmacyDashboard onSwitchRole={() => setRoleView('truong_ca')} />
+      </div>
+    );
+  }
+
+  // Trưởng Ca role view
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
+      <RoleSwitcherBar />
+
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} alertCount={alertCount} />
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Header />
+
+        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+          {/* Main content */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: 24,
+              overflowY: 'auto',
+            }}
+          >
+            {activeTab === 'overview' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* Filters row */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {['Tầng', 'Tất cả tầng'].map((l, i) => (
+                    <button key={i} className={i === 1 ? 'btn btn-primary' : 'btn btn-secondary'} style={{ padding: '4px 10px', fontSize: 11 }}>
+                      {l}
+                    </button>
+                  ))}
+                  <span style={{ width: 1, height: 16, background: 'var(--line)' }} />
+                  {['Dịch vụ', 'Tất cả dịch vụ'].map((l, i) => (
+                    <button key={i} className={i === 1 ? 'btn btn-primary' : 'btn btn-secondary'} style={{ padding: '4px 10px', fontSize: 11 }}>
+                      {l}
+                    </button>
+                  ))}
+                  <span style={{ width: 1, height: 16, background: 'var(--line)' }} />
+                  {['Ưu tiên', 'Tất cả'].map((l, i) => (
+                    <button key={i} className={i === 1 ? 'btn btn-primary' : 'btn btn-secondary'} style={{ padding: '4px 10px', fontSize: 11 }}>
+                      {l}
+                    </button>
+                  ))}
+                  <span style={{ width: 1, height: 16, background: 'var(--line)' }} />
+                  {['SA', 'Tất cả'].map((l, i) => (
+                    <button key={i} className={i === 1 ? 'btn btn-primary' : 'btn btn-secondary'} style={{ padding: '4px 10px', fontSize: 11 }}>
+                      {l}
+                    </button>
+                  ))}
+                  <div style={{ flex: 1 }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--brand-600)' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', animation: 'pulse-dot 1.5s ease-in-out infinite' }} />
+                    Cập nhật trực tiếp
+                  </div>
+                </div>
+
+                <KpiCards />
+                <StationCards />
+                <PatientTable
+                  onSelectPatient={setSelectedPatient}
+                  selectedPatientId={selectedPatient?.id ?? null}
+                />
+              </div>
+            )}
+
+            {activeTab === 'queues' && (
+              <QueueGrid onTransfer={() => setShowTransferModal(true)} />
+            )}
+
+            {activeTab === 'alerts' && (
+              <AlertList onDispatch={() => setActiveTab('overview')} />
+            )}
+
+            {activeTab === 'history' && (
+              <DispatchHistory />
+            )}
+          </div>
+
+          {/* Patient detail panel (overview only) */}
+          {activeTab === 'overview' && selectedPatient && (
+            <PatientDetailPanel
+              patient={selectedPatient}
+              onClose={() => setSelectedPatient(null)}
+              onTransfer={() => setShowTransferModal(true)}
+              onRouteSelect={() => setShowRouteModal(true)}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showTransferModal && (
+        <TransferRoomModal
+          onClose={() => setShowTransferModal(false)}
+          onConfirm={() => {
+            setShowTransferModal(false);
+            showToast('✓ Đã chuyển phòng thành công!');
+          }}
+        />
+      )}
+
+      {showRouteModal && (
+        <RouteSelectModal
+          patientName={selectedPatient?.name ?? 'Bệnh nhân'}
+          onClose={() => setShowRouteModal(false)}
+          onConfirm={() => {
+            setShowRouteModal(false);
+            showToast('✓ Đã chọn tuyến điều phối thành công!');
+          }}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="toast">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}

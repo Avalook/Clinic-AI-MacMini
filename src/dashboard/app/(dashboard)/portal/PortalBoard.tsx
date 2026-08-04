@@ -4,6 +4,7 @@
 // Tổng hợp mọi thứ: trạng thái hệ thống, vai trò, màn hình, hạ tầng, nhân viên.
 
 import Link from "next/link";
+import { VN_TZ } from "../../../lib/datetime";
 import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
@@ -159,7 +160,7 @@ function fmtDateTime(iso: string) {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: VN_TZ,
   });
 }
 

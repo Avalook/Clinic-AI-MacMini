@@ -52,6 +52,10 @@ const ROLE_VI: Record<string, string> = {
   CASHIER_DV: "thu ngân dịch vụ",
   TRUONG_CA: "trưởng ca",
   MANAGEMENT: "quản lý",
+  // PHARMACIST thiếu ở đây suốt thời gian /pharmacy chạy, nên nhánh dự phòng
+  // `r.toLowerCase()` hiện chữ "pharmacist" cho nhân viên — đúng thứ dòng chú
+  // thích ngay trên bảng này nói là không được để xảy ra.
+  PHARMACIST: "dược sĩ",
 };
 
 const roleNames = (roles: string[]) =>

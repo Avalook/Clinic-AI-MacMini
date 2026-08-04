@@ -18,13 +18,13 @@ import { clinicHoursForDate } from "../../../lib/roster";
 import {
   buildSlotUsage,
   usageAt,
-  REGULAR_CAP,
   type SlotApptLite,
+  type SlotUsage,
 } from "../../../lib/slot-capacity";
+import { useBookingPolicy } from "../BookingPolicyContext";
 import type { Option } from "./AppointmentBooking";
 
-// Cùng bộ phút với Time24Input của màn đặt lịch.
-const MINUTES = ["00", "15", "30", "45"];
+const EMPTY_USAGE = new Map<string, SlotUsage>();
 
 export type PickerMode = "regular" | "walkin";
 
@@ -58,35 +58,59 @@ export default function CinemaSlotPicker({
   selectedKind?: "regular" | "walkin";
   onPick: (doctorId: string, hhmm: string, kind: "regular" | "walkin") => void;
 }) {
+  // Luật của phòng khám đang đăng nhập — CÙNG một hàng clinic.settings mà
+  // trigger enforce_slot_capacity đọc khi từ chối. `null` = chưa đọc được.
+  const policy = useBookingPolicy();
+
   // Các cột giờ (HH:mm) nằm trong giờ mở cửa của NGÀY đã chọn.
   const slots = useMemo(() => {
-    if (!date) return [] as string[];
-    const ch = clinicHoursForDate(date);
+    if (!date || !policy) return [] as string[];
+    const ch = clinicHoursForDate(date, policy.hours);
     if (!ch) return [] as string[];
     const minHour = Number(ch.open.slice(0, 2));
     const maxHour = Number(ch.close.slice(0, 2)); // giờ đóng cửa = mốc loại trừ
     const out: string[] = [];
     for (let h = minHour; h < maxHour; h++) {
-      for (const m of MINUTES) {
-        out.push(`${String(h).padStart(2, "0")}:${m}`);
+      // Backend chỉ nhận độ dài khung chia hết 60' nên vòng này luôn kết thúc
+      // đúng đầu giờ sau — không có cột nào tràn sang giờ kế tiếp.
+      for (let m = 0; m < 60; m += policy.slotMinutes) {
+        out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
       }
     }
     return out;
-  }, [date]);
+  }, [date, policy]);
 
-  // Bảng chiếm chỗ (bác sĩ × khung 15'): đếm riêng kênh thường vs vãng lai.
-  const usage = useMemo(() => buildSlotUsage(existingAppts), [existingAppts]);
+  // Bảng chiếm chỗ (bác sĩ × khung): đếm riêng kênh thường vs vãng lai.
+  const usage = useMemo(
+    () => (policy ? buildSlotUsage(existingAppts, policy) : EMPTY_USAGE),
+    [existingAppts, policy],
+  );
 
   // Lọc bác sĩ theo ca trực; ngày chưa phân trực → hiện tất cả + ghi chú.
   const noDuty = Array.isArray(dutyDoctorIds) && dutyDoctorIds.length === 0;
   const dutyDoctors = useMemo(() => {
+    // Nếu đã chọn bác sĩ cụ thể từ dropdown → chỉ hiện bác sĩ đó trong lưới.
+    if (selectedDoctorId) {
+      const picked = doctors.find((d) => d.id === selectedDoctorId);
+      if (picked) return [picked];
+    }
     if (!dutyDoctorIds || dutyDoctorIds.length === 0) return doctors;
     const set = new Set(dutyDoctorIds);
     const filtered = doctors.filter((d) => set.has(d.id));
     // Lịch trực trỏ tới staff không còn trong combobox → đừng để bảng rỗng.
     return filtered.length > 0 ? filtered : doctors;
-  }, [doctors, dutyDoctorIds]);
+  }, [doctors, dutyDoctorIds, selectedDoctorId]);
 
+  // Không đoán 15 phút / 2+1: vẽ lưới sai luật thì lễ tân bấm vào ô mà server
+  // sẽ từ chối, và không hiểu vì sao. Thà nói thẳng là chưa đọc được.
+  if (!policy) {
+    return (
+      <p className="rounded-lg border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger">
+        Chưa đọc được luật đặt lịch của phòng khám (độ dài khung, số chỗ) — chưa
+        hiện được sơ đồ. Thử tải lại trang; còn lỗi thì báo kỹ thuật.
+      </p>
+    );
+  }
   if (!date) {
     return (
       <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
@@ -102,19 +126,30 @@ export default function CinemaSlotPicker({
     );
   }
 
-  // LUÔN thêm hàng "Chưa phân bác sĩ": lịch online chưa phân BS vẫn phải hiện
-  // "đã kín", và vẫn bị luật 2+1 giới hạn như một hàng riêng.
-  const rows: Option[] = [...dutyDoctors, { id: "", label: "Chưa phân bác sĩ" }];
+  // Hàng \"Chưa phân bác sĩ\" chỉ cần khi CHƯA chọn bác sĩ cụ thể — lịch online
+  // chưa phân BS vẫn phải hiện \"đã kín\" và bị giới hạn chỗ như một hàng riêng.
+  const rows: Option[] = selectedDoctorId
+    ? dutyDoctors
+    : [...dutyDoctors, { id: "", label: "Chưa phân bác sĩ" }];
   const now = nowMs();
   const walkinMode = mode === "walkin";
   const effSelectedKind = selectedKind ?? (walkinMode ? "walkin" : "regular");
 
-  // 3 hàng con của mỗi bác sĩ: BN1, BN2 (kênh thường) + Ưu tiên (chỗ thứ 3, xanh —
-  // lưu như WALK_IN để vào đúng ghế; trước gọi "Vãng lai").
+  // Hàng con của mỗi bác sĩ: regularCap hàng "BN…" (kênh thường) + walkinCap
+  // hàng "Ưu tiên" (lưu như WALK_IN để vào đúng ghế; trước gọi "Vãng lai").
+  // Ở Dr4Women 2+1 nên vẫn là BN1/BN2/Ưu tiên như cũ; phòng khám khác cấu hình
+  // khác thì lưới mọc/co theo, không cần deploy lại.
   const SUBROWS: { kind: "regular" | "walkin"; label: string; seatIdx: number }[] = [
-    { kind: "regular", label: "BN1", seatIdx: 0 },
-    { kind: "regular", label: "BN2", seatIdx: 1 },
-    { kind: "walkin", label: "Ưu tiên", seatIdx: 0 },
+    ...Array.from({ length: policy.regularCap }, (_, i) => ({
+      kind: "regular" as const,
+      label: `BN${i + 1}`,
+      seatIdx: i,
+    })),
+    ...Array.from({ length: policy.walkinCap }, (_, i) => ({
+      kind: "walkin" as const,
+      label: policy.walkinCap > 1 ? `Ưu tiên ${i + 1}` : "Ưu tiên",
+      seatIdx: i,
+    })),
   ];
 
   return (
@@ -122,7 +157,7 @@ export default function CinemaSlotPicker({
       <div className="flex flex-wrap items-center gap-3 text-[11px] text-ink-muted">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-brand-100 bg-white" />{" "}
-          Chỗ hẹn trống (BN1/BN2)
+          Chỗ hẹn trống ({policy.regularCap} chỗ/khung)
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-success-bg bg-success-bg" />{" "}
@@ -155,7 +190,7 @@ export default function CinemaSlotPicker({
                   key={t}
                   className="whitespace-nowrap px-0.5 text-[10px] font-normal text-ink-faint"
                 >
-                  {slotRange(t)}
+                  {slotRange(t, policy.slotMinutes)}
                 </th>
               ))}
             </tr>
@@ -212,9 +247,15 @@ export default function CinemaSlotPicker({
                       d.id === selectedDoctorId &&
                       t === selectedTime &&
                       !isTaken &&
-                      sub.seatIdx === Math.min(firstFreeSeat, REGULAR_CAP - 1);
+                      sub.seatIdx ===
+                        Math.min(
+                          firstFreeSeat,
+                          (sub.kind === "regular"
+                            ? policy.regularCap
+                            : policy.walkinCap) - 1,
+                        );
                     const disabled = isPast || isTaken || !pickable;
-                    const title = `${d.label} · ${slotRange(t)} · ${
+                    const title = `${d.label} · ${slotRange(t, policy.slotMinutes)} · ${
                       sub.kind === "walkin" ? "chỗ Ưu tiên" : sub.label
                     }${
                       isTaken

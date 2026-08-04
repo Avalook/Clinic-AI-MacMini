@@ -7,8 +7,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole } from "../../../lib/clinic-session";
-import { isAdminRole } from "../../../lib/roles";
+import { isAdminRole, ROLE_LABEL, type ClinicRole } from "../../../lib/roles";
+import { getBookingPolicy } from "../../../lib/booking-policy";
 import AccountActions from "./AccountActions";
+import BookingPolicyCard from "./BookingPolicyCard";
+import FeatureModeCard from "./FeatureModeCard";
+import { getFeatureMode } from "../../../lib/feature-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +27,12 @@ interface StaffRow {
 }
 
 // Friendly label per Supabase CHECK enum.
-const DEPT_LABEL: Record<string, string> = {
-  DOCTOR: "Bác sĩ",
-  ULTRASOUND_DOCTOR: "Bác sĩ Siêu âm",
-  NURSE_ULTRASOUND: "Điều dưỡng",
-  RECEPTION: "Lễ tân",
-  CSKH: "CSKH",
-  MANAGEMENT: "Quản lý",
-};
+// Nhãn vai dùng ROLE_LABEL của lib/roles.ts. Trước đây file này (và
+// settings/page.tsx) mỗi nơi giữ một bản DEPT_LABEL riêng, và CẢ HAI đều
+// thiếu PHARMACIST — vai đã chạy từ khi có màn /pharmacy. Hệ quả: màn tạo
+// user và màn danh sách nhân viên hiện chữ "PHARMACIST" thô cho dược sĩ.
+// Cùng một lỗi đã xảy ra ở ROLE_VI trong WorkItemActions.tsx: một bảng nhãn
+// chép tay là một bảng nhãn sẽ thiếu vai tiếp theo.
 
 const TH = "px-4 py-2.5 font-medium";
 const TD = "px-4 py-2.5";
@@ -49,8 +51,12 @@ export default async function SettingsPage() {
     .order("primary_department", { ascending: true })
     .order("full_name", { ascending: true });
 
+  // Luật đặt lịch của phòng khám — hiển thị + cho phép Trưởng ca/Quản lý sửa.
+  const bookingPolicy = await getBookingPolicy();
+
   const rows = (data as StaffRow[] | null) ?? [];
   const linked = rows.filter((r) => r.auth_user_id !== null).length;
+  const featureMode = await getFeatureMode();
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
@@ -79,6 +85,10 @@ export default async function SettingsPage() {
         console Supabase.
       </div>
 
+      <FeatureModeCard currentMode={featureMode} />
+
+      <BookingPolicyCard policy={bookingPolicy} />
+
       {error && (
         <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
           {error.message}
@@ -96,7 +106,7 @@ export default async function SettingsPage() {
               <div className="min-w-0">
                 <p className="font-medium text-ink">{r.full_name}</p>
                 <p className="text-xs text-ink-muted">
-                  {DEPT_LABEL[r.primary_department] ?? r.primary_department}
+                  {ROLE_LABEL[r.primary_department as ClinicRole] ?? r.primary_department}
                   {" · "}
                   <span className="text-ink-muted">{r.employment_type}</span>
                 </p>
@@ -170,7 +180,7 @@ export default async function SettingsPage() {
                   )}
                 </td>
                 <td className={`${TD} text-ink-soft`}>
-                  {DEPT_LABEL[r.primary_department] ?? r.primary_department}
+                  {ROLE_LABEL[r.primary_department as ClinicRole] ?? r.primary_department}
                 </td>
                 <td className={`${TD} text-xs text-ink-muted`}>
                   {r.employment_type}

@@ -26,6 +26,8 @@ async def management_identity(
         department=ClinicRole.MANAGEMENT.value,
         role=ClinicRole.MANAGEMENT,
         clinic_id=str(clinic_id),
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
     )
     app.dependency_overrides[get_current_identity] = lambda: identity
     yield
