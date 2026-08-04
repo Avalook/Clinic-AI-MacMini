@@ -4,20 +4,13 @@ import { useMemo, useState } from "react";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import { Activity, Users, Calendar, AlertCircle, Copy, ExternalLink, Search } from "lucide-react";
 import { fmtTime, fmtDate } from "../../../lib/datetime";
-
-interface AuditEvent {
-  event_id: string;
-  event_type: string;
-  aggregate_type: string;
-  aggregate_id: string;
-  payload: Record<string, unknown> | null;
-  metadata: Record<string, unknown> | null;
-  source: string;
-  occurred_at: string;
-}
+import type { AuditEvent } from "./types";
 
 interface Props {
   events: AuditEvent[];
+  /** Số NGƯỜI đã thao tác, do backend đếm theo actor_staff_id. Trước đây màn
+   *  này tự đếm `new Set(source)` nên ra 14 — đó là 14 tên đường ghi. */
+  soNguoi: number;
 }
 
 type AuditTab = "all" | "patient" | "appointment" | "task" | "system";
@@ -38,33 +31,6 @@ function aggregateToTab(agg: string): AuditTab {
   if (agg === "cskh_action" || agg === "staff_task" || agg === "work_item")
     return "task";
   return "system";
-}
-
-function eventLabel(type: string): string {
-  const map: Record<string, string> = {
-    "appointment.created": "Tạo lịch hẹn",
-    "appointment.confirmed": "Xác nhận lịch hẹn",
-    "appointment.cancelled": "Hủy lịch hẹn",
-    "appointment.checked_in": "Check-in",
-    "appointment.completed": "Khám xong",
-    "appointment.updated": "Cập nhật lịch hẹn",
-    "appointment.declined": "Bác sĩ từ chối",
-    "patient.created": "Tạo bệnh nhân",
-    "patient.updated": "Cập nhật thông tin KH",
-    "cskh_action.created": "Tạo công việc chăm sóc",
-    "cskh_action.updated": "Cập nhật bước tiếp theo",
-    "staff_task.completed": "Hoàn thành công việc",
-    "visit.created": "Tạo lượt khám",
-    "visit.completed": "Hoàn thành lượt khám",
-    // Workflow kernel — trộn vào từ work_item_event (xem page.tsx).
-    "work_item.create": "Mở bước công việc",
-    "work_item.start": "Bắt đầu bước",
-    "work_item.complete": "Hoàn tất bước",
-    "work_item.skip": "Bỏ qua bước",
-    "work_item.cancel": "Huỷ bước",
-    "work_item.reassign": "Bàn giao bước",
-  };
-  return map[type] ?? type;
 }
 
 /** Extract before/after diff from event payload */
@@ -126,17 +92,16 @@ const FIELD_LABELS: Record<string, string> = {
   description: "Mô tả",
 };
 
-export default function AuditLogBoard({ events }: Props) {
+export default function AuditLogBoard({ events, soNguoi }: Props) {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<AuditTab>("all");
-  const [selId, setSelId] = useState<string | null>(events[0]?.event_id ?? null);
+  const [selId, setSelId] = useState<string | null>(events[0]?.id ?? null);
 
-  const sel = events.find((e) => e.event_id === selId) ?? events[0] ?? null;
+  const sel = events.find((e) => e.id === selId) ?? events[0] ?? null;
 
-  const uniqueSources = useMemo(
-    () => new Set(events.map((e) => String(e.payload?.staff_name ?? e.source))).size,
-    [events],
-  );
+  // Số NGƯỜI, backend đếm theo actor_staff_id. Không phải số nguồn máy —
+  // cách đếm cũ (`new Set(source)`) cho ra 14, tức 14 tên đường ghi.
+  const uniqueSources = soNguoi;
   const apptEvents = useMemo(
     () => events.filter((e) => e.aggregate_type === "appointment").length,
     [events],
@@ -160,9 +125,10 @@ export default function AuditLogBoard({ events }: Props) {
       return (
         e.event_type.toLowerCase().includes(q) ||
         e.aggregate_type.toLowerCase().includes(q) ||
-        e.source.toLowerCase().includes(q) ||
-        String(e.payload?.staff_name ?? "").toLowerCase().includes(q) ||
-        String(e.payload?.patient_name ?? "").toLowerCase().includes(q) ||
+        (e.nguon_thao_tac ?? "").toLowerCase().includes(q) ||
+        (e.actor_name ?? "").toLowerCase().includes(q) ||
+        e.subject_label.toLowerCase().includes(q) ||
+        e.action_label.toLowerCase().includes(q) ||
         JSON.stringify(e.payload ?? {}).toLowerCase().includes(q)
       );
     });
@@ -234,18 +200,17 @@ export default function AuditLogBoard({ events }: Props) {
               </thead>
               <tbody className="divide-y divide-line">
                 {filtered.map((e) => {
-                  const active = sel?.event_id === e.event_id;
-                  const patientName = e.payload?.patient_name ? String(e.payload.patient_name) : null;
+                  const active = sel?.id === e.id;
                   return (
                     <tr
-                      key={e.event_id}
-                      onClick={() => setSelId(e.event_id)}
+                      key={e.id}
+                      onClick={() => setSelId(e.id)}
                       className={`cursor-pointer transition-colors ${active ? "bg-brand-50" : "hover:bg-surface-muted"}`}
                     >
                       <td className="px-4 py-3 font-mono text-ink-muted">{fmtTime(e.occurred_at)}</td>
-                      <td className="px-4 py-3 font-medium text-ink">{String(e.payload?.staff_name ?? e.source ?? "Hệ thống")}</td>
-                      <td className="px-4 py-3 text-ink-soft">{patientName ?? `${e.aggregate_type} · ${e.aggregate_id.slice(0, 8)}`}</td>
-                      <td className="px-4 py-3"><span className="font-medium text-brand-700">{eventLabel(e.event_type)}</span></td>
+                      <td className="px-4 py-3 font-medium text-ink">{e.actor_name ?? "Hệ thống"}</td>
+                      <td className="px-4 py-3 text-ink-soft">{e.subject_label}</td>
+                      <td className="px-4 py-3"><span className="font-medium text-brand-700">{e.action_label}</span></td>
                     </tr>
                   );
                 })}
@@ -261,15 +226,15 @@ export default function AuditLogBoard({ events }: Props) {
                 <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
                   {sel.aggregate_type === "appointment" ? "Lịch hẹn" : sel.aggregate_type === "patient" ? "Khách hàng" : sel.aggregate_type}
                 </span>
-                <h3 className="mt-1 text-base font-semibold text-ink">{eventLabel(sel.event_type)}</h3>
-                <p className="text-xs font-mono text-ink-muted">EV-{sel.event_id.slice(0, 12)}</p>
+                <h3 className="mt-1 text-base font-semibold text-ink">{sel.action_label}</h3>
+                <p className="text-xs font-mono text-ink-muted">EV-{sel.id.slice(0, 12)}</p>
               </div>
             </div>
 
             <dl className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Người thực hiện</dt>
-                <dd className="font-medium text-ink">{String(sel.payload?.staff_name ?? sel.source ?? "Hệ thống")}</dd>
+                <dd className="font-medium text-ink">{sel.actor_name ?? "Hệ thống"}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Thời gian</dt>
@@ -277,11 +242,11 @@ export default function AuditLogBoard({ events }: Props) {
               </div>
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Đối tượng</dt>
-                <dd className="font-mono text-ink">{sel.payload?.patient_name ? String(sel.payload.patient_name) : sel.aggregate_id.slice(0, 12)}</dd>
+                <dd className="font-mono text-ink">{sel.subject_label}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Nguồn thao tác</dt>
-                <dd className="text-ink">{sel.source}</dd>
+                <dd className="text-ink">{sel.nguon_thao_tac ?? "—"}</dd>
               </div>
             </dl>
 
@@ -325,7 +290,7 @@ export default function AuditLogBoard({ events }: Props) {
             <div className="flex items-center gap-2 pt-2 border-t border-line">
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText(sel.event_id)}
+                onClick={() => navigator.clipboard?.writeText(sel.id)}
                 className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface py-2 text-xs font-medium text-ink-soft hover:bg-surface-muted"
               >
                 <Copy size={13} /> Sao chép mã sự kiện

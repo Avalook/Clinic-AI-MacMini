@@ -360,7 +360,17 @@ class DispatchService:
                             "reason": reason,
                         }
                     ),
-                    _json({"actor_auth_user_id": identity.auth_user_id}),
+                    _json(
+                        # Ba khoá, cùng hình dạng với `audit.record_event`.
+                        # Thiếu `clinic_staff_id` thì nhật ký chỉ tra ra tên
+                        # qua `auth_user_id`, mà khoá ấy chỉ phủ 9/57 nhân sự
+                        # (số người đã liên kết tài khoản đăng nhập).
+                        {
+                            "actor_auth_user_id": identity.auth_user_id,
+                            "clinic_staff_id": identity.staff_id,
+                            "clinic_role": identity.role.value,
+                        }
+                    ),
                 )
 
         logger.info(

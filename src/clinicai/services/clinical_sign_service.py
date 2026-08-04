@@ -482,10 +482,19 @@ async def _log(
         visit_id,
         json.dumps(payload, ensure_ascii=False),
         json.dumps(
+            # TÊN KHOÁ PHẢI KHỚP `audit.record_event`. File này từng ghi
+            # `actor_staff_id`/`actor_role` trong khi mười đường ghi còn lại
+            # dùng `clinic_staff_id`/`clinic_role` — và màn Lịch sử thao tác
+            # tra theo tên chuẩn, nên dòng nào ghi bằng tên lệch sẽ hiện
+            # "Hệ thống" thay vì tên bác sĩ đã ký bệnh án.
+            #
+            # Sửa được sạch vì đường này chưa phát dòng nào trên prod. Để chạy
+            # rồi mới sửa thì view đọc phải gánh thêm một nhánh COALESCE nữa,
+            # vĩnh viễn — event_log chỉ ghi thêm, không sửa lại được.
             {
                 "actor_auth_user_id": identity.auth_user_id,
-                "actor_staff_id": identity.staff_id,
-                "actor_role": identity.role.value,
+                "clinic_staff_id": identity.staff_id,
+                "clinic_role": identity.role.value,
             }
         ),
     )
