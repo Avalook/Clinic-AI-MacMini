@@ -62,9 +62,7 @@ class TestGroupingSignedReports:
 
 
 class TestWhoWorksInUltrasound:
-    @pytest.mark.parametrize(
-        "role", sorted(ULTRASOUND_ROLES, key=lambda r: r.value)
-    )
+    @pytest.mark.parametrize("role", sorted(ULTRASOUND_ROLES, key=lambda r: r.value))
     def test_the_ultrasound_team_and_those_who_type_for_them(
         self, role: ClinicRole
     ) -> None:

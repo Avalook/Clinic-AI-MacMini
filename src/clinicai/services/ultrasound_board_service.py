@@ -295,9 +295,7 @@ class UltrasoundBoardService:
         trước, không chỉ hôm nay.
         """
         since = _vn_midnight() - timedelta(days=max(0, days - 1))
-        rows = await self._pool.fetch(
-            _RECORDS_SQL, identity.clinic_id, signed, since
-        )
+        rows = await self._pool.fetch(_RECORDS_SQL, identity.clinic_id, signed, since)
         return {"items": [_record_row(r) for r in rows]}
 
 
@@ -361,9 +359,7 @@ def _record_row(r: asyncpg.Record) -> dict[str, Any]:
         # một ô ảnh trống nói "chưa chụp".
         "image_refs": list(r["image_refs"] or []),
         "gestational_age_weeks": r["gestational_age_weeks"],
-        "performed_at": (
-            r["performed_at"].isoformat() if r["performed_at"] else None
-        ),
+        "performed_at": (r["performed_at"].isoformat() if r["performed_at"] else None),
         "performed_by_name": r["performed_by_name"],
         "signed_at": r["signed_at"].isoformat() if r["signed_at"] else None,
         "signed_by_name": r["signed_by_name"],

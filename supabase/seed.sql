@@ -116,6 +116,11 @@ INSERT INTO public.service_price (id, service_code, name, "group", unit_price, a
     ('220f7873-8bc4-4a65-a0cb-67a0060a2507', 'CLS_CAY_QUE_TRANH_THAI', 'Cấy que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
     ('6cc8997d-2b48-465a-918e-12eb77721413', 'CLS_THAO_QUE_TRANH_THAI', 'Tháo que tránh thai', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
     ('1f7c78fb-5803-43e0-a9f9-7b607fd92dbb', 'CLS_SOI_CO_TU_CUNG', 'Soi cổ tử cung', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+-- Hai dòng dưới KHÔNG đến từ bản dump: lần parse phiếu chỉ định bỏ sót chúng
+-- (29/31 mục). Thêm tay để database trắng cũng đủ danh mục; cài đặt đang chạy
+-- được vá bằng migration 20260804000017. Giữ nguyên nếu dump lại từ prod.
+    ('b150aac4-890f-49c6-bdaf-e1e8b8518694', 'CLS_BIOFEEDBACK_CO_BAN', 'Biofeedback cơ bản', 'dich_vu', NULL, 't', '2026-08-04 00:00:00+00', '2026-08-04 00:00:00+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
+    ('f90e9288-7367-49e1-a57b-4e23cc6905ef', 'CLS_BIOFEEDBACK_NANG_CAO', 'Biofeedback nâng cao', 'dich_vu', NULL, 't', '2026-08-04 00:00:00+00', '2026-08-04 00:00:00+00', 'Thủ thuật', NULL, 'a0000000-0000-4000-8000-000000000001'),
     ('74958d9a-096f-4475-8ed6-a0569eeba5db', 'CLS_CHUP_VU_EP', 'Chụp vú ép', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL, 'a0000000-0000-4000-8000-000000000001'),
     ('8bad3c7f-8f04-46cb-9f8c-2752ccde5da8', 'CLS_CHUP_MRI_VU', 'Chụp MRI vú', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL, 'a0000000-0000-4000-8000-000000000001'),
     ('d0283c31-84f9-498a-a6c3-b8833bfa2fe0', 'CLS_CHUP_TU_CUNG_VOI_TRUNG', 'Chụp tử cung – vòi trứng', 'dich_vu', NULL, 't', '2026-06-19 07:28:09.508674+00', '2026-06-19 07:28:09.508674+00', 'Chụp phim ngoài', NULL, 'a0000000-0000-4000-8000-000000000001'),
