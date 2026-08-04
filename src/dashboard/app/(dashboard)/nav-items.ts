@@ -29,6 +29,7 @@ import {
   Receipt,
   Timer,
   Zap,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -250,6 +251,12 @@ export const NAV: NavItem[] = [
     label: "Luật đặt lịch",
     shortLabel: "Luật đặt lịch",
     icon: Calendar,
+  },
+  {
+    href: "/settings/clinic-config",
+    label: "Cấu trúc phòng khám",
+    shortLabel: "Cấu trúc",
+    icon: Building2,
   },
   { href: "/settings", label: "Cài đặt", icon: Settings },
   {

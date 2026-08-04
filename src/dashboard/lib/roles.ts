@@ -343,6 +343,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // tắc và sức chứa" — mâu thuẫn với quyết định trên. Quyết định trực tiếp của
   // Quang thắng; ghi lại ở đây để lần sau không ai "sửa lại cho khớp Notion".
   "/settings/booking-policy": ["TRUONG_CA", "MANAGEMENT"],
+  // Cấu trúc phòng khám (cơ sở/tầng/phòng, ai làm được bước nào) — CHỈ Quản lý.
+  // Khác /settings/booking-policy (Trưởng ca sửa được số chỗ): đổi sơ đồ phòng
+  // là đổi nơi bệnh nhân được gửi tới, và bảng điều phối đọc thẳng từ đó.
+  "/settings/clinic-config": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
