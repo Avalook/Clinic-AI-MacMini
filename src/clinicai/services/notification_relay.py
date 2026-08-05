@@ -14,6 +14,7 @@ standalone script.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -29,6 +30,18 @@ logger = structlog.get_logger()
 BATCH_SIZE = 50
 # Max send attempts per poll; failures remain unpublished for a later poll.
 MAX_RETRIES = 3
+# Chờ giữa hai lần thử, nhân đôi mỗi lần: 0.5s rồi 1.0s.
+#
+# BA LẦN THỬ LIÊN TIẾP KHÔNG NGHỈ LÀ MỘT LẦN THỬ.
+# Vòng cũ gọi send_telegram() ba lần sát nhau trong vài mili-giây. Thứ làm hỏng
+# lần một — mạng chớp, Telegram trả 429, provider đang khởi động lại — vẫn còn
+# nguyên ở lần hai và lần ba, nên hai lần sau chỉ tốn thời gian và đẩy thêm
+# request vào đúng chỗ đang quá tải. Với SEND_TIMEOUT = 10s ở providers/telegram,
+# một sự cố kéo dài làm mỗi sự kiện ngốn tới 30 giây của vòng poll.
+#
+# Cố ý để ngắn: đây là lưới cho trục trặc thoáng qua. Hỏng lâu thì sự kiện nằm
+# lại chờ vòng poll sau — đó mới là chỗ retry thuộc về.
+RETRY_BACKOFF_SECONDS = 0.5
 
 
 async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
@@ -117,6 +130,11 @@ async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
                         event_id=str(event_id),
                         attempt=attempt,
                     )
+                    # Không ngủ sau lần cuối: lúc đó không còn lần thử nào để chờ.
+                    if attempt < MAX_RETRIES:
+                        await asyncio.sleep(
+                            RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                        )
 
                 if success:
                     await _mark_published(conn, event_id, clinic_id)
