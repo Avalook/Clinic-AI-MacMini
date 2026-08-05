@@ -19,6 +19,30 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     NEXT_TELEMETRY_DISABLED=1 \
     BUILD_STANDALONE=1
+# Chặn ngay tại đây, đừng để ra tới trình duyệt.
+#
+# `NEXT_PUBLIC_SUPABASE_URL` bị nung vào bundle JS, và nó là địa chỉ TRÌNH DUYỆT
+# gọi — không phải địa chỉ container gọi. Đưa nhầm một tên máy nội bộ Docker vào
+# đây thì build vẫn xanh, container vẫn healthy, đăng nhập vẫn chạy (server
+# action), chỉ có realtime, nút Thoát và đặt lại mật khẩu là chết — im lặng.
+#
+# Đã xảy ra hai lần: `host.docker.internal:54321` ở staging, rồi
+# `clinicai_supabase_gateway:8000` trên VPS ngày 05/08/2026.
+#
+# Luật: tên máy phải có dấu chấm (tên miền hoặc IP), hoặc là localhost. Một tên
+# máy trần như `clinicai_supabase_gateway` chỉ phân giải được trong mạng Docker.
+RUN set -eu; \
+    host=$(printf '%s' "${NEXT_PUBLIC_SUPABASE_URL:-}" | sed -E 's#^[a-z]+://##; s#[:/].*$##'); \
+    if [ -z "$host" ]; then \
+        echo "LỖI: NEXT_PUBLIC_SUPABASE_URL trống." >&2; exit 1; \
+    fi; \
+    case "$host" in \
+        localhost|127.0.0.1|*.*) : ;; \
+        *) echo "LỖI: NEXT_PUBLIC_SUPABASE_URL trỏ vào '$host' — tên máy nội bộ Docker," >&2; \
+           echo "     trình duyệt không phân giải được. Đặt PUBLIC_SUPABASE_URL thành" >&2; \
+           echo "     địa chỉ người dùng gõ trên thanh địa chỉ." >&2; exit 1 ;; \
+    esac
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

@@ -79,7 +79,11 @@ services:
         # này) không gọi nổi Supabase: realtime không cập nhật, nút Thoát không
         # ăn, quên mật khẩu hỏng. Đăng nhập vẫn chạy vì là server action — nên
         # lỗi này im lặng.
-        NEXT_PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
+        # Nhận cả hai tên: `PUBLIC_SUPABASE_URL` (tên cũ, dev-up.sh dùng) và
+        # `NEXT_PUBLIC_SUPABASE_URL` (tên tự nhiên, và là tên đã có sẵn trong
+        # .env.prod). Thiếu cả hai thì mới lùi về ${SUPABASE_URL} — đúng khi
+        # dùng Supabase cloud, sai khi tự dựng; Dockerfile chặn nốt vế sai.
+        NEXT_PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
