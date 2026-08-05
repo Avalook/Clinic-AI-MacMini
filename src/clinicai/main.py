@@ -258,10 +258,17 @@ async def exclusion_violation_handler(
     cụ thể mà bịa.
     """
     constraint = getattr(exc, "constraint_name", None) or ""
+    # `appointment_no_doctor_overlap` KHÔNG còn trong danh sách này.
+    #
+    # Nó bị DROP ở một migration cũ và chưa ai dựng lại — kiểm bằng pg_constraint
+    # ngày 05/08: chỉ còn hai ràng buộc EXCLUDE, cả hai trên bảng override. Giữ
+    # một mục cho ràng buộc không tồn tại làm người đọc tin rằng có lưới ở đó.
+    #
+    # Và nó KHÔNG nên được dựng lại: EXCLUDE cấm MỌI cặp chồng lấn, tức trần
+    # bằng 1, trong khi luật của phòng khám là 2 chỗ đặt + 1 vãng lai mỗi bác sĩ
+    # mỗi khung (clinic_policy.py:31-32) — ba lịch cùng bác sĩ cùng giờ là hợp
+    # lệ. Trần theo số đếm phải là trigger, và nó đã có: enforce_slot_capacity.
     known = {
-        "appointment_no_doctor_overlap": (
-            "Lịch hẹn xung đột khung giờ với appointment khác"
-        ),
         "slot_override_no_overlap": (
             "Đã có một điều chỉnh khác phủ khung giờ này — sửa hoặc xoá nó trước."
         ),
@@ -295,16 +302,38 @@ async def exclusion_violation_handler(
 async def unique_violation_handler(
     request: Request, exc: asyncpg.exceptions.UniqueViolationError
 ) -> JSONResponse:
-    """Global handler for database unique constraint violations (HTTP 409)."""
+    """Global handler for database unique constraint violations (HTTP 409).
+
+    MẶC ĐỊNH VẪN MƠ HỒ, CÓ CHỦ Ý. Tên một ràng buộc UNIQUE thường lộ cấu trúc
+    bảng và đôi khi cả cách định danh (``staff_phone_key`` nói rằng nhân viên
+    được phân biệt bằng số điện thoại). Khác với ràng buộc chồng lấn — nơi chi
+    tiết giúp người dùng xử lý được — ở đây chi tiết không giúp thêm gì.
+
+    NGOẠI LỆ: ràng buộc nào mà người dùng CÓ THỂ tự xử lý thì được một câu riêng.
+    ``uq_appointment_patient_slot_live`` chỉ bắn khi hai request thật sự đồng
+    thời cùng đặt một bệnh nhân vào một giờ — tức là cú bấm hai lần đã lọt qua
+    cả chốt ở trình duyệt lẫn Idempotency-Key. Người bấm cần biết lịch ĐÃ có,
+    không cần biết tên chỉ mục.
+    """
+    constraint = getattr(exc, "constraint_name", None) or ""
+    known = {
+        "uq_appointment_patient_slot_live": (
+            "Bệnh nhân này đã có lịch hẹn vào đúng giờ đó. Lần bấm trước đã "
+            "thành công — không cần đặt lại. Muốn đổi giờ thì vào Quản lý "
+            "khách hàng → Lịch hẹn sắp tới."
+        ),
+    }
+    message = known.get(constraint, "Resource already exists")
     logger.warning(
         "unique_violation",
-        reason="Resource already exists",
+        reason=message,
+        constraint=constraint,
     )
     return JSONResponse(
         status_code=409,
         content={
             "error": "CONFLICT_ERROR",
-            "message": "Resource already exists",
+            "message": message,
         },
     )
 

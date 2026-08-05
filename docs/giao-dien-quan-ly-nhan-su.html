@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClinicAI — Quản lý Nhân sự & Hồ sơ Nhân viên</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --brand-50: #f0fdfa;
+      --brand-100: #ccfbf1;
+      --brand-200: #99f6e4;
+      --brand-500: #14b8a6;
+      --brand-600: #0d9488;
+      --brand-700: #0f766e;
+      --brand-800: #115e59;
+      --brand-900: #134e4a;
+      
+      --ink: #0f172a;
+      --ink-soft: #334155;
+      --ink-muted: #64748b;
+      --ink-faint: #94a3b8;
+      
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --surface-sunken: #f1f5f9;
+      
+      --line: #e2e8f0;
+      --line-strong: #cbd5e1;
+      
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --warning: #d97706;
+      --warning-bg: #fef3c7;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --info: #2563eb;
+      --info-bg: #dbeafe;
+      
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-full: 9999px;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--surface-muted);
+      color: var(--ink);
+      line-height: 1.5;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* Layout structure */
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Header */
+    .sidebar {
+      width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+
+    .brand-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 10px;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .nav-menu {
+      padding: 12px 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      color: var(--ink-soft);
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .nav-item:hover {
+      background: var(--surface-sunken);
+      color: var(--brand-700);
+    }
+
+    .nav-item.active {
+      background: var(--brand-50);
+      color: var(--brand-700);
+      font-weight: 600;
+    }
+
+    .nav-item i {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* Main Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .top-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .page-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .page-subtitle {
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--brand-600);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--brand-700);
+      box-shadow: 0 2px 6px rgba(13, 148, 136, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      border-color: var(--line);
+      color: var(--ink-soft);
+    }
+    .btn-secondary:hover {
+      background: var(--surface-sunken);
+      color: var(--ink);
+    }
+
+    /* Body Dashboard Grid */
+    .dashboard-body {
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* KPI Summary Row */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .kpi-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .kpi-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-bottom: 2px;
+    }
+
+    /* Two-column Master Layout */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Left Staff Directory List */
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .search-box {
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px 8px 34px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      outline: none;
+      background: var(--surface-muted);
+    }
+    .search-box input:focus {
+      border-color: var(--brand-500);
+      background: var(--surface);
+    }
+    .search-box i {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--ink-muted);
+      font-size: 13px;
+    }
+
+    .dept-tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .dept-btn {
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid var(--line);
+      background: var(--surface-muted);
+      color: var(--ink-muted);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .dept-btn.active {
+      background: var(--brand-600);
+      color: white;
+      border-color: var(--brand-600);
+    }
+
+    .staff-list {
+      display: flex;
+      flex-direction: column;
+      max-height: 650px;
+      overflow-y: auto;
+      padding: 8px;
+      gap: 6px;
+    }
+
+    .staff-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .staff-card:hover {
+      border-color: var(--brand-200);
+      background: var(--brand-50);
+    }
+    .staff-card.active {
+      border-color: var(--brand-600);
+      background: var(--brand-50);
+      box-shadow: 0 0 0 1px var(--brand-600);
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--surface);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+
+    .staff-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .staff-meta {
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .badge-success { background: var(--success-bg); color: var(--success); }
+    .badge-warning { background: var(--warning-bg); color: var(--warning); }
+    .badge-brand { background: var(--brand-100); color: var(--brand-700); }
+    .badge-secondary { background: var(--surface-sunken); color: var(--ink-soft); }
+
+    /* Right Main Profile Workspace */
+    .profile-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .profile-banner {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .profile-hero {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .avatar-large {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--brand-500);
+      box-shadow: var(--shadow-md);
+    }
+
+    .hero-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .hero-role {
+      font-size: 13px;
+      color: var(--brand-700);
+      font-weight: 600;
+    }
+
+    .hero-details {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-top: 6px;
+    }
+
+    /* Tabs Bar inside Profile */
+    .profile-tabs-bar {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+      padding: 8px 16px 0;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      border: 1px solid var(--line);
+      border-bottom: none;
+    }
+
+    .profile-tab-btn {
+      padding: 10px 18px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .profile-tab-btn:hover {
+      color: var(--brand-700);
+    }
+
+    .profile-tab-btn.active {
+      color: var(--brand-600);
+      border-bottom-color: var(--brand-600);
+    }
+
+    .profile-body-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Field Grid System */
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .field-box {
+      background: var(--surface-muted);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+    }
+
+    .field-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }
+
+    .field-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* Skills & Certifications Tags */
+    .skills-flex {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .skill-tag {
+      background: var(--brand-50);
+      border: 1px solid var(--brand-200);
+      color: var(--brand-800);
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Shift Schedule Grid Table */
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .schedule-table th, .schedule-table td {
+      border: 1px solid var(--line);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .schedule-table th {
+      background: var(--surface-sunken);
+      font-weight: 700;
+      color: var(--ink-muted);
+      font-size: 11px;
+    }
+
+    .shift-pill {
+      display: block;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 10px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .shift-morning { background: #dbeafe; color: #1e40af; }
+    .shift-afternoon { background: #fef3c7; color: #92400e; }
+    .shift-night { background: #f3e8ff; color: #6b21a8; }
+    .shift-off { background: var(--surface-sunken); color: var(--ink-muted); font-weight: 400; }
+
+    /* Documents File List */
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .file-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      transition: all 0.15s ease;
+    }
+    .file-card:hover {
+      border-color: var(--brand-500);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .file-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--brand-50);
+      color: var(--brand-600);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--ink);
+      font-size: 12px;
+    }
+
+    .file-meta {
+      font-size: 10px;
+      color: var(--ink-muted);
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 600px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      outline: none;
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--brand-600);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- 1. LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand-header">
+      <div class="brand-logo">CA</div>
+      <div>
+        <div class="brand-title">ClinicAI</div>
+        <div class="brand-subtitle">Quản lý Nhân sự Pro</div>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-chart-line"></i> Trang chủ vận hành
+      </a>
+      <a href="#" class="nav-item active">
+        <i class="fa-solid fa-id-card-clip"></i> Quản lý Nhân sự
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-calendar-week"></i> Phân ca & Trực ca
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-certificate"></i> Chứng chỉ & Năng lực
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-folder-open"></i> Lưu trữ Hồ sơ (Archive)
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-sliders"></i> Cài đặt hệ thống
+      </a>
+    </nav>
+  </aside>
+
+  <!-- 2. MAIN CONTENT AREA -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div>
+        <h1 class="page-title">Quản lý Nhân sự & Hồ sơ Nhân viên</h1>
+        <p class="page-subtitle">Theo dõi thông tin định danh, CCCD, chứng chỉ hành nghề, năng lực chuyên môn và lịch trực ca.</p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="openAddModal()">
+          <i class="fa-solid fa-user-plus"></i> Thêm nhân sự mới
+        </button>
+        <button class="btn btn-primary" onclick="alert('Đã đồng bộ dữ liệu nhân sự với máy chủ!')">
+          <i class="fa-solid fa-rotate"></i> Đồng bộ dữ liệu
+        </button>
+      </div>
+    </header>
+
+    <div class="dashboard-body">
+      <!-- Top 4 KPI Metrics -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background: var(--brand-50); color: var(--brand-600);">
+            <i class="fa-solid fa-users"></i>
+          </div>
+          <div>
+            <div class="kpi-label">Tổng nhân sự</div>
+            <div class="kpi-value">42 <span style="font-size: 12px; font-weight: 500; color: var(--ink-muted);">người</span></div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background: var(--success-bg); color: var(--success);">
+            <i class="fa-solid fa-user-clock"></i>
+          </div>
+          <div>
+            <div class="kpi-label">Đang trong ca trực</div>
+            <div class="kpi-value">14 <span style="font-size: 12px; font-weight: 500; color: var(--success);">Đang ca</span></div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background: var(--info-bg); color: var(--info);">
+            <i class="fa-solid fa-user-doctor"></i>
+          </div>
+          <div>
+            <div class="kpi-label">Bác sĩ & Chuyên gia</div>
+            <div class="kpi-value">12 <span style="font-size: 12px; font-weight: 500; color: var(--ink-muted);">bác sĩ</span></div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background: var(--warning-bg); color: var(--warning);">
+            <i class="fa-solid fa-award"></i>
+          </div>
+          <div>
+            <div class="kpi-label">CCHN Đầy đủ</div>
+            <div class="kpi-value">38/42 <span style="font-size: 12px; font-weight: 500; color: var(--warning);">90.4%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Master Workspace Grid -->
+      <div class="workspace-grid">
+        <!-- LEFT STAFF DIRECTORY -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="searchInput" placeholder="Tìm theo tên, SĐT, CCCD, mã NV..." onkeyup="filterStaff()">
+            </div>
+
+            <div class="dept-tabs">
+              <button class="dept-btn active" onclick="filterDept('all', this)">Tất cả (42)</button>
+              <button class="dept-btn" onclick="filterDept('doctor', this)">Bác sĩ (12)</button>
+              <button class="dept-btn" onclick="filterDept('nurse', this)">Điều dưỡng (16)</button>
+              <button class="dept-btn" onclick="filterDept('pharmacy', this)">Dược sĩ (6)</button>
+              <button class="dept-btn" onclick="filterDept('reception', this)">Lễ tân (8)</button>
+            </div>
+          </div>
+
+          <div class="staff-list" id="staffList">
+            <!-- Staff Item 1 -->
+            <div class="staff-card active" onclick="selectStaff(0)" data-dept="doctor">
+              <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=150&q=80" class="avatar" alt="Avatar">
+              <div style="flex: 1; min-width: 0;">
+                <div class="staff-name">BS. Trần Văn Dũng</div>
+                <div class="staff-meta">BS. CKII Sản Phụ Khoa · NV-012</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                  <span class="badge badge-success">Đang trong ca</span>
+                  <span class="badge badge-brand">SA4D / Colposcopy</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staff Item 2 -->
+            <div class="staff-card" onclick="selectStaff(1)" data-dept="doctor">
+              <img src="https://images.unsplash.com/photo-1594824813566-82823d5483eb?auto=format&fit=crop&w=150&q=80" class="avatar" alt="Avatar">
+              <div style="flex: 1; min-width: 0;">
+                <div class="staff-name">BS. Vũ Ngọc Lan</div>
+                <div class="staff-meta">BS. CKI Phụ Khoa & Nội Tiết · NV-015</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                  <span class="badge badge-success">Đang trong ca</span>
+                  <span class="badge badge-brand">HPV / Order Composer</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staff Item 3 -->
+            <div class="staff-card" onclick="selectStaff(2)" data-dept="doctor">
+              <img src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=150&q=80" class="avatar" alt="Avatar">
+              <div style="flex: 1; min-width: 0;">
+                <div class="staff-name">BS. Lê Hoàng Nam</div>
+                <div class="staff-meta">BS. Chẩn đoán hình ảnh · NV-018</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                  <span class="badge badge-warning">Nghỉ ca</span>
+                  <span class="badge badge-brand">Siêu âm TVS / DICOM</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staff Item 4 -->
+            <div class="staff-card" onclick="selectStaff(3)" data-dept="nurse">
+              <img src="https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=150&q=80" class="avatar" alt="Avatar">
+              <div style="flex: 1; min-width: 0;">
+                <div class="staff-name">ĐD. Phạm Thị Mai</div>
+                <div class="staff-meta">Điều dưỡng Trưởng trạm · NV-042</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                  <span class="badge badge-success">Đang trong ca</span>
+                  <span class="badge badge-secondary">Đo Sinh Hiệu 9 Chỉ Số</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staff Item 5 -->
+            <div class="staff-card" onclick="selectStaff(4)" data-dept="pharmacy">
+              <img src="https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=150&q=80" class="avatar" alt="Avatar">
+              <div style="flex: 1; min-width: 0;">
+                <div class="staff-name">DS. Lê Hoàng Minh</div>
+                <div class="staff-meta">Dược sĩ Nhà thuốc · NV-031</div>
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                  <span class="badge badge-success">Đang trong ca</span>
+                  <span class="badge badge-secondary">Cấp phát & Tư vấn thuốc</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT DETAILED PROFILE WORKSPACE -->
+        <div class="profile-container" id="profileContainer">
+          <!-- Profile Banner Card -->
+          <div class="profile-banner">
+            <div class="profile-hero">
+              <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=150&q=80" class="avatar-large" id="viewAvatar" alt="Avatar">
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h2 class="hero-name" id="viewName">BS. Trần Văn Dũng</h2>
+                  <span class="badge badge-success" id="viewStatus">● Đang trong ca trực</span>
+                </div>
+                <div class="hero-role" id="viewRole">Bác sĩ Chuyên khoa II — Sản Phụ Khoa</div>
+                <div class="hero-details">
+                  <span><i class="fa-solid fa-hashtag"></i> Mã NV: <strong id="viewCode">NV-2026-012</strong></span>
+                  <span><i class="fa-solid fa-phone"></i> SĐT: <strong id="viewPhone">0918 234 567</strong></span>
+                  <span><i class="fa-solid fa-building-user"></i> Trạm: <strong>Bàn khám 02 & Phòng SA1</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button class="btn btn-primary" onclick="alert('Mở form chỉnh sửa thông tin nhân sự')">
+                <i class="fa-solid fa-pen-to-square"></i> Cập nhật hồ sơ
+              </button>
+              <button class="btn btn-secondary" onclick="alert('Mở giao diện xếp lịch trực')">
+                <i class="fa-solid fa-calendar-check"></i> Phân ca làm việc
+              </button>
+            </div>
+          </div>
+
+          <!-- Profile Details Card with Tabs -->
+          <div>
+            <div class="profile-tabs-bar">
+              <button class="profile-tab-btn active" onclick="switchTab('tab-personal', this)">
+                <i class="fa-solid fa-address-card"></i> 1. Định danh & Liên hệ
+              </button>
+              <button class="profile-tab-btn" onclick="switchTab('tab-skills', this)">
+                <i class="fa-solid fa-user-graduate"></i> 2. Năng lực & Chứng chỉ
+              </button>
+              <button class="profile-tab-btn" onclick="switchTab('tab-schedule', this)">
+                <i class="fa-solid fa-clock"></i> 3. Ngày giờ làm việc
+              </button>
+              <button class="profile-tab-btn" onclick="switchTab('tab-files', this)">
+                <i class="fa-solid fa-box-archive"></i> 4. Hồ sơ lưu trữ (5)
+              </button>
+            </div>
+
+            <div class="profile-body-card">
+              <!-- TAB 1: PERSIONAL & IDENTITY -->
+              <div id="tab-personal" class="tab-content active">
+                <div class="section-title">
+                  <i class="fa-solid fa-id-card" style="color: var(--brand-600);"></i> Thông tin cá nhân & Số CCCD
+                </div>
+
+                <div class="field-grid">
+                  <div class="field-box">
+                    <div class="field-label">Họ và tên đầy đủ</div>
+                    <div class="field-value" id="fieldFullName">Trần Văn Dũng</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Ngày sinh & Tuổi</div>
+                    <div class="field-value" id="fieldDob">14/08/1985 (41 tuổi)</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Giới tính</div>
+                    <div class="field-value" id="fieldGender">Nam</div>
+                  </div>
+
+                  <div class="field-box">
+                    <div class="field-label">Số CCCD / CMND</div>
+                    <div class="field-value" id="fieldCccd" style="color: var(--brand-700); font-family: monospace; font-size: 14px;">079085001234</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Ngày cấp CCCD</div>
+                    <div class="field-value" id="fieldCccdDate">12/05/2021</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Nơi cấp</div>
+                    <div class="field-value">Cục Cảnh sát QLHC về Trật tự Xã hội</div>
+                  </div>
+
+                  <div class="field-box">
+                    <div class="field-label">Số điện thoại di động</div>
+                    <div class="field-value" id="fieldPhoneText">0918 234 567</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Email làm việc</div>
+                    <div class="field-value" id="fieldEmail">dung.tran@clinicai.vn</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Địa chỉ thường trú</div>
+                    <div class="field-value">124 Nguyễn Trãi, Q.5, TP. Hồ Chí Minh</div>
+                  </div>
+                </div>
+
+                <div class="section-title">
+                  <i class="fa-solid fa-users-gear" style="color: var(--brand-600);"></i> Thông tin công tác & Hợp đồng
+                </div>
+
+                <div class="field-grid">
+                  <div class="field-box">
+                    <div class="field-label">Phòng ban / Khoa</div>
+                    <div class="field-value" id="fieldDept">Khoa Sản Phụ Khoa</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Loại hợp đồng lao động</div>
+                    <div class="field-value">Chính thức — Vô thời hạn</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Ngày vào làm chính thức</div>
+                    <div class="field-value">15/03/2020 (5 năm công tác)</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 2: SKILLS & CERTIFICATIONS -->
+              <div id="tab-skills" class="tab-content">
+                <div class="section-title">
+                  <i class="fa-solid fa-certificate" style="color: var(--brand-600);"></i> Chứng chỉ hành nghề (CCHN) & Bằng cấp
+                </div>
+
+                <div class="field-grid">
+                  <div class="field-box">
+                    <div class="field-label">Số Chứng chỉ hành nghề</div>
+                    <div class="field-value" style="color: var(--brand-700); font-weight: 700;">004521/BYT-CCHN</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Ngày cấp CCHN</div>
+                    <div class="field-value">20/10/2012</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Phạm vi hoạt động chuyên môn</div>
+                    <div class="field-value">Khám chữa bệnh chuyên khoa Sản Phụ khoa</div>
+                  </div>
+                </div>
+
+                <div class="section-title">
+                  <i class="fa-solid fa-star" style="color: var(--brand-600);"></i> Năng lực chuyên môn & Kỹ năng kỹ thuật
+                </div>
+
+                <div class="skills-flex" id="skillsList">
+                  <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Siêu âm Thai 4D / 3D Hình Thái</span>
+                  <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Siêu âm Đầu Dò TVS</span>
+                  <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Soi cổ tử cung Colposcopy</span>
+                  <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Tầm soát ung thư cổ tử cung (Pap / ThinPrep / HPV)</span>
+                  <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Quản lý thai kỳ nguy cơ cao</span>
+                  <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> Phẫu thuật nội soi sản phụ khoa</span>
+                </div>
+              </div>
+
+              <!-- TAB 3: WORK SCHEDULE & HOURS -->
+              <div id="tab-schedule" class="tab-content">
+                <div class="section-title">
+                  <i class="fa-solid fa-calendar-days" style="color: var(--brand-600);"></i> Lịch làm việc tuần này (12/05/2026 – 18/05/2026)
+                </div>
+
+                <table class="schedule-table" style="margin-bottom: 20px;">
+                  <thead>
+                    <tr>
+                      <th>Thứ 2 (12/05)</th>
+                      <th>Thứ 3 (13/05)</th>
+                      <th>Thứ 4 (14/05)</th>
+                      <th>Thứ 5 (15/05)</th>
+                      <th>Thứ 6 (16/05)</th>
+                      <th>Thứ 7 (17/05)</th>
+                      <th>CN (18/05)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="shift-pill shift-morning">Ca Sáng<br>07:30–11:30</span></td>
+                      <td><span class="shift-pill shift-morning">Ca Sáng<br>07:30–11:30</span></td>
+                      <td><span class="shift-pill shift-afternoon">Ca Chiều<br>13:00–17:00</span></td>
+                      <td><span class="shift-pill shift-morning">Ca Sáng<br>07:30–11:30</span></td>
+                      <td><span class="shift-pill shift-night">Ca Đêm<br>18:00–22:00</span></td>
+                      <td><span class="shift-pill shift-morning">Ca Sáng<br>07:30–11:30</span></td>
+                      <td><span class="shift-pill shift-off">Nghỉ</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="field-grid">
+                  <div class="field-box">
+                    <div class="field-label">Tổng giờ làm tháng này</div>
+                    <div class="field-value">168 giờ / 176 giờ tiêu chuẩn</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Số ca trực hoàn thành</div>
+                    <div class="field-value">21 ca trực</div>
+                  </div>
+                  <div class="field-box">
+                    <div class="field-label">Tỷ lệ đúng giờ (Chấm công)</div>
+                    <div class="field-value" style="color: var(--success);">98.5% Đúng giờ</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 4: ARCHIVED DOCUMENTS -->
+              <div id="tab-files" class="tab-content">
+                <div class="section-title">
+                  <i class="fa-solid fa-folder-open" style="color: var(--brand-600);"></i> Hồ sơ & Tài liệu cá nhân lưu trữ
+                </div>
+
+                <div class="file-grid">
+                  <div class="file-card">
+                    <div class="file-icon"><i class="fa-solid fa-file-pdf"></i></div>
+                    <div style="flex: 1;">
+                      <div class="file-name">Bản quét Căn cước công dân (CCCD_TranVanDung.pdf)</div>
+                      <div class="file-meta">Tải lên: 15/03/2020 · Kích thước: 2.4 MB</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="alert('Mở xem file PDF CCCD')"><i class="fa-solid fa-eye"></i></button>
+                  </div>
+
+                  <div class="file-card">
+                    <div class="file-icon"><i class="fa-solid fa-file-pdf"></i></div>
+                    <div style="flex: 1;">
+                      <div class="file-name">Chứng chỉ Hành nghề Y Tế (CCHN_004521_BYT.pdf)</div>
+                      <div class="file-meta">Tải lên: 15/03/2020 · Kích thước: 4.1 MB</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="alert('Mở xem Chứng chỉ hành nghề')"><i class="fa-solid fa-eye"></i></button>
+                  </div>
+
+                  <div class="file-card">
+                    <div class="file-icon"><i class="fa-solid fa-file-contract"></i></div>
+                    <div style="flex: 1;">
+                      <div class="file-name">Hợp đồng lao động chính thức (HDLD_2020_012.pdf)</div>
+                      <div class="file-meta">Tải lên: 20/03/2020 · Kích thước: 1.8 MB</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="alert('Mở xem Hợp đồng lao động')"><i class="fa-solid fa-eye"></i></button>
+                  </div>
+
+                  <div class="file-card">
+                    <div class="file-icon"><i class="fa-solid fa-file-medical"></i></div>
+                    <div style="flex: 1;">
+                      <div class="file-name">Giấy khám sức khỏe định kỳ 2026 (KSK_2026.pdf)</div>
+                      <div class="file-meta">Tải lên: 10/01/2026 · Kích thước: 3.0 MB</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="alert('Mở xem Giấy khám sức khỏe')"><i class="fa-solid fa-eye"></i></button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: ADD STAFF -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700;">Tạo Hồ sơ Nhân sự mới</div>
+      <button class="btn btn-secondary" style="padding: 4px 8px;" onclick="closeAddModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Họ và tên nhân viên *</label>
+        <input type="text" placeholder="Nhập họ tên...">
+      </div>
+      <div class="form-group">
+        <label>Số điện thoại *</label>
+        <input type="text" placeholder="Nhập số điện thoại...">
+      </div>
+      <div class="form-group">
+        <label>Số Căn cước công dân (CCCD) *</label>
+        <input type="text" placeholder="Nhập 12 số CCCD...">
+      </div>
+      <div class="form-group">
+        <label>Chức vụ / Chuyên môn *</label>
+        <select>
+          <option>Bác sĩ Sản Phụ Khoa</option>
+          <option>Bác sĩ Siêu âm / CĐHA</option>
+          <option>Điều dưỡng Trạm</option>
+          <option>Dược sĩ Nhà thuốc</option>
+          <option>Lễ tân / Tiếp nhận</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Số Chứng chỉ hành nghề (CCHN)</label>
+        <input type="text" placeholder="Nhập số CCHN nếu có...">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+        <button class="btn btn-secondary" onclick="closeAddModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="alert('Đã thêm hồ sơ nhân viên mới!'); closeAddModal();">Lưu hồ sơ nhân sự</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Staff Dataset
+  const STAFF_DATA = [
+    {
+      name: "BS. Trần Văn Dũng",
+      role: "Bác sĩ Chuyên khoa II — Sản Phụ Khoa",
+      code: "NV-2026-012",
+      phone: "0918 234 567",
+      email: "dung.tran@clinicai.vn",
+      dob: "14/08/1985 (41 tuổi)",
+      gender: "Nam",
+      cccd: "079085001234",
+      cccdDate: "12/05/2021",
+      dept: "Khoa Sản Phụ Khoa",
+      status: "● Đang trong ca trực",
+      avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=150&q=80",
+      skills: ["Siêu âm Thai 4D / 3D Hình Thái", "Siêu âm Đầu Dò TVS", "Soi cổ tử cung Colposcopy", "Tầm soát ung thư CTC (Pap / ThinPrep / HPV)", "Quản lý thai kỳ nguy cơ cao"]
+    },
+    {
+      name: "BS. Vũ Ngọc Lan",
+      role: "Bác sĩ CKI — Phụ Khoa & Nội Tiết",
+      code: "NV-2026-015",
+      phone: "0901 234 567",
+      email: "lan.vu@clinicai.vn",
+      dob: "22/11/1990 (35 tuổi)",
+      gender: "Nữ",
+      cccd: "079090005678",
+      cccdDate: "18/09/2022",
+      dept: "Khoa Sản Phụ Khoa",
+      status: "● Đang trong ca trực",
+      avatar: "https://images.unsplash.com/photo-1594824813566-82823d5483eb?auto=format&fit=crop&w=150&q=80",
+      skills: ["Tư vấn khám phụ khoa chuyên sâu", "Kê đơn Order Composer", "Đánh giá nội tiết tố", "Soi cổ tử cung Colposcopy"]
+    },
+    {
+      name: "BS. Lê Hoàng Nam",
+      role: "Bác sĩ Chẩn đoán hình ảnh & Siêu âm",
+      code: "NV-2026-018",
+      phone: "0934 567 890",
+      email: "nam.le@clinicai.vn",
+      dob: "05/03/1988 (38 tuổi)",
+      gender: "Nam",
+      cccd: "079088009988",
+      cccdDate: "10/01/2020",
+      dept: "Khoa Chẩn đoán Hình ảnh",
+      status: "Nghỉ ca",
+      avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=150&q=80",
+      skills: ["Siêu âm thai 4D / 2D", "Siêu âm đầu dò TVS", "Siêu âm ổ bụng tổng quát", "Đồng bộ ảnh DICOM"]
+    },
+    {
+      name: "ĐD. Phạm Thị Mai",
+      role: "Điều dưỡng Trưởng trạm Sinh hiệu",
+      code: "NV-2026-042",
+      phone: "0978 112 233",
+      email: "mai.pham@clinicai.vn",
+      dob: "10/05/1993 (33 tuổi)",
+      gender: "Nữ",
+      cccd: "079093003344",
+      cccdDate: "05/04/2021",
+      dept: "Khối Điều dưỡng",
+      status: "● Đang trong ca trực",
+      avatar: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?auto=format&fit=crop&w=150&q=80",
+      skills: ["Đo dấu hiệu sinh tồn 9 chỉ số", "Đánh giá dị ứng & BMI", "Phân loại phân luồng người bệnh"]
+    },
+    {
+      name: "DS. Lê Hoàng Minh",
+      role: "Dược sĩ Chuyên khoa Nhà thuốc",
+      code: "NV-2026-031",
+      phone: "0909 888 777",
+      email: "minh.le@clinicai.vn",
+      dob: "19/02/1991 (35 tuổi)",
+      gender: "Nam",
+      cccd: "079091007788",
+      cccdDate: "14/06/2021",
+      dept: "Khoa Dược & Nhà thuốc",
+      status: "● Đang trong ca trực",
+      avatar: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=150&q=80",
+      skills: ["Kiểm soát cấp phát thuốc", "Tư vấn hướng dẫn sử dụng thuốc", "Đối chiếu lô / hạn dùng thuốc"]
+    }
+  ];
+
+  function selectStaff(index) {
+    const data = STAFF_DATA[index];
+    if (!data) return;
+
+    // Highlight card
+    const cards = document.querySelectorAll('.staff-card');
+    cards.forEach((c, i) => {
+      if (i === index) c.classList.add('active');
+      else c.classList.remove('active');
+    });
+
+    // Update Profile View
+    document.getElementById('viewAvatar').src = data.avatar;
+    document.getElementById('viewName').innerText = data.name;
+    document.getElementById('fieldFullName').innerText = data.name;
+    document.getElementById('viewRole').innerText = data.role;
+    document.getElementById('viewCode').innerText = data.code;
+    document.getElementById('viewPhone').innerText = data.phone;
+    document.getElementById('fieldPhoneText').innerText = data.phone;
+    document.getElementById('fieldEmail').innerText = data.email;
+    document.getElementById('fieldDob').innerText = data.dob;
+    document.getElementById('fieldGender').innerText = data.gender;
+    document.getElementById('fieldCccd').innerText = data.cccd;
+    document.getElementById('fieldCccdDate').innerText = data.cccdDate;
+    document.getElementById('fieldDept').innerText = data.dept;
+    document.getElementById('viewStatus').innerText = data.status;
+
+    // Update Skills Tags
+    const skillsList = document.getElementById('skillsList');
+    skillsList.innerHTML = data.skills.map(s => `
+      <span class="skill-tag"><i class="fa-solid fa-check-circle" style="color: var(--success);"></i> ${s}</span>
+    `).join('');
+  }
+
+  function switchTab(tabId, btn) {
+    const tabs = document.querySelectorAll('.tab-content');
+    tabs.forEach(t => t.classList.remove('active'));
+
+    const btns = document.querySelectorAll('.profile-tab-btn');
+    btns.forEach(b => b.classList.remove('active'));
+
+    document.getElementById(tabId).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function filterStaff() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.staff-card');
+
+    cards.forEach(card => {
+      const text = card.innerText.toLowerCase();
+      if (text.includes(query)) card.style.display = 'flex';
+      else card.style.display = 'none';
+    });
+  }
+
+  function filterDept(dept, btn) {
+    const btns = document.querySelectorAll('.dept-btn');
+    btns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const cards = document.querySelectorAll('.staff-card');
+    cards.forEach(card => {
+      if (dept === 'all' || card.getAttribute('data-dept') === dept) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  function openAddModal() {
+    document.getElementById('addModal').classList.add('open');
+  }
+
+  function closeAddModal() {
+    document.getElementById('addModal').classList.remove('open');
+  }
+</script>
+
+</body>
+</html>

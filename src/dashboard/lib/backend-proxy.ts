@@ -25,6 +25,18 @@ export async function proxyJsonToBackend(
   method: "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
+  // Chuyển tiếp Idempotency-Key khi route gọi có gửi.
+  //
+  // Backend đã có sẵn cả cơ chế (api/idempotency.py: reserve khoá, phát lại
+  // response đã lưu, TTL 24h) và booking router đã gọi idem.acquire() —
+  // nhưng header là TUỲ CHỌN, và file này chưa bao giờ gửi nó. Nên chốt
+  // chống-gửi-hai-lần nằm đó không chạy ngày nào. Ngày 04/08 một bệnh nhân
+  // có ba lịch cùng khung 17:15, tạo cách nhau 10 và 5 giây.
+  //
+  // THAM SỐ THỨ TƯ, TUỲ CHỌN, ĐẶT CUỐI: 40 lời gọi trên 30 file đang dùng
+  // hàm này. Đổi chữ ký bắt buộc là sửa cả 30 file cho một tính năng mà 29
+  // chỗ không cần.
+  idempotencyKey?: string,
 ): Promise<NextResponse> {
   if (!API_BASE) {
     // Previously a flag returned false here and the route quietly used its
@@ -55,6 +67,8 @@ export async function proxyJsonToBackend(
   };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
+  // Backend chỉ đọc header này khi nó CÓ; thiếu thì request chạy như cũ.
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
 
   let res: Response;
   try {

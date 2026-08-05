@@ -53,8 +53,18 @@ def _private_json(data: list[dict[str, Any]]) -> JSONResponse:
 async def list_wards(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> JSONResponse:
-    """List all wards (tỉnh/thành phố). Cached for 1 hour."""
-    rows = await pool.fetch("SELECT id, name, parent_id FROM ward ORDER BY name")
+    """Danh mục phường/xã. Cached for 1 hour.
+
+    ``ward`` khoá theo ``code``, KHÔNG có ``id`` và không có ``parent_id``: quan
+    hệ lên trên là ``province_code``. Câu cũ chọn cả ba cột không tồn tại nên
+    endpoint này trả 500 mọi lần được gọi — không ai thấy vì chưa màn hình nào
+    gọi tới. ``src/tests/migrations/test_sql_columns_exist.py`` canh chỗ này.
+
+    Docstring cũ ghi "tỉnh/thành phố" cũng sai: cấp tỉnh là bảng ``province``.
+    """
+    rows = await pool.fetch(
+        "SELECT code, name, full_name, province_code FROM ward ORDER BY name"
+    )
     return _cached_json([dict(r) for r in rows])
 
 
@@ -63,14 +73,19 @@ async def list_service_types(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> JSONResponse:
-    """The caller's clinic's service types."""
+    """The caller's clinic's service types.
+
+    Bốn cột câu cũ chọn — ``aliases``, ``category``, ``base_price_vnd``,
+    ``sort_order`` — không tồn tại trong bất kỳ migration nào, nên endpoint này
+    cũng trả 500 mọi lần được gọi. Giá dịch vụ nằm ở bảng riêng
+    (``/api/v1/service-prices``), không phải một cột của ``service_type``.
+    """
     rows = await pool.fetch(
         """
-        SELECT id, name, aliases, category, base_price_vnd,
-               is_active, sort_order
+        SELECT id, code, name, default_duration_minutes, is_active
         FROM service_type
         WHERE is_active IS NOT FALSE AND clinic_id = $1::uuid
-        ORDER BY sort_order, name
+        ORDER BY name
         """,
         identity.clinic_id,
     )

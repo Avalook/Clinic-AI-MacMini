@@ -61,7 +61,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Frontend (Next.js standalone) — UI only -----------------------------
   dashboard:
@@ -105,7 +105,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
@@ -149,7 +149,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Async worker (opt-in: --profile workers) ----------------------------
   worker:
@@ -175,7 +175,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # POS outbox relay (ADR-0010). Opt-in only after configuring a real adapter;
   # the null adapter dead-letters instead of claiming fake delivery. Kept
@@ -202,7 +202,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # Lightweight notification outbox relay. It polls Supabase directly and does
   # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
@@ -237,7 +237,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    networks: [internal]
+    networks: [internal, supabase]
 
   rabbitmq:
     <<: *clinic-service-defaults
@@ -346,6 +346,16 @@ networks:
     driver: bridge
   monitoring:
     driver: bridge
+  # Mạng của stack `clinicai_db` (bộ Supabase tự dựng). Khai `external` vì nó do
+  # một compose file KHÁC tạo ra — Caddy chỉ nối vào để chuyển tiếp ba đường
+  # /auth/v1 · /rest/v1 · /realtime/v1 mà TRÌNH DUYỆT gọi thẳng, không qua Next.
+  #
+  # Không dùng bộ tự dựng (vẫn ở Supabase cloud, hoặc chuyển sang Viettel IDC)
+  # thì mạng này không tồn tại và caddy sẽ không khởi động — lúc ấy bỏ
+  # `supabase` khỏi `networks` của caddy.
+  supabase:
+    external: true
+    name: clinicai_db_supabase
 
 volumes:
   caddy_data:
