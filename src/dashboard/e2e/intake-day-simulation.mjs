@@ -32,7 +32,6 @@ const BASE_URL = (E.E2E_BASE_URL || "").replace(/\/+$/, "");
 const ALLOW_WRITE = E.E2E_ALLOW_WRITE === "1";
 const ALLOW_PROD_WRITE = E.E2E_ALLOW_PROD_WRITE === "1";
 const CLEANUP = E.E2E_CLEANUP === "1";
-const CLINIC_PASSWORD = E.E2E_CLINIC_PASSWORD || "";
 const HEADLESS = E.E2E_HEADLESS !== "0";
 const IS_PROD = /dr4women\.vercel\.app/i.test(BASE_URL);
 // Ghi dữ liệu chỉ khi: bật ALLOW_WRITE, VÀ (không phải prod HOẶC đã bật ALLOW_PROD_WRITE).
@@ -99,24 +98,7 @@ async function login(browser, accountKey) {
   const watch = attachWatchers(page);
   try {
     await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 30000 });
-    // Cổng mật khẩu chung /enter?
-    if (page.url().includes("/enter")) {
-      if (!CLINIC_PASSWORD) {
-        await context.close();
-        return { skip: "Thiếu E2E_CLINIC_PASSWORD (cổng mật khẩu chung /enter)" };
-      }
-      await page.fill('input[name="password"]', CLINIC_PASSWORD);
-      await page.click('button[type="submit"]');
-      await page.waitForURL((u) => !u.toString().includes("/enter"), { timeout: 20000 }).catch(() => {});
-    }
-    if (page.url().includes("/login")) {
-      await page.fill("#email", acc.email);
-      await page.fill("#password", acc.password);
-      await page.getByRole("button", { name: /Đăng nhập/ }).click();
-      await page.waitForURL((u) => !u.toString().includes("/login"), { timeout: 20000 }).catch(() => {});
-    }
-    const url = page.url();
-    if (url.includes("/login") || url.includes("/enter")) {
+    if (url.includes("/login")) {
       await context.close();
       return { skip: `Đăng nhập thất bại cho ${acc.label} (kiểm email/mật khẩu/cổng)` };
     }

@@ -1,9 +1,8 @@
 "use server";
 
-// Đăng nhập CÁ NHÂN (email + mật khẩu do quản lý tạo ở Cài đặt). Sau khi vào
-// "cổng" phòng khám (/enter), mỗi nhân viên đăng nhập tài khoản của mình → vào
-// thẳng phần việc. Vai trò suy từ staff gắn với tài khoản (auth_user_id),
-// không cần chọn tên.
+// Đăng nhập CÁ NHÂN (email + mật khẩu do quản lý tạo ở Cài đặt) — cổng DUY
+// NHẤT vào hệ thống từ 05/08/2026. Vai trò suy từ staff gắn với tài khoản
+// (auth_user_id), không cần chọn tên.
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -74,4 +73,17 @@ export async function loginStaff(
   c.set(STAFF_COOKIE, identity.id, opts);
 
   redirect(roleLanding(role));
+}
+
+// Đăng xuất. Trước đây nằm ở `enter/actions.ts` cùng cổng phòng khám dùng
+// chung; cổng đã bỏ (05/08/2026) nên nó về ở cạnh đường đăng nhập duy nhất.
+export async function logout(): Promise<void> {
+  const supabase = await getSupabaseServer();
+  await supabase.auth.signOut();
+  // Xoá cả hai cookie: người sau ngồi vào máy phải đăng nhập lại từ đầu, chứ
+  // không thừa hưởng vai của người trước.
+  const c = await cookies();
+  c.delete(ROLE_COOKIE);
+  c.delete(STAFF_COOKIE);
+  redirect("/login");
 }
