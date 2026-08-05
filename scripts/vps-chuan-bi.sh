@@ -37,6 +37,26 @@ else
 fi
 usermod -aG sudo "$NGUOI_DUNG" 2>/dev/null || usermod -aG wheel "$NGUOI_DUNG"
 
+# SUDO KHÔNG CẦN MẬT KHẨU — và đây là sửa một lỗi đã gặp thật.
+#
+# `adduser --disabled-password` tạo tài khoản KHÔNG có mật khẩu. Thêm vào nhóm
+# sudo là chưa đủ: sudo vẫn hỏi mật khẩu, mà tài khoản không có mật khẩu nào để
+# trả lời. Cộng với việc bước 4 cấm luôn root đăng nhập, kết quả là MỘT MÁY CHỦ
+# KHÔNG CÒN AI QUẢN TRỊ ĐƯỢC — đường cứu duy nhất là console của Vietnix.
+#
+# (Lần đầu chạy script này đã rơi đúng vào đó. Cứu được nhờ nhóm `docker`, xem
+# đoạn dưới.)
+#
+# VÀ NOPASSWD Ở ĐÂY KHÔNG NỚI THÊM QUYỀN NÀO. Tài khoản này thuộc nhóm `docker`,
+# mà nhóm docker TƯƠNG ĐƯƠNG root: ai chạy được container là gắn được `/` của
+# máy chủ vào container rồi ghi bất cứ đâu. Chính trình cài Docker cũng cảnh báo
+# câu ấy. Nên NOPASSWD chỉ làm cho quyền vốn đã có trở nên dùng được — thứ bảo
+# vệ thật là khoá SSH và tường lửa, không phải lời hỏi mật khẩu của sudo.
+install -d -m 755 /etc/sudoers.d
+printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$NGUOI_DUNG" > "/etc/sudoers.d/90-$NGUOI_DUNG"
+chmod 440 "/etc/sudoers.d/90-$NGUOI_DUNG"
+visudo -c -q && echo "đã cấp sudo cho $NGUOI_DUNG"
+
 # Chép khoá công khai của root sang, để lần SSH tới vào thẳng bằng người dùng
 # thường. Không có bước này thì siết SSH ở việc 4 sẽ khoá luôn cả mình.
 if [ -f /root/.ssh/authorized_keys ]; then
