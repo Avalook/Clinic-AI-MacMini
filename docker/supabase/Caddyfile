@@ -1,0 +1,66 @@
+# Gom bốn dịch vụ Supabase vào MỘT địa chỉ.
+#
+# Thư viện `@supabase/supabase-js` chỉ nhận một URL rồi TỰ ghép đường dẫn:
+#
+#     /auth/v1/…       đăng nhập, phiên, người dùng
+#     /rest/v1/…       truy vấn bảng (57 file frontend đi đường này)
+#     /realtime/v1/…   websocket (8 file)
+#
+# Nên muốn không sửa dòng nào ở frontend thì phải dựng lại đúng hình dạng ấy.
+# Supabase cloud dùng Kong cho việc này; ở đây Caddy đủ và ta đã biết nó.
+#
+# CHỈ NGHE TRÊN CỔNG NỘI BỘ, và compose chỉ ánh xạ ra 127.0.0.1. Bộ này chưa
+# bao giờ được phơi ra Internet — Giai đoạn 3 mới bàn tới đường vào từ ngoài.
+
+{
+	admin off
+	auto_https off
+}
+
+:8000 {
+	# `handle_path` CẮT tiền tố trước khi chuyển tiếp: GoTrue nghe ở `/health`,
+	# `/token`, `/user` — không phải `/auth/v1/health`. Dùng `handle` thay cho
+	# `handle_path` là 404 toàn bộ, và triệu chứng sẽ là "đăng nhập không phản
+	# hồi" chứ không phải một lỗi định tuyến dễ đọc.
+	handle_path /auth/v1/* {
+		reverse_proxy auth:9999
+	}
+
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000
+	}
+
+	# Realtime v2 nghe ở `/socket/websocket`, KHÔNG phải `/realtime/v1/websocket`.
+	# Kong của Supabase cloud ánh xạ lại đường dẫn ấy; ở đây phải tự làm.
+	#
+	# Bỏ bước `rewrite` thì gateway trả 404 — proxy tới được nhưng gõ nhầm cửa.
+	# Triệu chứng ở màn hình là "realtime không kết nối", giống hệt lúc dịch vụ
+	# chết hẳn, nên rất dễ đi tìm sai chỗ.
+	#
+	# Websocket thì Caddy tự nâng cấp giao thức, không cần khai thêm.
+	#
+	# VÀ PHẢI ĐỔI CẢ HOST HEADER. Realtime là dịch vụ ĐA-TENANT: nó lấy
+	# `external_id` từ SUBDOMAIN của Host. Gửi thẳng `127.0.0.1:54331` thì nó
+	# đọc ra tenant tên "127", không tìm thấy, và trả 403:
+	#
+	#     error_code=TenantNotFound  Tenant not found: 127
+	#
+	# `realtime-dev` là tenant mà SEED_SELF_HOST tạo sẵn. Một phòng khám = một
+	# tenant của ứng dụng, nhưng ở tầng realtime vẫn là MỘT tenant hạ tầng —
+	# đừng lẫn hai khái niệm.
+	handle_path /realtime/v1/* {
+		rewrite * /socket{uri}
+		reverse_proxy realtime:4000 {
+			header_up Host realtime-dev.localhost
+		}
+	}
+
+	# Trả lời được là bộ gateway sống; nó KHÔNG nói gì về bốn dịch vụ phía sau.
+	handle /health {
+		respond "gateway ok" 200
+	}
+
+	handle {
+		respond "khong co duong dan nay" 404
+	}
+}
