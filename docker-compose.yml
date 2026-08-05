@@ -101,7 +101,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
@@ -145,7 +145,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Async worker (opt-in: --profile workers) ----------------------------
   worker:
@@ -171,7 +171,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # POS outbox relay (ADR-0010). Opt-in only after configuring a real adapter;
   # the null adapter dead-letters instead of claiming fake delivery. Kept
@@ -198,7 +198,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # Lightweight notification outbox relay. It polls Supabase directly and does
   # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
@@ -233,7 +233,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    networks: [internal]
+    networks: [internal, supabase]
 
   rabbitmq:
     <<: *clinic-service-defaults
