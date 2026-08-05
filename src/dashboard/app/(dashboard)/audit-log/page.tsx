@@ -22,40 +22,29 @@
 // Cả ba giờ do FastAPI lo: một câu SQL gộp hai nguồn bằng UNION ALL TRƯỚC khi
 // sắp xếp, JOIN sang staff/patient để giải tên, và một bảng nhãn duy nhất.
 
-// Nhập hàm requireNavAccess để kiểm tra quyền truy cập trang (dựa trên vai trò người dùng)
 import { requireNavAccess } from "../../../lib/clinic-session";
-// Nhập hàm fetchFromBackend để gọi API backend FastAPI phía server
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-// Nhập component AuditLogBoard để hiển thị bảng lịch sử thao tác
 import AuditLogBoard from "./AuditLogBoard";
-// Nhập kiểu dữ liệu AuditEvent từ file types
 import type { AuditEvent } from "./types";
 
-// Ép Next.js render trang này động (không cache) — luôn lấy dữ liệu mới nhất
 export const dynamic = "force-dynamic";
 
-// Component chính của trang lịch sử thao tác (server component)
 export default async function AuditLogPage() {
-  // Kiểm tra quyền truy cập trang /audit-log — nếu không có quyền sẽ redirect hoặc từ chối
   await requireNavAccess("/audit-log");
 
-  // Gọi API backend FastAPI để lấy danh sách sự kiện audit (tối đa 200 dòng)
   const data = await fetchFromBackend<{
-    items: AuditEvent[]; // Danh sách các sự kiện audit
-    so_nguoi: number; // Số người thao tác
+    items: AuditEvent[];
+    so_nguoi: number;
   }>("/api/v1/audit/events?limit=200");
 
   return (
     <>
-      {/* Nếu không lấy được dữ liệu từ backend (data === null) */}
       {data === null && (
-        // Hiển thị cảnh báo màu vàng ở đầu trang
         <div className="mb-3 rounded-card border border-warning/40 bg-warning-bg px-4 py-2.5 text-sm text-warning">
           Không đọc được nhật ký từ máy chủ — thử tải lại trang. Danh sách dưới
           đây trống vì lỗi kết nối, không phải vì không có thao tác nào.
         </div>
       )}
-      {/* Render component AuditLogBoard với danh sách sự kiện (rỗng nếu không có dữ liệu) và số người thao tác */}
       <AuditLogBoard events={data?.items ?? []} soNguoi={data?.so_nguoi ?? 0} />
     </>
   );

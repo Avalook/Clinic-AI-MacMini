@@ -1,34 +1,21 @@
 #!/usr/bin/env bash
 # Bring the whole thing up locally, then prove it is up.
-# Khởi động toàn bộ hệ thống cục bộ, sau đó kiểm tra nó đã chạy.
 #
 # One command, because "chạy được" should not require knowing that Supabase must
 # start before migrations, that migrations must run before fixtures, that the
 # API needs six environment variables, and that the dashboard needs the anon key
 # the CLI prints. Every one of those is a step somebody gets wrong once.
-# Một lệnh duy nhất, vì "chạy được" không nên đòi hỏi phải biết rằng Supabase phải
-# khởi động trước migrations, migrations phải chạy trước fixtures, API cần sáu
-# biến môi trường, và dashboard cần anon key mà CLI in ra. Mỗi bước đó là một
-# bước mà ai đó sẽ làm sai một lần.
 #
 # It is idempotent: run it as often as you like. It never touches production —
 # everything here points at the local Supabase on 127.0.0.1.
-# Nó là idempotent: chạy bao nhiêu lần cũng được. Nó không bao giờ đụng production —
-# mọi thứ ở đây trỏ đến Supabase cục bộ trên 127.0.0.1.
 #
 #   scripts/dev-up.sh            start everything and check it
-#   scripts/dev-up.sh            khởi động mọi thứ và kiểm tra
 #   scripts/dev-up.sh --reset    wipe the local database first
-#   scripts/dev-up.sh --reset    xóa sạch database cục bộ trước
 #   scripts/dev-up.sh --down     stop the API and dashboard
-#   scripts/dev-up.sh --down     dừng API và dashboard
 
-# Bật chế độ nghiêm ngặt: thoát ngay khi có lệnh lỗi, biến chưa khai báo, hoặc pipeline lỗi
 set -euo pipefail
 
-# Lấy đường dẫn gốc của repository (thư mục cha của thư mục chứa script này)
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Chuyển vào thư mục gốc repository
 cd "$REPO"
 
 # Địa chỉ Supabase mà TRÌNH DUYỆT sẽ gọi. Mặc định là 127.0.0.1 — đúng khi mở
@@ -43,103 +30,77 @@ cd "$REPO"
 #   cloudflared tunnel --url http://127.0.0.1:54321      # → URL_SUPABASE
 #   PUBLIC_SUPABASE_URL=<URL_SUPABASE> scripts/dev-up.sh
 #   cloudflared tunnel --url http://127.0.0.1:3100       # → link để chia sẻ
-# Lấy URL Supabase công khai từ biến môi trường, mặc định là localhost
 PUBLIC_SUPABASE_URL="${PUBLIC_SUPABASE_URL:-http://127.0.0.1:54321}"
 
-# Cổng API, mặc định 8100
 API_PORT="${API_PORT:-8100}"
-# Cổng web dashboard, mặc định 3100
 WEB_PORT="${WEB_PORT:-3100}"
-# Thư mục lưu log, mặc định là .dev-logs trong repo
 LOG_DIR="${LOG_DIR:-$REPO/.dev-logs}"
-# Tạo thư mục log nếu chưa tồn tại
 mkdir -p "$LOG_DIR"
 
-# Hàm in chữ màu xanh dương
 blue()  { printf '\033[36m%s\033[0m\n' "$*"; }
-# Hàm in chữ màu xanh lá
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
-# Hàm in chữ màu đỏ
 red()   { printf '\033[31m%s\033[0m\n' "$*"; }
 
 # Chờ một URL phản hồi tối đa 120s. Lần đầu khởi động API/dashboard trên Mac mini
 # (poetry resolve + import FastAPI/LangGraph + next build lạnh) có thể lâu hơn 40s.
-# Hàm chờ một URL phản hồi, tối đa 120 giây
 wait_for_http() {
-    local url="$1" name="$2" i  # Biến cục bộ: URL, tên, biến đếm
-    for i in $(seq 1 120); do  # Lặp tối đa 120 lần
-        if curl -sf -o /dev/null "$url" 2>/dev/null; then  # Nếu URL phản hồi thành công
-            return 0  # Trả về thành công
+    local url="$1" name="$2" i
+    for i in $(seq 1 120); do
+        if curl -sf -o /dev/null "$url" 2>/dev/null; then
+            return 0
         fi
-        if [ $((i % 10)) -eq 0 ]; then  # Cứ mỗi 10 lần thì in trạng thái
+        if [ $((i % 10)) -eq 0 ]; then
             green "  ...đang chờ $name ($i/120s)"
         fi
-        sleep 1  # Chờ 1 giây
+        sleep 1
     done
-    return 1  # Hết thời gian chờ, trả về thất bại
+    return 1
 }
 
 # Báo process đang giữ một cổng — giúp chẩn đoán "address already in use".
-# Hàm tìm process đang giữ một cổng
 port_owner() {
     lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (PID "$2")"}' || true
 }
 
-# Hàm dừng các dịch vụ API và dashboard
 stop_services() {
-    # Dừng uvicorn (API) nếu đang chạy
     pkill -f "uvicorn clinicai.main.*--port ${API_PORT}" 2>/dev/null || true
-    # Dừng next start (production) nếu đang chạy
     pkill -f "next start -p ${WEB_PORT}" 2>/dev/null || true
-    # Dừng next dev (development) nếu đang chạy
     pkill -f "next dev -p ${WEB_PORT}" 2>/dev/null || true
     # Đợi cổng được giải phóng — uvicorn/next có thể mất vài giây để shutdown sạch.
-    for _ in $(seq 1 15); do  # Lặp tối đa 15 lần
-        # Nếu cả hai cổng đều đã được giải phóng
+    for _ in $(seq 1 15); do
         if ! lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1 \
            && ! lsof -nP -iTCP:"${WEB_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
-            break  # Thoát vòng lặp
+            break
         fi
-        sleep 1  # Chờ 1 giây
+        sleep 1
     done
-    # Nếu cổng API vẫn bị chiếm
     if lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
-        owner="$(port_owner "$API_PORT")"  # Tìm process đang giữ cổng
+        owner="$(port_owner "$API_PORT")"
         red "  cổng $API_PORT vẫn bị chiếm bởi $owner — dừng thủ công hoặc chọn API_PORT khác"
     fi
 }
 
-# Nếu tham số đầu tiên là --down
 if [ "${1:-}" = "--down" ]; then
-    stop_services  # Dừng các dịch vụ
+    stop_services
     green "API and dashboard stopped. Supabase left running (npx supabase stop to stop it)."
-    exit 0  # Thoát script
+    exit 0
 fi
 
 # ---- 1. Supabase ------------------------------------------------------------
-# ---- Bước 1: Khởi động Supabase ---------------------------------------------
 blue "1/5  Supabase"
-# Nếu Supabase chưa chạy (kiểm tra cổng 54321)
 if ! curl -sf http://127.0.0.1:54321/rest/v1/ >/dev/null 2>&1; then
-    # Khởi động Supabase bằng CLI, ghi log vào file
     npx --yes supabase@latest start >"$LOG_DIR/supabase.log" 2>&1 || {
         red "  Supabase failed to start — see $LOG_DIR/supabase.log"; exit 1; }
 fi
-# Lấy anon key từ Supabase status
 ANON_KEY=$(npx --yes supabase@latest status -o env 2>/dev/null \
     | grep '^ANON_KEY=' | cut -d'"' -f2)
-# Nếu không đọc được anon key thì báo lỗi
 [ -n "$ANON_KEY" ] || { red "  could not read the anon key from supabase status"; exit 1; }
 green "  up on 54321 (db 54322)"
 
 # ---- 2. schema + fixtures ---------------------------------------------------
-# ---- Bước 2: Schema + dữ liệu mẫu -------------------------------------------
-# URL kết nối database cục bộ
 DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-# Nếu tham số đầu tiên là --reset
 if [ "${1:-}" = "--reset" ]; then
     blue "2/5  database reset (migrations + seed)"
-    # Reset database: chạy lại tất cả migrations + seed
     npx --yes supabase@latest db reset >"$LOG_DIR/db-reset.log" 2>&1 || {
         red "  db reset failed — see $LOG_DIR/db-reset.log"; exit 1; }
 else
@@ -148,18 +109,57 @@ fi
 # Fixtures are separate from seed.sql on purpose: seed carries catalogue data
 # every install needs, fixtures carry the fake staff and patient used for local
 # testing. Loading fixtures into a real database would create fake clinicians.
-# Fixtures tách riêng khỏi seed.sql có chủ đích: seed chứa dữ liệu danh mục mà
-# mọi cài đặt cần, fixtures chứa nhân viên và bệnh nhân giả dùng cho test cục bộ.
-# Nạp fixtures vào database thật sẽ tạo ra bác sĩ giả.
 for f in supabase/fixtures/staff_logins.sql supabase/fixtures/local_data.sql; do
-    # Nạp từng file fixture nếu tồn tại
     [ -f "$f" ] && psql -q "$DB_URL" -f "$f" >/dev/null 2>&1 || true
 done
-# Đếm số bảng trong database
 tables=$(psql -tA "$DB_URL" -c \
     "SELECT count(*) FROM pg_tables WHERE schemaname='public'" 2>/dev/null | tr -d ' ')
 green "  $tables tables, fixtures loaded"
 
+# ---- 2b. một ngày làm việc để bấm ------------------------------------------
+# A stack that is "up" with empty boards is not runnable, it is just running.
+# And a stack whose every row is the same patient is barely better: with one
+# name repeated five times nobody can tell a duplicated row from a missing one,
+# which is exactly the complaint that produced this fixture.
+#
+# demo_clinic_day.sql builds 40 patients, 26 appointments across a working day,
+# and pushes them to DIFFERENT stages — some waiting, some verified, some with
+# vitals done, a few mid-consultation, two with services already ordered. Every
+# board then has its own realistic mix instead of one uniform state.
+#
+# Only when nothing is open, so it never piles demo visits on real work.
+open_items=$(psql -tA "$DB_URL" -c \
+    "SELECT count(*) FROM work_item WHERE status IN ('PENDING','IN_PROGRESS')" \
+    2>/dev/null | tr -d ' ')
+if [ "${open_items:-0}" = "0" ]; then
+    blue "2b/5 dựng một ngày làm việc giả lập"
+    psql -q "$DB_URL" -f "$REPO/supabase/fixtures/demo_clinic_day.sql" >/dev/null 2>&1 || true
+    green "  $(psql -tA "$DB_URL" -c "SELECT count(*) FROM patient WHERE patient_code LIKE 'DEMO-%'" | tr -d ' ') bệnh nhân · $(psql -tA "$DB_URL" -c "SELECT count(*) FROM work_item WHERE status IN ('PENDING','IN_PROGRESS')" | tr -d ' ') việc đang mở"
+fi
+
+# ---- 3. API -----------------------------------------------------------------
+blue "3/5  FastAPI"
+if lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1 \
+   && ! pgrep -f "uvicorn clinicai.main.*--port ${API_PORT}" >/dev/null 2>&1; then
+    owner="$(port_owner "$API_PORT")"
+    red "  cổng $API_PORT đang bị chiếm bởi $owner (không phải uvicorn clinicai) — dừng process đó hoặc đổi API_PORT"
+    exit 1
+fi
+stop_services
+PYTHONPATH=src \
+SUPABASE_URL=http://127.0.0.1:54321 \
+DATABASE_URL="postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres" \
+SUPABASE_ANON_KEY="$ANON_KEY" \
+SUPABASE_SERVICE_ROLE_KEY=local-service-role \
+ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-local-not-real}" \
+BACKEND_API_KEY=staging-local-api-key \
+CHECKPOINTER_BACKEND=memory APP_ENV=staging POS_ADAPTER=none \
+    nohup poetry run uvicorn clinicai.main:app \
+        --host 127.0.0.1 --port "$API_PORT" >"$LOG_DIR/api.log" 2>&1 &
+
+wait_for_http "http://127.0.0.1:${API_PORT}/health" "API" \
+    && green "  healthy on ${API_PORT}" \
+    || { red "  API did not come up — see $LOG_DIR/api.log"; tail -20 "$LOG_DIR/api.log"; exit 1; }
 
 # ---- 4. dashboard -----------------------------------------------------------
 blue "4/5  Next.js dashboard"
