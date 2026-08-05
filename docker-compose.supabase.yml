@@ -94,6 +94,11 @@ services:
       GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:?can jwt secret}
       GOTRUE_JWT_EXP: "3600"
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      # Bỏ trống thì GoTrue đặt aud = "" và tra người dùng theo aud = "" — mọi
+      # dòng auth.users mang aud = 'authenticated' (chuẩn Supabase, và là thứ
+      # bản sao lưu từ Supabase cloud sẽ mang sang) đều trả về
+      # `invalid_credentials`, y hệt gõ sai mật khẩu. Ghim đúng giá trị chuẩn.
+      GOTRUE_JWT_AUD: authenticated
       # KHÔNG cho tự đăng ký. Nhân sự do quản lý tạo ở /settings — một phòng
       # khám không có cửa "đăng ký tài khoản mới".
       GOTRUE_DISABLE_SIGNUP: "true"

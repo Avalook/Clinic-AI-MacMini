@@ -88,7 +88,7 @@ BEGIN
         INSERT INTO appointment (
             id, clinic_id, clinic_patient_id, location_id, service_type_id,
             doctor_id, slot_start, slot_end, status, booking_channel,
-            is_priority_slot
+            is_walkin, is_priority_slot
         )
         VALUES (
             v_appt, v_clinic, v_pat, v_loc, v_svc,
@@ -98,6 +98,11 @@ BEGIN
             -- 18 người đã đến, 8 người còn chờ giờ hẹn
             CASE WHEN i <= 18 THEN 'CHECKED_IN' ELSE 'CONFIRMED' END,
             CASE WHEN i % 5 = 0 THEN 'WALK_IN' ELSE 'ONLINE' END,
+            -- `appointment_walkin_channel_agree` bắt cờ và kênh phải khớp nhau.
+            -- Fixture trước chỉ đặt kênh, để cờ theo mặc định — nên mọi ca
+            -- WALK_IN đều vi phạm. Hai cột nói cùng một chuyện, và ràng buộc có
+            -- là để chúng không bao giờ nói khác nhau.
+            (i % 5 = 0),
             (i % 9 = 0)                        -- vài ca ưu tiên
         );
 

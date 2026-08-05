@@ -109,8 +109,15 @@ fi
 # Fixtures are separate from seed.sql on purpose: seed carries catalogue data
 # every install needs, fixtures carry the fake staff and patient used for local
 # testing. Loading fixtures into a real database would create fake clinicians.
+# KHÔNG nuốt lỗi. Trước đây dòng này là `>/dev/null 2>&1 || true` rồi vẫn in
+# "fixtures loaded" ngay bên dưới — nên staff_logins.sql hỏng (thiếu
+# `primary_location_id`) mà không ai biết, cho tới lúc dựng thật lên VPS.
+# Một fixture hỏng im lặng tệ hơn một fixture thiếu: màn hình rỗng trông y hệt
+# "chưa có dữ liệu".
 for f in supabase/fixtures/staff_logins.sql supabase/fixtures/local_data.sql; do
-    [ -f "$f" ] && psql -q "$DB_URL" -f "$f" >/dev/null 2>&1 || true
+    [ -f "$f" ] || continue
+    psql -q -v ON_ERROR_STOP=1 "$DB_URL" -f "$f" >"$LOG_DIR/fixture-$(basename "$f").log" 2>&1 || {
+        red "  fixture $f hỏng — xem $LOG_DIR/fixture-$(basename "$f").log"; exit 1; }
 done
 tables=$(psql -tA "$DB_URL" -c \
     "SELECT count(*) FROM pg_tables WHERE schemaname='public'" 2>/dev/null | tr -d ' ')

@@ -22,9 +22,23 @@ DECLARE
     person  record;
     uid     uuid;
     sid     uuid;
+    v_loc   uuid;
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.clinic WHERE id = v_clinic) THEN
         RAISE EXCEPTION 'clinic % missing — apply the migrations first', v_clinic;
+    END IF;
+
+    -- `staff.primary_location_id` là NOT NULL. Fixture này liệt kê cột theo tên
+    -- và bỏ sót nó, nên nó hỏng ở dòng người đầu tiên — nhưng `dev-up.sh` chạy
+    -- fixture bằng `>/dev/null 2>&1 || true` rồi vẫn in "fixtures loaded", nên
+    -- không ai thấy. Chỉ lộ ra khi dựng thật lên VPS 05/08/2026.
+    SELECT id INTO v_loc
+      FROM public.clinic_location
+     WHERE clinic_id = v_clinic AND is_active
+     ORDER BY (code = 'MAIN') DESC, code
+     LIMIT 1;
+    IF v_loc IS NULL THEN
+        RAISE EXCEPTION 'clinic % has no active location — apply supabase/seed.sql first', v_clinic;
     END IF;
 
     FOR person IN
@@ -69,14 +83,35 @@ BEGIN
             updated_at             = now()
         RETURNING id INTO uid;
 
+        -- GoTrue KHÔNG tra người dùng thẳng từ `auth.users` khi đăng nhập bằng
+        -- mật khẩu — nó đi qua `auth.identities` để biết tài khoản này dùng
+        -- provider nào. Thiếu dòng này thì mọi lần đăng nhập trả về
+        -- `invalid_credentials`, y như gõ sai mật khẩu: `auth.users` có đủ,
+        -- hash đúng, mà vẫn không vào được. Đây là lý do bản sao lưu phải mang
+        -- CẢ HAI bảng, không chỉ `auth.users`.
+        INSERT INTO auth.identities (
+            provider_id, user_id, identity_data, provider, created_at, updated_at
+        )
+        VALUES (
+            uid::text, uid,
+            jsonb_build_object('sub', uid::text, 'email', person.email,
+                               'email_verified', true, 'phone_verified', false),
+            'email', now(), now()
+        )
+        ON CONFLICT (provider_id, provider) DO UPDATE SET
+            identity_data = EXCLUDED.identity_data,
+            updated_at    = now();
+
         -- staff itself carries no clinic_id: who someone works for lives in
         -- clinic_membership, so one person can be lent to a second clinic
         -- without duplicating their record (ADR-0009).
         INSERT INTO public.staff (
-            full_name, short_name, primary_department, auth_user_id, is_active
+            full_name, short_name, primary_department, primary_location_id,
+            auth_user_id, is_active
         )
         VALUES (
-            person.full_name, person.short_name, person.department, uid, TRUE
+            person.full_name, person.short_name, person.department, v_loc,
+            uid, TRUE
         )
         ON CONFLICT (auth_user_id) WHERE auth_user_id IS NOT NULL DO UPDATE SET
             primary_department = EXCLUDED.primary_department,
