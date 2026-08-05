@@ -133,6 +133,7 @@ DECLARE
     exposed text;
     backend_only text[] := ARRAY[
         'idempotency_key',  -- stores replayed request/response bodies
+        'clinic_secret',    -- POS/Zalo credentials: RLS on, zero policies
         'mpi_merge_queue',  -- patient identifiers pending a merge decision
         'staff_capability', -- staffing config
         'pos_outbox'        -- pending pushes to an external till
@@ -201,7 +202,18 @@ BEGIN
      WHERE n.nspname = 'public'
        AND c.relkind = 'r'
        AND p.polcmd IN ('r', '*')
-       AND NOT has_table_privilege('authenticated', c.oid, 'SELECT');
+       -- HỎI "ĐỌC ĐƯỢC THỨ GÌ ĐÓ", KHÔNG PHẢI "CẦM SELECT CẢ BẢNG".
+       --
+       -- 20260805000002 rút SELECT mức bảng khỏi `clinic` rồi cấp lại theo
+       -- CỘT, để `clinic.settings` (nơi tài liệu đang dạy đặt credential POS)
+       -- không đọc được bằng anon key. Bảng vẫn có policy đọc và ứng dụng vẫn
+       -- chạy — nhưng `has_table_privilege(..., 'SELECT')` trả false, nên câu
+       -- hỏi cũ báo `clinic` là "có policy mà không đọc nổi", một kết luận sai.
+       AND NOT EXISTS (
+           SELECT 1 FROM pg_attribute a
+            WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+              AND has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')
+       );
 
     IF ungranted IS NOT NULL THEN
         RAISE EXCEPTION

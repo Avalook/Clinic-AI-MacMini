@@ -7,8 +7,23 @@ Two levels, on purpose:
 * ``clinic.settings -> 'pos'`` overrides it per tenant, because a multi-tenant
   product cannot assume every clinic uses the same till.
 
-Credentials live in ``clinic.settings``, never in code and never in a column
-that ends up in a client-readable view.
+CREDENTIAL KHÔNG CÒN NẰM Ở ``clinic.settings`` NỮA (20260805000002).
+
+Dòng chú thích cũ ở đây từng viết "credentials live in ``clinic.settings``", và
+nó là thứ nguy hiểm nhất trong file này — không phải vì sai lúc viết, mà vì nó
+DẠY người cấu hình sau này đặt ``client_secret`` vào một cột mà cả ``anon`` lẫn
+``authenticated`` đều đọc được bằng anon key có sẵn trong bundle trình duyệt.
+Policy ``clinic_select_own`` lọc DÒNG, không lọc CỘT.
+
+Tách theo NGHĨA, không theo độ nhạy cảm:
+
+    dùng POS nào        cấu hình  → ``clinic.settings -> 'pos' -> 'adapter'``
+    đăng nhập bằng gì   bí mật    → ``clinic_secret`` (RLS bật, 0 policy,
+                                     chỉ service_role đọc)
+
+``build_adapter`` nhận credential như một THAM SỐ RỜI thay vì tự đi đọc, để
+chính chữ ký hàm nói ra rằng hai thứ đó đến từ hai chỗ khác nhau — và để không
+ai vô tình truyền cả cục ``settings`` vào rồi tưởng là đã có secret.
 """
 
 from __future__ import annotations
@@ -35,8 +50,14 @@ def configured_adapter_name(settings: dict[str, Any] | None = None) -> str:
     return os.environ.get("POS_ADAPTER", DEFAULT_ADAPTER).strip().lower()
 
 
-def build_adapter(settings: dict[str, Any] | None = None) -> PosPort:
+def build_adapter(
+    settings: dict[str, Any] | None = None,
+    secret: dict[str, Any] | None = None,
+) -> PosPort:
     """Construct the adapter for one clinic.
+
+    ``settings`` nói DÙNG POS NÀO; ``secret`` (đọc từ ``clinic_secret``) nói
+    ĐĂNG NHẬP BẰNG GÌ. Không gộp: xem ghi chú đầu file.
 
     Unknown names and missing credentials return the null adapter rather than
     crashing the payment path. The relay recognizes it and dead-letters the
@@ -48,7 +69,11 @@ def build_adapter(settings: dict[str, Any] | None = None) -> PosPort:
         return NullPosAdapter()
 
     if name == "kiotviet":
-        pos = (settings or {}).get("pos") or {}
+        # `settings['pos']` vẫn được đọc làm ĐƯỜNG LÙI cho môi trường đã cấu
+        # hình theo cách cũ — nhưng `secret` thắng. Bỏ hẳn đường lùi sẽ làm
+        # chết câm một tích hợp đang chạy ở đâu đó mà không ai biết; giữ nó và
+        # để nó thua là cách chuyển đổi không làm gãy gì.
+        pos = {**((settings or {}).get("pos") or {}), **(secret or {})}
         missing = [
             key
             for key in ("retailer", "client_id", "client_secret")

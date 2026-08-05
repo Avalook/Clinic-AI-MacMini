@@ -49,7 +49,9 @@ DECLARE
     -- (20260804000020, §6.5 — làm cho mọi dịch vụ khám):
     --   patient_link           (hai người có quan hệ — đối xứng, một dòng)
     --   clinical_data_consent  (ai cho ai xem form nào — KHÁC với liên kết)
-    expected_tenant_tables constant integer := 57;
+    -- 57 → 58 (05/08/2026): clinic_secret — credential POS/Zalo ra khỏi
+    --   clinic.settings, nơi cả anon lẫn authenticated đọc được (20260805000005).
+    expected_tenant_tables constant integer := 58;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
