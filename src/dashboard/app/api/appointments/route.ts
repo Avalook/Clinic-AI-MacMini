@@ -5,8 +5,11 @@
 //          slot_start, slot_end, booking_channel? }
 //     → { ok: true, appointment_id }
 //
-// The DB has an exclusion constraint (appointment_no_doctor_overlap) — a
-// doctor double-book surfaces as a friendly 409.
+// Đặt trùng nổi lên thành 409 kèm câu tiếng Việt. Lưới ở database là chỉ mục
+// uq_appointment_patient_slot_live (một bệnh nhân, một mốc giờ) và trigger
+// enforce_slot_capacity (số chỗ mỗi bác sĩ mỗi khung) — KHÔNG phải một ràng
+// buộc exclusion tên appointment_no_doctor_overlap như dòng cũ ở đây khai;
+// ràng buộc đó không tồn tại trong schema.
 //
 //   PATCH { id, action: "confirm" | "decline" }   (DOCTOR only, own appt)
 //     → { ok: true, status }

@@ -7,9 +7,17 @@ most rule-dense route in the dashboard. Two entry points:
 * ``apply_action`` — the ten-action lifecycle state machine.
 
 WHERE THE REAL GUARANTEES LIVE. Two invariants are enforced by Postgres, not
-here: ``appointment_no_doctor_overlap`` (a doctor cannot be in two places) and
-the atomic slot-capacity trigger (20260714000002, per-clinic since
-20260803000001). The checks in this module
+here: ``uq_appointment_patient_slot_live`` (một bệnh nhân chỉ có một lịch còn
+sống ở mỗi mốc giờ, 20260805000007) and the atomic slot-capacity trigger
+(20260714000002, per-clinic since 20260803000001, gắn lại ở 20260803000010).
+
+KHÔNG có ``appointment_no_doctor_overlap``. Docstring này từng khai nó là một
+trong hai lưới; nó bị DROP ở migration cũ 057 và chưa ai dựng lại — kiểm
+``pg_constraint`` ngày 05/08 chỉ còn hai EXCLUDE, cả hai trên bảng override.
+Nó cũng không nên được dựng lại: EXCLUDE cấm mọi cặp chồng lấn, tức trần bằng
+1, trong khi phòng khám cho 2 chỗ đặt + 1 vãng lai mỗi bác sĩ mỗi khung. Trần
+theo SỐ ĐẾM là việc của trigger sức chứa, và trigger đó chặt hơn hằng số
+``DOCTOR_OVERLAP_CAP`` bên dưới. The checks in this module
 run *before* the write purely to produce a sentence a receptionist can act on —
 "khung 09:15–09:30 đã đủ 2 chỗ" rather than a constraint name. They are
 best-effort and fail open, because the database is the actual net; that is why
@@ -59,9 +67,16 @@ CLINIC_TZ = _CLINIC_TZ
 # The slot length and the two seat counts are NOT here: they are the clinic's
 # configuration, read per booking from clinic.settings (C.3, clinic_policy.py).
 #
-# A doctor's hard ceiling on overlapping appointments stays a constant, because
-# it is not a preference — it mirrors `appointment_no_doctor_overlap`, a DB
-# constraint that is the same for every tenant.
+# TRẦN NÀY KHÔNG PHẢI LƯỚI, VÀ THỰC TẾ KHÔNG BAO GIỜ CHẠM TỚI.
+#
+# Chú thích cũ viết nó "phản chiếu `appointment_no_doctor_overlap`, một ràng
+# buộc DB" — ràng buộc đó không tồn tại (xem docstring đầu file). Thứ thật sự
+# chặn là trigger sức chứa: tối đa `regular_cap` + `walkin_cap` mỗi bác sĩ mỗi
+# khung, mặc định 2+1. Sáu thì luôn lớn hơn ba, nên câu "đã đạt giới hạn 6 lịch"
+# gần như không bao giờ hiện ra — trigger đã từ chối từ lịch thứ tư.
+#
+# Giữ lại vì nó vẫn là lưới cuối cho lịch DÀI HƠN MỘT KHUNG: trigger gom theo
+# mốc bắt đầu, nên một lịch 60 phút lúc 9:00 không chặn được lịch 9:15.
 DOCTOR_OVERLAP_CAP = 6
 
 # Statuses that no longer hold a seat.
@@ -975,10 +990,12 @@ class BookingService:
     ) -> str | None:
         """A sentence about why this doctor is unavailable, or None.
 
-        Advisory only — ``appointment_no_doctor_overlap`` is the real guard. The
-        point of doing it first is that "đã đạt giới hạn 6 lịch trong khung
-        09:15–09:30" tells a receptionist what to do next; a constraint name
-        does not.
+        Lưới thật là trigger sức chứa (``enforce_slot_capacity``), không phải
+        ``appointment_no_doctor_overlap`` — ràng buộc đó không tồn tại. Trigger
+        chặt hơn hàm này (2+1 mỗi khung so với 6), nên câu ở đây gần như chỉ
+        dùng cho lịch dài hơn một khung. Lý do vẫn kiểm trước khi ghi: "đã đạt
+        giới hạn 6 lịch trong khung 09:15–09:30" nói cho lễ tân biết phải làm
+        gì tiếp; một tên ràng buộc thì không.
         """
         overlapping = await conn.fetchval(
             """
