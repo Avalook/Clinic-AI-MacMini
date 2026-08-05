@@ -113,10 +113,22 @@ BEGIN
       LEFT JOIN public.staff s ON s.id = g.required_staff_id
      WHERE g.name = 'BS Thành khám trước' LIMIT 1;
 
+    -- KHÔNG NÉM LỖI KHI KHÔNG TÌM THẤY NGƯỜI GÁC CỔNG.
+    --
+    -- CI dựng một Postgres TRẮNG rồi chạy trọn chuỗi migration, và danh sách
+    -- nhân sự thật của Dr4Women cố ý KHÔNG nằm trong git (repo public, 35 người
+    -- thật). Nên ở CI, ở máy lập trình viên, và ở bất kỳ phòng khám nào khác,
+    -- câu JOIN trên khớp 0 dòng — đó là ĐÚNG, không phải hỏng.
+    --
+    -- Bản đầu của khối này ném EXCEPTION và làm CI đỏ. Sai ở chỗ nó lẫn hai câu
+    -- hỏi: "schema có đúng không" (mọi nơi đều phải đúng) với "phòng khám này
+    -- đã khai luật chưa" (chỉ Dr4Women mới có câu trả lời).
     IF v_luat IS NULL THEN
-        RAISE EXCEPTION
-            'Không khai được luật — không tìm thấy TS.BS. Phan Chí Thành đang '
-            'hoạt động trong bảng staff';
+        RAISE NOTICE
+            'chưa khai luật thứ tự bắt buộc — không có nhân sự nào tên '
+            '"TS.BS. Phan Chí Thành" đang hoạt động. Đúng như mong đợi ở CI và '
+            'ở phòng khám khác; cột required_node_codes vẫn đã đổi xong.';
+        RETURN;
     END IF;
 
     -- Không có ô này thì luật tự chặn chính nó: bệnh nhân không vào nổi phòng
