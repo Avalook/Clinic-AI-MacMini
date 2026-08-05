@@ -13,6 +13,7 @@ from typing import Any
 
 import asyncpg
 from fastapi import APIRouter, Depends
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
@@ -25,9 +26,18 @@ CACHE_MAX_AGE = 3600
 
 
 def _cached_json(data: list[dict[str, Any]]) -> JSONResponse:
-    """JSON with cache headers for reference data shared by every clinic."""
+    """JSON with cache headers for reference data shared by every clinic.
+
+    ``jsonable_encoder`` chứ không đưa thẳng dict của asyncpg vào JSONResponse:
+    cột ``id`` là UUID, và ``json.dumps`` không biết tuần tự hoá UUID —
+    "Object of type UUID is not JSON serializable", trả 500. Endpoint
+    ``/catalog/booking-channels`` hỏng vì đúng lý do này mà không ai thấy;
+    ``/catalog/service-types`` thì chết sớm hơn ở tên cột sai, nên lỗi thứ hai
+    chỉ lộ ra sau khi lỗi thứ nhất được vá. Encoder xử lý cả UUID, datetime,
+    Decimal — tức là cả lớp lỗi, không phải một chỗ.
+    """
     return JSONResponse(
-        content=data,
+        content=jsonable_encoder(data),
         headers={
             "Cache-Control": f"public, max-age={CACHE_MAX_AGE}",
             "Vary": "Accept",
@@ -44,7 +54,7 @@ def _private_json(data: list[dict[str, Any]]) -> JSONResponse:
     so they are private and revalidated.
     """
     return JSONResponse(
-        content=data,
+        content=jsonable_encoder(data),
         headers={"Cache-Control": "private, no-store", "Vary": "Authorization"},
     )
 

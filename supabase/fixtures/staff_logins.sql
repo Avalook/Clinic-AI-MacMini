@@ -22,7 +22,26 @@ DECLARE
     person  record;
     uid     uuid;
     sid     uuid;
+    -- Cơ sở mặc định cho tài khoản thử.
+    --
+    -- VÌ SAO PHẢI CÓ. Không gán thì get_current_identity từ chối MỌI request
+    -- bằng 403 "Tài khoản chưa được gán cơ sở khám" (identity.py:365) — nghĩa
+    -- là dev-up.sh dựng xong cả stack, đăng nhập được, rồi mọi màn hình đều
+    -- trống. Bước kiểm cuối của dev-up in ra "answers with err item(s)" đúng vì
+    -- chuyện này. Cột này nullable nên INSERT không hề báo lỗi; nó chỉ hỏng ở
+    -- tầng trên, một tầng mà fixture không chạm tới.
+    v_loc   uuid;
 BEGIN
+    SELECT id INTO v_loc
+      FROM public.clinic_location
+     WHERE clinic_id = v_clinic AND is_active
+     ORDER BY created_at, id
+     LIMIT 1;
+    IF v_loc IS NULL THEN
+        RAISE EXCEPTION
+            'clinic % chưa có cơ sở nào — nạp migration/seed trước', v_clinic;
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM public.clinic WHERE id = v_clinic) THEN
         RAISE EXCEPTION 'clinic % missing — apply the migrations first', v_clinic;
     END IF;
@@ -85,15 +104,21 @@ BEGIN
         -- clinic_membership, so one person can be lent to a second clinic
         -- without duplicating their record (ADR-0009).
         INSERT INTO public.staff (
-            full_name, short_name, primary_department, auth_user_id, is_active
+            full_name, short_name, primary_department, auth_user_id, is_active,
+            primary_location_id
         )
         VALUES (
-            person.full_name, person.short_name, person.department, uid, TRUE
+            person.full_name, person.short_name, person.department, uid, TRUE,
+            v_loc
         )
         ON CONFLICT (auth_user_id) WHERE auth_user_id IS NOT NULL DO UPDATE SET
-            primary_department = EXCLUDED.primary_department,
-            full_name          = EXCLUDED.full_name,
-            is_active          = TRUE
+            primary_department  = EXCLUDED.primary_department,
+            full_name           = EXCLUDED.full_name,
+            is_active           = TRUE,
+            -- Vá cả những hàng đã tạo trước khi fixture biết gán cơ sở.
+            primary_location_id = COALESCE(
+                public.staff.primary_location_id, EXCLUDED.primary_location_id
+            )
         RETURNING id INTO sid;
 
         -- uq_clinic_membership is (clinic_id, staff_id, role), so a role change
