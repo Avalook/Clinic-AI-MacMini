@@ -538,22 +538,7 @@ function ResultsTab({
               </button>
             </div>
 
-            {/* ẢNH SIÊU ÂM CHƯA CÓ CHỖ LƯU. Nói thẳng thay vì để một ô ảnh
-                trống — ô trống đọc thành "chưa chụp", còn sự thật là hệ thống
-                chưa có kho tệp nào. */}
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 11,
-                color: "var(--ink-muted)",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <ImageOff size={12} />
-              Ảnh siêu âm: chưa có chỗ lưu trên hệ thống (đang lưu ngoài máy).
-            </div>
+            <AnhSieuAm rec={d} onSaved={onSaved} />
 
             {open && (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
@@ -671,6 +656,134 @@ function SignedTab({ groups }: { groups: SonoPatientGroup[] | null }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+
+// ── Ảnh siêu âm ────────────────────────────────────────────────────────────
+//
+// Trước 05/08 chỗ này là một dòng chữ "chưa có chỗ lưu trên hệ thống". Kho tệp
+// đã dựng xong hôm 04/08 (`services/media_service.py`, lưu trên đĩa Mac) cùng
+// hai đường API — nhưng không có nút nào gọi tới, nên với người dùng thì nó
+// chưa tồn tại.
+//
+// KHÔNG KIỂM KIỂU TỆP Ở ĐÂY. `accept` của thẻ input chỉ là gợi ý cho hộp thoại
+// chọn tệp, người dùng đổi bộ lọc là chọn được thứ khác. Kiểm thật nằm ở
+// service: đọc mấy byte đầu, không tin đuôi tên. Thêm một lớp kiểm ở trình
+// duyệt sẽ tạo cảm giác an toàn giả.
+
+function AnhSieuAm({
+  rec,
+  onSaved,
+}: {
+  rec: SonoRecord;
+  onSaved: (msg: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const daKy = !!rec.signed_at;
+
+  async function tai(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    // Cho chọn lại CÙNG một tệp sau khi lỗi: input file không phát sự kiện
+    // change nếu giá trị không đổi.
+    e.target.value = "";
+    if (!f) return;
+
+    setBusy(true);
+    setErr(null);
+    const body = new FormData();
+    body.append("file", f);
+    try {
+      const res = await fetch(
+        `/api/ultrasound/image?id=${encodeURIComponent(rec.ultrasound_id)}`,
+        { method: "POST", body },
+      );
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Hiện NGUYÊN câu backend nói — "Kết quả đã ký, không thêm ảnh được",
+        // "Chỉ nhận ảnh JPG, PNG hoặc DICOM". Thay bằng "Tải lên thất bại" là
+        // bỏ đi thứ duy nhất cho biết phải làm gì tiếp.
+        setErr(out.error ?? `Lỗi máy chủ (${res.status})`);
+        return;
+      }
+      await onSaved("✓ Đã thêm ảnh siêu âm");
+    } catch {
+      setErr("Không kết nối được máy chủ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: "var(--ink-muted)" }}>
+          Ảnh siêu âm{rec.image_refs.length ? ` (${rec.image_refs.length})` : ""}
+        </span>
+
+        {daKy ? (
+          // Phiếu đã ký thì khoá, kể cả việc thêm ảnh: bác sĩ ký cái họ đã nhìn
+          // thấy. Service cũng chặn — nút ẩn đi chỉ để không mời người ta bấm
+          // vào một việc chắc chắn bị từ chối.
+          <span
+            style={{ fontSize: 11, color: "var(--ink-muted)", display: "flex", gap: 4 }}
+          >
+            <ImageOff size={12} /> đã ký — không thêm được
+          </span>
+        ) : (
+          <label
+            className="btn btn-secondary"
+            style={{ fontSize: 11, padding: "3px 9px", cursor: busy ? "wait" : "pointer" }}
+          >
+            {busy ? "Đang tải…" : "+ Thêm ảnh"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,.dcm"
+              disabled={busy}
+              onChange={tai}
+              style={{ display: "none" }}
+            />
+          </label>
+        )}
+      </div>
+
+      {rec.image_refs.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+          {rec.image_refs.map((key) => (
+            <a
+              key={key}
+              href={`/api/ultrasound/image?key=${encodeURIComponent(key)}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Mở ảnh"
+            >
+              {/* Ảnh đi qua proxy có xác thực, KHÔNG phải đường dẫn tệp công
+                  khai: khoá phải thuộc phòng khám của người xem VÀ thuộc một
+                  bản ghi có thật — hai phép kiểm ở media_service. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/ultrasound/image?key=${encodeURIComponent(key)}`}
+                alt="Ảnh siêu âm"
+                style={{
+                  width: 56,
+                  height: 56,
+                  objectFit: "cover",
+                  borderRadius: 6,
+                  border: "1px solid var(--line)",
+                }}
+              />
+            </a>
+          ))}
+        </div>
+      )}
+
+      {err && (
+        <p role="alert" style={{ fontSize: 11, color: "var(--danger)", marginTop: 5 }}>
+          {err}
+        </p>
+      )}
     </div>
   );
 }

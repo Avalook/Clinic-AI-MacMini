@@ -357,10 +357,13 @@ def _record_row(r: asyncpg.Record) -> dict[str, Any]:
         "ultrasound_type": r["ultrasound_type"],
         "findings": r["findings"],
         "impression": r["impression"],
-        # Ảnh siêu âm CHƯA CÓ CHỖ LƯU THẬT. `image_refs` là danh sách tham chiếu
-        # và hôm nay luôn rỗng — chưa có kho tệp nào được dựng. Trả về đúng cái
-        # đang có thay vì đường dẫn giả: một ô ảnh hỏng nói rõ "chưa làm" hơn là
-        # một ô ảnh trống nói "chưa chụp".
+        # Khoá tệp trên đĩa Mac, do `media_service.safe_path()` sinh — dạng
+        # `<clinic_id>/ultrasound/<ultrasound_id>/<uuid>.<đuôi>`. KHÔNG phải
+        # đường dẫn công khai: màn hình đọc qua `/api/ultrasound/image?key=…`,
+        # và service kiểm hai lần trước khi trả byte nào — khoá phải bắt đầu
+        # bằng đúng clinic_id của người hỏi, VÀ phải thuộc một bản ghi có thật.
+        # Thiếu phép kiểm thứ hai thì đoán được một UUID là đọc được ảnh của
+        # bệnh nhân bất kỳ.
         "image_refs": list(r["image_refs"] or []),
         "gestational_age_weeks": r["gestational_age_weeks"],
         "performed_at": (r["performed_at"].isoformat() if r["performed_at"] else None),
