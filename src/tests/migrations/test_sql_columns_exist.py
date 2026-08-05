@@ -173,3 +173,62 @@ def test_the_schema_reader_finds_the_core_tables() -> None:
     schema = _table_columns()
     for table in ("appointment", "patient", "service_type", "ward", "slot_hold"):
         assert schema.get(table), f"không đọc được cột nào của bảng {table}"
+
+
+def test_the_patient_slot_index_exists_in_a_migration() -> None:
+    """Chỉ mục chống đặt trùng phải nằm trong migration, không chỉ trong lời kể.
+
+    Đúng chuyện đã xảy ra với ``appointment_no_doctor_overlap``: bốn chỗ trong
+    code gọi nó là "the real guard", còn schema thì không có nó — bị DROP ở một
+    migration cũ và không ai dựng lại. Một lưới chỉ tồn tại trong chú thích là
+    thứ nguy hiểm hơn không có lưới, vì tầng trên cố ý fail-open khi tin rằng
+    có nó.
+    """
+    sql = "\n".join(
+        f.read_text(encoding="utf-8") for f in sorted(_MIGRATIONS.glob("*.sql"))
+    )
+    assert "uq_appointment_patient_slot_live" in sql, (
+        "không migration nào tạo uq_appointment_patient_slot_live — "
+        "trong khi main.py và booking_service.py đang khai là có"
+    )
+
+
+def test_no_code_claims_the_dropped_overlap_constraint() -> None:
+    """``appointment_no_doctor_overlap`` đã bị DROP — đừng khai là nó còn.
+
+    Và đừng dựng lại: EXCLUDE cấm MỌI cặp chồng lấn, tức trần bằng 1, trong khi
+    luật phòng khám là 2 chỗ đặt + 1 vãng lai mỗi bác sĩ mỗi khung
+    (clinic_policy.py). Trần theo số đếm là việc của trigger, không phải EXCLUDE.
+    Nếu ngày nào đó thật sự dựng lại nó bằng migration, bài kiểm này sẽ tự cho
+    phép — nó chỉ cấm việc KHAI SUÔNG.
+    """
+    migrations = "\n".join(
+        f.read_text(encoding="utf-8") for f in sorted(_MIGRATIONS.glob("*.sql"))
+    )
+    really_exists = re.search(
+        r"(ADD\s+CONSTRAINT|CREATE\s+.*CONSTRAINT)\s+appointment_no_doctor_overlap",
+        migrations,
+        re.IGNORECASE,
+    )
+    if really_exists:
+        return
+
+    # KIỂM ĐÚNG THỨ CÓ HẬU QUẢ, KHÔNG ĐOÁN CHỮ TRONG CHÚ THÍCH.
+    #
+    # Bản đầu của bài kiểm này quét mọi dòng nhắc tên rồi tha cho dòng nào có
+    # chữ "không tồn tại" ở gần. Cách đó vừa báo nhầm chính đoạn giải thích, vừa
+    # sẽ bỏ lọt một lời khai gian nào tình cờ nằm cạnh một chữ "không". Chú
+    # thích sai thì gây hiểu nhầm; ĐOẠN MAP DƯỚI ĐÂY thì gây hành vi sai — nó là
+    # thứ quyết định người dùng đọc được câu gì. Nên chỉ kiểm nó.
+    handler = (_BACKEND / "main.py").read_text(encoding="utf-8")
+    mapping = re.search(
+        r"exclusion_violation_handler.*?known\s*=\s*\{(.*?)\}",
+        handler,
+        re.DOTALL,
+    )
+    assert mapping, "không tìm thấy bảng ánh xạ trong exclusion_violation_handler"
+    assert "appointment_no_doctor_overlap" not in mapping.group(1), (
+        "exclusion_violation_handler đang ánh xạ appointment_no_doctor_overlap, "
+        "nhưng không migration nào tạo ràng buộc đó — mục này không bao giờ bắn, "
+        "và nó làm người đọc tin rằng có một lưới ở đây."
+    )
