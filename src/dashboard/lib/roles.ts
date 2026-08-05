@@ -256,6 +256,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho
   // MANAGEMENT, nên hiện mục này cho vai khác chỉ dẫn tới một trang 403.
   "/ops/telemetry": ["MANAGEMENT"],
+  // Hồ sơ nhân sự — cùng ràng buộc với backend: routers/staff.py gác mọi thao
+  // tác ghi bằng require_role(MANAGEMENT), nên mở mục này cho vai khác chỉ dẫn
+  // tới một trang lưu gì cũng 403.
+  "/nhan-su": ["MANAGEMENT"],
 
   "/home": "all",
   // Nhiệm vụ chăm sóc — thay thế cũ /cskh-today + /cskh/board.

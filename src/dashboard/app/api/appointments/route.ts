@@ -5,8 +5,11 @@
 //          slot_start, slot_end, booking_channel? }
 //     → { ok: true, appointment_id }
 //
-// The DB has an exclusion constraint (appointment_no_doctor_overlap) — a
-// doctor double-book surfaces as a friendly 409.
+// Đặt trùng nổi lên thành 409 kèm câu tiếng Việt. Lưới ở database là chỉ mục
+// uq_appointment_patient_slot_live (một bệnh nhân, một mốc giờ) và trigger
+// enforce_slot_capacity (số chỗ mỗi bác sĩ mỗi khung) — KHÔNG phải một ràng
+// buộc exclusion tên appointment_no_doctor_overlap như dòng cũ ở đây khai;
+// ràng buộc đó không tồn tại trong schema.
 //
 //   PATCH { id, action: "confirm" | "decline" }   (DOCTOR only, own appt)
 //     → { ok: true, status }
@@ -167,21 +170,32 @@ export async function POST(request: Request) {
   // Booking, the 2+1 pre-check, the episode attach, the audit events and the
   // walk-in auto-check-in all run in ONE transaction in FastAPI. Here they were
   // six sequential calls, so a crash mid-way left half a booking behind.
-  return proxyJsonToBackend("POST", "/api/v1/appointments/bookings", {
-    clinic_patient_id,
-    service_type_id,
-    location_id: location_id || null,
-    slot_start,
-    slot_end,
-    doctor_id,
-    booking_channel: rawChannel || null,
-    queue_number,
-    patient_kind,
-    need_sono,
-    thanh_min,
-    sono_min,
-    notes: (body.notes ?? "").trim() || null,
-  });
+  // Chuyển tiếp khoá chống-gửi-hai-lần của trình duyệt. Không tự sinh ở đây:
+  // mỗi lần bấm lại sẽ ra một khoá mới, tức là không chặn được gì. Khoá phải do
+  // BookingHub sinh MỘT LẦN cho MỘT lần đặt và giữ nguyên qua các lần thử lại.
+  const idempotencyKey =
+    request.headers.get("Idempotency-Key")?.slice(0, 200) || undefined;
+
+  return proxyJsonToBackend(
+    "POST",
+    "/api/v1/appointments/bookings",
+    {
+      clinic_patient_id,
+      service_type_id,
+      location_id: location_id || null,
+      slot_start,
+      slot_end,
+      doctor_id,
+      booking_channel: rawChannel || null,
+      queue_number,
+      patient_kind,
+      need_sono,
+      thanh_min,
+      sono_min,
+      notes: (body.notes ?? "").trim() || null,
+    },
+    idempotencyKey,
+  );
 }
 
 type PatchAction =
