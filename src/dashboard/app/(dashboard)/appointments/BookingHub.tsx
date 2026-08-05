@@ -5,7 +5,7 @@
 // Cột 2 (Giữa - 1fr): Bảng lưới giờ chuẩn mockup (Cột đầu = Giờ, các ô KHÔNG ghi lại giờ, màu & trạng thái Có thể đặt / Còn 1 chỗ / Đã đầy / Đang giữ / Đang chọn ✓).
 // Cột 3 (Phải - 320px): Panel Xác nhận thông tin đặt lịch (Sức chứa 1/3 đã đặt, Checklist, Đặt lịch hẹn).
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar as CalendarIcon,
@@ -288,6 +288,13 @@ export default function BookingHub({
   } | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
+  // Chốt chống bấm hai lần. useRef chứ không useState: state chỉ đổi sau lần
+  // render kế tiếp, mà hai cú click của một double-click nằm gọn TRƯỚC lần
+  // render đó. Xem handleConfirmBooking.
+  const submittingRef = useRef(false);
+  // Khoá idempotency của LẦN ĐẶT hiện tại. Giữ qua lần thử lại của cùng một lần
+  // đặt; xoá khi server đã trả lời (dù thành công hay lỗi).
+  const idemKeyRef = useRef<string | null>(null);
 
   // Ba cột bác sĩ ở chế độ "Tất cả" — ĐÚNG THIẾT KẾ, không phải giới hạn nhầm.
   //
@@ -529,6 +536,33 @@ export default function BookingHub({
     };
   }, [selectedDateIso]);
 
+  // RỜI MÀN THÌ THẢ CHỖ ĐANG GIỮ.
+  //
+  // `DELETE /api/appointments/slot-hold` có đủ cả hai đầu — route Next
+  // (slot-hold/route.ts:75) và endpoint FastAPI (booking.py:318) — nhưng chưa
+  // từng có ai gọi. Hệ quả: CSKH chọn một khung rồi đóng tab, và ô đó hiện
+  // "đang giữ" trên màn hình mọi người khác đủ 10 phút (HOLD_MINUTES) cho một
+  // người đã đi khỏi. Ở giờ cao điểm đó là những ô còn trống bị báo là bận.
+  //
+  // Deps rỗng — CHỈ chạy lúc gỡ component, không chạy khi đổi khung. Đổi khung
+  // thì SlotHoldService.hold() đã tự thả cái cũ trong cùng transaction
+  // (_release_mine(keep=slot_start)); gọi thêm DELETE ở đây sẽ đua với POST mới
+  // và có thể thả nhầm chỗ vừa giữ, vì release() thả TẤT CẢ chỗ của người này.
+  //
+  // keepalive: trình duyệt huỷ fetch thường khi trang đang đóng; cờ này cho
+  // request đi tiếp. Đây là lý do không dùng sendBeacon: beacon chỉ POST được.
+  useEffect(() => {
+    return () => {
+      void fetch("/api/appointments/slot-hold", {
+        method: "DELETE",
+        keepalive: true,
+      }).catch(() => {
+        // Thả chỗ hỏng thì chỗ tự hết hạn sau 10 phút. Giữ chỗ là tư vấn,
+        // không phải khoá — không đáng để chặn việc gì.
+      });
+    };
+  }, []);
+
   // GIỮ CHỖ KHI ĐANG CHỌN. Bỏ chọn / đổi khung thì backend tự thả cái cũ.
   useEffect(() => {
     if (!selectedSlot.time || !selectedDateIso) return;
@@ -723,6 +757,30 @@ export default function BookingHub({
       return;
     }
 
+    // CHỐT ĐỒNG BỘ, KHÔNG PHẢI STATE.
+    //
+    // Nút đã có `disabled={bookingLoading || …}`, nhưng `setBookingLoading(true)`
+    // chỉ có hiệu lực sau khi React render lại. Hai cú click trong cùng một nhịp
+    // (double-click bình thường của con người, ~150ms) đều vào được hàm này vì
+    // DOM lúc đó vẫn là nút chưa bị vô hiệu hoá. useRef đổi giá trị NGAY, nên
+    // cú thứ hai quay đầu ở đây.
+    //
+    // Đây là lớp một trong ba. Lớp hai là Idempotency-Key bên dưới (chặn khi
+    // request đã rời trình duyệt). Lớp ba là chốt ở database — chưa có, xem
+    // báo cáo: prod đang còn 5 dòng trùng nên chỉ mục duy nhất chưa dựng được.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
+    // MỘT KHOÁ CHO MỘT LẦN ĐẶT, giữ nguyên qua mọi lần thử lại của cùng lần đặt
+    // đó. Sinh khoá mới ở mỗi lần bấm thì không chặn được gì; sinh ở server thì
+    // càng vô nghĩa vì mỗi request là một khoá.
+    if (!idemKeyRef.current) {
+      idemKeyRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
     setBookingLoading(true);
     setBookingError(null);
     try {
@@ -748,7 +806,10 @@ export default function BookingHub({
 
       const res = await fetch("/api/appointments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idemKeyRef.current,
+        },
         body: JSON.stringify({
           clinic_patient_id: activePatient.clinic_patient_id,
           doctor_id: selectedSlot.doctorId,
@@ -809,10 +870,23 @@ export default function BookingHub({
           err.error || err.message || err.detail || "Không thể đặt lịch.",
         );
       }
+      // SERVER ĐÃ TRẢ LỜI ⇒ BỎ KHOÁ, dù là 201 hay 409.
+      //
+      // Lần bấm sau là một lần đặt KHÁC (đổi khung, đổi khách, hoặc thử lại sau
+      // khi bị từ chối), nên phải mang khoá mới. Dùng lại khoá cũ sẽ đâm vào
+      // hàng đã ở trạng thái PROCESSING trong bảng idempotency_key và nhận
+      // "Yêu cầu với Idempotency-Key này đang được xử lý" — kẹt đủ 5 phút
+      // (PROCESSING_TTL_MINUTES), tức là chốt chống trùng tự biến thành lỗi.
+      idemKeyRef.current = null;
     } catch {
+      // MẤT MẠNG GIỮA CHỪNG ⇒ GIỮ NGUYÊN KHOÁ. Đây là trường hợp duy nhất
+      // không biết request có tới nơi hay không. Bấm lại với cùng khoá là cách
+      // duy nhất an toàn: nếu lần trước đã ghi thành công, backend phát lại
+      // đúng response cũ thay vì tạo lịch thứ hai.
       setBookingError("Mất kết nối tới máy chủ — lịch chưa được lưu.");
     } finally {
       setBookingLoading(false);
+      submittingRef.current = false;
     }
   }
 

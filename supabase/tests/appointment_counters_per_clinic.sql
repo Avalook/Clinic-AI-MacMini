@@ -27,10 +27,23 @@ VALUES ('a1200000-0000-4000-8000-000000000001',
         'a0000000-0000-4000-8000-000000000001', 'TEST-A1', 'Dịch vụ A (test)', 30)
 ON CONFLICT (id) DO NOTHING;
 
+-- HAI bệnh nhân, không phải một người đặt hai lần.
+--
+-- Phép kiểm sức chứa bên dưới cần lấp đầy một khung (cap = 2 chỗ đặt hẹn).
+-- Bản trước dùng `generate_series(1, 2)` với CÙNG một clinic_patient_id cho
+-- tiện — và từ 20260805000007 thì chỉ mục uq_appointment_patient_slot_live cấm
+-- đúng chuyện đó: một bệnh nhân chỉ có một lịch còn sống ở mỗi mốc giờ.
+--
+-- Ý định của bài kiểm không hề đổi: nó hỏi "sức chứa có tính theo từng phòng
+-- khám không", chứ không hỏi "một người đặt hai lần được không". Hai chỗ trong
+-- một khung vốn là hai người — fixture giờ khớp với thực tế phòng khám.
 INSERT INTO public.patient
     (clinic_id, clinic_patient_id, patient_code, full_name, location_id)
 VALUES ('a0000000-0000-4000-8000-000000000001',
         'e0000000-0000-4000-8000-0000000000f1', 'BN-TEST-A1', 'BN test A1',
+        'a1100000-0000-4000-8000-000000000001'),
+       ('a0000000-0000-4000-8000-000000000001',
+        'e0000000-0000-4000-8000-0000000000f2', 'BN-TEST-A2', 'BN test A2',
         'a1100000-0000-4000-8000-000000000001')
 ON CONFLICT (clinic_patient_id) DO NOTHING;
 
@@ -148,13 +161,14 @@ DECLARE
 BEGIN
 
     -- Clinic A fills the bucket (cap is 2 for booked appointments).
+    -- Hai bệnh nhân khác nhau — xem chú thích ở phần fixture phía trên.
     INSERT INTO public.appointment
         (clinic_id, clinic_patient_id, location_id, service_type_id,
          slot_start, slot_end, status)
     SELECT 'a0000000-0000-4000-8000-000000000001',
-           'e0000000-0000-4000-8000-0000000000f1', loc_a, svc_a,
-           slot_a, slot_b, 'SCHEDULED'
-      FROM generate_series(1, 2);
+           bn.id, loc_a, svc_a, slot_a, slot_b, 'SCHEDULED'
+      FROM (VALUES ('e0000000-0000-4000-8000-0000000000f1'::uuid),
+                   ('e0000000-0000-4000-8000-0000000000f2'::uuid)) AS bn(id);
 
     -- Clinic B must still be able to book its own 09:00.
     INSERT INTO public.appointment

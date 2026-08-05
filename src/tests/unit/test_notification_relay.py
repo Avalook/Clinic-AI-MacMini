@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 
+from clinicai.services import notification_relay as relay
 from clinicai.services.notification_relay import poll_and_deliver
 
 CLINIC_ID = "a0000000-0000-4000-8000-000000000001"
@@ -147,3 +148,85 @@ async def test_relay_does_not_publish_unaccepted_delivery(
     assert not any(
         "UPDATE event_log" in call.args[0] for call in conn.execute.await_args_list
     )
+
+
+@pytest.mark.asyncio
+async def test_failed_sends_wait_between_attempts() -> None:
+    """Ba lần thử liên tiếp không nghỉ chỉ là một lần thử.
+
+    Vòng cũ gọi ``send_telegram`` ba lần trong vài mili-giây. Nguyên nhân hỏng
+    lần một — mạng chớp, 429, provider đang khởi động lại — vẫn còn nguyên ở lần
+    hai và ba, nên chúng chỉ tốn thời gian và đẩy thêm request vào chỗ đang quá
+    tải. Bài kiểm này ghim: có nghỉ, nghỉ tăng dần, và KHÔNG nghỉ sau lần cuối
+    (lúc đó chẳng còn gì để chờ).
+    """
+    pool, _conn = _relay_db(
+        [
+            {
+                "event_id": uuid4(),
+                "event_type": "appointment.created",
+                "payload": {},
+                "metadata": {},
+            }
+        ],
+        True,  # advisory lock acquired
+        True,  # event still unpublished
+    )
+
+    with (
+        patch(
+            "clinicai.services.notification_relay.notification_templates.render",
+            return_value="Có lịch hẹn mới",
+        ),
+        patch(
+            "clinicai.services.notification_relay.telegram.send_telegram",
+            new=AsyncMock(return_value={"ok": False}),
+        ) as send,
+        patch(
+            "clinicai.services.notification_relay.asyncio.sleep",
+            new=AsyncMock(),
+        ) as sleep,
+    ):
+        assert await poll_and_deliver(pool, clinic_id=CLINIC_ID) == 0
+
+    assert send.await_count == relay.MAX_RETRIES
+    # Nghỉ giữa các lần thử, tức là ít hơn số lần thử đúng một.
+    waited = [call.args[0] for call in sleep.await_args_list]
+    assert waited == [
+        relay.RETRY_BACKOFF_SECONDS * (2**i) for i in range(relay.MAX_RETRIES - 1)
+    ], f"chờ sai nhịp: {waited}"
+
+
+@pytest.mark.asyncio
+async def test_a_successful_send_never_waits() -> None:
+    """Đường thuận lợi không được chậm đi vì cơ chế thử lại."""
+    pool, _conn = _relay_db(
+        [
+            {
+                "event_id": uuid4(),
+                "event_type": "appointment.created",
+                "payload": {},
+                "metadata": {},
+            }
+        ],
+        True,
+        True,
+    )
+
+    with (
+        patch(
+            "clinicai.services.notification_relay.notification_templates.render",
+            return_value="Có lịch hẹn mới",
+        ),
+        patch(
+            "clinicai.services.notification_relay.telegram.send_telegram",
+            new=AsyncMock(return_value={"ok": True}),
+        ),
+        patch(
+            "clinicai.services.notification_relay.asyncio.sleep",
+            new=AsyncMock(),
+        ) as sleep,
+    ):
+        assert await poll_and_deliver(pool, clinic_id=CLINIC_ID) == 1
+
+    sleep.assert_not_awaited()
