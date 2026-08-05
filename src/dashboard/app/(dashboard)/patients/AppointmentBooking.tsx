@@ -150,12 +150,13 @@ export default function AppointmentBooking({
   // Capacity Phase 1 (T-20260629-CAP-01) — CSKH chọn tay (DEC-3); backend gợi ý tải.
   const [patientKind, setPatientKind] = useState(initial?.patientKind ?? ""); // "" | "RETURN" | "NEW"
   const [needSono, setNeedSono] = useState(initial?.needSono ?? false);
-  // Lịch sử dịch vụ của BN này (T-20260629-EPI-01): số lần đã khám DV đang chọn + đợt
-  // còn sống → hiện chú thích cho CSKH + đặt mặc định thông minh NEW/RETURN.
-  const [svcHistory, setSvcHistory] = useState<{
-    serviceVisitCount: number;
-    liveEpisode: { status: string; opened_at: string; last_visit_at: string | null } | null;
-  } | null>(null);
+  // Lịch sử dịch vụ của BN này (T-20260629-EPI-01) giờ CHỈ dùng để đặt mặc định
+  // NEW/RETURN — xem effect gọi /api/appointments/service-history bên dưới.
+  //
+  // State `svcHistory` đã bỏ: phần giao diện hiện chú thích "đã khám N lần" bị
+  // gỡ cùng đợt xoá ô "Số khám"/"Loại khám", nên state chỉ còn được ghi mà
+  // không ai đọc. Bản thân lời gọi fetch thì GIỮ NGUYÊN, vì nó vẫn quyết định
+  // patientKind mặc định.
   const [existingAppts, setExistingAppts] = useState<SlotApptLite[]>([]);
   // Bác sĩ TRỰC CA của ngày đã chọn (work_roster LICH_KHAM) — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
@@ -174,7 +175,6 @@ export default function AppointmentBooking({
     }[]
   >([]);
   const [channel, setChannel] = useState(initial?.channel ?? "");
-  const [queueNumber, setQueueNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -185,7 +185,6 @@ export default function AppointmentBooking({
     () => (apptDate ? existingAppts : []),
     [apptDate, existingAppts],
   );
-  const visibleSvcHistory = serviceId && clinicPatientId ? svcHistory : null;
 
   // Fetch appointments for selected date to check availability
   useEffect(() => {
@@ -263,7 +262,6 @@ export default function AppointmentBooking({
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!j) return;
-        setSvcHistory(j);
         // Sửa lịch: GIỮ loại khám đã điền sẵn, không tự ghi đè theo lịch sử.
         if (!edit) setPatientKind(j.liveEpisode ? "RETURN" : "NEW");
       })
@@ -291,14 +289,6 @@ export default function AppointmentBooking({
       return false;
     }
   }, [walkin, apptDate, apptTime, doctorId, visibleExistingAppts, policy]);
-
-  // CSKH: số khám ĐỂ TRỐNG — hệ thống cấp SỐ CHUNG THEO THỜI GIAN lúc check-in.
-  // KHÔNG tự dập "ƯT" theo phút (sai nghĩa): ƯT chỉ dành cho NGƯỜI QUEN nhà bác sĩ,
-  // do người nhập gõ tay khi cần. Đổi ngày/giờ → xoá số đang điền cho gọn.
-  useEffect(() => {
-    const timer = window.setTimeout(() => setQueueNumber(""), 0);
-    return () => window.clearTimeout(timer);
-  }, [apptTime, isSlotBooked]);
 
   // Kênh đặt BẮT BUỘC cho đặt hẹn thường: kênh rỗng bị server mặc định WALK_IN →
   // chiếm nhầm chỗ vãng lai (chỗ 3). Vãng lai (Lễ tân) thì cố định WALK_IN nên
@@ -381,7 +371,6 @@ export default function AppointmentBooking({
         slot_end: end.toISOString(),
         // Vãng lai (Lễ tân) → WALK_IN để vào đúng ghế Ưu tiên (chỗ 3).
         booking_channel: walkin ? "WALK_IN" : channel,
-        queue_number: queueNumber,
         // Tải/ca — backend tự gợi ý thanh_min/sono_min từ 2 field này (DEC-3).
         patient_kind: patientKind || undefined,
         need_sono: needSono,
@@ -525,15 +514,6 @@ export default function AppointmentBooking({
             </p>
           )}
         </div>
-        <div className="space-y-1">
-          <label className={LABEL}>Số khám</label>
-          <input
-            value={queueNumber}
-            onChange={(e) => setQueueNumber(e.target.value)}
-            className={INPUT}
-            placeholder="Để trống — gõ ƯT cho người quen nhà bác sĩ"
-          />
-        </div>
         <div className="space-y-1 sm:col-span-2">
           <label className={LABEL}>Chọn chỗ (sơ đồ trống)</label>
           <CinemaSlotPicker
@@ -611,28 +591,6 @@ export default function AppointmentBooking({
                 </option>
               ))}
             </select>
-          )}
-        </div>
-        <div className="space-y-1">
-          <label className={LABEL}>Loại khám</label>
-          <select
-            value={patientKind}
-            onChange={(e) => setPatientKind(e.target.value)}
-            className={INPUT}
-          >
-            <option value="">— Chọn —</option>
-            <option value="RETURN">Tái khám — khám tiếp đợt đang theo dõi</option>
-            <option value="NEW">Khám mới — đợt trước đã xong, vấn đề mới</option>
-          </select>
-          {visibleSvcHistory && visibleSvcHistory.serviceVisitCount > 0 && (
-            <p className="text-[11px] leading-normal text-status-in-progress">
-              Đã khám dịch vụ này {visibleSvcHistory.serviceVisitCount} lần ·{" "}
-              {visibleSvcHistory.liveEpisode
-                ? visibleSvcHistory.liveEpisode.status === "PENDING_CLOSE"
-                  ? "đợt đang chờ đóng → gợi ý Tái khám"
-                  : "đợt đang theo dõi → gợi ý Tái khám"
-                : "chưa có đợt mở → gợi ý Khám mới"}
-            </p>
           )}
         </div>
         <div className="space-y-1">
