@@ -1,0 +1,179 @@
+# Bộ Supabase TỰ DỰNG trên Mac — Giai đoạn 1 của việc rời Supabase cloud.
+#
+#   docker compose --env-file .env.supabase-local -p clinicai_db up -d
+#
+# CHẠY SONG SONG, KHÔNG ĐỤNG PROD. Project name riêng (`clinicai_db`), mạng
+# riêng, cổng riêng. Stack prod vẫn trỏ Supabase cloud cho tới khi Giai đoạn 3
+# cắt chuyển — và cloud vẫn giữ nguyên làm đường lùi.
+#
+# BỐN DỊCH VỤ, VÌ SUPABASE LÀ BỐN THỨ CHỨ KHÔNG PHẢI MỘT (đo ở Giai đoạn 0):
+#
+#   db         Postgres 17           tất cả
+#   auth       GoTrue                28 file frontend · 9 tài khoản
+#   rest       PostgREST             57 file frontend query thẳng
+#   realtime   Realtime              8 file (lễ tân, điều phối, siêu âm)
+#
+# Storage KHÔNG dựng: đo được 0 file dùng — ảnh siêu âm đã lưu thẳng trên đĩa
+# Mac từ 04/08. Dựng một dịch vụ không ai gọi là thêm một thứ phải vá lỗi bảo
+# mật hằng tháng.
+#
+# GATEWAY LÀ CADDY, KHÔNG PHẢI KONG. Supabase cloud dùng Kong; ở đây Caddy đã
+# chạy sẵn cho stack chính và cấu hình định tuyến chỉ có bốn dòng. Thêm Kong là
+# thêm một hệ cấu hình nữa để học và để hỏng.
+
+x-supabase-defaults: &supabase-defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+  security_opt:
+    - no-new-privileges:true
+  networks:
+    - supabase
+
+services:
+  # ---- Postgres ------------------------------------------------------------
+  db:
+    <<: *supabase-defaults
+    image: postgres:17
+    container_name: clinicai_db
+    environment:
+      POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD:?can mat khau}
+      POSTGRES_DB: postgres
+      # Múi giờ ghim theo clinic.timezone — dự án chỉ bán trong VN, và một máy
+      # chủ chạy UTC sẽ làm mọi mốc "hôm nay" lệch 7 tiếng.
+      TZ: Asia/Ho_Chi_Minh
+    command:
+      - postgres
+      # Realtime đọc WAL bằng logical replication. Mặc định `replica` thì nó
+      # nối được nhưng KHÔNG nhận được sự kiện nào — hỏng im lặng.
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=8
+      - -c
+      - max_wal_senders=8
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Chỉ chạy khi volume còn TRỐNG. Dựng lại nền sau khi đã có dữ liệu thì
+      # phải xoá volume — đó là hành vi của image postgres, không phải của ta.
+      - ./docker/supabase/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Chỉ mở ra localhost. Cổng này để psql/pg_dump từ máy, không phải để
+      # phục vụ ứng dụng — ứng dụng đi qua mạng nội bộ của compose.
+      - "127.0.0.1:${SUPABASE_DB_PORT:-54322}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---- GoTrue (đăng nhập) --------------------------------------------------
+  auth:
+    <<: *supabase-defaults
+    image: supabase/gotrue:v2.177.0
+    container_name: clinicai_auth
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      API_EXTERNAL_URL: http://localhost:${SUPABASE_API_PORT:-54321}
+      GOTRUE_DB_DRIVER: postgres
+      # GoTrue TỰ chạy migration của nó và tự tạo bảng trong schema `auth`.
+      # Vì vậy nó phải khởi động XONG trước khi chuỗi migration của dự án chạy:
+      # baseline có FK `staff.auth_user_id → auth.users(id)`.
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${SUPABASE_DB_PASSWORD}@db:5432/postgres?search_path=auth&sslmode=disable
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:?can jwt secret}
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      # KHÔNG cho tự đăng ký. Nhân sự do quản lý tạo ở /settings — một phòng
+      # khám không có cửa "đăng ký tài khoản mới".
+      GOTRUE_DISABLE_SIGNUP: "true"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      # Chưa nối máy chủ mail. Bật xác nhận email lúc này là khoá luôn mọi tài
+      # khoản mới ở ngoài cửa.
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider",
+             "http://localhost:9999/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---- PostgREST (57 file frontend query thẳng) ----------------------------
+  rest:
+    <<: *supabase-defaults
+    image: postgrest/postgrest:v12.2.3
+    container_name: clinicai_rest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${SUPABASE_DB_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      # CÙNG bí mật với GoTrue. Lệch một ký tự thì mọi token đăng nhập bị coi là
+      # giả, và triệu chứng là "đăng nhập được nhưng màn nào cũng trống".
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+
+  # ---- Realtime (8 file: lễ tân, điều phối, siêu âm) -----------------------
+  realtime:
+    <<: *supabase-defaults
+    image: supabase/realtime:v2.34.47
+    container_name: clinicai_realtime
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "4000"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SECRET_KEY_BASE: ${SUPABASE_JWT_SECRET}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+
+  # ---- Gateway: gom bốn dịch vụ vào một địa chỉ ----------------------------
+  # Frontend chỉ biết MỘT URL (NEXT_PUBLIC_SUPABASE_URL) và tự ghép đường dẫn
+  # /auth/v1, /rest/v1, /realtime/v1. Khối này dựng lại đúng hình dạng ấy.
+  gateway:
+    <<: *supabase-defaults
+    image: caddy:2-alpine
+    container_name: clinicai_supabase_gateway
+    depends_on:
+      - auth
+      - rest
+      - realtime
+    volumes:
+      - ./docker/supabase/Caddyfile:/etc/caddy/Caddyfile:ro
+      - gateway_data:/data
+    ports:
+      - "127.0.0.1:${SUPABASE_API_PORT:-54321}:8000"
+
+networks:
+  supabase:
+    driver: bridge
+
+volumes:
+  db_data:
+  gateway_data:
