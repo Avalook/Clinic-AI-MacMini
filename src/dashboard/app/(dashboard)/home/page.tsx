@@ -114,7 +114,7 @@ export default async function HomePage({
   // join patient/bác sĩ/dịch vụ. 3 staff-FK trên visit → phải chỉ rõ
   // attending_doctor_id để PostgREST không nhập nhằng. RLS SELECT cho phép.
   const VISIT_STATUS_SELECT = `
-    visit_id, status, checked_in_at, created_at, exam_completed_at,
+    visit_id, status, checked_in_at, created_at, finalized_at,
     patient:patient!clinic_patient_id ( full_name, patient_code ),
     doctor:staff!attending_doctor_id ( full_name ),
     service:service_type!service_type_id ( name ),
@@ -217,10 +217,22 @@ export default async function HomePage({
     checked_in_at: r.visit?.[0]?.checked_in_at ?? null,
   })) as HomeCheckinRow[];
 
-  // Board trạng thái buổi khám: nếu select đầy đủ LỖI (DB chinh "gần rỗng" có
-  // thể CHƯA apply mig 058 exam_completed_at, hoặc thiếu quan hệ appointment FK)
-  // → KHÔNG để bảng trắng câm. Rơi xuống select TỐI THIỂU (không exam_completed_at,
-  // không join appointment), rồi lấy appointment.status riêng theo appointment_id.
+  // Board trạng thái buổi khám: nếu select đầy đủ LỖI → KHÔNG để bảng trắng
+  // câm. Rơi xuống select TỐI THIỂU (không join appointment), rồi lấy
+  // appointment.status riêng theo appointment_id.
+  //
+  // ĐƯỜNG LÙI NÀY TỪNG LÀ ĐƯỜNG DUY NHẤT. Truy vấn chính đọc
+  // `exam_completed_at` — một cột chỉ có trong baseline_schema, mà baseline
+  // được ĐÁNH DẤU đã áp chứ chưa bao giờ chạy thật trên prod. Nên select đầy
+  // đủ LUÔN lỗi, lần tải nào cũng tốn một vòng mạng ra Seoul cho một câu chắc
+  // chắn hỏng, rồi mới đi đường lùi — và cột "thời lượng khám" chưa bao giờ
+  // hiện được con số nào.
+  //
+  // `finalized_at` là cột CÓ THẬT và ĐANG ĐƯỢC GHI: clinical_sign_service đặt
+  // nó khi bác sĩ ký bệnh án. Baseline khai cả hai cột cho cùng một việc và
+  // không ai từng ghi vào cột thứ hai.
+  //
+  // Giữ đường lùi lại: nó rẻ, và nó đã một lần cứu màn hình khỏi trắng câm.
   let visitStatusRows = (visitStatusRes.data as VisitStatusRow[] | null) ?? [];
   if (isReception && (visitStatusRes as { error?: unknown }).error) {
     const FALLBACK_SELECT = `
