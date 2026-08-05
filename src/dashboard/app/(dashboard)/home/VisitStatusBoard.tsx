@@ -62,16 +62,20 @@ export interface VisitStatusRow {
   /** Đã thu đủ mọi khâu (bảng payment) → mốc "Đã thanh toán" xanh. Server tính. */
   paid?: boolean;
   /** Mốc khám xong (mig 058) — dùng tính & hiện "khám N phút" cho board Lễ tân. */
-  exam_completed_at?: string | null;
+  /** Lúc bác sĩ KÝ bệnh án — mốc kết thúc khám. Đọc `finalized_at` chứ không
+   *  phải `exam_completed_at`: baseline khai cả hai cột cho cùng một việc,
+   *  nhưng chỉ cột này được ghi (clinical_sign_service), và cột kia thậm chí
+   *  không tồn tại trên prod. */
+  finalized_at?: string | null;
 }
 
 /** Thời lượng khám (phút) = khám xong − bắt đầu khám. null nếu thiếu mốc. */
 function examMinutes(
   checkedInAt: string | null,
-  examCompletedAt: string | null | undefined,
+  finalizedAt: string | null | undefined,
 ): number | null {
-  if (!checkedInAt || !examCompletedAt) return null;
-  const ms = Date.parse(examCompletedAt) - Date.parse(checkedInAt);
+  if (!checkedInAt || !finalizedAt) return null;
+  const ms = Date.parse(finalizedAt) - Date.parse(checkedInAt);
   if (!Number.isFinite(ms) || ms < 0) return null;
   return Math.round(ms / 60000);
 }
@@ -103,7 +107,7 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
               const apptStatus = r.appointment?.status ?? null;
               const paid = r.paid ?? false;
               const disp = displayStatus(r.status, apptStatus, paid);
-              const examMin = examMinutes(r.checked_in_at, r.exam_completed_at);
+              const examMin = examMinutes(r.checked_in_at, r.finalized_at);
               return (
                 <tr key={r.visit_id} className="hover:bg-surface-muted">
                   {/* Ô 1 — thông tin gộp: tên BN + mã · bác sĩ · dịch vụ · trạng thái
