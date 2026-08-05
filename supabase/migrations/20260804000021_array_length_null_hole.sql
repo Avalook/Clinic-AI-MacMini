@@ -53,13 +53,44 @@ DECLARE
     v_lot boolean := false;
 BEGIN
     BEGIN
-        INSERT INTO public.visit_gate_rule
-            (clinic_id, name, required_node_code, blocked_node_codes)
-        SELECT c.id, '__thu__', n.code, ARRAY[]::text[]
-          FROM public.clinic c
-          JOIN public.node_definition n
-            ON n.clinic_id = c.id AND n.code LIKE 'KHAM-%'
-         LIMIT 1;
+        -- TÊN CỘT ĐỔI GIỮA HAI LƯỢT CHẠY, nên câu này phải tự dò.
+        --
+        -- 20260805000006 đổi `required_node_code` (một mã) thành
+        -- `required_node_codes` (một TẬP mã), vì người gác cổng có thể phụ
+        -- trách nhiều chuyên khoa. Còn CI chạy TRỌN chuỗi migration HAI LƯỢT:
+        --
+        --   lượt 1  file này chạy TRƯỚC ...0006 → cột còn là số ít
+        --   lượt 2  schema đã có ...0006        → cột đã là số nhiều
+        --
+        -- Viết cứng tên nào cũng đổ ở lượt còn lại. Đây là cái giá của việc
+        -- một khối tự kiểm phải CHÈN dữ liệu thật để chứng minh ràng buộc có
+        -- chặn — và cái giá ấy đáng, vì kiểm sự tồn tại của ràng buộc thì
+        -- không phát hiện được `array_length` của mảng rỗng trả NULL.
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'visit_gate_rule'
+               AND column_name = 'required_node_codes'
+        ) THEN
+            EXECUTE $sql$
+                INSERT INTO public.visit_gate_rule
+                    (clinic_id, name, required_node_codes, blocked_node_codes)
+                SELECT c.id, '__thu__', ARRAY[n.code], ARRAY[]::text[]
+                  FROM public.clinic c
+                  JOIN public.node_definition n
+                    ON n.clinic_id = c.id AND n.code LIKE 'KHAM-%'
+                 LIMIT 1
+            $sql$;
+        ELSE
+            EXECUTE $sql$
+                INSERT INTO public.visit_gate_rule
+                    (clinic_id, name, required_node_code, blocked_node_codes)
+                SELECT c.id, '__thu__', n.code, ARRAY[]::text[]
+                  FROM public.clinic c
+                  JOIN public.node_definition n
+                    ON n.clinic_id = c.id AND n.code LIKE 'KHAM-%'
+                 LIMIT 1
+            $sql$;
+        END IF;
         v_lot := true;
     EXCEPTION WHEN check_violation THEN
         NULL;  -- đúng như mong đợi

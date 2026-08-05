@@ -202,6 +202,16 @@ ALTER TABLE visit           ENABLE TRIGGER trg_visit_no_delete;
 -- Đếm lại TRƯỚC KHI COMMIT. Một lệnh ENABLE gõ sai tên bảng sẽ đổ ngay ở trên,
 -- nhưng một cái BỊ QUÊN thì im lặng — và prod sẽ chạy tiếp mà không còn lớp
 -- chống xoá cứng, cho tới lúc có người xoá thật.
+--
+-- SOI THEO HÀNH VI, KHÔNG THEO TÊN HÀM. Bản đầu của khối này chỉ tìm trigger
+-- dùng `prevent_hard_delete` — nên nó KHÔNG soi `trg_event_log_no_delete`,
+-- vốn dùng `enforce_append_only`. Đúng cái trigger mà script này tắt ở trên.
+-- Nghĩa là một lần chạy hỏng nửa chừng có thể để prod đứng dậy với nhật ký
+-- xoá được, và khối "tự kiểm" vẫn báo sạch.
+--
+-- Điều kiện đúng là "trigger nào bắt DELETE hoặc TRUNCATE", đọc từ tgtype:
+--     bit 3 (giá trị 8)  = DELETE
+--     bit 5 (giá trị 32) = TRUNCATE
 DO $kiem$
 DECLARE
     con_tat text;
@@ -210,9 +220,10 @@ BEGIN
       INTO con_tat
       FROM pg_trigger t
       JOIN pg_class c ON c.oid = t.tgrelid
-      JOIN pg_proc  p ON p.oid = t.tgfoid
-     WHERE p.proname = 'prevent_hard_delete'
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
        AND NOT t.tgisinternal
+       AND (t.tgtype::int & 8 = 8 OR t.tgtype::int & 32 = 32)
        AND t.tgenabled = 'D';
     IF con_tat IS NOT NULL THEN
         RAISE EXCEPTION 'còn trigger chống xoá đang TẮT: % — huỷ toàn bộ', con_tat;
