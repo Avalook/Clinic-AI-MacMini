@@ -34,7 +34,15 @@ def dr4women(**over: object) -> GateRule:
         location_id=None,
         patient_kind=None,
         service_type_id=None,
-        required_node_code="KHAM-PHUKHOA",
+        # NĂM chuyên khoa, không phải một — BS Thành phụ trách cả năm, nên
+        # "đã gặp BS Thành" có năm hình dạng. Xem 20260805000006.
+        required_node_codes=(
+            "KHAM-SANKHOA",
+            "KHAM-PHUKHOA",
+            "KHAM-NOITIET",
+            "KHAM-HIEMMUON-VOSINH",
+            "KHAM-NAMKHOA",
+        ),
         required_staff_id=THANH,
         blocked_node_codes=KHAM,
         only_when_other_staff=True,
@@ -55,7 +63,8 @@ def sang_loc(**over: object) -> GateRule:
         location_id=None,
         patient_kind=None,
         service_type_id=None,
-        required_node_code="LUOTKHAM-03",
+        # Phòng khám khác: một bước duy nhất. Mảng một phần tử vẫn tự nhiên.
+        required_node_codes=("LUOTKHAM-03",),
         required_staff_id=None,
         blocked_node_codes=KHAM,
         only_when_other_staff=False,
@@ -222,3 +231,33 @@ class TestTheRequiredStepItself:
         """Ngược lại: luật đòi đích danh BS Thành mà không biết ai làm thì coi
         như CHƯA qua. Chặn thừa còn hơn buông lỏng ở một chốt an toàn."""
         assert not satisfied(dr4women(), facts(completed=(("KHAM-PHUKHOA", None),)))
+
+
+class TestGacCongPhuTrachNhieuChuyenKhoa:
+    """Ca đã làm lộ ra rằng một `required_node_code` là không đủ.
+
+    BS Thành phụ trách cả năm chuyên khoa. Khám Phụ khoa với ông xong rồi được
+    chỉ định sang Nội tiết với bác sĩ khác — đó là ĐÚNG luật ("rồi mới được chỉ
+    định gặp bác sĩ khác"), nhưng một luật đòi đúng một bước sẽ chặn nó.
+    """
+
+    def test_xong_mot_chuyen_khoa_la_qua_cong_cho_moi_chuyen_khoa(self) -> None:
+        facts = VisitFacts(
+            location_id=None,
+            patient_kind=None,
+            service_type_id=None,
+            completed=(("KHAM-PHUKHOA", THANH),),
+            target_staff_id=HOA,
+        )
+        assert first_block([dr4women()], facts, "KHAM-NOITIET") is None
+
+    def test_chua_gap_nguoi_gac_thi_chuyen_khoa_nao_cung_chan(self) -> None:
+        facts = VisitFacts(
+            location_id=None,
+            patient_kind=None,
+            service_type_id=None,
+            completed=(),
+            target_staff_id=HOA,
+        )
+        for node in KHAM:
+            assert first_block([dr4women()], facts, node) is not None, node

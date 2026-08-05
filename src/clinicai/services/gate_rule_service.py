@@ -40,7 +40,7 @@ class GateRule:
     location_id: str | None
     patient_kind: str | None
     service_type_id: str | None
-    required_node_code: str
+    required_node_codes: tuple[str, ...]
     required_staff_id: str | None
     blocked_node_codes: tuple[str, ...]
     only_when_other_staff: bool
@@ -76,9 +76,15 @@ def applies_to(rule: GateRule, facts: VisitFacts) -> bool:
 
 
 def satisfied(rule: GateRule, facts: VisitFacts) -> bool:
-    """Bước bắt buộc đã xong chưa (và có đúng người làm không)."""
+    """Đã qua cổng chưa: xong BẤT KỲ bước bắt buộc nào, đúng người.
+
+    MỘT TẬP, KHÔNG PHẢI MỘT BƯỚC — và khác biệt ấy chính là luật của Dr4Women.
+    BS Thành phụ trách cả năm chuyên khoa, nên "đã gặp BS Thành" có năm hình
+    dạng. Đòi đúng MỘT bước thì khám Phụ khoa với Thành xong, chuyển sang Nội
+    tiết bác sĩ khác vẫn bị chặn — đúng cái ca mà luật muốn CHO PHÉP.
+    """
     for node, staff in facts.completed:
-        if node != rule.required_node_code:
+        if node not in rule.required_node_codes:
             continue
         if rule.required_staff_id is None:
             return True
@@ -129,7 +135,7 @@ def may_override(rule: GateRule, role: str) -> bool:
 
 _RULES_SQL = """
 SELECT id, name, location_id, patient_kind, service_type_id,
-       required_node_code, required_staff_id, blocked_node_codes,
+       required_node_codes, required_staff_id, blocked_node_codes,
        only_when_other_staff, override_roles
   FROM public.visit_gate_rule
  WHERE clinic_id = $1::uuid AND is_active
@@ -172,7 +178,7 @@ async def load_rules(conn: asyncpg.Connection, clinic_id: str) -> list[GateRule]
             service_type_id=(
                 str(r["service_type_id"]) if r["service_type_id"] else None
             ),
-            required_node_code=r["required_node_code"],
+            required_node_codes=tuple(r["required_node_codes"] or ()),
             required_staff_id=(
                 str(r["required_staff_id"]) if r["required_staff_id"] else None
             ),
