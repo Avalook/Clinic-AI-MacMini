@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { VN_TZ } from "../../lib/datetime";
+import { VN_TZ, vnToday } from "../../lib/datetime";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
@@ -92,10 +92,19 @@ export default function GlobalHeader({
     });
   };
 
-  // Mini Calendar Popover State
-  const [selectedDate, setSelectedDate] = useState(new Date(2026, 4, 14)); // 14/05/2026
-  const [viewYear, setViewYear] = useState(2026);
-  const [viewMonth, setViewMonth] = useState(4); // 0-indexed: 4 = May
+  // Mini Calendar Popover State.
+  //
+  // Mặc định là HÔM NAY. Trước đây ba dòng này ghim `new Date(2026, 4, 14)` —
+  // ngày viết component — nên mọi màn hình đều đội một cái ngày sai ở đầu
+  // trang, bất kể hôm nay là ngày nào.
+  //
+  // `vnToday()` hỏi thẳng lịch Asia/Ho_Chi_Minh chứ không đọc giờ máy, nên máy
+  // chủ (chạy UTC) và trình duyệt (+07) ra cùng một ngày — không lệch hydrate.
+  // Dùng `new Date()` trần ở đây thì từ 00:00 tới 07:00 giờ VN hai bên ra hai
+  // ngày khác nhau.
+  const [selectedDate, setSelectedDate] = useState(() => vnToday());
+  const [viewYear, setViewYear] = useState(() => vnToday().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => vnToday().getMonth());
 
   const dateStr = selectedDate.toLocaleDateString("vi-VN", {
     weekday: "long",
@@ -105,6 +114,13 @@ export default function GlobalHeader({
     timeZone: VN_TZ,
   });
   const formattedDateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  // Bản gọn cho màn hẹp — cùng một ngày, chỉ khác cách viết.
+  const shortDateStr = selectedDate.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: VN_TZ,
+  });
 
   // Dynamic Notifications State
   const [notifications, setNotifications] = useState([
@@ -234,7 +250,7 @@ export default function GlobalHeader({
           >
             <CalendarIcon size={14} className="text-brand-600 shrink-0" />
             <span className="hidden md:inline">{formattedDateStr}</span>
-            <span className="md:hidden">14/05/2026</span>
+            <span className="md:hidden">{shortDateStr}</span>
             <ChevronDown size={13} className="text-ink-muted" />
           </button>
 
