@@ -26,12 +26,14 @@ set -euo pipefail
 EMAIL="${EMAIL:-manhinh@dr4women.local}"
 TEN="${TEN:-Màn hình phòng chờ}"
 
+# Không đặt MAT_KHAU thì script TỰ SINH — và in ra ở cuối.
+#
+# Bản đầu bắt người dùng tự truyền vào và KHÔNG in lại. Ai làm theo đúng gợi ý
+# `MAT_KHAU="$(openssl rand -base64 24)"` thì mật khẩu bị sinh ra rồi biến mất
+# ngay trong dòng lệnh — tài khoản tạo xong mà không ai đăng nhập được.
 if [[ -z "${MAT_KHAU:-}" ]]; then
-  echo "Thiếu MAT_KHAU. Đặt một mật khẩu dài, ngẫu nhiên — không ai phải gõ nó" >&2
-  echo "hàng ngày, cái tivi đăng nhập một lần rồi thôi." >&2
-  echo "" >&2
-  echo "  MAT_KHAU=\"\$(openssl rand -base64 24)\" $0" >&2
-  exit 2
+  MAT_KHAU="$(openssl rand -base64 18)"
+  TU_SINH=1
 fi
 
 if [[ -n "${CLINIC_DB_DSN:-}" ]]; then
@@ -60,10 +62,17 @@ SELECT (SELECT id FROM public.clinic ORDER BY created_at LIMIT 1)          AS cl
 
 -- ① Người dùng đăng nhập. GoTrue kiểm mật khẩu bằng pgcrypto crypt(), nên đặt
 --    thẳng bcrypt ở đây là hợp lệ với cả GoTrue lẫn /api/v1/auth/login.
-INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at,
-                        aud, role, raw_app_meta_data, raw_user_meta_data,
+-- `instance_id` PHẢI là UUID rỗng, không được để NULL.
+--
+-- GoTrue lọc người dùng theo cột này. Một hàng có instance_id NULL thì GoTrue
+-- KHÔNG TÌM THẤY, và thông báo trả về là "sai email hoặc mật khẩu" — đúng thứ
+-- khiến người ta đi đổi mật khẩu năm lần trong khi lỗi nằm ở chỗ khác hẳn. Đã
+-- gặp thật: tài khoản tạo xong, dữ liệu đủ, đăng nhập vẫn báo sai.
+INSERT INTO auth.users (instance_id, id, email, encrypted_password,
+                        email_confirmed_at, aud, role,
+                        raw_app_meta_data, raw_user_meta_data,
                         created_at, updated_at)
-SELECT gen_random_uuid(), :'email',
+SELECT '00000000-0000-0000-0000-000000000000', gen_random_uuid(), :'email',
        extensions.crypt(:'pw', extensions.gen_salt('bf')), now(),
        'authenticated', 'authenticated', '{"provider":"email"}'::jsonb, '{}'::jsonb,
        now(), now()
@@ -71,6 +80,8 @@ SELECT gen_random_uuid(), :'email',
 
 UPDATE auth.users
    SET encrypted_password = extensions.crypt(:'pw', extensions.gen_salt('bf')),
+       instance_id = '00000000-0000-0000-0000-000000000000',
+       email_confirmed_at = coalesce(email_confirmed_at, now()),
        updated_at = now()
  WHERE email = :'email';
 
@@ -132,6 +143,16 @@ SELECT '  vai: ' || m.role || ' · cơ sở: ' || coalesce(l.name, '?')
   LEFT JOIN public.clinic_location l ON l.id = s.primary_location_id
  WHERE u.email = :'email';
 SQL
+echo ""
+echo "  ┌────────────────────────────────────────────────┐"
+printf "  │ Email    : %-35s │\n" "$EMAIL"
+printf "  │ Mật khẩu : %-35s │\n" "$MAT_KHAU"
+echo "  └────────────────────────────────────────────────┘"
+if [[ -n "${TU_SINH:-}" ]]; then
+  echo ""
+  echo "  (Mật khẩu do script tự sinh. LƯU LẠI NGAY — nó không hiện lần nữa,"
+  echo "   và chạy lại script sẽ sinh một mật khẩu KHÁC.)"
+fi
 echo ""
 echo "Trên máy tivi: đăng nhập bằng tài khoản này rồi mở /display."
 echo "Đăng nhập xong nó sẽ tự chuyển tới đó — vai này không vào bảng điều khiển được."
