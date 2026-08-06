@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Mail, Lock } from "lucide-react";
+import { Mail, Lock } from "lucide-react";
 import { loginStaff } from "./actions";
 
 export default function LoginForm() {
@@ -102,16 +102,9 @@ export default function LoginForm() {
           {pending ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
 
-        <div className="flex items-center justify-between text-xs text-ink-muted">
-          <Link
-            href="/enter"
-            className="inline-flex items-center gap-1 text-brand-600 hover:underline"
-          >
-            <ArrowLeft size={12} />
-            Quay lại cổng
-          </Link>
-          <span>Chưa có tài khoản? Liên hệ quản lý.</span>
-        </div>
+        <p className="text-center text-xs text-ink-muted">
+          Chưa có tài khoản? Liên hệ quản lý.
+        </p>
       </form>
     </div>
   );

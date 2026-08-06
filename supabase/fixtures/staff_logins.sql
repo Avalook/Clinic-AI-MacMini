@@ -22,28 +22,23 @@ DECLARE
     person  record;
     uid     uuid;
     sid     uuid;
-    -- Cơ sở mặc định cho tài khoản thử.
-    --
-    -- VÌ SAO PHẢI CÓ. Không gán thì get_current_identity từ chối MỌI request
-    -- bằng 403 "Tài khoản chưa được gán cơ sở khám" (identity.py:365) — nghĩa
-    -- là dev-up.sh dựng xong cả stack, đăng nhập được, rồi mọi màn hình đều
-    -- trống. Bước kiểm cuối của dev-up in ra "answers with err item(s)" đúng vì
-    -- chuyện này. Cột này nullable nên INSERT không hề báo lỗi; nó chỉ hỏng ở
-    -- tầng trên, một tầng mà fixture không chạm tới.
     v_loc   uuid;
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.clinic WHERE id = v_clinic) THEN
+        RAISE EXCEPTION 'clinic % missing — apply the migrations first', v_clinic;
+    END IF;
+
+    -- `staff.primary_location_id` là NOT NULL. Fixture này liệt kê cột theo tên
+    -- và bỏ sót nó, nên nó hỏng ở dòng người đầu tiên — nhưng `dev-up.sh` chạy
+    -- fixture bằng `>/dev/null 2>&1 || true` rồi vẫn in "fixtures loaded", nên
+    -- không ai thấy. Chỉ lộ ra khi dựng thật lên VPS 05/08/2026.
     SELECT id INTO v_loc
       FROM public.clinic_location
      WHERE clinic_id = v_clinic AND is_active
-     ORDER BY created_at, id
+     ORDER BY (code = 'MAIN') DESC, code
      LIMIT 1;
     IF v_loc IS NULL THEN
-        RAISE EXCEPTION
-            'clinic % chưa có cơ sở nào — nạp migration/seed trước', v_clinic;
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM public.clinic WHERE id = v_clinic) THEN
-        RAISE EXCEPTION 'clinic % missing — apply the migrations first', v_clinic;
+        RAISE EXCEPTION 'clinic % has no active location — apply supabase/seed.sql first', v_clinic;
     END IF;
 
     FOR person IN
@@ -56,11 +51,6 @@ BEGIN
             ('thungan@dr4women.local',  'Thu ngan local','TN',    'CASHIER'),
             ('duocsi@dr4women.local',   'Duoc si local', 'DS',    'PHARMACIST'),
             ('ql@dr4women.local',       'Quan ly local', 'QL',    'MANAGEMENT')
-            -- Cổng phòng khám. CỐ Ý không gắn với dòng staff nào: /enter đăng
-            -- nhập bằng tài khoản này để qua cổng, rồi proxy thấy chưa có
-            -- staff_id nên đẩy tiếp sang /login để hỏi "bạn là ai". Nếu gắn nó
-            -- vào một nhân viên thì mọi người qua cổng đều thành nhân viên đó.
-            ,('clinic@dr4women.local',  NULL,            NULL,    NULL)
         ) AS t(email, full_name, short_name, department)
     LOOP
         -- crypt() lives in the extensions schema on Supabase; auth.users is
@@ -70,7 +60,6 @@ BEGIN
         -- into non-nullable strings, so a NULL turns every login into
         -- "Database error querying schema" — which looks like a broken database
         -- rather than a malformed fixture row.
-        -- Tài khoản cổng chỉ cần auth.users, không cần staff.
         INSERT INTO auth.users (
             instance_id, id, aud, role, email, encrypted_password,
             email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
@@ -94,31 +83,40 @@ BEGIN
             updated_at             = now()
         RETURNING id INTO uid;
 
-        -- Tài khoản cổng dừng ở đây: nó chỉ để qua /enter, không phải một
-        -- con người. Không có dòng staff nào → proxy đẩy tiếp sang /login.
-        IF person.full_name IS NULL THEN
-            CONTINUE;
-        END IF;
+        -- GoTrue KHÔNG tra người dùng thẳng từ `auth.users` khi đăng nhập bằng
+        -- mật khẩu — nó đi qua `auth.identities` để biết tài khoản này dùng
+        -- provider nào. Thiếu dòng này thì mọi lần đăng nhập trả về
+        -- `invalid_credentials`, y như gõ sai mật khẩu: `auth.users` có đủ,
+        -- hash đúng, mà vẫn không vào được. Đây là lý do bản sao lưu phải mang
+        -- CẢ HAI bảng, không chỉ `auth.users`.
+        INSERT INTO auth.identities (
+            provider_id, user_id, identity_data, provider, created_at, updated_at
+        )
+        VALUES (
+            uid::text, uid,
+            jsonb_build_object('sub', uid::text, 'email', person.email,
+                               'email_verified', true, 'phone_verified', false),
+            'email', now(), now()
+        )
+        ON CONFLICT (provider_id, provider) DO UPDATE SET
+            identity_data = EXCLUDED.identity_data,
+            updated_at    = now();
 
         -- staff itself carries no clinic_id: who someone works for lives in
         -- clinic_membership, so one person can be lent to a second clinic
         -- without duplicating their record (ADR-0009).
         INSERT INTO public.staff (
-            full_name, short_name, primary_department, auth_user_id, is_active,
-            primary_location_id
+            full_name, short_name, primary_department, primary_location_id,
+            auth_user_id, is_active
         )
         VALUES (
-            person.full_name, person.short_name, person.department, uid, TRUE,
-            v_loc
+            person.full_name, person.short_name, person.department, v_loc,
+            uid, TRUE
         )
         ON CONFLICT (auth_user_id) WHERE auth_user_id IS NOT NULL DO UPDATE SET
-            primary_department  = EXCLUDED.primary_department,
-            full_name           = EXCLUDED.full_name,
-            is_active           = TRUE,
-            -- Vá cả những hàng đã tạo trước khi fixture biết gán cơ sở.
-            primary_location_id = COALESCE(
-                public.staff.primary_location_id, EXCLUDED.primary_location_id
-            )
+            primary_department = EXCLUDED.primary_department,
+            full_name          = EXCLUDED.full_name,
+            is_active          = TRUE
         RETURNING id INTO sid;
 
         -- uq_clinic_membership is (clinic_id, staff_id, role), so a role change
@@ -131,6 +129,10 @@ BEGIN
         VALUES (v_clinic, sid, person.department, TRUE)
         ON CONFLICT (clinic_id, staff_id, role) DO UPDATE SET is_active = TRUE;
     END LOOP;
+    -- Cổng phòng khám dùng chung đã bỏ (05/08/2026). Tài khoản cổng cũ nếu
+    -- còn nằm lại thì nay là một login hợp lệ không gắn nhân viên nào — proxy
+    -- chặn nó ở /login, nhưng để đó vẫn là một mật khẩu yếu còn sống.
+    DELETE FROM auth.users WHERE email = 'clinic@dr4women.local';
 END $$;
 
 SELECT u.email, s.primary_department, m.role, s.is_active

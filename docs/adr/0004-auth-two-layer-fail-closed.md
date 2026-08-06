@@ -59,7 +59,7 @@ role = `staff.primary_department` suy từ JWT, bỏ role-picker.
   `public`, mà nó lưu request/response đã replay (có payload bệnh nhân). Supabase mặc
   định cấp SELECT cho `authenticated` ⇒ ai đăng nhập cũng đọc được. Nay bật RLS, không
   policy, `REVOKE` khỏi `anon`/`authenticated`.
-- **Tài khoản dùng chung (`CLINIC_SHARED_EMAIL`, màn `/enter`)** không còn đọc được gì:
+- **Tài khoản dùng chung (`CLINIC_SHARED_EMAIL`, màn `/enter`) — ĐÃ BỎ 05/08/2026** (Quang chốt). Trước khi bỏ nó đã không còn đọc được gì:
   nó không có dòng `staff` nên `current_clinic_ids()` rỗng ⇒ 0 dòng ở mọi bảng. Cổng vẫn
   còn để vào được trang `/login`; **bỏ hẳn cổng này là quyết định của bạn**, vì nó đổi
   cách cả phòng khám đăng nhập.

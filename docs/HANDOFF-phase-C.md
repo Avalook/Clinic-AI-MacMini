@@ -16,7 +16,7 @@ Spec: `docs/spec-clinic.md` · Luật chung: `CLAUDE.md`
 | A.6 active-clinic + X-Clinic-ID | PR #10, #11, chưa merge |
 | A.7 event_log.actor_staff_id | PR #8, chưa merge |
 | A.8 gate CI derive-đừng-pin | PR #7, chưa merge (chờ đổi required status checks) |
-| A.9 xoá /enter | PR #12? — kiểm lại bằng `gh pr list` |
+| A.9 xoá /enter | ✅ xong 05/08/2026 — route, action và mọi tham chiếu đã gỡ |
 | B.3 đường ghi nhà thuốc | PR #12, chưa merge |
 | B.4 màn read-only | PR #13, chưa merge |
 | **C.3 ClinicPolicy** | **PR #14, chưa merge** |

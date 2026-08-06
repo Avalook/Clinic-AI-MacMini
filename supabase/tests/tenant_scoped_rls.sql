@@ -351,9 +351,10 @@ SELECT set_config('request.jwt.claim.sub', '99999999-9999-4999-8999-999999999999
 
 DO $shared_gate_account$
 BEGIN
-    -- app/(auth)/enter signs in as one shared account with no staff row. Under
-    -- the old USING(true) policies that account could read every patient in the
-    -- database; now it must read none.
+    -- Một tài khoản Supabase hợp lệ nhưng KHÔNG gắn dòng `staff` nào. Trước
+    -- đây đó là tài khoản cổng chung của app/(auth)/enter (đã bỏ 05/08/2026);
+    -- nay là bất kỳ tài khoản nào chưa được cấp nhân sự. Dưới policy
+    -- USING(true) cũ nó đọc được mọi bệnh nhân; giờ phải đọc ra 0 dòng.
     IF EXISTS (SELECT 1 FROM public.patient) THEN
         RAISE EXCEPTION 'an authenticated account with no staff row must read no patients';
     END IF;

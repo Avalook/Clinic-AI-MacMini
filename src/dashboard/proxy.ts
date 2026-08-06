@@ -1,13 +1,13 @@
-// Next 16 proxy (renamed from `middleware`). Two-stage gate:
-//   1. No Supabase session                       → /enter.
-//   2. Session without an active linked staff    → /login.
+// Next 16 proxy (renamed from `middleware`). MỘT cổng duy nhất:
+//   không có phiên, hoặc phiên chưa gắn nhân viên đang làm việc → /login.
 // clinic_role is a legacy compatibility cookie; it is never read here.
 // API routes enforce their own auth and are never redirected to HTML pages.
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
 
-const PUBLIC_PATHS = ["/enter", "/auth", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
 
 // The living style guide holds no patient data and must not look like it needs
 // a clinical session. The page itself 404s outside development, so this entry
@@ -21,6 +21,7 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { name: SUPABASE_COOKIE_NAME },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -48,14 +49,7 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/api")) return response;
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  if (user) {
-    await supabase
-      .from("staff")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
-  }
+
   const redirectTo = (path: string) => {
     const url = request.nextUrl.clone();
     url.pathname = path;
@@ -63,22 +57,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   };
 
-  // Luồng: /enter (mật khẩu phòng khám) → /login (đăng nhập cá nhân) → phần việc.
+  // Trang công khai (kể cả /login) đi thẳng — nếu chặn ở đây thì người chưa
+  // đăng nhập bị đá vòng tròn về chính nó.
+  if (isPublic) return response;
 
-  // 1. Chưa qua cổng (không có session).
-  if (!user) {
-    return isPublic ? response : redirectTo("/enter");
-  }
+  // Cổng duy nhất: phải có phiên...
+  if (!user) return redirectTo("/login");
 
-  // 2. Trang /login: Luôn cho phép hiển thị form đăng nhập cá nhân khi đã qua cổng.
-  if (pathname === "/login") {
-    return response;
-  }
-
-  // 3. Trang /enter: Đã qua cổng nhưng gõ lại /enter → chuyển sang /login để chọn tài khoản cá nhân.
-  if (pathname.startsWith("/enter")) {
-    return redirectTo("/login");
-  }
+  // ...VÀ phiên ấy phải gắn với một nhân viên đang làm việc. Trước đây truy vấn
+  // này chạy rồi vứt kết quả đi, vì cổng phòng khám dùng chung mới là thứ chặn
+  // ở vòng ngoài. Bỏ cổng ấy (05/08/2026) thì đây là chốt duy nhất còn lại, nên
+  // nó phải thật sự chặn: một tài khoản Supabase không có dòng `staff` — tài
+  // khoản dùng chung cũ, hay một tài khoản tự đăng ký — nay dừng ở /login thay
+  // vì đi tiếp vào giao diện rồi mới rỗng dữ liệu ở từng màn.
+  const { data: staff } = await supabase
+    .from("staff")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!staff) return redirectTo("/login");
 
   return response;
 }

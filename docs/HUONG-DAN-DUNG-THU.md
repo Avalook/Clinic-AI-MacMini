@@ -23,18 +23,16 @@ scripts/dev-up.sh --down     # dừng
 | Supabase Studio (xem thẳng DB) | http://127.0.0.1:54323 |
 | Log | `.dev-logs/api.log`, `.dev-logs/web.log` |
 
-### Đăng nhập là **hai bước**
+### Đăng nhập
 
-Mở http://127.0.0.1:3100 sẽ vào **cổng phòng khám** trước, chưa phải đăng nhập
-cá nhân:
+Mở http://127.0.0.1:3100 → thẳng vào `/login`: email + mật khẩu của từng vai.
 
-1. **Cổng phòng khám** (`/enter`) — nhập mật khẩu chung: `clinic-test-pw-123`
-2. **Đăng nhập cá nhân** (`/login`) — email + mật khẩu của từng vai bên dưới
+Trước 05/08/2026 còn một **cổng phòng khám** (`/enter`) dùng mật khẩu chung đứng
+trước bước này. Đã bỏ. Nó vốn không đọc được dòng nào ở bất kỳ bảng nào — tài
+khoản cổng không gắn với nhân viên nên `current_clinic_ids()` rỗng — nên nó chỉ
+làm dài thêm một bước gõ mà không chặn thêm gì.
 
-Hai bước là **cố ý**: bước 1 mở cửa phòng khám, bước 2 nói *"tôi là ai"* — mọi
-thao tác lâm sàng đều ghi tên người thật, không ghi "phòng khám".
-
-**Mật khẩu cho cả hai bước đều là: `clinic-test-pw-123`**
+**Mật khẩu của mọi tài khoản dưới đây: `clinic-test-pw-123`**
 
 | Vai | Email |
 |---|---|
@@ -85,8 +83,8 @@ Bảng, nút thao tác, chỉ định dịch vụ thì **vẫn chạy bình thư
 phía server.
 
 > **Lưu ý an toàn:** `trycloudflare` là **công khai ra internet**. Dữ liệu hiện
-> tại là giả hoàn toàn nên rủi ro thấp, nhưng ai có link + đoán được mật khẩu
-> chung là vào được. **Đừng bật tunnel khi database đang trỏ vào dữ liệu thật.**
+> tại là giả hoàn toàn nên rủi ro thấp, nhưng ai có link + đoán được mật khẩu là
+> vào được. **Đừng bật tunnel khi database đang trỏ vào dữ liệu thật.**
 > URL đổi mỗi lần khởi động lại tunnel, và tunnel chết khi tắt terminal.
 
 ### Nên chia vai thế nào khi test đông
