@@ -1,11 +1,9 @@
 "use client";
 
 import {
-  AlertTriangle,
   ArrowDownAZ,
   CheckCircle2,
   ChevronDown,
-  CirclePause,
   Clock3,
   Filter,
   History,
@@ -17,7 +15,6 @@ import {
   ShieldCheck,
   UserRoundX,
   UsersRound,
-  Volume2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -41,12 +38,6 @@ type ArrivalFilter = "all" | "appointment" | "walk-in";
 type SortMode = "wait" | "queue";
 type KernelCommand = "start" | "complete";
 
-const EXCEPTION_REASONS = [
-  "Vắng mặt",
-  "Sai chuyên khoa",
-  "Trùng hồ sơ",
-  "Thiếu giấy tờ",
-] as const;
 
 function time(value: string | null): string {
   return value
@@ -66,31 +57,26 @@ function initials(name: string | null): string {
     .join("");
 }
 
+/** HAI bước, và cả hai đều có dữ liệu thật đứng sau.
+ *
+ * Bản trước có năm bước, ba trong số đó không bao giờ đổi trạng thái vì không
+ * có dữ liệu: "Đã gán quầy — chưa có dữ liệu quầy", "Gọi bệnh nhân — chưa có
+ * mốc gọi số", "Hoàn tất tiếp nhận". Ba vòng tròn xám vĩnh viễn không kể được
+ * điều gì, chỉ dạy người dùng bỏ qua cả thanh trạng thái.
+ */
 function receptionSteps(item: WorklistItem): Step[] {
-  const arrived = item.checked_in_at ?? item.created_at;
-  const started = item.status === "IN_PROGRESS";
-  const completed = item.status === "COMPLETED";
+  const daCheckIn = Boolean(item.checked_in_at);
+  const dangKham = item.status === "IN_PROGRESS" || item.status === "COMPLETED";
   return [
-    { label: "Vào hàng đợi", state: "done", detail: time(arrived) },
     {
-      label: "Đã gán quầy",
-      state: "upcoming",
-      detail: "Chưa có dữ liệu quầy",
+      label: "Check-in",
+      state: daCheckIn ? "done" : "current",
+      detail: daCheckIn ? time(item.checked_in_at) : "Chưa đến",
     },
     {
-      label: "Gọi bệnh nhân",
-      state: "upcoming",
-      detail: "Chưa có mốc gọi số",
-    },
-    {
-      label: "Xác nhận có mặt",
-      state: completed ? "done" : started ? "current" : "upcoming",
-      detail: completed ? "Đã xác nhận" : "Chưa xác nhận",
-    },
-    {
-      label: "Hoàn tất tiếp nhận",
-      state: completed ? "done" : "upcoming",
-      detail: completed ? "Đã hoàn tất" : "Chưa hoàn tất",
+      label: "Gọi vào khám",
+      state: dangKham ? "done" : daCheckIn ? "current" : "upcoming",
+      detail: dangKham ? "Đã gọi" : "Chưa gọi",
     },
   ];
 }
@@ -313,7 +299,20 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
       </section>
 
       {selected ? <PatientDetail item={selected} /> : null}
-      {selected ? <CounterPanel item={selected} items={items} /> : null}
+      {selected ? (
+        <CounterPanel
+          item={selected}
+          items={items}
+          onSkip={() => {
+            // Chuyển sang người KẾ TIẾP trong danh sách đang hiển thị. Không
+            // đụng dữ liệu: người bị bỏ qua vẫn ở nguyên trong hàng đợi, và
+            // vẫn check-in được khi họ tới.
+            const i = filtered.findIndex((x) => x.id === selected.id);
+            const ke = filtered[i + 1] ?? filtered[0];
+            if (ke) setSelectedId(ke.id);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -408,79 +407,45 @@ function PatientDetail({ item }: { item: WorklistItem }) {
         <Stepper steps={receptionSteps(item)} />
       </div>
 
-      <ExceptionPanel />
     </section>
   );
 }
 
-function ExceptionPanel() {
-  const [reason, setReason] = useState("");
-  return (
-    <fieldset className="p-4">
-      <legend className="text-sm font-semibold text-ink">
-        Xử lý ngoại lệ <span className="font-normal text-ink-muted">(bắt buộc chọn lý do)</span>
-      </legend>
-      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-        {EXCEPTION_REASONS.map((label) => (
-          <label
-            key={label}
-            className={`cursor-pointer rounded-control border px-2 py-3 text-center text-xs ${
-              reason === label
-                ? "border-brand-600 bg-brand-50 text-brand-700"
-                : "border-line text-ink-soft hover:bg-surface-sunken"
-            }`}
-          >
-            <input
-              type="radio"
-              name="exception-reason"
-              value={label}
-              required
-              checked={reason === label}
-              onChange={(event) => setReason(event.target.value)}
-              className="sr-only"
-            />
-            <AlertTriangle size={17} className="mx-auto mb-1" aria-hidden />
-            {label}
-          </label>
-        ))}
-      </div>
-      <label className="mt-3 block text-xs text-ink-muted">
-        Lý do (bắt buộc)
-        <select
-          required
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-500"
-        >
-          <option value="">Chọn hoặc nhập lý do ngoại lệ</option>
-          {EXCEPTION_REASONS.map((label) => <option key={label}>{label}</option>)}
-        </select>
-      </label>
-      <label className="mt-3 block text-xs text-ink-muted">
-        Ghi chú (không bắt buộc)
-        <textarea
-          rows={2}
-          maxLength={200}
-          placeholder="Nhập ghi chú (nếu có)"
-          className="mt-1 w-full resize-none rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-brand-500"
-        />
-      </label>
-      <button
-        type="button"
-        disabled
-        title="Backend chưa có command ghi nhận ngoại lệ tiếp nhận"
-        className="mt-3 w-full rounded-control bg-surface-sunken px-3 py-2 text-sm font-medium text-ink-faint"
-      >
-        Xử lý ngoại lệ — chưa khả dụng
-      </button>
-    </fieldset>
-  );
-}
-
-function CounterPanel({ item, items }: { item: WorklistItem; items: WorklistItem[] }) {
+function CounterPanel({
+  item,
+  items,
+  onSkip,
+}: {
+  item: WorklistItem;
+  items: WorklistItem[];
+  /** Bỏ qua lượt này, chuyển sang người tiếp theo trong hàng. */
+  onSkip: () => void;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  /** Check-in cho khách đặt lịch trước.
+   *
+   * Đi qua ĐÚNG đường mà nút "Đã đến" ở Trang chủ đi — `PATCH /api/appointments`
+   * với `action: "checkin"`. Không có đường riêng cho màn này: hai đường
+   * check-in là hai luật cấp số thứ tự chờ ngày lệch nhau.
+   */
+  async function checkIn() {
+    if (!item.appointment_id) return;
+    setError(null);
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.appointment_id, action: "checkin" }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error ?? `Không check-in được (HTTP ${res.status})`);
+      return;
+    }
+    startTransition(() => router.refresh());
+  }
 
   async function issue(command: KernelCommand, reason?: string) {
     setError(null);
@@ -533,14 +498,21 @@ function CounterPanel({ item, items }: { item: WorklistItem; items: WorklistItem
             <Monitor size={15} className="text-brand-600" aria-hidden />
             Xem trước màn hình hiển thị
           </h3>
-          <div className="mt-3 grid grid-cols-[66px_1fr_62px] overflow-hidden rounded-control border border-brand-500 text-center">
-            <div className="bg-brand-600 px-2 py-3 text-white">
-              <p className="text-[10px] uppercase">Quầy</p>
-              <p className="text-2xl font-semibold">—</p>
-            </div>
+          {/* MỜI TÊN, KHÔNG MỜI SỐ.
+              
+              Ở quầy tiếp nhận, Lễ tân gọi tên người bệnh — số thứ tự chỉ để
+              đối chiếu. Con số chiếm chỗ to nhất mà không phải thứ được đọc lên. */}
+          <div className="mt-3 grid grid-cols-[1fr_62px] overflow-hidden rounded-control border border-brand-500 text-center">
             <div className="bg-surface px-2 py-3">
-              <p className="text-[10px] uppercase text-ink-muted">Mời số</p>
-              <p className="text-3xl font-semibold tracking-wide text-ink">{item.queue_number ?? "—"}</p>
+              <p className="text-[10px] uppercase text-ink-muted">Mời</p>
+              <p className="truncate text-2xl font-semibold text-ink">
+                {item.patient.full_name ?? "—"}
+              </p>
+              {item.queue_number ? (
+                <p className="text-[11px] text-ink-muted">
+                  số {item.queue_number}
+                </p>
+              ) : null}
             </div>
             <div className="border-l border-line bg-surface px-2 py-3">
               <p className="text-[10px] uppercase text-ink-muted">Chờ</p>
@@ -576,32 +548,44 @@ function CounterPanel({ item, items }: { item: WorklistItem; items: WorklistItem
 
       {error ? <p className="rounded-control bg-danger-bg px-3 py-2 text-xs text-danger">{error}</p> : null}
 
-      <div className="grid grid-cols-3 gap-2">
+      {/* CHECK-IN — dành cho khách ĐẶT LỊCH TRƯỚC.
+          
+          Khách đến trực tiếp đã được check-in sẵn lúc tạo lịch (walk-in trong
+          ngày tự vào thẳng trạng thái đã đến), nên nút này chỉ hiện khi thật sự
+          còn việc để làm. */}
+      {item.checked_in_at ? (
+        <p className="rounded-control bg-success-bg px-3 py-2 text-xs text-success">
+          Đã check-in lúc {time(item.checked_in_at)}
+        </p>
+      ) : (
         <button
           type="button"
-          disabled
-          title="Kernel không có trạng thái tạm giữ"
-          className="flex items-center justify-center gap-1.5 rounded-control border border-line bg-surface px-2 py-2 text-xs text-ink-faint"
+          disabled={!item.appointment_id || pending}
+          onClick={() => checkIn()}
+          className="flex w-full items-center justify-center gap-2 rounded-control border border-brand-600 bg-surface px-4 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-sunken disabled:text-ink-faint"
         >
-          <CirclePause size={15} /> Tạm giữ
+          <CheckCircle2 size={17} />
+          {pending ? "Đang lưu…" : "Check-in — khách đã đến"}
         </button>
-        <button
-          type="button"
-          disabled
-          title="Backend chưa có lệnh vắng mặt với quy tắc không mở nhầm bước sau"
-          className="flex items-center justify-center gap-1.5 rounded-control border border-line bg-surface-sunken px-2 py-2 text-xs text-ink-faint"
-        >
-          <UserRoundX size={15} /> Đánh dấu vắng mặt
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Backend chưa có lệnh gọi số và mốc thời gian gọi"
-          className="flex items-center justify-center gap-1.5 rounded-control border border-brand-500 bg-surface px-2 py-2 text-xs text-brand-700 disabled:border-line disabled:bg-surface-sunken disabled:text-ink-faint"
-        >
-          <Volume2 size={15} /> Gọi số {item.queue_number ?? ""}
-        </button>
-      </div>
+      )}
+
+      {/* CHƯA ĐẾN → GỌI NGƯỜI TIẾP THEO, không phải "đánh dấu vắng mặt".
+          
+          Người chưa có mặt lúc Lễ tân gọi vẫn Ở TRONG hàng đợi: họ chỉ bị bỏ
+          qua lượt này để quầy phục vụ người khác. Đến sau vẫn check-in được, và
+          LUẬT ĐẾN MUỘN tự áp dụng — check-in trong khung giờ của mình thì vẫn
+          giữ suất đã đặt, ngoài khung thì xuống làn "đến sau", xếp theo giờ đến
+          (services/queue_order.py).
+          
+          Vì thế KHÔNG có nút "vắng mặt" ở đây: đánh dấu vắng mặt là một kết
+          luận, mà lúc này chưa ai kết luận được điều gì. */}
+      <button
+        type="button"
+        onClick={onSkip}
+        className="flex w-full items-center justify-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-xs font-medium text-ink-soft hover:bg-surface-sunken"
+      >
+        <UserRoundX size={15} /> Chưa đến — gọi người tiếp theo
+      </button>
       {item.status === "PENDING" ? (
         <button
           type="button"
@@ -619,7 +603,7 @@ function CounterPanel({ item, items }: { item: WorklistItem; items: WorklistItem
         className="flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
       >
         <CheckCircle2 size={19} />
-        {pending ? "Đang lưu…" : "Xác nhận có mặt & hoàn tất"}
+        {pending ? "Đang lưu…" : "Xong tiếp nhận — mời vào khám"}
       </button>
     </aside>
   );

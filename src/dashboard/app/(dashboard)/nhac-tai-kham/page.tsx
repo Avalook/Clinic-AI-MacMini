@@ -27,15 +27,9 @@ export default async function NhacTaiKhamPage() {
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
-      <header>
-        <h1 className="text-xl font-semibold text-ink lg:text-2xl">
-          Nhắc tái khám
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Người được bác sĩ hẹn tái khám nhưng <b>chưa đặt lịch lại</b>. Ai đặt
-          được lịch rồi thì tự rời danh sách này.
-        </p>
-      </header>
+      {/* Tiêu đề và câu mô tả nay nằm ở THANH TRÊN CÙNG (GlobalHeader), cùng
+          chỗ với mọi trang khác. Để cả hai nơi thì tiêu đề hiện hai lần và phần
+          việc thật bị đẩy xuống gần nửa màn hình. */}
 
       <NhacTaiKhamBoard
         rows={recalls ?? []}

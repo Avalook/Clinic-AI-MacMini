@@ -55,7 +55,6 @@ export const NAV: NavItem[] = [
     label: "Hàng đợi tiếp nhận",
     shortLabel: "Hàng đợi",
     icon: Users,
-    badge: "Mới",
   },
   {
     href: "/doctor/board",
@@ -76,7 +75,6 @@ export const NAV: NavItem[] = [
     label: "Check-out lượt khám",
     shortLabel: "Check-out",
     icon: CheckCheck,
-    badge: "Mới",
   },
   {
     href: "/cskh-tasks",
