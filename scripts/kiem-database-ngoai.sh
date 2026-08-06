@@ -38,6 +38,20 @@ read -rp "Username  : " DBUSER
 # -s = không hiện ký tự. Mật khẩu chỉ sống trong biến môi trường của tiến trình
 # này, không ghi ra đâu cả.
 read -rsp "Password  : " DBPASS; echo
+# ĐẾM KÝ TỰ, KHÔNG IN MẬT KHẨU.
+#
+# Ô gõ mù nên không có cách nào biết cái gì thật sự vào được: dán hụt ra 0 ký
+# tự, dán dính dấu cách ra thừa một, gõ tay sai một phím ra đúng số nhưng sai
+# nội dung. Cả ba đều hiện ra y hệt nhau — "password authentication failed" —
+# và người dùng gõ lại lần thứ ba vẫn không biết mình đang sửa cái gì.
+#
+# Con số này phân biệt được hai trong ba: 0 là dán hụt, và lệch so với độ dài
+# mình đặt là gõ thiếu/thừa. Nó KHÔNG lộ gì — độ dài không giúp ai đoán ra mật
+# khẩu.
+#
+# Không cần kiểm khoảng trắng đầu/cuối: `read` đã tự cắt chúng theo IFS mặc
+# định. Thử rồi — dán chuỗi có hai dấu cách mỗi đầu vẫn ra đúng số ký tự ruột.
+printf '            (nhận được %d ký tự)\n' "${#DBPASS}"
 read -rp "SSL (require/prefer/disable) [require]: " SSLMODE; SSLMODE="${SSLMODE:-require}"
 
 export PGPASSWORD="$DBPASS"
