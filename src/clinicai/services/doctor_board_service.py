@@ -38,6 +38,9 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.services.queue_order import QueueDecision
+from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
+
 logger = structlog.get_logger()
 
 # Bằng đúng `.limit(400)` của bản cũ, để một khoảng bất thường không đổi số dòng.
@@ -47,7 +50,7 @@ _SQL = (
     """
 WITH lich AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.booking_channel,
-           a.clinic_patient_id, a.service_type_id, a.created_at
+           a.clinic_patient_id, a.service_type_id, a.created_at, a.doctor_id
       FROM appointment a
      WHERE a.clinic_id  = $1::uuid
        AND a.slot_start >= $2
@@ -56,6 +59,9 @@ WITH lich AS (
        -- kiểu ở capacity_service. `IS NOT DISTINCT FROM` để dòng có doctor_id
        -- NULL (chưa xếp bác sĩ) vẫn lọt khi không lọc, đúng như OR cũ.
        AND a.doctor_id IS NOT DISTINCT FROM coalesce($4::uuid, a.doctor_id)
+       -- $5 rỗng = MỌI trạng thái. Cùng lối viết `coalesce` với dòng trên, để
+       -- không có nhánh nào chỉ chạy khi tham số vắng mặt.
+       AND a.status = ANY(coalesce($5::text[], ARRAY[a.status]))
      -- Thứ tự phải XÁC ĐỊNH: nhiều lịch trùng mốc giờ là chuyện thường, và
      -- `ORDER BY slot_start` trần cho phép Postgres đổi thứ tự giữa các lần
      -- chạy. Bảng này là thứ bác sĩ đọc dọc để gọi tên.
@@ -125,7 +131,8 @@ SELECT g.id, g.slot_start, g.status, g.queue_number, g.booking_channel,
        CASE WHEN p.gender = 'Nam'
             THEN coalesce(st.form_code_nam, st.form_code)
             ELSE st.form_code
-       END AS service_form_code
+       END AS service_form_code,
+       cap.slot_minutes
   FROM lich g
   LEFT JOIN patient p
          ON p.clinic_patient_id = g.clinic_patient_id
@@ -141,6 +148,12 @@ SELECT g.id, g.slot_start, g.status, g.queue_number, g.booking_channel,
        ORDER BY vi.checked_in_at NULLS LAST
        LIMIT 1
   ) v ON TRUE
+  -- Độ dài khung của CHÍNH lịch này → cửa sổ "đến đúng giờ" của luật gọi.
+  -- Cùng hàm mà trigger sức chứa dùng, nên bảng gọi số và bộ nhận lịch không
+  -- thể hiểu khác nhau về độ dài một khung.
+  LEFT JOIN LATERAL public.resolve_effective_cap(
+      $1::uuid, g.doctor_id, g.slot_start
+  ) cap ON TRUE
  ORDER BY g.slot_start, g.created_at, g.id
 """
     % MAX_ROWS
@@ -160,9 +173,10 @@ class DoctorBoardService:
         start: datetime,
         end: datetime,
         doctor_id: str | None,
+        statuses: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_SQL, clinic_id, start, end, doctor_id)
+            rows = await conn.fetch(_SQL, clinic_id, start, end, doctor_id, statuses)
 
         logger.info(
             "doctor_board",
@@ -170,10 +184,11 @@ class DoctorBoardService:
             doctor_id=doctor_id,
             rows=len(rows),
         )
-        return [_row_to_dict(r) for r in rows]
+        quyet_dinh = thu_tu_goi_theo_ngay(rows)
+        return [_row_to_dict(r, quyet_dinh.get(str(r["id"]))) for r in rows]
 
 
-def _row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
+def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str, Any]:
     """Đúng hình dạng ``DoctorApptRow`` (TSX) đang đọc.
 
     ``checked_in_at`` trả PHẲNG chứ không bọc trong mảng ``visit``: bản cũ nhận
@@ -192,6 +207,15 @@ def _row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
         "checked_in_at": (
             r["checked_in_at"].isoformat() if r["checked_in_at"] else None
         ),
+        # Thứ tự gọi tính SẴN ở đây. Trước đây ba màn nhân viên mỗi màn tự gọi
+        # `compareQueue` trong TSX từ một bản chép của luật — nay chúng chỉ đọc
+        # con số này. Ngày nào không xếp được thì để trống, màn hình giữ nguyên
+        # thứ tự SQL trả về (theo giờ hẹn) thay vì đoán.
+        "call_order": d.call_order if d else None,
+        "call_tier": d.call_tier if d else None,
+        "call_reason": d.call_reason if d else None,
+        "promoted": d.promoted if d else False,
+        "promoted_over": d.promoted_over if d else 0,
         "patient": (
             {
                 "clinic_patient_id": str(r["clinic_patient_id"]),

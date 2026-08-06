@@ -36,6 +36,8 @@ import asyncpg
 import structlog
 
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.queue_order import QueueDecision
+from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
 
 logger = structlog.get_logger()
 
@@ -92,7 +94,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        p.nationality, p.occupation, p.patient_objection, p.address,
        p.guardian_name,
        d.full_name AS doctor_name,
-       st.name     AS service_name
+       st.name     AS service_name,
+       v.checked_in_at,
+       cap.slot_minutes
   FROM tuan t
   LEFT JOIN patient p
          ON p.clinic_patient_id = t.clinic_patient_id
@@ -100,6 +104,19 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   LEFT JOIN som_nhat s ON s.clinic_patient_id = t.clinic_patient_id
   LEFT JOIN staff d    ON d.id = t.doctor_id
   LEFT JOIN service_type st ON st.id = t.service_type_id
+  -- GIỜ ĐẾN THẬT. Endpoint này trước đây không trả `checked_in_at`, nên luật
+  -- "có hẹn và đến đúng giờ" ở lưới trang chủ CHƯA TỪNG CHẠY: mọi dòng đều rơi
+  -- xuống làn đến-sau và xếp theo giờ hẹn. Nhìn thì giống đang hoạt động, vì
+  -- xếp theo giờ hẹn cũng ra một thứ tự hợp lý — chỉ sai khi có người đến muộn.
+  LEFT JOIN LATERAL (
+      SELECT vi.checked_in_at FROM visit vi
+       WHERE vi.appointment_id = t.id AND vi.clinic_id = $1::uuid
+       ORDER BY vi.checked_in_at NULLS LAST
+       LIMIT 1
+  ) v ON TRUE
+  LEFT JOIN LATERAL public.resolve_effective_cap(
+      $1::uuid, t.doctor_id, t.slot_start
+  ) cap ON TRUE
  ORDER BY t.slot_start, t.created_at, t.id
 """
     % MAX_ROWS
@@ -121,7 +138,8 @@ class WeekAppointmentsService:
             rows = await conn.fetch(_SQL, clinic_id, start, end, list(HIDDEN_STATUSES))
 
         logger.info("week_appointments", clinic_id=clinic_id, rows=len(rows))
-        return [_row_to_dict(r) for r in rows]
+        quyet_dinh = thu_tu_goi_theo_ngay(rows)
+        return [_row_to_dict(r, quyet_dinh.get(str(r["id"]))) for r in rows]
 
 
 def _vn_midnight(day: date) -> datetime:
@@ -142,7 +160,7 @@ def _vn_midnight(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=CLINIC_TZ)
 
 
-def _row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
+def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str, Any]:
     """Đúng hình dạng lồng nhau mà ``WeekApptRow`` (TSX) đang đọc.
 
     PostgREST trả quan hệ thành object lồng; giữ y hệt để phía trình duyệt không
@@ -157,6 +175,17 @@ def _row_to_dict(r: asyncpg.Record) -> dict[str, Any]:
         "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "booking_channel": r["booking_channel"],
         "phan_loai": r["phan_loai"],
+        # Giờ đến thật + thứ tự gọi. Trước đây endpoint này không trả
+        # `checked_in_at`, nên bản TypeScript của luật chạy ở đây luôn coi mọi
+        # người là "chưa đến" và xếp theo giờ hẹn — luật đúng, dữ liệu thiếu.
+        "checked_in_at": (
+            r["checked_in_at"].isoformat() if r["checked_in_at"] else None
+        ),
+        "call_order": d.call_order if d else None,
+        "call_tier": d.call_tier if d else None,
+        "call_reason": d.call_reason if d else None,
+        "promoted": d.promoted if d else False,
+        "promoted_over": d.promoted_over if d else 0,
         "patient": (
             {
                 "clinic_patient_id": str(r["clinic_patient_id"]),

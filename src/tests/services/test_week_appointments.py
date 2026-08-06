@@ -80,6 +80,11 @@ def _record(**over: Any) -> _Row:
         "guardian_name": None,
         "doctor_name": "TS.BS. Phan Chí Thành",
         "service_name": "Khám phụ khoa",
+        # Hai cột nuôi luật thứ tự gọi. `checked_in_at` là chỗ endpoint này
+        # trước đây KHÔNG trả, nên luật "có hẹn và đến đúng giờ" chưa từng chạy
+        # ở lưới trang chủ.
+        "checked_in_at": None,
+        "slot_minutes": 15,
     }
     base.update(over)
     return _Row(base)
