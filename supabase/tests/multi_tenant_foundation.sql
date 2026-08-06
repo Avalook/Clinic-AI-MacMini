@@ -54,7 +54,9 @@ DECLARE
     -- 58 → 59 (07/08/2026): nhac_tai_kham — việc gọi nhắc tái khám hai lượt
     -- trở thành dòng có thật trong database thay vì một phép chiếu tính lại
     -- mỗi lần mở trang (migration 20260807000005).
-    expected_tenant_tables constant integer := 59;
+    -- 59 → 60 (07/08/2026): thong_bao — Trưởng ca gọi một bộ phận, và cuộc gọi
+    -- ấy để lại dấu vết đo được (migration 20260807000006).
+    expected_tenant_tables constant integer := 60;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
