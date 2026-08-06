@@ -319,17 +319,8 @@ export default async function CustomersPage({
 
   return (
     <div className="space-y-3">
-      <header>
-        <p className="text-xs font-medium uppercase tracking-wide text-brand-700">
-          CSKH · khách hàng
-        </p>
-        <h1 className="text-xl font-semibold text-ink">
-          Quản lý khách hàng
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Theo dõi trạng thái và bước tiếp theo của từng khách hàng
-        </p>
-      </header>
+      {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — nó đã hiện đúng
+          "Quản lý khách hàng" kèm chính câu mô tả này. */}
 
       {error ? (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">

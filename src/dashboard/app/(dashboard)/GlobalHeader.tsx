@@ -186,6 +186,13 @@ export default function GlobalHeader({
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
+    if (pathname.startsWith("/nhac-tai-kham")) {
+      return {
+        title: "Nhắc tái khám",
+        subtitle:
+          "Người được bác sĩ hẹn tái khám nhưng chưa đặt lịch lại. Ai đặt được lịch rồi thì tự rời danh sách này.",
+      };
+    }
     if (pathname.startsWith("/tasks")) {
       return { title: "Công việc chăm sóc", subtitle: "Theo dõi, thực hiện và ghi nhận kết quả chăm sóc khách hàng" };
     }

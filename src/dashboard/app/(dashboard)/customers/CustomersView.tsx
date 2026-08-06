@@ -12,7 +12,9 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition,
+  useCallback,
+} from "react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
@@ -60,7 +62,12 @@ export interface Opt {
 export type Period = "today" | "week" | "month" | "all";
 export type ByDim = "created" | "appt";
 
-type CustomerTab = "all" | "upcoming" | "examined" | "without_appointment";
+type CustomerTab =
+  | "all"
+  | "upcoming"
+  | "examined"
+  | "qua_sla"
+  | "cho_xac_nhan";
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: "today", label: "Hôm nay" },
@@ -69,12 +76,16 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: "all", label: "Tất cả" },
 ];
 
-const CUSTOMER_TABS: { key: CustomerTab; label: string }[] = [
-  { key: "all", label: "Tất cả khách hàng" },
-  { key: "upcoming", label: "Cần theo dõi" },
-  { key: "without_appointment", label: "Quá SLA" },
-  { key: "examined", label: "Nhiệm vụ hôm nay" },
-];
+// LỌC BẰNG CHÍNH BỐN Ô SỐ Ở TRÊN — không có hàng tab riêng nữa.
+//
+// Trước đây màn này có cả hai, và bốn nhãn tab KHÔNG khớp bốn con số: tab ghi
+// "Quá SLA" nhưng lọc `without_appointment` (khách chưa có lịch hẹn), tab
+// "Nhiệm vụ hôm nay" lại lọc `examined`. Bấm vào một tab rồi so với con số ở
+// trên là ra hai kết quả khác nhau, và không có gì trên màn hình nói vì sao.
+//
+// Nay mỗi ô số VÀ phép lọc của nó dùng CHUNG một vị từ (`hopVoiTab`), nên bấm ô
+// đang hiện 29 thì thấy đúng 29 dòng ấy. Không còn tab "Tất cả khách hàng":
+// mặc định đã là tất cả, và bỏ lọc bằng cách bấm lại ô đang chọn.
 
 function initials(name: string): string {
   return (
@@ -154,6 +165,10 @@ export default function CustomersView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<CustomerTab>("all");
+  
+  /** Bấm một ô số = lọc theo ô đó. Bấm lại đúng ô đang chọn = bỏ lọc. */
+  const chonLoc = (key: CustomerTab) =>
+    setTab((cu) => (cu === key ? "all" : key));
   const [selectedId, setSelectedId] = useState<string | null>(initialSelected);
   const [term, setTerm] = useState(q);
   const [editOpen, setEditOpen] = useState(false);
@@ -187,15 +202,31 @@ export default function CustomersView({
     });
   }, [rows, term]);
 
-  const visibleRows = useMemo(() => {
-    return searchedRows.filter((row) => {
+  /** MỘT vị từ cho cả việc đếm ô số lẫn việc lọc danh sách.
+   *
+   * Đây là chỗ bản cũ sai: con số trên ô và phép lọc của tab được tính bằng hai
+   * đoạn mã khác nhau, nên chúng nói hai điều khác nhau về cùng một tập khách.
+   */
+  const hopVoiTab = useCallback(
+    (row: CustomerRow, key: CustomerTab): boolean => {
+      if (key === "all") return true;
       const appointment = apptByPatient[row.clinic_patient_id];
-      if (tab === "upcoming") return Boolean(appointment?.upcoming);
-      if (tab === "examined") return Boolean(appointment?.examined);
-      if (tab === "without_appointment") return !appointment;
+      if (key === "upcoming") return Boolean(appointment?.upcoming) || !appointment;
+      if (key === "examined") return Boolean(appointment?.examined);
+      if (key === "qua_sla") {
+        const dl = cskhByPatient[row.clinic_patient_id]?.deadline;
+        return Boolean(dl && new Date(dl) < new Date());
+      }
+      if (key === "cho_xac_nhan") return appointment?.status === "SCHEDULED";
       return true;
-    });
-  }, [apptByPatient, searchedRows, tab]);
+    },
+    [apptByPatient, cskhByPatient],
+  );
+
+  const visibleRows = useMemo(
+    () => searchedRows.filter((row) => hopVoiTab(row, tab)),
+    [searchedRows, tab, hopVoiTab],
+  );
 
   const selected =
     selectedId === null
@@ -206,9 +237,9 @@ export default function CustomersView({
     ? apptByPatient[selected.clinic_patient_id]
     : undefined;
 
-  const upcomingCount = rows.filter((row) => apptByPatient[row.clinic_patient_id]?.upcoming).length;
-  const examinedCount = rows.filter((row) => apptByPatient[row.clinic_patient_id]?.examined).length;
-  const noAppointmentCount = rows.filter((row) => !apptByPatient[row.clinic_patient_id]).length;
+  // Ba biến đếm cũ đã BỎ. Chúng tính bằng một đoạn mã riêng, tách khỏi phép
+  // lọc của tab — và đó chính là chỗ con số trên ô và danh sách bên dưới nói
+  // hai điều khác nhau. Nay cả hai đi qua `hopVoiTab`.
 
   // Derive real status from cskh_action + appointment data
   function customerStatus(row: CustomerRow): { label: string; tone: StatusTone } {
@@ -254,51 +285,52 @@ export default function CustomersView({
       <StatRow>
         <StatCard
           label="Cần xử lý hôm nay"
-          value={upcomingCount + noAppointmentCount}
+          value={rows.filter((r) => hopVoiTab(r, "upcoming")).length}
           tone="brand"
           icon={<UsersRound className="size-5" />}
+          onSelect={() => chonLoc("upcoming")}
+          active={tab === "upcoming"}
         />
         <StatCard
           label="Quá SLA"
-          value={rows.filter((r) => {
-            const dl = cskhByPatient[r.clinic_patient_id]?.deadline;
-            return dl && new Date(dl) < new Date();
-          }).length}
+          value={rows.filter((r) => hopVoiTab(r, "qua_sla")).length}
           tone="danger"
           icon={<CalendarClock className="size-5 text-danger" />}
+          onSelect={() => chonLoc("qua_sla")}
+          active={tab === "qua_sla"}
         />
         <StatCard
           label="Chờ xác nhận"
-          value={rows.filter((r) => apptByPatient[r.clinic_patient_id]?.status === "SCHEDULED").length}
+          value={rows.filter((r) => hopVoiTab(r, "cho_xac_nhan")).length}
           tone="warning"
           icon={<CalendarClock className="size-5 text-warning" />}
+          onSelect={() => chonLoc("cho_xac_nhan")}
+          active={tab === "cho_xac_nhan"}
         />
         <StatCard
           label="Đã hoàn thành"
-          value={examinedCount}
+          value={rows.filter((r) => hopVoiTab(r, "examined")).length}
           tone="success"
           icon={<CheckCircle2 className="size-5 text-success" />}
+          onSelect={() => chonLoc("examined")}
+          active={tab === "examined"}
         />
       </StatRow>
 
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
-        <div className="flex overflow-x-auto text-sm">
-          {CUSTOMER_TABS.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              onClick={() => setTab(entry.key)}
-              aria-pressed={tab === entry.key}
-              className={`shrink-0 border-b-2 px-3 py-2.5 font-medium transition-colors ${
-                tab === entry.key
-                  ? "border-brand-600 text-brand-700"
-                  : "border-transparent text-ink-muted hover:text-ink"
-              }`}
-            >
-              {entry.label}
-            </button>
-          ))}
+      {tab !== "all" ? (
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
+          <span>Đang lọc theo ô số đã chọn</span>
+          <button
+            type="button"
+            onClick={() => setTab("all")}
+            className="rounded-control px-2 py-0.5 font-medium text-brand-700 underline-offset-2 hover:underline"
+          >
+            Bỏ lọc, xem tất cả khách hàng
+          </button>
         </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
         {canEdit ? (
           <Link
             href="/patients/new"
