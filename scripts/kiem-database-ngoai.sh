@@ -145,14 +145,36 @@ else
 fi
 
 doc "7 · Độ trễ từ máy này tới database"
-# Con số này quyết định có phải gộp bớt truy vấn ở vài màn hình không. Đo bằng
-# 20 lượt đi-về thật, không phải ping — ping đo đường mạng, cái mình cần là
-# đường mạng CỘNG thời gian Postgres trả lời.
+# ĐO HAI THỨ RIÊNG RA, VÌ CHÚNG QUYẾT ĐỊNH HAI CHUYỆN KHÁC NHAU.
+#
+# Bản đầu chạy `psql -c "select 1"` HAI MƯƠI LẦN rồi chia trung bình — mỗi lần
+# là một tiến trình mới, một kết nối TCP mới, một lượt xác thực mới. Con số ra
+# 208ms và bị đọc thành "mỗi truy vấn mất 208ms", trong khi phần lớn số đó là
+# tiền BẮT TAY, thứ mà ứng dụng thật trả đúng một lần: asyncpg giữ sẵn một bể
+# kết nối, không mở lại cho từng câu lệnh. Đo sai kiểu ấy suýt làm mình loại
+# một database chỉ vì cách đo.
+#
+# Nay: T_mot = 1 kết nối + 1 truy vấn. T_hai_muoi = 1 kết nối + 20 truy vấn.
+# Hiệu của chúng chia 19 = thời gian MỘT truy vấn trên kết nối có sẵn, đã trừ
+# sạch tiền bắt tay. Còn tiền bắt tay in riêng, vì nó vẫn có ý nghĩa: bể kết
+# nối lúc khởi động và lúc phải mở thêm kết nối đều phải trả nó.
+MOT_CAU="select 1;"
+HAI_MUOI="$(printf 'select 1;%.0s' $(seq 1 20))"
+
 T0=$(python3 -c "import time;print(time.time())")
-for _ in $(seq 1 20); do psql "${CN[@]}" -c "select 1" >/dev/null; done
+psql "${CN[@]}" -c "$MOT_CAU" >/dev/null 2>&1
 T1=$(python3 -c "import time;print(time.time())")
-MS=$(python3 -c "print(f'{($T1-$T0)*1000/20:.1f}')")
-echo "  $MS ms mỗi lượt đi-về"
+psql "${CN[@]}" -c "$HAI_MUOI" >/dev/null 2>&1
+T2=$(python3 -c "import time;print(time.time())")
+
+read -r BAT_TAY MS <<<"$(python3 -c "
+mot = ($T1 - $T0) * 1000
+hai_muoi = ($T2 - $T1) * 1000
+moi_cau = max((hai_muoi - mot) / 19, 0.0)
+print(f'{mot - moi_cau:.0f} {moi_cau:.1f}')")"
+
+echo "  $MS ms mỗi truy vấn (trên kết nối có sẵn — đây là con số ứng dụng thật chịu)"
+echo "  ${BAT_TAY} ms để mở một kết nối mới (chỉ trả lúc bể kết nối khởi động)"
 python3 -c "
 ms=float('$MS')
 print('  \033[32m✓\033[0m gần như không cảm nhận được' if ms<5 else
