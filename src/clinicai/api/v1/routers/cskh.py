@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 from uuid import UUID
 
 import asyncpg
@@ -44,6 +45,13 @@ class CskhFollowupRequest(BaseModel):
 
     clinic_patient_id: UUID
     note: str | None = Field(default=None, max_length=2000)
+    # KẾT QUẢ, không phải "đã bấm nút". Giao diện gửi trường này từ lâu; trước
+    # 20260807000002 nó bị vứt ở cửa và cả ba nút ghi ra một dòng như nhau.
+    ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI"] | None = (
+        None
+    )
+    # 1 = gọi trước hẹn 5–7 ngày, 2 = gọi sáng ngày hẹn.
+    luot_goi: int | None = Field(default=None, ge=1, le=9)
 
 
 class RecallFollowupRead(BaseModel):
@@ -98,5 +106,7 @@ async def record_followup_call(
         clinic_patient_id=str(body.clinic_patient_id),
         note=body.note,
         identity=identity,
+        ket_qua=body.ket_qua,
+        luot_goi=body.luot_goi,
     )
     return {"ok": True, "id": log_id}

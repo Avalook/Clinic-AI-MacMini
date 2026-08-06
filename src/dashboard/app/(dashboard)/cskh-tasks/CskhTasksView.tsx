@@ -154,6 +154,8 @@ export default function CskhTasksView({ tasks, stats }: Props) {
 
   // Contact result form state
   const [contactResult, setContactResult] = useState<string | null>(null);
+  // Lỗi lưu phải HIỆN RA. Bản trước chỉ kiểm `res.ok` rồi bỏ qua nhánh sai.
+  const [loi, setLoi] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [nextStep, setNextStep] = useState("GỌI_LẠI_SAU_2H");
   const [cancelReason, setCancelReason] = useState("");
@@ -201,44 +203,57 @@ export default function CskhTasksView({ tasks, stats }: Props) {
   const selected =
     visibleTasks.find((t) => t.id === selectedId) ?? visibleTasks[0] ?? null;
 
+  // MỌI TỔ HỢP ĐỀU PHẢI GỬI MỘT THỨ GÌ ĐÓ.
+  //
+  // Bản trước là một chuỗi if/else-if không có else: với việc thuộc loại
+  // "appointment" mà kết quả KHÁC "CONTACTED" — tức đúng hai trường hợp cần
+  // ghi lại nhất, "Chưa nghe máy" và "Cần bác sĩ hỗ trợ" — không nhánh nào
+  // chạy. Không request, không lỗi, mà `setContactResult(null)` và
+  // `setNote("")` ở cuối vẫn chạy: form tự xoá trắng đúng như khi lưu thành
+  // công. Người dùng tin là đã lưu; database không nhận gì.
+  //
+  // Luật đúng: "đã liên hệ được" với một lịch hẹn thì XÁC NHẬN lịch (việc của
+  // nút này từ trước). Mọi kết quả khác là một LẦN GỌI đã xảy ra và phải được
+  // ghi vào nhật ký CSKH — kể cả khi không ai bắt máy. Không bắt máy vẫn là
+  // một việc đã làm.
   async function handleSaveResult() {
     if (!selected || !contactResult) return;
     setSaving(true);
     try {
-      // If it's an appointment action, use the appointments API
-      if (
-        selected.sourceType === "appointment" &&
-        contactResult === "CONTACTED"
-      ) {
-        const res = await fetch("/api/appointments", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: selected.sourceId,
-            action: "cskh_confirm",
-          }),
-        });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
-        }
-      } else if (selected.sourceType === "cskh_action") {
-        // Use cskh-followup API for cskh_action tasks
-        const res = await fetch("/api/cskh-followup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clinic_patient_id: selected.patientId,
-            result: contactResult,
-            note,
-          }),
-        });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
-        }
+      const isAppt = selected.sourceType === "appointment";
+      const res =
+        isAppt && contactResult === "CONTACTED"
+          ? await fetch("/api/appointments", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: selected.sourceId,
+                action: "cskh_confirm",
+              }),
+            })
+          : await fetch("/api/cskh-followup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clinic_patient_id: selected.patientId,
+                result: contactResult,
+                note,
+              }),
+            });
+
+      if (!res.ok) {
+        // Im lặng nuốt lỗi là cách bản trước làm hỏng việc. Nói ra.
+        const chi_tiet = await res
+          .json()
+          .then((d: { error?: string }) => d.error)
+          .catch(() => null);
+        setLoi(chi_tiet ?? "Không lưu được kết quả cuộc gọi. Thử lại giúp em.");
+        return;
       }
-      // Reset form
+
+      setLoi(null);
+      setDoneIds((prev) => new Set(prev).add(selected.id));
+      router.refresh();
       setContactResult(null);
       setNote("");
     } finally {
@@ -273,10 +288,13 @@ export default function CskhTasksView({ tasks, stats }: Props) {
             note,
           }),
         });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
+        if (!res.ok) {
+          setLoi("Không đánh dấu hoàn tất được. Thử lại giúp em.");
+          return;
         }
+        setLoi(null);
+        setDoneIds((prev) => new Set(prev).add(selected.id));
+        router.refresh();
       }
     } finally {
       setSaving(false);
@@ -726,6 +744,14 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                   />
                 )}
               </div>
+            )}
+
+            {/* Lỗi lưu — hiện ra chứ không nuốt. Không có dòng này thì một lần
+                lưu hỏng trông y hệt một lần lưu được. */}
+            {loi && (
+              <p className="rounded-xl border border-danger bg-danger-bg px-3 py-2 text-xs text-danger">
+                {loi}
+              </p>
             )}
 
             {/* Action buttons */}
