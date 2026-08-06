@@ -141,6 +141,18 @@ class StaffIdentity:
     location_id: str
     location_name: str
 
+    # HAI TRƯỜNG CHỈ ĐỂ HIỂN THỊ, VÀ CHÚNG CÓ MẶC ĐỊNH.
+    #
+    # Không dùng cho phân quyền — tên gọi thì không cho phép ai làm gì. Chúng ở
+    # đây vì dashboard đọc danh tính từ GET /api/v1/me, mà thanh đầu trang phải
+    # nói được "Nguyễn A · Phòng khám Dr4Women, cơ sở Kim Ngưu". Thiếu chúng thì
+    # frontend lại phải tự truy vấn thêm — đúng thứ việc nối /me đang gỡ bỏ.
+    #
+    # Có mặc định "" vì 41 chỗ trong test dựng StaffIdentity bằng tay; bắt buộc
+    # hai trường trang trí này sẽ làm hỏng cả 41 chỗ để đổi lấy con số không.
+    short_name: str = ""
+    clinic_name: str = ""
+
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES
 
@@ -299,14 +311,18 @@ async def get_current_identity(
 
     rows = await pool.fetch(
         """
-        SELECT s.id, s.auth_user_id, s.full_name, s.primary_department,
+        SELECT s.id, s.auth_user_id, s.full_name, s.short_name,
+               s.primary_department,
                m.clinic_id, m.role AS membership_role,
-               s.primary_location_id, l.name AS location_name
+               s.primary_location_id, l.name AS location_name,
+               c.name AS clinic_name
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
         LEFT JOIN clinic_location l
                ON l.id = s.primary_location_id
+        LEFT JOIN clinic c
+               ON c.id = m.clinic_id
         WHERE s.auth_user_id = $1::uuid AND s.is_active IS NOT FALSE
           AND ($2::uuid IS NULL OR m.clinic_id = $2::uuid)
         ORDER BY m.created_at, m.id
@@ -377,6 +393,8 @@ async def get_current_identity(
         clinic_id=str(clinic_id),
         location_id=str(location_id),
         location_name=row["location_name"] or "",
+        short_name=row["short_name"] or "",
+        clinic_name=row["clinic_name"] or "",
     )
     # Only the success path is cached. A 403 stays uncached so a staff member
     # who has just been granted a membership gets in on their next request

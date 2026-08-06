@@ -153,6 +153,8 @@ def test_get_current_identity_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             "clinic_id": "a0000000-0000-4000-8000-000000000001",
             "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
             "location_name": "Kim Ngưu",
+            "short_name": "BS Thành",
+            "clinic_name": "Phòng khám Dr4Women",
         }
     )
     ident = asyncio.run(get_current_identity(_req("Bearer abc"), pool))
@@ -185,6 +187,8 @@ def test_get_current_identity_uses_role_of_selected_clinic_membership(
                 "clinic_id": "a0000000-0000-4000-8000-000000000001",
                 "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
                 "location_name": "Kim Ngưu",
+                "short_name": "BS Thành",
+                "clinic_name": "Phòng khám Dr4Women",
             },
             {
                 "id": "staff-9",
@@ -195,6 +199,8 @@ def test_get_current_identity_uses_role_of_selected_clinic_membership(
                 "clinic_id": "b0000000-0000-4000-8000-000000000002",
                 "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
                 "location_name": "Kim Ngưu",
+                "short_name": "BS Thành",
+                "clinic_name": "Phòng khám Dr4Women",
             },
         ]
     )
@@ -229,6 +235,8 @@ def test_get_current_identity_refuses_ambiguous_multi_clinic_login(
                 "clinic_id": "a0000000-0000-4000-8000-000000000001",
                 "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
                 "location_name": "Kim Ngưu",
+                "short_name": "BS Thành",
+                "clinic_name": "Phòng khám Dr4Women",
             },
             {
                 "id": "staff-9",
@@ -239,6 +247,8 @@ def test_get_current_identity_refuses_ambiguous_multi_clinic_login(
                 "clinic_id": "b0000000-0000-4000-8000-000000000002",
                 "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
                 "location_name": "Kim Ngưu",
+                "short_name": "BS Thành",
+                "clinic_name": "Phòng khám Dr4Women",
             },
         ]
     )
@@ -278,6 +288,8 @@ def test_get_current_identity_rejects_clinic_without_active_membership(
             "clinic_id": "a0000000-0000-4000-8000-000000000001",
             "primary_location_id": "fe45d9f6-0d67-428d-9d16-5ba5c36befff",
             "location_name": "Kim Ngưu",
+            "short_name": "BS Thành",
+            "clinic_name": "Phòng khám Dr4Women",
         }
     )
 
