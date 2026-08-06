@@ -47,8 +47,32 @@ export PGSSLMODE="$SSLMODE"
 LOI=0
 
 doc "0 · Kết nối"
-if ! psql "${CN[@]}" -c "select 1" >/dev/null 2>&1; then
-    hong "không kết nối được — kiểm host/port/user/mật khẩu/SSL, và tường lửa phía Viettel"
+# IN NGUYÊN LỜI BÁO LỖI CỦA POSTGRES, đừng nuốt nó.
+#
+# Bản đầu nuốt stderr rồi in một câu chung chung "kiểm host/port/user/mật
+# khẩu/SSL". Câu đó đúng mà vô dụng: nó liệt kê năm khả năng trong khi Postgres
+# vừa nói thẳng ra là cái nào. "password authentication failed" và "no
+# pg_hba.conf entry for host" và "SSL required" là ba việc phải sửa ở ba nơi
+# khác nhau — bắt người dùng đoán giữa chúng là bắt họ thử mò năm lần.
+if ! LOI_KETNOI="$(psql "${CN[@]}" -c "select 1" 2>&1 >/dev/null)"; then
+    hong "không kết nối được. Postgres nói:"
+    printf '\n%s\n\n' "$LOI_KETNOI" | sed 's/^/      /'
+    case "$LOI_KETNOI" in
+        *"password authentication failed"*)
+            canh "Sai mật khẩu, hoặc sai tên đăng nhập. Đổi lại mật khẩu ở"
+            canh "màn Users bên Viettel nếu không chắc." ;;
+        *"no pg_hba.conf entry"*|*"pg_hba"*)
+            canh "Máy chủ TỪ CHỐI địa chỉ này hoặc kiểu SSL này — không phải sai"
+            canh "mật khẩu. Hỏi Viettel xem IP máy chủ đã được cho phép chưa." ;;
+        *"SSL"*|*"ssl"*)
+            canh "Vướng SSL. Thử lại với sslmode = prefer." ;;
+        *"does not exist"*)
+            canh "Tên database hoặc tên người dùng không tồn tại. Thử database"
+            canh "'postgres' — mọi PostgreSQL đều có sẵn nó." ;;
+        *"timeout"*|*"could not connect"*|*"Connection refused"*)
+            canh "Không tới được máy. Cổng có thể mở nhưng dịch vụ không nghe,"
+            canh "hoặc tường lửa chặn ở tầng sau." ;;
+    esac
     exit 1
 fi
 dat "kết nối được"
