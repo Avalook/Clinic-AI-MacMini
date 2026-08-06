@@ -1,16 +1,23 @@
 "use client";
 
 // Bảng gọi số của phòng chờ — dựng theo đúng bản thiết kế Quang gửi 06/08:
-// nền sáng, sáu khu, mỗi khu có ĐANG GỌI (số to + tên phòng) → TIẾP THEO →
-// ĐANG CHỜ (lưới số nhỏ), và một dải hướng dẫn cho khách ở dưới.
+// nền sáng, các khu bật sẵn, mỗi khu có ĐANG GỌI (tên + phòng) → TIẾP THEO →
+// ĐANG CHỜ, và một dải hướng dẫn cho khách ở dưới.
 //
 // Màn này CHỈ HIỂN THỊ. Thứ tự, khu vực, ai đang được gọi và câu giải thích
 // "được ưu tiên vì đã đặt lịch trước" đều do backend quyết
 // (services/display_board_service.py + services/queue_order.py).
 //
-// KHÔNG có tên bệnh nhân ở đây, và cũng không TẢI VỀ tên bệnh nhân — màn này
-// treo giữa phòng chờ, nên thứ gì trình duyệt nhận được là thứ công khai. Ràng
-// buộc đó có bài kiểm canh ở phía backend.
+// GỌI TÊN, KHÔNG GỌI SỐ (Quang chốt 06/08). Số vẫn hiện nhưng nhỏ và ở dưới —
+// nó để đối chiếu, không phải thứ được đọc lên.
+//
+// Màn này treo giữa phòng chờ, nên thứ gì trình duyệt nhận được là thứ công
+// khai với mọi người ngồi đó. Vì thế phòng khám có hai công tắc ở
+// `clinic.settings->display`: `hien_ten` (tắt thì rơi về số) và `che_ten`
+// ("Nguyễn Thị Lan" → "Nguyễn T. L."). Cả hai lọc Ở MÁY CHỦ, không ẩn bằng CSS.
+//
+// Ngoài tên, KHÔNG một thứ định danh nào khác rời máy chủ: mã bệnh nhân, số
+// điện thoại, ngày sinh, tên bác sĩ. Bài kiểm ở backend canh đúng điều đó.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,6 +32,8 @@ export interface DisplayZone {
 }
 
 export interface DisplayItem {
+  /** Tên để GỌI. `null` khi phòng khám tắt hiện tên. */
+  patient_name: string | null;
   queue_number: string | null;
   zone_key: string | null;
   call_order: number | null;
@@ -144,9 +153,27 @@ export default function DisplayBoard({
                 <div className="text-[11px] font-semibold tracking-widest text-slate-500">
                   ĐANG GỌI
                 </div>
-                <div className="mt-1 text-4xl font-bold tabular-nums leading-none text-teal-700 xl:text-5xl">
-                  {dangGoi ? soHienThi(dangGoi.queue_number, z.prefix) : "—"}
-                </div>
+                {/* GỌI TÊN, KHÔNG GỌI SỐ.
+                    
+                    Số vẫn hiện, nhưng nhỏ và ở dưới — nó để đối chiếu, không
+                    phải thứ được đọc lên. Phòng khám tắt hiện tên thì rơi về
+                    số, vì một ô trống không gọi được ai. */}
+                {dangGoi?.patient_name ? (
+                  <>
+                    <div className="mt-1 break-words text-3xl font-bold leading-tight text-teal-700 xl:text-4xl">
+                      {dangGoi.patient_name}
+                    </div>
+                    {dangGoi.queue_number ? (
+                      <div className="mt-0.5 text-xs font-semibold tabular-nums text-slate-400">
+                        {soHienThi(dangGoi.queue_number, z.prefix)}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="mt-1 text-4xl font-bold tabular-nums leading-none text-teal-700 xl:text-5xl">
+                    {dangGoi ? soHienThi(dangGoi.queue_number, z.prefix) : "—"}
+                  </div>
+                )}
                 {dangGoi?.room_name ? (
                   <div className="mt-1 text-[11px] font-semibold uppercase text-slate-500">
                     {dangGoi.room_name}
@@ -164,8 +191,11 @@ export default function DisplayBoard({
                 <div className="text-[11px] font-semibold tracking-widest text-slate-400">
                   TIẾP THEO
                 </div>
-                <div className="mt-0.5 text-2xl font-bold tabular-nums text-slate-700">
-                  {tiepTheo ? soHienThi(tiepTheo.queue_number, z.prefix) : "—"}
+                <div className="mt-0.5 break-words text-xl font-bold text-slate-700">
+                  {tiepTheo
+                    ? (tiepTheo.patient_name ??
+                      soHienThi(tiepTheo.queue_number, z.prefix))
+                    : "—"}
                 </div>
               </div>
 
@@ -180,9 +210,9 @@ export default function DisplayBoard({
                     {xepHang.map((m, i) => (
                       <span
                         key={`${z.key}-${m.queue_number ?? "?"}-${i}`}
-                        className="rounded-md bg-slate-100 py-1 text-center text-[11px] font-medium tabular-nums text-slate-600"
+                        className="truncate rounded-md bg-slate-100 px-1 py-1 text-center text-[11px] font-medium text-slate-600"
                       >
-                        {soHienThi(m.queue_number, z.prefix)}
+                        {m.patient_name ?? soHienThi(m.queue_number, z.prefix)}
                         {m.promoted ? (
                           <span className="ml-0.5 align-middle text-[9px] text-teal-600">
                             ★
