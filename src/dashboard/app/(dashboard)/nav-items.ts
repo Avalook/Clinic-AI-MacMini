@@ -258,6 +258,14 @@ export const NAV: NavItem[] = [
     shortLabel: "Cấu trúc",
     icon: Building2,
   },
+  // Hồ sơ CON NGƯỜI, tách khỏi "Cấu trúc phòng khám" ở trên — màn kia gán nhân
+  // viên vào trạm công việc, màn này là tên/vai/cơ sở/hợp đồng của từng người.
+  {
+    href: "/nhan-su",
+    label: "Quản lý nhân sự",
+    shortLabel: "Nhân sự",
+    icon: Users,
+  },
   { href: "/settings", label: "Cài đặt", icon: Settings },
   {
     href: "/portal",
