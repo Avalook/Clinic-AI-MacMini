@@ -13,6 +13,7 @@ from clinicai.services.queue_order import (
     QueueEntry,
     b3_ready_appt_ids,
     call_rank,
+    call_reason,
     explain_queue,
     order_queue,
     queue_rank,
@@ -232,3 +233,29 @@ def test_module_van_thuan_khong_cham_database() -> None:
     assert "asyncpg" not in ma_nguon
     assert "async def" not in ma_nguon
     assert "await " not in ma_nguon
+
+
+def test_lich_khong_ghi_kenh_van_la_khach_da_dat_lich() -> None:
+    """Trống ≠ vãng lai.
+
+    Máy chủ thật có 16 lịch hẹn không ghi kênh đặt (ONLINE 21 · TRỐNG 16 ·
+    WALK_IN 7 · HOTLINE 4). Luật cũ coi trống là vãng lai, nên gần một phần ba
+    số lịch bị tước mất quyền ưu tiên mà người bệnh đã có bằng cách đặt trước —
+    im lặng, không dấu hiệu nào trên màn hình.
+    """
+    den_trong_khung = SLOT + timedelta(minutes=5)
+    khong_ghi_kenh = _e("a", channel=None, checked_in=den_trong_khung)
+    assert call_rank(khong_ghi_kenh)[0] == 0
+    assert call_reason(khong_ghi_kenh) == REASON_DAT_TRUOC_DUNG_GIO
+
+
+def test_chi_walk_in_moi_la_vang_lai() -> None:
+    den_trong_khung = SLOT + timedelta(minutes=5)
+    for kenh in ("ZALO_PK", "HOTLINE", "ONLINE", "FB_DR4WOMEN", "", "  "):
+        e = _e("a", channel=kenh, checked_in=den_trong_khung)
+        assert call_rank(e)[0] == 0, f"kênh {kenh!r} phải là khách đã đặt lịch"
+
+    for kenh in ("WALK_IN", "walk_in", " Walk_In "):
+        e = _e("a", channel=kenh, checked_in=den_trong_khung)
+        assert call_rank(e)[0] == 1, f"kênh {kenh!r} phải là vãng lai"
+        assert call_reason(e) == REASON_DEN_TRUC_TIEP
