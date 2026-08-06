@@ -9,6 +9,8 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.services.cskh_service import FOLLOWUP_KIND
+
 _LOOKBACK_DAYS = 183
 _UPCOMING_DAYS = 7
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -22,6 +24,13 @@ class RecallFollowup:
     due_date: date
     repeat_tests: list[str] = field(default_factory=list)
     instruction: str = ""
+    # Ngày gọi nhắc gần nhất, hoặc None nếu chưa ai gọi.
+    #
+    # Gọi xong KHÔNG làm bệnh nhân rời danh sách — họ chỉ rời khi có lịch hẹn
+    # mới (mệnh đề NOT EXISTS bên dưới). Thiếu trường này thì màn hình không
+    # nhớ được ai đã gọi: hai người trực cùng ca gọi trùng nhau, và tải lại
+    # trang là mất sạch dấu vết trong phiên.
+    last_called_date: date | None = None
 
 
 _DUE_FOLLOWUPS_SQL = r"""
@@ -77,7 +86,14 @@ _DUE_FOLLOWUPS_SQL = r"""
            r.phone_primary,
            r.due_text,
            r.repeat_tests,
-           r.instruction
+           r.instruction,
+           (
+               SELECT max(c.work_date)
+                 FROM cskh_log c
+                WHERE c.clinic_id = $1::uuid
+                  AND c.clinic_patient_id = r.clinic_patient_id
+                  AND c.cskh_followup = $4
+           ) AS last_called_date
       FROM latest_source r
      WHERE NOT EXISTS (
          SELECT 1
@@ -125,12 +141,14 @@ class RecallService:
                 clinic_id,
                 since,
                 today,
+                FOLLOWUP_KIND,
             )
         followups: list[RecallFollowup] = []
         for row in rows:
             due_date = _parse_due_date(row["due_text"])
             if due_date is None or due_date > due_through:
                 continue
+            last_called = row["last_called_date"]
             followups.append(
                 RecallFollowup(
                     clinic_patient_id=str(row["clinic_patient_id"]),
@@ -139,6 +157,9 @@ class RecallService:
                     due_date=due_date,
                     repeat_tests=list(row["repeat_tests"] or []),
                     instruction=row["instruction"] or "",
+                    last_called_date=(
+                        last_called if isinstance(last_called, date) else None
+                    ),
                 )
             )
         return sorted(followups, key=lambda item: (item.due_date, item.full_name))

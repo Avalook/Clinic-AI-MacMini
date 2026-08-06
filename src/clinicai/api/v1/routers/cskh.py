@@ -53,6 +53,8 @@ class RecallFollowupRead(BaseModel):
     due_date: date
     repeat_tests: list[str]
     instruction: str
+    # Ngày gọi nhắc gần nhất (từ cskh_log), None nếu chưa gọi lần nào.
+    last_called_date: date | None = None
 
 
 @router.get("/cskh/recalls", response_model=list[RecallFollowupRead])

@@ -264,6 +264,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/home": "all",
   // Nhiệm vụ chăm sóc — thay thế cũ /cskh-today + /cskh/board.
   "/cskh-tasks": ["CSKH", "MANAGEMENT"],
+  // Nhắc tái khám — cùng ràng buộc với backend: GET /api/v1/cskh/recalls gác
+  // bằng require_role(CSKH, MANAGEMENT, TRUONG_CA), nên mở mục này cho vai khác
+  // chỉ dẫn tới một trang trống vì 403. Ghi cuộc gọi đi qua canWriteIntake, đã
+  // có đủ ba vai này.
+  "/nhac-tai-kham": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
   "/appointments": ["CSKH", "MANAGEMENT"],
   // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
   // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
