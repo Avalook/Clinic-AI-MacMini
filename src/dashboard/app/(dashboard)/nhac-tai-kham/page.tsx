@@ -12,8 +12,7 @@
 
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { vnYmd } from "../../../lib/datetime";
-import NhacTaiKhamBoard, { type RecallRow } from "./NhacTaiKhamBoard";
+import ViecGoiNhac, { type DuLieu } from "./ViecGoiNhac";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +20,13 @@ export default async function NhacTaiKhamPage() {
   await requireNavAccess("/nhac-tai-kham");
 
   // null = backend không trả lời (chưa cấu hình CLINIC_API_URL, hết phiên, 403).
-  // Phải phân biệt với [] — "không đọc được" và "hôm nay không ai cần gọi" nhìn
-  // giống hệt nhau trên màn hình mà hậu quả thì ngược nhau.
-  const recalls = await fetchFromBackend<RecallRow[]>("/api/v1/cskh/recalls");
+  // Phải phân biệt với danh sách rỗng — "không đọc được" và "hôm nay không ai
+  // cần gọi" nhìn giống hệt nhau trên màn hình mà hậu quả thì ngược nhau.
+  //
+  // Endpoint này SINH VIỆC của hôm nay trước khi trả về. Dự án chưa có bộ hẹn
+  // giờ nào, nên mở màn hình là đường chắc chắn nhất; hàm sinh idempotent nên
+  // tải lại trang mười lần vẫn ra đúng chừng ấy việc.
+  const duLieu = await fetchFromBackend<DuLieu>("/api/v1/cskh/recall-jobs");
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
@@ -31,11 +34,7 @@ export default async function NhacTaiKhamPage() {
           chỗ với mọi trang khác. Để cả hai nơi thì tiêu đề hiện hai lần và phần
           việc thật bị đẩy xuống gần nửa màn hình. */}
 
-      <NhacTaiKhamBoard
-        rows={recalls ?? []}
-        today={vnYmd()}
-        unreachable={recalls === null}
-      />
+      <ViecGoiNhac duLieu={duLieu} khongDocDuoc={duLieu === null} />
     </main>
   );
 }
