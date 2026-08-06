@@ -17,6 +17,15 @@ export interface StaffRow {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Hồ sơ cá nhân + pháp lý. `null` khi chưa ai nhập.
+  date_of_birth: string | null;
+  gender: string | null;
+  national_id_number: string | null;
+  phone: string | null;
+  email: string | null;
+  license_number: string | null;
+  license_issued_on: string | null;
+  practice_scope: string | null;
 }
 
 export async function GET() {
@@ -52,6 +61,16 @@ export async function PATCH(request: Request) {
     "employment_type",
     "is_training",
     "is_active",
+    // Hồ sơ cá nhân + pháp lý (migration 20260806000005). Trước đây màn hình
+    // liệt kê chúng trong khối "Chưa lưu được" vì database chưa có cột.
+    "date_of_birth",
+    "gender",
+    "national_id_number",
+    "phone",
+    "email",
+    "license_number",
+    "license_issued_on",
+    "practice_scope",
   ] as const;
   const payload: Record<string, unknown> = {};
   for (const key of allowed) {
