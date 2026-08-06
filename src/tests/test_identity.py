@@ -13,7 +13,7 @@ from clinicai.api import identity as ident_mod
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
-    get_current_identity,
+    _resolve_identity,
     require_role,
     role_from_department,
     verify_supabase_jwt,
@@ -157,7 +157,7 @@ def test_get_current_identity_ok(monkeypatch: pytest.MonkeyPatch) -> None:
             "clinic_name": "Phòng khám Dr4Women",
         }
     )
-    ident = asyncio.run(get_current_identity(_req("Bearer abc"), pool))
+    ident = asyncio.run(_resolve_identity(_req("Bearer abc"), pool))
     assert ident.staff_id == "staff-9"
     assert ident.role is ClinicRole.DOCTOR
     assert ident.can_write_clinical()
@@ -206,7 +206,7 @@ def test_get_current_identity_uses_role_of_selected_clinic_membership(
     )
 
     ident = asyncio.run(
-        get_current_identity(
+        _resolve_identity(
             _req("Bearer abc", "b0000000-0000-4000-8000-000000000002"),
             pool,
         )
@@ -254,7 +254,7 @@ def test_get_current_identity_refuses_ambiguous_multi_clinic_login(
     )
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(get_current_identity(_req("Bearer abc"), pool))
+        asyncio.run(_resolve_identity(_req("Bearer abc"), pool))
 
     assert exc.value.status_code == 403
     assert "X-Clinic-ID" in str(exc.value.detail)
@@ -267,7 +267,7 @@ def test_get_current_identity_rejects_malformed_clinic_header(
 
     with pytest.raises(HTTPException) as exc:
         asyncio.run(
-            get_current_identity(_req("Bearer abc", "not-a-uuid"), _FakePool(None))
+            _resolve_identity(_req("Bearer abc", "not-a-uuid"), _FakePool(None))
         )
 
     assert exc.value.status_code == 400
@@ -295,7 +295,7 @@ def test_get_current_identity_rejects_clinic_without_active_membership(
 
     with pytest.raises(HTTPException) as exc:
         asyncio.run(
-            get_current_identity(
+            _resolve_identity(
                 _req("Bearer abc", "b0000000-0000-4000-8000-000000000002"),
                 pool,
             )
@@ -321,20 +321,20 @@ def test_get_current_identity_without_membership_is_refused(
         }
     )
     with pytest.raises(HTTPException) as e:
-        asyncio.run(get_current_identity(_req("Bearer abc"), pool))
+        asyncio.run(_resolve_identity(_req("Bearer abc"), pool))
     assert e.value.status_code == 403
 
 
 def test_get_current_identity_missing_bearer() -> None:
     with pytest.raises(HTTPException) as e:
-        asyncio.run(get_current_identity(_req(None), _FakePool(None)))
+        asyncio.run(_resolve_identity(_req(None), _FakePool(None)))
     assert e.value.status_code == 401
 
 
 def test_get_current_identity_no_linked_staff(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-x"})
     with pytest.raises(HTTPException) as e:
-        asyncio.run(get_current_identity(_req("Bearer abc"), _FakePool(None)))
+        asyncio.run(_resolve_identity(_req("Bearer abc"), _FakePool(None)))
     assert e.value.status_code == 403
 
 

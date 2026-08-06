@@ -14,7 +14,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 
-from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.api.identity import StaffIdentity, get_display_identity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 
@@ -66,7 +66,7 @@ async def display_config(
 
 @router.get("/display/queue")
 async def display_queue(
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(get_display_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Bảng gọi số cho màn hình TV — thứ tự theo LUẬT GỌI, không theo giờ hẹn.

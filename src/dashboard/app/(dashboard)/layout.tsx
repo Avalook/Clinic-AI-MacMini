@@ -27,6 +27,10 @@ export default async function DashboardLayout({
 }) {
   const role = await getClinicRole();
   if (!role) redirect("/login");
+  // Tài khoản của cái tivi không có việc gì trong bảng điều khiển. Backend đã
+  // từ chối vai này ở mọi endpoint (get_current_identity), nên vào đây cũng chỉ
+  // thấy một trang lỗi — đưa thẳng ra bảng gọi số là câu trả lời đúng.
+  if (role === "DISPLAY") redirect("/display");
 
   // Identity comes from the staff row linked to the authenticated user.
   //
