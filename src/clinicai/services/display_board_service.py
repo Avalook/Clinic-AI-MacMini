@@ -47,6 +47,7 @@ _SQL = (
     """
 SELECT a.id,
        a.slot_start,
+       a.status,
        a.queue_number,
        a.booking_channel,
        a.doctor_id,
@@ -201,7 +202,13 @@ def _mot_dong(
         # mà ràng buộc CHECK của bảng đó KHÔNG cho phép tồn tại. Tức là nhánh
         # ấy chưa bao giờ khớp dòng nào.
         "is_current": r["visit_status"] == "IN_PROGRESS",
-        "waiting": r["checked_in_at"] is not None,
+        # "Còn đang chờ" = ĐÃ ĐẾN và CHƯA KHÁM XONG.
+        #
+        # Bỏ vế thứ hai là để người đã khám xong nằm lại trên bảng gọi số mãi
+        # mãi — bảng cũ tránh được điều đó bằng cách lọc status == 'CHECKED_IN',
+        # và bản đầu của file này đánh mất phép lọc ấy. Chỉ thấy khi nhìn bảng
+        # thật: một số đã khám xong từ sáng vẫn đứng đó.
+        "waiting": r["checked_in_at"] is not None and r["status"] != "COMPLETED",
         "promoted": promoted,
         "promoted_note": CHU_THICH_DAY_LEN if promoted else None,
     }
