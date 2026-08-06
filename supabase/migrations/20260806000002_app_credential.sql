@@ -58,11 +58,25 @@ COMMENT ON TABLE public.app_credential IS
 --
 -- Bọc trong kiểm tra tồn tại: trên database KHÔNG có GoTrue (Viettel), schema
 -- `auth` không tồn tại và migration vẫn phải chạy trót lọt.
+-- HỎI CÓ ĐỦ CỘT, KHÔNG PHẢI CÓ BẢNG.
+--
+-- Bản đầu chỉ kiểm `auth.users` có tồn tại không. CI có bảng ấy — nhưng là bản
+-- RÚT GỌN dựng trong bootstrap_plain_postgres.sql, đúng một cột `id`, đủ để
+-- `auth.uid()` chạy cho các bài kiểm RLS. Không có `email`, không có
+-- `encrypted_password`. Nên migration chạy lọt phép kiểm rồi chết ở dòng
+-- SELECT: "column u.email does not exist".
+--
+-- Trên máy có GoTrue thật thì bảng đầy đủ nên không lộ ra; chỉ CI mới thấy.
 DO $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM information_schema.tables
+        SELECT 1 FROM information_schema.columns
          WHERE table_schema = 'auth' AND table_name = 'users'
+           AND column_name = 'email'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'auth' AND table_name = 'users'
+           AND column_name = 'encrypted_password'
     ) THEN
         INSERT INTO public.app_credential (staff_id, email, password_hash)
         SELECT s.id, u.email, u.encrypted_password
@@ -75,6 +89,6 @@ BEGIN
         RAISE NOTICE 'da chep % tai khoan tu auth.users', (
             SELECT count(*) FROM public.app_credential);
     ELSE
-        RAISE NOTICE 'khong co schema auth — bo qua buoc chep';
+        RAISE NOTICE 'auth.users khong co / thieu cot — bo qua buoc chep';
     END IF;
 END $$;
