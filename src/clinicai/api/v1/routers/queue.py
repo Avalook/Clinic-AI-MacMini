@@ -14,7 +14,11 @@ from fastapi import APIRouter, Depends, Query
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.services.queue_order import b3_ready_appt_ids, explain_queue
+from clinicai.services.queue_order import (
+    VISIT_DA_RA_VE,
+    b3_ready_appt_ids,
+    explain_queue,
+)
 from clinicai.services.queue_rows import entry_from_row
 
 router = APIRouter()
@@ -58,6 +62,12 @@ WHERE a.slot_start >= ($1::date)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
   AND a.slot_start <  (($1::date) + 1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
   AND a.status = 'CHECKED_IN'
   AND a.clinic_id = $2::uuid
+  -- Người đã ra về thì rời hàng chờ, dù lịch hẹn vẫn ở CHECKED_IN.
+  --
+  -- Lịch hẹn CỐ Ý không đổi trạng thái khi khách về giữa chừng: họ CÓ đến, và
+  -- đánh dấu COMPLETED sẽ là nói dối rằng bác sĩ đã khám xong. Nên chỗ lọc
+  -- đúng là trạng thái LƯỢT KHÁM.
+  AND coalesce(v.status, '') <> ALL ($3::text[])
 """
 
 _LAB_SQL = """
@@ -81,7 +91,9 @@ async def get_queue(
     scoped to that member's clinic.
     """
     day = date or date_cls.today()
-    appt_rows = await pool.fetch(_APPT_SQL, day, identity.clinic_id)
+    appt_rows = await pool.fetch(
+        _APPT_SQL, day, identity.clinic_id, sorted(VISIT_DA_RA_VE)
+    )
     appt_ids = [r["appointment_id"] for r in appt_rows]
 
     labs = await pool.fetch(_LAB_SQL, appt_ids, identity.clinic_id) if appt_ids else []

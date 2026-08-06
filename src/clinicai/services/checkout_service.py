@@ -169,14 +169,77 @@ class CheckoutService:
             )
         return out
 
+    async def stale_list(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Lượt khám còn mở từ NHỮNG NGÀY TRƯỚC — thứ không màn hình nào thấy.
+
+        Đo trên máy chủ ngày 06/08: 35 lượt đang OPEN/IN_PROGRESS, trong đó 18
+        lượt check-in từ hôm trước. `pending_list` chỉ nhìn trong ngày (đúng cho
+        việc của quầy hôm nay), `/visits/active` cũng vậy — nên 18 dòng ấy không
+        có chỗ nào để xuất hiện, và cũng không có ai để hỏi.
+
+        Chúng không phải rác cần dọn bằng script: mỗi dòng là một người thật đã
+        bước vào phòng khám. Muốn đóng thì phải có người nhìn và ghi lý do —
+        đúng đường mà `close(incomplete=True)` mở ra. `prevent_hard_delete` vốn
+        đã cấm cách làm tắt.
+
+        Cả những lượt KHÔNG CÓ giờ check-in (đo được 5 dòng) cũng vào đây: một
+        lượt khám không biết bắt đầu lúc nào thì lại càng cần người xem lại.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                _READINESS_SQL.replace(
+                    "WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid",
+                    "WHERE v.clinic_id = $1::uuid"
+                    "   AND v.status IN ('OPEN', 'IN_PROGRESS')"
+                    "   AND (v.checked_in_at IS NULL OR v.checked_in_at < $3)"
+                    " ORDER BY coalesce(v.checked_in_at, v.created_at) DESC"
+                    " LIMIT 300",
+                ),
+                identity.clinic_id,
+                CLOSE_NODE,
+                _vn_day_start(),
+            )
+
+        return [
+            {
+                "visit_id": str(r["visit_id"]),
+                "patient_name": r["patient_name"],
+                "patient_code": r["patient_code"],
+                "room_name": r["room_name"],
+                "checked_in_at": (
+                    r["checked_in_at"].isoformat() if r["checked_in_at"] else None
+                ),
+                "blockers": build_blockers(dict(r)),
+            }
+            for r in rows
+        ]
+
     async def close(
         self,
         *,
         identity: StaffIdentity,
         visit_id: str,
         override_reason: str | None = None,
+        incomplete: bool = False,
+        incomplete_reason: str | None = None,
     ) -> dict[str, Any]:
-        """Đóng lượt. Còn vướng thì phải có lý do ngoại lệ."""
+        """Đóng lượt. Còn vướng thì phải có lý do ngoại lệ.
+
+        ``incomplete=True`` = KHÁCH VỀ GIỮA CHỪNG.
+
+        Trước đây tình huống này không có chỗ nào ghi, nên cách duy nhất làm
+        được là huỷ lịch hẹn — và hồ sơ trông như người ấy CHƯA TỪNG ĐẾN: mất
+        dấu vết họ đã lấy số, đã đo sinh hiệu, đã được chỉ định dịch vụ.
+
+        Đây là ĐƯỜNG DUY NHẤT ghi ``visit.status = 'INCOMPLETE'``. Mệnh đề
+        ``WHERE status IN ('OPEN','IN_PROGRESS')`` bên dưới là thứ ngăn ai đó
+        kéo một hồ sơ ĐÃ KÝ về "khám dở".
+
+        Và nó KHÔNG chốt hồ sơ bệnh án. Khám dở là trạng thái KHÔNG-CUỐI: khách
+        còn quay lại, bác sĩ còn ghi tiếp được và còn ký lên FINALIZED được. Đó
+        đúng là ranh giới mà docstring đầu file này dựng lên — đóng lượt là việc
+        của quầy, ký hồ sơ là việc của bác sĩ.
+        """
         state = await self.readiness(identity=identity, visit_id=visit_id)
         if state["already_closed"]:
             # Không phải lỗi: hai người cùng bấm, hoặc bấm lại sau khi mạng lag.
@@ -184,7 +247,16 @@ class CheckoutService:
 
         blockers = state["blockers"]
         reason = (override_reason or "").strip()
-        if blockers and not reason:
+        ly_do_do = (incomplete_reason or "").strip()
+
+        if incomplete and not ly_do_do:
+            # Một lượt dở không lý do là một người bệnh mà CSKH không biết phải
+            # gọi lại để nói gì. Ràng buộc ở database cũng chặn, nhưng câu từ
+            # chối ở đây nói được bằng tiếng người.
+            raise ValidationError(
+                "Đóng lượt khám dở thì phải ghi vì sao khách về giữa chừng."
+            )
+        if blockers and not reason and not incomplete:
             raise ValidationError(
                 "Lượt khám còn "
                 + str(len(blockers))
@@ -231,12 +303,44 @@ class CheckoutService:
                     visit_id,
                     CLOSE_NODE,
                 )
+                if incomplete:
+                    # Ghi trạng thái khám dở. WHERE giới hạn ở hai trạng thái
+                    # ĐANG SỐNG: một hồ sơ đã ký không được kéo ngược về đây.
+                    await conn.execute(
+                        """
+                        UPDATE public.visit
+                           SET status = 'INCOMPLETE',
+                               incomplete_at = now(),
+                               incomplete_reason = $3,
+                               incomplete_by = $4::uuid,
+                               updated_at = now()
+                         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                           AND status IN ('OPEN', 'IN_PROGRESS')
+                        """,
+                        identity.clinic_id,
+                        visit_id,
+                        ly_do_do,
+                        identity.staff_id,
+                    )
+                    # Huỷ những bước còn treo. Không làm thì bảng việc của điều
+                    # dưỡng vẫn còn đầu việc cho một người đã ra về.
+                    await conn.execute(
+                        """
+                        UPDATE public.work_item
+                           SET status = 'CANCELLED', updated_at = now()
+                         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                           AND status IN ('PENDING', 'IN_PROGRESS')
+                        """,
+                        identity.clinic_id,
+                        visit_id,
+                    )
+
                 await conn.execute(
                     """
                     INSERT INTO public.event_log
                         (clinic_id, event_type, aggregate_type, aggregate_id,
                          payload, metadata, source, event_published)
-                    VALUES ($1::uuid, 'dispatch.checkout', 'visit', $2::uuid,
+                    VALUES ($1::uuid, $5, 'visit', $2::uuid,
                             $3::jsonb, $4::jsonb, 'api:reception', FALSE)
                     """,
                     identity.clinic_id,
@@ -249,6 +353,8 @@ class CheckoutService:
                             # lại được: người đóng đã nhìn thấy gì mà vẫn đóng.
                             "blockers": blockers,
                             "override": bool(blockers),
+                            "incomplete": incomplete,
+                            "incomplete_reason": ly_do_do or None,
                         },
                         ensure_ascii=False,
                     ),
@@ -259,6 +365,7 @@ class CheckoutService:
                             "clinic_role": identity.role.value,
                         }
                     ),
+                    "visit.closed_incomplete" if incomplete else "dispatch.checkout",
                 )
 
         logger.info(
@@ -273,6 +380,7 @@ class CheckoutService:
             "ok": True,
             "closed": closed is not None,
             "override": bool(blockers),
+            "incomplete": incomplete,
         }
 
 
