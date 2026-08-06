@@ -110,9 +110,7 @@ class ChangeBroker:
                 await asyncio.sleep(RECONNECT_DELAY_S)
 
     # -- nhận và phát ------------------------------------------------------
-    def _on_notify(
-        self, _conn: object, _pid: int, _channel: str, payload: str
-    ) -> None:
+    def _on_notify(self, _conn: object, _pid: int, _channel: str, payload: str) -> None:
         """asyncpg gọi hàm này ĐỒNG BỘ trên event loop.
 
         Nên ở đây không được `await` gì cả, và không được để một màn hình chậm
