@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -61,6 +62,25 @@ class PriceUpdateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=300)
     unit_price: float | str | None = None
     active: bool | None = None
+
+
+class DisplayZoneToggle(BaseModel):
+    """Một khu trên bảng gọi số: bật hay tắt."""
+
+    key: str = Field(min_length=1, max_length=32)
+    an: bool = False
+
+
+class DisplaySettingsRequest(BaseModel):
+    """Cấu hình MÀN HÌNH PHÒNG CHỜ của phòng khám đang đăng nhập."""
+
+    zones: list[DisplayZoneToggle] = Field(default_factory=list)
+    # Hiện TÊN người bệnh trên bảng gọi số. Bật theo yêu cầu vận hành; tắt thì
+    # bảng rơi về số thứ tự.
+    hien_ten: bool = True
+    # Che phần giữa của tên ("Nguyễn Thị Lan" → "Nguyễn T. L.") cho phòng khám
+    # muốn gọi tên mà không đọc trọn cho cả phòng chờ.
+    che_ten: bool = False
 
 
 class BookingPolicyUpdateRequest(BaseModel):
@@ -363,3 +383,58 @@ async def update_feature_mode(
         mode=body.mode,
     )
     return {"ok": True, **result}
+
+
+@router.patch("/display-settings")
+async def update_display_settings(
+    body: DisplaySettingsRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bật/tắt từng khu trên bảng gọi số, và cách hiện tên người bệnh.
+
+    Chỉ Trưởng ca + Quản lý (cùng gác với luật đặt lịch). `clinic_id` suy từ
+    membership, KHÔNG nhận từ body — phòng khám A sửa không chạm được phòng
+    khám B.
+
+    Giữ nguyên `label` và `prefix` của từng khu: đây là công tắc bật/tắt, không
+    phải chỗ đổi tên khu. Khoá nào không có trong bảng cấu hình thì bỏ qua —
+    gửi một khu không tồn tại không tạo ra khu mới.
+    """
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT settings -> 'display' AS display FROM clinic WHERE id = $1::uuid",
+            identity.clinic_id,
+        )
+        hien_tai = row["display"] if row else None
+        if isinstance(hien_tai, str):
+            hien_tai = json.loads(hien_tai)
+        hien_tai = dict(hien_tai or {})
+
+        muon_an = {z.key: z.an for z in body.zones}
+        zones = [
+            {**z, "an": muon_an.get(str(z.get("key")), bool(z.get("an")))}
+            for z in (hien_tai.get("zones") or [])
+            if isinstance(z, dict)
+        ]
+        hien_tai.update(
+            {"zones": zones, "hien_ten": body.hien_ten, "che_ten": body.che_ten}
+        )
+
+        await conn.execute(
+            """
+            UPDATE public.clinic
+               SET settings = jsonb_set(
+                       coalesce(settings, '{}'::jsonb),
+                       '{display}',
+                       $2::jsonb,
+                       true
+                   ),
+                   updated_at = now()
+             WHERE id = $1::uuid
+            """,
+            identity.clinic_id,
+            json.dumps(hien_tai, ensure_ascii=False),
+        )
+
+    return {"ok": True, "display": hien_tai}

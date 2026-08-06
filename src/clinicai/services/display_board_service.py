@@ -2,12 +2,18 @@
 
 HAI RÀNG BUỘC, VÀ CẢ HAI ĐỀU KHÔNG ĐƯỢC ĐÁNH ĐỔI.
 
-① KHÔNG MỘT MẨU DANH TÍNH NÀO RỜI MÁY CHỦ. Màn này treo ở phòng chờ. Thứ gì
-   endpoint trả về là thứ đi thẳng vào payload trình duyệt, nên "không hiển thị"
-   là chưa đủ — phải KHÔNG TẢI VỀ. Trang cũ đã giữ đúng nguyên tắc này (chú
-   thích trong `app/display/page.tsx` nói rõ), và nó phải sống tiếp qua lần đổi
-   này. Vì thế service trả về số thứ tự, khu vực, thứ tự gọi — không tên, không
-   mã bệnh nhân, không số điện thoại, không cả tên bác sĩ.
+① CHỈ CÁI TÊN, VÀ CHỈ KHI PHÒNG KHÁM BẬT. Màn này treo ở phòng chờ, nên thứ gì
+   endpoint trả về là thứ công khai với mọi người ngồi đó.
+
+   Quang chốt: GỌI TÊN, không gọi số — đó là cách quầy tiếp nhận vẫn làm. Nhưng
+   đây là phòng khám phụ khoa và hiếm muộn, nên một cái tên cạnh chữ "SIÊU ÂM"
+   nói ra nhiều hơn một cái tên. Vì thế:
+
+     · `hien_ten` (mặc định BẬT theo yêu cầu) quyết định có gửi tên đi không.
+     · `che_ten` che phần giữa — "Nguyễn Thị Lan" thành "Nguyễn T. L." — cho
+       phòng khám nào muốn gọi tên mà không đọc trọn.
+     · MỌI thứ định danh khác vẫn KHÔNG BAO GIỜ rời máy chủ: mã bệnh nhân, số
+       điện thoại, ngày sinh, tên bác sĩ, chẩn đoán. Bài kiểm canh đúng điều đó.
 
 ② THỨ TỰ PHẢI GIỐNG HỆT BẢNG CỦA NHÂN VIÊN. Trước đây tivi xếp bằng
    `slot_start` thuần, trong khi Lễ tân và bác sĩ xếp theo luật gọi. Hai bảng
@@ -44,12 +50,27 @@ MAX_ROWS = 200
 # lệch hơn một chuỗi nằm cách đó hai tầng.
 CHU_THICH_DAY_LEN = "Được ưu tiên vì đã đặt lịch trước"
 
+
+def che_ten_nguoi(ten: str | None) -> str:
+    """ "Nguyễn Thị Lan" → "Nguyễn T. L." — đủ để người đó nhận ra mình.
+
+    Giữ HỌ nguyên vẹn (người ngồi chờ nghe họ mình thì ngẩng lên), rút các phần
+    còn lại về chữ cái đầu. Không dùng dấu sao: một hàng sao trông như lỗi hiển
+    thị, còn chữ cái đầu thì rõ ràng là cố ý.
+    """
+    phan = [p for p in (ten or "").split() if p]
+    if len(phan) <= 1:
+        return phan[0] if phan else ""
+    return phan[0] + " " + " ".join(f"{p[0].upper()}." for p in phan[1:])
+
+
 _SQL = (
     """
 SELECT a.id,
        a.slot_start,
        a.status,
        a.queue_number,
+       p.full_name AS patient_name,
        a.booking_channel,
        a.doctor_id,
        st.name AS service_name,
@@ -59,6 +80,9 @@ SELECT a.id,
        v.room_code,
        cap.slot_minutes
   FROM appointment a
+  LEFT JOIN patient p
+         ON p.clinic_patient_id = a.clinic_patient_id
+        AND p.clinic_id = $1::uuid
   LEFT JOIN service_type st ON st.id = a.service_type_id
   LEFT JOIN LATERAL (
       -- Tên PHÒNG, không phải tên người: bảng phòng chờ cần chỉ đường cho
@@ -88,6 +112,8 @@ SELECT a.id,
 
 _ZONE_SQL = """
 SELECT settings -> 'display' -> 'zones'          AS zones,
+       settings -> 'display' ->> 'hien_ten'      AS hien_ten,
+       settings -> 'display' ->> 'che_ten'       AS che_ten,
        settings -> 'display' ->> 'clinic_name'   AS clinic_name,
        settings -> 'display' ->> 'footer_text'   AS footer_text,
        settings -> 'display' ->> 'footer_info'   AS footer_info
@@ -109,11 +135,15 @@ class DisplayBoardService:
 
         quyet_dinh = thu_tu_goi_theo_ngay(rows)
         zones = _doc_zones(zone_row)
+        # Mặc định BẬT tên (Quang chốt "gọi tên chứ không gọi số"); che tên thì
+        # mặc định TẮT. Đọc từ cấu hình để đổi được mà không phải dựng lại app.
+        hien_ten = _co_bat(zone_row, "hien_ten", mac_dinh=True)
+        che_ten = _co_bat(zone_row, "che_ten", mac_dinh=False)
 
         muc: list[dict[str, Any]] = []
         for r in rows:
             d = quyet_dinh.get(str(r["id"]))
-            muc.append(_mot_dong(r, d, zones))
+            muc.append(_mot_dong(r, d, zones, hien_ten=hien_ten, che_ten=che_ten))
         muc.sort(key=lambda m: (m["call_order"] is None, m["call_order"] or 0))
 
         logger.info("display_board", clinic_id=clinic_id, rows=len(muc))
@@ -129,6 +159,19 @@ class DisplayBoardService:
         }
 
 
+def _co_bat(row: asyncpg.Record | None, khoa: str, *, mac_dinh: bool) -> bool:
+    """Đọc một công tắc trong `clinic.settings->display`.
+
+    Chưa khai thì dùng mặc định — phòng khám không phải cấu hình gì để bảng chạy.
+    """
+    if row is None:
+        return mac_dinh
+    gia_tri = row[khoa]
+    if gia_tri is None:
+        return mac_dinh
+    return str(gia_tri).strip().lower() in ("true", "1", "yes")
+
+
 def _doc_zones(row: asyncpg.Record | None) -> list[dict[str, Any]]:
     """Khu vực lấy từ cấu hình phòng khám, không viết cứng trong TSX.
 
@@ -139,7 +182,13 @@ def _doc_zones(row: asyncpg.Record | None) -> list[dict[str, Any]]:
         return []
     raw = row["zones"]
     parsed = json.loads(raw) if isinstance(raw, str) else raw
-    return list(parsed) if isinstance(parsed, list) else []
+    if not isinstance(parsed, list):
+        return []
+    # `an: true` = khu bị TẮT trên bảng gọi số.
+    #
+    # Lọc ở MÁY CHỦ, không ẩn bằng CSS: một khu đã tắt thì không có lý do gì để
+    # dữ liệu của nó vẫn đi ra trình duyệt của cái tivi.
+    return [z for z in parsed if isinstance(z, dict) and not z.get("an")]
 
 
 # Luật đoán khu MẶC ĐỊNH — bê nguyên `zoneOf()` cũ trong DisplayBoard.tsx.
@@ -230,11 +279,19 @@ def _khop_vao_khu_that(ho: str, zones: list[dict[str, Any]]) -> str:
 
 
 def _mot_dong(
-    r: asyncpg.Record, d: QueueDecision | None, zones: list[dict[str, Any]]
+    r: asyncpg.Record,
+    d: QueueDecision | None,
+    zones: list[dict[str, Any]],
+    *,
+    hien_ten: bool = True,
+    che_ten: bool = False,
 ) -> dict[str, Any]:
-    """CHỈ những trường không định danh — xem ràng buộc ① ở đầu module."""
+    """Xem ràng buộc ① ở đầu module: ngoài TÊN (và chỉ khi phòng khám bật),
+    không một trường định danh nào khác được rời máy chủ."""
     promoted = bool(d and d.promoted and d.call_reason == REASON_DAT_TRUOC_DUNG_GIO)
+    ten = r["patient_name"] if hien_ten else None
     return {
+        "patient_name": che_ten_nguoi(ten) if (ten and che_ten) else ten,
         "queue_number": r["queue_number"],
         "zone_key": _khu_vuc(r["service_name"], zones, r["room_code"]),
         "room_name": r["room_name"],
