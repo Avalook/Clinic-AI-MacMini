@@ -186,6 +186,16 @@ export default function GlobalHeader({
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
+    if (pathname.startsWith("/patients/new")) {
+      return {
+        // MỘT câu đúng cho cả hai luồng (CSKH đặt lịch trước · Lễ tân tiếp
+        // khách vãng lai) — thanh này không đọc được `?mode=`, và hai nút chọn
+        // luồng ngay dưới đã nói rõ người dùng đang ở đâu.
+        title: "Tạo hồ sơ bệnh nhân",
+        subtitle:
+          "Nhập thông tin hành chính, xác minh và đưa khách vào đúng luồng tiếp nhận.",
+      };
+    }
     if (pathname.startsWith("/patient-list")) {
       return {
         title: "Danh sách bệnh nhân",
