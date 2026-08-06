@@ -60,6 +60,21 @@ def test_bang_goi_so_nhan_ca_man_hinh_lan_nhan_vien() -> None:
         assert asyncio.run(get_display_identity(_ai_do(role))).role is role
 
 
+# Mỗi đường mở cho vai DISPLAY phải có lý do vì sao nó KHÔNG lộ dữ liệu người
+# bệnh. Danh sách này cố ý ngắn và cố ý khó thêm.
+DUONG_MO_CHO_MAN_HINH = {
+    "/api/v1/display/queue": (
+        "Bảng gọi số: chỉ số thứ tự, khu vực, thứ tự gọi. Không tên, không mã "
+        "bệnh nhân, không số điện thoại, không cả tên bác sĩ."
+    ),
+    "/api/v1/me": (
+        "Chỉ mô tả CHÍNH người gọi. Layout hỏi đường này để biết mình là ai rồi "
+        "mới đưa tài khoản màn hình sang /display — chặn ở đây thì cái tivi "
+        "đăng nhập xong bị đá ngược về trang đăng nhập."
+    ),
+}
+
+
 def test_chi_dung_mot_duong_mo_cho_man_hinh() -> None:
     """`get_display_identity` cố tình dễ dãi, nên phải hiếm.
 
@@ -75,7 +90,8 @@ def test_chi_dung_mot_duong_mo_cho_man_hinh() -> None:
         if "get_display_identity" in ten:
             duong.append(getattr(route, "path", "?"))
 
-    assert duong == ["/api/v1/display/queue"], (
+    assert sorted(duong) == sorted(DUONG_MO_CHO_MAN_HINH), (
         "Có đường mới dùng get_display_identity. Đường đó KHÔNG được trả về bất "
-        f"kỳ mẩu danh tính nào của người bệnh. Hiện có: {duong}"
+        "kỳ mẩu dữ liệu nào của NGƯỜI BỆNH — nếu đúng vậy thì thêm nó vào "
+        f"DUONG_MO_CHO_MAN_HINH kèm lý do. Hiện có: {sorted(duong)}"
     )
