@@ -19,7 +19,6 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Info,
   UserPlus,
   MapPin,
   Pencil,
@@ -104,6 +103,112 @@ function weekOf(anchorIso: string, offset: number): {
   });
 }
 
+/** Một ngày bất kỳ nằm cách tuần HÔM NAY bao nhiêu tuần.
+ *
+ * Lưới giờ chạy theo `weekOffset` (số tuần lệch so với tuần hiện tại), nên chọn
+ * một ngày từ lịch tháng phải quy về con số ấy. Tính bằng mốc THỨ HAI của hai
+ * tuần chứ không bằng hiệu số ngày chia bảy: 03/08 và 09/08 cách nhau 6 ngày
+ * nhưng cùng một tuần, còn 09/08 (CN) và 10/08 (T2) cách nhau 1 ngày mà khác
+ * tuần.
+ */
+function tuanLechSoVoiHomNay(isoDate: string): number {
+  const thuHai = (iso: string): number => {
+    const d = new Date(`${iso}T12:00:00+07:00`);
+    const dow = d.getUTCDay(); // 0=CN
+    d.setUTCDate(d.getUTCDate() - ((dow + 6) % 7));
+    return Math.floor(d.getTime() / 86_400_000);
+  };
+  return Math.round((thuHai(isoDate) - thuHai(vnToday())) / 7);
+}
+
+/** Lịch THÁNG để nhảy nhanh tới một ngày xa.
+ *
+ * Trước đây chỉ có mũi tên tuần trước / tuần sau. Đặt lịch cho khách vào tháng
+ * sau nghĩa là bấm mũi tên bốn, năm lần và đếm nhẩm — mỗi lần bấm lại tải lại
+ * lưới giờ.
+ */
+function LichThang({
+  ngayChon,
+  onChon,
+}: {
+  ngayChon: string;
+  onChon: (iso: string) => void;
+}) {
+  const [thang, setThang] = useState(() => ngayChon.slice(0, 7));
+  const [nam, thg] = thang.split("-").map(Number);
+
+  const soNgay = new Date(Date.UTC(nam, thg, 0)).getUTCDate();
+  // Ô trống đầu tháng để ngày 1 rơi đúng cột thứ của nó (tuần bắt đầu từ T2).
+  const trong = (new Date(Date.UTC(nam, thg - 1, 1)).getUTCDay() + 6) % 7;
+
+  const doiThang = (buoc: number) => {
+    const d = new Date(Date.UTC(nam, thg - 1 + buoc, 1));
+    setThang(
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+    );
+  };
+
+  return (
+    <div className="w-64 rounded-2xl border border-line bg-surface p-3 shadow-lg">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          aria-label="Tháng trước"
+          onClick={() => doiThang(-1)}
+          className="rounded-lg p-1 text-ink-muted hover:bg-surface-muted hover:text-brand-600"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-semibold text-ink tabular-nums">
+          Tháng {thg}/{nam}
+        </span>
+        <button
+          type="button"
+          aria-label="Tháng sau"
+          onClick={() => doiThang(1)}
+          className="rounded-lg p-1 text-ink-muted hover:bg-surface-muted hover:text-brand-600"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[10px] text-ink-faint">
+        {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((t) => (
+          <span key={t}>{t}</span>
+        ))}
+      </div>
+
+      <div className="mt-1 grid grid-cols-7 gap-0.5">
+        {Array.from({ length: trong }, (_, i) => (
+          <span key={`trong-${i}`} />
+        ))}
+        {Array.from({ length: soNgay }, (_, i) => {
+          const ngay = i + 1;
+          const iso = `${thang}-${String(ngay).padStart(2, "0")}`;
+          const dangChon = iso === ngayChon;
+          const homNay = iso === vnToday();
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => onChon(iso)}
+              className={`rounded-lg py-1 text-xs tabular-nums transition-colors ${
+                dangChon
+                  ? "bg-teal-600 font-bold text-white"
+                  : homNay
+                    ? "bg-teal-50 font-semibold text-teal-700"
+                    : "text-ink hover:bg-surface-muted"
+              }`}
+            >
+              {ngay}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** Các khung giờ của một ngày, theo GIỜ MỞ CỬA CỦA PHÒNG KHÁM.
  *
  *  Trước đây hàm này viết cứng `startHour = isWeekend ? 8 : 17; endHour = 22`
@@ -179,6 +284,45 @@ interface SlotHoldLite {
   held_by_name: string | null;
 }
 
+/** Một mốc trên thanh ba bước của việc đặt lịch. */
+function MocDatLich({
+  so,
+  nhan,
+  xong,
+  dangLam,
+  ghiChu,
+}: {
+  so: number;
+  nhan: string;
+  xong: boolean;
+  dangLam: boolean;
+  ghiChu?: string;
+}) {
+  const vien = xong
+    ? "bg-emerald-600 text-white"
+    : dangLam
+      ? "bg-brand-600 text-white"
+      : "bg-surface-sunken text-ink-muted";
+  const chu = xong
+    ? "font-semibold text-ink"
+    : dangLam
+      ? "font-bold text-brand-700"
+      : "";
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={`grid size-5 place-items-center rounded-full text-[11px] font-bold ${vien}`}
+      >
+        {xong ? "✓" : so}
+      </span>
+      <span className={chu}>{nhan}</span>
+      {ghiChu ? (
+        <span className="text-[11px] font-normal text-ink-faint">({ghiChu})</span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function BookingHub({
   locations,
   services,
@@ -216,6 +360,22 @@ export default function BookingHub({
 
   const [mode, setMode] = useState<"grid" | "new_patient">("grid");
   const [weekOffset, setWeekOffset] = useState(0);
+  const [moLichThang, setMoLichThang] = useState(false);
+
+  // MỐC "BÂY GIỜ" NẰM TRONG STATE, không gọi Date.now() lúc render.
+  //
+  // Hai lý do, và cái thứ hai mới là cái quan trọng:
+  //   · `Date.now()` trong render là hàm không thuần — trình biên dịch React
+  //     chặn thẳng, và nó đúng.
+  //   · Quan trọng hơn: nếu đọc đồng hồ lúc render thì lưới CHỈ đúng tại
+  //     khoảnh khắc tải trang. CSKH mở màn lúc 17:55 rồi ngồi tư vấn tới 18:20
+  //     sẽ vẫn thấy khung 18:00 xanh và mời đặt — backend từ chối, nhưng người
+  //     dùng chỉ biết sau khi đã bấm.
+  const [bayGio, setBayGio] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setBayGio(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
   const [selectedDateIso, setSelectedDateIso] = useState(vnToday);
 
   const weekDays = useMemo(() => weekOf(vnToday(), weekOffset), [weekOffset]);
@@ -608,7 +768,34 @@ export default function BookingHub({
     return m;
   }, [apptsForDate]);
 
+  /** Khung `time` của ngày đang xem đã kết thúc chưa.
+   *
+   * So bằng GIỜ KẾT THÚC, không phải giờ bắt đầu: khung 18:00–18:15 lúc 18:05
+   * thì chưa qua, và khách vãng lai bước vào giữa khung phải xếp được vào chính
+   * khung đang chạy. Cùng luật với backend.
+   */
+  function khungDaQua(time: string): boolean {
+    const ketThuc = new Date(vnLocalToUtcISO(selectedDateIso, time));
+    ketThuc.setMinutes(ketThuc.getMinutes() + slotMinutes);
+    return ketThuc.getTime() <= bayGio;
+  }
+
   function getCellStatus(docId: string, time: string): CellStatus {
+    // KHUNG ĐÃ TRÔI QUA — luật cao hơn cả lịch làm việc, vì không ai đặt được
+    // vào một thời điểm đã đi qua dù bác sĩ có rảnh hay không.
+    //
+    // Backend là chốt thật (booking_service._chan_dat_vao_qua_khu). Ở đây chỉ
+    // để CSKH không bấm vào một ô rồi mới bị từ chối: trước khi có cả hai lớp,
+    // lúc 16:40 vẫn đặt được lịch cho 16:20 và server trả 201.
+    if (khungDaQua(time)) {
+      return {
+        tone: "full",
+        label: "Đã qua giờ",
+        sub: "—",
+        bookedCount: 0,
+        maxCap: 0,
+      };
+    }
     // LỊCH LÀM VIỆC LÀ LUẬT CAO NHẤT — trước cả sức chứa.
     //
     // Một luật "18:00–18:15 tám chỗ" không có nghĩa gì vào ngày bác sĩ không đi
@@ -995,28 +1182,39 @@ export default function BookingHub({
             </div>
           </div>
 
-          {/* Stepper (1 Khách hàng -> 2 Khung giờ -> 3 Xác nhận) */}
+          {/* BA MỐC, VÀ CHÚNG PHẢN ÁNH TRẠNG THÁI THẬT.
+              
+              Bản trước viết cứng: mốc 1 luôn có dấu tích, mốc 2 luôn sáng, mốc 3
+              luôn xám — bất kể người dùng đã làm gì. Một thanh tiến trình không
+              đổi theo việc mình vừa làm thì tệ hơn không có: nó dạy người dùng
+              bỏ qua nó.
+              
+              "Chọn khách hàng" không còn là một mốc: nó là điều kiện để lưới giờ
+              hiện ra, chứ không phải một chặng của việc đặt lịch. */}
           <div className="flex items-center justify-center gap-4 rounded-2xl border border-line bg-surface py-2.5 px-4 text-xs font-medium text-ink-muted shadow-card">
-            <div className="flex items-center gap-2">
-              <span className="grid size-5 place-items-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
-                ✓
-              </span>
-              <span className="font-semibold text-ink">1 Khách hàng</span>
-            </div>
+            <MocDatLich
+              so={1}
+              nhan="Khung giờ"
+              xong={Boolean(selectedSlot.time && selectedSlot.doctorId)}
+              dangLam={!justBooked}
+            />
             <div className="h-px w-16 bg-line" />
-            <div className="flex items-center gap-2">
-              <span className="grid size-5 place-items-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
-                2
-              </span>
-              <span className="font-bold text-brand-700">Khung giờ</span>
-            </div>
+            <MocDatLich
+              so={2}
+              nhan="Đặt lịch"
+              xong={Boolean(justBooked)}
+              dangLam={Boolean(selectedSlot.time && !justBooked)}
+            />
             <div className="h-px w-16 bg-line" />
-            <div className="flex items-center gap-2">
-              <span className="grid size-5 place-items-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-muted">
-                3
-              </span>
-              <span>Xác nhận</span>
-            </div>
+            {/* Mốc 3 KHÔNG BAO GIỜ tự tích ở màn này. CSKH tích xác nhận ở
+                "Quản lý khách hàng" — nên ở đây nó chỉ nói ra việc còn lại. */}
+            <MocDatLich
+              so={3}
+              nhan="Xác nhận lịch"
+              xong={false}
+              dangLam={false}
+              ghiChu={justBooked ? "ở Quản lý khách hàng" : undefined}
+            />
           </div>
 
           {/* 3-Column Layout: Left (Patient Cards) + Middle (Grid) + Right (Panel) */}
@@ -1174,72 +1372,102 @@ export default function BookingHub({
                 </button>
               </div>
 
-              {/* Date navigator & legend */}
+              {/* Date navigator & legend — CĂN GIỮA cả ba hàng.
+                  
+                  Trước đây khối này dùng `justify-between`: nút tuần dạt trái,
+                  dãy ngày dạt phải, chú thích màu dạt trái — ba hàng ba mép
+                  khác nhau trên một tấm thẻ. */}
               <div className="space-y-2.5 rounded-2xl border border-line bg-surface p-3.5 shadow-card">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  {/* Ba nút này TRƯỚC ĐÂY KHÔNG CÓ onClick: mũi tên trái/phải và
-                      "Hôm nay" vẽ ra rồi không làm gì, còn nhãn tuần là chuỗi
-                      viết cứng "11–16/05/2026". Bấm vào không có phản hồi nào,
-                      nên không phân biệt được với một trang đang treo. */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
-                      <button
-                        type="button"
-                        aria-label="Tuần trước"
-                        onClick={() => setWeekOffset((w) => w - 1)}
-                        className="p-1 hover:text-brand-600"
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      <span className="px-2 font-bold text-ink tabular-nums">
-                        {weekDays[0]?.dateStr}–{weekDays[6]?.dateStr}/
-                        {weekDays[0]?.isoDate.slice(0, 4)}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label="Tuần sau"
-                        onClick={() => setWeekOffset((w) => w + 1)}
-                        className="p-1 hover:text-brand-600"
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <div className="relative flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
                     <button
                       type="button"
-                      onClick={() => {
-                        setWeekOffset(0);
-                        setSelectedDateIso(vnToday());
-                      }}
-                      className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
+                      aria-label="Tuần trước"
+                      onClick={() => setWeekOffset((w) => w - 1)}
+                      className="p-1 hover:text-brand-600"
                     >
-                      Hôm nay
+                      <ChevronLeft size={14} />
                     </button>
-                  </div>
+                    {/* Bấm vào nhãn tuần để mở LỊCH THÁNG. Đặt lịch cho khách
+                        vào tháng sau mà chỉ có mũi tên tuần thì phải bấm bốn,
+                        năm lần và đếm nhẩm — mỗi lần lại tải lại lưới giờ. */}
+                    <button
+                      type="button"
+                      onClick={() => setMoLichThang((v) => !v)}
+                      aria-expanded={moLichThang}
+                      className="px-2 font-bold text-ink tabular-nums hover:text-brand-600"
+                    >
+                      {weekDays[0]?.dateStr}–{weekDays[6]?.dateStr}/
+                      {weekDays[0]?.isoDate.slice(0, 4)}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Tuần sau"
+                      onClick={() => setWeekOffset((w) => w + 1)}
+                      className="p-1 hover:text-brand-600"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
 
-                  {/* Day Tabs */}
-                  <div className="flex items-center gap-1 overflow-x-auto text-xs">
-                    {weekDays.map((d) => {
-                      const isSelectedDay = d.isoDate === selectedDateIso;
-                      return (
+                    {moLichThang ? (
+                      <>
+                        {/* Lớp phủ để bấm ra ngoài là đóng. Không có nó thì
+                            lịch chỉ đóng khi bấm đúng cái nhãn đã mở nó. */}
                         <button
-                          key={d.dayName}
                           type="button"
-                          onClick={() => setSelectedDateIso(d.isoDate)}
-                          className={`rounded-xl border px-3 py-1 font-medium transition-all ${
-                            isSelectedDay
-                              ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
-                              : "border-line bg-surface text-ink-muted hover:border-line"
-                          }`}
-                        >
-                          {d.dayName} {d.dateStr}
-                        </button>
-                      );
-                    })}
+                          aria-label="Đóng lịch tháng"
+                          onClick={() => setMoLichThang(false)}
+                          className="fixed inset-0 z-40 cursor-default"
+                        />
+                        <div className="absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2">
+                          <LichThang
+                            ngayChon={selectedDateIso}
+                            onChon={(iso) => {
+                              setSelectedDateIso(iso);
+                              setWeekOffset(tuanLechSoVoiHomNay(iso));
+                              setMoLichThang(false);
+                            }}
+                          />
+                        </div>
+                      </>
+                    ) : null}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWeekOffset(0);
+                      setSelectedDateIso(vnToday());
+                      setMoLichThang(false);
+                    }}
+                    className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
+                  >
+                    Hôm nay
+                  </button>
                 </div>
 
-                {/* Status Legend Pills (Exact colors from mockup) */}
-                <div className="flex flex-wrap items-center gap-4 pt-1 text-xs">
+                {/* Day Tabs */}
+                <div className="flex flex-wrap items-center justify-center gap-1 text-xs">
+                  {weekDays.map((d) => {
+                    const isSelectedDay = d.isoDate === selectedDateIso;
+                    return (
+                      <button
+                        key={d.dayName}
+                        type="button"
+                        onClick={() => setSelectedDateIso(d.isoDate)}
+                        className={`rounded-xl border px-3 py-1 font-medium transition-all ${
+                          isSelectedDay
+                            ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
+                            : "border-line bg-surface text-ink-muted hover:border-line"
+                        }`}
+                      >
+                        {d.dayName} {d.dateStr}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Status Legend Pills */}
+                <div className="flex flex-wrap items-center justify-center gap-4 pt-1 text-xs">
                   <span className="flex items-center gap-1.5 text-teal-700 font-medium">
                     <span className="size-3.5 rounded-md border border-teal-300 bg-teal-50" />
                     Có thể đặt
@@ -1551,12 +1779,6 @@ export default function BookingHub({
                   />
                   Đúng bác sĩ và khung giờ
                 </label>
-              </div>
-
-              {/* Notice */}
-              <div className="rounded-xl bg-sky-50 p-2.5 text-[11px] text-sky-800 flex items-start gap-2 border border-sky-200/60">
-                <Info size={14} className="shrink-0 mt-0.5 text-sky-600" />
-                <span>Bấm Đặt lịch hẹn là XONG — lịch có hiệu lực ngay, không cần gọi xác nhận lại. Muốn đổi hoặc huỷ thì vào Quản lý khách hàng, mục Lịch hẹn sắp tới.</span>
               </div>
 
               {/* Lỗi hiện ngay cạnh nút vừa bấm, thay cho alert() — hộp thoại
