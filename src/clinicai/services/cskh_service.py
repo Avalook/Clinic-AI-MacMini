@@ -48,6 +48,11 @@ INTAKE_ROLES: frozenset[ClinicRole] = frozenset(
 )
 
 FOLLOWUP_STATUS = "Đã gọi nhắc tái khám"
+
+# Kết quả cuộc gọi — cùng bốn giá trị mà CHECK của cskh_log canh
+# (20260807000002). Khai ở đây để lỗi gõ sai bị bắt ở Python trước khi nó thành
+# một lỗi ràng buộc khó đọc từ Postgres.
+KET_QUA_HOP_LE = frozenset({"DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI"})
 FOLLOWUP_KIND = "Nhắc gọi tái khám"
 
 
@@ -161,8 +166,23 @@ class CskhService:
         clinic_patient_id: str,
         note: str | None,
         identity: StaffIdentity,
+        ket_qua: str | None = None,
+        luot_goi: int | None = None,
     ) -> str:
-        """Log a recall reminder call against a patient. Returns the log id."""
+        """Log a recall reminder call against a patient. Returns the log id.
+
+        ``ket_qua`` là KẾT QUẢ cuộc gọi, không phải "đã bấm nút". Trước
+        20260807000002 không có chỗ lưu nó, nên "chuông đổ không ai bắt" và "đã
+        nói chuyện xong" ghi ra hai dòng giống hệt nhau — và người mở lên hôm
+        sau tưởng đã liên hệ được.
+        """
+        if ket_qua is not None and ket_qua not in KET_QUA_HOP_LE:
+            raise ValidationError(
+                f"Kết quả cuộc gọi không hợp lệ: {ket_qua!r}. "
+                f"Chọn một trong: {', '.join(sorted(KET_QUA_HOP_LE))}."
+            )
+        if luot_goi is not None and not 1 <= luot_goi <= 9:
+            raise ValidationError("Lượt gọi phải trong khoảng 1–9.")
         today = clinic_today()
 
         async with self._pool.acquire() as conn:
@@ -180,9 +200,11 @@ class CskhService:
                     """
                     INSERT INTO cskh_log (
                         clinic_id, clinic_patient_id, work_date, cskh_status,
-                        cskh_followup, last_cskh_date, cskh_by, note
+                        cskh_followup, last_cskh_date, cskh_by, note,
+                        ket_qua, luot_goi
                     )
-                    VALUES ($1::uuid, $2::uuid, $3::date, $4, $5, $3::date, $6, $7)
+                    VALUES ($1::uuid, $2::uuid, $3::date, $4, $5, $3::date,
+                            $6, $7, $8, $9)
                     RETURNING id
                     """,
                     identity.clinic_id,
@@ -192,6 +214,8 @@ class CskhService:
                     FOLLOWUP_KIND,
                     f"{identity.full_name} · {identity.role.value}",
                     (note or "").strip() or None,
+                    ket_qua,
+                    luot_goi,
                 )
 
                 await _log(
@@ -203,6 +227,8 @@ class CskhService:
                         "id": str(log_id),
                         "clinic_patient_id": clinic_patient_id,
                         "kind": "nhac_goi",
+                        "ket_qua": ket_qua,
+                        "luot_goi": luot_goi,
                     },
                     identity=identity,
                     origin="api:cskh-followup",
