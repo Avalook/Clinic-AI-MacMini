@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
@@ -115,6 +116,35 @@ async def remove_shift(
     """Remove a shift. Non-managers may only remove their own."""
     await RosterService(pool).remove(roster_id=str(roster_id), identity=identity)
     return {"ok": True}
+
+
+class PriceRow(BaseModel):
+    """Một dòng bảng giá — đúng những gì hai màn giá vẽ."""
+
+    id: UUID
+    service_code: str
+    name: str
+    group: str
+    #: Có thể NULL: 29 dịch vụ hiện chưa điền giá, và điền một con số bịa vào
+    #: đó thì thu ngân sẽ thu đúng con số bịa ấy.
+    unit_price: Decimal | None
+    active: bool
+
+
+@router.get("/service-prices", response_model=list[PriceRow])
+async def list_prices(
+    group: PriceGroup = Query(..., description="thuoc | dich_vu"),
+    identity: StaffIdentity = Depends(_PRICE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[PriceRow]:
+    """Bảng giá thuốc hoặc dịch vụ.
+
+    Ba endpoint ghi (POST/PATCH/DELETE) đã có từ trước, phần ĐỌC thì chưa —
+    nên hai màn giá vẫn đọc thẳng `service_price` qua PostgREST. Đây là nửa
+    còn thiếu.
+    """
+    rows = await PriceListService(pool).list(group=group, identity=identity)
+    return [PriceRow(**r) for r in rows]
 
 
 @router.post("/service-prices", status_code=201)

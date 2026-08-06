@@ -211,6 +211,29 @@ class PriceListService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def list(
+        self, *, group: PriceGroup, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Bảng giá của một nhóm (thuốc hoặc dịch vụ), sắp theo mã.
+
+        TRẢ CẢ DÒNG ĐÃ TẮT (`active = false`). Thu ngân cần thấy chúng để biết
+        một mã cũ đã ngừng dùng, chứ không phải để tưởng nó chưa từng tồn tại
+        rồi đi tạo lại trùng mã. Màn hình tự làm mờ dòng đã tắt.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, service_code, name, "group", unit_price, active
+                  FROM service_price
+                 WHERE clinic_id = $1::uuid AND "group" = $2
+                 ORDER BY service_code
+                 LIMIT 1000
+                """,
+                identity.clinic_id,
+                group,
+            )
+            return [dict(r) for r in rows]
+
     async def add(
         self,
         *,

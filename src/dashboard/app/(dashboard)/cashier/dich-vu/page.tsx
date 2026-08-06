@@ -1,8 +1,9 @@
 // Bảng giá DỊCH VỤ (group=dich_vu) — tách từ trang gộp cũ (T-DASH-CASHIER-IA-02).
-// Tái dùng scaffold CashierView (khoá group="dich_vu" → ẩn toggle). Đọc qua RLS,
-// ghi qua /api/service-price (POST đã nhận group). Lọc group ngay ở query.
+// Tái dùng scaffold CashierView (khoá group="dich_vu" → ẩn toggle). Đọc qua
+// FastAPI, ghi qua /api/service-price. Lọc group ở MÁY CHỦ, không tải cả
+// bảng giá về rồi lọc ở trình duyệt.
 
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import CashierView, { type PriceRow } from "../CashierView";
 
@@ -10,16 +11,17 @@ export const dynamic = "force-dynamic";
 
 export default async function PriceDichVuPage() {
   await requireNavAccess("/cashier/dich-vu");
-  const supabase = await getSupabaseServer();
-
-  const { data, error } = await supabase
-    .from("service_price")
-    .select("id, service_code, name, group, unit_price, active")
-    .eq("group", "dich_vu")
-    .order("service_code", { ascending: true })
-    .limit(1000);
-
-  const rows = (data as PriceRow[] | null) ?? [];
+  // Đọc qua FastAPI thay vì đọc thẳng bảng: đọc thẳng cần vai Postgres
+  // (`authenticated`) mà database cho thuê không cho tạo. Phần GHI đã đi qua
+  // /api/service-price từ trước — đây là nửa còn lại.
+  const data = await fetchFromBackend<PriceRow[]>(
+    "/api/v1/service-prices?group=dich_vu",
+  );
+  // null = backend không trả lời. Bảng giá rỗng và bảng giá không đọc được
+  // nhìn giống hệt nhau, mà một bên là "chưa khai giá" còn bên kia là "đừng
+  // tin con số nào trên màn này".
+  const error = data === null;
+  const rows = data ?? [];
 
   return (
     <main className="page-in space-y-4 p-4 lg:p-5">
