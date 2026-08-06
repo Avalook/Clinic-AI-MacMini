@@ -146,3 +146,33 @@ async def test_thieu_khoa_ky_thi_hong_on_ao(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(ValidationError) as e:
         await AuthService(pool).login(email="bs.a@dr4women.local", password="dung")
     assert "SUPABASE_JWT_SECRET" in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_bo_dem_lan_sai_duoc_ghi_chu_khong_bi_huy_theo_giao_dich(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ném lỗi phải xảy ra SAU khi giao dịch đóng bình thường.
+
+    Bản đầu tăng failed_attempts rồi `raise` ngay bên trong
+    `async with conn.transaction()`. Ném lỗi trong giao dịch thì asyncpg
+    ROLLBACK — bộ đếm không bao giờ được ghi, và chống dò mật khẩu trông như có
+    mà thực ra không chạy.
+
+    Sai kiểu tệ nhất: endpoint vẫn trả đúng câu, mọi bài kiểm khác vẫn xanh,
+    chỉ có cái khoá là không bao giờ đóng. Nên bài kiểm này soi ĐÚNG chỗ đó —
+    giao dịch phải thoát ra với exc_type là None.
+    """
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    pool, conn = _pool(_row(), khop=False)
+
+    with pytest.raises(ValidationError):
+        await AuthService(pool).login(email="bs.a@dr4women.local", password="sai")
+
+    tx = conn.transaction.return_value
+    tx.__aexit__.assert_awaited()
+    exc_type = tx.__aexit__.await_args.args[0]
+    assert exc_type is None, (
+        "giao dịch thoát ra KÈM ngoại lệ → asyncpg rollback → bộ đếm lần sai "
+        "bị huỷ, chống dò mật khẩu không chạy"
+    )

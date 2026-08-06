@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import asyncpg
 import jwt
@@ -63,6 +64,21 @@ class AuthService:
         if not email or not password:
             raise ValidationError("Nhập email và mật khẩu.")
 
+        # NÉM LỖI SAU KHI GIAO DỊCH ĐÃ COMMIT, KHÔNG PHẢI TRONG NÓ.
+        #
+        # Bản đầu tăng failed_attempts rồi `raise` ngay bên trong
+        # `async with conn.transaction()`. Ném lỗi trong giao dịch thì asyncpg
+        # ROLLBACK — nên bộ đếm không bao giờ được ghi, và chống dò mật khẩu
+        # trông như có mà thực ra không chạy. Sai kiểu tệ nhất: mọi bài kiểm
+        # dùng mock đều xanh, endpoint vẫn trả đúng câu, chỉ có cái khoá là
+        # không bao giờ đóng.
+        #
+        # Nên: quyết định trong giao dịch, ghi trong giao dịch, thoát ra bình
+        # thường, RỒI mới ném.
+        ket_qua: str = "ok"
+        con_lai_phut = 0
+        row: Any = None
+
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 row = await conn.fetchrow(
@@ -77,71 +93,81 @@ class AuthService:
                     email,
                 )
 
-                # MỘT CÂU TRẢ LỜI CHO MỌI KIỂU SAI.
-                #
-                # Email không tồn tại, mật khẩu sai, tài khoản đã nghỉ — cả ba
-                # trả về đúng một câu. Phân biệt chúng là nói cho người đang dò
-                # biết email nào CÓ THẬT trong hệ thống, tức là tặng họ nửa
-                # đầu của mỗi cặp thông tin đăng nhập.
-                sai = ValidationError("Email hoặc mật khẩu không đúng.")
-
-                if row is None:
-                    raise sai
-
                 now = datetime.now(timezone.utc)
-                if row["locked_until"] is not None and row["locked_until"] > now:
-                    # Cái này THÌ nói thật, vì nó không tiết lộ gì thêm cho kẻ
-                    # dò (họ tự biết mình vừa sai nhiều lần) mà lại là thông tin
-                    # người thật cần: chờ bao lâu.
-                    con_lai = int((row["locked_until"] - now).total_seconds() // 60) + 1
-                    raise ValidationError(
-                        f"Sai quá nhiều lần. Thử lại sau {con_lai} phút."
+                if row is None:
+                    ket_qua = "sai"
+                elif row["locked_until"] is not None and row["locked_until"] > now:
+                    ket_qua = "khoa"
+                    con_lai_phut = (
+                        int((row["locked_until"] - now).total_seconds() // 60) + 1
                     )
-
-                khop: bool = await conn.fetchval(
-                    "SELECT $1 = extensions.crypt($2, $1)",
-                    row["password_hash"],
-                    password,
-                )
-
-                if not khop:
-                    lan = row["failed_attempts"] + 1
-                    await conn.execute(
-                        """
-                        UPDATE public.app_credential
-                           SET failed_attempts = $2,
-                               locked_until = CASE WHEN $2 >= $3
-                                                   THEN now() + $4::interval
-                                                   ELSE locked_until END,
-                               updated_at = now()
-                         WHERE staff_id = $1
-                        """,
-                        row["staff_id"],
-                        lan,
-                        MAX_FAILED,
-                        LOCK_FOR,
+                else:
+                    khop: bool = await conn.fetchval(
+                        "SELECT $1 = extensions.crypt($2, $1)",
+                        row["password_hash"],
+                        password,
                     )
-                    logger.info(
-                        "login_failed", staff_id=str(row["staff_id"]), attempt=lan
-                    )
-                    raise sai
+                    if not khop:
+                        lan = row["failed_attempts"] + 1
+                        # ÉP KIỂU TỪNG THAM SỐ. `$2` vừa được gán vào một cột
+                        # integer vừa nằm trong phép so sánh, nên Postgres từ
+                        # chối: "inconsistent types deduced for parameter $2 —
+                        # text versus integer". Gặp thật khi chạy lần đầu, và
+                        # nó biến "sai mật khẩu" thành 500 — tức là tự nó phá
+                        # đúng cái tính chất một-câu-trả-lời ở trên, vì 500 và
+                        # 422 phân biệt được từ ngoài.
+                        await conn.execute(
+                            """
+                            UPDATE public.app_credential
+                               SET failed_attempts = $2::int,
+                                   locked_until = CASE WHEN $2::int >= $3::int
+                                                       THEN now() + $4::interval
+                                                       ELSE locked_until END,
+                                   updated_at = now()
+                             WHERE staff_id = $1::uuid
+                            """,
+                            row["staff_id"],
+                            lan,
+                            MAX_FAILED,
+                            LOCK_FOR,
+                        )
+                        logger.info(
+                            "login_failed", staff_id=str(row["staff_id"]), attempt=lan
+                        )
+                        ket_qua = "sai"
+                    elif row["is_active"] is False:
+                        # Nhân viên đã nghỉ: cùng một câu trả lời như sai mật
+                        # khẩu. Đúng mật khẩu mà vẫn không vào được là chuyện
+                        # của quản lý, không phải chuyện giải thích ở màn đăng
+                        # nhập.
+                        logger.info(
+                            "login_inactive_staff", staff_id=str(row["staff_id"])
+                        )
+                        ket_qua = "sai"
+                    else:
+                        await conn.execute(
+                            """
+                            UPDATE public.app_credential
+                               SET failed_attempts = 0, locked_until = NULL,
+                                   last_login_at = now(), updated_at = now()
+                             WHERE staff_id = $1::uuid
+                            """,
+                            row["staff_id"],
+                        )
 
-                # Nhân viên đã nghỉ: cùng một câu trả lời như sai mật khẩu.
-                # Đúng mật khẩu mà vẫn không vào được là chuyện của quản lý,
-                # không phải chuyện để giải thích ở màn đăng nhập.
-                if row["is_active"] is False:
-                    logger.info("login_inactive_staff", staff_id=str(row["staff_id"]))
-                    raise sai
-
-                await conn.execute(
-                    """
-                    UPDATE public.app_credential
-                       SET failed_attempts = 0, locked_until = NULL,
-                           last_login_at = now(), updated_at = now()
-                     WHERE staff_id = $1
-                    """,
-                    row["staff_id"],
-                )
+        # Giao dịch đã đóng — bộ đếm ở trên CHẮC CHẮN đã ghi. Giờ mới ném.
+        if ket_qua == "khoa":
+            # Cái này THÌ nói thật: nó không tiết lộ gì thêm cho kẻ dò (họ tự
+            # biết mình vừa sai nhiều lần) mà lại là thông tin người thật cần.
+            raise ValidationError(
+                f"Sai quá nhiều lần. Thử lại sau {con_lai_phut} phút."
+            )
+        if ket_qua == "sai":
+            # MỘT CÂU TRẢ LỜI CHO MỌI KIỂU SAI: email không tồn tại, mật khẩu
+            # sai, nhân viên đã nghỉ. Phân biệt chúng là nói cho người đang dò
+            # biết email nào CÓ THẬT, tức tặng họ nửa đầu của mỗi cặp thông tin
+            # đăng nhập.
+            raise ValidationError("Email hoặc mật khẩu không đúng.")
 
         expires_at = datetime.now(timezone.utc) + TOKEN_TTL
         token = _mint(
