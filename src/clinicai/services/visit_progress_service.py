@@ -54,10 +54,14 @@ class VisitProgress:
     # phải hỏi tới đây; hai mốc kia (`checked_in_at`, `finalized_at`) nằm ngay
     # trên bảng `visit` mà màn hình đã đọc.
     #
-    # `exam_started_at` = lần đầu có người BẮT TAY vào việc của lượt khám này
-    # (work_item.started_at sớm nhất). Không có cột "bắt đầu khám" trên `visit`,
-    # và suy từ `visit.status = IN_PROGRESS` thì chỉ biết ĐANG khám, không biết
-    # từ lúc nào.
+    # `exam_started_at` = lúc bệnh án đầu tiên của lượt được mở, tức lúc một
+    # người làm lâm sàng THẬT SỰ bắt tay vào khám.
+    #
+    # KHÔNG dùng `min(work_item.started_at)` — đã thử và sai. Giao dịch check-in
+    # mở sẵn nhiều bước cùng lúc (đo trên prod: LUOTKHAM-01 và LUOTKHAM-03 đều
+    # có `started_at` bằng ĐÚNG `checked_in_at`), nên con số ấy chỉ là giờ
+    # check-in đội lốt giờ khám. Bỏ trống thì người xem biết là chưa biết; một
+    # con số sai thì không.
     exam_started_at: datetime | None = None
     # Lúc thu XONG khâu cuối — không phải khâu đầu. Người xem bảng cần biết
     # "đã thu xong lúc mấy giờ", nên lấy mốc muộn nhất.
@@ -74,7 +78,7 @@ _PROGRESS_SQL = """
            (cr.visit_id IS NOT NULL)        AS has_clinical_record,
            COALESCE(rx.has_prescription, FALSE) AS has_prescription,
            COALESCE(pay.kinds, ARRAY[]::text[]) AS paid_kinds,
-           wi.exam_started_at,
+           cr.exam_started_at,
            pay.paid_at
       FROM appointment a
       LEFT JOIN LATERAL (
@@ -93,7 +97,8 @@ _PROGRESS_SQL = """
                          IS NOT NULL
                  AND NULLIF(TRIM(r.soap_objective #>> '{vitals,chieu_cao}'), '')
                          IS NOT NULL
-                 ) AS vitals_recorded
+                 ) AS vitals_recorded,
+                 min(r.created_at) AS exam_started_at
             FROM clinical_record r
            WHERE r.visit_id = v.visit_id
            GROUP BY r.visit_id
@@ -104,12 +109,6 @@ _PROGRESS_SQL = """
            WHERE p.visit_id = v.visit_id
            LIMIT 1
       ) rx ON TRUE
-      LEFT JOIN LATERAL (
-          SELECT min(w.started_at) AS exam_started_at
-            FROM work_item w
-           WHERE w.visit_id = v.visit_id
-             AND w.status <> 'CANCELLED'
-      ) wi ON TRUE
       -- `status = 'PAID'` KHÔNG phải thừa. Không có nó thì một khoản đã HUỶ
       -- (VOIDED) vẫn tính là đã thu, và thanh tiến trình tích xanh mốc thanh
       -- toán cho một lượt chưa ai trả tiền. Trên prod hôm nay cả hai dòng
