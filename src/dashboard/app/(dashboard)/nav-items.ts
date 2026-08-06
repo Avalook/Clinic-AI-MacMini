@@ -30,6 +30,7 @@ import {
   Timer,
   Zap,
   Building2,
+  PhoneCall,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -82,6 +83,15 @@ export const NAV: NavItem[] = [
     label: "Nhiệm vụ chăm sóc",
     shortLabel: "Chăm sóc",
     icon: ClipboardCheck,
+  },
+  // Nhắc tái khám — người bác sĩ đã hẹn quay lại mà chưa đặt lịch. Đứng cạnh
+  // "Nhiệm vụ chăm sóc" vì cùng người làm, nhưng là danh sách khác: màn kia
+  // xoay quanh lịch ĐÃ CÓ, màn này xoay quanh lịch CÒN THIẾU.
+  {
+    href: "/nhac-tai-kham",
+    label: "Nhắc tái khám",
+    shortLabel: "Tái khám",
+    icon: PhoneCall,
   },
   {
     href: "/appointments",
