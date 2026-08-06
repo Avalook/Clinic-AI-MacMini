@@ -11,8 +11,9 @@ features:
   signs off on a formula.
 * **Abnormality is a doctor pressing a button**, never derived from the
   measurements.
-* A visit that is no longer OPEN or IN_PROGRESS is closed to edits: measurements
-  cannot be changed after the record is finalised.
+* Một lượt khám đã KÝ (FINALIZED/AMENDED) thì khoá bút: đo xong không sửa được
+  nữa. Lượt còn ĐANG SỐNG — kể cả INCOMPLETE, khách về giữa chừng — vẫn ghi
+  được, vì họ còn quay lại.
 * One ultrasound_record per visit; measurements merge into the existing
   ``findings`` JSONB rather than replacing it, so saving just BPD does not wipe
   the rest of the exam.

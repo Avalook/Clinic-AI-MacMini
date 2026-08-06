@@ -33,6 +33,18 @@ function isBooked(r: QueueRow): boolean {
   return !!r.booking_channel && r.booking_channel !== "WALK_IN";
 }
 
+// "Còn đang chờ gọi" — danh sách TRẮNG.
+//
+// Trước đây là `visit_status !== "IN_PROGRESS"`, một danh sách đen: mọi trạng
+// thái mới đều rơi vào nhóm "đang chờ". Với INCOMPLETE (khách về giữa chừng)
+// điều đó nghĩa là người đã ra về vẫn nằm trong hàng và vẫn được gọi tên.
+//
+// Backend đã lọc họ khỏi /api/v1/queue rồi, nên đây là lớp thứ hai — nhưng lớp
+// thứ hai là thứ giữ cho bảng này đúng khi ai đó đổi endpoint.
+function conDangCho(visitStatus: string | null | undefined): boolean {
+  return visitStatus == null || visitStatus === "OPEN";
+}
+
 export default function QueueBoard({
   rows,
   error,
@@ -58,7 +70,7 @@ export default function QueueBoard({
   }
   const doctors = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const waitingCount = rows.filter(
-    (row) => row.visit_status !== "IN_PROGRESS" && !row.b3_ready,
+    (row) => conDangCho(row.visit_status) && !row.b3_ready,
   ).length;
   const inExamCount = rows.filter(
     (row) => row.visit_status === "IN_PROGRESS" && !row.b3_ready,
@@ -111,7 +123,7 @@ export default function QueueBoard({
               (r) => r.visit_status === "IN_PROGRESS" && !r.b3_ready,
             );
             const waiting = ordered.filter(
-              (r) => r.visit_status !== "IN_PROGRESS" && !r.b3_ready,
+              (r) => conDangCho(r.visit_status) && !r.b3_ready,
             );
             return (
               <section

@@ -410,7 +410,16 @@ export default function ClinicalRecordForm({
   const addRx = () => setRx((s) => [...s, { ...EMPTY_RX }]);
   const removeRx = (i: number) => setRx((s) => s.filter((_, j) => j !== i));
 
-  const locked = data?.visit?.status === "FINALIZED";
+  // Hồ sơ có KHOÁ BÚT hay không — danh sách TRẮNG, khớp
+  // `WRITABLE_VISIT_STATUSES` ở clinical_record_service.
+  //
+  // Trước đây là `=== "FINALIZED"`, một danh sách đen. Với INCOMPLETE nó tình
+  // cờ đúng (khám dở vẫn ghi được), nhưng trạng thái CUỐI tiếp theo mà ai đó
+  // thêm vào sẽ lọt qua và mở form cho một hồ sơ đã khoá — backend từ chối,
+  // còn bác sĩ thì gõ xong mới biết.
+  const GHI_DUOC = ["OPEN", "IN_PROGRESS", "INCOMPLETE"];
+  const visitStatus = data?.visit?.status;
+  const locked = visitStatus != null && !GHI_DUOC.includes(visitStatus);
 
   // GATE LỄ TÂN: CHỈ ghi được (bác sĩ khám / điều dưỡng điền sinh hiệu) khi lễ tân
   // đã check-in (bệnh nhân đã đến). ÁP CHO CẢ luồng đón-khám (vitalsOnly) — quy
