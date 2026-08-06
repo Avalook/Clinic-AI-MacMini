@@ -7,7 +7,7 @@
  * this file.
  */
 
-import { CalendarDays, Hourglass, ShieldCheck, UsersRound, Activity } from "lucide-react";
+import { Hourglass, ShieldCheck, UsersRound, Activity } from "lucide-react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import { requireNavAccess } from "@/lib/clinic-session";
@@ -27,31 +27,15 @@ export default async function ReceptionQueuePage() {
   await requireNavAccess("/reception/queue");
   const result = await fetchWorklist("bang_dieu_phoi");
 
-  const now = new Date();
-  const today = now.toLocaleDateString("vi-VN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
   return (
     <>
       <LiveBoardSync />
     <main className="page-in flex min-w-0 flex-col gap-3">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Hàng đợi tiếp nhận</h1>
-          <p className="mt-0.5 text-sm text-ink-muted">
-            Gọi người bệnh và xử lý hàng chờ tại khu vực tiếp nhận.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-ink-soft">
-          <span className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2">
-            <CalendarDays size={16} className="text-brand-600" aria-hidden />
-            {today}
-          </span>
-        </div>
-      </header>
+      {/* KHÔNG có tiêu đề trang và không có ô ngày ở đây.
+          
+          Thanh trên cùng của ứng dụng đã hiện đúng hai thứ đó — "Hàng đợi tiếp
+          nhận" và "Thứ Năm, 06/08/2026". Lặp lại lần nữa chỉ đẩy phần việc thật
+          xuống dưới một màn hình. */}
 
       {!result.ok ? (
         /* An outage must not look like an empty waiting room. */

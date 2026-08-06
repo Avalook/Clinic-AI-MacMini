@@ -42,15 +42,24 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
   ]) {
     assert.match(customers, new RegExp(label));
   }
-  assert.match(customers, /key:\s*"upcoming"/);
+  // CSKH vẫn lọc được ra nhóm khách sắp đến — canh theo KHOÁ, không theo chữ
+  // hiển thị. Nhãn đã đổi vài lần ("Có lịch sắp tới" → "Cần theo dõi"), và đổi
+  // chữ trên nút là quyết định sản phẩm.
+  assert.match(customers, /"upcoming"/);
   assert.match(customers, /appointment\?\.upcoming/);
-  // Tab "khách có lịch sắp tới" vẫn phải còn — nhưng canh theo KHOÁ, không theo
-  // chữ hiển thị. Nhãn đã đổi từ "Có lịch sắp tới" thành "Cần theo dõi", và đổi
-  // chữ trên nút là quyết định sản phẩm; điều bài kiểm này canh là CSKH vẫn lọc
-  // được ra nhóm khách sắp đến.
-  for (const label of [] as string[]) {
-    assert.match(customers, new RegExp(label));
-  }
+
+  // HÀNG TAB ĐÃ BỎ: bốn ô số ở trên CHÍNH LÀ bộ lọc.
+  //
+  // Trước đây màn này có cả hai, và bốn nhãn tab không khớp bốn con số — tab
+  // ghi "Quá SLA" nhưng lọc `without_appointment` (khách chưa có lịch hẹn).
+  // Bấm tab rồi so với con số ở trên là ra hai kết quả khác nhau.
+  assert.doesNotMatch(customers, /CUSTOMER_TABS/);
+  assert.match(customers, /onSelect=\{\(\) => chonLoc\(/);
+
+  // Con số trên ô VÀ phép lọc phải dùng CHUNG một vị từ. Đây là tính chất thật
+  // sự cần giữ: bấm ô đang hiện 29 thì thấy đúng 29 dòng ấy.
+  assert.match(customers, /hopVoiTab\(r, "upcoming"\)/);
+  assert.match(customers, /searchedRows\.filter\(\(row\) => hopVoiTab\(row, tab\)\)/);
   // Canh CẤU TRÚC, không canh số pixel.
   //
   // Bản cũ ghim đúng `minmax(300px,380px)`. Thiết kế chỉnh panel chi tiết rộng
