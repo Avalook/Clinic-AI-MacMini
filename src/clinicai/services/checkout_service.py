@@ -169,6 +169,153 @@ class CheckoutService:
             )
         return out
 
+    async def chi_tiet(
+        self, *, identity: StaffIdentity, visit_id: str
+    ) -> dict[str, Any]:
+        """Toàn cảnh một lượt khám để Lễ tân đối soát trước khi đóng.
+
+        Bốn mục theo đúng bản thiết kế Quang gửi 06/08 — nhưng CHỈ ba mục có dữ
+        liệu thật đứng sau, và mục thứ tư nói rõ là chưa có:
+
+          ① Dịch vụ — từng bước trong luồng khám, ai làm, xong chưa (`work_item`).
+          ② Tài chính — từng khoản đã thu (`payment`), và còn nợ gì.
+          ③ Hồ sơ trả bệnh nhân — CHƯA CÓ. Hệ chưa sinh tệp PDF nào và chưa có
+            kho lưu, nên trả về danh sách rỗng kèm lý do thay vì bốn dòng
+            "Sẵn sàng" không dựa trên gì.
+          ④ Theo dõi sau khám — `follow_up_case`, hôm nay 0 dòng.
+
+        Cộng một dòng thời gian dựng từ `work_item_event` — mốc thật, do người
+        thật bấm, không phải giờ suy ra.
+        """
+        async with self._pool.acquire() as conn:
+            chung = await conn.fetchrow(
+                _READINESS_SQL, identity.clinic_id, CLOSE_NODE, visit_id
+            )
+            if chung is None:
+                return {"ok": False, "visit_id": visit_id}
+
+            buoc = await conn.fetch(
+                """
+                SELECT w.node_code, w.status, w.started_at, w.finished_at,
+                       coalesce(nd.name, w.node_code) AS ten_buoc,
+                       s.full_name                    AS nguoi_lam,
+                       w.assigned_role                AS vai
+                  FROM public.work_item w
+                  LEFT JOIN public.node_definition nd
+                         ON nd.code = w.node_code AND nd.clinic_id = w.clinic_id
+                  LEFT JOIN public.staff s ON s.id = w.assigned_to
+                 WHERE w.visit_id = $2::uuid AND w.clinic_id = $1::uuid
+                   AND w.status <> 'CANCELLED'
+                 ORDER BY coalesce(w.finished_at, w.started_at, w.created_at)
+                """,
+                identity.clinic_id,
+                visit_id,
+            )
+
+            tien = await conn.fetch(
+                """
+                SELECT pm.kind, pm.amount, pm.status, pm.paid_at,
+                       pm.voided_at IS NOT NULL AS da_huy
+                  FROM public.payment pm
+                 WHERE pm.visit_id = $2::uuid AND pm.clinic_id = $1::uuid
+                 ORDER BY pm.paid_at NULLS LAST
+                """,
+                identity.clinic_id,
+                visit_id,
+            )
+
+            moc = await conn.fetch(
+                """
+                SELECT e.occurred_at, e.command, e.to_status,
+                       coalesce(nd.name, w.node_code) AS ten_buoc,
+                       s.full_name                    AS nguoi_lam
+                  FROM public.work_item_event e
+                  JOIN public.work_item w ON w.id = e.work_item_id
+                  LEFT JOIN public.node_definition nd
+                         ON nd.code = w.node_code AND nd.clinic_id = w.clinic_id
+                  LEFT JOIN public.staff s ON s.id = e.actor_staff_id
+                 WHERE w.visit_id = $2::uuid AND e.clinic_id = $1::uuid
+                 ORDER BY e.occurred_at
+                """,
+                identity.clinic_id,
+                visit_id,
+            )
+
+            theo_doi = await conn.fetch(
+                """
+                SELECT f.id, f.status, f.due_at
+                  FROM public.follow_up_case f
+                 WHERE f.visit_id = $2::uuid AND f.clinic_id = $1::uuid
+                 ORDER BY f.due_at NULLS LAST
+                """,
+                identity.clinic_id,
+                visit_id,
+            )
+
+        blockers = build_blockers(dict(chung))
+        return {
+            "ok": True,
+            "visit_id": str(chung["visit_id"]),
+            "patient_name": chung["patient_name"],
+            "patient_code": chung["patient_code"],
+            "visit_status": chung["visit_status"],
+            "checked_in_at": (
+                chung["checked_in_at"].isoformat() if chung["checked_in_at"] else None
+            ),
+            "room_name": chung["room_name"],
+            "already_closed": chung["already_closed"],
+            "blockers": blockers,
+            "can_close": not blockers and not chung["already_closed"],
+            "dich_vu": [
+                {
+                    "ten": r["ten_buoc"],
+                    "nguoi_lam": r["nguoi_lam"],
+                    "vai": r["vai"],
+                    "status": r["status"],
+                    "xong_luc": (
+                        r["finished_at"].isoformat() if r["finished_at"] else None
+                    ),
+                }
+                for r in buoc
+            ],
+            "tai_chinh": [
+                {
+                    "loai": r["kind"],
+                    "so_tien": float(r["amount"]) if r["amount"] is not None else None,
+                    "status": r["status"],
+                    "da_huy": r["da_huy"],
+                    "luc": r["paid_at"].isoformat() if r["paid_at"] else None,
+                }
+                for r in tien
+            ],
+            # Chưa có hệ sinh tệp và chưa có kho lưu — trả rỗng kèm lý do, thay
+            # vì bốn dòng "Sẵn sàng" không dựa trên gì.
+            "ho_so_tra": {
+                "muc": [],
+                "vi_sao_rong": (
+                    "Hệ chưa sinh tệp kết quả/đơn thuốc và chưa có kho lưu tệp."
+                ),
+            },
+            "theo_doi": [
+                {
+                    "id": str(r["id"]),
+                    "status": r["status"],
+                    "han": r["due_at"].isoformat() if r["due_at"] else None,
+                }
+                for r in theo_doi
+            ],
+            "moc_thoi_gian": [
+                {
+                    "luc": r["occurred_at"].isoformat(),
+                    "ten": r["ten_buoc"],
+                    "lenh": r["command"],
+                    "den_trang_thai": r["to_status"],
+                    "nguoi_lam": r["nguoi_lam"],
+                }
+                for r in moc
+            ],
+        }
+
     async def stale_list(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         """Lượt khám còn mở từ NHỮNG NGÀY TRƯỚC — thứ không màn hình nào thấy.
 

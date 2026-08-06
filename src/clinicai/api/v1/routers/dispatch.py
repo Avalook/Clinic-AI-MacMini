@@ -229,6 +229,25 @@ async def checkout_stale(
     }
 
 
+@router.get("/reception/checkout/chi-tiet/{visit_id:uuid}")
+async def checkout_chi_tiet(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Toàn cảnh một lượt khám để đối soát trước khi đóng.
+
+    Dịch vụ đã làm · các khoản đã thu · hồ sơ sẽ trả · theo dõi sau khám · dòng
+    thời gian. Xem `CheckoutService.chi_tiet` để biết mục nào có dữ liệu thật và
+    mục nào chưa.
+    """
+    from clinicai.services.checkout_service import CheckoutService
+
+    return await CheckoutService(pool).chi_tiet(
+        identity=identity, visit_id=str(visit_id)
+    )
+
+
 @router.get("/reception/checkout")
 async def checkout_list(
     identity: StaffIdentity = Depends(_RECEPTION_GUARD),
