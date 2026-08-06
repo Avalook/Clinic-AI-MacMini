@@ -16,7 +16,10 @@ from clinicai.api.middleware import (
     RequestIdMiddleware,
     TimingMiddleware,
 )
-from clinicai.api.runaway_guard import runaway_guard
+from clinicai.api.runaway_guard import (
+    runaway_guard,
+    runaway_guard_cho_ca_man_hinh,
+)
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
@@ -162,7 +165,12 @@ app.include_router(health_router)
 # người gọi là ai — đó chính là việc endpoint này đang làm.
 app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(
-    identity_router, prefix="/api/v1", tags=["identity"], dependencies=_GUARDED
+    identity_router,
+    prefix="/api/v1",
+    tags=["identity"],
+    # Bộ đếm bản KHÔNG chặn vai DISPLAY: `/api/v1/me` phải trả lời được cho tài
+    # khoản màn hình TV, nếu không nó đăng nhập xong bị đá về trang đăng nhập.
+    dependencies=[Depends(runaway_guard_cho_ca_man_hinh)],
 )
 # Dòng sự kiện cho màn hình (thay Supabase Realtime).
 #
