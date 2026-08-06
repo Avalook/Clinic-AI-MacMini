@@ -396,9 +396,18 @@ export default function GlobalHeader({
                   notifs.map((n) => (
                     <div
                       key={n.key}
-                      className="flex items-start gap-2.5 rounded-xl bg-brand-50/70 p-2.5 text-xs"
+                      className={`flex items-start gap-2.5 rounded-xl p-2.5 text-xs ${
+                        n.khan ? "bg-danger-bg" : "bg-brand-50/70"
+                      }`}
                     >
-                      {n.approved ? (
+                      {n.khan ? (
+                        // Thông báo KHẨN do Trưởng ca gọi — đây là cái đỏ THẬT,
+                        // thay cho ba dòng viết cứng đã gỡ hôm nay.
+                        <AlertCircle
+                          size={15}
+                          className="mt-0.5 shrink-0 text-danger"
+                        />
+                      ) : n.approved ? (
                         <CheckCircle2
                           size={15}
                           className="mt-0.5 shrink-0 text-success"
@@ -406,7 +415,7 @@ export default function GlobalHeader({
                       ) : (
                         <AlertCircle
                           size={15}
-                          className="mt-0.5 shrink-0 text-danger"
+                          className="mt-0.5 shrink-0 text-warning"
                         />
                       )}
                       <div className="min-w-0 flex-1">

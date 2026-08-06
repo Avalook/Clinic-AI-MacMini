@@ -106,8 +106,9 @@ BEGIN
     -- 20260802000001, kho thuốc theo lô).
     -- 34 → 35 ngày 07/08/2026: nhac_tai_kham — việc gọi nhắc tái khám hai lượt
     -- (migration 20260807000005). Đọc theo phòng khám, ghi qua FastAPI.
-    IF scoped_count <> 35 THEN
-        RAISE EXCEPTION 'expected 35 tenant-scoped read policies, found %', scoped_count;
+    -- 35 → 36 ngày 07/08/2026: thong_bao (migration 20260807000006).
+    IF scoped_count <> 36 THEN
+        RAISE EXCEPTION 'expected 36 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
