@@ -14,9 +14,9 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
-  Info,
 } from "lucide-react";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
+import { useNotifications } from "./NotificationContext";
 
 interface GlobalHeaderProps {
   onToggleSidebar: () => void;
@@ -122,36 +122,20 @@ export default function GlobalHeader({
     timeZone: VN_TZ,
   });
 
-  // Dynamic Notifications State
-  const [notifications, setNotifications] = useState([
-    {
-      id: "1",
-      title: "Có 2 ca mới chờ CSKH xác nhận",
-      time: "08:15",
-      unread: true,
-      type: "info",
-    },
-    {
-      id: "2",
-      title: "BS. Phan Chí Thành đã duyệt kết quả khám",
-      time: "08:00",
-      unread: true,
-      type: "success",
-    },
-    {
-      id: "3",
-      title: "Cảnh báo quá SLA 15 phút ca KH-260514-012",
-      time: "07:45",
-      unread: true,
-      type: "alert",
-    },
-  ]);
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  };
+  // CHUÔNG ĐỌC NGUỒN THẬT (NotificationContext), KHÔNG CÒN BA DÒNG VIẾT CỨNG.
+  //
+  // Trước đây chỗ này là một mảng gõ tay, trong đó có một dòng ĐỎ
+  // "Cảnh báo quá SLA 15 phút ca KH-260514-012" — một mã ca không tồn tại — và
+  // nó hiện trên MỌI trang, cho MỌI vai, mọi ngày. Nghĩa là mỗi nhân viên mở
+  // app đều thấy chuông đỏ số 3 và không lần nào trong đó là thật.
+  //
+  // Cái giá không phải là ba dòng sai. Là cả phòng khám học được rằng chuông đỏ
+  // không có nghĩa gì — nên đến lúc có cảnh báo thật thì không ai nhìn nữa.
+  //
+  // Nguồn thật hiện có: quyết định duyệt/từ chối ca làm việc của CHÍNH mình
+  // (NotificationContext, realtime + poll). Ít hơn ba dòng kia rất nhiều, và
+  // chuông im khi không có gì — đó mới là điều làm nó đáng tin.
+  const { notifs, unread: unreadCount, markAllRead } = useNotifications();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -401,22 +385,37 @@ export default function GlobalHeader({
                 )}
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`flex items-start gap-2.5 rounded-xl p-2.5 text-xs transition-colors ${
-                      n.unread ? "bg-brand-50/70" : "bg-surface-muted"
-                    }`}
-                  >
-                    {n.type === "info" && <Info size={15} className="mt-0.5 text-brand-600 shrink-0" />}
-                    {n.type === "success" && <CheckCircle2 size={15} className="mt-0.5 text-success shrink-0" />}
-                    {n.type === "alert" && <AlertCircle size={15} className="mt-0.5 text-danger shrink-0" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink leading-tight">{n.title}</p>
-                      <span className="text-[10px] text-ink-muted">{n.time}</span>
+                {notifs.length === 0 ? (
+                  <p className="px-1 py-3 text-center text-xs text-ink-muted">
+                    Chưa có thông báo nào.
+                  </p>
+                ) : (
+                  notifs.map((n) => (
+                    <div
+                      key={n.key}
+                      className="flex items-start gap-2.5 rounded-xl bg-brand-50/70 p-2.5 text-xs"
+                    >
+                      {n.approved ? (
+                        <CheckCircle2
+                          size={15}
+                          className="mt-0.5 shrink-0 text-success"
+                        />
+                      ) : (
+                        <AlertCircle
+                          size={15}
+                          className="mt-0.5 shrink-0 text-danger"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium leading-tight text-ink">
+                          {n.title}
+                        </p>
+                        <p className="text-[11px] text-ink-soft">{n.detail}</p>
+                        <span className="text-[10px] text-ink-muted">{n.at}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
