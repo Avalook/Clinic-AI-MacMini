@@ -365,6 +365,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
+  "/settings/tai-khoan": ["MANAGEMENT"],
   // Command Center — Cổng trung tâm điều khiển toàn hệ thống.
   // Chỉ Quản lý + Trưởng ca (isOpsAdmin) mới được vào.
   "/portal": ["MANAGEMENT"],
