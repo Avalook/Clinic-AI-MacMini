@@ -1253,6 +1253,29 @@ export default function ClinicalRecordForm({
           </div>
         )}
 
+        {/* CHƯA CÓ LƯỢT KHÁM — và đây là lỗ hổng của chính khối bên dưới.
+            Dòng "chưa gắn phiếu" ở dưới cũng đòi `visit_id`, nên khi lượt khám
+            chưa mở thì KHÔNG có gì hiện ra cả: không phiếu, không lời giải
+            thích. Đã gặp thật khi rà màn bác sĩ 06/08 — tab trống trơn, và
+            người ngồi trước màn hình không có cách nào biết vì sao.
+
+            `!loading` để không loé dòng này trong lúc đang đọc dữ liệu. */}
+        {tab === 2 && !vitalsOnly && !showAll && !loading && !data?.visit?.visit_id && (
+          <div className="border-t border-surface-sunken pt-3">
+            <p className="rounded-card border border-line bg-brand-50/40 px-3 py-2.5 text-sm text-ink-muted">
+              Chưa mở lượt khám nên chưa có chỗ ghi phiếu chuyên khoa.{" "}
+              {readOnly || locked ? (
+                <>Lượt khám mở khi lễ tân check-in bệnh nhân.</>
+              ) : (
+                <>
+                  Bấm <span className="font-medium text-ink">Lưu hồ sơ</span> ở
+                  dưới để mở lượt khám — phiếu sẽ hiện ra ngay sau đó.
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* NÓI RA thay vì ẩn. Một khoảng trống ở đúng chỗ lẽ ra có phiếu khám
             đọc thành "hệ thống hỏng", và bác sĩ sẽ đi hỏi kỹ thuật thay vì ghi
             tiếp vào bệnh án chung. */}
