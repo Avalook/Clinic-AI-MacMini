@@ -186,6 +186,13 @@ export default function GlobalHeader({
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
+    if (pathname.startsWith("/nhan-su")) {
+      return {
+        title: "Quản lý nhân sự",
+        subtitle:
+          "Hồ sơ từng người: vai trò, cơ sở làm việc, loại hợp đồng, giấy phép hành nghề.",
+      };
+    }
     if (pathname.startsWith("/patients/new")) {
       return {
         // MỘT câu đúng cho cả hai luồng (CSKH đặt lịch trước · Lễ tân tiếp

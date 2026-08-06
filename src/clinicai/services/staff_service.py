@@ -23,7 +23,9 @@ logger = structlog.get_logger()
 _STAFF_PROJECTION = """
     s.id, s.full_name, s.short_name, m.role AS primary_department,
     s.primary_location_id, s.employment_type, s.is_training,
-    m.is_active AS is_active, s.created_at, s.updated_at
+    m.is_active AS is_active, s.created_at, s.updated_at,
+    s.date_of_birth, s.gender, s.national_id_number, s.phone, s.email,
+    s.license_number, s.license_issued_on, s.practice_scope
 """
 
 

@@ -32,17 +32,13 @@ const EMPLOYMENT: { value: string; label: string }[] = [
   { value: "CONTRACT", label: "Hợp đồng" },
 ];
 
-/** Trường mockup có mà database chưa có chỗ lưu. Hiện ra để người dùng biết
- *  hệ thống CHƯA làm, thay vì vẽ ô nhập gõ vào rồi mất. */
+/** Chỉ CÒN MỘT ô chưa làm được. Bảy ô kia đã có cột thật từ migration
+ *  20260806000005 và nằm ngay trong biểu mẫu bên dưới.
+ *
+ *  Giữ khối này thay vì xoá hẳn: "Tài liệu đính kèm" cần một CHỖ LƯU TỆP, và
+ *  một ô gõ vào rồi mất còn tệ hơn một ô nói thẳng là chưa có. */
 const CHUA_LUU_DUOC: { label: string; note: string }[] = [
-  { label: "Ngày sinh", note: "cần thêm cột" },
-  { label: "Giới tính", note: "cần thêm cột" },
-  { label: "Số CCCD", note: "định danh công dân — cần quyết định về quyền đọc" },
-  { label: "Số điện thoại", note: "cần thêm cột" },
-  { label: "Email", note: "cần thêm cột" },
-  { label: "Số CCHN + ngày cấp", note: "cần thêm cột" },
-  { label: "Phạm vi hoạt động chuyên môn", note: "cần thêm cột" },
-  { label: "Tài liệu đính kèm", note: "cần chỗ lưu tệp" },
+  { label: "Tài liệu đính kèm", note: "cần kho lưu tệp — chưa cấu hình" },
 ];
 
 const deptLabel = (value: string) =>
@@ -150,38 +146,31 @@ export default function NhanSuBoard({
       {/* ------------------------------------------------ danh sách bên trái */}
       <aside className="rounded-card border border-line bg-surface shadow-card">
         <div className="border-b border-line p-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm theo tên hoặc tên gọi..."
-            className={INPUT}
-          />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setDeptFilter("")}
-              className={`rounded-full px-2.5 py-1 text-[11px] ${
-                deptFilter === ""
-                  ? "bg-brand-600 font-semibold text-white"
-                  : "bg-surface-sunken text-ink-muted hover:bg-brand-100"
-              }`}
+          {/* MỘT nút lọc, đặt cạnh ô tìm.
+              
+              Trước đây là tám chip vai trải hai hàng, chiếm gần bằng cả ô tìm và
+              đẩy danh sách xuống. Với phòng khám chín người thì tám chip ấy
+              phần lớn hiện "(1)" — nhiều chỗ bấm cho một việc hiếm khi cần. */}
+          <div className="flex items-center gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Tìm theo tên hoặc tên gọi..."
+              className={INPUT}
+            />
+            <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              aria-label="Lọc theo vai trò"
+              className="shrink-0 rounded-lg border border-line bg-surface px-2 py-2 text-xs text-ink outline-none focus:border-brand-600"
             >
-              Tất cả ({staff.length})
-            </button>
-            {DEPARTMENTS.filter((d) => counts.get(d.value)).map((d) => (
-              <button
-                key={d.value}
-                type="button"
-                onClick={() => setDeptFilter(d.value)}
-                className={`rounded-full px-2.5 py-1 text-[11px] ${
-                  deptFilter === d.value
-                    ? "bg-brand-600 font-semibold text-white"
-                    : "bg-surface-sunken text-ink-muted hover:bg-brand-100"
-                }`}
-              >
-                {d.label} ({counts.get(d.value)})
-              </button>
-            ))}
+              <option value="">Tất cả vai ({staff.length})</option>
+              {DEPARTMENTS.filter((d) => counts.get(d.value)).map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label} ({counts.get(d.value)})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -309,6 +298,96 @@ export default function NhanSuBoard({
                   ))}
                 </select>
               </label>
+              <label className="block">
+                <span className={LABEL}>Ngày sinh</span>
+                <input
+                  type="date"
+                  value={field("date_of_birth") ?? ""}
+                  onChange={(e) => edit("date_of_birth", e.target.value || null)}
+                  className={INPUT}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>Giới tính</span>
+                <select
+                  value={field("gender") ?? ""}
+                  onChange={(e) => edit("gender", e.target.value || null)}
+                  className={INPUT}
+                >
+                  <option value="">— Chưa ghi —</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className={LABEL}>Số điện thoại</span>
+                <input
+                  value={field("phone") ?? ""}
+                  onChange={(e) => edit("phone", e.target.value || null)}
+                  placeholder="9–11 chữ số"
+                  className={INPUT}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>Email</span>
+                <input
+                  type="email"
+                  value={field("email") ?? ""}
+                  onChange={(e) => edit("email", e.target.value || null)}
+                  className={INPUT}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>
+                  Số CCCD{" "}
+                  <span className="font-normal opacity-70">
+                    (chỉ Quản lý &amp; Trưởng ca xem được)
+                  </span>
+                </span>
+                <input
+                  inputMode="numeric"
+                  value={field("national_id_number") ?? ""}
+                  onChange={(e) =>
+                    edit("national_id_number", e.target.value || null)
+                  }
+                  placeholder="12 chữ số"
+                  className={INPUT}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>Số chứng chỉ hành nghề</span>
+                <input
+                  value={field("license_number") ?? ""}
+                  onChange={(e) => edit("license_number", e.target.value || null)}
+                  className={INPUT}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>Ngày cấp CCHN</span>
+                <input
+                  type="date"
+                  value={field("license_issued_on") ?? ""}
+                  onChange={(e) =>
+                    edit("license_issued_on", e.target.value || null)
+                  }
+                  className={INPUT}
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className={LABEL}>
+                  Phạm vi hoạt động chuyên môn{" "}
+                  <span className="font-normal opacity-70">
+                    (ghi trên CCHN — thứ giới hạn người này được làm gì)
+                  </span>
+                </span>
+                <input
+                  value={field("practice_scope") ?? ""}
+                  onChange={(e) => edit("practice_scope", e.target.value || null)}
+                  className={INPUT}
+                />
+              </label>
+
               <div className="flex items-end gap-4 pb-1">
                 <label className="flex items-center gap-2 text-sm text-ink">
                   <input
