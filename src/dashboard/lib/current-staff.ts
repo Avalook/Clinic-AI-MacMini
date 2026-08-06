@@ -1,22 +1,25 @@
-// Resolve the currently-authenticated Supabase user to the staff row
-// they're linked to via ``staff.auth_user_id`` (migration 025).
+// Ai đang đăng nhập — HỎI BACKEND, không tự suy ra lần thứ hai.
 //
-// Cached per request with React's ``cache()`` — multiple pages/components
-// in the same render tree share one query. Returns ``null`` when the
-// user is signed out OR when no staff row is linked (CSKH might log in
-// with an account that isn't bound to a staff record yet).
+// Bản trước tự truy vấn Supabase: đọc `staff` theo auth_user_id, nhúng
+// `clinic_membership` đang hoạt động, lấy vai từ đó. Đúng bằng luật của
+// `get_current_identity` bên FastAPI — viết hai lần, bằng hai ngôn ngữ. Và hai
+// bản ấy ĐÃ lệch đúng ở chỗ quan trọng nhất: một mã vai lạ thì backend rơi về
+// CSKH (quyền thấp nhất, nhưng vẫn là một phiên làm việc được), còn bản này trả
+// null — người dùng bị đá về /login mà không hiểu vì sao. Cùng một dòng dữ
+// liệu, hai câu trả lời khác nhau cho câu hỏi "tôi là ai".
 //
-// SECURITY: this query goes through the server-side Supabase client,
-// which itself runs as the authenticated role. The ``staff`` table is
-// not yet RLS-gated (P11 RBAC work), so anyone authenticated reads any
-// staff row — the linkage check is purely WHERE auth_user_id = uid.
+// Nay chỉ còn một câu trả lời: GET /api/v1/me. Nó xác THỰC token (chữ ký, hạn),
+// tra staff → clinic_membership, và có cache 30 giây trong tiến trình api nên
+// mỗi lần chuyển trang không phải đi Seoul một vòng.
+//
+// KHÔNG CÓ ĐƯỜNG LÙI VỀ SUPABASE, CÓ CHỦ Ý. Một đường lùi chính là bản sao thứ
+// hai mọc lại — và nó vô ích: mọi route nghiệp vụ của dashboard đã proxy thẳng
+// xuống FastAPI không điều kiện (xem backend-proxy.ts), nên khi api chết thì
+// mọi nút bấm đã hỏng rồi. Giữ được danh tính trên một ứng dụng không bấm được
+// gì chỉ khiến hỏng hóc trông giống bình thường.
 
 import { cache } from "react";
-import {
-  resolveLinkedStaffAuthority,
-  resolveSingleActiveMembership,
-} from "./identity-authority";
-import { getSupabaseServer } from "./supabase-server";
+import { fetchFromBackend } from "./backend-proxy";
 
 export interface CurrentStaff {
   id: string;
@@ -31,6 +34,23 @@ export interface CurrentStaff {
   /** Tên phòng khám + cơ sở, để hiện lên đầu màn hình. */
   clinic_name: string;
   location_name: string;
+}
+
+/** Hình dạng GET /api/v1/me trả về (routers/identity.py). */
+interface MeResponse {
+  staff_id: string;
+  auth_user_id: string;
+  full_name: string;
+  short_name: string;
+  department: string;
+  role: string;
+  clinic_id: string;
+  clinic_name: string;
+  location_id: string;
+  location_name: string;
+  can_write_clinical: boolean;
+  is_doctor: boolean;
+  is_cashier: boolean;
 }
 
 // THREE HELPERS USED TO LIVE HERE AND ALL THREE ARE GONE (audit, 2026-08-03).
@@ -49,78 +69,28 @@ export interface CurrentStaff {
 
 /** Memoised per server-render. */
 export const getCurrentStaff = cache(async (): Promise<CurrentStaff | null> => {
-  const supabase = await getSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  // Nhúng luôn tên cơ sở: yêu cầu "tài khoản nào cũng phải có phòng khám, cơ sở"
-  // chỉ có tác dụng nếu người dùng NHÌN THẤY mình đang ở đâu. Một dòng chữ trên
-  // đầu màn hình là thứ ngăn lễ tân đặt lịch cho cơ sở khác mà không biết.
-  //
-  // MỘT LƯỢT GỌI, KHÔNG PHẢI HAI. Bản trước đọc `staff` rồi mới đọc
-  // `clinic_membership` bằng staff.id — hai lượt NỐI TIẾP, vì lượt sau cần kết
-  // quả lượt trước. Mỗi lượt tới Supabase (Seoul) mất ~80ms đo từ máy ở Việt
-  // Nam, và hàm này chạy trên MỌI trang, MỌI lần điều hướng.
-  //
-  // clinic_membership.staff_id là khoá ngoại trỏ về staff.id, nên PostgREST
-  // nhúng được nó vào cùng truy vấn. Cùng dữ liệu, cùng RLS, cùng phép kiểm
-  // `resolveSingleActiveMembership` bên dưới — chỉ bớt một vòng mạng.
-  const { data, error } = await supabase
-    .from("staff")
-    .select(
-      "id, full_name, short_name, primary_department, primary_location_id," +
-        " auth_user_id, is_active," +
-        " clinic_location:clinic_location!staff_primary_location_id_fkey ( name )," +
-        " clinic_membership:clinic_membership!clinic_membership_staff_id_fkey" +
-        " ( clinic_id, role, is_active, clinic:clinic!clinic_membership_clinic_id_fkey ( name ) )",
-    )
-    .eq("auth_user_id", user.id)
-    .eq("clinic_membership.is_active", true)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  // resolveLinkedStaffAuthority chỉ kiểm quan hệ auth_user_id ↔ staff; hai tên
-  // hiển thị được ghép vào sau khi nó đã xác nhận danh tính, nên ép kiểu ở đây
-  // bỏ qua chúng có chủ ý.
-  const linked = resolveLinkedStaffAuthority(
-    user.id,
-    data as unknown as Omit<
-      CurrentStaff,
-      "clinic_id" | "clinic_role" | "clinic_name" | "location_name"
-    >,
-  );
-  if (!linked) return null;
-
-  // Phép kiểm KHÔNG đổi: vẫn đúng hàm ấy, vẫn từ chối khi có 0 hoặc >1 tư cách
-  // thành viên đang hoạt động. Chỉ khác chỗ dữ liệu đến từ đâu.
-  const memberships = (
-    data as unknown as {
-      clinic_membership?: {
-        clinic_id: string;
-        role: string;
-        is_active: boolean;
-        clinic?: { name?: string } | { name?: string }[];
-      }[];
-    }
-  ).clinic_membership;
-  const membership = resolveSingleActiveMembership(memberships ?? []);
-  if (!membership) return null;
-
-  const locationRel = (data as { clinic_location?: { name?: string } | { name?: string }[] })
-    .clinic_location;
-  const location = Array.isArray(locationRel) ? locationRel[0] : locationRel;
-  const clinicRel = (
-    membership as unknown as { clinic?: { name?: string } | { name?: string }[] }
-  ).clinic;
-  const clinic = Array.isArray(clinicRel) ? clinicRel[0] : clinicRel;
+  const me = await fetchFromBackend<MeResponse>("/api/v1/me");
+  if (!me) return null;
 
   return {
-    ...linked,
-    clinic_id: membership.clinic_id,
-    clinic_role: membership.role,
-    clinic_name: clinic?.name ?? "",
-    location_name: location?.name ?? "",
+    id: me.staff_id,
+    full_name: me.full_name,
+    // Backend trả chuỗi rỗng khi cột trống; kiểu ở đây là `string | null` từ
+    // trước và các chỗ gọi dùng `?? full_name`, nên giữ nguyên quy ước null.
+    short_name: me.short_name || null,
+    primary_department: me.department,
+    primary_location_id: me.location_id || null,
+    auth_user_id: me.auth_user_id,
+    // /me chỉ trả lời cho nhân viên còn hoạt động — truy vấn của nó có
+    // `s.is_active IS NOT FALSE`, và không có tư cách thành viên đang hoạt động
+    // thì nó 403. Đến được đây tức là còn hoạt động.
+    is_active: true,
+    clinic_id: me.clinic_id,
+    // VAI THEO PHÒNG KHÁM (clinic_membership.role), không phải
+    // staff.primary_department. Một bác sĩ có thể là MANAGEMENT ở cơ sở A và
+    // DOCTOR ở cơ sở B; chỉ vai của tư cách thành viên đang dùng mới đúng.
+    clinic_role: me.role,
+    clinic_name: me.clinic_name,
+    location_name: me.location_name,
   };
 });
