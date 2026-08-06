@@ -218,6 +218,13 @@ export default function GlobalHeader({
     if (pathname.startsWith("/audit-log")) {
       return { title: "Lịch sử thao tác", subtitle: "Tra cứu ai đã thực hiện thay đổi, vào thời điểm nào và dữ liệu nào bị ảnh hưởng" };
     }
+    if (pathname.startsWith("/reception/checkout")) {
+      return {
+        title: "Check-out lượt khám",
+        subtitle:
+          "Đối soát điều kiện rồi đóng lượt. Còn việc chưa xong vẫn đóng được, nhưng phải ghi lý do.",
+      };
+    }
     if (pathname.startsWith("/reception")) {
       return { title: "Hàng đợi tiếp nhận", subtitle: "Tiếp đón và phân luồng bệnh nhân" };
     }
