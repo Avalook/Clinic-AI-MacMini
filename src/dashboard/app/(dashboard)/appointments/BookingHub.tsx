@@ -1115,30 +1115,14 @@ export default function BookingHub({
         </div>
       )}
 
-      {/* Mode 1: New Patient Intake Form */}
-      {mode === "new_patient" ? (
-        <div className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-          <div className="mb-4 border-b border-line pb-3">
-            <h2 className="text-base font-bold text-ink flex items-center gap-2">
-              <UserPlus className="size-4 text-brand-600" />
-              Nhập thông tin hành chính &amp; Đặt lịch hẹn cho khách hàng mới
-            </h2>
-            <p className="text-xs text-ink-muted mt-0.5">
-              Điền đầy đủ thông tin hành chính của khách hàng lần đầu đến phòng khám
-            </p>
-          </div>
-          <NewPatientForm
-            role="CSKH"
-            locations={locations}
-            services={cleanServices}
-            doctors={doctors}
-            provinces={provinces}
-            variant="full"
-          />
-        </div>
-      ) : (
-        /* Mode 2: 3-Column Standard Layout (Left: Patient Cards, Middle: Slot Grid, Right: Confirm Panel) */
-        <div className="space-y-4">
+      {/* MỘT bố cục duy nhất. Biểu mẫu khách mới hiện Ở CỘT GIỮA, chỗ lưới
+          giờ — không thay cả trang.
+
+          Trước đây `mode === "new_patient"` thay toàn bộ màn: bốn ô số, thanh ba
+          bước, cột khách hàng và panel xác nhận đều biến mất. Người dùng bấm
+          "khách mới" là mất hết ngữ cảnh vừa nhìn, và bấm nhầm thì phải đi
+          đường vòng để quay lại. */}
+      <div className="space-y-4">
           {/* Top 4 Summary Stat Cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-3.5 shadow-card">
@@ -1320,8 +1304,38 @@ export default function BookingHub({
               </div>
             </aside>
 
-            {/* COLUMN 2 (MIDDLE - 1fr): Slot Table Grid */}
+            {/* COLUMN 2 (MIDDLE - 1fr): biểu mẫu khách mới HOẶC lưới giờ */}
             <div className="space-y-3 min-w-0">
+              {mode === "new_patient" ? (
+                <div className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+                  <div className="mb-3 flex items-center justify-between gap-2 border-b border-line pb-3">
+                    <h2 className="flex items-center gap-2 text-sm font-bold text-ink">
+                      <UserPlus className="size-4 text-brand-600" />
+                      Khách hàng mới
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setMode("grid")}
+                      className="rounded-xl border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-muted"
+                    >
+                      Quay lại lưới giờ
+                    </button>
+                  </div>
+                  {/* `nhung` = ẩn tiêu đề và thanh ba bước RIÊNG của biểu mẫu:
+                      trang này đã có thanh ba bước của nó ở trên đầu, hai thanh
+                      chồng nhau thì không thanh nào đáng tin. */}
+                  <NewPatientForm
+                    role="CSKH"
+                    locations={locations}
+                    services={cleanServices}
+                    doctors={doctors}
+                    provinces={provinces}
+                    variant="full"
+                    nhung
+                  />
+                </div>
+              ) : (
+                <>
               {/* Filter controls row */}
               <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-line bg-surface p-3 shadow-card">
                 {/* Service dropdown */}
@@ -1644,6 +1658,8 @@ export default function BookingHub({
                   })}
                 </div>
               </div>
+                </>
+              )}
             </div>
 
             {/* COLUMN 3 (RIGHT - 320px): Thông tin đặt lịch (Matching Image 3 Mockup) */}
@@ -1862,8 +1878,7 @@ export default function BookingHub({
               )}
             </aside>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
