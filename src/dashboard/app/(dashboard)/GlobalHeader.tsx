@@ -202,8 +202,11 @@ export default function GlobalHeader({
     if (pathname.startsWith("/nhac-tai-kham")) {
       return {
         title: "Nhắc tái khám",
+        // Phụ đề cũ chỉ mô tả lượt 1 ("chưa đặt lịch lại"). Từ 07/08 màn này
+        // có HAI lượt, và lượt 2 đúng là những người ĐÃ đặt lịch — để nguyên
+        // câu cũ thì nó nói ngược với nửa dưới của chính màn hình.
         subtitle:
-          "Người được bác sĩ hẹn tái khám nhưng chưa đặt lịch lại. Ai đặt được lịch rồi thì tự rời danh sách này.",
+          "Hai lượt gọi: mời đặt lịch trước hẹn 7 ngày, và nhắc đi khám vào sáng ngày hẹn.",
       };
     }
     if (pathname.startsWith("/tasks")) {
