@@ -16,7 +16,11 @@ export type ClinicRole =
   | "CASHIER_THUOC"
   | "CASHIER_DV"
   | "TRUONG_CA"
-  | "PHARMACIST";
+  | "PHARMACIST"
+  // Màn hình TV phòng chờ — KHÔNG phải người, là cái máy treo tường.
+  // Backend từ chối vai này ở mọi endpoint trừ bảng gọi số; ở đây nó chỉ tồn
+  // tại để layout biết mà đưa thẳng ra /display thay vì mở bảng điều khiển.
+  | "DISPLAY";
 
 export const ALL_ROLES: ClinicRole[] = [
   "DOCTOR",
@@ -31,6 +35,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "CASHIER_DV",
   "TRUONG_CA",
   "PHARMACIST",
+  "DISPLAY",
 ];
 
 // Convert a trusted role value into the closed application enum. Unknown data
@@ -205,6 +210,7 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
   CASHIER_DV: "Thu ngân dịch vụ",
   TRUONG_CA: "Trưởng ca",
   PHARMACIST: "Dược sĩ",
+  DISPLAY: "Màn hình phòng chờ",
 };
 
 // Which roles may see each sidebar destination. Anything not listed = everyone.

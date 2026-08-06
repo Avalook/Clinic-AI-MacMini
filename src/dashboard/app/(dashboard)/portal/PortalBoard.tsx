@@ -130,7 +130,9 @@ const ROLE_DESC: Record<ClinicRole, string> = {
   CASHIER_THUOC: "Thu ngân bán thuốc", // Thu ngân bán thuốc
   CASHIER_DV: "Thu ngân dịch vụ", // Thu ngân dịch vụ
   TRUONG_CA: "Điều phối ca, vận hành", // Trưởng ca
-  PHARMACIST: "Dược sĩ, cấp phát thuốc", // Dược sĩ
+  PHARMACIST: "Dược sĩ, cấp phát thuốc", // Dược sĩ  // Không hiện ở cổng chọn vai — đây là tài khoản của cái tivi, không
+  // phải của một người.
+  DISPLAY: "Bảng gọi số phòng chờ",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
