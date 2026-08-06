@@ -102,6 +102,19 @@ export function fmtDate(ts: TimeInput): string {
     : "—";
 }
 
+/** Hôm nay theo giờ Việt Nam, trả về `Date` ở nửa đêm giờ máy.
+ *
+ *  KHÔNG dùng `new Date()` trực tiếp khi cần "hôm nay": container chạy giờ UTC
+ *  còn trình duyệt ở +07, nên từ 00:00 tới 07:00 giờ VN hai bên ra hai ngày
+ *  khác nhau. Hàm này hỏi thẳng lịch VN nên chỗ nào gọi cũng ra cùng một ngày. */
+export function vnToday(now: Date = new Date()): Date {
+  const [y, m, d] = now
+    .toLocaleDateString("en-CA", { timeZone: VN_TZ })
+    .split("-")
+    .map(Number);
+  return new Date(y, m - 1, d);
+}
+
 /** "Ngày D tháng M năm YYYY" in Vietnam time. */
 export function fmtVietnameseFullDate(ts: TimeInput): string {
   const d = toDate(ts);

@@ -94,8 +94,8 @@ fi
 
 if [ -n "$PUBLIC_URL" ]; then
   echo "• Link công khai:"
-  public_code="$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 15 "$PUBLIC_URL/enter" 2>/dev/null || true)"
-  [ "$public_code" = "200" ] && ok "$PUBLIC_URL/enter → HTTP 200" || no "$PUBLIC_URL/enter → HTTP ${public_code:-FAIL}"
+  public_code="$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 15 "$PUBLIC_URL/login" 2>/dev/null || true)"
+  [ "$public_code" = "200" ] && ok "$PUBLIC_URL/login → HTTP 200" || no "$PUBLIC_URL/login → HTTP ${public_code:-FAIL}"
 fi
 
 echo "• Tailscale Funnel:"

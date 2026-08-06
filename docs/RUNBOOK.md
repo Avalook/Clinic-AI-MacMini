@@ -38,8 +38,9 @@ grant access. Before deploying this version to an environment:
 1. In that environment, link **every active person who is expected to log in**
    to exactly one active `staff` row. Create/link accounts from **Settings →
    Users** while the current release is still running.
-2. Run this read-only check in Supabase SQL Editor. The only expected unlinked
-   Auth account is the clinic-gate account configured as `CLINIC_SHARED_EMAIL`:
+2. Run this read-only check in Supabase SQL Editor. Since the shared clinic
+   gate was removed (05/08/2026) there is **no** expected unlinked account —
+   every row this returns is a login that will bounce back to `/login`:
 
    ```sql
    select u.id, u.email, u.last_sign_in_at

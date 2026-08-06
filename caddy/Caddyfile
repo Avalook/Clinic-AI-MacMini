@@ -33,6 +33,24 @@
 		respond "ok" 200
 	}
 
+	# --- Supabase tự dựng: ba đường mà TRÌNH DUYỆT gọi thẳng ---------------
+	#
+	# Khi database chạy ngay trên máy này (không dùng Supabase cloud), trình
+	# duyệt vẫn cần tới `/auth/v1` để đăng nhập, `/rest/v1` để đọc bảng và
+	# `/realtime/v1` cho websocket. Ba đường ấy KHÔNG đi qua Next.js — thư viện
+	# supabase-js gọi thẳng từ trình duyệt.
+	#
+	# Nên Caddy phải chuyển tiếp chúng sang bộ gateway của stack `clinicai_db`.
+	# Giữ nguyên tiền tố (`handle` chứ không `handle_path`) vì gateway bên kia
+	# mới là chỗ cắt.
+	#
+	# `supabase_gateway` là tên container; Caddy tới được nhờ được nối thêm vào
+	# mạng của stack ấy — xem `networks` của dịch vụ caddy trong compose.
+	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
+	handle @supabase {
+		reverse_proxy clinicai_supabase_gateway:8000
+	}
+
 	# Everything else → Next.js dashboard. The dashboard (UI) calls the FastAPI
 	# backend internally at http://api:8000; the API is never exposed publicly.
 	handle {

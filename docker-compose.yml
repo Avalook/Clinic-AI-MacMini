@@ -61,7 +61,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Frontend (Next.js standalone) — UI only -----------------------------
   dashboard:
@@ -79,7 +79,11 @@ services:
         # này) không gọi nổi Supabase: realtime không cập nhật, nút Thoát không
         # ăn, quên mật khẩu hỏng. Đăng nhập vẫn chạy vì là server action — nên
         # lỗi này im lặng.
-        NEXT_PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}
+        # Nhận cả hai tên: `PUBLIC_SUPABASE_URL` (tên cũ, dev-up.sh dùng) và
+        # `NEXT_PUBLIC_SUPABASE_URL` (tên tự nhiên, và là tên đã có sẵn trong
+        # .env.prod). Thiếu cả hai thì mới lùi về ${SUPABASE_URL} — đúng khi
+        # dùng Supabase cloud, sai khi tự dựng; Dockerfile chặn nốt vế sai.
+        NEXT_PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -101,7 +105,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
@@ -145,7 +149,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # ---- Async worker (opt-in: --profile workers) ----------------------------
   worker:
@@ -171,7 +175,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # POS outbox relay (ADR-0010). Opt-in only after configuring a real adapter;
   # the null adapter dead-letters instead of claiming fake delivery. Kept
@@ -198,7 +202,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
-    networks: [internal]
+    networks: [internal, supabase]
 
   # Lightweight notification outbox relay. It polls Supabase directly and does
   # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
@@ -233,7 +237,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
-    networks: [internal]
+    networks: [internal, supabase]
 
   rabbitmq:
     <<: *clinic-service-defaults
@@ -289,7 +293,15 @@ services:
     healthcheck:
       # Bản thân hệ giám sát cũng phải được giám sát. Kuma chết thì mọi cảnh báo
       # ngừng gửi, và "không có cảnh báo" trông y hệt "mọi thứ đều ổn".
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3001 || exit 1"]
+      # `wget` KHÔNG có trong ảnh louislam/uptime-kuma — healthcheck này chưa
+      # bao giờ chạy được, container đứng `unhealthy` vĩnh viễn dù Kuma vẫn
+      # phục vụ bình thường (đo được: 302 ở 127.0.0.1:3001). Một cái đèn đỏ
+      # không bao giờ tắt thì chẳng ai còn nhìn nó — và nó là công cụ GIÁM SÁT,
+      # nên đèn sai ở đây làm hỏng đúng thứ nó sinh ra để làm.
+      #
+      # Kuma chuyển hướng 302 về /dashboard, nên KHÔNG dùng `curl -f`: -f coi
+      # 3xx là hỏng. Chỉ cần biết cổng có ai trả lời hay không.
+      test: ["CMD-SHELL", "curl -sS -o /dev/null http://localhost:3001 || exit 1"]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -342,6 +354,16 @@ networks:
     driver: bridge
   monitoring:
     driver: bridge
+  # Mạng của stack `clinicai_db` (bộ Supabase tự dựng). Khai `external` vì nó do
+  # một compose file KHÁC tạo ra — Caddy chỉ nối vào để chuyển tiếp ba đường
+  # /auth/v1 · /rest/v1 · /realtime/v1 mà TRÌNH DUYỆT gọi thẳng, không qua Next.
+  #
+  # Không dùng bộ tự dựng (vẫn ở Supabase cloud, hoặc chuyển sang Viettel IDC)
+  # thì mạng này không tồn tại và caddy sẽ không khởi động — lúc ấy bỏ
+  # `supabase` khỏi `networks` của caddy.
+  supabase:
+    external: true
+    name: clinicai_db_supabase
 
 volumes:
   caddy_data:

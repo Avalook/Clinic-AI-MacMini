@@ -3,6 +3,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { SUPABASE_COOKIE_NAME } from "./supabase-cookie";
 
 // Địa chỉ Supabase cho phía SERVER. Khác địa chỉ trình duyệt dùng.
 //
@@ -23,6 +24,9 @@ export async function getSupabaseServer() {
     SERVER_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Máy chủ và trình duyệt dùng hai URL khác nhau; không ghim tên thì mỗi
+      // bên đọc một cookie khác. Xem `lib/supabase-cookie.ts`.
+      cookieOptions: { name: SUPABASE_COOKIE_NAME },
       cookies: {
         getAll() {
           return cookieStore.getAll();

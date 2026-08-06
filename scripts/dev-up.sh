@@ -109,8 +109,15 @@ fi
 # Fixtures are separate from seed.sql on purpose: seed carries catalogue data
 # every install needs, fixtures carry the fake staff and patient used for local
 # testing. Loading fixtures into a real database would create fake clinicians.
+# KHÔNG nuốt lỗi. Trước đây dòng này là `>/dev/null 2>&1 || true` rồi vẫn in
+# "fixtures loaded" ngay bên dưới — nên staff_logins.sql hỏng (thiếu
+# `primary_location_id`) mà không ai biết, cho tới lúc dựng thật lên VPS.
+# Một fixture hỏng im lặng tệ hơn một fixture thiếu: màn hình rỗng trông y hệt
+# "chưa có dữ liệu".
 for f in supabase/fixtures/staff_logins.sql supabase/fixtures/local_data.sql; do
-    [ -f "$f" ] && psql -q "$DB_URL" -f "$f" >/dev/null 2>&1 || true
+    [ -f "$f" ] || continue
+    psql -q -v ON_ERROR_STOP=1 "$DB_URL" -f "$f" >"$LOG_DIR/fixture-$(basename "$f").log" 2>&1 || {
+        red "  fixture $f hỏng — xem $LOG_DIR/fixture-$(basename "$f").log"; exit 1; }
 done
 tables=$(psql -tA "$DB_URL" -c \
     "SELECT count(*) FROM pg_tables WHERE schemaname='public'" 2>/dev/null | tr -d ' ')
@@ -167,15 +174,10 @@ cd src/dashboard
 # A production build, not `next dev`: dev mode did not hydrate client components
 # under headless Chromium during this work, and a board whose buttons do nothing
 # is worse than one that is honestly still building.
-# CLINIC_SHARED_EMAIL is the account /enter signs in as — the clinic gate,
-# before anyone says which member of staff they are. Without it the very first
-# screen a person sees is "Server chưa cấu hình CLINIC_SHARED_EMAIL", which is
-# exactly what Quang hit: the stack was up and the front door was locked.
 NEXT_PUBLIC_SUPABASE_URL="$PUBLIC_SUPABASE_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
 BACKEND_API_KEY=staging-local-api-key \
-CLINIC_SHARED_EMAIL=clinic@dr4women.local \
     npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
         red "  build failed — see $LOG_DIR/web-build.log"
         grep -m5 -E "Error|error" "$LOG_DIR/web-build.log" | sed 's/^/    /'; exit 1; }
@@ -184,7 +186,6 @@ NEXT_PUBLIC_SUPABASE_URL="$PUBLIC_SUPABASE_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
 BACKEND_API_KEY=staging-local-api-key \
-CLINIC_SHARED_EMAIL=clinic@dr4women.local \
     nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
 cd "$REPO"
 
@@ -216,7 +217,7 @@ $(green "Ready.")
   Supabase    http://127.0.0.1:54323
   Logs        ${LOG_DIR}/
 
-  Đăng nhập 2 bước — cả hai bước đều dùng mật khẩu: clinic-test-pw-123
+  Đăng nhập tại /login — mật khẩu: clinic-test-pw-123
     1) Cổng phòng khám  → nhập mật khẩu chung
     2) Đăng nhập cá nhân → chọn tài khoản bên dưới
 

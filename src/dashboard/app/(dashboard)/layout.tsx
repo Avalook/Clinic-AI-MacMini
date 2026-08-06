@@ -4,7 +4,7 @@ import DeclinedNotice, { type DeclinedItem } from "./DeclinedNotice";
 import { NotificationProvider } from "./NotificationContext";
 import { BookingPolicyProvider } from "./BookingPolicyContext";
 import RealtimeRefresher from "./RealtimeRefresher";
-import { leaveClinic } from "../(auth)/enter/actions";
+import { logout } from "../(auth)/login/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getCurrentStaff } from "../../lib/current-staff";
 import { getClinicId, getClinicRole } from "../../lib/clinic-session";
@@ -76,7 +76,7 @@ export default async function DashboardLayout({
   return (
     <NotificationProvider staffId={staffId}>
       <BookingPolicyProvider policy={bookingPolicy}>
-        <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={leaveClinic}>
+        <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={logout}>
           {children}
           <DeclinedNotice items={declined} />
           <RealtimeRefresher clinicId={clinicId} />
