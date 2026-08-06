@@ -50,6 +50,18 @@ class VisitProgress:
     has_clinical_record: bool = False
     has_prescription: bool = False
     paid_kinds: list[str] = field(default_factory=list)
+    # Giờ BẮT ĐẦU của từng mốc trên thanh tiến trình ở /home. Chỉ hai mốc này
+    # phải hỏi tới đây; hai mốc kia (`checked_in_at`, `finalized_at`) nằm ngay
+    # trên bảng `visit` mà màn hình đã đọc.
+    #
+    # `exam_started_at` = lần đầu có người BẮT TAY vào việc của lượt khám này
+    # (work_item.started_at sớm nhất). Không có cột "bắt đầu khám" trên `visit`,
+    # và suy từ `visit.status = IN_PROGRESS` thì chỉ biết ĐANG khám, không biết
+    # từ lúc nào.
+    exam_started_at: datetime | None = None
+    # Lúc thu XONG khâu cuối — không phải khâu đầu. Người xem bảng cần biết
+    # "đã thu xong lúc mấy giờ", nên lấy mốc muộn nhất.
+    paid_at: datetime | None = None
 
 
 # One statement instead of the page's four round-trips. "Vitals recorded" means
@@ -61,7 +73,9 @@ _PROGRESS_SQL = """
            COALESCE(cr.vitals_recorded, FALSE) AS vitals_recorded,
            (cr.visit_id IS NOT NULL)        AS has_clinical_record,
            COALESCE(rx.has_prescription, FALSE) AS has_prescription,
-           COALESCE(pay.kinds, ARRAY[]::text[]) AS paid_kinds
+           COALESCE(pay.kinds, ARRAY[]::text[]) AS paid_kinds,
+           wi.exam_started_at,
+           pay.paid_at
       FROM appointment a
       LEFT JOIN LATERAL (
           SELECT v2.visit_id
@@ -91,9 +105,21 @@ _PROGRESS_SQL = """
            LIMIT 1
       ) rx ON TRUE
       LEFT JOIN LATERAL (
-          SELECT array_agg(DISTINCT pm.kind) AS kinds
+          SELECT min(w.started_at) AS exam_started_at
+            FROM work_item w
+           WHERE w.visit_id = v.visit_id
+             AND w.status <> 'CANCELLED'
+      ) wi ON TRUE
+      -- `status = 'PAID'` KHÔNG phải thừa. Không có nó thì một khoản đã HUỶ
+      -- (VOIDED) vẫn tính là đã thu, và thanh tiến trình tích xanh mốc thanh
+      -- toán cho một lượt chưa ai trả tiền. Trên prod hôm nay cả hai dòng
+      -- payment đều đang ở trạng thái VOIDED.
+      LEFT JOIN LATERAL (
+          SELECT array_agg(DISTINCT pm.kind) AS kinds,
+                 max(pm.paid_at)             AS paid_at
             FROM payment pm
            WHERE pm.visit_id = v.visit_id
+             AND pm.status = 'PAID'
       ) pay ON TRUE
      WHERE a.clinic_id = $1::uuid
        AND a.slot_start >= $2::timestamptz
@@ -141,6 +167,8 @@ class VisitProgressService:
                 has_clinical_record=r["has_clinical_record"],
                 has_prescription=r["has_prescription"],
                 paid_kinds=sorted(r["paid_kinds"] or []),
+                exam_started_at=r["exam_started_at"],
+                paid_at=r["paid_at"],
             )
             for r in rows
         ]
