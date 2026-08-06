@@ -36,11 +36,9 @@ export default async function NewPatientPage({
   const forcedWalkin = nurse || role === "RECEPTION";
   const walkinMode = forcedWalkin || (canBothFlows && qMode === "walkin");
   const variant = walkinMode ? "walkin" : "full";
-  const h1 = walkinMode
-    ? "Tạo bệnh nhân"
-    : role === "CSKH" || canBothFlows
-      ? "Nhập thông tin khách hàng mới"
-      : "Tạo bệnh nhân";
+  // `h1` cũ đã bỏ: tiêu đề nay ở thanh trên cùng, và nó không đọc được
+  // `?mode=` nên phải là MỘT câu đúng cho cả hai luồng. Hai nút chọn luồng bên
+  // dưới đã nói rõ người dùng đang ở luồng nào.
 
   const supabase = await getSupabaseServer();
   const [locRes, svcRes, docRes, provRes] = await Promise.all([
@@ -74,16 +72,11 @@ export default async function NewPatientPage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Tiếp nhận & đặt lịch</p>
-        <h1 className="mt-1 text-xl font-semibold text-ink">{h1}</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {walkinMode
-            ? "Tạo hồ sơ hành chính, xác minh thông tin và đưa khách vào đúng luồng tiếp nhận."
-            : "Ghi nhận hồ sơ khách hàng và đặt lịch bằng dữ liệu sức chứa thực tế."}
-        </p>
-        {/* Trưởng ca: 2 nút chọn luồng — CSKH (online) hoặc Lễ tân (vãng lai). */}
-        {canBothFlows && (
+      {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader). Ở đây chỉ còn thứ BẤM
+          ĐƯỢC — hai nút chọn luồng của Trưởng ca — vì đó là việc, không phải
+          nhãn. */}
+      {canBothFlows && (
+        <header className="rounded-card border border-line bg-surface px-4 py-3 shadow-card sm:px-5">
           <div className="mt-4 inline-flex rounded-control border border-line bg-surface-muted p-1 text-sm">
             <Link
               href="/patients/new"
@@ -108,8 +101,8 @@ export default async function NewPatientPage({
               Tạo bệnh nhân mới
             </Link>
           </div>
-        )}
-      </header>
+        </header>
+      )}
       <NewPatientForm
         role={role}
         locations={locations}
@@ -117,6 +110,10 @@ export default async function NewPatientPage({
         doctors={doctors}
         provinces={provinces}
         variant={variant}
+        // Ẩn tiêu đề + thanh bước RIÊNG của biểu mẫu: trang này đã có tiêu đề
+        // ở thanh trên cùng, và hai thanh bước chồng nhau thì không thanh nào
+        // đáng tin.
+        nhung
         initialAppt={
           qDate || qTime || qDoctor
             ? { date: qDate, time: qTime, doctorId: qDoctor }
