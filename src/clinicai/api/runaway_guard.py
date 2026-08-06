@@ -48,7 +48,11 @@ from threading import Lock
 import structlog
 from fastapi import Depends, HTTPException, Request, status
 
-from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.api.identity import (
+    StaffIdentity,
+    _resolve_identity,
+    get_current_identity,
+)
 from clinicai.core.telemetry import route_template
 
 logger = structlog.get_logger(__name__)
@@ -218,4 +222,30 @@ async def runaway_guard(
     identity: StaffIdentity = Depends(get_current_identity),
 ) -> None:
     """Count this request against the caller's per-minute ceiling."""
+    await _guard(request, identity)
+
+
+async def runaway_guard_cho_ca_man_hinh(
+    request: Request,
+    identity: StaffIdentity = Depends(_resolve_identity),
+) -> None:
+    """Như trên, nhưng KHÔNG chặn vai DISPLAY.
+
+    VÌ SAO PHẢI CÓ BẢN THỨ HAI. `runaway_guard` nhận danh tính qua
+    `get_current_identity`, và hàm đó TỪ CHỐI vai DISPLAY (tài khoản màn hình
+    TV). Vì bộ đếm được gắn ở TẦNG ROUTER (`_GUARDED` trong main.py), nó chạy
+    trước mọi endpoint — nên `/api/v1/me` trả 403 cho cái tivi dù chính endpoint
+    đó đã khai `get_display_identity`.
+
+    Rất khó lần ra: nhìn vào mã của endpoint không thấy gì sai, thứ từ chối nằm
+    ở tham số mặc định của một dependency khai ở file khác.
+
+    Bản này dựng danh tính bằng `_resolve_identity` — đủ để ĐẾM (bộ đếm hỏi "ai
+    đang gọi", không hỏi "ai được phép"), và để phần phân quyền cho endpoint tự
+    lo. Vai DISPLAY vẫn bị tính vào hạn mức như mọi tài khoản khác.
+
+    Chỉ dùng cho router nào có endpoint mở cho màn hình. Đừng đổi
+    `runaway_guard` gốc: hàng chục bài kiểm ghi đè `get_current_identity` và sẽ
+    ngừng có tác dụng.
+    """
     await _guard(request, identity)
