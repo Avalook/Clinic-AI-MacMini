@@ -28,13 +28,17 @@ export async function GET(request: Request) {
   const err = await guard();
   if (err) return NextResponse.json({ error: err }, { status: 403 });
 
-  // Một lượt cụ thể, hay cả danh sách hôm nay.
-  const visit = new URL(request.url).searchParams.get("visit_id");
-  const data = await fetchFromBackend<unknown>(
-    visit
-      ? `/api/v1/reception/checkout/${encodeURIComponent(visit)}`
-      : "/api/v1/reception/checkout",
-  );
+  // Ba dạng: danh sách hôm nay · điều kiện đóng của một lượt · TOÀN CẢNH một
+  // lượt (dịch vụ, tiền, hồ sơ, theo dõi, dòng thời gian) để Lễ tân đối soát.
+  const params = new URL(request.url).searchParams;
+  const visit = params.get("visit_id");
+  const chiTiet = params.get("chi_tiet") === "1";
+  const duong = !visit
+    ? "/api/v1/reception/checkout"
+    : chiTiet
+      ? `/api/v1/reception/checkout/chi-tiet/${encodeURIComponent(visit)}`
+      : `/api/v1/reception/checkout/${encodeURIComponent(visit)}`;
+  const data = await fetchFromBackend<unknown>(duong);
   // `null` = backend im lặng. Trả ok:false để màn hình nói ra, thay vì vẽ một
   // danh sách rỗng trông y hệt "hôm nay không còn ai cần đóng".
   return NextResponse.json(data ?? { ok: false });
