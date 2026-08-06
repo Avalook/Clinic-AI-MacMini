@@ -3,6 +3,7 @@
 // kiểm tra trước bàn giao. Kho đầy đủ (lô/hạn dùng) qua drug_batch + inventory_txn.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { motBanGhi } from "../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import PharmacyBoard from "./PharmacyBoard";
 
@@ -72,8 +73,8 @@ export default async function PharmacyPage() {
   };
   const normalizedRxs = (prescriptions ?? []).map((p: RxRaw) => ({
     ...p,
-    patient: p.patient?.[0] ?? null,
-    visit: p.visit?.[0] ?? null,
+    patient: motBanGhi(p.patient),
+    visit: motBanGhi(p.visit),
   }));
 
 
@@ -96,7 +97,7 @@ export default async function PharmacyPage() {
   };
   const normalizedInv = (inventory ?? []).map((b: BatchRaw) => ({
     ...b,
-    drug: b.drug?.[0] ?? null,
+    drug: motBanGhi(b.drug),
   }));
 
   return (

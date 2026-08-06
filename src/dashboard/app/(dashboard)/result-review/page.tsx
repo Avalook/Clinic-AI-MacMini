@@ -2,6 +2,7 @@
 // Hàng đợi kết quả chờ duyệt: xem chi tiết, ký duyệt / trả lại chỉnh sửa.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { motBanGhi } from "../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import ResultReviewBoard from "./ResultReviewBoard";
 
@@ -40,7 +41,7 @@ export default async function ResultReviewPage() {
   };
   const normalized = (results ?? []).map((r: Raw) => ({
     ...r,
-    patient: r.patient?.[0] ?? null,
+    patient: motBanGhi(r.patient),
   }));
 
   return <ResultReviewBoard results={normalized} />;

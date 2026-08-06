@@ -2,6 +2,7 @@
 // Dược sĩ hướng dẫn người bệnh cách dùng thuốc trước khi bàn giao.
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { motBanGhi } from "../../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import ConsultBoard from "./ConsultBoard";
 
@@ -41,7 +42,7 @@ export default async function PharmacyConsultPage() {
   };
   const normalized = (records ?? []).map((r: Raw) => ({
     ...r,
-    patient: r.patient?.[0] ?? null,
+    patient: motBanGhi(r.patient),
   }));
 
   return <ConsultBoard records={normalized} />;
