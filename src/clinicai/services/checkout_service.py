@@ -241,11 +241,18 @@ class CheckoutService:
                 visit_id,
             )
 
+            # `follow_up_case` KHÔNG có `visit_id` — nó gắn với BỆNH NHÂN và
+            # với BƯỚC sinh ra nó (`origin_work_item_id`). Nối qua work_item của
+            # chính lượt này là cách duy nhất hỏi đúng câu "lượt khám hôm nay đẻ
+            # ra việc theo dõi nào".
             theo_doi = await conn.fetch(
                 """
-                SELECT f.id, f.status, f.due_at
+                SELECT f.id, f.status, f.due_at, f.reason, f.owner_role,
+                       s.full_name AS chu_so_huu
                   FROM public.follow_up_case f
-                 WHERE f.visit_id = $2::uuid AND f.clinic_id = $1::uuid
+                  JOIN public.work_item w ON w.id = f.origin_work_item_id
+                  LEFT JOIN public.staff s ON s.id = f.owner_staff_id
+                 WHERE w.visit_id = $2::uuid AND f.clinic_id = $1::uuid
                  ORDER BY f.due_at NULLS LAST
                 """,
                 identity.clinic_id,
@@ -300,6 +307,8 @@ class CheckoutService:
                 {
                     "id": str(r["id"]),
                     "status": r["status"],
+                    "ly_do": r["reason"],
+                    "chu_so_huu": r["chu_so_huu"] or r["owner_role"],
                     "han": r["due_at"].isoformat() if r["due_at"] else None,
                 }
                 for r in theo_doi
