@@ -1,8 +1,17 @@
 """Cấu hình phòng khám — sơ đồ phòng, tầng, và ai làm được việc gì.
 
-Đọc mở cho vai vận hành (bảng điều phối cần biết phòng nào phục vụ bước nào);
-GHI chỉ quản lý. Tách hai quyền ở tầng router thay vì trong một handler: gộp
-chung thì một lần sửa nhầm điều kiện là mở luôn quyền đổi sơ đồ phòng khám.
+GHI chỉ quản lý. ĐỌC thì tuỳ đọc cái gì:
+
+* Sơ đồ (overview) và dịch vụ (services) mở cho vai vận hành — bảng điều phối
+  cần biết phòng nào phục vụ bước nào, màn đặt lịch cần biết dịch vụ nào dùng
+  phiếu nào. Đây là cấu trúc chỗ làm việc, không phải hồ sơ của ai.
+* DANH SÁCH NHÂN SỰ (staff) CHỈ QUẢN LÝ (Quang chốt 2026-08-06). Nó trả về tên
+  từng người kèm việc họ làm được — cùng loại dữ liệu với /api/v1/staff, vốn đã
+  chỉ mở cho MANAGEMENT. Trước đây hai đường cùng một loại dữ liệu mà hai mức
+  quyền khác nhau, nên khoá cửa này còn đường kia vẫn mở.
+
+Tách quyền ở tầng router thay vì trong một handler: gộp chung thì một lần sửa
+nhầm điều kiện là mở luôn quyền đổi sơ đồ phòng khám.
 """
 
 from __future__ import annotations
@@ -26,6 +35,10 @@ from clinicai.services.clinic_config_service import ClinicConfigService
 router = APIRouter()
 
 _WRITE_GUARD = require_role(ClinicRole.MANAGEMENT)
+# Cùng mức với _WRITE_GUARD nhưng là hằng RIÊNG: hai câu hỏi khác nhau ("ai đổi
+# được sơ đồ" và "ai đọc được danh sách nhân sự") tình cờ cùng đáp án hôm nay.
+# Dùng chung một hằng thì ngày nới một bên sẽ nới luôn bên kia mà không ai thấy.
+_STAFF_READ_GUARD = require_role(ClinicRole.MANAGEMENT)
 
 
 @router.get("/clinic-config/overview")
@@ -39,10 +52,10 @@ async def overview(
 
 @router.get("/clinic-config/staff")
 async def staff(
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_STAFF_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Ai làm được bước nào."""
+    """Ai làm được bước nào — CHỈ QUẢN LÝ, xem docstring đầu file."""
     return await ClinicConfigService(pool).staff(identity=identity)
 
 
