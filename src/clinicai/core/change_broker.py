@@ -31,6 +31,8 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.core.database import normalize_dsn
+
 logger = structlog.get_logger()
 
 #: Tên kênh, phải khớp hàm trigger trong migration.
@@ -50,7 +52,12 @@ class ChangeBroker:
     """Một kết nối LISTEN, phát lại cho nhiều màn hình."""
 
     def __init__(self, dsn: str) -> None:
-        self._dsn = dsn
+        # CHUẨN HOÁ, đừng dùng thẳng biến môi trường. `.env` của phòng khám ghi
+        # `postgresql+asyncpg://` (dạng của SQLAlchemy); asyncpg.connect() từ
+        # chối scheme ấy. Bể kết nối vẫn chạy vì nó có gọi normalize_dsn — chỗ
+        # này lúc đầu thì không, nên bộ nghe chết ngay khi khởi động và màn hình
+        # lặng lẽ rơi về nhịp làm mới dự phòng. Bắt được lúc chạy thử trên VPS.
+        self._dsn = normalize_dsn(dsn)
         self._conn: asyncpg.Connection | None = None
         self._task: asyncio.Task[None] | None = None
         # clinic_id → các hàng đợi đang mở của phòng khám đó.

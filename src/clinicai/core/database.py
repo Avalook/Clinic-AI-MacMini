@@ -17,9 +17,21 @@ STARTUP_RETRIES = 3
 STARTUP_BACKOFF = 2.0  # seconds between retries
 
 
-def _normalize_dsn(dsn: str) -> str:
-    """Strip SQLAlchemy-style '+asyncpg' driver suffix; asyncpg needs bare scheme."""
+def normalize_dsn(dsn: str) -> str:
+    """Strip SQLAlchemy-style '+asyncpg' driver suffix; asyncpg needs bare scheme.
+
+    CÔNG KHAI vì có hai nơi mở kết nối, không phải một. Bể kết nối dùng nó từ
+    đầu; bộ nghe LISTEN (change_broker) mở một kết nối RIÊNG và lúc đầu đọc
+    thẳng DATABASE_URL — nên nó chết ngay khi khởi động với `invalid DSN: scheme
+    is expected to be either "postgres"…`, vì .env của phòng khám dùng dạng
+    `postgresql+asyncpg://`. Một hàm chuẩn hoá mà chỉ một trong hai chỗ gọi thì
+    chưa phải chuẩn hoá.
+    """
     return dsn.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+
+#: Tên cũ, giữ cho các chỗ gọi nội bộ đã có.
+_normalize_dsn = normalize_dsn
 
 
 async def create_pool() -> asyncpg.Pool:
