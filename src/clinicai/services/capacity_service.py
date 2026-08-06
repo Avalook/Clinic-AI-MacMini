@@ -187,36 +187,30 @@ class CapacityService:
                       $1::uuid, $3::uuid,
                       ($2::date + make_interval(mins => sl.minute_of_day))
                           AT TIME ZONE 'Asia/Ho_Chi_Minh') cap
+                  -- Phép đếm nằm ở `slot_seats_used()` — CÙNG hàm mà trigger
+                  -- gọi khi nó nhận hay từ chối. Trước đây chỗ này tự đếm bằng
+                  -- SQL riêng, và luật vừa đổi: một ghế vãng lai nay có thể bị
+                  -- một khách có hẹn ĐẾN MUỘN chiếm (20260807000001). Hai bản
+                  -- chép tay của một luật thì bản nào cũng sẽ lỡ mất lần sửa
+                  -- tiếp theo.
                   LEFT JOIN LATERAL (
                       SELECT
-                        count(*) FILTER (
-                            WHERE upper(coalesce(a.booking_channel,'')) <> 'WALK_IN'
-                        ) AS regular_used,
-                        count(*) FILTER (
-                            WHERE upper(coalesce(a.booking_channel,'')) =  'WALK_IN'
-                        ) AS walkin_used
-                        FROM appointment a
-                       WHERE a.clinic_id = $1::uuid
-                         AND a.location_id = $4::uuid
-                         -- `coalesce` thay cho `($n IS NULL OR col = $n)`:
-                         -- cùng nghĩa, không nhánh OR nào để bộ lọc tenant lọt
-                         -- qua. Đây là lọc "một bác sĩ hay mọi bác sĩ", không
-                         -- phải lọc tenant — nhưng bài soi không phân biệt được,
-                         -- và nó đúng khi không phân biệt: một OR ở tầng WHERE
-                         -- là chỗ để lộ dữ liệu phòng khám khác.
-                         AND a.doctor_id IS NOT DISTINCT FROM
-                             coalesce($3::uuid, a.doctor_id)
-                         -- Cùng cách gom khung mà trigger dùng: mốc bắt đầu rơi
-                         -- vào [khung, khung + độ dài).
-                         AND a.slot_start >= ($2::date
-                                 + make_interval(mins => sl.minute_of_day))
-                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'
-                         AND a.slot_start <  ($2::date + make_interval(
-                                 mins => sl.minute_of_day + sl.slot_minutes))
-                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'
-                         -- Trạng thái chết không giữ chỗ — cùng danh sách với
-                         -- DEAD_STATUSES ở booking_service và enforce_slot_capacity.
-                         AND a.status NOT IN ('CANCELLED','NO_SHOW','DOCTOR_DECLINED')
+                        slot_seats_used(
+                            $1::uuid, $3::uuid,
+                            ($2::date + make_interval(mins => sl.minute_of_day))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            ($2::date + make_interval(
+                                mins => sl.minute_of_day + sl.slot_minutes))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            FALSE, NULL, $4::uuid) AS regular_used,
+                        slot_seats_used(
+                            $1::uuid, $3::uuid,
+                            ($2::date + make_interval(mins => sl.minute_of_day))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            ($2::date + make_interval(
+                                mins => sl.minute_of_day + sl.slot_minutes))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            TRUE, NULL, $4::uuid) AS walkin_used
                   ) used ON TRUE
                  ORDER BY sl.minute_of_day
                 """,

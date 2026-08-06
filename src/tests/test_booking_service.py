@@ -288,6 +288,10 @@ class _Conn:
         self.executed.append(sql)
         return self._results.pop(0) if self._results else []  # type: ignore[return-value]
 
+    async def fetchrow(self, sql: str, *args: object) -> Any:
+        self.executed.append(sql)
+        return self._results.pop(0) if self._results else None
+
     async def execute(self, sql: str, *args: object) -> None:
         self.executed.append(sql)
 
@@ -308,14 +312,24 @@ def _identity() -> StaffIdentity:
 class TestSeatMessages:
     """The wording is the feature: a receptionist has to know what to do next."""
 
-    def _rows(self, regular: int, walkin: int) -> list[dict[str, str]]:
-        return [{"booking_channel": "ZALO", "status": "SCHEDULED"}] * regular + [
-            {"booking_channel": "WALK_IN", "status": "SCHEDULED"}
-        ] * walkin
+    def _seats(self, regular: int, walkin: int) -> dict[str, int]:
+        """Số ghế đã dùng, đúng hình dạng `slot_seats_used()` trả về.
+
+        Trước đây các bài này nạp DÒNG lịch hẹn rồi để Python tự đếm. Phép đếm
+        đã chuyển hẳn xuống SQL (20260807000001) vì nó phải giống hệt phép đếm
+        của trigger — và vì luật mới cần đọc `visit.checked_in_at`, thứ không có
+        trong danh sách dòng ấy. Ở đây chỉ còn thứ vẫn thuộc về Python: CÂU
+        TIẾNG VIỆT suy ra từ hai con số.
+
+        Phần đếm — trạng thái chết không giữ ghế, khách đến muộn chiếm ghế vãng
+        lai — được canh trên Postgres thật ở
+        `supabase/tests/ghe_vang_lai_khach_den_muon.sql`.
+        """
+        return {"regular": regular, "walkin": walkin}
 
     def test_a_full_booked_slot_says_the_third_seat_is_for_walk_ins(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
+        conn = _Conn(self._seats(DEFAULT_POLICY.regular_cap, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -333,7 +347,7 @@ class TestSeatMessages:
 
     def test_the_reserved_seat_is_still_free_for_a_walk_in(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
+        conn = _Conn(self._seats(DEFAULT_POLICY.regular_cap, 0))
         assert (
             asyncio.run(
                 service._slot_full(
@@ -350,7 +364,7 @@ class TestSeatMessages:
 
     def test_a_second_walk_in_is_turned_away(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(0, DEFAULT_POLICY.walkin_cap))
+        conn = _Conn(self._seats(0, DEFAULT_POLICY.walkin_cap))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -363,22 +377,13 @@ class TestSeatMessages:
         )
         assert message is not None and "khung 15 phút kế tiếp" in message
 
-    def test_cancelled_bookings_free_their_seat(self) -> None:
-        service = BookingService(MagicMock())
-        conn = _Conn([{"booking_channel": "ZALO", "status": s} for s in DEAD_STATUSES])
-        assert (
-            asyncio.run(
-                service._slot_full(
-                    conn,
-                    None,
-                    datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
-                    "ZALO",
-                    _identity(),
-                    DEFAULT_POLICY,
-                )
-            )
-            is None
-        )
+    # "Lịch đã huỷ trả lại ghế" ĐÃ CHUYỂN SANG SQL.
+    #
+    # Bài kiểm cũ ở đây nạp một danh sách dòng toàn trạng thái chết rồi khẳng
+    # định không có câu cảnh báo nào. Sau khi phép đếm xuống SQL, nó chỉ còn
+    # khẳng định rằng cái stub trả về 0 — tức là kiểm chính nó. Luật thật giờ
+    # nằm ở `slot_seats_used()`, và được canh trên Postgres thật ở
+    # `supabase/tests/ghe_vang_lai_khach_den_muon.sql` (mục ⑥).
 
     def test_the_sentence_follows_the_clinic_not_the_code(self) -> None:
         # Phòng khám khung 30 phút, 4 chỗ: cùng một hàng dữ liệu, khác câu trả
@@ -386,7 +391,7 @@ class TestSeatMessages:
         # khung không tồn tại trên lưới của họ.
         service = BookingService(MagicMock())
         policy = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=1)
-        conn = _Conn(self._rows(4, 0))
+        conn = _Conn(self._seats(4, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -405,7 +410,7 @@ class TestSeatMessages:
     def test_a_clinic_that_takes_no_walk_ins_says_so_on_the_first_one(self) -> None:
         service = BookingService(MagicMock())
         policy = ClinicPolicy(walkin_cap=0)
-        conn = _Conn(self._rows(0, 0))
+        conn = _Conn(self._seats(0, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
