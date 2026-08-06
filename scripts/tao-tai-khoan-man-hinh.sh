@@ -82,6 +82,23 @@ UPDATE auth.users
    SET encrypted_password = extensions.crypt(:'pw', extensions.gen_salt('bf')),
        instance_id = '00000000-0000-0000-0000-000000000000',
        email_confirmed_at = coalesce(email_confirmed_at, now()),
+       -- CHUỖI RỖNG, KHÔNG PHẢI NULL.
+       --
+       -- GoTrue viết bằng Go và đọc mấy cột này vào kiểu `string`, vốn không
+       -- chứa được NULL. Một hàng có NULL ở đây làm GoTrue nổ ngay lúc truy vấn,
+       -- và thông báo nó trả về là:
+       --
+       --     {"code":500,"msg":"Database error querying schema"}
+       --
+       -- Màn đăng nhập dịch cái đó thành "đăng nhập thất bại", nên người dùng
+       -- đi đổi mật khẩu nhiều lần trong khi lỗi nằm ở chỗ hoàn toàn khác. Đã
+       -- gặp thật: tài khoản đủ dữ liệu, mật khẩu đúng, GoTrue vẫn 500 — trong
+       -- khi cửa đăng nhập của chính ứng dụng (/api/v1/auth/login, đọc bằng
+       -- asyncpg) thì trả 200 bình thường. Chính sự lệch đó chỉ ra thủ phạm.
+       confirmation_token       = coalesce(confirmation_token, ''),
+       recovery_token           = coalesce(recovery_token, ''),
+       email_change             = coalesce(email_change, ''),
+       email_change_token_new   = coalesce(email_change_token_new, ''),
        updated_at = now()
  WHERE email = :'email';
 
