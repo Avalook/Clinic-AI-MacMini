@@ -40,7 +40,12 @@ export function reachedCount(
     visitStatus === "AMENDED";
   if (paid && done) return 3; // chỉ tích thanh toán khi đã khám xong
   if (done) return 2; // khám xong
-  if (visitStatus === "IN_PROGRESS") return 1;
+  // Khám dở: dừng ở mốc "đang khám", KHÔNG tích "khám xong".
+  //
+  // Không có nhánh này thì INCOMPLETE rơi xuống `return 0` và thanh tiến trình
+  // lùi về "mới check-in" cho một người đã đi được nửa buổi — trông như hệ
+  // thống quên mất họ.
+  if (visitStatus === "IN_PROGRESS" || visitStatus === "INCOMPLETE") return 1;
   return 0; // OPEN — mới check-in, đang chờ khám
 }
 

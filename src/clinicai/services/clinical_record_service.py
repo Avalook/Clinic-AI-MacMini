@@ -16,9 +16,13 @@ preserved, and each one exists because of something that went wrong or could:
   doctor is their job.
 * **48-hour lock.** After roughly two shifts the record is closed; corrections
   go through the shift lead.
-* **OPEN and IN_PROGRESS are the only writable states.** FINALIZED *and*
-  AMENDED are immutable under Circular 13 — this is a whitelist rather than a
-  FINALIZED check so a new terminal status cannot slip through.
+* **Chỉ trạng thái ĐANG SỐNG mới ghi được** — OPEN, IN_PROGRESS và INCOMPLETE
+  (khách về giữa chừng). FINALIZED *và* AMENDED bất biến theo Thông tư 13. Đây
+  là danh sách TRẮNG chứ không phải phép kiểm `!= FINALIZED`, nên một trạng thái
+  CUỐI thêm sau này không lọt qua được.
+
+  INCOMPLETE ghi được vì khách CÒN QUAY LẠI: khoá bút lúc đó là bắt bác sĩ phải
+  đính chính một hồ sơ chưa ai ký.
 * **Merging, not overwriting.** A doctor may have opened the form before the
   nurse entered vitals; saving blind would wipe them. Existing values are kept
   and only non-empty incoming fields override.
