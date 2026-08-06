@@ -37,6 +37,7 @@ from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
+from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.ops import router as ops_router
@@ -54,6 +55,7 @@ from clinicai.api.v1.routers.visit_progress import (
 )
 from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
+from clinicai.core.change_broker import ChangeBroker
 from clinicai.core.database import close_pool, create_pool
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.core.logging import setup_logging
@@ -75,6 +77,11 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage the asyncpg pool + LangGraph checkpointer over the app lifetime."""
     app.state.db_pool = await create_pool()
+    # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi
+    # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó
+    # thì màn hình rơi về nhịp làm mới dự phòng, chứ không ai đăng nhập hỏng.
+    app.state.change_broker = ChangeBroker(os.environ["DATABASE_URL"])
+    await app.state.change_broker.start()
     try:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
@@ -105,6 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             yield
             logger.info("app_shutdown_starting")
     finally:
+        await app.state.change_broker.stop()
         await close_pool(app.state.db_pool)
 
 
@@ -147,6 +155,19 @@ _GUARDED = [Depends(runaway_guard)]
 app.include_router(health_router)
 app.include_router(
     identity_router, prefix="/api/v1", tags=["identity"], dependencies=_GUARDED
+)
+# Dòng sự kiện cho màn hình (thay Supabase Realtime).
+#
+# Trình duyệt KHÔNG gọi thẳng vào đây. `EventSource` không đặt được header, nên
+# nó gọi route Next `/api/events/stream`, và route ấy — chạy trên máy chủ — gắn
+# Bearer token cùng X-API-Key rồi truyền dòng về. Nhờ vậy cửa gác ở đây y hệt
+# mọi endpoint khác, không phải mở một lối riêng.
+#
+# ĐÃ CÂN NHẮC VÀ BỎ: cho token đi qua query string. Làm thế là ghi token vào
+# log truy cập của mọi proxy trên đường — một thứ đọc được, sống lâu, và đủ để
+# đóng giả người dùng.
+app.include_router(
+    events_router, prefix="/api/v1", tags=["events"], dependencies=_GUARDED
 )
 app.include_router(
     queue_router, prefix="/api/v1", tags=["queue"], dependencies=_GUARDED

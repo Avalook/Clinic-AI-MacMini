@@ -21,25 +21,32 @@
 // PHẢI khớp với migration đó: subscribe thừa thì im lặng vô dụng, publish thừa
 // thì Realtime phải chạy RLS cho từng subscriber trên từng thay đổi.
 //
-// ĐỘ TRỄ THỰC TẾ. Từ lúc Postgres commit tới lúc màn hình đổi: WAL → Realtime →
-// websocket (≈40–120ms từ VN tới Supabase Seoul) + debounce 250ms + một lượt
-// render lại server component (≈150–400ms tuỳ trang). Tức khoảng 0,5–1 giây, và
-// phần lớn nằm ở hai chặng mạng không thể bỏ. Muốn 0ms cho CHÍNH người vừa bấm
-// thì phải cập nhật lạc quan ngay tại chỗ bấm — xem router.refresh() trong
-// BookingHub.handleConfirmBooking — chứ không phải chờ vòng realtime quay về.
+// ĐỔI NGUỒN TIN 06/08/2026: KHÔNG CÒN QUA SUPABASE REALTIME.
+//
+// Realtime đọc nhật ký WAL qua một replication slot, và tạo slot cần quyền
+// REPLICATION — thứ database cho thuê không cấp (đo trên Viettel IDC 06/08;
+// AWS RDS và Azure cũng vậy). Nay dùng LISTEN/NOTIFY, là SQL thường không đòi
+// quyền nào: trigger bắn pg_notify lúc COMMIT, FastAPI nghe rồi đẩy SSE về đây.
+//
+// ĐỘ TRỄ. Đường cũ đi ba chặng (ghi → WAL → dịch vụ Realtime giải mã →
+// websocket). Đường này đi một (ghi → NOTIFY → SSE) — thứ đang ghi dữ liệu
+// chính là thứ biết có gì đổi. Còn lại vẫn là debounce 250ms + một lượt render
+// server component (≈150–400ms tuỳ trang). Muốn 0ms cho CHÍNH người vừa bấm thì
+// vẫn phải cập nhật lạc quan tại chỗ bấm — xem router.refresh() trong
+// BookingHub.handleConfirmBooking — chứ không phải chờ tin quay về.
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
 // 250ms: đủ để gộp một chuỗi thay đổi của cùng một thao tác (mở lượt khám đụng
 // vài bảng) thành một lần render, đủ ngắn để người dùng không kịp thấy độ trễ.
 // 1200ms ở bản cũ là hơn một giây thuần chờ trên MỌI cập nhật.
 const DEBOUNCE_MS = 250;
 
-// Lưới an toàn cho lúc websocket rớt. Realtime bây giờ chạy thật nên nhịp này
-// không còn là đường đồng bộ chính, và 25s là quá dày cho một việc chỉ dùng khi
-// mạng hỏng: nó tự nó đã là nguồn tải đều đặn lớn nhất của hệ thống.
+// Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
+// lo), nên nhịp này chỉ để phòng trường hợp cả dòng lẫn lần nối lại đều hỏng —
+// và 25s ở bản cũ là quá dày cho việc đó: nó tự nó là nguồn tải đều đặn lớn
+// nhất của hệ thống.
 const POLL_MS = 60_000;
 
 // Các bảng ĐANG được publish (20260803000004). Đổi ở đây thì phải đổi cả ở
@@ -58,51 +65,61 @@ const LIVE_TABLES = [
   "work_roster",
 ] as const;
 
+// PROP `clinicId` ĐÃ BỎ (06/08/2026). Nó từng dùng để bảo Supabase Realtime
+// lọc theo phòng khám. Nay máy chủ tự lọc — nó biết người mở dòng thuộc phòng
+// khám nào từ chính token, và đó là chỗ DUY NHẤT lọc được an toàn: một giá trị
+// do trình duyệt gửi lên thì không phải là cái lọc, chỉ là một lời khai.
+//
+// Giữ lại một prop không còn tác dụng sẽ khiến người đọc sau tin rằng có một
+// lớp lọc ở đây, và tin sai theo hướng nguy hiểm.
 export default function RealtimeRefresher({
   tables = LIVE_TABLES as readonly string[],
-  clinicId = null,
 }: {
   tables?: readonly string[];
-  /** Lọc phía server theo phòng khám đang đăng nhập. */
-  clinicId?: string | null;
 }) {
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowser();
     const bump = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => router.refresh(), DEBOUNCE_MS);
     };
 
-    let channel = supabase.channel("global-realtime-refresh");
-    for (const table of tables) {
-      channel = channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table,
-          // Lọc NGAY TẠI SERVER. Không có nó, một thay đổi ở phòng khám khác vẫn
-          // được đẩy tới trình duyệt này rồi bị RLS chặn — đã tốn chặng mạng, và
-          // với `event: "*"` thì mỗi lần như vậy vẫn kích hoạt một lượt render
-          // lại toàn trang cho một dữ liệu người này không được xem.
-          ...(clinicId ? { filter: `clinic_id=eq.${clinicId}` } : {}),
-        },
-        bump,
-      );
-    }
-    channel.subscribe();
+    // LỌC BẢNG Ở ĐÂY, LỌC PHÒNG KHÁM Ở MÁY CHỦ.
+    //
+    // Phòng khám thì máy chủ lọc: nó biết người mở dòng này thuộc phòng khám
+    // nào (từ token), nên tin của phòng khám khác không bao giờ rời máy chủ.
+    // Đó là chỗ duy nhất lọc được an toàn — trình duyệt tự khai mình thuộc đâu
+    // thì không tính là một cái lọc.
+    //
+    // Bảng thì lọc ở đây, vì danh sách bảng là chuyện của từng màn: prop
+    // `tables` cho một trang thu hẹp lại chỉ những bảng nó vẽ.
+    const wanted = new Set(tables);
+    const es = new EventSource("/api/events/stream");
+    es.addEventListener("change", (ev) => {
+      try {
+        const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
+          t?: string;
+        };
+        if (!t || wanted.has(t)) bump();
+      } catch {
+        // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót một
+        // thay đổi và để người dùng nhìn dữ liệu cũ.
+        bump();
+      }
+    });
+    // KHÔNG tự nối lại ở đây: EventSource đã tự làm, và viết thêm một vòng nối
+    // lại của mình sẽ chạy song song với vòng của trình duyệt.
 
     const poll = setInterval(() => router.refresh(), POLL_MS);
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
       clearInterval(poll);
-      void supabase.removeChannel(channel);
+      es.close();
     };
-  }, [router, tables, clinicId]);
+  }, [router, tables]);
 
   return null;
 }

@@ -7,7 +7,7 @@ import RealtimeRefresher from "./RealtimeRefresher";
 import { logout } from "../(auth)/login/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getCurrentStaff } from "../../lib/current-staff";
-import { getClinicId, getClinicRole } from "../../lib/clinic-session";
+import { getClinicRole } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
@@ -57,11 +57,13 @@ export default async function DashboardLayout({
   // nó. Gộp lại còn một lượt.
   //
   // Đo trực tiếp (04/08): 4 truy vấn tuần tự 830ms → song song 213ms.
-  const [declinedRows, bookingPolicy, featureMode, clinicId] = await Promise.all([
+  // `getClinicId()` ĐÃ BỎ khỏi khối này (06/08/2026): nó chỉ tồn tại để
+  // truyền xuống RealtimeRefresher làm bộ lọc, mà nay máy chủ tự lọc theo
+  // token. Một truy vấn ít đi trên MỌI lần dựng trang.
+  const [declinedRows, bookingPolicy, featureMode] = await Promise.all([
     canWriteIntake(role) ? loadDeclined() : Promise.resolve([]),
     getBookingPolicy(),
     getFeatureMode(),
-    getClinicId(),
   ]);
 
   // Reception / CSKH / management get a top-right notice of appointments a
@@ -79,7 +81,7 @@ export default async function DashboardLayout({
         <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={logout}>
           {children}
           <DeclinedNotice items={declined} />
-          <RealtimeRefresher clinicId={clinicId} />
+          <RealtimeRefresher />
         </Shell>
       </BookingPolicyProvider>
     </NotificationProvider>
