@@ -55,6 +55,16 @@ REASON_DEN_TRUC_TIEP = "DEN_TRUC_TIEP"  # vãng lai
 REASON_DEN_TRE = "DEN_TRE"  # có hẹn nhưng đến sau khung
 REASON_CHUA_DEN = "CHUA_DEN"  # chưa check-in
 
+# Trạng thái LƯỢT KHÁM có nghĩa là "người này không còn ngồi chờ nữa".
+#
+# Một nguồn duy nhất, vì cùng một danh sách phải đúng ở ba chỗ: hàng chờ của Lễ
+# tân, bảng gọi số trên tivi, và bảng điều phối. Sót một chỗ là người đã ra về
+# vẫn nằm trong hàng và vẫn được gọi tên.
+#
+# INCOMPLETE nằm ở đây dù nó KHÔNG phải trạng thái cuối: khách về giữa chừng thì
+# không còn chờ, kể cả khi hồ sơ của họ vẫn ghi tiếp được lúc quay lại.
+VISIT_DA_RA_VE: frozenset[str] = frozenset({"INCOMPLETE", "FINALIZED", "AMENDED"})
+
 
 def _ms(d: datetime) -> int:
     return int(d.timestamp() * 1000)

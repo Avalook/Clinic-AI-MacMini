@@ -210,6 +210,25 @@ async def apply_route(
 # quyền GHI ở đây rộng hơn phần điều phối bên trên.
 
 
+@router.get("/reception/checkout/ton-dong")
+async def checkout_stale(
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt khám còn mở từ những ngày trước — 18 dòng không ai thấy.
+
+    Đường literal đặt TRƯỚC `/reception/checkout/{visit_id:uuid}` không phải vì
+    thứ tự khai (bộ chuyển đổi `{visit_id:uuid}` đã chặn chuyện nuốt đường), mà
+    để người đọc thấy hai đường này cạnh nhau.
+    """
+    from clinicai.services.checkout_service import CheckoutService
+
+    return {
+        "ok": True,
+        "items": await CheckoutService(pool).stale_list(identity=identity),
+    }
+
+
 @router.get("/reception/checkout")
 async def checkout_list(
     identity: StaffIdentity = Depends(_RECEPTION_GUARD),
@@ -241,6 +260,9 @@ async def checkout_readiness(
 
 class CheckoutRequest(BaseModel):
     visit_id: UUID
+    # Khách về giữa chừng. Lý do BẮT BUỘC khi bật — xem checkout_service.close.
+    incomplete: bool = False
+    incomplete_reason: str | None = Field(default=None, max_length=500)
     # Còn vướng mà vẫn muốn đóng thì phải nói vì sao. Trống = chỉ đóng được khi
     # sạch vướng mắc.
     override_reason: str | None = Field(default=None, max_length=500)
@@ -252,13 +274,21 @@ async def checkout(
     identity: StaffIdentity = Depends(_RECEPTION_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Đóng lượt khám. KHÔNG đụng visit.status — xem checkout_service."""
+    """Đóng lượt khám.
+
+    Đóng bình thường KHÔNG đụng `visit.status` — đó là khoá hồ sơ bệnh án, việc
+    của bác sĩ. Chỉ nhánh `incomplete=True` (khách về giữa chừng) mới ghi
+    `INCOMPLETE`, và đó là trạng thái KHÔNG-CUỐI: bác sĩ vẫn ký lên FINALIZED
+    được sau. Xem checkout_service.
+    """
     from clinicai.services.checkout_service import CheckoutService
 
     return await CheckoutService(pool).close(
         identity=identity,
         visit_id=str(body.visit_id),
         override_reason=body.override_reason,
+        incomplete=body.incomplete,
+        incomplete_reason=body.incomplete_reason,
     )
 
 
