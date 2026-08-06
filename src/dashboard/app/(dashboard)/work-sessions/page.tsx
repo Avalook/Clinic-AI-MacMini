@@ -1,19 +1,27 @@
-// Server Component — reads from Supabase via the SSR client, RLS-gated by
-// the authenticated user's session.
+// Ca trực — đọc qua FastAPI, không còn đọc thẳng bảng.
+//
+// Sổ bàn giao ghi trang này như một việc còn treo: "có trang /work-sessions
+// nhưng nó không gọi API này". Đúng một nửa — endpoint LIỆT KÊ chưa từng tồn
+// tại (chỉ có tạo, xem một ca, gán nhân sự), nên trang buộc phải đọc thẳng
+// `work_session` qua PostgREST. Nay endpoint ấy đã có.
+//
+// Vì sao đáng đổi: đọc thẳng bảng cần vai Postgres (`authenticated`) mà
+// database cho thuê không cho tạo. Mỗi màn chuyển sang FastAPI là một màn bớt
+// buộc hệ thống vào một loại database duy nhất.
 
-import { getSupabaseServer } from "../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../lib/clinic-session";
 
 interface WorkSessionRow {
   id: string;
-  location_id: string;
+  location_id: string | null;
+  location_name: string | null;
   session_date: string;
   session_type: string;
   start_time: string;
   end_time: string;
   max_patients: number | null;
-  clinic_location: { name: string | null } | null;
-  work_session_staff: { count: number }[];
+  staff_count: number;
 }
 
 export const dynamic = "force-dynamic";
@@ -22,18 +30,12 @@ export default async function WorkSessionsPage() {
   // Chỉ Quản lý (NAV_ROLES) — chặn gõ thẳng URL; trang này bị sót trong đợt
   // vá requireNavAccess 05/06.
   await requireNavAccess("/work-sessions");
-  const supabase = await getSupabaseServer();
 
-  const { data, error } = await supabase
-    .from("work_session")
-    .select(
-      // Field names verified against migration 009/010/001 (Step 1).
-      "id, location_id, session_date, session_type, start_time, end_time, max_patients, " +
-        "clinic_location:clinic_location ( name ), " +
-        "work_session_staff ( count )",
-    )
-    .order("session_date", { ascending: false })
-    .limit(100);
+  // null = backend không trả lời. Phân biệt với danh sách rỗng: "không đọc
+  // được" và "chưa có ca nào" nhìn giống hệt nhau mà nghĩa thì ngược nhau.
+  const rows = await fetchFromBackend<WorkSessionRow[]>("/api/v1/work-sessions");
+  const data = rows;
+  const error = rows === null ? { message: "Không đọc được danh sách ca trực." } : null;
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
@@ -52,7 +54,7 @@ export default async function WorkSessionsPage() {
 
       {/* Mobile: card list (<md). */}
       <ul className="space-y-2 md:hidden">
-        {(data as WorkSessionRow[] | null)?.map((s) => (
+        {data?.map((s) => (
           <li
             key={s.id}
             className="rounded-card border border-line bg-surface p-4 shadow-card"
@@ -67,8 +69,8 @@ export default async function WorkSessionsPage() {
               {s.start_time} – {s.end_time}
             </p>
             <p className="text-xs text-ink-soft">
-              {s.clinic_location?.name ?? "—"}
-              {" · "}Nhân sự: {s.work_session_staff?.[0]?.count ?? 0}
+              {s.location_name ?? "—"}
+              {" · "}Nhân sự: {s.staff_count}
               {" · "}Tối đa BN: {s.max_patients ?? "—"}
             </p>
           </li>
@@ -94,7 +96,7 @@ export default async function WorkSessionsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-brand-100">
-            {(data as WorkSessionRow[] | null)?.map((s) => (
+            {data?.map((s) => (
               <tr
                 key={s.id}
                 className="transition-colors duration-150 hover:bg-brand-50"
@@ -107,10 +109,10 @@ export default async function WorkSessionsPage() {
                   {s.start_time} – {s.end_time}
                 </td>
                 <td className="px-4 py-2.5 text-ink-soft">
-                  {s.clinic_location?.name ?? "—"}
+                  {s.location_name ?? "—"}
                 </td>
                 <td className="px-4 py-2.5 text-ink-soft">
-                  {s.work_session_staff?.[0]?.count ?? 0}
+                  {s.staff_count}
                 </td>
                 <td className="px-4 py-2.5 text-ink-soft">
                   {s.max_patients ?? "—"}

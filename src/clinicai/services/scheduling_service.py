@@ -178,6 +178,36 @@ class SchedulingService:
 
         return {"staff": [dict(r) for r in staff_rows]}
 
+    async def list_work_sessions(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Ca trực gần nhất, kèm tên cơ sở và số nhân sự đã phân.
+
+        MỘT TRUY VẤN, KHÔNG PHẢI N+1. Trang này hiện 100 ca; đếm nhân sự bằng
+        một vòng lặp gọi lại database cho từng ca là 101 lượt đi-về. Đếm bằng
+        truy vấn con ngay trong SELECT là một lượt.
+
+        Sắp theo ngày GIẢM DẦN rồi tới giờ bắt đầu: người mở màn này cần ca gần
+        đây nhất, không phải ca cũ nhất.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT ws.id, ws.location_id, ws.session_date, ws.session_type,
+                       ws.start_time, ws.end_time, ws.max_patients,
+                       l.name AS location_name,
+                       (SELECT count(*) FROM work_session_staff wss
+                         WHERE wss.work_session_id = ws.id
+                           AND wss.clinic_id = ws.clinic_id) AS staff_count
+                  FROM work_session ws
+                  LEFT JOIN clinic_location l ON l.id = ws.location_id
+                 WHERE ws.clinic_id = $1::uuid
+                 ORDER BY ws.session_date DESC, ws.start_time DESC
+                 LIMIT $2;
+                """,
+                self._clinic_id,
+                limit,
+            )
+            return [dict(r) for r in rows]
+
     async def get_session_with_staff(self, work_session_id: UUID) -> dict[str, Any]:
         """Fetch a work session together with its assigned staff list."""
         async with self._pool.acquire() as conn:
