@@ -2,6 +2,7 @@
 // Dược sĩ xem tồn theo lô/hạn dùng, nhập lô mới, điều chỉnh tồn.
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { motBanGhi } from "../../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import InventoryBoard from "./InventoryBoard";
 
@@ -37,7 +38,7 @@ export default async function PharmacyInventoryPage() {
   };
   const normalized = (batches ?? []).map((b: BatchRaw) => ({
     ...b,
-    drug: b.drug?.[0] ?? null,
+    drug: motBanGhi(b.drug),
   }));
 
   return <InventoryBoard batches={normalized} />;
