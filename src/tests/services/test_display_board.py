@@ -17,6 +17,7 @@ from clinicai.services.display_board_service import (
     _doc_zones,
     _khu_vuc,
     _mot_dong,
+    che_ten_nguoi,
 )
 from clinicai.services.queue_order import (
     REASON_DAT_TRUOC_DUNG_GIO,
@@ -45,34 +46,56 @@ def _hang(**over: Any) -> _Row:
         "status": "CHECKED_IN",
         "room_name": "Phòng khám 2",
         "room_code": None,
+        "patient_name": "Nguyễn Thị Lan",
     }
     base.update(over)
     return _Row(base)
 
 
-# ── ① Không một mẩu danh tính nào rời máy chủ ────────────────────────────────
-def test_khong_tra_ve_bat_ky_truong_dinh_danh_nao() -> None:
+# ── ① Chỉ cái tên, và chỉ khi phòng khám bật ─────────────────────────────────
+def test_ngoai_ten_khong_truong_dinh_danh_nao_khac_roi_may_chu() -> None:
+    """Quang chốt gọi TÊN. Nhưng mọi thứ định danh KHÁC vẫn phải ở lại máy chủ:
+    mã bệnh nhân, số điện thoại, ngày sinh, tên bác sĩ, chẩn đoán."""
     dong = _mot_dong(_hang(), None, [])
     cam = {
-        "full_name",
         "patient_code",
         "phone_primary",
         "phone_secondary",
         "date_of_birth",
         "address",
-        "patient_name",
         "doctor_name",
         "clinic_patient_id",
+        "national_id_number",
     }
     assert cam.isdisjoint(dong.keys())
 
 
-def test_khong_co_chuoi_nao_trong_payload_giong_ten_nguoi() -> None:
+def test_tat_hien_ten_thi_khong_con_mot_chu_nao_cua_ten() -> None:
+    """Công tắc phải THẬT SỰ chặn ở máy chủ, không chỉ ẩn trên giao diện.
+
+    Ẩn bằng CSS thì cái tên vẫn nằm trong payload của một màn hình treo giữa
+    phòng chờ — ai mở công cụ nhà phát triển cũng đọc được.
+    """
+    payload = json.dumps(
+        _mot_dong(_hang(), None, [], hien_ten=False), ensure_ascii=False
+    )
+    assert "Nguyễn Thị Lan" not in payload
+
+
+def test_che_ten_giu_ho_va_rut_phan_con_lai() -> None:
+    """Người ngồi chờ nghe HỌ của mình thì ngẩng lên; phần còn lại đủ để nhận ra
+    mà không đọc trọn cho cả phòng."""
+    dong = _mot_dong(_hang(), None, [], che_ten=True)
+    assert dong["patient_name"] == "Nguyễn T. L."
+    assert che_ten_nguoi("Lan") == "Lan"
+    assert che_ten_nguoi(None) == ""
+
+
+def test_khong_co_chuoi_nao_khac_trong_payload_giong_ten_nguoi() -> None:
     """Kiểm trên GIÁ TRỊ chứ không chỉ trên tên khoá.
 
     Một trường tên vô hại vẫn có thể chứa tên người — ví dụ ai đó nhét
-    `service_name` thành "Khám phụ khoa — Nguyễn Thị A". Bài này bắt chính hành
-    vi ấy: đưa một cái tên vào hàng dữ liệu rồi kiểm nó KHÔNG xuất hiện đâu cả.
+    `service_name` thành "Khám phụ khoa — Nguyễn Thị A".
     """
     hang = _hang(service_name="Siêu âm thai — Nguyễn Thị Ánh Tuyết")
     payload = json.dumps(_mot_dong(hang, None, []), ensure_ascii=False)
@@ -229,3 +252,23 @@ def test_phong_lam_chu_ca_khi_ten_dich_vu_noi_khac() -> None:
     họ đang ở."""
     zones = [{"key": "kham", "label": "Khám"}, {"key": "sa2", "label": "SA2"}]
     assert _khu_vuc("Khám phụ khoa", zones, "SA2") == "sa2"
+
+
+def test_khu_bi_tat_thi_khong_ra_khoi_may_chu() -> None:
+    """Tắt một khu là tắt ở MÁY CHỦ, không phải ẩn bằng CSS.
+
+    Ẩn bằng CSS thì dữ liệu của khu đã tắt vẫn nằm trong payload của một màn
+    hình treo giữa phòng chờ.
+    """
+    zones = _doc_zones(
+        _Row(
+            {
+                "zones": [
+                    {"key": "kham", "label": "Khám bác sĩ"},
+                    {"key": "xn", "label": "Xét nghiệm", "an": True},
+                    {"key": "tt", "label": "Thanh toán", "an": False},
+                ]
+            }
+        )
+    )
+    assert [z["key"] for z in zones] == ["kham", "tt"]
