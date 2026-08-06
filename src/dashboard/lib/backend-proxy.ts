@@ -105,6 +105,38 @@ export async function proxyJsonToBackend(
   return NextResponse.json(payload, { status: res.status });
 }
 
+/** Header xác thực của chính người đang gọi, hoặc null khi chưa đăng nhập.
+ *
+ * TÁCH RA VÌ ĐÃ CÓ BẢY CHỖ CHÉP LẠI ĐOẠN NÀY, VÀ CẢ BẢY ĐỀU CHÉP THIẾU.
+ *
+ * Đoạn đúng là `getUser()` rồi mới `getSession()`. Bảy chỗ kia gọi thẳng
+ * `getSession()` — và `getSession()` CHỈ ĐỌC COOKIE, không làm mới. Token
+ * Supabase sống một tiếng, nên sau một tiếng nó trả null dù người dùng vẫn
+ * đăng nhập hợp lệ: màn hình ấy báo "Chưa đăng nhập" trong khi mọi trang khác
+ * chạy bình thường. Mỗi tiếng một lần, ở đúng bảy màn.
+ *
+ * `getUser()` đổi refresh token lấy access token mới trong bộ nhớ client, nên
+ * gọi nó trước là đủ. Một dòng — nhưng là một dòng mà bảy người chép quên,
+ * nên nó thuộc về đây chứ không thuộc về từng chỗ gọi.
+ */
+export async function getCallerAuthHeaders(): Promise<Record<
+  string,
+  string
+> | null> {
+  const supabase = await getSupabaseServer();
+  await supabase.auth.getUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return null;
+
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  const apiKey = process.env.BACKEND_API_KEY;
+  if (apiKey) headers["X-API-Key"] = apiKey;
+  return headers;
+}
+
 /** Server-side GET from FastAPI, with the caller's own token.
  *
  * proxyJsonToBackend is for route handlers, which return a NextResponse. A

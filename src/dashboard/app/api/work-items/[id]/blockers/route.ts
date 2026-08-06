@@ -11,7 +11,7 @@
 
 import { NextResponse } from "next/server";
 
-import { getSupabaseServer } from "../../../../../lib/supabase-server";
+import { getCallerAuthHeaders } from "../../../../../lib/backend-proxy";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
@@ -38,16 +38,11 @@ export async function GET(
       ? "complete"
       : "start";
 
-  const supabase = await getSupabaseServer();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
-
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-  const apiKey = process.env.BACKEND_API_KEY;
-  if (apiKey) headers["X-API-Key"] = apiKey;
+  // Header lấy từ chỗ dùng chung. Bản cũ tự dựng ở đây và QUÊN getUser(), nên
+  // sau một tiếng token hết hạn là chỗ này báo "chưa đăng nhập" trong khi mọi
+  // trang khác vẫn chạy — xem getCallerAuthHeaders trong backend-proxy.ts.
+  const headers = await getCallerAuthHeaders();
+  if (!headers) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   try {
     const res = await fetch(

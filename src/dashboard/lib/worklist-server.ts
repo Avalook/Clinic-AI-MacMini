@@ -16,7 +16,7 @@
  * forced to handle both.
  */
 
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getCallerAuthHeaders } from "@/lib/backend-proxy";
 
 import type { WorklistItem } from "@/lib/worklist";
 
@@ -35,20 +35,15 @@ export async function fetchWorklist(
 ): Promise<WorklistResult> {
   if (!API_BASE) return { ok: false, reason: "unreachable", detail: "CLINIC_API_URL chưa cấu hình" };
 
-  const supabase = await getSupabaseServer();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) return { ok: false, reason: "no-session" };
+  // Header lấy từ chỗ dùng chung: bản cũ tự dựng ở đây và QUÊN getUser(), nên
+  // sau một tiếng token hết hạn là bảng này báo "chưa đăng nhập" trong khi mọi
+  // trang khác vẫn chạy. Xem getCallerAuthHeaders trong backend-proxy.ts.
+  const headers = await getCallerAuthHeaders();
+  if (!headers) return { ok: false, reason: "no-session" };
 
   const params = new URLSearchParams({ workspace });
   if (opts.date) params.set("date", opts.date);
   if (opts.mineOnly) params.set("mine_only", "true");
-
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-  const apiKey = process.env.BACKEND_API_KEY;
-  if (apiKey) headers["X-API-Key"] = apiKey;
 
   try {
     const res = await fetch(`${API_BASE}/api/v1/work-items?${params}`, {
