@@ -1186,31 +1186,26 @@ class BookingService:
         both come from the one row read at the top of this transaction.
         """
         begin, end = policy.bucket(slot_start)
-        rows = await conn.fetch(
+        # Đếm bằng CHÍNH hàm mà trigger gọi. Vòng lặp Python cũ ở đây đếm ghế
+        # vãng lai bằng đúng số dòng có `booking_channel = 'WALK_IN'` — nay
+        # thiếu một nửa: khách có hẹn đến muộn cũng chiếm ghế vãng lai của khung
+        # họ có mặt (20260807000001). Câu tiếng Việt và cái net phải nói cùng
+        # một con số, nếu không lễ tân sẽ đọc "còn chỗ" rồi bấm và bị từ chối.
+        seats = await conn.fetchrow(
             """
-            SELECT booking_channel, status
-              FROM appointment
-             WHERE clinic_id = $1::uuid
-               AND slot_start >= $2 AND slot_start < $3
-               AND (($4::uuid IS NULL AND doctor_id IS NULL)
-                    OR doctor_id = $4::uuid)
-               AND ($5::uuid IS NULL OR id <> $5::uuid)
+            SELECT slot_seats_used($1::uuid, $2::uuid, $3, $4, FALSE, $5::uuid)
+                       AS regular,
+                   slot_seats_used($1::uuid, $2::uuid, $3, $4, TRUE,  $5::uuid)
+                       AS walkin
             """,
             identity.clinic_id,
+            doctor_id,
             begin,
             end,
-            doctor_id,
             exclude_id,
         )
-
-        regular = walkin = 0
-        for row in rows:
-            if is_dead(row["status"]):
-                continue
-            if is_walkin(row["booking_channel"]):
-                walkin += 1
-            else:
-                regular += 1
+        regular = seats["regular"] if seats else 0
+        walkin = seats["walkin"] if seats else 0
 
         window = f"{_hhmm(begin)}–{_hhmm(end)}"
         if is_walkin(channel):
