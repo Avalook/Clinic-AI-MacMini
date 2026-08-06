@@ -140,25 +140,66 @@ else
     LOI=1
 fi
 
-doc "3c · Có bỏ qua RLS được không (điều thật sự cần)"
-# Điều backend cần KHÔNG phải thuộc tính BYPASSRLS, mà là ĐỌC ĐƯỢC BẤT KỂ RLS.
-# Trong PostgreSQL, CHỦ SỞ HỮU bảng vốn đã bỏ qua RLS — trừ khi bảng bật FORCE
-# ROW LEVEL SECURITY, mà lược đồ này không bảng nào bật. Nên tài khoản chạy
-# migration (tức chủ sở hữu mọi bảng) đủ dùng, dù không có BYPASSRLS.
-# `|| true` ở CẢ BA lệnh: lần trước chỉ bọc phép gán, còn hai lệnh trần vẫn để
-# `set -e` giết script — và nó chết đúng ở đây, ngay trước mục quan trọng nhất.
-psql "${CN[@]}" -c "
-    CREATE TABLE __thu_rls(id int);
-    ALTER TABLE __thu_rls ENABLE ROW LEVEL SECURITY;
-    INSERT INTO __thu_rls VALUES (1);" >/dev/null 2>&1 || true
-DEM=$(psql "${CN[@]}" -c "SELECT count(*) FROM __thu_rls" 2>/dev/null || true)
-psql "${CN[@]}" -c "DROP TABLE IF EXISTS __thu_rls" >/dev/null 2>&1 || true
-if [ "${DEM:-0}" = "1" ]; then
-    dat "đọc được dữ liệu của bảng đã bật RLS (vì là chủ sở hữu) — đủ cho backend"
+doc "3c · Dựng bảng và đọc qua RLS — TÁCH TỪNG BƯỚC"
+# BỐN LỆNH, BỐN CÂU TRẢ LỜI. Bản trước gộp CREATE TABLE + ENABLE RLS + INSERT
+# vào một lệnh rồi chỉ đọc kết quả cuối. Nó ra "✗" trên database Viettel, và
+# dấu ✗ ấy có thể là BA chuyện khác hẳn nhau: không tạo nổi bảng, không bật nổi
+# RLS, hay không đọc nổi. Ba chuyện dẫn tới ba kết luận kiến trúc khác nhau —
+# và cái đầu tiên là thứ quyết định có chạy nổi migration hay không.
+#
+# `public` bị siết từ PostgreSQL 15: schema ấy KHÔNG còn cho mọi người tạo bảng
+# nữa. Nên phải hỏi riêng "tạo được trong public không" và "tạo được trong
+# schema của mình không" — nếu vế sau chạy thì lược đồ chỉ cần đổi nhà, không
+# cần đổi nhà cung cấp.
+thu() { psql "${CN[@]}" -c "$1" >/dev/null 2>&1; }
+
+if thu "CREATE TABLE public.__thu_bang(id int)"; then
+    dat "tạo được bảng trong schema public"
+    CO_BANG_PUBLIC=1
 else
-    hong "KHÔNG đọc được — backend sẽ thấy bảng rỗng dù dữ liệu còn nguyên"
+    hong "KHÔNG tạo được bảng trong public (PG15+ siết mặc định)"
+    canh "Không chặn đường: xem mục dưới, schema riêng thường vẫn tạo được."
+    CO_BANG_PUBLIC=0
+fi
+
+if thu "CREATE SCHEMA IF NOT EXISTS __thu_lc; CREATE TABLE __thu_lc.t(id int)"; then
+    dat "tạo được bảng trong SCHEMA RIÊNG — migration có đường ra"
+    CO_BANG_RIENG=1
+else
+    hong "KHÔNG tạo được bảng ở đâu cả — database này không dựng nổi lược đồ"
+    CO_BANG_RIENG=0
     LOI=1
 fi
+
+if [ "$CO_BANG_RIENG" = "1" ]; then
+    # Điều backend cần KHÔNG phải thuộc tính BYPASSRLS, mà là ĐỌC ĐƯỢC BẤT KỂ
+    # RLS. Chủ sở hữu bảng vốn đã bỏ qua RLS trừ khi bật FORCE ROW LEVEL
+    # SECURITY — lược đồ này không bảng nào bật.
+    thu "ALTER TABLE __thu_lc.t ENABLE ROW LEVEL SECURITY" \
+        && dat "bật được RLS" || { hong "KHÔNG bật được RLS"; LOI=1; }
+    thu "INSERT INTO __thu_lc.t VALUES (1)"
+    DEM=$(psql "${CN[@]}" -c "SELECT count(*) FROM __thu_lc.t" 2>/dev/null || true)
+    if [ "${DEM:-0}" = "1" ]; then
+        dat "đọc được dữ liệu của bảng đã bật RLS (vì là chủ sở hữu) — đủ cho backend"
+    else
+        hong "KHÔNG đọc được — backend sẽ thấy bảng rỗng dù dữ liệu còn nguyên"
+        LOI=1
+    fi
+fi
+thu "DROP TABLE IF EXISTS public.__thu_bang"
+thu "DROP SCHEMA IF EXISTS __thu_lc CASCADE"
+[ "$CO_BANG_PUBLIC" = "0" ] && [ "$CO_BANG_RIENG" = "1" ] &&
+    canh "→ Lược đồ phải chuyển từ public sang một schema riêng."
+
+doc "3e · Những vai Supabase cần — vai nào ĐÃ có sẵn"
+# Nhà cung cấp không cho TẠO vai, nhưng có thể tạo hộ qua giao diện quản trị.
+# Liệt kê ra để biết còn thiếu đúng những vai nào mà đi xin, thay vì xin mò.
+for VAI in supabase_admin supabase_auth_admin supabase_storage_admin \
+           authenticator anon authenticated service_role; do
+    CO=$(psql "${CN[@]}" -c \
+        "SELECT 1 FROM pg_roles WHERE rolname = '$VAI'" 2>/dev/null || true)
+    if [ "${CO:-}" = "1" ]; then dat "$VAI"; else hong "$VAI — CHƯA CÓ"; fi
+done
 
 doc "3d · Replication cho realtime"
 if psql "${CN[@]}" -c "
