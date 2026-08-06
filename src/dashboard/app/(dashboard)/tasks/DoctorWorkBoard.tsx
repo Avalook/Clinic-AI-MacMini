@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 
 import { fmtTimeOrNone } from "../../../lib/datetime";
-import { compareQueue } from "../../../lib/queue";
 import {
   currentWeekStartVn,
   dayLabel,
@@ -45,6 +44,17 @@ export interface DoctorApptRow {
   queue_number?: string | null;
   /** "Khám lần đầu" | "Tái khám" | "" — suy từ lịch sử hẹn (server tính sẵn). */
   phan_loai?: string;
+  /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
+   *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
+   *  từ một bản chép của luật bằng TypeScript. */
+  call_order?: number | null;
+  /** Làn: -2 ƯT · -1 chờ đọc KQ · 0 có hẹn đúng giờ · 1 vãng lai/đến muộn */
+  call_tier?: number | null;
+  /** UU_TIEN | CHO_DOC_KQ | DAT_TRUOC_DUNG_GIO | DEN_TRUC_TIEP | DEN_TRE | CHUA_DEN */
+  call_reason?: string | null;
+  /** Có người đến TRƯỚC mà bị xếp SAU mình — chỗ cần một câu giải thích. */
+  promoted?: boolean;
+  promoted_over?: number;
   patient: {
     clinic_patient_id: string;
     patient_code: string;
@@ -285,7 +295,10 @@ export default function DoctorWorkBoard({
       const dateA = dateInVn(a.slot_start);
       const dateB = dateInVn(b.slot_start);
       if (dateA !== dateB) return dateA < dateB ? -1 : 1;
-      return compareQueue(a, b);
+      // Thứ tự gọi do BACKEND quyết (services/queue_order.py). Trước đây màn
+      // này gọi compareQueue() từ một bản chép của luật bằng TypeScript — hai
+      // bản giống nhau cho tới ngày ai đó sửa một bên.
+      return (a.call_order ?? 0) - (b.call_order ?? 0);
     });
   const selected = visible.find((row) => row.id === selectedId) ?? visible[0] ?? null;
 

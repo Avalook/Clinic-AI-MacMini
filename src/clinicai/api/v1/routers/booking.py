@@ -182,6 +182,7 @@ async def doctor_board(
     start: datetime,
     end: datetime,
     doctor_id: UUID | None = None,
+    statuses: str | None = None,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -194,14 +195,21 @@ async def doctor_board(
 
     ``start``/``end`` khai kiểu ``datetime`` để FastAPI phân tích và từ chối
     chuỗi hỏng bằng 422, thay vì để chuỗi rơi xuống asyncpg thành 500.
+
+    ``statuses`` (danh sách ngăn cách dấu phẩy) để trống = MỌI trạng thái, kể
+    cả lịch đã huỷ. Mặc định đó là CỐ Ý và phải giữ: bảng bác sĩ hiện cả lịch
+    huỷ để bác sĩ biết ai đã rút — đặt một mặc định khác ở đây là làm biến mất
+    những dòng đó mà không một thông báo nào.
     """
     from clinicai.services.doctor_board_service import DoctorBoardService
 
+    loc = [s.strip() for s in (statuses or "").split(",") if s.strip()] or None
     items = await DoctorBoardService(pool).board(
         clinic_id=identity.clinic_id,
         start=start,
         end=end,
         doctor_id=str(doctor_id) if doctor_id else None,
+        statuses=loc,
     )
     return {"ok": True, "items": items}
 

@@ -14,11 +14,8 @@ from fastapi import APIRouter, Depends, Query
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.services.queue_order import (
-    QueueEntry,
-    b3_ready_appt_ids,
-    order_queue,
-)
+from clinicai.services.queue_order import b3_ready_appt_ids, explain_queue
+from clinicai.services.queue_rows import entry_from_row
 
 router = APIRouter()
 
@@ -35,7 +32,8 @@ SELECT a.id::text            AS appointment_id,
        s.full_name           AS doctor_name,
        st.name               AS service_name,
        v.checked_in_at,
-       v.status              AS visit_status
+       v.status              AS visit_status,
+       cap.slot_minutes
 FROM appointment a
 JOIN patient p        ON p.clinic_patient_id = a.clinic_patient_id
 LEFT JOIN staff s        ON s.id = a.doctor_id
@@ -47,6 +45,15 @@ LEFT JOIN LATERAL (
     ORDER BY checked_in_at DESC NULLS LAST
     LIMIT 1
 ) v ON true
+-- Độ dài khung giờ ÁP DỤNG CHO CHÍNH LỊCH NÀY, để suy ra cửa sổ "đến đúng giờ".
+--
+-- Dùng resolve_effective_cap chứ không đọc thẳng clinic.settings: đây đúng là
+-- hàm mà trigger enforce_slot_capacity dùng khi quyết định khung còn chỗ hay
+-- không. Hai bên đọc chung một nguồn thì không thể lệch — bảng gọi số nói khung
+-- 15 phút trong khi bộ nhận lịch nghĩ 30 phút là loại sai lầm không ai lần ra.
+LEFT JOIN LATERAL public.resolve_effective_cap(
+    a.clinic_id, a.doctor_id, a.slot_start
+) cap ON true
 WHERE a.slot_start >= ($1::date)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
   AND a.slot_start <  (($1::date) + 1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
   AND a.status = 'CHECKED_IN'
@@ -81,22 +88,20 @@ async def get_queue(
     b3 = b3_ready_appt_ids([dict(lab) for lab in labs])
     by_id = {r["appointment_id"]: r for r in appt_rows}
 
+    # `/queue` chỉ nhìn MỘT ngày nên không cần gom nhóm — nhưng vẫn dựng
+    # QueueEntry qua cùng một hàm với hai bảng kia, để ba bảng không thể hiểu
+    # khác nhau về cùng một hàng dữ liệu.
     entries = [
-        QueueEntry(
-            appointment_id=r["appointment_id"],
-            doctor_id=r["doctor_id"],
-            queue_number=r["queue_number"],
-            slot_start=r["slot_start"],
-            checked_in_at=r["checked_in_at"],
-            booking_channel=r["booking_channel"],
-            b3_ready=r["appointment_id"] in b3,
-            visit_status=r["visit_status"],
+        entry_from_row(
+            {**dict(r), "b3_ready": r["appointment_id"] in b3},
+            id_key="appointment_id",
         )
         for r in appt_rows
     ]
 
     rows: list[dict[str, object]] = []
-    for e in order_queue(entries):
+    for d in explain_queue(entries):
+        e = d.entry
         r = by_id[e.appointment_id]
         rows.append(
             {
@@ -116,6 +121,13 @@ async def get_queue(
                 ),
                 "visit_status": e.visit_status,
                 "b3_ready": e.b3_ready,
+                # Thứ tự VÀ lý do đi cùng nhau. Màn hình chỉ việc hiển thị —
+                # không màn nào tự xếp lại, không màn nào tự đoán lý do.
+                "call_order": d.call_order,
+                "call_tier": d.call_tier,
+                "call_reason": d.call_reason,
+                "promoted": d.promoted,
+                "promoted_over": d.promoted_over,
             }
         )
 

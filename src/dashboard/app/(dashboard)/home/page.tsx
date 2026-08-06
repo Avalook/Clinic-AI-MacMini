@@ -98,18 +98,6 @@ export default async function HomePage({
   const apptDates = weekDates(weekAppt);
   const rosterDates = weekDates(weekRoster);
   const apptStartUtc = vnLocalToUtcISO(weekAppt, "00:00");
-  // Check-in hôm nay (đủ trường hành chính để mở hồ sơ lâm sàng ở cột phải).
-  const CHECKIN_SELECT = `
-    id, slot_start, status, queue_number, booking_channel,
-    patient:patient!clinic_patient_id (
-      clinic_patient_id, patient_code, full_name, date_of_birth,
-      phone_primary, phone_secondary, gender, ethnicity, nationality, occupation,
-      patient_objection, address, guardian_name
-    ),
-    service:service_type!service_type_id ( name ),
-    visit:visit!appointment_id ( checked_in_at )
-  `;
-
   // Trạng thái BN buổi khám hôm nay (chỉ Lễ tân) — đọc visit TẠO HÔM NAY +
   // join patient/bác sĩ/dịch vụ. 3 staff-FK trên visit → phải chỉ rõ
   // attending_doctor_id để PostgREST không nhập nhằng. RLS SELECT cho phép.
@@ -166,24 +154,21 @@ export default async function HomePage({
     fetchFromBackend<{ items: WeekApptRow[] }>(
       `/api/v1/appointments/week?week_start=${weekAppt}`,
     ),
+    // Check-in hôm nay — ĐỌC QUA BACKEND, không đọc thẳng Supabase nữa.
+    //
+    // Không phải để gọn: thứ tự gọi bây giờ do backend tính (call_order), và
+    // một truy vấn Supabase thì không mang con số đó về. Để nguyên đường cũ thì
+    // màn này sẽ IM LẶNG mất thứ tự ưu tiên — mọi dòng call_order rỗng, phép
+    // xếp thành vô tác dụng, và không có lỗi nào hiện ra.
+    //
+    // GIỮ luôn BN đã CHECKED_IN + đã COMPLETED để lễ tân thấy ai đã đến cả ngày.
     showCheckin
-      ? supabase
-          .from("appointment")
-          .select(CHECKIN_SELECT)
-          .gte("slot_start", dayStart)
-          .lt("slot_start", dayEnd)
-          // GIỮ luôn BN đã CHECKED_IN + đã COMPLETED — không xoá khỏi danh sách
-          // sau khi check-in / khám xong, để lễ tân thấy ai đã đến cả ngày.
-          .in("status", [
-            "SCHEDULED",
-            "CSKH_CONFIRMED",
-            "CONFIRMED",
-            "CHECKED_IN",
-            "COMPLETED",
-          ])
-          .order("slot_start", { ascending: true })
-          .limit(300)
-      : Promise.resolve({ data: [] }),
+      ? fetchFromBackend<{ items: HomeCheckinRow[] }>(
+          `/api/v1/appointments/doctor-board?start=${encodeURIComponent(dayStart)}` +
+            `&end=${encodeURIComponent(dayEnd)}` +
+            `&statuses=SCHEDULED,CSKH_CONFIRMED,CONFIRMED,CHECKED_IN,COMPLETED`,
+        )
+      : Promise.resolve({ items: [] as HomeCheckinRow[] }),
     isReception
       ? supabase
           .from("visit")
@@ -206,16 +191,15 @@ export default async function HomePage({
       `/api/v1/visits/progress?from=${apptDates[0]}&to=${apptDates[apptDates.length - 1]}`,
     ),
   ]);
-  // visit embed (1-nhiều phía appointment) trả MẢNG → phẳng hoá thành checked_in_at
-  // để compareQueue dùng THỨ TỰ GỌI ưu tiên (Model ②) cho người đã check-in.
-  const checkinRows = (
-    (checkinRes.data as
-      | (HomeCheckinRow & { visit?: { checked_in_at: string | null }[] | null })[]
-      | null) ?? []
-  ).map((r) => ({
-    ...r,
-    checked_in_at: r.visit?.[0]?.checked_in_at ?? null,
-  })) as HomeCheckinRow[];
+  // Backend trả `checked_in_at` PHẲNG sẵn (doctor_board_service chọn một lượt
+  // khám có thứ tự trong SQL). Bước phẳng hoá cũ lấy `visit[0]` từ một mảng
+  // KHÔNG có thứ tự — tức là chọn ngẫu nhiên khi một lịch có nhiều lượt.
+  //
+  // `?? []` khi backend không với tới: KHÔNG phải bước lùi — đường Supabase cũ
+  // cũng cho ra danh sách rỗng khi truy vấn lỗi. Nhưng nó vẫn là một khoảng
+  // trắng nói dối ("hôm nay không ai đến" khi thật ra là "không hỏi được"), và
+  // đáng sửa cùng lúc cho cả trang, không phải riêng khối này.
+  const checkinRows = checkinRes?.items ?? [];
 
   // Board trạng thái buổi khám: nếu select đầy đủ LỖI → KHÔNG để bảng trắng
   // câm. Rơi xuống select TỐI THIỂU (không join appointment), rồi lấy

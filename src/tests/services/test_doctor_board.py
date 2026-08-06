@@ -151,8 +151,12 @@ async def test_the_window_reaches_the_driver_as_datetimes() -> None:
         end=datetime.datetime(2026, 9, 1, tzinfo=CLINIC_TZ),
         doctor_id=DOCTOR,
     )
-    _clinic, start, end, doctor = conn.args
+    _clinic, start, end, doctor, statuses = conn.args
     assert isinstance(start, datetime.datetime)
     assert isinstance(end, datetime.datetime)
     assert start.tzinfo is not None and end.tzinfo is not None
     assert doctor == DOCTOR
+    # Không truyền `statuses` = MỌI trạng thái, kể cả lịch đã huỷ. Bảng bác sĩ
+    # cố ý hiện chúng (xem docstring của service) — một mặc định khác ở đây là
+    # làm biến mất những dòng đó mà không lời nào.
+    assert statuses is None
