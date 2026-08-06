@@ -43,6 +43,8 @@ def _hang(**over: Any) -> _Row:
         "visit_status": None,
         "slot_minutes": 15,
         "status": "CHECKED_IN",
+        "room_name": "Phòng khám 2",
+        "room_code": None,
     }
     base.update(over)
     return _Row(base)
@@ -199,3 +201,31 @@ def test_kham_xong_roi_thi_roi_khoi_bang_cho() -> None:
         _mot_dong(_hang(status="CONFIRMED", checked_in_at=None), None, [])["waiting"]
         is False
     )
+
+
+def test_phong_benh_nhan_dang_dung_quyet_dinh_khu_khong_phai_ten_dich_vu() -> None:
+    """SA1/SA2/SA3 là siêu âm ở TẦNG 1/2/3 — ba nơi khác nhau trong toà nhà.
+
+    Đoán khu bằng từ khoá "siêu âm" thì mọi người siêu âm dồn vào một khu, và
+    bảng gọi số chỉ khách lên nhầm tầng.
+    """
+    zones = [
+        {"key": "kham", "label": "Khám bác sĩ"},
+        {"key": "sa1", "label": "Siêu âm tầng 1"},
+        {"key": "sa2", "label": "Siêu âm tầng 2"},
+        {"key": "sa3", "label": "Siêu âm tầng 3"},
+    ]
+    for ma, mong_doi in (("SA1", "sa1"), ("SA2", "sa2"), ("sa3", "sa3")):
+        assert _khu_vuc("Siêu âm thai", zones, ma) == mong_doi
+
+    # Chưa xếp phòng thì chưa ai biết tầng — đứng tạm ở khu siêu âm đầu tiên
+    # vẫn hơn là không xuất hiện ở đâu.
+    assert _khu_vuc("Siêu âm thai", zones, None) == "sa1"
+
+
+def test_phong_lam_chu_ca_khi_ten_dich_vu_noi_khac() -> None:
+    """Bác sĩ chỉ định thêm siêu âm giữa buổi: dịch vụ vẫn ghi 'Khám phụ khoa'
+    nhưng người bệnh đang đứng ở buồng siêu âm tầng 2. Bảng phải chỉ đúng chỗ
+    họ đang ở."""
+    zones = [{"key": "kham", "label": "Khám"}, {"key": "sa2", "label": "SA2"}]
+    assert _khu_vuc("Khám phụ khoa", zones, "SA2") == "sa2"

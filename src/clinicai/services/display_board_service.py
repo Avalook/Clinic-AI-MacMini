@@ -55,11 +55,20 @@ SELECT a.id,
        st.name AS service_name,
        v.checked_in_at,
        v.status AS visit_status,
+       v.room_name,
+       v.room_code,
        cap.slot_minutes
   FROM appointment a
   LEFT JOIN service_type st ON st.id = a.service_type_id
   LEFT JOIN LATERAL (
-      SELECT vi.checked_in_at, vi.status FROM visit vi
+      -- Tên PHÒNG, không phải tên người: bảng phòng chờ cần chỉ đường cho
+      -- người được gọi ("C007 — Phòng khám 2"). Đây là thông tin về địa điểm,
+      -- không định danh ai.
+      SELECT vi.checked_in_at, vi.status,
+             r.name AS room_name, r.code AS room_code
+        FROM visit vi
+        LEFT JOIN public.clinic_room r
+               ON r.id = vi.current_room_id AND r.clinic_id = $1::uuid
        WHERE vi.appointment_id = a.id AND vi.clinic_id = $1::uuid
        ORDER BY vi.checked_in_at DESC NULLS LAST
        LIMIT 1
@@ -78,7 +87,10 @@ SELECT a.id,
 )
 
 _ZONE_SQL = """
-SELECT settings -> 'display' -> 'zones' AS zones
+SELECT settings -> 'display' -> 'zones'          AS zones,
+       settings -> 'display' ->> 'clinic_name'   AS clinic_name,
+       settings -> 'display' ->> 'footer_text'   AS footer_text,
+       settings -> 'display' ->> 'footer_info'   AS footer_info
   FROM clinic
  WHERE id = $1::uuid
 """
@@ -105,7 +117,16 @@ class DisplayBoardService:
         muc.sort(key=lambda m: (m["call_order"] is None, m["call_order"] or 0))
 
         logger.info("display_board", clinic_id=clinic_id, rows=len(muc))
-        return {"zones": zones, "items": muc}
+        return {
+            "zones": zones,
+            "items": muc,
+            # Tên phòng khám và hai dòng chân trang là CẤU HÌNH, không viết cứng
+            # trong TSX: đổi lời chào cho khách không phải là việc phải dựng lại
+            # ứng dụng.
+            "clinic_name": zone_row["clinic_name"] if zone_row else None,
+            "footer_text": zone_row["footer_text"] if zone_row else None,
+            "footer_info": zone_row["footer_info"] if zone_row else None,
+        }
 
 
 def _doc_zones(row: asyncpg.Record | None) -> list[dict[str, Any]]:
@@ -136,13 +157,33 @@ _KHU_MAC_DINH: tuple[tuple[str, tuple[str, ...]], ...] = (
 _KHU_MAC_DINH_CUOI = "kham"
 
 
-def _khu_vuc(service_name: str | None, zones: list[dict[str, Any]]) -> str | None:
-    """Dịch vụ → khu vực.
+def _khu_vuc(
+    service_name: str | None,
+    zones: list[dict[str, Any]],
+    room_code: str | None = None,
+) -> str | None:
+    """Bệnh nhân này thuộc khu nào trên bảng gọi số.
 
-    Khớp theo từ khoá phòng khám khai trong cấu hình nếu có — thêm một khu mới
-    thì không phải sửa mã và dựng lại ứng dụng. Không khai thì rơi về đúng luật
-    mà màn hình vẫn dùng từ trước tới nay.
+    ƯU TIÊN PHÒNG HỌ ĐANG ĐỨNG, không phải tên dịch vụ.
+
+    SA1 / SA2 / SA3 là SIÊU ÂM Ở TẦNG 1 / 2 / 3 — ba nơi khác nhau trong toà
+    nhà, không phải ba buồng cạnh nhau. Đoán khu bằng từ khoá "siêu âm" trong
+    tên dịch vụ thì mọi người siêu âm đều rơi vào một khu duy nhất, và bảng gọi
+    số chỉ khách lên nhầm tầng.
+
+    Mã phòng (`SA1`, `SA2`, `SA3`) khớp thẳng với khoá khu (`sa1`, `sa2`,
+    `sa3`), nên khi đã biết bệnh nhân ở phòng nào thì không phải đoán gì cả.
+
+    Chỉ khi CHƯA xếp phòng mới rơi về đoán theo tên dịch vụ — lúc đó chưa ai
+    biết họ sẽ lên tầng mấy, và đứng tạm ở khu đầu tiên của họ vẫn hơn là không
+    xuất hiện ở đâu.
     """
+    ma = (room_code or "").strip().lower()
+    if ma:
+        for z in zones:
+            if str(z.get("key", "")).lower() == ma:
+                return str(z.get("key"))
+
     ten = (service_name or "").lower()
 
     co_khai = False
@@ -195,7 +236,8 @@ def _mot_dong(
     promoted = bool(d and d.promoted and d.call_reason == REASON_DAT_TRUOC_DUNG_GIO)
     return {
         "queue_number": r["queue_number"],
-        "zone_key": _khu_vuc(r["service_name"], zones),
+        "zone_key": _khu_vuc(r["service_name"], zones, r["room_code"]),
+        "room_name": r["room_name"],
         "call_order": d.call_order if d else None,
         "call_reason": d.call_reason if d else None,
         # "Đang gọi" đọc từ TRẠNG THÁI LƯỢT KHÁM, không từ trạng thái lịch hẹn.

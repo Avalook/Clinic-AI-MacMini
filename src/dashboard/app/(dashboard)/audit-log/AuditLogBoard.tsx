@@ -10,6 +10,7 @@ import { Activity, Users, Calendar, AlertCircle, Copy, ExternalLink, Search } fr
 import { fmtTime, fmtDate } from "../../../lib/datetime";
 // Nhập kiểu dữ liệu AuditEvent từ file types
 import type { AuditEvent } from "./types";
+import { ALL_ROLES, ROLE_LABEL, type ClinicRole } from "../../../lib/roles";
 
 // Định nghĩa interface cho props (dữ liệu truyền vào component)
 interface Props {
@@ -129,6 +130,7 @@ const FIELD_LABELS: Record<string, string> = {
 export default function AuditLogBoard({ events, soNguoi }: Props) {
   // State lưu từ khóa tìm kiếm
   const [search, setSearch] = useState("");
+  const [vaiLoc, setVaiLoc] = useState<string>("all");
   // State lưu tab đang chọn (mặc định là "all" - tất cả)
   const [tab, setTab] = useState<AuditTab>("all");
   // State lưu ID sự kiện đang được chọn (mặc định là sự kiện đầu tiên)
@@ -159,11 +161,29 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
   );
 
   // Lọc danh sách sự kiện theo tab và từ khóa tìm kiếm (dùng useMemo để tối ưu)
+  // ĐẾM THEO VAI, tính trên toàn bộ sự kiện (không phụ thuộc tab/tìm kiếm) để
+  // con số trong ô chọn không nhảy theo thao tác khác.
+  const soTheoVai = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of events) {
+      const v = e.actor_role ?? "HE_THONG";
+      m.set(v, (m.get(v) ?? 0) + 1);
+    }
+    return m;
+  }, [events]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase(); // Chuẩn hóa từ khóa tìm kiếm
     return events.filter((e) => {
       // Nếu tab không phải "all" và loại đối tượng không khớp tab thì loại bỏ
       if (tab !== "all" && aggregateToTab(e.aggregate_type) !== tab) return false;
+      // Lọc theo VAI của người thao tác. "Ai đã làm việc này" là câu hỏi đầu
+      // tiên của mọi lần tra nhật ký, và trước đây màn này không trả lời được:
+      // `actor_role` vẫn về cùng dữ liệu nhưng không màn nào dùng tới.
+      if (vaiLoc !== "all") {
+        const v = e.actor_role ?? "HE_THONG";
+        if (v !== vaiLoc) return false;
+      }
       // Nếu không có từ khóa tìm kiếm thì giữ lại tất cả
       if (!q) return true;
       // Tìm kiếm trong nhiều trường: loại sự kiện, loại đối tượng, nguồn thao tác, tên người thao tác, nhãn đối tượng, nhãn hành động, payload
@@ -177,7 +197,7 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
         JSON.stringify(e.payload ?? {}).toLowerCase().includes(q) // Tìm trong payload
       );
     });
-  }, [events, search, tab]); // Chỉ tính lại khi events, search hoặc tab thay đổi
+  }, [events, search, tab, vaiLoc]); // Tính lại khi một trong bốn thứ đổi
 
   // Trích xuất các thay đổi dữ liệu từ payload của sự kiện được chọn
   const changes = sel ? extractChanges(sel.payload) : [];
@@ -232,6 +252,29 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
             className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
           />
         </label>
+        {/* Lọc theo VAI của người thao tác — đủ MỌI vai của phòng khám, kèm
+            số sự kiện của từng vai để thấy ngay vai nào trống. */}
+        <label className="flex min-h-9 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-xs text-ink-muted focus-within:border-brand-500">
+          <span className="shrink-0">Vai trò</span>
+          <select
+            value={vaiLoc}
+            onChange={(e) => setVaiLoc(e.target.value)}
+            className="min-w-[150px] bg-transparent py-1.5 text-xs font-medium text-ink outline-none"
+          >
+            <option value="all">Tất cả ({events.length})</option>
+            {ALL_ROLES.map((r: ClinicRole) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]} ({soTheoVai.get(r) ?? 0})
+              </option>
+            ))}
+            {/* Sự kiện do chính hệ thống sinh ra (không có người thao tác) —
+                phải lọc được, vì đó là nhóm hay bị bỏ sót nhất khi truy vết. */}
+            <option value="HE_THONG">
+              Hệ thống ({soTheoVai.get("HE_THONG") ?? 0})
+            </option>
+          </select>
+        </label>
+
         {/* Nút xuất CSV (chưa có chức năng) */}
         <button
           type="button"
