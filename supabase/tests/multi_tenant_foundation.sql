@@ -51,7 +51,10 @@ DECLARE
     --   clinical_data_consent  (ai cho ai xem form nào — KHÁC với liên kết)
     -- 57 → 58 (05/08/2026): clinic_secret — credential POS/Zalo ra khỏi
     --   clinic.settings, nơi cả anon lẫn authenticated đọc được (20260805000005).
-    expected_tenant_tables constant integer := 58;
+    -- 58 → 59 (07/08/2026): nhac_tai_kham — việc gọi nhắc tái khám hai lượt
+    -- trở thành dòng có thật trong database thay vì một phép chiếu tính lại
+    -- mỗi lần mở trang (migration 20260807000005).
+    expected_tenant_tables constant integer := 59;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

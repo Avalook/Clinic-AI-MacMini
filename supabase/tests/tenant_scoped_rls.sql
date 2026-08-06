@@ -104,8 +104,10 @@ BEGIN
     -- clinical_form_response keep this name but a narrower rule (ROLE-02).
     -- 32 → 34 on 02/08/2026: drug_batch + inventory_txn (migration
     -- 20260802000001, kho thuốc theo lô).
-    IF scoped_count <> 34 THEN
-        RAISE EXCEPTION 'expected 34 tenant-scoped read policies, found %', scoped_count;
+    -- 34 → 35 ngày 07/08/2026: nhac_tai_kham — việc gọi nhắc tái khám hai lượt
+    -- (migration 20260807000005). Đọc theo phòng khám, ghi qua FastAPI.
+    IF scoped_count <> 35 THEN
+        RAISE EXCEPTION 'expected 35 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
