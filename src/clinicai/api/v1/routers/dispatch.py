@@ -12,7 +12,7 @@ không trả tên.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -201,6 +201,75 @@ async def apply_route(
         template_code=body.template_code,
         is_exception=body.is_exception,
         reason=body.reason,
+    )
+
+
+# ── Trưởng ca GỌI bộ phận ──────────────────────────────────────────────────
+#
+# Nửa còn thiếu của màn cảnh báo: nó đã nói được "SA1 đang tắc" nhưng không nói
+# được VỚI AI. Xem services/thong_bao_service.py.
+
+
+class GoiBoPhanRequest(BaseModel):
+    # Vai được gọi khai TƯỜNG MINH, không suy từ phòng. Đánh thức nhầm bộ phận
+    # lúc đang tắc thì tệ hơn là bắt trưởng ca chọn một lần.
+    vai_nhan: str = Field(min_length=1, max_length=40)
+    tieu_de: str = Field(min_length=1, max_length=200)
+    noi_dung: str = Field(min_length=1, max_length=1000)
+    # Khoá chống gọi trùng: cùng nguồn + cùng vai mà cái cũ chưa xử lý thì
+    # không tạo thêm. Thường là mã phòng.
+    nguon_id: str | None = Field(default=None, max_length=100)
+    muc_do: Literal["KHAN", "THUONG"] = "KHAN"
+    duong_dan: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/dispatch/alerts/call", status_code=201)
+async def call_department(
+    body: GoiBoPhanRequest,
+    identity: StaffIdentity = Depends(_DISPATCH_WRITE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gọi một bộ phận về một cảnh báo. Bấm lại khi chưa ai xử lý: không nhân đôi."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).goi(
+        identity=identity,
+        vai_nhan=body.vai_nhan,
+        tieu_de=body.tieu_de,
+        noi_dung=body.noi_dung,
+        nguon_id=body.nguon_id,
+        muc_do=body.muc_do,
+        duong_dan=body.duong_dan,
+    )
+
+
+@router.get("/thong-bao")
+async def my_notifications(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thông báo chưa xử lý dành cho vai của tôi. MỌI vai đều đọc được của mình."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return {"items": await ThongBaoService(pool).cua_toi(identity=identity)}
+
+
+class DaXuLyRequest(BaseModel):
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/thong-bao/{thong_bao_id:uuid}/da-xu-ly", status_code=201)
+async def resolve_notification(
+    thong_bao_id: UUID,
+    body: DaXuLyRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bên nhận đóng việc. Trả về thời gian phản hồi tính bằng giây."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).da_xu_ly(
+        identity=identity, thong_bao_id=str(thong_bao_id), ghi_chu=body.ghi_chu
     )
 
 

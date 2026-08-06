@@ -67,6 +67,7 @@ EVENT_LABELS: dict[str, str] = {
     # ba ngôi ở cuối lời gọi, ngoài tầm quét. Người vận hành mở Lịch sử thao
     # tác thấy chuỗi thô — đúng cái vòng lặp bài kiểm ấy được viết ra để chặn.
     "visit.closed_incomplete": "Đóng lượt khi chưa khám xong",
+    "dispatch.alert_called": "Trưởng ca gọi bộ phận",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
     "pharmacy.refused": "Khách không lấy thuốc",

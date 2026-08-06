@@ -35,6 +35,8 @@ export interface Notif {
   title: string;
   detail: string;
   at: string; // giờ nhận, "HH:MM"
+  /** Thông báo KHẨN do Trưởng ca gọi — chuông tô đỏ, không phải xanh. */
+  khan?: boolean;
 }
 
 interface MyRow {
@@ -75,6 +77,58 @@ export function NotificationProvider({
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [transient, setTransient] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
+
+  // NGUỒN THỨ HAI: Trưởng ca gọi bộ phận (bảng `thong_bao`).
+  //
+  // Provider này ra đời chỉ để nghe quyết định duyệt ca làm việc của CHÍNH
+  // mình. Nhưng nó đã là hạ tầng chuông duy nhất chạy thật trong sản phẩm —
+  // dựng thêm một cái chuông thứ hai cho thông báo điều phối nghĩa là nhân
+  // viên phải học hai chỗ nhìn, và một trong hai sẽ bị bỏ quên.
+  const [thongBao, setThongBao] = useState<Notif[]>([]);
+
+  useEffect(() => {
+    let stopped = false;
+    async function doc() {
+      try {
+        const res = await fetch("/api/thong-bao", { cache: "no-store" });
+        if (!res.ok) return;
+        const d = (await res.json()) as {
+          items?: {
+            id: string;
+            muc_do: string;
+            tieu_de: string;
+            noi_dung: string;
+            tao_luc: string;
+            nguoi_goi: string | null;
+          }[];
+        };
+        if (stopped) return;
+        setThongBao(
+          (d.items ?? []).map((t) => ({
+            key: `tb:${t.id}`,
+            approved: false,
+            khan: t.muc_do === "KHAN",
+            title: t.tieu_de,
+            detail:
+              (t.nguoi_goi ? `${t.nguoi_goi} gọi · ` : "") + t.noi_dung,
+            at: new Date(t.tao_luc).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          })),
+        );
+      } catch {
+        /* mạng chập — lần poll sau thử lại */
+      }
+    }
+    const first = setTimeout(doc, 0);
+    const id = setInterval(doc, POLL_MS);
+    return () => {
+      stopped = true;
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, []);
 
   // shownKeys = các quyết định ĐÃ ghi nhận ("id:status"). LƯU localStorage theo
   // staffId để thông báo SỐNG SÓT reload/đổi vai và bắt được cả quyết định xảy ra
@@ -239,8 +293,9 @@ export function NotificationProvider({
   return (
     <Ctx.Provider
       value={{
-        notifs,
-        unread,
+        // Thông báo KHẨN lên đầu — chúng là thứ có người đang chờ mình xử lý.
+        notifs: [...thongBao, ...notifs],
+        unread: unread + thongBao.length,
         transient,
         markAllRead,
         dismissTransient: (key) =>
