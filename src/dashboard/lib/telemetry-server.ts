@@ -6,7 +6,7 @@
  * that says so, because zeros look like health.
  */
 
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getCallerAuthHeaders } from "@/lib/backend-proxy";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
@@ -52,16 +52,11 @@ export async function fetchTelemetry(windowSeconds = 900): Promise<TelemetryResu
     return { ok: false, reason: "unreachable", detail: "CLINIC_API_URL chưa cấu hình" };
   }
 
-  const supabase = await getSupabaseServer();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) return { ok: false, reason: "no-session" };
-
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-  const apiKey = process.env.BACKEND_API_KEY;
-  if (apiKey) headers["X-API-Key"] = apiKey;
+  // Header lấy từ chỗ dùng chung: bản cũ tự dựng ở đây và QUÊN getUser(), nên
+  // sau một tiếng token hết hạn là màn này báo "chưa đăng nhập" trong khi mọi
+  // trang khác vẫn chạy. Xem getCallerAuthHeaders trong backend-proxy.ts.
+  const headers = await getCallerAuthHeaders();
+  if (!headers) return { ok: false, reason: "no-session" };
 
   try {
     const res = await fetch(
