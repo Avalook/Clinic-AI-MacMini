@@ -73,8 +73,8 @@ export interface VisitStatusRow {
    *  nhưng chỉ cột này được ghi (clinical_sign_service), và cột kia thậm chí
    *  không tồn tại trên prod. */
   finalized_at?: string | null;
-  /** Lần đầu có người bắt tay vào việc của lượt này — mốc "Đang khám". Server
-   *  gắn vào từ /api/v1/visits/progress (min work_item.started_at). */
+  /** Lúc bệnh án đầu tiên của lượt được mở — mốc "Đang khám". Server gắn vào
+   *  từ /api/v1/visits/progress. Trống khi chưa ai mở bệnh án. */
   exam_started_at?: string | null;
   /** Lúc thu xong khâu cuối — mốc "Đã thanh toán". Cùng nguồn với trên. */
   paid_at?: string | null;
