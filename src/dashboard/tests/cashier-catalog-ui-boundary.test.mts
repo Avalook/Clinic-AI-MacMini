@@ -41,9 +41,16 @@ test("catalog preserves the existing API mutations without bypassing backend", (
 });
 
 test("the two routes stay server-filtered and the legacy index remains a redirect", () => {
-  assert.match(medicinePage, /\.eq\("group", "thuoc"\)/);
+  // Điều cần canh là LỌC Ở MÁY CHỦ, không phải cách viết truy vấn.
+  //
+  // Bản cũ ghim vào `.eq("group", "thuoc")` — cú pháp của PostgREST. Hai trang
+  // nay đọc qua FastAPI (`/api/v1/service-prices?group=…`) vì đọc thẳng bảng
+  // cần một vai Postgres mà database cho thuê không cho tạo. Cùng tính chất —
+  // máy chủ lọc, trình duyệt không nhận cả bảng giá rồi tự lọc — chỉ khác chỗ
+  // thực hiện. Ghim vào cách viết thì mọi lần đổi tầng đều đỏ dù luật y nguyên.
+  assert.match(medicinePage, /service-prices\?group=thuoc/);
   assert.match(medicinePage, /group="thuoc"/);
-  assert.match(servicePage, /\.eq\("group", "dich_vu"\)/);
+  assert.match(servicePage, /service-prices\?group=dich_vu/);
   assert.match(servicePage, /group="dich_vu"/);
   assert.doesNotMatch(`${medicinePage}\n${servicePage}`, /error\.message/);
   assert.match(indexPage, /redirect\("\/cashier\/thuoc"\)/);
