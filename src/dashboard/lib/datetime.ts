@@ -147,6 +147,16 @@ export function vnTodayRangeUtc(now: Date = new Date()): {
   return { startUtc: start.toISOString(), endUtc: end.toISOString() };
 }
 
+/** Hôm nay theo giờ Việt Nam, dạng "YYYY-MM-DD".
+ *
+ *  Cùng mốc ngày mà backend dùng (``clinic_today`` trong cskh_service). Màn nào
+ *  so hạn theo NGÀY — quá hạn tái khám, đến hạn hôm nay — phải so trên mốc này
+ *  chứ không theo múi giờ trình duyệt: máy đặt sai giờ là cả danh sách lệch một
+ *  ngày mà không báo gì. */
+export function vnYmd(now: Date = new Date()): string {
+  return now.toLocaleDateString("en-CA", { timeZone: VN_TZ });
+}
+
 /** Start of the current month in Vietnam time, as a UTC ISO string. */
 export function vnMonthStartUtc(now: Date = new Date()): string {
   const ymd = now.toLocaleDateString("en-CA", { timeZone: VN_TZ }); // YYYY-MM-DD

@@ -1,0 +1,47 @@
+// Nhắc tái khám — danh sách CSKH phải gọi, lấy từ GET /api/v1/cskh/recalls.
+//
+// KHÁC /cskh-tasks. Màn kia là việc quanh LỊCH ĐÃ CÓ (nhắc lịch mai, nhắc sớm
+// trong tuần, lịch bác sĩ từ chối) và nó đọc thẳng bảng `appointment`. Màn này
+// là người CHƯA CÓ LỊCH: bác sĩ đã dặn ngày tái khám trong phiếu khám mà bệnh
+// nhân chưa đặt lại. Hai danh sách rời nhau — một người nằm ở đây đúng là người
+// KHÔNG nằm ở kia, vì endpoint loại mọi ai đã có lịch hẹn còn hiệu lực.
+//
+// Toàn bộ luật (nhìn lại 183 ngày, hạn tới +7 ngày, loại người đã đặt lịch, chỉ
+// trả đúng lời dặn chứ không trả bệnh án) nằm trong RecallService phía FastAPI.
+// Trang này không tự dựng lại một bản nào của luật đó.
+
+import { requireNavAccess } from "../../../lib/clinic-session";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { vnYmd } from "../../../lib/datetime";
+import NhacTaiKhamBoard, { type RecallRow } from "./NhacTaiKhamBoard";
+
+export const dynamic = "force-dynamic";
+
+export default async function NhacTaiKhamPage() {
+  await requireNavAccess("/nhac-tai-kham");
+
+  // null = backend không trả lời (chưa cấu hình CLINIC_API_URL, hết phiên, 403).
+  // Phải phân biệt với [] — "không đọc được" và "hôm nay không ai cần gọi" nhìn
+  // giống hệt nhau trên màn hình mà hậu quả thì ngược nhau.
+  const recalls = await fetchFromBackend<RecallRow[]>("/api/v1/cskh/recalls");
+
+  return (
+    <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
+      <header>
+        <h1 className="text-xl font-semibold text-ink lg:text-2xl">
+          Nhắc tái khám
+        </h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Người được bác sĩ hẹn tái khám nhưng <b>chưa đặt lịch lại</b>. Ai đặt
+          được lịch rồi thì tự rời danh sách này.
+        </p>
+      </header>
+
+      <NhacTaiKhamBoard
+        rows={recalls ?? []}
+        today={vnYmd()}
+        unreachable={recalls === null}
+      />
+    </main>
+  );
+}
