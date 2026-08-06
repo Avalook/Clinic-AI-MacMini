@@ -17,6 +17,8 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.api.v1.routers import tools as tools_module
+from clinicai.api.v1.routers.clinic_config import router as clinic_config_router
+from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.staff import router as staff_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.tools._common.context import new_trace
@@ -93,6 +95,28 @@ def test_staff_reads_require_identity_and_writes_require_management() -> None:
             guards = [call for call in calls if isinstance(call, RoleGuard)]
             assert len(guards) == 1, (route.path, route.methods)
             assert guards[0].allowed_roles == frozenset({ClinicRole.MANAGEMENT})
+
+
+def test_reports_and_the_staff_roster_are_management_only_reads() -> None:
+    """Quang chốt 2026-08-06: báo cáo và danh sách nhân sự chỉ Quản lý đọc.
+
+    Cả hai màn vốn đã chỉ hiện cho MANAGEMENT trên menu, nhưng endpoint phía sau
+    không gác vai nào — ai đăng nhập cũng gọi thẳng đường dẫn mà lấy được. Menu
+    quyết định người ta THẤY gì, không ngăn được ai gõ URL.
+
+    Chốt ở đây để lần nới quyền sau là một quyết định có người ký, không phải
+    một dòng bị xoá nhầm. Sơ đồ phòng (overview) và dịch vụ (services) CỐ Ý
+    không nằm trong danh sách này: bảng điều phối và màn đặt lịch cần đọc chúng.
+    """
+    management_only = {
+        "/reports/booking-channels": reports_router,
+        "/clinic-config/staff": clinic_config_router,
+    }
+    for path, router in management_only.items():
+        route = next(r for r in _routes(router) if r.path == path)
+        guards = [c for c in _dependency_calls(route) if isinstance(c, RoleGuard)]
+        assert len(guards) == 1, path
+        assert guards[0].allowed_roles == frozenset({ClinicRole.MANAGEMENT}), path
 
 
 def _identity() -> StaffIdentity:
