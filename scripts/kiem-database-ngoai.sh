@@ -108,17 +108,62 @@ else
     LOI=1
 fi
 
-doc "3 · Tạo vai có quyền cao"
-for Q in REPLICATION BYPASSRLS CREATEROLE; do
-    if psql "${CN[@]}" -c "CREATE ROLE __thu_$Q $Q; DROP ROLE __thu_$Q;" >/dev/null 2>&1; then
-        dat "tạo được vai có $Q"
-    else
-        hong "KHÔNG tạo được vai có $Q"
-        [ "$Q" = "BYPASSRLS" ] && canh "BYPASSRLS là BẮT BUỘC — backend chạy bằng vai đó"
-        [ "$Q" = "CREATEROLE" ] && canh "CREATEROLE cần cho GoTrue dựng schema đăng nhập"
-        LOI=1
-    fi
+doc "3 · Quyền của chính tài khoản này"
+# HỎI THẲNG, THAY VÌ SUY TỪ MỘT PHÉP THỬ HẸP HƠN CÂU HỎI.
+#
+# Bản đầu chỉ thử `CREATE ROLE ... BYPASSRLS` rồi kết luận "không có BYPASSRLS".
+# Sai đề: nó hỏi "có tạo NỔI một vai MANG quyền ấy không", trong khi cái cần
+# biết là "TÀI KHOẢN NÀY có quyền ấy không". Database mua sẵn thường cấp quyền
+# cho tài khoản của khách nhưng CẤM phát tiếp cho vai khác — hai chuyện khác
+# nhau, và phép thử cũ gộp chúng làm một rồi báo hỏng cả cụm.
+#
+# pg_roles trả lời dứt điểm, không cần ghi gì.
+QUYEN=$(psql "${CN[@]}" -c "
+    SELECT rolsuper::int || rolcreaterole::int || rolcreatedb::int
+        || rolreplication::int || rolbypassrls::int
+      FROM pg_roles WHERE rolname = current_user" 2>/dev/null)
+for idx in 1:SUPERUSER 2:CREATEROLE 3:CREATEDB 4:REPLICATION 5:BYPASSRLS; do
+    vt=${idx%%:*}; ten=${idx#*:}
+    if [ "${QUYEN:$((vt-1)):1}" = "1" ]; then dat "$ten"; else hong "$ten"; fi
 done
+
+doc "3b · Tạo vai mới (Supabase cần dựng anon/authenticated/service_role)"
+if psql "${CN[@]}" -c "CREATE ROLE __thu_vai; DROP ROLE __thu_vai;" >/dev/null 2>&1; then
+    dat "tạo được vai thường"
+else
+    hong "KHÔNG tạo được vai nào — GoTrue không dựng nổi hệ đăng nhập"
+    LOI=1
+fi
+
+doc "3c · Có bỏ qua RLS được không (điều thật sự cần)"
+# Điều backend cần KHÔNG phải thuộc tính BYPASSRLS, mà là ĐỌC ĐƯỢC BẤT KỂ RLS.
+# Trong PostgreSQL, CHỦ SỞ HỮU bảng vốn đã bỏ qua RLS — trừ khi bảng bật FORCE
+# ROW LEVEL SECURITY, mà lược đồ này không bảng nào bật. Nên tài khoản chạy
+# migration (tức chủ sở hữu mọi bảng) đủ dùng, dù không có BYPASSRLS.
+psql "${CN[@]}" -c "
+    CREATE TABLE __thu_rls(id int);
+    ALTER TABLE __thu_rls ENABLE ROW LEVEL SECURITY;
+    INSERT INTO __thu_rls VALUES (1);" >/dev/null 2>&1
+DEM=$(psql "${CN[@]}" -c "SELECT count(*) FROM __thu_rls" 2>/dev/null)
+psql "${CN[@]}" -c "DROP TABLE IF EXISTS __thu_rls" >/dev/null 2>&1
+if [ "${DEM:-0}" = "1" ]; then
+    dat "đọc được dữ liệu của bảng đã bật RLS (vì là chủ sở hữu) — đủ cho backend"
+else
+    hong "KHÔNG đọc được — backend sẽ thấy bảng rỗng dù dữ liệu còn nguyên"
+    LOI=1
+fi
+
+doc "3d · Replication cho realtime"
+if psql "${CN[@]}" -c "
+    SELECT 1 FROM pg_create_logical_replication_slot('__thu_slot','pgoutput');" >/dev/null 2>&1; then
+    psql "${CN[@]}" -c "SELECT pg_drop_replication_slot('__thu_slot')" >/dev/null 2>&1
+    dat "tạo được replication slot — realtime chạy được"
+else
+    hong "KHÔNG tạo được replication slot"
+    canh "Realtime sẽ nối được nhưng KHÔNG nhận sự kiện. Bỏ realtime thì vẫn"
+    canh "dùng được, màn hình tự làm mới sau vài giây thay vì tức thì."
+    LOI=1
+fi
 
 doc "4 · Sáu extension"
 for E in pgcrypto uuid-ossp pg_trgm unaccent btree_gist pg_stat_statements; do
