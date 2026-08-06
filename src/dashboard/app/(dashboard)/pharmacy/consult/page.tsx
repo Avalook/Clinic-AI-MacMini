@@ -17,6 +17,10 @@ export default async function PharmacyConsultPage() {
       `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note, caution, created_at,
        patient:clinic_patient_id(full_name, phone_primary)`,
     )
+    // CHỜ TƯ VẤN = còn việc. Bản trước đọc cả bảng không lọc, nên đơn từ nhiều
+    // tháng trước nằm mãi trong danh sách "chờ" — và danh sách chờ nào cũng
+    // chỉ dài thêm thì không ai còn nhìn nó nữa.
+    .is("closed_at", null)
     .order("created_at", { ascending: false })
     .limit(100);
 

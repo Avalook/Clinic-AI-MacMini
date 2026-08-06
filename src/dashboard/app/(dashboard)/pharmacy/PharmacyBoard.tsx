@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { VN_TZ } from "../../../lib/datetime";
+import ThaoTacCapPhat, { type LoThuoc } from "./ThaoTacCapPhat";
 
 interface RxPatient {
   full_name: string | null;
@@ -19,6 +20,11 @@ interface RxRow {
   dosage_instructions: string | null;
   quantity: string | null;
   quantity_note: string | null;
+  quantity_num: number | null;
+  unit: string | null;
+  dispensed_qty: number | null;
+  dispense_status: string | null;
+  closed_at: string | null;
   created_at: string | null;
   patient: RxPatient | null;
   visit: { visit_id: string } | null;
@@ -47,6 +53,32 @@ interface Props {
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: VN_TZ }) : "—";
+
+/** Các lô còn hàng khớp tên thuốc của đơn.
+ *
+ *  Khớp bằng cách so chuỗi thường-hoá, cùng luật mà phần "tồn kho cho đơn này"
+ *  ở dưới đang dùng. Không khớp được thì trả rỗng, và ô chọn hiện câu "kho
+ *  chưa có lô nào" — thà nói không tìm thấy còn hơn mời chọn nhầm thuốc. */
+function loHopVoiDon(drugName: string | null, inventory: BatchRow[]): LoThuoc[] {
+  const ten = (drugName ?? "").trim().toLowerCase();
+  if (!ten) return [];
+  return inventory
+    .filter((b) => {
+      if (b.quantity_on_hand <= 0) return false;
+      const ungVien = [b.drug?.name_base, b.drug?.name_raw]
+        .filter(Boolean)
+        .map((x) => String(x).toLowerCase());
+      return ungVien.some((x) => ten.includes(x) || x.includes(ten));
+    })
+    .map((b) => ({
+      id: b.id,
+      batch_code: b.batch_code,
+      expiry_date: b.expiry_date,
+      quantity_on_hand: Number(b.quantity_on_hand),
+      unit: b.unit,
+      ten: b.drug?.name_base ?? b.drug?.name_raw ?? "",
+    }));
+}
 
 const fmtQty = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
@@ -234,6 +266,22 @@ export default function PharmacyBoard({ prescriptions, inventory }: Props) {
                   Đơn chưa có tên thuốc.
                 </p>
               )}
+            </div>
+
+            {/* Ba nút của dược sĩ. Lô truyền vào đã lọc theo tên thuốc của
+                đơn — đưa cả kho vào ô chọn thì lần cấp nhầm thuốc chỉ còn cách
+                một cú bấm. */}
+            <div className="mt-4">
+              <ThaoTacCapPhat
+                prescriptionId={selected.id}
+                drugName={selected.drug_name_raw}
+                quantityNum={selected.quantity_num}
+                quantityText={selected.quantity}
+                dispensedQty={Number(selected.dispensed_qty ?? 0)}
+                dispenseStatus={selected.dispense_status}
+                closed={selected.closed_at !== null}
+                batches={loHopVoiDon(selected.drug_name_raw, inventory)}
+              />
             </div>
           </div>
         ) : (

@@ -14,10 +14,18 @@ export default async function PharmacyHistoryPage() {
   const { data: records, error } = await supabase
     .from("prescription")
     .select(
-      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note, created_at,
+      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
+       dispensed_qty, unit, dispense_status, dispensed_at, created_at,
        patient:clinic_patient_id(full_name, phone_primary)`,
     )
-    .order("created_at", { ascending: false })
+    // "LỊCH SỬ BÀN GIAO" PHẢI LÀ THUỐC ĐÃ RA KHỎI KHO.
+    //
+    // Bản trước đọc CẢ BẢNG prescription không lọc gì, nên nó liệt kê mọi đơn
+    // bác sĩ vừa kê và gọi đó là "đã bàn giao". Không một thao tác bàn giao nào
+    // từng xảy ra, mà người quản lý nhìn vào sẽ tin thuốc đã ra khỏi kho. Đó là
+    // màn hình nói dối, không phải màn hình thiếu dữ liệu.
+    .gt("dispensed_qty", 0)
+    .order("dispensed_at", { ascending: false })
     .limit(200);
 
   if (error) {
