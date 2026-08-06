@@ -4,7 +4,6 @@
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { requireNavAccess } from "../../../lib/clinic-session";
-import { vnTodayRangeUtc } from "../../../lib/datetime";
 import PharmacyBoard from "./PharmacyBoard";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +12,7 @@ export default async function PharmacyPage() {
   await requireNavAccess("/pharmacy");
   const supabase = await getSupabaseServer();
 
-  // Đơn thuốc hôm nay (prescription) + bệnh nhân + lượt khám
-  const { startUtc, endUtc } = vnTodayRangeUtc();
+  // Đơn thuốc CÒN VIỆC (prescription) + bệnh nhân + lượt khám
   // HAI TRUY VẤN NÀY KHÔNG LIÊN QUAN GÌ NHAU — đơn thuốc hôm nay và tồn kho.
   // Xếp hàng chúng là cộng thêm một lượt ~210ms sang Seoul mà không đổi kết
   // quả. Bắn cùng lúc, chờ một lần.
@@ -22,14 +20,17 @@ export default async function PharmacyPage() {
     .from("prescription")
     .select(
       `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
+       quantity_num, unit, dispensed_qty, dispense_status, closed_at,
        created_at,
        patient:clinic_patient_id(full_name, phone_primary),
        visit:visit_id(visit_id)`,
     )
-    .gte("created_at", startUtc)
-    .lte("created_at", endUtc)
+    // KHÔNG lọc theo NGÀY. Bản trước chỉ lấy đơn tạo hôm nay, nên một đơn kê
+    // chiều qua mà khách sáng nay mới tới lấy thì biến mất khỏi hàng đợi —
+    // dược sĩ không có đường nào cấp nốt. Lọc theo VIỆC CÒN LẠI: chưa chốt.
+    .is("closed_at", null)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   const qInv = supabase
     .from("drug_batch")
