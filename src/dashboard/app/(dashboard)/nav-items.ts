@@ -9,6 +9,7 @@ import {
   Calendar,
   BarChart3,
   Settings,
+  KeyRound,
   Contact,
   Stethoscope,
   FlaskConical,
@@ -278,6 +279,14 @@ export const NAV: NavItem[] = [
     label: "Quản lý nhân sự",
     shortLabel: "Nhân sự",
     icon: Users,
+  },
+  // Tài khoản ĐĂNG NHẬP, tách khỏi "Cài đặt" — bên kia là cấu hình phòng khám,
+  // đây là quản trị người dùng: tạo login, đặt lại mật khẩu, gỡ tài khoản.
+  {
+    href: "/settings/tai-khoan",
+    label: "Thiết lập tài khoản cho nhân viên",
+    shortLabel: "Tài khoản NV",
+    icon: KeyRound,
   },
   { href: "/settings", label: "Cài đặt", icon: Settings },
   {

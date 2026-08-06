@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -24,6 +24,9 @@ class VisitProgressRead(BaseModel):
     has_clinical_record: bool
     has_prescription: bool
     paid_kinds: list[str]
+    # Giờ bắt đầu của hai mốc giữa trên thanh tiến trình ở /home.
+    exam_started_at: datetime | None = None
+    paid_at: datetime | None = None
 
 
 @router.get("/visits/progress", response_model=list[VisitProgressRead])

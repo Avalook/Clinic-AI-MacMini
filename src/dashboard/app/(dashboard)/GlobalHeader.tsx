@@ -186,6 +186,12 @@ export default function GlobalHeader({
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
+    if (pathname.startsWith("/settings/tai-khoan")) {
+      return {
+        title: "Thiết lập tài khoản cho nhân viên",
+        subtitle: "Tạo login, đặt lại mật khẩu, gỡ tài khoản.",
+      };
+    }
     if (pathname.startsWith("/nhan-su")) {
       return {
         title: "Quản lý nhân sự",

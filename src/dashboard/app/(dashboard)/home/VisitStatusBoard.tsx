@@ -5,7 +5,6 @@
 // (RLS SELECT visit_select_authenticated). Badge riêng cho visit — KHÔNG dùng StatusBadge
 // (badge đó dành cho appointment.status, màu khác).
 
-import { fmtTime } from "../../../lib/datetime";
 import { ProgressStepper, WaitClock } from "./VisitProgress";
 
 // Trạng thái HIỂN THỊ suy từ visit.status + appointment.status. "Khám xong" đọc từ
@@ -74,6 +73,11 @@ export interface VisitStatusRow {
    *  nhưng chỉ cột này được ghi (clinical_sign_service), và cột kia thậm chí
    *  không tồn tại trên prod. */
   finalized_at?: string | null;
+  /** Lần đầu có người bắt tay vào việc của lượt này — mốc "Đang khám". Server
+   *  gắn vào từ /api/v1/visits/progress (min work_item.started_at). */
+  exam_started_at?: string | null;
+  /** Lúc thu xong khâu cuối — mốc "Đã thanh toán". Cùng nguồn với trên. */
+  paid_at?: string | null;
 }
 
 /** Thời lượng khám (phút) = khám xong − bắt đầu khám. null nếu thiếu mốc. */
@@ -87,17 +91,19 @@ function examMinutes(
   return Math.round(ms / 60000);
 }
 
-const TH =
-  "border-b border-line px-4 py-2.5 text-left font-semibold text-ink-soft";
-const TD = "border-b border-line px-4 py-3 align-middle text-ink";
+// KHÔNG kẻ đường ngăn giữa các dòng (Quang chốt 06/08 — "bỏ các đường kẻ bảng
+// đi, để trắng cho nhìn thoáng"). Dòng nào ra dòng nào vẫn phân biệt được nhờ
+// khoảng thở dọc và nền sáng lên khi rê chuột.
+const TH = "px-4 pb-2 pt-3 text-left font-semibold text-ink-soft";
+const TD = "px-4 py-4 align-middle text-ink";
 
 export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
   return (
     <div className="overflow-auto rounded-card border border-line bg-surface shadow-card">
       <table className="w-full min-w-max border-collapse text-sm">
-        <thead className="bg-surface-muted">
+        <thead>
           <tr>
-            {/* Ô đầu: thông tin BN gộp. Còn lại: thanh tiến trình 3 mốc. */}
+            {/* Ô đầu: thông tin BN gộp. Còn lại: thanh tiến trình 4 mốc. */}
             <th className={`${TH} min-w-[240px]`}>Bệnh nhân</th>
             <th className={`${TH} min-w-[340px]`}>Tiến trình buổi khám</th>
           </tr>
@@ -143,9 +149,6 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                           checkedInAt={r.checked_in_at}
                           active={stillWaiting(r.status, apptStatus)}
                         />
-                        <span className="text-[10px] text-ink-faint tabular-nums">
-                          vào {fmtTime(r.checked_in_at ?? r.created_at)}
-                        </span>
                         {examMin !== null && (
                           <span
                             className="rounded-chip bg-status-in-progress-bg px-2 py-0.5 text-[10px] font-medium text-status-in-progress tabular-nums"
@@ -157,12 +160,19 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                       </div>
                     </div>
                   </td>
-                  {/* Ô 2 — thanh tiến trình kiểu Grab (Đang khám → Khám xong → Đã thanh toán). */}
+                  {/* Ô 2 — thanh tiến trình (Check-in → Đang khám → Khám xong
+                      → Đã thanh toán), có giờ dưới mỗi mốc. */}
                   <td className={TD}>
                     <ProgressStepper
                       visitStatus={r.status}
                       apptStatus={apptStatus}
                       paid={paid}
+                      times={{
+                        checkedInAt: r.checked_in_at,
+                        examStartedAt: r.exam_started_at ?? null,
+                        examFinishedAt: r.finalized_at ?? null,
+                        paidAt: r.paid_at ?? null,
+                      }}
                     />
                   </td>
                 </tr>

@@ -41,6 +41,9 @@ interface VisitProgressRow {
   has_clinical_record: boolean;
   has_prescription: boolean;
   paid_kinds: string[];
+  /** Giờ hai mốc giữa của thanh tiến trình (không có trên bảng `visit`). */
+  exam_started_at?: string | null;
+  paid_at?: string | null;
 }
 
 // Chức danh ngắn dùng trong lời chào (vd "Chào bác sĩ Thành").
@@ -282,6 +285,10 @@ export default async function HomePage({
       const p = progressByVisit.get(v.visit_id);
       const kinds = new Set(p?.paid_kinds ?? []);
       v.paid = kinds.has("dich_vu") && (!p?.has_prescription || kinds.has("thuoc"));
+      // Giờ hai mốc giữa của thanh tiến trình. Chúng không nằm trên bảng
+      // `visit`, nên lấy từ chính lượt gọi backend đã có ở trên.
+      v.exam_started_at = p?.exam_started_at ?? null;
+      v.paid_at = p?.paid_at ?? null;
     }
   }
 

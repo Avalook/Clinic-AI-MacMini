@@ -20,6 +20,10 @@ const sources = {
   ops: read("../app/(dashboard)/ops/OpsCenter.tsx"),
   telemetry: read("../app/(dashboard)/ops/telemetry/page.tsx"),
   settings: read("../app/(dashboard)/settings/page.tsx"),
+  // Bảng tài khoản nhân viên đã tách khỏi trang Cài đặt (06/08/2026). Bài kiểm
+  // đi theo BẢNG, không đi theo đường dẫn cũ — nếu chỉ sửa `settings` cho hết
+  // đỏ thì bảng dày kia không còn ai canh chiều rộng nữa.
+  taiKhoan: read("../app/(dashboard)/settings/tai-khoan/page.tsx"),
   account: read("../app/(dashboard)/settings/AccountActions.tsx"),
   newUserPage: read("../app/(dashboard)/settings/new-user/page.tsx"),
   newUserForm: read("../app/(dashboard)/settings/new-user/NewUserForm.tsx"),
@@ -35,6 +39,7 @@ test("all operational and admin routes use the ClinicAI V2 page shell", () => {
     "ops",
     "telemetry",
     "settings",
+    "taiKhoan",
     "newUserPage",
   ] as const) {
     assert.match(sources[key], /page-in/,
@@ -70,7 +75,7 @@ test("operational views use project tokens instead of legacy and hard-coded pale
 });
 
 test("dense operational tables remain reachable on narrow content widths", () => {
-  for (const key of ["official", "register", "sessions", "reports", "telemetry", "settings"] as const) {
+  for (const key of ["official", "register", "sessions", "reports", "telemetry", "taiKhoan"] as const) {
     assert.match(
       sources[key],
       /overflow-x-auto|overflow-auto/,
@@ -95,5 +100,6 @@ test("existing authorization and mutation boundaries stay in place", () => {
   assert.match(sources.account, /\/api\/admin\/users/);
   assert.match(sources.newUserForm, /\/api\/admin\/users/);
   assert.match(sources.settings, /isAdminRole\(role\)/);
+  assert.match(sources.taiKhoan, /isAdminRole\(role\)/);
   assert.match(sources.reports, /isOpsAdmin\(role\)/);
 });

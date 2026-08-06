@@ -8,13 +8,14 @@ back as flags.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.core.clock import CLINIC_TZ as _VN
 from clinicai.services.visit_progress_service import VisitProgressService
 
 
@@ -60,6 +61,8 @@ async def test_returns_flags_and_sorts_paid_kinds() -> None:
                 "has_clinical_record": True,
                 "has_prescription": False,
                 "paid_kinds": ["thuoc", "dich_vu"],
+                "exam_started_at": datetime(2026, 7, 30, 9, 14, tzinfo=_VN),
+                "paid_at": datetime(2026, 7, 30, 10, 2, tzinfo=_VN),
             }
         ]
     )
@@ -72,6 +75,10 @@ async def test_returns_flags_and_sorts_paid_kinds() -> None:
     assert out[0].vitals_recorded is True
     # Sorted so the caller can compare without caring about aggregate order.
     assert out[0].paid_kinds == ["dich_vu", "thuoc"]
+    # Giờ của hai mốc giữa đi kèm — thanh tiến trình ở /home in chúng dưới
+    # từng nút.
+    assert out[0].exam_started_at == datetime(2026, 7, 30, 9, 14, tzinfo=_VN)
+    assert out[0].paid_at == datetime(2026, 7, 30, 10, 2, tzinfo=_VN)
     # Nothing from the note itself leaves the service.
     assert not hasattr(out[0], "soap_objective")
 
@@ -87,6 +94,8 @@ async def test_a_visit_with_no_payments_reports_an_empty_list() -> None:
                 "has_clinical_record": False,
                 "has_prescription": False,
                 "paid_kinds": None,
+                "exam_started_at": None,
+                "paid_at": None,
             }
         ]
     )
@@ -95,3 +104,6 @@ async def test_a_visit_with_no_payments_reports_an_empty_list() -> None:
     )
     assert out[0].paid_kinds == []
     assert out[0].visit_id is None
+    # Chưa ai bắt tay vào và chưa thu đồng nào → không bịa ra giờ.
+    assert out[0].exam_started_at is None
+    assert out[0].paid_at is None
