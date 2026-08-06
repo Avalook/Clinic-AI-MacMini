@@ -240,7 +240,12 @@ export const NAV: NavItem[] = [
     label: "Lịch sử thao tác",
     shortLabel: "Lịch sử",
     icon: ClipboardCheck,
-    badge: "Mới",
+    // KHÔNG còn badge "Mới". Màn này không chạy song song với một màn cũ nào —
+    // nó là màn duy nhất cho việc của nó, nên nhãn "Mới" chỉ làm sidebar ồn.
+    //
+    // Mười badge còn lại vẫn giữ: chúng đánh dấu những màn ĐANG chạy song song
+    // với bản cũ (xem ghi chú đầu danh sách), và bỏ chúng là mất đúng thông tin
+    // mà nhân viên cần để biết mình đang ở bản nào.
   },
   {
     href: "/result-review",

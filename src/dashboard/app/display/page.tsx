@@ -31,6 +31,9 @@ export default async function DisplayPage() {
   const data = await fetchFromBackend<{
     zones: DisplayZone[];
     items: DisplayItem[];
+    clinic_name?: string;
+    footer_text?: string;
+    footer_info?: string;
   }>("/api/v1/display/queue");
 
   // `null` = KHÔNG HỎI ĐƯỢC backend, khác hẳn `items: []` = hôm nay chưa ai đến.
@@ -44,5 +47,13 @@ export default async function DisplayPage() {
     );
   }
 
-  return <DisplayBoard zones={data.zones} items={data.items} />;
+  return (
+    <DisplayBoard
+      zones={data.zones}
+      items={data.items}
+      clinicName={data.clinic_name}
+      footerText={data.footer_text}
+      footerInfo={data.footer_info}
+    />
+  );
 }

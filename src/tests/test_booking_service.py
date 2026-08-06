@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -29,6 +29,12 @@ from clinicai.services.booking_service import (
     resolve_action,
 )
 from clinicai.services.clinic_policy import DEFAULT_POLICY, ClinicPolicy
+
+# Nửa đêm NGÀY MAI (giờ UTC) — mốc neo cho các bài kiểm cần một khung giờ còn
+# ở phía trước. Tính từ `now()` nên không bao giờ hết hạn.
+_MAI = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
 
 class TestTransitions:
@@ -451,8 +457,14 @@ class TestPatchBuilding:
             "id": "a1",
             "doctor_id": None,
             "status": "SCHEDULED",
-            "slot_start": datetime(2026, 7, 30, 9, 0, tzinfo=timezone.utc),
-            "slot_end": datetime(2026, 7, 30, 9, 30, tzinfo=timezone.utc),
+            # Mốc giờ TƯƠNG ĐỐI, không phải một ngày viết cứng.
+            #
+            # Trước đây là 30/07/2026 — hợp lệ lúc viết, rồi thành quá khứ khi
+            # lịch chạy tới, và ba bài kiểm này đỏ vì cái chốt "không đặt vào
+            # khung đã qua". Một bài kiểm hết hạn theo thời gian là một bài kiểm
+            # sẽ hỏng vào một ngày không ai đoán được.
+            "slot_start": _MAI + timedelta(hours=9),
+            "slot_end": _MAI + timedelta(hours=9, minutes=30),
             "booking_channel": "ZALO",
         }
 
@@ -520,8 +532,8 @@ class TestPatchBuilding:
                     cancellation_reason=None,
                     doctor_id=None,
                     doctor_id_provided=False,
-                    slot_start=datetime(2026, 7, 30, 10, 0, tzinfo=timezone.utc),
-                    slot_end=datetime(2026, 7, 30, 9, 0, tzinfo=timezone.utc),
+                    slot_start=_MAI + timedelta(hours=10),
+                    slot_end=_MAI + timedelta(hours=9),
                     identity=_identity(),
                 )
             )
@@ -538,8 +550,8 @@ class TestPatchBuilding:
                 cancellation_reason=None,
                 doctor_id=None,
                 doctor_id_provided=False,
-                slot_start=datetime(2026, 7, 30, 11, 0, tzinfo=timezone.utc),
-                slot_end=datetime(2026, 7, 30, 11, 30, tzinfo=timezone.utc),
+                slot_start=_MAI + timedelta(hours=11),
+                slot_end=_MAI + timedelta(hours=11, minutes=30),
                 identity=_identity(),
             )
         )
@@ -555,8 +567,8 @@ class TestPatchBuilding:
                 cancellation_reason=None,
                 doctor_id=None,
                 doctor_id_provided=True,
-                slot_start=datetime(2026, 7, 30, 11, 0, tzinfo=timezone.utc),
-                slot_end=datetime(2026, 7, 30, 11, 30, tzinfo=timezone.utc),
+                slot_start=_MAI + timedelta(hours=11),
+                slot_end=_MAI + timedelta(hours=11, minutes=30),
                 identity=_identity(),
             )
         )
@@ -577,8 +589,9 @@ async def test_doctor_change_audit_records_target_doctor(
 ) -> None:
     old_doctor = "d0000000-0000-4000-8000-000000000001"
     target_doctor = "d0000000-0000-4000-8000-000000000002"
-    start = datetime(2026, 7, 31, 9, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 7, 31, 9, 30, tzinfo=timezone.utc)
+    # Tương đối, không phải ngày viết cứng — xem ghi chú ở `_MAI`.
+    start = _MAI + timedelta(hours=9)
+    end = _MAI + timedelta(hours=9, minutes=30)
     pool = MagicMock()
     conn = AsyncMock()
     acquire = AsyncMock()
@@ -696,3 +709,49 @@ class TestOnePersonCannotSitInTwoChairs:
 
         src = inspect.getsource(BookingService._patient_double_booked)
         assert "slot_start = $3" in src
+
+
+class TestKhongDatVaoKhungGioDaQua:
+    """Không đặt được lịch vào khung giờ đã trôi qua.
+
+    Trước đây KHÔNG có chốt nào — không backend, không trình duyệt. Đo ngày
+    06/08: lúc 16:40 vẫn đặt được lịch cho 16:20, server trả 201. Lịch ấy rơi
+    vào lưới hôm nay như một cái hẹn bình thường, và bảng gọi số xếp người đó
+    vào làn "đến muộn" — một người chưa bao giờ đến.
+    """
+
+    def test_khung_da_ket_thuc_thi_bi_tu_choi(self) -> None:
+        import datetime as dt
+
+        import pytest
+
+        from clinicai.api.exceptions import ValidationError
+        from clinicai.services.booking_service import _chan_dat_vao_qua_khu
+
+        da_qua = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        with pytest.raises(ValidationError, match="đã qua"):
+            _chan_dat_vao_qua_khu(da_qua)
+
+    def test_khung_dang_chay_thi_van_dat_duoc(self) -> None:
+        """Khung 18:00–18:15 lúc 18:05 thì CHƯA qua.
+
+        Khách vãng lai bước vào giữa khung phải xếp được vào chính khung đang
+        chạy — lịch của họ tạo với `slot_start` = bây giờ. Chặn theo `slot_start`
+        thay vì `slot_end` sẽ chặn luôn đường đó mỗi khi đồng hồ máy chủ nhanh
+        hơn vài giây.
+        """
+        import datetime as dt
+
+        from clinicai.services.booking_service import _chan_dat_vao_qua_khu
+
+        con_chay = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=10)
+        _chan_dat_vao_qua_khu(con_chay)  # không được ném
+
+    def test_ca_dat_moi_lan_doi_lich_deu_di_qua_chot_nay(self) -> None:
+        """Khoá cửa trước mà quên cửa sau thì vẫn dời được một lịch về hôm qua."""
+        import inspect
+
+        from clinicai.services import booking_service
+
+        ma = inspect.getsource(booking_service)
+        assert ma.count("_chan_dat_vao_qua_khu(") >= 3  # định nghĩa + 2 nơi gọi

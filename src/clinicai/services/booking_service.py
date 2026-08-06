@@ -174,6 +174,29 @@ _DECLINABLE = _AWAITING_DOCTOR | {"CONFIRMED"}
 # never arrived never had a visit opened, so there is nothing to cancel.
 _WORKFLOW_CANCELLING: frozenset[str] = frozenset({"undo_checkin", "cancel"})
 
+
+def _chan_dat_vao_qua_khu(slot_end: datetime) -> None:
+    """Không đặt được lịch vào khung giờ ĐÃ QUA.
+
+    Trước đây KHÔNG có chốt nào — không ở backend, không ở trình duyệt. Đã đo
+    ngày 06/08: lúc 16:40 vẫn đặt được một lịch cho 16:20 và server trả 201.
+    Lịch ấy rơi vào lưới hôm nay như một cái hẹn bình thường, và bảng gọi số thì
+    đưa người đó vào làn "đến muộn" — một người chưa bao giờ đến.
+
+    ĐO BẰNG `slot_end`, KHÔNG PHẢI `slot_start`. Khung 18:00–18:15 lúc 18:05 thì
+    CHƯA qua: khách vãng lai bước vào giữa khung phải xếp được vào chính khung
+    đang chạy, và lịch của họ được tạo với `slot_start = bây giờ`. Chặn theo
+    `slot_start` sẽ chặn luôn đường đó mỗi khi đồng hồ máy chủ nhanh hơn vài
+    giây.
+
+    So bằng giờ có múi (`datetime.now(timezone.utc)`): `slot_end` là timestamptz,
+    và một mốc giờ trần ở đây sẽ được hiểu theo múi giờ của tiến trình — đúng ở
+    máy này, lệch bảy tiếng ở máy khác.
+    """
+    if slot_end <= datetime.now(timezone.utc):
+        raise ValidationError("Khung giờ này đã qua — chọn một khung còn ở phía trước.")
+
+
 TRANSITIONS: dict[str, Transition] = {
     # The doctor takes the case, even one CSKH already confirmed with the
     # patient — confirmation is two-step and these are the second step.
@@ -308,6 +331,7 @@ class BookingService:
         location_id = location_id or identity.location_id
         if slot_end <= slot_start:
             raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
+        _chan_dat_vao_qua_khu(slot_end)
 
         raw_channel = (booking_channel or "").strip()
         # NO INVENTED DEFAULT, and the old one was the wrong way round.
@@ -740,6 +764,11 @@ class BookingService:
                 raise ValidationError("Thiếu giờ hẹn mới")
             if slot_end <= slot_start:
                 raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
+            # Đổi lịch cũng là ĐẶT một khung giờ, nên cùng chốt với create().
+            # Thiếu dòng này thì cửa trước khoá còn cửa sau mở: không đặt mới
+            # vào quá khứ được, nhưng đặt một lịch tương lai rồi dời nó về hôm
+            # qua thì được.
+            _chan_dat_vao_qua_khu(slot_end)
             patch["slot_start"] = slot_start
             patch["slot_end"] = slot_end
             # Only touch the doctor when the field was actually sent; an absent

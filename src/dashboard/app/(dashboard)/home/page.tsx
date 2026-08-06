@@ -344,22 +344,32 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-5">
-      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
-          {isReception ? "Lễ tân" : "Không gian làm việc"}
-        </p>
-        <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>
-        <p className="mt-1 text-sm text-ink-muted">{homeSubtitle}</p>
-      </header>
+      {/* LỜI CHÀO VÀ BA Ô SỐ TRÊN CÙNG MỘT HÀNG.
+          
+          Trước đây chúng là hai thẻ chồng nhau, và thẻ lời chào để trống hết
+          nửa bên phải — một khoảng trắng bằng cả ba ô số nằm ngay đầu trang mà
+          không mang thông tin gì.
+          
+          Trên màn hẹp thì vẫn xuống dòng: ba con số quan trọng hơn việc chúng
+          nằm cạnh lời chào. */}
+      <header className="flex flex-col gap-4 rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5 lg:flex-row lg:items-center">
+        <div className="lg:w-[300px] lg:shrink-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+            {isReception ? "Lễ tân" : "Không gian làm việc"}
+          </p>
+          <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>
+          <p className="mt-1 text-sm text-ink-muted">{homeSubtitle}</p>
+        </div>
 
-      <section
-        aria-label={isReception ? "Tổng quan tiếp nhận" : "Tổng quan ca làm việc"}
-        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
-      >
-        {cards.map((c) => (
-          <StatCard key={c.label} label={c.label} value={c.value} />
-        ))}
-      </section>
+        <section
+          aria-label={isReception ? "Tổng quan tiếp nhận" : "Tổng quan ca làm việc"}
+          className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3"
+        >
+          {cards.map((c) => (
+            <StatCard key={c.label} label={c.label} value={c.value} />
+          ))}
+        </section>
+      </header>
 
       {/* Check-in bệnh nhân — TRÊN Lịch hẹn khám (ĐD/Lễ tân/Quản lý).
           Bấm mở danh sách ngay dưới nút; Lịch hẹn khám tự đẩy xuống. */}

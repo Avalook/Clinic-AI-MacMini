@@ -29,6 +29,14 @@ export interface StatCardProps {
   tone?: StatTone;
   /** When set, the cell filters the list below it. */
   href?: string;
+  /**
+   * Biến thể lọc TẠI CHỖ, cho màn hình giữ bộ lọc trong state thay vì trong
+   * URL. Cùng vai trò với `href`, khác cách điều hướng.
+   *
+   * Có nó thì không cần một hàng tab riêng bên dưới lặp lại đúng những con số
+   * này — hai chỗ bấm cho một việc là hai chỗ để lệch nhau.
+   */
+  onSelect?: () => void;
   /** Marks the cell whose filter is currently applied. */
   active?: boolean;
 }
@@ -39,6 +47,7 @@ export default function StatCard({
   icon,
   tone = "neutral",
   href,
+  onSelect,
   active = false,
 }: StatCardProps) {
   const t = TONE[tone];
@@ -61,6 +70,25 @@ export default function StatCard({
     </span>
   );
 
+  // Ô ĐANG LỌC phải nhìn ra được ngay, không chỉ bằng nền xám nhạt: người dùng
+  // nhìn con số trước, nền sau. Viền dày bên trái là thứ thấy được từ xa.
+  const kieuChon = active
+    ? "bg-surface-sunken ring-1 ring-inset ring-brand-500"
+    : "";
+
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={active}
+        className={`flex-1 rounded-card px-5 py-4 text-left transition-colors hover:bg-surface-sunken ${kieuChon}`}
+      >
+        {body}
+      </button>
+    );
+  }
+
   if (!href) {
     return <div className="flex-1 px-5 py-4">{body}</div>;
   }
@@ -69,9 +97,7 @@ export default function StatCard({
     <Link
       href={href}
       aria-current={active ? "true" : undefined}
-      className={`flex-1 rounded-card px-5 py-4 transition-colors hover:bg-surface-sunken ${
-        active ? "bg-surface-sunken" : ""
-      }`}
+      className={`flex-1 rounded-card px-5 py-4 transition-colors hover:bg-surface-sunken ${kieuChon}`}
     >
       {body}
     </Link>

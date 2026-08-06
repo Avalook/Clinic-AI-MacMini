@@ -40,16 +40,27 @@ export interface RecallRow {
 
 type Tab = "overdue" | "today" | "soon" | "called" | "all";
 
-// "Tất cả" đứng đầu VÀ là mặc định: danh sách vốn xếp quá-hạn-trước, nên tab
-// này đã cho thấy việc gấp nhất. Mở thẳng vào "Quá hạn" thì hôm nào không ai
-// quá hạn, người trực gặp một màn hình trống và tưởng máy hỏng.
-const TABS: { key: Tab; label: string }[] = [
-  { key: "all", label: "Tất cả" },
-  { key: "overdue", label: "Quá hạn" },
-  { key: "today", label: "Đến hạn hôm nay" },
-  { key: "soon", label: "Sắp đến hạn" },
-  { key: "called", label: "Đã gọi hôm nay" },
-];
+// Nhãn dùng cho dòng "Đang lọc: …". Không dùng lại nhãn của ô số vì ô "Sắp đến
+// hạn (7 ngày)" có phần trong ngoặc chỉ hợp lý khi đứng cạnh con số.
+const NHAN_LOC: Record<Exclude<Tab, "all">, string> = {
+  overdue: "Quá hạn",
+  today: "Đến hạn hôm nay",
+  soon: "Sắp đến hạn trong 7 ngày",
+  called: "Đã gọi hôm nay",
+};
+
+// LỌC BẰNG CHÍNH BỐN Ô SỐ Ở TRÊN, không có hàng tab riêng.
+//
+// Trước đây màn này có cả hai: bốn ô số, rồi ngay dưới là năm tab lặp lại đúng
+// những con số ấy. Hai chỗ bấm cho cùng một việc — người dùng phải đọc con số ở
+// trên rồi đi tìm cái tên tương ứng ở dưới mới bấm được, và hai chỗ ấy là hai
+// chỗ để lệch nhau khi sửa. Chú thích của chính `components/ui/StatCard` đã ghi
+// điều này từ đầu: "hàng số là một BỘ LỌC, không phải trang trí".
+//
+// "Tất cả" vẫn là mặc định — danh sách vốn xếp quá-hạn-trước nên nó đã cho thấy
+// việc gấp nhất; mở thẳng vào "Quá hạn" thì hôm nào không ai quá hạn, người
+// trực gặp màn hình trống và tưởng máy hỏng. Bấm lại đúng ô đang chọn thì quay
+// về "Tất cả".
 
 /** Số ngày từ `from` đến `to`, cả hai là "YYYY-MM-DD".
  *
@@ -80,6 +91,9 @@ export default function NhacTaiKhamBoard({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("all");
+
+  /** Bấm một ô số = lọc theo ô đó. Bấm lại đúng ô đang chọn = bỏ lọc. */
+  const chonLoc = (key: Tab) => setTab((cu) => (cu === key ? "all" : key));
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -191,43 +205,49 @@ export default function NhacTaiKhamBoard({
           value={stats.overdue}
           tone="danger"
           icon={<AlertTriangle className="size-5" />}
+          onSelect={() => chonLoc("overdue")}
+          active={tab === "overdue"}
         />
         <StatCard
           label="Đến hạn hôm nay"
           value={stats.today}
           tone="brand"
           icon={<CalendarClock className="size-5" />}
+          onSelect={() => chonLoc("today")}
+          active={tab === "today"}
         />
         <StatCard
           label="Sắp đến hạn (7 ngày)"
           value={stats.soon}
           tone="warning"
           icon={<CalendarPlus className="size-5" />}
+          onSelect={() => chonLoc("soon")}
+          active={tab === "soon"}
         />
         <StatCard
           label="Đã gọi hôm nay"
           value={stats.called}
           tone="success"
           icon={<CheckCircle2 className="size-5" />}
+          onSelect={() => chonLoc("called")}
+          active={tab === "called"}
         />
       </StatRow>
 
-      <div className="flex overflow-x-auto border-b border-line text-sm">
-        {TABS.map((t) => (
+      {tab !== "all" ? (
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
+          <span>
+            Đang lọc: <b className="text-ink">{NHAN_LOC[tab]}</b>
+          </span>
           <button
-            key={t.key}
             type="button"
-            onClick={() => setTab(t.key)}
-            className={`shrink-0 border-b-2 px-3 py-2.5 font-medium transition-colors ${
-              tab === t.key
-                ? "border-brand-600 text-brand-700"
-                : "border-transparent text-ink-muted hover:text-ink"
-            }`}
+            onClick={() => setTab("all")}
+            className="rounded-control px-2 py-0.5 font-medium text-brand-700 underline-offset-2 hover:underline"
           >
-            {t.label}
+            Bỏ lọc, xem tất cả
           </button>
-        ))}
-      </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card">
         <label className="flex min-h-9 flex-1 items-center gap-2 rounded-xl border border-line px-3 text-ink-muted focus-within:border-brand-500">
