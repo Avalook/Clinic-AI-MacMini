@@ -20,6 +20,7 @@ from clinicai.api.runaway_guard import runaway_guard
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
+from clinicai.api.v1.routers.auth import router as auth_router
 from clinicai.api.v1.routers.booking import router as booking_router
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
@@ -153,6 +154,13 @@ app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 _GUARDED = [Depends(runaway_guard)]
 
 app.include_router(health_router)
+# ĐĂNG NHẬP: endpoint DUY NHẤT không đòi token, vì nó là nơi cấp token.
+# Cũng vì thế nó là endpoint duy nhất người lạ gọi được — chống dò mật khẩu
+# nằm trong auth_service (đếm lần sai + khoá tạm, lưu ở database).
+#
+# KHÔNG gắn _GUARDED: runaway_guard đếm theo NHÂN VIÊN, mà ở đây chưa biết
+# người gọi là ai — đó chính là việc endpoint này đang làm.
+app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(
     identity_router, prefix="/api/v1", tags=["identity"], dependencies=_GUARDED
 )
