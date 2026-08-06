@@ -47,6 +47,7 @@ from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
+from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
@@ -251,6 +252,9 @@ app.include_router(
     dependencies=_GUARDED,
 )
 app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"], dependencies=_GUARDED)
+app.include_router(
+    pharmacy_router, prefix="/api/v1", tags=["pharmacy"], dependencies=_GUARDED
+)
 app.include_router(
     booking_router, prefix="/api/v1", tags=["booking"], dependencies=_GUARDED
 )
