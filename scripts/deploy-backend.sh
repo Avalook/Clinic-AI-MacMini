@@ -166,6 +166,44 @@ fi
 
 "${COMPOSE[@]}" config --quiet
 
+# ── Lược đồ có đi trước code không ────────────────────────────────────────────
+#
+# CHUYỆN ĐÃ XẢY RA (06/08). Deploy một bản code đọc tám cột mới của bảng `staff`
+# trong khi migration tạo chúng CHƯA được áp. Kết quả: `/api/v1/staff` trả 500,
+# màn Quản lý nhân sự trắng — và không có gì trong quy trình deploy nói ra, vì
+# health check vẫn xanh: `/health` không chạm bảng đó.
+#
+# Tách lược đồ khỏi deploy là quyết định ĐÚNG (xem đầu file): schema cần người
+# xem, deploy thì không. Nhưng tách mà không kiểm nghĩa là thứ tự đúng phụ thuộc
+# vào trí nhớ của người bấm.
+#
+# CẢNH BÁO, KHÔNG CHẶN: có lần deploy cố ý đi trước migration (code mới chưa
+# dùng cột mới). Nhưng nó phải nói ra, và nói TRƯỚC khi dựng ảnh.
+if [ -n "${CLINIC_DB_CONTAINER:-}" ]; then
+  _applied="$(docker exec "$CLINIC_DB_CONTAINER" \
+      psql -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" \
+      -tAc "SELECT version FROM supabase_migrations.schema_migrations" \
+      2>/dev/null || true)"
+  if [ -n "$_applied" ]; then
+    _missing=""
+    for _f in "$REPO/supabase/migrations"/*.sql; do
+      [ -e "$_f" ] || continue
+      _v="$(basename "$_f" | cut -d_ -f1)"
+      if ! printf '%s\n' "$_applied" | tr -d ' \r' | grep -qx "$_v"; then
+        _missing="$_missing $_v"
+      fi
+    done
+    if [ -n "$_missing" ]; then
+      echo ""
+      echo "  !! LƯỢC ĐỒ ĐANG ĐI SAU CODE. Migration chưa áp:$_missing"
+      echo "     Nếu bản code này đọc cột mới thì endpoint dùng nó sẽ trả 500,"
+      echo "     và health check vẫn xanh vì /health không chạm bảng đó."
+      echo "     Áp trước: ./scripts/apply-pending-migrations.sh --apply"
+      echo ""
+    fi
+  fi
+fi
+
 echo "==> [2/6] snapshot current images for rollback"
 OLD_API="$(docker image inspect -f '{{.Id}}' "clinicai-api:${TAG}"       2>/dev/null || true)"
 OLD_DASH="$(docker image inspect -f '{{.Id}}' "clinicai-dashboard:${TAG}" 2>/dev/null || true)"
