@@ -62,6 +62,17 @@ EVENT_LABELS: dict[str, str] = {
     "dispatch.moved": "Chuyển sang bước khác",
     "dispatch.transfer_room": "Đổi phòng",
     "dispatch.route_applied": "Áp tuyến khám",
+    # `visit.closed_incomplete` THIẾU NHÃN TỪ LÚC ĐƯỢC THÊM. Bài kiểm chống
+    # lệch ở cạnh không bắt được vì mã này đi vào event_log như một BIỂU THỨC
+    # ba ngôi ở cuối lời gọi, ngoài tầm quét. Người vận hành mở Lịch sử thao
+    # tác thấy chuỗi thô — đúng cái vòng lặp bài kiểm ấy được viết ra để chặn.
+    "visit.closed_incomplete": "Đóng lượt khi chưa khám xong",
+    # ── Nhà thuốc ───────────────────────────────────────────────────────────
+    "pharmacy.dispensed": "Cấp thuốc",
+    "pharmacy.refused": "Khách không lấy thuốc",
+    "pharmacy.line_closed": "Chốt dòng thuốc",
+    "pharmacy.adjusted": "Điều chỉnh tồn kho",
+    "pharmacy.discarded": "Huỷ thuốc",
     # ── Hồ sơ bệnh nhân ─────────────────────────────────────────────────────
     "patient.created": "Tạo hồ sơ bệnh nhân",
     "patient_link.created": "Liên kết hai bệnh nhân",

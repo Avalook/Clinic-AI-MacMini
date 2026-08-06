@@ -36,7 +36,26 @@ _KWARG = re.compile(r'event_type\s*=\s*"([a-z_]+\.[a-z_]+)"')
 #: Chuỗi trong câu `INSERT INTO event_log ... VALUES (..., 'x.y', ...)`. Vài
 #: service tự viết SQL thay vì gọi `record_event`; bỏ sót chúng thì bài kiểm
 #: cho cảm giác an toàn giả.
-_SQL_LITERAL = re.compile(r"'([a-z_]+\.[a-z_]+)'")
+#:
+#: NHẬN CẢ HAI KIỂU NHÁY. Bản trước chỉ soi nháy đơn, nên mã đi vào như một
+#: THAM SỐ PYTHON — `"visit.closed_incomplete" if incomplete else ...` ở cuối
+#: lời gọi `conn.execute` của checkout_service — lọt qua. Nó lọt suốt từ lúc
+#: được thêm, và người vận hành đọc chuỗi thô trên màn Lịch sử thao tác. Một
+#: bài kiểm chống lệch mà bỏ sót đúng loại lệch nó canh thì tệ hơn không có.
+_SQL_LITERAL = re.compile(r"""['"]([a-z_]+\.[a-z_]+)['"]""")
+
+
+#: Câu chèn event_log, viết có hoặc không có tiền tố lược đồ.
+#:
+#: BẢN TRƯỚC CHỈ TÁCH THEO "INSERT INTO event_log". `checkout_service.py` viết
+#: `INSERT INTO public.event_log`, nên CẢ FILE ẤY CHƯA TỪNG ĐƯỢC QUÉT — và
+#: `visit.closed_incomplete` sống suốt không nhãn trong khi bài kiểm báo xanh.
+_INSERT = re.compile(r"INSERT\s+INTO\s+(?:public\.)?event_log", re.IGNORECASE)
+
+#: Cửa sổ quét sau mỗi câu chèn. Rộng hơn hẳn 1200 của bản trước: trong
+#: `checkout_service` mã sự kiện là tham số CUỐI, nằm sau hai khối `json.dumps`
+#: dài, cách câu INSERT 1353 ký tự — vừa đủ để lọt ra ngoài cửa sổ cũ.
+_CUA_SO = 4000
 
 
 def _ma_trong_ma_nguon() -> set[str]:
@@ -44,11 +63,10 @@ def _ma_trong_ma_nguon() -> set[str]:
     for f in SRC.rglob("*.py"):
         text = f.read_text(encoding="utf-8")
         ma |= set(_KWARG.findall(text))
-        # Chỉ soi chuỗi SQL trong file CÓ ghi event_log — nếu không thì mọi
-        # chuỗi dạng "a.b" trong toàn dự án (tên module, tên file) đều lọt vào.
-        if "INSERT INTO event_log" in text or "insert into event_log" in text:
-            for khoi in text.split("INSERT INTO event_log")[1:]:
-                ma |= set(_SQL_LITERAL.findall(khoi[:1200]))
+        # Chỉ soi chuỗi trong file CÓ ghi event_log — nếu không thì mọi chuỗi
+        # dạng "a.b" trong toàn dự án (tên module, tên file) đều lọt vào.
+        for m in _INSERT.finditer(text):
+            ma |= set(_SQL_LITERAL.findall(text[m.end() : m.end() + _CUA_SO]))
     return ma
 
 
