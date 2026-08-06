@@ -136,6 +136,7 @@ export default function NewPatientForm({
   provinces,
   variant = "full",
   initialAppt,
+  nhung = false,
 }: {
   role?: ClinicRole | null;
   locations: Option[];
@@ -145,6 +146,12 @@ export default function NewPatientForm({
   /** "walkin" = điều dưỡng ghi khách vãng lai: bỏ lịch hẹn, gộp dịch vụ/bác sĩ
    *  vào ô thông tin, lưu xong tạo luôn lượt khám HÔM NAY (giờ hiện tại). */
   variant?: "full" | "walkin";
+  /** Nhúng vào một màn đã có tiêu đề và thanh bước riêng (vd màn Đặt lịch).
+   *
+   * Chỉ ẩn phần đầu — toàn bộ biểu mẫu và luật kiểm tra giữ nguyên. Cắt hẳn
+   * khối đó khỏi component sẽ làm trang `/patients/new` đứng một mình mất tiêu
+   * đề, vì hai nơi dùng CÙNG một component. */
+  nhung?: boolean;
   /** Điền sẵn ngày/giờ/bác sĩ — ô xanh "đặt vào đây" ở bảng Lịch hẹn khám
    *  (trang chủ) dẫn sang đây kèm query để Lễ tân xếp khách đúng khung. */
   initialAppt?: { date?: string; time?: string; doctorId?: string };
@@ -686,34 +693,36 @@ export default function NewPatientForm({
 
   return (
     <div aria-label="Luồng tạo hồ sơ và đặt lịch" className="space-y-4">
-      <header className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
-        <div className="border-b border-line px-4 py-3 sm:px-5">
-          <p className="text-sm font-semibold text-ink">
-            {walkin ? "Luồng tiếp nhận khách vãng lai" : "Luồng tạo hồ sơ và đặt lịch"}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">
-            {walkin
-              ? "Xác minh thông tin, chọn dịch vụ và tạo lượt khám khi đủ điều kiện."
-              : "Hồ sơ và lịch hẹn được tạo qua hai bước, dùng cùng một nguồn dữ liệu."}
-          </p>
-        </div>
-        <ol className="grid grid-cols-2 divide-x divide-line text-xs sm:grid-cols-3" aria-label="Các bước tiếp nhận">
-          <li className="flex items-center gap-2 px-4 py-3 text-brand-800">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">1</span>
-            <span className="font-semibold">Thông tin hồ sơ</span>
-          </li>
-          <li className="flex items-center gap-2 px-4 py-3 text-ink-muted">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">2</span>
-            <span>{walkin ? "Dịch vụ & lượt khám" : "Lịch hẹn khám"}</span>
-          </li>
-          {!walkin && (
-            <li className="hidden items-center gap-2 px-4 py-3 text-ink-muted sm:flex">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">3</span>
-              <span>Xác nhận & lưu</span>
+      {nhung ? null : (
+        <header className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+          <div className="border-b border-line px-4 py-3 sm:px-5">
+            <p className="text-sm font-semibold text-ink">
+              {walkin ? "Luồng tiếp nhận khách vãng lai" : "Luồng tạo hồ sơ và đặt lịch"}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {walkin
+                ? "Xác minh thông tin, chọn dịch vụ và tạo lượt khám khi đủ điều kiện."
+                : "Hồ sơ và lịch hẹn được tạo qua hai bước, dùng cùng một nguồn dữ liệu."}
+            </p>
+          </div>
+          <ol className="grid grid-cols-2 divide-x divide-line text-xs sm:grid-cols-3" aria-label="Các bước tiếp nhận">
+            <li className="flex items-center gap-2 px-4 py-3 text-brand-800">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">1</span>
+              <span className="font-semibold">Thông tin hồ sơ</span>
             </li>
-          )}
-        </ol>
-      </header>
+            <li className="flex items-center gap-2 px-4 py-3 text-ink-muted">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">2</span>
+              <span>{walkin ? "Dịch vụ & lượt khám" : "Lịch hẹn khám"}</span>
+            </li>
+            {!walkin && (
+              <li className="hidden items-center gap-2 px-4 py-3 text-ink-muted sm:flex">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">3</span>
+                <span>Xác nhận & lưu</span>
+              </li>
+            )}
+          </ol>
+        </header>
+      )}
 
       <section aria-label="Thông tin hồ sơ" className={CARD}>
         <SectionHeader

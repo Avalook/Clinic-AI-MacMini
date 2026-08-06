@@ -87,7 +87,22 @@ test("the patient directory follows the three-region reference layout without st
     assert.match(patients, new RegExp(`aria-label="${label}"`));
   }
   assert.match(patients, /shown\.find\(\(item\) => item\.clinic_patient_id === selectedId\) \?\?/);
-  assert.match(patients, /Mở hồ sơ khám/);
+
+  // Phiếu khám vẫn mở được — nhưng CHỈ cho vai lâm sàng. Với Lễ tân nút đó chỉ
+  // là liên kết sang trang hành chính, tức là bấm để đọc đúng khối hành chính
+  // vừa hiện đầy đủ ngay bên cạnh.
+  assert.match(patients, /Mở phiếu khám/);
+  assert.match(patients, /\{enablePopup \? \(/);
+
+  // Khối hành chính hiện TẠI CHỖ, không bắt đổi màn để đọc thứ đã tải về.
+  assert.match(patients, /HangHanhChinh/);
+  assert.match(patients, /nhan="Ngày sinh"/);
+  assert.match(patients, /nhan="Địa chỉ"/);
+
+  // Xem được TỪNG lượt khám cũ, không chỉ đếm số lượng.
+  assert.match(patients, /Các lượt khám \(/);
+  assert.match(patients, /selected\.visits\.map/);
+
   assert.doesNotMatch(patients, /#ec4899|text-status-cancelled/);
 });
 
