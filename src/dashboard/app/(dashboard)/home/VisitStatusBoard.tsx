@@ -1,6 +1,6 @@
 // Bảng "Trạng thái BN buổi khám" — READ-ONLY cho Lễ tân (front desk).
-// List BN có buổi khám (visit) TẠO HÔM NAY, cột trạng thái theo enum visit.status
-// (OPEN / IN_PROGRESS / FINALIZED / AMENDED — nguồn: migration 017_create_clinical_domain).
+// List BN có buổi khám (visit) TẠO HÔM NAY, cột trạng thái theo visit.status
+// (OPEN / IN_PROGRESS / INCOMPLETE / FINALIZED / AMENDED).
 // CHỈ hiển thị, không nút ghi. Data server-fetch ở home/page.tsx, đọc thẳng Supabase
 // (RLS SELECT visit_select_authenticated). Badge riêng cho visit — KHÔNG dùng StatusBadge
 // (badge đó dành cho appointment.status, màu khác).
@@ -18,6 +18,11 @@ function displayStatus(
 ): { label: string; style: string } {
   if (paid)
     return { label: "Đã thanh toán", style: "bg-success-bg text-success" };
+  // Khách về giữa chừng. Phải đứng TRƯỚC mọi nhánh khác trừ "đã thanh toán":
+  // không có nhánh này thì nó rơi xuống `return` cuối và hiện "Chờ khám" cho
+  // một người đã ra về — Lễ tân sẽ đi gọi tên họ.
+  if (visitStatus === "INCOMPLETE")
+    return { label: "Khám dở — chờ gọi lại", style: "bg-danger-bg text-danger" };
   if (visitStatus === "AMENDED")
     return { label: "Đã bổ sung", style: "bg-brand-50 text-brand-800" };
   if (visitStatus === "FINALIZED")
@@ -35,7 +40,9 @@ function displayStatus(
 // Đồng hồ chờ chạy tới khi KHÁM XONG (appt COMPLETED) / hồ sơ chốt. Sau đó dừng.
 function stillWaiting(visitStatus: string, apptStatus: string | null): boolean {
   if (apptStatus === "COMPLETED") return false;
-  if (visitStatus === "FINALIZED" || visitStatus === "AMENDED") return false;
+  // Danh sách TRẮNG: chỉ hai trạng thái này là còn đang chờ. Viết theo kiểu
+  // danh sách đen ("khác FINALIZED thì còn chờ") thì trạng thái mới nào cũng
+  // lọt vào, và đồng hồ chờ của người đã về nhà sẽ đếm tới vô hạn.
   return visitStatus === "OPEN" || visitStatus === "IN_PROGRESS";
 }
 
