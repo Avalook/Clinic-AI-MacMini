@@ -36,7 +36,17 @@ from clinicai.services.audit import record_event
 logger = structlog.get_logger()
 
 MEASURE_KEYS: tuple[str, ...] = ("crl", "nt", "bpd", "hc", "ac", "fl", "efw")
-WRITABLE_VISIT_STATUSES: frozenset[str] = frozenset({"OPEN", "IN_PROGRESS"})
+# Trạng thái lượt khám còn GHI ĐƯỢC hồ sơ.
+#
+# Danh sách TRẮNG, không phải kiểm `!= FINALIZED`. Cố ý: một trạng thái CUỐI
+# thêm sau này sẽ không lọt qua được, còn danh sách đen thì lọt.
+#
+# INCOMPLETE (khách về giữa chừng) nằm TRONG danh sách này. Nó là trạng thái
+# KHÔNG-CUỐI: khách còn quay lại, và khoá bút lúc này là bắt bác sĩ phải đính
+# chính một hồ sơ chưa ai ký. FINALIZED và AMENDED thì bất biến theo Thông tư 13.
+WRITABLE_VISIT_STATUSES: frozenset[str] = frozenset(
+    {"OPEN", "IN_PROGRESS", "INCOMPLETE"}
+)
 
 
 def num_or_none(value: Any) -> float | None:

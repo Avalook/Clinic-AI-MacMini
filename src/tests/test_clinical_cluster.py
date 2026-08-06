@@ -144,8 +144,13 @@ class TestMergeFindings:
         assert MEASURE_KEYS == ("crl", "nt", "bpd", "hc", "ac", "fl", "efw")
 
     def test_a_finalised_visit_is_not_writable(self) -> None:
-        assert WRITABLE_VISIT_STATUSES == frozenset({"OPEN", "IN_PROGRESS"})
-        assert "FINALIZED" not in WRITABLE_VISIT_STATUSES
+        # TÍNH CHẤT, không phải tập hợp nguyên văn: hai trạng thái CUỐI thì
+        # khoá, các trạng thái ĐANG SỐNG thì ghi được. Ghim đúng frozenset là
+        # bắt mọi lần thêm trạng thái phải sửa bài kiểm mà không kiểm thêm gì.
+        for cuoi in ("FINALIZED", "AMENDED"):
+            assert cuoi not in WRITABLE_VISIT_STATUSES
+        for dang_song in ("OPEN", "IN_PROGRESS", "INCOMPLETE"):
+            assert dang_song in WRITABLE_VISIT_STATUSES
 
 
 class TestGuards:
@@ -262,9 +267,12 @@ class TestImmutability:
     def test_finalized_and_amended_are_both_closed(self) -> None:
         # A whitelist, so a future terminal status cannot slip through as
         # writable the way it would with a FINALIZED-only check (Circular 13).
-        assert RECORD_WRITABLE == frozenset({"OPEN", "IN_PROGRESS"})
         for closed in ("FINALIZED", "AMENDED", "CANCELLED"):
             assert closed not in RECORD_WRITABLE
+        # INCOMPLETE (khách về giữa chừng) KHÔNG phải trạng thái cuối: khách còn
+        # quay lại, và khoá bút lúc này là bắt bác sĩ đính chính một hồ sơ chưa
+        # ai ký.
+        assert "INCOMPLETE" in RECORD_WRITABLE
 
     def test_vitals_need_the_patient_to_have_arrived(self) -> None:
         assert ARRIVED == frozenset({"CHECKED_IN", "COMPLETED"})

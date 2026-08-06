@@ -30,6 +30,7 @@ import structlog
 
 from clinicai.services.queue_order import (
     REASON_DAT_TRUOC_DUNG_GIO,
+    VISIT_DA_RA_VE,
     QueueDecision,
 )
 from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
@@ -208,7 +209,11 @@ def _mot_dong(
         # mãi — bảng cũ tránh được điều đó bằng cách lọc status == 'CHECKED_IN',
         # và bản đầu của file này đánh mất phép lọc ấy. Chỉ thấy khi nhìn bảng
         # thật: một số đã khám xong từ sáng vẫn đứng đó.
-        "waiting": r["checked_in_at"] is not None and r["status"] != "COMPLETED",
+        "waiting": (
+            r["checked_in_at"] is not None
+            and r["status"] != "COMPLETED"
+            and (r["visit_status"] or "") not in VISIT_DA_RA_VE
+        ),
         "promoted": promoted,
         "promoted_note": CHU_THICH_DAY_LEN if promoted else None,
     }
