@@ -2,6 +2,7 @@
 // Tra cứu bản ghi thuốc đã cấp cho từng bệnh nhân (read-only, bất biến).
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { motBanGhi } from "../../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import HistoryBoard from "./HistoryBoard";
 
@@ -45,7 +46,7 @@ export default async function PharmacyHistoryPage() {
   };
   const normalized = (records ?? []).map((r: Raw) => ({
     ...r,
-    patient: r.patient?.[0] ?? null,
+    patient: motBanGhi(r.patient),
   }));
 
   return <HistoryBoard records={normalized} />;
