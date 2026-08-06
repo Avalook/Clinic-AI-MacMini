@@ -15,7 +15,7 @@ import Link from "next/link";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip from "@/components/ui/StatusChip";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getCallerAuthHeaders } from "@/lib/backend-proxy";
 
 import FeedbackBox from "./FeedbackBox";
 
@@ -64,15 +64,11 @@ const SEVERITY_VI: Record<string, { label: string; tone: "blocked" | "overdue" |
 
 async function fetchOverview(): Promise<Overview | { error: string }> {
   if (!API) return { error: "CLINIC_API_URL chưa cấu hình" };
-  const supabase = await getSupabaseServer();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) return { error: "Chưa đăng nhập" };
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${session.access_token}`,
-  };
-  if (process.env.BACKEND_API_KEY) headers["X-API-Key"] = process.env.BACKEND_API_KEY;
+  // Header lấy từ chỗ dùng chung. Bản cũ tự dựng ở đây và QUÊN getUser(), nên
+  // sau một tiếng token hết hạn là chỗ này báo "chưa đăng nhập" trong khi mọi
+  // trang khác vẫn chạy — xem getCallerAuthHeaders trong backend-proxy.ts.
+  const headers = await getCallerAuthHeaders();
+  if (!headers) return { error: "Chưa đăng nhập" };
   try {
     const res = await fetch(`${API}/api/v1/console/overview`, { headers, cache: "no-store" });
     if (res.status === 403) return { error: "Trang này chỉ dành cho vai Quản lý." };

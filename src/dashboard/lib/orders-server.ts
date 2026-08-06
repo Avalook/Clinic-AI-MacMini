@@ -6,7 +6,7 @@
  * nothing.
  */
 
-import { getSupabaseServer } from "@/lib/supabase-server";
+import { getCallerAuthHeaders } from "@/lib/backend-proxy";
 
 import type { CatalogueEntry } from "@/app/(dashboard)/doctor/orders/[visitId]/OrderComposer";
 import type { WorklistPatient } from "@/lib/worklist";
@@ -18,18 +18,10 @@ export type CatalogueResult =
   | { ok: false; reason: "no-session" | "unreachable" | "refused" | "forbidden" };
 
 
-async function authHeaders(): Promise<Record<string, string> | null> {
-  const supabase = await getSupabaseServer();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) return null;
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-  const apiKey = process.env.BACKEND_API_KEY;
-  if (apiKey) headers["X-API-Key"] = apiKey;
-  return headers;
-}
+// Lấy header từ chỗ dùng chung. Bản cũ tự dựng ở đây và QUÊN getUser(), nên
+// sau một tiếng token hết hạn là màn này báo "chưa đăng nhập" trong khi mọi
+// trang khác vẫn chạy — xem getCallerAuthHeaders trong backend-proxy.ts.
+const authHeaders = getCallerAuthHeaders;
 
 export async function fetchCatalogue(): Promise<CatalogueResult> {
   if (!API_BASE) return { ok: false, reason: "unreachable" };
