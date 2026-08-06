@@ -147,7 +147,25 @@ def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
         return (-2, n, slot_iso), REASON_UU_TIEN
 
     slot_ms = _ms(e.slot_start)
-    is_booked = bool(e.booking_channel) and e.booking_channel != "WALK_IN"
+    # CHỈ 'WALK_IN' mới là khách vãng lai. Mọi giá trị khác — KỂ CẢ TRỐNG — là
+    # khách đã đặt lịch.
+    #
+    # Trước đây điều kiện là `bool(booking_channel) and != 'WALK_IN'`, nên một
+    # lịch KHÔNG GHI KÊNH bị coi là vãng lai. Trên máy chủ thật hôm nay có 16
+    # lịch như vậy (ONLINE 21 · TRỐNG 16 · WALK_IN 7 · HOTLINE 4) — tức là gần
+    # một phần ba số lịch bị TƯỚC MẤT quyền ưu tiên mà người bệnh đã có bằng
+    # cách đặt trước, và không có gì trên màn hình cho thấy điều đó.
+    #
+    # Trống nghĩa là "không ai ghi lại kênh", không nghĩa là "người này tự đến".
+    # Khách vãng lai được tạo với kênh WALK_IN rõ ràng (và tự vào thẳng trạng
+    # thái đã đến — xem booking_service). Một dòng trong bảng lịch hẹn mà không
+    # phải WALK_IN thì chính nó đã là một cái hẹn.
+    #
+    # Và hai kiểu đoán sai không ngang giá nhau: đoán nhầm người đặt lịch thành
+    # vãng lai thì họ mất lượt đã giành được; đoán nhầm vãng lai thành người đặt
+    # lịch thì gần như vô hại, vì lịch của khách vãng lai được tạo ngay lúc họ
+    # tới nên giờ hẹn xấp xỉ giờ đến.
+    is_booked = (e.booking_channel or "").strip().upper() != "WALK_IN"
 
     # 0: có hẹn và đến TRONG KHUNG CỦA MÌNH → xếp theo giờ hẹn.
     if is_booked and e.checked_in_at is not None:
