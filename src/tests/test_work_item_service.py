@@ -74,7 +74,13 @@ class TestRouterGuard:
     def test_every_working_role_may_reach_the_command_api(self) -> None:
         # The flow is worked by everybody; the node's own actor_roles is what
         # narrows each station, so the router must not narrow it first.
-        assert _WORK_ITEM_GUARD.allowed_roles == frozenset(ClinicRole)
+        #
+        # DISPLAY nằm ngoài: nó là tài khoản của cái tivi phòng chờ, không phải
+        # của một người làm việc. `get_current_identity` cũng đã từ chối nó
+        # trước khi tới đây — bỏ nó khỏi danh sách này chỉ để bài kiểm nói đúng
+        # điều nó muốn nói ("mọi vai LÀM VIỆC"), chứ không phải để mở thêm gì.
+        lam_viec = frozenset(ClinicRole) - {ClinicRole.DISPLAY}
+        assert _WORK_ITEM_GUARD.allowed_roles == lam_viec
 
 
 @pytest.mark.asyncio

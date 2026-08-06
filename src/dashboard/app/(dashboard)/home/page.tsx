@@ -57,6 +57,8 @@ const GREET_LABEL: Record<ClinicRole, string> = {
   CASHIER_DV: "thu ngân dịch vụ",
   TRUONG_CA: "trưởng ca",
   PHARMACIST: "dược sĩ",
+  // Không bao giờ chào ai: layout đưa vai này thẳng ra /display.
+  DISPLAY: "màn hình",
 };
 
 // Bỏ tiền tố chức danh khỏi tên ("BS Thành" → "Thành", "ĐD Hà Vũ" → "Hà Vũ").
