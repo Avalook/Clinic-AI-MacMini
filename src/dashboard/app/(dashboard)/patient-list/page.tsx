@@ -114,6 +114,15 @@ export default async function PatientListPage() {
     const cur = map.get(p.clinic_patient_id);
     if (cur) {
       cur.visit_count += 1;
+      // Giữ lại TỪNG lượt, không chỉ đếm. Trước đây chỉ có `visit_count`, nên
+      // màn hình nói được "3 lượt" mà không nói được ba lượt ấy là những lần
+      // nào — Lễ tân phải mở hồ sơ mới biết.
+      cur.visits.push({
+        id: a.id,
+        slot_start: a.slot_start,
+        status: a.status,
+        service_name: one(a.service)?.name ?? null,
+      });
     } else {
       map.set(p.clinic_patient_id, {
         clinic_patient_id: p.clinic_patient_id,
@@ -123,6 +132,14 @@ export default async function PatientListPage() {
         date_of_birth: p.date_of_birth,
         gender: p.gender,
         visit_count: 1,
+        visits: [
+          {
+            id: a.id,
+            slot_start: a.slot_start,
+            status: a.status,
+            service_name: one(a.service)?.name ?? null,
+          },
+        ],
         latest: a.slot_start, // lần xuất hiện đầu = gần nhất (đã order desc)
         phan_loai: "Khám lần đầu",
         // Lượt khám GẦN NHẤT — mở trong popup hồ sơ lâm sàng (chỉ đọc).
@@ -153,11 +170,8 @@ export default async function PatientListPage() {
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-4">
-      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Hồ sơ & hành trình</p>
-        <h1 className="mt-1 text-xl font-semibold text-ink">Danh sách bệnh nhân</h1>
-        <p className="mt-1 text-sm text-ink-muted">Tra cứu hồ sơ hành chính và lượt hẹn gần nhất của người bệnh.</p>
-      </header>
+      {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — cùng chỗ với mọi
+          trang khác, thay vì vẽ lại lần thứ hai ngay dưới nó. */}
 
       <section aria-label="Tổng quan danh sách bệnh nhân" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard icon={<UsersRound size={17} />} label="Hồ sơ trong danh sách" value={rows.length} tone="brand" />
