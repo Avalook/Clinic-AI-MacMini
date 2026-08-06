@@ -22,7 +22,6 @@ import {
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
 import { nowMs, VN_TZ } from "../../../lib/datetime";
-import { compareQueue } from "../../../lib/queue";
 import { doctorName } from "../../../lib/doctor-name";
 import {
   slotMs,
@@ -41,6 +40,17 @@ export interface WeekApptRow {
   doctor_id: string | null;
   booking_channel: string | null;
   phan_loai: string; // "Tái khám" | "Khám lần đầu" | "" (suy từ lịch sử hẹn)
+  /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
+   *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
+   *  từ một bản chép của luật bằng TypeScript. */
+  call_order?: number | null;
+  /** Làn: -2 ƯT · -1 chờ đọc KQ · 0 có hẹn đúng giờ · 1 vãng lai/đến muộn */
+  call_tier?: number | null;
+  /** UU_TIEN | CHO_DOC_KQ | DAT_TRUOC_DUNG_GIO | DEN_TRUC_TIEP | DEN_TRE | CHUA_DEN */
+  call_reason?: string | null;
+  /** Có người đến TRƯỚC mà bị xếp SAU mình — chỗ cần một câu giải thích. */
+  promoted?: boolean;
+  promoted_over?: number;
   /** ĐÃ ghi sinh hiệu (đủ 3 vital bắt buộc) chưa — tắt "!" nhắc điều dưỡng. */
   has_vitals?: boolean;
   patient: {
@@ -181,12 +191,16 @@ function buildDayRows(
     const bucketRows: RowDesc[] = [];
     for (const g of groups) {
       const mine = inBucket.filter((a) => (a.doctor_id ?? "") === g.id);
+      // Thứ tự gọi do backend tính sẵn (call_order). Xem ghi chú ở
+      // DoctorWorkBoard: luật chỉ còn một bản, ở Python.
+      const theoThuTuGoi = (a: WeekApptRow, b: WeekApptRow) =>
+        (a.call_order ?? 0) - (b.call_order ?? 0);
       const regular = mine
         .filter((a) => !isWalkinChannel(a.booking_channel))
-        .sort(compareQueue);
+        .sort(theoThuTuGoi);
       const walkins = mine
         .filter((a) => isWalkinChannel(a.booking_channel))
-        .sort(compareQueue);
+        .sort(theoThuTuGoi);
       const walkinAlive = walkins.filter((a) => !isDeadStatus(a.status)).length;
       const groupRows: RowDesc[] = [];
       for (const a of [...regular, ...walkins]) {
