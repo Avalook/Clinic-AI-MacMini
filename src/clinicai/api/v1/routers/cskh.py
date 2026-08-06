@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -17,6 +17,7 @@ from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
 )
+from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
 
 router = APIRouter()
@@ -76,6 +77,73 @@ async def read_due_recalls(
         today=date.fromisoformat(clinic_today()),
     )
     return [RecallFollowupRead(**vars(row)) for row in rows]
+
+
+# ── Việc gọi nhắc tái khám — hai lượt ──────────────────────────────────────
+#
+# Khác `/cskh/recalls` ngay trên: đường kia trả về một PHÉP CHIẾU tính lại mỗi
+# lần gọi, còn đây là VIỆC CÓ THẬT trong bảng `nhac_tai_kham` — có hạn, có
+# người gọi, có kết quả, đối soát được cuối ngày.
+
+
+@router.get("/cskh/recall-jobs")
+async def read_recall_jobs(
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Việc còn phải gọi hôm nay, tách theo lượt 1 và lượt 2.
+
+    Sinh việc của hôm nay trước khi đọc. Dự án chưa có bộ hẹn giờ nào, nên mở
+    màn hình là đường chắc chắn nhất; hàm sinh idempotent nên không đẻ bản sao.
+    """
+    return await RecallJobService(pool).danh_sach(identity=identity)
+
+
+@router.post("/cskh/recall-jobs/generate", status_code=201)
+async def generate_recall_jobs(
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, int]:
+    """Sinh việc gọi cho hôm nay. Để cắm cron vào sau mà không đổi gì."""
+    return await RecallJobService(pool).sinh(identity=identity)
+
+
+class RecallCallResult(BaseModel):
+    ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI"]
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/cskh/recall-jobs/{viec_id}/ket-qua", status_code=201)
+async def record_recall_call(
+    viec_id: UUID,
+    body: RecallCallResult,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đã gọi xong. Kết quả bắt buộc — kể cả khi không ai bắt máy."""
+    return await RecallJobService(pool).ghi_ket_qua(
+        identity=identity,
+        viec_id=str(viec_id),
+        ket_qua=body.ket_qua,
+        ghi_chu=body.ghi_chu,
+    )
+
+
+class RecallSkip(BaseModel):
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/cskh/recall-jobs/{viec_id}/bo-qua", status_code=201)
+async def skip_recall_job(
+    viec_id: UUID,
+    body: RecallSkip,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Không cần gọi nữa — khách đã tự đặt lịch, đã tới, hay đã báo huỷ."""
+    return await RecallJobService(pool).bo_qua(
+        identity=identity, viec_id=str(viec_id), ly_do=body.ly_do
+    )
 
 
 @router.post("/cskh/actions", status_code=201)
