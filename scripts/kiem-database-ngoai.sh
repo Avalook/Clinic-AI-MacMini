@@ -145,12 +145,14 @@ doc "3c · Có bỏ qua RLS được không (điều thật sự cần)"
 # Trong PostgreSQL, CHỦ SỞ HỮU bảng vốn đã bỏ qua RLS — trừ khi bảng bật FORCE
 # ROW LEVEL SECURITY, mà lược đồ này không bảng nào bật. Nên tài khoản chạy
 # migration (tức chủ sở hữu mọi bảng) đủ dùng, dù không có BYPASSRLS.
+# `|| true` ở CẢ BA lệnh: lần trước chỉ bọc phép gán, còn hai lệnh trần vẫn để
+# `set -e` giết script — và nó chết đúng ở đây, ngay trước mục quan trọng nhất.
 psql "${CN[@]}" -c "
     CREATE TABLE __thu_rls(id int);
     ALTER TABLE __thu_rls ENABLE ROW LEVEL SECURITY;
-    INSERT INTO __thu_rls VALUES (1);" >/dev/null 2>&1
+    INSERT INTO __thu_rls VALUES (1);" >/dev/null 2>&1 || true
 DEM=$(psql "${CN[@]}" -c "SELECT count(*) FROM __thu_rls" 2>/dev/null || true)
-psql "${CN[@]}" -c "DROP TABLE IF EXISTS __thu_rls" >/dev/null 2>&1
+psql "${CN[@]}" -c "DROP TABLE IF EXISTS __thu_rls" >/dev/null 2>&1 || true
 if [ "${DEM:-0}" = "1" ]; then
     dat "đọc được dữ liệu của bảng đã bật RLS (vì là chủ sở hữu) — đủ cho backend"
 else
