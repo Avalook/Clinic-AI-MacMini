@@ -42,6 +42,7 @@ def _hang(**over: Any) -> _Row:
         "checked_in_at": GIO,
         "visit_status": None,
         "slot_minutes": 15,
+        "status": "CHECKED_IN",
     }
     base.update(over)
     return _Row(base)
@@ -183,3 +184,18 @@ def test_dang_goi_doc_tu_trang_thai_luot_kham() -> None:
     nên chưa bao giờ khớp dòng nào."""
     assert _mot_dong(_hang(visit_status="IN_PROGRESS"), None, [])["is_current"] is True
     assert _mot_dong(_hang(visit_status="OPEN"), None, [])["is_current"] is False
+
+
+def test_kham_xong_roi_thi_roi_khoi_bang_cho() -> None:
+    """Bảng cũ lọc `status === 'CHECKED_IN'` nên người khám xong tự rời bảng.
+
+    Bản đầu của service này đánh mất phép lọc ấy, và hậu quả chỉ thấy khi nhìn
+    bảng thật: một số đã khám xong từ sáng vẫn đứng trong hàng chờ trên tivi.
+    """
+    assert _mot_dong(_hang(status="CHECKED_IN"), None, [])["waiting"] is True
+    assert _mot_dong(_hang(status="COMPLETED"), None, [])["waiting"] is False
+    # Chưa đến thì cũng chưa chờ.
+    assert (
+        _mot_dong(_hang(status="CONFIRMED", checked_in_at=None), None, [])["waiting"]
+        is False
+    )
