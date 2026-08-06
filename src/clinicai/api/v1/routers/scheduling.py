@@ -4,7 +4,7 @@ import datetime
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
@@ -83,6 +83,42 @@ class WorkSessionStaffAssign(BaseModel):
 # ---------------------------------------------------------------------------
 # Work Session Endpoints
 # ---------------------------------------------------------------------------
+
+
+class WorkSessionListItem(BaseModel):
+    """Một dòng trên màn Ca trực — chỉ những gì màn ấy vẽ.
+
+    KHÔNG trả nguyên hàng work_session. Trang này chỉ đọc và chỉ hiện bảy cột;
+    trả thừa là mở rộng bề mặt dữ liệu ra ngoài mà không ai dùng tới.
+    """
+
+    id: UUID
+    location_id: UUID | None
+    location_name: str | None
+    session_date: datetime.date
+    session_type: str
+    start_time: datetime.time
+    end_time: datetime.time
+    max_patients: int | None
+    staff_count: int
+
+
+@router.get("/work-sessions", response_model=list[WorkSessionListItem])
+async def list_work_sessions(
+    limit: int = Query(100, ge=1, le=500),
+    identity: StaffIdentity = Depends(_WORK_SESSION_ADMIN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[WorkSessionListItem]:
+    """Ca trực gần nhất của phòng khám đang đăng nhập.
+
+    Trang /work-sessions vốn đọc thẳng bảng qua PostgREST — sổ bàn giao ghi nó
+    như một việc còn treo ("có trang nhưng nó không gọi API này"). Endpoint này
+    là nửa còn thiếu.
+    """
+    rows = await SchedulingService(pool, identity.clinic_id).list_work_sessions(
+        limit=limit
+    )
+    return [WorkSessionListItem(**r) for r in rows]
 
 
 @router.post(
