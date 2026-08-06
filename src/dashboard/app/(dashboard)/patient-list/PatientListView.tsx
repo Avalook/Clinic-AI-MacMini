@@ -5,14 +5,12 @@
 // API của màn này chưa tải chúng; người có quyền lâm sàng vẫn mở phiếu khám thật.
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CalendarDays,
   ClipboardList,
   FileText,
-  MapPin,
   Phone,
   Search,
   SlidersHorizontal,
@@ -28,6 +26,14 @@ import SplitPane from "../SplitPane";
 import QuickBookingModal from "./QuickBookingModal";
 import type { Option } from "../patients/AppointmentBooking";
 
+/** Một lần khám trong quá khứ — đủ để liệt kê, không kèm dữ liệu lâm sàng. */
+export interface VisitSummary {
+  id: string;
+  slot_start: string;
+  status: string;
+  service_name: string | null;
+}
+
 export interface ExaminedRow {
   clinic_patient_id: string;
   patient_code: string;
@@ -36,6 +42,8 @@ export interface ExaminedRow {
   date_of_birth: string | null;
   gender: string | null;
   visit_count: number;
+  /** TỪNG lượt, mới→cũ. `visit_count` chỉ nói "bao nhiêu", cái này nói "những lần nào". */
+  visits: VisitSummary[];
   latest: string;
   phan_loai: "Khám lần đầu" | "Tái khám";
   /** Lượt hẹn gần nhất là nguồn duy nhất của panel phải. */
@@ -111,6 +119,29 @@ function DetailLine({
   );
 }
 
+/** Một dòng "nhãn — giá trị" của khối hành chính.
+ *
+ * Thiếu dữ liệu thì nói THIẾU, không bỏ dòng đi: một ô trống nhìn ra ngay là
+ * chưa ai điền, còn một dòng biến mất thì không ai biết nó từng tồn tại.
+ */
+function HangHanhChinh({
+  nhan,
+  giaTri,
+}: {
+  nhan: string;
+  giaTri?: string | null;
+}) {
+  const co = Boolean(giaTri && String(giaTri).trim());
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="shrink-0 text-xs text-ink-muted">{nhan}</dt>
+      <dd className={`text-right ${co ? "text-ink" : "text-ink-faint"}`}>
+        {co ? giaTri : "Chưa có"}
+      </dd>
+    </div>
+  );
+}
+
 export default function PatientListView({
   rows,
   enablePopup = false,
@@ -141,6 +172,7 @@ export default function PatientListView({
   const [selectedId, setSelectedId] = useState<string | null>(rows[0]?.clinic_patient_id ?? null);
   const [openAppt, setOpenAppt] = useState<DoctorApptRow | null>(null);
   const [bookingAppt, setBookingAppt] = useState<DoctorApptRow | null>(null);
+  const [moDanhSachLuot, setMoDanhSachLuot] = useState(false);
 
   const shown = useMemo(() => {
     const normalized = unaccentVi(term.trim());
@@ -161,6 +193,14 @@ export default function PatientListView({
     shown.find((item) => item.clinic_patient_id === selectedId) ??
     shown[0] ??
     null;
+  /** Khối hành chính của BN đang chọn.
+   *
+   * Nó đi kèm lượt hẹn (`appt.patient`) và đã được tải về từ đầu — trước đây
+   * màn này giữ nguyên trong bộ nhớ mà vẫn bắt người dùng bấm sang trang khác
+   * để đọc.
+   */
+  const hc = selected?.appt.patient;
+
   const firstCount = rows.filter((row) => row.phan_loai === "Khám lần đầu").length;
   const returnCount = rows.length - firstCount;
   const filters: { key: Filter; label: string }[] = [
@@ -298,25 +338,43 @@ export default function PatientListView({
             </div>
           </header>
 
+          {/* HỒ SƠ HÀNH CHÍNH ĐẦY ĐỦ, hiện ngay tại chỗ.
+              
+              Trước đây chỗ này chỉ có số điện thoại và một dòng "Địa chỉ xem
+              trong hồ sơ", còn muốn xem thật thì phải bấm sang màn khác — trong
+              khi TOÀN BỘ khối hành chính đã được tải về cùng lượt hẹn từ đầu.
+              Bắt Lễ tân đổi màn để đọc một thứ đã nằm sẵn trong bộ nhớ là bắt
+              họ trả giá cho một khoảng trống không có thật. */}
           <div className="grid gap-3 p-5 sm:grid-cols-2">
             <article className="rounded-control border border-line bg-surface-muted p-3.5">
               <p className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
-                <UserRound size={14} className="text-brand-600" /> Thông tin liên hệ
+                <UserRound size={14} className="text-brand-600" /> Hành chính
               </p>
-              <div className="mt-2 space-y-1.5 text-sm text-ink">
-                <p className="flex items-center gap-2"><Phone size={13} className="text-ink-muted" /> {selected.phone_primary ?? "Chưa có SĐT"}</p>
-                <p className="flex items-center gap-2"><MapPin size={13} className="text-ink-muted" /> Địa chỉ xem trong hồ sơ</p>
-              </div>
+              <dl className="mt-2 space-y-1 text-sm">
+                <HangHanhChinh nhan="Ngày sinh" giaTri={hc?.date_of_birth} />
+                <HangHanhChinh nhan="Giới tính" giaTri={hc?.gender} />
+                <HangHanhChinh nhan="Dân tộc" giaTri={hc?.ethnicity} />
+                <HangHanhChinh nhan="Quốc tịch" giaTri={hc?.nationality} />
+                <HangHanhChinh nhan="Nghề nghiệp" giaTri={hc?.occupation} />
+                <HangHanhChinh nhan="Đối tượng" giaTri={hc?.patient_objection} />
+                <HangHanhChinh nhan="Người giám hộ" giaTri={hc?.guardian_name} />
+              </dl>
             </article>
             <article className="rounded-control border border-line bg-surface-muted p-3.5">
               <p className="flex items-center gap-2 text-xs font-semibold text-ink-soft">
-                <ClipboardList size={14} className="text-brand-600" /> Lịch sử ghi nhận
+                <Phone size={14} className="text-brand-600" /> Liên hệ & địa chỉ
               </p>
-              <p className="mt-2 text-sm text-ink">Lần gần nhất: {fmtDateTimeOrDate(selected.latest)}</p>
-              <p className="mt-1 text-xs text-ink-muted">{selected.visit_count} lượt trong danh sách đã tải</p>
+              <dl className="mt-2 space-y-1 text-sm">
+                <HangHanhChinh nhan="Điện thoại" giaTri={hc?.phone_primary ?? selected.phone_primary} />
+                <HangHanhChinh nhan="Điện thoại phụ" giaTri={hc?.phone_secondary} />
+                <HangHanhChinh nhan="Địa chỉ" giaTri={hc?.address} />
+              </dl>
+              <p className="mt-3 border-t border-line pt-2 text-xs text-ink-muted">
+                <ClipboardList size={13} className="mr-1 inline text-brand-600" />
+                Lần gần nhất: {fmtDateTimeOrDate(selected.latest)} · {selected.visit_count} lượt
+              </p>
             </article>
           </div>
-
           <section className="border-t border-line px-5 py-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-ink">Lượt khám gần nhất</h3>
@@ -330,24 +388,27 @@ export default function PatientListView({
             </div>
           </section>
 
-          <div className="border-t border-line px-5 py-4">
-            {enablePopup ? (
+
+          {/* Nút mở phiếu khám CHỈ cho vai lâm sàng.
+              
+              Với Lễ tân (`enablePopup` = false) nút này trước đây là một liên
+              kết sang /patients/[id] — tức là bấm để đọc đúng khối hành chính
+              vừa hiện đầy đủ ngay bên trên. Bỏ đi.
+              
+              Nhưng với bác sĩ và TKYK thì đây là cửa DUY NHẤT vào phiếu khám,
+              nên nó ở lại. Bỏ luôn cho mọi vai là lặng lẽ lấy mất một việc mà
+              không ai yêu cầu. */}
+          {enablePopup ? (
+            <div className="border-t border-line px-5 py-4">
               <button
                 type="button"
                 onClick={() => setOpenAppt(selected.appt)}
                 className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-control border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 sm:w-auto"
               >
-                <FileText size={16} /> Mở hồ sơ khám
+                <FileText size={16} /> Mở phiếu khám
               </button>
-            ) : (
-              <Link
-                href={`/patients/${selected.clinic_patient_id}`}
-                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-control border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 sm:w-auto"
-              >
-                <FileText size={16} /> Mở hồ sơ khám
-              </Link>
-            )}
-          </div>
+            </div>
+          ) : null}
         </>
       ) : (
         <div className="flex min-h-[360px] flex-col items-center justify-center px-5 text-center">
@@ -364,11 +425,27 @@ export default function PatientListView({
       aria-label="Lượt khám gần nhất"
       className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
     >
-      <header className="border-b border-line px-4 py-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <Stethoscope size={16} className="text-brand-600" /> Thông tin lượt khám
-        </p>
-        <p className="mt-1 text-xs text-ink-muted">Chỉ hiển thị dữ liệu đã có từ lịch hẹn</p>
+      <header className="flex items-start justify-between gap-2 border-b border-line px-4 py-4">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Stethoscope size={16} className="text-brand-600" /> Thông tin lượt khám
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">Chỉ hiển thị dữ liệu đã có từ lịch hẹn</p>
+        </div>
+        {selected ? (
+          <button
+            type="button"
+            onClick={() => setMoDanhSachLuot((v) => !v)}
+            aria-expanded={moDanhSachLuot}
+            className={`shrink-0 rounded-control border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              moDanhSachLuot
+                ? "border-brand-600 bg-brand-50 text-brand-700"
+                : "border-line text-ink-soft hover:bg-surface-sunken"
+            }`}
+          >
+            Các lượt khám ({selected.visit_count})
+          </button>
+        ) : null}
       </header>
       {selected ? (
         <div className="divide-y divide-line px-4">
@@ -376,17 +453,32 @@ export default function PatientListView({
           <DetailLine icon={<Stethoscope size={15} />} label="Dịch vụ" value={selected.appt.service?.name ?? "Chưa có dữ liệu dịch vụ"} />
           <DetailLine icon={<UsersRound size={15} />} label="Loại hồ sơ" value={selected.phan_loai} />
           <DetailLine icon={<ArrowRight size={15} />} label="Trạng thái lịch" value={<AppointmentStatus status={selected.appt.status} />} />
-          <div className="py-4">
-            <p className="rounded-control bg-surface-muted p-3 text-xs leading-relaxed text-ink-muted">
-              Hành trình, sinh hiệu và kết quả lâm sàng chỉ hiển thị trong phiếu khám khi vai trò của bạn được cấp quyền.
-            </p>
-          </div>
-          <Link
-            href={`/patients/${selected.clinic_patient_id}`}
-            className="mb-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
-          >
-            Xem thông tin hành chính <ArrowRight size={16} />
-          </Link>
+          {/* Danh sách CÁC LƯỢT KHÁM, mở ra tại chỗ.
+              
+              Bỏ nút "Xem thông tin hành chính": khối hành chính nay hiện đầy đủ
+              ở panel giữa, nên nút đó dẫn sang một màn khác để xem đúng thứ vừa
+              đọc xong. */}
+          {moDanhSachLuot ? (
+            <ul className="space-y-1.5 py-3">
+              {selected.visits.map((v, i) => (
+                <li
+                  key={v.id}
+                  className="rounded-control border border-line px-3 py-2 text-xs"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-ink">
+                      Lần {selected.visits.length - i}
+                    </span>
+                    <AppointmentStatus status={v.status} />
+                  </span>
+                  <span className="mt-1 block text-ink-muted">
+                    {fmtDateTimeOrDate(v.slot_start)}
+                    {v.service_name ? ` · ${v.service_name}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : (
         <p className="px-4 py-10 text-center text-sm text-ink-muted">Chưa có lượt khám để hiển thị.</p>

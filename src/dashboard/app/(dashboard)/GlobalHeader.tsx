@@ -186,6 +186,12 @@ export default function GlobalHeader({
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
+    if (pathname.startsWith("/patient-list")) {
+      return {
+        title: "Danh sách bệnh nhân",
+        subtitle: "Tra cứu hồ sơ hành chính và lượt hẹn gần nhất của người bệnh.",
+      };
+    }
     if (pathname.startsWith("/nhac-tai-kham")) {
       return {
         title: "Nhắc tái khám",
