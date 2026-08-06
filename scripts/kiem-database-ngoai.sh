@@ -92,7 +92,7 @@ fi
 dat "kết nối được"
 
 doc "1 · Phiên bản (cần ≥ 15)"
-V=$(psql "${CN[@]}" -c "show server_version")
+V=$(psql "${CN[@]}" -c "show server_version" 2>/dev/null || echo "?")
 VMAJ=${V%%.*}
 if [ "${VMAJ:-0}" -ge 15 ]; then dat "PostgreSQL $V"
 else hong "PostgreSQL $V — 7 view dùng security_invoker, cần ≥ 15"; LOI=1; fi
@@ -118,10 +118,15 @@ doc "3 · Quyền của chính tài khoản này"
 # nhau, và phép thử cũ gộp chúng làm một rồi báo hỏng cả cụm.
 #
 # pg_roles trả lời dứt điểm, không cần ghi gì.
+# `||` trong SQL nối CHUỖI. `rolsuper::int || rolcreaterole::int` là số nối số,
+# Postgres từ chối ("operator does not exist: integer || integer") — và vì đây
+# là một phép GÁN trần, `set -e` cho cả script chết IM LẶNG ngay giữa bước 3.
+# concat() nhận mọi kiểu; `|| true` để một truy vấn hỏng chỉ làm hỏng MỘT mục
+# thay vì cắt ngang mọi mục còn lại.
 QUYEN=$(psql "${CN[@]}" -c "
-    SELECT rolsuper::int || rolcreaterole::int || rolcreatedb::int
-        || rolreplication::int || rolbypassrls::int
-      FROM pg_roles WHERE rolname = current_user" 2>/dev/null)
+    SELECT concat(rolsuper::int, rolcreaterole::int, rolcreatedb::int,
+                  rolreplication::int, rolbypassrls::int)
+      FROM pg_roles WHERE rolname = current_user" 2>/dev/null || true)
 for idx in 1:SUPERUSER 2:CREATEROLE 3:CREATEDB 4:REPLICATION 5:BYPASSRLS; do
     vt=${idx%%:*}; ten=${idx#*:}
     if [ "${QUYEN:$((vt-1)):1}" = "1" ]; then dat "$ten"; else hong "$ten"; fi
@@ -144,7 +149,7 @@ psql "${CN[@]}" -c "
     CREATE TABLE __thu_rls(id int);
     ALTER TABLE __thu_rls ENABLE ROW LEVEL SECURITY;
     INSERT INTO __thu_rls VALUES (1);" >/dev/null 2>&1
-DEM=$(psql "${CN[@]}" -c "SELECT count(*) FROM __thu_rls" 2>/dev/null)
+DEM=$(psql "${CN[@]}" -c "SELECT count(*) FROM __thu_rls" 2>/dev/null || true)
 psql "${CN[@]}" -c "DROP TABLE IF EXISTS __thu_rls" >/dev/null 2>&1
 if [ "${DEM:-0}" = "1" ]; then
     dat "đọc được dữ liệu của bảng đã bật RLS (vì là chủ sở hữu) — đủ cho backend"
