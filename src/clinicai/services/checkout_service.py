@@ -446,18 +446,59 @@ class CheckoutService:
                     CLOSE_NODE,
                 )
                 # Bệnh nhân rời phòng khám: bỏ con trỏ vị trí để bảng điều phối
-                # không còn đếm họ vào hàng đợi nào.
+                # không còn đếm họ vào hàng đợi nào, và ĐÓNG DẤU MỐC ĐÓNG.
+                #
+                # `closed_at` không phải để hiển thị. Nó là thứ trigger
+                # `update_visit_current_node` đọc để biết đứng yên. Không có nó,
+                # một work_item còn sót sẽ kéo bệnh nhân đã về nhà trở lại bảng
+                # Trưởng ca — đã xảy ra thật, xem 20260807000003.
                 await conn.execute(
                     """
                     UPDATE public.visit
                        SET current_room_id = NULL, current_node_code = $3,
-                           current_node_since = now(), updated_at = now()
+                           current_node_since = now(),
+                           closed_at = coalesce(closed_at, now()),
+                           closed_by_staff_id = coalesce(
+                               closed_by_staff_id, $4::uuid),
+                           updated_at = now()
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND status <> 'FINALIZED'
                     """,
                     identity.clinic_id,
                     visit_id,
                     CLOSE_NODE,
+                    identity.staff_id,
+                )
+
+                # HUỶ NHỮNG BƯỚC CÒN TREO — MỌI LẦN ĐÓNG, KHÔNG CHỈ KHI KHÁM DỞ.
+                #
+                # Câu này trước đây nằm trong nhánh `if incomplete:` bên dưới,
+                # nên một lượt đóng bình thường để lại toàn bộ việc chưa xong
+                # sống mãi. Đo trên prod 07/08: LUOTKHAM-13 (Đối soát chi phí)
+                # và LUOTKHAM-14 (Thanh toán) mỗi mã 23 PENDING và 0 COMPLETED
+                # trong suốt đời hệ thống — 23 đầu việc cho những người đã ra về.
+                #
+                # Bước "Đóng lượt" đã COMPLETED ở câu trên nên không rơi vào đây.
+                # Cái gì còn dở đã được chụp lại trong `blockers` của event_log,
+                # nên huỷ ở đây không làm mất dấu vết nào.
+                # `finished_at` bắt buộc: ràng buộc
+                # `work_item_finished_when_terminal` của workflow kernel buộc
+                # status ∈ (COMPLETED, SKIPPED, CANCELLED) ⟺ finished_at có giá
+                # trị. Bản cũ của câu này (nằm trong nhánh `if incomplete:`)
+                # thiếu nó, nên đóng một lượt khám dở CÒN VIỆC TREO sẽ đổ cả
+                # giao dịch — chưa lộ ra vì lượt duy nhất đóng theo đường ấy
+                # không còn bước nào đang treo.
+                await conn.execute(
+                    """
+                    UPDATE public.work_item
+                       SET status = 'CANCELLED',
+                           finished_at = coalesce(finished_at, now()),
+                           updated_at = now()
+                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                       AND status IN ('PENDING', 'IN_PROGRESS')
+                    """,
+                    identity.clinic_id,
+                    visit_id,
                 )
                 if incomplete:
                     # Ghi trạng thái khám dở. WHERE giới hạn ở hai trạng thái
@@ -477,18 +518,6 @@ class CheckoutService:
                         visit_id,
                         ly_do_do,
                         identity.staff_id,
-                    )
-                    # Huỷ những bước còn treo. Không làm thì bảng việc của điều
-                    # dưỡng vẫn còn đầu việc cho một người đã ra về.
-                    await conn.execute(
-                        """
-                        UPDATE public.work_item
-                           SET status = 'CANCELLED', updated_at = now()
-                         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                           AND status IN ('PENDING', 'IN_PROGRESS')
-                        """,
-                        identity.clinic_id,
-                        visit_id,
                     )
 
                 await conn.execute(
