@@ -400,10 +400,15 @@ class TestRosterRules:
     def test_approving_is_management_only(self) -> None:
         assert ROSTER_ADMIN_ROLES == frozenset({ClinicRole.MANAGEMENT})
 
-    def test_everyone_may_sign_themselves_up(self) -> None:
-        # The service ignores a client-supplied staff_id unless the caller is
-        # management, so the endpoint itself does not need to be narrow.
-        assert ROSTER_ROLES == frozenset(ClinicRole)
+    def test_signing_yourself_up_is_closed(self) -> None:
+        # Luồng tự đăng ký ca ĐANG ĐÓNG (Quang, 07/08/2026): quản lý tự xếp lịch
+        # rồi bấm áp dụng, nhân viên chỉ xem. Bài này canh ĐƯỜNG GHI, không canh
+        # giao diện: ẩn bảng đăng ký mà để nguyên endpoint thì ai cũng còn POST
+        # thẳng vào được, và ca họ ghi rơi vào PENDING — vô hình với cả người xếp
+        # lịch (lưới sửa chỉ đọc APPROVED) lẫn màn chính thức. Treo vĩnh viễn.
+        assert ROSTER_ROLES == ROSTER_ADMIN_ROLES
+        assert ClinicRole.RECEPTION not in ROSTER_ROLES
+        assert ClinicRole.TRUONG_CA not in ROSTER_ROLES
 
 
 class TestPriceParsing:

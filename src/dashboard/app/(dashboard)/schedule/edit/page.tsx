@@ -5,7 +5,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import { getClinicRole } from "../../../../lib/clinic-session";
-import { isOpsAdmin, departmentToRole } from "../../../../lib/roles";
+import { isAdminRole, departmentToRole } from "../../../../lib/roles";
 import {
   weekStartOf,
   weekDates,
@@ -23,7 +23,8 @@ export default async function ScheduleEditPage({
   searchParams: Promise<{ week?: string }>;
 }) {
   const role = await getClinicRole();
-  if (!isOpsAdmin(role)) redirect("/schedule");
+  // CHỈ QUẢN LÝ — khớp với đường ghi ở API (xem schedule/page.tsx).
+  if (!isAdminRole(role)) redirect("/schedule");
 
   const { week: rawWeek } = await searchParams;
   const week = rawWeek ? weekStartOf(rawWeek) : currentWeekStartVn();

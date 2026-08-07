@@ -205,7 +205,7 @@ export default async function CustomersPage({
         .in("clinic_patient_id", shownIds)
         .order("source_created_at", { ascending: false })
         .limit(1000)
-    : Promise.resolve({ data: [] as unknown[] });
+    : Promise.resolve({ data: [] as unknown[], error: null });
 
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
   // nếu không có thì lịch GẦN NHẤT trong quá khứ. Kèm tổng số lịch.
@@ -292,9 +292,15 @@ export default async function CustomersPage({
       assignee: string | null;
     }
   > = {};
+  let cskhError: { message: string } | null = null;
 
   if (rows.length) {
-    const { data: cskhActions } = await cskhPromise;
+    // ĐỌC CẢ `error`. Bản trước chỉ lấy `data`, nên khi RLS chặn (nhân viên
+    // chưa nối clinic_membership) truy vấn trả 0 dòng và bốn cột giữa hiện "—"
+    // y hệt lúc chưa có dữ liệu. Không phân biệt được "chưa có việc nào" với
+    // "anh không có quyền đọc" là kiểu hỏng tệ nhất: không ai đi tìm.
+    const { data: cskhActions, error } = await cskhPromise;
+    cskhError = error;
 
     // Group by patient, pick latest action
     const grouped: Record<string, CskhRaw[]> = {};
@@ -322,9 +328,9 @@ export default async function CustomersPage({
       {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — nó đã hiện đúng
           "Quản lý khách hàng" kèm chính câu mô tả này. */}
 
-      {error ? (
+      {error || cskhError ? (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-          {error.message}
+          {(error ?? cskhError)?.message}
         </div>
       ) : (
         <CustomersView
