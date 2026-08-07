@@ -8,12 +8,8 @@
 
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import {
-  getClinicRole,
-  getClinicStaffId,
-  getActiveStaff,
-} from "../../../lib/clinic-session";
-import { isOpsAdmin, isAdminRole } from "../../../lib/roles";
+import { getClinicRole } from "../../../lib/clinic-session";
+import { isAdminRole } from "../../../lib/roles";
 import {
   fmtDayMonth,
   weekDates,
@@ -24,10 +20,6 @@ import {
 import OfficialRosterTable, {
   type OfficialRosterRow,
 } from "./OfficialRosterTable";
-import RosterRegisterTable, {
-  type RegisterRow,
-} from "./RosterRegisterTable";
-
 export const dynamic = "force-dynamic";
 
 // Row kèm id + trạng thái để bảng đăng ký phân biệt ca của mình & lý do từ chối.
@@ -48,12 +40,11 @@ export default async function SchedulePage({
   const dates = weekDates(week);
 
   const role = await getClinicRole();
-  const isAdmin = isOpsAdmin(role); // ops admin (gồm Trưởng ca): nút "Sửa lịch".
-  const isApprover = isAdminRole(role); // CHỈ Quản lý: duyệt/từ chối ca trong popup.
-  // Lấy staff_id cho MỌI vai (kể cả admin) để bảng đăng ký nhận diện ca của mình.
-  const myStaffId = await getClinicStaffId();
-  const myStaff = await getActiveStaff();
-  const myStaffName = myStaff?.full_name ?? myStaff?.short_name ?? undefined;
+  // CHỈ QUẢN LÝ. Trước đây chỗ này dùng isOpsAdmin (gồm cả Trưởng ca) trong khi
+  // đường ghi ở API chỉ nhận Quản lý — nên Trưởng ca bấm "Sửa lịch", xếp cho
+  // người khác, và dòng ghi rơi vào PENDING cho CHÍNH họ, không hiện lại, KHÔNG
+  // BÁO LỖI. Một nút bấm được nhưng không làm gì tệ hơn một nút không có.
+  const isAdmin = isAdminRole(role);
 
   // Lấy TOÀN BỘ phân công của tuần (cho mọi vai trò) → bảng ma trận đồng bộ với
   // trang chủ. Form "Đăng ký ca của tôi" lọc client-side theo staff_id.
@@ -79,7 +70,7 @@ export default async function SchedulePage({
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-ink lg:text-2xl">Lịch làm việc</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Theo dõi lịch đã duyệt và đăng ký ca theo tuần.
+            Lịch trực do quản lý xếp và áp dụng theo tuần.
           </p>
         </div>
         {isAdmin && (
@@ -115,38 +106,16 @@ export default async function SchedulePage({
         <OfficialRosterTable dates={dates} rows={approvedRows} />
       </section>
 
-      {/* BẢNG 2 — Đăng ký lịch làm việc (tương tác: click ô → tự đăng ký ca;
-          Quản lý duyệt / từ chối ngay trong popup của ô). */}
-      <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
-        <h2 className="font-semibold text-ink">
-          Đăng ký lịch làm việc
-        </h2>
-        <p className="text-xs text-ink-muted">
-          Bấm vào ô (ngày × vị trí) để đăng ký ca của bạn. Ca đăng ký ở trạng thái
-          “Chờ duyệt” đến khi quản lý xác nhận; bạn cũng thấy đăng ký của người khác
-          để tự liệu lịch.
-        </p>
-        <RosterRegisterTable
-          key={week}
-          weekStart={week}
-          dates={dates}
-          myStaffId={myStaffId}
-          myStaffName={myStaffName}
-          isApprover={isApprover}
-          rows={rows.map(
-            (r): RegisterRow => ({
-              id: r.id,
-              work_date: r.work_date,
-              station: r.station,
-              shift: r.shift as "FULL" | "SANG" | "CHIEU",
-              staff_id: r.staff_id,
-              staff_name: r.staff_name ?? "",
-              status: r.status,
-              reject_reason: r.reject_reason,
-            }),
-          )}
-        />
-      </section>
+      {/* BẢNG ĐĂNG KÝ CA — TẠM ẨN (Quang, 07/08/2026).
+
+          Quản lý tự xếp lịch cho mọi người trong màn Sửa lịch rồi bấm áp dụng;
+          nhân viên chỉ xem lịch chính thức ở trên. Nên ô "+" để tự xin ca không
+          còn nghĩa.
+
+          ẨN, KHÔNG XOÁ. `RosterRegisterTable` và luồng duyệt PENDING vẫn còn
+          nguyên trong repo để mở lại khi phòng khám cần đường xin đổi ca. Đường
+          ghi ở API đã siết về Quản lý (ROSTER_ROLES trong config_service.py) —
+          ẩn giao diện mà để hở API là ai cũng còn POST thẳng vào được. */}
     </main>
   );
 }

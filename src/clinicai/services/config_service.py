@@ -38,8 +38,16 @@ from clinicai.core.exceptions import SafetyGateError
 logger = structlog.get_logger()
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
-# Everyone works a shift, so everyone may sign up for one.
-ROSTER_ROLES: frozenset[ClinicRole] = frozenset(ClinicRole)
+
+# LUỒNG TỰ ĐĂNG KÝ CA ĐANG ĐÓNG (Quang, 07/08/2026): quản lý tự xếp lịch cho
+# mọi người rồi bấm áp dụng; nhân viên chỉ xem. Đây là ĐÓNG chứ không phải bỏ —
+# bảng đăng ký và luồng duyệt vẫn còn nguyên để mở lại khi cần đường xin đổi ca.
+#
+# Phải siết ở ĐÂY chứ không chỉ ẩn bảng ngoài giao diện. Ẩn nút mà để nguyên
+# đường ghi thì bất kỳ ai cũng còn POST thẳng vào /api/v1/roster/shifts được, và
+# ca họ ghi rơi vào PENDING — vô hình với cả người xếp lịch (lưới sửa chỉ đọc
+# APPROVED) lẫn màn chính thức. Treo vĩnh viễn, không ai thấy.
+ROSTER_ROLES: frozenset[ClinicRole] = ROSTER_ADMIN_ROLES
 PRICE_ROLES: frozenset[ClinicRole] = frozenset(
     {
         ClinicRole.CASHIER,
