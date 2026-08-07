@@ -431,6 +431,10 @@ class WorkItemService:
                    -- màn hình chỉ biết "đang ở bước nào", không biết "khám gì".
                    st.code       AS service_code,
                    st.name       AS service_name,
+                   -- MÃ BIỂU MẪU, không phải mã dịch vụ. Nhiều dịch vụ dùng
+                   -- chung một biểu mẫu (Sản 1/2/3 — số là TẦNG — đều dùng SK),
+                   -- nên bàn khám phải hỏi cột này chứ không suy từ tên.
+                   st.form_code,
                    v.checked_in_at,
                    (m.role = ANY (n.actor_roles))      AS actionable_by_me,
                    EXISTS (
@@ -521,6 +525,7 @@ class WorkItemService:
                 "is_priority_slot": bool(r["is_priority_slot"]),
                 "service_code": r["service_code"],
                 "service_name": r["service_name"],
+                "form_code": r["form_code"],
                 "checked_in_at": r["checked_in_at"],
             }
             for r in rows
