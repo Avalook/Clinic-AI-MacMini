@@ -48,6 +48,10 @@ class TestTransitions:
             "cskh_confirm",
             "cancel",
             "no_show",
+            # Xếp bác sĩ cho một lịch đã đặt mà chưa có ai (08/08/2026). Khác
+            # "reassign" — cái đó chỉ nhận lịch bị bác sĩ TỪ CHỐI — và khác
+            # "reschedule", vốn bắt buộc kèm giờ hẹn mới.
+            "assign_doctor",
             "reassign",
             "reschedule",
         }

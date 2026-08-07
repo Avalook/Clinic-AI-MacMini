@@ -16,6 +16,7 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import (
     ClinicRole,
@@ -23,6 +24,7 @@ from clinicai.api.identity import (
     get_current_identity,
     require_role,
 )
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
@@ -85,6 +87,111 @@ class ActionRequest(BaseModel):
     doctor_id: UUID | None = None
     slot_start: datetime | None = None
     slot_end: datetime | None = None
+
+
+@router.get("/appointments/cho-xep-bac-si")
+async def cho_xep_bac_si(
+    identity: StaffIdentity = Depends(_ACTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch đã đặt mà CHƯA CÓ BÁC SĨ — hàng chờ để quản lý xếp người.
+
+    "Đang chờ" = `doctor_id IS NULL`, không phải một trạng thái mới. Tám giá trị
+    của `appointment.status` được cả hệ thống lọc theo; một giá trị thứ chín sẽ
+    rơi im lặng qua mọi bộ lọc — biến mất khỏi màn này, hiện nhầm ở màn kia.
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT a.id::text,
+                   a.slot_start,
+                   a.status,
+                   a.notes,
+                   p.full_name   AS benh_nhan,
+                   p.patient_code,
+                   p.phone_primary,
+                   st.name       AS dich_vu,
+                   -- Tuần của lịch này đã được quản lý chốt chưa: xếp bác sĩ
+                   -- cho một tuần chưa chốt là xếp dựa trên bản nháp.
+                   EXISTS (
+                     SELECT 1
+                       FROM roster_week rw,
+                            LATERAL (
+                              SELECT (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                     ::date AS d
+                            ) v
+                      WHERE rw.clinic_id = a.clinic_id
+                        AND rw.week_start =
+                            v.d - (extract(isodow FROM v.d)::int - 1)
+                   ) AS tuan_da_chot
+              FROM appointment a
+              LEFT JOIN patient p ON p.clinic_patient_id = a.clinic_patient_id
+              LEFT JOIN service_type st ON st.id = a.service_type_id
+             WHERE a.clinic_id = $1::uuid
+               AND a.doctor_id IS NULL
+               AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                    'COMPLETED')
+             ORDER BY a.slot_start
+             LIMIT 500
+            """,
+            identity.clinic_id,
+        )
+    return {"items": [dict(r) for r in rows]}
+
+
+class BaoXepBacSiRequest(BaseModel):
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/appointments/{appointment_id}/bao-xep-bac-si", status_code=201)
+async def bao_xep_bac_si(
+    appointment_id: UUID,
+    body: BaoXepBacSiRequest,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """CSKH báo quản lý rằng lịch này cần xếp bác sĩ.
+
+    Cửa RIÊNG chứ không mở rộng `/dispatch/alerts/call`: cửa ấy gác bằng vai
+    điều phối, và nới nó ra cho CSKH nghĩa là CSKH gọi được mọi bộ phận. Ở đây
+    chỉ có đúng một việc, gửi tới đúng một vai.
+    """
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    async with pool.acquire() as conn:
+        appt = await conn.fetchrow(
+            """
+            SELECT a.slot_start, a.doctor_id, p.full_name, p.patient_code
+              FROM appointment a
+              LEFT JOIN patient p ON p.clinic_patient_id = a.clinic_patient_id
+             WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
+            """,
+            str(appointment_id),
+            identity.clinic_id,
+        )
+    if appt is None:
+        raise NotFoundError("Không tìm thấy lịch hẹn này.")
+    if appt["doctor_id"] is not None:
+        # Báo một lịch đã có bác sĩ là làm phiền quản lý vì việc đã xong.
+        raise ConflictError("Lịch này đã có bác sĩ rồi.")
+
+    ghi_chu = (body.ghi_chu or "").strip()
+    luc = appt["slot_start"].astimezone(CLINIC_TZ).strftime("%H:%M %d/%m/%Y")
+    ten = appt["full_name"] or appt["patient_code"] or "Khách"
+    return await ThongBaoService(pool).goi(
+        identity=identity,
+        vai_nhan=ClinicRole.MANAGEMENT.value,
+        tieu_de=f"Cần xếp bác sĩ: {ten}",
+        noi_dung=(
+            f"{ten} đã đặt lịch {luc} nhưng chưa có bác sĩ."
+            + (f" Ghi chú: {ghi_chu}" if ghi_chu else "")
+        ),
+        # Cùng lịch hẹn + chưa ai xử lý → không tạo thông báo thứ hai. CSKH bấm
+        # lại vì sốt ruột là chuyện thường; nhân đôi thông báo thì không.
+        nguon_id=str(appointment_id),
+        muc_do="THUONG",
+        duong_dan="/appointments/cho-xep-bac-si",
+    )
 
 
 @router.post("/appointments/bookings", status_code=201)

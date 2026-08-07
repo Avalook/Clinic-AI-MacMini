@@ -607,10 +607,15 @@ export default function NewPatientForm({
         setError("Vui lòng chọn dịch vụ khám.");
         return;
       }
-      if (!doctorId) {
-        setError("Vui lòng chọn bác sĩ.");
-        return;
-      }
+      // BÁC SĨ KHÔNG BẮT BUỘC.
+      //
+      // Khách gọi đặt trước 2–3 tuần hoặc cả tháng — lúc ấy lịch trực chưa công
+      // bố, và khách cũng không biết phòng khám có những bác sĩ nào. Bắt chọn
+      // bác sĩ ở đây nghĩa là lễ tân phải bịa một cái tên để lưu được hồ sơ, và
+      // cái tên bịa ấy trông y hệt một quyết định thật ở mọi màn sau.
+      //
+      // Bỏ trống → lịch vào hàng chờ, quản lý xếp sau (assign_doctor).
+      // Database vốn đã cho phép: appointment.doctor_id là NULLABLE.
       if (!apptDate) {
         setError("Vui lòng chọn ngày khám.");
         return;

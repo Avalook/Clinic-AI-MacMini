@@ -298,6 +298,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // đang gọi. Thêm vào cho khớp với điều đã hứa.
   "/patient-list": ["RECEPTION", "MANAGEMENT", "CSKH", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
+  // Hàng chờ xếp bác sĩ: việc của người BIẾT AI ĐANG RẢNH — quản lý và trưởng
+  // ca. CSKH không xếp, họ chỉ báo (nút trên màn khách hàng).
+  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "TRUONG_CA"],
   "/patients/new": ["RECEPTION", "MANAGEMENT"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
   // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
