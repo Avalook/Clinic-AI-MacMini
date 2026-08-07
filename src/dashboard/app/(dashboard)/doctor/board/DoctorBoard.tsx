@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
+import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
@@ -147,7 +148,7 @@ function PatientGroup({
         {title} ({items.length})
       </h3>
       {items.length > 0 ? (
-        <div className="divide-y divide-line">
+        <div>
           {items.map((item) => (
             <PatientRow
               key={item.id}
@@ -182,13 +183,13 @@ function QueuePanel({
   return (
     <aside
       aria-label="Hàng đợi đang mở"
-      className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
     >
       {/* Bỏ tiêu đề "Hàng đợi đang mở": ba nhóm ngay dưới đã tự nói chúng là
           hàng đợi gì, và một dòng chữ nữa chỉ ăn chỗ của danh sách. Ô tìm kiếm
           giữ lại — nó là công cụ, không phải cái nhãn. */}
-      <div className="border-b border-line px-3 py-3">
-        <label className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+      <div className="px-3 py-3">
+        <label className="flex items-center gap-2 rounded-control bg-surface-muted px-3 py-2 text-ink-muted focus-within:border-brand-500">
           <Search className="size-4 shrink-0" aria-hidden="true" />
           <span className="sr-only">Tìm bệnh nhân hoặc mã hồ sơ</span>
           <input
@@ -233,7 +234,7 @@ function QueuePanel({
         />
       </div>
 
-      <div className="border-t border-line px-3 py-2 text-xs text-ink-muted">
+      <div className="px-3 py-2 text-xs text-ink-muted">
         Tổng: {items.length} bước công việc
       </div>
     </aside>
@@ -259,7 +260,7 @@ function ClinicalWorkspace({
     return (
       <section
         aria-label="Hồ sơ khám bệnh"
-        className="grid min-h-96 place-items-center rounded-card border border-line bg-surface p-8 text-center shadow-card"
+        className="grid min-h-96 place-items-center rounded-card bg-surface p-8 text-center shadow-card"
       >
         <div>
           <Stethoscope className="mx-auto size-8 text-brand-500" aria-hidden="true" />
@@ -277,9 +278,9 @@ function ClinicalWorkspace({
   return (
     <section
       aria-label="Hồ sơ khám bệnh"
-      className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
     >
-      <header className="border-b border-line px-4 py-3">
+      <header className="px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="grid size-11 place-items-center rounded-full border border-line bg-surface-sunken text-sm font-semibold text-ink-soft">
             {initials(item.patient.full_name)}
@@ -336,7 +337,7 @@ function ClinicalWorkspace({
         ))}
       </nav>
 
-      <div className="grid gap-3 bg-surface-muted p-3 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-3 p-3 pt-0 xl:grid-cols-[1.7fr_0.75fr]">
         {/* BIỂU MẪU KHÁM THẬT, THEO ĐÚNG LOẠI DỊCH VỤ.
             Sáu thẻ "chưa kết nối" trước đây là chỗ này. Năm biểu mẫu (PK / SK
             / NT / NK / HMVS) đã có sẵn trong `lib/form-schemas` và đã chạy ở
@@ -365,7 +366,7 @@ function ClinicalWorkspace({
           )}
         </div>
 
-        <section className="rounded-card border border-line bg-surface p-3.5">
+        <section className="rounded-card bg-surface-muted p-3.5">
           <div className="flex items-center gap-2">
             <FlaskConical className="size-4 text-specialty-service" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-ink">Chỉ định & kết quả liên quan</h3>
@@ -472,7 +473,7 @@ function CoordinationPanel({
   return (
     <aside
       aria-label="Việc còn thiếu và điều phối"
-      className="min-w-0 rounded-card border border-line bg-surface-muted p-3 shadow-card"
+      className="min-w-0 rounded-card bg-surface-muted p-3 shadow-card"
     >
       <details open={!thuGon} className="group">
         <summary className="cursor-pointer list-none text-sm font-semibold text-ink marker:hidden">
@@ -578,46 +579,66 @@ export default function DoctorBoard({
   const selected = visibleItems.find((item) => item.id === selectedId) ?? first;
 
   return (
-    <div
-      className={`grid items-start gap-3 ${
-        moChiDinh
-          ? "xl:grid-cols-[minmax(230px,0.8fr)_minmax(360px,1.2fr)_minmax(380px,1.4fr)]"
-          : "xl:grid-cols-[minmax(250px,1.05fr)_minmax(420px,1.7fr)_minmax(230px,0.72fr)]"
-      }`}
-    >
-      <QueuePanel
-        items={visibleItems}
-        selectedId={selected?.id ?? null}
-        onSelect={setSelectedId}
-        query={query}
-        onQueryChange={setQuery}
-      />
-      <ClinicalWorkspace
-        item={selected}
-        onOpenOrders={() => setMoChiDinh(true)}
-      />
+    <div className="grid gap-4">
+      {/* HÀNG TRÊN — ô số THU VỀ BÊN TRÁI, và "Việc còn thiếu & điều phối"
+          LÊN NGANG VỚI NÓ.
+          Trước đây dải ô số kéo hết chiều ngang màn hình còn khối điều phối
+          nằm dọc suốt cột ba, nên phần làm việc thật — hàng đợi và bệnh án —
+          chỉ còn hai phần ba bề rộng. Dồn cả hai thứ "chỉ để liếc" lên một
+          hàng, phần dưới được nguyên cả màn. */}
+      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <StatRow>
+          <StatCard label="Chờ khám" value={grouped.ready.length} tone="brand" />
+          <StatCard label="Đang khám" value={grouped.working.length} tone="neutral" />
+          <StatCard
+            label="Chờ bước trước"
+            value={grouped.waiting.length}
+            tone="warning"
+          />
+          <StatCard label="Tổng bước đang mở" value={items.length} tone="neutral" />
+        </StatRow>
+        <CoordinationPanel item={selected} />
+      </div>
 
-      {/* CỘT BA. Khi mở màn chỉ định, "Việc còn thiếu & điều phối" THU LẠI
-          thành một dòng tóm tắt bấm được — hai khối cùng bung ra thì chúng đè
-          nhau và không đọc được cái nào. */}
-      <div className="grid min-w-0 content-start gap-3">
-        <CoordinationPanel item={selected} thuGon={moChiDinh} />
+      {/* HÀNG DƯỚI — hàng đợi HẸP, bệnh án RỘNG.
+          Biểu mẫu khám đã có lưới ba cột sẵn; nó chưa bao giờ bung ra được vì
+          cột giữa quá chật, nên bác sĩ phải cuộn ngang và bấm "Mục sau" liên
+          tục. Cho nó chỗ là hết. */}
+      <div
+        className={`grid items-start gap-4 ${
+          moChiDinh
+            ? "xl:grid-cols-[minmax(210px,0.5fr)_minmax(420px,1.5fr)_minmax(340px,1.1fr)]"
+            : "xl:grid-cols-[minmax(220px,0.52fr)_minmax(560px,2.4fr)]"
+        }`}
+      >
+        <QueuePanel
+          items={visibleItems}
+          selectedId={selected?.id ?? null}
+          onSelect={setSelectedId}
+          query={query}
+          onQueryChange={setQuery}
+        />
+        <ClinicalWorkspace
+          item={selected}
+          onOpenOrders={() => setMoChiDinh(true)}
+        />
+
         {moChiDinh && selected?.visit_id ? (
           <section
             aria-label="Chỉ định dịch vụ"
-            className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+            className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
           >
-            <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
+            <header className="flex items-center justify-between gap-2 px-3 py-2">
               <h2 className="text-sm font-semibold text-ink">Chỉ định dịch vụ</h2>
               <button
                 type="button"
                 onClick={() => setMoChiDinh(false)}
-                className="rounded-control border border-line px-2 py-1 text-xs text-ink-soft hover:bg-surface-muted"
+                className="rounded-control px-2 py-1 text-xs text-ink-soft hover:bg-surface-muted"
               >
                 Đóng
               </button>
             </header>
-            <div className="p-3">
+            <div className="p-3 pt-0">
               <OrderComposer
                 visitId={selected.visit_id}
                 patient={selected.patient}

@@ -25,11 +25,23 @@ test("the doctor board keeps the reference design's three working regions", () =
   assert.match(board, /aria-label="Hàng đợi đang mở"/);
   assert.match(board, /aria-label="Hồ sơ khám bệnh"/);
   assert.match(board, /aria-label="Việc còn thiếu và điều phối"/);
-  // Cột trái rộng lên từ 210px/0.78fr: ở tỉ lệ cũ tên bệnh nhân và tên bước bị
-  // cắt thành "Hoàng Phư…" / "Tạ…" trên màn 1600px.
-  assert.match(
-    board,
-    /xl:grid-cols-\[minmax\(250px,1\.05fr\)_minmax\(420px,1\.7fr\)_minmax\(230px,0\.72fr\)\]/,
+  // CANH TỈ LỆ, KHÔNG CANH CHUỖI LỚP.
+  //
+  // Bản trước ghim nguyên văn `xl:grid-cols-[minmax(250px,1.05fr)_…]`. Mỗi lần
+  // chỉnh bố cục là bài kiểm đỏ vì một lý do không liên quan gì tới thứ nó
+  // muốn bảo vệ — và thứ nó muốn bảo vệ là: BỆNH ÁN PHẢI RỘNG HƠN HÀNG ĐỢI.
+  // Biểu mẫu khám có lưới ba cột; cột giữa hẹp thì nó không bao giờ bung ra và
+  // bác sĩ phải bấm "Mục sau" liên tục.
+  const layout = board.match(/xl:grid-cols-\[minmax\((\d+)px,([\d.]+)fr\)_minmax\((\d+)px,([\d.]+)fr\)/);
+  assert.ok(layout, "bàn khám phải khai lưới cột cho màn rộng");
+  const [, hangDoiPx, hangDoiFr, benhAnPx, benhAnFr] = layout;
+  assert.ok(
+    Number(benhAnFr) > Number(hangDoiFr) * 2,
+    `bệnh án (${benhAnFr}fr) phải rộng hơn hẳn hàng đợi (${hangDoiFr}fr)`,
+  );
+  assert.ok(
+    Number(benhAnPx) >= 420 && Number(hangDoiPx) >= 200,
+    "cả hai vùng phải có bề rộng tối thiểu đọc được",
   );
 });
 
