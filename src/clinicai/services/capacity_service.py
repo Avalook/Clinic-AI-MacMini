@@ -88,7 +88,10 @@ class CapacityService:
             # nào: nó mời CSKH đặt vào một buổi chiều mà bác sĩ không có mặt, và
             # sai đó chỉ vỡ ra lúc bệnh nhân đã tới nơi.
             #
-            # Chỉ có hiệu lực KHI NGÀY ĐÓ ĐÃ XẾP CA. CSKH đặt trước cả tháng,
+            # Chỉ có hiệu lực KHI TUẦN ĐÓ ĐÃ ĐƯỢC ÁP DỤNG — không phải khi
+            # "có dòng trong bảng". Một tuần trải sẵn từ mẫu là bản nháp; khoá
+            # ô đặt lịch dựa trên bản nháp là từ chối khách vì một quyết định
+            # chưa ai ra. Xem migration 20260808000001. CSKH đặt trước cả tháng,
             # lúc ấy lịch trực chưa có — coi "chưa xếp" là "không đi làm" sẽ
             # khoá sạch tương lai. Cùng cách phân biệt mà booking_service dùng
             # cho câu cảnh báo của nó, để hai nơi không nói hai điều khác nhau.
@@ -101,12 +104,23 @@ class CapacityService:
                   EXISTS (
                     SELECT 1 FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
-                       AND status = 'APPROVED'
+                       AND AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
                   ) AS roster_known,
                   coalesce((
                     SELECT array_agg(DISTINCT shift) FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
-                       AND status = 'APPROVED' AND staff_id = $3::uuid
+                       AND staff_id = $3::uuid
+                       AND AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
                   ), ARRAY[]::text[]) AS shifts,
                   (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                     AS open_minute,

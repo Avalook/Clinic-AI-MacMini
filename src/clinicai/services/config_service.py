@@ -212,6 +212,90 @@ class RosterService:
                     identity.clinic_id,
                 )
 
+    async def apply_week(
+        self, *, week_start: date, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Quản lý chốt lịch trực của một tuần.
+
+        Trước khi có việc này, "tuần đã xếp" và "tuần đã chốt" là một — nên một
+        bản nháp trải sẵn từ mẫu tuần cũng khoá được ô đặt lịch và cũng sinh
+        được cảnh báo "bác sĩ không trực hôm đó". Xem 20260808000001.
+
+        Áp dụng lại một tuần đã áp dụng KHÔNG phải lỗi: quản lý sửa thêm vài ca
+        rồi bấm lại là chuyện thường. Chỉ cập nhật lại dấu thời gian và người bấm.
+        """
+        mon = week_start_of(week_start)
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                so_ca = await conn.fetchval(
+                    "SELECT count(*) FROM work_roster "
+                    "WHERE clinic_id = $1::uuid AND week_start = $2",
+                    identity.clinic_id,
+                    mon,
+                )
+                if not so_ca:
+                    # Áp dụng một tuần trống nghĩa là tuyên bố "tuần này không
+                    # ai đi làm" — và vì lịch trực là luật cao nhất, nó sẽ TỪ
+                    # CHỐI mọi lượt đặt của cả tuần. Không để việc đó xảy ra do
+                    # bấm nhầm.
+                    raise ValidationError(
+                        "Tuần này chưa xếp ca nào. Xếp lịch trước rồi mới áp dụng."
+                    )
+
+                await conn.execute(
+                    """
+                    INSERT INTO roster_week
+                        (clinic_id, week_start, applied_by_staff_id)
+                    VALUES ($1::uuid, $2, $3::uuid)
+                    ON CONFLICT (clinic_id, week_start) DO UPDATE
+                        SET applied_at = now(),
+                            applied_by_staff_id = EXCLUDED.applied_by_staff_id
+                    """,
+                    identity.clinic_id,
+                    mon,
+                    identity.staff_id,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO event_log
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, source, occurred_at)
+                    VALUES ($1::uuid, 'roster.week_applied', 'roster_week',
+                            gen_random_uuid(),
+                            jsonb_build_object('week_start', $2::text,
+                                               'so_ca', $3::int,
+                                               'by_staff_id', $4::text),
+                            'config.roster', now())
+                    """,
+                    identity.clinic_id,
+                    mon.isoformat(),
+                    so_ca,
+                    identity.staff_id,
+                )
+
+        logger.info(
+            "roster_week_applied",
+            week_start=mon.isoformat(),
+            so_ca=so_ca,
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True, "week_start": mon.isoformat(), "so_ca": so_ca}
+
+    async def applied_weeks(
+        self, *, identity: StaffIdentity, tu: date, den: date
+    ) -> list[str]:
+        """Những tuần đã áp dụng trong khoảng — để giao diện biết tuần nào dự kiến."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT week_start FROM roster_week "
+                " WHERE clinic_id = $1::uuid AND week_start BETWEEN $2 AND $3"
+                " ORDER BY week_start",
+                identity.clinic_id,
+                week_start_of(tu),
+                week_start_of(den),
+            )
+        return [r["week_start"].isoformat() for r in rows]
+
 
 class PriceListService:
     """Maintain the service and medicine price list."""
