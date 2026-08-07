@@ -44,11 +44,19 @@
 	# Giữ nguyên tiền tố (`handle` chứ không `handle_path`) vì gateway bên kia
 	# mới là chỗ cắt.
 	#
-	# `supabase_gateway` là tên container; Caddy tới được nhờ được nối thêm vào
-	# mạng của stack ấy — xem `networks` của dịch vụ caddy trong compose.
+	# TÊN GATEWAY THEO BIẾN, KHÔNG GHI CỨNG.
+	#
+	# Ghi cứng `clinicai_supabase_gateway` nghĩa là bản staging sẽ gọi thẳng
+	# vào database của phòng khám ĐANG CHẠY THẬT — đúng thứ việc tách hai môi
+	# trường sinh ra để chặn. Lần dựng staging đầu tiên nó lỗi 502 chứ không rò
+	# sang prod, chỉ vì staging không được nối vào mạng của prod; đó là may,
+	# không phải thiết kế.
+	#
+	# Caddy tới được nhờ được nối vào mạng của stack Supabase tương ứng — xem
+	# `networks` của dịch vụ caddy trong compose.
 	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
 	handle @supabase {
-		reverse_proxy clinicai_supabase_gateway:8000
+		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000
 	}
 
 	# Everything else → Next.js dashboard. The dashboard (UI) calls the FastAPI
