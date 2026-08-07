@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from decimal import Decimal
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -473,3 +474,82 @@ async def update_display_settings(
         )
 
     return {"ok": True, "display": hien_tai}
+
+
+# ── Luật bắt buộc bác sĩ ────────────────────────────────────────────────────
+#
+# Cùng gác với luật số chỗ (_BOOKING_POLICY_GUARD): cả hai đều là "phòng khám
+# nhận đặt lịch theo luật gì", và người sửa được cái này thì sửa được cái kia.
+
+
+class LuatBacSiRequest(BaseModel):
+    service_type_id: UUID
+    required_staff_id: UUID
+    cach_tinh: Literal["CHUA_TUNG", "DOT_MOI", "QUA_N_THANG"] = "DOT_MOI"
+    so_thang: int | None = Field(default=None, ge=1, le=120)
+    chan_han: bool = True
+    is_active: bool = True
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/booking-rules/doctor")
+async def list_doctor_rules(
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi luật bắt buộc bác sĩ của phòng khám."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return {"items": await LuatBacSiService(pool).danh_sach(identity=identity)}
+
+
+@router.put("/booking-rules/doctor", status_code=201)
+async def save_doctor_rule(
+    body: LuatBacSiRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đặt hoặc sửa luật của một dịch vụ. PUT vì mỗi dịch vụ chỉ có một luật."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return await LuatBacSiService(pool).luu(
+        identity=identity,
+        service_type_id=str(body.service_type_id),
+        required_staff_id=str(body.required_staff_id),
+        cach_tinh=body.cach_tinh,
+        so_thang=body.so_thang,
+        chan_han=body.chan_han,
+        is_active=body.is_active,
+        ghi_chu=body.ghi_chu,
+    )
+
+
+@router.get("/booking-rules/doctor/xem-thu")
+async def preview_doctor_rule(
+    service_type_id: UUID,
+    cach_tinh: Literal["CHUA_TUNG", "DOT_MOI", "QUA_N_THANG"],
+    so_thang: int | None = None,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Cách tính này coi bao nhiêu khách hiện có là "mới"."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return await LuatBacSiService(pool).xem_thu(
+        identity=identity,
+        service_type_id=str(service_type_id),
+        cach_tinh=cach_tinh,
+        so_thang=so_thang,
+    )
+
+
+@router.delete("/booking-rules/doctor/{luat_id}")
+async def delete_doctor_rule(
+    luat_id: UUID,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ hẳn một luật."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return await LuatBacSiService(pool).xoa(identity=identity, luat_id=str(luat_id))
