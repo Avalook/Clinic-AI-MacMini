@@ -145,7 +145,11 @@ class PharmacyService:
         drug_catalog_id: str,
         so_luong: Any,
         batch_code: str,
-        expiry_date: date,
+        # `date | None` chứ không phải `date`: thân hàm CÓ kiểm None và trả về
+        # một câu tiếng Việt. Khai là `date` thì nhánh ấy thành mã chết dưới
+        # mắt mypy, và người gọi tiếp theo — một script nhập kho hàng loạt
+        # chẳng hạn — vẫn truyền None vào được mà không ai chặn.
+        expiry_date: date | None,
         unit: str,
         cost_price: Any = None,
         ly_do: str | None = None,
