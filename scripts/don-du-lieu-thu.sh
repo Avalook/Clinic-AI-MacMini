@@ -40,6 +40,7 @@ LA_THU="patient_code LIKE 'DEMO-%'
      OR patient_code LIKE 'BN-2026-%'
      OR patient_code LIKE 'BN-LOCAL-%'
      OR patient_code LIKE 'BN-DIENTHU-%'
+     OR patient_code LIKE 'STG-%'
      OR full_name ILIKE 'ZZ%'"
 
 la=$("${PSQL[@]}" -Atc "SELECT count(*) FROM patient WHERE NOT ($LA_THU)")
