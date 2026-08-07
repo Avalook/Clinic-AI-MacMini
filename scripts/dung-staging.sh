@@ -93,6 +93,16 @@ if [ "${1:-}" = "--gieo" ]; then
     -f /sb/migrations/20260807000007_nam_dich_vu_kham.sql >/dev/null
 fi
 
+# PostgREST giữ MỘT BẢN SAO LƯỢC ĐỒ TRONG BỘ NHỚ, đọc một lần lúc khởi động.
+# Migration vừa chạy ở bước trên không tự chui vào đó. Bản sao cũ không làm hỏng
+# truy vấn thường, nhưng mọi phép NHÚNG theo khoá ngoại thì trả về
+# "Could not find a relationship between 'appointment' and 'patient' in the
+# schema cache" — và màn hình chỉ hiện một dải đỏ, số đếm thì vẫn ra, nên trông
+# như lỗi dữ liệu chứ không như lược đồ cũ. Gặp thật ngày 07/08/2026.
+echo "==> [2c] bảo PostgREST đọc lại lược đồ"
+docker exec "$DB" psql -q -U postgres -d postgres \
+  -c "NOTIFY pgrst, 'reload schema'" >/dev/null
+
 echo "==> [3/4] ứng dụng staging"
 CLINIC_ENV_FILE="$ENV_FILE" docker compose --env-file "$ENV_FILE" \
   -p "$APP_PROJECT" up -d --build api dashboard caddy
