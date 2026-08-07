@@ -76,6 +76,7 @@ def _ma_trong_ma_nguon() -> set[str]:
 _KHONG_PHAI_SU_KIEN = {
     "brief.generate_brief",
     "config.roster",  # cột source của roster.week_applied
+    "config.booking_rule",  # cột source của booking.doctor_rule_saved
     "communication.send_zalo_message",
     "event_log.append_event",
     "kb.read_policy",

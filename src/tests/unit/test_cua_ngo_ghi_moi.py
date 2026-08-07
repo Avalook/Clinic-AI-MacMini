@@ -91,10 +91,27 @@ class _Suot:
 
 
 class _PoolCo:
-    """Pool giả CÓ trả lời — cho các đường đi tới được database."""
+    """Pool giả CÓ trả lời — cho các đường đi tới được database.
+
+    asyncpg.Pool có cả `fetch`/`fetchrow`/`execute` ở tầng pool (mượn tạm một
+    kết nối rồi trả), không chỉ `acquire()`. Service nào gọi thẳng
+    `pool.fetch(...)` sẽ vỡ nếu stub chỉ có `acquire`.
+    """
 
     def __init__(self, conn: _Conn) -> None:
         self.conn = conn
+
+    async def fetch(self, sql: str, *a: Any) -> Any:
+        return await self.conn.fetch(sql, *a)
+
+    async def fetchrow(self, sql: str, *a: Any) -> Any:
+        return await self.conn.fetchrow(sql, *a)
+
+    async def fetchval(self, sql: str, *a: Any) -> Any:
+        return await self.conn.fetchval(sql, *a)
+
+    async def execute(self, sql: str, *a: Any) -> None:
+        await self.conn.execute(sql, *a)
 
     def acquire(self) -> Any:
         conn = self.conn
@@ -855,3 +872,130 @@ class TestLuatBacSiBatBuoc:
             identity=_identity(ClinicRole.RECEPTION),
         )
         assert ra is not None and ra[1] is False
+
+
+class TestCauHinhLuatBacSi:
+    """Màn cấu hình luật — chỗ quản lý tự khai, thay cho ghi cứng tên trong code."""
+
+    @staticmethod
+    def _sv(conn: Any) -> Any:
+        from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+        return LuatBacSiService(_PoolCo(conn))
+
+    @pytest.mark.asyncio
+    async def test_cach_tinh_la_thu_thi_tu_choi(self) -> None:
+        with pytest.raises(ValidationError):
+            await self._sv(_Conn()).luu(
+                identity=_identity(ClinicRole.MANAGEMENT),
+                service_type_id="sv1",
+                required_staff_id="bs1",
+                cach_tinh="TUY_HUNG",
+            )
+
+    @pytest.mark.asyncio
+    async def test_qua_n_thang_ma_thieu_so_thang_thi_tu_choi(self) -> None:
+        # Thiếu số tháng thì luật không tính được — và nếu để lọt, nó sẽ im lặng
+        # thành "không bao giờ khớp" chứ không báo gì.
+        with pytest.raises(ValidationError) as e:
+            await self._sv(_Conn()).luu(
+                identity=_identity(ClinicRole.MANAGEMENT),
+                service_type_id="sv1",
+                required_staff_id="bs1",
+                cach_tinh="QUA_N_THANG",
+            )
+        assert "số tháng" in str(e.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_dich_vu_khong_ton_tai_thi_bao_khong_thay(self) -> None:
+        with pytest.raises(NotFoundError):
+            await self._sv(_Conn(None)).luu(
+                identity=_identity(ClinicRole.MANAGEMENT),
+                service_type_id="sv1",
+                required_staff_id="bs1",
+            )
+
+    @pytest.mark.asyncio
+    async def test_nguoi_khong_phai_bac_si_dang_lam_thi_tu_choi(self) -> None:
+        # Luật trỏ vào người đã nghỉ sẽ chặn MỌI khách mới của dịch vụ đó mà
+        # không ai chuyển sang được ai.
+        conn = _Conn({"id": "sv1", "name": "Nội tiết"}, None)
+        with pytest.raises(ValidationError) as e:
+            await self._sv(conn).luu(
+                identity=_identity(ClinicRole.MANAGEMENT),
+                service_type_id="sv1",
+                required_staff_id="ai-do",
+            )
+        assert "bác sĩ" in str(e.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_xoa_luat_khong_ton_tai_thi_bao_khong_thay(self) -> None:
+        with pytest.raises(NotFoundError):
+            await self._sv(_Conn(None)).xoa(
+                identity=_identity(ClinicRole.MANAGEMENT), luat_id="l1"
+            )
+
+    @pytest.mark.asyncio
+    async def test_xem_thu_tu_choi_cach_tinh_la(self) -> None:
+        with pytest.raises(ValidationError):
+            await self._sv(_Conn()).xem_thu(
+                identity=_identity(ClinicRole.MANAGEMENT),
+                service_type_id="sv1",
+                cach_tinh="BUA",
+                so_thang=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_luu_thanh_cong_ghi_ca_so_su_kien(self) -> None:
+        conn = _Conn(
+            {"id": "sv1", "name": "Nội tiết"},
+            {"id": "bs1", "full_name": "TS.BS. Phan Chí Thành"},
+            {"id": "l1"},
+        )
+        ra = await self._sv(conn).luu(
+            identity=_identity(ClinicRole.MANAGEMENT),
+            service_type_id="sv1",
+            required_staff_id="bs1",
+            cach_tinh="DOT_MOI",
+        )
+        assert ra["ok"] and ra["id"] == "l1"
+        # Đổi luật ai-được-khám-ai là quyết định phải truy được người làm.
+        assert any("event_log" in sql for sql in conn.da_chay)
+
+    @pytest.mark.asyncio
+    async def test_so_thang_bi_bo_khi_cach_tinh_khong_dung_toi(self) -> None:
+        # Để lại 12 tháng trên một luật không xét thời gian là dữ liệu gây hiểu
+        # nhầm cho người đọc bảng sau này.
+        conn = _Conn(
+            {"id": "sv1", "name": "Nội tiết"},
+            {"id": "bs1", "full_name": "BS X"},
+            {"id": "l1"},
+        )
+        await self._sv(conn).luu(
+            identity=_identity(ClinicRole.MANAGEMENT),
+            service_type_id="sv1",
+            required_staff_id="bs1",
+            cach_tinh="CHUA_TUNG",
+            so_thang=12,
+        )
+        assert any("luat_bac_si_bat_buoc" in sql for sql in conn.da_chay)
+
+    @pytest.mark.asyncio
+    async def test_danh_sach_tra_ca_luat_dang_tat(self) -> None:
+        # Giấu luật đã tắt đi thì người sau sẽ tạo lại nó rồi ngạc nhiên vì trùng.
+        conn = _Conn(
+            [{"id": "l1", "is_active": False}, {"id": "l2", "is_active": True}]
+        )
+        ra = await self._sv(conn).danh_sach(identity=_identity(ClinicRole.MANAGEMENT))
+        assert len(ra) == 2
+
+    @pytest.mark.asyncio
+    async def test_xem_thu_dem_duoc(self) -> None:
+        conn = _Conn({"khach_moi": 41, "tong": 54})
+        ra = await self._sv(conn).xem_thu(
+            identity=_identity(ClinicRole.MANAGEMENT),
+            service_type_id="sv1",
+            cach_tinh="DOT_MOI",
+            so_thang=None,
+        )
+        assert ra == {"khach_moi": 41, "tong": 54}
