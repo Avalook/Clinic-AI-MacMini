@@ -361,9 +361,11 @@ networks:
   # Không dùng bộ tự dựng (vẫn ở Supabase cloud, hoặc chuyển sang Viettel IDC)
   # thì mạng này không tồn tại và caddy sẽ không khởi động — lúc ấy bỏ
   # `supabase` khỏi `networks` của caddy.
+  # Tên mạng theo biến: staging nối vào bộ Supabase RIÊNG của nó, không phải bộ
+  # của phòng khám đang chạy thật. Mặc định là mạng prod hôm nay.
   supabase:
     external: true
-    name: clinicai_db_supabase
+    name: ${SUPABASE_NETWORK:-clinicai_db_supabase}
 
 volumes:
   caddy_data:
