@@ -426,11 +426,11 @@ function CoordinationSection({
 
 function CoordinationPanel({
   item,
-  thuGon = false,
+  moRong = false,
 }: {
   item: WorklistItem | null;
-  /** Thu lại thành một dòng khi màn chỉ định đang mở bên dưới. */
-  thuGon?: boolean;
+  /** Bung sẵn. Mặc định thu gọn — xem ghi chú ở phần <details> bên dưới. */
+  moRong?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -475,11 +475,27 @@ function CoordinationPanel({
       aria-label="Việc còn thiếu và điều phối"
       className="min-w-0 rounded-card bg-surface-muted p-3 shadow-card"
     >
-      <details open={!thuGon} className="group">
-        <summary className="cursor-pointer list-none text-sm font-semibold text-ink marker:hidden">
-          Việc còn thiếu &amp; điều phối
-          <span className="ml-2 text-xs font-normal text-ink-muted group-open:hidden">
-            (bấm để mở)
+      {/* THU GỌN MẶC ĐỊNH.
+          Đưa khối này lên hàng trên mà vẫn để nó bung ra thì nó ăn gần 300px
+          chiều cao và đẩy bệnh án xuống — mất đúng thứ vừa đi giành. Ở dạng
+          một dòng, nó nói được điều bác sĩ cần liếc (còn việc gì, có bị chặn
+          không) và mở ra khi thật sự cần. */}
+      <details open={moRong} className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-ink marker:hidden">
+          <span>Việc còn thiếu &amp; điều phối</span>
+          {item ? (
+            <span
+              className={`rounded-chip px-2 py-0.5 text-xs font-medium ${
+                item.blocked
+                  ? "bg-warning-bg text-warning"
+                  : "bg-brand-50 text-brand-700"
+              }`}
+            >
+              {item.blocked ? "Đang bị chặn" : item.node_name ?? item.node_code}
+            </span>
+          ) : null}
+          <span className="ml-auto text-xs font-normal text-ink-muted">
+            {moRong ? "thu gọn" : "mở"}
           </span>
         </summary>
         <div className="mt-3">
