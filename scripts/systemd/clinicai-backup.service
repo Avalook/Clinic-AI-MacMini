@@ -21,6 +21,16 @@ Environment=CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai
 
 ExecStart=/home/clinicai/clinicai/scripts/backup-db.sh
 
+# Đẩy bản vừa tạo sang Viettel — bản sao NGOÀI MÁY.
+#
+# Dấu `-` ở đầu: đẩy hỏng thì KHÔNG được làm cả đơn vị thất bại. Bản sao cục bộ
+# đã tạo xong và còn nguyên; mạng rớt hay Viettel bảo trì là chuyện của bước
+# này, không phải lý do để báo "sao lưu đêm nay thất bại". Lỗi vẫn vào journal.
+#
+# Không có .env.viettel thì bước này tự dừng với một câu rõ ràng — nên bật sẵn
+# ở đây là an toàn, và ngày có thông tin kết nối thì không phải sửa unit nữa.
+ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel.sh
+
 # Hỏng thì phải THẤY. Không đặt cái này thì một đêm sao lưu thất bại chỉ nằm im
 # trong nhật ký, và người ta chỉ biết vào đúng buổi sáng cần khôi phục.
 StandardOutput=journal

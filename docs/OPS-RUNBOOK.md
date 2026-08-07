@@ -109,6 +109,40 @@ database là 17.10 — bản cũ từ chối dump máy chủ mới hơn. `pg-dum
 exec vào chính container database nên phiên bản luôn khớp, và nó DỪNG nếu
 `PGHOST` không trùng tên container (chống sao lưu nhầm database rồi dán nhãn sai).
 
+### Bản sao NGOÀI MÁY trên Viettel
+
+Bản sao lưu hằng đêm nằm **cùng ổ đĩa** với database nó sao lưu — ổ hỏng là mất
+cả hai. Bước thứ hai của công việc hằng đêm đẩy bản vừa tạo sang gói Viettel.
+
+Cần một file `~/clinicai/.env.viettel` (đã nằm trong `.gitignore` qua `.env.*`):
+
+```
+VIETTEL_DATABASE_URL=postgresql://user:mat_khau@host:5432/tendb?sslmode=require
+```
+
+Chưa có file thì bước này **dừng với một câu rõ ràng và không làm hỏng bản sao
+lưu cục bộ** (`ExecStart=-` trong unit). Bật sẵn nên ngày có thông tin kết nối
+không phải sửa gì.
+
+**Chứa dạng TỆP, không nạp thẳng lược đồ.** Gói Viettel là Database Service
+(DBaaS) — không cấp `CREATEROLE`, mà bản dump có **61 dòng** `CREATE POLICY … TO
+authenticated`. Nạp lược đồ sang đó là hỏng ngay dòng chính sách đầu tiên. Nên
+Viettel đóng vai **kho chứa**: bảng `clinicai_sao_luu`, mỗi đêm hai dòng
+(public + auth) kèm mã băm, giữ 30 đêm. Không phụ thuộc vai, extension hay
+phiên bản Postgres.
+
+Khôi phục:
+```bash
+psql "$VIETTEL_DATABASE_URL" -tAq -c \
+  "SELECT encode(noi_dung,'base64') FROM clinicai_sao_luu
+    WHERE loai='public' ORDER BY tao_luc DESC LIMIT 1" \
+  | base64 -d > ban.sql.gz
+./scripts/restore-db.sh ban.sql.gz
+```
+
+Đã kiểm khép kín ngày 08/08/2026: đẩy lên → tải về (byte khớp hệt) →
+`restore-drill.sh` từ chính tệp tải về, **16/16 đạt**.
+
 ### Backup thủ công
 ```bash
 # LaunchDaemon không nạp shell profile; lệnh này phải trả về binary Homebrew
