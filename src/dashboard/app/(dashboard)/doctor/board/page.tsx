@@ -6,7 +6,6 @@
  * clinic that adds a consultation type gets it on the board without a deploy.
  */
 
-import StatCard, { StatRow } from "@/components/ui/StatCard";
 import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchCatalogue } from "@/lib/orders-server";
 import { fetchWorklist } from "@/lib/worklist-server";
@@ -49,29 +48,6 @@ export default async function DoctorBoardPage() {
         </div>
       ) : (
         <>
-          <StatRow>
-            <StatCard
-              label="Chờ khám"
-              value={
-                result.items.filter((i) => i.status === "PENDING" && !i.blocked).length
-              }
-              tone="brand"
-            />
-            <StatCard
-              label="Đang khám"
-              value={result.items.filter((i) => i.status === "IN_PROGRESS").length}
-              tone="neutral"
-            />
-            <StatCard
-              label="Chờ bước trước"
-              value={
-                result.items.filter((i) => i.status === "PENDING" && i.blocked).length
-              }
-              tone="warning"
-            />
-            <StatCard label="Tổng bước đang mở" value={result.items.length} tone="neutral" />
-          </StatRow>
-
           <DoctorBoard
             catalogue={catalogue.ok ? catalogue.data : []}
             items={[...result.items].sort(
