@@ -21,12 +21,27 @@ CREATE TABLE IF NOT EXISTS auth.users (
     id uuid PRIMARY KEY
 );
 
+-- PHẢI GIỐNG HỆT BẢN THẬT, KHÔNG ĐƯỢC RÚT GỌN.
+--
+-- Bản cũ ở đây chỉ đọc `request.jwt.claim.sub`. PostgREST v12 KHÔNG đặt GUC đó
+-- nữa — nó chỉ đặt `request.jwt.claims` (JSON). Trên database thật của Supabase
+-- auth.uid() đọc cả hai, nên không ai thấy gì.
+--
+-- Nhưng script dựng staging nạp chính file này, nên staging thừa hưởng bản rút
+-- gọn: auth.uid() luôn NULL → current_staff_id() NULL → current_clinic_ids()
+-- rỗng → MỌI lượt đọc qua PostgREST trả về `[]` cho mọi tài khoản. Không lỗi,
+-- không cảnh báo, chỉ là danh sách trống — trông y hệt một phòng khám chưa có
+-- dữ liệu. Đo ngày 07/08/2026: prod trả về hàng, staging trả `[]`, cùng ảnh
+-- PostgREST v12.2.3, khác đúng hàm này.
 CREATE OR REPLACE FUNCTION auth.uid()
 RETURNS uuid
 LANGUAGE sql
 STABLE
 AS $function$
-    SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+    SELECT coalesce(
+        nullif(current_setting('request.jwt.claim.sub', true), ''),
+        (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+    )::uuid
 $function$;
 
 -- ---------------------------------------------------------------------------

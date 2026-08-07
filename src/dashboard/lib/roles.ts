@@ -292,7 +292,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // patients/[id] (chỉ mở được BN của mình) — đúng mô hình quyền hiện tại.
   // + ĐIỀU DƯỠNG (feedback PM 23/6): nav "Thông tin bệnh nhân" để tra cứu BN +
   // xem lịch sử khám (giống bác sĩ). Sửa lâm sàng/sinh hiệu vẫn theo buổi khám.
-  "/patient-list": ["RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
+  // CSKH BỊ SÓT: dòng ghi chú ngay trên đây nói "CSKH/Lễ tân/QL + BÁC SĨ" từ
+  // đầu, nhưng mảng thì không có CSKH — nên người gọi điện chăm sóc khách hàng
+  // là vai DUY NHẤT không tra được hồ sơ và lịch sử khám của chính người họ
+  // đang gọi. Thêm vào cho khớp với điều đã hứa.
+  "/patient-list": ["RECEPTION", "MANAGEMENT", "CSKH", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
   "/patients/new": ["RECEPTION", "MANAGEMENT"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.

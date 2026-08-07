@@ -22,6 +22,9 @@ import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
+
+/** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
+type PatientFull = NonNullable<DoctorApptRow["patient"]>;
 import SplitPane from "../SplitPane";
 import QuickBookingModal from "./QuickBookingModal";
 import type { Option } from "../patients/AppointmentBooking";
@@ -44,13 +47,17 @@ export interface ExaminedRow {
   visit_count: number;
   /** TỪNG lượt, mới→cũ. `visit_count` chỉ nói "bao nhiêu", cái này nói "những lần nào". */
   visits: VisitSummary[];
-  latest: string;
-  phan_loai: "Khám lần đầu" | "Tái khám";
-  /** Lượt hẹn gần nhất là nguồn duy nhất của panel phải. */
-  appt: DoctorApptRow;
+  /** Ngày lượt gần nhất; `null` = chưa khám lần nào. */
+  latest: string | null;
+  phan_loai: "Chưa khám" | "Khám lần đầu" | "Tái khám";
+  /** Khối hành chính — LUÔN có, kể cả khi chưa khám lần nào. Trước đây nó đi
+   *  kèm lượt hẹn, nên hồ sơ chưa khám thì không có gì để hiện. */
+  hoso: PatientFull;
+  /** Lượt hẹn gần nhất; `null` = chưa khám lần nào. */
+  appt: DoctorApptRow | null;
 }
 
-type Filter = "all" | "first" | "return";
+type Filter = "all" | "first" | "return" | "none";
 
 const STATUS_PRESENTATION: Record<string, { label: string; className: string }> = {
   SCHEDULED: { label: "Chưa xác nhận", className: "bg-warning-bg text-warning" },
@@ -73,13 +80,20 @@ function initials(name: string): string {
     .join("") || "?";
 }
 
+const KIND_CLASS: Record<ExaminedRow["phan_loai"], string> = {
+  "Khám lần đầu": "bg-success-bg text-success",
+  "Tái khám": "bg-warning-bg text-warning",
+  // Chưa khám là một trạng thái BÌNH THƯỜNG của hồ sơ mới, không phải cảnh
+  // báo — nên nó xám, đứng yên, không tranh chỗ với hai nhãn kia.
+  "Chưa khám": "bg-surface-sunken text-ink-soft",
+};
+
 function PatientKind({ value }: { value: ExaminedRow["phan_loai"] }) {
-  const first = value === "Khám lần đầu";
   return (
     <span
       className={
         "inline-flex items-center rounded-chip px-2 py-1 text-[10px] font-semibold " +
-        (first ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
+        KIND_CLASS[value]
       }
     >
       {value}
@@ -179,6 +193,7 @@ export default function PatientListView({
     return rows.filter((row) => {
       if (filter === "first" && row.phan_loai !== "Khám lần đầu") return false;
       if (filter === "return" && row.phan_loai !== "Tái khám") return false;
+      if (filter === "none" && row.phan_loai !== "Chưa khám") return false;
       if (!normalized) return true;
       return (
         unaccentVi(row.full_name).includes(normalized) ||
@@ -199,14 +214,16 @@ export default function PatientListView({
    * màn này giữ nguyên trong bộ nhớ mà vẫn bắt người dùng bấm sang trang khác
    * để đọc.
    */
-  const hc = selected?.appt.patient;
+  const hc = selected?.hoso;
 
   const firstCount = rows.filter((row) => row.phan_loai === "Khám lần đầu").length;
-  const returnCount = rows.length - firstCount;
+  const returnCount = rows.filter((row) => row.phan_loai === "Tái khám").length;
+  const noneCount = rows.filter((row) => row.phan_loai === "Chưa khám").length;
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: `Tất cả (${rows.length})` },
     { key: "first", label: `Khám lần đầu (${firstCount})` },
     { key: "return", label: `Tái khám (${returnCount})` },
+    { key: "none", label: `Chưa khám (${noneCount})` },
   ];
 
   const directory = (
@@ -296,7 +313,11 @@ export default function PatientListView({
                     </span>
                     <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-ink-muted">
                       <span className="truncate">{row.phone_primary ?? "Chưa có SĐT"}</span>
-                      <span className="shrink-0">{fmtDate(row.latest)}</span>
+                      <span className="shrink-0 tabular-nums">
+                        {row.latest
+                          ? `${row.visit_count} lượt · ${fmtDate(row.latest)}`
+                          : "0 lượt"}
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -306,7 +327,7 @@ export default function PatientListView({
         )}
       </ul>
       <div className="border-t border-line px-4 py-3 text-xs text-ink-muted">
-        Hiển thị {shown.length} trên {rows.length} hồ sơ đã có lượt khám
+        Hiển thị {shown.length} trên {rows.length} hồ sơ
       </div>
     </section>
   );
@@ -371,22 +392,33 @@ export default function PatientListView({
               </dl>
               <p className="mt-3 border-t border-line pt-2 text-xs text-ink-muted">
                 <ClipboardList size={13} className="mr-1 inline text-brand-600" />
-                Lần gần nhất: {fmtDateTimeOrDate(selected.latest)} · {selected.visit_count} lượt
+                {selected.latest
+                  ? `Lần gần nhất: ${fmtDateTimeOrDate(selected.latest)} · ${selected.visit_count} lượt`
+                  : "Chưa khám lần nào"}
               </p>
             </article>
           </div>
-          <section className="border-t border-line px-5 py-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-ink">Lượt khám gần nhất</h3>
-              <AppointmentStatus status={selected.appt.status} />
-            </div>
-            <div className="mt-3 grid gap-2 rounded-control border border-line p-3.5 text-sm sm:grid-cols-2">
-              <p><span className="text-ink-muted">Thời gian:</span> {fmtDateTimeOrDate(selected.appt.slot_start)}</p>
-              <p><span className="text-ink-muted">Dịch vụ:</span> {selected.appt.service?.name ?? "Chưa có dữ liệu"}</p>
-              <p><span className="text-ink-muted">Số thứ tự:</span> {selected.appt.queue_number ?? "Chưa được cấp"}</p>
-              <p><span className="text-ink-muted">Kênh:</span> {selected.appt.booking_channel ?? "Chưa ghi nhận"}</p>
-            </div>
-          </section>
+          {selected.appt ? (
+            <section className="border-t border-line px-5 py-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-ink">Lượt khám gần nhất</h3>
+                <AppointmentStatus status={selected.appt.status} />
+              </div>
+              <div className="mt-3 grid gap-2 rounded-control border border-line p-3.5 text-sm sm:grid-cols-2">
+                <p><span className="text-ink-muted">Thời gian:</span> {fmtDateTimeOrDate(selected.appt.slot_start)}</p>
+                <p><span className="text-ink-muted">Dịch vụ:</span> {selected.appt.service?.name ?? "Chưa có dữ liệu"}</p>
+                <p><span className="text-ink-muted">Số thứ tự:</span> {selected.appt.queue_number ?? "Chưa được cấp"}</p>
+                <p><span className="text-ink-muted">Kênh:</span> {selected.appt.booking_channel ?? "Chưa ghi nhận"}</p>
+              </div>
+            </section>
+          ) : (
+            <section className="border-t border-line px-5 py-4">
+              <p className="rounded-control bg-surface-muted px-3 py-2 text-sm text-ink-muted">
+                Hồ sơ này chưa có lượt khám nào. Đặt lịch hoặc tiếp nhận trực
+                tiếp thì lượt đầu tiên sẽ hiện ở đây.
+              </p>
+            </section>
+          )}
 
 
           {/* Nút mở phiếu khám CHỈ cho vai lâm sàng.
@@ -398,7 +430,7 @@ export default function PatientListView({
               Nhưng với bác sĩ và TKYK thì đây là cửa DUY NHẤT vào phiếu khám,
               nên nó ở lại. Bỏ luôn cho mọi vai là lặng lẽ lấy mất một việc mà
               không ai yêu cầu. */}
-          {enablePopup ? (
+          {enablePopup && selected.appt ? (
             <div className="border-t border-line px-5 py-4">
               <button
                 type="button"
@@ -449,10 +481,18 @@ export default function PatientListView({
       </header>
       {selected ? (
         <div className="divide-y divide-line px-4">
-          <DetailLine icon={<CalendarDays size={15} />} label="Thời gian hẹn" value={fmtDateTimeOrDate(selected.appt.slot_start)} />
-          <DetailLine icon={<Stethoscope size={15} />} label="Dịch vụ" value={selected.appt.service?.name ?? "Chưa có dữ liệu dịch vụ"} />
+          {/* Hồ sơ chưa khám lần nào thì ba dòng này không có gì để nói —
+              in "Chưa có dữ liệu" ba lần là nhiễu, nên bỏ hẳn. */}
+          {selected.appt ? (
+            <>
+              <DetailLine icon={<CalendarDays size={15} />} label="Thời gian hẹn" value={fmtDateTimeOrDate(selected.appt.slot_start)} />
+              <DetailLine icon={<Stethoscope size={15} />} label="Dịch vụ" value={selected.appt.service?.name ?? "Chưa có dữ liệu dịch vụ"} />
+            </>
+          ) : null}
           <DetailLine icon={<UsersRound size={15} />} label="Loại hồ sơ" value={selected.phan_loai} />
-          <DetailLine icon={<ArrowRight size={15} />} label="Trạng thái lịch" value={<AppointmentStatus status={selected.appt.status} />} />
+          {selected.appt ? (
+            <DetailLine icon={<ArrowRight size={15} />} label="Trạng thái lịch" value={<AppointmentStatus status={selected.appt.status} />} />
+          ) : null}
           {/* Danh sách CÁC LƯỢT KHÁM, mở ra tại chỗ.
               
               Bỏ nút "Xem thông tin hành chính": khối hành chính nay hiện đầy đủ
