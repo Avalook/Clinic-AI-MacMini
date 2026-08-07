@@ -725,3 +725,133 @@ class TestGhiKetQuaCuocGoi:
             ly_do="khách đã tự đặt lịch",
         )
         assert ra == {"ok": True, "id": "v1"}
+
+
+class TestLuatBacSiBatBuoc:
+    """Luật "khách mới của dịch vụ này phải khám bác sĩ kia".
+
+    Thi hành lúc ĐẶT LỊCH. Bốn nhánh dưới đây là bốn cách luật có thể im lặng
+    hỏng, và mỗi cái đều đã có tiền lệ trong dự án này.
+    """
+
+    @staticmethod
+    def _bs(conn: Any) -> Any:
+        from clinicai.services.booking_service import BookingService
+
+        return BookingService(_PoolCo(conn))
+
+    @pytest.mark.asyncio
+    async def test_chua_chon_bac_si_thi_khong_vuong_luat(self) -> None:
+        # Lịch đang chờ xếp người: chưa có gì để đối chiếu. Chặn ở đây là chặn
+        # luôn hàng chờ vừa mở ở nhịp trước.
+        conn = _Conn()
+        ra = await self._bs(conn)._luat_bac_si_bat_buoc(
+            conn,
+            clinic_patient_id="p1",
+            service_type_id="sv1",
+            doctor_id=None,
+            identity=_identity(ClinicRole.RECEPTION),
+        )
+        assert ra is None
+        assert conn.da_chay == [], "không được hỏi database khi chưa có bác sĩ"
+
+    @pytest.mark.asyncio
+    async def test_dich_vu_khong_co_luat_thi_qua(self) -> None:
+        conn = _Conn(None)
+        ra = await self._bs(conn)._luat_bac_si_bat_buoc(
+            conn,
+            clinic_patient_id="p1",
+            service_type_id="sv1",
+            doctor_id="bs-khac",
+            identity=_identity(ClinicRole.RECEPTION),
+        )
+        assert ra is None
+
+    @pytest.mark.asyncio
+    async def test_khach_cu_thi_khong_bi_bat_kham_lai(self) -> None:
+        # `khach_moi` do SQL tính từ LỊCH SỬ, không từ ô lễ tân gõ. Khách cũ
+        # quay lại mà bị bắt khám lại từ đầu là kiểu sai người dùng chịu trận.
+        conn = _Conn(
+            {
+                "bac_si_id": "bs-thanh",
+                "chan_han": True,
+                "ten_bac_si": "TS.BS. Phan Chí Thành",
+                "ten_dich_vu": "Nội tiết",
+                "khach_moi": False,
+            }
+        )
+        ra = await self._bs(conn)._luat_bac_si_bat_buoc(
+            conn,
+            clinic_patient_id="p1",
+            service_type_id="sv1",
+            doctor_id="bs-khac",
+            identity=_identity(ClinicRole.RECEPTION),
+        )
+        assert ra is None
+
+    @pytest.mark.asyncio
+    async def test_dung_bac_si_thi_qua(self) -> None:
+        conn = _Conn(
+            {
+                "bac_si_id": "bs-thanh",
+                "chan_han": True,
+                "ten_bac_si": "TS.BS. Phan Chí Thành",
+                "ten_dich_vu": "Nội tiết",
+                "khach_moi": True,
+            }
+        )
+        ra = await self._bs(conn)._luat_bac_si_bat_buoc(
+            conn,
+            clinic_patient_id="p1",
+            service_type_id="sv1",
+            doctor_id="bs-thanh",
+            identity=_identity(ClinicRole.RECEPTION),
+        )
+        assert ra is None
+
+    @pytest.mark.asyncio
+    async def test_sai_bac_si_thi_chan_va_noi_ro_ai(self) -> None:
+        conn = _Conn(
+            {
+                "bac_si_id": "bs-thanh",
+                "chan_han": True,
+                "ten_bac_si": "TS.BS. Phan Chí Thành",
+                "ten_dich_vu": "Nội tiết",
+                "khach_moi": True,
+            }
+        )
+        ra = await self._bs(conn)._luat_bac_si_bat_buoc(
+            conn,
+            clinic_patient_id="p1",
+            service_type_id="sv1",
+            doctor_id="bs-khac",
+            identity=_identity(ClinicRole.RECEPTION),
+        )
+        assert ra is not None
+        cau, chan = ra
+        # Câu phải nêu ĐÍCH DANH bác sĩ và dịch vụ: "không được phép" thì CSKH
+        # không biết phải chuyển sang ai.
+        assert "Phan Chí Thành" in cau and "Nội tiết" in cau
+        assert chan is True
+
+    @pytest.mark.asyncio
+    async def test_chan_han_tat_thi_chi_canh_bao(self) -> None:
+        # Phòng khám bật luật lần đầu thường muốn xem nó bắt đúng không trước
+        # khi để nó từ chối khách.
+        conn = _Conn(
+            {
+                "bac_si_id": "bs-thanh",
+                "chan_han": False,
+                "ten_bac_si": "TS.BS. Phan Chí Thành",
+                "ten_dich_vu": "Nội tiết",
+                "khach_moi": True,
+            }
+        )
+        ra = await self._bs(conn)._luat_bac_si_bat_buoc(
+            conn,
+            clinic_patient_id="p1",
+            service_type_id="sv1",
+            doctor_id="bs-khac",
+            identity=_identity(ClinicRole.RECEPTION),
+        )
+        assert ra is not None and ra[1] is False
