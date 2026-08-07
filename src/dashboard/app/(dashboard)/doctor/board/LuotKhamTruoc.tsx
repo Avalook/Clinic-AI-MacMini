@@ -16,6 +16,8 @@
 import { useEffect, useState } from "react";
 import { History, RotateCcw } from "lucide-react";
 
+import { doctorName } from "../../../../lib/doctor-name";
+
 export interface LuotTruoc {
   visit_id: string;
   service_code: string;
@@ -142,7 +144,7 @@ export default function LuotKhamTruoc({
                   {l.ten_dich_vu ? ` · ${l.ten_dich_vu}` : ""}
                 </p>
                 {l.bac_si && (
-                  <p className="mt-0.5 text-ink-muted">BS {l.bac_si}</p>
+                  <p className="mt-0.5 text-ink-muted">{doctorName(l.bac_si)}</p>
                 )}
                 {dong.length ? (
                   <ul className="mt-1.5 grid gap-1 text-ink-soft">
