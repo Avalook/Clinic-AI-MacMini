@@ -586,7 +586,10 @@ export default function DoctorBoard({
           nằm dọc suốt cột ba, nên phần làm việc thật — hàng đợi và bệnh án —
           chỉ còn hai phần ba bề rộng. Dồn cả hai thứ "chỉ để liếc" lên một
           hàng, phần dưới được nguyên cả màn. */}
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+      {/* `items-start`: không có nó, lưới kéo dải ô số CAO BẰNG khối điều phối
+          bên cạnh — bốn con số nằm giữa một vùng trắng cao gần 300px, đúng cái
+          diện tích vừa đi giành lại. */}
+      <div className="grid items-start gap-4 xl:grid-cols-[1.5fr_1fr]">
         <StatRow>
           <StatCard label="Chờ khám" value={grouped.ready.length} tone="brand" />
           <StatCard label="Đang khám" value={grouped.working.length} tone="neutral" />
