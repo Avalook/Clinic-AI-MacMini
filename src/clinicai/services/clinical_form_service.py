@@ -96,6 +96,57 @@ class ClinicalFormService:
             "updated_at": row["updated_at"],
         }
 
+    async def lich_su_kham(
+        self, *, clinic_patient_id: str, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Các lượt khám TRƯỚC của một bệnh nhân, mới nhất trước.
+
+        Trả về ĐỦ `form_data` để màn hình dựng lại nguyên phiếu hôm đó — bác sĩ
+        bấm vào một ngày là thấy lại chính những gì đã ghi, không phải một bản
+        tóm tắt do ai đó chọn hộ.
+
+        `visit_id` đi kèm để màn hình phân biệt "đang xem lại" với "đang khám":
+        phiếu cũ mở ở chế độ CHỈ XEM. Không có ranh giới đó thì bác sĩ gõ vào
+        một phiếu tưởng là hôm nay và ghi đè lên bệnh án tháng trước.
+        """
+        rows = await self._pool.fetch(
+            """
+            SELECT r.visit_id::text,
+                   r.service_code,
+                   r.form_data,
+                   r.updated_at,
+                   v.checked_in_at,
+                   v.status        AS visit_status,
+                   s.full_name     AS bac_si,
+                   st.name         AS ten_dich_vu
+              FROM clinical_form_response r
+              JOIN visit v
+                ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+              LEFT JOIN staff s ON s.id = v.attending_doctor_id
+              LEFT JOIN appointment a ON a.id = v.appointment_id
+              LEFT JOIN service_type st
+                ON st.id = a.service_type_id AND st.clinic_id = r.clinic_id
+             WHERE r.clinic_id = $1::uuid
+               AND v.clinic_patient_id = $2::uuid
+             ORDER BY coalesce(v.checked_in_at, r.updated_at) DESC
+             LIMIT 20
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
+        )
+        return [
+            {
+                "visit_id": r["visit_id"],
+                "service_code": r["service_code"],
+                "ten_dich_vu": r["ten_dich_vu"],
+                "bac_si": r["bac_si"],
+                "kham_luc": r["checked_in_at"] or r["updated_at"],
+                "visit_status": r["visit_status"],
+                "form_data": _as_dict(r["form_data"]),
+            }
+            for r in rows
+        ]
+
     async def save_form(
         self,
         *,

@@ -21,6 +21,7 @@ import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import { patientLine, waitedMinutes, type WorklistItem } from "@/lib/worklist";
 import ServiceFormEngine from "../../tasks/ServiceFormEngine";
+import LuotKhamTruoc, { type LuotTruoc } from "./LuotKhamTruoc";
 import OrderComposer, {
   type CatalogueEntry,
 } from "../orders/[visitId]/OrderComposer";
@@ -256,6 +257,20 @@ function ClinicalWorkspace({
   item: WorklistItem | null;
   onOpenOrders: () => void;
 }) {
+  // Lượt cũ đang xem lại. `null` = đang khám hôm nay.
+  //
+  // Ghi kèm CỦA AI thay vì đặt lại bằng effect khi đổi bệnh nhân. Một
+  // `useEffect(() => setDangXem(null), [item?.id])` sẽ chạy setState đồng bộ
+  // trong effect — React compiler chặn đúng, vì nó kéo theo một lượt render
+  // thừa và có lúc màn hình nháy phiếu của người trước.
+  //
+  // Suy ra thì không có trạng thái nào để lệch: đổi bệnh nhân là nó tự hết.
+  const [xemLai, setXemLai] = useState<{ itemId: string; luot: LuotTruoc } | null>(
+    null,
+  );
+  const dangXem = xemLai && xemLai.itemId === item?.id ? xemLai.luot : null;
+  const setDangXem = (luot: LuotTruoc | null) =>
+    setXemLai(luot && item ? { itemId: item.id, luot } : null);
   if (!item) {
     return (
       <section
@@ -346,7 +361,24 @@ function ClinicalWorkspace({
 
             Không mở trang con: bác sĩ khám ngay tại đây. */}
         <div className="min-w-0">
-          {!item.visit_id ? (
+          <LuotKhamTruoc
+            clinicPatientId={item.patient.clinic_patient_id}
+            visitIdHienTai={item.visit_id}
+            dangXem={dangXem}
+            onXem={setDangXem}
+          />
+          {dangXem ? (
+            // CHỈ XEM. `key` đổi theo lượt để engine nạp lại đúng phiếu hôm đó
+            // thay vì giữ giá trị của lượt trước đó trong state.
+            <div className="mt-2">
+              <ServiceFormEngine
+                key={dangXem.visit_id}
+                visitId={dangXem.visit_id}
+                serviceCode={dangXem.service_code}
+                readOnly
+              />
+            </div>
+          ) : !item.visit_id ? (
             <p className="rounded-control border border-dashed border-line-strong bg-surface px-3 py-6 text-center text-xs text-ink-muted">
               Bước này chưa gắn với lượt khám nào nên chưa mở được bệnh án.
             </p>
@@ -360,6 +392,7 @@ function ClinicalWorkspace({
             </p>
           ) : (
             <ServiceFormEngine
+              key={item.visit_id}
               visitId={item.visit_id}
               serviceCode={item.form_code}
             />
