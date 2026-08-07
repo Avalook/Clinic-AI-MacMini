@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
@@ -41,6 +41,20 @@ async def read_clinical_form(
     return await ClinicalFormService(pool).get_form(
         visit_id=str(visit_id), service_code=service_code, identity=identity
     )
+
+
+@router.get("/clinical-forms/history")
+async def read_exam_history(
+    clinic_patient_id: UUID = Query(..., description="Bệnh nhân"),
+    identity: StaffIdentity = Depends(_FORM_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Các lượt khám trước của một bệnh nhân — đủ nội dung phiếu, mới nhất trước."""
+    return {
+        "items": await ClinicalFormService(pool).lich_su_kham(
+            clinic_patient_id=str(clinic_patient_id), identity=identity
+        )
+    }
 
 
 @router.put("/clinical-forms")

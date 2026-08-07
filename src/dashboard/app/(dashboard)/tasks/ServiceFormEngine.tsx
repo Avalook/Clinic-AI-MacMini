@@ -48,16 +48,12 @@ function normalOption(field: FormField): string | null {
 }
 
 // ===== Tokens trình bày ClinicAI dùng chung với workspace lâm sàng =====
-const TAB =
-  "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors";
-const TAB_ON = " bg-brand-100 font-semibold text-brand-800";
-const TAB_OFF = " text-ink-soft hover:bg-surface-sunken";
+// TAB / TAB_ON / TAB_OFF / NAV_BTN đã bỏ cùng thanh tab và nút "Mục trước /
+// Mục sau" (07/08/2026): cả phiếu nay nằm trên một mạch cuộn hai cột.
 const CHIP =
   "rounded-full border px-3 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const CHIP_ON = " border-brand-600 bg-brand-100 font-semibold text-brand-800";
 const CHIP_OFF = " border-line bg-surface text-ink-soft hover:bg-brand-50";
-const NAV_BTN =
-  "min-h-9 shrink-0 rounded-control border border-line bg-surface px-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-sunken disabled:opacity-40";
 
 export default function ServiceFormEngine({
   visitId,
@@ -73,7 +69,10 @@ export default function ServiceFormEngine({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [activeIdx, setActiveIdx] = useState(0);
+  // Mục Cận lâm sàng THU GỌN MẶC ĐỊNH (Quang chốt 07/08). Chúng là phần dài
+  // nhất của mọi phiếu — riêng Hiếm muộn có ba mục Cận lâm sàng cộng lại 32
+  // trường — và thường bác sĩ chỉ mở khi đã có kết quả trong tay.
+  const [moThem, setMoThem] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     // Không có config / chưa có visit → component return null bên dưới; bỏ qua fetch.
@@ -126,24 +125,24 @@ export default function ServiceFormEngine({
   }
 
   const sections = schema.sections;
-  const total = sections.length;
-  const idx = Math.min(activeIdx, total - 1);
-  const section = sections[idx];
 
-  // "Tất cả bình thường" cho section đang mở: set field radio/checkbox_group có
-  // option mang nghĩa bình thường về giá trị đó. Không đụng field khác.
-  const sectionHasNormal =
-    !!section &&
-    section.fields.some(
+  /** Mục Cận lâm sàng: dài, và chỉ cần khi đã có kết quả trong tay. */
+  const laCanLamSang = (title: string) =>
+    title.toLowerCase().startsWith("cận lâm sàng");
+
+  /** "Tất cả bình thường" cho MỘT mục — chỉ đụng radio/checkbox_group có
+   *  option mang nghĩa bình thường, không đụng field khác. */
+  const coBinhThuong = (sec: FormSection) =>
+    sec.fields.some(
       (f) =>
         (f.type === "radio" || f.type === "checkbox_group") &&
         normalOption(f) != null,
     );
-  const setSectionNormal = () => {
-    if (readOnly || !section) return;
+  const datBinhThuong = (sec: FormSection) => {
+    if (readOnly) return;
     setValues((s) => {
       const next = { ...s };
-      for (const f of section.fields) {
+      for (const f of sec.fields) {
         if (f.type !== "radio" && f.type !== "checkbox_group") continue;
         const nv = normalOption(f);
         if (nv == null) continue;
@@ -171,91 +170,102 @@ export default function ServiceFormEngine({
         <p className="text-sm text-ink-faint">Đang tải phiếu…</p>
       ) : (
         <>
-          {/* Thanh TAB theo section — chỉ render section đang chọn → giảm cuộn. */}
-          <div className="sticky top-0 z-10 -mx-3 flex gap-1 overflow-x-auto border-b border-surface-sunken bg-surface px-3 pb-2">
-            {sections.map((s, i) => (
-              <button
-                key={s.title}
-                type="button"
-                onClick={() => setActiveIdx(i)}
-                className={TAB + (i === idx ? TAB_ON : TAB_OFF)}
-              >
-                {s.title}
-                {sectionFilled(s, values) && (
-                  <span className="ml-1 text-brand-600">✓</span>
-                )}
-              </button>
-            ))}
-          </div>
+          {/* HAI CỘT XẾP GẠCH, CUỘN DỌC MỘT MẠCH.
+              Bản trước là thanh tab + "Mục trước / Mục sau": mỗi lần chỉ thấy
+              MỘT mục, nên đi hết phiếu Phụ khoa phải bấm 11 lần, phiếu Hiếm
+              muộn 20 lần — và không bao giờ nhìn được lý do khám cùng lúc với
+              chẩn đoán.
 
-          {section && (
-            <section className="pt-3">
-              {!readOnly && sectionHasNormal && (
-                <div className="mb-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={setSectionNormal}
-                    className="rounded-lg border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 transition-colors hover:bg-brand-100"
-                  >
-                    Tất cả bình thường
-                  </button>
-                </div>
-              )}
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                {section.fields
-                  .filter((f) => isVisible(f, values))
-                  .map((f) => (
-                    <Field
-                      key={f.key}
-                      field={f}
-                      value={values[f.key]}
-                      disabled={readOnly}
-                      onChange={(v) => set(f.key, v)}
-                      onToggleGroup={(opt) => toggleGroup(f.key, opt)}
-                    />
-                  ))}
-              </div>
-            </section>
-          )}
+              Dùng `columns` chứ không phải grid hai cột: các mục lệch nhau rất
+              xa (mục "Lý do khám" 1 trường nằm cạnh "Khám lâm sàng" 15 trường),
+              nên chia cứng sẽ để lại khoảng trắng so le. Xếp gạch thì thẻ tự
+              rơi vào cột nào còn chỗ. */}
+          <div className="[column-gap:0.75rem] lg:[columns:2]">
+            {sections.map((sec, i) => {
+              const cls = laCanLamSang(sec.title);
+              const mo = moThem[sec.title] ?? !cls;
+              const xong = sectionFilled(sec, values);
+              return (
+                <section
+                  key={sec.title}
+                  className="mb-3 break-inside-avoid rounded-card border border-line bg-surface p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="grid size-5 shrink-0 place-items-center rounded-control bg-brand-50 text-[11px] font-bold tabular-nums text-brand-700">
+                      {i + 1}
+                    </span>
+                    <h5 className="min-w-0 flex-1 text-sm font-semibold text-ink">
+                      {sec.title}
+                      {xong && <span className="ml-1.5 text-brand-600">✓</span>}
+                    </h5>
+                    {cls && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMoThem((m) => ({ ...m, [sec.title]: !mo }))
+                        }
+                        className="shrink-0 rounded-control px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted"
+                      >
+                        {mo ? "thu gọn" : `mở · ${sec.fields.length} trường`}
+                      </button>
+                    )}
+                  </div>
+
+                  {mo && (
+                    <>
+                      {!readOnly && coBinhThuong(sec) && (
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => datBinhThuong(sec)}
+                            className="rounded-lg border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 transition-colors hover:bg-brand-100"
+                          >
+                            Tất cả bình thường
+                          </button>
+                        </div>
+                      )}
+                      <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        {sec.fields
+                          .filter((f) => isVisible(f, values))
+                          .map((f) => (
+                            <Field
+                              key={f.key}
+                              field={f}
+                              value={values[f.key]}
+                              disabled={readOnly}
+                              onChange={(v) => set(f.key, v)}
+                              onToggleGroup={(opt) => toggleGroup(f.key, opt)}
+                            />
+                          ))}
+                      </div>
+                    </>
+                  )}
+                </section>
+              );
+            })}
+          </div>
 
           {/* Chỉ phiếu Nam khoa mới có bảng đối chiếu ngưỡng. Đặt ở đây chứ
               không trong Field: nó đọc CẢ phiếu (tinh dịch đồ + khám bìu + nội
               tiết) để suy ra gợi ý, không đọc từng ô rời. */}
           {schema.service_code === "NK" && <AndrologyReview values={values} />}
 
-          {/* Thanh điều hướng dưới — LUÔN hiện: prev/next + nút Lưu (khỏi cuộn đáy). */}
-          <div className="mt-3 flex items-center justify-between gap-2 border-t border-surface-sunken pt-3">
-            <button
-              type="button"
-              onClick={() => setActiveIdx(Math.max(0, idx - 1))}
-              disabled={idx === 0}
-              className={NAV_BTN}
-            >
-              ← Mục trước
-            </button>
-            <span className="min-w-0 truncate text-center text-xs text-ink-muted">
-              Mục {idx + 1}/{total}
-              {section ? ` · ${section.title}` : ""}
+          {/* Thanh dưới — chỉ còn nút Lưu. Không còn prev/next: cả phiếu
+              nằm trên một mạch cuộn, nên "Mục 3/11" không còn nghĩa gì. */}
+          <div className="mt-1 flex items-center justify-between gap-2 border-t border-surface-sunken pt-3">
+            <span className="text-xs text-ink-muted">
+              {sections.length} mục ·{" "}
+              {sections.filter((sec) => sectionFilled(sec, values)).length} đã điền
             </span>
-            <div className="flex shrink-0 items-center gap-2">
+            {!readOnly && (
               <button
-                type="button"
-                onClick={() => setActiveIdx(Math.min(total - 1, idx + 1))}
-                disabled={idx === total - 1}
-                className={NAV_BTN}
+                onClick={save}
+                disabled={saving}
+                className="min-h-9 shrink-0 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
-                Mục sau →
+                {saving ? "Đang lưu…" : "Lưu phiếu"}
               </button>
-              {!readOnly && (
-                <button
-                  onClick={save}
-                  disabled={saving}
-                  className="min-h-9 shrink-0 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-                >
-                  {saving ? "Đang lưu…" : "Lưu phiếu"}
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
           {!readOnly && msg && (
