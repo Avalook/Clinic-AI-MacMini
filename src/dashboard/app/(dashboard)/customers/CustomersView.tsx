@@ -22,6 +22,7 @@ import { fmtDate, fmtDateTimeOrDate } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
 import QuickBookingModal from "../patient-list/QuickBookingModal";
+import BaoXepBacSi from "./BaoXepBacSi";
 import AppointmentEditModal, { type EditableAppt } from "./AppointmentEditModal";
 
 export interface CustomerRow {
@@ -584,6 +585,12 @@ export default function CustomersView({
                       Lễ tân TẠI THỜI ĐIỂM bệnh nhân không đến, không phải việc
                       CSKH đoán trước qua điện thoại. */}
                   <div className="space-y-1.5 pt-1">
+                    {/* CHƯA CÓ BÁC SĨ → việc của CSKH là báo quản lý, không
+                        phải tự chọn: họ không biết ai trực tuần đó. Nút chỉ
+                        hiện khi lịch thật sự còn trống bác sĩ. */}
+                    {selectedAppt?.appt && !selectedAppt.appt.doctor_id && (
+                      <BaoXepBacSi appointmentId={selectedAppt.appt.id} />
+                    )}
                     <button
                       type="button"
                       disabled={!canManage || !selectedAppt?.appt}

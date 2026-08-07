@@ -93,6 +93,12 @@ export const NAV: NavItem[] = [
     icon: PhoneCall,
   },
   {
+    href: "/appointments/cho-xep-bac-si",
+    label: "Chờ xếp bác sĩ",
+    shortLabel: "Chờ xếp BS",
+    icon: UserPlus,
+  },
+  {
     href: "/appointments",
     label: "Đặt lịch",
     shortLabel: "Đặt lịch",
