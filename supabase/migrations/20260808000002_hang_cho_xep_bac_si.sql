@@ -27,6 +27,17 @@
 -- `OLD.doctor_id IS NOT DISTINCT FROM NEW.doctor_id` sai), nên trigger chạy đủ
 -- và từ chối nếu khung ấy đã đầy. Đó chính là lúc câu hỏi trở thành thật.
 --
+-- TRỪ KHÁCH VÃNG LAI. Đây là chỗ bản đầu của migration này SAI, và bài canh
+-- `ghe_vang_lai_khach_den_muon.sql` bắt được.
+--
+-- Khách đến thẳng quầy cũng KHÔNG có bác sĩ — họ được xếp người lúc gọi số.
+-- Miễn trần cho mọi dòng thiếu bác sĩ nghĩa là miễn luôn cho họ, và `walkin_cap`
+-- — con số duy nhất giữ cho phòng chờ không vỡ — thành vô nghĩa. Hai thứ trông
+-- giống nhau ở chỗ `doctor_id IS NULL` nhưng khác hẳn nhau: một bên là lịch hẹn
+-- THÁNG SAU chưa xếp người, một bên là người ĐANG ĐỨNG ở quầy.
+--
+-- Phân biệt bằng kênh đặt, đúng thứ đã dùng ở mọi chỗ khác trong hàm này.
+--
 -- Hệ quả phải nhìn thẳng: hàng chờ không có trần, nên có thể dồn nhiều hơn số
 -- ghế thật. Đó là vấn đề XẾP LỊCH của quản lý và phải nhìn thấy được trên màn
 -- hàng chờ — không phải lý do để từ chối khách ngay lúc họ gọi điện.
@@ -51,8 +62,12 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    -- CHƯA PHÂN BÁC SĨ → chưa chiếm ghế của ai → không kiểm. Xem đầu file.
-    IF NEW.doctor_id IS NULL THEN
+    v_walkin := upper(coalesce(NEW.booking_channel, '')) = 'WALK_IN';
+
+    -- LỊCH HẸN chưa phân bác sĩ → chưa chiếm ghế của ai → không kiểm.
+    -- KHÁCH VÃNG LAI thì vẫn kiểm: họ đang đứng ở quầy, và walkin_cap là con
+    -- số duy nhất giữ cho phòng chờ không vỡ. Xem đầu file.
+    IF NEW.doctor_id IS NULL AND NOT v_walkin THEN
         RETURN NEW;
     END IF;
 
@@ -66,8 +81,6 @@ BEGIN
     THEN
         RETURN NEW;
     END IF;
-
-    v_walkin := upper(coalesce(NEW.booking_channel, '')) = 'WALK_IN';
 
     SELECT p.slot_minutes,
            CASE WHEN v_walkin THEN p.walkin_cap ELSE p.regular_cap END
@@ -106,8 +119,9 @@ END;
 $function$;
 
 COMMENT ON FUNCTION public.enforce_slot_capacity() IS
-  'Trần số chỗ mỗi khung mỗi bác sĩ. Lịch chưa phân bác sĩ được miễn — nó chưa '
-  'chiếm ghế của ai; trần áp lúc quản lý gán bác sĩ (20260808000002).';
+  'Trần số chỗ mỗi khung mỗi bác sĩ. LỊCH HẸN chưa phân bác sĩ được miễn — nó '
+  'chưa chiếm ghế của ai; trần áp lúc gán bác sĩ. Khách VÃNG LAI vẫn bị trần '
+  'walkin_cap dù cũng chưa có bác sĩ (20260808000002).';
 
 -- Tra nhanh hàng chờ. Không có index này thì màn "Lịch chờ xếp bác sĩ" quét cả
 -- bảng lịch hẹn mỗi lần mở.

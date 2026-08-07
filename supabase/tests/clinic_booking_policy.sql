@@ -135,6 +135,17 @@ VALUES ('c3000000-0000-4000-8000-0000000000c3',
         'c3300000-0000-4000-8000-0000000000c3', 'BN-C3', 'BN cua C3',
         'c3100000-0000-4000-8000-0000000000c3');
 
+-- BÁC SĨ LÀ BẮT BUỘC TRONG FIXTURE NÀY, kể từ 08/08/2026.
+--
+-- Bài này nói về ĐỘ DÀI KHUNG GIỜ (slot_minutes), và trước đây nó để trống bác
+-- sĩ chỉ vì tiện. Nhưng từ migration 20260808000002, "không có bác sĩ" mang một
+-- nghĩa riêng: lịch đang chờ xếp người, chưa chiếm ghế của ai, nên trần số chỗ
+-- không áp. Để trống ở đây thì mọi khẳng định bên dưới đều đúng một cách rỗng —
+-- không có gì bị từ chối cả, và bài canh im lặng ngừng canh.
+INSERT INTO public.staff (id, primary_location_id, full_name, primary_department)
+VALUES ('c3400000-0000-4000-8000-0000000000c3',
+        'c3100000-0000-4000-8000-0000000000c3', 'BS cua C3', 'DOCTOR');
+
 -- Hàm đặt lịch cho phòng khám khung 30': trả về true nếu DB nhận.
 CREATE FUNCTION pg_temp.book_c3(p_time time, p_channel text DEFAULT NULL)
 RETURNS boolean
@@ -142,12 +153,13 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     INSERT INTO public.appointment
-        (clinic_id, clinic_patient_id, location_id, service_type_id,
+        (clinic_id, clinic_patient_id, location_id, service_type_id, doctor_id,
          slot_start, slot_end, status, booking_channel)
     VALUES ('c3000000-0000-4000-8000-0000000000c3',
             'c3300000-0000-4000-8000-0000000000c3',
             'c3100000-0000-4000-8000-0000000000c3',
             'c3200000-0000-4000-8000-0000000000c3',
+            'c3400000-0000-4000-8000-0000000000c3',
             ((CURRENT_DATE + 30)::timestamp + p_time) AT TIME ZONE 'Asia/Ho_Chi_Minh',
             ((CURRENT_DATE + 30)::timestamp + p_time + interval '30 min')
                 AT TIME ZONE 'Asia/Ho_Chi_Minh',
@@ -233,6 +245,13 @@ VALUES ('a0000000-0000-4000-8000-000000000001',
         'c3110000-0000-4000-8000-0000000000a1')
 ON CONFLICT (clinic_patient_id) DO NOTHING;
 
+-- Bác sĩ bắt buộc, cùng lý do như fixture C3 ở trên: từ 20260808000002, lịch
+-- không có bác sĩ là lịch ĐANG CHỜ XẾP và được miễn trần số chỗ.
+INSERT INTO public.staff (id, primary_location_id, full_name, primary_department)
+VALUES ('c3410000-0000-4000-8000-0000000000a1',
+        'c3110000-0000-4000-8000-0000000000a1', 'BS cua A (C3)', 'DOCTOR')
+ON CONFLICT (id) DO NOTHING;
+
 CREATE FUNCTION pg_temp.book_a(p_time time, p_channel text DEFAULT NULL)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -247,12 +266,13 @@ BEGIN
     -- luật sức chứa hoàn toàn đúng. Một bài test chỉ bắt mã lỗi mà không phân
     -- biệt nguyên nhân sẽ chỉ sai chỗ như vậy.
     INSERT INTO public.appointment
-        (clinic_id, clinic_patient_id, location_id, service_type_id,
+        (clinic_id, clinic_patient_id, location_id, service_type_id, doctor_id,
          slot_start, slot_end, status, booking_channel, is_walkin)
     VALUES ('a0000000-0000-4000-8000-000000000001',
             'c3310000-0000-4000-8000-0000000000a1',
             'c3110000-0000-4000-8000-0000000000a1',
             'c3210000-0000-4000-8000-0000000000a1',
+            'c3410000-0000-4000-8000-0000000000a1',
             ((CURRENT_DATE + 31)::timestamp + p_time) AT TIME ZONE 'Asia/Ho_Chi_Minh',
             ((CURRENT_DATE + 31)::timestamp + p_time + interval '15 min')
                 AT TIME ZONE 'Asia/Ho_Chi_Minh',
