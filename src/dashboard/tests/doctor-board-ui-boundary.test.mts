@@ -11,6 +11,16 @@ const page = readFileSync(
   "utf8",
 );
 
+/** Mã nguồn đã BỎ CHÚ THÍCH, dùng cho các khẳng định PHỦ ĐỊNH.
+ *
+ *  Một câu như "trang này từng in lại 'Danh sách khám bệnh đang mở'" nằm trong
+ *  chú thích giải thích vì sao đã bỏ — và bài canh phủ định lại khớp vào đúng
+ *  câu ấy rồi báo đỏ. Đây là lần thứ ba lỗi này xảy ra trong dự án, nên lột chú
+ *  thích ra thay vì đi sửa cách viết bình luận. */
+const khongChuThich = (src: string): string =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const pageCode = khongChuThich(page);
+
 test("the doctor board keeps the reference design's three working regions", () => {
   assert.match(board, /aria-label="Hàng đợi đang mở"/);
   assert.match(board, /aria-label="Hồ sơ khám bệnh"/);
@@ -51,9 +61,12 @@ test("the redesign preserves real workflow actions and the shared status vocabul
 });
 
 test("clinical cards tell the truth when their source data is unavailable", () => {
+  // Ô KHÁM BÁC SĨ ĐÃ NỐI DỮ LIỆU THẬT (07/08/2026), nên bốn thẻ "chưa kết nối
+  // nội dung khám lâm sàng" không còn nữa. Bài canh đi theo Ý ĐỊNH — "đừng vẽ
+  // dữ liệu lâm sàng giả" — chứ không đi theo câu chữ cũ, nên phần còn lại của
+  // nó giữ nguyên và phần đã nối được thay bằng khẳng định mạnh hơn.
   for (const label of [
     "Màn này chưa kết nối nguồn dữ liệu sinh hiệu",
-    "Màn này chưa kết nối nội dung khám lâm sàng",
     "Màn này chưa kết nối chỉ định hoặc kết quả để hiển thị",
     "Màn này chưa kết nối dữ liệu đơn thuốc",
     "Màn này chưa kết nối dữ liệu thanh toán",
@@ -61,7 +74,17 @@ test("clinical cards tell the truth when their source data is unavailable", () =
     assert.match(board, new RegExp(label));
   }
 
+  // Biểu mẫu khám phải là biểu mẫu THẬT, chọn theo `form_code` của lượt.
+  assert.match(board, /ServiceFormEngine/);
+  assert.match(board, /serviceCode=\{item\.form_code\}/);
+  // Và khi dịch vụ không có biểu mẫu thì phải NÓI RA, không để trống.
+  assert.match(board, /chưa gắn biểu mẫu/);
+
   assert.doesNotMatch(board, /110\/70|36\.6|52\.0|Viêm âm đạo|Clotrimazole/);
-  assert.match(page, /Danh sách khám bệnh đang mở/);
-  assert.doesNotMatch(page + board, /Tổng: \{visible\.length\} bệnh nhân|Lịch hôm nay/);
+  // Tiêu đề trang đã bỏ vì trùng với thanh trên cùng (07/08/2026).
+  assert.doesNotMatch(pageCode, /Danh sách khám bệnh đang mở/);
+  assert.doesNotMatch(
+    pageCode + khongChuThich(board),
+    /Tổng: \{visible\.length\} bệnh nhân|Lịch hôm nay/,
+  );
 });

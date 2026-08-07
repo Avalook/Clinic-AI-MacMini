@@ -312,6 +312,7 @@ class WorklistItem(BaseModel):
     # liệu mà API vẫn ra `null` — đã mất một lượt deploy vì chuyện này.
     service_code: str | None = None
     service_name: str | None = None
+    form_code: str | None = None
     checked_in_at: datetime | None = None
 
 

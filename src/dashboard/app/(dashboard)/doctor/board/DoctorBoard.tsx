@@ -19,6 +19,7 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import { patientLine, waitedMinutes, type WorklistItem } from "@/lib/worklist";
+import ServiceFormEngine from "../../tasks/ServiceFormEngine";
 import OrderComposer, {
   type CatalogueEntry,
 } from "../orders/[visitId]/OrderComposer";
@@ -239,17 +240,6 @@ function QueuePanel({
   );
 }
 
-function EmptyClinicalCard({ title, message }: { title: string; message: string }) {
-  return (
-    <section className="rounded-card border border-line bg-surface p-3.5">
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      <p className="mt-3 rounded-control border border-dashed border-line-strong bg-surface-muted px-3 py-4 text-center text-xs text-ink-muted">
-        {message}
-      </p>
-    </section>
-  );
-}
-
 const WORKSPACE_TABS = [
   "Khám bác sĩ",
   "Chỉ định",
@@ -347,13 +337,32 @@ function ClinicalWorkspace({
       </nav>
 
       <div className="grid gap-3 bg-surface-muted p-3 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="grid content-start gap-3 sm:grid-cols-2">
-          <EmptyClinicalCard title="1. Lý do khám" message="Màn này chưa kết nối nội dung khám lâm sàng" />
-          <EmptyClinicalCard title="2. Bệnh sử" message="Màn này chưa kết nối nội dung khám lâm sàng" />
-          <EmptyClinicalCard title="3. Khám lâm sàng" message="Màn này chưa kết nối nội dung khám lâm sàng" />
-          <EmptyClinicalCard title="4. Chẩn đoán" message="Màn này chưa kết nối nguồn dữ liệu chẩn đoán" />
-          <EmptyClinicalCard title="5. Kế hoạch điều trị" message="Màn này chưa kết nối nguồn dữ liệu điều trị" />
-          <EmptyClinicalCard title="Xác nhận tư vấn" message="Màn này chưa kết nối nguồn xác nhận tư vấn" />
+        {/* BIỂU MẪU KHÁM THẬT, THEO ĐÚNG LOẠI DỊCH VỤ.
+            Sáu thẻ "chưa kết nối" trước đây là chỗ này. Năm biểu mẫu (PK / SK
+            / NT / NK / HMVS) đã có sẵn trong `lib/form-schemas` và đã chạy ở
+            màn Công việc của tôi — thứ thiếu chỉ là bàn khám chưa biết lượt
+            này khám loại gì. Nay `form_code` đi kèm hàng đợi.
+
+            Không mở trang con: bác sĩ khám ngay tại đây. */}
+        <div className="min-w-0">
+          {!item.visit_id ? (
+            <p className="rounded-control border border-dashed border-line-strong bg-surface px-3 py-6 text-center text-xs text-ink-muted">
+              Bước này chưa gắn với lượt khám nào nên chưa mở được bệnh án.
+            </p>
+          ) : !item.form_code ? (
+            // Nói rõ VÌ SAO trống. Một khoảng trắng không nói được là "dịch vụ
+            // này không phải loại khám" hay "hệ thống hỏng".
+            <p className="rounded-control border border-dashed border-warning bg-warning-bg px-3 py-6 text-center text-xs text-warning">
+              Dịch vụ “{item.service_name ?? "chưa gán"}” chưa gắn biểu mẫu
+              khám nào. Vào Cấu trúc phòng khám để gán, hoặc chọn đúng loại
+              khám khi đặt lịch.
+            </p>
+          ) : (
+            <ServiceFormEngine
+              visitId={item.visit_id}
+              serviceCode={item.form_code}
+            />
+          )}
         </div>
 
         <section className="rounded-card border border-line bg-surface p-3.5">
