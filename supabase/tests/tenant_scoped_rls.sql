@@ -107,8 +107,11 @@ BEGIN
     -- 34 → 35 ngày 07/08/2026: nhac_tai_kham — việc gọi nhắc tái khám hai lượt
     -- (migration 20260807000005). Đọc theo phòng khám, ghi qua FastAPI.
     -- 35 → 36 ngày 07/08/2026: thong_bao (migration 20260807000006).
-    IF scoped_count <> 36 THEN
-        RAISE EXCEPTION 'expected 36 tenant-scoped read policies, found %', scoped_count;
+    -- 36 → 37 ngày 08/08/2026: roster_week — tuần lịch trực đã áp dụng
+    -- (migration 20260808000001). CHỈ ĐỌC cho client, cùng lý do với mọi bảng
+    -- luật khác: client tự ghi được nghĩa là client tự chốt được lịch trực.
+    IF scoped_count <> 37 THEN
+        RAISE EXCEPTION 'expected 37 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

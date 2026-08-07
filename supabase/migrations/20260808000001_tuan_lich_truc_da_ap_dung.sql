@@ -60,6 +60,12 @@ BEGIN
     END IF;
 END $$;
 
+-- CHÍNH SÁCH KHÔNG CẤP QUYỀN. Một policy RLS chỉ LỌC những dòng mà vai đã có
+-- quyền đọc; thiếu GRANT thì bảng vô hình hoàn toàn, và ở đây triệu chứng sẽ là
+-- MỌI tuần đều trông như chưa áp dụng — mãi mãi, không báo lỗi gì. Bài canh
+-- tenant_scoped_rls.sql bắt đúng chuyện này.
+GRANT SELECT ON public.roster_week TO authenticated;
+
 -- Tuần ĐANG DÙNG được đánh dấu đã áp dụng, để phòng khám không mất lịch giữa
 -- chừng lúc migration chạy. Mọi tuần sau đó là dự kiến cho tới khi có người bấm.
 INSERT INTO public.roster_week (clinic_id, week_start, note)
