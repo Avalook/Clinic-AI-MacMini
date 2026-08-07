@@ -1074,6 +1074,13 @@ class BookingService:
 
         Vậy nên: ngày chưa xếp ca → im lặng. Ngày đã xếp ca mà bác sĩ này không
         có tên → nói ra.
+
+        "ĐÃ XẾP CA" NGHĨA LÀ TUẦN ĐÃ ĐƯỢC ÁP DỤNG, không phải "có dòng trong
+        bảng". Ngày 07/08/2026 có 26 tuần lịch được trải ra từ một mẫu tuần và
+        ghi thẳng APPROVED tới 31/01/2027 — toàn bộ là bản nháp. Nếu ở đây chỉ
+        hỏi "có dòng không" thì mọi lịch tương lai bỗng có cảnh báo dựa trên một
+        bản nháp chưa ai duyệt, và cảnh báo sai còn tệ hơn không cảnh báo.
+        Xem migration 20260808000001.
         """
         local = slot_start.astimezone(CLINIC_TZ)
         work_date = local.date()
@@ -1084,12 +1091,23 @@ class BookingService:
               EXISTS (
                 SELECT 1 FROM work_roster
                  WHERE clinic_id = $1::uuid AND work_date = $2
-                   AND status = 'APPROVED'
+                   AND AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
               ) AS roster_exists,
               coalesce((
                 SELECT array_agg(DISTINCT shift) FROM work_roster
                  WHERE clinic_id = $1::uuid AND work_date = $2
-                   AND status = 'APPROVED' AND staff_id = $3::uuid
+                   AND staff_id = $3::uuid
+                   AND AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
               ), ARRAY[]::text[]) AS shifts,
               (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                 AS open_minute,

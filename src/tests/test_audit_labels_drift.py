@@ -70,10 +70,12 @@ def _ma_trong_ma_nguon() -> set[str]:
     return ma
 
 
-#: Chuỗi trông giống mã sự kiện nhưng không phải — tên công cụ LLM, tên module.
+#: Chuỗi trông giống mã sự kiện nhưng không phải — tên công cụ LLM, tên module,
+#: và giá trị cột `source` (nơi phát ra sự kiện, không phải bản thân sự kiện).
 #: Liệt kê tường minh thay vì nới biểu thức, để một mã thật viết nhầm không lọt.
 _KHONG_PHAI_SU_KIEN = {
     "brief.generate_brief",
+    "config.roster",  # cột source của roster.week_applied
     "communication.send_zalo_message",
     "event_log.append_event",
     "kb.read_policy",
