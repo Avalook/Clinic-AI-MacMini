@@ -1,7 +1,15 @@
 #!/bin/bash
-# Automated nightly public-schema application-data backup for ClinicAI.
-# This is not a complete Supabase disaster-recovery artifact: auth identities,
-# managed schemas, roles, and platform configuration require Supabase PITR/backup.
+# Sao lưu hằng đêm cho ClinicAI: lược đồ + dữ liệu `public`, KÈM một tệp thứ hai
+# chứa `auth.users` + `auth.identities`.
+#
+# Hai câu đầu file này từng ghi "auth identities … require Supabase PITR/backup".
+# Câu đó đúng thời database còn ở Supabase cloud. Từ 06/08/2026 hệ thống tự dựng
+# GoTrue trên máy mình, nên KHÔNG CÒN AI sao lưu hộ phần auth — nếu file này
+# không mang nó thì không ai mang cả, và khôi phục xong sẽ là một phòng khám đủ
+# dữ liệu mà không ai đăng nhập được.
+#
+# Tệp auth đã được dump từ trước (xem phần "companion auth artifact"); chỉ có
+# lời chú thích ở đây là cũ.
 #
 # 1. Reads DATABASE_URL from BACKUP_ENV_FILE or .env.prod (never guesses staging)
 # 2. Runs pg_dump → gzip → ~/backups/clinicai/
@@ -21,8 +29,10 @@ DEFAULT_COMMAND_PATH="/opt/homebrew/opt/libpq/bin:/opt/homebrew/opt/postgresql@1
 export PATH="${CLINIC_BACKUP_PATH:-${DEFAULT_COMMAND_PATH}${PATH:+:${PATH}}}"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-LOG="$HOME/Library/Logs/clinicai-backup.log"
-BACKUP_DIR="$HOME/backups/clinicai"
+# Nhật ký. macOS dùng ~/Library/Logs; Linux thì thư mục ấy vô nghĩa, nên cho
+# phép đặt bằng biến — systemd trên VPS trỏ vào ~/.local/state.
+LOG="${CLINIC_BACKUP_LOG:-$HOME/Library/Logs/clinicai-backup.log}"
+BACKUP_DIR="${CLINIC_BACKUP_DIR:-$HOME/backups/clinicai}"
 KEEP_DAYS=7
 MIN_ARCHIVE_BYTES="${BACKUP_MIN_ARCHIVE_BYTES:-1024}"
 
