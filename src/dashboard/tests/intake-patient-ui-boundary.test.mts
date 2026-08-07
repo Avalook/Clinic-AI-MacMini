@@ -92,7 +92,11 @@ test("the patient directory follows the three-region reference layout without st
   // là liên kết sang trang hành chính, tức là bấm để đọc đúng khối hành chính
   // vừa hiện đầy đủ ngay bên cạnh.
   assert.match(patients, /Mở phiếu khám/);
-  assert.match(patients, /\{enablePopup \? \(/);
+  // Chốt là ENABLEPOPUP PHẢI ĐỨNG ĐẦU điều kiện, không phải cả câu điều kiện
+  // phải y nguyên. Màn này đã thêm vế "&& selected.appt" (hồ sơ chưa khám lần
+  // nào thì không có phiếu để mở) — siết theo chuỗi nguyên văn sẽ bắt lỗi một
+  // thay đổi vô hại, và lần sau người ta sẽ sửa test cho qua thay vì đọc nó.
+  assert.match(patients, /\{enablePopup(?: &&[^?]*)? \? \(/);
 
   // Khối hành chính hiện TẠI CHỖ, không bắt đổi màn để đọc thứ đã tải về.
   assert.match(patients, /HangHanhChinh/);
