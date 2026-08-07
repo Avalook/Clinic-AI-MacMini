@@ -1,6 +1,9 @@
-// Lịch làm việc — ghi/xoá phân công.
-//   POST   { week_start, work_date, shift, station, staff_id?, staff_name? }  → thêm 1 ô
-//   DELETE { id }                                                            → xoá 1 ô
+// Lịch làm việc — ghi/xoá phân công, và CHỐT một tuần.
+//   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó (chỉ tuần ĐÃ ÁP DỤNG)
+//   GET    ?tu=…&den=…               → những tuần đã áp dụng trong khoảng
+//   POST   { week_start, work_date, … }  → thêm 1 ô
+//   POST   { apply_week: "YYYY-MM-DD" }  → chốt cả tuần
+//   DELETE { id }                        → xoá 1 ô
 // Quản lý: xếp cho BẤT KỲ ai. Nhân sự khác (bác sĩ/lễ tân/điều dưỡng): chỉ TỰ
 // đăng ký / xoá ca CỦA MÌNH (staff_id ép = chính mình) — feedback C4.
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
@@ -14,6 +17,14 @@ import {
   getActiveStaff,
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
+
+/** Thứ Hai của tuần chứa `iso`. Cùng quy ước với week_start_of ở backend. */
+function weekStartOf(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const isoDow = ((d.getUTCDay() + 6) % 7) + 1; // 1 = thứ Hai
+  d.setUTCDate(d.getUTCDate() - (isoDow - 1));
+  return d.toISOString().slice(0, 10);
+}
 
 type Auth =
   | {
@@ -60,10 +71,44 @@ export async function GET(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const date = (new URL(request.url).searchParams.get("date") ?? "").trim();
+  const sp = new URL(request.url).searchParams;
+
+  // Nhánh 1: khoảng tuần → trả về những tuần ĐÃ ÁP DỤNG, để lưới lịch biết tuần
+  // nào còn là dự kiến.
+  const tu = (sp.get("tu") ?? "").trim();
+  const den = (sp.get("den") ?? "").trim();
+  if (tu && den) {
+    const { data, error } = await caller
+      .from("roster_week")
+      .select("week_start")
+      .gte("week_start", tu)
+      .lte("week_start", den);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      weeks: ((data as { week_start: string }[] | null) ?? []).map(
+        (r) => r.week_start,
+      ),
+    });
+  }
+
+  const date = (sp.get("date") ?? "").trim();
   if (!date) {
     return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
   }
+
+  // CHỈ TUẦN ĐÃ ÁP DỤNG mới trả về bác sĩ trực.
+  //
+  // Sơ đồ đặt lịch vẽ hàng theo danh sách này; danh sách rỗng thì nó rơi về
+  // "hiện mọi bác sĩ" — đúng thứ ta muốn cho một tuần chưa chốt. Trả về danh
+  // sách lấy từ bản nháp thì màn hình nói chắc nịch ai trực ngày 12/12 trong
+  // khi phòng khám chưa quyết. Xem migration 20260808000001.
+  const tuan = weekStartOf(date);
+  const { data: daApDung } = await caller
+    .from("roster_week")
+    .select("week_start")
+    .eq("week_start", tuan)
+    .maybeSingle();
+  if (!daApDung) return NextResponse.json({ doctors: [], du_kien: true });
 
   const { data, error } = await caller
     .from("work_roster")
@@ -82,10 +127,12 @@ export async function GET(request: Request) {
     seen.add(r.staff_id);
     doctors.push({ id: r.staff_id, name: r.staff_name ?? "" });
   }
-  return NextResponse.json({ doctors });
+  return NextResponse.json({ doctors, du_kien: false });
 }
 
 interface PostBody {
+  /** Chốt cả tuần (thứ Hai). Chỉ quản lý. */
+  apply_week?: string;
   week_start?: string;
   work_date?: string;
   shift?: string;
@@ -104,6 +151,20 @@ export async function POST(request: Request) {
     body = (await request.json()) as PostBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Chốt cả tuần — việc khác hẳn với thêm một ô, nên tách nhánh ngay đầu.
+  const apply_week = (body.apply_week ?? "").trim();
+  if (apply_week) {
+    if (!auth.isAdmin) {
+      return NextResponse.json(
+        { error: "Chỉ quản lý mới áp dụng được lịch trực." },
+        { status: 403 },
+      );
+    }
+    return proxyJsonToBackend("POST", "/api/v1/roster/weeks/apply", {
+      week_start: apply_week,
+    });
   }
 
   const week_start = (body.week_start ?? "").trim();

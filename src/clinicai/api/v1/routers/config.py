@@ -127,6 +127,41 @@ async def decide_shift(
     return {"ok": True}
 
 
+class ApplyWeekRequest(BaseModel):
+    week_start: date
+
+
+@router.post("/roster/weeks/apply", status_code=201)
+async def apply_week(
+    body: ApplyWeekRequest,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Chốt lịch trực một tuần. Chỉ Quản lý.
+
+    Trước khi có việc này, một tuần vừa xếp nháp và một tuần đã chốt trông hệt
+    nhau với mọi thứ đọc lịch trực. Xem migration 20260808000001.
+    """
+    return await RosterService(pool).apply_week(
+        week_start=body.week_start, identity=identity
+    )
+
+
+@router.get("/roster/weeks/applied")
+async def applied_weeks(
+    tu: date,
+    den: date,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Tuần nào trong khoảng đã áp dụng — phần còn lại là dự kiến."""
+    return {
+        "weeks": await RosterService(pool).applied_weeks(
+            identity=identity, tu=tu, den=den
+        )
+    }
+
+
 @router.delete("/roster/shifts/{roster_id}")
 async def remove_shift(
     roster_id: UUID,

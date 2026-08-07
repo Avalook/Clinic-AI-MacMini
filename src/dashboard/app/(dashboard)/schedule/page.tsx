@@ -20,6 +20,7 @@ import {
 import OfficialRosterTable, {
   type OfficialRosterRow,
 } from "./OfficialRosterTable";
+import ApDungTuan from "./ApDungTuan";
 export const dynamic = "force-dynamic";
 
 // Row kèm id + trạng thái để bảng đăng ký phân biệt ca của mình & lý do từ chối.
@@ -61,6 +62,13 @@ export default async function SchedulePage({
   // Lịch chung CHỈ hiện ca đã duyệt. Ca PENDING/REJECTED không lọt vào bảng.
   const approvedRows = rows.filter((r) => r.status === "APPROVED");
 
+  // Tuần này đã được quản lý bấm áp dụng chưa. Có dòng trong roster_week = rồi.
+  const { data: tuanApDung } = await supabase
+    .from("roster_week")
+    .select("week_start")
+    .eq("week_start", week)
+    .maybeSingle();
+
   const weekLabel = `${fmtDayMonth(dates[0])} – ${fmtDayMonth(dates[6])}`;
   const navHref = (w: string) => `/schedule?week=${w}`;
 
@@ -99,6 +107,13 @@ export default async function SchedulePage({
           Tuần sau →
         </Link>
       </div>
+
+      <ApDungTuan
+        weekStart={week}
+        daApDung={Boolean(tuanApDung)}
+        laQuanLy={isAdmin}
+        soCa={approvedRows.length}
+      />
 
       {/* BẢNG 1 — Lịch làm việc chính thức (chỉ ca ĐÃ DUYỆT). */}
       <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
