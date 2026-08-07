@@ -66,7 +66,8 @@ SET LOCAL session_replication_role = 'replica';
 TRUNCATE
   -- Người bệnh và mọi thứ bám vào
   patient, patient_contact_channel, patient_next_of_kin,
-  patient_medical_profile, patient_summary, patient_link, pregnancy,
+  -- `patient_summary` là VIEW, không phải bảng — nó tự rỗng theo bảng nguồn.
+  patient_medical_profile, patient_link, pregnancy,
   mpi_merge_queue, clinical_data_consent,
   -- Lượt khám
   appointment, visit, visit_amendment, visit_route, visit_gate_override,
