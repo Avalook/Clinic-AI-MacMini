@@ -30,6 +30,13 @@ export default function ApDungTuan({
   const router = useRouter();
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Đổi dải NGAY khi máy chủ trả lời, không chờ trang render lại.
+  //
+  // `router.refresh()` phải đi một vòng ra server rồi mới có dữ liệu mới. Trong
+  // khoảng đó dải vẫn vàng và nút vẫn còn — quản lý tưởng bấm hụt nên bấm lại.
+  // Đo được lúc thử tay 08/08: bấm xong, chụp màn hình, vẫn thấy "dự kiến";
+  // database thì đã ghi rồi.
+  const [vuaApDung, setVuaApDung] = useState(false);
 
   async function apDung() {
     setDangGui(true);
@@ -48,10 +55,11 @@ export default function ApDungTuan({
       setLoi(chiTiet ?? `Không áp dụng được (lỗi ${res.status}).`);
       return;
     }
+    setVuaApDung(true);
     router.refresh();
   }
 
-  if (daApDung) {
+  if (daApDung || vuaApDung) {
     return (
       <p className="flex items-center gap-2 rounded-control bg-success-bg px-3 py-2 text-xs text-success">
         <CalendarCheck className="size-4 shrink-0" aria-hidden="true" />
