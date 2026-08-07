@@ -11,7 +11,6 @@ import {
   Search,
   Stethoscope,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
@@ -20,10 +19,22 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import { patientLine, waitedMinutes, type WorklistItem } from "@/lib/worklist";
+import OrderComposer, {
+  type CatalogueEntry,
+} from "../orders/[visitId]/OrderComposer";
 
 interface Blocker {
   node_code: string;
   dependency_type: string;
+}
+
+// "ĐANG THỰC HIỆN" Ở BÀN KHÁM NGHĨA LÀ "ĐANG KHÁM".
+//
+// `STATUS_PRESENTATION` dùng chung cho năm màn (thu ngân, lễ tân, danh sách
+// bệnh nhân…), nên đổi thẳng ở đó sẽ làm bàn thu ngân hiện "Đang khám" cho một
+// việc thu tiền. Đè nhãn tại chỗ, chỉ cho màn này.
+function nhanTrangThai(tone: keyof typeof STATUS_PRESENTATION): string {
+  return tone === "in_progress" ? "Đang khám" : STATUS_PRESENTATION[tone].label;
 }
 
 function group(items: WorklistItem[]) {
@@ -108,7 +119,7 @@ function PatientRow({
           </span>
           <StatusChip
             tone={STATUS_PRESENTATION[tone].token as StatusTone}
-            label={STATUS_PRESENTATION[tone].label}
+            label={nhanTrangThai(tone)}
           />
         </span>
       </span>
@@ -172,9 +183,11 @@ function QueuePanel({
       aria-label="Hàng đợi đang mở"
       className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
     >
+      {/* Bỏ tiêu đề "Hàng đợi đang mở": ba nhóm ngay dưới đã tự nói chúng là
+          hàng đợi gì, và một dòng chữ nữa chỉ ăn chỗ của danh sách. Ô tìm kiếm
+          giữ lại — nó là công cụ, không phải cái nhãn. */}
       <div className="border-b border-line px-3 py-3">
-        <h2 className="text-sm font-semibold text-ink">Hàng đợi đang mở</h2>
-        <label className="mt-2 flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+        <label className="flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
           <Search className="size-4 shrink-0" aria-hidden="true" />
           <span className="sr-only">Tìm bệnh nhân hoặc mã hồ sơ</span>
           <input
@@ -187,19 +200,22 @@ function QueuePanel({
       </div>
 
       <div className="max-h-[720px] overflow-y-auto">
-        <PatientGroup
-          title="Chờ khám"
-          items={grouped.ready}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          emptyLabel="Không có bệnh nhân sẵn sàng khám."
-        />
+        {/* ĐANG KHÁM LÊN TRƯỚC. Người đang ngồi trong phòng là việc bác sĩ
+            đang làm; người chờ là việc sắp tới. Xếp ngược lại thì mỗi lần
+            muốn quay về ca đang khám phải cuộn qua cả hàng chờ. */}
         <PatientGroup
           title="Đang khám"
           items={grouped.working}
           selectedId={selectedId}
           onSelect={onSelect}
           emptyLabel="Chưa có lượt đang khám."
+        />
+        <PatientGroup
+          title="Chờ khám"
+          items={grouped.ready}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          emptyLabel="Không có bệnh nhân sẵn sàng khám."
         />
         <PatientGroup
           title="Chờ bước trước"
@@ -242,7 +258,13 @@ const WORKSPACE_TABS = [
   "Thuốc & thanh toán",
 ] as const;
 
-function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
+function ClinicalWorkspace({
+  item,
+  onOpenOrders,
+}: {
+  item: WorklistItem | null;
+  onOpenOrders: () => void;
+}) {
   if (!item) {
     return (
       <section
@@ -279,7 +301,7 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
               </h2>
               <StatusChip
                 tone={STATUS_PRESENTATION[tone].token as StatusTone}
-                label={STATUS_PRESENTATION[tone].label}
+                label={nhanTrangThai(tone)}
                 size="md"
               />
             </div>
@@ -291,7 +313,12 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
           <dl className="grid grid-cols-3 divide-x divide-line text-xs">
             <WorkflowField label="Số thứ tự" value={item.queue_number ?? "—"} />
             <WorkflowField label="Đã chờ" value={`${waitedMinutes(item)} phút`} />
-            <WorkflowField label="Bước hiện tại" value={item.node_name ?? item.node_code} />
+            {/* LOẠI DỊCH VỤ KHÁM — thứ quyết định mở biểu mẫu nào. Trước đây
+                màn chỉ biết "đang ở bước nào", không biết "khám gì". */}
+            <WorkflowField
+              label="Loại khám"
+              value={item.service_name ?? "Chưa gán dịch vụ"}
+            />
           </dl>
         </div>
 
@@ -338,13 +365,17 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
             Màn này chưa kết nối chỉ định hoặc kết quả để hiển thị
           </p>
           {item.visit_id && item.node_code === "LUOTKHAM-05" && !item.blocked ? (
-            <Link
-              href={`/doctor/orders/${item.visit_id}`}
+            // MỞ NGAY BÊN CẠNH, KHÔNG RỜI TRANG. Bản trước là một Link sang
+            // /doctor/orders/[visitId]: bác sĩ mất cả hàng đợi và hồ sơ đang
+            // đọc, chỉ định xong lại phải quay về tìm đúng người.
+            <button
+              type="button"
+              onClick={onOpenOrders}
               className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-control border border-brand-600 px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
             >
               <ClipboardPlus className="size-4" aria-hidden="true" />
               Mở màn chỉ định dịch vụ
-            </Link>
+            </button>
           ) : null}
         </section>
       </div>
@@ -383,7 +414,14 @@ function CoordinationSection({
   );
 }
 
-function CoordinationPanel({ item }: { item: WorklistItem | null }) {
+function CoordinationPanel({
+  item,
+  thuGon = false,
+}: {
+  item: WorklistItem | null;
+  /** Thu lại thành một dòng khi màn chỉ định đang mở bên dưới. */
+  thuGon?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -427,7 +465,14 @@ function CoordinationPanel({ item }: { item: WorklistItem | null }) {
       aria-label="Việc còn thiếu và điều phối"
       className="min-w-0 rounded-card border border-line bg-surface-muted p-3 shadow-card"
     >
-      <h2 className="mb-3 text-sm font-semibold text-ink">Việc còn thiếu & điều phối</h2>
+      <details open={!thuGon} className="group">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-ink marker:hidden">
+          Việc còn thiếu &amp; điều phối
+          <span className="ml-2 text-xs font-normal text-ink-muted group-open:hidden">
+            (bấm để mở)
+          </span>
+        </summary>
+        <div className="mt-3">
 
       {!item ? (
         <p className="rounded-control border border-dashed border-line-strong bg-surface px-3 py-5 text-center text-xs text-ink-muted">
@@ -494,12 +539,21 @@ function CoordinationPanel({ item }: { item: WorklistItem | null }) {
           </div>
         </div>
       )}
+        </div>
+      </details>
     </aside>
   );
 }
 
-export default function DoctorBoard({ items }: { items: WorklistItem[] }) {
+export default function DoctorBoard({
+  items,
+  catalogue,
+}: {
+  items: WorklistItem[];
+  catalogue: CatalogueEntry[];
+}) {
   const [query, setQuery] = useState("");
+  const [moChiDinh, setMoChiDinh] = useState(false);
   const visibleItems = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("vi");
     if (!needle) return items;
@@ -515,7 +569,13 @@ export default function DoctorBoard({ items }: { items: WorklistItem[] }) {
   const selected = visibleItems.find((item) => item.id === selectedId) ?? first;
 
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-[minmax(250px,1.05fr)_minmax(420px,1.7fr)_minmax(230px,0.72fr)]">
+    <div
+      className={`grid items-start gap-3 ${
+        moChiDinh
+          ? "xl:grid-cols-[minmax(230px,0.8fr)_minmax(360px,1.2fr)_minmax(380px,1.4fr)]"
+          : "xl:grid-cols-[minmax(250px,1.05fr)_minmax(420px,1.7fr)_minmax(230px,0.72fr)]"
+      }`}
+    >
       <QueuePanel
         items={visibleItems}
         selectedId={selected?.id ?? null}
@@ -523,8 +583,41 @@ export default function DoctorBoard({ items }: { items: WorklistItem[] }) {
         query={query}
         onQueryChange={setQuery}
       />
-      <ClinicalWorkspace item={selected} />
-      <CoordinationPanel item={selected} />
+      <ClinicalWorkspace
+        item={selected}
+        onOpenOrders={() => setMoChiDinh(true)}
+      />
+
+      {/* CỘT BA. Khi mở màn chỉ định, "Việc còn thiếu & điều phối" THU LẠI
+          thành một dòng tóm tắt bấm được — hai khối cùng bung ra thì chúng đè
+          nhau và không đọc được cái nào. */}
+      <div className="grid min-w-0 content-start gap-3">
+        <CoordinationPanel item={selected} thuGon={moChiDinh} />
+        {moChiDinh && selected?.visit_id ? (
+          <section
+            aria-label="Chỉ định dịch vụ"
+            className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+          >
+            <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
+              <h2 className="text-sm font-semibold text-ink">Chỉ định dịch vụ</h2>
+              <button
+                type="button"
+                onClick={() => setMoChiDinh(false)}
+                className="rounded-control border border-line px-2 py-1 text-xs text-ink-soft hover:bg-surface-muted"
+              >
+                Đóng
+              </button>
+            </header>
+            <div className="p-3">
+              <OrderComposer
+                visitId={selected.visit_id}
+                patient={selected.patient}
+                catalogue={catalogue}
+              />
+            </div>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

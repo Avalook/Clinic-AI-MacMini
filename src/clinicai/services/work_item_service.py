@@ -426,6 +426,11 @@ class WorkItemService:
                    a.slot_start,
                    a.booking_channel,
                    a.is_priority_slot,
+                   -- LOẠI DỊCH VỤ KHÁM. Bàn khám cần biết đây là khám Phụ
+                   -- khoa hay Sản khoa để mở đúng biểu mẫu — không có nó thì
+                   -- màn hình chỉ biết "đang ở bước nào", không biết "khám gì".
+                   st.code       AS service_code,
+                   st.name       AS service_name,
                    v.checked_in_at,
                    (m.role = ANY (n.actor_roles))      AS actionable_by_me,
                    EXISTS (
@@ -450,6 +455,12 @@ class WorkItemService:
               LEFT JOIN visit v
                 ON v.visit_id = w.visit_id
                AND v.clinic_id = w.clinic_id
+              -- Cùng phòng khám mới ghép: `service_type` có clinic_id riêng, và
+              -- một FK một cột không chặn được việc trỏ sang danh mục của phòng
+              -- khám khác.
+              LEFT JOIN service_type st
+                ON st.id = a.service_type_id
+               AND st.clinic_id = w.clinic_id
              WHERE w.clinic_id = $3::uuid
                AND w.status IN ('PENDING', 'IN_PROGRESS')
                -- A role can be admitted to the workspace because it owns one
@@ -508,6 +519,8 @@ class WorkItemService:
                 "slot_start": r["slot_start"],
                 "booking_channel": r["booking_channel"],
                 "is_priority_slot": bool(r["is_priority_slot"]),
+                "service_code": r["service_code"],
+                "service_name": r["service_name"],
                 "checked_in_at": r["checked_in_at"],
             }
             for r in rows

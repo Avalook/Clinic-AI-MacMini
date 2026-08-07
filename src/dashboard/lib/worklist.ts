@@ -37,6 +37,9 @@ export interface WorklistItem {
   slot_start: string | null;
   booking_channel: string | null;
   is_priority_slot: boolean;
+  /** Loại dịch vụ khám của lượt — để bàn khám mở đúng biểu mẫu. */
+  service_code: string | null;
+  service_name: string | null;
   checked_in_at: string | null;
 }
 
