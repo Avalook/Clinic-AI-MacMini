@@ -33,12 +33,25 @@ x-supabase-defaults: &supabase-defaults
   networks:
     - supabase
 
+# TÊN CONTAINER THEO TIỀN TỐ, MẶC ĐỊNH LÀ `clinicai`.
+#
+# `container_name` là tên TOÀN CỤC trên máy chủ — hai stack không thể cùng đặt
+# `clinicai_db`. Tham số hoá để dựng được bộ Supabase THỨ HAI cho staging, tách
+# hẳn database khỏi phòng khám đang chạy thật:
+#
+#   PROD    : docker compose -f docker-compose.supabase.yml -p clinicai_db up -d
+#   STAGING : SUPABASE_PREFIX=clinicai_stg SUPABASE_DB_PORT=54332 \
+#             SUPABASE_API_PORT=54331x docker compose \
+#             -f docker-compose.supabase.yml -p clinicai_stg_db up -d
+#
+# Mặc định `clinicai` là ĐÚNG TÊN prod đang chạy hôm nay — file này đổi mà
+# stack prod không phải dựng lại.
 services:
   # ---- Postgres ------------------------------------------------------------
   db:
     <<: *supabase-defaults
     image: postgres:17
-    container_name: clinicai_db
+    container_name: ${SUPABASE_PREFIX:-clinicai}_db
     environment:
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD:?can mat khau}
       POSTGRES_DB: postgres
@@ -76,7 +89,7 @@ services:
   auth:
     <<: *supabase-defaults
     image: supabase/gotrue:v2.177.0
-    container_name: clinicai_auth
+    container_name: ${SUPABASE_PREFIX:-clinicai}_auth
     depends_on:
       db:
         condition: service_healthy
@@ -118,7 +131,7 @@ services:
   rest:
     <<: *supabase-defaults
     image: postgrest/postgrest:v12.2.3
-    container_name: clinicai_rest
+    container_name: ${SUPABASE_PREFIX:-clinicai}_rest
     depends_on:
       db:
         condition: service_healthy
@@ -136,7 +149,7 @@ services:
   realtime:
     <<: *supabase-defaults
     image: supabase/realtime:v2.34.47
-    container_name: clinicai_realtime
+    container_name: ${SUPABASE_PREFIX:-clinicai}_realtime
     depends_on:
       db:
         condition: service_healthy
@@ -164,7 +177,7 @@ services:
   gateway:
     <<: *supabase-defaults
     image: caddy:2-alpine
-    container_name: clinicai_supabase_gateway
+    container_name: ${SUPABASE_PREFIX:-clinicai}_supabase_gateway
     depends_on:
       - auth
       - rest
