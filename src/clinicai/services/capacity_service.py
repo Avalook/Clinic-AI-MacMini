@@ -104,7 +104,7 @@ class CapacityService:
                   EXISTS (
                     SELECT 1 FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
-                       AND AND status = 'APPROVED'
+                       AND status = 'APPROVED'
                    AND EXISTS (
                      SELECT 1 FROM roster_week rw
                       WHERE rw.clinic_id = work_roster.clinic_id
@@ -115,7 +115,7 @@ class CapacityService:
                     SELECT array_agg(DISTINCT shift) FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
                        AND staff_id = $3::uuid
-                       AND AND status = 'APPROVED'
+                       AND status = 'APPROVED'
                    AND EXISTS (
                      SELECT 1 FROM roster_week rw
                       WHERE rw.clinic_id = work_roster.clinic_id
