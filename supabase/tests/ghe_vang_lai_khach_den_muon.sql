@@ -19,6 +19,7 @@ SELECT (SELECT id FROM public.clinic ORDER BY id LIMIT 1)          AS clinic_id,
 
 DO $$
 DECLARE
+    v_bs uuid;
     v_clinic   uuid := (SELECT clinic_id   FROM _dich);
     v_loc      uuid := (SELECT location_id FROM _dich);
     v_svc      uuid;
@@ -55,6 +56,12 @@ BEGIN
     INSERT INTO public.patient (patient_code, full_name, location_id, clinic_id)
     VALUES ('BN-KIEMTHU-VANGLAI', 'Kiểm thử vãng lai', v_loc, v_clinic)
     RETURNING clinic_patient_id INTO v_bn_vl;
+
+    -- Bác sĩ dành riêng cho khối ⑤. Khối ①–④ CỐ Ý không có bác sĩ: chúng nói
+    -- về làn VÃNG LAI chung của phòng khám, và làn ấy vẫn bị trần như cũ.
+    INSERT INTO public.staff (primary_location_id, full_name, primary_department)
+    VALUES (v_loc, 'BS kiểm thử ghế', 'DOCTOR')
+    RETURNING id INTO v_bs;
 
     -- Độ dài khung + trần vãng lai lấy từ chính resolver mà trigger dùng, chứ
     -- không gõ 15 phút vào đây: phòng khám đổi cấu hình thì bài kiểm đổi theo.
@@ -142,22 +149,38 @@ BEGIN
     -- ── ⑤ Sống lại từ CANCELLED thì VẪN bị kiểm ────────────────────────────
     -- Nhánh trả-về-sớm chỉ miễn cho dòng ĐANG CÒN SỐNG. Một dòng đã huỷ mà
     -- được bật lại là đang đòi một ghế mới, và phải xếp hàng như mọi dòng khác.
-    UPDATE public.appointment SET status = 'CANCELLED' WHERE id = v_appt_hen;
+    -- Dòng riêng CÓ BÁC SĨ, không bật lại v_appt_hen.
+    --
+    -- Từ 20260808000002, lịch hẹn KHÔNG có bác sĩ được miễn trần số chỗ — nó
+    -- đang chờ quản lý xếp người và chưa chiếm ghế của ai. Nếu khối này vẫn
+    -- dùng dòng không bác sĩ thì nó "đạt" một cách rỗng: không có gì bị chặn
+    -- cả, và khẳng định "sống lại thì vẫn bị kiểm" im lặng ngừng được kiểm.
+    -- v_appt_hen phải giữ nguyên không bác sĩ vì khối ①–④ đếm làn chung.
+    INSERT INTO public.patient (patient_code, full_name, location_id, clinic_id)
+    VALUES ('BN-KIEMTHU-SONGLAI', 'Kiểm thử sống lại', v_loc, v_clinic)
+    RETURNING clinic_patient_id INTO v_bn_lap;
+
+    INSERT INTO public.appointment
+        (clinic_patient_id, location_id, service_type_id, doctor_id,
+         slot_start, slot_end, booking_channel, status, clinic_id)
+    VALUES (v_bn_lap, v_loc, v_svc, v_bs, v_A, v_B,
+            'ONLINE', 'CANCELLED', v_clinic)
+    RETURNING id INTO v_appt_hen;
 
     -- Lấp đầy ghế đặt hẹn của khung A bằng đúng regular_cap người KHÁC, rồi
     -- thử bật lại dòng đã huỷ. Mỗi vòng một bệnh nhân mới: một người không
     -- được giữ hai lịch còn sống trong cùng một khung (uq_appointment_patient_slot_live).
     SELECT regular_cap INTO v_dem
-      FROM public.resolve_effective_cap(v_clinic, NULL, v_A);
+      FROM public.resolve_effective_cap(v_clinic, v_bs, v_A);
     FOR i IN 1..v_dem LOOP
         INSERT INTO public.patient (patient_code, full_name, location_id, clinic_id)
         VALUES ('BN-KIEMTHU-LAP-' || i, 'Kiểm thử lấp chỗ ' || i, v_loc, v_clinic)
         RETURNING clinic_patient_id INTO v_bn_lap;
 
         INSERT INTO public.appointment
-            (clinic_patient_id, location_id, service_type_id,
+            (clinic_patient_id, location_id, service_type_id, doctor_id,
              slot_start, slot_end, booking_channel, status, clinic_id)
-        VALUES (v_bn_lap, v_loc, v_svc, v_A, v_B,
+        VALUES (v_bn_lap, v_loc, v_svc, v_bs, v_A, v_B,
                 'ONLINE', 'SCHEDULED', v_clinic);
     END LOOP;
 
