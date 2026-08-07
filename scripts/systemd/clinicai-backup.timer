@@ -1,0 +1,15 @@
+[Unit]
+Description=Chạy sao lưu ClinicAI hằng đêm
+
+[Timer]
+# 02:15 giờ Việt Nam — sau giờ đóng cửa muộn nhất và trước ca sáng, nên bản dump
+# không bắt được một lượt khám đang dở.
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+
+# Máy chủ dùng chung với ứng dụng đang phục vụ phòng khám. Một phút xê dịch để
+# sao lưu không khởi động đúng lúc mọi tác vụ định giờ khác cùng chạy.
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
