@@ -56,7 +56,11 @@ DECLARE
     -- mỗi lần mở trang (migration 20260807000005).
     -- 59 → 60 (07/08/2026): thong_bao — Trưởng ca gọi một bộ phận, và cuộc gọi
     -- ấy để lại dấu vết đo được (migration 20260807000006).
-    expected_tenant_tables constant integer := 60;
+    -- 60 → 61 (08/08/2026): roster_week — tuần lịch trực đã được quản lý bấm
+    -- áp dụng. Tách "đã xếp" khỏi "đã chốt": trước đó một tuần trải sẵn từ mẫu
+    -- và một tuần đã công bố trông hệt nhau, nên màn đặt lịch nói chắc nịch ai
+    -- trực ngày 12/12 trong khi phòng khám chưa quyết (migration 20260808000001).
+    expected_tenant_tables constant integer := 61;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
