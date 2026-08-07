@@ -46,7 +46,9 @@ async function authorizeAdmin(): Promise<AuthResult> {
     };
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Địa chỉ NỘI BỘ trước — route này chạy trong container, xem proxy.ts.
+  const SUPABASE_URL =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return {
