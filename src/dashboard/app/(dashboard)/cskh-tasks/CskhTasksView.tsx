@@ -216,30 +216,45 @@ export default function CskhTasksView({ tasks, stats }: Props) {
   // nút này từ trước). Mọi kết quả khác là một LẦN GỌI đã xảy ra và phải được
   // ghi vào nhật ký CSKH — kể cả khi không ai bắt máy. Không bắt máy vẫn là
   // một việc đã làm.
+  /** Ghi lại một cuộc gọi đã xảy ra, và xác nhận lịch NẾU lịch còn cần xác nhận.
+   *
+   * `cskh_confirm` chỉ nhận lịch ở trạng thái SCHEDULED (booking_service TRANSITIONS).
+   * Từ 04/08/2026 mọi lịch mới đặt thẳng vào CONFIRMED — vòng gọi-xác-nhận đã bỏ —
+   * nên gửi lệnh ấy cho một lịch mới là chắc chắn lỗi chuyển trạng thái. Nút "Đã
+   * liên hệ" vì thế HỎNG với mọi lịch đặt sau ngày đó; chỉ 23 dòng SCHEDULED cũ
+   * còn dùng được.
+   *
+   * Thứ đáng giá của cuộc gọi không phải là đổi trạng thái lịch — nó vốn đã chắc.
+   * Thứ đáng giá là DẤU VẾT: đã gọi, lúc nào, kết quả ra sao. Nên luôn ghi nhật ký,
+   * và chỉ đổi trạng thái khi lịch thật sự đang chờ xác nhận.
+   */
   async function handleSaveResult() {
     if (!selected || !contactResult) return;
     setSaving(true);
     try {
-      const isAppt = selected.sourceType === "appointment";
-      const res =
-        isAppt && contactResult === "CONTACTED"
-          ? await fetch("/api/appointments", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                id: selected.sourceId,
-                action: "cskh_confirm",
-              }),
-            })
-          : await fetch("/api/cskh-followup", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                clinic_patient_id: selected.patientId,
-                result: contactResult,
-                note,
-              }),
-            });
+      const canXacNhan =
+        selected.sourceType === "appointment" &&
+        contactResult === "CONTACTED" &&
+        selected.status === "SCHEDULED";
+
+      const res = canXacNhan
+        ? await fetch("/api/appointments", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: selected.sourceId,
+              action: "cskh_confirm",
+            }),
+          })
+        : await fetch("/api/cskh-followup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clinic_patient_id: selected.patientId,
+              result: contactResult,
+              note,
+            }),
+          });
 
       if (!res.ok) {
         // Im lặng nuốt lỗi là cách bản trước làm hỏng việc. Nói ra.
@@ -265,7 +280,11 @@ export default function CskhTasksView({ tasks, stats }: Props) {
     if (!selected) return;
     setSaving(true);
     try {
-      if (selected.sourceType === "appointment") {
+      // Cùng lý do như handleSaveResult: chỉ lịch SCHEDULED mới xác nhận được.
+      if (
+        selected.sourceType === "appointment" &&
+        selected.status === "SCHEDULED"
+      ) {
         const res = await fetch("/api/appointments", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -274,10 +293,15 @@ export default function CskhTasksView({ tasks, stats }: Props) {
             action: "cskh_confirm",
           }),
         });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
+        if (!res.ok) {
+          // Nhánh này trước đây không tồn tại: lỗi rơi vào im lặng và việc vẫn
+          // trông như chưa làm, nên người dùng bấm lại mãi.
+          setLoi("Không xác nhận được lịch hẹn. Thử lại giúp em.");
+          return;
         }
+        setLoi(null);
+        setDoneIds((prev) => new Set(prev).add(selected.id));
+        router.refresh();
       } else {
         const res = await fetch("/api/cskh-followup", {
           method: "POST",

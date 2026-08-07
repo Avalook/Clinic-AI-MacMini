@@ -89,6 +89,7 @@ export default function RosterEditor({
   }
 
   async function remove(id: string) {
+    setError(null);
     setBusy(true);
     const res = await fetch("/api/roster", {
       method: "DELETE",
@@ -96,7 +97,19 @@ export default function RosterEditor({
       body: JSON.stringify({ id }),
     });
     setBusy(false);
-    if (res.ok) router.refresh();
+    if (!res.ok) {
+      // Trước đây chỉ có nhánh `if (res.ok)`. Nghĩa là 403 — thứ Trưởng ca gặp
+      // mỗi lần bấm — biến mất không dấu vết: ô vẫn nguyên, không báo gì, người
+      // dùng bấm lại và tưởng mạng chậm.
+      const chi_tiet = await res
+        .json()
+        .then((d: { error?: string }) => d.error)
+        .catch(() => null);
+      setError(chi_tiet ?? `Không xoá được ca (lỗi ${res.status}).`);
+      return;
+    }
+    setError(null);
+    router.refresh();
   }
 
   const byDate = dates
