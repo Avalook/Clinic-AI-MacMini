@@ -307,6 +307,11 @@ class WorklistItem(BaseModel):
     slot_start: datetime | None = None
     booking_channel: str | None = None
     is_priority_slot: bool = False
+    # LOẠI DỊCH VỤ KHÁM. Phải khai Ở ĐÂY, không chỉ ở câu SQL: `response_model`
+    # LỌC BỎ mọi khoá không có trong model, im lặng. Service trả về đúng dữ
+    # liệu mà API vẫn ra `null` — đã mất một lượt deploy vì chuyện này.
+    service_code: str | None = None
+    service_name: str | None = None
     checked_in_at: datetime | None = None
 
 
