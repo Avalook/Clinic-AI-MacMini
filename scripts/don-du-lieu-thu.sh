@@ -35,9 +35,20 @@ docker inspect "$DB" >/dev/null 2>&1 || { echo "!! không có container $DB" >&2
 PSQL=(docker exec -i "$DB" psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres)
 
 #: Mẫu mã hồ sơ do CHÍNH CHÚNG TA sinh ra khi thử. Thêm mẫu mới thì thêm ở đây.
+#
+#  KHÔNG BAO GIỜ thêm mẫu mà CHÍNH ỨNG DỤNG sinh ra.
+#
+#  `BN-2026-%` từng nằm trong danh sách này. Nhưng `_generate_patient_code()`
+#  sinh đúng dạng `BN-<năm>-<6 số>` cho MỌI bệnh nhân thật tạo qua giao diện —
+#  nên khoá an toàn nhìn một hồ sơ thật và bảo "đây là dữ liệu thử", rồi cho
+#  TRUNCATE chạy. Nó biến chính cái khoá này thành thứ vô dụng đúng lúc cần
+#  nhất. Phát hiện 07/08/2026, khi prod có hai hồ sơ Quang vừa tạo tay
+#  (BN-2026-342373, BN-2026-949650) và script sẵn sàng xoá cả hai.
+#
+#  Mẫu hợp lệ phải là thứ chỉ fixture/seed của mình đặt: DEMO-, BN-KIEMTHU,
+#  STG-, hoặc tên bắt đầu bằng ZZ.
 LA_THU="patient_code LIKE 'DEMO-%'
      OR patient_code LIKE 'BN-KIEMTHU%'
-     OR patient_code LIKE 'BN-2026-%'
      OR patient_code LIKE 'BN-LOCAL-%'
      OR patient_code LIKE 'BN-DIENTHU-%'
      OR patient_code LIKE 'STG-%'
