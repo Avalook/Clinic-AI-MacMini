@@ -60,7 +60,9 @@ DECLARE
     -- áp dụng. Tách "đã xếp" khỏi "đã chốt": trước đó một tuần trải sẵn từ mẫu
     -- và một tuần đã công bố trông hệt nhau, nên màn đặt lịch nói chắc nịch ai
     -- trực ngày 12/12 trong khi phòng khám chưa quyết (migration 20260808000001).
-    expected_tenant_tables constant integer := 61;
+    -- 61 → 62 (08/08/2026): luat_bac_si_bat_buoc — dịch vụ X + khách mới thì
+    -- bắt buộc bác sĩ Y, thi hành LÚC ĐẶT LỊCH (migration 20260808000003).
+    expected_tenant_tables constant integer := 62;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

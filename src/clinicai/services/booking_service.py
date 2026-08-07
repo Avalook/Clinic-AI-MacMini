@@ -428,6 +428,23 @@ class BookingService:
                             raise ConflictError(off_duty)
                         warnings.append(off_duty)
 
+                # LUẬT BẮT BUỘC BÁC SĨ — thi hành ở ĐÂY, lúc CSKH còn đang
+                # nói chuyện với khách. Luật cũ (visit_gate_rule) chỉ chạy lúc
+                # chuyển phòng, tức sau khi khách đã đi tới nơi; lúc đó có phát
+                # hiện sai thì cũng không sửa được nữa.
+                loi_bs = await self._luat_bac_si_bat_buoc(
+                    conn,
+                    clinic_patient_id=clinic_patient_id,
+                    service_type_id=service_type_id,
+                    doctor_id=doctor_id,
+                    identity=identity,
+                )
+                if loi_bs:
+                    cau, chan = loi_bs
+                    if chan:
+                        raise ConflictError(cau)
+                    warnings.append(cau)
+
                 policy = await load_effective_policy(
                     conn, identity.clinic_id, doctor_id, slot_start
                 )
@@ -583,6 +600,8 @@ class BookingService:
                         a.id, a.doctor_id, a.status, a.clinic_patient_id,
                         a.slot_start, a.slot_end, a.queue_number,
                         a.booking_channel,
+                        -- Cần cho luật bắt buộc bác sĩ lúc gán người.
+                        a.service_type_id,
                         EXISTS (
                             SELECT 1
                               FROM patient p
@@ -786,6 +805,21 @@ class BookingService:
                     "Lịch này đã có bác sĩ. Dùng Đổi lịch nếu cần đổi người."
                 )
             patch["doctor_id"] = new_doctor
+
+            # LUẬT BẮT BUỘC BÁC SĨ cũng áp ở đây. Không có chỗ này thì hàng chờ
+            # thành đường vòng: đặt lịch để trống bác sĩ, rồi gán ai cũng được.
+            loi_bs = await self._luat_bac_si_bat_buoc(
+                conn,
+                clinic_patient_id=str(appt["clinic_patient_id"]),
+                service_type_id=(
+                    str(appt["service_type_id"]) if appt["service_type_id"] else None
+                ),
+                doctor_id=new_doctor,
+                identity=identity,
+            )
+            if loi_bs and loi_bs[1]:
+                raise ConflictError(loi_bs[0])
+
             # Trần số chỗ áp ở ĐÂY, đúng lúc câu hỏi trở thành thật: trước đó
             # lịch chưa chiếm ghế của ai (xem migration 20260808000002).
             await self._guard_slot(
@@ -991,6 +1025,60 @@ class BookingService:
             list(transition.from_statuses),
         )
         return bool(rows)
+
+    async def _luat_bac_si_bat_buoc(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_patient_id: str,
+        service_type_id: str | None,
+        doctor_id: str | None,
+        identity: StaffIdentity,
+    ) -> tuple[str, bool] | None:
+        """Câu từ chối + có chặn hẳn không; None nếu không vướng luật nào.
+
+        BỎ QUA KHI CHƯA CHỌN BÁC SĨ. Lịch đang chờ xếp người thì chưa có gì để
+        đối chiếu — luật sẽ áp lúc quản lý gán bác sĩ, cùng chỗ với trần số chỗ.
+        Chặn ở đây là chặn luôn cả hàng chờ, đúng thứ nhịp trước vừa mở ra.
+
+        "KHÁCH MỚI" SUY TỪ LỊCH SỬ, không đọc `appointment.patient_kind`. Ô đó
+        do lễ tân gõ tay, nullable, và màn đặt lịch tự điền nó theo "có đợt chăm
+        sóc đang mở hay không" — nên một khách gõ nhầm là luật bỏ lọt, và một
+        khách cũ quay lại có thể bị bắt khám lại từ đầu.
+        """
+        if not service_type_id or not doctor_id:
+            return None
+
+        luat = await conn.fetchrow(
+            """
+            SELECT l.required_staff_id::text AS bac_si_id,
+                   l.chan_han,
+                   s.full_name AS ten_bac_si,
+                   st.name     AS ten_dich_vu,
+                   public.la_khach_moi_cua_dich_vu(
+                       l.clinic_id, $2::uuid, l.service_type_id,
+                       l.cach_tinh, l.so_thang) AS khach_moi
+              FROM public.luat_bac_si_bat_buoc l
+              JOIN public.staff s        ON s.id = l.required_staff_id
+              JOIN public.service_type st ON st.id = l.service_type_id
+             WHERE l.clinic_id = $1::uuid
+               AND l.service_type_id = $3::uuid
+               AND l.is_active
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
+            service_type_id,
+        )
+        if luat is None or not luat["khach_moi"]:
+            return None
+        if str(luat["bac_si_id"]) == str(doctor_id):
+            return None
+
+        return (
+            f"Khách mới của {luat['ten_dich_vu']} phải khám "
+            f"{luat['ten_bac_si']} lần đầu.",
+            bool(luat["chan_han"]),
+        )
 
     async def _patient_double_booked(
         self,
