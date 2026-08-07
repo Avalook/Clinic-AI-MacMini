@@ -92,6 +92,7 @@ Action = Literal[
     "cancel",
     "no_show",
     "reassign",
+    "assign_doctor",
     "reschedule",
 ]
 
@@ -251,6 +252,21 @@ TRANSITIONS: dict[str, Transition] = {
         frozenset({"DOCTOR_DECLINED"}),
         MANAGE_ROLES,
         "appointment.reassigned",
+    ),
+    # GÁN BÁC SĨ cho một lịch đã đặt mà chưa có bác sĩ.
+    #
+    # Việc này chưa từng có đường đi. `reassign` chỉ nhận lịch bị bác sĩ TỪ CHỐI,
+    # và `reschedule` là đường duy nhất ghi được doctor_id nhưng bắt buộc phải
+    # kèm giờ hẹn mới — nên muốn xếp bác sĩ cho một lịch chờ thì phải giả vờ đổi
+    # giờ, tức là dời lịch của bệnh nhân để làm một việc nội bộ.
+    #
+    # GIỮ NGUYÊN TRẠNG THÁI: thoả thuận với bệnh nhân không đổi khi phòng khám
+    # xếp được người. Không có lý do gì gọi lại họ để xác nhận lần nữa.
+    "assign_doctor": Transition(
+        KEEP_STATUS,
+        _ALIVE,
+        MANAGE_ROLES,
+        "appointment.doctor_assigned",
     ),
     # Rescheduling keeps whatever status the appointment already had.
     "reschedule": Transition(
@@ -749,6 +765,29 @@ class BookingService:
         elif action == "reassign":
             new_doctor = (doctor_id or "").strip() or None
             patch["doctor_id"] = new_doctor
+            await self._guard_slot(
+                conn,
+                doctor_id=new_doctor,
+                slot_start=appt["slot_start"],
+                slot_end=appt["slot_end"],
+                channel=appt["booking_channel"],
+                exclude_id=str(appt["id"]),
+                identity=identity,
+            )
+
+        elif action == "assign_doctor":
+            new_doctor = (doctor_id or "").strip() or None
+            if not new_doctor:
+                raise ValidationError("Chọn bác sĩ. Muốn bỏ bác sĩ thì dùng đổi lịch.")
+            if appt["doctor_id"] is not None:
+                # Lịch đã có bác sĩ thì đây là ĐỔI bác sĩ, không phải xếp lần
+                # đầu — việc đó đi qua reschedule/reassign, nơi có ghi lý do.
+                raise ConflictError(
+                    "Lịch này đã có bác sĩ. Dùng Đổi lịch nếu cần đổi người."
+                )
+            patch["doctor_id"] = new_doctor
+            # Trần số chỗ áp ở ĐÂY, đúng lúc câu hỏi trở thành thật: trước đó
+            # lịch chưa chiếm ghế của ai (xem migration 20260808000002).
             await self._guard_slot(
                 conn,
                 doctor_id=new_doctor,

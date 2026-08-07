@@ -208,13 +208,14 @@ type PatchAction =
   | "cancel"
   | "no_show"
   | "reassign"
+  | "assign_doctor"
   | "reschedule";
 
 interface PatchBody {
   id?: string;
   action?: PatchAction;
   cancellation_reason?: string; // cho action "cancel"
-  doctor_id?: string; // "reassign"/"reschedule" (bác sĩ mới); rỗng = bỏ phân
+  doctor_id?: string; // "reassign"/"assign_doctor"/"reschedule"; rỗng = bỏ phân
   slot_start?: string; // cho action "reschedule" (ISO UTC)
   slot_end?: string; // cho action "reschedule" (ISO UTC)
 }
@@ -229,7 +230,14 @@ const CHECKIN_ACTIONS = new Set<PatchAction>([
   "cskh_confirm",
 ]);
 // Quản trị vòng đời lịch: hủy + phân lại + ĐỔI LỊCH (CSKH/Quản lý).
-const MANAGE_ACTIONS = new Set<PatchAction>(["cancel", "reassign", "reschedule"]);
+const MANAGE_ACTIONS = new Set<PatchAction>([
+  "cancel",
+  "reassign",
+  // Xếp bác sĩ cho một lịch đã đặt mà chưa có ai. Khác "reassign" (chỉ nhận
+  // lịch bị bác sĩ từ chối) và khác "reschedule" (bắt buộc đổi giờ).
+  "assign_doctor",
+  "reschedule",
+]);
 // no_show: front-desk đánh "không đến" (canCheckin).
 const ALL_ACTIONS = new Set<PatchAction>([
   ...DOCTOR_ACTIONS,
