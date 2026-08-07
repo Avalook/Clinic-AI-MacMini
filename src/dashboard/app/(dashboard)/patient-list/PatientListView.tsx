@@ -22,12 +22,12 @@ import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
-
-/** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
-type PatientFull = NonNullable<DoctorApptRow["patient"]>;
 import SplitPane from "../SplitPane";
 import QuickBookingModal from "./QuickBookingModal";
 import type { Option } from "../patients/AppointmentBooking";
+
+/** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
+type PatientFull = NonNullable<DoctorApptRow["patient"]>;
 
 /** Một lần khám trong quá khứ — đủ để liệt kê, không kèm dữ liệu lâm sàng. */
 export interface VisitSummary {
@@ -210,9 +210,8 @@ export default function PatientListView({
     null;
   /** Khối hành chính của BN đang chọn.
    *
-   * Nó đi kèm lượt hẹn (`appt.patient`) và đã được tải về từ đầu — trước đây
-   * màn này giữ nguyên trong bộ nhớ mà vẫn bắt người dùng bấm sang trang khác
-   * để đọc.
+   * Lấy từ CHÍNH hồ sơ, không đi ké lượt hẹn: hồ sơ chưa khám lần nào thì
+   * không có lượt hẹn nào để ké, mà khối hành chính thì vẫn phải hiện.
    */
   const hc = selected?.hoso;
 
