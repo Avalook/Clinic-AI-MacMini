@@ -5,6 +5,7 @@ import { getSupabaseServer } from "../../../lib/supabase-server";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { vnTodayRangeUtc } from "../../../lib/datetime";
 import CskhTasksView, { type CskhTaskRow } from "./CskhTasksView";
+import { doctorName } from "../../../lib/doctor-name";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,10 @@ export default async function CskhTasksPage() {
       category,
       step,
       status: a.status,
-      description: doc?.full_name ? `BS ${doc.full_name}` : "Chưa phân bác sĩ",
+      // doctorName() chứ không tự nối "BS": full_name đã kèm học hàm.
+      description: doc?.full_name
+        ? doctorName(doc.full_name)
+        : "Chưa phân bác sĩ",
       deadlineAt: a.slot_start,
       createdAt: a.slot_start,
       assignee: null,
