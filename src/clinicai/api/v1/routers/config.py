@@ -111,6 +111,52 @@ async def add_shift(
     return {"ok": True, "id": roster_id}
 
 
+@router.get("/roster/stations")
+async def roster_stations(
+    staff_id: UUID,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Nhân viên này được xếp vào những vị trí nào.
+
+    Cùng nguồn với chỗ thi hành trong `add_shift`, nên ô chọn trên màn không
+    thể mời một vị trí rồi backend từ chối.
+    """
+    return await RosterService(pool).tram_cho_nhan_vien(
+        identity=identity, staff_id=str(staff_id)
+    )
+
+
+@router.get("/roster/station-scope")
+async def station_scope(
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Cả ma trận vai × vị trí — màn cấu hình của quản lý."""
+    return {"items": await RosterService(pool).ma_tran_vi_tri(identity=identity)}
+
+
+class StationScopeRequest(BaseModel):
+    tram_ma: str = Field(min_length=1, max_length=64)
+    vai: str = Field(min_length=1, max_length=32)
+    cho_phep: bool
+
+
+@router.put("/roster/station-scope")
+async def set_station_scope(
+    body: StationScopeRequest,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bật/tắt một ô của ma trận. Chỉ Quản lý (kiểm lại trong service)."""
+    return await RosterService(pool).dat_vi_tri_cho_vai(
+        identity=identity,
+        tram_ma=body.tram_ma,
+        vai=body.vai,
+        cho_phep=body.cho_phep,
+    )
+
+
 @router.patch("/roster/shifts/{roster_id}")
 async def decide_shift(
     roster_id: UUID,

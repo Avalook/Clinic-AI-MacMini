@@ -126,10 +126,27 @@ tuan AS (
 ),
 -- Phòng khám: file này dựng cho phòng khám DUY NHẤT đang có. Có phòng khám
 -- thứ hai thì phải truyền vào, không đoán.
-pk AS (SELECT id FROM public.clinic ORDER BY created_at LIMIT 1)
+pk AS (SELECT id FROM public.clinic ORDER BY created_at LIMIT 1),
+-- Ô ĐẦU CỘT, KHÔNG PHẢI CA TRỰC.
+--
+-- Ở mọi trạm phụ, dòng `thu_tu = 0` mang tên một BÁC SĨ là tiêu đề cột trong
+-- file Excel — nó nói TRẠM NÀY PHỤC VỤ AI, chứ không nói ai đứng ở đó. Bản nạp
+-- đầu tiên đọc cả cột thành người và sinh ra 390 ca trực ma trên bản thật:
+-- "BS THÀNH · Phụ BS (khám + thuốc)", bác sĩ tự phụ chính mình.
+-- Xem 20260809000001 để biết cách phát hiện và dọn.
+--
+-- Ở trạm KHÔNG có bác sĩ (Lấy máu, Lễ tân…) thì `thu_tu = 0` chỉ là người đầu
+-- danh sách — nên điều kiện phải gồm CẢ chức danh, không chỉ số thứ tự.
+dau_cot AS (
+    SELECT m.thu, m.ca, m.tram, s.id AS bac_si_id
+      FROM mau m JOIN public.staff s
+        ON s.short_name = m.ten_ngan AND s.is_active
+     WHERE m.tram <> 'LICH_KHAM' AND m.thu_tu = 0
+       AND s.primary_department = 'DOCTOR'
+)
 INSERT INTO public.work_roster
     (clinic_id, week_start, work_date, shift, station, staff_id, staff_name,
-     sort, status)
+     sort, status, bac_si_phu_trach_id)
 SELECT pk.id,
        t.week_start,
        t.week_start + (m.thu - 1),
@@ -138,15 +155,24 @@ SELECT pk.id,
        s.id,                     -- NULL khi tên trong bảng không khớp ai
        m.ten_bang,               -- giữ NGUYÊN chữ trong bảng của phòng khám
        m.thu_tu,
-       'APPROVED'
+       'APPROVED',
+       dc.bac_si_id              -- trạm phụ này phục vụ bác sĩ nào
   FROM tuan t
  CROSS JOIN mau m
  CROSS JOIN pk
   LEFT JOIN public.staff s
     ON s.short_name = m.ten_ngan AND s.is_active
+  LEFT JOIN dau_cot dc
+    ON dc.thu = m.thu AND dc.ca = m.ca AND dc.tram = m.tram
  WHERE NOT EXISTS (
          SELECT 1 FROM public.work_roster w
           WHERE w.clinic_id = pk.id AND w.week_start = t.week_start
+       )
+   -- Bỏ chính dòng đầu cột đi: thông tin của nó đã nằm ở cột bên phải.
+   AND NOT EXISTS (
+         SELECT 1 FROM dau_cot d
+          WHERE d.thu = m.thu AND d.ca = m.ca AND d.tram = m.tram
+            AND d.bac_si_id = s.id
        );
 
 -- Nói ra ngay cái không khớp, đừng để nó lặng lẽ thành ô trống trên màn.

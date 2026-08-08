@@ -2,7 +2,6 @@
 // Danh sách trạm suy ra từ bảng Google Sheet của phòng khám; chỉnh ở đây nếu
 // phòng khám đổi cách phân công.
 
-import { type ClinicRole, isDoctorRole } from "./roles";
 
 // Cookie lưu "tôi là ai" cho vai trò không phải bác sĩ (lọc lịch cá nhân).
 export const ROSTER_STAFF_COOKIE = "roster_staff_id";
@@ -193,28 +192,21 @@ export function clinicHoursError(
   return null;
 }
 
-// ===== TRẠM HỢP LỆ THEO VAI TRÒ =====
-// Tránh phi lý "lễ tân → trạm bác sĩ": bác sĩ CHỈ ở "Lịch khám"; vai trò khác
-// KHÔNG vào trạm bác sĩ (vẫn xoay vòng mọi trạm hỗ trợ); quản lý linh động.
-export function stationsForRole(role: ClinicRole | null): Station[] {
-  if (isDoctorRole(role)) return STATIONS.filter((s) => s.key === "LICH_KHAM");
-  if (role === "MANAGEMENT") return STATIONS;
-  return STATIONS.filter((s) => s.key !== "LICH_KHAM");
-}
-
-/** Trạm mặc định cho "đăng ký ca của tôi" (đã bỏ ô chọn trạm — suy từ vai trò). */
-export function defaultStationForRole(role: ClinicRole | null): string {
-  switch (role) {
-    case "DOCTOR":
-    case "ULTRASOUND_DOCTOR":
-      return "LICH_KHAM";
-    case "RECEPTION":
-      return "LE_TAN";
-    case "NURSE_ULTRASOUND":
-      return "PHU_BS_SA";
-    case "CSKH":
-      return "LE_TAN";
-    default:
-      return stationsForRole(role)[0]?.key ?? STATIONS[0].key;
-  }
-}
+// ===== TRẠM HỢP LỆ THEO VAI TRÒ — ĐÃ CHUYỂN VÀO DATABASE =====
+//
+// `stationsForRole` và `defaultStationForRole` từng ở đây. Cả hai đã bỏ
+// (20260809000002), vì hai lý do:
+//
+// 1. LUẬT CỦA CHÚNG SAI SO VỚI ĐỜI THẬT. `stationsForRole` nói: bác sĩ → đúng
+//    một trạm, MỌI VAI CÒN LẠI → mười một trạm còn lại. Gọn tới mức không chặn
+//    được gì: lễ tân chọn được "Máy trong E10 + VLTL/thủ thuật". Còn chiều
+//    ngược lại thì quá chặt — lễ tân Dr4Women đi LẤY MÁU 234 ca trong lịch
+//    thật, thứ mà `defaultStationForRole` không hề biết.
+//
+// 2. LỌC Ở TRÌNH DUYỆT KHÔNG PHẢI LÀ CHẶN. Một lời gọi API tự chế không đi qua
+//    hàm này. Backend mới là nơi từ chối (`RosterService._kiem_pham_vi_tram`).
+//
+// Nay hỏi `GET /api/roster?staff_id=…`, trả lời lấy từ bảng
+// `vai_duoc_vao_tram` — cùng bảng mà backend dùng để từ chối, nên giao diện
+// không thể mời một vị trí rồi lưu mới báo lỗi. Ma trận gieo từ chính lịch trực
+// của phòng khám và quản lý sửa được.
