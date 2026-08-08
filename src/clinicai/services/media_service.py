@@ -41,6 +41,20 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", "./.media/production"))
 #: được một video bị kéo nhầm vào ô ảnh.
 MAX_BYTES = 12 * 1024 * 1024
 
+#: Trần theo TỪNG LOẠI, không dùng chung một con số.
+#:
+#: Một con số duy nhất buộc phải lấy theo cái lớn nhất — và khi đó ô "chọn ảnh"
+#: cũng nhận một video 80MB, rồi màn siêu âm cố hiển thị nó như ảnh. Video có
+#: trần riêng và đọc từ môi trường, vì nó là thứ duy nhất ở đây đủ lớn để một
+#: phòng khám cần chỉnh mà không sửa code.
+MAX_BYTES_VIDEO = int(os.environ.get("MEDIA_MAX_BYTES_VIDEO", 80 * 1024 * 1024))
+MAX_BYTES_PDF = 20 * 1024 * 1024
+MAX_BYTES_THEO_LOAI: dict[str, int] = {
+    "ANH": MAX_BYTES,
+    "VIDEO": MAX_BYTES_VIDEO,
+    "PDF": MAX_BYTES_PDF,
+}
+
 #: Nhận diện bằng CHỮ KÝ ĐẦU TỆP, không bằng đuôi tên. Đuôi là thứ người tải
 #: lên tự đặt; mấy byte đầu là thứ tệp thật sự là.
 _MAGIC: tuple[tuple[bytes, str, str], ...] = (
@@ -48,6 +62,90 @@ _MAGIC: tuple[tuple[bytes, str, str], ...] = (
     (b"\x89PNG\r\n\x1a\n", "image/png", ".png"),
     (b"DICM", "application/dicom", ".dcm"),
 )
+
+
+#: Chữ ký cho TỆP KẾT QUẢ (đường CSKH): ảnh + video + phiếu PDF.
+#:
+#: MP4/MOV để `ftyp` ở BYTE THỨ 4, không phải đầu tệp — cùng kiểu bẫy như DICOM.
+#: Kiểm bằng đuôi `.mp4` thì một tệp `.mp4` chứa HTML sẽ được trình duyệt chạy
+#: nếu phục vụ sai kiểu; đây là dữ liệu bệnh nhân, không phải ảnh đại diện.
+_MAGIC_KET_QUA: tuple[tuple[bytes, str, str, str], ...] = (
+    (b"\xff\xd8\xff", "image/jpeg", ".jpg", "ANH"),
+    (b"\x89PNG\r\n\x1a\n", "image/png", ".png", "ANH"),
+    (b"%PDF-", "application/pdf", ".pdf", "PDF"),
+    (b"\x1a\x45\xdf\xa3", "video/webm", ".webm", "VIDEO"),
+)
+
+#: Nhãn con của khối `ftyp` → kiểu thật. `qt  ` là MOV (máy siêu âm Mỹ hay xuất
+#: kiểu này), phần còn lại coi là MP4.
+_FTYP_MOV = frozenset({b"qt  "})
+
+
+def sniff_ket_qua(data: bytes) -> tuple[str, str, str]:
+    """Kiểu thật của một tệp kết quả: (mime, đuôi, loại). Hoặc từ chối.
+
+    Trả về LOẠI chứ không chỉ mime, vì loại quyết định hai thứ khác nhau: trần
+    dung lượng, và cách màn hình hiển thị nó (thẻ img hay thẻ video).
+    """
+    for magic, mime, ext, loai in _MAGIC_KET_QUA:
+        if data.startswith(magic):
+            return mime, ext, loai
+    # DICOM: chữ ký nằm ở byte 128.
+    if len(data) > 132 and data[128:132] == b"DICM":
+        return "application/dicom", ".dcm", "ANH"
+    # MP4/MOV: `ftyp` ở byte 4, nhãn con ở byte 8.
+    if len(data) > 12 and data[4:8] == b"ftyp":
+        if data[8:12] in _FTYP_MOV:
+            return "video/quicktime", ".mov", "VIDEO"
+        return "video/mp4", ".mp4", "VIDEO"
+    raise ValidationError(
+        "Chỉ nhận ảnh (JPG/PNG/DICOM), video (MP4/MOV/WebM) hoặc phiếu PDF."
+    )
+
+
+def phan_tich_range(rng: str | None, so_byte: int) -> tuple[int, int] | None:
+    """`bytes=START-END` → (đầu, cuối) đã kẹp vào tệp. None = trả trọn tệp.
+
+    Trả về `(1, 0)` — một khoảng rỗng — khi yêu cầu nằm NGOÀI tệp, để lời gọi
+    biết mà trả 416. Trình phát video hỏi khoảng vượt cuối tệp là chuyện bình
+    thường; trả 200 kèm trọn tệp cho một câu hỏi như thế là bắt trình duyệt tải
+    lại từ đầu mỗi lần người xem kéo thanh tua tới cuối.
+
+    Đây là hàm THUẦN và nằm ngoài route có lý do: nó là phần duy nhất của đường
+    phục vụ video có nhiều nhánh, và nhét nó trong một route thì mỗi nhánh phải
+    kiểm bằng một request thật.
+    """
+    if not rng or not rng.startswith("bytes=") or so_byte <= 0:
+        return None
+    phan = rng.removeprefix("bytes=").split("-", 1)
+    try:
+        # `bytes=-500` = 500 byte CUỐI. Trình phát dùng dạng này để đọc chỉ mục
+        # MP4 nằm ở đuôi tệp; hiểu nhầm nó thành "từ byte 0" là tải cả video.
+        if not phan[0]:
+            n = int(phan[1]) if len(phan) > 1 and phan[1] else 0
+            if n <= 0:
+                return None
+            return (max(0, so_byte - n), so_byte - 1)
+        dau = int(phan[0])
+        cuoi = int(phan[1]) if len(phan) > 1 and phan[1] else so_byte - 1
+    except ValueError:
+        return None
+    dau = max(0, dau)
+    cuoi = min(cuoi, so_byte - 1)
+    return (dau, cuoi)
+
+
+def duong_dan_ket_qua(
+    *, clinic_id: str, clinic_patient_id: str, ext: str
+) -> tuple[Path, str]:
+    """Đường dẫn trên đĩa + khoá lưu vào database, cho tệp kết quả của CSKH.
+
+    Cùng luật với `safe_path`: không một phần nào của đường dẫn đến từ người
+    dùng, và mọi thứ bắt đầu bằng clinic_id nên hai phòng khám không đọc được
+    tệp của nhau kể cả khi một truy vấn nào đó sai.
+    """
+    key = f"{clinic_id}/ket-qua/{clinic_patient_id}/{uuid.uuid4().hex}{ext}"
+    return (MEDIA_ROOT / key), key
 
 
 def sniff(data: bytes) -> tuple[str, str]:

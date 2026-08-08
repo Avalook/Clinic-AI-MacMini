@@ -77,7 +77,11 @@ DECLARE
     -- cột nào chứa ngày sinh con thật, nên người gõ tay thay vì tab tự sinh sai.
     -- 66 → 67 (08/08/2026): phan_hoi_khach — phản hồi/khiếu nại của khách và
     -- vòng đời xử lý (DoD CSKH mục 3, migration 20260809000007).
-    expected_tenant_tables constant integer := 67;
+    -- 67 → 68 (08/08/2026): tep_ket_qua — ảnh/video siêu âm và phiếu xét
+    -- nghiệm CSKH tải lên, kèm "đã gửi cho khách chưa" (20260809000008).
+    -- `ultrasound_record.image_refs` là text[] nên không mang được kiểu tệp,
+    -- kích thước, ai tải, hay đã gửi chưa — đúng bốn câu màn CSKH cần hỏi.
+    expected_tenant_tables constant integer := 68;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

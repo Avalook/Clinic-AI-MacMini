@@ -26,6 +26,7 @@ import BaoXepBacSi from "./BaoXepBacSi";
 import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
+import type { TepKetQuaRow } from "./TepKetQua";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
 export interface TrangThaiCskh {
@@ -220,6 +221,7 @@ export default function CustomersView({
   tuongTacByPatient,
   trangThaiByPatient,
   phanHoiByPatient,
+  tepByPatient,
   locations,
   q,
   period,
@@ -245,6 +247,7 @@ export default function CustomersView({
   tuongTacByPatient: Record<string, DongLichSu[]>;
   trangThaiByPatient: Record<string, TrangThaiCskh>;
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
+  tepByPatient: Record<string, TepKetQuaRow[]>;
   locations: Opt[];
   q: string;
   period: Period;
@@ -631,6 +634,7 @@ export default function CustomersView({
               cancelled_at: selectedAppt?.cancelled_at ?? null,
             }}
             lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
+            tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
             onLamViec={setViecDangGhi}
           >
             <PhanHoiKhach
