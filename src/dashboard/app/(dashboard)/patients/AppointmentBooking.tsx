@@ -116,7 +116,7 @@ export default function AppointmentBooking({
   onBooked: (appointmentId: string) => void;
   /** Optional extra control rendered next to the submit button (e.g. "skip"). */
   secondary?: ReactNode;
-  /** Lễ tân xếp BN tái khám VÃNG LAI: chỉ bấm ô xanh (chỗ Ưu tiên, chỗ thứ 3),
+  /** Lễ tân xếp BN tái khám VÃNG LAI: chỉ bấm ô xanh (chỗ đến trực tiếp),
    *  đặt như WALK_IN, không cần Kênh đặt. Mặc định false = đặt hẹn thường (ô hồng). */
   walkin?: boolean;
   /** Set để chuyển form sang chế độ SỬA (đổi lịch) thay vì tạo mới. */
@@ -369,7 +369,7 @@ export default function AppointmentBooking({
         location_id: locationId,
         slot_start: start.toISOString(),
         slot_end: end.toISOString(),
-        // Vãng lai (Lễ tân) → WALK_IN để vào đúng ghế Ưu tiên (chỗ 3).
+        // Vãng lai (Lễ tân) → WALK_IN để vào đúng ghế đến trực tiếp.
         booking_channel: walkin ? "WALK_IN" : channel,
         // Tải/ca — backend tự gợi ý thanh_min/sono_min từ 2 field này (DEC-3).
         patient_kind: patientKind || undefined,
@@ -576,7 +576,7 @@ export default function AppointmentBooking({
           <label className={LABEL}>{walkin ? "Kênh đặt" : "Kênh đặt *"}</label>
           {walkin ? (
             <div className={INPUT + " flex items-center bg-success-bg text-success"}>
-              Ưu tiên — khách tới trực tiếp
+              Khách đến trực tiếp (không đặt trước)
             </div>
           ) : (
             <select

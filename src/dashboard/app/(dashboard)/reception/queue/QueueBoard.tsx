@@ -206,7 +206,15 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
             {(
               [
                 ["all", "Tất cả"],
-                ["priority", "Ưu tiên"],
+                // TAB "ƯU TIÊN" ĐÃ ẨN. Nó lọc theo `is_priority_slot`, mà
+                // KHÔNG đường ghi nào trong dashboard đặt cờ ấy — đo trên prod
+                // 08/08/2026: 0/10 lịch hẹn có cờ. Nên tab luôn rỗng, và một
+                // tab luôn rỗng dạy người dùng rằng "không có ca ưu tiên nào",
+                // chứ không phải "tính năng chưa có".
+                //
+                // Ưu tiên là khái niệm CHƯA XÂY (Quang: "bỏ ưu tiên đi đã").
+                // Giữ nguyên cột và `PriorityChip` làm chỗ nối cho sau này;
+                // chỉ bỏ thứ hứa hẹn với người dùng một việc chưa làm được.
                 ["verify", "Cần xác minh"],
               ] as const
             ).map(([value, label]) => (

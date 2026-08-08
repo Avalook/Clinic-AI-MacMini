@@ -252,10 +252,10 @@ export default function NewPatientForm({
   const [apptDate, setApptDate] = useState(initialAppt?.date ?? "");
   const [apptTime, setApptTime] = useState(initialAppt?.time ?? "");
   // Loại ghế đang chọn ở sơ đồ (luồng full): "regular" = BN1/BN2 (kênh thường);
-  // "walkin" = chỗ Ưu tiên (chỗ thứ 3) — đặt như WALK_IN để vào đúng ghế, không
+  // "walkin" = chỗ ĐẾN TRỰC TIẾP — đặt như WALK_IN để vào đúng ghế, không
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
   const [seatKind, setSeatKind] = useState<"regular" | "walkin">("regular");
-  const priority = !walkin && seatKind === "walkin";
+  const gheTrucTiep = !walkin && seatKind === "walkin";
   // Luật đặt lịch của phòng khám (C.3). `null` = chưa đọc được → không đoán.
   const policy = useBookingPolicy();
   // Lịch dài đúng một khung của PHÒNG KHÁM NÀY, không phải 15' cố định.
@@ -350,8 +350,8 @@ export default function NewPatientForm({
         doctorId || null,
         bucketMs,
       );
-      // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế vãng lai.
-      return walkin || priority
+      // Chỗ đến trực tiếp (walk-in flow HOẶC full flow chọn ô xanh).
+      return walkin || gheTrucTiep
         ? u.walkin >= policy.walkinCap
         : u.regular >= policy.regularCap;
     } catch {
@@ -359,7 +359,7 @@ export default function NewPatientForm({
     }
   }, [
     walkin,
-    priority,
+    gheTrucTiep,
     TODAY,
     apptDate,
     apptTime,
@@ -483,9 +483,9 @@ export default function NewPatientForm({
         location_id: effLocationId,
         slot_start: start.toISOString(),
         slot_end: end.toISOString(),
-        // Ghế Ưu tiên (ô xanh) = chỗ thứ 3 → phải là WALK_IN để server xếp đúng
+        // Ghế đến trực tiếp (ô xanh) → phải là WALK_IN để server xếp đúng
         // ghế (nếu không sẽ đội lên BN1/BN2 và bị chặn cứng cap 2).
-        booking_channel: walkin || priority ? "WALK_IN" : channel,
+        booking_channel: walkin || gheTrucTiep ? "WALK_IN" : channel,
         queue_number: queueNumber,
         patient_kind: patientKind,
         need_sono: needSono,
@@ -624,7 +624,7 @@ export default function NewPatientForm({
         setError("Vui lòng chọn giờ khám.");
         return;
       }
-      if (!priority && !channel) {
+      if (!gheTrucTiep && !channel) {
         setError("Vui lòng chọn kênh đặt.");
         return;
       }
@@ -1269,7 +1269,7 @@ export default function NewPatientForm({
               selectedDoctorId={doctorId}
               selectedTime={apptTime}
               mode="regular"
-              allowPriority
+              choChonGheTrucTiep
               selectedKind={seatKind}
               onPick={(docId, t, kind) => {
                 setApptTime(t);
@@ -1289,15 +1289,15 @@ export default function NewPatientForm({
                   : "Khung đang chọn còn trống."}
               </p>
             )}
-            {priority && (
+            {gheTrucTiep && (
               <p className="mt-1 text-[11px] font-medium text-success">
-                Đang xếp chỗ Ưu tiên (chỗ thứ 3) — không cần chọn Kênh đặt.
+                Đang xếp chỗ đến trực tiếp — không cần chọn Kênh đặt.
               </p>
             )}
           </div>
           <div>
             <label className={LABEL}>
-              Kênh đặt {!priority && <Req />}
+              Kênh đặt {!gheTrucTiep && <Req />}
             </label>
             <select
               value={channel}

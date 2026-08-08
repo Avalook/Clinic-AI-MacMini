@@ -5,8 +5,8 @@
 // hàng thứ 3 màu XANH "đặt vào đây" dành riêng khách vãng lai (WALK_IN); mỗi
 // cột = 1 khung 15 phút trong giờ mở cửa PK. Luật 2+1 nằm ở lib/slot-capacity
 // (server chặn cứng, đây là hiển thị đồng bộ).
-//   mode="regular" (CSKH/QL/Trưởng ca đặt hẹn): bấm được BN1/BN2; hàng Ưu tiên
-//     (chỗ 3, xanh) chỉ bấm được khi allowPriority=true (đặt như WALK_IN).
+//   mode="regular" (CSKH/QL/Trưởng ca đặt hẹn): bấm được BN1/BN2; hàng Đến
+//     trực tiếp (xanh) chỉ bấm được khi choChonGheTrucTiep=true (lưu WALK_IN).
 //   mode="walkin"  (Lễ tân xếp khách vãng lai): chỉ bấm được hàng xanh.
 // dutyDoctorIds lọc bác sĩ trực (từ Lịch làm việc); ngày chưa phân trực →
 // fallback hiện tất cả + dòng ghi chú. KHÔNG tự fetch/POST — parent truyền
@@ -36,7 +36,7 @@ export default function CinemaSlotPicker({
   selectedDoctorId,
   selectedTime,
   mode = "regular",
-  allowPriority = false,
+  choChonGheTrucTiep = false,
   selectedKind,
   onPick,
 }: {
@@ -50,9 +50,9 @@ export default function CinemaSlotPicker({
   selectedDoctorId: string;
   selectedTime: string;
   mode?: PickerMode;
-  /** regular-mode: cho bấm CẢ hàng Ưu tiên (chỗ thứ 3), không chỉ BN1/BN2.
+  /** regular-mode: cho bấm CẢ hàng Đến trực tiếp, không chỉ BN1/BN2.
    *  Mặc định false → giữ nguyên hành vi cũ (AppointmentBooking không đổi). */
-  allowPriority?: boolean;
+  choChonGheTrucTiep?: boolean;
   /** Loại ghế đang chọn — để tô "đang chọn" ĐÚNG hàng khi cả 2 loại bấm được.
    *  Bỏ trống → suy theo mode (walkin→"walkin", còn lại→"regular"). */
   selectedKind?: "regular" | "walkin";
@@ -135,10 +135,19 @@ export default function CinemaSlotPicker({
   const walkinMode = mode === "walkin";
   const effSelectedKind = selectedKind ?? (walkinMode ? "walkin" : "regular");
 
-  // Hàng con của mỗi bác sĩ: regularCap hàng "BN…" (kênh thường) + walkinCap
-  // hàng "Ưu tiên" (lưu như WALK_IN để vào đúng ghế; trước gọi "Vãng lai").
-  // Ở Dr4Women 2+1 nên vẫn là BN1/BN2/Ưu tiên như cũ; phòng khám khác cấu hình
-  // khác thì lưới mọc/co theo, không cần deploy lại.
+  // Hàng con của mỗi bác sĩ: regularCap hàng "BN…" (đặt trước) + walkinCap
+  // hàng "Đến trực tiếp" (lưu như WALK_IN).
+  //
+  // HÀNG NÀY TỪNG MANG NHÃN "ƯU TIÊN" — sai, và sai theo kiểu tốn tiền.
+  // Vãng lai là NGƯỜI ĐẾN TRỰC TIẾP không báo trước (Quang, 08/08/2026): có thể
+  // là khách mới tinh, có thể là khách cũ. Không liên quan gì tới "người quen
+  // của bác sĩ". Gọi nó là "Ưu tiên" khiến CSKH xếp người quen vào đó, và khi
+  // một khách thật bước vào quầy thì hết chỗ.
+  //
+  // Tệ hơn kể từ 07/08: khách CÓ HẸN đến muộn cũng chiếm một ghế vãng lai
+  // (20260807000001). Nên ghế ấy vốn đã chật, không phải chỗ để dành cho ai.
+  //
+  // Ưu tiên là khái niệm CHƯA XÂY (Quang: "bỏ ưu tiên đi đã").
   const SUBROWS: { kind: "regular" | "walkin"; label: string; seatIdx: number }[] = [
     ...Array.from({ length: policy.regularCap }, (_, i) => ({
       kind: "regular" as const,
@@ -147,7 +156,7 @@ export default function CinemaSlotPicker({
     })),
     ...Array.from({ length: policy.walkinCap }, (_, i) => ({
       kind: "walkin" as const,
-      label: policy.walkinCap > 1 ? `Ưu tiên ${i + 1}` : "Ưu tiên",
+      label: policy.walkinCap > 1 ? `Trực tiếp ${i + 1}` : "Trực tiếp",
       seatIdx: i,
     })),
   ];
@@ -161,7 +170,7 @@ export default function CinemaSlotPicker({
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-success-bg bg-success-bg" />{" "}
-          Chỗ Ưu tiên trống
+          Chỗ đến trực tiếp còn trống
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded bg-brand-800" /> Đang chọn
@@ -232,13 +241,13 @@ export default function CinemaSlotPicker({
                       sub.kind === "regular"
                         ? u.regular > sub.seatIdx
                         : u.walkin > sub.seatIdx;
-                    // Hàng được phép bấm: walkin-mode → chỉ hàng Ưu tiên;
-                    // regular-mode → BN1/BN2, và CẢ hàng Ưu tiên nếu allowPriority.
+                    // Hàng được phép bấm: walkin-mode → chỉ hàng Đến trực tiếp;
+                    // regular-mode → BN1/BN2, và cả hàng ấy nếu được cho phép.
                     const pickable = walkinMode
                       ? sub.kind === "walkin"
-                      : sub.kind === "regular" || allowPriority;
+                      : sub.kind === "regular" || choChonGheTrucTiep;
                     // Ô "đang chọn" vẽ trên ghế TRỐNG ĐẦU TIÊN của hàng đúng loại,
-                    // và chỉ ở hàng ĐÚNG loại đang chọn (tránh tô nhầm cả BN lẫn Ưu tiên).
+                    // và chỉ ở hàng ĐÚNG loại đang chọn (tránh tô nhầm cả hai hàng).
                     const firstFreeSeat =
                       sub.kind === "regular" ? u.regular : u.walkin;
                     const isSelected =
@@ -256,7 +265,7 @@ export default function CinemaSlotPicker({
                         );
                     const disabled = isPast || isTaken || !pickable;
                     const title = `${d.label} · ${slotRange(t, policy.slotMinutes)} · ${
-                      sub.kind === "walkin" ? "chỗ Ưu tiên" : sub.label
+                      sub.kind === "walkin" ? "chỗ đến trực tiếp" : sub.label
                     }${
                       isTaken
                         ? " · đã kín"
@@ -265,7 +274,7 @@ export default function CinemaSlotPicker({
                           : !pickable
                             ? walkinMode
                               ? " · chỗ đặt hẹn (CSKH đặt)"
-                              : " · chỗ Ưu tiên (chỉ xem)"
+                              : " · chỗ đến trực tiếp (chỉ xem)"
                             : " · đặt vào đây"
                     }`;
                     const cls =
