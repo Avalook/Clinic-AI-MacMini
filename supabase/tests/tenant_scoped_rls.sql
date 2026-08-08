@@ -111,8 +111,10 @@ BEGIN
     -- (migration 20260808000001). CHỈ ĐỌC cho client, cùng lý do với mọi bảng
     -- luật khác: client tự ghi được nghĩa là client tự chốt được lịch trực.
     -- 37 → 38 ngày 08/08/2026: luat_bac_si_bat_buoc (20260808000003).
-    IF scoped_count <> 38 THEN
-        RAISE EXCEPTION 'expected 38 tenant-scoped read policies, found %', scoped_count;
+    -- 38 → 39 ngày 08/08/2026: vai_duoc_vao_tram (20260809000002). CHỈ ĐỌC:
+    -- sửa được ma trận này là quyết được ai đứng ở bàn khám.
+    IF scoped_count <> 39 THEN
+        RAISE EXCEPTION 'expected 39 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
