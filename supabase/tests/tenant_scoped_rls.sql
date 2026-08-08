@@ -117,8 +117,10 @@ BEGIN
     -- tự ghi được nghĩa là tự khai được "đã gọi rồi" cho cuộc gọi chưa xảy ra.
     -- 40 → 42 ngày 08/08/2026: luat_cskh + hen_goi_lai (20260809000005).
     -- 42 → 43 ngày 08/08/2026: phan_hoi_khach (20260809000007).
-    IF scoped_count <> 43 THEN
-        RAISE EXCEPTION 'expected 43 tenant-scoped read policies, found %', scoped_count;
+    -- 43 → 44 ngày 08/08/2026: tep_ket_qua (20260809000008). CHỈ ĐỌC: khoá tệp
+    -- do hệ thống sinh, và client tự ghi được nghĩa là tự khai được một khoá.
+    IF scoped_count <> 44 THEN
+        RAISE EXCEPTION 'expected 44 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

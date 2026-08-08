@@ -28,7 +28,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import type { DongLichSu } from "./GhiTuongTac";
-import TepKetQuaMau from "./TepKetQuaMau";
+import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 
 interface Buoc {
   ma: string;
@@ -98,6 +98,7 @@ export default function VungLamViecKhach({
   clinicPatientId,
   lich,
   lichSu,
+  tepKetQua,
   onLamViec,
   children,
 }: {
@@ -105,6 +106,7 @@ export default function VungLamViecKhach({
   clinicPatientId: string;
   lich: MocLich;
   lichSu: DongLichSu[];
+  tepKetQua: TepKetQuaRow[];
   /** Bấm một bước CUỘC GỌI → mở ô ghi kết quả với đúng loại việc ấy. */
   onLamViec: (maViec: string) => void;
   /** Khối gắn thêm dưới chuỗi bước (phản hồi khách…). */
@@ -364,7 +366,11 @@ export default function VungLamViecKhach({
           })}
         </ol>
 
-        <TepKetQuaMau />
+        <TepKetQua
+          clinicPatientId={clinicPatientId}
+          appointmentId={lich.id}
+          items={tepKetQua}
+        />
 
         {lich.slot_start && (
           <p className="flex items-center gap-1.5 border-t border-line px-4 py-2 text-[11px] text-ink-muted">
