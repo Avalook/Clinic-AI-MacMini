@@ -401,6 +401,12 @@ class SchedulingService:
                 SET status = 'CANCELLED',
                     cancelled_at = $2,
                     cancellation_reason = $3,
+                    -- ĐƯỜNG TÁC NHÂN LUÔN LÀ 'KHAC', và đó là sự thật chứ không
+                    -- phải mặc định cho xong: `CancelAppointmentInput` bắt buộc
+                    -- `cancellation_reason` là chữ tự do, tức đúng định nghĩa
+                    -- của "tự viết". Ba mã còn lại ứng với ba thời điểm mà chỉ
+                    -- người trực mới biết mình đang đứng ở đâu.
+                    ly_do_huy_ma = 'KHAC',
                     updated_at = $2
                 WHERE id = $1
                   AND clinic_id = $4::uuid

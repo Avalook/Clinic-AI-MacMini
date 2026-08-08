@@ -589,6 +589,10 @@ async def test_cancel_can_repair_appointment_with_stale_doctor() -> None:
         action="cancel",
         identity=_identity(ClinicRole.CSKH),
         cancellation_reason="Bác sĩ không còn làm tại cơ sở",
+        # Mã lý do là BẮT BUỘC từ 20260809000006. Không khai thì đây là bài kiểm
+        # đầu tiên báo đỏ — đúng ý: nó chạy qua chính apply_action, tức đường mà
+        # cả ba màn có nút huỷ đều đi qua.
+        ly_do_huy_ma="KHAC",
     )
 
     assert result == {"status": "CANCELLED"}

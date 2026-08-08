@@ -14,6 +14,7 @@ import AppointmentBooking, {
   type BookingInitial,
 } from "../patients/AppointmentBooking";
 import { fmtDateTimeOrDate } from "../../../lib/datetime";
+import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "../../../lib/ly-do-huy";
 import { INPUT, LABEL } from "../form-ui";
 
 export interface EditableAppt {
@@ -47,6 +48,7 @@ export default function AppointmentEditModal({
   const router = useRouter();
   const [showCancel, setShowCancel] = useState(false);
   const [reason, setReason] = useState("");
+  const [maLyDo, setMaLyDo] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -105,6 +107,7 @@ export default function AppointmentEditModal({
       body: JSON.stringify({
         id: appt.id,
         action: "cancel",
+        ly_do_huy_ma: maLyDo,
         cancellation_reason: reason,
       }),
     });
@@ -201,21 +204,41 @@ export default function AppointmentEditModal({
 
         {showCancel && (
           <div className="mt-3 space-y-2 rounded-control border border-danger bg-danger-bg p-3">
-            <label htmlFor="appointment-cancel-reason" className={LABEL}>
-              Lý do hủy (tuỳ chọn)
+            {/* LÝ DO LÀ BẮT BUỘC, không còn "(tuỳ chọn)".
+                Ô chữ tự do cũ để lại phần lớn lịch huỷ không có lý do gì, và
+                phần có thì mỗi người viết một kiểu — "bận", "Bận", "ko đến
+                được" — nên không đếm được cái gì. Ba mã đầu là ba THỜI ĐIỂM,
+                và mỗi thời điểm tốn của phòng khám một khoản khác nhau. */}
+            <label htmlFor="appointment-cancel-code" className={LABEL}>
+              Lý do hủy
             </label>
-            <input
-              id="appointment-cancel-reason"
+            <select
+              id="appointment-cancel-code"
               className={INPUT}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="VD: khách bận, đổi lịch…"
-            />
+              value={maLyDo}
+              onChange={(e) => setMaLyDo(e.target.value)}
+            >
+              <option value="">— Chọn lý do —</option>
+              {LY_DO_HUY_THU_TU.map((ma) => (
+                <option key={ma} value={ma}>
+                  {LY_DO_HUY[ma]}
+                </option>
+              ))}
+            </select>
+            {maLyDo === "KHAC" && (
+              <input
+                id="appointment-cancel-reason"
+                className={INPUT}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Khách nói gì?"
+              />
+            )}
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={doCancel}
-                disabled={busy}
+                disabled={busy || !maLyDo || (maLyDo === "KHAC" && !reason.trim())}
                 className="min-h-10 rounded-control bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
               >
                 {busy ? "Đang hủy…" : "Xác nhận hủy lịch"}

@@ -485,6 +485,7 @@ class TestPatchBuilding:
                 appt=self._appt(),
                 new_status="CANCELLED",
                 cancellation_reason="  khách bận  ",
+                ly_do_huy_ma="KHAC",
                 doctor_id=None,
                 doctor_id_provided=False,
                 slot_start=None,
@@ -496,14 +497,58 @@ class TestPatchBuilding:
         assert patch["cancellation_reason"] == "khách bận"
         assert patch["cancelled_at"] is not None
 
-    def test_a_blank_reason_is_stored_as_nothing(self) -> None:
+    def test_khong_chon_ly_do_thi_khong_huy_duoc(self) -> None:
+        """Ô chữ tự do "(tuỳ chọn)" cũ để lại phần lớn lịch huỷ KHÔNG có lý do.
+
+        Không tự điền 'KHAC' cho im chuyện: mặc định âm thầm là cách cột này
+        thành 100% "khác" trong ba tháng, và lúc đó nó vô dụng đúng bằng ô chữ
+        nó thay thế.
+        """
+        with pytest.raises(ValidationError):
+            asyncio.run(
+                BookingService(MagicMock())._build_patch(
+                    _Conn(),
+                    action="cancel",
+                    appt=self._appt(),
+                    new_status="CANCELLED",
+                    cancellation_reason="khách bận",
+                    ly_do_huy_ma=None,
+                    doctor_id=None,
+                    doctor_id_provided=False,
+                    slot_start=None,
+                    slot_end=None,
+                    identity=_identity(),
+                )
+            )
+
+    def test_chon_khac_ma_khong_viet_gi_thi_bi_tu_choi(self) -> None:
+        with pytest.raises(ValidationError):
+            asyncio.run(
+                BookingService(MagicMock())._build_patch(
+                    _Conn(),
+                    action="cancel",
+                    appt=self._appt(),
+                    new_status="CANCELLED",
+                    cancellation_reason="   ",
+                    ly_do_huy_ma="KHAC",
+                    doctor_id=None,
+                    doctor_id_provided=False,
+                    slot_start=None,
+                    slot_end=None,
+                    identity=_identity(),
+                )
+            )
+
+    def test_ma_co_san_thi_khong_can_viet_them(self) -> None:
+        """Ba mã kia là ba THỜI ĐIỂM — tự chúng đã đủ nghĩa."""
         patch = asyncio.run(
             BookingService(MagicMock())._build_patch(
                 _Conn(),
                 action="cancel",
                 appt=self._appt(),
                 new_status="CANCELLED",
-                cancellation_reason="   ",
+                cancellation_reason=None,
+                ly_do_huy_ma="BAO_VAO_GIO_KHAM",
                 doctor_id=None,
                 doctor_id_provided=False,
                 slot_start=None,
@@ -511,7 +556,10 @@ class TestPatchBuilding:
                 identity=_identity(),
             )
         )
+        assert patch["ly_do_huy_ma"] == "BAO_VAO_GIO_KHAM"
         assert patch["cancellation_reason"] is None
+        # Ai huỷ — lấy từ phiên, không nhận từ client.
+        assert patch["cancelled_by_staff_id"] == _identity().staff_id
 
     def test_rescheduling_without_a_new_time_is_refused(self) -> None:
         with pytest.raises(ValidationError):
@@ -522,6 +570,7 @@ class TestPatchBuilding:
                     appt=self._appt(),
                     new_status="SCHEDULED",
                     cancellation_reason=None,
+                    ly_do_huy_ma="KHAC",
                     doctor_id=None,
                     doctor_id_provided=False,
                     slot_start=None,
@@ -539,6 +588,7 @@ class TestPatchBuilding:
                     appt=self._appt(),
                     new_status="SCHEDULED",
                     cancellation_reason=None,
+                    ly_do_huy_ma="KHAC",
                     doctor_id=None,
                     doctor_id_provided=False,
                     slot_start=_MAI + timedelta(hours=10),
@@ -557,6 +607,7 @@ class TestPatchBuilding:
                 appt=self._appt(),
                 new_status="SCHEDULED",
                 cancellation_reason=None,
+                ly_do_huy_ma="KHAC",
                 doctor_id=None,
                 doctor_id_provided=False,
                 slot_start=_MAI + timedelta(hours=11),
@@ -574,6 +625,7 @@ class TestPatchBuilding:
                 appt=self._appt(),
                 new_status="SCHEDULED",
                 cancellation_reason=None,
+                ly_do_huy_ma="KHAC",
                 doctor_id=None,
                 doctor_id_provided=True,
                 slot_start=_MAI + timedelta(hours=11),
