@@ -16,6 +16,7 @@ import {
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
 import type { DongLichSu } from "./GhiTuongTac";
+import type { DongPhanHoi } from "./PhanHoiKhach";
 import CustomersView, {
   type CustomerRow,
   type ApptInfo,
@@ -212,6 +213,18 @@ export default async function CustomersPage({
         .in("clinic_patient_id", shownIds)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
+  // PHẢN HỒI / KHIẾU NẠI — vòng đời xử lý hiện ngay trong vùng làm việc.
+  const phanHoiPromise = shownIds.length
+    ? supabase
+        .from("phan_hoi_khach")
+        .select(
+          "id, clinic_patient_id, loai, noi_dung, trang_thai, huong_xu_ly, created_at, staff:nguoi_tiep_nhan_staff_id ( full_name )",
+        )
+        .in("clinic_patient_id", shownIds)
+        .order("created_at", { ascending: false })
+        .limit(300)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
   // SỔ TƯƠNG TÁC — nguồn thật của cột "Tương tác gần nhất".
   //
   // `cskh_action` bên dưới là hàng nhập khẩu từ Notion và có 0 dòng trên bản
@@ -385,9 +398,33 @@ export default async function CustomersPage({
   };
   const trangThaiByPatient: Record<string, TrangThaiRaw> = {};
   let trangThaiError: { message: string } | null = null;
+  type PhanHoiRaw = {
+    id: string;
+    clinic_patient_id: string;
+    loai: string;
+    noi_dung: string;
+    trang_thai: string;
+    huong_xu_ly: string | null;
+    created_at: string;
+    staff?: { full_name: string } | { full_name: string }[] | null;
+  };
+  const phanHoiByPatient: Record<string, DongPhanHoi[]> = {};
   const tuongTacByPatient: Record<string, DongLichSu[]> = {};
   let tuongTacError: { message: string } | null = null;
   if (rows.length) {
+    const { data: ph } = await phanHoiPromise;
+    for (const r of (ph as PhanHoiRaw[] | null) ?? []) {
+      const nv = Array.isArray(r.staff) ? r.staff[0] : r.staff;
+      (phanHoiByPatient[r.clinic_patient_id] ??= []).push({
+        id: r.id,
+        loai: r.loai,
+        noi_dung: r.noi_dung,
+        trang_thai: r.trang_thai,
+        huong_xu_ly: r.huong_xu_ly,
+        created_at: r.created_at,
+        nguoi_tiep_nhan: nv?.full_name ?? null,
+      });
+    }
     const { data: tt2, error: ttErr2 } = await trangThaiPromise;
     trangThaiError = ttErr2;
     for (const t of (tt2 as TrangThaiRaw[] | null) ?? []) {
@@ -426,6 +463,7 @@ export default async function CustomersPage({
           cskhByPatient={cskhByPatient}
           tuongTacByPatient={tuongTacByPatient}
           trangThaiByPatient={trangThaiByPatient}
+          phanHoiByPatient={phanHoiByPatient}
           locations={locations}
           q={q}
           period={period}

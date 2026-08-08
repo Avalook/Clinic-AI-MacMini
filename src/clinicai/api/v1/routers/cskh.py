@@ -202,6 +202,11 @@ class TuongTacRequest(BaseModel):
         "HOI_LY_DO_HUY",
         "HOI_THAM",
         "KHAC",
+        # Mốc tại quầy — check-in/check-out còn đổi trạng thái lịch hẹn thật.
+        "CHECK_IN",
+        "CHECK_OUT",
+        "THANH_TOAN",
+        "MUA_THUOC",
     ]
     kenh: Literal["GOI", "ZALO", "SMS", "TRUC_TIEP", "KHONG_LIEN_HE"]
     ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI", "BO_QUA"]
@@ -271,3 +276,52 @@ async def dong_hen_goi_lai(
 ) -> dict[str, Any]:
     """Đóng việc đã gọi xong."""
     return await HenGoiLaiService(pool).dong(identity=identity, hen_id=str(hen_id))
+
+
+# ── Phản hồi / khiếu nại của khách (DoD mục 3) ─────────────────────────────
+
+
+class PhanHoiRequest(BaseModel):
+    clinic_patient_id: UUID
+    loai: Literal["KHEN", "GOP_Y", "KHIEU_NAI"]
+    noi_dung: str = Field(min_length=1, max_length=4000)
+
+
+class PhanHoiCapNhatRequest(BaseModel):
+    trang_thai: Literal["MOI", "DANG_XU_LY", "DA_XU_LY"]
+    huong_xu_ly: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/cskh/phan-hoi", status_code=201)
+async def ghi_phan_hoi(
+    body: PhanHoiRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ghi một phản hồi / khiếu nại của khách."""
+    from clinicai.services.phan_hoi_khach_service import PhanHoiKhachService
+
+    return await PhanHoiKhachService(pool).ghi(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        loai=body.loai,
+        noi_dung=body.noi_dung,
+    )
+
+
+@router.patch("/cskh/phan-hoi/{phan_hoi_id}")
+async def cap_nhat_phan_hoi(
+    phan_hoi_id: UUID,
+    body: PhanHoiCapNhatRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chuyển trạng thái xử lý — đóng thì phải ghi đã xử lý thế nào."""
+    from clinicai.services.phan_hoi_khach_service import PhanHoiKhachService
+
+    return await PhanHoiKhachService(pool).cap_nhat(
+        identity=identity,
+        phan_hoi_id=str(phan_hoi_id),
+        trang_thai=body.trang_thai,
+        huong_xu_ly=body.huong_xu_ly,
+    )

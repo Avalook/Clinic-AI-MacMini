@@ -131,6 +131,11 @@ CHECKIN_ROLES: frozenset[ClinicRole] = frozenset(
     {
         ClinicRole.RECEPTION,
         ClinicRole.MANAGEMENT,
+        # CSKH check-in được (Quang 08/08/2026): *"sản phẩm MVP này là cskh
+        # thao tác được hết mà"*. Đi ĐÚNG đường thật — _check_in + _open_visit —
+        # chứ không phải một cờ riêng chỉ màn CSKH nhìn thấy: khách mà CSKH
+        # check-in phải hiện ở hàng đợi tiếp nhận y như khách lễ tân check-in.
+        ClinicRole.CSKH,
     }
 )
 INTAKE_ROLES: frozenset[ClinicRole] = frozenset(
@@ -231,7 +236,12 @@ TRANSITIONS: dict[str, Transition] = {
     "complete": Transition(
         "COMPLETED",
         frozenset({"CHECKED_IN"}),
-        DOCTOR_ROLES,
+        # DOCTOR_ROLES + CSKH (Quang 08/08/2026): trong MVP vận hành tay, CSKH
+        # bấm "khách check-out" và lượt khám phải ĐÓNG THẬT — không đóng thì
+        # "đã khám" không bao giờ bật và nhắc tái khám không bao giờ sinh.
+        # Bác sĩ vẫn giữ luật cũ: chỉ đóng được ca của chính mình (owner_only
+        # bên dưới miễn cho CSKH như đã miễn cho TKYK).
+        DOCTOR_ROLES | frozenset({ClinicRole.CSKH}),
         "appointment.completed",
         True,
     ),
@@ -683,10 +693,13 @@ class BookingService:
                         "Bác sĩ của lịch hẹn không thuộc phòng khám này"
                     )
 
-                # A doctor acts on their own list. TKYK enters on their behalf.
+                # A doctor acts on their own list. TKYK enters on their
+                # behalf; CSKH đóng lượt HỘ trong MVP vận hành tay (họ không
+                # phải bác sĩ của ai nên so staff_id sẽ chặn sạch).
                 if (
                     transition.owner_only
-                    and identity.role is not ClinicRole.TKYK
+                    and identity.role
+                    not in (ClinicRole.TKYK, ClinicRole.CSKH)
                     and str(appt["doctor_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")
