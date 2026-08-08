@@ -42,11 +42,27 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
   ]) {
     assert.match(customers, new RegExp(label));
   }
-  // CSKH vẫn lọc được ra nhóm khách sắp đến — canh theo KHOÁ, không theo chữ
+  // CSKH vẫn lọc được ra nhóm cần làm hôm nay — canh theo KHOÁ, không theo chữ
   // hiển thị. Nhãn đã đổi vài lần ("Có lịch sắp tới" → "Cần theo dõi"), và đổi
   // chữ trên nút là quyết định sản phẩm.
   assert.match(customers, /"upcoming"/);
-  assert.match(customers, /appointment\?\.upcoming/);
+
+  // BỐN Ô SỐ PHẢI ĐỌC CÙNG NGUỒN VỚI BẢNG BÊN DƯỚI (08/08/2026).
+  //
+  // Bản trước canh `appointment?.upcoming` — tức canh cho ĐÚNG cái bug: hai ô
+  // "Quá SLA" và "Chờ xác nhận" đọc `cskh_action` (bảng 0 dòng) và
+  // `status = 'SCHEDULED'` (không lịch nào ở đó), nên chúng hiện 0 vĩnh viễn
+  // trong khi bảng ngay dưới đang có việc quá hạn.
+  //
+  // Tính chất thật cần giữ: phép lọc của ô số suy từ `trangThaiByPatient` —
+  // cùng view mà cột "Trạng thái" và "Hạn xử lý" đọc.
+  assert.match(customers, /qua_sla"\)\s*return Boolean\(tt\?\.qua_han\)/);
+  assert.match(customers, /cho_xac_nhan"\)\s*return tt\?\.trang_thai/);
+  assert.doesNotMatch(
+    customers,
+    /cskhByPatient\[row\.clinic_patient_id\]\?\.deadline/,
+    "ô số lại đọc cskh_action — bảng đó 0 dòng, ô sẽ hiện 0 vĩnh viễn",
+  );
 
   // HÀNG TAB ĐÃ BỎ: bốn ô số ở trên CHÍNH LÀ bộ lọc.
   //
