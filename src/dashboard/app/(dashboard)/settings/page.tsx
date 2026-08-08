@@ -14,6 +14,8 @@ import { getBookingPolicy } from "../../../lib/booking-policy";
 import { getFeatureMode } from "../../../lib/feature-mode";
 import BookingPolicyCard from "./BookingPolicyCard";
 import FeatureModeCard from "./FeatureModeCard";
+import PhamViViTriCard, { type OViTri } from "./PhamViViTriCard";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +25,18 @@ export default async function SettingsPage() {
 
   const bookingPolicy = await getBookingPolicy();
   const featureMode = await getFeatureMode();
+  // Đọc SERVER-SIDE rồi truyền xuống làm prop. Nạp trong useEffect thì trình
+  // biên dịch React chặn setState đồng bộ trong effect — đã vấp ba lần.
+  const phamVi = await fetchFromBackend<{ items: OViTri[] }>(
+    "/api/v1/roster/station-scope",
+  );
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       {/* Tiêu đề nằm ở thanh trên cùng (GlobalHeader) — không lặp lại ở đây. */}
       <FeatureModeCard currentMode={featureMode} />
       <BookingPolicyCard policy={bookingPolicy} />
+      {phamVi && <PhamViViTriCard items={phamVi.items} />}
     </main>
   );
 }

@@ -119,13 +119,41 @@ class RosterService:
         # value is ignored entirely rather than checked.
         assigning_other = is_admin and bool(staff_id)
         target_id = staff_id if assigning_other else identity.staff_id
-        target_name = (
-            (staff_name or "").strip() if assigning_other else identity.full_name
-        )
-        if not target_name:
+        if not target_id:
             raise ValidationError("Thiếu nhân viên")
 
         async with self._pool.acquire() as conn:
+            # TÊN VÀ CHỨC DANH LẤY TỪ DATABASE, KHÔNG TỪ TRÌNH DUYỆT.
+            #
+            # `staff_name` trước đây đi thẳng từ client vào bảng. Nghĩa là một
+            # lời gọi API tự chế ghi được "Giám đốc Sở Y tế" vào lịch trực, và
+            # nó sẽ hiện y như vậy trên màn của cả phòng khám. Cùng lúc, câu
+            # truy vấn này là chỗ duy nhất kiểm được người được xếp có THUỘC
+            # phòng khám này không — trước đây không kiểm.
+            nv = await conn.fetchrow(
+                """
+                SELECT s.full_name, s.primary_department
+                  FROM public.staff s
+                  JOIN public.clinic_membership m
+                    ON m.staff_id = s.id AND m.is_active
+                 WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid AND s.is_active
+                """,
+                target_id,
+                identity.clinic_id,
+            )
+            if nv is None:
+                raise ValidationError(
+                    "Không tìm thấy nhân viên đang làm việc ở phòng khám này."
+                )
+            target_name = nv["full_name"]
+            await self._kiem_pham_vi_tram(
+                conn,
+                clinic_id=identity.clinic_id,
+                station=station,
+                vai=nv["primary_department"],
+                ten=target_name,
+            )
+
             row_id = await conn.fetchval(
                 """
                 INSERT INTO work_roster (
@@ -153,6 +181,141 @@ class RosterService:
             by_staff_id=identity.staff_id,
         )
         return str(row_id)
+
+    async def _kiem_pham_vi_tram(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        station: str,
+        vai: str | None,
+        ten: str,
+    ) -> None:
+        """Chức danh này có được xếp vào vị trí đó không (bảng vai_duoc_vao_tram).
+
+        Quang, 08/08/2026: *"lễ tân chỉ chọn được vị trí của lễ tân, không vào
+        bác sĩ được."* Lọc ở trình duyệt là chưa đủ — một lời gọi API tự chế
+        không đi qua trình duyệt.
+        """
+        # Màn hình phòng chờ là cái tivi treo tường, không phải người. Nó chưa
+        # bao giờ có trong ma trận nên nhánh fail-open dưới đây sẽ cho nó qua.
+        if vai == ClinicRole.DISPLAY.value:
+            raise ValidationError("Màn hình phòng chờ không phải nhân sự để xếp ca.")
+
+        rows = await conn.fetch(
+            "SELECT tram_ma FROM public.vai_duoc_vao_tram "
+            " WHERE clinic_id = $1::uuid AND vai = $2 AND is_active",
+            clinic_id,
+            vai,
+        )
+        # CHƯA KHAI THÌ CHO QUA, có ghi log.
+        #
+        # Phòng khám mới cài đặt chưa có dòng nào trong ma trận. Chặn hết ở đó
+        # nghĩa là màn xếp lịch chết câm ngay ngày đầu, và người dùng không có
+        # cách nào tự gỡ. Bỏ sót một ca xếp nhầm nhẹ hơn nhiều.
+        if not rows:
+            logger.warning(
+                "roster_station_scope_empty",
+                clinic_id=clinic_id,
+                vai=vai,
+                station=station,
+            )
+            return
+
+        hop_le = {r["tram_ma"] for r in rows}
+        if station not in hop_le:
+            raise ValidationError(
+                f"{ten} không được xếp vào vị trí này. "
+                f"Vị trí hợp lệ: {', '.join(sorted(hop_le))}."
+            )
+
+    async def tram_cho_nhan_vien(
+        self, *, identity: StaffIdentity, staff_id: str
+    ) -> dict[str, Any]:
+        """Danh sách mã vị trí mà nhân viên này được xếp vào.
+
+        Màn xếp lịch gọi cái này để dựng ô "Vị trí" — cùng một nguồn với chỗ
+        thi hành, nên giao diện không thể hứa một đằng rồi backend từ chối một
+        nẻo.
+        """
+        async with self._pool.acquire() as conn:
+            nv = await conn.fetchrow(
+                """
+                SELECT s.full_name, s.primary_department
+                  FROM public.staff s
+                  JOIN public.clinic_membership m
+                    ON m.staff_id = s.id AND m.is_active
+                 WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid AND s.is_active
+                """,
+                staff_id,
+                identity.clinic_id,
+            )
+            if nv is None:
+                raise NotFoundError("Không tìm thấy nhân viên này.")
+            rows = await conn.fetch(
+                "SELECT tram_ma FROM public.vai_duoc_vao_tram "
+                " WHERE clinic_id = $1::uuid AND vai = $2 AND is_active "
+                " ORDER BY tram_ma",
+                identity.clinic_id,
+                nv["primary_department"],
+            )
+        return {
+            "vai": nv["primary_department"],
+            # `chua_khai` nói thẳng "phòng khám chưa cấu hình" thay vì để giao
+            # diện đọc danh sách rỗng thành "người này không làm được gì".
+            "chua_khai": not rows,
+            "tram": [r["tram_ma"] for r in rows],
+        }
+
+    async def ma_tran_vi_tri(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Cả ma trận vai × vị trí, cho màn cấu hình của quản lý."""
+        rows = await self._pool.fetch(
+            "SELECT tram_ma, vai, is_active, ghi_chu "
+            "  FROM public.vai_duoc_vao_tram WHERE clinic_id = $1::uuid "
+            " ORDER BY tram_ma, vai",
+            identity.clinic_id,
+        )
+        return [dict(r) for r in rows]
+
+    async def dat_vi_tri_cho_vai(
+        self, *, identity: StaffIdentity, tram_ma: str, vai: str, cho_phep: bool
+    ) -> dict[str, Any]:
+        """Bật/tắt một ô của ma trận.
+
+        Không xoá dòng khi tắt: một ô từng bật rồi tắt là một QUYẾT ĐỊNH, và
+        xoá nó đi thì lần rà sau sẽ có người bật lại rồi ngạc nhiên vì sao
+        trước đó không có.
+        """
+        if identity.role not in ROSTER_ADMIN_ROLES:
+            raise SafetyGateError("Chỉ quản lý được sửa phạm vi vị trí.")
+        tram_ma = (tram_ma or "").strip()
+        vai = (vai or "").strip()
+        if not tram_ma or not vai:
+            raise ValidationError("Thiếu vị trí hoặc chức danh.")
+        if vai == ClinicRole.DISPLAY.value:
+            raise ValidationError("Màn hình phòng chờ không phải nhân sự để xếp ca.")
+        await self._pool.execute(
+            """
+            INSERT INTO public.vai_duoc_vao_tram
+                (clinic_id, tram_ma, vai, is_active, ghi_chu)
+            VALUES ($1::uuid, $2, $3, $4, 'quản lý đặt tay')
+            ON CONFLICT (clinic_id, tram_ma, vai)
+            DO UPDATE SET is_active = EXCLUDED.is_active,
+                          ghi_chu   = EXCLUDED.ghi_chu
+            """,
+            identity.clinic_id,
+            tram_ma,
+            vai,
+            cho_phep,
+        )
+        logger.info(
+            "roster_station_scope_set",
+            tram_ma=tram_ma,
+            vai=vai,
+            cho_phep=cho_phep,
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True}
 
     async def decide(
         self,
