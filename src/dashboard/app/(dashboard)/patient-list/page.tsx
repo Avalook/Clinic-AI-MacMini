@@ -261,7 +261,7 @@ export default async function PatientListPage() {
           showPreVisitBrief={isDoctorRole(role)}
           /* Nút Tái khám: CSKH/Lễ tân. Pager lượt khám: Bác sĩ. */
           showRebook={showRebook}
-          /* Lễ tân xếp BN tái khám VÃNG LAI vào chỗ Ưu tiên (ô xanh), không phải ô hồng. */
+          /* Lễ tân xếp BN tái khám VÃNG LAI vào ghế đến trực tiếp (ô xanh), không phải ô hồng. */
           walkinRebook={role === "RECEPTION"}
           enableVisitPager={showPager}
           services={services}
