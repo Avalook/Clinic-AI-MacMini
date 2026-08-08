@@ -25,6 +25,48 @@ import QuickBookingModal from "../patient-list/QuickBookingModal";
 import BaoXepBacSi from "./BaoXepBacSi";
 import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
 
+/** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
+export interface TrangThaiCskh {
+  clinic_patient_id: string;
+  trang_thai: string;
+  /** Nhãn hiển thị, lấy từ bảng `luat_cskh` — phòng khám đổi chữ được. */
+  nhan: string;
+  han_xu_ly: string | null;
+  qua_han: boolean;
+  appointment_id: string | null;
+  da_xac_nhan: boolean;
+}
+
+// Màu theo mức gấp, KHÔNG theo thứ tự bảng chữ cái. Đỏ dành cho việc mà chậm
+// một ngày là khách đi về tay không.
+const TONE_VIEC: Record<string, StatusTone> = {
+  CHO_BAC_SI: "in_progress",
+  KQ_CHUA_GUI: "assigned",
+  CHO_KQ_XN: "ready",
+  GOI_LAI: "assigned",
+  HOI_LY_DO_HUY: "ready",
+  HEN_GOI_LAI: "ready",
+  NHAC_DI_KHAM: "assigned",
+  NHAC_HEN_MAI: "assigned",
+  MOI_TAI_KHAM: "ready",
+  CHO_XAC_NHAN: "ready",
+};
+
+// Việc phải làm, viết ở thể mệnh lệnh. Nhãn trạng thái nói KHÁCH đang ở đâu;
+// cột này nói NGƯỜI TRỰC phải nhấc máy lên làm gì.
+const BUOC_TIEP: Record<string, string> = {
+  CHO_BAC_SI: "Nhắc bác sĩ duyệt kết quả",
+  KQ_CHUA_GUI: "Gọi trả kết quả cho khách",
+  CHO_KQ_XN: "Hỏi đơn vị xét nghiệm",
+  GOI_LAI: "Gọi lại (lần trước chưa gặp)",
+  HOI_LY_DO_HUY: "Gọi hỏi vì sao huỷ",
+  HEN_GOI_LAI: "Đã hẹn gọi lại hôm nay",
+  NHAC_DI_KHAM: "Gọi nhắc đi khám",
+  NHAC_HEN_MAI: "Gọi nhắc hẹn ngày mai",
+  MOI_TAI_KHAM: "Gọi mời tái khám",
+  CHO_XAC_NHAN: "Gọi xác nhận lịch",
+};
+
 const NHAN_LOAI_NGAN: Record<string, string> = {
   XAC_NHAN_LICH: "Xác nhận lịch",
   NHAC_HEN: "Nhắc hẹn",
@@ -36,7 +78,9 @@ const NHAN_LOAI_NGAN: Record<string, string> = {
 };
 const NHAN_KQ_NGAN: Record<string, string> = {
   DA_LIEN_HE: "đã liên hệ",
-  CHUA_NGHE_MAY: "chưa nghe máy",
+  CHUA_NGHE_MAY: "không nghe máy",
+  KHONG_LIEN_LAC_DUOC: "không liên lạc được",
+  HEN_GOI_LAI: "khách hẹn gọi lại",
   CAN_BAC_SI: "cần hỏi bác sĩ",
   TU_CHOI: "từ chối",
   BO_QUA: "bỏ qua",
@@ -164,6 +208,7 @@ export default function CustomersView({
   apptByPatient,
   cskhByPatient,
   tuongTacByPatient,
+  trangThaiByPatient,
   locations,
   q,
   period,
@@ -187,6 +232,7 @@ export default function CustomersView({
     }
   >;
   tuongTacByPatient: Record<string, DongLichSu[]>;
+  trangThaiByPatient: Record<string, TrangThaiCskh>;
   locations: Opt[];
   q: string;
   period: Period;
@@ -275,8 +321,20 @@ export default function CustomersView({
   // lọc của tab — và đó chính là chỗ con số trên ô và danh sách bên dưới nói
   // hai điều khác nhau. Nay cả hai đi qua `hopVoiTab`.
 
-  // Derive real status from cskh_action + appointment data
+  // TRẠNG THÁI = VIỆC ĐANG MỞ, không phải "khách này đang ở đâu".
+  //
+  // View `v_trang_thai_cskh` trả về việc gấp nhất và nhãn của nó (nhãn lấy từ
+  // bảng luat_cskh, nên phòng khám đổi chữ mà không cần deploy). Không có việc
+  // nào thì nói thẳng "Không có việc" — thay cho "Đã đặt lịch", câu mà màn cũ
+  // hiện cho gần như mọi khách và không nói CSKH phải làm gì tiếp.
+  //
+  // Hai nguồn cũ giữ lại làm đường lùi cho tới khi cskh_action được chốt thành
+  // dữ liệu nhập khẩu chỉ đọc.
   function customerStatus(row: CustomerRow): { label: string; tone: StatusTone } {
+    const tt = trangThaiByPatient[row.clinic_patient_id];
+    if (tt) {
+      return { label: tt.nhan, tone: tt.qua_han ? "overdue" : TONE_VIEC[tt.trang_thai] ?? "ready" };
+    }
     const cskh = cskhByPatient[row.clinic_patient_id];
     const appt = apptByPatient[row.clinic_patient_id];
     if (cskh) {
@@ -295,7 +353,20 @@ export default function CustomersView({
     return { label: "Khách mới", tone: "ready" };
   }
 
+  /** Việc phải làm tiếp — chính là tên của trạng thái, viết ở thể mệnh lệnh. */
+  function customerNextStep(row: CustomerRow): string | undefined {
+    const tt = trangThaiByPatient[row.clinic_patient_id];
+    return tt ? (BUOC_TIEP[tt.trang_thai] ?? tt.nhan) : undefined;
+  }
+
   function customerDeadline(row: CustomerRow): { text: string; overdue: boolean } {
+    const tt = trangThaiByPatient[row.clinic_patient_id];
+    if (tt?.han_xu_ly) {
+      // View đã tính `qua_han` theo giờ Việt Nam. Tính lại ở trình duyệt là
+      // mời máy của người dùng — múi giờ nào cũng có — vào quyết định một câu
+      // hỏi nghiệp vụ.
+      return { text: fmtDate(tt.han_xu_ly), overdue: tt.qua_han };
+    }
     const cskh = cskhByPatient[row.clinic_patient_id];
     if (!cskh?.deadline) return { text: "—", overdue: false };
     const now = new Date();
@@ -468,7 +539,7 @@ export default function CustomersView({
                         </div>
                         <div className="min-w-0">
                           <span className="truncate text-xs font-medium text-ink">
-                            {cskh?.nextStep ?? "—"}
+                            {customerNextStep(row) ?? cskh?.nextStep ?? "—"}
                           </span>
                         </div>
                         <div>
