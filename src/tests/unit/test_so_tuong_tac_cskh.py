@@ -260,3 +260,28 @@ async def test_check_in_lan_hai_chi_ghi_so_khong_loi() -> None:
     )
     # Chỉ một lần đọc trạng thái, không lần ghi nào.
     assert len(pool.calls) == 1
+
+
+def test_router_literal_khop_service() -> None:
+    """Cửa Pydantic và từ điển của service phải là MỘT bộ từ.
+
+    Ngày 08/08 hai lần mở rộng từ điển (KLLD/Hẹn GLS, rồi GHI_NHAN) chỉ sửa
+    service — chỗ replace vào router trượt trong im lặng vì chuỗi đích đã bị
+    format khác đi. Hậu quả chạy thẳng trên bản thật: CSKH chọn "không liên
+    lạc được" trên màn là ăn 422, vì service nhận mà cửa Pydantic đã đóng.
+    Không lớp kiểm nào bắt được — service test không đi qua Pydantic, còn
+    người thử tay chỉ thử hai giá trị cũ.
+    """
+    from typing import get_args
+
+    from clinicai.api.v1.routers.cskh import TuongTacRequest
+    from clinicai.services.tuong_tac_cskh_service import (
+        KENH_HOP_LE,
+        KET_QUA_HOP_LE,
+        LOAI_HOP_LE,
+    )
+
+    fields = TuongTacRequest.model_fields
+    assert set(get_args(fields["loai"].annotation)) == LOAI_HOP_LE
+    assert set(get_args(fields["ket_qua"].annotation)) == KET_QUA_HOP_LE
+    assert set(get_args(fields["kenh"].annotation)) == KENH_HOP_LE
