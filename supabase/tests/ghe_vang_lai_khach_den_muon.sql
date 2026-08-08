@@ -160,11 +160,14 @@ BEGIN
     VALUES ('BN-KIEMTHU-SONGLAI', 'Kiểm thử sống lại', v_loc, v_clinic)
     RETURNING clinic_patient_id INTO v_bn_lap;
 
+    -- `ly_do_huy_ma` bắt buộc từ 20260809000006. Dữ liệu kiểm thử phải khai
+    -- như dữ liệu thật, không thì bài kiểm dựng ra một dòng mà ứng dụng không
+    -- bao giờ ghi nổi — và nó sẽ canh một thế giới không tồn tại.
     INSERT INTO public.appointment
         (clinic_patient_id, location_id, service_type_id, doctor_id,
-         slot_start, slot_end, booking_channel, status, clinic_id)
+         slot_start, slot_end, booking_channel, status, ly_do_huy_ma, clinic_id)
     VALUES (v_bn_lap, v_loc, v_svc, v_bs, v_A, v_B,
-            'ONLINE', 'CANCELLED', v_clinic)
+            'ONLINE', 'CANCELLED', 'BAO_KHI_NHAC_HEN', v_clinic)
     RETURNING id INTO v_appt_hen;
 
     -- Lấp đầy ghế đặt hẹn của khung A bằng đúng regular_cap người KHÁC, rồi
@@ -207,11 +210,12 @@ BEGIN
 
     INSERT INTO public.appointment
         (clinic_patient_id, location_id, service_type_id,
-         slot_start, slot_end, booking_channel, is_walkin, status, clinic_id)
+         slot_start, slot_end, booking_channel, is_walkin, status,
+         ly_do_huy_ma, clinic_id)
     VALUES (v_bn_lap, v_loc, v_svc,
             v_B + make_interval(mins => v_phut * 2),
             v_B + make_interval(mins => v_phut * 3),
-            'WALK_IN', TRUE, 'CANCELLED', v_clinic);
+            'WALK_IN', TRUE, 'CANCELLED', 'BAO_VAO_GIO_KHAM', v_clinic);
 
     v_dem := public.slot_seats_used(
                  v_clinic, NULL,
