@@ -104,4 +104,33 @@ fi
 [ -n "$EXPECTED_SHA" ] && [ "$EXPECTED_SHA" = "$ACTUAL_SHA" ] || \
     fail "backup checksum does not match its manifest"
 
-echo "Backup verified: $(basename "$BACKUP_FILE") (${ARCHIVE_BYTES} bytes, ${AGE_SECONDS}s old)"
+# ---- media artifact ---------------------------------------------------------
+# Ảnh và video siêu âm không nằm trong pg_dump. Cho tới 08/08/2026 chúng cũng
+# không nằm trong bản sao lưu nào — và cũng không có ai KIỂM chúng. Một tệp tar
+# hỏng vẫn là một tệp có mặt trong thư mục, và "có bản sao lưu" là câu người ta
+# đọc từ danh sách tệp chứ không phải từ nội dung.
+MEDIA_NAME=$(grep -E '^media_artifact=' "$MANIFEST_FILE" | head -n 1 | cut -d= -f2- || true)
+[ -n "$MEDIA_NAME" ] || fail "backup manifest does not mention media at all (stale format?)"
+MEDIA_VERIFIED="no media"
+if [ "$MEDIA_NAME" != "none" ]; then
+    MEDIA_PATH="$(dirname "$BACKUP_FILE")/${MEDIA_NAME}"
+    [ -f "$MEDIA_PATH" ] || fail "manifest names a media artifact that is not there: $MEDIA_NAME"
+    gzip -t "$MEDIA_PATH" 2>/dev/null || fail "media artifact failed gzip validation"
+    MEDIA_EXPECTED=$(grep -E '^media_sha256=' "$MANIFEST_FILE" | head -n 1 | cut -d= -f2- || true)
+    if [ "$SHA_COMMAND" = "shasum" ]; then
+        MEDIA_ACTUAL=$(shasum -a 256 "$MEDIA_PATH" | awk '{print $1}')
+    else
+        MEDIA_ACTUAL=$(sha256sum "$MEDIA_PATH" | awk '{print $1}')
+    fi
+    [ -n "$MEDIA_EXPECTED" ] && [ "$MEDIA_EXPECTED" = "$MEDIA_ACTUAL" ] || \
+        fail "media checksum does not match its manifest"
+    # Đếm lại BÊN TRONG tar. Một tar rỗng vẫn qua được gzip -t và vẫn khớp mã
+    # băm của chính nó — hai phép kiểm trên không nói gì về việc có ảnh hay không.
+    MEDIA_EXPECT_N=$(grep -E '^media_file_count=' "$MANIFEST_FILE" | head -n 1 | cut -d= -f2- || echo 0)
+    MEDIA_IN_TAR=$(tar -tzf "$MEDIA_PATH" 2>/dev/null | grep -cv '/$' || true)
+    [ "${MEDIA_IN_TAR:-0}" -ge "${MEDIA_EXPECT_N:-0}" ] || \
+        fail "media archive holds ${MEDIA_IN_TAR} file(s) but the manifest claims ${MEDIA_EXPECT_N}"
+    MEDIA_VERIFIED="${MEDIA_IN_TAR} media file(s)"
+fi
+
+echo "Backup verified: $(basename "$BACKUP_FILE") (${ARCHIVE_BYTES} bytes, ${AGE_SECONDS}s old, ${MEDIA_VERIFIED})"

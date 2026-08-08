@@ -175,6 +175,51 @@ test_backup_rejects_failed_dump() {
   fi
 }
 
+test_backup_includes_media_files() {
+  # ẢNH SIÊU ÂM KHÔNG NẰM TRONG pg_dump, và cho tới 08/08/2026 chúng không nằm
+  # trong bản sao lưu nào cả — `grep media` trong cả bốn script đều rỗng. Khôi
+  # phục xong sẽ ra một phòng khám đủ bệnh án mà mọi phiếu siêu âm trỏ tới tệp
+  # không còn tồn tại: image_refs đầy khoá, đĩa trống, không lỗi nào báo.
+  make_pg_dump ok
+  local media_root="$TMP_ROOT/media-src"
+  mkdir -p "$media_root/test/clinic-1/ultrasound/us-1"
+  printf 'ANH-SIEU-AM-GIA' > "$media_root/test/clinic-1/ultrasound/us-1/a.jpg"
+  # Tệp đang ghi dở phải bị BỎ: media_service ghi .tmp rồi mới đổi tên, và cất
+  # lại một tệp hỏng là cất lại đúng thứ nó tránh.
+  printf 'GHI-DO' > "$media_root/test/clinic-1/ultrasound/us-1/b.jpg.tmp"
+
+  local media_env="$TMP_ROOT/media.env"
+  { cat "$TEST_ENV"; echo "MEDIA_DIR=$media_root"; } > "$media_env"
+
+  rm -rf "$TEST_HOME/backups/clinicai"
+  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin"     PG_DUMP_BIN="$FAKE_BIN/pg_dump" BACKUP_MIN_ARCHIVE_BYTES=1     BACKUP_ENV_FILE="$media_env"     CLINIC_BACKUP_LOCK="$TMP_ROOT/backup-media.lock"     "$ROOT/scripts/backup-db.sh" || fail "backup failed with media present"
+
+  local archive media
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
+  [ -n "$archive" ] || fail "backup did not create an archive"
+  media="${archive%.sql.gz}_media.tar.gz"
+  [ -f "$media" ] || fail "backup did not create the media artifact"
+  gzip -t "$media" || fail "media artifact failed gzip validation"
+  tar -tzf "$media" | grep -q 'a\.jpg' || fail "media artifact does not contain the image"
+  tar -tzf "$media" | grep -q '\.tmp$' && fail "media artifact kept a half-written .tmp file"
+  grep -q '^media_sha256=..*' "${archive}.manifest" ||     fail "manifest does not record the media checksum"
+  grep -qx 'media_file_count=1' "${archive}.manifest" ||     fail "manifest does not record how many media files were archived"
+
+  # Bản khôi phục phải mở ra đúng tệp ấy — "có tệp tar" chưa phải là "khôi phục được".
+  local out="$TMP_ROOT/media-restored"
+  mkdir -p "$out"
+  tar -C "$out" -xzf "$media"
+  [ -f "$out/clinic-1/ultrasound/us-1/a.jpg" ] ||     fail "media artifact does not restore to the original layout"
+  grep -q 'ANH-SIEU-AM-GIA' "$out/clinic-1/ultrasound/us-1/a.jpg" ||     fail "restored media file does not match the original bytes"
+
+  # Và người kiểm phải BẮT được khi tệp media bị hỏng — một tar hỏng vẫn là một
+  # tệp có mặt trong thư mục, và "có bản sao lưu" là câu đọc từ danh sách tệp.
+  printf 'RAC' >> "$media"
+  if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin"        CLINIC_BACKUP_DIR="$TEST_HOME/backups/clinicai"        "$ROOT/scripts/verify-backup.sh" >/dev/null 2>&1; then
+    fail "verifier accepted a corrupted media artifact"
+  fi
+}
+
 test_backup_creates_verified_archive() {
   make_pg_dump ok
   backup_test_env
@@ -410,6 +455,22 @@ test_deploy_is_pinned_and_serialized() {
     grep -Fq 'contents: read' "$ROOT/.github/workflows/$workflow" || \
       fail "$workflow does not use least-privilege repository contents access"
   done
+}
+
+test_deploy_precreates_bind_dirs() {
+  # Docker tự tạo thư mục ổ bind bằng quyền DAEMON — tức root — khi nó chưa tồn
+  # tại. Container thì chạy bằng appuser (uid 1000). Đo trên bản thật 08/08:
+  # `touch /var/lib/clinicai/media/x` → Permission denied. Backend không ghi
+  # nổi một tấm ảnh siêu âm nào suốt từ ngày dựng, và hỏng im lặng vì chưa ai
+  # upload. Deploy phải tạo trước, bằng chính người deploy.
+  local deploy="$ROOT/scripts/deploy-backend.sh"
+  grep -Fq 'mkdir -p "$d"' "$deploy" ||     fail "deploy does not pre-create the bind-mount directories"
+  grep -Fq 'MEDIA_BIND' "$deploy" ||     fail "deploy does not resolve MEDIA_DIR before compose up"
+  # Phải chạy TRƯỚC `up -d`, không thì Docker đã tạo bằng root mất rồi.
+  local mkdir_line up_line
+  mkdir_line=$(grep -n 'mkdir -p "$d"' "$deploy" | head -1 | cut -d: -f1)
+  up_line=$(grep -n '"${COMPOSE\[@\]}" up -d' "$deploy" | head -1 | cut -d: -f1)
+  [ -n "$mkdir_line" ] && [ -n "$up_line" ] && [ "$mkdir_line" -lt "$up_line" ] ||     fail "bind directories are created after compose up (too late — Docker already made them root-owned)"
 }
 
 test_deploy_rolls_back_when_initial_up_fails() {
@@ -749,6 +810,7 @@ test_runbook_installs_the_real_launchdaemon_template() {
 
 test_backup_rejects_failed_dump
 test_backup_rejects_structurally_incomplete_dump
+test_backup_includes_media_files
 test_backup_creates_verified_archive
 test_backup_command_preflight_is_explicit
 test_backup_rejects_small_archive_before_publish
@@ -757,6 +819,7 @@ test_restore_is_atomic_and_explicit
 test_backup_verifier_rejects_stale_and_small_artifacts
 test_compose_requires_explicit_runtime_env
 test_deploy_is_pinned_and_serialized
+test_deploy_precreates_bind_dirs
 test_deploy_rolls_back_when_initial_up_fails
 test_deploy_exact_sha_smoke
 test_boot_is_bash32_safe_and_uses_shared_lock

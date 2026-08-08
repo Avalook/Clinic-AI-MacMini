@@ -166,6 +166,38 @@ fi
 
 "${COMPOSE[@]}" config --quiet
 
+# ── Thư mục ổ bind phải TỒN TẠI TRƯỚC, và thuộc về người deploy ──────────────
+#
+# CHUYỆN ĐÃ XẢY RA (đo 08/08/2026). `.media/production` không tồn tại lúc `up`
+# đầu tiên, nên Docker tự tạo nó — bằng quyền của daemon, tức **root**, chế độ
+# 755. Container thì chạy bằng `appuser` (uid 1000). Kết quả:
+#
+#     docker exec … touch /var/lib/clinicai/media/x  →  Permission denied
+#
+# Backend KHÔNG GHI NỔI một tấm ảnh siêu âm nào, suốt từ ngày dựng. Và nó hỏng
+# im lặng theo kiểu tệ nhất: không ai upload nên không ai gặp lỗi, cho tới hôm
+# tính năng được bật lên và mọi lần tải đều trả 500.
+#
+# `mkdir -p` chạy bằng chính người deploy (uid 1000 = appuser trong ảnh) nên
+# Docker gắn vào một thư mục đã có, đúng chủ. Chạy lại bao nhiêu lần cũng không
+# đổi gì thêm.
+MEDIA_BIND="$(env_value MEDIA_DIR)"
+MEDIA_BIND="${MEDIA_BIND:-./.media}"
+OPS_BIND="$(env_value OPS_STATUS_DIR)"
+OPS_BIND="${OPS_BIND:-./.ops-status}"
+APP_ENV_VALUE="$(env_value APP_ENV)"
+for d in "${MEDIA_BIND}/${APP_ENV_VALUE}" "${OPS_BIND}/${APP_ENV_VALUE}"; do
+  case "$d" in
+    "~/"*) d="$HOME/${d#\~/}" ;;
+    /*) : ;;
+    *) d="${REPO}/${d#./}" ;;
+  esac
+  mkdir -p "$d" || {
+    echo "!! không tạo được thư mục ổ bind: $d" >&2
+    exit 1
+  }
+done
+
 # ── Lược đồ có đi trước code không ────────────────────────────────────────────
 #
 # CHUYỆN ĐÃ XẢY RA (06/08). Deploy một bản code đọc tám cột mới của bảng `staff`
