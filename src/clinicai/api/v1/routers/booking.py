@@ -83,6 +83,9 @@ class BookingRequest(BaseModel):
 class ActionRequest(BaseModel):
     action: Action
     cancellation_reason: str | None = Field(default=None, max_length=1000)
+    #: Bắt buộc khi action = "cancel"; BookingService từ chối nếu thiếu. Khai
+    #: Optional ở đây vì cùng một thân yêu cầu phục vụ tám hành động khác nhau.
+    ly_do_huy_ma: str | None = Field(default=None, max_length=32)
     # An absent doctor_id means "leave it"; an explicit null means "unassign".
     doctor_id: UUID | None = None
     slot_start: datetime | None = None
@@ -395,6 +398,7 @@ async def apply_appointment_action(
         action=body.action,
         identity=identity,
         cancellation_reason=body.cancellation_reason,
+        ly_do_huy_ma=body.ly_do_huy_ma,
         doctor_id=str(body.doctor_id) if body.doctor_id else None,
         doctor_id_provided="doctor_id" in body.model_fields_set,
         slot_start=body.slot_start,
@@ -447,3 +451,13 @@ async def list_slot_holds(
 ) -> dict[str, Any]:
     """Chỗ NGƯỜI KHÁC đang giữ trong ngày, để lưới tô đúng ô."""
     return {"items": await SlotHoldService(pool).active(identity=identity, date=date)}
+
+
+@router.get("/appointments/ly-do-huy")
+async def ly_do_huy(
+    identity: StaffIdentity = Depends(_ACTION_GUARD),
+) -> dict[str, Any]:
+    """Danh mục lý do huỷ. Một nguồn cho mọi màn có nút huỷ."""
+    from clinicai.services.booking_service import LY_DO_HUY
+
+    return {"items": [{"ma": k, "nhan": v} for k, v in LY_DO_HUY.items()]}

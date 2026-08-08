@@ -60,6 +60,24 @@ from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
 
+# ── LÝ DO HUỶ LỊCH ─────────────────────────────────────────────────────────
+#
+# Ba mã đầu là BA THỜI ĐIỂM trong vòng đời lịch hẹn, không phải ba cách nói của
+# "khách bận" — và mỗi thời điểm tốn của phòng khám một khoản khác nhau: báo lúc
+# gọi xác nhận thì chỗ đó bán lại được, báo vào đúng giờ khám thì bác sĩ ngồi
+# không. Đếm được ba con số ấy mới biết nên siết khâu nào.
+#
+# CHỮ Ở ĐÂY PHẢI KHỚP `src/dashboard/lib/ly-do-huy.ts`. Ba màn cùng vẽ danh sách
+# này (Quản lý khách hàng, Công việc của tôi, và API tác nhân), nên chép tay là
+# sớm muộn ba màn nói ba kiểu về cùng một lần huỷ. Bài kiểm chống lệch:
+# src/tests/unit/test_ly_do_huy_drift.py
+LY_DO_HUY: dict[str, str] = {
+    "BAO_KHI_XAC_NHAN": "Gọi xác nhận trước 7 ngày — khách báo không đến được",
+    "BAO_KHI_NHAC_HEN": "Đã xác nhận sẽ đến, tới lúc nhắc hẹn thì báo không đến",
+    "BAO_VAO_GIO_KHAM": "Đúng giờ khám, lễ tân gọi khách mới báo không đến",
+    "KHAC": "Lý do khác (tự viết)",
+}
+
 # Múi giờ khai báo ở core.clock — xem lý do ở đó (một hằng số ở nhiều bản
 # sao là hằng số sẽ sai ở một trong các bản).
 CLINIC_TZ = _CLINIC_TZ
@@ -579,6 +597,7 @@ class BookingService:
         action: Action,
         identity: StaffIdentity,
         cancellation_reason: str | None = None,
+        ly_do_huy_ma: str | None = None,
         doctor_id: str | None = None,
         doctor_id_provided: bool = False,
         slot_start: datetime | None = None,
@@ -696,6 +715,7 @@ class BookingService:
                         appt=appt,
                         new_status=new_status,
                         cancellation_reason=cancellation_reason,
+                        ly_do_huy_ma=ly_do_huy_ma,
                         doctor_id=doctor_id,
                         doctor_id_provided=doctor_id_provided,
                         slot_start=slot_start,
@@ -769,6 +789,7 @@ class BookingService:
         appt: asyncpg.Record,
         new_status: str,
         cancellation_reason: str | None,
+        ly_do_huy_ma: str | None,
         doctor_id: str | None,
         doctor_id_provided: bool,
         slot_start: datetime | None,
@@ -778,8 +799,23 @@ class BookingService:
         patch: dict[str, Any] = {"status": new_status}
 
         if action == "cancel":
+            ma = (ly_do_huy_ma or "").strip() or None
+            chu = (cancellation_reason or "").strip() or None
+            if ma is None:
+                # KHÔNG tự điền 'KHAC' cho im chuyện. Mặc định âm thầm là cách
+                # cột này thành 100% "khác" trong ba tháng, và lúc đó nó vô
+                # dụng đúng bằng ô chữ tự do mà nó thay thế.
+                raise ValidationError("Chọn lý do huỷ.")
+            if ma not in LY_DO_HUY:
+                raise ValidationError(f"Lý do huỷ không hợp lệ: {ma!r}.")
+            if ma == "KHAC" and not chu:
+                raise ValidationError("Chọn 'lý do khác' thì phải viết rõ lý do.")
             patch["cancelled_at"] = datetime.now(timezone.utc)
-            patch["cancellation_reason"] = (cancellation_reason or "").strip() or None
+            patch["cancellation_reason"] = chu
+            patch["ly_do_huy_ma"] = ma
+            # AI huỷ — trước đây không lưu, nên một lịch huỷ nhầm không truy
+            # được về ai. Lấy từ phiên, không nhận từ client.
+            patch["cancelled_by_staff_id"] = identity.staff_id
 
         elif action == "reassign":
             new_doctor = (doctor_id or "").strip() or None
