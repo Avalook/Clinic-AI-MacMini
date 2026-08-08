@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import date
 from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
@@ -338,4 +340,131 @@ async def cap_nhat_phan_hoi(
         phan_hoi_id=str(phan_hoi_id),
         trang_thai=body.trang_thai,
         huong_xu_ly=body.huong_xu_ly,
+    )
+
+
+# ── Tệp kết quả khám (ảnh / video siêu âm, phiếu xét nghiệm) ────────────────
+#
+# Cùng gác với phần nhập liệu chăm sóc: ai ghi được "đã gọi cho khách" thì tải
+# được kết quả của khách đó lên. KHÔNG mở rộng _SONO_GUARD — đường siêu âm của
+# kỹ thuật viên giữ nguyên vai của nó; đây là đường của CSKH.
+
+
+@router.post("/cskh/ket-qua/tep", status_code=201)
+async def tai_len_ket_qua(
+    clinic_patient_id: UUID = Form(...),
+    file: UploadFile = File(...),
+    appointment_id: UUID | None = Form(default=None),
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tải một tệp kết quả lên.
+
+    Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
+    Kiểu kiểm bằng mấy byte đầu, không bằng đuôi tên.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    data = await file.read()
+    return await TepKetQuaService(pool).tai_len(
+        identity=identity,
+        clinic_patient_id=str(clinic_patient_id),
+        data=data,
+        ten_hien_thi=file.filename,
+        appointment_id=str(appointment_id) if appointment_id else None,
+    )
+
+
+@router.get("/cskh/ket-qua/{clinic_patient_id}")
+async def danh_sach_ket_qua(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tệp kết quả của một khách, kèm đã gửi hay chưa."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {
+        "items": await TepKetQuaService(pool).danh_sach(
+            identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }
+
+
+@router.get("/cskh/ket-qua/tep/{tep_id}/noi-dung")
+async def doc_tep_ket_qua(
+    tep_id: UUID,
+    request: Request,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.
+
+    Range là điều kiện để xem video, không phải tối ưu để sau: không có nó thì
+    trình duyệt phải tải trọn tệp trước khi phát được giây đầu tiên, và thanh
+    tua không kéo được. Container API giới hạn 1GB nên cũng không thể nạp cả
+    tệp vào RAM cho mỗi người xem.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    path, mime, so_byte, ten = await TepKetQuaService(pool).duong_dan_de_doc(
+        identity=identity, tep_id=str(tep_id)
+    )
+    # Dữ liệu bệnh nhân: `private` cho phép trình duyệt của chính người xem giữ,
+    # không cho proxy giữ; `nosniff` để trình duyệt không tự đoán kiểu và chạy
+    # nội dung như HTML.
+    headers = {
+        "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": "inline",
+    }
+
+    from clinicai.services.media_service import phan_tich_range
+
+    khoang = phan_tich_range(request.headers.get("range"), so_byte)
+    if khoang is None:
+        return FileResponse(path, media_type=mime, headers=headers)
+    dau, cuoi = khoang
+    if dau > cuoi:
+        # Yêu cầu nằm ngoài tệp — trả 416 kèm độ dài thật, để trình phát tự
+        # chỉnh lại thay vì treo.
+        return Response(
+            status_code=416, headers={"Content-Range": f"bytes */{so_byte}"}
+        )
+
+    def doc_dan() -> Iterator[bytes]:
+        con = cuoi - dau + 1
+        with path.open("rb") as f:
+            f.seek(dau)
+            while con > 0:
+                mieng = f.read(min(64 * 1024, con))
+                if not mieng:
+                    break
+                con -= len(mieng)
+                yield mieng
+
+    headers["Content-Range"] = f"bytes {dau}-{cuoi}/{so_byte}"
+    headers["Content-Length"] = str(cuoi - dau + 1)
+    return StreamingResponse(
+        doc_dan(), status_code=206, media_type=mime, headers=headers
+    )
+
+
+class DaGuiRequest(BaseModel):
+    kenh: Literal["ZALO", "SMS", "TRUC_TIEP", "EMAIL"]
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/da-gui", status_code=201)
+async def danh_dau_da_gui(
+    tep_id: UUID,
+    body: DaGuiRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """CSKH XÁC NHẬN đã gửi tệp này cho khách — hệ thống chưa tự gửi được."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).danh_dau_da_gui(
+        identity=identity, tep_id=str(tep_id), kenh=body.kenh
     )

@@ -17,6 +17,7 @@ import {
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
 import type { DongLichSu } from "./GhiTuongTac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
+import type { TepKetQuaRow } from "./TepKetQua";
 import CustomersView, {
   type CustomerRow,
   type ApptInfo,
@@ -211,6 +212,18 @@ export default async function CustomersPage({
           "clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han, appointment_id, da_xac_nhan",
         )
         .in("clinic_patient_id", shownIds)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
+  // TỆP KẾT QUẢ — ảnh/video siêu âm, phiếu xét nghiệm CSKH đã tải lên.
+  const tepPromise = shownIds.length
+    ? supabase
+        .from("tep_ket_qua")
+        .select(
+          "id, clinic_patient_id, ten_hien_thi, loai_tep, mime, so_byte, tai_len_luc, gui_luc, gui_kenh, staff:tai_len_boi_staff_id ( full_name )",
+        )
+        .in("clinic_patient_id", shownIds)
+        .order("tai_len_luc", { ascending: false })
+        .limit(300)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
   // PHẢN HỒI / KHIẾU NẠI — vòng đời xử lý hiện ngay trong vùng làm việc.
@@ -408,10 +421,39 @@ export default async function CustomersPage({
     created_at: string;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
+  type TepRaw = {
+    id: string;
+    clinic_patient_id: string;
+    ten_hien_thi: string | null;
+    loai_tep: string;
+    mime: string;
+    so_byte: number;
+    tai_len_luc: string;
+    gui_luc: string | null;
+    gui_kenh: string | null;
+    staff?: { full_name: string } | { full_name: string }[] | null;
+  };
+  const tepByPatient: Record<string, TepKetQuaRow[]> = {};
   const phanHoiByPatient: Record<string, DongPhanHoi[]> = {};
   const tuongTacByPatient: Record<string, DongLichSu[]> = {};
   let tuongTacError: { message: string } | null = null;
   if (rows.length) {
+    const { data: tep } = await tepPromise;
+    for (const r of (tep as TepRaw[] | null) ?? []) {
+      const nv = Array.isArray(r.staff) ? r.staff[0] : r.staff;
+      (tepByPatient[r.clinic_patient_id] ??= []).push({
+        id: r.id,
+        ten_hien_thi: r.ten_hien_thi,
+        loai_tep: r.loai_tep,
+        mime: r.mime,
+        so_byte: r.so_byte,
+        tai_len_luc: r.tai_len_luc,
+        tai_len_boi: nv?.full_name ?? null,
+        gui_luc: r.gui_luc,
+        gui_kenh: r.gui_kenh,
+        gui_boi: null,
+      });
+    }
     const { data: ph } = await phanHoiPromise;
     for (const r of (ph as PhanHoiRaw[] | null) ?? []) {
       const nv = Array.isArray(r.staff) ? r.staff[0] : r.staff;
@@ -464,6 +506,7 @@ export default async function CustomersPage({
           tuongTacByPatient={tuongTacByPatient}
           trangThaiByPatient={trangThaiByPatient}
           phanHoiByPatient={phanHoiByPatient}
+          tepByPatient={tepByPatient}
           locations={locations}
           q={q}
           period={period}
