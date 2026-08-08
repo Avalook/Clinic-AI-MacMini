@@ -699,12 +699,15 @@ class BookingService:
                         "Bác sĩ của lịch hẹn không thuộc phòng khám này"
                     )
 
-                # A doctor acts on their own list. TKYK enters on their
-                # behalf; CSKH đóng lượt HỘ trong MVP vận hành tay (họ không
-                # phải bác sĩ của ai nên so staff_id sẽ chặn sạch).
+                # "Ca của chính mình" là luật GIỮA CÁC BÁC SĨ — ngăn bác sĩ
+                # này đóng ca của bác sĩ kia. Người không phải bác sĩ (TKYK
+                # nhập hộ, nhóm vận hành đóng lượt trong MVP tay) không có "ca
+                # của mình" để so; so staff_id với họ chỉ chặn sạch mọi thứ —
+                # đo được trên bản thật: Quản lý bấm check-out ăn ngay
+                # "Lịch hẹn này không thuộc bác sĩ".
                 if (
                     transition.owner_only
-                    and identity.role not in (ClinicRole.TKYK, ClinicRole.CSKH)
+                    and identity.role in PHYSICIAN_ONLY_OWNER_CHECK
                     and str(appt["doctor_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")
