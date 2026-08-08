@@ -1123,6 +1123,21 @@ export default function BookingHub({
           "khách mới" là mất hết ngữ cảnh vừa nhìn, và bấm nhầm thì phải đi
           đường vòng để quay lại. */}
       <div className="space-y-4">
+          {/* BỐN Ô SỐ NÀY TỪNG LÀ SỐ BỊA — 42 / 18 / 4 / 20 viết cứng trong mã
+              nguồn, không đọc từ đâu cả. Chúng đứng ngay trên đầu màn CSKH dùng
+              hằng ngày, nên người dùng tin và đối chiếu theo. Đây đúng loại lỗi
+              commit 30706ab đã dọn ở màn CSKH ("bốn ô số đọc nguồn chết") —
+              chỉ là màn Đặt lịch chưa ai soát.
+
+              Vi phạm thẳng tiêu chí khách hàng: "Áp dụng cho chạy thực tế —
+              không có chế độ demo song song" và "Màn hình báo rõ dữ liệu cũ X
+              giây thay vì im lặng hiển thị số sai".
+
+              "Còn chỗ" hiện là dấu gạch, KHÔNG phải quên: sức chứa còn lại phụ
+              thuộc luật 2+1 mỗi khung, lịch trực của từng bác sĩ và cấu hình
+              riêng của bác sĩ Thành (18h–18h15 nhận 10 ca, sau đó 4). Tính
+              nhẩm ở frontend là ra một con số thứ hai lệch với backend. Thà để
+              trống còn hơn nói sai — bảng lưới bên dưới đã hiện đúng từng ô. */}
           {/* Top 4 Summary Stat Cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="flex items-center gap-3.5 rounded-2xl border border-line bg-surface p-3.5 shadow-card">
@@ -1131,7 +1146,7 @@ export default function BookingHub({
               </div>
               <div>
                 <p className="text-xs font-medium text-ink-muted">Lịch hôm nay</p>
-                <p className="text-xl font-bold text-ink">42</p>
+                <p className="text-xl font-bold text-ink">{appts.length}</p>
               </div>
             </div>
 
@@ -1141,7 +1156,12 @@ export default function BookingHub({
               </div>
               <div>
                 <p className="text-xs font-medium text-ink-muted">Còn chỗ</p>
-                <p className="text-xl font-bold text-ink">18</p>
+                <p
+                  className="text-xl font-bold text-ink-muted"
+                  title="Sức chứa còn lại phụ thuộc luật 2+1, lịch trực và cấu hình riêng từng bác sĩ — xem trực tiếp trên lưới giờ bên dưới."
+                >
+                  —
+                </p>
               </div>
             </div>
 
@@ -1150,8 +1170,12 @@ export default function BookingHub({
                 <Clock className="size-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-ink-muted">Đang giữ</p>
-                <p className="text-xl font-bold text-ink">4</p>
+                <p className="text-xs font-medium text-ink-muted">
+                  Đang giữ · ngày đang xem
+                </p>
+                <p className="text-xl font-bold text-ink">
+                  {heldByOthers.size}
+                </p>
               </div>
             </div>
 
@@ -1161,7 +1185,9 @@ export default function BookingHub({
               </div>
               <div>
                 <p className="text-xs font-medium text-ink-muted">Đã xác nhận</p>
-                <p className="text-xl font-bold text-ink">20</p>
+                <p className="text-xl font-bold text-ink">
+                  {appts.filter((a) => a.status === "CONFIRMED").length}
+                </p>
               </div>
             </div>
           </div>
