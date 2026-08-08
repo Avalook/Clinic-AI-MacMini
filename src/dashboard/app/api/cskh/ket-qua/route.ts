@@ -54,11 +54,27 @@ export async function POST(request: Request) {
   // CHUYỂN TIẾP NGUYÊN VĂN multipart. Đọc rồi dựng lại FormData ở đây là nạp
   // cả tệp vào RAM của tiến trình Next — với video 80MB thì đó là 80MB mỗi
   // lượt tải, trên cùng một máy đang chạy database.
+  //
+  // PHẢI CHUYỂN TIẾP Content-Type, VÀ ĐÂY LÀ CHỖ ĐÃ SAI MỘT LẦN.
+  //
+  // Bản đầu cố ý bỏ header này ("boundary nằm trong header gốc") — nhưng
+  // `getCallerAuthHeaders()` chỉ trả Authorization + X-API-Key, nên header gốc
+  // KHÔNG đi cùng. FastAPI nhận một thân multipart mà không biết boundary, và
+  // trả 422 "clinic_patient_id: Field required" — nghe như client quên gửi
+  // trường, trong khi trường ấy nằm ngay trong thân không đọc được.
+  //
+  // Gọi thẳng API bằng script thì chạy (script tự đặt Content-Type), nên lỗi
+  // chỉ lộ ra khi bấm nút thật trên trình duyệt.
+  const ctIn = request.headers.get("content-type");
+  if (ctIn) headers["Content-Type"] = ctIn;
+  const clIn = request.headers.get("content-length");
+  if (clIn) headers["Content-Length"] = clIn;
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/api/v1/cskh/ket-qua/tep`, {
       method: "POST",
-      headers, // KHÔNG đặt Content-Type: boundary nằm trong header gốc
+      headers,
       body: request.body,
       // @ts-expect-error — `duplex` là bắt buộc của undici khi body là luồng;
       // kiểu của Next chưa khai nó.
