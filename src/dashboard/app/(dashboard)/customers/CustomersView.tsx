@@ -23,6 +23,37 @@ import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
 import QuickBookingModal from "../patient-list/QuickBookingModal";
 import BaoXepBacSi from "./BaoXepBacSi";
+import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
+
+const NHAN_LOAI_NGAN: Record<string, string> = {
+  XAC_NHAN_LICH: "Xác nhận lịch",
+  NHAC_HEN: "Nhắc hẹn",
+  CHECK_XN: "Hỏi đơn vị XN",
+  TRA_KQ: "Trả kết quả",
+  HOI_LY_DO_HUY: "Hỏi lý do huỷ",
+  HOI_THAM: "Hỏi thăm",
+  KHAC: "Việc khác",
+};
+const NHAN_KQ_NGAN: Record<string, string> = {
+  DA_LIEN_HE: "đã liên hệ",
+  CHUA_NGHE_MAY: "chưa nghe máy",
+  CAN_BAC_SI: "cần hỏi bác sĩ",
+  TU_CHOI: "từ chối",
+  BO_QUA: "bỏ qua",
+};
+
+/** Một dòng cho ô "Tương tác gần nhất". `undefined` = chưa có lần nào. */
+function tomTatTuongTac(ds: DongLichSu[] | undefined): string | undefined {
+  const d = ds?.[0];
+  if (!d) return undefined;
+  const ngay = new Date(d.xay_ra_luc).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  const kq = d.ket_qua ? ` · ${NHAN_KQ_NGAN[d.ket_qua] ?? d.ket_qua}` : "";
+  return `${ngay} · ${NHAN_LOAI_NGAN[d.loai] ?? d.loai}${kq}`;
+}
 import AppointmentEditModal, { type EditableAppt } from "./AppointmentEditModal";
 
 export interface CustomerRow {
@@ -132,6 +163,7 @@ export default function CustomersView({
   rows,
   apptByPatient,
   cskhByPatient,
+  tuongTacByPatient,
   locations,
   q,
   period,
@@ -154,6 +186,7 @@ export default function CustomersView({
       assignee: string | null;
     }
   >;
+  tuongTacByPatient: Record<string, DongLichSu[]>;
   locations: Opt[];
   q: string;
   period: Period;
@@ -429,7 +462,9 @@ export default function CustomersView({
                           <StatusChip tone={st.tone} label={st.label} />
                         </div>
                         <div className="min-w-0 text-xs text-ink-soft truncate">
-                          {cskh?.lastInteraction ?? "—"}
+                          {tomTatTuongTac(tuongTacByPatient[row.clinic_patient_id]) ??
+                      cskh?.lastInteraction ??
+                      "—"}
                         </div>
                         <div className="min-w-0">
                           <span className="truncate text-xs font-medium text-ink">
@@ -543,35 +578,20 @@ export default function CustomersView({
                     </span>
                   </div>
 
-                  {/* 1. Quick Call / SMS Buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {selected.phone_primary ? (
-                      <a
-                        href={`tel:${selected.phone_primary}`}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand-300 bg-white py-2 px-3 font-semibold text-brand-700 hover:bg-brand-50 shadow-xs transition-colors"
-                      >
-                        📞 Gọi nhắc hẹn
-                      </a>
-                    ) : (
-                      <button
-                        disabled
-                        type="button"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-muted py-2 px-3 font-semibold text-ink-muted cursor-not-allowed opacity-60"
-                      >
-                        📞 Chưa có SĐT
-                      </button>
-                    )}
-                    <button
-                      disabled
-                      type="button"
-                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface-muted py-2 px-2.5 font-medium text-ink-muted cursor-not-allowed opacity-75"
-                      title="Tính năng sẽ ra mắt ở phiên bản tiếp theo"
-                    >
-                      💬 Zalo / SMS
-                      <span className="text-[9px] bg-brand-100 text-brand-700 px-1 py-0.2 rounded font-bold">
-                        Sắp có
-                      </span>
-                    </button>
+                  {/* GỌI XONG THÌ GHI LẠI.
+                      Trước đây chỗ này là một thẻ `<a href="tel:">` và một nút
+                      "Zalo/SMS" gắn cứng disabled. Quay số xong hệ thống không
+                      biết gì, nên cột "Tương tác gần nhất" hiện "—" cho mọi
+                      khách kể cả những người vừa được gọi sáng nay. */}
+                  <div className="pt-1">
+                    <GhiTuongTac
+                      clinicPatientId={selected.clinic_patient_id}
+                      appointmentId={selectedAppt?.appt?.id ?? null}
+                      phone={selected.phone_primary}
+                      lichSuBanDau={
+                        tuongTacByPatient[selected.clinic_patient_id] ?? []
+                      }
+                    />
                   </div>
 
                   {/* KHÔNG CÒN NÚT "XÁC NHẬN KHÁCH SẼ TỚI".

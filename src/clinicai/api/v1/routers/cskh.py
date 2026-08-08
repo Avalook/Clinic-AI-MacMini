@@ -19,6 +19,7 @@ from clinicai.services.cskh_service import (
 )
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
+from clinicai.services.tuong_tac_cskh_service import TuongTacCskhService
 
 router = APIRouter()
 
@@ -178,3 +179,61 @@ async def record_followup_call(
         luot_goi=body.luot_goi,
     )
     return {"ok": True, "id": log_id}
+
+
+# ── Sổ tương tác ────────────────────────────────────────────────────────────
+#
+# Cùng gác với phần nhập liệu chăm sóc (INTAKE_ROLES): ai ghi được hồ sơ hành
+# chính của khách thì ghi được "đã gọi cho khách". Mở rộng hơn thế là mở cho
+# người không gọi điện bao giờ khai rằng mình đã gọi.
+
+
+class TuongTacRequest(BaseModel):
+    clinic_patient_id: UUID
+    appointment_id: UUID | None = None
+    loai: Literal[
+        "XAC_NHAN_LICH",
+        "NHAC_HEN",
+        "CHECK_XN",
+        "TRA_KQ",
+        "HOI_LY_DO_HUY",
+        "HOI_THAM",
+        "KHAC",
+    ]
+    kenh: Literal["GOI", "ZALO", "SMS", "TRUC_TIEP", "KHONG_LIEN_HE"]
+    ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI", "BO_QUA"]
+    khach_xac_nhan: bool | None = None
+    noi_dung: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/cskh/tuong-tac", status_code=201)
+async def ghi_tuong_tac(
+    body: TuongTacRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ghi một lần chạm tới khách (gọi điện, nhắn Zalo, gặp trực tiếp)."""
+    return await TuongTacCskhService(pool).ghi(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        appointment_id=str(body.appointment_id) if body.appointment_id else None,
+        loai=body.loai,
+        kenh=body.kenh,
+        ket_qua=body.ket_qua,
+        khach_xac_nhan=body.khach_xac_nhan,
+        noi_dung=body.noi_dung,
+    )
+
+
+@router.get("/cskh/tuong-tac/{clinic_patient_id}")
+async def lich_su_tuong_tac(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dòng thời gian của một khách — gộp sổ tương tác và các lượt nhắc tái khám."""
+    return {
+        "items": await TuongTacCskhService(pool).lich_su(
+            identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }

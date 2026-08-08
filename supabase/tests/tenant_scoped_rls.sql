@@ -113,8 +113,10 @@ BEGIN
     -- 37 → 38 ngày 08/08/2026: luat_bac_si_bat_buoc (20260808000003).
     -- 38 → 39 ngày 08/08/2026: vai_duoc_vao_tram (20260809000002). CHỈ ĐỌC:
     -- sửa được ma trận này là quyết được ai đứng ở bàn khám.
-    IF scoped_count <> 39 THEN
-        RAISE EXCEPTION 'expected 39 tenant-scoped read policies, found %', scoped_count;
+    -- 39 → 40 ngày 08/08/2026: tuong_tac_cskh (20260809000003). CHỈ ĐỌC: client
+    -- tự ghi được nghĩa là tự khai được "đã gọi rồi" cho cuộc gọi chưa xảy ra.
+    IF scoped_count <> 40 THEN
+        RAISE EXCEPTION 'expected 40 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
