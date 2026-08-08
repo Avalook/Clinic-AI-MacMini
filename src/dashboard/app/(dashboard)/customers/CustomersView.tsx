@@ -25,6 +25,7 @@ import QuickBookingModal from "../patient-list/QuickBookingModal";
 import BaoXepBacSi from "./BaoXepBacSi";
 import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
 import VungLamViecKhach from "./VungLamViecKhach";
+import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
 export interface TrangThaiCskh {
@@ -76,6 +77,10 @@ const NHAN_LOAI_NGAN: Record<string, string> = {
   HOI_LY_DO_HUY: "Hỏi lý do huỷ",
   HOI_THAM: "Hỏi thăm",
   KHAC: "Việc khác",
+  CHECK_IN: "Check-in",
+  CHECK_OUT: "Check-out",
+  THANH_TOAN: "Thanh toán",
+  MUA_THUOC: "Mua thuốc",
 };
 const NHAN_KQ_NGAN: Record<string, string> = {
   DA_LIEN_HE: "đã liên hệ",
@@ -85,6 +90,7 @@ const NHAN_KQ_NGAN: Record<string, string> = {
   CAN_BAC_SI: "cần hỏi bác sĩ",
   TU_CHOI: "từ chối",
   BO_QUA: "bỏ qua",
+  GHI_NHAN: "đã ghi nhận",
 };
 
 /** Một dòng cho ô "Tương tác gần nhất". `undefined` = chưa có lần nào. */
@@ -213,6 +219,7 @@ export default function CustomersView({
   cskhByPatient,
   tuongTacByPatient,
   trangThaiByPatient,
+  phanHoiByPatient,
   locations,
   q,
   period,
@@ -237,6 +244,7 @@ export default function CustomersView({
   >;
   tuongTacByPatient: Record<string, DongLichSu[]>;
   trangThaiByPatient: Record<string, TrangThaiCskh>;
+  phanHoiByPatient: Record<string, DongPhanHoi[]>;
   locations: Opt[];
   q: string;
   period: Period;
@@ -614,6 +622,7 @@ export default function CustomersView({
         {selected && (
           <VungLamViecKhach
             tenKhach={selected.full_name}
+            clinicPatientId={selected.clinic_patient_id}
             lich={{
               id: selectedAppt?.appt?.id ?? null,
               status: selectedAppt?.status ?? null,
@@ -623,7 +632,12 @@ export default function CustomersView({
             }}
             lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
             onLamViec={setViecDangGhi}
-          />
+          >
+            <PhanHoiKhach
+              clinicPatientId={selected.clinic_patient_id}
+              items={phanHoiByPatient[selected.clinic_patient_id] ?? []}
+            />
+          </VungLamViecKhach>
         )}
 
         {selected && (

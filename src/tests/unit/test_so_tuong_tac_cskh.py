@@ -185,3 +185,78 @@ async def test_khach_cua_phong_kham_khac_thi_khong_ghi_duoc() -> None:
             ngay_goi=date.today() + timedelta(days=3),
             ly_do="hỏi thăm",
         )
+
+
+# ── Mốc tại quầy ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_moc_quay_phai_dung_bo_ghi_nhan() -> None:
+    """Mốc ⇔ GHI_NHAN ⇔ trực tiếp. Tách rời được thì sẽ có dòng
+    "check-in — chưa nghe máy" hoặc "gọi điện — ghi nhận"."""
+    with pytest.raises(ValidationError):
+        await _ghi(loai="THANH_TOAN", kenh="TRUC_TIEP", ket_qua="DA_LIEN_HE")
+    with pytest.raises(ValidationError):
+        await _ghi(loai="KHAC", kenh="TRUC_TIEP", ket_qua="GHI_NHAN")
+    with pytest.raises(ValidationError):
+        await _ghi(loai="THANH_TOAN", kenh="GOI", ket_qua="GHI_NHAN")
+
+
+@pytest.mark.asyncio
+async def test_check_in_va_check_out_phai_co_lich() -> None:
+    """Hai mốc này còn đổi trạng thái của chính lịch đó — không lịch thì đổi gì?"""
+    for loai in ("CHECK_IN", "CHECK_OUT"):
+        with pytest.raises(ValidationError):
+            await _ghi(
+                loai=loai, kenh="TRUC_TIEP", ket_qua="GHI_NHAN", appointment_id=None
+            )
+
+
+def test_cskh_duoc_check_in_va_dong_luot() -> None:
+    """Quang 08/08: MVP là CSKH thao tác được hết — check-in và check-out phải
+    đi đường THẬT của máy trạng thái, nên vai CSKH phải nằm trong cả hai cửa."""
+    from clinicai.api.identity import ClinicRole
+    from clinicai.services.booking_service import CHECKIN_ROLES, TRANSITIONS
+
+    assert ClinicRole.CSKH in CHECKIN_ROLES
+    assert ClinicRole.CSKH in TRANSITIONS["complete"].allowed_roles
+
+
+class PoolMotDong:
+    """Trả đúng một dòng cho fetchrow, ghi lại mọi lời gọi."""
+
+    def __init__(self, dong: Any) -> None:
+        self._dong = dong
+        self.calls: list[tuple[str, tuple[Any, ...]]] = []
+
+    async def fetchrow(self, sql: str, *a: Any) -> Any:
+        self.calls.append((sql, a))
+        return self._dong
+
+
+@pytest.mark.asyncio
+async def test_check_out_khi_khach_chua_den_thi_bao_ro() -> None:
+    """Khách chưa check-in mà bấm check-out: lỗi phải NÓI được vì sao, và không
+    được để lại dòng sổ nói việc đã xảy ra."""
+
+    pool = PoolMotDong({"status": "CONFIRMED"})
+    from clinicai.services.tuong_tac_cskh_service import TuongTacCskhService
+
+    with pytest.raises(ValidationError) as e:
+        await TuongTacCskhService(pool)._doi_trang_thai_lich(
+            identity=_ai(), appointment_id="ap-1", loai="CHECK_OUT"
+        )
+    assert "chưa check-in" in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_check_in_lan_hai_chi_ghi_so_khong_loi() -> None:
+    """Lễ tân đã check-in trước rồi thì CSKH bấm lại chỉ ghi sổ — không phải lỗi."""
+    pool = PoolMotDong({"status": "CHECKED_IN"})
+    from clinicai.services.tuong_tac_cskh_service import TuongTacCskhService
+
+    await TuongTacCskhService(pool)._doi_trang_thai_lich(
+        identity=_ai(), appointment_id="ap-1", loai="CHECK_IN"
+    )
+    # Chỉ một lần đọc trạng thái, không lần ghi nào.
+    assert len(pool.calls) == 1
