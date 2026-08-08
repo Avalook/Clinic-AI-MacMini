@@ -24,20 +24,30 @@ from clinicai.core.clock import CLINIC_TZ as GIO_VN
 
 logger = structlog.get_logger()
 
-#: Loại việc — khớp CHECK trong 20260809000003.
-LOAI_HOP_LE = frozenset(
-    {
-        "XAC_NHAN_LICH",
-        "NHAC_HEN",
-        "CHECK_XN",
-        "TRA_KQ",
-        "HOI_LY_DO_HUY",
-        "HOI_THAM",
-        "KHAC",
-    }
+#: Mốc tại quầy (20260809000007) — việc XẢY RA, không phải cuộc gọi. Hai mốc
+#: đầu còn đổi trạng thái lịch hẹn thật: check-in mở lượt khám, check-out đóng.
+MOC_QUAY = frozenset({"CHECK_IN", "CHECK_OUT", "THANH_TOAN", "MUA_THUOC"})
+
+#: Loại việc — khớp CHECK trong 20260809000003 + 20260809000007.
+LOAI_HOP_LE = (
+    frozenset(
+        {
+            "XAC_NHAN_LICH",
+            "NHAC_HEN",
+            "CHECK_XN",
+            "TRA_KQ",
+            "HOI_LY_DO_HUY",
+            "HOI_THAM",
+            "KHAC",
+        }
+    )
+    | MOC_QUAY
 )
-#: Loại việc luôn nói về MỘT lịch hẹn cụ thể.
-CAN_LICH_HEN = frozenset({"XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY"})
+#: Loại việc luôn nói về MỘT lịch hẹn cụ thể. Check-in/check-out có mặt vì
+#: chúng đổi trạng thái của chính lịch đó.
+CAN_LICH_HEN = frozenset(
+    {"XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY", "CHECK_IN", "CHECK_OUT"}
+)
 KENH_HOP_LE = frozenset({"GOI", "ZALO", "SMS", "TRUC_TIEP", "KHONG_LIEN_HE"})
 #: KNM = CHUA_NGHE_MAY, KLLD = KHONG_LIEN_LAC_DUOC, Hẹn GLS = HEN_GOI_LAI
 #: (Quang giải nghĩa 08/08/2026). Cả ba sinh ra việc "cần gọi lại".
@@ -50,6 +60,9 @@ KET_QUA_HOP_LE = frozenset(
         "CAN_BAC_SI",
         "TU_CHOI",
         "BO_QUA",
+        # Mốc quầy chỉ có "đã xảy ra" — cho nó mượn DA_LIEN_HE là bịa ra một
+        # cuộc gọi chưa từng có.
+        "GHI_NHAN",
     }
 )
 
@@ -83,12 +96,33 @@ class TuongTacCskhService:
             raise ValidationError(
                 "'Bỏ qua' phải đi cùng 'không liên hệ' — và ngược lại."
             )
+        if (loai in MOC_QUAY) != (ket_qua == "GHI_NHAN"):
+            raise ValidationError(
+                "Mốc tại quầy ghi kết quả 'ghi nhận' — và chỉ mốc quầy mới dùng nó."
+            )
+        if loai in MOC_QUAY and kenh != "TRUC_TIEP":
+            raise ValidationError("Mốc tại quầy luôn là kênh trực tiếp.")
         if khach_xac_nhan is not None and loai not in ("XAC_NHAN_LICH", "NHAC_HEN"):
             raise ValidationError(
                 "Chỉ việc xác nhận lịch / nhắc hẹn mới ghi được 'khách xác nhận'."
             )
         if loai in CAN_LICH_HEN and not appointment_id:
             raise ValidationError("Việc này phải gắn với một lịch hẹn cụ thể.")
+
+        # CHECK-IN VÀ CHECK-OUT LÀ HÀNH ĐỘNG THẬT TRÊN LỊCH HẸN, không chỉ là
+        # dòng sổ. Đi qua đúng máy trạng thái (BookingService.apply_action):
+        # check-in mở lượt khám và đưa khách vào hàng đợi tiếp nhận — y như lễ
+        # tân bấm; check-out đóng trạng thái khám, thứ mà "đã khám" và nhắc tái
+        # khám đọc vào.
+        #
+        # CHẠY TRƯỚC khi ghi sổ: hành động lịch thất bại (khách chưa check-in mà
+        # bấm check-out) thì KHÔNG được để lại dòng sổ nói việc đã xảy ra. Chiều
+        # ngược lại — hành động xong mà ghi sổ hỏng — chấp nhận được: trạng thái
+        # lịch vẫn đúng và chuỗi bước vẫn tích qua trạng thái.
+        if loai in ("CHECK_IN", "CHECK_OUT") and appointment_id:
+            await self._doi_trang_thai_lich(
+                identity=identity, appointment_id=appointment_id, loai=loai
+            )
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -160,6 +194,50 @@ class TuongTacCskhService:
             by_staff_id=identity.staff_id,
         )
         return {"ok": True, "id": row_id}
+
+    async def _doi_trang_thai_lich(
+        self, *, identity: StaffIdentity, appointment_id: str, loai: str
+    ) -> None:
+        """Chạy hành động lịch tương ứng với mốc quầy — nếu lịch đang ở chỗ cần nó.
+
+        Đã CHECKED_IN mà bấm check-in lần nữa (lễ tân làm trước rồi) thì chỉ ghi
+        sổ, không phải lỗi. Nhưng khách CHƯA đến mà bấm check-out thì là lỗi
+        thật, và câu báo phải nói được điều đó.
+        """
+        from clinicai.services.booking_service import BookingService
+
+        row = await self._pool.fetchrow(
+            "SELECT status FROM public.appointment "
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            appointment_id,
+            identity.clinic_id,
+        )
+        if row is None:
+            raise NotFoundError("Không tìm thấy lịch hẹn này.")
+        status = row["status"]
+
+        if loai == "CHECK_IN":
+            if status in ("CHECKED_IN", "COMPLETED"):
+                return  # đã đến rồi — chỉ ghi sổ
+            if status not in ("SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"):
+                raise ValidationError(
+                    f"Lịch đang ở trạng thái {status}, không check-in được."
+                )
+            await BookingService(self._pool).apply_action(
+                appointment_id=appointment_id, action="checkin", identity=identity
+            )
+            return
+
+        # CHECK_OUT
+        if status == "COMPLETED":
+            return  # đã đóng rồi — chỉ ghi sổ
+        if status != "CHECKED_IN":
+            raise ValidationError(
+                "Khách chưa check-in — check-in trước rồi mới check-out được."
+            )
+        await BookingService(self._pool).apply_action(
+            appointment_id=appointment_id, action="complete", identity=identity
+        )
 
     async def lich_su(
         self, *, identity: StaffIdentity, clinic_patient_id: str, gioi_han: int = 50

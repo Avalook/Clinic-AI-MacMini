@@ -75,7 +75,9 @@ DECLARE
     -- khám đổi cả hai mà không deploy lại. hen_goi_lai là chỗ đựng những việc
     -- hệ thống chưa suy được (sau sinh 1 tháng, sau thủ thuật 1 ngày) — không
     -- cột nào chứa ngày sinh con thật, nên người gõ tay thay vì tab tự sinh sai.
-    expected_tenant_tables constant integer := 66;
+    -- 66 → 67 (08/08/2026): phan_hoi_khach — phản hồi/khiếu nại của khách và
+    -- vòng đời xử lý (DoD CSKH mục 3, migration 20260809000007).
+    expected_tenant_tables constant integer := 67;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

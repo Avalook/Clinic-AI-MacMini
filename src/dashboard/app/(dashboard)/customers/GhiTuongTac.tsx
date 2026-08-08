@@ -54,10 +54,15 @@ const NHAN_LOAI: Record<string, string> = {
   ...Object.fromEntries(LOAI),
   MOI_TAI_KHAM: "Mời tái khám",
   NHAC_DI_KHAM: "Nhắc đi khám",
+  CHECK_IN: "Check-in",
+  CHECK_OUT: "Check-out",
+  THANH_TOAN: "Thanh toán",
+  MUA_THUOC: "Mua thuốc",
 };
 const NHAN_KET_QUA: Record<string, string> = {
   ...Object.fromEntries(KET_QUA),
   BO_QUA: "Bỏ qua",
+  GHI_NHAN: "Đã ghi nhận",
 };
 
 function gio(iso: string): string {

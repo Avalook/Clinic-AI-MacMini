@@ -139,13 +139,31 @@ class TestTransitions:
 
 
 class TestRoleGates:
-    @pytest.mark.parametrize("action", ["confirm", "decline", "complete"])
-    def test_only_the_doctor_side_accepts_or_finishes(self, action: str) -> None:
+    @pytest.mark.parametrize("action", ["confirm", "decline"])
+    def test_only_the_doctor_side_accepts_or_declines(self, action: str) -> None:
         transition = TRANSITIONS[action]
         assert transition.allowed_roles == frozenset(
             {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
         )
         # And on their OWN list — TKYK is the exception, entering on behalf.
+        assert transition.owner_only
+
+    def test_complete_is_doctors_plus_cskh(self) -> None:
+        """`complete` KHÔNG còn thuần bác sĩ (Quang 08/08/2026).
+
+        MVP vận hành tay: CSKH bấm "khách check-out" và lượt khám phải ĐÓNG
+        THẬT — không đóng thì "đã khám" không bao giờ bật và nhắc tái khám
+        không bao giờ sinh. Bác sĩ vẫn giữ owner_only với ca của chính mình.
+        """
+        transition = TRANSITIONS["complete"]
+        assert transition.allowed_roles == frozenset(
+            {
+                ClinicRole.DOCTOR,
+                ClinicRole.ULTRASOUND_DOCTOR,
+                ClinicRole.TKYK,
+                ClinicRole.CSKH,
+            }
+        )
         assert transition.owner_only
 
     @pytest.mark.parametrize("action", ["cancel", "reassign", "reschedule"])
@@ -164,9 +182,12 @@ class TestRoleGates:
                 assert cashier not in transition.allowed_roles
 
     @pytest.mark.parametrize("action", ["checkin", "undo_checkin", "no_show"])
-    def test_only_front_desk_checks_patients_in_or_out(self, action: str) -> None:
+    def test_front_desk_and_cskh_check_patients_in_or_out(self, action: str) -> None:
+        # + CSKH (Quang 08/08/2026): *"sản phẩm MVP này là cskh thao tác được
+        # hết mà"* — và đi ĐÚNG đường thật, để khách CSKH check-in hiện ở hàng
+        # đợi tiếp nhận y như khách lễ tân check-in.
         assert TRANSITIONS[action].allowed_roles == frozenset(
-            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT}
+            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT, ClinicRole.CSKH}
         )
 
     def test_only_the_doctor_actions_are_owner_scoped(self) -> None:
