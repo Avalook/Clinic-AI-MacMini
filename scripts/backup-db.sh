@@ -312,6 +312,70 @@ if ! gzip -cd "$TEMP_AUTH" | grep -q 'COPY auth\.users'; then
 fi
 AUTH_SHA256=$(sha256_file "$TEMP_AUTH")
 
+# ---- companion media artifact -----------------------------------------------
+# ẢNH VÀ VIDEO SIÊU ÂM KHÔNG NẰM TRONG DATABASE — và cho tới 08/08/2026 chúng
+# không nằm trong bản sao lưu nào cả. `grep media` trong cả bốn script backup /
+# restore / verify / offsite đều rỗng: file này chỉ pg_dump.
+#
+# Nghĩa là khôi phục xong sẽ ra một phòng khám có đủ bệnh án, đủ tài khoản, và
+# mọi phiếu siêu âm trỏ tới những tệp không còn tồn tại — `image_refs` đầy khoá
+# mà đĩa trống. Không lỗi nào báo; chỉ là ảnh không mở được, và không ai biết
+# cho tới hôm cần xem lại.
+#
+# GIỮ ÍT BẢN HƠN BẢN DUMP, CÓ CHỦ Ý. Tệp media là BẤT BIẾN: mỗi tệp mang một
+# UUID mới, không bao giờ bị ghi đè (media_service.safe_path). Nên bản mới nhất
+# đã chứa trọn mọi bản cũ, và giữ bảy bản là nhân bảy lần cùng một số gigabyte
+# trên một ổ 48G. Hai bản là đủ để một lần tar hỏng không mất trắng.
+MEDIA_KEEP_DAYS="${BACKUP_MEDIA_KEEP_DAYS:-2}"
+MEDIA_ROOT_HOST=$(grep -E '^MEDIA_DIR=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
+MEDIA_ROOT_HOST=${MEDIA_ROOT_HOST:-${REPO}/.media}
+case "$MEDIA_ROOT_HOST" in
+    "~/"*) MEDIA_ROOT_HOST="$HOME/${MEDIA_ROOT_HOST#\~/}" ;;
+    /*) : ;;
+    *) MEDIA_ROOT_HOST="${REPO}/${MEDIA_ROOT_HOST#./}" ;;
+esac
+# Cùng cách ghép với docker-compose.yml: ${MEDIA_DIR}/${APP_ENV}.
+MEDIA_DIR_FOR_ENV="${MEDIA_ROOT_HOST}/${SOURCE_APP_ENV}"
+
+MEDIA_FILE="${BACKUP_FILE%.sql.gz}_media.tar.gz"
+TEMP_MEDIA="${MEDIA_FILE}.tmp"
+trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST" "$TEMP_AUTH" "$TEMP_MEDIA"; release_lock; write_failure_status' EXIT
+
+MEDIA_COUNT=0
+MEDIA_SHA256=""
+MEDIA_BYTES=0
+if [ -d "$MEDIA_DIR_FOR_ENV" ]; then
+    MEDIA_COUNT=$(find "$MEDIA_DIR_FOR_ENV" -type f ! -name '*.tmp' | wc -l | tr -d ' ')
+fi
+if [ "$MEDIA_COUNT" -gt 0 ]; then
+    command -v tar >/dev/null 2>&1 || {
+        log "ERROR: required command not found: tar (needed for the media artifact)"
+        exit 1
+    }
+    log "Archiving ${MEDIA_COUNT} media file(s) from ${MEDIA_DIR_FOR_ENV}..."
+    # Bỏ `.tmp`: đó là những lần ghi đang dở (media_service ghi tệp tạm rồi đổi
+    # tên). Đưa chúng vào bản sao lưu là cất lại một tệp hỏng.
+    if tar -C "$MEDIA_DIR_FOR_ENV" --exclude='*.tmp' -czf "$TEMP_MEDIA" . 2>> "$LOG"; then
+        :
+    else
+        rc=$?
+        log "ERROR: media archive failed (exit code $rc)"
+        exit 1
+    fi
+    gzip -t "$TEMP_MEDIA" || { log "ERROR: media archive failed gzip validation"; exit 1; }
+    # Đọc lại danh sách trong tar: một tar rỗng vẫn là gzip hợp lệ, và "sao lưu
+    # thành công" với 0 tệp bên trong là đúng thứ ta đang đi sửa.
+    TAR_ENTRIES=$(tar -tzf "$TEMP_MEDIA" 2>/dev/null | grep -cv '/$' || true)
+    [ "${TAR_ENTRIES:-0}" -ge 1 ] || {
+        log "ERROR: media archive lists no files though ${MEDIA_COUNT} exist on disk"
+        exit 1
+    }
+    MEDIA_SHA256=$(sha256_file "$TEMP_MEDIA")
+    MEDIA_BYTES=$(wc -c < "$TEMP_MEDIA" | tr -d ' ')
+else
+    log "NOTICE: no media files under ${MEDIA_DIR_FOR_ENV} — no media artifact this run"
+fi
+
 ARCHIVE_SHA256=$(sha256_file "$TEMP_FILE")
 cat > "$TEMP_MANIFEST" <<EOF
 format_version=1
@@ -324,20 +388,29 @@ raw_bytes=${UNCOMPRESSED_BYTES}
 auth_artifact=$(basename "$AUTH_FILE")
 auth_sha256=${AUTH_SHA256}
 auth_raw_bytes=${AUTH_RAW_BYTES}
+media_artifact=$([ "$MEDIA_COUNT" -gt 0 ] && basename "$MEDIA_FILE" || echo none)
+media_sha256=${MEDIA_SHA256}
+media_file_count=${MEDIA_COUNT}
+media_archive_bytes=${MEDIA_BYTES}
 restore_order=auth-then-public
 EOF
 
 mv "$TEMP_FILE" "$BACKUP_FILE"
 mv "$TEMP_AUTH" "$AUTH_FILE"
+[ "$MEDIA_COUNT" -gt 0 ] && mv "$TEMP_MEDIA" "$MEDIA_FILE"
 mv "$TEMP_MANIFEST" "$MANIFEST_FILE"
 trap 'release_lock; write_failure_status' EXIT
 chmod 600 "$BACKUP_FILE"
 chmod 600 "$AUTH_FILE"
+[ "$MEDIA_COUNT" -gt 0 ] && chmod 600 "$MEDIA_FILE"
 chmod 600 "$MANIFEST_FILE"
 trap release_lock EXIT
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 log "Public-schema backup created and verified: $BACKUP_FILE ($SIZE, $UNCOMPRESSED_BYTES bytes raw)"
 log "Auth identities: $AUTH_FILE ($AUTH_RAW_BYTES bytes raw) — restore BEFORE the public archive"
+if [ "$MEDIA_COUNT" -gt 0 ]; then
+    log "Media: $MEDIA_FILE (${MEDIA_COUNT} file(s), ${MEDIA_BYTES} bytes compressed)"
+fi
 log "NOTICE: sessions/MFA and Supabase platform config remain outside this backup; retain PITR."
 
 # Prune old backups (keep last KEEP_DAYS days).
@@ -345,6 +418,10 @@ DELETED=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" -mtime +${KEEP_DAYS} -pri
 find "$BACKUP_DIR" -name "clinicai_*.sql.gz.manifest" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
 find "$BACKUP_DIR" -name "clinicai_*_auth.sql.gz" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
 [ "$DELETED" -gt 0 ] && log "Pruned $DELETED backup(s) older than ${KEEP_DAYS} days"
+# Media giữ ÍT hơn — xem lý do ở phần tạo tệp. Đây là ổ 48G, và bảy bản của
+# cùng một tập ảnh bất biến sẽ lấp nó trước khi ai kịp nhận ra.
+MEDIA_DELETED=$(find "$BACKUP_DIR" -name "clinicai_*_media.tar.gz" -mtime +${MEDIA_KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
+[ "${MEDIA_DELETED:-0}" -gt 0 ] && log "Pruned $MEDIA_DELETED media archive(s) older than ${MEDIA_KEEP_DAYS} days"
 
 # Optional: push to Cloudflare R2 via rclone.
 # Configure rclone first: rclone config (provider: Cloudflare R2)
@@ -357,6 +434,8 @@ if [ -n "${R2_REMOTE:-}" ] && [ -n "${R2_BUCKET:-}" ] && command -v rclone > /de
     log "Uploading to R2: ${R2_REMOTE}:${R2_BUCKET}/..."
     if rclone copy "$BACKUP_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
        rclone copy "$AUTH_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
+       { [ "$MEDIA_COUNT" -eq 0 ] ||
+         rclone copy "$MEDIA_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; } &&
        rclone copy "$MANIFEST_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; then
         R2_UPLOADED=true
         log "R2 upload complete"

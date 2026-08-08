@@ -73,15 +73,38 @@ noi "Đã nối. PostgreSQL $PHIEN_BAN"
 CREATE TABLE IF NOT EXISTS clinicai_sao_luu (
     id          bigserial PRIMARY KEY,
     ten_tep     text        NOT NULL,
-    loai        text        NOT NULL CHECK (loai IN ('public', 'auth')),
+    loai        text        NOT NULL CHECK (loai IN ('public', 'auth', 'media')),
     tao_luc     timestamptz NOT NULL DEFAULT now(),
     so_byte     bigint      NOT NULL,
     sha256      text        NOT NULL,
     noi_dung    bytea       NOT NULL,
     UNIQUE (ten_tep)
 );
+
+-- NỚI RÀNG BUỘC CHO BẢNG ĐÃ TỒN TẠI.
+--
+-- `CREATE TABLE IF NOT EXISTS` không đụng tới bảng đã có, nên dòng CHECK ở trên
+-- chỉ áp cho lần chạy đầu tiên. Bảng trên Viettel dựng ngày 08/08 với đúng hai
+-- giá trị 'public' và 'auth' — đêm đầu tiên có tệp media, `INSERT` sẽ chết vì
+-- ràng buộc, và cả bản dump lẫn media đều không lên được.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = 'clinicai_sao_luu'::regclass
+           AND contype = 'c'
+           AND pg_get_constraintdef(oid) NOT LIKE '%media%'
+           AND pg_get_constraintdef(oid) LIKE '%loai%'
+    ) THEN
+        ALTER TABLE clinicai_sao_luu DROP CONSTRAINT clinicai_sao_luu_loai_check;
+        ALTER TABLE clinicai_sao_luu ADD CONSTRAINT clinicai_sao_luu_loai_check
+            CHECK (loai IN ('public', 'auth', 'media'));
+    END IF;
+END $$;
+
 COMMENT ON TABLE clinicai_sao_luu IS
-    'Bản sao lưu ClinicAI đẩy từ máy chủ sang. Mỗi đêm hai dòng: public + auth.';
+    'Bản sao lưu ClinicAI đẩy từ máy chủ sang. Mỗi đêm: public + auth, '
+    'và media nếu phòng khám có ảnh siêu âm.';
 SQL
 
 bam() {
@@ -140,14 +163,47 @@ noi "Đẩy cặp mới nhất:"
 day_len "$MOI_NHAT" public
 day_len "$AUTH" auth
 
-# Dọn bản cũ. Đếm theo CẶP nên nhân đôi.
+# ── Tệp media ──────────────────────────────────────────────────────────────
+#
+# Ảnh và video siêu âm không nằm trong pg_dump; từ 08/08/2026 backup-db.sh đóng
+# gói chúng thành `..._media.tar.gz` bên cạnh. Nếu chỗ này không đẩy nó đi thì
+# ảnh bệnh nhân chỉ tồn tại trên đúng một cái ổ đĩa.
+#
+# CÓ TRẦN, VÀ NÓI RA KHI VƯỢT. Gói Viettel là 20GB, còn base64 làm mọi thứ phồng
+# thêm một phần ba. Video 50MB × 30 ca/ngày sẽ lấp nó trong vài tuần, và cách hỏng
+# tệ nhất là đẩy im lặng cho tới đêm database bên kia đầy — lúc đó cả bản dump
+# lẫn media đều không lên được, và không ai biết.
+#
+# Vượt trần thì BỎ QUA MEDIA nhưng VẪN đẩy dump, và hét lên. Bỏ qua im lặng là
+# đúng cái bệnh đang đi chữa.
+MEDIA="${MOI_NHAT%.sql.gz}_media.tar.gz"
+MEDIA_TRAN="${VIETTEL_MEDIA_TOI_DA_BYTE:-536870912}"   # 512MB
+if [ -f "$MEDIA" ]; then
+    MEDIA_BYTE=$(wc -c < "$MEDIA" | tr -d ' ')
+    if [ "$MEDIA_BYTE" -le "$MEDIA_TRAN" ]; then
+        day_len "$MEDIA" media
+    else
+        noi "  ⚠️  BỎ QUA $(basename "$MEDIA"): ${MEDIA_BYTE} byte > trần ${MEDIA_TRAN}."
+        noi "     ẢNH BỆNH NHÂN HIỆN CHỈ CÓ MỘT BẢN, trên chính máy chủ này."
+        noi "     Cần một đường khác cho tệp lớn (R2/rclone), hoặc nâng"
+        noi "     VIETTEL_MEDIA_TOI_DA_BYTE nếu dung lượng Viettel còn đủ."
+    fi
+else
+    noi "  (không có tệp media đi kèm — bản sao lưu này không có ảnh nào)"
+fi
+
+# Dọn bản cũ. Mỗi đêm sinh 2 hoặc 3 dòng (public + auth, và media nếu có), nên
+# đếm theo NGÀY chứ không nhân một hằng số — nhân 2 như trước sẽ xoá nhầm bản
+# public của đêm trước ngay đêm đầu tiên có media.
 XOA=$("${PSQL[@]}" <<SQL
-WITH cu AS (
-    SELECT id FROM clinicai_sao_luu
-     ORDER BY tao_luc DESC
-    OFFSET ${GIU_LAI} * 2
+WITH giu AS (
+    SELECT DISTINCT tao_luc::date AS ngay
+      FROM clinicai_sao_luu
+     ORDER BY ngay DESC
+     LIMIT ${GIU_LAI}
 )
-DELETE FROM clinicai_sao_luu WHERE id IN (SELECT id FROM cu)
+DELETE FROM clinicai_sao_luu
+ WHERE tao_luc::date NOT IN (SELECT ngay FROM giu)
 RETURNING 1
 SQL
 )
