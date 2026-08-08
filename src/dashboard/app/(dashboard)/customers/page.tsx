@@ -210,7 +210,7 @@ export default async function CustomersPage({
     ? supabase
         .from("v_trang_thai_cskh")
         .select(
-          "clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han, appointment_id, da_xac_nhan",
+          "clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han, so_viec_mo, co_viec_qua_han, appointment_id, da_xac_nhan",
         )
         .in("clinic_patient_id", shownIds)
     : Promise.resolve({ data: [] as unknown[], error: null });
@@ -413,6 +413,8 @@ export default async function CustomersPage({
     nhan: string;
     han_xu_ly: string | null;
     qua_han: boolean;
+    so_viec_mo: number;
+    co_viec_qua_han: boolean;
     appointment_id: string | null;
     da_xac_nhan: boolean;
   };

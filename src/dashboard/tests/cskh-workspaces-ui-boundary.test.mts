@@ -56,7 +56,11 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
   //
   // Tính chất thật cần giữ: phép lọc của ô số suy từ `trangThaiByPatient` —
   // cùng view mà cột "Trạng thái" và "Hạn xử lý" đọc.
-  assert.match(customers, /qua_sla"\)\s*return Boolean\(tt\?\.qua_han\)/);
+  // ĐẾM THEO `co_viec_qua_han` chứ không theo việc ĐẠI DIỆN: view trả một dòng
+  // cho mỗi khách, nên một người có ba việc mở chỉ hiện một. Đếm việc hiện ra
+  // là đếm hụt — đo được trên bản thật: một hẹn gọi lại trễ ba ngày nằm im sau
+  // một việc chưa tới hạn, và ô "Quá SLA" vẫn hiện 0.
+  assert.match(customers, /qua_sla"\)\s*return Boolean\(tt\?\.co_viec_qua_han\)/);
   assert.match(customers, /cho_xac_nhan"\)\s*return tt\?\.trang_thai/);
   assert.doesNotMatch(
     customers,

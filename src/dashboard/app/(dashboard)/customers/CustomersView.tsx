@@ -35,7 +35,12 @@ export interface TrangThaiCskh {
   /** Nhãn hiển thị, lấy từ bảng `luat_cskh` — phòng khám đổi chữ được. */
   nhan: string;
   han_xu_ly: string | null;
+  /** Việc ĐẠI DIỆN có quá hạn không. */
   qua_han: boolean;
+  /** Tổng số việc đang mở của khách này — màn nói được "còn N việc khác". */
+  so_viec_mo: number;
+  /** Có BẤT KỲ việc nào quá hạn không, kể cả việc không được chọn làm đại diện. */
+  co_viec_qua_han: boolean;
   appointment_id: string | null;
   da_xac_nhan: boolean;
 }
@@ -339,7 +344,10 @@ export default function CustomersView({
       // "Đã hoàn thành" vẫn theo LỊCH HẸN, không theo việc: khách khám xong là
       // một sự thật của buổi khám, không phải của hàng chờ CSKH.
       if (key === "examined") return Boolean(appointment?.examined);
-      if (key === "qua_sla") return Boolean(tt?.qua_han);
+      // ĐẾM THEO `co_viec_qua_han`, không theo việc đại diện. Một khách có thể
+      // có ba việc mở mà chỉ một hiện ra; đếm việc hiện ra là đếm hụt, và một
+      // ô số sai theo hướng thấp hơn sự thật là ô số không ai đi kiểm.
+      if (key === "qua_sla") return Boolean(tt?.co_viec_qua_han);
       if (key === "cho_xac_nhan") return tt?.trang_thai === "CHO_XAC_NHAN";
       if (key === "upcoming") {
         // "Cần xử lý hôm nay" = có việc đang mở, tới hạn hôm nay hoặc đã quá.
@@ -593,8 +601,19 @@ export default function CustomersView({
                             {row.patient_code}
                           </span>
                         </div>
-                        <div>
+                        <div className="flex flex-wrap items-center gap-1">
                           <StatusChip tone={st.tone} label={st.label} />
+                          {/* Việc đại diện chỉ là MỘT trong số việc đang mở.
+                              Không nói ra thì màn im lặng giấu phần còn lại. */}
+                          {(trangThaiByPatient[row.clinic_patient_id]
+                            ?.so_viec_mo ?? 0) > 1 && (
+                            <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">
+                              +
+                              {(trangThaiByPatient[row.clinic_patient_id]
+                                ?.so_viec_mo ?? 1) - 1}{" "}
+                              việc
+                            </span>
+                          )}
                         </div>
                         {!selected && (
                           <>
