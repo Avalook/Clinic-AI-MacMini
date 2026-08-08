@@ -102,6 +102,12 @@ EVENT_LABELS: dict[str, str] = {
     # ── CSKH ────────────────────────────────────────────────────────────────
     "cskh_action.created": "Tạo việc chăm sóc khách",
     "cskh_log.followup_call": "Gọi chăm sóc khách",
+    "cskh.tuong_tac": "Ghi lần liên hệ với khách",
+    # `cskh.customers` là NGUỒN (cột source), không phải loại sự kiện — nó nói
+    # dòng nhật ký này sinh ra từ màn Quản lý khách hàng. Bài kiểm chống lệch
+    # gom cả hai vào một danh sách nên nó phải có nhãn, nếu không màn Lịch sử
+    # thao tác hiện đúng chuỗi "cskh.customers".
+    "cskh.customers": "Màn Quản lý khách hàng",
     # ── Nhân sự ─────────────────────────────────────────────────────────────
     "staff.created": "Tạo nhân sự",
     "staff.updated": "Sửa thông tin nhân sự",
