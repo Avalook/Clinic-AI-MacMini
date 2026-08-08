@@ -268,13 +268,27 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/nhan-su": ["MANAGEMENT"],
 
   "/home": "all",
-  // Nhiệm vụ chăm sóc — thay thế cũ /cskh-today + /cskh/board.
-  "/cskh-tasks": ["CSKH", "MANAGEMENT"],
+  // BA MỤC ĐÃ RỜI THANH BÊN CỦA CSKH (Quang chốt 09/08/2026).
+  //
+  // "Mọi thao tác mình đang cố xây cho CSKH thì nó đều nằm ở Quản lý khách hàng
+  // rồi" — đúng với /cskh-tasks: màn đó đọc bảng `cskh_action` đang rỗng, còn
+  // vùng làm việc thật (chuỗi 9 bước, ghi tương tác, phản hồi khách, tệp kết
+  // quả) nằm trong /customers.
+  //
+  // GỠ KHỎI THANH BÊN, KHÔNG GỠ TÍNH NĂNG. Route và API giữ nguyên: Quản lý vẫn
+  // vào được, và gõ thẳng URL vẫn chạy. Xoá hẳn là mất đường lùi ngay tuần bàn
+  // giao — trong khi thứ Quang muốn chỉ là thanh bên của CSKH gọn lại.
+  "/cskh-tasks": ["MANAGEMENT"],
   // Nhắc tái khám — cùng ràng buộc với backend: GET /api/v1/cskh/recalls gác
   // bằng require_role(CSKH, MANAGEMENT, TRUONG_CA), nên mở mục này cho vai khác
   // chỉ dẫn tới một trang trống vì 403. Ghi cuộc gọi đi qua canWriteIntake, đã
   // có đủ ba vai này.
-  "/nhac-tai-kham": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  //
+  // CSKH bị gỡ khỏi thanh bên theo chốt trên. LƯU Ý ĐÃ BÁO QUANG: màn này KHÔNG
+  // trùng /customers — nó liệt người bác sĩ đã hẹn quay lại mà CHƯA có lịch,
+  // tức danh sách "còn thiếu lịch", còn /customers xoay quanh lịch ĐÃ CÓ. Gỡ
+  // mục này là CSKH không còn đường vào danh sách ấy từ thanh bên.
+  "/nhac-tai-kham": ["MANAGEMENT", "TRUONG_CA"],
   "/appointments": ["CSKH", "MANAGEMENT"],
   // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
   // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
@@ -342,9 +356,18 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT"],
-  // MỌI vai trò tự đăng ký ca của mình (CSKH, thu ngân... cũng cần); Quản lý +
-  // Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem /api/roster).
-  "/schedule": "all",
+  // MỌI vai trò tự đăng ký ca của mình (thu ngân, điều dưỡng... cũng cần); Quản
+  // lý + Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem
+  // /api/roster).
+  //
+  // TRỪ CSKH (Quang chốt 09/08/2026): lịch làm việc đã nằm nguyên trên TRANG
+  // CHỦ của họ (bảng "Lịch làm việc" cuối trang /home), nên mục thanh bên là
+  // đường thứ hai tới cùng một bảng.
+  //
+  // Viết ra từng vai thay vì "all" — thiếu một dòng ở đây là vai đó mất màn
+  // hình mà không báo gì, nên danh sách này phải là ALL_ROLES trừ đúng CSKH,
+  // tính bằng code chứ không chép tay.
+  "/schedule": ALL_ROLES.filter((r) => r !== "CSKH"),
   "/work-sessions": ["MANAGEMENT"],
   "/reports": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.

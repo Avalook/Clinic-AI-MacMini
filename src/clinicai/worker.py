@@ -79,6 +79,26 @@ async def _run_relay() -> None:
     from clinicai.core.database import close_pool, create_pool
     from clinicai.services.notification_relay import poll_and_deliver
 
+    # CHỐT CỨNG TRƯỚC BẢN DÙNG THỬ 15/08 (Quang chốt 09/08/2026: "ngắt cái tele
+    # đã"). MVP này là CSKH thao tác tay và tự bấm gửi; không có gì được tự bắn
+    # ra ngoài.
+    #
+    # `profiles` của compose KHÔNG đủ để coi là đã tắt: `--profile workers` bật
+    # MỘT LÚC cả worker, pos-relay VÀ notification-relay. Ai bật worker cho việc
+    # khác là relay đi theo, và ngay lúc đó nó gặp 208 dòng `event_log` chưa
+    # publish còn tồn (docs/DANG-LAM.md §5) — bắn cả 208 tin trong mấy vòng poll
+    # đầu, gồm sự kiện từ nhiều ngày trước.
+    #
+    # Cờ này phải BẬT TƯỜNG MINH mới chạy. Mở lại: đặt NOTIFICATION_RELAY_ENABLED=true
+    # trong .env — và xử lý đống tồn đọng trước khi mở.
+    if os.environ.get("NOTIFICATION_RELAY_ENABLED", "").strip().lower() != "true":
+        raise SystemExit(
+            "notification-relay đang TẮT có chủ ý "
+            "(NOTIFICATION_RELAY_ENABLED != true). MVP 15/08: mọi tin nhắn do "
+            "người bấm gửi, không tự động. "
+            "Muốn bật lại thì dọn event_log tồn đọng trước."
+        )
+
     raw_clinic_id = os.environ.get("TELEGRAM_CLINIC_ID", "").strip()
     if not raw_clinic_id:
         raise SystemExit(
