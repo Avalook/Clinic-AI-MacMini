@@ -698,8 +698,7 @@ class BookingService:
                 # phải bác sĩ của ai nên so staff_id sẽ chặn sạch).
                 if (
                     transition.owner_only
-                    and identity.role
-                    not in (ClinicRole.TKYK, ClinicRole.CSKH)
+                    and identity.role not in (ClinicRole.TKYK, ClinicRole.CSKH)
                     and str(appt["doctor_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")
