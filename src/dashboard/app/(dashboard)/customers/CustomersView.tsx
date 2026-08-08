@@ -821,7 +821,21 @@ export default function CustomersView({
                 {canEdit && !selectedAppt?.upcoming ? (
                   <button
                     type="button"
-                    onClick={() => setBookOpen(true)}
+                    // ĐI TỚI MÀN ĐẶT LỊCH THẬT, KHÔNG MỞ MODAL NỮA.
+                    //
+                    // `QuickBookingModal` render `CskhBookingGrid` — một màn
+                    // DỰNG SẴN: tên "Nguyễn Văn An", "BS. Trần Minh Đức", khung
+                    // giờ 08:00–17:15 viết cứng, nhãn "Sắp ra mắt v2". Không có
+                    // dòng nào chạm tới lịch thật, nên CSKH bấm "Đặt lịch hẹn"
+                    // trong đó là không có gì được lưu.
+                    //
+                    // `?bn=` mang mã bệnh nhân sang để màn kia chọn sẵn khách —
+                    // BookingHub đọc tham số này (xem useSearchParams ở đó).
+                    onClick={() =>
+                      router.push(
+                        `/appointments?bn=${encodeURIComponent(selected.patient_code ?? "")}`,
+                      )
+                    }
                     className="flex min-h-10 w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700"
                   >
                     <CalendarClock className="size-4" aria-hidden="true" />

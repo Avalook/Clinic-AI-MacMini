@@ -6,7 +6,7 @@
 // Cột 3 (Phải - 320px): Panel Xác nhận thông tin đặt lịch (Sức chứa 1/3 đã đặt, Checklist, Đặt lịch hẹn).
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -403,8 +403,23 @@ export default function BookingHub({
   );
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // `?bn=<mã bệnh nhân>` — CSKH bấm "Đặt lịch mới" từ màn Quản lý khách hàng
+  // thì sang đây phải thấy ĐÚNG người vừa mở, không phải người đầu danh sách.
+  // Trước đây nút ấy mở một modal dựng sẵn nên không cần truyền gì; nay nó đi
+  // tới màn thật, và mất người đang chọn giữa đường là bắt CSKH tìm lại.
+  //
+  // Chỉ đọc MỘT LẦN làm giá trị khởi tạo: sau đó người dùng đổi khách trong
+  // màn này là quyền của họ, URL không được kéo ngược lựa chọn về.
+  const bnParam = useSearchParams().get("bn");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
-    patients[0]?.clinic_patient_id ?? null,
+    () =>
+      (bnParam
+        ? (patients.find((p) => p.patient_code === bnParam)
+            ?.clinic_patient_id ?? null)
+        : null) ??
+      patients[0]?.clinic_patient_id ??
+      null,
   );
 
   const activePatient = useMemo(
