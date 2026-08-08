@@ -63,6 +63,18 @@ const LIVE_TABLES = [
   "cskh_action",
   "staff_task",
   "work_roster",
+  // BỐN BẢNG CỦA MÀN CHĂM SÓC (08/08/2026). Thiếu chúng ở đây thì hai CSKH
+  // ngồi cạnh nhau không thấy việc của nhau: người này ghi xong cuộc gọi, màn
+  // người kia vẫn sáng "Làm bước này" — và khách nghe máy hai lần trong một
+  // buổi, đúng thứ chuỗi bước sinh ra để chống.
+  //
+  // Nghe thôi CHƯA ĐỦ: bảng còn phải nằm trong publication `supabase_realtime`
+  // (migration 20260809000009), nếu không Postgres không phát gì cả và danh
+  // sách này im lặng vô dụng.
+  "tuong_tac_cskh",
+  "tep_ket_qua",
+  "phan_hoi_khach",
+  "hen_goi_lai",
 ] as const;
 
 // PROP `clinicId` ĐÃ BỎ (06/08/2026). Nó từng dùng để bảo Supabase Realtime

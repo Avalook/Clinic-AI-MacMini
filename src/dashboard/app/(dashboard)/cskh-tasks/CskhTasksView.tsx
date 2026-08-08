@@ -711,34 +711,11 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                   <option value="GUI_KET_QUA">Gửi kết quả XN</option>
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-ink">
-                  Điều kiện hoàn thành
-                </label>
-                <div className="space-y-1 text-xs text-ink-soft">
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="rounded border-line text-brand-600"
-                    />{" "}
-                    Ghi nhận kết quả liên hệ
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="rounded border-line text-brand-600"
-                    />{" "}
-                    Chọn bước tiếp theo
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="rounded border-line text-brand-600"
-                    />{" "}
-                    Cập nhật hạn xử lý
-                  </label>
-                </div>
-              </div>
+              {/* BA Ô TICK ĐÃ BỎ (08/08/2026).
+                  Chúng không có `checked`, không có `onChange`, và không đi
+                  vào lời gọi nào — thuần trang trí. Một ô tick bấm được nhưng
+                  không lưu là lời hứa với người dùng rằng họ vừa ghi lại một
+                  điều kiện; đến ca sau không ai tìm thấy nó. */}
             </div>
 
             {/* Cancel reason (shown for PHAN_LAI_LICH / HUY_LICH tasks) */}
