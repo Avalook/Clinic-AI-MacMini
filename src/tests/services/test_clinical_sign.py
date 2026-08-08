@@ -153,6 +153,22 @@ class TestRenotifyTaskCarriesItsVisit:
             "sai chẩn đoán",
         )
 
-        sql, args = seen[0]
+        # HAI CÂU GHI, CÓ CHỦ Ý (08/08/2026).
+        #
+        # `hen_goi_lai` là bảng mà màn CSKH mới THẬT SỰ đọc (qua
+        # v_trang_thai_cskh). Trước khi thêm nó, việc "gọi lại báo đính chính"
+        # chỉ nằm ở `cskh_action` — bảng view không đọc — nên nó vô hình, đúng
+        # với loại việc mà bỏ sót thì bệnh nhân đang cầm một tờ kết quả sai.
+        #
+        # `cskh_action` giữ lại để nhật ký nhập khẩu cũ đọc được liên tục.
+        assert len(seen) == 2, "phải ghi cả việc CSKH mới lẫn nhật ký cũ"
+
+        sql_viec, args_viec = seen[0]
+        assert "hen_goi_lai" in sql_viec, (
+            "việc đính chính không vào bảng mà màn CSKH đọc — nó sẽ vô hình"
+        )
+        assert "đính chính" in " ".join(str(a) for a in args_viec)
+
+        sql, args = seen[1]
         assert "visit_link_raw" in sql
         assert visit in args, "việc CSKH không mang theo lượt khám của nó"

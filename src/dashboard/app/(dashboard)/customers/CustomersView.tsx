@@ -94,6 +94,15 @@ const NHAN_KQ_NGAN: Record<string, string> = {
   GHI_NHAN: "đã ghi nhận",
 };
 
+/** Hôm nay theo giờ Việt Nam, dạng yyyy-mm-dd — cùng dạng `han_xu_ly` của view.
+ *
+ *  So chuỗi chứ không so `Date`: `han_xu_ly` là một NGÀY (không giờ), và dựng
+ *  `new Date("2026-08-08")` ra nửa đêm UTC — tức 07:00 sáng ở Việt Nam. Mọi
+ *  việc đến hạn hôm nay sẽ bị coi là chưa tới hạn cho tới 7 giờ sáng. */
+function homNayVn(): string {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
 /** Một dòng cho ô "Tương tác gần nhất". `undefined` = chưa có lần nào. */
 function tomTatTuongTac(ds: DongLichSu[] | undefined): string | undefined {
   const d = ds?.[0];
@@ -310,20 +319,37 @@ export default function CustomersView({
    * Đây là chỗ bản cũ sai: con số trên ô và phép lọc của tab được tính bằng hai
    * đoạn mã khác nhau, nên chúng nói hai điều khác nhau về cùng một tập khách.
    */
+  // BỐN Ô SỐ ĐỌC CÙNG NGUỒN VỚI BẢNG BÊN DƯỚI.
+  //
+  // Đo trên bản thật 08/08: "Quá SLA" và "Chờ xác nhận" hiện 0 VĨNH VIỄN, dù
+  // bảng ngay bên dưới đang có việc quá hạn. Vì hai ô ấy còn đọc nguồn cũ:
+  //   · qua_sla     ← cskh_action.deadline_at — bảng 0 dòng, và hai câu INSERT
+  //                   duy nhất ghi vào nó còn không có cột deadline_at.
+  //   · cho_xac_nhan ← appointment.status === "SCHEDULED" — lịch mới vào thẳng
+  //                    CONFIRMED (booking_service), nên không lịch nào ở đó.
+  //
+  // Một ô số luôn bằng 0 không đọc thành "chưa xây" — nó đọc thành "hôm nay
+  // không có việc nào quá hạn". Và bấm vào thì ra danh sách rỗng trong khi
+  // dòng ngay dưới đang đỏ. Đúng bệnh của tab "Ưu tiên" đã chữa hôm nay.
   const hopVoiTab = useCallback(
     (row: CustomerRow, key: CustomerTab): boolean => {
       if (key === "all") return true;
       const appointment = apptByPatient[row.clinic_patient_id];
-      if (key === "upcoming") return Boolean(appointment?.upcoming) || !appointment;
+      const tt = trangThaiByPatient[row.clinic_patient_id];
+      // "Đã hoàn thành" vẫn theo LỊCH HẸN, không theo việc: khách khám xong là
+      // một sự thật của buổi khám, không phải của hàng chờ CSKH.
       if (key === "examined") return Boolean(appointment?.examined);
-      if (key === "qua_sla") {
-        const dl = cskhByPatient[row.clinic_patient_id]?.deadline;
-        return Boolean(dl && new Date(dl) < new Date());
+      if (key === "qua_sla") return Boolean(tt?.qua_han);
+      if (key === "cho_xac_nhan") return tt?.trang_thai === "CHO_XAC_NHAN";
+      if (key === "upcoming") {
+        // "Cần xử lý hôm nay" = có việc đang mở, tới hạn hôm nay hoặc đã quá.
+        // Không đếm việc của tuần sau: ô này để biết sáng nay phải làm gì.
+        if (!tt?.han_xu_ly) return false;
+        return tt.han_xu_ly <= homNayVn();
       }
-      if (key === "cho_xac_nhan") return appointment?.status === "SCHEDULED";
       return true;
     },
-    [apptByPatient, cskhByPatient],
+    [apptByPatient, trangThaiByPatient],
   );
 
   const visibleRows = useMemo(
@@ -596,7 +622,15 @@ export default function CustomersView({
                               </span>
                             </div>
                             <div className="truncate text-xs font-medium text-ink">
-                              {cskh?.assignee ?? "—"}
+                              {/* NGƯỜI CHẠM GẦN NHẤT, không phải "người được
+                                  giao". View suy lại trạng thái mỗi lần đọc nên
+                                  không giữ được ai nhận việc — nói rõ ở đây còn
+                                  hơn cột "—" vĩnh viễn của cskh_action, nơi
+                                  người ghi chỉ là một chuỗi tên nhập từ Notion. */}
+                              {tuongTacByPatient[row.clinic_patient_id]?.[0]
+                                ?.nhan_vien ??
+                                cskh?.assignee ??
+                                "—"}
                             </div>
                             <div className="text-right">
                               <button

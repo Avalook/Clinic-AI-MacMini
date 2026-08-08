@@ -440,6 +440,31 @@ async def _create_renotify_task(
     )
     if row is None:
         return
+    # VIỆC NÀY PHẢI HIỆN Ở MÀN CSKH, và trước 08/08/2026 nó không hiện.
+    #
+    # Nó từng chỉ ghi vào `cskh_action` với status 'PENDING'. Nhưng màn Quản lý
+    # khách hàng nay lấy việc từ `v_trang_thai_cskh`, và view ấy không đọc
+    # `cskh_action` (bảng đó là hàng nhập khẩu từ Notion, 0 dòng trên bản thật).
+    # Nghĩa là: bác sĩ đính chính một kết quả ĐÃ GỬI CHO BỆNH NHÂN, và việc gọi
+    # lại báo họ không xuất hiện ở đâu cả. Đây là loại việc mà bỏ sót thì bệnh
+    # nhân đang cầm một tờ kết quả sai.
+    #
+    # Nay ghi vào `hen_goi_lai` — bảng việc mà view ĐỌC — với ngày gọi là HÔM
+    # NAY. Vẫn giữ dòng `cskh_action` bên dưới cho nhật ký nhập khẩu cũ đọc
+    # được liên tục.
+    await conn.execute(
+        """
+        INSERT INTO public.hen_goi_lai
+            (clinic_id, clinic_patient_id, ngay_goi, ly_do, tao_boi_staff_id)
+        VALUES ($1::uuid, $2::uuid,
+                (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, $3, $4::uuid)
+        """,
+        identity.clinic_id,
+        row["clinic_patient_id"],
+        f"Bác sĩ đã đính chính kết quả ĐÃ GỬI cho bệnh nhân. Lý do: {reason}."
+        " Gọi lại và gửi bản mới.",
+        identity.staff_id,
+    )
     await conn.execute(
         """
         INSERT INTO public.cskh_action
