@@ -83,6 +83,8 @@ export default function GhiTuongTac({
   lichSuBanDau,
   loaiBanDau,
   moBanDau = false,
+  zaloBat = false,
+  zaloThieu = [],
 }: {
   clinicPatientId: string;
   appointmentId: string | null;
@@ -90,6 +92,9 @@ export default function GhiTuongTac({
   /** Loại việc mở sẵn khi timeline bấm vào một node. */
   loaiBanDau?: string | null;
   moBanDau?: boolean;
+  /** Zalo đã đủ cấu hình chưa — hỏi backend, không đoán ở đây. */
+  zaloBat?: boolean;
+  zaloThieu?: string[];
   /** Nạp SERVER-SIDE rồi truyền xuống — trình biên dịch React chặn setState
    *  đồng bộ trong effect, nên không nạp trong useEffect. */
   lichSuBanDau: DongLichSu[];
@@ -106,6 +111,8 @@ export default function GhiTuongTac({
   const [noiDung, setNoiDung] = useState("");
   const [dangLuu, setDangLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [dangGuiZalo, setDangGuiZalo] = useState<string | null>(null);
+  const [ketQuaZalo, setKetQuaZalo] = useState<string | null>(null);
   const [moHen, setMoHen] = useState(false);
   const [ngayHen, setNgayHen] = useState("");
   const [lyDoHen, setLyDoHen] = useState("");
@@ -158,6 +165,35 @@ export default function GhiTuongTac({
     setDangLuu(false);
     setMo(false);
     setNoiDung("");
+  }
+
+  async function guiZalo(loaiTin: "NHAC_HEN" | "TRA_KET_QUA") {
+    setDangGuiZalo(loaiTin);
+    setKetQuaZalo(null);
+    const res = await fetch("/api/cskh/zalo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinic_patient_id: clinicPatientId,
+        loai_tin: loaiTin,
+        appointment_id: appointmentId,
+      }),
+    });
+    setDangGuiZalo(null);
+    const d = (await res.json().catch(() => null)) as
+      | { da_gui?: boolean; chi_tiet?: string; error?: string; message?: string }
+      | null;
+    if (res.ok && d?.da_gui) {
+      setKetQuaZalo("Đã gửi Zalo cho khách.");
+      // Gửi xong sinh một dòng trong sổ tương tác — nạp lại để chuỗi bước tích lên.
+      router.refresh();
+      return;
+    }
+    // KHÔNG nói "đã gửi" khi chưa chắc. `chi_tiet` từ backend đã dịch sẵn mã
+    // lỗi của Zalo sang tiếng Việt.
+    setKetQuaZalo(
+      d?.chi_tiet ?? d?.message ?? d?.error ?? "Không gửi được — hãy gọi điện.",
+    );
   }
 
   async function henGoiLai() {
@@ -216,6 +252,40 @@ export default function GhiTuongTac({
           Ghi kết quả gọi
         </button>
       </div>
+
+      {/* GỬI ZALO THẬT. Nút LUÔN HIỆN, nhưng khoá khi chưa cấu hình và nói
+          thiếu gì — ẩn hẳn thì người dùng không biết tính năng tồn tại; hiện
+          mà bấm vào báo lỗi thì họ tưởng hệ thống hỏng. */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={!zaloBat || dangGuiZalo !== null || !appointmentId}
+          onClick={() => void guiZalo("NHAC_HEN")}
+          title={
+            !appointmentId ? "Khách chưa có lịch hẹn nào" : undefined
+          }
+          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface py-1.5 px-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+        >
+          {dangGuiZalo === "NHAC_HEN" ? "Đang gửi…" : "💬 Zalo nhắc hẹn"}
+        </button>
+        <button
+          type="button"
+          disabled={!zaloBat || dangGuiZalo !== null}
+          onClick={() => void guiZalo("TRA_KET_QUA")}
+          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface py-1.5 px-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+        >
+          {dangGuiZalo === "TRA_KET_QUA" ? "Đang gửi…" : "💬 Zalo báo có KQ"}
+        </button>
+      </div>
+      {!zaloBat && (
+        <p className="text-[11px] text-ink-faint">
+          Zalo chưa nối{zaloThieu.length > 0 && ` — thiếu ${zaloThieu.join(", ")}`}.
+          Gọi điện cho khách và ghi kết quả gọi.
+        </p>
+      )}
+      {ketQuaZalo && (
+        <p className="text-[11px] text-ink-soft">{ketQuaZalo}</p>
+      )}
 
       {mo && (
         <div className="space-y-2 rounded-xl border border-line bg-surface-muted p-3">

@@ -353,3 +353,84 @@ class HenGoiLaiService:
         if row is None:
             raise NotFoundError("Không tìm thấy việc này, hoặc nó đã đóng rồi.")
         return {"ok": True}
+
+
+class GuiZaloService:
+    """Gửi tin ZNS cho khách, và chỉ ghi sổ khi Zalo THẬT SỰ nhận.
+
+    ĐÂY LÀ CHỖ DỄ NÓI DỐI NHẤT trong cả màn. Một dòng "đã liên hệ" ghi trước
+    khi biết kết quả sẽ khiến người trực ca sau tin rằng khách đã được báo — và
+    không ai gọi nữa. Nên thứ tự là: gọi Zalo → đọc kết quả → CHỈ KHI thành
+    công mới ghi sổ. Thất bại thì trả về lý do đọc được, không để lại dấu vết
+    nào nói việc đã xảy ra.
+
+    ZNS KHÔNG GỬI ĐƯỢC TỆP. Nó gửi template chữ đã duyệt. Nên "gửi kết quả qua
+    Zalo" thật ra là "báo cho khách biết kết quả đã có" — tệp vẫn đi đường
+    khác. Nhãn trên màn phải nói đúng như thế.
+    """
+
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        self._pool = pool
+
+    async def gui(
+        self,
+        *,
+        identity: StaffIdentity,
+        clinic_patient_id: str,
+        loai_tin: str,
+        appointment_id: str | None = None,
+    ) -> dict[str, Any]:
+        from clinicai.services.providers import zalo
+
+        if loai_tin not in ("NHAC_HEN", "TRA_KET_QUA"):
+            raise ValidationError(f"Loại tin không hợp lệ: {loai_tin!r}.")
+
+        row = await self._pool.fetchrow(
+            "SELECT full_name, phone_primary FROM public.patient"
+            " WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid",
+            clinic_patient_id,
+            identity.clinic_id,
+        )
+        if row is None:
+            raise NotFoundError("Không tìm thấy khách hàng này.")
+        if not (row["phone_primary"] or "").strip():
+            raise ValidationError("Khách chưa có số điện thoại.")
+
+        gio_hen = ""
+        if appointment_id:
+            ah = await self._pool.fetchrow(
+                "SELECT slot_start FROM public.appointment"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                appointment_id,
+                identity.clinic_id,
+            )
+            if ah and ah["slot_start"]:
+                gio_hen = ah["slot_start"].astimezone(GIO_VN).strftime("%H:%M %d/%m")
+
+        ket_qua = await zalo.gui_zns(
+            sdt=row["phone_primary"],
+            template_id=zalo.template_cho(loai_tin) or "",
+            du_lieu={"ten": row["full_name"] or "", "gio_hen": gio_hen},
+            ma_theo_doi=clinic_patient_id,
+        )
+
+        if not ket_qua.get("da_gui"):
+            # KHÔNG ghi sổ. Một dòng "đã liên hệ" cho một tin chưa gửi là đúng
+            # thứ tính năng này phải chống.
+            logger.warning(
+                "zalo_gui_that_bai",
+                ly_do=ket_qua.get("ly_do"),
+                by_staff_id=identity.staff_id,
+            )
+            return {"da_gui": False, **ket_qua}
+
+        await TuongTacCskhService(self._pool).ghi(
+            identity=identity,
+            clinic_patient_id=clinic_patient_id,
+            appointment_id=appointment_id,
+            loai="NHAC_HEN" if loai_tin == "NHAC_HEN" else "TRA_KQ",
+            kenh="ZALO",
+            ket_qua="DA_LIEN_HE",
+            noi_dung="Đã gửi tin Zalo (ZNS).",
+        )
+        return {"da_gui": True, "ly_do": "OK"}

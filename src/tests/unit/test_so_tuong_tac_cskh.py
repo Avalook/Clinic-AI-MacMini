@@ -285,3 +285,52 @@ def test_router_literal_khop_service() -> None:
     assert set(get_args(fields["loai"].annotation)) == LOAI_HOP_LE
     assert set(get_args(fields["ket_qua"].annotation)) == KET_QUA_HOP_LE
     assert set(get_args(fields["kenh"].annotation)) == KENH_HOP_LE
+
+
+# ── Gửi Zalo: chỉ ghi sổ khi Zalo thật sự nhận ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_zalo_that_bai_thi_khong_ghi_so(monkeypatch: Any) -> None:
+    """Đây là chỗ dễ nói dối nhất trong cả màn.
+
+    Một dòng "đã liên hệ" ghi trước khi biết kết quả sẽ khiến người trực ca sau
+    tin rằng khách đã được báo — và không ai gọi nữa.
+    """
+    from clinicai.services import tuong_tac_cskh_service as mod
+    from clinicai.services.providers import zalo
+
+    async def gia_lap(**_k: Any) -> dict[str, Any]:
+        return {"da_gui": False, "ly_do": "CHUA_CAU_HINH", "chi_tiet": "chưa nối"}
+
+    monkeypatch.setattr(zalo, "gui_zns", gia_lap)
+    monkeypatch.setattr(zalo, "template_cho", lambda _l: "tpl")
+
+    pool = PoolMotDong({"full_name": "Lan", "phone_primary": "0989862764"})
+    d = await mod.GuiZaloService(pool).gui(
+        identity=_ai(), clinic_patient_id=BN, loai_tin="NHAC_HEN"
+    )
+    assert d["da_gui"] is False
+    # Chỉ một lần đọc bệnh nhân — KHÔNG có lần ghi nào vào sổ tương tác.
+    assert len(pool.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_khach_khong_co_sdt_thi_bao_ngay() -> None:
+    from clinicai.services import tuong_tac_cskh_service as mod
+
+    pool = PoolMotDong({"full_name": "Lan", "phone_primary": "  "})
+    with pytest.raises(ValidationError):
+        await mod.GuiZaloService(pool).gui(
+            identity=_ai(), clinic_patient_id=BN, loai_tin="NHAC_HEN"
+        )
+
+
+@pytest.mark.asyncio
+async def test_loai_tin_la_thi_tu_choi() -> None:
+    from clinicai.services import tuong_tac_cskh_service as mod
+
+    with pytest.raises(ValidationError):
+        await mod.GuiZaloService(PoolMotDong(None)).gui(
+            identity=_ai(), clinic_patient_id=BN, loai_tin="QUANG_CAO"
+        )
