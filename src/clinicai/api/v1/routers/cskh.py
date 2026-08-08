@@ -19,7 +19,10 @@ from clinicai.services.cskh_service import (
 )
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
-from clinicai.services.tuong_tac_cskh_service import TuongTacCskhService
+from clinicai.services.tuong_tac_cskh_service import (
+    HenGoiLaiService,
+    TuongTacCskhService,
+)
 
 router = APIRouter()
 
@@ -237,3 +240,34 @@ async def lich_su_tuong_tac(
             identity=identity, clinic_patient_id=str(clinic_patient_id)
         )
     }
+
+
+class HenGoiLaiRequest(BaseModel):
+    clinic_patient_id: UUID
+    ngay_goi: date
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/cskh/hen-goi-lai", status_code=201)
+async def tao_hen_goi_lai(
+    body: HenGoiLaiRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tự hẹn một việc gọi lại — chỗ đựng việc hệ thống chưa suy được."""
+    return await HenGoiLaiService(pool).tao(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        ngay_goi=body.ngay_goi,
+        ly_do=body.ly_do,
+    )
+
+
+@router.patch("/cskh/hen-goi-lai/{hen_id}")
+async def dong_hen_goi_lai(
+    hen_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đóng việc đã gọi xong."""
+    return await HenGoiLaiService(pool).dong(identity=identity, hen_id=str(hen_id))

@@ -91,3 +91,97 @@ async def test_tu_dien_dong_khong_nhan_gia_tri_la() -> None:
         await _ghi(kenh="BO_CAU")
     with pytest.raises(ValidationError):
         await _ghi(ket_qua="CHUA_BIET")
+
+
+# ── Việc CSKH tự hẹn ───────────────────────────────────────────────────────
+
+
+def _hen() -> Any:
+    from clinicai.services.tuong_tac_cskh_service import HenGoiLaiService
+
+    return HenGoiLaiService(PoolTrong())
+
+
+@pytest.mark.asyncio
+async def test_hen_goi_lai_phai_co_ly_do() -> None:
+    """Một việc không có lý do là việc mà tuần sau không ai biết vì sao nó ở đó."""
+    from datetime import date, timedelta
+
+    with pytest.raises(ValidationError):
+        await _hen().tao(
+            identity=_ai(),
+            clinic_patient_id=BN,
+            ngay_goi=date.today() + timedelta(days=1),
+            ly_do="   ",
+        )
+
+
+@pytest.mark.asyncio
+async def test_khong_hen_duoc_vao_qua_khu() -> None:
+    from datetime import date, timedelta
+
+    with pytest.raises(ValidationError):
+        await _hen().tao(
+            identity=_ai(),
+            clinic_patient_id=BN,
+            ngay_goi=date.today() - timedelta(days=1),
+            ly_do="hỏi thăm sau thủ thuật",
+        )
+
+
+@pytest.mark.asyncio
+async def test_ba_ket_qua_goi_hut_deu_hop_le() -> None:
+    """KNM / KLLD / Hẹn GLS phải là ba giá trị KHÁC nhau.
+
+    Gộp cả ba vào "chưa nghe máy" thì báo cáo cuối tháng nói phòng khám gọi
+    hụt 30% khách, trong khi một phần ba số đó là khách chủ động hẹn giờ khác.
+    """
+    from clinicai.services.tuong_tac_cskh_service import KET_QUA_HOP_LE
+
+    assert {"CHUA_NGHE_MAY", "KHONG_LIEN_LAC_DUOC", "HEN_GOI_LAI"} <= KET_QUA_HOP_LE
+
+
+@pytest.mark.asyncio
+async def test_khach_cua_phong_kham_khac_thi_khong_ghi_duoc() -> None:
+    """RLS chỉ GIẤU dòng đi, không ngăn nó ra đời — nên phải kiểm ở service."""
+
+    class PoolKhongThayKhach:
+        def acquire(self) -> Any:
+            return self
+
+        async def __aenter__(self) -> Any:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        def transaction(self) -> Any:
+            return self
+
+        async def fetchval(self, *_a: Any, **_k: Any) -> Any:
+            return None  # patient không thuộc phòng khám này
+
+    from clinicai.api.exceptions import NotFoundError
+    from clinicai.services.tuong_tac_cskh_service import (
+        HenGoiLaiService,
+        TuongTacCskhService,
+    )
+
+    with pytest.raises(NotFoundError):
+        await TuongTacCskhService(PoolKhongThayKhach()).ghi(
+            identity=_ai(),
+            clinic_patient_id=BN,
+            loai="KHAC",
+            kenh="GOI",
+            ket_qua="DA_LIEN_HE",
+        )
+
+    from datetime import date, timedelta
+
+    with pytest.raises(NotFoundError):
+        await HenGoiLaiService(PoolKhongThayKhach()).tao(
+            identity=_ai(),
+            clinic_patient_id=BN,
+            ngay_goi=date.today() + timedelta(days=3),
+            ly_do="hỏi thăm",
+        )

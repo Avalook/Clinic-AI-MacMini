@@ -11,9 +11,15 @@
 
 import { useState } from "react";
 
+// Ba dòng giữa là KNM / KLLD / Hẹn GLS trong DoD — Quang giải nghĩa 08/08:
+// không nghe máy, không liên lạc được, hẹn gọi lại sau. Cả ba sinh ra việc
+// "cần gọi lại", nhưng chúng KHÁC nhau và gộp lại là mất thông tin: KLLD thì
+// phải đi tìm số khác, còn Hẹn GLS là khách chủ động hẹn giờ.
 const KET_QUA: [string, string][] = [
   ["DA_LIEN_HE", "Đã liên hệ được"],
-  ["CHUA_NGHE_MAY", "Chưa nghe máy"],
+  ["CHUA_NGHE_MAY", "Không nghe máy (KNM)"],
+  ["KHONG_LIEN_LAC_DUOC", "Không liên lạc được (KLLD)"],
+  ["HEN_GOI_LAI", "Khách hẹn gọi lại sau"],
   ["CAN_BAC_SI", "Cần hỏi bác sĩ"],
   ["TU_CHOI", "Khách từ chối"],
 ];
@@ -85,6 +91,10 @@ export default function GhiTuongTac({
   const [noiDung, setNoiDung] = useState("");
   const [dangLuu, setDangLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [moHen, setMoHen] = useState(false);
+  const [ngayHen, setNgayHen] = useState("");
+  const [lyDoHen, setLyDoHen] = useState("");
+  const [daHen, setDaHen] = useState(false);
 
   const thieuLich = CAN_LICH.has(loai) && !appointmentId;
 
@@ -126,6 +136,33 @@ export default function GhiTuongTac({
     setDangLuu(false);
     setMo(false);
     setNoiDung("");
+  }
+
+  async function henGoiLai() {
+    setDangLuu(true);
+    setLoi(null);
+    const res = await fetch("/api/cskh/hen-goi-lai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinic_patient_id: clinicPatientId,
+        ngay_goi: ngayHen,
+        ly_do: lyDoHen.trim(),
+      }),
+    });
+    setDangLuu(false);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as
+        | { error?: string; message?: string }
+        | null;
+      setLoi(d?.message ?? d?.error ?? "Không hẹn được.");
+      return;
+    }
+    // Cờ tại chỗ để nút đổi NGAY. Trang chỉ nạp lại trạng thái ở lần tải sau,
+    // và một nút bấm xong trông y như chưa bấm là một nút sẽ bị bấm hai lần.
+    setDaHen(true);
+    setMoHen(false);
+    setLyDoHen("");
   }
 
   return (
@@ -224,6 +261,51 @@ export default function GhiTuongTac({
             {dangLuu ? "Đang ghi…" : "Ghi lại"}
           </button>
         </div>
+      )}
+
+      {/* HẸN GỌI LẠI — chỗ đựng việc hệ thống chưa suy được.
+          "Sau sinh 1 tháng" và "sau thủ thuật 1 ngày" trong DoD không có dữ
+          liệu để tự sinh: không cột nào chứa ngày sinh con thật, và các dịch
+          vụ thủ thuật đang tắt. Một nút để người gõ thì có việc THẬT; một tab
+          tự sinh từ ngày dự sinh thì có việc SAI. */}
+      {daHen ? (
+        <p className="rounded-lg bg-success-bg px-2 py-1.5 text-[11px] text-success">
+          Đã hẹn gọi lại. Khách sẽ hiện ở danh sách vào đúng ngày đó.
+        </p>
+      ) : moHen ? (
+        <div className="space-y-2 rounded-xl border border-line bg-surface-muted p-3">
+          <label className="block text-[11px] font-medium text-ink-soft">
+            Gọi lại ngày
+            <input
+              type="date"
+              value={ngayHen}
+              onChange={(e) => setNgayHen(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink"
+            />
+          </label>
+          <input
+            value={lyDoHen}
+            onChange={(e) => setLyDoHen(e.target.value)}
+            placeholder="Gọi lại để làm gì (VD: hỏi thăm sau thủ thuật)"
+            className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink"
+          />
+          <button
+            type="button"
+            onClick={() => void henGoiLai()}
+            disabled={dangLuu || !ngayHen || !lyDoHen.trim()}
+            className="w-full rounded-lg bg-brand-600 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            {dangLuu ? "Đang hẹn…" : "Hẹn"}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setMoHen(true)}
+          className="w-full rounded-xl border border-line bg-surface py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted"
+        >
+          Hẹn gọi lại ngày…
+        </button>
       )}
 
       <div>
