@@ -62,7 +62,12 @@ DECLARE
     -- trực ngày 12/12 trong khi phòng khám chưa quyết (migration 20260808000001).
     -- 61 → 62 (08/08/2026): luat_bac_si_bat_buoc — dịch vụ X + khách mới thì
     -- bắt buộc bác sĩ Y, thi hành LÚC ĐẶT LỊCH (migration 20260808000003).
-    expected_tenant_tables constant integer := 62;
+    -- 62 → 63 (08/08/2026): vai_duoc_vao_tram — chức danh nào được xếp vào vị
+    -- trí nào. Trước đó luật này nằm trong một hàm TypeScript chạy ở trình
+    -- duyệt, nói "bác sĩ → một trạm, mọi vai còn lại → mười một trạm còn lại":
+    -- lễ tân xếp được vào "Máy trong E10 + VLTL/thủ thuật", còn gọi thẳng API
+    -- thì xếp được bất kỳ ai vào bất kỳ đâu (migration 20260809000002).
+    expected_tenant_tables constant integer := 63;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
