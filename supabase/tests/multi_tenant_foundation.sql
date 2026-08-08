@@ -70,7 +70,12 @@ DECLARE
     -- 63 → 64 (08/08/2026): tuong_tac_cskh — sổ CHỈ THÊM cho mỗi lần CSKH
     -- chạm tới khách. Trước đó nút "Gọi nhắc hẹn" là một thẻ tel: không để lại
     -- dấu vết nào (migration 20260809000003).
-    expected_tenant_tables constant integer := 64;
+    -- 64 → 66 (08/08/2026): luat_cskh + hen_goi_lai (migration 20260809000005).
+    -- luat_cskh giữ số ngày VÀ nhãn hiển thị của từng loại việc CSKH, để phòng
+    -- khám đổi cả hai mà không deploy lại. hen_goi_lai là chỗ đựng những việc
+    -- hệ thống chưa suy được (sau sinh 1 tháng, sau thủ thuật 1 ngày) — không
+    -- cột nào chứa ngày sinh con thật, nên người gõ tay thay vì tab tự sinh sai.
+    expected_tenant_tables constant integer := 66;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

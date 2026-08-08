@@ -197,6 +197,20 @@ export default async function CustomersPage({
         .order("slot_start", { ascending: true })
         .limit(3000)
     : Promise.resolve({ data: [] as unknown[] });
+  // TRẠNG THÁI — suy lại từ dữ liệu mỗi lần đọc (view 20260809000005).
+  //
+  // Trước đây cột này đọc `cskh_action.status`, rơi về `appointment.status`,
+  // rồi rơi tiếp về chuỗi cứng "Khách mới" — nên gần như mọi khách hiện "Đã
+  // đặt lịch", một câu đúng mà vô dụng: nó không nói CSKH phải làm gì tiếp.
+  const trangThaiPromise = shownIds.length
+    ? supabase
+        .from("v_trang_thai_cskh")
+        .select(
+          "clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han, appointment_id, da_xac_nhan",
+        )
+        .in("clinic_patient_id", shownIds)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
   // SỔ TƯƠNG TÁC — nguồn thật của cột "Tương tác gần nhất".
   //
   // `cskh_action` bên dưới là hàng nhập khẩu từ Notion và có 0 dòng trên bản
@@ -351,9 +365,25 @@ export default async function CustomersPage({
     noi_dung: string | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
+  type TrangThaiRaw = {
+    clinic_patient_id: string;
+    trang_thai: string;
+    nhan: string;
+    han_xu_ly: string | null;
+    qua_han: boolean;
+    appointment_id: string | null;
+    da_xac_nhan: boolean;
+  };
+  const trangThaiByPatient: Record<string, TrangThaiRaw> = {};
+  let trangThaiError: { message: string } | null = null;
   const tuongTacByPatient: Record<string, DongLichSu[]> = {};
   let tuongTacError: { message: string } | null = null;
   if (rows.length) {
+    const { data: tt2, error: ttErr2 } = await trangThaiPromise;
+    trangThaiError = ttErr2;
+    for (const t of (tt2 as TrangThaiRaw[] | null) ?? []) {
+      trangThaiByPatient[t.clinic_patient_id] = t;
+    }
     const { data: tt, error: ttErr } = await tuongTacPromise;
     tuongTacError = ttErr;
     for (const t of (tt as TuongTacRaw[] | null) ?? []) {
@@ -376,9 +406,9 @@ export default async function CustomersPage({
       {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — nó đã hiện đúng
           "Quản lý khách hàng" kèm chính câu mô tả này. */}
 
-      {error || cskhError || tuongTacError ? (
+      {error || cskhError || tuongTacError || trangThaiError ? (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-          {(error ?? cskhError ?? tuongTacError)?.message}
+          {(error ?? cskhError ?? tuongTacError ?? trangThaiError)?.message}
         </div>
       ) : (
         <CustomersView
@@ -386,6 +416,7 @@ export default async function CustomersPage({
           apptByPatient={apptByPatient}
           cskhByPatient={cskhByPatient}
           tuongTacByPatient={tuongTacByPatient}
+          trangThaiByPatient={trangThaiByPatient}
           locations={locations}
           q={q}
           period={period}
