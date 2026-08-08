@@ -350,7 +350,7 @@ echo "==> [6/6] deployment verified at $(git rev-parse HEAD)"
 #
 # `|| true`: dọn rác thất bại không phải lý do để gọi một bản deploy đã chạy
 # tốt là hỏng.
-truoc=$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null | awk '/Build/{print $2}')
+truoc=$(docker system df --format '{{.Type}}|{{.Size}}' 2>/dev/null | awk -F'|' '/^Build/{print $2}')
 docker builder prune -af --filter 'until=24h' >/dev/null 2>&1 || true
 echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đĩa còn: $(df -h / | awk 'NR==2{print $4}')"
 echo "==> deploy ($ENVN) complete."

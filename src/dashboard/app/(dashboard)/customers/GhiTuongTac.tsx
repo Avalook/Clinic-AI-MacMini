@@ -10,6 +10,7 @@
 // CSKH phải tự bấm 10 chữ số. Chỉ thêm: bấm xong thì mở ô ghi kết quả.
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 // Ba dòng giữa là KNM / KLLD / Hẹn GLS trong DoD — Quang giải nghĩa 08/08:
 // không nghe máy, không liên lạc được, hẹn gọi lại sau. Cả ba sinh ra việc
@@ -88,6 +89,7 @@ export default function GhiTuongTac({
    *  đồng bộ trong effect, nên không nạp trong useEffect. */
   lichSuBanDau: DongLichSu[];
 }) {
+  const router = useRouter();
   const [lichSu, setLichSu] = useState(lichSuBanDau);
   // Hai state này khởi tạo TỪ PROP, và component được gắn `key` theo việc đang
   // ghi — nên bấm một node khác là remount, không cần effect đồng bộ. Trình
@@ -141,6 +143,13 @@ export default function GhiTuongTac({
       const d = (await ls.json()) as { items?: DongLichSu[] };
       setLichSu(d.items ?? []);
     }
+    // NẠP LẠI CẢ TRANG, không chỉ danh sách trong ô này.
+    //
+    // Chuỗi bước bên trái đọc dữ liệu do máy chủ nạp, nên `setLichSu` ở đây chỉ
+    // làm mới đúng cái danh sách nhỏ này: ghi xong một bước mà node vẫn sáng
+    // "Làm bước này", và người dùng bấm lần nữa. Đo được đúng lỗi ấy trên bản
+    // thật ngày 08/08 — dòng đã vào database mà màn không nhúc nhích.
+    router.refresh();
     setDangLuu(false);
     setMo(false);
     setNoiDung("");
@@ -168,6 +177,7 @@ export default function GhiTuongTac({
     }
     // Cờ tại chỗ để nút đổi NGAY. Trang chỉ nạp lại trạng thái ở lần tải sau,
     // và một nút bấm xong trông y như chưa bấm là một nút sẽ bị bấm hai lần.
+    router.refresh();
     setDaHen(true);
     setMoHen(false);
     setLyDoHen("");
