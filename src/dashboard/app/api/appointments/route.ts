@@ -215,6 +215,7 @@ interface PatchBody {
   id?: string;
   action?: PatchAction;
   cancellation_reason?: string; // cho action "cancel"
+  ly_do_huy_ma?: string; // mã lý do huỷ — BẮT BUỘC khi action = "cancel"
   doctor_id?: string; // "reassign"/"assign_doctor"/"reschedule"; rỗng = bỏ phân
   slot_start?: string; // cho action "reschedule" (ISO UTC)
   slot_end?: string; // cho action "reschedule" (ISO UTC)
@@ -310,6 +311,7 @@ export async function PATCH(request: Request) {
   return proxyJsonToBackend("PATCH", `/api/v1/appointments/${id}`, {
     action,
     cancellation_reason: body.cancellation_reason ?? null,
+    ly_do_huy_ma: body.ly_do_huy_ma ?? null,
     ...(body.doctor_id !== undefined ? { doctor_id: body.doctor_id || null } : {}),
     slot_start: body.slot_start ?? null,
     slot_end: body.slot_end ?? null,
