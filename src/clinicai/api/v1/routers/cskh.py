@@ -209,7 +209,21 @@ class TuongTacRequest(BaseModel):
         "MUA_THUOC",
     ]
     kenh: Literal["GOI", "ZALO", "SMS", "TRUC_TIEP", "KHONG_LIEN_HE"]
-    ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI", "BO_QUA"]
+    # DANH SÁCH NÀY PHẢI KHỚP KET_QUA_HOP_LE trong tuong_tac_cskh_service —
+    # bài kiểm test_router_literal_khop_service canh. Hai lần mở rộng trước
+    # (KLLD/Hẹn GLS rồi GHI_NHAN) chỉ sửa service mà trượt chỗ này trong im
+    # lặng, nên suốt một buổi CSKH chọn "không liên lạc được" trên màn là ăn
+    # 422 — service nhận mà cửa Pydantic đã đóng.
+    ket_qua: Literal[
+        "DA_LIEN_HE",
+        "CHUA_NGHE_MAY",
+        "KHONG_LIEN_LAC_DUOC",
+        "HEN_GOI_LAI",
+        "CAN_BAC_SI",
+        "TU_CHOI",
+        "BO_QUA",
+        "GHI_NHAN",
+    ]
     khach_xac_nhan: bool | None = None
     noi_dung: str | None = Field(default=None, max_length=2000)
 
