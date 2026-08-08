@@ -201,7 +201,13 @@ test_backup_includes_media_files() {
   [ -f "$media" ] || fail "backup did not create the media artifact"
   gzip -t "$media" || fail "media artifact failed gzip validation"
   tar -tzf "$media" | grep -q 'a\.jpg' || fail "media artifact does not contain the image"
-  tar -tzf "$media" | grep -q '\.tmp$' && fail "media artifact kept a half-written .tmp file"
+  # `A && fail` LÀ CÁI BẪY dưới `set -e`: khi grep KHÔNG tìm thấy gì (đúng cái
+  # ta muốn), câu lệnh trả 1 và bash 5 trên CI giết cả suite ngay đó — trong khi
+  # bash 3.2 trên macOS bỏ qua. Chạy được ở máy, đỏ trên CI, và thông báo lỗi
+  # nói về một chuyện khác hẳn. Viết thành `if` là hết.
+  if tar -tzf "$media" | grep -q '\.tmp$'; then
+    fail "media artifact kept a half-written .tmp file"
+  fi
   grep -q '^media_sha256=..*' "${archive}.manifest" ||     fail "manifest does not record the media checksum"
   grep -qx 'media_file_count=1' "${archive}.manifest" ||     fail "manifest does not record how many media files were archived"
 
@@ -810,7 +816,6 @@ test_runbook_installs_the_real_launchdaemon_template() {
 
 test_backup_rejects_failed_dump
 test_backup_rejects_structurally_incomplete_dump
-test_backup_includes_media_files
 test_backup_creates_verified_archive
 test_backup_command_preflight_is_explicit
 test_backup_rejects_small_archive_before_publish
@@ -827,4 +832,9 @@ test_compose_has_bounded_runtime_defaults
 test_compose_renders_every_profile_safely
 test_repository_hygiene_and_test_doc_are_safe
 test_runbook_installs_the_real_launchdaemon_template
+# ĐỂ CUỐI CÙNG, CÓ CHỦ Ý: bài này cố ý làm hỏng một tệp media để thử người kiểm.
+# Các bài khác lấy "tệp .sql.gz đầu tiên tìm thấy" trong cùng thư mục, nên một
+# tệp hỏng còn sót lại là chúng kiểm nhầm bản sao lưu — và báo một lỗi nói về
+# chuyện khác hẳn.
+test_backup_includes_media_files
 echo "infra safety smoke tests: PASS"
