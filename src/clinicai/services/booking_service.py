@@ -127,6 +127,10 @@ DOCTOR_ROLES: frozenset[ClinicRole] = DOCTOR_DESK_ROLES
 MANAGE_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA}
 )
+#: owner_only chỉ so staff_id với người CÓ ca của mình — tức bác sĩ thật.
+PHYSICIAN_ONLY_OWNER_CHECK: frozenset[ClinicRole] = frozenset(
+    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
+)
 CHECKIN_ROLES: frozenset[ClinicRole] = frozenset(
     {
         ClinicRole.RECEPTION,
@@ -236,12 +240,14 @@ TRANSITIONS: dict[str, Transition] = {
     "complete": Transition(
         "COMPLETED",
         frozenset({"CHECKED_IN"}),
-        # DOCTOR_ROLES + CSKH (Quang 08/08/2026): trong MVP vận hành tay, CSKH
-        # bấm "khách check-out" và lượt khám phải ĐÓNG THẬT — không đóng thì
-        # "đã khám" không bao giờ bật và nhắc tái khám không bao giờ sinh.
-        # Bác sĩ vẫn giữ luật cũ: chỉ đóng được ca của chính mình (owner_only
-        # bên dưới miễn cho CSKH như đã miễn cho TKYK).
-        DOCTOR_ROLES | frozenset({ClinicRole.CSKH}),
+        # DOCTOR_ROLES + nhóm vận hành (Quang 08/08/2026): trong MVP vận hành
+        # tay, CSKH bấm "khách check-out" và lượt khám phải ĐÓNG THẬT — không
+        # đóng thì "đã khám" không bao giờ bật và nhắc tái khám không bao giờ
+        # sinh. MANAGE_ROLES chứ không riêng CSKH: quản lý và trưởng ca làm
+        # được mọi việc CSKH làm được — bản đầu chỉ mở CSKH và người đầu tiên
+        # ăn 403 chính là tài khoản Quản lý đang chạy thử.
+        # Bác sĩ vẫn giữ luật cũ: chỉ đóng được ca của chính mình.
+        DOCTOR_ROLES | MANAGE_ROLES,
         "appointment.completed",
         True,
     ),
