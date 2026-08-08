@@ -148,7 +148,7 @@ class TestRoleGates:
         # And on their OWN list — TKYK is the exception, entering on behalf.
         assert transition.owner_only
 
-    def test_complete_is_doctors_plus_cskh(self) -> None:
+    def test_complete_is_doctors_plus_ops(self) -> None:
         """`complete` KHÔNG còn thuần bác sĩ (Quang 08/08/2026).
 
         MVP vận hành tay: CSKH bấm "khách check-out" và lượt khám phải ĐÓNG
@@ -162,6 +162,11 @@ class TestRoleGates:
                 ClinicRole.ULTRASOUND_DOCTOR,
                 ClinicRole.TKYK,
                 ClinicRole.CSKH,
+                # Quản lý và trưởng ca làm được mọi việc CSKH làm được — bản
+                # đầu chỉ mở CSKH, và người đầu tiên ăn 403 trên bản thật chính
+                # là tài khoản Quản lý đang chạy thử.
+                ClinicRole.MANAGEMENT,
+                ClinicRole.TRUONG_CA,
             }
         )
         assert transition.owner_only
