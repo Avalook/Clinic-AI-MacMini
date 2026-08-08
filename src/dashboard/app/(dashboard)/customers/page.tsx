@@ -15,6 +15,7 @@ import {
   VN_TZ,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
+import type { DongLichSu } from "./GhiTuongTac";
 import CustomersView, {
   type CustomerRow,
   type ApptInfo,
@@ -196,6 +197,21 @@ export default async function CustomersPage({
         .order("slot_start", { ascending: true })
         .limit(3000)
     : Promise.resolve({ data: [] as unknown[] });
+  // SỔ TƯƠNG TÁC — nguồn thật của cột "Tương tác gần nhất".
+  //
+  // `cskh_action` bên dưới là hàng nhập khẩu từ Notion và có 0 dòng trên bản
+  // thật; hai câu INSERT duy nhất ghi vào nó còn không có cột `step` lẫn
+  // `deadline_at`. Bảng mới ghi từ chính màn này (20260809000003).
+  const tuongTacPromise = shownIds.length
+    ? supabase
+        .from("tuong_tac_cskh")
+        .select(
+          "clinic_patient_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, staff(full_name)",
+        )
+        .in("clinic_patient_id", shownIds)
+        .order("xay_ra_luc", { ascending: false })
+        .limit(1000)
+    : Promise.resolve({ data: [] as unknown[], error: null });
   const cskhPromise = shownIds.length
     ? supabase
         .from("cskh_action")
@@ -323,20 +339,53 @@ export default async function CustomersPage({
     }
   }
 
+  // Gom sổ tương tác theo khách. Dòng đầu mỗi nhóm là lần gần nhất (đã sắp xếp
+  // giảm dần ở truy vấn).
+  type TuongTacRaw = {
+    clinic_patient_id: string;
+    xay_ra_luc: string;
+    loai: string;
+    kenh: string;
+    ket_qua: string | null;
+    khach_xac_nhan: boolean | null;
+    noi_dung: string | null;
+    staff?: { full_name: string } | { full_name: string }[] | null;
+  };
+  const tuongTacByPatient: Record<string, DongLichSu[]> = {};
+  let tuongTacError: { message: string } | null = null;
+  if (rows.length) {
+    const { data: tt, error: ttErr } = await tuongTacPromise;
+    tuongTacError = ttErr;
+    for (const t of (tt as TuongTacRaw[] | null) ?? []) {
+      const nv = Array.isArray(t.staff) ? t.staff[0] : t.staff;
+      (tuongTacByPatient[t.clinic_patient_id] ??= []).push({
+        xay_ra_luc: t.xay_ra_luc,
+        loai: t.loai,
+        kenh: t.kenh,
+        ket_qua: t.ket_qua,
+        khach_xac_nhan: t.khach_xac_nhan,
+        noi_dung: t.noi_dung,
+        nhan_vien: nv?.full_name ?? null,
+        nguon: "tuong_tac",
+      });
+    }
+  }
+
   return (
     <div className="space-y-3">
       {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — nó đã hiện đúng
           "Quản lý khách hàng" kèm chính câu mô tả này. */}
 
-      {error || cskhError ? (
+      {error || cskhError || tuongTacError ? (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-          {(error ?? cskhError)?.message}
+          {(error ?? cskhError ?? tuongTacError)?.message}
         </div>
       ) : (
         <CustomersView
           rows={rows}
           apptByPatient={apptByPatient}
           cskhByPatient={cskhByPatient}
+          tuongTacByPatient={tuongTacByPatient}
           locations={locations}
           q={q}
           period={period}

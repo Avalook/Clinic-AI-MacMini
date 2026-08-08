@@ -67,7 +67,10 @@ DECLARE
     -- duyệt, nói "bác sĩ → một trạm, mọi vai còn lại → mười một trạm còn lại":
     -- lễ tân xếp được vào "Máy trong E10 + VLTL/thủ thuật", còn gọi thẳng API
     -- thì xếp được bất kỳ ai vào bất kỳ đâu (migration 20260809000002).
-    expected_tenant_tables constant integer := 63;
+    -- 63 → 64 (08/08/2026): tuong_tac_cskh — sổ CHỈ THÊM cho mỗi lần CSKH
+    -- chạm tới khách. Trước đó nút "Gọi nhắc hẹn" là một thẻ tel: không để lại
+    -- dấu vết nào (migration 20260809000003).
+    expected_tenant_tables constant integer := 64;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
