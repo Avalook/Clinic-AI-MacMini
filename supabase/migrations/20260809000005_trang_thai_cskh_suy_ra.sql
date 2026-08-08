@@ -151,7 +151,17 @@ CREATE INDEX IF NOT EXISTS idx_appointment_da_huy
 -- `security_invoker` để chính sách của các bảng nền áp dụng theo người đăng
 -- nhập. Thiếu cờ này thì view chạy bằng quyền của người TẠO nó và trả dữ liệu
 -- của mọi phòng khám — rò rỉ im lặng, không lỗi nào báo.
-CREATE OR REPLACE VIEW public.v_trang_thai_cskh
+-- DROP TRƯỚC, KHÔNG `CREATE OR REPLACE`.
+--
+-- CI chạy TOÀN BỘ migration hai lượt để chắc chúng áp lại được. Ở lượt hai,
+-- file này gặp một view ĐÃ CÓ NHIỀU CỘT HƠN — 20260809000010 thêm `so_viec_mo`
+-- và `co_viec_qua_han` ở giữa — và `CREATE OR REPLACE VIEW` không bỏ được cột:
+-- "cannot drop columns from view".
+--
+-- Drop trước thì file này áp lại được ở bất kỳ thứ tự nào. GRANT cấp lại ở dưới.
+DROP VIEW IF EXISTS public.v_trang_thai_cskh;
+
+CREATE VIEW public.v_trang_thai_cskh
 WITH (security_invoker = true) AS
 WITH hom_nay AS (
     SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d
