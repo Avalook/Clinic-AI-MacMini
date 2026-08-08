@@ -195,6 +195,25 @@ class TestRoleGates:
             {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT, ClinicRole.CSKH}
         )
 
+    def test_owner_check_chi_ap_cho_bac_si_that(self) -> None:
+        """owner_only là luật GIỮA CÁC BÁC SĨ.
+
+        Bản đầu miễn trừ bằng danh sách liệt kê (TKYK, rồi CSKH) — và Quản lý
+        bấm check-out trên bản thật ăn ngay "Lịch hẹn này không thuộc bác sĩ".
+        Tập PHYSICIAN_ONLY_OWNER_CHECK nói thẳng: chỉ so staff_id với người
+        CÓ ca của mình.
+        """
+        from clinicai.services.booking_service import PHYSICIAN_ONLY_OWNER_CHECK
+
+        assert PHYSICIAN_ONLY_OWNER_CHECK == frozenset(
+            {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
+        )
+        # Mọi vai được phép 'complete' mà không phải bác sĩ đều phải nằm ngoài
+        # tập bị so — thiếu một vai là vai đó bị chặn sạch trên bản thật.
+        for role in TRANSITIONS["complete"].allowed_roles:
+            if role not in (ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR):
+                assert role not in PHYSICIAN_ONLY_OWNER_CHECK
+
     def test_only_the_doctor_actions_are_owner_scoped(self) -> None:
         owner_only = {a for a, t in TRANSITIONS.items() if t.owner_only}
         assert owner_only == {"confirm", "decline", "complete"}
