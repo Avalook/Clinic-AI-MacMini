@@ -14,8 +14,6 @@ import {
   SHIFT_LABEL,
   dayShort,
   fmtDayMonth,
-  stationsForRole,
-  defaultStationForRole,
   type Shift,
 } from "../../../../lib/roster";
 import { ROLE_LABEL, type ClinicRole } from "../../../../lib/roles";
@@ -54,9 +52,49 @@ export default function RosterEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Trạm hợp lệ theo vai trò NV đã chọn (tránh "lễ tân → trạm bác sĩ").
-  const selected = staff.find((s) => s.id === staffId) ?? null;
-  const validStations = selected ? stationsForRole(selected.role) : STATIONS;
+  // VỊ TRÍ HỢP LỆ HỎI SERVER, KHÔNG SUY Ở TRÌNH DUYỆT.
+  //
+  // Trước đây danh sách này do `stationsForRole` dựng, và luật của nó là: bác
+  // sĩ → một trạm, mọi vai còn lại → mười một trạm còn lại. Nên lễ tân chọn
+  // được "Máy trong E10 + VLTL/thủ thuật". Nay cùng một bảng
+  // (`vai_duoc_vao_tram`) vừa dựng ô chọn vừa là thứ backend dùng để từ chối,
+  // nên màn hình không thể mời một vị trí rồi lưu mới báo lỗi.
+  //
+  // `null` = chưa hỏi xong. Khác hẳn `[]` = hỏi rồi, người này không được xếp
+  // đi đâu cả.
+  const [tramHopLe, setTramHopLe] = useState<string[] | null>(null);
+  const [chuaKhai, setChuaKhai] = useState(false);
+
+  const validStations =
+    tramHopLe === null
+      ? STATIONS
+      : chuaKhai
+        ? STATIONS
+        : STATIONS.filter((s) => tramHopLe.includes(s.key));
+
+  async function chonNhanVien(id: string) {
+    setStaffId(id);
+    setError(null);
+    setTramHopLe(null);
+    setChuaKhai(false);
+    if (!id) return;
+    const res = await fetch(`/api/roster?staff_id=${encodeURIComponent(id)}`);
+    if (!res.ok) {
+      // Không đọc được phạm vi thì nói ra, đừng lặng lẽ hiện đủ mười hai vị
+      // trí — người dùng sẽ chọn một cái rồi ăn lỗi lúc lưu.
+      setError("Không đọc được phạm vi vị trí của nhân viên này.");
+      return;
+    }
+    const d = (await res.json()) as { tram?: string[]; chua_khai?: boolean };
+    const ds = d.tram ?? [];
+    setTramHopLe(ds);
+    setChuaKhai(Boolean(d.chua_khai));
+    // Vị trí đang chọn không còn hợp lệ → nhảy về cái đầu tiên hợp lệ, thay vì
+    // để ô hiển thị một thứ mà nút Thêm sẽ từ chối.
+    if (!d.chua_khai && ds.length > 0 && !ds.includes(station)) {
+      setStation(ds[0]);
+    }
+  }
 
   async function add() {
     setError(null);
@@ -155,11 +193,20 @@ export default function RosterEditor({
                 </option>
               ))}
             </select>
-            {!staffId && (
+            {!staffId ? (
               <p className="mt-1 text-[11px] text-ink-faint">
                 Chọn nhân viên trước — vị trí sẽ lọc theo chức danh.
               </p>
-            )}
+            ) : chuaKhai ? (
+              <p className="mt-1 text-[11px] text-warning">
+                Phòng khám chưa khai phạm vi vị trí cho chức danh này — đang
+                hiện tất cả.
+              </p>
+            ) : tramHopLe?.length === 0 ? (
+              <p className="mt-1 text-[11px] text-danger">
+                Chức danh này chưa được khai vị trí nào.
+              </p>
+            ) : null}
           </div>
           <div>
             <label className={LABEL}>Ca</label>
@@ -180,11 +227,7 @@ export default function RosterEditor({
             <select
               value={staffId}
               onChange={(e) => {
-                const id = e.target.value;
-                setStaffId(id);
-                // Đổi NV → tự đặt lại vị trí mặc định theo chức danh (tránh lệch).
-                const r = staff.find((s) => s.id === id)?.role ?? null;
-                if (r) setStation(defaultStationForRole(r));
+                void chonNhanVien(e.target.value);
               }}
               className={INPUT}
             >

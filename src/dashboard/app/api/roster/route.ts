@@ -1,6 +1,7 @@
 // Lịch làm việc — ghi/xoá phân công, và CHỐT một tuần.
 //   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó (chỉ tuần ĐÃ ÁP DỤNG)
 //   GET    ?tu=…&den=…               → những tuần đã áp dụng trong khoảng
+//   GET    ?staff_id=…               → vị trí người này được xếp vào
 //   POST   { week_start, work_date, … }  → thêm 1 ô
 //   POST   { apply_week: "YYYY-MM-DD" }  → chốt cả tuần
 //   DELETE { id }                        → xoá 1 ô
@@ -9,7 +10,7 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
-import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
   getClinicRole,
@@ -89,6 +90,23 @@ export async function GET(request: Request) {
         (r) => r.week_start,
       ),
     });
+  }
+
+  // Nhánh 2: vị trí hợp lệ của MỘT nhân viên. Đi qua FastAPI vì cùng câu trả
+  // lời ấy là thứ `add_shift` dùng để từ chối — hỏi hai nguồn là sớm muộn giao
+  // diện sẽ mời một vị trí mà backend không nhận.
+  const nhanSu = (sp.get("staff_id") ?? "").trim();
+  if (nhanSu) {
+    const data = await fetchFromBackend<{ tram: string[]; chua_khai: boolean }>(
+      `/api/v1/roster/stations?staff_id=${encodeURIComponent(nhanSu)}`,
+    );
+    if (data === null) {
+      return NextResponse.json(
+        { error: "Không đọc được phạm vi vị trí." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json(data);
   }
 
   const date = (sp.get("date") ?? "").trim();
@@ -181,7 +199,11 @@ export async function POST(request: Request) {
     ? (body.staff_name ?? "").trim()
     : auth.staffName;
 
-  if (!week_start || !work_date || !station || !staff_name) {
+  // TÊN không còn nằm trong danh sách bắt buộc: từ 20260809000002 backend đọc
+  // tên và chức danh THẲNG TỪ DATABASE theo staff_id, và bỏ qua chuỗi client
+  // gửi lên. Bắt buộc nó ở đây chỉ tạo ra một lỗi 400 cho một trường không ai
+  // dùng nữa.
+  if (!week_start || !work_date || !station || (assignOther ? !staff_id : !staff_name)) {
     return NextResponse.json(
       { error: "Thiếu tuần / ngày / vị trí / nhân viên." },
       { status: 400 },
