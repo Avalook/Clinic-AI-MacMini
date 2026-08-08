@@ -75,17 +75,25 @@ export default function GhiTuongTac({
   appointmentId,
   phone,
   lichSuBanDau,
+  loaiBanDau,
+  moBanDau = false,
 }: {
   clinicPatientId: string;
   appointmentId: string | null;
   phone: string | null;
+  /** Loại việc mở sẵn khi timeline bấm vào một node. */
+  loaiBanDau?: string | null;
+  moBanDau?: boolean;
   /** Nạp SERVER-SIDE rồi truyền xuống — trình biên dịch React chặn setState
    *  đồng bộ trong effect, nên không nạp trong useEffect. */
   lichSuBanDau: DongLichSu[];
 }) {
   const [lichSu, setLichSu] = useState(lichSuBanDau);
-  const [mo, setMo] = useState(false);
-  const [loai, setLoai] = useState("NHAC_HEN");
+  // Hai state này khởi tạo TỪ PROP, và component được gắn `key` theo việc đang
+  // ghi — nên bấm một node khác là remount, không cần effect đồng bộ. Trình
+  // biên dịch React chặn setState đồng bộ trong effect, và cách này né hẳn nó.
+  const [mo, setMo] = useState(moBanDau);
+  const [loai, setLoai] = useState(loaiBanDau ?? "NHAC_HEN");
   const [ketQua, setKetQua] = useState("DA_LIEN_HE");
   const [xacNhan, setXacNhan] = useState(false);
   const [noiDung, setNoiDung] = useState("");

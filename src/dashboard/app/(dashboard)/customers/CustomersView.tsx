@@ -24,6 +24,7 @@ import PatientAdminEditor from "../PatientAdminEditor";
 import QuickBookingModal from "../patient-list/QuickBookingModal";
 import BaoXepBacSi from "./BaoXepBacSi";
 import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
+import VungLamViecKhach from "./VungLamViecKhach";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
 export interface TrangThaiCskh {
@@ -127,6 +128,9 @@ export interface ApptInfo {
   upcoming: boolean;
   count: number;
   examined: boolean;
+  /** Mốc hệ thống cho vùng làm việc: lịch được tạo lúc nào, huỷ lúc nào. */
+  created_at?: string | null;
+  cancelled_at?: string | null;
   appt?: EditableAppt;
 }
 
@@ -252,6 +256,9 @@ export default function CustomersView({
   const [selectedId, setSelectedId] = useState<string | null>(initialSelected);
   const [term, setTerm] = useState(q);
   const [editOpen, setEditOpen] = useState(false);
+  // Node vừa bấm trên vùng làm việc. Dùng làm `key` cho ô ghi kết quả, nên
+  // bấm node khác là component mount lại với đúng loại việc — không cần effect.
+  const [viecDangGhi, setViecDangGhi] = useState<string | null>(null);
   const [bookOpen, setBookOpen] = useState(false);
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
@@ -489,7 +496,20 @@ export default function CustomersView({
         </div>
       </div>
 
-      <div className={`grid items-start gap-3 ${selected ? "xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]" : "grid-cols-1"}`}>
+      {/* BA CỘT KHI ĐANG CHỌN MỘT KHÁCH: danh sách hẹp — VÙNG LÀM VIỆC rộng —
+          hồ sơ.
+          Quang (08/08/2026): *"tôi muốn vùng làm việc của mỗi khách hàng to như
+          này"*. Trước đây chỗ giữa là phần cuộn ngang của bảng: bốn cột chữ mà
+          muốn đọc phải kéo ngang, và đọc xong cũng chỉ biết khách ĐANG ở đâu.
+          Nay khi đã chọn một khách thì danh sách co lại còn tên + trạng thái,
+          nhường chỗ cho chuỗi bước. */}
+      <div
+        className={`grid items-start gap-3 ${
+          selected
+            ? "xl:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.6fr)_minmax(300px,360px)]"
+            : "grid-cols-1"
+        }`}
+      >
         <section
           aria-label="Danh sách khách hàng"
           className="min-w-0 overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
@@ -503,8 +523,8 @@ export default function CustomersView({
             </div>
           </div>
           <div className="overflow-x-auto">
-            <div className="min-w-[960px]">
-              <CustomerTableHeader />
+            <div className={selected ? "min-w-0" : "min-w-[960px]"}>
+              {!selected && <CustomerTableHeader />}
               {visibleRows.length > 0 ? (
                 <div className="divide-y divide-line">
                   {visibleRows.map((row) => {
@@ -517,9 +537,11 @@ export default function CustomersView({
                       <div
                         key={row.clinic_patient_id}
                         onClick={() => setSelectedId(row.clinic_patient_id)}
-                        className={`grid w-full grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px] items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
-                          active ? "bg-brand-50/60" : "hover:bg-surface-sunken"
-                        }`}
+                        className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
+                          selected
+                            ? "grid-cols-[minmax(0,1fr)_auto]"
+                            : "grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px]"
+                        } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">
                           <span className="block truncate text-sm font-bold text-ink">
@@ -532,42 +554,48 @@ export default function CustomersView({
                         <div>
                           <StatusChip tone={st.tone} label={st.label} />
                         </div>
-                        <div className="min-w-0 text-xs text-ink-soft truncate">
-                          {tomTatTuongTac(tuongTacByPatient[row.clinic_patient_id]) ??
-                      cskh?.lastInteraction ??
-                      "—"}
-                        </div>
-                        <div className="min-w-0">
-                          <span className="truncate text-xs font-medium text-ink">
-                            {customerNextStep(row) ?? cskh?.nextStep ?? "—"}
-                          </span>
-                        </div>
-                        <div>
-                          <span
-                            className={`text-xs font-semibold ${
-                              dl.overdue
-                                ? "rounded-md bg-danger-bg px-2 py-0.5 text-danger font-bold"
-                                : "text-ink-muted"
-                            }`}
-                          >
-                            {dl.text}
-                          </span>
-                        </div>
-                        <div className="text-xs font-medium text-ink truncate">
-                          {cskh?.assignee ?? "—"}
-                        </div>
-                        <div className="text-right">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedId(row.clinic_patient_id);
-                            }}
-                            className="rounded-lg p-1 text-ink-muted hover:bg-surface-sunken hover:text-ink"
-                          >
-                            ⋮
-                          </button>
-                        </div>
+                        {!selected && (
+                          <>
+                            <div className="min-w-0 truncate text-xs text-ink-soft">
+                              {tomTatTuongTac(
+                                tuongTacByPatient[row.clinic_patient_id],
+                              ) ??
+                                cskh?.lastInteraction ??
+                                "—"}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="truncate text-xs font-medium text-ink">
+                                {customerNextStep(row) ?? cskh?.nextStep ?? "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <span
+                                className={`text-xs font-semibold ${
+                                  dl.overdue
+                                    ? "rounded-md bg-danger-bg px-2 py-0.5 font-bold text-danger"
+                                    : "text-ink-muted"
+                                }`}
+                              >
+                                {dl.text}
+                              </span>
+                            </div>
+                            <div className="truncate text-xs font-medium text-ink">
+                              {cskh?.assignee ?? "—"}
+                            </div>
+                            <div className="text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedId(row.clinic_patient_id);
+                                }}
+                                className="rounded-lg p-1 text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                              >
+                                ⋮
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -582,6 +610,21 @@ export default function CustomersView({
             </div>
           </div>
         </section>
+
+        {selected && (
+          <VungLamViecKhach
+            tenKhach={selected.full_name}
+            lich={{
+              id: selectedAppt?.appt?.id ?? null,
+              status: selectedAppt?.status ?? null,
+              slot_start: selectedAppt?.slot_start ?? null,
+              created_at: selectedAppt?.created_at ?? null,
+              cancelled_at: selectedAppt?.cancelled_at ?? null,
+            }}
+            lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
+            onLamViec={setViecDangGhi}
+          />
+        )}
 
         {selected && (
           <aside
@@ -656,9 +699,12 @@ export default function CustomersView({
                       khách kể cả những người vừa được gọi sáng nay. */}
                   <div className="pt-1">
                     <GhiTuongTac
+                      key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
                       clinicPatientId={selected.clinic_patient_id}
                       appointmentId={selectedAppt?.appt?.id ?? null}
                       phone={selected.phone_primary}
+                      loaiBanDau={viecDangGhi}
+                      moBanDau={viecDangGhi !== null}
                       lichSuBanDau={
                         tuongTacByPatient[selected.clinic_patient_id] ?? []
                       }

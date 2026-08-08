@@ -64,10 +64,30 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
   //
   // Bản cũ ghim đúng `minmax(300px,380px)`. Thiết kế chỉnh panel chi tiết rộng
   // thêm 20px là bài kiểm đỏ — trong khi nó chẳng canh gì về đúng/sai, chỉ canh
-  // một con số ai đó từng chọn. Điều thật sự cần giữ: danh sách và panel chi
-  // tiết nằm cạnh nhau ở màn rộng, và panel có bề rộng có giới hạn (không co
-  // giãn nuốt hết danh sách).
-  assert.match(customers, /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(\d+px,\d+px\)\]/);
+  // một con số ai đó từng chọn.
+  //
+  // BA VÙNG từ 08/08/2026: danh sách — VÙNG LÀM VIỆC — hồ sơ. Quang: *"tôi
+  // muốn vùng làm việc của mỗi khách hàng to như này"*. Tính chất phải giữ:
+  // ba vùng đứng cạnh nhau ở màn rộng, và vùng GIỮA là vùng rộng nhất — nếu ai
+  // đó đảo lại thì chuỗi bước co về một cột hẹp và cả thay đổi này thành vô ích.
+  const luoi = customers.match(
+    /xl:grid-cols-\[minmax\((\d+)px,([\d.]+)fr\)_minmax\(0,([\d.]+)fr\)_minmax\((\d+)px,(\d+)px\)\]/,
+  );
+  assert.ok(luoi, "màn khách hàng phải có bố cục ba vùng khi đang chọn một khách");
+  assert.ok(
+    Number(luoi[3]) > Number(luoi[2]),
+    `vùng làm việc (${luoi[3]}fr) phải rộng hơn danh sách (${luoi[2]}fr)`,
+  );
+
+  // Chuỗi bước phải NỐI TIẾP và GIỮ LẠI bước đã xong. Quang: *"xong rồi thì
+  // tích xanh để đó không ẩn… để CSKH còn biết họ đã thao tác gì, mấy giờ."*
+  const vung = readFileSync(
+    new URL("../app/(dashboard)/customers/VungLamViecKhach.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(vung, /<Check /); // dấu tích cho bước đã xong
+  assert.match(vung, /onLamViec\(t\.buoc\.ma\)/); // node bấm được
+  assert.match(vung, /Làm lại/); // bước đã xong vẫn làm lại được
   assert.match(customers, /<AppointmentEditModal/);
   assert.match(customers, /<QuickBookingModal/);
   assert.match(customersPage, /requireNavAccess\("\/customers"\)/);

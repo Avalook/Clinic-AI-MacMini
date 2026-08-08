@@ -185,10 +185,11 @@ export default async function CustomersPage({
   // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (id/dịch vụ/bác sĩ/
   // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
   const apptSelectAll = canManage
-    ? `clinic_patient_id, id, slot_start, status, service_type_id, doctor_id, location_id, booking_channel,
+    ? `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
+       service_type_id, doctor_id, location_id, booking_channel,
        service:service_type!service_type_id ( name ),
        doctor:staff!doctor_id ( full_name )`
-    : "clinic_patient_id, slot_start, status";
+    : "clinic_patient_id, slot_start, status, created_at, cancelled_at";
   const apptsPromise = shownIds.length
     ? supabase
         .from("appointment")
@@ -255,6 +256,8 @@ export default async function CustomersPage({
       doctor_id?: string | null;
       location_id?: string | null;
       booking_channel?: string | null;
+      created_at?: string | null;
+      cancelled_at?: string | null;
       service?: { name: string } | { name: string }[] | null;
       doctor?: { full_name: string } | { full_name: string }[] | null;
     };
@@ -268,8 +271,12 @@ export default async function CustomersPage({
       // hủy lịch xong thì KHÔNG còn hiện là "Lịch hẹn sắp tới".
       const live = list.filter((a) => !DEAD.includes(a.status));
       const upcoming = live.find((a) => a.slot_start >= nowUtc); // sort tăng dần
-      const repr = upcoming ?? live[live.length - 1];
-      if (!repr) continue; // chỉ còn lịch đã hủy → coi như chưa có lịch hẹn
+      // Lịch đại diện: sắp tới → lịch sống gần nhất → CUỐI CÙNG mới tới lịch đã
+      // huỷ. Nhánh thứ ba là mới: trước đây khách chỉ còn lịch huỷ thì bị bỏ
+      // qua hẳn (`continue`), nên vùng làm việc của họ trống trơn — đúng lúc
+      // CSKH cần gọi hỏi vì sao huỷ.
+      const repr = upcoming ?? live[live.length - 1] ?? list[list.length - 1];
+      if (!repr) continue;
       // Chỉ cho ĐỔI/HỦY lịch còn "sống" & SẮP TỚI (repr là lịch upcoming).
       let appt: EditableAppt | undefined;
       const EDITABLE = ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"];
@@ -294,6 +301,8 @@ export default async function CustomersPage({
         // /patient-list). Đang khám (CHECKED_IN/IN_PROGRESS) hay mới đặt/check-in
         // thì CHƯA tính — nút "Hồ sơ & lịch sử khám" sẽ ẩn.
         examined: list.some((a) => a.status === "COMPLETED"),
+        created_at: repr.created_at ?? null,
+        cancelled_at: repr.cancelled_at ?? null,
         appt,
       };
     }
