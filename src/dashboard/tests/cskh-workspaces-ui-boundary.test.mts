@@ -132,3 +132,31 @@ test("CSKH redesign uses the shared ClinicAI tokens instead of an extra palette"
   assert.match(statCard, /text-warning/);
   assert.doesNotMatch(statCard, /status-on-hold/);
 });
+
+test("uploading a result file forwards the multipart boundary", () => {
+  // BOUNDARY NẰM TRONG Content-Type. Bỏ header ấy đi thì FastAPI nhận một thân
+  // multipart không phân tích được, và trả 422 "clinic_patient_id: Field
+  // required" — nghe như client quên gửi trường, trong khi trường ấy nằm ngay
+  // trong thân không đọc được.
+  //
+  // Đã sai đúng như vậy ngày 08/08. Gọi thẳng API bằng script thì chạy (script
+  // tự đặt Content-Type), nên lỗi chỉ lộ khi bấm nút thật trên trình duyệt.
+  const route = readFileSync(
+    new URL("../app/api/cskh/ket-qua/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /headers\["Content-Type"\] = ctIn/);
+  // Và thân phải là LUỒNG: đọc cả tệp vào RAM của tiến trình Next là 80MB mỗi
+  // lượt tải video, trên cùng cái máy đang chạy database.
+  assert.match(route, /body: request\.body/);
+  assert.doesNotMatch(route, /await request\.formData\(\)/);
+
+  // Đường ĐỌC phải chuyển tiếp Range, nếu không video không tua được.
+  const doc = readFileSync(
+    new URL("../app/api/cskh/ket-qua/[tepId]/noi-dung/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(doc, /headers\["Range"\] = rng/);
+  assert.match(doc, /content-range/);
+  assert.match(doc, /new Response\(res\.body/);
+});
