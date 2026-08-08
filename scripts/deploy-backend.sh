@@ -336,4 +336,21 @@ fi
 printf 'source=%s\nenv=%s\n' "$RELEASE_SOURCE" "$ENV_FILE" > "${ACTIVE_STATE_FILE}.tmp"
 mv "${ACTIVE_STATE_FILE}.tmp" "$ACTIVE_STATE_FILE"
 echo "==> [6/6] deployment verified at $(git rev-parse HEAD)"
+
+# DỌN BỘ NHỚ TẠM CỦA TRÌNH DỰNG ẢNH — sau khi đã xác minh xong, không sớm hơn.
+#
+# Mỗi lần deploy là một lần `compose build`, và Docker giữ lại mọi lớp trung
+# gian của mọi lần dựng. Ngày 08/08/2026 đo trên VPS: 408 mục, **30,03 GB**,
+# không mục nào đang dùng — chiếm 30 trong 33 GB đã dùng của cả ổ đĩa. Đĩa còn
+# 15 GB và đang tiến đều tới 0, mà không có gì cảnh báo: `df` không biết phân
+# biệt "dữ liệu bệnh nhân" với "rác của lần dựng tuần trước".
+#
+# Đặt SAU bước xác minh, vì nếu đứng trước thì lần rollback ngay sau đó phải
+# dựng lại từ đầu — đúng lúc đang hỏng và đang vội.
+#
+# `|| true`: dọn rác thất bại không phải lý do để gọi một bản deploy đã chạy
+# tốt là hỏng.
+truoc=$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null | awk '/Build/{print $2}')
+docker builder prune -af --filter 'until=24h' >/dev/null 2>&1 || true
+echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đĩa còn: $(df -h / | awk 'NR==2{print $4}')"
 echo "==> deploy ($ENVN) complete."
