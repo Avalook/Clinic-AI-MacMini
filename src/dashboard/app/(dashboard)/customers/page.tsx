@@ -26,6 +26,7 @@ import CustomersView, {
   type ByDim,
 } from "./CustomersView";
 import { listBookableDoctors } from "../../../lib/doctors-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -213,6 +214,12 @@ export default async function CustomersPage({
         )
         .in("clinic_patient_id", shownIds)
     : Promise.resolve({ data: [] as unknown[], error: null });
+
+  // ZALO ĐÃ NỐI CHƯA. Hỏi SERVER, không đoán ở trình duyệt: access token nằm
+  // trong môi trường của backend và không bao giờ xuống đây.
+  const zaloTrangThai = (await fetchFromBackend<{ bat: boolean; thieu: string[] }>(
+    "/api/v1/cskh/zalo/trang-thai",
+  )) ?? { bat: false, thieu: ["không đọc được cấu hình"] };
 
   // TỆP KẾT QUẢ — ảnh/video siêu âm, phiếu xét nghiệm CSKH đã tải lên.
   const tepPromise = shownIds.length
@@ -507,6 +514,8 @@ export default async function CustomersPage({
           trangThaiByPatient={trangThaiByPatient}
           phanHoiByPatient={phanHoiByPatient}
           tepByPatient={tepByPatient}
+          zaloBat={zaloTrangThai.bat}
+          zaloThieu={zaloTrangThai.thieu}
           locations={locations}
           q={q}
           period={period}

@@ -222,6 +222,8 @@ export default function CustomersView({
   trangThaiByPatient,
   phanHoiByPatient,
   tepByPatient,
+  zaloBat = false,
+  zaloThieu = [],
   locations,
   q,
   period,
@@ -248,6 +250,9 @@ export default function CustomersView({
   trangThaiByPatient: Record<string, TrangThaiCskh>;
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
   tepByPatient: Record<string, TepKetQuaRow[]>;
+  /** Zalo đã đủ cấu hình để gửi chưa (hỏi backend, không đoán ở trình duyệt). */
+  zaloBat?: boolean;
+  zaloThieu?: string[];
   locations: Opt[];
   q: string;
   period: Period;
@@ -726,6 +731,8 @@ export default function CustomersView({
                       lichSuBanDau={
                         tuongTacByPatient[selected.clinic_patient_id] ?? []
                       }
+                      zaloBat={zaloBat}
+                      zaloThieu={zaloThieu}
                     />
                   </div>
 

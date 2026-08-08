@@ -22,6 +22,7 @@ from clinicai.services.cskh_service import (
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
 from clinicai.services.tuong_tac_cskh_service import (
+    GuiZaloService,
     HenGoiLaiService,
     TuongTacCskhService,
 )
@@ -467,4 +468,49 @@ async def danh_dau_da_gui(
 
     return await TepKetQuaService(pool).danh_dau_da_gui(
         identity=identity, tep_id=str(tep_id), kenh=body.kenh
+    )
+
+
+# ── Gửi tin Zalo (ZNS) ─────────────────────────────────────────────────────
+
+
+@router.get("/cskh/zalo/trang-thai")
+async def zalo_trang_thai(
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+) -> dict[str, Any]:
+    """Zalo đã đủ cấu hình để gửi chưa, và thiếu gì.
+
+    Giao diện hỏi câu này để KHÔNG mời người dùng bấm một nút chắc chắn hỏng.
+    Ẩn hẳn nút thì họ không biết tính năng tồn tại; hiện nút mà bấm vào báo lỗi
+    thì họ tưởng hệ thống hỏng. Hiện nút + nói thiếu gì là đường thứ ba.
+    """
+    from clinicai.services.providers import zalo
+
+    thieu = []
+    if not zalo.dang_bat():
+        thieu.append("ZALO_ZNS_ACCESS_TOKEN")
+    for loai in ("NHAC_HEN", "TRA_KET_QUA"):
+        if not zalo.template_cho(loai):
+            thieu.append(f"template {loai}")
+    return {"bat": not thieu, "thieu": thieu}
+
+
+class GuiZaloRequest(BaseModel):
+    clinic_patient_id: UUID
+    loai_tin: Literal["NHAC_HEN", "TRA_KET_QUA"]
+    appointment_id: UUID | None = None
+
+
+@router.post("/cskh/zalo/gui", status_code=201)
+async def gui_zalo(
+    body: GuiZaloRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gửi một tin ZNS. Chỉ ghi sổ khi Zalo thật sự nhận."""
+    return await GuiZaloService(pool).gui(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        loai_tin=body.loai_tin,
+        appointment_id=str(body.appointment_id) if body.appointment_id else None,
     )
