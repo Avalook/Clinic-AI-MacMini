@@ -254,6 +254,23 @@ async def my_notifications(
     return {"items": await ThongBaoService(pool).cua_toi(identity=identity)}
 
 
+@router.post("/thong-bao/da-doc", status_code=200)
+async def mark_notifications_read(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tắt chấm đỏ. KHÔNG đóng việc — xem `danh_dau_da_doc`.
+
+    Khai TRƯỚC `/thong-bao/{thong_bao_id}/da-xu-ly` không phải ngẫu nhiên: hai
+    đường không đụng nhau ở đây (một cái là `/da-doc`, cái kia có tham số uuid
+    ở giữa), nhưng để chúng cạnh nhau cho người đọc thấy ngay là có HAI động
+    tác khác nhau trên cùng một cái chuông.
+    """
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).danh_dau_da_doc(identity=identity)
+
+
 class DaXuLyRequest(BaseModel):
     ghi_chu: str | None = Field(default=None, max_length=500)
 
