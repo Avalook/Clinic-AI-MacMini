@@ -51,6 +51,10 @@ export default function HanhDongTrangThai({
   const [ghiChu, setGhiChu] = useState("");
   const [lyDo, setLyDo] = useState("");
   const [moLyDoSan, setMoLyDoSan] = useState(false);
+  const [moHen, setMoHen] = useState(false);
+  const [ngayHen, setNgayHen] = useState("");
+  const [lyDoHen, setLyDoHen] = useState("");
+  const [daHen, setDaHen] = useState(false);
 
   /** Ghi một lần chạm. `loai`/`ket_qua` phải nằm trong bộ từ backend canh
    *  (LOAI_HOP_LE, KET_QUA_HOP_LE ở tuong_tac_cskh_service.py). */
@@ -102,6 +106,42 @@ export default function HanhDongTrangThai({
       setGhiChu("");
       router.refresh();
       return true;
+    } finally {
+      setDangLuu(null);
+    }
+  }
+
+  /** HẸN GỌI LẠI NGÀY… — chỗ đựng việc hệ thống chưa suy được.
+   *
+   *  Nó vốn nằm trong khối "Ghi một tương tác khác" đã bỏ. Giữ lại vì đây là
+   *  đường DUY NHẤT sinh ra việc `hen_goi_lai`, tức trạng thái "Hẹn gọi lại
+   *  sau" trên timeline. Bỏ theo luôn là lặng lẽ gỡ một trạng thái trong đặc
+   *  tả của chị Thu. */
+  async function henGoiLai() {
+    setDangLuu("hen");
+    setLoi(null);
+    try {
+      const res = await fetch("/api/cskh/hen-goi-lai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clinic_patient_id: clinicPatientId,
+          ngay_goi: ngayHen,
+          ly_do: lyDoHen.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as {
+          error?: string;
+          message?: string;
+        } | null;
+        setLoi(d?.message ?? d?.error ?? "Không hẹn được.");
+        return;
+      }
+      router.refresh();
+      setDaHen(true);
+      setMoHen(false);
+      setLyDoHen("");
     } finally {
       setDangLuu(null);
     }
@@ -555,6 +595,55 @@ export default function HanhDongTrangThai({
       )}
       {than()}
       {loi && <p className="text-[11px] text-danger">{loi}</p>}
+
+      {/* Hẹn gọi lại — luôn có, không phụ thuộc trạng thái đang chọn. */}
+      <div className="border-t border-line pt-2">
+        {daHen ? (
+          <p className="rounded-lg bg-success-bg px-2 py-1.5 text-[11px] text-success">
+            Đã hẹn gọi lại. Khách sẽ hiện ở danh sách vào đúng ngày đó.
+          </p>
+        ) : moHen ? (
+          <div className="space-y-1.5">
+            <input
+              type="date"
+              value={ngayHen}
+              onChange={(e) => setNgayHen(e.target.value)}
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+            />
+            <input
+              value={lyDoHen}
+              onChange={(e) => setLyDoHen(e.target.value)}
+              placeholder="Gọi lại để làm gì"
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void henGoiLai()}
+                disabled={dangLuu !== null || !ngayHen || !lyDoHen.trim()}
+                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {dangLuu === "hen" ? "Đang hẹn…" : "Hẹn"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMoHen(false)}
+                className="rounded-lg border border-line px-3 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+              >
+                Thôi
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMoHen(true)}
+            className="w-full rounded-lg border border-line py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted"
+          >
+            Hẹn gọi lại ngày…
+          </button>
+        )}
+      </div>
     </div>
   );
 }
