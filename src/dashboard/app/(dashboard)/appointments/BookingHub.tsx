@@ -1470,7 +1470,19 @@ export default function BookingHub({
                       <button
                         key={p.clinic_patient_id}
                         type="button"
-                        onClick={() => setSelectedPatientId(p.clinic_patient_id)}
+                        onClick={() => {
+                          // ĐỔI Ý GIỮA CHỪNG THÌ PHẢI QUAY VỀ LƯỚI GIỜ.
+                          //
+                          // Đang mở biểu mẫu khách mới mà bấm một khách CÓ SẴN
+                          // ở danh sách này là nói rõ: "thôi, đặt cho người
+                          // này". Trước đây màn hình chỉ đổi thẻ "Khách hàng
+                          // đang chọn" ở cột trái rồi đứng im — giữa màn vẫn là
+                          // biểu mẫu khách mới, panel phải vẫn ẩn, nên không có
+                          // cách nào đặt lịch cho người vừa chọn. Người dùng
+                          // chọn xong lại phải đi tìm đường ra.
+                          setSelectedPatientId(p.clinic_patient_id);
+                          setMode("grid");
+                        }}
                         className={`w-full text-left p-2.5 rounded-xl transition-colors ${
                           selected
                             ? "bg-brand-100/80 font-bold text-brand-800"
