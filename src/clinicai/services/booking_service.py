@@ -75,6 +75,10 @@ LY_DO_HUY: dict[str, str] = {
     "BAO_KHI_XAC_NHAN": "Gọi xác nhận trước 7 ngày — khách báo không đến được",
     "BAO_KHI_NHAC_HEN": "Đã xác nhận sẽ đến, tới lúc nhắc hẹn thì báo không đến",
     "BAO_VAO_GIO_KHAM": "Đúng giờ khám, lễ tân gọi khách mới báo không đến",
+    # KHÔNG phải một thời điểm như ba mã trên — đây là DỌN DẸP, và tách riêng vì
+    # gộp nó vào ba mã kia sẽ bơm phồng con số "khách báo không đến". Khách
+    # không huỷ gì cả; phòng khám tự đặt trùng rồi tự bỏ bớt.
+    "DAT_TRUNG": "Đặt trùng — khách có nhiều lịch, bỏ bớt giữ lại một",
     "KHAC": "Lý do khác (tự viết)",
 }
 

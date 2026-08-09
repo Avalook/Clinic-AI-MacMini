@@ -380,6 +380,22 @@ export default async function CustomersPage({
           daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status),
         count: live.length,
+        // Lọc lại `conToi` chứ không dùng cả `live`: lịch hôm qua chưa đóng
+        // trạng thái vẫn nằm trong `live`, mà bỏ một lịch đã trôi qua thì không
+        // giải quyết được chuyện đặt trùng.
+        //
+        // Cột `id` chỉ có khi `canManage` (xem lựa chọn cột ở trên) — không có
+        // id thì không huỷ được, nên bỏ luôn khỏi danh sách thay vì vẽ ra một
+        // dòng bấm vào không làm gì.
+        sapToi: live
+          .filter((a) => conToi(a.slot_start, bayGio) && a.id)
+          .map((a) => ({
+            id: a.id as string,
+            slot_start: a.slot_start,
+            status: a.status,
+            service_name: pick1(a.service)?.name ?? null,
+            doctor_name: pick1(a.doctor)?.full_name ?? null,
+          })),
         // "Đã khám" = có ≥1 lịch COMPLETED (cùng định nghĩa "bệnh nhân" ở
         // /patient-list). Đang khám (CHECKED_IN/IN_PROGRESS) hay mới đặt/check-in
         // thì CHƯA tính — nút "Hồ sơ & lịch sử khám" sẽ ẩn.

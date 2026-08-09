@@ -15,6 +15,7 @@ export const LY_DO_HUY: Record<string, string> = {
   BAO_KHI_XAC_NHAN: "Gọi xác nhận trước 7 ngày — khách báo không đến được",
   BAO_KHI_NHAC_HEN: "Đã xác nhận sẽ đến, tới lúc nhắc hẹn thì báo không đến",
   BAO_VAO_GIO_KHAM: "Đúng giờ khám, lễ tân gọi khách mới báo không đến",
+  DAT_TRUNG: "Đặt trùng — khách có nhiều lịch, bỏ bớt giữ lại một",
   KHAC: "Lý do khác (tự viết)",
 };
 
@@ -23,6 +24,7 @@ export const LY_DO_HUY_THU_TU: string[] = [
   "BAO_KHI_XAC_NHAN",
   "BAO_KHI_NHAC_HEN",
   "BAO_VAO_GIO_KHAM",
+  "DAT_TRUNG",
   "KHAC",
 ];
 
