@@ -60,6 +60,11 @@ export default function HanhDongTrangThai({
     ketQua: string,
     noiDung?: string,
   ) {
+    // MỐC QUẦY có luật riêng ở backend: kênh phải là TRUC_TIEP và kết quả phải
+    // là GHI_NHAN (chúng là việc XẢY RA, không phải cuộc gọi). Gửi sai là 422.
+    const mocQuay = ["CHECK_IN", "CHECK_OUT", "THANH_TOAN", "MUA_THUOC"].includes(
+      loai,
+    );
     setDangLuu(ma);
     setLoi(null);
     try {
@@ -76,9 +81,13 @@ export default function HanhDongTrangThai({
             ? appointmentId
             : null,
           loai,
-          kenh: "GOI",
-          ket_qua: ketQua,
+          kenh: mocQuay ? "TRUC_TIEP" : "GOI",
+          ket_qua: mocQuay ? "GHI_NHAN" : ketQua,
           noi_dung: (noiDung ?? ghiChu).trim() || null,
+          // MÃ TRẠNG THÁI mà thao tác này đóng lại. Đây là thứ timeline dò để
+          // tích xanh — không dò theo `loai` nữa, vì nhiều trạng thái dùng
+          // chung một loại (xem migration 20260810000002).
+          trang_thai_ma: trangThai,
         }),
       });
       if (!res.ok) {
@@ -215,8 +224,12 @@ export default function HanhDongTrangThai({
                 onClick={() =>
                   void ghi(
                     "trakq",
-                    "KHAC",
-                    "DA_LIEN_HE",
+                    // CHECK_OUT chứ không phải KHAC: nó đi qua đúng máy trạng
+                    // thái (BookingService.apply_action "complete") nên lịch
+                    // hẹn chuyển sang COMPLETED — khách này ĐÃ KHÁM. Ghi
+                    // "KHAC" thì mọi màn khác vẫn đọc họ là chưa khám xong.
+                    "CHECK_OUT",
+                    "GHI_NHAN",
                     "Sau khám: đi hướng trả kết quả xét nghiệm",
                   )
                 }
@@ -228,8 +241,8 @@ export default function HanhDongTrangThai({
                 onClick={async () => {
                   const ok = await ghi(
                     "taikham",
-                    "KHAC",
-                    "DA_LIEN_HE",
+                    "CHECK_OUT",
+                    "GHI_NHAN",
                     "Sau khám: đi hướng đặt lịch tái khám",
                   );
                   if (ok) {

@@ -278,7 +278,7 @@ export default async function CustomersPage({
     ? supabase
         .from("tuong_tac_cskh")
         .select(
-          "clinic_patient_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, staff(full_name)",
+          "clinic_patient_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, staff(full_name)",
         )
         .in("clinic_patient_id", shownIds)
         .order("xay_ra_luc", { ascending: false })
@@ -429,6 +429,7 @@ export default async function CustomersPage({
     ket_qua: string | null;
     khach_xac_nhan: boolean | null;
     noi_dung: string | null;
+    trang_thai_ma: string | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
   type TrangThaiRaw = {
@@ -516,6 +517,7 @@ export default async function CustomersPage({
         ket_qua: t.ket_qua,
         khach_xac_nhan: t.khach_xac_nhan,
         noi_dung: t.noi_dung,
+        trang_thai_ma: t.trang_thai_ma,
         nhan_vien: nv?.full_name ?? null,
         nguon: "tuong_tac",
       });

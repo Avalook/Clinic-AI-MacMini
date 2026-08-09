@@ -215,6 +215,9 @@ export interface DongLichSu {
   noi_dung: string | null;
   nhan_vien: string | null;
   nguon: string;
+  /** Mã trạng thái mà lần chạm này đóng lại. null = dòng ghi tự do, hoặc dòng
+   *  có trước migration 20260810000002. */
+  trang_thai_ma?: string | null;
 }
 
 const NHAN_LOAI: Record<string, string> = {

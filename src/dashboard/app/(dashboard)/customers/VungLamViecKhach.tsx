@@ -156,16 +156,14 @@ const NHAN_KET_QUA: Record<string, string> = {
   GHI_NHAN: "đã ghi nhận",
 };
 
-/** Loại tương tác nào chứng minh trạng thái nào ĐÃ được xử lý. */
-const DA_LAM_KHI_CO: Record<string, string[]> = {
+/** ĐƯỜNG LÙI cho những dòng ghi TRƯỚC migration 20260810000002 — hồi ấy chưa
+ *  có cột `trang_thai_ma`, nên chỉ suy được theo `loai`. Bảng này cố ý KHÔNG
+ *  liệt kê các trạng thái dùng chung loại `KHAC`: đoán ở đó là tích xanh nhầm
+ *  node, tệ hơn là không tích. */
+const SUY_THEO_LOAI_CU: Record<string, string[]> = {
   CHO_XAC_NHAN: ["XAC_NHAN_LICH"],
-  NHAC_HEN_MAI: ["NHAC_HEN"],
   CHO_KQ_XN: ["CHECK_XN"],
-  KQ_CHUA_GUI: ["TRA_KQ"],
-  DA_TRA_KQ: ["TRA_KQ"],
   HOI_LY_DO_HUY: ["HOI_LY_DO_HUY"],
-  SAU_SINH_1_THANG: ["HOI_THAM"],
-  SAU_THU_THUAT_1_NGAY: ["HOI_THAM"],
 };
 
 export interface MocLich {
@@ -214,6 +212,15 @@ export default function VungLamViecKhach({
     return lichSu.filter((d) => d.loai === loai);
   }
 
+  /** Trạng thái này đã xong chưa, kể cả khi chưa có dòng sổ nào.
+   *
+   *  "Đã check-in" xong khi lịch hẹn đã COMPLETED — lễ tân có thể đóng lượt
+   *  khám từ màn khác, và node ở đây phải nói đúng chuyện đó. */
+  function xongTheoLich(ma: string): boolean {
+    if (ma === "DA_CHECKIN") return lich.status === "COMPLETED";
+    return false;
+  }
+
   /** Trạng thái này có ĐANG đúng với khách không — suy từ dữ liệu thật. */
   function dangO(ma: string): boolean {
     if (ma === trangThaiHienTai) return true;
@@ -225,11 +232,17 @@ export default function VungLamViecKhach({
     return false;
   }
 
-  /** Đã có lần chạm nào ứng với trạng thái này chưa. */
+  /** Lần chạm gần nhất ĐÓNG trạng thái này — cơ sở để node tích xanh.
+   *
+   *  Dò theo `trang_thai_ma`, cột ghi thẳng mã trạng thái mà thao tác xử lý.
+   *  Trước đây dò theo `loai` và nó sai ở cả hai chiều: ba trạng thái cùng ghi
+   *  loại `KHAC` nên bấm cái này tích xanh cái kia, còn "không cần follow up"
+   *  thì không tích được cái nào. */
   function lanCuoi(ma: string): DongLichSu | undefined {
-    const loai = DA_LAM_KHI_CO[ma];
-    if (!loai) return undefined;
-    return lichSu.find((d) => loai.includes(d.loai));
+    const theoMa = lichSu.find((d) => d.trang_thai_ma === ma);
+    if (theoMa) return theoMa;
+    const loai = SUY_THEO_LOAI_CU[ma];
+    return loai ? lichSu.find((d) => loai.includes(d.loai)) : undefined;
   }
 
   async function ghiMoc(ma: string) {
@@ -276,7 +289,7 @@ export default function VungLamViecKhach({
     const dang = dangO(tt.ma);
     const chon = dangChon === tt.ma;
     const lan = lanCuoi(tt.ma);
-    const xong = Boolean(lan);
+    const xong = Boolean(lan) || xongTheoLich(tt.ma);
 
     return (
       <li className="flex gap-3">
