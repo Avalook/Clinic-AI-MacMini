@@ -40,3 +40,34 @@ test("API trả lịch TỪ BÂY GIỜ trở đi và bỏ lịch đã huỷ", ()
   assert.match(route, /\.gte\("slot_start", new Date\(\)\.toISOString\(\)\)/);
   assert.match(route, /CANCELLED,NO_SHOW,DOCTOR_DECLINED/);
 });
+
+// ── So giờ ────────────────────────────────────────────────────────────────
+//
+// Database chạy ở múi Asia/Ho_Chi_Minh, nên PostgREST trả
+// `"2026-08-09T08:15:00+07:00"` còn `toISOString()` cho `"…T05:48:00.000Z"`.
+// So hai chuỗi ấy là so KÝ TỰ: "08" > "05" ⇒ lịch đã qua bốn tiếng vẫn được
+// coi là sắp tới. Đã xảy ra thật trên prod 09/08 (Nguyễn Bình).
+
+const khachHang = read("../app/(dashboard)/customers/page.tsx");
+
+test("lịch sắp tới so bằng MỐC THỜI GIAN, không so chuỗi ISO", () => {
+  assert.match(khachHang, /mocGio\(a\.slot_start\) >= bayGio/);
+  assert.match(khachHang, /new Date\(iso\)\.getTime\(\)/);
+  // Đúng cái so sánh cũ. Nó quay lại là bài kiểm này đỏ.
+  assert.doesNotMatch(khachHang, /slot_start >= nowUtc/);
+  assert.doesNotMatch(khachHang, /const nowUtc = new Date\(\)\.toISOString\(\)/);
+});
+
+test("quá giờ hẹn chỉ tính khi khách CHƯA đến, và hiện màu đỏ", () => {
+  assert.match(khachHang, /qua_gio_hen/);
+  // Đã check-in / khám xong thì giờ trôi qua là bình thường — tô đỏ ở đó là
+  // dạy người dùng bỏ qua màu đỏ.
+  assert.match(
+    khachHang,
+    /\["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"\]\.includes\(repr\.status\)/,
+  );
+  const view = read("../app/(dashboard)/customers/CustomersView.tsx");
+  assert.match(view, /qua_gio_hen/);
+  assert.match(view, /Đã quá giờ hẹn/);
+  assert.match(view, /quá giờ hẹn`/); // nhãn trong danh sách trái
+});
