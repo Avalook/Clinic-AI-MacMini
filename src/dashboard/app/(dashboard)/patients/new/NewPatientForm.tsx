@@ -259,8 +259,14 @@ export default function NewPatientForm({
   // Loại ghế đang chọn ở sơ đồ (luồng full): "regular" = BN1/BN2 (kênh thường);
   // "walkin" = chỗ ĐẾN TRỰC TIẾP — đặt như WALK_IN để vào đúng ghế, không
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
-  const [seatKind, setSeatKind] = useState<"regular" | "walkin">("regular");
-  const gheTrucTiep = !walkin && seatKind === "walkin";
+  // GHẾ VÃNG LAI CHỈ CÒN Ở BẢN WALK-IN của điều dưỡng.
+  //
+  // Ô chọn kiểu ghế nằm trong sơ đồ chỗ, mà sơ đồ ấy đã bỏ khỏi biểu mẫu CSKH
+  // (xem ghi chú ở phần Lịch hẹn khám). Giữ một `useState` mà không nơi nào
+  // gọi setter là để lại một biến trông như còn đổi được — người đọc sau sẽ đi
+  // tìm chỗ đổi nó. Bản walk-in đi qua nhánh `walkin` riêng, nơi `gheTrucTiep`
+  // vốn đã luôn false theo đúng định nghĩa dưới đây.
+  const gheTrucTiep = false;
   // Luật đặt lịch của phòng khám (C.3). `null` = chưa đọc được → không đoán.
   const policy = useBookingPolicy();
   // Lịch dài đúng một khung của PHÒNG KHÁM NÀY, không phải 15' cố định.
@@ -1265,43 +1271,17 @@ export default function NewPatientForm({
               Có siêu âm
             </label>
           </div>
+          {/* SƠ ĐỒ CHỖ ĐÃ BỎ KHỎI BIỂU MẪU KHÁCH MỚI (Quang chốt 09/08/2026).
+
+              Nó vẽ MỘT HÀNG CHO MỖI BÁC SĨ nhân với mọi khung giờ trong ngày —
+              mười lăm bác sĩ thành mười lăm khối, kéo dài gấp ba phần biểu mẫu
+              phía trên và đẩy nút "Nhập thông tin khách hàng" xuống tận đáy.
+              Với một khách MỚI thì chọn ghế của bác sĩ nào cũng vô nghĩa: ngày
+              đó có thể chưa xếp ca, và người khám sẽ do quản lý gán sau.
+
+              Hai ô Ngày khám / Giờ ở trên vẫn đủ để đặt: thiếu bác sĩ thì lịch
+              đi ra với doctor_id rỗng và rơi vào hàng đợi "Chờ xếp bác sĩ". */}
           {/* Số khám: KHÔNG nhập tay — hệ tự cấp khi check-in. */}
-          <div className="sm:col-span-2">
-            <label className={LABEL}>Chọn chỗ (sơ đồ trống)</label>
-            <CinemaSlotPicker
-              date={apptDate}
-              doctors={doctors}
-              dutyDoctorIds={dutyDoctorIds}
-              existingAppts={visibleExistingAppts}
-              selectedDoctorId={doctorId}
-              selectedTime={apptTime}
-              mode="regular"
-              choChonGheTrucTiep
-              selectedKind={seatKind}
-              onPick={(docId, t, kind) => {
-                setApptTime(t);
-                setDoctorId(docId);
-                setSeatKind(kind);
-                setDoctorQ(docId ? (doctors.find((d) => d.id === docId)?.label ?? "") : "");
-              }}
-            />
-            {apptDate && apptTime && (
-              <p
-                className={`mt-1 text-[11px] font-medium ${
-                  isSlotBooked ? "text-danger" : "text-success"
-                }`}
-              >
-                {isSlotBooked
-                  ? "Khung đang chọn đã kín — chọn ô khác."
-                  : "Khung đang chọn còn trống."}
-              </p>
-            )}
-            {gheTrucTiep && (
-              <p className="mt-1 text-[11px] font-medium text-success">
-                Đang xếp chỗ đến trực tiếp — không cần chọn Kênh đặt.
-              </p>
-            )}
-          </div>
           <div>
             <label className={LABEL}>
               Kênh đặt {!gheTrucTiep && <Req />}
