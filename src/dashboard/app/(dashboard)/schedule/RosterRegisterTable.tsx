@@ -11,7 +11,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { X, Trash2, Check } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import {
   STATIONS,
   STATION_SEGMENTS,
@@ -34,10 +34,21 @@ export interface RegisterRow {
   reject_reason: string | null;
 }
 
+// KHÔNG CÒN "CHỜ DUYỆT" (Quang 09/08/2026: *"cần gì phải duyệt với không
+// duyệt, chỉ có quản lý toàn quyền mà"*).
+//
+// Bảng này giờ CHỈ quản lý thấy, và backend đã ghi thẳng APPROVED cho quản lý
+// (config_service.py: `"APPROVED" if is_admin else "PENDING"`). Nên mọi ô ở đây
+// vốn đã là ca chính thức — dán thêm nhãn "Đã duyệt" lên từng dòng là bày ra
+// một quy trình không tồn tại, và bắt người đọc phân biệt hai trạng thái mà
+// thực tế chỉ có một.
+//
+// Ca REJECTED cũ vẫn còn trong database (từ thời có luồng duyệt) nên vẫn phải
+// vẽ khác đi — gạch ngang, mờ — chứ không lẫn vào ca đang có hiệu lực.
 const STATUS_BADGE: Record<RegisterRow["status"], { cls: string; label: string }> = {
-  PENDING: { cls: "bg-warning-bg text-warning", label: "Chờ duyệt" },
-  APPROVED: { cls: "bg-success-bg text-success", label: "Đã duyệt" },
-  REJECTED: { cls: "bg-danger-bg text-danger", label: "Từ chối" },
+  PENDING: { cls: "bg-brand-50 text-brand-800", label: "Đã xếp" },
+  APPROVED: { cls: "bg-brand-50 text-brand-800", label: "Đã xếp" },
+  REJECTED: { cls: "bg-surface-sunken text-ink-faint", label: "Đã gỡ" },
 };
 
 const TH_BASE =
@@ -71,9 +82,6 @@ export default function RosterRegisterTable({
   const [open, setOpen] = useState<{ date: string; station: string } | null>(null);
   const [shift, setShift] = useState<Shift>("FULL");
   const [error, setError] = useState<string | null>(null);
-  // Duyệt/từ chối ngay trong popup (chỉ Quản lý). rejectingId = ca đang mở ô lý do.
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [reason, setReason] = useState("");
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -137,30 +145,6 @@ export default function RosterRegisterTable({
     ),
   ];
 
-  async function decide(id: string, action: "approve" | "reject", reasonText?: string) {
-    setError(null);
-    setOverrides((ov) => ({
-      ...ov,
-      [id]: action === "approve" ? "APPROVED" : "REJECTED",
-    }));
-    setRejectingId(null);
-    setReason("");
-    const res = await fetch("/api/roster", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action, reason: reasonText }),
-    });
-    if (!res.ok) {
-      setOverrides((ov) => {
-        const n = { ...ov };
-        delete n[id];
-        return n;
-      });
-      setError((await res.json()).error ?? "Lỗi khi duyệt.");
-      return;
-    }
-    refresh();
-  }
 
   // byCell[date|station] = các đăng ký ở ô đó (mọi người, mọi trạng thái).
   const byCell = new Map<string, RegisterRow[]>();
@@ -291,8 +275,6 @@ export default function RosterRegisterTable({
                         onClick={() => {
                           setError(null);
                           setShift("FULL");
-                          setRejectingId(null);
-                          setReason("");
                           setOpen({ date: d, station: s.key });
                         }}
                         className="flex h-full min-h-[40px] w-full flex-col gap-0.5 px-1.5 py-1.5 text-center transition-colors hover:bg-brand-50"
@@ -404,60 +386,6 @@ export default function RosterRegisterTable({
                           )}
                         </div>
 
-                        {/* Quản lý: Duyệt / Từ chối ngay tại đây cho ca chờ duyệt. */}
-                        {isApprover && r.status === "PENDING" && (
-                          <div className="mt-1.5">
-                            {rejectingId === r.id ? (
-                              <div className="rounded-control border border-warning bg-warning-bg p-2">
-                                <textarea
-                                  value={reason}
-                                  onChange={(e) => setReason(e.target.value)}
-                                  rows={2}
-                                  autoFocus
-                                  placeholder="Lý do từ chối (gửi cho người đăng ký)…"
-                                  className="w-full resize-none rounded-control border border-line bg-surface px-2.5 py-1.5 text-xs focus:border-brand-600 focus:outline-none"
-                                />
-                                <div className="mt-1.5 flex justify-end gap-1.5">
-                                  <button
-                                    onClick={() => {
-                                      setRejectingId(null);
-                                      setReason("");
-                                    }}
-                                    className="rounded-control border border-line bg-surface px-2.5 py-1 text-xs text-ink-soft hover:bg-surface-sunken"
-                                  >
-                                    Huỷ
-                                  </button>
-                                  <button
-                                    onClick={() => decide(r.id, "reject", reason)}
-                                    disabled={!reason.trim()}
-                                    className="rounded-control bg-danger px-2.5 py-1 text-xs font-medium text-surface disabled:opacity-50"
-                                  >
-                                    Xác nhận từ chối
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex gap-1.5">
-                                <button
-                                  onClick={() => decide(r.id, "approve")}
-                                  className="flex items-center gap-1 rounded-control bg-success px-2.5 py-1 text-xs font-medium text-surface disabled:opacity-50"
-                                >
-                                  <Check size={13} /> Duyệt
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setError(null);
-                                    setReason("");
-                                    setRejectingId(r.id);
-                                  }}
-                                  className="flex items-center gap-1 rounded-control border border-line bg-surface px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger-bg disabled:opacity-50"
-                                >
-                                  <X size={13} /> Từ chối
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </li>
                     );
                   })}
