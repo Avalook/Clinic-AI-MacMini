@@ -255,6 +255,12 @@ class TuongTacRequest(BaseModel):
         "BO_QUA",
         "GHI_NHAN",
     ]
+    # MÃ TRẠNG THÁI mà lần chạm này đóng lại (CHO_XAC_NHAN, DA_CHECKIN, …).
+    # Không phải Literal: danh sách trạng thái là chuyện của giao diện và còn
+    # đổi theo đặc tả nghiệp vụ; khoá cứng ở đây là mỗi lần thêm một trạng thái
+    # lại phải deploy backend. Cột chỉ để màn hình tra lại, không có luật nào
+    # phía sau nó.
+    trang_thai_ma: str | None = Field(default=None, max_length=64)
     khach_xac_nhan: bool | None = None
     noi_dung: str | None = Field(default=None, max_length=2000)
 
@@ -275,6 +281,7 @@ async def ghi_tuong_tac(
         ket_qua=body.ket_qua,
         khach_xac_nhan=body.khach_xac_nhan,
         noi_dung=body.noi_dung,
+        trang_thai_ma=body.trang_thai_ma,
     )
 
 

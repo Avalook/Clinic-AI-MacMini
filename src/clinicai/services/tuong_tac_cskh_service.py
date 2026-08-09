@@ -82,6 +82,7 @@ class TuongTacCskhService:
         appointment_id: str | None = None,
         khach_xac_nhan: bool | None = None,
         noi_dung: str | None = None,
+        trang_thai_ma: str | None = None,
     ) -> dict[str, Any]:
         """Ghi một lần chạm tới khách. Trả về id dòng vừa ghi."""
         if loai not in LOAI_HOP_LE:
@@ -153,8 +154,10 @@ class TuongTacCskhService:
                     """
                     INSERT INTO public.tuong_tac_cskh
                         (clinic_id, clinic_patient_id, appointment_id, loai, kenh,
-                         ket_qua, khach_xac_nhan, noi_dung, nhan_vien_staff_id)
-                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9::uuid)
+                         ket_qua, khach_xac_nhan, noi_dung, nhan_vien_staff_id,
+                         trang_thai_ma)
+                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8,
+                            $9::uuid, $10)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -166,6 +169,7 @@ class TuongTacCskhService:
                     khach_xac_nhan,
                     (noi_dung or "").strip() or None,
                     identity.staff_id,
+                    (trang_thai_ma or "").strip() or None,
                 )
                 await conn.execute(
                     """
@@ -251,7 +255,8 @@ class TuongTacCskhService:
         rows = await self._pool.fetch(
             """
             SELECT t.xay_ra_luc, t.loai, t.kenh, t.ket_qua, t.khach_xac_nhan,
-                   t.noi_dung, s.full_name AS nhan_vien, 'tuong_tac' AS nguon
+                   t.noi_dung, t.trang_thai_ma,
+                   s.full_name AS nhan_vien, 'tuong_tac' AS nguon
               FROM public.tuong_tac_cskh t
               LEFT JOIN public.staff s ON s.id = t.nhan_vien_staff_id
              WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid
@@ -262,7 +267,8 @@ class TuongTacCskhService:
                    CASE n.luot_goi WHEN 1 THEN 'MOI_TAI_KHAM'
                                    ELSE 'NHAC_DI_KHAM' END AS loai,
                    'GOI' AS kenh, n.ket_qua, NULL::boolean AS khach_xac_nhan,
-                   n.ghi_chu AS noi_dung, s2.full_name AS nhan_vien,
+                   n.ghi_chu AS noi_dung, NULL::text AS trang_thai_ma,
+                   s2.full_name AS nhan_vien,
                    'nhac_tai_kham' AS nguon
               FROM public.nhac_tai_kham n
               LEFT JOIN public.staff s2 ON s2.id = n.nguoi_goi_staff_id
