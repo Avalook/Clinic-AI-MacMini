@@ -61,47 +61,16 @@ function aggregateToTab(agg: string): AuditTab {
 // "Sao chép mã sự kiện" / "Xem sự kiện liên quan" đi cùng: nút thứ hai chưa
 // bao giờ có onClick.
 
-// TÊN VIỆC BẰNG TIẾNG NGƯỜI, không phải tên route.
+// HAI BẢNG NHÃN TỪNG NẰM Ở ĐÂY ĐÃ CHUYỂN VỀ `services/audit_labels.py`.
 //
-// Cột "Nguồn thao tác" đang in thẳng `event_log.source`: "api:booking",
-// "cskh.customers", "workflow-kernel". Đó là địa chỉ mã nguồn, không phải câu
-// trả lời cho "thao tác này đến từ đâu" — người trực ca đọc nhật ký không biết
-// api:booking là cái gì.
-const NHAN_NGUON: Record<string, string> = {
-  "api:booking": "Màn Đặt lịch",
-  "api:patients": "Hồ sơ khách hàng",
-  "api:appointments": "Màn Đặt lịch",
-  "cskh.customers": "Quản lý khách hàng",
-  "workflow-kernel": "Quy trình khám",
-  dashboard: "Màn hình quản trị",
-  system: "Hệ thống",
-};
-
-function nhanNguon(nguon: string | null): string {
-  if (!nguon) return "Hệ thống";
-  return NHAN_NGUON[nguon] ?? nguon;
-}
-
-// Loại đối tượng — cùng lý do như trên. Cái chip "slot_hold" ở đầu panel chi
-// tiết là tên BẢNG trong database.
-const NHAN_LOAI: Record<string, string> = {
-  appointment: "Lịch hẹn",
-  patient: "Khách hàng",
-  clinic_patient: "Khách hàng",
-  slot_hold: "Giữ chỗ khung giờ",
-  visit: "Lượt khám",
-  work_item: "Bước trong quy trình",
-  cskh_action: "Việc chăm sóc",
-  staff_task: "Việc của nhân viên",
-  booking_override: "Luật đặt lịch",
-  clinic: "Cấu hình phòng khám",
-  staff: "Nhân sự",
-  lab_result: "Kết quả xét nghiệm",
-};
-
-function nhanLoai(loai: string): string {
-  return NHAN_LOAI[loai] ?? loai;
-}
+// `NHAN_NGUON` có 7 mục cho một từ vựng hơn 30 đường ghi, `NHAN_LOAI` có 12 mục
+// cho 24 loại đối tượng — nên phần lớn dòng rơi xuống nhánh `?? nguon` và in ra
+// địa chỉ mã nguồn: ô "Làm ở màn" hiện "api:booking-override", cái chip hiện
+// "roster_week". Đúng cái bệnh mà bảng nhãn sự kiện đã chữa một lần rồi, tái
+// phát ở hai cột bên cạnh vì chúng ở lại trong TSX.
+//
+// Nay backend trả sẵn `nguon_label` và `aggregate_label`, và bài kiểm chống
+// lệch canh cả bốn từ vựng cùng một chỗ.
 
 // Component chính AuditLogBoard — hiển thị bảng lịch sử thao tác
 export default function AuditLogBoard({ events, soNguoi }: Props) {
@@ -168,6 +137,8 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
         e.event_type.toLowerCase().includes(q) || // Tìm trong loại sự kiện
         e.aggregate_type.toLowerCase().includes(q) || // Tìm trong loại đối tượng
         (e.nguon_thao_tac ?? "").toLowerCase().includes(q) || // Tìm trong nguồn thao tác
+        e.nguon_label.toLowerCase().includes(q) || // …và trong tên màn tiếng Việt
+        e.aggregate_label.toLowerCase().includes(q) || // Tìm trong loại đối tượng
         (e.actor_name ?? "").toLowerCase().includes(q) || // Tìm trong tên người thao tác
         e.subject_label.toLowerCase().includes(q) || // Tìm trong nhãn đối tượng
         e.action_label.toLowerCase().includes(q) || // Tìm trong nhãn hành động
@@ -318,7 +289,7 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
               <div>
                 {/* Badge loại đối tượng */}
                 <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
-                  {nhanLoai(sel.aggregate_type)}
+                  {sel.aggregate_label}
                 </span>
                 {/* Tên hành động */}
                 <h3 className="mt-1 text-base font-semibold text-ink">{sel.action_label}</h3>
@@ -347,7 +318,7 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
               {/* Thao tác đi vào từ màn nào */}
               <div className="flex justify-between gap-3">
                 <dt className="shrink-0 text-ink-muted">Làm ở màn</dt>
-                <dd className="text-right text-ink">{nhanNguon(sel.nguon_thao_tac)}</dd>
+                <dd className="text-right text-ink">{sel.nguon_label}</dd>
               </div>
             </dl>
 
