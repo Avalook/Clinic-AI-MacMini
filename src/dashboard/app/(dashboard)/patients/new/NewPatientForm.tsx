@@ -1185,12 +1185,15 @@ export default function NewPatientForm({
               ))}
             </select>
           </div>
-          {/* Ô "Tìm bác sĩ" ĐÃ BỎ.
-              Quang 09/08/2026: *"chỉ xoá cả bảng chọn… nó dùng cho cả màn khách
-              mới và khách cũ"*. Bác sĩ được chọn bằng cách bấm vào một ô trong
-              sơ đồ khung giờ bên dưới — `onPick` set thẳng `doctorId`. Giữ thêm
-              một ô gõ tay ở trên là hỏi cùng một câu hai lần bằng hai cách,
-              trong đó cách gõ tay không biết gì về ca trực lẫn sức chứa. */}
+          {/* Ô "Tìm bác sĩ" ĐÃ BỎ — bác sĩ chọn bằng cách bấm một ô trong SƠ ĐỒ
+              KHUNG GIỜ ngay dưới đây (`onPick` set thẳng `doctorId`).
+
+              VÀ SƠ ĐỒ ẤY PHẢI CÓ MẶT Ở ĐÂY. Trước đó nó chỉ được dựng trong
+              nhánh VÃNG LAI; luồng CSKH tạo khách mới chưa bao giờ có sơ đồ —
+              chỉ có hai ô Giờ/Phút và một ô gõ tên bác sĩ. Bỏ ô gõ tên mà không
+              đưa sơ đồ sang là cắt mất đường phân bác sĩ duy nhất của luồng
+              này: Quang thử trên staging và thấy biểu mẫu không còn chỗ nào
+              chọn bác sĩ. Lỗi của tôi, sinh ra ở đúng lượt sửa trước. */}
           <div>
             <label className={LABEL}>
               Ngày khám <Req />
@@ -1201,6 +1204,29 @@ export default function NewPatientForm({
               min={TODAY}
               ariaLabel="Ngày khám"
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={LABEL}>
+              Bác sĩ &amp; khung giờ <Req />
+            </label>
+            {apptDate ? (
+              <CinemaSlotPicker
+                date={apptDate}
+                doctors={doctors}
+                dutyDoctorIds={dutyDoctorIds}
+                existingAppts={visibleExistingAppts}
+                selectedDoctorId={doctorId}
+                selectedTime={apptTime}
+                onPick={(docId, t) => {
+                  setApptTime(t);
+                  setDoctorId(docId);
+                }}
+              />
+            ) : (
+              <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
+                Chọn ngày khám để hiện sơ đồ chỗ trống.
+              </p>
+            )}
           </div>
           <div>
             <label className={LABEL}>
