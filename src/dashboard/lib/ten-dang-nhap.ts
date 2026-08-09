@@ -44,3 +44,18 @@ export function loiTenDangNhap(nick: string): string | null {
   }
   return null;
 }
+
+/** Địa chỉ GoTrue → tên đăng nhập để HIỂN THỊ.
+ *
+ *  Bỏ đuôi mặc định đi, giữ nguyên mọi đuôi khác. Nếu ô nhập bảo "gõ tên trần"
+ *  mà bảng ngay bên cạnh vẫn in ra `cskhdieuhoa@dr4women.vn` thì người dùng
+ *  không biết mình phải gõ cái nào — và sẽ gõ cả đuôi cho chắc.
+ *
+ *  Đuôi KHÁC mặc định (`@dr4women.local` trên prod) phải giữ đủ: cắt đi là hai
+ *  tài khoản khác nhau hiện ra cùng một tên, và người ta đặt lại mật khẩu nhầm
+ *  người. */
+export function tenHienThi(email: string | null | undefined): string {
+  const s = (email ?? "").trim();
+  const duoi = `@${DUOI_TEN_DANG_NHAP}`;
+  return s.toLowerCase().endsWith(duoi) ? s.slice(0, -duoi.length) : s;
+}
