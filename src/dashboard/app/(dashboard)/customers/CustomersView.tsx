@@ -892,6 +892,17 @@ export default function CustomersView({
                           Bác sĩ: chờ quản lý xác nhận
                         </span>
                       )}
+                      {/* QUẢN LÝ ĐÃ ĐỔI GIỜ SO VỚI GIỜ CSKH HẸN VỚI KHÁCH.
+                          Khách đã được nghe một giờ; nếu người gọi xác nhận
+                          không biết là nó đã đổi thì họ đọc lại đúng giờ cũ. */}
+                      {tuongTacByPatient[selected.clinic_patient_id]?.find(
+                        (d) => d.trang_thai_ma === "QUAN_LY_DOI_GIO",
+                      ) && (
+                        <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
+                          ⚠ Quản lý đã đổi giờ so với giờ hẹn ban đầu — gọi báo
+                          khách trước khi xác nhận.
+                        </span>
+                      )}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
                     </span>
                   </button>

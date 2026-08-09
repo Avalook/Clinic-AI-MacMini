@@ -108,8 +108,11 @@ async def cho_xep_bac_si(
             """
             SELECT a.id::text,
                    a.slot_start,
+                   a.slot_end,
                    a.status,
                    a.notes,
+                   -- Để màn quản lý mở thẳng được hồ sơ khách sau khi xếp xong.
+                   a.clinic_patient_id::text,
                    p.full_name   AS benh_nhan,
                    p.patient_code,
                    p.phone_primary,
