@@ -1,22 +1,35 @@
 "use client";
 
-// VÙNG LÀM VIỆC CỦA MỘT KHÁCH — trọn hành trình, và CSKH bấm được TẤT CẢ.
+// TRẠNG THÁI KHÁCH HÀNG — và việc phải làm ứng với từng trạng thái.
 //
-// Quang (08/08/2026): *"cskh đặt lịch rồi này, xong gọi xác nhận trước 7 ngày
-// này, gọi nhắc hẹn này, khách đến thì check-in cho khách này, hỏi đơn vị xét
-// nghiệm, gọi để trả kết quả, khách checkout, khách đã thanh toán, khách đã mua
-// thuốc… tất cả là các nút và thao tác được thật nhé, vì sản phẩm MVP này là
-// cskh thao tác được hết mà."*
+// ĐÂY LÀ BẢN VIẾT LẠI THEO ĐẶC TẢ CỦA CHỊ THU (Quang họp 09/08/2026). Bản trước
+// là một CHUỖI BƯỚC tuyến tính: đặt lịch → gọi xác nhận → nhắc hẹn → check-in →
+// hỏi xét nghiệm → trả kết quả → check-out → thanh toán → mua thuốc. Nó sai mô
+// hình chứ không sai chi tiết:
 //
-// Hai loại bước, hai cách bấm:
-//   · CUỘC GỌI  → mở ô ghi kết quả (ai nghe máy, khách nói gì)
-//   · MỐC QUẦY  → một chạm "ghi nhận" — và với check-in / check-out thì backend
-//     chạy đúng hành động THẬT trên lịch hẹn: mở lượt khám vào hàng đợi tiếp
-//     nhận, hoặc đóng trạng thái khám. Không phải cờ riêng chỉ màn này thấy.
+//   · Một khách KHÔNG đi qua chín bước theo thứ tự. Họ Ở TRONG một trạng thái,
+//     và trạng thái ấy quyết định CSKH phải nhấc máy lên làm gì.
+//   · Chuỗi tuyến tính không diễn tả được những nhánh có thật: huỷ lịch, không
+//     nghe máy, kết quả về nhưng bác sĩ chưa duyệt, sau sinh, sau thủ thuật.
+//   · Và nó không nói được "khách này đang ở đâu" — thứ duy nhất người trực ca
+//     cần biết khi mở màn hình lên.
 //
-// Bước xong tích xanh và Ở LẠI, kèm giờ + người làm. Mọi bước CHƯA xong đều
-// bấm được — đời thật không đi đúng thứ tự: khách chưa từng được gọi nhắc vẫn
-// có thể đang đứng ở quầy chờ check-in, và chặn CSKH lúc đó là chặn sai người.
+// Nay: một DANH SÁCH TRẠNG THÁI chia hai giai đoạn (trước khám / sau khám). Bấm
+// vào một trạng thái thì khối hành động bên phải đổi tiêu đề VÀ đổi nút theo
+// đúng việc của trạng thái ấy — xem HANH_DONG trong GhiTuongTac.tsx.
+//
+// TRẠNG THÁI NÀO MÁY TỰ BIẾT, TRẠNG THÁI NÀO NGƯỜI TỰ CHỌN.
+//
+// Bảy trạng thái đầu suy được từ dữ liệu thật (view `v_trang_thai_cskh`, trạng
+// thái lịch hẹn, sổ tương tác) — chúng tự sáng lên. Ba trạng thái cuối (không
+// follow-up sau thủ thuật, sau sinh 1 tháng, sau thủ thuật 1 ngày) KHÔNG có
+// nguồn dữ liệu: hệ thống không có ngày sinh con thật (`edd_date` là ngày DỰ
+// sinh, lệch hai tuần), và các dịch vụ thủ thuật đang tắt. Chúng vẫn có mặt để
+// CSKH tự chọn và ghi lại — một nút người bấm thì có việc THẬT, một tab tự sinh
+// từ ngày dự sinh thì có việc SAI mà không ai biết là sai cho tới lúc gọi nhầm.
+//
+// Mọi thao tác đều ghi sổ: `tuong_tac_cskh` + `event_log` (xem
+// TuongTacCskhService.ghi).
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,40 +38,102 @@ import {
   Phone,
   CalendarClock,
   CircleDashed,
-  Stethoscope,
+  ChevronRight,
 } from "lucide-react";
 import type { DongLichSu } from "./GhiTuongTac";
 import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 
-interface Buoc {
+/** Một trạng thái khách có thể đang ở, kèm việc CSKH phải làm khi ở đó. */
+interface TrangThai {
   ma: string;
+  /** Tên trạng thái — phần IN ĐẬM trong đặc tả. */
   ten: string;
-  /** 'goi' mở ô ghi kết quả; 'moc' là một chạm tại quầy; 'he_thong' chỉ xem. */
-  kieu: "goi" | "moc" | "he_thong";
+  /** Việc phải làm — phần sau mũi tên trong đặc tả. */
+  viec: string;
+  /** Không suy được từ dữ liệu; CSKH tự chọn khi biết. */
+  tuChon?: boolean;
 }
 
-/** Chuỗi bước của một lượt khám — đúng thứ tự Quang kể.
- *
- *  KHÔNG khai "sau sinh 1 tháng" / "sau thủ thuật 1 ngày": hệ thống không có
- *  ngày sinh con thật nên hai bước ấy sẽ đứng xám vĩnh viễn ở cuối mọi chuỗi.
- *  Chúng đi qua nút "Hẹn gọi lại". */
-const CHUOI_BINH_THUONG: Buoc[] = [
-  { ma: "DAT_LICH", ten: "Đặt lịch", kieu: "he_thong" },
-  { ma: "XAC_NHAN_LICH", ten: "Gọi xác nhận lịch", kieu: "goi" },
-  { ma: "NHAC_HEN", ten: "Gọi nhắc hẹn", kieu: "goi" },
-  { ma: "CHECK_IN", ten: "Check-in cho khách", kieu: "moc" },
-  { ma: "CHECK_XN", ten: "Hỏi đơn vị xét nghiệm", kieu: "goi" },
-  { ma: "TRA_KQ", ten: "Gọi trả kết quả", kieu: "goi" },
-  { ma: "CHECK_OUT", ten: "Khách check-out", kieu: "moc" },
-  { ma: "THANH_TOAN", ten: "Khách đã thanh toán", kieu: "moc" },
-  { ma: "MUA_THUOC", ten: "Khách đã mua thuốc", kieu: "moc" },
+const TRUOC_KHAM: TrangThai[] = [
+  {
+    ma: "CHO_XAC_NHAN",
+    ten: "Chờ xác nhận lịch trước 7 ngày",
+    viec: "Gọi điện xác nhận lịch với khách",
+  },
+  {
+    ma: "NHAC_HEN_MAI",
+    ten: "Cần nhắc hẹn",
+    viec: "Gọi nhắc hẹn — khách đã xác nhận, có lịch khám ngày mai",
+  },
 ];
 
-/** Lịch đã huỷ đi một nhánh khác hẳn — nối tiếp chuỗi trên là nói dối. */
-const CHUOI_HUY: Buoc[] = [
-  { ma: "DAT_LICH", ten: "Đặt lịch", kieu: "he_thong" },
-  { ma: "HUY_LICH", ten: "Huỷ lịch", kieu: "he_thong" },
-  { ma: "HOI_LY_DO_HUY", ten: "Gọi hỏi lý do huỷ", kieu: "goi" },
+const SAU_KHAM: TrangThai[] = [
+  {
+    ma: "DA_CHECKIN",
+    ten: "Đã check-in",
+    viec: "Xem tình trạng sau khám để biết việc tiếp: trả kết quả xét nghiệm hay đặt lịch tái khám",
+  },
+  {
+    ma: "CHO_KQ_XN",
+    ten: "Chờ kết quả xét nghiệm",
+    viec: "Hỏi đơn vị xét nghiệm xem kết quả về chưa",
+  },
+  {
+    ma: "GOI_LAI",
+    ten: "KNM / KLLD / Hẹn GLS",
+    viec: "Gọi lại để xác nhận lịch hẹn",
+  },
+  {
+    ma: "CHO_BAC_SI",
+    ten: "Có kết quả, chờ phản hồi chuyên môn",
+    viec: "Hỏi bác sĩ trước khi trả kết quả cho khách",
+  },
+  {
+    ma: "KQ_CHUA_GUI",
+    ten: "Đã có kết quả, chưa gửi",
+    viec: "Tải kết quả lên rồi gửi cho khách (ảnh + video siêu âm, phiếu xét nghiệm)",
+  },
+  {
+    ma: "DA_TRA_KQ",
+    ten: "Đã gọi trả kết quả xét nghiệm",
+    viec: "Cân nhắc có cần hẹn lịch tái khám sau đó không",
+  },
+  {
+    ma: "HOI_LY_DO_HUY",
+    ten: "Huỷ lịch",
+    viec: "Gọi lại hỏi lý do huỷ, sau 1–14 ngày. Lý do chọn sẵn hoặc tự viết",
+  },
+  {
+    ma: "KHONG_FOLLOW_UP",
+    ten: "Không cần follow up sau thủ thuật",
+    viec: "Không gọi vào ngày hôm sau — ghi lại để ca sau khỏi gọi",
+    tuChon: true,
+  },
+  {
+    ma: "SAU_SINH_1_THANG",
+    ten: "Sau sinh 1 tháng",
+    viec: "Chúc mừng đầy tháng, mời khám lại sau sinh",
+    tuChon: true,
+  },
+  {
+    ma: "SAU_THU_THUAT_1_NGAY",
+    ten: "Sau thủ thuật 1 ngày",
+    viec: "Gọi hỏi thăm tình trạng",
+    tuChon: true,
+  },
+];
+
+/** Mốc tại quầy — một chạm, đổi trạng thái THẬT của lịch hẹn.
+ *
+ *  KHÔNG nằm trong danh sách trạng thái của chị Thu, và cố ý: chúng là VIỆC
+ *  XẢY RA tại quầy chứ không phải chỗ khách đang đứng. Nhưng Quang yêu cầu
+ *  08/08 (*"khách checkout, khách đã thanh toán, khách đã mua thuốc… tất cả là
+ *  các nút và thao tác được thật"*) nên chúng ở lại, gom xuống cuối. */
+const MOC_QUAY: { ma: string; ten: string }[] = [
+  { ma: "CHECK_IN", ten: "Check-in cho khách" },
+  { ma: "CHECK_OUT", ten: "Khách check-out" },
+  { ma: "THANH_TOAN", ten: "Khách đã thanh toán" },
+  { ma: "MUA_THUOC", ten: "Khách đã mua thuốc" },
 ];
 
 function gio(iso: string): string {
@@ -82,6 +157,18 @@ const NHAN_KET_QUA: Record<string, string> = {
   GHI_NHAN: "đã ghi nhận",
 };
 
+/** Loại tương tác nào chứng minh trạng thái nào ĐÃ được xử lý. */
+const DA_LAM_KHI_CO: Record<string, string[]> = {
+  CHO_XAC_NHAN: ["XAC_NHAN_LICH"],
+  NHAC_HEN_MAI: ["NHAC_HEN"],
+  CHO_KQ_XN: ["CHECK_XN"],
+  KQ_CHUA_GUI: ["TRA_KQ"],
+  DA_TRA_KQ: ["TRA_KQ"],
+  HOI_LY_DO_HUY: ["HOI_LY_DO_HUY"],
+  SAU_SINH_1_THANG: ["HOI_THAM"],
+  SAU_THU_THUAT_1_NGAY: ["HOI_THAM"],
+};
+
 export interface MocLich {
   /** Lịch hẹn đại diện đang xem. */
   id: string | null;
@@ -91,14 +178,14 @@ export interface MocLich {
   cancelled_at: string | null;
 }
 
-type TrangThaiNode = "xong" | "cho_bac_si" | "dang_toi" | "cho";
-
 export default function VungLamViecKhach({
   tenKhach,
   clinicPatientId,
   lich,
   lichSu,
   tepKetQua,
+  trangThaiHienTai,
+  dangChon,
   onLamViec,
   children,
 }: {
@@ -107,51 +194,44 @@ export default function VungLamViecKhach({
   lich: MocLich;
   lichSu: DongLichSu[];
   tepKetQua: TepKetQuaRow[];
-  /** Bấm một bước CUỘC GỌI → mở ô ghi kết quả với đúng loại việc ấy. */
-  onLamViec: (maViec: string) => void;
-  /** Khối gắn thêm dưới chuỗi bước (phản hồi khách…). */
+  /** Trạng thái gấp nhất do `v_trang_thai_cskh` suy ra. */
+  trangThaiHienTai?: string | null;
+  /** Trạng thái CSKH đang chọn làm việc (null = chưa chọn). */
+  dangChon?: string | null;
+  /** Bấm một trạng thái → khối hành động bên phải đổi theo nó. */
+  onLamViec: (maTrangThai: string) => void;
+  /** Khối gắn thêm bên dưới (phản hồi khách, nhắc tái khám…). */
   children?: React.ReactNode;
 }) {
   const router = useRouter();
-  const [moRong, setMoRong] = useState<string | null>(null);
   const [dangGhiMoc, setDangGhiMoc] = useState<string | null>(null);
   const [loiMoc, setLoiMoc] = useState<{ ma: string; loi: string } | null>(null);
 
   const daHuy = lich.status === "CANCELLED";
-  const chuoi = daHuy ? CHUOI_HUY : CHUOI_BINH_THUONG;
+  const daCheckin =
+    lich.status === "CHECKED_IN" || lich.status === "COMPLETED";
 
-  function cacLan(ma: string): DongLichSu[] {
-    return lichSu.filter((d) => d.loai === ma);
+  function cacLan(loai: string): DongLichSu[] {
+    return lichSu.filter((d) => d.loai === loai);
   }
-  function mocHeThong(ma: string): string | null {
-    if (ma === "DAT_LICH") return lich.created_at;
-    if (ma === "HUY_LICH") return lich.cancelled_at;
-    return null;
-  }
-  // `appointment` không có cột checked_in_at — TRẠNG THÁI là thứ đáng tin (lễ
-  // tân có thể đã check-in từ màn khác). Dòng sổ, nếu có, cho thêm giờ và tên.
-  function xongTheoTrangThai(ma: string): boolean {
-    if (ma === "CHECK_IN") {
-      return lich.status === "CHECKED_IN" || lich.status === "COMPLETED";
+
+  /** Trạng thái này có ĐANG đúng với khách không — suy từ dữ liệu thật. */
+  function dangO(ma: string): boolean {
+    if (ma === trangThaiHienTai) return true;
+    if (ma === "DA_CHECKIN") return daCheckin;
+    if (ma === "HOI_LY_DO_HUY") return daHuy;
+    if (ma === "DA_TRA_KQ") {
+      return cacLan("TRA_KQ").some((d) => d.ket_qua === "DA_LIEN_HE");
     }
-    if (ma === "CHECK_OUT") return lich.status === "COMPLETED";
     return false;
   }
 
-  const cacBuoc = chuoi.map((b) => {
-    const lan = cacLan(b.ma);
-    const moc = mocHeThong(b.ma);
-    const xong = lan.length > 0 || Boolean(moc) || xongTheoTrangThai(b.ma);
-    // "Bác sĩ xem xét, trả sau": lần trả kết quả gần nhất bị dừng ở cửa chuyên
-    // môn thì node đứng VÀNG chứ không xanh — việc CHƯA xong, nó đang chờ
-    // người khác, và màu phải nói đúng điều đó.
-    const choBacSi =
-      b.ma === "TRA_KQ" && lan.length > 0 && lan[0].ket_qua === "CAN_BAC_SI";
-    return { buoc: b, lan, moc, xong, choBacSi };
-  });
-  const maDangToi = cacBuoc.find(
-    (t) => !t.xong && t.buoc.kieu !== "he_thong",
-  )?.buoc.ma;
+  /** Đã có lần chạm nào ứng với trạng thái này chưa. */
+  function lanCuoi(ma: string): DongLichSu | undefined {
+    const loai = DA_LAM_KHI_CO[ma];
+    if (!loai) return undefined;
+    return lichSu.find((d) => loai.includes(d.loai));
+  }
 
   async function ghiMoc(ma: string) {
     setDangGhiMoc(ma);
@@ -172,200 +252,176 @@ export default function VungLamViecKhach({
       const d = (await res.json().catch(() => null)) as
         | { error?: string; message?: string }
         | null;
-      // "Khách chưa check-in — check-in trước rồi mới check-out được" phải
-      // hiện NGAY TẠI node vừa bấm, không phải một toast trôi mất.
+      // "Khách chưa check-in — check-in trước rồi mới check-out được" phải hiện
+      // NGAY TẠI nút vừa bấm, không phải một toast trôi mất.
       setLoiMoc({ ma, loi: d?.message ?? d?.error ?? "Không ghi được." });
       return;
     }
     router.refresh();
   }
 
-  function trangThaiNode(t: (typeof cacBuoc)[number]): TrangThaiNode {
-    if (t.choBacSi) return "cho_bac_si";
-    if (t.xong) return "xong";
-    if (t.buoc.ma === maDangToi) return "dang_toi";
-    return "cho";
+  function DongTrangThai({ tt }: { tt: TrangThai }) {
+    const dang = dangO(tt.ma);
+    const chon = dangChon === tt.ma;
+    const lan = lanCuoi(tt.ma);
+    const xong = Boolean(lan) && !dang;
+
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => onLamViec(tt.ma)}
+          aria-pressed={chon}
+          className={`flex w-full items-start gap-2.5 rounded-xl border p-2.5 text-left transition-colors ${
+            chon
+              ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500/30"
+              : dang
+                ? "border-brand-300 bg-brand-50/40 hover:bg-brand-50"
+                : "border-line bg-surface hover:bg-surface-muted"
+          }`}
+        >
+          <span
+            className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 ${
+              xong
+                ? "border-success bg-success-bg text-success"
+                : dang
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-line bg-surface-muted text-ink-faint"
+            }`}
+          >
+            {xong ? (
+              <Check className="size-3.5" strokeWidth={3} />
+            ) : dang ? (
+              <Phone className="size-3" />
+            ) : (
+              <CircleDashed className="size-3" />
+            )}
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={`text-sm ${
+                  dang ? "font-bold text-brand-800" : "font-semibold text-ink"
+                }`}
+              >
+                {tt.ten}
+              </span>
+              {dang && (
+                <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  đang ở đây
+                </span>
+              )}
+              {tt.tuChon && !dang && (
+                <span
+                  className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
+                  title="Hệ thống không có dữ liệu để tự biết — CSKH chọn khi biết."
+                >
+                  tự chọn
+                </span>
+              )}
+            </span>
+
+            {/* Việc phải làm, viết ở thể mệnh lệnh — phần sau mũi tên trong
+                đặc tả. Đây là câu người trực ca đọc để biết nhấc máy làm gì. */}
+            <span className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-ink-soft">
+              <ChevronRight className="mt-0.5 size-3 shrink-0 text-ink-faint" />
+              {tt.viec}
+            </span>
+
+            {lan && (
+              <span className="mt-1 block text-[11px] text-ink-muted">
+                <span className="font-mono">{gio(lan.xay_ra_luc)}</span>
+                {lan.ket_qua &&
+                  ` · ${NHAN_KET_QUA[lan.ket_qua] ?? lan.ket_qua}`}
+                {lan.nhan_vien && ` · ${lan.nhan_vien}`}
+                {lan.noi_dung && (
+                  <span className="block italic">“{lan.noi_dung}”</span>
+                )}
+              </span>
+            )}
+          </span>
+        </button>
+      </li>
+    );
   }
 
   return (
     <div className="min-w-0 space-y-3">
       <section
-        aria-label={`Vùng làm việc — ${tenKhach}`}
+        aria-label={`Trạng thái khách hàng — ${tenKhach}`}
         className="min-w-0 overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
       >
+        {/* TIÊU ĐỀ MỘT DÒNG. Dòng phụ "Bấm vào bước để làm…" đã bỏ theo yêu cầu
+            09/08 — nó mô tả mô hình chuỗi bước không còn nữa. */}
         <div className="border-b border-line px-4 py-3">
           <h2 className="text-sm font-semibold text-ink">
-            Vùng làm việc — {tenKhach}
+            Trạng thái khách hàng — {tenKhach}
           </h2>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            Bấm vào bước để làm. Bước đã xong ở lại đây kèm giờ và người làm.
-          </p>
         </div>
 
-        <ol className="px-4 py-3">
-          {cacBuoc.map((t, i) => {
-            const cuoi = i === cacBuoc.length - 1;
-            const tt = trangThaiNode(t);
-            const mo = moRong === t.buoc.ma;
-            const laGoi = t.buoc.kieu === "goi";
-            const laMoc = t.buoc.kieu === "moc";
-            // Check-in / check-out cần một lịch hẹn để đổi trạng thái thật.
-            const thieuLich =
-              laMoc &&
-              !lich.id &&
-              (t.buoc.ma === "CHECK_IN" || t.buoc.ma === "CHECK_OUT");
+        <div className="space-y-3 px-4 py-3">
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              Trước khám
+            </span>
+            <ul className="space-y-1.5">
+              {TRUOC_KHAM.map((tt) => (
+                <DongTrangThai key={tt.ma} tt={tt} />
+              ))}
+            </ul>
+          </div>
 
-            return (
-              <li key={t.buoc.ma} className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  <span
-                    className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
-                      tt === "xong"
-                        ? "border-success bg-success-bg text-success"
-                        : tt === "cho_bac_si"
-                          ? "border-warning bg-warning-bg text-warning"
-                          : tt === "dang_toi"
-                            ? "border-brand-600 bg-brand-50 text-brand-700"
-                            : "border-line bg-surface-muted text-ink-faint"
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              Sau khám
+            </span>
+            <ul className="space-y-1.5">
+              {SAU_KHAM.map((tt) => (
+                <DongTrangThai key={tt.ma} tt={tt} />
+              ))}
+            </ul>
+          </div>
+
+          {/* MỐC TẠI QUẦY — một chạm, và chúng đổi trạng thái THẬT của lịch hẹn
+              (check-in mở lượt khám vào hàng đợi tiếp nhận, check-out đóng
+              trạng thái khám). Không phải cờ riêng chỉ màn này thấy. */}
+          <div className="space-y-1.5 border-t border-line pt-3">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              Mốc tại quầy
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {MOC_QUAY.map((m) => {
+                const daGhi = cacLan(m.ma).length > 0;
+                const thieuLich =
+                  !lich.id && (m.ma === "CHECK_IN" || m.ma === "CHECK_OUT");
+                return (
+                  <button
+                    key={m.ma}
+                    type="button"
+                    onClick={() => void ghiMoc(m.ma)}
+                    disabled={daGhi || dangGhiMoc !== null || thieuLich}
+                    title={thieuLich ? "Khách chưa có lịch hẹn nào" : undefined}
+                    className={`rounded-xl border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
+                      daGhi
+                        ? "border-success/40 bg-success-bg text-success"
+                        : "border-brand-300 text-brand-700 hover:bg-brand-50"
                     }`}
                   >
-                    {tt === "xong" ? (
-                      <Check className="size-4" strokeWidth={3} />
-                    ) : tt === "cho_bac_si" ? (
-                      <Stethoscope className="size-3.5" />
-                    ) : tt === "dang_toi" && laGoi ? (
-                      <Phone className="size-3.5" />
-                    ) : (
-                      <CircleDashed className="size-3.5" />
-                    )}
-                  </span>
-                  {!cuoi && (
-                    <span
-                      className={`w-0.5 flex-1 ${tt === "xong" ? "bg-success" : "bg-line"}`}
-                      style={{ minHeight: 16 }}
-                    />
-                  )}
-                </div>
+                    {daGhi ? "✓ " : ""}
+                    {dangGhiMoc === m.ma ? "Đang ghi…" : m.ten}
+                  </button>
+                );
+              })}
+            </div>
+            {loiMoc && (
+              <p className="text-[11px] text-danger">{loiMoc.loi}</p>
+            )}
+          </div>
+        </div>
 
-                <div className={`min-w-0 flex-1 ${cuoi ? "pb-1" : "pb-3.5"}`}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`text-sm ${
-                        tt === "xong"
-                          ? "font-medium text-ink"
-                          : tt === "cho_bac_si"
-                            ? "font-semibold text-warning"
-                            : tt === "dang_toi"
-                              ? "font-semibold text-brand-700"
-                              : "text-ink-soft"
-                      }`}
-                    >
-                      {t.buoc.ten}
-                    </span>
-
-                    {tt === "cho_bac_si" && (
-                      <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10px] font-bold text-warning">
-                        chờ bác sĩ xem xét
-                      </span>
-                    )}
-
-                    {t.moc && (
-                      <span className="font-mono text-[11px] text-ink-muted">
-                        {gio(t.moc)}
-                      </span>
-                    )}
-
-                    {/* CUỘC GỌI: mọi bước chưa xong đều bấm được; bước gợi ý
-                        nổi hơn. Bước xong vẫn "Làm lại" — gọi lần hai là chuyện
-                        thật. Bước chờ-bác-sĩ có "Trả lại sau". */}
-                    {laGoi &&
-                      (t.xong ? (
-                        <button
-                          type="button"
-                          onClick={() => onLamViec(t.buoc.ma)}
-                          className="rounded-full border border-line px-2.5 py-0.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
-                        >
-                          {tt === "cho_bac_si" ? "Trả lại sau" : "Làm lại"}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onLamViec(t.buoc.ma)}
-                          className={
-                            tt === "dang_toi"
-                              ? "rounded-full bg-brand-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-brand-700"
-                              : "rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
-                          }
-                        >
-                          Làm bước này
-                        </button>
-                      ))}
-
-                    {/* MỐC QUẦY: một chạm. Xong là xong — không "làm lại" một
-                        lần check-in. */}
-                    {laMoc && !t.xong && (
-                      <button
-                        type="button"
-                        onClick={() => void ghiMoc(t.buoc.ma)}
-                        disabled={dangGhiMoc !== null || thieuLich}
-                        title={
-                          thieuLich ? "Khách chưa có lịch hẹn nào" : undefined
-                        }
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold disabled:opacity-50 ${
-                          tt === "dang_toi"
-                            ? "bg-brand-600 text-white hover:bg-brand-700"
-                            : "border border-brand-300 text-brand-700 hover:bg-brand-50"
-                        }`}
-                      >
-                        {dangGhiMoc === t.buoc.ma ? "Đang ghi…" : "✓ Ghi nhận"}
-                      </button>
-                    )}
-                  </div>
-
-                  {loiMoc?.ma === t.buoc.ma && (
-                    <p className="mt-1 text-[11px] text-danger">{loiMoc.loi}</p>
-                  )}
-
-                  {t.lan.length > 0 && (
-                    <ul className="mt-1 space-y-0.5">
-                      {(mo ? t.lan : t.lan.slice(0, 2)).map((d, k) => (
-                        <li
-                          key={`${d.xay_ra_luc}-${k}`}
-                          className="text-[11px] leading-snug text-ink-soft"
-                        >
-                          <span className="font-mono text-ink-muted">
-                            {gio(d.xay_ra_luc)}
-                          </span>
-                          {d.ket_qua &&
-                            ` · ${NHAN_KET_QUA[d.ket_qua] ?? d.ket_qua}`}
-                          {d.khach_xac_nhan === true && " · khách nói sẽ đến"}
-                          {d.nhan_vien && ` · ${d.nhan_vien}`}
-                          {d.noi_dung && (
-                            <span className="block italic text-ink-muted">
-                              “{d.noi_dung}”
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                      {t.lan.length > 2 && (
-                        <li>
-                          <button
-                            type="button"
-                            onClick={() => setMoRong(mo ? null : t.buoc.ma)}
-                            className="text-[11px] font-medium text-brand-700 hover:underline"
-                          >
-                            {mo ? "Thu gọn" : `Xem cả ${t.lan.length} lần`}
-                          </button>
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-
+        {/* KẾT QUẢ SIÊU ÂM / XÉT NGHIỆM — ảnh, video và phiếu. Đặc tả ghi rõ
+            "cần gửi được cả video cho bệnh nhân". */}
         <TepKetQua
           clinicPatientId={clinicPatientId}
           appointmentId={lich.id}

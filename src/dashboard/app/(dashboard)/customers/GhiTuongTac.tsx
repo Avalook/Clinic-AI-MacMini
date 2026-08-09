@@ -139,6 +139,66 @@ const HANH_DONG: Record<string, HanhDongViec> = {
   },
 };
 
+// Năm trạng thái BỔ SUNG theo đặc tả chị Thu (09/08/2026). Chúng không có
+// trong `v_trang_thai_cskh` vì view chỉ suy được việc CÒN PHẢI LÀM; đây là chỗ
+// khách ĐANG ĐỨNG, và CSKH chọn tay ở cột trạng thái bên trái.
+const HANH_DONG_THEM: Record<string, HanhDongViec> = {
+  DA_CHECKIN: {
+    tieuDe: "Đã check-in — xem việc tiếp theo",
+    // Chưa biết là trả kết quả hay hẹn tái khám: đó chính là việc CSKH phải
+    // quyết sau khi xem tình trạng sau khám. Ghi dưới dạng "việc khác" rồi
+    // chuyển sang đúng trạng thái ở cột bên trái.
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Xem tình trạng sau khám rồi chọn tiếp: “Chờ kết quả xét nghiệm” nếu còn đợi xét nghiệm, hoặc hẹn ngày tái khám ở khối Nhắc tái khám.",
+  },
+  DA_TRA_KQ: {
+    tieuDe: "Đã trả kết quả — có cần tái khám không",
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    oKhoiKhac: "Nhắc tái khám",
+    nhacNho:
+      "Kết quả đã trả. Việc còn lại là quyết có hẹn tái khám hay không — hẹn thì gõ ngày ở khối Nhắc tái khám để hệ thống tự sinh hai mốc gọi.",
+  },
+  KHONG_FOLLOW_UP: {
+    tieuDe: "Không cần follow up sau thủ thuật",
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Ghi lại để ca sau KHÔNG gọi vào ngày mai. Không ghi thì người trực kế tiếp không có cách nào biết, và khách bị gọi thừa.",
+  },
+  SAU_SINH_1_THANG: {
+    tieuDe: "Sau sinh 1 tháng — chúc mừng đầy tháng",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    nhacNho:
+      "Chúc mừng đầy tháng và mời khám lại sau sinh. Hệ thống KHÔNG tự biết ngày sinh thật (chỉ có ngày dự sinh), nên trạng thái này do CSKH chọn.",
+  },
+  SAU_THU_THUAT_1_NGAY: {
+    tieuDe: "Sau thủ thuật 1 ngày — hỏi thăm",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    nhacNho:
+      "Gọi hỏi thăm tình trạng sau thủ thuật. Trạng thái này do CSKH chọn — dịch vụ thủ thuật đang tắt nên máy không suy ra được.",
+  },
+};
+
+/** Tiêu đề của khối hành động, theo trạng thái đang chọn.
+ *
+ *  Xuất ra để `CustomersView` dựng tiêu đề từ CÙNG một bảng với các nút bên
+ *  dưới. Hai bảng cho cùng một khái niệm là hai bảng sẽ lệch — và ở đây lệch
+ *  nghĩa là tiêu đề nói một việc còn nút làm một việc khác. */
+export function tieuDeHanhDong(ma: string | null | undefined): string {
+  if (!ma) return MAC_DINH.tieuDe;
+  return (HANH_DONG[ma] ?? HANH_DONG_THEM[ma] ?? MAC_DINH).tieuDe;
+}
+
 const MAC_DINH: HanhDongViec = {
   tieuDe: "Gọi khách & ghi tương tác",
   loai: "NHAC_HEN",
@@ -188,7 +248,6 @@ export default function GhiTuongTac({
   appointmentId,
   phone,
   lichSuBanDau,
-  loaiBanDau,
   viecHienTai,
   moBanDau = false,
   zaloBat = false,
@@ -200,8 +259,6 @@ export default function GhiTuongTac({
   /** Việc gấp nhất đang mở của khách (`v_trang_thai_cskh.trang_thai`). Quyết
    *  định khối này bày ra những nút nào. */
   viecHienTai?: string | null;
-  /** Loại việc mở sẵn khi timeline bấm vào một node. */
-  loaiBanDau?: string | null;
   moBanDau?: boolean;
   /** Zalo đã đủ cấu hình chưa — hỏi backend, không đoán ở đây. */
   zaloBat?: boolean;
@@ -218,11 +275,11 @@ export default function GhiTuongTac({
   // Bước trên chuỗi mà người dùng vừa bấm THẮNG việc gấp nhất do view suy ra:
   // họ vừa nói ra mình muốn làm gì.
   const hanhDong =
-    (loaiBanDau ? null : viecHienTai ? HANH_DONG[viecHienTai] : null) ??
+    (viecHienTai ? (HANH_DONG[viecHienTai] ?? HANH_DONG_THEM[viecHienTai]) : null) ??
     MAC_DINH;
 
   const [mo, setMo] = useState(moBanDau);
-  const [loai, setLoai] = useState(loaiBanDau ?? hanhDong.loai);
+  const [loai, setLoai] = useState(hanhDong.loai);
   const [ketQua, setKetQua] = useState("DA_LIEN_HE");
   const [xacNhan, setXacNhan] = useState(false);
   const [noiDung, setNoiDung] = useState("");

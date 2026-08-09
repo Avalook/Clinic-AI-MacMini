@@ -22,7 +22,7 @@ import { fmtDate, fmtDateTimeOrDate } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
 import BaoXepBacSi from "./BaoXepBacSi";
-import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
+import GhiTuongTac, { tieuDeHanhDong, type DongLichSu } from "./GhiTuongTac";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 import NhacTaiKham, { type MocTaiKham } from "./NhacTaiKham";
@@ -415,8 +415,12 @@ export default function CustomersView({
   const [selectedId, setSelectedId] = useState<string | null>(initialSelected);
   const [term, setTerm] = useState(q);
   const [editOpen, setEditOpen] = useState(false);
-  // Node vừa bấm trên vùng làm việc. Dùng làm `key` cho ô ghi kết quả, nên
-  // bấm node khác là component mount lại với đúng loại việc — không cần effect.
+  // TRẠNG THÁI CSKH vừa bấm ở cột giữa. Dùng làm `key` cho khối hành động, nên
+  // bấm trạng thái khác là component mount lại với đúng bộ nút — không cần
+  // effect đồng bộ (thứ trình biên dịch React chặn ở repo này).
+  //
+  // null = chưa chọn gì ⇒ khối hành động chạy theo việc gấp nhất mà
+  // `v_trang_thai_cskh` suy ra.
   const [viecDangGhi, setViecDangGhi] = useState<string | null>(null);
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
@@ -813,6 +817,10 @@ export default function CustomersView({
             }}
             lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
             tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
+            trangThaiHienTai={
+              trangThaiByPatient[selected.clinic_patient_id]?.trang_thai ?? null
+            }
+            dangChon={viecDangGhi}
             onLamViec={setViecDangGhi}
           >
             <PhanHoiKhach
@@ -896,7 +904,11 @@ export default function CustomersView({
                       GhiTuongTac). */}
                   <div className="flex items-center justify-between gap-2 font-bold text-brand-800">
                     <span className="uppercase">
-                      {customerNextStep(selected) ?? "Gọi khách & ghi tương tác"}
+                      {tieuDeHanhDong(
+                        viecDangGhi ??
+                          trangThaiByPatient[selected.clinic_patient_id]
+                            ?.trang_thai,
+                      )}
                     </span>
                     <span className="shrink-0 rounded-full bg-brand-200 px-2 py-0.5 text-[10px] text-brand-800 font-mono">
                       CSKH / Lễ tân
@@ -914,10 +926,11 @@ export default function CustomersView({
                       clinicPatientId={selected.clinic_patient_id}
                       appointmentId={selectedAppt?.appt?.id ?? null}
                       phone={selected.phone_primary}
-                      loaiBanDau={viecDangGhi}
                       viecHienTai={
+                        viecDangGhi ??
                         trangThaiByPatient[selected.clinic_patient_id]
-                          ?.trang_thai ?? null
+                          ?.trang_thai ??
+                        null
                       }
                       moBanDau={viecDangGhi !== null}
                       lichSuBanDau={
