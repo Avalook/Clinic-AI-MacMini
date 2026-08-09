@@ -137,6 +137,7 @@ export default function NewPatientForm({
   variant = "full",
   initialAppt,
   nhung = false,
+  onHuy,
 }: {
   role?: ClinicRole | null;
   locations: Option[];
@@ -152,6 +153,10 @@ export default function NewPatientForm({
    * khối đó khỏi component sẽ làm trang `/patients/new` đứng một mình mất tiêu
    * đề, vì hai nơi dùng CÙNG một component. */
   nhung?: boolean;
+  /** Khi biểu mẫu được NHÚNG trong một màn khác: "Huỷ" phải trả người dùng về
+   *  đúng chỗ họ đang đứng, không đá sang /patient-list. Không truyền thì giữ
+   *  hành vi cũ (trang /patients/new độc lập). */
+  onHuy?: () => void;
   /** Điền sẵn ngày/giờ/bác sĩ — ô xanh "đặt vào đây" ở bảng Lịch hẹn khám
    *  (trang chủ) dẫn sang đây kèm query để Lễ tân xếp khách đúng khung. */
   initialAppt?: { date?: string; time?: string; doctorId?: string };
@@ -1384,9 +1389,15 @@ export default function NewPatientForm({
                   ? "Nhập thông tin khách hàng"
                   : "Tạo bệnh nhân"}
         </button>
-        <Link href="/patient-list" className={BTN_GHOST + " text-center"}>
-          Huỷ
-        </Link>
+        {onHuy ? (
+          <button type="button" onClick={onHuy} className={BTN_GHOST}>
+            Huỷ
+          </button>
+        ) : (
+          <Link href="/patient-list" className={BTN_GHOST + " text-center"}>
+            Huỷ
+          </Link>
+        )}
       </div>
     </div>
   );
