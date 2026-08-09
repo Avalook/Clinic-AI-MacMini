@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { VN_TZ, vnToday } from "../../lib/datetime";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Menu,
@@ -393,13 +394,17 @@ export default function GlobalHeader({
                     Chưa có thông báo nào.
                   </p>
                 ) : (
-                  notifs.map((n) => (
-                    <div
-                      key={n.key}
-                      className={`flex items-start gap-2.5 rounded-xl p-2.5 text-xs ${
-                        n.khan ? "bg-danger-bg" : "bg-brand-50/70"
-                      }`}
-                    >
+                  notifs.map((n) => {
+                    // BẤM VÀO LÀ SANG THẲNG TRANG XỬ LÝ.
+                    //
+                    // Thông báo đã mang sẵn `duong_dan` từ lúc backend sinh ra
+                    // nó ("Cần xếp bác sĩ" → /appointments/cho-xep-bac-si),
+                    // nhưng giao diện chỉ in chữ ra rồi thôi. Người đọc biết có
+                    // việc mà phải tự đi tìm màn nào xử lý — với quản lý đang có
+                    // hai mươi mục trên thanh bên thì đó là một bước thừa mỗi
+                    // lần chuông kêu.
+                    const noiDung = (
+                      <>
                       {n.khan ? (
                         // Thông báo KHẨN do Trưởng ca gọi — đây là cái đỏ THẬT,
                         // thay cho ba dòng viết cứng đã gỡ hôm nay.
@@ -424,9 +429,32 @@ export default function GlobalHeader({
                         </p>
                         <p className="text-[11px] text-ink-soft">{n.detail}</p>
                         <span className="text-[10px] text-ink-muted">{n.at}</span>
+                        {n.duongDan && (
+                          <span className="mt-0.5 block text-[11px] font-semibold text-brand-700">
+                            Bấm để xử lý →
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  ))
+                      </>
+                    );
+                    const lop = `flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left text-xs ${
+                      n.khan ? "bg-danger-bg" : "bg-brand-50/70"
+                    }`;
+                    return n.duongDan ? (
+                      <Link
+                        key={n.key}
+                        href={n.duongDan}
+                        onClick={() => setNotifOpen(false)}
+                        className={`${lop} transition-colors hover:brightness-95`}
+                      >
+                        {noiDung}
+                      </Link>
+                    ) : (
+                      <div key={n.key} className={lop}>
+                        {noiDung}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

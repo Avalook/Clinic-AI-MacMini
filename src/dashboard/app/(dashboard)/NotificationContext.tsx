@@ -35,6 +35,10 @@ export interface Notif {
   title: string;
   detail: string;
   at: string; // giờ nhận, "HH:MM"
+  /** Trang xử lý việc này. Backend đã đặt sẵn (`thong_bao.duong_dan`) từ lúc
+   *  sinh thông báo — ví dụ "Cần xếp bác sĩ" trỏ /appointments/cho-xep-bac-si.
+   *  Bỏ qua nó nghĩa là bắt người đọc tự đoán mình phải đi đâu. */
+  duongDan?: string | null;
   /** Thông báo KHẨN do Trưởng ca gọi — chuông tô đỏ, không phải xanh. */
   khan?: boolean;
 }
@@ -99,6 +103,7 @@ export function NotificationProvider({
             tieu_de: string;
             noi_dung: string;
             tao_luc: string;
+            duong_dan: string | null;
             nguoi_goi: string | null;
           }[];
         };
@@ -109,6 +114,7 @@ export function NotificationProvider({
             approved: false,
             khan: t.muc_do === "KHAN",
             title: t.tieu_de,
+            duongDan: t.duong_dan,
             detail:
               (t.nguoi_goi ? `${t.nguoi_goi} gọi · ` : "") + t.noi_dung,
             at: new Date(t.tao_luc).toLocaleTimeString("vi-VN", {
