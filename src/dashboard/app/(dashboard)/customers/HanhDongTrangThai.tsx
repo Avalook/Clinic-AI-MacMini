@@ -447,8 +447,35 @@ export default function HanhDongTrangThai({
       case "DA_CHECKIN":
         return (
           <>
+            {/* CHECK-IN PHẢI Ở ĐÂY, và đây là đường DUY NHẤT của màn này.
+                `loai = "CHECK_IN"` là thứ gọi BookingService.apply_action
+                ("checkin") — nó đổi appointment.status thật, mở lượt khám vào
+                hàng đợi tiếp nhận, và làm chip trạng thái bên trái đổi thành
+                "Đã check-in" (nhánh DA_CHECKIN của v_trang_thai_cskh,
+                migration 20260810000004).
+
+                Nút này TỪNG nằm ở khối "Mốc tại quầy" và bị gỡ cùng khối ấy
+                sáng nay — làm màn Quản lý khách hàng mất hẳn khả năng check-in,
+                trong khi node "Đã check-in" ngay cạnh chỉ gửi CHECK_OUT. Ghi
+                lại để lần sau không ai gỡ nhầm lần nữa.
+
+                Bấm khi khách đã check-in rồi thì không sao: backend thấy status
+                đã là CHECKED_IN/COMPLETED là chỉ ghi sổ, không đổi gì. */}
+            <NutChinh
+              ma="checkin"
+              nhan="Check-in cho khách"
+              Icon={Check}
+              onClick={() =>
+                void ghi(
+                  "checkin",
+                  "CHECK_IN",
+                  "GHI_NHAN",
+                  "Khách đã tới quầy",
+                )
+              }
+            />
             <p className="text-[11px] leading-snug text-ink-soft">
-              Xem tình trạng sau khám rồi chọn việc tiếp theo.
+              Khách đã tới rồi thì chọn việc tiếp theo.
             </p>
             <div className="flex gap-2">
               <NutPhu
