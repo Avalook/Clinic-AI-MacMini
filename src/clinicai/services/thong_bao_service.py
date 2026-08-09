@@ -34,8 +34,25 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 
 logger = structlog.get_logger()
 
-#: Nguồn duy nhất hiện có. Khai tường minh để một chuỗi gõ sai không lặng lẽ
-#: tạo ra một "nguồn" mới mà không màn nào biết cách hiển thị.
+#: Nguồn → (mã sự kiện ghi vào nhật ký, đường ghi). Khai tường minh để một chuỗi
+#: gõ sai không lặng lẽ tạo ra một "nguồn" mới mà không màn nào biết cách hiển
+#: thị — và để khoá chống trùng `uq_thong_bao_dang_mo` (clinic, nguon, nguon_id,
+#: vai_nhan) tách bạch giữa các loại việc.
+#:
+#: LƯU Ý CHO BÀI KIỂM CHỐNG LỆCH: hai mã dưới đi vào `event_log` như THAM SỐ,
+#: không phải chuỗi hằng cạnh câu INSERT, nên bộ quét ở
+#: `test_audit_labels_drift.py` không thấy chúng. Nhãn tiếng Việt của chúng đã
+#: thêm tay vào `audit_labels.EVENT_LABELS`; sửa bảng này thì sửa cả bên đó.
+NGUON: dict[str, tuple[str, str]] = {
+    "dispatch_alert": ("dispatch.alert_called", "api:dispatch"),
+    # Quản lý vừa gán bác sĩ cho một lịch trước đó còn trống → CSKH gọi xác nhận.
+    "bac_si_da_xep": ("thong_bao.bac_si_da_xep", "api:booking"),
+    # Quản lý vừa áp lịch trực cả tuần → tuần ấy đã có người, những lịch đang
+    # chờ trong tuần xếp được rồi.
+    "tuan_lich_truc": ("thong_bao.tuan_lich_truc", "config.roster"),
+}
+
+#: Nguồn duy nhất trước 09/08/2026 — giữ tên cũ vì `dispatch.py` gọi theo nó.
 NGUON_CANH_BAO = "dispatch_alert"
 
 MUC_DO_HOP_LE = frozenset({"KHAN", "THUONG"})
@@ -57,10 +74,14 @@ class ThongBaoService:
         nguon_id: str | None = None,
         muc_do: str = "KHAN",
         duong_dan: str | None = None,
+        nguon: str = NGUON_CANH_BAO,
     ) -> dict[str, Any]:
         """Gọi một bộ phận. Bấm lại khi chưa ai xử lý thì KHÔNG tạo thêm."""
         if muc_do not in MUC_DO_HOP_LE:
             raise ValidationError(f"Mức độ không hợp lệ: {muc_do!r}.")
+        if nguon not in NGUON:
+            raise ValidationError(f"Nguồn thông báo không hợp lệ: {nguon!r}.")
+        ma_su_kien, duong_ghi = NGUON[nguon]
         try:
             vai = ClinicRole(vai_nhan)
         except ValueError:
@@ -90,7 +111,7 @@ class ThongBaoService:
                     muc_do,
                     tieu_de.strip(),
                     noi_dung.strip(),
-                    NGUON_CANH_BAO,
+                    nguon,
                     nguon_id,
                     duong_dan,
                     identity.staff_id,
@@ -107,7 +128,7 @@ class ThongBaoService:
                            AND da_xu_ly_luc IS NULL
                         """,
                         identity.clinic_id,
-                        NGUON_CANH_BAO,
+                        nguon,
                         nguon_id,
                         vai.value,
                     )
@@ -123,8 +144,8 @@ class ThongBaoService:
                     INSERT INTO public.event_log
                         (clinic_id, event_type, aggregate_type, aggregate_id,
                          payload, metadata, source, event_published)
-                    VALUES ($1::uuid, 'dispatch.alert_called', 'thong_bao',
-                            $2::uuid, $3::jsonb, $4::jsonb, 'api:dispatch',
+                    VALUES ($1::uuid, $5, 'thong_bao',
+                            $2::uuid, $3::jsonb, $4::jsonb, $6,
                             FALSE)
                     """,
                     identity.clinic_id,
@@ -145,10 +166,13 @@ class ThongBaoService:
                             "clinic_role": identity.role.value,
                         }
                     ),
+                    ma_su_kien,
+                    duong_ghi,
                 )
 
         logger.info(
-            "dispatch_alert_called",
+            "thong_bao_gui",
+            nguon=nguon,
             thong_bao_id=row["id"],
             vai_nhan=vai.value,
             by_staff_id=identity.staff_id,

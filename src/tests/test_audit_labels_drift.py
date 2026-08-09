@@ -223,6 +223,37 @@ class TestKhongLech:
             assert source_label(ma) == "Màn Đặt lịch", ma
         assert source_label("api:service-start") == "Danh sách dịch vụ"
 
+    def test_ma_su_kien_cua_thong_bao_deu_co_nhan(self) -> None:
+        """Bảng `NGUON` của thong_bao_service là một điểm mù của bộ quét.
+
+        Mã sự kiện ở đó đi vào `event_log` như THAM SỐ ($5), không phải chuỗi
+        hằng cạnh câu INSERT — nên `_SQL_LITERAL` không thấy, và một nguồn thông
+        báo mới sẽ lặng lẽ in mã thô ra màn Lịch sử thao tác đúng như
+        `work_item.create` từng làm.
+
+        Bài kiểm này đọc thẳng bảng ấy thay vì quét chuỗi, nên nó không mù.
+        """
+        from clinicai.services.thong_bao_service import NGUON
+
+        thieu = sorted(
+            ma
+            for ma, _duong_ghi in NGUON.values()
+            if ma not in EVENT_LABELS and ma not in WORK_ITEM_LABELS
+        )
+        assert not thieu, (
+            f"nguồn thông báo chưa có nhãn tiếng Việt: {thieu}. Thêm vào "
+            "EVENT_LABELS — bộ quét chuỗi KHÔNG bắt được chúng."
+        )
+
+    def test_duong_ghi_cua_thong_bao_deu_ra_ten_man(self) -> None:
+        """Cùng điểm mù, cột "Làm ở màn"."""
+        from clinicai.services.thong_bao_service import NGUON
+
+        tho = sorted(
+            dg for _ma, dg in NGUON.values() if source_label(dg) == dg
+        )
+        assert not tho, f"đường ghi của thông báo chưa có tên màn: {tho}"
+
     def test_loai_doi_tuong_deu_co_ten(self) -> None:
         """Cái chip ở đầu ô chi tiết in tên BẢNG khi thiếu nhãn.
 
