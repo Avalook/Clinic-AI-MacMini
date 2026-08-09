@@ -21,12 +21,10 @@ import { fmtDate, fmtDateTimeOrDate } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
 import BaoXepBacSi from "./BaoXepBacSi";
-// KHỐI "GHI MỘT TƯƠNG TÁC KHÁC" ĐÃ BỎ (Quang 09/08/2026: "phiền quá").
-// Từ khi mỗi trạng thái có bộ nút riêng, cái toggle này chỉ còn là một biểu
-// mẫu thứ hai làm cùng việc — và nó bày ra hai ô chọn "Việc gì / Kết quả"
-// bắt người dùng tự dịch việc mình vừa làm sang từ ngữ của database.
-// `GhiTuongTac` giờ chỉ còn được dùng để lấy KIỂU và nhãn tiêu đề.
-import { tieuDeHanhDong, type DongLichSu } from "./GhiTuongTac";
+// Khối "Ghi một tương tác khác" đã bỏ 09/08/2026 (mỗi trạng thái có bộ nút
+// riêng rồi), và `GhiTuongTac.tsx` xoá hẳn theo.
+import { tieuDeHanhDong } from "./HanhDongTrangThai";
+import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";

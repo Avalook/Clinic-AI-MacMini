@@ -15,7 +15,7 @@ import {
   VN_TZ,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
-import type { DongLichSu } from "./GhiTuongTac";
+import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
 import type { MocTaiKham } from "./NhacTaiKham";

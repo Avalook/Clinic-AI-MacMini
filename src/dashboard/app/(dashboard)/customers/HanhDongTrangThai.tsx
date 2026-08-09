@@ -16,6 +16,173 @@ import { useRouter } from "next/navigation";
 import { Phone, Upload, Send, Check, X, CalendarPlus } from "lucide-react";
 import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 
+/** Khối hành động ĐỔI THEO VIỆC ĐANG PHẢI LÀM.
+ *
+ *  TRƯỚC ĐÂY NÓ ĐỨNG YÊN. Bốn nút — Gọi, Ghi kết quả gọi, Zalo nhắc hẹn, Zalo
+ *  báo có KQ — hiện y hệt nhau bất kể khách đang ở bước nào. Hai chỗ sai rõ
+ *  nhất, và cả hai đều dẫn người trực làm sai việc:
+ *
+ *    · Bước "Hỏi đơn vị xét nghiệm" bày ra một nút quay số MÁY KHÁCH HÀNG.
+ *      Việc ấy là gọi cho phòng xét nghiệm, không phải gọi cho bệnh nhân — gọi
+ *      khách lúc này là gọi để nói "em chưa có kết quả".
+ *    · Bước "Nhắc bác sĩ duyệt kết quả" cũng vậy: người cần chạm là bác sĩ.
+ *
+ *  Ngoài ra ô "Việc gì" luôn mở sẵn ở "Gọi nhắc hẹn" nên mọi cuộc gọi vào sổ
+ *  dưới cùng một loại, và cột "Tương tác gần nhất" nói sai về việc vừa làm.
+ *
+ *  `goiKhach = false` KHÔNG ẩn ô ghi kết quả — việc vẫn phải được ghi lại. Nó
+ *  chỉ bỏ cái nút quay số nhầm người.
+ */
+interface HanhDongViec {
+  tieuDe: string;
+  /** Loại tương tác mở sẵn khi CSKH bấm "Ghi kết quả". */
+  loai: string;
+  /** Có quay số cho KHÁCH ở bước này không. */
+  goiKhach: boolean;
+  /** Mẫu tin Zalo hợp với bước này; null = không có mẫu nào đúng. */
+  zalo: "NHAC_HEN" | "TRA_KET_QUA" | null;
+  /** Câu nói rõ bước này chạm tới ai — hiện khi không phải gọi khách. */
+  nhacNho?: string;
+  /** Bước này ghi ở khối khác (Nhắc tái khám), không ghi ở đây. */
+  oKhoiKhac?: string;
+}
+
+const HANH_DONG: Record<string, HanhDongViec> = {
+  CHO_XAC_NHAN: {
+    tieuDe: "Gọi xác nhận lịch",
+    loai: "XAC_NHAN_LICH",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
+  NHAC_HEN_MAI: {
+    tieuDe: "Gọi nhắc hẹn ngày mai",
+    loai: "NHAC_HEN",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
+  GOI_LAI: {
+    tieuDe: "Gọi lại — lần trước chưa gặp",
+    loai: "NHAC_HEN",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
+  HOI_LY_DO_HUY: {
+    tieuDe: "Gọi hỏi vì sao huỷ",
+    loai: "HOI_LY_DO_HUY",
+    goiKhach: true,
+    zalo: null,
+  },
+  HEN_GOI_LAI: {
+    tieuDe: "Đã hẹn gọi lại hôm nay",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+  },
+  KQ_CHUA_GUI: {
+    tieuDe: "Gọi trả kết quả cho khách",
+    loai: "TRA_KQ",
+    goiKhach: true,
+    zalo: "TRA_KET_QUA",
+  },
+  CHO_KQ_XN: {
+    tieuDe: "Hỏi đơn vị xét nghiệm",
+    loai: "CHECK_XN",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Bước này gọi cho ĐƠN VỊ XÉT NGHIỆM, không phải cho khách. Ghi lại kết quả hỏi được.",
+  },
+  CHO_BAC_SI: {
+    tieuDe: "Nhắc bác sĩ duyệt kết quả",
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Kết quả đang chờ BÁC SĨ xem. Nhắc bác sĩ rồi ghi lại — chưa gọi khách ở bước này.",
+  },
+  MOI_TAI_KHAM: {
+    tieuDe: "Gọi mời tái khám",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    oKhoiKhac: "Nhắc tái khám",
+  },
+  NHAC_DI_KHAM: {
+    tieuDe: "Gọi nhắc đi khám",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    oKhoiKhac: "Nhắc tái khám",
+  },
+};
+
+// Năm trạng thái BỔ SUNG theo đặc tả chị Thu (09/08/2026). Chúng không có
+// trong `v_trang_thai_cskh` vì view chỉ suy được việc CÒN PHẢI LÀM; đây là chỗ
+// khách ĐANG ĐỨNG, và CSKH chọn tay ở cột trạng thái bên trái.
+const HANH_DONG_THEM: Record<string, HanhDongViec> = {
+  DA_CHECKIN: {
+    tieuDe: "Đã check-in — xem việc tiếp theo",
+    // Chưa biết là trả kết quả hay hẹn tái khám: đó chính là việc CSKH phải
+    // quyết sau khi xem tình trạng sau khám. Ghi dưới dạng "việc khác" rồi
+    // chuyển sang đúng trạng thái ở cột bên trái.
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Xem tình trạng sau khám rồi chọn tiếp: “Chờ kết quả xét nghiệm” nếu còn đợi xét nghiệm, hoặc hẹn ngày tái khám ở khối Nhắc tái khám.",
+  },
+  DA_TRA_KQ: {
+    tieuDe: "Đã trả kết quả — có cần tái khám không",
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    oKhoiKhac: "Nhắc tái khám",
+    nhacNho:
+      "Kết quả đã trả. Việc còn lại là quyết có hẹn tái khám hay không — hẹn thì gõ ngày ở khối Nhắc tái khám để hệ thống tự sinh hai mốc gọi.",
+  },
+  KHONG_FOLLOW_UP: {
+    tieuDe: "Không cần follow up sau thủ thuật",
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Ghi lại để ca sau KHÔNG gọi vào ngày mai. Không ghi thì người trực kế tiếp không có cách nào biết, và khách bị gọi thừa.",
+  },
+  SAU_SINH_1_THANG: {
+    tieuDe: "Sau sinh 1 tháng — chúc mừng đầy tháng",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    nhacNho:
+      "Chúc mừng đầy tháng và mời khám lại sau sinh. Hệ thống KHÔNG tự biết ngày sinh thật (chỉ có ngày dự sinh), nên trạng thái này do CSKH chọn.",
+  },
+  SAU_THU_THUAT_1_NGAY: {
+    tieuDe: "Sau thủ thuật 1 ngày — hỏi thăm",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    nhacNho:
+      "Gọi hỏi thăm tình trạng sau thủ thuật. Trạng thái này do CSKH chọn — dịch vụ thủ thuật đang tắt nên máy không suy ra được.",
+  },
+};
+
+/** Tiêu đề của khối hành động, theo trạng thái đang chọn.
+ *
+ *  Xuất ra để `CustomersView` dựng tiêu đề từ CÙNG một bảng với các nút bên
+ *  dưới. Hai bảng cho cùng một khái niệm là hai bảng sẽ lệch — và ở đây lệch
+ *  nghĩa là tiêu đề nói một việc còn nút làm một việc khác. */
+export function tieuDeHanhDong(ma: string | null | undefined): string {
+  if (!ma) return MAC_DINH.tieuDe;
+  return (HANH_DONG[ma] ?? HANH_DONG_THEM[ma] ?? MAC_DINH).tieuDe;
+}
+
+const MAC_DINH: HanhDongViec = {
+  tieuDe: "Gọi khách & ghi tương tác",
+  loai: "NHAC_HEN",
+  goiKhach: true,
+  zalo: "NHAC_HEN",
+};
+
 /** Ba lý do huỷ có sẵn — đúng ba trường hợp chị Thu liệt kê, và khớp
  *  `LY_DO_HUY` ở booking_service.py để hai đầu không nói hai bộ từ. */
 const LY_DO_HUY_SAN: string[] = [
