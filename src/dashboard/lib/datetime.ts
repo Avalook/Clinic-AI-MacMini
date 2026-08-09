@@ -11,11 +11,6 @@ export const VN_TZ = "Asia/Ho_Chi_Minh";
  *  hoặc gõ khác mà không ai thấy. */
 export const VN_OFFSET = "+07:00";
 
-/** Nửa đêm (giờ VN) của một ngày `yyyy-mm-dd`, dạng mốc ms. */
-export function nuaDemVnMs(ymd: string): number {
-  return Date.parse(`${ymd}T00:00:00${VN_OFFSET}`);
-}
-
 /** Giữa trưa (giờ VN) của một ngày — mốc an toàn để lấy thứ trong tuần.
  *
  *  Dùng nửa đêm cho việc này là sai ở biên: `new Date("…T00:00:00+07:00")` rơi

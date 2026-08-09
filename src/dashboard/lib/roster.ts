@@ -67,22 +67,8 @@ export const STATION_LABEL: Record<string, string> = Object.fromEntries(
   STATIONS.map((s) => [s.key, s.label]),
 );
 
-export const STATION_SHORT: Record<string, string> = Object.fromEntries(
-  STATIONS.map((s) => [s.key, s.short]),
-);
 
-export const STATION_GROUP: Record<string, string> = Object.fromEntries(
-  STATIONS.map((s) => [s.key, s.group]),
-);
 
-// Màu theo nhóm trạm (chấm/viền thẻ kanban).
-export const GROUP_COLOR: Record<string, string> = {
-  "Bác sĩ": "var(--color-brand-600)",
-  "Tầng 1": "var(--color-specialty-service)",
-  "Tầng 2": "var(--color-success)",
-  "Tầng 4": "var(--color-warning)",
-  "Ngoài giờ": "var(--color-specialty-andro)",
-};
 
 // ===== HAI HÀNG CON MỖI NGÀY =====
 //

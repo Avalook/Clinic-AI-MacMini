@@ -23,7 +23,14 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
-import { fmtTime, slotRange, VN_TZ, vnLocalToUtcISO } from "@/lib/datetime";
+import {
+  fmtTime,
+  giuaTruaVn,
+  slotRange,
+  VN_OFFSET,
+  VN_TZ,
+  vnLocalToUtcISO,
+} from "@/lib/datetime";
 import { isDeadStatus } from "@/lib/slot-capacity";
 import { dayLabel } from "@/lib/roster";
 import { useBookingPolicy } from "../BookingPolicyContext";
@@ -86,7 +93,7 @@ function weekOf(anchorIso: string, offset: number): {
   dateStr: string;
   isoDate: string;
 }[] {
-  const anchor = new Date(`${anchorIso}T12:00:00+07:00`);
+  const anchor = giuaTruaVn(anchorIso);
   // getUTCDay trên mốc 12:00 VN vẫn ra đúng thứ trong ngày VN (12:00+07 = 05:00Z).
   const dow = anchor.getUTCDay(); // 0=CN
   const mondayShift = (dow + 6) % 7; // CN→6, T2→0
@@ -116,7 +123,7 @@ function weekOf(anchorIso: string, offset: number): {
  */
 function tuanLechSoVoiHomNay(isoDate: string): number {
   const thuHai = (iso: string): number => {
-    const d = new Date(`${iso}T12:00:00+07:00`);
+    const d = giuaTruaVn(iso);
     const dow = d.getUTCDay(); // 0=CN
     d.setUTCDate(d.getUTCDate() - ((dow + 6) % 7));
     return Math.floor(d.getTime() / 86_400_000);
@@ -230,7 +237,7 @@ function generateSlotsForDate(
   stepMinutes: number,
   hours: Record<string, { open: string; close: string }>,
 ): string[] {
-  const dow = new Date(`${isoDate}T12:00:00+07:00`).getUTCDay();
+  const dow = giuaTruaVn(isoDate).getUTCDay();
   const today = hours[String(dow)];
   if (!today) return []; // thứ không có trong cấu hình = đóng cửa
 
@@ -1233,7 +1240,7 @@ export default function BookingHub({
       const endM = String(totalEndMin % 60).padStart(2, "0");
       const endDate = endDayShift
         ? new Date(
-            new Date(`${targetDate}T00:00:00+07:00`).getTime() +
+            Date.parse(`${targetDate}T00:00:00${VN_OFFSET}`) +
               endDayShift * 86_400_000,
           ).toLocaleDateString("en-CA", { timeZone: VN_TZ })
         : targetDate;
