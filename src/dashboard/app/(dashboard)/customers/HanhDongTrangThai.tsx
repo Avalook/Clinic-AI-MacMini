@@ -244,15 +244,41 @@ export default function HanhDongTrangThai({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clinic_patient_id: clinicPatientId,
-          // Ba loại này bắt buộc gắn lịch hẹn (CHECK ở database). Gửi null cho
-          // các loại khác thay vì gửi bừa một id không liên quan.
-          appointment_id: ["XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY"].includes(
-            loai,
-          )
+          // NĂM loại này bắt buộc gắn lịch hẹn (CAN_LICH_HEN ở backend +
+          // CHECK `tuong_tac_can_lich_hen` ở database). Gửi null cho các loại
+          // khác thay vì gửi bừa một id không liên quan.
+          //
+          // Danh sách này TỪNG THIẾU check-in/check-out, mà chính màn này gửi
+          // CHECK_OUT ở hai nút "Trả kết quả xét nghiệm" và "Đặt lịch tái
+          // khám" — nên cả hai chỉ trả về "Việc này phải gắn với một lịch hẹn
+          // cụ thể" và không bao giờ đóng được bước. Chép một tập hợp của
+          // backend sang trình duyệt thì phải chép đủ.
+          appointment_id: [
+            "XAC_NHAN_LICH",
+            "NHAC_HEN",
+            "HOI_LY_DO_HUY",
+            "CHECK_IN",
+            "CHECK_OUT",
+          ].includes(loai)
             ? appointmentId
             : null,
           loai,
-          kenh: mocQuay ? "TRUC_TIEP" : "GOI",
+          // "BỎ QUA" LÀ KHÔNG GỌI AI CẢ, nên kênh phải là KHONG_LIEN_HE.
+          //
+          // Chỗ này từng gửi cứng "GOI" cho mọi thứ không phải mốc quầy, kể cả
+          // nút "Ghi nhận: không cần gọi" (ket_qua = BO_QUA). Cả backend lẫn
+          // ràng buộc `tuong_tac_bo_qua_thi_khong_lien_he` của database đều đòi
+          // BO_QUA ⟺ KHONG_LIEN_HE, nên nút ấy CHƯA TỪNG ghi được lần nào: bấm
+          // là hiện dòng đỏ "'Bỏ qua' phải đi cùng 'không liên hệ'", và bước
+          // trên timeline không bao giờ tích xanh.
+          //
+          // Ghi một dòng "đã gọi" cho một việc mà cả ý nghĩa của nó là KHÔNG
+          // gọi thì còn tệ hơn: nó vào sổ chăm sóc như một cuộc gọi chưa từng có.
+          kenh: mocQuay
+            ? "TRUC_TIEP"
+            : ketQua === "BO_QUA"
+              ? "KHONG_LIEN_HE"
+              : "GOI",
           ket_qua: mocQuay ? "GHI_NHAN" : ketQua,
           noi_dung: (noiDung ?? ghiChu).trim() || null,
           // MÃ TRẠNG THÁI mà thao tác này đóng lại. Đây là thứ timeline dò để
