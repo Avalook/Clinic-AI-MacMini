@@ -9,7 +9,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarClock, UserPlus, TriangleAlert } from "lucide-react";
-import { fmtDateTimeOrDate } from "../../../../lib/datetime";
+import { fmtDateTimeOrDate, VN_OFFSET } from "../../../../lib/datetime";
 
 export interface DongCho {
   id: string;
@@ -139,7 +139,7 @@ export default function HangChoView({
     const ngay = new Date(slotStart).toLocaleDateString("en-CA", {
       timeZone: "Asia/Ho_Chi_Minh",
     });
-    const moc = new Date(`${ngay}T${hhmm}:00+07:00`);
+    const moc = new Date(`${ngay}T${hhmm}:00${VN_OFFSET}`);
     return new Date(moc.getTime() + themMs).toISOString();
   }
 
