@@ -39,6 +39,26 @@ const CHUYEN_KHOA: Record<string, string> = {
   BSSA: "Bác sĩ siêu âm",
 };
 
+/** Viết tắt đứng MỘT MÌNH ở đầu tên (không có chức danh đầy đủ phía trước) →
+ *  chức danh đầy đủ. "BS NAM" là bác sĩ thật; cắt "BS" đi mà không thay bằng gì
+ *  là xoá mất chức danh của người ta. Học hàm (TS, ThS, BSCK…) đều là bác sĩ. */
+const CHUC_DANH_TU_VIET_TAT: Record<string, string> = {
+  ...CHUYEN_KHOA,
+  BS: "Bác sĩ",
+  TS: "Bác sĩ",
+  THS: "Bác sĩ",
+  GS: "Bác sĩ",
+  PGS: "Bác sĩ",
+  BSCK: "Bác sĩ",
+  BSCKI: "Bác sĩ",
+  BSCKII: "Bác sĩ",
+  BSCKIII: "Bác sĩ",
+  ĐD: "Điều dưỡng",
+  TL: "Trợ lý",
+  CN: "Cử nhân",
+  DS: "Dược sĩ",
+};
+
 /** Tên người để HIỂN THỊ: "<Chức danh> <Tên riêng>", không lặp, không viết tắt.
  *
  *  Rỗng → "" (nơi gọi tự quyết "Chưa phân bác sĩ" / "—"). */
@@ -59,12 +79,26 @@ export function doctorName(raw: string | null | undefined): string {
     // Chức danh còn chung chung mà viết tắt nói rõ chuyên khoa → dùng cái rõ hơn.
     if ((!chucDanh || chucDanh === "Bác sĩ") && CHUYEN_KHOA[cum]) {
       chucDanh = CHUYEN_KHOA[cum];
+    } else if (!chucDanh) {
+      // Không có vế chức danh nào phía trước ("BS NAM", "ĐD. Thuý") — dựng lại
+      // chức danh TỪ CHÍNH viết tắt vừa cắt, thay vì để người ta trần tên.
+      chucDanh = CHUC_DANH_TU_VIET_TAT[cum] ?? "";
     }
   }
 
   if (!phanConLai) return chucDanh || goc;
-  // Không có chức danh nào ở đầu (tên trần, nhập tay) → mặc định "Bác sĩ".
-  // Đây là danh sách bác sĩ đặt lịch; ai không phải bác sĩ thì chuỗi gốc đã
-  // mang sẵn chức danh của họ ("Điều dưỡng · …", "Trợ lý · …").
-  return `${chucDanh || "Bác sĩ"} ${phanConLai}`.replace(/\s+/g, " ").trim();
+
+  // TÊN TRẦN THÌ TRẢ VỀ NGUYÊN TÊN — KHÔNG TỰ GẮN "BÁC SĨ".
+  //
+  // Bản trước tôi để nhánh cuối là `Bác sĩ ${tên}`, nghĩ rằng hàm này chỉ chạy
+  // trên danh sách bác sĩ. Sai: bảng lịch trực gọi nó cho MỌI nhân viên, và
+  // phần lớn ô trong bảng là lễ tân, điều dưỡng, trợ lý — tên họ lưu trần
+  // ("Quỳnh Anh", "Hải Yến", "Thư", "Duy Nam"). Kết quả là cả bảng mọc ra
+  // "Bác sĩ Quỳnh Anh", "Bác sĩ Hải Yến" ở đúng những cột không phải bác sĩ.
+  //
+  // Gắn chức danh cho một người mà không biết chức danh của họ là bịa — và bịa
+  // chức danh y tế thì hiện lên trước mặt bệnh nhân. Ai có chức danh thì chuỗi
+  // gốc đã mang sẵn ("Bác sĩ · …", "Điều dưỡng · …"); ai không có thì để nguyên.
+  if (!chucDanh) return phanConLai;
+  return `${chucDanh} ${phanConLai}`.replace(/\s+/g, " ").trim();
 }
