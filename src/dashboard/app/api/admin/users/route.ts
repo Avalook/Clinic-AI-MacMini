@@ -19,6 +19,10 @@
 // - If SUPABASE_SERVICE_ROLE_KEY is unset, every method fails closed (503).
 
 import { NextResponse } from "next/server";
+import {
+  emailTuTenDangNhap,
+  loiTenDangNhap,
+} from "../../../../lib/ten-dang-nhap";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import {
@@ -175,12 +179,13 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const email = (body.email ?? "").trim();
+  const loiNick = loiTenDangNhap(body.email ?? "");
+  if (loiNick) {
+    return NextResponse.json({ error: loiNick }, { status: 400 });
+  }
+  const email = emailTuTenDangNhap(body.email ?? "");
   const password = body.password ?? "";
   const staffId = (body.staffId ?? "").trim();
-  if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "Email không hợp lệ." }, { status: 400 });
-  }
   if (password.length < MIN_PASSWORD) {
     return NextResponse.json(
       { error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD} ký tự.` },
@@ -345,13 +350,11 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "change_email") {
-    const email = (body.email ?? "").trim().toLowerCase();
-    if (!email || !email.includes("@")) {
-      return NextResponse.json(
-        { error: "Tên đăng nhập phải là một địa chỉ email." },
-        { status: 400 },
-      );
-    }
+    // Tên trần được: đuôi do `emailTuTenDangNhap` gắn, cùng hàm mà màn đăng
+    // nhập dùng — nên nick quản lý đặt ở đây gõ vào đâu cũng vào được.
+    const loi = loiTenDangNhap(body.email ?? "");
+    if (loi) return NextResponse.json({ error: loi }, { status: 400 });
+    const email = emailTuTenDangNhap(body.email ?? "");
     // `email_confirm: true` đi kèm là BẮT BUỘC. Đổi email mà không xác nhận
     // luôn thì GoTrue treo địa chỉ mới ở trạng thái chờ và gửi thư xác nhận —
     // phòng khám không có hòm thư nào để nhận, nên người đó mất đường vào cho

@@ -36,7 +36,7 @@ export default function LoginForm() {
 
         <div className="space-y-1">
           <label htmlFor="email" className="text-sm font-medium text-ink-soft">
-            Email
+            Tên đăng nhập
           </label>
           <div className="relative">
             <Mail
@@ -46,11 +46,11 @@ export default function LoginForm() {
             <input
               id="email"
               name="email"
-              type="email"
+              type="text"
               required
               autoFocus
-              autoComplete="email"
-              placeholder="email@phongkham.vn"
+              autoComplete="username"
+              placeholder="tên đăng nhập"
               className="w-full rounded-lg border border-line pl-10 pr-3 py-2.5 text-base text-ink outline-none transition-all duration-200 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 sm:py-2 sm:text-sm"
             />
           </div>
