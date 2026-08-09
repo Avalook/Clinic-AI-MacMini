@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
@@ -27,6 +28,7 @@ import { tieuDeHanhDong } from "./HanhDongTrangThai";
 import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
+import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
@@ -148,6 +150,16 @@ export interface CustomerRow {
   linh_vuc: string | null;
 }
 
+/** Một dòng trong bảng "khách này đang có mấy lịch". Đủ để nhận ra lịch nào là
+ *  lịch nào rồi quyết bỏ cái nào — không hơn. */
+export interface LichSapToi {
+  id: string;
+  slot_start: string;
+  status: string;
+  service_name: string | null;
+  doctor_name: string | null;
+}
+
 export interface ApptInfo {
   slot_start: string;
   status: string;
@@ -155,6 +167,13 @@ export interface ApptInfo {
   /** Lịch đại diện đã qua giờ mà khách vẫn chưa đến. */
   qua_gio_hen?: boolean;
   count: number;
+  /** MỌI lịch còn sống và còn sắp tới của khách này, sớm trước.
+   *
+   *  `slot_start` một mình chỉ kể được LỊCH ĐẠI DIỆN, nên khách đặt ba lần
+   *  trông y hệt khách đặt một lần — màn chỉ nói "+N việc", một con số đếm VIỆC
+   *  chứ không đếm lịch, và không bấm được vào đâu để xem. Đây là danh sách để
+   *  cảnh báo trùng và để bỏ bớt. */
+  sapToi: LichSapToi[];
   examined: boolean;
   /** Mốc hệ thống cho vùng làm việc: lịch được tạo lúc nào, huỷ lúc nào. */
   created_at?: string | null;
@@ -411,7 +430,9 @@ export default function CustomersView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<CustomerTab>("all");
-  
+  /** Khách đang mở bảng "mấy lịch trùng" (clinic_patient_id), null = đang đóng. */
+  const [xemTrung, setXemTrung] = useState<string | null>(null);
+
   /** Bấm một ô số = lọc theo ô đó. Bấm lại đúng ô đang chọn = bỏ lọc. */
   const chonLoc = (key: CustomerTab) =>
     setTab((cu) => (cu === key ? "all" : key));
@@ -724,16 +745,25 @@ export default function CustomersView({
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
                           <StatusChip tone={st.tone} label={st.label} />
-                          {/* Việc đại diện chỉ là MỘT trong số việc đang mở.
-                              Không nói ra thì màn im lặng giấu phần còn lại. */}
-                          {(trangThaiByPatient[row.clinic_patient_id]
-                            ?.so_viec_mo ?? 0) > 1 && (
-                            <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">
-                              +
-                              {(trangThaiByPatient[row.clinic_patient_id]
-                                ?.so_viec_mo ?? 1) - 1}{" "}
-                              việc
-                            </span>
+                          {/* TRÙNG LỊCH — cảnh báo BẤM ĐƯỢC, không phải con số
+                              câm. Chip cũ ở đây đếm `so_viec_mo` (số VIỆC CSKH
+                              đang mở) nhưng người đọc hiểu là số LỊCH, và bấm
+                              vào không ra gì. Xem LichTrungCuaKhach.tsx. */}
+                          {(apptByPatient[row.clinic_patient_id]?.sapToi
+                            ?.length ?? 0) > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setXemTrung(row.clinic_patient_id);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-full border border-warning/50 bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning hover:bg-warning/20"
+                            >
+                              <AlertTriangle className="size-3" />
+                              {apptByPatient[row.clinic_patient_id]!.sapToi
+                                .length}{" "}
+                              lịch trùng
+                            </button>
                           )}
                         </div>
                         {!selected && (
@@ -1124,6 +1154,20 @@ export default function CustomersView({
         />
       ) : null}
 
+      {/* Bảng "khách này đang có mấy lịch". Mở từ chip cảnh báo ở danh sách
+          bên trái, nên nó KHÔNG phụ thuộc khách đang được chọn — CSKH thấy
+          cảnh báo ở dòng nào thì mở đúng dòng ấy. */}
+      {xemTrung && apptByPatient[xemTrung]?.sapToi?.length ? (
+        <LichTrungCuaKhach
+          tenKhach={
+            rows.find((r) => r.clinic_patient_id === xemTrung)?.full_name ??
+            "Khách hàng"
+          }
+          lich={apptByPatient[xemTrung]!.sapToi}
+          onDong={() => setXemTrung(null)}
+          onDaHuy={() => router.refresh()}
+        />
+      ) : null}
     </div>
   );
 }
