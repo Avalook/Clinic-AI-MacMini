@@ -249,11 +249,6 @@ export default function NewPatientForm({
       : "",
   ); // text hiện trong ô
   const [doctorOpen, setDoctorOpen] = useState(false);
-  const filteredDoctors = useMemo(() => {
-    const t = unaccentVi(doctorQ.trim());
-    if (!t) return doctors;
-    return doctors.filter((d) => unaccentVi(d.label).includes(t));
-  }, [doctorQ, doctors]);
   const [apptDate, setApptDate] = useState(initialAppt?.date ?? "");
   const [apptTime, setApptTime] = useState(initialAppt?.time ?? "");
   // Loại ghế đang chọn ở sơ đồ (luồng full): "regular" = BN1/BN2 (kênh thường);
@@ -289,6 +284,32 @@ export default function NewPatientForm({
       .catch(() => {});
     return () => ctrl.abort();
   }, [dutyDate]);
+  // Ô "Bác sĩ" CHỈ MỜI NGƯỜI CÓ TRỰC NGÀY ĐÓ.
+  //
+  // Quang 09/08/2026: *"rõ là hôm nay có lịch mà sao lúc đặt lịch lại không
+  // thấy lịch bác sĩ nào hiện ra?"*.
+  //
+  // `dutyDoctorIds` được nạp từ trước — nhưng chỉ đưa xuống sơ đồ khung giờ,
+  // còn ô tìm bác sĩ ngay trên nó thì lọc trên TOÀN BỘ danh sách. Nên biểu mẫu
+  // mời cả mười lăm bác sĩ cho một ngày chỉ có hai người trực, và không nói một
+  // chữ nào về việc ai đang trực. Dữ liệu đúng, nạp đúng, rồi không ai dùng.
+  //
+  // `null` = chưa hỏi xong; `[]` = ngày chưa xếp trực → mời tất cả (cùng đường
+  // lùi với sơ đồ khung giờ, và nay nói ra thành lời ở ngay dưới ô).
+  const bacSiTrucCa = useMemo(
+    () =>
+      dutyDoctorIds === null || dutyDoctorIds.length === 0
+        ? doctors
+        : doctors.filter((d) => dutyDoctorIds.includes(d.id)),
+    [doctors, dutyDoctorIds],
+  );
+  const chuaXepTruc = dutyDoctorIds !== null && dutyDoctorIds.length === 0;
+  const filteredDoctors = useMemo(() => {
+    const t = unaccentVi(doctorQ.trim());
+    if (!t) return bacSiTrucCa;
+    return bacSiTrucCa.filter((d) => unaccentVi(d.label).includes(t));
+  }, [doctorQ, bacSiTrucCa]);
+
   // CAP-01: phân loại tải để engine ngân sách (newCap + Thành-min) chặn đúng.
   // Khách MỚI luôn là ca KHÁM MỚI (EPI-01 DEC-E5) → cố định NEW, không còn nút đổi
   // (BN cũ/tái khám đổi loại ở AppointmentBooking trên trang chi tiết BN).
@@ -1166,6 +1187,23 @@ export default function NewPatientForm({
             <label className={LABEL}>
               Bác sĩ <Req />
             </label>
+            {/* NÓI RA AI ĐANG TRỰC. Một ô tìm kiếm im lặng thì "hôm nay có lịch"
+                và "không thấy bác sĩ nào" cùng đúng một lúc — người dùng không
+                có cách nào biết là mình phải bấm vào ô mới thấy. */}
+            {dutyDoctorIds !== null && (
+              <p className="mb-1 text-[11px] leading-snug text-ink-muted">
+                {chuaXepTruc ? (
+                  <>Ngày này chưa xếp lịch trực — chọn được mọi bác sĩ.</>
+                ) : (
+                  <>
+                    Trực ngày này:{" "}
+                    <b className="text-ink">
+                      {bacSiTrucCa.map((d) => d.label).join(" · ")}
+                    </b>
+                  </>
+                )}
+              </p>
+            )}
             <div className="relative">
               <input
                 value={doctorQ}
@@ -1176,7 +1214,11 @@ export default function NewPatientForm({
                 }}
                 onFocus={() => setDoctorOpen(true)}
                 onBlur={() => setTimeout(() => setDoctorOpen(false), 150)}
-                placeholder="Tìm bác sĩ… (bỏ trống nếu chưa phân)"
+                placeholder={
+                  chuaXepTruc
+                    ? "Tìm bác sĩ… (ngày này chưa xếp trực)"
+                    : "Tìm bác sĩ trực ngày này…"
+                }
                 className={INPUT}
                 autoComplete="off"
               />
