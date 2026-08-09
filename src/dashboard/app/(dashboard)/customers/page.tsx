@@ -18,6 +18,7 @@ import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
 import type { DongLichSu } from "./GhiTuongTac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
+import type { MocTaiKham } from "./NhacTaiKham";
 import CustomersView, {
   type CustomerRow,
   type ApptInfo,
@@ -25,6 +26,9 @@ import CustomersView, {
   type Period,
   type ByDim,
 } from "./CustomersView";
+
+/** Một mốc gọi nhắc tái khám, đúng hình dạng RecallJobService trả về. */
+type RecallRaw = MocTaiKham & { clinic_patient_id: string };
 import { listBookableDoctors } from "../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 
@@ -214,6 +218,26 @@ export default async function CustomersPage({
         )
         .in("clinic_patient_id", shownIds)
     : Promise.resolve({ data: [] as unknown[], error: null });
+
+  // NHẮC TÁI KHÁM — gộp về đây, không còn là một màn rời.
+  //
+  // HAI VIỆC TRONG MỘT LỜI GỌI, và cái thứ hai mới là cái quan trọng:
+  //
+  //  1. Đọc các mốc gọi đang mở, để vùng làm việc của từng khách hiện đúng
+  //     "còn N ngày nữa phải gọi mời đặt lịch".
+  //  2. SINH việc của hôm nay. Endpoint này chạy `sinh_viec_nhac_tai_kham()`
+  //     trước khi trả về, và dự án CHƯA CÓ BỘ HẸN GIỜ NÀO — nên việc chỉ ra
+  //     đời khi có người mở một màn gọi đường này. Trước đây đường ấy là
+  //     /nhac-tai-kham; ngày 09/08/2026 màn đó bị gỡ khỏi thanh bên của CSKH,
+  //     và cùng lúc bộ sinh việc mất luôn người kích hoạt. Không ai báo lỗi —
+  //     hàng đợi chỉ đơn giản là không bao giờ có gì trong đó.
+  //
+  // Trả về null khi vai không được đọc (Lễ tân, Thu ngân) hoặc backend im —
+  // khối nhắc tái khám ẩn đi, phần còn lại của màn vẫn chạy.
+  const recallPromise = fetchFromBackend<{
+    luot1: RecallRaw[];
+    luot2: RecallRaw[];
+  }>("/api/v1/cskh/recall-jobs");
 
   // ZALO ĐÃ NỐI CHƯA. Hỏi SERVER, không đoán ở trình duyệt: access token nằm
   // trong môi trường của backend và không bao giờ xuống đây.
@@ -498,6 +522,27 @@ export default async function CustomersPage({
     }
   }
 
+  // Gom mốc gọi theo khách. Hai lượt đi chung một danh sách: vùng làm việc của
+  // một người cần thấy CẢ HAI ("mời đặt lịch" và "nhắc đi khám"), xếp theo ngày
+  // phải gọi — gần nhất trước.
+  const taiKhamByPatient: Record<string, MocTaiKham[]> = {};
+  const recall = await recallPromise;
+  for (const r of [...(recall?.luot1 ?? []), ...(recall?.luot2 ?? [])]) {
+    if (!r.clinic_patient_id) continue;
+    (taiKhamByPatient[r.clinic_patient_id] ??= []).push({
+      id: r.id,
+      luot_goi: r.luot_goi,
+      ngay_hen: r.ngay_hen,
+      han_goi: r.han_goi,
+      qua_han: r.qua_han,
+      ly_do: r.ly_do ?? null,
+      nguon: r.nguon ?? "PHIEU_KHAM",
+    });
+  }
+  for (const ds of Object.values(taiKhamByPatient)) {
+    ds.sort((a, b) => a.han_goi.localeCompare(b.han_goi));
+  }
+
   return (
     <div className="space-y-3">
       {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — nó đã hiện đúng
@@ -516,6 +561,7 @@ export default async function CustomersPage({
           trangThaiByPatient={trangThaiByPatient}
           phanHoiByPatient={phanHoiByPatient}
           tepByPatient={tepByPatient}
+          taiKhamByPatient={taiKhamByPatient}
           zaloBat={zaloTrangThai.bat}
           zaloThieu={zaloTrangThai.thieu}
           locations={locations}

@@ -413,6 +413,13 @@ class SlotHoldRequest(BaseModel):
     slot_start: datetime
     slot_end: datetime
     doctor_id: UUID | None = None
+    # KHÁCH ĐANG ĐƯỢC CHỌN, để nhật ký thao tác gọi được tên người.
+    #
+    # Chỗ giữ bản thân nó là cặp (bác sĩ, khung giờ) — nó KHÔNG cần biết khách
+    # là ai và không lưu vào bảng. Nhưng dòng nhật ký sinh ra từ nó thì cần:
+    # thiếu trường này, `/audit-log` không tra được ai và in ra
+    # "slot_hold · 938d4f94". Tuỳ chọn: giữ chỗ vẫn chạy khi chưa chọn khách.
+    clinic_patient_id: UUID | None = None
 
 
 @router.post("/appointments/slot-hold", status_code=201)
@@ -431,6 +438,9 @@ async def hold_slot(
         slot_start=body.slot_start,
         slot_end=body.slot_end,
         doctor_id=str(body.doctor_id) if body.doctor_id else None,
+        clinic_patient_id=(
+            str(body.clinic_patient_id) if body.clinic_patient_id else None
+        ),
     )
 
 

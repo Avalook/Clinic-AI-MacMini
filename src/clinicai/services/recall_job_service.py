@@ -102,7 +102,10 @@ class RecallJobService:
                        n.trang_thai,
                        n.ket_qua,
                        n.ghi_chu,
+                       n.ly_do,
+                       n.nguon,
                        n.goi_luc,
+                       n.clinic_patient_id::text,
                        p.full_name,
                        p.phone_primary,
                        p.patient_code,
@@ -129,6 +132,86 @@ class RecallJobService:
             "cua_so_ngay": CUA_SO_NGAY,
             "luot1": [v for v in viec if v["luot_goi"] == 1],
             "luot2": [v for v in viec if v["luot_goi"] == 2],
+        }
+
+    async def tao_thu_cong(
+        self,
+        *,
+        identity: StaffIdentity,
+        clinic_patient_id: str,
+        ngay_tai_kham: date,
+        ly_do: str | None = None,
+    ) -> dict[str, Any]:
+        """CSKH gõ tay ngày tái khám → sinh HAI mốc gọi: T−7 và T−1.
+
+        VÌ SAO CÓ ĐƯỜNG NÀY. `sinh_viec_nhac_tai_kham()` chỉ đọc được lời dặn
+        tái khám nằm trong `soap_plan.tai_kham.ngay` của một phiếu khám ĐÃ CHỐT.
+        Khách nói qua điện thoại "tháng sau em quay lại" thì không có phiếu nào
+        để đọc — câu ấy hiện không có chỗ ghi xuống, nên nó nằm trong đầu người
+        trực và mất khi đổi ca.
+
+        HAI MỐC LÀ HAI VIỆC KHÁC NHAU, giống hệt hai lượt tự sinh:
+            T−7 → gọi MỜI ĐẶT LỊCH   (lượt 1)
+            T−1 → gọi NHẮC ĐI KHÁM   (lượt 2)
+
+        Ngày tái khám ở QUÁ KHỨ bị từ chối: một việc sinh ra đã quá hạn cả hai
+        mốc chỉ làm hàng đợi sáng mai dài thêm mà không ai gọi được nữa.
+        """
+        hom_nay = date.fromisoformat(clinic_today())
+        if ngay_tai_kham < hom_nay:
+            raise ValidationError("Ngày tái khám không thể ở quá khứ.")
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                ok = await conn.fetchval(
+                    "SELECT 1 FROM public.patient "
+                    " WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid",
+                    clinic_patient_id,
+                    identity.clinic_id,
+                )
+                if not ok:
+                    raise NotFoundError("Không tìm thấy khách hàng này.")
+
+                # ON CONFLICT DO NOTHING trên uq_nhac_tai_kham_viec: gõ lại cùng
+                # một ngày không đẻ thêm việc, và KHÔNG đè lên việc máy đã suy ra
+                # từ phiếu khám cho chính ngày ấy.
+                rows = await conn.fetch(
+                    """
+                    INSERT INTO public.nhac_tai_kham
+                        (clinic_id, clinic_patient_id, luot_goi, ngay_hen,
+                         han_goi, nguon, tao_boi_staff_id, ly_do)
+                    SELECT $1::uuid, $2::uuid, v.luot, $3::date, v.han,
+                           'CSKH_NHAP', $4::uuid, $5
+                      FROM (VALUES (1::smallint, $3::date - 7),
+                                   (2::smallint, $3::date - 1)) AS v(luot, han)
+                    ON CONFLICT (clinic_id, clinic_patient_id, ngay_hen, luot_goi)
+                    DO NOTHING
+                    RETURNING luot_goi, han_goi
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                    ngay_tai_kham,
+                    identity.staff_id,
+                    (ly_do or "").strip() or None,
+                )
+
+        logger.info(
+            "recall_job_manual",
+            clinic_patient_id=clinic_patient_id,
+            ngay_tai_kham=str(ngay_tai_kham),
+            so_viec_moi=len(rows),
+            by_staff_id=identity.staff_id,
+        )
+        return {
+            "ok": True,
+            "ngay_tai_kham": ngay_tai_kham.isoformat(),
+            "so_viec_moi": len(rows),
+            # Rỗng = ngày này đã có đủ việc từ trước. Nói ra để màn hình không
+            # báo "đã tạo" cho một lần bấm không tạo gì.
+            "moc": [
+                {"luot_goi": r["luot_goi"], "han_goi": r["han_goi"].isoformat()}
+                for r in rows
+            ],
         }
 
     async def ghi_ket_qua(

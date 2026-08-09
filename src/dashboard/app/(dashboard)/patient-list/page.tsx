@@ -23,8 +23,6 @@ import {
 import { vnTodayRangeUtc } from "../../../lib/datetime";
 import PatientListView, { type ExaminedRow } from "./PatientListView";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
-import type { Option } from "../patients/AppointmentBooking";
-import { listBookableDoctors } from "../../../lib/doctors-server";
 
 export const dynamic = "force-dynamic";
 
@@ -65,12 +63,12 @@ export default async function PatientListPage() {
   const showPager = isDoctorRole(role);
   const supabase = await getSupabaseServer();
 
-  // Dữ liệu cho MODAL đặt lịch nhanh ("Tái khám" trong popup). Chỉ nạp khi nút hiện
-  // (CSKH/Lễ tân/Quản lý — đều canWriteIntake nên POST /api/appointments cho phép).
-  // Giống cách trang chi tiết BN nạp options; bỏ dịch vụ rác "FREE".
-  // Danh sách bệnh nhân KHÔNG phụ thuộc mấy tuỳ chọn của modal đặt lịch — nó
-  // chỉ nằm sau vì được viết sau. Bắn tất cả cùng lúc rồi chờ một lần: mỗi lượt
-  // sang Seoul là ~210ms, và ở đây có hai lượt xếp hàng cho không.
+  // KHÔNG CÒN NẠP OPTION CHO MODAL ĐẶT LỊCH NHANH.
+  //
+  // Modal ấy (`QuickBookingModal` → `CskhBookingGrid`) là màn dựng sẵn và đã bị
+  // xoá; nút "Tái khám" nay đi tới `/appointments` — màn đặt lịch thật, tự nạp
+  // dịch vụ / bác sĩ / cơ sở của chính nó. Ba truy vấn ở đây chỉ để nuôi một
+  // modal không còn tồn tại.
   const { startUtc: todayStartUtc, endUtc: todayEndUtc } = vnTodayRangeUtc();
   // Hồ sơ: nguồn của danh sách. Lịch hẹn: nguồn của các lượt khám.
   const qPatients = supabase
@@ -92,31 +90,10 @@ export default async function PatientListPage() {
     .order("slot_start", { ascending: false })
     .limit(2000);
 
-  let services: Option[] = [];
-  let doctors: Option[] = [];
-  let locations: Option[] = [];
-  const [{ data, error }, { data: pdata, error: perror }, opts] = await Promise.all([
+  const [{ data, error }, { data: pdata, error: perror }] = await Promise.all([
     qList,
     qPatients,
-    showRebook
-      ? Promise.all([
-          supabase.from("clinic_location").select("id, name").order("name"),
-          supabase.from("service_type").select("id, name").order("name"),
-          listBookableDoctors(),
-        ])
-      : Promise.resolve(null),
   ]);
-  if (opts) {
-    const [locRes, svcRes, docRes] = opts;
-    locations = (locRes.data ?? []).map((r) => ({
-      id: r.id as string,
-      label: r.name as string,
-    }));
-    services = (svcRes.data ?? [])
-      .filter((r) => (r.name as string)?.trim().toUpperCase() !== "FREE")
-      .map((r) => ({ id: r.id as string, label: r.name as string }));
-    doctors = docRes;
-  }
 
   // BN xuất hiện ở "Danh sách bệnh nhân" khi: (a) đã khám xong (COMPLETED) — lịch
   // sử; HOẶC (b) ĐANG khám HÔM NAY (CHECKED_IN/IN_PROGRESS) — walk-in vừa tiếp
@@ -261,12 +238,7 @@ export default async function PatientListPage() {
           showPreVisitBrief={isDoctorRole(role)}
           /* Nút Tái khám: CSKH/Lễ tân. Pager lượt khám: Bác sĩ. */
           showRebook={showRebook}
-          /* Lễ tân xếp BN tái khám VÃNG LAI vào ghế đến trực tiếp (ô xanh), không phải ô hồng. */
-          walkinRebook={role === "RECEPTION"}
           enableVisitPager={showPager}
-          services={services}
-          doctors={doctors}
-          locations={locations}
         />
       )}
     </div>

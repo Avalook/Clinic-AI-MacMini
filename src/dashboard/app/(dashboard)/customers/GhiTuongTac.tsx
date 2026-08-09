@@ -39,6 +39,113 @@ const LOAI: [string, string][] = [
 // Không có lịch thì không cho chọn, thay vì để backend trả lỗi sau khi gõ xong.
 const CAN_LICH = new Set(["XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY"]);
 
+/** Khối hành động ĐỔI THEO VIỆC ĐANG PHẢI LÀM.
+ *
+ *  TRƯỚC ĐÂY NÓ ĐỨNG YÊN. Bốn nút — Gọi, Ghi kết quả gọi, Zalo nhắc hẹn, Zalo
+ *  báo có KQ — hiện y hệt nhau bất kể khách đang ở bước nào. Hai chỗ sai rõ
+ *  nhất, và cả hai đều dẫn người trực làm sai việc:
+ *
+ *    · Bước "Hỏi đơn vị xét nghiệm" bày ra một nút quay số MÁY KHÁCH HÀNG.
+ *      Việc ấy là gọi cho phòng xét nghiệm, không phải gọi cho bệnh nhân — gọi
+ *      khách lúc này là gọi để nói "em chưa có kết quả".
+ *    · Bước "Nhắc bác sĩ duyệt kết quả" cũng vậy: người cần chạm là bác sĩ.
+ *
+ *  Ngoài ra ô "Việc gì" luôn mở sẵn ở "Gọi nhắc hẹn" nên mọi cuộc gọi vào sổ
+ *  dưới cùng một loại, và cột "Tương tác gần nhất" nói sai về việc vừa làm.
+ *
+ *  `goiKhach = false` KHÔNG ẩn ô ghi kết quả — việc vẫn phải được ghi lại. Nó
+ *  chỉ bỏ cái nút quay số nhầm người.
+ */
+interface HanhDongViec {
+  tieuDe: string;
+  /** Loại tương tác mở sẵn khi CSKH bấm "Ghi kết quả". */
+  loai: string;
+  /** Có quay số cho KHÁCH ở bước này không. */
+  goiKhach: boolean;
+  /** Mẫu tin Zalo hợp với bước này; null = không có mẫu nào đúng. */
+  zalo: "NHAC_HEN" | "TRA_KET_QUA" | null;
+  /** Câu nói rõ bước này chạm tới ai — hiện khi không phải gọi khách. */
+  nhacNho?: string;
+  /** Bước này ghi ở khối khác (Nhắc tái khám), không ghi ở đây. */
+  oKhoiKhac?: string;
+}
+
+const HANH_DONG: Record<string, HanhDongViec> = {
+  CHO_XAC_NHAN: {
+    tieuDe: "Gọi xác nhận lịch",
+    loai: "XAC_NHAN_LICH",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
+  NHAC_HEN_MAI: {
+    tieuDe: "Gọi nhắc hẹn ngày mai",
+    loai: "NHAC_HEN",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
+  GOI_LAI: {
+    tieuDe: "Gọi lại — lần trước chưa gặp",
+    loai: "NHAC_HEN",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
+  HOI_LY_DO_HUY: {
+    tieuDe: "Gọi hỏi vì sao huỷ",
+    loai: "HOI_LY_DO_HUY",
+    goiKhach: true,
+    zalo: null,
+  },
+  HEN_GOI_LAI: {
+    tieuDe: "Đã hẹn gọi lại hôm nay",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+  },
+  KQ_CHUA_GUI: {
+    tieuDe: "Gọi trả kết quả cho khách",
+    loai: "TRA_KQ",
+    goiKhach: true,
+    zalo: "TRA_KET_QUA",
+  },
+  CHO_KQ_XN: {
+    tieuDe: "Hỏi đơn vị xét nghiệm",
+    loai: "CHECK_XN",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Bước này gọi cho ĐƠN VỊ XÉT NGHIỆM, không phải cho khách. Ghi lại kết quả hỏi được.",
+  },
+  CHO_BAC_SI: {
+    tieuDe: "Nhắc bác sĩ duyệt kết quả",
+    loai: "KHAC",
+    goiKhach: false,
+    zalo: null,
+    nhacNho:
+      "Kết quả đang chờ BÁC SĨ xem. Nhắc bác sĩ rồi ghi lại — chưa gọi khách ở bước này.",
+  },
+  MOI_TAI_KHAM: {
+    tieuDe: "Gọi mời tái khám",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    oKhoiKhac: "Nhắc tái khám",
+  },
+  NHAC_DI_KHAM: {
+    tieuDe: "Gọi nhắc đi khám",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+    oKhoiKhac: "Nhắc tái khám",
+  },
+};
+
+const MAC_DINH: HanhDongViec = {
+  tieuDe: "Gọi khách & ghi tương tác",
+  loai: "NHAC_HEN",
+  goiKhach: true,
+  zalo: "NHAC_HEN",
+};
+
 export interface DongLichSu {
   xay_ra_luc: string;
   loai: string;
@@ -82,6 +189,7 @@ export default function GhiTuongTac({
   phone,
   lichSuBanDau,
   loaiBanDau,
+  viecHienTai,
   moBanDau = false,
   zaloBat = false,
   zaloThieu = [],
@@ -89,6 +197,9 @@ export default function GhiTuongTac({
   clinicPatientId: string;
   appointmentId: string | null;
   phone: string | null;
+  /** Việc gấp nhất đang mở của khách (`v_trang_thai_cskh.trang_thai`). Quyết
+   *  định khối này bày ra những nút nào. */
+  viecHienTai?: string | null;
   /** Loại việc mở sẵn khi timeline bấm vào một node. */
   loaiBanDau?: string | null;
   moBanDau?: boolean;
@@ -104,8 +215,14 @@ export default function GhiTuongTac({
   // Hai state này khởi tạo TỪ PROP, và component được gắn `key` theo việc đang
   // ghi — nên bấm một node khác là remount, không cần effect đồng bộ. Trình
   // biên dịch React chặn setState đồng bộ trong effect, và cách này né hẳn nó.
+  // Bước trên chuỗi mà người dùng vừa bấm THẮNG việc gấp nhất do view suy ra:
+  // họ vừa nói ra mình muốn làm gì.
+  const hanhDong =
+    (loaiBanDau ? null : viecHienTai ? HANH_DONG[viecHienTai] : null) ??
+    MAC_DINH;
+
   const [mo, setMo] = useState(moBanDau);
-  const [loai, setLoai] = useState(loaiBanDau ?? "NHAC_HEN");
+  const [loai, setLoai] = useState(loaiBanDau ?? hanhDong.loai);
   const [ketQua, setKetQua] = useState("DA_LIEN_HE");
   const [xacNhan, setXacNhan] = useState(false);
   const [noiDung, setNoiDung] = useState("");
@@ -226,58 +343,81 @@ export default function GhiTuongTac({
 
   return (
     <div className="space-y-2">
+      {/* Bước này chạm tới ai — hiện khi KHÔNG phải gọi khách. */}
+      {hanhDong.nhacNho && (
+        <p className="rounded-lg bg-warning-bg px-2 py-1.5 text-[11px] leading-snug text-warning">
+          {hanhDong.nhacNho}
+        </p>
+      )}
+      {hanhDong.oKhoiKhac && (
+        <p className="rounded-lg bg-surface-muted px-2 py-1.5 text-[11px] leading-snug text-ink-soft">
+          Việc này ghi ở khối <b>{hanhDong.oKhoiKhac}</b> trong vùng làm việc —
+          ghi ở đó thì việc mới đóng lại.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
-        {phone ? (
-          <a
-            href={`tel:${phone}`}
-            onClick={() => setMo(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand-300 bg-white py-2 px-3 font-semibold text-brand-700 shadow-xs transition-colors hover:bg-brand-50"
-          >
-            📞 Gọi
-          </a>
-        ) : (
-          <button
-            disabled
-            type="button"
-            className="inline-flex cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-muted py-2 px-3 font-semibold text-ink-muted opacity-60"
-          >
-            📞 Chưa có SĐT
-          </button>
-        )}
+        {/* Nút quay số CHỈ hiện ở bước thật sự gọi cho khách. */}
+        {hanhDong.goiKhach ? (
+          phone ? (
+            <a
+              href={`tel:${phone}`}
+              onClick={() => setMo(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-brand-300 bg-white py-2 px-3 font-semibold text-brand-700 shadow-xs transition-colors hover:bg-brand-50"
+            >
+              📞 Gọi
+            </a>
+          ) : (
+            <button
+              disabled
+              type="button"
+              className="inline-flex cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-line bg-surface-muted py-2 px-3 font-semibold text-ink-muted opacity-60"
+            >
+              📞 Chưa có SĐT
+            </button>
+          )
+        ) : null}
         <button
           type="button"
           onClick={() => setMo((v) => !v)}
-          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface py-2 px-3 text-xs font-semibold text-ink-soft hover:bg-surface-muted"
+          className={`inline-flex items-center justify-center rounded-xl py-2 px-3 text-xs font-semibold ${
+            hanhDong.goiKhach
+              ? "border border-line bg-surface text-ink-soft hover:bg-surface-muted"
+              : "col-span-2 bg-brand-600 text-white hover:bg-brand-700"
+          }`}
         >
-          Ghi kết quả gọi
+          {hanhDong.goiKhach ? "Ghi kết quả gọi" : `Ghi kết quả — ${hanhDong.tieuDe}`}
         </button>
       </div>
 
-      {/* GỬI ZALO THẬT. Nút LUÔN HIỆN, nhưng khoá khi chưa cấu hình và nói
-          thiếu gì — ẩn hẳn thì người dùng không biết tính năng tồn tại; hiện
-          mà bấm vào báo lỗi thì họ tưởng hệ thống hỏng. */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* GỬI ZALO THẬT — và CHỈ mẫu tin hợp với bước đang làm.
+          Nút LUÔN HIỆN khi bước này có mẫu, nhưng khoá lúc chưa cấu hình và nói
+          thiếu gì: ẩn hẳn thì người dùng không biết tính năng tồn tại; hiện mà
+          bấm vào báo lỗi thì họ tưởng hệ thống hỏng.
+          Bỏ hẳn ở bước không có mẫu nào đúng — "Zalo báo có KQ" ở bước hỏi lý
+          do huỷ là một tin nhắn sai gửi cho khách thật. */}
+      {hanhDong.zalo === "NHAC_HEN" && (
         <button
           type="button"
           disabled={!zaloBat || dangGuiZalo !== null || !appointmentId}
           onClick={() => void guiZalo("NHAC_HEN")}
-          title={
-            !appointmentId ? "Khách chưa có lịch hẹn nào" : undefined
-          }
-          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface py-1.5 px-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+          title={!appointmentId ? "Khách chưa có lịch hẹn nào" : undefined}
+          className="inline-flex w-full items-center justify-center rounded-xl border border-line bg-surface py-1.5 px-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
         >
           {dangGuiZalo === "NHAC_HEN" ? "Đang gửi…" : "💬 Zalo nhắc hẹn"}
         </button>
+      )}
+      {hanhDong.zalo === "TRA_KET_QUA" && (
         <button
           type="button"
           disabled={!zaloBat || dangGuiZalo !== null}
           onClick={() => void guiZalo("TRA_KET_QUA")}
-          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface py-1.5 px-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center rounded-xl border border-line bg-surface py-1.5 px-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
         >
           {dangGuiZalo === "TRA_KET_QUA" ? "Đang gửi…" : "💬 Zalo báo có KQ"}
         </button>
-      </div>
-      {!zaloBat && (
+      )}
+      {hanhDong.zalo && !zaloBat && (
         <p className="text-[11px] text-ink-faint">
           Zalo chưa nối{zaloThieu.length > 0 && ` — thiếu ${zaloThieu.join(", ")}`}.
           Gọi điện cho khách và ghi kết quả gọi.

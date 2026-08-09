@@ -505,9 +505,8 @@ export default function AppointmentBooking({
             maxHour={maxHour}
             minutesOptions={policy ? slotMinuteOptions(policy) : []}
           />
-          <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
-            ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
-          </p>
+          {/* Bỏ dòng "đến muộn 15 phút mất chỗ" — xem ghi chú cùng chỗ trong
+              NewPatientForm.tsx. */}
           {ch && (
             <p className="mt-1 text-[11px] text-ink-faint">
               Giờ mở cửa: {ch.open}–{ch.close}

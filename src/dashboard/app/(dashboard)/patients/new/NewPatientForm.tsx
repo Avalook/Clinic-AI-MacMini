@@ -1231,9 +1231,11 @@ export default function NewPatientForm({
               maxHour={apptMaxHour}
               minutesOptions={policy ? slotMinuteOptions(policy) : []}
             />
-            <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
-              ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
-            </p>
+            {/* BỎ DÒNG "đến muộn 15 phút mất chỗ" (Quang chốt 09/08/2026).
+                Nó là một lời hứa về luật vận hành mà hệ thống KHÔNG thi hành:
+                không có chỗ nào hạ ưu tiên người đến muộn, và thứ tự gọi do
+                services/queue_order.py quyết theo giờ check-in thật. Một câu
+                doạ không có hiệu lực thì chỉ dạy người đọc bỏ qua chữ đỏ. */}
             {apptCh && (
               <p className="mt-1 text-[11px] text-ink-faint">
                 Giờ mở cửa: {apptCh.open}–{apptCh.close}
