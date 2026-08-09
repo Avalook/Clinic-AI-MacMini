@@ -94,7 +94,17 @@ export default function CinemaSlotPicker({
       const picked = doctors.find((d) => d.id === selectedDoctorId);
       if (picked) return [picked];
     }
-    if (!dutyDoctorIds || dutyDoctorIds.length === 0) return doctors;
+    // NGÀY CHƯA XẾP TRỰC THÌ KHÔNG BÀY TÊN BÁC SĨ NÀO.
+    //
+    // Quang 09/08/2026: *"chưa có phân bác sĩ thì hiện ra các ông bác sĩ làm
+    // gì. rồi không chọn được đúng chứ?"*. Đúng — bản cũ trả về TOÀN BỘ danh
+    // sách cho một ngày chưa ai được xếp ca, tức mời người dùng chọn một cái
+    // tên không có cơ sở, rồi backend từ chối.
+    //
+    // `null` = CHƯA hỏi xong (khác `[]` = hỏi rồi, ngày này trống): lúc chưa
+    // biết thì giữ nguyên danh sách, đừng nháy bảng.
+    if (dutyDoctorIds == null) return doctors;
+    if (dutyDoctorIds.length === 0) return [];
     const set = new Set(dutyDoctorIds);
     const filtered = doctors.filter((d) => set.has(d.id));
     // Lịch trực trỏ tới staff không còn trong combobox → đừng để bảng rỗng.
@@ -128,9 +138,26 @@ export default function CinemaSlotPicker({
 
   // Hàng \"Chưa phân bác sĩ\" chỉ cần khi CHƯA chọn bác sĩ cụ thể — lịch online
   // chưa phân BS vẫn phải hiện \"đã kín\" và bị giới hạn chỗ như một hàng riêng.
-  const rows: Option[] = selectedDoctorId
-    ? dutyDoctors
-    : [...dutyDoctors, { id: "", label: "Chưa phân bác sĩ" }];
+  // MỘT NGÀY CHỈ CÓ MỘT TRONG HAI HÌNH.
+  //
+  // Quang 09/08/2026: *"những ngày có lịch bác sĩ thì đương nhiên phải hiện ra
+  // những lịch của bác sĩ ấy ở dạng bảng đó rồi, bỏ cái chưa phân bác sĩ là
+  // được"* — và ngày chưa xếp trực thì *"vẫn sẽ hiện cái khung giờ ra… chỉ ghi
+  // là chưa phân bác sĩ"*.
+  //
+  // Nên: có bác sĩ trực → CHỈ các bác sĩ ấy, KHÔNG kèm hàng "Chưa phân bác sĩ"
+  // (bày cả hai là hỏi một câu đã có câu trả lời). Chưa xếp trực → ĐÚNG MỘT
+  // hàng, và hàng ấy nói luôn phải làm gì tiếp.
+  const rows: Option[] =
+    dutyDoctors.length > 0
+      ? dutyDoctors
+      : [
+          {
+            id: "",
+            label:
+              "Chưa phân bác sĩ — chọn trước khung giờ để quản lý sắp xếp",
+          },
+        ];
   const now = nowMs();
   const walkinMode = mode === "walkin";
   const effSelectedKind = selectedKind ?? (walkinMode ? "walkin" : "regular");
@@ -179,9 +206,13 @@ export default function CinemaSlotPicker({
           <span className="inline-block h-3 w-3 rounded bg-line" /> Đã kín / quá giờ
         </span>
       </div>
+      {/* Câu cũ nói "đang hiện tất cả bác sĩ" — đúng với hành vi cũ, và hành vi
+          ấy chính là thứ vừa bỏ. Nay ngày chưa xếp trực chỉ còn một hàng "Chưa
+          phân bác sĩ", nên câu này phải nói đúng chuyện đang xảy ra. */}
       {noDuty && (
         <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-[11px] text-warning">
-          Ngày này chưa có lịch trực bác sĩ (Lịch làm việc) — đang hiện tất cả bác sĩ.
+          Ngày này chưa xếp lịch trực bác sĩ. Cứ chọn khung giờ — quản lý sẽ xếp
+          bác sĩ sau, ở màn Lịch làm việc.
         </p>
       )}
       <div className="overflow-x-auto rounded-xl border border-brand-100">

@@ -303,7 +303,9 @@ export default function NewPatientForm({
         : doctors.filter((d) => dutyDoctorIds.includes(d.id)),
     [doctors, dutyDoctorIds],
   );
-  const chuaXepTruc = dutyDoctorIds !== null && dutyDoctorIds.length === 0;
+
+  // Ô tìm bác sĩ CỦA MÀN VÃNG LAI vẫn còn (điều dưỡng ghi khách đến thẳng, không
+  // qua sơ đồ khung giờ), nhưng nay cũng chỉ mời người CÓ TRỰC hôm đó.
   const filteredDoctors = useMemo(() => {
     const t = unaccentVi(doctorQ.trim());
     if (!t) return bacSiTrucCa;
@@ -1183,85 +1185,12 @@ export default function NewPatientForm({
               ))}
             </select>
           </div>
-          <div>
-            <label className={LABEL}>
-              Bác sĩ <Req />
-            </label>
-            {/* NÓI RA AI ĐANG TRỰC. Một ô tìm kiếm im lặng thì "hôm nay có lịch"
-                và "không thấy bác sĩ nào" cùng đúng một lúc — người dùng không
-                có cách nào biết là mình phải bấm vào ô mới thấy. */}
-            {dutyDoctorIds !== null && (
-              <p className="mb-1 text-[11px] leading-snug text-ink-muted">
-                {chuaXepTruc ? (
-                  <>Ngày này chưa xếp lịch trực — chọn được mọi bác sĩ.</>
-                ) : (
-                  <>
-                    Trực ngày này:{" "}
-                    <b className="text-ink">
-                      {bacSiTrucCa.map((d) => d.label).join(" · ")}
-                    </b>
-                  </>
-                )}
-              </p>
-            )}
-            <div className="relative">
-              <input
-                value={doctorQ}
-                onChange={(e) => {
-                  setDoctorQ(e.target.value);
-                  setDoctorId(""); // xóa chọn cũ khi gõ đè
-                  setDoctorOpen(true);
-                }}
-                onFocus={() => setDoctorOpen(true)}
-                onBlur={() => setTimeout(() => setDoctorOpen(false), 150)}
-                placeholder={
-                  chuaXepTruc
-                    ? "Tìm bác sĩ… (ngày này chưa xếp trực)"
-                    : "Tìm bác sĩ trực ngày này…"
-                }
-                className={INPUT}
-                autoComplete="off"
-              />
-              {doctorOpen && (
-                <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
-                  <li
-                    onMouseDown={() => {
-                      setDoctorId("");
-                      setDoctorQ("");
-                      setDoctorOpen(false);
-                    }}
-                    className="cursor-pointer px-3 py-2 text-sm text-ink-muted hover:bg-brand-50"
-                  >
-                    — Chưa phân bác sĩ —
-                  </li>
-                  {filteredDoctors.length === 0 ? (
-                    <li className="px-3 py-2 text-sm text-ink-faint">
-                      Không tìm thấy bác sĩ
-                    </li>
-                  ) : (
-                    filteredDoctors.map((d) => (
-                      <li
-                        key={d.id}
-                        onMouseDown={() => {
-                          setDoctorId(d.id);
-                          setDoctorQ(d.label);
-                          setDoctorOpen(false);
-                        }}
-                        className={
-                          "cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 " +
-                          (d.id === doctorId
-                            ? "bg-brand-100 font-medium text-brand-800"
-                            : "text-ink")
-                        }
-                      >
-                        {d.label}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-            </div>
-          </div>
+          {/* Ô "Tìm bác sĩ" ĐÃ BỎ.
+              Quang 09/08/2026: *"chỉ xoá cả bảng chọn… nó dùng cho cả màn khách
+              mới và khách cũ"*. Bác sĩ được chọn bằng cách bấm vào một ô trong
+              sơ đồ khung giờ bên dưới — `onPick` set thẳng `doctorId`. Giữ thêm
+              một ô gõ tay ở trên là hỏi cùng một câu hai lần bằng hai cách,
+              trong đó cách gõ tay không biết gì về ca trực lẫn sức chứa. */}
           <div>
             <label className={LABEL}>
               Ngày khám <Req />
