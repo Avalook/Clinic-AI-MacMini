@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ExternalLink,
-  Filter,
   Search,
   UsersRound,
   X,
@@ -212,31 +211,34 @@ function BoLoc({
 
   return (
     <div className="relative">
+      {/* CHỈ CÒN MŨI TÊN, nằm sát mép phải ô tìm kiếm (Quang chốt 09/08/2026).
+          Chữ "Bộ lọc" chiếm chỗ cho một thứ chỉ thỉnh thoảng mới mở.
+          NHƯNG khi ĐANG lọc thì vẫn phải nói ra: một mũi tên trông y hệt lúc
+          lọc và lúc không là cách để người dùng nhìn một danh sách đã bị cắt mà
+          tưởng đó là tất cả. Nên lúc ấy mũi tên đổi màu và có chấm báo. */}
       <button
         type="button"
         onClick={() => setMo((v) => !v)}
         aria-expanded={mo}
-        className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium shadow-card transition-colors ${
+        aria-label={dangLoc ? `Bộ lọc — đang lọc ${nhanKy}` : "Bộ lọc"}
+        title={
           dangLoc
-            ? "border-brand-500 bg-brand-50 text-brand-700"
-            : "border-line bg-surface text-ink-soft hover:bg-surface-muted"
+            ? `Đang lọc: ${nhanKy}${by === "appt" ? " · theo ngày hẹn" : ""}`
+            : "Bộ lọc"
+        }
+        className={`relative grid size-8 place-items-center rounded-lg transition-colors ${
+          dangLoc
+            ? "bg-brand-50 text-brand-700"
+            : "text-ink-muted hover:bg-surface-muted hover:text-ink"
         }`}
       >
-        <Filter className="size-4" aria-hidden="true" />
-        Bộ lọc
-        {/* Nút đóng lại rồi thì phải còn nói được nó đang lọc gì. Một nút
-            "Bộ lọc" trông y hệt lúc lọc và lúc không là cách để người dùng
-            nhìn một danh sách đã bị cắt mà tưởng đó là tất cả. */}
-        {dangLoc && (
-          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-bold text-white">
-            {nhanKy}
-            {by === "appt" ? " · ngày hẹn" : ""}
-          </span>
-        )}
         <ChevronDown
           className={`size-4 transition-transform ${mo ? "rotate-180" : ""}`}
           aria-hidden="true"
         />
+        {dangLoc && (
+          <span className="absolute right-1 top-1 size-1.5 rounded-full bg-brand-600" />
+        )}
       </button>
 
       {mo && (
@@ -249,7 +251,7 @@ function BoLoc({
             onClick={() => setMo(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute left-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-line bg-surface p-3 shadow-lg">
+          <div className="absolute right-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-line bg-surface p-3 shadow-lg">
             <div className="space-y-1.5">
               <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
                 Khoảng thời gian
@@ -640,17 +642,14 @@ export default function CustomersView({
           lịch ("+ Đặt lịch hẹn cho khách mới" — cùng một biểu mẫu
           NewPatientForm, kèm luôn lịch hẹn đầu tiên). Trang /patients/new vẫn
           còn nguyên và gõ thẳng URL vẫn vào được. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-h-10 min-w-[240px] max-w-md flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-ink-muted shadow-card focus-within:border-brand-500">
-          <Search className="size-4" aria-hidden="true" />
-          <input
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
-            className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
-          />
-        </label>
-
+      <div className="flex min-h-10 min-w-[240px] max-w-md items-center gap-2 rounded-xl border border-line bg-surface pl-3 pr-1.5 text-ink-muted shadow-card focus-within:border-brand-500">
+        <Search className="size-4 shrink-0" aria-hidden="true" />
+        <input
+          value={term}
+          onChange={(event) => setTerm(event.target.value)}
+          placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+        />
         <BoLoc
           period={period}
           by={by}

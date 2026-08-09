@@ -33,6 +33,7 @@
 // đây không) và `clinic_membership.is_active` (còn thuộc phòng khám này không).
 // Bản cũ chỉ kiểm cái đầu.
 
+import { doctorName } from "./doctor-name";
 import { getSupabaseServer } from "./supabase-server";
 
 /** Vai KHÁM BỆNH — người nhận được một lịch hẹn.
@@ -75,8 +76,11 @@ export async function listBookableDoctors(): Promise<DoctorOption[]> {
 
   if (error) return [];
 
+  // TÊN HIỂN THỊ CHUẨN HOÁ NGAY TẠI NGUỒN. Mọi màn dùng danh sách này (lưới
+  // đặt lịch, modal đổi lịch, ô lọc bác sĩ) vì thế nói cùng một cái tên — thay
+  // vì mỗi màn tự gọi doctorName() và một màn nào đó quên.
   return ((data as DoctorRow[] | null) ?? []).map((r) => ({
     id: r.id,
-    label: r.full_name ?? "—",
+    label: doctorName(r.full_name) || "—",
   }));
 }

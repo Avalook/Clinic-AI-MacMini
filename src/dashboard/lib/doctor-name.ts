@@ -33,7 +33,21 @@ const TRAI_VIET_TAT: [RegExp, string][] = [
  *  và trải các viết tắt chuyên khoa thành chữ đầy đủ.
  *  Tên rỗng → "" (caller tự quyết fallback "Chưa phân bác sĩ"/"—"). */
 export function doctorName(raw: string | null | undefined): string {
-  const n = (raw ?? "").trim();
+  // GỠ TIỀN TỐ RÁC ĐÃ NẰM SẴN TRONG DATABASE.
+  //
+  // Đo trên prod 09/08/2026: `staff.full_name` là
+  // "Bác sĩ · BSNT. Hoàng Đình Thiệp" — chữ "Bác sĩ ·" đã được ai đó ghi thẳng
+  // vào dữ liệu. Vì thế mọi phép nhận diện học hàm bên dưới đều trượt (chuỗi
+  // không bắt đầu bằng BSNT mà bằng "Bác sĩ"), và màn hình hiện ra một cái tên
+  // nói chữ "bác sĩ" hai lần mà vẫn không nói được chuyên khoa.
+  //
+  // Cắt ở tầng hiển thị chứ không sửa dữ liệu: `full_name` còn được dùng ở
+  // phiếu khám, chữ ký và bản in, nên sửa hàng loạt là một việc riêng cần đối
+  // chiếu, không phải việc của một lần đổi nhãn.
+  const n = (raw ?? "")
+    .trim()
+    .replace(/^(?:BS|Bác\s*sĩ)\s*[·.\-–]\s*/i, "")
+    .trim();
   if (!n) return "";
   for (const [mau, thay] of TRAI_VIET_TAT) {
     if (mau.test(n)) return n.replace(mau, thay);
