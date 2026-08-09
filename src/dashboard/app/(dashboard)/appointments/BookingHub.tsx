@@ -520,9 +520,6 @@ export default function BookingHub({
   }
 
   const [note, setNote] = useState("");
-  const [chkCustomer, setChkCustomer] = useState(true);
-  const [chkService, setChkService] = useState(true);
-  const [chkDocSlot, setChkDocSlot] = useState(true);
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
   // ĐẶT XONG THÌ PHẢI THẤY NGAY TẠI CHỖ VỪA BẤM.
   //
@@ -2047,13 +2044,9 @@ export default function BookingHub({
                       <span>{activePatient.phone_primary ?? "—"}</span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setMode("grid")}
-                    className="text-[11px] font-semibold text-brand-700 hover:underline pt-0.5 block"
-                  >
-                    Đổi khách hàng
-                  </button>
+                  {/* Nút "Đổi khách hàng" đã bỏ (Quang chốt 09/08/2026): nó chỉ
+                      gọi setMode("grid"), mà cột trái đã có sẵn danh sách khách
+                      bấm-là-đổi. Hai đường tới cùng một chỗ, một cái thừa. */}
                 </div>
               )}
 
@@ -2150,39 +2143,11 @@ export default function BookingHub({
                 />
               </div>
 
-              {/* Confirmation Checklist */}
-              <div className="space-y-1.5 border-t border-line pt-2 text-xs">
-                <span className="font-semibold text-ink block">
-                  Thông tin xác nhận
-                </span>
-                <label className="flex items-center gap-2 cursor-pointer text-ink-soft">
-                  <input
-                    type="checkbox"
-                    checked={chkCustomer}
-                    onChange={(e) => setChkCustomer(e.target.checked)}
-                    className="rounded border-line text-brand-600 focus:ring-brand-500"
-                  />
-                  Đúng khách hàng
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-ink-soft">
-                  <input
-                    type="checkbox"
-                    checked={chkService}
-                    onChange={(e) => setChkService(e.target.checked)}
-                    className="rounded border-line text-brand-600 focus:ring-brand-500"
-                  />
-                  Đúng dịch vụ
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-ink-soft">
-                  <input
-                    type="checkbox"
-                    checked={chkDocSlot}
-                    onChange={(e) => setChkDocSlot(e.target.checked)}
-                    className="rounded border-line text-brand-600 focus:ring-brand-500"
-                  />
-                  Đúng bác sĩ và khung giờ
-                </label>
-              </div>
+              {/* Khối "Thông tin xác nhận" đã bỏ (Quang chốt 09/08/2026).
+                  Ba ô tích mặc định BẬT và không nơi nào đọc tới — chúng không
+                  chặn nút Đặt lịch hẹn, không đi vào payload, không được ghi
+                  lại. Người dùng nhìn thấy ba dấu tích và tin rằng mình vừa xác
+                  nhận điều gì đó; thật ra không có gì xảy ra cả. */}
 
               {/* Lỗi hiện ngay cạnh nút vừa bấm, thay cho alert() — hộp thoại
                   native chặn luồng, không theo giao diện chung và trên điện

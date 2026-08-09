@@ -51,20 +51,18 @@ export default function LichSapToiCuaKhach({
     );
   }
 
+  // HỘP ĐỎ "Chưa kiểm được lịch cũ của khách" ĐÃ BỎ — Quang chốt 09/08/2026,
+  // sau khi nó chiếm gần hết panel trong lúc thử màn Đặt lịch.
+  //
+  // ĐÁNH ĐỔI, GHI RA ĐÂY VÌ NÓ NGƯỢC VỚI GHI CHÚ ĐẦU FILE. Nhánh này là lượt
+  // hỏi HỎNG, và giờ nó không vẽ gì — tức màn hình lại trông y hệt lúc khách
+  // sạch lịch. Cái im lặng ấy chính là thứ khối này sinh ra để chặn.
+  //
+  // Thứ THẬT SỰ phải sửa là lý do lượt hỏi hỏng (`/api/appointments` trả về
+  // không-ok cho khách đang chọn), không phải cái hộp báo rằng nó hỏng. Bỏ hộp
+  // đi thì lỗi vẫn còn, chỉ là không ai thấy nữa.
   if (tra.kind === "hong") {
-    return (
-      <div
-        role="alert"
-        className="rounded-xl border border-danger/30 bg-danger-bg p-3 text-xs text-danger"
-      >
-        <div className="font-bold">Chưa kiểm được lịch cũ của khách</div>
-        <p className="mt-1 leading-snug text-ink">
-          Không đọc được danh sách lịch sắp tới, nên màn này{" "}
-          <b>không khẳng định được</b> khách chưa có lịch. Tải lại trang trước
-          khi đặt, hoặc kiểm ở Quản lý khách hàng → Lịch hẹn sắp tới.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   if (tra.items.length === 0) {
