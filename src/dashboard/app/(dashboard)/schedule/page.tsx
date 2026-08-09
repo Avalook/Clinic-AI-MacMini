@@ -4,7 +4,7 @@
 //  2. "Đăng ký lịch làm việc" (tương tác): click 1 ô → tự đăng ký ca CỦA MÌNH,
 //     thấy luôn đăng ký của người khác + trạng thái để tự liệu. Đăng ký → PENDING.
 //  - Quản lý: thêm nút "Sửa lịch" + hàng đợi "Chờ duyệt" (duyệt / từ chối kèm lý do).
-// Ghi qua /api/roster (đăng ký/duyệt) hoặc /schedule/edit (quản lý xếp tay).
+// Ghi qua /api/roster — bảng đăng ký ở dưới là đường DUY NHẤT để xếp người.
 
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
@@ -113,14 +113,11 @@ export default async function SchedulePage({
             Lịch trực do quản lý xếp và áp dụng theo tuần.
           </p>
         </div>
-        {isAdmin && (
-          <Link
-            href={`/schedule/edit?week=${week}`}
-            className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-surface hover:bg-brand-700"
-          >
-            Sửa lịch
-          </Link>
-        )}
+        {/* NÚT "SỬA LỊCH" ĐÃ BỎ cùng trang /schedule/edit (Quang 09/08/2026).
+            Xếp người nay làm ngay trong bảng bên dưới — bấm dấu "+" trong ô là
+            chọn được người cho đúng trạm, đúng ngày. Giữ thêm một màn thứ hai
+            làm cùng việc là hai chỗ ghi vào cùng một bảng, và người dùng phải
+            đoán chỗ nào mới là chỗ thật. */}
       </header>
 
       {/* Điều hướng tuần */}
