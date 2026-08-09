@@ -70,6 +70,12 @@ EVENT_LABELS: dict[str, str] = {
     # tác thấy chuỗi thô — đúng cái vòng lặp bài kiểm ấy được viết ra để chặn.
     "visit.closed_incomplete": "Đóng lượt khi chưa khám xong",
     "dispatch.alert_called": "Trưởng ca gọi bộ phận",
+    # Hai mã dưới đi vào event_log như THAM SỐ của thong_bao_service (bảng
+    # `NGUON` bên đó), không phải chuỗi hằng cạnh câu INSERT — nên bộ quét ở
+    # test_audit_labels_drift.py KHÔNG thấy chúng. Thêm nhãn bằng tay ở đây là
+    # bắt buộc; sửa bảng `NGUON` thì sửa cả chỗ này.
+    "thong_bao.bac_si_da_xep": "Báo CSKH lịch đã có bác sĩ",
+    "thong_bao.tuan_lich_truc": "Báo CSKH tuần đã chốt lịch trực",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
     "pharmacy.refused": "Khách không lấy thuốc",

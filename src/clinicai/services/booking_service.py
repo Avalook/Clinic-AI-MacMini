@@ -795,6 +795,26 @@ class BookingService:
                         reason=action,
                     )
 
+        # LỊCH VỪA CÓ BÁC SĨ → BÁO CSKH. Đây là mắt xích cuối của vòng mà màn
+        # Đặt lịch đã hứa với người dùng bằng chữ: *"Lịch đặt xong sẽ nằm ở màn
+        # Chờ xếp bác sĩ để quản lý phân người; khi đã có bác sĩ, khách này hiện
+        # lại ở Quản lý khách hàng để CSKH gọi xác nhận lịch và bác sĩ."*
+        #
+        # Nửa đầu câu ấy đúng từ trước — `doctor_id IS NULL` là hàng chờ. Nửa
+        # sau thì không: chưa có gì đánh thức CSKH, nên họ phải tự nhớ mà vào
+        # xem. Đặt ở đây, SAU khi giao dịch đã commit: giao dịch cuộn lại mà
+        # thông báo đã bay đi là báo một việc chưa xảy ra.
+        #
+        # Chỉ khi doctor_id đi từ RỖNG sang CÓ. Đổi bác sĩ này sang bác sĩ khác
+        # cũng đáng biết, nhưng nó không phải cái kết thúc chờ đợi — gộp vào là
+        # CSKH nhận thông báo cho mọi lần quản lý sửa phân công.
+        if appt["doctor_id"] is None and effective_doctor_id:
+            await self._bao_cskh_da_co_bac_si(
+                appointment_id=appointment_id,
+                doctor_id=effective_doctor_id,
+                identity=identity,
+            )
+
         logger.info(
             "appointment_action",
             appointment_id=appointment_id,
@@ -803,6 +823,62 @@ class BookingService:
             by_staff_id=identity.staff_id,
         )
         return {"status": new_status}
+
+    async def _bao_cskh_da_co_bac_si(
+        self, *, appointment_id: str, doctor_id: str, identity: StaffIdentity
+    ) -> None:
+        """Nhắn cho vai CSKH: lịch này xếp được bác sĩ rồi, gọi xác nhận đi.
+
+        NUỐT LỖI CÓ CHỦ Ý. Việc chính — gán bác sĩ — đã xong và đã commit. Ném
+        lỗi ở đây làm người gọi thấy một lời từ chối cho một hành động ĐÃ thành
+        công, và lần sau họ bấm lại, gán lại, rồi tưởng hệ thống hỏng. Thông báo
+        là lớp phủ thêm; nó hỏng thì ghi log, không kéo theo việc chính.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        try:
+            row = await self._pool.fetchrow(
+                """
+                SELECT p.full_name AS khach,
+                       p.patient_code,
+                       s.full_name AS bac_si,
+                       a.slot_start
+                  FROM public.appointment a
+                  LEFT JOIN public.patient p
+                         ON p.clinic_patient_id = a.clinic_patient_id
+                        AND p.clinic_id = a.clinic_id
+                  LEFT JOIN public.staff s ON s.id = $2::uuid
+                 WHERE a.id = $1::uuid AND a.clinic_id = $3::uuid
+                """,
+                appointment_id,
+                doctor_id,
+                identity.clinic_id,
+            )
+            if row is None:
+                return
+            khi = row["slot_start"].astimezone(CLINIC_TZ).strftime("%H:%M %d/%m")
+            await ThongBaoService(self._pool).goi(
+                identity=identity,
+                vai_nhan=ClinicRole.CSKH.value,
+                nguon="bac_si_da_xep",
+                # Khoá chống trùng theo LỊCH HẸN: quản lý sửa phân công vài lần
+                # trước khi chốt là chuyện thường, và CSKH chỉ cần biết một lần.
+                nguon_id=appointment_id,
+                muc_do="THUONG",
+                tieu_de="Lịch đã có bác sĩ — gọi xác nhận với khách",
+                noi_dung=(
+                    f"{row['khach'] or 'Khách'} ({row['patient_code'] or '—'}) "
+                    f"· {khi} · {row['bac_si'] or 'bác sĩ vừa được xếp'}. "
+                    "Gọi xác nhận lại giờ khám và tên bác sĩ."
+                ),
+                duong_dan="/customers",
+            )
+        except Exception:  # noqa: BLE001 — xem docstring
+            logger.warning(
+                "bao_cskh_da_co_bac_si_that_bai",
+                appointment_id=appointment_id,
+                exc_info=True,
+            )
 
     # --------------------------------------------------------------- helpers
 
