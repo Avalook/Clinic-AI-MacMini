@@ -50,6 +50,11 @@ const workRoster = readFileSync(
   new URL("../app/(dashboard)/home/WorkRosterTable.tsx", import.meta.url),
   "utf8",
 );
+// Màu viền theo TẦNG đã chuyển vào khung dùng chung của ba bảng lịch làm việc.
+const rosterGrid = readFileSync(
+  new URL("../app/(dashboard)/RosterGrid.tsx", import.meta.url),
+  "utf8",
+);
 const cinemaSlots = readFileSync(
   new URL("../app/(dashboard)/patients/CinemaSlotPicker.tsx", import.meta.url),
   "utf8",
@@ -146,6 +151,7 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
     intake,
     cskhLog,
     patientHistory,
+    rosterGrid,
   ].join("\n");
 
   assert.doesNotMatch(sources, /#[0-9a-f]{3,8}\b/i);
@@ -153,5 +159,5 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
   assert.doesNotMatch(sources, /rgba\(/i);
   assert.match(formUi, /shadow-card/);
   assert.match(booking, /ui\.className/);
-  assert.match(workRoster, /floorBorderClass/);
+  assert.match(rosterGrid, /FLOOR_BORDER/);
 });

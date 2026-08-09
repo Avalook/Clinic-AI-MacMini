@@ -141,11 +141,18 @@ export default async function HomePage({
       .eq("status", "SCHEDULED")
       .gte("slot_start", dayStart)
       .lt("slot_start", dayEnd),
+    // THỨ TỰ TRONG Ô LÀ THỨ TỰ HAI HÀNG CON, nên nó phải cố định. Không sắp thì
+    // Postgres trả về theo thứ tự nào cũng được, và người thứ nhất/thứ hai của
+    // một ngày đổi chỗ cho nhau giữa hai lần tải trang — một bảng lịch trực nhấp
+    // nháy như vậy trông như dữ liệu đang sai. `id` là chốt cuối khi `sort` bằng
+    // nhau (mọi dòng nạp từ Excel đều sort = 0).
     supabase
       .from("work_roster")
-      .select("work_date, station, staff_name, shift")
+      .select("work_date, station, staff_id, staff_name, shift")
       .eq("week_start", weekRoster)
-      .eq("status", "APPROVED"), // chỉ ca đã duyệt mới lên lịch chung trang chủ
+      .eq("status", "APPROVED") // chỉ ca đã duyệt mới lên lịch chung trang chủ
+      .order("sort", { ascending: true })
+      .order("id", { ascending: true }),
     // LỊCH HẸN TUẦN — nay do FastAPI trả, KÈM SẴN phan_loai.
     //
     // Trước đây chỗ này là một truy vấn PostgREST, rồi bên dưới còn một truy
