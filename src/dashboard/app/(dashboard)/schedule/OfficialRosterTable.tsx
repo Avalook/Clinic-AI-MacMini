@@ -1,21 +1,24 @@
+// Lịch làm việc chính thức (chỉ đọc) — CÙNG form với bảng trang chủ và bảng xếp
+// ca bên dưới: ngày × trạm, gom theo tầng, mỗi ngày HAI HÀNG CON, cột "Số BS"
+// ngay sau Lịch khám. Header + khung hàng dùng chung ở ../RosterGrid.
+
 import {
   SHIFT_LABEL,
-  STATIONS,
-  STATION_SEGMENTS,
+  chiaHaiHang,
+  demBacSiTruc,
   dayShort,
   fmtDayMonth,
   type Shift,
 } from "../../../lib/roster";
+import { RosterGridHead, RosterDayRows, O_TREN, O_DUOI } from "../RosterGrid";
 
 export interface OfficialRosterRow {
   work_date: string;
   station: string;
+  staff_id?: string | null;
   staff_name: string | null;
   shift: string;
 }
-
-const HEADER_CELL =
-  "border-b border-r border-line px-2 py-2 text-center align-middle font-semibold text-brand-800";
 
 export default function OfficialRosterTable({
   dates,
@@ -27,70 +30,32 @@ export default function OfficialRosterTable({
   return (
     <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
       <table className="w-full min-w-max border-collapse text-xs">
-        <thead>
-          <tr className="bg-brand-100">
-            <th
-              rowSpan={2}
-              className="sticky left-0 z-20 border-b border-r border-line bg-brand-100 px-2 py-2 text-left font-semibold text-brand-800"
-            >
-              Ngày
-            </th>
-            {STATION_SEGMENTS.map((segment) =>
-              segment.floor === "" ? (
-                segment.stations.map((station) => (
-                  <th
-                    key={station.key}
-                    rowSpan={2}
-                    className={`min-w-[96px] ${HEADER_CELL}`}
-                  >
-                    {station.short}
-                  </th>
-                ))
-              ) : (
-                <th
-                  key={segment.floor}
-                  colSpan={segment.stations.length}
-                  className={`${HEADER_CELL} border-t-2 border-t-brand-400`}
-                >
-                  {segment.floor}
-                </th>
-              ),
-            )}
-          </tr>
-          <tr className="bg-brand-50">
-            {STATIONS.filter((station) => station.floor !== "").map((station) => (
-              <th
-                key={station.key}
-                className="min-w-[92px] border-b border-r border-line px-2 py-1.5 text-center font-medium text-brand-700"
-              >
-                {station.short}
-              </th>
-            ))}
-          </tr>
-        </thead>
+        <RosterGridHead minWidth={92} />
         <tbody>
           {dates.map((date, index) => (
-            <tr
+            <RosterDayRows
               key={date}
-              className={index % 2 === 0 ? "bg-surface" : "bg-brand-50"}
-            >
-              <td className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-line bg-inherit px-2 py-2 font-medium text-ink">
-                {dayShort(date)} · {fmtDayMonth(date)}
-              </td>
-              {STATIONS.map((station) => {
-                const assignments = rows.filter(
-                  (row) =>
-                    row.work_date === date &&
-                    row.station === station.key &&
-                    row.staff_name,
-                );
+              nhan={`${dayShort(date)} · ${fmtDayMonth(date)}`}
+              soBacSi={demBacSiTruc(rows, date)}
+              vach={index % 2 === 0 ? "bg-surface" : "bg-brand-50"}
+              oCua={(station, hang) => {
+                const assignments = chiaHaiHang(
+                  rows.filter(
+                    (row) =>
+                      row.work_date === date &&
+                      row.station === station.key &&
+                      row.staff_name,
+                  ),
+                )[hang];
                 return (
                   <td
-                    key={station.key}
-                    className="border-b border-r border-line px-2 py-2 text-center text-ink"
+                    className={
+                      (hang === 0 ? O_TREN : O_DUOI) +
+                      " px-2 py-1.5 text-center text-ink"
+                    }
                   >
                     {assignments.length === 0 ? (
-                      <span className="text-ink-faint">—</span>
+                      hang === 0 ? <span className="text-ink-faint">—</span> : null
                     ) : (
                       assignments.map((assignment, assignmentIndex) => {
                         const suffix =
@@ -110,8 +75,8 @@ export default function OfficialRosterTable({
                     )}
                   </td>
                 );
-              })}
-            </tr>
+              }}
+            />
           ))}
         </tbody>
       </table>

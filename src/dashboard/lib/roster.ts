@@ -49,13 +49,18 @@ export const STATION_SEGMENTS: FloorSegment[] = STATIONS.reduce<FloorSegment[]>(
 );
 
 // Màu nhấn theo TẦNG (viền trên header tầng cho dễ phân biệt khối).
-export const FLOOR_COLOR: Record<string, string> = {
-  "Thủ thuật ngoài giờ": "var(--color-specialty-andro)",
-  "HSS + Thủ thuật trong giờ": "var(--color-specialty-andro)",
-  "Tầng 1 (ko SÂ)": "var(--color-specialty-service)",
-  "Tầng 2 · Khám Sản E10 + Mor": "var(--color-success)",
-  "Tầng 4": "var(--color-warning)",
-  "Tầng 4 phòng trong": "var(--color-brand-500)",
+//
+// KHOÁ PHẢI LÀ CHUỖI `floor` THẬT trong STATIONS ở trên. Bản trước viết tắt
+// ("Tầng 1 (ko SÂ)", "Tầng 2 · Khám Sản E10 + Mor") nên hai tầng ấy không bao
+// giờ khớp và rơi về màu mặc định — một bảng màu hỏng một nửa mà không ai thấy,
+// vì không có lỗi nào để thấy.
+export const FLOOR_BORDER: Record<string, string> = {
+  "Thủ thuật ngoài giờ": "border-t-specialty-andro",
+  "HSS + Thủ thuật trong giờ": "border-t-specialty-andro",
+  "Tầng 1 (không Siêu âm)": "border-t-specialty-service",
+  "Tầng 2 · Khám Sản E10 + Monitoring": "border-t-success",
+  "Tầng 4": "border-t-warning",
+  "Tầng 4 phòng trong": "border-t-brand-600",
 };
 
 export const STATION_LABEL: Record<string, string> = Object.fromEntries(
@@ -78,6 +83,50 @@ export const GROUP_COLOR: Record<string, string> = {
   "Tầng 4": "var(--color-warning)",
   "Ngoài giờ": "var(--color-specialty-andro)",
 };
+
+// ===== HAI HÀNG CON MỖI NGÀY =====
+//
+// File Excel "BẢNG LÀM VIỆC" (sheet LLV) dành HAI dòng cho mỗi ngày, và hai
+// dòng ấy KHÔNG phải ca sáng / ca chiều — mỗi dòng là MỘT NGƯỜI.
+//
+//   Quang, 09/08/2026: *"có nghĩa là ngày hôm ấy có 2 bác sĩ trực, giờ sáng hay
+//   chiều thì chi tiết trong trang nhỏ hiện ra lúc ấn vào dấu cộng"*.
+//
+// Đoán nhầm chỗ này là dựng cả cái bảng cho một mô hình sai: nếu hai hàng là
+// hai CA thì một bác sĩ trực cả ngày phải nằm ở cả hai hàng, và cột "số bác sĩ
+// trực" luôn đếm gấp đôi.
+
+/** Chia phân công của một ô thành ĐÚNG hai hàng con: người đầu ở hàng trên,
+ *  phần còn lại dồn xuống hàng dưới.
+ *
+ *  Dồn chứ không cắt bớt — Excel cũng viết "Thư/Hà Vũ" chung một ô khi ngày đó
+ *  có ba người. Cắt mất người thứ ba nghĩa là bảng nói dối về ai đang trực. */
+export function chiaHaiHang<T>(list: T[]): [T[], T[]] {
+  return list.length <= 1 ? [list, []] : [[list[0]], list.slice(1)];
+}
+
+/** Số bác sĩ trực của một ngày = số NGƯỜI khác nhau ở trạm Lịch khám.
+ *
+ *  Đếm theo người, không theo dòng: một bác sĩ trực cả sáng lẫn chiều là HAI
+ *  dòng `work_roster` nhưng vẫn là MỘT bác sĩ. Cột này trong Excel do quản lý
+ *  gõ tay; ở đây nó được TÍNH RA, nên không thể lệch với các ô bên cạnh. */
+export function demBacSiTruc(
+  rows: {
+    work_date: string;
+    station: string;
+    staff_id?: string | null;
+    staff_name?: string | null;
+  }[],
+  date: string,
+): number {
+  const nguoi = new Set<string>();
+  for (const r of rows) {
+    if (r.work_date !== date || r.station !== "LICH_KHAM") continue;
+    const khoa = r.staff_id ?? r.staff_name;
+    if (khoa) nguoi.add(khoa);
+  }
+  return nguoi.size;
+}
 
 export type Shift = "FULL" | "SANG" | "CHIEU";
 export const SHIFTS: Shift[] = ["FULL", "SANG", "CHIEU"];

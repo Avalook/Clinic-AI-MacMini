@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole } from "../../../lib/clinic-session";
-import { isAdminRole } from "../../../lib/roles";
+import { isAdminRole, departmentToRole } from "../../../lib/roles";
 import {
   fmtDayMonth,
   weekDates,
@@ -21,7 +21,10 @@ import OfficialRosterTable, {
   type OfficialRosterRow,
 } from "./OfficialRosterTable";
 import ApDungTuan from "./ApDungTuan";
-import RosterRegisterTable, { type RegisterRow } from "./RosterRegisterTable";
+import RosterRegisterTable, {
+  type RegisterRow,
+  type StaffOpt,
+} from "./RosterRegisterTable";
 import { doctorName } from "../../../lib/doctor-name";
 import { getClinicStaffId } from "../../../lib/clinic-session";
 export const dynamic = "force-dynamic";
@@ -53,14 +56,63 @@ export default async function SchedulePage({
   // Lấy TOÀN BỘ phân công của tuần (cho mọi vai trò) → bảng ma trận đồng bộ với
   // trang chủ. Form "Đăng ký ca của tôi" lọc client-side theo staff_id.
   const supabase = await getSupabaseServer();
-  const { data } = await supabase
-    .from("work_roster")
-    .select(
-      "id, work_date, shift, station, staff_id, staff_name, status, reject_reason",
-    )
-    .eq("week_start", week)
-    .order("sort", { ascending: true });
+  // `sort` rồi `id`: thứ tự trong ô LÀ thứ tự hai hàng con của ngày. Mọi dòng
+  // nạp từ Excel đều sort = 0, nên không có chốt thứ hai thì người thứ nhất và
+  // thứ hai đổi chỗ cho nhau giữa hai lần tải trang.
+  const [{ data }, staffRes, tramRes] = await Promise.all([
+    supabase
+      .from("work_roster")
+      .select(
+        "id, work_date, shift, station, staff_id, staff_name, status, reject_reason",
+      )
+      .eq("week_start", week)
+      .order("sort", { ascending: true })
+      .order("id", { ascending: true }),
+    // Danh sách người để quản lý chọn trong popup, và ma trận phạm vi vị trí.
+    // Cả hai chỉ cần khi có ô "+" — nhưng `isAdmin` đã biết từ trên nên đọc
+    // luôn ở đây rẻ hơn một vòng mạng nữa từ trình duyệt.
+    isAdmin
+      ? supabase
+          .from("staff")
+          .select("id, full_name, short_name, primary_department")
+          .eq("is_active", true)
+          .order("full_name")
+      : Promise.resolve({ data: [] }),
+    isAdmin
+      ? supabase
+          .from("vai_duoc_vao_tram")
+          .select("vai, tram_ma")
+          .eq("is_active", true)
+      : Promise.resolve({ data: [] }),
+  ]);
   const rows = (data as RosterRowWithId[] | null) ?? [];
+
+  // Nhân viên xếp được: bỏ dòng có `primary_department` không phải chức danh
+  // hợp lệ (không biết vai thì không kiểm được phạm vi vị trí).
+  const staffOptions: StaffOpt[] = (
+    (staffRes.data as
+      | {
+          id: string;
+          full_name: string;
+          short_name: string | null;
+          primary_department: string | null;
+        }[]
+      | null) ?? []
+  )
+    .filter((s) => departmentToRole(s.primary_department) !== null)
+    .map((s) => ({
+      id: s.id,
+      name: doctorName(s.full_name) || s.short_name || s.full_name,
+      vai: s.primary_department as string,
+    }));
+
+  // Chức danh → mã trạm. CÙNG bảng mà backend dùng để từ chối, nên popup không
+  // thể mời một người rồi lưu mới báo lỗi.
+  const tramTheoVai: Record<string, string[]> = {};
+  for (const t of ((tramRes.data as { vai: string; tram_ma: string }[] | null) ??
+    [])) {
+    (tramTheoVai[t.vai] ??= []).push(t.tram_ma);
+  }
 
   // TÊN NGƯỜI LẤY TỪ MỘT NGUỒN DUY NHẤT.
   //
@@ -164,8 +216,9 @@ export default async function SchedulePage({
           <div>
             <h2 className="font-semibold text-ink">Đăng ký / xếp ca</h2>
             <p className="mt-0.5 text-sm text-ink-muted">
-              Bấm dấu <b>+</b> trong ô để xếp người vào trạm đó. Ca xếp ở đây
-              vào thẳng lịch chính thức của tuần.
+              Mỗi ngày có <b>hai hàng</b> — mỗi hàng một người. Bấm dấu <b>+</b>{" "}
+              trong ô để chọn người và chọn ca (cả ngày · sáng · chiều). Ca xếp
+              ở đây vào thẳng lịch chính thức của tuần.
             </p>
           </div>
           <RosterRegisterTable
@@ -173,6 +226,8 @@ export default async function SchedulePage({
             dates={dates}
             rows={rows.map(dongBoTen) as RegisterRow[]}
             myStaffId={await getClinicStaffId()}
+            staff={staffOptions}
+            tramTheoVai={tramTheoVai}
             isApprover
           />
         </section>
