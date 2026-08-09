@@ -31,16 +31,8 @@
 // Mọi thao tác đều ghi sổ: `tuong_tac_cskh` + `event_log` (xem
 // TuongTacCskhService.ghi).
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Check,
-  Phone,
-  CalendarClock,
-  CircleDashed,
-} from "lucide-react";
+import { Check, Phone, CircleDashed } from "lucide-react";
 import type { DongLichSu } from "./so-tuong-tac";
-import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 
 /** Một trạng thái khách có thể đang ở, kèm việc CSKH phải làm khi ở đó. */
 interface TrangThai {
@@ -122,18 +114,16 @@ const SAU_KHAM: TrangThai[] = [
   },
 ];
 
-/** Mốc tại quầy — một chạm, đổi trạng thái THẬT của lịch hẹn.
+/* KHỐI "MỐC TẠI QUẦY" ĐÃ BỎ — Quang chốt 09/08/2026, giữ lại đúng "Phản hồi
+ * của khách" trong vùng dưới.
  *
- *  KHÔNG nằm trong danh sách trạng thái của chị Thu, và cố ý: chúng là VIỆC
- *  XẢY RA tại quầy chứ không phải chỗ khách đang đứng. Nhưng Quang yêu cầu
- *  08/08 (*"khách checkout, khách đã thanh toán, khách đã mua thuốc… tất cả là
- *  các nút và thao tác được thật"*) nên chúng ở lại, gom xuống cuối. */
-const MOC_QUAY: { ma: string; ten: string }[] = [
-  { ma: "CHECK_IN", ten: "Check-in cho khách" },
-  { ma: "CHECK_OUT", ten: "Khách check-out" },
-  { ma: "THANH_TOAN", ten: "Khách đã thanh toán" },
-  { ma: "MUA_THUOC", ten: "Khách đã mua thuốc" },
-];
+ * NGƯỢC VỚI YÊU CẦU 08/08 (*"khách checkout, khách đã thanh toán, khách đã mua
+ * thuốc… tất cả là các nút và thao tác được thật"*), nên ghi lại ở đây thay vì
+ * xoá lặng lẽ. Bốn nút ấy KHÔNG phải trang trí: chúng POST
+ * `/api/cskh/tuong-tac` và check-in mở lượt khám vào hàng đợi tiếp nhận thật.
+ *
+ * Đường khác vẫn còn: node "Đã check-in" trên timeline, và màn Quầy tiếp nhận.
+ */
 
 function gio(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {
@@ -177,32 +167,25 @@ export interface MocLich {
 
 export default function VungLamViecKhach({
   tenKhach,
-  clinicPatientId,
   lich,
   lichSu,
-  tepKetQua,
   trangThaiHienTai,
   dangChon,
   onLamViec,
   children,
 }: {
   tenKhach: string;
-  clinicPatientId: string;
   lich: MocLich;
   lichSu: DongLichSu[];
-  tepKetQua: TepKetQuaRow[];
   /** Trạng thái gấp nhất do `v_trang_thai_cskh` suy ra. */
   trangThaiHienTai?: string | null;
   /** Trạng thái CSKH đang chọn làm việc (null = chưa chọn). */
   dangChon?: string | null;
   /** Bấm một trạng thái → khối hành động bên phải đổi theo nó. */
   onLamViec: (maTrangThai: string) => void;
-  /** Khối gắn thêm bên dưới (phản hồi khách, nhắc tái khám…). */
+  /** Khối gắn thêm bên dưới — nay chỉ còn "Phản hồi của khách". */
   children?: React.ReactNode;
 }) {
-  const router = useRouter();
-  const [dangGhiMoc, setDangGhiMoc] = useState<string | null>(null);
-  const [loiMoc, setLoiMoc] = useState<{ ma: string; loi: string } | null>(null);
 
   const daHuy = lich.status === "CANCELLED";
   const daCheckin =
@@ -243,33 +226,6 @@ export default function VungLamViecKhach({
     if (theoMa) return theoMa;
     const loai = SUY_THEO_LOAI_CU[ma];
     return loai ? lichSu.find((d) => loai.includes(d.loai)) : undefined;
-  }
-
-  async function ghiMoc(ma: string) {
-    setDangGhiMoc(ma);
-    setLoiMoc(null);
-    const res = await fetch("/api/cskh/tuong-tac", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clinic_patient_id: clinicPatientId,
-        appointment_id: lich.id,
-        loai: ma,
-        kenh: "TRUC_TIEP",
-        ket_qua: "GHI_NHAN",
-      }),
-    });
-    setDangGhiMoc(null);
-    if (!res.ok) {
-      const d = (await res.json().catch(() => null)) as
-        | { error?: string; message?: string }
-        | null;
-      // "Khách chưa check-in — check-in trước rồi mới check-out được" phải hiện
-      // NGAY TẠI nút vừa bấm, không phải một toast trôi mất.
-      setLoiMoc({ ma, loi: d?.message ?? d?.error ?? "Không ghi được." });
-      return;
-    }
-    router.refresh();
   }
 
   /** MỘT NODE TRÊN TIMELINE.
@@ -426,56 +382,12 @@ export default function VungLamViecKhach({
             </ol>
           </div>
 
-          {/* MỐC TẠI QUẦY — một chạm, và chúng đổi trạng thái THẬT của lịch hẹn
-              (check-in mở lượt khám vào hàng đợi tiếp nhận, check-out đóng
-              trạng thái khám). Không phải cờ riêng chỉ màn này thấy. */}
-          <div className="space-y-1.5 border-t border-line pt-3">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
-              Mốc tại quầy
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {MOC_QUAY.map((m) => {
-                const daGhi = cacLan(m.ma).length > 0;
-                const thieuLich =
-                  !lich.id && (m.ma === "CHECK_IN" || m.ma === "CHECK_OUT");
-                return (
-                  <button
-                    key={m.ma}
-                    type="button"
-                    onClick={() => void ghiMoc(m.ma)}
-                    disabled={daGhi || dangGhiMoc !== null || thieuLich}
-                    title={thieuLich ? "Khách chưa có lịch hẹn nào" : undefined}
-                    className={`rounded-xl border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-60 ${
-                      daGhi
-                        ? "border-success/40 bg-success-bg text-success"
-                        : "border-brand-300 text-brand-700 hover:bg-brand-50"
-                    }`}
-                  >
-                    {daGhi ? "✓ " : ""}
-                    {dangGhiMoc === m.ma ? "Đang ghi…" : m.ten}
-                  </button>
-                );
-              })}
-            </div>
-            {loiMoc && <p className="text-[11px] text-danger">{loiMoc.loi}</p>}
-          </div>
         </div>
 
-        {/* KẾT QUẢ SIÊU ÂM / XÉT NGHIỆM — ảnh, video và phiếu. Đặc tả ghi rõ
-            "cần gửi được cả video cho bệnh nhân". */}
-        <TepKetQua
-          clinicPatientId={clinicPatientId}
-          appointmentId={lich.id}
-          items={tepKetQua}
-        />
-
-        {lich.slot_start && (
-          <p className="flex items-center gap-1.5 border-t border-line px-4 py-2 text-[11px] text-ink-muted">
-            <CalendarClock className="size-3.5" />
-            Giờ khám: {gio(lich.slot_start)}
-            {daHuy && " · lịch này đã huỷ"}
-          </p>
-        )}
+        {/* Khối "KẾT QUẢ SIÊU ÂM / XÉT NGHIỆM" và dòng "Giờ khám" cũng đã bỏ
+            (Quang chốt 09/08/2026). `TepKetQua` KHÔNG chết theo — màn
+            HanhDongTrangThai vẫn dựng nó ở bước "Đã có kết quả, chưa gửi", đúng
+            chỗ người ta thật sự tải kết quả lên. */}
       </section>
 
       {children}
