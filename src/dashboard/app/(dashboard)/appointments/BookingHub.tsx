@@ -900,12 +900,35 @@ export default function BookingHub({
    * khung đang chạy. Cùng luật với backend.
    */
   function khungDaQua(time: string): boolean {
+    // KHÔNG CÓ GIỜ THÌ KHÔNG CÓ MỐC ĐỂ SO — và gọi tiếp là làm vỡ cả màn hình.
+    //
+    // `vnLocalToUtcISO(ngày, "")` dựng chuỗi "2026-08-29T:00+07:00" → Invalid
+    // Date → `.toISOString()` NÉM RangeError. Hàm này chạy TRONG LÚC RENDER
+    // (qua selectedCellStatus), nên lỗi ném ra làm React bỏ cả cây và error
+    // boundary hiện "Màn hình gặp trục trặc".
+    //
+    // `selectedSlot.time` rỗng ở hai lúc rất thường: vừa đổi ngày (chonNgay bỏ
+    // chọn khung giờ để không đặt nhầm sang ngày mới) và vừa đặt lịch xong
+    // (cũng bỏ chọn để không bấm ra lịch thứ hai). Đây không phải trường hợp
+    // hiếm — nó là đường đi bình thường của mọi lần đặt lịch.
+    if (!time) return false;
     const ketThuc = new Date(vnLocalToUtcISO(selectedDateIso, time));
     ketThuc.setMinutes(ketThuc.getMinutes() + slotMinutes);
     return ketThuc.getTime() <= bayGio;
   }
 
   function getCellStatus(docId: string, time: string): CellStatus {
+    // Chưa chọn khung giờ nào — trả về một trạng thái trung tính thay vì đi
+    // tiếp và dựng mốc thời gian từ một chuỗi rỗng.
+    if (!time) {
+      return {
+        tone: "available",
+        label: "Chưa chọn khung giờ",
+        sub: "—",
+        bookedCount: 0,
+        maxCap: 0,
+      };
+    }
     // KHUNG ĐÃ TRÔI QUA — luật cao hơn cả lịch làm việc, vì không ai đặt được
     // vào một thời điểm đã đi qua dù bác sĩ có rảnh hay không.
     //
@@ -1995,7 +2018,9 @@ export default function BookingHub({
                       cơ hội cuối để phát hiện đặt nhầm ngày, và nó đang nói
                       dối. */}
                   <div className="text-xs font-bold text-teal-800">
-                    {slotRange(selectedSlot.time, slotMinutes)}
+                    {selectedSlot.time
+                      ? slotRange(selectedSlot.time, slotMinutes)
+                      : "Chưa chọn khung giờ"}
                   </div>
                   <div className="text-[11px] text-teal-700 font-medium">
                     {dayLabel(selectedDateIso)},{" "}

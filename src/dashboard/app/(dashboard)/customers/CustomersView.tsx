@@ -874,17 +874,35 @@ export default function CustomersView({
                   >
                     <CalendarClock className="mt-0.5 size-4 shrink-0 text-brand-700" aria-hidden="true" />
                     <span>
-                      <span className="block text-xs text-ink-muted">Lịch hẹn sắp tới</span>
+                      {/* LỊCH CHƯA CÓ BÁC SĨ LÀ LỊCH DỰ KIẾN, không phải lịch
+                          chắc. Gọi nó là "Lịch hẹn sắp tới" rồi để CSKH đọc cho
+                          khách nghe là hứa một buổi khám mà chưa ai biết ai
+                          khám — quản lý còn phải xếp ca rồi gán người, và giờ
+                          có thể lệch đi. Nói đúng tên nó ngay tại đây. */}
+                      <span className="block text-xs text-ink-muted">
+                        {selectedAppt.appt && !selectedAppt.appt.doctor_id
+                          ? "Lịch dự kiến"
+                          : "Lịch hẹn sắp tới"}
+                      </span>
                       <span className="mt-1 block text-sm font-semibold text-ink">
                         {fmtDateTimeOrDate(selectedAppt.slot_start)}
                       </span>
+                      {selectedAppt.appt && !selectedAppt.appt.doctor_id && (
+                        <span className="mt-1 block text-xs font-semibold text-warning">
+                          Bác sĩ: chờ quản lý xác nhận
+                        </span>
+                      )}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
                     </span>
                   </button>
                 ) : (
                   <div className="rounded-control border border-line bg-surface-muted p-3">
                     <p className="text-xs text-ink-muted">
-                      {selectedAppt?.upcoming ? "Lịch hẹn sắp tới" : "Lịch hẹn"}
+                      {selectedAppt?.appt && !selectedAppt.appt.doctor_id
+                        ? "Lịch dự kiến"
+                        : selectedAppt?.upcoming
+                          ? "Lịch hẹn sắp tới"
+                          : "Lịch hẹn"}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-ink">
                       {selectedAppt
