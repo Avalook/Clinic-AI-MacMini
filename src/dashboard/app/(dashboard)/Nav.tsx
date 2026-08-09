@@ -10,7 +10,7 @@
 import { useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { canSeeNav, ROLE_LABEL, type ClinicRole } from "../../lib/roles";
+import { hienTrenThanhBen, ROLE_LABEL, type ClinicRole } from "../../lib/roles";
 import { NAV, isActiveNav, navLabelFor } from "./nav-items";
 import { useNotifications } from "./NotificationContext";
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
@@ -33,7 +33,7 @@ export default function Nav({
   const { unread } = useNotifications();
   const blinkHome = unread > 0 && pathname !== "/home";
   const visible = NAV.filter((item) => {
-    if (!canSeeNav(role, item.href)) return false;
+    if (!hienTrenThanhBen(role, item.href)) return false;
     // CSKH_ONLY mode: ẩn các màn hình lâm sàng khỏi sidebar.
     if (featureMode === "CSKH_ONLY" && CLINICAL_HREFS.has(item.href)) return false;
     return true;

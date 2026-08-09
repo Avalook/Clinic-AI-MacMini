@@ -1,5 +1,6 @@
 "use client";
 
+import { doctorName } from "../../../lib/doctor-name";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { StaffRow } from "../../api/staff/route";
@@ -185,11 +186,11 @@ export default function NhanSuBoard({
                 }`}
               >
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
-                  {s.full_name.trim().slice(0, 1).toUpperCase()}
+                  {doctorName(s.full_name).trim().slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">
-                    {s.full_name}
+                    {doctorName(s.full_name)}
                   </span>
                   <span className="block truncate text-xs text-ink-muted">
                     {deptLabel(s.primary_department)}
@@ -222,11 +223,11 @@ export default function NhanSuBoard({
           <div className="rounded-card border border-line bg-surface p-4 shadow-card lg:p-5">
             <div className="mb-4 flex items-center gap-3">
               <span className="flex size-12 items-center justify-center rounded-full bg-brand-600 text-base font-semibold text-white">
-                {selected.full_name.trim().slice(0, 1).toUpperCase()}
+                {doctorName(selected.full_name).trim().slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0">
                 <h2 className="truncate text-base font-semibold text-ink">
-                  {selected.full_name}
+                  {doctorName(selected.full_name)}
                 </h2>
                 <p className="text-xs text-ink-muted">
                   {deptLabel(selected.primary_department)} ·{" "}
@@ -239,6 +240,10 @@ export default function NhanSuBoard({
               <label className="space-y-1">
                 <span className={LABEL}>Họ và tên</span>
                 <input
+                  /* GIÁ TRỊ THẬT ĐANG LƯU, cố ý không qua doctorName(): đây
+                     là ô để SỬA dữ liệu, không phải chỗ trình bày. Hiện tên
+                     đã chuẩn hoá ở đây rồi bấm Lưu là ghi đè chuỗi gốc bằng
+                     một chuỗi khác — sửa hiển thị mà hoá ra sửa dữ liệu. */
                   value={field("full_name") ?? ""}
                   onChange={(e) => edit("full_name", e.target.value)}
                   className={INPUT}

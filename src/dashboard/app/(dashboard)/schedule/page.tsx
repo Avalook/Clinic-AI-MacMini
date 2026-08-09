@@ -21,6 +21,9 @@ import OfficialRosterTable, {
   type OfficialRosterRow,
 } from "./OfficialRosterTable";
 import ApDungTuan from "./ApDungTuan";
+import RosterRegisterTable, { type RegisterRow } from "./RosterRegisterTable";
+import { doctorName } from "../../../lib/doctor-name";
+import { getClinicStaffId } from "../../../lib/clinic-session";
 export const dynamic = "force-dynamic";
 
 // Row kèm id + trạng thái để bảng đăng ký phân biệt ca của mình & lý do từ chối.
@@ -59,8 +62,37 @@ export default async function SchedulePage({
     .order("sort", { ascending: true });
   const rows = (data as RosterRowWithId[] | null) ?? [];
 
+  // TÊN NGƯỜI LẤY TỪ MỘT NGUỒN DUY NHẤT.
+  //
+  // `work_roster.staff_name` là chuỗi TỰ DO nạp từ file Excel "BẢNG LÀM VIỆC",
+  // nên cùng một người hiện ra mỗi chỗ một kiểu: "BS THÀNH" ở hàng này,
+  // "Bác sĩ · BSNT. Lê Thiệu Quyết" ở hàng kia. Người đọc bảng không biết hai
+  // dòng ấy có phải một người hay không.
+  //
+  // Dòng nào có `staff_id` thì lấy tên từ `staff.full_name` rồi cho qua
+  // doctorName() — cùng cái tên mà lưới đặt lịch và mọi màn khác đang hiện.
+  // Dòng KHÔNG có staff_id (nhập tay từ Excel, chưa nối được vào ai) giữ nguyên
+  // chuỗi cũ: bịa ra một cái tên chuẩn cho một người chưa xác định được là tệ
+  // hơn hiện đúng thứ đang có.
+  const staffIds = [...new Set(rows.map((r) => r.staff_id).filter(Boolean))];
+  const tenTheoId: Record<string, string> = {};
+  if (staffIds.length) {
+    const { data: nhanSu } = await supabase
+      .from("staff")
+      .select("id, full_name")
+      .in("id", staffIds as string[]);
+    for (const nv of (nhanSu as { id: string; full_name: string }[] | null) ?? []) {
+      const ten = doctorName(nv.full_name);
+      if (ten) tenTheoId[nv.id] = ten;
+    }
+  }
+  const dongBoTen = <T extends RosterRowWithId>(r: T): T => ({
+    ...r,
+    staff_name: (r.staff_id && tenTheoId[r.staff_id]) || r.staff_name,
+  });
+
   // Lịch chung CHỈ hiện ca đã duyệt. Ca PENDING/REJECTED không lọt vào bảng.
-  const approvedRows = rows.filter((r) => r.status === "APPROVED");
+  const approvedRows = rows.filter((r) => r.status === "APPROVED").map(dongBoTen);
 
   // Tuần này đã được quản lý bấm áp dụng chưa. Có dòng trong roster_week = rồi.
   const { data: tuanApDung } = await supabase
@@ -121,16 +153,33 @@ export default async function SchedulePage({
         <OfficialRosterTable dates={dates} rows={approvedRows} />
       </section>
 
-      {/* BẢNG ĐĂNG KÝ CA — TẠM ẨN (Quang, 07/08/2026).
+      {/* BẢNG ĐĂNG KÝ CA — BẬT LẠI, NHƯNG CHỈ CHO QUẢN LÝ (Quang 09/08/2026).
 
-          Quản lý tự xếp lịch cho mọi người trong màn Sửa lịch rồi bấm áp dụng;
-          nhân viên chỉ xem lịch chính thức ở trên. Nên ô "+" để tự xin ca không
-          còn nghĩa.
+          Nó bị ẩn ngày 07/08 vì lúc ấy nhân viên không còn tự xin ca. Nay quản
+          lý cần lại đúng cái ô có dấu "+" để xếp người ngay trong bảng, thay vì
+          phải sang màn Sửa lịch riêng.
 
-          ẨN, KHÔNG XOÁ. `RosterRegisterTable` và luồng duyệt PENDING vẫn còn
-          nguyên trong repo để mở lại khi phòng khám cần đường xin đổi ca. Đường
-          ghi ở API đã siết về Quản lý (ROSTER_ROLES trong config_service.py) —
-          ẩn giao diện mà để hở API là ai cũng còn POST thẳng vào được. */}
+          CHỈ QUẢN LÝ, và đó không phải lựa chọn thẩm mỹ: đường ghi ở API đã
+          siết về Quản lý (ROSTER_ROLES trong config_service.py). Bày ô "+" cho
+          vai khác là bày một nút bấm vào sẽ ăn 403 — tệ hơn không có nút. */}
+      {isAdmin && (
+        <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+          <div>
+            <h2 className="font-semibold text-ink">Đăng ký / xếp ca</h2>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              Bấm dấu <b>+</b> trong ô để xếp người vào trạm đó. Ca xếp ở đây
+              vào thẳng lịch chính thức của tuần.
+            </p>
+          </div>
+          <RosterRegisterTable
+            weekStart={week}
+            dates={dates}
+            rows={rows.map(dongBoTen) as RegisterRow[]}
+            myStaffId={await getClinicStaffId()}
+            isApprover
+          />
+        </section>
+      )}
     </main>
   );
 }
