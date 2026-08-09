@@ -1363,7 +1363,21 @@ export default function BookingHub({
           </div>
 
           {/* 3-Column Layout: Left (Patient Cards) + Middle (Grid) + Right (Panel) */}
-          <div className="grid items-start gap-4 xl:grid-cols-[280px_1fr_320px]">
+          {/* KHÁCH MỚI THÌ CHỈ CÒN HAI CỘT.
+              Quang 09/08/2026: bấm "Đặt lịch hẹn cho khách mới" thì bỏ thẻ
+              "đang nhập hồ sơ", bỏ nút "Quay lại lưới giờ" và bỏ cả panel
+              "Thông tin đặt lịch" bên phải — *"nếu đặt cho khách có trong danh
+              sách thì click sẵn bên ô tìm kiếm khách hàng có sẵn rồi"*.
+              Đúng: lịch hẹn đầu tiên của khách mới nằm NGAY TRONG biểu mẫu ở
+              giữa, nên panel phải không có việc gì để làm ngoài chiếm chỗ và
+              mời bấm một nút không dùng tới. Bỏ nó đi thì biểu mẫu rộng ra. */}
+          <div
+            className={`grid items-start gap-4 ${
+              mode === "new_patient"
+                ? "xl:grid-cols-[280px_1fr]"
+                : "xl:grid-cols-[280px_1fr_320px]"
+            }`}
+          >
             {/* COLUMN 1 (LEFT - 280px): New Patient Button + Active Patient Card + Search List */}
             <aside className="space-y-3">
               {/* Nút đặt lịch cho khách hàng mới (Đặt lên trên cùng của Cột 1) */}
@@ -1388,30 +1402,6 @@ export default function BookingHub({
               {/* 1. KHÁCH HÀNG ĐANG CHỌN — hoặc thẻ "khách mới" khi đang nhập.
                      Ô này không bao giờ được để trống trong lúc người dùng
                      đang làm việc: trống nghĩa là "không rõ đang đặt cho ai". */}
-              {mode === "new_patient" && !activePatient && (
-                <div className="space-y-2 rounded-2xl border border-dashed border-brand-300 bg-brand-50/50 p-3.5 shadow-card">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-brand-700">
-                    Khách hàng mới
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-11 place-items-center rounded-full border border-dashed border-brand-400 text-brand-600">
-                      <UserPlus className="size-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-ink">Đang nhập hồ sơ</h3>
-                      <p className="text-xs text-ink-muted">
-                        Điền biểu mẫu ở giữa màn hình
-                      </p>
-                    </div>
-                  </div>
-                  <p className="border-t border-brand-200/60 pt-2 text-[11px] leading-snug text-ink-soft">
-                    Khách cũ đã được bỏ chọn. Biểu mẫu khách mới lưu hồ sơ VÀ
-                    lịch hẹn đầu tiên cùng lúc — không cần quay lại lưới giờ.
-                    Muốn đặt cho người đã có hồ sơ thì tìm ở ô bên dưới.
-                  </p>
-                </div>
-              )}
-
               {activePatient && (
                 <div className="rounded-2xl border border-brand-300 bg-brand-50/50 p-3.5 shadow-card space-y-3">
                   <div className="flex items-start justify-between">
@@ -1509,13 +1499,7 @@ export default function BookingHub({
                       <UserPlus className="size-4 text-brand-600" />
                       Khách hàng mới
                     </h2>
-                    <button
-                      type="button"
-                      onClick={() => setMode("grid")}
-                      className="rounded-xl border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-muted"
-                    >
-                      Quay lại lưới giờ
-                    </button>
+
                   </div>
                   {/* `nhung` = ẩn tiêu đề và thanh ba bước RIÊNG của biểu mẫu:
                       trang này đã có thanh ba bước của nó ở trên đầu, hai thanh
@@ -1528,6 +1512,7 @@ export default function BookingHub({
                     provinces={provinces}
                     variant="full"
                     nhung
+                    onHuy={() => setMode("grid")}
                   />
                 </div>
               ) : (
@@ -1897,8 +1882,13 @@ export default function BookingHub({
               )}
             </div>
 
-            {/* COLUMN 3 (RIGHT - 320px): Thông tin đặt lịch (Matching Image 3 Mockup) */}
-            <aside className="space-y-3.5 rounded-2xl border border-line bg-surface p-4 shadow-card">
+            {/* COLUMN 3 (RIGHT - 320px): Thông tin đặt lịch. Ẩn hẳn khi đang
+                nhập khách mới — xem ghi chú ở lưới bên trên. */}
+            <aside
+              className={`space-y-3.5 rounded-2xl border border-line bg-surface p-4 shadow-card ${
+                mode === "new_patient" ? "hidden" : ""
+              }`}
+            >
               <div className="flex items-center justify-between border-b border-line pb-2.5">
                 <h3 className="text-sm font-bold text-ink">Thông tin đặt lịch</h3>
                 <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-bold text-teal-700 border border-teal-200">
@@ -1907,18 +1897,6 @@ export default function BookingHub({
               </div>
 
               {/* Patient info box */}
-              {mode === "new_patient" && !activePatient && (
-                <div className="rounded-xl border border-dashed border-brand-300 bg-brand-50/40 p-3 text-xs text-ink-soft">
-                  <div className="flex items-center gap-2 font-bold text-brand-700">
-                    <UserPlus size={15} /> Khách hàng mới
-                  </div>
-                  <p className="mt-1 leading-snug">
-                    Lịch hẹn của khách mới được đặt NGAY TRONG biểu mẫu ở giữa —
-                    panel này không dùng tới. Bấm “Quay lại lưới giờ” nếu muốn
-                    đặt cho một khách đã có hồ sơ.
-                  </p>
-                </div>
-              )}
               {activePatient && (
                 <div className="rounded-xl border border-line bg-surface-muted/60 p-3 space-y-2 text-xs">
                   <div className="flex items-start justify-between">
