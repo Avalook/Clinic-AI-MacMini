@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   ExternalLink,
   Filter,
   Search,
-  UserRoundPlus,
   UsersRound,
   X,
 } from "lucide-react";
@@ -21,11 +21,11 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import { fmtDate, fmtDateTimeOrDate } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
-import QuickBookingModal from "../patient-list/QuickBookingModal";
 import BaoXepBacSi from "./BaoXepBacSi";
 import GhiTuongTac, { type DongLichSu } from "./GhiTuongTac";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
+import NhacTaiKham, { type MocTaiKham } from "./NhacTaiKham";
 import type { TepKetQuaRow } from "./TepKetQua";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
@@ -188,6 +188,132 @@ const PERIODS: { key: Period; label: string }[] = [
 // đang hiện 29 thì thấy đúng 29 dòng ấy. Không còn tab "Tất cả khách hàng":
 // mặc định đã là tất cả, và bỏ lọc bằng cách bấm lại ô đang chọn.
 
+/** "Bộ lọc" — MỘT nút, mở ra mọi thứ thu hẹp được danh sách.
+ *
+ *  Gộp hai điều khiển trước đây đứng rời nhau ở hai đầu màn hình: ô chọn
+ *  "lọc theo ngày tạo / ngày hẹn" và bốn nút kỳ (Hôm nay → Tất cả). Chúng luôn
+ *  đọc cùng nhau — "tuần này" một mình không có nghĩa, phải biết tuần này
+ *  THEO ngày tạo hay theo ngày hẹn — nên tách chúng ra hai đầu là bắt người
+ *  dùng ghép lại bằng mắt.
+ */
+function BoLoc({
+  period,
+  by,
+  onChon,
+}: {
+  period: Period;
+  by: ByDim;
+  onChon: (period: Period, by: ByDim) => void;
+}) {
+  const [mo, setMo] = useState(false);
+  const dangLoc = period !== "all";
+  const nhanKy = PERIODS.find((p) => p.key === period)?.label ?? "Tất cả";
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setMo((v) => !v)}
+        aria-expanded={mo}
+        className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium shadow-card transition-colors ${
+          dangLoc
+            ? "border-brand-500 bg-brand-50 text-brand-700"
+            : "border-line bg-surface text-ink-soft hover:bg-surface-muted"
+        }`}
+      >
+        <Filter className="size-4" aria-hidden="true" />
+        Bộ lọc
+        {/* Nút đóng lại rồi thì phải còn nói được nó đang lọc gì. Một nút
+            "Bộ lọc" trông y hệt lúc lọc và lúc không là cách để người dùng
+            nhìn một danh sách đã bị cắt mà tưởng đó là tất cả. */}
+        {dangLoc && (
+          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-bold text-white">
+            {nhanKy}
+            {by === "appt" ? " · ngày hẹn" : ""}
+          </span>
+        )}
+        <ChevronDown
+          className={`size-4 transition-transform ${mo ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {mo && (
+        <>
+          {/* Bấm ra ngoài là đóng. Thiếu lớp này thì bảng lọc chỉ đóng khi bấm
+              đúng cái nút đã mở nó. */}
+          <button
+            type="button"
+            aria-label="Đóng bộ lọc"
+            onClick={() => setMo(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div className="absolute left-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-line bg-surface p-3 shadow-lg">
+            <div className="space-y-1.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                Khoảng thời gian
+              </span>
+              <div className="grid grid-cols-2 gap-1" role="group">
+                {PERIODS.map((entry) => (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    onClick={() => onChon(entry.key, by)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
+                      entry.key === period
+                        ? "bg-brand-600 font-bold text-white"
+                        : "bg-surface-sunken text-ink-muted hover:text-ink"
+                    }`}
+                  >
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 border-t border-line pt-2.5">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                Tính theo
+              </span>
+              <div className="grid grid-cols-2 gap-1" role="group">
+                {(
+                  [
+                    ["created", "Ngày tạo"],
+                    ["appt", "Ngày hẹn"],
+                  ] as [ByDim, string][]
+                ).map(([ma, nhan]) => (
+                  <button
+                    key={ma}
+                    type="button"
+                    onClick={() => onChon(period, ma)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
+                      by === ma
+                        ? "bg-brand-600 font-bold text-white"
+                        : "bg-surface-sunken text-ink-muted hover:text-ink"
+                    }`}
+                  >
+                    {nhan}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {dangLoc && (
+              <button
+                type="button"
+                onClick={() => onChon("all", by)}
+                className="w-full rounded-lg border border-line py-1.5 text-xs font-semibold text-ink-soft hover:bg-surface-muted"
+              >
+                Bỏ lọc thời gian
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function initials(name: string): string {
   return (
     name
@@ -222,7 +348,7 @@ function CustomerTableHeader() {
       <span>Tương tác gần nhất</span>
       <span>Bước tiếp theo</span>
       <span>Hạn xử lý</span>
-      <span>Phụ trách</span>
+      <span>Người xử lý gần nhất</span>
       <span aria-hidden="true" />
     </div>
   );
@@ -236,6 +362,7 @@ export default function CustomersView({
   trangThaiByPatient,
   phanHoiByPatient,
   tepByPatient,
+  taiKhamByPatient,
   zaloBat = false,
   zaloThieu = [],
   locations,
@@ -264,6 +391,8 @@ export default function CustomersView({
   trangThaiByPatient: Record<string, TrangThaiCskh>;
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
   tepByPatient: Record<string, TepKetQuaRow[]>;
+  /** Mốc gọi nhắc tái khám đang mở, theo khách. Rỗng = không có việc nào. */
+  taiKhamByPatient: Record<string, MocTaiKham[]>;
   /** Zalo đã đủ cấu hình để gửi chưa (hỏi backend, không đoán ở trình duyệt). */
   zaloBat?: boolean;
   zaloThieu?: string[];
@@ -289,7 +418,6 @@ export default function CustomersView({
   // Node vừa bấm trên vùng làm việc. Dùng làm `key` cho ô ghi kết quả, nên
   // bấm node khác là component mount lại với đúng loại việc — không cần effect.
   const [viecDangGhi, setViecDangGhi] = useState<string | null>(null);
-  const [bookOpen, setBookOpen] = useState(false);
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
@@ -492,58 +620,37 @@ export default function CustomersView({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line">
-        {canEdit ? (
-          <Link
-            href="/patients/new"
-            className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 shadow-xs transition-all"
-          >
-            <UserRoundPlus className="size-4" aria-hidden="true" />
-            Thêm khách hàng
-          </Link>
-        ) : null}
-      </div>
+      {/* MỘT HÀNG DUY NHẤT: ô tìm + "Bộ lọc", ngồi ngay trên cột danh sách.
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <label className="flex min-h-10 min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-ink-muted focus-within:border-brand-500 lg:max-w-md">
-            <Search className="size-4" aria-hidden="true" />
-            <input
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
-              className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
-            />
-          </label>
-          <label className="flex min-h-10 items-center gap-2 rounded-xl border border-line px-3 text-sm text-ink-soft bg-surface">
-            <Filter className="size-4" aria-hidden="true" />
-            <select
-              value={by}
-              onChange={(event) => go(period, term, event.target.value as ByDim)}
-              aria-label="Bộ lọc"
-              className="bg-transparent outline-none"
-            >
-              <option value="created">Bộ lọc</option>
-              <option value="appt">Ngày hẹn</option>
-            </select>
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-1 rounded-xl bg-surface-sunken p-1" role="group">
-          {PERIODS.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              onClick={() => go(entry.key, term, by)}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                entry.key === period
-                  ? "bg-surface text-ink shadow-card font-bold"
-                  : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {entry.label}
-            </button>
-          ))}
-        </div>
+          Trước đây chỗ này là BA hàng chồng nhau — nút "Thêm khách hàng" đứng
+          một mình một hàng, rồi một thẻ trắng chứa ô tìm + ô "Bộ lọc", rồi bốn
+          nút kỳ lọc dạt sang phải. Ba hàng cho hai thao tác, và bốn nút kỳ lọc
+          nằm cách ô "Bộ lọc" gần trọn chiều ngang màn hình dù chúng là cùng một
+          việc: thu hẹp danh sách bên dưới.
+
+          Quang chốt 09/08/2026: gộp kỳ lọc VÀO "Bộ lọc" dạng toggle, bỏ hàng
+          trên cùng và nút "Thêm khách hàng".
+
+          NÚT "THÊM KHÁCH HÀNG" ĐI ĐÂU: khách mới của CSKH sinh ra ở màn Đặt
+          lịch ("+ Đặt lịch hẹn cho khách mới" — cùng một biểu mẫu
+          NewPatientForm, kèm luôn lịch hẹn đầu tiên). Trang /patients/new vẫn
+          còn nguyên và gõ thẳng URL vẫn vào được. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex min-h-10 min-w-[240px] max-w-md flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-ink-muted shadow-card focus-within:border-brand-500">
+          <Search className="size-4" aria-hidden="true" />
+          <input
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+          />
+        </label>
+
+        <BoLoc
+          period={period}
+          by={by}
+          onChon={(kyMoi, chieuMoi) => go(kyMoi, term, chieuMoi)}
+        />
       </div>
 
       {/* BA CỘT KHI ĐANG CHỌN MỘT KHÁCH: danh sách hẹp — VÙNG LÀM VIỆC rộng —
@@ -641,15 +748,28 @@ export default function CustomersView({
                               </span>
                             </div>
                             <div className="truncate text-xs font-medium text-ink">
-                              {/* NGƯỜI CHẠM GẦN NHẤT, không phải "người được
-                                  giao". View suy lại trạng thái mỗi lần đọc nên
-                                  không giữ được ai nhận việc — nói rõ ở đây còn
-                                  hơn cột "—" vĩnh viễn của cskh_action, nơi
-                                  người ghi chỉ là một chuỗi tên nhập từ Notion. */}
+                              {/* CỘT NÀY TỪNG MANG NHÃN "PHỤ TRÁCH" — SAI.
+                                  Nó hiện NGƯỜI CHẠM GẦN NHẤT (dòng cuối trong
+                                  sổ tương tác), không phải người được giao
+                                  việc. Hai thứ khác nhau, và gọi nhầm tên thì
+                                  trưởng ca đọc bảng này rồi kết luận "việc của
+                                  chị Hằng" cho một việc chưa giao cho ai —
+                                  chị Hằng chỉ tình cờ là người gọi lần trước.
+
+                                  GIAO VIỆC THẬT CHƯA CÓ và không giả vờ ở đây:
+                                  `v_trang_thai_cskh` suy lại việc mỗi lần đọc
+                                  nên không có chỗ nào giữ "ai nhận", còn
+                                  `cskh_action.assignee` là một chuỗi tên nhập
+                                  từ Notion trên một bảng đang rỗng. Muốn có
+                                  người phụ trách thật thì cần một bảng phân
+                                  công + nút "nhận việc" — chưa làm. */}
                               {tuongTacByPatient[row.clinic_patient_id]?.[0]
                                 ?.nhan_vien ??
-                                cskh?.assignee ??
-                                "—"}
+                                cskh?.assignee ?? (
+                                  <span className="text-ink-faint">
+                                    Chưa ai xử lý
+                                  </span>
+                                )}
                             </div>
                             <div className="text-right">
                               <button
@@ -698,6 +818,13 @@ export default function CustomersView({
             <PhanHoiKhach
               clinicPatientId={selected.clinic_patient_id}
               items={phanHoiByPatient[selected.clinic_patient_id] ?? []}
+            />
+            {/* NHẮC TÁI KHÁM — gộp từ màn /nhac-tai-kham về đây (Quang chốt
+                09/08/2026). CSKH gõ được ngày tái khám ngay tại chỗ, và hai mốc
+                gọi (trước 7 ngày / trước 1 ngày) hiện lên cùng đếm ngược. */}
+            <NhacTaiKham
+              clinicPatientId={selected.clinic_patient_id}
+              moc={taiKhamByPatient[selected.clinic_patient_id] ?? []}
             />
           </VungLamViecKhach>
         )}
@@ -761,9 +888,17 @@ export default function CustomersView({
 
                 {/* CSKH & Lễ tân: Khung Xác nhận lịch hẹn & Gọi điện */}
                 <div className="space-y-2 rounded-2xl border border-brand-200 bg-brand-50/50 p-3 text-xs shadow-xs">
-                  <div className="flex items-center justify-between font-bold text-brand-800">
-                    <span>XÁC NHẬN LỊCH HẸN &amp; TƯƠNG TÁC</span>
-                    <span className="rounded-full bg-brand-200 px-2 py-0.5 text-[10px] text-brand-800 font-mono">
+                  {/* TIÊU ĐỀ NÓI ĐÚNG VIỆC ĐANG PHẢI LÀM.
+                      Trước đây nó cứng là "XÁC NHẬN LỊCH HẸN & TƯƠNG TÁC" cho
+                      mọi khách, kể cả người đang ở bước "Hỏi đơn vị xét
+                      nghiệm" — một tiêu đề không đổi theo việc thì không nói
+                      gì, và bốn cái nút bên dưới cũng vậy (xem HANH_DONG trong
+                      GhiTuongTac). */}
+                  <div className="flex items-center justify-between gap-2 font-bold text-brand-800">
+                    <span className="uppercase">
+                      {customerNextStep(selected) ?? "Gọi khách & ghi tương tác"}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-brand-200 px-2 py-0.5 text-[10px] text-brand-800 font-mono">
                       CSKH / Lễ tân
                     </span>
                   </div>
@@ -780,6 +915,10 @@ export default function CustomersView({
                       appointmentId={selectedAppt?.appt?.id ?? null}
                       phone={selected.phone_primary}
                       loaiBanDau={viecDangGhi}
+                      viecHienTai={
+                        trangThaiByPatient[selected.clinic_patient_id]
+                          ?.trang_thai ?? null
+                      }
                       moBanDau={viecDangGhi !== null}
                       lichSuBanDau={
                         tuongTacByPatient[selected.clinic_patient_id] ?? []
@@ -923,23 +1062,6 @@ export default function CustomersView({
         />
       ) : null}
 
-      {bookOpen && selected ? (
-        <QuickBookingModal
-          patient={{
-            clinic_patient_id: selected.clinic_patient_id,
-            full_name: selected.full_name,
-            patient_code: selected.patient_code,
-          }}
-          services={services}
-          doctors={doctors}
-          locations={locations}
-          onClose={() => setBookOpen(false)}
-          onBooked={() => {
-            setBookOpen(false);
-            router.refresh();
-          }}
-        />
-      ) : null}
     </div>
   );
 }

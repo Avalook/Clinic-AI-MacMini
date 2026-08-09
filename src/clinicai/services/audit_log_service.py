@@ -24,6 +24,7 @@ giờ từ tham số của người gọi.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -106,6 +107,42 @@ LIMIT $2
 """
 
 
+#: Việc KHÔNG gắn với một khách hàng nào, theo đúng bản chất. Nói ra bằng tiếng
+#: Việt thay vì in tên bảng + uuid ra màn hình của người trực ca.
+KHONG_CO_KHACH: dict[str, str] = {
+    "slot_hold": "Giữ chỗ khung giờ (chưa gắn khách)",
+    "work_roster": "Lịch làm việc",
+    "service_type": "Dịch vụ khám",
+    "clinic_location": "Cơ sở",
+    "luat_cskh": "Luật chăm sóc khách hàng",
+}
+
+
+def _payload_dict(raw: Any) -> dict[str, Any] | None:
+    """`event_log.payload` là jsonb — mà asyncpg trả jsonb về dạng CHUỖI.
+
+    Dự án không đăng ký type codec cho jsonb, nên trường này rời database dưới
+    dạng `str`. FastAPI serialize `str` thành một chuỗi JSON, và màn hình nhận
+    được một chuỗi ở chỗ nó khai là object. Hệ quả nhìn thấy được: bảng "Dữ liệu
+    thay đổi" chạy `Object.entries()` trên chuỗi ấy và in ra từng KÝ TỰ —
+    "0 → {", "1 → \"", "2 → s"…
+
+    Parse ở đây chứ không ở màn hình: mọi nơi đọc nhật ký đều cần payload là
+    object, và một bản parse ở mỗi màn là một bản sẽ quên.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            doc = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+        return doc if isinstance(doc, dict) else None
+    return None
+
+
 def subject_label(row: dict[str, Any] | asyncpg.Record) -> str:
     """Việc này về ai — một chuỗi màn hình hiện thẳng.
 
@@ -113,8 +150,16 @@ def subject_label(row: dict[str, Any] | asyncpg.Record) -> str:
     giữa "tên bệnh nhân", "luật của bác sĩ nào" và "cấu hình phòng khám" là
     quyết định về nghĩa, không phải về trình bày.
 
-    Khi không tra được thì giữ ``<loại> · <8 ký tự đầu>`` như cũ — nó xấu nhưng
-    tra cứu được, và một ô trống sẽ đọc thành "mất dữ liệu".
+    KHÔNG BAO GIỜ TRẢ VỀ ``<tên bảng> · <uuid>``.
+
+    Nhánh cuối trước đây trả đúng chuỗi đó, và trên bản thật nó chiếm gần hết
+    cột: "slot_hold · 938d4f94", lặp lại hàng chục dòng liền. Đó là tên BẢNG
+    trong database cộng tám ký tự của một khoá chính — người trực ca đọc nhật ký
+    không tra được gì từ nó, chỉ thấy màn hình lộ ruột mã nguồn.
+
+    Sự thật với những dòng ấy là: việc này KHÔNG gắn với khách hàng nào (giữ chỗ
+    là cặp bác sĩ–khung giờ, chưa có ai đứng sau). Nói ra bằng tiếng Việt đúng
+    hơn hẳn một mã tra cứu không tra được.
     """
     if row["subject_name"]:
         ma = f" ({row['subject_code']})" if row["subject_code"] else ""
@@ -132,7 +177,9 @@ def subject_label(row: dict[str, Any] | asyncpg.Record) -> str:
     if kind == "nhan_su":
         return row["subject_ref_name"] or "Nhân sự"
 
-    return f"{row['aggregate_type']} · {(row['aggregate_id'] or '')[:8]}"
+    return KHONG_CO_KHACH.get(
+        row["aggregate_type"], "Không gắn khách hàng"
+    )
 
 
 class AuditLogService:
@@ -161,7 +208,7 @@ class AuditLogService:
                 "nguon_thao_tac": r["nguon_thao_tac"],
                 "aggregate_type": r["aggregate_type"],
                 "aggregate_id": r["aggregate_id"],
-                "payload": r["payload"],
+                "payload": _payload_dict(r["payload"]),
             }
             for r in rows
         ]

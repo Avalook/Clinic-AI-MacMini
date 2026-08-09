@@ -153,6 +153,34 @@ async def skip_recall_job(
     )
 
 
+class HenTaiKhamTay(BaseModel):
+    """CSKH gõ tay ngày tái khám cho một khách."""
+
+    clinic_patient_id: UUID
+    ngay_tai_kham: date
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/cskh/nhac-tai-kham", status_code=201)
+async def create_recall_by_hand(
+    body: HenTaiKhamTay,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hẹn tái khám do CSKH gõ → sinh hai mốc gọi: trước 7 ngày và trước 1 ngày.
+
+    Đường tự sinh chỉ đọc được lời dặn nằm trong phiếu khám đã chốt. Khách nói
+    qua điện thoại "tháng sau em quay lại" thì không có phiếu nào để đọc, và
+    câu ấy hiện không có chỗ nào ghi xuống.
+    """
+    return await RecallJobService(pool).tao_thu_cong(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        ngay_tai_kham=body.ngay_tai_kham,
+        ly_do=body.ly_do,
+    )
+
+
 @router.post("/cskh/actions", status_code=201)
 async def record_cskh_action(
     body: CskhActionRequest,

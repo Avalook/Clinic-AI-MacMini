@@ -23,8 +23,6 @@ import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
 import SplitPane from "../SplitPane";
-import QuickBookingModal from "./QuickBookingModal";
-import type { Option } from "../patients/AppointmentBooking";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
 type PatientFull = NonNullable<DoctorApptRow["patient"]>;
@@ -162,11 +160,7 @@ export default function PatientListView({
   canEditAdmin = false,
   showPreVisitBrief = false,
   showRebook = false,
-  walkinRebook = false,
   enableVisitPager = false,
-  services = [],
-  doctors = [],
-  locations = [],
 }: {
   rows: ExaminedRow[];
   /** Chỉ vai lâm sàng mở phiếu khám thật ở vùng SplitPane. */
@@ -174,19 +168,30 @@ export default function PatientListView({
   canEditAdmin?: boolean;
   showPreVisitBrief?: boolean;
   showRebook?: boolean;
-  walkinRebook?: boolean;
   enableVisitPager?: boolean;
-  services?: Option[];
-  doctors?: Option[];
-  locations?: Option[];
 }) {
   const router = useRouter();
   const [term, setTerm] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(rows[0]?.clinic_patient_id ?? null);
   const [openAppt, setOpenAppt] = useState<DoctorApptRow | null>(null);
-  const [bookingAppt, setBookingAppt] = useState<DoctorApptRow | null>(null);
   const [moDanhSachLuot, setMoDanhSachLuot] = useState(false);
+
+  // "TÁI KHÁM" ĐI TỚI MÀN ĐẶT LỊCH THẬT.
+  //
+  // Trước đây nút này mở `QuickBookingModal` → `CskhBookingGrid`: một màn DỰNG
+  // SẴN (tên "Nguyễn Văn An", "BS. Trần Minh Đức", khung giờ viết cứng, nhãn
+  // "Sắp ra mắt v2"). Bấm "Xác nhận đặt lịch" trong đó KHÔNG ghi gì xuống
+  // database, mà màn hình vẫn báo như đã xong.
+  //
+  // Đường vào ấy đã bị gỡ ở màn Quản lý khách hàng (af1cf1a) nhưng CÒN NGUYÊN ở
+  // đây — Lễ tân/CSKH mở phiếu khám rồi bấm "Tái khám" là rơi thẳng vào nó. Cả
+  // hai đường nay đi cùng một chỗ: `/appointments`, kèm `?bn=` để không mất
+  // người đang mở giữa đường.
+  function datLichLai(appt: DoctorApptRow) {
+    const ma = appt.patient?.patient_code ?? "";
+    router.push(`/appointments${ma ? `?bn=${encodeURIComponent(ma)}` : ""}`);
+  }
 
   const shown = useMemo(() => {
     const normalized = unaccentVi(term.trim());
@@ -544,25 +549,11 @@ export default function PatientListView({
               showPreVisitBrief={showPreVisitBrief}
               showRebook={showRebook}
               enableVisitPager={enableVisitPager}
-              onRebook={() => setBookingAppt(openAppt)}
+              onRebook={() => datLichLai(openAppt)}
               onClose={() => setOpenAppt(null)}
             />
           }
         />
-        {bookingAppt?.patient && (
-          <QuickBookingModal
-            patient={bookingAppt.patient}
-            services={services}
-            doctors={doctors}
-            locations={locations}
-            walkin={walkinRebook}
-            onClose={() => setBookingAppt(null)}
-            onBooked={() => {
-              setBookingAppt(null);
-              router.refresh();
-            }}
-          />
-        )}
       </>
     );
   }
