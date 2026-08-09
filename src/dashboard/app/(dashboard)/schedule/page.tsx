@@ -26,6 +26,7 @@ import RosterRegisterTable, {
   type StaffOpt,
 } from "./RosterRegisterTable";
 import { doctorName } from "../../../lib/doctor-name";
+import { dongBoTenTrucNhat } from "../../../lib/roster-names";
 import { getClinicStaffId } from "../../../lib/clinic-session";
 export const dynamic = "force-dynamic";
 
@@ -123,37 +124,12 @@ export default async function SchedulePage({
     (tramTheoVai[t.vai] ??= []).push(t.tram_ma);
   }
 
-  // TÊN NGƯỜI LẤY TỪ MỘT NGUỒN DUY NHẤT.
-  //
-  // `work_roster.staff_name` là chuỗi TỰ DO nạp từ file Excel "BẢNG LÀM VIỆC",
-  // nên cùng một người hiện ra mỗi chỗ một kiểu: "BS THÀNH" ở hàng này,
-  // "Bác sĩ · BSNT. Lê Thiệu Quyết" ở hàng kia. Người đọc bảng không biết hai
-  // dòng ấy có phải một người hay không.
-  //
-  // Dòng nào có `staff_id` thì lấy tên từ `staff.full_name` rồi cho qua
-  // doctorName() — cùng cái tên mà lưới đặt lịch và mọi màn khác đang hiện.
-  // Dòng KHÔNG có staff_id (nhập tay từ Excel, chưa nối được vào ai) giữ nguyên
-  // chuỗi cũ: bịa ra một cái tên chuẩn cho một người chưa xác định được là tệ
-  // hơn hiện đúng thứ đang có.
-  const staffIds = [...new Set(rows.map((r) => r.staff_id).filter(Boolean))];
-  const tenTheoId: Record<string, string> = {};
-  if (staffIds.length) {
-    const { data: nhanSu } = await supabase
-      .from("staff")
-      .select("id, full_name")
-      .in("id", staffIds as string[]);
-    for (const nv of (nhanSu as { id: string; full_name: string }[] | null) ?? []) {
-      const ten = doctorName(nv.full_name);
-      if (ten) tenTheoId[nv.id] = ten;
-    }
-  }
-  const dongBoTen = <T extends RosterRowWithId>(r: T): T => ({
-    ...r,
-    staff_name: (r.staff_id && tenTheoId[r.staff_id]) || r.staff_name,
-  });
+  // Tên người lấy từ MỘT nguồn duy nhất (`staff.full_name` qua doctorName) —
+  // cùng hàm mà bảng lịch làm việc ở trang chủ dùng. Xem lib/roster-names.ts.
+  const rowsDongBo = (await dongBoTenTrucNhat(supabase, rows)) as RosterRowWithId[];
 
   // Lịch chung CHỈ hiện ca đã duyệt. Ca PENDING/REJECTED không lọt vào bảng.
-  const approvedRows = rows.filter((r) => r.status === "APPROVED").map(dongBoTen);
+  const approvedRows = rowsDongBo.filter((r) => r.status === "APPROVED");
 
   // Tuần này đã được quản lý bấm áp dụng chưa. Có dòng trong roster_week = rồi.
   const { data: tuanApDung } = await supabase
@@ -233,7 +209,7 @@ export default async function SchedulePage({
           <RosterRegisterTable
             weekStart={week}
             dates={dates}
-            rows={rows.map(dongBoTen) as RegisterRow[]}
+            rows={rowsDongBo as RegisterRow[]}
             myStaffId={await getClinicStaffId()}
             staff={staffOptions}
             tramTheoVai={tramTheoVai}
