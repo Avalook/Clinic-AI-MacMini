@@ -18,6 +18,38 @@ from pathlib import Path
 from clinicai.services.booking_service import LY_DO_HUY
 
 _TS = Path(__file__).resolve().parents[3] / "src" / "dashboard" / "lib" / "ly-do-huy.ts"
+_MIGRATIONS = Path(__file__).resolve().parents[3] / "supabase" / "migrations"
+
+#: BẢN THỨ BA của danh mục — ràng buộc CHECK ở database.
+#:
+#: Bài kiểm này ra đời để chặn lệch giữa backend và giao diện, và nó làm đúng
+#: việc ấy. Nhưng danh mục có BA bản, không phải hai: cột `appointment
+#: .ly_do_huy_ma` có một ràng buộc liệt kê cứng các mã hợp lệ.
+#:
+#: Ngày 09/08/2026 thêm mã `DAT_TRUNG` vào hai bản Python/TS, bài kiểm xanh, và
+#: nút "Bỏ lịch này" trả về "An internal server error occurred." cho người dùng
+#: thật — CheckViolationError từ database, nổi lên thành 500 vì nó không phải
+#: ValidationError mà tầng API biết dịch. Đúng kịch bản docstring trên mô tả,
+#: chỉ khác là bản trốn được nằm ở database.
+_CHECK_LY_DO = re.compile(
+    r"appointment_ly_do_huy_ma_check\s*\n?\s*CHECK\s*\((.*?)\);",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _doc_rang_buoc() -> set[str]:
+    """Mã hợp lệ theo migration MỚI NHẤT có định nghĩa ràng buộc ấy."""
+    ma: set[str] | None = None
+    for f in sorted(_MIGRATIONS.glob("*.sql")):
+        for khop in _CHECK_LY_DO.finditer(f.read_text(encoding="utf-8")):
+            tim_thay = set(re.findall(r"'([A-Z_]+)'", khop.group(1)))
+            if tim_thay:
+                ma = tim_thay
+    assert ma, (
+        "không đọc được appointment_ly_do_huy_ma_check từ supabase/migrations "
+        "— bài kiểm mất nguồn sự thật, sửa biểu thức trước khi tin kết quả"
+    )
+    return ma
 
 
 def _doc_ts() -> dict[str, str]:
@@ -39,6 +71,22 @@ def test_ma_va_chu_khop_nhau() -> None:
         f"  chỉ có ở giao diện: {sorted(set(ts) - set(LY_DO_HUY))}\n"
         f"  khác chữ          : "
         f"{sorted(k for k in set(ts) & set(LY_DO_HUY) if ts[k] != LY_DO_HUY[k])}"
+    )
+
+
+def test_rang_buoc_database_nhan_dung_bo_ma_ay() -> None:
+    """Bản thứ ba phải khớp hai bản kia — nếu không, nút huỷ trả 500.
+
+    Thiếu một mã ở đây là database TỪ CHỐI lần huỷ mà cả backend lẫn giao diện
+    đều coi là hợp lệ, và người dùng nhận một lỗi máy chủ không giải thích được.
+    Thừa một mã thì ngược lại: cột dùng để đếm "khách báo không đến ở khâu nào"
+    nhận được giá trị không màn nào vẽ ra, và con số lặng lẽ sai.
+    """
+    trong_db = _doc_rang_buoc()
+    assert trong_db == set(LY_DO_HUY), (
+        "Danh mục lý do huỷ lệch giữa mã nguồn và ràng buộc CHECK.\n"
+        f"  database từ chối : {sorted(set(LY_DO_HUY) - trong_db)}\n"
+        f"  database cho, mà mã nguồn không có: {sorted(trong_db - set(LY_DO_HUY))}"
     )
 
 

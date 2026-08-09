@@ -41,6 +41,9 @@ export interface Notif {
   duongDan?: string | null;
   /** Thông báo KHẨN do Trưởng ca gọi — chuông tô đỏ, không phải xanh. */
   khan?: boolean;
+  /** Đã bấm "Đánh dấu đã đọc" chưa. ĐỌC ≠ ĐÃ XỬ LÝ: việc vẫn nằm trong danh
+   *  sách, chỉ thôi tính vào chấm đỏ. */
+  daDoc?: boolean;
 }
 
 interface MyRow {
@@ -105,6 +108,7 @@ export function NotificationProvider({
             tao_luc: string;
             duong_dan: string | null;
             nguoi_goi: string | null;
+            da_doc_luc: string | null;
           }[];
         };
         if (stopped) return;
@@ -113,6 +117,7 @@ export function NotificationProvider({
             key: `tb:${t.id}`,
             approved: false,
             khan: t.muc_do === "KHAN",
+            daDoc: Boolean(t.da_doc_luc),
             title: t.tieu_de,
             duongDan: t.duong_dan,
             detail:
@@ -294,6 +299,20 @@ export function NotificationProvider({
 
   function markAllRead() {
     setUnread(0);
+    // TẮT CHẤM ĐỎ Ở CẢ MÁY CHỦ, không chỉ trong tab này.
+    //
+    // Con số trên chuông là `unread` (thông báo tức thời, chỉ sống trong
+    // trình duyệt) CỘNG số thông báo chưa đọc từ máy chủ. `setUnread(0)` một
+    // mình chỉ xoá vế đầu — nên chấm đỏ ở lại, và tải lại trang là nó y nguyên.
+    // Quang: "làm cho mấy báo động cứ hiện đỏ dù đã hoàn thành".
+    //
+    // Đặt cờ tại chỗ TRƯỚC khi máy chủ trả lời: lượt poll kế tiếp còn cách tới
+    // 20 giây, và một cái nút bấm xong không đổi gì trong 20 giây thì người ta
+    // sẽ bấm lại vài lần.
+    setThongBao((ds) => ds.map((t) => ({ ...t, daDoc: true })));
+    void fetch("/api/thong-bao", { method: "POST" }).catch(() => {
+      /* mạng chập — lượt poll sau sẽ trả về trạng thái thật */
+    });
   }
 
   return (
@@ -301,7 +320,9 @@ export function NotificationProvider({
       value={{
         // Thông báo KHẨN lên đầu — chúng là thứ có người đang chờ mình xử lý.
         notifs: [...thongBao, ...notifs],
-        unread: unread + thongBao.length,
+        // CHỈ ĐẾM CÁI CHƯA ĐỌC. Trước đây cộng thẳng `thongBao.length`, tức
+        // mọi việc đang mở đều tính là "mới" mãi mãi.
+        unread: unread + thongBao.filter((t) => !t.daDoc).length,
         transient,
         markAllRead,
         dismissTransient: (key) =>

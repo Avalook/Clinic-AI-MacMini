@@ -6,7 +6,10 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { fetchFromBackend } from "../../../lib/backend-proxy";
+import {
+  fetchFromBackend,
+  proxyJsonToBackend,
+} from "../../../lib/backend-proxy";
 
 export async function GET() {
   const caller = await getSupabaseServer();
@@ -25,4 +28,19 @@ export async function GET() {
     );
   }
   return NextResponse.json(d);
+}
+
+/** Tắt chấm đỏ — đóng dấu ĐÃ ĐỌC, KHÔNG đóng việc.
+ *
+ *  Nút "Đánh dấu đã đọc" trước đây chỉ gọi `setUnread(0)` trong trình duyệt,
+ *  mà con số trên chuông là `unread + thongBao.length`: phần đến từ máy chủ
+ *  không có đường nào tắt. Tải lại trang là đỏ y như cũ. */
+export async function POST() {
+  const caller = await getSupabaseServer();
+  const {
+    data: { user },
+  } = await caller.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+
+  return proxyJsonToBackend("POST", "/api/v1/thong-bao/da-doc", {});
 }

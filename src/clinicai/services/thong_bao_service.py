@@ -206,6 +206,40 @@ class ThongBaoService:
             )
         return [dict(r) for r in rows]
 
+    async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Đóng dấu ĐÃ ĐỌC cho mọi thông báo đang mở của vai này.
+
+        ĐỌC ≠ ĐÃ XỬ LÝ, và đó là cả lý do có hai cột. `da_xu_ly_luc` là việc
+        đã xong; `da_doc_luc` chỉ là "tôi thấy rồi". Nút "Đánh dấu đã đọc" phải
+        tắt được chấm đỏ mà KHÔNG đóng việc — đóng việc hộ ở đây là làm mất một
+        hàng đợi thật chỉ vì ai đó mở cái chuông ra xem.
+
+        Trước đây nút ấy chỉ gọi `setUnread(0)` ở trình duyệt, trong khi con số
+        trên chuông là `unread + thongBao.length` — phần đến từ máy chủ không
+        có đường nào tắt, nên chấm đỏ ở lại mãi và người dùng học cách lờ nó đi.
+        """
+        async with self._pool.acquire() as conn:
+            so = await conn.fetchval(
+                """
+                UPDATE public.thong_bao
+                   SET da_doc_luc = now()
+                 WHERE clinic_id = $1::uuid
+                   AND da_xu_ly_luc IS NULL
+                   AND da_doc_luc IS NULL
+                   AND (vai_nhan = $2 OR nguoi_nhan_staff_id = $3::uuid)
+                RETURNING 1
+                """,
+                identity.clinic_id,
+                identity.role.value,
+                identity.staff_id,
+            )
+        logger.info(
+            "thong_bao_danh_dau_da_doc",
+            vai_nhan=identity.role.value,
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True, "co_thay_doi": so is not None}
+
     async def da_xu_ly(
         self, *, identity: StaffIdentity, thong_bao_id: str, ghi_chu: str | None
     ) -> dict[str, Any]:
