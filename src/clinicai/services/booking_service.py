@@ -899,9 +899,19 @@ class BookingService:
         if da_co:
             return
 
+        # NHÂN SỰ KHÔNG CÓ CỘT `clinic_id` — quan hệ với phòng khám nằm ở
+        # `clinic_membership` (nền tảng đa phòng khám, 20260730000003). Lọc theo
+        # `staff.clinic_id` là truy vấn không chạy được, không phải một bộ lọc
+        # chặt hơn. Dùng đúng phép nối mà `doctor_in_clinic` ở `_build_patch`
+        # dùng, để hai chỗ không trả lời khác nhau về cùng một bác sĩ.
         ten = await conn.fetchval(
-            "SELECT full_name FROM public.staff "
-            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            """
+            SELECT st.full_name
+              FROM public.staff st
+              JOIN public.clinic_membership m ON m.staff_id = st.id
+             WHERE st.id = $1::uuid AND st.is_active
+               AND m.clinic_id = $2::uuid AND m.is_active
+            """,
             doctor_id,
             identity.clinic_id,
         )
