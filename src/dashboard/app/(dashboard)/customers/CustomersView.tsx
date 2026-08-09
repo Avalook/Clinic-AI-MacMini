@@ -28,7 +28,9 @@ import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
-import NhacTaiKham, { type MocTaiKham } from "./NhacTaiKham";
+// `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
+// component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
+// năng chứ không phải vài dòng trang trí.
 import type { TepKetQuaRow } from "./TepKetQua";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
@@ -370,7 +372,6 @@ export default function CustomersView({
   trangThaiByPatient,
   phanHoiByPatient,
   tepByPatient,
-  taiKhamByPatient,
   locations,
   q,
   period,
@@ -398,7 +399,6 @@ export default function CustomersView({
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
   tepByPatient: Record<string, TepKetQuaRow[]>;
   /** Mốc gọi nhắc tái khám đang mở, theo khách. Rỗng = không có việc nào. */
-  taiKhamByPatient: Record<string, MocTaiKham[]>;
   locations: Opt[];
   q: string;
   period: Period;
@@ -817,7 +817,6 @@ export default function CustomersView({
         {selected && (
           <VungLamViecKhach
             tenKhach={selected.full_name}
-            clinicPatientId={selected.clinic_patient_id}
             lich={{
               id: selectedAppt?.appt?.id ?? null,
               status: selectedAppt?.status ?? null,
@@ -826,7 +825,6 @@ export default function CustomersView({
               cancelled_at: selectedAppt?.cancelled_at ?? null,
             }}
             lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
-            tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
             trangThaiHienTai={
               trangThaiByPatient[selected.clinic_patient_id]?.trang_thai ?? null
             }
@@ -837,13 +835,10 @@ export default function CustomersView({
               clinicPatientId={selected.clinic_patient_id}
               items={phanHoiByPatient[selected.clinic_patient_id] ?? []}
             />
-            {/* NHẮC TÁI KHÁM — gộp từ màn /nhac-tai-kham về đây (Quang chốt
-                09/08/2026). CSKH gõ được ngày tái khám ngay tại chỗ, và hai mốc
-                gọi (trước 7 ngày / trước 1 ngày) hiện lên cùng đếm ngược. */}
-            <NhacTaiKham
-              clinicPatientId={selected.clinic_patient_id}
-              moc={taiKhamByPatient[selected.clinic_patient_id] ?? []}
-            />
+            {/* Khối NHẮC TÁI KHÁM đã bỏ khỏi đây — Quang chốt 09/08/2026, vùng
+                dưới chỉ còn "Phản hồi của khách". Sáng cùng ngày nó vừa được
+                gộp TỪ màn /nhac-tai-kham về đây; ô "GỌI NHẮC ĐI KHÁM" ở cột
+                phải làm đúng việc ấy nên hai khối chồng nhau. */}
           </VungLamViecKhach>
         )}
 

@@ -550,26 +550,18 @@ export default async function CustomersPage({
     }
   }
 
-  // Gom mốc gọi theo khách. Hai lượt đi chung một danh sách: vùng làm việc của
-  // một người cần thấy CẢ HAI ("mời đặt lịch" và "nhắc đi khám"), xếp theo ngày
-  // phải gọi — gần nhất trước.
-  const taiKhamByPatient: Record<string, MocTaiKham[]> = {};
-  const recall = await recallPromise;
-  for (const r of [...(recall?.luot1 ?? []), ...(recall?.luot2 ?? [])]) {
-    if (!r.clinic_patient_id) continue;
-    (taiKhamByPatient[r.clinic_patient_id] ??= []).push({
-      id: r.id,
-      luot_goi: r.luot_goi,
-      ngay_hen: r.ngay_hen,
-      han_goi: r.han_goi,
-      qua_han: r.qua_han,
-      ly_do: r.ly_do ?? null,
-      nguon: r.nguon ?? "PHIEU_KHAM",
-    });
-  }
-  for (const ds of Object.values(taiKhamByPatient)) {
-    ds.sort((a, b) => a.han_goi.localeCompare(b.han_goi));
-  }
+  // VÒNG GOM MỐC GỌI ĐÃ BỎ cùng khối Nhắc tái khám (Quang chốt 09/08/2026) —
+  // không còn ai đọc `taiKhamByPatient` nữa.
+  //
+  // NHƯNG LỜI GỌI THÌ Ở LẠI, VÀ PHẢI Ở LẠI. Xem điểm 2 trong ghi chú của
+  // `recallPromise` bên trên: endpoint này chạy `sinh_viec_nhac_tai_kham()`
+  // TRƯỚC khi trả về, và dự án chưa có bộ hẹn giờ nào. Nó là thứ duy nhất còn
+  // sinh việc nhắc của hôm nay. Bỏ nó đi vì "không ai đọc kết quả" thì hàng đợi
+  // nhắc sẽ vĩnh viễn rỗng — và đúng như lần trước, KHÔNG AI BÁO LỖI: nhãn
+  // "Nhắc đi khám hôm nay" chỉ đơn giản là không bao giờ xuất hiện nữa.
+  //
+  // Await để tác dụng phụ chạy xong trước khi màn dựng; kết quả bỏ đi.
+  await recallPromise;
 
   return (
     <div className="space-y-3">
@@ -589,7 +581,6 @@ export default async function CustomersPage({
           trangThaiByPatient={trangThaiByPatient}
           phanHoiByPatient={phanHoiByPatient}
           tepByPatient={tepByPatient}
-          taiKhamByPatient={taiKhamByPatient}
           locations={locations}
           q={q}
           period={period}
