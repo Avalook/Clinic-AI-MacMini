@@ -1,9 +1,15 @@
 // Hình dạng một dòng nhật ký, đúng như FastAPI trả về
 // (services/audit_log_service.py).
 //
-// BA TRƯỜNG ĐÃ GIẢI NGHĨA XONG Ở BACKEND — `actor_name`, `subject_label`,
-// `action_label`. Màn hình hiện thẳng, không dựng lại. Đó là cả điểm của lần
-// sửa này: trước đây màn hình tự dựng cả ba từ dữ liệu thô, và cả ba đều sai.
+// NĂM TRƯỜNG ĐÃ GIẢI NGHĨA XONG Ở BACKEND — `actor_name`, `subject_label`,
+// `action_label`, `nguon_label`, `aggregate_label`. Màn hình hiện thẳng, không
+// dựng lại. Đó là cả điểm của lần sửa này: trước đây màn hình tự dựng chúng từ
+// dữ liệu thô, và đều sai.
+//
+// Hai trường cuối vừa chuyển về backend: chúng từng là hai `Record<string,
+// string>` trong AuditLogBoard.tsx, mỗi bảng bảy mục cho một từ vựng hơn ba
+// mươi giá trị, nên phần lớn dòng rơi xuống nhánh `?? nguon` và in ra địa chỉ
+// mã nguồn.
 
 export interface AuditEvent {
   id: string;
@@ -28,10 +34,16 @@ export interface AuditEvent {
   action_label: string;
 
   /** Đường ghi ("api:booking", "dashboard", "workflow-kernel"). Thông tin có
-   *  ích — nó chỉ không được đứng THAY tên người. */
+   *  ích — nó chỉ không được đứng THAY tên người. Dùng để lọc/tìm; thứ hiện ra
+   *  màn hình là `nguon_label`. */
   nguon_thao_tac: string | null;
+  /** Tên MÀN, tiếng Việt. "Hệ thống" khi không có đường ghi. */
+  nguon_label: string;
 
   aggregate_type: string;
+  /** Loại đối tượng bằng tiếng Việt — "Tuần lịch trực", không phải
+   *  "roster_week". */
+  aggregate_label: string;
   aggregate_id: string;
   payload: Record<string, unknown> | null;
 }

@@ -31,7 +31,11 @@ import asyncpg
 import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.services.audit_labels import action_label
+from clinicai.services.audit_labels import (
+    action_label,
+    aggregate_label,
+    source_label,
+)
 
 logger = structlog.get_logger()
 
@@ -206,7 +210,13 @@ class AuditLogService:
                 # `source` là thông tin có ích — nó chỉ không được đứng THAY
                 # tên người, nên trả về dưới nhãn riêng.
                 "nguon_thao_tac": r["nguon_thao_tac"],
+                # Hai nhãn này TRƯỚC ĐÂY DỰNG TRONG TSX, mỗi bảng bảy mục cho
+                # một từ vựng hơn ba mươi giá trị — nên ô "Làm ở màn" in
+                # "api:booking-override" và cái chip in "roster_week". Về đây
+                # cùng chỗ với ba nhãn trên: một bảng, một bài kiểm.
+                "nguon_label": source_label(r["nguon_thao_tac"]),
                 "aggregate_type": r["aggregate_type"],
+                "aggregate_label": aggregate_label(r["aggregate_type"]),
                 "aggregate_id": r["aggregate_id"],
                 "payload": _payload_dict(r["payload"]),
             }
