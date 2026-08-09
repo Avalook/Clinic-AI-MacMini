@@ -16,7 +16,6 @@ import {
   X,
   Search,
   Phone,
-  Filter,
   ChevronLeft,
   ChevronRight,
   UserPlus,
@@ -408,9 +407,13 @@ export default function BookingHub({
     [services],
   );
 
-  const [selectedServiceId, setSelectedServiceId] = useState<string>(
-    cleanServices[0]?.id ?? "",
-  );
+  // MẶC ĐỊNH LÀ CHƯA CHỌN, không phải "dịch vụ đầu danh sách".
+  //
+  // Bản cũ tự chọn sẵn `cleanServices[0]` và ô lọc hiện tên dịch vụ ấy như thể
+  // người dùng đã chọn. Ai không để ý là đặt lịch vào một dịch vụ mình chưa hề
+  // chọn — và panel bên phải cũng ghi tên nó, nên trông càng giống một lựa chọn
+  // có chủ ý.
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -525,11 +528,51 @@ export default function BookingHub({
   // Và ba là con số của bố cục: lưới ba cột nằm vừa khung giữa mà không cuộn
   // ngang. Đổ mười lăm cột vào đó làm hỏng màn hình để giải quyết một vấn đề
   // không tồn tại.
+  // SỐ CHỖ THẬT CỦA TỪNG Ô, đọc từ chính hàm mà trigger dùng để chặn.
+  //
+  // Trước đây mọi ô dùng chung `dynamicCap` = số chỗ mặc định của phòng khám,
+  // nên luật riêng của một bác sĩ KHÔNG hiện ra: Trưởng ca đặt BS Thành 18:00
+  // được 10 ca, lưới vẫn vẽ 3/3 rồi khoá ô ở ca thứ tư — cấu hình lưu thành
+  // công mà màn hình không đổi, đúng loại "chỉnh xong chẳng thấy gì" tệ nhất.
+  //
+  // /appointments/quote gọi resolve_effective_cap cho TỪNG khung của ngày, nên
+  // ô dãn hay co theo đúng luật ba tầng. Một request cho mỗi bác sĩ đang hiện
+  // (tối đa ba cột), huỷ khi đổi ngày.
+  const [capByCell, setCapByCell] = useState<
+    Record<string, { regular: number; walkin: number }>
+  >({});
+  // Bác sĩ nào KHÔNG có lịch làm việc ngày đang chọn. Khoá theo `bác sĩ|ngày`
+  // để đổi ngày không kéo theo câu trả lời của ngày cũ.
+  const [offDuty, setOffDuty] = useState<Record<string, boolean>>({});
+  // Ca trực, để nói "chỉ trực 08:00–12:00" thay vì lặng lẽ bớt nửa lưới. Một
+  // nửa lưới biến mất không lời giải thích trông y hệt lỗi tải dữ liệu.
+  const [shiftLabel, setShiftLabel] = useState<Record<string, string>>({});
+  // ĐÃ ĐỌC XONG SỨC CHỨA CỦA (bác sĩ, ngày) NÀY CHƯA.
+  //
+  // Cần vì "chưa tải" và "ngoài ca trực" đều biểu hiện là KHÔNG CÓ dữ liệu cho
+  // ô đó, mà hai thứ ấy phải hiện hai câu khác nhau: một bên là "đợi chút",
+  // một bên là "bác sĩ không có mặt giờ này". Thiếu cờ này thì mọi khung ngoài
+  // ca trực lại rơi về số mặc định và tiếp tục mời đặt — đúng cái vừa sửa.
+  const [capLoaded, setCapLoaded] = useState<Record<string, boolean>>({});
+
+  // CHỈ HIỆN BÁC SĨ CÓ CA NGÀY ĐANG XEM, và hiện HẾT.
+  //
+  // Bản cũ cắt còn ba cột đầu danh sách bất kể ai trực: bác sĩ thứ tư có ca hôm
+  // nay thì không có cột nào để đặt, còn ba người đầu nghỉ vẫn chiếm chỗ kèm
+  // dòng "Không có lịch làm việc ngày này" — ba cột chết giữa màn hình.
+  //
+  // `offDuty` chỉ bật khi ngày đó ĐÃ xếp ca và người này không có tên. Chưa đọc
+  // xong thì giữ lại cột: giấu một bác sĩ vì chưa tải xong là giấu một chỗ còn
+  // trống. Lưới cuộn ngang nên bao nhiêu người cũng vừa.
   const activeDoctors = useMemo(() => {
-    if (selectedDoctorId === "all") return doctors.slice(0, 3);
-    const doc = doctors.find((d) => d.id === selectedDoctorId);
-    return doc ? [doc] : doctors.slice(0, 3);
-  }, [doctors, selectedDoctorId]);
+    if (selectedDoctorId !== "all") {
+      const doc = doctors.find((d) => d.id === selectedDoctorId);
+      return doc ? [doc] : [];
+    }
+    return doctors.filter(
+      (d) => offDuty[`${d.id}|${selectedDateIso}`] !== true,
+    );
+  }, [doctors, selectedDoctorId, offDuty, selectedDateIso]);
 
   // NGÀY NÀY ĐÃ XẾP CA CHƯA — khoá theo ngày, không theo bác sĩ (lịch trực là
   // của cả phòng khám). `undefined` = chưa đọc xong.
@@ -647,32 +690,6 @@ export default function BookingHub({
     return () => ctrl.abort();
   }, [selectedDateIso, isToday, fetchedByDate]);
 
-  // SỐ CHỖ THẬT CỦA TỪNG Ô, đọc từ chính hàm mà trigger dùng để chặn.
-  //
-  // Trước đây mọi ô dùng chung `dynamicCap` = số chỗ mặc định của phòng khám,
-  // nên luật riêng của một bác sĩ KHÔNG hiện ra: Trưởng ca đặt BS Thành 18:00
-  // được 10 ca, lưới vẫn vẽ 3/3 rồi khoá ô ở ca thứ tư — cấu hình lưu thành
-  // công mà màn hình không đổi, đúng loại "chỉnh xong chẳng thấy gì" tệ nhất.
-  //
-  // /appointments/quote gọi resolve_effective_cap cho TỪNG khung của ngày, nên
-  // ô dãn hay co theo đúng luật ba tầng. Một request cho mỗi bác sĩ đang hiện
-  // (tối đa ba cột), huỷ khi đổi ngày.
-  const [capByCell, setCapByCell] = useState<
-    Record<string, { regular: number; walkin: number }>
-  >({});
-  // Bác sĩ nào KHÔNG có lịch làm việc ngày đang chọn. Khoá theo `bác sĩ|ngày`
-  // để đổi ngày không kéo theo câu trả lời của ngày cũ.
-  const [offDuty, setOffDuty] = useState<Record<string, boolean>>({});
-  // Ca trực, để nói "chỉ trực 08:00–12:00" thay vì lặng lẽ bớt nửa lưới. Một
-  // nửa lưới biến mất không lời giải thích trông y hệt lỗi tải dữ liệu.
-  const [shiftLabel, setShiftLabel] = useState<Record<string, string>>({});
-  // ĐÃ ĐỌC XONG SỨC CHỨA CỦA (bác sĩ, ngày) NÀY CHƯA.
-  //
-  // Cần vì "chưa tải" và "ngoài ca trực" đều biểu hiện là KHÔNG CÓ dữ liệu cho
-  // ô đó, mà hai thứ ấy phải hiện hai câu khác nhau: một bên là "đợi chút",
-  // một bên là "bác sĩ không có mặt giờ này". Thiếu cờ này thì mọi khung ngoài
-  // ca trực lại rơi về số mặc định và tiếp tục mời đặt — đúng cái vừa sửa.
-  const [capLoaded, setCapLoaded] = useState<Record<string, boolean>>({});
   const activeDoctorIds = activeDoctors.map((d) => d.id).join(",");
 
   useEffect(() => {
@@ -1068,9 +1085,11 @@ export default function BookingHub({
       setBookingError("Chưa đọc được luật đặt lịch của phòng khám — thử tải lại trang.");
       return;
     }
-    const serviceId = selectedServiceId || cleanServices[0]?.id;
+    // KHÔNG rơi về `cleanServices[0]` nữa: đặt lịch vào một dịch vụ người dùng
+    // chưa chọn là ghi sai hồ sơ mà không ai biết cho tới lúc khách tới nơi.
+    const serviceId = selectedServiceId;
     if (!serviceId) {
-      setBookingError("Chưa chọn dịch vụ.");
+      setBookingError("Chưa chọn dịch vụ khám.");
       return;
     }
 
@@ -1213,8 +1232,7 @@ export default function BookingHub({
   }
 
   const selectedServiceName =
-    cleanServices.find((s) => s.id === selectedServiceId)?.label ??
-    "Khám Phụ khoa";
+    cleanServices.find((s) => s.id === selectedServiceId)?.label ?? "";
 
   return (
     <div className="space-y-4">
@@ -1539,6 +1557,7 @@ export default function BookingHub({
                     onChange={(e) => setSelectedServiceId(e.target.value)}
                     className="bg-transparent text-xs font-semibold text-ink outline-none cursor-pointer"
                   >
+                    <option value="">— Chọn dịch vụ —</option>
                     {cleanServices.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.label}
@@ -1561,7 +1580,7 @@ export default function BookingHub({
                     onChange={(e) => handleDoctorFilterChange(e.target.value)}
                     className="bg-transparent text-xs font-semibold text-ink outline-none cursor-pointer"
                   >
-                    <option value="all">Tất cả bác sĩ</option>
+                    <option value="all">— Chọn bác sĩ —</option>
                     {doctors.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.label}
@@ -1577,12 +1596,7 @@ export default function BookingHub({
                 >
                   📅 Lịch làm việc
                 </Link>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-muted"
-                >
-                  <Filter size={13} /> Bộ lọc
-                </button>
+
               </div>
 
               {/* Date navigator & legend — CĂN GIỮA cả ba hàng.
@@ -1717,16 +1731,17 @@ export default function BookingHub({
               ) : null}
 
               {/* Table Grid (FIRST COLUMN = TIME RANGE e.g. 18:00 - 18:15, NO INNER GRID LINES) */}
-              <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card p-2">
+              {/* CUỘN NGANG khi có nhiều bác sĩ trực hơn bề ngang màn hình.
+                  Trước đây lưới cắt cứng còn ba cột nên người thứ tư có ca hôm
+                  nay đơn giản là không đặt được. `min-w-max` để các cột giữ bề
+                  rộng tối thiểu thay vì bị bóp lại đến mức không đọc nổi. */}
+              <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-card p-2">
                 {/* Doctor Header Row */}
                 <div
-                  className={`grid text-xs font-bold text-ink text-center pb-2 border-b border-line ${
-                    cotLuoi.length === 1
-                      ? "grid-cols-[110px_1fr]"
-                      : cotLuoi.length === 2
-                        ? "grid-cols-[110px_1fr_1fr]"
-                        : "grid-cols-[110px_1fr_1fr_1fr]"
-                  }`}
+                  className="grid min-w-max text-xs font-bold text-ink text-center pb-2 border-b border-line"
+                  style={{
+                    gridTemplateColumns: `110px repeat(${cotLuoi.length}, minmax(170px, 1fr))`,
+                  }}
                 >
                   <div className="p-2 text-ink-muted font-medium flex items-center justify-center">
                     Giờ
@@ -1739,11 +1754,7 @@ export default function BookingHub({
                       {/* Câu trả lời đặt ngay dưới TÊN BÁC SĨ, không phải ở
                           một góc màn hình: nó nói về đúng người này, và nó là
                           lý do cả cột bên dưới không bấm được. */}
-                      {offDuty[`${doc.id}|${selectedDateIso}`] ? (
-                        <div className="truncate text-[11px] font-medium text-warning">
-                          Không có lịch làm việc ngày này
-                        </div>
-                      ) : shiftLabel[`${doc.id}|${selectedDateIso}`] ? (
+                      {shiftLabel[`${doc.id}|${selectedDateIso}`] ? (
                         <div className="truncate text-[11px] font-medium text-warning">
                           Chỉ trực {shiftLabel[`${doc.id}|${selectedDateIso}`]}
                         </div>
@@ -1760,6 +1771,13 @@ export default function BookingHub({
                   ))}
                 </div>
 
+                {cotLuoi.length === 0 && (
+                  <p className="px-3 py-8 text-center text-xs text-warning">
+                    Ngày này đã xếp ca nhưng không bác sĩ nào có mặt. Chọn ngày
+                    khác, hoặc báo quản lý xếp thêm người.
+                  </p>
+                )}
+
                 {/* Slot Rows */}
                 <div className="max-h-[480px] overflow-y-auto space-y-1 pt-1.5">
                   {timeSlots.map((time) => {
@@ -1770,13 +1788,10 @@ export default function BookingHub({
                     return (
                       <div
                         key={time}
-                        className={`grid text-xs items-center ${
-                          cotLuoi.length === 1
-                            ? "grid-cols-[110px_1fr]"
-                            : cotLuoi.length === 2
-                              ? "grid-cols-[110px_1fr_1fr]"
-                              : "grid-cols-[110px_1fr_1fr_1fr]"
-                        }`}
+                        className="grid min-w-max text-xs items-center"
+                        style={{
+                          gridTemplateColumns: `110px repeat(${cotLuoi.length}, minmax(170px, 1fr))`,
+                        }}
                       >
                         {/* FIRST COLUMN: TIME RANGE (e.g. 08:00 - 08:15) */}
                         <div className="p-2 text-center font-mono font-medium text-ink-muted text-[11px]">
@@ -1941,7 +1956,15 @@ export default function BookingHub({
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between border-b border-line/60 pb-1.5">
                   <span className="text-ink-muted">Dịch vụ:</span>
-                  <span className="font-bold text-ink">{selectedServiceName}</span>
+                  <span
+                    className={
+                      selectedServiceName
+                        ? "font-bold text-ink"
+                        : "font-semibold text-warning"
+                    }
+                  >
+                    {selectedServiceName || "Chưa chọn"}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-line/60 pb-1.5">
                   <span className="text-ink-muted">Bác sĩ:</span>
@@ -2113,6 +2136,8 @@ export default function BookingHub({
                     // Không chặn ở đây thì bấm "Đặt thêm cho khách này" rồi bấm
                     // luôn sẽ gửi một giờ rỗng xuống backend.
                     !selectedSlot.time ||
+                    // Chưa chọn dịch vụ thì backend sẽ từ chối; nói trước ở đây.
+                    !selectedServiceId ||
                     offDuty[`${selectedSlot.doctorId}|${selectedDateIso}`] === true
                   }
                   className="flex-[1.5] rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 disabled:opacity-50"
