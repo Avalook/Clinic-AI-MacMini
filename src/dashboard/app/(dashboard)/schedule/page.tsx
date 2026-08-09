@@ -89,6 +89,11 @@ export default async function SchedulePage({
 
   // Nhân viên xếp được: bỏ dòng có `primary_department` không phải chức danh
   // hợp lệ (không biết vai thì không kiểm được phạm vi vị trí).
+  //
+  // BỎ LUÔN "Màn hình phòng chờ". Nó là cái tivi treo tường, không phải người,
+  // và backend từ chối thẳng nó (`_kiem_pham_vi_tram`). Nó lại chưa khai vị trí
+  // nào trong `vai_duoc_vao_tram`, nên nhánh "chưa khai thì cho qua" bên dưới
+  // sẽ mời nó vào MỌI trạm — đúng kiểu mời một lựa chọn rồi lưu mới báo lỗi.
   const staffOptions: StaffOpt[] = (
     (staffRes.data as
       | {
@@ -99,7 +104,11 @@ export default async function SchedulePage({
         }[]
       | null) ?? []
   )
-    .filter((s) => departmentToRole(s.primary_department) !== null)
+    .filter(
+      (s) =>
+        departmentToRole(s.primary_department) !== null &&
+        s.primary_department !== "DISPLAY",
+    )
     .map((s) => ({
       id: s.id,
       name: doctorName(s.full_name) || s.short_name || s.full_name,
