@@ -150,6 +150,8 @@ export interface ApptInfo {
   slot_start: string;
   status: string;
   upcoming: boolean;
+  /** Lịch đại diện đã qua giờ mà khách vẫn chưa đến. */
+  qua_gio_hen?: boolean;
   count: number;
   examined: boolean;
   /** Mốc hệ thống cho vùng làm việc: lịch được tạo lúc nào, huỷ lúc nào. */
@@ -521,9 +523,19 @@ export default function CustomersView({
   // Hai nguồn cũ giữ lại làm đường lùi cho tới khi cskh_action được chốt thành
   // dữ liệu nhập khẩu chỉ đọc.
   function customerStatus(row: CustomerRow): { label: string; tone: StatusTone } {
+    // QUÁ GIỜ HẸN LÀ ĐỎ, kể cả khi view nói chưa quá hạn.
+    //
+    // `v_trang_thai_cskh.qua_han` tính theo NGÀY (luat_cskh.so_ngay), nên một
+    // lịch 08:15 hôm nay lúc 12:37 vẫn là "Nhắc đi khám hôm nay" màu xanh —
+    // đúng theo ngày, sai theo việc phải làm. Đây là lớp hiển thị nên nó không
+    // sửa view; nó chỉ nói thêm điều view không đủ mịn để nói.
+    const quaGio = apptByPatient[row.clinic_patient_id]?.qua_gio_hen;
     const tt = trangThaiByPatient[row.clinic_patient_id];
     if (tt) {
-      return { label: tt.nhan, tone: tt.qua_han ? "overdue" : TONE_VIEC[tt.trang_thai] ?? "ready" };
+      return {
+        label: quaGio ? `${tt.nhan} · quá giờ hẹn` : tt.nhan,
+        tone: tt.qua_han || quaGio ? "overdue" : TONE_VIEC[tt.trang_thai] ?? "ready",
+      };
     }
     const cskh = cskhByPatient[row.clinic_patient_id];
     const appt = apptByPatient[row.clinic_patient_id];
@@ -880,11 +892,19 @@ export default function CustomersView({
                       <span className="block text-xs text-ink-muted">
                         {selectedAppt.appt && !selectedAppt.appt.doctor_id
                           ? "Lịch dự kiến"
-                          : "Lịch hẹn sắp tới"}
+                          : selectedAppt.upcoming
+                            ? "Lịch hẹn sắp tới"
+                            : "Lịch hẹn"}
                       </span>
                       <span className="mt-1 block text-sm font-semibold text-ink">
                         {fmtDateTimeOrDate(selectedAppt.slot_start)}
                       </span>
+                      {selectedAppt.qua_gio_hen && (
+                        <span className="mt-1 block rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
+                          ⚠ Đã quá giờ hẹn — khách chưa check-in. Gọi hỏi khách
+                          còn đến không, hoặc đánh dấu không đến.
+                        </span>
+                      )}
                       {selectedAppt.appt && !selectedAppt.appt.doctor_id && (
                         <span className="mt-1 block text-xs font-semibold text-warning">
                           Bác sĩ: chờ quản lý xác nhận
@@ -918,6 +938,11 @@ export default function CustomersView({
                         ? fmtDateTimeOrDate(selectedAppt.slot_start)
                         : "Chưa có lịch hẹn"}
                     </p>
+                    {selectedAppt?.qua_gio_hen && (
+                      <p className="mt-1 rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
+                        ⚠ Đã quá giờ hẹn — khách chưa check-in.
+                      </p>
+                    )}
                   </div>
                 )}
 

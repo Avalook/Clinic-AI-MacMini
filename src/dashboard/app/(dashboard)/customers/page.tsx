@@ -12,6 +12,7 @@ import {
   vnTodayRangeUtc,
   vnMonthStartUtc,
   vnLocalToUtcISO,
+  nowMs,
   VN_TZ,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
@@ -301,7 +302,18 @@ export default async function CustomersPage({
     // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
     // quả. `await` ở đây chỉ chờ đúng cái đã bay từ trước.
     const { data: appts } = await apptsPromise;
-    const nowUtc = new Date().toISOString();
+    // SO GIỜ BẰNG MỐC THỜI GIAN, KHÔNG BẰNG CHUỖI.
+    //
+    // Chỗ này từng là `a.slot_start >= new Date().toISOString()`. Database chạy
+    // ở múi Asia/Ho_Chi_Minh nên PostgREST trả `"2026-08-09T08:15:00+07:00"`,
+    // còn `toISOString()` cho `"2026-08-09T05:48:00.000Z"`. So hai chuỗi ấy là
+    // so ký tự: "08" > "05" ⇒ một lịch ĐÃ QUA bốn tiếng vẫn được coi là SẮP TỚI.
+    //
+    // Thấy được trên prod 09/08: Nguyễn Bình có lịch 08:15 (đã khám xong) và
+    // 21:00 (sắp tới); lúc 12:37 panel vẫn hiện "Lịch hẹn sắp tới 08:15" — bắt
+    // đúng lịch cũ, và giấu mất lịch thật sự sắp tới.
+    const bayGio = nowMs();
+    const mocGio = (iso: string): number => new Date(iso).getTime();
     type Raw = {
       clinic_patient_id: string;
       slot_start: string;
@@ -324,8 +336,12 @@ export default async function CustomersPage({
     for (const [pid, list] of Object.entries(grouped)) {
       // Lịch "sống" (bỏ đã hủy/không đến/BS từ chối) để chọn LỊCH ĐẠI DIỆN + đếm:
       // hủy lịch xong thì KHÔNG còn hiện là "Lịch hẹn sắp tới".
-      const live = list.filter((a) => !DEAD.includes(a.status));
-      const upcoming = live.find((a) => a.slot_start >= nowUtc); // sort tăng dần
+      // Sắp xếp TẠI ĐÂY thay vì tin vào thứ tự truy vấn: "lịch sống gần nhất"
+      // và "lịch sắp tới đầu tiên" đều đọc theo thứ tự này.
+      const live = list
+        .filter((a) => !DEAD.includes(a.status))
+        .sort((x, y) => mocGio(x.slot_start) - mocGio(y.slot_start));
+      const upcoming = live.find((a) => mocGio(a.slot_start) >= bayGio);
       // Lịch đại diện: sắp tới → lịch sống gần nhất → CUỐI CÙNG mới tới lịch đã
       // huỷ. Nhánh thứ ba là mới: trước đây khách chỉ còn lịch huỷ thì bị bỏ
       // qua hẳn (`continue`), nên vùng làm việc của họ trống trơn — đúng lúc
@@ -351,6 +367,15 @@ export default async function CustomersPage({
         slot_start: repr.slot_start,
         status: repr.status,
         upcoming: Boolean(upcoming),
+        // QUÁ GIỜ HẸN MÀ KHÁCH CHƯA ĐẾN. Quang 09/08/2026: *"thời gian trôi rồi
+        // mà sao vẫn còn nhắc khám, phải cảnh báo đỏ"*.
+        //
+        // Chỉ tính khi lịch đại diện đã qua giờ VÀ vẫn đang ở trạng thái "chưa
+        // tới nơi". Đã check-in / đã khám xong thì giờ trôi qua là bình thường,
+        // tô đỏ ở đó là dạy người dùng bỏ qua màu đỏ.
+        qua_gio_hen:
+          mocGio(repr.slot_start) < bayGio &&
+          ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status),
         count: live.length,
         // "Đã khám" = có ≥1 lịch COMPLETED (cùng định nghĩa "bệnh nhân" ở
         // /patient-list). Đang khám (CHECKED_IN/IN_PROGRESS) hay mới đặt/check-in
