@@ -401,6 +401,45 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/portal": ["MANAGEMENT"],
 };
 
+/** ẨN KHỎI THANH BÊN — NHƯNG KHÔNG CHẶN ĐƯỜNG VÀO.
+ *
+ *  Quang chốt 09/08/2026: *"chỉ cần xem tổng quan thôi, không cần xem màn của
+ *  người khác vậy vất vả quá"*. Thanh bên của Quản lý đang có hơn ba mươi mục,
+ *  phần lớn là màn thao tác hằng ngày của CSKH / Lễ tân.
+ *
+ *  VÌ SAO KHÔNG XOÁ THẲNG KHỎI `NAV_ROLES`. Bảng ấy vừa dựng thanh bên VỪA gác
+ *  cửa trang (`requireNavAccess` gọi chính `canSeeNav`). Gỡ Quản lý khỏi
+ *  `/customers` là gỡ luôn quyền MỞ trang đó — mà nút "Xác nhận lịch trước 7
+ *  ngày →" ở màn Chờ xếp bác sĩ vừa dựng xong lại đi thẳng tới đấy. Người dùng
+ *  bấm một nút do chính hệ thống bày ra rồi bị đá về /home, không lời giải
+ *  thích.
+ *
+ *  Nên tách hai câu hỏi khác nhau: "có được vào không" (NAV_ROLES) và "có bày
+ *  ra trên thanh bên không" (bảng này).
+ */
+const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
+  MANAGEMENT: [
+    "/appointments",
+    "/customers",
+    "/patients/new",
+    "/nhac-tai-kham",
+    "/reception/checkout",
+    "/reception/queue",
+    "/tasks",
+  ],
+};
+
+/** Mục này có hiện trên thanh bên của vai ấy không. Dùng CHO GIAO DIỆN;
+ *  gác cửa trang vẫn là `canSeeNav`. */
+export function hienTrenThanhBen(
+  role: ClinicRole | null,
+  href: string,
+): boolean {
+  if (!canSeeNav(role, href)) return false;
+  if (!role) return true;
+  return !(AN_KHOI_THANH_BEN[role] ?? []).includes(href);
+}
+
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
   const rule = NAV_ROLES[href];
   if (!rule || rule === "all") return true;

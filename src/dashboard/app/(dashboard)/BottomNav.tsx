@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
-import { canSeeNav, type ClinicRole } from "../../lib/roles";
+import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
 import { NAV, isActiveNav, navLabelFor } from "./nav-items";
 
 // How many destinations to surface as tabs before the rest collapse into Menu.
@@ -22,7 +22,7 @@ export default function BottomNav({
   onMenu: () => void;
 }) {
   const pathname = usePathname();
-  const visible = NAV.filter((item) => canSeeNav(role, item.href));
+  const visible = NAV.filter((item) => hienTrenThanhBen(role, item.href));
   const allHrefs = visible.map((v) => v.href);
   const tabs = visible.slice(0, MAX_TABS);
 
