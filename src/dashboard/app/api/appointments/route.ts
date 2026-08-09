@@ -61,9 +61,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date"); // YYYY-MM-DD
   const doctorId = searchParams.get("doctor_id");
+  const benhNhan = (searchParams.get("clinic_patient_id") ?? "").trim();
 
-  if (!date) {
-    return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
+  if (!date && !benhNhan) {
+    return NextResponse.json(
+      { error: "Missing date or clinic_patient_id parameter" },
+      { status: 400 },
+    );
   }
 
   // Parse start and end of day in UTC based on VN timezone
@@ -81,6 +85,29 @@ export async function GET(request: Request) {
   const role = await getClinicRole();
   if (!canWriteIntake(role) && !isDoctorRole(role) && !canCheckin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // LỊCH SẮP TỚI CỦA MỘT NGƯỜI — để màn Đặt lịch nói được "người này đã có
+  // lịch rồi" TRƯỚC khi CSKH bấm đặt thêm.
+  //
+  // Quang 09/08/2026: *"ấn vào 1 bệnh nhân đã đặt lịch rồi thì trang bên phải
+  // phải hiện cái lịch đã đặt ra chứ, để người ta còn biết người này đặt rồi
+  // chứ đặt trùng liên tục à"*.
+  //
+  // KHÔNG lọc theo ngày đang xem: đặt trùng hay xảy ra nhất khi lịch cũ nằm ở
+  // một ngày khác — đúng cái mà lưới trước mặt không hiện. Chỉ lấy từ BÂY GIỜ
+  // trở đi; lịch đã qua không ngăn ai đặt thêm.
+  if (benhNhan) {
+    const { data, error } = await caller
+      .from("appointment")
+      .select("id, slot_start, status, doctor_id, service_type_id")
+      .eq("clinic_patient_id", benhNhan)
+      .gte("slot_start", new Date().toISOString())
+      .not("status", "in", "(CANCELLED,NO_SHOW,DOCTOR_DECLINED)")
+      .order("slot_start")
+      .limit(20);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ appointments: data ?? [] });
   }
 
   let query = caller

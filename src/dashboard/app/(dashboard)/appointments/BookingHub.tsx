@@ -23,7 +23,13 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
-import { fmtTime, slotRange, VN_TZ, vnLocalToUtcISO } from "@/lib/datetime";
+import {
+  fmtDayTime,
+  fmtTime,
+  slotRange,
+  VN_TZ,
+  vnLocalToUtcISO,
+} from "@/lib/datetime";
 import { isDeadStatus } from "@/lib/slot-capacity";
 import { dayLabel } from "@/lib/roster";
 import { useBookingPolicy } from "../BookingPolicyContext";
@@ -488,6 +494,26 @@ export default function BookingHub({
     setJustBooked(null);
   }
 
+  /** ĐỔI KHÁCH THÌ DỌN SẠCH DẤU VẾT CỦA LẦN ĐẶT TRƯỚC.
+   *
+   *  Quang 09/08/2026: *"chuyển bệnh nhân khác rồi mà cái thông báo kia không
+   *  mất đi là sao"*. Chỗ bấm chọn khách trước đây chỉ đặt `selectedPatientId`,
+   *  nên băng xanh "Đã đặt lịch hẹn thành công cho Nguyễn Thị Lan" và khối "Đã
+   *  đặt lịch xong" trong panel vẫn còn nguyên trong khi panel đã mang tên
+   *  người khác — hai người trong cùng một khung hình, và người đọc phải đoán
+   *  câu nào nói về ai.
+   *
+   *  Nó còn làm sai cả thanh ba mốc: `justBooked` khiến mốc "Đặt lịch" tích
+   *  xanh cho một khách chưa đặt gì.
+   *
+   *  MỌI chỗ đổi khách phải đi qua đây — cùng lý do với chonNgay ở trên. */
+  function chonKhach(id: string | null) {
+    setSelectedPatientId(id);
+    setJustBooked(null);
+    setConfirmedMsg(null);
+    setBookingError(null);
+  }
+
   const [note, setNote] = useState("");
   const [chkCustomer, setChkCustomer] = useState(true);
   const [chkService, setChkService] = useState(true);
@@ -510,6 +536,54 @@ export default function BookingHub({
   } | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  /** LỊCH SẮP TỚI CỦA KHÁCH ĐANG CHỌN — để không đặt trùng.
+   *
+   *  Quang 09/08/2026: *"ấn vào 1 bệnh nhân đã đặt lịch rồi thì trang bên phải
+   *  phải hiện cái lịch đã đặt ra… chứ đặt trùng liên tục à"*.
+   *
+   *  Không dùng `appts` có sẵn được: nó chỉ chứa lịch HÔM NAY (xem
+   *  appointments/page.tsx), trong khi đặt trùng hay xảy ra nhất khi lịch cũ
+   *  nằm ở một NGÀY KHÁC — đúng cái mà lưới trước mặt không hiện.
+   *
+   *  KẾT QUẢ ĐI KÈM MÃ KHÁCH nó thuộc về, và phần hiển thị chỉ nhận khi hai mã
+   *  khớp. Nhờ vậy đổi khách là khối này tự trống, không cần một lệnh dọn chạy
+   *  ngay trong thân effect — và không có khoảnh khắc nào panel mang tên người
+   *  này mà kèm lịch của người kia. Đó đúng là hạng lỗi vừa phải sửa ở băng xanh.
+   *
+   *  `null` = chưa có câu trả lời cho khách này; `[]` = hỏi rồi, chưa có lịch. */
+  const [lichDaNap, setLichDaNap] = useState<{
+    khach: string;
+    items: {
+      id: string;
+      slot_start: string;
+      status: string;
+      doctor_id: string | null;
+      service_type_id: string | null;
+    }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!selectedPatientId) return;
+    const khach = selectedPatientId;
+    let con = true;
+    fetch(`/api/appointments?clinic_patient_id=${encodeURIComponent(khach)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (con && d) setLichDaNap({ khach, items: d.appointments ?? [] });
+      })
+      .catch(() => {});
+    return () => {
+      con = false;
+    };
+    // `justBooked` trong danh sách phụ thuộc để lịch vừa đặt hiện ra ngay,
+    // không phải đợi tải lại trang.
+  }, [selectedPatientId, justBooked]);
+
+  const lichSapToi =
+    selectedPatientId && lichDaNap?.khach === selectedPatientId
+      ? lichDaNap.items
+      : null;
   // Chốt chống bấm hai lần. useRef chứ không useState: state chỉ đổi sau lần
   // render kế tiếp, mà hai cú click của một double-click nằm gọn TRƯỚC lần
   // render đó. Xem handleConfirmBooking.
@@ -1431,8 +1505,7 @@ export default function BookingHub({
                   // — và nút "Đặt lịch hẹn" ở panel ấy vẫn bấm được, ra một
                   // lịch cho đúng người cũ.
                   setMode("new_patient");
-                  setSelectedPatientId(null);
-                  setJustBooked(null);
+                  chonKhach(null);
                 }}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 py-2.5 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 transition-all"
               >
@@ -1521,7 +1594,7 @@ export default function BookingHub({
                           // biểu mẫu khách mới, panel phải vẫn ẩn, nên không có
                           // cách nào đặt lịch cho người vừa chọn. Người dùng
                           // chọn xong lại phải đi tìm đường ra.
-                          setSelectedPatientId(p.clinic_patient_id);
+                          chonKhach(p.clinic_patient_id);
                           setMode("grid");
                         }}
                         className={`w-full text-left p-2.5 rounded-xl transition-colors ${
@@ -1976,6 +2049,33 @@ export default function BookingHub({
                 </div>
               )}
 
+              {/* LỊCH KHÁCH NÀY ĐÃ CÓ — đứng NGAY DƯỚI tên khách, trên mọi ô
+                  chọn dịch vụ/bác sĩ/giờ. Để xuống cuối thì nó nằm sau nút "Đặt
+                  lịch hẹn", tức là người ta chỉ đọc được sau khi đã bấm. */}
+              {activePatient && lichSapToi !== null && lichSapToi.length > 0 && (
+                <div className="rounded-xl border border-warning/40 bg-warning-bg p-3 text-xs">
+                  <div className="font-bold text-warning">
+                    Khách này đã có {lichSapToi.length} lịch sắp tới
+                  </div>
+                  <ul className="mt-1.5 space-y-1 text-ink">
+                    {lichSapToi.map((l) => (
+                      <li key={l.id} className="leading-snug">
+                        <b>{fmtDayTime(l.slot_start)}</b>
+                        {" · "}
+                        {cleanServices.find((sv) => sv.id === l.service_type_id)
+                          ?.label ?? "—"}
+                        {" · "}
+                        {doctors.find((d) => d.id === l.doctor_id)?.label ??
+                          "Chưa phân bác sĩ"}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 text-[11px] text-ink-muted">
+                    Đặt thêm vẫn được — đây chỉ là để bạn biết trước.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between border-b border-line/60 pb-1.5">
                   <span className="text-ink-muted">Dịch vụ:</span>
@@ -2121,9 +2221,7 @@ export default function BookingHub({
                     <button
                       type="button"
                       onClick={() => {
-                        setJustBooked(null);
-                        setSelectedPatientId(null);
-                        setConfirmedMsg(null);
+                        chonKhach(null);
                       }}
                       className="flex-1 rounded-lg bg-brand-600 py-2 text-xs font-bold text-white hover:bg-brand-700"
                     >
@@ -2142,7 +2240,7 @@ export default function BookingHub({
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setSelectedPatientId(null)}
+                  onClick={() => chonKhach(null)}
                   className="flex-1 rounded-xl border border-line bg-surface py-2.5 text-xs font-semibold text-ink hover:bg-surface-sunken"
                 >
                   Hủy chọn
