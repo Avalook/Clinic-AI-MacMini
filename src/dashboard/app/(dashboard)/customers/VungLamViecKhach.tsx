@@ -38,7 +38,6 @@ import {
   Phone,
   CalendarClock,
   CircleDashed,
-  ChevronRight,
 } from "lucide-react";
 import type { DongLichSu } from "./GhiTuongTac";
 import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
@@ -260,88 +259,119 @@ export default function VungLamViecKhach({
     router.refresh();
   }
 
-  function DongTrangThai({ tt }: { tt: TrangThai }) {
+  /** MỘT NODE TRÊN TIMELINE.
+   *
+   *  Quang 09/08/2026: *"tôi không muốn bạn làm dạng ô như này đâu, vẫn là
+   *  timeline node như trước khi sửa cơ"*. Nên hình dạng quay lại đúng bản cũ —
+   *  vòng tròn viền dày nối nhau bằng một sợi dọc — chỉ có NỘI DUNG là khác:
+   *  node bây giờ là TRẠNG THÁI khách đang ở, không phải bước thứ mấy của một
+   *  hành trình. */
+  function Node({
+    tt,
+    cuoi,
+  }: {
+    tt: TrangThai;
+    cuoi: boolean;
+  }) {
     const dang = dangO(tt.ma);
     const chon = dangChon === tt.ma;
     const lan = lanCuoi(tt.ma);
-    const xong = Boolean(lan) && !dang;
+    const xong = Boolean(lan);
 
     return (
-      <li>
-        <button
-          type="button"
-          onClick={() => onLamViec(tt.ma)}
-          aria-pressed={chon}
-          className={`flex w-full items-start gap-2.5 rounded-xl border p-2.5 text-left transition-colors ${
-            chon
-              ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500/30"
-              : dang
-                ? "border-brand-300 bg-brand-50/40 hover:bg-brand-50"
-                : "border-line bg-surface hover:bg-surface-muted"
-          }`}
-        >
+      <li className="flex gap-3">
+        <div className="flex flex-col items-center">
           <span
-            className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 ${
+            className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
               xong
                 ? "border-success bg-success-bg text-success"
                 : dang
-                  ? "border-brand-600 bg-brand-600 text-white"
+                  ? "border-brand-600 bg-brand-50 text-brand-700"
                   : "border-line bg-surface-muted text-ink-faint"
             }`}
           >
             {xong ? (
-              <Check className="size-3.5" strokeWidth={3} />
+              <Check className="size-4" strokeWidth={3} />
             ) : dang ? (
-              <Phone className="size-3" />
+              <Phone className="size-3.5" />
             ) : (
-              <CircleDashed className="size-3" />
+              <CircleDashed className="size-3.5" />
             )}
           </span>
+          {!cuoi && (
+            <span
+              className={`w-0.5 flex-1 ${xong ? "bg-success" : "bg-line"}`}
+              style={{ minHeight: 16 }}
+            />
+          )}
+        </div>
 
-          <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-1.5">
+        <div className={`min-w-0 flex-1 ${cuoi ? "pb-1" : "pb-3.5"}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`text-sm ${
+                xong
+                  ? "font-medium text-ink"
+                  : dang
+                    ? "font-semibold text-brand-700"
+                    : "text-ink-soft"
+              }`}
+            >
+              {tt.ten}
+            </span>
+
+            {dang && !xong && (
+              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+                đang ở đây
+              </span>
+            )}
+            {tt.tuChon && !dang && !xong && (
               <span
-                className={`text-sm ${
-                  dang ? "font-bold text-brand-800" : "font-semibold text-ink"
-                }`}
+                className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
+                title="Hệ thống không có dữ liệu để tự biết — CSKH chọn khi biết."
               >
-                {tt.ten}
-              </span>
-              {dang && (
-                <span className="rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  đang ở đây
-                </span>
-              )}
-              {tt.tuChon && !dang && (
-                <span
-                  className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
-                  title="Hệ thống không có dữ liệu để tự biết — CSKH chọn khi biết."
-                >
-                  tự chọn
-                </span>
-              )}
-            </span>
-
-            {/* Việc phải làm, viết ở thể mệnh lệnh — phần sau mũi tên trong
-                đặc tả. Đây là câu người trực ca đọc để biết nhấc máy làm gì. */}
-            <span className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-ink-soft">
-              <ChevronRight className="mt-0.5 size-3 shrink-0 text-ink-faint" />
-              {tt.viec}
-            </span>
-
-            {lan && (
-              <span className="mt-1 block text-[11px] text-ink-muted">
-                <span className="font-mono">{gio(lan.xay_ra_luc)}</span>
-                {lan.ket_qua &&
-                  ` · ${NHAN_KET_QUA[lan.ket_qua] ?? lan.ket_qua}`}
-                {lan.nhan_vien && ` · ${lan.nhan_vien}`}
-                {lan.noi_dung && (
-                  <span className="block italic">“{lan.noi_dung}”</span>
-                )}
+                tự chọn
               </span>
             )}
-          </span>
-        </button>
+
+            <button
+              type="button"
+              onClick={() => onLamViec(tt.ma)}
+              aria-pressed={chon}
+              className={
+                chon
+                  ? "rounded-full bg-brand-700 px-2.5 py-0.5 text-[11px] font-semibold text-white"
+                  : xong
+                    ? "rounded-full border border-line px-2.5 py-0.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+                    : dang
+                      ? "rounded-full bg-brand-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-brand-700"
+                      : "rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
+              }
+            >
+              {chon ? "Đang làm" : xong ? "Làm lại" : "Làm bước này"}
+            </button>
+          </div>
+
+          {/* Việc phải làm — phần sau mũi tên trong đặc tả. */}
+          <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
+            {tt.viec}
+          </p>
+
+          {lan && (
+            <p className="mt-1 text-[11px] leading-snug text-ink-soft">
+              <span className="font-mono text-ink-muted">
+                {gio(lan.xay_ra_luc)}
+              </span>
+              {lan.ket_qua && ` · ${NHAN_KET_QUA[lan.ket_qua] ?? lan.ket_qua}`}
+              {lan.nhan_vien && ` · ${lan.nhan_vien}`}
+              {lan.noi_dung && (
+                <span className="block italic text-ink-muted">
+                  “{lan.noi_dung}”
+                </span>
+              )}
+            </p>
+          )}
+        </div>
       </li>
     );
   }
@@ -361,26 +391,26 @@ export default function VungLamViecKhach({
         </div>
 
         <div className="space-y-3 px-4 py-3">
-          <div className="space-y-1.5">
+          <div>
             <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
               Trước khám
             </span>
-            <ul className="space-y-1.5">
-              {TRUOC_KHAM.map((tt) => (
-                <DongTrangThai key={tt.ma} tt={tt} />
+            <ol className="mt-1.5">
+              {TRUOC_KHAM.map((tt, i) => (
+                <Node key={tt.ma} tt={tt} cuoi={i === TRUOC_KHAM.length - 1} />
               ))}
-            </ul>
+            </ol>
           </div>
 
-          <div className="space-y-1.5">
+          <div>
             <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
               Sau khám
             </span>
-            <ul className="space-y-1.5">
-              {SAU_KHAM.map((tt) => (
-                <DongTrangThai key={tt.ma} tt={tt} />
+            <ol className="mt-1.5">
+              {SAU_KHAM.map((tt, i) => (
+                <Node key={tt.ma} tt={tt} cuoi={i === SAU_KHAM.length - 1} />
               ))}
-            </ul>
+            </ol>
           </div>
 
           {/* MỐC TẠI QUẦY — một chạm, và chúng đổi trạng thái THẬT của lịch hẹn
@@ -414,9 +444,7 @@ export default function VungLamViecKhach({
                 );
               })}
             </div>
-            {loiMoc && (
-              <p className="text-[11px] text-danger">{loiMoc.loi}</p>
-            )}
+            {loiMoc && <p className="text-[11px] text-danger">{loiMoc.loi}</p>}
           </div>
         </div>
 

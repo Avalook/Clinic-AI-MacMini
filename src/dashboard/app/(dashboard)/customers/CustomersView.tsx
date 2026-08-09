@@ -23,6 +23,7 @@ import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
 import BaoXepBacSi from "./BaoXepBacSi";
 import GhiTuongTac, { tieuDeHanhDong, type DongLichSu } from "./GhiTuongTac";
+import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 import NhacTaiKham, { type MocTaiKham } from "./NhacTaiKham";
@@ -920,7 +921,34 @@ export default function CustomersView({
                       "Zalo/SMS" gắn cứng disabled. Quay số xong hệ thống không
                       biết gì, nên cột "Tương tác gần nhất" hiện "—" cho mọi
                       khách kể cả những người vừa được gọi sáng nay. */}
+                  {/* BỘ NÚT RIÊNG CHO TRẠNG THÁI ĐANG CHỌN — đặc tả chị Thu.
+                      Mỗi trạng thái một bộ khác nhau: gọi xác nhận thì hiện số
+                      khách, hỏi xét nghiệm thì hai nút Có/Chưa, chờ chuyên môn
+                      thì mở luôn chỗ tải kết quả lên. */}
                   <div className="pt-1">
+                    <HanhDongTrangThai
+                      key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
+                      trangThai={
+                        viecDangGhi ??
+                        trangThaiByPatient[selected.clinic_patient_id]
+                          ?.trang_thai ??
+                        null
+                      }
+                      clinicPatientId={selected.clinic_patient_id}
+                      patientCode={selected.patient_code}
+                      appointmentId={selectedAppt?.appt?.id ?? null}
+                      phone={selected.phone_primary}
+                      tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
+                      daXong={false}
+                    />
+                  </div>
+
+                  {/* Ô ghi tự do — giữ lại cho những lần chạm không rơi vào
+                      trạng thái nào (khách gọi tới hỏi linh tinh, ghi bổ sung). */}
+                  <details className="pt-1">
+                    <summary className="cursor-pointer text-[11px] font-semibold text-brand-700">
+                      Ghi một tương tác khác
+                    </summary>
                     <GhiTuongTac
                       key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
                       clinicPatientId={selected.clinic_patient_id}
@@ -939,7 +967,7 @@ export default function CustomersView({
                       zaloBat={zaloBat}
                       zaloThieu={zaloThieu}
                     />
-                  </div>
+                  </details>
 
                   {/* KHÔNG CÒN NÚT "XÁC NHẬN KHÁCH SẼ TỚI".
                       Quang (2026-08-04): lịch hẹn sinh ra từ chính cuộc gọi
