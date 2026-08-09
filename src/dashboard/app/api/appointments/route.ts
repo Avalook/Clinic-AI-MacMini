@@ -19,6 +19,7 @@
 //   DOCTOR_DECLINED (keeps doctor_id for history; surfaces to CSKH in the
 //   "Đã huỷ / Từ chối" column + the declined-appointments notice in the layout).
 
+import { VN_OFFSET } from "../../../lib/datetime";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
@@ -71,8 +72,8 @@ export async function GET(request: Request) {
   }
 
   // Parse start and end of day in UTC based on VN timezone
-  const startOfDay = new Date(`${date}T00:00:00+07:00`).toISOString();
-  const endOfDay = new Date(`${date}T23:59:59+07:00`).toISOString();
+  const startOfDay = new Date(`${date}T00:00:00${VN_OFFSET}`).toISOString();
+  const endOfDay = new Date(`${date}T23:59:59${VN_OFFSET}`).toISOString();
 
   // GATE + BOUND. Trước đây route này chỉ kiểm "đã đăng nhập chưa": dược sĩ,
   // thu ngân, bất kỳ ai có phiên đều đọc được toàn bộ lịch hẹn trong ngày, và

@@ -51,17 +51,32 @@ test("API trả lịch TỪ BÂY GIỜ trở đi và bỏ lịch đã huỷ", ()
 const khachHang = read("../app/(dashboard)/customers/page.tsx");
 
 test("lịch sắp tới so bằng MỐC THỜI GIAN, không so chuỗi ISO", () => {
-  assert.match(khachHang, /mocGio\(a\.slot_start\) >= bayGio/);
-  assert.match(khachHang, /new Date\(iso\)\.getTime\(\)/);
+  assert.match(khachHang, /conToi\(a\.slot_start, bayGio\)/);
   // Đúng cái so sánh cũ. Nó quay lại là bài kiểm này đỏ.
   assert.doesNotMatch(khachHang, /slot_start >= nowUtc/);
   assert.doesNotMatch(khachHang, /const nowUtc = new Date\(\)\.toISOString\(\)/);
+});
+
+// Quang 09/08/2026: *"đồng hồ giờ đồng bộ 1 loại đi đừng để lệch nhau nữa"*.
+test("chỉ MỘT chỗ trong mã nguồn biết lệch múi giờ Việt Nam", () => {
+  const datetime = read("../lib/datetime.ts");
+  assert.match(datetime, /export const VN_OFFSET = "\+07:00"/);
+  for (const f of [
+    "../app/(dashboard)/customers/page.tsx",
+    "../app/(dashboard)/customers/NhacTaiKham.tsx",
+    "../app/(dashboard)/cskh-tasks/CskhTasksView.tsx",
+    "../app/api/appointments/route.ts",
+  ]) {
+    const src = read(f).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.doesNotMatch(src, /\+07:00/, `${f} còn gõ tay lệch múi giờ`);
+  }
 });
 
 test("quá giờ hẹn chỉ tính khi khách CHƯA đến, và hiện màu đỏ", () => {
   assert.match(khachHang, /qua_gio_hen/);
   // Đã check-in / khám xong thì giờ trôi qua là bình thường — tô đỏ ở đó là
   // dạy người dùng bỏ qua màu đỏ.
+  assert.match(khachHang, /daQua\(repr\.slot_start, bayGio\)/);
   assert.match(
     khachHang,
     /\["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"\]\.includes\(repr\.status\)/,

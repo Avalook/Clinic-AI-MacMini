@@ -19,6 +19,7 @@
 //   T−7 → gọi MỜI ĐẶT LỊCH   (khách chưa có lịch)
 //   T−1 → gọi NHẮC ĐI KHÁM
 
+import { VN_OFFSET } from "../../../lib/datetime";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -68,8 +69,8 @@ function ngayVn(iso: string | null): string {
  *  `Date` — `new Date("2026-09-15")` là nửa đêm UTC, tức 7 giờ sáng ở Việt Nam,
  *  nên mọi phép trừ lệch đúng một phần ngày. */
 function conBaoNhieuNgay(iso: string): number {
-  const moc = Date.parse(`${iso}T00:00:00+07:00`);
-  const nay = Date.parse(`${homNayVn()}T00:00:00+07:00`);
+  const moc = Date.parse(`${iso}T00:00:00${VN_OFFSET}`);
+  const nay = Date.parse(`${homNayVn()}T00:00:00${VN_OFFSET}`);
   return Math.round((moc - nay) / 86_400_000);
 }
 
@@ -308,7 +309,7 @@ export default function NhacTaiKham({
 /** `iso` lệch đi `so` ngày, vẫn dạng yyyy-mm-dd. Dựng mốc ở +07:00 để phép
  *  cộng không rơi sang ngày khác vì lệch múi giờ. */
 function dichNgay(iso: string, so: number): string {
-  const t = Date.parse(`${iso}T00:00:00+07:00`);
+  const t = Date.parse(`${iso}T00:00:00${VN_OFFSET}`);
   if (!Number.isFinite(t)) return iso;
   return new Date(t + so * 86_400_000).toLocaleDateString("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",

@@ -13,6 +13,10 @@ import {
   vnMonthStartUtc,
   vnLocalToUtcISO,
   nowMs,
+  mocMs,
+  conToi,
+  daQua,
+  VN_OFFSET,
   VN_TZ,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
@@ -44,7 +48,7 @@ function vnNextMonthStartUtc(): string {
   const ny = m === 12 ? y + 1 : y;
   const nm = m === 12 ? 1 : m + 1;
   return new Date(
-    `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00+07:00`,
+    `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00${VN_OFFSET}`,
   ).toISOString();
 }
 
@@ -313,7 +317,6 @@ export default async function CustomersPage({
     // 21:00 (sắp tới); lúc 12:37 panel vẫn hiện "Lịch hẹn sắp tới 08:15" — bắt
     // đúng lịch cũ, và giấu mất lịch thật sự sắp tới.
     const bayGio = nowMs();
-    const mocGio = (iso: string): number => new Date(iso).getTime();
     type Raw = {
       clinic_patient_id: string;
       slot_start: string;
@@ -340,8 +343,8 @@ export default async function CustomersPage({
       // và "lịch sắp tới đầu tiên" đều đọc theo thứ tự này.
       const live = list
         .filter((a) => !DEAD.includes(a.status))
-        .sort((x, y) => mocGio(x.slot_start) - mocGio(y.slot_start));
-      const upcoming = live.find((a) => mocGio(a.slot_start) >= bayGio);
+        .sort((x, y) => mocMs(x.slot_start) - mocMs(y.slot_start));
+      const upcoming = live.find((a) => conToi(a.slot_start, bayGio));
       // Lịch đại diện: sắp tới → lịch sống gần nhất → CUỐI CÙNG mới tới lịch đã
       // huỷ. Nhánh thứ ba là mới: trước đây khách chỉ còn lịch huỷ thì bị bỏ
       // qua hẳn (`continue`), nên vùng làm việc của họ trống trơn — đúng lúc
@@ -374,7 +377,7 @@ export default async function CustomersPage({
         // tới nơi". Đã check-in / đã khám xong thì giờ trôi qua là bình thường,
         // tô đỏ ở đó là dạy người dùng bỏ qua màu đỏ.
         qua_gio_hen:
-          mocGio(repr.slot_start) < bayGio &&
+          daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status),
         count: live.length,
         // "Đã khám" = có ≥1 lịch COMPLETED (cùng định nghĩa "bệnh nhân" ở
