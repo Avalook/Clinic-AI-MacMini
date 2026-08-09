@@ -4,7 +4,50 @@
 // that lives here so no caller re-derives it inconsistently.
 
 export const VN_TZ = "Asia/Ho_Chi_Minh";
-const VN_OFFSET = "+07:00";
+/** Lệch múi giờ Việt Nam. MỘT bản duy nhất trong toàn bộ mã nguồn.
+ *
+ *  Quang 09/08/2026: *"đồng hồ giờ đồng bộ 1 loại đi đừng để lệch nhau nữa"*.
+ *  Trước đó chuỗi "+07:00" được gõ tay ở mười một chỗ; đủ để một chỗ gõ thiếu
+ *  hoặc gõ khác mà không ai thấy. */
+export const VN_OFFSET = "+07:00";
+
+/** Nửa đêm (giờ VN) của một ngày `yyyy-mm-dd`, dạng mốc ms. */
+export function nuaDemVnMs(ymd: string): number {
+  return Date.parse(`${ymd}T00:00:00${VN_OFFSET}`);
+}
+
+/** Giữa trưa (giờ VN) của một ngày — mốc an toàn để lấy thứ trong tuần.
+ *
+ *  Dùng nửa đêm cho việc này là sai ở biên: `new Date("…T00:00:00+07:00")` rơi
+ *  vào 17:00 UTC hôm trước, nên `getUTCDay()` trả về thứ của NGÀY HÔM TRƯỚC. */
+export function giuaTruaVn(ymd: string): Date {
+  return new Date(`${ymd}T12:00:00${VN_OFFSET}`);
+}
+
+/**
+ * MỘT MỐC THỜI GIAN, dùng để SO SÁNH. Không bao giờ so chuỗi.
+ *
+ * Database chạy ở múi Asia/Ho_Chi_Minh nên PostgREST trả
+ * `"2026-08-09T08:15:00+07:00"`, còn `toISOString()` cho `"…T05:48:00.000Z"`.
+ * So hai chuỗi ấy là so KÝ TỰ: "08" > "05", nên một lịch đã qua bốn tiếng vẫn
+ * được coi là sắp tới. Đã xảy ra thật trên prod ngày 09/08.
+ */
+export function mocMs(ts: TimeInput): number {
+  const d = toDate(ts);
+  return d ? d.getTime() : NaN;
+}
+
+/** Mốc này đã trôi qua chưa. `null`/không đọc được → false (không dám khẳng định). */
+export function daQua(ts: TimeInput, now: number = nowMs()): boolean {
+  const m = mocMs(ts);
+  return Number.isNaN(m) ? false : m < now;
+}
+
+/** Mốc này còn ở phía trước không. */
+export function conToi(ts: TimeInput, now: number = nowMs()): boolean {
+  const m = mocMs(ts);
+  return Number.isNaN(m) ? false : m >= now;
+}
 
 /** Mốc hiện tại (ms). Gói NGOÀI component để né rule react-hooks/purity khi so
  *  sánh "đã qua giờ chưa" trong event handler (Date.now là impure). */
