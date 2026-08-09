@@ -239,11 +239,9 @@ export default async function CustomersPage({
     luot2: RecallRaw[];
   }>("/api/v1/cskh/recall-jobs");
 
-  // ZALO ĐÃ NỐI CHƯA. Hỏi SERVER, không đoán ở trình duyệt: access token nằm
-  // trong môi trường của backend và không bao giờ xuống đây.
-  const zaloTrangThai = (await fetchFromBackend<{ bat: boolean; thieu: string[] }>(
-    "/api/v1/cskh/zalo/trang-thai",
-  )) ?? { bat: false, thieu: ["không đọc được cấu hình"] };
+  // KHÔNG CÒN HỎI TRẠNG THÁI ZALO. Hai nút gửi ZNS nằm trong khối "Ghi một
+  // tương tác khác" đã bỏ ngày 09/08. Giữ lời gọi này là mỗi lần mở màn lại tốn
+  // một lượt sang backend cho một thứ không còn hiện ra ở đâu.
 
   // TỆP KẾT QUẢ — ảnh/video siêu âm, phiếu xét nghiệm CSKH đã tải lên.
   const tepPromise = shownIds.length
@@ -564,8 +562,6 @@ export default async function CustomersPage({
           phanHoiByPatient={phanHoiByPatient}
           tepByPatient={tepByPatient}
           taiKhamByPatient={taiKhamByPatient}
-          zaloBat={zaloTrangThai.bat}
-          zaloThieu={zaloTrangThai.thieu}
           locations={locations}
           q={q}
           period={period}

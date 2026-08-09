@@ -21,7 +21,12 @@ import { fmtDate, fmtDateTimeOrDate } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import PatientAdminEditor from "../PatientAdminEditor";
 import BaoXepBacSi from "./BaoXepBacSi";
-import GhiTuongTac, { tieuDeHanhDong, type DongLichSu } from "./GhiTuongTac";
+// KHỐI "GHI MỘT TƯƠNG TÁC KHÁC" ĐÃ BỎ (Quang 09/08/2026: "phiền quá").
+// Từ khi mỗi trạng thái có bộ nút riêng, cái toggle này chỉ còn là một biểu
+// mẫu thứ hai làm cùng việc — và nó bày ra hai ô chọn "Việc gì / Kết quả"
+// bắt người dùng tự dịch việc mình vừa làm sang từ ngữ của database.
+// `GhiTuongTac` giờ chỉ còn được dùng để lấy KIỂU và nhãn tiêu đề.
+import { tieuDeHanhDong, type DongLichSu } from "./GhiTuongTac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
@@ -366,8 +371,6 @@ export default function CustomersView({
   phanHoiByPatient,
   tepByPatient,
   taiKhamByPatient,
-  zaloBat = false,
-  zaloThieu = [],
   locations,
   q,
   period,
@@ -396,9 +399,6 @@ export default function CustomersView({
   tepByPatient: Record<string, TepKetQuaRow[]>;
   /** Mốc gọi nhắc tái khám đang mở, theo khách. Rỗng = không có việc nào. */
   taiKhamByPatient: Record<string, MocTaiKham[]>;
-  /** Zalo đã đủ cấu hình để gửi chưa (hỏi backend, không đoán ở trình duyệt). */
-  zaloBat?: boolean;
-  zaloThieu?: string[];
   locations: Opt[];
   q: string;
   period: Period;
@@ -960,31 +960,6 @@ export default function CustomersView({
                     />
                   </div>
 
-                  {/* Ô ghi tự do — giữ lại cho những lần chạm không rơi vào
-                      trạng thái nào (khách gọi tới hỏi linh tinh, ghi bổ sung). */}
-                  <details className="pt-1">
-                    <summary className="cursor-pointer text-[11px] font-semibold text-brand-700">
-                      Ghi một tương tác khác
-                    </summary>
-                    <GhiTuongTac
-                      key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
-                      clinicPatientId={selected.clinic_patient_id}
-                      appointmentId={selectedAppt?.appt?.id ?? null}
-                      phone={selected.phone_primary}
-                      viecHienTai={
-                        viecDangGhi ??
-                        trangThaiByPatient[selected.clinic_patient_id]
-                          ?.trang_thai ??
-                        null
-                      }
-                      moBanDau={viecDangGhi !== null}
-                      lichSuBanDau={
-                        tuongTacByPatient[selected.clinic_patient_id] ?? []
-                      }
-                      zaloBat={zaloBat}
-                      zaloThieu={zaloThieu}
-                    />
-                  </details>
 
                   {/* KHÔNG CÒN NÚT "XÁC NHẬN KHÁCH SẼ TỚI".
                       Quang (2026-08-04): lịch hẹn sinh ra từ chính cuộc gọi
