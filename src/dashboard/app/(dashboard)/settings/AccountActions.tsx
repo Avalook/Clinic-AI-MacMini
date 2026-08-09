@@ -17,6 +17,7 @@ import {
   DUOI_TEN_DANG_NHAP,
   emailTuTenDangNhap,
   loiTenDangNhap,
+  tenHienThi,
 } from "../../../lib/ten-dang-nhap";
 
 const MIN_PASSWORD = 8;
@@ -59,7 +60,8 @@ export default function AccountActions({
     let bo = false;
     napNick().then((m) => {
       if (bo) return;
-      const mail = m[staffId] ?? null;
+      // Hiện ĐÚNG chuỗi người dùng phải gõ: bỏ đuôi mặc định, giữ đuôi khác.
+      const mail = m[staffId] ? tenHienThi(m[staffId]) : null;
       setNick(mail);
       setEmail(mail ?? "");
     });
@@ -116,8 +118,11 @@ export default function AccountActions({
     const moi = emailTuTenDangNhap(email);
     const ok = await call({ staffId, action: "change_email", email: moi });
     if (ok) {
-      setMsg({ kind: "ok", text: `${staffName} đăng nhập bằng ${moi} từ giờ.` });
-      setNick(moi);
+      setMsg({
+        kind: "ok",
+        text: `${staffName} đăng nhập bằng ${tenHienThi(moi)} từ giờ.`,
+      });
+      setNick(tenHienThi(moi));
       // Bảng nick đã cũ sau khi đổi — bỏ đi để lần sau nạp lại.
       nickDangNap = null;
       setMode("idle");

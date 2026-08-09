@@ -23,16 +23,14 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
-import {
-  fmtDayTime,
-  fmtTime,
-  slotRange,
-  VN_TZ,
-  vnLocalToUtcISO,
-} from "@/lib/datetime";
+import { fmtTime, slotRange, VN_TZ, vnLocalToUtcISO } from "@/lib/datetime";
 import { isDeadStatus } from "@/lib/slot-capacity";
 import { dayLabel } from "@/lib/roster";
 import { useBookingPolicy } from "../BookingPolicyContext";
+import LichSapToiCuaKhach, {
+  type LichCu,
+  type TrangThaiTra,
+} from "./LichSapToiCuaKhach";
 import NewPatientForm, {
   type Option,
   type ProvinceOpt,
@@ -554,13 +552,7 @@ export default function BookingHub({
    *  `null` = chưa có câu trả lời cho khách này; `[]` = hỏi rồi, chưa có lịch. */
   const [lichDaNap, setLichDaNap] = useState<{
     khach: string;
-    items: {
-      id: string;
-      slot_start: string;
-      status: string;
-      doctor_id: string | null;
-      service_type_id: string | null;
-    }[];
+    ket: { ok: true; items: LichCu[] } | { ok: false };
   } | null>(null);
 
   useEffect(() => {
@@ -568,11 +560,18 @@ export default function BookingHub({
     const khach = selectedPatientId;
     let con = true;
     fetch(`/api/appointments?clinic_patient_id=${encodeURIComponent(khach)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (con && d) setLichDaNap({ khach, items: d.appointments ?? [] });
+      .then(async (r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return (await r.json()) as { appointments?: LichCu[] };
       })
-      .catch(() => {});
+      .then((d) => {
+        if (con) setLichDaNap({ khach, ket: { ok: true, items: d.appointments ?? [] } });
+      })
+      // HỎNG THÌ PHẢI GHI LẠI LÀ HỎNG. Nuốt lỗi ở đây là để màn hình im lặng
+      // đúng như lúc khách sạch lịch — xem ghi chú ở LichSapToiCuaKhach.
+      .catch(() => {
+        if (con) setLichDaNap({ khach, ket: { ok: false } });
+      });
     return () => {
       con = false;
     };
@@ -580,10 +579,12 @@ export default function BookingHub({
     // không phải đợi tải lại trang.
   }, [selectedPatientId, justBooked]);
 
-  const lichSapToi =
+  const traLichCu: TrangThaiTra =
     selectedPatientId && lichDaNap?.khach === selectedPatientId
-      ? lichDaNap.items
-      : null;
+      ? lichDaNap.ket.ok
+        ? { kind: "xong", items: lichDaNap.ket.items }
+        : { kind: "hong" }
+      : { kind: "dang-hoi" };
   // Chốt chống bấm hai lần. useRef chứ không useState: state chỉ đổi sau lần
   // render kế tiếp, mà hai cú click của một double-click nằm gọn TRƯỚC lần
   // render đó. Xem handleConfirmBooking.
@@ -2052,28 +2053,14 @@ export default function BookingHub({
               {/* LỊCH KHÁCH NÀY ĐÃ CÓ — đứng NGAY DƯỚI tên khách, trên mọi ô
                   chọn dịch vụ/bác sĩ/giờ. Để xuống cuối thì nó nằm sau nút "Đặt
                   lịch hẹn", tức là người ta chỉ đọc được sau khi đã bấm. */}
-              {activePatient && lichSapToi !== null && lichSapToi.length > 0 && (
-                <div className="rounded-xl border border-warning/40 bg-warning-bg p-3 text-xs">
-                  <div className="font-bold text-warning">
-                    Khách này đã có {lichSapToi.length} lịch sắp tới
-                  </div>
-                  <ul className="mt-1.5 space-y-1 text-ink">
-                    {lichSapToi.map((l) => (
-                      <li key={l.id} className="leading-snug">
-                        <b>{fmtDayTime(l.slot_start)}</b>
-                        {" · "}
-                        {cleanServices.find((sv) => sv.id === l.service_type_id)
-                          ?.label ?? "—"}
-                        {" · "}
-                        {doctors.find((d) => d.id === l.doctor_id)?.label ??
-                          "Chưa phân bác sĩ"}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-1.5 text-[11px] text-ink-muted">
-                    Đặt thêm vẫn được — đây chỉ là để bạn biết trước.
-                  </p>
-                </div>
+              {activePatient && (
+                <LichSapToiCuaKhach
+                  tra={traLichCu}
+                  tenDichVu={(id) =>
+                    cleanServices.find((sv) => sv.id === id)?.label ?? ""
+                  }
+                  tenBacSi={(id) => doctors.find((d) => d.id === id)?.label ?? ""}
+                />
               )}
 
               <div className="space-y-2 text-xs">
