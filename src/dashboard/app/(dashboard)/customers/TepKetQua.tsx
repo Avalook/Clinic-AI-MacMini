@@ -130,13 +130,20 @@ export default function TepKetQua({
         )}
       </div>
 
+      {/* VIDEO TREO LẠI — chưa nhận tải lên (Quang chốt 09/08/2026).
+          Ổ đĩa VPS còn 30GB trên tổng 48GB. Một video siêu âm thực tế 15–25MB,
+          trần cho phép tới 80MB; ba mươi khách một ngày là ~1GB/ngày, tức đầy
+          đĩa trong khoảng năm tuần. Đầy đĩa ở đây KHÔNG chỉ mất ảnh — Postgres
+          chạy cùng ổ ấy và sẽ dừng theo.
+          Ảnh và phiếu PDF vẫn nhận bình thường (12MB / 20MB). Video đã tải lên
+          từ trước VẪN xem và phát được — chỉ chặn tải MỚI, không xoá gì. */}
       <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted">
-        {dangTai ? "Đang tải lên…" : "+ Tải ảnh / video / phiếu"}
+        {dangTai ? "Đang tải lên…" : "+ Tải ảnh / phiếu"}
         <input
           type="file"
           multiple
           disabled={dangTai}
-          accept="image/*,video/*,application/pdf"
+          accept="image/*,application/pdf"
           className="hidden"
           onChange={(e) => {
             void taiLen(e.target.files);
@@ -145,6 +152,11 @@ export default function TepKetQua({
           }}
         />
       </label>
+
+      <p className="mt-1 text-[11px] leading-snug text-ink-faint">
+        Video siêu âm: <b>đang xây dựng</b> — chưa tải lên được. Đang chờ chốt
+        chỗ lưu riêng cho video để không ăn hết ổ đĩa của máy chủ.
+      </p>
 
       {loi && <p className="mt-1.5 text-[11px] text-danger">{loi}</p>}
 

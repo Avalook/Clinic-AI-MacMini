@@ -16,7 +16,7 @@
 //
 // Nay: một DANH SÁCH TRẠNG THÁI chia hai giai đoạn (trước khám / sau khám). Bấm
 // vào một trạng thái thì khối hành động bên phải đổi tiêu đề VÀ đổi nút theo
-// đúng việc của trạng thái ấy — xem HANH_DONG trong GhiTuongTac.tsx.
+// đúng việc của trạng thái ấy — xem HANH_DONG trong HanhDongTrangThai.tsx.
 //
 // TRẠNG THÁI NÀO MÁY TỰ BIẾT, TRẠNG THÁI NÀO NGƯỜI TỰ CHỌN.
 //
@@ -39,7 +39,7 @@ import {
   CalendarClock,
   CircleDashed,
 } from "lucide-react";
-import type { DongLichSu } from "./GhiTuongTac";
+import type { DongLichSu } from "./so-tuong-tac";
 import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 
 /** Một trạng thái khách có thể đang ở, kèm việc CSKH phải làm khi ở đó. */
@@ -90,7 +90,7 @@ const SAU_KHAM: TrangThai[] = [
   {
     ma: "KQ_CHUA_GUI",
     ten: "Đã có kết quả, chưa gửi",
-    viec: "Tải kết quả lên rồi gửi cho khách (ảnh + video siêu âm, phiếu xét nghiệm)",
+    viec: "Tải kết quả lên rồi gửi cho khách (ảnh siêu âm, phiếu xét nghiệm — video đang xây dựng)",
   },
   {
     ma: "DA_TRA_KQ",
