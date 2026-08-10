@@ -50,6 +50,8 @@ interface Body {
   // được khai báo ở đây nên rơi ngay tại tầng này, và appointment cũng chưa có
   // cột để nhận. Người dùng gõ, bấm lưu, hệ thống báo thành công, chữ biến mất.
   notes?: string;
+  /** Lịch hẹn mà lịch này là tái khám của nó. Xem migration 20260810000007. */
+  lich_truoc_id?: string;
 }
 
 export async function GET(request: Request) {
@@ -221,6 +223,11 @@ export async function POST(request: Request) {
       thanh_min,
       sono_min,
       notes: (body.notes ?? "").trim() || null,
+      // TÁI KHÁM CỦA LỊCH NÀO. Chỉ nút "Tái khám" ở màn Quản lý khách hàng
+      // gửi trường này; mọi đường đặt lịch khác để trống, và trống là câu trả
+      // lời đúng chứ không phải dữ liệu thiếu. Backend còn kiểm lại lịch ấy có
+      // đúng của khách này không — xem BookingService.create.
+      lich_truoc_id: (body.lich_truoc_id ?? "").trim() || null,
     },
     idempotencyKey,
   );

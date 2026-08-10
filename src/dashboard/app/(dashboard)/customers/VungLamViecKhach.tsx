@@ -371,6 +371,8 @@ export default function VungLamViecKhach({
   trangThaiHienTai,
   dangChon,
   onLamViec,
+  lanKhamGanNhat,
+  onDatLich,
   children,
 }: {
   tenKhach: string;
@@ -385,6 +387,16 @@ export default function VungLamViecKhach({
    *  truyền khi bấm một lối ra cụ thể trong hàng gộp — hôm nay không hàng nào
    *  dùng tới, vì lối ra ghi thẳng. Giữ tham số cho nhóm sau. */
   onLamViec: (maTrangThai: string, ketQua?: string) => void;
+  /** Lượt khám gần nhất đã xong — nguồn cho nút "Tái khám". */
+  lanKhamGanNhat?: {
+    id: string;
+    slot_start: string;
+    service_type_id: string | null;
+    service_name: string | null;
+  } | null;
+  /** Mở form đặt lịch. "tai-kham" = khoá dịch vụ + nối chuỗi; "kham-moi" =
+   *  chọn dịch vụ tự do, không nối chuỗi. */
+  onDatLich?: (kieu: "tai-kham" | "kham-moi") => void;
   /** Khối gắn thêm bên dưới — nay chỉ còn "Phản hồi của khách". */
   children?: React.ReactNode;
 }) {
@@ -428,6 +440,60 @@ export default function VungLamViecKhach({
         message?: string;
       } | null;
       setLoiGhiLoiRa(d?.message ?? d?.error ?? `Không ghi được (lỗi ${res.status}).`);
+      return;
+    }
+    router.refresh();
+  }
+
+  const [dangCheckout, setDangCheckout] = useState(false);
+  const [loiCheckout, setLoiCheckout] = useState<string | null>(null);
+  const daKhamXong = lich.status === "COMPLETED";
+
+  /** Đóng lượt khám hôm nay.
+   *
+   *  ĐI QUA `CHECK_OUT` CỦA SỔ CHĂM SÓC, không gọi thẳng endpoint checkout của
+   *  Quầy tiếp nhận — và đó là một lựa chọn, không phải đường tắt:
+   *
+   *    · `/api/v1/dispatch/checkout` gác bằng `_RECEPTION_GUARD`, chỉ Lễ tân /
+   *      Trưởng ca / Quản lý. CSKH đứng ở màn này KHÔNG có quyền gọi. Mở quyền
+   *      ấy ra là cho CSKH đi qua cả những chốt nghiệp vụ của quầy (chưa thu
+   *      tiền, chưa lấy thuốc) mà họ không có thông tin để phán.
+   *    · `loai = "CHECK_OUT"` thì `tuong_tac_cskh_service` gọi
+   *      `BookingService.apply_action("complete")` — đi ĐÚNG máy trạng thái,
+   *      lịch hẹn sang COMPLETED, và CSKH có quyền làm việc đó
+   *      (MANAGE_ROLES gồm CSKH). Đồng thời ghi một dòng vào sổ chăm sóc.
+   *
+   *  ĐIỀU NÀY KHÔNG ĐÓNG DÒNG `visit`. `visit.closed_at` chỉ do
+   *  `checkout_service` ghi, và đó là việc của quầy. Nói ra ở đây để lần sau ai
+   *  đọc "Checkout" trên màn này không tưởng nó đã đóng mọi thứ. */
+  async function ghiCheckout() {
+    if (!lich.id) {
+      setLoiCheckout("Khách chưa có lịch hẹn nào để đóng.");
+      return;
+    }
+    setDangCheckout(true);
+    setLoiCheckout(null);
+    const res = await fetch("/api/cskh/tuong-tac", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinic_patient_id: clinicPatientId,
+        appointment_id: lich.id,
+        loai: "CHECK_OUT",
+        // Mốc quầy: backend đòi đúng cặp TRUC_TIEP + GHI_NHAN, sai là 422.
+        kenh: "TRUC_TIEP",
+        ket_qua: "GHI_NHAN",
+      }),
+    });
+    setDangCheckout(false);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setLoiCheckout(
+        d?.message ?? d?.error ?? `Không đóng được (lỗi ${res.status}).`,
+      );
       return;
     }
     router.refresh();
@@ -658,6 +724,67 @@ export default function VungLamViecKhach({
                 />
               </div>
             </div>
+          </div>
+
+          {/* KẾT THÚC LƯỢT KHÁM — ba lối ra, và chúng KHÁC NHAU về nghĩa.
+              Quang 10/08/2026 vạch rõ ranh giới, chép lại vì nhìn nút thì
+              không đoán ra:
+
+                Checkout   đóng lượt khám hôm nay. *"không thể để thời gian
+                           khám cứ trôi mãi mà không có điểm dừng"* — và đóng
+                           rồi thì hôm sau đặt lịch cho chính khách ấy không bị
+                           coi là chồng lấn.
+                Tái khám   khám lại ĐÚNG DỊCH VỤ của lượt này. Lịch mới nối vào
+                           lượt này bằng `lich_truoc_id`.
+                Khám mới   khám xong, về rồi, lần sau khám dịch vụ KHÁC — hoặc
+                           cùng dịch vụ nhưng là chuyện mới. Không nối chuỗi. */}
+          <div className="space-y-1.5 border-t border-line pt-3">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              Kết thúc lượt khám
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => void ghiCheckout()}
+                disabled={dangCheckout || daKhamXong}
+                title={
+                  daKhamXong
+                    ? "Lượt khám này đã đóng"
+                    : "Đóng lượt khám hôm nay"
+                }
+                className="inline-flex items-center gap-1.5 rounded-xl border border-brand-600 bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              >
+                <Check className="size-3.5" />
+                {daKhamXong
+                  ? "Đã checkout"
+                  : dangCheckout
+                    ? "Đang đóng…"
+                    : "Checkout"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onDatLich?.("tai-kham")}
+                disabled={!lanKhamGanNhat}
+                title={
+                  lanKhamGanNhat
+                    ? `Tái khám dịch vụ ${lanKhamGanNhat.service_name ?? "của lượt trước"}`
+                    : "Khách chưa có lượt khám nào đã xong để tái khám"
+                }
+                className="rounded-xl border border-brand-300 px-2.5 py-1.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-40"
+              >
+                Tái khám
+              </button>
+              <button
+                type="button"
+                onClick={() => onDatLich?.("kham-moi")}
+                className="rounded-xl border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+              >
+                Đặt lịch khám mới
+              </button>
+            </div>
+            {loiCheckout && (
+              <p className="text-[11px] text-danger">{loiCheckout}</p>
+            )}
           </div>
 
           <div>

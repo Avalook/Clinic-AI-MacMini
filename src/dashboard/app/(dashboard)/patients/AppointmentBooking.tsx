@@ -105,6 +105,8 @@ export default function AppointmentBooking({
   walkin = false,
   edit,
   initial,
+  khoaDichVu,
+  lichTruocId,
 }: {
   clinicPatientId: string;
   services: Option[];
@@ -123,8 +125,22 @@ export default function AppointmentBooking({
   edit?: BookingEdit;
   /** Giá trị điền sẵn (dùng chung với edit; cũng dùng được khi tạo mới). */
   initial?: BookingInitial;
+  /** TÁI KHÁM: khoá cứng dịch vụ theo lượt khám trước, hiện read-only.
+   *
+   *  KHÔNG dùng `initial.serviceId` cho việc này. Ô "Dịch vụ" là dropdown LĨNH
+   *  VỰC, và `linhVuc` không đọc `initial` — nên `initial.serviceId` đặt được
+   *  giá trị ngầm nhưng ô vẫn hiện "— Chọn dịch vụ —". Người dùng thấy chưa
+   *  chọn gì mà nút Đặt lịch lại sáng; chọn lại thì `findServiceIdByLinhVuc`
+   *  chạy, và hàm ấy kết thúc bằng `services[0]?.id` — IM LẶNG chọn dịch vụ
+   *  đầu danh sách nếu không khớp tên. Tái khám mà lặng lẽ đổi sang dịch vụ
+   *  khác là hỏng đúng thứ nút Tái khám sinh ra để bảo toàn. */
+  khoaDichVu?: { serviceId: string; label: string };
+  /** Lịch hẹn mà lịch sắp đặt là TÁI KHÁM của nó. Xem 20260810000007. */
+  lichTruocId?: string;
 }) {
-  const [serviceId, setServiceId] = useState(initial?.serviceId ?? "");
+  const [serviceId, setServiceId] = useState(
+    khoaDichVu?.serviceId ?? initial?.serviceId ?? "",
+  );
   // Bác sĩ: combobox tìm kiếm bỏ dấu thay native <select>
   const [doctorId, setDoctorId] = useState(initial?.doctorId ?? "");
   const [doctorQ, setDoctorQ] = useState(initial?.doctorLabel ?? ""); // text hiện trong ô
@@ -374,6 +390,9 @@ export default function AppointmentBooking({
         // Tải/ca — backend tự gợi ý thanh_min/sono_min từ 2 field này (DEC-3).
         patient_kind: patientKind || undefined,
         need_sono: needSono,
+        // Chuỗi tái khám. Chỉ có giá trị khi form được mở từ nút "Tái khám";
+        // backend còn kiểm lại lịch ấy đúng của khách này không.
+        lich_truoc_id: lichTruocId ?? undefined,
       }),
     });
     const json = await res.json();
@@ -409,6 +428,16 @@ export default function AppointmentBooking({
               className={INPUT + " flex items-center bg-surface-muted text-ink-soft"}
             >
               {edit.serviceLabel || "—"}
+            </div>
+          ) : khoaDichVu ? (
+            // TÁI KHÁM: dịch vụ lấy theo lượt khám trước, không đổi được ở đây.
+            // Đổi dịch vụ thì nó không còn là tái khám nữa — đó là "Đặt lịch
+            // khám mới", và có nút riêng cho việc ấy.
+            <div
+              className={INPUT + " flex items-center bg-surface-muted text-ink-soft"}
+              title="Tái khám giữ nguyên dịch vụ của lượt trước. Muốn đổi dịch vụ thì dùng “Đặt lịch khám mới”."
+            >
+              {khoaDichVu.label || "—"}
             </div>
           ) : (
             <select

@@ -198,7 +198,7 @@ export default async function CustomersPage({
   // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
   const apptSelectAll = canManage
     ? `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
-       service_type_id, doctor_id, location_id, booking_channel,
+       service_type_id, doctor_id, location_id, booking_channel, lich_truoc_id,
        service:service_type!service_type_id ( name ),
        doctor:staff!doctor_id ( full_name )`
     : "clinic_patient_id, slot_start, status, created_at, cancelled_at";
@@ -328,6 +328,7 @@ export default async function CustomersPage({
       booking_channel?: string | null;
       created_at?: string | null;
       cancelled_at?: string | null;
+      lich_truoc_id?: string | null;
       service?: { name: string } | { name: string }[] | null;
       doctor?: { full_name: string } | { full_name: string }[] | null;
     };
@@ -402,6 +403,32 @@ export default async function CustomersPage({
           daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status),
         count: live.length,
+        // LƯỢT KHÁM GẦN NHẤT ĐÃ XONG — nguồn cho nút "Tái khám".
+        //
+        // Dữ liệu này KHÔNG phải thêm truy vấn: `list` đã chứa toàn bộ lịch của
+        // khách kể cả COMPLETED (dòng `examined` bên dưới đọc chính nó), và
+        // `apptSelectAll` đã lấy sẵn service_type_id + tên dịch vụ. Nó chỉ chưa
+        // từng được mang xuống client.
+        //
+        // Lấy cái MỚI NHẤT chứ không phải cái đầu: tái khám là nối tiếp lượt
+        // vừa rồi, không phải lượt năm ngoái.
+        lanKhamGanNhat: (() => {
+          const xong = list
+            .filter((a) => a.status === "COMPLETED" && a.id)
+            .sort((x, y) => mocMs(y.slot_start) - mocMs(x.slot_start))[0];
+          if (!xong) return null;
+          return {
+            id: xong.id as string,
+            slot_start: xong.slot_start,
+            service_type_id: xong.service_type_id ?? null,
+            service_name: pick1(xong.service)?.name ?? null,
+          };
+        })(),
+        // LẦN KHÁM THỨ MẤY. Đếm lượt ĐÃ KHÁM XONG, không đếm lịch đã đặt: khách
+        // đặt năm lịch rồi huỷ bốn thì họ vẫn mới khám một lần.
+        soLanKham: list.filter((a) => a.status === "COMPLETED").length,
+        // Lịch đại diện có nối vào một lượt trước không.
+        laTaiKham: Boolean(repr.lich_truoc_id),
         // Lọc lại `conToi` chứ không dùng cả `live`: lịch hôm qua chưa đóng
         // trạng thái vẫn nằm trong `live`, mà bỏ một lịch đã trôi qua thì không
         // giải quyết được chuyện đặt trùng.

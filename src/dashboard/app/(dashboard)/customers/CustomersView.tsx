@@ -29,6 +29,7 @@ import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
+import DatLichModal from "./DatLichModal";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
@@ -174,6 +175,18 @@ export interface ApptInfo {
    *  chứ không đếm lịch, và không bấm được vào đâu để xem. Đây là danh sách để
    *  cảnh báo trùng và để bỏ bớt. */
   sapToi: LichSapToi[];
+  /** Lượt khám gần nhất ĐÃ XONG — nguồn cho nút "Tái khám" (giữ nguyên dịch
+   *  vụ) và cho mắt xích `lich_truoc_id`. null = khách chưa khám lần nào. */
+  lanKhamGanNhat: {
+    id: string;
+    slot_start: string;
+    service_type_id: string | null;
+    service_name: string | null;
+  } | null;
+  /** Số lượt ĐÃ KHÁM XONG. Đặt rồi huỷ không tính. */
+  soLanKham: number;
+  /** Lịch đại diện có nối vào một lượt khám trước không (`lich_truoc_id`). */
+  laTaiKham: boolean;
   examined: boolean;
   /** Mốc hệ thống cho vùng làm việc: lịch được tạo lúc nào, huỷ lúc nào. */
   created_at?: string | null;
@@ -446,6 +459,8 @@ export default function CustomersView({
   // null = chưa chọn gì ⇒ khối hành động chạy theo việc gấp nhất mà
   // `v_trang_thai_cskh` suy ra.
   const [viecDangGhi, setViecDangGhi] = useState<string | null>(null);
+  /** Form đặt lịch đang mở kiểu nào; null = đóng. */
+  const [datLich, setDatLich] = useState<"tai-kham" | "kham-moi" | null>(null);
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
@@ -749,6 +764,19 @@ export default function CustomersView({
                               câm. Chip cũ ở đây đếm `so_viec_mo` (số VIỆC CSKH
                               đang mở) nhưng người đọc hiểu là số LỊCH, và bấm
                               vào không ra gì. Xem LichTrungCuaKhach.tsx. */}
+                          {/* KHÁM LẦN MẤY — nhãn nhỏ, đọc từ dữ liệu thật.
+                              Quang: tái khám thực chất cũng là khám lần 2,3,4,
+                              nhưng tách riêng vì cần biết tái khám CHO DỊCH VỤ
+                              NÀO. Nên "tái khám" thắng khi lịch có nối chuỗi;
+                              còn lại chỉ đếm số lượt đã khám xong.
+                              Lần đầu (0 hoặc 1 lượt) thì KHÔNG hiện gì — mọi
+                              khách đều là "lần 1", một nhãn đúng với tất cả
+                              thì không nói thêm được gì. */}
+                          {nhanLanKham(apptByPatient[row.clinic_patient_id]) && (
+                            <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
+                              {nhanLanKham(apptByPatient[row.clinic_patient_id])}
+                            </span>
+                          )}
                           {(apptByPatient[row.clinic_patient_id]?.sapToi
                             ?.length ?? 0) > 1 && (
                             <button
@@ -861,6 +889,8 @@ export default function CustomersView({
             }
             dangChon={viecDangGhi}
             onLamViec={(ma) => setViecDangGhi(ma)}
+            lanKhamGanNhat={selectedAppt?.lanKhamGanNhat ?? null}
+            onDatLich={(kieu) => setDatLich(kieu)}
           >
             <PhanHoiKhach
               clinicPatientId={selected.clinic_patient_id}
@@ -1169,8 +1199,56 @@ export default function CustomersView({
           onDaHuy={() => router.refresh()}
         />
       ) : null}
+
+      {/* Form đặt lịch ngay tại màn này — tái khám hoặc khám mới. */}
+      {datLich && selected ? (
+        <DatLichModal
+          tenKhach={selected.full_name}
+          clinicPatientId={selected.clinic_patient_id}
+          services={services}
+          doctors={doctors}
+          locations={locations}
+          defaultLocationId={selected.location_id ?? undefined}
+          khoaDichVu={
+            datLich === "tai-kham" &&
+            selectedAppt?.lanKhamGanNhat?.service_type_id
+              ? {
+                  serviceId: selectedAppt.lanKhamGanNhat.service_type_id,
+                  label:
+                    selectedAppt.lanKhamGanNhat.service_name ?? "Dịch vụ cũ",
+                }
+              : undefined
+          }
+          lichTruocId={
+            datLich === "tai-kham"
+              ? (selectedAppt?.lanKhamGanNhat?.id ?? undefined)
+              : undefined
+          }
+          onDong={() => setDatLich(null)}
+          onXong={() => {
+            setDatLich(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
+}
+
+/** Nhãn "khám lần mấy" cho một khách. `null` = không đáng hiện.
+ *
+ *  ƯU TIÊN "tái khám" HƠN CON SỐ. Cả hai đều đúng — tái khám thì đương nhiên
+ *  cũng là lần thứ N — nhưng "tái khám" nói thêm được một điều mà con số không
+ *  nói: lượt này nối tiếp lượt trước, cùng một dịch vụ, cùng một câu chuyện.
+ *  Đó chính là chỗ Quang muốn phân biệt.
+ *
+ *  KHÔNG HIỆN "lần 1". Khách nào cũng từng là lần 1; một nhãn đúng với tất cả
+ *  thì chỉ tốn chỗ và dạy người đọc bỏ qua vùng ấy. */
+export function nhanLanKham(a?: ApptInfo): string | null {
+  if (!a) return null;
+  if (a.laTaiKham) return "tái khám";
+  if (a.soLanKham >= 2) return `khám lần ${a.soLanKham}`;
+  return null;
 }
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
