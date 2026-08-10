@@ -279,6 +279,54 @@ const KHONG_GAP_DUOC: LoiRa[] = [
  *
  *  THỨ TỰ CŨ VỐN ĐÃ ĐÚNG TOPO — chỉ có cách vẽ là sai. Nên đây không phải đổi
  *  luồng nghiệp vụ, chỉ là vẽ ra đúng cái vẫn luôn có. */
+/** MỘT CHẠM LÀ XONG — bấm "Làm bước này" ghi luôn, không qua khối bên phải.
+ *
+ *  Quang 10/08/2026: *"chọn nút làm bước này cái là tick xanh luôn, vì như vậy
+ *  là action luôn… ý tôi là tích hợp action vào nút đó luôn"*.
+ *
+ *  Những bước này KHÔNG cần thêm thông tin gì để có nghĩa: "đã hỏi đơn vị xét
+ *  nghiệm" là toàn bộ nội dung của lần chạm ấy. Bắt đi thêm một khối bên phải
+ *  để bấm nút thứ hai là hai thao tác cho một sự thật — cùng lý do đã áp cho
+ *  ba lối ra "gọi không gặp".
+ *
+ *  MỖI DÒNG PHẢI GHI ĐÚNG THỨ KHỐI BÊN PHẢI ĐANG GHI. Lệch một chữ `loai` là
+ *  node tích xanh mà trạng thái không đóng — đúng lỗi vừa vá ở DA_TRA_KQ, nơi
+ *  hai nút ghi "KHAC" trong khi `dangO` dò "TRA_KQ".
+ *
+ *  KHÔNG có ở đây = vẫn mở khối bên phải như cũ. Ba việc "tự chọn" cuối và
+ *  "Huỷ lịch" cố ý không một-chạm: huỷ phải chọn lý do, còn ba việc kia là
+ *  quyết định của người trực chứ không phải một cú bấm cho xong. */
+const MOT_CHAM: Record<
+  string,
+  { loai: string; ketQua: string; noiDung: string }
+> = {
+  DA_CHECKIN: {
+    loai: "CHECK_IN",
+    ketQua: "GHI_NHAN",
+    noiDung: "Khách đã tới quầy",
+  },
+  CHO_KQ_XN: {
+    loai: "CHECK_XN",
+    ketQua: "DA_LIEN_HE",
+    noiDung: "Đã hỏi đơn vị xét nghiệm",
+  },
+  CHO_BAC_SI: {
+    loai: "KHAC",
+    ketQua: "DA_LIEN_HE",
+    noiDung: "Đã hỏi bác sĩ về kết quả",
+  },
+  KQ_CHUA_GUI: {
+    loai: "TRA_KQ",
+    ketQua: "DA_LIEN_HE",
+    noiDung: "Đã gửi kết quả cho bệnh nhân",
+  },
+  DA_TRA_KQ: {
+    loai: "TRA_KQ",
+    ketQua: "DA_LIEN_HE",
+    noiDung: "Đã gọi trả kết quả xét nghiệm",
+  },
+};
+
 interface TangSauKham {
   /** Nhiều hơn một phần tử = các nhánh song song, vẽ cạnh nhau. */
   nhanh: TrangThai[];
@@ -461,21 +509,44 @@ export default function VungLamViecKhach({
    *  `trang_thai_ma` là thứ timeline dò để tích xanh — không dò theo `loai`,
    *  vì nhiều trạng thái dùng chung một loại (migration 20260810000002). */
   async function ghiLoiRa(ma: string, ketQua: string) {
-    if (!lich.id) {
-      setLoiGhiLoiRa("Khách chưa có lịch hẹn nào để gắn lần gọi này.");
+    await ghiMotCham(ma, {
+      loai: "NHAC_HEN",
+      ketQua,
+      noiDung: "",
+      khoa: ketQua,
+    });
+  }
+
+  /** Ghi một lần chạm vào sổ chăm sóc. Dùng chung cho lối ra của hàng gộp và
+   *  cho nút "Làm bước này" một-chạm.
+   *
+   *  `khoa` chỉ để nút biết mình đang là cái đang quay — nó là `ket_qua` với
+   *  hàng gộp (ba nút cùng hàng, phải phân biệt được cái nào) và là mã trạng
+   *  thái với node timeline (mỗi node một nút). */
+  async function ghiMotCham(
+    ma: string,
+    v: { loai: string; ketQua: string; noiDung: string; khoa: string },
+  ) {
+    // NĂM LOẠI BẮT BUỘC GẮN LỊCH HẸN (CAN_LICH_HEN ở backend). Chặn tại đây
+    // bằng một dòng đọc được, thay vì để backend trả 422 mà màn hình nuốt mất.
+    const canLich = ["XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY", "CHECK_IN", "CHECK_OUT"];
+    if (canLich.includes(v.loai) && !lich.id) {
+      setLoiGhiLoiRa("Khách chưa có lịch hẹn nào để gắn thao tác này.");
       return;
     }
-    setDangGhiLoiRa(ketQua);
+    setDangGhiLoiRa(v.khoa);
     setLoiGhiLoiRa(null);
     const res = await fetch("/api/cskh/tuong-tac", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clinic_patient_id: clinicPatientId,
-        appointment_id: lich.id,
-        loai: "NHAC_HEN",
-        kenh: "GOI",
-        ket_qua: ketQua,
+        appointment_id: canLich.includes(v.loai) ? lich.id : null,
+        loai: v.loai,
+        // Mốc quầy đòi đúng cặp TRUC_TIEP + GHI_NHAN; còn lại là cuộc gọi.
+        kenh: v.ketQua === "GHI_NHAN" ? "TRUC_TIEP" : "GOI",
+        ket_qua: v.ketQua,
+        noi_dung: v.noiDung.trim() || null,
         trang_thai_ma: ma,
       }),
     });
@@ -490,6 +561,24 @@ export default function VungLamViecKhach({
     }
     router.refresh();
   }
+
+  /** SỔ CHĂM SÓC CỦA RIÊNG LƯỢT ĐANG XEM.
+   *
+   *  LỖI QUANG TÌM RA 10/08/2026: khám xong cho Huyền rồi đặt lịch khám mới thì
+   *  *"bên phải nó cũng chưa update cho lượt khám mới ấy"* — và cột giữa cũng
+   *  vậy. Cả chuỗi trạng thái vẫn xanh nguyên từ lượt trước.
+   *
+   *  Vì `lichSu` là sổ của cả KHÁCH, không phải của một LƯỢT. `lanCuoi` dò
+   *  `trang_thai_ma` trên toàn bộ sổ, nên mọi bước đã làm ở lượt tháng trước
+   *  vẫn tích xanh ở lượt hôm nay — lượt mới sinh ra đã "hoàn thành" sẵn, và
+   *  người trực không còn gì để làm theo màn hình.
+   *
+   *  Lọc theo `appointment_id` (cột có từ 20260809000003, vừa được mang xuống
+   *  UI). Không có lịch đại diện thì giữ nguyên cả sổ: thà tích thừa còn hơn
+   *  một màn trắng không giải thích được. */
+  const lichSuLuotNay = lich.id
+    ? lichSu.filter((d) => d.appointment_id === lich.id)
+    : lichSu;
 
   const [dangCheckout, setDangCheckout] = useState(false);
   const [loiCheckout, setLoiCheckout] = useState<string | null>(null);
@@ -550,7 +639,9 @@ export default function VungLamViecKhach({
     lich.status === "CHECKED_IN" || lich.status === "COMPLETED";
 
   function cacLan(loai: string): DongLichSu[] {
-    return lichSu.filter((d) => d.loai === loai);
+    // Cũng chỉ trong lượt đang xem — xem ghi chú ở `lichSuLuotNay`. `dangO`
+    // đọc hàm này, nên không lọc thì "đang ở đây" cũng kẹt lại ở lượt cũ.
+    return lichSuLuotNay.filter((d) => d.loai === loai);
   }
 
   /** Trạng thái này đã xong chưa, kể cả khi chưa có dòng sổ nào.
@@ -580,10 +671,10 @@ export default function VungLamViecKhach({
    *  loại `KHAC` nên bấm cái này tích xanh cái kia, còn "không cần follow up"
    *  thì không tích được cái nào. */
   function lanCuoi(ma: string): DongLichSu | undefined {
-    const theoMa = lichSu.find((d) => d.trang_thai_ma === ma);
+    const theoMa = lichSuLuotNay.find((d) => d.trang_thai_ma === ma);
     if (theoMa) return theoMa;
     const loai = SUY_THEO_LOAI_CU[ma];
-    return loai ? lichSu.find((d) => loai.includes(d.loai)) : undefined;
+    return loai ? lichSuLuotNay.find((d) => loai.includes(d.loai)) : undefined;
   }
 
 
@@ -605,6 +696,7 @@ export default function VungLamViecKhach({
     const chon = dangChon === tt.ma;
     const lan = lanCuoi(tt.ma);
     const xong = Boolean(lan) || xongTheoLich(tt.ma);
+    const motCham = MOT_CHAM[tt.ma];
 
     return (
       <li className="flex gap-3">
@@ -662,11 +754,19 @@ export default function VungLamViecKhach({
               </span>
             )}
 
+            {/* MỘT CHẠM LÀ XONG với những bước có trong `MOT_CHAM`: bấm ghi
+                thẳng vào sổ và node tích xanh ngay, không mở khối bên phải.
+                Bước không có trong bảng ấy thì giữ nguyên hành vi cũ. */}
             <button
               type="button"
-              onClick={() => onLamViec(tt.ma)}
+              disabled={Boolean(motCham && dangGhiLoiRa)}
+              onClick={() =>
+                motCham
+                  ? void ghiMotCham(tt.ma, { ...motCham, khoa: tt.ma })
+                  : onLamViec(tt.ma)
+              }
               aria-pressed={chon}
-              className={
+              className={`${
                 chon
                   ? "rounded-full bg-brand-700 px-2.5 py-0.5 text-[11px] font-semibold text-white"
                   : xong
@@ -674,9 +774,15 @@ export default function VungLamViecKhach({
                     : dang
                       ? "rounded-full bg-brand-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-brand-700"
                       : "rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
-              }
+              } disabled:opacity-50`}
             >
-              {chon ? "Đang làm" : xong ? "Làm lại" : "Làm bước này"}
+              {dangGhiLoiRa === tt.ma
+                ? "Đang ghi…"
+                : chon
+                  ? "Đang làm"
+                  : xong
+                    ? "Làm lại"
+                    : "Làm bước này"}
             </button>
           </div>
 
