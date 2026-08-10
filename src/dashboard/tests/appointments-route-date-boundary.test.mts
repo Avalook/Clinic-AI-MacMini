@@ -97,3 +97,30 @@ test("mọi embed `staff` trên tuong_tac_cskh phải GỌI TÊN cột khoá ngo
       "sang `staff`.",
   );
 });
+
+test("`/api/roster` cũng phải kiểm ngày trước khi gọi toISOString", () => {
+  // TÌM ĐƯỢC KHI NGHIỆM THU 10/08/2026: `GET /api/roster?date=99-99-9999` trả
+  // 500 với thân RỖNG. `weekStartOf` dựng `new Date(iso + "T00:00:00Z")` rồi gọi
+  // `toISOString()` — Invalid Date thì chính lời gọi ấy ném.
+  //
+  // Con thứ HAI cùng họ trong một ngày (con đầu ở `/api/appointments`). Luật:
+  // mọi chỗ dựng `Date` từ chuỗi NGƯỜI GỬI phải kiểm `Number.isNaN(getTime())`
+  // TRƯỚC khi gọi `toISOString()`.
+  const roster = readFileSync(
+    new URL("../app/api/roster/route.ts", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const iKiem = roster.indexOf("Number.isNaN(d.getTime())");
+  const iGoi = roster.indexOf("d.toISOString()");
+  assert.ok(iKiem > 0, "`weekStartOf` không còn câu kiểm Invalid Date");
+  assert.ok(
+    iKiem < iGoi,
+    "câu kiểm Invalid Date phải nằm TRƯỚC `toISOString()` — đặt sau thì nó " +
+      "không bao giờ chạy tới, vì `toISOString()` mới là thứ ném.",
+  );
+  assert.match(
+    roster,
+    /Ngày không hợp lệ/,
+    "phải trả 400 với câu đọc được khi `date` gõ sai, không phải 500 thân rỗng",
+  );
+});
