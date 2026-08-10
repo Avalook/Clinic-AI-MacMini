@@ -36,6 +36,7 @@ import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import { Check, Phone, CircleDashed } from "lucide-react";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
+import { MOT_CHAM, kenhCho } from "./mot-cham";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { HenGoiLai } from "./CustomersView";
 
@@ -391,36 +392,6 @@ const KHONG_GAP_DUOC: LoiRa[] = [
  *  KHÔNG có ở đây = vẫn mở khối bên phải như cũ. Ba việc "tự chọn" cuối và
  *  "Huỷ lịch" cố ý không một-chạm: huỷ phải chọn lý do, còn ba việc kia là
  *  quyết định của người trực chứ không phải một cú bấm cho xong. */
-const MOT_CHAM: Record<
-  string,
-  { loai: string; ketQua: string; noiDung: string }
-> = {
-  DA_CHECKIN: {
-    loai: "CHECK_IN",
-    ketQua: "GHI_NHAN",
-    noiDung: "Khách đã tới quầy",
-  },
-  CHO_KQ_XN: {
-    loai: "CHECK_XN",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã hỏi đơn vị xét nghiệm",
-  },
-  CHO_BAC_SI: {
-    loai: "KHAC",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã hỏi bác sĩ về kết quả",
-  },
-  KQ_CHUA_GUI: {
-    loai: "TRA_KQ",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gửi kết quả cho bệnh nhân",
-  },
-  DA_TRA_KQ: {
-    loai: "TRA_KQ",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gọi trả kết quả xét nghiệm",
-  },
-};
 
 interface TangSauKham {
   /** Nhiều hơn một phần tử = các nhánh song song, vẽ cạnh nhau. */
@@ -573,6 +544,8 @@ export default function VungLamViecKhach({
   onLamViec,
   onDatLich,
   henGoiLai = [],
+  ghiChu = "",
+  onGhiChuXong,
   children,
 }: {
   tenKhach: string;
@@ -601,6 +574,10 @@ export default function VungLamViecKhach({
   onDatLich?: (kieu: "tai-kham" | "kham-moi") => void;
   /** Lời hẹn gọi lại CHƯA ĐÓNG của khách này. */
   henGoiLai?: HenGoiLai[];
+  /** Ghi chú người dùng đang gõ ở CỘT PHẢI — đi kèm cú bấm một-chạm ở đây. */
+  ghiChu?: string;
+  /** Gọi sau khi ghi xong, để cột phải xoá ô gõ. */
+  onGhiChuXong?: () => void;
   /** Khối gắn thêm bên dưới — nay chỉ còn "Phản hồi của khách". */
   children?: React.ReactNode;
 }) {
@@ -698,14 +675,19 @@ export default function VungLamViecKhach({
         clinic_patient_id: clinicPatientId,
         appointment_id: lich.id ?? null,
         loai: v.loai,
-        // Mốc quầy đòi đúng cặp TRUC_TIEP + GHI_NHAN; còn lại là cuộc gọi.
-        kenh: v.ketQua === "GHI_NHAN" ? "TRUC_TIEP" : "GOI",
+        // BA LUẬT CHÉO của backend gom vào `kenhCho` — gửi sai là 422, và
+        // `BO_QUA` (nút "Không cần follow up") là cái từng gửi sai suốt.
+        kenh: kenhCho(v.ketQua),
         ket_qua: v.ketQua,
-        noi_dung: v.noiDung.trim() || null,
+        // GHI CHÚ NGƯỜI DÙNG GÕ THẮNG nội dung mặc định. Mặc định chỉ là câu
+        // mô tả việc ("Đã gọi xác nhận lịch"); thứ người trực gõ tay bao giờ
+        // cũng nói được nhiều hơn ("khách đang họp, gọi lại sau 5h").
+        noi_dung: ghiChu.trim() || v.noiDung.trim() || null,
         trang_thai_ma: ma,
       }),
     });
     setDangGhiLoiRa(null);
+    if (res.ok) onGhiChuXong?.();
     if (!res.ok) {
       const d = (await res.json().catch(() => null)) as {
         error?: string;

@@ -214,28 +214,39 @@ const LY_DO_HUY_SAN: string[] = LY_DO_HUY_THU_TU.filter(
 interface Props {
   trangThai: string | null;
   clinicPatientId: string;
-  patientCode: string;
+  // `patientCode` ĐÃ BỎ cùng nút "Đặt lịch tái khám" của khối DA_CHECKIN — nó
+  // chỉ tồn tại để dựng `/appointments?bn=…`. Giữ một prop không ai đọc là để
+  // lần sau có người tưởng khối này còn cần mã bệnh nhân.
   appointmentId: string | null;
   phone: string | null;
   tepKetQua: TepKetQuaRow[];
   /** Trạng thái này đã có dấu vết xử lý chưa — để nút nói "làm lại". */
   daXong: boolean;
+  /** Ghi chú đang gõ — do `CustomersView` giữ, dùng chung với cột giữa. */
+  ghiChu: string;
+  onGhiChu: (v: string) => void;
 }
 
 export default function HanhDongTrangThai({
   trangThai,
   clinicPatientId,
-  patientCode,
   appointmentId,
   phone,
   tepKetQua,
   daXong,
+  ghiChu,
+  onGhiChu,
 }: Props) {
   const router = useRouter();
   const [dangLuu, setDangLuu] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState(false);
-  const [ghiChu, setGhiChu] = useState("");
+  // GHI CHÚ DO CHA GIỮ, không phải state riêng của khối này.
+  //
+  // Từ 10/08/2026 nút ghi của nhiều trạng thái nằm ở CỘT GIỮA (`MOT_CHAM`), còn
+  // ô gõ ghi chú thì ở ĐÂY. Hai cột phải đọc cùng một chuỗi, nếu không thì gõ
+  // xong bấm bên kia là ghi chú rơi mất — và người dùng không có cách nào biết
+  // nó rơi.
   const [lyDo, setLyDo] = useState("");
   const [moLyDoSan, setMoLyDoSan] = useState(false);
   const [moHen, setMoHen] = useState(false);
@@ -316,7 +327,7 @@ export default function HanhDongTrangThai({
         return false;
       }
       setXong(true);
-      setGhiChu("");
+      onGhiChu("");
       router.refresh();
       return true;
     } finally {
@@ -429,10 +440,21 @@ export default function HanhDongTrangThai({
   const oGhiChu = (
     <input
       value={ghiChu}
-      onChange={(e) => setGhiChu(e.target.value)}
+      onChange={(e) => onGhiChu(e.target.value)}
       placeholder="Ghi chú (không bắt buộc)"
       className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
     />
+  );
+
+  /** Dòng nói rõ nút ghi nằm ở đâu, cho những trạng thái đã một-chạm.
+   *
+   *  Không có nó thì khối bên phải chỉ còn số điện thoại và một ô gõ, và người
+   *  mới vào ca sẽ đứng đó tìm nút "lưu". */
+  const nhacBamCotGiua = (
+    <p className="rounded-lg bg-surface-muted px-2 py-1.5 text-[11px] leading-snug text-ink-soft">
+      Gọi xong thì bấm nút của trạng thái này ở <b>cột giữa</b> — bấm là ghi
+      luôn. Ghi chú gõ ở trên sẽ đi kèm.
+    </p>
   );
 
   /** `loai` tương tác của trạng thái đang mở, lấy từ CHÍNH bảng sinh ra tiêu
@@ -445,104 +467,58 @@ export default function HanhDongTrangThai({
   function than() {
     switch (trangThai) {
       // ── TRƯỚC KHÁM ────────────────────────────────────────────────────────
+      // HAI TRẠNG THÁI NÀY KHÔNG CÒN NÚT GHI Ở ĐÂY.
+      //
+      // Quang 10/08/2026: *"ấn vào 1 trong 2 trạng thái chờ xác nhận lịch trước
+      // 7 ngày và cần nhắc hẹn thì bên ô action bỏ ô đã xác nhận cuộc gọi vì
+      // bên kia ấn là được rồi mà"*. Đúng: nút ở cột giữa nay CHÍNH LÀ hành
+      // động (xem `MOT_CHAM`), nên để thêm một nút ghi ở đây là mời người trực
+      // ghi hai dòng sổ cho một cuộc gọi.
+      //
+      // CÒN LẠI ĐÚNG HAI THỨ, và cả hai đều KHÔNG có ở cột giữa:
+      //   · số điện thoại để bấm gọi
+      //   · ô ghi chú — nó đi THEO cú bấm ở cột giữa (`ghiChu` do
+      //     `CustomersView` giữ và truyền cho cả hai cột), nên gõ ở đây rồi bấm
+      //     bên kia là ghi chú vào đúng dòng ấy. Bỏ luôn ô này thì không còn
+      //     đường nào ghi lại "khách nói đang họp, gọi lại sau 5h".
       case "CHO_XAC_NHAN":
-        return (
-          <>
-            {soDienThoai}
-            {oGhiChu}
-            <NutChinh
-              ma="xn"
-              nhan="Đã gọi xác nhận lịch"
-              Icon={Phone}
-              onClick={() => void ghi("xn", "XAC_NHAN_LICH", "DA_LIEN_HE")}
-            />
-          </>
-        );
-
       case "NHAC_HEN_MAI":
         return (
           <>
             {soDienThoai}
             {oGhiChu}
-            <NutChinh
-              ma="nh"
-              nhan="Đã gọi nhắc hẹn"
-              Icon={Phone}
-              onClick={() => void ghi("nh", "NHAC_HEN", "DA_LIEN_HE")}
-            />
+            {nhacBamCotGiua}
           </>
         );
 
       // ── SAU KHÁM ──────────────────────────────────────────────────────────
+      // KHỐI NÀY CHỈ CÒN SỐ ĐIỆN THOẠI.
+      //
+      // Quang 10/08/2026: *"bỏ nút checkin đi vì đã tích hợp bên trạng thái
+      // rồi, chỉ hiện số điện thoại của khách thôi, bỏ các nút trả kết quả
+      // khám, tái khám đi vì đã có bên kia rồi"*.
+      //
+      // Ba nút vừa bỏ, và vì sao bỏ là đúng:
+      //
+      //   "Check-in cho khách"      trùng node "Đã check-in" ở cột giữa — nay
+      //                             node ấy ghi thẳng `CHECK_IN` (`MOT_CHAM`),
+      //                             đi đúng máy trạng thái y như nút này.
+      //   "Trả kết quả xét nghiệm"  và
+      //   "Đặt lịch tái khám"       cả hai gửi `CHECK_OUT`, tức ĐÓNG LƯỢT KHÁM
+      //                             — cùng việc với nút "Checkout" ở khối "Kết
+      //                             thúc lượt khám", nhưng mang hai cái tên
+      //                             nghe như hai bước khác nhau. Ba nút, một
+      //                             hành vi, ba tên: đó là cách người trực đóng
+      //                             lượt mà không biết mình vừa đóng.
+      //
+      // Việc "sau khám thì làm gì tiếp" nay đọc ở đúng chỗ của nó: sơ đồ nhánh
+      // SAU KHÁM ở cột giữa, và ba nút Kết thúc lượt khám ở cuối cột ấy.
       case "DA_CHECKIN":
         return (
           <>
-            {/* CHECK-IN PHẢI Ở ĐÂY, và đây là đường DUY NHẤT của màn này.
-                `loai = "CHECK_IN"` là thứ gọi BookingService.apply_action
-                ("checkin") — nó đổi appointment.status thật, mở lượt khám vào
-                hàng đợi tiếp nhận, và làm chip trạng thái bên trái đổi thành
-                "Đã check-in" (nhánh DA_CHECKIN của v_trang_thai_cskh,
-                migration 20260810000004).
-
-                Nút này TỪNG nằm ở khối "Mốc tại quầy" và bị gỡ cùng khối ấy
-                sáng nay — làm màn Quản lý khách hàng mất hẳn khả năng check-in,
-                trong khi node "Đã check-in" ngay cạnh chỉ gửi CHECK_OUT. Ghi
-                lại để lần sau không ai gỡ nhầm lần nữa.
-
-                Bấm khi khách đã check-in rồi thì không sao: backend thấy status
-                đã là CHECKED_IN/COMPLETED là chỉ ghi sổ, không đổi gì. */}
-            <NutChinh
-              ma="checkin"
-              nhan="Check-in cho khách"
-              Icon={Check}
-              onClick={() =>
-                void ghi(
-                  "checkin",
-                  "CHECK_IN",
-                  "GHI_NHAN",
-                  "Khách đã tới quầy",
-                )
-              }
-            />
-            <p className="text-[11px] leading-snug text-ink-soft">
-              Khách đã tới rồi thì chọn việc tiếp theo.
-            </p>
-            <div className="flex gap-2">
-              <NutPhu
-                ma="trakq"
-                nhan="Trả kết quả xét nghiệm"
-                onClick={() =>
-                  void ghi(
-                    "trakq",
-                    // CHECK_OUT chứ không phải KHAC: nó đi qua đúng máy trạng
-                    // thái (BookingService.apply_action "complete") nên lịch
-                    // hẹn chuyển sang COMPLETED — khách này ĐÃ KHÁM. Ghi
-                    // "KHAC" thì mọi màn khác vẫn đọc họ là chưa khám xong.
-                    "CHECK_OUT",
-                    "GHI_NHAN",
-                    "Sau khám: đi hướng trả kết quả xét nghiệm",
-                  )
-                }
-              />
-              <NutPhu
-                ma="taikham"
-                nhan="Đặt lịch tái khám"
-                Icon={CalendarPlus}
-                onClick={async () => {
-                  const ok = await ghi(
-                    "taikham",
-                    "CHECK_OUT",
-                    "GHI_NHAN",
-                    "Sau khám: đi hướng đặt lịch tái khám",
-                  );
-                  if (ok) {
-                    router.push(
-                      `/appointments?bn=${encodeURIComponent(patientCode)}`,
-                    );
-                  }
-                }}
-              />
-            </div>
+            {soDienThoai}
+            {oGhiChu}
+            {nhacBamCotGiua}
           </>
         );
 

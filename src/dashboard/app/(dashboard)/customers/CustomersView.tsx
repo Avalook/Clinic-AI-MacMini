@@ -669,6 +669,15 @@ export default function CustomersView({
   const [viecDangGhi, setViecDangGhi] = useState<string | null>(
     coBoNut(initialViec) ? initialViec : null,
   );
+  /** GHI CHÚ ĐANG GÕ — dùng chung cho CẢ HAI CỘT.
+   *
+   *  Ô gõ nằm ở cột phải, còn nút ghi của phần lớn trạng thái nay nằm ở cột
+   *  giữa (`MOT_CHAM`). Để mỗi cột giữ một chuỗi riêng thì gõ xong bấm bên kia
+   *  là ghi chú rơi mất, và không có gì nói cho người dùng biết là nó rơi.
+   *
+   *  Xoá khi đổi khách hoặc đổi lượt: ghi chú viết cho người này không được
+   *  dính sang người sau. */
+  const [ghiChuChung, setGhiChuChung] = useState("");
   /** Form đặt lịch đang mở kiểu nào; null = đóng. */
   const [datLich, setDatLich] = useState<"tai-kham" | "kham-moi" | null>(null);
   // LƯỢT KHÁM ĐANG XEM — cặp (khách, lượt), không phải mỗi id lượt.
@@ -868,6 +877,7 @@ export default function CustomersView({
       // Đổi lượt là đổi ngữ cảnh: việc đang ghi dở thuộc lượt cũ, giữ lại là
       // ghi nhầm sổ. Về null để cột phải chạy theo việc gấp nhất của lượt mới.
       setViecDangGhi(null);
+      setGhiChuChung("");
       const params = new URLSearchParams(window.location.search);
       params.set("selected", pid);
       params.set("luot", id);
@@ -1253,6 +1263,8 @@ export default function CustomersView({
             onLamViec={(ma) => setViecDangGhi(ma)}
             onDatLich={(kieu) => setDatLich(kieu)}
             henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
+            ghiChu={ghiChuChung}
+            onGhiChuXong={() => setGhiChuChung("")}
           >
             {/* LỊCH SỬ TRƯỚC, PHẢN HỒI SAU — Quang chốt "bên trên phản hồi của
                 khách hàng, thêm 1 ô nữa". Đọc lại chuyện đã xảy ra rồi mới tới
@@ -1446,7 +1458,6 @@ export default function CustomersView({
                         viecDangGhi ?? viecCuaLuot[0]?.trang_thai ?? null
                       }
                       clinicPatientId={selected.clinic_patient_id}
-                      patientCode={selected.patient_code}
                       // CÙNG MỘT LƯỢT VỚI CỘT GIỮA.
                       //
                       // Chỗ này từng đọc `appt?.id` — chỉ có khi lịch còn
@@ -1459,6 +1470,8 @@ export default function CustomersView({
                       phone={selected.phone_primary}
                       tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
                       daXong={false}
+                      ghiChu={ghiChuChung}
+                      onGhiChu={setGhiChuChung}
                     />
                   </div>
 
