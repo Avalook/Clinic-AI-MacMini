@@ -383,8 +383,15 @@ class BookingService:
         thanh_min: int | None = None,
         sono_min: int | None = None,
         notes: str | None = None,
+        lich_truoc_id: str | None = None,
     ) -> dict[str, Any]:
-        """Book one appointment. Returns its id and the status it landed in."""
+        """Book one appointment. Returns its id and the status it landed in.
+
+        `lich_truoc_id` = lịch hẹn mà lịch này là TÁI KHÁM của nó. Chỉ nút "Tái
+        khám" ở màn Quản lý khách hàng truyền; nút "Đặt lịch khám mới" cố ý để
+        None. Xem migration 20260810000007 để biết vì sao phải là một cột thật
+        chứ không suy ra được từ `episode_id` hay `patient_kind`.
+        """
         # Không nói cơ sở thì lấy cơ sở CỦA NGƯỜI ĐẶT, không phải cơ sở đầu tiên
         # trong một danh sách. _validate_booking_refs vẫn kiểm nó thuộc đúng
         # phòng khám, nên chỉ định cơ sở khác vẫn được — chỉ là phải cố ý.
@@ -392,6 +399,32 @@ class BookingService:
         if slot_end <= slot_start:
             raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
         _chan_dat_vao_qua_khu(slot_end)
+
+        # LỊCH TRƯỚC PHẢI LÀ CỦA CHÍNH KHÁCH NÀY, và của chính phòng khám này.
+        #
+        # Khoá ngoại chỉ bảo đảm cái id ấy TỒN TẠI — nó không cấm trỏ sang lịch
+        # của người khác. Một mã đoán được là một chuỗi lịch sử khám bị nối vào
+        # nhầm bệnh nhân, và nó sẽ hiện ra ở ô "lịch sử các lần khám" như thể là
+        # sự thật. Kiểm ở đây chứ không ở màn hình: màn hình nào cũng có thể
+        # quên, còn đường ghi thì chỉ có một.
+        if lich_truoc_id is not None:
+            lich_truoc_id = (lich_truoc_id or "").strip() or None
+        if lich_truoc_id is not None:
+            hop_le = await self._pool.fetchval(
+                """
+                SELECT 1 FROM public.appointment
+                 WHERE id = $1::uuid
+                   AND clinic_id = $2::uuid
+                   AND clinic_patient_id = $3::uuid
+                """,
+                lich_truoc_id,
+                identity.clinic_id,
+                clinic_patient_id,
+            )
+            if not hop_le:
+                raise ValidationError(
+                    "Lịch trước không phải lịch hẹn của khách hàng này."
+                )
 
         raw_channel = (booking_channel or "").strip()
         # NO INVENTED DEFAULT, and the old one was the wrong way round.
@@ -505,10 +538,11 @@ class BookingService:
                             clinic_id, clinic_patient_id, doctor_id, service_type_id,
                             location_id, slot_start, slot_end, booking_channel,
                             queue_number, status, patient_kind, thanh_min, sono_min,
-                            need_sono, is_walkin, notes
+                            need_sono, is_walkin, notes, lich_truoc_id
                         )
                         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-                                $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                                $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+                                $17::uuid)
                         RETURNING id
                         """,
                         identity.clinic_id,
@@ -529,6 +563,7 @@ class BookingService:
                         # 20260803000004 rejects the write if they disagree.
                         is_walkin(channel),
                         (notes or "").strip() or None,
+                        lich_truoc_id,
                     )
                 except asyncpg.ExclusionViolationError as exc:
                     raise ConflictError(

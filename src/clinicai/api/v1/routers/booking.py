@@ -78,6 +78,10 @@ class BookingRequest(BaseModel):
     sono_min: int | None = Field(default=None, ge=0, le=600)
     # Ghi chú vận hành của CSKH. Bounded: một ô ghi chú không phải nơi dán bệnh án.
     notes: str | None = Field(default=None, max_length=2000)
+    #: Lịch hẹn mà lịch này là TÁI KHÁM của nó. Chỉ nút "Tái khám" truyền; nút
+    #: "Đặt lịch khám mới" cố ý để trống. Dịch vụ đi kèm đã nằm sẵn ở
+    #: `service_type_id`, nên không cần trường riêng cho "tái khám dịch vụ nào".
+    lich_truoc_id: UUID | None = None
 
 
 class ActionRequest(BaseModel):
@@ -230,6 +234,7 @@ async def create_booking(
         thanh_min=body.thanh_min,
         sono_min=body.sono_min,
         notes=body.notes,
+        lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
     )
     payload = {"ok": True, **result}
     await idem.save(pool, payload, status_code=201)
