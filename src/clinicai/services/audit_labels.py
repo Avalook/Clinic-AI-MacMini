@@ -77,6 +77,7 @@ EVENT_LABELS: dict[str, str] = {
     # bắt buộc; sửa bảng `NGUON` thì sửa cả chỗ này.
     "thong_bao.bac_si_da_xep": "Báo CSKH lịch đã có bác sĩ",
     "thong_bao.tuan_lich_truc": "Báo CSKH tuần đã chốt lịch trực",
+    "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
     "pharmacy.refused": "Khách không lấy thuốc",

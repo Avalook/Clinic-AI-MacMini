@@ -1,6 +1,7 @@
 // Việc CSKH tự hẹn: "gọi lại ngày…".
 //
-//   POST  { clinic_patient_id, ngay_goi, ly_do }  → tạo việc
+//   POST  { clinic_patient_id, ngay_goi, gio_goi?, ly_do }  → tạo việc
+//         `gio_goi` bỏ trống = chỉ hẹn tới ngày, KHÔNG phải 00:00.
 //   PATCH { id }                                  → đóng việc đã gọi xong
 //
 // Chỗ đựng những việc hệ thống chưa suy được — gọi hỏi thăm sau thủ thuật,

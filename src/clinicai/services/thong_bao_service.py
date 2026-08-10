@@ -50,6 +50,8 @@ NGUON: dict[str, tuple[str, str]] = {
     # Quản lý vừa áp lịch trực cả tuần → tuần ấy đã có người, những lịch đang
     # chờ trong tuần xếp được rồi.
     "tuan_lich_truc": ("thong_bao.tuan_lich_truc", "config.roster"),
+    # CSKH tự hẹn "gọi lại lúc 17:00" → mẩu giấy dán màn hình cho chính vai CSKH.
+    "hen_goi_lai": ("thong_bao.hen_goi_lai", "cskh.customers"),
 }
 
 #: Nguồn duy nhất trước 09/08/2026 — giữ tên cũ vì `dispatch.py` gọi theo nó.

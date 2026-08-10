@@ -220,6 +220,8 @@ export default function HanhDongTrangThai({
   const [moLyDoSan, setMoLyDoSan] = useState(false);
   const [moHen, setMoHen] = useState(false);
   const [ngayHen, setNgayHen] = useState("");
+  /** "" = chỉ hẹn tới ngày. Không mặc định 00:00 — xem chú thích ô nhập. */
+  const [gioHen, setGioHen] = useState("");
   const [lyDoHen, setLyDoHen] = useState("");
   const [daHen, setDaHen] = useState(false);
 
@@ -320,6 +322,9 @@ export default function HanhDongTrangThai({
         body: JSON.stringify({
           clinic_patient_id: clinicPatientId,
           ngay_goi: ngayHen,
+          // Chuỗi rỗng KHÔNG được gửi thành "" — backend khai `time | None`,
+          // và "" không parse ra giờ. null nói đúng "chỉ hẹn tới ngày".
+          gio_goi: gioHen || null,
           ly_do: lyDoHen.trim(),
         }),
       });
@@ -850,16 +855,37 @@ export default function HanhDongTrangThai({
       <div className="border-t border-line pt-2">
         {daHen ? (
           <p className="rounded-lg bg-success-bg px-2 py-1.5 text-[11px] text-success">
-            Đã hẹn gọi lại. Khách sẽ hiện ở danh sách vào đúng ngày đó.
+            Đã hẹn gọi lại. Khách hiện ở danh sách vào đúng ngày đó, và lời hẹn
+            nằm sẵn trong chuông thông báo tới khi có người xử lý.
           </p>
         ) : moHen ? (
           <div className="space-y-1.5">
-            <input
-              type="date"
-              value={ngayHen}
-              onChange={(e) => setNgayHen(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
-            />
+            {/* NGÀY VÀ GIỜ, không chỉ ngày (Quang 10/08/2026: *"khách nói đang
+                họp, gọi lại sau 5h… thêm 1 nút là gọi lại vào lúc ... giờ"*).
+                Với một lời hẹn như thế thì cả-ngày-hôm-nay là câu trả lời sai:
+                gọi lúc 9h sáng vẫn đúng "ngày", và vẫn làm phiền đúng người
+                mình vừa hứa sẽ không làm phiền.
+
+                Giờ để TRỐNG được — nghĩa là chỉ hẹn tới ngày. Ép chọn giờ thì
+                người ta gõ bừa một con số, và con số bừa đó đi thẳng vào việc
+                của ca sau. */}
+            <div className="flex gap-1.5">
+              <input
+                type="date"
+                value={ngayHen}
+                onChange={(e) => setNgayHen(e.target.value)}
+                aria-label="Ngày gọi lại"
+                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+              />
+              <input
+                type="time"
+                value={gioHen}
+                onChange={(e) => setGioHen(e.target.value)}
+                aria-label="Giờ gọi lại (bỏ trống nếu chỉ hẹn ngày)"
+                title="Bỏ trống nếu chỉ hẹn tới ngày"
+                className="w-[92px] shrink-0 rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+              />
+            </div>
             <input
               value={lyDoHen}
               onChange={(e) => setLyDoHen(e.target.value)}
