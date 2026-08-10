@@ -24,7 +24,7 @@ case "$ENVIRONMENT" in prod|staging) : ;; *) echo "usage: $0 [prod|staging]" >&2
 CONTAINER="clinicai_${ENVIRONMENT}-uptime-kuma-1"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUMA_USER="${KUMA_USER:-admin}"
-KUMA_PASS="${KUMA_PASS:-clinicai-kuma-2026}"
+KUMA_PASS="${KUMA_PASS:?set KUMA_PASS to a strong unique password}"
 
 docker ps --format '{{.Names}}' | grep -qx "$CONTAINER" || {
     echo "ERROR: không thấy container $CONTAINER" >&2; exit 1; }
@@ -34,9 +34,9 @@ docker cp "$CONTAINER:/app/data/kuma.db" "$TMP/kuma.db" >/dev/null
 
 # bcrypt hash sinh bằng chính node trong container Kuma, để chắc chắn cùng thư
 # viện và cùng cost với thứ Kuma dùng khi tự đăng ký.
-HASH=$(docker exec "$CONTAINER" node -e "
+HASH=$(docker exec -e KUMA_SETUP_PASS="$KUMA_PASS" "$CONTAINER" node -e "
 const b=require('bcryptjs');
-process.stdout.write(b.hashSync('$KUMA_PASS', 10));
+process.stdout.write(b.hashSync(process.env.KUMA_SETUP_PASS, 10));
 " 2>/dev/null)
 [ -n "$HASH" ] || { echo "ERROR: không sinh được hash mật khẩu" >&2; exit 1; }
 
@@ -65,7 +65,7 @@ else:
 suffix = f"clinicai_{env}"
 MONITORS = [
     # (tên, url, giây, mô tả vì sao theo dõi)
-    (f"API /health",        "http://api:8000/health",        60),
+    (f"API /health/db",     "http://api:8000/health/db",     60),
     (f"Dashboard /health",  "http://dashboard:3000/health",  60),
     (f"Caddy (ingress)",    "http://caddy:80/health",        60),
 ]
@@ -107,7 +107,7 @@ done
 cat <<EOF
 
   Uptime Kuma: http://127.0.0.1:$([ "$ENVIRONMENT" = prod ] && echo 3001 || echo 3002)
-    tài khoản: ${KUMA_USER} / ${KUMA_PASS}
+    tài khoản: ${KUMA_USER} (mật khẩu đã được đặt từ KUMA_PASS và không in ra)
 
   CHƯA CÓ KÊNH BÁO ĐỘNG. Monitor sẽ chuyển đỏ trên màn hình, nhưng không ai
   được báo khi API chết lúc 2 giờ sáng — đúng cái khoảng trống mà bảng giám sát
@@ -126,6 +126,6 @@ cat <<EOF
   lọt giữa hai lần kiểm và monitor không bao giờ thấy — tôi đã tự lừa mình một
   lần đúng như thế.
 
-  ĐỌC DB PHẢI QUA CONTAINER. SQLite bật WAL, nên `docker cp` mỗi file .db sẽ
+  ĐỌC DB PHẢI QUA CONTAINER. SQLite bật WAL, nên docker cp mỗi file .db sẽ
   đọc ra bản cũ và mọi thứ trông như chưa từng thay đổi.
 EOF
