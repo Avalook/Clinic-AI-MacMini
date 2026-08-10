@@ -32,6 +32,7 @@ export default function CinemaSlotPicker({
   date,
   doctors,
   dutyDoctorIds,
+  dutyDuKien = false,
   existingAppts,
   selectedDoctorId,
   selectedTime,
@@ -46,6 +47,9 @@ export default function CinemaSlotPicker({
    *  nạp xong (hiện tất cả, không ghi chú); mảng RỖNG = ngày chưa phân trực
    *  (fallback tất cả + ghi chú). */
   dutyDoctorIds?: string[] | null;
+  /** Tuần chứa ngày này chưa được quản lý bấm "Áp dụng tuần". Bác sĩ bên dưới
+   *  vẫn là người đã được xếp thật, chỉ là chưa chốt nên giờ còn đổi. */
+  dutyDuKien?: boolean;
   existingAppts: SlotApptLite[];
   selectedDoctorId: string;
   selectedTime: string;
@@ -213,6 +217,20 @@ export default function CinemaSlotPicker({
         <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-[11px] text-warning">
           Ngày này chưa xếp lịch trực bác sĩ. Cứ chọn khung giờ — quản lý sẽ xếp
           bác sĩ sau, ở màn Lịch làm việc.
+        </p>
+      )}
+      {/* CÓ BÁC SĨ NHƯNG TUẦN CHƯA CHỐT — nói ra, đừng giấu người đã được xếp.
+          Trước 10/08/2026 `/api/roster?date=` trả danh sách RỖNG cho mọi ngày
+          thuộc một tuần chưa bấm "Áp dụng tuần", kể cả ngày đã có bác sĩ duyệt
+          hẳn hoi. Nên màn Lịch làm việc của quản lý hiện "TS.BS. Phan Chí
+          Thành" ngày 10/09 trong khi lưới đặt lịch cùng ngày nói "chưa xếp lịch
+          trực" — hai màn đọc một bảng, nói hai điều ngược nhau, và CSKH đặt vào
+          hàng "chưa phân bác sĩ" cho một ngày đã có người. */}
+      {!noDuty && dutyDuKien && (
+        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-[11px] text-warning">
+          Quản lý chưa bấm “Áp dụng tuần” cho tuần này — giờ trực bên dưới là dự
+          kiến và còn có thể đổi. Đặt vẫn được; gọi xác nhận lại với khách sau
+          khi tuần được chốt.
         </p>
       )}
       <div className="overflow-x-auto rounded-xl border border-brand-100">

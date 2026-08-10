@@ -177,6 +177,9 @@ export default function AppointmentBooking({
   // Bác sĩ TRỰC CA của ngày đã chọn (work_roster LICH_KHAM) — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
+  /** Tuần chứa ngày đã chọn CHƯA được quản lý bấm "Áp dụng tuần". Danh sách bác
+   *  sĩ vẫn thật (work_roster đã duyệt), chỉ là chưa chốt nên giờ còn đổi. */
+  const [dutyDuKien, setDutyDuKien] = useState(false);
   // Capacity Phase 1 — tải/khung-giờ để hiển thị (quote, read-only).
   // Sức chứa từng KHUNG (không phải từng giờ), đọc từ cùng resolver mà trigger
   // dùng để chặn. Trước đây nó đọc block_budget — một bảng thứ hai, mịn theo
@@ -239,11 +242,12 @@ export default function AppointmentBooking({
     const ctrl = new AbortController();
     fetch(`/api/roster?date=${encodeURIComponent(apptDate)}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) =>
+      .then((j) => {
         setDutyDoctorIds(
           j ? (j.doctors as { id: string }[]).map((d) => d.id) : null,
-        ),
-      )
+        );
+        setDutyDuKien(Boolean(j?.du_kien));
+      })
       .catch(() => {});
     return () => ctrl.abort();
   }, [apptDate]);
@@ -548,6 +552,7 @@ export default function AppointmentBooking({
             date={apptDate}
             doctors={doctors}
             dutyDoctorIds={dutyDoctorIds}
+            dutyDuKien={dutyDuKien}
             existingAppts={visibleExistingAppts}
             selectedDoctorId={doctorId}
             selectedTime={apptTime}
