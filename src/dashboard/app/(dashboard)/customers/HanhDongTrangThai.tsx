@@ -107,14 +107,14 @@ const HANH_DONG: Record<string, HanhDongViec> = {
     loai: "HOI_THAM",
     goiKhach: true,
     zalo: null,
-    oKhoiKhac: "Nhắc tái khám",
+    oKhoiKhac: "Hẹn ngày tái khám",
   },
   NHAC_DI_KHAM: {
     tieuDe: "Gọi nhắc đi khám",
     loai: "HOI_THAM",
     goiKhach: true,
     zalo: null,
-    oKhoiKhac: "Nhắc tái khám",
+    oKhoiKhac: "Hẹn ngày tái khám",
   },
 };
 
@@ -131,16 +131,16 @@ const HANH_DONG_THEM: Record<string, HanhDongViec> = {
     goiKhach: false,
     zalo: null,
     nhacNho:
-      "Xem tình trạng sau khám rồi chọn tiếp: “Chờ kết quả xét nghiệm” nếu còn đợi xét nghiệm, hoặc hẹn ngày tái khám ở khối Nhắc tái khám.",
+      "Xem tình trạng sau khám rồi chọn tiếp: “Chờ kết quả xét nghiệm” nếu còn đợi xét nghiệm, hoặc bấm “Hẹn ngày tái khám…” ngay dưới khối này.",
   },
   DA_TRA_KQ: {
     tieuDe: "Đã trả kết quả — có cần tái khám không",
     loai: "KHAC",
     goiKhach: false,
     zalo: null,
-    oKhoiKhac: "Nhắc tái khám",
+    oKhoiKhac: "Hẹn ngày tái khám",
     nhacNho:
-      "Kết quả đã trả. Việc còn lại là quyết có hẹn tái khám hay không — hẹn thì gõ ngày ở khối Nhắc tái khám để hệ thống tự sinh hai mốc gọi.",
+      "Kết quả đã trả. Việc còn lại là quyết có hẹn tái khám hay không — hẹn thì bấm “Hẹn ngày tái khám…” ngay dưới khối này — hệ thống tự sinh hai mốc gọi.",
   },
   KHONG_FOLLOW_UP: {
     tieuDe: "Không cần follow up sau thủ thuật",
@@ -249,6 +249,10 @@ export default function HanhDongTrangThai({
   // nó rơi.
   const [lyDo, setLyDo] = useState("");
   const [moLyDoSan, setMoLyDoSan] = useState(false);
+  const [moTaiKham, setMoTaiKham] = useState(false);
+  const [ngayTaiKham, setNgayTaiKham] = useState("");
+  const [lyDoTaiKham, setLyDoTaiKham] = useState("");
+  const [daHenTaiKham, setDaHenTaiKham] = useState(false);
   const [moHen, setMoHen] = useState(false);
   const [ngayHen, setNgayHen] = useState("");
   /** "" = chỉ hẹn tới ngày. Không mặc định 00:00 — xem chú thích ô nhập. */
@@ -330,6 +334,54 @@ export default function HanhDongTrangThai({
       onGhiChu("");
       router.refresh();
       return true;
+    } finally {
+      setDangLuu(null);
+    }
+  }
+
+  /** HẸN NGÀY TÁI KHÁM — bác sĩ dặn "tháng sau quay lại", CSKH gõ vào đây.
+   *
+   *  ĐƯỜNG NÀY TỪNG MẤT HẲN ĐƯỜNG VÀO. `POST /api/cskh/nhac-tai-kham` sống từ
+   *  lâu và sinh ra HAI mốc gọi (trước 7 ngày mời đặt lịch, trước 1 ngày nhắc
+   *  đi khám). Nhưng khối `NhacTaiKham` bị gỡ khỏi màn 09/08/2026, và từ đó
+   *  KHÔNG nút nào gọi tới — trong khi SÁU chỗ trên chính giao diện này vẫn bảo
+   *  người dùng *"gõ ngày ở khối Nhắc tái khám"*. Người trực đi tìm một khối
+   *  không còn tồn tại.
+   *
+   *  Đo khi nghiệm thu 10/08/2026: `grep NhacTaiKham` trong thư mục customers
+   *  chỉ ra ba dòng `import type` — không một chỗ nào dựng component.
+   *
+   *  Vì sao phải có: việc nhắc tái khám TỰ SINH chỉ đọc được lời dặn nằm trong
+   *  `soap_plan.tai_kham.ngay` của một phiếu khám ĐÃ CHỐT. Khách nói qua điện
+   *  thoại thì không có phiếu nào để đọc — câu ấy nằm trong đầu người trực và
+   *  mất khi đổi ca. Chính chú thích của route đã viết đúng như vậy.
+   *
+   *  Đặt cạnh "Hẹn gọi lại ngày…" vì cùng hình dạng (ngày + lý do + gửi) và
+   *  cùng tính chất: việc người trực tự đặt cho mình, không suy ra được. */
+  async function henTaiKham() {
+    setDangLuu("taikham");
+    setLoi(null);
+    try {
+      const res = await fetch("/api/cskh/nhac-tai-kham", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clinic_patient_id: clinicPatientId,
+          ngay_tai_kham: ngayTaiKham,
+          ly_do: lyDoTaiKham.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as {
+          error?: string;
+          message?: string;
+        } | null;
+        setLoi(nhanLoi(d, "Không hẹn được ngày tái khám."));
+        return;
+      }
+      setDaHenTaiKham(true);
+      setMoTaiKham(false);
+      router.refresh();
     } finally {
       setDangLuu(null);
     }
@@ -735,7 +787,7 @@ export default function HanhDongTrangThai({
               />
             </div>
             <p className="text-[11px] leading-snug text-ink-faint">
-              Chọn “cần tái khám” xong thì gõ ngày ở khối <b>Nhắc tái khám</b>{" "}
+              Chọn “cần tái khám” xong thì bấm <b>Hẹn ngày tái khám…</b> ở dưới{" "}
               để hệ thống tự sinh hai mốc gọi.
             </p>
           </>
@@ -885,6 +937,59 @@ export default function HanhDongTrangThai({
       )}
       {than()}
       {loi && <p className="text-[11px] text-danger">{loi}</p>}
+
+      {/* HẸN NGÀY TÁI KHÁM — luôn có, cùng lý do với khối hẹn gọi lại bên dưới:
+          đây là việc người trực tự đặt, không trạng thái nào suy ra được. */}
+      <div className="border-t border-line pt-2">
+        {daHenTaiKham ? (
+          <p className="rounded-lg bg-success-bg px-2 py-1.5 text-[11px] text-success">
+            Đã hẹn ngày tái khám. Hệ thống tự sinh hai mốc gọi: trước 7 ngày mời
+            đặt lịch, trước 1 ngày nhắc đi khám — chúng hiện ở khối “Nhắc tái
+            khám” cột giữa khi tới hạn.
+          </p>
+        ) : moTaiKham ? (
+          <div className="space-y-1.5">
+            <input
+              type="date"
+              value={ngayTaiKham}
+              onChange={(e) => setNgayTaiKham(e.target.value)}
+              aria-label="Ngày khách quay lại khám"
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+            />
+            <input
+              value={lyDoTaiKham}
+              onChange={(e) => setLyDoTaiKham(e.target.value)}
+              placeholder="Bác sĩ dặn gì (không bắt buộc)"
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void henTaiKham()}
+                disabled={dangLuu !== null || !ngayTaiKham}
+                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {dangLuu === "taikham" ? "Đang hẹn…" : "Hẹn ngày tái khám"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMoTaiKham(false)}
+                className="rounded-lg border border-line px-3 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+              >
+                Thôi
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMoTaiKham(true)}
+            className="w-full rounded-lg border border-line py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted"
+          >
+            Hẹn ngày tái khám…
+          </button>
+        )}
+      </div>
 
       {/* Hẹn gọi lại — luôn có, không phụ thuộc trạng thái đang chọn. */}
       <div className="border-t border-line pt-2">
