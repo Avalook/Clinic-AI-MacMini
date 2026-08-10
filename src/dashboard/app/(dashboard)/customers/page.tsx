@@ -351,10 +351,32 @@ export default async function CustomersPage({
       // CSKH cần gọi hỏi vì sao huỷ.
       const repr = upcoming ?? live[live.length - 1] ?? list[list.length - 1];
       if (!repr) continue;
-      // Chỉ cho ĐỔI/HỦY lịch còn "sống" & SẮP TỚI (repr là lịch upcoming).
+      // Chỉ cho ĐỔI/HỦY lịch còn "sống" & SẮP TỚI (repr là lịch upcoming) —
+      // CỘNG THÊM lịch khách đang check-in, dù giờ hẹn đã trôi qua.
+      //
+      // LỖI CŨ, VÀ NÓ IM LẶNG. `upcoming` dựng từ `conToi()`, mà `conToi` là
+      // `slot_start >= now` tính theo MILI-GIÂY, không phải "trong ngày". Khách
+      // hẹn 9h00, check-in 8h55: nút chạy. 9h01: `upcoming` thành undefined →
+      // `appt` không dựng → `appointmentId` xuống HanhDongTrangThai là null →
+      // backend chặn ("Việc này phải gắn với một lịch hẹn cụ thể", CAN_LICH_HEN
+      // ở tuong_tac_cskh_service) → hai nút của bước "Đã check-in" trả lỗi đỏ.
+      //
+      // Tức là chúng chết đúng vào lúc chúng sinh ra để phục vụ: khách đang
+      // ngồi trong phòng khám. Mà cột trạng thái vẫn sáng bình thường, vì nhánh
+      // DA_CHECKIN của view chạy theo `status = 'CHECKED_IN'` và không quan tâm
+      // giờ — nên nhìn màn hình không thấy gì sai, chỉ thấy bấm là lỗi.
+      //
+      // Check-in rồi thì giờ hẹn hết ý nghĩa: người ta đã tới. Lấy chính `repr`
+      // làm mốc thay vì đòi có một lịch còn ở tương lai.
       let appt: EditableAppt | undefined;
       const EDITABLE = ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"];
-      if (canManage && upcoming && repr.id && EDITABLE.includes(repr.status)) {
+      const dangCoMatTaiPhongKham = repr.status === "CHECKED_IN";
+      if (
+        canManage &&
+        (upcoming || dangCoMatTaiPhongKham) &&
+        repr.id &&
+        EDITABLE.includes(repr.status)
+      ) {
         appt = {
           id: repr.id,
           slot_start: repr.slot_start,
