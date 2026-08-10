@@ -364,7 +364,20 @@ export default async function CustomersPage({
         .select(
           // `appointment_id` để gom được từng lượt khám thành một chuỗi —
           // cột đã có từ 20260809000003 nhưng chưa từng được mang xuống UI.
-          "id, clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, huy_luc, staff(full_name)",
+          // GỌI TÊN CỘT KHOÁ NGOẠI, đừng để PostgREST tự đoán.
+          //
+          // `staff(full_name)` chạy được suốt vì `tuong_tac_cskh` chỉ có MỘT
+          // khoá ngoại sang `staff`. Migration 20260810000009 thêm cái thứ hai
+          // (`huy_boi_staff_id`, cho hoàn tác) và PostgREST lập tức từ chối cả
+          // câu: *"Could not embed because more than one relationship was found
+          // for 'tuong_tac_cskh' and 'staff'"* — không phải một cột null, mà là
+          // 400 cho toàn bộ truy vấn, tức TRẮNG CẢ MÀN Quản lý khách hàng.
+          //
+          // Thêm một khoá ngoại thứ hai sang cùng một bảng là đủ để làm hỏng
+          // một câu select viết đúng từ trước. Ba chỗ khác trong màn này đã gọi
+          // tên cột sẵn (`staff:tao_boi_staff_id`, `staff:nguoi_tiep_nhan_staff_id`,
+          // `staff:tai_len_boi_staff_id`) — chỗ này là chỗ duy nhất còn đoán.
+          "id, clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, huy_luc, staff:nhan_vien_staff_id ( full_name )",
         )
         .in("clinic_patient_id", shownIds)
         .order("xay_ra_luc", { ascending: false })
