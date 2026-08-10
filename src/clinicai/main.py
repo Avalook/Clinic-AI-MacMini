@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
 from clinicai.api.middleware import (
+    CskhUploadSizeLimitMiddleware,
     DbErrorMiddleware,
     RequestIdMiddleware,
     TimingMiddleware,
@@ -138,9 +139,12 @@ app = FastAPI(
 # See api/middleware.py for the full account; test_middleware_order pins it.
 #
 # Resulting stack, outermost → innermost:
-#   RequestIdMiddleware → TimingMiddleware → api_key_middleware → DbErrorMiddleware
+#   RequestIdMiddleware → TimingMiddleware → CskhUploadSizeLimitMiddleware
+#   → api_key_middleware → DbErrorMiddleware
 app.add_middleware(DbErrorMiddleware)  # innermost: DB error → 503, still timed
 app.middleware("http")(api_key_middleware)  # gate anonymous callers (api.auth)
+# Before multipart parsing: reject oversized declared and chunked CSKH uploads.
+app.add_middleware(CskhUploadSizeLimitMiddleware)
 app.add_middleware(TimingMiddleware)  # outside the gate: rejections are data too
 app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 

@@ -28,9 +28,12 @@ def test_role_from_department_valid() -> None:
         assert role_from_department(role.value) is role
 
 
-def test_role_from_department_unknown_defaults_cskh() -> None:
-    assert role_from_department("SOMETHING_ELSE") is ClinicRole.CSKH
-    assert role_from_department(None) is ClinicRole.CSKH
+@pytest.mark.parametrize("department", ["SOMETHING_ELSE", None, ""])
+def test_role_from_department_unknown_fails_closed(department: str | None) -> None:
+    """A bad persisted role must not silently gain CSKH permissions."""
+    with pytest.raises(HTTPException) as exc:
+        role_from_department(department)
+    assert exc.value.status_code == 403
 
 
 def test_identity_predicates() -> None:

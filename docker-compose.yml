@@ -44,8 +44,8 @@ services:
     mem_limit: ${CADDY_MEMORY_LIMIT:-128m}
     pids_limit: 128
     ports:
-      - "${CADDY_HTTP_PORT:-80}:80"
-      - "${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTPS_PORT:-443}:443"
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in the env file}
       # Gateway Supabase của CHÍNH môi trường này. Mặc định là prod hôm nay;

@@ -20,6 +20,8 @@ là 240MB tức thời — đủ để tiến trình bị giết giữa giờ kh
 from __future__ import annotations
 
 import hashlib
+import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -29,13 +31,24 @@ import structlog
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.media_service import (
+    KET_QUA_VIDEO_UPLOAD_ENABLED,
     MAX_BYTES_THEO_LOAI,
     MEDIA_ROOT,
     duong_dan_ket_qua,
+    ket_qua_patient_lock_key,
     sniff_ket_qua,
 )
 
 logger = structlog.get_logger()
+
+# Trần tích luỹ theo clinic và khoảng trống phải giữ lại cho database/host.
+# Có thể nâng có chủ đích bằng env sau khi kiểm tra backup và dung lượng thật.
+MEDIA_CLINIC_QUOTA_BYTES = int(
+    os.environ.get("MEDIA_CLINIC_QUOTA_BYTES", 5 * 1024 * 1024 * 1024)
+)
+MEDIA_MIN_FREE_BYTES = int(
+    os.environ.get("MEDIA_MIN_FREE_BYTES", 5 * 1024 * 1024 * 1024)
+)
 
 KENH_GUI_HOP_LE = frozenset({"ZALO", "SMS", "TRUC_TIEP", "EMAIL"})
 
@@ -57,6 +70,10 @@ class TepKetQuaService:
         if not data:
             raise ValidationError("Tệp rỗng.")
         mime, ext, loai = sniff_ket_qua(data)
+        if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
+            raise ValidationError(
+                "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
+            )
         tran = MAX_BYTES_THEO_LOAI[loai]
         if len(data) > tran:
             raise ValidationError(
@@ -85,12 +102,79 @@ class TepKetQuaService:
                 if not thuoc_ve:
                     raise ValidationError("Lịch hẹn không phải của khách này.")
 
+            # Serialize against TRA_KQ's evidence-check + insert. Otherwise an
+            # upload can slip in immediately after the user closes the task and
+            # remain pending forever because the current view only sees TRA_KQ.
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                ket_qua_patient_lock_key(
+                    clinic_id=identity.clinic_id,
+                    clinic_patient_id=clinic_patient_id,
+                ),
+            )
+            da_xac_nhan_tra = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM public.tuong_tac_cskh i
+                     WHERE i.clinic_id = $1::uuid
+                       AND i.clinic_patient_id = $2::uuid
+                       AND i.loai = 'TRA_KQ'
+                       AND i.huy_luc IS NULL
+                       AND i.xay_ra_luc >= COALESCE((
+                           SELECT max(COALESCE(
+                               r.reviewed_at, r.result_received_at, r.created_at
+                           ))
+                             FROM public.lab_result r
+                            WHERE r.clinic_id = $1::uuid
+                              AND r.clinic_patient_id = $2::uuid
+                              AND r.result_value IS NOT NULL
+                              AND (NOT r.requires_doctor_review
+                                   OR r.reviewed_at IS NOT NULL)
+                       ), '-infinity'::timestamptz)
+                )
+                """,
+                identity.clinic_id,
+                clinic_patient_id,
+            )
+            if da_xac_nhan_tra:
+                raise ValidationError(
+                    "Việc này đã xác nhận trả kết quả. Hoàn tác mốc trả kết quả "
+                    "trước khi tải thêm tệp, hoặc ghi nhận kết quả mới trước."
+                )
+
+            # Serialize quota checks for the same clinic. Without this lock,
+            # several concurrent uploads can all observe the same old total and
+            # collectively jump far past the cap.
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"tep-ket-qua:{identity.clinic_id}",
+            )
+            da_dung = int(
+                await conn.fetchval(
+                    "SELECT coalesce(sum(so_byte), 0)::bigint "
+                    "FROM public.tep_ket_qua WHERE clinic_id = $1::uuid",
+                    identity.clinic_id,
+                )
+                or 0
+            )
+            if da_dung + len(data) > MEDIA_CLINIC_QUOTA_BYTES:
+                raise ValidationError(
+                    "Phòng khám đã chạm hạn mức lưu trữ kết quả. "
+                    "Báo kỹ thuật kiểm tra và mở rộng dung lượng trước khi tải thêm."
+                )
+
             path, key = duong_dan_ket_qua(
                 clinic_id=identity.clinic_id,
                 clinic_patient_id=clinic_patient_id,
                 ext=ext,
             )
             path.parent.mkdir(parents=True, exist_ok=True)
+            if shutil.disk_usage(MEDIA_ROOT).free - len(data) < MEDIA_MIN_FREE_BYTES:
+                raise ValidationError(
+                    "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
+                    "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
+                )
             # Ghi tệp tạm rồi đổi tên: một lần ghi bị cắt giữa chừng (hết đĩa,
             # mất điện) để lại tệp tạm, không để lại một tệp hỏng mà database
             # vẫn khai là có. Đuôi `.tmp` cũng là thứ bản sao lưu bỏ qua.

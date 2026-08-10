@@ -37,7 +37,7 @@ import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
 // năng chứ không phải vài dòng trang trí.
-import type { TepKetQuaRow } from "./TepKetQua";
+import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 import type { MocTaiKham } from "./NhacTaiKham";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
@@ -610,6 +610,7 @@ export default function CustomersView({
   initialLuot = null,
   canEdit = false,
   canManage = false,
+  canOperateCskh = false,
   services = [],
   doctors = [],
 }: {
@@ -649,6 +650,8 @@ export default function CustomersView({
   initialLuot?: string | null;
   canEdit?: boolean;
   canManage?: boolean;
+  /** Có quyền ghi nghiệp vụ CSKH; quyền mở danh bạ không tự suy ra quyền này. */
+  canOperateCskh?: boolean;
   services?: Opt[];
   doctors?: Opt[];
 }) {
@@ -704,6 +707,21 @@ export default function CustomersView({
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
+
+  /** Đổi khách là đổi toàn bộ ngữ cảnh ghi dữ liệu.
+   *
+   * Không để từng nút tự gọi `setSelectedId`: chỉ cần một đường bấm quên xoá
+   * draft là ghi chú / form của khách trước có thể được gửi bằng id khách mới.
+   */
+  function chonKhach(nextId: string | null) {
+    if (nextId === selectedId) return;
+    setSelectedId(nextId);
+    setViecDangGhi(null);
+    setGhiChuChung("");
+    setLuotChon(null);
+    setEditOpen(false);
+    setDatLich(null);
+  }
 
   function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
     const params = new URLSearchParams();
@@ -870,6 +888,19 @@ export default function CustomersView({
       );
   }, [viecMoByPatient, selected, luotDangXem]);
 
+  /** Chỉ tệp của đúng lượt đang mở được phép xuất hiện trong khối hành động.
+   *
+   * `clinic_patient_id` chưa đủ làm biên dữ liệu: một khách có thể có nhiều
+   * lượt khám và kết quả của lượt cũ không được gửi như kết quả lượt mới.
+   */
+  const tepKetQuaCuaLuot = useMemo(() => {
+    const pid = selected?.clinic_patient_id;
+    if (!pid) return [] as TepKetQuaRow[];
+    return (tepByPatient[pid] ?? []).filter(
+      (t) => t.appointment_id === (luotDangXem?.id ?? null),
+    );
+  }, [tepByPatient, selected, luotDangXem]);
+
   /** Lượt đang xem có còn đổi / huỷ được không. `undefined` = không. */
   const apptSuaDuoc =
     selectedAppt?.appt && selectedAppt.appt.id === luotDangXem?.id
@@ -886,6 +917,8 @@ export default function CustomersView({
       // ghi nhầm sổ. Về null để cột phải chạy theo việc gấp nhất của lượt mới.
       setViecDangGhi(null);
       setGhiChuChung("");
+      setEditOpen(false);
+      setDatLich(null);
       const params = new URLSearchParams(window.location.search);
       params.set("selected", pid);
       params.set("luot", id);
@@ -1154,7 +1187,7 @@ export default function CustomersView({
                     return (
                       <div
                         key={row.clinic_patient_id}
-                        onClick={() => setSelectedId(row.clinic_patient_id)}
+                        onClick={() => chonKhach(row.clinic_patient_id)}
                         className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
                           selected
                             ? "grid-cols-[minmax(0,1fr)_auto]"
@@ -1211,19 +1244,28 @@ export default function CustomersView({
                           )}
                           {(apptByPatient[row.clinic_patient_id]?.sapToi
                             ?.length ?? 0) > 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setXemTrung(row.clinic_patient_id);
-                              }}
-                              className="inline-flex items-center gap-1 rounded-full border border-warning/50 bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning hover:bg-warning/20"
-                            >
-                              <AlertTriangle className="size-3" />
-                              {apptByPatient[row.clinic_patient_id]!.sapToi
-                                .length}{" "}
-                              lịch trùng
-                            </button>
+                            canManage ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setXemTrung(row.clinic_patient_id);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-full border border-warning/50 bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning hover:bg-warning/20"
+                              >
+                                <AlertTriangle className="size-3" />
+                                {apptByPatient[row.clinic_patient_id]!.sapToi
+                                  .length}{" "}
+                                lịch trùng
+                              </button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-warning/50 bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                                <AlertTriangle className="size-3" />
+                                {apptByPatient[row.clinic_patient_id]!.sapToi
+                                  .length}{" "}
+                                lịch trùng
+                              </span>
+                            )
                           )}
                         </div>
                         {!selected && (
@@ -1280,7 +1322,7 @@ export default function CustomersView({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedId(row.clinic_patient_id);
+                                  chonKhach(row.clinic_patient_id);
                                 }}
                                 className="rounded-lg p-1 text-ink-muted hover:bg-surface-sunken hover:text-ink"
                               >
@@ -1304,8 +1346,9 @@ export default function CustomersView({
           </div>
         </section>
 
-        {selected && (
+        {canOperateCskh && selected && (
           <VungLamViecKhach
+            key={`${selected.clinic_patient_id}-${luotDangXem?.id ?? "khong-co-luot"}`}
             tenKhach={selected.full_name}
             clinicPatientId={selected.clinic_patient_id}
             // MỘT VẬT, KHÔNG PHẢI VẬT LAI.
@@ -1345,6 +1388,7 @@ export default function CustomersView({
               onChonLuot={chonLuot}
             />
             <PhanHoiKhach
+              key={`${selected.clinic_patient_id}-${luotDangXem?.id ?? "khong-co-luot"}`}
               clinicPatientId={selected.clinic_patient_id}
               items={phanHoiByPatient[selected.clinic_patient_id] ?? []}
             />
@@ -1353,6 +1397,33 @@ export default function CustomersView({
                 gộp TỪ màn /nhac-tai-kham về đây; ô "GỌI NHẮC ĐI KHÁM" ở cột
                 phải làm đúng việc ấy nên hai khối chồng nhau. */}
           </VungLamViecKhach>
+        )}
+
+        {!canOperateCskh && selected && (
+          <div
+            aria-label="Dữ liệu chăm sóc khách hàng — chỉ đọc"
+            className="min-w-0 space-y-3"
+          >
+            <LichSuCacLanKham
+              chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
+              luotDangXem={luotDangXem?.id ?? null}
+              onChonLuot={chonLuot}
+            />
+            <PhanHoiKhach
+              key={`${selected.clinic_patient_id}-${luotDangXem?.id ?? "khong-co-luot"}-readonly`}
+              clinicPatientId={selected.clinic_patient_id}
+              items={phanHoiByPatient[selected.clinic_patient_id] ?? []}
+              readOnly
+            />
+            <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+              <TepKetQua
+                clinicPatientId={selected.clinic_patient_id}
+                appointmentId={luotDangXem?.id ?? null}
+                items={tepKetQuaCuaLuot}
+                readOnly
+              />
+            </section>
+          </div>
         )}
 
         {selected && (
@@ -1375,7 +1446,7 @@ export default function CustomersView({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(null)}
+                  onClick={() => chonKhach(null)}
                   aria-label="Đóng chi tiết khách hàng"
                   className="rounded-control p-1.5 text-ink-muted hover:bg-surface-sunken hover:text-ink"
                 >
@@ -1485,7 +1556,10 @@ export default function CustomersView({
                     </div>
                   )}
 
-                {/* CSKH & Lễ tân: Khung Xác nhận lịch hẹn & Gọi điện */}
+                {/* CSKH & Lễ tân: Khung Xác nhận lịch hẹn & Gọi điện.
+                    Thu ngân chỉ có quyền đọc danh bạ, nên khối POST này không
+                    được mount (không chỉ disabled). */}
+                {canOperateCskh && (
                 <div className="space-y-2 rounded-2xl border border-brand-200 bg-brand-50/50 p-3 text-xs shadow-xs">
                   {/* TIÊU ĐỀ NÓI ĐÚNG VIỆC ĐANG PHẢI LÀM.
                       Trước đây nó cứng là "XÁC NHẬN LỊCH HẸN & TƯƠNG TÁC" cho
@@ -1519,7 +1593,7 @@ export default function CustomersView({
                       thì mở luôn chỗ tải kết quả lên. */}
                   <div className="pt-1">
                     <HanhDongTrangThai
-                      key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
+                      key={`${selected.clinic_patient_id}-${luotDangXem?.id ?? "khong-co-luot"}-${viecDangGhi ?? ""}`}
                       trangThai={
                         viecDangGhi ?? viecCuaLuot[0]?.trang_thai ?? null
                       }
@@ -1534,7 +1608,7 @@ export default function CustomersView({
                       // trong số đó: nút có, bấm không bao giờ ăn.
                       appointmentId={luotDangXem?.id ?? null}
                       phone={selected.phone_primary}
-                      tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
+                      tepKetQua={tepKetQuaCuaLuot}
                       daXong={false}
                       ghiChu={ghiChuChung}
                       onGhiChu={setGhiChuChung}
@@ -1575,6 +1649,7 @@ export default function CustomersView({
                   </div>
 
                 </div>
+                )}
 
                 {canEdit && !selectedAppt?.upcoming ? (
                   <button
@@ -1669,7 +1744,7 @@ export default function CustomersView({
         )}
       </div>
 
-      {editOpen && selected && selectedAppt?.appt ? (
+      {canManage && editOpen && selected && selectedAppt?.appt ? (
         <AppointmentEditModal
           appt={selectedAppt.appt}
           patientName={selected.full_name}
@@ -1684,7 +1759,7 @@ export default function CustomersView({
       {/* Bảng "khách này đang có mấy lịch". Mở từ chip cảnh báo ở danh sách
           bên trái, nên nó KHÔNG phụ thuộc khách đang được chọn — CSKH thấy
           cảnh báo ở dòng nào thì mở đúng dòng ấy. */}
-      {xemTrung && apptByPatient[xemTrung]?.sapToi?.length ? (
+      {canManage && xemTrung && apptByPatient[xemTrung]?.sapToi?.length ? (
         <LichTrungCuaKhach
           tenKhach={
             rows.find((r) => r.clinic_patient_id === xemTrung)?.full_name ??
@@ -1697,7 +1772,7 @@ export default function CustomersView({
       ) : null}
 
       {/* Form đặt lịch ngay tại màn này — tái khám hoặc khám mới. */}
-      {datLich && selected ? (
+      {canEdit && datLich && selected ? (
         <DatLichModal
           tenKhach={selected.full_name}
           clinicPatientId={selected.clinic_patient_id}
@@ -1738,6 +1813,8 @@ export default function CustomersView({
             if (appointmentId && selected) {
               setLuotChon({ pid: selected.clinic_patient_id, id: appointmentId });
               setViecDangGhi(null);
+              setGhiChuChung("");
+              setEditOpen(false);
             }
             router.refresh();
           }}

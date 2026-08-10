@@ -54,10 +54,13 @@ function gio(iso: string): string {
 export default function PhanHoiKhach({
   clinicPatientId,
   items,
+  readOnly = false,
 }: {
   clinicPatientId: string;
   /** Nạp server-side, truyền xuống làm prop — không nạp trong effect. */
   items: DongPhanHoi[];
+  /** Chỉ hiện dữ liệu; không dựng bất kỳ control tạo/cập nhật/đóng nào. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [moForm, setMoForm] = useState(false);
@@ -126,17 +129,19 @@ export default function PhanHoiKhach({
           <MessageSquareText className="size-4 text-ink-muted" />
           Phản hồi của khách
         </h2>
-        <button
-          type="button"
-          onClick={() => setMoForm((v) => !v)}
-          className="rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"
-        >
-          + Ghi phản hồi
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => setMoForm((v) => !v)}
+            className="rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"
+          >
+            + Ghi phản hồi
+          </button>
+        )}
       </div>
 
       <div className="space-y-2 px-4 py-3">
-        {moForm && (
+        {!readOnly && moForm && (
           <div className="space-y-2 rounded-xl border border-line bg-surface-muted p-3">
             <select
               value={loai}
@@ -209,7 +214,7 @@ export default function PhanHoiKhach({
                   </p>
                 )}
 
-                {p.trang_thai !== "DA_XU_LY" && (
+                {!readOnly && p.trang_thai !== "DA_XU_LY" && (
                   <div className="mt-2 space-y-1.5">
                     {dangDong === p.id ? (
                       <>

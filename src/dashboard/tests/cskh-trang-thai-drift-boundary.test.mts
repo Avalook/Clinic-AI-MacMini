@@ -212,3 +212,62 @@ test("chip danh sách kể việc VỪA BẤM trước việc còn phải làm",
       "nếu không, bấm xong một bước là bước ấy đóng và chip không kể gì về nó.",
   );
 });
+
+test("đổi khách hoặc lượt khám xoá draft CSKH trước khi ghi", () => {
+  // Draft là state nguy hiểm: nội dung gõ cho khách A mà sống qua lần
+  // chọn khách B sẽ được POST với clinic_patient_id của B. Handler chọn
+  // ngữ cảnh phải xoá state do cha giữ, còn key theo patient + appointment
+  // buộc React tháo các form con (kể cả PhanHoiKhach).
+  assert.match(customersView, /function chonKhach\([\s\S]{0,700}setGhiChuChung\(""\)/);
+  assert.match(customersView, /function chonKhach\([\s\S]{0,700}setViecDangGhi\(null\)/);
+  assert.match(customersView, /function chonKhach\([\s\S]{0,700}setLuotChon\(null\)/);
+  assert.doesNotMatch(
+    customersView,
+    /onClick=\{\(\) => setSelectedId\(/,
+    "không được đổi patient bằng setSelectedId trực tiếp vì draft cũ sẽ còn",
+  );
+  assert.match(
+    customersView,
+    /<VungLamViecKhach\s+key=\{`\$\{selected\.clinic_patient_id\}-\$\{luotDangXem\?\.id/,
+    "vùng làm việc phải remount khi đổi patient hoặc appointment",
+  );
+  assert.match(
+    customersView,
+    /<PhanHoiKhach\s+key=\{`\$\{selected\.clinic_patient_id\}-\$\{luotDangXem\?\.id/,
+    "form phản hồi phải remount theo đúng ngữ cảnh, không giữ draft khách trước",
+  );
+  assert.match(
+    customersView,
+    /<HanhDongTrangThai[\s\S]{0,180}luotDangXem\?\.id/,
+    "khối action phải remount khi đổi appointment của cùng một khách",
+  );
+  assert.match(
+    customersView,
+    /onXong=\{\(appointmentId\)[\s\S]{0,500}setLuotChon[\s\S]{0,180}setGhiChuChung\(""\)/,
+    "đặt lịch xong và tự chuyển lượt cũng phải xoá ghi chú của lượt cũ",
+  );
+});
+
+test("tệp kết quả được gắn và lọc theo đúng appointment", () => {
+  const page = read("../app/(dashboard)/customers/page.tsx");
+  const tep = read("../app/(dashboard)/customers/TepKetQua.tsx");
+
+  assert.match(tep, /appointment_id:\s*string\s*\|\s*null/);
+  assert.match(page, /id, clinic_patient_id, appointment_id, ten_hien_thi/);
+  assert.match(page, /appointment_id:\s*r\.appointment_id/);
+  assert.match(
+    customersView,
+    /\.filter\(\s*\(t\) => t\.appointment_id === \(luotDangXem\?\.id \?\? null\)/,
+    "không được truyền toàn bộ file của patient vào một lượt khám",
+  );
+  assert.doesNotMatch(
+    customersView,
+    /tepKetQua=\{tepByPatient\[selected\.clinic_patient_id\] \?\? \[\]\}/,
+    "panel không được hiện/gửi file của lượt khác",
+  );
+  assert.match(
+    tep,
+    /if \(!appointmentId\)[\s\S]{0,180}Chọn một lượt khám/,
+    "upload phải từ chối ngữ cảnh không có appointment",
+  );
+});

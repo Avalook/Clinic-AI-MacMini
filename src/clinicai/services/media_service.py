@@ -55,6 +55,26 @@ MAX_BYTES_THEO_LOAI: dict[str, int] = {
     "PDF": MAX_BYTES_PDF,
 }
 
+# Video kết quả chưa có kho/vòng đời vận hành an toàn (UI cũng đang nói rõ là
+# chưa nhận). Giữ nhận diện để đọc dữ liệu cũ, nhưng đường upload chỉ mở khi
+# người vận hành chủ động cấu hình sau khi có quota/backup phù hợp.
+KET_QUA_VIDEO_UPLOAD_ENABLED = os.environ.get(
+    "KET_QUA_VIDEO_UPLOAD_ENABLED", "false"
+).lower() in {"1", "true", "yes"}
+KET_QUA_UPLOAD_ALLOWED_TYPES = (
+    frozenset({"ANH", "PDF", "VIDEO"})
+    if KET_QUA_VIDEO_UPLOAD_ENABLED
+    else frozenset({"ANH", "PDF"})
+)
+MAX_BYTES_KET_QUA_UPLOAD = max(
+    MAX_BYTES_THEO_LOAI[loai] for loai in KET_QUA_UPLOAD_ALLOWED_TYPES
+)
+
+
+def ket_qua_patient_lock_key(*, clinic_id: str, clinic_patient_id: str) -> str:
+    """Shared DB advisory-lock namespace for upload/delivery transitions."""
+    return f"cskh-ket-qua:{clinic_id}:{clinic_patient_id}"
+
 #: Nhận diện bằng CHỮ KÝ ĐẦU TỆP, không bằng đuôi tên. Đuôi là thứ người tải
 #: lên tự đặt; mấy byte đầu là thứ tệp thật sự là.
 _MAGIC: tuple[tuple[bytes, str, str], ...] = (
