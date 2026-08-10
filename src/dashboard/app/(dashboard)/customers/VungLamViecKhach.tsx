@@ -771,7 +771,13 @@ export default function VungLamViecKhach({
    *  thái với node timeline (mỗi node một nút). */
   async function ghiMotCham(
     ma: string,
-    v: { loai: string; ketQua: string; noiDung: string; khoa: string },
+    v: {
+      loai: string;
+      ketQua: string;
+      noiDung: string;
+      khoa: string;
+      khachXacNhan?: boolean;
+    },
   ) {
     // NĂM LOẠI BẮT BUỘC GẮN LỊCH HẸN (CAN_LICH_HEN ở backend). Chặn tại đây
     // bằng một dòng đọc được, thay vì để backend trả 422 mà màn hình nuốt mất.
@@ -805,6 +811,7 @@ export default function VungLamViecKhach({
         // `BO_QUA` (nút "Không cần follow up") là cái từng gửi sai suốt.
         kenh: kenhCho(v.ketQua),
         ket_qua: v.ketQua,
+        khach_xac_nhan: v.khachXacNhan ?? null,
         // GHI CHÚ NGƯỜI DÙNG GÕ THẮNG nội dung mặc định. Mặc định chỉ là câu
         // mô tả việc ("Đã gọi xác nhận lịch"); thứ người trực gõ tay bao giờ
         // cũng nói được nhiều hơn ("khách đang họp, gọi lại sau 5h").

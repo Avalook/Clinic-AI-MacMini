@@ -27,7 +27,7 @@ import type { LichSapToi } from "./CustomersView";
 const NHAN_TRANG_THAI: Record<string, string> = {
   SCHEDULED: "Mới đặt",
   CSKH_CONFIRMED: "CSKH đã xác nhận",
-  CONFIRMED: "Đã xác nhận",
+  CONFIRMED: "Đã đặt lịch",
   CHECKED_IN: "Đã check-in",
 };
 

@@ -5,7 +5,11 @@
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
-import { canWriteIntake, canManageAppt } from "../../../lib/roles";
+import {
+  canWriteIntake,
+  canManageAppt,
+  canOperateCustomerCare,
+} from "../../../lib/roles";
 import { unaccentVi } from "../../../lib/validation";
 import type { EditableAppt } from "./AppointmentEditModal";
 import {
@@ -105,6 +109,7 @@ export default async function CustomersPage({
   const role = await getClinicRole();
   // CSKH / Lễ tân / Quản lý: được SỬA thông tin hành chính ngay trong panel.
   const canEdit = canWriteIntake(role);
+  const canOperateCskh = canOperateCustomerCare(role);
   // CSKH / Quản lý / Trưởng ca: được ĐỔI / HỦY lịch hẹn (bấm ô "Lịch hẹn sắp tới").
   const canManage = canManageAppt(role);
   const sp = await searchParams;
@@ -217,7 +222,7 @@ export default async function CustomersPage({
   //
   // NHƯNG `id` THÌ MỌI VAI ĐỀU CẦN, và trước 10/08/2026 nó chỉ có ở nhánh
   // canManage. Bốn vai vào được màn này mà không có quyền đổi lịch — Lễ tân và
-  // ba vai Thu ngân (`roles.ts`: "/customers" mở cho 6 vai, `canManageAppt`
+  // ba vai Thu ngân (`roles.ts`: "/customers" mở cho 7 vai, `canManageAppt`
   // chỉ 3) — do đó KHÔNG có id lịch nào, nên với họ:
   //   · sổ chăm sóc không gắn được vào lượt nào,
   //   · nút "Tái khám" mờ vĩnh viễn kể cả khi khách vừa khám xong,
@@ -240,7 +245,9 @@ export default async function CustomersPage({
        service:service_type!service_type_id ( name ),
        doctor:staff!doctor_id ( full_name )`
     : `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
-       ly_do_huy_ma, cancellation_reason`;
+       ly_do_huy_ma, cancellation_reason, service_type_id, lich_truoc_id,
+       service:service_type!service_type_id ( name ),
+       doctor:staff!doctor_id ( full_name )`;
   const apptsPromise = shownIds.length
     ? supabase
         .from("appointment")
@@ -313,7 +320,7 @@ export default async function CustomersPage({
     ? supabase
         .from("tep_ket_qua")
         .select(
-          "id, clinic_patient_id, ten_hien_thi, loai_tep, mime, so_byte, tai_len_luc, gui_luc, gui_kenh, staff:tai_len_boi_staff_id ( full_name )",
+          "id, clinic_patient_id, appointment_id, ten_hien_thi, loai_tep, mime, so_byte, tai_len_luc, gui_luc, gui_kenh, staff:tai_len_boi_staff_id ( full_name )",
         )
         .in("clinic_patient_id", shownIds)
         .order("tai_len_luc", { ascending: false })
@@ -748,6 +755,7 @@ type LichHenRaw = {
   type TepRaw = {
     id: string;
     clinic_patient_id: string;
+    appointment_id: string | null;
     ten_hien_thi: string | null;
     loai_tep: string;
     mime: string;
@@ -777,6 +785,7 @@ type LichHenRaw = {
       const nv = Array.isArray(r.staff) ? r.staff[0] : r.staff;
       (tepByPatient[r.clinic_patient_id] ??= []).push({
         id: r.id,
+        appointment_id: r.appointment_id,
         ten_hien_thi: r.ten_hien_thi,
         loai_tep: r.loai_tep,
         mime: r.mime,
@@ -862,7 +871,7 @@ type LichHenRaw = {
   // dựng theo visit_id sẽ làm mọi lịch đã huỷ, khách không đến, và lịch còn ở
   // tương lai BIẾN MẤT khỏi lịch sử — đúng những lượt CSKH cần nhìn lại nhất.
   const lichSuKhamByPatient: Record<string, ChuoiKham[]> = {};
-  if (canManage && rows.length) {
+  if (rows.length) {
     const { data: visitRows } = await supabase
       .from("visit")
       .select("appointment_id, checked_in_at, closed_at, finalized_at")
@@ -1014,6 +1023,7 @@ type LichHenRaw = {
           initialLuot={luot}
           canEdit={canEdit}
           canManage={canManage}
+          canOperateCskh={canOperateCskh}
           services={services}
           doctors={doctors}
         />

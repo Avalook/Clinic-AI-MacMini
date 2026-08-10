@@ -131,6 +131,16 @@ export function canWriteIntake(role: ClinicRole | null): boolean {
   );
 }
 
+/** Quyền ghi ở vùng Chăm sóc khách hàng.
+ *
+ * Backend `cskh_service.INTAKE_ROLES` dùng đúng bốn vai này. Tách tên capability
+ * ở UI để một vai chỉ được mở danh bạ (như Thu ngân) không vô tình nhận toàn bộ
+ * nút POST chỉ vì nó có quyền đọc `/customers`.
+ */
+export function canOperateCustomerCare(role: ClinicRole | null): boolean {
+  return canWriteIntake(role);
+}
+
 /** Trưởng ca — vai VẬN HÀNH: toàn quyền sửa phần vận hành (lịch hẹn, BN, bảng
  *  giá, ca trực, báo cáo) để xử lý phát sinh. Lâm sàng thì CHỈ XEM (KHÔNG có
  *  trong canWriteClinical). */
@@ -234,9 +244,9 @@ const DOCTOR_ROLES_LIST: ClinicRole[] = ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"];
 // màn người ta thêm TRUONG_CA vào cho chắc. Một thanh bên 28 mục thì mục quan
 // trọng nhất cũng chỉ là một dòng trong hai mươi tám dòng.
 //
-// Nay giữ đúng phần việc của ca trực: năm màn điều phối + Trang chủ, cộng
-// "Luật đặt lịch" (xem ghi chú tại chính dòng đó — đó là một ngoại lệ có chủ ý,
-// không phải sót).
+// Nay giữ đúng phần việc của ca trực: năm màn điều phối + Trang chủ, cộng hai
+// ngoại lệ có chủ ý: "Luật đặt lịch" và `/customers`. Ngoại lệ thứ hai khớp
+// backend CSKH, nơi TRUONG_CA được phép xử lý phát sinh trong ca.
 //
 // Các màn bị bỏ KHÔNG mất đi: Quản lý hệ thống vẫn vào được tất cả, và mỗi bộ
 // phận vẫn giữ màn của mình. Bỏ ở đây chỉ là bỏ khỏi TẦM MẮT của Trưởng ca.
@@ -290,9 +300,17 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // mục này là CSKH không còn đường vào danh sách ấy từ thanh bên.
   "/nhac-tai-kham": ["MANAGEMENT", "TRUONG_CA"],
   "/appointments": ["CSKH", "MANAGEMENT"],
-  // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
-  // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
-  "/customers": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV"],
+  // Thông tin khách hàng — CSKH/Lễ tân/QL/Trưởng ca thao tác; Thu ngân chỉ xem
+  // để đối chiếu khi thu tiền (canOperateCustomerCare không gồm CASHIER).
+  "/customers": [
+    "CSKH",
+    "RECEPTION",
+    "MANAGEMENT",
+    "TRUONG_CA",
+    "CASHIER",
+    "CASHIER_THUOC",
+    "CASHIER_DV",
+  ],
   // TRƯỞNG CA — năm màn điều phối. Phải liệt kê TỪNG đường: requireNavAccess()
   // tra chính xác href, không so tiền tố, nên thiếu một dòng ở đây là màn đó đá
   // người dùng về /home mà không báo gì.

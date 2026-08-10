@@ -119,6 +119,7 @@ class RecallJobService:
                   LEFT JOIN public.appointment a ON a.id = n.appointment_id
                  WHERE n.clinic_id = $1::uuid
                    AND n.trang_thai = 'CHO_GOI'
+                   AND n.han_goi <= $2::date
                  ORDER BY n.luot_goi, n.han_goi, p.full_name
                  LIMIT 500
                 """,
@@ -233,60 +234,72 @@ class RecallJobService:
                 f"Kết quả cuộc gọi không hợp lệ: {ket_qua!r}. "
                 f"Chọn một trong: {', '.join(sorted(KET_QUA_HOP_LE))}."
             )
+        hom_nay = date.fromisoformat(clinic_today())
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                UPDATE public.nhac_tai_kham
-                   SET trang_thai = 'DA_GOI',
-                       ket_qua = $3,
-                       ghi_chu = $4,
-                       nguoi_goi_staff_id = $5::uuid,
-                       goi_luc = now(),
-                       dong_luc = now(),
-                       updated_at = now()
-                 WHERE id = $1::uuid AND clinic_id = $2::uuid
-                   AND trang_thai = 'CHO_GOI'
-                RETURNING id::text, luot_goi, clinic_patient_id::text
-                """,
-                viec_id,
-                identity.clinic_id,
-                ket_qua,
-                (ghi_chu or "").strip() or None,
-                identity.staff_id,
-            )
-            if row is None:
-                # Hai người cùng bấm, hoặc bấm lại sau khi mạng lag. Nói rõ là
-                # KHÔNG có gì đổi, đừng trả "ok" trống khiến người dùng tưởng
-                # vừa ghi được.
-                con = await conn.fetchval(
-                    "SELECT trang_thai FROM public.nhac_tai_kham "
-                    "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    """
+                    UPDATE public.nhac_tai_kham
+                       SET trang_thai = 'DA_GOI',
+                           ket_qua = $3,
+                           ghi_chu = $4,
+                           nguoi_goi_staff_id = $5::uuid,
+                           goi_luc = now(),
+                           dong_luc = now(),
+                           updated_at = now()
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                       AND trang_thai = 'CHO_GOI'
+                       AND han_goi <= $6::date
+                    RETURNING id::text, luot_goi, clinic_patient_id::text
+                    """,
                     viec_id,
                     identity.clinic_id,
+                    ket_qua,
+                    (ghi_chu or "").strip() or None,
+                    identity.staff_id,
+                    hom_nay,
                 )
-                if con is None:
-                    raise NotFoundError("Không tìm thấy việc gọi này.")
-                return {"ok": True, "da_ghi_tu_truoc": True, "trang_thai": con}
+                if row is None:
+                    # Hai người cùng bấm, hoặc bấm lại sau khi mạng lag. Nói rõ
+                    # là KHÔNG có gì đổi, đừng trả "ok" trống khiến người dùng
+                    # tưởng vừa ghi được.
+                    con = await conn.fetchval(
+                        "SELECT trang_thai FROM public.nhac_tai_kham "
+                        "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                        viec_id,
+                        identity.clinic_id,
+                    )
+                    if con is None:
+                        raise NotFoundError("Không tìm thấy việc gọi này.")
+                    if con == "CHO_GOI":
+                        raise ValidationError("Việc gọi này chưa tới hạn xử lý.")
+                    return {
+                        "ok": True,
+                        "da_ghi_tu_truoc": True,
+                        "trang_thai": con,
+                    }
 
-            # Nhật ký CSKH vẫn ghi như trước — màn hồ sơ bệnh nhân đọc từ đó.
-            # `luot_goi` đi kèm để về sau đối soát được "ai thiếu lượt hai".
-            await conn.execute(
-                """
-                INSERT INTO public.cskh_log
-                    (clinic_id, clinic_patient_id, work_date, cskh_status,
-                     cskh_followup, last_cskh_date, cskh_by, note,
-                     ket_qua, luot_goi)
-                VALUES ($1::uuid, $2::uuid, $3::date, 'Đã gọi nhắc tái khám',
-                        'Nhắc gọi tái khám', $3::date, $4, $5, $6, $7)
-                """,
-                identity.clinic_id,
-                row["clinic_patient_id"],
-                date.fromisoformat(clinic_today()),
-                f"{identity.full_name} · {identity.role.value}",
-                (ghi_chu or "").strip() or None,
-                ket_qua,
-                row["luot_goi"],
-            )
+                # Nhật ký CSKH vẫn ghi như trước — màn hồ sơ bệnh nhân đọc từ đó.
+                # `luot_goi` đi kèm để về sau đối soát được "ai thiếu lượt hai".
+                # Nó PHẢI cùng transaction với UPDATE ở trên: thiếu dòng sổ thì
+                # hồ sơ nói chưa ai gọi dù việc đã biến mất khỏi hàng đợi.
+                await conn.execute(
+                    """
+                    INSERT INTO public.cskh_log
+                        (clinic_id, clinic_patient_id, work_date, cskh_status,
+                         cskh_followup, last_cskh_date, cskh_by, note,
+                         ket_qua, luot_goi)
+                    VALUES ($1::uuid, $2::uuid, $3::date, 'Đã gọi nhắc tái khám',
+                            'Nhắc gọi tái khám', $3::date, $4, $5, $6, $7)
+                    """,
+                    identity.clinic_id,
+                    row["clinic_patient_id"],
+                    hom_nay,
+                    f"{identity.full_name} · {identity.role.value}",
+                    (ghi_chu or "").strip() or None,
+                    ket_qua,
+                    row["luot_goi"],
+                )
 
         logger.info(
             "recall_call_logged",

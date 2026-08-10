@@ -20,6 +20,8 @@ export interface MotCham {
   ketQua: string;
   /** Nội dung mặc định ghi vào sổ khi người dùng không gõ ghi chú nào. */
   noiDung: string;
+  /** Cuộc gọi này xác nhận khách sẽ đến, không chỉ ghi nhận đã liên hệ. */
+  khachXacNhan?: boolean;
 }
 
 export const MOT_CHAM: Record<string, MotCham> = {
@@ -37,11 +39,13 @@ export const MOT_CHAM: Record<string, MotCham> = {
     loai: "XAC_NHAN_LICH",
     ketQua: "DA_LIEN_HE",
     noiDung: "Đã gọi xác nhận lịch",
+    khachXacNhan: true,
   },
   NHAC_HEN_MAI: {
     loai: "NHAC_HEN",
     ketQua: "DA_LIEN_HE",
     noiDung: "Đã gọi nhắc hẹn",
+    khachXacNhan: true,
   },
 
   // ── SAU KHÁM ──────────────────────────────────────────────────────────────

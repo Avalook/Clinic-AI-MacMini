@@ -12,12 +12,18 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
     INTAKE_ROLES,
     CskhService,
     clinic_today,
+)
+from clinicai.services.media_service import (
+    KET_QUA_VIDEO_UPLOAD_ENABLED,
+    MAX_BYTES_THEO_LOAI,
+    sniff_ket_qua,
 )
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
@@ -35,6 +41,51 @@ _RECALL_GUARD = require_role(
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
 )
+
+_UPLOAD_SNIFF_BYTES = 512
+_UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
+    """Read one result file in bounded chunks and stop at its content-type cap.
+
+    ``UploadFile.read()`` with no size consumes an attacker-controlled body in
+    one call. Read only enough to identify the real type first, then at most the
+    corresponding limit plus one byte. That last byte proves the upload is too
+    large without consuming the rest of it.
+    """
+    prefix = await file.read(_UPLOAD_SNIFF_BYTES)
+    if not prefix:
+        raise ValidationError("Tệp rỗng.")
+
+    _mime, _ext, loai = sniff_ket_qua(prefix)
+    if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
+        raise ValidationError(
+            "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
+        )
+    limit = MAX_BYTES_THEO_LOAI[loai]
+    chunks = [prefix]
+    total = len(prefix)
+    if total > limit:
+        raise ValidationError(
+            f"Tệp quá lớn ({total // 1024 // 1024}MB). "
+            f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+        )
+
+    while True:
+        # At the exact limit, read one byte: EOF means valid, one byte means too
+        # large. Never ask the upload object for an unbounded read.
+        remaining_with_probe = limit - total + 1
+        chunk = await file.read(min(_UPLOAD_CHUNK_BYTES, remaining_with_probe))
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > limit:
+            raise ValidationError(
+                f"Tệp quá lớn ({total // 1024 // 1024}MB). "
+                f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+            )
+        chunks.append(chunk)
 
 
 class CskhActionRequest(BaseModel):
@@ -417,7 +468,7 @@ async def tai_len_ket_qua(
     """
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
-    data = await file.read()
+    data = await _doc_upload_co_gioi_han(file)
     return await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=str(clinic_patient_id),
@@ -462,11 +513,10 @@ async def doc_tep_ket_qua(
     path, mime, so_byte, ten = await TepKetQuaService(pool).duong_dan_de_doc(
         identity=identity, tep_id=str(tep_id)
     )
-    # Dữ liệu bệnh nhân: `private` cho phép trình duyệt của chính người xem giữ,
-    # không cho proxy giữ; `nosniff` để trình duyệt không tự đoán kiểu và chạy
-    # nội dung như HTML.
+    # Dữ liệu bệnh nhân không được lưu trong cache trình duyệt hay proxy.
+    # `nosniff` ngăn trình duyệt tự đoán kiểu và chạy nội dung như HTML.
     headers = {
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
         "Accept-Ranges": "bytes",
         "Content-Disposition": "inline",
@@ -482,7 +532,8 @@ async def doc_tep_ket_qua(
         # Yêu cầu nằm ngoài tệp — trả 416 kèm độ dài thật, để trình phát tự
         # chỉnh lại thay vì treo.
         return Response(
-            status_code=416, headers={"Content-Range": f"bytes */{so_byte}"}
+            status_code=416,
+            headers={**headers, "Content-Range": f"bytes */{so_byte}"},
         )
 
     def doc_dan() -> Iterator[bytes]:

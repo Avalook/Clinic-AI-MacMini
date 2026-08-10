@@ -17,6 +17,7 @@ import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 
 export interface TepKetQuaRow {
   id: string;
+  appointment_id: string | null;
   ten_hien_thi: string | null;
   loai_tep: string;
   mime: string;
@@ -60,11 +61,14 @@ export default function TepKetQua({
   clinicPatientId,
   appointmentId,
   items,
+  readOnly = false,
 }: {
   clinicPatientId: string;
   appointmentId: string | null;
   /** Nạp server-side rồi truyền xuống — không nạp trong effect. */
   items: TepKetQuaRow[];
+  /** Chỉ xem nội dung; không dựng control tải lên hoặc xác nhận đã gửi. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [dangTai, setDangTai] = useState(false);
@@ -73,13 +77,17 @@ export default function TepKetQua({
   const [dangGui, setDangGui] = useState<string | null>(null);
 
   async function taiLen(files: FileList | null) {
+    if (!appointmentId) {
+      setLoi("Chọn một lượt khám trước khi tải kết quả.");
+      return;
+    }
     if (!files || files.length === 0) return;
     setDangTai(true);
     setLoi(null);
     for (const f of Array.from(files)) {
       const fd = new FormData();
       fd.append("clinic_patient_id", clinicPatientId);
-      if (appointmentId) fd.append("appointment_id", appointmentId);
+      fd.append("appointment_id", appointmentId);
       fd.append("file", f);
       const res = await fetch("/api/cskh/ket-qua", { method: "POST", body: fd });
       if (!res.ok) {
@@ -131,33 +139,44 @@ export default function TepKetQua({
         )}
       </div>
 
-      {/* VIDEO TREO LẠI — chưa nhận tải lên (Quang chốt 09/08/2026).
-          Ổ đĩa VPS còn 30GB trên tổng 48GB. Một video siêu âm thực tế 15–25MB,
-          trần cho phép tới 80MB; ba mươi khách một ngày là ~1GB/ngày, tức đầy
-          đĩa trong khoảng năm tuần. Đầy đĩa ở đây KHÔNG chỉ mất ảnh — Postgres
-          chạy cùng ổ ấy và sẽ dừng theo.
-          Ảnh và phiếu PDF vẫn nhận bình thường (12MB / 20MB). Video đã tải lên
-          từ trước VẪN xem và phát được — chỉ chặn tải MỚI, không xoá gì. */}
-      <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted">
-        {dangTai ? "Đang tải lên…" : "+ Tải ảnh / phiếu"}
-        <input
-          type="file"
-          multiple
-          disabled={dangTai}
-          accept="image/*,application/pdf"
-          className="hidden"
-          onChange={(e) => {
-            void taiLen(e.target.files);
-            // Xoá giá trị để chọn lại đúng tệp đó lần nữa vẫn kích hoạt onChange.
-            e.target.value = "";
-          }}
-        />
-      </label>
+      {!readOnly && (
+        <>
+          {/* VIDEO TREO LẠI — chưa nhận tải lên (Quang chốt 09/08/2026).
+              Ảnh và phiếu PDF vẫn nhận bình thường. */}
+          <label
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-1.5 text-[11px] font-semibold text-ink-soft ${
+              appointmentId
+                ? "cursor-pointer hover:bg-surface-muted"
+                : "cursor-not-allowed opacity-60"
+            }`}
+          >
+            {dangTai ? "Đang tải lên…" : "+ Tải ảnh / phiếu"}
+            <input
+              type="file"
+              multiple
+              disabled={dangTai || !appointmentId}
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                void taiLen(e.target.files);
+                // Chọn lại đúng tệp đó lần nữa vẫn phải kích hoạt onChange.
+                e.target.value = "";
+              }}
+            />
+          </label>
 
-      <p className="mt-1 text-[11px] leading-snug text-ink-faint">
-        Video siêu âm: <b>đang xây dựng</b> — chưa tải lên được. Đang chờ chốt
-        chỗ lưu riêng cho video để không ăn hết ổ đĩa của máy chủ.
-      </p>
+          {!appointmentId && (
+            <p className="mt-1 text-[11px] text-warning">
+              Chọn một lượt khám để tải và gửi đúng kết quả của lượt đó.
+            </p>
+          )}
+
+          <p className="mt-1 text-[11px] leading-snug text-ink-faint">
+            Video siêu âm: <b>đang xây dựng</b> — chưa tải lên được. Đang chờ
+            chốt chỗ lưu riêng cho video để không ăn hết ổ đĩa của máy chủ.
+          </p>
+        </>
+      )}
 
       {loi && <p className="mt-1.5 text-[11px] text-danger">{loi}</p>}
 
@@ -179,13 +198,19 @@ export default function TepKetQua({
               >
                 <div className="flex items-center gap-2 text-[11px]">
                   <Icon className="size-3.5 shrink-0 text-ink-faint" />
-                  <button
-                    type="button"
-                    onClick={() => setXem(dangXem ? null : t.id)}
-                    className="min-w-0 flex-1 truncate text-left font-medium text-brand-700 hover:underline"
-                  >
-                    {t.ten_hien_thi ?? "(không tên)"}
-                  </button>
+                  {readOnly ? (
+                    <span className="min-w-0 flex-1 truncate text-left font-medium text-ink-soft">
+                      {t.ten_hien_thi ?? "(không tên)"}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setXem(dangXem ? null : t.id)}
+                      className="min-w-0 flex-1 truncate text-left font-medium text-brand-700 hover:underline"
+                    >
+                      {t.ten_hien_thi ?? "(không tên)"}
+                    </button>
+                  )}
                   <span className="shrink-0 font-mono text-ink-faint">
                     {coChu(t.so_byte)}
                   </span>
@@ -239,7 +264,7 @@ export default function TepKetQua({
                   </div>
                 )}
 
-                {!t.gui_luc && (
+                {!readOnly && !t.gui_luc && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống
                         chưa tự gửi được (send_zalo.py luôn delivered=False). */}
