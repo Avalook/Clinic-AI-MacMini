@@ -159,7 +159,7 @@ function HangGop({
    *  `booking_service` lưu trên chính `appointment` chứ không lưu vào sổ. */
   ghiChuThem?: React.ReactNode;
   /** Rút lại dòng đã ghi của hàng này. Không truyền = không hoàn tác được. */
-  onHoanTac?: (id: string, ten: string) => void;
+  onHoanTac?: (id: string) => void;
   dangHoanTac?: string | null;
 }) {
   // TÊN HÀNG THEO ĐÚNG CÁI VỪA BẤM.
@@ -180,7 +180,7 @@ function HangGop({
         dang={dang}
         hoanTacDuoc={Boolean(lan?.id && onHoanTac)}
         dangHoanTac={dangHoanTac === lan?.id}
-        onHoanTac={() => lan?.id && onHoanTac?.(lan.id, tenHienTai)}
+        onHoanTac={() => lan?.id && onHoanTac?.(lan.id)}
       />
 
       <div className="min-w-0 flex-1">
@@ -928,13 +928,18 @@ export default function VungLamViecKhach({
    *  `CHECK_OUT` thì từ chối, vì máy trạng thái không có đường ra khỏi
    *  COMPLETED. Xem `TuongTacCskhService.hoan_tac`.
    *
-   *  HỎI LẠI TRƯỚC KHI RÚT. Nút tròn nằm ngay cạnh nút "Làm lại" và cả hai đều
-   *  nhỏ; rút một lần chạm mà không hỏi là đổi một cú bấm nhầm lấy một cú bấm
-   *  nhầm khác. */
-  async function hoanTac(id: string, ten: string) {
-    if (!window.confirm(`Rút lại "${ten}"? Dòng vẫn nằm trong sổ, chỉ thôi được tính.`)) {
-      return;
-    }
+   *  KHÔNG HỎI LẠI (Quang chốt 10/08/2026: *"click vào nút tròn là tự back lại,
+   *  không cần xác nhận kiểu vậy"*).
+   *
+   *  Bản đầu tôi chèn một `window.confirm` vì nút tròn nằm ngay cạnh "Làm lại"
+   *  và cả hai đều nhỏ. Nhưng cái giá của một cú rút nhầm THẤP: bấm "Làm bước
+   *  này" là ghi lại ngay, và dòng cũ vẫn nằm nguyên trong sổ. Một hộp thoại
+   *  chặn đường cho một việc rẻ như thế thì người ta bấm OK theo phản xạ —
+   *  tức nó không bảo vệ được gì, chỉ thêm một cú bấm cho MỌI lần dùng đúng.
+   *
+   *  Hộp thoại xứng đáng ở chỗ mất mát KHÔNG lấy lại được. Đây không phải chỗ
+   *  đó — chỗ đó là `CHECK_OUT`, và ở đấy backend từ chối hẳn. */
+  async function hoanTac(id: string) {
     setDangHoanTac(id);
     setLoiHoanTac(null);
     const res = await fetch(`/api/cskh/tuong-tac/${id}/hoan-tac`, {
@@ -1101,7 +1106,7 @@ export default function VungLamViecKhach({
             dang={dang}
             hoanTacDuoc={Boolean(lan?.id)}
             dangHoanTac={dangHoanTac === lan?.id}
-            onHoanTac={() => lan?.id && void hoanTac(lan.id, tt.ten)}
+            onHoanTac={() => lan?.id && void hoanTac(lan.id)}
           />
           {!cuoi && (
             <span
@@ -1277,7 +1282,7 @@ export default function VungLamViecKhach({
                   chon={dangChon === "GOI_LAI"}
                   lan={lanCuoi("GOI_LAI")}
                   onLamViec={onLamViec}
-                  onHoanTac={(id, ten) => void hoanTac(id, ten)}
+                  onHoanTac={(id) => void hoanTac(id)}
                   dangHoanTac={dangHoanTac}
                   onGhi={(ma, kq) => void ghiLoiRa(ma, kq)}
                   dangGhi={dangGhiLoiRa}
@@ -1296,7 +1301,7 @@ export default function VungLamViecKhach({
                   chon={dangChon === "HOI_LY_DO_HUY"}
                   lan={lanCuoi("HOI_LY_DO_HUY")}
                   onLamViec={onLamViec}
-                  onHoanTac={(id, ten) => void hoanTac(id, ten)}
+                  onHoanTac={(id) => void hoanTac(id)}
                   dangHoanTac={dangHoanTac}
                   // LÝ DO HUỶ LÚC BẤM HUỶ — khác với lý do hỏi được lúc gọi lại.
                   //
