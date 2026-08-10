@@ -30,6 +30,8 @@ import CustomersView, {
   type Opt,
   type Period,
   type ByDim,
+  type ChuoiKham,
+  type LuotKham,
 } from "./CustomersView";
 
 /** Một mốc gọi nhắc tái khám, đúng hình dạng RecallJobService trả về. */
@@ -281,7 +283,9 @@ export default async function CustomersPage({
     ? supabase
         .from("tuong_tac_cskh")
         .select(
-          "clinic_patient_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, staff(full_name)",
+          // `appointment_id` để gom được từng lượt khám thành một chuỗi —
+          // cột đã có từ 20260809000003 nhưng chưa từng được mang xuống UI.
+          "clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, staff(full_name)",
         )
         .in("clinic_patient_id", shownIds)
         .order("xay_ra_luc", { ascending: false })
@@ -298,9 +302,30 @@ export default async function CustomersPage({
         .limit(1000)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
+/** Một dòng lịch hẹn như PostgREST trả về (theo `apptSelectAll`). */
+type LichHenRaw = {
+  clinic_patient_id: string;
+  slot_start: string;
+  status: string;
+  id?: string;
+  service_type_id?: string | null;
+  doctor_id?: string | null;
+  location_id?: string | null;
+  booking_channel?: string | null;
+  created_at?: string | null;
+  cancelled_at?: string | null;
+  lich_truoc_id?: string | null;
+  service?: { name: string } | { name: string }[] | null;
+  doctor?: { full_name: string } | { full_name: string }[] | null;
+};
+
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
   // nếu không có thì lịch GẦN NHẤT trong quá khứ. Kèm tổng số lịch.
   const apptByPatient: Record<string, ApptInfo> = {};
+  /** Toàn bộ lịch hẹn theo khách. Khai NGOÀI khối dưới vì khối "lịch sử các
+   *  lần khám" ở cuối file cũng đọc nó — gom lại một lần rồi dùng hai chỗ, thay
+   *  vì bắn thêm một truy vấn cho cùng dữ liệu. */
+  const grouped: Record<string, LichHenRaw[]> = {};
   if (rows.length) {
     // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
     // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
@@ -317,23 +342,7 @@ export default async function CustomersPage({
     // 21:00 (sắp tới); lúc 12:37 panel vẫn hiện "Lịch hẹn sắp tới 08:15" — bắt
     // đúng lịch cũ, và giấu mất lịch thật sự sắp tới.
     const bayGio = nowMs();
-    type Raw = {
-      clinic_patient_id: string;
-      slot_start: string;
-      status: string;
-      id?: string;
-      service_type_id?: string | null;
-      doctor_id?: string | null;
-      location_id?: string | null;
-      booking_channel?: string | null;
-      created_at?: string | null;
-      cancelled_at?: string | null;
-      lich_truoc_id?: string | null;
-      service?: { name: string } | { name: string }[] | null;
-      doctor?: { full_name: string } | { full_name: string }[] | null;
-    };
-    const grouped: Record<string, Raw[]> = {};
-    for (const a of (appts as unknown as Raw[] | null) ?? []) {
+    for (const a of (appts as unknown as LichHenRaw[] | null) ?? []) {
       (grouped[a.clinic_patient_id] ??= []).push(a);
     }
     const DEAD = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"];
@@ -521,6 +530,7 @@ export default async function CustomersPage({
     khach_xac_nhan: boolean | null;
     noi_dung: string | null;
     trang_thai_ma: string | null;
+    appointment_id: string | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
   type TrangThaiRaw = {
@@ -609,9 +619,111 @@ export default async function CustomersPage({
         khach_xac_nhan: t.khach_xac_nhan,
         noi_dung: t.noi_dung,
         trang_thai_ma: t.trang_thai_ma,
+        appointment_id: t.appointment_id,
         nhan_vien: nv?.full_name ?? null,
         nguon: "tuong_tac",
       });
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // LỊCH SỬ CÁC LẦN KHÁM — dựng chuỗi, không dựng danh sách phẳng
+  // ───────────────────────────────────────────────────────────────────────
+  //
+  // Quang 10/08/2026: timeline dọc, có giờ bắt đầu và kết thúc; TÁI KHÁM nối
+  // tiếp lượt trước thành MỘT chuỗi, còn khám mới là chuỗi RIÊNG.
+  //
+  // GOM THEO `appointment`, RỒI MỚI GHÉP `visit` — không gom theo visit.
+  // Lịch chưa check-in KHÔNG có dòng `visit` (nó chỉ ra đời lúc check-in), nên
+  // dựng theo visit_id sẽ làm mọi lịch đã huỷ, khách không đến, và lịch còn ở
+  // tương lai BIẾN MẤT khỏi lịch sử — đúng những lượt CSKH cần nhìn lại nhất.
+  const lichSuKhamByPatient: Record<string, ChuoiKham[]> = {};
+  if (canManage && rows.length) {
+    const { data: visitRows } = await supabase
+      .from("visit")
+      .select("appointment_id, checked_in_at, closed_at, finalized_at")
+      .in("clinic_patient_id", shownIds)
+      .limit(3000);
+    const visitTheoLich: Record<
+      string,
+      { batDau: string | null; ketThuc: string | null }
+    > = {};
+    for (const v of (visitRows ?? []) as {
+      appointment_id: string | null;
+      checked_in_at: string | null;
+      closed_at: string | null;
+      finalized_at: string | null;
+    }[]) {
+      if (!v.appointment_id) continue;
+      visitTheoLich[v.appointment_id] = {
+        batDau: v.checked_in_at,
+        // BA MỐC KẾT THÚC, ưu tiên theo độ chắc chắn: quầy đóng lượt >
+        // bác sĩ ký bệnh án > CSKH bấm checkout (ghép ở dưới). Không có mốc
+        // nào thì để null và nói ra là "chưa đóng" — đừng bịa giờ.
+        ketThuc: v.closed_at ?? v.finalized_at ?? null,
+      };
+    }
+
+    for (const [pid, list] of Object.entries(grouped)) {
+      const cacLuot: LuotKham[] = list
+        .filter((a) => a.id)
+        .sort((x, y) => mocMs(x.slot_start) - mocMs(y.slot_start))
+        .map((a) => {
+          const v = visitTheoLich[a.id as string];
+          const buoc = (tuongTacByPatient[pid] ?? [])
+            .filter((d) => d.appointment_id === a.id)
+            .sort((x, y) => mocMs(x.xay_ra_luc) - mocMs(y.xay_ra_luc));
+          // CSKH bấm "Checkout" ghi một dòng CHECK_OUT — đó là mốc kết thúc
+          // theo góc nhìn của người trực, dùng khi quầy chưa đóng lượt.
+          const checkout = buoc.find((d) => d.loai === "CHECK_OUT");
+          return {
+            id: a.id as string,
+            slot_start: a.slot_start,
+            status: a.status,
+            service_name: pick1(a.service)?.name ?? null,
+            doctor_name: pick1(a.doctor)?.full_name ?? null,
+            lich_truoc_id: a.lich_truoc_id ?? null,
+            bat_dau: v?.batDau ?? null,
+            ket_thuc: v?.ketThuc ?? checkout?.xay_ra_luc ?? null,
+            buoc: buoc.map((d) => ({
+              luc: d.xay_ra_luc,
+              trang_thai_ma: d.trang_thai_ma ?? null,
+              loai: d.loai,
+              ket_qua: d.ket_qua,
+              nhan_vien: d.nhan_vien,
+            })),
+          };
+        });
+      if (!cacLuot.length) continue;
+
+      // GHÉP CHUỖI. Một lượt có `lich_truoc_id` thì nối vào chuỗi chứa lượt ấy;
+      // không có thì mở chuỗi mới. Duyệt theo thứ tự thời gian nên lượt trước
+      // luôn đã được xếp chỗ khi tới lượt sau.
+      const chuoiCuaLuot: Record<string, number> = {};
+      const chuoi: ChuoiKham[] = [];
+      for (const luot of cacLuot) {
+        const chiSo =
+          luot.lich_truoc_id !== null
+            ? chuoiCuaLuot[luot.lich_truoc_id]
+            : undefined;
+        if (chiSo !== undefined) {
+          chuoi[chiSo]!.luot.push(luot);
+          chuoiCuaLuot[luot.id] = chiSo;
+        } else {
+          // `lich_truoc_id` trỏ tới một lượt KHÔNG có trong danh sách (lịch đã
+          // bị dọn, hoặc ngoài phạm vi truy vấn) cũng rơi vào đây. Mở chuỗi mới
+          // còn hơn ném lượt ấy đi.
+          chuoiCuaLuot[luot.id] = chuoi.length;
+          chuoi.push({ luot: [luot] });
+        }
+      }
+      // Chuỗi mới nhất lên đầu — người trực quan tâm lần gần đây trước.
+      chuoi.sort(
+        (a, b) =>
+          mocMs(b.luot[b.luot.length - 1]!.slot_start) -
+          mocMs(a.luot[a.luot.length - 1]!.slot_start),
+      );
+      lichSuKhamByPatient[pid] = chuoi;
     }
   }
 
@@ -645,6 +757,7 @@ export default async function CustomersPage({
           tuongTacByPatient={tuongTacByPatient}
           trangThaiByPatient={trangThaiByPatient}
           phanHoiByPatient={phanHoiByPatient}
+          lichSuKhamByPatient={lichSuKhamByPatient}
           tepByPatient={tepByPatient}
           locations={locations}
           q={q}

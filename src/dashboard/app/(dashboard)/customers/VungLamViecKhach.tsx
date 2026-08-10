@@ -266,49 +266,95 @@ const KHONG_GAP_DUOC: LoiRa[] = [
   { ketQua: "HEN_GOI_LAI", ten: "Hẹn gọi lại sau" },
 ];
 
-const SAU_KHAM: TrangThai[] = [
+/** SAU KHÁM KHÔNG PHẢI MỘT HÀNG DỌC — nó là một sơ đồ nhánh.
+ *
+ *  Quang vẽ ra 10/08/2026: "Đã check-in" toả ra BA nhánh xét nghiệm chạy song
+ *  song, ba nhánh ấy chụm về "Đã gọi trả kết quả", rồi node đó toả ra BA việc
+ *  theo dõi sau, cũng song song.
+ *
+ *  Trước đây mảng này được vẽ thành một `<ol>` tám node nối nhau bằng một sợi
+ *  kẻ dọc — hình dạng nói rằng khách đi qua tám bước theo thứ tự. Không khách
+ *  nào đi như thế: ba nhánh xét nghiệm là BA TÌNH HUỐNG loại trừ nhau, còn ba
+ *  việc cuối là ba lý do theo dõi chẳng liên quan gì nhau.
+ *
+ *  THỨ TỰ CŨ VỐN ĐÃ ĐÚNG TOPO — chỉ có cách vẽ là sai. Nên đây không phải đổi
+ *  luồng nghiệp vụ, chỉ là vẽ ra đúng cái vẫn luôn có. */
+interface TangSauKham {
+  /** Nhiều hơn một phần tử = các nhánh song song, vẽ cạnh nhau. */
+  nhanh: TrangThai[];
+  /** Có nối xuống tầng dưới bằng sợi kẻ không. Tầng cuối thì không. */
+  noiXuong: boolean;
+}
+
+const SAU_KHAM_TANG: TangSauKham[] = [
   {
-    ma: "DA_CHECKIN",
-    ten: "Đã check-in",
-    viec: "Xem tình trạng sau khám để biết việc tiếp: trả kết quả xét nghiệm hay đặt lịch tái khám",
+    nhanh: [
+      {
+        ma: "DA_CHECKIN",
+        ten: "Đã check-in",
+        viec: "Xem tình trạng sau khám để biết việc tiếp: trả kết quả xét nghiệm hay đặt lịch tái khám",
+      },
+    ],
+    noiXuong: true,
   },
   {
-    ma: "CHO_KQ_XN",
-    ten: "Chờ kết quả xét nghiệm",
-    viec: "Hỏi đơn vị xét nghiệm xem kết quả về chưa",
+    // BA TÌNH HUỐNG XÉT NGHIỆM, loại trừ nhau. View suy cả ba từ `lab_result`
+    // (kết quả về chưa / bác sĩ duyệt chưa / gửi khách chưa), nên chúng tự
+    // sáng lên chứ CSKH không chọn.
+    nhanh: [
+      {
+        ma: "CHO_KQ_XN",
+        ten: "Chờ kết quả xét nghiệm",
+        viec: "Hỏi đơn vị xét nghiệm xem kết quả về chưa",
+      },
+      {
+        ma: "CHO_BAC_SI",
+        ten: "Có kết quả, chờ phản hồi chuyên môn",
+        viec: "Hỏi bác sĩ trước khi trả kết quả cho khách",
+      },
+      {
+        ma: "KQ_CHUA_GUI",
+        ten: "Đã có kết quả, chưa gửi",
+        viec: "Tải kết quả lên rồi gửi cho khách (ảnh siêu âm, phiếu xét nghiệm — video đang xây dựng)",
+      },
+    ],
+    noiXuong: true,
   },
   {
-    ma: "CHO_BAC_SI",
-    ten: "Có kết quả, chờ phản hồi chuyên môn",
-    viec: "Hỏi bác sĩ trước khi trả kết quả cho khách",
+    nhanh: [
+      {
+        ma: "DA_TRA_KQ",
+        ten: "Đã gọi trả kết quả xét nghiệm",
+        viec: "Cân nhắc có cần hẹn lịch tái khám sau đó không",
+      },
+    ],
+    noiXuong: true,
   },
   {
-    ma: "KQ_CHUA_GUI",
-    ten: "Đã có kết quả, chưa gửi",
-    viec: "Tải kết quả lên rồi gửi cho khách (ảnh siêu âm, phiếu xét nghiệm — video đang xây dựng)",
-  },
-  {
-    ma: "DA_TRA_KQ",
-    ten: "Đã gọi trả kết quả xét nghiệm",
-    viec: "Cân nhắc có cần hẹn lịch tái khám sau đó không",
-  },
-  {
-    ma: "KHONG_FOLLOW_UP",
-    ten: "Không cần follow up sau thủ thuật",
-    viec: "Không gọi vào ngày hôm sau — ghi lại để ca sau khỏi gọi",
-    tuChon: true,
-  },
-  {
-    ma: "SAU_SINH_1_THANG",
-    ten: "Sau sinh 1 tháng",
-    viec: "Chúc mừng đầy tháng, mời khám lại sau sinh",
-    tuChon: true,
-  },
-  {
-    ma: "SAU_THU_THUAT_1_NGAY",
-    ten: "Sau thủ thuật 1 ngày",
-    viec: "Gọi hỏi thăm tình trạng",
-    tuChon: true,
+    // BA VIỆC THEO DÕI SAU, không liên quan nhau và đều TỰ CHỌN: hệ thống không
+    // có nguồn dữ liệu để tự biết (ngày sinh con thật, dịch vụ thủ thuật đang
+    // tắt). Xem ghi chú đầu file — đây là chủ ý, không phải thiếu sót.
+    nhanh: [
+      {
+        ma: "KHONG_FOLLOW_UP",
+        ten: "Không cần follow up sau thủ thuật",
+        viec: "Không gọi vào ngày hôm sau — ghi lại để ca sau khỏi gọi",
+        tuChon: true,
+      },
+      {
+        ma: "SAU_SINH_1_THANG",
+        ten: "Sau sinh 1 tháng",
+        viec: "Chúc mừng đầy tháng, mời khám lại sau sinh",
+        tuChon: true,
+      },
+      {
+        ma: "SAU_THU_THUAT_1_NGAY",
+        ten: "Sau thủ thuật 1 ngày",
+        viec: "Gọi hỏi thăm tình trạng",
+        tuChon: true,
+      },
+    ],
+    noiXuong: false,
   },
 ];
 
@@ -791,11 +837,34 @@ export default function VungLamViecKhach({
             <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
               Sau khám
             </span>
-            <ol className="mt-1.5">
-              {SAU_KHAM.map((tt, i) => (
-                <Node key={tt.ma} tt={tt} cuoi={i === SAU_KHAM.length - 1} />
+            {/* Vẽ theo TẦNG. Tầng một nhánh là một node như cũ; tầng nhiều
+                nhánh xếp cạnh nhau trên lưới, mỗi nhánh là một node độc lập
+                không nối sợi dọc — vì chúng không nối tiếp nhau. Giữa hai tầng
+                là một sợi kẻ ngắn nói "xong tầng trên thì tới tầng dưới". */}
+            <div className="mt-1.5 space-y-0">
+              {SAU_KHAM_TANG.map((tang, i) => (
+                <div key={i}>
+                  {tang.nhanh.length === 1 ? (
+                    <ol>
+                      <Node tt={tang.nhanh[0]!} cuoi />
+                    </ol>
+                  ) : (
+                    <ol className="grid gap-x-3 sm:grid-cols-3">
+                      {tang.nhanh.map((tt) => (
+                        <Node key={tt.ma} tt={tt} cuoi />
+                      ))}
+                    </ol>
+                  )}
+                  {tang.noiXuong && (
+                    <div
+                      aria-hidden="true"
+                      className="ml-3 w-0.5 bg-line"
+                      style={{ height: 14 }}
+                    />
+                  )}
+                </div>
               ))}
-            </ol>
+            </div>
           </div>
 
         </div>

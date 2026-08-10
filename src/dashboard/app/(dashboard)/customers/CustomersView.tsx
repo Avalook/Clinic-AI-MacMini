@@ -30,6 +30,7 @@ import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach from "./VungLamViecKhach";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
+import LichSuCacLanKham from "./LichSuCacLanKham";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
@@ -159,6 +160,37 @@ export interface LichSapToi {
   status: string;
   service_name: string | null;
   doctor_name: string | null;
+}
+
+/** Một BƯỚC CSKH đã bấm bên trong một lượt khám. */
+export interface BuocCham {
+  luc: string;
+  trang_thai_ma: string | null;
+  loai: string;
+  ket_qua: string | null;
+  nhan_vien: string | null;
+}
+
+/** Một LƯỢT KHÁM: lịch hẹn + mốc thời gian thật + các bước chăm sóc của nó. */
+export interface LuotKham {
+  id: string;
+  slot_start: string;
+  status: string;
+  service_name: string | null;
+  doctor_name: string | null;
+  /** Lượt trước trong chuỗi tái khám. null = mở đầu một đợt. */
+  lich_truoc_id: string | null;
+  /** `visit.checked_in_at`. null = khách chưa từng check-in lượt này. */
+  bat_dau: string | null;
+  /** `visit.closed_at` → `finalized_at` → dòng CHECK_OUT của CSKH. null = chưa
+   *  đóng, và nói ra như thế đúng hơn là bịa một giờ. */
+  ket_thuc: string | null;
+  buoc: BuocCham[];
+}
+
+/** Một ĐỢT: các lượt nối nhau bằng `lich_truoc_id`, sớm trước. */
+export interface ChuoiKham {
+  luot: LuotKham[];
 }
 
 export interface ApptInfo {
@@ -403,6 +435,7 @@ export default function CustomersView({
   tuongTacByPatient,
   trangThaiByPatient,
   phanHoiByPatient,
+  lichSuKhamByPatient,
   tepByPatient,
   locations,
   q,
@@ -429,6 +462,8 @@ export default function CustomersView({
   tuongTacByPatient: Record<string, DongLichSu[]>;
   trangThaiByPatient: Record<string, TrangThaiCskh>;
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
+  /** Lịch sử khám theo khách, đã ghép sẵn thành từng đợt ở server. */
+  lichSuKhamByPatient: Record<string, ChuoiKham[]>;
   tepByPatient: Record<string, TepKetQuaRow[]>;
   /** Mốc gọi nhắc tái khám đang mở, theo khách. Rỗng = không có việc nào. */
   locations: Opt[];
@@ -892,6 +927,12 @@ export default function CustomersView({
             lanKhamGanNhat={selectedAppt?.lanKhamGanNhat ?? null}
             onDatLich={(kieu) => setDatLich(kieu)}
           >
+            {/* LỊCH SỬ TRƯỚC, PHẢN HỒI SAU — Quang chốt "bên trên phản hồi của
+                khách hàng, thêm 1 ô nữa". Đọc lại chuyện đã xảy ra rồi mới tới
+                chỗ ghi chuyện khách nói. */}
+            <LichSuCacLanKham
+              chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
+            />
             <PhanHoiKhach
               clinicPatientId={selected.clinic_patient_id}
               items={phanHoiByPatient[selected.clinic_patient_id] ?? []}

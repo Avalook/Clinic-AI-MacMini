@@ -680,6 +680,14 @@ export default function HanhDongTrangThai({
       case "DA_TRA_KQ":
         return (
           <>
+            {/* HAI NÚT NÀY TỪNG GHI `loai = "KHAC"`, VÀ ĐÓ LÀ LỖI.
+                `dangO("DA_TRA_KQ")` ở VungLamViecKhach dò đúng một thứ: có
+                tương tác `loai='TRA_KQ'` với `ket_qua='DA_LIEN_HE'` hay không.
+                Ghi "KHAC" nên bấm xong node vẫn không sáng lên "đang ở đây" —
+                nó chỉ tích xanh nhờ `trang_thai_ma`, tức là đúng một nửa.
+                Nhánh KQ_CHUA_GUI của view cũng đóng theo `loai='TRA_KQ'`, nên
+                ghi sai loại còn để trạng thái "đã có kết quả, chưa gửi" treo
+                lại dù kết quả đã trả xong. */}
             <p className="text-[11px] leading-snug text-ink-soft">
               Kết quả đã trả. Còn một việc: có hẹn tái khám hay không.
             </p>
@@ -691,7 +699,7 @@ export default function HanhDongTrangThai({
                 onClick={() =>
                   void ghi(
                     "cotk",
-                    "KHAC",
+                    "TRA_KQ",
                     "DA_LIEN_HE",
                     "Sau trả kết quả: CẦN hẹn tái khám",
                   )
@@ -704,7 +712,7 @@ export default function HanhDongTrangThai({
                 onClick={() =>
                   void ghi(
                     "khongtk",
-                    "KHAC",
+                    "TRA_KQ",
                     "DA_LIEN_HE",
                     "Sau trả kết quả: KHÔNG cần tái khám",
                   )
