@@ -772,6 +772,40 @@ export default function VungLamViecKhach({
             </div>
           </div>
 
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              Sau khám
+            </span>
+            {/* Vẽ theo TẦNG. Tầng một nhánh là một node như cũ; tầng nhiều
+                nhánh xếp cạnh nhau trên lưới, mỗi nhánh là một node độc lập
+                không nối sợi dọc — vì chúng không nối tiếp nhau. Giữa hai tầng
+                là một sợi kẻ ngắn nói "xong tầng trên thì tới tầng dưới". */}
+            <div className="mt-1.5 space-y-0">
+              {SAU_KHAM_TANG.map((tang, i) => (
+                <div key={i}>
+                  {tang.nhanh.length === 1 ? (
+                    <ol>
+                      <Node tt={tang.nhanh[0]!} cuoi />
+                    </ol>
+                  ) : (
+                    <ol className="grid gap-x-3 sm:grid-cols-3">
+                      {tang.nhanh.map((tt) => (
+                        <Node key={tt.ma} tt={tt} cuoi />
+                      ))}
+                    </ol>
+                  )}
+                  {tang.noiXuong && (
+                    <div
+                      aria-hidden="true"
+                      className="ml-3 w-0.5 bg-line"
+                      style={{ height: 14 }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* KẾT THÚC LƯỢT KHÁM — ba lối ra, và chúng KHÁC NHAU về nghĩa.
               Quang 10/08/2026 vạch rõ ranh giới, chép lại vì nhìn nút thì
               không đoán ra:
@@ -783,12 +817,18 @@ export default function VungLamViecKhach({
                 Tái khám   khám lại ĐÚNG DỊCH VỤ của lượt này. Lịch mới nối vào
                            lượt này bằng `lich_truoc_id`.
                 Khám mới   khám xong, về rồi, lần sau khám dịch vụ KHÁC — hoặc
-                           cùng dịch vụ nhưng là chuyện mới. Không nối chuỗi. */}
-          <div className="space-y-1.5 border-t border-line pt-3">
+                           cùng dịch vụ nhưng là chuyện mới. Không nối chuỗi.
+
+              ĐẶT Ở CUỐI, CĂN GIỮA (Quang chốt 10/08/2026). Ba nút này là chỗ
+              lượt khám KẾT THÚC, nên chúng phải nằm sau chuỗi trạng thái chứ
+              không cắt ngang giữa "trước khám" và "sau khám" — đứng ở giữa thì
+              chúng trông như một bước nữa trong quy trình, mà chúng là dấu chấm
+              hết. Căn giữa để tách hẳn khỏi các node xếp trái bên trên. */}
+          <div className="space-y-1.5 border-t border-line pt-3 text-center">
             <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
               Kết thúc lượt khám
             </span>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap justify-center gap-1.5">
               <button
                 type="button"
                 onClick={() => void ghiCheckout()}
@@ -832,41 +872,6 @@ export default function VungLamViecKhach({
               <p className="text-[11px] text-danger">{loiCheckout}</p>
             )}
           </div>
-
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
-              Sau khám
-            </span>
-            {/* Vẽ theo TẦNG. Tầng một nhánh là một node như cũ; tầng nhiều
-                nhánh xếp cạnh nhau trên lưới, mỗi nhánh là một node độc lập
-                không nối sợi dọc — vì chúng không nối tiếp nhau. Giữa hai tầng
-                là một sợi kẻ ngắn nói "xong tầng trên thì tới tầng dưới". */}
-            <div className="mt-1.5 space-y-0">
-              {SAU_KHAM_TANG.map((tang, i) => (
-                <div key={i}>
-                  {tang.nhanh.length === 1 ? (
-                    <ol>
-                      <Node tt={tang.nhanh[0]!} cuoi />
-                    </ol>
-                  ) : (
-                    <ol className="grid gap-x-3 sm:grid-cols-3">
-                      {tang.nhanh.map((tt) => (
-                        <Node key={tt.ma} tt={tt} cuoi />
-                      ))}
-                    </ol>
-                  )}
-                  {tang.noiXuong && (
-                    <div
-                      aria-hidden="true"
-                      className="ml-3 w-0.5 bg-line"
-                      style={{ height: 14 }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
 
         {/* Khối "KẾT QUẢ SIÊU ÂM / XÉT NGHIỆM" và dòng "Giờ khám" cũng đã bỏ
