@@ -38,6 +38,7 @@ import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
 // năng chứ không phải vài dòng trang trí.
 import type { TepKetQuaRow } from "./TepKetQua";
+import type { MocTaiKham } from "./NhacTaiKham";
 
 /** Một dòng của view `v_trang_thai_cskh` — việc gấp nhất đang mở của một khách. */
 export interface TrangThaiCskh {
@@ -595,6 +596,7 @@ export default function CustomersView({
   phanHoiByPatient,
   lichSuKhamByPatient,
   henGoiLaiByPatient,
+  taiKhamByPatient,
   tepByPatient,
   locations,
   q,
@@ -629,6 +631,8 @@ export default function CustomersView({
   lichSuKhamByPatient: Record<string, ChuoiKham[]>;
   /** Lời hẹn gọi lại CHƯA ĐÓNG, theo khách. */
   henGoiLaiByPatient: Record<string, HenGoiLai[]>;
+  /** Mốc gọi nhắc tái khám CÒN PHẢI GỌI, theo khách. */
+  taiKhamByPatient: Record<string, MocTaiKham[]>;
   tepByPatient: Record<string, TepKetQuaRow[]>;
   /** Mốc gọi nhắc tái khám đang mở, theo khách. Rỗng = không có việc nào. */
   locations: Opt[];
@@ -1295,6 +1299,7 @@ export default function CustomersView({
             onLamViec={(ma) => setViecDangGhi(ma)}
             onDatLich={(kieu) => setDatLich(kieu)}
             henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
+            taiKham={taiKhamByPatient[selected.clinic_patient_id] ?? []}
             ghiChu={ghiChuChung}
             onGhiChuXong={() => setGhiChuChung("")}
           >

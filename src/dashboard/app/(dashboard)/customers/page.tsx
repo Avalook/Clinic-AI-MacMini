@@ -953,8 +953,17 @@ type LichHenRaw = {
   // nhắc sẽ vĩnh viễn rỗng — và đúng như lần trước, KHÔNG AI BÁO LỖI: nhãn
   // "Nhắc đi khám hôm nay" chỉ đơn giản là không bao giờ xuất hiện nữa.
   //
-  // Await để tác dụng phụ chạy xong trước khi màn dựng; kết quả bỏ đi.
-  await recallPromise;
+  // VÀ NAY KẾT QUẢ ĐƯỢC DÙNG LẠI. Từ 09/08 lời gọi này chỉ còn chạy để sinh
+  // việc rồi ném kết quả đi, vì khối "Nhắc tái khám" đã gỡ khỏi màn. Hệ quả:
+  // hai trạng thái `MOI_TAI_KHAM` và `NHAC_DI_KHAM` vẫn hiện chip đỏ "quá giờ
+  // hẹn" ở danh sách mà CSKH KHÔNG có chỗ nào đóng chúng — đường ghi
+  // (`/api/recall-jobs/{id}/ket-qua`) vẫn mở cho vai CSKH suốt thời gian ấy,
+  // chỉ là không nút nào gọi tới.
+  const taiKhamByPatient: Record<string, MocTaiKham[]> = {};
+  const recall = await recallPromise;
+  for (const r of [...(recall?.luot1 ?? []), ...(recall?.luot2 ?? [])]) {
+    (taiKhamByPatient[r.clinic_patient_id] ??= []).push(r);
+  }
 
   return (
     <div className="space-y-3">
@@ -976,6 +985,7 @@ type LichHenRaw = {
           phanHoiByPatient={phanHoiByPatient}
           lichSuKhamByPatient={lichSuKhamByPatient}
           henGoiLaiByPatient={henGoiLaiByPatient}
+          taiKhamByPatient={taiKhamByPatient}
           tepByPatient={tepByPatient}
           locations={locations}
           q={q}

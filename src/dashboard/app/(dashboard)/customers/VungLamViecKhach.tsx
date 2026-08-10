@@ -39,6 +39,7 @@ import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import { MOT_CHAM, kenhCho } from "./mot-cham";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { HenGoiLai } from "./CustomersView";
+import type { MocTaiKham } from "./NhacTaiKham";
 
 /** Một trạng thái khách có thể đang ở, kèm việc CSKH phải làm khi ở đó. */
 interface TrangThai {
@@ -269,6 +270,83 @@ function HangGop({
           </p>
         )}
         {ghiChuThem}
+      </div>
+    </div>
+  );
+}
+
+/** Bốn kết quả của một cuộc gọi nhắc — cùng bộ từ với `RecallCallResult` ở
+ *  backend và với CHECK ở database. Gửi mã ngoài bốn cái này là 422. */
+// Trường tên `ketQua`, KHÔNG phải `ma`: đây là `ket_qua` của một cuộc gọi, không
+// phải mã trạng thái. `cskh-trang-thai-drift` quét `ma:` để gom mã trạng thái ở
+// cột giữa, nên đặt trùng tên là kéo bốn mã này vào một danh sách chúng không
+// thuộc về — bài kiểm ấy đã bắt được đúng chuyện đó.
+const KET_QUA_GOI_NHAC: LoiRa[] = [
+  { ketQua: "DA_LIEN_HE", ten: "Đã liên hệ được" },
+  { ketQua: "CHUA_NGHE_MAY", ten: "Không nghe máy" },
+  { ketQua: "TU_CHOI", ten: "Khách từ chối" },
+  { ketQua: "CAN_BAC_SI", ten: "Cần bác sĩ xem" },
+];
+
+/** MỘT VIỆC GỌI NHẮC — lượt 1 mời tái khám, lượt 2 nhắc đi khám.
+ *
+ *  Ở CẤP MODULE, không lồng trong `VungLamViecKhach`. */
+function MotViecGoiNhac({
+  viec,
+  dang,
+  loi,
+  onGhi,
+}: {
+  viec: MocTaiKham;
+  dang: string | null;
+  loi: string | null;
+  onGhi: (ketQua: string) => void;
+}) {
+  return (
+    <div
+      className={`flex gap-3 rounded-xl border p-2.5 ${
+        viec.qua_han ? "border-danger/40 bg-danger-bg/30" : "border-line"
+      }`}
+    >
+      <span
+        className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
+          viec.qua_han
+            ? "border-danger bg-danger-bg text-danger"
+            : "border-brand-600 bg-brand-50 text-brand-700"
+        }`}
+      >
+        <Phone className="size-3.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-ink">
+            {viec.luot_goi === 1 ? "Gọi mời tái khám" : "Gọi nhắc đi khám"}
+          </span>
+          {viec.qua_han && (
+            <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-bold text-danger">
+              quá hạn
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
+          Hẹn quay lại {ngayVn(viec.ngay_hen)} · phải gọi trước{" "}
+          {ngayVn(viec.han_goi)}
+          {viec.ly_do ? ` · ${viec.ly_do}` : ""}
+        </p>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {KET_QUA_GOI_NHAC.map((k) => (
+            <button
+              key={k.ketQua}
+              type="button"
+              disabled={Boolean(dang)}
+              onClick={() => onGhi(k.ketQua)}
+              className="rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+            >
+              {dang === viec.id + k.ketQua ? "Đang ghi…" : k.ten}
+            </button>
+          ))}
+        </div>
+        {loi && <p className="mt-1 text-[11px] text-danger">{loi}</p>}
       </div>
     </div>
   );
@@ -544,6 +622,7 @@ export default function VungLamViecKhach({
   onLamViec,
   onDatLich,
   henGoiLai = [],
+  taiKham = [],
   ghiChu = "",
   onGhiChuXong,
   children,
@@ -574,6 +653,8 @@ export default function VungLamViecKhach({
   onDatLich?: (kieu: "tai-kham" | "kham-moi") => void;
   /** Lời hẹn gọi lại CHƯA ĐÓNG của khách này. */
   henGoiLai?: HenGoiLai[];
+  /** Mốc gọi nhắc tái khám CÒN PHẢI GỌI của khách này. */
+  taiKham?: MocTaiKham[];
   /** Ghi chú người dùng đang gõ ở CỘT PHẢI — đi kèm cú bấm một-chạm ở đây. */
   ghiChu?: string;
   /** Gọi sau khi ghi xong, để cột phải xoá ô gõ. */
@@ -781,6 +862,45 @@ export default function VungLamViecKhach({
     }
     router.refresh();
     return true;
+  }
+
+  const [dangGoiNhac, setDangGoiNhac] = useState<string | null>(null);
+  const [loiGoiNhac, setLoiGoiNhac] = useState<string | null>(null);
+
+  /** GHI KẾT QUẢ MỘT CUỘC GỌI NHẮC TÁI KHÁM — và đóng việc ấy.
+   *
+   *  ĐƯỜNG NÀY VẪN MỞ CHO CSKH SUỐT THỜI GIAN QUA, chỉ là không nút nào gọi
+   *  tới. Khối "Nhắc tái khám" bị gỡ khỏi màn 09/08/2026 vì nó trùng với ô
+   *  "GỌI NHẮC ĐI KHÁM" ở cột phải — nhưng ô ấy chỉ đổi tiêu đề, không đóng
+   *  được `nhac_tai_kham`. Hệ quả: chip "Nhắc đi khám hôm nay · quá giờ hẹn"
+   *  đỏ vĩnh viễn ở danh sách, và CSKH không có cách nào tắt.
+   *
+   *  Đo trên staging 10/08/2026: Bùi Lan Hương và Nguyễn Thị Lan đều đang kẹt
+   *  đúng như vậy, cả hai đã quá hạn.
+   *
+   *  Kết quả BẮT BUỘC, và bốn kết quả khác nhau thật: "chuông đổ không ai bắt"
+   *  cũng là một việc đã làm, và nó phải khác "đã nói chuyện được" — không phân
+   *  biệt thì hôm sau người khác mở lên thấy "đã gọi" rồi bỏ qua một người chưa
+   *  ai nói chuyện với. */
+  async function ghiGoiNhac(viecId: string, ketQua: string) {
+    setDangGoiNhac(viecId + ketQua);
+    setLoiGoiNhac(null);
+    const res = await fetch(`/api/recall-jobs/${viecId}/ket-qua`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ket_qua: ketQua, ghi_chu: ghiChu.trim() || null }),
+    });
+    setDangGoiNhac(null);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setLoiGoiNhac(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
+      return;
+    }
+    onGhiChuXong?.();
+    router.refresh();
   }
 
   /** BA NÚT, MỘT SỰ THẬT: lượt khám này ĐÃ XONG.
@@ -1116,6 +1236,27 @@ export default function VungLamViecKhach({
               </div>
             </div>
           </div>
+
+          {/* NHẮC TÁI KHÁM — hàng đợi `nhac_tai_kham`, nay bấm được từ đây.
+              Xem `ghiGoiNhac` để biết vì sao nó từng không có chỗ nào đóng. */}
+          {taiKham.length > 0 && (
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+                Nhắc tái khám
+              </span>
+              <div className="mt-1.5 space-y-2">
+                {taiKham.map((v) => (
+                  <MotViecGoiNhac
+                    key={v.id}
+                    viec={v}
+                    dang={dangGoiNhac}
+                    loi={loiGoiNhac}
+                    onGhi={(kq) => void ghiGoiNhac(v.id, kq)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* HẸN GỌI LẠI — LỜI HẸN CỦA CHÍNH NGƯỜI TRỰC, HIỆN RA ĐƯỢC.
               Chuông thông báo bắn "Hẹn gọi lại 23:30 ngày 10/08 — Huy" rồi dẫn
