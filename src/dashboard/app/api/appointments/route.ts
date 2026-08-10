@@ -73,10 +73,6 @@ export async function GET(request: Request) {
     );
   }
 
-  // Parse start and end of day in UTC based on VN timezone
-  const startOfDay = new Date(`${date}T00:00:00${VN_OFFSET}`).toISOString();
-  const endOfDay = new Date(`${date}T23:59:59${VN_OFFSET}`).toISOString();
-
   // GATE + BOUND. Trước đây route này chỉ kiểm "đã đăng nhập chưa": dược sĩ,
   // thu ngân, bất kỳ ai có phiên đều đọc được toàn bộ lịch hẹn trong ngày, và
   // không có .limit() nên một ngày bận trả về bao nhiêu dòng cũng phải trả hết.
@@ -112,6 +108,47 @@ export async function GET(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ appointments: data ?? [] });
   }
+
+  // CỬA SỔ MỘT NGÀY — TÍNH Ở ĐÂY, SAU KHI ĐÃ CHẮC CÓ `date`.
+  //
+  // LỖI 10/08/2026, và nó là một lỗi 500 CÂM. Hai dòng này vốn nằm ngay dưới
+  // khối kiểm tham số, chạy VÔ ĐIỀU KIỆN. Nhưng điều kiện ở trên là
+  // `!date && !benhNhan` — nghĩa là hỏi theo BỆNH NHÂN (không kèm ngày) đi qua
+  // được, rồi `new Date("nullT00:00:00+07:00")` cho một Invalid Date và
+  // `.toISOString()` ném `RangeError: Invalid time value`.
+  //
+  // Tức là nhánh "khách này đã có lịch gì" — thứ sinh ra để chặn đặt trùng —
+  // CHƯA TỪNG chạy được lần nào. Nó luôn 500.
+  //
+  // Ba triệu chứng tưởng rời nhau, thật ra là một:
+  //   · log dashboard rải rác `⨯ RangeError: Invalid time value` (không có
+  //     stack component vì lỗi ném trong route handler, không phải trong render)
+  //   · panel Đặt lịch rơi vào nhánh `kind: "hong"` của `LichSapToiCuaKhach`
+  //   · và bài kiểm `booking-double-check-boundary` cảnh báo đúng chuyện ấy:
+  //     hỏi hỏng mà im lặng thì người trực đọc thành "khách chưa có lịch".
+  //
+  // Nhánh bệnh nhân ở trên đã `return` trước khi tới đây, nên tới dòng này thì
+  // `date` chắc chắn có. Ép kiểu bằng một câu kiểm thật thay vì tin vào luồng:
+  // luồng đổi được, câu kiểm thì không.
+  if (!date) {
+    return NextResponse.json(
+      { error: "Missing date parameter" },
+      { status: 400 },
+    );
+  }
+  // KIỂM TRƯỚC KHI GỌI `toISOString()`, không phải sau: trên một Invalid Date
+  // thì chính `toISOString()` là thứ NÉM lỗi, nên mọi câu kiểm đặt sau nó đều
+  // không bao giờ chạy tới. Đó đúng là hình dạng của lỗi vừa sửa.
+  const dauNgay = new Date(`${date}T00:00:00${VN_OFFSET}`);
+  const cuoiNgay = new Date(`${date}T23:59:59${VN_OFFSET}`);
+  if (Number.isNaN(dauNgay.getTime()) || Number.isNaN(cuoiNgay.getTime())) {
+    return NextResponse.json(
+      { error: `Ngày không hợp lệ: ${date}` },
+      { status: 400 },
+    );
+  }
+  const startOfDay = dauNgay.toISOString();
+  const endOfDay = cuoiNgay.toISOString();
 
   let query = caller
     .from("appointment")
