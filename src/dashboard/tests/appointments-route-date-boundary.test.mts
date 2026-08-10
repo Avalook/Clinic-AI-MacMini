@@ -68,3 +68,32 @@ test("thiếu `date` ở nhánh theo ngày trả 400, không nổ 500", () => {
     "phải có câu trả lời 400 cho một `date` gõ sai",
   );
 });
+
+test("mọi embed `staff` trên tuong_tac_cskh phải GỌI TÊN cột khoá ngoại", () => {
+  // LỖI 10/08/2026, và nó làm TRẮNG CẢ MÀN Quản lý khách hàng.
+  //
+  // `staff(full_name)` chạy đúng suốt vì `tuong_tac_cskh` chỉ có MỘT khoá ngoại
+  // sang `staff`. Migration 20260810000009 thêm cái thứ hai (`huy_boi_staff_id`,
+  // cho hoàn tác) và PostgREST từ chối cả câu:
+  //   "Could not embed because more than one relationship was found for
+  //    'tuong_tac_cskh' and 'staff'"
+  // Không phải một cột null — là 400 cho toàn bộ truy vấn.
+  //
+  // Bài học rộng hơn con lỗi này: THÊM MỘT KHOÁ NGOẠI THỨ HAI sang cùng một
+  // bảng là đủ để phá một câu select viết đúng từ trước. Gọi tên cột thì không
+  // bao giờ mơ hồ, dù sau này có thêm bao nhiêu khoá nữa.
+  // BỎ CHÚ THÍCH TRƯỚC KHI DÒ. Bản đầu của bài kiểm này đỏ vì nó khớp phải
+  // chính dòng chú thích giải thích lỗi — một bài kiểm đọc mã nguồn thì phải
+  // phân biệt được mã với lời kể về mã.
+  const page = readFileSync(
+    new URL("../app/(dashboard)/customers/page.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  assert.doesNotMatch(
+    page,
+    /\bstaff\s*\(\s*full_name\s*\)/,
+    "còn một embed `staff(full_name)` không gọi tên cột khoá ngoại — " +
+      "PostgREST sẽ trả 400 cho cả câu ngay khi bảng ấy có khoá ngoại thứ hai " +
+      "sang `staff`.",
+  );
+});
