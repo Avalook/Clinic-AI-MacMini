@@ -334,3 +334,41 @@ async def test_loai_tin_la_thi_tu_choi() -> None:
         await mod.GuiZaloService(PoolMotDong(None)).gui(
             identity=_ai(), clinic_patient_id=BN, loai_tin="QUANG_CAO"
         )
+
+
+def test_checkout_cua_cskh_dong_luon_luot_kham() -> None:
+    """CHECK_OUT phải đóng CẢ `appointment` LẪN `visit`.
+
+    HAI MỐC "KẾT THÚC LƯỢT" TỪNG KHÔNG NÓI CHUYỆN VỚI NHAU.
+    `apply_action("complete")` chỉ đặt `appointment.status = COMPLETED`; dòng
+    `visit` do quầy đóng qua `CheckoutService.close`. Nên nút Checkout ở màn
+    CSKH đóng đúng một nửa — và nửa còn lại là nửa mà bảng điều phối đọc.
+
+    Đo trên staging 10/08/2026: 12 trên 15 dòng `visit` chưa đóng có lịch hẹn đã
+    COMPLETED. Bệnh nhân đã về nhà vẫn nằm trong hàng đợi của một phòng.
+
+    Đọc mã nguồn thay vì dựng cả một lượt khám: thứ cần canh là hai lời gọi có
+    còn đi cùng nhau không, và điều đó đọc được.
+    """
+    import inspect
+
+    from clinicai.services import tuong_tac_cskh_service as mod
+
+    doi_tt = inspect.getsource(mod.TuongTacCskhService._doi_trang_thai_lich)
+    assert 'action="complete"' in doi_tt, "nhánh CHECK_OUT đã đổi hình dạng"
+    assert "_dong_luot_kham" in doi_tt, (
+        "CHECK_OUT không còn gọi `_dong_luot_kham` — lịch hẹn sẽ COMPLETED "
+        "trong khi dòng `visit` mở vĩnh viễn, và quầy không bao giờ thấy nó "
+        "trong danh sách chờ đóng nữa."
+    )
+
+    dong = inspect.getsource(mod.TuongTacCskhService._dong_luot_kham)
+    assert "CheckoutService" in dong and ".close(" in dong, (
+        "`_dong_luot_kham` phải đi qua `CheckoutService.close` — đó là đường "
+        "DUY NHẤT dọn đủ ba thứ: đóng bước LUOTKHAM-15, bỏ con trỏ phòng, và "
+        "ghi closed_at/closed_by. Tự viết UPDATE ở đây sẽ quên một trong ba."
+    )
+    assert "override_reason" in dong, (
+        "phải truyền lý do ngoại lệ, nếu không lượt còn vướng sẽ không đóng "
+        "được và lỗi bị nuốt trong im lặng"
+    )

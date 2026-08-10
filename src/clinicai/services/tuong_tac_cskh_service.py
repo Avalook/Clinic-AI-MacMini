@@ -242,6 +242,68 @@ class TuongTacCskhService:
         await BookingService(self._pool).apply_action(
             appointment_id=appointment_id, action="complete", identity=identity
         )
+        await self._dong_luot_kham(identity=identity, appointment_id=appointment_id)
+
+    async def _dong_luot_kham(
+        self, *, identity: StaffIdentity, appointment_id: str
+    ) -> None:
+        """Đóng luôn dòng ``visit`` của lượt vừa checkout.
+
+        HAI MỐC "KẾT THÚC LƯỢT", VÀ CHÚNG KHÔNG NÓI CHUYỆN VỚI NHAU.
+
+        ``apply_action("complete")`` chỉ đặt ``appointment.status = COMPLETED``.
+        Dòng ``visit`` thì do quầy đóng, qua ``CheckoutService.close``. Nên nút
+        Checkout ở màn CSKH xưa nay đóng ĐÚNG MỘT NỬA: lịch hẹn nói đã khám
+        xong, còn lượt khám vẫn mở.
+
+        Đo trên staging 10/08/2026: **12 trên 15** dòng ``visit`` chưa đóng có
+        lịch hẹn đã COMPLETED. Hệ quả không nằm ở màn CSKH — nó nằm ở chỗ khác:
+        ``work_item`` của lượt còn PENDING, ``current_node_code`` vẫn trỏ một
+        phòng, nên bệnh nhân đã về nhà vẫn nằm trong hàng đợi của bảng điều phối.
+        Chính ``checkout_service`` đã ghi lại bài học ấy (xem 20260807000003).
+
+        VÌ SAO GỌI THẲNG ``CheckoutService`` chứ không tự UPDATE: nó là đường
+        DUY NHẤT dọn đủ ba thứ — đóng bước LUOTKHAM-15, bỏ con trỏ phòng, và ghi
+        ``closed_at``/``closed_by``. Tự viết một câu UPDATE ở đây là dựng bản thứ
+        hai của một quy trình, và bản thứ hai sẽ quên đúng cái thứ ba.
+
+        ``override_reason`` LUÔN được truyền, và nói thẳng nguồn gốc. Lượt còn
+        vướng (chưa thu tiền, còn đơn thuốc) thì ``close`` đòi lý do ngoại lệ —
+        CSKH không có thông tin để phán những chốt ấy, nhưng để lượt mở vĩnh viễn
+        còn tệ hơn: lịch hẹn ĐÃ COMPLETED rồi, quầy sẽ không bao giờ thấy nó
+        trong danh sách chờ đóng nữa. Ghi rõ ai đóng và đóng từ đâu là thứ truy
+        lại được; im lặng thì không.
+
+        NUỐT LỖI, CÓ CHỦ Ý. Dòng sổ và trạng thái lịch hẹn đã ghi xong trước khi
+        tới đây. Ném lỗi ở đây là báo hỏng cho một việc đã xong, và người dùng
+        sẽ bấm Checkout lần nữa — cùng lý do như ``_bao_hen_goi_lai``.
+        """
+        from clinicai.services.checkout_service import CheckoutService
+
+        try:
+            visit_id = await self._pool.fetchval(
+                "SELECT visit_id::text FROM public.visit "
+                " WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid "
+                "   AND closed_at IS NULL "
+                " ORDER BY checked_in_at DESC NULLS LAST LIMIT 1",
+                appointment_id,
+                identity.clinic_id,
+            )
+            if visit_id is None:
+                return  # chưa có lượt khám, hoặc quầy đã đóng rồi
+            await CheckoutService(self._pool).close(
+                identity=identity,
+                visit_id=visit_id,
+                override_reason=(
+                    "Đóng theo nút Checkout ở màn Quản lý khách hàng (CSKH)"
+                ),
+            )
+        except Exception:  # noqa: BLE001 — xem docstring
+            logger.warning(
+                "dong_luot_kham_theo_checkout_that_bai",
+                appointment_id=appointment_id,
+                exc_info=True,
+            )
 
     async def lich_su(
         self, *, identity: StaffIdentity, clinic_patient_id: str, gioi_han: int = 50
