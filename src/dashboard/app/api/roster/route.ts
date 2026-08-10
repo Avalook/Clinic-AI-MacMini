@@ -10,7 +10,7 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
-import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
   getClinicRole,
@@ -111,16 +111,18 @@ export async function GET(request: Request) {
   // diện sẽ mời một vị trí mà backend không nhận.
   const nhanSu = (sp.get("staff_id") ?? "").trim();
   if (nhanSu) {
-    const data = await fetchFromBackend<{ tram: string[]; chua_khai: boolean }>(
+    // CHUYỂN NGUYÊN mã trạng thái và câu lỗi của backend, đừng gộp thành 503.
+    //
+    // Chỗ này từng dùng `fetchFromBackend`, mà nó trả `null` cho MỌI lỗi — nên
+    // một `staff_id` không tồn tại (nhân viên vừa bị gỡ, id gõ sai) ra 503
+    // "Không đọc được phạm vi vị trí", trong khi backend đã nói rõ 404 "Không
+    // tìm thấy nhân viên này". Người dùng đọc thành "máy chủ hỏng" và đi báo
+    // kỹ thuật; log thì ghi 503 giữa lúc mọi thứ vẫn chạy.
+    return proxyJsonToBackend(
+      "GET",
       `/api/v1/roster/stations?staff_id=${encodeURIComponent(nhanSu)}`,
+      undefined,
     );
-    if (data === null) {
-      return NextResponse.json(
-        { error: "Không đọc được phạm vi vị trí." },
-        { status: 503 },
-      );
-    }
-    return NextResponse.json(data);
   }
 
   const date = (sp.get("date") ?? "").trim();
