@@ -34,7 +34,7 @@
 import { useState } from "react";
 import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
-import { Check, Phone, CircleDashed } from "lucide-react";
+import { Check, Phone, CircleDashed, Undo2 } from "lucide-react";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import { MOT_CHAM, kenhCho } from "./mot-cham";
 import type { DongLichSu } from "./so-tuong-tac";
@@ -138,6 +138,8 @@ function HangGop({
   dangGhi,
   loi,
   ghiChuThem,
+  onHoanTac,
+  dangHoanTac,
 }: {
   ma: string;
   ten: string;
@@ -156,6 +158,9 @@ function HangGop({
   /** Chuyện đã ghi ở NƠI KHÁC mà hàng này phải nói ra — ví dụ lý do huỷ, thứ
    *  `booking_service` lưu trên chính `appointment` chứ không lưu vào sổ. */
   ghiChuThem?: React.ReactNode;
+  /** Rút lại dòng đã ghi của hàng này. Không truyền = không hoàn tác được. */
+  onHoanTac?: (id: string, ten: string) => void;
+  dangHoanTac?: string | null;
 }) {
   // TÊN HÀNG THEO ĐÚNG CÁI VỪA BẤM.
   //
@@ -170,23 +175,13 @@ function HangGop({
 
   return (
     <div className="flex gap-3 rounded-xl border border-line p-2.5">
-      <span
-        className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
-          xong
-            ? "border-success bg-success-bg text-success"
-            : dang
-              ? "border-brand-600 bg-brand-50 text-brand-700"
-              : "border-line bg-surface-muted text-ink-faint"
-        }`}
-      >
-        {xong ? (
-          <Check className="size-4" strokeWidth={3} />
-        ) : dang ? (
-          <Phone className="size-3.5" />
-        ) : (
-          <CircleDashed className="size-3.5" />
-        )}
-      </span>
+      <VongTron
+        xong={xong}
+        dang={dang}
+        hoanTacDuoc={Boolean(lan?.id && onHoanTac)}
+        dangHoanTac={dangHoanTac === lan?.id}
+        onHoanTac={() => lan?.id && onHoanTac?.(lan.id, tenHienTai)}
+      />
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -272,6 +267,56 @@ function HangGop({
         {ghiChuThem}
       </div>
     </div>
+  );
+}
+
+/** VÒNG TRÒN ĐẦU MỖI SỰ KIỆN — và là nút hoàn tác khi có gì để rút.
+ *
+ *  Hình dạng giữ nguyên như trước để không ai phải học lại màn hình: viền dày,
+ *  tích xanh khi xong, điện thoại khi đang ở đây, vòng đứt khi chưa tới. Chỉ
+ *  thêm một vòng ngoài mảnh và con trỏ tay khi bấm được — đủ để nhận ra, không
+ *  đủ để lấn át. */
+function VongTron({
+  xong,
+  dang,
+  hoanTacDuoc,
+  dangHoanTac,
+  onHoanTac,
+}: {
+  xong: boolean;
+  dang: boolean;
+  hoanTacDuoc: boolean;
+  dangHoanTac: boolean;
+  onHoanTac: () => void;
+}) {
+  const lop = `flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
+    xong
+      ? "border-success bg-success-bg text-success"
+      : dang
+        ? "border-brand-600 bg-brand-50 text-brand-700"
+        : "border-line bg-surface-muted text-ink-faint"
+  }`;
+  const ruot = dangHoanTac ? (
+    <Undo2 className="size-3.5 animate-pulse" />
+  ) : xong ? (
+    <Check className="size-4" strokeWidth={3} />
+  ) : dang ? (
+    <Phone className="size-3.5" />
+  ) : (
+    <CircleDashed className="size-3.5" />
+  );
+  if (!hoanTacDuoc) return <span className={lop}>{ruot}</span>;
+  return (
+    <button
+      type="button"
+      onClick={onHoanTac}
+      disabled={dangHoanTac}
+      title="Bấm để hoàn tác thao tác này — dòng vẫn nằm trong sổ"
+      aria-label="Hoàn tác thao tác này"
+      className={`${lop} ring-1 ring-inset ring-brand-300 hover:ring-2 hover:ring-brand-500 disabled:opacity-50`}
+    >
+      {ruot}
+    </button>
   );
 }
 
@@ -800,9 +845,15 @@ export default function VungLamViecKhach({
    *  checkout. Người trực mở một lượt vừa sinh ra đã thấy đủ tám bước xanh —
    *  không còn gì để làm theo màn hình, mà chẳng có gì báo là màn đang nói về
    *  lượt khác. Rỗng KÈM MỘT DÒNG CHỮ thì người đọc biết mình đang thiếu gì. */
-  const lichSuLuotNay = lich.id
-    ? lichSu.filter((d) => d.appointment_id === lich.id)
-    : [];
+  // DÒNG ĐÃ HOÀN TÁC KHÔNG ĐƯỢC TÍNH — nhưng vẫn nằm trong sổ.
+  //
+  // Quang 10/08/2026 muốn bấm nhầm thì rút lại được, và log thì không được xoá.
+  // Nên `huy_luc` là lá cờ: dòng ở lại cho "Lịch sử các lần khám" đọc, còn mọi
+  // phép suy trạng thái ở đây bỏ qua nó — đúng như `v_viec_cskh` làm ở server.
+  // Hai bên phải cùng luật, nếu không node tích xanh mà chip bên trái mở lại.
+  const lichSuLuotNay = (
+    lich.id ? lichSu.filter((d) => d.appointment_id === lich.id) : []
+  ).filter((d) => !d.huy_luc);
   const khongGanDuocLuot = !lich.id && lichSu.length > 0;
 
   const [dangCheckout, setDangCheckout] = useState(false);
@@ -862,6 +913,43 @@ export default function VungLamViecKhach({
     }
     router.refresh();
     return true;
+  }
+
+  const [dangHoanTac, setDangHoanTac] = useState<string | null>(null);
+  const [loiHoanTac, setLoiHoanTac] = useState<string | null>(null);
+
+  /** RÚT LẠI MỘT LẦN CHẠM BẤM NHẦM.
+   *
+   *  Quang 10/08/2026: *"nhấn vào nút tròn của các sự kiện để hoàn tác… tất
+   *  nhiên là log không được xoá, mà là hoàn tác lại tác vụ đó"*.
+   *
+   *  Backend đặt `huy_luc` trên chính dòng ấy — dòng Ở LẠI, chỉ thôi được tính.
+   *  Với `CHECK_IN` nó còn gọi `undo_checkin` để đưa lịch hẹn về CONFIRMED;
+   *  `CHECK_OUT` thì từ chối, vì máy trạng thái không có đường ra khỏi
+   *  COMPLETED. Xem `TuongTacCskhService.hoan_tac`.
+   *
+   *  HỎI LẠI TRƯỚC KHI RÚT. Nút tròn nằm ngay cạnh nút "Làm lại" và cả hai đều
+   *  nhỏ; rút một lần chạm mà không hỏi là đổi một cú bấm nhầm lấy một cú bấm
+   *  nhầm khác. */
+  async function hoanTac(id: string, ten: string) {
+    if (!window.confirm(`Rút lại "${ten}"? Dòng vẫn nằm trong sổ, chỉ thôi được tính.`)) {
+      return;
+    }
+    setDangHoanTac(id);
+    setLoiHoanTac(null);
+    const res = await fetch(`/api/cskh/tuong-tac/${id}/hoan-tac`, {
+      method: "POST",
+    });
+    setDangHoanTac(null);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setLoiHoanTac(nhanLoi(d, `Không hoàn tác được (lỗi ${res.status}).`));
+      return;
+    }
+    router.refresh();
   }
 
   const [dangGoiNhac, setDangGoiNhac] = useState<string | null>(null);
@@ -1002,23 +1090,19 @@ export default function VungLamViecKhach({
     return (
       <li className="flex gap-3">
         <div className="flex flex-col items-center">
-          <span
-            className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
-              xong
-                ? "border-success bg-success-bg text-success"
-                : dang
-                  ? "border-brand-600 bg-brand-50 text-brand-700"
-                  : "border-line bg-surface-muted text-ink-faint"
-            }`}
-          >
-            {xong ? (
-              <Check className="size-4" strokeWidth={3} />
-            ) : dang ? (
-              <Phone className="size-3.5" />
-            ) : (
-              <CircleDashed className="size-3.5" />
-            )}
-          </span>
+          {/* NÚT TRÒN LÀ NÚT HOÀN TÁC — khi và chỉ khi có một dòng để rút.
+              Quang 10/08/2026: *"nhấn vào nút tròn của các sự kiện để hoàn tác…
+              để phòng trường hợp người ta ấn nhầm"*.
+              Không có `lan` thì nó vẫn là một biểu tượng như cũ: rút một thứ
+              chưa từng ghi là một cái nút không làm gì, và người dùng sẽ tưởng
+              mình vừa làm hỏng cái gì đó. */}
+          <VongTron
+            xong={xong}
+            dang={dang}
+            hoanTacDuoc={Boolean(lan?.id)}
+            dangHoanTac={dangHoanTac === lan?.id}
+            onHoanTac={() => lan?.id && void hoanTac(lan.id, tt.ten)}
+          />
           {!cuoi && (
             <span
               className={`w-0.5 flex-1 ${xong ? "bg-success" : "bg-line"}`}
@@ -1147,6 +1231,11 @@ export default function VungLamViecKhach({
           )}
           {/* Sổ chăm sóc không gắn được vào lượt nào — nói ra thay vì lặng lẽ
               tích xanh bằng dữ liệu của lượt khác. Xem `lichSuLuotNay`. */}
+          {loiHoanTac && (
+            <p className="rounded-md bg-danger-bg px-2 py-1 text-[11px] text-danger">
+              {loiHoanTac}
+            </p>
+          )}
           {khongGanDuocLuot && (
             <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-[11px] font-medium text-warning">
               Khách có {lichSu.length} thao tác chăm sóc nhưng màn chưa gắn được
@@ -1188,6 +1277,8 @@ export default function VungLamViecKhach({
                   chon={dangChon === "GOI_LAI"}
                   lan={lanCuoi("GOI_LAI")}
                   onLamViec={onLamViec}
+                  onHoanTac={(id, ten) => void hoanTac(id, ten)}
+                  dangHoanTac={dangHoanTac}
                   onGhi={(ma, kq) => void ghiLoiRa(ma, kq)}
                   dangGhi={dangGhiLoiRa}
                   loi={loiGhiLoiRa}
@@ -1205,6 +1296,8 @@ export default function VungLamViecKhach({
                   chon={dangChon === "HOI_LY_DO_HUY"}
                   lan={lanCuoi("HOI_LY_DO_HUY")}
                   onLamViec={onLamViec}
+                  onHoanTac={(id, ten) => void hoanTac(id, ten)}
+                  dangHoanTac={dangHoanTac}
                   // LÝ DO HUỶ LÚC BẤM HUỶ — khác với lý do hỏi được lúc gọi lại.
                   //
                   // Người huỷ lịch đã chọn một mã và có thể đã gõ thêm chữ; cả

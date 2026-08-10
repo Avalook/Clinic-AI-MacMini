@@ -7,6 +7,12 @@
 // diện.
 
 export interface DongLichSu {
+  /** `tuong_tac_cskh.id` — cần để HOÀN TÁC đúng dòng. Dòng gộp từ
+   *  `nhac_tai_kham` không có (chúng đóng bằng đường khác), nên là tuỳ chọn. */
+  id?: string | null;
+  /** Đã bị rút lại lúc nào. Dòng VẪN Ở LẠI trong sổ — nó chỉ thôi được tính.
+   *  Xem migration 20260810000009. */
+  huy_luc?: string | null;
   xay_ra_luc: string;
   loai: string;
   kenh: string;

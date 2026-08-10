@@ -117,6 +117,10 @@ EVENT_LABELS: dict[str, str] = {
     "cskh_action.created": "Tạo việc chăm sóc khách",
     "cskh_log.followup_call": "Gọi chăm sóc khách",
     "cskh.tuong_tac": "Ghi lần liên hệ với khách",
+    # Rút lại một lần chạm bấm nhầm. Dòng sổ KHÔNG bị xoá — nó chỉ thôi được
+    # tính (`tuong_tac_cskh.huy_luc`), nên nhãn phải nói "rút lại", không phải
+    # "xoá": người đọc Lịch sử thao tác cần biết bản ghi vẫn còn đó.
+    "cskh.tuong_tac_hoan_tac": "Rút lại một lần liên hệ đã ghi",
     "cskh.phan_hoi_ghi": "Ghi phản hồi của khách",
     "cskh.phan_hoi_xu_ly": "Xử lý phản hồi của khách",
     # `cskh.customers` là NGUỒN (cột source), không phải loại sự kiện — nó nói

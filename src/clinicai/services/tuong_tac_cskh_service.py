@@ -199,6 +199,106 @@ class TuongTacCskhService:
         )
         return {"ok": True, "id": row_id}
 
+    async def hoan_tac(
+        self, *, identity: StaffIdentity, tuong_tac_id: str
+    ) -> dict[str, Any]:
+        """Rút lại một lần chạm bấm nhầm — KHÔNG xoá dòng sổ.
+
+        Quang 10/08/2026: *"hoàn tác lại tác vụ đó… tất nhiên là log không được
+        xoá"*. Dòng ở lại, chỉ thôi được tính (`huy_luc`), và view bỏ qua nó —
+        xem migration 20260810000009.
+
+        HOÀN TÁC KHÔNG CHỈ LÀ MỘT LÁ CỜ. Hai mốc quầy còn ĐỔI TRẠNG THÁI LỊCH
+        HẸN thật, nên rút lại dòng sổ mà để lịch nguyên trạng là nói dối theo
+        chiều ngược lại: sổ bảo chưa check-in, lịch hẹn vẫn CHECKED_IN.
+
+            CHECK_IN   đảo được — `undo_checkin` đưa CHECKED_IN về CONFIRMED,
+                       và nó huỷ luôn các bước còn mở của lượt khám
+                       (`_WORKFLOW_CANCELLING`).
+            CHECK_OUT  KHÔNG đảo được. Máy trạng thái không có đường nào ra khỏi
+                       COMPLETED (`booking_service.TRANSITIONS`), và đó là chủ ý:
+                       "đã khám xong" là mốc nhiều thứ khác đọc vào (nhắc tái
+                       khám, thu tiền, hồ sơ). Từ chối ở đây kèm câu chỉ đường,
+                       thay vì âm thầm gỡ cờ và để lịch hẹn nói một đằng sổ nói
+                       một nẻo.
+        """
+        row = await self._pool.fetchrow(
+            "SELECT id::text, loai, appointment_id::text AS appt, huy_luc "
+            "  FROM public.tuong_tac_cskh "
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            tuong_tac_id,
+            identity.clinic_id,
+        )
+        if row is None:
+            raise NotFoundError("Không tìm thấy thao tác này.")
+        if row["huy_luc"] is not None:
+            # Hai người cùng bấm, hoặc bấm lại sau khi mạng lag. Không phải lỗi.
+            return {"ok": True, "da_hoan_tac_truoc_do": True}
+
+        if row["loai"] == "CHECK_OUT":
+            raise ValidationError(
+                "Không hoàn tác được lần đóng lượt khám. Lượt đã COMPLETED và "
+                "máy trạng thái không có đường quay lại — nhờ Quản lý mở lại "
+                "lượt, hoặc đặt một lịch mới cho khách."
+            )
+
+        if row["loai"] == "CHECK_IN" and row["appt"]:
+            from clinicai.services.booking_service import BookingService
+
+            trang_thai = await self._pool.fetchval(
+                "SELECT status FROM public.appointment "
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                row["appt"],
+                identity.clinic_id,
+            )
+            if trang_thai == "COMPLETED":
+                raise ValidationError(
+                    "Khách đã khám xong rồi, không rút lại check-in được nữa."
+                )
+            if trang_thai == "CHECKED_IN":
+                await BookingService(self._pool).apply_action(
+                    appointment_id=row["appt"],
+                    action="undo_checkin",
+                    identity=identity,
+                )
+
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "UPDATE public.tuong_tac_cskh "
+                    "   SET huy_luc = now(), huy_boi_staff_id = $2::uuid "
+                    " WHERE id = $1::uuid AND huy_luc IS NULL",
+                    tuong_tac_id,
+                    identity.staff_id,
+                )
+                # Hoàn tác cũng là một sự kiện. Sổ nói "đã bấm rồi rút lại", và
+                # `event_log` nói ai rút — hai thứ khác nhau, cần cả hai.
+                await conn.execute(
+                    """
+                    INSERT INTO public.event_log
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, source, occurred_at)
+                    VALUES ($1::uuid, 'cskh.tuong_tac_hoan_tac', 'patient',
+                            NULL, jsonb_build_object(
+                                'tuong_tac_id', $2::text,
+                                'loai', $3::text,
+                                'by_staff_id', $4::text),
+                            'cskh.customers', now())
+                    """,
+                    identity.clinic_id,
+                    tuong_tac_id,
+                    row["loai"],
+                    identity.staff_id,
+                )
+
+        logger.info(
+            "cskh_tuong_tac_hoan_tac",
+            tuong_tac_id=tuong_tac_id,
+            loai=row["loai"],
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True}
+
     async def _doi_trang_thai_lich(
         self, *, identity: StaffIdentity, appointment_id: str, loai: str
     ) -> None:
