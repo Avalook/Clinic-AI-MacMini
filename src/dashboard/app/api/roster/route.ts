@@ -19,9 +19,23 @@ import {
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
 
-/** Thứ Hai của tuần chứa `iso`. Cùng quy ước với week_start_of ở backend. */
-function weekStartOf(iso: string): string {
+/** Thứ Hai của tuần chứa `iso`. Cùng quy ước với week_start_of ở backend.
+ *
+ *  `null` = `iso` không phải một ngày đọc được.
+ *
+ *  NGÀY SAI PHẢI THÀNH 400, KHÔNG PHẢI 500. `new Date("99-99-9999T00:00:00Z")`
+ *  cho một Invalid Date, và `toISOString()` trên đó NÉM `RangeError` — lời gọi
+ *  trả 500 với thân rỗng, người dùng không đọc được gì và log không nói tên
+ *  đường dẫn nào sai.
+ *
+ *  Đây là con thứ HAI cùng họ trong một ngày: `/api/appointments` cũng ném đúng
+ *  như vậy khi thiếu `date` (xem ghi chú ở route ấy). Luật rút ra: mọi chỗ dựng
+ *  `Date` từ chuỗi NGƯỜI GỬI phải kiểm `Number.isNaN(getTime())` TRƯỚC khi gọi
+ *  `toISOString()` — bản thân `toISOString()` là thứ ném, nên câu kiểm đặt sau
+ *  nó không bao giờ chạy tới. */
+function weekStartOf(iso: string): string | null {
   const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
   const isoDow = ((d.getUTCDay() + 6) % 7) + 1; // 1 = thứ Hai
   d.setUTCDate(d.getUTCDate() - (isoDow - 1));
   return d.toISOString().slice(0, 10);
@@ -140,6 +154,12 @@ export async function GET(request: Request) {
   // tuần đã áp dụng, vì ở đó cờ này quyết định có TỪ CHỐI khách hay không —
   // và từ chối dựa trên một bản nháp là hướng sai duy nhất không sửa lại được.
   const tuan = weekStartOf(date);
+  if (tuan === null) {
+    return NextResponse.json(
+      { error: `Ngày không hợp lệ: ${date}` },
+      { status: 400 },
+    );
+  }
   const { data: daApDung } = await caller
     .from("roster_week")
     .select("week_start")
