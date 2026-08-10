@@ -55,7 +55,16 @@ async function refreshQuietly(
  * status/body back to the browser as the { ok } / { error } shape the UI expects.
  */
 export async function proxyJsonToBackend(
-  method: "POST" | "PUT" | "PATCH" | "DELETE",
+  // "GET" CÓ TRONG DANH SÁCH, và nó không thừa.
+  //
+  // `fetchFromBackend` tiện cho server component vì nó trả `T | null`. Nhưng
+  // `null` XOÁ MẤT mã trạng thái và câu lỗi: route `/api/roster?staff_id=` gọi
+  // nó, thấy null, rồi trả 503 "Không đọc được phạm vi vị trí" — trong khi
+  // backend đã trả 404 kèm câu "Không tìm thấy nhân viên này". Người dùng đọc
+  // thành "máy chủ hỏng", và 503 trong log lúc có sự cố là một dấu vết dẫn sai.
+  //
+  // Đo khi nghiệm thu 10/08/2026 với một `staff_id` không tồn tại.
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
   // Chuyển tiếp Idempotency-Key khi route gọi có gửi.
@@ -108,7 +117,8 @@ export async function proxyJsonToBackend(
     res = await fetch(`${API_BASE}${path}`, {
       method,
       headers,
-      body: JSON.stringify(body),
+      // GET không được mang thân — `fetch` ném nếu có.
+      ...(method === "GET" ? {} : { body: JSON.stringify(body) }),
       cache: "no-store",
     });
   } catch {
