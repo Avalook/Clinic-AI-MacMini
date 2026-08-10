@@ -223,7 +223,8 @@ class TuongTacCskhService:
                        một nẻo.
         """
         row = await self._pool.fetchrow(
-            "SELECT id::text, loai, appointment_id::text AS appt, huy_luc "
+            "SELECT id::text, loai, appointment_id::text AS appt, huy_luc, "
+            "       clinic_patient_id::text AS bn "
             "  FROM public.tuong_tac_cskh "
             " WHERE id = $1::uuid AND clinic_id = $2::uuid",
             tuong_tac_id,
@@ -279,7 +280,7 @@ class TuongTacCskhService:
                         (clinic_id, event_type, aggregate_type, aggregate_id,
                          payload, source, occurred_at)
                     VALUES ($1::uuid, 'cskh.tuong_tac_hoan_tac', 'patient',
-                            NULL, jsonb_build_object(
+                            $5::uuid, jsonb_build_object(
                                 'tuong_tac_id', $2::text,
                                 'loai', $3::text,
                                 'by_staff_id', $4::text),
@@ -289,6 +290,13 @@ class TuongTacCskhService:
                     tuong_tac_id,
                     row["loai"],
                     identity.staff_id,
+                    # `aggregate_id` là NOT NULL — tôi để NULL ở bản đầu và mọi
+                    # cú hoàn tác trả 500 với "null value in column
+                    # aggregate_id". Câu `ghi()` ngay bên trên đã dùng đúng
+                    # `clinic_patient_id` cho cột này; chép sai một tham số là
+                    # đủ. Sự kiện hoàn tác thuộc về CHÍNH bệnh nhân ấy, y như
+                    # sự kiện ghi.
+                    row["bn"],
                 )
 
         logger.info(

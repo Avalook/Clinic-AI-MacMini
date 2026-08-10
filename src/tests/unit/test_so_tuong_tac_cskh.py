@@ -372,3 +372,37 @@ def test_checkout_cua_cskh_dong_luon_luot_kham() -> None:
         "phải truyền lý do ngoại lệ, nếu không lượt còn vướng sẽ không đóng "
         "được và lỗi bị nuốt trong im lặng"
     )
+
+
+def test_khong_ghi_event_log_voi_aggregate_id_rong() -> None:
+    """`event_log.aggregate_id` là NOT NULL — đừng để lọt một câu INSERT nào.
+
+    LỖI 10/08/2026: `hoan_tac` chèn `NULL` vào cột ấy, nên MỌI cú hoàn tác trả
+    500 với *"null value in column aggregate_id"*. Câu `ghi()` ngay bên trên đã
+    dùng đúng `clinic_patient_id`; chép sai một tham số là đủ.
+
+    Sai lầm này không có gì bắt được: mypy không biết ràng buộc của database,
+    và câu INSERT chỉ nổ lúc chạy thật. Nên canh bằng mã nguồn — rẻ và đúng
+    chỗ hay quên.
+    """
+    import inspect
+    import re
+
+    from clinicai.services import tuong_tac_cskh_service as mod
+
+    src = inspect.getsource(mod)
+    # Mỗi câu INSERT vào event_log phải điền aggregate_id bằng một tham số
+    # ($n) chứ không phải chữ NULL.
+    for khoi in re.findall(
+        r"INSERT INTO public\.event_log.*?VALUES\s*\((.*?)\)\s*\n",
+        src,
+        re.S,
+    ):
+        # Ba cột đầu là clinic_id, event_type, aggregate_type; cột thứ tư là
+        # aggregate_id.
+        cot = [c.strip() for c in khoi.split(",")]
+        assert len(cot) >= 4, f"không đọc được câu VALUES: {khoi!r}"
+        assert cot[3].upper() != "NULL", (
+            "một câu INSERT vào event_log đang để aggregate_id = NULL, mà cột "
+            "ấy là NOT NULL — lời gọi sẽ trả 500 ngay lần chạy đầu."
+        )
