@@ -246,24 +246,22 @@ export default function HanhDongTrangThai({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clinic_patient_id: clinicPatientId,
-          // NĂM loại này bắt buộc gắn lịch hẹn (CAN_LICH_HEN ở backend +
-          // CHECK `tuong_tac_can_lich_hen` ở database). Gửi null cho các loại
-          // khác thay vì gửi bừa một id không liên quan.
+          // LUÔN GẮN LỊCH HẸN KHI CÓ.
           //
-          // Danh sách này TỪNG THIẾU check-in/check-out, mà chính màn này gửi
-          // CHECK_OUT ở hai nút "Trả kết quả xét nghiệm" và "Đặt lịch tái
-          // khám" — nên cả hai chỉ trả về "Việc này phải gắn với một lịch hẹn
-          // cụ thể" và không bao giờ đóng được bước. Chép một tập hợp của
-          // backend sang trình duyệt thì phải chép đủ.
-          appointment_id: [
-            "XAC_NHAN_LICH",
-            "NHAC_HEN",
-            "HOI_LY_DO_HUY",
-            "CHECK_IN",
-            "CHECK_OUT",
-          ].includes(loai)
-            ? appointmentId
-            : null,
+          // Chỗ này từng chỉ gắn cho năm loại của `CAN_LICH_HEN` — tập hợp
+          // backend BẮT BUỘC phải có lịch — và gửi null cho mọi loại khác. Đúng
+          // theo nghĩa "không vi phạm ràng buộc", nhưng nó vứt đi thông tin lượt
+          // khám: `CHECK_XN`, `KHAC`, `TRA_KQ`, `HOI_THAM` vào sổ mà không biết
+          // thuộc lượt nào.
+          //
+          // Hệ quả lộ ra ngày 10/08/2026, khi timeline bắt đầu lọc sổ theo lượt:
+          // bấm mấy nút ấy thì ghi thật nhưng không tích xanh, vì chính màn hình
+          // loại dòng vừa ghi ra. Và ô "Lịch sử các lần khám" cũng không gom
+          // được chúng vào đúng lượt.
+          //
+          // Backend chỉ ĐÒI với năm loại kia; nó NHẬN với mọi loại và tự kiểm
+          // lịch hẹn có đúng của khách này không.
+          appointment_id: appointmentId,
           loai,
           // "BỎ QUA" LÀ KHÔNG GỌI AI CẢ, nên kênh phải là KHONG_LIEN_HE.
           //

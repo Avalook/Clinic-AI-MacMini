@@ -534,6 +534,18 @@ export default function VungLamViecKhach({
       setLoiGhiLoiRa("Khách chưa có lịch hẹn nào để gắn thao tác này.");
       return;
     }
+    // LUÔN GẮN LỊCH HẸN KHI CÓ, không chỉ với năm loại bắt buộc.
+    //
+    // ĐÂY LÀ LỖI QUANG BẮT ĐƯỢC 10/08/2026: *"ở lượt khám mới ấn mấy nút dưới
+    // nó chả động tĩnh gì"*. Bấm CÓ ghi vào sổ — nhưng `CHECK_XN`, `KHAC`,
+    // `TRA_KQ`, `HOI_THAM` xưa nay ghi với `appointment_id = NULL` (đo trên
+    // staging: 19/40 dòng), mà bản vá "tích xanh theo lượt" ngay trước đó lọc
+    // sổ theo `appointment_id`. Nên dòng vừa ghi bị chính màn hình loại ra:
+    // ghi thật, tích không lên, người dùng thấy nút chết.
+    //
+    // Backend chỉ ĐÒI `appointment_id` cho năm loại kia; nó nhận với mọi loại
+    // và còn kiểm lịch ấy đúng của khách này. Gắn luôn là vừa sửa được cái nút,
+    // vừa gom đúng bước vào đúng lượt ở ô Lịch sử các lần khám.
     setDangGhiLoiRa(v.khoa);
     setLoiGhiLoiRa(null);
     const res = await fetch("/api/cskh/tuong-tac", {
@@ -541,7 +553,7 @@ export default function VungLamViecKhach({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clinic_patient_id: clinicPatientId,
-        appointment_id: canLich.includes(v.loai) ? lich.id : null,
+        appointment_id: lich.id ?? null,
         loai: v.loai,
         // Mốc quầy đòi đúng cặp TRUC_TIEP + GHI_NHAN; còn lại là cuộc gọi.
         kenh: v.ketQua === "GHI_NHAN" ? "TRUC_TIEP" : "GOI",
@@ -784,6 +796,15 @@ export default function VungLamViecKhach({
                     ? "Làm lại"
                     : "Làm bước này"}
             </button>
+
+            {/* LỖI PHẢI HIỆN NGAY TẠI NÚT VỪA BẤM.
+                `Node` chưa từng vẽ `loiGhiLoiRa`, nên một cú ghi hỏng trông y
+                hệt một cú bấm không ăn — và đó chính là "chả động tĩnh gì" mà
+                Quang gặp. Một nút im lặng dạy người dùng bấm lại nhiều lần rồi
+                bỏ cuộc; một dòng đỏ nói được chuyện gì đã xảy ra. */}
+            {motCham && loiGhiLoiRa && dangGhiLoiRa === null && (
+              <span className="text-[11px] text-danger">{loiGhiLoiRa}</span>
+            )}
           </div>
 
           {/* Việc phải làm — phần sau mũi tên trong đặc tả. */}
