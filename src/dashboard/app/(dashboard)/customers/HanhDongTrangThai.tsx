@@ -198,9 +198,6 @@ interface Props {
   appointmentId: string | null;
   phone: string | null;
   tepKetQua: TepKetQuaRow[];
-  /** `ket_qua` mà CSKH vừa chọn ở hàng gộp bên trái (KNM / KLLD / Hẹn GLS).
-   *  null = vào thẳng trạng thái, chưa chọn lối ra nào. */
-  ketQuaChon?: string | null;
   /** Trạng thái này đã có dấu vết xử lý chưa — để nút nói "làm lại". */
   daXong: boolean;
 }
@@ -212,7 +209,6 @@ export default function HanhDongTrangThai({
   appointmentId,
   phone,
   tepKetQua,
-  ketQuaChon,
   daXong,
 }: Props) {
   const router = useRouter();
@@ -562,51 +558,52 @@ export default function HanhDongTrangThai({
           </>
         );
 
-      case "GOI_LAI": {
+      case "GOI_LAI":
         // BA KẾT QUẢ NÀY TRƯỚC ĐÂY KHÔNG GHI ĐƯỢC TỪ MÀN NÀY.
         //
         // `CHUA_NGHE_MAY`, `KHONG_LIEN_LAC_DUOC`, `HEN_GOI_LAI` có trong bộ từ
         // của backend từ lâu, và chính cái node trên timeline mang tên "KNM /
-        // KLLD / Hẹn GLS" — nhưng mọi nút ở đây chỉ gửi `DA_LIEN_HE`. Cái nhãn
-        // mô tả một việc màn hình không làm được.
+        // KLLD / Hẹn GLS" — nhưng mọi nút ở đây chỉ gửi `DA_LIEN_HE`, nên sổ
+        // chăm sóc ghi "đã liên hệ được" cho cả những lần khách không bắt máy.
         //
-        // Nay CSKH bấm một lối ra ở hàng gộp bên trái, và nút chính dưới đây
-        // ghi ĐÚNG kết quả ấy. Chưa chọn lối ra nào thì vẫn vào được trạng thái
-        // (bấm từ chỗ khác), và nút chính ghi "đã liên hệ được" như cũ.
-        const nhanLoiRa: Record<string, string> = {
-          CHUA_NGHE_MAY: "Ghi: khách không nghe máy",
-          KHONG_LIEN_LAC_DUOC: "Ghi: không liên lạc được",
-          HEN_GOI_LAI: "Ghi: khách hẹn gọi lại",
-        };
-        const ketQua = ketQuaChon ?? "DA_LIEN_HE";
+        // Hàng gộp bên cột giữa ghi thẳng ba kết quả này chỉ bằng một cú bấm.
+        // Ở ĐÂY GIỮ LẠI CHÚNG vì đây là chỗ DUY NHẤT có ô ghi chú: "khách nói
+        // đang họp, gọi lại sau 5h" là thứ chỉ ghi được từ khối này.
         return (
           <>
             <p className="text-[11px] leading-snug text-ink-soft">
-              {ketQuaChon
-                ? "Gọi xong thì ghi lại — kết quả đã chọn ở cột giữa."
-                : "Lần trước không nghe máy / không liên lạc được / khách hẹn gọi lại."}
+              Gọi xong thì bấm đúng chuyện đã xảy ra. Cần ghi thêm nội dung thì
+              gõ vào ô dưới trước khi bấm.
             </p>
             {soDienThoai}
             {oGhiChu}
             <NutChinh
               ma="gl"
-              nhan={nhanLoiRa[ketQua] ?? "Đã gọi xác nhận lịch hẹn"}
+              nhan="Đã liên hệ được"
               Icon={Phone}
-              onClick={() => void ghi("gl", "NHAC_HEN", ketQua)}
+              onClick={() => void ghi("gl", "NHAC_HEN", "DA_LIEN_HE")}
             />
-            {/* Gọi lại mà GẶP được khách thì vẫn phải đóng được bước, dù nãy
-                đã trót chọn một lối ra "không gặp". */}
-            {ketQuaChon && (
+            <div className="flex flex-wrap gap-2">
               <NutPhu
-                ma="glok"
-                nhan="Lần này gặp được khách"
-                Icon={Phone}
-                onClick={() => void ghi("glok", "NHAC_HEN", "DA_LIEN_HE")}
+                ma="knm"
+                nhan="Không nghe máy"
+                onClick={() => void ghi("knm", "NHAC_HEN", "CHUA_NGHE_MAY")}
               />
-            )}
+              <NutPhu
+                ma="klld"
+                nhan="Không liên lạc được"
+                onClick={() =>
+                  void ghi("klld", "NHAC_HEN", "KHONG_LIEN_LAC_DUOC")
+                }
+              />
+              <NutPhu
+                ma="hgl"
+                nhan="Hẹn gọi lại sau"
+                onClick={() => void ghi("hgl", "NHAC_HEN", "HEN_GOI_LAI")}
+              />
+            </div>
           </>
         );
-      }
 
       case "CHO_BAC_SI":
       case "KQ_CHUA_GUI":

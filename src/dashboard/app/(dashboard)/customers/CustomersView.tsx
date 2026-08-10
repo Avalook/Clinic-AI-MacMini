@@ -446,10 +446,6 @@ export default function CustomersView({
   // null = chưa chọn gì ⇒ khối hành động chạy theo việc gấp nhất mà
   // `v_trang_thai_cskh` suy ra.
   const [viecDangGhi, setViecDangGhi] = useState<string | null>(null);
-  /** Lối ra đang chọn trong một hàng gộp (KNM / KLLD / Hẹn GLS). Tách khỏi
-   *  `viecDangGhi` vì nó là `ket_qua`, không phải mã trạng thái — nhét chung
-   *  một ô là hai khái niệm đè lên nhau. */
-  const [ketQuaDangChon, setKetQuaDangChon] = useState<string | null>(null);
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
@@ -851,6 +847,7 @@ export default function CustomersView({
         {selected && (
           <VungLamViecKhach
             tenKhach={selected.full_name}
+            clinicPatientId={selected.clinic_patient_id}
             lich={{
               id: selectedAppt?.appt?.id ?? null,
               status: selectedAppt?.status ?? null,
@@ -863,14 +860,7 @@ export default function CustomersView({
               trangThaiByPatient[selected.clinic_patient_id]?.trang_thai ?? null
             }
             dangChon={viecDangGhi}
-            ketQuaChon={ketQuaDangChon}
-            onLamViec={(ma, ketQua) => {
-              setViecDangGhi(ma);
-              // Đặt lại về null khi bấm một trạng thái KHÔNG có lối ra: giữ
-              // lại lựa chọn cũ sẽ làm khối bên phải mở ra với một kết quả
-              // thuộc về trạng thái khác.
-              setKetQuaDangChon(ketQua ?? null);
-            }}
+            onLamViec={(ma) => setViecDangGhi(ma)}
           >
             <PhanHoiKhach
               clinicPatientId={selected.clinic_patient_id}
@@ -1014,7 +1004,7 @@ export default function CustomersView({
                       thì mở luôn chỗ tải kết quả lên. */}
                   <div className="pt-1">
                     <HanhDongTrangThai
-                      key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}-${ketQuaDangChon ?? ""}`}
+                      key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
                       trangThai={
                         viecDangGhi ??
                         trangThaiByPatient[selected.clinic_patient_id]
@@ -1026,7 +1016,6 @@ export default function CustomersView({
                       appointmentId={selectedAppt?.appt?.id ?? null}
                       phone={selected.phone_primary}
                       tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
-                      ketQuaChon={ketQuaDangChon}
                       daXong={false}
                     />
                   </div>
