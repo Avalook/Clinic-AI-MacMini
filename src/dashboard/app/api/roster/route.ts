@@ -1,5 +1,5 @@
 // Lịch làm việc — ghi/xoá phân công, và CHỐT một tuần.
-//   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó (chỉ tuần ĐÃ ÁP DỤNG)
+//   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó + `du_kien` (tuần chưa chốt)
 //   GET    ?tu=…&den=…               → những tuần đã áp dụng trong khoảng
 //   GET    ?staff_id=…               → vị trí người này được xếp vào
 //   POST   { week_start, work_date, … }  → thêm 1 ô
@@ -114,19 +114,37 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
   }
 
-  // CHỈ TUẦN ĐÃ ÁP DỤNG mới trả về bác sĩ trực.
+  // CÓ PHÂN CÔNG THÌ TRẢ VỀ — "tuần chưa chốt" là một CÂU NÓI THÊM, không phải
+  // một cái khoá.
   //
-  // Sơ đồ đặt lịch vẽ hàng theo danh sách này; danh sách rỗng thì nó rơi về
-  // "hiện mọi bác sĩ" — đúng thứ ta muốn cho một tuần chưa chốt. Trả về danh
-  // sách lấy từ bản nháp thì màn hình nói chắc nịch ai trực ngày 12/12 trong
-  // khi phòng khám chưa quyết. Xem migration 20260808000001.
+  // QUANG 10/08/2026: *"lúc quản lý tạo lịch làm việc và ngày mà khách đặt đã
+  // có các bác sĩ phụ trách rồi thì khi tôi ấn để đổi lịch hoặc đặt lịch thì
+  // phải hiện ra các khung giờ của các bác sĩ đã có lịch làm việc chứ"*.
+  //
+  // Trước đây chỗ này `return { doctors: [] }` ngay khi tuần chưa có dòng
+  // `roster_week`. Đo trên staging: ngày 10/09/2026 CÓ dòng work_roster
+  // `LICH_KHAM / FULL / APPROVED / TS.BS. Phan Chí Thành` kèm `staff_id`, hiện
+  // rành rành trên màn Lịch làm việc của quản lý — nhưng tuần 07/09 chưa ai bấm
+  // "Áp dụng tuần", nên lưới đặt lịch trả lời "Ngày này chưa xếp lịch trực bác
+  // sĩ" và bày đúng một hàng "Chưa phân bác sĩ". Hai màn cùng đọc một bảng mà
+  // nói hai điều ngược nhau.
+  //
+  // Ý ĐỊNH CŨ VẪN ĐÚNG, CHỈ SAI CÁCH THI HÀNH. `roster_week` sinh ra để một
+  // tuần trải sẵn từ mẫu không bị đọc thành lời hứa chắc chắn — nhưng cách
+  // chữa là NÓI RA rằng nó chưa chốt, không phải giấu người đã được xếp. Giấu
+  // đi thì CSKH đặt vào hàng "chưa phân bác sĩ" cho một ngày đã có bác sĩ, và
+  // quản lý phải xếp lại lần nữa thứ họ vừa xếp xong.
+  //
+  // `du_kien = true` đi kèm để lưới ghi chú "tuần này chưa chốt, giờ có thể còn
+  // đổi". Chặn đặt lịch thì KHÔNG đổi: `capacity_service.roster_known` vẫn đòi
+  // tuần đã áp dụng, vì ở đó cờ này quyết định có TỪ CHỐI khách hay không —
+  // và từ chối dựa trên một bản nháp là hướng sai duy nhất không sửa lại được.
   const tuan = weekStartOf(date);
   const { data: daApDung } = await caller
     .from("roster_week")
     .select("week_start")
     .eq("week_start", tuan)
     .maybeSingle();
-  if (!daApDung) return NextResponse.json({ doctors: [], du_kien: true });
 
   const { data, error } = await caller
     .from("work_roster")
@@ -145,7 +163,7 @@ export async function GET(request: Request) {
     seen.add(r.staff_id);
     doctors.push({ id: r.staff_id, name: r.staff_name ?? "" });
   }
-  return NextResponse.json({ doctors, du_kien: false });
+  return NextResponse.json({ doctors, du_kien: !daApDung });
 }
 
 interface PostBody {

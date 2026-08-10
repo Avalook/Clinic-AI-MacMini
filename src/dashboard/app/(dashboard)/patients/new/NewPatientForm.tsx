@@ -270,17 +270,20 @@ export default function NewPatientForm({
   // Bác sĩ TRỰC CA (work_roster LICH_KHAM) của ngày đang đặt — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
+  /** Tuần chứa ngày đã chọn chưa được bấm "Áp dụng tuần" — xem /api/roster. */
+  const [dutyDuKien, setDutyDuKien] = useState(false);
   const dutyDate = walkin ? TODAY : apptDate;
   useEffect(() => {
     if (!dutyDate) return;
     const ctrl = new AbortController();
     fetch(`/api/roster?date=${encodeURIComponent(dutyDate)}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) =>
+      .then((j) => {
         setDutyDoctorIds(
           j ? (j.doctors as { id: string }[]).map((d) => d.id) : null,
-        ),
-      )
+        );
+        setDutyDuKien(Boolean(j?.du_kien));
+      })
       .catch(() => {});
     return () => ctrl.abort();
   }, [dutyDate]);
@@ -1124,6 +1127,7 @@ export default function NewPatientForm({
                   date={TODAY}
                   doctors={doctors}
                   dutyDoctorIds={dutyDoctorIds}
+                  dutyDuKien={dutyDuKien}
                   existingAppts={visibleExistingAppts}
                   selectedDoctorId={doctorId}
                   selectedTime={apptTime}
@@ -1214,6 +1218,7 @@ export default function NewPatientForm({
                 date={apptDate}
                 doctors={doctors}
                 dutyDoctorIds={dutyDoctorIds}
+                dutyDuKien={dutyDuKien}
                 existingAppts={visibleExistingAppts}
                 selectedDoctorId={doctorId}
                 selectedTime={apptTime}

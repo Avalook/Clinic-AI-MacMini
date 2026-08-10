@@ -263,6 +263,27 @@ export default async function CustomersPage({
         .in("clinic_patient_id", shownIds)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
+  // MỌI VIỆC ĐANG MỞ, KHÔNG CHỈ VIỆC THẮNG (view 20260810000008).
+  //
+  // `v_trang_thai_cskh` là `DISTINCT ON (clinic_patient_id)` — một dòng cho một
+  // KHÁCH. Danh sách bên trái cần đúng như vậy: một người, một chip. Nhưng cột
+  // giữa và cột phải làm việc trên MỘT LƯỢT, và một khách có nhiều lượt.
+  //
+  // Ca Cường 10/08/2026: lượt hôm qua đang CHECKED_IN nên việc thắng là
+  // `DA_CHECKIN` (ưu tiên 0); người trực mở lượt tái khám ngày mai thì cột giữa
+  // vẫn sáng "Đã check-in — đang ở đây" và cột phải mời "Check-in cho khách" —
+  // cả hai đang nói về một lượt khác. Việc đúng của lượt ấy (`CHO_XAC_NHAN`)
+  // bị `DISTINCT ON` ném đi trước khi tới được màn hình.
+  const viecMoPromise = shownIds.length
+    ? supabase
+        .from("v_viec_cskh")
+        .select(
+          "clinic_patient_id, trang_thai, nhan, uu_tien, han_xu_ly, qua_han, appointment_id",
+        )
+        .in("clinic_patient_id", shownIds)
+        .limit(3000)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
   // NHẮC TÁI KHÁM — gộp về đây, không còn là một màn rời.
   //
   // HAI VIỆC TRONG MỘT LỜI GỌI, và cái thứ hai mới là cái quan trọng:
@@ -676,6 +697,15 @@ type LichHenRaw = {
     appointment_id: string | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
+  type ViecCskh = {
+    clinic_patient_id: string;
+    trang_thai: string;
+    nhan: string;
+    uu_tien: number;
+    han_xu_ly: string | null;
+    qua_han: boolean;
+    appointment_id: string | null;
+  };
   type TrangThaiRaw = {
     clinic_patient_id: string;
     trang_thai: string;
@@ -688,6 +718,7 @@ type LichHenRaw = {
     da_xac_nhan: boolean;
   };
   const trangThaiByPatient: Record<string, TrangThaiRaw> = {};
+  const viecMoByPatient: Record<string, ViecCskh[]> = {};
   let trangThaiError: { message: string } | null = null;
   type PhanHoiRaw = {
     id: string;
@@ -771,6 +802,17 @@ type LichHenRaw = {
     trangThaiError = ttErr2;
     for (const t of (tt2 as TrangThaiRaw[] | null) ?? []) {
       trangThaiByPatient[t.clinic_patient_id] = t;
+    }
+    const { data: vm, error: vmErr } = await viecMoPromise;
+    // Nuốt lỗi CÓ CHỦ Ý, và chỉ ở đây: `v_viec_cskh` là view mới
+    // (20260810000008). Máy chủ nào chưa áp migration ấy sẽ trả 404, và khi ấy
+    // màn phải lùi về hành vi cũ — một trạng thái cho cả khách — chứ không
+    // được sập. Ghi log để không ai tưởng là "hôm nay không có việc nào".
+    if (vmErr) {
+      console.error("customers: không đọc được v_viec_cskh", vmErr);
+    }
+    for (const v of (vm as ViecCskh[] | null) ?? []) {
+      (viecMoByPatient[v.clinic_patient_id] ??= []).push(v);
     }
     const { data: tt, error: ttErr } = await tuongTacPromise;
     tuongTacError = ttErr;
@@ -930,6 +972,7 @@ type LichHenRaw = {
           cskhByPatient={cskhByPatient}
           tuongTacByPatient={tuongTacByPatient}
           trangThaiByPatient={trangThaiByPatient}
+          viecMoByPatient={viecMoByPatient}
           phanHoiByPatient={phanHoiByPatient}
           lichSuKhamByPatient={lichSuKhamByPatient}
           henGoiLaiByPatient={henGoiLaiByPatient}

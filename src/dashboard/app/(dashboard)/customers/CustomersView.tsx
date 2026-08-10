@@ -207,6 +207,22 @@ export interface ChuoiKham {
   luot: LuotKham[];
 }
 
+/** MỘT việc CSKH đang mở — một dòng của `v_viec_cskh` (20260810000008).
+ *
+ *  Khác `TrangThaiCskh` ở đúng một điểm, và đó là điểm quan trọng: view kia thu
+ *  về MỘT dòng cho MỘT KHÁCH, còn view này giữ nguyên mọi việc. Cột giữa và cột
+ *  phải làm việc trên MỘT LƯỢT, nên chúng cần biết việc nào thuộc lượt nào —
+ *  `appointment_id` NULL = việc của khách, đúng với mọi lượt. */
+export interface ViecCskh {
+  clinic_patient_id: string;
+  trang_thai: string;
+  nhan: string;
+  uu_tien: number;
+  han_xu_ly: string | null;
+  qua_han: boolean;
+  appointment_id: string | null;
+}
+
 /** Một lời hẹn CSKH tự đặt cho mình, CHƯA ĐÓNG.
  *
  *  `gio_goi` null = chỉ hẹn tới ngày, KHÔNG phải 00:00 (migration
@@ -574,6 +590,7 @@ export default function CustomersView({
   cskhByPatient,
   tuongTacByPatient,
   trangThaiByPatient,
+  viecMoByPatient,
   phanHoiByPatient,
   lichSuKhamByPatient,
   henGoiLaiByPatient,
@@ -604,6 +621,8 @@ export default function CustomersView({
   >;
   tuongTacByPatient: Record<string, DongLichSu[]>;
   trangThaiByPatient: Record<string, TrangThaiCskh>;
+  /** MỌI việc đang mở theo khách — để cột giữa/phải bám đúng LƯỢT. */
+  viecMoByPatient: Record<string, ViecCskh[]>;
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
   /** Lịch sử khám theo khách, đã ghép sẵn thành từng đợt ở server. */
   lichSuKhamByPatient: Record<string, ChuoiKham[]>;
@@ -810,6 +829,29 @@ export default function CustomersView({
       service_name: selectedAppt.appt?.service_name ?? null,
     };
   }, [luotChon, selected, cacLuotCuaKhach, selectedAppt]);
+
+  /** VIỆC ĐANG MỞ THUỘC LƯỢT ĐANG XEM, gấp nhất trước.
+   *
+   *  `appointment_id` NULL = việc của KHÁCH chứ không của một lượt (kết quả xét
+   *  nghiệm gắn `lab_result`, lời hẹn gọi lại gắn khách) — chúng đúng với mọi
+   *  lượt nên luôn được giữ.
+   *
+   *  Thứ tự y hệt `v_trang_thai_cskh`: quá hạn trước, rồi ưu tiên, rồi hạn.
+   *  Chép luật SẮP XẾP thì được — nó là ba phép so; chép luật SINH việc thì
+   *  không, và đó là lý do `v_viec_cskh` tồn tại. */
+  const viecCuaLuot = useMemo(() => {
+    const pid = selected?.clinic_patient_id;
+    if (!pid) return [] as ViecCskh[];
+    const luotId = luotDangXem?.id ?? null;
+    return (viecMoByPatient[pid] ?? [])
+      .filter((v) => v.appointment_id === null || v.appointment_id === luotId)
+      .sort(
+        (a, b) =>
+          Number(b.qua_han) - Number(a.qua_han) ||
+          a.uu_tien - b.uu_tien ||
+          (a.han_xu_ly ?? "").localeCompare(b.han_xu_ly ?? ""),
+      );
+  }, [viecMoByPatient, selected, luotDangXem]);
 
   /** Lượt đang xem có còn đổi / huỷ được không. `undefined` = không. */
   const apptSuaDuoc =
@@ -1178,10 +1220,14 @@ export default function CustomersView({
             // nên `lich` mang trạng thái của một lượt và id của không lượt nào,
             // và `lichSuLuotNay` lặng lẽ mở ra sổ của CẢ KHÁCH.
             lich={luotDangXem ?? EMPTY_LUOT}
+            // VIỆC CỦA CHÍNH LƯỢT NÀY, không phải việc gấp nhất của cả khách.
+            //
+            // Ca Cường 10/08/2026: lượt hôm qua đang CHECKED_IN nên việc thắng
+            // của khách là `DA_CHECKIN`; mở lượt tái khám ngày mai thì node "Đã
+            // check-in" vẫn sáng "đang ở đây" trên một lượt khách chưa từng
+            // đến. `v_viec_cskh` giữ đủ mọi việc kèm `appointment_id` để lọc.
+            viecCuaLuot={viecCuaLuot}
             lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
-            trangThaiHienTai={
-              trangThaiByPatient[selected.clinic_patient_id]?.trang_thai ?? null
-            }
             dangChon={viecDangGhi}
             onLamViec={(ma) => setViecDangGhi(ma)}
             onDatLich={(kieu) => setDatLich(kieu)}
@@ -1350,10 +1396,12 @@ export default function CustomersView({
                       GhiTuongTac). */}
                   <div className="flex items-center justify-between gap-2 font-bold text-brand-800">
                     <span className="uppercase">
+                      {/* TIÊU ĐỀ THEO VIỆC CỦA LƯỢT ĐANG XEM.
+                          Đọc `trangThaiByPatient` ở đây là lấy việc gấp nhất
+                          của CẢ KHÁCH — với Cường, đó là "Đã check-in" của lượt
+                          hôm qua, in lên trên một lượt ngày mai. */}
                       {tieuDeHanhDong(
-                        viecDangGhi ??
-                          trangThaiByPatient[selected.clinic_patient_id]
-                            ?.trang_thai,
+                        viecDangGhi ?? viecCuaLuot[0]?.trang_thai,
                       )}
                     </span>
                     <span className="shrink-0 rounded-full bg-brand-200 px-2 py-0.5 text-[10px] text-brand-800 font-mono">
@@ -1374,10 +1422,7 @@ export default function CustomersView({
                     <HanhDongTrangThai
                       key={`${selected.clinic_patient_id}-${viecDangGhi ?? ""}`}
                       trangThai={
-                        viecDangGhi ??
-                        trangThaiByPatient[selected.clinic_patient_id]
-                          ?.trang_thai ??
-                        null
+                        viecDangGhi ?? viecCuaLuot[0]?.trang_thai ?? null
                       }
                       clinicPatientId={selected.clinic_patient_id}
                       patientCode={selected.patient_code}

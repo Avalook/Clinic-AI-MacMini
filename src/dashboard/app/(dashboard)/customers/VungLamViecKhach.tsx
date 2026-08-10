@@ -567,7 +567,7 @@ export default function VungLamViecKhach({
   clinicPatientId,
   lich,
   lichSu,
-  trangThaiHienTai,
+  viecCuaLuot = [],
   dangChon,
   onLamViec,
   onDatLich,
@@ -578,8 +578,17 @@ export default function VungLamViecKhach({
   clinicPatientId: string;
   lich: MocLich;
   lichSu: DongLichSu[];
-  /** Trạng thái gấp nhất do `v_trang_thai_cskh` suy ra. */
-  trangThaiHienTai?: string | null;
+  /** VIỆC ĐANG MỞ CỦA CHÍNH LƯỢT NÀY, gấp nhất trước (`v_viec_cskh`).
+   *
+   *  Thay cho `trangThaiHienTai` — một chuỗi duy nhất suy từ `v_trang_thai_cskh`,
+   *  tức việc gấp nhất của CẢ KHÁCH. Khách có nhiều lượt thì nó nói về lượt
+   *  khác: ca Cường 10/08/2026, lượt hôm qua đang CHECKED_IN nên node "Đã
+   *  check-in" sáng "đang ở đây" ngay trên lượt tái khám ngày mai, và cột phải
+   *  mời "Check-in cho khách" cho một người chưa từng đến.
+   *
+   *  Danh sách nên NHIỀU node cùng sáng được — khách có thể vừa chờ kết quả xét
+   *  nghiệm vừa tới hạn nhắc hẹn, và view vẫn luôn biết cả hai. */
+  viecCuaLuot?: { trang_thai: string; appointment_id: string | null }[];
   /** Trạng thái CSKH đang chọn làm việc (null = chưa chọn). */
   dangChon?: string | null;
   /** Bấm một trạng thái → khối hành động bên phải đổi theo nó. `ketQua` chỉ
@@ -807,7 +816,7 @@ export default function VungLamViecKhach({
 
   /** Trạng thái này có ĐANG đúng với khách không — suy từ dữ liệu thật. */
   function dangO(ma: string): boolean {
-    if (ma === trangThaiHienTai) return true;
+    if (viecCuaLuot.some((v) => v.trang_thai === ma)) return true;
     if (ma === "DA_CHECKIN") return daCheckin;
     if (ma === "HOI_LY_DO_HUY") return daHuy;
     if (ma === "DA_TRA_KQ") {
