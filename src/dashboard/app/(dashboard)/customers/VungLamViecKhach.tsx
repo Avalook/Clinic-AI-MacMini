@@ -745,11 +745,15 @@ export default function VungLamViecKhach({
    *  ĐIỀU NÀY KHÔNG ĐÓNG DÒNG `visit`. `visit.closed_at` chỉ do
    *  `checkout_service` ghi, và đó là việc của quầy. Nói ra ở đây để lần sau ai
    *  đọc "Checkout" trên màn này không tưởng nó đã đóng mọi thứ. */
-  async function ghiCheckout() {
+  async function ghiCheckout(): Promise<boolean> {
     if (!lich.id) {
       setLoiCheckout("Khách chưa có lịch hẹn nào để đóng.");
-      return;
+      return false;
     }
+    // ĐÃ ĐÓNG RỒI THÌ THÔI, coi như xong. `apply_action("complete")` chỉ nhận
+    // từ CHECKED_IN, nên bấm lần hai trên một lượt COMPLETED sẽ báo lỗi cho một
+    // việc đã hoàn thành — thứ khiến người dùng tưởng mình vừa làm hỏng gì đó.
+    if (lich.status === "COMPLETED") return true;
     setDangCheckout(true);
     setLoiCheckout(null);
     const res = await fetch("/api/cskh/tuong-tac", {
@@ -773,9 +777,42 @@ export default function VungLamViecKhach({
       setLoiCheckout(
         nhanLoi(d, `Không đóng được (lỗi ${res.status}).`),
       );
-      return;
+      return false;
     }
     router.refresh();
+    return true;
+  }
+
+  /** BA NÚT, MỘT SỰ THẬT: lượt khám này ĐÃ XONG.
+   *
+   *  QUANG 10/08/2026: *"khi ấn tái khám hay checkout hay đặt lịch mới thì bản
+   *  chất chúng nó đều là khám xong rồi"*. Khác nhau ở việc LÀM GÌ TIẾP:
+   *
+   *    Checkout            đóng lượt, hết.
+   *    Tái khám            đóng lượt, rồi đặt lịch cho CHÍNH dịch vụ vừa khám —
+   *                        "bác sĩ bảo hôm sau khám lại xem con có khoẻ không".
+   *                        Lịch mới nối vào lượt này bằng `lich_truoc_id`.
+   *    Đặt lịch khám mới   đóng lượt, rồi đặt một lịch cho chuyện KHÁC, ngày
+   *                        khác, dịch vụ tự chọn. Không nối chuỗi.
+   *
+   *  Trước 10/08 chỉ nút đầu đóng lượt; hai nút kia mở thẳng form đặt lịch và
+   *  để lượt cũ treo mãi ở CHECKED_IN. Nên khách "đã khám xong" theo lời người
+   *  trực mà hệ thống vẫn coi là đang khám — bảng điều phối còn tên họ, và lịch
+   *  đặt cho hôm sau bị đọc là chồng lấn với lượt chưa đóng.
+   *
+   *  CHỈ ĐÓNG KHI ĐANG CHECKED_IN. Lượt còn ở SCHEDULED/CONFIRMED thì khách
+   *  chưa từng tới — "khám xong" không đúng với họ, và backend cũng từ chối
+   *  (`apply_action("complete")` chỉ nhận từ CHECKED_IN). Lúc ấy đặt lịch vẫn
+   *  chạy bình thường, chỉ là không đóng gì cả.
+   *
+   *  ĐÓNG HỎNG THÌ KHÔNG MỞ FORM. Mở ra rồi đặt xong mà lượt cũ vẫn treo là
+   *  đúng cái mớ này sinh ra để dọn. */
+  async function ketThucRoiDatLich(kieu: "tai-kham" | "kham-moi") {
+    if (lich.status === "CHECKED_IN") {
+      const xong = await ghiCheckout();
+      if (!xong) return;
+    }
+    onDatLich?.(kieu);
   }
 
   const daHuy = lich.status === "CANCELLED";
@@ -1139,7 +1176,14 @@ export default function VungLamViecKhach({
             </div>
           </div>
 
-          {/* KẾT THÚC LƯỢT KHÁM — ba lối ra, và chúng KHÁC NHAU về nghĩa.
+          {/* KẾT THÚC LƯỢT KHÁM — BA LỐI RA, CÙNG MỘT SỰ THẬT.
+
+              Quang 10/08/2026: *"khi ấn tái khám hay checkout hay đặt lịch mới
+              thì bản chất chúng nó đều là khám xong rồi"*. Nay cả ba đều ĐÓNG
+              lượt đang xem trước (khi nó đang CHECKED_IN); khác nhau ở việc làm
+              gì tiếp — xem `ketThucRoiDatLich`.
+
+              Ghi chú cũ giữ nguyên bên dưới vì phần phân biệt vẫn đúng.
               Quang 10/08/2026 vạch rõ ranh giới, chép lại vì nhìn nút thì
               không đoán ra:
 
@@ -1202,14 +1246,22 @@ export default function VungLamViecKhach({
                   ấy bằng `lich_truoc_id`, đúng cái người trực đang nhìn. */}
               <button
                 type="button"
-                onClick={() => onDatLich?.("tai-kham")}
+                onClick={() => void ketThucRoiDatLich("tai-kham")}
                 disabled={!lich.id}
                 title={
-                  lich.id
-                    ? `Tái khám — nối tiếp lượt đang xem${
-                        lich.service_name ? `, dịch vụ ${lich.service_name}` : ""
-                      }`
-                    : "Khách chưa có lượt khám nào để nối tiếp"
+                  !lich.id
+                    ? "Khách chưa có lượt khám nào để nối tiếp"
+                    : lich.status === "CHECKED_IN"
+                      ? `Đóng lượt này rồi đặt lịch tái khám${
+                          lich.service_name
+                            ? ` — giữ dịch vụ ${lich.service_name}`
+                            : ""
+                        }`
+                      : `Đặt lịch tái khám nối tiếp lượt đang xem${
+                          lich.service_name
+                            ? ` — giữ dịch vụ ${lich.service_name}`
+                            : ""
+                        }`
                 }
                 className="rounded-xl border border-brand-300 px-2.5 py-1.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-40"
               >
@@ -1217,12 +1269,27 @@ export default function VungLamViecKhach({
               </button>
               <button
                 type="button"
-                onClick={() => onDatLich?.("kham-moi")}
-                className="rounded-xl border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+                onClick={() => void ketThucRoiDatLich("kham-moi")}
+                disabled={dangCheckout}
+                title={
+                  lich.status === "CHECKED_IN"
+                    ? "Đóng lượt này rồi đặt một lịch mới cho chuyện khác, ngày khác"
+                    : "Đặt một lịch mới cho chuyện khác, ngày khác — không nối chuỗi"
+                }
+                className="rounded-xl border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted disabled:opacity-50"
               >
                 Đặt lịch khám mới
               </button>
             </div>
+            {/* NÓI RA RẰNG CẢ BA ĐỀU ĐÓNG LƯỢT. Nhìn ba cái nút thì không đoán
+                được, và một nút đóng lượt mà không báo là cách người trực đóng
+                nhầm rồi không hiểu vì sao khách biến khỏi hàng đợi. */}
+            {lich.status === "CHECKED_IN" && (
+              <p className="text-[11px] leading-snug text-ink-muted">
+                Cả ba nút đều đóng lượt khám đang xem. “Tái khám” đặt tiếp cho
+                chính dịch vụ này; “Đặt lịch khám mới” là chuyện khác, ngày khác.
+              </p>
+            )}
             {loiCheckout && (
               <p className="text-[11px] text-danger">{loiCheckout}</p>
             )}
