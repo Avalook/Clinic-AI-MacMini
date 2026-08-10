@@ -910,6 +910,37 @@ export default function CustomersView({
     // sửa view; nó chỉ nói thêm điều view không đủ mịn để nói.
     const quaGio = apptByPatient[row.clinic_patient_id]?.qua_gio_hen;
     const tt = trangThaiByPatient[row.clinic_patient_id];
+
+    // VIỆC VỪA BẤM THẮNG VIỆC CÒN PHẢI LÀM — Quang chốt 10/08/2026.
+    //
+    // Bản trước để `v_trang_thai_cskh` đi đầu, và nó trả lời "việc CÒN PHẢI
+    // LÀM". Nên bấm xong một bước là bước ấy đóng, chip nhảy sang việc kế tiếp
+    // (hoặc tụt về trạng thái lịch hẹn) — người vừa bấm không thấy dấu vết nào
+    // của cú bấm của mình. Đo trên staging: Sen đi trọn tám bước lúc 17:19,
+    // tám dòng ghi thật, chip vẫn chỉ nói "Đã khám xong".
+    //
+    // Nay đảo lại: chip KỂ CHUYỆN VỪA XẢY RA. Người trực nhìn danh sách để biết
+    // "khách này đang ở đâu", và chỗ họ đang ở chính là việc vừa làm cho họ.
+    //
+    // HÀNG ĐỢI KHÔNG MẤT ĐI, nó chỉ đổi chỗ: cờ QUÁ HẠN vẫn tô đỏ chip, chip
+    // "+N việc" ngay cạnh vẫn đếm việc đang mở, và bốn ô số trên đầu vẫn lọc
+    // theo view. Không ô nào trong bốn ô ấy đọc chuỗi chữ này.
+    //
+    // MỘT CA ĐỌC ĐƯỢC LÀ CŨ, nói ra vì nó có thật: lễ tân check-in ở màn khác
+    // thì KHÔNG sinh dòng nào trong sổ CSKH, nên chip vẫn kể lần chạm cuối của
+    // CSKH — có thể là cuộc gọi hôm kia. Cột giữa và panel phải vẫn đúng (chúng
+    // đọc `v_viec_cskh` theo lượt). Muốn chặn hẳn ca này thì phải so giờ
+    // check-in với giờ chạm cuối, mà giờ check-in chỉ có ở vai quản-lý-được-lịch.
+    const chamCuoi = nhanLanChamCuoi(
+      tuongTacByPatient[row.clinic_patient_id]?.[0],
+    );
+    if (chamCuoi) {
+      return {
+        label: quaGio ? `${chamCuoi} · quá giờ hẹn` : chamCuoi,
+        tone: tt?.qua_han || quaGio ? "overdue" : "completed",
+      };
+    }
+
     if (tt) {
       const nhan = nhanChiTiet(
         tt,
@@ -919,24 +950,6 @@ export default function CustomersView({
         label: quaGio ? `${nhan} · quá giờ hẹn` : nhan,
         tone: tt.qua_han || quaGio ? "overdue" : TONE_VIEC[tt.trang_thai] ?? "ready",
       };
-    }
-    // HẾT VIỆC RỒI THÌ CHIP NÓI LẦN CHẠM GẦN NHẤT.
-    //
-    // Quang 10/08/2026: bấm đủ chín trạng thái mà danh sách chỉ hiện "đã
-    // check-in" và "đã khám xong". Không phải chip đứng im — mà `v_trang_thai_cskh`
-    // trả lời "việc CÒN PHẢI LÀM", nên bấm xong là việc ấy đóng và biến mất.
-    // Hai cái trụ lại được đều suy từ `appointment.status` chứ không từ sổ.
-    //
-    // Đo trên staging: Sen đi trọn tám bước lúc 17:19, tám dòng ghi thật, và
-    // chip vẫn chỉ nói "Đã khám xong" — vì sau bước cuối chị không còn việc mở.
-    //
-    // Không sửa view (nó đang trả lời đúng câu hỏi của nó). Thêm một tầng: khi
-    // hàng đợi rỗng, chỗ khách đang đứng CHÍNH LÀ việc vừa xong.
-    const chamCuoi = nhanLanChamCuoi(
-      tuongTacByPatient[row.clinic_patient_id]?.[0],
-    );
-    if (chamCuoi) {
-      return { label: chamCuoi, tone: quaGio ? "overdue" : "completed" };
     }
     const cskh = cskhByPatient[row.clinic_patient_id];
     const appt = apptByPatient[row.clinic_patient_id];

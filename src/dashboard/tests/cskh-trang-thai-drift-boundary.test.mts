@@ -175,3 +175,40 @@ test("cột phải không dựng lại nút ghi cho trạng thái đã một-ch�
     );
   }
 });
+
+test("cả ba nút Kết thúc lượt khám đều đi qua đường đóng lượt", () => {
+  // Quang 10/08/2026: *"ấn tái khám hay checkout hay đặt lịch mới thì bản chất
+  // chúng nó đều là khám xong rồi"*.
+  //
+  // Trước đó chỉ nút Checkout đóng lượt; hai nút kia mở thẳng form đặt lịch và
+  // để lượt cũ treo mãi ở CHECKED_IN — khách "đã khám xong" theo lời người trực
+  // mà hệ thống vẫn coi là đang khám.
+  assert.match(
+    vungLamViec,
+    /ketThucRoiDatLich\("tai-kham"\)/,
+    "nút Tái khám phải đi qua `ketThucRoiDatLich`, không gọi thẳng `onDatLich`",
+  );
+  assert.match(
+    vungLamViec,
+    /ketThucRoiDatLich\("kham-moi"\)/,
+    "nút Đặt lịch khám mới phải đi qua `ketThucRoiDatLich`",
+  );
+  // Và đường ấy phải THẬT SỰ đóng lượt, không chỉ đổi tên hàm.
+  assert.match(
+    vungLamViec,
+    /async function ketThucRoiDatLich[\s\S]{0,400}ghiCheckout\(\)/,
+    "`ketThucRoiDatLich` phải gọi `ghiCheckout` trước khi mở form đặt lịch",
+  );
+});
+
+test("chip danh sách kể việc VỪA BẤM trước việc còn phải làm", () => {
+  // Quang chốt 10/08/2026 sau khi thấy chip không đổi dù đã bấm đủ tám bước.
+  const iChamCuoi = customersView.indexOf("const chamCuoi = nhanLanChamCuoi(");
+  const iViecMo = customersView.indexOf("const nhan = nhanChiTiet(");
+  assert.ok(iChamCuoi > 0 && iViecMo > 0, "không tìm thấy hai nhánh của chip");
+  assert.ok(
+    iChamCuoi < iViecMo,
+    "Nhánh 'lần chạm gần nhất' phải đứng TRƯỚC nhánh 'việc còn phải làm' — " +
+      "nếu không, bấm xong một bước là bước ấy đóng và chip không kể gì về nó.",
+  );
+});
