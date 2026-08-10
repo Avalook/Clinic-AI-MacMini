@@ -110,6 +110,7 @@ scripts/data_migration/output/
 
 # DB reset backups (may contain patient PII — never commit)
 scripts/maintenance/backups/
+/.backup-truoc-khi-xoa/
 
 # Supabase CLI local link/cache metadata
 /supabase/.temp/
