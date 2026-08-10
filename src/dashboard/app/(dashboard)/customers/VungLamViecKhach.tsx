@@ -31,6 +31,8 @@
 // Mọi thao tác đều ghi sổ: `tuong_tac_cskh` + `event_log` (xem
 // TuongTacCskhService.ghi).
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Phone, CircleDashed } from "lucide-react";
 import type { DongLichSu } from "./so-tuong-tac";
 
@@ -88,9 +90,8 @@ function nutLoiRa(chon: boolean, xong: boolean, dang: boolean): string {
 interface LoiRa {
   /** `ket_qua` gửi lên backend. Phải nằm trong `KET_QUA_HOP_LE`. */
   ketQua: string;
+  /** Tên đầy đủ — cũng chính là tên trạng thái sau khi bấm. */
   ten: string;
-  /** Chú thích khi rê chuột — ba chữ viết tắt này không tự giải nghĩa. */
-  giaiThich: string;
 }
 
 /** MỘT HÀNG GỘP: một dấu tick, nhiều lối ra.
@@ -102,9 +103,17 @@ interface LoiRa {
  *  `loiRa` rỗng thì hàng chỉ có một nút "Làm bước này", giống hệt `Node` — dùng
  *  cho những trạng thái chưa (hoặc không) tách nhánh, như "Huỷ lịch".
  *
- *  KHÔNG GHI THẲNG KHI BẤM. Bấm là CHỌN: khối hành động bên phải mở ra với đúng
- *  lối ra ấy, nơi có ô số điện thoại và ô ghi chú. Ghi ngay tại đây sẽ đóng một
- *  cuộc gọi mà chưa ai kịp ghi lại nội dung.
+ *  BẤM LÀ GHI THẬT (Quang chốt 10/08/2026: *"tôi muốn bạn viết code cho tôi để
+ *  nó là sự kiện thật nhé, click vào 3 cái đó thì trạng thái của nó là tên nó
+ *  luôn"*). Bản đầu tôi làm bấm-là-CHỌN để người dùng gõ ghi chú trước khi
+ *  đóng; Quang bác, và lý do đúng: ba lối ra này không cần ghi chú để có nghĩa
+ *  — "không nghe máy" đã là toàn bộ nội dung của lần chạm ấy. Bắt qua thêm một
+ *  khối bên phải chỉ để bấm nút thứ hai là hai thao tác cho một sự thật.
+ *
+ *  Ghi chú vẫn thêm được sau, ở khối hành động bên phải.
+ *
+ *  Sau khi ghi, TÊN HÀNG đổi thành tên lối ra vừa bấm — "trạng thái của nó là
+ *  tên nó luôn". Xem `tenHienTai`.
  *
  *  Ở CẤP MODULE, không lồng trong `VungLamViecKhach`: component tạo ra trong
  *  lúc render thì React coi mỗi lần vẽ là một loại component khác và dựng lại
@@ -119,8 +128,10 @@ function HangGop({
   xong,
   chon,
   lan,
-  ketQuaChon,
   onLamViec,
+  onGhi,
+  dangGhi,
+  loi,
 }: {
   ma: string;
   ten: string;
@@ -130,9 +141,24 @@ function HangGop({
   xong: boolean;
   chon: boolean;
   lan?: DongLichSu;
-  ketQuaChon?: string | null;
   onLamViec: (ma: string, ketQua?: string) => void;
+  /** Ghi THẲNG một lối ra. Không truyền = hàng chỉ chọn, không ghi. */
+  onGhi?: (ma: string, ketQua: string) => void;
+  /** `ket_qua` đang ghi dở — để nút nói "Đang ghi…" thay vì im lặng. */
+  dangGhi?: string | null;
+  loi?: string | null;
 }) {
+  // TÊN HÀNG THEO ĐÚNG CÁI VỪA BẤM.
+  //
+  // Ghi xong "Không nghe máy" thì hàng phải đọc là "Không nghe máy", không phải
+  // cái tên nhóm "Gọi lại — không gặp được khách". Đó là điều Quang muốn: trạng
+  // thái mang đúng tên của nó, để người đọc không phải suy ra từ tên nhóm cộng
+  // với một dòng chữ nhỏ bên dưới.
+  const daChon = lan?.ket_qua
+    ? loiRa.find((lr) => lr.ketQua === lan.ket_qua)
+    : undefined;
+  const tenHienTai = daChon ? daChon.ten : ten;
+
   return (
     <div className="flex gap-3 rounded-xl border border-line p-2.5">
       <span
@@ -164,8 +190,13 @@ function HangGop({
                   : "text-ink-soft"
             }`}
           >
-            {ten}
+            {tenHienTai}
           </span>
+          {daChon && (
+            <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+              {ten}
+            </span>
+          )}
           {dang && !xong && (
             <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
               đang ở đây
@@ -187,23 +218,27 @@ function HangGop({
             </button>
           ) : (
             loiRa.map((lr) => {
-              // Đang chọn ĐÚNG lối ra này, không chỉ đúng trạng thái.
-              const chonNay = chon && ketQuaChon === lr.ketQua;
+              // "Đang bật" = lối ra ĐÃ GHI, không phải lối ra đang chọn. Sau
+              // khi bấm, nút sáng lên vì nó là sự thật đã ghi vào sổ.
+              const daGhiNay = lan?.ket_qua === lr.ketQua;
               return (
                 <button
                   key={lr.ketQua}
                   type="button"
-                  title={lr.giaiThich}
-                  onClick={() => onLamViec(ma, lr.ketQua)}
-                  aria-pressed={chonNay}
-                  className={nutLoiRa(chonNay, xong, dang)}
+                  disabled={Boolean(dangGhi)}
+                  onClick={() =>
+                    onGhi ? onGhi(ma, lr.ketQua) : onLamViec(ma, lr.ketQua)
+                  }
+                  aria-pressed={daGhiNay}
+                  className={`${nutLoiRa(daGhiNay, xong && !daGhiNay, dang)} disabled:opacity-50`}
                 >
-                  {lr.ten}
+                  {dangGhi === lr.ketQua ? "Đang ghi…" : lr.ten}
                 </button>
               );
             })
           )}
         </div>
+        {loi && <p className="mt-1 text-[11px] text-danger">{loi}</p>}
 
         {lan && (
           <p className="mt-1 text-[11px] leading-snug text-ink-soft">
@@ -219,22 +254,16 @@ function HangGop({
   );
 }
 
+/** VIẾT ĐẦY ĐỦ, KHÔNG VIẾT TẮT (Quang 10/08/2026).
+ *
+ *  "KNM / KLLD / Hẹn GLS" là tiếng lóng của người đã biết. Người mới vào ca đọc
+ *  ba chữ ấy không ra nghĩa, và cái tooltip giải nghĩa chỉ hiện khi rê chuột —
+ *  tức là chỉ giúp người đã nghi ngờ mình không hiểu. Tên đầy đủ thì ai đọc
+ *  cũng hiểu, kể cả khi nó nằm trong sổ chăm sóc sáu tháng sau. */
 const KHONG_GAP_DUOC: LoiRa[] = [
-  {
-    ketQua: "CHUA_NGHE_MAY",
-    ten: "KNM",
-    giaiThich: "Chưa nghe máy — đổ chuông nhưng không ai bắt",
-  },
-  {
-    ketQua: "KHONG_LIEN_LAC_DUOC",
-    ten: "KLLD",
-    giaiThich: "Không liên lạc được — không đổ chuông, số không dùng được",
-  },
-  {
-    ketQua: "HEN_GOI_LAI",
-    ten: "Hẹn GLS",
-    giaiThich: "Khách bắt máy nhưng hẹn gọi lại sau",
-  },
+  { ketQua: "CHUA_NGHE_MAY", ten: "Không nghe máy" },
+  { ketQua: "KHONG_LIEN_LAC_DUOC", ten: "Không liên lạc được" },
+  { ketQua: "HEN_GOI_LAI", ten: "Hẹn gọi lại sau" },
 ];
 
 const SAU_KHAM: TrangThai[] = [
@@ -336,30 +365,73 @@ export interface MocLich {
 
 export default function VungLamViecKhach({
   tenKhach,
+  clinicPatientId,
   lich,
   lichSu,
   trangThaiHienTai,
   dangChon,
-  ketQuaChon,
   onLamViec,
   children,
 }: {
   tenKhach: string;
+  clinicPatientId: string;
   lich: MocLich;
   lichSu: DongLichSu[];
   /** Trạng thái gấp nhất do `v_trang_thai_cskh` suy ra. */
   trangThaiHienTai?: string | null;
   /** Trạng thái CSKH đang chọn làm việc (null = chưa chọn). */
   dangChon?: string | null;
-  /** Lối ra đang chọn trong một hàng gộp (`ket_qua`), null = chưa chọn cái nào.
-   *  Chỉ có nghĩa khi `dangChon` là một trạng thái có nhiều lối ra. */
-  ketQuaChon?: string | null;
   /** Bấm một trạng thái → khối hành động bên phải đổi theo nó. `ketQua` chỉ
-   *  truyền khi bấm một lối ra cụ thể trong hàng gộp. */
+   *  truyền khi bấm một lối ra cụ thể trong hàng gộp — hôm nay không hàng nào
+   *  dùng tới, vì lối ra ghi thẳng. Giữ tham số cho nhóm sau. */
   onLamViec: (maTrangThai: string, ketQua?: string) => void;
   /** Khối gắn thêm bên dưới — nay chỉ còn "Phản hồi của khách". */
   children?: React.ReactNode;
 }) {
+
+  const router = useRouter();
+  const [dangGhiLoiRa, setDangGhiLoiRa] = useState<string | null>(null);
+  const [loiGhiLoiRa, setLoiGhiLoiRa] = useState<string | null>(null);
+
+  /** Ghi THẲNG một lối ra vào sổ chăm sóc — không qua khối bên phải.
+   *
+   *  `loai: "NHAC_HEN"` khớp `HANH_DONG.GOI_LAI` ở HanhDongTrangThai, để hai
+   *  đường ghi cùng một loại tương tác. NHAC_HEN nằm trong `CAN_LICH_HEN` ở
+   *  backend nên `appointment_id` là BẮT BUỘC; thiếu nó thì backend trả 422
+   *  "Việc này phải gắn với một lịch hẹn cụ thể".
+   *
+   *  `trang_thai_ma` là thứ timeline dò để tích xanh — không dò theo `loai`,
+   *  vì nhiều trạng thái dùng chung một loại (migration 20260810000002). */
+  async function ghiLoiRa(ma: string, ketQua: string) {
+    if (!lich.id) {
+      setLoiGhiLoiRa("Khách chưa có lịch hẹn nào để gắn lần gọi này.");
+      return;
+    }
+    setDangGhiLoiRa(ketQua);
+    setLoiGhiLoiRa(null);
+    const res = await fetch("/api/cskh/tuong-tac", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinic_patient_id: clinicPatientId,
+        appointment_id: lich.id,
+        loai: "NHAC_HEN",
+        kenh: "GOI",
+        ket_qua: ketQua,
+        trang_thai_ma: ma,
+      }),
+    });
+    setDangGhiLoiRa(null);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setLoiGhiLoiRa(d?.message ?? d?.error ?? `Không ghi được (lỗi ${res.status}).`);
+      return;
+    }
+    router.refresh();
+  }
 
   const daHuy = lich.status === "CANCELLED";
   const daCheckin =
@@ -565,8 +637,10 @@ export default function VungLamViecKhach({
                   }
                   chon={dangChon === "GOI_LAI"}
                   lan={lanCuoi("GOI_LAI")}
-                  ketQuaChon={ketQuaChon}
                   onLamViec={onLamViec}
+                  onGhi={(ma, kq) => void ghiLoiRa(ma, kq)}
+                  dangGhi={dangGhiLoiRa}
+                  loi={loiGhiLoiRa}
                 />
                 <HangGop
                   ma="HOI_LY_DO_HUY"
