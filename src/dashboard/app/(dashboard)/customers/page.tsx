@@ -302,6 +302,18 @@ export default async function CustomersPage({
         .limit(1000)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
+/** Ngày theo giờ PHÒNG KHÁM, dạng yyyy-mm-dd.
+ *
+ *  Cắt chuỗi ISO thì sai: PostgREST trả `"2026-08-10T23:30:00+07:00"` và cắt 10
+ *  ký tự đầu ra đúng ngày, nhưng `toISOString()` lại đổi sang UTC thành ngày
+ *  hôm trước. Đi qua `Intl` với múi giờ phòng khám là cách duy nhất đúng cho cả
+ *  hai dạng chuỗi. */
+function ngayVn(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+}
+
 /** Một dòng lịch hẹn như PostgREST trả về (theo `apptSelectAll`). */
 type LichHenRaw = {
   clinic_patient_id: string;
@@ -445,15 +457,46 @@ type LichHenRaw = {
         // Cột `id` chỉ có khi `canManage` (xem lựa chọn cột ở trên) — không có
         // id thì không huỷ được, nên bỏ luôn khỏi danh sách thay vì vẽ ra một
         // dòng bấm vào không làm gì.
-        sapToi: live
-          .filter((a) => conToi(a.slot_start, bayGio) && a.id)
-          .map((a) => ({
-            id: a.id as string,
-            slot_start: a.slot_start,
-            status: a.status,
-            service_name: pick1(a.service)?.name ?? null,
-            doctor_name: pick1(a.doctor)?.full_name ?? null,
-          })),
+        //
+        // TRÙNG = CÙNG DỊCH VỤ, CÙNG NGÀY. Không phải "có từ hai lịch trở lên".
+        //
+        // Quang 10/08/2026: khám xong cho Huyền rồi đặt lịch khám mới thì màn
+        // báo "2 lịch trùng" — *"trước thì đúng nhưng giờ bỏ hoặc vô hiệu hoá
+        // đi, để nó sẽ là đợt khám mới"*. Đúng: một lịch Nội tiết đã khám xong
+        // và một lịch Phụ khoa sắp tới là HAI ĐỢT KHÁC NHAU, không phải đặt
+        // nhầm hai lần.
+        //
+        // Cảnh báo sai còn tệ hơn không cảnh báo: nó xuất hiện ở mọi khách có
+        // hai dịch vụ, nên người trực học cách bỏ qua — rồi bỏ qua luôn lần
+        // trùng thật. Ca sinh ra cảnh báo này (Lan đặt ba lần liên tiếp cùng
+        // Phụ khoa trong một buổi) vẫn bị bắt, vì nó cùng dịch vụ cùng ngày.
+        //
+        // Lịch nối chuỗi tái khám cũng không tính: `lich_truoc_id` nói rõ nó là
+        // lượt tiếp theo có chủ ý, không phải bản sao.
+        sapToi: (() => {
+          const sapToi = live.filter(
+            (a) => conToi(a.slot_start, bayGio) && a.id,
+          );
+          const dem = new Map<string, number>();
+          for (const a of sapToi) {
+            if (a.lich_truoc_id) continue;
+            const khoa = `${a.service_type_id ?? "?"}|${ngayVn(a.slot_start)}`;
+            dem.set(khoa, (dem.get(khoa) ?? 0) + 1);
+          }
+          return sapToi
+            .filter((a) => {
+              if (a.lich_truoc_id) return false;
+              const khoa = `${a.service_type_id ?? "?"}|${ngayVn(a.slot_start)}`;
+              return (dem.get(khoa) ?? 0) > 1;
+            })
+            .map((a) => ({
+              id: a.id as string,
+              slot_start: a.slot_start,
+              status: a.status,
+              service_name: pick1(a.service)?.name ?? null,
+              doctor_name: pick1(a.doctor)?.full_name ?? null,
+            }));
+        })(),
         // "Đã khám" = có ≥1 lịch COMPLETED (cùng định nghĩa "bệnh nhân" ở
         // /patient-list). Đang khám (CHECKED_IN/IN_PROGRESS) hay mới đặt/check-in
         // thì CHƯA tính — nút "Hồ sơ & lịch sử khám" sẽ ẩn.
