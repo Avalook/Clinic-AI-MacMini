@@ -56,6 +56,7 @@ class _ConnectionBoundPool:
     async def fetchval(self, query: str, *args: Any) -> Any:
         return await self._connection.fetchval(query, *args)
 
+
 #: Mốc tại quầy (20260809000007) — việc XẢY RA, không phải cuộc gọi. Hai mốc
 #: đầu còn đổi trạng thái lịch hẹn thật: check-in mở lượt khám, check-out đóng.
 MOC_QUAY = frozenset({"CHECK_IN", "CHECK_OUT", "THANH_TOAN", "MUA_THUOC"})
