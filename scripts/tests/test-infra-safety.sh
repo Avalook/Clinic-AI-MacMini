@@ -409,6 +409,21 @@ test_restore_is_atomic_and_explicit() {
   fi
 }
 
+test_uptime_kuma_setup_is_fail_closed() {
+  local setup="$ROOT/scripts/setup-uptime-kuma.sh"
+  [ -x "$setup" ] || fail "Uptime Kuma setup script is missing or not executable"
+  grep -Fq 'http://api:8000/health/db' "$setup" || \
+    fail "Uptime Kuma must monitor database readiness, not process liveness"
+  grep -Fq 'KUMA_PASS:?set KUMA_PASS' "$setup" || \
+    fail "Uptime Kuma setup must require an explicit admin password"
+  if grep -Fq 'clinicai-kuma-2026' "$setup"; then
+    fail "Uptime Kuma setup contains a default admin password"
+  fi
+  if grep -Fq '`docker cp`' "$setup"; then
+    fail "Uptime Kuma setup executes backticks while rendering its heredoc"
+  fi
+}
+
 test_compose_requires_explicit_runtime_env() {
   grep -Fq 'env_file: ["${CLINIC_ENV_FILE:?' "$ROOT/docker-compose.yml" || \
     fail "compose runtime env is not fail-closed"
@@ -821,6 +836,7 @@ test_backup_command_preflight_is_explicit
 test_backup_rejects_small_archive_before_publish
 test_backup_lock_rejects_a_concurrent_publisher
 test_restore_is_atomic_and_explicit
+test_uptime_kuma_setup_is_fail_closed
 test_backup_verifier_rejects_stale_and_small_artifacts
 test_compose_requires_explicit_runtime_env
 test_deploy_is_pinned_and_serialized
