@@ -12,14 +12,14 @@ phải bằng cách viết lại quá khứ.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 
 import asyncpg
 import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ as GIO_VN
 
 logger = structlog.get_logger()
@@ -310,6 +310,7 @@ class HenGoiLaiService:
         clinic_patient_id: str,
         ngay_goi: date,
         ly_do: str,
+        gio_goi: time | None = None,
     ) -> dict[str, Any]:
         ly_do = (ly_do or "").strip()
         if not ly_do:
@@ -332,18 +333,84 @@ class HenGoiLaiService:
             row_id = await conn.fetchval(
                 """
                 INSERT INTO public.hen_goi_lai
-                    (clinic_id, clinic_patient_id, ngay_goi, ly_do, tao_boi_staff_id)
-                VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid)
+                    (clinic_id, clinic_patient_id, ngay_goi, gio_goi, ly_do,
+                     tao_boi_staff_id)
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid)
                 RETURNING id::text
                 """,
                 identity.clinic_id,
                 clinic_patient_id,
                 ngay_goi,
+                gio_goi,
                 ly_do,
                 identity.staff_id,
             )
-        logger.info("cskh_hen_goi_lai", ngay=str(ngay_goi), by=identity.staff_id)
+            ten_khach = await conn.fetchval(
+                "SELECT full_name FROM public.patient "
+                " WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid",
+                clinic_patient_id,
+                identity.clinic_id,
+            )
+
+        await self._bao_hen_goi_lai(
+            identity=identity,
+            hen_id=row_id,
+            clinic_patient_id=clinic_patient_id,
+            ten_khach=ten_khach or "Khách",
+            ngay_goi=ngay_goi,
+            gio_goi=gio_goi,
+            ly_do=ly_do,
+        )
+        logger.info(
+            "cskh_hen_goi_lai",
+            ngay=str(ngay_goi),
+            gio=str(gio_goi) if gio_goi else None,
+            by=identity.staff_id,
+        )
         return {"ok": True, "id": row_id}
+
+    async def _bao_hen_goi_lai(
+        self,
+        *,
+        identity: StaffIdentity,
+        hen_id: str,
+        clinic_patient_id: str,
+        ten_khach: str,
+        ngay_goi: date,
+        gio_goi: time | None,
+        ly_do: str,
+    ) -> None:
+        """Dựng một thông báo đứng sẵn trong chuông cho vai CSKH.
+
+        MỘT GIỚI HẠN PHẢI NÓI RA. Dự án CHƯA CÓ BỘ HẸN GIỜ NÀO — không có gì
+        chạy nền để đúng 17:00 thì gõ vào vai CSKH. Nên thông báo này ra đời
+        NGAY LÚC ĐẶT HẸN, mang theo mốc giờ trong tiêu đề, và nằm đó tới khi có
+        người bấm "đã xử lý". Nó là một mẩu giấy dán màn hình, không phải đồng
+        hồ báo thức — và nói thẳng như vậy còn hơn hứa một tiếng chuông sẽ không
+        bao giờ kêu.
+
+        Nuốt lỗi: lời hẹn ĐÃ ghi vào `hen_goi_lai` và đã hiện ở cột trạng thái
+        (nhánh HEN_GOI_LAI của `v_trang_thai_cskh`). Ném lỗi ở đây là báo hỏng
+        cho một việc đã xong.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        khi = f"{ngay_goi:%d/%m}"
+        if gio_goi is not None:
+            khi = f"{gio_goi:%H:%M} ngày {khi}"
+        try:
+            await ThongBaoService(self._pool).goi(
+                identity=identity,
+                vai_nhan=ClinicRole.CSKH.value,
+                nguon="hen_goi_lai",
+                nguon_id=hen_id,
+                muc_do="THUONG",
+                tieu_de=f"Hẹn gọi lại {khi} — {ten_khach}",
+                noi_dung=ly_do,
+                duong_dan=f"/customers?selected={clinic_patient_id}",
+            )
+        except Exception:  # noqa: BLE001 — xem docstring
+            logger.warning("bao_hen_goi_lai_that_bai", hen_id=hen_id, exc_info=True)
 
     async def dong(self, *, identity: StaffIdentity, hen_id: str) -> dict[str, Any]:
         """Đóng việc. Ai đóng và lúc nào đi cùng nhau — CHECK ở DB giữ điều đó."""

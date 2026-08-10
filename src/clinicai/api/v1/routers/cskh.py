@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, time
 from typing import Any, Literal
 from uuid import UUID
 
@@ -302,6 +302,9 @@ async def lich_su_tuong_tac(
 class HenGoiLaiRequest(BaseModel):
     clinic_patient_id: UUID
     ngay_goi: date
+    #: Giờ trong ngày. Bỏ trống = chỉ hẹn tới ngày, KHÔNG phải 00:00 —
+    #: xem chú thích cột ở migration 20260810000006.
+    gio_goi: time | None = None
     ly_do: str = Field(min_length=1, max_length=500)
 
 
@@ -316,6 +319,7 @@ async def tao_hen_goi_lai(
         identity=identity,
         clinic_patient_id=str(body.clinic_patient_id),
         ngay_goi=body.ngay_goi,
+        gio_goi=body.gio_goi,
         ly_do=body.ly_do,
     )
 
