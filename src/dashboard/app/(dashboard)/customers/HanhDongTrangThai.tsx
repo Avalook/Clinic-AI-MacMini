@@ -14,6 +14,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Upload, Send, Check, X, CalendarPlus } from "lucide-react";
+import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "@/lib/ly-do-huy";
 import TepKetQua, { type TepKetQuaRow } from "./TepKetQua";
 
 /** Khối hành động ĐỔI THEO VIỆC ĐANG PHẢI LÀM.
@@ -176,6 +177,18 @@ export function tieuDeHanhDong(ma: string | null | undefined): string {
   return (HANH_DONG[ma] ?? HANH_DONG_THEM[ma] ?? MAC_DINH).tieuDe;
 }
 
+/** MÃ TRẠNG THÁI THẬT SỰ CÓ BỘ NÚT ở khối này.
+ *
+ *  Xuất ra để `?viec=` trên đường dẫn được KIỂM trước khi dùng. Chuông thông
+ *  báo và ba màn khác đều dựng đường dẫn tới `/customers`, và một mã gõ sai
+ *  (hoặc một mã cũ còn nằm trong `thong_bao.duong_dan` sinh từ tuần trước) sẽ
+ *  mở màn ở một trạng thái không có nút nào. Thà bỏ qua tham số ấy và chạy theo
+ *  việc gấp nhất, còn hơn mở ra một khối trống. */
+export function coBoNut(ma: string | null | undefined): boolean {
+  if (!ma) return false;
+  return ma in HANH_DONG || ma in HANH_DONG_THEM;
+}
+
 const MAC_DINH: HanhDongViec = {
   tieuDe: "Gọi khách & ghi tương tác",
   loai: "NHAC_HEN",
@@ -183,13 +196,19 @@ const MAC_DINH: HanhDongViec = {
   zalo: "NHAC_HEN",
 };
 
-/** Ba lý do huỷ có sẵn — đúng ba trường hợp chị Thu liệt kê, và khớp
- *  `LY_DO_HUY` ở booking_service.py để hai đầu không nói hai bộ từ. */
-const LY_DO_HUY_SAN: string[] = [
-  "Chờ xác nhận lịch trước 7 ngày: BN báo luôn là không đến được",
-  "Khi nhắc hẹn BN báo không đến được, dù trước đó đã xác nhận có đến",
-  "Vào giờ khám, lễ tân gọi điện BN mới báo là không đến",
-];
+/** Lý do huỷ có sẵn — LẤY TỪ DANH MỤC CHUNG, không chép tay nữa.
+ *
+ *  Ba dòng cũ ở đây là BẢN THỨ TƯ của cùng một danh mục (sau CHECK trong SQL,
+ *  `LY_DO_HUY` ở `booking_service.py`, và `lib/ly-do-huy.ts`), và nó đã lệch
+ *  sẵn: chữ khác hẳn ba bản kia, lại thiếu `DAT_TRUNG` thêm ngày 10/08. Chép
+ *  một danh mục là hẹn ngày mỗi màn nói một kiểu về cùng một lần huỷ — đúng
+ *  chuyện đã làm nút "Bỏ lịch này" trả 500 hôm nay.
+ *
+ *  Bỏ `DAT_TRUNG` khỏi ô này: nó là lý do của người dọn lịch trùng, không phải
+ *  câu khách nói qua điện thoại. Ô này ghi lời khách. */
+const LY_DO_HUY_SAN: string[] = LY_DO_HUY_THU_TU.filter(
+  (ma) => ma !== "DAT_TRUNG" && ma !== "KHAC",
+).map((ma) => LY_DO_HUY[ma]!);
 
 interface Props {
   trangThai: string | null;
@@ -415,6 +434,13 @@ export default function HanhDongTrangThai({
     />
   );
 
+  /** `loai` tương tác của trạng thái đang mở, lấy từ CHÍNH bảng sinh ra tiêu
+   *  đề. Gõ cứng `loai` trong từng case là cách hai thứ trôi khỏi nhau: tiêu đề
+   *  nói "Gọi mời tái khám" mà sổ ghi loại "nhắc hẹn". */
+  const loaiCuaTrangThai =
+    (trangThai && (HANH_DONG[trangThai] ?? HANH_DONG_THEM[trangThai])?.loai) ||
+    "NHAC_HEN";
+
   function than() {
     switch (trangThai) {
       // ── TRƯỚC KHÁM ────────────────────────────────────────────────────────
@@ -561,6 +587,20 @@ export default function HanhDongTrangThai({
           </>
         );
 
+      // BA MÃ NÀY VIEW SINH RA NHƯNG `than()` KHÔNG CÓ CASE — tới 10/08/2026
+      // chúng rơi thẳng vào `default:` ("Chọn một trạng thái ở cột giữa…"),
+      // trong khi `HANH_DONG` vẫn cho chúng một tiêu đề đàng hoàng. Tiêu đề nói
+      // "Đã hẹn gọi lại hôm nay", thân màn không có một cái nút nào.
+      //
+      //   HEN_GOI_LAI  — CSKH tự hẹn với mình, tới ngày thì gọi
+      //   MOI_TAI_KHAM — lượt gọi 1 của `nhac_tai_kham`
+      //   NHAC_DI_KHAM — lượt gọi 2
+      //
+      // Cả ba đều là "gọi khách rồi ghi kết quả", đúng bộ nút của `GOI_LAI`.
+      // `loai` lấy từ chính `HANH_DONG` để hai bảng không nói hai kiểu.
+      case "HEN_GOI_LAI":
+      case "MOI_TAI_KHAM":
+      case "NHAC_DI_KHAM":
       case "GOI_LAI":
         // BA KẾT QUẢ NÀY TRƯỚC ĐÂY KHÔNG GHI ĐƯỢC TỪ MÀN NÀY.
         //
@@ -584,25 +624,25 @@ export default function HanhDongTrangThai({
               ma="gl"
               nhan="Đã liên hệ được"
               Icon={Phone}
-              onClick={() => void ghi("gl", "NHAC_HEN", "DA_LIEN_HE")}
+              onClick={() => void ghi("gl", loaiCuaTrangThai, "DA_LIEN_HE")}
             />
             <div className="flex flex-wrap gap-2">
               <NutPhu
                 ma="knm"
                 nhan="Không nghe máy"
-                onClick={() => void ghi("knm", "NHAC_HEN", "CHUA_NGHE_MAY")}
+                onClick={() => void ghi("knm", loaiCuaTrangThai, "CHUA_NGHE_MAY")}
               />
               <NutPhu
                 ma="klld"
                 nhan="Không liên lạc được"
                 onClick={() =>
-                  void ghi("klld", "NHAC_HEN", "KHONG_LIEN_LAC_DUOC")
+                  void ghi("klld", loaiCuaTrangThai, "KHONG_LIEN_LAC_DUOC")
                 }
               />
               <NutPhu
                 ma="hgl"
                 nhan="Hẹn gọi lại sau"
-                onClick={() => void ghi("hgl", "NHAC_HEN", "HEN_GOI_LAI")}
+                onClick={() => void ghi("hgl", loaiCuaTrangThai, "HEN_GOI_LAI")}
               />
             </div>
           </>
@@ -837,7 +877,19 @@ export default function HanhDongTrangThai({
         );
 
       default:
-        return (
+        // MÃ LẠ PHẢI NÓI RA TÊN NÓ.
+        //
+        // `trangThai` là chữ tự do đi từ `v_trang_thai_cskh` (và từ `?viec=`
+        // trên đường dẫn). Khi một mã có ở view mà chưa có case ở đây, màn hiện
+        // câu "Chọn một trạng thái ở cột giữa" — nghe như người dùng chưa bấm
+        // gì, trong khi họ vừa bấm xong. Đó là cách ba mã HEN_GOI_LAI /
+        // MOI_TAI_KHAM / NHAC_DI_KHAM nằm chết ở đây suốt mà không ai báo lỗi.
+        return trangThai ? (
+          <p className="text-[11px] leading-snug text-warning">
+            Chưa có bộ nút cho trạng thái <b>{trangThai}</b>. Ghi lại mã này rồi
+            báo — không phải lỗi thao tác của bạn.
+          </p>
+        ) : (
           <p className="text-[11px] leading-snug text-ink-muted">
             Chọn một trạng thái ở cột giữa để thấy việc phải làm và các nút
             tương ứng.

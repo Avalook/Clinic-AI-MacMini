@@ -407,7 +407,16 @@ class HenGoiLaiService:
                 muc_do="THUONG",
                 tieu_de=f"Hẹn gọi lại {khi} — {ten_khach}",
                 noi_dung=ly_do,
-                duong_dan=f"/customers?selected={clinic_patient_id}",
+                # TỚI ĐÚNG VIỆC, KHÔNG CHỈ ĐÚNG HỒ SƠ (Quang 10/08/2026).
+                #
+                # `?selected=` một mình mở đúng khách rồi buông tay: cột phải
+                # vẫn chạy theo việc gấp nhất do view suy ra, và lời hẹn này
+                # (ưu tiên 6) thường thua một việc khác. Người trực bấm "Bấm để
+                # xử lý" rồi không thấy đâu là việc vừa được nhắc.
+                #
+                # `viec=HEN_GOI_LAI` mở đúng bộ nút gọi + ghi kết quả, và khối
+                # "Đã hẹn gọi lại" ở cột giữa hiện ngày, giờ và lý do đã ghi.
+                duong_dan=(f"/customers?selected={clinic_patient_id}&viec=HEN_GOI_LAI"),
             )
         except Exception:  # noqa: BLE001 — xem docstring
             logger.warning("bao_hen_goi_lai_that_bai", hen_id=hen_id, exc_info=True)

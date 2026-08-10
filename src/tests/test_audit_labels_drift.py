@@ -249,9 +249,7 @@ class TestKhongLech:
         """Cùng điểm mù, cột "Làm ở màn"."""
         from clinicai.services.thong_bao_service import NGUON
 
-        tho = sorted(
-            dg for _ma, dg in NGUON.values() if source_label(dg) == dg
-        )
+        tho = sorted(dg for _ma, dg in NGUON.values() if source_label(dg) == dg)
         assert not tho, f"đường ghi của thông báo chưa có tên màn: {tho}"
 
     def test_loai_doi_tuong_deu_co_ten(self) -> None:

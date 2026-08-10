@@ -1048,7 +1048,23 @@ class BookingService:
                 # tham số màn Quản lý khách hàng đã đọc sẵn (page.tsx) để mở
                 # đúng hồ sơ — bấm "Bấm để xử lý" mà đổ ra danh sách rồi bắt
                 # người ta tự dò tên là đúng bước thừa mà cái nút ấy xoá bỏ.
-                duong_dan=f"/customers?selected={row['kh_id']}",
+                #
+                # VÀ TỚI ĐÚNG VIỆC, KHÔNG CHỈ ĐÚNG TRANG (Quang 10/08/2026).
+                # `?selected=` một mình chỉ mở hồ sơ; cột phải vẫn chạy theo
+                # việc GẤP NHẤT do `v_trang_thai_cskh` suy ra, thường là một
+                # việc khác hẳn việc thông báo đang nói tới. Người trực bấm "Bấm
+                # để xử lý" rồi phải tự tìm lại đúng bước — đúng thao tác thừa
+                # mà cái nút này sinh ra để xoá.
+                #
+                #   `viec=CHO_XAC_NHAN` mở đúng bộ nút "Gọi xác nhận lịch"
+                #                       (HanhDongTrangThai ghi loai=XAC_NHAN_LICH)
+                #   `luot=<appointment_id>` trỏ vào ĐÚNG lượt vừa được xếp bác
+                #                       sĩ — khách có nhiều lịch thì không có
+                #                       nó là mở nhầm lượt.
+                duong_dan=(
+                    f"/customers?selected={row['kh_id']}"
+                    f"&viec=CHO_XAC_NHAN&luot={appointment_id}"
+                ),
             )
         except Exception:  # noqa: BLE001 — xem docstring
             logger.warning(

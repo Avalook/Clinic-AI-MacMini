@@ -34,7 +34,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Phone, CircleDashed } from "lucide-react";
+import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import type { DongLichSu } from "./so-tuong-tac";
+import type { HenGoiLai } from "./CustomersView";
 
 /** Một trạng thái khách có thể đang ở, kèm việc CSKH phải làm khi ở đó. */
 interface TrangThai {
@@ -132,6 +134,7 @@ function HangGop({
   onGhi,
   dangGhi,
   loi,
+  ghiChuThem,
 }: {
   ma: string;
   ten: string;
@@ -147,6 +150,9 @@ function HangGop({
   /** `ket_qua` đang ghi dở — để nút nói "Đang ghi…" thay vì im lặng. */
   dangGhi?: string | null;
   loi?: string | null;
+  /** Chuyện đã ghi ở NƠI KHÁC mà hàng này phải nói ra — ví dụ lý do huỷ, thứ
+   *  `booking_service` lưu trên chính `appointment` chứ không lưu vào sổ. */
+  ghiChuThem?: React.ReactNode;
 }) {
   // TÊN HÀNG THEO ĐÚNG CÁI VỪA BẤM.
   //
@@ -247,11 +253,99 @@ function HangGop({
             </span>
             {lan.ket_qua && ` · ${NHAN_KET_QUA[lan.ket_qua] ?? lan.ket_qua}`}
             {lan.nhan_vien && ` · ${lan.nhan_vien}`}
+            {/* CHỮ NGƯỜI TRỰC GÕ PHẢI HIỆN LẠI.
+                `Node` vẽ `noi_dung` từ lâu; `HangGop` — component anh em, cùng
+                nhận `lan` — thì không. Nên mọi ghi chú gõ trong panel phải của
+                hai hàng gộp ("Gọi lại — không gặp được khách" và "Huỷ lịch")
+                ghi vào sổ thật rồi biến mất khỏi màn hình. Lưu mà không hiện
+                thì lần sau người ta gõ lại từ đầu, hoặc thôi không gõ nữa. */}
+            {lan.noi_dung && (
+              <span className="block italic text-ink-muted">
+                “{lan.noi_dung}”
+              </span>
+            )}
           </p>
         )}
+        {ghiChuThem}
       </div>
     </div>
   );
+}
+
+/** MỘT LỜI HẸN GỌI LẠI — ngày, giờ, lý do, và một nút đóng nó.
+ *
+ *  Ở CẤP MODULE, không lồng trong `VungLamViecKhach`: component tạo ra trong
+ *  lúc render thì React dựng lại từ đầu mỗi lần vẽ. */
+function MotLoiHen({
+  hen,
+  dangDong,
+  loi,
+  onDong,
+}: {
+  hen: HenGoiLai;
+  dangDong: boolean;
+  loi: string | null;
+  onDong: () => void;
+}) {
+  const homNay = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  const toiHan = hen.ngay_goi <= homNay;
+  return (
+    <div
+      className={`flex gap-3 rounded-xl border p-2.5 ${
+        toiHan ? "border-brand-300 bg-brand-50/50" : "border-line"
+      }`}
+    >
+      <span
+        className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
+          toiHan
+            ? "border-brand-600 bg-brand-50 text-brand-700"
+            : "border-line bg-surface-muted text-ink-faint"
+        }`}
+      >
+        <Phone className="size-3.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-ink">
+            {/* GIỜ CHỈ HIỆN KHI CÓ. `gio_goi` null nghĩa là "chỉ hẹn tới ngày";
+                in 00:00 vào đấy là bịa một mốc mà người trực sẽ tin. */}
+            Gọi lại {hen.gio_goi ? `${hen.gio_goi.slice(0, 5)} ` : ""}ngày{" "}
+            {ngayVn(hen.ngay_goi)}
+          </span>
+          {toiHan && (
+            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+              tới hạn
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-[11px] leading-snug text-ink-soft">
+          {hen.ly_do}
+        </p>
+        {hen.tao_boi && (
+          <p className="mt-0.5 text-[11px] text-ink-muted">
+            người hẹn: {hen.tao_boi}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onDong}
+          disabled={dangDong}
+          className="mt-1.5 rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+        >
+          {dangDong ? "Đang đóng…" : "Đã gọi xong — đóng việc"}
+        </button>
+        {loi && <p className="mt-1 text-[11px] text-danger">{loi}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Ngày dạng yyyy-mm-dd → dd/mm. */
+function ngayVn(d: string): string {
+  const [y, m, ngay] = d.split("-");
+  return ngay && m ? `${ngay}/${m}${y ? `/${y}` : ""}` : d;
 }
 
 /** VIẾT ĐẦY ĐỦ, KHÔNG VIẾT TẮT (Quang 10/08/2026).
@@ -448,13 +542,24 @@ const SUY_THEO_LOAI_CU: Record<string, string[]> = {
   HOI_LY_DO_HUY: ["HOI_LY_DO_HUY"],
 };
 
+/** LƯỢT KHÁM ĐANG XEM — đúng những gì cột giữa cần biết về một lượt.
+ *
+ *  ĐÂY KHÔNG CÒN LÀ "LỊCH ĐẠI DIỆN". Trước 10/08/2026 `id` và `status` của vật
+ *  này đến từ HAI nguồn khác nhau ở `CustomersView` (`appt?.id` và `repr`), nên
+ *  một lượt đã khám xong cho ra `status = COMPLETED` kèm `id = null`. Nay nó
+ *  luôn là MỘT lượt có thật, do người dùng chọn hoặc do `luotMacDinh` chọn. */
 export interface MocLich {
-  /** Lịch hẹn đại diện đang xem. */
   id: string | null;
   status: string | null;
   slot_start: string | null;
   created_at: string | null;
   cancelled_at: string | null;
+  /** Lý do huỷ CỦA LƯỢT NÀY — mã chọn sẵn, và chữ người huỷ tự viết. */
+  ly_do_huy_ma: string | null;
+  cancellation_reason: string | null;
+  /** Dịch vụ của lượt — nút "Tái khám" khoá theo nó. */
+  service_type_id: string | null;
+  service_name: string | null;
 }
 
 export default function VungLamViecKhach({
@@ -465,8 +570,8 @@ export default function VungLamViecKhach({
   trangThaiHienTai,
   dangChon,
   onLamViec,
-  lanKhamGanNhat,
   onDatLich,
+  henGoiLai = [],
   children,
 }: {
   tenKhach: string;
@@ -481,16 +586,11 @@ export default function VungLamViecKhach({
    *  truyền khi bấm một lối ra cụ thể trong hàng gộp — hôm nay không hàng nào
    *  dùng tới, vì lối ra ghi thẳng. Giữ tham số cho nhóm sau. */
   onLamViec: (maTrangThai: string, ketQua?: string) => void;
-  /** Lượt khám gần nhất đã xong — nguồn cho nút "Tái khám". */
-  lanKhamGanNhat?: {
-    id: string;
-    slot_start: string;
-    service_type_id: string | null;
-    service_name: string | null;
-  } | null;
   /** Mở form đặt lịch. "tai-kham" = khoá dịch vụ + nối chuỗi; "kham-moi" =
    *  chọn dịch vụ tự do, không nối chuỗi. */
   onDatLich?: (kieu: "tai-kham" | "kham-moi") => void;
+  /** Lời hẹn gọi lại CHƯA ĐÓNG của khách này. */
+  henGoiLai?: HenGoiLai[];
   /** Khối gắn thêm bên dưới — nay chỉ còn "Phản hồi của khách". */
   children?: React.ReactNode;
 }) {
@@ -498,6 +598,39 @@ export default function VungLamViecKhach({
   const router = useRouter();
   const [dangGhiLoiRa, setDangGhiLoiRa] = useState<string | null>(null);
   const [loiGhiLoiRa, setLoiGhiLoiRa] = useState<string | null>(null);
+  const [dangDongHen, setDangDongHen] = useState<string | null>(null);
+  const [loiDongHen, setLoiDongHen] = useState<string | null>(null);
+  const [loiDongHenChu, setLoiDongHenChu] = useState<string | null>(null);
+
+  /** ĐÓNG MỘT LỜI HẸN GỌI LẠI.
+   *
+   *  `PATCH /api/cskh/hen-goi-lai` đã có sẵn ở BFF (route.ts) và ở backend
+   *  (`HenGoiLaiService.dong`) từ 09/08 — nhưng không một màn nào gọi nó. Đó là
+   *  lý do trạng thái `HEN_GOI_LAI` không có đường ra: sinh ra được, hiện ra
+   *  được, và ở lại mãi mãi. */
+  async function dongHen(id: string) {
+    setDangDongHen(id);
+    setLoiDongHen(null);
+    setLoiDongHenChu(null);
+    const res = await fetch("/api/cskh/hen-goi-lai", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setDangDongHen(null);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setLoiDongHen(id);
+      setLoiDongHenChu(
+        d?.message ?? d?.error ?? `Không đóng được (lỗi ${res.status}).`,
+      );
+      return;
+    }
+    router.refresh();
+  }
 
   /** Ghi THẲNG một lối ra vào sổ chăm sóc — không qua khối bên phải.
    *
@@ -586,11 +719,18 @@ export default function VungLamViecKhach({
    *  người trực không còn gì để làm theo màn hình.
    *
    *  Lọc theo `appointment_id` (cột có từ 20260809000003, vừa được mang xuống
-   *  UI). Không có lịch đại diện thì giữ nguyên cả sổ: thà tích thừa còn hơn
-   *  một màn trắng không giải thích được. */
+   *  UI).
+   *
+   *  KHÔNG CÓ LỊCH THÌ SỔ RỖNG, VÀ NÓI RA. Bản 10/08 sáng viết `: lichSu` —
+   *  "thà tích thừa còn hơn một màn trắng không giải thích được". Nhưng nó tích
+   *  thừa TRONG IM LẶNG, và đúng lúc `lich.id` hay bị null nhất: ngay sau
+   *  checkout. Người trực mở một lượt vừa sinh ra đã thấy đủ tám bước xanh —
+   *  không còn gì để làm theo màn hình, mà chẳng có gì báo là màn đang nói về
+   *  lượt khác. Rỗng KÈM MỘT DÒNG CHỮ thì người đọc biết mình đang thiếu gì. */
   const lichSuLuotNay = lich.id
     ? lichSu.filter((d) => d.appointment_id === lich.id)
-    : lichSu;
+    : [];
+  const khongGanDuocLuot = !lich.id && lichSu.length > 0;
 
   const [dangCheckout, setDangCheckout] = useState(false);
   const [loiCheckout, setLoiCheckout] = useState<string | null>(null);
@@ -843,6 +983,28 @@ export default function VungLamViecKhach({
           <h2 className="text-sm font-semibold text-ink">
             Trạng thái khách hàng — {tenKhach}
           </h2>
+          {/* LƯỢT ĐANG XEM, NÓI RA BẰNG CHỮ.
+              Khách có nhiều lượt thì ba cột phải cùng nói về MỘT lượt, và người
+              trực phải đọc được mình đang đứng ở lượt nào — bấm sang lượt khác
+              trong ô "Lịch sử các lần khám" bên dưới. */}
+          {lich.slot_start && (
+            <p className="mt-0.5 text-[11px] text-ink-muted">
+              Lượt đang xem:{" "}
+              <span className="font-medium text-ink-soft">
+                {lich.service_name ?? "chưa chọn dịch vụ"} ·{" "}
+                {gio(lich.slot_start)}
+              </span>
+            </p>
+          )}
+          {/* Sổ chăm sóc không gắn được vào lượt nào — nói ra thay vì lặng lẽ
+              tích xanh bằng dữ liệu của lượt khác. Xem `lichSuLuotNay`. */}
+          {khongGanDuocLuot && (
+            <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-[11px] font-medium text-warning">
+              Khách có {lichSu.length} thao tác chăm sóc nhưng màn chưa gắn được
+              vào lượt khám nào — chọn một lượt ở “Lịch sử các lần khám” bên
+              dưới.
+            </p>
+          )}
         </div>
 
         <div className="space-y-3 px-4 py-3">
@@ -894,10 +1056,62 @@ export default function VungLamViecKhach({
                   chon={dangChon === "HOI_LY_DO_HUY"}
                   lan={lanCuoi("HOI_LY_DO_HUY")}
                   onLamViec={onLamViec}
+                  // LÝ DO HUỶ LÚC BẤM HUỶ — khác với lý do hỏi được lúc gọi lại.
+                  //
+                  // Người huỷ lịch đã chọn một mã và có thể đã gõ thêm chữ; cả
+                  // hai nằm trên `appointment`, KHÔNG nằm trong sổ chăm sóc,
+                  // nên `lan` không bao giờ chứa chúng. Không hiện ở đây thì
+                  // người sắp gọi lại đi hỏi đúng câu khách vừa trả lời.
+                  ghiChuThem={
+                    daHuy &&
+                    (lich.ly_do_huy_ma || lich.cancellation_reason) ? (
+                      <p className="mt-1 rounded-lg bg-surface-sunken px-2 py-1 text-[11px] leading-snug text-ink-soft">
+                        <span className="font-semibold text-ink-muted">
+                          Lý do huỷ đã ghi:{" "}
+                        </span>
+                        {nhanLyDoHuy(lich.ly_do_huy_ma)}
+                        {lich.cancellation_reason && (
+                          <span className="block italic">
+                            “{lich.cancellation_reason}”
+                          </span>
+                        )}
+                        {lich.cancelled_at && (
+                          <span className="block font-mono text-ink-muted">
+                            huỷ lúc {gio(lich.cancelled_at)}
+                          </span>
+                        )}
+                      </p>
+                    ) : null
+                  }
                 />
               </div>
             </div>
           </div>
+
+          {/* HẸN GỌI LẠI — LỜI HẸN CỦA CHÍNH NGƯỜI TRỰC, HIỆN RA ĐƯỢC.
+              Chuông thông báo bắn "Hẹn gọi lại 23:30 ngày 10/08 — Huy" rồi dẫn
+              về màn này, và tới 10/08/2026 màn KHÔNG có chỗ nào nói lời hẹn ấy
+              là gì: ngày, giờ, lý do đều nằm trong `hen_goi_lai` mà chưa ai
+              đọc. Cũng chưa nút nào gọi `PATCH /api/cskh/hen-goi-lai/{id}` nên
+              `dong_luc` mãi NULL — việc không bao giờ đóng được. */}
+          {henGoiLai.length > 0 && (
+            <div id="hen-goi-lai">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+                Đã hẹn gọi lại
+              </span>
+              <div className="mt-1.5 space-y-2">
+                {henGoiLai.map((h) => (
+                  <MotLoiHen
+                    key={h.id}
+                    hen={h}
+                    dangDong={dangDongHen === h.id}
+                    loi={loiDongHen === h.id ? loiDongHenChu : null}
+                    onDong={() => void dongHen(h.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
@@ -974,14 +1188,36 @@ export default function VungLamViecKhach({
                     ? "Đang đóng…"
                     : "Checkout"}
               </button>
+              {/* TÁI KHÁM MỞ THEO LƯỢT ĐANG XEM, không theo "khách này từng
+                  khám xong lần nào chưa".
+
+                  QUANG 10/08/2026: *"nút tái khám phải ấn được đang bị ẩn hay
+                  sao"*. Nó `disabled` thật, và điều kiện cũ (`!lanKhamGanNhat`)
+                  sai ở hai mặt cùng lúc:
+
+                    · SAI CẤP. Khối này tên là "Kết thúc lượt khám" — một câu
+                      hỏi về LƯỢT — nhưng `lanKhamGanNhat` là sự thật về KHÁCH
+                      ("đã từng khám xong lần nào chưa"). Nên nó khoá nút ở
+                      chính lượt người trực đang mở, và mở nút ở một lượt đã
+                      khám xong từ tháng trước.
+                    · SAI VAI. `lanKhamGanNhat` lọc `a.id`, mà `id` xưa nay chỉ
+                      được nạp cho vai quản-lý-được-lịch. Với Lễ tân và ba vai
+                      Thu ngân nó LUÔN null ⇒ nút mờ vĩnh viễn, kèm một câu
+                      title đổ lỗi cho khách ("chưa có lượt khám nào đã xong")
+                      ngay khi khách vừa khám xong.
+
+                  Nay chỉ cần có một lượt đang xem: lịch mới nối vào chính lượt
+                  ấy bằng `lich_truoc_id`, đúng cái người trực đang nhìn. */}
               <button
                 type="button"
                 onClick={() => onDatLich?.("tai-kham")}
-                disabled={!lanKhamGanNhat}
+                disabled={!lich.id}
                 title={
-                  lanKhamGanNhat
-                    ? `Tái khám dịch vụ ${lanKhamGanNhat.service_name ?? "của lượt trước"}`
-                    : "Khách chưa có lượt khám nào đã xong để tái khám"
+                  lich.id
+                    ? `Tái khám — nối tiếp lượt đang xem${
+                        lich.service_name ? `, dịch vụ ${lich.service_name}` : ""
+                      }`
+                    : "Khách chưa có lượt khám nào để nối tiếp"
                 }
                 className="rounded-xl border border-brand-300 px-2.5 py-1.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-40"
               >

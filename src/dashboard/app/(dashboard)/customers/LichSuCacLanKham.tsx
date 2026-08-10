@@ -16,6 +16,7 @@
 // "cùng dịch vụ, gần ngày nhau". Xem migration ấy để biết vì sao suy diễn sai.
 
 import { Clock, CircleDashed, Check } from "lucide-react";
+import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import type { ChuoiKham, LuotKham } from "./CustomersView";
 
 const NHAN_TRANG_THAI: Record<string, string> = {
@@ -33,6 +34,14 @@ const NHAN_TRANG_THAI: Record<string, string> = {
  *  thứ người dùng thật sự bấm; rơi về `loai` cho những dòng ghi trước migration
  *  20260810000002 (hồi ấy chưa có cột ấy). */
 const NHAN_BUOC: Record<string, string> = {
+  // BA MÃ NÀY VIEW SINH RA VÀ CSKH BẤM ĐƯỢC, mà bảng này thiếu tới 10/08/2026 —
+  // nên dòng sổ của chúng rơi vào nhánh `?? b.trang_thai_ma` và in MÃ TRẦN
+  // (`HEN_GOI_LAI`, `MOI_TAI_KHAM`…) ngay trong lịch sử khám của khách.
+  HEN_GOI_LAI: "Khách hẹn gọi lại",
+  MOI_TAI_KHAM: "Gọi mời tái khám",
+  NHAC_DI_KHAM: "Gọi nhắc đi khám",
+  // Mã do màn Chờ xếp bác sĩ ghi vào sổ khi quản lý đổi giờ.
+  QUAN_LY_DOI_GIO: "Quản lý đổi giờ hẹn",
   CHO_XAC_NHAN: "Gọi xác nhận lịch",
   NHAC_HEN_MAI: "Gọi nhắc hẹn",
   DA_CHECKIN: "Check-in",
@@ -80,7 +89,19 @@ function khoangThoiGian(luot: LuotKham): string {
   return `${gio(luot.bat_dau)} → ${gio(luot.ket_thuc)}`;
 }
 
-function MotLuot({ luot, thuTu }: { luot: LuotKham; thuTu: number }) {
+function MotLuot({
+  luot,
+  thuTu,
+  dangXem,
+  onChon,
+}: {
+  luot: LuotKham;
+  thuTu: number;
+  /** Lượt này có đang là lượt ba cột đang làm việc trên đó không. */
+  dangXem: boolean;
+  /** Bấm để chuyển sang làm việc trên lượt này. Không truyền = chỉ đọc. */
+  onChon?: (id: string) => void;
+}) {
   const xong = luot.status === "COMPLETED";
   const chet = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"].includes(luot.status);
 
@@ -101,7 +122,11 @@ function MotLuot({ luot, thuTu }: { luot: LuotKham; thuTu: number }) {
         <span className="w-0.5 flex-1 bg-line" style={{ minHeight: 8 }} />
       </div>
 
-      <div className="min-w-0 flex-1 pb-3">
+      <div
+        className={`min-w-0 flex-1 pb-3 ${
+          dangXem ? "-mx-1.5 rounded-lg bg-brand-50/60 px-1.5" : ""
+        }`}
+      >
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-xs font-semibold text-ink">
             {luot.service_name || "Chưa chọn dịch vụ"}
@@ -114,6 +139,26 @@ function MotLuot({ luot, thuTu }: { luot: LuotKham; thuTu: number }) {
               tái khám lần {thuTu - 1}
             </span>
           )}
+          {/* CHỌN LƯỢT ĐỂ LÀM VIỆC.
+              Đây là chỗ DUY NHẤT trên màn liệt kê đủ mọi lượt của khách, nên nó
+              cũng là chỗ tự nhiên để chuyển lượt. Trước 10/08/2026 không có chỗ
+              nào làm được việc ấy: server đoán một "lịch đại diện" cho cả
+              khách, và đặt tái khám xong màn vẫn đứng ở lượt cũ. */}
+          {dangXem ? (
+            <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              đang làm việc ở lượt này
+            </span>
+          ) : (
+            onChon && (
+              <button
+                type="button"
+                onClick={() => onChon(luot.id)}
+                className="rounded-full border border-brand-300 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 hover:bg-brand-50"
+              >
+                Làm việc ở lượt này
+              </button>
+            )
+          )}
         </div>
 
         <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-muted">
@@ -121,6 +166,25 @@ function MotLuot({ luot, thuTu }: { luot: LuotKham; thuTu: number }) {
           <span className="font-mono">{khoangThoiGian(luot)}</span>
           {luot.doctor_name && <span>· {luot.doctor_name}</span>}
         </p>
+
+        {/* LÝ DO HUỶ, HIỆN Ở ĐÚNG LƯỢT BỊ HUỶ.
+            Một đợt có thể gồm ba lượt mà chỉ một lượt bị huỷ — đặt lý do ở
+            tiêu đề hộp là gán nhầm lượt. `booking_service` ghi cả mã lẫn chữ
+            tự viết từ lâu; màn này chỉ chưa từng đọc chúng. */}
+        {chet && (luot.ly_do_huy_ma || luot.cancellation_reason) && (
+          <p className="mt-0.5 text-[11px] leading-snug text-ink-soft">
+            <span className="font-semibold text-ink-muted">Lý do huỷ: </span>
+            {nhanLyDoHuy(luot.ly_do_huy_ma)}
+            {luot.cancellation_reason && (
+              <span className="block italic">“{luot.cancellation_reason}”</span>
+            )}
+            {luot.cancelled_at && (
+              <span className="block font-mono text-ink-muted">
+                huỷ lúc {gio(luot.cancelled_at)}
+              </span>
+            )}
+          </p>
+        )}
 
         {/* CÁC BƯỚC CSKH ĐÃ BẤM trong chính lượt này. Rỗng là bình thường —
             lịch chưa tới, hoặc không ai phải gọi gì cả. Nói ra thay vì để một
@@ -160,7 +224,16 @@ function MotLuot({ luot, thuTu }: { luot: LuotKham; thuTu: number }) {
   );
 }
 
-export default function LichSuCacLanKham({ chuoi }: { chuoi: ChuoiKham[] }) {
+export default function LichSuCacLanKham({
+  chuoi,
+  luotDangXem = null,
+  onChonLuot,
+}: {
+  chuoi: ChuoiKham[];
+  /** `appointment.id` của lượt ba cột đang làm việc trên đó. */
+  luotDangXem?: string | null;
+  onChonLuot?: (id: string) => void;
+}) {
   return (
     <section
       aria-label="Lịch sử các lần khám"
@@ -198,7 +271,13 @@ export default function LichSuCacLanKham({ chuoi }: { chuoi: ChuoiKham[] }) {
               </p>
               <ol>
                 {c.luot.map((l, j) => (
-                  <MotLuot key={l.id} luot={l} thuTu={j + 1} />
+                  <MotLuot
+                    key={l.id}
+                    luot={l}
+                    thuTu={j + 1}
+                    dangXem={l.id === luotDangXem}
+                    onChon={onChonLuot}
+                  />
                 ))}
               </ol>
             </div>

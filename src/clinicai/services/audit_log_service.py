@@ -181,9 +181,7 @@ def subject_label(row: dict[str, Any] | asyncpg.Record) -> str:
     if kind == "nhan_su":
         return row["subject_ref_name"] or "Nhân sự"
 
-    return KHONG_CO_KHACH.get(
-        row["aggregate_type"], "Không gắn khách hàng"
-    )
+    return KHONG_CO_KHACH.get(row["aggregate_type"], "Không gắn khách hàng")
 
 
 class AuditLogService:
