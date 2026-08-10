@@ -18,4 +18,8 @@ export interface DongLichSu {
   /** Mã trạng thái mà lần chạm này đóng lại. null = dòng ghi tự do, hoặc dòng
    *  có trước migration 20260810000002. */
   trang_thai_ma?: string | null;
+  /** Lượt khám mà lần chạm này thuộc về. null = việc không gắn lịch hẹn nào
+   *  (gọi hỏi thăm chung, ghi phản hồi) — những dòng ấy không vào được timeline
+   *  của một lượt khám cụ thể, và đó là đúng chứ không phải thiếu. */
+  appointment_id?: string | null;
 }

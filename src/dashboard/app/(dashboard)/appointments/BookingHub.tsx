@@ -70,6 +70,24 @@ interface Props {
   provinces: ProvinceOpt[];
   patients: PatientLite[];
   appts: ApptLite[];
+  /** Khách này đã khám mấy lần, và có đang trong chuỗi tái khám không.
+   *  Khoá = clinic_patient_id. Thiếu khoá = chưa khám lần nào. */
+  lanKham?: Record<string, { soLanKham: number; laTaiKham: boolean }>;
+}
+
+/** Nhãn "khám lần mấy". CÙNG LUẬT với `nhanLanKham` ở màn Quản lý khách hàng —
+ *  hai màn nói khác nhau về cùng một khách thì tệ hơn là không nói gì.
+ *
+ *  "Tái khám" thắng con số: cả hai đều đúng, nhưng "tái khám" nói thêm được
+ *  rằng lượt này nối tiếp lượt trước cùng một dịch vụ. Không hiện "lần 1" —
+ *  khách nào cũng từng là lần 1. */
+function nhanLanKham(
+  o?: { soLanKham: number; laTaiKham: boolean },
+): string | null {
+  if (!o) return null;
+  if (o.laTaiKham) return "tái khám";
+  if (o.soLanKham >= 2) return `khám lần ${o.soLanKham}`;
+  return null;
 }
 
 const DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -350,6 +368,7 @@ export default function BookingHub({
   provinces,
   patients,
   appts,
+  lanKham,
 }: Props) {
   const router = useRouter();
   const policy = useBookingPolicy();
@@ -2031,8 +2050,21 @@ export default function BookingHub({
                     <div className="flex items-center gap-2">
                       <User size={15} className="text-ink-muted shrink-0" />
                       <div>
-                        <div className="font-bold text-ink">
-                          {activePatient.full_name}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-bold text-ink">
+                            {activePatient.full_name}
+                          </span>
+                          {/* KHÁM LẦN MẤY — cùng nhãn, cùng luật với màn Quản
+                              lý khách hàng. Người đang đặt lịch cần biết đây là
+                              lần đầu hay khách đang theo một chuỗi tái khám,
+                              TRƯỚC khi chọn dịch vụ. */}
+                          {nhanLanKham(lanKham?.[activePatient.clinic_patient_id]) && (
+                            <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-800">
+                              {nhanLanKham(
+                                lanKham?.[activePatient.clinic_patient_id],
+                              )}
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-ink-muted font-mono">
                           {activePatient.patient_code}
