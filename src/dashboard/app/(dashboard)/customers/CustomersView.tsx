@@ -21,6 +21,7 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import { fmtDate, fmtDateTimeOrDate, conToi, mocMs, nowMs } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
+import { nhanLanChamCuoi } from "./mot-cham";
 import PatientAdminEditor from "../PatientAdminEditor";
 import BaoXepBacSi from "./BaoXepBacSi";
 // Khối "Ghi một tương tác khác" đã bỏ 09/08/2026 (mỗi trạng thái có bộ nút
@@ -918,6 +919,24 @@ export default function CustomersView({
         label: quaGio ? `${nhan} · quá giờ hẹn` : nhan,
         tone: tt.qua_han || quaGio ? "overdue" : TONE_VIEC[tt.trang_thai] ?? "ready",
       };
+    }
+    // HẾT VIỆC RỒI THÌ CHIP NÓI LẦN CHẠM GẦN NHẤT.
+    //
+    // Quang 10/08/2026: bấm đủ chín trạng thái mà danh sách chỉ hiện "đã
+    // check-in" và "đã khám xong". Không phải chip đứng im — mà `v_trang_thai_cskh`
+    // trả lời "việc CÒN PHẢI LÀM", nên bấm xong là việc ấy đóng và biến mất.
+    // Hai cái trụ lại được đều suy từ `appointment.status` chứ không từ sổ.
+    //
+    // Đo trên staging: Sen đi trọn tám bước lúc 17:19, tám dòng ghi thật, và
+    // chip vẫn chỉ nói "Đã khám xong" — vì sau bước cuối chị không còn việc mở.
+    //
+    // Không sửa view (nó đang trả lời đúng câu hỏi của nó). Thêm một tầng: khi
+    // hàng đợi rỗng, chỗ khách đang đứng CHÍNH LÀ việc vừa xong.
+    const chamCuoi = nhanLanChamCuoi(
+      tuongTacByPatient[row.clinic_patient_id]?.[0],
+    );
+    if (chamCuoi) {
+      return { label: chamCuoi, tone: quaGio ? "overdue" : "completed" };
     }
     const cskh = cskhByPatient[row.clinic_patient_id];
     const appt = apptByPatient[row.clinic_patient_id];
