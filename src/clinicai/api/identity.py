@@ -106,7 +106,7 @@ CASHIER_ROLES = frozenset(
 
 
 def role_from_department(dept: str | None) -> ClinicRole:
-    """Map a persisted role code. Unknown → CSKH (least privilege).
+    """Map a persisted role code, rejecting missing or unknown authority.
 
     The legacy name remains because callers and tests use it, but request
     authorization now supplies the per-clinic ``clinic_membership.role`` rather
@@ -114,8 +114,14 @@ def role_from_department(dept: str | None) -> ClinicRole:
     """
     if dept and dept in _VALID_ROLES:
         return ClinicRole(dept)
-    logger.warning("unknown_department_defaulting_cskh", department=dept)
-    return ClinicRole.CSKH
+    # CSKH is not a harmless display fallback: it can read patient details and
+    # record customer-care interactions. A typo or NULL membership role is bad
+    # authorization data, so fail closed instead of silently granting that role.
+    logger.error("invalid_membership_role", department=dept)
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Tài khoản có vai trò không hợp lệ",
+    )
 
 
 @dataclass(frozen=True)

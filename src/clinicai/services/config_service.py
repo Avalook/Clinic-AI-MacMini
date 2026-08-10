@@ -436,13 +436,96 @@ class RosterService:
                     identity.staff_id,
                 )
 
+        # TUẦN VỪA CÓ NGƯỜI TRỰC → BÁO CSKH, nhưng CHỈ khi có ai đó đang đợi.
+        #
+        # Quang 09/08/2026 mô tả đúng vòng này: khách đặt vào tuần chưa xếp lịch
+        # → chờ quản lý xếp lịch làm việc → "khi đó mới có lịch của bác sĩ, thì
+        # CSKH mới có lịch mà gọi lại cho khách để xác nhận lịch và bác sĩ".
+        # Mắt xích cuối chưa từng tồn tại: `thong_bao` trước nay chỉ có đúng hai
+        # người ghi vào, và không cái nào là chỗ này.
+        #
+        # ĐẾM TRƯỚC KHI GỬI. Áp lịch cho một tuần không ai đặt là việc hằng
+        # tuần của quản lý; bắn thông báo cho CSKH mỗi lần như thế là dạy họ
+        # cách phớt lờ cái chuông. Không có lịch nào chờ thì im lặng mới đúng.
+        cho_xep = await self._pool.fetchval(
+            """
+            SELECT count(*) FROM public.appointment
+             WHERE clinic_id = $1::uuid
+               AND doctor_id IS NULL
+               AND status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                  'COMPLETED')
+               AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                     BETWEEN $2 AND $2 + 6
+            """,
+            identity.clinic_id,
+            mon,
+        )
+        if cho_xep:
+            await self._bao_cskh_tuan_da_co_lich(
+                week_start=mon, so_lich_cho=int(cho_xep), identity=identity
+            )
+
         logger.info(
             "roster_week_applied",
             week_start=mon.isoformat(),
             so_ca=so_ca,
+            cho_xep_bac_si=int(cho_xep or 0),
             by_staff_id=identity.staff_id,
         )
         return {"ok": True, "week_start": mon.isoformat(), "so_ca": so_ca}
+
+    async def _bao_cskh_tuan_da_co_lich(
+        self, *, week_start: date, so_lich_cho: int, identity: StaffIdentity
+    ) -> None:
+        """Nhắn vai CSKH rằng tuần này đã chốt lịch trực.
+
+        Nuốt lỗi cùng lý do như `_bao_cskh_da_co_bac_si` ở booking_service: lịch
+        trực ĐÃ áp và đã commit. Ném lỗi ở đây là báo hỏng cho một việc đã xong,
+        và quản lý sẽ bấm "Áp dụng tuần" lần nữa.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        try:
+            het = week_start + timedelta(days=6)
+            await ThongBaoService(self._pool).goi(
+                identity=identity,
+                vai_nhan=ClinicRole.CSKH.value,
+                nguon="tuan_lich_truc",
+                # Khoá theo TUẦN: quản lý sửa vài ca rồi bấm áp lại là chuyện
+                # thường (xem docstring của apply_week), và đó vẫn là một tin.
+                nguon_id=week_start.isoformat(),
+                muc_do="THUONG",
+                tieu_de=(f"Tuần {week_start:%d/%m}–{het:%d/%m} đã chốt lịch trực"),
+                noi_dung=(
+                    f"Có {so_lich_cho} lịch hẹn trong tuần này đang chờ xếp bác "
+                    "sĩ. Xếp xong lịch nào thì gọi xác nhận giờ khám và tên bác "
+                    "sĩ với khách của lịch đó."
+                ),
+                # KHÔNG TRỎ `/appointments/cho-xep-bac-si` NỮA — CSKH KHÔNG VÀO
+                # ĐƯỢC ĐƯỜNG ẤY.
+                #
+                # `roles.ts` chỉ mở màn Chờ xếp bác sĩ cho MANAGEMENT và
+                # TRUONG_CA, nên vai CSKH bấm "Bấm để xử lý" là bị đá thẳng về
+                # /home, không một lời giải thích. Một thông báo dẫn vào tường
+                # còn tệ hơn thông báo không bấm được: người dùng học được rằng
+                # cái chuông này nói dối.
+                #
+                # Việc của CSKH ở đây là GỌI XÁC NHẬN, tức màn Quản lý khách
+                # hàng. Cố ý KHÔNG kèm bộ lọc tuần: `period=week` của màn ấy
+                # tính theo TUẦN HIỆN TẠI, còn quản lý thường áp lịch cho tuần
+                # SAU — một bộ lọc đúng cú pháp mà sai tuần thì tệ hơn không lọc,
+                # vì danh sách rỗng đọc thành "không có việc gì".
+                #
+                # Từng lịch cụ thể vẫn được đánh thức riêng bằng thông báo
+                # `bac_si_da_xep`, thứ đã trỏ đúng khách và đúng việc.
+                duong_dan="/customers",
+            )
+        except Exception:  # noqa: BLE001 — xem docstring
+            logger.warning(
+                "bao_cskh_tuan_da_co_lich_that_bai",
+                week_start=week_start.isoformat(),
+                exc_info=True,
+            )
 
     async def applied_weeks(
         self, *, identity: StaffIdentity, tu: date, den: date

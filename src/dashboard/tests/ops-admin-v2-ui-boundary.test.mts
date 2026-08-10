@@ -10,10 +10,9 @@ const sources = {
   schedule: read("../app/(dashboard)/schedule/page.tsx"),
   official: read("../app/(dashboard)/schedule/OfficialRosterTable.tsx"),
   register: read("../app/(dashboard)/schedule/RosterRegisterTable.tsx"),
-  // WeekKanban.tsx đã bị xoá; không assertion nào trong file này dùng tới nó.
-  // 15 màn còn lại vẫn được canh nguyên vẹn.
-  editPage: read("../app/(dashboard)/schedule/edit/page.tsx"),
-  editor: read("../app/(dashboard)/schedule/edit/RosterEditor.tsx"),
+  // WeekKanban.tsx và schedule/edit/* đều đã bị xoá (commit 410c989, 09/08/2026:
+  // hai màn cùng ghi vào một bảng lịch trực). Đường ghi /api/roster mà `editor`
+  // từng canh nay do `register` canh — cùng một API, một màn duy nhất.
   sessions: read("../app/(dashboard)/work-sessions/page.tsx"),
   reports: read("../app/(dashboard)/reports/page.tsx"),
   print: read("../app/(dashboard)/reports/PrintReportButton.tsx"),
@@ -33,7 +32,6 @@ test("all operational and admin routes use the ClinicAI V2 page shell", () => {
   for (const key of [
     "lead",
     "schedule",
-    "editPage",
     "sessions",
     "reports",
     "ops",
@@ -96,7 +94,7 @@ test("existing authorization and mutation boundaries stay in place", () => {
   assert.match(sources.lead, /requireNavAccess\("\/truong-ca"\)/);
   assert.match(sources.sessions, /requireNavAccess\("\/work-sessions"\)/);
   assert.match(sources.ops, /fetch\("\/api\/ops\/summary"/);
-  assert.match(sources.editor, /fetch\("\/api\/roster"/);
+  assert.match(sources.register, /fetch\("\/api\/roster"/);
   assert.match(sources.account, /\/api\/admin\/users/);
   assert.match(sources.newUserForm, /\/api\/admin\/users/);
   assert.match(sources.settings, /isAdminRole\(role\)/);

@@ -62,10 +62,25 @@ Clock = Callable[[], float]
 # Far above human use, far below what breaks the pool.
 #
 # A busy receptionist moving between screens does perhaps 20 requests a minute.
-# 120/minute is six times that, so meeting it means a machine is driving — and
-# the warning fires at half the ceiling, i.e. 60, which a person still will not
-# reach while working normally.
-DEFAULT_CEILING = 120
+# The warning still fires at HALF the ceiling, so a loop is recorded long before
+# anyone is refused.
+#
+# ĐO LẠI 10/08/2026 — TRẦN CŨ 120 CHẶN NGƯỜI THẬT. Quang bấm các nút dưới bước
+# check-in và nhận "lỗi 429" giữa chừng; log staging đếm được 28 lượt bị từ chối
+# trong 40 phút, riêng lúc 09:43:13 có BẢY lời gọi `/api/v1/me` trong 0,4 giây.
+#
+# Sai lầm của con số cũ nằm ở tiền đề "một người làm 20 request/phút". Nó đúng
+# với NGƯỜI, không đúng với MÀN HÌNH: mỗi cú bấm ở màn CSKH ghi một dòng rồi gọi
+# `router.refresh()`, và một lượt dựng lại cây server component kéo theo `/me`,
+# `/appointments/policy`, `/cskh/recall-jobs`, `/appointments/week`,
+# `/visits/progress`… Một thao tác của người hoá ra sáu bảy lượt gọi. Nhân với
+# một người đang thử nhanh là chạm trần mà không có vòng lặp nào cả.
+#
+# 400 giữ nguyên mục đích của cái trần này: một vòng lặp thật sinh HÀNG NGHÌN
+# lượt một phút và vẫn bị bắt, trong khi người dùng nhanh tay thì không. Nếu vẫn
+# gặp 429 trong lúc dùng bình thường thì ĐỪNG nâng tiếp — lúc ấy đúng là có một
+# vòng lặp, và dòng cảnh báo ở nửa trần đã ghi sẵn tên đường dẫn gây ra nó.
+DEFAULT_CEILING = 400
 DEFAULT_WINDOW_SECONDS = 60
 
 # Once per actor per window is enough to investigate. Without this, the runaway

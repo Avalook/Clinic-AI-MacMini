@@ -78,6 +78,10 @@ class BookingRequest(BaseModel):
     sono_min: int | None = Field(default=None, ge=0, le=600)
     # Ghi chú vận hành của CSKH. Bounded: một ô ghi chú không phải nơi dán bệnh án.
     notes: str | None = Field(default=None, max_length=2000)
+    #: Lịch hẹn mà lịch này là TÁI KHÁM của nó. Chỉ nút "Tái khám" truyền; nút
+    #: "Đặt lịch khám mới" cố ý để trống. Dịch vụ đi kèm đã nằm sẵn ở
+    #: `service_type_id`, nên không cần trường riêng cho "tái khám dịch vụ nào".
+    lich_truoc_id: UUID | None = None
 
 
 class ActionRequest(BaseModel):
@@ -108,8 +112,11 @@ async def cho_xep_bac_si(
             """
             SELECT a.id::text,
                    a.slot_start,
+                   a.slot_end,
                    a.status,
                    a.notes,
+                   -- Để màn quản lý mở thẳng được hồ sơ khách sau khi xếp xong.
+                   a.clinic_patient_id::text,
                    p.full_name   AS benh_nhan,
                    p.patient_code,
                    p.phone_primary,
@@ -227,6 +234,7 @@ async def create_booking(
         thanh_min=body.thanh_min,
         sono_min=body.sono_min,
         notes=body.notes,
+        lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
     )
     payload = {"ok": True, **result}
     await idem.save(pool, payload, status_code=201)
@@ -413,6 +421,13 @@ class SlotHoldRequest(BaseModel):
     slot_start: datetime
     slot_end: datetime
     doctor_id: UUID | None = None
+    # KHÁCH ĐANG ĐƯỢC CHỌN, để nhật ký thao tác gọi được tên người.
+    #
+    # Chỗ giữ bản thân nó là cặp (bác sĩ, khung giờ) — nó KHÔNG cần biết khách
+    # là ai và không lưu vào bảng. Nhưng dòng nhật ký sinh ra từ nó thì cần:
+    # thiếu trường này, `/audit-log` không tra được ai và in ra
+    # "slot_hold · 938d4f94". Tuỳ chọn: giữ chỗ vẫn chạy khi chưa chọn khách.
+    clinic_patient_id: UUID | None = None
 
 
 @router.post("/appointments/slot-hold", status_code=201)
@@ -431,6 +446,9 @@ async def hold_slot(
         slot_start=body.slot_start,
         slot_end=body.slot_end,
         doctor_id=str(body.doctor_id) if body.doctor_id else None,
+        clinic_patient_id=(
+            str(body.clinic_patient_id) if body.clinic_patient_id else None
+        ),
     )
 
 

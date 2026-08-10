@@ -17,12 +17,54 @@ import { getSupabaseServer } from "./supabase-server";
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
 /**
+ * `getUser()` NHƯNG KHÔNG ĐƯỢC PHÉP LÀM SẬP TRANG.
+ *
+ * `getUser()` đổi refresh token lấy access token mới, và Supabase XOAY refresh
+ * token: dùng một lần là hỏng. Trên một lần bấm "Đặt lịch hẹn" có ít nhất hai
+ * chỗ cùng đổi — `proxy.ts` chạy cho mọi request, rồi `router.refresh()` kéo
+ * server component render lại và chuỗi này gọi lần nữa. Chỗ về sau cầm đúng
+ * cái token vừa bị xoay và nhận `AuthApiError: refresh_token_not_found`.
+ *
+ * Ba chỗ gọi `getUser()` ở file này đều để trần, nên lỗi ấy ném thẳng qua
+ * render của server component: Next dựng trang lỗi tối kèm nút thử lại. Người
+ * dùng thấy màn đen SAU KHI lịch đã lưu thành công — tưởng đặt hỏng, bấm lại,
+ * và chỉ có khoá idempotency chặn được lịch thứ hai.
+ *
+ * Nuốt lỗi ở đây là ĐÚNG chứ không phải giấu: mục đích duy nhất của lời gọi
+ * này là làm mới token *nếu làm được*. Không làm được thì `getSession()` ngay
+ * dưới vẫn đọc cookie mà `proxy.ts` vừa đặt trong chính request này. Còn nếu
+ * phiên hỏng thật thì `token` ra null và các chỗ gọi đã xử lý sẵn (401 / null)
+ * — tức là đá về /login, chứ không phải một trang lỗi không nói gì.
+ *
+ * Chỉ nuốt lỗi xác thực. Lỗi khác (mạng, DNS) vẫn ném để còn thấy mà sửa.
+ */
+async function refreshQuietly(
+  supabase: Awaited<ReturnType<typeof getSupabaseServer>>,
+): Promise<void> {
+  try {
+    await supabase.auth.getUser();
+  } catch (err) {
+    if ((err as { __isAuthError?: boolean } | null)?.__isAuthError) return;
+    throw err;
+  }
+}
+
+/**
  * Forward a JSON body to a FastAPI endpoint, attaching the caller's Supabase
  * access token (Bearer) + the shared X-API-Key, and mirror the backend's
  * status/body back to the browser as the { ok } / { error } shape the UI expects.
  */
 export async function proxyJsonToBackend(
-  method: "POST" | "PUT" | "PATCH" | "DELETE",
+  // "GET" CÓ TRONG DANH SÁCH, và nó không thừa.
+  //
+  // `fetchFromBackend` tiện cho server component vì nó trả `T | null`. Nhưng
+  // `null` XOÁ MẤT mã trạng thái và câu lỗi: route `/api/roster?staff_id=` gọi
+  // nó, thấy null, rồi trả 503 "Không đọc được phạm vi vị trí" — trong khi
+  // backend đã trả 404 kèm câu "Không tìm thấy nhân viên này". Người dùng đọc
+  // thành "máy chủ hỏng", và 503 trong log lúc có sự cố là một dấu vết dẫn sai.
+  //
+  // Đo khi nghiệm thu 10/08/2026 với một `staff_id` không tồn tại.
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
   // Chuyển tiếp Idempotency-Key khi route gọi có gửi.
@@ -52,7 +94,7 @@ export async function proxyJsonToBackend(
   // hạn, nó trả null dù người dùng vẫn còn phiên hợp lệ. getUser() đổi refresh
   // token lấy access token mới trong bộ nhớ client; gọi trước getSession() để
   // có token dùng được, kể cả trong server component nơi setAll() là no-op.
-  await supabase.auth.getUser();
+  await refreshQuietly(supabase);
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -75,7 +117,8 @@ export async function proxyJsonToBackend(
     res = await fetch(`${API_BASE}${path}`, {
       method,
       headers,
-      body: JSON.stringify(body),
+      // GET không được mang thân — `fetch` ném nếu có.
+      ...(method === "GET" ? {} : { body: JSON.stringify(body) }),
       cache: "no-store",
     });
   } catch {
@@ -124,7 +167,7 @@ export async function getCallerAuthHeaders(): Promise<Record<
   string
 > | null> {
   const supabase = await getSupabaseServer();
-  await supabase.auth.getUser();
+  await refreshQuietly(supabase);
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -153,7 +196,7 @@ export async function fetchFromBackend<T>(path: string): Promise<T | null> {
 
   const supabase = await getSupabaseServer();
   // Cùng lý do — xem proxyJsonToBackend. getSession() không refresh; getUser() thì có.
-  await supabase.auth.getUser();
+  await refreshQuietly(supabase);
   const {
     data: { session },
   } = await supabase.auth.getSession();

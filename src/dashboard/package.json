@@ -10,6 +10,7 @@
     "test:audit": "node --test lib/event-log-redaction.test.mts",
     "test:ops": "node --test lib/ops-summary.test.mts",
     "test:boundary": "node --test tests/*boundary.test.mts",
+    "test:roster": "node --test lib/roster.test.mts",
     "e2e:intake": "node e2e/intake-day-simulation.mjs"
   },
   "dependencies": {

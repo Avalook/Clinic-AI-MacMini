@@ -106,10 +106,13 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
     "utf8",
   );
   assert.match(vung, /<Check /); // dấu tích cho bước đã xong
-  assert.match(vung, /onLamViec\(t\.buoc\.ma\)/); // node bấm được
+  assert.match(vung, /onLamViec\(tt\.ma\)/); // node bấm được (nay node = TRẠNG THÁI)
   assert.match(vung, /Làm lại/); // bước đã xong vẫn làm lại được
   assert.match(customers, /<AppointmentEditModal/);
-  assert.match(customers, /<QuickBookingModal/);
+  // `QuickBookingModal` đã bị bỏ: nó render một màn DỰNG SẴN (tên giả, khung
+  // giờ viết cứng) nên bấm "Đặt lịch hẹn" trong đó không lưu gì cả. Nay nút đi
+  // thẳng sang màn đặt lịch THẬT, mang mã bệnh nhân theo. Canh cái đó.
+  assert.match(customers, /router\.push\(\s*`\/appointments\?bn=/);
   assert.match(customersPage, /requireNavAccess\("\/customers"\)/);
 });
 

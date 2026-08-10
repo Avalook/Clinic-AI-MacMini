@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, time
 from typing import Any, Literal
 from uuid import UUID
 
@@ -12,12 +12,18 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
     INTAKE_ROLES,
     CskhService,
     clinic_today,
+)
+from clinicai.services.media_service import (
+    KET_QUA_VIDEO_UPLOAD_ENABLED,
+    MAX_BYTES_THEO_LOAI,
+    sniff_ket_qua,
 )
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
@@ -35,6 +41,51 @@ _RECALL_GUARD = require_role(
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
 )
+
+_UPLOAD_SNIFF_BYTES = 512
+_UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
+    """Read one result file in bounded chunks and stop at its content-type cap.
+
+    ``UploadFile.read()`` with no size consumes an attacker-controlled body in
+    one call. Read only enough to identify the real type first, then at most the
+    corresponding limit plus one byte. That last byte proves the upload is too
+    large without consuming the rest of it.
+    """
+    prefix = await file.read(_UPLOAD_SNIFF_BYTES)
+    if not prefix:
+        raise ValidationError("Tệp rỗng.")
+
+    _mime, _ext, loai = sniff_ket_qua(prefix)
+    if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
+        raise ValidationError(
+            "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
+        )
+    limit = MAX_BYTES_THEO_LOAI[loai]
+    chunks = [prefix]
+    total = len(prefix)
+    if total > limit:
+        raise ValidationError(
+            f"Tệp quá lớn ({total // 1024 // 1024}MB). "
+            f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+        )
+
+    while True:
+        # At the exact limit, read one byte: EOF means valid, one byte means too
+        # large. Never ask the upload object for an unbounded read.
+        remaining_with_probe = limit - total + 1
+        chunk = await file.read(min(_UPLOAD_CHUNK_BYTES, remaining_with_probe))
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > limit:
+            raise ValidationError(
+                f"Tệp quá lớn ({total // 1024 // 1024}MB). "
+                f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+            )
+        chunks.append(chunk)
 
 
 class CskhActionRequest(BaseModel):
@@ -153,6 +204,34 @@ async def skip_recall_job(
     )
 
 
+class HenTaiKhamTay(BaseModel):
+    """CSKH gõ tay ngày tái khám cho một khách."""
+
+    clinic_patient_id: UUID
+    ngay_tai_kham: date
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/cskh/nhac-tai-kham", status_code=201)
+async def create_recall_by_hand(
+    body: HenTaiKhamTay,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hẹn tái khám do CSKH gõ → sinh hai mốc gọi: trước 7 ngày và trước 1 ngày.
+
+    Đường tự sinh chỉ đọc được lời dặn nằm trong phiếu khám đã chốt. Khách nói
+    qua điện thoại "tháng sau em quay lại" thì không có phiếu nào để đọc, và
+    câu ấy hiện không có chỗ nào ghi xuống.
+    """
+    return await RecallJobService(pool).tao_thu_cong(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        ngay_tai_kham=body.ngay_tai_kham,
+        ly_do=body.ly_do,
+    )
+
+
 @router.post("/cskh/actions", status_code=201)
 async def record_cskh_action(
     body: CskhActionRequest,
@@ -227,6 +306,12 @@ class TuongTacRequest(BaseModel):
         "BO_QUA",
         "GHI_NHAN",
     ]
+    # MÃ TRẠNG THÁI mà lần chạm này đóng lại (CHO_XAC_NHAN, DA_CHECKIN, …).
+    # Không phải Literal: danh sách trạng thái là chuyện của giao diện và còn
+    # đổi theo đặc tả nghiệp vụ; khoá cứng ở đây là mỗi lần thêm một trạng thái
+    # lại phải deploy backend. Cột chỉ để màn hình tra lại, không có luật nào
+    # phía sau nó.
+    trang_thai_ma: str | None = Field(default=None, max_length=64)
     khach_xac_nhan: bool | None = None
     noi_dung: str | None = Field(default=None, max_length=2000)
 
@@ -247,6 +332,19 @@ async def ghi_tuong_tac(
         ket_qua=body.ket_qua,
         khach_xac_nhan=body.khach_xac_nhan,
         noi_dung=body.noi_dung,
+        trang_thai_ma=body.trang_thai_ma,
+    )
+
+
+@router.post("/cskh/tuong-tac/{tuong_tac_id}/hoan-tac", status_code=201)
+async def hoan_tac_tuong_tac(
+    tuong_tac_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Rút lại một lần chạm bấm nhầm. KHÔNG xoá dòng sổ — xem service."""
+    return await TuongTacCskhService(pool).hoan_tac(
+        identity=identity, tuong_tac_id=str(tuong_tac_id)
     )
 
 
@@ -267,6 +365,9 @@ async def lich_su_tuong_tac(
 class HenGoiLaiRequest(BaseModel):
     clinic_patient_id: UUID
     ngay_goi: date
+    #: Giờ trong ngày. Bỏ trống = chỉ hẹn tới ngày, KHÔNG phải 00:00 —
+    #: xem chú thích cột ở migration 20260810000006.
+    gio_goi: time | None = None
     ly_do: str = Field(min_length=1, max_length=500)
 
 
@@ -281,6 +382,7 @@ async def tao_hen_goi_lai(
         identity=identity,
         clinic_patient_id=str(body.clinic_patient_id),
         ngay_goi=body.ngay_goi,
+        gio_goi=body.gio_goi,
         ly_do=body.ly_do,
     )
 
@@ -366,7 +468,7 @@ async def tai_len_ket_qua(
     """
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
-    data = await file.read()
+    data = await _doc_upload_co_gioi_han(file)
     return await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=str(clinic_patient_id),
@@ -411,11 +513,10 @@ async def doc_tep_ket_qua(
     path, mime, so_byte, ten = await TepKetQuaService(pool).duong_dan_de_doc(
         identity=identity, tep_id=str(tep_id)
     )
-    # Dữ liệu bệnh nhân: `private` cho phép trình duyệt của chính người xem giữ,
-    # không cho proxy giữ; `nosniff` để trình duyệt không tự đoán kiểu và chạy
-    # nội dung như HTML.
+    # Dữ liệu bệnh nhân không được lưu trong cache trình duyệt hay proxy.
+    # `nosniff` ngăn trình duyệt tự đoán kiểu và chạy nội dung như HTML.
     headers = {
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
         "Accept-Ranges": "bytes",
         "Content-Disposition": "inline",
@@ -431,7 +532,8 @@ async def doc_tep_ket_qua(
         # Yêu cầu nằm ngoài tệp — trả 416 kèm độ dài thật, để trình phát tự
         # chỉnh lại thay vì treo.
         return Response(
-            status_code=416, headers={"Content-Range": f"bytes */{so_byte}"}
+            status_code=416,
+            headers={**headers, "Content-Range": f"bytes */{so_byte}"},
         )
 
     def doc_dan() -> Iterator[bytes]:

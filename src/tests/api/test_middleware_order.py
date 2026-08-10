@@ -50,6 +50,7 @@ def test_stack_is_outermost_first(app_middleware_names: list[str]) -> None:
     assert app_middleware_names == [
         "RequestIdMiddleware",
         "TimingMiddleware",
+        "CskhUploadSizeLimitMiddleware",
         "api_key_middleware",
         "DbErrorMiddleware",
     ]

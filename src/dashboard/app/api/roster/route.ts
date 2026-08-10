@@ -1,5 +1,5 @@
 // Lịch làm việc — ghi/xoá phân công, và CHỐT một tuần.
-//   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó (chỉ tuần ĐÃ ÁP DỤNG)
+//   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó + `du_kien` (tuần chưa chốt)
 //   GET    ?tu=…&den=…               → những tuần đã áp dụng trong khoảng
 //   GET    ?staff_id=…               → vị trí người này được xếp vào
 //   POST   { week_start, work_date, … }  → thêm 1 ô
@@ -10,7 +10,7 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
-import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
   getClinicRole,
@@ -19,9 +19,23 @@ import {
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
 
-/** Thứ Hai của tuần chứa `iso`. Cùng quy ước với week_start_of ở backend. */
-function weekStartOf(iso: string): string {
+/** Thứ Hai của tuần chứa `iso`. Cùng quy ước với week_start_of ở backend.
+ *
+ *  `null` = `iso` không phải một ngày đọc được.
+ *
+ *  NGÀY SAI PHẢI THÀNH 400, KHÔNG PHẢI 500. `new Date("99-99-9999T00:00:00Z")`
+ *  cho một Invalid Date, và `toISOString()` trên đó NÉM `RangeError` — lời gọi
+ *  trả 500 với thân rỗng, người dùng không đọc được gì và log không nói tên
+ *  đường dẫn nào sai.
+ *
+ *  Đây là con thứ HAI cùng họ trong một ngày: `/api/appointments` cũng ném đúng
+ *  như vậy khi thiếu `date` (xem ghi chú ở route ấy). Luật rút ra: mọi chỗ dựng
+ *  `Date` từ chuỗi NGƯỜI GỬI phải kiểm `Number.isNaN(getTime())` TRƯỚC khi gọi
+ *  `toISOString()` — bản thân `toISOString()` là thứ ném, nên câu kiểm đặt sau
+ *  nó không bao giờ chạy tới. */
+function weekStartOf(iso: string): string | null {
   const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
   const isoDow = ((d.getUTCDay() + 6) % 7) + 1; // 1 = thứ Hai
   d.setUTCDate(d.getUTCDate() - (isoDow - 1));
   return d.toISOString().slice(0, 10);
@@ -97,16 +111,18 @@ export async function GET(request: Request) {
   // diện sẽ mời một vị trí mà backend không nhận.
   const nhanSu = (sp.get("staff_id") ?? "").trim();
   if (nhanSu) {
-    const data = await fetchFromBackend<{ tram: string[]; chua_khai: boolean }>(
+    // CHUYỂN NGUYÊN mã trạng thái và câu lỗi của backend, đừng gộp thành 503.
+    //
+    // Chỗ này từng dùng `fetchFromBackend`, mà nó trả `null` cho MỌI lỗi — nên
+    // một `staff_id` không tồn tại (nhân viên vừa bị gỡ, id gõ sai) ra 503
+    // "Không đọc được phạm vi vị trí", trong khi backend đã nói rõ 404 "Không
+    // tìm thấy nhân viên này". Người dùng đọc thành "máy chủ hỏng" và đi báo
+    // kỹ thuật; log thì ghi 503 giữa lúc mọi thứ vẫn chạy.
+    return proxyJsonToBackend(
+      "GET",
       `/api/v1/roster/stations?staff_id=${encodeURIComponent(nhanSu)}`,
+      undefined,
     );
-    if (data === null) {
-      return NextResponse.json(
-        { error: "Không đọc được phạm vi vị trí." },
-        { status: 503 },
-      );
-    }
-    return NextResponse.json(data);
   }
 
   const date = (sp.get("date") ?? "").trim();
@@ -114,19 +130,43 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
   }
 
-  // CHỈ TUẦN ĐÃ ÁP DỤNG mới trả về bác sĩ trực.
+  // CÓ PHÂN CÔNG THÌ TRẢ VỀ — "tuần chưa chốt" là một CÂU NÓI THÊM, không phải
+  // một cái khoá.
   //
-  // Sơ đồ đặt lịch vẽ hàng theo danh sách này; danh sách rỗng thì nó rơi về
-  // "hiện mọi bác sĩ" — đúng thứ ta muốn cho một tuần chưa chốt. Trả về danh
-  // sách lấy từ bản nháp thì màn hình nói chắc nịch ai trực ngày 12/12 trong
-  // khi phòng khám chưa quyết. Xem migration 20260808000001.
+  // QUANG 10/08/2026: *"lúc quản lý tạo lịch làm việc và ngày mà khách đặt đã
+  // có các bác sĩ phụ trách rồi thì khi tôi ấn để đổi lịch hoặc đặt lịch thì
+  // phải hiện ra các khung giờ của các bác sĩ đã có lịch làm việc chứ"*.
+  //
+  // Trước đây chỗ này `return { doctors: [] }` ngay khi tuần chưa có dòng
+  // `roster_week`. Đo trên staging: ngày 10/09/2026 CÓ dòng work_roster
+  // `LICH_KHAM / FULL / APPROVED / TS.BS. Phan Chí Thành` kèm `staff_id`, hiện
+  // rành rành trên màn Lịch làm việc của quản lý — nhưng tuần 07/09 chưa ai bấm
+  // "Áp dụng tuần", nên lưới đặt lịch trả lời "Ngày này chưa xếp lịch trực bác
+  // sĩ" và bày đúng một hàng "Chưa phân bác sĩ". Hai màn cùng đọc một bảng mà
+  // nói hai điều ngược nhau.
+  //
+  // Ý ĐỊNH CŨ VẪN ĐÚNG, CHỈ SAI CÁCH THI HÀNH. `roster_week` sinh ra để một
+  // tuần trải sẵn từ mẫu không bị đọc thành lời hứa chắc chắn — nhưng cách
+  // chữa là NÓI RA rằng nó chưa chốt, không phải giấu người đã được xếp. Giấu
+  // đi thì CSKH đặt vào hàng "chưa phân bác sĩ" cho một ngày đã có bác sĩ, và
+  // quản lý phải xếp lại lần nữa thứ họ vừa xếp xong.
+  //
+  // `du_kien = true` đi kèm để lưới ghi chú "tuần này chưa chốt, giờ có thể còn
+  // đổi". Chặn đặt lịch thì KHÔNG đổi: `capacity_service.roster_known` vẫn đòi
+  // tuần đã áp dụng, vì ở đó cờ này quyết định có TỪ CHỐI khách hay không —
+  // và từ chối dựa trên một bản nháp là hướng sai duy nhất không sửa lại được.
   const tuan = weekStartOf(date);
+  if (tuan === null) {
+    return NextResponse.json(
+      { error: `Ngày không hợp lệ: ${date}` },
+      { status: 400 },
+    );
+  }
   const { data: daApDung } = await caller
     .from("roster_week")
     .select("week_start")
     .eq("week_start", tuan)
     .maybeSingle();
-  if (!daApDung) return NextResponse.json({ doctors: [], du_kien: true });
 
   const { data, error } = await caller
     .from("work_roster")
@@ -145,7 +185,7 @@ export async function GET(request: Request) {
     seen.add(r.staff_id);
     doctors.push({ id: r.staff_id, name: r.staff_name ?? "" });
   }
-  return NextResponse.json({ doctors, du_kien: false });
+  return NextResponse.json({ doctors, du_kien: !daApDung });
 }
 
 interface PostBody {

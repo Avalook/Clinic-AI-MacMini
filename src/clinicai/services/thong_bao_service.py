@@ -34,8 +34,27 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 
 logger = structlog.get_logger()
 
-#: Nguồn duy nhất hiện có. Khai tường minh để một chuỗi gõ sai không lặng lẽ
-#: tạo ra một "nguồn" mới mà không màn nào biết cách hiển thị.
+#: Nguồn → (mã sự kiện ghi vào nhật ký, đường ghi). Khai tường minh để một chuỗi
+#: gõ sai không lặng lẽ tạo ra một "nguồn" mới mà không màn nào biết cách hiển
+#: thị — và để khoá chống trùng `uq_thong_bao_dang_mo` (clinic, nguon, nguon_id,
+#: vai_nhan) tách bạch giữa các loại việc.
+#:
+#: LƯU Ý CHO BÀI KIỂM CHỐNG LỆCH: hai mã dưới đi vào `event_log` như THAM SỐ,
+#: không phải chuỗi hằng cạnh câu INSERT, nên bộ quét ở
+#: `test_audit_labels_drift.py` không thấy chúng. Nhãn tiếng Việt của chúng đã
+#: thêm tay vào `audit_labels.EVENT_LABELS`; sửa bảng này thì sửa cả bên đó.
+NGUON: dict[str, tuple[str, str]] = {
+    "dispatch_alert": ("dispatch.alert_called", "api:dispatch"),
+    # Quản lý vừa gán bác sĩ cho một lịch trước đó còn trống → CSKH gọi xác nhận.
+    "bac_si_da_xep": ("thong_bao.bac_si_da_xep", "api:booking"),
+    # Quản lý vừa áp lịch trực cả tuần → tuần ấy đã có người, những lịch đang
+    # chờ trong tuần xếp được rồi.
+    "tuan_lich_truc": ("thong_bao.tuan_lich_truc", "config.roster"),
+    # CSKH tự hẹn "gọi lại lúc 17:00" → mẩu giấy dán màn hình cho chính vai CSKH.
+    "hen_goi_lai": ("thong_bao.hen_goi_lai", "cskh.customers"),
+}
+
+#: Nguồn duy nhất trước 09/08/2026 — giữ tên cũ vì `dispatch.py` gọi theo nó.
 NGUON_CANH_BAO = "dispatch_alert"
 
 MUC_DO_HOP_LE = frozenset({"KHAN", "THUONG"})
@@ -57,10 +76,14 @@ class ThongBaoService:
         nguon_id: str | None = None,
         muc_do: str = "KHAN",
         duong_dan: str | None = None,
+        nguon: str = NGUON_CANH_BAO,
     ) -> dict[str, Any]:
         """Gọi một bộ phận. Bấm lại khi chưa ai xử lý thì KHÔNG tạo thêm."""
         if muc_do not in MUC_DO_HOP_LE:
             raise ValidationError(f"Mức độ không hợp lệ: {muc_do!r}.")
+        if nguon not in NGUON:
+            raise ValidationError(f"Nguồn thông báo không hợp lệ: {nguon!r}.")
+        ma_su_kien, duong_ghi = NGUON[nguon]
         try:
             vai = ClinicRole(vai_nhan)
         except ValueError:
@@ -90,7 +113,7 @@ class ThongBaoService:
                     muc_do,
                     tieu_de.strip(),
                     noi_dung.strip(),
-                    NGUON_CANH_BAO,
+                    nguon,
                     nguon_id,
                     duong_dan,
                     identity.staff_id,
@@ -107,7 +130,7 @@ class ThongBaoService:
                            AND da_xu_ly_luc IS NULL
                         """,
                         identity.clinic_id,
-                        NGUON_CANH_BAO,
+                        nguon,
                         nguon_id,
                         vai.value,
                     )
@@ -123,8 +146,8 @@ class ThongBaoService:
                     INSERT INTO public.event_log
                         (clinic_id, event_type, aggregate_type, aggregate_id,
                          payload, metadata, source, event_published)
-                    VALUES ($1::uuid, 'dispatch.alert_called', 'thong_bao',
-                            $2::uuid, $3::jsonb, $4::jsonb, 'api:dispatch',
+                    VALUES ($1::uuid, $5, 'thong_bao',
+                            $2::uuid, $3::jsonb, $4::jsonb, $6,
                             FALSE)
                     """,
                     identity.clinic_id,
@@ -145,10 +168,13 @@ class ThongBaoService:
                             "clinic_role": identity.role.value,
                         }
                     ),
+                    ma_su_kien,
+                    duong_ghi,
                 )
 
         logger.info(
-            "dispatch_alert_called",
+            "thong_bao_gui",
+            nguon=nguon,
             thong_bao_id=row["id"],
             vai_nhan=vai.value,
             by_staff_id=identity.staff_id,
@@ -181,6 +207,40 @@ class ThongBaoService:
                 identity.staff_id,
             )
         return [dict(r) for r in rows]
+
+    async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Đóng dấu ĐÃ ĐỌC cho mọi thông báo đang mở của vai này.
+
+        ĐỌC ≠ ĐÃ XỬ LÝ, và đó là cả lý do có hai cột. `da_xu_ly_luc` là việc
+        đã xong; `da_doc_luc` chỉ là "tôi thấy rồi". Nút "Đánh dấu đã đọc" phải
+        tắt được chấm đỏ mà KHÔNG đóng việc — đóng việc hộ ở đây là làm mất một
+        hàng đợi thật chỉ vì ai đó mở cái chuông ra xem.
+
+        Trước đây nút ấy chỉ gọi `setUnread(0)` ở trình duyệt, trong khi con số
+        trên chuông là `unread + thongBao.length` — phần đến từ máy chủ không
+        có đường nào tắt, nên chấm đỏ ở lại mãi và người dùng học cách lờ nó đi.
+        """
+        async with self._pool.acquire() as conn:
+            so = await conn.fetchval(
+                """
+                UPDATE public.thong_bao
+                   SET da_doc_luc = now()
+                 WHERE clinic_id = $1::uuid
+                   AND da_xu_ly_luc IS NULL
+                   AND da_doc_luc IS NULL
+                   AND (vai_nhan = $2 OR nguoi_nhan_staff_id = $3::uuid)
+                RETURNING 1
+                """,
+                identity.clinic_id,
+                identity.role.value,
+                identity.staff_id,
+            )
+        logger.info(
+            "thong_bao_danh_dau_da_doc",
+            vai_nhan=identity.role.value,
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True, "co_thay_doi": so is not None}
 
     async def da_xu_ly(
         self, *, identity: StaffIdentity, thong_bao_id: str, ghi_chu: str | None

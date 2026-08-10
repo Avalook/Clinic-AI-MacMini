@@ -18,6 +18,8 @@ import HomeCheckin, { type HomeCheckinRow } from "./HomeCheckin";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { vnTodayRangeUtc, fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { doctorName } from "../../../lib/doctor-name";
+import { dongBoTenTrucNhat } from "../../../lib/roster-names";
 import { currentWeekStartVn, weekDates, weekStartOf } from "../../../lib/roster";
 import WeekNav from "../WeekNav";
 import WeeklyAppointmentsTable, {
@@ -64,14 +66,23 @@ const GREET_LABEL: Record<ClinicRole, string> = {
   DISPLAY: "màn hình",
 };
 
-// Bỏ tiền tố chức danh khỏi tên ("BS Thành" → "Thành", "ĐD Hà Vũ" → "Hà Vũ").
-function cleanName(name: string): string {
-  return name.replace(/^(BS\s*SA|BS|ĐD|TL)\s+/i, "").trim();
-}
-
+// LỜI CHÀO KHÔNG ĐƯỢC LẶP CHỨC DANH.
+//
+// Quang 09/08/2026: *"chỉ là xin chào CSKH Diệu Hoa thôi"*. Bản trước ghép
+// `GREET_LABEL[role]` vào trước `full_name`, mà `full_name` trên prod đã mang
+// sẵn chức danh ("CSKH · Diệu Hoa") — ra "Xin chào CSKH CSKH · Diệu Hoa". Hàm
+// cắt tiền tố cũ chỉ biết "BS/ĐD/TL", không biết dấu chấm giữa.
+//
+// `doctorName` là chỗ đã giải đúng chuyện này cho mọi màn khác — dùng lại nó.
 function greet(role: ClinicRole | null, staff: ActiveStaff | null): string {
   if (!role || !staff) return "Trang chủ";
-  return `Xin chào ${GREET_LABEL[role]} ${cleanName(staff.full_name ?? staff.short_name)}`;
+  const goc = staff.full_name ?? staff.short_name;
+  const ten = doctorName(goc);
+  if (!ten) return "Trang chủ";
+  // Chuỗi gốc có dấu chấm giữa nghĩa là nó đã mang chức danh, và doctorName giữ
+  // lại chức danh ấy. Chỉ khi tên lưu TRẦN mới ghép chức danh — và ghép từ VAI
+  // ĐANG ĐĂNG NHẬP, thứ biết chắc từ phiên, chứ không đoán từ cái tên.
+  return `Xin chào ${/[·•]/.test(goc) ? ten : `${GREET_LABEL[role]} ${ten}`}`;
 }
 
 export default async function HomePage({
@@ -141,11 +152,18 @@ export default async function HomePage({
       .eq("status", "SCHEDULED")
       .gte("slot_start", dayStart)
       .lt("slot_start", dayEnd),
+    // THỨ TỰ TRONG Ô LÀ THỨ TỰ HAI HÀNG CON, nên nó phải cố định. Không sắp thì
+    // Postgres trả về theo thứ tự nào cũng được, và người thứ nhất/thứ hai của
+    // một ngày đổi chỗ cho nhau giữa hai lần tải trang — một bảng lịch trực nhấp
+    // nháy như vậy trông như dữ liệu đang sai. `id` là chốt cuối khi `sort` bằng
+    // nhau (mọi dòng nạp từ Excel đều sort = 0).
     supabase
       .from("work_roster")
-      .select("work_date, station, staff_name, shift")
+      .select("work_date, station, staff_id, staff_name, shift")
       .eq("week_start", weekRoster)
-      .eq("status", "APPROVED"), // chỉ ca đã duyệt mới lên lịch chung trang chủ
+      .eq("status", "APPROVED") // chỉ ca đã duyệt mới lên lịch chung trang chủ
+      .order("sort", { ascending: true })
+      .order("id", { ascending: true }),
     // LỊCH HẸN TUẦN — nay do FastAPI trả, KÈM SẴN phan_loai.
     //
     // Trước đây chỗ này là một truy vấn PostgREST, rồi bên dưới còn một truy
@@ -298,7 +316,16 @@ export default async function HomePage({
     { label: "Lịch chờ xác nhận", value: pendingApptRes.count ?? 0 },
   ];
   // Gom lịch hẹn theo ngày (tuần này) cho bảng "Lịch hẹn khám".
-  const rosterRows = (rosterRes.data as RosterRow[] | null) ?? [];
+  // TÊN TRONG BẢNG LỊCH LÀM VIỆC LẤY TỪ `staff`, KHÔNG PHẢI CHUỖI EXCEL.
+  //
+  // Màn /schedule đã làm bước này từ trước; trang chủ thì không, nên cùng một
+  // bảng ở hai nơi hiện hai cách viết tên — và ở đây còn tệ hơn: cột "Số BS"
+  // đếm theo staff_id nên nó nói 4 trong khi ô bên cạnh bày 5 cái tên (08/08:
+  // "Bác sĩ · BSNT. Lê Thiệu Quyết" và "BS QUYẾT" là MỘT người).
+  const rosterRows = await dongBoTenTrucNhat(
+    supabase,
+    (rosterRes.data as RosterRow[] | null) ?? [],
+  );
   // Backend trả sẵn phan_loai, nên không còn `RawAppt` (kiểu "thiếu phan_loai")
   // và không còn bước gắn thêm ở dưới. `?? []` là khi backend không trả lời —
   // lưới hiện trống, giống mọi nguồn khác của trang này.

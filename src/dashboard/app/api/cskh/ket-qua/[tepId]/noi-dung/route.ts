@@ -53,7 +53,9 @@ export async function GET(
 
   const ra: Record<string, string> = {
     "X-Content-Type-Options": "nosniff",
-    "Cache-Control": "private, max-age=300",
+    // Máy/quầy dùng chung: sau logout hoặc đổi tài khoản, PHI không được lấy
+    // lại từ browser cache mà bỏ qua authorization của request mới.
+    "Cache-Control": "private, no-store",
   };
   for (const h of [
     "content-type",

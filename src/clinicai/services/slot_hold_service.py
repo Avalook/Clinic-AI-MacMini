@@ -62,6 +62,7 @@ class SlotHoldService:
         slot_start: datetime,
         slot_end: datetime,
         doctor_id: str | None,
+        clinic_patient_id: str | None = None,
     ) -> dict[str, Any]:
         """Giữ khung giờ này cho tới khi đặt xong, hoặc 10 phút.
 
@@ -112,6 +113,11 @@ class SlotHoldService:
                         "doctor_id": doctor_id,
                         "expires_at": row["expires_at"].isoformat(),
                         "released_others": released,
+                        # Không lưu vào `slot_hold` — chỉ đi vào nhật ký, nơi
+                        # v_audit_log đọc `payload->>'clinic_patient_id'` ĐẦU
+                        # TIÊN trong chuỗi tra tên. Thiếu nó thì màn Lịch sử
+                        # thao tác in "slot_hold · 938d4f94" thay cho tên khách.
+                        "clinic_patient_id": clinic_patient_id,
                     },
                 )
 

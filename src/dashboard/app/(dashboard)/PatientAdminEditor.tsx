@@ -66,12 +66,22 @@ function toForm(p: PatientAdmin): Form {
   };
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Row({
+  label,
+  value,
+  khiTrong = "—",
+}: {
+  label: string;
+  value?: string | null;
+  /** Chữ thay cho gạch ngang khi trống — dùng khi "không có" là một CÂU TRẢ
+   *  LỜI, không phải một ô chưa ai điền. */
+  khiTrong?: string;
+}) {
   return (
     <div className="flex gap-2 text-sm">
-      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
+      <dt className="w-28 shrink-0 text-ink-muted">{label}</dt>
       <dd className="min-w-0 break-words font-medium text-ink">
-        {value || "—"}
+        {value || khiTrong}
       </dd>
     </div>
   );
@@ -123,7 +133,12 @@ export default function PatientAdminEditor({
   if (!editing) {
     return (
       <div className="space-y-2">
-        <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+        {/* MỘT THÔNG TIN MỘT DÒNG (Quang chốt 09/08/2026).
+            Hai cột ở đây nằm trong cột phải vốn đã hẹp, nên mỗi ô còn ~5rem cho
+            giá trị: "Nguyễn Thị Hoa" xuống thành ba dòng và ngắt giữa chữ
+            ("Nguyễ / n Thị / Hoa"), "Việt Nam" thành hai. Tiết kiệm chiều cao
+            bằng cách làm tên người không đọc được là một cái đổi tồi. */}
+        <dl className="space-y-1.5">
           <Row label="Họ tên" value={cur.full_name} />
           <Row
             label="Ngày sinh"
@@ -135,18 +150,22 @@ export default function PatientAdminEditor({
           <Row label="Nghề nghiệp" value={cur.occupation} />
           <Row label="Đối tượng" value={cur.patient_objection} />
           <Row label="SĐT" value={cur.phone_primary} />
-          <Row label="SĐT người nhà" value={cur.phone_secondary} />
+          {/* "Không có" chứ không phải "—".
+              Gạch ngang nói "chỗ này trống", và trống thì đọc thành "chưa ai
+              nhập" — người trực sẽ đi hỏi lại khách một số điện thoại vốn
+              không tồn tại. "Không có" nói rằng CÂU HỎI ĐÃ ĐƯỢC HỎI. */}
+          <Row
+            label="SĐT người nhà"
+            value={cur.phone_secondary}
+            khiTrong="Không có"
+          />
           <Row label="Người giám hộ" value={cur.guardian_name} />
-          <div className="sm:col-span-2">
-            <Row label="Địa chỉ" value={cur.address} />
-          </div>
+          <Row label="Địa chỉ" value={cur.address} />
           {cur.linh_vuc && (
             <Row label="Lĩnh vực" value={linhVucLabel(cur.linh_vuc)} />
           )}
           {cur.van_de_di_kham && (
-            <div className="sm:col-span-2">
-              <Row label="Vấn đề đi khám" value={cur.van_de_di_kham} />
-            </div>
+            <Row label="Vấn đề đi khám" value={cur.van_de_di_kham} />
           )}
         </dl>
         <div className="flex items-center gap-2">

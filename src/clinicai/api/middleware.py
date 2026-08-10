@@ -42,13 +42,100 @@ from contextvars import ContextVar
 import asyncpg
 import structlog
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from clinicai.core.telemetry import route_template, telemetry
+from clinicai.services.media_service import MAX_BYTES_KET_QUA_UPLOAD
 
 logger = structlog.get_logger()
 
 REQUEST_ID_HEADER = "X-Request-ID"
+
+# Multipart adds boundaries and the UUID form fields around the actual file.
+# Keep that bounded too; otherwise an attacker can stay below the file cap while
+# filling the request with unlimited field/header overhead.
+CSKH_UPLOAD_MAX_BODY_BYTES = MAX_BYTES_KET_QUA_UPLOAD + 1024 * 1024
+
+
+class CskhUploadSizeLimitMiddleware:
+    """Reject an oversized CSKH multipart body while ASGI is receiving it.
+
+    Endpoint code runs only after Starlette has parsed the complete multipart
+    body into a spooled file. The cap therefore belongs here: wrapping
+    ``receive`` stops both declared and chunked oversized bodies before the
+    multipart parser consumes the rest of the network stream or host disk.
+    """
+
+    def __init__(
+        self, app: ASGIApp, max_body_bytes: int = CSKH_UPLOAD_MAX_BODY_BYTES
+    ) -> None:
+        self.app = app
+        self.max_body_bytes = max_body_bytes
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "error": "PAYLOAD_TOO_LARGE",
+                "message": "Tệp tải lên vượt quá dung lượng cho phép.",
+            },
+        )
+        await response(scope, receive, send)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not (
+            scope["type"] == "http"
+            and scope.get("method") == "POST"
+            and scope.get("path") == "/api/v1/cskh/ket-qua/tep"
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        declared_raw = headers.get(b"content-length")
+        if declared_raw is not None:
+            try:
+                if int(declared_raw) > self.max_body_bytes:
+                    await self._reject(scope, receive, send)
+                    return
+            except ValueError:
+                # The streaming counter below remains authoritative.
+                pass
+
+        received = 0
+        oversized = False
+        outgoing: list[Message] = []
+
+        async def limited_receive() -> Message:
+            nonlocal oversized, received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_body_bytes:
+                    oversized = True
+                    # Stop the multipart parser immediately. Starlette converts
+                    # this to a 400, so buffer its response below and replace it
+                    # with the truthful 413 rather than letting that 400 escape.
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def buffered_send(message: Message) -> None:
+            outgoing.append(message)
+
+        try:
+            await self.app(scope, limited_receive, buffered_send)
+        except Exception:
+            if not oversized:
+                raise
+
+        if oversized:
+            await self._reject(scope, receive, send)
+            return
+        for message in outgoing:
+            await send(message)
+
 
 # The id for the request being served, readable by any middleware inside
 # RequestIdMiddleware.

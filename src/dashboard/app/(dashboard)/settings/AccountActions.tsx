@@ -5,13 +5,20 @@
 // /api/admin/users (the server re-checks the caller is MANAGEMENT).
 //
 // Ba việc, đều làm tại chỗ (không window.alert/confirm):
-//   - "Đổi tên đăng nhập": hiện ô email + Lưu/Huỷ.
+//   - "Đổi tên đăng nhập": hiện ô tên + Lưu/Huỷ. Gõ tên trần được, đuôi
+//     mail do hệ thống gắn (xem lib/ten-dang-nhap.ts).
 //   - "Đặt lại mật khẩu": hiện ô mật khẩu + Lưu/Huỷ.
 //   - "Gỡ tài khoản": hai bước (bấm → "Xác nhận?") vì nó xoá hẳn tài khoản
 //     đăng nhập, không lùi lại được.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DUOI_TEN_DANG_NHAP,
+  emailTuTenDangNhap,
+  loiTenDangNhap,
+  tenHienThi,
+} from "../../../lib/ten-dang-nhap";
 
 const MIN_PASSWORD = 8;
 
@@ -53,7 +60,8 @@ export default function AccountActions({
     let bo = false;
     napNick().then((m) => {
       if (bo) return;
-      const mail = m[staffId] ?? null;
+      // Hiện ĐÚNG chuỗi người dùng phải gõ: bỏ đuôi mặc định, giữ đuôi khác.
+      const mail = m[staffId] ? tenHienThi(m[staffId]) : null;
       setNick(mail);
       setEmail(mail ?? "");
     });
@@ -100,15 +108,21 @@ export default function AccountActions({
   }
 
   async function submitEmail() {
-    const moi = email.trim().toLowerCase();
-    if (!moi.includes("@")) {
-      setMsg({ kind: "err", text: "Tên đăng nhập phải là một địa chỉ email." });
+    // KHÔNG còn đòi phải là email. Gõ "cskhdieuhoa" là đủ — đuôi do
+    // `emailTuTenDangNhap` gắn, cùng hàm mà màn đăng nhập dùng để tra.
+    const loi = loiTenDangNhap(email);
+    if (loi) {
+      setMsg({ kind: "err", text: loi });
       return;
     }
+    const moi = emailTuTenDangNhap(email);
     const ok = await call({ staffId, action: "change_email", email: moi });
     if (ok) {
-      setMsg({ kind: "ok", text: `${staffName} đăng nhập bằng ${moi} từ giờ.` });
-      setNick(moi);
+      setMsg({
+        kind: "ok",
+        text: `${staffName} đăng nhập bằng ${tenHienThi(moi)} từ giờ.`,
+      });
+      setNick(tenHienThi(moi));
       // Bảng nick đã cũ sau khi đổi — bỏ đi để lần sau nạp lại.
       nickDangNap = null;
       setMode("idle");
@@ -172,11 +186,11 @@ export default function AccountActions({
       {mode === "email" && (
         <div className="flex flex-wrap items-center gap-2">
           <input
-            type="email"
+            type="text"
             value={email}
             autoFocus
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="vd: bacsithanh@dr4women.vn"
+            placeholder={`vd: bacsithanh (tự thêm @${DUOI_TEN_DANG_NHAP})`}
             autoComplete="off"
             className="w-full rounded-control border border-line bg-surface px-2 py-2 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 sm:w-64 sm:py-1 sm:text-xs"
           />
