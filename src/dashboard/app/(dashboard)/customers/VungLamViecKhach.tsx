@@ -58,6 +58,185 @@ const TRUOC_KHAM: TrangThai[] = [
   },
 ];
 
+/** Lớp CSS của một nút lối ra — cùng hình dạng với nút "Làm bước này" trên
+ *  timeline, đúng yêu cầu của Quang ("giống mấy cái nút làm bước này"). Tách ra
+ *  hàm để hai chỗ không trôi khỏi nhau. */
+function nutLoiRa(chon: boolean, xong: boolean, dang: boolean): string {
+  const nen = "rounded-full px-2.5 py-0.5 text-[11px]";
+  if (chon) return `${nen} bg-brand-700 font-semibold text-white`;
+  if (xong)
+    return `${nen} border border-line font-medium text-ink-soft hover:bg-surface-muted`;
+  if (dang)
+    return `${nen} bg-brand-600 font-semibold text-white hover:bg-brand-700`;
+  return `${nen} border border-brand-300 font-medium text-brand-700 hover:bg-brand-50`;
+}
+
+/** MỘT TRẠNG THÁI, NHIỀU LỐI RA — gom vào một hàng.
+ *
+ *  Quang 10/08/2026: *"loại trạng thái nào cùng 1 trạng thái to hơn thì ở cùng
+ *  dòng, chọn 1 trong số chúng trong hàng thì coi như done trạng thái"*.
+ *
+ *  `GOI_LAI` là ví dụ rõ nhất và là lý do khối này ra đời. Nó vốn nằm giữa danh
+ *  sách dọc dưới cái tên "KNM / KLLD / Hẹn GLS" — ba chữ viết tắt trong một
+ *  dòng, và người đọc không có cách nào biết chúng là BA LỐI RA của cùng một
+ *  cuộc gọi chứ không phải ba bước nối tiếp nhau.
+ *
+ *  VÀ CHÚNG CHƯA TỪNG GHI ĐƯỢC. Ba mã `CHUA_NGHE_MAY`, `KHONG_LIEN_LAC_DUOC`,
+ *  `HEN_GOI_LAI` có trong bộ từ của backend từ lâu, nhưng không nút nào trên
+ *  màn này gửi chúng — mọi nút đều ghi `DA_LIEN_HE` hoặc `GHI_NHAN`. Nên cái
+ *  nhãn "KNM / KLLD / Hẹn GLS" mô tả một việc màn hình không làm được. */
+interface LoiRa {
+  /** `ket_qua` gửi lên backend. Phải nằm trong `KET_QUA_HOP_LE`. */
+  ketQua: string;
+  ten: string;
+  /** Chú thích khi rê chuột — ba chữ viết tắt này không tự giải nghĩa. */
+  giaiThich: string;
+}
+
+/** MỘT HÀNG GỘP: một dấu tick, nhiều lối ra.
+ *
+ *  Khác `Node` ở đúng một điểm, và đó là điểm Quang muốn: các lối ra nằm NGANG
+ *  HÀNG nhau chứ không xếp dọc, vì chúng không nối tiếp nhau — chọn một cái là
+ *  xong cả hàng.
+ *
+ *  `loiRa` rỗng thì hàng chỉ có một nút "Làm bước này", giống hệt `Node` — dùng
+ *  cho những trạng thái chưa (hoặc không) tách nhánh, như "Huỷ lịch".
+ *
+ *  KHÔNG GHI THẲNG KHI BẤM. Bấm là CHỌN: khối hành động bên phải mở ra với đúng
+ *  lối ra ấy, nơi có ô số điện thoại và ô ghi chú. Ghi ngay tại đây sẽ đóng một
+ *  cuộc gọi mà chưa ai kịp ghi lại nội dung.
+ *
+ *  Ở CẤP MODULE, không lồng trong `VungLamViecKhach`: component tạo ra trong
+ *  lúc render thì React coi mỗi lần vẽ là một loại component khác và dựng lại
+ *  từ đầu, mất sạch state bên trong. Nên `dang`/`xong`/`chon`/`lan` tính sẵn ở
+ *  chỗ gọi rồi truyền vào, thay vì đọc closure. */
+function HangGop({
+  ma,
+  ten,
+  viec,
+  loiRa,
+  dang,
+  xong,
+  chon,
+  lan,
+  ketQuaChon,
+  onLamViec,
+}: {
+  ma: string;
+  ten: string;
+  viec: string;
+  loiRa: LoiRa[];
+  dang: boolean;
+  xong: boolean;
+  chon: boolean;
+  lan?: DongLichSu;
+  ketQuaChon?: string | null;
+  onLamViec: (ma: string, ketQua?: string) => void;
+}) {
+  return (
+    <div className="flex gap-3 rounded-xl border border-line p-2.5">
+      <span
+        className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 ${
+          xong
+            ? "border-success bg-success-bg text-success"
+            : dang
+              ? "border-brand-600 bg-brand-50 text-brand-700"
+              : "border-line bg-surface-muted text-ink-faint"
+        }`}
+      >
+        {xong ? (
+          <Check className="size-4" strokeWidth={3} />
+        ) : dang ? (
+          <Phone className="size-3.5" />
+        ) : (
+          <CircleDashed className="size-3.5" />
+        )}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`text-sm ${
+              xong
+                ? "font-medium text-ink"
+                : dang
+                  ? "font-semibold text-brand-700"
+                  : "text-ink-soft"
+            }`}
+          >
+            {ten}
+          </span>
+          {dang && !xong && (
+            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+              đang ở đây
+            </span>
+          )}
+        </div>
+
+        <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">{viec}</p>
+
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {loiRa.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => onLamViec(ma)}
+              aria-pressed={chon}
+              className={nutLoiRa(chon, xong, dang)}
+            >
+              {chon ? "Đang làm" : xong ? "Làm lại" : "Làm bước này"}
+            </button>
+          ) : (
+            loiRa.map((lr) => {
+              // Đang chọn ĐÚNG lối ra này, không chỉ đúng trạng thái.
+              const chonNay = chon && ketQuaChon === lr.ketQua;
+              return (
+                <button
+                  key={lr.ketQua}
+                  type="button"
+                  title={lr.giaiThich}
+                  onClick={() => onLamViec(ma, lr.ketQua)}
+                  aria-pressed={chonNay}
+                  className={nutLoiRa(chonNay, xong, dang)}
+                >
+                  {lr.ten}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {lan && (
+          <p className="mt-1 text-[11px] leading-snug text-ink-soft">
+            <span className="font-mono text-ink-muted">
+              {gio(lan.xay_ra_luc)}
+            </span>
+            {lan.ket_qua && ` · ${NHAN_KET_QUA[lan.ket_qua] ?? lan.ket_qua}`}
+            {lan.nhan_vien && ` · ${lan.nhan_vien}`}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const KHONG_GAP_DUOC: LoiRa[] = [
+  {
+    ketQua: "CHUA_NGHE_MAY",
+    ten: "KNM",
+    giaiThich: "Chưa nghe máy — đổ chuông nhưng không ai bắt",
+  },
+  {
+    ketQua: "KHONG_LIEN_LAC_DUOC",
+    ten: "KLLD",
+    giaiThich: "Không liên lạc được — không đổ chuông, số không dùng được",
+  },
+  {
+    ketQua: "HEN_GOI_LAI",
+    ten: "Hẹn GLS",
+    giaiThich: "Khách bắt máy nhưng hẹn gọi lại sau",
+  },
+];
+
 const SAU_KHAM: TrangThai[] = [
   {
     ma: "DA_CHECKIN",
@@ -68,11 +247,6 @@ const SAU_KHAM: TrangThai[] = [
     ma: "CHO_KQ_XN",
     ten: "Chờ kết quả xét nghiệm",
     viec: "Hỏi đơn vị xét nghiệm xem kết quả về chưa",
-  },
-  {
-    ma: "GOI_LAI",
-    ten: "KNM / KLLD / Hẹn GLS",
-    viec: "Gọi lại để xác nhận lịch hẹn",
   },
   {
     ma: "CHO_BAC_SI",
@@ -88,11 +262,6 @@ const SAU_KHAM: TrangThai[] = [
     ma: "DA_TRA_KQ",
     ten: "Đã gọi trả kết quả xét nghiệm",
     viec: "Cân nhắc có cần hẹn lịch tái khám sau đó không",
-  },
-  {
-    ma: "HOI_LY_DO_HUY",
-    ten: "Huỷ lịch",
-    viec: "Gọi lại hỏi lý do huỷ, sau 1–14 ngày. Lý do chọn sẵn hoặc tự viết",
   },
   {
     ma: "KHONG_FOLLOW_UP",
@@ -171,6 +340,7 @@ export default function VungLamViecKhach({
   lichSu,
   trangThaiHienTai,
   dangChon,
+  ketQuaChon,
   onLamViec,
   children,
 }: {
@@ -181,8 +351,12 @@ export default function VungLamViecKhach({
   trangThaiHienTai?: string | null;
   /** Trạng thái CSKH đang chọn làm việc (null = chưa chọn). */
   dangChon?: string | null;
-  /** Bấm một trạng thái → khối hành động bên phải đổi theo nó. */
-  onLamViec: (maTrangThai: string) => void;
+  /** Lối ra đang chọn trong một hàng gộp (`ket_qua`), null = chưa chọn cái nào.
+   *  Chỉ có nghĩa khi `dangChon` là một trạng thái có nhiều lối ra. */
+  ketQuaChon?: string | null;
+  /** Bấm một trạng thái → khối hành động bên phải đổi theo nó. `ketQua` chỉ
+   *  truyền khi bấm một lối ra cụ thể trong hàng gộp. */
+  onLamViec: (maTrangThai: string, ketQua?: string) => void;
   /** Khối gắn thêm bên dưới — nay chỉ còn "Phản hồi của khách". */
   children?: React.ReactNode;
 }) {
@@ -227,6 +401,7 @@ export default function VungLamViecKhach({
     const loai = SUY_THEO_LOAI_CU[ma];
     return loai ? lichSu.find((d) => loai.includes(d.loai)) : undefined;
   }
+
 
   /** MỘT NODE TRÊN TIMELINE.
    *
@@ -360,15 +535,55 @@ export default function VungLamViecKhach({
         </div>
 
         <div className="space-y-3 px-4 py-3">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
-              Trước khám
-            </span>
-            <ol className="mt-1.5">
-              {TRUOC_KHAM.map((tt, i) => (
-                <Node key={tt.ma} tt={tt} cuoi={i === TRUOC_KHAM.length - 1} />
-              ))}
-            </ol>
+          {/* Hai cột ở phần trên: chuỗi "trước khám" bên trái, và khối gộp bên
+              phải — chỗ trước đây bỏ trống. */}
+          <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+                Trước khám
+              </span>
+              <ol className="mt-1.5">
+                {TRUOC_KHAM.map((tt, i) => (
+                  <Node key={tt.ma} tt={tt} cuoi={i === TRUOC_KHAM.length - 1} />
+                ))}
+              </ol>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+                Gọi không gặp · huỷ lịch
+              </span>
+              <div className="mt-1.5 space-y-2">
+                <HangGop
+                  ma="GOI_LAI"
+                  ten="Gọi lại — không gặp được khách"
+                  viec="Chọn đúng chuyện đã xảy ra ở cuộc gọi vừa rồi"
+                  loiRa={KHONG_GAP_DUOC}
+                  dang={dangO("GOI_LAI")}
+                  xong={
+                    Boolean(lanCuoi("GOI_LAI")) || xongTheoLich("GOI_LAI")
+                  }
+                  chon={dangChon === "GOI_LAI"}
+                  lan={lanCuoi("GOI_LAI")}
+                  ketQuaChon={ketQuaChon}
+                  onLamViec={onLamViec}
+                />
+                <HangGop
+                  ma="HOI_LY_DO_HUY"
+                  ten="Huỷ lịch"
+                  viec="Gọi lại hỏi lý do huỷ, sau 1–14 ngày"
+                  loiRa={[]}
+                  dang={dangO("HOI_LY_DO_HUY")}
+                  xong={
+                    Boolean(lanCuoi("HOI_LY_DO_HUY")) ||
+                    xongTheoLich("HOI_LY_DO_HUY")
+                  }
+                  chon={dangChon === "HOI_LY_DO_HUY"}
+                  lan={lanCuoi("HOI_LY_DO_HUY")}
+                  onLamViec={onLamViec}
+                />
+              </div>
+            </div>
           </div>
 
           <div>
