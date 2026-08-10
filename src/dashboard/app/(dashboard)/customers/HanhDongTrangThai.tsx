@@ -12,6 +12,7 @@
 // Đó cũng là lý do tích xanh sống qua F5 và người ca sau nhìn thấy.
 
 import { useState } from "react";
+import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import { Phone, Upload, Send, Check, X, CalendarPlus } from "lucide-react";
 import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "@/lib/ly-do-huy";
@@ -311,7 +312,7 @@ export default function HanhDongTrangThai({
           error?: string;
           message?: string;
         } | null;
-        setLoi(d?.message ?? d?.error ?? "Không ghi được.");
+        setLoi(nhanLoi(d, "Không ghi được."));
         return false;
       }
       setXong(true);
@@ -350,7 +351,7 @@ export default function HanhDongTrangThai({
           error?: string;
           message?: string;
         } | null;
-        setLoi(d?.message ?? d?.error ?? "Không hẹn được.");
+        setLoi(nhanLoi(d, "Không hẹn được."));
         return;
       }
       router.refresh();

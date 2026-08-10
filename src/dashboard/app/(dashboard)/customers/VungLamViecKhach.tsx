@@ -32,6 +32,7 @@
 // TuongTacCskhService.ghi).
 
 import { useState } from "react";
+import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import { Check, Phone, CircleDashed } from "lucide-react";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
@@ -634,7 +635,7 @@ export default function VungLamViecKhach({
       } | null;
       setLoiDongHen(id);
       setLoiDongHenChu(
-        d?.message ?? d?.error ?? `Không đóng được (lỗi ${res.status}).`,
+        nhanLoi(d, `Không đóng được (lỗi ${res.status}).`),
       );
       return;
     }
@@ -710,7 +711,7 @@ export default function VungLamViecKhach({
         error?: string;
         message?: string;
       } | null;
-      setLoiGhiLoiRa(d?.message ?? d?.error ?? `Không ghi được (lỗi ${res.status}).`);
+      setLoiGhiLoiRa(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
       return;
     }
     router.refresh();
@@ -788,7 +789,7 @@ export default function VungLamViecKhach({
         message?: string;
       } | null;
       setLoiCheckout(
-        d?.message ?? d?.error ?? `Không đóng được (lỗi ${res.status}).`,
+        nhanLoi(d, `Không đóng được (lỗi ${res.status}).`),
       );
       return;
     }

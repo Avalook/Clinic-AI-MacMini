@@ -19,6 +19,7 @@
 // khách muốn giữ.
 
 import { useState } from "react";
+import { nhanLoi } from "@/lib/loi-api";
 import { X, CalendarX2, AlertTriangle } from "lucide-react";
 import { fmtDayTime } from "@/lib/datetime";
 import type { LichSapToi } from "./CustomersView";
@@ -69,7 +70,7 @@ export default function LichTrungCuaKhach({
         error?: string;
         message?: string;
       } | null;
-      setLoi(d?.message ?? d?.error ?? `Không huỷ được (lỗi ${res.status}).`);
+      setLoi(nhanLoi(d, `Không huỷ được (lỗi ${res.status}).`));
       return;
     }
     setDaHuy((truoc) => new Set(truoc).add(l.id));
