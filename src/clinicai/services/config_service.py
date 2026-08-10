@@ -495,15 +495,30 @@ class RosterService:
                 # thường (xem docstring của apply_week), và đó vẫn là một tin.
                 nguon_id=week_start.isoformat(),
                 muc_do="THUONG",
-                tieu_de=(
-                    f"Tuần {week_start:%d/%m}–{het:%d/%m} đã chốt lịch trực"
-                ),
+                tieu_de=(f"Tuần {week_start:%d/%m}–{het:%d/%m} đã chốt lịch trực"),
                 noi_dung=(
                     f"Có {so_lich_cho} lịch hẹn trong tuần này đang chờ xếp bác "
                     "sĩ. Xếp xong lịch nào thì gọi xác nhận giờ khám và tên bác "
                     "sĩ với khách của lịch đó."
                 ),
-                duong_dan="/appointments/cho-xep-bac-si",
+                # KHÔNG TRỎ `/appointments/cho-xep-bac-si` NỮA — CSKH KHÔNG VÀO
+                # ĐƯỢC ĐƯỜNG ẤY.
+                #
+                # `roles.ts` chỉ mở màn Chờ xếp bác sĩ cho MANAGEMENT và
+                # TRUONG_CA, nên vai CSKH bấm "Bấm để xử lý" là bị đá thẳng về
+                # /home, không một lời giải thích. Một thông báo dẫn vào tường
+                # còn tệ hơn thông báo không bấm được: người dùng học được rằng
+                # cái chuông này nói dối.
+                #
+                # Việc của CSKH ở đây là GỌI XÁC NHẬN, tức màn Quản lý khách
+                # hàng. Cố ý KHÔNG kèm bộ lọc tuần: `period=week` của màn ấy
+                # tính theo TUẦN HIỆN TẠI, còn quản lý thường áp lịch cho tuần
+                # SAU — một bộ lọc đúng cú pháp mà sai tuần thì tệ hơn không lọc,
+                # vì danh sách rỗng đọc thành "không có việc gì".
+                #
+                # Từng lịch cụ thể vẫn được đánh thức riêng bằng thông báo
+                # `bac_si_da_xep`, thứ đã trỏ đúng khách và đúng việc.
+                duong_dan="/customers",
             )
         except Exception:  # noqa: BLE001 — xem docstring
             logger.warning(

@@ -32,6 +32,7 @@ import CustomersView, {
   type ByDim,
   type ChuoiKham,
   type LuotKham,
+  type HenGoiLai,
 } from "./CustomersView";
 
 /** Một mốc gọi nhắc tái khám, đúng hình dạng RecallJobService trả về. */
@@ -94,6 +95,10 @@ export default async function CustomersPage({
     period?: string;
     by?: string;
     selected?: string;
+    /** Trạng thái CSKH cần mở sẵn ở cột phải — chuông thông báo gửi kèm. */
+    viec?: string;
+    /** LƯỢT KHÁM đang xem (`appointment.id`). Thiếu = để màn tự chọn. */
+    luot?: string;
   }>;
 }) {
   await requireNavAccess("/customers");
@@ -111,6 +116,17 @@ export default async function CustomersPage({
     : "all") as Period;
   const by: ByDim = sp.by === "appt" ? "appt" : "created";
   const selected = (sp.selected ?? "").trim() || null;
+  // VIỆC VÀ LƯỢT ĐI TỪ URL VÀO MÀN.
+  //
+  // Chuông thông báo gửi người trực tới đây kèm sẵn "khách nào" — nhưng cho tới
+  // 10/08/2026 nó KHÔNG nói được "việc gì" và "lượt nào", nên bấm vào một thông
+  // báo "hẹn gọi lại 23:30" chỉ mở đúng hồ sơ rồi buông tay: cột phải vẫn chạy
+  // theo việc gấp nhất do view suy ra, thường là một việc khác hẳn.
+  //
+  // Hai tham số này cũng là thứ giữ được lượt đang xem qua F5 và qua một đường
+  // dẫn gửi cho ca sau.
+  const viec = (sp.viec ?? "").trim() || null;
+  const luot = (sp.luot ?? "").trim() || null;
   const win = windowFor(period);
 
   const supabase = await getSupabaseServer();
@@ -196,14 +212,35 @@ export default async function CustomersPage({
   const doctors: Opt[] = docRes;
 
   const shownIds = rows.map((r) => r.clinic_patient_id);
-  // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (id/dịch vụ/bác sĩ/
+  // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (dịch vụ/bác sĩ/
   // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
+  //
+  // NHƯNG `id` THÌ MỌI VAI ĐỀU CẦN, và trước 10/08/2026 nó chỉ có ở nhánh
+  // canManage. Bốn vai vào được màn này mà không có quyền đổi lịch — Lễ tân và
+  // ba vai Thu ngân (`roles.ts`: "/customers" mở cho 6 vai, `canManageAppt`
+  // chỉ 3) — do đó KHÔNG có id lịch nào, nên với họ:
+  //   · sổ chăm sóc không gắn được vào lượt nào,
+  //   · nút "Tái khám" mờ vĩnh viễn kể cả khi khách vừa khám xong,
+  //   · và mọi thao tác thuộc `CAN_LICH_HEN` trả lỗi "phải gắn với một lịch hẹn".
+  //
+  // `id` không phải dữ liệu nhạy cảm và không phải quyền: RLS mới là chốt, chứ
+  // không phải danh sách cột. Giấu nó chỉ làm màn hình nói dối về khách.
+  // LÝ DO HUỶ PHẢI ĐI CÙNG GIỜ HUỶ. Trước 10/08/2026 câu này lấy `cancelled_at`
+  // mà bỏ `ly_do_huy_ma` + `cancellation_reason` — hai cột `booking_service`
+  // vẫn ghi đầy đủ mỗi lần huỷ. Nên màn nói được "huỷ lúc 14:20" và không nói
+  // được vì sao, trong khi màn /tasks cùng dữ liệu ấy thì hiện ra bình thường.
+  // Lưu mà không hiện thì người trực gọi lại hỏi đúng câu khách vừa trả lời.
+  //
+  // Sửa CẢ HAI nhánh: nhánh không-canManage là màn của Thu ngân / Điều dưỡng,
+  // và một màn nói ít hơn cũng là một màn nói sai.
   const apptSelectAll = canManage
     ? `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
+       ly_do_huy_ma, cancellation_reason,
        service_type_id, doctor_id, location_id, booking_channel, lich_truoc_id,
        service:service_type!service_type_id ( name ),
        doctor:staff!doctor_id ( full_name )`
-    : "clinic_patient_id, slot_start, status, created_at, cancelled_at";
+    : `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
+       ly_do_huy_ma, cancellation_reason`;
   const apptsPromise = shownIds.length
     ? supabase
         .from("appointment")
@@ -211,7 +248,7 @@ export default async function CustomersPage({
         .in("clinic_patient_id", shownIds)
         .order("slot_start", { ascending: true })
         .limit(3000)
-    : Promise.resolve({ data: [] as unknown[] });
+    : Promise.resolve({ data: [] as unknown[], error: null });
   // TRẠNG THÁI — suy lại từ dữ liệu mỗi lần đọc (view 20260809000005).
   //
   // Trước đây cột này đọc `cskh_action.status`, rơi về `appointment.status`,
@@ -274,6 +311,27 @@ export default async function CustomersPage({
         .limit(300)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
+  // VIỆC CSKH TỰ HẸN CHO MÌNH — "gọi lại ngày…".
+  //
+  // Bảng này sinh ra trạng thái `HEN_GOI_LAI` của view và sinh cả một thông báo
+  // trong chuông, NHƯNG cho tới 10/08/2026 màn hình chưa từng ĐỌC nó: ngày hẹn,
+  // giờ hẹn và lý do người trực gõ vào đều nằm trong database mà không hiện ở
+  // đâu. Bấm "Bấm để xử lý" trong chuông thì mở đúng hồ sơ rồi hết — không có
+  // node nào nói "hẹn gọi lại 23:30 ngày 10/08 vì việc gì", và cũng không có
+  // nút nào đóng được việc, nên `dong_luc` vĩnh viễn NULL và khách kẹt ở trạng
+  // thái ấy mãi mãi.
+  const henGoiLaiPromise = shownIds.length
+    ? supabase
+        .from("hen_goi_lai")
+        .select(
+          "id, clinic_patient_id, ngay_goi, gio_goi, ly_do, created_at, staff:tao_boi_staff_id ( full_name )",
+        )
+        .in("clinic_patient_id", shownIds)
+        .is("dong_luc", null)
+        .order("ngay_goi", { ascending: true })
+        .limit(300)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
   // SỔ TƯƠNG TÁC — nguồn thật của cột "Tương tác gần nhất".
   //
   // `cskh_action` bên dưới là hàng nhập khẩu từ Notion và có 0 dòng trên bản
@@ -326,6 +384,8 @@ type LichHenRaw = {
   booking_channel?: string | null;
   created_at?: string | null;
   cancelled_at?: string | null;
+  ly_do_huy_ma?: string | null;
+  cancellation_reason?: string | null;
   lich_truoc_id?: string | null;
   service?: { name: string } | { name: string }[] | null;
   doctor?: { full_name: string } | { full_name: string }[] | null;
@@ -342,7 +402,18 @@ type LichHenRaw = {
     // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
     // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
     // quả. `await` ở đây chỉ chờ đúng cái đã bay từ trước.
-    const { data: appts } = await apptsPromise;
+    // HỨNG LỖI, ĐỪNG NUỐT. PostgREST select một cột không tồn tại hoặc chưa
+    // được GRANT thì trả 400 cho CẢ CÂU: `appts` về null, `grouped` rỗng, và
+    // mọi khách mất sạch lịch hẹn — mất luôn "Lịch hẹn sắp tới", nhãn trạng
+    // thái theo lịch, và ô Lịch sử các lần khám. Không một dòng đỏ nào.
+    //
+    // Đúng cái bẫy vừa gặp khi thêm `ly_do_huy_ma`: một tên cột gõ sai không
+    // làm hỏng một ô, nó làm trắng cả màn. TypeScript không canh được — client
+    // Supabase ở đây không gắn generic nên chuỗi select là chữ tự do.
+    const { data: appts, error: apptErr } = await apptsPromise;
+    if (apptErr) {
+      console.error("customers: không nạp được lịch hẹn", apptErr);
+    }
     // SO GIỜ BẰNG MỐC THỜI GIAN, KHÔNG BẰNG CHUỖI.
     //
     // Chỗ này từng là `a.slot_start >= new Date().toISOString()`. Database chạy
@@ -358,6 +429,19 @@ type LichHenRaw = {
       (grouped[a.clinic_patient_id] ??= []).push(a);
     }
     const DEAD = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"];
+    // LƯỢT CHƯA ĐÓNG — tập trạng thái mà lượt khám vẫn còn đang diễn ra.
+    //
+    // Dùng cho HAI câu hỏi khác nhau nhưng cùng một tập hợp, nên khai một lần:
+    //   · "lịch nào là lịch sắp tới"  — một lượt ĐÃ checkout không còn sắp tới
+    //   · "lịch nào còn đổi/huỷ được" — cũng đúng các trạng thái ấy
+    //
+    // LỖI NÓ CHỮA (Quang 10/08/2026). `DEAD` không chứa `COMPLETED` — cố ý, vì
+    // `count` và bộ lọc "theo ngày hẹn" vẫn phải đếm lượt đã khám xong. Nhưng
+    // `upcoming` cũng đọc `live`, nên một lượt checkout lúc 12:25 mà giờ hẹn là
+    // 18:15 vẫn thắng vai "lịch sắp tới" — và thắng luôn cả lượt tái khám vừa
+    // đặt. Từ đó cột giữa đứng yên ở lượt cũ: đặt tái khám xong màn không đổi,
+    // đọc thành "nút không ấn được".
+    const CHUA_DONG = ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"];
     for (const [pid, list] of Object.entries(grouped)) {
       // Lịch "sống" (bỏ đã hủy/không đến/BS từ chối) để chọn LỊCH ĐẠI DIỆN + đếm:
       // hủy lịch xong thì KHÔNG còn hiện là "Lịch hẹn sắp tới".
@@ -366,7 +450,9 @@ type LichHenRaw = {
       const live = list
         .filter((a) => !DEAD.includes(a.status))
         .sort((x, y) => mocMs(x.slot_start) - mocMs(y.slot_start));
-      const upcoming = live.find((a) => conToi(a.slot_start, bayGio));
+      const upcoming = live.find(
+        (a) => conToi(a.slot_start, bayGio) && CHUA_DONG.includes(a.status),
+      );
       // Lịch đại diện: sắp tới → lịch sống gần nhất → CUỐI CÙNG mới tới lịch đã
       // huỷ. Nhánh thứ ba là mới: trước đây khách chỉ còn lịch huỷ thì bị bỏ
       // qua hẳn (`continue`), nên vùng làm việc của họ trống trơn — đúng lúc
@@ -391,13 +477,12 @@ type LichHenRaw = {
       // Check-in rồi thì giờ hẹn hết ý nghĩa: người ta đã tới. Lấy chính `repr`
       // làm mốc thay vì đòi có một lịch còn ở tương lai.
       let appt: EditableAppt | undefined;
-      const EDITABLE = ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"];
       const dangCoMatTaiPhongKham = repr.status === "CHECKED_IN";
       if (
         canManage &&
         (upcoming || dangCoMatTaiPhongKham) &&
         repr.id &&
-        EDITABLE.includes(repr.status)
+        CHUA_DONG.includes(repr.status)
       ) {
         appt = {
           id: repr.id,
@@ -411,6 +496,19 @@ type LichHenRaw = {
         };
       }
       apptByPatient[pid] = {
+        // ĐỊNH DANH LƯỢT, TÁCH KHỎI QUYỀN SỬA LƯỢT.
+        //
+        // Trước 10/08/2026 id của lịch đại diện chỉ tồn tại BÊN TRONG `appt`,
+        // mà `appt` là đối tượng "được đổi/huỷ không". Lượt đã COMPLETED thì
+        // `appt` không được dựng ⇒ `lich.id` xuống client là null, trong khi
+        // `lich.status` vẫn lấy từ `repr`. Prop `lich` thành một vật lai: trạng
+        // thái của lượt này, id của không lượt nào.
+        //
+        // Hệ quả nặng nhất nằm ở `VungLamViecKhach`: `lich.id` null làm bộ lọc
+        // sổ chăm sóc theo lượt tự huỷ và quay về sổ của CẢ KHÁCH — nên một
+        // lượt vừa sinh ra đã tích xanh đủ tám bước bằng dữ liệu của lượt
+        // trước. "Lượt nào" và "sửa được không" là hai câu hỏi khác nhau.
+        id: repr.id ?? null,
         slot_start: repr.slot_start,
         status: repr.status,
         upcoming: Boolean(upcoming),
@@ -503,6 +601,8 @@ type LichHenRaw = {
         examined: list.some((a) => a.status === "COMPLETED"),
         created_at: repr.created_at ?? null,
         cancelled_at: repr.cancelled_at ?? null,
+        ly_do_huy_ma: repr.ly_do_huy_ma ?? null,
+        cancellation_reason: repr.cancellation_reason ?? null,
         appt,
       };
     }
@@ -611,7 +711,17 @@ type LichHenRaw = {
     gui_kenh: string | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
+  type HenGoiLaiRaw = {
+    id: string;
+    clinic_patient_id: string;
+    ngay_goi: string;
+    gio_goi: string | null;
+    ly_do: string;
+    created_at: string | null;
+    staff?: { full_name: string } | { full_name: string }[] | null;
+  };
   const tepByPatient: Record<string, TepKetQuaRow[]> = {};
+  const henGoiLaiByPatient: Record<string, HenGoiLai[]> = {};
   const phanHoiByPatient: Record<string, DongPhanHoi[]> = {};
   const tuongTacByPatient: Record<string, DongLichSu[]> = {};
   let tuongTacError: { message: string } | null = null;
@@ -630,6 +740,18 @@ type LichHenRaw = {
         gui_luc: r.gui_luc,
         gui_kenh: r.gui_kenh,
         gui_boi: null,
+      });
+    }
+    const { data: hgl } = await henGoiLaiPromise;
+    for (const r of (hgl as HenGoiLaiRaw[] | null) ?? []) {
+      const nv = Array.isArray(r.staff) ? r.staff[0] : r.staff;
+      (henGoiLaiByPatient[r.clinic_patient_id] ??= []).push({
+        id: r.id,
+        ngay_goi: r.ngay_goi,
+        gio_goi: r.gio_goi ?? null,
+        ly_do: r.ly_do,
+        tao_boi: nv?.full_name ?? null,
+        created_at: r.created_at ?? null,
       });
     }
     const { data: ph } = await phanHoiPromise;
@@ -723,9 +845,18 @@ type LichHenRaw = {
             id: a.id as string,
             slot_start: a.slot_start,
             status: a.status,
+            // DỊCH VỤ THEO MÃ, không chỉ theo tên. Nút "Tái khám" khoá dịch vụ
+            // của lượt đang xem, và nó cần `service_type_id` chứ không cần chữ.
+            service_type_id: a.service_type_id ?? null,
             service_name: pick1(a.service)?.name ?? null,
             doctor_name: pick1(a.doctor)?.full_name ?? null,
             lich_truoc_id: a.lich_truoc_id ?? null,
+            // Lý do huỷ đi theo TỪNG LƯỢT, không theo khách: một đợt có thể có
+            // ba lượt mà chỉ một lượt bị huỷ. Đặt ở cấp đợt là gán sai lượt.
+            ly_do_huy_ma: a.ly_do_huy_ma ?? null,
+            cancellation_reason: a.cancellation_reason ?? null,
+            created_at: a.created_at ?? null,
+            cancelled_at: a.cancelled_at ?? null,
             bat_dau: v?.batDau ?? null,
             ket_thuc: v?.ketThuc ?? checkout?.xay_ra_luc ?? null,
             buoc: buoc.map((d) => ({
@@ -801,12 +932,15 @@ type LichHenRaw = {
           trangThaiByPatient={trangThaiByPatient}
           phanHoiByPatient={phanHoiByPatient}
           lichSuKhamByPatient={lichSuKhamByPatient}
+          henGoiLaiByPatient={henGoiLaiByPatient}
           tepByPatient={tepByPatient}
           locations={locations}
           q={q}
           period={period}
           by={by}
           initialSelected={selected}
+          initialViec={viec}
+          initialLuot={luot}
           canEdit={canEdit}
           canManage={canManage}
           services={services}

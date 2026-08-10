@@ -18,16 +18,17 @@ import { useMemo, useState, useTransition,
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
-import { fmtDate, fmtDateTimeOrDate } from "@/lib/datetime";
+import { fmtDate, fmtDateTimeOrDate, conToi, mocMs, nowMs } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
+import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import PatientAdminEditor from "../PatientAdminEditor";
 import BaoXepBacSi from "./BaoXepBacSi";
 // Khối "Ghi một tương tác khác" đã bỏ 09/08/2026 (mỗi trạng thái có bộ nút
 // riêng rồi), và `GhiTuongTac.tsx` xoá hẳn theo.
-import { tieuDeHanhDong } from "./HanhDongTrangThai";
+import { tieuDeHanhDong, coBoNut } from "./HanhDongTrangThai";
 import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
-import VungLamViecKhach from "./VungLamViecKhach";
+import VungLamViecKhach, { type MocLich } from "./VungLamViecKhach";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
@@ -57,6 +58,11 @@ export interface TrangThaiCskh {
 // Màu theo mức gấp, KHÔNG theo thứ tự bảng chữ cái. Đỏ dành cho việc mà chậm
 // một ngày là khách đi về tay không.
 const TONE_VIEC: Record<string, StatusTone> = {
+  // DA_CHECKIN là mã ưu tiên 0 của view (migration 20260810000004) và là mã
+  // được thêm SAU khi hai bảng này ra đời — nên tới 10/08/2026 cả hai vẫn thiếu
+  // nó, và khách đang đứng ở phòng khám rơi vào nhánh `?? "ready"` cùng một câu
+  // "bước tiếp" mượn từ nhãn của view. Không nổ lỗi, chỉ nói sai.
+  DA_CHECKIN: "in_progress",
   CHO_BAC_SI: "in_progress",
   KQ_CHUA_GUI: "assigned",
   CHO_KQ_XN: "ready",
@@ -72,6 +78,7 @@ const TONE_VIEC: Record<string, StatusTone> = {
 // Việc phải làm, viết ở thể mệnh lệnh. Nhãn trạng thái nói KHÁCH đang ở đâu;
 // cột này nói NGƯỜI TRỰC phải nhấc máy lên làm gì.
 const BUOC_TIEP: Record<string, string> = {
+  DA_CHECKIN: "Khách đã tới — xem tình trạng sau khám",
   CHO_BAC_SI: "Nhắc bác sĩ duyệt kết quả",
   KQ_CHUA_GUI: "Gọi trả kết quả cho khách",
   CHO_KQ_XN: "Hỏi đơn vị xét nghiệm",
@@ -176,10 +183,17 @@ export interface LuotKham {
   id: string;
   slot_start: string;
   status: string;
+  /** Mã dịch vụ — nút "Tái khám" khoá theo nó, không khoá theo tên. */
+  service_type_id: string | null;
   service_name: string | null;
   doctor_name: string | null;
   /** Lượt trước trong chuỗi tái khám. null = mở đầu một đợt. */
   lich_truoc_id: string | null;
+  /** Lý do huỷ CỦA CHÍNH LƯỢT NÀY — mã chọn sẵn và chữ tự viết. */
+  ly_do_huy_ma: string | null;
+  cancellation_reason: string | null;
+  created_at: string | null;
+  cancelled_at: string | null;
   /** `visit.checked_in_at`. null = khách chưa từng check-in lượt này. */
   bat_dau: string | null;
   /** `visit.closed_at` → `finalized_at` → dòng CHECK_OUT của CSKH. null = chưa
@@ -193,7 +207,130 @@ export interface ChuoiKham {
   luot: LuotKham[];
 }
 
+/** Một lời hẹn CSKH tự đặt cho mình, CHƯA ĐÓNG.
+ *
+ *  `gio_goi` null = chỉ hẹn tới ngày, KHÔNG phải 00:00 (migration
+ *  20260810000006). Khác biệt ấy phải giữ tới tận màn hình: in "00:00" cho một
+ *  lời hẹn không có giờ là bịa ra một mốc mà người trực sẽ tin. */
+export interface HenGoiLai {
+  id: string;
+  ngay_goi: string;
+  gio_goi: string | null;
+  ly_do: string;
+  tao_boi: string | null;
+  created_at: string | null;
+}
+
+/** Trạng thái mà một lượt khám còn đang diễn ra — chưa đóng, chưa chết.
+ *
+ *  Cùng tập hợp với `CHUA_DONG` ở `page.tsx`; hai chỗ vì một chạy ở server một
+ *  chạy ở trình duyệt, nhưng phải đọc cùng một danh sách. Đổi ở đây thì đổi cả
+ *  ở kia. */
+const LUOT_CHUA_DONG = [
+  "SCHEDULED",
+  "CSKH_CONFIRMED",
+  "CONFIRMED",
+  "CHECKED_IN",
+];
+
+/** LƯỢT NÀO ĐANG ĐƯỢC LÀM VIỆC, khi người dùng chưa tự chọn.
+ *
+ *  Viết ĐÚNG MỘT CHỖ, và viết đúng luật người trực cần — không phải luật "lịch
+ *  sắp tới" của danh sách bên trái:
+ *
+ *    1. Khách đang có mặt ở phòng khám thì đó là lượt duy nhất đáng quan tâm.
+ *    2. Không thì tới lượt sắp diễn ra gần nhất — việc phải chuẩn bị.
+ *    3. Không nữa thì lượt chưa đóng mới nhất — việc còn dở.
+ *    4. Cuối cùng mới tới lượt mới nhất, kể cả đã xong: xem lại chuyện vừa rồi.
+ *
+ *  Nhánh 2 CHỈ nhận lượt chưa đóng. Đây là lỗi Quang gặp: một lượt checkout
+ *  lúc 12:25 nhưng giờ hẹn 18:15 vẫn "còn tới", nên nó chiếm chỗ của lượt tái
+ *  khám vừa đặt và màn hình không bao giờ chuyển. */
+/** Khách chưa có lịch hẹn nào. Khai một lần để React không dựng vật mới mỗi
+ *  lần vẽ (prop đổi tham chiếu là con của nó vẽ lại vô cớ). */
+const EMPTY_LUOT: MocLich = {
+  id: null,
+  status: null,
+  slot_start: null,
+  created_at: null,
+  cancelled_at: null,
+  ly_do_huy_ma: null,
+  cancellation_reason: null,
+  service_type_id: null,
+  service_name: null,
+};
+
+/** NHÃN DANH SÁCH NÓI ĐÚNG CHUYỆN VỪA XẢY RA, không chỉ nói loại việc.
+ *
+ *  QUANG 10/08/2026: *"trạng thái khi nhắn chưa nghe máy hay hẹn gọi lại sau
+ *  chưa được đồng bộ ngay trên khu danh sách khách hàng"*.
+ *
+ *  View ĐANG đồng bộ — nhưng nó gộp. Nhánh `GOI_LAI` của `v_trang_thai_cskh`
+ *  (`20260810000004:103-113`) nhận CẢ BA kết quả `CHUA_NGHE_MAY`,
+ *  `KHONG_LIEN_LAC_DUOC`, `HEN_GOI_LAI` và trả về đúng một nhãn "Cần gọi lại".
+ *  Nên bấm "Không nghe máy" hay bấm "Hẹn gọi lại sau", cột giữa đổi mà chip bên
+ *  trái đứng yên — người trực đọc thành "chưa ghi được".
+ *
+ *  Ba chuyện ấy dẫn tới ba việc khác nhau: không nghe máy thì gọi lại ngay,
+ *  không liên lạc được thì tìm số khác, khách hẹn gọi lại thì ĐỪNG gọi bây giờ.
+ *  Gộp làm một là bỏ đi thứ duy nhất người trực cần biết trước khi bấm số.
+ *
+ *  KHÔNG sửa view: nhãn `luat_cskh` là thứ phòng khám đổi được không cần
+ *  deploy, và `so_viec_mo`/`qua_han` vẫn phải đếm theo LOẠI việc. Đây là lớp
+ *  hiển thị nói thêm điều view cố ý không đủ mịn để nói — cùng cách `quá giờ
+ *  hẹn` đang làm ngay bên dưới. */
+function nhanChiTiet(
+  tt: TrangThaiCskh,
+  lichSu: DongLichSu[] | undefined,
+): string {
+  if (tt.trang_thai !== "GOI_LAI") return tt.nhan;
+  // `lichSu` xếp mới nhất trước (xem truy vấn ở `page.tsx`), và nhánh GOI_LAI
+  // của view cũng đọc lần chạm CUỐI — nên hai bên nhìn cùng một dòng.
+  const kq = lichSu?.[0]?.ket_qua;
+  const noi = kq ? NHAN_KET_QUA_NGAN_GOI[kq] : undefined;
+  return noi ? `${tt.nhan} · ${noi}` : tt.nhan;
+}
+
+/** Ba lối ra của một cuộc gọi không gặp — viết đủ chữ, không viết tắt. */
+const NHAN_KET_QUA_NGAN_GOI: Record<string, string> = {
+  CHUA_NGHE_MAY: "không nghe máy",
+  KHONG_LIEN_LAC_DUOC: "không liên lạc được",
+  HEN_GOI_LAI: "khách hẹn gọi lại",
+};
+
+/** Gọi tên lượt đang xem cho đúng chuyện của nó.
+ *
+ *  "Lịch hẹn sắp tới" cho một lượt đã khám xong là câu nói sai mà người trực
+ *  đọc cho khách nghe. */
+function nhanLuot(l: MocLich | null): string {
+  if (!l?.status) return "Lịch hẹn";
+  if (l.status === "CHECKED_IN") return "Lượt đang khám";
+  if (l.status === "COMPLETED") return "Lượt đã khám xong";
+  if (["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"].includes(l.status))
+    return "Lượt đã đóng";
+  return conToi(l.slot_start, nowMs()) ? "Lịch hẹn sắp tới" : "Lịch hẹn";
+}
+
+function luotMacDinh(cac: LuotKham[]): LuotKham | undefined {
+  if (!cac.length) return undefined;
+  const bayGio = nowMs();
+  const dangKham = cac.find((l) => l.status === "CHECKED_IN");
+  if (dangKham) return dangKham;
+  const sapToi = cac.find(
+    (l) => LUOT_CHUA_DONG.includes(l.status) && conToi(l.slot_start, bayGio),
+  );
+  if (sapToi) return sapToi;
+  const conDo = [...cac]
+    .reverse()
+    .find((l) => LUOT_CHUA_DONG.includes(l.status));
+  return conDo ?? cac[cac.length - 1];
+}
+
 export interface ApptInfo {
+  /** `appointment.id` của LỊCH ĐẠI DIỆN. Đây là định danh lượt, và nó KHÁC
+   *  `appt?.id` — `appt` chỉ có khi lượt còn đổi/huỷ được. Xem ghi chú ở
+   *  `page.tsx` chỗ dựng `apptByPatient`. */
+  id: string | null;
   slot_start: string;
   status: string;
   upcoming: boolean;
@@ -223,6 +360,9 @@ export interface ApptInfo {
   /** Mốc hệ thống cho vùng làm việc: lịch được tạo lúc nào, huỷ lúc nào. */
   created_at?: string | null;
   cancelled_at?: string | null;
+  /** Lý do huỷ của lịch đại diện — mã chọn sẵn, và chữ CSKH tự viết. */
+  ly_do_huy_ma?: string | null;
+  cancellation_reason?: string | null;
   appt?: EditableAppt;
 }
 
@@ -436,12 +576,15 @@ export default function CustomersView({
   trangThaiByPatient,
   phanHoiByPatient,
   lichSuKhamByPatient,
+  henGoiLaiByPatient,
   tepByPatient,
   locations,
   q,
   period,
   by,
   initialSelected,
+  initialViec = null,
+  initialLuot = null,
   canEdit = false,
   canManage = false,
   services = [],
@@ -464,6 +607,8 @@ export default function CustomersView({
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
   /** Lịch sử khám theo khách, đã ghép sẵn thành từng đợt ở server. */
   lichSuKhamByPatient: Record<string, ChuoiKham[]>;
+  /** Lời hẹn gọi lại CHƯA ĐÓNG, theo khách. */
+  henGoiLaiByPatient: Record<string, HenGoiLai[]>;
   tepByPatient: Record<string, TepKetQuaRow[]>;
   /** Mốc gọi nhắc tái khám đang mở, theo khách. Rỗng = không có việc nào. */
   locations: Opt[];
@@ -471,6 +616,10 @@ export default function CustomersView({
   period: Period;
   by: ByDim;
   initialSelected: string | null;
+  /** Trạng thái CSKH mở sẵn ở cột phải (`?viec=`). Chuông thông báo đặt nó. */
+  initialViec?: string | null;
+  /** Lượt khám mở sẵn (`?luot=` — `appointment.id`). */
+  initialLuot?: string | null;
   canEdit?: boolean;
   canManage?: boolean;
   services?: Opt[];
@@ -493,9 +642,29 @@ export default function CustomersView({
   //
   // null = chưa chọn gì ⇒ khối hành động chạy theo việc gấp nhất mà
   // `v_trang_thai_cskh` suy ra.
-  const [viecDangGhi, setViecDangGhi] = useState<string | null>(null);
+  //
+  // KHỞI TẠO TỪ URL. Chuông thông báo gửi kèm `?viec=` để mở đúng việc nó nói
+  // tới, thay vì thả người trực xuống việc gấp nhất do view suy ra — hai thứ
+  // thường khác nhau, và cái khác nhau ấy chính là "bấm để xử lý" mà không xử
+  // lý được gì.
+  const [viecDangGhi, setViecDangGhi] = useState<string | null>(
+    coBoNut(initialViec) ? initialViec : null,
+  );
   /** Form đặt lịch đang mở kiểu nào; null = đóng. */
   const [datLich, setDatLich] = useState<"tai-kham" | "kham-moi" | null>(null);
+  // LƯỢT KHÁM ĐANG XEM — cặp (khách, lượt), không phải mỗi id lượt.
+  //
+  // Đổi khách mà chỉ giữ id lượt thì lượt của người trước dính sang người sau.
+  // So `pid` rồi bỏ qua là đủ; không cần effect đồng bộ (thứ trình biên dịch
+  // React chặn ở repo này — xem ghi chú `viecDangGhi` bên trên).
+  //
+  // null = để `luotMacDinh` chọn. Có giá trị = người dùng đã bấm một lượt cụ
+  // thể trong "Lịch sử các lần khám", hoặc vừa đặt xong một lịch mới.
+  const [luotChon, setLuotChon] = useState<{ pid: string; id: string } | null>(
+    initialLuot && initialSelected
+      ? { pid: initialSelected, id: initialLuot }
+      : null,
+  );
   // actionLoading/actionMsg đi cùng hai nút "xác nhận khách sẽ tới" / "báo
   // không tới" đã bỏ — xem ghi chú ở khối nút bên dưới.
   const [isPending, startTransition] = useTransition();
@@ -506,6 +675,11 @@ export default function CustomersView({
     if (nextPeriod !== "all") params.set("period", nextPeriod);
     if (nextBy !== "created") params.set("by", nextBy);
     if (selectedId) params.set("selected", selectedId);
+    // Lượt và việc đi theo đường dẫn, để F5 và một link gửi cho ca sau vẫn mở
+    // đúng chỗ người trước đang đứng.
+    if (selectedId && luotChon?.pid === selectedId)
+      params.set("luot", luotChon.id);
+    if (viecDangGhi) params.set("viec", viecDangGhi);
     const query = params.toString();
     startTransition(() => {
       router.push(`/customers${query ? `?${query}` : ""}`);
@@ -580,6 +754,87 @@ export default function CustomersView({
     ? apptByPatient[selected.clinic_patient_id]
     : undefined;
 
+  /** MỌI LƯỢT KHÁM của khách đang mở, phẳng ra và xếp sớm trước.
+   *
+   *  `lichSuKhamByPatient` đã gom sẵn thành từng ĐỢT ở server; ở đây chỉ cần
+   *  danh sách phẳng để tra một lượt theo id. */
+  const cacLuotCuaKhach = useMemo(() => {
+    const pid = selected?.clinic_patient_id;
+    if (!pid) return [] as LuotKham[];
+    return (lichSuKhamByPatient[pid] ?? [])
+      .flatMap((c) => c.luot)
+      .sort((a, b) => mocMs(a.slot_start) - mocMs(b.slot_start));
+  }, [lichSuKhamByPatient, selected]);
+
+  /** LƯỢT ĐANG XEM — một giá trị, cho cả cột giữa lẫn cột phải.
+   *
+   *  ĐÂY LÀ THỨ TRƯỚC 10/08/2026 KHÔNG TỒN TẠI. Cột giữa đọc "lịch đại diện"
+   *  do server đoán, và phép đoán ấy trả về MỘT lịch cho cả khách — nên khách
+   *  có hai lượt (vừa khám xong + vừa đặt tái khám) thì màn hình đứng ở lượt
+   *  cũ, mọi node xanh nguyên, và người trực không có cách nào chuyển sang lượt
+   *  mới. Quang gọi đúng tên nó: *"vẫn ở lại màn hình làm việc của lượt khám
+   *  trước đó"*.
+   *
+   *  Thứ tự: lượt người dùng CHỌN → luật mặc định → lịch đại diện của server.
+   *  Nhánh cuối giữ cho những vai không nạp được `lichSuKhamByPatient`; bỏ nó
+   *  là cột giữa trống trơn với Thu ngân, một lỗi tệ hơn lỗi đang chữa. */
+  const luotDangXem: MocLich | null = useMemo(() => {
+    const daChon =
+      luotChon && luotChon.pid === selected?.clinic_patient_id
+        ? cacLuotCuaKhach.find((l) => l.id === luotChon.id)
+        : undefined;
+    const luot = daChon ?? luotMacDinh(cacLuotCuaKhach);
+    if (luot) {
+      return {
+        id: luot.id,
+        status: luot.status,
+        slot_start: luot.slot_start,
+        created_at: luot.created_at,
+        cancelled_at: luot.cancelled_at,
+        ly_do_huy_ma: luot.ly_do_huy_ma,
+        cancellation_reason: luot.cancellation_reason,
+        service_type_id: luot.service_type_id,
+        service_name: luot.service_name,
+      };
+    }
+    if (!selectedAppt) return null;
+    return {
+      id: selectedAppt.id,
+      status: selectedAppt.status,
+      slot_start: selectedAppt.slot_start,
+      created_at: selectedAppt.created_at ?? null,
+      cancelled_at: selectedAppt.cancelled_at ?? null,
+      ly_do_huy_ma: selectedAppt.ly_do_huy_ma ?? null,
+      cancellation_reason: selectedAppt.cancellation_reason ?? null,
+      service_type_id: selectedAppt.appt?.service_type_id ?? null,
+      service_name: selectedAppt.appt?.service_name ?? null,
+    };
+  }, [luotChon, selected, cacLuotCuaKhach, selectedAppt]);
+
+  /** Lượt đang xem có còn đổi / huỷ được không. `undefined` = không. */
+  const apptSuaDuoc =
+    selectedAppt?.appt && selectedAppt.appt.id === luotDangXem?.id
+      ? selectedAppt.appt
+      : undefined;
+
+  /** Chọn một lượt để làm việc. Ghi vào URL luôn, để F5 không mất chỗ. */
+  const chonLuot = useCallback(
+    (id: string) => {
+      const pid = selected?.clinic_patient_id;
+      if (!pid) return;
+      setLuotChon({ pid, id });
+      // Đổi lượt là đổi ngữ cảnh: việc đang ghi dở thuộc lượt cũ, giữ lại là
+      // ghi nhầm sổ. Về null để cột phải chạy theo việc gấp nhất của lượt mới.
+      setViecDangGhi(null);
+      const params = new URLSearchParams(window.location.search);
+      params.set("selected", pid);
+      params.set("luot", id);
+      params.delete("viec");
+      router.replace(`/customers?${params.toString()}`, { scroll: false });
+    },
+    [selected, router],
+  );
+
   // Ba biến đếm cũ đã BỎ. Chúng tính bằng một đoạn mã riêng, tách khỏi phép
   // lọc của tab — và đó chính là chỗ con số trên ô và danh sách bên dưới nói
   // hai điều khác nhau. Nay cả hai đi qua `hopVoiTab`.
@@ -603,8 +858,12 @@ export default function CustomersView({
     const quaGio = apptByPatient[row.clinic_patient_id]?.qua_gio_hen;
     const tt = trangThaiByPatient[row.clinic_patient_id];
     if (tt) {
+      const nhan = nhanChiTiet(
+        tt,
+        tuongTacByPatient[row.clinic_patient_id],
+      );
       return {
-        label: quaGio ? `${tt.nhan} · quá giờ hẹn` : tt.nhan,
+        label: quaGio ? `${nhan} · quá giờ hẹn` : nhan,
         tone: tt.qua_han || quaGio ? "overdue" : TONE_VIEC[tt.trang_thai] ?? "ready",
       };
     }
@@ -911,27 +1170,34 @@ export default function CustomersView({
           <VungLamViecKhach
             tenKhach={selected.full_name}
             clinicPatientId={selected.clinic_patient_id}
-            lich={{
-              id: selectedAppt?.appt?.id ?? null,
-              status: selectedAppt?.status ?? null,
-              slot_start: selectedAppt?.slot_start ?? null,
-              created_at: selectedAppt?.created_at ?? null,
-              cancelled_at: selectedAppt?.cancelled_at ?? null,
-            }}
+            // MỘT VẬT, KHÔNG PHẢI VẬT LAI.
+            //
+            // Chỗ này từng lấy `id` từ `selectedAppt.appt` (chỉ có khi lịch còn
+            // đổi/huỷ được) và `status` từ `selectedAppt` (lịch đại diện) —
+            // hai nguồn khác nhau. Lượt đã COMPLETED thì `appt` không tồn tại,
+            // nên `lich` mang trạng thái của một lượt và id của không lượt nào,
+            // và `lichSuLuotNay` lặng lẽ mở ra sổ của CẢ KHÁCH.
+            lich={luotDangXem ?? EMPTY_LUOT}
             lichSu={tuongTacByPatient[selected.clinic_patient_id] ?? []}
             trangThaiHienTai={
               trangThaiByPatient[selected.clinic_patient_id]?.trang_thai ?? null
             }
             dangChon={viecDangGhi}
             onLamViec={(ma) => setViecDangGhi(ma)}
-            lanKhamGanNhat={selectedAppt?.lanKhamGanNhat ?? null}
             onDatLich={(kieu) => setDatLich(kieu)}
+            henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
           >
             {/* LỊCH SỬ TRƯỚC, PHẢN HỒI SAU — Quang chốt "bên trên phản hồi của
                 khách hàng, thêm 1 ô nữa". Đọc lại chuyện đã xảy ra rồi mới tới
-                chỗ ghi chuyện khách nói. */}
+                chỗ ghi chuyện khách nói.
+
+                VÀ NAY BẤM ĐƯỢC. Đây là chỗ DUY NHẤT trên màn liệt kê đủ mọi
+                lượt của khách, nên nó cũng là chỗ tự nhiên để chọn lượt muốn
+                làm việc — thay vì để server đoán một lượt cho cả khách. */}
             <LichSuCacLanKham
               chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
+              luotDangXem={luotDangXem?.id ?? null}
+              onChonLuot={chonLuot}
             />
             <PhanHoiKhach
               clinicPatientId={selected.clinic_patient_id}
@@ -973,7 +1239,10 @@ export default function CustomersView({
               </div>
 
               <div className="space-y-3 py-4">
-                {canManage && selectedAppt?.appt ? (
+                {/* Ô NÀY NÓI VỀ LƯỢT ĐANG XEM, không phải "lịch đại diện".
+                    Trước 10/08/2026 nó đọc `selectedAppt` còn cột giữa đọc một
+                    thứ khác, nên hai cột cạnh nhau nói về hai lượt khác nhau. */}
+                {canManage && apptSuaDuoc ? (
                   <button
                     type="button"
                     onClick={() => setEditOpen(true)}
@@ -987,22 +1256,21 @@ export default function CustomersView({
                           khám — quản lý còn phải xếp ca rồi gán người, và giờ
                           có thể lệch đi. Nói đúng tên nó ngay tại đây. */}
                       <span className="block text-xs text-ink-muted">
-                        {selectedAppt.appt && !selectedAppt.appt.doctor_id
+                        {!apptSuaDuoc.doctor_id
                           ? "Lịch dự kiến"
-                          : selectedAppt.upcoming
-                            ? "Lịch hẹn sắp tới"
-                            : "Lịch hẹn"}
+                          : nhanLuot(luotDangXem)}
                       </span>
                       <span className="mt-1 block text-sm font-semibold text-ink">
-                        {fmtDateTimeOrDate(selectedAppt.slot_start)}
+                        {fmtDateTimeOrDate(luotDangXem?.slot_start ?? null)}
                       </span>
-                      {selectedAppt.qua_gio_hen && (
-                        <span className="mt-1 block rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
-                          ⚠ Đã quá giờ hẹn — khách chưa check-in. Gọi hỏi khách
-                          còn đến không, hoặc đánh dấu không đến.
-                        </span>
-                      )}
-                      {selectedAppt.appt && !selectedAppt.appt.doctor_id && (
+                      {selectedAppt?.qua_gio_hen &&
+                        luotDangXem?.id === selectedAppt.id && (
+                          <span className="mt-1 block rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
+                            ⚠ Đã quá giờ hẹn — khách chưa check-in. Gọi hỏi khách
+                            còn đến không, hoặc đánh dấu không đến.
+                          </span>
+                        )}
+                      {!apptSuaDuoc.doctor_id && (
                         <span className="mt-1 block text-xs font-semibold text-warning">
                           Bác sĩ: chờ quản lý xác nhận
                         </span>
@@ -1024,24 +1292,53 @@ export default function CustomersView({
                 ) : (
                   <div className="rounded-control border border-line bg-surface-muted p-3">
                     <p className="text-xs text-ink-muted">
-                      {selectedAppt?.appt && !selectedAppt.appt.doctor_id
-                        ? "Lịch dự kiến"
-                        : selectedAppt?.upcoming
-                          ? "Lịch hẹn sắp tới"
-                          : "Lịch hẹn"}
+                      {nhanLuot(luotDangXem)}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-ink">
-                      {selectedAppt
-                        ? fmtDateTimeOrDate(selectedAppt.slot_start)
+                      {luotDangXem?.slot_start
+                        ? fmtDateTimeOrDate(luotDangXem.slot_start)
                         : "Chưa có lịch hẹn"}
                     </p>
-                    {selectedAppt?.qua_gio_hen && (
-                      <p className="mt-1 rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
-                        ⚠ Đã quá giờ hẹn — khách chưa check-in.
-                      </p>
-                    )}
+                    {selectedAppt?.qua_gio_hen &&
+                      luotDangXem?.id === selectedAppt.id && (
+                        <p className="mt-1 rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
+                          ⚠ Đã quá giờ hẹn — khách chưa check-in.
+                        </p>
+                      )}
                   </div>
                 )}
+
+                {/* LÝ DO HUỶ — HIỆN RA, KHÔNG CHỈ LƯU.
+                    Quang 10/08/2026: *"khi ấn huỷ hẹn, ghi lý do, thì cần có
+                    chỗ để hiện ra chỗ đó mỗi khi vào xem chứ lưu mà không hiện
+                    thì không tốt"*. `booking_service` vẫn ghi đủ ba thứ (mã,
+                    chữ tự viết, giờ huỷ) từ lâu; thiếu đúng đường đọc.
+                    Đặt NGAY DƯỚI ô lịch vì người sắp gọi khách cần biết lý do
+                    đã ghi TRƯỚC khi hỏi lại lý do thật. */}
+                {luotDangXem?.status === "CANCELLED" &&
+                  (luotDangXem.ly_do_huy_ma ||
+                    luotDangXem.cancellation_reason) && (
+                    <div className="rounded-control border border-danger/30 bg-danger-bg/40 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-danger">
+                        Lý do huỷ đã ghi
+                      </p>
+                      {luotDangXem.ly_do_huy_ma && (
+                        <p className="mt-1 text-xs font-medium text-ink">
+                          {nhanLyDoHuy(luotDangXem.ly_do_huy_ma)}
+                        </p>
+                      )}
+                      {luotDangXem.cancellation_reason && (
+                        <p className="mt-0.5 text-xs italic text-ink-soft">
+                          “{luotDangXem.cancellation_reason}”
+                        </p>
+                      )}
+                      {luotDangXem.cancelled_at && (
+                        <p className="mt-1 font-mono text-[11px] text-ink-muted">
+                          huỷ lúc {fmtDateTimeOrDate(luotDangXem.cancelled_at)}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                 {/* CSKH & Lễ tân: Khung Xác nhận lịch hẹn & Gọi điện */}
                 <div className="space-y-2 rounded-2xl border border-brand-200 bg-brand-50/50 p-3 text-xs shadow-xs">
@@ -1084,7 +1381,15 @@ export default function CustomersView({
                       }
                       clinicPatientId={selected.clinic_patient_id}
                       patientCode={selected.patient_code}
-                      appointmentId={selectedAppt?.appt?.id ?? null}
+                      // CÙNG MỘT LƯỢT VỚI CỘT GIỮA.
+                      //
+                      // Chỗ này từng đọc `appt?.id` — chỉ có khi lịch còn
+                      // đổi/huỷ được — nên với một lượt đã khám xong, đã huỷ,
+                      // hoặc với bốn vai không có quyền đổi lịch, nó xuống null
+                      // và MỌI thao tác thuộc `CAN_LICH_HEN` trả 422 "Việc này
+                      // phải gắn với một lịch hẹn cụ thể". Ghi lý do huỷ là một
+                      // trong số đó: nút có, bấm không bao giờ ăn.
+                      appointmentId={luotDangXem?.id ?? null}
                       phone={selected.phone_primary}
                       tepKetQua={tepByPatient[selected.clinic_patient_id] ?? []}
                       daXong={false}
@@ -1106,12 +1411,17 @@ export default function CustomersView({
                     {/* CHƯA CÓ BÁC SĨ → việc của CSKH là báo quản lý, không
                         phải tự chọn: họ không biết ai trực tuần đó. Nút chỉ
                         hiện khi lịch thật sự còn trống bác sĩ. */}
-                    {selectedAppt?.appt && !selectedAppt.appt.doctor_id && (
-                      <BaoXepBacSi appointmentId={selectedAppt.appt.id} />
+                    {apptSuaDuoc && !apptSuaDuoc.doctor_id && (
+                      <BaoXepBacSi appointmentId={apptSuaDuoc.id} />
                     )}
                     <button
                       type="button"
-                      disabled={!canManage || !selectedAppt?.appt}
+                      disabled={!canManage || !apptSuaDuoc}
+                      title={
+                        apptSuaDuoc
+                          ? "Đổi giờ hoặc huỷ lượt đang xem"
+                          : "Lượt đang xem đã đóng hoặc đã huỷ — không đổi được nữa"
+                      }
                       onClick={() => setEditOpen(true)}
                       className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-surface py-2 px-3 text-xs font-semibold text-ink-soft hover:bg-surface-muted disabled:opacity-50"
                     >
@@ -1250,24 +1560,40 @@ export default function CustomersView({
           doctors={doctors}
           locations={locations}
           defaultLocationId={selected.location_id ?? undefined}
+          // TÁI KHÁM NỐI VÀO LƯỢT ĐANG XEM, không vào "lượt xong gần nhất".
+          //
+          // `lanKhamGanNhat` là max(slot_start) trong các lịch COMPLETED của
+          // KHÁCH. Khách có hai đợt song song (Phụ khoa + Nội tiết) thì nó khoá
+          // dịch vụ theo đợt kia, bất kể người trực đang đọc đợt nào — và
+          // `lich_truoc_id` cũng nối sai chuỗi, âm thầm.
           khoaDichVu={
-            datLich === "tai-kham" &&
-            selectedAppt?.lanKhamGanNhat?.service_type_id
+            datLich === "tai-kham" && luotDangXem?.service_type_id
               ? {
-                  serviceId: selectedAppt.lanKhamGanNhat.service_type_id,
-                  label:
-                    selectedAppt.lanKhamGanNhat.service_name ?? "Dịch vụ cũ",
+                  serviceId: luotDangXem.service_type_id,
+                  label: luotDangXem.service_name ?? "Dịch vụ của lượt này",
                 }
               : undefined
           }
           lichTruocId={
-            datLich === "tai-kham"
-              ? (selectedAppt?.lanKhamGanNhat?.id ?? undefined)
-              : undefined
+            datLich === "tai-kham" ? (luotDangXem?.id ?? undefined) : undefined
           }
           onDong={() => setDatLich(null)}
-          onXong={() => {
+          // ĐẶT XONG THÌ CHUYỂN HẲN SANG LƯỢT MỚI.
+          //
+          // Quang 10/08/2026: *"khi thực hiện lịch tái khám… vẫn đang hiển thị
+          // các thao tác của quản lý khách cũ nên không thao tác được với lượt
+          // khám mới"*. Trước đây `onXong` chỉ `router.refresh()`, và server
+          // tính lại vẫn ra đúng lượt cũ — nên màn không đổi một pixel, chỉ ô
+          // Lịch sử ở tận cuối trang mọc thêm một dòng.
+          //
+          // Đây là chỗ DUY NHẤT trong cả luồng BIẾT CHẮC người dùng vừa tạo
+          // lượt nào. Mọi luật suy diễn khác rồi cũng sai ở một ca nào đó.
+          onXong={(appointmentId) => {
             setDatLich(null);
+            if (appointmentId && selected) {
+              setLuotChon({ pid: selected.clinic_patient_id, id: appointmentId });
+              setViecDangGhi(null);
+            }
             router.refresh();
           }}
         />

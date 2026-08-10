@@ -45,12 +45,19 @@ export default function DatLichModal({
   defaultLocationId?: string;
   /** Có = TÁI KHÁM (dịch vụ khoá theo lượt trước). Không có = khám mới. */
   khoaDichVu?: KhoaDichVu;
-  /** Đi cùng `khoaDichVu`. Có = lịch mới nối vào chuỗi tái khám. */
+  /** Có = lịch mới nối vào chuỗi tái khám (`appointment.lich_truoc_id`). */
   lichTruocId?: string;
   onDong: () => void;
-  onXong: () => void;
+  /** Nhận id lịch VỪA TẠO, để màn chuyển hẳn sang lượt mới. */
+  onXong: (appointmentId: string) => void;
 }) {
-  const laTaiKham = Boolean(khoaDichVu);
+  // "TÁI KHÁM" LÀ CÓ NỐI CHUỖI, không phải "có khoá dịch vụ".
+  //
+  // Chỗ này từng đọc `khoaDichVu`, mà `khoaDichVu` chỉ dựng được khi lượt trước
+  // có `service_type_id`. Lượt thiếu dịch vụ ⇒ tiêu đề nói "Đặt lịch khám mới"
+  // và câu dưới nói "KHÔNG nối vào chuỗi tái khám" — trong khi `lichTruocId`
+  // vẫn được gửi và nó nối thật. Màn hình nói ngược với việc nó đang làm.
+  const laTaiKham = Boolean(lichTruocId);
 
   return (
     <div
@@ -72,7 +79,14 @@ export default function DatLichModal({
             <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
               {laTaiKham ? (
                 <>
-                  Giữ nguyên dịch vụ <b>{khoaDichVu?.label}</b> của lượt vừa rồi.
+                  {khoaDichVu ? (
+                    <>
+                      Giữ nguyên dịch vụ <b>{khoaDichVu.label}</b> của lượt đang
+                      xem.{" "}
+                    </>
+                  ) : (
+                    <>Lượt đang xem chưa chọn dịch vụ — chọn dịch vụ bên dưới. </>
+                  )}
                   Lịch này sẽ được ghi là tái khám nối tiếp lượt đó.
                 </>
               ) : (

@@ -136,7 +136,8 @@ export default function GlobalHeader({
   // Nguồn thật hiện có: quyết định duyệt/từ chối ca làm việc của CHÍNH mình
   // (NotificationContext, realtime + poll). Ít hơn ba dòng kia rất nhiều, và
   // chuông im khi không có gì — đó mới là điều làm nó đáng tin.
-  const { notifs, unread: unreadCount, markAllRead } = useNotifications();
+  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy } =
+    useNotifications();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -440,18 +441,44 @@ export default function GlobalHeader({
                     const lop = `flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left text-xs ${
                       n.khan ? "bg-danger-bg" : "bg-brand-50/70"
                     }`;
-                    return n.duongDan ? (
-                      <Link
-                        key={n.key}
-                        href={n.duongDan}
-                        onClick={() => setNotifOpen(false)}
-                        className={`${lop} transition-colors hover:brightness-95`}
+                    // NÚT ĐÓNG VIỆC, TÁCH KHỎI Ô BẤM ĐỂ ĐI.
+                    //
+                    // `cua_toi()` lọc `da_xu_ly_luc IS NULL`, và cho tới
+                    // 10/08/2026 KHÔNG một màn nào gọi endpoint đóng việc — nên
+                    // mọi thông báo từng sinh ra nằm lại trong chuông mãi mãi,
+                    // và người dùng học cách bỏ qua cả cái chuông.
+                    //
+                    // Không đóng hộ khi bấm vào đường dẫn: đi xem một việc
+                    // không phải là đã làm xong nó.
+                    const nutXong = n.thongBaoId ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void danhDauDaXuLy(n.thongBaoId!);
+                        }}
+                        title="Đã làm xong việc này — bỏ khỏi chuông"
+                        className="shrink-0 self-start rounded-lg border border-line bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft hover:bg-surface-muted"
                       >
-                        {noiDung}
-                      </Link>
+                        Xong
+                      </button>
+                    ) : null;
+                    return n.duongDan ? (
+                      <div key={n.key} className={`${lop} items-center`}>
+                        <Link
+                          href={n.duongDan}
+                          onClick={() => setNotifOpen(false)}
+                          className="flex min-w-0 flex-1 items-start gap-2.5 transition-colors hover:brightness-95"
+                        >
+                          {noiDung}
+                        </Link>
+                        {nutXong}
+                      </div>
                     ) : (
                       <div key={n.key} className={lop}>
                         {noiDung}
+                        {nutXong}
                       </div>
                     );
                   })
