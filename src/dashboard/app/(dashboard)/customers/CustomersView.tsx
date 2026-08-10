@@ -174,6 +174,9 @@ export interface LichSapToi {
 /** Một BƯỚC CSKH đã bấm bên trong một lượt khám. */
 export interface BuocCham {
   luc: string;
+  /** Đã bị rút lại lúc nào. Dòng VẪN HIỆN trong lịch sử — gạch ngang, không
+   *  giấu đi: *"log không được xoá"*. Xem migration 20260810000009. */
+  huy_luc?: string | null;
   trang_thai_ma: string | null;
   loai: string;
   ket_qua: string | null;
@@ -935,9 +938,35 @@ export default function CustomersView({
     // CSKH — có thể là cuộc gọi hôm kia. Cột giữa và panel phải vẫn đúng (chúng
     // đọc `v_viec_cskh` theo lượt). Muốn chặn hẳn ca này thì phải so giờ
     // check-in với giờ chạm cuối, mà giờ check-in chỉ có ở vai quản-lý-được-lịch.
-    const chamCuoi = nhanLanChamCuoi(
-      tuongTacByPatient[row.clinic_patient_id]?.[0],
-    );
+    // HUỶ LỊCH CŨNG LÀ MỘT SỰ KIỆN, và nó KHÔNG đi qua sổ chăm sóc.
+    //
+    // Quang 10/08/2026: *"khi chọn huỷ lịch cũ đi để đặt lịch mới thì trạng
+    // thái lịch bị huỷ cũng phải đồng bộ"*.
+    //
+    // `booking_service` ghi `cancelled_at` + `ly_do_huy_ma` lên chính
+    // `appointment`; không dòng nào vào `tuong_tac_cskh`. Nên sau khi chip đổi
+    // sang "kể lần chạm gần nhất", một khách vừa bị huỷ lịch vẫn hiện cuộc gọi
+    // hôm kia — màn hình kể một chuyện cũ hơn chuyện vừa xảy ra.
+    //
+    // So MỐC THỜI GIAN chứ không xếp thứ tự cứng: cái nào xảy ra SAU thì cái ấy
+    // là chuyện của khách này bây giờ. Cùng phép so ấy dùng được cho check-in
+    // do Lễ tân bấm ở màn khác, khi nào mang được `checked_in_at` xuống đây.
+    const apptRow = apptByPatient[row.clinic_patient_id];
+    const chamCuoiRow = tuongTacByPatient[row.clinic_patient_id]?.[0];
+    const huyLuc =
+      apptRow?.status === "CANCELLED" ? (apptRow.cancelled_at ?? null) : null;
+    if (
+      huyLuc &&
+      (!chamCuoiRow || mocMs(huyLuc) >= mocMs(chamCuoiRow.xay_ra_luc))
+    ) {
+      const ly = nhanLyDoHuy(apptRow?.ly_do_huy_ma);
+      return {
+        label: ly ? `Đã huỷ lịch · ${ly}` : "Đã huỷ lịch",
+        tone: "overdue",
+      };
+    }
+
+    const chamCuoi = nhanLanChamCuoi(chamCuoiRow);
     if (chamCuoi) {
       return {
         label: quaGio ? `${chamCuoi} · quá giờ hẹn` : chamCuoi,

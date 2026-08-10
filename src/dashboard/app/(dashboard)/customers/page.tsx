@@ -364,7 +364,7 @@ export default async function CustomersPage({
         .select(
           // `appointment_id` để gom được từng lượt khám thành một chuỗi —
           // cột đã có từ 20260809000003 nhưng chưa từng được mang xuống UI.
-          "clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, staff(full_name)",
+          "id, clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, huy_luc, staff(full_name)",
         )
         .in("clinic_patient_id", shownIds)
         .order("xay_ra_luc", { ascending: false })
@@ -686,6 +686,8 @@ type LichHenRaw = {
   // Gom sổ tương tác theo khách. Dòng đầu mỗi nhóm là lần gần nhất (đã sắp xếp
   // giảm dần ở truy vấn).
   type TuongTacRaw = {
+    id: string;
+    huy_luc: string | null;
     clinic_patient_id: string;
     xay_ra_luc: string;
     loai: string;
@@ -819,6 +821,8 @@ type LichHenRaw = {
     for (const t of (tt as TuongTacRaw[] | null) ?? []) {
       const nv = Array.isArray(t.staff) ? t.staff[0] : t.staff;
       (tuongTacByPatient[t.clinic_patient_id] ??= []).push({
+        id: t.id,
+        huy_luc: t.huy_luc,
         xay_ra_luc: t.xay_ra_luc,
         loai: t.loai,
         kenh: t.kenh,
@@ -903,6 +907,7 @@ type LichHenRaw = {
             ket_thuc: v?.ketThuc ?? checkout?.xay_ra_luc ?? null,
             buoc: buoc.map((d) => ({
               luc: d.xay_ra_luc,
+              huy_luc: d.huy_luc ?? null,
               trang_thai_ma: d.trang_thai_ma ?? null,
               loai: d.loai,
               ket_qua: d.ket_qua,

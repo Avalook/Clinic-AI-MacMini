@@ -285,6 +285,18 @@ async def ghi_tuong_tac(
     )
 
 
+@router.post("/cskh/tuong-tac/{tuong_tac_id}/hoan-tac", status_code=201)
+async def hoan_tac_tuong_tac(
+    tuong_tac_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Rút lại một lần chạm bấm nhầm. KHÔNG xoá dòng sổ — xem service."""
+    return await TuongTacCskhService(pool).hoan_tac(
+        identity=identity, tuong_tac_id=str(tuong_tac_id)
+    )
+
+
 @router.get("/cskh/tuong-tac/{clinic_patient_id}")
 async def lich_su_tuong_tac(
     clinic_patient_id: UUID,

@@ -198,13 +198,19 @@ function MotLuot({
             {luot.buoc.map((b, i) => (
               <li
                 key={`${b.luc}-${i}`}
-                className="flex items-start gap-1.5 text-[11px] leading-snug text-ink-soft"
+                className={`flex items-start gap-1.5 text-[11px] leading-snug ${
+                  b.huy_luc ? "text-ink-faint" : "text-ink-soft"
+                }`}
               >
                 <CircleDashed
                   className="mt-0.5 size-3 shrink-0 text-ink-faint"
                   aria-hidden="true"
                 />
-                <span>
+                {/* DÒNG ĐÃ RÚT LẠI VẪN HIỆN, chỉ gạch ngang.
+                    Quang 10/08/2026: *"log không được xoá, mà là hoàn tác lại
+                    tác vụ đó"*. Giấu nó đi là đúng thứ câu ấy cấm — lịch sử
+                    phải đọc được cả hai vế: đã bấm, rồi đã rút lại. */}
+                <span className={b.huy_luc ? "line-through" : undefined}>
                   <span className="font-mono text-ink-muted">{gio(b.luc)}</span>
                   {" · "}
                   {NHAN_BUOC[b.trang_thai_ma ?? ""] ??
@@ -215,6 +221,11 @@ function MotLuot({
                     ` · ${NHAN_KET_QUA[b.ket_qua] ?? b.ket_qua}`}
                   {b.nhan_vien && ` · ${b.nhan_vien}`}
                 </span>
+                {b.huy_luc && (
+                  <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 text-[10px] font-medium text-ink-muted">
+                    đã hoàn tác
+                  </span>
+                )}
               </li>
             ))}
           </ol>
