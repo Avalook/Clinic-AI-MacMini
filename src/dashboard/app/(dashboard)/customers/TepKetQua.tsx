@@ -11,6 +11,7 @@
 //     send_zalo.py luôn trả delivered=False. Nhãn nút nói đúng như vậy.
 
 import { useState } from "react";
+import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 
@@ -87,7 +88,7 @@ export default function TepKetQua({
           | null;
         // Nói rõ TỆP NÀO hỏng: tải năm tệp mà chỉ báo "không tải được" thì
         // người dùng phải thử lại từng cái để biết cái nào.
-        setLoi(`${f.name}: ${d?.message ?? d?.error ?? "không tải lên được."}`);
+        setLoi(`${f.name}: ${nhanLoi(d, "không tải lên được.")}`);
         setDangTai(false);
         return;
       }
@@ -109,7 +110,7 @@ export default function TepKetQua({
       const d = (await res.json().catch(() => null)) as
         | { error?: string; message?: string }
         | null;
-      setLoi(d?.message ?? d?.error ?? "Không đánh dấu được.");
+      setLoi(nhanLoi(d, "Không đánh dấu được."));
       return;
     }
     router.refresh();

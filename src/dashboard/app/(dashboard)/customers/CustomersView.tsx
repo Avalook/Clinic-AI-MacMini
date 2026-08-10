@@ -1113,6 +1113,27 @@ export default function CustomersView({
                               {nhanLanKham(apptByPatient[row.clinic_patient_id])}
                             </span>
                           )}
+                          {/* CÒN N VIỆC KHÁC — nói ra, để chip không bị đọc là
+                              "tất cả những gì khách này đang có".
+
+                              Chip trạng thái là VIỆC GẤP NHẤT của khách, và nó
+                              có thể thuộc một lượt khác lượt đang mở ở cột
+                              giữa: Nguyễn Thị Hoa hiện "Đã check-in" trong khi
+                              đang có ba việc ở ba lượt. Hai cột đều đúng, nhưng
+                              đọc cạnh nhau thì trông như lệch — trừ khi màn nói
+                              thẳng rằng còn việc khác. */}
+                          {(trangThaiByPatient[row.clinic_patient_id]
+                            ?.so_viec_mo ?? 0) > 1 && (
+                            <span
+                              className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
+                              title="Chip bên cạnh là việc gấp nhất; khách còn việc khác, có thể ở lượt khám khác."
+                            >
+                              +
+                              {(trangThaiByPatient[row.clinic_patient_id]
+                                ?.so_viec_mo ?? 1) - 1}{" "}
+                              việc
+                            </span>
+                          )}
                           {(apptByPatient[row.clinic_patient_id]?.sapToi
                             ?.length ?? 0) > 1 && (
                             <button

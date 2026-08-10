@@ -11,6 +11,7 @@
 // Backend từ chối; nút ở đây khoá sẵn để người dùng không phải ăn lỗi mới biết.
 
 import { useState } from "react";
+import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import { MessageSquareText } from "lucide-react";
 
@@ -85,7 +86,7 @@ export default function PhanHoiKhach({
       const d = (await res.json().catch(() => null)) as
         | { error?: string; message?: string }
         | null;
-      setLoi(d?.message ?? d?.error ?? "Không ghi được.");
+      setLoi(nhanLoi(d, "Không ghi được."));
       return;
     }
     setMoForm(false);
@@ -110,7 +111,7 @@ export default function PhanHoiKhach({
       const d = (await res.json().catch(() => null)) as
         | { error?: string; message?: string }
         | null;
-      setLoi(d?.message ?? d?.error ?? "Không cập nhật được.");
+      setLoi(nhanLoi(d, "Không cập nhật được."));
       return;
     }
     setDangDong(null);

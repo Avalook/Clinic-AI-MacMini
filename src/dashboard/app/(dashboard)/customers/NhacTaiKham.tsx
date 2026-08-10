@@ -21,6 +21,7 @@
 
 import { VN_OFFSET } from "../../../lib/datetime";
 import { useState } from "react";
+import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import {
   CalendarPlus,
@@ -116,7 +117,7 @@ export default function NhacTaiKham({
           error?: string;
           message?: string;
         } | null;
-        setLoi(d?.message ?? d?.error ?? "Không lưu được lời hẹn tái khám.");
+        setLoi(nhanLoi(d, "Không lưu được lời hẹn tái khám."));
         return;
       }
       router.refresh();
@@ -145,7 +146,7 @@ export default function NhacTaiKham({
           error?: string;
           message?: string;
         } | null;
-        setLoi(d?.message ?? d?.error ?? "Không ghi được kết quả cuộc gọi.");
+        setLoi(nhanLoi(d, "Không ghi được kết quả cuộc gọi."));
         return;
       }
       router.refresh();

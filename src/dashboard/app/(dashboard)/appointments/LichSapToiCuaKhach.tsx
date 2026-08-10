@@ -51,18 +51,36 @@ export default function LichSapToiCuaKhach({
     );
   }
 
-  // HỘP ĐỎ "Chưa kiểm được lịch cũ của khách" ĐÃ BỎ — Quang chốt 09/08/2026,
-  // sau khi nó chiếm gần hết panel trong lúc thử màn Đặt lịch.
+  // HỎI HỎNG THÌ PHẢI NÓI RA — nhưng bằng MỘT DÒNG, không phải một cái hộp.
   //
-  // ĐÁNH ĐỔI, GHI RA ĐÂY VÌ NÓ NGƯỢC VỚI GHI CHÚ ĐẦU FILE. Nhánh này là lượt
-  // hỏi HỎNG, và giờ nó không vẽ gì — tức màn hình lại trông y hệt lúc khách
-  // sạch lịch. Cái im lặng ấy chính là thứ khối này sinh ra để chặn.
+  // Ba chặng của chỗ này, ghi lại đủ vì cả ba đều có lý:
   //
-  // Thứ THẬT SỰ phải sửa là lý do lượt hỏi hỏng (`/api/appointments` trả về
-  // không-ok cho khách đang chọn), không phải cái hộp báo rằng nó hỏng. Bỏ hộp
-  // đi thì lỗi vẫn còn, chỉ là không ai thấy nữa.
+  //   08/08  hộp đỏ to, chiếm gần hết panel Đặt lịch
+  //   09/08  Quang bỏ hẳn hộp ấy — nó lấn màn hình
+  //   10/08  Quang: *"làm nốt cái lần trước đi"*
+  //
+  // Bỏ hẳn là đi quá: nhánh này KHÔNG vẽ gì, nên màn hình trông y hệt lúc khách
+  // sạch lịch. Người trực đọc sự im lặng ấy thành "được, đặt đi" — đúng cái đặt
+  // chồng mà khối này sinh ra để chặn, và đúng ca `ad87caf` (Lan đặt ba lần một
+  // buổi). Cái sai là KÍCH THƯỚC, không phải sự tồn tại.
+  //
+  // Nay: một dòng cùng cỡ với hai nhánh kia, `role="alert"` để trình đọc màn
+  // hình đọc lên ngay thay vì đợi người dùng rà tới. Không có nút, không chiếm
+  // chỗ — chỉ đủ để người ta biết mình đang KHÔNG có thông tin, khác hẳn với
+  // biết rằng khách sạch lịch.
+  //
+  // Nguyên nhân gốc vẫn còn: `/api/appointments` thỉnh thoảng trả không-ok cho
+  // khách đang chọn. Dòng này không chữa nó, chỉ thôi giấu nó đi.
   if (tra.kind === "hong") {
-    return null;
+    return (
+      <p
+        role="alert"
+        className="rounded-xl border border-danger/40 bg-danger-bg px-3 py-2 text-[11px] font-medium text-danger"
+      >
+        Chưa kiểm được lịch cũ của khách — đừng coi là khách chưa có lịch. Thử
+        chọn lại khách; còn lỗi thì kiểm ở màn Quản lý khách hàng trước khi đặt.
+      </p>
+    );
   }
 
   if (tra.items.length === 0) {
