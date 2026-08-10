@@ -35,6 +35,7 @@ const vungLamViec = read("../app/(dashboard)/customers/VungLamViecKhach.tsx");
 const hanhDong = read("../app/(dashboard)/customers/HanhDongTrangThai.tsx");
 const lichSuKham = read("../app/(dashboard)/customers/LichSuCacLanKham.tsx");
 const customersView = read("../app/(dashboard)/customers/CustomersView.tsx");
+const motCham = read("../app/(dashboard)/customers/mot-cham.ts");
 
 /** Mọi `ma: "XXX"` trong cột giữa = một node người dùng bấm được. */
 function maNodeCotGiua(): string[] {
@@ -139,4 +140,38 @@ test("sổ chăm sóc không lặng lẽ rơi về sổ của cả khách", () =
     "`lichSuLuotNay` đang rơi về sổ của CẢ KHÁCH khi thiếu `lich.id`. " +
       "Nó tích xanh cả timeline bằng dữ liệu của lượt khác, trong im lặng.",
   );
+});
+
+test("mọi trạng thái một-chạm đều có node để bấm ở cột giữa", () => {
+  // `MOT_CHAM` là thứ biến một nút thành một hành động. Một mã nằm trong bảng
+  // ấy mà KHÔNG có node ở cột giữa thì không ai bấm được nó — bảng có, nút
+  // không, và không gì nổ lỗi.
+  const i = motCham.indexOf("export const MOT_CHAM: Record<string, MotCham> = {");
+  assert.ok(i > 0, "không tìm thấy bảng MOT_CHAM — bài kiểm này đã lạc hậu");
+  const than = motCham.slice(i, motCham.indexOf("\n};", i));
+  const ma = [...than.matchAll(/^ {2}([A-Z0-9_]+):\s*\{/gm)].map((m) => m[1]!);
+  assert.ok(ma.length >= 9, `đếm được ${ma.length} mã một-chạm, quá ít`);
+
+  const node = new Set(maNodeCotGiua());
+  const thieu = ma.filter((x) => !node.has(x));
+  assert.deepEqual(
+    thieu,
+    [],
+    `Mã có trong MOT_CHAM nhưng KHÔNG có node ở cột giữa: ${thieu.join(", ")}.`,
+  );
+});
+
+test("cột phải không dựng lại nút ghi cho trạng thái đã một-chạm", () => {
+  // Quang 10/08/2026: *"bỏ ô đã xác nhận cuộc gọi vì bên kia ấn là được rồi"*.
+  // Hai nút ghi cho một cuộc gọi là hai dòng sổ cho một sự thật.
+  for (const chu of [
+    'nhan="Đã gọi xác nhận lịch"',
+    'nhan="Đã gọi nhắc hẹn"',
+    'nhan="Check-in cho khách"',
+  ]) {
+    assert.ok(
+      !hanhDong.includes(chu),
+      `Cột phải đang dựng lại nút ${chu} — trạng thái ấy đã một-chạm ở cột giữa.`,
+    );
+  }
 });
