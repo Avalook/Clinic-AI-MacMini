@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ExternalLink,
   Search,
+  UserPlus,
   UsersRound,
   X,
 } from "lucide-react";
@@ -1173,7 +1174,23 @@ export default function CustomersView({
           NÚT "THÊM KHÁCH HÀNG" ĐI ĐÂU: khách mới của CSKH sinh ra ở màn Đặt
           lịch ("+ Đặt lịch hẹn cho khách mới" — cùng một biểu mẫu
           NewPatientForm, kèm luôn lịch hẹn đầu tiên). Trang /patients/new vẫn
-          còn nguyên và gõ thẳng URL vẫn vào được. */}
+          còn nguyên và gõ thẳng URL vẫn vào được.
+
+          NÚT "GHI NHẬN KHÁCH QUAN TÂM" BÊN DƯỚI KHÔNG PHẢI LẬT LẠI QUYẾT ĐỊNH
+          ẤY. Nó phục vụ một tình huống KHÁC hẳn, và là tình huống duy nhất của
+          15 tình huống nghiệp vụ mà nghiệm thu 11/08/2026 tìm thấy lỗ hổng:
+
+            "Khách hàng mới chỉ hỏi thông tin, chưa chốt được ngày khám."
+
+          Ghi được người đó thì hệ thống LÀM ĐƯỢC — `NewPatientForm` bỏ qua hẳn
+          bước đặt lịch khi chưa chọn dịch vụ/ngày/giờ (`wantsAppointment`). Cái
+          thiếu là LỐI VÀO: lối duy nhất tới form là bấm một ô giờ trên bảng
+          tuần, mà làm thế là đã gán sẵn ngày giờ — tức không còn là "chưa chốt
+          ngày" nữa. Người trực đang nghe máy thì không ai đi gõ URL bằng tay.
+
+          Nên nút này trỏ tới /patients/new KHÔNG kèm ?date/?time — đó chính là
+          điều làm nó khác nút cũ. Nút cũ mở một luồng ĐẶT LỊCH; nút này mở một
+          luồng GHI NHẬN. Đừng gộp lại: gộp là mất đúng tình huống vừa vá. */}
       <div className="flex min-h-10 min-w-[240px] max-w-md items-center gap-2 rounded-xl border border-line bg-surface pl-3 pr-1.5 text-ink-muted shadow-card focus-within:border-brand-500">
         <Search className="size-4 shrink-0" aria-hidden="true" />
         <input
@@ -1196,6 +1213,26 @@ export default function CustomersView({
           onChon={(kyMoi, chieuMoi) => go(kyMoi, term, chieuMoi)}
         />
       </div>
+
+      {/* GÁC BẰNG `canEdit`, KHÔNG PHẢI `canManage`. Hai cờ này khác nhau:
+          `canManage` = canManageAppt (quản lý LỊCH HẸN), `canEdit` = canWriteIntake
+          (được TẠO HỒ SƠ). Trang đích /patients/new gác bằng đúng canWriteIntake,
+          nên nút phải dùng cùng một cờ — lệch một cái là nút và trang nói hai điều
+          khác nhau, và người dùng bấm vào rồi bị đá về /home mà không hiểu vì sao.
+
+          Thu ngân mở /customers để đối chiếu khi thu tiền nhưng KHÔNG có
+          canWriteIntake, nên họ không thấy nút này. Cho họ thấy một nút dẫn tới
+          trang họ sẽ bị chặn ở cửa là mời người ta đi vào ngõ cụt. */}
+      {canEdit && (
+        <Link
+          href="/patients/new"
+          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink-muted shadow-card hover:border-brand-500 hover:text-brand-800"
+          title="Khách mới gọi hỏi nhưng chưa chốt ngày khám — ghi lại để còn gọi lại, không cần đặt lịch ngay."
+        >
+          <UserPlus className="size-4 shrink-0" aria-hidden="true" />
+          Ghi nhận khách quan tâm
+        </Link>
+      )}
 
       {/* BA CỘT KHI ĐANG CHỌN MỘT KHÁCH: danh sách hẹp — VÙNG LÀM VIỆC rộng —
           hồ sơ.
