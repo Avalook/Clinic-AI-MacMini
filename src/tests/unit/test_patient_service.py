@@ -36,6 +36,15 @@ FAKE_LOCATION = uuid4()
 FAKE_NOW = datetime.datetime(2026, 5, 20, 10, 0, 0, tzinfo=datetime.timezone.utc)
 
 
+# Bước 0 của `create_patient` (thêm 11/08/2026) hỏi `clinic_location` TRƯỚC mọi
+# việc khác, nên mọi bài kiểm tạo bệnh nhân đều có thêm MỘT lần `fetchrow`. Dùng
+# `side_effect` thay `return_value` để mỗi lần gọi trả đúng thứ nó phải trả —
+# một `return_value` dùng chung khiến câu kiểm cơ sở nhận nhầm hàng bệnh nhân.
+def _co_so(is_active: bool = True) -> dict[str, Any]:
+    """Một hàng `clinic_location` như bước kiểm cơ sở mong đợi."""
+    return {"name": "Kim Ngưu", "is_active": is_active}
+
+
 def _make_record(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build a dict that looks like an asyncpg.Record for the patient table."""
     base = {
@@ -81,7 +90,7 @@ async def test_create_patient_success() -> None:
     """create_patient should INSERT and return the new patient in the result."""
     pool, conn = _mock_pool_and_conn()
     record = _make_record()
-    conn.fetchrow.return_value = record
+    conn.fetchrow.side_effect = [_co_so(), record]
     conn.fetch.return_value = []  # no phone duplicates → proceed to insert
 
     svc = PatientService(pool)
@@ -104,9 +113,10 @@ async def test_create_patient_success() -> None:
     # national_id_number was None → stays None after masking
     assert result.patient.national_id_number is None
 
-    # Verify INSERT was called once (no CCCD pre-check: national_id was None)
-    conn.fetchrow.assert_awaited_once()
-    sql_arg = conn.fetchrow.call_args[0][0]
+    # Hai lần fetchrow: kiểm cơ sở (bước 0), rồi INSERT. Không có tiền kiểm
+    # CCCD vì national_id là None.
+    assert conn.fetchrow.await_count == 2
+    sql_arg = conn.fetchrow.call_args[0][0]  # lần CUỐI = câu INSERT
     assert "INSERT INTO patient" in sql_arg
     # The patient row and its event_log audit must commit or roll back together.
     # Outer patient+audit transaction, plus a nested savepoint around the
@@ -122,11 +132,11 @@ async def test_create_patient_cccd_conflict_raises() -> None:
     from clinicai.api.exceptions import ConflictError
 
     pool, conn = _mock_pool_and_conn()
-    # CCCD pre-check fetchrow returns an existing row → conflict.
-    conn.fetchrow.return_value = {
-        "patient_code": "BN-2026-000001",
-        "full_name": "Người Khác",
-    }
+    # Lần 1 = kiểm cơ sở (qua), lần 2 = tiền kiểm CCCD trả hàng đã tồn tại.
+    conn.fetchrow.side_effect = [
+        _co_so(),
+        {"patient_code": "BN-2026-000001", "full_name": "Người Khác"},
+    ]
 
     svc = PatientService(pool)
     with pytest.raises(ConflictError, match="CCCD"):
@@ -168,8 +178,9 @@ async def test_create_patient_phone_duplicate_blocks() -> None:
     assert result.patient is None
     assert len(result.matches) == 1
     assert result.matches[0].patient_code == "BN-2026-000001"
-    # No INSERT happened — fetchrow (the insert) was never awaited.
-    conn.fetchrow.assert_not_awaited()
+    # Cơ sở vẫn được hỏi (bước 0), nhưng KHÔNG có INSERT nào chạy.
+    assert conn.fetchrow.await_count == 1
+    assert "INSERT INTO patient" not in conn.fetchrow.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -533,3 +544,120 @@ def test_patient_dto_from_record() -> None:
     assert dto.patient_code == "BN-2026-000001"
     # Masked: "001099001234" → "001*******34"
     assert dto.national_id_number == "001*******34"
+
+
+# ---------------------------------------------------------------------------
+# Bước 0: CƠ SỞ phải có thật và đang hoạt động (nghiệm thu 11/08/2026)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_patient_co_so_khong_ton_tai() -> None:
+    """Cơ sở lạ → ValidationError, KHÔNG để khoá ngoại nổ thành HTTP 500.
+
+    Trước bản vá, `location_id` không có thật đi thẳng xuống INSERT, khoá ngoại
+    `patient_location_id_fkey` nổ ở tầng database và không ai bắt — người dùng
+    nhận "An internal server error occurred.". Trả 500 cho dữ liệu người ta gửi
+    sai là đổ lỗi của mình lên đầu họ.
+    """
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.side_effect = [None]  # không tìm thấy cơ sở
+
+    svc = PatientService(pool)
+    with pytest.raises(ValidationError, match="Không tìm thấy cơ sở"):
+        await svc.create_patient(
+            PatientCreateDTO(full_name="Nguyễn Thị Lan", location_id=FAKE_LOCATION),
+            identity,
+        )
+    # Dừng NGAY, không chạm tới INSERT.
+    assert conn.fetchrow.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_create_patient_co_so_da_ngung_hoat_dong() -> None:
+    """Cơ sở đã đóng cửa → chặn, và câu báo phải NÊU TÊN cơ sở.
+
+    Ca này im lặng hơn ca trên và vì thế tệ hơn: khoá ngoại vẫn hợp lệ nên hồ sơ
+    được tạo bình thường, chỉ là nó nằm ở một chi nhánh không còn ai làm việc.
+    Không lỗi, không cảnh báo, và không ai biết cho tới khi khách tới đó.
+    """
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.side_effect = [_co_so(is_active=False)]
+
+    svc = PatientService(pool)
+    with pytest.raises(ValidationError, match="Hào Nam|đã ngừng hoạt động"):
+        await svc.create_patient(
+            PatientCreateDTO(full_name="Nguyễn Thị Lan", location_id=FAKE_LOCATION),
+            identity,
+        )
+    assert conn.fetchrow.await_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Khoá lạc quan khi SỬA hồ sơ (nghiệm thu 11/08/2026)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_update_patient_khoa_lac_quan_chan_ghi_de() -> None:
+    """Hai người cùng sửa: người bấm sau phải bị từ chối, không được ghi đè im lặng.
+
+    Đo trên staging: hai lệnh PATCH đồng thời lên cùng một hồ sơ, CẢ HAI trả 200.
+    Người bấm trước mất trắng phần vừa nhập, màn hình vẫn báo "Đã lưu thông tin.",
+    và `event_log` chỉ giữ được một dòng nên hôm sau cũng không lần lại được.
+
+    `updated_at` khớp 0 hàng có HAI nghĩa rất khác nhau — hồ sơ không tồn tại, hay
+    hồ sơ vừa bị người khác sửa. Trả nhầm "không tìm thấy" cho nghĩa thứ hai là
+    nói dối người đang nhìn thẳng vào hồ sơ ấy.
+    """
+    from clinicai.api.exceptions import ConflictError
+
+    pool, conn = _mock_pool_and_conn()
+    # UPDATE khớp 0 hàng (mốc đã cũ) → truy vấn xác nhận cho thấy hồ sơ VẪN CÒN.
+    conn.fetchrow.side_effect = [None, {"updated_at": FAKE_NOW}]
+
+    svc = PatientService(pool)
+    with pytest.raises(ConflictError, match="vừa được người khác sửa"):
+        await svc.update_patient(
+            FAKE_UUID,
+            PatientUpdateDTO(full_name="Tên Mới", sua_luc=FAKE_NOW),
+            identity,
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_patient_khong_gui_moc_thi_khong_khoa() -> None:
+    """Bỏ trống `sua_luc` = giữ nguyên hành vi cũ.
+
+    Các màn chưa cập nhật vẫn phải lưu được; khoá là thứ TỰ CHỌN, bật dần theo
+    từng màn. Nếu bắt buộc ngay thì mọi đường ghi chưa kịp sửa sẽ chết cùng lúc.
+    """
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.side_effect = [_make_record({"full_name": "Tên Mới"})]
+
+    svc = PatientService(pool)
+    dto = await svc.update_patient(
+        FAKE_UUID, PatientUpdateDTO(full_name="Tên Mới"), identity
+    )
+    assert dto.full_name == "Tên Mới"
+    # Không có mốc ⇒ câu lệnh KHÔNG được kèm điều kiện updated_at.
+    assert "updated_at = $" in conn.fetchrow.call_args[0][0]  # vế SET vẫn có
+    assert (
+        "AND updated_at = $" not in conn.fetchrow.call_args[0][0]
+    )  # vế WHERE thì không
+
+
+@pytest.mark.asyncio
+async def test_update_patient_gui_moc_dung_thi_ghi_duoc() -> None:
+    """Mốc khớp → ghi bình thường, và câu lệnh phải KÈM điều kiện khoá."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.side_effect = [_make_record({"full_name": "Tên Mới"})]
+
+    svc = PatientService(pool)
+    dto = await svc.update_patient(
+        FAKE_UUID,
+        PatientUpdateDTO(full_name="Tên Mới", sua_luc=FAKE_NOW),
+        identity,
+    )
+    assert dto.full_name == "Tên Mới"
+    assert "AND updated_at = $" in conn.fetchrow.call_args[0][0]

@@ -419,6 +419,9 @@ class PatientService:
         more, and making it optional is what kept the guessing fallback alive.
         """
         updates = data.model_dump(exclude_none=True)
+        # `sua_luc` là thẻ khoá lạc quan, KHÔNG phải cột — lấy ra trước khi dựng
+        # câu SET, nếu không nó sẽ thành `sua_luc = $n` và câu lệnh nổ.
+        sua_luc = updates.pop("sua_luc", None)
         if not updates:
             raise ValidationError("No fields to update")
 
@@ -448,15 +451,43 @@ class PatientService:
         values.append(identity.clinic_id if identity else None)
         tenant_idx = len(values)
 
+        # KHOÁ LẠC QUAN. Chỉ ghi đè nếu hồ sơ dưới database vẫn đúng mốc mà máy
+        # khách đã đọc. Ai chen vào giữa thì mốc đã đổi, câu UPDATE khớp 0 hàng,
+        # và người bấm sau nhận được lời từ chối thay vì lặng lẽ xoá công của
+        # người bấm trước.
+        khoa_sql = ""
+        if sua_luc is not None:
+            values.append(sua_luc)
+            khoa_sql = f"AND updated_at = ${len(values)} "
+
         query = (
             f"UPDATE patient SET {', '.join(set_parts)} "
             f"WHERE clinic_patient_id = ${where_idx} "
             f"AND clinic_id = ${tenant_idx}::uuid "
+            f"{khoa_sql}"
             "RETURNING *;"
         )
 
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, *values)
+
+            if row is None and sua_luc is not None:
+                # KHÔNG khớp 0 hàng vì hai lý do rất khác nhau: hồ sơ không tồn
+                # tại, hay hồ sơ vừa bị người khác sửa. Trả nhầm "không tìm thấy"
+                # cho trường hợp thứ hai là nói dối người dùng — họ đang nhìn
+                # thẳng vào hồ sơ ấy trên màn hình.
+                con_do = await conn.fetchrow(
+                    "SELECT updated_at FROM patient "
+                    "WHERE clinic_patient_id = $1 AND clinic_id = $2::uuid;",
+                    clinic_patient_id,
+                    identity.clinic_id if identity else None,
+                )
+                if con_do is not None:
+                    raise ConflictError(
+                        "Hồ sơ này vừa được người khác sửa. Mở lại để xem thay "
+                        "đổi mới nhất rồi nhập lại — thay đổi của bạn CHƯA được "
+                        "lưu."
+                    )
 
         if row is None:
             raise ResourceNotFoundError(f"Patient {clinic_patient_id} not found")

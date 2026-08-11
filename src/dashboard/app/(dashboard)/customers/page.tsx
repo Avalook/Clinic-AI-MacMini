@@ -88,7 +88,10 @@ const SELECT = `
   clinic_patient_id, patient_code, full_name, date_of_birth, birth_year,
   phone_primary, phone_secondary, gender, ethnicity, nationality,
   occupation, patient_objection, address, guardian_name, location_id, created_at,
-  van_de_di_kham, linh_vuc
+  van_de_di_kham, linh_vuc,
+  -- Thẻ khoá lạc quan cho form sửa hồ sơ: mốc màn hình đã đọc. Xem
+  -- PatientAdminEditor và patient_service.update_patient.
+  updated_at
 `;
 
 export default async function CustomersPage({

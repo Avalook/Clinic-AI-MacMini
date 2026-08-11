@@ -156,6 +156,7 @@ export interface CustomerRow {
   patient_objection: string | null;
   address: string | null;
   guardian_name: string | null;
+  updated_at?: string | null;
   location_id: string | null;
   created_at: string | null;
   van_de_di_kham: string | null;
@@ -1742,6 +1743,7 @@ export default function CustomersView({
                         patient_objection: selected.patient_objection,
                         address: selected.address,
                         guardian_name: selected.guardian_name,
+                        updated_at: selected.updated_at ?? null,
                         van_de_di_kham: selected.van_de_di_kham,
                         linh_vuc: selected.linh_vuc,
                       }}

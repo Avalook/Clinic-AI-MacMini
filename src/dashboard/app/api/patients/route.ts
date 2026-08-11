@@ -211,6 +211,8 @@ export async function POST(request: Request) {
 // Không đụng national_id_number (D-identity). Ghi qua service-role.
 interface PatchBody {
   clinic_patient_id?: string;
+  /** Mốc `updated_at` màn hình đã đọc — thẻ khoá lạc quan. Xem chỗ chuyển tiếp. */
+  sua_luc?: string;
   full_name?: string;
   date_of_birth?: string;
   phone_primary?: string;
@@ -293,6 +295,13 @@ export async function PATCH(request: Request) {
     guardian_name: nn(body.guardian_name),
     ...((body.location_id ?? "").trim()
       ? { location_id: (body.location_id ?? "").trim() }
+      : {}),
+    // THẺ KHOÁ LẠC QUAN — mốc `updated_at` mà màn hình đã đọc khi mở hồ sơ.
+    // Backend chỉ ghi đè nếu hồ sơ dưới database vẫn đúng mốc ấy; ai chen vào
+    // giữa thì người bấm sau nhận 409 kèm câu giải thích, thay vì lặng lẽ xoá
+    // công của người bấm trước. Bỏ trống = không khoá (lời gọi cũ vẫn chạy).
+    ...((body.sua_luc ?? "").trim()
+      ? { sua_luc: (body.sua_luc ?? "").trim() }
       : {}),
   });
 }
