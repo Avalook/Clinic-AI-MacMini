@@ -23,6 +23,10 @@ export interface DongCho {
   phone_primary: string | null;
   dich_vu: string | null;
   tuan_da_chot: boolean;
+  /** Vì sao dòng này nằm ở hàng chờ. Xem ghi chú ở khối vẽ nhãn bên dưới. */
+  ly_do?: "CHUA_XEP" | "MAT_BAC_SI";
+  /** Bác sĩ vừa rời khỏi lịch — chỉ có với `MAT_BAC_SI`. */
+  bac_si_cu?: string | null;
 }
 
 export interface BacSi {
@@ -175,6 +179,23 @@ export default function HangChoView({
                   <span className="font-mono">{r.patient_code}</span>
                 )}
               </p>
+              {/* HAI LÝ DO NẰM Ở HÀNG CHỜ, và chúng khẩn cấp khác nhau.
+                  · CHUA_XEP    — lịch chưa từng xếp ai. Bình thường, xếp là xong.
+                  · MAT_BAC_SI  — KHÁCH ĐÃ ĐƯỢC HẸN VỚI MỘT BÁC SĨ CỤ THỂ, rồi bác
+                    sĩ ấy mất ca trực. Khách vẫn tưởng lịch của mình còn nguyên.
+                    Nếu không ai xếp lại, khách đến quầy mới biết — nên dòng này
+                    phải nổi bật hơn, và phải nói RÕ TÊN bác sĩ đã rời đi để quản
+                    lý biết còn ai khác cùng cảnh.
+                  Thêm 11/08/2026: trước đó màn này chỉ hỏi `doctor_id IS NULL`
+                  nên loại thứ hai vô hình hoàn toàn. */}
+              {r.ly_do === "MAT_BAC_SI" && (
+                <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-danger-bg px-2 py-0.5 text-[11px] font-medium text-danger">
+                  <TriangleAlert className="size-3" aria-hidden="true" />
+                  {r.bac_si_cu
+                    ? `${r.bac_si_cu} không còn ca trực ngày này — cần xếp lại`
+                    : "Bác sĩ đã hẹn không còn ca trực ngày này — cần xếp lại"}
+                </p>
+              )}
               {/* Xếp bác sĩ cho một tuần chưa chốt là xếp dựa trên bản nháp —
                   lịch trực tuần đó còn đổi được. Nói ra chứ đừng chặn. */}
               {!r.tuan_da_chot && (

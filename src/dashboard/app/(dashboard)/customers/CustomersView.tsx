@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, useTransition,
   useCallback,
+  useRef,
 } from "react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
@@ -723,6 +724,46 @@ export default function CustomersView({
     setDatLich(null);
   }
 
+  // Ô TÌM KIẾM PHẢI HỎI CẢ MÁY CHỦ, KHÔNG CHỈ LỌC THỨ ĐÃ TẢI.
+  //
+  // TÌM ĐƯỢC KHI NGHIỆM THU 11/08/2026. Trước đây `onChange` chỉ gọi `setTerm`,
+  // và `searchedRows` lọc trên `rows` — mà `rows` là kết quả của một truy vấn
+  // `.limit(300)` ở page.tsx. Đường tìm phía máy chủ (`?q=` → `.or(full_name.
+  // ilike…, patient_code.ilike…, phone_primary.ilike…, full_name_unaccent.ilike…)`)
+  // ĐÃ TỒN TẠI và chạy đúng — nhưng chỉ được kích hoạt khi người dùng đổi bộ
+  // lọc, tức là tình cờ. Ô tìm kiếm không nối vào nó bao giờ.
+  //
+  // Staging có 21 khách nên không lộ. Phòng khám thật vượt 300 hồ sơ là lễ tân
+  // gõ tên khách cũ và nhận "Không tìm thấy khách khớp từ khoá." — một câu trả
+  // lời SAI mà nghe rất chắc chắn, rồi họ tạo hồ sơ trùng cho một người đã có.
+  //
+  // VÌ SAO LUÔN HỎI MÁY CHỦ, chứ không chỉ hỏi khi lọc phía trình duyệt ra rỗng:
+  // kết quả MỘT PHẦN nguy hiểm hơn kết quả rỗng. Nếu 2 trong 5 người trùng tên
+  // nằm trong 300 hồ sơ đã tải, màn hình hiện 2 người và trông hoàn toàn bình
+  // thường — không ai nghi còn 3 người nữa. Rỗng thì ít ra người ta còn nghi.
+  //
+  // Hoãn trong CHÍNH TRÌNH XỬ LÝ SỰ KIỆN, không dùng effect đồng bộ (xem ghi chú
+  // ở `trangThaiVuaBam`). 350ms: đủ để không bắn một yêu cầu mỗi phím, đủ nhanh
+  // để người gõ xong tên là thấy kết quả.
+  const hoanTim = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function huyHoanTim() {
+    if (hoanTim.current) {
+      clearTimeout(hoanTim.current);
+      hoanTim.current = null;
+    }
+  }
+
+  function goTim(chuMoi: string) {
+    setTerm(chuMoi); // lọc ngay trên thứ đã tải — mắt thấy phản hồi tức thì
+    huyHoanTim();
+    hoanTim.current = setTimeout(() => {
+      hoanTim.current = null;
+      // Chỉ đi hỏi máy chủ khi từ khoá thật sự đổi so với thứ máy chủ đã trả.
+      if (chuMoi.trim() !== q.trim()) go(period, chuMoi, by);
+    }, 350);
+  }
+
   function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
     const params = new URLSearchParams();
     if (nextQ.trim()) params.set("q", nextQ.trim());
@@ -1136,7 +1177,15 @@ export default function CustomersView({
         <Search className="size-4 shrink-0" aria-hidden="true" />
         <input
           value={term}
-          onChange={(event) => setTerm(event.target.value)}
+          onChange={(event) => goTim(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter = tìm ngay, không đợi hết hoãn.
+            if (event.key === "Enter") {
+              event.preventDefault();
+              huyHoanTim();
+              go(period, term, by);
+            }
+          }}
           placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
         />
