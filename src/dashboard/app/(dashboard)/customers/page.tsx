@@ -84,14 +84,29 @@ function pick1<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
+// KHÔNG ĐƯỢC ĐẶT CHÚ THÍCH BÊN TRONG CHUỖI NÀY.
+//
+// Nó trông như SQL nhưng KHÔNG PHẢI SQL: đây là tham số `select` của PostgREST,
+// một danh sách cột phân cách bằng dấu phẩy. `--` không phải chú thích ở đây; nó
+// là ký tự trong tên cột.
+//
+// Tôi đặt hai dòng `-- …` vào đây ngày 11/08/2026 để giải thích cột `updated_at`.
+// Kết quả: PostgREST trả
+//     failed to parse select parameter (…,--Thẻkhoálạcquancho…)
+// và CẢ MÀN Quản lý khách hàng trắng. Câu giải thích cho người đọc đã giết chính
+// thứ nó giải thích.
+//
+// Nó lọt qua vì tôi nghiệm thu tính năng ấy bằng đường API (PATCH /api/patients)
+// mà không mở lại chính trang tiêu thụ dữ liệu này. Bài học: sửa truy vấn của
+// trang nào thì phải MỞ trang đó, không chỉ gọi API của nó.
+//
+// `updated_at` = thẻ khoá lạc quan cho form sửa hồ sơ (mốc màn hình đã đọc).
+// Xem PatientAdminEditor.save() và patient_service.update_patient().
 const SELECT = `
   clinic_patient_id, patient_code, full_name, date_of_birth, birth_year,
   phone_primary, phone_secondary, gender, ethnicity, nationality,
   occupation, patient_objection, address, guardian_name, location_id, created_at,
-  van_de_di_kham, linh_vuc,
-  -- Thẻ khoá lạc quan cho form sửa hồ sơ: mốc màn hình đã đọc. Xem
-  -- PatientAdminEditor và patient_service.update_patient.
-  updated_at
+  van_de_di_kham, linh_vuc, updated_at
 `;
 
 export default async function CustomersPage({
