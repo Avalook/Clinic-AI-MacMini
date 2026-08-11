@@ -33,6 +33,7 @@
 
 import { useState } from "react";
 import { nhanLoi } from "@/lib/loi-api";
+import { khoaThaoTac, xongThaoTac, dinhDanhThaoTac } from "./khoa-mot-lan";
 import { useRouter } from "next/navigation";
 import { Check, Phone, CircleDashed, Undo2 } from "lucide-react";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
@@ -800,9 +801,14 @@ export default function VungLamViecKhach({
     // vừa gom đúng bước vào đúng lượt ở ô Lịch sử các lần khám.
     setDangGhiLoiRa(v.khoa);
     setLoiGhiLoiRa(null);
+    // Khoá theo thao tác — xem khoa-mot-lan.ts.
+    const ttLoiRa = dinhDanhThaoTac(clinicPatientId, lich.id, v.loai, v.ketQua, v.khoa);
     const res = await fetch("/api/cskh/tuong-tac", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": khoaThaoTac(ttLoiRa),
+      },
       body: JSON.stringify({
         clinic_patient_id: clinicPatientId,
         appointment_id: lich.id ?? null,
@@ -829,6 +835,7 @@ export default function VungLamViecKhach({
       setLoiGhiLoiRa(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
       return;
     }
+    xongThaoTac(ttLoiRa); // xong ⇒ lần bấm sau là thao tác mới
     router.refresh();
   }
 
@@ -895,9 +902,15 @@ export default function VungLamViecKhach({
     if (lich.status === "COMPLETED") return true;
     setDangCheckout(true);
     setLoiCheckout(null);
+    // Checkout là thao tác ĐẮT nhất ở màn này — nó đóng cả lượt khám. Bấm trùng
+    // vì mạng rớt mà ghi hai lần thì lịch sử khách có hai lần "đã khám xong".
+    const ttCheckout = dinhDanhThaoTac(clinicPatientId, lich.id, "CHECK_OUT");
     const res = await fetch("/api/cskh/tuong-tac", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": khoaThaoTac(ttCheckout),
+      },
       body: JSON.stringify({
         clinic_patient_id: clinicPatientId,
         appointment_id: lich.id,
@@ -918,6 +931,7 @@ export default function VungLamViecKhach({
       );
       return false;
     }
+    xongThaoTac(ttCheckout);
     router.refresh();
     return true;
   }

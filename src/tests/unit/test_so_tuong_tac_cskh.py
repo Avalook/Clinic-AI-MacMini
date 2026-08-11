@@ -405,9 +405,7 @@ async def test_undo_checkin_hop_le_doi_lich_roi_moi_vo_hieu_log(
         return {"ok": True, "status": "CONFIRMED"}
 
     monkeypatch.setattr(booking_service.BookingService, "apply_action", undo)
-    result = await TuongTacCskhService(pool).hoan_tac(
-        identity=_ai(), tuong_tac_id="t1"
-    )
+    result = await TuongTacCskhService(pool).hoan_tac(identity=_ai(), tuong_tac_id="t1")
 
     assert result == {"ok": True}
     assert events == ["undo", "void", "event"]
@@ -436,9 +434,7 @@ async def test_undo_lan_hai_la_idempotent() -> None:
         }
     )
 
-    result = await TuongTacCskhService(pool).hoan_tac(
-        identity=_ai(), tuong_tac_id="t1"
-    )
+    result = await TuongTacCskhService(pool).hoan_tac(identity=_ai(), tuong_tac_id="t1")
 
     assert result == {"ok": True, "da_hoan_tac_truoc_do": True}
 
@@ -456,9 +452,7 @@ async def test_undo_checkout_bi_tu_choi_vi_la_moc_khong_dao_duoc() -> None:
     )
 
     with pytest.raises(ValidationError, match="Không hoàn tác được lần đóng lượt"):
-        await TuongTacCskhService(pool).hoan_tac(
-            identity=_ai(), tuong_tac_id="t1"
-        )
+        await TuongTacCskhService(pool).hoan_tac(identity=_ai(), tuong_tac_id="t1")
 
 
 @pytest.mark.asyncio

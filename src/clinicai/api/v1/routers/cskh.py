@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
@@ -321,9 +322,38 @@ async def ghi_tuong_tac(
     body: TuongTacRequest,
     identity: StaffIdentity = Depends(_INTAKE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Ghi một lần chạm tới khách (gọi điện, nhắn Zalo, gặp trực tiếp)."""
-    return await TuongTacCskhService(pool).ghi(
+    """Ghi một lần chạm tới khách (gọi điện, nhắn Zalo, gặp trực tiếp).
+
+    CHỐNG GHI TRÙNG, thêm 11/08/2026. Hai phép đo trên staging:
+
+      · Bấm nút hai lần thật nhanh → HAI dòng sổ, cách nhau 0,35ms. Giao diện có
+        khoá nút khi đang gửi nên người thật khó bấm trúng, nhưng máy chủ không
+        có chốt nào.
+      · Ngắt mạng ở mốc 90ms sau khi bấm → màn hình báo LỖI MẠNG trong khi dữ
+        liệu ĐÃ VÀO. Người trực sẽ nhập lại, và lần nhập lại tạo dòng thứ hai.
+
+    Ca thứ hai mới là ca thật sự hay xảy ra ở phòng khám, nơi wifi chập chờn.
+    Và nó không hỏng ở chỗ dễ thấy: hai dòng "Đã gọi nhắc hẹn" trong lịch sử một
+    khách làm người đọc tưởng đã gọi hai lần.
+
+    `IdempotencyGuard` vốn đã che đặt lịch, thanh toán và work-items — tức đúng
+    những đường đắt tiền. Sổ chạm CSKH nằm ngoài chỉ vì chưa ai nối vào, không
+    phải vì có lý do. Cùng một hình dạng với các lỗi khác tìm được hôm nay.
+
+    Không có `Idempotency-Key` thì guard cho qua, giữ nguyên hành vi cũ — khoá
+    bật dần theo từng màn, không làm chết các lời gọi chưa cập nhật.
+    """
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        # Lần gửi lại của ĐÚNG một thao tác: trả lại kết quả cũ, không ghi thêm.
+        return idem.cached_response  # type: ignore[return-value]
+
+    # Tên `dong_moi` chứ không phải `ket_qua`: ngay dưới có tham số `ket_qua=`
+    # (kết quả cuộc gọi). Trùng tên thì chạy vẫn đúng nhưng người đọc sau phải
+    # dừng lại một nhịp để chắc mình không nhầm hai thứ.
+    dong_moi = await TuongTacCskhService(pool).ghi(
         identity=identity,
         clinic_patient_id=str(body.clinic_patient_id),
         appointment_id=str(body.appointment_id) if body.appointment_id else None,
@@ -334,6 +364,8 @@ async def ghi_tuong_tac(
         noi_dung=body.noi_dung,
         trang_thai_ma=body.trang_thai_ma,
     )
+    await idem.save(pool, dong_moi, status_code=201)
+    return dong_moi
 
 
 @router.post("/cskh/tuong-tac/{tuong_tac_id}/hoan-tac", status_code=201)

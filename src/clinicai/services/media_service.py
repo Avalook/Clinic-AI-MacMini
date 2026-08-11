@@ -75,6 +75,7 @@ def ket_qua_patient_lock_key(*, clinic_id: str, clinic_patient_id: str) -> str:
     """Shared DB advisory-lock namespace for upload/delivery transitions."""
     return f"cskh-ket-qua:{clinic_id}:{clinic_patient_id}"
 
+
 #: Nhận diện bằng CHỮ KÝ ĐẦU TỆP, không bằng đuôi tên. Đuôi là thứ người tải
 #: lên tự đặt; mấy byte đầu là thứ tệp thật sự là.
 _MAGIC: tuple[tuple[bytes, str, str], ...] = (

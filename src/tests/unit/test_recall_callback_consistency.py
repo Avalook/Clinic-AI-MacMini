@@ -282,15 +282,11 @@ async def test_result_delivery_guard_and_insert_share_patient_lock() -> None:
         i for i, sql in enumerate(sqls) if "FROM public.tep_ket_qua" in sql
     )
     insert_index = next(
-        i
-        for i, sql in enumerate(sqls)
-        if "INSERT INTO public.tuong_tac_cskh" in sql
+        i for i, sql in enumerate(sqls) if "INSERT INTO public.tuong_tac_cskh" in sql
     )
     assert lock_index < guard_index < insert_index
     lock_call = conn.calls[lock_index]
-    assert lock_call[2] == (
-        f"cskh-ket-qua:{_identity().clinic_id}:{patient_id}",
-    )
+    assert lock_call[2] == (f"cskh-ket-qua:{_identity().clinic_id}:{patient_id}",)
 
 
 @pytest.mark.asyncio
