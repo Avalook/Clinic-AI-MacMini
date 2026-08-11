@@ -12,7 +12,13 @@ import { getSupabaseServer } from "../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
 import { canWriteIntake, canEditPatient } from "../../../lib/roles";
-import { PHONE_RE, CCCD_RE } from "../../../lib/validation";
+import {
+  PHONE_RE,
+  CCCD_RE,
+  tenError,
+  dobErrorIso,
+  homNayVn,
+} from "../../../lib/validation";
 
 interface Body {
   full_name?: string;
@@ -82,11 +88,17 @@ export async function POST(request: Request) {
   const phone_primary = (body.phone_primary ?? "").trim() || null;
   const phone_secondary = (body.phone_secondary ?? "").trim() || null;
   const national = (body.national_id_number ?? "").trim() || null;
-  if (!full_name) {
-    return NextResponse.json({ error: "Phải nhập họ tên." }, { status: 400 });
+  const loiTen = tenError(full_name);
+  if (loiTen) {
+    return NextResponse.json({ error: loiTen }, { status: 400 });
   }
   if (!location_id) {
     return NextResponse.json({ error: "Phải chọn cơ sở." }, { status: 400 });
+  }
+  // Ngày sinh: dùng CHUNG luật với form (dobError), không viết lại luật ở đây.
+  const loiNgaySinh = dobErrorIso(body.date_of_birth, homNayVn());
+  if (loiNgaySinh) {
+    return NextResponse.json({ error: loiNgaySinh }, { status: 400 });
   }
   if (phone_primary && !PHONE_RE.test(phone_primary)) {
     return NextResponse.json(
@@ -236,8 +248,16 @@ export async function PATCH(request: Request) {
   if (!id) return NextResponse.json({ error: "Thiếu id bệnh nhân." }, { status: 400 });
 
   const full_name = (body.full_name ?? "").trim();
-  if (!full_name) {
-    return NextResponse.json({ error: "Phải nhập họ tên." }, { status: 400 });
+  const loiTenSua = tenError(full_name);
+  if (loiTenSua) {
+    return NextResponse.json({ error: loiTenSua }, { status: 400 });
+  }
+  // SỬA cũng phải qua đúng luật như TẠO. Trước đây nhánh này chỉ kiểm "có nhập
+  // tên hay chưa", nên một hồ sơ sạch vẫn sửa được thành tên 5000 ký tự hoặc
+  // ngày sinh năm 2099 — cửa sau của chính cái cửa trước vừa khoá.
+  const loiNgaySinhSua = dobErrorIso(body.date_of_birth, homNayVn());
+  if (loiNgaySinhSua) {
+    return NextResponse.json({ error: loiNgaySinhSua }, { status: 400 });
   }
   // Quy tắc nhập liệu CỨNG (server-side): SĐT 10 số.
   const editPhone = (body.phone_primary ?? "").trim();

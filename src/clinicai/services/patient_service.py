@@ -101,6 +101,7 @@ class PatientService:
         """Register a patient: CCCD/phone guards → insert → non-blocking MPI.
 
         Order (mirrors the dashboard intake guard it replaces):
+          0. Cơ sở phải CÓ THẬT và ĐANG HOẠT ĐỘNG.
           1. CCCD hard pre-check — UNIQUE, ``force`` does NOT override → 409.
           2. Phone soft block — same phone_primary already on file and not
              ``force`` → return ``duplicate`` WITHOUT inserting (operator decides).
@@ -110,6 +111,34 @@ class PatientService:
         clinic_id = identity.clinic_id
 
         async with self._pool.acquire() as conn, conn.transaction():
+            # 0) CƠ SỞ — thêm khi nghiệm thu 11/08/2026. Hai lỗi, một chỗ sửa:
+            #
+            #   • `location_id` không tồn tại  → khoá ngoại `patient_location_id_fkey`
+            #     nổ ở tầng DB, không ai bắt, trả về **HTTP 500 "An internal server
+            #     error occurred."** Một mã 500 cho dữ liệu người dùng gửi sai là
+            #     lỗi của mình, không phải của họ.
+            #   • `location_id` trỏ tới cơ sở ĐÃ NGỪNG HOẠT ĐỘNG → khoá ngoại hợp lệ
+            #     nên đi lọt, tạo hồ sơ ở một chi nhánh đã đóng cửa. Cái này tệ hơn
+            #     vì nó im lặng: không lỗi, không cảnh báo, chỉ có một bệnh nhân
+            #     nằm ở nơi không còn ai làm việc.
+            #
+            # Kiểm ở đây thay vì ở BFF vì BFF chạy bằng quyền của người dùng, mà
+            # `clinic_location` không mở cho vai `authenticated` (đã đo: 401
+            # permission denied). Và vì đây là luật nghiệp vụ — chỗ của nó là FastAPI.
+            if data.location_id:
+                co_so = await conn.fetchrow(
+                    "SELECT name, is_active FROM clinic_location "
+                    "WHERE id = $1::uuid AND clinic_id = $2::uuid;",
+                    str(data.location_id),
+                    clinic_id,
+                )
+                if co_so is None:
+                    raise ValidationError("Không tìm thấy cơ sở này.")
+                if not co_so["is_active"]:
+                    raise ValidationError(
+                        f"Cơ sở {co_so['name']} đã ngừng hoạt động — chọn cơ sở khác."
+                    )
+
             # 1) CCCD hard conflict (cannot be forced — column is UNIQUE).
             if data.national_id_number:
                 existing = await conn.fetchrow(
