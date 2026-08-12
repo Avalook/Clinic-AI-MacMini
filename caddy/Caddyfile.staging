@@ -74,7 +74,16 @@
 	# Hậu quả nếu để nguyên: healthcheck của compose gọi /health, nhận 401, đánh
 	# dấu container unhealthy, và lần deploy sau TỰ QUAY LUI — một ổ khoá đặt sai
 	# chỗ giết chính lần triển khai đặt nó vào.
-	@canKhoa not path /health
+	# LOẠI TRỪ CẢ /realtime/v1 — nếu không, ổ khoá làm hộp đăng nhập hiện ĐI HIỆN LẠI.
+	#
+	# Trình duyệt KHÔNG đính kèm basic auth vào lượt bắt tay WebSocket. Ứng dụng
+	# mở realtime ở năm chỗ (gồm chính trang chủ), mỗi lần mở nhận 401 kèm
+	# `WWW-Authenticate`, và Chrome bật hộp đăng nhập. Ứng dụng thử lại liên tục
+	# nên hộp hiện mãi — người dùng đã đăng nhập đúng vẫn bị hỏi lại không dứt.
+	#
+	# Bỏ khoá cho đường này không mở thêm gì: realtime vẫn đòi JWT Supabase hợp lệ
+	# mới đăng ký được kênh nào, và RLS vẫn áp trên từng bảng.
+	@canKhoa not path /health /realtime/v1/*
 	basic_auth @canKhoa {
 		{$STAGING_AUTH_USER:team} {$STAGING_AUTH_HASH}
 	}
