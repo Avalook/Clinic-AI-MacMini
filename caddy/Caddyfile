@@ -54,6 +54,24 @@
 	#
 	# Caddy tới được nhờ được nối vào mạng của stack Supabase tương ứng — xem
 	# `networks` của dịch vụ caddy trong compose.
+	# ĐƯỜNG ĐĂNG NHẬP ĐI VÒNG QUA BỘ CHẶN DÒ MẬT KHẨU.
+	#
+	# Đo ngày 12/08/2026: 10 lần đăng nhập sai liên tiếp vào PROD đều lọt, không
+	# lần nào bị chặn. GoTrue v2.177.0 không có giới hạn nào cho grant_type=
+	# password (đã dò chuỗi trong binary), Caddy bản gốc không có module giới hạn,
+	# và cổng Supabase cũng là Caddy. Nên phải có một nginx nhỏ đứng riêng.
+	#
+	# CHỈ `/auth/v1/token` — không phải cả `/auth/v1/*`. Đổi mật khẩu, đăng xuất
+	# đều nằm trong `/auth/v1` và không phải chỗ để dò; kéo hết qua bộ chặn là mở
+	# rộng vùng có thể hỏng mà không đổi lại được gì.
+	#
+	# Ngưỡng đặt rộng (20 lần/phút, dồn 10) vì cả phòng khám dùng chung một địa
+	# chỉ IP — xem docker/auth-guard.conf.
+	@dangnhap path /auth/v1/token*
+	handle @dangnhap {
+		reverse_proxy {$AUTH_GUARD_HOST:clinicai_auth_guard}:80
+	}
+
 	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
 	handle @supabase {
 		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000
