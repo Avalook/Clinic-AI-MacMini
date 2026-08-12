@@ -1,0 +1,79 @@
+# Caddyfile RIÊNG CHO STAGING — giống bản chính, cộng một ổ khoá ở cửa.
+#
+# VÌ SAO CÓ FILE NÀY, 12/08/2026:
+#
+# Staging từng chỉ nghe 127.0.0.1 (chỉ vào được từ trong máy chủ). Quang cần mở
+# ra Internet để cả nhóm xem được, với lý do "chỉ chúng tôi có đường dẫn".
+#
+# Một địa chỉ URL KHÔNG PHẢI một bí mật. Máy quét toàn Internet gõ vào mọi IP và
+# mọi cổng liên tục; một IP mở cổng 8080 bị tìm thấy trong vài giờ mà không ai
+# phải tiết lộ gì. Điều đáng lo không phải người ta xem được giao diện — mà là
+# staging có màn đăng nhập, có dữ liệu bệnh nhân thử, và KHÔNG được canh chặt
+# như prod (không có kênh báo động, dữ liệu thử vẫn là dữ liệu hình dạng thật).
+#
+# Nên: mở ra như yêu cầu, nhưng đặt một ổ khoá HTTP trước mặt. Máy quét gặp cửa
+# đóng thay vì gặp một hệ thống phòng khám. Người trong nhóm chỉ cần biết thêm
+# một cặp tên/mật khẩu ngoài đường dẫn — đúng thứ mà "chỉ chúng tôi biết" cần có
+# để trở thành sự thật thay vì một hy vọng.
+#
+# ĐÂY LÀ LỚP NGOÀI CÙNG, KHÔNG THAY THẾ ĐĂNG NHẬP CỦA ỨNG DỤNG. Qua được ổ khoá
+# này vẫn phải đăng nhập bằng tài khoản nhân viên như thường.
+#
+# BẬT NÓ:
+#   1. Sinh hash (nó hỏi mật khẩu, gõ hai lần):
+#        docker run --rm -it caddy:2-alpine caddy hash-password
+#   2. Dán vào .env.staging — hash có ký tự `$`, phải NHÂN ĐÔI thành `$$` vì
+#      docker compose coi `$` là mở đầu một biến:
+#        CADDY_FILE=./caddy/Caddyfile.staging
+#        STAGING_AUTH_USER=team
+#        STAGING_AUTH_HASH=$$2a$$14$$...   ← nhân đôi mọi dấu $
+#   3. Dựng lại:
+#        cd ~/clinicai && docker compose --env-file .env.staging \
+#          -p clinicai_staging up -d caddy
+#
+# TẮT NÓ: bỏ dòng CADDY_FILE trong .env.staging rồi dựng lại — quay về Caddyfile
+# chung, không khoá.
+{
+	admin off
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# --- Security headers (giống bản chính) ---
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# /health KHÔNG bị khoá, và phải nằm TRƯỚC basic_auth.
+	#
+	# Nếu khoá luôn cả /health thì healthcheck của compose nhận 401, container
+	# bị đánh dấu unhealthy, và deploy tự quay lui — một ổ khoá đặt sai chỗ sẽ
+	# giết chính lần triển khai đặt nó vào.
+	handle /health {
+		respond "ok" 200
+	}
+
+	# --- Ổ KHOÁ ---------------------------------------------------------------
+	# Áp cho MỌI đường còn lại, kể cả /auth/v1 và /rest/v1: supabase-js gọi thẳng
+	# từ trình duyệt, và trình duyệt đã qua ổ khoá thì tự gửi kèm thông tin xác
+	# thực cho các lời gọi sau. Chừa hai đường ấy ra là chừa đúng đường vào
+	# database.
+	basic_auth {
+		{$STAGING_AUTH_USER:team} {$STAGING_AUTH_HASH}
+	}
+
+	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
+	handle @supabase {
+		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000
+	}
+
+	handle {
+		reverse_proxy dashboard:3000
+	}
+}

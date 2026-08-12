@@ -52,7 +52,9 @@ services:
       # staging đặt lại trong .env.staging để không gọi sang database khách.
       SUPABASE_GATEWAY_HOST: ${SUPABASE_GATEWAY_HOST:-clinicai_supabase_gateway}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Đường dẫn theo biến để staging dùng được Caddyfile riêng (có ổ khoá
+      # HTTP) mà prod không đổi gì. Không đặt CADDY_FILE thì vẫn là bản chung.
+      - ${CADDY_FILE:-./caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
