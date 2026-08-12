@@ -64,7 +64,18 @@
 	# từ trình duyệt, và trình duyệt đã qua ổ khoá thì tự gửi kèm thông tin xác
 	# thực cho các lời gọi sau. Chừa hai đường ấy ra là chừa đúng đường vào
 	# database.
-	basic_auth {
+	# LOẠI TRỪ /health BẰNG MATCHER, KHÔNG BẰNG THỨ TỰ DÒNG.
+	#
+	# Bản đầu đặt `handle /health` phía TRÊN `basic_auth` và tưởng thế là đủ.
+	# Không đủ: Caddy KHÔNG chạy theo thứ tự viết trong file. Mỗi chỉ thị thuộc
+	# một pha cố định, và `basic_auth` nằm ở pha xác thực — luôn chạy trước
+	# `handle`. Kết quả đo được: /health trả 401.
+	#
+	# Hậu quả nếu để nguyên: healthcheck của compose gọi /health, nhận 401, đánh
+	# dấu container unhealthy, và lần deploy sau TỰ QUAY LUI — một ổ khoá đặt sai
+	# chỗ giết chính lần triển khai đặt nó vào.
+	@canKhoa not path /health
+	basic_auth @canKhoa {
 		{$STAGING_AUTH_USER:team} {$STAGING_AUTH_HASH}
 	}
 
