@@ -51,12 +51,26 @@ while IFS= read -r f; do
   fi
 
   # --- Bí mật ---
-  if grep -qE 'service_role|SUPABASE_SERVICE_ROLE_KEY|jwt_secret|JWT_SECRET' "$f" 2>/dev/null; then
+  #
+  # CHỈ BẮT GIÁ TRỊ, KHÔNG BẮT TÊN BIẾN.
+  #
+  # Bản đầu bắt mọi dòng chứa chuỗi `JWT_SECRET`, và chặn ngay commit đầu tiên
+  # chạm vào docker-compose.supabase.yml — nơi có năm dòng
+  # `GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET}`. Đó là THAM CHIẾU tới một biến,
+  # đúng cách phải làm, không phải bí mật bị lộ.
+  #
+  # Một chốt hay kêu oan thì người ta sẽ gõ `--no-verify` cho quen tay, và lần
+  # nó kêu thật cũng bị bỏ qua nốt. Chốt kêu sai một lần là mất luôn giá trị.
+  #
+  # Nên: chỉ báo khi tên-nghe-như-bí-mật đi kèm một GIÁ TRỊ nghĩa đen đủ dài, và
+  # dòng ấy KHÔNG phải một tham chiếu `${...}`.
+  if grep -nE '(SECRET|_KEY|PASSWORD|TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9+/=._-]{12,}' "$f" 2>/dev/null \
+       | grep -qv '\${'; then
     case "$f" in
-      *.example|*/git-hooks/*|docs/*|*.md)
-        : ;;  # tài liệu và file mẫu được nhắc TÊN biến, không chứa giá trị
+      *.example|*/git-hooks/*|docs/*|*.md|*.lock|package-lock.json)
+        : ;;  # tài liệu, file mẫu, khoá phụ thuộc — không phải bí mật vận hành
       *)
-        bao "$f có chuỗi giống khoá bí mật — bí mật chỉ nằm trong .env.* (đã gitignore)" ;;
+        bao "$f có vẻ chứa GIÁ TRỊ bí mật ghi cứng — bí mật chỉ nằm trong .env.* (đã gitignore)" ;;
     esac
   fi
 done < <(git diff --cached --name-only --diff-filter=AM)

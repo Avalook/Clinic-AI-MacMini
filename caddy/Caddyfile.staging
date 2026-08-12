@@ -88,6 +88,19 @@
 		{$STAGING_AUTH_USER:team} {$STAGING_AUTH_HASH}
 	}
 
+	# ĐƯỜNG ĐĂNG NHẬP ĐI VÒNG QUA BỘ CHẶN DÒ MẬT KHẨU.
+	#
+	# Phải đặt TRƯỚC @supabase: Caddy chọn matcher cụ thể hơn, nhưng viết trước
+	# cho người đọc thấy ngay rằng đường này KHÔNG đi thẳng như ba đường kia.
+	#
+	# CHỈ `/auth/v1/token` — không phải cả `/auth/v1/*`. Đổi mật khẩu, làm mới
+	# phiên, đăng xuất đều nằm trong `/auth/v1` và không phải chỗ để dò; kéo hết
+	# chúng qua bộ chặn là mở rộng vùng có thể hỏng mà không đổi lại được gì.
+	@dangnhap path /auth/v1/token*
+	handle @dangnhap {
+		reverse_proxy {$AUTH_GUARD_HOST:clinicai_auth_guard}:80
+	}
+
 	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
 	handle @supabase {
 		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000

@@ -51,6 +51,7 @@ services:
       # Gateway Supabase của CHÍNH môi trường này. Mặc định là prod hôm nay;
       # staging đặt lại trong .env.staging để không gọi sang database khách.
       SUPABASE_GATEWAY_HOST: ${SUPABASE_GATEWAY_HOST:-clinicai_supabase_gateway}
+      AUTH_GUARD_HOST: ${AUTH_GUARD_HOST:-clinicai_auth_guard}
       # Ổ khoá HTTP cho staging. Mặc định RỖNG ⇒ prod không đổi gì, vì
       # Caddyfile chung không nhắc tới hai biến này.
       #
