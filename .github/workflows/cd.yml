@@ -70,8 +70,15 @@ jobs:
           # đè lên code mới, trông y như hệ thống tự lùi bản và rất khó đoán ra
           # lúc đang có sự cố. So với đầu ref hiện tại rồi bỏ qua thì đúng hơn;
           # commit mới hơn sẽ được chính lần CI của nó đưa lên.
-          head_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_REF}" \
-                       --jq .sha 2>/dev/null || echo "")
+          #
+          # DÙNG `curl`, KHÔNG DÙNG `gh`. Runner của GitHub có sẵn `gh`; runner
+          # tự quản trên VPS thì không — và lần chạy đầu tiên sau khi cài runner
+          # đã đỏ đúng vì thế. Một workflow chạy trên máy mình không được giả
+          # định công cụ nào ngoài thứ mình tự cài.
+          head_sha=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+                       -H "Accept: application/vnd.github+json" \
+                       "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${SOURCE_REF}" \
+                     | sed -n 's/^  "sha": "\([0-9a-f]*\)",$/\1/p' | head -1)
           if [ -z "$head_sha" ]; then
             echo "::error::không đọc được đầu hiện tại của ${SOURCE_REF}"
             exit 1
