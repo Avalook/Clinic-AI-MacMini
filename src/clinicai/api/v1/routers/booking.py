@@ -170,7 +170,20 @@ async def cho_xep_bac_si(
                        AND NOT EXISTS (
                          SELECT 1
                            FROM work_roster w
-                          WHERE w.staff_id = a.doctor_id
+                          -- LỌC PHÒNG KHÁM Ở ĐÂY NỮA. Backend chạy bằng quyền
+                          -- chủ database nên RLS không áp; một truy vấn con
+                          -- thiếu `clinic_id` nhìn thấy ca trực của MỌI cơ sở.
+                          --
+                          -- Cụ thể: bác sĩ làm cả Kim Ngưu lẫn Hào Nam mà hôm ấy
+                          -- chỉ trực Hào Nam thì câu này thấy "có ca" và kết luận
+                          -- lịch bên Kim Ngưu vẫn có người — trong khi bác sĩ
+                          -- đang đứng ở cơ sở khác. Đúng thứ màn hình này sinh ra
+                          -- để phát hiện thì nó bỏ sót.
+                          --
+                          -- Máy kiểm phạm vi phòng khám của CI bắt được lúc hoà
+                          -- hai nhánh; ở nhánh cũ nó chưa từng chạy qua đoạn này.
+                          WHERE w.clinic_id = a.clinic_id
+                            AND w.staff_id = a.doctor_id
                             AND w.work_date =
                                 (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
                                 ::date

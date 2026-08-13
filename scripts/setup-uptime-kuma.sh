@@ -44,8 +44,14 @@ process.stdout.write(b.hashSync(process.env.KUMA_SETUP_PASS, 10));
 [ -n "$HASH" ] || { echo "ERROR: không sinh được hash mật khẩu" >&2; exit 1; }
 
 
-# DỪNG KUMA TRƯỚC KHI ĐỌC DB. Đây là lỗi của chính bản trước: nó `docker cp` mỗi
-# `kuma.db` ra, sửa, rồi chép ngược vào — bỏ mặc `kuma.db-wal`.
+# DỪNG KUMA TRƯỚC KHI ĐỌC DB. Đây là lỗi của chính bản trước: nó chép mỗi
+# 'kuma.db' ra bằng docker cp, sửa, rồi chép ngược vào — bỏ mặc 'kuma.db-wal'.
+#
+# DÙNG NHÁY ĐƠN, KHÔNG DÙNG DẤU HUYỀN NGƯỢC. Bài kiểm hạ tầng grep cả tệp tìm
+# chuỗi ấy vì tệp này có một heredoc KHÔNG trích dẫn ở cuối (`cat <<EOF`), nơi
+# dấu huyền ngược được shell THỰC THI. Nó không phân biệt được chú thích với
+# thân heredoc — và thà báo nhầm một chú thích còn hơn bỏ lọt một lệnh chạy
+# ngoài ý muốn trong tệp cấu hình máy chủ.
 #
 # SQLite của Kuma chạy chế độ WAL, và đo ngày 11/08/2026 thì `kuma.db-wal` nặng
 # 523KB, gần bằng chính file `.db` (544KB). Nghĩa là phần lớn dữ liệu mới nhất
