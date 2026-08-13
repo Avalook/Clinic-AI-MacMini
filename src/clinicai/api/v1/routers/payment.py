@@ -14,7 +14,11 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 
-from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
+from clinicai.api.idempotency import (
+    IdempotencyGuard,
+    idempotency_guard,
+    tra_khoa_neu_bi_tu_choi,
+)
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.payment_service import PaymentService
@@ -66,18 +70,23 @@ async def record_payment(
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
-    service = PaymentService(pool)
-    await service.record_payment(
-        visit_id=str(body.visit_id),
-        kind=body.kind,
-        amount=body.amount,
-        clinic_patient_id=(
-            str(body.clinic_patient_id) if body.clinic_patient_id else None
-        ),
-        identity=identity,
-    )
-    result = {"ok": True}
-    await idem.save(pool, result, status_code=200)
+    # Bọc trả khoá: bị từ chối vì lý do nghiệp vụ (4xx) thì khoá phải được
+    # trả lại ngay, kẻo lần bấm lại sau khi sửa vẫn nhận 409 suốt 5 phút và
+    # câu giải thích thật biến mất. Xem `IdempotencyGuard.release`.
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        service = PaymentService(pool)
+        await service.record_payment(
+            visit_id=str(body.visit_id),
+            kind=body.kind,
+            amount=body.amount,
+            clinic_patient_id=(
+                str(body.clinic_patient_id) if body.clinic_patient_id else None
+            ),
+            identity=identity,
+        )
+        result = {"ok": True}
+        await idem.save(pool, result, status_code=200)
+
     return result
 
 

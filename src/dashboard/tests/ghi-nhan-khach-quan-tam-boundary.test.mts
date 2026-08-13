@@ -35,7 +35,14 @@ test("màn CSKH có lối vào ghi khách chưa chốt lịch", () => {
     /href="\/patients\/new"/,
     "không còn nút nào dẫn tới trang tạo hồ sơ",
   );
-  assert.match(ma, /Ghi nhận khách quan tâm/, "nút phải nói rõ nó làm gì");
+  // Tên đổi 13/08/2026 sang "Thêm khách hàng mới" — bài kiểm đi theo. Điều nó
+  // canh không phải một câu chữ cụ thể mà là: MÀN NÀY CÒN LỐI VÀO, và lối ấy
+  // đọc là hiểu. Nên chấp nhận cả tên cũ lẫn tên mới, và chỉ đỏ khi nút biến mất.
+  assert.match(
+    ma,
+    /Thêm khách hàng mới|Ghi nhận khách quan tâm/,
+    "nút phải nói rõ nó làm gì",
+  );
 });
 
 test("lối vào KHÔNG được gán sẵn ngày giờ", () => {

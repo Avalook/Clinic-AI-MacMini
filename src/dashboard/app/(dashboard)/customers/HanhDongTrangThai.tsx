@@ -335,6 +335,17 @@ export default function HanhDongTrangThai({
           error?: string;
           message?: string;
         } | null;
+        // MÁY CHỦ TỪ CHỐI (4xx) ⇒ BỎ KHOÁ. Nó từ chối vì một điều kiện nghiệp vụ
+        // — "chưa gửi tệp kết quả cho khách", "mốc tại quầy mới ghi kết quả này"
+        // — nghĩa là CHẮC CHẮN chưa ghi gì. Người trực sẽ sửa rồi bấm lại, và
+        // lần ấy là một thao tác MỚI. Giữ khoá thì lần bấm lại nhận 409 "đang
+        // được xử lý", và câu giải thích thật biến mất — đúng thứ nhìn thấy trên
+        // staging 13/08: 422, 422, rồi 409, 409 mãi trong 5 phút.
+        //
+        // 5xx VÀ LỖI MẠNG THÌ GIỮ. Lúc đó không ai biết máy chủ đã ghi tới đâu,
+        // và chính ca ấy là lý do khoá này tồn tại: ngắt mạng ở mốc 90ms sau khi
+        // bấm thì màn hình báo lỗi trong khi dữ liệu ĐÃ vào.
+        if (res.status >= 400 && res.status < 500) xongThaoTac(thaoTac);
         setLoi(nhanLoi(d, "Không ghi được."));
         return false;
       }
