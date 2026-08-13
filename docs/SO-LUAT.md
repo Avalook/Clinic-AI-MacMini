@@ -26,7 +26,7 @@ Mọi thứ trong sổ này treo vào bảng này. Đổi bảng này là phải
 | Tải đo được | **~1 lượt gọi/giây** |
 | Database | Postgres 17 tự dựng, **chạy cùng máy** với backend |
 | Dữ liệu | 22 MB lúc rời Supabase cloud · nhật ký ~2.400 dòng/ngày (dưới 1 GB/năm) |
-| Máy chủ | 1 VPS Vietnix · 4 lõi · 8 GB (đang dùng 37%) · **50 GB đĩa** (đang dùng 14%) |
+| Máy chủ | 1 VPS Vietnix · 4 lõi · 8 GB (đang dùng 37%) · **50 GB đĩa** (14%). Máy Mac chỉ còn nhận bản sao lưu đêm |
 | Đội | 1 người + AI |
 
 Hai con số quyết định gần hết mọi thứ: **1 lượt gọi/giây** và **1 người vận
@@ -248,6 +248,36 @@ gửi-tin = 0002 · tranh-chấp = 0003 · cửa-vào = 0004 · không-máy-mớ
 ngân-sách = 0006 · bộ-nhớ-hội-thoại = 0007 · đính-chính = 0008 · nhiều-phòng-khám
 = 0009 · cổng-bán-hàng = 0010 · luồng-là-dữ-liệu = 0011 · hợp-đồng = 0012 ·
 chạy-đâu-cũng-được = 0013.
+
+---
+
+# Phần 11 — Hình dạng hệ thống sau khi dọn (13/08/2026)
+
+Ghi lại vì trước hôm này nó không có hình dạng nào cả: hai nhánh dài song song,
+prod và staging chung một thư mục, và 79 commit của prod chỉ nằm trên một ổ đĩa.
+
+| | |
+|---|---|
+| Nhánh dài hạn | **`main`** — và chỉ `main` |
+| prod | `/home/clinicai/clinicai` trên VPS, đứng ở `main`, cổng 80 |
+| staging | `/home/clinicai/staging` trên VPS, đứng ở tag `staging-*`, cổng 8080 |
+| Hai thư mục | dùng chung một kho `.git` (worktree) — tách nguồn, không nhân đôi đĩa |
+| Lên staging | tự động sau khi CI xanh |
+| Lên prod | người bấm, **chỉ 1h–4h sáng**, cửa vượt phải ghi lý do |
+| CD chạy ở | runner của **VPS**, không còn dính máy Mac |
+| Máy Mac | chỉ còn nhận **bản sao lưu hằng đêm** — chủ ý, vì bản sao phải ở máy khác |
+
+**Luật 11.1 — Một nhánh dài hạn.** Đã hỏng hai lần vì luật này bị bỏ qua: `main`
+tụt 63 commit sau `staging`; rồi một nhánh `codex/…` sống 11 ngày, đi trước 204
+commit và đi sau 122.
+
+**Luật 11.2 — Code đang chạy phải có bản sao ngoài máy chạy nó.** Ngày 13/08
+phát hiện 79 commit của prod chưa từng lên GitHub, vì máy chủ không có quyền
+push. Ổ đĩa hỏng là không dựng lại được thứ đang phục vụ bệnh nhân.
+
+**Luật 11.3 — Mỗi môi trường một thư mục.** Chung thư mục thì một lần `git
+checkout` đổi luôn nguồn của môi trường kia, và không ai thấy cho tới lần deploy
+sau.
 
 ---
 
