@@ -18,28 +18,14 @@ import {
   getActiveStaff,
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
+// MỘT HÀM, KHÔNG PHẢI HAI. Chỗ này từng có bản `weekStartOf` riêng, đã được vá
+// đúng (trả `null` khi ngày sai) hồi `/api/roster?date=99-99-9999` trả 500. Nhưng
+// `lib/roster.ts` có một hàm CÙNG TÊN chưa vá, và đó là bản mà trang chủ và trang
+// lịch dùng — nên cùng một họ lỗi mọc lại lần thứ ba ở chỗ khác. Hai hàm cùng tên
+// với hành vi khác nhau là bệnh; ba lần 500 chỉ là triệu chứng. Giờ chỉ còn một
+// bản, ở lib, và nó là bản có kiểm.
+import { weekStartOf } from "../../../lib/roster";
 
-/** Thứ Hai của tuần chứa `iso`. Cùng quy ước với week_start_of ở backend.
- *
- *  `null` = `iso` không phải một ngày đọc được.
- *
- *  NGÀY SAI PHẢI THÀNH 400, KHÔNG PHẢI 500. `new Date("99-99-9999T00:00:00Z")`
- *  cho một Invalid Date, và `toISOString()` trên đó NÉM `RangeError` — lời gọi
- *  trả 500 với thân rỗng, người dùng không đọc được gì và log không nói tên
- *  đường dẫn nào sai.
- *
- *  Đây là con thứ HAI cùng họ trong một ngày: `/api/appointments` cũng ném đúng
- *  như vậy khi thiếu `date` (xem ghi chú ở route ấy). Luật rút ra: mọi chỗ dựng
- *  `Date` từ chuỗi NGƯỜI GỬI phải kiểm `Number.isNaN(getTime())` TRƯỚC khi gọi
- *  `toISOString()` — bản thân `toISOString()` là thứ ném, nên câu kiểm đặt sau
- *  nó không bao giờ chạy tới. */
-function weekStartOf(iso: string): string | null {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  const isoDow = ((d.getUTCDay() + 6) % 7) + 1; // 1 = thứ Hai
-  d.setUTCDate(d.getUTCDate() - (isoDow - 1));
-  return d.toISOString().slice(0, 10);
-}
 
 type Auth =
   | {

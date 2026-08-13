@@ -24,6 +24,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { weekStartOf } from "../lib/roster.ts";
+
 const route = readFileSync(
   new URL("../app/api/appointments/route.ts", import.meta.url),
   "utf8",
@@ -106,21 +108,63 @@ test("`/api/roster` cũng phải kiểm ngày trước khi gọi toISOString", (
   // Con thứ HAI cùng họ trong một ngày (con đầu ở `/api/appointments`). Luật:
   // mọi chỗ dựng `Date` từ chuỗi NGƯỜI GỬI phải kiểm `Number.isNaN(getTime())`
   // TRƯỚC khi gọi `toISOString()`.
+  // 13/08/2026 — CON THỨ BA, và nó cho thấy chỗ bài test này từng đo sai. Bản cũ
+  // đọc mã nguồn của route rồi tìm chuỗi "Number.isNaN(d.getTime())". Route ấy
+  // có hàm `weekStartOf` RIÊNG, đã vá; nhưng `lib/roster.ts` có một hàm CÙNG TÊN
+  // chưa vá, và đó mới là bản mà TRANG CHỦ và trang lịch dùng. Bài test xanh
+  // suốt, trong khi `/home?weekAppt=abc` vẫn làm sập trang chủ.
+  //
+  // Giờ chỉ còn MỘT hàm, ở lib, và bài test hỏi HÀNH VI của nó thay vì hỏi mã
+  // nguồn trông như thế nào — cách đo cũ xanh cả khi thứ nó bảo vệ đã hỏng.
+  for (const rac of ["99-99-9999", "abc", "2026-13-45", ""]) {
+    assert.equal(
+      weekStartOf(rac),
+      null,
+      `weekStartOf(${JSON.stringify(rac)}) phải trả null, không được ném`,
+    );
+  }
+  assert.equal(weekStartOf("2026-08-05"), "2026-08-03", "ngày đúng vẫn phải ra thứ Hai");
+
+  // Đoạn đo cũ ĐÃ BỎ (13/08/2026). Nó đọc mã nguồn của route rồi tìm chuỗi
+  // "Number.isNaN(d.getTime())" — nhưng route không còn hàm riêng nữa, nó gọi
+  // bản dùng chung ở lib. Chính cách đo ấy là lý do bài kiểm xanh suốt trong
+  // khi trang chủ vẫn sập: nó hỏi mã nguồn TRÔNG THẾ NÀO thay vì hỏi hàm LÀM GÌ.
+  // Phần hỏi hành vi nằm ngay bên trên; phần dưới đây chỉ còn kiểm câu trả lời
+  // 400 mà người dùng đọc được.
   const roster = readFileSync(
     new URL("../app/api/roster/route.ts", import.meta.url),
     "utf8",
   ).replace(/\/\/.*$/gm, "");
-  const iKiem = roster.indexOf("Number.isNaN(d.getTime())");
-  const iGoi = roster.indexOf("d.toISOString()");
-  assert.ok(iKiem > 0, "`weekStartOf` không còn câu kiểm Invalid Date");
-  assert.ok(
-    iKiem < iGoi,
-    "câu kiểm Invalid Date phải nằm TRƯỚC `toISOString()` — đặt sau thì nó " +
-      "không bao giờ chạy tới, vì `toISOString()` mới là thứ ném.",
-  );
   assert.match(
     roster,
     /Ngày không hợp lệ/,
     "phải trả 400 với câu đọc được khi `date` gõ sai, không phải 500 thân rỗng",
   );
+});
+
+test("trang chủ và trang lịch không được sập vì một tham số tuần gõ sai", () => {
+  // Đây là chỗ con thứ ba thật sự nổ: `/home?weekAppt=<rác>` và
+  // `/schedule?week=<rác>` lấy thẳng tham số URL đưa vào `weekStartOf`. Server
+  // component mà ném thì cả trang rơi vào error.tsx — màn hình đầu ngày của mọi
+  // nhân viên không mở được cho tới khi có người nghĩ ra là phải xoá đuôi URL.
+  for (const [ten, duong] of [
+    ["trang chủ", "../app/(dashboard)/home/page.tsx"],
+    ["trang lịch", "../app/(dashboard)/schedule/page.tsx"],
+  ] as const) {
+    // Đây là phép đo GIÁN TIẾP — hai trang này là server component, không gọi
+    // thẳng trong bài test được. Nên bài test chỉ hỏi một câu bền: mỗi chỗ nhận
+    // tham số tuần từ URL đều phải có đường lùi. Phần hành vi thật của
+    // `weekStartOf` đã được bài test ở trên và `lib/roster.test.mts` canh.
+    const src = readFileSync(new URL(duong, import.meta.url), "utf8").replace(/\/\/.*$/gm, "");
+    const soLanGoi = (src.match(/weekStartOf\(/g) ?? []).length;
+    const soDuongLui = (src.match(/\?\?\s*currentWeekStartVn\(\)/g) ?? []).length;
+    assert.ok(soLanGoi > 0, `${ten}: không còn gọi weekStartOf?`);
+    assert.equal(
+      soDuongLui,
+      soLanGoi,
+      `${ten}: có ${soLanGoi} chỗ đọc tuần từ URL nhưng chỉ ${soDuongLui} chỗ có ` +
+        "đường lùi `?? currentWeekStartVn()` — chỗ thiếu sẽ làm sập cả trang khi " +
+        "tham số gõ sai",
+    );
+  }
 });
