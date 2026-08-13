@@ -438,8 +438,15 @@ test_deploy_is_pinned_and_serialized() {
   if grep -Eq 'cp +"?\$ENV_FILE"? +\.env|git pull --ff-only *\|\|' "$ROOT/scripts/deploy-backend.sh"; then
     fail "deploy script still copies shared env or swallows pull failure"
   fi
-  grep -Fq 'group: clinicai-macmini-deploy' "$ROOT/.github/workflows/cd.yml" || \
+  # Kiểm CÓ XẾP HÀNG hay không, không kiểm tên nhóm. Bản trước dò đúng chuỗi
+  # 'clinicai-macmini-deploy' — nên khi CD rời khỏi máy Mac (13/08/2026) và nhóm
+  # đổi tên thành 'clinicai-vps-deploy', bài kiểm đỏ vì một lý do không liên quan
+  # gì tới thứ nó bảo vệ. Thứ nó bảo vệ là: prod và staging dùng chung một máy
+  # Docker, nên hai lần deploy không được chồng lên nhau.
+  grep -Eq '^ *group: clinicai-[a-z0-9-]+-deploy$' "$ROOT/.github/workflows/cd.yml" || \
     fail "prod and staging deployments are not globally serialized"
+  grep -Fq 'cancel-in-progress: false' "$ROOT/.github/workflows/cd.yml" || \
+    fail "a queued deploy must wait, not cancel the one already running"
   grep -Fq 'ref: ${{ github.event.workflow_run.head_sha }}' "$ROOT/.github/workflows/cd.yml" || \
     fail "CD does not checkout the triggering commit"
   grep -Fq 'workflow_run:' "$ROOT/.github/workflows/cd.yml" || \
