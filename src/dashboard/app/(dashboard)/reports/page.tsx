@@ -7,6 +7,7 @@
 import { redirect } from "next/navigation";
 import StatCard from "../StatCard";
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { Fragment } from "react";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
@@ -185,6 +186,20 @@ export default async function ReportsPage() {
     unset: number;
     unknown: number;
   }>(`/api/v1/reports/booking-channels?days=30`);
+  // KPI ĐẶT LỊCH THEO NHÂN VIÊN. Đọc qua backend: "ai đặt lịch này" chỉ trả lời
+  // được từ sổ sự kiện (`appointment` không có cột người tạo), và đó là một phép
+  // gộp — kéo cả sổ về trình duyệt để đếm là sai chỗ.
+  const kpi = await fetchFromBackend<{
+    items: {
+      ten: string;
+      bo_phan: string | null;
+      ngay: { tong: number; tai_kham: number; kham_moi: number };
+      tuan: { tong: number; tai_kham: number; kham_moi: number };
+      thang: { tong: number; tai_kham: number; kham_moi: number };
+    }[];
+  }>(`/api/v1/reports/kpi-dat-lich`);
+  const kpiRows = kpi?.items ?? [];
+
   const channelStats = (chan?.items ?? [])
     .filter((c) => c.count > 0)
     .map((c) => ({ name: c.name, count: c.count }));
@@ -314,6 +329,89 @@ export default async function ReportsPage() {
             </tbody>
           </table>
         </div>
+      </Section>
+
+      {/* Khối 3b — KPI đặt lịch theo nhân viên.
+          Tuyền 14/08/2026: *"cho hiện theo nhân viên, mỗi nhân viên sẽ đạt được
+          bao nhiêu đặt lịch khám trong 1 ngày/tuần/tháng, và phân theo bao nhiêu
+          lịch tái khám và lịch khám mới"*. Đặt ngay dưới bảng bác sĩ, vì hai
+          bảng trả lời hai nửa của cùng một câu: ai KHÁM và ai ĐƯA KHÁCH TỚI. */}
+      <Section title="Đặt lịch theo nhân viên">
+        <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-line bg-surface-muted text-left text-xs text-ink-muted">
+                <th className="px-4 py-2 font-medium" rowSpan={2}>
+                  Nhân viên
+                </th>
+                <th className="border-l border-line px-4 py-2 text-center font-medium" colSpan={3}>
+                  Hôm nay
+                </th>
+                <th className="border-l border-line px-4 py-2 text-center font-medium" colSpan={3}>
+                  Tuần này
+                </th>
+                <th className="border-l border-line px-4 py-2 text-center font-medium" colSpan={3}>
+                  Tháng này
+                </th>
+              </tr>
+              <tr className="border-b border-line bg-surface-muted text-left text-[11px] text-ink-faint">
+                {["Hôm nay", "Tuần này", "Tháng này"].map((ky) => (
+                  <Fragment key={ky}>
+                    <th className="border-l border-line px-3 py-1.5 text-right font-medium">
+                      Tổng
+                    </th>
+                    <th className="px-3 py-1.5 text-right font-medium">Mới</th>
+                    <th className="px-3 py-1.5 text-right font-medium">Tái khám</th>
+                  </Fragment>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {kpiRows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-6 text-center text-ink-muted">
+                    Tháng này chưa ai đặt lịch.
+                  </td>
+                </tr>
+              ) : (
+                kpiRows.map((n) => (
+                  <tr
+                    key={n.ten}
+                    className="border-b border-surface-sunken last:border-b-0"
+                  >
+                    <td className="px-4 py-2 text-ink">
+                      {n.ten}
+                      {n.bo_phan ? (
+                        <span className="ml-1.5 text-xs text-ink-muted">
+                          {n.bo_phan}
+                        </span>
+                      ) : null}
+                    </td>
+                    {[n.ngay, n.tuan, n.thang].map((k, i) => (
+                      <Fragment key={i}>
+                        <td className="border-l border-line px-3 py-2 text-right font-semibold text-ink tabular-nums">
+                          {k.tong}
+                        </td>
+                        <td className="px-3 py-2 text-right text-ink-muted tabular-nums">
+                          {k.kham_moi}
+                        </td>
+                        <td className="px-3 py-2 text-right text-ink-muted tabular-nums">
+                          {k.tai_kham}
+                        </td>
+                      </Fragment>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-xs text-ink-muted">
+          Đếm theo người BẤM NÚT ĐẶT LỊCH, đọc từ sổ thao tác. Lịch đặt trước khi
+          sổ ghi người thực hiện sẽ nằm ở dòng “không rõ người đặt”. Tuần tính từ
+          thứ Hai. “Tái khám” là lịch nối vào một lượt khám trước — khách cũ đặt
+          một dịch vụ mới vẫn tính là khám mới.
+        </p>
       </Section>
 
       {/* Khối 4 — 30 ngày */}

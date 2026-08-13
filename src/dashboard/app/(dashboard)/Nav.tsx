@@ -91,7 +91,21 @@ export default function Nav({
                 return; // mở tab mới: để trình duyệt lo
               }
               e.preventDefault();
-              startTransition(() => router.push(href));
+              // BẤM LẠI NÚT CỦA TRANG ĐANG MỞ = TẢI LẠI TRANG ẤY.
+              //
+              // Tuyền 14/08/2026: *"khi click vào lại nút nào của sidebar thì
+              // tự load lại trang đó"*. `router.push` sang chính URL đang đứng
+              // là lệnh rỗng — Next thấy không có gì để điều hướng nên không
+              // làm gì, và người dùng bấm xong thấy y nguyên màn cũ. Ở màn CSKH
+              // thì "y nguyên" nghĩa là danh sách khách vẫn là ảnh chụp lúc mở,
+              // trong khi ca trực khác vừa ghi thêm việc.
+              //
+              // `refresh()` chạy lại server component của đúng route ấy và giữ
+              // nguyên trạng thái đang gõ dở trong các ô — khác hẳn F5, thứ
+              // quét sạch cả trang.
+              startTransition(() =>
+                pathname === href ? router.refresh() : router.push(href),
+              );
             }}
             title={isCollapsed ? label : undefined}
             className={
