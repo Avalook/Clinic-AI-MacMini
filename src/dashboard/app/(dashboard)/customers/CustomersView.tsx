@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { nhanKhachMoiCu } from "../../../lib/khach-moi-cu";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -582,9 +583,10 @@ function appointmentStatus(status: string): { label: string; tone: StatusTone } 
 
 function CustomerTableHeader() {
   return (
-    <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px] gap-3 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+    <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(96px,0.6fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px] gap-3 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
       <span>Khách hàng</span>
       <span>Trạng thái</span>
+      <span>Mới / cũ</span>
       <span>Tương tác gần nhất</span>
       <span>Bước tiếp theo</span>
       <span>Hạn xử lý</span>
@@ -1280,7 +1282,7 @@ export default function CustomersView({
                         className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
                           selected
                             ? "grid-cols-[minmax(0,1fr)_auto]"
-                            : "grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px]"
+                            : "grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(96px,0.6fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px]"
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">
@@ -1297,19 +1299,6 @@ export default function CustomersView({
                               câm. Chip cũ ở đây đếm `so_viec_mo` (số VIỆC CSKH
                               đang mở) nhưng người đọc hiểu là số LỊCH, và bấm
                               vào không ra gì. Xem LichTrungCuaKhach.tsx. */}
-                          {/* KHÁM LẦN MẤY — nhãn nhỏ, đọc từ dữ liệu thật.
-                              Quang: tái khám thực chất cũng là khám lần 2,3,4,
-                              nhưng tách riêng vì cần biết tái khám CHO DỊCH VỤ
-                              NÀO. Nên "tái khám" thắng khi lịch có nối chuỗi;
-                              còn lại chỉ đếm số lượt đã khám xong.
-                              Lần đầu (0 hoặc 1 lượt) thì KHÔNG hiện gì — mọi
-                              khách đều là "lần 1", một nhãn đúng với tất cả
-                              thì không nói thêm được gì. */}
-                          {nhanLanKham(apptByPatient[row.clinic_patient_id]) && (
-                            <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
-                              {nhanLanKham(apptByPatient[row.clinic_patient_id])}
-                            </span>
-                          )}
                           {/* CÒN N VIỆC KHÁC — nói ra, để chip không bị đọc là
                               "tất cả những gì khách này đang có".
 
@@ -1357,6 +1346,40 @@ export default function CustomersView({
                             )
                           )}
                         </div>
+                        {/* MỚI / CŨ — cột riêng, cạnh cột trạng thái.
+                            Tuyền 13/08/2026: tách khỏi ô trạng thái. Hai thứ
+                            trả lời hai câu khác nhau — trạng thái là VIỆC PHẢI
+                            LÀM bây giờ, còn đây là NGƯỜI NÀY LÀ AI, thứ quyết
+                            định cách mở lời khi gọi và bao lâu thì xong một ca.
+                            Nằm chung một ô thì cả hai bị đọc lướt. */}
+                        {!selected && (
+                          <div className="min-w-0">
+                            {(() => {
+                              const nhan = nhanKhachMoiCu(
+                                apptByPatient[row.clinic_patient_id],
+                              );
+                              return (
+                                <>
+                                  <span
+                                    className={
+                                      "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold " +
+                                      (nhan.dong2
+                                        ? "bg-brand-50 text-brand-700"
+                                        : "bg-surface-sunken text-ink-muted")
+                                    }
+                                  >
+                                    {nhan.dong1}
+                                  </span>
+                                  {nhan.dong2 && (
+                                    <span className="mt-0.5 block truncate text-[10px] text-ink-muted">
+                                      {nhan.dong2}
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
                         {!selected && (
                           <>
                             <div className="min-w-0 truncate text-xs text-ink-soft">
@@ -1938,12 +1961,7 @@ export default function CustomersView({
  *
  *  KHÔNG HIỆN "lần 1". Khách nào cũng từng là lần 1; một nhãn đúng với tất cả
  *  thì chỉ tốn chỗ và dạy người đọc bỏ qua vùng ấy. */
-export function nhanLanKham(a?: ApptInfo): string | null {
-  if (!a) return null;
-  if (a.laTaiKham) return "tái khám";
-  if (a.soLanKham >= 2) return `khám lần ${a.soLanKham}`;
-  return null;
-}
+
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
