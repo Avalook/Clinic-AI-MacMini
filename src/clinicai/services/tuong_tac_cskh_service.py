@@ -196,59 +196,25 @@ class TuongTacCskhService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                if loai == "TRA_KQ":
-                    from clinicai.services.media_service import (
-                        ket_qua_patient_lock_key,
-                    )
-
-                    # Upload and delivery confirmation share this lock. The
-                    # evidence check and interaction insert therefore cannot be
-                    # interleaved with a new pending file for the same patient.
-                    await conn.execute(
-                        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                        ket_qua_patient_lock_key(
-                            clinic_id=identity.clinic_id,
-                            clinic_patient_id=clinic_patient_id,
-                        ),
-                    )
-                    co_tep_da_gui = await conn.fetchval(
-                        """
-                        SELECT EXISTS (
-                            SELECT 1
-                              FROM public.tep_ket_qua t
-                             WHERE t.clinic_id = $1::uuid
-                               AND t.clinic_patient_id = $2::uuid
-                               AND t.gui_luc IS NOT NULL
-                               AND t.gui_luc >= COALESCE((
-                                   SELECT max(COALESCE(
-                                       r.reviewed_at,
-                                       r.result_received_at,
-                                       r.created_at
-                                   ))
-                                     FROM public.lab_result r
-                                    WHERE r.clinic_id = $1::uuid
-                                      AND r.clinic_patient_id = $2::uuid
-                                      AND r.result_value IS NOT NULL
-                                      AND (NOT r.requires_doctor_review
-                                           OR r.reviewed_at IS NOT NULL)
-                               ), '-infinity'::timestamptz)
-                        )
-                        AND NOT EXISTS (
-                            SELECT 1
-                              FROM public.tep_ket_qua pending
-                             WHERE pending.clinic_id = $1::uuid
-                               AND pending.clinic_patient_id = $2::uuid
-                               AND pending.gui_luc IS NULL
-                        )
-                        """,
-                        identity.clinic_id,
-                        clinic_patient_id,
-                    )
-                    if not co_tep_da_gui:
-                        raise ValidationError(
-                            "Chưa có tệp kết quả nào được xác nhận đã gửi cho khách. "
-                            "Gửi tệp và đánh dấu đúng kênh trước khi đóng việc này."
-                        )
+                # LUẬT "PHẢI CÓ TỆP KẾT QUẢ ĐÃ GỬI" ĐÃ GỠ (13/08/2026).
+                #
+                # Tuyền chốt khi nghiệm thu: *"chỉ cần ấn làm bước này là coi như
+                # làm rồi, sau này cần tải video thật thì tính sau"*. Trước đó,
+                # bấm "Đã gọi trả kết quả" mà chưa có tệp nào đánh dấu đã gửi thì
+                # bị chặn — nhưng phòng khám đang trả kết quả qua Zalo và điện
+                # thoại, chưa dùng tính năng tải tệp, nên luật ấy chặn đúng cái
+                # việc người ta làm hằng ngày.
+                #
+                # ĐÂY LÀ QUYẾT ĐỊNH SẢN PHẨM, KHÔNG PHẢI LỖI KỸ THUẬT. Cái giá
+                # phải nói ra: sổ chăm sóc ghi "đã trả kết quả" mà không có bằng
+                # chứng tệp nào kèm theo. Chấp nhận được vì bằng chứng thật lúc
+                # này nằm ở Zalo, không nằm trong hệ thống.
+                #
+                # MUỐN BẬT LẠI: lấy khối cũ ở commit 236f7490 — nó khoá theo bệnh
+                # nhân (`ket_qua_patient_lock_key`) rồi đòi có `tep_ket_qua` đã
+                # `gui_luc` và không còn tệp nào treo. Khi nào tải tệp trở thành
+                # đường chính thì bật lại, và bật kèm một câu báo nói rõ phải làm
+                # gì — không phải chỉ "chưa có tệp".
 
                 row_id = await conn.fetchval(
                     """

@@ -712,6 +712,12 @@ export default function VungLamViecKhach({
   const router = useRouter();
   const [dangGhiLoiRa, setDangGhiLoiRa] = useState<string | null>(null);
   const [loiGhiLoiRa, setLoiGhiLoiRa] = useState<string | null>(null);
+  // MÃ CỦA BƯỚC ĐANG LỖI. Thiếu nó thì mọi bước có nút một-chạm đều vẽ CÙNG một
+  // câu đỏ, dù chỉ một bước hỏng — Tuyền chụp màn hình 13/08: cả chuỗi mười mấy
+  // bước đỏ rực trong khi log chỉ ghi ĐÚNG HAI request bị từ chối. Một màn hình
+  // nói "mọi thứ đều hỏng" khi chỉ một thứ hỏng thì tệ hơn là không báo gì:
+  // người trực không biết bắt đầu sửa từ đâu.
+  const [loiOBuoc, setLoiOBuoc] = useState<string | null>(null);
   const [dangDongHen, setDangDongHen] = useState<string | null>(null);
   const [loiDongHen, setLoiDongHen] = useState<string | null>(null);
   const [loiDongHenChu, setLoiDongHenChu] = useState<string | null>(null);
@@ -784,6 +790,7 @@ export default function VungLamViecKhach({
     // bằng một dòng đọc được, thay vì để backend trả 422 mà màn hình nuốt mất.
     const canLich = ["XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY", "CHECK_IN", "CHECK_OUT"];
     if (canLich.includes(v.loai) && !lich.id) {
+      setLoiOBuoc(ma);
       setLoiGhiLoiRa("Khách chưa có lịch hẹn nào để gắn thao tác này.");
       return;
     }
@@ -800,6 +807,7 @@ export default function VungLamViecKhach({
     // và còn kiểm lịch ấy đúng của khách này. Gắn luôn là vừa sửa được cái nút,
     // vừa gom đúng bước vào đúng lượt ở ô Lịch sử các lần khám.
     setDangGhiLoiRa(v.khoa);
+    setLoiOBuoc(null);
     setLoiGhiLoiRa(null);
     // Khoá theo thao tác — xem khoa-mot-lan.ts.
     const ttLoiRa = dinhDanhThaoTac(clinicPatientId, lich.id, v.loai, v.ketQua, v.khoa);
@@ -837,6 +845,7 @@ export default function VungLamViecKhach({
       // lý" và câu giải thích thật biến mất. 5xx/lỗi mạng thì GIỮ — lúc đó không
       // ai biết máy chủ đã ghi tới đâu.
       if (res.status >= 400 && res.status < 500) xongThaoTac(ttLoiRa);
+      setLoiOBuoc(ma);
       setLoiGhiLoiRa(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
       return;
     }
@@ -1211,7 +1220,7 @@ export default function VungLamViecKhach({
                 hệt một cú bấm không ăn — và đó chính là "chả động tĩnh gì" mà
                 Quang gặp. Một nút im lặng dạy người dùng bấm lại nhiều lần rồi
                 bỏ cuộc; một dòng đỏ nói được chuyện gì đã xảy ra. */}
-            {motCham && loiGhiLoiRa && dangGhiLoiRa === null && (
+            {motCham && loiGhiLoiRa && loiOBuoc === tt.ma && dangGhiLoiRa === null && (
               <span className="text-[11px] text-danger">{loiGhiLoiRa}</span>
             )}
           </div>
