@@ -1328,8 +1328,19 @@ export default function BookingHub({
         const err = await res.json().catch(() => ({}));
         // alert() chặn luồng, không đọc được trên điện thoại và là chỗ duy nhất
         // trong toàn app dùng nó. Lỗi hiện ngay cạnh nút đã bấm.
+        //
+        // `message` TRƯỚC `error`. Thân lỗi của backend là
+        // `{"error": "CONFLICT_ERROR", "message": "Khung giờ đã đầy: tối đa 2
+        // chỗ lịch hẹn cho bác sĩ này trong khung 15 phút."}` — `error` là MÃ
+        // cho máy đọc, `message` là câu cho người đọc. Đọc `error` trước nghĩa
+        // là hai CSKH tranh chỗ cuối thì người thua nhìn thấy dòng chữ
+        // "CONFLICT_ERROR" và không biết phải làm gì tiếp.
+        //
+        // Đo được trên staging 14/08/2026: 409 với đúng thân lỗi ấy. Cùng họ
+        // với lỗi đã vá hôm 13/08 — backend nói "không tìm thấy nhân viên",
+        // màn hình dịch thành "máy chủ hỏng".
         setBookingError(
-          err.error || err.message || err.detail || "Không thể đặt lịch.",
+          err.message || err.detail || err.error || "Không thể đặt lịch.",
         );
       }
       // SERVER ĐÃ TRẢ LỜI ⇒ BỎ KHOÁ, dù là 201 hay 409.
