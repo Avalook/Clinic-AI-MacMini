@@ -832,6 +832,11 @@ export default function VungLamViecKhach({
         error?: string;
         message?: string;
       } | null;
+      // Máy chủ TỪ CHỐI (4xx) ⇒ bỏ khoá: chắc chắn chưa ghi gì, và lần bấm lại
+      // sau khi sửa là thao tác MỚI. Giữ khoá thì lần ấy nhận 409 "đang được xử
+      // lý" và câu giải thích thật biến mất. 5xx/lỗi mạng thì GIỮ — lúc đó không
+      // ai biết máy chủ đã ghi tới đâu.
+      if (res.status >= 400 && res.status < 500) xongThaoTac(ttLoiRa);
       setLoiGhiLoiRa(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
       return;
     }
@@ -926,6 +931,11 @@ export default function VungLamViecKhach({
         error?: string;
         message?: string;
       } | null;
+      // Máy chủ TỪ CHỐI (4xx) ⇒ bỏ khoá: chắc chắn chưa ghi gì, và lần bấm lại
+      // sau khi sửa là thao tác MỚI. Giữ khoá thì lần ấy nhận 409 "đang được xử
+      // lý" và câu giải thích thật biến mất. 5xx/lỗi mạng thì GIỮ — lúc đó không
+      // ai biết máy chủ đã ghi tới đâu.
+      if (res.status >= 400 && res.status < 500) xongThaoTac(ttCheckout);
       setLoiCheckout(
         nhanLoi(d, `Không đóng được (lỗi ${res.status}).`),
       );

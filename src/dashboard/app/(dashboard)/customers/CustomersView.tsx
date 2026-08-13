@@ -837,10 +837,23 @@ export default function CustomersView({
     [apptByPatient, trangThaiByPatient],
   );
 
-  const visibleRows = useMemo(
-    () => searchedRows.filter((row) => hopVoiTab(row, tab)),
-    [searchedRows, tab, hopVoiTab],
-  );
+  // KHÁCH ĐANG XEM NẰM ĐẦU DANH SÁCH.
+  //
+  // Tuyền nghiệm thu 13/08/2026: *"khi tôi chọn 1 bệnh nhân trong danh sách này
+  // để quản lý, thì tự động người đó phải được xếp lên đầu để tôi dễ đối sánh
+  // trạng thái của họ"*. Danh sách có 25 dòng và cột giữa dài hơn một màn hình,
+  // nên người đang mở thường trôi khỏi tầm mắt — muốn đối chiếu "dòng này với
+  // chuỗi bước bên cạnh" thì phải cuộn ngược lên tìm.
+  //
+  // Chỉ ĐỔI CHỖ, không lọc: các khách khác vẫn còn đủ và giữ nguyên thứ tự
+  // tương đối, nên bấm sang người khác vẫn tìm được như cũ.
+  const visibleRows = useMemo(() => {
+    const loc = searchedRows.filter((row) => hopVoiTab(row, tab));
+    if (selectedId === null) return loc;
+    const i = loc.findIndex((row) => row.clinic_patient_id === selectedId);
+    if (i <= 0) return loc; // không có trong tab đang lọc, hoặc đã ở đầu rồi
+    return [loc[i], ...loc.slice(0, i), ...loc.slice(i + 1)];
+  }, [searchedRows, tab, hopVoiTab, selectedId]);
 
   const selected =
     selectedId === null
@@ -1214,7 +1227,13 @@ export default function CustomersView({
         />
       </div>
 
-      {/* GÁC BẰNG `canEdit`, KHÔNG PHẢI `canManage`. Hai cờ này khác nhau:
+      {/* TÊN NÚT ĐỔI 13/08/2026: "Ghi nhận khách quan tâm" → "Thêm khách hàng mới"
+          (Tuyền chọn khi nghiệm thu). Chữ cũ mô tả HOÀN CẢNH của khách, nên người
+          trực đọc xong vẫn không biết bấm vào thì được gì; chữ mới nói ra VIỆC nút
+          làm. Lối vào và cách gác quyền giữ nguyên — nó vẫn là chỗ duy nhất ghi
+          được khách "gọi hỏi nhưng chưa chốt ngày" (tình huống nghiệp vụ số 2).
+
+          GÁC BẰNG `canEdit`, KHÔNG PHẢI `canManage`. Hai cờ này khác nhau:
           `canManage` = canManageAppt (quản lý LỊCH HẸN), `canEdit` = canWriteIntake
           (được TẠO HỒ SƠ). Trang đích /patients/new gác bằng đúng canWriteIntake,
           nên nút phải dùng cùng một cờ — lệch một cái là nút và trang nói hai điều
@@ -1230,7 +1249,7 @@ export default function CustomersView({
           title="Khách mới gọi hỏi nhưng chưa chốt ngày khám — ghi lại để còn gọi lại, không cần đặt lịch ngay."
         >
           <UserPlus className="size-4 shrink-0" aria-hidden="true" />
-          Ghi nhận khách quan tâm
+          Thêm khách hàng mới
         </Link>
       )}
 
@@ -1260,7 +1279,16 @@ export default function CustomersView({
               </p>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          {/* VÙNG CUỘN RIÊNG CHO DANH SÁCH.
+              Tuyền 13/08/2026: *"khi tôi lăn con chuột khu vực trạng thái khách
+              hàng, vui lòng đừng cuộn cả khu vực danh sách khách hàng"*. Trước
+              đây chỉ cột giữa có vùng cuộn; danh sách dài theo nội dung nên thứ
+              cuộn là CẢ TRANG — lăn ở cột giữa, cuộn tới đáy nó, phần lăn còn
+              lại đẩy trang đi và danh sách trôi theo.
+              `overscroll-contain` chặn đúng phần "còn lại" ấy: cuộn hết vùng này
+              thì dừng, không đùn sang trang. Chiều cao 664px = 720px của cột
+              giữa trừ khối tiêu đề, để hai cột kết thúc ngang nhau. */}
+          <div className="overflow-x-auto overscroll-contain xl:max-h-[664px] xl:overflow-y-auto">
             <div className={selected ? "min-w-0" : "min-w-[960px]"}>
               {!selected && <CustomerTableHeader />}
               {visibleRows.length > 0 ? (
@@ -1516,7 +1544,7 @@ export default function CustomersView({
         {selected && (
           <aside
             aria-label="Chi tiết khách hàng"
-            className="min-h-[420px] rounded-2xl border border-line bg-surface p-4 shadow-card xl:max-h-[720px] xl:overflow-y-auto animate-in fade-in duration-150"
+            className="min-h-[420px] overscroll-contain rounded-2xl border border-line bg-surface p-4 shadow-card xl:max-h-[720px] xl:overflow-y-auto animate-in fade-in duration-150"
           >
           {selected ? (
             <>
