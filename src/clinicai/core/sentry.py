@@ -45,9 +45,29 @@ def init_sentry() -> None:
             traces_sample_rate=0.1,
             # Profile 10% of traced requests (CPU flame graphs).
             profiles_sample_rate=0.1,
-            # Send PII (request headers, user IPs) — acceptable for internal
-            # clinic tool; disable if app becomes patient-facing.
+            # KHÔNG gửi PII mặc định: không header, không cookie, không IP, và
+            # không thân request. Thân request của hệ này chứa tên bệnh nhân,
+            # số điện thoại, chẩn đoán.
+            #
+            # (Chú thích cũ ở đây ghi "Send PII … acceptable for internal clinic
+            # tool" trong khi code đặt False — chú thích nói ngược với code, và
+            # người đọc sau có thể sửa code cho khớp chú thích.)
             send_default_pii=False,
+            # ĐÂY MỚI LÀ CHỖ RÒ THẬT SỰ, và nó KHÔNG do send_default_pii lo.
+            #
+            # SDK Python mặc định đính kèm BIẾN CỤC BỘ của từng khung ngăn xếp.
+            # Trong ứng dụng này, biến cục bộ lúc nổ lỗi thường đang giữ nguyên
+            # một hàng `patient` hoặc `clinical_record` — tức là tên, ngày sinh,
+            # số điện thoại, chẩn đoán, tất cả đi thẳng lên máy chủ Sentry ở
+            # nước ngoài. Một báo lỗi không được phép trở thành đường xuất dữ
+            # liệu bệnh án.
+            #
+            # Tắt nó làm việc dò lỗi khó hơn một chút — đổi lại, thứ rời khỏi
+            # máy chỉ còn loại lỗi, tệp, và số dòng.
+            include_local_variables=False,
+            # Không gửi thân request trong mọi trường hợp, kể cả khi ai đó bật
+            # send_default_pii sau này.
+            max_request_body_size="never",
             integrations=[
                 FastApiIntegration(transaction_style="endpoint"),
                 StarletteIntegration(transaction_style="endpoint"),
