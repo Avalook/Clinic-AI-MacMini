@@ -233,3 +233,35 @@ else
     echo "❌ Restore failed; ON_ERROR_STOP + single transaction rolled back all changes." >&2
     exit 1
 fi
+
+# ---- media files ------------------------------------------------------------
+# Database khôi phục xong mà thư mục ảnh trống thì mọi phiếu siêu âm trỏ tới
+# những khoá không còn tệp — `image_refs` đầy, đĩa rỗng, không lỗi nào báo.
+#
+# KHÔNG TỰ GIẢI NÉN ĐÈ. Đích đến là thư mục media đang chạy của một môi trường
+# thật, và một lệnh `tar -x` chạy nhầm vào đó là ghi đè ảnh bệnh nhân bằng bản
+# cũ hơn. Nên: mặc định chỉ NÓI RA phải làm gì; chỉ giải nén khi người chạy
+# khai rõ RESTORE_MEDIA_TO=<thư mục>.
+MEDIA_NAME=$(grep -E '^media_artifact=' "$MANIFEST_FILE" | head -n 1 | cut -d= -f2- || true)
+if [ -z "$MEDIA_NAME" ]; then
+    echo "⚠️  Bản sao lưu này theo định dạng cũ (không khai media). Ảnh siêu âm KHÔNG được khôi phục."
+elif [ "$MEDIA_NAME" = "none" ]; then
+    echo "ℹ️  Bản sao lưu không kèm tệp media (lúc sao lưu chưa có ảnh nào)."
+else
+    MEDIA_PATH="$(dirname "$BACKUP_FILE")/${MEDIA_NAME}"
+    if [ ! -f "$MEDIA_PATH" ]; then
+        echo "⚠️  Manifest khai có media nhưng không thấy tệp: $MEDIA_PATH" >&2
+        echo "    Database đã khôi phục; ẢNH THÌ CHƯA." >&2
+        exit 1
+    fi
+    if [ -n "${RESTORE_MEDIA_TO:-}" ]; then
+        mkdir -p "$RESTORE_MEDIA_TO"
+        tar -C "$RESTORE_MEDIA_TO" -xzf "$MEDIA_PATH"
+        SO_TEP=$(find "$RESTORE_MEDIA_TO" -type f | wc -l | tr -d ' ')
+        echo "✅ Đã giải nén media vào $RESTORE_MEDIA_TO (${SO_TEP} tệp)."
+    else
+        echo "ℹ️  Media nằm ở: $MEDIA_PATH"
+        echo "    Giải nén bằng:  RESTORE_MEDIA_TO=<thư mục media> $0 ... "
+        echo "    hoặc thủ công:  tar -C <thư mục media> -xzf '$MEDIA_PATH'"
+    fi
+fi

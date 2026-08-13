@@ -1,202 +1,243 @@
 "use client";
 
-// DisplayBoard — Màn hình TV phòng chờ (image_15 + 2 ảnh V2).
-// Hiển thị số đang gọi theo khu vực. KHÔNG hiện tên bệnh nhân (riêng tư).
-// Tự refresh mỗi 30s.
+// Bảng gọi số của phòng chờ — dựng theo đúng bản thiết kế Quang gửi 06/08:
+// nền sáng, các khu bật sẵn, mỗi khu có ĐANG GỌI (tên + phòng) → TIẾP THEO →
+// ĐANG CHỜ, và một dải hướng dẫn cho khách ở dưới.
+//
+// Màn này CHỈ HIỂN THỊ. Thứ tự, khu vực, ai đang được gọi và câu giải thích
+// "được ưu tiên vì đã đặt lịch trước" đều do backend quyết
+// (services/display_board_service.py + services/queue_order.py).
+//
+// GỌI TÊN, KHÔNG GỌI SỐ (Quang chốt 06/08). Số vẫn hiện nhưng nhỏ và ở dưới —
+// nó để đối chiếu, không phải thứ được đọc lên.
+//
+// Màn này treo giữa phòng chờ, nên thứ gì trình duyệt nhận được là thứ công
+// khai với mọi người ngồi đó. Vì thế phòng khám có hai công tắc ở
+// `clinic.settings->display`: `hien_ten` (tắt thì rơi về số) và `che_ten`
+// ("Nguyễn Thị Lan" → "Nguyễn T. L."). Cả hai lọc Ở MÁY CHỦ, không ẩn bằng CSS.
+//
+// Ngoài tên, KHÔNG một thứ định danh nào khác rời máy chủ: mã bệnh nhân, số
+// điện thoại, ngày sinh, tên bác sĩ. Bài kiểm ở backend canh đúng điều đó.
 
-// Nhập các hook useEffect và useState từ React để quản lý state và vòng đời component
 import { useEffect, useState } from "react";
-// Nhập hằng số VN_TZ (múi giờ Việt Nam) từ file datetime
+import { useRouter } from "next/navigation";
+
 import { VN_TZ } from "../../lib/datetime";
 
-// Định nghĩa interface cho dữ liệu bác sĩ hiển thị
-interface DisplayDoctor {
-  full_name: string | null; // Tên đầy đủ của bác sĩ, có thể null
+export interface DisplayZone {
+  key: string;
+  label: string;
+  /** Tiền tố số của khu: C007, SA025, X012, T005. */
+  prefix?: string;
 }
 
-// Định nghĩa interface cho dữ liệu dịch vụ hiển thị
-interface DisplayService {
-  name: string | null; // Tên dịch vụ, có thể null
+export interface DisplayItem {
+  /** Tên để GỌI. `null` khi phòng khám tắt hiện tên. */
+  patient_name: string | null;
+  queue_number: string | null;
+  zone_key: string | null;
+  call_order: number | null;
+  call_reason: string | null;
+  /** Đang trong phòng khám (visit.status = IN_PROGRESS). */
+  is_current: boolean;
+  /** Đã đến và chưa khám xong. */
+  waiting: boolean;
+  promoted: boolean;
+  promoted_note: string | null;
+  /** Tên PHÒNG, để chỉ đường cho người vừa được gọi. */
+  room_name: string | null;
 }
 
-// Định nghĩa interface cho dữ liệu lịch hẹn hiển thị
-interface DisplayAppt {
-  id: string; // ID của lịch hẹn
-  slot_start: string; // Thời gian bắt đầu slot
-  status: string; // Trạng thái lịch hẹn (CHECKED_IN, IN_PROGRESS...)
-  queue_number: string | null; // Số thứ tự trong hàng đợi, có thể null
-  booking_channel: string | null; // Kênh đặt lịch (online, trực tiếp...), có thể null
-  doctor: DisplayDoctor | null; // Thông tin bác sĩ, có thể null
-  service: DisplayService | null; // Thông tin dịch vụ, có thể null
-}
-
-// Định nghĩa interface cho props (dữ liệu truyền vào component)
 interface Props {
-  appts: DisplayAppt[]; // Danh sách lịch hẹn
+  zones: DisplayZone[];
+  items: DisplayItem[];
+  clinicName?: string;
+  footerText?: string;
+  footerInfo?: string;
 }
 
-// Định nghĩa danh sách các khu vực hiển thị trên màn hình TV
-const ZONES = [
-  { key: "kham", label: "Khám bác sĩ", prefix: "C" }, // Khu khám bác sĩ, tiền tố số C
-  { key: "sa1", label: "SA1", prefix: "SA" }, // Khu siêu âm 1, tiền tố SA
-  { key: "sa2", label: "SA2", prefix: "SA" }, // Khu siêu âm 2, tiền tố SA
-  { key: "sa3", label: "SA3", prefix: "SA" }, // Khu siêu âm 3, tiền tố SA
-  { key: "xn", label: "Xét nghiệm", prefix: "X" }, // Khu xét nghiệm, tiền tố X
-  { key: "tt", label: "Thanh toán", prefix: "T" }, // Khu thanh toán, tiền tố T
-] as const; // as const để giữ nguyên kiểu literal
+const LAM_MOI_MS = 30_000;
 
-// Hàm xác định khu vực của một lịch hẹn dựa trên tên dịch vụ
-function zoneOf(a: DisplayAppt): string {
-  // Lấy tên dịch vụ và chuyển thành chữ thường để so sánh
-  const svc = (a.service?.name ?? "").toLowerCase();
-  // Nếu tên dịch vụ chứa "siêu âm" hoặc "sieu am" (không dấu)
-  if (svc.includes("siêu âm") || svc.includes("sieu am")) {
-    return "sa"; // Trả về khu siêu âm
-  }
-  // Nếu tên dịch vụ chứa "xét nghiệm" hoặc "xet nghiem" (không dấu)
-  if (svc.includes("xét nghiệm") || svc.includes("xet nghiem")) return "xn"; // Trả về khu xét nghiệm
-  return "kham"; // Mặc định trả về khu khám bác sĩ
+/** "994" + tiền tố "C" → "C994"; giữ ba chữ số cho dễ đọc từ xa. */
+function soHienThi(queueNumber: string | null, prefix?: string): string {
+  const so = (queueNumber ?? "").trim();
+  if (!so) return "—";
+  if (!prefix) return so;
+  return /^\d+$/.test(so) ? `${prefix}${so.padStart(3, "0")}` : `${prefix}${so}`;
 }
 
-// Component chính DisplayBoard — hiển thị bảng gọi số trên màn hình TV
-export default function DisplayBoard({ appts }: Props) {
-  // State lưu thời gian hiện tại, khởi tạo với thời điểm render
+export default function DisplayBoard({
+  zones,
+  items,
+  clinicName,
+  footerText,
+  footerInfo,
+}: Props) {
+  const router = useRouter();
   const [now, setNow] = useState(() => new Date());
 
-  // useEffect chạy một lần khi component mount
   useEffect(() => {
-    // Tạo interval cập nhật thời gian mỗi 30 giây (30_000 ms)
-    const t = setInterval(() => setNow(new Date()), 30_000);
-    // Cleanup: xóa interval khi component unmount để tránh rò rỉ bộ nhớ
+    const t = setInterval(() => {
+      setNow(new Date());
+      // Đây mới là phần "tự làm mới" thật. Bản trước chỉ gọi setNow() — nhích
+      // cái đồng hồ trên góc màn hình trong khi bảng số đứng im cả buổi.
+      router.refresh();
+    }, LAM_MOI_MS);
     return () => clearInterval(t);
-  }, []); // Mảng dependency rỗng — chỉ chạy một lần
+  }, [router]);
 
-  // Số đang gọi = lịch CHECKED_IN / IN_PROGRESS gần nhất theo giờ
-  // Lọc các lịch hẹn có trạng thái CHECKED_IN (đã check-in) hoặc IN_PROGRESS (đang xử lý)
-  const called = appts
-    .filter((a) => a.status === "CHECKED_IN" || a.status === "IN_PROGRESS")
-    // Sắp xếp theo thời gian bắt đầu tăng dần (lịch sớm nhất trước)
-    .sort((a, b) => +new Date(a.slot_start) - +new Date(b.slot_start));
+  const dangCho = items.filter((m) => m.waiting);
+  const theoKhu = (key: string) => dangCho.filter((m) => m.zone_key === key);
 
-  // Hàm lọc danh sách đang gọi theo khu vực (dùng startsWith để khớp "sa1", "sa2"...)
-  const byZone = (zone: string) =>
-    called.filter((a) => zoneOf(a).startsWith(zone));
-
-  // Định dạng thời gian hiện tại theo giờ Việt Nam (HH:mm)
-  const timeStr = now.toLocaleTimeString("vi-VN", {
-    hour: "2-digit", // Hiển thị giờ 2 chữ số
-    minute: "2-digit", // Hiển thị phút 2 chữ số
-    timeZone: VN_TZ, // Múi giờ Việt Nam
+  const gio = now.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: VN_TZ,
   });
-  // Định dạng ngày hiện tại theo tiếng Việt (Thứ, ngày/tháng/năm)
-  const dateStr = now.toLocaleDateString("vi-VN", {
-    weekday: "long", // Hiển thị tên thứ đầy đủ (Thứ Hai, Thứ Ba...)
-    day: "2-digit", // Ngày 2 chữ số
-    month: "2-digit", // Tháng 2 chữ số
-    year: "numeric", // Năm đầy đủ
-    timeZone: VN_TZ, // Múi giờ Việt Nam
+  const thu = now.toLocaleDateString("vi-VN", {
+    weekday: "long",
+    timeZone: VN_TZ,
+  });
+  const ngay = now.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: VN_TZ,
   });
 
   return (
-    // Container chính: toàn màn hình, nền tối, chữ trắng, bố cục dọc
-    <div className="flex h-screen flex-col bg-ink text-white">
-      {/* Header */}
-      {/* Phần đầu trang: logo + tên + thời gian */}
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-4">
-        {/* Phần logo và tên hệ thống */}
-        <div className="flex items-center gap-3">
-          {/* Logo hình tròn với chữ C */}
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-lg font-bold">
-            C
-          </div>
-          <div>
-            {/* Tên hệ thống */}
-            <div className="text-lg font-semibold">ClinicAI</div>
-            {/* Mô tả nhỏ */}
-            <div className="text-xs text-white/60">CONNECTED CLINIC WORKFLOW</div>
-          </div>
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+      <header className="flex items-center justify-between gap-6 border-b border-slate-200 bg-white px-8 py-4">
+        <div className="text-2xl font-bold tracking-tight text-teal-700">
+          {clinicName || "ClinicAI"}
         </div>
-        {/* Phần hiển thị thời gian và ngày */}
-        <div className="text-right">
-          {/* Giờ hiện tại, chữ to đậm */}
-          <div className="text-3xl font-bold tabular-nums">{timeStr}</div>
-          {/* Ngày hiện tại, chữ nhỏ mờ */}
-          <div className="text-sm text-white/60">{dateStr}</div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold tracking-wide text-slate-800 xl:text-3xl">
+            PHÒNG CHỜ — THÔNG BÁO LƯỢT KHÁM
+          </h1>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Kính chào Quý khách! {clinicName || "ClinicAI"} luôn đồng hành cùng
+            sức khoẻ của bạn.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-4xl font-bold tabular-nums text-teal-700">
+            {gio}
+          </div>
+          <div className="border-l border-slate-200 pl-4 text-sm leading-tight text-slate-500">
+            <div className="capitalize">{thu}</div>
+            <div className="tabular-nums">{ngay}</div>
+          </div>
         </div>
       </header>
 
-      {/* Main: 6 khu */}
-      {/* Phần chính: lưới 6 cột hiển thị 6 khu vực */}
-      <main className="grid flex-1 grid-cols-3 gap-4 p-6 lg:grid-cols-6">
-        {/* Lặp qua từng khu vực trong ZONES */}
-        {ZONES.map((z) => {
-          // Lấy danh sách lịch đang gọi trong khu vực này
-          const rows = byZone(z.key);
-          // Lịch đang gọi hiện tại = lịch đầu tiên trong danh sách
-          const current = rows[0] ?? null;
-          // Danh sách tiếp theo = 3 lịch kế tiếp
-          const next = rows.slice(1, 4);
+      <main className="grid flex-1 grid-cols-2 gap-4 p-5 md:grid-cols-3 xl:grid-cols-6">
+        {zones.map((z) => {
+          const rows = theoKhu(z.key);
+          const dangGoi = rows.find((m) => m.is_current) ?? rows[0] ?? null;
+          const conLai = rows.filter((m) => m !== dangGoi);
+          const tiepTheo = conLai[0] ?? null;
+          const xepHang = conLai.slice(1, 10);
+
           return (
-            // Card của từng khu vực
             <section
-              key={z.key} // Key duy nhất cho mỗi khu
-              className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-4"
+              key={z.key}
+              className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
             >
-              {/* Tên khu vực */}
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-white/60">
+              <h2 className="border-b border-slate-100 px-3 py-2.5 text-center text-sm font-bold uppercase tracking-wide text-teal-700">
                 {z.label}
               </h2>
-              {/* Phần hiển thị số đang gọi */}
-              <div className="mt-3 flex flex-1 flex-col items-center justify-center">
-                {/* Nếu có lịch đang gọi */}
-                {current ? (
+
+              {/* ĐANG GỌI — phần duy nhất người ngồi xa cần đọc được. */}
+              <div className="bg-teal-50/60 px-3 py-4 text-center">
+                <div className="text-[11px] font-semibold tracking-widest text-slate-500">
+                  ĐANG GỌI
+                </div>
+                {/* GỌI TÊN, KHÔNG GỌI SỐ.
+                    
+                    Số vẫn hiện, nhưng nhỏ và ở dưới — nó để đối chiếu, không
+                    phải thứ được đọc lên. Phòng khám tắt hiện tên thì rơi về
+                    số, vì một ô trống không gọi được ai. */}
+                {dangGoi?.patient_name ? (
                   <>
-                    {/* Số thứ tự đang gọi, chữ rất to */}
-                    <div className="text-5xl font-bold tabular-nums text-brand-300">
-                      {current.queue_number ?? "—"}
+                    <div className="mt-1 break-words text-3xl font-bold leading-tight text-teal-700 xl:text-4xl">
+                      {dangGoi.patient_name}
                     </div>
-                    {/* Nhãn "ĐANG GỌI" */}
-                    <div className="mt-1 text-xs text-white/60">ĐANG GỌI</div>
+                    {dangGoi.queue_number ? (
+                      <div className="mt-0.5 text-xs font-semibold tabular-nums text-slate-400">
+                        {soHienThi(dangGoi.queue_number, z.prefix)}
+                      </div>
+                    ) : null}
                   </>
                 ) : (
-                  // Nếu không có lịch đang gọi, hiển thị dấu gạch ngang
-                  <div className="text-3xl font-bold text-white/20">—</div>
+                  <div className="mt-1 text-4xl font-bold tabular-nums leading-none text-teal-700 xl:text-5xl">
+                    {dangGoi ? soHienThi(dangGoi.queue_number, z.prefix) : "—"}
+                  </div>
                 )}
+                {dangGoi?.room_name ? (
+                  <div className="mt-1 text-[11px] font-semibold uppercase text-slate-500">
+                    {dangGoi.room_name}
+                  </div>
+                ) : null}
+                {/* Câu trả lời cho "vì sao người kia vào trước tôi?" */}
+                {dangGoi?.promoted_note ? (
+                  <div className="mt-1 text-[10px] leading-tight text-teal-600">
+                    {dangGoi.promoted_note}
+                  </div>
+                ) : null}
               </div>
-              {/* Phần hiển thị danh sách tiếp theo */}
-              <div className="mt-3 border-t border-white/10 pt-2">
-                {/* Nhãn "Tiếp theo" */}
-                <div className="text-[11px] text-white/40">Tiếp theo</div>
-                <div className="mt-1 space-y-0.5">
-                  {/* Nếu không có lịch tiếp theo */}
-                  {next.length === 0 ? (
-                    // Hiển thị dấu gạch ngang
-                    <div className="text-xs text-white/30">—</div>
-                  ) : (
-                    // Lặp qua danh sách tiếp theo và hiển thị số thứ tự
-                    next.map((a) => (
-                      <div
-                        key={a.id} // Key duy nhất cho mỗi lịch
-                        className="text-sm font-medium tabular-nums text-white/70"
-                      >
-                        {a.queue_number ?? "—"} {/* Số thứ tự hoặc dấu gạch ngang */}
-                      </div>
-                    ))
-                  )}
+
+              <div className="border-t border-slate-100 px-3 py-3 text-center">
+                <div className="text-[11px] font-semibold tracking-widest text-slate-400">
+                  TIẾP THEO
                 </div>
+                <div className="mt-0.5 break-words text-xl font-bold text-slate-700">
+                  {tiepTheo
+                    ? (tiepTheo.patient_name ??
+                      soHienThi(tiepTheo.queue_number, z.prefix))
+                    : "—"}
+                </div>
+              </div>
+
+              <div className="flex-1 border-t border-slate-100 px-2.5 py-2.5">
+                <div className="text-center text-[11px] font-semibold tracking-widest text-slate-400">
+                  ĐANG CHỜ
+                </div>
+                {xepHang.length === 0 ? (
+                  <div className="mt-2 text-center text-xs text-slate-300">—</div>
+                ) : (
+                  <div className="mt-2 grid grid-cols-3 gap-1">
+                    {xepHang.map((m, i) => (
+                      <span
+                        key={`${z.key}-${m.queue_number ?? "?"}-${i}`}
+                        className="truncate rounded-md bg-slate-100 px-1 py-1 text-center text-[11px] font-medium text-slate-600"
+                      >
+                        {m.patient_name ?? soHienThi(m.queue_number, z.prefix)}
+                        {m.promoted ? (
+                          <span className="ml-0.5 align-middle text-[9px] text-teal-600">
+                            ★
+                          </span>
+                        ) : null}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           );
         })}
       </main>
 
-      {/* Footer */}
-      {/* Phần chân trang: thông báo và thông tin liên hệ */}
-      <footer className="flex items-center justify-between border-t border-white/10 px-8 py-3 text-sm text-white/50">
-        {/* Thông báo chờ đến lượt */}
-        <div>Vui lòng chờ đến lượt số của mình</div>
-        {/* Thông tin WiFi và hotline */}
-        <div>WiFi: Dr4Women · Hotline: 1900 0000</div>
+      <footer className="border-t border-slate-200 bg-white px-8 py-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs text-slate-500">
+          <span className="font-bold uppercase text-teal-700">
+            Hướng dẫn dành cho Quý khách
+          </span>
+          <span>{footerText || "Vui lòng theo dõi số thứ tự trên màn hình và giữ trật tự trong khu vực chờ."}</span>
+          <span>Khi đến lượt, vui lòng di chuyển đến đúng khu vực được gọi.</span>
+          <span className="text-teal-700">★ = khách đã đặt lịch trước</span>
+          {footerInfo ? <span>{footerInfo}</span> : null}
+        </div>
       </footer>
     </div>
   );

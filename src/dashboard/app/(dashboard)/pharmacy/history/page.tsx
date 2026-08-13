@@ -2,6 +2,7 @@
 // Tra cứu bản ghi thuốc đã cấp cho từng bệnh nhân (read-only, bất biến).
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { motBanGhi } from "../../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import HistoryBoard from "./HistoryBoard";
 
@@ -14,10 +15,18 @@ export default async function PharmacyHistoryPage() {
   const { data: records, error } = await supabase
     .from("prescription")
     .select(
-      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note, created_at,
+      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
+       dispensed_qty, unit, dispense_status, dispensed_at, created_at,
        patient:clinic_patient_id(full_name, phone_primary)`,
     )
-    .order("created_at", { ascending: false })
+    // "LỊCH SỬ BÀN GIAO" PHẢI LÀ THUỐC ĐÃ RA KHỎI KHO.
+    //
+    // Bản trước đọc CẢ BẢNG prescription không lọc gì, nên nó liệt kê mọi đơn
+    // bác sĩ vừa kê và gọi đó là "đã bàn giao". Không một thao tác bàn giao nào
+    // từng xảy ra, mà người quản lý nhìn vào sẽ tin thuốc đã ra khỏi kho. Đó là
+    // màn hình nói dối, không phải màn hình thiếu dữ liệu.
+    .gt("dispensed_qty", 0)
+    .order("dispensed_at", { ascending: false })
     .limit(200);
 
   if (error) {
@@ -37,7 +46,7 @@ export default async function PharmacyHistoryPage() {
   };
   const normalized = (records ?? []).map((r: Raw) => ({
     ...r,
-    patient: r.patient?.[0] ?? null,
+    patient: motBanGhi(r.patient),
   }));
 
   return <HistoryBoard records={normalized} />;

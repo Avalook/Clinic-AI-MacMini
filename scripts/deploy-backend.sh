@@ -166,6 +166,76 @@ fi
 
 "${COMPOSE[@]}" config --quiet
 
+# ── Thư mục ổ bind phải TỒN TẠI TRƯỚC, và thuộc về người deploy ──────────────
+#
+# CHUYỆN ĐÃ XẢY RA (đo 08/08/2026). `.media/production` không tồn tại lúc `up`
+# đầu tiên, nên Docker tự tạo nó — bằng quyền của daemon, tức **root**, chế độ
+# 755. Container thì chạy bằng `appuser` (uid 1000). Kết quả:
+#
+#     docker exec … touch /var/lib/clinicai/media/x  →  Permission denied
+#
+# Backend KHÔNG GHI NỔI một tấm ảnh siêu âm nào, suốt từ ngày dựng. Và nó hỏng
+# im lặng theo kiểu tệ nhất: không ai upload nên không ai gặp lỗi, cho tới hôm
+# tính năng được bật lên và mọi lần tải đều trả 500.
+#
+# `mkdir -p` chạy bằng chính người deploy (uid 1000 = appuser trong ảnh) nên
+# Docker gắn vào một thư mục đã có, đúng chủ. Chạy lại bao nhiêu lần cũng không
+# đổi gì thêm.
+MEDIA_BIND="$(env_value MEDIA_DIR)"
+MEDIA_BIND="${MEDIA_BIND:-./.media}"
+OPS_BIND="$(env_value OPS_STATUS_DIR)"
+OPS_BIND="${OPS_BIND:-./.ops-status}"
+APP_ENV_VALUE="$(env_value APP_ENV)"
+for d in "${MEDIA_BIND}/${APP_ENV_VALUE}" "${OPS_BIND}/${APP_ENV_VALUE}"; do
+  case "$d" in
+    "~/"*) d="$HOME/${d#\~/}" ;;
+    /*) : ;;
+    *) d="${REPO}/${d#./}" ;;
+  esac
+  mkdir -p "$d" || {
+    echo "!! không tạo được thư mục ổ bind: $d" >&2
+    exit 1
+  }
+done
+
+# ── Lược đồ có đi trước code không ────────────────────────────────────────────
+#
+# CHUYỆN ĐÃ XẢY RA (06/08). Deploy một bản code đọc tám cột mới của bảng `staff`
+# trong khi migration tạo chúng CHƯA được áp. Kết quả: `/api/v1/staff` trả 500,
+# màn Quản lý nhân sự trắng — và không có gì trong quy trình deploy nói ra, vì
+# health check vẫn xanh: `/health` không chạm bảng đó.
+#
+# Tách lược đồ khỏi deploy là quyết định ĐÚNG (xem đầu file): schema cần người
+# xem, deploy thì không. Nhưng tách mà không kiểm nghĩa là thứ tự đúng phụ thuộc
+# vào trí nhớ của người bấm.
+#
+# CẢNH BÁO, KHÔNG CHẶN: có lần deploy cố ý đi trước migration (code mới chưa
+# dùng cột mới). Nhưng nó phải nói ra, và nói TRƯỚC khi dựng ảnh.
+if [ -n "${CLINIC_DB_CONTAINER:-}" ]; then
+  _applied="$(docker exec "$CLINIC_DB_CONTAINER" \
+      psql -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" \
+      -tAc "SELECT version FROM supabase_migrations.schema_migrations" \
+      2>/dev/null || true)"
+  if [ -n "$_applied" ]; then
+    _missing=""
+    for _f in "$REPO/supabase/migrations"/*.sql; do
+      [ -e "$_f" ] || continue
+      _v="$(basename "$_f" | cut -d_ -f1)"
+      if ! printf '%s\n' "$_applied" | tr -d ' \r' | grep -qx "$_v"; then
+        _missing="$_missing $_v"
+      fi
+    done
+    if [ -n "$_missing" ]; then
+      echo ""
+      echo "  !! LƯỢC ĐỒ ĐANG ĐI SAU CODE. Migration chưa áp:$_missing"
+      echo "     Nếu bản code này đọc cột mới thì endpoint dùng nó sẽ trả 500,"
+      echo "     và health check vẫn xanh vì /health không chạm bảng đó."
+      echo "     Áp trước: ./scripts/apply-pending-migrations.sh --apply"
+      echo ""
+    fi
+  fi
+fi
+
 echo "==> [2/6] snapshot current images for rollback"
 OLD_API="$(docker image inspect -f '{{.Id}}' "clinicai-api:${TAG}"       2>/dev/null || true)"
 OLD_DASH="$(docker image inspect -f '{{.Id}}' "clinicai-dashboard:${TAG}" 2>/dev/null || true)"
@@ -298,4 +368,21 @@ fi
 printf 'source=%s\nenv=%s\n' "$RELEASE_SOURCE" "$ENV_FILE" > "${ACTIVE_STATE_FILE}.tmp"
 mv "${ACTIVE_STATE_FILE}.tmp" "$ACTIVE_STATE_FILE"
 echo "==> [6/6] deployment verified at $(git rev-parse HEAD)"
+
+# DỌN BỘ NHỚ TẠM CỦA TRÌNH DỰNG ẢNH — sau khi đã xác minh xong, không sớm hơn.
+#
+# Mỗi lần deploy là một lần `compose build`, và Docker giữ lại mọi lớp trung
+# gian của mọi lần dựng. Ngày 08/08/2026 đo trên VPS: 408 mục, **30,03 GB**,
+# không mục nào đang dùng — chiếm 30 trong 33 GB đã dùng của cả ổ đĩa. Đĩa còn
+# 15 GB và đang tiến đều tới 0, mà không có gì cảnh báo: `df` không biết phân
+# biệt "dữ liệu bệnh nhân" với "rác của lần dựng tuần trước".
+#
+# Đặt SAU bước xác minh, vì nếu đứng trước thì lần rollback ngay sau đó phải
+# dựng lại từ đầu — đúng lúc đang hỏng và đang vội.
+#
+# `|| true`: dọn rác thất bại không phải lý do để gọi một bản deploy đã chạy
+# tốt là hỏng.
+truoc=$(docker system df --format '{{.Type}}|{{.Size}}' 2>/dev/null | awk -F'|' '/^Build/{print $2}')
+docker builder prune -af --filter 'until=24h' >/dev/null 2>&1 || true
+echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đĩa còn: $(df -h / | awk 'NR==2{print $4}')"
 echo "==> deploy ($ENVN) complete."

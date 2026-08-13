@@ -190,7 +190,7 @@ async function DoctorTasks(
 }
 
 const SELECT = `
-  id, slot_start, status, booking_channel, cancellation_reason, cancelled_at,
+  id, slot_start, status, booking_channel, cancellation_reason, ly_do_huy_ma, cancelled_at,
   patient:patient!clinic_patient_id (
     clinic_patient_id, full_name, patient_code, phone_primary,
     phone_secondary, date_of_birth, location_id, gender, ethnicity,

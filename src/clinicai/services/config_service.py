@@ -38,8 +38,16 @@ from clinicai.core.exceptions import SafetyGateError
 logger = structlog.get_logger()
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
-# Everyone works a shift, so everyone may sign up for one.
-ROSTER_ROLES: frozenset[ClinicRole] = frozenset(ClinicRole)
+
+# LUỒNG TỰ ĐĂNG KÝ CA ĐANG ĐÓNG (Quang, 07/08/2026): quản lý tự xếp lịch cho
+# mọi người rồi bấm áp dụng; nhân viên chỉ xem. Đây là ĐÓNG chứ không phải bỏ —
+# bảng đăng ký và luồng duyệt vẫn còn nguyên để mở lại khi cần đường xin đổi ca.
+#
+# Phải siết ở ĐÂY chứ không chỉ ẩn bảng ngoài giao diện. Ẩn nút mà để nguyên
+# đường ghi thì bất kỳ ai cũng còn POST thẳng vào /api/v1/roster/shifts được, và
+# ca họ ghi rơi vào PENDING — vô hình với cả người xếp lịch (lưới sửa chỉ đọc
+# APPROVED) lẫn màn chính thức. Treo vĩnh viễn, không ai thấy.
+ROSTER_ROLES: frozenset[ClinicRole] = ROSTER_ADMIN_ROLES
 PRICE_ROLES: frozenset[ClinicRole] = frozenset(
     {
         ClinicRole.CASHIER,
@@ -111,13 +119,41 @@ class RosterService:
         # value is ignored entirely rather than checked.
         assigning_other = is_admin and bool(staff_id)
         target_id = staff_id if assigning_other else identity.staff_id
-        target_name = (
-            (staff_name or "").strip() if assigning_other else identity.full_name
-        )
-        if not target_name:
+        if not target_id:
             raise ValidationError("Thiếu nhân viên")
 
         async with self._pool.acquire() as conn:
+            # TÊN VÀ CHỨC DANH LẤY TỪ DATABASE, KHÔNG TỪ TRÌNH DUYỆT.
+            #
+            # `staff_name` trước đây đi thẳng từ client vào bảng. Nghĩa là một
+            # lời gọi API tự chế ghi được "Giám đốc Sở Y tế" vào lịch trực, và
+            # nó sẽ hiện y như vậy trên màn của cả phòng khám. Cùng lúc, câu
+            # truy vấn này là chỗ duy nhất kiểm được người được xếp có THUỘC
+            # phòng khám này không — trước đây không kiểm.
+            nv = await conn.fetchrow(
+                """
+                SELECT s.full_name, s.primary_department
+                  FROM public.staff s
+                  JOIN public.clinic_membership m
+                    ON m.staff_id = s.id AND m.is_active
+                 WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid AND s.is_active
+                """,
+                target_id,
+                identity.clinic_id,
+            )
+            if nv is None:
+                raise ValidationError(
+                    "Không tìm thấy nhân viên đang làm việc ở phòng khám này."
+                )
+            target_name = nv["full_name"]
+            await self._kiem_pham_vi_tram(
+                conn,
+                clinic_id=identity.clinic_id,
+                station=station,
+                vai=nv["primary_department"],
+                ten=target_name,
+            )
+
             row_id = await conn.fetchval(
                 """
                 INSERT INTO work_roster (
@@ -145,6 +181,141 @@ class RosterService:
             by_staff_id=identity.staff_id,
         )
         return str(row_id)
+
+    async def _kiem_pham_vi_tram(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        station: str,
+        vai: str | None,
+        ten: str,
+    ) -> None:
+        """Chức danh này có được xếp vào vị trí đó không (bảng vai_duoc_vao_tram).
+
+        Quang, 08/08/2026: *"lễ tân chỉ chọn được vị trí của lễ tân, không vào
+        bác sĩ được."* Lọc ở trình duyệt là chưa đủ — một lời gọi API tự chế
+        không đi qua trình duyệt.
+        """
+        # Màn hình phòng chờ là cái tivi treo tường, không phải người. Nó chưa
+        # bao giờ có trong ma trận nên nhánh fail-open dưới đây sẽ cho nó qua.
+        if vai == ClinicRole.DISPLAY.value:
+            raise ValidationError("Màn hình phòng chờ không phải nhân sự để xếp ca.")
+
+        rows = await conn.fetch(
+            "SELECT tram_ma FROM public.vai_duoc_vao_tram "
+            " WHERE clinic_id = $1::uuid AND vai = $2 AND is_active",
+            clinic_id,
+            vai,
+        )
+        # CHƯA KHAI THÌ CHO QUA, có ghi log.
+        #
+        # Phòng khám mới cài đặt chưa có dòng nào trong ma trận. Chặn hết ở đó
+        # nghĩa là màn xếp lịch chết câm ngay ngày đầu, và người dùng không có
+        # cách nào tự gỡ. Bỏ sót một ca xếp nhầm nhẹ hơn nhiều.
+        if not rows:
+            logger.warning(
+                "roster_station_scope_empty",
+                clinic_id=clinic_id,
+                vai=vai,
+                station=station,
+            )
+            return
+
+        hop_le = {r["tram_ma"] for r in rows}
+        if station not in hop_le:
+            raise ValidationError(
+                f"{ten} không được xếp vào vị trí này. "
+                f"Vị trí hợp lệ: {', '.join(sorted(hop_le))}."
+            )
+
+    async def tram_cho_nhan_vien(
+        self, *, identity: StaffIdentity, staff_id: str
+    ) -> dict[str, Any]:
+        """Danh sách mã vị trí mà nhân viên này được xếp vào.
+
+        Màn xếp lịch gọi cái này để dựng ô "Vị trí" — cùng một nguồn với chỗ
+        thi hành, nên giao diện không thể hứa một đằng rồi backend từ chối một
+        nẻo.
+        """
+        async with self._pool.acquire() as conn:
+            nv = await conn.fetchrow(
+                """
+                SELECT s.full_name, s.primary_department
+                  FROM public.staff s
+                  JOIN public.clinic_membership m
+                    ON m.staff_id = s.id AND m.is_active
+                 WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid AND s.is_active
+                """,
+                staff_id,
+                identity.clinic_id,
+            )
+            if nv is None:
+                raise NotFoundError("Không tìm thấy nhân viên này.")
+            rows = await conn.fetch(
+                "SELECT tram_ma FROM public.vai_duoc_vao_tram "
+                " WHERE clinic_id = $1::uuid AND vai = $2 AND is_active "
+                " ORDER BY tram_ma",
+                identity.clinic_id,
+                nv["primary_department"],
+            )
+        return {
+            "vai": nv["primary_department"],
+            # `chua_khai` nói thẳng "phòng khám chưa cấu hình" thay vì để giao
+            # diện đọc danh sách rỗng thành "người này không làm được gì".
+            "chua_khai": not rows,
+            "tram": [r["tram_ma"] for r in rows],
+        }
+
+    async def ma_tran_vi_tri(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Cả ma trận vai × vị trí, cho màn cấu hình của quản lý."""
+        rows = await self._pool.fetch(
+            "SELECT tram_ma, vai, is_active, ghi_chu "
+            "  FROM public.vai_duoc_vao_tram WHERE clinic_id = $1::uuid "
+            " ORDER BY tram_ma, vai",
+            identity.clinic_id,
+        )
+        return [dict(r) for r in rows]
+
+    async def dat_vi_tri_cho_vai(
+        self, *, identity: StaffIdentity, tram_ma: str, vai: str, cho_phep: bool
+    ) -> dict[str, Any]:
+        """Bật/tắt một ô của ma trận.
+
+        Không xoá dòng khi tắt: một ô từng bật rồi tắt là một QUYẾT ĐỊNH, và
+        xoá nó đi thì lần rà sau sẽ có người bật lại rồi ngạc nhiên vì sao
+        trước đó không có.
+        """
+        if identity.role not in ROSTER_ADMIN_ROLES:
+            raise SafetyGateError("Chỉ quản lý được sửa phạm vi vị trí.")
+        tram_ma = (tram_ma or "").strip()
+        vai = (vai or "").strip()
+        if not tram_ma or not vai:
+            raise ValidationError("Thiếu vị trí hoặc chức danh.")
+        if vai == ClinicRole.DISPLAY.value:
+            raise ValidationError("Màn hình phòng chờ không phải nhân sự để xếp ca.")
+        await self._pool.execute(
+            """
+            INSERT INTO public.vai_duoc_vao_tram
+                (clinic_id, tram_ma, vai, is_active, ghi_chu)
+            VALUES ($1::uuid, $2, $3, $4, 'quản lý đặt tay')
+            ON CONFLICT (clinic_id, tram_ma, vai)
+            DO UPDATE SET is_active = EXCLUDED.is_active,
+                          ghi_chu   = EXCLUDED.ghi_chu
+            """,
+            identity.clinic_id,
+            tram_ma,
+            vai,
+            cho_phep,
+        )
+        logger.info(
+            "roster_station_scope_set",
+            tram_ma=tram_ma,
+            vai=vai,
+            cho_phep=cho_phep,
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True}
 
     async def decide(
         self,
@@ -203,6 +374,173 @@ class RosterService:
                     roster_id,
                     identity.clinic_id,
                 )
+
+    async def apply_week(
+        self, *, week_start: date, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Quản lý chốt lịch trực của một tuần.
+
+        Trước khi có việc này, "tuần đã xếp" và "tuần đã chốt" là một — nên một
+        bản nháp trải sẵn từ mẫu tuần cũng khoá được ô đặt lịch và cũng sinh
+        được cảnh báo "bác sĩ không trực hôm đó". Xem 20260808000001.
+
+        Áp dụng lại một tuần đã áp dụng KHÔNG phải lỗi: quản lý sửa thêm vài ca
+        rồi bấm lại là chuyện thường. Chỉ cập nhật lại dấu thời gian và người bấm.
+        """
+        mon = week_start_of(week_start)
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                so_ca = await conn.fetchval(
+                    "SELECT count(*) FROM work_roster "
+                    "WHERE clinic_id = $1::uuid AND week_start = $2",
+                    identity.clinic_id,
+                    mon,
+                )
+                if not so_ca:
+                    # Áp dụng một tuần trống nghĩa là tuyên bố "tuần này không
+                    # ai đi làm" — và vì lịch trực là luật cao nhất, nó sẽ TỪ
+                    # CHỐI mọi lượt đặt của cả tuần. Không để việc đó xảy ra do
+                    # bấm nhầm.
+                    raise ValidationError(
+                        "Tuần này chưa xếp ca nào. Xếp lịch trước rồi mới áp dụng."
+                    )
+
+                await conn.execute(
+                    """
+                    INSERT INTO roster_week
+                        (clinic_id, week_start, applied_by_staff_id)
+                    VALUES ($1::uuid, $2, $3::uuid)
+                    ON CONFLICT (clinic_id, week_start) DO UPDATE
+                        SET applied_at = now(),
+                            applied_by_staff_id = EXCLUDED.applied_by_staff_id
+                    """,
+                    identity.clinic_id,
+                    mon,
+                    identity.staff_id,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO event_log
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, source, occurred_at)
+                    VALUES ($1::uuid, 'roster.week_applied', 'roster_week',
+                            gen_random_uuid(),
+                            jsonb_build_object('week_start', $2::text,
+                                               'so_ca', $3::int,
+                                               'by_staff_id', $4::text),
+                            'config.roster', now())
+                    """,
+                    identity.clinic_id,
+                    mon.isoformat(),
+                    so_ca,
+                    identity.staff_id,
+                )
+
+        # TUẦN VỪA CÓ NGƯỜI TRỰC → BÁO CSKH, nhưng CHỈ khi có ai đó đang đợi.
+        #
+        # Quang 09/08/2026 mô tả đúng vòng này: khách đặt vào tuần chưa xếp lịch
+        # → chờ quản lý xếp lịch làm việc → "khi đó mới có lịch của bác sĩ, thì
+        # CSKH mới có lịch mà gọi lại cho khách để xác nhận lịch và bác sĩ".
+        # Mắt xích cuối chưa từng tồn tại: `thong_bao` trước nay chỉ có đúng hai
+        # người ghi vào, và không cái nào là chỗ này.
+        #
+        # ĐẾM TRƯỚC KHI GỬI. Áp lịch cho một tuần không ai đặt là việc hằng
+        # tuần của quản lý; bắn thông báo cho CSKH mỗi lần như thế là dạy họ
+        # cách phớt lờ cái chuông. Không có lịch nào chờ thì im lặng mới đúng.
+        cho_xep = await self._pool.fetchval(
+            """
+            SELECT count(*) FROM public.appointment
+             WHERE clinic_id = $1::uuid
+               AND doctor_id IS NULL
+               AND status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                  'COMPLETED')
+               AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                     BETWEEN $2 AND $2 + 6
+            """,
+            identity.clinic_id,
+            mon,
+        )
+        if cho_xep:
+            await self._bao_cskh_tuan_da_co_lich(
+                week_start=mon, so_lich_cho=int(cho_xep), identity=identity
+            )
+
+        logger.info(
+            "roster_week_applied",
+            week_start=mon.isoformat(),
+            so_ca=so_ca,
+            cho_xep_bac_si=int(cho_xep or 0),
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True, "week_start": mon.isoformat(), "so_ca": so_ca}
+
+    async def _bao_cskh_tuan_da_co_lich(
+        self, *, week_start: date, so_lich_cho: int, identity: StaffIdentity
+    ) -> None:
+        """Nhắn vai CSKH rằng tuần này đã chốt lịch trực.
+
+        Nuốt lỗi cùng lý do như `_bao_cskh_da_co_bac_si` ở booking_service: lịch
+        trực ĐÃ áp và đã commit. Ném lỗi ở đây là báo hỏng cho một việc đã xong,
+        và quản lý sẽ bấm "Áp dụng tuần" lần nữa.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        try:
+            het = week_start + timedelta(days=6)
+            await ThongBaoService(self._pool).goi(
+                identity=identity,
+                vai_nhan=ClinicRole.CSKH.value,
+                nguon="tuan_lich_truc",
+                # Khoá theo TUẦN: quản lý sửa vài ca rồi bấm áp lại là chuyện
+                # thường (xem docstring của apply_week), và đó vẫn là một tin.
+                nguon_id=week_start.isoformat(),
+                muc_do="THUONG",
+                tieu_de=(f"Tuần {week_start:%d/%m}–{het:%d/%m} đã chốt lịch trực"),
+                noi_dung=(
+                    f"Có {so_lich_cho} lịch hẹn trong tuần này đang chờ xếp bác "
+                    "sĩ. Xếp xong lịch nào thì gọi xác nhận giờ khám và tên bác "
+                    "sĩ với khách của lịch đó."
+                ),
+                # KHÔNG TRỎ `/appointments/cho-xep-bac-si` NỮA — CSKH KHÔNG VÀO
+                # ĐƯỢC ĐƯỜNG ẤY.
+                #
+                # `roles.ts` chỉ mở màn Chờ xếp bác sĩ cho MANAGEMENT và
+                # TRUONG_CA, nên vai CSKH bấm "Bấm để xử lý" là bị đá thẳng về
+                # /home, không một lời giải thích. Một thông báo dẫn vào tường
+                # còn tệ hơn thông báo không bấm được: người dùng học được rằng
+                # cái chuông này nói dối.
+                #
+                # Việc của CSKH ở đây là GỌI XÁC NHẬN, tức màn Quản lý khách
+                # hàng. Cố ý KHÔNG kèm bộ lọc tuần: `period=week` của màn ấy
+                # tính theo TUẦN HIỆN TẠI, còn quản lý thường áp lịch cho tuần
+                # SAU — một bộ lọc đúng cú pháp mà sai tuần thì tệ hơn không lọc,
+                # vì danh sách rỗng đọc thành "không có việc gì".
+                #
+                # Từng lịch cụ thể vẫn được đánh thức riêng bằng thông báo
+                # `bac_si_da_xep`, thứ đã trỏ đúng khách và đúng việc.
+                duong_dan="/customers",
+            )
+        except Exception:  # noqa: BLE001 — xem docstring
+            logger.warning(
+                "bao_cskh_tuan_da_co_lich_that_bai",
+                week_start=week_start.isoformat(),
+                exc_info=True,
+            )
+
+    async def applied_weeks(
+        self, *, identity: StaffIdentity, tu: date, den: date
+    ) -> list[str]:
+        """Những tuần đã áp dụng trong khoảng — để giao diện biết tuần nào dự kiến."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT week_start FROM roster_week "
+                " WHERE clinic_id = $1::uuid AND week_start BETWEEN $2 AND $3"
+                " ORDER BY week_start",
+                identity.clinic_id,
+                week_start_of(tu),
+                week_start_of(den),
+            )
+        return [r["week_start"].isoformat() for r in rows]
 
 
 class PriceListService:

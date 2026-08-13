@@ -19,6 +19,8 @@ import { getSupabaseServer } from "../../../../lib/supabase-server";
 import BookingPolicyCard from "../BookingPolicyCard";
 // Nhập component OverridePolicyCard và kiểu DoctorOpt
 import OverridePolicyCard, { type DoctorOpt } from "../OverridePolicyCard";
+import LuatBacSiCard, { type LuatBacSi } from "../LuatBacSiCard";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 // Nhập component MeasuredDurationCard và kiểu DurationStatRow
 import MeasuredDurationCard, {
   type DurationStatRow,
@@ -39,7 +41,8 @@ export default async function BookingPolicyPage() {
   // Lấy client Supabase phía server (dùng cookie phiên đăng nhập)
   const supabase = await getSupabaseServer();
   // Chạy song song các truy vấn để tối ưu hiệu năng
-  const [bookingPolicy, staffRes, rules, durationRes] = await Promise.all([
+  const [bookingPolicy, staffRes, rules, durationRes, svcRes, luatRes] =
+    await Promise.all([
     getBookingPolicy(), // Lấy luật đặt lịch hiện tại
     listBookableDoctors(), // Lấy danh sách bác sĩ có thể đặt lịch
     listBookingRules(), // Lấy danh sách các luật override
@@ -56,6 +59,16 @@ export default async function BookingPolicyPage() {
       )
       .order("sample_count", { ascending: false }) // Sắp xếp theo số mẫu giảm dần
       .limit(40), // Giới hạn 40 dòng
+    // Danh mục dịch vụ cho thẻ "bắt buộc bác sĩ". Chỉ dịch vụ ĐANG BẬT: khai
+    // luật cho một dịch vụ đã ẩn là khai một luật không bao giờ chạy.
+    supabase
+      .from("service_type")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name"),
+    // Luật bắt buộc bác sĩ — qua FastAPI, vì bảng luật không mở đường ghi cho
+    // client và đường đọc cũng đi cùng một cửa cho nhất quán.
+    fetchFromBackend<{ items: LuatBacSi[] }>("/api/v1/booking-rules/doctor"),
   ]);
 
   // DoctorOpt dùng `name`, helper trả `label` — đổi tên trường, không đổi nguồn.
@@ -114,6 +127,14 @@ export default async function BookingPolicyPage() {
 
       {/* Card luật override theo bác sĩ/khung giờ */}
       <OverridePolicyCard doctors={doctors} policy={bookingPolicy} rules={rules} />
+
+      <LuatBacSiCard
+        services={((svcRes.data as { id: string; name: string }[] | null) ?? []).map(
+          (s) => ({ id: s.id, label: s.name }),
+        )}
+        doctors={doctors.map((d) => ({ id: d.id, label: d.name }))}
+        luat={luatRes?.items ?? []}
+      />
 
       {/* Card thống kê thời lượng khám đo được */}
       <MeasuredDurationCard rows={durationRows} />

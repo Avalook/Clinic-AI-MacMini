@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
+import NutGoiBoPhan from "./NutGoiBoPhan";
 import {
   type ActFn,
   LiveBadge,
@@ -79,6 +80,17 @@ function Alerts({
                 />
                 <span style={{ fontWeight: 600, fontSize: 13 }}>{a.message}</span>
               </div>
+              {/* NỬA CÒN THIẾU: nói được với ai. Xem NutGoiBoPhan.tsx. */}
+              <NutGoiBoPhan
+                tieuDe={a.message}
+                noiDung={
+                  a.patients.length > 0
+                    ? `Bệnh nhân: ${a.patients.map((p) => p.name).join(" · ")}`
+                    : a.message
+                }
+                nguonId={a.room_code ?? a.type}
+                khan={a.severity === "critical"}
+              />
               {/* "chỉ rõ phòng VÀ danh sách bệnh nhân bị ảnh hưởng" */}
               {a.patients.length > 0 && (
                 <div

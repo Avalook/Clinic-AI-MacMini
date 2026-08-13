@@ -175,6 +175,57 @@ test_backup_rejects_failed_dump() {
   fi
 }
 
+test_backup_includes_media_files() {
+  # ẢNH SIÊU ÂM KHÔNG NẰM TRONG pg_dump, và cho tới 08/08/2026 chúng không nằm
+  # trong bản sao lưu nào cả — `grep media` trong cả bốn script đều rỗng. Khôi
+  # phục xong sẽ ra một phòng khám đủ bệnh án mà mọi phiếu siêu âm trỏ tới tệp
+  # không còn tồn tại: image_refs đầy khoá, đĩa trống, không lỗi nào báo.
+  make_pg_dump ok
+  local media_root="$TMP_ROOT/media-src"
+  mkdir -p "$media_root/test/clinic-1/ultrasound/us-1"
+  printf 'ANH-SIEU-AM-GIA' > "$media_root/test/clinic-1/ultrasound/us-1/a.jpg"
+  # Tệp đang ghi dở phải bị BỎ: media_service ghi .tmp rồi mới đổi tên, và cất
+  # lại một tệp hỏng là cất lại đúng thứ nó tránh.
+  printf 'GHI-DO' > "$media_root/test/clinic-1/ultrasound/us-1/b.jpg.tmp"
+
+  local media_env="$TMP_ROOT/media.env"
+  { cat "$TEST_ENV"; echo "MEDIA_DIR=$media_root"; } > "$media_env"
+
+  rm -rf "$TEST_HOME/backups/clinicai"
+  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin"     PG_DUMP_BIN="$FAKE_BIN/pg_dump" BACKUP_MIN_ARCHIVE_BYTES=1     BACKUP_ENV_FILE="$media_env"     CLINIC_BACKUP_LOCK="$TMP_ROOT/backup-media.lock"     "$ROOT/scripts/backup-db.sh" || fail "backup failed with media present"
+
+  local archive media
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
+  [ -n "$archive" ] || fail "backup did not create an archive"
+  media="${archive%.sql.gz}_media.tar.gz"
+  [ -f "$media" ] || fail "backup did not create the media artifact"
+  gzip -t "$media" || fail "media artifact failed gzip validation"
+  tar -tzf "$media" | grep -q 'a\.jpg' || fail "media artifact does not contain the image"
+  # `A && fail` LÀ CÁI BẪY dưới `set -e`: khi grep KHÔNG tìm thấy gì (đúng cái
+  # ta muốn), câu lệnh trả 1 và bash 5 trên CI giết cả suite ngay đó — trong khi
+  # bash 3.2 trên macOS bỏ qua. Chạy được ở máy, đỏ trên CI, và thông báo lỗi
+  # nói về một chuyện khác hẳn. Viết thành `if` là hết.
+  if tar -tzf "$media" | grep -q '\.tmp$'; then
+    fail "media artifact kept a half-written .tmp file"
+  fi
+  grep -q '^media_sha256=..*' "${archive}.manifest" ||     fail "manifest does not record the media checksum"
+  grep -qx 'media_file_count=1' "${archive}.manifest" ||     fail "manifest does not record how many media files were archived"
+
+  # Bản khôi phục phải mở ra đúng tệp ấy — "có tệp tar" chưa phải là "khôi phục được".
+  local out="$TMP_ROOT/media-restored"
+  mkdir -p "$out"
+  tar -C "$out" -xzf "$media"
+  [ -f "$out/clinic-1/ultrasound/us-1/a.jpg" ] ||     fail "media artifact does not restore to the original layout"
+  grep -q 'ANH-SIEU-AM-GIA' "$out/clinic-1/ultrasound/us-1/a.jpg" ||     fail "restored media file does not match the original bytes"
+
+  # Và người kiểm phải BẮT được khi tệp media bị hỏng — một tar hỏng vẫn là một
+  # tệp có mặt trong thư mục, và "có bản sao lưu" là câu đọc từ danh sách tệp.
+  printf 'RAC' >> "$media"
+  if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin"        CLINIC_BACKUP_DIR="$TEST_HOME/backups/clinicai"        "$ROOT/scripts/verify-backup.sh" >/dev/null 2>&1; then
+    fail "verifier accepted a corrupted media artifact"
+  fi
+}
+
 test_backup_creates_verified_archive() {
   make_pg_dump ok
   backup_test_env
@@ -358,6 +409,21 @@ test_restore_is_atomic_and_explicit() {
   fi
 }
 
+test_uptime_kuma_setup_is_fail_closed() {
+  local setup="$ROOT/scripts/setup-uptime-kuma.sh"
+  [ -x "$setup" ] || fail "Uptime Kuma setup script is missing or not executable"
+  grep -Fq 'http://api:8000/health/db' "$setup" || \
+    fail "Uptime Kuma must monitor database readiness, not process liveness"
+  grep -Fq 'KUMA_PASS:?set KUMA_PASS' "$setup" || \
+    fail "Uptime Kuma setup must require an explicit admin password"
+  if grep -Fq 'clinicai-kuma-2026' "$setup"; then
+    fail "Uptime Kuma setup contains a default admin password"
+  fi
+  if grep -Fq '`docker cp`' "$setup"; then
+    fail "Uptime Kuma setup executes backticks while rendering its heredoc"
+  fi
+}
+
 test_compose_requires_explicit_runtime_env() {
   grep -Fq 'env_file: ["${CLINIC_ENV_FILE:?' "$ROOT/docker-compose.yml" || \
     fail "compose runtime env is not fail-closed"
@@ -372,8 +438,15 @@ test_deploy_is_pinned_and_serialized() {
   if grep -Eq 'cp +"?\$ENV_FILE"? +\.env|git pull --ff-only *\|\|' "$ROOT/scripts/deploy-backend.sh"; then
     fail "deploy script still copies shared env or swallows pull failure"
   fi
-  grep -Fq 'group: clinicai-macmini-deploy' "$ROOT/.github/workflows/cd.yml" || \
+  # Kiểm CÓ XẾP HÀNG hay không, không kiểm tên nhóm. Bản trước dò đúng chuỗi
+  # 'clinicai-macmini-deploy' — nên khi CD rời khỏi máy Mac (13/08/2026) và nhóm
+  # đổi tên thành 'clinicai-vps-deploy', bài kiểm đỏ vì một lý do không liên quan
+  # gì tới thứ nó bảo vệ. Thứ nó bảo vệ là: prod và staging dùng chung một máy
+  # Docker, nên hai lần deploy không được chồng lên nhau.
+  grep -Eq '^ *group: clinicai-[a-z0-9-]+-deploy$' "$ROOT/.github/workflows/cd.yml" || \
     fail "prod and staging deployments are not globally serialized"
+  grep -Fq 'cancel-in-progress: false' "$ROOT/.github/workflows/cd.yml" || \
+    fail "a queued deploy must wait, not cancel the one already running"
   grep -Fq 'ref: ${{ github.event.workflow_run.head_sha }}' "$ROOT/.github/workflows/cd.yml" || \
     fail "CD does not checkout the triggering commit"
   grep -Fq 'workflow_run:' "$ROOT/.github/workflows/cd.yml" || \
@@ -410,6 +483,22 @@ test_deploy_is_pinned_and_serialized() {
     grep -Fq 'contents: read' "$ROOT/.github/workflows/$workflow" || \
       fail "$workflow does not use least-privilege repository contents access"
   done
+}
+
+test_deploy_precreates_bind_dirs() {
+  # Docker tự tạo thư mục ổ bind bằng quyền DAEMON — tức root — khi nó chưa tồn
+  # tại. Container thì chạy bằng appuser (uid 1000). Đo trên bản thật 08/08:
+  # `touch /var/lib/clinicai/media/x` → Permission denied. Backend không ghi
+  # nổi một tấm ảnh siêu âm nào suốt từ ngày dựng, và hỏng im lặng vì chưa ai
+  # upload. Deploy phải tạo trước, bằng chính người deploy.
+  local deploy="$ROOT/scripts/deploy-backend.sh"
+  grep -Fq 'mkdir -p "$d"' "$deploy" ||     fail "deploy does not pre-create the bind-mount directories"
+  grep -Fq 'MEDIA_BIND' "$deploy" ||     fail "deploy does not resolve MEDIA_DIR before compose up"
+  # Phải chạy TRƯỚC `up -d`, không thì Docker đã tạo bằng root mất rồi.
+  local mkdir_line up_line
+  mkdir_line=$(grep -n 'mkdir -p "$d"' "$deploy" | head -1 | cut -d: -f1)
+  up_line=$(grep -n '"${COMPOSE\[@\]}" up -d' "$deploy" | head -1 | cut -d: -f1)
+  [ -n "$mkdir_line" ] && [ -n "$up_line" ] && [ "$mkdir_line" -lt "$up_line" ] ||     fail "bind directories are created after compose up (too late — Docker already made them root-owned)"
 }
 
 test_deploy_rolls_back_when_initial_up_fails() {
@@ -754,9 +843,11 @@ test_backup_command_preflight_is_explicit
 test_backup_rejects_small_archive_before_publish
 test_backup_lock_rejects_a_concurrent_publisher
 test_restore_is_atomic_and_explicit
+test_uptime_kuma_setup_is_fail_closed
 test_backup_verifier_rejects_stale_and_small_artifacts
 test_compose_requires_explicit_runtime_env
 test_deploy_is_pinned_and_serialized
+test_deploy_precreates_bind_dirs
 test_deploy_rolls_back_when_initial_up_fails
 test_deploy_exact_sha_smoke
 test_boot_is_bash32_safe_and_uses_shared_lock
@@ -764,4 +855,9 @@ test_compose_has_bounded_runtime_defaults
 test_compose_renders_every_profile_safely
 test_repository_hygiene_and_test_doc_are_safe
 test_runbook_installs_the_real_launchdaemon_template
+# ĐỂ CUỐI CÙNG, CÓ CHỦ Ý: bài này cố ý làm hỏng một tệp media để thử người kiểm.
+# Các bài khác lấy "tệp .sql.gz đầu tiên tìm thấy" trong cùng thư mục, nên một
+# tệp hỏng còn sót lại là chúng kiểm nhầm bản sao lưu — và báo một lỗi nói về
+# chuyện khác hẳn.
+test_backup_includes_media_files
 echo "infra safety smoke tests: PASS"

@@ -148,6 +148,21 @@ class PatientUpdateDTO(BaseModel):
     location_id: UUID | None = None
     is_active: bool | None = None
 
+    # KHÔNG PHẢI MỘT CỘT. Đây là thẻ khoá lạc quan: mốc `updated_at` mà máy khách
+    # ĐÃ ĐỌC khi mở hồ sơ. Máy chủ chỉ ghi đè nếu hồ sơ dưới database vẫn đúng mốc
+    # ấy — tức chưa ai chen vào giữa.
+    #
+    # THÊM 11/08/2026 sau phép thử: hai lệnh sửa đồng thời lên cùng một hồ sơ,
+    # CẢ HAI trả 200. Người sửa trước mất trắng và không hề biết. Sổ sự kiện cũng
+    # chỉ ghi được một dòng, nên đến hôm sau cũng không lần lại được ai đã đổi gì.
+    #
+    # Dùng `updated_at` thay vì thêm cột `version`: cột đã có sẵn, luôn được ghi
+    # tường minh ở mỗi lần cập nhật, và không hàng nào NULL (đã đo). Không phải
+    # đổi lược đồ nghĩa là không phải chạy migration bốn ngày trước bàn giao.
+    #
+    # Bỏ trống = không khoá (giữ nguyên hành vi cũ cho các lời gọi chưa cập nhật).
+    sua_luc: datetime | None = None
+
     @field_validator("full_name")
     @classmethod
     def full_name_not_blank(cls, v: str | None) -> str | None:

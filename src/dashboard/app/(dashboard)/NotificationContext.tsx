@@ -10,6 +10,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -35,6 +36,19 @@ export interface Notif {
   title: string;
   detail: string;
   at: string; // giờ nhận, "HH:MM"
+  /** Trang xử lý việc này. Backend đã đặt sẵn (`thong_bao.duong_dan`) từ lúc
+   *  sinh thông báo — ví dụ "Cần xếp bác sĩ" trỏ /appointments/cho-xep-bac-si.
+   *  Bỏ qua nó nghĩa là bắt người đọc tự đoán mình phải đi đâu. */
+  duongDan?: string | null;
+  /** Thông báo KHẨN do Trưởng ca gọi — chuông tô đỏ, không phải xanh. */
+  khan?: boolean;
+  /** Đã bấm "Đánh dấu đã đọc" chưa. ĐỌC ≠ ĐÃ XỬ LÝ: việc vẫn nằm trong danh
+   *  sách, chỉ thôi tính vào chấm đỏ. */
+  daDoc?: boolean;
+  /** `thong_bao.id` — chỉ có với thông báo đến từ máy chủ. Cần để ĐÓNG việc
+   *  (`POST /api/thong-bao/{id}/da-xu-ly`); thông báo ca làm việc sinh ở trình
+   *  duyệt thì không có, và cũng không có việc gì để đóng. */
+  thongBaoId?: string;
 }
 
 interface MyRow {
@@ -51,6 +65,8 @@ interface NotificationCtx {
   unread: number;
   transient: Notif[];
   markAllRead: () => void;
+  /** ĐÓNG một việc: bỏ hẳn khỏi chuông, cho mọi người cùng vai. */
+  danhDauDaXuLy: (thongBaoId: string) => Promise<void>;
   dismissTransient: (key: string) => void;
 }
 
@@ -59,6 +75,7 @@ const Ctx = createContext<NotificationCtx>({
   unread: 0,
   transient: [],
   markAllRead: () => {},
+  danhDauDaXuLy: async () => {},
   dismissTransient: () => {},
 });
 
@@ -75,6 +92,68 @@ export function NotificationProvider({
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [transient, setTransient] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
+
+  // NGUỒN THỨ HAI: Trưởng ca gọi bộ phận (bảng `thong_bao`).
+  //
+  // Provider này ra đời chỉ để nghe quyết định duyệt ca làm việc của CHÍNH
+  // mình. Nhưng nó đã là hạ tầng chuông duy nhất chạy thật trong sản phẩm —
+  // dựng thêm một cái chuông thứ hai cho thông báo điều phối nghĩa là nhân
+  // viên phải học hai chỗ nhìn, và một trong hai sẽ bị bỏ quên.
+  const [thongBao, setThongBao] = useState<Notif[]>([]);
+
+  // ĐỌC HOÀN CHỈNH, KHAI Ở CẤP COMPONENT.
+  //
+  // Trước đây `doc` nằm gọn trong `useEffect`, nên không chỗ nào ngoài vòng
+  // poll gọi lại được nó. Nay `danhDauDaXuLy` cần đúng việc ấy khi máy chủ từ
+  // chối: bỏ một dòng khỏi màn rồi mới biết là không đóng được thì phải trả nó
+  // về ngay, không đợi 20 giây.
+  const docThongBao = useCallback(async () => {
+      try {
+        const res = await fetch("/api/thong-bao", { cache: "no-store" });
+        if (!res.ok) return;
+        const d = (await res.json()) as {
+          items?: {
+            id: string;
+            muc_do: string;
+            tieu_de: string;
+            noi_dung: string;
+            tao_luc: string;
+            duong_dan: string | null;
+            nguoi_goi: string | null;
+            da_doc_luc: string | null;
+          }[];
+        };
+        setThongBao(
+          (d.items ?? []).map((t) => ({
+            key: `tb:${t.id}`,
+            thongBaoId: t.id,
+            approved: false,
+            khan: t.muc_do === "KHAN",
+            daDoc: Boolean(t.da_doc_luc),
+            title: t.tieu_de,
+            duongDan: t.duong_dan,
+            detail:
+              (t.nguoi_goi ? `${t.nguoi_goi} gọi · ` : "") + t.noi_dung,
+            at: new Date(t.tao_luc).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          })),
+        );
+      } catch {
+        /* mạng chập — lần poll sau thử lại */
+      }
+  }, []);
+
+  useEffect(() => {
+    const doc = () => void docThongBao();
+    const first = setTimeout(doc, 0);
+    const id = setInterval(doc, POLL_MS);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, [docThongBao]);
 
   // shownKeys = các quyết định ĐÃ ghi nhận ("id:status"). LƯU localStorage theo
   // staffId để thông báo SỐNG SÓT reload/đổi vai và bắt được cả quyết định xảy ra
@@ -234,15 +313,61 @@ export function NotificationProvider({
 
   function markAllRead() {
     setUnread(0);
+    // TẮT CHẤM ĐỎ Ở CẢ MÁY CHỦ, không chỉ trong tab này.
+    //
+    // Con số trên chuông là `unread` (thông báo tức thời, chỉ sống trong
+    // trình duyệt) CỘNG số thông báo chưa đọc từ máy chủ. `setUnread(0)` một
+    // mình chỉ xoá vế đầu — nên chấm đỏ ở lại, và tải lại trang là nó y nguyên.
+    // Quang: "làm cho mấy báo động cứ hiện đỏ dù đã hoàn thành".
+    //
+    // Đặt cờ tại chỗ TRƯỚC khi máy chủ trả lời: lượt poll kế tiếp còn cách tới
+    // 20 giây, và một cái nút bấm xong không đổi gì trong 20 giây thì người ta
+    // sẽ bấm lại vài lần.
+    setThongBao((ds) => ds.map((t) => ({ ...t, daDoc: true })));
+    void fetch("/api/thong-bao", { method: "POST" }).catch(() => {
+      /* mạng chập — lượt poll sau sẽ trả về trạng thái thật */
+    });
+  }
+
+  /** ĐÓNG VIỆC — khác "đã đọc", và đây là vế lâu nay thiếu hẳn.
+   *
+   *  `cua_toi()` lọc `da_xu_ly_luc IS NULL`, nghĩa là một thông báo chỉ rời
+   *  chuông khi có người nói "xong". Không màn nào từng gọi endpoint ấy, nên
+   *  hàng đợi chỉ dài ra — và một danh sách chỉ dài ra là một danh sách người
+   *  ta thôi đọc.
+   *
+   *  Bỏ khỏi danh sách NGAY tại chỗ: lượt poll kế tiếp còn cách 20 giây, và một
+   *  cái nút bấm xong không đổi gì thì người dùng bấm lại vài lần. Nếu máy chủ
+   *  từ chối, lượt poll sau trả nó về — thà hiện lại một dòng còn hơn giấu một
+   *  việc chưa đóng được. */
+  async function danhDauDaXuLy(thongBaoId: string) {
+    setThongBao((ds) => ds.filter((t) => t.thongBaoId !== thongBaoId));
+    try {
+      const res = await fetch(
+        `/api/thong-bao/${encodeURIComponent(thongBaoId)}/da-xu-ly`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      if (!res.ok) void docThongBao();
+    } catch {
+      void docThongBao();
+    }
   }
 
   return (
     <Ctx.Provider
       value={{
-        notifs,
-        unread,
+        // Thông báo KHẨN lên đầu — chúng là thứ có người đang chờ mình xử lý.
+        notifs: [...thongBao, ...notifs],
+        // CHỈ ĐẾM CÁI CHƯA ĐỌC. Trước đây cộng thẳng `thongBao.length`, tức
+        // mọi việc đang mở đều tính là "mới" mãi mãi.
+        unread: unread + thongBao.filter((t) => !t.daDoc).length,
         transient,
         markAllRead,
+        danhDauDaXuLy,
         dismissTransient: (key) =>
           setTransient((t) => t.filter((x) => x.key !== key)),
       }}

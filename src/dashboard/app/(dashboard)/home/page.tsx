@@ -18,6 +18,8 @@ import HomeCheckin, { type HomeCheckinRow } from "./HomeCheckin";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { vnTodayRangeUtc, fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { doctorName } from "../../../lib/doctor-name";
+import { dongBoTenTrucNhat } from "../../../lib/roster-names";
 import { currentWeekStartVn, weekDates, weekStartOf } from "../../../lib/roster";
 import WeekNav from "../WeekNav";
 import WeeklyAppointmentsTable, {
@@ -41,6 +43,9 @@ interface VisitProgressRow {
   has_clinical_record: boolean;
   has_prescription: boolean;
   paid_kinds: string[];
+  /** Giờ hai mốc giữa của thanh tiến trình (không có trên bảng `visit`). */
+  exam_started_at?: string | null;
+  paid_at?: string | null;
 }
 
 // Chức danh ngắn dùng trong lời chào (vd "Chào bác sĩ Thành").
@@ -57,16 +62,27 @@ const GREET_LABEL: Record<ClinicRole, string> = {
   CASHIER_DV: "thu ngân dịch vụ",
   TRUONG_CA: "trưởng ca",
   PHARMACIST: "dược sĩ",
+  // Không bao giờ chào ai: layout đưa vai này thẳng ra /display.
+  DISPLAY: "màn hình",
 };
 
-// Bỏ tiền tố chức danh khỏi tên ("BS Thành" → "Thành", "ĐD Hà Vũ" → "Hà Vũ").
-function cleanName(name: string): string {
-  return name.replace(/^(BS\s*SA|BS|ĐD|TL)\s+/i, "").trim();
-}
-
+// LỜI CHÀO KHÔNG ĐƯỢC LẶP CHỨC DANH.
+//
+// Quang 09/08/2026: *"chỉ là xin chào CSKH Diệu Hoa thôi"*. Bản trước ghép
+// `GREET_LABEL[role]` vào trước `full_name`, mà `full_name` trên prod đã mang
+// sẵn chức danh ("CSKH · Diệu Hoa") — ra "Xin chào CSKH CSKH · Diệu Hoa". Hàm
+// cắt tiền tố cũ chỉ biết "BS/ĐD/TL", không biết dấu chấm giữa.
+//
+// `doctorName` là chỗ đã giải đúng chuyện này cho mọi màn khác — dùng lại nó.
 function greet(role: ClinicRole | null, staff: ActiveStaff | null): string {
   if (!role || !staff) return "Trang chủ";
-  return `Xin chào ${GREET_LABEL[role]} ${cleanName(staff.full_name ?? staff.short_name)}`;
+  const goc = staff.full_name ?? staff.short_name;
+  const ten = doctorName(goc);
+  if (!ten) return "Trang chủ";
+  // Chuỗi gốc có dấu chấm giữa nghĩa là nó đã mang chức danh, và doctorName giữ
+  // lại chức danh ấy. Chỉ khi tên lưu TRẦN mới ghép chức danh — và ghép từ VAI
+  // ĐANG ĐĂNG NHẬP, thứ biết chắc từ phiên, chứ không đoán từ cái tên.
+  return `Xin chào ${/[·•]/.test(goc) ? ten : `${GREET_LABEL[role]} ${ten}`}`;
 }
 
 export default async function HomePage({
@@ -91,25 +107,17 @@ export default async function HomePage({
   // 2 bảng có tuần ĐỘC LẬP: weekAppt cho Lịch hẹn khám, weekRoster cho Lịch làm
   // việc — bấm nút bảng nào CHỈ đổi tuần bảng đó (không kéo theo bảng kia).
   const { weekAppt: rawWeekAppt, weekRoster: rawWeekRoster } = await searchParams;
-  const weekAppt = rawWeekAppt ? weekStartOf(rawWeekAppt) : currentWeekStartVn();
-  const weekRoster = rawWeekRoster
-    ? weekStartOf(rawWeekRoster)
-    : currentWeekStartVn();
+  // Hai tham số này lấy thẳng từ thanh địa chỉ. Ngày không đọc được thì rơi về
+  // tuần hiện tại — TRANG CHỦ PHẢI MỞ ĐƯỢC. Trước đây `weekStartOf` ném
+  // RangeError trên chuỗi rác, và server component ném thì cả trang rơi vào
+  // error.tsx: một link hỏng là màn hình đầu ngày của cả phòng khám không vào được.
+  const weekAppt =
+    (rawWeekAppt ? weekStartOf(rawWeekAppt) : null) ?? currentWeekStartVn();
+  const weekRoster =
+    (rawWeekRoster ? weekStartOf(rawWeekRoster) : null) ?? currentWeekStartVn();
   const apptDates = weekDates(weekAppt);
   const rosterDates = weekDates(weekRoster);
   const apptStartUtc = vnLocalToUtcISO(weekAppt, "00:00");
-  // Check-in hôm nay (đủ trường hành chính để mở hồ sơ lâm sàng ở cột phải).
-  const CHECKIN_SELECT = `
-    id, slot_start, status, queue_number, booking_channel,
-    patient:patient!clinic_patient_id (
-      clinic_patient_id, patient_code, full_name, date_of_birth,
-      phone_primary, phone_secondary, gender, ethnicity, nationality, occupation,
-      patient_objection, address, guardian_name
-    ),
-    service:service_type!service_type_id ( name ),
-    visit:visit!appointment_id ( checked_in_at )
-  `;
-
   // Trạng thái BN buổi khám hôm nay (chỉ Lễ tân) — đọc visit TẠO HÔM NAY +
   // join patient/bác sĩ/dịch vụ. 3 staff-FK trên visit → phải chỉ rõ
   // attending_doctor_id để PostgREST không nhập nhằng. RLS SELECT cho phép.
@@ -148,11 +156,18 @@ export default async function HomePage({
       .eq("status", "SCHEDULED")
       .gte("slot_start", dayStart)
       .lt("slot_start", dayEnd),
+    // THỨ TỰ TRONG Ô LÀ THỨ TỰ HAI HÀNG CON, nên nó phải cố định. Không sắp thì
+    // Postgres trả về theo thứ tự nào cũng được, và người thứ nhất/thứ hai của
+    // một ngày đổi chỗ cho nhau giữa hai lần tải trang — một bảng lịch trực nhấp
+    // nháy như vậy trông như dữ liệu đang sai. `id` là chốt cuối khi `sort` bằng
+    // nhau (mọi dòng nạp từ Excel đều sort = 0).
     supabase
       .from("work_roster")
-      .select("work_date, station, staff_name, shift")
+      .select("work_date, station, staff_id, staff_name, shift")
       .eq("week_start", weekRoster)
-      .eq("status", "APPROVED"), // chỉ ca đã duyệt mới lên lịch chung trang chủ
+      .eq("status", "APPROVED") // chỉ ca đã duyệt mới lên lịch chung trang chủ
+      .order("sort", { ascending: true })
+      .order("id", { ascending: true }),
     // LỊCH HẸN TUẦN — nay do FastAPI trả, KÈM SẴN phan_loai.
     //
     // Trước đây chỗ này là một truy vấn PostgREST, rồi bên dưới còn một truy
@@ -166,24 +181,21 @@ export default async function HomePage({
     fetchFromBackend<{ items: WeekApptRow[] }>(
       `/api/v1/appointments/week?week_start=${weekAppt}`,
     ),
+    // Check-in hôm nay — ĐỌC QUA BACKEND, không đọc thẳng Supabase nữa.
+    //
+    // Không phải để gọn: thứ tự gọi bây giờ do backend tính (call_order), và
+    // một truy vấn Supabase thì không mang con số đó về. Để nguyên đường cũ thì
+    // màn này sẽ IM LẶNG mất thứ tự ưu tiên — mọi dòng call_order rỗng, phép
+    // xếp thành vô tác dụng, và không có lỗi nào hiện ra.
+    //
+    // GIỮ luôn BN đã CHECKED_IN + đã COMPLETED để lễ tân thấy ai đã đến cả ngày.
     showCheckin
-      ? supabase
-          .from("appointment")
-          .select(CHECKIN_SELECT)
-          .gte("slot_start", dayStart)
-          .lt("slot_start", dayEnd)
-          // GIỮ luôn BN đã CHECKED_IN + đã COMPLETED — không xoá khỏi danh sách
-          // sau khi check-in / khám xong, để lễ tân thấy ai đã đến cả ngày.
-          .in("status", [
-            "SCHEDULED",
-            "CSKH_CONFIRMED",
-            "CONFIRMED",
-            "CHECKED_IN",
-            "COMPLETED",
-          ])
-          .order("slot_start", { ascending: true })
-          .limit(300)
-      : Promise.resolve({ data: [] }),
+      ? fetchFromBackend<{ items: HomeCheckinRow[] }>(
+          `/api/v1/appointments/doctor-board?start=${encodeURIComponent(dayStart)}` +
+            `&end=${encodeURIComponent(dayEnd)}` +
+            `&statuses=SCHEDULED,CSKH_CONFIRMED,CONFIRMED,CHECKED_IN,COMPLETED`,
+        )
+      : Promise.resolve({ items: [] as HomeCheckinRow[] }),
     isReception
       ? supabase
           .from("visit")
@@ -206,16 +218,15 @@ export default async function HomePage({
       `/api/v1/visits/progress?from=${apptDates[0]}&to=${apptDates[apptDates.length - 1]}`,
     ),
   ]);
-  // visit embed (1-nhiều phía appointment) trả MẢNG → phẳng hoá thành checked_in_at
-  // để compareQueue dùng THỨ TỰ GỌI ưu tiên (Model ②) cho người đã check-in.
-  const checkinRows = (
-    (checkinRes.data as
-      | (HomeCheckinRow & { visit?: { checked_in_at: string | null }[] | null })[]
-      | null) ?? []
-  ).map((r) => ({
-    ...r,
-    checked_in_at: r.visit?.[0]?.checked_in_at ?? null,
-  })) as HomeCheckinRow[];
+  // Backend trả `checked_in_at` PHẲNG sẵn (doctor_board_service chọn một lượt
+  // khám có thứ tự trong SQL). Bước phẳng hoá cũ lấy `visit[0]` từ một mảng
+  // KHÔNG có thứ tự — tức là chọn ngẫu nhiên khi một lịch có nhiều lượt.
+  //
+  // `?? []` khi backend không với tới: KHÔNG phải bước lùi — đường Supabase cũ
+  // cũng cho ra danh sách rỗng khi truy vấn lỗi. Nhưng nó vẫn là một khoảng
+  // trắng nói dối ("hôm nay không ai đến" khi thật ra là "không hỏi được"), và
+  // đáng sửa cùng lúc cho cả trang, không phải riêng khối này.
+  const checkinRows = checkinRes?.items ?? [];
 
   // Board trạng thái buổi khám: nếu select đầy đủ LỖI → KHÔNG để bảng trắng
   // câm. Rơi xuống select TỐI THIỂU (không join appointment), rồi lấy
@@ -296,6 +307,10 @@ export default async function HomePage({
       const p = progressByVisit.get(v.visit_id);
       const kinds = new Set(p?.paid_kinds ?? []);
       v.paid = kinds.has("dich_vu") && (!p?.has_prescription || kinds.has("thuoc"));
+      // Giờ hai mốc giữa của thanh tiến trình. Chúng không nằm trên bảng
+      // `visit`, nên lấy từ chính lượt gọi backend đã có ở trên.
+      v.exam_started_at = p?.exam_started_at ?? null;
+      v.paid_at = p?.paid_at ?? null;
     }
   }
 
@@ -305,7 +320,16 @@ export default async function HomePage({
     { label: "Lịch chờ xác nhận", value: pendingApptRes.count ?? 0 },
   ];
   // Gom lịch hẹn theo ngày (tuần này) cho bảng "Lịch hẹn khám".
-  const rosterRows = (rosterRes.data as RosterRow[] | null) ?? [];
+  // TÊN TRONG BẢNG LỊCH LÀM VIỆC LẤY TỪ `staff`, KHÔNG PHẢI CHUỖI EXCEL.
+  //
+  // Màn /schedule đã làm bước này từ trước; trang chủ thì không, nên cùng một
+  // bảng ở hai nơi hiện hai cách viết tên — và ở đây còn tệ hơn: cột "Số BS"
+  // đếm theo staff_id nên nó nói 4 trong khi ô bên cạnh bày 5 cái tên (08/08:
+  // "Bác sĩ · BSNT. Lê Thiệu Quyết" và "BS QUYẾT" là MỘT người).
+  const rosterRows = await dongBoTenTrucNhat(
+    supabase,
+    (rosterRes.data as RosterRow[] | null) ?? [],
+  );
   // Backend trả sẵn phan_loai, nên không còn `RawAppt` (kiểu "thiếu phan_loai")
   // và không còn bước gắn thêm ở dưới. `?? []` là khi backend không trả lời —
   // lưới hiện trống, giống mọi nguồn khác của trang này.
@@ -358,22 +382,32 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-5">
-      <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
-          {isReception ? "Lễ tân" : "Không gian làm việc"}
-        </p>
-        <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>
-        <p className="mt-1 text-sm text-ink-muted">{homeSubtitle}</p>
-      </header>
+      {/* LỜI CHÀO VÀ BA Ô SỐ TRÊN CÙNG MỘT HÀNG.
+          
+          Trước đây chúng là hai thẻ chồng nhau, và thẻ lời chào để trống hết
+          nửa bên phải — một khoảng trắng bằng cả ba ô số nằm ngay đầu trang mà
+          không mang thông tin gì.
+          
+          Trên màn hẹp thì vẫn xuống dòng: ba con số quan trọng hơn việc chúng
+          nằm cạnh lời chào. */}
+      <header className="flex flex-col gap-4 rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5 lg:flex-row lg:items-center">
+        <div className="lg:w-[300px] lg:shrink-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+            {isReception ? "Lễ tân" : "Không gian làm việc"}
+          </p>
+          <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>
+          <p className="mt-1 text-sm text-ink-muted">{homeSubtitle}</p>
+        </div>
 
-      <section
-        aria-label={isReception ? "Tổng quan tiếp nhận" : "Tổng quan ca làm việc"}
-        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
-      >
-        {cards.map((c) => (
-          <StatCard key={c.label} label={c.label} value={c.value} />
-        ))}
-      </section>
+        <section
+          aria-label={isReception ? "Tổng quan tiếp nhận" : "Tổng quan ca làm việc"}
+          className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3"
+        >
+          {cards.map((c) => (
+            <StatCard key={c.label} label={c.label} value={c.value} />
+          ))}
+        </section>
+      </header>
 
       {/* Check-in bệnh nhân — TRÊN Lịch hẹn khám (ĐD/Lễ tân/Quản lý).
           Bấm mở danh sách ngay dưới nút; Lịch hẹn khám tự đẩy xuống. */}

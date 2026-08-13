@@ -20,16 +20,25 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.api.identity import StaffIdentity, get_display_identity
 
 router = APIRouter()
 
 
 @router.get("/me")
 async def me(
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(get_display_identity),
 ) -> dict[str, object]:
-    """Return the verified staff identity + derived role for the bearer token."""
+    """Return the verified staff identity + derived role for the bearer token.
+
+    Nhận cả vai DISPLAY (tài khoản màn hình TV). Bắt buộc, không phải nới lỏng:
+    layout của trình duyệt hỏi chính đường này để biết mình là ai, rồi mới đưa
+    tài khoản màn hình sang /display. Chặn ở đây thì cái tivi đăng nhập xong bị
+    đá ngược về trang đăng nhập — đăng nhập được nhưng không vào được đâu cả.
+
+    An toàn vì phản hồi CHỈ mô tả CHÍNH người gọi: tên tài khoản, vai, phòng
+    khám, cơ sở. Không một dòng dữ liệu bệnh nhân nào.
+    """
     return {
         "staff_id": identity.staff_id,
         "auth_user_id": identity.auth_user_id,

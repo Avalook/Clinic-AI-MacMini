@@ -51,7 +51,37 @@ DECLARE
     --   clinical_data_consent  (ai cho ai xem form nào — KHÁC với liên kết)
     -- 57 → 58 (05/08/2026): clinic_secret — credential POS/Zalo ra khỏi
     --   clinic.settings, nơi cả anon lẫn authenticated đọc được (20260805000005).
-    expected_tenant_tables constant integer := 58;
+    -- 58 → 59 (07/08/2026): nhac_tai_kham — việc gọi nhắc tái khám hai lượt
+    -- trở thành dòng có thật trong database thay vì một phép chiếu tính lại
+    -- mỗi lần mở trang (migration 20260807000005).
+    -- 59 → 60 (07/08/2026): thong_bao — Trưởng ca gọi một bộ phận, và cuộc gọi
+    -- ấy để lại dấu vết đo được (migration 20260807000006).
+    -- 60 → 61 (08/08/2026): roster_week — tuần lịch trực đã được quản lý bấm
+    -- áp dụng. Tách "đã xếp" khỏi "đã chốt": trước đó một tuần trải sẵn từ mẫu
+    -- và một tuần đã công bố trông hệt nhau, nên màn đặt lịch nói chắc nịch ai
+    -- trực ngày 12/12 trong khi phòng khám chưa quyết (migration 20260808000001).
+    -- 61 → 62 (08/08/2026): luat_bac_si_bat_buoc — dịch vụ X + khách mới thì
+    -- bắt buộc bác sĩ Y, thi hành LÚC ĐẶT LỊCH (migration 20260808000003).
+    -- 62 → 63 (08/08/2026): vai_duoc_vao_tram — chức danh nào được xếp vào vị
+    -- trí nào. Trước đó luật này nằm trong một hàm TypeScript chạy ở trình
+    -- duyệt, nói "bác sĩ → một trạm, mọi vai còn lại → mười một trạm còn lại":
+    -- lễ tân xếp được vào "Máy trong E10 + VLTL/thủ thuật", còn gọi thẳng API
+    -- thì xếp được bất kỳ ai vào bất kỳ đâu (migration 20260809000002).
+    -- 63 → 64 (08/08/2026): tuong_tac_cskh — sổ CHỈ THÊM cho mỗi lần CSKH
+    -- chạm tới khách. Trước đó nút "Gọi nhắc hẹn" là một thẻ tel: không để lại
+    -- dấu vết nào (migration 20260809000003).
+    -- 64 → 66 (08/08/2026): luat_cskh + hen_goi_lai (migration 20260809000005).
+    -- luat_cskh giữ số ngày VÀ nhãn hiển thị của từng loại việc CSKH, để phòng
+    -- khám đổi cả hai mà không deploy lại. hen_goi_lai là chỗ đựng những việc
+    -- hệ thống chưa suy được (sau sinh 1 tháng, sau thủ thuật 1 ngày) — không
+    -- cột nào chứa ngày sinh con thật, nên người gõ tay thay vì tab tự sinh sai.
+    -- 66 → 67 (08/08/2026): phan_hoi_khach — phản hồi/khiếu nại của khách và
+    -- vòng đời xử lý (DoD CSKH mục 3, migration 20260809000007).
+    -- 67 → 68 (08/08/2026): tep_ket_qua — ảnh/video siêu âm và phiếu xét
+    -- nghiệm CSKH tải lên, kèm "đã gửi cho khách chưa" (20260809000008).
+    -- `ultrasound_record.image_refs` là text[] nên không mang được kiểu tệp,
+    -- kích thước, ai tải, hay đã gửi chưa — đúng bốn câu màn CSKH cần hỏi.
+    expected_tenant_tables constant integer := 68;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

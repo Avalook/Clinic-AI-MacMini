@@ -1,56 +1,59 @@
-// Màn hình TV phòng chờ — hiển thị số đang gọi theo khu (image_15 + 2 ảnh V2).
-// Public, không cần đăng nhập. Chỉ đọc appointment + queue_number hôm nay.
+// Màn hình TV phòng chờ — bảng gọi số theo khu.
+//
+// ĐỌC QUA BACKEND, không đọc thẳng Supabase nữa. Ba lý do, theo thứ tự quan
+// trọng:
+//
+// ① THỨ TỰ. Trang này từng xếp bằng `slot_start` thuần, trong khi bảng của Lễ
+//    tân và của bác sĩ xếp theo LUẬT GỌI. Hai bảng nói hai thứ tự khác nhau, và
+//    người ngồi chờ đọc bảng nào cũng thấy có lý — cho tới lúc bị gọi sai lượt.
+//
+// ② KHÔNG DANH TÍNH. Nguyên tắc cũ đúng và được giữ nguyên: thứ gì trang này
+//    TẢI VỀ là thứ công khai, nên "không render" chưa đủ. Nay việc lọc nằm ở
+//    backend (display_board_service) chứ không ở câu `.select()` — một chỗ có
+//    bài kiểm canh, thay vì một danh sách cột dễ ai đó thêm vào cho tiện.
+//
+// ③ KHU VỰC. Việc xếp dịch vụ vào khu từng là một phép dò từ khoá viết cứng
+//    trong TSX, và nó SAI với khu siêu âm suốt (xem ghi chú ở
+//    display_board_service._khop_vao_khu_that).
+//
+// Trang vẫn CẦN ĐĂNG NHẬP, y như thực tế hôm nay: chú thích cũ ghi "public,
+// không cần đăng nhập" nhưng RLS trên `appointment` khiến trình duyệt chưa đăng
+// nhập đọc ra 0 dòng — nghĩa là máy tivi vốn đã phải đăng nhập bằng một tài
+// khoản nhân viên. Mở thật ra công cộng là một quyết định về bảo mật riêng, cần
+// chủ phòng khám gật đầu, không phải hệ quả phụ của việc sửa thứ tự sắp xếp.
 
-import { getSupabaseServer } from "../../lib/supabase-server";
-import { vnTodayRangeUtc } from "../../lib/datetime";
-import DisplayBoard from "./DisplayBoard";
+import { fetchFromBackend } from "../../lib/backend-proxy";
+import DisplayBoard, { type DisplayZone, type DisplayItem } from "./DisplayBoard";
 
 export const dynamic = "force-dynamic";
 
 export default async function DisplayPage() {
-  const supabase = await getSupabaseServer();
-  const { startUtc, endUtc } = vnTodayRangeUtc();
+  const data = await fetchFromBackend<{
+    zones: DisplayZone[];
+    items: DisplayItem[];
+    clinic_name?: string;
+    footer_text?: string;
+    footer_info?: string;
+  }>("/api/v1/display/queue");
 
-  // Lịch hôm nay có số thứ tự + trạng thái — nguồn cho bảng gọi số.
-  const { data: appts, error } = await supabase
-    .from("appointment")
-    .select(
-      // KHÔNG lấy tên bệnh nhân. Màn này treo ở phòng chờ và không cần đăng
-      // nhập: bất cứ thứ gì select ở đây đều đi thẳng vào payload trình duyệt,
-      // nên "không render" là chưa đủ — phải không tải về.
-      `id, slot_start, status, queue_number, booking_channel,
-       doctor:staff!doctor_id(full_name),
-       service:service_type!service_type_id(name)`,
-    )
-    .gte("slot_start", startUtc)
-    .lt("slot_start", endUtc)
-    .not("status", "in", "(CANCELLED,NO_SHOW,DOCTOR_DECLINED)")
-    .order("slot_start", { ascending: true })
-    .limit(200);
-
-  if (error) {
+  // `null` = KHÔNG HỎI ĐƯỢC backend, khác hẳn `items: []` = hôm nay chưa ai đến.
+  // Trên một màn hình treo giữa phòng chờ, hai thứ đó mà hiện giống nhau thì
+  // hỏng có thể kéo dài cả ngày mà không ai biết.
+  if (!data) {
     return (
       <div className="flex h-screen items-center justify-center bg-ink text-white">
-        <p className="text-lg">Không đọc được dữ liệu: {error.message}</p>
+        <p className="text-lg">Chưa kết nối được máy chủ — bảng số tạm dừng.</p>
       </div>
     );
   }
 
-  interface DoctorRaw {
-    full_name: string | null;
-  }
-  interface ServiceRaw {
-    name: string | null;
-  }
-  type Raw = Omit<(typeof appts)[number], "doctor" | "service"> & {
-    doctor: DoctorRaw[] | null;
-    service: ServiceRaw[] | null;
-  };
-  const normalized = (appts ?? []).map((a: Raw) => ({
-    ...a,
-    doctor: a.doctor?.[0] ?? null,
-    service: a.service?.[0] ?? null,
-  }));
-
-  return <DisplayBoard appts={normalized} />;
+  return (
+    <DisplayBoard
+      zones={data.zones}
+      items={data.items}
+      clinicName={data.clinic_name}
+      footerText={data.footer_text}
+      footerInfo={data.footer_info}
+    />
+  );
 }

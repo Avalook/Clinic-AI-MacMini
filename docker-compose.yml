@@ -44,12 +44,27 @@ services:
     mem_limit: ${CADDY_MEMORY_LIMIT:-128m}
     pids_limit: 128
     ports:
-      - "${CADDY_HTTP_PORT:-80}:80"
-      - "${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_BIND_ADDRESS:-0.0.0.0}:${CADDY_HTTPS_PORT:-443}:443"
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in the env file}
+      # Gateway Supabase của CHÍNH môi trường này. Mặc định là prod hôm nay;
+      # staging đặt lại trong .env.staging để không gọi sang database khách.
+      SUPABASE_GATEWAY_HOST: ${SUPABASE_GATEWAY_HOST:-clinicai_supabase_gateway}
+      AUTH_GUARD_HOST: ${AUTH_GUARD_HOST:-clinicai_auth_guard}
+      # Ổ khoá HTTP cho staging. Mặc định RỖNG ⇒ prod không đổi gì, vì
+      # Caddyfile chung không nhắc tới hai biến này.
+      #
+      # PHẢI KHAI Ở ĐÂY. Biến trong env-file chỉ dùng để NỘI SUY trong chính
+      # file compose; muốn nó vào BÊN TRONG container thì phải liệt kê ở
+      # `environment:`. Thiếu bước này Caddy nhận chuỗi rỗng rồi chết ngay:
+      # "basic_auth: username and password cannot be empty or missing".
+      STAGING_AUTH_USER: ${STAGING_AUTH_USER:-}
+      STAGING_AUTH_HASH: ${STAGING_AUTH_HASH:-}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Đường dẫn theo biến để staging dùng được Caddyfile riêng (có ổ khoá
+      # HTTP) mà prod không đổi gì. Không đặt CADDY_FILE thì vẫn là bản chung.
+      - ${CADDY_FILE:-./caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -361,9 +376,11 @@ networks:
   # Không dùng bộ tự dựng (vẫn ở Supabase cloud, hoặc chuyển sang Viettel IDC)
   # thì mạng này không tồn tại và caddy sẽ không khởi động — lúc ấy bỏ
   # `supabase` khỏi `networks` của caddy.
+  # Tên mạng theo biến: staging nối vào bộ Supabase RIÊNG của nó, không phải bộ
+  # của phòng khám đang chạy thật. Mặc định là mạng prod hôm nay.
   supabase:
     external: true
-    name: clinicai_db_supabase
+    name: ${SUPABASE_NETWORK:-clinicai_db_supabase}
 
 volumes:
   caddy_data:

@@ -14,6 +14,8 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 
+from clinicai.api.identity import StaffIdentity, get_display_identity
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 
 router = APIRouter()
@@ -60,3 +62,34 @@ async def display_config(
     # Merge with defaults so missing keys don't break the TV.
     merged = {**_DEFAULT_DISPLAY, **display}
     return {"ok": True, **merged}
+
+
+@router.get("/display/queue")
+async def display_queue(
+    identity: StaffIdentity = Depends(get_display_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng gọi số cho màn hình TV — thứ tự theo LUẬT GỌI, không theo giờ hẹn.
+
+    CÓ ĐÒI TOKEN, khác với `/display/config` ngay trên. Đây không phải mâu
+    thuẫn mà là giữ nguyên thực tế: trang `/display` tự nhận là công cộng, nhưng
+    RLS trên `appointment` khiến trình duyệt chưa đăng nhập đọc ra 0 dòng — nên
+    máy tivi hôm nay VẪN phải đăng nhập bằng một tài khoản nhân viên. Mở endpoint
+    này ra công cộng sẽ là một thay đổi về bảo mật thật sự (ai biết clinic_id sẽ
+    đọc được nhịp bệnh nhân cả ngày), và đó là quyết định của chủ phòng khám,
+    không phải hệ quả phụ của một lần sửa thứ tự sắp xếp.
+
+    Phản hồi KHÔNG chứa tên, mã bệnh nhân, số điện thoại hay tên bác sĩ — xem
+    ràng buộc ① trong display_board_service.
+    """
+    from datetime import datetime, time, timedelta
+
+    from clinicai.services.display_board_service import DisplayBoardService
+
+    hom_nay = datetime.now(CLINIC_TZ).date()
+    dau = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
+    return await DisplayBoardService(pool).board(
+        clinic_id=identity.clinic_id,
+        start=dau,
+        end=dau + timedelta(days=1),
+    )

@@ -18,6 +18,14 @@ import ClinicalSignPanel from "./ClinicalSignPanel";
 import SonoBiometry from "./SonoBiometry";
 import ServiceFormEngine from "./ServiceFormEngine";
 import { resolveServiceCode } from "../../../lib/form-schemas";
+import {
+  docNhap,
+  donNhapCu,
+  ghiNhap,
+  khoaNhap,
+  moTaLuc,
+  xoaNhap,
+} from "../../../lib/luu-nhap";
 import type { DoctorApptRow } from "./DoctorWorkBoard";
 
 interface Profile {
@@ -106,6 +114,16 @@ interface RxRow {
   caution: string;
 }
 const EMPTY_RX: RxRow = { drug_name: "", quantity: "", dosage: "", caution: "" };
+
+// Bốn khối bác sĩ GÕ TAY — đúng và chỉ đúng những thứ mất đi khi trang tải lại.
+// Hồ sơ tải từ máy chủ về không nằm ở đây: nó lấy lại được, và để nó trên đĩa
+// máy trạm là mở rộng chỗ dữ liệu bệnh nhân nằm mà không mua được gì.
+interface GoDo {
+  f: Fields;
+  pm: PmFields;
+  tk: TkFields;
+  rx: RxRow[];
+}
 
 // Danh mục dùng chung cho picker (đọc runtime từ /api/catalog — KHÔNG hardcode).
 interface DrugOpt { name_raw: string; variant: string | null; needs_review: boolean }
@@ -226,6 +244,7 @@ function Section({ no, title, synced, editorLabel = "bác sĩ điền", children
 
 export default function ClinicalRecordForm({
   appt,
+  staffId,
   onClose,
   canSign = false,
   vitalsOnly = false,
@@ -410,7 +429,16 @@ export default function ClinicalRecordForm({
   const addRx = () => setRx((s) => [...s, { ...EMPTY_RX }]);
   const removeRx = (i: number) => setRx((s) => s.filter((_, j) => j !== i));
 
-  const locked = data?.visit?.status === "FINALIZED";
+  // Hồ sơ có KHOÁ BÚT hay không — danh sách TRẮNG, khớp
+  // `WRITABLE_VISIT_STATUSES` ở clinical_record_service.
+  //
+  // Trước đây là `=== "FINALIZED"`, một danh sách đen. Với INCOMPLETE nó tình
+  // cờ đúng (khám dở vẫn ghi được), nhưng trạng thái CUỐI tiếp theo mà ai đó
+  // thêm vào sẽ lọt qua và mở form cho một hồ sơ đã khoá — backend từ chối,
+  // còn bác sĩ thì gõ xong mới biết.
+  const GHI_DUOC = ["OPEN", "IN_PROGRESS", "INCOMPLETE"];
+  const visitStatus = data?.visit?.status;
+  const locked = visitStatus != null && !GHI_DUOC.includes(visitStatus);
 
   // GATE LỄ TÂN: CHỈ ghi được (bác sĩ khám / điều dưỡng điền sinh hiệu) khi lễ tân
   // đã check-in (bệnh nhân đã đến). ÁP CHO CẢ luồng đón-khám (vitalsOnly) — quy
@@ -473,6 +501,77 @@ export default function ClinicalRecordForm({
     }
     setMsg("Đã lưu sinh hiệu.");
     router.refresh();
+  }
+
+  // ---- Giữ lại thứ đang gõ dở khi trang bị tải lại / máy mất điện -----------
+  //
+  // ĐỪNG LẪN VỚI CHỮ "LƯU NHÁP" Ở CUỐI HÀM `save()`. Câu đó nói về hồ sơ ĐÃ ghi
+  // lên máy chủ nhưng chưa đủ trường để tự chuyển "Đã khám xong". Thứ ở đây thì
+  // CHƯA RỜI KHỎI MÁY TRẠM — nên mọi chữ hiện cho người dùng đều phải nói "chưa
+  // được lưu", không được nói "nháp", kẻo bác sĩ tưởng đã xong việc.
+  //
+  // Chỉ giữ khi ĐANG GHI ĐƯỢC: xem lượt khám cũ hay lễ tân mở chỉ-đọc thì không
+  // có gì để mất, mà lưu lại chỉ tổ để dữ liệu bệnh nhân nằm trên máy vô ích.
+  const khoaGoDo = khoaNhap(staffId, "phieu-kham", appt.id);
+  const ghiDuoc = !readOnly && !viewingPast && !vitalsOnly && !loading && !!data;
+
+  // Bản gõ dở đọc NGAY lúc dựng component, không qua effect: đọc kho của trình
+  // duyệt là việc đồng bộ, và làm nó trong effect thì màn hình chớp một nhịp
+  // không có dải nhắc.
+  const [goDoCu, setGoDoCu] = useState<{ moTa: string; giaTri: GoDo } | null>(() => {
+    if (typeof window === "undefined" || !khoaGoDo) return null;
+    donNhapCu(window.localStorage, Date.now());
+    const b = docNhap<GoDo>(window.localStorage, khoaGoDo, Date.now());
+    // `moTa` tính sẵn ở đây: gọi đồng hồ trong lúc vẽ thì mỗi lần vẽ ra một số khác.
+    return b ? { moTa: moTaLuc(b.luc, Date.now()), giaTri: b.giaTri } : null;
+  });
+
+  // Mốc "khớp với thứ đang nằm trên máy chủ". Là ref vì chỉ đọc trong effect và
+  // trong hàm lưu — không bao giờ đọc lúc vẽ.
+  const mocDaLuuRef = useRef<string>("");
+  const [coGoDoChuaLuu, setCoGoDoChuaLuu] = useState(false);
+
+  // Ghi sau mỗi nhịp gõ ngừng 1 giây. Ghi mỗi phím là ép đĩa vô ích; chờ lâu hơn
+  // thì đúng lúc mất điện lại chưa kịp ghi.
+  useEffect(() => {
+    if (!ghiDuoc || !khoaGoDo || typeof window === "undefined") return;
+    const hienTai = JSON.stringify({ f, pm, tk, rx });
+    // Lần chạy đầu sau khi nạp xong hồ sơ CHỈ đặt mốc: lúc này form vừa được
+    // điền từ máy chủ, chưa ai gõ gì. Ghi ở đây là để lại một bản y hệt bản
+    // chính, rồi lần mở sau hỏi "khôi phục?" cho một thứ không có gì để khôi phục.
+    if (mocDaLuuRef.current === "") {
+      mocDaLuuRef.current = hienTai;
+      return;
+    }
+    if (hienTai === mocDaLuuRef.current) return;
+    const t = setTimeout(() => {
+      ghiNhap(window.localStorage, khoaGoDo, { f, pm, tk, rx }, Date.now());
+      setCoGoDoChuaLuu(true);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [ghiDuoc, khoaGoDo, f, pm, tk, rx]);
+
+  // Đóng tab / tải lại khi còn thứ chưa lưu → trình duyệt hỏi lại. Đây là lớp
+  // chặn TRƯỚC; bản gõ dở ở trên là lưới hứng khi lớp này không kịp (mất điện).
+  useEffect(() => {
+    if (!coGoDoChuaLuu) return;
+    const canhBao = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", canhBao);
+    return () => window.removeEventListener("beforeunload", canhBao);
+  }, [coGoDoChuaLuu]);
+
+  function khoiPhucGoDo() {
+    if (!goDoCu) return;
+    setF(goDoCu.giaTri.f);
+    setPm(goDoCu.giaTri.pm);
+    setTk(goDoCu.giaTri.tk);
+    setRx(goDoCu.giaTri.rx);
+    setGoDoCu(null);
+  }
+
+  function boGoDo() {
+    if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
+    setGoDoCu(null);
   }
 
   async function save() {
@@ -549,8 +648,13 @@ export default function ClinicalRecordForm({
     if (!res.ok) {
       setSaving(false);
       setMsg((await res.json()).error ?? "Lỗi lưu hồ sơ.");
-      return;
+      return; // GIỮ bản gõ dở: lưu hỏng đúng là lúc cần nó nhất.
     }
+    // Đã nằm trên máy chủ → bản trên máy trạm hết việc. Xoá ngay, và dời mốc
+    // "đã lưu" để cảnh báo đóng tab không còn kêu oan.
+    if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
+    mocDaLuuRef.current = JSON.stringify({ f, pm, tk, rx });
+    setCoGoDoChuaLuu(false);
     // Điền ĐỦ (Chuẩn đoán VII + Lời dặn VIII) + BN đã đến → TỰ ĐỘNG chuyển lịch
     // sang "Đã khám xong" (COMPLETED). Không đụng FINALIZE (khóa pháp lý riêng).
     if (willComplete) {
@@ -669,6 +773,30 @@ export default function ClinicalRecordForm({
           </option>
         ))}
       </datalist>
+      {/* Có thứ gõ dở của chính người này, cho chính lịch hẹn này, chưa kịp lưu.
+          Không tự điền đè: bác sĩ có thể đã chủ ý bỏ nó, và điền đè lên hồ sơ
+          vừa tải về là cách âm thầm làm hỏng dữ liệu đúng. Hỏi, rồi mới làm. */}
+      {ghiDuoc && goDoCu && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span className="flex-1">
+            Có nội dung bạn gõ dở <b>{goDoCu.moTa}</b> mà <b>chưa được lưu</b>.
+          </span>
+          <button
+            type="button"
+            onClick={khoiPhucGoDo}
+            className="rounded border border-amber-700 px-2 py-1 font-medium hover:bg-amber-100"
+          >
+            Khôi phục
+          </button>
+          <button
+            type="button"
+            onClick={boGoDo}
+            className="rounded px-2 py-1 underline hover:bg-amber-100"
+          >
+            Bỏ
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <div className="min-w-0">
           <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase text-ink">

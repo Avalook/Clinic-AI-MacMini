@@ -1,6 +1,10 @@
-// Lịch làm việc — ghi/xoá phân công.
-//   POST   { week_start, work_date, shift, station, staff_id?, staff_name? }  → thêm 1 ô
-//   DELETE { id }                                                            → xoá 1 ô
+// Lịch làm việc — ghi/xoá phân công, và CHỐT một tuần.
+//   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó + `du_kien` (tuần chưa chốt)
+//   GET    ?tu=…&den=…               → những tuần đã áp dụng trong khoảng
+//   GET    ?staff_id=…               → vị trí người này được xếp vào
+//   POST   { week_start, work_date, … }  → thêm 1 ô
+//   POST   { apply_week: "YYYY-MM-DD" }  → chốt cả tuần
+//   DELETE { id }                        → xoá 1 ô
 // Quản lý: xếp cho BẤT KỲ ai. Nhân sự khác (bác sĩ/lễ tân/điều dưỡng): chỉ TỰ
 // đăng ký / xoá ca CỦA MÌNH (staff_id ép = chính mình) — feedback C4.
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
@@ -14,6 +18,14 @@ import {
   getActiveStaff,
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
+// MỘT HÀM, KHÔNG PHẢI HAI. Chỗ này từng có bản `weekStartOf` riêng, đã được vá
+// đúng (trả `null` khi ngày sai) hồi `/api/roster?date=99-99-9999` trả 500. Nhưng
+// `lib/roster.ts` có một hàm CÙNG TÊN chưa vá, và đó là bản mà trang chủ và trang
+// lịch dùng — nên cùng một họ lỗi mọc lại lần thứ ba ở chỗ khác. Hai hàm cùng tên
+// với hành vi khác nhau là bệnh; ba lần 500 chỉ là triệu chứng. Giờ chỉ còn một
+// bản, ở lib, và nó là bản có kiểm.
+import { weekStartOf } from "../../../lib/roster";
+
 
 type Auth =
   | {
@@ -60,10 +72,87 @@ export async function GET(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const date = (new URL(request.url).searchParams.get("date") ?? "").trim();
+  const sp = new URL(request.url).searchParams;
+
+  // Nhánh 1: khoảng tuần → trả về những tuần ĐÃ ÁP DỤNG, để lưới lịch biết tuần
+  // nào còn là dự kiến.
+  const tu = (sp.get("tu") ?? "").trim();
+  const den = (sp.get("den") ?? "").trim();
+  if (tu && den) {
+    const { data, error } = await caller
+      .from("roster_week")
+      .select("week_start")
+      .gte("week_start", tu)
+      .lte("week_start", den);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      weeks: ((data as { week_start: string }[] | null) ?? []).map(
+        (r) => r.week_start,
+      ),
+    });
+  }
+
+  // Nhánh 2: vị trí hợp lệ của MỘT nhân viên. Đi qua FastAPI vì cùng câu trả
+  // lời ấy là thứ `add_shift` dùng để từ chối — hỏi hai nguồn là sớm muộn giao
+  // diện sẽ mời một vị trí mà backend không nhận.
+  const nhanSu = (sp.get("staff_id") ?? "").trim();
+  if (nhanSu) {
+    // CHUYỂN NGUYÊN mã trạng thái và câu lỗi của backend, đừng gộp thành 503.
+    //
+    // Chỗ này từng dùng `fetchFromBackend`, mà nó trả `null` cho MỌI lỗi — nên
+    // một `staff_id` không tồn tại (nhân viên vừa bị gỡ, id gõ sai) ra 503
+    // "Không đọc được phạm vi vị trí", trong khi backend đã nói rõ 404 "Không
+    // tìm thấy nhân viên này". Người dùng đọc thành "máy chủ hỏng" và đi báo
+    // kỹ thuật; log thì ghi 503 giữa lúc mọi thứ vẫn chạy.
+    return proxyJsonToBackend(
+      "GET",
+      `/api/v1/roster/stations?staff_id=${encodeURIComponent(nhanSu)}`,
+      undefined,
+    );
+  }
+
+  const date = (sp.get("date") ?? "").trim();
   if (!date) {
     return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
   }
+
+  // CÓ PHÂN CÔNG THÌ TRẢ VỀ — "tuần chưa chốt" là một CÂU NÓI THÊM, không phải
+  // một cái khoá.
+  //
+  // QUANG 10/08/2026: *"lúc quản lý tạo lịch làm việc và ngày mà khách đặt đã
+  // có các bác sĩ phụ trách rồi thì khi tôi ấn để đổi lịch hoặc đặt lịch thì
+  // phải hiện ra các khung giờ của các bác sĩ đã có lịch làm việc chứ"*.
+  //
+  // Trước đây chỗ này `return { doctors: [] }` ngay khi tuần chưa có dòng
+  // `roster_week`. Đo trên staging: ngày 10/09/2026 CÓ dòng work_roster
+  // `LICH_KHAM / FULL / APPROVED / TS.BS. Phan Chí Thành` kèm `staff_id`, hiện
+  // rành rành trên màn Lịch làm việc của quản lý — nhưng tuần 07/09 chưa ai bấm
+  // "Áp dụng tuần", nên lưới đặt lịch trả lời "Ngày này chưa xếp lịch trực bác
+  // sĩ" và bày đúng một hàng "Chưa phân bác sĩ". Hai màn cùng đọc một bảng mà
+  // nói hai điều ngược nhau.
+  //
+  // Ý ĐỊNH CŨ VẪN ĐÚNG, CHỈ SAI CÁCH THI HÀNH. `roster_week` sinh ra để một
+  // tuần trải sẵn từ mẫu không bị đọc thành lời hứa chắc chắn — nhưng cách
+  // chữa là NÓI RA rằng nó chưa chốt, không phải giấu người đã được xếp. Giấu
+  // đi thì CSKH đặt vào hàng "chưa phân bác sĩ" cho một ngày đã có bác sĩ, và
+  // quản lý phải xếp lại lần nữa thứ họ vừa xếp xong.
+  //
+  // `du_kien = true` đi kèm để lưới ghi chú "tuần này chưa chốt, giờ có thể còn
+  // đổi". Chặn đặt lịch thì KHÔNG đổi: `capacity_service.roster_known` vẫn đòi
+  // tuần đã áp dụng, vì ở đó cờ này quyết định có TỪ CHỐI khách hay không —
+  // và từ chối dựa trên một bản nháp là hướng sai duy nhất không sửa lại được.
+  const tuan = weekStartOf(date);
+  if (tuan === null) {
+    return NextResponse.json(
+      { error: `Ngày không hợp lệ: ${date}` },
+      { status: 400 },
+    );
+  }
+  const { data: daApDung } = await caller
+    .from("roster_week")
+    .select("week_start")
+    .eq("week_start", tuan)
+    .maybeSingle();
 
   const { data, error } = await caller
     .from("work_roster")
@@ -82,10 +171,12 @@ export async function GET(request: Request) {
     seen.add(r.staff_id);
     doctors.push({ id: r.staff_id, name: r.staff_name ?? "" });
   }
-  return NextResponse.json({ doctors });
+  return NextResponse.json({ doctors, du_kien: !daApDung });
 }
 
 interface PostBody {
+  /** Chốt cả tuần (thứ Hai). Chỉ quản lý. */
+  apply_week?: string;
   week_start?: string;
   work_date?: string;
   shift?: string;
@@ -106,6 +197,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // Chốt cả tuần — việc khác hẳn với thêm một ô, nên tách nhánh ngay đầu.
+  const apply_week = (body.apply_week ?? "").trim();
+  if (apply_week) {
+    if (!auth.isAdmin) {
+      return NextResponse.json(
+        { error: "Chỉ quản lý mới áp dụng được lịch trực." },
+        { status: 403 },
+      );
+    }
+    return proxyJsonToBackend("POST", "/api/v1/roster/weeks/apply", {
+      week_start: apply_week,
+    });
+  }
+
   const week_start = (body.week_start ?? "").trim();
   const work_date = (body.work_date ?? "").trim();
   const station = (body.station ?? "").trim();
@@ -120,7 +225,11 @@ export async function POST(request: Request) {
     ? (body.staff_name ?? "").trim()
     : auth.staffName;
 
-  if (!week_start || !work_date || !station || !staff_name) {
+  // TÊN không còn nằm trong danh sách bắt buộc: từ 20260809000002 backend đọc
+  // tên và chức danh THẲNG TỪ DATABASE theo staff_id, và bỏ qua chuỗi client
+  // gửi lên. Bắt buộc nó ở đây chỉ tạo ra một lỗi 400 cho một trường không ai
+  // dùng nữa.
+  if (!week_start || !work_date || !station || (assignOther ? !staff_id : !staff_name)) {
     return NextResponse.json(
       { error: "Thiếu tuần / ngày / vị trí / nhân viên." },
       { status: 400 },

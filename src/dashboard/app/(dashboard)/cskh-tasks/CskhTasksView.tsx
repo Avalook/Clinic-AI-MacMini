@@ -28,7 +28,13 @@ import {
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
-import { fmtDate, fmtDateTimeOrDate, fmtTimeOrNone, VN_TZ } from "@/lib/datetime";
+import {
+  fmtDate,
+  fmtDateTimeOrDate,
+  fmtTimeOrNone,
+  VN_OFFSET,
+  VN_TZ,
+} from "@/lib/datetime";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -154,6 +160,8 @@ export default function CskhTasksView({ tasks, stats }: Props) {
 
   // Contact result form state
   const [contactResult, setContactResult] = useState<string | null>(null);
+  // Lỗi lưu phải HIỆN RA. Bản trước chỉ kiểm `res.ok` rồi bỏ qua nhánh sai.
+  const [loi, setLoi] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [nextStep, setNextStep] = useState("GỌI_LẠI_SAU_2H");
   const [cancelReason, setCancelReason] = useState("");
@@ -163,7 +171,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
   const nowIso = new Date().toISOString();
   const todayStart = new Date(
     new Date().toLocaleDateString("en-CA", { timeZone: VN_TZ }) +
-      "T00:00:00+07:00",
+      `T00:00:00${VN_OFFSET}`,
   ).toISOString();
   const todayEnd = new Date(
     new Date(todayStart).getTime() + 24 * 60 * 60 * 1000,
@@ -201,44 +209,72 @@ export default function CskhTasksView({ tasks, stats }: Props) {
   const selected =
     visibleTasks.find((t) => t.id === selectedId) ?? visibleTasks[0] ?? null;
 
+  // MỌI TỔ HỢP ĐỀU PHẢI GỬI MỘT THỨ GÌ ĐÓ.
+  //
+  // Bản trước là một chuỗi if/else-if không có else: với việc thuộc loại
+  // "appointment" mà kết quả KHÁC "CONTACTED" — tức đúng hai trường hợp cần
+  // ghi lại nhất, "Chưa nghe máy" và "Cần bác sĩ hỗ trợ" — không nhánh nào
+  // chạy. Không request, không lỗi, mà `setContactResult(null)` và
+  // `setNote("")` ở cuối vẫn chạy: form tự xoá trắng đúng như khi lưu thành
+  // công. Người dùng tin là đã lưu; database không nhận gì.
+  //
+  // Luật đúng: "đã liên hệ được" với một lịch hẹn thì XÁC NHẬN lịch (việc của
+  // nút này từ trước). Mọi kết quả khác là một LẦN GỌI đã xảy ra và phải được
+  // ghi vào nhật ký CSKH — kể cả khi không ai bắt máy. Không bắt máy vẫn là
+  // một việc đã làm.
+  /** Ghi lại một cuộc gọi đã xảy ra, và xác nhận lịch NẾU lịch còn cần xác nhận.
+   *
+   * `cskh_confirm` chỉ nhận lịch ở trạng thái SCHEDULED (booking_service TRANSITIONS).
+   * Từ 04/08/2026 mọi lịch mới đặt thẳng vào CONFIRMED — vòng gọi-xác-nhận đã bỏ —
+   * nên gửi lệnh ấy cho một lịch mới là chắc chắn lỗi chuyển trạng thái. Nút "Đã
+   * liên hệ" vì thế HỎNG với mọi lịch đặt sau ngày đó; chỉ 23 dòng SCHEDULED cũ
+   * còn dùng được.
+   *
+   * Thứ đáng giá của cuộc gọi không phải là đổi trạng thái lịch — nó vốn đã chắc.
+   * Thứ đáng giá là DẤU VẾT: đã gọi, lúc nào, kết quả ra sao. Nên luôn ghi nhật ký,
+   * và chỉ đổi trạng thái khi lịch thật sự đang chờ xác nhận.
+   */
   async function handleSaveResult() {
     if (!selected || !contactResult) return;
     setSaving(true);
     try {
-      // If it's an appointment action, use the appointments API
-      if (
+      const canXacNhan =
         selected.sourceType === "appointment" &&
-        contactResult === "CONTACTED"
-      ) {
-        const res = await fetch("/api/appointments", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: selected.sourceId,
-            action: "cskh_confirm",
-          }),
-        });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
-        }
-      } else if (selected.sourceType === "cskh_action") {
-        // Use cskh-followup API for cskh_action tasks
-        const res = await fetch("/api/cskh-followup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clinic_patient_id: selected.patientId,
-            result: contactResult,
-            note,
-          }),
-        });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
-        }
+        contactResult === "CONTACTED" &&
+        selected.status === "SCHEDULED";
+
+      const res = canXacNhan
+        ? await fetch("/api/appointments", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: selected.sourceId,
+              action: "cskh_confirm",
+            }),
+          })
+        : await fetch("/api/cskh-followup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clinic_patient_id: selected.patientId,
+              result: contactResult,
+              note,
+            }),
+          });
+
+      if (!res.ok) {
+        // Im lặng nuốt lỗi là cách bản trước làm hỏng việc. Nói ra.
+        const chi_tiet = await res
+          .json()
+          .then((d: { error?: string }) => d.error)
+          .catch(() => null);
+        setLoi(chi_tiet ?? "Không lưu được kết quả cuộc gọi. Thử lại giúp em.");
+        return;
       }
-      // Reset form
+
+      setLoi(null);
+      setDoneIds((prev) => new Set(prev).add(selected.id));
+      router.refresh();
       setContactResult(null);
       setNote("");
     } finally {
@@ -250,7 +286,11 @@ export default function CskhTasksView({ tasks, stats }: Props) {
     if (!selected) return;
     setSaving(true);
     try {
-      if (selected.sourceType === "appointment") {
+      // Cùng lý do như handleSaveResult: chỉ lịch SCHEDULED mới xác nhận được.
+      if (
+        selected.sourceType === "appointment" &&
+        selected.status === "SCHEDULED"
+      ) {
         const res = await fetch("/api/appointments", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -259,10 +299,15 @@ export default function CskhTasksView({ tasks, stats }: Props) {
             action: "cskh_confirm",
           }),
         });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
+        if (!res.ok) {
+          // Nhánh này trước đây không tồn tại: lỗi rơi vào im lặng và việc vẫn
+          // trông như chưa làm, nên người dùng bấm lại mãi.
+          setLoi("Không xác nhận được lịch hẹn. Thử lại giúp em.");
+          return;
         }
+        setLoi(null);
+        setDoneIds((prev) => new Set(prev).add(selected.id));
+        router.refresh();
       } else {
         const res = await fetch("/api/cskh-followup", {
           method: "POST",
@@ -273,10 +318,13 @@ export default function CskhTasksView({ tasks, stats }: Props) {
             note,
           }),
         });
-        if (res.ok) {
-          setDoneIds((prev) => new Set(prev).add(selected.id));
-          router.refresh();
+        if (!res.ok) {
+          setLoi("Không đánh dấu hoàn tất được. Thử lại giúp em.");
+          return;
         }
+        setLoi(null);
+        setDoneIds((prev) => new Set(prev).add(selected.id));
+        router.refresh();
       }
     } finally {
       setSaving(false);
@@ -669,34 +717,11 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                   <option value="GUI_KET_QUA">Gửi kết quả XN</option>
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-ink">
-                  Điều kiện hoàn thành
-                </label>
-                <div className="space-y-1 text-xs text-ink-soft">
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="rounded border-line text-brand-600"
-                    />{" "}
-                    Ghi nhận kết quả liên hệ
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="rounded border-line text-brand-600"
-                    />{" "}
-                    Chọn bước tiếp theo
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      className="rounded border-line text-brand-600"
-                    />{" "}
-                    Cập nhật hạn xử lý
-                  </label>
-                </div>
-              </div>
+              {/* BA Ô TICK ĐÃ BỎ (08/08/2026).
+                  Chúng không có `checked`, không có `onChange`, và không đi
+                  vào lời gọi nào — thuần trang trí. Một ô tick bấm được nhưng
+                  không lưu là lời hứa với người dùng rằng họ vừa ghi lại một
+                  điều kiện; đến ca sau không ai tìm thấy nó. */}
             </div>
 
             {/* Cancel reason (shown for PHAN_LAI_LICH / HUY_LICH tasks) */}
@@ -726,6 +751,14 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                   />
                 )}
               </div>
+            )}
+
+            {/* Lỗi lưu — hiện ra chứ không nuốt. Không có dòng này thì một lần
+                lưu hỏng trông y hệt một lần lưu được. */}
+            {loi && (
+              <p className="rounded-xl border border-danger bg-danger-bg px-3 py-2 text-xs text-danger">
+                {loi}
+              </p>
             )}
 
             {/* Action buttons */}

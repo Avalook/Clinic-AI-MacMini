@@ -9,6 +9,7 @@ import {
   Calendar,
   BarChart3,
   Settings,
+  KeyRound,
   Contact,
   Stethoscope,
   FlaskConical,
@@ -55,7 +56,6 @@ export const NAV: NavItem[] = [
     label: "Hàng đợi tiếp nhận",
     shortLabel: "Hàng đợi",
     icon: Users,
-    badge: "Mới",
   },
   {
     href: "/doctor/board",
@@ -76,7 +76,6 @@ export const NAV: NavItem[] = [
     label: "Check-out lượt khám",
     shortLabel: "Check-out",
     icon: CheckCheck,
-    badge: "Mới",
   },
   {
     href: "/cskh-tasks",
@@ -92,6 +91,12 @@ export const NAV: NavItem[] = [
     label: "Nhắc tái khám",
     shortLabel: "Tái khám",
     icon: PhoneCall,
+  },
+  {
+    href: "/appointments/cho-xep-bac-si",
+    label: "Chờ xếp bác sĩ",
+    shortLabel: "Chờ xếp BS",
+    icon: UserPlus,
   },
   {
     href: "/appointments",
@@ -240,7 +245,12 @@ export const NAV: NavItem[] = [
     label: "Lịch sử thao tác",
     shortLabel: "Lịch sử",
     icon: ClipboardCheck,
-    badge: "Mới",
+    // KHÔNG còn badge "Mới". Màn này không chạy song song với một màn cũ nào —
+    // nó là màn duy nhất cho việc của nó, nên nhãn "Mới" chỉ làm sidebar ồn.
+    //
+    // Mười badge còn lại vẫn giữ: chúng đánh dấu những màn ĐANG chạy song song
+    // với bản cũ (xem ghi chú đầu danh sách), và bỏ chúng là mất đúng thông tin
+    // mà nhân viên cần để biết mình đang ở bản nào.
   },
   {
     href: "/result-review",
@@ -275,6 +285,14 @@ export const NAV: NavItem[] = [
     label: "Quản lý nhân sự",
     shortLabel: "Nhân sự",
     icon: Users,
+  },
+  // Tài khoản ĐĂNG NHẬP, tách khỏi "Cài đặt" — bên kia là cấu hình phòng khám,
+  // đây là quản trị người dùng: tạo login, đặt lại mật khẩu, gỡ tài khoản.
+  {
+    href: "/settings/tai-khoan",
+    label: "Thiết lập tài khoản cho nhân viên",
+    shortLabel: "Tài khoản NV",
+    icon: KeyRound,
   },
   { href: "/settings", label: "Cài đặt", icon: Settings },
   {

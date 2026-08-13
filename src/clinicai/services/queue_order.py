@@ -1,15 +1,40 @@
-"""Authoritative CALL-order ranking for the clinic queue (Phase 4, cluster #5).
+"""Luật THỨ TỰ GỌI của phòng khám — nguồn sự thật duy nhất.
 
-Ported from the frontend lib/queue.ts so the ranking rule lives in ONE place
-(backend) instead of being duplicated/spoofable in TSX. Pure functions — no I/O.
+Trước đây luật này có HAI bản: bản Python ở đây và một bản TypeScript chép lại ở
+`src/dashboard/lib/queue.ts` mà ba màn nhân viên đang dùng. Hôm nay chúng giống
+nhau, nhưng không có gì ràng buộc — sửa một bên là hai bảng nói khác nhau mà
+không ai biết. Bản TypeScript đã bị xoá; mọi thứ tự đều tính ở đây.
 
-Rule (Model ②, chốt 2026-06-26): the ticket number identifies a patient but does
-NOT decide call order. Order tiers:
-  -2  ƯT (người quen — priority ticket "ƯT1"…)   by ticket num
-  -1  B3-ready (labs/ultrasound back → re-enter)   by arrival
-   0  booked & arrived on time (≤ appt + 10' grace) by APPOINTMENT time
-   1  walk-in / arrived late                        by ARRIVAL time
-(pre-check-in rows fall back to plain ticket order.)
+Hàm trong module này THUẦN: không I/O, không await, không chạm database. Cấu
+hình đi vào bằng tham số. Cách hỏng dễ nhất là ai đó thêm một lượt tra chính
+sách vào `call_rank` cho tiện — `test_queue_order.py` có bài canh chặn đúng việc
+đó.
+
+Luật (Model ②, chốt 2026-06-26): SỐ VÉ ĐỊNH DANH NGƯỜI BỆNH, KHÔNG QUYẾT THỨ TỰ
+GỌI. Bốn làn:
+
+  -2  ƯT (người quen)                        xếp theo số vé
+  -1  Kết quả XN/SA đã về → vào lại          xếp theo GIỜ ĐẾN
+   0  Có hẹn và đến trong khung của mình     xếp theo GIỜ HẸN
+   1  Vãng lai, hoặc có hẹn nhưng đến muộn   xếp theo GIỜ ĐẾN
+
+(Dòng chưa check-in rơi về thứ tự số vé thuần.)
+
+CỬA SỔ "ĐẾN ĐÚNG GIỜ" DÀI BẰNG KHUNG GIỜ, KHÔNG PHẢI MỘT HẰNG SỐ. Trước đây nó
+là `LATE_GRACE_MS = 10 phút` viết cứng. Với khung 15 phút, người check-in ở phút
+thứ 12 — vẫn đang trong khung 18:00–18:15 của chính mình — bị đẩy xuống làn vãng
+lai. Với khung 30 phút thì lệch tới 20 phút. Độ dài khung do Quản lý cấu hình
+(`clinic.settings->booking->slot_minutes`, đè được theo bác sĩ qua
+`doctor_booking_override`), nên cửa sổ phải đi theo nó.
+
+`grace_ms` KHÔNG CÓ GIÁ TRỊ MẶC ĐỊNH, và nằm trên TỪNG DÒNG chứ không phải một
+tham số chung cho cả danh sách. Hai lý do:
+
+  · Không có con số nào hợp lý để đoán "khung dài bao lâu". Một mặc định ở đây
+    là một cách im lặng để xếp sai hàng khi ai đó quên nối dây.
+  · `doctor_booking_override` cho phép hai bác sĩ có độ dài khung khác nhau
+    trong cùng một buổi, nên một con số cho cả bảng sẽ sai cho ít nhất một
+    người.
 """
 
 from __future__ import annotations
@@ -18,10 +43,27 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
-LATE_GRACE_MS = 10 * 60_000  # 10 minutes
-
 _UT_RE = re.compile(r"(?:Ư|U)\s*T\s*0*(\d*)", re.IGNORECASE)
 _INT_RE = re.compile(r"[+-]?\d+")
+
+# Lý do một người đứng ở vị trí đó — để màn hình NÓI ĐƯỢC, không chỉ xếp được.
+# Màn tivi phải giải thích cho người ngồi chờ vì sao ai đó vượt lên trước mình.
+REASON_UU_TIEN = "UU_TIEN"  # vé ƯT
+REASON_CHO_DOC_KQ = "CHO_DOC_KQ"  # xét nghiệm/siêu âm đã về, vào lại
+REASON_DAT_TRUOC_DUNG_GIO = "DAT_TRUOC_DUNG_GIO"  # có hẹn, đến trong khung
+REASON_DEN_TRUC_TIEP = "DEN_TRUC_TIEP"  # vãng lai
+REASON_DEN_TRE = "DEN_TRE"  # có hẹn nhưng đến sau khung
+REASON_CHUA_DEN = "CHUA_DEN"  # chưa check-in
+
+# Trạng thái LƯỢT KHÁM có nghĩa là "người này không còn ngồi chờ nữa".
+#
+# Một nguồn duy nhất, vì cùng một danh sách phải đúng ở ba chỗ: hàng chờ của Lễ
+# tân, bảng gọi số trên tivi, và bảng điều phối. Sót một chỗ là người đã ra về
+# vẫn nằm trong hàng và vẫn được gọi tên.
+#
+# INCOMPLETE nằm ở đây dù nó KHÔNG phải trạng thái cuối: khách về giữa chừng thì
+# không còn chờ, kể cả khi hồ sơ của họ vẫn ghi tiếp được lúc quay lại.
+VISIT_DA_RA_VE: frozenset[str] = frozenset({"INCOMPLETE", "FINALIZED", "AMENDED"})
 
 
 def _ms(d: datetime) -> int:
@@ -60,40 +102,136 @@ class QueueEntry:
     slot_start: datetime
     checked_in_at: datetime | None
     booking_channel: str | None
+    # Cửa sổ "đến đúng giờ" của CHÍNH lượt này, tính bằng mili giây — bằng độ
+    # dài khung giờ mà Quản lý cấu hình cho bác sĩ đó vào thời điểm đó.
+    #
+    # KHÔNG CÓ MẶC ĐỊNH, và đứng trước các trường có mặc định. Cố ý: người thêm
+    # một nơi gọi mới sẽ bị TypeError ngay, thay vì lặng lẽ xếp hàng theo một
+    # con số đoán mò.
+    grace_ms: int
     b3_ready: bool = False
     visit_status: str | None = None
 
 
-def call_rank(e: QueueEntry) -> tuple[int, float, str]:
-    """Sort key for a CHECKED-IN patient (lower = called sooner)."""
+@dataclass(frozen=True)
+class QueueDecision:
+    """Một dòng trong hàng chờ, kèm LỜI GIẢI THÍCH vì sao nó đứng ở đó.
+
+    Bảng gọi số không chỉ cần xếp đúng — nó phải trả lời được câu hỏi của người
+    ngồi chờ: *"vì sao người kia vào trước tôi?"*. Không có `call_reason` thì
+    câu trả lời duy nhất màn hình đưa ra được là im lặng.
+    """
+
+    entry: QueueEntry
+    call_order: int  # vị trí trong hàng, 0 là người được gọi tiếp theo
+    call_tier: int  # làn: -2 ƯT · -1 chờ đọc KQ · 0 đúng hẹn · 1 đến sau
+    call_reason: str  # một trong các REASON_* ở đầu module
+    # "Được đẩy lên" = có ít nhất một người ĐẾN TRƯỚC mình mà bị xếp SAU mình.
+    # Đây đúng là tình huống cần giải thích trên tivi, và cũng đúng là tình
+    # huống duy nhất khiến người đến trước thấy khó hiểu.
+    promoted: bool
+    promoted_over: int
+
+
+def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
+    """Khoá sắp xếp VÀ lý do, sinh ra cùng một lúc.
+
+    Hai thứ này phải đi cùng nhau. Tách thành hai hàm là mở đường cho việc màn
+    hình dán một câu giải thích không khớp với thứ tự thật — thứ sai lầm mà
+    không bài kiểm nào bắt được vì cả hai đều "chạy đúng".
+    """
     slot_iso = _iso(e.slot_start)
 
-    # -1: labs/ultrasound came back → re-enter ahead of the fresh queue.
+    # -1: kết quả xét nghiệm/siêu âm đã về → vào lại trước hàng mới.
     if e.b3_ready:
         in_ms = _ms(e.checked_in_at) if e.checked_in_at else _ms(e.slot_start)
-        return (-1, in_ms, _iso(e.checked_in_at) or slot_iso)
+        return (-1, in_ms, _iso(e.checked_in_at) or slot_iso), REASON_CHO_DOC_KQ
 
-    # Pre-check-in row with no channel/arrival → plain ticket order.
+    # Dòng chưa check-in, chưa có kênh đặt → thứ tự số vé thuần.
     if e.booking_channel is None and e.checked_in_at is None:
-        return queue_rank(e.queue_number, slot_iso)
+        return queue_rank(e.queue_number, slot_iso), REASON_CHUA_DEN
 
     # -2: ƯT (người quen).
     n = _ut_num(e.queue_number)
     if n is not None:
-        return (-2, n, slot_iso)
+        return (-2, n, slot_iso), REASON_UU_TIEN
 
     slot_ms = _ms(e.slot_start)
-    is_booked = bool(e.booking_channel) and e.booking_channel != "WALK_IN"
+    # CHỈ 'WALK_IN' mới là khách vãng lai. Mọi giá trị khác — KỂ CẢ TRỐNG — là
+    # khách đã đặt lịch.
+    #
+    # Trước đây điều kiện là `bool(booking_channel) and != 'WALK_IN'`, nên một
+    # lịch KHÔNG GHI KÊNH bị coi là vãng lai. Trên máy chủ thật hôm nay có 16
+    # lịch như vậy (ONLINE 21 · TRỐNG 16 · WALK_IN 7 · HOTLINE 4) — tức là gần
+    # một phần ba số lịch bị TƯỚC MẤT quyền ưu tiên mà người bệnh đã có bằng
+    # cách đặt trước, và không có gì trên màn hình cho thấy điều đó.
+    #
+    # Trống nghĩa là "không ai ghi lại kênh", không nghĩa là "người này tự đến".
+    # Khách vãng lai được tạo với kênh WALK_IN rõ ràng (và tự vào thẳng trạng
+    # thái đã đến — xem booking_service). Một dòng trong bảng lịch hẹn mà không
+    # phải WALK_IN thì chính nó đã là một cái hẹn.
+    #
+    # Và hai kiểu đoán sai không ngang giá nhau: đoán nhầm người đặt lịch thành
+    # vãng lai thì họ mất lượt đã giành được; đoán nhầm vãng lai thành người đặt
+    # lịch thì gần như vô hại, vì lịch của khách vãng lai được tạo ngay lúc họ
+    # tới nên giờ hẹn xấp xỉ giờ đến.
+    is_booked = (e.booking_channel or "").strip().upper() != "WALK_IN"
 
-    # 0: booked and arrived on time → ordered by appointment time.
+    # 0: có hẹn và đến TRONG KHUNG CỦA MÌNH → xếp theo giờ hẹn.
     if is_booked and e.checked_in_at is not None:
         in_ms = _ms(e.checked_in_at)
-        if in_ms <= slot_ms + LATE_GRACE_MS:
-            return (0, float(slot_ms), _iso(e.checked_in_at))
+        if in_ms <= slot_ms + e.grace_ms:
+            return (0, float(slot_ms), _iso(e.checked_in_at)), (
+                REASON_DAT_TRUOC_DUNG_GIO
+            )
 
-    # 1: walk-in or late → ordered by arrival time.
+    # 1: vãng lai, hoặc có hẹn nhưng đến sau khung → xếp theo giờ đến.
     arrive_ms = _ms(e.checked_in_at) if e.checked_in_at else slot_ms
-    return (1, float(arrive_ms), _iso(e.checked_in_at) or slot_iso)
+    key = (1, float(arrive_ms), _iso(e.checked_in_at) or slot_iso)
+    return key, (REASON_DEN_TRE if is_booked else REASON_DEN_TRUC_TIEP)
+
+
+def call_rank(e: QueueEntry) -> tuple[int, float, str]:
+    """Khoá sắp xếp cho một người ĐÃ check-in (nhỏ hơn = gọi sớm hơn)."""
+    return _classify(e)[0]
+
+
+def call_reason(e: QueueEntry) -> str:
+    """Vì sao người này đứng ở làn đó — một trong các REASON_*."""
+    return _classify(e)[1]
+
+
+def explain_queue(entries: list[QueueEntry]) -> list[QueueDecision]:
+    """Xếp hàng VÀ giải thích, trong một lượt.
+
+    `promoted_over` đếm số người đến trước mà bị xếp sau mình. Chỉ tính những
+    người ĐÃ check-in: người chưa đến thì chưa "đến trước" ai cả, và đếm họ vào
+    sẽ dán nhãn "được đẩy lên" cho gần như mọi người.
+    """
+    ranked = sorted(entries, key=call_rank)
+
+    out: list[QueueDecision] = []
+    for i, e in enumerate(ranked):
+        key, reason = _classify(e)
+        over = 0
+        if e.checked_in_at is not None:
+            mine = _ms(e.checked_in_at)
+            over = sum(
+                1
+                for other in ranked[i + 1 :]
+                if other.checked_in_at is not None and _ms(other.checked_in_at) < mine
+            )
+        out.append(
+            QueueDecision(
+                entry=e,
+                call_order=i,
+                call_tier=key[0],
+                call_reason=reason,
+                promoted=over > 0,
+                promoted_over=over,
+            )
+        )
+    return out
 
 
 def order_queue(entries: list[QueueEntry]) -> list[QueueEntry]:

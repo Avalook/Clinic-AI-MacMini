@@ -88,7 +88,10 @@ class CapacityService:
             # nào: nó mời CSKH đặt vào một buổi chiều mà bác sĩ không có mặt, và
             # sai đó chỉ vỡ ra lúc bệnh nhân đã tới nơi.
             #
-            # Chỉ có hiệu lực KHI NGÀY ĐÓ ĐÃ XẾP CA. CSKH đặt trước cả tháng,
+            # Chỉ có hiệu lực KHI TUẦN ĐÓ ĐÃ ĐƯỢC ÁP DỤNG — không phải khi
+            # "có dòng trong bảng". Một tuần trải sẵn từ mẫu là bản nháp; khoá
+            # ô đặt lịch dựa trên bản nháp là từ chối khách vì một quyết định
+            # chưa ai ra. Xem migration 20260808000001. CSKH đặt trước cả tháng,
             # lúc ấy lịch trực chưa có — coi "chưa xếp" là "không đi làm" sẽ
             # khoá sạch tương lai. Cùng cách phân biệt mà booking_service dùng
             # cho câu cảnh báo của nó, để hai nơi không nói hai điều khác nhau.
@@ -102,11 +105,22 @@ class CapacityService:
                     SELECT 1 FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
                        AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
                   ) AS roster_known,
                   coalesce((
                     SELECT array_agg(DISTINCT shift) FROM work_roster
                      WHERE clinic_id = $1::uuid AND work_date = $2
-                       AND status = 'APPROVED' AND staff_id = $3::uuid
+                       AND staff_id = $3::uuid
+                       AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
                   ), ARRAY[]::text[]) AS shifts,
                   (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                     AS open_minute,
@@ -187,36 +201,30 @@ class CapacityService:
                       $1::uuid, $3::uuid,
                       ($2::date + make_interval(mins => sl.minute_of_day))
                           AT TIME ZONE 'Asia/Ho_Chi_Minh') cap
+                  -- Phép đếm nằm ở `slot_seats_used()` — CÙNG hàm mà trigger
+                  -- gọi khi nó nhận hay từ chối. Trước đây chỗ này tự đếm bằng
+                  -- SQL riêng, và luật vừa đổi: một ghế vãng lai nay có thể bị
+                  -- một khách có hẹn ĐẾN MUỘN chiếm (20260807000001). Hai bản
+                  -- chép tay của một luật thì bản nào cũng sẽ lỡ mất lần sửa
+                  -- tiếp theo.
                   LEFT JOIN LATERAL (
                       SELECT
-                        count(*) FILTER (
-                            WHERE upper(coalesce(a.booking_channel,'')) <> 'WALK_IN'
-                        ) AS regular_used,
-                        count(*) FILTER (
-                            WHERE upper(coalesce(a.booking_channel,'')) =  'WALK_IN'
-                        ) AS walkin_used
-                        FROM appointment a
-                       WHERE a.clinic_id = $1::uuid
-                         AND a.location_id = $4::uuid
-                         -- `coalesce` thay cho `($n IS NULL OR col = $n)`:
-                         -- cùng nghĩa, không nhánh OR nào để bộ lọc tenant lọt
-                         -- qua. Đây là lọc "một bác sĩ hay mọi bác sĩ", không
-                         -- phải lọc tenant — nhưng bài soi không phân biệt được,
-                         -- và nó đúng khi không phân biệt: một OR ở tầng WHERE
-                         -- là chỗ để lộ dữ liệu phòng khám khác.
-                         AND a.doctor_id IS NOT DISTINCT FROM
-                             coalesce($3::uuid, a.doctor_id)
-                         -- Cùng cách gom khung mà trigger dùng: mốc bắt đầu rơi
-                         -- vào [khung, khung + độ dài).
-                         AND a.slot_start >= ($2::date
-                                 + make_interval(mins => sl.minute_of_day))
-                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'
-                         AND a.slot_start <  ($2::date + make_interval(
-                                 mins => sl.minute_of_day + sl.slot_minutes))
-                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'
-                         -- Trạng thái chết không giữ chỗ — cùng danh sách với
-                         -- DEAD_STATUSES ở booking_service và enforce_slot_capacity.
-                         AND a.status NOT IN ('CANCELLED','NO_SHOW','DOCTOR_DECLINED')
+                        slot_seats_used(
+                            $1::uuid, $3::uuid,
+                            ($2::date + make_interval(mins => sl.minute_of_day))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            ($2::date + make_interval(
+                                mins => sl.minute_of_day + sl.slot_minutes))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            FALSE, NULL, $4::uuid) AS regular_used,
+                        slot_seats_used(
+                            $1::uuid, $3::uuid,
+                            ($2::date + make_interval(mins => sl.minute_of_day))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            ($2::date + make_interval(
+                                mins => sl.minute_of_day + sl.slot_minutes))
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                            TRUE, NULL, $4::uuid) AS walkin_used
                   ) used ON TRUE
                  ORDER BY sl.minute_of_day
                 """,

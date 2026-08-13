@@ -79,6 +79,70 @@ CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai
 
 ## 4. Sao lưu & Khôi phục Database
 
+### Trên VPS: chạy tự động hằng đêm 02:15
+
+```bash
+systemctl list-timers clinicai-backup.timer      # lần chạy tới
+sudo journalctl -u clinicai-backup.service -n 30 # đêm qua có chạy không
+ls -la ~/backups/clinicai/                       # tệp thật
+```
+
+Bật ngày **08/08/2026**. Trước đó `backup-db.sh` có trong repo nhưng **chưa từng
+chạy trên máy chủ**: không thư mục sao lưu, không cron, không timer. Nghĩa là
+phòng khám đã chạy thật một thời gian mà không có bản sao lưu nào.
+
+Mỗi đêm sinh **hai tệp**, cả hai đều cần để khôi phục:
+
+| tệp | chứa gì |
+|---|---|
+| `*.sql.gz` | lược đồ + dữ liệu `public` (71 bảng) |
+| `*_auth.sql.gz` | `auth.users` + `auth.identities` |
+
+**Vì sao phải có tệp thứ hai.** `staff.auth_user_id` có khoá ngoại tới
+`auth.users`. Khôi phục mỗi `public` vào một database trắng là chết giữa chừng
+với `violates foreign key constraint staff_auth_user_id_fkey` — không phải mất
+đăng nhập, mà là khôi phục THẤT BẠI. Thời còn ở Supabase cloud thì phần auth do
+nền tảng lo; từ 06/08/2026 hệ thống tự dựng GoTrue nên **không còn ai lo hộ**.
+
+**`pg_dump` chạy TRONG container.** Ubuntu 24.04 có pg_dump 16.14 còn máy chủ
+database là 17.10 — bản cũ từ chối dump máy chủ mới hơn. `pg-dump-qua-container.sh`
+exec vào chính container database nên phiên bản luôn khớp, và nó DỪNG nếu
+`PGHOST` không trùng tên container (chống sao lưu nhầm database rồi dán nhãn sai).
+
+### Bản sao NGOÀI MÁY trên Viettel
+
+Bản sao lưu hằng đêm nằm **cùng ổ đĩa** với database nó sao lưu — ổ hỏng là mất
+cả hai. Bước thứ hai của công việc hằng đêm đẩy bản vừa tạo sang gói Viettel.
+
+Cần một file `~/clinicai/.env.viettel` (đã nằm trong `.gitignore` qua `.env.*`):
+
+```
+VIETTEL_DATABASE_URL=postgresql://user:mat_khau@host:5432/tendb?sslmode=require
+```
+
+Chưa có file thì bước này **dừng với một câu rõ ràng và không làm hỏng bản sao
+lưu cục bộ** (`ExecStart=-` trong unit). Bật sẵn nên ngày có thông tin kết nối
+không phải sửa gì.
+
+**Chứa dạng TỆP, không nạp thẳng lược đồ.** Gói Viettel là Database Service
+(DBaaS) — không cấp `CREATEROLE`, mà bản dump có **61 dòng** `CREATE POLICY … TO
+authenticated`. Nạp lược đồ sang đó là hỏng ngay dòng chính sách đầu tiên. Nên
+Viettel đóng vai **kho chứa**: bảng `clinicai_sao_luu`, mỗi đêm hai dòng
+(public + auth) kèm mã băm, giữ 30 đêm. Không phụ thuộc vai, extension hay
+phiên bản Postgres.
+
+Khôi phục:
+```bash
+psql "$VIETTEL_DATABASE_URL" -tAq -c \
+  "SELECT encode(noi_dung,'base64') FROM clinicai_sao_luu
+    WHERE loai='public' ORDER BY tao_luc DESC LIMIT 1" \
+  | base64 -d > ban.sql.gz
+./scripts/restore-db.sh ban.sql.gz
+```
+
+Đã kiểm khép kín ngày 08/08/2026: đẩy lên → tải về (byte khớp hệt) →
+`restore-drill.sh` từ chính tệp tải về, **16/16 đạt**.
+
 ### Backup thủ công
 ```bash
 # LaunchDaemon không nạp shell profile; lệnh này phải trả về binary Homebrew

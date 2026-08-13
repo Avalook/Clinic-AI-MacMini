@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "../../../../lib/supabase-browser";
-import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
+import ChiTietLuot from "./ChiTietLuot";
 
 export interface Blocker {
   type: string;
@@ -41,7 +41,9 @@ export default function CheckoutBoard({
   const router = useRouter();
   const [rows, setRows] = useState(initial);
   const [live, setLive] = useState(ok);
-  const [open, setOpen] = useState<string | null>(null);
+  const [dangChon, setDangChon] = useState<string | null>(null);
+  const [tab, setTab] = useState<"tat_ca" | "san_sang" | "bi_chan">("tat_ca");
+  const [timKiem, setTimKiem] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -115,8 +117,8 @@ export default function CheckoutBoard({
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function close(row: CheckoutRow) {
-    const needReason = row.blockers.length > 0;
+  async function close(row: CheckoutRow, khamDo = false) {
+    const needReason = khamDo || row.blockers.length > 0;
     if (needReason && !reason.trim()) return;
     setBusy(true);
     const res = await fetch("/api/reception/checkout", {
@@ -124,7 +126,9 @@ export default function CheckoutBoard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         visit_id: row.visit_id,
-        override_reason: needReason ? reason.trim() : null,
+        override_reason: khamDo ? null : needReason ? reason.trim() : null,
+        incomplete: khamDo,
+        incomplete_reason: khamDo ? reason.trim() : null,
       }),
     });
     const out = (await res.json().catch(() => ({}))) as {
@@ -140,11 +144,13 @@ export default function CheckoutBoard({
     flash(
       out.already_closed
         ? "Lượt khám này đã được đóng trước đó."
-        : needReason
-          ? "✓ Đã đóng lượt (ngoại lệ, đã ghi lý do)"
-          : "✓ Đã đóng lượt khám",
+        : khamDo
+          ? "✓ Đã đóng — đánh dấu khám dở, CSKH sẽ gọi lại"
+          : needReason
+            ? "✓ Đã đóng lượt (ngoại lệ, đã ghi lý do)"
+            : "✓ Đã đóng lượt khám",
     );
-    setOpen(null);
+    setDangChon(null);
     setReason("");
     await reload();
     router.refresh();
@@ -153,209 +159,206 @@ export default function CheckoutBoard({
   const pending = rows.filter((r) => !r.already_closed);
   const done = rows.filter((r) => r.already_closed);
 
+  const needle = timKiem.trim().toLocaleLowerCase("vi-VN");
+  const hienThi = pending
+    .filter((r) => {
+      if (tab === "san_sang" && !r.can_close) return false;
+      if (tab === "bi_chan" && r.can_close) return false;
+      if (!needle) return true;
+      return [r.patient_name, r.patient_code]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("vi-VN")
+        .includes(needle);
+    })
+    .sort((a, b) => (a.checked_in_at ?? "").localeCompare(b.checked_in_at ?? ""));
+
+  const chon =
+    hienThi.find((r) => r.visit_id === dangChon) ?? hienThi[0] ?? null;
+
+  const TABS = [
+    { key: "tat_ca" as const, nhan: `Tất cả (${pending.length})` },
+    {
+      key: "san_sang" as const,
+      nhan: `Đủ điều kiện (${pending.filter((r) => r.can_close).length})`,
+    },
+    {
+      key: "bi_chan" as const,
+      nhan: `Bị chặn (${pending.filter((r) => !r.can_close).length})`,
+    },
+  ];
+
   return (
-    <div className="dispatch-scope">
+    <div className="space-y-3">
       {!live && (
         <div
           role="alert"
-          className="card"
-          style={{
-            marginBottom: 12,
-            borderColor: "var(--danger)",
-            background: "var(--danger-bg)",
-            color: "var(--danger)",
-            fontSize: 13,
-          }}
+          className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger"
         >
           Không đọc được danh sách check-out. Danh sách bên dưới có thể đã cũ —
           tải lại trang.
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: "var(--ink-muted)", marginBottom: 10 }}>
-        {pending.length} lượt chưa đóng · {done.length} đã đóng hôm nay
-      </div>
-
-      {pending.length === 0 && (
-        <div className="card" style={{ padding: 20, textAlign: "center" }}>
-          <div style={{ fontWeight: 700 }}>Không còn lượt nào cần đóng</div>
-          <div style={{ fontSize: 12, color: "var(--ink-muted)" }}>
-            Mọi lượt khám hôm nay đã được đóng.
-          </div>
+      {toast && (
+        <div className="rounded-card border border-line bg-surface px-4 py-2.5 text-sm text-ink shadow-card">
+          {toast}
         </div>
       )}
 
-      <div style={{ display: "grid", gap: 10 }}>
-        {pending.map((r) => {
-          const clean = r.blockers.length === 0;
-          return (
-            <div key={r.visit_id} className="card" style={{ padding: 14 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "flex-start",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700 }}>
-                    {r.patient_name ?? "—"}{" "}
-                    <span
-                      style={{
-                        fontWeight: 400,
-                        fontSize: 12,
-                        color: "var(--ink-muted)",
-                      }}
-                    >
-                      {r.patient_code ?? ""}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
-                    {r.checked_in_at
-                      ? `Đến ${new Date(r.checked_in_at).toLocaleTimeString("vi-VN", {
-                          timeZone: "Asia/Ho_Chi_Minh",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}`
-                      : "Chưa rõ giờ đến"}
-                    {r.room_name ? ` · đang ở ${r.room_name}` : ""}
-                  </div>
-                </div>
-
-                <span
-                  className="badge"
-                  style={
-                    clean
-                      ? { background: "var(--success-bg)", color: "var(--success)" }
-                      : { background: "var(--warning-bg)", color: "var(--warning)" }
-                  }
-                >
-                  {clean
-                    ? "Đủ điều kiện đóng"
-                    : `Còn ${r.blockers.length} việc`}
-                </span>
-              </div>
-
-              {/* Danh sách việc còn thiếu, không phải một câu chung chung.
-                  Nói một vướng mắc rồi im là bắt Lễ tân sửa xong lại bấm, lại
-                  bị chặn — Notion đòi "hiển thị danh sách việc còn thiếu". */}
-              {!clean && (
-                <ul
-                  style={{
-                    margin: "10px 0 0 18px",
-                    padding: 0,
-                    fontSize: 12,
-                    color: "var(--warning)",
-                    lineHeight: 1.9,
-                  }}
-                >
-                  {r.blockers.map((b) => (
-                    <li key={b.type}>{b.message}</li>
-                  ))}
-                </ul>
-              )}
-
-              <div
-                style={{
-                  marginTop: 12,
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                {clean ? (
+      {pending.length === 0 ? (
+        <div className="rounded-card border border-line bg-surface px-4 py-10 text-center">
+          <p className="font-medium text-ink">Không còn lượt nào cần đóng</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            {done.length > 0
+              ? `Đã đóng ${done.length} lượt hôm nay.`
+              : "Hôm nay chưa có lượt khám nào."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[minmax(260px,0.85fr)_minmax(0,2.5fr)]">
+          {/* ── Cột trái: danh sách ────────────────────────────────────── */}
+          <section
+            aria-label="Danh sách lượt khám"
+            className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+          >
+            <div className="border-b border-line p-3">
+              <h2 className="text-sm font-semibold text-ink">
+                Danh sách lượt khám
+              </h2>
+              <div className="mt-3 flex border-b border-line text-xs">
+                {TABS.map((t) => (
                   <button
-                    className="btn btn-primary"
-                    disabled={busy}
-                    onClick={() => close(r)}
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTab(t.key)}
+                    aria-pressed={tab === t.key}
+                    className={`shrink-0 border-b-2 px-2.5 py-2 font-medium transition-colors ${
+                      tab === t.key
+                        ? "border-brand-600 text-brand-700"
+                        : "border-transparent text-ink-muted hover:text-ink"
+                    }`}
                   >
-                    <CheckCircle2 size={14} /> Đóng lượt khám
+                    {t.nhan}
                   </button>
-                ) : open === r.visit_id ? (
-                  <>
-                    <input
-                      type="text"
-                      autoFocus
+                ))}
+              </div>
+              <input
+                type="search"
+                value={timKiem}
+                onChange={(e) => setTimKiem(e.target.value)}
+                placeholder="Tìm tên hoặc mã BN"
+                className="mt-3 h-9 w-full rounded-control border border-line bg-surface px-3 text-xs text-ink outline-none focus:border-brand-500"
+              />
+            </div>
+
+            <ul className="max-h-[70vh] divide-y divide-line overflow-y-auto">
+              {hienThi.length === 0 ? (
+                <li className="px-4 py-8 text-center text-sm text-ink-muted">
+                  Không có lượt nào trong nhóm này.
+                </li>
+              ) : (
+                hienThi.map((r) => {
+                  const active = chon?.visit_id === r.visit_id;
+                  return (
+                    <li key={r.visit_id}>
+                      <button
+                        type="button"
+                        onClick={() => setDangChon(r.visit_id)}
+                        aria-pressed={active}
+                        className={`w-full px-3 py-3 text-left transition-colors ${
+                          active
+                            ? "border-l-[3px] border-brand-600 bg-surface-selected pl-[9px]"
+                            : "hover:bg-surface-sunken"
+                        }`}
+                      >
+                        <span className="flex items-start justify-between gap-2">
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-ink">
+                              {r.patient_name ?? "Chưa rõ tên"}
+                            </span>
+                            <span className="block truncate text-[11px] text-ink-muted">
+                              {r.patient_code ?? "—"}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[11px] tabular-nums text-ink-muted">
+                            {r.checked_in_at
+                              ? new Date(r.checked_in_at).toLocaleTimeString(
+                                  "vi-VN",
+                                  { hour: "2-digit", minute: "2-digit" },
+                                )
+                              : "—"}
+                          </span>
+                        </span>
+                        <span
+                          className={`mt-1.5 inline-flex rounded-chip px-2 py-0.5 text-[10px] font-semibold ${
+                            r.can_close
+                              ? "bg-success-bg text-success"
+                              : "bg-warning-bg text-warning"
+                          }`}
+                        >
+                          {r.can_close
+                            ? "Đủ điều kiện đóng"
+                            : `Còn ${r.blockers.length} việc`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </section>
+
+          {/* ── Cột giữa + phải ─────────────────────────────────────────── */}
+          {chon ? (
+            <div className="min-w-0 space-y-3">
+              <ChiTietLuot key={chon.visit_id} visitId={chon.visit_id} />
+
+              <div className="rounded-card border border-line bg-surface p-4 shadow-card">
+                {chon.blockers.length > 0 && (
+                  <label className="block text-xs text-ink-muted">
+                    Lý do đóng khi còn việc chưa xong (bắt buộc)
+                    <textarea
+                      rows={2}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      placeholder="Lý do đóng khi còn việc chưa xong…"
-                      style={{ flex: "1 1 260px" }}
+                      placeholder="Vd: khách xin về, đã hẹn quay lại lấy kết quả"
+                      className="mt-1 w-full resize-none rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-500"
                     />
-                    <button
-                      className="btn btn-danger"
-                      disabled={busy || !reason.trim()}
-                      onClick={() => close(r)}
-                    >
-                      Xác nhận đóng
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => {
-                        setOpen(null);
-                        setReason("");
-                      }}
-                    >
-                      Huỷ
-                    </button>
-                  </>
-                ) : (
+                  </label>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setOpen(r.visit_id);
-                      setReason("");
-                    }}
+                    type="button"
+                    disabled={
+                      busy || (chon.blockers.length > 0 && !reason.trim())
+                    }
+                    onClick={() => void close(chon)}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
                   >
-                    <AlertTriangle size={14} /> Đóng dù còn việc (ghi lý do)
+                    {busy ? "Đang lưu…" : "Xác nhận đóng lượt khám"}
                   </button>
+                  <button
+                    type="button"
+                    disabled={busy || !reason.trim()}
+                    onClick={() => void close(chon, true)}
+                    title="Khách về giữa chừng — vẫn đóng, nhưng đánh dấu là khám dở để CSKH gọi lại"
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-control border border-warning px-4 py-2 text-sm font-semibold text-warning hover:bg-warning-bg disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint"
+                  >
+                    Đóng — khách về giữa chừng
+                  </button>
+                </div>
+                {chon.blockers.length === 0 && (
+                  <p className="mt-2 text-xs text-ink-muted">
+                    Nút &ldquo;khách về giữa chừng&rdquo; cần một lý do — đó là
+                    thứ CSKH đọc để biết phải gọi lại nói gì.
+                  </p>
                 )}
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {done.length > 0 && (
-        <>
-          <h3 style={{ fontSize: 14, fontWeight: 700, margin: "22px 0 8px" }}>
-            Đã đóng hôm nay
-          </h3>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Bệnh nhân</th>
-                  <th>Mã BN</th>
-                  <th>Giờ đến</th>
-                </tr>
-              </thead>
-              <tbody>
-                {done.map((r) => (
-                  <tr key={r.visit_id}>
-                    <td>
-                      <Lock size={11} /> {r.patient_name ?? "—"}
-                    </td>
-                    <td>{r.patient_code ?? ""}</td>
-                    <td>
-                      {r.checked_in_at
-                        ? new Date(r.checked_in_at).toLocaleTimeString("vi-VN", {
-                            timeZone: "Asia/Ho_Chi_Minh",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+          ) : null}
+        </div>
       )}
-
-      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

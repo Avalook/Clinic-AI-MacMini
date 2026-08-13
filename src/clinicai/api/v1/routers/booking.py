@@ -16,6 +16,7 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import (
     ClinicRole,
@@ -23,6 +24,7 @@ from clinicai.api.identity import (
     get_current_identity,
     require_role,
 )
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
@@ -76,15 +78,179 @@ class BookingRequest(BaseModel):
     sono_min: int | None = Field(default=None, ge=0, le=600)
     # Ghi chú vận hành của CSKH. Bounded: một ô ghi chú không phải nơi dán bệnh án.
     notes: str | None = Field(default=None, max_length=2000)
+    #: Lịch hẹn mà lịch này là TÁI KHÁM của nó. Chỉ nút "Tái khám" truyền; nút
+    #: "Đặt lịch khám mới" cố ý để trống. Dịch vụ đi kèm đã nằm sẵn ở
+    #: `service_type_id`, nên không cần trường riêng cho "tái khám dịch vụ nào".
+    lich_truoc_id: UUID | None = None
 
 
 class ActionRequest(BaseModel):
     action: Action
     cancellation_reason: str | None = Field(default=None, max_length=1000)
+    #: Bắt buộc khi action = "cancel"; BookingService từ chối nếu thiếu. Khai
+    #: Optional ở đây vì cùng một thân yêu cầu phục vụ tám hành động khác nhau.
+    ly_do_huy_ma: str | None = Field(default=None, max_length=32)
     # An absent doctor_id means "leave it"; an explicit null means "unassign".
     doctor_id: UUID | None = None
     slot_start: datetime | None = None
     slot_end: datetime | None = None
+
+
+@router.get("/appointments/cho-xep-bac-si")
+async def cho_xep_bac_si(
+    identity: StaffIdentity = Depends(_ACTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch cần quản lý xếp bác sĩ. HAI lý do, không phải một.
+
+    `ly_do = 'CHUA_XEP'`  — `doctor_id IS NULL`, lịch chưa từng được xếp ai.
+    `ly_do = 'MAT_BAC_SI'` — CÓ bác sĩ, nhưng bác sĩ ấy KHÔNG còn ca trực vào
+                             ngày khám.
+
+    LÝ DO THỨ HAI THÊM NGÀY 11/08/2026, sau một phép thử trên staging: gỡ **một**
+    ca trực làm **hai** lịch hẹn mất bác sĩ, và màn này thấy **không cái nào** —
+    vì nó chỉ hỏi `doctor_id IS NULL`, tức lịch *chưa từng* xếp ai, chứ không
+    phải lịch *vừa mất* người.
+
+    Không có dòng mã nào khác trong hệ thống đi tìm loại lịch này. Nghĩa là khi
+    bác sĩ nghỉ đột xuất, đường duy nhất để biết là khách đến quầy rồi mới vỡ lẽ.
+    Đó là thứ khách hàng nhớ rất lâu.
+
+    Chỉ tính lịch từ BÂY GIỜ trở đi cho lý do thứ hai: một lịch đã qua mà mất bác
+    sĩ thì không xếp lại được nữa, đưa vào đây chỉ làm ngập hàng chờ và che mất
+    những cái còn cứu được.
+
+    "Đang chờ" không phải một trạng thái mới của `appointment.status`. Tám giá trị
+    của cột ấy được cả hệ thống lọc theo; một giá trị thứ chín sẽ rơi im lặng qua
+    mọi bộ lọc — biến mất khỏi màn này, hiện nhầm ở màn kia.
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT a.id::text,
+                   a.slot_start,
+                   a.slot_end,
+                   a.status,
+                   a.notes,
+                   -- Để màn quản lý mở thẳng được hồ sơ khách sau khi xếp xong.
+                   a.clinic_patient_id::text,
+                   p.full_name   AS benh_nhan,
+                   p.patient_code,
+                   p.phone_primary,
+                   st.name       AS dich_vu,
+                   -- Tuần của lịch này đã được quản lý chốt chưa: xếp bác sĩ
+                   -- cho một tuần chưa chốt là xếp dựa trên bản nháp.
+                   EXISTS (
+                     SELECT 1
+                       FROM roster_week rw,
+                            LATERAL (
+                              SELECT (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                     ::date AS d
+                            ) v
+                      WHERE rw.clinic_id = a.clinic_id
+                        AND rw.week_start =
+                            v.d - (extract(isodow FROM v.d)::int - 1)
+                   ) AS tuan_da_chot,
+                   CASE WHEN a.doctor_id IS NULL
+                        THEN 'CHUA_XEP' ELSE 'MAT_BAC_SI' END AS ly_do,
+                   -- Bác sĩ nào vừa rời khỏi lịch này. NULL với 'CHUA_XEP'.
+                   bs.full_name AS bac_si_cu
+              FROM appointment a
+              LEFT JOIN patient p ON p.clinic_patient_id = a.clinic_patient_id
+              LEFT JOIN service_type st ON st.id = a.service_type_id
+              LEFT JOIN staff bs ON bs.id = a.doctor_id
+             WHERE a.clinic_id = $1::uuid
+               AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                    'COMPLETED')
+               AND (
+                     a.doctor_id IS NULL
+                  OR (
+                       -- CÓ bác sĩ nhưng bác sĩ không còn ca trực ngày hôm đó.
+                       a.slot_start >= now()
+                       AND NOT EXISTS (
+                         SELECT 1
+                           FROM work_roster w
+                          -- LỌC PHÒNG KHÁM Ở ĐÂY NỮA. Backend chạy bằng quyền
+                          -- chủ database nên RLS không áp; một truy vấn con
+                          -- thiếu `clinic_id` nhìn thấy ca trực của MỌI cơ sở.
+                          --
+                          -- Cụ thể: bác sĩ làm cả Kim Ngưu lẫn Hào Nam mà hôm ấy
+                          -- chỉ trực Hào Nam thì câu này thấy "có ca" và kết luận
+                          -- lịch bên Kim Ngưu vẫn có người — trong khi bác sĩ
+                          -- đang đứng ở cơ sở khác. Đúng thứ màn hình này sinh ra
+                          -- để phát hiện thì nó bỏ sót.
+                          --
+                          -- Máy kiểm phạm vi phòng khám của CI bắt được lúc hoà
+                          -- hai nhánh; ở nhánh cũ nó chưa từng chạy qua đoạn này.
+                          WHERE w.clinic_id = a.clinic_id
+                            AND w.staff_id = a.doctor_id
+                            AND w.work_date =
+                                (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                ::date
+                       )
+                     )
+               )
+             ORDER BY a.slot_start
+             LIMIT 500
+            """,
+            identity.clinic_id,
+        )
+    return {"items": [dict(r) for r in rows]}
+
+
+class BaoXepBacSiRequest(BaseModel):
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/appointments/{appointment_id}/bao-xep-bac-si", status_code=201)
+async def bao_xep_bac_si(
+    appointment_id: UUID,
+    body: BaoXepBacSiRequest,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """CSKH báo quản lý rằng lịch này cần xếp bác sĩ.
+
+    Cửa RIÊNG chứ không mở rộng `/dispatch/alerts/call`: cửa ấy gác bằng vai
+    điều phối, và nới nó ra cho CSKH nghĩa là CSKH gọi được mọi bộ phận. Ở đây
+    chỉ có đúng một việc, gửi tới đúng một vai.
+    """
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    async with pool.acquire() as conn:
+        appt = await conn.fetchrow(
+            """
+            SELECT a.slot_start, a.doctor_id, p.full_name, p.patient_code
+              FROM appointment a
+              LEFT JOIN patient p ON p.clinic_patient_id = a.clinic_patient_id
+             WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
+            """,
+            str(appointment_id),
+            identity.clinic_id,
+        )
+    if appt is None:
+        raise NotFoundError("Không tìm thấy lịch hẹn này.")
+    if appt["doctor_id"] is not None:
+        # Báo một lịch đã có bác sĩ là làm phiền quản lý vì việc đã xong.
+        raise ConflictError("Lịch này đã có bác sĩ rồi.")
+
+    ghi_chu = (body.ghi_chu or "").strip()
+    luc = appt["slot_start"].astimezone(CLINIC_TZ).strftime("%H:%M %d/%m/%Y")
+    ten = appt["full_name"] or appt["patient_code"] or "Khách"
+    return await ThongBaoService(pool).goi(
+        identity=identity,
+        vai_nhan=ClinicRole.MANAGEMENT.value,
+        tieu_de=f"Cần xếp bác sĩ: {ten}",
+        noi_dung=(
+            f"{ten} đã đặt lịch {luc} nhưng chưa có bác sĩ."
+            + (f" Ghi chú: {ghi_chu}" if ghi_chu else "")
+        ),
+        # Cùng lịch hẹn + chưa ai xử lý → không tạo thông báo thứ hai. CSKH bấm
+        # lại vì sốt ruột là chuyện thường; nhân đôi thông báo thì không.
+        nguon_id=str(appointment_id),
+        muc_do="THUONG",
+        duong_dan="/appointments/cho-xep-bac-si",
+    )
 
 
 @router.post("/appointments/bookings", status_code=201)
@@ -117,6 +283,7 @@ async def create_booking(
         thanh_min=body.thanh_min,
         sono_min=body.sono_min,
         notes=body.notes,
+        lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
     )
     payload = {"ok": True, **result}
     await idem.save(pool, payload, status_code=201)
@@ -182,6 +349,7 @@ async def doctor_board(
     start: datetime,
     end: datetime,
     doctor_id: UUID | None = None,
+    statuses: str | None = None,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -194,14 +362,21 @@ async def doctor_board(
 
     ``start``/``end`` khai kiểu ``datetime`` để FastAPI phân tích và từ chối
     chuỗi hỏng bằng 422, thay vì để chuỗi rơi xuống asyncpg thành 500.
+
+    ``statuses`` (danh sách ngăn cách dấu phẩy) để trống = MỌI trạng thái, kể
+    cả lịch đã huỷ. Mặc định đó là CỐ Ý và phải giữ: bảng bác sĩ hiện cả lịch
+    huỷ để bác sĩ biết ai đã rút — đặt một mặc định khác ở đây là làm biến mất
+    những dòng đó mà không một thông báo nào.
     """
     from clinicai.services.doctor_board_service import DoctorBoardService
 
+    loc = [s.strip() for s in (statuses or "").split(",") if s.strip()] or None
     items = await DoctorBoardService(pool).board(
         clinic_id=identity.clinic_id,
         start=start,
         end=end,
         doctor_id=str(doctor_id) if doctor_id else None,
+        statuses=loc,
     )
     return {"ok": True, "items": items}
 
@@ -280,6 +455,7 @@ async def apply_appointment_action(
         action=body.action,
         identity=identity,
         cancellation_reason=body.cancellation_reason,
+        ly_do_huy_ma=body.ly_do_huy_ma,
         doctor_id=str(body.doctor_id) if body.doctor_id else None,
         doctor_id_provided="doctor_id" in body.model_fields_set,
         slot_start=body.slot_start,
@@ -294,6 +470,13 @@ class SlotHoldRequest(BaseModel):
     slot_start: datetime
     slot_end: datetime
     doctor_id: UUID | None = None
+    # KHÁCH ĐANG ĐƯỢC CHỌN, để nhật ký thao tác gọi được tên người.
+    #
+    # Chỗ giữ bản thân nó là cặp (bác sĩ, khung giờ) — nó KHÔNG cần biết khách
+    # là ai và không lưu vào bảng. Nhưng dòng nhật ký sinh ra từ nó thì cần:
+    # thiếu trường này, `/audit-log` không tra được ai và in ra
+    # "slot_hold · 938d4f94". Tuỳ chọn: giữ chỗ vẫn chạy khi chưa chọn khách.
+    clinic_patient_id: UUID | None = None
 
 
 @router.post("/appointments/slot-hold", status_code=201)
@@ -312,6 +495,9 @@ async def hold_slot(
         slot_start=body.slot_start,
         slot_end=body.slot_end,
         doctor_id=str(body.doctor_id) if body.doctor_id else None,
+        clinic_patient_id=(
+            str(body.clinic_patient_id) if body.clinic_patient_id else None
+        ),
     )
 
 
@@ -332,3 +518,13 @@ async def list_slot_holds(
 ) -> dict[str, Any]:
     """Chỗ NGƯỜI KHÁC đang giữ trong ngày, để lưới tô đúng ô."""
     return {"items": await SlotHoldService(pool).active(identity=identity, date=date)}
+
+
+@router.get("/appointments/ly-do-huy")
+async def ly_do_huy(
+    identity: StaffIdentity = Depends(_ACTION_GUARD),
+) -> dict[str, Any]:
+    """Danh mục lý do huỷ. Một nguồn cho mọi màn có nút huỷ."""
+    from clinicai.services.booking_service import LY_DO_HUY
+
+    return {"items": [{"ma": k, "nhan": v} for k, v in LY_DO_HUY.items()]}

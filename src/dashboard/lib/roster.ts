@@ -2,7 +2,6 @@
 // Danh sách trạm suy ra từ bảng Google Sheet của phòng khám; chỉnh ở đây nếu
 // phòng khám đổi cách phân công.
 
-import { type ClinicRole, isDoctorRole } from "./roles";
 
 // Cookie lưu "tôi là ai" cho vai trò không phải bác sĩ (lọc lịch cá nhân).
 export const ROSTER_STAFF_COOKIE = "roster_staff_id";
@@ -23,12 +22,12 @@ export const STATIONS: Station[] = [
   { key: "SB_CHIEU", label: "SB - Chiều", short: "SB - Chiều", group: "Ngoài giờ", floor: "Thủ thuật ngoài giờ" },
   { key: "THU_THUAT_NGOAI_GIO", label: "Thủ thuật ngoài giờ", short: "Thủ thuật NG", group: "Ngoài giờ", floor: "Thủ thuật ngoài giờ" },
   { key: "HSS_THU_THUAT", label: "HSS + Thủ thuật trong giờ", short: "HSS / Thủ thuật", group: "Ngoài giờ", floor: "HSS + Thủ thuật trong giờ" },
-  { key: "LE_TAN", label: "Lễ tân (Tiếp đón + thu ngân)", short: "Lễ tân", group: "Tầng 1", floor: "Tầng 1 (ko SÂ)" },
-  { key: "LAY_MAU", label: "Lấy máu", short: "Lấy máu", group: "Tầng 1", floor: "Tầng 1 (ko SÂ)" },
-  { key: "PHU_BS_KHAM", label: "Phụ BS (khám + thuốc) / Chạy ngoài", short: "Phụ BS / Chạy ngoài", group: "Tầng 1", floor: "Tầng 1 (ko SÂ)" },
-  { key: "TLYK", label: "TLYK (Đánh máy + Phụ khám)", short: "TLYK", group: "Tầng 1", floor: "Tầng 1 (ko SÂ)" },
-  { key: "PHU_BS_SA", label: "Phụ BS (khám + thuốc) + đánh SÂ", short: "Phụ BS + đánh SÂ", group: "Tầng 2", floor: "Tầng 2 · Khám Sản E10 + Mor" },
-  { key: "PHONG_NGOAI_MOR", label: "Phòng ngoài + Phòng mor (MÁY 730)", short: "Phòng ngoài + mor", group: "Tầng 2", floor: "Tầng 4" },
+  { key: "LE_TAN", label: "Lễ tân (Tiếp đón + thu ngân)", short: "Lễ tân", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
+  { key: "LAY_MAU", label: "Lấy máu", short: "Lấy máu", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
+  { key: "PHU_BS_KHAM", label: "Phụ BS (khám + thuốc) / Chạy ngoài", short: "Phụ BS / Chạy ngoài", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
+  { key: "TLYK", label: "Trợ lý y khoa (Đánh máy + Phụ khám)", short: "Trợ lý y khoa", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
+  { key: "PHU_BS_SA", label: "Phụ BS (khám + thuốc) + đánh SÂ", short: "Phụ BS + đánh SÂ", group: "Tầng 2", floor: "Tầng 2 · Khám Sản E10 + Monitoring" },
+  { key: "PHONG_NGOAI_MOR", label: "Phòng ngoài + Phòng Monitoring (MÁY 730)", short: "Phòng ngoài + Monitoring", group: "Tầng 2", floor: "Tầng 4" },
   { key: "MAY_TRONG", label: "Máy trong E10 + VLTL/thủ thuật", short: "Máy trong E10", group: "Tầng 4", floor: "Tầng 4 phòng trong" },
   { key: "MAY_NGOAI", label: "Máy ngoài (N/A)", short: "Máy ngoài", group: "Tầng 4", floor: "Tầng 4 phòng trong" },
 ];
@@ -50,35 +49,70 @@ export const STATION_SEGMENTS: FloorSegment[] = STATIONS.reduce<FloorSegment[]>(
 );
 
 // Màu nhấn theo TẦNG (viền trên header tầng cho dễ phân biệt khối).
-export const FLOOR_COLOR: Record<string, string> = {
-  "Thủ thuật ngoài giờ": "var(--color-specialty-andro)",
-  "HSS + Thủ thuật trong giờ": "var(--color-specialty-andro)",
-  "Tầng 1 (ko SÂ)": "var(--color-specialty-service)",
-  "Tầng 2 · Khám Sản E10 + Mor": "var(--color-success)",
-  "Tầng 4": "var(--color-warning)",
-  "Tầng 4 phòng trong": "var(--color-brand-500)",
+//
+// KHOÁ PHẢI LÀ CHUỖI `floor` THẬT trong STATIONS ở trên. Bản trước viết tắt
+// ("Tầng 1 (ko SÂ)", "Tầng 2 · Khám Sản E10 + Mor") nên hai tầng ấy không bao
+// giờ khớp và rơi về màu mặc định — một bảng màu hỏng một nửa mà không ai thấy,
+// vì không có lỗi nào để thấy.
+export const FLOOR_BORDER: Record<string, string> = {
+  "Thủ thuật ngoài giờ": "border-t-specialty-andro",
+  "HSS + Thủ thuật trong giờ": "border-t-specialty-andro",
+  "Tầng 1 (không Siêu âm)": "border-t-specialty-service",
+  "Tầng 2 · Khám Sản E10 + Monitoring": "border-t-success",
+  "Tầng 4": "border-t-warning",
+  "Tầng 4 phòng trong": "border-t-brand-600",
 };
 
 export const STATION_LABEL: Record<string, string> = Object.fromEntries(
   STATIONS.map((s) => [s.key, s.label]),
 );
 
-export const STATION_SHORT: Record<string, string> = Object.fromEntries(
-  STATIONS.map((s) => [s.key, s.short]),
-);
 
-export const STATION_GROUP: Record<string, string> = Object.fromEntries(
-  STATIONS.map((s) => [s.key, s.group]),
-);
 
-// Màu theo nhóm trạm (chấm/viền thẻ kanban).
-export const GROUP_COLOR: Record<string, string> = {
-  "Bác sĩ": "var(--color-brand-600)",
-  "Tầng 1": "var(--color-specialty-service)",
-  "Tầng 2": "var(--color-success)",
-  "Tầng 4": "var(--color-warning)",
-  "Ngoài giờ": "var(--color-specialty-andro)",
-};
+
+// ===== HAI HÀNG CON MỖI NGÀY =====
+//
+// File Excel "BẢNG LÀM VIỆC" (sheet LLV) dành HAI dòng cho mỗi ngày, và hai
+// dòng ấy KHÔNG phải ca sáng / ca chiều — mỗi dòng là MỘT NGƯỜI.
+//
+//   Quang, 09/08/2026: *"có nghĩa là ngày hôm ấy có 2 bác sĩ trực, giờ sáng hay
+//   chiều thì chi tiết trong trang nhỏ hiện ra lúc ấn vào dấu cộng"*.
+//
+// Đoán nhầm chỗ này là dựng cả cái bảng cho một mô hình sai: nếu hai hàng là
+// hai CA thì một bác sĩ trực cả ngày phải nằm ở cả hai hàng, và cột "số bác sĩ
+// trực" luôn đếm gấp đôi.
+
+/** Chia phân công của một ô thành ĐÚNG hai hàng con: người đầu ở hàng trên,
+ *  phần còn lại dồn xuống hàng dưới.
+ *
+ *  Dồn chứ không cắt bớt — Excel cũng viết "Thư/Hà Vũ" chung một ô khi ngày đó
+ *  có ba người. Cắt mất người thứ ba nghĩa là bảng nói dối về ai đang trực. */
+export function chiaHaiHang<T>(list: T[]): [T[], T[]] {
+  return list.length <= 1 ? [list, []] : [[list[0]], list.slice(1)];
+}
+
+/** Số bác sĩ trực của một ngày = số NGƯỜI khác nhau ở trạm Lịch khám.
+ *
+ *  Đếm theo người, không theo dòng: một bác sĩ trực cả sáng lẫn chiều là HAI
+ *  dòng `work_roster` nhưng vẫn là MỘT bác sĩ. Cột này trong Excel do quản lý
+ *  gõ tay; ở đây nó được TÍNH RA, nên không thể lệch với các ô bên cạnh. */
+export function demBacSiTruc(
+  rows: {
+    work_date: string;
+    station: string;
+    staff_id?: string | null;
+    staff_name?: string | null;
+  }[],
+  date: string,
+): number {
+  const nguoi = new Set<string>();
+  for (const r of rows) {
+    if (r.work_date !== date || r.station !== "LICH_KHAM") continue;
+    const khoa = r.staff_id ?? r.staff_name;
+    if (khoa) nguoi.add(khoa);
+  }
+  return nguoi.size;
+}
 
 export type Shift = "FULL" | "SANG" | "CHIEU";
 export const SHIFTS: Shift[] = ["FULL", "SANG", "CHIEU"];
@@ -112,13 +146,39 @@ function toISO(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Thứ 2 của tuần chứa `dateStr` (yyyy-mm-dd). */
-export function weekStartOf(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00Z");
+/** Thứ 2 của tuần chứa `d`. Chỉ dùng nội bộ, với Date đã chắc chắn hợp lệ. */
+function mondayOfUtc(d: Date): string {
   const dow = d.getUTCDay(); // 0=CN
   const diff = dow === 0 ? -6 : 1 - dow; // về thứ 2
-  d.setUTCDate(d.getUTCDate() + diff);
-  return toISO(d);
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() + diff);
+  return toISO(monday);
+}
+
+/**
+ * Thứ 2 của tuần chứa `dateStr` (yyyy-mm-dd). `null` = `dateStr` không đọc được.
+ *
+ * TRẢ `null` CHỨ KHÔNG NÉM, VÌ CHUỖI NÀY ĐẾN TỪ THANH ĐỊA CHỈ. `/home?weekAppt=…`
+ * và `/schedule?week=…` lấy thẳng tham số URL rồi đưa vào đây. Bản cũ dựng
+ * `new Date("abcT00:00:00Z")` thành Invalid Date, đi tiếp bình thường, rồi
+ * `toISO()` gọi `toISOString()` — và CHÍNH `toISOString()` là thứ ném
+ * `RangeError: Invalid time value`. Server component ném thì cả TRANG CHỦ rơi
+ * vào error.tsx: một link hỏng hay một lần sửa tay trên thanh địa chỉ là màn
+ * hình đầu ngày của mọi nhân viên không mở được.
+ *
+ * ĐÂY LÀ CON THỨ BA CÙNG MỘT HỌ. Hai lần trước (`/api/roster?date=99-99-9999`,
+ * và `/api/appointments` thiếu `date`) đều được vá TẠI CHỖ NÓ NỔ, nên bản dùng
+ * chung trong lib này sống sót qua cả hai lần — và nó phục vụ trang chủ. Luật
+ * rút ra: hàm nhận ngày từ người dùng phải trả giá trị rỗng thay vì ném, và chỗ
+ * kiểm phải nằm ở BIÊN (nơi chuỗi đi vào), không rải rác ở từng nơi gọi.
+ *
+ * `mondayOfUtc` bên dưới vẫn ném nếu bị đưa Date hỏng — cố ý: tới đó thì đó là
+ * lỗi lập trình, không phải dữ liệu người dùng, và im lặng trả sai còn tệ hơn.
+ */
+export function weekStartOf(dateStr: string): string | null {
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return null;
+  return mondayOfUtc(d);
 }
 
 /** 7 ngày của tuần bắt đầu từ `weekStart` (T2..CN). */
@@ -141,7 +201,9 @@ export function shiftWeek(weekStart: string, weeks: number): string {
 /** Thứ 2 của tuần hiện tại theo giờ VN (server chạy UTC). */
 export function currentWeekStartVn(): string {
   const nowVn = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  return weekStartOf(nowVn.toISOString().slice(0, 10));
+  // Đi thẳng vào `mondayOfUtc`: ngày này do chính hàm dựng nên luôn hợp lệ, nên
+  // không phải xử lý một `null` không bao giờ xảy ra ở mọi nơi gọi.
+  return mondayOfUtc(nowVn);
 }
 
 /** Hôm nay (yyyy-mm-dd) theo giờ VN. */
@@ -193,28 +255,21 @@ export function clinicHoursError(
   return null;
 }
 
-// ===== TRẠM HỢP LỆ THEO VAI TRÒ =====
-// Tránh phi lý "lễ tân → trạm bác sĩ": bác sĩ CHỈ ở "Lịch khám"; vai trò khác
-// KHÔNG vào trạm bác sĩ (vẫn xoay vòng mọi trạm hỗ trợ); quản lý linh động.
-export function stationsForRole(role: ClinicRole | null): Station[] {
-  if (isDoctorRole(role)) return STATIONS.filter((s) => s.key === "LICH_KHAM");
-  if (role === "MANAGEMENT") return STATIONS;
-  return STATIONS.filter((s) => s.key !== "LICH_KHAM");
-}
-
-/** Trạm mặc định cho "đăng ký ca của tôi" (đã bỏ ô chọn trạm — suy từ vai trò). */
-export function defaultStationForRole(role: ClinicRole | null): string {
-  switch (role) {
-    case "DOCTOR":
-    case "ULTRASOUND_DOCTOR":
-      return "LICH_KHAM";
-    case "RECEPTION":
-      return "LE_TAN";
-    case "NURSE_ULTRASOUND":
-      return "PHU_BS_SA";
-    case "CSKH":
-      return "LE_TAN";
-    default:
-      return stationsForRole(role)[0]?.key ?? STATIONS[0].key;
-  }
-}
+// ===== TRẠM HỢP LỆ THEO VAI TRÒ — ĐÃ CHUYỂN VÀO DATABASE =====
+//
+// `stationsForRole` và `defaultStationForRole` từng ở đây. Cả hai đã bỏ
+// (20260809000002), vì hai lý do:
+//
+// 1. LUẬT CỦA CHÚNG SAI SO VỚI ĐỜI THẬT. `stationsForRole` nói: bác sĩ → đúng
+//    một trạm, MỌI VAI CÒN LẠI → mười một trạm còn lại. Gọn tới mức không chặn
+//    được gì: lễ tân chọn được "Máy trong E10 + VLTL/thủ thuật". Còn chiều
+//    ngược lại thì quá chặt — lễ tân Dr4Women đi LẤY MÁU 234 ca trong lịch
+//    thật, thứ mà `defaultStationForRole` không hề biết.
+//
+// 2. LỌC Ở TRÌNH DUYỆT KHÔNG PHẢI LÀ CHẶN. Một lời gọi API tự chế không đi qua
+//    hàm này. Backend mới là nơi từ chối (`RosterService._kiem_pham_vi_tram`).
+//
+// Nay hỏi `GET /api/roster?staff_id=…`, trả lời lấy từ bảng
+// `vai_duoc_vao_tram` — cùng bảng mà backend dùng để từ chối, nên giao diện
+// không thể mời một vị trí rồi lưu mới báo lỗi. Ma trận gieo từ chính lịch trực
+// của phòng khám và quản lý sửa được.

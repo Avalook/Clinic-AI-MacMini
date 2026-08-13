@@ -1,0 +1,92 @@
+#!/bin/bash
+# Chặn dữ liệu bệnh nhân và bí mật lọt vào git.
+#
+# VÌ SAO CÓ FILE NÀY — chuyện đã xảy ra thật, 09/08/2026:
+#
+# Một bản dump database đầy đủ (493KB, 14.259 dòng) được commit vào kho:
+# `.backup-truoc-khi-xoa/mac-clinicai_db-20260809.sql`. Bên trong có COPY cho
+# `patient`, `staff`, `appointment`, `visit`, `lab_result`, `clinical_record`,
+# **`clinic_secret`**, cộng 367 dòng khớp `service_role|jwt_secret|password_hash|
+# anon_key`.
+#
+# Hai ngày sau nó được gỡ khỏi thư mục ("security: remove database backup from
+# source") và `.gitignore` được bổ sung. Nhưng gỡ khỏi THƯ MỤC không phải gỡ khỏi
+# LỊCH SỬ: blob vẫn nằm nguyên trong kho, ai clone cũng lấy lại được. Nó chỉ chưa
+# lên GitHub nhờ may — kho này đẩy tag thẳng qua SSH sang VPS chứ không qua
+# GitHub. Một lần `git push origin` là đủ để công bố nó.
+#
+# `.gitignore` KHÔNG đủ, vì `git add -f` bỏ qua nó, và vì `.gitignore` chỉ chặn
+# đúng đường dẫn đã biết — lần sau bản dump sẽ nằm ở chỗ khác với tên khác.
+# Chốt này chặn theo NỘI DUNG và KÍCH THƯỚC, nên nó không cần đoán trước tên file.
+#
+# Cài: git config core.hooksPath scripts/git-hooks
+
+set -uo pipefail
+
+# 1MB. Dump 493KB lọt qua ngưỡng này, nên KHÔNG dựa vào kích thước một mình —
+# phép kiểm nội dung bên dưới mới là chốt chính.
+NGUONG_BYTE=$((1024 * 1024))
+
+loi=0
+bao() { printf '  ✗ %s\n' "$1" >&2; loi=1; }
+
+# Chỉ soi file ĐANG ĐƯỢC THÊM/SỬA trong lần commit này.
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+
+  # --- Kích thước bất thường ---
+  kb=$(wc -c < "$f" | tr -d ' ')
+  if [ "$kb" -gt "$NGUONG_BYTE" ]; then
+    case "$f" in
+      *.png|*.jpg|*.jpeg|*.webp|*.pdf|*.woff2|package-lock.json)
+        : ;;  # tài sản tĩnh, chấp nhận
+      *)
+        bao "$f nặng $((kb / 1024))KB — file lớn bất thường, xem lại có phải dữ liệu không" ;;
+    esac
+  fi
+
+  # --- Dấu hiệu một bản dump database ---
+  if head -c 8192 "$f" 2>/dev/null | grep -qE '^COPY public\.|^-- PostgreSQL database dump|^INSERT INTO public\.'; then
+    bao "$f trông như một bản dump database — dump chứa hồ sơ bệnh nhân và bí mật, không được vào git"
+  fi
+
+  # --- Bí mật ---
+  #
+  # CHỈ BẮT GIÁ TRỊ, KHÔNG BẮT TÊN BIẾN.
+  #
+  # Bản đầu bắt mọi dòng chứa chuỗi `JWT_SECRET`, và chặn ngay commit đầu tiên
+  # chạm vào docker-compose.supabase.yml — nơi có năm dòng
+  # `GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET}`. Đó là THAM CHIẾU tới một biến,
+  # đúng cách phải làm, không phải bí mật bị lộ.
+  #
+  # Một chốt hay kêu oan thì người ta sẽ gõ `--no-verify` cho quen tay, và lần
+  # nó kêu thật cũng bị bỏ qua nốt. Chốt kêu sai một lần là mất luôn giá trị.
+  #
+  # Nên: chỉ báo khi tên-nghe-như-bí-mật đi kèm một GIÁ TRỊ nghĩa đen đủ dài, và
+  # dòng ấy KHÔNG phải một tham chiếu `${...}`.
+  if grep -nE '(SECRET|_KEY|PASSWORD|TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9+/=._-]{12,}' "$f" 2>/dev/null \
+       | grep -qv '\${'; then
+    case "$f" in
+      *.example|*/git-hooks/*|docs/*|*.md|*.lock|package-lock.json)
+        : ;;  # tài liệu, file mẫu, khoá phụ thuộc — không phải bí mật vận hành
+      *)
+        bao "$f có vẻ chứa GIÁ TRỊ bí mật ghi cứng — bí mật chỉ nằm trong .env.* (đã gitignore)" ;;
+    esac
+  fi
+done < <(git diff --cached --name-only --diff-filter=AM)
+
+if [ "$loi" -ne 0 ]; then
+  cat >&2 <<'EOF'
+
+Commit bị chặn.
+
+Nếu chắc chắn là báo nhầm, bỏ qua chốt bằng:
+    git commit --no-verify
+
+Nhưng đọc lại một lần nữa trước khi gõ câu đó. Bản dump 09/08/2026 lọt vào kho
+cũng vì một lần "chắc là không sao", và gỡ nó ra sau đó phải viết lại 73 commit
+cùng 46 tag.
+EOF
+  exit 1
+fi
+exit 0

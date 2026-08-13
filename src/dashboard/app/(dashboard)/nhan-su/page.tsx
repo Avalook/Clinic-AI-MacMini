@@ -38,16 +38,7 @@ export default async function NhanSuPage() {
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
-      <header>
-        <h1 className="text-xl font-semibold text-ink lg:text-2xl">
-          Quản lý nhân sự
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Hồ sơ từng người: vai trò, cơ sở làm việc, loại hợp đồng, đang làm hay
-          đã nghỉ. Muốn gán ai đứng phòng nào thì vào{" "}
-          <span className="font-medium text-ink">Cấu trúc phòng khám</span>.
-        </p>
-      </header>
+      {/* Tiêu đề ở THANH TRÊN CÙNG (GlobalHeader) như mọi trang khác. */}
 
       <NhanSuBoard
         initialStaff={staff ?? []}

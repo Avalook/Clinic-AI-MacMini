@@ -91,3 +91,33 @@ finish account linking (or roll back the release).
 5. Install the LaunchDaemon (see `docker/com.dr4women.clinic-backend.plist`) pointing at this clone.
 6. Public access: Cloudflare Tunnel (set `TUNNEL_TOKEN` in `.env.prod`, stack auto-runs `cloudflared`) OR Tailscale Funnel to the Caddy port.
 7. **Test a real reboot** — confirm the stack comes back with no manual login.
+
+## Hai môi trường trên VPS (07/08/2026)
+
+| | Khách dùng thật | Mình code |
+|---|---|---|
+| Địa chỉ | `http://222.255.215.219` (cổng 80) | cổng **8080** |
+| Ứng dụng | `clinicai_prod-*` | `clinicai_staging-*` |
+| Database | `clinicai_db` | `clinicai_stg_db` |
+| Khoá JWT | riêng | **riêng** |
+
+**Ba thứ phải khác nhau, thiếu một là hỏng cách ly:** `SUPABASE_PREFIX` (tên
+container là tên toàn cục), `SUPABASE_JWT_SECRET` (token bên này không đọc được
+dữ liệu bên kia), `SUPABASE_GATEWAY_HOST` (Caddy chuyển `/auth` `/rest`
+`/realtime` về đúng bộ của mình — ghi cứng tên gateway prod là staging gọi
+thẳng vào database khách hàng).
+
+Đã đo: token prod đọc dữ liệu staging → `401 JWSInvalidSignature`, và ngược
+lại. `scripts/dung-staging.sh` kiểm ba biến đó **trước khi** dựng.
+
+```bash
+ssh clinic-vps 'cd ~/clinicai && ./scripts/dung-staging.sh'          # cập nhật
+ssh clinic-vps 'cd ~/clinicai && ./scripts/dung-staging.sh --gieo'   # + dữ liệu thử
+```
+
+Deploy **prod** vẫn như cũ và không đụng gì tới staging:
+
+```bash
+ssh clinic-vps 'cd ~/clinicai && git pull --ff-only origin main \
+  && DEPLOY_EXPECTED_SHA=$(git rev-parse HEAD) ./scripts/deploy-backend.sh prod'
+```

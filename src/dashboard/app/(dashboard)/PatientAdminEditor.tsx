@@ -16,6 +16,7 @@ import { digitsOnly, phoneError } from "../../lib/validation";
 import { INPUT, LABEL } from "./form-ui";
 import DateField from "./DateField";
 import { linhVucLabel } from "../../lib/linh-vuc";
+import { nhanLoi } from "../../lib/loi-api";
 
 export interface PatientAdmin {
   clinic_patient_id: string;
@@ -30,6 +31,8 @@ export interface PatientAdmin {
   patient_objection: string | null;
   address: string | null;
   guardian_name: string | null;
+  /** Mốc sửa cuối — thẻ khoá lạc quan. Xem `save()`. */
+  updated_at?: string | null;
   // CSKH (đặt lịch) — CHỈ HIỂN THỊ ở đây (đọc), KHÔNG sửa trong editor này nên
   // PATCH KHÔNG đụng (tránh ghi đè null). Optional: nguồn nào không select vẫn build được.
   van_de_di_kham?: string | null;
@@ -66,12 +69,22 @@ function toForm(p: PatientAdmin): Form {
   };
 }
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Row({
+  label,
+  value,
+  khiTrong = "—",
+}: {
+  label: string;
+  value?: string | null;
+  /** Chữ thay cho gạch ngang khi trống — dùng khi "không có" là một CÂU TRẢ
+   *  LỜI, không phải một ô chưa ai điền. */
+  khiTrong?: string;
+}) {
   return (
     <div className="flex gap-2 text-sm">
-      <dt className="w-24 shrink-0 text-ink-muted">{label}</dt>
+      <dt className="w-28 shrink-0 text-ink-muted">{label}</dt>
       <dd className="min-w-0 break-words font-medium text-ink">
-        {value || "—"}
+        {value || khiTrong}
       </dd>
     </div>
   );
@@ -109,12 +122,33 @@ export default function PatientAdminEditor({
     const res = await fetch("/api/patients", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clinic_patient_id: cur.clinic_patient_id, ...form }),
+      body: JSON.stringify({
+        clinic_patient_id: cur.clinic_patient_id,
+        // THẺ KHOÁ LẠC QUAN: mốc hồ sơ lúc màn hình này ĐỌC nó. Backend chỉ ghi
+        // đè nếu dưới database vẫn đúng mốc ấy.
+        //
+        // Đo ngày 11/08/2026: hai người cùng mở một hồ sơ và cùng bấm Lưu thì CẢ
+        // HAI đều nhận 200. Người bấm trước mất trắng phần mình vừa nhập và
+        // không hề biết — màn hình họ vẫn báo "Đã lưu thông tin."
+        //
+        // Bỏ trống thì backend không khoá (giữ đường cũ cho các màn chưa cập
+        // nhật), nên chỗ nào KHÔNG gửi mốc thì chỗ đó vẫn ghi đè được như trước.
+        sua_luc: cur.updated_at ?? undefined,
+        ...form,
+      }),
     });
     setBusy(false);
-    if (!res.ok) return setError((await res.json()).error ?? "Lỗi lưu.");
+    if (!res.ok) {
+      const than = await res.json().catch(() => null);
+      return setError(nhanLoi(than, "Lỗi lưu."));
+    }
     // Cập nhật hiển thị NGAY + đồng bộ phần còn lại của trang (server refetch).
-    setCur({ ...cur, ...form });
+    // Mốc mới đi kèm: không lấy mốc mới thì lần lưu THỨ HAI trong cùng phiên sẽ
+    // gửi mốc đã cũ và bị chính khoá này từ chối.
+    const luu = (await res.json().catch(() => null)) as {
+      updated_at?: string;
+    } | null;
+    setCur({ ...cur, ...form, updated_at: luu?.updated_at ?? cur.updated_at });
     setEditing(false);
     setMsg("Đã lưu thông tin.");
     router.refresh();
@@ -123,7 +157,12 @@ export default function PatientAdminEditor({
   if (!editing) {
     return (
       <div className="space-y-2">
-        <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+        {/* MỘT THÔNG TIN MỘT DÒNG (Quang chốt 09/08/2026).
+            Hai cột ở đây nằm trong cột phải vốn đã hẹp, nên mỗi ô còn ~5rem cho
+            giá trị: "Nguyễn Thị Hoa" xuống thành ba dòng và ngắt giữa chữ
+            ("Nguyễ / n Thị / Hoa"), "Việt Nam" thành hai. Tiết kiệm chiều cao
+            bằng cách làm tên người không đọc được là một cái đổi tồi. */}
+        <dl className="space-y-1.5">
           <Row label="Họ tên" value={cur.full_name} />
           <Row
             label="Ngày sinh"
@@ -135,18 +174,22 @@ export default function PatientAdminEditor({
           <Row label="Nghề nghiệp" value={cur.occupation} />
           <Row label="Đối tượng" value={cur.patient_objection} />
           <Row label="SĐT" value={cur.phone_primary} />
-          <Row label="SĐT người nhà" value={cur.phone_secondary} />
+          {/* "Không có" chứ không phải "—".
+              Gạch ngang nói "chỗ này trống", và trống thì đọc thành "chưa ai
+              nhập" — người trực sẽ đi hỏi lại khách một số điện thoại vốn
+              không tồn tại. "Không có" nói rằng CÂU HỎI ĐÃ ĐƯỢC HỎI. */}
+          <Row
+            label="SĐT người nhà"
+            value={cur.phone_secondary}
+            khiTrong="Không có"
+          />
           <Row label="Người giám hộ" value={cur.guardian_name} />
-          <div className="sm:col-span-2">
-            <Row label="Địa chỉ" value={cur.address} />
-          </div>
+          <Row label="Địa chỉ" value={cur.address} />
           {cur.linh_vuc && (
             <Row label="Lĩnh vực" value={linhVucLabel(cur.linh_vuc)} />
           )}
           {cur.van_de_di_kham && (
-            <div className="sm:col-span-2">
-              <Row label="Vấn đề đi khám" value={cur.van_de_di_kham} />
-            </div>
+            <Row label="Vấn đề đi khám" value={cur.van_de_di_kham} />
           )}
         </dl>
         <div className="flex items-center gap-2">

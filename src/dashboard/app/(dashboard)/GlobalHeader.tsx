@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { VN_TZ, vnToday } from "../../lib/datetime";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Menu,
@@ -14,9 +15,9 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
-  Info,
 } from "lucide-react";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
+import { useNotifications } from "./NotificationContext";
 
 interface GlobalHeaderProps {
   onToggleSidebar: () => void;
@@ -122,36 +123,21 @@ export default function GlobalHeader({
     timeZone: VN_TZ,
   });
 
-  // Dynamic Notifications State
-  const [notifications, setNotifications] = useState([
-    {
-      id: "1",
-      title: "Có 2 ca mới chờ CSKH xác nhận",
-      time: "08:15",
-      unread: true,
-      type: "info",
-    },
-    {
-      id: "2",
-      title: "BS. Phan Chí Thành đã duyệt kết quả khám",
-      time: "08:00",
-      unread: true,
-      type: "success",
-    },
-    {
-      id: "3",
-      title: "Cảnh báo quá SLA 15 phút ca KH-260514-012",
-      time: "07:45",
-      unread: true,
-      type: "alert",
-    },
-  ]);
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  };
+  // CHUÔNG ĐỌC NGUỒN THẬT (NotificationContext), KHÔNG CÒN BA DÒNG VIẾT CỨNG.
+  //
+  // Trước đây chỗ này là một mảng gõ tay, trong đó có một dòng ĐỎ
+  // "Cảnh báo quá SLA 15 phút ca KH-260514-012" — một mã ca không tồn tại — và
+  // nó hiện trên MỌI trang, cho MỌI vai, mọi ngày. Nghĩa là mỗi nhân viên mở
+  // app đều thấy chuông đỏ số 3 và không lần nào trong đó là thật.
+  //
+  // Cái giá không phải là ba dòng sai. Là cả phòng khám học được rằng chuông đỏ
+  // không có nghĩa gì — nên đến lúc có cảnh báo thật thì không ai nhìn nữa.
+  //
+  // Nguồn thật hiện có: quyết định duyệt/từ chối ca làm việc của CHÍNH mình
+  // (NotificationContext, realtime + poll). Ít hơn ba dòng kia rất nhiều, và
+  // chuông im khi không có gì — đó mới là điều làm nó đáng tin.
+  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy } =
+    useNotifications();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -186,6 +172,45 @@ export default function GlobalHeader({
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
+    if (pathname.startsWith("/settings/tai-khoan")) {
+      return {
+        title: "Thiết lập tài khoản cho nhân viên",
+        subtitle: "Tạo login, đặt lại mật khẩu, gỡ tài khoản.",
+      };
+    }
+    if (pathname.startsWith("/nhan-su")) {
+      return {
+        title: "Quản lý nhân sự",
+        subtitle:
+          "Hồ sơ từng người: vai trò, cơ sở làm việc, loại hợp đồng, giấy phép hành nghề.",
+      };
+    }
+    if (pathname.startsWith("/patients/new")) {
+      return {
+        // MỘT câu đúng cho cả hai luồng (CSKH đặt lịch trước · Lễ tân tiếp
+        // khách vãng lai) — thanh này không đọc được `?mode=`, và hai nút chọn
+        // luồng ngay dưới đã nói rõ người dùng đang ở đâu.
+        title: "Tạo hồ sơ bệnh nhân",
+        subtitle:
+          "Nhập thông tin hành chính, xác minh và đưa khách vào đúng luồng tiếp nhận.",
+      };
+    }
+    if (pathname.startsWith("/patient-list")) {
+      return {
+        title: "Danh sách bệnh nhân",
+        subtitle: "Tra cứu hồ sơ hành chính và lượt hẹn gần nhất của người bệnh.",
+      };
+    }
+    if (pathname.startsWith("/nhac-tai-kham")) {
+      return {
+        title: "Nhắc tái khám",
+        // Phụ đề cũ chỉ mô tả lượt 1 ("chưa đặt lịch lại"). Từ 07/08 màn này
+        // có HAI lượt, và lượt 2 đúng là những người ĐÃ đặt lịch — để nguyên
+        // câu cũ thì nó nói ngược với nửa dưới của chính màn hình.
+        subtitle:
+          "Hai lượt gọi: mời đặt lịch trước hẹn 7 ngày, và nhắc đi khám vào sáng ngày hẹn.",
+      };
+    }
     if (pathname.startsWith("/tasks")) {
       return { title: "Công việc chăm sóc", subtitle: "Theo dõi, thực hiện và ghi nhận kết quả chăm sóc khách hàng" };
     }
@@ -194,6 +219,13 @@ export default function GlobalHeader({
     }
     if (pathname.startsWith("/audit-log")) {
       return { title: "Lịch sử thao tác", subtitle: "Tra cứu ai đã thực hiện thay đổi, vào thời điểm nào và dữ liệu nào bị ảnh hưởng" };
+    }
+    if (pathname.startsWith("/reception/checkout")) {
+      return {
+        title: "Check-out lượt khám",
+        subtitle:
+          "Đối soát điều kiện rồi đóng lượt. Còn việc chưa xong vẫn đóng được, nhưng phải ghi lý do.",
+      };
     }
     if (pathname.startsWith("/reception")) {
       return { title: "Hàng đợi tiếp nhận", subtitle: "Tiếp đón và phân luồng bệnh nhân" };
@@ -358,22 +390,99 @@ export default function GlobalHeader({
                 )}
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`flex items-start gap-2.5 rounded-xl p-2.5 text-xs transition-colors ${
-                      n.unread ? "bg-brand-50/70" : "bg-surface-muted"
-                    }`}
-                  >
-                    {n.type === "info" && <Info size={15} className="mt-0.5 text-brand-600 shrink-0" />}
-                    {n.type === "success" && <CheckCircle2 size={15} className="mt-0.5 text-success shrink-0" />}
-                    {n.type === "alert" && <AlertCircle size={15} className="mt-0.5 text-danger shrink-0" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink leading-tight">{n.title}</p>
-                      <span className="text-[10px] text-ink-muted">{n.time}</span>
-                    </div>
-                  </div>
-                ))}
+                {notifs.length === 0 ? (
+                  <p className="px-1 py-3 text-center text-xs text-ink-muted">
+                    Chưa có thông báo nào.
+                  </p>
+                ) : (
+                  notifs.map((n) => {
+                    // BẤM VÀO LÀ SANG THẲNG TRANG XỬ LÝ.
+                    //
+                    // Thông báo đã mang sẵn `duong_dan` từ lúc backend sinh ra
+                    // nó ("Cần xếp bác sĩ" → /appointments/cho-xep-bac-si),
+                    // nhưng giao diện chỉ in chữ ra rồi thôi. Người đọc biết có
+                    // việc mà phải tự đi tìm màn nào xử lý — với quản lý đang có
+                    // hai mươi mục trên thanh bên thì đó là một bước thừa mỗi
+                    // lần chuông kêu.
+                    const noiDung = (
+                      <>
+                      {n.khan ? (
+                        // Thông báo KHẨN do Trưởng ca gọi — đây là cái đỏ THẬT,
+                        // thay cho ba dòng viết cứng đã gỡ hôm nay.
+                        <AlertCircle
+                          size={15}
+                          className="mt-0.5 shrink-0 text-danger"
+                        />
+                      ) : n.approved ? (
+                        <CheckCircle2
+                          size={15}
+                          className="mt-0.5 shrink-0 text-success"
+                        />
+                      ) : (
+                        <AlertCircle
+                          size={15}
+                          className="mt-0.5 shrink-0 text-warning"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium leading-tight text-ink">
+                          {n.title}
+                        </p>
+                        <p className="text-[11px] text-ink-soft">{n.detail}</p>
+                        <span className="text-[10px] text-ink-muted">{n.at}</span>
+                        {n.duongDan && (
+                          <span className="mt-0.5 block text-[11px] font-semibold text-brand-700">
+                            Bấm để xử lý →
+                          </span>
+                        )}
+                      </div>
+                      </>
+                    );
+                    const lop = `flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left text-xs ${
+                      n.khan ? "bg-danger-bg" : "bg-brand-50/70"
+                    }`;
+                    // NÚT ĐÓNG VIỆC, TÁCH KHỎI Ô BẤM ĐỂ ĐI.
+                    //
+                    // `cua_toi()` lọc `da_xu_ly_luc IS NULL`, và cho tới
+                    // 10/08/2026 KHÔNG một màn nào gọi endpoint đóng việc — nên
+                    // mọi thông báo từng sinh ra nằm lại trong chuông mãi mãi,
+                    // và người dùng học cách bỏ qua cả cái chuông.
+                    //
+                    // Không đóng hộ khi bấm vào đường dẫn: đi xem một việc
+                    // không phải là đã làm xong nó.
+                    const nutXong = n.thongBaoId ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void danhDauDaXuLy(n.thongBaoId!);
+                        }}
+                        title="Đã làm xong việc này — bỏ khỏi chuông"
+                        className="shrink-0 self-start rounded-lg border border-line bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft hover:bg-surface-muted"
+                      >
+                        Xong
+                      </button>
+                    ) : null;
+                    return n.duongDan ? (
+                      <div key={n.key} className={`${lop} items-center`}>
+                        <Link
+                          href={n.duongDan}
+                          onClick={() => setNotifOpen(false)}
+                          className="flex min-w-0 flex-1 items-start gap-2.5 transition-colors hover:brightness-95"
+                        >
+                          {noiDung}
+                        </Link>
+                        {nutXong}
+                      </div>
+                    ) : (
+                      <div key={n.key} className={lop}>
+                        {noiDung}
+                        {nutXong}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

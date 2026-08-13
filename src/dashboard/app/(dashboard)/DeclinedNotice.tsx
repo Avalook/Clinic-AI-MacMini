@@ -5,6 +5,7 @@
 // the ✕ for the current session; it reappears on reload while any remain.
 
 import { useState } from "react";
+import { doctorName } from "../../lib/doctor-name";
 
 export interface DeclinedItem {
   id: string;
@@ -39,7 +40,9 @@ export default function DeclinedNotice({ items }: { items: DeclinedItem[] }) {
             {" · "}
             {it.time}
             {" · "}
-            <span className="text-ink-muted">BS {it.doctorName}</span>
+            {/* Qua doctorName() chứ không tự nối "BS": staff.full_name đã kèm
+                học hàm ("TS.BS. Phan Chí Thành"), nối thêm thì ra "BS TS.BS.". */}
+            <span className="text-ink-muted">{doctorName(it.doctorName)}</span>
           </li>
         ))}
         {items.length > 5 && (

@@ -10,16 +10,19 @@ const sources = {
   schedule: read("../app/(dashboard)/schedule/page.tsx"),
   official: read("../app/(dashboard)/schedule/OfficialRosterTable.tsx"),
   register: read("../app/(dashboard)/schedule/RosterRegisterTable.tsx"),
-  // WeekKanban.tsx đã bị xoá; không assertion nào trong file này dùng tới nó.
-  // 15 màn còn lại vẫn được canh nguyên vẹn.
-  editPage: read("../app/(dashboard)/schedule/edit/page.tsx"),
-  editor: read("../app/(dashboard)/schedule/edit/RosterEditor.tsx"),
+  // WeekKanban.tsx và schedule/edit/* đều đã bị xoá (commit 410c989, 09/08/2026:
+  // hai màn cùng ghi vào một bảng lịch trực). Đường ghi /api/roster mà `editor`
+  // từng canh nay do `register` canh — cùng một API, một màn duy nhất.
   sessions: read("../app/(dashboard)/work-sessions/page.tsx"),
   reports: read("../app/(dashboard)/reports/page.tsx"),
   print: read("../app/(dashboard)/reports/PrintReportButton.tsx"),
   ops: read("../app/(dashboard)/ops/OpsCenter.tsx"),
   telemetry: read("../app/(dashboard)/ops/telemetry/page.tsx"),
   settings: read("../app/(dashboard)/settings/page.tsx"),
+  // Bảng tài khoản nhân viên đã tách khỏi trang Cài đặt (06/08/2026). Bài kiểm
+  // đi theo BẢNG, không đi theo đường dẫn cũ — nếu chỉ sửa `settings` cho hết
+  // đỏ thì bảng dày kia không còn ai canh chiều rộng nữa.
+  taiKhoan: read("../app/(dashboard)/settings/tai-khoan/page.tsx"),
   account: read("../app/(dashboard)/settings/AccountActions.tsx"),
   newUserPage: read("../app/(dashboard)/settings/new-user/page.tsx"),
   newUserForm: read("../app/(dashboard)/settings/new-user/NewUserForm.tsx"),
@@ -29,12 +32,12 @@ test("all operational and admin routes use the ClinicAI V2 page shell", () => {
   for (const key of [
     "lead",
     "schedule",
-    "editPage",
     "sessions",
     "reports",
     "ops",
     "telemetry",
     "settings",
+    "taiKhoan",
     "newUserPage",
   ] as const) {
     assert.match(sources[key], /page-in/,
@@ -70,7 +73,7 @@ test("operational views use project tokens instead of legacy and hard-coded pale
 });
 
 test("dense operational tables remain reachable on narrow content widths", () => {
-  for (const key of ["official", "register", "sessions", "reports", "telemetry", "settings"] as const) {
+  for (const key of ["official", "register", "sessions", "reports", "telemetry", "taiKhoan"] as const) {
     assert.match(
       sources[key],
       /overflow-x-auto|overflow-auto/,
@@ -91,9 +94,10 @@ test("existing authorization and mutation boundaries stay in place", () => {
   assert.match(sources.lead, /requireNavAccess\("\/truong-ca"\)/);
   assert.match(sources.sessions, /requireNavAccess\("\/work-sessions"\)/);
   assert.match(sources.ops, /fetch\("\/api\/ops\/summary"/);
-  assert.match(sources.editor, /fetch\("\/api\/roster"/);
+  assert.match(sources.register, /fetch\("\/api\/roster"/);
   assert.match(sources.account, /\/api\/admin\/users/);
   assert.match(sources.newUserForm, /\/api\/admin\/users/);
   assert.match(sources.settings, /isAdminRole\(role\)/);
+  assert.match(sources.taiKhoan, /isAdminRole\(role\)/);
   assert.match(sources.reports, /isOpsAdmin\(role\)/);
 });

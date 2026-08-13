@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -63,6 +65,25 @@ class PriceUpdateRequest(BaseModel):
     active: bool | None = None
 
 
+class DisplayZoneToggle(BaseModel):
+    """Một khu trên bảng gọi số: bật hay tắt."""
+
+    key: str = Field(min_length=1, max_length=32)
+    an: bool = False
+
+
+class DisplaySettingsRequest(BaseModel):
+    """Cấu hình MÀN HÌNH PHÒNG CHỜ của phòng khám đang đăng nhập."""
+
+    zones: list[DisplayZoneToggle] = Field(default_factory=list)
+    # Hiện TÊN người bệnh trên bảng gọi số. Bật theo yêu cầu vận hành; tắt thì
+    # bảng rơi về số thứ tự.
+    hien_ten: bool = True
+    # Che phần giữa của tên ("Nguyễn Thị Lan" → "Nguyễn T. L.") cho phòng khám
+    # muốn gọi tên mà không đọc trọn cho cả phòng chờ.
+    che_ten: bool = False
+
+
 class BookingPolicyUpdateRequest(BaseModel):
     """Ba con số của luật đặt lịch (C.3). CHECK constraint ở DB chặn lần cuối."""
 
@@ -90,6 +111,52 @@ async def add_shift(
     return {"ok": True, "id": roster_id}
 
 
+@router.get("/roster/stations")
+async def roster_stations(
+    staff_id: UUID,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Nhân viên này được xếp vào những vị trí nào.
+
+    Cùng nguồn với chỗ thi hành trong `add_shift`, nên ô chọn trên màn không
+    thể mời một vị trí rồi backend từ chối.
+    """
+    return await RosterService(pool).tram_cho_nhan_vien(
+        identity=identity, staff_id=str(staff_id)
+    )
+
+
+@router.get("/roster/station-scope")
+async def station_scope(
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Cả ma trận vai × vị trí — màn cấu hình của quản lý."""
+    return {"items": await RosterService(pool).ma_tran_vi_tri(identity=identity)}
+
+
+class StationScopeRequest(BaseModel):
+    tram_ma: str = Field(min_length=1, max_length=64)
+    vai: str = Field(min_length=1, max_length=32)
+    cho_phep: bool
+
+
+@router.put("/roster/station-scope")
+async def set_station_scope(
+    body: StationScopeRequest,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bật/tắt một ô của ma trận. Chỉ Quản lý (kiểm lại trong service)."""
+    return await RosterService(pool).dat_vi_tri_cho_vai(
+        identity=identity,
+        tram_ma=body.tram_ma,
+        vai=body.vai,
+        cho_phep=body.cho_phep,
+    )
+
+
 @router.patch("/roster/shifts/{roster_id}")
 async def decide_shift(
     roster_id: UUID,
@@ -105,6 +172,41 @@ async def decide_shift(
         identity=identity,
     )
     return {"ok": True}
+
+
+class ApplyWeekRequest(BaseModel):
+    week_start: date
+
+
+@router.post("/roster/weeks/apply", status_code=201)
+async def apply_week(
+    body: ApplyWeekRequest,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Chốt lịch trực một tuần. Chỉ Quản lý.
+
+    Trước khi có việc này, một tuần vừa xếp nháp và một tuần đã chốt trông hệt
+    nhau với mọi thứ đọc lịch trực. Xem migration 20260808000001.
+    """
+    return await RosterService(pool).apply_week(
+        week_start=body.week_start, identity=identity
+    )
+
+
+@router.get("/roster/weeks/applied")
+async def applied_weeks(
+    tu: date,
+    den: date,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Tuần nào trong khoảng đã áp dụng — phần còn lại là dự kiến."""
+    return {
+        "weeks": await RosterService(pool).applied_weeks(
+            identity=identity, tu=tu, den=den
+        )
+    }
 
 
 @router.delete("/roster/shifts/{roster_id}")
@@ -363,3 +465,137 @@ async def update_feature_mode(
         mode=body.mode,
     )
     return {"ok": True, **result}
+
+
+@router.patch("/display-settings")
+async def update_display_settings(
+    body: DisplaySettingsRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bật/tắt từng khu trên bảng gọi số, và cách hiện tên người bệnh.
+
+    Chỉ Trưởng ca + Quản lý (cùng gác với luật đặt lịch). `clinic_id` suy từ
+    membership, KHÔNG nhận từ body — phòng khám A sửa không chạm được phòng
+    khám B.
+
+    Giữ nguyên `label` và `prefix` của từng khu: đây là công tắc bật/tắt, không
+    phải chỗ đổi tên khu. Khoá nào không có trong bảng cấu hình thì bỏ qua —
+    gửi một khu không tồn tại không tạo ra khu mới.
+    """
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT settings -> 'display' AS display FROM clinic WHERE id = $1::uuid",
+            identity.clinic_id,
+        )
+        hien_tai = row["display"] if row else None
+        if isinstance(hien_tai, str):
+            hien_tai = json.loads(hien_tai)
+        hien_tai = dict(hien_tai or {})
+
+        muon_an = {z.key: z.an for z in body.zones}
+        zones = [
+            {**z, "an": muon_an.get(str(z.get("key")), bool(z.get("an")))}
+            for z in (hien_tai.get("zones") or [])
+            if isinstance(z, dict)
+        ]
+        hien_tai.update(
+            {"zones": zones, "hien_ten": body.hien_ten, "che_ten": body.che_ten}
+        )
+
+        await conn.execute(
+            """
+            UPDATE public.clinic
+               SET settings = jsonb_set(
+                       coalesce(settings, '{}'::jsonb),
+                       '{display}',
+                       $2::jsonb,
+                       true
+                   ),
+                   updated_at = now()
+             WHERE id = $1::uuid
+            """,
+            identity.clinic_id,
+            json.dumps(hien_tai, ensure_ascii=False),
+        )
+
+    return {"ok": True, "display": hien_tai}
+
+
+# ── Luật bắt buộc bác sĩ ────────────────────────────────────────────────────
+#
+# Cùng gác với luật số chỗ (_BOOKING_POLICY_GUARD): cả hai đều là "phòng khám
+# nhận đặt lịch theo luật gì", và người sửa được cái này thì sửa được cái kia.
+
+
+class LuatBacSiRequest(BaseModel):
+    service_type_id: UUID
+    required_staff_id: UUID
+    cach_tinh: Literal["CHUA_TUNG", "DOT_MOI", "QUA_N_THANG"] = "DOT_MOI"
+    so_thang: int | None = Field(default=None, ge=1, le=120)
+    chan_han: bool = True
+    is_active: bool = True
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/booking-rules/doctor")
+async def list_doctor_rules(
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi luật bắt buộc bác sĩ của phòng khám."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return {"items": await LuatBacSiService(pool).danh_sach(identity=identity)}
+
+
+@router.put("/booking-rules/doctor", status_code=201)
+async def save_doctor_rule(
+    body: LuatBacSiRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đặt hoặc sửa luật của một dịch vụ. PUT vì mỗi dịch vụ chỉ có một luật."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return await LuatBacSiService(pool).luu(
+        identity=identity,
+        service_type_id=str(body.service_type_id),
+        required_staff_id=str(body.required_staff_id),
+        cach_tinh=body.cach_tinh,
+        so_thang=body.so_thang,
+        chan_han=body.chan_han,
+        is_active=body.is_active,
+        ghi_chu=body.ghi_chu,
+    )
+
+
+@router.get("/booking-rules/doctor/xem-thu")
+async def preview_doctor_rule(
+    service_type_id: UUID,
+    cach_tinh: Literal["CHUA_TUNG", "DOT_MOI", "QUA_N_THANG"],
+    so_thang: int | None = None,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Cách tính này coi bao nhiêu khách hiện có là "mới"."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return await LuatBacSiService(pool).xem_thu(
+        identity=identity,
+        service_type_id=str(service_type_id),
+        cach_tinh=cach_tinh,
+        so_thang=so_thang,
+    )
+
+
+@router.delete("/booking-rules/doctor/{luat_id}")
+async def delete_doctor_rule(
+    luat_id: UUID,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ hẳn một luật."""
+    from clinicai.services.luat_bac_si_service import LuatBacSiService
+
+    return await LuatBacSiService(pool).xoa(identity=identity, luat_id=str(luat_id))

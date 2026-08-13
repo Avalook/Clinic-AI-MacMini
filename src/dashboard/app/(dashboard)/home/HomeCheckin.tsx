@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import { UserCheck, ChevronDown, Search, FileText, Printer } from "lucide-react";
 import { fmtTime, isVnMidnight } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
-import { compareQueue } from "../../../lib/queue";
 import SplitPane from "../SplitPane";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
@@ -74,8 +73,10 @@ export default function HomeCheckin({
         );
       })
     : rows;
-  // Thứ tự khám: ƯT lên đầu → số → theo giờ.
-  const shown = [...filtered].sort(compareQueue);
+  // Thứ tự khám do backend quyết — màn hình chỉ hiển thị.
+  const shown = [...filtered].sort(
+    (a, b) => (a.call_order ?? 0) - (b.call_order ?? 0),
+  );
   const sel = canWriteClinical
     ? (rows.find((r) => r.id === selId) ?? null)
     : null;

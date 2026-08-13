@@ -12,7 +12,7 @@ không trả tên.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -204,10 +204,134 @@ async def apply_route(
     )
 
 
+# ── Trưởng ca GỌI bộ phận ──────────────────────────────────────────────────
+#
+# Nửa còn thiếu của màn cảnh báo: nó đã nói được "SA1 đang tắc" nhưng không nói
+# được VỚI AI. Xem services/thong_bao_service.py.
+
+
+class GoiBoPhanRequest(BaseModel):
+    # Vai được gọi khai TƯỜNG MINH, không suy từ phòng. Đánh thức nhầm bộ phận
+    # lúc đang tắc thì tệ hơn là bắt trưởng ca chọn một lần.
+    vai_nhan: str = Field(min_length=1, max_length=40)
+    tieu_de: str = Field(min_length=1, max_length=200)
+    noi_dung: str = Field(min_length=1, max_length=1000)
+    # Khoá chống gọi trùng: cùng nguồn + cùng vai mà cái cũ chưa xử lý thì
+    # không tạo thêm. Thường là mã phòng.
+    nguon_id: str | None = Field(default=None, max_length=100)
+    muc_do: Literal["KHAN", "THUONG"] = "KHAN"
+    duong_dan: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/dispatch/alerts/call", status_code=201)
+async def call_department(
+    body: GoiBoPhanRequest,
+    identity: StaffIdentity = Depends(_DISPATCH_WRITE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gọi một bộ phận về một cảnh báo. Bấm lại khi chưa ai xử lý: không nhân đôi."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).goi(
+        identity=identity,
+        vai_nhan=body.vai_nhan,
+        tieu_de=body.tieu_de,
+        noi_dung=body.noi_dung,
+        nguon_id=body.nguon_id,
+        muc_do=body.muc_do,
+        duong_dan=body.duong_dan,
+    )
+
+
+@router.get("/thong-bao")
+async def my_notifications(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thông báo chưa xử lý dành cho vai của tôi. MỌI vai đều đọc được của mình."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return {"items": await ThongBaoService(pool).cua_toi(identity=identity)}
+
+
+@router.post("/thong-bao/da-doc", status_code=200)
+async def mark_notifications_read(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tắt chấm đỏ. KHÔNG đóng việc — xem `danh_dau_da_doc`.
+
+    Khai TRƯỚC `/thong-bao/{thong_bao_id}/da-xu-ly` không phải ngẫu nhiên: hai
+    đường không đụng nhau ở đây (một cái là `/da-doc`, cái kia có tham số uuid
+    ở giữa), nhưng để chúng cạnh nhau cho người đọc thấy ngay là có HAI động
+    tác khác nhau trên cùng một cái chuông.
+    """
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).danh_dau_da_doc(identity=identity)
+
+
+class DaXuLyRequest(BaseModel):
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/thong-bao/{thong_bao_id:uuid}/da-xu-ly", status_code=201)
+async def resolve_notification(
+    thong_bao_id: UUID,
+    body: DaXuLyRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bên nhận đóng việc. Trả về thời gian phản hồi tính bằng giây."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).da_xu_ly(
+        identity=identity, thong_bao_id=str(thong_bao_id), ghi_chu=body.ghi_chu
+    )
+
+
 # ── Quầy Lễ tân: đối soát và đóng lượt ─────────────────────────────────────
 #
 # Đọc mở cho Lễ tân (đây là màn của họ); đóng lượt cũng là việc của Lễ tân, nên
 # quyền GHI ở đây rộng hơn phần điều phối bên trên.
+
+
+@router.get("/reception/checkout/ton-dong")
+async def checkout_stale(
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt khám còn mở từ những ngày trước — 18 dòng không ai thấy.
+
+    Đường literal đặt TRƯỚC `/reception/checkout/{visit_id:uuid}` không phải vì
+    thứ tự khai (bộ chuyển đổi `{visit_id:uuid}` đã chặn chuyện nuốt đường), mà
+    để người đọc thấy hai đường này cạnh nhau.
+    """
+    from clinicai.services.checkout_service import CheckoutService
+
+    return {
+        "ok": True,
+        "items": await CheckoutService(pool).stale_list(identity=identity),
+    }
+
+
+@router.get("/reception/checkout/chi-tiet/{visit_id:uuid}")
+async def checkout_chi_tiet(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Toàn cảnh một lượt khám để đối soát trước khi đóng.
+
+    Dịch vụ đã làm · các khoản đã thu · hồ sơ sẽ trả · theo dõi sau khám · dòng
+    thời gian. Xem `CheckoutService.chi_tiet` để biết mục nào có dữ liệu thật và
+    mục nào chưa.
+    """
+    from clinicai.services.checkout_service import CheckoutService
+
+    return await CheckoutService(pool).chi_tiet(
+        identity=identity, visit_id=str(visit_id)
+    )
 
 
 @router.get("/reception/checkout")
@@ -241,6 +365,9 @@ async def checkout_readiness(
 
 class CheckoutRequest(BaseModel):
     visit_id: UUID
+    # Khách về giữa chừng. Lý do BẮT BUỘC khi bật — xem checkout_service.close.
+    incomplete: bool = False
+    incomplete_reason: str | None = Field(default=None, max_length=500)
     # Còn vướng mà vẫn muốn đóng thì phải nói vì sao. Trống = chỉ đóng được khi
     # sạch vướng mắc.
     override_reason: str | None = Field(default=None, max_length=500)
@@ -252,13 +379,21 @@ async def checkout(
     identity: StaffIdentity = Depends(_RECEPTION_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Đóng lượt khám. KHÔNG đụng visit.status — xem checkout_service."""
+    """Đóng lượt khám.
+
+    Đóng bình thường KHÔNG đụng `visit.status` — đó là khoá hồ sơ bệnh án, việc
+    của bác sĩ. Chỉ nhánh `incomplete=True` (khách về giữa chừng) mới ghi
+    `INCOMPLETE`, và đó là trạng thái KHÔNG-CUỐI: bác sĩ vẫn ký lên FINALIZED
+    được sau. Xem checkout_service.
+    """
     from clinicai.services.checkout_service import CheckoutService
 
     return await CheckoutService(pool).close(
         identity=identity,
         visit_id=str(body.visit_id),
         override_reason=body.override_reason,
+        incomplete=body.incomplete,
+        incomplete_reason=body.incomplete_reason,
     )
 
 

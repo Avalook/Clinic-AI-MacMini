@@ -136,6 +136,8 @@ export default function NewPatientForm({
   provinces,
   variant = "full",
   initialAppt,
+  nhung = false,
+  onHuy,
 }: {
   role?: ClinicRole | null;
   locations: Option[];
@@ -145,6 +147,16 @@ export default function NewPatientForm({
   /** "walkin" = điều dưỡng ghi khách vãng lai: bỏ lịch hẹn, gộp dịch vụ/bác sĩ
    *  vào ô thông tin, lưu xong tạo luôn lượt khám HÔM NAY (giờ hiện tại). */
   variant?: "full" | "walkin";
+  /** Nhúng vào một màn đã có tiêu đề và thanh bước riêng (vd màn Đặt lịch).
+   *
+   * Chỉ ẩn phần đầu — toàn bộ biểu mẫu và luật kiểm tra giữ nguyên. Cắt hẳn
+   * khối đó khỏi component sẽ làm trang `/patients/new` đứng một mình mất tiêu
+   * đề, vì hai nơi dùng CÙNG một component. */
+  nhung?: boolean;
+  /** Khi biểu mẫu được NHÚNG trong một màn khác: "Huỷ" phải trả người dùng về
+   *  đúng chỗ họ đang đứng, không đá sang /patient-list. Không truyền thì giữ
+   *  hành vi cũ (trang /patients/new độc lập). */
+  onHuy?: () => void;
   /** Điền sẵn ngày/giờ/bác sĩ — ô xanh "đặt vào đây" ở bảng Lịch hẹn khám
    *  (trang chủ) dẫn sang đây kèm query để Lễ tân xếp khách đúng khung. */
   initialAppt?: { date?: string; time?: string; doctorId?: string };
@@ -237,18 +249,19 @@ export default function NewPatientForm({
       : "",
   ); // text hiện trong ô
   const [doctorOpen, setDoctorOpen] = useState(false);
-  const filteredDoctors = useMemo(() => {
-    const t = unaccentVi(doctorQ.trim());
-    if (!t) return doctors;
-    return doctors.filter((d) => unaccentVi(d.label).includes(t));
-  }, [doctorQ, doctors]);
   const [apptDate, setApptDate] = useState(initialAppt?.date ?? "");
   const [apptTime, setApptTime] = useState(initialAppt?.time ?? "");
   // Loại ghế đang chọn ở sơ đồ (luồng full): "regular" = BN1/BN2 (kênh thường);
-  // "walkin" = chỗ Ưu tiên (chỗ thứ 3) — đặt như WALK_IN để vào đúng ghế, không
+  // "walkin" = chỗ ĐẾN TRỰC TIẾP — đặt như WALK_IN để vào đúng ghế, không
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
-  const [seatKind, setSeatKind] = useState<"regular" | "walkin">("regular");
-  const priority = !walkin && seatKind === "walkin";
+  // GHẾ VÃNG LAI CHỈ CÒN Ở BẢN WALK-IN của điều dưỡng.
+  //
+  // Ô chọn kiểu ghế nằm trong sơ đồ chỗ, mà sơ đồ ấy đã bỏ khỏi biểu mẫu CSKH
+  // (xem ghi chú ở phần Lịch hẹn khám). Giữ một `useState` mà không nơi nào
+  // gọi setter là để lại một biến trông như còn đổi được — người đọc sau sẽ đi
+  // tìm chỗ đổi nó. Bản walk-in đi qua nhánh `walkin` riêng, nơi `gheTrucTiep`
+  // vốn đã luôn false theo đúng định nghĩa dưới đây.
+  const gheTrucTiep = false;
   // Luật đặt lịch của phòng khám (C.3). `null` = chưa đọc được → không đoán.
   const policy = useBookingPolicy();
   // Lịch dài đúng một khung của PHÒNG KHÁM NÀY, không phải 15' cố định.
@@ -257,20 +270,51 @@ export default function NewPatientForm({
   // Bác sĩ TRỰC CA (work_roster LICH_KHAM) của ngày đang đặt — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
+  /** Tuần chứa ngày đã chọn chưa được bấm "Áp dụng tuần" — xem /api/roster. */
+  const [dutyDuKien, setDutyDuKien] = useState(false);
   const dutyDate = walkin ? TODAY : apptDate;
   useEffect(() => {
     if (!dutyDate) return;
     const ctrl = new AbortController();
     fetch(`/api/roster?date=${encodeURIComponent(dutyDate)}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) =>
+      .then((j) => {
         setDutyDoctorIds(
           j ? (j.doctors as { id: string }[]).map((d) => d.id) : null,
-        ),
-      )
+        );
+        setDutyDuKien(Boolean(j?.du_kien));
+      })
       .catch(() => {});
     return () => ctrl.abort();
   }, [dutyDate]);
+  // Ô "Bác sĩ" CHỈ MỜI NGƯỜI CÓ TRỰC NGÀY ĐÓ.
+  //
+  // Quang 09/08/2026: *"rõ là hôm nay có lịch mà sao lúc đặt lịch lại không
+  // thấy lịch bác sĩ nào hiện ra?"*.
+  //
+  // `dutyDoctorIds` được nạp từ trước — nhưng chỉ đưa xuống sơ đồ khung giờ,
+  // còn ô tìm bác sĩ ngay trên nó thì lọc trên TOÀN BỘ danh sách. Nên biểu mẫu
+  // mời cả mười lăm bác sĩ cho một ngày chỉ có hai người trực, và không nói một
+  // chữ nào về việc ai đang trực. Dữ liệu đúng, nạp đúng, rồi không ai dùng.
+  //
+  // `null` = chưa hỏi xong; `[]` = ngày chưa xếp trực → mời tất cả (cùng đường
+  // lùi với sơ đồ khung giờ, và nay nói ra thành lời ở ngay dưới ô).
+  const bacSiTrucCa = useMemo(
+    () =>
+      dutyDoctorIds === null || dutyDoctorIds.length === 0
+        ? doctors
+        : doctors.filter((d) => dutyDoctorIds.includes(d.id)),
+    [doctors, dutyDoctorIds],
+  );
+
+  // Ô tìm bác sĩ CỦA MÀN VÃNG LAI vẫn còn (điều dưỡng ghi khách đến thẳng, không
+  // qua sơ đồ khung giờ), nhưng nay cũng chỉ mời người CÓ TRỰC hôm đó.
+  const filteredDoctors = useMemo(() => {
+    const t = unaccentVi(doctorQ.trim());
+    if (!t) return bacSiTrucCa;
+    return bacSiTrucCa.filter((d) => unaccentVi(d.label).includes(t));
+  }, [doctorQ, bacSiTrucCa]);
+
   // CAP-01: phân loại tải để engine ngân sách (newCap + Thành-min) chặn đúng.
   // Khách MỚI luôn là ca KHÁM MỚI (EPI-01 DEC-E5) → cố định NEW, không còn nút đổi
   // (BN cũ/tái khám đổi loại ở AppointmentBooking trên trang chi tiết BN).
@@ -343,8 +387,8 @@ export default function NewPatientForm({
         doctorId || null,
         bucketMs,
       );
-      // Chỗ Ưu tiên (walk-in flow HOẶC full flow chọn ô xanh) xét ghế vãng lai.
-      return walkin || priority
+      // Chỗ đến trực tiếp (walk-in flow HOẶC full flow chọn ô xanh).
+      return walkin || gheTrucTiep
         ? u.walkin >= policy.walkinCap
         : u.regular >= policy.regularCap;
     } catch {
@@ -352,7 +396,7 @@ export default function NewPatientForm({
     }
   }, [
     walkin,
-    priority,
+    gheTrucTiep,
     TODAY,
     apptDate,
     apptTime,
@@ -476,9 +520,9 @@ export default function NewPatientForm({
         location_id: effLocationId,
         slot_start: start.toISOString(),
         slot_end: end.toISOString(),
-        // Ghế Ưu tiên (ô xanh) = chỗ thứ 3 → phải là WALK_IN để server xếp đúng
+        // Ghế đến trực tiếp (ô xanh) → phải là WALK_IN để server xếp đúng
         // ghế (nếu không sẽ đội lên BN1/BN2 và bị chặn cứng cap 2).
-        booking_channel: walkin || priority ? "WALK_IN" : channel,
+        booking_channel: walkin || gheTrucTiep ? "WALK_IN" : channel,
         queue_number: queueNumber,
         patient_kind: patientKind,
         need_sono: needSono,
@@ -600,10 +644,15 @@ export default function NewPatientForm({
         setError("Vui lòng chọn dịch vụ khám.");
         return;
       }
-      if (!doctorId) {
-        setError("Vui lòng chọn bác sĩ.");
-        return;
-      }
+      // BÁC SĨ KHÔNG BẮT BUỘC.
+      //
+      // Khách gọi đặt trước 2–3 tuần hoặc cả tháng — lúc ấy lịch trực chưa công
+      // bố, và khách cũng không biết phòng khám có những bác sĩ nào. Bắt chọn
+      // bác sĩ ở đây nghĩa là lễ tân phải bịa một cái tên để lưu được hồ sơ, và
+      // cái tên bịa ấy trông y hệt một quyết định thật ở mọi màn sau.
+      //
+      // Bỏ trống → lịch vào hàng chờ, quản lý xếp sau (assign_doctor).
+      // Database vốn đã cho phép: appointment.doctor_id là NULLABLE.
       if (!apptDate) {
         setError("Vui lòng chọn ngày khám.");
         return;
@@ -612,7 +661,7 @@ export default function NewPatientForm({
         setError("Vui lòng chọn giờ khám.");
         return;
       }
-      if (!priority && !channel) {
+      if (!gheTrucTiep && !channel) {
         setError("Vui lòng chọn kênh đặt.");
         return;
       }
@@ -686,34 +735,36 @@ export default function NewPatientForm({
 
   return (
     <div aria-label="Luồng tạo hồ sơ và đặt lịch" className="space-y-4">
-      <header className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
-        <div className="border-b border-line px-4 py-3 sm:px-5">
-          <p className="text-sm font-semibold text-ink">
-            {walkin ? "Luồng tiếp nhận khách vãng lai" : "Luồng tạo hồ sơ và đặt lịch"}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">
-            {walkin
-              ? "Xác minh thông tin, chọn dịch vụ và tạo lượt khám khi đủ điều kiện."
-              : "Hồ sơ và lịch hẹn được tạo qua hai bước, dùng cùng một nguồn dữ liệu."}
-          </p>
-        </div>
-        <ol className="grid grid-cols-2 divide-x divide-line text-xs sm:grid-cols-3" aria-label="Các bước tiếp nhận">
-          <li className="flex items-center gap-2 px-4 py-3 text-brand-800">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">1</span>
-            <span className="font-semibold">Thông tin hồ sơ</span>
-          </li>
-          <li className="flex items-center gap-2 px-4 py-3 text-ink-muted">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">2</span>
-            <span>{walkin ? "Dịch vụ & lượt khám" : "Lịch hẹn khám"}</span>
-          </li>
-          {!walkin && (
-            <li className="hidden items-center gap-2 px-4 py-3 text-ink-muted sm:flex">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">3</span>
-              <span>Xác nhận & lưu</span>
+      {nhung ? null : (
+        <header className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+          <div className="border-b border-line px-4 py-3 sm:px-5">
+            <p className="text-sm font-semibold text-ink">
+              {walkin ? "Luồng tiếp nhận khách vãng lai" : "Luồng tạo hồ sơ và đặt lịch"}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {walkin
+                ? "Xác minh thông tin, chọn dịch vụ và tạo lượt khám khi đủ điều kiện."
+                : "Hồ sơ và lịch hẹn được tạo qua hai bước, dùng cùng một nguồn dữ liệu."}
+            </p>
+          </div>
+          <ol className="grid grid-cols-2 divide-x divide-line text-xs sm:grid-cols-3" aria-label="Các bước tiếp nhận">
+            <li className="flex items-center gap-2 px-4 py-3 text-brand-800">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">1</span>
+              <span className="font-semibold">Thông tin hồ sơ</span>
             </li>
-          )}
-        </ol>
-      </header>
+            <li className="flex items-center gap-2 px-4 py-3 text-ink-muted">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">2</span>
+              <span>{walkin ? "Dịch vụ & lượt khám" : "Lịch hẹn khám"}</span>
+            </li>
+            {!walkin && (
+              <li className="hidden items-center gap-2 px-4 py-3 text-ink-muted sm:flex">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">3</span>
+                <span>Xác nhận & lưu</span>
+              </li>
+            )}
+          </ol>
+        </header>
+      )}
 
       <section aria-label="Thông tin hồ sơ" className={CARD}>
         <SectionHeader
@@ -1076,6 +1127,7 @@ export default function NewPatientForm({
                   date={TODAY}
                   doctors={doctors}
                   dutyDoctorIds={dutyDoctorIds}
+                  dutyDuKien={dutyDuKien}
                   existingAppts={visibleExistingAppts}
                   selectedDoctorId={doctorId}
                   selectedTime={apptTime}
@@ -1137,64 +1189,15 @@ export default function NewPatientForm({
               ))}
             </select>
           </div>
-          <div>
-            <label className={LABEL}>
-              Bác sĩ <Req />
-            </label>
-            <div className="relative">
-              <input
-                value={doctorQ}
-                onChange={(e) => {
-                  setDoctorQ(e.target.value);
-                  setDoctorId(""); // xóa chọn cũ khi gõ đè
-                  setDoctorOpen(true);
-                }}
-                onFocus={() => setDoctorOpen(true)}
-                onBlur={() => setTimeout(() => setDoctorOpen(false), 150)}
-                placeholder="Tìm bác sĩ… (bỏ trống nếu chưa phân)"
-                className={INPUT}
-                autoComplete="off"
-              />
-              {doctorOpen && (
-                <ul className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-line bg-white shadow-lg">
-                  <li
-                    onMouseDown={() => {
-                      setDoctorId("");
-                      setDoctorQ("");
-                      setDoctorOpen(false);
-                    }}
-                    className="cursor-pointer px-3 py-2 text-sm text-ink-muted hover:bg-brand-50"
-                  >
-                    — Chưa phân bác sĩ —
-                  </li>
-                  {filteredDoctors.length === 0 ? (
-                    <li className="px-3 py-2 text-sm text-ink-faint">
-                      Không tìm thấy bác sĩ
-                    </li>
-                  ) : (
-                    filteredDoctors.map((d) => (
-                      <li
-                        key={d.id}
-                        onMouseDown={() => {
-                          setDoctorId(d.id);
-                          setDoctorQ(d.label);
-                          setDoctorOpen(false);
-                        }}
-                        className={
-                          "cursor-pointer px-3 py-2 text-sm hover:bg-brand-50 " +
-                          (d.id === doctorId
-                            ? "bg-brand-100 font-medium text-brand-800"
-                            : "text-ink")
-                        }
-                      >
-                        {d.label}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-            </div>
-          </div>
+          {/* Ô "Tìm bác sĩ" ĐÃ BỎ — bác sĩ chọn bằng cách bấm một ô trong SƠ ĐỒ
+              KHUNG GIỜ ngay dưới đây (`onPick` set thẳng `doctorId`).
+
+              VÀ SƠ ĐỒ ẤY PHẢI CÓ MẶT Ở ĐÂY. Trước đó nó chỉ được dựng trong
+              nhánh VÃNG LAI; luồng CSKH tạo khách mới chưa bao giờ có sơ đồ —
+              chỉ có hai ô Giờ/Phút và một ô gõ tên bác sĩ. Bỏ ô gõ tên mà không
+              đưa sơ đồ sang là cắt mất đường phân bác sĩ duy nhất của luồng
+              này: Quang thử trên staging và thấy biểu mẫu không còn chỗ nào
+              chọn bác sĩ. Lỗi của tôi, sinh ra ở đúng lượt sửa trước. */}
           <div>
             <label className={LABEL}>
               Ngày khám <Req />
@@ -1205,6 +1208,30 @@ export default function NewPatientForm({
               min={TODAY}
               ariaLabel="Ngày khám"
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={LABEL}>
+              Bác sĩ &amp; khung giờ <Req />
+            </label>
+            {apptDate ? (
+              <CinemaSlotPicker
+                date={apptDate}
+                doctors={doctors}
+                dutyDoctorIds={dutyDoctorIds}
+                dutyDuKien={dutyDuKien}
+                existingAppts={visibleExistingAppts}
+                selectedDoctorId={doctorId}
+                selectedTime={apptTime}
+                onPick={(docId, t) => {
+                  setApptTime(t);
+                  setDoctorId(docId);
+                }}
+              />
+            ) : (
+              <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
+                Chọn ngày khám để hiện sơ đồ chỗ trống.
+              </p>
+            )}
           </div>
           <div>
             <label className={LABEL}>
@@ -1217,9 +1244,11 @@ export default function NewPatientForm({
               maxHour={apptMaxHour}
               minutesOptions={policy ? slotMinuteOptions(policy) : []}
             />
-            <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
-              ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
-            </p>
+            {/* BỎ DÒNG "đến muộn 15 phút mất chỗ" (Quang chốt 09/08/2026).
+                Nó là một lời hứa về luật vận hành mà hệ thống KHÔNG thi hành:
+                không có chỗ nào hạ ưu tiên người đến muộn, và thứ tự gọi do
+                services/queue_order.py quyết theo giờ check-in thật. Một câu
+                doạ không có hiệu lực thì chỉ dạy người đọc bỏ qua chữ đỏ. */}
             {apptCh && (
               <p className="mt-1 text-[11px] text-ink-faint">
                 Giờ mở cửa: {apptCh.open}–{apptCh.close}
@@ -1244,46 +1273,20 @@ export default function NewPatientForm({
               Có siêu âm
             </label>
           </div>
+          {/* SƠ ĐỒ CHỖ ĐÃ BỎ KHỎI BIỂU MẪU KHÁCH MỚI (Quang chốt 09/08/2026).
+
+              Nó vẽ MỘT HÀNG CHO MỖI BÁC SĨ nhân với mọi khung giờ trong ngày —
+              mười lăm bác sĩ thành mười lăm khối, kéo dài gấp ba phần biểu mẫu
+              phía trên và đẩy nút "Nhập thông tin khách hàng" xuống tận đáy.
+              Với một khách MỚI thì chọn ghế của bác sĩ nào cũng vô nghĩa: ngày
+              đó có thể chưa xếp ca, và người khám sẽ do quản lý gán sau.
+
+              Hai ô Ngày khám / Giờ ở trên vẫn đủ để đặt: thiếu bác sĩ thì lịch
+              đi ra với doctor_id rỗng và rơi vào hàng đợi "Chờ xếp bác sĩ". */}
           {/* Số khám: KHÔNG nhập tay — hệ tự cấp khi check-in. */}
-          <div className="sm:col-span-2">
-            <label className={LABEL}>Chọn chỗ (sơ đồ trống)</label>
-            <CinemaSlotPicker
-              date={apptDate}
-              doctors={doctors}
-              dutyDoctorIds={dutyDoctorIds}
-              existingAppts={visibleExistingAppts}
-              selectedDoctorId={doctorId}
-              selectedTime={apptTime}
-              mode="regular"
-              allowPriority
-              selectedKind={seatKind}
-              onPick={(docId, t, kind) => {
-                setApptTime(t);
-                setDoctorId(docId);
-                setSeatKind(kind);
-                setDoctorQ(docId ? (doctors.find((d) => d.id === docId)?.label ?? "") : "");
-              }}
-            />
-            {apptDate && apptTime && (
-              <p
-                className={`mt-1 text-[11px] font-medium ${
-                  isSlotBooked ? "text-danger" : "text-success"
-                }`}
-              >
-                {isSlotBooked
-                  ? "Khung đang chọn đã kín — chọn ô khác."
-                  : "Khung đang chọn còn trống."}
-              </p>
-            )}
-            {priority && (
-              <p className="mt-1 text-[11px] font-medium text-success">
-                Đang xếp chỗ Ưu tiên (chỗ thứ 3) — không cần chọn Kênh đặt.
-              </p>
-            )}
-          </div>
           <div>
             <label className={LABEL}>
-              Kênh đặt {!priority && <Req />}
+              Kênh đặt {!gheTrucTiep && <Req />}
             </label>
             <select
               value={channel}
@@ -1368,9 +1371,15 @@ export default function NewPatientForm({
                   ? "Nhập thông tin khách hàng"
                   : "Tạo bệnh nhân"}
         </button>
-        <Link href="/patient-list" className={BTN_GHOST + " text-center"}>
-          Huỷ
-        </Link>
+        {onHuy ? (
+          <button type="button" onClick={onHuy} className={BTN_GHOST}>
+            Huỷ
+          </button>
+        ) : (
+          <Link href="/patient-list" className={BTN_GHOST + " text-center"}>
+            Huỷ
+          </Link>
+        )}
       </div>
     </div>
   );

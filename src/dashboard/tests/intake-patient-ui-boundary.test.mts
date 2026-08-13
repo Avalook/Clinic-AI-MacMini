@@ -50,6 +50,11 @@ const workRoster = readFileSync(
   new URL("../app/(dashboard)/home/WorkRosterTable.tsx", import.meta.url),
   "utf8",
 );
+// Màu viền theo TẦNG đã chuyển vào khung dùng chung của ba bảng lịch làm việc.
+const rosterGrid = readFileSync(
+  new URL("../app/(dashboard)/RosterGrid.tsx", import.meta.url),
+  "utf8",
+);
 const cinemaSlots = readFileSync(
   new URL("../app/(dashboard)/patients/CinemaSlotPicker.tsx", import.meta.url),
   "utf8",
@@ -87,7 +92,26 @@ test("the patient directory follows the three-region reference layout without st
     assert.match(patients, new RegExp(`aria-label="${label}"`));
   }
   assert.match(patients, /shown\.find\(\(item\) => item\.clinic_patient_id === selectedId\) \?\?/);
-  assert.match(patients, /Mở hồ sơ khám/);
+
+  // Phiếu khám vẫn mở được — nhưng CHỈ cho vai lâm sàng. Với Lễ tân nút đó chỉ
+  // là liên kết sang trang hành chính, tức là bấm để đọc đúng khối hành chính
+  // vừa hiện đầy đủ ngay bên cạnh.
+  assert.match(patients, /Mở phiếu khám/);
+  // Chốt là ENABLEPOPUP PHẢI ĐỨNG ĐẦU điều kiện, không phải cả câu điều kiện
+  // phải y nguyên. Màn này đã thêm vế "&& selected.appt" (hồ sơ chưa khám lần
+  // nào thì không có phiếu để mở) — siết theo chuỗi nguyên văn sẽ bắt lỗi một
+  // thay đổi vô hại, và lần sau người ta sẽ sửa test cho qua thay vì đọc nó.
+  assert.match(patients, /\{enablePopup(?: &&[^?]*)? \? \(/);
+
+  // Khối hành chính hiện TẠI CHỖ, không bắt đổi màn để đọc thứ đã tải về.
+  assert.match(patients, /HangHanhChinh/);
+  assert.match(patients, /nhan="Ngày sinh"/);
+  assert.match(patients, /nhan="Địa chỉ"/);
+
+  // Xem được TỪNG lượt khám cũ, không chỉ đếm số lượng.
+  assert.match(patients, /Các lượt khám \(/);
+  assert.match(patients, /selected\.visits\.map/);
+
   assert.doesNotMatch(patients, /#ec4899|text-status-cancelled/);
 });
 
@@ -127,6 +151,7 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
     intake,
     cskhLog,
     patientHistory,
+    rosterGrid,
   ].join("\n");
 
   assert.doesNotMatch(sources, /#[0-9a-f]{3,8}\b/i);
@@ -134,5 +159,5 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
   assert.doesNotMatch(sources, /rgba\(/i);
   assert.match(formUi, /shadow-card/);
   assert.match(booking, /ui\.className/);
-  assert.match(workRoster, /floorBorderClass/);
+  assert.match(rosterGrid, /FLOOR_BORDER/);
 });

@@ -16,9 +16,13 @@ preserved, and each one exists because of something that went wrong or could:
   doctor is their job.
 * **48-hour lock.** After roughly two shifts the record is closed; corrections
   go through the shift lead.
-* **OPEN and IN_PROGRESS are the only writable states.** FINALIZED *and*
-  AMENDED are immutable under Circular 13 — this is a whitelist rather than a
-  FINALIZED check so a new terminal status cannot slip through.
+* **Chỉ trạng thái ĐANG SỐNG mới ghi được** — OPEN, IN_PROGRESS và INCOMPLETE
+  (khách về giữa chừng). FINALIZED *và* AMENDED bất biến theo Thông tư 13. Đây
+  là danh sách TRẮNG chứ không phải phép kiểm `!= FINALIZED`, nên một trạng thái
+  CUỐI thêm sau này không lọt qua được.
+
+  INCOMPLETE ghi được vì khách CÒN QUAY LẠI: khoá bút lúc đó là bắt bác sĩ phải
+  đính chính một hồ sơ chưa ai ký.
 * **Merging, not overwriting.** A doctor may have opened the form before the
   nurse entered vitals; saving blind would wipe them. Existing values are kept
   and only non-empty incoming fields override.
@@ -67,7 +71,17 @@ def validated_profile(profile: dict[str, Any]) -> dict[str, Any]:
     return {key: profile[key] for key in profile if key in PROFILE_COLUMNS}
 
 
-WRITABLE_VISIT_STATUSES: frozenset[str] = frozenset({"OPEN", "IN_PROGRESS"})
+# Trạng thái lượt khám còn GHI ĐƯỢC hồ sơ.
+#
+# Danh sách TRẮNG, không phải kiểm `!= FINALIZED`. Cố ý: một trạng thái CUỐI
+# thêm sau này sẽ không lọt qua được, còn danh sách đen thì lọt.
+#
+# INCOMPLETE (khách về giữa chừng) nằm TRONG danh sách này. Nó là trạng thái
+# KHÔNG-CUỐI: khách còn quay lại, và khoá bút lúc này là bắt bác sĩ phải đính
+# chính một hồ sơ chưa ai ký. FINALIZED và AMENDED thì bất biến theo Thông tư 13.
+WRITABLE_VISIT_STATUSES: frozenset[str] = frozenset(
+    {"OPEN", "IN_PROGRESS", "INCOMPLETE"}
+)
 ARRIVED_APPOINTMENT_STATUSES: frozenset[str] = frozenset({"CHECKED_IN", "COMPLETED"})
 RECORD_LOCK = timedelta(hours=48)
 

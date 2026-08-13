@@ -2,6 +2,7 @@
 // Dược sĩ hướng dẫn người bệnh cách dùng thuốc trước khi bàn giao.
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { motBanGhi } from "../../../../lib/postgrest-embed";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import ConsultBoard from "./ConsultBoard";
 
@@ -17,6 +18,10 @@ export default async function PharmacyConsultPage() {
       `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note, caution, created_at,
        patient:clinic_patient_id(full_name, phone_primary)`,
     )
+    // CHỜ TƯ VẤN = còn việc. Bản trước đọc cả bảng không lọc, nên đơn từ nhiều
+    // tháng trước nằm mãi trong danh sách "chờ" — và danh sách chờ nào cũng
+    // chỉ dài thêm thì không ai còn nhìn nó nữa.
+    .is("closed_at", null)
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -37,7 +42,7 @@ export default async function PharmacyConsultPage() {
   };
   const normalized = (records ?? []).map((r: Raw) => ({
     ...r,
-    patient: r.patient?.[0] ?? null,
+    patient: motBanGhi(r.patient),
   }));
 
   return <ConsultBoard records={normalized} />;

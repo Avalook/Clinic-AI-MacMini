@@ -10,9 +10,27 @@ import { getClinicRole } from "../../../lib/clinic-session";
 import { canWriteIntake } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
+// KẾT QUẢ ĐI CÙNG CUỘC GỌI.
+//
+// Interface này trước đây chỉ khai `clinic_patient_id` và `note`. Giao diện
+// /cskh-tasks vẫn gửi lên `result` từ ba nút "Đã liên hệ / Chưa nghe máy / Cần
+// bác sĩ hỗ trợ" — và trường ấy rơi ngay ở đây, im lặng, vì TypeScript không
+// phàn nàn về khoá thừa trong JSON đã phân giải. Cả ba nút ghi ra đúng một
+// dòng giống hệt nhau.
+const KET_QUA: Record<string, string> = {
+  CONTACTED: "DA_LIEN_HE",
+  NO_ANSWER: "CHUA_NGHE_MAY",
+  NEED_DOCTOR: "CAN_BAC_SI",
+  DECLINED: "TU_CHOI",
+  // Nút "Hoàn tất" của màn gửi COMPLETED — nghĩa là đã nói chuyện xong.
+  COMPLETED: "DA_LIEN_HE",
+};
+
 interface Body {
   clinic_patient_id?: string;
   note?: string;
+  result?: string;
+  luot_goi?: number;
 }
 
 export async function POST(request: Request) {
@@ -40,10 +58,24 @@ export async function POST(request: Request) {
   }
   const note = (body.note ?? "").trim() || null;
 
+  // Kết quả lạ thì TỪ CHỐI, không lặng lẽ bỏ qua. Một nút mới thêm ở giao diện
+  // mà quên khai ở đây sẽ báo lỗi ngay, thay vì ghi ra một dòng thiếu kết quả
+  // trông y hệt dòng đủ.
+  const raw = (body.result ?? "").trim();
+  if (raw && !(raw in KET_QUA)) {
+    return NextResponse.json(
+      { error: `Kết quả cuộc gọi không hợp lệ: ${raw}` },
+      { status: 400 },
+    );
+  }
+  const ketQua = raw ? KET_QUA[raw] : null;
+
   // FastAPI owns the write and stamps the working day in Asia/Ho_Chi_Minh,
   // for the same reason this route did.
   return proxyJsonToBackend("POST", "/api/v1/cskh/followup-calls", {
     clinic_patient_id: clinicPatientId,
     note,
+    ket_qua: ketQua,
+    luot_goi: body.luot_goi ?? null,
   });
 }

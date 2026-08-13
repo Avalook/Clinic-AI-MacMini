@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -30,6 +30,12 @@ from clinicai.services.booking_service import (
 )
 from clinicai.services.clinic_policy import DEFAULT_POLICY, ClinicPolicy
 
+# Nửa đêm NGÀY MAI (giờ UTC) — mốc neo cho các bài kiểm cần một khung giờ còn
+# ở phía trước. Tính từ `now()` nên không bao giờ hết hạn.
+_MAI = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
+
 
 class TestTransitions:
     def test_every_action_is_covered(self) -> None:
@@ -42,6 +48,10 @@ class TestTransitions:
             "cskh_confirm",
             "cancel",
             "no_show",
+            # Xếp bác sĩ cho một lịch đã đặt mà chưa có ai (08/08/2026). Khác
+            # "reassign" — cái đó chỉ nhận lịch bị bác sĩ TỪ CHỐI — và khác
+            # "reschedule", vốn bắt buộc kèm giờ hẹn mới.
+            "assign_doctor",
             "reassign",
             "reschedule",
         }
@@ -129,13 +139,36 @@ class TestTransitions:
 
 
 class TestRoleGates:
-    @pytest.mark.parametrize("action", ["confirm", "decline", "complete"])
-    def test_only_the_doctor_side_accepts_or_finishes(self, action: str) -> None:
+    @pytest.mark.parametrize("action", ["confirm", "decline"])
+    def test_only_the_doctor_side_accepts_or_declines(self, action: str) -> None:
         transition = TRANSITIONS[action]
         assert transition.allowed_roles == frozenset(
             {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
         )
         # And on their OWN list — TKYK is the exception, entering on behalf.
+        assert transition.owner_only
+
+    def test_complete_is_doctors_plus_ops(self) -> None:
+        """`complete` KHÔNG còn thuần bác sĩ (Quang 08/08/2026).
+
+        MVP vận hành tay: CSKH bấm "khách check-out" và lượt khám phải ĐÓNG
+        THẬT — không đóng thì "đã khám" không bao giờ bật và nhắc tái khám
+        không bao giờ sinh. Bác sĩ vẫn giữ owner_only với ca của chính mình.
+        """
+        transition = TRANSITIONS["complete"]
+        assert transition.allowed_roles == frozenset(
+            {
+                ClinicRole.DOCTOR,
+                ClinicRole.ULTRASOUND_DOCTOR,
+                ClinicRole.TKYK,
+                ClinicRole.CSKH,
+                # Quản lý và trưởng ca làm được mọi việc CSKH làm được — bản
+                # đầu chỉ mở CSKH, và người đầu tiên ăn 403 trên bản thật chính
+                # là tài khoản Quản lý đang chạy thử.
+                ClinicRole.MANAGEMENT,
+                ClinicRole.TRUONG_CA,
+            }
+        )
         assert transition.owner_only
 
     @pytest.mark.parametrize("action", ["cancel", "reassign", "reschedule"])
@@ -154,10 +187,32 @@ class TestRoleGates:
                 assert cashier not in transition.allowed_roles
 
     @pytest.mark.parametrize("action", ["checkin", "undo_checkin", "no_show"])
-    def test_only_front_desk_checks_patients_in_or_out(self, action: str) -> None:
+    def test_front_desk_and_cskh_check_patients_in_or_out(self, action: str) -> None:
+        # + CSKH (Quang 08/08/2026): *"sản phẩm MVP này là cskh thao tác được
+        # hết mà"* — và đi ĐÚNG đường thật, để khách CSKH check-in hiện ở hàng
+        # đợi tiếp nhận y như khách lễ tân check-in.
         assert TRANSITIONS[action].allowed_roles == frozenset(
-            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT}
+            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT, ClinicRole.CSKH}
         )
+
+    def test_owner_check_chi_ap_cho_bac_si_that(self) -> None:
+        """owner_only là luật GIỮA CÁC BÁC SĨ.
+
+        Bản đầu miễn trừ bằng danh sách liệt kê (TKYK, rồi CSKH) — và Quản lý
+        bấm check-out trên bản thật ăn ngay "Lịch hẹn này không thuộc bác sĩ".
+        Tập PHYSICIAN_ONLY_OWNER_CHECK nói thẳng: chỉ so staff_id với người
+        CÓ ca của mình.
+        """
+        from clinicai.services.booking_service import PHYSICIAN_ONLY_OWNER_CHECK
+
+        assert PHYSICIAN_ONLY_OWNER_CHECK == frozenset(
+            {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
+        )
+        # Mọi vai được phép 'complete' mà không phải bác sĩ đều phải nằm ngoài
+        # tập bị so — thiếu một vai là vai đó bị chặn sạch trên bản thật.
+        for role in TRANSITIONS["complete"].allowed_roles:
+            if role not in (ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR):
+                assert role not in PHYSICIAN_ONLY_OWNER_CHECK
 
     def test_only_the_doctor_actions_are_owner_scoped(self) -> None:
         owner_only = {a for a, t in TRANSITIONS.items() if t.owner_only}
@@ -282,6 +337,10 @@ class _Conn:
         self.executed.append(sql)
         return self._results.pop(0) if self._results else []  # type: ignore[return-value]
 
+    async def fetchrow(self, sql: str, *args: object) -> Any:
+        self.executed.append(sql)
+        return self._results.pop(0) if self._results else None
+
     async def execute(self, sql: str, *args: object) -> None:
         self.executed.append(sql)
 
@@ -302,14 +361,24 @@ def _identity() -> StaffIdentity:
 class TestSeatMessages:
     """The wording is the feature: a receptionist has to know what to do next."""
 
-    def _rows(self, regular: int, walkin: int) -> list[dict[str, str]]:
-        return [{"booking_channel": "ZALO", "status": "SCHEDULED"}] * regular + [
-            {"booking_channel": "WALK_IN", "status": "SCHEDULED"}
-        ] * walkin
+    def _seats(self, regular: int, walkin: int) -> dict[str, int]:
+        """Số ghế đã dùng, đúng hình dạng `slot_seats_used()` trả về.
+
+        Trước đây các bài này nạp DÒNG lịch hẹn rồi để Python tự đếm. Phép đếm
+        đã chuyển hẳn xuống SQL (20260807000001) vì nó phải giống hệt phép đếm
+        của trigger — và vì luật mới cần đọc `visit.checked_in_at`, thứ không có
+        trong danh sách dòng ấy. Ở đây chỉ còn thứ vẫn thuộc về Python: CÂU
+        TIẾNG VIỆT suy ra từ hai con số.
+
+        Phần đếm — trạng thái chết không giữ ghế, khách đến muộn chiếm ghế vãng
+        lai — được canh trên Postgres thật ở
+        `supabase/tests/ghe_vang_lai_khach_den_muon.sql`.
+        """
+        return {"regular": regular, "walkin": walkin}
 
     def test_a_full_booked_slot_says_the_third_seat_is_for_walk_ins(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
+        conn = _Conn(self._seats(DEFAULT_POLICY.regular_cap, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -327,7 +396,7 @@ class TestSeatMessages:
 
     def test_the_reserved_seat_is_still_free_for_a_walk_in(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(DEFAULT_POLICY.regular_cap, 0))
+        conn = _Conn(self._seats(DEFAULT_POLICY.regular_cap, 0))
         assert (
             asyncio.run(
                 service._slot_full(
@@ -344,7 +413,7 @@ class TestSeatMessages:
 
     def test_a_second_walk_in_is_turned_away(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._rows(0, DEFAULT_POLICY.walkin_cap))
+        conn = _Conn(self._seats(0, DEFAULT_POLICY.walkin_cap))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -357,22 +426,13 @@ class TestSeatMessages:
         )
         assert message is not None and "khung 15 phút kế tiếp" in message
 
-    def test_cancelled_bookings_free_their_seat(self) -> None:
-        service = BookingService(MagicMock())
-        conn = _Conn([{"booking_channel": "ZALO", "status": s} for s in DEAD_STATUSES])
-        assert (
-            asyncio.run(
-                service._slot_full(
-                    conn,
-                    None,
-                    datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
-                    "ZALO",
-                    _identity(),
-                    DEFAULT_POLICY,
-                )
-            )
-            is None
-        )
+    # "Lịch đã huỷ trả lại ghế" ĐÃ CHUYỂN SANG SQL.
+    #
+    # Bài kiểm cũ ở đây nạp một danh sách dòng toàn trạng thái chết rồi khẳng
+    # định không có câu cảnh báo nào. Sau khi phép đếm xuống SQL, nó chỉ còn
+    # khẳng định rằng cái stub trả về 0 — tức là kiểm chính nó. Luật thật giờ
+    # nằm ở `slot_seats_used()`, và được canh trên Postgres thật ở
+    # `supabase/tests/ghe_vang_lai_khach_den_muon.sql` (mục ⑥).
 
     def test_the_sentence_follows_the_clinic_not_the_code(self) -> None:
         # Phòng khám khung 30 phút, 4 chỗ: cùng một hàng dữ liệu, khác câu trả
@@ -380,7 +440,7 @@ class TestSeatMessages:
         # khung không tồn tại trên lưới của họ.
         service = BookingService(MagicMock())
         policy = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=1)
-        conn = _Conn(self._rows(4, 0))
+        conn = _Conn(self._seats(4, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -399,7 +459,7 @@ class TestSeatMessages:
     def test_a_clinic_that_takes_no_walk_ins_says_so_on_the_first_one(self) -> None:
         service = BookingService(MagicMock())
         policy = ClinicPolicy(walkin_cap=0)
-        conn = _Conn(self._rows(0, 0))
+        conn = _Conn(self._seats(0, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -451,8 +511,14 @@ class TestPatchBuilding:
             "id": "a1",
             "doctor_id": None,
             "status": "SCHEDULED",
-            "slot_start": datetime(2026, 7, 30, 9, 0, tzinfo=timezone.utc),
-            "slot_end": datetime(2026, 7, 30, 9, 30, tzinfo=timezone.utc),
+            # Mốc giờ TƯƠNG ĐỐI, không phải một ngày viết cứng.
+            #
+            # Trước đây là 30/07/2026 — hợp lệ lúc viết, rồi thành quá khứ khi
+            # lịch chạy tới, và ba bài kiểm này đỏ vì cái chốt "không đặt vào
+            # khung đã qua". Một bài kiểm hết hạn theo thời gian là một bài kiểm
+            # sẽ hỏng vào một ngày không ai đoán được.
+            "slot_start": _MAI + timedelta(hours=9),
+            "slot_end": _MAI + timedelta(hours=9, minutes=30),
             "booking_channel": "ZALO",
         }
 
@@ -464,6 +530,7 @@ class TestPatchBuilding:
                 appt=self._appt(),
                 new_status="CANCELLED",
                 cancellation_reason="  khách bận  ",
+                ly_do_huy_ma="KHAC",
                 doctor_id=None,
                 doctor_id_provided=False,
                 slot_start=None,
@@ -475,14 +542,58 @@ class TestPatchBuilding:
         assert patch["cancellation_reason"] == "khách bận"
         assert patch["cancelled_at"] is not None
 
-    def test_a_blank_reason_is_stored_as_nothing(self) -> None:
+    def test_khong_chon_ly_do_thi_khong_huy_duoc(self) -> None:
+        """Ô chữ tự do "(tuỳ chọn)" cũ để lại phần lớn lịch huỷ KHÔNG có lý do.
+
+        Không tự điền 'KHAC' cho im chuyện: mặc định âm thầm là cách cột này
+        thành 100% "khác" trong ba tháng, và lúc đó nó vô dụng đúng bằng ô chữ
+        nó thay thế.
+        """
+        with pytest.raises(ValidationError):
+            asyncio.run(
+                BookingService(MagicMock())._build_patch(
+                    _Conn(),
+                    action="cancel",
+                    appt=self._appt(),
+                    new_status="CANCELLED",
+                    cancellation_reason="khách bận",
+                    ly_do_huy_ma=None,
+                    doctor_id=None,
+                    doctor_id_provided=False,
+                    slot_start=None,
+                    slot_end=None,
+                    identity=_identity(),
+                )
+            )
+
+    def test_chon_khac_ma_khong_viet_gi_thi_bi_tu_choi(self) -> None:
+        with pytest.raises(ValidationError):
+            asyncio.run(
+                BookingService(MagicMock())._build_patch(
+                    _Conn(),
+                    action="cancel",
+                    appt=self._appt(),
+                    new_status="CANCELLED",
+                    cancellation_reason="   ",
+                    ly_do_huy_ma="KHAC",
+                    doctor_id=None,
+                    doctor_id_provided=False,
+                    slot_start=None,
+                    slot_end=None,
+                    identity=_identity(),
+                )
+            )
+
+    def test_ma_co_san_thi_khong_can_viet_them(self) -> None:
+        """Ba mã kia là ba THỜI ĐIỂM — tự chúng đã đủ nghĩa."""
         patch = asyncio.run(
             BookingService(MagicMock())._build_patch(
                 _Conn(),
                 action="cancel",
                 appt=self._appt(),
                 new_status="CANCELLED",
-                cancellation_reason="   ",
+                cancellation_reason=None,
+                ly_do_huy_ma="BAO_VAO_GIO_KHAM",
                 doctor_id=None,
                 doctor_id_provided=False,
                 slot_start=None,
@@ -490,7 +601,10 @@ class TestPatchBuilding:
                 identity=_identity(),
             )
         )
+        assert patch["ly_do_huy_ma"] == "BAO_VAO_GIO_KHAM"
         assert patch["cancellation_reason"] is None
+        # Ai huỷ — lấy từ phiên, không nhận từ client.
+        assert patch["cancelled_by_staff_id"] == _identity().staff_id
 
     def test_rescheduling_without_a_new_time_is_refused(self) -> None:
         with pytest.raises(ValidationError):
@@ -501,6 +615,7 @@ class TestPatchBuilding:
                     appt=self._appt(),
                     new_status="SCHEDULED",
                     cancellation_reason=None,
+                    ly_do_huy_ma="KHAC",
                     doctor_id=None,
                     doctor_id_provided=False,
                     slot_start=None,
@@ -518,10 +633,11 @@ class TestPatchBuilding:
                     appt=self._appt(),
                     new_status="SCHEDULED",
                     cancellation_reason=None,
+                    ly_do_huy_ma="KHAC",
                     doctor_id=None,
                     doctor_id_provided=False,
-                    slot_start=datetime(2026, 7, 30, 10, 0, tzinfo=timezone.utc),
-                    slot_end=datetime(2026, 7, 30, 9, 0, tzinfo=timezone.utc),
+                    slot_start=_MAI + timedelta(hours=10),
+                    slot_end=_MAI + timedelta(hours=9),
                     identity=_identity(),
                 )
             )
@@ -536,10 +652,11 @@ class TestPatchBuilding:
                 appt=self._appt(),
                 new_status="SCHEDULED",
                 cancellation_reason=None,
+                ly_do_huy_ma="KHAC",
                 doctor_id=None,
                 doctor_id_provided=False,
-                slot_start=datetime(2026, 7, 30, 11, 0, tzinfo=timezone.utc),
-                slot_end=datetime(2026, 7, 30, 11, 30, tzinfo=timezone.utc),
+                slot_start=_MAI + timedelta(hours=11),
+                slot_end=_MAI + timedelta(hours=11, minutes=30),
                 identity=_identity(),
             )
         )
@@ -553,10 +670,11 @@ class TestPatchBuilding:
                 appt=self._appt(),
                 new_status="SCHEDULED",
                 cancellation_reason=None,
+                ly_do_huy_ma="KHAC",
                 doctor_id=None,
                 doctor_id_provided=True,
-                slot_start=datetime(2026, 7, 30, 11, 0, tzinfo=timezone.utc),
-                slot_end=datetime(2026, 7, 30, 11, 30, tzinfo=timezone.utc),
+                slot_start=_MAI + timedelta(hours=11),
+                slot_end=_MAI + timedelta(hours=11, minutes=30),
                 identity=_identity(),
             )
         )
@@ -577,8 +695,9 @@ async def test_doctor_change_audit_records_target_doctor(
 ) -> None:
     old_doctor = "d0000000-0000-4000-8000-000000000001"
     target_doctor = "d0000000-0000-4000-8000-000000000002"
-    start = datetime(2026, 7, 31, 9, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 7, 31, 9, 30, tzinfo=timezone.utc)
+    # Tương đối, không phải ngày viết cứng — xem ghi chú ở `_MAI`.
+    start = _MAI + timedelta(hours=9)
+    end = _MAI + timedelta(hours=9, minutes=30)
     pool = MagicMock()
     conn = AsyncMock()
     acquire = AsyncMock()
@@ -696,3 +815,49 @@ class TestOnePersonCannotSitInTwoChairs:
 
         src = inspect.getsource(BookingService._patient_double_booked)
         assert "slot_start = $3" in src
+
+
+class TestKhongDatVaoKhungGioDaQua:
+    """Không đặt được lịch vào khung giờ đã trôi qua.
+
+    Trước đây KHÔNG có chốt nào — không backend, không trình duyệt. Đo ngày
+    06/08: lúc 16:40 vẫn đặt được lịch cho 16:20, server trả 201. Lịch ấy rơi
+    vào lưới hôm nay như một cái hẹn bình thường, và bảng gọi số xếp người đó
+    vào làn "đến muộn" — một người chưa bao giờ đến.
+    """
+
+    def test_khung_da_ket_thuc_thi_bi_tu_choi(self) -> None:
+        import datetime as dt
+
+        import pytest
+
+        from clinicai.api.exceptions import ValidationError
+        from clinicai.services.booking_service import _chan_dat_vao_qua_khu
+
+        da_qua = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)
+        with pytest.raises(ValidationError, match="đã qua"):
+            _chan_dat_vao_qua_khu(da_qua)
+
+    def test_khung_dang_chay_thi_van_dat_duoc(self) -> None:
+        """Khung 18:00–18:15 lúc 18:05 thì CHƯA qua.
+
+        Khách vãng lai bước vào giữa khung phải xếp được vào chính khung đang
+        chạy — lịch của họ tạo với `slot_start` = bây giờ. Chặn theo `slot_start`
+        thay vì `slot_end` sẽ chặn luôn đường đó mỗi khi đồng hồ máy chủ nhanh
+        hơn vài giây.
+        """
+        import datetime as dt
+
+        from clinicai.services.booking_service import _chan_dat_vao_qua_khu
+
+        con_chay = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=10)
+        _chan_dat_vao_qua_khu(con_chay)  # không được ném
+
+    def test_ca_dat_moi_lan_doi_lich_deu_di_qua_chot_nay(self) -> None:
+        """Khoá cửa trước mà quên cửa sau thì vẫn dời được một lịch về hôm qua."""
+        import inspect
+
+        from clinicai.services import booking_service
+
+        ma = inspect.getsource(booking_service)
+        assert ma.count("_chan_dat_vao_qua_khu(") >= 3  # định nghĩa + 2 nơi gọi

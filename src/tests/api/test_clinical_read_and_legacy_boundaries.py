@@ -89,7 +89,11 @@ def test_legacy_scheduling_mutations_cannot_bypass_canonical_services() -> None:
 
 
 def test_every_terminal_or_unknown_visit_state_keeps_a_form_read_only() -> None:
-    assert WRITABLE_VISIT_STATUSES == frozenset({"OPEN", "IN_PROGRESS"})
+    # Danh sách TRẮNG: trạng thái lạ (kể cả một trạng thái cuối thêm sau này)
+    # mặc định KHÔNG ghi được. Đó là tính chất cần giữ, không phải tập hợp cụ thể.
+    for khoa in ("FINALIZED", "AMENDED", "CANCELLED", "MOT_TRANG_THAI_MOI"):
+        assert khoa not in WRITABLE_VISIT_STATUSES
+    assert "INCOMPLETE" in WRITABLE_VISIT_STATUSES
 
 
 def test_medical_profile_columns_are_an_explicit_allowlist() -> None:

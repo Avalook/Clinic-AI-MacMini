@@ -11,19 +11,33 @@ import {
   Search,
   Stethoscope,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
+import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import WorkItemActions from "@/components/ui/WorkItemActions";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import { patientLine, waitedMinutes, type WorklistItem } from "@/lib/worklist";
+import ServiceFormEngine from "../../tasks/ServiceFormEngine";
+import LuotKhamTruoc, { type LuotTruoc } from "./LuotKhamTruoc";
+import OrderComposer, {
+  type CatalogueEntry,
+} from "../orders/[visitId]/OrderComposer";
 
 interface Blocker {
   node_code: string;
   dependency_type: string;
+}
+
+// "ĐANG THỰC HIỆN" Ở BÀN KHÁM NGHĨA LÀ "ĐANG KHÁM".
+//
+// `STATUS_PRESENTATION` dùng chung cho năm màn (thu ngân, lễ tân, danh sách
+// bệnh nhân…), nên đổi thẳng ở đó sẽ làm bàn thu ngân hiện "Đang khám" cho một
+// việc thu tiền. Đè nhãn tại chỗ, chỉ cho màn này.
+function nhanTrangThai(tone: keyof typeof STATUS_PRESENTATION): string {
+  return tone === "in_progress" ? "Đang khám" : STATUS_PRESENTATION[tone].label;
 }
 
 function group(items: WorklistItem[]) {
@@ -108,7 +122,7 @@ function PatientRow({
           </span>
           <StatusChip
             tone={STATUS_PRESENTATION[tone].token as StatusTone}
-            label={STATUS_PRESENTATION[tone].label}
+            label={nhanTrangThai(tone)}
           />
         </span>
       </span>
@@ -135,7 +149,7 @@ function PatientGroup({
         {title} ({items.length})
       </h3>
       {items.length > 0 ? (
-        <div className="divide-y divide-line">
+        <div>
           {items.map((item) => (
             <PatientRow
               key={item.id}
@@ -170,11 +184,13 @@ function QueuePanel({
   return (
     <aside
       aria-label="Hàng đợi đang mở"
-      className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
     >
-      <div className="border-b border-line px-3 py-3">
-        <h2 className="text-sm font-semibold text-ink">Hàng đợi đang mở</h2>
-        <label className="mt-2 flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-2 text-ink-muted focus-within:border-brand-500">
+      {/* Bỏ tiêu đề "Hàng đợi đang mở": ba nhóm ngay dưới đã tự nói chúng là
+          hàng đợi gì, và một dòng chữ nữa chỉ ăn chỗ của danh sách. Ô tìm kiếm
+          giữ lại — nó là công cụ, không phải cái nhãn. */}
+      <div className="px-3 py-3">
+        <label className="flex items-center gap-2 rounded-control bg-surface-muted px-3 py-2 text-ink-muted focus-within:border-brand-500">
           <Search className="size-4 shrink-0" aria-hidden="true" />
           <span className="sr-only">Tìm bệnh nhân hoặc mã hồ sơ</span>
           <input
@@ -187,19 +203,22 @@ function QueuePanel({
       </div>
 
       <div className="max-h-[720px] overflow-y-auto">
-        <PatientGroup
-          title="Chờ khám"
-          items={grouped.ready}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          emptyLabel="Không có bệnh nhân sẵn sàng khám."
-        />
+        {/* ĐANG KHÁM LÊN TRƯỚC. Người đang ngồi trong phòng là việc bác sĩ
+            đang làm; người chờ là việc sắp tới. Xếp ngược lại thì mỗi lần
+            muốn quay về ca đang khám phải cuộn qua cả hàng chờ. */}
         <PatientGroup
           title="Đang khám"
           items={grouped.working}
           selectedId={selectedId}
           onSelect={onSelect}
           emptyLabel="Chưa có lượt đang khám."
+        />
+        <PatientGroup
+          title="Chờ khám"
+          items={grouped.ready}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          emptyLabel="Không có bệnh nhân sẵn sàng khám."
         />
         <PatientGroup
           title="Chờ bước trước"
@@ -216,21 +235,10 @@ function QueuePanel({
         />
       </div>
 
-      <div className="border-t border-line px-3 py-2 text-xs text-ink-muted">
+      <div className="px-3 py-2 text-xs text-ink-muted">
         Tổng: {items.length} bước công việc
       </div>
     </aside>
-  );
-}
-
-function EmptyClinicalCard({ title, message }: { title: string; message: string }) {
-  return (
-    <section className="rounded-card border border-line bg-surface p-3.5">
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      <p className="mt-3 rounded-control border border-dashed border-line-strong bg-surface-muted px-3 py-4 text-center text-xs text-ink-muted">
-        {message}
-      </p>
-    </section>
   );
 }
 
@@ -242,12 +250,32 @@ const WORKSPACE_TABS = [
   "Thuốc & thanh toán",
 ] as const;
 
-function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
+function ClinicalWorkspace({
+  item,
+  onOpenOrders,
+}: {
+  item: WorklistItem | null;
+  onOpenOrders: () => void;
+}) {
+  // Lượt cũ đang xem lại. `null` = đang khám hôm nay.
+  //
+  // Ghi kèm CỦA AI thay vì đặt lại bằng effect khi đổi bệnh nhân. Một
+  // `useEffect(() => setDangXem(null), [item?.id])` sẽ chạy setState đồng bộ
+  // trong effect — React compiler chặn đúng, vì nó kéo theo một lượt render
+  // thừa và có lúc màn hình nháy phiếu của người trước.
+  //
+  // Suy ra thì không có trạng thái nào để lệch: đổi bệnh nhân là nó tự hết.
+  const [xemLai, setXemLai] = useState<{ itemId: string; luot: LuotTruoc } | null>(
+    null,
+  );
+  const dangXem = xemLai && xemLai.itemId === item?.id ? xemLai.luot : null;
+  const setDangXem = (luot: LuotTruoc | null) =>
+    setXemLai(luot && item ? { itemId: item.id, luot } : null);
   if (!item) {
     return (
       <section
         aria-label="Hồ sơ khám bệnh"
-        className="grid min-h-96 place-items-center rounded-card border border-line bg-surface p-8 text-center shadow-card"
+        className="grid min-h-96 place-items-center rounded-card bg-surface p-8 text-center shadow-card"
       >
         <div>
           <Stethoscope className="mx-auto size-8 text-brand-500" aria-hidden="true" />
@@ -265,9 +293,9 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
   return (
     <section
       aria-label="Hồ sơ khám bệnh"
-      className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
     >
-      <header className="border-b border-line px-4 py-3">
+      <header className="px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="grid size-11 place-items-center rounded-full border border-line bg-surface-sunken text-sm font-semibold text-ink-soft">
             {initials(item.patient.full_name)}
@@ -279,7 +307,7 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
               </h2>
               <StatusChip
                 tone={STATUS_PRESENTATION[tone].token as StatusTone}
-                label={STATUS_PRESENTATION[tone].label}
+                label={nhanTrangThai(tone)}
                 size="md"
               />
             </div>
@@ -291,7 +319,12 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
           <dl className="grid grid-cols-3 divide-x divide-line text-xs">
             <WorkflowField label="Số thứ tự" value={item.queue_number ?? "—"} />
             <WorkflowField label="Đã chờ" value={`${waitedMinutes(item)} phút`} />
-            <WorkflowField label="Bước hiện tại" value={item.node_name ?? item.node_code} />
+            {/* LOẠI DỊCH VỤ KHÁM — thứ quyết định mở biểu mẫu nào. Trước đây
+                màn chỉ biết "đang ở bước nào", không biết "khám gì". */}
+            <WorkflowField
+              label="Loại khám"
+              value={item.service_name ?? "Chưa gán dịch vụ"}
+            />
           </dl>
         </div>
 
@@ -319,17 +352,54 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
         ))}
       </nav>
 
-      <div className="grid gap-3 bg-surface-muted p-3 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="grid content-start gap-3 sm:grid-cols-2">
-          <EmptyClinicalCard title="1. Lý do khám" message="Màn này chưa kết nối nội dung khám lâm sàng" />
-          <EmptyClinicalCard title="2. Bệnh sử" message="Màn này chưa kết nối nội dung khám lâm sàng" />
-          <EmptyClinicalCard title="3. Khám lâm sàng" message="Màn này chưa kết nối nội dung khám lâm sàng" />
-          <EmptyClinicalCard title="4. Chẩn đoán" message="Màn này chưa kết nối nguồn dữ liệu chẩn đoán" />
-          <EmptyClinicalCard title="5. Kế hoạch điều trị" message="Màn này chưa kết nối nguồn dữ liệu điều trị" />
-          <EmptyClinicalCard title="Xác nhận tư vấn" message="Màn này chưa kết nối nguồn xác nhận tư vấn" />
+      <div className="grid gap-3 p-3 pt-0 xl:grid-cols-[1.7fr_0.75fr]">
+        {/* BIỂU MẪU KHÁM THẬT, THEO ĐÚNG LOẠI DỊCH VỤ.
+            Sáu thẻ "chưa kết nối" trước đây là chỗ này. Năm biểu mẫu (PK / SK
+            / NT / NK / HMVS) đã có sẵn trong `lib/form-schemas` và đã chạy ở
+            màn Công việc của tôi — thứ thiếu chỉ là bàn khám chưa biết lượt
+            này khám loại gì. Nay `form_code` đi kèm hàng đợi.
+
+            Không mở trang con: bác sĩ khám ngay tại đây. */}
+        <div className="min-w-0">
+          <LuotKhamTruoc
+            clinicPatientId={item.patient.clinic_patient_id}
+            visitIdHienTai={item.visit_id}
+            dangXem={dangXem}
+            onXem={setDangXem}
+          />
+          {dangXem ? (
+            // CHỈ XEM. `key` đổi theo lượt để engine nạp lại đúng phiếu hôm đó
+            // thay vì giữ giá trị của lượt trước đó trong state.
+            <div className="mt-2">
+              <ServiceFormEngine
+                key={dangXem.visit_id}
+                visitId={dangXem.visit_id}
+                serviceCode={dangXem.service_code}
+                readOnly
+              />
+            </div>
+          ) : !item.visit_id ? (
+            <p className="rounded-control border border-dashed border-line-strong bg-surface px-3 py-6 text-center text-xs text-ink-muted">
+              Bước này chưa gắn với lượt khám nào nên chưa mở được bệnh án.
+            </p>
+          ) : !item.form_code ? (
+            // Nói rõ VÌ SAO trống. Một khoảng trắng không nói được là "dịch vụ
+            // này không phải loại khám" hay "hệ thống hỏng".
+            <p className="rounded-control border border-dashed border-warning bg-warning-bg px-3 py-6 text-center text-xs text-warning">
+              Dịch vụ “{item.service_name ?? "chưa gán"}” chưa gắn biểu mẫu
+              khám nào. Vào Cấu trúc phòng khám để gán, hoặc chọn đúng loại
+              khám khi đặt lịch.
+            </p>
+          ) : (
+            <ServiceFormEngine
+              key={item.visit_id}
+              visitId={item.visit_id}
+              serviceCode={item.form_code}
+            />
+          )}
         </div>
 
-        <section className="rounded-card border border-line bg-surface p-3.5">
+        <section className="rounded-card bg-surface-muted p-3.5">
           <div className="flex items-center gap-2">
             <FlaskConical className="size-4 text-specialty-service" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-ink">Chỉ định & kết quả liên quan</h3>
@@ -338,13 +408,17 @@ function ClinicalWorkspace({ item }: { item: WorklistItem | null }) {
             Màn này chưa kết nối chỉ định hoặc kết quả để hiển thị
           </p>
           {item.visit_id && item.node_code === "LUOTKHAM-05" && !item.blocked ? (
-            <Link
-              href={`/doctor/orders/${item.visit_id}`}
+            // MỞ NGAY BÊN CẠNH, KHÔNG RỜI TRANG. Bản trước là một Link sang
+            // /doctor/orders/[visitId]: bác sĩ mất cả hàng đợi và hồ sơ đang
+            // đọc, chỉ định xong lại phải quay về tìm đúng người.
+            <button
+              type="button"
+              onClick={onOpenOrders}
               className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-control border border-brand-600 px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
             >
               <ClipboardPlus className="size-4" aria-hidden="true" />
               Mở màn chỉ định dịch vụ
-            </Link>
+            </button>
           ) : null}
         </section>
       </div>
@@ -383,7 +457,14 @@ function CoordinationSection({
   );
 }
 
-function CoordinationPanel({ item }: { item: WorklistItem | null }) {
+function CoordinationPanel({
+  item,
+  moRong = false,
+}: {
+  item: WorklistItem | null;
+  /** Bung sẵn. Mặc định thu gọn — xem ghi chú ở phần <details> bên dưới. */
+  moRong?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -425,9 +506,32 @@ function CoordinationPanel({ item }: { item: WorklistItem | null }) {
   return (
     <aside
       aria-label="Việc còn thiếu và điều phối"
-      className="min-w-0 rounded-card border border-line bg-surface-muted p-3 shadow-card"
+      className="min-w-0 rounded-card bg-surface-muted p-3 shadow-card"
     >
-      <h2 className="mb-3 text-sm font-semibold text-ink">Việc còn thiếu & điều phối</h2>
+      {/* THU GỌN MẶC ĐỊNH.
+          Đưa khối này lên hàng trên mà vẫn để nó bung ra thì nó ăn gần 300px
+          chiều cao và đẩy bệnh án xuống — mất đúng thứ vừa đi giành. Ở dạng
+          một dòng, nó nói được điều bác sĩ cần liếc (còn việc gì, có bị chặn
+          không) và mở ra khi thật sự cần. */}
+      <details open={moRong} className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-ink marker:hidden">
+          <span>Việc còn thiếu &amp; điều phối</span>
+          {item ? (
+            <span
+              className={`rounded-chip px-2 py-0.5 text-xs font-medium ${
+                item.blocked
+                  ? "bg-warning-bg text-warning"
+                  : "bg-brand-50 text-brand-700"
+              }`}
+            >
+              {item.blocked ? "Đang bị chặn" : item.node_name ?? item.node_code}
+            </span>
+          ) : null}
+          <span className="ml-auto text-xs font-normal text-ink-muted">
+            {moRong ? "thu gọn" : "mở"}
+          </span>
+        </summary>
+        <div className="mt-3">
 
       {!item ? (
         <p className="rounded-control border border-dashed border-line-strong bg-surface px-3 py-5 text-center text-xs text-ink-muted">
@@ -494,12 +598,21 @@ function CoordinationPanel({ item }: { item: WorklistItem | null }) {
           </div>
         </div>
       )}
+        </div>
+      </details>
     </aside>
   );
 }
 
-export default function DoctorBoard({ items }: { items: WorklistItem[] }) {
+export default function DoctorBoard({
+  items,
+  catalogue,
+}: {
+  items: WorklistItem[];
+  catalogue: CatalogueEntry[];
+}) {
   const [query, setQuery] = useState("");
+  const [moChiDinh, setMoChiDinh] = useState(false);
   const visibleItems = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("vi");
     if (!needle) return items;
@@ -515,16 +628,78 @@ export default function DoctorBoard({ items }: { items: WorklistItem[] }) {
   const selected = visibleItems.find((item) => item.id === selectedId) ?? first;
 
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-[minmax(250px,1.05fr)_minmax(420px,1.7fr)_minmax(230px,0.72fr)]">
-      <QueuePanel
-        items={visibleItems}
-        selectedId={selected?.id ?? null}
-        onSelect={setSelectedId}
-        query={query}
-        onQueryChange={setQuery}
-      />
-      <ClinicalWorkspace item={selected} />
-      <CoordinationPanel item={selected} />
+    <div className="grid gap-4">
+      {/* HÀNG TRÊN — ô số THU VỀ BÊN TRÁI, và "Việc còn thiếu & điều phối"
+          LÊN NGANG VỚI NÓ.
+          Trước đây dải ô số kéo hết chiều ngang màn hình còn khối điều phối
+          nằm dọc suốt cột ba, nên phần làm việc thật — hàng đợi và bệnh án —
+          chỉ còn hai phần ba bề rộng. Dồn cả hai thứ "chỉ để liếc" lên một
+          hàng, phần dưới được nguyên cả màn. */}
+      {/* `items-start`: không có nó, lưới kéo dải ô số CAO BẰNG khối điều phối
+          bên cạnh — bốn con số nằm giữa một vùng trắng cao gần 300px, đúng cái
+          diện tích vừa đi giành lại. */}
+      <div className="grid items-start gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <StatRow>
+          <StatCard label="Chờ khám" value={grouped.ready.length} tone="brand" />
+          <StatCard label="Đang khám" value={grouped.working.length} tone="neutral" />
+          <StatCard
+            label="Chờ bước trước"
+            value={grouped.waiting.length}
+            tone="warning"
+          />
+          <StatCard label="Tổng bước đang mở" value={items.length} tone="neutral" />
+        </StatRow>
+        <CoordinationPanel item={selected} />
+      </div>
+
+      {/* HÀNG DƯỚI — hàng đợi HẸP, bệnh án RỘNG.
+          Biểu mẫu khám đã có lưới ba cột sẵn; nó chưa bao giờ bung ra được vì
+          cột giữa quá chật, nên bác sĩ phải cuộn ngang và bấm "Mục sau" liên
+          tục. Cho nó chỗ là hết. */}
+      <div
+        className={`grid items-start gap-4 ${
+          moChiDinh
+            ? "xl:grid-cols-[minmax(210px,0.5fr)_minmax(420px,1.5fr)_minmax(340px,1.1fr)]"
+            : "xl:grid-cols-[minmax(220px,0.52fr)_minmax(560px,2.4fr)]"
+        }`}
+      >
+        <QueuePanel
+          items={visibleItems}
+          selectedId={selected?.id ?? null}
+          onSelect={setSelectedId}
+          query={query}
+          onQueryChange={setQuery}
+        />
+        <ClinicalWorkspace
+          item={selected}
+          onOpenOrders={() => setMoChiDinh(true)}
+        />
+
+        {moChiDinh && selected?.visit_id ? (
+          <section
+            aria-label="Chỉ định dịch vụ"
+            className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
+          >
+            <header className="flex items-center justify-between gap-2 px-3 py-2">
+              <h2 className="text-sm font-semibold text-ink">Chỉ định dịch vụ</h2>
+              <button
+                type="button"
+                onClick={() => setMoChiDinh(false)}
+                className="rounded-control px-2 py-1 text-xs text-ink-soft hover:bg-surface-muted"
+              >
+                Đóng
+              </button>
+            </header>
+            <div className="p-3 pt-0">
+              <OrderComposer
+                visitId={selected.visit_id}
+                patient={selected.patient}
+                catalogue={catalogue}
+              />
+            </div>
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

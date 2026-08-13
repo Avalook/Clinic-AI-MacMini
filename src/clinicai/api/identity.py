@@ -56,6 +56,19 @@ class ClinicRole(str, Enum):
     TKYK = "TKYK"
     TRUONG_CA = "TRUONG_CA"
     PHARMACIST = "PHARMACIST"
+    # Màn hình TV phòng chờ. KHÔNG phải người — là cái máy treo tường.
+    #
+    # Tồn tại vì lý do an toàn, không phải vì tiện: nếu cái tivi đăng nhập bằng
+    # một tài khoản nhân viên thường (Lễ tân chẳng hạn), thì bất kỳ ai đứng cạnh
+    # nó cũng chỉ cần mở một tab mới là đọc được hồ sơ bệnh nhân. Một máy tính
+    # bỏ đó suốt ngày trong phòng chờ công cộng phải có ít quyền nhất có thể.
+    #
+    # Vai này bị `get_current_identity` TỪ CHỐI, nên nó bị chặn ở MỌI endpoint
+    # theo mặc định — kể cả những endpoint chưa có RoleGuard. Chỉ
+    # `get_display_identity` nhận nó, và hôm nay đúng một đường dùng dependency
+    # đó. Thêm endpoint mới sau này cũng tự động loại vai này ra, không phải
+    # nhớ gì cả.
+    DISPLAY = "DISPLAY"
 
 
 _VALID_ROLES = {r.value for r in ClinicRole}
@@ -93,7 +106,7 @@ CASHIER_ROLES = frozenset(
 
 
 def role_from_department(dept: str | None) -> ClinicRole:
-    """Map a persisted role code. Unknown → CSKH (least privilege).
+    """Map a persisted role code, rejecting missing or unknown authority.
 
     The legacy name remains because callers and tests use it, but request
     authorization now supplies the per-clinic ``clinic_membership.role`` rather
@@ -101,8 +114,14 @@ def role_from_department(dept: str | None) -> ClinicRole:
     """
     if dept and dept in _VALID_ROLES:
         return ClinicRole(dept)
-    logger.warning("unknown_department_defaulting_cskh", department=dept)
-    return ClinicRole.CSKH
+    # CSKH is not a harmless display fallback: it can read patient details and
+    # record customer-care interactions. A typo or NULL membership role is bad
+    # authorization data, so fail closed instead of silently granting that role.
+    logger.error("invalid_membership_role", department=dept)
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Tài khoản có vai trò không hợp lệ",
+    )
 
 
 @dataclass(frozen=True)
@@ -291,11 +310,16 @@ def _cache_put(
     _identity_cache[key] = (now + _IDENTITY_TTL_SECONDS, identity)
 
 
-async def get_current_identity(
+async def _resolve_identity(
     request: Request,
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffIdentity:
-    """Verify JWT → active staff → one active clinic membership. Raises 401/403."""
+    """Verify JWT → active staff → one active clinic membership. Raises 401/403.
+
+    KHÔNG dùng trực tiếp làm dependency của endpoint. Dùng
+    ``get_current_identity`` (người thật) hoặc ``get_display_identity`` (thêm cả
+    màn hình phòng chờ) — xem ghi chú ở ClinicRole.DISPLAY.
+    """
     claims = verify_supabase_jwt(_bearer_token(request))
     sub = claims.get("sub")
     if not sub:
@@ -400,6 +424,37 @@ async def get_current_identity(
     # who has just been granted a membership gets in on their next request
     # rather than after the TTL.
     _cache_put(cache_key, identity, now)
+    return identity
+
+
+async def get_current_identity(
+    identity: StaffIdentity = Depends(_resolve_identity),
+) -> StaffIdentity:
+    """Danh tính của một NGƯỜI đang làm việc.
+
+    Từ chối vai DISPLAY. Đây là chốt quan trọng nhất của vai đó: mọi endpoint
+    trong hệ đều đi qua dependency này (có RoleGuard hay không), nên chặn ở đây
+    nghĩa là cái tivi bị chặn ở khắp nơi MÀ KHÔNG PHẢI liệt kê chỗ nào. Bản
+    kiểm kê 06/08 đếm được 26/119 endpoint chưa có RoleGuard — một danh sách
+    cho phép sẽ bỏ sót đúng những chỗ ấy.
+    """
+    if identity.role is ClinicRole.DISPLAY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản màn hình chỉ được xem bảng gọi số",
+        )
+    return identity
+
+
+async def get_display_identity(
+    identity: StaffIdentity = Depends(_resolve_identity),
+) -> StaffIdentity:
+    """Danh tính cho bảng gọi số phòng chờ — nhận cả vai DISPLAY.
+
+    CHỈ dùng cho endpoint không trả về một mẩu danh tính nào của người bệnh.
+    Trước khi gắn dependency này vào một đường mới, hãy đọc lại ràng buộc ① ở
+    đầu ``display_board_service``.
+    """
     return identity
 
 

@@ -105,3 +105,131 @@ class TestTheMessagesAreForPeople:
             )
         )
         assert len(blockers) == 5
+
+
+# ── Đóng lượt khi khách về giữa chừng ───────────────────────────────────────
+class TestDongLuotKhamDo:
+    """Khách đang khám thì có việc phải về.
+
+    Trước đây tình huống này không có chỗ nào ghi, nên cách duy nhất là HUỶ LỊCH
+    HẸN — và hồ sơ trông như người ấy chưa từng đến: mất dấu vết họ đã lấy số,
+    đã đo sinh hiệu, đã được chỉ định dịch vụ.
+    """
+
+    def _service(self) -> Any:
+        from unittest.mock import AsyncMock, MagicMock
+
+        from clinicai.services.checkout_service import CheckoutService
+
+        pool = MagicMock()
+        conn = AsyncMock()
+        acquire = AsyncMock()
+        acquire.__aenter__.return_value = conn
+        pool.acquire = MagicMock(return_value=acquire)
+        # `conn.transaction()` phải trả về một context manager BẤT ĐỒNG BỘ.
+        # AsyncMock trả coroutine, và coroutine thì không dùng được với
+        # `async with` — lỗi hiện ra ở tận dòng UPDATE, xa chỗ sai.
+        tx = AsyncMock()
+        tx.__aenter__.return_value = None
+        conn.transaction = MagicMock(return_value=tx)
+        return CheckoutService(pool), conn
+
+    def test_khong_co_ly_do_thi_khong_dong_duoc_du_sach_vuong_mac(self) -> None:
+        """Một lượt dở không lý do là một người bệnh mà CSKH không biết phải gọi
+        lại để nói gì. Ràng buộc ở database cũng chặn, nhưng phải từ chối được
+        bằng tiếng người TRƯỚC khi chạm database."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        import pytest
+
+        from clinicai.api.exceptions import ValidationError
+
+        svc, _ = self._service()
+        svc.readiness = AsyncMock(
+            return_value={"already_closed": False, "blockers": []}
+        )
+
+        with pytest.raises(ValidationError, match="vì sao"):
+            asyncio.run(
+                svc.close(
+                    identity=_identity(),
+                    visit_id="11111111-1111-4111-8111-111111111111",
+                    incomplete=True,
+                )
+            )
+
+    def test_kham_do_khong_can_ly_do_ngoai_le_du_con_vuong_mac(self) -> None:
+        """Khách về giữa chừng thì ĐƯƠNG NHIÊN còn việc chưa xong — đòi thêm một
+        "lý do ngoại lệ" nữa là bắt Lễ tân gõ hai lần cho cùng một sự việc."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        svc, _ = self._service()
+        svc.readiness = AsyncMock(
+            return_value={
+                "already_closed": False,
+                "blockers": [{"type": "service_open", "message": "Còn 2 dịch vụ"}],
+            }
+        )
+
+        ket = asyncio.run(
+            svc.close(
+                identity=_identity(),
+                visit_id="11111111-1111-4111-8111-111111111111",
+                incomplete=True,
+                incomplete_reason="Khách có việc gấp, xin về",
+            )
+        )
+        assert ket["incomplete"] is True
+
+    def test_dong_binh_thuong_van_doi_ly_do_ngoai_le(self) -> None:
+        """Không được nới luật cũ: còn vướng mà đóng bình thường thì vẫn phải
+        giải trình."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        import pytest
+
+        from clinicai.api.exceptions import ValidationError
+
+        svc, _ = self._service()
+        svc.readiness = AsyncMock(
+            return_value={
+                "already_closed": False,
+                "blockers": [{"type": "service_open", "message": "Còn 2 dịch vụ"}],
+            }
+        )
+        with pytest.raises(ValidationError, match="lý do ngoại lệ"):
+            asyncio.run(
+                svc.close(
+                    identity=_identity(),
+                    visit_id="11111111-1111-4111-8111-111111111111",
+                )
+            )
+
+    def test_kham_do_khong_phai_trang_thai_cuoi(self) -> None:
+        """Tính chất quan trọng nhất: khách còn quay lại, nên hồ sơ còn ghi
+        được. Nếu INCOMPLETE lọt vào danh sách khoá thì "khám dở" đã lặng lẽ
+        trở thành một cái ngõ cụt."""
+        from clinicai.services.clinical_record_service import (
+            WRITABLE_VISIT_STATUSES,
+        )
+
+        assert "INCOMPLETE" in WRITABLE_VISIT_STATUSES
+        assert "FINALIZED" not in WRITABLE_VISIT_STATUSES
+
+
+def _identity() -> Any:
+    from clinicai.api.identity import ClinicRole, StaffIdentity
+
+    return StaffIdentity(
+        staff_id="22222222-2222-4222-8222-222222222222",
+        auth_user_id="33333333-3333-4333-8333-333333333333",
+        full_name="Lễ tân",
+        department="RECEPTION",
+        role=ClinicRole.RECEPTION,
+        clinic_id="44444444-4444-4444-8444-444444444444",
+        location_id="55555555-5555-4555-8555-555555555555",
+        location_name="Kim Ngưu",
+    )

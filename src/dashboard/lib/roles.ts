@@ -16,7 +16,11 @@ export type ClinicRole =
   | "CASHIER_THUOC"
   | "CASHIER_DV"
   | "TRUONG_CA"
-  | "PHARMACIST";
+  | "PHARMACIST"
+  // Màn hình TV phòng chờ — KHÔNG phải người, là cái máy treo tường.
+  // Backend từ chối vai này ở mọi endpoint trừ bảng gọi số; ở đây nó chỉ tồn
+  // tại để layout biết mà đưa thẳng ra /display thay vì mở bảng điều khiển.
+  | "DISPLAY";
 
 export const ALL_ROLES: ClinicRole[] = [
   "DOCTOR",
@@ -31,6 +35,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "CASHIER_DV",
   "TRUONG_CA",
   "PHARMACIST",
+  "DISPLAY",
 ];
 
 // Convert a trusted role value into the closed application enum. Unknown data
@@ -126,6 +131,16 @@ export function canWriteIntake(role: ClinicRole | null): boolean {
   );
 }
 
+/** Quyền ghi ở vùng Chăm sóc khách hàng.
+ *
+ * Backend `cskh_service.INTAKE_ROLES` dùng đúng bốn vai này. Tách tên capability
+ * ở UI để một vai chỉ được mở danh bạ (như Thu ngân) không vô tình nhận toàn bộ
+ * nút POST chỉ vì nó có quyền đọc `/customers`.
+ */
+export function canOperateCustomerCare(role: ClinicRole | null): boolean {
+  return canWriteIntake(role);
+}
+
 /** Trưởng ca — vai VẬN HÀNH: toàn quyền sửa phần vận hành (lịch hẹn, BN, bảng
  *  giá, ca trực, báo cáo) để xử lý phát sinh. Lâm sàng thì CHỈ XEM (KHÔNG có
  *  trong canWriteClinical). */
@@ -205,6 +220,7 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
   CASHIER_DV: "Thu ngân dịch vụ",
   TRUONG_CA: "Trưởng ca",
   PHARMACIST: "Dược sĩ",
+  DISPLAY: "Màn hình phòng chờ",
 };
 
 // Which roles may see each sidebar destination. Anything not listed = everyone.
@@ -228,9 +244,9 @@ const DOCTOR_ROLES_LIST: ClinicRole[] = ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"];
 // màn người ta thêm TRUONG_CA vào cho chắc. Một thanh bên 28 mục thì mục quan
 // trọng nhất cũng chỉ là một dòng trong hai mươi tám dòng.
 //
-// Nay giữ đúng phần việc của ca trực: năm màn điều phối + Trang chủ, cộng
-// "Luật đặt lịch" (xem ghi chú tại chính dòng đó — đó là một ngoại lệ có chủ ý,
-// không phải sót).
+// Nay giữ đúng phần việc của ca trực: năm màn điều phối + Trang chủ, cộng hai
+// ngoại lệ có chủ ý: "Luật đặt lịch" và `/customers`. Ngoại lệ thứ hai khớp
+// backend CSKH, nơi TRUONG_CA được phép xử lý phát sinh trong ca.
 //
 // Các màn bị bỏ KHÔNG mất đi: Quản lý hệ thống vẫn vào được tất cả, và mỗi bộ
 // phận vẫn giữ màn của mình. Bỏ ở đây chỉ là bỏ khỏi TẦM MẮT của Trưởng ca.
@@ -262,17 +278,39 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/nhan-su": ["MANAGEMENT"],
 
   "/home": "all",
-  // Nhiệm vụ chăm sóc — thay thế cũ /cskh-today + /cskh/board.
-  "/cskh-tasks": ["CSKH", "MANAGEMENT"],
+  // BA MỤC ĐÃ RỜI THANH BÊN CỦA CSKH (Quang chốt 09/08/2026).
+  //
+  // "Mọi thao tác mình đang cố xây cho CSKH thì nó đều nằm ở Quản lý khách hàng
+  // rồi" — đúng với /cskh-tasks: màn đó đọc bảng `cskh_action` đang rỗng, còn
+  // vùng làm việc thật (chuỗi 9 bước, ghi tương tác, phản hồi khách, tệp kết
+  // quả) nằm trong /customers.
+  //
+  // GỠ KHỎI THANH BÊN, KHÔNG GỠ TÍNH NĂNG. Route và API giữ nguyên: Quản lý vẫn
+  // vào được, và gõ thẳng URL vẫn chạy. Xoá hẳn là mất đường lùi ngay tuần bàn
+  // giao — trong khi thứ Quang muốn chỉ là thanh bên của CSKH gọn lại.
+  "/cskh-tasks": ["MANAGEMENT"],
   // Nhắc tái khám — cùng ràng buộc với backend: GET /api/v1/cskh/recalls gác
   // bằng require_role(CSKH, MANAGEMENT, TRUONG_CA), nên mở mục này cho vai khác
   // chỉ dẫn tới một trang trống vì 403. Ghi cuộc gọi đi qua canWriteIntake, đã
   // có đủ ba vai này.
-  "/nhac-tai-kham": ["CSKH", "MANAGEMENT", "TRUONG_CA"],
+  //
+  // CSKH bị gỡ khỏi thanh bên theo chốt trên. LƯU Ý ĐÃ BÁO QUANG: màn này KHÔNG
+  // trùng /customers — nó liệt người bác sĩ đã hẹn quay lại mà CHƯA có lịch,
+  // tức danh sách "còn thiếu lịch", còn /customers xoay quanh lịch ĐÃ CÓ. Gỡ
+  // mục này là CSKH không còn đường vào danh sách ấy từ thanh bên.
+  "/nhac-tai-kham": ["MANAGEMENT", "TRUONG_CA"],
   "/appointments": ["CSKH", "MANAGEMENT"],
-  // Thông tin khách hàng (danh bạ + chi tiết + tra cứu tên/mã/SĐT) — CSKH/Lễ tân/QL
-  // + Thu ngân (xem để đối chiếu khi thu tiền; canWriteIntake KHÔNG gồm CASHIER → chỉ xem).
-  "/customers": ["CSKH", "RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV"],
+  // Thông tin khách hàng — CSKH/Lễ tân/QL/Trưởng ca thao tác; Thu ngân chỉ xem
+  // để đối chiếu khi thu tiền (canOperateCustomerCare không gồm CASHIER).
+  "/customers": [
+    "CSKH",
+    "RECEPTION",
+    "MANAGEMENT",
+    "TRUONG_CA",
+    "CASHIER",
+    "CASHIER_THUOC",
+    "CASHIER_DV",
+  ],
   // TRƯỞNG CA — năm màn điều phối. Phải liệt kê TỪNG đường: requireNavAccess()
   // tra chính xác href, không so tiền tố, nên thiếu một dòng ở đây là màn đó đá
   // người dùng về /home mà không báo gì.
@@ -286,8 +324,15 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // patients/[id] (chỉ mở được BN của mình) — đúng mô hình quyền hiện tại.
   // + ĐIỀU DƯỠNG (feedback PM 23/6): nav "Thông tin bệnh nhân" để tra cứu BN +
   // xem lịch sử khám (giống bác sĩ). Sửa lâm sàng/sinh hiệu vẫn theo buổi khám.
-  "/patient-list": ["RECEPTION", "MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
+  // CSKH BỊ SÓT: dòng ghi chú ngay trên đây nói "CSKH/Lễ tân/QL + BÁC SĨ" từ
+  // đầu, nhưng mảng thì không có CSKH — nên người gọi điện chăm sóc khách hàng
+  // là vai DUY NHẤT không tra được hồ sơ và lịch sử khám của chính người họ
+  // đang gọi. Thêm vào cho khớp với điều đã hứa.
+  "/patient-list": ["RECEPTION", "MANAGEMENT", "CSKH", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
+  // Hàng chờ xếp bác sĩ: việc của người BIẾT AI ĐANG RẢNH — quản lý và trưởng
+  // ca. CSKH không xếp, họ chỉ báo (nút trên màn khách hàng).
+  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "TRUONG_CA"],
   "/patients/new": ["RECEPTION", "MANAGEMENT"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
   // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
@@ -329,9 +374,18 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT"],
-  // MỌI vai trò tự đăng ký ca của mình (CSKH, thu ngân... cũng cần); Quản lý +
-  // Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem /api/roster).
-  "/schedule": "all",
+  // MỌI vai trò tự đăng ký ca của mình (thu ngân, điều dưỡng... cũng cần); Quản
+  // lý + Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem
+  // /api/roster).
+  //
+  // TRỪ CSKH (Quang chốt 09/08/2026): lịch làm việc đã nằm nguyên trên TRANG
+  // CHỦ của họ (bảng "Lịch làm việc" cuối trang /home), nên mục thanh bên là
+  // đường thứ hai tới cùng một bảng.
+  //
+  // Viết ra từng vai thay vì "all" — thiếu một dòng ở đây là vai đó mất màn
+  // hình mà không báo gì, nên danh sách này phải là ALL_ROLES trừ đúng CSKH,
+  // tính bằng code chứ không chép tay.
+  "/schedule": ALL_ROLES.filter((r) => r !== "CSKH"),
   "/work-sessions": ["MANAGEMENT"],
   "/reports": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
@@ -359,10 +413,50 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
+  "/settings/tai-khoan": ["MANAGEMENT"],
   // Command Center — Cổng trung tâm điều khiển toàn hệ thống.
   // Chỉ Quản lý + Trưởng ca (isOpsAdmin) mới được vào.
   "/portal": ["MANAGEMENT"],
 };
+
+/** ẨN KHỎI THANH BÊN — NHƯNG KHÔNG CHẶN ĐƯỜNG VÀO.
+ *
+ *  Quang chốt 09/08/2026: *"chỉ cần xem tổng quan thôi, không cần xem màn của
+ *  người khác vậy vất vả quá"*. Thanh bên của Quản lý đang có hơn ba mươi mục,
+ *  phần lớn là màn thao tác hằng ngày của CSKH / Lễ tân.
+ *
+ *  VÌ SAO KHÔNG XOÁ THẲNG KHỎI `NAV_ROLES`. Bảng ấy vừa dựng thanh bên VỪA gác
+ *  cửa trang (`requireNavAccess` gọi chính `canSeeNav`). Gỡ Quản lý khỏi
+ *  `/customers` là gỡ luôn quyền MỞ trang đó — mà nút "Xác nhận lịch trước 7
+ *  ngày →" ở màn Chờ xếp bác sĩ vừa dựng xong lại đi thẳng tới đấy. Người dùng
+ *  bấm một nút do chính hệ thống bày ra rồi bị đá về /home, không lời giải
+ *  thích.
+ *
+ *  Nên tách hai câu hỏi khác nhau: "có được vào không" (NAV_ROLES) và "có bày
+ *  ra trên thanh bên không" (bảng này).
+ */
+const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
+  MANAGEMENT: [
+    "/appointments",
+    "/customers",
+    "/patients/new",
+    "/nhac-tai-kham",
+    "/reception/checkout",
+    "/reception/queue",
+    "/tasks",
+  ],
+};
+
+/** Mục này có hiện trên thanh bên của vai ấy không. Dùng CHO GIAO DIỆN;
+ *  gác cửa trang vẫn là `canSeeNav`. */
+export function hienTrenThanhBen(
+  role: ClinicRole | null,
+  href: string,
+): boolean {
+  if (!canSeeNav(role, href)) return false;
+  if (!role) return true;
+  return !(AN_KHOI_THANH_BEN[role] ?? []).includes(href);
+}
 
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
   const rule = NAV_ROLES[href];

@@ -5,11 +5,12 @@ import { useMemo, useState } from "react";
 // Nhập các component StatCard và StatRow để hiển thị thẻ thống kê
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 // Nhập các icon từ thư viện lucide-react
-import { Activity, Users, Calendar, AlertCircle, Copy, ExternalLink, Search } from "lucide-react";
+import { Activity, Users, Calendar, AlertCircle, Search } from "lucide-react";
 // Nhập các hàm định dạng thời gian và ngày
 import { fmtTime, fmtDate } from "../../../lib/datetime";
 // Nhập kiểu dữ liệu AuditEvent từ file types
 import type { AuditEvent } from "./types";
+import { ALL_ROLES, ROLE_LABEL, type ClinicRole } from "../../../lib/roles";
 
 // Định nghĩa interface cho props (dữ liệu truyền vào component)
 interface Props {
@@ -46,89 +47,36 @@ function aggregateToTab(agg: string): AuditTab {
   return "system";
 }
 
-/** Extract before/after diff from event payload */
-/** Trích xuất sự khác biệt trước/sau từ payload của sự kiện */
-function extractChanges(
-  payload: Record<string, unknown> | null, // Payload của sự kiện, có thể null
-): { field: string; before: string; after: string }[] {
-  // Nếu payload rỗng thì trả về mảng rỗng
-  if (!payload) return [];
-  // Khởi tạo mảng chứa các thay đổi
-  const changes: { field: string; before: string; after: string }[] = [];
+// KHỐI "DỮ LIỆU THAY ĐỔI" ĐÃ BỎ (Quang chốt 09/08/2026).
+//
+// Nó hiện ra một bảng vô nghĩa: "0 → {", "1 → \"", "2 → s"… — tức là đang lặp
+// qua TỪNG KÝ TỰ của một chuỗi. Lý do: `event_log.payload` là jsonb, asyncpg
+// trả jsonb về dưới dạng CHUỖI (dự án không đăng ký type codec), nên trường
+// `payload` đi tới đây là một chuỗi JSON chứ không phải object —
+// `Object.entries("{\"slot_...\"}")` cho ra cặp chỉ-số → ký-tự.
+//
+// Đã sửa cả hai đầu: backend nay parse chuỗi ấy trước khi trả về
+// (audit_log_service.py), và khối bảng này bỏ hẳn — nó bày ra tên cột thô của
+// database cho người trực đọc, đúng thứ Quang gọi là "lộ code". Hai nút
+// "Sao chép mã sự kiện" / "Xem sự kiện liên quan" đi cùng: nút thứ hai chưa
+// bao giờ có onClick.
 
-  // Nếu payload có trường changes và là object
-  if (payload.changes && typeof payload.changes === "object") {
-    // Ép kiểu changes thành object chứa các cặp old/new
-    const ch = payload.changes as Record<
-      string,
-      { old?: unknown; new?: unknown }
-    >;
-    // Lặp qua từng trường trong changes
-    for (const [field, val] of Object.entries(ch)) {
-      // Thêm thay đổi vào mảng: tên trường, giá trị cũ, giá trị mới
-      changes.push({
-        field, // Tên trường dữ liệu
-        before: val?.old != null ? String(val.old) : "—", // Giá trị cũ hoặc dấu gạch ngang
-        after: val?.new != null ? String(val.new) : "—", // Giá trị mới hoặc dấu gạch ngang
-      });
-    }
-  } else if (payload.before && payload.after) {
-    // Nếu payload có trường before và after (dạng so sánh trước/sau)
-    const before = payload.before as Record<string, unknown>; // Ép kiểu before thành object
-    const after = payload.after as Record<string, unknown>; // Ép kiểu after thành object
-    // Tạo tập hợp tất cả các key từ cả before và after
-    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
-    // Lặp qua từng key
-    for (const key of allKeys) {
-      const b = before[key]; // Giá trị trước
-      const a = after[key]; // Giá trị sau
-      // Nếu giá trị trước và sau khác nhau (so sánh JSON)
-      if (JSON.stringify(b) !== JSON.stringify(a)) {
-        // Thêm thay đổi vào mảng
-        changes.push({
-          field: key, // Tên trường
-          before: b != null ? String(b) : "—", // Giá trị cũ hoặc dấu gạch ngang
-          after: a != null ? String(a) : "—", // Giá trị mới hoặc dấu gạch ngang
-        });
-      }
-    }
-  } else {
-    // Trường hợp payload không có changes hoặc before/after
-    // Tạo tập hợp các trường cần bỏ qua (thông tin nhân sự không cần hiển thị)
-    const skip = new Set(["staff_name", "staff_id", "patient_name", "patient_id"]);
-    // Lặp qua từng trường trong payload
-    for (const [key, val] of Object.entries(payload)) {
-      // Bỏ qua nếu trường nằm trong danh sách skip hoặc giá trị null
-      if (skip.has(key) || val == null) continue;
-      // Bỏ qua nếu giá trị là object (quá phức tạp để hiển thị)
-      if (typeof val === "object") continue;
-      // Thêm thay đổi vào mảng: chỉ có giá trị mới, không có giá trị cũ
-      changes.push({ field: key, before: "—", after: String(val) });
-    }
-  }
-  // Giới hạn tối đa 10 thay đổi để tránh hiển thị quá nhiều
-  return changes.slice(0, 10);
-}
-
-// Bảng nhãn tiếng Việt cho các tên trường dữ liệu
-const FIELD_LABELS: Record<string, string> = {
-  status: "Trạng thái", // Trạng thái
-  slot_start: "Khung giờ", // Khung giờ bắt đầu
-  doctor_id: "Bác sĩ", // ID bác sĩ
-  service_type_id: "Dịch vụ", // ID loại dịch vụ
-  full_name: "Họ tên", // Họ tên đầy đủ
-  phone_primary: "SĐT", // Số điện thoại chính
-  booking_channel: "Kênh đặt", // Kênh đặt lịch
-  location_id: "Cơ sở", // ID cơ sở
-  step: "Bước", // Bước trong quy trình
-  category: "Loại", // Loại
-  description: "Mô tả", // Mô tả
-};
+// HAI BẢNG NHÃN TỪNG NẰM Ở ĐÂY ĐÃ CHUYỂN VỀ `services/audit_labels.py`.
+//
+// `NHAN_NGUON` có 7 mục cho một từ vựng hơn 30 đường ghi, `NHAN_LOAI` có 12 mục
+// cho 24 loại đối tượng — nên phần lớn dòng rơi xuống nhánh `?? nguon` và in ra
+// địa chỉ mã nguồn: ô "Làm ở màn" hiện "api:booking-override", cái chip hiện
+// "roster_week". Đúng cái bệnh mà bảng nhãn sự kiện đã chữa một lần rồi, tái
+// phát ở hai cột bên cạnh vì chúng ở lại trong TSX.
+//
+// Nay backend trả sẵn `nguon_label` và `aggregate_label`, và bài kiểm chống
+// lệch canh cả bốn từ vựng cùng một chỗ.
 
 // Component chính AuditLogBoard — hiển thị bảng lịch sử thao tác
 export default function AuditLogBoard({ events, soNguoi }: Props) {
   // State lưu từ khóa tìm kiếm
   const [search, setSearch] = useState("");
+  const [vaiLoc, setVaiLoc] = useState<string>("all");
   // State lưu tab đang chọn (mặc định là "all" - tất cả)
   const [tab, setTab] = useState<AuditTab>("all");
   // State lưu ID sự kiện đang được chọn (mặc định là sự kiện đầu tiên)
@@ -159,11 +107,29 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
   );
 
   // Lọc danh sách sự kiện theo tab và từ khóa tìm kiếm (dùng useMemo để tối ưu)
+  // ĐẾM THEO VAI, tính trên toàn bộ sự kiện (không phụ thuộc tab/tìm kiếm) để
+  // con số trong ô chọn không nhảy theo thao tác khác.
+  const soTheoVai = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of events) {
+      const v = e.actor_role ?? "HE_THONG";
+      m.set(v, (m.get(v) ?? 0) + 1);
+    }
+    return m;
+  }, [events]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase(); // Chuẩn hóa từ khóa tìm kiếm
     return events.filter((e) => {
       // Nếu tab không phải "all" và loại đối tượng không khớp tab thì loại bỏ
       if (tab !== "all" && aggregateToTab(e.aggregate_type) !== tab) return false;
+      // Lọc theo VAI của người thao tác. "Ai đã làm việc này" là câu hỏi đầu
+      // tiên của mọi lần tra nhật ký, và trước đây màn này không trả lời được:
+      // `actor_role` vẫn về cùng dữ liệu nhưng không màn nào dùng tới.
+      if (vaiLoc !== "all") {
+        const v = e.actor_role ?? "HE_THONG";
+        if (v !== vaiLoc) return false;
+      }
       // Nếu không có từ khóa tìm kiếm thì giữ lại tất cả
       if (!q) return true;
       // Tìm kiếm trong nhiều trường: loại sự kiện, loại đối tượng, nguồn thao tác, tên người thao tác, nhãn đối tượng, nhãn hành động, payload
@@ -171,16 +137,15 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
         e.event_type.toLowerCase().includes(q) || // Tìm trong loại sự kiện
         e.aggregate_type.toLowerCase().includes(q) || // Tìm trong loại đối tượng
         (e.nguon_thao_tac ?? "").toLowerCase().includes(q) || // Tìm trong nguồn thao tác
+        e.nguon_label.toLowerCase().includes(q) || // …và trong tên màn tiếng Việt
+        e.aggregate_label.toLowerCase().includes(q) || // Tìm trong loại đối tượng
         (e.actor_name ?? "").toLowerCase().includes(q) || // Tìm trong tên người thao tác
         e.subject_label.toLowerCase().includes(q) || // Tìm trong nhãn đối tượng
         e.action_label.toLowerCase().includes(q) || // Tìm trong nhãn hành động
         JSON.stringify(e.payload ?? {}).toLowerCase().includes(q) // Tìm trong payload
       );
     });
-  }, [events, search, tab]); // Chỉ tính lại khi events, search hoặc tab thay đổi
-
-  // Trích xuất các thay đổi dữ liệu từ payload của sự kiện được chọn
-  const changes = sel ? extractChanges(sel.payload) : [];
+  }, [events, search, tab, vaiLoc]); // Tính lại khi một trong bốn thứ đổi
 
   return (
     // Container chính với khoảng cách dọc giữa các phần
@@ -232,6 +197,29 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
             className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
           />
         </label>
+        {/* Lọc theo VAI của người thao tác — đủ MỌI vai của phòng khám, kèm
+            số sự kiện của từng vai để thấy ngay vai nào trống. */}
+        <label className="flex min-h-9 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-xs text-ink-muted focus-within:border-brand-500">
+          <span className="shrink-0">Vai trò</span>
+          <select
+            value={vaiLoc}
+            onChange={(e) => setVaiLoc(e.target.value)}
+            className="min-w-[150px] bg-transparent py-1.5 text-xs font-medium text-ink outline-none"
+          >
+            <option value="all">Tất cả ({events.length})</option>
+            {ALL_ROLES.map((r: ClinicRole) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]} ({soTheoVai.get(r) ?? 0})
+              </option>
+            ))}
+            {/* Sự kiện do chính hệ thống sinh ra (không có người thao tác) —
+                phải lọc được, vì đó là nhóm hay bị bỏ sót nhất khi truy vết. */}
+            <option value="HE_THONG">
+              Hệ thống ({soTheoVai.get("HE_THONG") ?? 0})
+            </option>
+          </select>
+        </label>
+
         {/* Nút xuất CSV (chưa có chức năng) */}
         <button
           type="button"
@@ -260,7 +248,7 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Thời gian</th> {/* Cột thời gian */}
                   <th className="px-4 py-2.5 font-medium">Người thực hiện</th> {/* Cột người thực hiện */}
-                  <th className="px-4 py-2.5 font-medium">Đối tượng</th> {/* Cột đối tượng */}
+                  <th className="px-4 py-2.5 font-medium">Khách hàng</th> {/* Việc này về ai */}
                   <th className="px-4 py-2.5 font-medium">Hành động</th> {/* Cột hành động */}
                 </tr>
               </thead>
@@ -301,8 +289,7 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
               <div>
                 {/* Badge loại đối tượng */}
                 <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
-                  {/* Hiển thị tên loại đối tượng theo tiếng Việt */}
-                  {sel.aggregate_type === "appointment" ? "Lịch hẹn" : sel.aggregate_type === "patient" ? "Khách hàng" : sel.aggregate_type}
+                  {sel.aggregate_label}
                 </span>
                 {/* Tên hành động */}
                 <h3 className="mt-1 text-base font-semibold text-ink">{sel.action_label}</h3>
@@ -323,85 +310,26 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
                 <dt className="text-ink-muted">Thời gian</dt>
                 <dd className="font-mono text-ink">{fmtTime(sel.occurred_at)} · {fmtDate(sel.occurred_at)}</dd>
               </div>
-              {/* Đối tượng bị ảnh hưởng */}
-              <div className="flex justify-between">
-                <dt className="text-ink-muted">Đối tượng</dt>
-                <dd className="font-mono text-ink">{sel.subject_label}</dd>
+              {/* Việc này về ai */}
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-ink-muted">Khách hàng</dt>
+                <dd className="text-right font-medium text-ink">{sel.subject_label}</dd>
               </div>
-              {/* Nguồn thao tác */}
-              <div className="flex justify-between">
-                <dt className="text-ink-muted">Nguồn thao tác</dt>
-                <dd className="text-ink">{sel.nguon_thao_tac ?? "—"}</dd>
+              {/* Thao tác đi vào từ màn nào */}
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-ink-muted">Làm ở màn</dt>
+                <dd className="text-right text-ink">{sel.nguon_label}</dd>
               </div>
             </dl>
 
-            {/* Phần hiển thị dữ liệu thay đổi */}
-            <div className="space-y-1.5 border-t border-line pt-3">
-              {/* Tiêu đề phần dữ liệu thay đổi */}
-              <h4 className="text-xs font-semibold text-ink">Dữ liệu thay đổi</h4>
-              {/* Nếu có thay đổi */}
-              {changes.length > 0 ? (
-                // Bảng hiển thị các thay đổi
-                <div className="rounded-xl border border-line overflow-hidden text-xs">
-                  <table className="w-full text-left">
-                    {/* Tiêu đề bảng */}
-                    <thead className="bg-surface-muted text-ink-muted border-b border-line text-[11px]">
-                      <tr>
-                        <th className="p-2">Trường dữ liệu</th> {/* Cột tên trường */}
-                        <th className="p-2">Trước</th> {/* Cột giá trị trước */}
-                        <th className="p-2">Sau</th> {/* Cột giá trị sau */}
-                      </tr>
-                    </thead>
-                    {/* Thân bảng */}
-                    <tbody className="divide-y divide-line text-[11px]">
-                      {/* Lặp qua từng thay đổi */}
-                      {changes.map((c, i) => (
-                        <tr key={i}>
-                          {/* Tên trường (dùng nhãn tiếng Việt nếu có) */}
-                          <td className="p-2 text-ink-muted">{FIELD_LABELS[c.field] ?? c.field}</td>
-                          {/* Giá trị trước (màu vàng) */}
-                          <td className="p-2 text-amber-600">{c.before}</td>
-                          {/* Giá trị sau (màu xanh) */}
-                          <td className="p-2 font-medium text-success">{c.after}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                // Nếu không có thay đổi thì hiển thị thông báo
-                <p className="text-xs text-ink-muted rounded-xl border border-dashed border-line p-3">
-                  Không có dữ liệu thay đổi chi tiết cho sự kiện này.
-                </p>
-              )}
-            </div>
-
-            {/* Phần ngữ cảnh (nếu có) */}
+            {/* Ngữ cảnh do chính đường ghi đặt vào — câu tiếng Việt, không phải
+                tên cột database. Chỉ hiện khi có. */}
             {sel.payload?.context ? (
               <div className="rounded-xl border border-line p-3 text-xs">
-                <h4 className="font-semibold text-ink mb-1">Ngữ cảnh</h4>
+                <h4 className="mb-1 font-semibold text-ink">Ngữ cảnh</h4>
                 <p className="text-ink-soft">{String(sel.payload.context)}</p>
               </div>
             ) : null}
-
-            {/* Các nút hành động: sao chép mã và xem sự kiện liên quan */}
-            <div className="flex items-center gap-2 pt-2 border-t border-line">
-              {/* Nút sao chép mã sự kiện */}
-              <button
-                type="button"
-                onClick={() => navigator.clipboard?.writeText(sel.id)} // Sao chép ID vào clipboard
-                className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-line bg-surface py-2 text-xs font-medium text-ink-soft hover:bg-surface-muted"
-              >
-                <Copy size={13} /> Sao chép mã sự kiện
-              </button>
-              {/* Nút xem sự kiện liên quan (chưa có chức năng) */}
-              <button
-                type="button"
-                className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-brand-600 py-2 text-xs font-medium text-white shadow-sm hover:bg-brand-700"
-              >
-                <ExternalLink size={13} /> Xem sự kiện liên quan
-              </button>
-            </div>
           </aside>
         ) : null}
       </div>

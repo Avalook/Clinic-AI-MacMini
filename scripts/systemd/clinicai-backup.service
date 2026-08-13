@@ -1,0 +1,40 @@
+[Unit]
+Description=ClinicAI — sao lưu database hằng đêm (public + auth)
+Documentation=file:///home/clinicai/clinicai/docs/OPS-RUNBOOK.md
+# Database chạy bằng Docker; đừng khởi động khi Docker chưa sẵn sàng, nếu không
+# lần chạy đầu sau mỗi lần khởi động lại máy sẽ hỏng vì không tìm thấy container.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=clinicai
+WorkingDirectory=/home/clinicai/clinicai
+
+# pg_dump của Ubuntu là 16.14 còn máy chủ database là 17.10 — bản 16 TỪ CHỐI
+# dump máy chủ mới hơn. Nên dump từ trong chính container: phiên bản luôn khớp.
+Environment=PG_DUMP_BIN=/home/clinicai/clinicai/scripts/pg-dump-qua-container.sh
+Environment=CLINIC_DB_CONTAINER=clinicai_db
+Environment=BACKUP_ENV_FILE=/home/clinicai/clinicai/.env.prod
+Environment=CLINIC_BACKUP_LOG=/home/clinicai/.local/state/clinicai-backup.log
+Environment=CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai
+
+ExecStart=/home/clinicai/clinicai/scripts/backup-db.sh
+
+# Đẩy bản vừa tạo sang Viettel — bản sao NGOÀI MÁY.
+#
+# Dấu `-` ở đầu: đẩy hỏng thì KHÔNG được làm cả đơn vị thất bại. Bản sao cục bộ
+# đã tạo xong và còn nguyên; mạng rớt hay Viettel bảo trì là chuyện của bước
+# này, không phải lý do để báo "sao lưu đêm nay thất bại". Lỗi vẫn vào journal.
+#
+# Không có .env.viettel thì bước này tự dừng với một câu rõ ràng — nên bật sẵn
+# ở đây là an toàn, và ngày có thông tin kết nối thì không phải sửa unit nữa.
+ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel.sh
+
+# Hỏng thì phải THẤY. Không đặt cái này thì một đêm sao lưu thất bại chỉ nằm im
+# trong nhật ký, và người ta chỉ biết vào đúng buổi sáng cần khôi phục.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

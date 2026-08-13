@@ -1,7 +1,15 @@
 #!/bin/bash
-# Automated nightly public-schema application-data backup for ClinicAI.
-# This is not a complete Supabase disaster-recovery artifact: auth identities,
-# managed schemas, roles, and platform configuration require Supabase PITR/backup.
+# Sao lưu hằng đêm cho ClinicAI: lược đồ + dữ liệu `public`, KÈM một tệp thứ hai
+# chứa `auth.users` + `auth.identities`.
+#
+# Hai câu đầu file này từng ghi "auth identities … require Supabase PITR/backup".
+# Câu đó đúng thời database còn ở Supabase cloud. Từ 06/08/2026 hệ thống tự dựng
+# GoTrue trên máy mình, nên KHÔNG CÒN AI sao lưu hộ phần auth — nếu file này
+# không mang nó thì không ai mang cả, và khôi phục xong sẽ là một phòng khám đủ
+# dữ liệu mà không ai đăng nhập được.
+#
+# Tệp auth đã được dump từ trước (xem phần "companion auth artifact"); chỉ có
+# lời chú thích ở đây là cũ.
 #
 # 1. Reads DATABASE_URL from BACKUP_ENV_FILE or .env.prod (never guesses staging)
 # 2. Runs pg_dump → gzip → ~/backups/clinicai/
@@ -21,8 +29,10 @@ DEFAULT_COMMAND_PATH="/opt/homebrew/opt/libpq/bin:/opt/homebrew/opt/postgresql@1
 export PATH="${CLINIC_BACKUP_PATH:-${DEFAULT_COMMAND_PATH}${PATH:+:${PATH}}}"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-LOG="$HOME/Library/Logs/clinicai-backup.log"
-BACKUP_DIR="$HOME/backups/clinicai"
+# Nhật ký. macOS dùng ~/Library/Logs; Linux thì thư mục ấy vô nghĩa, nên cho
+# phép đặt bằng biến — systemd trên VPS trỏ vào ~/.local/state.
+LOG="${CLINIC_BACKUP_LOG:-$HOME/Library/Logs/clinicai-backup.log}"
+BACKUP_DIR="${CLINIC_BACKUP_DIR:-$HOME/backups/clinicai}"
 KEEP_DAYS=7
 MIN_ARCHIVE_BYTES="${BACKUP_MIN_ARCHIVE_BYTES:-1024}"
 
@@ -302,6 +312,70 @@ if ! gzip -cd "$TEMP_AUTH" | grep -q 'COPY auth\.users'; then
 fi
 AUTH_SHA256=$(sha256_file "$TEMP_AUTH")
 
+# ---- companion media artifact -----------------------------------------------
+# ẢNH VÀ VIDEO SIÊU ÂM KHÔNG NẰM TRONG DATABASE — và cho tới 08/08/2026 chúng
+# không nằm trong bản sao lưu nào cả. `grep media` trong cả bốn script backup /
+# restore / verify / offsite đều rỗng: file này chỉ pg_dump.
+#
+# Nghĩa là khôi phục xong sẽ ra một phòng khám có đủ bệnh án, đủ tài khoản, và
+# mọi phiếu siêu âm trỏ tới những tệp không còn tồn tại — `image_refs` đầy khoá
+# mà đĩa trống. Không lỗi nào báo; chỉ là ảnh không mở được, và không ai biết
+# cho tới hôm cần xem lại.
+#
+# GIỮ ÍT BẢN HƠN BẢN DUMP, CÓ CHỦ Ý. Tệp media là BẤT BIẾN: mỗi tệp mang một
+# UUID mới, không bao giờ bị ghi đè (media_service.safe_path). Nên bản mới nhất
+# đã chứa trọn mọi bản cũ, và giữ bảy bản là nhân bảy lần cùng một số gigabyte
+# trên một ổ 48G. Hai bản là đủ để một lần tar hỏng không mất trắng.
+MEDIA_KEEP_DAYS="${BACKUP_MEDIA_KEEP_DAYS:-2}"
+MEDIA_ROOT_HOST=$(grep -E '^MEDIA_DIR=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
+MEDIA_ROOT_HOST=${MEDIA_ROOT_HOST:-${REPO}/.media}
+case "$MEDIA_ROOT_HOST" in
+    "~/"*) MEDIA_ROOT_HOST="$HOME/${MEDIA_ROOT_HOST#\~/}" ;;
+    /*) : ;;
+    *) MEDIA_ROOT_HOST="${REPO}/${MEDIA_ROOT_HOST#./}" ;;
+esac
+# Cùng cách ghép với docker-compose.yml: ${MEDIA_DIR}/${APP_ENV}.
+MEDIA_DIR_FOR_ENV="${MEDIA_ROOT_HOST}/${SOURCE_APP_ENV}"
+
+MEDIA_FILE="${BACKUP_FILE%.sql.gz}_media.tar.gz"
+TEMP_MEDIA="${MEDIA_FILE}.tmp"
+trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST" "$TEMP_AUTH" "$TEMP_MEDIA"; release_lock; write_failure_status' EXIT
+
+MEDIA_COUNT=0
+MEDIA_SHA256=""
+MEDIA_BYTES=0
+if [ -d "$MEDIA_DIR_FOR_ENV" ]; then
+    MEDIA_COUNT=$(find "$MEDIA_DIR_FOR_ENV" -type f ! -name '*.tmp' | wc -l | tr -d ' ')
+fi
+if [ "$MEDIA_COUNT" -gt 0 ]; then
+    command -v tar >/dev/null 2>&1 || {
+        log "ERROR: required command not found: tar (needed for the media artifact)"
+        exit 1
+    }
+    log "Archiving ${MEDIA_COUNT} media file(s) from ${MEDIA_DIR_FOR_ENV}..."
+    # Bỏ `.tmp`: đó là những lần ghi đang dở (media_service ghi tệp tạm rồi đổi
+    # tên). Đưa chúng vào bản sao lưu là cất lại một tệp hỏng.
+    if tar -C "$MEDIA_DIR_FOR_ENV" --exclude='*.tmp' -czf "$TEMP_MEDIA" . 2>> "$LOG"; then
+        :
+    else
+        rc=$?
+        log "ERROR: media archive failed (exit code $rc)"
+        exit 1
+    fi
+    gzip -t "$TEMP_MEDIA" || { log "ERROR: media archive failed gzip validation"; exit 1; }
+    # Đọc lại danh sách trong tar: một tar rỗng vẫn là gzip hợp lệ, và "sao lưu
+    # thành công" với 0 tệp bên trong là đúng thứ ta đang đi sửa.
+    TAR_ENTRIES=$(tar -tzf "$TEMP_MEDIA" 2>/dev/null | grep -cv '/$' || true)
+    [ "${TAR_ENTRIES:-0}" -ge 1 ] || {
+        log "ERROR: media archive lists no files though ${MEDIA_COUNT} exist on disk"
+        exit 1
+    }
+    MEDIA_SHA256=$(sha256_file "$TEMP_MEDIA")
+    MEDIA_BYTES=$(wc -c < "$TEMP_MEDIA" | tr -d ' ')
+else
+    log "NOTICE: no media files under ${MEDIA_DIR_FOR_ENV} — no media artifact this run"
+fi
+
 ARCHIVE_SHA256=$(sha256_file "$TEMP_FILE")
 cat > "$TEMP_MANIFEST" <<EOF
 format_version=1
@@ -314,20 +388,29 @@ raw_bytes=${UNCOMPRESSED_BYTES}
 auth_artifact=$(basename "$AUTH_FILE")
 auth_sha256=${AUTH_SHA256}
 auth_raw_bytes=${AUTH_RAW_BYTES}
+media_artifact=$([ "$MEDIA_COUNT" -gt 0 ] && basename "$MEDIA_FILE" || echo none)
+media_sha256=${MEDIA_SHA256}
+media_file_count=${MEDIA_COUNT}
+media_archive_bytes=${MEDIA_BYTES}
 restore_order=auth-then-public
 EOF
 
 mv "$TEMP_FILE" "$BACKUP_FILE"
 mv "$TEMP_AUTH" "$AUTH_FILE"
+[ "$MEDIA_COUNT" -gt 0 ] && mv "$TEMP_MEDIA" "$MEDIA_FILE"
 mv "$TEMP_MANIFEST" "$MANIFEST_FILE"
 trap 'release_lock; write_failure_status' EXIT
 chmod 600 "$BACKUP_FILE"
 chmod 600 "$AUTH_FILE"
+[ "$MEDIA_COUNT" -gt 0 ] && chmod 600 "$MEDIA_FILE"
 chmod 600 "$MANIFEST_FILE"
 trap release_lock EXIT
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 log "Public-schema backup created and verified: $BACKUP_FILE ($SIZE, $UNCOMPRESSED_BYTES bytes raw)"
 log "Auth identities: $AUTH_FILE ($AUTH_RAW_BYTES bytes raw) — restore BEFORE the public archive"
+if [ "$MEDIA_COUNT" -gt 0 ]; then
+    log "Media: $MEDIA_FILE (${MEDIA_COUNT} file(s), ${MEDIA_BYTES} bytes compressed)"
+fi
 log "NOTICE: sessions/MFA and Supabase platform config remain outside this backup; retain PITR."
 
 # Prune old backups (keep last KEEP_DAYS days).
@@ -335,6 +418,10 @@ DELETED=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" -mtime +${KEEP_DAYS} -pri
 find "$BACKUP_DIR" -name "clinicai_*.sql.gz.manifest" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
 find "$BACKUP_DIR" -name "clinicai_*_auth.sql.gz" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
 [ "$DELETED" -gt 0 ] && log "Pruned $DELETED backup(s) older than ${KEEP_DAYS} days"
+# Media giữ ÍT hơn — xem lý do ở phần tạo tệp. Đây là ổ 48G, và bảy bản của
+# cùng một tập ảnh bất biến sẽ lấp nó trước khi ai kịp nhận ra.
+MEDIA_DELETED=$(find "$BACKUP_DIR" -name "clinicai_*_media.tar.gz" -mtime +${MEDIA_KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
+[ "${MEDIA_DELETED:-0}" -gt 0 ] && log "Pruned $MEDIA_DELETED media archive(s) older than ${MEDIA_KEEP_DAYS} days"
 
 # Optional: push to Cloudflare R2 via rclone.
 # Configure rclone first: rclone config (provider: Cloudflare R2)
@@ -347,6 +434,8 @@ if [ -n "${R2_REMOTE:-}" ] && [ -n "${R2_BUCKET:-}" ] && command -v rclone > /de
     log "Uploading to R2: ${R2_REMOTE}:${R2_BUCKET}/..."
     if rclone copy "$BACKUP_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
        rclone copy "$AUTH_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
+       { [ "$MEDIA_COUNT" -eq 0 ] ||
+         rclone copy "$MEDIA_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; } &&
        rclone copy "$MANIFEST_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; then
         R2_UPLOADED=true
         log "R2 upload complete"
@@ -381,3 +470,35 @@ chmod 600 "${OPS_STATUS_ENV_DIR}/backup-status.json"
 COUNT=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" | wc -l | tr -d ' ')
 TOTAL_SIZE=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)
 log "=== Backup complete. $COUNT backup(s) in $BACKUP_DIR ($TOTAL_SIZE total) ==="
+
+# --- Báo nhịp tim cho Uptime Kuma ------------------------------------------
+#
+# ĐẶT Ở ĐÂY, SAU MỌI THỨ KHÁC, LÀ CÓ CHỦ Ý. Nhịp tim này nói "đêm nay sao lưu
+# ĐÃ CHẠY XONG VÀ ĐÃ VERIFY", nên nó chỉ được gửi khi thật sự tới được dòng này.
+# Đặt sớm hơn thì nó chỉ nói "script đã khởi động" — và một cái chuông báo rằng
+# script đã khởi động thì vô dụng đúng vào lúc script khởi động rồi chết giữa
+# chừng.
+#
+# `set -e` ở đầu file làm phần còn lại: dump hỏng là script thoát trước khi tới
+# đây, Kuma không nhận được gì, và sau 26 giờ im lặng nó tự chuyển đỏ.
+#
+# VÌ SAO CẦN, dù đã có script kéo về trên máy Mac cũng canh việc này: máy Mac
+# phải đang bật mới canh được. Kuma sống trên chính VPS nên nó canh cả những đêm
+# không ai mở máy. Hai lớp nhìn từ hai phía, không phải một lớp làm hai lần.
+KUMA_PUSH_TOKEN_FILE="${KUMA_PUSH_TOKEN_FILE:-$HOME/.config/clinicai/kuma-push-backup}"
+if [ -r "$KUMA_PUSH_TOKEN_FILE" ]; then
+    KUMA_TOKEN=$(cat "$KUMA_PUSH_TOKEN_FILE")
+    KUMA_URL="${KUMA_PUSH_BASE:-http://127.0.0.1:3001}/api/push/${KUMA_TOKEN}"
+    # `|| true`: KHÔNG để một cái chuông hỏng biến thành một lần sao lưu hỏng.
+    # Bản sao lưu đã nằm trên đĩa rồi; Kuma không với tới được chỉ có nghĩa là
+    # Kuma đang chết, và đó là việc của Kuma.
+    if curl -fsS --max-time 10 \
+         "${KUMA_URL}?status=up&msg=$(printf '%s' "${COUNT} ban, ${TOTAL_SIZE}" | tr ' ' '+')" \
+         >/dev/null 2>&1; then
+        log "Kuma: đã báo nhịp tim sao lưu"
+    else
+        log "WARNING: không báo được nhịp tim cho Kuma (bản sao lưu VẪN AN TOÀN)"
+    fi
+else
+    log "Kuma: chưa có token push ($KUMA_PUSH_TOKEN_FILE) — chạy scripts/setup-uptime-kuma.sh"
+fi

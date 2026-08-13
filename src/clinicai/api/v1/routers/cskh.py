@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date
+from collections.abc import Iterator
+from datetime import date, time
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import ValidationError
+from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
@@ -16,7 +21,18 @@ from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
 )
+from clinicai.services.media_service import (
+    KET_QUA_VIDEO_UPLOAD_ENABLED,
+    MAX_BYTES_THEO_LOAI,
+    sniff_ket_qua,
+)
+from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
+from clinicai.services.tuong_tac_cskh_service import (
+    GuiZaloService,
+    HenGoiLaiService,
+    TuongTacCskhService,
+)
 
 router = APIRouter()
 
@@ -26,6 +42,51 @@ _RECALL_GUARD = require_role(
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
 )
+
+_UPLOAD_SNIFF_BYTES = 512
+_UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
+    """Read one result file in bounded chunks and stop at its content-type cap.
+
+    ``UploadFile.read()`` with no size consumes an attacker-controlled body in
+    one call. Read only enough to identify the real type first, then at most the
+    corresponding limit plus one byte. That last byte proves the upload is too
+    large without consuming the rest of it.
+    """
+    prefix = await file.read(_UPLOAD_SNIFF_BYTES)
+    if not prefix:
+        raise ValidationError("Tệp rỗng.")
+
+    _mime, _ext, loai = sniff_ket_qua(prefix)
+    if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
+        raise ValidationError(
+            "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
+        )
+    limit = MAX_BYTES_THEO_LOAI[loai]
+    chunks = [prefix]
+    total = len(prefix)
+    if total > limit:
+        raise ValidationError(
+            f"Tệp quá lớn ({total // 1024 // 1024}MB). "
+            f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+        )
+
+    while True:
+        # At the exact limit, read one byte: EOF means valid, one byte means too
+        # large. Never ask the upload object for an unbounded read.
+        remaining_with_probe = limit - total + 1
+        chunk = await file.read(min(_UPLOAD_CHUNK_BYTES, remaining_with_probe))
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > limit:
+            raise ValidationError(
+                f"Tệp quá lớn ({total // 1024 // 1024}MB). "
+                f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+            )
+        chunks.append(chunk)
 
 
 class CskhActionRequest(BaseModel):
@@ -44,6 +105,13 @@ class CskhFollowupRequest(BaseModel):
 
     clinic_patient_id: UUID
     note: str | None = Field(default=None, max_length=2000)
+    # KẾT QUẢ, không phải "đã bấm nút". Giao diện gửi trường này từ lâu; trước
+    # 20260807000002 nó bị vứt ở cửa và cả ba nút ghi ra một dòng như nhau.
+    ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI"] | None = (
+        None
+    )
+    # 1 = gọi trước hẹn 5–7 ngày, 2 = gọi sáng ngày hẹn.
+    luot_goi: int | None = Field(default=None, ge=1, le=9)
 
 
 class RecallFollowupRead(BaseModel):
@@ -68,6 +136,101 @@ async def read_due_recalls(
         today=date.fromisoformat(clinic_today()),
     )
     return [RecallFollowupRead(**vars(row)) for row in rows]
+
+
+# ── Việc gọi nhắc tái khám — hai lượt ──────────────────────────────────────
+#
+# Khác `/cskh/recalls` ngay trên: đường kia trả về một PHÉP CHIẾU tính lại mỗi
+# lần gọi, còn đây là VIỆC CÓ THẬT trong bảng `nhac_tai_kham` — có hạn, có
+# người gọi, có kết quả, đối soát được cuối ngày.
+
+
+@router.get("/cskh/recall-jobs")
+async def read_recall_jobs(
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Việc còn phải gọi hôm nay, tách theo lượt 1 và lượt 2.
+
+    Sinh việc của hôm nay trước khi đọc. Dự án chưa có bộ hẹn giờ nào, nên mở
+    màn hình là đường chắc chắn nhất; hàm sinh idempotent nên không đẻ bản sao.
+    """
+    return await RecallJobService(pool).danh_sach(identity=identity)
+
+
+@router.post("/cskh/recall-jobs/generate", status_code=201)
+async def generate_recall_jobs(
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, int]:
+    """Sinh việc gọi cho hôm nay. Để cắm cron vào sau mà không đổi gì."""
+    return await RecallJobService(pool).sinh(identity=identity)
+
+
+class RecallCallResult(BaseModel):
+    ket_qua: Literal["DA_LIEN_HE", "CHUA_NGHE_MAY", "CAN_BAC_SI", "TU_CHOI"]
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/cskh/recall-jobs/{viec_id}/ket-qua", status_code=201)
+async def record_recall_call(
+    viec_id: UUID,
+    body: RecallCallResult,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đã gọi xong. Kết quả bắt buộc — kể cả khi không ai bắt máy."""
+    return await RecallJobService(pool).ghi_ket_qua(
+        identity=identity,
+        viec_id=str(viec_id),
+        ket_qua=body.ket_qua,
+        ghi_chu=body.ghi_chu,
+    )
+
+
+class RecallSkip(BaseModel):
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/cskh/recall-jobs/{viec_id}/bo-qua", status_code=201)
+async def skip_recall_job(
+    viec_id: UUID,
+    body: RecallSkip,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Không cần gọi nữa — khách đã tự đặt lịch, đã tới, hay đã báo huỷ."""
+    return await RecallJobService(pool).bo_qua(
+        identity=identity, viec_id=str(viec_id), ly_do=body.ly_do
+    )
+
+
+class HenTaiKhamTay(BaseModel):
+    """CSKH gõ tay ngày tái khám cho một khách."""
+
+    clinic_patient_id: UUID
+    ngay_tai_kham: date
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/cskh/nhac-tai-kham", status_code=201)
+async def create_recall_by_hand(
+    body: HenTaiKhamTay,
+    identity: StaffIdentity = Depends(_RECALL_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hẹn tái khám do CSKH gõ → sinh hai mốc gọi: trước 7 ngày và trước 1 ngày.
+
+    Đường tự sinh chỉ đọc được lời dặn nằm trong phiếu khám đã chốt. Khách nói
+    qua điện thoại "tháng sau em quay lại" thì không có phiếu nào để đọc, và
+    câu ấy hiện không có chỗ nào ghi xuống.
+    """
+    return await RecallJobService(pool).tao_thu_cong(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        ngay_tai_kham=body.ngay_tai_kham,
+        ly_do=body.ly_do,
+    )
 
 
 @router.post("/cskh/actions", status_code=201)
@@ -98,5 +261,390 @@ async def record_followup_call(
         clinic_patient_id=str(body.clinic_patient_id),
         note=body.note,
         identity=identity,
+        ket_qua=body.ket_qua,
+        luot_goi=body.luot_goi,
     )
     return {"ok": True, "id": log_id}
+
+
+# ── Sổ tương tác ────────────────────────────────────────────────────────────
+#
+# Cùng gác với phần nhập liệu chăm sóc (INTAKE_ROLES): ai ghi được hồ sơ hành
+# chính của khách thì ghi được "đã gọi cho khách". Mở rộng hơn thế là mở cho
+# người không gọi điện bao giờ khai rằng mình đã gọi.
+
+
+class TuongTacRequest(BaseModel):
+    clinic_patient_id: UUID
+    appointment_id: UUID | None = None
+    loai: Literal[
+        "XAC_NHAN_LICH",
+        "NHAC_HEN",
+        "CHECK_XN",
+        "TRA_KQ",
+        "HOI_LY_DO_HUY",
+        "HOI_THAM",
+        "KHAC",
+        # Mốc tại quầy — check-in/check-out còn đổi trạng thái lịch hẹn thật.
+        "CHECK_IN",
+        "CHECK_OUT",
+        "THANH_TOAN",
+        "MUA_THUOC",
+    ]
+    kenh: Literal["GOI", "ZALO", "SMS", "TRUC_TIEP", "KHONG_LIEN_HE"]
+    # DANH SÁCH NÀY PHẢI KHỚP KET_QUA_HOP_LE trong tuong_tac_cskh_service —
+    # bài kiểm test_router_literal_khop_service canh. Hai lần mở rộng trước
+    # (KLLD/Hẹn GLS rồi GHI_NHAN) chỉ sửa service mà trượt chỗ này trong im
+    # lặng, nên suốt một buổi CSKH chọn "không liên lạc được" trên màn là ăn
+    # 422 — service nhận mà cửa Pydantic đã đóng.
+    ket_qua: Literal[
+        "DA_LIEN_HE",
+        "CHUA_NGHE_MAY",
+        "KHONG_LIEN_LAC_DUOC",
+        "HEN_GOI_LAI",
+        "CAN_BAC_SI",
+        "TU_CHOI",
+        "BO_QUA",
+        "GHI_NHAN",
+    ]
+    # MÃ TRẠNG THÁI mà lần chạm này đóng lại (CHO_XAC_NHAN, DA_CHECKIN, …).
+    # Không phải Literal: danh sách trạng thái là chuyện của giao diện và còn
+    # đổi theo đặc tả nghiệp vụ; khoá cứng ở đây là mỗi lần thêm một trạng thái
+    # lại phải deploy backend. Cột chỉ để màn hình tra lại, không có luật nào
+    # phía sau nó.
+    trang_thai_ma: str | None = Field(default=None, max_length=64)
+    khach_xac_nhan: bool | None = None
+    noi_dung: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/cskh/tuong-tac", status_code=201)
+async def ghi_tuong_tac(
+    body: TuongTacRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Ghi một lần chạm tới khách (gọi điện, nhắn Zalo, gặp trực tiếp).
+
+    CHỐNG GHI TRÙNG, thêm 11/08/2026. Hai phép đo trên staging:
+
+      · Bấm nút hai lần thật nhanh → HAI dòng sổ, cách nhau 0,35ms. Giao diện có
+        khoá nút khi đang gửi nên người thật khó bấm trúng, nhưng máy chủ không
+        có chốt nào.
+      · Ngắt mạng ở mốc 90ms sau khi bấm → màn hình báo LỖI MẠNG trong khi dữ
+        liệu ĐÃ VÀO. Người trực sẽ nhập lại, và lần nhập lại tạo dòng thứ hai.
+
+    Ca thứ hai mới là ca thật sự hay xảy ra ở phòng khám, nơi wifi chập chờn.
+    Và nó không hỏng ở chỗ dễ thấy: hai dòng "Đã gọi nhắc hẹn" trong lịch sử một
+    khách làm người đọc tưởng đã gọi hai lần.
+
+    `IdempotencyGuard` vốn đã che đặt lịch, thanh toán và work-items — tức đúng
+    những đường đắt tiền. Sổ chạm CSKH nằm ngoài chỉ vì chưa ai nối vào, không
+    phải vì có lý do. Cùng một hình dạng với các lỗi khác tìm được hôm nay.
+
+    Không có `Idempotency-Key` thì guard cho qua, giữ nguyên hành vi cũ — khoá
+    bật dần theo từng màn, không làm chết các lời gọi chưa cập nhật.
+    """
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        # Lần gửi lại của ĐÚNG một thao tác: trả lại kết quả cũ, không ghi thêm.
+        return idem.cached_response  # type: ignore[return-value]
+
+    # Tên `dong_moi` chứ không phải `ket_qua`: ngay dưới có tham số `ket_qua=`
+    # (kết quả cuộc gọi). Trùng tên thì chạy vẫn đúng nhưng người đọc sau phải
+    # dừng lại một nhịp để chắc mình không nhầm hai thứ.
+    dong_moi = await TuongTacCskhService(pool).ghi(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        appointment_id=str(body.appointment_id) if body.appointment_id else None,
+        loai=body.loai,
+        kenh=body.kenh,
+        ket_qua=body.ket_qua,
+        khach_xac_nhan=body.khach_xac_nhan,
+        noi_dung=body.noi_dung,
+        trang_thai_ma=body.trang_thai_ma,
+    )
+    await idem.save(pool, dong_moi, status_code=201)
+    return dong_moi
+
+
+@router.post("/cskh/tuong-tac/{tuong_tac_id}/hoan-tac", status_code=201)
+async def hoan_tac_tuong_tac(
+    tuong_tac_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Rút lại một lần chạm bấm nhầm. KHÔNG xoá dòng sổ — xem service."""
+    return await TuongTacCskhService(pool).hoan_tac(
+        identity=identity, tuong_tac_id=str(tuong_tac_id)
+    )
+
+
+@router.get("/cskh/tuong-tac/{clinic_patient_id}")
+async def lich_su_tuong_tac(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dòng thời gian của một khách — gộp sổ tương tác và các lượt nhắc tái khám."""
+    return {
+        "items": await TuongTacCskhService(pool).lich_su(
+            identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }
+
+
+class HenGoiLaiRequest(BaseModel):
+    clinic_patient_id: UUID
+    ngay_goi: date
+    #: Giờ trong ngày. Bỏ trống = chỉ hẹn tới ngày, KHÔNG phải 00:00 —
+    #: xem chú thích cột ở migration 20260810000006.
+    gio_goi: time | None = None
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/cskh/hen-goi-lai", status_code=201)
+async def tao_hen_goi_lai(
+    body: HenGoiLaiRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tự hẹn một việc gọi lại — chỗ đựng việc hệ thống chưa suy được."""
+    return await HenGoiLaiService(pool).tao(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        ngay_goi=body.ngay_goi,
+        gio_goi=body.gio_goi,
+        ly_do=body.ly_do,
+    )
+
+
+@router.patch("/cskh/hen-goi-lai/{hen_id}")
+async def dong_hen_goi_lai(
+    hen_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đóng việc đã gọi xong."""
+    return await HenGoiLaiService(pool).dong(identity=identity, hen_id=str(hen_id))
+
+
+# ── Phản hồi / khiếu nại của khách (DoD mục 3) ─────────────────────────────
+
+
+class PhanHoiRequest(BaseModel):
+    clinic_patient_id: UUID
+    loai: Literal["KHEN", "GOP_Y", "KHIEU_NAI"]
+    noi_dung: str = Field(min_length=1, max_length=4000)
+
+
+class PhanHoiCapNhatRequest(BaseModel):
+    trang_thai: Literal["MOI", "DANG_XU_LY", "DA_XU_LY"]
+    huong_xu_ly: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/cskh/phan-hoi", status_code=201)
+async def ghi_phan_hoi(
+    body: PhanHoiRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ghi một phản hồi / khiếu nại của khách."""
+    from clinicai.services.phan_hoi_khach_service import PhanHoiKhachService
+
+    return await PhanHoiKhachService(pool).ghi(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        loai=body.loai,
+        noi_dung=body.noi_dung,
+    )
+
+
+@router.patch("/cskh/phan-hoi/{phan_hoi_id}")
+async def cap_nhat_phan_hoi(
+    phan_hoi_id: UUID,
+    body: PhanHoiCapNhatRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chuyển trạng thái xử lý — đóng thì phải ghi đã xử lý thế nào."""
+    from clinicai.services.phan_hoi_khach_service import PhanHoiKhachService
+
+    return await PhanHoiKhachService(pool).cap_nhat(
+        identity=identity,
+        phan_hoi_id=str(phan_hoi_id),
+        trang_thai=body.trang_thai,
+        huong_xu_ly=body.huong_xu_ly,
+    )
+
+
+# ── Tệp kết quả khám (ảnh / video siêu âm, phiếu xét nghiệm) ────────────────
+#
+# Cùng gác với phần nhập liệu chăm sóc: ai ghi được "đã gọi cho khách" thì tải
+# được kết quả của khách đó lên. KHÔNG mở rộng _SONO_GUARD — đường siêu âm của
+# kỹ thuật viên giữ nguyên vai của nó; đây là đường của CSKH.
+
+
+@router.post("/cskh/ket-qua/tep", status_code=201)
+async def tai_len_ket_qua(
+    clinic_patient_id: UUID = Form(...),
+    file: UploadFile = File(...),
+    appointment_id: UUID | None = Form(default=None),
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tải một tệp kết quả lên.
+
+    Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
+    Kiểu kiểm bằng mấy byte đầu, không bằng đuôi tên.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    data = await _doc_upload_co_gioi_han(file)
+    return await TepKetQuaService(pool).tai_len(
+        identity=identity,
+        clinic_patient_id=str(clinic_patient_id),
+        data=data,
+        ten_hien_thi=file.filename,
+        appointment_id=str(appointment_id) if appointment_id else None,
+    )
+
+
+@router.get("/cskh/ket-qua/{clinic_patient_id}")
+async def danh_sach_ket_qua(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tệp kết quả của một khách, kèm đã gửi hay chưa."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {
+        "items": await TepKetQuaService(pool).danh_sach(
+            identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }
+
+
+@router.get("/cskh/ket-qua/tep/{tep_id}/noi-dung")
+async def doc_tep_ket_qua(
+    tep_id: UUID,
+    request: Request,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.
+
+    Range là điều kiện để xem video, không phải tối ưu để sau: không có nó thì
+    trình duyệt phải tải trọn tệp trước khi phát được giây đầu tiên, và thanh
+    tua không kéo được. Container API giới hạn 1GB nên cũng không thể nạp cả
+    tệp vào RAM cho mỗi người xem.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    path, mime, so_byte, ten = await TepKetQuaService(pool).duong_dan_de_doc(
+        identity=identity, tep_id=str(tep_id)
+    )
+    # Dữ liệu bệnh nhân không được lưu trong cache trình duyệt hay proxy.
+    # `nosniff` ngăn trình duyệt tự đoán kiểu và chạy nội dung như HTML.
+    headers = {
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": "inline",
+    }
+
+    from clinicai.services.media_service import phan_tich_range
+
+    khoang = phan_tich_range(request.headers.get("range"), so_byte)
+    if khoang is None:
+        return FileResponse(path, media_type=mime, headers=headers)
+    dau, cuoi = khoang
+    if dau > cuoi:
+        # Yêu cầu nằm ngoài tệp — trả 416 kèm độ dài thật, để trình phát tự
+        # chỉnh lại thay vì treo.
+        return Response(
+            status_code=416,
+            headers={**headers, "Content-Range": f"bytes */{so_byte}"},
+        )
+
+    def doc_dan() -> Iterator[bytes]:
+        con = cuoi - dau + 1
+        with path.open("rb") as f:
+            f.seek(dau)
+            while con > 0:
+                mieng = f.read(min(64 * 1024, con))
+                if not mieng:
+                    break
+                con -= len(mieng)
+                yield mieng
+
+    headers["Content-Range"] = f"bytes {dau}-{cuoi}/{so_byte}"
+    headers["Content-Length"] = str(cuoi - dau + 1)
+    return StreamingResponse(
+        doc_dan(), status_code=206, media_type=mime, headers=headers
+    )
+
+
+class DaGuiRequest(BaseModel):
+    kenh: Literal["ZALO", "SMS", "TRUC_TIEP", "EMAIL"]
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/da-gui", status_code=201)
+async def danh_dau_da_gui(
+    tep_id: UUID,
+    body: DaGuiRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """CSKH XÁC NHẬN đã gửi tệp này cho khách — hệ thống chưa tự gửi được."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).danh_dau_da_gui(
+        identity=identity, tep_id=str(tep_id), kenh=body.kenh
+    )
+
+
+# ── Gửi tin Zalo (ZNS) ─────────────────────────────────────────────────────
+
+
+@router.get("/cskh/zalo/trang-thai")
+async def zalo_trang_thai(
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+) -> dict[str, Any]:
+    """Zalo đã đủ cấu hình để gửi chưa, và thiếu gì.
+
+    Giao diện hỏi câu này để KHÔNG mời người dùng bấm một nút chắc chắn hỏng.
+    Ẩn hẳn nút thì họ không biết tính năng tồn tại; hiện nút mà bấm vào báo lỗi
+    thì họ tưởng hệ thống hỏng. Hiện nút + nói thiếu gì là đường thứ ba.
+    """
+    from clinicai.services.providers import zalo
+
+    thieu = []
+    if not zalo.dang_bat():
+        thieu.append("ZALO_ZNS_ACCESS_TOKEN")
+    for loai in ("NHAC_HEN", "TRA_KET_QUA"):
+        if not zalo.template_cho(loai):
+            thieu.append(f"template {loai}")
+    return {"bat": not thieu, "thieu": thieu}
+
+
+class GuiZaloRequest(BaseModel):
+    clinic_patient_id: UUID
+    loai_tin: Literal["NHAC_HEN", "TRA_KET_QUA"]
+    appointment_id: UUID | None = None
+
+
+@router.post("/cskh/zalo/gui", status_code=201)
+async def gui_zalo(
+    body: GuiZaloRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gửi một tin ZNS. Chỉ ghi sổ khi Zalo thật sự nhận."""
+    return await GuiZaloService(pool).gui(
+        identity=identity,
+        clinic_patient_id=str(body.clinic_patient_id),
+        loai_tin=body.loai_tin,
+        appointment_id=str(body.appointment_id) if body.appointment_id else None,
+    )

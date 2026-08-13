@@ -19,6 +19,7 @@
 //   DOCTOR_DECLINED (keeps doctor_id for history; surfaces to CSKH in the
 //   "Đã huỷ / Từ chối" column + the declined-appointments notice in the layout).
 
+import { VN_OFFSET } from "../../../lib/datetime";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
@@ -49,6 +50,8 @@ interface Body {
   // được khai báo ở đây nên rơi ngay tại tầng này, và appointment cũng chưa có
   // cột để nhận. Người dùng gõ, bấm lưu, hệ thống báo thành công, chữ biến mất.
   notes?: string;
+  /** Lịch hẹn mà lịch này là tái khám của nó. Xem migration 20260810000007. */
+  lich_truoc_id?: string;
 }
 
 export async function GET(request: Request) {
@@ -61,14 +64,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date"); // YYYY-MM-DD
   const doctorId = searchParams.get("doctor_id");
+  const benhNhan = (searchParams.get("clinic_patient_id") ?? "").trim();
 
-  if (!date) {
-    return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
+  if (!date && !benhNhan) {
+    return NextResponse.json(
+      { error: "Missing date or clinic_patient_id parameter" },
+      { status: 400 },
+    );
   }
-
-  // Parse start and end of day in UTC based on VN timezone
-  const startOfDay = new Date(`${date}T00:00:00+07:00`).toISOString();
-  const endOfDay = new Date(`${date}T23:59:59+07:00`).toISOString();
 
   // GATE + BOUND. Trước đây route này chỉ kiểm "đã đăng nhập chưa": dược sĩ,
   // thu ngân, bất kỳ ai có phiên đều đọc được toàn bộ lịch hẹn trong ngày, và
@@ -82,6 +85,70 @@ export async function GET(request: Request) {
   if (!canWriteIntake(role) && !isDoctorRole(role) && !canCheckin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  // LỊCH SẮP TỚI CỦA MỘT NGƯỜI — để màn Đặt lịch nói được "người này đã có
+  // lịch rồi" TRƯỚC khi CSKH bấm đặt thêm.
+  //
+  // Quang 09/08/2026: *"ấn vào 1 bệnh nhân đã đặt lịch rồi thì trang bên phải
+  // phải hiện cái lịch đã đặt ra chứ, để người ta còn biết người này đặt rồi
+  // chứ đặt trùng liên tục à"*.
+  //
+  // KHÔNG lọc theo ngày đang xem: đặt trùng hay xảy ra nhất khi lịch cũ nằm ở
+  // một ngày khác — đúng cái mà lưới trước mặt không hiện. Chỉ lấy từ BÂY GIỜ
+  // trở đi; lịch đã qua không ngăn ai đặt thêm.
+  if (benhNhan) {
+    const { data, error } = await caller
+      .from("appointment")
+      .select("id, slot_start, status, doctor_id, service_type_id")
+      .eq("clinic_patient_id", benhNhan)
+      .gte("slot_start", new Date().toISOString())
+      .not("status", "in", "(CANCELLED,NO_SHOW,DOCTOR_DECLINED)")
+      .order("slot_start")
+      .limit(20);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ appointments: data ?? [] });
+  }
+
+  // CỬA SỔ MỘT NGÀY — TÍNH Ở ĐÂY, SAU KHI ĐÃ CHẮC CÓ `date`.
+  //
+  // LỖI 10/08/2026, và nó là một lỗi 500 CÂM. Hai dòng này vốn nằm ngay dưới
+  // khối kiểm tham số, chạy VÔ ĐIỀU KIỆN. Nhưng điều kiện ở trên là
+  // `!date && !benhNhan` — nghĩa là hỏi theo BỆNH NHÂN (không kèm ngày) đi qua
+  // được, rồi `new Date("nullT00:00:00+07:00")` cho một Invalid Date và
+  // `.toISOString()` ném `RangeError: Invalid time value`.
+  //
+  // Tức là nhánh "khách này đã có lịch gì" — thứ sinh ra để chặn đặt trùng —
+  // CHƯA TỪNG chạy được lần nào. Nó luôn 500.
+  //
+  // Ba triệu chứng tưởng rời nhau, thật ra là một:
+  //   · log dashboard rải rác `⨯ RangeError: Invalid time value` (không có
+  //     stack component vì lỗi ném trong route handler, không phải trong render)
+  //   · panel Đặt lịch rơi vào nhánh `kind: "hong"` của `LichSapToiCuaKhach`
+  //   · và bài kiểm `booking-double-check-boundary` cảnh báo đúng chuyện ấy:
+  //     hỏi hỏng mà im lặng thì người trực đọc thành "khách chưa có lịch".
+  //
+  // Nhánh bệnh nhân ở trên đã `return` trước khi tới đây, nên tới dòng này thì
+  // `date` chắc chắn có. Ép kiểu bằng một câu kiểm thật thay vì tin vào luồng:
+  // luồng đổi được, câu kiểm thì không.
+  if (!date) {
+    return NextResponse.json(
+      { error: "Missing date parameter" },
+      { status: 400 },
+    );
+  }
+  // KIỂM TRƯỚC KHI GỌI `toISOString()`, không phải sau: trên một Invalid Date
+  // thì chính `toISOString()` là thứ NÉM lỗi, nên mọi câu kiểm đặt sau nó đều
+  // không bao giờ chạy tới. Đó đúng là hình dạng của lỗi vừa sửa.
+  const dauNgay = new Date(`${date}T00:00:00${VN_OFFSET}`);
+  const cuoiNgay = new Date(`${date}T23:59:59${VN_OFFSET}`);
+  if (Number.isNaN(dauNgay.getTime()) || Number.isNaN(cuoiNgay.getTime())) {
+    return NextResponse.json(
+      { error: `Ngày không hợp lệ: ${date}` },
+      { status: 400 },
+    );
+  }
+  const startOfDay = dauNgay.toISOString();
+  const endOfDay = cuoiNgay.toISOString();
 
   let query = caller
     .from("appointment")
@@ -140,7 +207,21 @@ export async function POST(request: Request) {
   if (!slot_start || !slot_end) {
     return NextResponse.json({ error: "Thiếu giờ hẹn." }, { status: 400 });
   }
-  if (new Date(slot_end).getTime() <= new Date(slot_start).getTime()) {
+  // KIỂM ĐỌC ĐƯỢC TRƯỚC, RỒI MỚI SO SÁNH. `new Date("rác").getTime()` cho `NaN`,
+  // và MỌI phép so sánh với `NaN` đều `false` — nên câu kiểm bên dưới IM LẶNG
+  // cho qua đúng lúc nó cần chặn nhất. Backend vẫn đỡ được (`slot_start:
+  // datetime` của pydantic trả 422), nhưng người trực nhận một lỗi 422 tiếng Anh
+  // thay vì một câu tiếng Việt nói rõ sai ở đâu — và một cửa kiểm không làm được
+  // việc nó ghi trên biển thì tệ hơn là không có cửa.
+  const batDau = new Date(slot_start).getTime();
+  const ketThuc = new Date(slot_end).getTime();
+  if (Number.isNaN(batDau) || Number.isNaN(ketThuc)) {
+    return NextResponse.json(
+      { error: "Giờ hẹn không đọc được." },
+      { status: 400 },
+    );
+  }
+  if (ketThuc <= batDau) {
     return NextResponse.json(
       { error: "Giờ kết thúc phải sau giờ bắt đầu." },
       { status: 400 },
@@ -193,6 +274,11 @@ export async function POST(request: Request) {
       thanh_min,
       sono_min,
       notes: (body.notes ?? "").trim() || null,
+      // TÁI KHÁM CỦA LỊCH NÀO. Chỉ nút "Tái khám" ở màn Quản lý khách hàng
+      // gửi trường này; mọi đường đặt lịch khác để trống, và trống là câu trả
+      // lời đúng chứ không phải dữ liệu thiếu. Backend còn kiểm lại lịch ấy có
+      // đúng của khách này không — xem BookingService.create.
+      lich_truoc_id: (body.lich_truoc_id ?? "").trim() || null,
     },
     idempotencyKey,
   );
@@ -208,13 +294,15 @@ type PatchAction =
   | "cancel"
   | "no_show"
   | "reassign"
+  | "assign_doctor"
   | "reschedule";
 
 interface PatchBody {
   id?: string;
   action?: PatchAction;
   cancellation_reason?: string; // cho action "cancel"
-  doctor_id?: string; // "reassign"/"reschedule" (bác sĩ mới); rỗng = bỏ phân
+  ly_do_huy_ma?: string; // mã lý do huỷ — BẮT BUỘC khi action = "cancel"
+  doctor_id?: string; // "reassign"/"assign_doctor"/"reschedule"; rỗng = bỏ phân
   slot_start?: string; // cho action "reschedule" (ISO UTC)
   slot_end?: string; // cho action "reschedule" (ISO UTC)
 }
@@ -229,7 +317,14 @@ const CHECKIN_ACTIONS = new Set<PatchAction>([
   "cskh_confirm",
 ]);
 // Quản trị vòng đời lịch: hủy + phân lại + ĐỔI LỊCH (CSKH/Quản lý).
-const MANAGE_ACTIONS = new Set<PatchAction>(["cancel", "reassign", "reschedule"]);
+const MANAGE_ACTIONS = new Set<PatchAction>([
+  "cancel",
+  "reassign",
+  // Xếp bác sĩ cho một lịch đã đặt mà chưa có ai. Khác "reassign" (chỉ nhận
+  // lịch bị bác sĩ từ chối) và khác "reschedule" (bắt buộc đổi giờ).
+  "assign_doctor",
+  "reschedule",
+]);
 // no_show: front-desk đánh "không đến" (canCheckin).
 const ALL_ACTIONS = new Set<PatchAction>([
   ...DOCTOR_ACTIONS,
@@ -302,6 +397,7 @@ export async function PATCH(request: Request) {
   return proxyJsonToBackend("PATCH", `/api/v1/appointments/${id}`, {
     action,
     cancellation_reason: body.cancellation_reason ?? null,
+    ly_do_huy_ma: body.ly_do_huy_ma ?? null,
     ...(body.doctor_id !== undefined ? { doctor_id: body.doctor_id || null } : {}),
     slot_start: body.slot_start ?? null,
     slot_end: body.slot_end ?? null,

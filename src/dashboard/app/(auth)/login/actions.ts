@@ -13,21 +13,28 @@ import {
 } from "../../../lib/identity-authority";
 import { departmentToRole, roleLanding } from "../../../lib/roles";
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { emailTuTenDangNhap } from "../../../lib/ten-dang-nhap";
 
 export async function loginStaff(
   _prev: { error: string } | null,
   formData: FormData,
 ): Promise<{ error: string } | null> {
-  const email = String(formData.get("email") ?? "").trim();
+  // TÊN TRẦN CŨNG ĐĂNG NHẬP ĐƯỢC. Quản lý nay đặt được nick không có đuôi mail
+  // (Quang 09/08/2026), nên chỗ tra cũng phải gắn đuôi bằng ĐÚNG hàm ấy —
+  // không thì nick vừa đặt xong gõ vào đây lại bị từ chối. Có sẵn "@" thì giữ
+  // nguyên, nên tài khoản đuôi `.local` vẫn vào như cũ.
+  const nick = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) return { error: "Nhập email và mật khẩu." };
+  const email = emailTuTenDangNhap(nick);
+  if (!email || !password) return { error: "Nhập tên đăng nhập và mật khẩu." };
 
   const supabase = await getSupabaseServer();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
-  if (error || !data.user) return { error: "Email hoặc mật khẩu không đúng." };
+  if (error || !data.user)
+    return { error: "Tên đăng nhập hoặc mật khẩu không đúng." };
 
   // Tài khoản phải gắn với 1 nhân viên (staff.auth_user_id).
   const { data: staff } = await supabase

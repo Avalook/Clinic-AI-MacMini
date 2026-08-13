@@ -37,6 +37,12 @@ export interface WorklistItem {
   slot_start: string | null;
   booking_channel: string | null;
   is_priority_slot: boolean;
+  /** Loại dịch vụ khám của lượt — để bàn khám mở đúng biểu mẫu. */
+  service_code: string | null;
+  service_name: string | null;
+  /** Mã biểu mẫu khám: PK / SK / NT / NK / HMVS. `null` = dịch vụ không phải
+   *  một loại khám. Nhiều dịch vụ dùng chung một biểu mẫu. */
+  form_code: string | null;
   checked_in_at: string | null;
 }
 

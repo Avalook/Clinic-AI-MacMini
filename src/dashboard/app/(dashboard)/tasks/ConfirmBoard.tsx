@@ -21,6 +21,11 @@ import {
 } from "../../../lib/roster";
 import { digitsOnly, phoneError, daysInMonth, unaccentVi } from "../../../lib/validation";
 import { INPUT, LABEL } from "../form-ui";
+import {
+  LY_DO_HUY,
+  LY_DO_HUY_THU_TU,
+  nhanLyDoHuy,
+} from "../../../lib/ly-do-huy";
 import Time24Input from "../Time24Input";
 import StatusBadge from "../StatusBadge";
 import { useBookingPolicy } from "../BookingPolicyContext";
@@ -36,6 +41,7 @@ export interface ApptRow {
   status: string;
   booking_channel: string | null;
   cancellation_reason?: string | null;
+  ly_do_huy_ma?: string | null;
   cancelled_at?: string | null;
   patient: {
     clinic_patient_id: string;
@@ -113,6 +119,7 @@ export default function ConfirmBoard({
   const [error, setError] = useState<string | null>(null);
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [maLyDo, setMaLyDo] = useState("");
   // Đổi lịch (theo yêu cầu khách): ngày/giờ mới + tuỳ chọn đổi bác sĩ.
   const [showResched, setShowResched] = useState(false);
   const [reschedDate, setReschedDate] = useState("");
@@ -202,7 +209,7 @@ export default function ConfirmBoard({
   }
   async function cancelAppt() {
     await patchAppt(
-      { action: "cancel", cancellation_reason: cancelReason },
+      { action: "cancel", ly_do_huy_ma: maLyDo, cancellation_reason: cancelReason },
       "Lỗi hủy lịch.",
     );
   }
@@ -437,8 +444,16 @@ export default function ConfirmBoard({
                   value={`${fmtTimeOrNone(sel.slot_start)} · ${sel.service?.name ?? "—"}`}
                 />
                 <Row label="Bác sĩ" value={sel.doctor?.full_name} />
-                {sel.status === "CANCELLED" && sel.cancellation_reason && (
-                  <Row label="Lý do hủy" value={sel.cancellation_reason} />
+                {sel.status === "CANCELLED" &&
+                  (sel.ly_do_huy_ma || sel.cancellation_reason) && (
+                  <Row
+                    label="Lý do hủy"
+                    value={
+                      [nhanLyDoHuy(sel.ly_do_huy_ma), sel.cancellation_reason]
+                        .filter(Boolean)
+                        .join(" — ") || "—"
+                    }
+                  />
                 )}
                 <div className="flex gap-2 pt-0.5">
                   <dt className="w-28 shrink-0 text-ink-muted">Trạng thái</dt>
@@ -501,17 +516,37 @@ export default function ConfirmBoard({
               {/* Form lý do hủy (ẩn/hiện) */}
               {canManage && showCancel && LIVE.includes(sel.status) && (
                 <div className="mt-3 space-y-2 rounded-control border border-danger bg-surface p-3">
-                  <label className={LABEL}>Lý do hủy (tuỳ chọn)</label>
-                  <input
+                  {/* Cùng danh mục với màn Quản lý khách hàng — một nguồn ở
+                      lib/ly-do-huy.ts, có bài kiểm chống lệch với backend.
+                      Chép tay lần thứ hai là hai màn gọi cùng một lần huỷ bằng
+                      hai tên. */}
+                  <label className={LABEL}>Lý do hủy</label>
+                  <select
                     className={INPUT}
-                    value={cancelReason}
-                    onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="VD: khách bận, đổi lịch…"
-                  />
+                    value={maLyDo}
+                    onChange={(e) => setMaLyDo(e.target.value)}
+                  >
+                    <option value="">— Chọn lý do —</option>
+                    {LY_DO_HUY_THU_TU.map((ma) => (
+                      <option key={ma} value={ma}>
+                        {LY_DO_HUY[ma]}
+                      </option>
+                    ))}
+                  </select>
+                  {maLyDo === "KHAC" && (
+                    <input
+                      className={INPUT}
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="Khách nói gì?"
+                    />
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={cancelAppt}
-                      disabled={busy}
+                      disabled={
+                        busy || !maLyDo || (maLyDo === "KHAC" && !cancelReason.trim())
+                      }
                       className="min-h-10 rounded-control bg-danger px-4 text-sm font-semibold text-white hover:bg-danger disabled:opacity-50"
                     >
                       {busy ? "Đang hủy…" : "Xác nhận hủy"}

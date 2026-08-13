@@ -144,8 +144,13 @@ class TestMergeFindings:
         assert MEASURE_KEYS == ("crl", "nt", "bpd", "hc", "ac", "fl", "efw")
 
     def test_a_finalised_visit_is_not_writable(self) -> None:
-        assert WRITABLE_VISIT_STATUSES == frozenset({"OPEN", "IN_PROGRESS"})
-        assert "FINALIZED" not in WRITABLE_VISIT_STATUSES
+        # TÍNH CHẤT, không phải tập hợp nguyên văn: hai trạng thái CUỐI thì
+        # khoá, các trạng thái ĐANG SỐNG thì ghi được. Ghim đúng frozenset là
+        # bắt mọi lần thêm trạng thái phải sửa bài kiểm mà không kiểm thêm gì.
+        for cuoi in ("FINALIZED", "AMENDED"):
+            assert cuoi not in WRITABLE_VISIT_STATUSES
+        for dang_song in ("OPEN", "IN_PROGRESS", "INCOMPLETE"):
+            assert dang_song in WRITABLE_VISIT_STATUSES
 
 
 class TestGuards:
@@ -262,9 +267,12 @@ class TestImmutability:
     def test_finalized_and_amended_are_both_closed(self) -> None:
         # A whitelist, so a future terminal status cannot slip through as
         # writable the way it would with a FINALIZED-only check (Circular 13).
-        assert RECORD_WRITABLE == frozenset({"OPEN", "IN_PROGRESS"})
         for closed in ("FINALIZED", "AMENDED", "CANCELLED"):
             assert closed not in RECORD_WRITABLE
+        # INCOMPLETE (khách về giữa chừng) KHÔNG phải trạng thái cuối: khách còn
+        # quay lại, và khoá bút lúc này là bắt bác sĩ đính chính một hồ sơ chưa
+        # ai ký.
+        assert "INCOMPLETE" in RECORD_WRITABLE
 
     def test_vitals_need_the_patient_to_have_arrived(self) -> None:
         assert ARRIVED == frozenset({"CHECKED_IN", "COMPLETED"})
@@ -392,10 +400,15 @@ class TestRosterRules:
     def test_approving_is_management_only(self) -> None:
         assert ROSTER_ADMIN_ROLES == frozenset({ClinicRole.MANAGEMENT})
 
-    def test_everyone_may_sign_themselves_up(self) -> None:
-        # The service ignores a client-supplied staff_id unless the caller is
-        # management, so the endpoint itself does not need to be narrow.
-        assert ROSTER_ROLES == frozenset(ClinicRole)
+    def test_signing_yourself_up_is_closed(self) -> None:
+        # Luồng tự đăng ký ca ĐANG ĐÓNG (Quang, 07/08/2026): quản lý tự xếp lịch
+        # rồi bấm áp dụng, nhân viên chỉ xem. Bài này canh ĐƯỜNG GHI, không canh
+        # giao diện: ẩn bảng đăng ký mà để nguyên endpoint thì ai cũng còn POST
+        # thẳng vào được, và ca họ ghi rơi vào PENDING — vô hình với cả người xếp
+        # lịch (lưới sửa chỉ đọc APPROVED) lẫn màn chính thức. Treo vĩnh viễn.
+        assert ROSTER_ROLES == ROSTER_ADMIN_ROLES
+        assert ClinicRole.RECEPTION not in ROSTER_ROLES
+        assert ClinicRole.TRUONG_CA not in ROSTER_ROLES
 
 
 class TestPriceParsing:
@@ -478,6 +491,10 @@ class _StubConn:
         self.calls.append((sql, args))
         return self._results.pop(0) if self._results else None
 
+    async def fetch(self, sql: str, *args: object) -> object:
+        self.calls.append((sql, args))
+        return self._results.pop(0) if self._results else []
+
     async def execute(self, sql: str, *args: object) -> None:
         self.calls.append((sql, args))
 
@@ -505,10 +522,32 @@ def _staff(role: ClinicRole, staff_id: str = "s1") -> StaffIdentity:
 
 
 class TestRosterAuthorisation:
+    """add_shift chạm database ba lần: tra nhân sự → tra ma trận vị trí → ghi.
+
+    `_ins` lấy lần cuối. Trước 20260809000002 chỉ có một lần gọi nên các bài này
+    đọc `calls[0]`; đổi sang lần cuối để bài kiểm không phụ thuộc số lần tra cứu
+    nội bộ.
+    """
+
+    @staticmethod
+    def _pool(
+        row_id: str, *, ten: str = "Người Thật", vai: str = "DOCTOR"
+    ) -> _StubPool:
+        # Thứ tự phải khớp thứ tự add_shift hỏi: nhân sự, ma trận, id vừa ghi.
+        return _StubPool(
+            {"full_name": ten, "primary_department": vai},
+            [],  # ma trận rỗng → fail-open, để bài kiểm này lo phần phân quyền
+            row_id,
+        )
+
+    @staticmethod
+    def _ins(pool: _StubPool) -> tuple[object, ...]:
+        return pool.conn.calls[-1][1]
+
     def test_a_nurse_signing_up_is_pending_and_cannot_name_anybody(self) -> None:
         # The client's staff_id is not validated — it is never read. There is
         # nothing to spoof when the value is ignored.
-        pool = _StubPool("r1")
+        pool = self._pool("r1", vai="NURSE_ULTRASOUND")
         asyncio.run(
             RosterService(pool).add_shift(
                 work_date=date(2026, 7, 30),
@@ -519,13 +558,13 @@ class TestRosterAuthorisation:
                 staff_name="Ai đó",
             )
         )
-        args = pool.conn.calls[0][1]
+        args = self._ins(pool)
         assert "somebody-else" not in args
         assert "nurse-1" in args
         assert "PENDING" in args
 
     def test_management_may_schedule_somebody_and_it_is_approved(self) -> None:
-        pool = _StubPool("r2")
+        pool = self._pool("r2")
         asyncio.run(
             RosterService(pool).add_shift(
                 work_date=date(2026, 7, 30),
@@ -536,11 +575,61 @@ class TestRosterAuthorisation:
                 staff_name="BS Chín",
             )
         )
-        args = pool.conn.calls[0][1]
+        args = self._ins(pool)
         assert "doctor-9" in args and "APPROVED" in args
 
+    def test_the_name_written_comes_from_the_database_not_the_client(self) -> None:
+        """Chuỗi tên do client gửi từng đi thẳng vào bảng.
+
+        Nghĩa là một lời gọi API tự chế ghi được "Giám đốc Sở Y tế" vào lịch
+        trực, và cả phòng khám nhìn thấy đúng như vậy.
+        """
+        pool = self._pool("r4", ten="TS.BS. Phan Chí Thành")
+        asyncio.run(
+            RosterService(pool).add_shift(
+                work_date=date(2026, 7, 30),
+                station="LICH_KHAM",
+                shift="FULL",
+                identity=_staff(ClinicRole.MANAGEMENT, "mgr-1"),
+                staff_id="doctor-9",
+                staff_name="Giám đốc Sở Y tế",
+            )
+        )
+        args = self._ins(pool)
+        assert "TS.BS. Phan Chí Thành" in args
+        assert "Giám đốc Sở Y tế" not in args
+
+    def test_a_station_outside_the_role_scope_is_refused(self) -> None:
+        pool = _StubPool(
+            {"full_name": "Hải Yến", "primary_department": "RECEPTION"},
+            [{"tram_ma": "LE_TAN"}, {"tram_ma": "LAY_MAU"}],
+        )
+        with pytest.raises(ValidationError):
+            asyncio.run(
+                RosterService(pool).add_shift(
+                    work_date=date(2026, 7, 30),
+                    station="LICH_KHAM",
+                    shift="FULL",
+                    identity=_staff(ClinicRole.MANAGEMENT, "mgr-1"),
+                    staff_id="reception-1",
+                )
+            )
+
+    def test_somebody_from_another_clinic_cannot_be_scheduled(self) -> None:
+        pool = _StubPool(None)
+        with pytest.raises(ValidationError):
+            asyncio.run(
+                RosterService(pool).add_shift(
+                    work_date=date(2026, 7, 30),
+                    station="LICH_KHAM",
+                    shift="FULL",
+                    identity=_staff(ClinicRole.MANAGEMENT, "mgr-1"),
+                    staff_id="nguoi-phong-kham-khac",
+                )
+            )
+
     def test_an_unknown_shift_falls_back_to_full_day(self) -> None:
-        pool = _StubPool("r3")
+        pool = self._pool("r3", vai="RECEPTION")
         asyncio.run(
             RosterService(pool).add_shift(
                 work_date=date(2026, 7, 30),
@@ -549,7 +638,7 @@ class TestRosterAuthorisation:
                 identity=_staff(ClinicRole.RECEPTION),
             )
         )
-        assert "FULL" in pool.conn.calls[0][1]
+        assert "FULL" in self._ins(pool)
 
     def test_only_management_approves(self) -> None:
         with pytest.raises(SafetyGateError):

@@ -12,11 +12,15 @@ from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
 from clinicai.api.middleware import (
+    CskhUploadSizeLimitMiddleware,
     DbErrorMiddleware,
     RequestIdMiddleware,
     TimingMiddleware,
 )
-from clinicai.api.runaway_guard import runaway_guard
+from clinicai.api.runaway_guard import (
+    runaway_guard,
+    runaway_guard_cho_ca_man_hinh,
+)
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
@@ -44,6 +48,7 @@ from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
+from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
@@ -134,9 +139,12 @@ app = FastAPI(
 # See api/middleware.py for the full account; test_middleware_order pins it.
 #
 # Resulting stack, outermost → innermost:
-#   RequestIdMiddleware → TimingMiddleware → api_key_middleware → DbErrorMiddleware
+#   RequestIdMiddleware → TimingMiddleware → CskhUploadSizeLimitMiddleware
+#   → api_key_middleware → DbErrorMiddleware
 app.add_middleware(DbErrorMiddleware)  # innermost: DB error → 503, still timed
 app.middleware("http")(api_key_middleware)  # gate anonymous callers (api.auth)
+# Before multipart parsing: reject oversized declared and chunked CSKH uploads.
+app.add_middleware(CskhUploadSizeLimitMiddleware)
 app.add_middleware(TimingMiddleware)  # outside the gate: rejections are data too
 app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 
@@ -162,7 +170,12 @@ app.include_router(health_router)
 # người gọi là ai — đó chính là việc endpoint này đang làm.
 app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(
-    identity_router, prefix="/api/v1", tags=["identity"], dependencies=_GUARDED
+    identity_router,
+    prefix="/api/v1",
+    tags=["identity"],
+    # Bộ đếm bản KHÔNG chặn vai DISPLAY: `/api/v1/me` phải trả lời được cho tài
+    # khoản màn hình TV, nếu không nó đăng nhập xong bị đá về trang đăng nhập.
+    dependencies=[Depends(runaway_guard_cho_ca_man_hinh)],
 )
 # Dòng sự kiện cho màn hình (thay Supabase Realtime).
 #
@@ -243,6 +256,9 @@ app.include_router(
     dependencies=_GUARDED,
 )
 app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"], dependencies=_GUARDED)
+app.include_router(
+    pharmacy_router, prefix="/api/v1", tags=["pharmacy"], dependencies=_GUARDED
+)
 app.include_router(
     booking_router, prefix="/api/v1", tags=["booking"], dependencies=_GUARDED
 )

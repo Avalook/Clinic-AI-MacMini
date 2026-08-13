@@ -105,6 +105,8 @@ export default function AppointmentBooking({
   walkin = false,
   edit,
   initial,
+  khoaDichVu,
+  lichTruocId,
 }: {
   clinicPatientId: string;
   services: Option[];
@@ -116,15 +118,29 @@ export default function AppointmentBooking({
   onBooked: (appointmentId: string) => void;
   /** Optional extra control rendered next to the submit button (e.g. "skip"). */
   secondary?: ReactNode;
-  /** Lễ tân xếp BN tái khám VÃNG LAI: chỉ bấm ô xanh (chỗ Ưu tiên, chỗ thứ 3),
+  /** Lễ tân xếp BN tái khám VÃNG LAI: chỉ bấm ô xanh (chỗ đến trực tiếp),
    *  đặt như WALK_IN, không cần Kênh đặt. Mặc định false = đặt hẹn thường (ô hồng). */
   walkin?: boolean;
   /** Set để chuyển form sang chế độ SỬA (đổi lịch) thay vì tạo mới. */
   edit?: BookingEdit;
   /** Giá trị điền sẵn (dùng chung với edit; cũng dùng được khi tạo mới). */
   initial?: BookingInitial;
+  /** TÁI KHÁM: khoá cứng dịch vụ theo lượt khám trước, hiện read-only.
+   *
+   *  KHÔNG dùng `initial.serviceId` cho việc này. Ô "Dịch vụ" là dropdown LĨNH
+   *  VỰC, và `linhVuc` không đọc `initial` — nên `initial.serviceId` đặt được
+   *  giá trị ngầm nhưng ô vẫn hiện "— Chọn dịch vụ —". Người dùng thấy chưa
+   *  chọn gì mà nút Đặt lịch lại sáng; chọn lại thì `findServiceIdByLinhVuc`
+   *  chạy, và hàm ấy kết thúc bằng `services[0]?.id` — IM LẶNG chọn dịch vụ
+   *  đầu danh sách nếu không khớp tên. Tái khám mà lặng lẽ đổi sang dịch vụ
+   *  khác là hỏng đúng thứ nút Tái khám sinh ra để bảo toàn. */
+  khoaDichVu?: { serviceId: string; label: string };
+  /** Lịch hẹn mà lịch sắp đặt là TÁI KHÁM của nó. Xem 20260810000007. */
+  lichTruocId?: string;
 }) {
-  const [serviceId, setServiceId] = useState(initial?.serviceId ?? "");
+  const [serviceId, setServiceId] = useState(
+    khoaDichVu?.serviceId ?? initial?.serviceId ?? "",
+  );
   // Bác sĩ: combobox tìm kiếm bỏ dấu thay native <select>
   const [doctorId, setDoctorId] = useState(initial?.doctorId ?? "");
   const [doctorQ, setDoctorQ] = useState(initial?.doctorLabel ?? ""); // text hiện trong ô
@@ -161,6 +177,9 @@ export default function AppointmentBooking({
   // Bác sĩ TRỰC CA của ngày đã chọn (work_roster LICH_KHAM) — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
+  /** Tuần chứa ngày đã chọn CHƯA được quản lý bấm "Áp dụng tuần". Danh sách bác
+   *  sĩ vẫn thật (work_roster đã duyệt), chỉ là chưa chốt nên giờ còn đổi. */
+  const [dutyDuKien, setDutyDuKien] = useState(false);
   // Capacity Phase 1 — tải/khung-giờ để hiển thị (quote, read-only).
   // Sức chứa từng KHUNG (không phải từng giờ), đọc từ cùng resolver mà trigger
   // dùng để chặn. Trước đây nó đọc block_budget — một bảng thứ hai, mịn theo
@@ -223,11 +242,12 @@ export default function AppointmentBooking({
     const ctrl = new AbortController();
     fetch(`/api/roster?date=${encodeURIComponent(apptDate)}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) =>
+      .then((j) => {
         setDutyDoctorIds(
           j ? (j.doctors as { id: string }[]).map((d) => d.id) : null,
-        ),
-      )
+        );
+        setDutyDuKien(Boolean(j?.du_kien));
+      })
       .catch(() => {});
     return () => ctrl.abort();
   }, [apptDate]);
@@ -369,11 +389,14 @@ export default function AppointmentBooking({
         location_id: locationId,
         slot_start: start.toISOString(),
         slot_end: end.toISOString(),
-        // Vãng lai (Lễ tân) → WALK_IN để vào đúng ghế Ưu tiên (chỗ 3).
+        // Vãng lai (Lễ tân) → WALK_IN để vào đúng ghế đến trực tiếp.
         booking_channel: walkin ? "WALK_IN" : channel,
         // Tải/ca — backend tự gợi ý thanh_min/sono_min từ 2 field này (DEC-3).
         patient_kind: patientKind || undefined,
         need_sono: needSono,
+        // Chuỗi tái khám. Chỉ có giá trị khi form được mở từ nút "Tái khám";
+        // backend còn kiểm lại lịch ấy đúng của khách này không.
+        lich_truoc_id: lichTruocId ?? undefined,
       }),
     });
     const json = await res.json();
@@ -409,6 +432,16 @@ export default function AppointmentBooking({
               className={INPUT + " flex items-center bg-surface-muted text-ink-soft"}
             >
               {edit.serviceLabel || "—"}
+            </div>
+          ) : khoaDichVu ? (
+            // TÁI KHÁM: dịch vụ lấy theo lượt khám trước, không đổi được ở đây.
+            // Đổi dịch vụ thì nó không còn là tái khám nữa — đó là "Đặt lịch
+            // khám mới", và có nút riêng cho việc ấy.
+            <div
+              className={INPUT + " flex items-center bg-surface-muted text-ink-soft"}
+              title="Tái khám giữ nguyên dịch vụ của lượt trước. Muốn đổi dịch vụ thì dùng “Đặt lịch khám mới”."
+            >
+              {khoaDichVu.label || "—"}
             </div>
           ) : (
             <select
@@ -505,9 +538,8 @@ export default function AppointmentBooking({
             maxHour={maxHour}
             minutesOptions={policy ? slotMinuteOptions(policy) : []}
           />
-          <p className="mt-1 text-[11px] text-danger font-medium leading-normal">
-            ⚠️ Lưu ý: Quý khách vui lòng đến đúng giờ hoặc muộn nhất 15 phút để giữ chỗ. Nếu đến muộn, lịch hẹn sẽ không còn hiệu lực ưu tiên (sẽ xếp số vãng lai theo thứ tự đến trực tiếp).
-          </p>
+          {/* Bỏ dòng "đến muộn 15 phút mất chỗ" — xem ghi chú cùng chỗ trong
+              NewPatientForm.tsx. */}
           {ch && (
             <p className="mt-1 text-[11px] text-ink-faint">
               Giờ mở cửa: {ch.open}–{ch.close}
@@ -520,6 +552,7 @@ export default function AppointmentBooking({
             date={apptDate}
             doctors={doctors}
             dutyDoctorIds={dutyDoctorIds}
+            dutyDuKien={dutyDuKien}
             existingAppts={visibleExistingAppts}
             selectedDoctorId={doctorId}
             selectedTime={apptTime}
@@ -576,7 +609,7 @@ export default function AppointmentBooking({
           <label className={LABEL}>{walkin ? "Kênh đặt" : "Kênh đặt *"}</label>
           {walkin ? (
             <div className={INPUT + " flex items-center bg-success-bg text-success"}>
-              Ưu tiên — khách tới trực tiếp
+              Khách đến trực tiếp (không đặt trước)
             </div>
           ) : (
             <select

@@ -34,6 +34,25 @@ DEFAULT_WALKIN_CAP = 1  # chỗ thứ 3, để dành
 MAX_CAP = 100
 
 
+def grace_ms_from_slot_minutes(slot_minutes: int | None) -> int:
+    """Độ dài khung → cửa sổ "đến đúng giờ" của hàng chờ, tính bằng mili giây.
+
+    Khách check-in TRONG khung của mình thì vẫn là đúng hẹn, nên cửa sổ dài đúng
+    bằng khung. Trước đây nó là hằng số 10 phút trong `queue_order.py`, nên với
+    khung 15 phút thì người đến ở phút thứ 12 bị đẩy xuống làn vãng lai dù chưa
+    hết khung của họ.
+
+    Đặt ở đây, cạnh DEFAULT_SLOT_MINUTES, để `queue_order.py` giữ được tính
+    thuần: module đó không import gì chạm database, và một bài canh trong
+    `test_queue_order.py` khẳng định điều đó.
+
+    `None` xảy ra khi LEFT JOIN không khớp — rơi về mặc định của phòng khám thay
+    vì nổ, vì một bảng gọi số trắng vì thiếu cấu hình thì tệ hơn một bảng xếp
+    theo con số mặc định.
+    """
+    return (slot_minutes or DEFAULT_SLOT_MINUTES) * 60_000
+
+
 class ClinicPolicyError(ValueError):
     """Cấu hình phòng khám không dùng được.
 

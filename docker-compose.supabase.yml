@@ -33,12 +33,25 @@ x-supabase-defaults: &supabase-defaults
   networks:
     - supabase
 
+# TÊN CONTAINER THEO TIỀN TỐ, MẶC ĐỊNH LÀ `clinicai`.
+#
+# `container_name` là tên TOÀN CỤC trên máy chủ — hai stack không thể cùng đặt
+# `clinicai_db`. Tham số hoá để dựng được bộ Supabase THỨ HAI cho staging, tách
+# hẳn database khỏi phòng khám đang chạy thật:
+#
+#   PROD    : docker compose -f docker-compose.supabase.yml -p clinicai_db up -d
+#   STAGING : SUPABASE_PREFIX=clinicai_stg SUPABASE_DB_PORT=54332 \
+#             SUPABASE_API_PORT=54331x docker compose \
+#             -f docker-compose.supabase.yml -p clinicai_stg_db up -d
+#
+# Mặc định `clinicai` là ĐÚNG TÊN prod đang chạy hôm nay — file này đổi mà
+# stack prod không phải dựng lại.
 services:
   # ---- Postgres ------------------------------------------------------------
   db:
     <<: *supabase-defaults
     image: postgres:17
-    container_name: clinicai_db
+    container_name: ${SUPABASE_PREFIX:-clinicai}_db
     environment:
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD:?can mat khau}
       POSTGRES_DB: postgres
@@ -76,7 +89,7 @@ services:
   auth:
     <<: *supabase-defaults
     image: supabase/gotrue:v2.177.0
-    container_name: clinicai_auth
+    container_name: ${SUPABASE_PREFIX:-clinicai}_auth
     depends_on:
       db:
         condition: service_healthy
@@ -118,7 +131,7 @@ services:
   rest:
     <<: *supabase-defaults
     image: postgrest/postgrest:v12.2.3
-    container_name: clinicai_rest
+    container_name: ${SUPABASE_PREFIX:-clinicai}_rest
     depends_on:
       db:
         condition: service_healthy
@@ -136,7 +149,7 @@ services:
   realtime:
     <<: *supabase-defaults
     image: supabase/realtime:v2.34.47
-    container_name: clinicai_realtime
+    container_name: ${SUPABASE_PREFIX:-clinicai}_realtime
     depends_on:
       db:
         condition: service_healthy
@@ -148,7 +161,15 @@ services:
       DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
       DB_NAME: postgres
       DB_AFTER_CONNECT_QUERY: "SET search_path TO realtime"
-      DB_ENC_KEY: supabaserealtime
+      # KHÔNG GHI CỨNG. `supabaserealtime` là giá trị MẶC ĐỊNH CÔNG KHAI trong
+      # tài liệu tự dựng Supabase — ai đọc tài liệu ấy cũng biết. Realtime dùng
+      # nó để mã hoá thông tin tenant trong bảng của chính nó.
+      #
+      # Giữ nguyên làm mặc định để không đổi hành vi (đổi khoá này khi đã có dữ
+      # liệu mã hoá là tự làm hỏng Realtime). Muốn thay bằng khoá riêng thì đặt
+      # REALTIME_DB_ENC_KEY trong .env.* — nhưng phải làm lúc dựng mới, không
+      # phải giữa chừng.
+      DB_ENC_KEY: ${REALTIME_DB_ENC_KEY:-supabaserealtime}
       API_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SECRET_KEY_BASE: ${SUPABASE_JWT_SECRET}
       ERL_AFLAGS: -proto_dist inet_tcp
@@ -161,10 +182,33 @@ services:
   # ---- Gateway: gom bốn dịch vụ vào một địa chỉ ----------------------------
   # Frontend chỉ biết MỘT URL (NEXT_PUBLIC_SUPABASE_URL) và tự ghép đường dẫn
   # /auth/v1, /rest/v1, /realtime/v1. Khối này dựng lại đúng hình dạng ấy.
+  # Chặn dò mật khẩu ở cửa đăng nhập. Đứng TRƯỚC gateway và CHỈ nhận đúng
+  # đường `/auth/v1/token` — Caddy ngoài cùng định tuyến sang đây.
+  #
+  # Tách riêng thay vì nhét vào gateway: nó chết thì chỉ đăng nhập hỏng, phần
+  # còn lại của ứng dụng không đi qua đây. Và nginx có `limit_req` sẵn trong
+  # image chuẩn, không phải dựng image riêng như Caddy.
+  #
+  # Xem docker/auth-guard.conf để biết vì sao ngưỡng đặt rộng rãi (cả phòng
+  # khám dùng chung một địa chỉ IP).
+  auth-guard:
+    <<: *supabase-defaults
+    image: nginx:1.27-alpine
+    container_name: ${SUPABASE_PREFIX:-clinicai}_auth_guard
+    depends_on:
+      - gateway
+    volumes:
+      - ./docker/auth-guard.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider",
+             "http://127.0.0.1:80/guard-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
   gateway:
     <<: *supabase-defaults
     image: caddy:2-alpine
-    container_name: clinicai_supabase_gateway
+    container_name: ${SUPABASE_PREFIX:-clinicai}_supabase_gateway
     depends_on:
       - auth
       - rest

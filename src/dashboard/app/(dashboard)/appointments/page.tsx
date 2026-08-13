@@ -53,7 +53,40 @@ export default async function AppointmentsPage() {
     name: r.name,
     fullName: r.full_name,
   }));
+  // KHÁM LẦN MẤY — nhãn nhỏ cạnh tên khách, cùng luật với màn Quản lý khách
+  // hàng (Quang 10/08/2026: nhãn phải hiện ở CẢ hai màn).
+  //
+  // Đếm ở SERVER trên chính danh sách khách đang hiện, không hỏi thêm mỗi lần
+  // chọn khách: một lượt truy vấn cho 200 khách rẻ hơn 200 lượt hỏi lẻ, và nó
+  // không phụ thuộc người dùng bấm vào đâu.
   const patients: PatientLite[] = (patRes.data ?? []) as PatientLite[];
+  const lanKham: Record<string, { soLanKham: number; laTaiKham: boolean }> = {};
+  if (patients.length) {
+    const { data: lichSu } = await supabase
+      .from("appointment")
+      .select("clinic_patient_id, status, slot_start, lich_truoc_id")
+      .in(
+        "clinic_patient_id",
+        patients.map((p) => p.clinic_patient_id),
+      )
+      .order("slot_start", { ascending: true })
+      .limit(5000);
+    for (const r of (lichSu ?? []) as {
+      clinic_patient_id: string;
+      status: string;
+      lich_truoc_id: string | null;
+    }[]) {
+      const o = (lanKham[r.clinic_patient_id] ??= {
+        soLanKham: 0,
+        laTaiKham: false,
+      });
+      // Đếm lượt ĐÃ KHÁM XONG. Đặt rồi huỷ thì khách vẫn chưa khám lần nào.
+      if (r.status === "COMPLETED") o.soLanKham += 1;
+      // Còn MỘT lịch chưa huỷ nối vào lượt trước là khách này đang trong một
+      // chuỗi tái khám — đó là điều CSKH cần biết trước khi đặt lịch tiếp.
+      if (r.lich_truoc_id && r.status !== "CANCELLED") o.laTaiKham = true;
+    }
+  }
   const appts: ApptLite[] = (apptRes.data ?? []) as ApptLite[];
 
   // docRes không còn là PostgrestResponse: listBookableDoctors đã tự nuốt lỗi
@@ -75,6 +108,7 @@ export default async function AppointmentsPage() {
         provinces={provinces}
         patients={patients}
         appts={appts}
+        lanKham={lanKham}
       />
     </div>
   );

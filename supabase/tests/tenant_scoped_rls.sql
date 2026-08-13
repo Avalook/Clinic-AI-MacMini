@@ -104,8 +104,23 @@ BEGIN
     -- clinical_form_response keep this name but a narrower rule (ROLE-02).
     -- 32 → 34 on 02/08/2026: drug_batch + inventory_txn (migration
     -- 20260802000001, kho thuốc theo lô).
-    IF scoped_count <> 34 THEN
-        RAISE EXCEPTION 'expected 34 tenant-scoped read policies, found %', scoped_count;
+    -- 34 → 35 ngày 07/08/2026: nhac_tai_kham — việc gọi nhắc tái khám hai lượt
+    -- (migration 20260807000005). Đọc theo phòng khám, ghi qua FastAPI.
+    -- 35 → 36 ngày 07/08/2026: thong_bao (migration 20260807000006).
+    -- 36 → 37 ngày 08/08/2026: roster_week — tuần lịch trực đã áp dụng
+    -- (migration 20260808000001). CHỈ ĐỌC cho client, cùng lý do với mọi bảng
+    -- luật khác: client tự ghi được nghĩa là client tự chốt được lịch trực.
+    -- 37 → 38 ngày 08/08/2026: luat_bac_si_bat_buoc (20260808000003).
+    -- 38 → 39 ngày 08/08/2026: vai_duoc_vao_tram (20260809000002). CHỈ ĐỌC:
+    -- sửa được ma trận này là quyết được ai đứng ở bàn khám.
+    -- 39 → 40 ngày 08/08/2026: tuong_tac_cskh (20260809000003). CHỈ ĐỌC: client
+    -- tự ghi được nghĩa là tự khai được "đã gọi rồi" cho cuộc gọi chưa xảy ra.
+    -- 40 → 42 ngày 08/08/2026: luat_cskh + hen_goi_lai (20260809000005).
+    -- 42 → 43 ngày 08/08/2026: phan_hoi_khach (20260809000007).
+    -- 43 → 44 ngày 08/08/2026: tep_ket_qua (20260809000008). CHỈ ĐỌC: khoá tệp
+    -- do hệ thống sinh, và client tự ghi được nghĩa là tự khai được một khoá.
+    IF scoped_count <> 44 THEN
+        RAISE EXCEPTION 'expected 44 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

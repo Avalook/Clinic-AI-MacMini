@@ -48,7 +48,11 @@ from threading import Lock
 import structlog
 from fastapi import Depends, HTTPException, Request, status
 
-from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.api.identity import (
+    StaffIdentity,
+    _resolve_identity,
+    get_current_identity,
+)
 from clinicai.core.telemetry import route_template
 
 logger = structlog.get_logger(__name__)
@@ -58,10 +62,25 @@ Clock = Callable[[], float]
 # Far above human use, far below what breaks the pool.
 #
 # A busy receptionist moving between screens does perhaps 20 requests a minute.
-# 120/minute is six times that, so meeting it means a machine is driving — and
-# the warning fires at half the ceiling, i.e. 60, which a person still will not
-# reach while working normally.
-DEFAULT_CEILING = 120
+# The warning still fires at HALF the ceiling, so a loop is recorded long before
+# anyone is refused.
+#
+# ĐO LẠI 10/08/2026 — TRẦN CŨ 120 CHẶN NGƯỜI THẬT. Quang bấm các nút dưới bước
+# check-in và nhận "lỗi 429" giữa chừng; log staging đếm được 28 lượt bị từ chối
+# trong 40 phút, riêng lúc 09:43:13 có BẢY lời gọi `/api/v1/me` trong 0,4 giây.
+#
+# Sai lầm của con số cũ nằm ở tiền đề "một người làm 20 request/phút". Nó đúng
+# với NGƯỜI, không đúng với MÀN HÌNH: mỗi cú bấm ở màn CSKH ghi một dòng rồi gọi
+# `router.refresh()`, và một lượt dựng lại cây server component kéo theo `/me`,
+# `/appointments/policy`, `/cskh/recall-jobs`, `/appointments/week`,
+# `/visits/progress`… Một thao tác của người hoá ra sáu bảy lượt gọi. Nhân với
+# một người đang thử nhanh là chạm trần mà không có vòng lặp nào cả.
+#
+# 400 giữ nguyên mục đích của cái trần này: một vòng lặp thật sinh HÀNG NGHÌN
+# lượt một phút và vẫn bị bắt, trong khi người dùng nhanh tay thì không. Nếu vẫn
+# gặp 429 trong lúc dùng bình thường thì ĐỪNG nâng tiếp — lúc ấy đúng là có một
+# vòng lặp, và dòng cảnh báo ở nửa trần đã ghi sẵn tên đường dẫn gây ra nó.
+DEFAULT_CEILING = 400
 DEFAULT_WINDOW_SECONDS = 60
 
 # Once per actor per window is enough to investigate. Without this, the runaway
@@ -218,4 +237,30 @@ async def runaway_guard(
     identity: StaffIdentity = Depends(get_current_identity),
 ) -> None:
     """Count this request against the caller's per-minute ceiling."""
+    await _guard(request, identity)
+
+
+async def runaway_guard_cho_ca_man_hinh(
+    request: Request,
+    identity: StaffIdentity = Depends(_resolve_identity),
+) -> None:
+    """Như trên, nhưng KHÔNG chặn vai DISPLAY.
+
+    VÌ SAO PHẢI CÓ BẢN THỨ HAI. `runaway_guard` nhận danh tính qua
+    `get_current_identity`, và hàm đó TỪ CHỐI vai DISPLAY (tài khoản màn hình
+    TV). Vì bộ đếm được gắn ở TẦNG ROUTER (`_GUARDED` trong main.py), nó chạy
+    trước mọi endpoint — nên `/api/v1/me` trả 403 cho cái tivi dù chính endpoint
+    đó đã khai `get_display_identity`.
+
+    Rất khó lần ra: nhìn vào mã của endpoint không thấy gì sai, thứ từ chối nằm
+    ở tham số mặc định của một dependency khai ở file khác.
+
+    Bản này dựng danh tính bằng `_resolve_identity` — đủ để ĐẾM (bộ đếm hỏi "ai
+    đang gọi", không hỏi "ai được phép"), và để phần phân quyền cho endpoint tự
+    lo. Vai DISPLAY vẫn bị tính vào hạn mức như mọi tài khoản khác.
+
+    Chỉ dùng cho router nào có endpoint mở cho màn hình. Đừng đổi
+    `runaway_guard` gốc: hàng chục bài kiểm ghi đè `get_current_identity` và sẽ
+    ngừng có tác dụng.
+    """
     await _guard(request, identity)

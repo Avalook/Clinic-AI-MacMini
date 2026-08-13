@@ -1,7 +1,9 @@
 // Admin-only account management endpoint.
 //
+//   GET                                       → { emails: { staffId: email } }
 //   POST   { email, password, staffId }      → create Auth user + link staff
 //   PATCH  { staffId, action: "reset_password", password }  → reset password
+//   PATCH  { staffId, action: "change_email", email }        → đổi tên đăng nhập
 //   PATCH  { staffId, action: "unlink" }      → revoke: null the FK + delete
 //                                               the Auth user (staff row kept)
 //
@@ -17,6 +19,10 @@
 // - If SUPABASE_SERVICE_ROLE_KEY is unset, every method fails closed (503).
 
 import { NextResponse } from "next/server";
+import {
+  emailTuTenDangNhap,
+  loiTenDangNhap,
+} from "../../../../lib/ten-dang-nhap";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import {
@@ -46,7 +52,9 @@ async function authorizeAdmin(): Promise<AuthResult> {
     };
   }
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Địa chỉ NỘI BỘ trước — route này chạy trong container, xem proxy.ts.
+  const SUPABASE_URL =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return {
@@ -125,6 +133,41 @@ interface CreateBody {
 }
 
 // Create a new Auth user and link it to an existing, unlinked staff row.
+// Tên đăng nhập của từng nhân viên. `auth.users` chỉ khoá dịch vụ đọc được, và
+// ADR-0012 cấm file khác với ra khoá đó — nên nó phải đi qua đúng route này.
+// MỘT lượt gọi cho cả bảng, không phải mỗi dòng một lượt.
+export async function GET() {
+  const auth = await authorizeAdmin();
+  if (!auth.ok) return auth.res;
+  const { admin, clinicId } = auth;
+
+  const [{ data: users }, { data: staff }] = await Promise.all([
+    admin.auth.admin.listUsers({ perPage: 1000 }),
+    admin
+      .from("clinic_membership")
+      .select("staff:staff!staff_id(id, auth_user_id)")
+      .eq("clinic_id", clinicId)
+      .eq("is_active", true),
+  ]);
+
+  const theoUid = new Map(
+    (users?.users ?? []).map((u) => [u.id, u.email ?? ""]),
+  );
+  const emails: Record<string, string> = {};
+  for (const row of staff ?? []) {
+    // Nhúng nhiều-một của PostgREST trả về OBJECT, nhưng kiểu sinh ra khai là
+    // mảng — nhận cả hai để không lệ thuộc vào chỗ đó.
+    const raw = (row as { staff: unknown }).staff;
+    const s = (Array.isArray(raw) ? raw[0] : raw) as
+      | { id: string; auth_user_id: string | null }
+      | undefined;
+    if (!s?.auth_user_id) continue;
+    const mail = theoUid.get(s.auth_user_id);
+    if (mail) emails[s.id] = mail;
+  }
+  return NextResponse.json({ ok: true, emails });
+}
+
 export async function POST(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
@@ -136,12 +179,13 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const email = (body.email ?? "").trim();
+  const loiNick = loiTenDangNhap(body.email ?? "");
+  if (loiNick) {
+    return NextResponse.json({ error: loiNick }, { status: 400 });
+  }
+  const email = emailTuTenDangNhap(body.email ?? "");
   const password = body.password ?? "";
   const staffId = (body.staffId ?? "").trim();
-  if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "Email không hợp lệ." }, { status: 400 });
-  }
   if (password.length < MIN_PASSWORD) {
     return NextResponse.json(
       { error: `Mật khẩu phải có ít nhất ${MIN_PASSWORD} ký tự.` },
@@ -231,8 +275,9 @@ export async function POST(request: Request) {
 
 interface PatchBody {
   staffId?: string;
-  action?: "reset_password" | "unlink";
+  action?: "reset_password" | "change_email" | "unlink";
   password?: string;
+  email?: string;
 }
 
 // Manage an already-linked account: reset its password, or revoke it
@@ -300,6 +345,41 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       ok: true,
       action,
+      staffName: target.full_name,
+    });
+  }
+
+  if (action === "change_email") {
+    // Tên trần được: đuôi do `emailTuTenDangNhap` gắn, cùng hàm mà màn đăng
+    // nhập dùng — nên nick quản lý đặt ở đây gõ vào đâu cũng vào được.
+    const loi = loiTenDangNhap(body.email ?? "");
+    if (loi) return NextResponse.json({ error: loi }, { status: 400 });
+    const email = emailTuTenDangNhap(body.email ?? "");
+    // `email_confirm: true` đi kèm là BẮT BUỘC. Đổi email mà không xác nhận
+    // luôn thì GoTrue treo địa chỉ mới ở trạng thái chờ và gửi thư xác nhận —
+    // phòng khám không có hòm thư nào để nhận, nên người đó mất đường vào cho
+    // tới khi ai đó sửa tay trong database.
+    const { error } = await admin.auth.admin.updateUserById(
+      target.auth_user_id,
+      { email, email_confirm: true },
+    );
+    if (error) {
+      // GoTrue trả 422 khi email đã có người dùng. Nói ra bằng tiếng Việt chứ
+      // đừng để quản lý đọc "email address has already been registered".
+      const trung = /already/i.test(error.message);
+      return NextResponse.json(
+        {
+          error: trung
+            ? `Tên đăng nhập ${email} đã có người dùng.`
+            : error.message,
+        },
+        { status: trung ? 409 : 500 },
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      action,
+      email,
       staffName: target.full_name,
     });
   }
