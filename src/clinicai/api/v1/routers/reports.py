@@ -32,3 +32,18 @@ async def booking_channels(
 ) -> dict[str, Any]:
     """Lịch hẹn theo nguồn đặt — MỘT truy vấn thay cho 8 lượt đếm rời."""
     return await ReportsService(pool).booking_channels(identity=identity, days=days)
+
+
+@router.get("/reports/kpi-dat-lich")
+async def kpi_dat_lich(
+    identity: StaffIdentity = Depends(_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mỗi nhân viên đặt được bao nhiêu lịch — hôm nay, tuần này, tháng này.
+
+    CHỈ QUẢN LÝ ĐỌC ĐƯỢC, cùng cửa với các số liệu báo cáo khác. Đây là bảng so
+    sánh giữa người với người; mở cho chính những người bị so sánh là một quyết
+    định về quản trị con người, không phải một quyết định kỹ thuật, nên nó phải
+    được nói ra chứ không rơi vào mặc định.
+    """
+    return await ReportsService(pool).kpi_dat_lich_theo_nhan_vien(identity=identity)
