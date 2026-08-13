@@ -124,7 +124,9 @@ export default function NhanSuBoard({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setError(err.error || err.message || "Không lưu được hồ sơ.");
+        // `message` trước `error`: `error` là MÃ máy ("VALIDATION_ERROR"),
+        // `message` là câu người đọc. Cùng luật với BookingHub.
+        setError(err.message || err.detail || err.error || "Không lưu được hồ sơ.");
         return;
       }
       const updated = (await res.json()) as StaffRow;
