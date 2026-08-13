@@ -107,10 +107,14 @@ export default async function HomePage({
   // 2 bảng có tuần ĐỘC LẬP: weekAppt cho Lịch hẹn khám, weekRoster cho Lịch làm
   // việc — bấm nút bảng nào CHỈ đổi tuần bảng đó (không kéo theo bảng kia).
   const { weekAppt: rawWeekAppt, weekRoster: rawWeekRoster } = await searchParams;
-  const weekAppt = rawWeekAppt ? weekStartOf(rawWeekAppt) : currentWeekStartVn();
-  const weekRoster = rawWeekRoster
-    ? weekStartOf(rawWeekRoster)
-    : currentWeekStartVn();
+  // Hai tham số này lấy thẳng từ thanh địa chỉ. Ngày không đọc được thì rơi về
+  // tuần hiện tại — TRANG CHỦ PHẢI MỞ ĐƯỢC. Trước đây `weekStartOf` ném
+  // RangeError trên chuỗi rác, và server component ném thì cả trang rơi vào
+  // error.tsx: một link hỏng là màn hình đầu ngày của cả phòng khám không vào được.
+  const weekAppt =
+    (rawWeekAppt ? weekStartOf(rawWeekAppt) : null) ?? currentWeekStartVn();
+  const weekRoster =
+    (rawWeekRoster ? weekStartOf(rawWeekRoster) : null) ?? currentWeekStartVn();
   const apptDates = weekDates(weekAppt);
   const rosterDates = weekDates(weekRoster);
   const apptStartUtc = vnLocalToUtcISO(weekAppt, "00:00");

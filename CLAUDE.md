@@ -44,6 +44,10 @@ supabase db push                          # apply schema migrations
 - Secrets only in `.env.prod` / `.env.staging` (gitignored) + GitHub Actions secrets. Never in code.
 - Router thin; logic in service functions (pure Python, testable). No business rules in TSX.
 - Don't run migrations inside the deploy; schema changes are a separate reviewed `db push`.
+- Before proposing new infrastructure (Redis, a broker, a search engine, more app
+  replicas), read `docs/SO-LUAT.md`. It records what was already
+  considered and rejected **at this scale (~1 RPS, one operator)**, and the measured
+  threshold that would reopen each one. Don't re-propose from generic best practice.
 - Keep the old Vercel build running in parallel until the Mac stack is proven (spec §8).
 
 ## Status (see docs/spec-clinic.md for phases)
