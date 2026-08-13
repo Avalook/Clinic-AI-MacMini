@@ -11,6 +11,8 @@ vẫn giữ đúng ba chốt, bài kiểm vẫn xanh — đúng như mong muốn
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 import sentry_sdk
 
@@ -22,7 +24,7 @@ FAKE_DSN = "https://key@o0.ingest.sentry.io/0"
 
 
 @pytest.fixture(autouse=True)
-def _tat_sentry_sau_moi_bai():
+def _tat_sentry_sau_moi_bai() -> Iterator[None]:
     """``init_sentry()`` đặt client TOÀN CỤC — không dọn thì nó còn bật suốt
     phần còn lại của phiên kiểm.
 
@@ -36,14 +38,14 @@ def _tat_sentry_sau_moi_bai():
     sentry_sdk.init(dsn="")
 
 
-def test_khong_co_dsn_thi_tat_han(monkeypatch) -> None:
+def test_khong_co_dsn_thi_tat_han(monkeypatch: pytest.MonkeyPatch) -> None:
     """Thiếu cấu hình phải là TẮT, không phải là sập."""
     monkeypatch.delenv("SENTRY_DSN", raising=False)
     init_sentry()
     assert not sentry_sdk.get_client().is_active()
 
 
-def test_ba_chot_rieng_tu_khi_bat(monkeypatch) -> None:
+def test_ba_chot_rieng_tu_khi_bat(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SENTRY_DSN", FAKE_DSN)
     monkeypatch.setenv("APP_ENV", "test")
     init_sentry()
@@ -64,7 +66,9 @@ def test_ba_chot_rieng_tu_khi_bat(monkeypatch) -> None:
     assert options["max_request_body_size"] == "never"
 
 
-def test_moi_truong_va_ban_phat_hanh_co_gan_nhan(monkeypatch) -> None:
+def test_moi_truong_va_ban_phat_hanh_co_gan_nhan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Lỗi từ máy thật và lỗi từ máy thử phải phân biệt được, nếu không thì
     bảng báo lỗi trộn lẫn và mất tác dụng."""
     monkeypatch.setenv("SENTRY_DSN", FAKE_DSN)
