@@ -22,6 +22,7 @@ import {
   daQua,
   VN_OFFSET,
   VN_TZ,
+  ngayVN,
 } from "../../../lib/datetime";
 import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
 import type { DongLichSu } from "./so-tuong-tac";
@@ -274,6 +275,26 @@ export default async function CustomersPage({
         .order("slot_start", { ascending: true })
         .limit(3000)
     : Promise.resolve({ data: [] as unknown[], error: null });
+  // CA TRỰC CỦA BÁC SĨ — để biết lịch nào vừa MẤT bác sĩ.
+  //
+  // TÌNH HUỐNG SỐ 9 trong bảng "tình huống phát sinh" của khách: *"Lịch bác sĩ
+  // thay đổi sau khi khách đã đặt → hệ thống giúp nhận biết các lịch khách bị
+  // ảnh hưởng để CSKH chủ động xử lý"*. Trước hôm nay không có gì làm việc ấy:
+  // quản lý gỡ một ca trực, và lịch của khách vẫn nằm im dưới tên một bác sĩ
+  // hôm đó không đi làm. Đường duy nhất để biết là khách tới quầy rồi mới vỡ lẽ.
+  //
+  // MỘT TRUY VẤN CHO CẢ MÀN, không hỏi từng lịch một: lấy toàn bộ ca trực trong
+  // khoảng ngày mà các lịch đang hiện chạm tới, rồi tra trong bộ nhớ. Hỏi theo
+  // từng lịch là 30–40 vòng mạng để vẽ một cột.
+  const caTrucPromise = shownIds.length
+    ? supabase
+        .from("work_roster")
+        .select("staff_id, work_date")
+        .not("staff_id", "is", null)
+        .gte("work_date", new Date(nowMs() - 86_400_000).toISOString().slice(0, 10))
+        .limit(5000)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
   // TRẠNG THÁI — suy lại từ dữ liệu mỗi lần đọc (view 20260809000005).
   //
   // Trước đây cột này đọc `cskh_action.status`, rơi về `appointment.status`,
@@ -432,6 +453,12 @@ function ngayVn(iso: string): string {
 }
 
 /** Một dòng lịch hẹn như PostgREST trả về (theo `apptSelectAll`). */
+/** Một dòng ca trực: bác sĩ này có đi làm ngày này không. */
+type CaTrucRaw = {
+  staff_id: string | null;
+  work_date: string | null;
+};
+
 type LichHenRaw = {
   clinic_patient_id: string;
   slot_start: string;
@@ -473,6 +500,17 @@ type LichHenRaw = {
     if (apptErr) {
       console.error("customers: không nạp được lịch hẹn", apptErr);
     }
+    // Ca trực: "bác sĩ X có đi làm ngày Y không". Hỏng thì tập rỗng — và tập
+    // rỗng KHÔNG được hiểu là "mọi bác sĩ đều nghỉ", xem `matBacSi` bên dưới.
+    const { data: caTruc, error: caTrucErr } = await caTrucPromise;
+    if (caTrucErr) {
+      console.error("customers: không nạp được ca trực", caTrucErr);
+    }
+    const coCaTruc = new Set<string>();
+    for (const r of (caTruc as unknown as CaTrucRaw[] | null) ?? []) {
+      if (r.staff_id && r.work_date) coCaTruc.add(`${r.staff_id}|${r.work_date}`);
+    }
+    const doCaTruc = coCaTruc.size > 0;
     // SO GIỜ BẰNG MỐC THỜI GIAN, KHÔNG BẰNG CHUỖI.
     //
     // Chỗ này từng là `a.slot_start >= new Date().toISOString()`. Database chạy
@@ -580,6 +618,23 @@ type LichHenRaw = {
         qua_gio_hen:
           daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status),
+        // LỊCH NÀY VỪA MẤT BÁC SĨ: có người phụ trách, nhưng người ấy không còn
+        // ca trực vào đúng ngày khám.
+        //
+        // CHỈ TÍNH CHO LỊCH CÒN CỨU ĐƯỢC — chưa tới giờ và chưa check-in. Một
+        // lịch đã qua mà mất bác sĩ thì không đổi lại được nữa; tô đỏ ở đó chỉ
+        // làm ngập màn hình và dạy người trực bỏ qua màu đỏ.
+        //
+        // `doCaTruc` là chốt an toàn: truy vấn ca trực hỏng hoặc tuần chưa xếp
+        // thì tập rỗng, và tập rỗng KHÔNG được đọc thành "mọi bác sĩ đều nghỉ".
+        // Báo nhầm hàng loạt còn tệ hơn không báo: người trực sẽ gọi cho hàng
+        // chục khách để nói một chuyện không xảy ra.
+        mat_bac_si:
+          doCaTruc &&
+          !!repr.doctor_id &&
+          !daQua(repr.slot_start, bayGio) &&
+          ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status) &&
+          !coCaTruc.has(`${repr.doctor_id}|${ngayVN(repr.slot_start)}`),
         count: live.length,
         // LƯỢT KHÁM GẦN NHẤT ĐÃ XONG — nguồn cho nút "Tái khám".
         //
