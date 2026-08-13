@@ -130,12 +130,22 @@ scripts/maintenance/backups/
 # --- Bí mật vận hành để LOCAL, không lên GitHub -----------------------------
 # Repo này PUBLIC (xem .github/workflows/cd.yml: "this repository is public").
 #
-# apply-pending-migrations.sh hiện chứa connection string prod kèm mật khẩu ở
-# dạng thô. Quang giữ nguyên như vậy để agent thao tác được — quyết định đó ổn
-# khi file KHÔNG BAO GIỜ rời khỏi máy. Ignore ở đây giữ đúng hai điều cùng lúc:
-# script vẫn dùng bình thường, và `git add -A` không đẩy mật khẩu prod lên một
-# repo mà ai cũng fork được.
-scripts/apply-pending-migrations.sh
+# apply-pending-migrations.sh TỪNG nằm ở đây, vì bản cũ chứa connection string
+# prod kèm mật khẩu ở dạng thô, và repo này public.
+#
+# Cái giá của việc giấu nó thì mãi sau mới lộ ra: file nằm ngoài git nên không ai
+# xem lại nó bao giờ. Nó trỏ vào dự án Supabase cloud CŨ (đã bỏ), và giữ một
+# DANH SÁCH MIGRATION CHÉP TAY dừng ở 20260803000003. Ngày 06/08 mới phát hiện
+# `20260805000007_appointment_patient_slot_unique` — ràng buộc "một bệnh nhân,
+# một khung giờ, một lịch hẹn", viết ra sau sự cố một người bấm đặt lịch ba lần
+# — nằm trên main mà CHƯA HỀ được áp lên production.
+#
+# Bản viết lại không còn bí mật nào (đích lấy từ CLINIC_DB_DSN hoặc
+# CLINIC_DB_CONTAINER) và tự tính danh sách còn thiếu từ sổ ghi, nên nó VÀO repo:
+# một công cụ có người đọc lại được là công cụ ít nói dối hơn.
+#
+# Mật khẩu trong bản cũ chưa bao giờ vào lịch sử git — nhưng nó là mật khẩu thật
+# của dự án cloud cũ và vẫn nên đổi.
 
 # Email công việc của từng nhân viên (provision-staff-logins.sh). Dữ liệu cá
 # nhân, và cũng là danh sách mục tiêu phishing hoàn chỉnh cho một phòng khám.
