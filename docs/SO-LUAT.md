@@ -178,6 +178,31 @@ lại.** Database bắn tin lúc ghi xong (`LISTEN/NOTIFY`) → backend đẩy v
 (SSE) → màn hình **chỉ làm mới đúng phần bị ảnh hưởng**.
 *Hiện trạng:* nửa đầu đã xong; nửa sau chưa — mỗi tin về là dựng lại **cả trang**.
 
+**Luật 6.4 — Độ trễ mà người dùng cảm nhận là NHỊP HỎI, không phải máy chủ.**
+Đo thật trên staging 14/08/2026 (`scripts/tests/do-giu-cho.py`, ba tài khoản
+CSKH thật):
+
+| chặng | thời gian |
+|---|---|
+| chờ trước khi gửi lệnh giữ chỗ | 400ms |
+| máy chủ ghi xong → máy bên kia **đọc được** | **27–40ms** |
+| nhịp màn hình bên kia hỏi lại | 0–5s |
+| **người bên cạnh thực sự thấy** | ~2,5s trung bình, ~5,4s chậm nhất |
+
+Máy chủ chiếm **dưới 1%** con số ấy. Nhịp từng là 15s (trung bình 8 giây) và
+được hạ xuống 5s ngày 14/08 sau khi đo giá: một nhịp tốn **4,8ms** cả chuỗi
+(GoTrue xác minh token 2,1ms + FastAPI đọc bảng 2,7ms — `do-nhip-hoi.py`), bốn
+CSKH cùng mở màn ở nhịp 5s là **0,4% một lõi**. *Ngưỡng xem lại:* khoảng 30
+người cùng mở màn đặt lịch, hoặc khi Luật 6.3 xong nửa sau thì bỏ hỏi lại hẳn.
+
+**Luật 6.5 — Sức chứa là ghế CỦA MỘT BÁC SĨ, và được kiểm lúc XẾP bác sĩ.**
+Trigger nói thẳng: *lịch chưa phân bác sĩ thì chưa chiếm ghế của ai*. Nên một
+lịch để trống bác sĩ **luôn được nhận**, kể cả khi mọi bác sĩ đã kín — nó vào
+hàng chờ xếp, và chỗ vỡ ra (nếu có) là ở bước xếp. Đây là hành vi đúng, nhưng
+nó khiến hai phép đo ngây thơ cho kết quả sai: đặt lịch không chọn bác sĩ rồi
+kết luận "vượt sức chứa", và đọc `/quote` không kèm `doctor_id` rồi tưởng con
+số ấy là trần của cả phòng khám.
+
 ---
 
 # Phần 7 — Đừng thêm hạ tầng (và ngưỡng để lật lại)
