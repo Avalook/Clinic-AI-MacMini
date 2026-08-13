@@ -16,6 +16,7 @@ import { digitsOnly, phoneError } from "../../lib/validation";
 import { INPUT, LABEL } from "./form-ui";
 import DateField from "./DateField";
 import { linhVucLabel } from "../../lib/linh-vuc";
+import { nhanLoi } from "../../lib/loi-api";
 
 export interface PatientAdmin {
   clinic_patient_id: string;
@@ -30,6 +31,8 @@ export interface PatientAdmin {
   patient_objection: string | null;
   address: string | null;
   guardian_name: string | null;
+  /** Mốc sửa cuối — thẻ khoá lạc quan. Xem `save()`. */
+  updated_at?: string | null;
   // CSKH (đặt lịch) — CHỈ HIỂN THỊ ở đây (đọc), KHÔNG sửa trong editor này nên
   // PATCH KHÔNG đụng (tránh ghi đè null). Optional: nguồn nào không select vẫn build được.
   van_de_di_kham?: string | null;
@@ -119,12 +122,33 @@ export default function PatientAdminEditor({
     const res = await fetch("/api/patients", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clinic_patient_id: cur.clinic_patient_id, ...form }),
+      body: JSON.stringify({
+        clinic_patient_id: cur.clinic_patient_id,
+        // THẺ KHOÁ LẠC QUAN: mốc hồ sơ lúc màn hình này ĐỌC nó. Backend chỉ ghi
+        // đè nếu dưới database vẫn đúng mốc ấy.
+        //
+        // Đo ngày 11/08/2026: hai người cùng mở một hồ sơ và cùng bấm Lưu thì CẢ
+        // HAI đều nhận 200. Người bấm trước mất trắng phần mình vừa nhập và
+        // không hề biết — màn hình họ vẫn báo "Đã lưu thông tin."
+        //
+        // Bỏ trống thì backend không khoá (giữ đường cũ cho các màn chưa cập
+        // nhật), nên chỗ nào KHÔNG gửi mốc thì chỗ đó vẫn ghi đè được như trước.
+        sua_luc: cur.updated_at ?? undefined,
+        ...form,
+      }),
     });
     setBusy(false);
-    if (!res.ok) return setError((await res.json()).error ?? "Lỗi lưu.");
+    if (!res.ok) {
+      const than = await res.json().catch(() => null);
+      return setError(nhanLoi(than, "Lỗi lưu."));
+    }
     // Cập nhật hiển thị NGAY + đồng bộ phần còn lại của trang (server refetch).
-    setCur({ ...cur, ...form });
+    // Mốc mới đi kèm: không lấy mốc mới thì lần lưu THỨ HAI trong cùng phiên sẽ
+    // gửi mốc đã cũ và bị chính khoá này từ chối.
+    const luu = (await res.json().catch(() => null)) as {
+      updated_at?: string;
+    } | null;
+    setCur({ ...cur, ...form, updated_at: luu?.updated_at ?? cur.updated_at });
     setEditing(false);
     setMsg("Đã lưu thông tin.");
     router.refresh();

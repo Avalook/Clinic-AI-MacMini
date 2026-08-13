@@ -470,3 +470,35 @@ chmod 600 "${OPS_STATUS_ENV_DIR}/backup-status.json"
 COUNT=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" | wc -l | tr -d ' ')
 TOTAL_SIZE=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)
 log "=== Backup complete. $COUNT backup(s) in $BACKUP_DIR ($TOTAL_SIZE total) ==="
+
+# --- Báo nhịp tim cho Uptime Kuma ------------------------------------------
+#
+# ĐẶT Ở ĐÂY, SAU MỌI THỨ KHÁC, LÀ CÓ CHỦ Ý. Nhịp tim này nói "đêm nay sao lưu
+# ĐÃ CHẠY XONG VÀ ĐÃ VERIFY", nên nó chỉ được gửi khi thật sự tới được dòng này.
+# Đặt sớm hơn thì nó chỉ nói "script đã khởi động" — và một cái chuông báo rằng
+# script đã khởi động thì vô dụng đúng vào lúc script khởi động rồi chết giữa
+# chừng.
+#
+# `set -e` ở đầu file làm phần còn lại: dump hỏng là script thoát trước khi tới
+# đây, Kuma không nhận được gì, và sau 26 giờ im lặng nó tự chuyển đỏ.
+#
+# VÌ SAO CẦN, dù đã có script kéo về trên máy Mac cũng canh việc này: máy Mac
+# phải đang bật mới canh được. Kuma sống trên chính VPS nên nó canh cả những đêm
+# không ai mở máy. Hai lớp nhìn từ hai phía, không phải một lớp làm hai lần.
+KUMA_PUSH_TOKEN_FILE="${KUMA_PUSH_TOKEN_FILE:-$HOME/.config/clinicai/kuma-push-backup}"
+if [ -r "$KUMA_PUSH_TOKEN_FILE" ]; then
+    KUMA_TOKEN=$(cat "$KUMA_PUSH_TOKEN_FILE")
+    KUMA_URL="${KUMA_PUSH_BASE:-http://127.0.0.1:3001}/api/push/${KUMA_TOKEN}"
+    # `|| true`: KHÔNG để một cái chuông hỏng biến thành một lần sao lưu hỏng.
+    # Bản sao lưu đã nằm trên đĩa rồi; Kuma không với tới được chỉ có nghĩa là
+    # Kuma đang chết, và đó là việc của Kuma.
+    if curl -fsS --max-time 10 \
+         "${KUMA_URL}?status=up&msg=$(printf '%s' "${COUNT} ban, ${TOTAL_SIZE}" | tr ' ' '+')" \
+         >/dev/null 2>&1; then
+        log "Kuma: đã báo nhịp tim sao lưu"
+    else
+        log "WARNING: không báo được nhịp tim cho Kuma (bản sao lưu VẪN AN TOÀN)"
+    fi
+else
+    log "Kuma: chưa có token push ($KUMA_PUSH_TOKEN_FILE) — chạy scripts/setup-uptime-kuma.sh"
+fi

@@ -41,5 +41,15 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  return proxyJsonToBackend("POST", "/api/v1/cskh/tuong-tac", body);
+  // Chuyển tiếp Idempotency-Key nếu màn hình có gửi.
+  //
+  // Đo trên staging 11/08/2026: ngắt mạng ở mốc 90ms sau khi bấm thì màn hình
+  // báo LỖI MẠNG trong khi dòng sổ ĐÃ ĐƯỢC GHI. Người trực nhập lại, và lần
+  // nhập lại tạo dòng thứ hai — hai dòng "Đã gọi nhắc hẹn" trong lịch sử một
+  // khách, đọc thành đã gọi hai lần. Bấm đúp cũng ra kết quả y hệt.
+  //
+  // Cả cơ chế lẫn tham số đều đã có sẵn (xem ghi chú trong backend-proxy.ts);
+  // chỗ này chỉ thiếu một sợi dây. Không có header thì backend cho qua như cũ.
+  const khoa = request.headers.get("Idempotency-Key") ?? undefined;
+  return proxyJsonToBackend("POST", "/api/v1/cskh/tuong-tac", body, khoa);
 }

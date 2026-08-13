@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 import { nhanLoi } from "@/lib/loi-api";
+import { khoaThaoTac, xongThaoTac, dinhDanhThaoTac } from "./khoa-mot-lan";
 import { useRouter } from "next/navigation";
 import { Phone, Upload, Send, Check, X, CalendarPlus } from "lucide-react";
 import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "@/lib/ly-do-huy";
@@ -275,10 +276,17 @@ export default function HanhDongTrangThai({
     );
     setDangLuu(ma);
     setLoi(null);
+    // Khoá theo THAO TÁC, không theo lần bấm: bấm đúp hay gửi lại sau khi mạng
+    // rớt đều mang cùng khoá, nên backend nhận ra và không ghi thêm dòng thứ
+    // hai. Xem khoa-mot-lan.ts để biết vì sao không sinh khoá mới mỗi lần bấm.
+    const thaoTac = dinhDanhThaoTac(clinicPatientId, appointmentId, loai, ma, ketQua);
     try {
       const res = await fetch("/api/cskh/tuong-tac", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": khoaThaoTac(thaoTac),
+        },
         body: JSON.stringify({
           clinic_patient_id: clinicPatientId,
           // LUÔN GẮN LỊCH HẸN KHI CÓ.
@@ -330,6 +338,9 @@ export default function HanhDongTrangThai({
         setLoi(nhanLoi(d, "Không ghi được."));
         return false;
       }
+      // THÀNH CÔNG ⇒ bỏ khoá. Lần bấm sau là một thao tác MỚI và phải được ghi
+      // thật; giữ khoá lại thì thao tác thứ hai bị nuốt vì tưởng là gửi trùng.
+      xongThaoTac(thaoTac);
       setXong(true);
       onGhiChu("");
       router.refresh();

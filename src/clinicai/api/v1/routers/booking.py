@@ -101,11 +101,28 @@ async def cho_xep_bac_si(
     identity: StaffIdentity = Depends(_ACTION_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Lịch đã đặt mà CHƯA CÓ BÁC SĨ — hàng chờ để quản lý xếp người.
+    """Lịch cần quản lý xếp bác sĩ. HAI lý do, không phải một.
 
-    "Đang chờ" = `doctor_id IS NULL`, không phải một trạng thái mới. Tám giá trị
-    của `appointment.status` được cả hệ thống lọc theo; một giá trị thứ chín sẽ
-    rơi im lặng qua mọi bộ lọc — biến mất khỏi màn này, hiện nhầm ở màn kia.
+    `ly_do = 'CHUA_XEP'`  — `doctor_id IS NULL`, lịch chưa từng được xếp ai.
+    `ly_do = 'MAT_BAC_SI'` — CÓ bác sĩ, nhưng bác sĩ ấy KHÔNG còn ca trực vào
+                             ngày khám.
+
+    LÝ DO THỨ HAI THÊM NGÀY 11/08/2026, sau một phép thử trên staging: gỡ **một**
+    ca trực làm **hai** lịch hẹn mất bác sĩ, và màn này thấy **không cái nào** —
+    vì nó chỉ hỏi `doctor_id IS NULL`, tức lịch *chưa từng* xếp ai, chứ không
+    phải lịch *vừa mất* người.
+
+    Không có dòng mã nào khác trong hệ thống đi tìm loại lịch này. Nghĩa là khi
+    bác sĩ nghỉ đột xuất, đường duy nhất để biết là khách đến quầy rồi mới vỡ lẽ.
+    Đó là thứ khách hàng nhớ rất lâu.
+
+    Chỉ tính lịch từ BÂY GIỜ trở đi cho lý do thứ hai: một lịch đã qua mà mất bác
+    sĩ thì không xếp lại được nữa, đưa vào đây chỉ làm ngập hàng chờ và che mất
+    những cái còn cứu được.
+
+    "Đang chờ" không phải một trạng thái mới của `appointment.status`. Tám giá trị
+    của cột ấy được cả hệ thống lọc theo; một giá trị thứ chín sẽ rơi im lặng qua
+    mọi bộ lọc — biến mất khỏi màn này, hiện nhầm ở màn kia.
     """
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -133,14 +150,46 @@ async def cho_xep_bac_si(
                       WHERE rw.clinic_id = a.clinic_id
                         AND rw.week_start =
                             v.d - (extract(isodow FROM v.d)::int - 1)
-                   ) AS tuan_da_chot
+                   ) AS tuan_da_chot,
+                   CASE WHEN a.doctor_id IS NULL
+                        THEN 'CHUA_XEP' ELSE 'MAT_BAC_SI' END AS ly_do,
+                   -- Bác sĩ nào vừa rời khỏi lịch này. NULL với 'CHUA_XEP'.
+                   bs.full_name AS bac_si_cu
               FROM appointment a
               LEFT JOIN patient p ON p.clinic_patient_id = a.clinic_patient_id
               LEFT JOIN service_type st ON st.id = a.service_type_id
+              LEFT JOIN staff bs ON bs.id = a.doctor_id
              WHERE a.clinic_id = $1::uuid
-               AND a.doctor_id IS NULL
                AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
                                     'COMPLETED')
+               AND (
+                     a.doctor_id IS NULL
+                  OR (
+                       -- CÓ bác sĩ nhưng bác sĩ không còn ca trực ngày hôm đó.
+                       a.slot_start >= now()
+                       AND NOT EXISTS (
+                         SELECT 1
+                           FROM work_roster w
+                          -- LỌC PHÒNG KHÁM Ở ĐÂY NỮA. Backend chạy bằng quyền
+                          -- chủ database nên RLS không áp; một truy vấn con
+                          -- thiếu `clinic_id` nhìn thấy ca trực của MỌI cơ sở.
+                          --
+                          -- Cụ thể: bác sĩ làm cả Kim Ngưu lẫn Hào Nam mà hôm ấy
+                          -- chỉ trực Hào Nam thì câu này thấy "có ca" và kết luận
+                          -- lịch bên Kim Ngưu vẫn có người — trong khi bác sĩ
+                          -- đang đứng ở cơ sở khác. Đúng thứ màn hình này sinh ra
+                          -- để phát hiện thì nó bỏ sót.
+                          --
+                          -- Máy kiểm phạm vi phòng khám của CI bắt được lúc hoà
+                          -- hai nhánh; ở nhánh cũ nó chưa từng chạy qua đoạn này.
+                          WHERE w.clinic_id = a.clinic_id
+                            AND w.staff_id = a.doctor_id
+                            AND w.work_date =
+                                (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                ::date
+                       )
+                     )
+               )
              ORDER BY a.slot_start
              LIMIT 500
             """,

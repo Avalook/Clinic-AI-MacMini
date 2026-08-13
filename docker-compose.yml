@@ -51,8 +51,20 @@ services:
       # Gateway Supabase của CHÍNH môi trường này. Mặc định là prod hôm nay;
       # staging đặt lại trong .env.staging để không gọi sang database khách.
       SUPABASE_GATEWAY_HOST: ${SUPABASE_GATEWAY_HOST:-clinicai_supabase_gateway}
+      AUTH_GUARD_HOST: ${AUTH_GUARD_HOST:-clinicai_auth_guard}
+      # Ổ khoá HTTP cho staging. Mặc định RỖNG ⇒ prod không đổi gì, vì
+      # Caddyfile chung không nhắc tới hai biến này.
+      #
+      # PHẢI KHAI Ở ĐÂY. Biến trong env-file chỉ dùng để NỘI SUY trong chính
+      # file compose; muốn nó vào BÊN TRONG container thì phải liệt kê ở
+      # `environment:`. Thiếu bước này Caddy nhận chuỗi rỗng rồi chết ngay:
+      # "basic_auth: username and password cannot be empty or missing".
+      STAGING_AUTH_USER: ${STAGING_AUTH_USER:-}
+      STAGING_AUTH_HASH: ${STAGING_AUTH_HASH:-}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Đường dẫn theo biến để staging dùng được Caddyfile riêng (có ổ khoá
+      # HTTP) mà prod không đổi gì. Không đặt CADDY_FILE thì vẫn là bản chung.
+      - ${CADDY_FILE:-./caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

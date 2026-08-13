@@ -125,6 +125,12 @@ test("`/api/roster` cũng phải kiểm ngày trước khi gọi toISOString", (
   }
   assert.equal(weekStartOf("2026-08-05"), "2026-08-03", "ngày đúng vẫn phải ra thứ Hai");
 
+  // Đoạn đo cũ ĐÃ BỎ (13/08/2026). Nó đọc mã nguồn của route rồi tìm chuỗi
+  // "Number.isNaN(d.getTime())" — nhưng route không còn hàm riêng nữa, nó gọi
+  // bản dùng chung ở lib. Chính cách đo ấy là lý do bài kiểm xanh suốt trong
+  // khi trang chủ vẫn sập: nó hỏi mã nguồn TRÔNG THẾ NÀO thay vì hỏi hàm LÀM GÌ.
+  // Phần hỏi hành vi nằm ngay bên trên; phần dưới đây chỉ còn kiểm câu trả lời
+  // 400 mà người dùng đọc được.
   const roster = readFileSync(
     new URL("../app/api/roster/route.ts", import.meta.url),
     "utf8",

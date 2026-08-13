@@ -1,0 +1,115 @@
+// Luật nhập liệu bệnh nhân phải chạy trên ĐƯỜNG API, không chỉ trên form.
+//
+// TÌM ĐƯỢC KHI NGHIỆM THU 11/08/2026 — `POST /api/patients` nhận và lưu:
+//   • ngày sinh 2099-01-01   (bệnh nhân sinh ở tương lai)
+//   • ngày sinh 1850-01-01   (bệnh nhân 176 tuổi)
+//   • họ tên 5000 ký tự
+//   • họ tên "<script>alert(1)</script>"
+//
+// Không phải vì thiếu luật. `dobError()` trong lib/validation.ts đã chặn đúng cả
+// ngày tương lai lẫn năm < 1900 từ lâu, kể cả 29/2 năm không nhuận. Nó chỉ được
+// nối vào ô nhập ba khung dd/mm/yyyy của form. Đường API nhận `date_of_birth`
+// dạng chuỗi ISO và chuyển thẳng xuống DB.
+//
+// Đây là dạng lỗi LẶP LẠI của dự án này: LUẬT ĐÚNG, KHÔNG NỐI VÀO ĐƯỜNG THẬT.
+// Cùng ngày còn tìm được `doDetail()` trong lib/loi-api.ts — viết đúng cho mảng
+// Pydantic nhưng gắn vào ô `detail` trong khi backend đặt mảng ở ô `error`.
+//
+// Vì thế bài kiểm này canh HAI thứ:
+//   1. Luật đúng (dobErrorIso/tenError trả về cái gì).
+//   2. Luật ĐƯỢC GỌI từ route API — cả POST lẫn PATCH. Vế thứ hai mới là vế
+//      từng hỏng; vế thứ nhất chưa bao giờ sai.
+
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import { dobErrorIso, tenError, TEN_TOI_DA } from "../lib/validation.ts";
+
+const HOM_NAY = "2026-08-11";
+
+test("ngày sinh ở tương lai bị chặn", () => {
+  assert.match(dobErrorIso("2099-01-01", HOM_NAY) ?? "", /tương lai/);
+  assert.match(dobErrorIso("2026-08-12", HOM_NAY) ?? "", /tương lai/);
+});
+
+test("ngày sinh quá xa quá khứ bị chặn", () => {
+  assert.ok(dobErrorIso("1850-01-01", HOM_NAY), "năm 1850 phải bị chặn");
+  assert.ok(dobErrorIso("1899-12-31", HOM_NAY), "năm 1899 phải bị chặn");
+});
+
+test("ngày sinh hợp lệ đi qua", () => {
+  assert.equal(dobErrorIso("1990-05-20", HOM_NAY), null);
+  assert.equal(dobErrorIso("2026-08-11", HOM_NAY), null, "sinh hôm nay là hợp lệ");
+  assert.equal(dobErrorIso("", HOM_NAY), null, "bỏ trống là hợp lệ");
+  assert.equal(dobErrorIso(null, HOM_NAY), null);
+});
+
+test("dùng CHUNG logic lịch với form — 29/2 và 31/4", () => {
+  // Không chép lại luật: dobErrorIso tách chuỗi rồi gọi chính dobError.
+  assert.ok(dobErrorIso("2025-02-29", HOM_NAY), "2025 không nhuận, 29/2 phải sai");
+  assert.equal(dobErrorIso("2024-02-29", HOM_NAY), null, "2024 nhuận, 29/2 hợp lệ");
+  assert.ok(dobErrorIso("2020-04-31", HOM_NAY), "tháng 4 không có ngày 31");
+});
+
+test("chuỗi ngày sai định dạng bị chặn, KHÔNG ném", () => {
+  for (const xau of ["32/13/2026", "khong-phai-ngay", "2026", "2026-8-1", "  "]) {
+    const r = dobErrorIso(xau, HOM_NAY);
+    assert.ok(r === null || typeof r === "string", `ném với: ${xau}`);
+  }
+  assert.ok(dobErrorIso("32/13/2026", HOM_NAY), "dd/mm/yyyy không phải ISO — phải báo lỗi");
+});
+
+test("họ tên: rỗng, quá dài, ký tự lạ", () => {
+  assert.match(tenError("") ?? "", /Phải nhập họ tên/);
+  assert.match(tenError("A".repeat(TEN_TOI_DA + 1)) ?? "", /quá dài/);
+  assert.match(tenError("<script>alert(1)</script>") ?? "", /không hợp lệ/);
+  assert.match(tenError("Nguyễn\u0000Thị Lan") ?? "", /không hợp lệ/);
+  assert.match(tenError("Nguyễn\nThị Lan") ?? "", /không hợp lệ/);
+});
+
+test("họ tên tiếng Việt thật KHÔNG bị chặn nhầm", () => {
+  // Cái giá của một luật quá chặt là lễ tân không nhập nổi tên khách.
+  for (const ten of [
+    "Nguyễn Thị Hoà",
+    "Đặng Thuỳ Trâm",
+    "Tôn Nữ Thị Ninh",
+    "Y Blưm Niê",
+    "Trần Lê Bảo Châu-Anh",
+    "Nguyễn Thị Ánh Tuyết Nhi Mai Phương Thảo Uyên",
+  ]) {
+    assert.equal(tenError(ten), null, `chặn nhầm tên thật: ${ten}`);
+  }
+});
+
+test("route API PHẢI gọi luật — cả tạo lẫn sửa", () => {
+  // Vế từng hỏng. Luật đúng mà không ai gọi thì bằng không.
+  const route = readFileSync(
+    new URL("../app/api/patients/route.ts", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+
+  assert.equal(
+    (route.match(/tenError\(/g) ?? []).length,
+    2,
+    "phải gọi tenError ở CẢ POST và PATCH",
+  );
+  assert.equal(
+    (route.match(/dobErrorIso\(/g) ?? []).length,
+    2,
+    "phải gọi dobErrorIso ở CẢ POST và PATCH — sửa cũng phải qua đúng luật như tạo, " +
+      "không thì nhánh PATCH thành cửa sau của chính cái cửa POST vừa khoá",
+  );
+});
+
+test("cơ sở được kiểm ở FastAPI, không ở BFF", () => {
+  // `clinic_location` không mở cho vai `authenticated` (đo 11/08: 401 permission
+  // denied), nên BFF không kiểm được — và đây là luật nghiệp vụ, chỗ của nó là
+  // FastAPI. Bài kiểm này canh để không ai "tiện tay" chuyển ngược lên BFF.
+  const svc = readFileSync(
+    new URL("../../clinicai/services/patient_service.py", import.meta.url),
+    "utf8",
+  );
+  assert.match(svc, /FROM clinic_location/, "phải kiểm cơ sở khi tạo bệnh nhân");
+  assert.match(svc, /Không tìm thấy cơ sở này/, "cơ sở không tồn tại → 400, không phải 500");
+  assert.match(svc, /đã ngừng hoạt động/, "cơ sở đã đóng phải bị chặn");
+});

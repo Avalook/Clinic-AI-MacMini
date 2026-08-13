@@ -9,11 +9,13 @@ import {
   ChevronDown,
   ExternalLink,
   Search,
+  UserPlus,
   UsersRound,
   X,
 } from "lucide-react";
 import { useMemo, useState, useTransition,
   useCallback,
+  useRef,
 } from "react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
@@ -155,6 +157,7 @@ export interface CustomerRow {
   patient_objection: string | null;
   address: string | null;
   guardian_name: string | null;
+  updated_at?: string | null;
   location_id: string | null;
   created_at: string | null;
   van_de_di_kham: string | null;
@@ -723,6 +726,46 @@ export default function CustomersView({
     setDatLich(null);
   }
 
+  // Ô TÌM KIẾM PHẢI HỎI CẢ MÁY CHỦ, KHÔNG CHỈ LỌC THỨ ĐÃ TẢI.
+  //
+  // TÌM ĐƯỢC KHI NGHIỆM THU 11/08/2026. Trước đây `onChange` chỉ gọi `setTerm`,
+  // và `searchedRows` lọc trên `rows` — mà `rows` là kết quả của một truy vấn
+  // `.limit(300)` ở page.tsx. Đường tìm phía máy chủ (`?q=` → `.or(full_name.
+  // ilike…, patient_code.ilike…, phone_primary.ilike…, full_name_unaccent.ilike…)`)
+  // ĐÃ TỒN TẠI và chạy đúng — nhưng chỉ được kích hoạt khi người dùng đổi bộ
+  // lọc, tức là tình cờ. Ô tìm kiếm không nối vào nó bao giờ.
+  //
+  // Staging có 21 khách nên không lộ. Phòng khám thật vượt 300 hồ sơ là lễ tân
+  // gõ tên khách cũ và nhận "Không tìm thấy khách khớp từ khoá." — một câu trả
+  // lời SAI mà nghe rất chắc chắn, rồi họ tạo hồ sơ trùng cho một người đã có.
+  //
+  // VÌ SAO LUÔN HỎI MÁY CHỦ, chứ không chỉ hỏi khi lọc phía trình duyệt ra rỗng:
+  // kết quả MỘT PHẦN nguy hiểm hơn kết quả rỗng. Nếu 2 trong 5 người trùng tên
+  // nằm trong 300 hồ sơ đã tải, màn hình hiện 2 người và trông hoàn toàn bình
+  // thường — không ai nghi còn 3 người nữa. Rỗng thì ít ra người ta còn nghi.
+  //
+  // Hoãn trong CHÍNH TRÌNH XỬ LÝ SỰ KIỆN, không dùng effect đồng bộ (xem ghi chú
+  // ở `trangThaiVuaBam`). 350ms: đủ để không bắn một yêu cầu mỗi phím, đủ nhanh
+  // để người gõ xong tên là thấy kết quả.
+  const hoanTim = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function huyHoanTim() {
+    if (hoanTim.current) {
+      clearTimeout(hoanTim.current);
+      hoanTim.current = null;
+    }
+  }
+
+  function goTim(chuMoi: string) {
+    setTerm(chuMoi); // lọc ngay trên thứ đã tải — mắt thấy phản hồi tức thì
+    huyHoanTim();
+    hoanTim.current = setTimeout(() => {
+      hoanTim.current = null;
+      // Chỉ đi hỏi máy chủ khi từ khoá thật sự đổi so với thứ máy chủ đã trả.
+      if (chuMoi.trim() !== q.trim()) go(period, chuMoi, by);
+    }, 350);
+  }
+
   function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
     const params = new URLSearchParams();
     if (nextQ.trim()) params.set("q", nextQ.trim());
@@ -1131,12 +1174,36 @@ export default function CustomersView({
           NÚT "THÊM KHÁCH HÀNG" ĐI ĐÂU: khách mới của CSKH sinh ra ở màn Đặt
           lịch ("+ Đặt lịch hẹn cho khách mới" — cùng một biểu mẫu
           NewPatientForm, kèm luôn lịch hẹn đầu tiên). Trang /patients/new vẫn
-          còn nguyên và gõ thẳng URL vẫn vào được. */}
+          còn nguyên và gõ thẳng URL vẫn vào được.
+
+          NÚT "GHI NHẬN KHÁCH QUAN TÂM" BÊN DƯỚI KHÔNG PHẢI LẬT LẠI QUYẾT ĐỊNH
+          ẤY. Nó phục vụ một tình huống KHÁC hẳn, và là tình huống duy nhất của
+          15 tình huống nghiệp vụ mà nghiệm thu 11/08/2026 tìm thấy lỗ hổng:
+
+            "Khách hàng mới chỉ hỏi thông tin, chưa chốt được ngày khám."
+
+          Ghi được người đó thì hệ thống LÀM ĐƯỢC — `NewPatientForm` bỏ qua hẳn
+          bước đặt lịch khi chưa chọn dịch vụ/ngày/giờ (`wantsAppointment`). Cái
+          thiếu là LỐI VÀO: lối duy nhất tới form là bấm một ô giờ trên bảng
+          tuần, mà làm thế là đã gán sẵn ngày giờ — tức không còn là "chưa chốt
+          ngày" nữa. Người trực đang nghe máy thì không ai đi gõ URL bằng tay.
+
+          Nên nút này trỏ tới /patients/new KHÔNG kèm ?date/?time — đó chính là
+          điều làm nó khác nút cũ. Nút cũ mở một luồng ĐẶT LỊCH; nút này mở một
+          luồng GHI NHẬN. Đừng gộp lại: gộp là mất đúng tình huống vừa vá. */}
       <div className="flex min-h-10 min-w-[240px] max-w-md items-center gap-2 rounded-xl border border-line bg-surface pl-3 pr-1.5 text-ink-muted shadow-card focus-within:border-brand-500">
         <Search className="size-4 shrink-0" aria-hidden="true" />
         <input
           value={term}
-          onChange={(event) => setTerm(event.target.value)}
+          onChange={(event) => goTim(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter = tìm ngay, không đợi hết hoãn.
+            if (event.key === "Enter") {
+              event.preventDefault();
+              huyHoanTim();
+              go(period, term, by);
+            }
+          }}
           placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
         />
@@ -1146,6 +1213,26 @@ export default function CustomersView({
           onChon={(kyMoi, chieuMoi) => go(kyMoi, term, chieuMoi)}
         />
       </div>
+
+      {/* GÁC BẰNG `canEdit`, KHÔNG PHẢI `canManage`. Hai cờ này khác nhau:
+          `canManage` = canManageAppt (quản lý LỊCH HẸN), `canEdit` = canWriteIntake
+          (được TẠO HỒ SƠ). Trang đích /patients/new gác bằng đúng canWriteIntake,
+          nên nút phải dùng cùng một cờ — lệch một cái là nút và trang nói hai điều
+          khác nhau, và người dùng bấm vào rồi bị đá về /home mà không hiểu vì sao.
+
+          Thu ngân mở /customers để đối chiếu khi thu tiền nhưng KHÔNG có
+          canWriteIntake, nên họ không thấy nút này. Cho họ thấy một nút dẫn tới
+          trang họ sẽ bị chặn ở cửa là mời người ta đi vào ngõ cụt. */}
+      {canEdit && (
+        <Link
+          href="/patients/new"
+          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink-muted shadow-card hover:border-brand-500 hover:text-brand-800"
+          title="Khách mới gọi hỏi nhưng chưa chốt ngày khám — ghi lại để còn gọi lại, không cần đặt lịch ngay."
+        >
+          <UserPlus className="size-4 shrink-0" aria-hidden="true" />
+          Ghi nhận khách quan tâm
+        </Link>
+      )}
 
       {/* BA CỘT KHI ĐANG CHỌN MỘT KHÁCH: danh sách hẹp — VÙNG LÀM VIỆC rộng —
           hồ sơ.
@@ -1693,6 +1780,7 @@ export default function CustomersView({
                         patient_objection: selected.patient_objection,
                         address: selected.address,
                         guardian_name: selected.guardian_name,
+                        updated_at: selected.updated_at ?? null,
                         van_de_di_kham: selected.van_de_di_kham,
                         linh_vuc: selected.linh_vuc,
                       }}

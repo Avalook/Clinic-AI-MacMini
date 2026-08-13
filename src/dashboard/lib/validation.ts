@@ -128,9 +128,72 @@ export function dobError(
   const curYear = Number(maxIso.slice(0, 4));
   if (!Number.isInteger(dd) || !Number.isInteger(mm) || !Number.isInteger(yy))
     return "Ngày/năm không hợp lệ.";
-  if (yy < 1900 || yy > curYear) return "Ngày/năm không hợp lệ.";
+  // Năm tương lai nói thẳng là tương lai. Trước đây nó rơi chung vào câu
+  // "Ngày/năm không hợp lệ.", nên gõ nhầm 2026 thành 2062 thì người trực phải tự
+  // đoán sai ở đâu — trong khi dòng cuối hàm này đã có sẵn câu đúng cho trường
+  // hợp y hệt (ngày trong tương lai của năm hiện tại).
+  if (yy > curYear) return "Ngày sinh không thể ở tương lai.";
+  if (yy < 1900) return `Năm sinh không hợp lệ (1900–${curYear}).`;
   if (mm < 1 || mm > 12) return "Ngày/năm không hợp lệ.";
   if (dd < 1 || dd > daysInMonth(mm, yy)) return "Ngày/năm không hợp lệ.";
   if (dmyToIso(d, m, y) > maxIso) return "Ngày sinh không thể ở tương lai.";
+  return null;
+}
+
+// ===== Bản dùng cho ĐƯỜNG API (chuỗi ISO) =====
+//
+// TÌM ĐƯỢC KHI NGHIỆM THU 11/08/2026: `POST /api/patients` nhận ngày sinh
+// **2099-01-01** và **1850-01-01**, tạo hồ sơ thật.
+//
+// Không phải vì thiếu luật — `dobError()` ngay phía trên đã chặn đúng cả hai từ
+// lâu. Nó chỉ được nối vào ô nhập ba khung dd/mm/yyyy của form. Đường API nhận
+// `date_of_birth` dạng chuỗi ISO và chuyển thẳng xuống, không đi qua luật nào.
+//
+// Đây là dạng lỗi lặp lại của dự án này: LUẬT ĐÚNG, KHÔNG NỐI VÀO ĐƯỜNG THẬT
+// (xem thêm `doDetail()` trong lib/loi-api.ts — cùng một hình dạng, cùng một ngày).
+// Nên bản này KHÔNG chép lại luật; nó tách chuỗi rồi gọi chính `dobError()`.
+
+/** Ngày sinh dạng "yyyy-mm-dd" từ API. null = hợp lệ (hoặc bỏ trống). */
+export function dobErrorIso(
+  iso: string | null | undefined,
+  maxIso: string,
+): string | null {
+  const t = (iso ?? "").trim();
+  if (!t) return null;
+  const khop = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (!khop) return "Ngày sinh không hợp lệ (cần dạng yyyy-mm-dd).";
+  const [, y, m, d] = khop;
+  return dobError(d, m, y, maxIso);
+}
+
+/** Hôm nay ở giờ Việt Nam, dạng "yyyy-mm-dd" — mốc "không thể ở tương lai". */
+export function homNayVn(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// Tên dài nhất từng gặp trong dữ liệu thật là 41 ký tự. 120 cho thoải mái mà vẫn
+// chặn được rác — API từng nhận một cái tên 5000 ký tự và lưu xuống DB.
+export const TEN_TOI_DA = 120;
+
+/**
+ * Kiểm họ tên. null = hợp lệ; chuỗi = lỗi.
+ *
+ * Chặn `<` `>` không phải vì React sẽ hiện ra mã (React tự thoát ký tự, đã kiểm)
+ * — mà vì tên có thẻ HTML là dữ liệu rác sẽ đi tiếp vào phiếu in, tin nhắn, file
+ * xuất Excel, những nơi KHÔNG tự thoát. Chặn ở cửa vào rẻ hơn vá từng nơi ra.
+ */
+export function tenError(v: string | null | undefined): string | null {
+  const t = (v ?? "").trim();
+  if (!t) return "Phải nhập họ tên.";
+  if (t.length > TEN_TOI_DA)
+    return `Họ tên quá dài (tối đa ${TEN_TOI_DA} ký tự).`;
+  if (/[<>]/.test(t)) return "Họ tên chứa ký tự không hợp lệ.";
+  if (/[\u0000-\u001f\u007f]/.test(t))
+    return "Họ tên chứa ký tự không hợp lệ.";
   return null;
 }
