@@ -412,12 +412,25 @@ class CheckoutService:
             raise ValidationError(
                 "Đóng lượt khám dở thì phải ghi vì sao khách về giữa chừng."
             )
-        if blockers and not reason and not incomplete:
-            raise ValidationError(
-                "Lượt khám còn "
-                + str(len(blockers))
-                + " việc chưa xong. Muốn đóng thì phải ghi lý do ngoại lệ."
-            )
+        # CỬA "CÒN VIỆC CHƯA XONG THÌ PHẢI GHI LÝ DO" ĐÃ GỠ (13/08/2026).
+        #
+        # Tuyền chốt khi nghiệm thu: bấm Checkout / Đặt lịch / Tái khám là phải đi
+        # được, không chặn. Cửa cũ đòi gõ một "lý do ngoại lệ" mỗi khi checklist
+        # còn việc treo — mà ở phòng khám thật thì gần như lượt nào cũng còn một
+        # hai việc chưa tick (kết quả về sau, tệp gửi sau), nên nó bắt người ở quầy
+        # giải trình cho chuyện bình thường. Một cửa chặn mà lần nào cũng phải vượt
+        # thì không còn là cửa chặn: người ta gõ bừa cho xong, và dòng lý do ấy
+        # thành rác trong sổ.
+        #
+        # `blockers` VẪN ĐƯỢC TÍNH và vẫn trả về trong `readiness`, nên màn hình
+        # vẫn nói được "lượt này còn 2 việc". Khác một điều: nó BÁO chứ không CHẶN.
+        #
+        # GIỮ NGUYÊN cửa ngay bên trên — đóng lượt DỞ (khách về giữa chừng) vẫn
+        # phải ghi vì sao. Cái đó không phải thủ tục: không có nó thì CSKH không
+        # biết gọi lại nói gì với người bệnh.
+        #
+        # Muốn bật lại: khối cũ ở commit f66f2026, và bật kèm cách để người ở quầy
+        # tick nốt việc treo ngay tại chỗ, chứ không chỉ đòi họ giải trình.
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():

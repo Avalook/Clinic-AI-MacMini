@@ -183,15 +183,20 @@ class TestDongLuotKhamDo:
         )
         assert ket["incomplete"] is True
 
-    def test_dong_binh_thuong_van_doi_ly_do_ngoai_le(self) -> None:
-        """Không được nới luật cũ: còn vướng mà đóng bình thường thì vẫn phải
-        giải trình."""
+    def test_con_viec_treo_van_dong_duoc_khong_can_giai_trinh(self) -> None:
+        """Luật đổi 13/08/2026: còn việc treo thì BÁO, không CHẶN.
+
+        Tuyền chốt khi nghiệm thu: bấm Checkout / Đặt lịch / Tái khám phải đi
+        được. Ở phòng khám thật gần như lượt nào cũng còn một hai việc chưa tick
+        (kết quả về sau, tệp gửi sau), nên cửa cũ bắt người ở quầy giải trình cho
+        chuyện bình thường — và một cửa lần nào cũng phải vượt thì người ta gõ
+        bừa cho xong, biến dòng lý do thành rác trong sổ.
+
+        `blockers` vẫn được tính và vẫn trả về, nên màn hình vẫn nói được "lượt
+        này còn 2 việc". Bài kiểm này giữ ranh giới ấy: BÁO thì còn, CHẶN thì hết.
+        """
         import asyncio
         from unittest.mock import AsyncMock
-
-        import pytest
-
-        from clinicai.api.exceptions import ValidationError
 
         svc, _ = self._service()
         svc.readiness = AsyncMock(
@@ -200,13 +205,14 @@ class TestDongLuotKhamDo:
                 "blockers": [{"type": "service_open", "message": "Còn 2 dịch vụ"}],
             }
         )
-        with pytest.raises(ValidationError, match="lý do ngoại lệ"):
-            asyncio.run(
-                svc.close(
-                    identity=_identity(),
-                    visit_id="11111111-1111-4111-8111-111111111111",
-                )
+
+        ket = asyncio.run(
+            svc.close(
+                identity=_identity(),
+                visit_id="11111111-1111-4111-8111-111111111111",
             )
+        )
+        assert ket["ok"] is True, "còn việc treo vẫn phải đóng được, không đòi lý do"
 
     def test_kham_do_khong_phai_trang_thai_cuoi(self) -> None:
         """Tính chất quan trọng nhất: khách còn quay lại, nên hồ sơ còn ghi
