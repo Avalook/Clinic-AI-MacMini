@@ -127,6 +127,20 @@ export function fmtDayTime(ts: TimeInput): string {
     : "—";
 }
 
+/** "yyyy-MM-dd" theo giờ Việt Nam — cùng dạng với `work_roster.work_date`.
+ *
+ *  KHÔNG dùng `toISOString().slice(0,10)` cho việc này: nó cho ngày theo giờ
+ *  quốc tế, nên một lịch hẹn 07:30 sáng giờ Việt Nam (00:30 UTC cùng ngày) thì
+ *  đúng, còn lịch 06:00 sáng (23:00 UTC HÔM TRƯỚC) lại ra ngày hôm trước — và
+ *  phép tra ca trực sẽ hỏi nhầm ngày. Giờ mở cửa vừa đổi thành 07:00 nên vùng
+ *  sát ranh giới ấy giờ có lịch thật.
+ *
+ *  `en-CA` cho đúng dạng yyyy-MM-dd mà không phải tự ghép chuỗi. */
+export function ngayVN(ts: TimeInput): string {
+  const d = toDate(ts);
+  return d ? d.toLocaleDateString("en-CA", { timeZone: VN_TZ }) : "";
+}
+
 /** "dd/MM/yyyy" (date only) in Vietnam time. */
 export function fmtDate(ts: TimeInput): string {
   const d = toDate(ts);

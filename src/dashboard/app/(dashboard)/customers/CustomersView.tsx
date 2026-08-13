@@ -360,6 +360,8 @@ export interface ApptInfo {
   upcoming: boolean;
   /** Lịch đại diện đã qua giờ mà khách vẫn chưa đến. */
   qua_gio_hen?: boolean;
+  /** Lịch có bác sĩ, nhưng bác sĩ ấy không còn ca trực vào ngày khám. */
+  mat_bac_si?: boolean;
   count: number;
   /** MỌI lịch còn sống và còn sắp tới của khách này, sớm trước.
    *
@@ -1606,6 +1608,21 @@ export default function CustomersView({
                       luotDangXem?.id === selectedAppt.id && (
                         <p className="mt-1 rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
                           ⚠ Đã quá giờ hẹn — khách chưa check-in.
+                        </p>
+                      )}
+                    {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT.
+                        Tình huống số 9 trong bảng "tình huống phát sinh" của
+                        khách. Trước đây quản lý gỡ một ca trực là lịch của
+                        khách nằm im dưới tên một bác sĩ hôm đó không đi làm, và
+                        đường duy nhất để biết là khách tới quầy rồi mới vỡ lẽ —
+                        thứ khách hàng nhớ rất lâu.
+                        Đặt NGAY DƯỚI giờ hẹn, không nhét vào chuỗi bước: người
+                        trực mở hồ sơ là nhìn thấy, không phải cuộn tìm. */}
+                    {selectedAppt?.mat_bac_si &&
+                      luotDangXem?.id === selectedAppt.id && (
+                        <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
+                          ⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho
+                          khách hàng và đổi lịch khám.
                         </p>
                       )}
                   </div>
