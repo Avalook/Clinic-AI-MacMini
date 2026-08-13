@@ -900,12 +900,35 @@ export default function BookingHub({
           // hiện "còn trống" — đúng câu khẳng định gây đặt trùng.
         });
     const t = setTimeout(load, 0);
-    // Chỗ giữ sống tối đa 10 phút và người khác bấm liên tục, nên phải làm mới.
-    const iv = setInterval(load, 15000);
+    // NHỊP 5 GIÂY — trước 14/08/2026 là 15s.
+    //
+    // Đo trên staging: máy chủ thấy một chỗ giữ mới sau 27–40ms, nên gần như
+    // TOÀN BỘ độ trễ người bên cạnh cảm nhận chính là nhịp này. 15s nghĩa là
+    // trung bình 8 giây, chậm nhất 16 — trong khi hai CSKH tranh một khung
+    // thường quyết trong vòng vài giây, tức là cảnh báo tới sau khi việc đã rồi.
+    //
+    // Giá phải trả đã ĐO, không ước lượng: một nhịp tốn 4,8ms cả chuỗi (GoTrue
+    // xác minh token 2,1ms + FastAPI đọc bảng 2,7ms — xem scripts/tests/
+    // do-nhip-hoi.py). Bốn CSKH cùng mở màn ở nhịp 5s = 0,8 lượt/giây = 0,4%
+    // một lõi. Ngưỡng đáng xem lại: khoảng 30 người cùng mở màn này.
+    const iv = setInterval(load, 5000);
+
+    // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI.
+    //
+    // Trình duyệt bóp nhịp của tab bị ẩn, nên quay lại sau mười phút thì bản đồ
+    // chỗ giữ đang cũ và phải chờ hết một nhịp mới đúng. Ở nhịp 15s chuyện đó
+    // đã khó chịu; nhưng lý do thật để thêm bây giờ là: hạ nhịp chỉ có nghĩa
+    // nếu lúc người ta THỰC SỰ NHÌN màn hình thì dữ liệu là mới.
+    const khiHien = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", khiHien);
+
     return () => {
       alive = false;
       clearTimeout(t);
       clearInterval(iv);
+      document.removeEventListener("visibilitychange", khiHien);
     };
   }, [selectedDateIso]);
 
