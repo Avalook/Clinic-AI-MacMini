@@ -1059,6 +1059,34 @@ export default function CustomersView({
       };
     }
 
+    // ĐẶT LỊCH MỚI CŨNG LÀ MỘT SỰ KIỆN, và nó CŨNG KHÔNG đi qua sổ chăm sóc.
+    //
+    // Tuyền 14/08/2026: bấm "Đặt lịch khám mới" xong, vùng làm việc đã chuyển
+    // sang lượt mới (chưa check-in) nhưng chip ở danh sách vẫn nói "Đã khám
+    // xong" — nó đang kể lượt TRƯỚC.
+    //
+    // Cùng lỗ hổng mà nhánh huỷ-lịch ngay trên đã vá, chỉ khác chiều:
+    // `booking_service` ghi lịch mới thẳng vào `appointment`, không dòng nào
+    // vào `tuong_tac_cskh`. Nên "lần chạm cuối" vẫn là cú Checkout của lượt cũ,
+    // và chip kể một chuyện đã kết thúc trong khi khách đã có hẹn mới.
+    //
+    // SO MỐC THỜI GIAN, không xếp thứ tự cứng — cùng phép so với nhánh huỷ:
+    // cái nào xảy ra SAU thì cái ấy là chuyện của khách này bây giờ. Nhờ vậy
+    // một cuộc gọi xác nhận SAU khi đặt lịch vẫn thắng lại, đúng như phải thế.
+    const datLuc =
+      apptRow?.created_at && LUOT_CHUA_DONG.includes(apptRow.status)
+        ? apptRow.created_at
+        : null;
+    if (
+      datLuc &&
+      (!chamCuoiRow || mocMs(datLuc) >= mocMs(chamCuoiRow.xay_ra_luc))
+    ) {
+      return {
+        label: quaGio ? "Đã đặt lịch · quá giờ hẹn" : "Đã đặt lịch",
+        tone: quaGio ? "overdue" : "ready",
+      };
+    }
+
     const chamCuoi = nhanLanChamCuoi(chamCuoiRow);
     if (chamCuoi) {
       return {
