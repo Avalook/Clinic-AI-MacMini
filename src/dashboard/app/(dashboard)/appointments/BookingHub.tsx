@@ -42,6 +42,7 @@ import NewPatientForm, {
   type Option,
   type ProvinceOpt,
 } from "../patients/new/NewPatientForm";
+import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
 export interface PatientLite {
   clinic_patient_id: string;
@@ -1362,9 +1363,7 @@ export default function BookingHub({
         // Đo được trên staging 14/08/2026: 409 với đúng thân lỗi ấy. Cùng họ
         // với lỗi đã vá hôm 13/08 — backend nói "không tìm thấy nhân viên",
         // màn hình dịch thành "máy chủ hỏng".
-        setBookingError(
-          err.message || err.detail || err.error || "Không thể đặt lịch.",
-        );
+        setBookingError(loiDocDuoc(err, "Không thể đặt lịch."));
       }
       // SERVER ĐÃ TRẢ LỜI ⇒ BỎ KHOÁ, dù là 201 hay 409.
       //
