@@ -287,6 +287,48 @@ export default function NewPatientForm({
       .catch(() => {});
     return () => ctrl.abort();
   }, [dutyDate]);
+
+  // KHOẢNG GIỜ THẬT CỦA TỪNG BÁC SĨ TRỰC.
+  //
+  // `/api/roster` chỉ trả về AI có ca, không trả về ca ấy phủ giờ nào — nó khử
+  // trùng theo staff_id và bỏ luôn cột SANG/CHIEU/FULL. Nên sơ đồ vẽ đủ mọi cột
+  // 07:00→23:00 cho một bác sĩ chỉ trực chiều, và máy chủ từ chối lúc lưu.
+  //
+  // HỎI ĐÚNG ENDPOINT MÀ LƯỚI BÊN MÀN ĐẶT LỊCH ĐANG HỎI. `/appointments/quote`
+  // trả `shift_windows` do `core/shifts.py` tính — một luật duy nhất cho cả hai
+  // lưới. Tự quy đổi SANG/CHIEU thành giờ ở đây sẽ là bản thứ hai của luật ấy,
+  // và nó sẽ lệch vào ngày phòng khám đổi mốc 12:00.
+  //
+  // Một lượt gọi cho mỗi bác sĩ trực — thường một tới ba người một ngày.
+  const [shiftWindows, setShiftWindows] = useState<
+    Record<string, [number, number][]>
+  >({});
+  useEffect(() => {
+    if (!dutyDate || !dutyDoctorIds || dutyDoctorIds.length === 0) return;
+    const ctrl = new AbortController();
+    void Promise.all(
+      dutyDoctorIds.map((id) =>
+        fetch(
+          `/api/appointments/quote?date=${encodeURIComponent(dutyDate)}` +
+            `&doctor_id=${encodeURIComponent(id)}`,
+          { signal: ctrl.signal },
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .then(
+            (j: { shift_windows?: [number, number][] } | null) =>
+              [id, j?.shift_windows ?? []] as const,
+          )
+          .catch(() => [id, [] as [number, number][]] as const),
+      ),
+    ).then((cap) => {
+      if (ctrl.signal.aborted) return;
+      // Chỉ ghi những người ĐỌC ĐƯỢC ca. Ghi mảng rỗng cho người hỏi hụt thì
+      // `trongCa` hiểu thành "chưa biết" và không chặn — đúng ý, nhưng viết ra
+      // để lần sau đọc không tưởng là bỏ sót.
+      setShiftWindows(Object.fromEntries(cap));
+    });
+    return () => ctrl.abort();
+  }, [dutyDate, dutyDoctorIds]);
   // Ô "Bác sĩ" CHỈ MỜI NGƯỜI CÓ TRỰC NGÀY ĐÓ.
   //
   // Quang 09/08/2026: *"rõ là hôm nay có lịch mà sao lúc đặt lịch lại không
@@ -416,6 +458,17 @@ export default function NewPatientForm({
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // TRÙNG TÊN ĐƠN THUẦN — tín hiệu YẾU, tách khỏi `phoneDupes`.
+  //
+  // `phoneDupes` là những hồ sơ mà ĐƯỜNG LƯU cũng coi là trùng (số điện thoại,
+  // CCCD, hoặc tên + năm sinh). Danh sách này thì chỉ trùng tên — thường gặp ở
+  // Việt Nam nên không được trộn vào đó, nếu không người trực sẽ học cách bỏ
+  // qua cả hai.
+  const [trungTen, setTrungTen] = useState<PhoneMatch[]>([]);
+  /** Năm sinh đang gõ — dùng để đoán nhánh nào đã khớp (xem chỗ vẽ cảnh báo). */
+  const namSinhDangGo = dobYearOnly
+    ? Number(birthYear) || null
+    : Number(dobIso.slice(0, 4)) || null;
   const [dupes, setDupes] = useState<DupMatch[] | null>(null);
 
   // Cảnh báo SỚM trùng SĐT (feedback #9): nhập đủ 10 số → hỏi backend xem đã có
@@ -458,8 +511,12 @@ export default function NewPatientForm({
           const json = (await res.json()) as {
             exists?: boolean;
             matches?: PhoneMatch[];
+            trung_ten?: PhoneMatch[];
           };
-          if (alive) setPhoneDupes(json.exists ? (json.matches ?? []) : []);
+          if (alive) {
+            setPhoneDupes(json.exists ? (json.matches ?? []) : []);
+            setTrungTen(json.trung_ten ?? []);
+          }
         } catch {
           /* cảnh báo là phụ: lỗi mạng thì im lặng, submit vẫn có guard riêng */
         }
@@ -854,7 +911,24 @@ export default function NewPatientForm({
             {/* Cảnh báo MỀM trùng SĐT (feedback #9) — KHÔNG chặn lưu. */}
             {phoneDupes.length > 0 && (
               <div className="mt-1.5 rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-[12px] text-warning">
-                <p className="font-medium">⚠ Số này đã có trong hệ thống:</p>
+                {/* NÓI ĐÚNG THỨ ĐÃ KHỚP.
+                    Bản trước luôn mở đầu bằng "Số này đã có trong hệ thống",
+                    kể cả khi thứ khớp là TÊN + NĂM SINH chứ không phải số điện
+                    thoại — nên người trực đọc xong vẫn tưởng nó nói về số, và
+                    một cảnh báo trùng tên trôi qua như không có.
+                    Suy được vì luật khớp mạnh chỉ có ba nhánh, mà biểu mẫu này
+                    không gửi CCCD: khớp cả tên lẫn năm sinh ⇒ nhánh tên; còn
+                    lại ⇒ nhánh số điện thoại. */}
+                <p className="font-medium">
+                  ⚠{" "}
+                  {phoneDupes.every(
+                    (m) =>
+                      m.birth_year === namSinhDangGo &&
+                      unaccentVi(m.full_name) === unaccentVi(fullName.trim()),
+                  )
+                    ? "Trùng cả họ tên và năm sinh với hồ sơ đã có:"
+                    : "Số này đã có trong hệ thống:"}
+                </p>
                 <ul className="mt-1 space-y-0.5">
                   {phoneDupes.map((m) => (
                     <li key={m.patient_code}>
@@ -871,6 +945,34 @@ export default function NewPatientForm({
                 <p className="mt-1">
                   Kiểm tra xem có phải người nhà dùng chung số không. Vẫn tạo
                   mới được.
+                </p>
+              </div>
+            )}
+            {/* TRÙNG TÊN ĐƠN THUẦN — nhẹ hơn, và nói rõ là nhẹ hơn.
+                Trùng tên ở Việt Nam là chuyện thường, nên khối này không dùng
+                màu cảnh báo và không đứng chung với khối trên: gộp lại thì
+                người trực sẽ học cách bỏ qua cả hai. */}
+            {trungTen.length > 0 && (
+              <div className="mt-1.5 rounded-lg border border-line bg-surface-muted px-3 py-2 text-[12px] text-ink-soft">
+                <p className="font-medium text-ink">
+                  Đã có {trungTen.length} hồ sơ trùng họ tên (khác năm sinh):
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {trungTen.map((m) => (
+                    <li key={m.patient_code}>
+                      {m.full_name}{" "}
+                      <span className="font-mono text-ink-muted">
+                        {m.patient_code}
+                      </span>
+                      {m.birth_year && (
+                        <span className="text-ink-muted"> · {m.birth_year}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1">
+                  Trùng tên là chuyện thường — chỉ nhắc để kiểm lại năm sinh có
+                  gõ nhầm không.
                 </p>
               </div>
             )}
@@ -1128,6 +1230,7 @@ export default function NewPatientForm({
                   doctors={doctors}
                   dutyDoctorIds={dutyDoctorIds}
                   dutyDuKien={dutyDuKien}
+                  shiftWindows={shiftWindows}
                   existingAppts={visibleExistingAppts}
                   selectedDoctorId={doctorId}
                   selectedTime={apptTime}

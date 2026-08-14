@@ -26,6 +26,18 @@ import type { Option } from "./AppointmentBooking";
 
 const EMPTY_USAGE = new Map<string, SlotUsage>();
 
+/** Phút này có nằm trong ca trực không.
+ *
+ *  Nửa mở `[lo, hi)` — cùng quy ước với mọi khoảng phút khác trong hệ thống,
+ *  và cùng quy ước với `covers()` bên backend. Một khung bắt đầu đúng 12:00
+ *  thuộc ca CHIỀU, không thuộc ca SÁNG.
+ */
+function trongCa(windows: [number, number][] | undefined, phut: number): boolean {
+  // Không biết ca của người này ⇒ không chặn. Xem ghi chú ở prop shiftWindows.
+  if (!windows || windows.length === 0) return true;
+  return windows.some(([lo, hi]) => phut >= lo && phut < hi);
+}
+
 export type PickerMode = "regular" | "walkin";
 
 export default function CinemaSlotPicker({
@@ -39,6 +51,7 @@ export default function CinemaSlotPicker({
   mode = "regular",
   choChonGheTrucTiep = false,
   selectedKind,
+  shiftWindows,
   onPick,
 }: {
   date: string;
@@ -60,6 +73,18 @@ export default function CinemaSlotPicker({
   /** Loại ghế đang chọn — để tô "đang chọn" ĐÚNG hàng khi cả 2 loại bấm được.
    *  Bỏ trống → suy theo mode (walkin→"walkin", còn lại→"regular"). */
   selectedKind?: "regular" | "walkin";
+  /** Khoảng PHÚT trong ngày mà mỗi bác sĩ thật sự trực, theo staff_id.
+   *
+   *  LẤY TỪ BACKEND (`/appointments/quote?doctor_id=…` → `shift_windows`),
+   *  KHÔNG TỰ TÍNH. Ca SÁNG/CHIỀU chỉ là ba cái nhãn; chúng thành khoảng giờ
+   *  bằng một luật duy nhất trong `core/shifts.py` (mốc 12:00 là quyết định
+   *  của phòng khám, và nó nằm ở đúng một hằng số). Tính lại ở đây là dựng bản
+   *  thứ hai của luật ấy, và bản thứ hai sẽ lệch vào ngày phòng khám đổi mốc.
+   *
+   *  `undefined` hoặc thiếu bác sĩ = chưa biết ⇒ KHÔNG chặn gì. Chặn dựa trên
+   *  một điều chưa biết là khoá lịch của người đang thật sự đi làm — sai theo
+   *  hướng đó tệ hơn hẳn. */
+  shiftWindows?: Record<string, [number, number][]>;
   onPick: (doctorId: string, hhmm: string, kind: "regular" | "walkin") => void;
 }) {
   // Luật của phòng khám đang đăng nhập — CÙNG một hàng clinic.settings mà
@@ -282,6 +307,20 @@ export default function CinemaSlotPicker({
                     }
                     const bucketMs = iso ? Date.parse(iso) : 0;
                     const isPast = iso ? bucketMs < now : false;
+                    // NGOÀI CA TRỰC — luật cao hơn cả sức chứa.
+                    //
+                    // Lưới này trước đây chỉ lọc "bác sĩ nào CÓ ca hôm đó", rồi
+                    // vẽ đủ mọi cột 07:00→23:00. Nên một bác sĩ chỉ trực CHIỀU
+                    // vẫn được mời đặt lúc 07:00 — bấm được, tô xanh, rồi máy
+                    // chủ từ chối: *"chỉ trực 12:00–23:00, không có mặt lúc
+                    // 07:00"*. Hồ sơ bệnh nhân đã kịp tạo, chỉ lịch hẹn hỏng.
+                    //
+                    // Lưới bên màn Đặt lịch vốn đã làm đúng ("Ngoài ca trực").
+                    // Hai lưới cùng một việc mà biết hai thứ khác nhau là chỗ
+                    // lỗi này sinh ra.
+                    const [gio, phut] = t.split(":");
+                    const phutTrongNgay = Number(gio) * 60 + Number(phut);
+                    const ngoaiCa = !trongCa(shiftWindows?.[d.id], phutTrongNgay);
                     const u = iso
                       ? usageAt(usage, d.id || null, bucketMs)
                       : { regular: 0, walkin: 0 };
@@ -312,14 +351,16 @@ export default function CinemaSlotPicker({
                             ? policy.regularCap
                             : policy.walkinCap) - 1,
                         );
-                    const disabled = isPast || isTaken || !pickable;
+                    const disabled = isPast || isTaken || !pickable || ngoaiCa;
                     const title = `${d.label} · ${slotRange(t, policy.slotMinutes)} · ${
                       sub.kind === "walkin" ? "chỗ đến trực tiếp" : sub.label
                     }${
-                      isTaken
-                        ? " · đã kín"
-                        : isPast
-                          ? " · đã qua"
+                      ngoaiCa
+                        ? " · ngoài ca trực của bác sĩ này"
+                        : isTaken
+                          ? " · đã kín"
+                          : isPast
+                            ? " · đã qua"
                           : !pickable
                             ? walkinMode
                               ? " · chỗ đặt hẹn (CSKH đặt)"
@@ -330,6 +371,8 @@ export default function CinemaSlotPicker({
                       "h-6 w-full min-w-[3.75rem] rounded text-[10px] font-medium transition " +
                       (isSelected
                         ? "bg-brand-800 text-white"
+                        : ngoaiCa
+                          ? "cursor-not-allowed border border-dashed border-line bg-surface-muted text-ink-faint"
                         : isPast || isTaken
                           ? "cursor-not-allowed bg-line text-ink-faint"
                           : sub.kind === "walkin"

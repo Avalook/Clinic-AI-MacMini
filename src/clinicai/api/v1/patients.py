@@ -135,8 +135,51 @@ async def check_duplicate(
         date_of_birth=_date(birth_year, 1, 1) if birth_year else None,
     )
     found = await MPIService.find_candidates(pool, probe, identity.clinic_id)
+
+    # TRÙNG TÊN ĐƠN THUẦN — TÍN HIỆU YẾU, TÁCH RIÊNG.
+    #
+    # Luật khớp mạnh ở trên đòi tên VÀ năm sinh cùng khớp, nên "Lương Thị Như"
+    # sinh 1990 gõ vào khi hệ thống đã có "Lương Thị Như" sinh 2026 thì không
+    # có gì báo. Tuyền gặp đúng ca ấy 14/08/2026.
+    #
+    # KHÔNG gộp vào `matches`: danh sách ấy phải khớp ĐÚNG những gì đường lưu
+    # coi là trùng (MPIService.find_candidates) — đó là lý do endpoint này tồn
+    # tại. Nhét thêm tín hiệu yếu vào là hai bên lệch nhau trở lại, đúng thứ nó
+    # sinh ra để chống.
+    #
+    # Và trùng tên ở Việt Nam là chuyện thường, nên đây chỉ là một câu nhắc để
+    # người trực tự nhìn — không phải một cái khoá.
+    trung_ten: list[dict[str, Any]] = []
+    if full_name and (ten := full_name.strip()):
+        da_co = {p.patient_code for p in found}
+        rows = await pool.fetch(
+            """
+            SELECT full_name, patient_code, date_of_birth, birth_year
+              FROM public.patient
+             WHERE clinic_id = $1::uuid
+               AND is_active
+               AND full_name_unaccent = lower(replace(replace(
+                     f_unaccent($2), 'đ', 'd'), 'Đ', 'D'))
+             ORDER BY created_at DESC
+             LIMIT 6
+            """,
+            identity.clinic_id,
+            ten,
+        )
+        trung_ten = [
+            {
+                "full_name": r["full_name"],
+                "patient_code": r["patient_code"],
+                "birth_year": r["birth_year"]
+                or (r["date_of_birth"].year if r["date_of_birth"] else None),
+            }
+            for r in rows
+            if r["patient_code"] not in da_co
+        ][:5]
+
     return {
         "exists": bool(found),
+        "trung_ten": trung_ten,
         # Tối thiểu đủ để nhận ra người: KHÔNG trả CCCD, địa chỉ hay số điện
         # thoại đầy đủ — màn này chỉ cần trả lời "có phải người này không".
         "matches": [
