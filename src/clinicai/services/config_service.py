@@ -24,6 +24,7 @@ rather than a second row nobody notices.
 
 from __future__ import annotations
 
+import json
 import math
 from datetime import date, timedelta
 from typing import Any, Literal
@@ -351,11 +352,31 @@ class RosterService:
             raise NotFoundError("Không tìm thấy ca trực")
 
     async def remove(self, *, roster_id: str, identity: StaffIdentity) -> None:
-        """Remove a shift. Non-managers may only remove their own."""
+        """Gỡ một ca trực — VÀ gỡ bác sĩ khỏi những lịch hẹn ca ấy đang gánh.
+
+        Tuyền chốt 14/08/2026: gỡ ca trực thì lịch hẹn của khách phải bỏ luôn
+        bác sĩ ấy — *"còn để lại làm gì"* — và rơi về hàng "Chờ xếp bác sĩ".
+
+        TRONG CÙNG MỘT GIAO DỊCH với việc xoá ca. Tách ra hai bước thì có một
+        khoảnh khắc ca trực đã mất mà lịch vẫn mang tên người không đi làm; và
+        nếu bước hai hỏng thì khoảnh khắc ấy kéo dài mãi mãi, không ai biết.
+
+        CHỈ CA KHÁM (`LICH_KHAM`). Gỡ ca thủ thuật ngoài giờ của một bác sĩ
+        không đụng gì tới lịch hẹn khám của họ — hai việc khác nhau.
+
+        CHỈ LỊCH CÒN CỨU ĐƯỢC: chưa tới giờ, và khách chưa tới nơi. Gỡ bác sĩ
+        khỏi một lượt đã khám xong là viết lại quá khứ; khỏi một lượt đang khám
+        là lấy bác sĩ ra khỏi phòng.
+
+        NHỚ NGƯỜI BỊ GỠ (`bac_si_da_go_id`). Đặt `doctor_id = NULL` rồi thôi là
+        xoá mất một sự thật: khách đã được hẹn với một người cụ thể và CSKH sắp
+        phải gọi giải thích. Không có tên ấy thì câu gọi chỉ còn "lịch của chị
+        bị đổi", không nói được đổi từ ai.
+        """
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 row = await conn.fetchrow(
-                    "SELECT staff_id FROM work_roster "
+                    "SELECT staff_id, work_date, station FROM work_roster "
                     "WHERE id = $1::uuid AND clinic_id = $2::uuid",
                     roster_id,
                     identity.clinic_id,
@@ -374,6 +395,80 @@ class RosterService:
                     roster_id,
                     identity.clinic_id,
                 )
+
+                if row["station"] != "LICH_KHAM" or row["staff_id"] is None:
+                    return
+
+                # NGƯỜI ẤY CÒN CA KHÁM NÀO KHÁC TRONG NGÀY KHÔNG?
+                #
+                # Một bác sĩ có thể được xếp cả SÁNG lẫn CHIỀU thành hai dòng.
+                # Gỡ một dòng mà đá hết lịch hẹn ra là sai: họ vẫn đi làm hôm
+                # ấy. Chỉ khi KHÔNG còn dòng ca khám nào thì họ mới thật sự
+                # nghỉ. (Ca sáng/chiều lệch giờ với lịch hẹn là chuyện khác, do
+                # `core/shifts.py` lo ở đường đặt lịch.)
+                con_ca = await conn.fetchval(
+                    "SELECT 1 FROM work_roster "
+                    " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid "
+                    "   AND work_date = $3 AND station = 'LICH_KHAM' LIMIT 1",
+                    identity.clinic_id,
+                    row["staff_id"],
+                    row["work_date"],
+                )
+                if con_ca:
+                    return
+
+                go = await conn.fetch(
+                    """
+                    UPDATE public.appointment
+                       SET doctor_id = NULL,
+                           bac_si_da_go_id = doctor_id,
+                           bo_bac_si_luc = now()
+                     WHERE clinic_id = $1::uuid
+                       AND doctor_id = $2::uuid
+                       AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           = $3
+                       AND slot_start > now()
+                       AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                    RETURNING id::text
+                    """,
+                    identity.clinic_id,
+                    row["staff_id"],
+                    row["work_date"],
+                )
+                for r in go:
+                    await conn.execute(
+                        """
+                        INSERT INTO public.event_log
+                            (clinic_id, event_type, aggregate_type, aggregate_id,
+                             payload, metadata, source, event_published)
+                        VALUES ($1::uuid, 'appointment.doctor_removed',
+                                'appointment', $2::uuid, $3::jsonb, $4::jsonb,
+                                'api:roster', FALSE)
+                        """,
+                        identity.clinic_id,
+                        r["id"],
+                        json.dumps(
+                            {
+                                "ly_do": "ca_truc_bi_go",
+                                "bac_si_da_go_id": str(row["staff_id"]),
+                                "work_date": row["work_date"].isoformat(),
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "clinic_role": identity.role.value,
+                                "clinic_staff_id": identity.staff_id,
+                                "origin": "api:roster",
+                            }
+                        ),
+                    )
+                if go:
+                    logger.info(
+                        "roster_shift_removed_unassigned_appointments",
+                        so_lich=len(go),
+                        staff_id=str(row["staff_id"]),
+                        work_date=row["work_date"].isoformat(),
+                    )
 
     async def apply_week(
         self, *, week_start: date, identity: StaffIdentity

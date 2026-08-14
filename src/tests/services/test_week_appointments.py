@@ -68,6 +68,7 @@ def _record(**over: Any) -> _Row:
         # Cột thêm 14/08/2026 — bảng "check đặt lịch" phải nói khi bác sĩ
         # không còn ca khám hôm đó.
         "mat_bac_si": False,
+        "bac_si_da_go": None,
         "clinic_patient_id": "33333333-3333-4333-8333-333333333333",
         "patient_code": "BN-2026-000001",
         "full_name": "Nguyễn Thị A",
@@ -214,3 +215,19 @@ def test_lich_mat_bac_si_duoc_danh_dau_trong_bang_check_dat_lich() -> None:
         "thiếu clinic_id thì một bác sĩ trực ở cơ sở KHÁC vẫn được đọc là "
         "'có đi làm' — đúng thứ cờ này sinh ra để phát hiện"
     )
+
+
+def test_go_bac_si_van_con_duong_canh_bao() -> None:
+    """Gỡ bác sĩ xong thì cảnh báo KHÔNG được tắt theo.
+
+    Tuyền chốt 14/08/2026 (phương án b): gỡ ca trực thì bỏ luôn bác sĩ khỏi
+    lịch hẹn. Nhưng cờ `mat_bac_si` đòi lịch phải CÓ bác sĩ mà bác sĩ ấy không
+    còn ca — gỡ ra là điều kiện sai và cảnh báo tự tắt, đúng lúc nó cần nhất.
+
+    `bac_si_da_go_id` là thứ giữ cho màn hình còn nói được, và nói rõ hơn: đổi
+    từ ai. Không có nó thì CSKH gọi khách chỉ nói được "lịch của chị bị đổi".
+    """
+    from clinicai.services.week_appointments_service import _SQL
+
+    assert "bac_si_da_go_id" in _SQL, "truy vấn phải mang cột bác sĩ đã gỡ"
+    assert "AS bac_si_da_go" in _SQL, "phải trả TÊN người bị gỡ, không chỉ id"

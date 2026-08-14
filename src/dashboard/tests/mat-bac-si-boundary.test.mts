@@ -85,10 +85,14 @@ test("cờ mất bác sĩ tính THEO TỪNG LƯỢT, không chỉ cho lịch đ�
   // mất. Người trực chỉ thấy một ô giờ hẹn bình thường.
   //
   // Nay cờ đi theo chính lượt, nên không còn phép so giữa hai nguồn nào cả.
+  const khoiLuot = /mat_bac_si:[\s\S]{0,600}?ngayVN\(a\.slot_start\)/.exec(page);
+  assert.ok(khoiLuot, "phải tính cờ cho từng lượt trong lịch sử khám");
+  assert.match(khoiLuot![0], /doCaTruc/, "vẫn phải có chốt an toàn tập ca trực");
   assert.match(
-    page,
-    /mat_bac_si:\s*\n?\s*doCaTruc &&\s*\n?\s*!!a\.doctor_id/,
-    "phải tính cờ cho từng lượt trong lịch sử khám",
+    khoiLuot![0],
+    /a\.bac_si_da_go_id/,
+    "và phải bật cả khi bác sĩ ĐÃ bị gỡ — lúc ấy doctor_id đã về null nên " +
+      "điều kiện 'có bác sĩ mà không có ca' không còn đúng",
   );
   const view = readFileSync(
     new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),

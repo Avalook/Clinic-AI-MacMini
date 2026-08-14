@@ -684,10 +684,22 @@ class TestRosterAuthorisation:
             )
 
     def test_management_may_remove_anybody_s(self) -> None:
-        pool = _StubPool({"staff_id": "someone-else"})
+        # `station` khác LICH_KHAM ⇒ dừng ngay sau khi xoá ca, không đụng lịch
+        # hẹn. Đó là ca đơn giản nhất và cũng là ca cần canh: gỡ một ca thủ
+        # thuật ngoài giờ KHÔNG được kéo lịch khám của ai ra.
+        pool = _StubPool(
+            {
+                "staff_id": "someone-else",
+                "work_date": date(2026, 8, 15),
+                "station": "THU_THUAT_NGOAI_GIO",
+            }
+        )
         asyncio.run(
             RosterService(pool).remove(
                 roster_id="r1", identity=_staff(ClinicRole.MANAGEMENT, "mgr")
             )
         )
         assert any("DELETE" in sql for sql, _ in pool.conn.calls)
+        assert not any(
+            "UPDATE public.appointment" in sql for sql, _ in pool.conn.calls
+        ), "gỡ ca ngoài trạm khám không được đụng tới lịch hẹn"
