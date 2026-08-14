@@ -4,6 +4,7 @@ import { doctorName } from "../../../lib/doctor-name";
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { StaffRow } from "../../api/staff/route";
+import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
 interface ConfigLocation {
   id: string;
@@ -126,7 +127,7 @@ export default function NhanSuBoard({
         const err = await res.json().catch(() => ({}));
         // `message` trước `error`: `error` là MÃ máy ("VALIDATION_ERROR"),
         // `message` là câu người đọc. Cùng luật với BookingHub.
-        setError(err.message || err.detail || err.error || "Không lưu được hồ sơ.");
+        setError(loiDocDuoc(err, "Không lưu được hồ sơ."));
         return;
       }
       const updated = (await res.json()) as StaffRow;

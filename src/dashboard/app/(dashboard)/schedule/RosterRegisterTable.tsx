@@ -21,6 +21,7 @@ import {
   type Shift,
 } from "../../../lib/roster";
 import { RosterGridHead, RosterDayRows, O_TREN, O_DUOI } from "../RosterGrid";
+import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
 export interface RegisterRow {
   id: string;
@@ -240,11 +241,32 @@ export default function RosterRegisterTable({
       }),
     });
     setBusy(false);
+    const than = await res.json().catch(() => ({}));
     if (!res.ok) {
       setOptimistic((opt) => opt.filter((o) => o.id !== tempId));
-      setError((await res.json()).error ?? "Lỗi khi xếp ca.");
+      setError(loiDocDuoc(than, "Lỗi khi xếp ca."));
       return;
     }
+    // ĐỔI ID TẠM SANG ID THẬT NGAY KHI SERVER TRẢ VỀ.
+    //
+    // Bản trước để nguyên dòng optimistic mang `temp-…` rồi chỉ gọi refresh().
+    // Nhưng popup CỐ Ý ở lại mở, nên người xếp xong thấy ngay dòng vừa thêm —
+    // và dòng ấy vẫn là dòng tạm. Bấm thùng rác trên nó gửi
+    // `DELETE /roster/shifts/temp-2026-08-22-LICH_KHAM-…` xuống máy chủ; đường
+    // ấy khai tham số là UUID nên trả 422, và màn hình chỉ nói "Lỗi khi gỡ ca."
+    //
+    // Đo trên prod 14/08/2026: id thật gỡ được (200), id tạm 422 ba lần liên
+    // tiếp — Tuyền bấm lại ba lần vì không có gì nói cho biết vì sao.
+    //
+    // Không xoá hẳn dòng tạm ở đây: refresh() là một vòng mạng nữa, và trong
+    // lúc chờ thì ô vừa xếp trống trở lại rồi mới hiện — nhấp nháy đúng vào
+    // khoảnh khắc người ta đang nhìn nó.
+    const idThat = typeof than?.id === "string" ? than.id : null;
+    setOptimistic((opt) =>
+      idThat
+        ? opt.map((o) => (o.id === tempId ? { ...o, id: idThat } : o))
+        : opt.filter((o) => o.id !== tempId),
+    );
     // GIỮ POPUP MỞ. Mỗi ngày có tới hai người mỗi trạm; đóng lại sau người thứ
     // nhất là bắt quản lý bấm vào đúng ô ấy thêm một lần nữa.
     setPickedId("");
@@ -253,6 +275,15 @@ export default function RosterRegisterTable({
 
   async function remove(id: string) {
     setError(null);
+    // CHỐT CUỐI: không bao giờ gửi một id tạm xuống máy chủ. Trên lý thuyết
+    // xepCa() đã đổi nó sang id thật rồi, nhưng nếu vòng mạng ấy hỏng thì dòng
+    // tạm vẫn còn — và khi đó câu trả lời đúng là "làm mới rồi thử lại", không
+    // phải một mã 422 khó hiểu.
+    if (id.startsWith("temp-")) {
+      setError("Ca này chưa lưu xong. Bấm làm mới rồi gỡ lại.");
+      refresh();
+      return;
+    }
     setOverrides((ov) => ({ ...ov, [id]: "REMOVED" }));
     const res = await fetch("/api/roster", {
       method: "DELETE",
@@ -265,7 +296,7 @@ export default function RosterRegisterTable({
         delete n[id];
         return n;
       });
-      setError((await res.json()).error ?? "Lỗi khi gỡ ca.");
+      setError(loiDocDuoc(await res.json().catch(() => ({})), "Lỗi khi gỡ ca."));
       return;
     }
     refresh();

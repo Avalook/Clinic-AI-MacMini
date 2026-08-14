@@ -20,9 +20,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+// Ba màn dựng câu lỗi từ thân JSON của máy chủ. Tất cả phải đi qua CÙNG một
+// hàm `loiDocDuoc` — ba bản chép tay của một luật là ba bản chờ ngày lệch nhau,
+// và bản thứ ba đã lệch thật: màn xếp ca đọc `.error` nên nuốt mất `detail` của
+// lỗi 422 và chỉ hiện "Lỗi khi gỡ ca." (14/08/2026).
 const MAN_HINH = [
   "app/(dashboard)/appointments/BookingHub.tsx",
   "app/(dashboard)/nhan-su/NhanSuBoard.tsx",
+  "app/(dashboard)/schedule/RosterRegisterTable.tsx",
 ];
 
 for (const duong of MAN_HINH) {
@@ -30,20 +35,15 @@ for (const duong of MAN_HINH) {
     .replace(/\/\/.*$/gm, "")
     .replace(/\/\*[\s\S]*?\*\//g, "");
 
-  test(`${duong}: đọc message trước error`, () => {
-    const chuoi = ma.match(/err\.\w+(?:\s*\|\|\s*err\.\w+)+/g) ?? [];
-    assert.ok(chuoi.length > 0, "không tìm thấy chỗ dựng câu lỗi");
-    for (const c of chuoi) {
-      const thu_tu = [...c.matchAll(/err\.(\w+)/g)].map((m) => m[1]);
-      const viTriMessage = thu_tu.indexOf("message");
-      const viTriError = thu_tu.indexOf("error");
-      if (viTriMessage === -1 || viTriError === -1) continue;
-      assert.ok(
-        viTriMessage < viTriError,
-        `"${c}" — đọc mã máy trước câu người đọc; người dùng sẽ thấy ` +
-          `"CONFLICT_ERROR" thay cho "Khung giờ đã đầy…"`,
-      );
-    }
+  test(`${duong}: dựng câu lỗi qua loiDocDuoc, không chép tay`, () => {
+    assert.match(ma, /loiDocDuoc\(/, "phải dùng hàm chung");
+    // Không còn chuỗi `x.error || x.message || …` viết tay ở đâu cả: đó chính
+    // là hình dạng đã cho ra "CONFLICT_ERROR" trên màn đặt lịch.
+    assert.doesNotMatch(
+      ma,
+      /\w+\.error\s*\|\|\s*\w+\.message/,
+      "đọc mã máy trước câu người đọc",
+    );
   });
 }
 
