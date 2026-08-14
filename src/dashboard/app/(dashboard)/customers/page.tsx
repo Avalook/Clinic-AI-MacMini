@@ -495,6 +495,11 @@ type LichHenRaw = {
    *  lần khám" ở cuối file cũng đọc nó — gom lại một lần rồi dùng hai chỗ, thay
    *  vì bắn thêm một truy vấn cho cùng dữ liệu. */
   const grouped: Record<string, LichHenRaw[]> = {};
+  // TẬP CA TRỰC DÙNG CHO CẢ HAI CHỖ: cờ "mất bác sĩ" của lịch đại diện (ngay
+  // dưới) và của TỪNG LƯỢT trong lịch sử khám (cuối tệp). Khai ở ngoài khối để
+  // không phải hỏi database lần thứ hai cho cùng một câu hỏi.
+  const coCaTruc = new Set<string>();
+  let doCaTruc = false;
   if (rows.length) {
     // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
     // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
@@ -517,11 +522,10 @@ type LichHenRaw = {
     if (caTrucErr) {
       console.error("customers: không nạp được ca trực", caTrucErr);
     }
-    const coCaTruc = new Set<string>();
     for (const r of (caTruc as unknown as CaTrucRaw[] | null) ?? []) {
       if (r.staff_id && r.work_date) coCaTruc.add(`${r.staff_id}|${r.work_date}`);
     }
-    const doCaTruc = coCaTruc.size > 0;
+    doCaTruc = coCaTruc.size > 0;
     // SO GIỜ BẰNG MỐC THỜI GIAN, KHÔNG BẰNG CHUỖI.
     //
     // Chỗ này từng là `a.slot_start >= new Date().toISOString()`. Database chạy
@@ -1003,6 +1007,23 @@ type LichHenRaw = {
             service_name: pick1(a.service)?.name ?? null,
             doctor_name: pick1(a.doctor)?.full_name ?? null,
             lich_truoc_id: a.lich_truoc_id ?? null,
+            // MẤT BÁC SĨ — TÍNH CHO CHÍNH LƯỢT NÀY.
+            //
+            // Cùng phép tính với `mat_bac_si` của lịch đại diện bên trên, chỉ
+            // khác là gắn vào từng lượt. Bản trước chỉ có ở lịch đại diện, và
+            // màn hình vẽ khi `luotDangXem.id === selectedAppt.id` — một phép
+            // so giữa hai nguồn dữ liệu khác nhau, im lặng khi chúng không trỏ
+            // cùng một lịch.
+            //
+            // `doCaTruc` vẫn là chốt an toàn: tập ca trực rỗng (truy vấn hỏng,
+            // tuần chưa xếp) KHÔNG được đọc thành "mọi bác sĩ đều nghỉ" — báo
+            // nhầm hàng loạt tệ hơn không báo.
+            mat_bac_si:
+              doCaTruc &&
+              !!a.doctor_id &&
+              !daQua(a.slot_start, nowMs()) &&
+              ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status) &&
+              !coCaTruc.has(`${a.doctor_id}|${ngayVN(a.slot_start)}`),
             // Lý do huỷ đi theo TỪNG LƯỢT, không theo khách: một đợt có thể có
             // ba lượt mà chỉ một lượt bị huỷ. Đặt ở cấp đợt là gán sai lượt.
             ly_do_huy_ma: a.ly_do_huy_ma ?? null,

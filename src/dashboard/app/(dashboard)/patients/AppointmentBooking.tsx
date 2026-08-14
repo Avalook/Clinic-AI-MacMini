@@ -23,6 +23,7 @@ import {
   type SlotApptLite,
 } from "../../../lib/slot-capacity";
 import { useBookingPolicy } from "../BookingPolicyContext";
+import { useKhoangCa } from "./dung-khoang-ca";
 
 // Capacity Phase 1 — nhãn/lớp token của 6 trạng thái ô khung-giờ
 // (khớp CellState ở lib/capacity.ts).
@@ -235,6 +236,10 @@ export default function AppointmentBooking({
     // edit ổn định (parent remount theo từng lịch) → không gây fetch lặp.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apptDate]);
+
+  // Khoảng giờ thật của từng bác sĩ trực. Thiếu nó thì sơ đồ mời đặt cả ngày
+  // cho một bác sĩ chỉ trực chiều, rồi máy chủ từ chối lúc lưu.
+  const shiftWindows = useKhoangCa(apptDate, dutyDoctorIds);
 
   // Bác sĩ trực ca của ngày đã chọn — sơ đồ chỉ vẽ hàng các bác sĩ này.
   useEffect(() => {
@@ -553,6 +558,7 @@ export default function AppointmentBooking({
             doctors={doctors}
             dutyDoctorIds={dutyDoctorIds}
             dutyDuKien={dutyDuKien}
+            shiftWindows={shiftWindows}
             existingAppts={visibleExistingAppts}
             selectedDoctorId={doctorId}
             selectedTime={apptTime}

@@ -66,25 +66,61 @@ test("khoảng ca LẤY TỪ BACKEND, không tự quy đổi SÁNG/CHIỀU", () 
   // Mốc 12:00 là quyết định của phòng khám, nằm ở đúng một hằng số trong
   // `core/shifts.py`. Tự đổi nhãn ca thành giờ ở frontend là dựng bản thứ hai
   // của luật ấy — và bản thứ hai sẽ lệch vào ngày phòng khám đổi mốc.
-  assert.match(
-    form,
-    /appointments\/quote\?date=[\s\S]{0,200}?doctor_id=/,
-    "form phải hỏi quote để lấy shift_windows",
+  const hook = readFileSync(
+    new URL("../app/(dashboard)/patients/dung-khoang-ca.ts", import.meta.url),
+    "utf8",
   );
-  assert.match(form, /shift_windows/, "phải đọc đúng trường của backend");
+  assert.match(
+    hook,
+    /appointments\/quote\?date=[\s\S]{0,200}?doctor_id=/,
+    "hook phải hỏi quote để lấy shift_windows",
+  );
+  assert.match(hook, /shift_windows/, "phải đọc đúng trường của backend");
   for (const cam of [/\bSANG\b/, /\bCHIEU\b/, /12\s*\*\s*60/]) {
     assert.doesNotMatch(
-      form.replace(/\/\/.*$/gm, ""),
+      hook.replace(/\/\/.*$/gm, ""),
       cam,
       "form không được tự quy đổi nhãn ca thành giờ",
     );
   }
 });
 
-test("lưới nhận được khoảng ca từ form", () => {
-  assert.match(
-    form,
-    /shiftWindows=\{shiftWindows\}/,
-    "nạp xong mà không truyền xuống thì bản vá đứng im",
-  );
+test("MỌI chỗ gọi lưới đều nhận khoảng ca", () => {
+  // BÀI HỌC 14/08/2026. `CinemaSlotPicker` có BA chỗ gọi: hai trong biểu mẫu
+  // khách mới (vãng lai + đặt lịch đầy đủ) và một ở AppointmentBooking. Bản vá
+  // đầu chỉ truyền cho MỘT — đúng cái lưới Tuyền không dùng. Test xanh, deploy
+  // xanh, lỗi y nguyên trên màn hình.
+  //
+  // Nên bài kiểm này đếm: bao nhiêu chỗ gọi thì bấy nhiêu chỗ nhận.
+  const nguon = [
+    ["NewPatientForm", form],
+    [
+      "AppointmentBooking",
+      readFileSync(
+        new URL("../app/(dashboard)/patients/AppointmentBooking.tsx", import.meta.url),
+        "utf8",
+      ),
+    ],
+  ] as const;
+  for (const [ten, ma] of nguon) {
+    const goi = (ma.match(/<CinemaSlotPicker/g) ?? []).length;
+    const nhan = (ma.match(/shiftWindows=\{shiftWindows\}/g) ?? []).length;
+    assert.equal(
+      nhan,
+      goi,
+      `${ten}: ${goi} lưới nhưng chỉ ${nhan} lưới nhận khoảng ca — lưới thiếu ` +
+        "sẽ mời đặt ngoài ca trực rồi máy chủ từ chối lúc lưu",
+    );
+  }
+});
+
+test("logic hỏi khoảng ca nằm ở MỘT chỗ", () => {
+  // Hai component cùng cần nó. Chép hai bản là hẹn ngày chúng lệch nhau — và
+  // bản lệch sẽ im lặng, đúng như lần vừa rồi.
+  for (const ma of [form, readFileSync(
+    new URL("../app/(dashboard)/patients/AppointmentBooking.tsx", import.meta.url),
+    "utf8",
+  )]) {
+    assert.match(ma, /useKhoangCa\(/, "phải dùng hook chung");
+  }
 });

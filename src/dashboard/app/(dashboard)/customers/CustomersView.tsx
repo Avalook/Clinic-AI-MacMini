@@ -196,6 +196,14 @@ export interface LuotKham {
   service_type_id: string | null;
   service_name: string | null;
   doctor_name: string | null;
+  /** Bác sĩ của CHÍNH LƯỢT NÀY không còn ca khám vào ngày khám.
+   *
+   *  TÍNH THEO LƯỢT, KHÔNG THEO "LỊCH ĐẠI DIỆN". Bản trước chỉ tính cho lịch
+   *  đại diện rồi vẽ khi `luotDangXem.id === selectedAppt.id` — một phép so
+   *  giữa HAI NGUỒN dữ liệu khác nhau, và nó im lặng khi hai bên không trỏ
+   *  cùng một lịch. Người trực mở một lượt cụ thể; câu hỏi của họ là về LƯỢT
+   *  ẤY, nên câu trả lời phải đi kèm chính nó. */
+  mat_bac_si?: boolean;
   /** Lượt trước trong chuỗi tái khám. null = mở đầu một đợt. */
   lich_truoc_id: string | null;
   /** Lý do huỷ CỦA CHÍNH LƯỢT NÀY — mã chọn sẵn và chữ tự viết. */
@@ -905,6 +913,7 @@ export default function CustomersView({
         slot_start: luot.slot_start,
         created_at: luot.created_at,
         cancelled_at: luot.cancelled_at,
+        mat_bac_si: luot.mat_bac_si,
         ly_do_huy_ma: luot.ly_do_huy_ma,
         cancellation_reason: luot.cancellation_reason,
         service_type_id: luot.service_type_id,
@@ -1697,8 +1706,13 @@ export default function CustomersView({
                         thứ khách hàng nhớ rất lâu.
                         Đặt NGAY DƯỚI giờ hẹn, không nhét vào chuỗi bước: người
                         trực mở hồ sơ là nhìn thấy, không phải cuộn tìm. */}
-                    {selectedAppt?.mat_bac_si &&
-                      luotDangXem?.id === selectedAppt.id && (
+                    {/* ĐỌC TỪ CHÍNH LƯỢT ĐANG XEM.
+                        Bản trước: `selectedAppt?.mat_bac_si && luotDangXem?.id
+                        === selectedAppt.id` — phải khớp id giữa "lịch đại
+                        diện" (apptByPatient) và "lượt đang xem" (lịch sử khám),
+                        hai nguồn dựng riêng. Lệch một cái là cảnh báo im lặng
+                        biến mất, và không có gì báo rằng nó đã biến mất. */}
+                    {luotDangXem?.mat_bac_si && (
                         <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
                           ⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho
                           khách hàng và đổi lịch khám.
