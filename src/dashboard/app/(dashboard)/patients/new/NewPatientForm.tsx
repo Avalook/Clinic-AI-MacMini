@@ -47,6 +47,7 @@ import {
   CHANNELS,
 } from "../../form-ui";
 import Time24Input from "../../Time24Input";
+import { useKhoangCa } from "../dung-khoang-ca";
 
 export type { Option };
 
@@ -288,47 +289,8 @@ export default function NewPatientForm({
     return () => ctrl.abort();
   }, [dutyDate]);
 
-  // KHOẢNG GIỜ THẬT CỦA TỪNG BÁC SĨ TRỰC.
-  //
-  // `/api/roster` chỉ trả về AI có ca, không trả về ca ấy phủ giờ nào — nó khử
-  // trùng theo staff_id và bỏ luôn cột SANG/CHIEU/FULL. Nên sơ đồ vẽ đủ mọi cột
-  // 07:00→23:00 cho một bác sĩ chỉ trực chiều, và máy chủ từ chối lúc lưu.
-  //
-  // HỎI ĐÚNG ENDPOINT MÀ LƯỚI BÊN MÀN ĐẶT LỊCH ĐANG HỎI. `/appointments/quote`
-  // trả `shift_windows` do `core/shifts.py` tính — một luật duy nhất cho cả hai
-  // lưới. Tự quy đổi SANG/CHIEU thành giờ ở đây sẽ là bản thứ hai của luật ấy,
-  // và nó sẽ lệch vào ngày phòng khám đổi mốc 12:00.
-  //
-  // Một lượt gọi cho mỗi bác sĩ trực — thường một tới ba người một ngày.
-  const [shiftWindows, setShiftWindows] = useState<
-    Record<string, [number, number][]>
-  >({});
-  useEffect(() => {
-    if (!dutyDate || !dutyDoctorIds || dutyDoctorIds.length === 0) return;
-    const ctrl = new AbortController();
-    void Promise.all(
-      dutyDoctorIds.map((id) =>
-        fetch(
-          `/api/appointments/quote?date=${encodeURIComponent(dutyDate)}` +
-            `&doctor_id=${encodeURIComponent(id)}`,
-          { signal: ctrl.signal },
-        )
-          .then((r) => (r.ok ? r.json() : null))
-          .then(
-            (j: { shift_windows?: [number, number][] } | null) =>
-              [id, j?.shift_windows ?? []] as const,
-          )
-          .catch(() => [id, [] as [number, number][]] as const),
-      ),
-    ).then((cap) => {
-      if (ctrl.signal.aborted) return;
-      // Chỉ ghi những người ĐỌC ĐƯỢC ca. Ghi mảng rỗng cho người hỏi hụt thì
-      // `trongCa` hiểu thành "chưa biết" và không chặn — đúng ý, nhưng viết ra
-      // để lần sau đọc không tưởng là bỏ sót.
-      setShiftWindows(Object.fromEntries(cap));
-    });
-    return () => ctrl.abort();
-  }, [dutyDate, dutyDoctorIds]);
+  // Khoảng giờ thật của từng bác sĩ trực — xem `dung-khoang-ca.ts`.
+  const shiftWindows = useKhoangCa(dutyDate, dutyDoctorIds);
   // Ô "Bác sĩ" CHỈ MỜI NGƯỜI CÓ TRỰC NGÀY ĐÓ.
   //
   // Quang 09/08/2026: *"rõ là hôm nay có lịch mà sao lúc đặt lịch lại không
@@ -1322,6 +1284,7 @@ export default function NewPatientForm({
                 doctors={doctors}
                 dutyDoctorIds={dutyDoctorIds}
                 dutyDuKien={dutyDuKien}
+                shiftWindows={shiftWindows}
                 existingAppts={visibleExistingAppts}
                 selectedDoctorId={doctorId}
                 selectedTime={apptTime}

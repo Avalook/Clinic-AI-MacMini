@@ -70,3 +70,45 @@ test("chỉ cảnh báo cho lịch còn cứu được", () => {
   assert.match(khoi![0], /!daQua\(/, "lịch đã qua giờ thì thôi");
   assert.match(khoi![0], /SCHEDULED/, "chỉ những trạng thái khách chưa tới nơi");
 });
+
+
+test("cờ mất bác sĩ tính THEO TỪNG LƯỢT, không chỉ cho lịch đại diện", () => {
+  // VÌ SAO CẢNH BÁO KHÔNG NỔ SUỐT (Tuyền báo lại 14/08/2026, lần thứ hai).
+  //
+  // Dữ liệu đúng: lịch 07:00 15/08 của một khách gắn BS Vũ Trọng Hùng, mà ông
+  // ấy có 0 ca LICH_KHAM hôm đó — đo trên prod. Truy vấn đúng, bản deploy đúng.
+  //
+  // Chỗ hỏng là ĐIỀU KIỆN VẼ: `selectedAppt?.mat_bac_si && luotDangXem?.id ===
+  // selectedAppt.id`. Cờ chỉ được tính cho "lịch đại diện" (apptByPatient), còn
+  // màn hình vẽ theo "lượt đang xem" (dựng từ lịch sử khám) — hai nguồn dựng
+  // riêng. Lệch một cái là cảnh báo biến mất, và KHÔNG có gì báo rằng nó biến
+  // mất. Người trực chỉ thấy một ô giờ hẹn bình thường.
+  //
+  // Nay cờ đi theo chính lượt, nên không còn phép so giữa hai nguồn nào cả.
+  assert.match(
+    page,
+    /mat_bac_si:\s*\n?\s*doCaTruc &&\s*\n?\s*!!a\.doctor_id/,
+    "phải tính cờ cho từng lượt trong lịch sử khám",
+  );
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(view, /luotDangXem\?\.mat_bac_si/, "vẽ từ chính lượt đang xem");
+  // Chỉ soi KHỐI cảnh báo mất bác sĩ. Cảnh báo "quá giờ hẹn" vẫn dùng phép so
+  // id ấy — nó là chuyện khác và chưa được đụng tới ở lần này.
+  const khoi = /mat_bac_si[\s\S]{0,400}?\)\}/.exec(view);
+  assert.ok(khoi, "không tìm thấy khối cảnh báo mất bác sĩ");
+  assert.doesNotMatch(
+    khoi![0],
+    /selectedAppt/,
+    "khối này không được đọc lịch đại diện nữa",
+  );
+});
+
+test("tập ca trực dùng CHUNG cho cả hai chỗ, không hỏi database hai lần", () => {
+  // Hai phép tính cùng một câu hỏi mà đọc hai lần thì có lúc chúng đọc hai
+  // trạng thái khác nhau — và khi ấy lịch đại diện nói một đằng, lượt nói một nẻo.
+  const soLanTruyVan = (page.match(/from\("work_roster"\)/g) ?? []).length;
+  assert.equal(soLanTruyVan, 1, "chỉ được hỏi work_roster một lần cho cả màn");
+});

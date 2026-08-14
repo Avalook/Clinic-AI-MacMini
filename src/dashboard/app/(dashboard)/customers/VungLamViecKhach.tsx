@@ -656,6 +656,9 @@ export interface MocLich {
   /** Dịch vụ của lượt — nút "Tái khám" khoá theo nó. */
   service_type_id: string | null;
   service_name: string | null;
+  /** Bác sĩ của lượt này không còn ca KHÁM vào ngày khám. Tính ở page.tsx từ
+   *  `work_roster` (station = LICH_KHAM), theo TỪNG LƯỢT. */
+  mat_bac_si?: boolean;
 }
 
 export default function VungLamViecKhach({
