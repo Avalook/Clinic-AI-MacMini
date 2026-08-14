@@ -583,7 +583,7 @@ function appointmentStatus(status: string): { label: string; tone: StatusTone } 
 
 function CustomerTableHeader() {
   return (
-    <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(96px,0.6fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px] gap-3 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+    <div className="grid grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px] gap-2 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
       <span>Khách hàng</span>
       <span>Trạng thái</span>
       <span>Mới / cũ</span>
@@ -1335,10 +1335,10 @@ export default function CustomersView({
                       <div
                         key={row.clinic_patient_id}
                         onClick={() => chonKhach(row.clinic_patient_id)}
-                        className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
+                        className={`grid w-full items-center gap-2 px-4 py-3 text-left transition-colors cursor-pointer ${
                           selected
                             ? "grid-cols-[minmax(0,1fr)_auto]"
-                            : "grid-cols-[minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(96px,0.6fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(100px,0.7fr)_minmax(90px,0.6fr)_32px]"
+                            : "grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]"
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">

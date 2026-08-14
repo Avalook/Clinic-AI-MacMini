@@ -66,11 +66,46 @@ test("cột 'Mới / cũ' có mặt trong tiêu đề bảng", () => {
   assert.match(view, /<span>Mới \/ cũ<\/span>/, "thiếu tiêu đề cột");
   // Lưới cột của tiêu đề và của hàng dữ liệu phải khớp nhau, nếu không thì chữ
   // nằm lệch khỏi cột của nó — lỗi chỉ thấy bằng mắt, không bài kiểm nào khác bắt.
-  const luoi = view.match(/grid-cols-\[minmax\(180px,1\.2fr\)[^\]]+\]/g) ?? [];
-  assert.ok(luoi.length >= 2, "không tìm thấy đủ hai lưới cột");
+  //
+  // BẮT THEO SỐ CỘT, KHÔNG THEO CON SỐ CỤ THỂ. Bản trước ghim cứng
+  // `minmax(180px,1.2fr)` ở đầu chuỗi, nên chỉnh lại độ rộng cột (14/08/2026)
+  // là biểu thức không khớp gì nữa — và bài kiểm KHÔNG đỏ, nó chỉ lặng lẽ
+  // không tìm thấy lưới nào để so. Một bài kiểm ngừng kiểm mà vẫn xanh còn tệ
+  // hơn không có bài kiểm. Nay khớp mọi lưới tám cột và so chúng với nhau.
+  const luoi = (view.match(/grid-cols-\[[^\]]+\]/g) ?? []).filter(
+    (g) => g.split("_").length === 8,
+  );
+  assert.ok(luoi.length >= 2, "không tìm thấy đủ hai lưới cột tám cột");
   assert.equal(
     new Set(luoi).size,
     1,
     "tiêu đề và hàng dữ liệu phải dùng CÙNG một lưới cột",
+  );
+});
+
+test("khe giữa các cột của tiêu đề và của hàng bằng nhau", () => {
+  // Lưới giống nhau mà khe khác nhau thì cột vẫn lệch: `gap` ăn vào chiều rộng
+  // trước khi `fr` được chia. Đúng thứ vừa suýt xảy ra khi thu khe từ 12px
+  // xuống 8px cho bảng đỡ thưa — đổi một chỗ, quên chỗ kia.
+  // Chỉ đọc khe của HAI khối có lưới tám cột — file này còn nhiều `grid gap-*`
+  // khác (thẻ hai cột, khối chi tiết), và vơ hết vào là so nhầm hai chỗ không
+  // liên quan rồi báo xanh. Đó đúng là điều đã xảy ra ở bản đầu của bài kiểm.
+  //
+  // Tìm `gap-*` GẦN NHẤT quanh mỗi lưới tám cột, không dùng một biểu thức
+  // xuyên suốt: hai chỗ viết khác nhau (tiêu đề để `grid-cols` trước `gap`,
+  // hàng thì ngược lại và còn nằm trong một chuỗi lồng trong template) nên mọi
+  // biểu thức "một phát ăn cả hai" đều bắt hụt một bên.
+  const khe: string[] = [];
+  for (const m of view.matchAll(/grid-cols-\[[^\]]+\]/g)) {
+    if ((m[0].match(/_/g) ?? []).length !== 7) continue;
+    const quanh = view.slice(Math.max(0, m.index! - 260), m.index! + 260);
+    const g = [...quanh.matchAll(/\bgap-(\d)\b/g)].map((x) => x[1]);
+    if (g.length) khe.push(g[0]);
+  }
+  assert.ok(khe.length >= 2, `chỉ đọc được ${khe.length} khe cột, cần 2`);
+  assert.equal(
+    new Set(khe).size,
+    1,
+    `tiêu đề và hàng dùng hai khe khác nhau: ${khe.map((k) => `gap-${k}`).join(" vs ")}`,
   );
 });
