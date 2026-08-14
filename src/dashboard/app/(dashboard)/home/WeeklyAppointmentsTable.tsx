@@ -30,6 +30,7 @@ import {
   isDeadStatus,
 } from "../../../lib/slot-capacity";
 import { useBookingPolicy } from "../BookingPolicyContext";
+import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 
 export interface WeekApptRow {
@@ -39,7 +40,9 @@ export interface WeekApptRow {
   queue_number: string | null;
   doctor_id: string | null;
   booking_channel: string | null;
-  phan_loai: string; // "Tái khám" | "Khám lần đầu" | "" (suy từ lịch sử hẹn)
+  /** Giá trị BACKEND trả: "Tái khám" | "Khám lần đầu" | "". Chữ hiện lên
+   *  màn hình đi qua `nhanPhanLoaiKham` — xem lib/phan-loai-kham.ts. */
+  phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
    *  từ một bản chép của luật bằng TypeScript. */
@@ -82,8 +85,9 @@ export type DutyByDate = Record<string, { id: string; name: string }[]>;
 const NO_DOCTOR = "Chưa phân bác sĩ";
 
 function PhanLoai({ value }: { value: string }) {
-  if (!value) return <span className="text-ink-faint">—</span>;
-  const first = value === "Khám lần đầu";
+  const nhan = nhanPhanLoaiKham(value);
+  if (!nhan) return <span className="text-ink-faint">—</span>;
+  const first = laKhamMoi(value);
   return (
     <span
       className={
@@ -91,7 +95,7 @@ function PhanLoai({ value }: { value: string }) {
         (first ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
       }
     >
-      {value}
+      {nhan}
     </span>
   );
 }
@@ -319,8 +323,8 @@ export default function WeeklyAppointmentsTable({
             <tr className="bg-brand-100">
               <th className={`${TH} min-w-[92px]`}>Khung giờ</th>
               <th className={`${TH} min-w-[120px]`}>Bác sĩ</th>
-              <th className={`${TH} min-w-[52px]`}>Số</th>
               <th className={`${TH} min-w-[200px]`}>Thông tin</th>
+              <th className={`${TH} min-w-[130px]`}>Dịch vụ khám</th>
               <th className={`${TH} min-w-[110px]`}>Phân loại khám</th>
               {showActionCol && (
                 <th className={`${TH} min-w-[150px]`}>
@@ -387,9 +391,6 @@ export default function WeeklyAppointmentsTable({
                           )}
                           {a ? (
                             <>
-                              <td className={`${CELL} whitespace-nowrap text-center text-ink-soft`}>
-                                {a.queue_number ?? "—"}
-                              </td>
                               <td className={`${CELL} text-ink`}>
                                 {canWriteClinical ? (
                                   <button
@@ -418,11 +419,15 @@ export default function WeeklyAppointmentsTable({
                                   {a.patient?.phone_primary
                                     ? ` · ${a.patient.phone_primary}`
                                     : ""}
-                                  {a.service?.name ? ` · ${a.service.name}` : ""}
                                   {isWalkinChannel(a.booking_channel)
                                     ? " · vãng lai"
                                     : ""}
                                 </span>
+                              </td>
+                              <td className={`${CELL} text-ink-soft`}>
+                                {a.service?.name ?? (
+                                  <span className="text-ink-faint">—</span>
+                                )}
                               </td>
                               <td className={CELL}>
                                 <PhanLoai value={a.phan_loai} />
@@ -519,7 +524,6 @@ export default function WeeklyAppointmentsTable({
                             </>
                           ) : (
                             <>
-                              <td className={`${CELL} text-center text-success/70`}>—</td>
                               <td className={`${CELL}`}>
                                 {r.free?.href ? (
                                   <Link
@@ -534,6 +538,8 @@ export default function WeeklyAppointmentsTable({
                                   </span>
                                 )}
                               </td>
+                              {/* Ô trống chưa có lịch thì chưa có dịch vụ để ghi. */}
+                              <td className={`${CELL} text-ink-faint`}>—</td>
                               <td className={CELL}>
                                 <PhanLoai value="Khám lần đầu" />
                               </td>

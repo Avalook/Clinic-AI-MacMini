@@ -35,6 +35,7 @@ import {
   WorkspaceMetricRow,
 } from "./WorkspacePrimitives";
 import workspaceStyles from "./WorkspacePrimitives.module.css";
+import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 
 export interface DoctorApptRow {
   id: string;
@@ -107,14 +108,14 @@ const PERIODS: { key: string; label: string }[] = [
 
 function PhanLoai({ value }: { value?: string }) {
   if (!value) return <span className="text-ink-faint">Chưa phân loại</span>;
-  const first = value === "Khám lần đầu";
+  const first = laKhamMoi(value);
   return (
     <span
       className={`inline-flex rounded-chip px-2 py-0.5 text-xs font-medium ${
         first ? "bg-success-bg text-success" : "bg-warning-bg text-warning"
       }`}
     >
-      {value}
+      {nhanPhanLoaiKham(value)}
     </span>
   );
 }
