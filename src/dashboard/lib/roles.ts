@@ -288,6 +288,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // GỠ KHỎI THANH BÊN, KHÔNG GỠ TÍNH NĂNG. Route và API giữ nguyên: Quản lý vẫn
   // vào được, và gõ thẳng URL vẫn chạy. Xoá hẳn là mất đường lùi ngay tuần bàn
   // giao — trong khi thứ Quang muốn chỉ là thanh bên của CSKH gọn lại.
+  "/lich-do-ve": ["MANAGEMENT"],
   "/cskh-tasks": ["MANAGEMENT"],
   // Nhắc tái khám — cùng ràng buộc với backend: GET /api/v1/cskh/recalls gác
   // bằng require_role(CSKH, MANAGEMENT, TRUONG_CA), nên mở mục này cho vai khác

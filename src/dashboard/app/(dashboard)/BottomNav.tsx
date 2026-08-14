@@ -9,7 +9,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
-import { NAV, isActiveNav, navLabelFor } from "./nav-items";
+import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
+import { isActiveNav, mucHienRa, mucThanhDuoi, navLabelFor } from "./nav-items";
 
 // How many destinations to surface as tabs before the rest collapse into Menu.
 const MAX_TABS = 4;
@@ -17,14 +18,21 @@ const MAX_TABS = 4;
 export default function BottomNav({
   role,
   onMenu,
+  featureMode = "FULL_CLINIC",
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
+  featureMode?: string;
 }) {
   const pathname = usePathname();
-  const visible = NAV.filter((item) => hienTrenThanhBen(role, item.href));
+  // CÙNG MỘT PHÉP LỌC VỚI THANH BÊN, kể cả `featureMode`.
+  //
+  // Bản trước gọi thẳng `NAV.filter(hienTrenThanhBen)` và bỏ qua featureMode,
+  // nên khi phòng khám chạy chế độ CSKH_ONLY thì máy tính giấu các màn lâm sàng
+  // còn điện thoại vẫn hiện lối vào. Hai thanh phải nói cùng một chuyện.
+  const visible = mucHienRa(role, hienTrenThanhBen, featureMode, CLINICAL_HREFS);
   const allHrefs = visible.map((v) => v.href);
-  const tabs = visible.slice(0, MAX_TABS);
+  const tabs = mucThanhDuoi(role, visible, MAX_TABS);
 
   const tabClass = (active: boolean) =>
     [

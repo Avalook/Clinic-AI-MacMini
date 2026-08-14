@@ -23,6 +23,7 @@ import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
 import SplitPane from "../SplitPane";
+import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
 type PatientFull = NonNullable<DoctorApptRow["patient"]>;
@@ -94,7 +95,7 @@ function PatientKind({ value }: { value: ExaminedRow["phan_loai"] }) {
         KIND_CLASS[value]
       }
     >
-      {value}
+      {nhanPhanLoaiKham(value)}
     </span>
   );
 }
@@ -225,8 +226,8 @@ export default function PatientListView({
   const noneCount = rows.filter((row) => row.phan_loai === "Chưa khám").length;
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: `Tất cả (${rows.length})` },
-    { key: "first", label: `Khám lần đầu (${firstCount})` },
-    { key: "return", label: `Tái khám (${returnCount})` },
+    { key: "first", label: `${nhanPhanLoaiKham("Khám lần đầu")} (${firstCount})` },
+    { key: "return", label: `${nhanPhanLoaiKham("Tái khám")} (${returnCount})` },
     { key: "none", label: `Chưa khám (${noneCount})` },
   ];
 

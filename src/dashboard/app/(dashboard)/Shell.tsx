@@ -230,8 +230,10 @@ export default function Shell({
         </main>
       </div>
 
-      {/* Mobile bottom tab bar (<md). */}
-      <BottomNav role={role} onMenu={openDrawer} />
+      {/* Mobile bottom tab bar (<md). `featureMode` PHẢI truyền xuống: thiếu nó
+          thì thanh dưới lọc khác thanh bên và điện thoại hiện lối vào những màn
+          mà máy tính đã giấu. */}
+      <BottomNav role={role} onMenu={openDrawer} featureMode={featureMode} />
     </div>
   );
 }

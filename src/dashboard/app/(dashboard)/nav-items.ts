@@ -7,6 +7,7 @@ import {
   UserPlus,
   CheckSquare,
   Calendar,
+  CalendarRange,
   BarChart3,
   Settings,
   KeyRound,
@@ -239,6 +240,15 @@ export const NAV: NavItem[] = [
     shortLabel: "Buổi",
     icon: Timer,
   },
+  // "Lịch đổ về" — Quản lý xem toàn bộ lịch một tuần + thống kê theo khung giờ.
+  // Đứng NGAY TRÊN Báo cáo vì cùng một loại việc: đọc số của cả phòng khám,
+  // không thao tác lên lịch của ai.
+  {
+    href: "/lich-do-ve",
+    label: "Lịch đổ về",
+    shortLabel: "Lịch đổ về",
+    icon: CalendarRange,
+  },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   {
     href: "/audit-log",
@@ -315,6 +325,84 @@ export function navLabelFor(
     return short ? "Nhập thông tin" : "Nhập thông tin khách hàng mới";
   }
   return short ? (item.shortLabel ?? item.label) : item.label;
+}
+
+// MỘT PHÉP LỌC DUY NHẤT CHO CẢ HAI THANH.
+//
+// Trước 14/08/2026 thanh bên và thanh dưới tự lọc riêng, và chúng ĐÃ lệch: thanh
+// bên bỏ các màn lâm sàng khi phòng khám chạy chế độ CSKH_ONLY, thanh dưới thì
+// không — nên trên điện thoại vẫn hiện lối vào những màn mà máy tính đã giấu.
+// Gộp về đây để hai chỗ không thể khác nhau nữa.
+export function mucHienRa(
+  role: ClinicRole | null,
+  hienTrenThanhBen: (r: ClinicRole | null, href: string) => boolean,
+  featureMode: string,
+  clinicalHrefs: ReadonlySet<string>,
+): NavItem[] {
+  return NAV.filter((item) => {
+    if (!hienTrenThanhBen(role, item.href)) return false;
+    if (featureMode === "CSKH_ONLY" && clinicalHrefs.has(item.href)) return false;
+    return true;
+  });
+}
+
+// THANH DƯỚI TRÊN ĐIỆN THOẠI — bốn nút cho mỗi vai, chọn theo VIỆC CỦA VAI ẤY.
+//
+// Trước đây thanh dưới lấy "bốn mục đầu tiên" của NAV. Nhưng NAV xếp theo luồng
+// khám bệnh để thanh bên đọc xuôi, không xếp theo mức hay dùng — nên với vai
+// nhiều màn thì bốn mục đầu là bốn màn CỦA NGƯỜI KHÁC:
+//
+//   Quản lý (35 mục)  → Bàn khám · Thu ngân · Chăm sóc, còn Báo cáo/Nhân sự/
+//                       Cấu trúc/Vận hành đều nằm sau nút Menu.
+//   Trưởng ca (13)    → thiếu chính "Toàn cảnh điều phối", màn chính của họ.
+//   ĐD siêu âm (9)    → hiện "Hàng đợi tiếp nhận", giấu "ĐD siêu âm".
+//
+// Danh sách dưới đây là thứ tự CÓ CHỦ Ý. Vai nào không khai thì rơi về bốn mục
+// đầu như cũ — với vai ít màn (CSKH có 5, Bác sĩ có 6) thứ tự ấy vốn đã đúng.
+//
+// Mỗi href ở đây vẫn phải qua `mucHienRa`: khai một màn mà vai ấy không được
+// xem thì nó bị bỏ, không phải hiện ra một nút bấm vào là 403.
+export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
+  // Quản lý không đứng quầy. Trên điện thoại họ xem SỐ và xem PHÒNG KHÁM ĐANG
+  // CHẠY RA SAO, không thao tác bàn khám hay thu ngân.
+  MANAGEMENT: ["/home", "/lich-do-ve", "/reports", "/truong-ca"],
+  // Trưởng ca: toàn cảnh trước, rồi hàng đợi, rồi cảnh báo — đúng thứ tự họ
+  // nhìn khi phòng chờ đông.
+  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/truong-ca/canh-bao"],
+  // Điều dưỡng siêu âm: trạm của họ là /sono.
+  NURSE_ULTRASOUND: ["/home", "/sono", "/service-queue", "/tasks"],
+  // Bác sĩ siêu âm: bàn khám + bộ phận siêu âm.
+  ULTRASOUND_DOCTOR: ["/home", "/doctor/board", "/sieu-am", "/patient-list"],
+  // Tiếp nhận: hàng đợi, check-out, và tạo bệnh nhân — ba việc ở quầy.
+  RECEPTION: ["/home", "/reception/queue", "/reception/checkout", "/patients/new"],
+  // Dược sĩ: đơn chờ cấp → kho → tư vấn. "Lịch sử bàn giao" là màn tra cứu,
+  // để trong Menu.
+  PHARMACIST: ["/home", "/pharmacy", "/pharmacy/inventory", "/pharmacy/consult"],
+  // Thu ngân: bàn thu ngân là màn chính; bảng giá là thứ tra khi khách hỏi.
+  CASHIER: ["/home", "/cashier/board", "/cashier/dich-vu", "/cashier/thuoc"],
+  CASHIER_THUOC: ["/home", "/cashier/board", "/cashier/thuoc", "/customers"],
+  CASHIER_DV: ["/home", "/cashier/board", "/cashier/dich-vu", "/customers"],
+};
+
+/** Bốn nút của thanh dưới cho vai này, luôn là TẬP CON của thanh bên. */
+export function mucThanhDuoi(
+  role: ClinicRole | null,
+  hienRa: NavItem[],
+  toiDa: number,
+): NavItem[] {
+  const khai = role ? THANH_DUOI[role] : undefined;
+  if (!khai) return hienRa.slice(0, toiDa);
+  const theoHref = new Map(hienRa.map((i) => [i.href, i]));
+  const chon = khai
+    .map((h) => theoHref.get(h))
+    .filter((i): i is NavItem => i !== undefined);
+  // Khai thiếu, hoặc một màn bị ẩn vì chế độ CSKH_ONLY → bù bằng mục kế tiếp
+  // của thanh bên, để thanh dưới không bị hụt nút.
+  for (const i of hienRa) {
+    if (chon.length >= toiDa) break;
+    if (!chon.includes(i)) chon.push(i);
+  }
+  return chon.slice(0, toiDa);
 }
 
 // Active = exact match, or a nested path with no more-specific nav item also
