@@ -112,3 +112,26 @@ test("tập ca trực dùng CHUNG cho cả hai chỗ, không hỏi database hai 
   const soLanTruyVan = (page.match(/from\("work_roster"\)/g) ?? []).length;
   assert.equal(soLanTruyVan, 1, "chỉ được hỏi work_roster một lần cho cả màn");
 });
+
+
+test("CẢ HAI khối lịch hẹn đều hiện cảnh báo", () => {
+  // Màn khách hàng có HAI khối vẽ giờ hẹn: một ô BẤM ĐƯỢC (lịch còn đổi/huỷ
+  // được) và một khối chỉ-đọc (lịch đã đóng). Bản trước chỉ đặt cảnh báo ở khối
+  // chỉ-đọc — tức là nó im lặng đúng lúc CSKH CÒN LÀM ĐƯỢC gì đó.
+  //
+  // Cùng kiểu sót với ba lưới đặt chỗ cùng ngày: vá một chỗ trong nhiều chỗ,
+  // test xanh, deploy xanh, màn hình vẫn thiếu. Nên bài kiểm này ĐẾM.
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  const soKhoiVeGioHen = (view.match(/nhanLuot\(luotDangXem\)/g) ?? []).length;
+  const soCanhBao = (view.match(/luotDangXem\?\.mat_bac_si/g) ?? []).length;
+  assert.ok(soKhoiVeGioHen >= 2, "không tìm thấy đủ hai khối giờ hẹn");
+  assert.equal(
+    soCanhBao,
+    soKhoiVeGioHen,
+    `${soKhoiVeGioHen} khối vẽ giờ hẹn nhưng chỉ ${soCanhBao} khối cảnh báo — ` +
+      "khối thiếu sẽ im lặng đúng lúc người trực còn đổi được lịch",
+  );
+});

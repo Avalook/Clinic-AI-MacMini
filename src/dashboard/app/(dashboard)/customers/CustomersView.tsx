@@ -1679,6 +1679,18 @@ export default function CustomersView({
                           khách trước khi xác nhận.
                         </span>
                       )}
+                      {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT — Ô LỊCH HẸN BẤM ĐƯỢC.
+                          Cảnh báo này đã có ở khối lịch CHỈ-ĐỌC bên dưới, nhưng
+                          khối đó chỉ hiện khi lịch không sửa được nữa. Với một
+                          lịch còn đổi được — tức đúng lúc CSKH có thể làm gì đó
+                          — nó lại không hiện. Vá một khối trong hai, y hệt vụ
+                          ba lưới đặt chỗ sáng nay. */}
+                      {luotDangXem?.mat_bac_si && (
+                        <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
+                          ⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho
+                          khách hàng và đổi lịch khám.
+                        </span>
+                      )}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
                     </span>
                   </button>
