@@ -51,7 +51,14 @@ export default function BottomNav({
         return (
           <Link key={href} href={href} className={tabClass(active)}>
             <Icon size={20} strokeWidth={active ? 2.4 : 2} />
-            <span className="leading-none">{navLabelFor(item, role, true)}</span>
+            {/* CÙNG MỘT TÊN VỚI THANH BÊN. Chữ dài thì xuống dòng — hai dòng
+                  10px vẫn đọc được, còn một cái tên bịa ngắn hơn thì không:
+                  người dùng học "Danh sách bệnh nhân" trên máy tính rồi tìm
+                  mãi không thấy nó trên điện thoại vì ở đó nó tên "BN đã khám".
+                  Không cắt cụt bằng "…" — "Quản lý khá…" còn tệ hơn xuống dòng. */}
+              <span className="px-0.5 text-center leading-tight">
+                {navLabelFor(item, role)}
+              </span>
           </Link>
         );
       })}

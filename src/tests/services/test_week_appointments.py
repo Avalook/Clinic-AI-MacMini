@@ -157,3 +157,26 @@ async def test_the_range_sent_down_is_exactly_seven_local_days() -> None:
     assert start.date() == datetime.date(2026, 8, 3)
     assert end.date() == datetime.date(2026, 8, 10)
     assert set(hidden) == {"CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"}
+
+
+def test_lich_da_huy_khong_duoc_tinh_la_lan_kham_truoc() -> None:
+    """Khách đặt rồi huỷ, đặt lại → lịch mới vẫn là LẦN ĐẦU của họ.
+
+    Bản cũ tính mốc sớm nhất trên MỌI trạng thái, nên một lịch đã huỷ vẫn kéo
+    lịch sau thành "Tái khám" — trong khi màn Quản lý khách hàng gọi đúng người
+    ấy là "Khách mới" (nó đếm lượt khám XONG). Hai màn nói ngược nhau về cùng
+    một người trong cùng một ca trực.
+
+    Kiểm bằng cách đọc SQL: nhánh `som_nhat` phải lọc trạng thái chết. Không có
+    cách nào khác ở tầng này — luật nằm trong một chuỗi SQL, và cả mypy lẫn
+    ruff đều không đọc được bên trong nó (đã có một lỗi kiểu uuid lọt qua đúng
+    vì thế, 14/08/2026).
+    """
+    from clinicai.services.week_appointments_service import _SQL
+
+    dau = _SQL.index("som_nhat AS (")
+    khoi = _SQL[dau : _SQL.index(")", _SQL.index("GROUP BY", dau))]
+    assert "$4::text[]" in khoi, (
+        "som_nhat phải bỏ lịch huỷ/không đến/bác sĩ từ chối — nếu không, một "
+        "lịch đã huỷ biến khách chưa từng tới thành 'khám cũ'"
+    )
