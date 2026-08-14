@@ -60,18 +60,31 @@ test("không chỗ nào nhận thẳng câu lỗi mà bỏ qua mã bước", () 
   }
 });
 
-test("chốt 'chưa gửi tệp' ở backend CHỈ áp cho bước trả kết quả", () => {
-  // Nếu chốt ấy lan sang loại khác thì màn hình sửa đúng vẫn ra kết quả sai —
-  // dòng đỏ hiện ở một bước không liên quan, chỉ khác là lần này nó thật.
+test("chốt 'chưa gửi tệp' đã gỡ khỏi backend", () => {
+  // Bài kiểm này SÁNG 14/08 canh "chốt phải nằm trong nhánh TRA_KQ" — lúc ấy
+  // lỗi là câu chặn hiện dưới mọi bước, và chốt vẫn được coi là đúng.
+  //
+  // CHIỀU CÙNG NGÀY Tuyền chốt gỡ hẳn: *"mình đang chỉ cần CSKH và quản lý hệ
+  // thống dùng thôi nên là tick là được… có lịch sử là coi như làm rồi"*. Chốt
+  // đòi một tệp đã gửi, trong khi luồng gửi tệp còn đang xây — tức là một điều
+  // kiện không cách nào đạt được.
+  //
+  // Giữ bài kiểm thay vì xoá: nó là thứ ngăn ai đó dựng lại chốt mà quên dựng
+  // luồng gửi tệp trước.
   const svc = readFileSync(
     new URL("../../clinicai/services/tuong_tac_cskh_service.py", import.meta.url),
     "utf8",
   );
-  const dau = svc.indexOf('if loai == "TRA_KQ"');
-  assert.ok(dau > 0, "không còn nhánh riêng cho TRA_KQ?");
-  const cau = svc.indexOf("Chưa có tệp kết quả nào");
-  assert.ok(
-    cau > dau,
-    "câu chặn phải nằm TRONG nhánh TRA_KQ, không nằm ngoài",
+  assert.doesNotMatch(
+    svc,
+    /"Chưa có tệp kết quả nào/,
+    "chốt đòi tệp đã gửi đã được gỡ — dựng lại nó thì phải dựng luồng gửi tệp " +
+      "trước, nếu không hai bước trả kết quả lại đứng im vĩnh viễn",
+  );
+  // Luật CÒN GIỮ: một cuộc gọi hụt vẫn không được mang nhãn đã trả kết quả.
+  assert.match(
+    svc,
+    /loai == "TRA_KQ" and ket_qua != "DA_LIEN_HE"/,
+    "vẫn phải chặn ghi 'đã trả kết quả' cho một lần gọi chưa thành công",
   );
 });

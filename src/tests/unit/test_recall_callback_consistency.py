@@ -171,31 +171,6 @@ async def test_future_recall_job_cannot_be_closed_by_a_stale_request() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cannot_record_result_delivery_without_a_delivered_file() -> None:
-    conn = _Conn(
-        True,  # patient belongs to this clinic
-        False,  # no tep_ket_qua row has gui_luc
-    )
-
-    with pytest.raises(ValidationError, match="tệp kết quả.*đã gửi"):
-        await TuongTacCskhService(_Pool(conn)).ghi(
-            identity=_identity(),
-            clinic_patient_id="b0000000-0000-4000-8000-000000000001",
-            loai="TRA_KQ",
-            kenh="TRUC_TIEP",
-            ket_qua="DA_LIEN_HE",
-            trang_thai_ma="KQ_CHUA_GUI",
-        )
-
-    sql = "\n".join(call[1] for call in conn.calls)
-    assert "FROM public.tep_ket_qua" in sql
-    assert "gui_luc IS NOT NULL" in sql
-    assert "FROM public.lab_result" in sql
-    assert "pending.gui_luc IS NULL" in sql
-    assert "INSERT INTO public.tuong_tac_cskh" not in sql
-
-
-@pytest.mark.asyncio
 async def test_failed_result_call_cannot_close_the_delivery_work_item() -> None:
     conn = _Conn()
 
@@ -213,10 +188,27 @@ async def test_failed_result_call_cannot_close_the_delivery_work_item() -> None:
 
 
 @pytest.mark.asyncio
-async def test_result_delivery_is_recorded_after_a_file_was_delivered() -> None:
+async def test_danh_dau_da_tra_ket_qua_khong_con_doi_bang_chung_tep() -> None:
+    """Bấm "Đã trả kết quả" là ghi được — không đòi tệp đã gửi trước.
+
+    LUẬT ĐÃ ĐẢO 14/08/2026. Tuyền: *"mình đang chỉ cần CSKH và quản lý hệ thống
+    dùng thôi nên là tick là được… mình cần lưu lại lịch sử mà, có lịch sử là
+    coi như làm rồi"*.
+
+    Bản trước đòi một dòng `tep_ket_qua` đã gửi, muộn hơn kết quả xét nghiệm mới
+    nhất. Luật ấy viết cho một thế giới đã có luồng tải ảnh/video rồi gửi cho
+    khách — mà chính màn hình đang ghi "video đang xây dựng". Nên nó đòi một
+    điều kiện KHÔNG CÁCH NÀO đạt được, và hai bước "Đã có kết quả, chưa gửi" /
+    "Đã gọi trả kết quả xét nghiệm" đứng im vĩnh viễn.
+
+    Cùng họ với hai ngõ cụt vá cùng ngày: "phải ghi lý do ngoại lệ" ở màn không
+    có ô nhập, và ba nút Kết thúc lượt khám. Một chốt chỉ là chốt khi màn hình
+    đang mở có đường vượt qua nó.
+
+    Bài kiểm giữ ở đây để không ai dựng lại chốt ấy mà chưa dựng luồng gửi tệp.
+    """
     conn = _Conn(
         True,  # patient belongs to this clinic
-        True,  # a delivered result file exists
         "interaction-1",
     )
 
@@ -230,63 +222,15 @@ async def test_result_delivery_is_recorded_after_a_file_was_delivered() -> None:
     )
 
     assert result == {"ok": True, "id": "interaction-1"}
-
-
-@pytest.mark.asyncio
-async def test_result_delivery_guard_covers_pending_files_of_every_visit() -> None:
-    """View KQ_CHUA_GUI is patient-wide, so its guard must be patient-wide too."""
-    appointment_id = "c0000000-0000-4000-8000-000000000001"
-    conn = _Conn(
-        True,  # patient belongs to clinic
-        True,  # appointment belongs to patient
-        False,  # another visit still has a pending file
+    sql = "\n".join(call[1] for call in conn.calls)
+    assert "INSERT INTO public.tuong_tac_cskh" in sql, "phải ghi được vào sổ"
+    # Không còn truy vấn bằng chứng, và cũng không còn khoá đi kèm nó: khoá ấy
+    # chỉ tồn tại để chặn một tệp mới chen vào giữa lúc kiểm bằng chứng.
+    assert "FROM public.tep_ket_qua" not in sql, (
+        "chốt đòi bằng chứng tệp đã gỡ — dựng lại nó thì phải dựng luồng gửi "
+        "tệp trước, nếu không hai bước trả kết quả lại đứng im"
     )
-
-    with pytest.raises(ValidationError, match="tệp kết quả.*đã gửi"):
-        await TuongTacCskhService(_Pool(conn)).ghi(
-            identity=_identity(),
-            clinic_patient_id="b0000000-0000-4000-8000-000000000001",
-            appointment_id=appointment_id,
-            loai="TRA_KQ",
-            kenh="TRUC_TIEP",
-            ket_qua="DA_LIEN_HE",
-            trang_thai_ma="KQ_CHUA_GUI",
-        )
-
-    guard_sql = next(
-        sql
-        for kind, sql, _args in conn.calls
-        if kind == "fetchval" and "tep_ket_qua" in sql
-    )
-    assert "pending.appointment_id" not in guard_sql
-    assert "t.appointment_id" not in guard_sql
-
-
-@pytest.mark.asyncio
-async def test_result_delivery_guard_and_insert_share_patient_lock() -> None:
-    patient_id = "b0000000-0000-4000-8000-000000000001"
-    conn = _Conn(True, True, "interaction-1")
-
-    await TuongTacCskhService(_Pool(conn)).ghi(
-        identity=_identity(),
-        clinic_patient_id=patient_id,
-        loai="TRA_KQ",
-        kenh="TRUC_TIEP",
-        ket_qua="DA_LIEN_HE",
-        trang_thai_ma="KQ_CHUA_GUI",
-    )
-
-    sqls = [sql for _kind, sql, _args in conn.calls]
-    lock_index = next(i for i, sql in enumerate(sqls) if "pg_advisory_xact_lock" in sql)
-    guard_index = next(
-        i for i, sql in enumerate(sqls) if "FROM public.tep_ket_qua" in sql
-    )
-    insert_index = next(
-        i for i, sql in enumerate(sqls) if "INSERT INTO public.tuong_tac_cskh" in sql
-    )
-    assert lock_index < guard_index < insert_index
-    lock_call = conn.calls[lock_index]
-    assert lock_call[2] == (f"cskh-ket-qua:{_identity().clinic_id}:{patient_id}",)
+    assert "pg_advisory_xact_lock" not in sql
 
 
 @pytest.mark.asyncio

@@ -194,62 +194,35 @@ class TuongTacCskhService:
                 # nút Hoàn tác, vì nó có thể đảo transition thật của người đó.
                 return {"ok": True, "already_applied": True, "id": None}
 
+        # ĐÁNH DẤU "ĐÃ TRẢ KẾT QUẢ" KHÔNG CÒN ĐÒI BẰNG CHỨNG TỆP ĐÃ GỬI.
+        #
+        # Tuyền chốt 14/08/2026: *"mình đang chỉ cần CSKH và quản lý hệ thống
+        # dùng thôi nên là tick là được… mình cần lưu lại lịch sử mà, có lịch sử
+        # là coi như làm rồi"*.
+        #
+        # Bản trước chặn hai bước "Đã có kết quả, chưa gửi" và "Đã gọi trả kết
+        # quả xét nghiệm" cho tới khi có một dòng `tep_ket_qua` với `gui_luc`
+        # muộn hơn kết quả xét nghiệm mới nhất. Luật ấy được viết cho một thế
+        # giới đã có luồng tải ảnh/video lên rồi gửi cho khách — mà chính màn
+        # hình đang nói "video đang xây dựng". Nên chốt đòi một điều kiện KHÔNG
+        # CÁCH NÀO đạt được: cùng họ với "phải ghi lý do ngoại lệ" ở màn không
+        # có ô nhập lý do, và cùng họ với ba nút Kết thúc lượt khám vừa vá.
+        #
+        # SỔ CHĂM SÓC CHÍNH LÀ BẰNG CHỨNG, ở quy mô hiện tại. Mỗi lần bấm ghi
+        # một dòng có người, có giờ, có nội dung, và hoàn tác được — đủ để truy
+        # lại ai đã nói gì với khách. Đó là thứ phòng khám cần lúc này.
+        #
+        # KHI NÀO DỰNG LẠI CHỐT NÀY: lúc luồng tải tệp chạy thật và CSKH gửi
+        # ảnh/phiếu qua hệ thống thay vì qua Zalo cá nhân. Toàn bộ hạ tầng còn
+        # nguyên — bảng `tep_ket_qua`, `TepKetQuaService`, và khoá theo bệnh
+        # nhân `ket_qua_patient_lock_key` — nên khôi phục là chép lại đúng khối
+        # truy vấn đã gỡ ở commit này, không phải viết lại từ đầu.
+        #
+        # Luật CÒN GIỮ: `TRA_KQ` vẫn bắt buộc `ket_qua = "DA_LIEN_HE"` (kiểm ở
+        # đầu hàm). Một cuộc gọi hụt vẫn không được mang nhãn đã trả kết quả —
+        # đó là chuyện khác, và nó không đòi hỏi gì người dùng không làm được.
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                if loai == "TRA_KQ":
-                    from clinicai.services.media_service import (
-                        ket_qua_patient_lock_key,
-                    )
-
-                    # Upload and delivery confirmation share this lock. The
-                    # evidence check and interaction insert therefore cannot be
-                    # interleaved with a new pending file for the same patient.
-                    await conn.execute(
-                        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                        ket_qua_patient_lock_key(
-                            clinic_id=identity.clinic_id,
-                            clinic_patient_id=clinic_patient_id,
-                        ),
-                    )
-                    co_tep_da_gui = await conn.fetchval(
-                        """
-                        SELECT EXISTS (
-                            SELECT 1
-                              FROM public.tep_ket_qua t
-                             WHERE t.clinic_id = $1::uuid
-                               AND t.clinic_patient_id = $2::uuid
-                               AND t.gui_luc IS NOT NULL
-                               AND t.gui_luc >= COALESCE((
-                                   SELECT max(COALESCE(
-                                       r.reviewed_at,
-                                       r.result_received_at,
-                                       r.created_at
-                                   ))
-                                     FROM public.lab_result r
-                                    WHERE r.clinic_id = $1::uuid
-                                      AND r.clinic_patient_id = $2::uuid
-                                      AND r.result_value IS NOT NULL
-                                      AND (NOT r.requires_doctor_review
-                                           OR r.reviewed_at IS NOT NULL)
-                               ), '-infinity'::timestamptz)
-                        )
-                        AND NOT EXISTS (
-                            SELECT 1
-                              FROM public.tep_ket_qua pending
-                             WHERE pending.clinic_id = $1::uuid
-                               AND pending.clinic_patient_id = $2::uuid
-                               AND pending.gui_luc IS NULL
-                        )
-                        """,
-                        identity.clinic_id,
-                        clinic_patient_id,
-                    )
-                    if not co_tep_da_gui:
-                        raise ValidationError(
-                            "Chưa có tệp kết quả nào được xác nhận đã gửi cho khách. "
-                            "Gửi tệp và đánh dấu đúng kênh trước khi đóng việc này."
-                        )
-
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO public.tuong_tac_cskh
