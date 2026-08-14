@@ -711,7 +711,21 @@ export default function VungLamViecKhach({
 
   const router = useRouter();
   const [dangGhiLoiRa, setDangGhiLoiRa] = useState<string | null>(null);
-  const [loiGhiLoiRa, setLoiGhiLoiRa] = useState<string | null>(null);
+  // LỖI PHẢI BIẾT NÓ THUỘC VỀ BƯỚC NÀO.
+  //
+  // Bản trước chỉ giữ câu chữ. Node vẽ nó với điều kiện `motCham && loiGhiLoiRa`
+  // — không hỏi bước nào — nên MỘT bước hỏng là MỌI bước cùng hiện y câu ấy.
+  // Tuyền gặp đúng thế 14/08/2026: chốt "chưa gửi tệp kết quả" chỉ áp cho bước
+  // trả kết quả (tuong_tac_cskh_service.py, `if loai == "TRA_KQ"`), nhưng câu
+  // ấy hiện dưới cả "Đã check-in", "Gọi nhắc hẹn", "Huỷ lịch", "Không cần
+  // follow up" — những bước không liên quan gì tới tệp kết quả.
+  //
+  // Một dòng đỏ nói sai chỗ tệ hơn không có dòng nào: nó bảo người trực rằng
+  // mọi bước đều đang hỏng, nên họ ngừng tin mọi dòng đỏ, kể cả dòng đúng.
+  // Cùng bài học với lỗi "một bước hỏng tô đỏ cả chuỗi" hồi trước.
+  const [loiGhiLoiRa, setLoiGhiLoiRa] = useState<
+    { ma: string; cau: string } | null
+  >(null);
   const [dangDongHen, setDangDongHen] = useState<string | null>(null);
   const [loiDongHen, setLoiDongHen] = useState<string | null>(null);
   const [loiDongHenChu, setLoiDongHenChu] = useState<string | null>(null);
@@ -784,7 +798,10 @@ export default function VungLamViecKhach({
     // bằng một dòng đọc được, thay vì để backend trả 422 mà màn hình nuốt mất.
     const canLich = ["XAC_NHAN_LICH", "NHAC_HEN", "HOI_LY_DO_HUY", "CHECK_IN", "CHECK_OUT"];
     if (canLich.includes(v.loai) && !lich.id) {
-      setLoiGhiLoiRa("Khách chưa có lịch hẹn nào để gắn thao tác này.");
+      setLoiGhiLoiRa({
+        ma: v.khoa,
+        cau: "Khách chưa có lịch hẹn nào để gắn thao tác này.",
+      });
       return;
     }
     // LUÔN GẮN LỊCH HẸN KHI CÓ, không chỉ với năm loại bắt buộc.
@@ -832,7 +849,10 @@ export default function VungLamViecKhach({
         error?: string;
         message?: string;
       } | null;
-      setLoiGhiLoiRa(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
+      setLoiGhiLoiRa({
+        ma: v.khoa,
+        cau: nhanLoi(d, `Không ghi được (lỗi ${res.status}).`),
+      });
       return;
     }
     xongThaoTac(ttLoiRa); // xong ⇒ lần bấm sau là thao tác mới
@@ -1201,9 +1221,13 @@ export default function VungLamViecKhach({
                 hệt một cú bấm không ăn — và đó chính là "chả động tĩnh gì" mà
                 Quang gặp. Một nút im lặng dạy người dùng bấm lại nhiều lần rồi
                 bỏ cuộc; một dòng đỏ nói được chuyện gì đã xảy ra. */}
-            {motCham && loiGhiLoiRa && dangGhiLoiRa === null && (
-              <span className="text-[11px] text-danger">{loiGhiLoiRa}</span>
-            )}
+            {motCham &&
+              loiGhiLoiRa?.ma === tt.ma &&
+              dangGhiLoiRa === null && (
+                <span className="text-[11px] text-danger">
+                  {loiGhiLoiRa.cau}
+                </span>
+              )}
           </div>
 
           {/* Việc phải làm — phần sau mũi tên trong đặc tả. */}
@@ -1307,7 +1331,7 @@ export default function VungLamViecKhach({
                   dangHoanTac={dangHoanTac}
                   onGhi={(ma, kq) => void ghiLoiRa(ma, kq)}
                   dangGhi={dangGhiLoiRa}
-                  loi={loiGhiLoiRa}
+                  loi={loiGhiLoiRa?.ma === "GOI_LAI" ? loiGhiLoiRa.cau : null}
                 />
                 <HangGop
                   ma="HOI_LY_DO_HUY"
