@@ -925,11 +925,49 @@ export default function BookingHub({
     };
     document.addEventListener("visibilitychange", khiHien);
 
+    // TIN ĐẨY: AI ĐÓ VỪA GIỮ HOẶC THẢ MỘT CHỖ.
+    //
+    // Tuyền 14/08/2026: *"mỗi vị trí lịch nào mà người này click thì cũng sẽ
+    // hiện realtime trên màn hình của người kia, cả 8 CSKH cùng làm cũng thế"*.
+    //
+    // Nhịp 5 giây cho ra ~2,5 giây trung bình. Với tin đẩy thì còn đúng một
+    // vòng mạng: `slot_hold` có trigger `pg_notify` từ 14/08 (migration
+    // 20260814000001), FastAPI nghe rồi đẩy SSE về đây.
+    //
+    // MÀN NÀY TỰ MỞ DÒNG RIÊNG, không nhờ `RealtimeRefresher`. Bộ ấy gọi
+    // `router.refresh()` cho mọi tin — dựng lại toàn bộ cây server component.
+    // Tám CSKH bấm lướt qua các khung giờ sẽ thành một trận mưa render trên mọi
+    // tab đang mở, cho một thay đổi mà chỉ màn này quan tâm. Ở đây chỉ hỏi lại
+    // một endpoint nhẹ (4,8ms cả chuỗi).
+    //
+    // GIỮ NHỊP 5 GIÂY LÀM LƯỚI AN TOÀN. Dòng SSE có thể rớt, và ở đúng màn này
+    // thì im lặng là thứ tệ nhất: người trực tin rằng khung còn trống.
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource("/api/events/stream");
+      es.addEventListener("change", (ev) => {
+        try {
+          const { t: bang } = JSON.parse(
+            (ev as MessageEvent<string>).data,
+          ) as { t?: string };
+          if (bang === "slot_hold") void load();
+        } catch {
+          // Tin méo thì cứ hỏi lại — một lượt gọi 4,8ms rẻ hơn nhiều so với
+          // việc bỏ sót một chỗ vừa bị giữ.
+          void load();
+        }
+      });
+    } catch {
+      // Trình duyệt không có EventSource, hoặc dòng không mở được. Nhịp 5 giây
+      // vẫn chạy, nên màn hình chỉ chậm hơn chứ không mù.
+    }
+
     return () => {
       alive = false;
       clearTimeout(t);
       clearInterval(iv);
       document.removeEventListener("visibilitychange", khiHien);
+      es?.close();
     };
   }, [selectedDateIso]);
 

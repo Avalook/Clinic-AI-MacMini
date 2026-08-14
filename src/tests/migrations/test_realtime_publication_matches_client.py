@@ -100,3 +100,55 @@ def test_publication_has_no_unwatched_tables() -> None:
         "table makes Realtime re-run RLS for each subscriber on each change. "
         "Either subscribe to it or drop it from the publication."
     )
+
+
+def _tables_with_notify_trigger() -> set[str]:
+    """Bảng có trigger `trg_notify_*` do một migration nào đó tạo ra.
+
+    Đọc mọi mảng `bang text[] := ARRAY[…]` trong các migration có gọi
+    `notify_row_change` — đúng khuôn mà 20260806000001 và 20260814000001 dùng.
+    """
+    ra: set[str] = set()
+    for path in sorted(_MIGRATIONS.glob("*.sql")):
+        text = path.read_text(encoding="utf-8")
+        if "notify_row_change" not in text:
+            continue
+        for block in re.finditer(
+            r"bang\s+text\[\]\s*:=\s*ARRAY\s*\[(.*?)\]", text, re.DOTALL
+        ):
+            ra.update(re.findall(r"'(\w+)'", block.group(1)))
+    return ra
+
+
+@pytest.mark.skipif(not _CLIENT.exists(), reason="dashboard sources not present")
+def test_moi_bang_duoc_nghe_deu_co_trigger_bao_tin() -> None:
+    """Nghe một bảng KHÔNG phát tin là im lặng vĩnh viễn.
+
+    BÀI KIỂM NÀY RA ĐỜI VÌ BÀI KIỂM NGAY TRÊN CANH NHẦM CƠ CHẾ.
+
+    `test_every_subscribed_table_is_published` đối chiếu LIVE_TABLES với
+    PUBLICATION — cơ chế của Supabase Realtime. Nhưng 06/08/2026 hệ thống đã bỏ
+    Realtime, chuyển sang LISTEN/NOTIFY (quyền REPLICATION không xin được ở
+    database cho thuê). Từ hôm ấy, thứ quyết định một bảng có phát tin hay không
+    là TRIGGER `trg_notify_*`, không phải publication.
+
+    Ba ngày sau, 20260809000009 thêm bốn bảng của màn chăm sóc vào publication —
+    đúng khuôn cũ, và bài kiểm trên xanh. Nhưng không bảng nào được gắn trigger,
+    nên chúng chưa từng phát một tin nào. Đo trên prod 14/08: 11 bảng có
+    trigger, bốn bảng ấy không có bảng nào — trong khi RealtimeRefresher vẫn
+    nghe đủ cả bốn suốt năm ngày.
+
+    Hệ quả đúng bằng câu mà chính migration ấy viết ra để cảnh báo: hai CSKH
+    ngồi cạnh nhau không thấy việc của nhau, và khách nghe máy hai lần.
+
+    Bài kiểm cũ được GIỮ LẠI, không xoá: publication vẫn phải khớp, phòng khi
+    ai đó quay lại Realtime. Nhưng từ nay bài kiểm này mới là bài canh thứ đang
+    thật sự chạy.
+    """
+    missing = _subscribed_tables() - _tables_with_notify_trigger()
+    assert not missing, (
+        f"RealtimeRefresher nghe {sorted(missing)} nhưng không migration nào gắn "
+        "trigger `trg_notify_*` cho chúng. Đăng ký nghe một bảng không phát tin "
+        "thì im lặng — không lỗi, không cảnh báo, chỉ là màn hình chỉ tự mới sau "
+        "nhịp dự phòng 60 giây."
+    )
