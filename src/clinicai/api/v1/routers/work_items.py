@@ -21,7 +21,11 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
+from clinicai.api.idempotency import (
+    IdempotencyGuard,
+    idempotency_guard,
+    tra_khoa_neu_bi_tu_choi,
+)
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
@@ -180,15 +184,20 @@ async def _run(
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
 
-    payload = body or CommandRequest()
-    result = await WorkItemService(pool).issue(
-        work_item_id=str(work_item_id),
-        command=command,
-        identity=identity,
-        expected_version=payload.expected_version,
-        reason=payload.reason,
-    )
-    await idem.save(pool, result, status_code=200)
+    # Bọc trả khoá: bị từ chối vì lý do nghiệp vụ (4xx) thì khoá phải được
+    # trả lại ngay, kẻo lần bấm lại sau khi sửa vẫn nhận 409 suốt 5 phút và
+    # câu giải thích thật biến mất. Xem `IdempotencyGuard.release`.
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        payload = body or CommandRequest()
+        result = await WorkItemService(pool).issue(
+            work_item_id=str(work_item_id),
+            command=command,
+            identity=identity,
+            expected_version=payload.expected_version,
+            reason=payload.reason,
+        )
+        await idem.save(pool, result, status_code=200)
+
     return result
 
 

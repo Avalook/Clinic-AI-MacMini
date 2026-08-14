@@ -849,6 +849,17 @@ export default function VungLamViecKhach({
         error?: string;
         message?: string;
       } | null;
+      // MÁY CHỦ TỪ CHỐI (4xx) ⇒ BỎ KHOÁ THAO TÁC.
+      //
+      // 4xx nghĩa là chắc chắn chưa ghi gì, và lần bấm lại sau khi sửa là một
+      // thao tác MỚI. Giữ khoá thì lần ấy đâm vào chính hàng đang PROCESSING
+      // trong bảng idempotency_key và nhận 409 "Yêu cầu với Idempotency-Key này
+      // đang được xử lý" — kẹt đủ 5 phút, và câu giải thích THẬT ("chưa gửi tệp
+      // kết quả cho khách") biến mất sau nó.
+      //
+      // 5xx / lỗi mạng thì GIỮ khoá: lúc đó không ai biết máy chủ đã ghi tới
+      // đâu, và bỏ khoá là mở đường cho một bản ghi thứ hai.
+      if (res.status >= 400 && res.status < 500) xongThaoTac(ttLoiRa);
       setLoiGhiLoiRa({
         ma: v.khoa,
         cau: nhanLoi(d, `Không ghi được (lỗi ${res.status}).`),
@@ -946,6 +957,11 @@ export default function VungLamViecKhach({
         error?: string;
         message?: string;
       } | null;
+      // Máy chủ TỪ CHỐI (4xx) ⇒ bỏ khoá: chắc chắn chưa ghi gì, và lần bấm lại
+      // sau khi sửa là thao tác MỚI. Giữ khoá thì lần ấy nhận 409 "đang được xử
+      // lý" và câu giải thích thật biến mất. 5xx/lỗi mạng thì GIỮ — lúc đó không
+      // ai biết máy chủ đã ghi tới đâu.
+      if (res.status >= 400 && res.status < 500) xongThaoTac(ttCheckout);
       setLoiCheckout(
         nhanLoi(d, `Không đóng được (lỗi ${res.status}).`),
       );

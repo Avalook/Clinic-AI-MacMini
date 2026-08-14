@@ -13,7 +13,11 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
+from clinicai.api.idempotency import (
+    IdempotencyGuard,
+    idempotency_guard,
+    tra_khoa_neu_bi_tu_choi,
+)
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
@@ -353,18 +357,25 @@ async def ghi_tuong_tac(
     # Tên `dong_moi` chứ không phải `ket_qua`: ngay dưới có tham số `ket_qua=`
     # (kết quả cuộc gọi). Trùng tên thì chạy vẫn đúng nhưng người đọc sau phải
     # dừng lại một nhịp để chắc mình không nhầm hai thứ.
-    dong_moi = await TuongTacCskhService(pool).ghi(
-        identity=identity,
-        clinic_patient_id=str(body.clinic_patient_id),
-        appointment_id=str(body.appointment_id) if body.appointment_id else None,
-        loai=body.loai,
-        kenh=body.kenh,
-        ket_qua=body.ket_qua,
-        khach_xac_nhan=body.khach_xac_nhan,
-        noi_dung=body.noi_dung,
-        trang_thai_ma=body.trang_thai_ma,
-    )
-    await idem.save(pool, dong_moi, status_code=201)
+    #
+    # BỌC TRẢ KHOÁ. Service dưới đây từ chối bằng `ValidationError` cho những
+    # điều kiện nghiệp vụ có thật ("chưa gửi tệp kết quả cho khách", "mốc tại
+    # quầy mới ghi kết quả này"). Không trả khoá thì người trực sửa xong bấm lại
+    # vẫn nhận 409 suốt 5 phút, và câu giải thích thật biến mất — đo được trên
+    # staging 13/08, xem `IdempotencyGuard.release`.
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        dong_moi = await TuongTacCskhService(pool).ghi(
+            identity=identity,
+            clinic_patient_id=str(body.clinic_patient_id),
+            appointment_id=str(body.appointment_id) if body.appointment_id else None,
+            loai=body.loai,
+            kenh=body.kenh,
+            ket_qua=body.ket_qua,
+            khach_xac_nhan=body.khach_xac_nhan,
+            noi_dung=body.noi_dung,
+            trang_thai_ma=body.trang_thai_ma,
+        )
+        await idem.save(pool, dong_moi, status_code=201)
     return dong_moi
 
 
