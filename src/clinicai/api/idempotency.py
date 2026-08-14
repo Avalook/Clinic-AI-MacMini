@@ -27,6 +27,8 @@ normally (no caching). Keys expire after 24 hours.
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -36,6 +38,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from clinicai.api.exceptions import ConflictError
+from clinicai.core.exceptions import ClinicAIBaseException
 
 logger = structlog.get_logger()
 
@@ -190,6 +193,69 @@ class IdempotencyGuard:
         )
         if result != "UPDATE 1":
             raise RuntimeError("Idempotency reservation was not completed")
+
+    async def release(self, pool: asyncpg.Pool) -> None:
+        """Trả khoá lại vì thao tác BỊ TỪ CHỐI — lần bấm sau phải đi qua được.
+
+        VÌ SAO CẦN. Khoá được chiếm TRƯỚC khi handler chạy. Nếu handler từ chối
+        vì một lý do nghiệp vụ — "chưa gửi tệp kết quả cho khách", "lượt khám
+        còn 2 việc chưa xong" — thì chỗ giữ chỗ ấy không còn mô tả điều gì đang
+        xảy ra, nhưng nó vẫn nằm đó cho tới hết hạn 5 phút.
+
+        Hậu quả đo được trên staging 13/08/2026, đọc theo mốc thời gian:
+
+            08:08:23  422  "Chưa có tệp kết quả nào được xác nhận đã gửi…"
+            08:08:30  422  cùng lý do
+            08:08:35  409  "Idempotency-Key này đang được xử lý; vui lòng thử lại"
+            08:08:41  409  cùng câu
+
+        Từ lần thứ ba trở đi, câu người dùng CẦN nghe bị thay bằng câu nói về cơ
+        chế bên trong. Người trực đọc thành "máy đang bận" rồi bấm lại, và mỗi
+        lần bấm lại chỉ nhận đúng câu ấy cho tới khi hết 5 phút. Lúc đo có 8 khoá
+        kẹt ở chính đường này, cái lâu nhất 1 ngày 5 giờ.
+
+        CHỈ TRẢ KHI LỖI 4xx. Lỗi 5xx nghĩa là không ai biết handler đã ghi tới
+        đâu; giữ khoá lại mới đúng, vì lần gửi lại có thể tạo bản thứ hai. Đây là
+        ranh giới giữa "máy chủ từ chối" và "máy chủ hỏng".
+        """
+        if not self.key or not self._acquired:
+            return
+        await pool.execute(
+            """
+            DELETE FROM idempotency_key
+            WHERE key = $1 AND endpoint = $2 AND actor_id = $3
+              AND state = 'PROCESSING'
+            """,
+            self.key,
+            self.endpoint,
+            self.actor_id,
+        )
+        logger.info(
+            "idempotency_released",
+            key=self.key,
+            endpoint=self.endpoint,
+            actor_id=self.actor_id or None,
+        )
+
+
+@asynccontextmanager
+async def tra_khoa_neu_bi_tu_choi(
+    idem: IdempotencyGuard,
+    pool: asyncpg.Pool,
+) -> AsyncIterator[None]:
+    """Bọc thân handler: bị từ chối vì lý do nghiệp vụ thì trả khoá lại ngay.
+
+    Đặt ở đây chứ không lặp lại try/except trong từng router: bốn đường đang
+    dùng khoá (đặt lịch, thanh toán, work item, sổ chạm CSKH) có cùng một hình
+    dạng, và đường nào quên bọc thì lỗi quay lại y như cũ mà không ai thấy —
+    nó chỉ lộ ra khi người dùng bấm trúng một lần bị từ chối.
+    """
+    try:
+        yield
+    except ClinicAIBaseException as loi:
+        if 400 <= loi.status_code < 500:
+            await idem.release(pool)
+        raise
 
 
 async def idempotency_guard(

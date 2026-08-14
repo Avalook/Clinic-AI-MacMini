@@ -17,7 +17,11 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ConflictError, NotFoundError
-from clinicai.api.idempotency import IdempotencyGuard, idempotency_guard
+from clinicai.api.idempotency import (
+    IdempotencyGuard,
+    idempotency_guard,
+    tra_khoa_neu_bi_tu_choi,
+)
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
@@ -268,25 +272,29 @@ async def create_booking(
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
 
-    result = await BookingService(pool).create(
-        clinic_patient_id=str(body.clinic_patient_id),
-        service_type_id=str(body.service_type_id),
-        location_id=str(body.location_id) if body.location_id else None,
-        slot_start=body.slot_start,
-        slot_end=body.slot_end,
-        identity=identity,
-        doctor_id=str(body.doctor_id) if body.doctor_id else None,
-        booking_channel=body.booking_channel,
-        queue_number=body.queue_number,
-        patient_kind=body.patient_kind,
-        need_sono=body.need_sono,
-        thanh_min=body.thanh_min,
-        sono_min=body.sono_min,
-        notes=body.notes,
-        lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
-    )
-    payload = {"ok": True, **result}
-    await idem.save(pool, payload, status_code=201)
+    # Bọc trả khoá: bị từ chối vì lý do nghiệp vụ (4xx) thì khoá phải được trả
+    # lại ngay, kẻo lần bấm lại sau khi sửa vẫn nhận 409 suốt 5 phút và câu giải
+    # thích thật biến mất. Xem `IdempotencyGuard.release`.
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        result = await BookingService(pool).create(
+            clinic_patient_id=str(body.clinic_patient_id),
+            service_type_id=str(body.service_type_id),
+            location_id=str(body.location_id) if body.location_id else None,
+            slot_start=body.slot_start,
+            slot_end=body.slot_end,
+            identity=identity,
+            doctor_id=str(body.doctor_id) if body.doctor_id else None,
+            booking_channel=body.booking_channel,
+            queue_number=body.queue_number,
+            patient_kind=body.patient_kind,
+            need_sono=body.need_sono,
+            thanh_min=body.thanh_min,
+            sono_min=body.sono_min,
+            notes=body.notes,
+            lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
+        )
+        payload = {"ok": True, **result}
+        await idem.save(pool, payload, status_code=201)
     return payload
 
 
