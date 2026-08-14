@@ -233,3 +233,58 @@ def _identity() -> Any:
         location_id="55555555-5555-4555-8555-555555555555",
         location_name="Kim Ngưu",
     )
+
+
+def test_cskh_dong_luot_luon_kem_ly_do_ngoai_le() -> None:
+    """Ba nút "Kết thúc lượt khám" ở màn CSKH phải luôn bấm được.
+
+    Tuyền chốt 14/08/2026 (lần thứ hai): *"phải cho ấn 3 nút này chứ"*.
+
+    Bản trước gọi `CheckoutService.close()` KHÔNG kèm `override_reason`, nên còn
+    một việc dở là cả thao tác dừng với dòng đỏ *"Lượt khám còn N việc chưa
+    xong. Muốn đóng thì phải ghi lý do ngoại lệ."* — mà màn CSKH không có ô nào
+    để gõ lý do ấy. Đó không phải một chốt, đó là một ngõ cụt.
+
+    CHỐT KHÔNG BỊ XOÁ, chỉ được đáp ứng: lời gọi phải mang theo câu liệt kê
+    ĐÚNG những việc còn vướng. Kiểm cả hai vế — có `override_reason`, và câu ấy
+    dựng từ `blockers` chứ không phải một chuỗi cứng nói cho có.
+    """
+    import inspect
+
+    from clinicai.services import tuong_tac_cskh_service as m
+
+    nguon = inspect.getsource(m)
+    dau = nguon.index("CheckoutService(target_pool)")
+    khoi = nguon[dau : dau + 900]
+
+    assert "ly_do_tu_dong=" in khoi, (
+        "đường CSKH phải nói cho close() biết vì sao được phép đóng dù còn "
+        "vướng — thiếu nó thì ba nút Kết thúc lượt khám đứng im"
+    )
+
+    # Và `close()` phải DỰNG câu ấy từ chính blockers nó vừa đọc, chứ không
+    # nhận một chuỗi cứng: cột lý do chỉ có giá trị khi nó liệt kê đúng thứ
+    # thật sự bị vượt tại thời điểm đóng.
+    from clinicai.services.checkout_service import CheckoutService
+
+    dong = inspect.getsource(CheckoutService.close)
+    assert "ly_do_tu_dong" in dong and "blockers" in dong, (
+        "close() phải ghép câu lý do từ blockers của chính lần đọc ấy"
+    )
+
+
+def test_luot_kham_do_van_bat_buoc_co_ly_do_nguoi_go() -> None:
+    """Vượt chốt "phải giải thích" KHÔNG được kéo theo chốt khách-về-giữa-chừng.
+
+    Hai thứ khác nhau: `blockers` là việc của phòng khám còn dở (chưa thu tiền,
+    chưa có kết quả) — hệ thống tự liệt kê được. `incomplete` là KHÁCH BỎ VỀ, và
+    chỉ người có mặt mới biết vì sao; máy không bịa hộ được.
+    """
+    import inspect
+
+    from clinicai.services import checkout_service as m
+
+    nguon = inspect.getsource(m.CheckoutService.close)
+    assert "incomplete and not ly_do_do" in nguon, (
+        "lượt khám dở vẫn phải có lý do do người gõ"
+    )

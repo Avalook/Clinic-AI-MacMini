@@ -763,8 +763,20 @@ def test_checkout_cua_cskh_dong_luon_luot_kham_nhung_khong_override() -> None:
         "DUY NHẤT dọn đủ ba thứ: đóng bước LUOTKHAM-15, bỏ con trỏ phòng, và "
         "ghi closed_at/closed_by. Tự viết UPDATE ở đây sẽ quên một trong ba."
     )
-    assert "override_reason" not in dong, (
-        "CSKH không được tự đặt lý do ngoại lệ để vượt thu tiền/lab/workflow"
+    # LUẬT ĐÃ ĐẢO 14/08/2026 (Tuyền chốt lần thứ hai): ba nút "Kết thúc lượt
+    # khám" phải LUÔN bấm được. Bản cũ không truyền lý do ngoại lệ, nên còn một
+    # việc dở là cả thao tác dừng với dòng đỏ đòi "ghi lý do ngoại lệ" — mà màn
+    # CSKH không có ô nào để gõ lý do ấy. Đó là một ngõ cụt, không phải một chốt.
+    #
+    # Chốt không bị xoá, chỉ được ĐÁP ỨNG: câu lý do liệt kê đúng những việc
+    # còn vướng, dựng từ `blockers`, để sáu tháng sau còn truy lại được.
+    assert "ly_do_tu_dong" in dong, (
+        "CSKH đóng lượt phải kèm lý do ngoại lệ — thiếu nó thì ba nút Kết thúc "
+        "lượt khám không bấm được khi còn việc dở"
+    )
+    assert "readiness(" not in dong, (
+        "đừng đọc blockers lần thứ hai ở đây: `close()` đã đọc rồi, và hai lần "
+        "đọc lệch nhau thì cột lý do ghi một danh sách không khớp thứ bị vượt"
     )
     assert "except Exception" not in dong, "lỗi đóng lượt không được nuốt"
 
@@ -905,10 +917,15 @@ async def test_dong_luot_kham_khong_co_visit_thi_bao_ro() -> None:
 
 
 @pytest.mark.asyncio
-async def test_dong_luot_kham_sach_di_qua_checkout_khong_override(
+async def test_dong_luot_kham_di_qua_checkout_va_kem_ly_do_ngoai_le(
     monkeypatch: Any,
 ) -> None:
-    """CSKH dùng chốt chuẩn; không tự chế lý do để vượt blocker."""
+    """CSKH dùng chốt chuẩn, VÀ kèm lý do ngoại lệ liệt kê việc còn vướng.
+
+    Trước 14/08/2026 lời gọi này cố ý KHÔNG truyền lý do, nên còn một việc dở là
+    ba nút "Kết thúc lượt khám" đứng im với một dòng đỏ mà màn hình không cho
+    cách nào đáp ứng. Tuyền chốt: phải bấm được.
+    """
     from clinicai.services import checkout_service
 
     pool = _ContextPool(["visit-1"])
@@ -923,7 +940,15 @@ async def test_dong_luot_kham_sach_di_qua_checkout_khong_override(
         identity=_ai(), appointment_id="ap-1"
     )
 
-    assert captured == {"identity": _ai(), "visit_id": "visit-1"}
+    assert captured["identity"] == _ai()
+    assert captured["visit_id"] == "visit-1"
+    # Không có việc nào vướng ⇒ không bịa ra lý do. Cột lý do chỉ có nghĩa khi
+    # nó nói về một lần thật sự vượt chốt.
+    assert captured["ly_do_tu_dong"], (
+        "phải nói cho close() biết vì sao được phép đóng dù còn vướng"
+    )
+    # KHÔNG truyền `override_reason` sẵn: câu đầy đủ do `close()` dựng, từ
+    # chính lần đọc blockers của nó.
     assert "override_reason" not in captured
 
 

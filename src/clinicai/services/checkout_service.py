@@ -378,6 +378,7 @@ class CheckoutService:
         override_reason: str | None = None,
         incomplete: bool = False,
         incomplete_reason: str | None = None,
+        ly_do_tu_dong: str | None = None,
     ) -> dict[str, Any]:
         """Đóng lượt. Còn vướng thì phải có lý do ngoại lệ.
 
@@ -413,11 +414,28 @@ class CheckoutService:
                 "Đóng lượt khám dở thì phải ghi vì sao khách về giữa chừng."
             )
         if blockers and not reason and not incomplete:
-            raise ValidationError(
-                "Lượt khám còn "
-                + str(len(blockers))
-                + " việc chưa xong. Muốn đóng thì phải ghi lý do ngoại lệ."
-            )
+            # `ly_do_tu_dong` = "đóng đi, và ghi hộ tôi vì sao".
+            #
+            # Màn CSKH không có ô nhập lý do, nên bắt nó "ghi lý do ngoại lệ" là
+            # đưa ra một yêu cầu người dùng không có cách nào đáp ứng — ngõ cụt,
+            # không phải chốt (Tuyền chốt 14/08/2026, lần thứ hai).
+            #
+            # Câu được dựng TỪ CHÍNH `blockers` vừa đọc ở trên, không đọc lại
+            # lần nữa: hai lần đọc có thể ra hai kết quả khác nhau, và khi đó
+            # cột lý do ghi một danh sách không khớp với thứ thật sự bị vượt.
+            if ly_do_tu_dong:
+                reason = (
+                    ly_do_tu_dong
+                    + " Còn vướng: "
+                    + "; ".join(str(b["message"]) for b in blockers)
+                    + "."
+                )
+            else:
+                raise ValidationError(
+                    "Lượt khám còn "
+                    + str(len(blockers))
+                    + " việc chưa xong. Muốn đóng thì phải ghi lý do ngoại lệ."
+                )
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
