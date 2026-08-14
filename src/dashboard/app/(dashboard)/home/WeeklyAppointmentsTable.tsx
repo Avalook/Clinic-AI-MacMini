@@ -45,6 +45,10 @@ export interface WeekApptRow {
   /** Bác sĩ của lịch này không còn ca KHÁM vào ngày khám — backend tính
    *  (week_appointments_service), cùng luật với màn Quản lý khách hàng. */
   mat_bac_si?: boolean;
+  /** Bác sĩ đã bị gỡ khỏi lịch khi ca trực của họ bị xoá. Sau khi gỡ,
+   *  `doctor_id` về NULL nên `mat_bac_si` tắt — cột này giữ cho màn hình còn
+   *  nói được, và nói rõ đổi từ ai. */
+  bac_si_da_go?: string | null;
   phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
@@ -400,9 +404,12 @@ export default function WeeklyAppointmentsTable({
                                     bảng: người đọc quét dọc cột giờ để gọi tên,
                                     nên câu cảnh báo phải nằm ở đúng dòng họ
                                     đang nhìn. */}
-                                {a.mat_bac_si && (
+                                {(a.mat_bac_si || a.bac_si_da_go) && (
                                   <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning">
-                                    ⚠ Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch
+                                    ⚠{" "}
+                                    {a.bac_si_da_go
+                                      ? `${a.bac_si_da_go} đã nghỉ — gọi khách xếp bác sĩ khác`
+                                      : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
                                   </span>
                                 )}
                                 {canWriteClinical ? (

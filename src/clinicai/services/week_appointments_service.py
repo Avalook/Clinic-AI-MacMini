@@ -53,7 +53,7 @@ _SQL = (
 WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
            a.booking_channel, a.clinic_patient_id, a.service_type_id,
-           a.created_at
+           a.created_at, a.bac_si_da_go_id
       FROM appointment a
      WHERE a.clinic_id  = $1::uuid
        AND a.slot_start >= $2
@@ -124,6 +124,13 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
          )
        ) AS mat_bac_si,
+       -- BÁC SĨ ĐÃ BỊ GỠ khỏi lịch này khi ca trực của họ bị xoá.
+       --
+       -- Sau khi gỡ, `doctor_id` về NULL nên cờ `mat_bac_si` ở trên TẮT — nó
+       -- đòi lịch phải CÓ bác sĩ. Cột này là thứ giữ cho màn hình còn nói được,
+       -- và nói rõ hơn: đổi từ ai. Thiếu nó thì CSKH gọi khách chỉ nói được
+       -- "lịch của chị bị đổi", không biết khách đang chờ gặp ai.
+       bs_go.full_name AS bac_si_da_go,
        CASE
          WHEN p.clinic_patient_id IS NULL THEN ''
          WHEN t.slot_start > s.dau_tien  THEN 'Tái khám'
@@ -143,6 +150,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
         AND p.clinic_id = $1::uuid
   LEFT JOIN som_nhat s ON s.clinic_patient_id = t.clinic_patient_id
   LEFT JOIN staff d    ON d.id = t.doctor_id
+  LEFT JOIN staff bs_go ON bs_go.id = t.bac_si_da_go_id
   LEFT JOIN service_type st ON st.id = t.service_type_id
   -- GIỜ ĐẾN THẬT. Endpoint này trước đây không trả `checked_in_at`, nên luật
   -- "có hẹn và đến đúng giờ" ở lưới trang chủ CHƯA TỪNG CHẠY: mọi dòng đều rơi
@@ -216,6 +224,7 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "booking_channel": r["booking_channel"],
         "phan_loai": r["phan_loai"],
         "mat_bac_si": bool(r["mat_bac_si"]),
+        "bac_si_da_go": r["bac_si_da_go"],
         # Giờ đến thật + thứ tự gọi. Trước đây endpoint này không trả
         # `checked_in_at`, nên bản TypeScript của luật chạy ở đây luôn coi mọi
         # người là "chưa đến" và xếp theo giờ hẹn — luật đúng, dữ liệu thiếu.

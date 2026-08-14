@@ -260,11 +260,11 @@ export default async function CustomersPage({
   const apptSelectAll = canManage
     ? `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
        ly_do_huy_ma, cancellation_reason,
-       service_type_id, doctor_id, location_id, booking_channel, lich_truoc_id,
+       service_type_id, doctor_id, bac_si_da_go_id, location_id, booking_channel, lich_truoc_id,
        service:service_type!service_type_id ( name ),
        doctor:staff!doctor_id ( full_name )`
     : `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
-       ly_do_huy_ma, cancellation_reason, service_type_id, lich_truoc_id,
+       ly_do_huy_ma, cancellation_reason, service_type_id, bac_si_da_go_id, lich_truoc_id,
        service:service_type!service_type_id ( name ),
        doctor:staff!doctor_id ( full_name )`;
   const apptsPromise = shownIds.length
@@ -477,6 +477,8 @@ type LichHenRaw = {
   id?: string;
   service_type_id?: string | null;
   doctor_id?: string | null;
+  /** Bác sĩ đã bị gỡ khỏi lịch khi ca trực của họ bị xoá (14/08/2026). */
+  bac_si_da_go_id?: string | null;
   location_id?: string | null;
   booking_channel?: string | null;
   created_at?: string | null;
@@ -1018,12 +1020,16 @@ type LichHenRaw = {
             // `doCaTruc` vẫn là chốt an toàn: tập ca trực rỗng (truy vấn hỏng,
             // tuần chưa xếp) KHÔNG được đọc thành "mọi bác sĩ đều nghỉ" — báo
             // nhầm hàng loạt tệ hơn không báo.
+            // Bật cả khi bác sĩ ĐÃ BỊ GỠ (doctor_id về NULL): lúc ấy điều kiện
+            // "có bác sĩ mà không có ca" không còn đúng, nhưng lịch vẫn đang
+            // chờ xếp lại và khách vẫn cần được gọi.
             mat_bac_si:
-              doCaTruc &&
+              !!a.bac_si_da_go_id ||
+              (doCaTruc &&
               !!a.doctor_id &&
               !daQua(a.slot_start, nowMs()) &&
               ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status) &&
-              !coCaTruc.has(`${a.doctor_id}|${ngayVN(a.slot_start)}`),
+              !coCaTruc.has(`${a.doctor_id}|${ngayVN(a.slot_start)}`)),
             // Lý do huỷ đi theo TỪNG LƯỢT, không theo khách: một đợt có thể có
             // ba lượt mà chỉ một lượt bị huỷ. Đặt ở cấp đợt là gán sai lượt.
             ly_do_huy_ma: a.ly_do_huy_ma ?? null,

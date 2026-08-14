@@ -35,6 +35,11 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.confirmed": "Xác nhận lịch hẹn",
     "appointment.cskh_confirmed": "CSKH xác nhận lịch",
     "appointment.rescheduled": "Dời lịch hẹn",
+    # Quản lý gỡ ca trực khám của một bác sĩ ⇒ lịch hẹn ngày ấy bỏ bác sĩ, rơi
+    # về hàng "Chờ xếp bác sĩ" (14/08/2026). Không phải người bấm vào lịch hẹn,
+    # nên nhãn nói RÕ nguyên nhân — đọc lại sáu tháng sau vẫn hiểu vì sao một
+    # lịch tự nhiên mất bác sĩ.
+    "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
     "appointment.cancelled": "Huỷ lịch hẹn",
     "roster.week_applied": "Áp dụng lịch trực cả tuần",
     "roster.tu_xep_theo_lich_hen": "Tự xếp bác sĩ vào ca theo lịch hẹn",
@@ -172,6 +177,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:reception": "Quầy tiếp nhận",
     "api:pharmacy": "Nhà thuốc",
     "api:staff": "Quản lý nhân sự",
+    "api:roster": "Lịch làm việc",
     "api:clinic-settings": "Cấu hình phòng khám",
 }
 
