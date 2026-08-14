@@ -42,6 +42,9 @@ export interface WeekApptRow {
   booking_channel: string | null;
   /** Giá trị BACKEND trả: "Tái khám" | "Khám lần đầu" | "". Chữ hiện lên
    *  màn hình đi qua `nhanPhanLoaiKham` — xem lib/phan-loai-kham.ts. */
+  /** Bác sĩ của lịch này không còn ca KHÁM vào ngày khám — backend tính
+   *  (week_appointments_service), cùng luật với màn Quản lý khách hàng. */
+  mat_bac_si?: boolean;
   phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
@@ -392,6 +395,16 @@ export default function WeeklyAppointmentsTable({
                           {a ? (
                             <>
                               <td className={`${CELL} text-ink`}>
+                                {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT.
+                                    Đặt ngay tại dòng lịch, không gom về đầu
+                                    bảng: người đọc quét dọc cột giờ để gọi tên,
+                                    nên câu cảnh báo phải nằm ở đúng dòng họ
+                                    đang nhìn. */}
+                                {a.mat_bac_si && (
+                                  <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                                    ⚠ Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch
+                                  </span>
+                                )}
                                 {canWriteClinical ? (
                                   <button
                                     onClick={() => setSelAppt(a)}

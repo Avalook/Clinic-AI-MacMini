@@ -65,6 +65,9 @@ def _record(**over: Any) -> _Row:
         "doctor_id": "22222222-2222-4222-8222-222222222222",
         "booking_channel": "HOTLINE",
         "phan_loai": "Tái khám",
+        # Cột thêm 14/08/2026 — bảng "check đặt lịch" phải nói khi bác sĩ
+        # không còn ca khám hôm đó.
+        "mat_bac_si": False,
         "clinic_patient_id": "33333333-3333-4333-8333-333333333333",
         "patient_code": "BN-2026-000001",
         "full_name": "Nguyễn Thị A",
@@ -179,4 +182,35 @@ def test_lich_da_huy_khong_duoc_tinh_la_lan_kham_truoc() -> None:
     assert "$4::text[]" in khoi, (
         "som_nhat phải bỏ lịch huỷ/không đến/bác sĩ từ chối — nếu không, một "
         "lịch đã huỷ biến khách chưa từng tới thành 'khám cũ'"
+    )
+
+
+def test_lich_mat_bac_si_duoc_danh_dau_trong_bang_check_dat_lich() -> None:
+    """Bảng "check đặt lịch" phải nói khi bác sĩ không còn ca khám hôm đó.
+
+    Tuyền 14/08/2026: gỡ ca trực của một bác sĩ NGÀY HÔM NAY, nhưng bảng lịch
+    tuần vẫn hiện hàng của khách dưới tên người ấy, không một dấu hiệu nào.
+
+    Cảnh báo đã có ở màn Quản lý khách hàng, nhưng bảng này là chỗ người trực
+    quét dọc để gọi tên — bỏ trống ở đây nghĩa là họ chỉ biết khi khách tới quầy.
+
+    Kiểm bằng cách đọc SQL: luật nằm trong một chuỗi truy vấn, và cả mypy lẫn
+    ruff đều không đọc được bên trong nó.
+    """
+    from clinicai.services.week_appointments_service import _SQL
+
+    assert "AS mat_bac_si" in _SQL, "truy vấn phải trả cờ mất bác sĩ"
+    dau = _SQL.index("AS mat_bac_si")
+    khoi = _SQL[max(0, dau - 900) : dau]
+    assert "'LICH_KHAM'" in khoi, (
+        "phải hỏi ca KHÁM, không phải mọi trạm: một bác sĩ còn ca thủ thuật "
+        "ngoài giờ vẫn là mất bác sĩ đối với lịch hẹn khám"
+    )
+    assert "t.slot_start > now()" in khoi, (
+        "chỉ cảnh báo cho lịch còn cứu được — lịch đã qua thì không đổi lại "
+        "được nữa, tô cảnh báo ở đó chỉ dạy người đọc bỏ qua màu cảnh báo"
+    )
+    assert "w.clinic_id = $1::uuid" in khoi, (
+        "thiếu clinic_id thì một bác sĩ trực ở cơ sở KHÁC vẫn được đọc là "
+        "'có đi làm' — đúng thứ cờ này sinh ra để phát hiện"
     )

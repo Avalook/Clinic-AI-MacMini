@@ -96,6 +96,34 @@ som_nhat AS (
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        t.booking_channel,
+       -- LỊCH NÀY VỪA MẤT BÁC SĨ: có người phụ trách, nhưng người ấy không còn
+       -- ca KHÁM vào đúng ngày khám.
+       --
+       -- Cùng luật với cảnh báo ở màn Quản lý khách hàng (customers/page.tsx).
+       -- Bảng "check đặt lịch" trước nay không có gì nói chuyện này, nên quản
+       -- lý gỡ một ca trực xong thì hàng lịch của khách nằm im dưới tên một bác
+       -- sĩ hôm đó không đi làm — và người trực chỉ biết khi khách tới quầy.
+       --
+       -- `station = 'LICH_KHAM'`: câu hỏi không phải "hôm ấy có mặt ở phòng
+       -- khám không" mà "hôm ấy có ngồi bàn khám không". Một bác sĩ còn ca thủ
+       -- thuật ngoài giờ vẫn là mất bác sĩ đối với lịch hẹn khám.
+       --
+       -- CHỈ TÍNH CHO LỊCH CÒN CỨU ĐƯỢC — chưa tới giờ và chưa check-in. Lịch
+       -- đã qua mà mất bác sĩ thì không đổi lại được nữa; tô cảnh báo ở đó chỉ
+       -- làm ngập bảng và dạy người đọc bỏ qua màu cảnh báo.
+       (
+         t.doctor_id IS NOT NULL
+         AND t.slot_start > now()
+         AND t.status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+         AND NOT EXISTS (
+           SELECT 1 FROM public.work_roster w
+            WHERE w.clinic_id = $1::uuid
+              AND w.staff_id  = t.doctor_id
+              AND w.station   = 'LICH_KHAM'
+              AND w.work_date =
+                  (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+         )
+       ) AS mat_bac_si,
        CASE
          WHEN p.clinic_patient_id IS NULL THEN ''
          WHEN t.slot_start > s.dau_tien  THEN 'Tái khám'
@@ -187,6 +215,7 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "booking_channel": r["booking_channel"],
         "phan_loai": r["phan_loai"],
+        "mat_bac_si": bool(r["mat_bac_si"]),
         # Giờ đến thật + thứ tự gọi. Trước đây endpoint này không trả
         # `checked_in_at`, nên bản TypeScript của luật chạy ở đây luôn coi mọi
         # người là "chưa đến" và xếp theo giờ hẹn — luật đúng, dữ liệu thiếu.
