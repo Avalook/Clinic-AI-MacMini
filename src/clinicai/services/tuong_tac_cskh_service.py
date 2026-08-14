@@ -539,9 +539,28 @@ class TuongTacCskhService:
         ``closed_at``/``closed_by``. Tự viết một câu UPDATE ở đây là dựng bản thứ
         hai của một quy trình, và bản thứ hai sẽ quên đúng cái thứ ba.
 
-        CSKH không đủ thông tin để vượt các chốt lab/thanh toán/workflow. Vì vậy
-        lời gọi này không truyền lý do ngoại lệ và không nuốt lỗi: còn blocker
-        thì toàn bộ thao tác phải dừng trước khi appointment thành COMPLETED.
+        BA NÚT KẾT THÚC LƯỢT LUÔN BẤM ĐƯỢC (Tuyền chốt 14/08/2026, lần thứ hai).
+
+        Bản trước gọi ``close()`` KHÔNG kèm lý do ngoại lệ, nên còn một việc dở
+        là cả thao tác dừng với dòng đỏ *"Lượt khám còn N việc chưa xong. Muốn
+        đóng thì phải ghi lý do ngoại lệ."* — mà màn CSKH KHÔNG có ô nào để gõ
+        lý do ấy. Người trực đọc một yêu cầu mà màn hình không cho họ cách đáp
+        ứng; đó không phải một chốt, đó là một ngõ cụt.
+
+        Lập luận cũ ("CSKH không đủ thông tin để vượt chốt lab/thanh toán") đúng
+        về chuyên môn nhưng bỏ qua thực tế: khách đã về rồi. Lượt không đóng thì
+        bệnh nhân ấy nằm mãi trong hàng đợi bảng điều phối — đúng cái hỏng mà
+        chính hàm này được viết ra để chữa.
+
+        KHÔNG XOÁ CHỐT, MÀ GHI LẠI ĐÃ VƯỢT CÁI GÌ. ``override_reason`` là cột
+        sinh ra để trả lời "vì sao lượt này đóng khi còn dở". Truyền một câu
+        rỗng cho qua chuyện thì cột ấy vô dụng. Câu dựng ở đây liệt kê ĐÚNG
+        những việc còn vướng tại thời điểm đóng, kèm chỗ đứng của người bấm —
+        đọc lại sáu tháng sau vẫn hiểu.
+
+        Hai thứ vẫn KHÔNG được vượt, cố ý: lượt khám dở (khách về giữa chừng)
+        vẫn phải có lý do do người gõ, và mọi ràng buộc ở tầng database giữ
+        nguyên. Đây chỉ là chốt "phải giải thích", không phải chốt an toàn.
         """
         from clinicai.services.checkout_service import CheckoutService
 
@@ -571,9 +590,17 @@ class TuongTacCskhService:
             raise ValidationError(
                 "Không tìm thấy lượt khám — nhờ Lễ tân kiểm tra trước khi đóng."
             )
+        # `ly_do_tu_dong` chứ không phải `override_reason`: `close()` đã đọc
+        # blockers rồi, nên nó dựng câu đầy đủ từ CHÍNH lần đọc ấy. Đọc lại ở
+        # đây là hai vòng mạng cho một thứ, và hai kết quả có thể lệch nhau —
+        # khi đó cột lý do ghi một danh sách không khớp thứ thật sự bị vượt.
+        #
+        # Không vướng gì thì `close()` không dùng tới câu này, và cột lý do để
+        # trống — đúng vậy: nó chỉ có nghĩa khi thật sự có lần vượt chốt.
         await CheckoutService(target_pool).close(
             identity=identity,
             visit_id=visit_id,
+            ly_do_tu_dong=("CSKH đóng lượt từ màn Quản lý khách hàng (khách đã về)."),
         )
 
     async def lich_su(
