@@ -286,10 +286,21 @@ export default async function CustomersPage({
   // MỘT TRUY VẤN CHO CẢ MÀN, không hỏi từng lịch một: lấy toàn bộ ca trực trong
   // khoảng ngày mà các lịch đang hiện chạm tới, rồi tra trong bộ nhớ. Hỏi theo
   // từng lịch là 30–40 vòng mạng để vẽ một cột.
+  // CHỈ ĐẾM CA KHÁM (`LICH_KHAM`), không đếm mọi trạm.
+  //
+  // Bản đầu hỏi "bác sĩ này có dòng ca trực nào ngày ấy không". Nhưng một bác
+  // sĩ còn có thể được xếp vào `THU_THUAT_NGOAI_GIO`, `PHU_BS_KHAM`, `TLYK`…
+  // — mười mã trạm đang dùng trên prod. Quản lý gỡ đúng ca KHÁM mà người ấy
+  // còn một ca trạm khác thì phép kiểm vẫn đọc ra "có đi làm", và cảnh báo
+  // không bao giờ nổ. Đó chính là ca Tuyền báo còn nợ 14/08/2026.
+  //
+  // Câu hỏi thật không phải "hôm ấy có mặt ở phòng khám không" mà "hôm ấy có
+  // ngồi bàn khám không" — lịch hẹn của khách đặt vào bàn khám.
   const caTrucPromise = shownIds.length
     ? supabase
         .from("work_roster")
         .select("staff_id, work_date")
+        .eq("station", "LICH_KHAM")
         .not("staff_id", "is", null)
         .gte("work_date", new Date(nowMs() - 86_400_000).toISOString().slice(0, 10))
         .limit(5000)
