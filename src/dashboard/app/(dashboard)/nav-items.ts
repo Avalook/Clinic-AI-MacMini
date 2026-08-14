@@ -41,47 +41,50 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Shorter label for the cramped bottom bar (falls back to label). */
-  shortLabel?: string;
+  // KHÔNG CÓ `shortLabel`. Bỏ ngày 14/08/2026 vì nó cho phép MỘT nút mang HAI
+  // tên, và ba nút đã trôi thành tên khác hẳn: "Danh sách bệnh nhân" hiện là
+  // "BN đã khám", "Lịch làm việc" thành "Ca trực", "Command Center" thành
+  // "Trung tâm". Hai cặp nút khác nhau còn trùng tên nhau ("Hàng đợi" cho cả
+  // /reception/queue lẫn /truong-ca/hang-doi; "Lịch sử" cho cả /audit-log lẫn
+  // /pharmacy/history) — trên thanh dưới thì không cách nào biết mình đang bấm
+  // vào cái nào.
+  //
+  // Tuyền 14/08/2026: *"nó phải đúng nút chứ không bịa"*. Một tên cho một nút.
+  // Thanh dưới cho phép chữ xuống hai dòng thay vì bịa một tên ngắn hơn.
   /** Small tag shown next to the label (e.g. "Đang XD"). */
   badge?: string;
 }
 
 export const NAV: NavItem[] = [
-  { href: "/home", label: "Trang chủ", shortLabel: "Trang chủ", icon: Home },
+  { href: "/home", label: "Trang chủ", icon: Home },
   // Bảng chạy trên workflow kernel. Đặt cạnh màn cũ (chưa thay thế) và gắn
   // badge để nhân viên biết đây là bản mới đang chạy song song — bỏ badge khi
   // staff_task được gỡ.
   {
     href: "/reception/queue",
     label: "Hàng đợi tiếp nhận",
-    shortLabel: "Hàng đợi",
     icon: Users,
   },
   {
     href: "/doctor/board",
     label: "Bàn khám",
-    shortLabel: "Bàn khám",
     icon: Stethoscope,
     badge: "Mới",
   },
   {
     href: "/cashier/board",
     label: "Bàn thu ngân",
-    shortLabel: "Thu ngân",
     icon: Receipt,
     badge: "Mới",
   },
   {
     href: "/reception/checkout",
     label: "Check-out lượt khám",
-    shortLabel: "Check-out",
     icon: CheckCheck,
   },
   {
     href: "/cskh-tasks",
     label: "Nhiệm vụ chăm sóc",
-    shortLabel: "Chăm sóc",
     icon: ClipboardCheck,
   },
   // Nhắc tái khám — người bác sĩ đã hẹn quay lại mà chưa đặt lịch. Đứng cạnh
@@ -90,58 +93,49 @@ export const NAV: NavItem[] = [
   {
     href: "/nhac-tai-kham",
     label: "Nhắc tái khám",
-    shortLabel: "Tái khám",
     icon: PhoneCall,
   },
   {
     href: "/appointments/cho-xep-bac-si",
     label: "Chờ xếp bác sĩ",
-    shortLabel: "Chờ xếp BS",
     icon: UserPlus,
   },
   {
     href: "/appointments",
     label: "Đặt lịch",
-    shortLabel: "Đặt lịch",
     icon: ClipboardList,
   },
   {
     href: "/customers",
     label: "Quản lý khách hàng",
-    shortLabel: "Khách hàng",
     icon: Contact,
   },
   {
     href: "/patient-list",
     label: "Danh sách bệnh nhân",
-    shortLabel: "BN đã khám",
     icon: Stethoscope,
   },
   {
     href: "/patients/new",
     label: "Tạo bệnh nhân",
-    shortLabel: "Tạo BN",
     icon: UserPlus,
   },
   // Check-in ĐÃ chuyển lên TRANG CHỦ (HomeCheckin) — không còn ở sidebar.
   {
     href: "/tasks",
     label: "Công việc của tôi",
-    shortLabel: "Việc",
     icon: CheckSquare,
   },
   // Số thứ tự GỌI khám — ưu tiên người có hẹn, gọi theo tên (xem chung).
   {
     href: "/queue",
     label: "Số thứ tự gọi khám",
-    shortLabel: "Gọi khám",
     icon: ListOrdered,
   },
   // CSKH xác nhận đóng "đợt khám" BS đã khám xong không hẹn lần sau (EPI-01).
   {
     href: "/episodes",
     label: "Đóng đợt khám",
-    shortLabel: "Đóng đợt",
     icon: CheckCheck,
   },
   // TRƯỞNG CA — năm màn điều phối, mỗi màn một mục trên thanh bên.
@@ -153,91 +147,78 @@ export const NAV: NavItem[] = [
   {
     href: "/truong-ca",
     label: "Toàn cảnh điều phối",
-    shortLabel: "Toàn cảnh",
     icon: LayoutDashboard,
   },
   {
     href: "/truong-ca/hang-doi",
     label: "Hàng đợi theo trạm",
-    shortLabel: "Hàng đợi",
     icon: Rows3,
   },
   {
     href: "/truong-ca/canh-bao",
     label: "Cảnh báo & ngưỡng",
-    shortLabel: "Cảnh báo",
     icon: AlertTriangle,
   },
   {
     href: "/truong-ca/lich-su",
     label: "Lịch sử điều phối",
-    shortLabel: "Lịch sử ĐP",
     icon: History,
   },
   {
     href: "/truong-ca/tv",
     label: "TV phòng chờ",
-    shortLabel: "TV",
     icon: Tv,
   },
   // Bảng giá tách 2 trang, đặt NGAY DƯỚI "Công việc của tôi" (sidebar Thu ngân).
-  { href: "/cashier/thuoc", label: "Bảng giá thuốc", shortLabel: "Giá thuốc", icon: Pill },
-  { href: "/cashier/dich-vu", label: "Bảng giá dịch vụ", shortLabel: "Giá DV", icon: Tag },
+  { href: "/cashier/thuoc", label: "Bảng giá thuốc", icon: Pill },
+  { href: "/cashier/dich-vu", label: "Bảng giá dịch vụ", icon: Tag },
   // Nhà thuốc — Dược sĩ (PHARMACIST). Đơn chờ cấp + Chuẩn bị + Kho.
   {
     href: "/pharmacy",
     label: "Đơn thuốc chờ cấp",
-    shortLabel: "Đơn thuốc",
     icon: Pill,
     badge: "Mới",
   },
   {
     href: "/pharmacy/inventory",
     label: "Kho & tồn kho",
-    shortLabel: "Kho",
     icon: ClipboardList,
     badge: "Mới",
   },
   {
     href: "/pharmacy/history",
     label: "Lịch sử bàn giao",
-    shortLabel: "Lịch sử",
     icon: ClipboardCheck,
     badge: "Mới",
   },
   {
     href: "/pharmacy/consult",
     label: "Tư vấn dùng thuốc",
-    shortLabel: "Tư vấn",
     icon: CheckCheck,
     badge: "Mới",
   },
   {
     href: "/lab-queue",
     label: "Hàng đợi xét nghiệm",
-    shortLabel: "Xét nghiệm",
     icon: FlaskConical,
   },
   {
     href: "/service-queue",
     label: "Hàng đợi dịch vụ",
-    shortLabel: "Dịch vụ",
     icon: Activity,
   },
-  { href: "/sono", label: "ĐD siêu âm", shortLabel: "Siêu âm", icon: ScanLine },
+  { href: "/sono", label: "ĐD siêu âm", icon: ScanLine },
   {
     href: "/sieu-am",
     label: "Bộ phận Siêu âm",
-    shortLabel: "Bộ phận SA",
     icon: ScanLine,
   },
-  { href: "/schedule", label: "Lịch làm việc", shortLabel: "Ca trực", icon: Calendar },
+  { href: "/schedule", label: "Lịch làm việc", icon: Calendar },
   // Có trong NAV_ROLES (Quản lý + Trưởng ca) nhưng CHƯA TỪNG có mục ở đây, nên
   // trang chỉ vào được bằng cách gõ URL — quyền đã cấp mà không có đường đi.
   {
     href: "/work-sessions",
     label: "Buổi làm việc",
-    shortLabel: "Buổi",
     icon: Timer,
   },
   // "Lịch đổ về" — Quản lý xem toàn bộ lịch một tuần + thống kê theo khung giờ.
@@ -246,14 +227,12 @@ export const NAV: NavItem[] = [
   {
     href: "/lich-do-ve",
     label: "Lịch đổ về",
-    shortLabel: "Lịch đổ về",
     icon: CalendarRange,
   },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   {
     href: "/audit-log",
     label: "Lịch sử thao tác",
-    shortLabel: "Lịch sử",
     icon: ClipboardCheck,
     // KHÔNG còn badge "Mới". Màn này không chạy song song với một màn cũ nào —
     // nó là màn duy nhất cho việc của nó, nên nhãn "Mới" chỉ làm sidebar ồn.
@@ -265,27 +244,23 @@ export const NAV: NavItem[] = [
   {
     href: "/result-review",
     label: "Duyệt kết quả",
-    shortLabel: "Duyệt KQ",
     icon: CheckCheck,
     badge: "Mới",
   },
   {
     href: "/ops/telemetry",
     label: "Sức khoẻ API",
-    shortLabel: "Sức khoẻ",
     icon: Timer,
   },
-  { href: "/ops", label: "Vận hành hệ thống", shortLabel: "Hệ thống", icon: Gauge },
+  { href: "/ops", label: "Vận hành hệ thống", icon: Gauge },
   {
     href: "/settings/booking-policy",
     label: "Luật đặt lịch",
-    shortLabel: "Luật đặt lịch",
     icon: Calendar,
   },
   {
     href: "/settings/clinic-config",
     label: "Cấu trúc phòng khám",
-    shortLabel: "Cấu trúc",
     icon: Building2,
   },
   // Hồ sơ CON NGƯỜI, tách khỏi "Cấu trúc phòng khám" ở trên — màn kia gán nhân
@@ -293,7 +268,6 @@ export const NAV: NavItem[] = [
   {
     href: "/nhan-su",
     label: "Quản lý nhân sự",
-    shortLabel: "Nhân sự",
     icon: Users,
   },
   // Tài khoản ĐĂNG NHẬP, tách khỏi "Cài đặt" — bên kia là cấu hình phòng khám,
@@ -301,14 +275,12 @@ export const NAV: NavItem[] = [
   {
     href: "/settings/tai-khoan",
     label: "Thiết lập tài khoản cho nhân viên",
-    shortLabel: "Tài khoản NV",
     icon: KeyRound,
   },
   { href: "/settings", label: "Cài đặt", icon: Settings },
   {
     href: "/portal",
     label: "Command Center",
-    shortLabel: "Trung tâm",
     icon: Zap,
     badge: "Mới",
   },
@@ -316,15 +288,11 @@ export const NAV: NavItem[] = [
 
 // Nhãn nav theo vai. Wording ĐỒNG BỘ: mọi vai (kể cả điều dưỡng) đều "Tạo bệnh
 // nhân" — bỏ khái niệm "khách vãng lai"/"khách hàng".
-export function navLabelFor(
-  item: NavItem,
-  role: ClinicRole | null,
-  short = false,
-): string {
+export function navLabelFor(item: NavItem, role: ClinicRole | null): string {
   if (item.href === "/patients/new" && role === "CSKH") {
-    return short ? "Nhập thông tin" : "Nhập thông tin khách hàng mới";
+    return "Nhập thông tin khách hàng mới";
   }
-  return short ? (item.shortLabel ?? item.label) : item.label;
+  return item.label;
 }
 
 // MỘT PHÉP LỌC DUY NHẤT CHO CẢ HAI THANH.

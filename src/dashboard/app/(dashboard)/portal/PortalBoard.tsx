@@ -729,7 +729,7 @@ export default function PortalBoard({
                     className="inline-flex items-center gap-1 rounded-chip border border-line bg-surface px-2 py-1 text-xs text-ink-soft transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                   >
                     <item.icon size={12} aria-hidden />
-                    {item.shortLabel ?? item.label} {/* Nhãn ngắn hoặc nhãn đầy đủ */}
+                    {item.label} {/* MỘT tên cho MỘT nút — xem nav-items.ts */}
                   </Link>
                 ))}
                 {/* Nếu không có màn hình nào */}

@@ -40,6 +40,18 @@ function docNav(): { href: string }[] {
   return moc.map((m) => ({ href: m[1] }));
 }
 
+function docNhan(): { href: string; label: string }[] {
+  const than = nguon.slice(
+    nguon.indexOf("export const NAV"),
+    nguon.indexOf("// MỘT PHÉP LỌC DUY NHẤT"),
+  );
+  const moc = [...than.matchAll(/href:\s*"([^"]+)"/g)];
+  return moc.map((m, i) => {
+    const d = than.slice(m.index!, moc[i + 1]?.index ?? than.length);
+    return { href: m[1], label: /label:\s*"([^"]+)"/.exec(d)?.[1] ?? "" };
+  });
+}
+
 function docThanhDuoi(): Record<string, string[]> {
   const than = nguon.slice(
     nguon.indexOf("export const THANH_DUOI"),
@@ -155,5 +167,44 @@ test("hai thanh dùng CHUNG một phép lọc, không mỗi bên một bản", (
     shell,
     /<BottomNav[\s\S]*?featureMode=/,
     "Shell phải truyền featureMode xuống BottomNav",
+  );
+});
+
+test("MỘT NÚT CHỈ CÓ MỘT TÊN — không còn shortLabel", () => {
+  // Cơ chế `shortLabel` cho phép cùng một nút mang hai tên, và ba nút đã trôi
+  // thành tên khác hẳn: "Danh sách bệnh nhân" → "BN đã khám", "Lịch làm việc"
+  // → "Ca trực", "Command Center" → "Trung tâm". Người dùng học tên trên máy
+  // tính rồi tìm mãi không thấy nút ấy trên điện thoại.
+  assert.doesNotMatch(
+    nguon,
+    /shortLabel:/,
+    "nav-items không được có shortLabel — một nút, một tên",
+  );
+  for (const f of [
+    "../app/(dashboard)/BottomNav.tsx",
+    "../app/(dashboard)/portal/PortalBoard.tsx",
+  ]) {
+    const ma = readFileSync(new URL(f, import.meta.url), "utf8").replace(
+      /\/\/.*$/gm,
+      "",
+    );
+    assert.doesNotMatch(ma, /shortLabel/, `${f} vẫn còn đọc shortLabel`);
+  }
+});
+
+test("không hai nút nào trùng tên", () => {
+  // Trước đây "Hàng đợi" là tên của CẢ /reception/queue lẫn /truong-ca/hang-doi,
+  // và "Lịch sử" là tên của cả /audit-log lẫn /pharmacy/history. Trên thanh
+  // dưới — nơi chỉ có chữ và một biểu tượng — không cách nào biết mình bấm cái
+  // nào.
+  const theoNhan = new Map<string, string[]>();
+  for (const { href, label } of docNhan()) {
+    theoNhan.set(label, [...(theoNhan.get(label) ?? []), href]);
+  }
+  const trung = [...theoNhan.entries()].filter(([, v]) => v.length > 1);
+  assert.deepEqual(
+    trung.map(([k, v]) => `"${k}" ← ${v.join(", ")}`),
+    [],
+    "hai màn khác nhau đang mang cùng một tên",
   );
 });

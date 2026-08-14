@@ -80,6 +80,18 @@ som_nhat AS (
       FROM appointment a
      WHERE a.clinic_id = $1::uuid
        AND a.clinic_patient_id IN (SELECT clinic_patient_id FROM tuan)
+       -- LỊCH ĐÃ HUỶ / KHÔNG ĐẾN / BÁC SĨ TỪ CHỐI KHÔNG TÍNH LÀ LẦN TRƯỚC.
+       --
+       -- Bản cũ quét MỌI trạng thái, nên một khách đặt rồi huỷ, hôm sau đặt
+       -- lại, thì lịch thứ hai bị gọi là lần-không-phải-đầu — dù họ chưa từng
+       -- bước chân tới. Cùng lúc màn Quản lý khách hàng gọi đúng người ấy là
+       -- "Khách mới" (nó đếm lượt khám XONG, và cố ý bỏ lịch đã huỷ). Hai màn
+       -- nói ngược nhau về cùng một người, trong cùng một ca trực.
+       --
+       -- Chỉ lộ ra khi đổi cách gọi tên ngày 14/08/2026: "Tái khám" là thuật
+       -- ngữ về LOẠI LỊCH nên bản cũ còn đọc xuôi được, nhưng "Khám cũ" là câu
+       -- khẳng định về NGƯỜI — và với khách chưa từng tới thì nó sai thẳng.
+       AND a.status <> ALL($4::text[])
      GROUP BY a.clinic_patient_id
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
