@@ -9,6 +9,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound, CalendarClock } from "lucide-react";
+import Button from "@/components/ui/Button";
+import { nhanLoi } from "@/lib/loi-api";
 import { type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
@@ -73,6 +75,8 @@ interface DupMatch {
 // Cảnh báo SỚM (feedback #9): trùng SĐT phát hiện NGAY khi nhập, gọn hơn
 // DupMatch (chỉ tên + mã + năm sinh — không CCCD/địa chỉ).
 interface PhoneMatch {
+  /** Khoá hồ sơ — nút "thêm số cho khách này" gắn số vào đúng người này. */
+  clinic_patient_id?: string;
   full_name: string;
   patient_code: string;
   birth_year: number | null;
@@ -84,6 +88,128 @@ interface IntakeAppointment extends SlotApptLite {
 
 function Req() {
   return <span className="text-brand-600">*</span>;
+}
+
+/** Nút "thêm số cho khách này" trong ô cảnh báo trùng — lối đi thứ ba.
+ *
+ *  Hai lối cũ của ô cảnh báo là "vẫn tạo hồ sơ mới" (tách đôi bệnh án) và
+ *  "bỏ dở". Tuyền 15/08/2026: khách cũ gọi từ số mới là chuyện hằng ngày —
+ *  phải gắn được số mới vào hồ sơ CŨ ngay tại đây, không bắt mở màn khác.
+ *
+ *  Ở CẤP MODULE (không lồng trong form): component lồng bị React dựng lại
+ *  mỗi lượt vẽ, mất chữ đang gõ. Mỗi hồ sơ khớp một bản — bấm ra một ô nhập
+ *  NGAY BÊN PHẢI nút, Lưu là POST /api/patients/sdt-them; từ đó tra số nào
+ *  cũng ra khách ấy. */
+function ThemSdtChoKhach({
+  khach,
+  goiY,
+}: {
+  khach: PhoneMatch;
+  /** Số điền sẵn — chính là số đang gõ trên form khi cảnh báo là TRÙNG TÊN
+   *  (số ấy chưa thuộc về ai). Ô trùng SỐ thì không gợi ý: số đang gõ đã là
+   *  của hồ sơ này rồi, thứ cần nhập là một số KHÁC. */
+  goiY?: string;
+}) {
+  const [mo, setMo] = useState(false);
+  const [so, setSo] = useState("");
+  const [loai, setLoai] = useState<"CHINH" | "NGUOI_NHA">("CHINH");
+  const [dang, setDang] = useState(false);
+  const [ket, setKet] = useState<{ ok: boolean; cau: string } | null>(null);
+
+  if (!khach.clinic_patient_id) return null;
+
+  async function luu() {
+    setDang(true);
+    setKet(null);
+    const res = await fetch("/api/patients/sdt-them", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinic_patient_id: khach.clinic_patient_id,
+        so_dien_thoai: so,
+        loai,
+      }),
+    });
+    setDang(false);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+      setKet({ ok: false, cau: nhanLoi(d, `Chưa ghi được (lỗi ${res.status}).`) });
+      return;
+    }
+    setKet({
+      ok: true,
+      cau: `Đã thêm ${so} cho ${khach.full_name} — tra số nào cũng ra khách này. Nếu chỉ cần cập nhật số thì KHÔNG cần tạo hồ sơ mới nữa.`,
+    });
+    setMo(false);
+  }
+
+  if (ket?.ok) {
+    return <p className="mt-1 font-medium text-success">✓ {ket.cau}</p>;
+  }
+  if (!mo) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setMo(true);
+          if (goiY && /^0\d{9}$/.test(goiY)) setSo(goiY);
+        }}
+        className="mt-1 inline-flex h-7 items-center gap-1 rounded-control bg-surface px-2.5 text-label font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
+      >
+        ＋ Thêm số điện thoại cho khách này
+      </button>
+    );
+  }
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1.5">
+      <input
+        value={so}
+        onChange={(e) => setSo(e.target.value.replace(/\D/g, "").slice(0, 10))}
+        placeholder="Số muốn thêm — 10 chữ số"
+        inputMode="numeric"
+        autoFocus
+        className="h-7 w-44 rounded-control bg-surface px-2 text-body text-ink ring-1 ring-inset ring-line focus:ring-brand-500 outline-none"
+      />
+      {/* Số này là CỦA KHÁCH hay của NGƯỜI NHÀ — vẽ dưới đúng dòng cùng loại
+          trên hồ sơ, nên phải hỏi ngay lúc ghi, không đoán. */}
+      {(["CHINH", "NGUOI_NHA"] as const).map((l) => (
+        <button
+          key={l}
+          type="button"
+          aria-pressed={loai === l}
+          onClick={() => setLoai(l)}
+          className={
+            loai === l
+              ? "h-7 rounded-control bg-brand-600 px-2 text-label font-semibold text-white"
+              : "h-7 rounded-control bg-surface px-2 text-label font-medium text-ink-soft ring-1 ring-inset ring-line hover:bg-surface-muted"
+          }
+        >
+          {l === "CHINH" ? "Số của khách" : "Số người nhà"}
+        </button>
+      ))}
+      <Button
+        variant="primary"
+        size="sm"
+        disabled={so.length !== 10 || dang}
+        onClick={() => void luu()}
+      >
+        {dang ? "Đang ghi…" : "Lưu số"}
+      </Button>
+      <button
+        type="button"
+        onClick={() => setMo(false)}
+        className="text-label text-ink-faint hover:text-ink-muted"
+      >
+        Thôi
+      </button>
+      {ket && !ket.ok && (
+        <span className="basis-full text-label text-danger">{ket.cau}</span>
+      )}
+    </span>
+  );
 }
 
 function findServiceIdByLinhVuc(code: string, services: Option[]): string {
@@ -901,6 +1027,9 @@ export default function NewPatientForm({
                       {m.birth_year && (
                         <span className="text-ink-muted"> · {m.birth_year}</span>
                       )}
+                      {/* Khách dùng thêm số khác? Gắn ngay vào hồ sơ này —
+                          KHÔNG gợi ý số đang gõ: nó đã là của hồ sơ này. */}
+                      <ThemSdtChoKhach khach={m} />
                     </li>
                   ))}
                 </ul>
@@ -929,6 +1058,9 @@ export default function NewPatientForm({
                       {m.birth_year && (
                         <span className="text-ink-muted"> · {m.birth_year}</span>
                       )}
+                      {/* Trùng tên + khách đọc một số MỚI = đúng ca "khách
+                          cũ, số mới": gợi ý luôn số đang gõ trên form. */}
+                      <ThemSdtChoKhach khach={m} goiY={phone} />
                     </li>
                   ))}
                 </ul>

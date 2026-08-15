@@ -165,6 +165,9 @@ export interface CustomerRow {
   created_at: string | null;
   van_de_di_kham: string | null;
   linh_vuc: string | null;
+  /** Các số gắn THÊM (patient_sdt_them) — hai cột cũ vẫn là số chính thức.
+   *  CHINH vẽ dưới "SĐT chính", NGUOI_NHA vẽ dưới "SĐT người nhà". */
+  patient_sdt_them?: { so_dien_thoai: string; loai: string }[] | null;
 }
 
 /** Một dòng trong bảng "khách này đang có mấy lịch". Đủ để nhận ra lịch nào là
@@ -1661,6 +1664,17 @@ export default function CustomersView({
                   <p className="mt-1 text-sm text-ink-muted">
                     {selected.phone_primary ?? "Chưa có số điện thoại"}
                   </p>
+                  {/* SỐ THÊM của chính khách — mỗi số một dòng NGAY DƯỚI số
+                      cũ (Tuyền 15/08/2026): khách dùng 2–3 số, người trực
+                      phải thấy đủ trước khi bấm gọi. */}
+                  {(selected.patient_sdt_them ?? [])
+                    .filter((t) => t.loai === "CHINH")
+                    .map((t) => (
+                      <p key={t.so_dien_thoai} className="text-sm text-ink-muted">
+                        {t.so_dien_thoai}{" "}
+                        <span className="text-label text-ink-faint">· số thêm</span>
+                      </p>
+                    ))}
                 </div>
                 <button
                   type="button"
@@ -1960,7 +1974,25 @@ export default function CustomersView({
                     <DetailRow label="Ngày sinh" value={dobDisplay(selected)} />
                     <DetailRow label="Giới tính" value={selected.gender} />
                     <DetailRow label="SĐT chính" value={selected.phone_primary} />
+                    {(selected.patient_sdt_them ?? [])
+                      .filter((t) => t.loai === "CHINH")
+                      .map((t) => (
+                        <DetailRow
+                          key={t.so_dien_thoai}
+                          label="SĐT thêm"
+                          value={t.so_dien_thoai}
+                        />
+                      ))}
                     <DetailRow label="SĐT người nhà" value={selected.phone_secondary} />
+                    {(selected.patient_sdt_them ?? [])
+                      .filter((t) => t.loai === "NGUOI_NHA")
+                      .map((t) => (
+                        <DetailRow
+                          key={t.so_dien_thoai}
+                          label="SĐT người nhà thêm"
+                          value={t.so_dien_thoai}
+                        />
+                      ))}
                     <DetailRow label="Dân tộc" value={selected.ethnicity} />
                     <DetailRow label="Quốc tịch" value={selected.nationality} />
                     <DetailRow label="Nghề nghiệp" value={selected.occupation} />

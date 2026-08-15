@@ -67,7 +67,10 @@ test("máy chủ vẫn tìm bằng đủ BỐN cách, gồm tên không dấu", 
   for (const cot of [
     "full_name.ilike",
     "patient_code.ilike",
-    "phone_primary.ilike",
+    // 15/08/2026: phone_primary.ilike → sdt_tim_kiem.ilike — cột gộp MỌI số
+    // (chính + người nhà + số thêm, migration 20260815000002). Quay về cột lẻ
+    // là màn này mù số thêm trong khi các màn khác thấy.
+    "sdt_tim_kiem.ilike",
     "full_name_unaccent.ilike",
   ]) {
     assert.ok(ma.includes(cot), `mất cách tìm: ${cot}`);

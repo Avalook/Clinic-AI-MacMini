@@ -107,7 +107,8 @@ const SELECT = `
   clinic_patient_id, patient_code, full_name, date_of_birth, birth_year,
   phone_primary, phone_secondary, gender, ethnicity, nationality,
   occupation, patient_objection, address, guardian_name, location_id, created_at,
-  van_de_di_kham, linh_vuc, updated_at
+  van_de_di_kham, linh_vuc, updated_at,
+  patient_sdt_them ( so_dien_thoai, loai )
 `;
 
 export default async function CustomersPage({
@@ -197,7 +198,9 @@ export default async function CustomersPage({
       const ors = [
         `full_name.ilike.%${t}%`,
         `patient_code.ilike.%${t}%`,
-        `phone_primary.ilike.%${t}%`,
+        // Cột gộp mọi số (chính + người nhà + số thêm) — tra số nào cũng
+        // ra khách này, đúng một chỗ đổi cho mọi màn (20260815000002).
+        `sdt_tim_kiem.ilike.%${t}%`,
       ];
       if (useUnaccent) {
         ors.push(`full_name_unaccent.ilike.%${unaccentVi(t)}%`);

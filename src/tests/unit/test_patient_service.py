@@ -323,7 +323,10 @@ async def test_get_by_phone_returns_list() -> None:
     assert (
         "WHERE clinic_id = $2::uuid "
         "AND (phone_primary = ANY($1::text[]) "
-        "OR phone_secondary = ANY($1::text[]))"
+        "OR phone_secondary = ANY($1::text[]) "
+        "OR EXISTS (SELECT 1 FROM public.patient_sdt_them t "
+        "WHERE t.clinic_patient_id = patient.clinic_patient_id "
+        "AND t.so_dien_thoai = ANY($1::text[])))"
     ) in normalised_sql
     assert set(conn.fetch.call_args[0][1]) == {
         "0901234567",
@@ -425,7 +428,10 @@ async def test_find_phone_duplicates_returns_minimal_fields() -> None:
     assert (
         "WHERE clinic_id = $2::uuid "
         "AND (phone_primary = ANY($1::text[]) "
-        "OR phone_secondary = ANY($1::text[]))"
+        "OR phone_secondary = ANY($1::text[]) "
+        "OR EXISTS (SELECT 1 FROM public.patient_sdt_them t "
+        "WHERE t.clinic_patient_id = patient.clinic_patient_id "
+        "AND t.so_dien_thoai = ANY($1::text[])))"
     ) in normalised_sql
     assert set(variants) == {"0901234567", "84901234567", "+84901234567"}
 

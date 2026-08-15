@@ -14,6 +14,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+from clinicai.core.phone import normalize_vn_phone
 from clinicai.core.phone import phone_variants as _phone_variants
 from clinicai.schemas.patient import (
     DuplicateMatch,
@@ -358,7 +359,11 @@ class PatientService:
             SELECT * FROM patient
             WHERE clinic_id = $2::uuid
               AND (phone_primary = ANY($1::text[])
-                   OR phone_secondary = ANY($1::text[]))
+                   OR phone_secondary = ANY($1::text[])
+                   OR EXISTS (SELECT 1 FROM public.patient_sdt_them t
+                               WHERE t.clinic_patient_id
+                                     = patient.clinic_patient_id
+                                 AND t.so_dien_thoai = ANY($1::text[])))
             ORDER BY created_at DESC;
         """
         async with self._pool.acquire() as conn:
@@ -387,7 +392,11 @@ class PatientService:
             FROM patient
             WHERE clinic_id = $2::uuid
               AND (phone_primary = ANY($1::text[])
-                   OR phone_secondary = ANY($1::text[]))
+                   OR phone_secondary = ANY($1::text[])
+                   OR EXISTS (SELECT 1 FROM public.patient_sdt_them t
+                               WHERE t.clinic_patient_id
+                                     = patient.clinic_patient_id
+                                 AND t.so_dien_thoai = ANY($1::text[])))
             ORDER BY created_at DESC
             LIMIT 10;
         """
@@ -498,3 +507,94 @@ class PatientService:
             fields=list(updates.keys()),
         )
         return _record_to_dto(row)
+
+    async def them_so_dien_thoai(
+        self,
+        *,
+        clinic_patient_id: str,
+        so_dien_thoai: str,
+        loai: str,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Gắn thêm một số điện thoại vào hồ sơ CÓ SẴN (Tuyền 15/08/2026).
+
+        Khách dùng 2–3 số; trước đây số thứ ba không có chỗ ghi nên người trực
+        hoặc ghi đè số cũ hoặc tạo hồ sơ mới. Đường này sinh ra để ô cảnh báo
+        trùng ở màn tạo bệnh nhân có một lối đi thứ ba: "đây đúng là khách cũ,
+        thêm số cho họ" — thay vì chỉ hai lối "tạo mới" và "bỏ dở".
+
+        Số được CHUẨN HOÁ trước khi ghi (dạng 0 + 9 số — CHECK của bảng cũng
+        đòi đúng dạng ấy). Trùng với số đã có TRONG CHÍNH hồ sơ này → báo rõ,
+        không ghi. Trùng với số của hồ sơ KHÁC thì vẫn cho — hai mẹ con dùng
+        chung số là hợp lệ, cùng triết lý với phone_primary xưa nay.
+        """
+        if loai not in ("CHINH", "NGUOI_NHA"):
+            raise ValidationError("Loại số phải là CHINH hoặc NGUOI_NHA.")
+        chuan = normalize_vn_phone(so_dien_thoai)
+        if chuan is None:
+            raise ValidationError(
+                "Số điện thoại không hợp lệ — cần 10 chữ số bắt đầu bằng 0."
+            )
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                ho_so = await conn.fetchrow(
+                    """
+                    SELECT phone_primary, phone_secondary
+                      FROM patient
+                     WHERE clinic_patient_id = $1::uuid
+                       AND clinic_id = $2::uuid
+                    """,
+                    clinic_patient_id,
+                    identity.clinic_id,
+                )
+                if ho_so is None:
+                    raise ResourceNotFoundError(
+                        "Không tìm thấy hồ sơ khách ở phòng khám này."
+                    )
+                if chuan in (ho_so["phone_primary"], ho_so["phone_secondary"]):
+                    raise ConflictError("Số này đã nằm trên hồ sơ của chính khách rồi.")
+                da_ghi = await conn.fetchval(
+                    """
+                    INSERT INTO public.patient_sdt_them
+                        (clinic_id, clinic_patient_id, so_dien_thoai, loai,
+                         created_by_staff_id)
+                    VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid)
+                    ON CONFLICT (clinic_patient_id, so_dien_thoai) DO NOTHING
+                    RETURNING id
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                    chuan,
+                    loai,
+                    identity.staff_id,
+                )
+                if da_ghi is None:
+                    raise ConflictError("Số này đã được thêm cho khách từ trước.")
+                # Ghi sổ thao tác — nhưng KHÔNG ghi số đầy đủ vào payload:
+                # event_log sống lâu hơn mọi màn hình, 4 số cuối đủ để đối
+                # chiếu khi cần mà không thành một bản sao danh bạ.
+                await conn.execute(
+                    """
+                    INSERT INTO public.event_log
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, metadata, source, event_published)
+                    VALUES ($1::uuid, 'patient.phone_added', 'patient',
+                            $2::uuid, $3::jsonb, $4::jsonb, 'api', FALSE)
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                    json.dumps({"loai": loai, "duoi": chuan[-4:]}),
+                    json.dumps(
+                        {
+                            "clinic_role": identity.role.value,
+                            "clinic_staff_id": identity.staff_id,
+                            "origin": "api",
+                        }
+                    ),
+                )
+        logger.info(
+            "patient_phone_added",
+            clinic_patient_id=clinic_patient_id,
+            loai=loai,
+        )
+        return {"so_dien_thoai": chuan, "loai": loai}
