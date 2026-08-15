@@ -116,7 +116,22 @@ async def _run_relay() -> None:
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, stop.set)
 
-    logger.info("relay_started", poll_interval=RELAY_POLL_INTERVAL)
+    # REALTIME (15/08/2026): nghe cùng kênh pg_notify mà màn hình dùng —
+    # sự kiện ghi xong là poll chạy NGAY, nhịp 30s chỉ còn là lưới an toàn
+    # cho lúc connection LISTEN rớt. Giữ một connection riêng khỏi pool cho
+    # tới finally: listener sống bằng connection, trả về pool là điếc.
+    from clinicai.services.notification_relay import nen_danh_thuc
+
+    danh_thuc = asyncio.Event()
+
+    def _khi_notify(_conn: object, _pid: int, _channel: str, payload: str) -> None:
+        if nen_danh_thuc(payload, clinic_id):
+            danh_thuc.set()
+
+    nghe = await pool.acquire()
+    await nghe.add_listener("clinicai_changes", _khi_notify)
+
+    logger.info("relay_started", poll_interval=RELAY_POLL_INTERVAL, listen=True)
 
     try:
         while not stop.is_set():
@@ -128,13 +143,29 @@ async def _run_relay() -> None:
             except Exception:
                 logger.exception("relay_poll_error")
 
-            # Wait for next poll or stop signal.
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=RELAY_POLL_INTERVAL)
-                break  # stop was set
-            except asyncio.TimeoutError:
-                continue  # poll again
+            # Chờ: tin notify ĐÁNH THỨC sớm, hết 30s thì poll cho chắc,
+            # stop thì ra về. Gộp một nhịp thở 300ms sau khi thức để một
+            # thao tác đụng nhiều sự kiện thành MỘT lượt poll.
+            cho_thuc = asyncio.ensure_future(danh_thuc.wait())
+            cho_dung = asyncio.ensure_future(stop.wait())
+            done, pending = await asyncio.wait(
+                {cho_thuc, cho_dung},
+                timeout=RELAY_POLL_INTERVAL,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for t in pending:
+                t.cancel()
+            if cho_dung in done:
+                break
+            if cho_thuc in done:
+                danh_thuc.clear()
+                await asyncio.sleep(0.3)
     finally:
+        try:
+            await nghe.remove_listener("clinicai_changes", _khi_notify)
+            await pool.release(nghe)
+        except Exception:
+            pass
         await close_pool(pool)
         logger.info("relay_stopped")
 
