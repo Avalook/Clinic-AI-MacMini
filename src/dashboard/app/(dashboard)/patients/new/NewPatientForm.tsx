@@ -577,9 +577,17 @@ export default function NewPatientForm({
       const nam = dobYearOnly
         ? Number(birthYear)
         : Number(dobIso.slice(0, 4));
-      const coTen = fullName.trim().length >= 3 && nam >= 1900 && nam <= CUR_YEAR;
+      // TÊN 3 KÝ TỰ LÀ ĐỦ HỎI (Tuyền 15/08/2026): khách cũ đọc số mới,
+      // người trực gõ tên trước khi kịp hỏi năm sinh — trước đây nhánh này
+      // đòi cả năm nên đúng ca hay gặp nhất không bao giờ được cảnh báo.
+      // Năm sinh (khi có) vẫn được gửi kèm để bật nhánh khớp MẠNH.
+      const coTen = fullName.trim().length >= 3;
+      const coNam = nam >= 1900 && nam <= CUR_YEAR;
       if (digits.length !== 10 && !coTen) {
-        if (alive) setPhoneDupes([]);
+        if (alive) {
+          setPhoneDupes([]);
+          setTrungTen([]);
+        }
         return;
       }
       void (async () => {
@@ -592,7 +600,7 @@ export default function NewPatientForm({
           if (digits.length === 10) qs.set("phone", phone);
           if (coTen) {
             qs.set("full_name", fullName.trim());
-            qs.set("birth_year", String(nam));
+            if (coNam) qs.set("birth_year", String(nam));
           }
           const res = await fetch(`/api/patients/check-duplicate?${qs}`);
           if (!res.ok) return;
@@ -1046,7 +1054,7 @@ export default function NewPatientForm({
             {trungTen.length > 0 && (
               <div className="mt-1.5 rounded-lg border border-line bg-surface-muted px-3 py-2 text-meta text-ink-soft">
                 <p className="font-medium text-ink">
-                  Đã có {trungTen.length} hồ sơ trùng họ tên (khác năm sinh):
+                  Đã có {trungTen.length} hồ sơ trùng họ tên:
                 </p>
                 <ul className="mt-1 space-y-0.5">
                   {trungTen.map((m) => (

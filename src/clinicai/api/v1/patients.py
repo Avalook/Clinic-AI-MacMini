@@ -125,7 +125,12 @@ async def check_duplicate(
 
     from clinicai.services.mpi_service import MPIService
 
-    if not any([phone, full_name and birth_year]):
+    # TÊN ĐƠN THUẦN cũng đáng một câu trả lời (Tuyền 15/08/2026): khách cũ
+    # gọi từ số MỚI, người trực mới chỉ kịp gõ tên — chưa hỏi năm sinh. Bản
+    # trước đòi (tên VÀ năm) hoặc số, nên đúng ca hay gặp nhất lại im lặng.
+    # Khớp MẠNH (matches) vẫn giữ nguyên luật của đường lưu — tên đơn thuần
+    # chỉ đổ vào `trung_ten`, tín hiệu yếu, ô xám.
+    if not any([phone, full_name]):
         return {"exists": False, "matches": []}
 
     probe = PatientCreateDTO(
