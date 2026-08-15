@@ -92,7 +92,7 @@ export default async function TelemetryPage() {
               <div className="overflow-x-auto">
               <table className="min-w-[640px] w-full text-sm">
                 <thead>
-                  <tr className="border-b border-line text-left text-[13px] text-ink-muted">
+                  <tr className="border-b border-line text-left text-body text-ink-muted">
                     <th className="px-5 py-2 font-medium">Route</th>
                     <th className="px-3 py-2 font-medium">Số lần</th>
                     <th className="px-3 py-2 font-medium">p50</th>

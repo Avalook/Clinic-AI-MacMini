@@ -45,7 +45,7 @@ export default function LichSapToiCuaKhach({
 }) {
   if (tra.kind === "dang-hoi") {
     return (
-      <p className="rounded-xl border border-line bg-surface-muted px-3 py-2 text-[11px] text-ink-muted">
+      <p className="rounded-xl border border-line bg-surface-muted px-3 py-2 text-label text-ink-muted">
         Đang xem khách này đã có lịch nào chưa…
       </p>
     );
@@ -75,7 +75,7 @@ export default function LichSapToiCuaKhach({
     return (
       <p
         role="alert"
-        className="rounded-xl border border-danger/40 bg-danger-bg px-3 py-2 text-[11px] font-medium text-danger"
+        className="rounded-xl border border-danger/40 bg-danger-bg px-3 py-2 text-label font-medium text-danger"
       >
         Chưa kiểm được lịch cũ của khách — đừng coi là khách chưa có lịch. Thử
         chọn lại khách; còn lỗi thì kiểm ở màn Quản lý khách hàng trước khi đặt.
@@ -85,7 +85,7 @@ export default function LichSapToiCuaKhach({
 
   if (tra.items.length === 0) {
     return (
-      <p className="rounded-xl border border-line bg-surface-muted px-3 py-2 text-[11px] text-ink-muted">
+      <p className="rounded-xl border border-line bg-surface-muted px-3 py-2 text-label text-ink-muted">
         Đã kiểm: khách chưa có lịch nào sắp tới.
       </p>
     );
@@ -107,7 +107,7 @@ export default function LichSapToiCuaKhach({
           </li>
         ))}
       </ul>
-      <p className="mt-1.5 text-[11px] text-ink-muted">
+      <p className="mt-1.5 text-label text-ink-muted">
         Đặt thêm vẫn được — đây chỉ là để bạn biết trước.
       </p>
     </div>

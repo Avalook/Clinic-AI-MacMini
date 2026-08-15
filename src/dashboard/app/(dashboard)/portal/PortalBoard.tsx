@@ -767,7 +767,7 @@ export default function PortalBoard({
         <div className="max-h-80 overflow-y-auto rounded-control border border-line">
           <table className="min-w-full divide-y divide-brand-100 text-sm">
             {/* Tiêu đề bảng, cố định khi cuộn */}
-            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-label font-semibold uppercase tracking-wide text-brand-800">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Họ tên</th> {/* Cột họ tên */}
                 <th className="px-4 py-2.5 font-medium">Vai trò</th> {/* Cột vai trò */}

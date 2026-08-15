@@ -112,7 +112,7 @@ export default function SonoBiometry({
     <section className="space-y-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-brand-800">Số đo siêu âm thai</h3>
-        <div className="flex items-center gap-2 text-[11px]">
+        <div className="flex items-center gap-2 text-label">
           {status === "completed" && (
             <span className="rounded-full bg-success-bg px-2 py-0.5 font-medium text-success">
               Đã hoàn tất

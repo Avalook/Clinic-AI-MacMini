@@ -15,22 +15,28 @@
 import { Fragment, type ReactNode } from "react";
 import { STATIONS, STATION_SEGMENTS, FLOOR_BORDER, type Station } from "../../lib/roster";
 
+// KẺ DỌC Ở ĐÂY LÀ CHỦ Ý, không phải sót lại sau đại tu: bảng này là MA TRẬN
+// TOẠ ĐỘ (ngày × trạm) — người đọc dò một cột trạm suốt cả tuần, và vách dọc
+// là thứ giữ mắt khỏi trượt cột, cùng lý do lưới đặt chỗ rạp phim được giữ
+// (DESIGN.md §6). Cái làm nó "nhìn như Google Sheets" là MỰC MÀU THƯƠNG HIỆU
+// kẻ cả hai chiều — nên mực đổi về trung tính, còn hai ĐỘ ĐẬM giữ nguyên vai:
+// hairline giữa hai hàng con của một ngày, line đậm hơn đóng một ngày lại.
 const TH_BASE =
-  "border-b border-r border-brand-100 px-2 py-2 text-center align-middle font-semibold text-brand-800";
+  "border-b border-r border-hairline px-2 py-2 text-center align-middle font-semibold text-ink";
 
 /** Viền dưới của hàng con TRÊN — nhạt, để hai hàng của một ngày đọc như một khối. */
-export const O_TREN = "border-b border-r border-brand-50";
+export const O_TREN = "border-b border-r border-hairline";
 /** Viền dưới của hàng con DƯỚI — đậm, đóng lại một ngày. */
-export const O_DUOI = "border-b border-r border-brand-100";
+export const O_DUOI = "border-b border-r border-b-line border-r-hairline";
 
 /** Hai hàng header: tầng (gộp cột) rồi tên trạm. Cột "Ngày" và "Số BS" gộp dọc. */
 export function RosterGridHead({ minWidth = 92 }: { minWidth?: number }) {
   return (
     <thead>
-      <tr className="bg-brand-100">
+      <tr className="bg-surface-muted">
         <th
           rowSpan={2}
-          className="sticky left-0 z-20 border-b border-r border-brand-100 bg-brand-100 px-2 py-2 text-left font-semibold text-brand-800"
+          className="sticky left-0 z-20 border-b border-r border-hairline bg-surface-muted px-2 py-2 text-left font-semibold text-ink"
         >
           Ngày
         </th>
@@ -49,7 +55,7 @@ export function RosterGridHead({ minWidth = 92 }: { minWidth?: number }) {
               ))}
               <th
                 rowSpan={2}
-                className={`min-w-[52px] ${TH_BASE}`}
+                className={`min-w-13 ${TH_BASE}`}
                 title="Số bác sĩ trực trong ngày — tính từ cột Lịch khám"
               >
                 Số BS
@@ -66,11 +72,11 @@ export function RosterGridHead({ minWidth = 92 }: { minWidth?: number }) {
           ),
         )}
       </tr>
-      <tr className="bg-brand-50">
+      <tr className="bg-surface-muted">
         {STATIONS.filter((s) => s.floor !== "").map((s) => (
           <th
             key={s.key}
-            className="border-b border-r border-brand-100 px-2 py-1.5 text-center font-medium text-brand-700"
+            className="border-b border-r border-hairline px-2 py-1.5 text-center font-medium text-ink-muted"
             style={{ minWidth }}
           >
             {s.short}
@@ -100,7 +106,7 @@ export function RosterDayRows({
       <tr className={"align-top " + vach}>
         <td
           rowSpan={2}
-          className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-brand-100 bg-inherit px-2 py-2 font-medium text-ink"
+          className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-hairline bg-inherit px-2 py-2 font-medium text-ink"
         >
           {nhan}
         </td>

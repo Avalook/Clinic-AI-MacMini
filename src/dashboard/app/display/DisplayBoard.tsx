@@ -150,7 +150,7 @@ export default function DisplayBoard({
 
               {/* ĐANG GỌI — phần duy nhất người ngồi xa cần đọc được. */}
               <div className="bg-teal-50/60 px-3 py-4 text-center">
-                <div className="text-[11px] font-semibold tracking-widest text-slate-500">
+                <div className="text-label font-semibold tracking-widest text-slate-500">
                   ĐANG GỌI
                 </div>
                 {/* GỌI TÊN, KHÔNG GỌI SỐ.
@@ -175,20 +175,20 @@ export default function DisplayBoard({
                   </div>
                 )}
                 {dangGoi?.room_name ? (
-                  <div className="mt-1 text-[11px] font-semibold uppercase text-slate-500">
+                  <div className="mt-1 text-label font-semibold uppercase text-slate-500">
                     {dangGoi.room_name}
                   </div>
                 ) : null}
                 {/* Câu trả lời cho "vì sao người kia vào trước tôi?" */}
                 {dangGoi?.promoted_note ? (
-                  <div className="mt-1 text-[10px] leading-tight text-teal-600">
+                  <div className="mt-1 text-label leading-tight text-teal-600">
                     {dangGoi.promoted_note}
                   </div>
                 ) : null}
               </div>
 
               <div className="border-t border-slate-100 px-3 py-3 text-center">
-                <div className="text-[11px] font-semibold tracking-widest text-slate-400">
+                <div className="text-label font-semibold tracking-widest text-slate-400">
                   TIẾP THEO
                 </div>
                 <div className="mt-0.5 break-words text-xl font-bold text-slate-700">
@@ -200,7 +200,7 @@ export default function DisplayBoard({
               </div>
 
               <div className="flex-1 border-t border-slate-100 px-2.5 py-2.5">
-                <div className="text-center text-[11px] font-semibold tracking-widest text-slate-400">
+                <div className="text-center text-label font-semibold tracking-widest text-slate-400">
                   ĐANG CHỜ
                 </div>
                 {xepHang.length === 0 ? (
@@ -210,7 +210,7 @@ export default function DisplayBoard({
                     {xepHang.map((m, i) => (
                       <span
                         key={`${z.key}-${m.queue_number ?? "?"}-${i}`}
-                        className="truncate rounded-md bg-slate-100 px-1 py-1 text-center text-[11px] font-medium text-slate-600"
+                        className="truncate rounded-md bg-slate-100 px-1 py-1 text-center text-label font-medium text-slate-600"
                       >
                         {m.patient_name ?? soHienThi(m.queue_number, z.prefix)}
                         {m.promoted ? (

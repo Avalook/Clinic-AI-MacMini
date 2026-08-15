@@ -131,7 +131,7 @@ function DauMuc({
 function Dau({ xong }: { xong: boolean }) {
   return (
     <span
-      className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+      className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full text-label font-bold ${
         xong ? "bg-success text-white" : "border border-line text-ink-faint"
       }`}
       aria-hidden

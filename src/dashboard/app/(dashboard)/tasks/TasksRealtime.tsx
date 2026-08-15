@@ -108,14 +108,14 @@ export default function TasksRealtime({
             <div className="flex items-start justify-between gap-2">
               <p className="font-medium text-ink">{t.title}</p>
               <span
-                className={`shrink-0 rounded-chip px-2 py-0.5 text-[11px] ${STATUS_COLOR[t.status] ?? ""}`}
+                className={`shrink-0 rounded-chip px-2 py-0.5 text-label ${STATUS_COLOR[t.status] ?? ""}`}
               >
                 {t.status}
               </span>
             </div>
             <p className="mt-1 text-xs text-ink-muted">
               <span
-                className={`mr-1 rounded-chip px-1.5 py-0.5 text-[11px] ${PRIORITY_COLOR[t.priority] ?? ""}`}
+                className={`mr-1 rounded-chip px-1.5 py-0.5 text-label ${PRIORITY_COLOR[t.priority] ?? ""}`}
               >
                 {t.priority}
               </span>

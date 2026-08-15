@@ -37,7 +37,7 @@ export default function OfficialRosterTable({
               key={date}
               nhan={`${dayShort(date)} · ${fmtDayMonth(date)}`}
               soBacSi={demBacSiTruc(rows, date)}
-              vach={index % 2 === 0 ? "bg-surface" : "bg-brand-50"}
+              vach={index % 2 === 0 ? "bg-surface" : "bg-surface-muted"}
               oCua={(station, hang) => {
                 const assignments = chiaHaiHang(
                   rows.filter(

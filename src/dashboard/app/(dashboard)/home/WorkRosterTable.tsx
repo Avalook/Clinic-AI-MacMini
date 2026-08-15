@@ -56,7 +56,7 @@ export default function WorkRosterTable({
                 key={d}
                 nhan={`${dayShort(d)} · ${fmtDayMonth(d)}`}
                 soBacSi={demBacSiTruc(rows, d)}
-                vach={ri % 2 ? "bg-brand-50" : "bg-white"}
+                vach={ri % 2 ? "bg-surface-muted" : "bg-white"}
                 oCua={(s, hang) => {
                   const names = chiaHaiHang(dm?.get(s.key) ?? [])[hang];
                   const isDoctor = s.key === "LICH_KHAM";

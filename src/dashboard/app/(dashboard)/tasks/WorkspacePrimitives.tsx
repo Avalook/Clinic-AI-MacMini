@@ -65,7 +65,7 @@ export function WorkspaceMetric({
         <span className="mt-0.5 block text-2xl font-semibold leading-none text-ink">
           {value}
         </span>
-        {detail ? <span className="mt-1 block truncate text-[11px] text-ink-faint">{detail}</span> : null}
+        {detail ? <span className="mt-1 block truncate text-label text-ink-faint">{detail}</span> : null}
       </span>
     </div>
   );

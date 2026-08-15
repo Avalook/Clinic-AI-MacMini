@@ -546,7 +546,7 @@ export default function AppointmentBooking({
           {/* Bỏ dòng "đến muộn 15 phút mất chỗ" — xem ghi chú cùng chỗ trong
               NewPatientForm.tsx. */}
           {ch && (
-            <p className="mt-1 text-[11px] text-ink-faint">
+            <p className="mt-1 text-label text-ink-faint">
               Giờ mở cửa: {ch.open}–{ch.close}
             </p>
           )}
@@ -571,7 +571,7 @@ export default function AppointmentBooking({
           />
           {apptDate && apptTime && (
             <p
-              className={`text-[11px] font-medium ${
+              className={`text-label font-medium ${
                 isSlotBooked ? "text-danger" : "text-success"
               }`}
             >
@@ -588,7 +588,7 @@ export default function AppointmentBooking({
                   <span
                     key={b.time}
                     title={`${ui.label} — ${b.regular_used}/${b.regular_cap} chỗ đặt hẹn`}
-                    className={`rounded-chip px-1.5 py-0.5 text-[11px] ${ui.className}`}
+                    className={`rounded-chip px-1.5 py-0.5 text-label ${ui.className}`}
                   >
                     {b.time} · {b.regular_used}/{b.regular_cap}
                   </span>

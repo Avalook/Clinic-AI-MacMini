@@ -74,7 +74,7 @@ export default function DashboardError({
             bản dựng production Next đã thay nó bằng chuỗi chung, còn ở môi
             trường khác nó có thể mang theo dữ liệu bệnh nhân. */}
         {error.digest ? (
-          <p className="border-t border-line pt-3 text-[11px] text-ink-muted">
+          <p className="border-t border-line pt-3 text-label text-ink-muted">
             Mã lỗi: <code className="font-mono">{error.digest}</code> — đọc cho
             người hỗ trợ kỹ thuật để tra đúng dòng log.
           </p>

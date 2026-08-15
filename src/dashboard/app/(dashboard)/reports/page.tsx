@@ -354,7 +354,7 @@ export default async function ReportsPage() {
                   Tháng này
                 </th>
               </tr>
-              <tr className="border-b border-line bg-surface-muted text-left text-[11px] text-ink-faint">
+              <tr className="border-b border-line bg-surface-muted text-left text-label text-ink-faint">
                 {["Hôm nay", "Tuần này", "Tháng này"].map((ky) => (
                   <Fragment key={ky}>
                     <th className="border-l border-line px-3 py-1.5 text-right font-medium">

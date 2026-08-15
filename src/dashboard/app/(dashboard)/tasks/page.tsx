@@ -158,7 +158,7 @@ async function DoctorTasks(
         )}
         {allDoctors && !readOnly && (
           <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-brand-800">
-            <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[11px] font-medium">
+            <span className="rounded bg-brand-100 px-1.5 py-0.5 text-label font-medium">
               ✍ Nhập hộ bệnh án
             </span>
             <span className="text-ink-muted">

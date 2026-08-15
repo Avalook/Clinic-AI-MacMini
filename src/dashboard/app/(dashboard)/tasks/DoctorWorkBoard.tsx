@@ -144,7 +144,7 @@ function QueueRow({
       type="button"
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
-      className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+      className={`w-full border-l-3 px-3 py-3 text-left transition-colors ${
         selected
           ? "border-brand-500 bg-surface-selected"
           : "border-transparent bg-surface hover:bg-surface-sunken"
@@ -169,13 +169,13 @@ function QueueRow({
               {row.service?.name ?? "Chưa có dịch vụ"}
             </span>
             {row.queue_number ? (
-              <span className="shrink-0 rounded-chip bg-surface-sunken px-1.5 py-0.5 text-[11px] font-medium text-ink-soft">
+              <span className="shrink-0 rounded-chip bg-surface-sunken px-1.5 py-0.5 text-label font-medium text-ink-soft">
                 {row.queue_number}
               </span>
             ) : null}
           </span>
           {row.b3_ready ? (
-            <span className="mt-1 inline-flex rounded-chip bg-warning-bg px-1.5 py-0.5 text-[11px] font-medium text-warning">
+            <span className="mt-1 inline-flex rounded-chip bg-warning-bg px-1.5 py-0.5 text-label font-medium text-warning">
               Chờ đọc kết quả
             </span>
           ) : null}

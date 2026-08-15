@@ -74,8 +74,8 @@ function dobLabel(p: PatientRow): string {
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-[12px] text-ink-muted">{label}</dt>
-      <dd className="mt-0.5 text-[14px] text-ink">{value}</dd>
+      <dt className="text-meta text-ink-muted">{label}</dt>
+      <dd className="mt-0.5 text-emph text-ink">{value}</dd>
     </div>
   );
 }
@@ -200,8 +200,8 @@ export default async function PatientDetail({
               value={appointments.length >= 20 ? "20+" : String(appointments.length)}
             />
             <div className="col-span-2 sm:col-span-4">
-              <dt className="text-[12px] text-ink-muted">Địa chỉ</dt>
-              <dd className="mt-0.5 text-[14px] text-ink">
+              <dt className="text-meta text-ink-muted">Địa chỉ</dt>
+              <dd className="mt-0.5 text-emph text-ink">
                 {patient.address ?? "—"}
               </dd>
             </div>
@@ -250,7 +250,7 @@ export default async function PatientDetail({
         {/* Desktop: table (≥md). */}
         <div className="hidden max-h-[88vh] min-h-[180px] overflow-auto md:block">
           <table className="min-w-full divide-y divide-brand-100 text-sm">
-            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] uppercase tracking-wide text-brand-800">
+            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-label uppercase tracking-wide text-brand-800">
               <tr>
                 <th className="px-4 py-2.5 font-semibold">Ngày giờ</th>
                 <th className="px-4 py-2.5 font-semibold">Dịch vụ</th>

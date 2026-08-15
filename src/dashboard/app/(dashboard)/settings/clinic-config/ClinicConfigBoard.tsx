@@ -178,7 +178,7 @@ export default function ClinicConfigBoard({
             <h2 className="text-base font-semibold text-ink">{loc.name}</h2>
             <span className="text-xs text-ink-muted">{loc.code}</span>
             {!loc.is_active && (
-              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] text-ink-muted">
+              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-label text-ink-muted">
                 ngừng hoạt động
               </span>
             )}
@@ -216,7 +216,7 @@ export default function ClinicConfigBoard({
                           <span className="text-sm text-ink-soft">{r.name}</span>
                         )}
                         {!r.is_active && (
-                          <span className="text-[11px] text-ink-muted">
+                          <span className="text-label text-ink-muted">
                             (ngừng)
                           </span>
                         )}
@@ -312,7 +312,7 @@ export default function ClinicConfigBoard({
               <span className="min-w-0 flex-1 truncate text-ink">
                 {s.name}
                 {!s.is_active && (
-                  <span className="ml-2 text-[11px] text-ink-muted">(ngưng)</span>
+                  <span className="ml-2 text-label text-ink-muted">(ngưng)</span>
                 )}
               </span>
               {saved === s.service_type_id && !isPending && (

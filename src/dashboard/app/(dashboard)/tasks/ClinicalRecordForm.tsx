@@ -231,7 +231,7 @@ function Section({ no, title, synced, editorLabel = "bác sĩ điền", children
       <h4 className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
         <span>{no && <span className="text-brand-600">{no}.</span>} {title}</span>
         <span className={
-          "rounded px-1.5 py-0.5 text-[10px] font-medium " +
+          "rounded px-1.5 py-0.5 text-label font-medium " +
           (synced ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
         }>
           {synced ? "đồng bộ" : editorLabel}
@@ -802,7 +802,7 @@ export default function ClinicalRecordForm({
           <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase text-ink">
             <span>Phiếu khám bệnh</span>
             {vitalsOnly && (
-              <span className="rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-medium normal-case text-warning">
+              <span className="rounded bg-warning-bg px-1.5 py-0.5 text-label font-medium normal-case text-warning">
                 Chỉ ghi Sinh hiệu
               </span>
             )}
@@ -1054,7 +1054,7 @@ export default function ClinicalRecordForm({
                       onChange={(e) => set(k, e.target.value)}
                     />
                     {(missing || warn) && (
-                      <p className="mt-0.5 text-[11px] text-danger">
+                      <p className="mt-0.5 text-label text-danger">
                         {missing ? "Bắt buộc" : warn}
                       </p>
                     )}
@@ -1158,7 +1158,7 @@ export default function ClinicalRecordForm({
                     onChange={(e) => set(k, e.target.value)}
                   />
                   {oor && (
-                    <p className="mt-0.5 text-[11px] text-danger">
+                    <p className="mt-0.5 text-label text-danger">
                       Nên trong {lo}–{hi}
                     </p>
                   )}
@@ -1207,7 +1207,7 @@ export default function ClinicalRecordForm({
                       </a>
                     )}
                     {l.flag && l.flag !== "NORMAL" && (
-                      <span className="rounded bg-danger-bg px-1.5 py-0.5 text-[10px] font-medium text-danger">{l.flag}</span>
+                      <span className="rounded bg-danger-bg px-1.5 py-0.5 text-label font-medium text-danger">{l.flag}</span>
                     )}
                   </span>
                 </li>

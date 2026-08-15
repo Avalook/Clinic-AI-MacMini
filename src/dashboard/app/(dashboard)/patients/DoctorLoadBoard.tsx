@@ -107,7 +107,7 @@ export default function DoctorLoadBoard({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-ink-muted">
         <span className="font-medium text-ink">Tải hôm nay theo bác sĩ</span>
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-brand-100 bg-white" /> Chưa đến
@@ -126,15 +126,15 @@ export default function DoctorLoadBoard({
         <table className="border-separate border-spacing-1 p-2">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-white px-2 text-left text-[11px] font-medium text-ink-muted">
+              <th className="sticky left-0 z-10 bg-white px-2 text-left text-label font-medium text-ink-muted">
                 Bác sĩ \ Giờ
               </th>
               {times.map((t) => (
-                <th key={t} className="px-0.5 text-[10px] font-normal text-ink-faint">
+                <th key={t} className="px-0.5 text-label font-normal text-ink-faint">
                   {t}
                 </th>
               ))}
-              <th className="px-1 text-[10px] font-normal text-ink-faint">Tổng</th>
+              <th className="px-1 text-label font-normal text-ink-faint">Tổng</th>
             </tr>
           </thead>
           <tbody>
@@ -187,7 +187,7 @@ export default function DoctorLoadBoard({
                                 key={`${t}-${i}`}
                                 title={`${t} · ${STATUS_VN[a.status] ?? a.status}${a.queue_number ? ` · số ${a.queue_number}` : ""}`}
                                 className={
-                                  "flex h-6 min-w-8 items-center justify-center rounded px-1 text-[10px] font-semibold " +
+                                  "flex h-6 min-w-8 items-center justify-center rounded px-1 text-label font-semibold " +
                                   (arrived
                                     ? "bg-success text-white"
                                     : done
@@ -205,7 +205,7 @@ export default function DoctorLoadBoard({
                   })}
                   <td
                     className={
-                      "px-1 text-center text-[11px] " +
+                      "px-1 text-center text-label " +
                       (isSel ? "font-semibold text-brand-800" : "text-ink-muted")
                     }
                   >

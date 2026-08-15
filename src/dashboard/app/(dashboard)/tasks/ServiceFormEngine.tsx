@@ -157,7 +157,7 @@ export default function ServiceFormEngine({
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-sm font-semibold text-ink">
           Phiếu {schema.title}
-          <span className="ml-2 rounded-chip bg-status-assigned-bg px-1.5 py-0.5 text-[10px] font-medium text-status-assigned">
+          <span className="ml-2 rounded-chip bg-status-assigned-bg px-1.5 py-0.5 text-label font-medium text-status-assigned">
             form chuyên khoa
           </span>
         </h4>
@@ -191,7 +191,7 @@ export default function ServiceFormEngine({
                   className="mb-3 break-inside-avoid rounded-card border border-line bg-surface p-3"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="grid size-5 shrink-0 place-items-center rounded-control bg-brand-50 text-[11px] font-bold tabular-nums text-brand-700">
+                    <span className="grid size-5 shrink-0 place-items-center rounded-control bg-brand-50 text-label font-bold tabular-nums text-brand-700">
                       {i + 1}
                     </span>
                     <h5 className="min-w-0 flex-1 text-sm font-semibold text-ink">

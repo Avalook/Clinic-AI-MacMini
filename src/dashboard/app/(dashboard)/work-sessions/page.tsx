@@ -85,7 +85,7 @@ export default async function WorkSessionsPage() {
       {/* Desktop: table (≥md). */}
       <div className="hidden min-h-[180px] max-h-[88vh] overflow-x-auto overflow-y-auto rounded-card border border-line bg-surface shadow-card md:block">
         <table className="min-w-full divide-y divide-brand-100 text-sm">
-          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-label font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className="px-4 py-2.5 font-semibold">Ngày</th>
               <th className="px-4 py-2.5 font-semibold">Loại ca</th>

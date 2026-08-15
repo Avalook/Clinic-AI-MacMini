@@ -38,7 +38,7 @@ export default function PriorityChip({
   // Outline rather than filled: a quiet marker next to the loud status chip.
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-chip border bg-surface px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${TONE[priority]}`}
+      className={`inline-flex items-center gap-1 rounded-chip border bg-surface px-1.5 py-0.5 text-label font-medium whitespace-nowrap ${TONE[priority]}`}
     >
       {label ?? LABEL[priority]}
     </span>

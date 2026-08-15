@@ -412,7 +412,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
           </header>
 
           {/* Table header */}
-          <div className="grid grid-cols-[minmax(140px,1.2fr)_minmax(100px,0.8fr)_minmax(90px,0.65fr)_minmax(80px,0.55fr)_minmax(80px,0.55fr)] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+          <div className="grid grid-cols-[minmax(140px,1.2fr)_minmax(100px,0.8fr)_minmax(90px,0.65fr)_minmax(80px,0.55fr)_minmax(80px,0.55fr)] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-label font-semibold uppercase tracking-wide text-ink-faint">
             <span>Công việc</span>
             <span>Khách hàng</span>
             <span>Trạng thái</span>
@@ -451,7 +451,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                           {CATEGORY_LABEL[t.category] ?? t.category}
                         </span>
                       </div>
-                      <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+                      <span className="mt-0.5 block truncate text-label text-ink-muted">
                         {t.description}
                       </span>
                     </div>
@@ -501,7 +501,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
             <div className="flex items-start justify-between border-b border-line pb-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">
+                  <span className="inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-label font-semibold text-brand-700">
                     {selected.category === "NHAC_HEN" ||
                     selected.category === "XAC_NHAN_LICH"
                       ? "Nhắc lịch"
@@ -557,7 +557,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
               {selected.patientId && (
                 <Link
                   href={`/customers?selected=${selected.patientId}`}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
+                  className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-label font-medium text-brand-700 hover:bg-brand-50"
                 >
                   <ExternalLink className="size-3" /> Mở hồ sơ
                 </Link>
@@ -632,7 +632,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                   <Upload className="size-3.5 text-brand-600" />
                   Upload kết quả siêu âm &amp; xét nghiệm (Ảnh + Video)
                 </span>
-                <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">
+                <span className="rounded bg-brand-50 px-1.5 py-0.5 text-label font-medium text-brand-700">
                   Tính năng sẽ ra mắt ở phiên bản tiếp theo
                 </span>
               </div>
@@ -661,7 +661,7 @@ export default function CskhTasksView({ tasks, stats }: Props) {
                   <Send className="size-3.5 text-brand-600" />
                   Gửi thông báo qua Zalo / SMS
                 </span>
-                <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">
+                <span className="rounded bg-brand-50 px-1.5 py-0.5 text-label font-medium text-brand-700">
                   Tính năng sẽ ra mắt ở phiên bản tiếp theo
                 </span>
               </div>

@@ -26,7 +26,7 @@ export default function RosterBell() {
         >
           <Bell size={18} />
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-label font-semibold text-white">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
@@ -67,7 +67,7 @@ export default function RosterBell() {
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-ink">{n.title}</p>
                       <p className="text-xs text-ink-soft">{n.detail}</p>
-                      <p className="text-[10px] text-ink-faint">{n.at}</p>
+                      <p className="text-label text-ink-faint">{n.at}</p>
                     </div>
                   </li>
                 ))}
