@@ -21,6 +21,8 @@ import { useMemo, useState, useTransition,
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import Chip, { chipClass } from "@/components/ui/Chip";
+import { buttonClass } from "@/components/ui/Button";
 import { fmtDate, fmtDateTimeOrDate, conToi, mocMs, nowMs } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
@@ -591,7 +593,7 @@ function appointmentStatus(status: string): { label: string; tone: StatusTone } 
 
 function CustomerTableHeader() {
   return (
-    <div className="grid grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px] gap-2 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+    <div className="grid grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px] gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted">
       <span>Khách hàng</span>
       <span>Trạng thái</span>
       <span>Mới / cũ</span>
@@ -1286,7 +1288,7 @@ export default function CustomersView({
       {canEdit && (
         <Link
           href="/patients/new"
-          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium text-ink-muted shadow-card hover:border-brand-500 hover:text-brand-800"
+          className={`${buttonClass("secondary", "lg")} shrink-0`}
           title="Khách mới gọi hỏi nhưng chưa chốt ngày khám — ghi lại để còn gọi lại, không cần đặt lịch ngay."
         >
           <UserPlus className="size-4 shrink-0" aria-hidden="true" />
@@ -1333,7 +1335,7 @@ export default function CustomersView({
             <div className={selected ? "min-w-0" : "min-w-[960px]"}>
               {!selected && <CustomerTableHeader />}
               {visibleRows.length > 0 ? (
-                <div className="divide-y divide-line">
+                <div className="divide-y divide-hairline">
                   {visibleRows.map((row) => {
                     const active = selected?.clinic_patient_id === row.clinic_patient_id;
                     const cskh = cskhByPatient[row.clinic_patient_id];
@@ -1375,15 +1377,15 @@ export default function CustomersView({
                               thẳng rằng còn việc khác. */}
                           {(trangThaiByPatient[row.clinic_patient_id]
                             ?.so_viec_mo ?? 0) > 1 && (
-                            <span
-                              className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
+                            <Chip
+                              tone="neutral"
                               title="Chip bên cạnh là việc gấp nhất; khách còn việc khác, có thể ở lượt khám khác."
                             >
                               +
                               {(trangThaiByPatient[row.clinic_patient_id]
                                 ?.so_viec_mo ?? 1) - 1}{" "}
                               việc
-                            </span>
+                            </Chip>
                           )}
                           {(apptByPatient[row.clinic_patient_id]?.sapToi
                             ?.length ?? 0) > 1 && (
@@ -1394,7 +1396,7 @@ export default function CustomersView({
                                   e.stopPropagation();
                                   setXemTrung(row.clinic_patient_id);
                                 }}
-                                className="inline-flex items-center gap-1 rounded-full border border-warning/50 bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning hover:bg-warning/20"
+                                className={`${chipClass("warning")} hover:bg-warning/20`}
                               >
                                 <AlertTriangle className="size-3" />
                                 {apptByPatient[row.clinic_patient_id]!.sapToi
@@ -1402,7 +1404,7 @@ export default function CustomersView({
                                 lịch trùng
                               </button>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-warning/50 bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                              <span className={chipClass("warning")}>
                                 <AlertTriangle className="size-3" />
                                 {apptByPatient[row.clinic_patient_id]!.sapToi
                                   .length}{" "}
@@ -1425,18 +1427,11 @@ export default function CustomersView({
                               );
                               return (
                                 <>
-                                  <span
-                                    className={
-                                      "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold " +
-                                      (nhan.dong2
-                                        ? "bg-brand-50 text-brand-700"
-                                        : "bg-surface-sunken text-ink-muted")
-                                    }
-                                  >
+                                  <Chip tone={nhan.dong2 ? "brand" : "neutral"}>
                                     {nhan.dong1}
-                                  </span>
+                                  </Chip>
                                   {nhan.dong2 && (
-                                    <span className="mt-0.5 block truncate text-[10px] text-ink-muted">
+                                    <span className="mt-0.5 block truncate text-meta text-ink-muted">
                                       {nhan.dong2}
                                     </span>
                                   )}

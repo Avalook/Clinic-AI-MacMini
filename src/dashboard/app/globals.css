@@ -60,6 +60,10 @@
   --color-surface-selected: #eaf7f7; /* the selected row/card fill */
   --color-line: #d9e2ec;
   --color-line-strong: #bcccdc;
+  /* Viền mảnh — DESIGN.md §2 (15/08/2026). Kẻ ngang trong bảng và viền thẻ.
+   * Nhạt hơn --color-line một bậc: line cũ dùng cho MỌI đường kẻ nên bảng
+   * nhiều hàng nhìn như Google Sheets; hairline đủ tách hàng mà không vẽ lưới. */
+  --color-hairline: #e5e9f0;
   --color-ink: #102a43;
   --color-ink-soft: #243b53;
   --color-ink-muted: #627d98;
@@ -123,8 +127,24 @@
   --color-priority-p2: #627d98;
 
   --radius-card: 12px;
-  --radius-control: 10px;
+  /* 10px → 8px theo DESIGN.md §4 (15/08/2026): thang bo góc chốt 6/8/12/16.
+   * 10px là giá trị mồ côi — không thuộc thang nào, và là một phần cảm giác
+   * "nút thuần vẽ" (bo góc không ăn khớp giữa các control). */
+  --radius-control: 8px;
   --radius-chip: 6px; /* the designs use a soft rectangle, not a pill */
+
+  /* Thang chữ 5 bậc — DESIGN.md §3. Đây là NĂM cỡ duy nhất được phép;
+   * text-[..px] tuỳ ý đang bị ratchet đếm và chỉ được giảm. */
+  --text-label: 11px;
+  --text-label--line-height: 14px;
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+  --text-body: 13px;
+  --text-body--line-height: 19px;
+  --text-emph: 14px;
+  --text-emph--line-height: 20px;
+  --text-title: 16px;
+  --text-title--line-height: 22px;
 
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04),
     0 1px 3px 0 rgb(15 23 42 / 0.06);
