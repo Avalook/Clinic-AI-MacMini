@@ -77,8 +77,16 @@ async def test_relay_claims_and_marks_canonical_event_log_row() -> None:
     ]
     assert len(update_calls) == 1
     assert "WHERE event_id = $1 AND clinic_id = $2::uuid" in update_calls[0][0]
-    assert update_calls[0][1] == event_id
+    # PHẢI LÀ CHUỖI, không phải UUID object: ba câu SQL của vòng khoá bind
+    # event_id vào $1::text, và asyncpg từ chối UUID ở đó bằng DataError —
+    # đo trên prod ngay lần poll THẬT đầu tiên (15/08/2026).
+    assert update_calls[0][1] == str(event_id)
     assert update_calls[0][2] == CLINIC_ID
+
+    claim_args = conn.fetchval.await_args_list[0].args
+    assert claim_args[1] == str(event_id), (
+        "khoá advisory băm chuỗi — đưa UUID object vào là DataError giữa vòng poll"
+    )
 
 
 @pytest.mark.asyncio

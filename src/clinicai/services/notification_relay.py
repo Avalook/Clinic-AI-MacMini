@@ -136,7 +136,13 @@ async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
         delivered = 0
 
         for row in rows:
-            event_id = row["event_id"]
+            # ÉP VỀ CHUỖI MỘT LẦN Ở ĐÂY. Cột event_id là uuid; asyncpg trả
+            # UUID object, mà cả ba câu bên dưới đều bind nó vào $1::text
+            # (khoá advisory băm theo chuỗi) — đưa UUID thẳng vào là DataError
+            # "expected str, got UUID". Lỗi nằm sẵn từ Bài 23 và chỉ lộ ra ở
+            # lần chạy THẬT đầu tiên (15/08/2026) — mọi test trước đó mock
+            # fetchval nên không con đường nào chạm tới encoder của asyncpg.
+            event_id = str(row["event_id"])
             claimed = await conn.fetchval(
                 """
                 SELECT pg_try_advisory_lock(
