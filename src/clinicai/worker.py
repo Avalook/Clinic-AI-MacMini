@@ -131,6 +131,13 @@ async def _run_relay() -> None:
     nghe = await pool.acquire()
     await nghe.add_listener("clinicai_changes", _khi_notify)
 
+    # BOT LỆNH chạy song song trong cùng process: người trực /trangthai,
+    # /homnay là hệ thống trả lời. Cùng pool, cùng vòng đời — stop là cả
+    # hai cùng về.
+    from clinicai.services.telegram_bot import bot_lenh_loop
+
+    bot_task = asyncio.create_task(bot_lenh_loop(pool, clinic_id, stop))
+
     logger.info("relay_started", poll_interval=RELAY_POLL_INTERVAL, listen=True)
 
     try:
@@ -161,6 +168,11 @@ async def _run_relay() -> None:
                 danh_thuc.clear()
                 await asyncio.sleep(0.3)
     finally:
+        bot_task.cancel()
+        try:
+            await bot_task
+        except (asyncio.CancelledError, Exception):
+            pass
         try:
             await nghe.remove_listener("clinicai_changes", _khi_notify)
             await pool.release(nghe)
