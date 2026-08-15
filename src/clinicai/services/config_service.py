@@ -35,6 +35,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.shifts import covers, merge_windows, shift_window
 
 logger = structlog.get_logger()
 
@@ -155,33 +156,203 @@ class RosterService:
                 ten=target_name,
             )
 
-            row_id = await conn.fetchval(
-                """
-                INSERT INTO work_roster (
-                    clinic_id, week_start, work_date, shift, station,
-                    staff_id, staff_name, sort, status
+            # CÙNG MỘT GIAO DỊCH với khối khôi phục bên dưới — đối xứng với
+            # remove(): xoá ca và gỡ lịch đi cùng nhau, thì thêm ca và gắn
+            # lại lịch cũng phải đi cùng nhau, không có khoảnh khắc lơ lửng.
+            async with conn.transaction():
+                row_id = await conn.fetchval(
+                    """
+                    INSERT INTO work_roster (
+                        clinic_id, week_start, work_date, shift, station,
+                        staff_id, staff_name, sort, status
+                    )
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9)
+                    RETURNING id
+                    """,
+                    identity.clinic_id,
+                    week_start_of(work_date),
+                    work_date,
+                    shift if shift in ("SANG", "CHIEU") else "FULL",
+                    station,
+                    target_id,
+                    target_name,
+                    sort,
+                    "APPROVED" if is_admin else "PENDING",
                 )
-                VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9)
-                RETURNING id
-                """,
-                identity.clinic_id,
-                week_start_of(work_date),
-                work_date,
-                shift if shift in ("SANG", "CHIEU") else "FULL",
-                station,
-                target_id,
-                target_name,
-                sort,
-                "APPROVED" if is_admin else "PENDING",
-            )
+
+                # ĐƯỜNG VỀ CỦA MỘT CÚ XOÁ NHẦM (Tuyền duyệt kế hoạch
+                # 15/08/2026). remove() gỡ bác sĩ khỏi lịch hẹn khi ca cuối
+                # trong ngày bị xoá; trước bản này, thêm lại ca KHÔNG có chiều
+                # ngược — lịch nằm lại hàng chờ với dòng chữ "X đã nghỉ" trong
+                # khi X đang có ca, và CSKH phải gán lại tay từng lịch.
+                #
+                # CHỈ ca được DUYỆT (is_admin → APPROVED): một đăng ký
+                # PENDING chưa phải là ca trực, không được kéo lịch của khách
+                # theo một quyết định chưa ai duyệt.
+                da_gan_lai: list[str] = []
+                if station == "LICH_KHAM" and is_admin:
+                    da_gan_lai = await self._khoi_phuc_lich_bi_go(
+                        conn,
+                        doctor_id=target_id,
+                        work_date=work_date,
+                        identity=identity,
+                    )
 
         logger.info(
             "roster_shift_added",
             roster_id=str(row_id),
             self_service=not assigning_other,
             by_staff_id=identity.staff_id,
+            so_lich_gan_lai=len(da_gan_lai),
         )
         return str(row_id)
+
+    async def _khoi_phuc_lich_bi_go(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        doctor_id: str,
+        work_date: date,
+        identity: StaffIdentity,
+    ) -> list[str]:
+        """Gắn lại những lịch hẹn mà remove() đã gỡ khỏi CHÍNH bác sĩ này.
+
+        Điều kiện gắn lại — từng chữ đều là một luật:
+          · `bac_si_da_go_id` = đúng bác sĩ vừa được xếp ca — không đụng lịch
+            chờ của bác sĩ khác, càng không đụng lịch cố tình đặt trống.
+          · Cùng ngày với ca mới, còn ở tương lai, trạng thái còn sống.
+          · Giờ hẹn nằm TRONG hợp các ca của bác sĩ hôm đó (core/shifts —
+            cùng luật với đường đặt lịch): thêm ca SÁNG không kéo lịch 15:00
+            về cho một người chiều nay vẫn nghỉ.
+          · Ghế còn trống: trigger enforce_slot_capacity chạy trên từng
+            UPDATE; khung nào đã bị lịch khác chiếm trong lúc chờ thì lịch ấy
+            Ở LẠI hàng chờ — một cú thêm ca không được đá khách khác ra.
+
+        TỪNG LỊCH MỘT SAVEPOINT: trigger sức chứa từ chối bằng RAISE, mà một
+        RAISE không được kéo sập cả cú thêm ca lẫn các lịch gắn được rồi.
+        """
+        ung_vien = await conn.fetch(
+            """
+            SELECT id::text AS id,
+                   (EXTRACT(HOUR FROM slot_start
+                            AT TIME ZONE 'Asia/Ho_Chi_Minh') * 60
+                  + EXTRACT(MINUTE FROM slot_start
+                            AT TIME ZONE 'Asia/Ho_Chi_Minh'))::int AS phut
+              FROM public.appointment
+             WHERE clinic_id = $1::uuid
+               AND doctor_id IS NULL
+               AND bac_si_da_go_id = $2::uuid
+               AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $3
+               AND slot_start > now()
+               AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+             ORDER BY slot_start
+            """,
+            identity.clinic_id,
+            doctor_id,
+            work_date,
+        )
+        if not ung_vien:
+            return []
+
+        # HỢP các ca khám của bác sĩ hôm đó — GỒM CẢ ca vừa chèn (cùng giao
+        # dịch nên SELECT này nhìn thấy nó). Giờ mở cửa theo ngày, cùng nguồn
+        # với capacity_service.quote.
+        ca = await conn.fetchrow(
+            """
+            SELECT coalesce(array_agg(w.shift), ARRAY[]::text[]) AS shifts,
+                   (SELECT open_minute
+                      FROM clinic_hours_for_date($1::uuid, $3)) AS open_minute,
+                   (SELECT close_minute
+                      FROM clinic_hours_for_date($1::uuid, $3)) AS close_minute
+              FROM public.work_roster w
+             WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
+               AND w.work_date = $3 AND w.station = 'LICH_KHAM'
+            """,
+            identity.clinic_id,
+            doctor_id,
+            work_date,
+        )
+        windows: list[tuple[int, int]] = []
+        if (
+            ca is not None
+            and ca["open_minute"] is not None
+            and ca["close_minute"] is not None
+        ):
+            windows = merge_windows(
+                [
+                    w
+                    for s in ca["shifts"] or []
+                    if (w := shift_window(s, ca["open_minute"], ca["close_minute"]))
+                    is not None
+                ]
+            )
+        if not windows:
+            return []
+
+        da_gan_lai: list[str] = []
+        for uv in ung_vien:
+            if not covers(windows, uv["phut"]):
+                continue
+            try:
+                # Giao dịch lồng = SAVEPOINT: trigger sức chứa RAISE thì chỉ
+                # lịch này bị bỏ qua, ca mới và các lịch trước đó giữ nguyên.
+                async with conn.transaction():
+                    ok = await conn.fetchval(
+                        """
+                        UPDATE public.appointment
+                           SET doctor_id = $2::uuid,
+                               bac_si_da_go_id = NULL,
+                               bo_bac_si_luc = NULL
+                         WHERE id = $1::uuid AND doctor_id IS NULL
+                           AND clinic_id = $3::uuid
+                        RETURNING id
+                        """,
+                        uv["id"],
+                        doctor_id,
+                        identity.clinic_id,
+                    )
+                    if not ok:
+                        continue
+                    await conn.execute(
+                        """
+                        INSERT INTO public.event_log
+                            (clinic_id, event_type, aggregate_type, aggregate_id,
+                             payload, metadata, source, event_published)
+                        VALUES ($1::uuid, 'appointment.doctor_restored',
+                                'appointment', $2::uuid, $3::jsonb, $4::jsonb,
+                                'api:roster', FALSE)
+                        """,
+                        identity.clinic_id,
+                        uv["id"],
+                        json.dumps(
+                            {
+                                "ly_do": "ca_truc_xep_lai",
+                                "doctor_id": doctor_id,
+                                "work_date": work_date.isoformat(),
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "clinic_role": identity.role.value,
+                                "clinic_staff_id": identity.staff_id,
+                                "origin": "api:roster",
+                            }
+                        ),
+                    )
+            except asyncpg.PostgresError:
+                # Ghế đã bị lịch khác chiếm trong lúc chờ — lịch này ở lại
+                # hàng chờ, CSKH xếp tay. Đúng hơn là đá khách vừa đặt ra.
+                continue
+            da_gan_lai.append(uv["id"])
+
+        if da_gan_lai:
+            logger.info(
+                "roster_shift_added_restored_appointments",
+                so_lich=len(da_gan_lai),
+                staff_id=doctor_id,
+                work_date=work_date.isoformat(),
+            )
+        return da_gan_lai
 
     async def _kiem_pham_vi_tram(
         self,

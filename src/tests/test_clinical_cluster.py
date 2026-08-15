@@ -542,7 +542,9 @@ class TestRosterAuthorisation:
 
     @staticmethod
     def _ins(pool: _StubPool) -> tuple[object, ...]:
-        return pool.conn.calls[-1][1]
+        # KHÔNG lấy câu cuối: từ 15/08 add_shift còn hỏi thêm sau khi INSERT
+        # (khôi phục lịch bị gỡ). Tìm đúng câu INSERT theo nội dung.
+        return next(c[1] for c in pool.conn.calls if "INSERT INTO work_roster" in c[0])
 
     def test_a_nurse_signing_up_is_pending_and_cannot_name_anybody(self) -> None:
         # The client's staff_id is not validated — it is never read. There is
