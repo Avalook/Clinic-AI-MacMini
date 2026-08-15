@@ -154,7 +154,10 @@ test("hai tình huống mất bác sĩ có HAI câu — ở cả hai màn", () =
     /bac_si_da_go_co_ca_lai\s*\?/,
     "bảng tuần phải rẽ nhánh câu theo cờ 'đã có ca lại'",
   );
-  assert.match(tuan, /đã xếp lại — gán lại bác sĩ/, "câu nội-bộ phải nói việc nội bộ");
+  // 15/08 chiều: remove() nay HUỶ HẲN lịch (Tuyền: "slot đó thực sự bị xoá
+  // đi… chỉ có đặt lịch slot mới") — câu phải nói "đã huỷ", không còn "gán
+  // lại" vì không còn lịch sống để gán.
+  assert.match(tuan, /lịch (cũ )?đã huỷ/, "câu phải nói rõ lịch cũ đã huỷ");
 
   const view = readFileSync(
     new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
@@ -169,7 +172,31 @@ test("hai tình huống mất bác sĩ có HAI câu — ở cả hai màn", () =
   );
   assert.match(
     view,
-    /không cần gọi khách/,
-    "câu nội-bộ phải nói rõ đừng làm phiền khách",
+    /đã huỷ[\s\S]{0,80}?đặt (lại|lịch)/,
+    "câu phải nói lịch đã huỷ và việc tiếp theo là đặt lại",
+  );
+});
+
+test("chip danh sách bám LƯỢT người trực tự chọn — đổi lượt là đổi ngay", () => {
+  // Tuyền 15/08/2026: chuyển giữa các lượt trong "Lịch sử các lần khám" mà
+  // chip bên danh sách không đổi theo. Cú chọn lượt là state trình duyệt —
+  // không có sự kiện database nào để realtime mang về — nên đường đúng là
+  // customerStatus đọc thẳng lượt đang xem, cùng lượt vẽ, 0ms.
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  const dau = view.indexOf("function customerStatus");
+  assert.ok(dau >= 0, "không tìm thấy customerStatus");
+  const than = view.slice(dau, dau + 1500);
+  assert.match(
+    than,
+    /luotChon\?\.pid/,
+    "customerStatus phải hỏi luotChon ngay ĐẦU hàm — lượt tự chọn thắng mọi suy luận",
+  );
+  assert.match(
+    than,
+    /luotDangXem\?\.status/,
+    "nhãn phải đọc từ CHÍNH lượt đang xem",
   );
 });

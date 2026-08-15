@@ -85,6 +85,11 @@ LY_DO_HUY: dict[str, str] = {
     # gộp nó vào ba mã kia sẽ bơm phồng con số "khách báo không đến". Khách
     # không huỷ gì cả; phòng khám tự đặt trùng rồi tự bỏ bớt.
     "DAT_TRUNG": "Đặt trùng — khách có nhiều lịch, bỏ bớt giữ lại một",
+    # Phòng khám chủ động huỷ vì ca trực của bác sĩ bị xoá/đổi — khách không
+    # làm gì cả. remove() của RosterService ghi mã này bằng máy; người cũng
+    # chọn được khi huỷ tay vì đúng lý do ấy. Tách riêng vì đếm chung với
+    # BAO_* là đổ lỗi cho khách một chuyện của phòng khám.
+    "BAC_SI_DOI_LICH": "Bác sĩ đổi lịch làm việc — phòng khám huỷ để đặt lại",
     "KHAC": "Lý do khác (tự viết)",
 }
 

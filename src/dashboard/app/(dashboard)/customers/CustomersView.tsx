@@ -1016,7 +1016,44 @@ export default function CustomersView({
   //
   // Hai nguồn cũ giữ lại làm đường lùi cho tới khi cskh_action được chốt thành
   // dữ liệu nhập khẩu chỉ đọc.
+  /** Nhãn chip khi người trực CHỦ ĐỘNG chọn một lượt trong "Lịch sử các lần
+   *  khám". Bộ từ đóng theo appointment.status — cùng chữ với cột trạng thái
+   *  của bảng lịch tuần, để hai màn không kể hai kiểu về cùng một lượt. */
+  const NHAN_LUOT_CHON: Record<string, { label: string; tone: StatusTone }> = {
+    SCHEDULED: { label: "Chưa xác nhận", tone: "ready" },
+    CSKH_CONFIRMED: { label: "Đã xác nhận", tone: "ready" },
+    CONFIRMED: { label: "Đã xác nhận", tone: "ready" },
+    CHECKED_IN: { label: "Đã check-in", tone: "assigned" },
+    COMPLETED: { label: "Đã khám xong", tone: "completed" },
+    NO_SHOW: { label: "Không đến", tone: "overdue" },
+    CANCELLED: { label: "Đã huỷ", tone: "overdue" },
+    DOCTOR_DECLINED: { label: "Bác sĩ từ chối", tone: "overdue" },
+  };
+
   function customerStatus(row: CustomerRow): { label: string; tone: StatusTone } {
+    // LƯỢT ĐANG XEM THẮNG TẤT CẢ — nhưng chỉ khi người trực TỰ CHỌN nó
+    // (Tuyền 15/08/2026: *"click chuyển giữa các lượt khám… trạng thái của
+    // lượt đó không lập tức hiện ở bên danh sách khách hàng"*).
+    //
+    // Cú bấm chọn lượt là state trong trình duyệt — không có sự kiện database
+    // nào để realtime mang về, nên "đồng bộ" đúng nghĩa ở đây là ĐỌC THẲNG
+    // state ấy trong cùng lượt vẽ: đổi lượt là chip đổi ngay, không chờ gì.
+    // Chưa chọn gì (mở khách bằng lượt mặc định) thì chip giữ vai cũ: kể
+    // chuyện hiện tại của cả KHÁCH, không phải của một lượt cụ thể.
+    if (
+      row.clinic_patient_id === selected?.clinic_patient_id &&
+      luotChon?.pid === row.clinic_patient_id &&
+      luotDangXem?.status
+    ) {
+      const nhan = NHAN_LUOT_CHON[luotDangXem.status];
+      if (nhan) {
+        const ly =
+          luotDangXem.status === "CANCELLED"
+            ? nhanLyDoHuy(luotDangXem.ly_do_huy_ma)
+            : null;
+        return ly ? { ...nhan, label: `${nhan.label} · ${ly}` } : nhan;
+      }
+    }
     // QUÁ GIỜ HẸN LÀ ĐỎ, kể cả khi view nói chưa quá hạn.
     //
     // `v_trang_thai_cskh.qua_han` tính theo NGÀY (luat_cskh.so_ngay), nên một
@@ -1692,8 +1729,8 @@ export default function CustomersView({
                       {luotDangXem?.mat_bac_si && (
                         <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
                           {luotDangXem?.bs_go_co_ca_lai
-                            ? "⚠ Ca bác sĩ cũ đã xếp lại — gán lại bác sĩ cho lịch này (khung cũ có thể đã kín), không cần gọi khách."
-                            : "⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho khách hàng và đổi lịch khám."}
+                            ? "⚠ Ca bác sĩ cũ đã xếp lại — lịch này đã huỷ, gọi khách và có thể đặt lại đúng khung cho bác sĩ ấy nếu còn chỗ."
+                            : "⚠ Bác sĩ đã đổi lịch làm việc — lịch này đã huỷ. Gọi khách và đặt lịch khám mới."}
                         </span>
                       )}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
@@ -1732,8 +1769,8 @@ export default function CustomersView({
                     {luotDangXem?.mat_bac_si && (
                         <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
                           {luotDangXem?.bs_go_co_ca_lai
-                            ? "⚠ Ca bác sĩ cũ đã xếp lại — gán lại bác sĩ cho lịch này (khung cũ có thể đã kín), không cần gọi khách."
-                            : "⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho khách hàng và đổi lịch khám."}
+                            ? "⚠ Ca bác sĩ cũ đã xếp lại — lịch này đã huỷ, gọi khách và có thể đặt lại đúng khung cho bác sĩ ấy nếu còn chỗ."
+                            : "⚠ Bác sĩ đã đổi lịch làm việc — lịch này đã huỷ. Gọi khách và đặt lịch khám mới."}
                         </p>
                       )}
                   </div>
