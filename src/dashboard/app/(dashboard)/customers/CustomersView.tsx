@@ -501,7 +501,7 @@ function BoLoc({
           />
           <div className="absolute right-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-line bg-surface p-3 shadow-lg">
             <div className="space-y-1.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+              <span className="block text-label font-semibold uppercase tracking-wide text-ink-faint">
                 Khoảng thời gian
               </span>
               <div className="grid grid-cols-2 gap-1" role="group">
@@ -523,7 +523,7 @@ function BoLoc({
             </div>
 
             <div className="space-y-1.5 border-t border-line pt-2.5">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+              <span className="block text-label font-semibold uppercase tracking-wide text-ink-faint">
                 Tính theo
               </span>
               <div className="grid grid-cols-2 gap-1" role="group">
@@ -1247,7 +1247,7 @@ export default function CustomersView({
           Nên nút này trỏ tới /patients/new KHÔNG kèm ?date/?time — đó chính là
           điều làm nó khác nút cũ. Nút cũ mở một luồng ĐẶT LỊCH; nút này mở một
           luồng GHI NHẬN. Đừng gộp lại: gộp là mất đúng tình huống vừa vá. */}
-      <div className="flex min-h-10 min-w-[240px] max-w-md items-center gap-2 rounded-xl border border-line bg-surface pl-3 pr-1.5 text-ink-muted shadow-card focus-within:border-brand-500">
+      <div className="flex min-h-10 min-w-60 max-w-md items-center gap-2 rounded-xl border border-line bg-surface pl-3 pr-1.5 text-ink-muted shadow-card focus-within:border-brand-500">
         <Search className="size-4 shrink-0" aria-hidden="true" />
         <input
           value={term}
@@ -1331,8 +1331,8 @@ export default function CustomersView({
               `overscroll-contain` chặn đúng phần "còn lại" ấy: cuộn hết vùng này
               thì dừng, không đùn sang trang. Chiều cao 664px = 720px của cột
               giữa trừ khối tiêu đề, để hai cột kết thúc ngang nhau. */}
-          <div className="overflow-x-auto overscroll-contain xl:max-h-[664px] xl:overflow-y-auto">
-            <div className={selected ? "min-w-0" : "min-w-[960px]"}>
+          <div className="overflow-x-auto overscroll-contain xl:max-h-166 xl:overflow-y-auto">
+            <div className={selected ? "min-w-0" : "min-w-240"}>
               {!selected && <CustomerTableHeader />}
               {visibleRows.length > 0 ? (
                 <div className="divide-y divide-hairline">
@@ -1606,7 +1606,7 @@ export default function CustomersView({
         {selected && (
           <aside
             aria-label="Chi tiết khách hàng"
-            className="min-h-[420px] overscroll-contain rounded-2xl border border-line bg-surface p-4 shadow-card xl:max-h-[720px] xl:overflow-y-auto animate-in fade-in duration-150"
+            className="min-h-105 overscroll-contain rounded-2xl border border-line bg-surface p-4 shadow-card xl:max-h-180 xl:overflow-y-auto animate-in fade-in duration-150"
           >
           {selected ? (
             <>
@@ -1744,7 +1744,7 @@ export default function CustomersView({
                   (luotDangXem.ly_do_huy_ma ||
                     luotDangXem.cancellation_reason) && (
                     <div className="rounded-control border border-danger/30 bg-danger-bg/40 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-danger">
+                      <p className="text-label font-semibold uppercase tracking-wide text-danger">
                         Lý do huỷ đã ghi
                       </p>
                       {luotDangXem.ly_do_huy_ma && (
@@ -1758,7 +1758,7 @@ export default function CustomersView({
                         </p>
                       )}
                       {luotDangXem.cancelled_at && (
-                        <p className="mt-1 font-mono text-[11px] text-ink-muted">
+                        <p className="mt-1 font-mono text-label text-ink-muted">
                           huỷ lúc {fmtDateTimeOrDate(luotDangXem.cancelled_at)}
                         </p>
                       )}
@@ -1786,7 +1786,7 @@ export default function CustomersView({
                         viecDangGhi ?? viecCuaLuot[0]?.trang_thai,
                       )}
                     </span>
-                    <span className="shrink-0 rounded-full bg-brand-200 px-2 py-0.5 text-[10px] text-brand-800 font-mono">
+                    <span className="shrink-0 rounded-chip bg-brand-200 px-2 py-0.5 text-label text-brand-800 font-mono">
                       CSKH / Lễ tân
                     </span>
                   </div>

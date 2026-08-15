@@ -109,7 +109,7 @@ function MotLuot({
     <li className="flex gap-3">
       <div className="flex flex-col items-center">
         <span
-          className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-bold ${
+          className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 text-label font-bold ${
             xong
               ? "border-success bg-success-bg text-success"
               : chet
@@ -131,11 +131,11 @@ function MotLuot({
           <span className="text-xs font-semibold text-ink">
             {luot.service_name || "Chưa chọn dịch vụ"}
           </span>
-          <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+          <span className="rounded-chip bg-surface-sunken px-1.5 py-0.5 text-label font-medium text-ink-muted">
             {NHAN_TRANG_THAI[luot.status] ?? luot.status}
           </span>
           {thuTu > 1 && (
-            <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
+            <span className="rounded-chip bg-brand-50 px-1.5 py-0.5 text-label font-semibold text-brand-700">
               tái khám lần {thuTu - 1}
             </span>
           )}
@@ -145,7 +145,7 @@ function MotLuot({
               nào làm được việc ấy: server đoán một "lịch đại diện" cho cả
               khách, và đặt tái khám xong màn vẫn đứng ở lượt cũ. */}
           {dangXem ? (
-            <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            <span className="rounded-chip bg-brand-700 px-1.5 py-0.5 text-label font-bold text-white">
               đang làm việc ở lượt này
             </span>
           ) : (
@@ -153,7 +153,7 @@ function MotLuot({
               <button
                 type="button"
                 onClick={() => onChon(luot.id)}
-                className="rounded-full border border-brand-300 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 hover:bg-brand-50"
+                className="rounded-full px-1.5 py-0.5 text-label font-medium text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
               >
                 Làm việc ở lượt này
               </button>
@@ -161,7 +161,7 @@ function MotLuot({
           )}
         </div>
 
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-muted">
+        <p className="mt-0.5 flex items-center gap-1 text-label text-ink-muted">
           <Clock className="size-3 shrink-0" aria-hidden="true" />
           <span className="font-mono">{khoangThoiGian(luot)}</span>
           {luot.doctor_name && <span>· {luot.doctor_name}</span>}
@@ -172,7 +172,7 @@ function MotLuot({
             tiêu đề hộp là gán nhầm lượt. `booking_service` ghi cả mã lẫn chữ
             tự viết từ lâu; màn này chỉ chưa từng đọc chúng. */}
         {chet && (luot.ly_do_huy_ma || luot.cancellation_reason) && (
-          <p className="mt-0.5 text-[11px] leading-snug text-ink-soft">
+          <p className="mt-0.5 text-label leading-snug text-ink-soft">
             <span className="font-semibold text-ink-muted">Lý do huỷ: </span>
             {nhanLyDoHuy(luot.ly_do_huy_ma)}
             {luot.cancellation_reason && (
@@ -190,7 +190,7 @@ function MotLuot({
             lịch chưa tới, hoặc không ai phải gọi gì cả. Nói ra thay vì để một
             khoảng trắng khó hiểu. */}
         {luot.buoc.length === 0 ? (
-          <p className="mt-1 text-[11px] italic text-ink-faint">
+          <p className="mt-1 text-label italic text-ink-faint">
             Chưa có thao tác chăm sóc nào trong lượt này.
           </p>
         ) : (
@@ -198,7 +198,7 @@ function MotLuot({
             {luot.buoc.map((b, i) => (
               <li
                 key={`${b.luc}-${i}`}
-                className={`flex items-start gap-1.5 text-[11px] leading-snug ${
+                className={`flex items-start gap-1.5 text-label leading-snug ${
                   b.huy_luc ? "text-ink-faint" : "text-ink-soft"
                 }`}
               >
@@ -222,7 +222,7 @@ function MotLuot({
                   {b.nhan_vien && ` · ${b.nhan_vien}`}
                 </span>
                 {b.huy_luc && (
-                  <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 text-[10px] font-medium text-ink-muted">
+                  <span className="shrink-0 rounded-chip bg-surface-sunken px-1.5 text-label font-medium text-ink-muted">
                     đã hoàn tác
                   </span>
                 )}
@@ -256,7 +256,7 @@ export default function LichSuCacLanKham({
           Lịch sử các lần khám
         </h2>
         {chuoi.length > 1 && (
-          <span className="text-[11px] text-ink-muted">
+          <span className="text-label text-ink-muted">
             {chuoi.length} đợt khám riêng
           </span>
         )}
@@ -275,7 +275,7 @@ export default function LichSuCacLanKham({
             >
               {/* MỖI HỘP LÀ MỘT ĐỢT. Nhiều lượt trong một hộp = chuỗi tái khám
                   nối tiếp nhau; hộp riêng = câu chuyện riêng. */}
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+              <p className="mb-1.5 text-label font-semibold uppercase tracking-wide text-ink-faint">
                 {c.luot.length > 1
                   ? `Đợt ${c.luot[0]?.service_name ?? "khám"} · ${c.luot.length} lượt`
                   : "Khám một lượt"}

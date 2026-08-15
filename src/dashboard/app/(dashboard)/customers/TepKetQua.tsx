@@ -133,7 +133,7 @@ export default function TepKetQua({
           Kết quả siêu âm / xét nghiệm
         </h3>
         {chuaGui > 0 && (
-          <span className="rounded-full bg-warning-bg px-2 py-0.5 text-[10px] font-bold text-warning">
+          <span className="rounded-chip bg-warning-bg px-2 py-0.5 text-label font-bold text-warning">
             {chuaGui} tệp chưa gửi
           </span>
         )}
@@ -144,7 +144,7 @@ export default function TepKetQua({
           {/* VIDEO TREO LẠI — chưa nhận tải lên (Quang chốt 09/08/2026).
               Ảnh và phiếu PDF vẫn nhận bình thường. */}
           <label
-            className={`mt-2 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-line px-3 py-1.5 text-[11px] font-semibold text-ink-soft ${
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-control border border-dashed border-line px-3 py-1.5 text-label font-semibold text-ink-soft ${
               appointmentId
                 ? "cursor-pointer hover:bg-surface-muted"
                 : "cursor-not-allowed opacity-60"
@@ -166,22 +166,22 @@ export default function TepKetQua({
           </label>
 
           {!appointmentId && (
-            <p className="mt-1 text-[11px] text-warning">
+            <p className="mt-1 text-label text-warning">
               Chọn một lượt khám để tải và gửi đúng kết quả của lượt đó.
             </p>
           )}
 
-          <p className="mt-1 text-[11px] leading-snug text-ink-faint">
+          <p className="mt-1 text-label leading-snug text-ink-faint">
             Video siêu âm: <b>đang xây dựng</b> — chưa tải lên được. Đang chờ
             chốt chỗ lưu riêng cho video để không ăn hết ổ đĩa của máy chủ.
           </p>
         </>
       )}
 
-      {loi && <p className="mt-1.5 text-[11px] text-danger">{loi}</p>}
+      {loi && <p className="mt-1.5 text-label text-danger">{loi}</p>}
 
       {items.length === 0 ? (
-        <p className="mt-2 text-[11px] text-ink-faint">
+        <p className="mt-2 text-label text-ink-faint">
           Chưa có kết quả nào được tải lên.
         </p>
       ) : (
@@ -196,7 +196,7 @@ export default function TepKetQua({
                 key={t.id}
                 className="rounded-lg border border-line bg-surface-muted p-2"
               >
-                <div className="flex items-center gap-2 text-[11px]">
+                <div className="flex items-center gap-2 text-label">
                   <Icon className="size-3.5 shrink-0 text-ink-faint" />
                   {readOnly ? (
                     <span className="min-w-0 flex-1 truncate text-left font-medium text-ink-soft">
@@ -216,7 +216,7 @@ export default function TepKetQua({
                   </span>
                 </div>
 
-                <p className="mt-0.5 text-[11px] text-ink-muted">
+                <p className="mt-0.5 text-label text-ink-muted">
                   {gio(t.tai_len_luc)}
                   {t.tai_len_boi && ` · ${t.tai_len_boi}`}
                   {t.gui_luc && (
@@ -256,7 +256,7 @@ export default function TepKetQua({
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[11px] font-semibold text-brand-700 hover:underline"
+                        className="text-label font-semibold text-brand-700 hover:underline"
                       >
                         Mở phiếu trong tab mới →
                       </a>
@@ -268,7 +268,7 @@ export default function TepKetQua({
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống
                         chưa tự gửi được (send_zalo.py luôn delivered=False). */}
-                    <span className="text-[11px] text-ink-muted">
+                    <span className="text-label text-ink-muted">
                       Xác nhận đã gửi qua:
                     </span>
                     {KENH.map(([ma, nhan]) => (
@@ -277,7 +277,7 @@ export default function TepKetQua({
                         type="button"
                         disabled={dangGui !== null}
                         onClick={() => void danhDauDaGui(t.id, ma)}
-                        className="rounded-full border border-line px-2 py-0.5 text-[11px] font-medium text-ink-soft hover:bg-surface disabled:opacity-50"
+                        className="rounded-full px-2 py-0.5 text-label font-medium text-ink-soft ring-1 ring-inset ring-line hover:bg-surface disabled:opacity-50"
                       >
                         {nhan}
                       </button>

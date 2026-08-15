@@ -516,7 +516,7 @@ export default function HanhDongTrangThai({
       value={ghiChu}
       onChange={(e) => onGhiChu(e.target.value)}
       placeholder="Ghi chú (không bắt buộc)"
-      className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+      className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
     />
   );
 
@@ -525,7 +525,7 @@ export default function HanhDongTrangThai({
    *  Không có nó thì khối bên phải chỉ còn số điện thoại và một ô gõ, và người
    *  mới vào ca sẽ đứng đó tìm nút "lưu". */
   const nhacBamCotGiua = (
-    <p className="rounded-lg bg-surface-muted px-2 py-1.5 text-[11px] leading-snug text-ink-soft">
+    <p className="rounded-lg bg-surface-muted px-2 py-1.5 text-label leading-snug text-ink-soft">
       Gọi xong thì bấm nút của trạng thái này ở <b>cột giữa</b> — bấm là ghi
       luôn. Ghi chú gõ ở trên sẽ đi kèm.
     </p>
@@ -599,7 +599,7 @@ export default function HanhDongTrangThai({
       case "CHO_KQ_XN":
         return (
           <>
-            <p className="text-[11px] font-semibold leading-snug text-ink">
+            <p className="text-label font-semibold leading-snug text-ink">
               Check với đơn vị xét nghiệm: đã có kết quả hay chưa?
             </p>
             {oGhiChu}
@@ -631,7 +631,7 @@ export default function HanhDongTrangThai({
                 }
               />
             </div>
-            <p className="text-[11px] leading-snug text-ink-faint">
+            <p className="text-label leading-snug text-ink-faint">
               Cả hai đều ghi lại kèm thời điểm — “chưa có” cũng là một lần đã
               hỏi, và ca sau cần biết đã hỏi lúc nào.
             </p>
@@ -665,7 +665,7 @@ export default function HanhDongTrangThai({
         // đang họp, gọi lại sau 5h" là thứ chỉ ghi được từ khối này.
         return (
           <>
-            <p className="text-[11px] leading-snug text-ink-soft">
+            <p className="text-label leading-snug text-ink-soft">
               Gọi xong thì bấm đúng chuyện đã xảy ra. Cần ghi thêm nội dung thì
               gõ vào ô dưới trước khi bấm.
             </p>
@@ -704,7 +704,7 @@ export default function HanhDongTrangThai({
         return (
           <>
             <div className="rounded-xl border border-line bg-surface-muted/60 p-2">
-              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-ink">
+              <div className="mb-1 flex items-center gap-1.5 text-label font-bold text-ink">
                 <Upload size={13} /> Kết quả siêu âm / xét nghiệm
               </div>
               <TepKetQua
@@ -716,7 +716,7 @@ export default function HanhDongTrangThai({
 
             {trangThai === "CHO_BAC_SI" ? (
               <>
-                <p className="text-[11px] leading-snug text-warning">
+                <p className="text-label leading-snug text-warning">
                   Kết quả đang chờ BÁC SĨ duyệt. Hỏi bác sĩ trước, chưa gọi
                   khách ở bước này.
                 </p>
@@ -756,7 +756,7 @@ export default function HanhDongTrangThai({
                     đã gửi (qua Zalo cá nhân/Messenger), chứ hệ thống không tự
                     gửi. Nhập nhèm chỗ này là để người trực tin rằng khách đã
                     nhận video trong khi chưa ai gửi. */}
-                <p className="rounded-lg border border-dashed border-line px-2 py-1.5 text-[11px] leading-snug text-ink-muted">
+                <p className="rounded-lg border border-dashed border-line px-2 py-1.5 text-label leading-snug text-ink-muted">
                   <b>Đang xây dựng:</b> hệ thống chưa TỰ gửi được ảnh/video cho
                   khách — Zalo ZNS chỉ gửi template chữ. Hiện CSKH gửi bằng kênh
                   của mình rồi bấm nút trên để ghi nhận.
@@ -777,7 +777,7 @@ export default function HanhDongTrangThai({
                 Nhánh KQ_CHUA_GUI của view cũng đóng theo `loai='TRA_KQ'`, nên
                 ghi sai loại còn để trạng thái "đã có kết quả, chưa gửi" treo
                 lại dù kết quả đã trả xong. */}
-            <p className="text-[11px] leading-snug text-ink-soft">
+            <p className="text-label leading-snug text-ink-soft">
               Kết quả đã trả. Còn một việc: có hẹn tái khám hay không.
             </p>
             <div className="flex gap-2">
@@ -808,7 +808,7 @@ export default function HanhDongTrangThai({
                 }
               />
             </div>
-            <p className="text-[11px] leading-snug text-ink-faint">
+            <p className="text-label leading-snug text-ink-faint">
               Chọn “cần tái khám” xong thì bấm <b>Hẹn ngày tái khám…</b> ở dưới{" "}
               để hệ thống tự sinh hai mốc gọi.
             </p>
@@ -818,7 +818,7 @@ export default function HanhDongTrangThai({
       case "HOI_LY_DO_HUY":
         return (
           <>
-            <p className="text-[11px] leading-snug text-ink-soft">
+            <p className="text-label leading-snug text-ink-soft">
               Gọi lại hỏi lý do huỷ (trong vòng 1–14 ngày kể từ lúc huỷ).
             </p>
             {soDienThoai}
@@ -828,7 +828,7 @@ export default function HanhDongTrangThai({
                 value={lyDo}
                 onChange={(e) => setLyDo(e.target.value)}
                 placeholder="Lý do khách huỷ lịch…"
-                className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+                className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
               />
               {/* Ô ĐIỀN + TOGGLE BA LÝ DO SẴN, đúng hình dạng đặc tả: người gõ
                   được câu riêng, mà ba trường hợp hay gặp thì bấm một cái là
@@ -838,7 +838,7 @@ export default function HanhDongTrangThai({
                 type="button"
                 onClick={() => setMoLyDoSan((v) => !v)}
                 aria-expanded={moLyDoSan}
-                className="text-[11px] font-semibold text-brand-700 hover:underline"
+                className="text-label font-semibold text-brand-700 hover:underline"
               >
                 {moLyDoSan ? "▾ Ẩn lý do có sẵn" : "▸ Chọn lý do có sẵn"}
               </button>
@@ -852,7 +852,7 @@ export default function HanhDongTrangThai({
                           setLyDo(l);
                           setMoLyDoSan(false);
                         }}
-                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-left text-[11px] leading-snug text-ink-soft hover:border-brand-400 hover:bg-brand-50"
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-left text-label leading-snug text-ink-soft hover:border-brand-400 hover:bg-brand-50"
                       >
                         {l}
                       </button>
@@ -874,7 +874,7 @@ export default function HanhDongTrangThai({
       case "KHONG_FOLLOW_UP":
         return (
           <>
-            <p className="text-[11px] leading-snug text-ink-soft">
+            <p className="text-label leading-snug text-ink-soft">
               Không cần gọi vào ngày hôm sau. Ghi lại để ca sau khỏi gọi thừa.
             </p>
             {oGhiChu}
@@ -896,7 +896,7 @@ export default function HanhDongTrangThai({
       case "SAU_SINH_1_THANG":
         return (
           <>
-            <p className="text-[11px] leading-snug text-ink-soft">
+            <p className="text-label leading-snug text-ink-soft">
               Chúc mừng đầy tháng, mời khám lại sau sinh.
             </p>
             {soDienThoai}
@@ -913,7 +913,7 @@ export default function HanhDongTrangThai({
       case "SAU_THU_THUAT_1_NGAY":
         return (
           <>
-            <p className="text-[11px] leading-snug text-ink-soft">
+            <p className="text-label leading-snug text-ink-soft">
               Gọi hỏi thăm tình trạng sau thủ thuật.
             </p>
             {soDienThoai}
@@ -936,12 +936,12 @@ export default function HanhDongTrangThai({
         // gì, trong khi họ vừa bấm xong. Đó là cách ba mã HEN_GOI_LAI /
         // MOI_TAI_KHAM / NHAC_DI_KHAM nằm chết ở đây suốt mà không ai báo lỗi.
         return trangThai ? (
-          <p className="text-[11px] leading-snug text-warning">
+          <p className="text-label leading-snug text-warning">
             Chưa có bộ nút cho trạng thái <b>{trangThai}</b>. Ghi lại mã này rồi
             báo — không phải lỗi thao tác của bạn.
           </p>
         ) : (
-          <p className="text-[11px] leading-snug text-ink-muted">
+          <p className="text-label leading-snug text-ink-muted">
             Chọn một trạng thái ở cột giữa để thấy việc phải làm và các nút
             tương ứng.
           </p>
@@ -952,19 +952,19 @@ export default function HanhDongTrangThai({
   return (
     <div className="space-y-2">
       {(xong || daXong) && (
-        <p className="flex items-center gap-1.5 rounded-lg bg-success-bg px-2 py-1.5 text-[11px] font-semibold text-success">
+        <p className="flex items-center gap-1.5 rounded-lg bg-success-bg px-2 py-1.5 text-label font-semibold text-success">
           <Check size={13} /> Đã ghi nhận — trạng thái này đã tích xanh ở cột
           giữa. Bấm lại nếu cần làm thêm lần nữa.
         </p>
       )}
       {than()}
-      {loi && <p className="text-[11px] text-danger">{loi}</p>}
+      {loi && <p className="text-label text-danger">{loi}</p>}
 
       {/* HẸN NGÀY TÁI KHÁM — luôn có, cùng lý do với khối hẹn gọi lại bên dưới:
           đây là việc người trực tự đặt, không trạng thái nào suy ra được. */}
       <div className="border-t border-line pt-2">
         {daHenTaiKham ? (
-          <p className="rounded-lg bg-success-bg px-2 py-1.5 text-[11px] text-success">
+          <p className="rounded-lg bg-success-bg px-2 py-1.5 text-label text-success">
             Đã hẹn ngày tái khám. Hệ thống tự sinh hai mốc gọi: trước 7 ngày mời
             đặt lịch, trước 1 ngày nhắc đi khám — chúng hiện ở khối “Nhắc tái
             khám” cột giữa khi tới hạn.
@@ -976,27 +976,27 @@ export default function HanhDongTrangThai({
               value={ngayTaiKham}
               onChange={(e) => setNgayTaiKham(e.target.value)}
               aria-label="Ngày khách quay lại khám"
-              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
             />
             <input
               value={lyDoTaiKham}
               onChange={(e) => setLyDoTaiKham(e.target.value)}
               placeholder="Bác sĩ dặn gì (không bắt buộc)"
-              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => void henTaiKham()}
                 disabled={dangLuu !== null || !ngayTaiKham}
-                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-label font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 {dangLuu === "taikham" ? "Đang hẹn…" : "Hẹn ngày tái khám"}
               </button>
               <button
                 type="button"
                 onClick={() => setMoTaiKham(false)}
-                className="rounded-lg border border-line px-3 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+                className="rounded-lg border border-line px-3 py-1.5 text-label font-medium text-ink-soft hover:bg-surface-muted"
               >
                 Thôi
               </button>
@@ -1006,7 +1006,7 @@ export default function HanhDongTrangThai({
           <button
             type="button"
             onClick={() => setMoTaiKham(true)}
-            className="w-full rounded-lg border border-line py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted"
+            className="w-full rounded-lg border border-line py-1.5 text-label font-semibold text-ink-soft hover:bg-surface-muted"
           >
             Hẹn ngày tái khám…
           </button>
@@ -1016,7 +1016,7 @@ export default function HanhDongTrangThai({
       {/* Hẹn gọi lại — luôn có, không phụ thuộc trạng thái đang chọn. */}
       <div className="border-t border-line pt-2">
         {daHen ? (
-          <p className="rounded-lg bg-success-bg px-2 py-1.5 text-[11px] text-success">
+          <p className="rounded-lg bg-success-bg px-2 py-1.5 text-label text-success">
             Đã hẹn gọi lại. Khách hiện ở danh sách vào đúng ngày đó, và lời hẹn
             nằm sẵn trong chuông thông báo tới khi có người xử lý.
           </p>
@@ -1037,7 +1037,7 @@ export default function HanhDongTrangThai({
                 value={ngayHen}
                 onChange={(e) => setNgayHen(e.target.value)}
                 aria-label="Ngày gọi lại"
-                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
               />
               <input
                 type="time"
@@ -1045,28 +1045,28 @@ export default function HanhDongTrangThai({
                 onChange={(e) => setGioHen(e.target.value)}
                 aria-label="Giờ gọi lại (bỏ trống nếu chỉ hẹn ngày)"
                 title="Bỏ trống nếu chỉ hẹn tới ngày"
-                className="w-[92px] shrink-0 rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+                className="w-23 shrink-0 rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
               />
             </div>
             <input
               value={lyDoHen}
               onChange={(e) => setLyDoHen(e.target.value)}
               placeholder="Gọi lại để làm gì"
-              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+              className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => void henGoiLai()}
                 disabled={dangLuu !== null || !ngayHen || !lyDoHen.trim()}
-                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-brand-600 py-1.5 text-label font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 {dangLuu === "hen" ? "Đang hẹn…" : "Hẹn"}
               </button>
               <button
                 type="button"
                 onClick={() => setMoHen(false)}
-                className="rounded-lg border border-line px-3 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+                className="rounded-lg border border-line px-3 py-1.5 text-label font-medium text-ink-soft hover:bg-surface-muted"
               >
                 Thôi
               </button>
@@ -1076,7 +1076,7 @@ export default function HanhDongTrangThai({
           <button
             type="button"
             onClick={() => setMoHen(true)}
-            className="w-full rounded-lg border border-line py-1.5 text-[11px] font-semibold text-ink-soft hover:bg-surface-muted"
+            className="w-full rounded-lg border border-line py-1.5 text-label font-semibold text-ink-soft hover:bg-surface-muted"
           >
             Hẹn gọi lại ngày…
           </button>
