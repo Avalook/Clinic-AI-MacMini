@@ -861,3 +861,93 @@ class TestKhongDatVaoKhungGioDaQua:
 
         ma = inspect.getsource(booking_service)
         assert ma.count("_chan_dat_vao_qua_khu(") >= 3  # định nghĩa + 2 nơi gọi
+
+
+class TestXoaVetBacSiDaGo:
+    """Gán được bác sĩ là vết "bác sĩ đã bị gỡ" phải được xoá (15/08/2026).
+
+    `bac_si_da_go_id` sinh ra khi ca trực của bác sĩ bị xoá
+    (ConfigService.remove) để màn hình nói được "đổi từ ai". Nhưng vết ấy mà
+    sống qua cả lúc CSKH ĐÃ gán người mới thì cảnh báo "X đã nghỉ — gọi khách
+    xếp bác sĩ khác" đỏ vĩnh viễn trên bảng lịch tuần và màn khách hàng — một
+    cảnh báo không bao giờ tắt dạy người trực bỏ qua mọi cảnh báo.
+
+    Ba bài đầu đi qua CHÍNH `_build_patch` (không phải bản chép của luật):
+    guard chạm database được thay bằng mock, còn nhánh dựng patch chạy thật.
+    """
+
+    def _appt(self, *, doctor_id: str | None = None) -> dict[str, Any]:
+        return {
+            "id": "ap000000-0000-4000-8000-000000000001",
+            "doctor_id": doctor_id,
+            "clinic_patient_id": "bn000000-0000-4000-8000-000000000001",
+            "service_type_id": None,
+            "slot_start": _MAI.replace(hour=8),
+            "slot_end": _MAI.replace(hour=8, minute=15),
+            "booking_channel": "ZALO",
+        }
+
+    def _service_khong_cham_db(self) -> BookingService:
+        service = BookingService(MagicMock())
+        # Ba chốt này hỏi database (trần số chỗ, trùng ca, luật bác sĩ bắt
+        # buộc). Bài kiểm này hỏi chuyện KHÁC — hình dạng patch — nên cho cả
+        # ba trả lời "ổn" để nhánh dựng patch chạy tới nơi.
+        service._guard_slot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        service._luat_bac_si_bat_buoc = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        return service
+
+    def _patch_cua(self, action: str, **overrides: Any) -> dict[str, Any]:
+        service = self._service_khong_cham_db()
+        v: dict[str, Any] = dict(
+            conn=MagicMock(),
+            action=action,
+            appt=self._appt(),
+            new_status="CONFIRMED",
+            cancellation_reason=None,
+            ly_do_huy_ma=None,
+            doctor_id="bs000000-0000-4000-8000-000000000002",
+            doctor_id_provided=True,
+            slot_start=None,
+            slot_end=None,
+            identity=_identity(),
+        )
+        v.update(overrides)
+        return asyncio.run(service._build_patch(**v))
+
+    @pytest.mark.parametrize("action", ["assign_doctor", "reassign"])
+    def test_gan_bac_si_thi_xoa_vet(self, action: str) -> None:
+        patch_ra = self._patch_cua(action)
+        assert patch_ra["doctor_id"] is not None
+        assert patch_ra["bac_si_da_go_id"] is None
+        assert patch_ra["bo_bac_si_luc"] is None
+
+    def test_doi_lich_kem_bac_si_moi_cung_xoa_vet(self) -> None:
+        patch_ra = self._patch_cua(
+            "reschedule",
+            slot_start=_MAI.replace(hour=9),
+            slot_end=_MAI.replace(hour=9, minute=15),
+        )
+        assert patch_ra["bac_si_da_go_id"] is None
+
+    def test_doi_lich_bo_trong_bac_si_thi_vet_o_lai(self) -> None:
+        """Khách vẫn chờ xếp người — màn hình còn phải nói được "đổi từ ai"."""
+        patch_ra = self._patch_cua(
+            "reschedule",
+            doctor_id=None,
+            doctor_id_provided=False,
+            appt=self._appt(doctor_id="bs000000-0000-4000-8000-000000000003"),
+            slot_start=_MAI.replace(hour=9),
+            slot_end=_MAI.replace(hour=9, minute=15),
+        )
+        assert "bac_si_da_go_id" not in patch_ra
+
+    def test_moi_duong_ghi_doctor_id_deu_qua_khoi_xoa_vet(self) -> None:
+        """Bài kiểm QUAN HỆ: khối xoá vết phải nằm SAU mọi nhánh của
+        `_build_patch` — nhánh thứ tư thêm sau này cũng tự được phủ. Nếu ai
+        chuyển khối ấy vào một nhánh riêng, bài này đỏ trước khi cảnh báo
+        thành lời nói dối trên màn."""
+        ma = inspect.getsource(BookingService._build_patch)
+        assert ma.rstrip().endswith("return patch"), "khối xoá vết phải ở đuôi hàm"
+        duoi = ma[ma.rindex('if patch.get("doctor_id")') :]
+        assert 'patch["bac_si_da_go_id"] = None' in duoi
+        assert 'patch["bo_bac_si_luc"] = None' in duoi

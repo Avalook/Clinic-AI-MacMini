@@ -1193,6 +1193,24 @@ class BookingService:
                 identity=identity,
             )
 
+        # GÁN ĐƯỢC BÁC SĨ LÀ CẢNH BÁO PHẢI TẮT — Ở MỘT CHỖ CHO CẢ BA ĐƯỜNG.
+        #
+        # `bac_si_da_go_id` là vết "ca trực của bác sĩ cũ bị xoá, khách đang
+        # chờ xếp người khác" (config_service.remove). Trước 15/08/2026 không
+        # đường gán bác sĩ nào xoá vết ấy, nên sau khi CSKH đã xử lý XONG —
+        # gán người mới qua assign_doctor / reassign / reschedule — bảng lịch
+        # tuần và màn khách hàng vẫn đỏ "X đã nghỉ — gọi khách xếp bác sĩ
+        # khác" vĩnh viễn. Một cảnh báo không bao giờ tắt dạy người trực bỏ
+        # qua mọi cảnh báo, kể cả cái đúng.
+        #
+        # Đặt ở ĐUÔI hàm thay vì lặp trong từng nhánh: nhánh ghi doctor_id
+        # thứ tư thêm sau này cũng tự được phủ. Chỉ xoá khi gán ĐƯỢC người
+        # (giá trị thật) — reschedule mà bỏ trống bác sĩ thì khách vẫn đang
+        # chờ xếp, vết phải ở lại để màn hình còn nói được "đổi từ ai".
+        if patch.get("doctor_id"):
+            patch["bac_si_da_go_id"] = None
+            patch["bo_bac_si_luc"] = None
+
         return patch
 
     async def _guard_slot(
