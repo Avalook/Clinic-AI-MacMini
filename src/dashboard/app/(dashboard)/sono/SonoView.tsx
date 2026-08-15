@@ -12,12 +12,13 @@ import {
   FlaskConical,
   PauseCircle,
   Play,
-  Printer,
   Search,
   Stethoscope,
   Trash2,
   X,
 } from "lucide-react";
+
+import NutInPhieu from "../../../components/ui/NutInPhieu";
 
 import StatusChip, { type StatusTone } from "../../../components/ui/StatusChip";
 import Stepper, { type Step } from "../../../components/ui/Stepper";
@@ -70,17 +71,7 @@ function SaBadge({ status }: { status: string | null }) {
 }
 
 function PrintLink({ id }: { id: string }) {
-  return (
-    <a
-      href={`/print/sono/${id}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="In phiếu"
-      className="inline-flex items-center gap-1.5 rounded-control border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-sunken"
-    >
-      <Printer className="size-3.5" /> In phiếu
-    </a>
-  );
+  return <NutInPhieu href={`/print/sono/${id}`} size="md" />;
 }
 
 function patientLabel(row: SonoRow): string {

@@ -46,9 +46,11 @@ function stillWaiting(visitStatus: string, apptStatus: string | null): boolean {
 }
 
 function VisitBadge({ label, style }: { label: string; style: string }) {
+  // Cùng hình dạng với Chip (chữ nhật mềm, không viền) nhưng giữ style map
+  // riêng: "Chờ khám" dùng cặp màu status-in-progress không có trong ChipTone.
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${style}`}
+      className={`inline-flex items-center rounded-chip px-2 py-0.5 text-label font-medium ${style}`}
     >
       {label}
     </span>
@@ -104,8 +106,8 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
         <thead>
           <tr>
             {/* Ô đầu: thông tin BN gộp. Còn lại: thanh tiến trình 4 mốc. */}
-            <th className={`${TH} min-w-[240px]`}>Bệnh nhân</th>
-            <th className={`${TH} min-w-[340px]`}>Tiến trình buổi khám</th>
+            <th className={`${TH} min-w-60`}>Bệnh nhân</th>
+            <th className={`${TH} min-w-85`}>Tiến trình buổi khám</th>
           </tr>
         </thead>
         <tbody>
@@ -151,7 +153,7 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                         />
                         {examMin !== null && (
                           <span
-                            className="rounded-chip bg-status-in-progress-bg px-2 py-0.5 text-[10px] font-medium text-status-in-progress tabular-nums"
+                            className="rounded-chip bg-status-in-progress-bg px-2 py-0.5 text-label font-medium text-status-in-progress tabular-nums"
                             title="Thời gian khám (khám xong − bắt đầu khám)"
                           >
                             khám {examMin} phút

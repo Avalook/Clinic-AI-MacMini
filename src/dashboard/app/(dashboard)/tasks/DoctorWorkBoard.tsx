@@ -9,11 +9,12 @@ import {
   ClipboardList,
   FileText,
   FlaskConical,
-  Printer,
   Search,
   Stethoscope,
   UsersRound,
 } from "lucide-react";
+
+import NutInPhieu from "../../../components/ui/NutInPhieu";
 
 import { fmtTimeOrNone } from "../../../lib/datetime";
 import {
@@ -542,14 +543,9 @@ export default function DoctorWorkBoard({
                   </button>
                 )}
                 {selected.status === "COMPLETED" ? (
-                  <a
-                    href={`/print/${selected.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-control border border-success bg-surface px-3 py-2.5 text-sm font-semibold text-success hover:bg-success-bg"
-                  >
-                    <Printer className="size-4" /> In phiếu khám
-                  </a>
+                  <NutInPhieu href={`/print/${selected.id}`} size="lg" fullWidth>
+                    In phiếu khám
+                  </NutInPhieu>
                 ) : null}
               </section>
               {showSono ? (

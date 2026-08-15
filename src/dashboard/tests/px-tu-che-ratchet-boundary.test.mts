@@ -28,7 +28,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 // ── TRẦN — chỉ được sửa XUỐNG (trừ PR riêng đổi thang theo Kỷ luật điều 3) ──
-const TRAN = 474; // đo 15/08/2026, sau Bước 2 (#107)
+const TRAN = 428; // hạ 474→428: Màn 1 Trang chủ (Bước 4) đổi px sang token thang
 
 const GOC = new URL("..", import.meta.url).pathname;
 const MAU_PX = /\[[^\][]*\dpx[^\][]*\]/g;

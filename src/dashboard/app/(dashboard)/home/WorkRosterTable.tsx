@@ -45,7 +45,7 @@ export default function WorkRosterTable({
   }
 
   return (
-    <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
+    <div className="max-h-[88vh] min-h-45 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
       <table className="w-full min-w-max border-collapse text-xs">
         <RosterGridHead minWidth={92} />
         <tbody>

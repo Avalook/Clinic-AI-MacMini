@@ -391,8 +391,8 @@ export default async function HomePage({
           Trên màn hẹp thì vẫn xuống dòng: ba con số quan trọng hơn việc chúng
           nằm cạnh lời chào. */}
       <header className="flex flex-col gap-4 rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5 lg:flex-row lg:items-center">
-        <div className="lg:w-[300px] lg:shrink-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">
+        <div className="lg:w-75 lg:shrink-0">
+          <p className="text-label font-semibold uppercase tracking-[0.14em] text-brand-700">
             {isReception ? "Lễ tân" : "Không gian làm việc"}
           </p>
           <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>

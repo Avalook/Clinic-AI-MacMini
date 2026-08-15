@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 
 import { VN_TZ } from "../../../lib/datetime";
+import { chipClass } from "@/components/ui/Chip";
 
 // ── Ngưỡng đổi màu đồng hồ chờ (PHÚT kể từ check-in) — cấu hình DUY NHẤT ở đây ──
 const WAIT_GREEN_MAX = 10; // < 10p  → xanh
@@ -156,13 +157,13 @@ export function ProgressStepper({
                   className={`h-0.5 flex-1 ${i === MILESTONES.length - 1 ? "opacity-0" : i < reached ? "bg-success" : "bg-line"}`}
                 />
               </div>
-              <span className={`whitespace-nowrap text-[11px] leading-none ${txt}`}>
+              <span className={`whitespace-nowrap text-label leading-none ${txt}`}>
                 {m.label}
               </span>
               {/* GIỜ BẮT ĐẦU của mốc, ngay dưới nút. Dòng này luôn chiếm chỗ dù
                   chưa có giờ — bỏ hẳn thì các nhãn mốc sẽ so le nhau khi giờ
                   lần lượt xuất hiện. */}
-              <span className="h-3 whitespace-nowrap text-[10px] leading-none text-ink-faint tabular-nums">
+              <span className="h-3 whitespace-nowrap text-label leading-none text-ink-faint tabular-nums">
                 {gio(moc[i])}
               </span>
             </div>
@@ -198,23 +199,24 @@ export function WaitClock({
     };
   }, [checkedInAt, active]);
 
-  if (!checkedInAt) return <span className="text-[11px] text-ink-faint">—</span>;
-  if (!active) return <span className="text-[11px] text-ink-faint">—</span>;
-  if (nowMs === null) return <span className="text-[11px] text-ink-faint">…</span>;
+  if (!checkedInAt) return <span className="text-label text-ink-faint">—</span>;
+  if (!active) return <span className="text-label text-ink-faint">—</span>;
+  if (nowMs === null) return <span className="text-label text-ink-faint">…</span>;
 
   const totalSec = Math.max(0, Math.floor((nowMs - new Date(checkedInAt).getTime()) / 1000));
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
-  const cls =
+  // Ngưỡng chờ đổi màu map thẳng vào tone chip: success → warning → danger.
+  const tone =
     min < WAIT_GREEN_MAX
-      ? "bg-success-bg text-success"
+      ? ("success" as const)
       : min < WAIT_YELLOW_MAX
-        ? "bg-warning-bg text-warning"
-        : "bg-danger-bg text-danger";
+        ? ("warning" as const)
+        : ("danger" as const);
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${cls}`}
+      className={`${chipClass(tone)} tabular-nums`}
       title={`Chờ ${min} phút kể từ check-in`}
     >
       ⏱ {min}:{String(sec).padStart(2, "0")}
