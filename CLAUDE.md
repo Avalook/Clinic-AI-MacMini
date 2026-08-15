@@ -78,6 +78,9 @@ supabase db push
   GitHub Actions secrets. **Không bao giờ trong code.**
 - Router mỏng; luật nghiệp vụ nằm trong hàm dịch vụ (Python thuần, test được).
   **Không luật nghiệp vụ nào trong TSX.**
+- Giao diện: mọi thay đổi kích thước/màu/bo góc lấy từ thang trong **`DESIGN.md`**
+  (hiến pháp giao diện, chốt 15/08/2026). "To ra" = nhích một bậc thang, và
+  nghiệm thu ở đủ ba cỡ màn 375/768/1280.
 - Mọi bất biến có kẽ hở tranh chấp phải ép ở Postgres, không tự cài khoá trong
   Python. Xem `docs/SO-LUAT.md` Phần 6.
 - Hàm nhận ngày/giờ từ người dùng phải **trả giá trị rỗng thay vì ném**, và phải
