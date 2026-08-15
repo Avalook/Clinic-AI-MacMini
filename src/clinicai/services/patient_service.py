@@ -656,4 +656,3 @@ class PatientService:
                 )
         logger.info("patient_phone_removed", clinic_patient_id=clinic_patient_id)
         return {"da_xoa": True}
-
