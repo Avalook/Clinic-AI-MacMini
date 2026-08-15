@@ -79,11 +79,15 @@ def doc_lenh(text: str | None) -> str | None:
 
 async def _kham_suc_khoe(pool: asyncpg.Pool, clinic_id: str) -> str:
     dong: list[str] = ["🩺 <b>Sức khoẻ hệ thống</b>"]
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    # ĐI THEO CHUYỂN HƯỚNG + nhận cả họ 2xx — CÙNG LUẬT VỚI KUMA. Dashboard
+    # /health trả 307 rồi mới tới 200; đo 15/08: Kuma nói Up trong khi bot
+    # phán ❌ cùng một endpoint — hai người gác nói hai chuyện chỉ vì một
+    # người không chịu bước qua cái biển chỉ đường.
+    async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
         for ten, url in _HEALTH.items():
             try:
                 r = await client.get(url)
-                ok = r.status_code == 200
+                ok = r.is_success
             except httpx.HTTPError:
                 ok = False
             dong.append(f"{'✅' if ok else '❌'} {ten}")
