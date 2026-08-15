@@ -662,6 +662,8 @@ export interface MocLich {
   /** Bác sĩ của lượt này không còn ca KHÁM vào ngày khám. Tính ở page.tsx từ
    *  `work_roster` (station = LICH_KHAM), theo TỪNG LƯỢT. */
   mat_bac_si?: boolean;
+  /** Bác sĩ bị gỡ đã có ca khám trở lại hôm đó. */
+  bs_go_co_ca_lai?: boolean;
 }
 
 export default function VungLamViecKhach({

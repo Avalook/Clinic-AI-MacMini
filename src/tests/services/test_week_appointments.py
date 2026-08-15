@@ -69,6 +69,7 @@ def _record(**over: Any) -> _Row:
         # không còn ca khám hôm đó.
         "mat_bac_si": False,
         "bac_si_da_go": None,
+        "bs_go_co_ca_lai": False,
         "clinic_patient_id": "33333333-3333-4333-8333-333333333333",
         "patient_code": "BN-2026-000001",
         "full_name": "Nguyễn Thị A",
@@ -231,3 +232,22 @@ def test_go_bac_si_van_con_duong_canh_bao() -> None:
 
     assert "bac_si_da_go_id" in _SQL, "truy vấn phải mang cột bác sĩ đã gỡ"
     assert "AS bac_si_da_go" in _SQL, "phải trả TÊN người bị gỡ, không chỉ id"
+
+
+def test_hai_tinh_huong_mat_bac_si_duoc_phan_biet() -> None:
+    """ "Đã nghỉ" và "ca đã xếp lại" là hai việc khác nhau của người trực.
+
+    Nhánh một phải GỌI KHÁCH đổi lịch; nhánh hai là việc nội bộ — gán lại bác
+    sĩ, không làm phiền khách. Một câu chung cho cả hai thì hoặc khách bị gọi
+    oan, hoặc lịch nằm chờ mãi vì ai cũng tưởng phải chờ khách.
+    """
+    from clinicai.services.week_appointments_service import _SQL
+
+    assert "AS bs_go_co_ca_lai" in _SQL, "truy vấn phải trả cờ 'đã có ca lại'"
+    dau = _SQL.index("AS bs_go_co_ca_lai")
+    khoi = _SQL[max(0, dau - 700) : dau]
+    assert "t.bac_si_da_go_id" in khoi, "cờ phải hỏi về CHÍNH bác sĩ bị gỡ"
+    assert "'LICH_KHAM'" in khoi, (
+        "phải hỏi ca KHÁM: có ca thủ thuật trở lại không có nghĩa là ngồi "
+        "bàn khám trở lại"
+    )
