@@ -109,3 +109,16 @@ test("số thêm hiện ở Danh sách bệnh nhân và xoá được trong sử
   const cv = doc("../app/(dashboard)/customers/CustomersView.tsx");
   assert.match(cv, /sdtThem=\{selected\.patient_sdt_them \?\? \[\]\}/, "CustomersView phải truyền số thêm vào editor");
 });
+
+test("hồ sơ trong Danh sách bệnh nhân chỉ có MỘT nguồn — không bị lịch hẹn ghi đè", () => {
+  // Bản nhúng patient trong truy vấn lịch hẹn gầy hơn qPatients (không mang
+  // số thêm). Ghi đè hoso bằng nó là khách CÓ lượt khám mất số, khách CHƯA
+  // khám thì đủ — lỗi chỉ hiện với đúng nhóm khách người trực mở nhiều nhất.
+  const page = doc("../app/(dashboard)/patient-list/page.tsx");
+  assert.doesNotMatch(
+    page,
+    /cur\.hoso = p;/,
+    "vòng lịch hẹn không được ghi đè hoso — nguồn hồ sơ là qPatients",
+  );
+});
+

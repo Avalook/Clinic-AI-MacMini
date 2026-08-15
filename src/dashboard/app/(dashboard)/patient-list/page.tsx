@@ -132,7 +132,11 @@ export default async function PatientListPage() {
       // cũng là lượt nuôi panel bên phải.
       if (cur.appt === null) {
         cur.latest = a.slot_start;
-        cur.hoso = p;
+        // KHÔNG ghi đè `hoso` bằng bản nhúng trong lịch hẹn (Tuyền 15/08/2026:
+        // "trong danh sách bệnh nhân chưa cập nhật"). Hai truy vấn cùng tả một
+        // hồ sơ nhưng bản nhúng gầy hơn — không mang số điện thoại thêm — nên
+        // khách CÓ lượt khám thì panel mất số, khách CHƯA khám thì lại đủ.
+        // Nguồn hồ sơ là qPatients; vòng này chỉ cộng lượt.
         cur.appt = {
           id: a.id,
           slot_start: a.slot_start,
