@@ -55,14 +55,14 @@ export default function StatCard({
     <span className="flex items-center gap-3">
       {icon ? (
         <span
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${t.icon}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${t.icon}`}
           aria-hidden
         >
           {icon}
         </span>
       ) : null}
       <span className="flex flex-col">
-        <span className="text-sm text-ink-muted">{label}</span>
+        <span className="text-meta text-ink-muted">{label}</span>
         <span className={`text-2xl leading-tight font-semibold ${t.value}`}>
           {value}
         </span>
@@ -82,7 +82,7 @@ export default function StatCard({
         type="button"
         onClick={onSelect}
         aria-pressed={active}
-        className={`flex-1 rounded-card px-5 py-4 text-left transition-colors hover:bg-surface-sunken ${kieuChon}`}
+        className={`flex-1 bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-sunken ${kieuChon}`}
       >
         {body}
       </button>
@@ -90,14 +90,14 @@ export default function StatCard({
   }
 
   if (!href) {
-    return <div className="flex-1 px-5 py-4">{body}</div>;
+    return <div className="flex-1 bg-surface px-4 py-3">{body}</div>;
   }
 
   return (
     <Link
       href={href}
       aria-current={active ? "true" : undefined}
-      className={`flex-1 rounded-card px-5 py-4 transition-colors hover:bg-surface-sunken ${kieuChon}`}
+      className={`flex-1 bg-surface px-4 py-3 transition-colors hover:bg-surface-sunken ${kieuChon}`}
     >
       {body}
     </Link>
@@ -106,8 +106,14 @@ export default function StatCard({
 
 /** The row itself: cells separated by hairlines, on one card. */
 export function StatRow({ children }: { children: ReactNode }) {
+  // LƯỚI, KHÔNG PHẢI FLEX MỘT HÀNG. Bốn thẻ ép vào một hàng thì ở màn hẹp mỗi
+  // thẻ còn ~90px và nhãn "Cần xử lý hôm nay" xuống dòng TỪNG CHỮ MỘT — lỗi
+  // tự khai khi kiểm 3 cỡ màn ngày 15/08/2026. Dưới md xếp 2×2.
+  //
+  // `gap-px` + nền hairline = đường ngăn mảnh cả hai chiều mà không cần
+  // divide-x (divide đặt viền sai chỗ khi xuống hàng thứ hai của lưới).
   return (
-    <div className="flex divide-x divide-line rounded-card border border-line bg-surface shadow-card">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-hairline bg-hairline shadow-card md:grid-cols-4">
       {children}
     </div>
   );
