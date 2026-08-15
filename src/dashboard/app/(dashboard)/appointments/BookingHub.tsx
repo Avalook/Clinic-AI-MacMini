@@ -49,6 +49,8 @@ export interface PatientLite {
   patient_code: string;
   full_name: string;
   phone_primary: string | null;
+  /** Cột gộp MỌI số (chính + người nhà + số thêm) — chỉ để TÌM, không hiện. */
+  sdt_tim_kiem?: string | null;
   date_of_birth: string | null;
   gender: string | null;
   address: string | null;
@@ -723,7 +725,8 @@ export default function BookingHub({
     return patients.filter(
       (p) =>
         p.full_name.toLowerCase().includes(q) ||
-        (p.phone_primary ?? "").includes(q) ||
+        // Gộp mọi số của hồ sơ — khách đọc số nào (kể cả số thêm) cũng ra.
+        (p.sdt_tim_kiem ?? p.phone_primary ?? "").includes(q) ||
         p.patient_code.toLowerCase().includes(q),
     );
   }, [patients, searchQuery]);

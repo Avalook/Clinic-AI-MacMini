@@ -25,7 +25,7 @@ export default async function AppointmentsPage() {
     supabase.from("province").select("code, name, full_name").order("name"),
     supabase
       .from("patient")
-      .select("clinic_patient_id, patient_code, full_name, phone_primary, date_of_birth, gender, address, location_id")
+      .select("clinic_patient_id, patient_code, full_name, phone_primary, sdt_tim_kiem, date_of_birth, gender, address, location_id")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase

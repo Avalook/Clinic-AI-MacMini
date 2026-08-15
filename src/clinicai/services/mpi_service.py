@@ -96,9 +96,16 @@ class MPIService:
         idx = 1
 
         if data.phone_primary:
+            # SỐ THÊM cũng là số của khách (patient_sdt_them, 15/08/2026):
+            # khách đăng ký lần trước bằng số phụ, lần này đọc lại đúng số ấy
+            # — không có vế thứ ba này thì dedup im lặng và hồ sơ tách đôi,
+            # đúng cái mà bảng số-thêm sinh ra để chống.
             conditions.append(
                 f"(phone_primary = ANY(${idx}::text[]) "
-                f"OR phone_secondary = ANY(${idx}::text[]))"
+                f"OR phone_secondary = ANY(${idx}::text[]) "
+                f"OR EXISTS (SELECT 1 FROM public.patient_sdt_them t "
+                f"WHERE t.clinic_patient_id = patient.clinic_patient_id "
+                f"AND t.so_dien_thoai = ANY(${idx}::text[])))"
             )
             params.append(phone_variants(data.phone_primary))
             idx += 1

@@ -15,6 +15,7 @@ import { canWriteIntake } from "../../../../lib/roles";
 const EMPTY = { exists: false, matches: [] as unknown[] };
 
 interface PatientRow {
+  clinic_patient_id: string;
   full_name: string | null;
   patient_code: string | null;
   date_of_birth: string | null;
@@ -47,10 +48,13 @@ export async function GET(request: Request) {
   // Đọc bằng session của người gọi. Không bypass RLS nữa (ADR-0012): từ
   // 20260730000004, `patient` lọc theo clinic_membership, nên cảnh báo trùng SĐT
   // chỉ soi trong phòng khám của chính người đang thao tác — đúng điều ta muốn.
+  // `sdt_tim_kiem` gộp MỌI số của hồ sơ (chính + người nhà + số thêm —
+  // migration 20260815000002): khách đăng ký bằng số phụ thì cảnh báo vẫn
+  // phải nổ. `clinic_patient_id` để nút "thêm số cho khách này" biết gắn vào ai.
   const { data, error } = await supabase
     .from("patient")
-    .select("full_name, patient_code, date_of_birth")
-    .or(`phone_primary.eq.${ten},phone_secondary.eq.${ten}`)
+    .select("clinic_patient_id, full_name, patient_code, date_of_birth")
+    .ilike("sdt_tim_kiem", `%${ten}%`)
     .limit(5);
   if (error) {
     // Cảnh báo là tính năng PHỤ — lỗi tra thì im lặng, guard lúc submit vẫn chặn.
@@ -58,6 +62,7 @@ export async function GET(request: Request) {
   }
 
   const matches = ((data as PatientRow[] | null) ?? []).map((p) => ({
+    clinic_patient_id: p.clinic_patient_id,
     full_name: p.full_name ?? "",
     patient_code: p.patient_code ?? "",
     birth_year: p.date_of_birth ? Number(String(p.date_of_birth).slice(0, 4)) || null : null,

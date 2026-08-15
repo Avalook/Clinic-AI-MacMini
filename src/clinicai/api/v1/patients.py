@@ -1,12 +1,13 @@
 """FastAPI endpoints for Patient CRUD operations."""
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from clinicai.api.identity import (
     ClinicRole,
@@ -154,7 +155,8 @@ async def check_duplicate(
         da_co = {p.patient_code for p in found}
         rows = await pool.fetch(
             """
-            SELECT full_name, patient_code, date_of_birth, birth_year
+            SELECT clinic_patient_id, full_name, patient_code,
+                   date_of_birth, birth_year
               FROM public.patient
              WHERE clinic_id = $1::uuid
                AND is_active
@@ -168,6 +170,7 @@ async def check_duplicate(
         )
         trung_ten = [
             {
+                "clinic_patient_id": str(r["clinic_patient_id"]),
                 "full_name": r["full_name"],
                 "patient_code": r["patient_code"],
                 "birth_year": r["birth_year"]
@@ -184,6 +187,9 @@ async def check_duplicate(
         # thoại đầy đủ — màn này chỉ cần trả lời "có phải người này không".
         "matches": [
             {
+                # `clinic_patient_id` để nút "thêm số cho khách này" ở màn tạo
+                # BN biết gắn số vào AI — mã hồ sơ là chữ cho người, máy cần khoá.
+                "clinic_patient_id": str(p.clinic_patient_id),
                 "full_name": p.full_name,
                 "patient_code": p.patient_code,
                 "birth_year": p.date_of_birth.year if p.date_of_birth else None,
@@ -191,6 +197,35 @@ async def check_duplicate(
             for p in found[:5]
         ],
     }
+
+
+class SdtThemDTO(BaseModel):
+    """Một số điện thoại gắn thêm vào hồ sơ có sẵn."""
+
+    clinic_patient_id: UUID
+    so_dien_thoai: str
+    loai: Literal["CHINH", "NGUOI_NHA"] = "CHINH"
+
+
+@router.post("/patients/sdt-them", status_code=status.HTTP_201_CREATED)
+async def them_so_dien_thoai(
+    data: SdtThemDTO,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm số cho khách CÓ SẴN — lối thứ ba của ô cảnh báo trùng.
+
+    Khách dùng 2–3 số là bình thường; trước đây ô cảnh báo "số/tên này đã có
+    trong hệ thống" chỉ có hai lối ra: vẫn tạo hồ sơ mới (tách đôi bệnh án)
+    hoặc bỏ dở. Nay người trực xác nhận "đúng là khách cũ" và gắn số mới vào
+    hồ sơ cũ; từ đó tra số nào cũng ra đúng một người.
+    """
+    return await PatientService(pool).them_so_dien_thoai(
+        clinic_patient_id=str(data.clinic_patient_id),
+        so_dien_thoai=data.so_dien_thoai,
+        loai=data.loai,
+        identity=identity,
+    )
 
 
 @router.get("/patients/{id:uuid}", response_model=PatientDTO)

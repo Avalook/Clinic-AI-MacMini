@@ -119,8 +119,10 @@ BEGIN
     -- 42 → 43 ngày 08/08/2026: phan_hoi_khach (20260809000007).
     -- 43 → 44 ngày 08/08/2026: tep_ket_qua (20260809000008). CHỈ ĐỌC: khoá tệp
     -- do hệ thống sinh, và client tự ghi được nghĩa là tự khai được một khoá.
-    IF scoped_count <> 44 THEN
-        RAISE EXCEPTION 'expected 44 tenant-scoped read policies, found %', scoped_count;
+    -- 44 → 45 ngày 15/08/2026: patient_sdt_them (20260815000002) — số điện
+    -- thoại gắn thêm cho hồ sơ có sẵn, đọc theo đúng luật phòng-khám-của-mình.
+    IF scoped_count <> 45 THEN
+        RAISE EXCEPTION 'expected 45 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

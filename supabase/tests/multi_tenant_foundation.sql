@@ -81,7 +81,9 @@ DECLARE
     -- nghiệm CSKH tải lên, kèm "đã gửi cho khách chưa" (20260809000008).
     -- `ultrasound_record.image_refs` là text[] nên không mang được kiểu tệp,
     -- kích thước, ai tải, hay đã gửi chưa — đúng bốn câu màn CSKH cần hỏi.
-    expected_tenant_tables constant integer := 68;
+    -- 68 → 69 (15/08/2026): patient_sdt_them — số điện thoại gắn thêm cho
+    -- hồ sơ có sẵn (khách dùng 2–3 số), mang clinic_id như mọi bảng dữ liệu.
+    expected_tenant_tables constant integer := 69;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
