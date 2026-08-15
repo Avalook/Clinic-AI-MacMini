@@ -242,3 +242,33 @@ async def test_a_successful_send_never_waits() -> None:
         assert await poll_and_deliver(pool, clinic_id=CLINIC_ID) == 1
 
     sleep.assert_not_awaited()
+
+
+def test_bo_loc_danh_thuc_chi_nghe_event_log_cua_dung_phong_kham() -> None:
+    """Kênh 'clinicai_changes' chở MỌI bảng live — relay chỉ thức vì
+    event_log của chính mình; tin méo thì thức cho chắc (quét thừa rẻ hơn
+    một sự kiện nằm chờ 30 giây)."""
+    from clinicai.services.notification_relay import nen_danh_thuc
+
+    cua_minh = '{"t": "event_log", "c": "' + CLINIC_ID + '"}'
+    assert nen_danh_thuc(cua_minh, CLINIC_ID) is True
+    assert (
+        nen_danh_thuc('{"t": "appointment", "c": "' + CLINIC_ID + '"}', CLINIC_ID)
+        is False
+    )
+    assert nen_danh_thuc('{"t": "event_log", "c": "khac"}', CLINIC_ID) is False
+    assert nen_danh_thuc("tin méo không phải json", CLINIC_ID) is True
+
+
+def test_trigger_event_log_chi_insert() -> None:
+    """Relay đánh dấu đã-gửi bằng UPDATE lên chính event_log — trigger notify
+    mà nghe cả UPDATE là relay tự đánh thức mình thành vòng lặp vô tận."""
+    from pathlib import Path
+
+    sql = Path(
+        "supabase/migrations/20260815000003_notify_event_log_cho_relay.sql"
+    ).read_text(encoding="utf-8")
+    assert "AFTER INSERT ON public.event_log" in sql
+    assert "UPDATE" not in sql.split("CREATE TRIGGER")[1], (
+        "trigger nghe UPDATE là vòng lặp tự đánh thức"
+    )

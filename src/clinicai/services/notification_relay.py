@@ -45,6 +45,21 @@ MAX_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 0.5
 
 
+def nen_danh_thuc(payload: str, clinic_id: str) -> bool:
+    """Tin NOTIFY này có đáng đánh thức vòng poll không.
+
+    Kênh 'clinicai_changes' chở thay đổi của MỌI bảng live (màn hình cũng
+    nghe kênh này); relay chỉ quan tâm event_log của đúng phòng khám mình.
+    Tin MÉO thì đánh thức — một cú quét thừa rẻ hơn một sự kiện nằm chờ 30s
+    chỉ vì payload lạ (cùng triết lý với RealtimeRefresher phía dashboard).
+    """
+    try:
+        d = json.loads(payload)
+    except (ValueError, TypeError):
+        return True
+    return d.get("t") == "event_log" and str(d.get("c")) == clinic_id
+
+
 async def _lam_giau(
     conn: asyncpg.Connection,
     *,
