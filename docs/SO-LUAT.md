@@ -1,6 +1,6 @@
 # SỔ LUẬT — ClinicAI
 
-Cập nhật: **13/08/2026**
+Cập nhật: **15/08/2026** (thêm Phần 12; Phần 6 thêm Luật 6.4–6.5 ngày 14/08)
 
 Sổ này là **một** chỗ duy nhất ghi mọi luật của hệ thống. Đọc từ trên xuống là
 hiểu cách hệ thống được xây và vì sao nó được xây như vậy.
@@ -303,6 +303,101 @@ push. Ổ đĩa hỏng là không dựng lại được thứ đang phục vụ 
 **Luật 11.3 — Mỗi môi trường một thư mục.** Chung thư mục thì một lần `git
 checkout` đổi luôn nguồn của môi trường kia, và không ai thấy cho tới lần deploy
 sau.
+
+---
+
+# Phần 12 — Cách giao việc và cách bàn giao (Tuyền × Claude Code)
+
+Phần này chốt 15/08/2026, sau một ngày 18 PR (#86–#103) trong đó **hai lần cùng
+mắc một kiểu lỗi** — và cả hai đều không phải lỗi của code, mà của cách làm
+việc. Người vận hành không đọc code, nên vòng kiểm soát phải chạy bằng thứ khác
+ngoài việc đọc code. Phần này là vòng kiểm soát ấy.
+
+## Vì sao cần — bốn nguyên nhân sửa sai, đo từ chuyện thật
+
+| nguyên nhân | chuyện đã xảy ra (14/08/2026) | chốt chặn |
+|---|---|---|
+| Vá thiếu bản sao — sửa 1 trong N chỗ cùng mẫu | 3 lưới đặt chỗ chỉ vá 1, đúng cái lưới người dùng không dùng; rồi 2 khối lịch hẹn chỉ vá 1. Test xanh, CI xanh, deploy xanh — màn hình vẫn lỗi | Luật 12.2 |
+| Đoán thay vì đo | script dọn prod đoán 2 tên bảng không tồn tại | Luật 12.3 |
+| Prompt có hai cách đọc | *"xoá bác sĩ luôn đi"* = đổi hiển thị hay đổi dữ liệu? Hỏi một câu mất 30 giây, đỡ một lần build sai | Luật 12.4 |
+| Bẫy lịch sử | bản vá Idempotency đã merge rồi biến mất khi hoà nhánh; bài kiểm realtime canh nhầm cơ chế đã bỏ | Luật 12.5 |
+
+Hai thứ TỪNG bị nghi mà **không phải** nguyên nhân, ghi ra để khỏi nghi lại:
+nhánh nhập nhằng (chỉ còn `main`) và thiếu ngữ cảnh code (repo + log + database
+đều trong tay). Thứ hay thiếu là ngữ cảnh NGƯỜI DÙNG — màn nào, vai gì, mấy
+giờ — và nó làm tìm *chậm* chứ không làm sửa *sai*: lỗi id tạm tìm ra trong vài
+phút chỉ vì biết giờ bấm nên lọc log trúng ngay request.
+
+## Luật 12.1 — Giao việc theo TÌNH HUỐNG, không theo tính năng
+
+Tài liệu giá trị nhất repo này không phải code — là bảng "tình huống phát sinh"
+của quản lý. Riêng tình huống số 9 (*"lịch bác sĩ thay đổi sau khi khách đã
+đặt"*) đẻ ra nguyên một chuỗi tính năng: cờ mất-bác-sĩ, cảnh báo ở ba màn, gỡ
+bác sĩ khi xoá ca, cột nhớ người bị gỡ.
+
+Một tình huống nêu đủ bốn ý: **ai** — **khi nào** — **điều gì phải thành sự
+thật** — **điều gì không được đổi**. "Khi bác sĩ nghỉ sau khi khách đã đặt,
+CSKH phải biết ở *mọi chỗ họ nhìn thấy lịch ấy*, và biết đổi từ ai" — một câu
+đó tự sinh ra cả ba màn cần sửa. Còn "thêm cảnh báo ở ô này" sinh ra đúng một ô,
+và N−1 ô còn lại thành lỗi của tuần sau.
+
+Prompt báo lỗi hữu ích nhất khi có năm dòng, và dòng 4 là dòng hay thiếu nhất:
+
+1. Màn nào + vai đang đăng nhập + khoảng mấy giờ
+2. Đã bấm những gì
+3. Thấy gì / muốn thấy gì
+4. **Chỉ chỗ này, hay mọi chỗ tương tự?**
+5. Cái gì *không* được đổi (nếu có)
+
+## Luật 12.2 — Trước khi vá: liệt kê MỌI chỗ cùng mẫu. Bài kiểm phải ĐẾM
+
+Grep mọi chỗ gọi / mọi bản sao của mẫu **trước** khi sửa dòng đầu tiên, và vá
+hết trong một lần. Bài kiểm đi kèm phải **đếm** — "bao nhiêu `<CinemaSlotPicker`
+thì bấy nhiêu `shiftWindows={…}`" — không hỏi có/không, vì một chỗ làm là đủ
+xanh trong khi N−1 chỗ còn lại vẫn hỏng.
+
+Hệ quả tự nhiên: vá cùng một luật đến lần thứ hai ở chỗ thứ hai thì **dừng lại
+gom về một hàm/hook** rồi mới vá tiếp. Ba màn đọc lỗi qua `loiDocDuoc`, ba lưới
+hỏi ca trực qua `useKhoangCa` — đều sinh ra từ lần vá thứ hai của chính chúng.
+
+## Luật 12.3 — Đo trước khi viết, kiểm sau khi deploy
+
+Trước khi viết: tên bảng, tên cột, hình dạng endpoint — hỏi database/API thật,
+không gõ theo trí nhớ. Sau khi deploy: grep **bên trong container đang chạy**
+xem bản vá thật sự nằm trong bundle chưa — "deploy xanh" từng có nghĩa là
+"code chưa tới trình duyệt" đúng một lần, và một lần là đủ để thành luật.
+
+## Luật 12.4 — Bàn giao bằng KỊCH BẢN BẤM THỬ, không bằng code
+
+Người vận hành không đọc code — vòng kiểm soát của họ là bấm theo kịch bản và
+so kết quả. Mọi lần bàn giao trả đúng bốn mục, không chữ code nào:
+
+1. **Đã đổi gì** — ba câu tiếng người
+2. **Kịch bản bấm thử** — 3–5 bước, đây là hợp đồng nghiệm thu
+3. **Những gì KHÔNG đổi**
+4. **Rủi ro còn lại** — nói trước, không để người test tự vấp
+
+Chiều ngược lại: việc lớn mở đầu bằng 3–5 dòng "tôi hiểu bài thế này" (phạm vi
++ ca biên sẽ phủ + thứ không đụng) **trước khi code**. Prompt có hai cách đọc
+vật chất thì hỏi một câu; hai cách đọc chỉ khác tiểu tiết thì tự chọn và nói rõ
+giả định. Lỗi không khẩn thì gom 3–4 cái một chu kỳ PR/CI/deploy — mỗi chu kỳ
+là ~10 phút chờ CI của người đang ngồi test.
+
+## Luật 12.5 — Quy tắc chỉ đáng tin khi nằm trong CI
+
+Quy tắc trong văn bản (kể cả sổ này) sẽ bị bỏ qua đúng lúc vội. Mỗi bài học
+phải để lại một bài kiểm chạy mỗi PR — và bài kiểm phải canh **quan hệ**, không
+canh chuỗi cứng:
+
+- Canh chuỗi cứng thì đổi code là biểu thức trượt, và bài kiểm **ngừng kiểm mà
+  vẫn xanh** — đã xảy ra với lưới cột bảng khách hàng. Tệ hơn không có bài kiểm.
+- Canh quan hệ thì sống qua thay đổi: "router nào cầm `idempotency_guard` phải
+  có chốt thả khoá" bắt được cả endpoint thứ năm chưa ra đời.
+- Mỗi bài kiểm mới phải **thử ngược** — cố ý làm hỏng lại code để thấy nó đỏ
+  đúng chỗ — trước khi được tin.
+- Quyết định bị đảo thì **viết lại test thành luật mới kèm lý do đổi**, không
+  xoá: ba test `khong_override` ngày 14/08 nay kể được cả hai đời của quyết
+  định ấy.
 
 ---
 
