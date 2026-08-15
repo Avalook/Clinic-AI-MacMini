@@ -593,7 +593,7 @@ function appointmentStatus(status: string): { label: string; tone: StatusTone } 
 
 function CustomerTableHeader() {
   return (
-    <div className="grid grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px] gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted">
+    <div className="hidden gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted md:grid md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]">
       <span>Khách hàng</span>
       <span>Trạng thái</span>
       <span>Mới / cũ</span>
@@ -1346,10 +1346,14 @@ export default function CustomersView({
                       <div
                         key={row.clinic_patient_id}
                         onClick={() => chonKhach(row.clinic_patient_id)}
-                        className={`grid w-full items-center gap-2 px-4 py-3 text-left transition-colors cursor-pointer ${
+                        // DƯỚI 768px: bảng 8 cột xuống THẺ xếp dọc (DESIGN.md
+                        // §7) — không bao giờ bóp 8 cột vào 375px rồi bắt cuộn
+                        // ngang. Cùng một DOM, chỉ đổi cách xếp: các ô ít giá
+                        // trị trên điện thoại mang `hidden md:block`.
+                        className={`flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors cursor-pointer md:grid md:items-center ${
                           selected
-                            ? "grid-cols-[minmax(0,1fr)_auto]"
-                            : "grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]"
+                            ? "md:grid-cols-[minmax(0,1fr)_auto]"
+                            : "md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]"
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">
@@ -1442,7 +1446,7 @@ export default function CustomersView({
                         )}
                         {!selected && (
                           <>
-                            <div className="min-w-0 truncate text-xs text-ink-soft">
+                            <div className="hidden min-w-0 truncate text-xs text-ink-soft md:block">
                               {tomTatTuongTac(
                                 tuongTacByPatient[row.clinic_patient_id],
                               ) ??
@@ -1450,11 +1454,12 @@ export default function CustomersView({
                                 "—"}
                             </div>
                             <div className="min-w-0">
-                              <span className="truncate text-xs font-medium text-ink">
+                              <span className="block truncate text-xs font-medium text-ink">
                                 {customerNextStep(row) ?? cskh?.nextStep ?? "—"}
                               </span>
                             </div>
                             <div>
+                              <span className="text-meta text-ink-faint md:hidden">Hạn: </span>
                               <span
                                 className={`text-xs font-semibold ${
                                   dl.overdue
@@ -1465,7 +1470,7 @@ export default function CustomersView({
                                 {dl.text}
                               </span>
                             </div>
-                            <div className="truncate text-xs font-medium text-ink">
+                            <div className="hidden truncate text-xs font-medium text-ink md:block">
                               {/* CỘT NÀY TỪNG MANG NHÃN "PHỤ TRÁCH" — SAI.
                                   Nó hiện NGƯỜI CHẠM GẦN NHẤT (dòng cuối trong
                                   sổ tương tác), không phải người được giao
@@ -1489,7 +1494,7 @@ export default function CustomersView({
                                   </span>
                                 )}
                             </div>
-                            <div className="text-right">
+                            <div className="hidden text-right md:block">
                               <button
                                 type="button"
                                 onClick={(e) => {

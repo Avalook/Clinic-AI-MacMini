@@ -31,6 +31,7 @@ import {
 } from "../../../lib/slot-capacity";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
+import { chipClass } from "@/components/ui/Chip";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 
 export interface WeekApptRow {
@@ -94,24 +95,21 @@ const NO_DOCTOR = "Chưa phân bác sĩ";
 function PhanLoai({ value }: { value: string }) {
   const nhan = nhanPhanLoaiKham(value);
   if (!nhan) return <span className="text-ink-faint">—</span>;
-  const first = laKhamMoi(value);
   return (
-    <span
-      className={
-        "inline-block rounded-full px-2 py-0.5 text-[11px] font-medium " +
-        (first ? "bg-success-bg text-success" : "bg-warning-bg text-warning")
-      }
-    >
+    <span className={chipClass(laKhamMoi(value) ? "success" : "warning")}>
       {nhan}
     </span>
   );
 }
 
-// Ô thân chung (viền lưới + padding gọn).
-const CELL = "border-b border-r border-brand-100 px-2 py-1.5 align-top";
-// Tiêu đề cột.
+// Ô thân chung — DESIGN.md §6: CHỈ KẺ NGANG, bằng hairline. Kẻ dọc chính là
+// thứ làm bảng này "nhìn như Google Sheets" (Tuyền, 15/08/2026); căn cột và
+// khoảng trắng làm việc của nó. Đệm ngang nới 8→12px vì không còn vách ngăn.
+const CELL = "border-b border-hairline px-3 py-2 align-top";
+// Tiêu đề cột: nền trung tính thay cho dải teal — màu thương hiệu không dùng
+// để kẻ khung (DESIGN.md §2), nó dành cho hành động và điểm nhấn.
 const TH =
-  "border-b border-r border-brand-100 px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-brand-800";
+  "border-b border-hairline bg-surface-muted px-3 py-2 text-left text-label font-semibold uppercase tracking-wide text-ink-muted";
 
 const STATUS_VN: Record<string, string> = {
   SCHEDULED: "Chưa xác nhận",
@@ -327,7 +325,7 @@ export default function WeeklyAppointmentsTable({
       <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-brand-100">
+            <tr>
               <th className={`${TH} min-w-[92px]`}>Khung giờ</th>
               <th className={`${TH} min-w-[120px]`}>Bác sĩ</th>
               <th className={`${TH} min-w-[200px]`}>Thông tin</th>
@@ -352,10 +350,10 @@ export default function WeeklyAppointmentsTable({
               return (
                 <Fragment key={day.date}>
                   {/* Dòng tiêu đề NGÀY (gộp cả 5 hoặc 6 cột). */}
-                  <tr className="bg-brand-50">
+                  <tr className="bg-surface-muted">
                     <td
                       colSpan={nCols}
-                      className="border-b border-brand-100 border-l-[3px] border-l-brand-600 px-2 py-1.5 text-sm font-semibold text-brand-800"
+                      className="border-b border-hairline border-l-[3px] border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                     >
                       {dayLabel(day.date)} · {fmtDayMonth(day.date)}
                       <span className="ml-2 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-brand-300">

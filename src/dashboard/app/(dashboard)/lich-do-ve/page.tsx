@@ -33,9 +33,10 @@ interface Dong extends LichDeDem {
   patient: { full_name: string; patient_code: string } | null;
 }
 
+// DESIGN.md §6: chỉ kẻ ngang bằng hairline — cùng khuôn với bảng lịch tuần.
 const TH =
-  "border-b border-r border-brand-100 px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800 last:border-r-0";
-const TD = "border-b border-r border-brand-100 px-2 py-1.5 align-top last:border-r-0";
+  "border-b border-hairline bg-surface-muted px-3 py-2 text-left text-label font-semibold uppercase tracking-wide text-ink-muted";
+const TD = "border-b border-hairline px-3 py-2 align-top";
 
 export default async function LichDoVePage({
   searchParams,
@@ -118,7 +119,7 @@ export default async function LichDoVePage({
         </p>
         <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
           <table className="w-full min-w-max border-collapse text-sm">
-            <thead className="bg-brand-100">
+            <thead>
               <tr>
                 <th className={`${TH} min-w-[86px]`}>Khung giờ</th>
                 <th className={`${TH} text-right`}>Tổng</th>
@@ -181,7 +182,7 @@ export default async function LichDoVePage({
         </h2>
         <div className="max-h-[70vh] overflow-auto rounded-card border border-line bg-surface shadow-card">
           <table className="w-full min-w-max border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-brand-100">
+            <thead className="sticky top-0 z-10">
               <tr>
                 <th className={`${TH} min-w-[86px]`}>Khung giờ</th>
                 <th className={`${TH} min-w-[150px]`}>Bác sĩ</th>
@@ -206,10 +207,10 @@ export default async function LichDoVePage({
                     <Fragment key={ngay}>
                       {/* Dòng tiêu đề NGÀY, gộp cả 5 cột — cùng cách bảng lịch
                           tuần ở trang chủ làm, để hai bảng đọc giống nhau. */}
-                      <tr className="bg-brand-50">
+                      <tr className="bg-surface-muted">
                         <td
                           colSpan={5}
-                          className="border-b border-brand-100 border-l-[3px] border-l-brand-600 px-2 py-1.5 text-sm font-semibold text-brand-800"
+                          className="border-b border-hairline border-l-[3px] border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                         >
                           {dayLabel(ngay)} · {fmtDayMonth(ngay)}
                           <span className="ml-2 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-brand-300">
