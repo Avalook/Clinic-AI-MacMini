@@ -189,14 +189,14 @@ function VisitRow({
           <span className="block truncate text-sm font-medium text-ink">
             {item.patient.full_name ?? "Chưa rõ tên"}
           </span>
-          <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+          <span className="mt-0.5 block truncate text-label text-ink-muted">
             {patientLine(item.patient) || "Chưa có nhân khẩu học"}
           </span>
-          <span className="mt-0.5 block truncate text-[11px] text-ink-muted">
+          <span className="mt-0.5 block truncate text-label text-ink-muted">
             {item.patient.patient_code ?? "Chưa có mã BN"} · {item.visit_id ?? "Chưa có mã lượt"}
           </span>
           <span className="mt-1.5 flex items-center justify-between gap-2">
-            <span className="text-[11px] text-ink-faint">
+            <span className="text-label text-ink-faint">
               {time(item.started_at ?? item.created_at)} · chờ {waitedMinutes(item)}′
             </span>
             <StatusChip
@@ -340,7 +340,7 @@ function ReconciliationDetail({ item }: { item: WorklistItem }) {
                           <span className="block font-medium text-ink">
                             {l.name ?? l.service_code ?? "Chưa rõ hạng mục"}
                           </span>
-                          <span className="mt-0.5 block text-[11px] text-ink-faint">
+                          <span className="mt-0.5 block text-label text-ink-faint">
                             {l.service_code ?? "Chưa có mã"}
                           </span>
                         </button>
@@ -498,7 +498,7 @@ function ReconciliationDetail({ item }: { item: WorklistItem }) {
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] text-ink-muted">{label}</dt>
+      <dt className="text-label text-ink-muted">{label}</dt>
       <dd className="mt-0.5 max-w-44 truncate font-medium text-ink" title={value}>
         {value}
       </dd>
@@ -519,7 +519,7 @@ function Total({
     tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-ink";
   return (
     <div className="px-2">
-      <dt className="text-[11px] text-ink-muted">{label}</dt>
+      <dt className="text-label text-ink-muted">{label}</dt>
       <dd className={`mt-1 text-base font-semibold tabular-nums ${color}`}>{value}</dd>
     </div>
   );
@@ -549,7 +549,7 @@ function Check({ ok, label }: { ok: boolean; label: string }) {
     <li className="flex items-start gap-2">
       <span
         aria-hidden
-        className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border text-[10px] ${
+        className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border text-label ${
           ok
             ? "border-success bg-success-bg text-success"
             : "border-line-strong bg-surface-sunken text-ink-muted"

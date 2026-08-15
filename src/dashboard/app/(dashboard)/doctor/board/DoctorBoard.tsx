@@ -81,7 +81,7 @@ function PatientRow({
       type="button"
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
-      className={`w-full border-l-[3px] px-2.5 py-3 text-left transition-colors ${
+      className={`w-full border-l-3 px-2.5 py-3 text-left transition-colors ${
         selected
           ? "border-brand-500 bg-surface-selected"
           : "border-transparent bg-surface hover:bg-surface-sunken"

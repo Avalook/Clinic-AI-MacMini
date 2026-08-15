@@ -205,7 +205,7 @@ export default function LabQueueView({
                   key={row.lab_result_id}
                   onClick={() => setSelectedId(row.lab_result_id)}
                   aria-current={row.lab_result_id === selected?.lab_result_id ? "true" : undefined}
-                  className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+                  className={`w-full border-l-3 px-3 py-3 text-left transition-colors ${
                     row.lab_result_id === selected?.lab_result_id
                       ? "border-brand-500 bg-surface-selected"
                       : "border-transparent bg-surface hover:bg-surface-sunken"
@@ -263,7 +263,7 @@ export default function LabQueueView({
                     </div>
                     {row.result_value ? <p className="mt-2 text-xs leading-5 text-ink-soft">{row.result_value}</p> : null}
                     {row.lab_provider ? <p className="mt-1 text-xs text-ink-muted">{row.lab_provider}</p> : null}
-                    <p className="mt-2 text-[11px] text-ink-faint">{fmtDateTimeOrDate(row.result_received_at)}</p>
+                    <p className="mt-2 text-label text-ink-faint">{fmtDateTimeOrDate(row.result_received_at)}</p>
                   </article>
                 );
               })

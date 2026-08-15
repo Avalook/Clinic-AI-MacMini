@@ -67,7 +67,7 @@ export default function Stepper({
           <li key={s.label} className="flex gap-3">
             <div className="flex flex-col items-center">
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[11px] ${DOT[s.state]}`}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-label ${DOT[s.state]}`}
                 aria-hidden
               >
                 {s.icon ?? (s.state === "done" ? "✓" : null)}

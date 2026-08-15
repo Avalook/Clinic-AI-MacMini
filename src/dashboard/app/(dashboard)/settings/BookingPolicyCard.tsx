@@ -109,7 +109,7 @@ export default function BookingPolicyCard({
             ))}
           </select>
           {/* Ghi chú */}
-          <p className="mt-1 text-[11px] text-ink-faint">
+          <p className="mt-1 text-label text-ink-faint">
             Phải chia hết 60 (5/10/15/20/30/60).
           </p>
         </div>
@@ -126,7 +126,7 @@ export default function BookingPolicyCard({
             className={INPUT}
           />
           {/* Ghi chú */}
-          <p className="mt-1 text-[11px] text-ink-faint">
+          <p className="mt-1 text-label text-ink-faint">
             BN1 + BN2 cho CSKH/Lễ tân đặt trước.
           </p>
         </div>
@@ -143,7 +143,7 @@ export default function BookingPolicyCard({
             className={INPUT}
           />
           {/* Ghi chú */}
-          <p className="mt-1 text-[11px] text-ink-faint">
+          <p className="mt-1 text-label text-ink-faint">
             Chỗ dành riêng khách tới trực tiếp.
           </p>
         </div>

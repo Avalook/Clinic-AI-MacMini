@@ -179,8 +179,8 @@ export default function DesignSystemPage() {
                 className="h-12 w-24 rounded-control border border-line"
                 style={{ background: `var(--color-${name})` }}
               />
-              <span className="text-[11px] text-ink-muted">{name}</span>
-              <span className="text-[10px] text-ink-faint">{hex}</span>
+              <span className="text-label text-ink-muted">{name}</span>
+              <span className="text-label text-ink-faint">{hex}</span>
             </div>
           ))}
         </div>

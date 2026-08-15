@@ -133,7 +133,7 @@ export default function PhanHoiKhach({
           <button
             type="button"
             onClick={() => setMoForm((v) => !v)}
-            className="rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"
+            className="rounded-full border border-brand-300 px-2.5 py-0.5 text-label font-semibold text-brand-700 hover:bg-brand-50"
           >
             + Ghi phản hồi
           </button>
@@ -170,10 +170,10 @@ export default function PhanHoiKhach({
           </div>
         )}
 
-        {loi && <p className="text-[11px] text-danger">{loi}</p>}
+        {loi && <p className="text-label text-danger">{loi}</p>}
 
         {items.length === 0 ? (
-          <p className="py-2 text-[11px] text-ink-faint">
+          <p className="py-2 text-label text-ink-faint">
             Chưa có phản hồi nào được ghi.
           </p>
         ) : (
@@ -183,7 +183,7 @@ export default function PhanHoiKhach({
                 key={p.id}
                 className="rounded-xl border border-line bg-surface p-2.5"
               >
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <div className="flex flex-wrap items-center gap-1.5 text-label">
                   <span
                     className={`rounded-full px-2 py-0.5 font-bold ${MAU_LOAI[p.loai] ?? ""}`}
                   >
@@ -209,7 +209,7 @@ export default function PhanHoiKhach({
                 </div>
                 <p className="mt-1 text-xs text-ink">{p.noi_dung}</p>
                 {p.huong_xu_ly && (
-                  <p className="mt-1 text-[11px] text-ink-muted">
+                  <p className="mt-1 text-label text-ink-muted">
                     Xử lý: {p.huong_xu_ly}
                   </p>
                 )}
@@ -222,7 +222,7 @@ export default function PhanHoiKhach({
                           value={huongXuLy}
                           onChange={(e) => setHuongXuLy(e.target.value)}
                           placeholder="Đã xử lý thế nào?"
-                          className="w-full rounded-lg border border-line bg-surface-muted px-2 py-1 text-[11px] text-ink"
+                          className="w-full rounded-lg border border-line bg-surface-muted px-2 py-1 text-label text-ink"
                         />
                         <button
                           type="button"
@@ -230,7 +230,7 @@ export default function PhanHoiKhach({
                             void capNhat(p.id, "DA_XU_LY", huongXuLy.trim())
                           }
                           disabled={dangLuu || !huongXuLy.trim()}
-                          className="rounded-full bg-success px-2.5 py-0.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                          className="rounded-full bg-success px-2.5 py-0.5 text-label font-semibold text-white disabled:opacity-50"
                         >
                           Chốt đã xử lý
                         </button>
@@ -242,7 +242,7 @@ export default function PhanHoiKhach({
                             type="button"
                             onClick={() => void capNhat(p.id, "DANG_XU_LY")}
                             disabled={dangLuu}
-                            className="rounded-full border border-line px-2.5 py-0.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
+                            className="rounded-full border border-line px-2.5 py-0.5 text-label font-medium text-ink-soft hover:bg-surface-muted"
                           >
                             Bắt đầu xử lý
                           </button>
@@ -250,7 +250,7 @@ export default function PhanHoiKhach({
                         <button
                           type="button"
                           onClick={() => setDangDong(p.id)}
-                          className="rounded-full border border-success px-2.5 py-0.5 text-[11px] font-medium text-success hover:bg-success-bg"
+                          className="rounded-full border border-success px-2.5 py-0.5 text-label font-medium text-success hover:bg-success-bg"
                         >
                           Đã xử lý…
                         </button>

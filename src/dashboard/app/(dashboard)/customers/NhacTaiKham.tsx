@@ -169,7 +169,7 @@ export default function NhacTaiKham({
           <button
             type="button"
             onClick={() => setMoForm(true)}
-            className="rounded-xl border border-brand-300 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-50"
+            className="rounded-xl border border-brand-300 px-2.5 py-1 text-label font-semibold text-brand-700 hover:bg-brand-50"
           >
             + Hẹn ngày tái khám
           </button>
@@ -177,11 +177,11 @@ export default function NhacTaiKham({
       </div>
 
       <div className="space-y-3 px-4 py-3">
-        {loi && <p className="text-[11px] text-danger">{loi}</p>}
+        {loi && <p className="text-label text-danger">{loi}</p>}
 
         {moForm && (
           <div className="space-y-2 rounded-xl border border-line bg-surface-muted p-3">
-            <label className="block text-[11px] font-medium text-ink-soft">
+            <label className="block text-label font-medium text-ink-soft">
               Bác sĩ / khách hẹn quay lại ngày
               <input
                 type="date"
@@ -200,7 +200,7 @@ export default function NhacTaiKham({
             {/* Nói TRƯỚC hệ thống sẽ làm gì, thay vì để người dùng lưu xong rồi
                 đoán. Hai mốc này là toàn bộ giá trị của việc gõ ngày vào đây. */}
             {ngay && (
-              <p className="text-[11px] text-ink-muted">
+              <p className="text-label text-ink-muted">
                 Sẽ tự tạo hai việc gọi: <b>{ngayVn(ngay)}</b> là ngày tái khám →
                 mời đặt lịch từ <b>{ngayVn(dichNgay(ngay, -7))}</b>, nhắc đi khám
                 ngày <b>{ngayVn(dichNgay(ngay, -1))}</b>.
@@ -228,7 +228,7 @@ export default function NhacTaiKham({
 
         {moc.length === 0 ? (
           !moForm && (
-            <p className="text-[11px] text-ink-faint">
+            <p className="text-label text-ink-faint">
               Chưa có lời hẹn tái khám nào cho khách này.
             </p>
           )
@@ -258,14 +258,14 @@ export default function NhacTaiKham({
                         : "Gọi nhắc đi khám"}
                     </span>
                     <span
-                      className={`text-[11px] font-semibold ${
+                      className={`text-label font-semibold ${
                         m.qua_han ? "text-danger" : "text-ink-muted"
                       }`}
                     >
                       hạn gọi {ngayVn(m.han_goi)} · {demNguoc(conNgay)}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-ink-muted">
+                  <p className="mt-0.5 text-label text-ink-muted">
                     Tái khám {ngayVn(m.ngay_hen)}
                     {m.ly_do ? ` · ${m.ly_do}` : ""}
                     {m.nguon === "CSKH_NHAP" ? " · CSKH ghi" : " · từ phiếu khám"}
@@ -279,7 +279,7 @@ export default function NhacTaiKham({
                           setGhiChu((p) => ({ ...p, [m.id]: e.target.value }))
                         }
                         placeholder="Ghi chú cuộc gọi (không bắt buộc)"
-                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink"
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-label text-ink"
                       />
                       <div className="flex flex-wrap gap-1.5">
                         {KET_QUA.map(({ ma, nhan, Icon }) => (
@@ -288,7 +288,7 @@ export default function NhacTaiKham({
                             type="button"
                             disabled={dangGhi === m.id}
                             onClick={() => void ghiKetQua(m.id, ma)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2 py-1 text-[11px] font-medium text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+                            className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2 py-1 text-label font-medium text-ink-soft hover:bg-surface-muted disabled:opacity-50"
                           >
                             <Icon size={12} />
                             {nhan}

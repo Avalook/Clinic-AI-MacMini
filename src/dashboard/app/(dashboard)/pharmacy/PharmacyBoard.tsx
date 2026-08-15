@@ -308,7 +308,7 @@ export default function PharmacyBoard({ prescriptions, inventory }: Props) {
                     {fmtQty(total)} {batches[0]?.unit ?? ""}
                   </span>
                 </div>
-                <div className="mt-1 text-[11px] text-ink-faint">
+                <div className="mt-1 text-label text-ink-faint">
                   {batches.length} lô · HSD gần nhất{" "}
                   {new Date(
                     Math.min(...batches.map((b) => +new Date(b.expiry_date))),

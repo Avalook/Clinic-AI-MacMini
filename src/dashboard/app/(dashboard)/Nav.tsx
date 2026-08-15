@@ -107,8 +107,8 @@ export default function Nav({
             title={isCollapsed ? label : undefined}
             className={
               active
-                ? `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-[3px] border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors`
-                : `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-[3px] border-transparent px-3 py-2.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken`
+                ? `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-3 border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors`
+                : `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-3 border-transparent px-3 py-2.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken`
             }
           >
             <span className="relative shrink-0">
@@ -129,7 +129,7 @@ export default function Nav({
               />
             )}
             {!isCollapsed && badge && (
-              <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+              <span className="shrink-0 rounded-full bg-surface-sunken px-1.5 py-0.5 text-label font-medium text-ink-muted">
                 {badge}
               </span>
             )}
@@ -138,7 +138,7 @@ export default function Nav({
       })}
       {/* CSKH_ONLY mode indicator */}
       {featureMode === "CSKH_ONLY" && !isCollapsed && (
-        <div className="mx-3 mt-3 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-[11px] font-medium text-brand-700">
+        <div className="mx-3 mt-3 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-label font-medium text-brand-700">
           ⚡ Chế độ CSKH
         </div>
       )}

@@ -301,7 +301,7 @@ export default function CashierWorkBoard({
                     key={row.visit_id}
                     onClick={() => setSelectedVisitId(row.visit_id)}
                     aria-current={row.visit_id === selected?.visit_id ? "true" : undefined}
-                    className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+                    className={`w-full border-l-3 px-3 py-3 text-left transition-colors ${
                       row.visit_id === selected?.visit_id
                         ? "border-brand-500 bg-surface-selected"
                         : "border-transparent bg-surface hover:bg-surface-sunken"
@@ -320,7 +320,7 @@ export default function CashierWorkBoard({
                                 ? "Chưa đủ dữ liệu"
                                 : fmtVnd(facts.sum)}
                           </span>
-                          <span className={`rounded-chip px-1.5 py-0.5 text-[11px] font-medium ${
+                          <span className={`rounded-chip px-1.5 py-0.5 text-label font-medium ${
                             isPaid ? "bg-success-bg text-success" : !hasItems ? "bg-surface-sunken text-ink-muted" : facts.missing ? "bg-warning-bg text-warning" : "bg-surface-sunken text-ink-muted"
                           }`}>
                             {isPaid ? "Đã thu" : !hasItems ? "Chưa có khoản" : facts.missing ? "Thiếu dữ liệu" : "Chờ thu"}

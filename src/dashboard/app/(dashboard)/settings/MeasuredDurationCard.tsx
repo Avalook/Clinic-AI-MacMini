@@ -73,7 +73,7 @@ export default function MeasuredDurationCard({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-line text-left text-[13px] text-ink-muted">
+              <tr className="border-b border-line text-left text-body text-ink-muted">
                 <th className="px-5 py-2 font-medium">Bác sĩ</th>
                 <th className="px-3 py-2 font-medium">Khung</th>
                 <th className="px-3 py-2 font-medium">Loại khách</th>

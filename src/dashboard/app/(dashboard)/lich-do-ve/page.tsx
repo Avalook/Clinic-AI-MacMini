@@ -160,7 +160,7 @@ export default async function LichDoVePage({
             </tbody>
             {dong.length > 0 && (
               <tfoot>
-                <tr className="bg-brand-50 font-semibold text-brand-800">
+                <tr className="bg-surface-muted font-semibold text-ink">
                   <td className={TD}>Tổng</td>
                   <td className={`${TD} text-right`}>{tong.tong}</td>
                   <td className={`${TD} text-right`}>{tong.khamMoi}</td>
@@ -211,7 +211,7 @@ export default async function LichDoVePage({
                       <tr className="bg-surface-muted">
                         <td
                           colSpan={5}
-                          className="border-b border-hairline border-l-[3px] border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
+                          className="border-b border-hairline border-l-3 border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                         >
                           {dayLabel(ngay)} · {fmtDayMonth(ngay)}
                           <span className={`ml-2 ${chipClass("neutral")}`}>
@@ -233,7 +233,7 @@ export default async function LichDoVePage({
                             <span className="block font-medium text-ink">
                               {a.patient?.full_name ?? "—"}
                             </span>
-                            <span className="block font-mono text-[10px] text-ink-muted">
+                            <span className="block font-mono text-label text-ink-muted">
                               {a.patient?.patient_code}
                             </span>
                           </td>

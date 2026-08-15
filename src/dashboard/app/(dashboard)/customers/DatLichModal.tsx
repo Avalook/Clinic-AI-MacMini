@@ -76,7 +76,7 @@ export default function DatLichModal({
             <h2 className="text-sm font-semibold text-ink">
               {laTaiKham ? "Đặt lịch tái khám" : "Đặt lịch khám mới"} — {tenKhach}
             </h2>
-            <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
+            <p className="mt-0.5 text-label leading-snug text-ink-muted">
               {laTaiKham ? (
                 <>
                   {khoaDichVu ? (

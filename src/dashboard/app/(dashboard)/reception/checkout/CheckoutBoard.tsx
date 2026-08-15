@@ -268,7 +268,7 @@ export default function CheckoutBoard({
                         aria-pressed={active}
                         className={`w-full px-3 py-3 text-left transition-colors ${
                           active
-                            ? "border-l-[3px] border-brand-600 bg-surface-selected pl-[9px]"
+                            ? "border-l-3 border-brand-600 bg-surface-selected pl-[9px]"
                             : "hover:bg-surface-sunken"
                         }`}
                       >
@@ -277,11 +277,11 @@ export default function CheckoutBoard({
                             <span className="block truncate text-sm font-semibold text-ink">
                               {r.patient_name ?? "Chưa rõ tên"}
                             </span>
-                            <span className="block truncate text-[11px] text-ink-muted">
+                            <span className="block truncate text-label text-ink-muted">
                               {r.patient_code ?? "—"}
                             </span>
                           </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-ink-muted">
+                          <span className="shrink-0 text-label tabular-nums text-ink-muted">
                             {r.checked_in_at
                               ? new Date(r.checked_in_at).toLocaleTimeString(
                                   "vi-VN",
@@ -291,7 +291,7 @@ export default function CheckoutBoard({
                           </span>
                         </span>
                         <span
-                          className={`mt-1.5 inline-flex rounded-chip px-2 py-0.5 text-[10px] font-semibold ${
+                          className={`mt-1.5 inline-flex rounded-chip px-2 py-0.5 text-label font-semibold ${
                             r.can_close
                               ? "bg-success-bg text-success"
                               : "bg-warning-bg text-warning"

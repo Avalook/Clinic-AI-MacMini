@@ -119,7 +119,7 @@ function Row({
           <span className="block truncate text-xs text-ink-muted">
             {patientLine(item.patient) || item.patient.patient_code || "Chưa đủ thông tin"}
           </span>
-          <span className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+          <span className="mt-2 flex items-center justify-between gap-2 text-label">
             <StatusChip
               tone={STATUS_PRESENTATION[tone].token as StatusTone}
               label={STATUS_PRESENTATION[tone].label}
@@ -277,7 +277,7 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
           </div>
         </header>
 
-        <div className="grid grid-cols-[42px_minmax(0,1fr)_44px] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-ink-faint">
+        <div className="grid grid-cols-[42px_minmax(0,1fr)_44px] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-faint">
           <span>STT</span>
           <span>Người bệnh</span>
           <span className="text-right">Chờ</span>
@@ -377,7 +377,7 @@ function PatientDetail({ item }: { item: WorklistItem }) {
           </div>
         </dl>
         <div className="rounded-control border border-line p-2 text-center">
-          <p className="text-[11px] text-ink-muted">SLA mục tiêu</p>
+          <p className="text-label text-ink-muted">SLA mục tiêu</p>
           <p className="mt-1 font-semibold text-ink">
             {targetMinutes === null ? "—" : `${targetMinutes} phút`}
           </p>
@@ -387,7 +387,7 @@ function PatientDetail({ item }: { item: WorklistItem }) {
               style={{ width: `${Math.min(100, targetMinutes ? (waited / targetMinutes) * 100 : 0)}%` }}
             />
           </div>
-          <p className="text-[11px] text-ink-muted">Thời gian chờ</p>
+          <p className="text-label text-ink-muted">Thời gian chờ</p>
           <p className="font-semibold text-warning">{waited} phút</p>
         </div>
       </div>
@@ -484,7 +484,7 @@ function CounterPanel({
         <div className="mt-3 rounded-control border border-line p-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-ink">Hiện trạng quầy</h3>
-            <span className="text-[11px] text-warning">Chưa kết nối schema quầy</span>
+            <span className="text-label text-warning">Chưa kết nối schema quầy</span>
           </div>
           <dl className="mt-3 grid grid-cols-4 divide-x divide-line text-center">
             {[
@@ -494,7 +494,7 @@ function CounterPanel({
               ["Trống", "—"],
             ].map(([label, value]) => (
               <div key={label} className="px-1">
-                <dt className="text-[10px] text-ink-muted">{label}</dt>
+                <dt className="text-label text-ink-muted">{label}</dt>
                 <dd className="mt-1 text-sm font-semibold text-ink">{value}</dd>
               </div>
             ))}
@@ -512,18 +512,18 @@ function CounterPanel({
               đối chiếu. Con số chiếm chỗ to nhất mà không phải thứ được đọc lên. */}
           <div className="mt-3 grid grid-cols-[1fr_62px] overflow-hidden rounded-control border border-brand-500 text-center">
             <div className="bg-surface px-2 py-3">
-              <p className="text-[10px] uppercase text-ink-muted">Mời</p>
+              <p className="text-label uppercase text-ink-muted">Mời</p>
               <p className="truncate text-2xl font-semibold text-ink">
                 {item.patient.full_name ?? "—"}
               </p>
               {item.queue_number ? (
-                <p className="text-[11px] text-ink-muted">
+                <p className="text-label text-ink-muted">
                   số {item.queue_number}
                 </p>
               ) : null}
             </div>
             <div className="border-l border-line bg-surface px-2 py-3">
-              <p className="text-[10px] uppercase text-ink-muted">Chờ</p>
+              <p className="text-label uppercase text-ink-muted">Chờ</p>
               <p className="text-xl font-semibold text-ink">{waitedMinutes(item)}′</p>
             </div>
           </div>
@@ -533,7 +533,7 @@ function CounterPanel({
           <h3 className="flex items-center gap-2 text-xs font-semibold text-ink">
             <History size={15} className="text-brand-600" aria-hidden /> Nhật ký thao tác
           </h3>
-          <ul className="mt-2 space-y-2 text-[11px] text-ink-muted">
+          <ul className="mt-2 space-y-2 text-label text-ink-muted">
             <li className="grid grid-cols-[40px_1fr] gap-2">
               <span>{time(item.created_at)}</span><span>Đã vào hàng đợi tiếp nhận</span>
             </li>

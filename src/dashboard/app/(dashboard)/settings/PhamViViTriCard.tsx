@@ -136,7 +136,7 @@ export default function PhamViViTriCard({ items }: { items: OViTri[] }) {
       </div>
 
       {vaiChuaKhai.length > 0 && (
-        <p className="mt-3 text-[11px] text-ink-faint">
+        <p className="mt-3 text-label text-ink-faint">
           Chưa khai vị trí nào cho: {vaiChuaKhai.map((v) => ROLE_LABEL[v]).join(", ")}.
           Những chức danh này tạm thời xếp được vào mọi vị trí.
         </p>

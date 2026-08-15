@@ -146,7 +146,7 @@ export default function AccountActions({
           "Đổi tên đăng nhập" mới biết nick đang là gì — vào chế độ SỬA chỉ
           để ĐỌC. */}
       {mode === "idle" && nick && (
-        <p className="font-mono text-[11px] text-ink-muted">{nick}</p>
+        <p className="font-mono text-label text-ink-muted">{nick}</p>
       )}
       {mode === "idle" && (
         <div className="flex flex-wrap gap-2">

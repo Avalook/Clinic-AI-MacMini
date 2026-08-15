@@ -219,7 +219,7 @@ export default function CinemaSlotPicker({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 text-[11px] text-ink-muted">
+      <div className="flex flex-wrap items-center gap-3 text-label text-ink-muted">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-brand-100 bg-white" />{" "}
           Chỗ hẹn trống ({policy.regularCap} chỗ/khung)
@@ -239,7 +239,7 @@ export default function CinemaSlotPicker({
           ấy chính là thứ vừa bỏ. Nay ngày chưa xếp trực chỉ còn một hàng "Chưa
           phân bác sĩ", nên câu này phải nói đúng chuyện đang xảy ra. */}
       {noDuty && (
-        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-[11px] text-warning">
+        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-label text-warning">
           Ngày này chưa xếp lịch trực bác sĩ. Cứ chọn khung giờ — quản lý sẽ xếp
           bác sĩ sau, ở màn Lịch làm việc.
         </p>
@@ -252,7 +252,7 @@ export default function CinemaSlotPicker({
           trực" — hai màn đọc một bảng, nói hai điều ngược nhau, và CSKH đặt vào
           hàng "chưa phân bác sĩ" cho một ngày đã có người. */}
       {!noDuty && dutyDuKien && (
-        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-[11px] text-warning">
+        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-label text-warning">
           Quản lý chưa bấm “Áp dụng tuần” cho tuần này — giờ trực bên dưới là dự
           kiến và còn có thể đổi. Đặt vẫn được; gọi xác nhận lại với khách sau
           khi tuần được chốt.
@@ -262,16 +262,16 @@ export default function CinemaSlotPicker({
         <table className="border-separate border-spacing-x-1 border-spacing-y-0.5 p-2">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-white px-2 text-left text-[11px] font-medium text-ink-muted">
+              <th className="sticky left-0 z-10 bg-white px-2 text-left text-label font-medium text-ink-muted">
                 Bác sĩ
               </th>
-              <th className="sticky left-[110px] z-10 bg-white px-1 text-left text-[10px] font-normal text-ink-faint">
+              <th className="sticky left-[110px] z-10 bg-white px-1 text-left text-label font-normal text-ink-faint">
                 Chỗ
               </th>
               {slots.map((t) => (
                 <th
                   key={t}
-                  className="whitespace-nowrap px-0.5 text-[10px] font-normal text-ink-faint"
+                  className="whitespace-nowrap px-0.5 text-label font-normal text-ink-faint"
                 >
                   {slotRange(t, policy.slotMinutes)}
                 </th>
@@ -292,7 +292,7 @@ export default function CinemaSlotPicker({
                   )}
                   <td
                     className={
-                      "sticky left-[110px] z-10 whitespace-nowrap bg-white px-1 text-[10px] " +
+                      "sticky left-[110px] z-10 whitespace-nowrap bg-white px-1 text-label " +
                       (sub.kind === "walkin" ? "text-success" : "text-ink-faint")
                     }
                   >
@@ -368,7 +368,7 @@ export default function CinemaSlotPicker({
                             : " · đặt vào đây"
                     }`;
                     const cls =
-                      "h-6 w-full min-w-[3.75rem] rounded text-[10px] font-medium transition " +
+                      "h-6 w-full min-w-[3.75rem] rounded text-label font-medium transition " +
                       (isSelected
                         ? "bg-brand-800 text-white"
                         : ngoaiCa

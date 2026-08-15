@@ -94,7 +94,7 @@ export default function LichTrungCuaKhach({
             <h2 className="text-sm font-semibold text-ink">
               {tenKhach} đang có {conLai.length} lịch sắp tới
             </h2>
-            <p className="mt-0.5 text-[11px] text-ink-muted">
+            <p className="mt-0.5 text-label text-ink-muted">
               Giữ lại lịch khách thật sự muốn đến, bỏ những lịch còn lại.
             </p>
           </div>
@@ -124,7 +124,7 @@ export default function LichTrungCuaKhach({
                 <div className="text-xs font-bold text-ink">
                   {fmtDayTime(l.slot_start)}
                 </div>
-                <div className="truncate text-[11px] text-ink-soft">
+                <div className="truncate text-label text-ink-soft">
                   {l.service_name || "Chưa chọn dịch vụ"}
                   {" · "}
                   {l.doctor_name || "Chưa phân bác sĩ"}
@@ -145,7 +145,7 @@ export default function LichTrungCuaKhach({
                     ? "Đây là lịch duy nhất — huỷ hẳn thì dùng “Đổi / huỷ lịch hẹn”"
                     : undefined
                 }
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-danger/40 px-2.5 py-1.5 text-[11px] font-semibold text-danger hover:bg-danger-bg disabled:opacity-40"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-danger/40 px-2.5 py-1.5 text-label font-semibold text-danger hover:bg-danger-bg disabled:opacity-40"
               >
                 <CalendarX2 className="size-3.5" />
                 {dangHuy === l.id ? "Đang bỏ…" : "Bỏ lịch này"}

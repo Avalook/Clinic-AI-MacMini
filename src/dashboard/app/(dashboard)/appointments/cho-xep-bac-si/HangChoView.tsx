@@ -189,7 +189,7 @@ export default function HangChoView({
                   Thêm 11/08/2026: trước đó màn này chỉ hỏi `doctor_id IS NULL`
                   nên loại thứ hai vô hình hoàn toàn. */}
               {r.ly_do === "MAT_BAC_SI" && (
-                <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-danger-bg px-2 py-0.5 text-[11px] font-medium text-danger">
+                <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-danger-bg px-2 py-0.5 text-label font-medium text-danger">
                   <TriangleAlert className="size-3" aria-hidden="true" />
                   {r.bac_si_cu
                     ? `${r.bac_si_cu} không còn ca trực ngày này — cần xếp lại`
@@ -199,7 +199,7 @@ export default function HangChoView({
               {/* Xếp bác sĩ cho một tuần chưa chốt là xếp dựa trên bản nháp —
                   lịch trực tuần đó còn đổi được. Nói ra chứ đừng chặn. */}
               {!r.tuan_da_chot && (
-                <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-warning-bg px-2 py-0.5 text-[11px] text-warning">
+                <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-warning-bg px-2 py-0.5 text-label text-warning">
                   <TriangleAlert className="size-3" aria-hidden="true" />
                   Tuần này chưa áp dụng lịch trực
                 </p>
@@ -225,7 +225,7 @@ export default function HangChoView({
             <div className="flex flex-col items-start gap-1">
               {/* GIỜ KHÁM — quản lý đổi được, không chỉ xếp người.
                   Bỏ trống = giữ nguyên giờ CSKH đã hẹn với khách. */}
-              <label className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+              <label className="flex items-center gap-1.5 text-label text-ink-muted">
                 Giờ
                 <input
                   type="time"
@@ -237,7 +237,7 @@ export default function HangChoView({
                 />
               </label>
               {(gio[r.id] ?? gioCuaLich(r)) !== gioCuaLich(r) && (
-                <p className="text-[11px] font-medium text-warning">
+                <p className="text-label font-medium text-warning">
                   Lệch giờ CSKH hẹn ({gioCuaLich(r)}) — hệ thống sẽ ghi lại để
                   CSKH gọi báo khách.
                 </p>

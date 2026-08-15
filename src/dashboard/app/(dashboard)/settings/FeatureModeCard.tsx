@@ -90,7 +90,7 @@ export default function FeatureModeCard({
                 <p className={`text-sm font-semibold ${m.color}`}>
                   {m.label}
                   {selected && (
-                    <span className="ml-1.5 inline-flex items-center rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+                    <span className="ml-1.5 inline-flex items-center rounded-full bg-white/80 px-1.5 py-0.5 text-label font-medium text-ink-muted">
                       Đang dùng
                     </span>
                   )}

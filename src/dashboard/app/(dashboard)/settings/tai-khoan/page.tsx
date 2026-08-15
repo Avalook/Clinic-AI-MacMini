@@ -154,7 +154,7 @@ export default async function ThietLapTaiKhoanPage() {
       <div className="hidden min-h-[180px] max-h-[88vh] overflow-x-auto overflow-y-auto rounded-card border border-line bg-surface shadow-card md:block">
         <table className="min-w-full divide-y divide-brand-100 text-sm">
           {/* Tiêu đề bảng, cố định khi cuộn */}
-          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+          <thead className="sticky top-0 z-10 bg-brand-100 text-left text-label font-semibold uppercase tracking-wide text-brand-800">
             <tr>
               <th className={TH}>Họ tên</th> {/* Cột họ tên */}
               <th className={TH}>Vai trò</th> {/* Cột vai trò */}

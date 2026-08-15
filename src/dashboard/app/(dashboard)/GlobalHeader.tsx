@@ -267,7 +267,7 @@ export default function GlobalHeader({
 
         <div className="hidden sm:block">
           <h1 className="text-base font-bold text-ink leading-tight">{title}</h1>
-          <p className="text-[11px] text-ink-muted leading-none">{subtitle}</p>
+          <p className="text-label text-ink-muted leading-none">{subtitle}</p>
         </div>
       </div>
 
@@ -310,7 +310,7 @@ export default function GlobalHeader({
               </div>
 
               {/* Day Labels */}
-              <div className="mb-2 grid grid-cols-7 text-center text-[11px] font-semibold text-ink-muted">
+              <div className="mb-2 grid grid-cols-7 text-center text-label font-semibold text-ink-muted">
                 <span>CN</span>
                 <span>T2</span>
                 <span>T3</span>
@@ -369,7 +369,7 @@ export default function GlobalHeader({
           >
             <Bell size={16} />
             {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white shadow-xs">
+              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-danger text-label font-bold text-white shadow-xs">
                 {unreadCount}
               </span>
             )}
@@ -383,7 +383,7 @@ export default function GlobalHeader({
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-[11px] font-medium text-brand-600 hover:underline"
+                    className="text-label font-medium text-brand-600 hover:underline"
                   >
                     Đánh dấu đã đọc
                   </button>
@@ -428,10 +428,10 @@ export default function GlobalHeader({
                         <p className="font-medium leading-tight text-ink">
                           {n.title}
                         </p>
-                        <p className="text-[11px] text-ink-soft">{n.detail}</p>
-                        <span className="text-[10px] text-ink-muted">{n.at}</span>
+                        <p className="text-label text-ink-soft">{n.detail}</p>
+                        <span className="text-label text-ink-muted">{n.at}</span>
                         {n.duongDan && (
-                          <span className="mt-0.5 block text-[11px] font-semibold text-brand-700">
+                          <span className="mt-0.5 block text-label font-semibold text-brand-700">
                             Bấm để xử lý →
                           </span>
                         )}
@@ -459,7 +459,7 @@ export default function GlobalHeader({
                           void danhDauDaXuLy(n.thongBaoId!);
                         }}
                         title="Đã làm xong việc này — bỏ khỏi chuông"
-                        className="shrink-0 self-start rounded-lg border border-line bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft hover:bg-surface-muted"
+                        className="shrink-0 self-start rounded-lg border border-line bg-surface px-1.5 py-0.5 text-label font-semibold text-ink-soft hover:bg-surface-muted"
                       >
                         Xong
                       </button>
@@ -497,7 +497,7 @@ export default function GlobalHeader({
             <span className="block truncate text-xs font-bold text-ink leading-none">
               {staffName}
             </span>
-            <span className="block text-[10px] font-medium text-ink-muted leading-none mt-0.5">
+            <span className="block text-label font-medium text-ink-muted leading-none mt-0.5">
               {ROLE_LABEL[role]}
             </span>
           </div>

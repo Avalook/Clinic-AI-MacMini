@@ -255,7 +255,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                             {content(r)}
                           </span>
                         )}
-                        <span className="mt-1 block truncate text-[11px] text-ink-muted">
+                        <span className="mt-1 block truncate text-label text-ink-muted">
                           {fmtDateTimeOrDate(r.source_created_at)}
                           {r.status ? ` · ${r.status}` : ""}
                         </span>
@@ -273,7 +273,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
           <aside className="w-full shrink-0 space-y-4 rounded-card border border-line bg-surface p-4 shadow-card lg:w-[380px]">
             <div className="flex items-start justify-between gap-2 border-b border-line pb-3">
               <div>
-                <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
+                <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-label font-medium text-brand-700">
                   {sel.category ?? "Sau khám"}
                 </span>
                 <h3 className="mt-1 text-base font-semibold text-ink">
@@ -281,7 +281,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 </h3>
                 <p className="text-xs text-ink-muted">Mã việc: FU-260514-038</p>
               </div>
-              <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-label font-medium text-amber-700">
                 Đến hạn hôm nay
               </span>
             </div>
@@ -295,7 +295,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
                 {sel.patient && (
                   <Link
                     href={`/patients/${sel.patient.clinic_patient_id}`}
-                    className="inline-flex items-center gap-1 text-brand-600 hover:underline text-[11px]"
+                    className="inline-flex items-center gap-1 text-brand-600 hover:underline text-label"
                   >
                     Mở hồ sơ khách <ExternalLink size={12} />
                   </Link>
@@ -385,7 +385,7 @@ export default function CskhActionBoard({ rows }: { rows: CskhActionRow[] }) {
 
             {/* Completion Checklist */}
             <div className="rounded-lg border border-line bg-surface-muted p-2.5 text-xs space-y-1.5">
-              <p className="font-semibold text-ink text-[11px]">Điều kiện hoàn thành</p>
+              <p className="font-semibold text-ink text-label">Điều kiện hoàn thành</p>
               <label className="flex items-center gap-2 text-ink-soft cursor-pointer">
                 <input
                   type="checkbox"

@@ -85,7 +85,7 @@ export default function QueueBoard({
             <ListOrdered size={18} />
           </span>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Nội bộ</p>
+            <p className="text-label font-semibold uppercase tracking-[0.14em] text-brand-700">Nội bộ</p>
             <h1 className="mt-1 text-xl font-semibold text-ink">Hàng đợi khám</h1>
             <p className="mt-1 text-sm text-ink-muted">
               Danh sách có dữ liệu định danh, chỉ dành cho nhân sự đã được cấp quyền.
@@ -141,7 +141,7 @@ export default function QueueBoard({
 
                 {b3.length > 0 && (
                   <div className="border-b border-warning-bg bg-warning-bg px-3 py-2">
-                    <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-warning">
+                    <p className="mb-1 flex items-center gap-1 text-label font-semibold uppercase tracking-wide text-warning">
                       <BellRing size={12} /> Chờ đọc kết quả
                     </p>
                     <ul className="space-y-1">
@@ -154,7 +154,7 @@ export default function QueueBoard({
 
                 {inExam.length > 0 && (
                   <div className="border-b border-success-bg bg-success-bg px-3 py-2">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-success">
+                    <p className="mb-1 text-label font-semibold uppercase tracking-wide text-success">
                       Đang khám
                     </p>
                     <ul className="space-y-1">
@@ -236,7 +236,7 @@ function QueueLine({
         <p className="truncate text-sm font-semibold text-ink">
           {r.patient?.full_name ?? "—"}
         </p>
-        <p className="truncate text-[11px] text-ink-muted">
+        <p className="truncate text-label text-ink-muted">
           {r.queue_number ? (
             <span className="font-mono text-brand-800">Vé {r.queue_number}</span>
           ) : (
@@ -248,7 +248,7 @@ function QueueLine({
       </div>
       <span
         className={
-          "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium " +
+          "shrink-0 rounded-full px-2 py-0.5 text-label font-medium " +
           (readback
             ? "bg-warning-bg text-warning"
             : booked

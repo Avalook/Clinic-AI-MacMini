@@ -36,7 +36,7 @@ export default function BottomNav({
 
   const tabClass = (active: boolean) =>
     [
-      "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors duration-150",
+      "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium transition-colors duration-150",
       active ? "text-brand-600" : "text-ink-muted active:text-ink",
     ].join(" ");
 
@@ -66,7 +66,7 @@ export default function BottomNav({
         type="button"
         onClick={onMenu}
         aria-label="Mở menu đầy đủ"
-        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-ink-muted transition-colors duration-150 active:text-ink"
+        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium text-ink-muted transition-colors duration-150 active:text-ink"
       >
         <Menu size={20} strokeWidth={2} />
         <span className="leading-none">Menu</span>

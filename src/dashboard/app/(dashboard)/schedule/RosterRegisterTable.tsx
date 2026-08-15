@@ -316,7 +316,7 @@ export default function RosterRegisterTable({
                   effRows.filter((r) => r.status !== "REJECTED"),
                   d,
                 )}
-                vach={ri % 2 ? "bg-brand-50" : "bg-surface"}
+                vach={ri % 2 ? "bg-surface-muted" : "bg-surface"}
                 oCua={(s, hang) => {
                   const list = chiaHaiHang(byCell.get(cellKey(d, s.key)) ?? [])[hang];
                   return (

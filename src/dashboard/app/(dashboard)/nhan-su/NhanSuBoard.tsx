@@ -201,7 +201,7 @@ export default function NhanSuBoard({
                   </span>
                 </span>
                 {!s.is_active && (
-                  <span className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] text-ink-muted">
+                  <span className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-label text-ink-muted">
                     đã nghỉ
                   </span>
                 )}
@@ -463,7 +463,7 @@ export default function NhanSuBoard({
                   className="rounded-lg border border-dashed border-line px-3 py-2"
                 >
                   <span className="block text-sm text-ink-muted">{f.label}</span>
-                  <span className="block text-[11px] text-ink-muted opacity-70">
+                  <span className="block text-label text-ink-muted opacity-70">
                     {f.note}
                   </span>
                 </li>

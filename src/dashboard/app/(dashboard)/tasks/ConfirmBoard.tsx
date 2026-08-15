@@ -344,13 +344,13 @@ export default function ConfirmBoard({
         {/* Khung kéo co dãn + cuộn: bảng co thì CUỘN, không vỡ cấu trúc. */}
         <div className="max-h-[80vh] min-h-[200px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
           <table className="w-full min-w-max border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[10px] font-semibold uppercase tracking-wide text-brand-800">
+            <thead className="sticky top-0 z-10 bg-brand-100 text-left text-label font-semibold uppercase tracking-wide text-brand-800">
               <tr>
-                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[96px]">Ngày</th>
-                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[60px]">Giờ</th>
-                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[180px]">Bệnh nhân</th>
-                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[120px]">Dịch vụ</th>
-                <th className="border-b border-r border-brand-100 px-2 py-1.5 min-w-[110px]">Bác sĩ</th>
+                <th className="border-b border-hairline px-2 py-1.5 min-w-24">Ngày</th>
+                <th className="border-b border-hairline px-2 py-1.5 min-w-15">Giờ</th>
+                <th className="border-b border-hairline px-2 py-1.5 min-w-45">Bệnh nhân</th>
+                <th className="border-b border-hairline px-2 py-1.5 min-w-30">Dịch vụ</th>
+                <th className="border-b border-hairline px-2 py-1.5 min-w-28">Bác sĩ</th>
                 <th className="border-b border-brand-100 px-2 py-1.5 min-w-[110px]">Trạng thái</th>
               </tr>
             </thead>
@@ -378,23 +378,23 @@ export default function ConfirmBoard({
                             " hover:bg-brand-50")
                       }
                     >
-                      <td className="border-r border-brand-100 px-2 py-1.5 whitespace-nowrap font-medium text-brand-800">
+                      <td className="px-2 py-1.5 whitespace-nowrap font-medium text-brand-800">
                         {newDay ? `${dayLabel(d)} · ${fmtDayMonth(d)}` : ""}
                       </td>
-                      <td className="border-r border-brand-100 px-2 py-1.5 whitespace-nowrap text-ink">
+                      <td className="px-2 py-1.5 whitespace-nowrap text-ink">
                         {fmtTimeOrNone(a.slot_start)}
                       </td>
-                      <td className="border-r border-brand-100 px-2 py-1.5 text-ink">
+                      <td className="px-2 py-1.5 text-ink">
                         <span className="block">{a.patient?.full_name ?? "—"}</span>
-                        <span className="block font-mono text-[10px] text-ink-muted">
+                        <span className="block font-mono text-label text-ink-muted">
                           {a.patient?.patient_code}
                           {a.patient?.phone_primary ? ` · ${a.patient.phone_primary}` : ""}
                         </span>
                       </td>
-                      <td className="border-r border-brand-100 px-2 py-1.5 text-ink-soft">
+                      <td className="px-2 py-1.5 text-ink-soft">
                         {a.service?.name ?? "—"}
                       </td>
-                      <td className="border-r border-brand-100 px-2 py-1.5 whitespace-nowrap text-ink-soft">
+                      <td className="px-2 py-1.5 whitespace-nowrap text-ink-soft">
                         {a.doctor?.full_name ?? "—"}
                       </td>
                       <td className="px-2 py-1.5">

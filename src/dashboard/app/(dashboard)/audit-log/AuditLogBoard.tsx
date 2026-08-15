@@ -288,7 +288,7 @@ export default function AuditLogBoard({ events, soNguoi }: Props) {
             <div className="flex items-start justify-between border-b border-line pb-3">
               <div>
                 {/* Badge loại đối tượng */}
-                <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
+                <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-label font-medium text-brand-700">
                   {sel.aggregate_label}
                 </span>
                 {/* Tên hành động */}

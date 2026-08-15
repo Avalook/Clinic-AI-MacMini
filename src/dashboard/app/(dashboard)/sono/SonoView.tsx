@@ -393,7 +393,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                   key={row.id}
                   onClick={() => setSelectedId(row.id)}
                   aria-current={row.id === selected?.id ? "true" : undefined}
-                  className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+                  className={`w-full border-l-3 px-3 py-3 text-left transition-colors ${
                     row.id === selected?.id ? "border-brand-500 bg-surface-selected" : "border-transparent bg-surface hover:bg-surface-sunken"
                   }`}
                 >
@@ -407,7 +407,7 @@ export default function SonoView({ sa, xn }: { sa: SonoRow[]; xn: SonoRow[] }) {
                       <span className="mt-0.5 block truncate text-xs text-ink-muted">{row.patient?.patient_code ?? "Chưa có mã BN"}</span>
                       <span className="mt-1 flex items-center justify-between gap-2">
                         <span className="truncate text-xs text-ink-faint">{row.service_name_raw ?? "Chưa có tên dịch vụ"}</span>
-                        {kind === "SA" ? <SaBadge status={row.status} /> : <span className={`rounded-chip px-1.5 py-0.5 text-[11px] font-medium ${row.finished_at ? "bg-success-bg text-success" : "bg-surface-sunken text-ink-muted"}`}>{row.finished_at ? "Có KQ" : "Đang xử lý"}</span>}
+                        {kind === "SA" ? <SaBadge status={row.status} /> : <span className={`rounded-chip px-1.5 py-0.5 text-label font-medium ${row.finished_at ? "bg-success-bg text-success" : "bg-surface-sunken text-ink-muted"}`}>{row.finished_at ? "Có KQ" : "Đang xử lý"}</span>}
                       </span>
                     </span>
                   </span>

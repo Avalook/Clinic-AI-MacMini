@@ -91,7 +91,7 @@ function PatientKind({ value }: { value: ExaminedRow["phan_loai"] }) {
   return (
     <span
       className={
-        "inline-flex items-center rounded-chip px-2 py-1 text-[10px] font-semibold " +
+        "inline-flex items-center rounded-chip px-2 py-1 text-label font-semibold " +
         KIND_CLASS[value]
       }
     >
@@ -106,7 +106,7 @@ function AppointmentStatus({ status }: { status: string }) {
     className: "bg-surface-sunken text-ink-soft",
   };
   return (
-    <span className={`inline-flex rounded-chip px-2 py-1 text-[10px] font-semibold ${presentation.className}`}>
+    <span className={`inline-flex rounded-chip px-2 py-1 text-label font-semibold ${presentation.className}`}>
       {presentation.label}
     </span>
   );
@@ -125,7 +125,7 @@ function DetailLine({
     <div className="flex gap-2.5 py-2.5">
       <span className="mt-0.5 shrink-0 text-brand-600">{icon}</span>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
+        <p className="text-label font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
         <div className="mt-0.5 break-words text-sm text-ink">{value}</div>
       </div>
     </div>
@@ -278,7 +278,7 @@ export default function PatientListView({
               {item.label}
             </button>
           ))}
-          <span className="ml-auto inline-flex items-center gap-1 px-1 text-[11px] text-ink-faint">
+          <span className="ml-auto inline-flex items-center gap-1 px-1 text-label text-ink-faint">
             <SlidersHorizontal size={12} /> Lọc cục bộ
           </span>
         </div>
@@ -301,8 +301,8 @@ export default function PatientListView({
                   className={
                     "flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors " +
                     (active
-                      ? "border-l-[3px] border-brand-600 bg-surface-selected pl-[13px]"
-                      : "border-l-[3px] border-transparent hover:bg-surface-muted")
+                      ? "border-l-3 border-brand-600 bg-surface-selected pl-[13px]"
+                      : "border-l-3 border-transparent hover:bg-surface-muted")
                   }
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">
@@ -313,10 +313,10 @@ export default function PatientListView({
                       <span className="truncate text-sm font-semibold text-ink">{row.full_name}</span>
                       <PatientKind value={row.phan_loai} />
                     </span>
-                    <span className="mt-1 block truncate font-mono text-[11px] text-ink-muted">
+                    <span className="mt-1 block truncate font-mono text-label text-ink-muted">
                       {row.patient_code}
                     </span>
-                    <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-ink-muted">
+                    <span className="mt-1 flex items-center justify-between gap-2 text-label text-ink-muted">
                       <span className="truncate">{row.phone_primary ?? "Chưa có SĐT"}</span>
                       <span className="shrink-0 tabular-nums">
                         {row.latest

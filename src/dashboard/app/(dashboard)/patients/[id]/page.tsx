@@ -84,7 +84,7 @@ export default async function PatientDetailPage({
   return (
     <div className="mx-auto max-w-[1320px] space-y-5">
       <header className="rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-700">Hồ sơ & hành trình</p>
+        <p className="text-label font-semibold uppercase tracking-[0.14em] text-brand-700">Hồ sơ & hành trình</p>
         <h1 className="mt-1 text-xl font-semibold text-ink">Hồ sơ bệnh nhân</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Thông tin hành chính và lịch hẹn. CCCD không hiển thị; nội dung lâm sàng

@@ -364,7 +364,7 @@ export default async function PatientHistory({
             {/* Desktop: table (≥md). */}
             <div className={`hidden overflow-auto max-h-[88vh] min-h-[180px] md:block ${CARD}`}>
               <table className="min-w-full divide-y divide-brand-100 text-sm">
-              <thead className="sticky top-0 z-10 bg-brand-100 text-left text-[11px] font-semibold uppercase tracking-wide text-brand-800">
+              <thead className="sticky top-0 z-10 bg-brand-100 text-left text-label font-semibold uppercase tracking-wide text-brand-800">
                 <tr>
                   <th className={TH}>Ngày</th>
                   <th className={TH}>Xét nghiệm</th>

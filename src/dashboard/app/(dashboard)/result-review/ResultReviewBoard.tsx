@@ -124,7 +124,7 @@ export default function ResultReviewBoard({ results }: Props) {
                   </span>
                   {/* Badge cờ đánh dấu với màu theo mức độ */}
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-label font-medium ${
                       // Nếu là nguy kịch thì màu đỏ
                       r.flag === "CRITICAL_HIGH" || r.flag === "CRITICAL_LOW"
                         ? "bg-danger-bg text-danger"

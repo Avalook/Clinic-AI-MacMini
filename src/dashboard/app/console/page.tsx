@@ -134,7 +134,7 @@ export default async function ConsolePage() {
           {!failed && data.workload?.length ? (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-[13px] text-ink-muted">
+                <tr className="border-b border-line text-left text-body text-ink-muted">
                   <th className="px-5 py-2 font-medium">Khu</th>
                   <th className="px-3 py-2 font-medium">Chờ</th>
                   <th className="px-3 py-2 font-medium">Đang làm</th>

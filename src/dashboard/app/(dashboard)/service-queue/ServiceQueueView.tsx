@@ -264,7 +264,7 @@ export default function ServiceQueueView({
                     key={row.id}
                     onClick={() => setSelectedId(row.id)}
                     aria-current={row.id === selected?.id ? "true" : undefined}
-                    className={`w-full border-l-[3px] px-3 py-3 text-left transition-colors ${
+                    className={`w-full border-l-3 px-3 py-3 text-left transition-colors ${
                       row.id === selected?.id ? "border-brand-500 bg-surface-selected" : "border-transparent bg-surface hover:bg-surface-sunken"
                     }`}
                   >
@@ -273,7 +273,7 @@ export default function ServiceQueueView({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-ink">{row.service_name_raw ?? "Chưa có tên dịch vụ"}</span>
                         <span className="mt-0.5 block truncate text-xs text-ink-muted">{patientLabel(row)} · {row.patient?.patient_code ?? "Chưa có mã"}</span>
-                        <span className={`mt-1 inline-flex rounded-chip px-1.5 py-0.5 text-[11px] font-medium ${started ? "bg-status-in-progress-bg text-status-in-progress" : "bg-surface-sunken text-ink-muted"}`}>
+                        <span className={`mt-1 inline-flex rounded-chip px-1.5 py-0.5 text-label font-medium ${started ? "bg-status-in-progress-bg text-status-in-progress" : "bg-surface-sunken text-ink-muted"}`}>
                           {started ? "Đang thực hiện" : "Chờ thực hiện"}
                         </span>
                       </span>
@@ -313,7 +313,7 @@ export default function ServiceQueueView({
                   <p className="truncate text-sm font-semibold text-ink">{row.service_name_raw ?? "Chưa có tên dịch vụ"}</p>
                   <p className="mt-0.5 truncate text-xs text-ink-muted">{patientLabel(row)} · {row.patient?.patient_code ?? "Chưa có mã"}</p>
                   {row.result_text ? <p className="mt-2 text-xs leading-5 text-ink-soft">{row.result_text}</p> : null}
-                  <p className="mt-2 text-[11px] text-ink-faint">{fmtDateTimeOrDate(row.finished_at)}</p>
+                  <p className="mt-2 text-label text-ink-faint">{fmtDateTimeOrDate(row.finished_at)}</p>
                 </article>
               ))
             ) : (
