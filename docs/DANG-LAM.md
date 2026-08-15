@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **07/08/2026**, cuối phiên.
+Cập nhật: **15/08/2026**, cuối phiên (mục 0 là mới nhất; các mục dưới là nền từ 07/08, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -10,6 +10,53 @@ lịch sử hội thoại.
 > Bản trước của file này **chưa từng được commit** nên đã mất theo phiên. Từ giờ
 > nó nằm trong git. Cuối mỗi phiên: cập nhật lại, nhất là mục "chờ Quang quyết"
 > và "cạm bẫy".
+
+---
+
+## 0. Phiên 15/08/2026 (Tuyền) — 16 PR #112–#127, prod & staging đồng bộ
+
+**Đại tu giao diện xong cả 5 bước (0→4).** DESIGN.md là hiến pháp; nguyên tử
+Button/Chip/NutInPhieu ở `components/ui/`; ratchet `[..px]` trần 102 (từ 474)
+sống trong `px-tu-che-ratchet-boundary.test.mts` — vượt là CI đỏ, dọn được
+thì phải hạ trần. Thanh cuộn ẩn tới khi rê vào vùng cuộn.
+
+**Chuỗi lịch-bác-sĩ có kết thúc thật.** Xoá ca → lịch tương lai của ca ấy
+HUỶ HẲN (mã `BAC_SI_DOI_LICH`, giữ vết `bac_si_da_go_id` cho câu "đổi từ
+ai"); gán được bác sĩ là vết xoá, cảnh báo tắt; khung giờ trống thật để đặt
+lại cùng khách + bác sĩ khác. Cơ chế "thêm lại ca thì lịch tự quay về" (#115)
+đã GỠ theo quyết định của Tuyền — bia mộ kèm lý do trong
+`test_khoi_phuc_lich_khi_xep_lai_ca.py`.
+
+**Một bệnh nhân nhiều SĐT.** Bảng `patient_sdt_them` + cột gộp
+`patient.sdt_tim_kiem` (trigger nuôi) — mọi đường tìm tra số nào cũng ra.
+Nút "＋ Thêm số cho khách này" trong ô cảnh báo trùng (trùng SỐ lẫn trùng
+TÊN — tên 3 ký tự là hỏi, không cần năm sinh); xoá số trong khối sửa hồ sơ.
+
+**Telegram trọn bộ.** Bot `@chat_Tuyen_bot` ("Theo dõi Clinic"), token trong
+`.env.prod` trên VPS; kênh: chat riêng Tuyền `8457103265` + nhóm
+`-1003672911684` (MVP2: Clinic AI). Relay realtime (nghe pg_notify
+`clinicai_changes`, trigger event_log CHỈ INSERT — nghe UPDATE là tự đánh
+thức vô tận); 4 tin: lịch mới/huỷ/đổi/xoá ca; bot lệnh /trangthai /homnay
+(chỉ trả lời kênh đã đăng ký, trả lời đúng nơi hỏi); Kuma cũng bắn cùng
+kênh (4 monitor + Sao lưu đêm). KHÔNG SĐT khách nào qua Telegram — có test.
+Đổi kênh: sửa `TELEGRAM_CHAT_ID` (danh sách phẩy) trong `.env.prod` rồi
+`docker compose --env-file .env.prod -p clinicai_prod --profile notifications up -d notification-relay`.
+
+**Cạm bẫy mới trả giá hôm nay:**
+- PostgREST cache lược đồ — thêm bảng/FK mới thì `docker restart clinicai_rest`
+  (đã ghi vào lệnh migration mẫu), không thì màn đỏ "Could not find a relationship".
+- Migration prod là việc của người (classifier chặn agent ghi DB prod); thứ tự
+  BẮT BUỘC: DB trước, code sau — CHECK chưa nới mà code ghi mã mới là 500.
+- CI mypy chạy `src/` (không chỉ src/clinicai); tenant-scope audit đòi mọi câu
+  ghi tự khoá clinic_id; drift-test audit_labels đòi nhãn Việt cho event mới.
+- `gh pr merge` khi CI chưa xong sẽ trượt lặng lẽ — đợi `gh run watch` xong
+  hẳn rồi mới merge + tag, không thì tag chỉa vào main cũ.
+
+**Chờ quyết / việc treo:** dọn prod trước bàn giao
+(`scripts/don-prod-truoc-ban-giao.sql` — Tuyền chạy tay); đổi mật khẩu chung
+12345678 sau bàn giao; token bot đã đi qua khung chat — muốn kín thì /revoke
+rồi thay trong .env.prod; nếu nhóm MVP2 thêm người ngoài thì tách kênh (tin
+nghiệp vụ có tên khách + mã BN).
 
 ---
 
