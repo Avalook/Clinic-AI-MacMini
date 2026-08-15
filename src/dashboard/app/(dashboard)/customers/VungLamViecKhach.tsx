@@ -70,13 +70,16 @@ const TRUOC_KHAM: TrangThai[] = [
  *  timeline, đúng yêu cầu của Quang ("giống mấy cái nút làm bước này"). Tách ra
  *  hàm để hai chỗ không trôi khỏi nhau. */
 function nutLoiRa(chon: boolean, xong: boolean, dang: boolean): string {
-  const nen = "rounded-full px-2.5 py-0.5 text-[11px]";
+  // Dáng pill GIỮ NGUYÊN — Quang chốt hình nút này ("giống mấy cái nút làm
+  // bước này"), và lời người dùng đứng trên DESIGN.md. Chỉ đổi cách vẽ viền:
+  // ring-inset thay border để góc cong không nhạt hơn cạnh (DESIGN.md §5).
+  const nen = "rounded-full px-2.5 py-0.5 text-label";
   if (chon) return `${nen} bg-brand-700 font-semibold text-white`;
   if (xong)
-    return `${nen} border border-line font-medium text-ink-soft hover:bg-surface-muted`;
+    return `${nen} ring-1 ring-inset ring-line font-medium text-ink-soft hover:bg-surface-muted`;
   if (dang)
     return `${nen} bg-brand-600 font-semibold text-white hover:bg-brand-700`;
-  return `${nen} border border-brand-300 font-medium text-brand-700 hover:bg-brand-50`;
+  return `${nen} ring-1 ring-inset ring-brand-300 font-medium text-brand-700 hover:bg-brand-50`;
 }
 
 /** MỘT TRẠNG THÁI, NHIỀU LỐI RA — gom vào một hàng.
@@ -198,18 +201,18 @@ function HangGop({
             {tenHienTai}
           </span>
           {daChon && (
-            <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+            <span className="rounded-chip bg-surface-sunken px-1.5 py-0.5 text-label font-medium text-ink-muted">
               {ten}
             </span>
           )}
           {dang && !xong && (
-            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+            <span className="rounded-chip bg-brand-100 px-2 py-0.5 text-label font-bold text-brand-800">
               đang ở đây
             </span>
           )}
         </div>
 
-        <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">{viec}</p>
+        <p className="mt-0.5 text-label leading-snug text-ink-muted">{viec}</p>
 
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {loiRa.length === 0 ? (
@@ -243,10 +246,10 @@ function HangGop({
             })
           )}
         </div>
-        {loi && <p className="mt-1 text-[11px] text-danger">{loi}</p>}
+        {loi && <p className="mt-1 text-label text-danger">{loi}</p>}
 
         {lan && (
-          <p className="mt-1 text-[11px] leading-snug text-ink-soft">
+          <p className="mt-1 text-label leading-snug text-ink-soft">
             <span className="font-mono text-ink-muted">
               {gio(lan.xay_ra_luc)}
             </span>
@@ -369,12 +372,12 @@ function MotViecGoiNhac({
             {viec.luot_goi === 1 ? "Gọi mời tái khám" : "Gọi nhắc đi khám"}
           </span>
           {viec.qua_han && (
-            <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-bold text-danger">
+            <span className="rounded-chip bg-danger-bg px-2 py-0.5 text-label font-bold text-danger">
               quá hạn
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
+        <p className="mt-0.5 text-label leading-snug text-ink-muted">
           Hẹn quay lại {ngayVn(viec.ngay_hen)} · phải gọi trước{" "}
           {ngayVn(viec.han_goi)}
           {viec.ly_do ? ` · ${viec.ly_do}` : ""}
@@ -386,13 +389,13 @@ function MotViecGoiNhac({
               type="button"
               disabled={Boolean(dang)}
               onClick={() => onGhi(k.ketQua)}
-              className="rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              className="rounded-full px-2.5 py-0.5 text-label font-medium text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 disabled:opacity-50"
             >
               {dang === viec.id + k.ketQua ? "Đang ghi…" : k.ten}
             </button>
           ))}
         </div>
-        {loi && <p className="mt-1 text-[11px] text-danger">{loi}</p>}
+        {loi && <p className="mt-1 text-label text-danger">{loi}</p>}
       </div>
     </div>
   );
@@ -441,16 +444,16 @@ function MotLoiHen({
             {ngayVn(hen.ngay_goi)}
           </span>
           {toiHan && (
-            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+            <span className="rounded-chip bg-brand-100 px-2 py-0.5 text-label font-bold text-brand-800">
               tới hạn
             </span>
           )}
         </div>
-        <p className="mt-0.5 text-[11px] leading-snug text-ink-soft">
+        <p className="mt-0.5 text-label leading-snug text-ink-soft">
           {hen.ly_do}
         </p>
         {hen.tao_boi && (
-          <p className="mt-0.5 text-[11px] text-ink-muted">
+          <p className="mt-0.5 text-label text-ink-muted">
             người hẹn: {hen.tao_boi}
           </p>
         )}
@@ -458,11 +461,11 @@ function MotLoiHen({
           type="button"
           onClick={onDong}
           disabled={dangDong}
-          className="mt-1.5 rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+          className="mt-1.5 rounded-full px-2.5 py-0.5 text-label font-medium text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 disabled:opacity-50"
         >
           {dangDong ? "Đang đóng…" : "Đã gọi xong — đóng việc"}
         </button>
-        {loi && <p className="mt-1 text-[11px] text-danger">{loi}</p>}
+        {loi && <p className="mt-1 text-label text-danger">{loi}</p>}
       </div>
     </div>
   );
@@ -1191,13 +1194,13 @@ export default function VungLamViecKhach({
             </span>
 
             {dang && !xong && (
-              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+              <span className="rounded-chip bg-brand-100 px-2 py-0.5 text-label font-bold text-brand-800">
                 đang ở đây
               </span>
             )}
             {tt.tuChon && !dang && !xong && (
               <span
-                className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium text-ink-muted"
+                className="rounded-chip bg-surface-sunken px-1.5 py-0.5 text-label font-medium text-ink-muted"
                 title="Hệ thống không có dữ liệu để tự biết — CSKH chọn khi biết."
               >
                 tự chọn
@@ -1216,15 +1219,9 @@ export default function VungLamViecKhach({
                   : onLamViec(tt.ma)
               }
               aria-pressed={chon}
-              className={`${
-                chon
-                  ? "rounded-full bg-brand-700 px-2.5 py-0.5 text-[11px] font-semibold text-white"
-                  : xong
-                    ? "rounded-full border border-line px-2.5 py-0.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted"
-                    : dang
-                      ? "rounded-full bg-brand-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-brand-700"
-                      : "rounded-full border border-brand-300 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50"
-              } disabled:opacity-50`}
+              // Cùng vỏ với các lối ra của HangGop — bốn trạng thái này từng
+              // là một bản chép tay của nutLoiRa và đã kịp lệch cách vẽ viền.
+              className={`${nutLoiRa(chon, xong, dang)} disabled:opacity-50`}
             >
               {dangGhiLoiRa === tt.ma
                 ? "Đang ghi…"
@@ -1243,19 +1240,19 @@ export default function VungLamViecKhach({
             {motCham &&
               loiGhiLoiRa?.ma === tt.ma &&
               dangGhiLoiRa === null && (
-                <span className="text-[11px] text-danger">
+                <span className="text-label text-danger">
                   {loiGhiLoiRa.cau}
                 </span>
               )}
           </div>
 
           {/* Việc phải làm — phần sau mũi tên trong đặc tả. */}
-          <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">
+          <p className="mt-0.5 text-label leading-snug text-ink-muted">
             {tt.viec}
           </p>
 
           {lan && (
-            <p className="mt-1 text-[11px] leading-snug text-ink-soft">
+            <p className="mt-1 text-label leading-snug text-ink-soft">
               <span className="font-mono text-ink-muted">
                 {gio(lan.xay_ra_luc)}
               </span>
@@ -1290,7 +1287,7 @@ export default function VungLamViecKhach({
               trực phải đọc được mình đang đứng ở lượt nào — bấm sang lượt khác
               trong ô "Lịch sử các lần khám" bên dưới. */}
           {lich.slot_start && (
-            <p className="mt-0.5 text-[11px] text-ink-muted">
+            <p className="mt-0.5 text-label text-ink-muted">
               Lượt đang xem:{" "}
               <span className="font-medium text-ink-soft">
                 {lich.service_name ?? "chưa chọn dịch vụ"} ·{" "}
@@ -1301,12 +1298,12 @@ export default function VungLamViecKhach({
           {/* Sổ chăm sóc không gắn được vào lượt nào — nói ra thay vì lặng lẽ
               tích xanh bằng dữ liệu của lượt khác. Xem `lichSuLuotNay`. */}
           {loiHoanTac && (
-            <p className="rounded-md bg-danger-bg px-2 py-1 text-[11px] text-danger">
+            <p className="rounded-md bg-danger-bg px-2 py-1 text-label text-danger">
               {loiHoanTac}
             </p>
           )}
           {khongGanDuocLuot && (
-            <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-[11px] font-medium text-warning">
+            <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-label font-medium text-warning">
               Khách có {lichSu.length} thao tác chăm sóc nhưng màn chưa gắn được
               vào lượt khám nào — chọn một lượt ở “Lịch sử các lần khám” bên
               dưới.
@@ -1319,7 +1316,7 @@ export default function VungLamViecKhach({
               phải — chỗ trước đây bỏ trống. */}
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              <span className="text-label font-bold uppercase tracking-wide text-ink-faint">
                 Trước khám
               </span>
               <ol className="mt-1.5">
@@ -1330,7 +1327,7 @@ export default function VungLamViecKhach({
             </div>
 
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              <span className="text-label font-bold uppercase tracking-wide text-ink-faint">
                 Gọi không gặp · huỷ lịch
               </span>
               <div className="mt-1.5 space-y-2">
@@ -1376,7 +1373,7 @@ export default function VungLamViecKhach({
                   ghiChuThem={
                     daHuy &&
                     (lich.ly_do_huy_ma || lich.cancellation_reason) ? (
-                      <p className="mt-1 rounded-lg bg-surface-sunken px-2 py-1 text-[11px] leading-snug text-ink-soft">
+                      <p className="mt-1 rounded-lg bg-surface-sunken px-2 py-1 text-label leading-snug text-ink-soft">
                         <span className="font-semibold text-ink-muted">
                           Lý do huỷ đã ghi:{" "}
                         </span>
@@ -1403,7 +1400,7 @@ export default function VungLamViecKhach({
               Xem `ghiGoiNhac` để biết vì sao nó từng không có chỗ nào đóng. */}
           {taiKham.length > 0 && (
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              <span className="text-label font-bold uppercase tracking-wide text-ink-faint">
                 Nhắc tái khám
               </span>
               <div className="mt-1.5 space-y-2">
@@ -1428,7 +1425,7 @@ export default function VungLamViecKhach({
               `dong_luc` mãi NULL — việc không bao giờ đóng được. */}
           {henGoiLai.length > 0 && (
             <div id="hen-goi-lai">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+              <span className="text-label font-bold uppercase tracking-wide text-ink-faint">
                 Đã hẹn gọi lại
               </span>
               <div className="mt-1.5 space-y-2">
@@ -1446,7 +1443,7 @@ export default function VungLamViecKhach({
           )}
 
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+            <span className="text-label font-bold uppercase tracking-wide text-ink-faint">
               Sau khám
             </span>
             {/* Vẽ theo TẦNG. Tầng một nhánh là một node như cũ; tầng nhiều
@@ -1505,7 +1502,7 @@ export default function VungLamViecKhach({
               chúng trông như một bước nữa trong quy trình, mà chúng là dấu chấm
               hết. Căn giữa để tách hẳn khỏi các node xếp trái bên trên. */}
           <div className="space-y-1.5 border-t border-line pt-3 text-center">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+            <span className="text-label font-bold uppercase tracking-wide text-ink-faint">
               Kết thúc lượt khám
             </span>
             <div className="flex flex-wrap justify-center gap-1.5">
@@ -1518,7 +1515,7 @@ export default function VungLamViecKhach({
                     ? "Lượt khám này đã đóng"
                     : "Đóng lượt khám hôm nay"
                 }
-                className="inline-flex items-center gap-1.5 rounded-xl border border-brand-600 bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-control bg-surface px-2.5 py-1.5 text-label font-semibold text-brand-700 ring-1 ring-inset ring-brand-600 hover:bg-brand-50 disabled:opacity-50"
               >
                 <Check className="size-3.5" />
                 {daKhamXong
@@ -1566,7 +1563,7 @@ export default function VungLamViecKhach({
                             : ""
                         }`
                 }
-                className="rounded-xl border border-brand-300 px-2.5 py-1.5 text-[11px] font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-40"
+                className="rounded-control px-2.5 py-1.5 text-label font-medium text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 disabled:opacity-40"
               >
                 Tái khám
               </button>
@@ -1579,7 +1576,7 @@ export default function VungLamViecKhach({
                     ? "Đóng lượt này rồi đặt một lịch mới cho chuyện khác, ngày khác"
                     : "Đặt một lịch mới cho chuyện khác, ngày khác — không nối chuỗi"
                 }
-                className="rounded-xl border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+                className="rounded-control px-2.5 py-1.5 text-label font-medium text-ink-soft ring-1 ring-inset ring-line hover:bg-surface-muted disabled:opacity-50"
               >
                 Đặt lịch khám mới
               </button>
@@ -1588,13 +1585,13 @@ export default function VungLamViecKhach({
                 được, và một nút đóng lượt mà không báo là cách người trực đóng
                 nhầm rồi không hiểu vì sao khách biến khỏi hàng đợi. */}
             {lich.status === "CHECKED_IN" && (
-              <p className="text-[11px] leading-snug text-ink-muted">
+              <p className="text-label leading-snug text-ink-muted">
                 Cả ba nút đều đóng lượt khám đang xem. “Tái khám” đặt tiếp cho
                 chính dịch vụ này; “Đặt lịch khám mới” là chuyện khác, ngày khác.
               </p>
             )}
             {loiCheckout && (
-              <p className="text-[11px] text-danger">{loiCheckout}</p>
+              <p className="text-label text-danger">{loiCheckout}</p>
             )}
           </div>
         </div>
