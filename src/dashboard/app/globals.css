@@ -207,25 +207,39 @@ body {
 }
 
 /* Scrollbar: neutral, not pink. The icon system forbids gender-coded colour and
- * a pink chrome on a women's-health product is exactly that. */
+ * a pink chrome on a women's-health product is exactly that.
+ *
+ * ẨN CHO TỚI KHI CẦN (Tuyền 15/08/2026: "cái xám xám… tôi muốn ẩn đi"):
+ * thanh chỉ hiện khi con trỏ đang ở TRONG vùng cuộn đó — lúc người ta thật sự
+ * định cuộn. Bề rộng 8px vẫn được GIỮ CHỖ thường trực (đây là scrollbar cổ
+ * điển, không phải overlay) nên nội dung không giật khi thanh hiện ra; phần
+ * nhìn thấy là viên thuốc ~4px nhờ viền trong suốt 2px hai bên.
+ * Trên màn cảm ứng không có hover — hệ điều hành tự dùng overlay riêng. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #bcccdc transparent;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: #bcccdc transparent; /* Firefox: hiện khi rê vào vùng cuộn */
 }
 ::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #bcccdc;
+  background-color: transparent;
   border-radius: 9999px;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover {
+:hover::-webkit-scrollbar-thumb {
+  background-color: #bcccdc;
+  background-clip: padding-box;
+}
+:hover::-webkit-scrollbar-thumb:hover {
   background-color: #829ab1;
   background-clip: padding-box;
 }
