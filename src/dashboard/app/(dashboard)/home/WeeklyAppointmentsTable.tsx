@@ -52,6 +52,9 @@ export interface WeekApptRow {
    *  `doctor_id` về NULL nên `mat_bac_si` tắt — cột này giữ cho màn hình còn
    *  nói được, và nói rõ đổi từ ai. */
   bac_si_da_go?: string | null;
+  /** Bác sĩ bị gỡ ĐÃ CÓ CA KHÁM TRỞ LẠI hôm đó — đổi câu cảnh báo: đây là
+   *  việc nội bộ (gán lại bác sĩ), không phải lý do gọi khách. */
+  bac_si_da_go_co_ca_lai?: boolean;
   phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
@@ -406,9 +409,19 @@ export default function WeeklyAppointmentsTable({
                                     đang nhìn. */}
                                 {(a.mat_bac_si || a.bac_si_da_go) && (
                                   <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-label font-semibold text-warning">
+                                    {/* HAI TÌNH HUỐNG, HAI VIỆC KHÁC NHAU:
+                                        "đã nghỉ" = gọi KHÁCH đổi lịch; "ca đã
+                                        xếp lại" = việc NỘI BỘ, gán lại bác sĩ
+                                        là xong (chỉ còn xảy ra khi ghế khung
+                                        cũ đã bị chiếm — add_shift 15/08 tự
+                                        gắn lại phần còn ghế). Một câu chung
+                                        thì hoặc khách bị gọi oan, hoặc lịch
+                                        chờ mãi vì tưởng phải chờ khách. */}
                                     ⚠{" "}
                                     {a.bac_si_da_go
-                                      ? `${a.bac_si_da_go} đã nghỉ — gọi khách xếp bác sĩ khác`
+                                      ? a.bac_si_da_go_co_ca_lai
+                                        ? `Ca của ${a.bac_si_da_go} đã xếp lại — gán lại bác sĩ cho lịch này (khung cũ có thể đã kín)`
+                                        : `${a.bac_si_da_go} đã nghỉ — gọi khách xếp bác sĩ khác`
                                       : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
                                   </span>
                                 )}

@@ -1030,6 +1030,15 @@ type LichHenRaw = {
               !daQua(a.slot_start, nowMs()) &&
               ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status) &&
               !coCaTruc.has(`${a.doctor_id}|${ngayVN(a.slot_start)}`)),
+            // Bác sĩ bị gỡ đã có ca KHÁM trở lại hôm đó → câu cảnh báo đổi
+            // từ "gọi khách đổi lịch" sang "gán lại bác sĩ" (việc nội bộ).
+            // `doCaTruc` vẫn là chốt an toàn: tập ca rỗng không được đọc
+            // thành "chưa xếp lại" lẫn "đã xếp lại" — thiếu dữ liệu thì giữ
+            // câu thận trọng (gọi khách).
+            bs_go_co_ca_lai:
+              doCaTruc &&
+              !!a.bac_si_da_go_id &&
+              coCaTruc.has(`${a.bac_si_da_go_id}|${ngayVN(a.slot_start)}`),
             // Lý do huỷ đi theo TỪNG LƯỢT, không theo khách: một đợt có thể có
             // ba lượt mà chỉ một lượt bị huỷ. Đặt ở cấp đợt là gán sai lượt.
             ly_do_huy_ma: a.ly_do_huy_ma ?? null,

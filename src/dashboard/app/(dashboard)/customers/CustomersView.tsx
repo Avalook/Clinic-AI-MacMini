@@ -206,6 +206,9 @@ export interface LuotKham {
    *  cùng một lịch. Người trực mở một lượt cụ thể; câu hỏi của họ là về LƯỢT
    *  ẤY, nên câu trả lời phải đi kèm chính nó. */
   mat_bac_si?: boolean;
+  /** Bác sĩ bị gỡ ĐÃ CÓ CA KHÁM TRỞ LẠI hôm đó — đổi câu cảnh báo: việc nội
+   *  bộ (gán lại bác sĩ), không phải lý do gọi khách. */
+  bs_go_co_ca_lai?: boolean;
   /** Lượt trước trong chuỗi tái khám. null = mở đầu một đợt. */
   lich_truoc_id: string | null;
   /** Lý do huỷ CỦA CHÍNH LƯỢT NÀY — mã chọn sẵn và chữ tự viết. */
@@ -916,6 +919,7 @@ export default function CustomersView({
         created_at: luot.created_at,
         cancelled_at: luot.cancelled_at,
         mat_bac_si: luot.mat_bac_si,
+        bs_go_co_ca_lai: luot.bs_go_co_ca_lai,
         ly_do_huy_ma: luot.ly_do_huy_ma,
         cancellation_reason: luot.cancellation_reason,
         service_type_id: luot.service_type_id,
@@ -1687,8 +1691,9 @@ export default function CustomersView({
                           ba lưới đặt chỗ sáng nay. */}
                       {luotDangXem?.mat_bac_si && (
                         <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          ⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho
-                          khách hàng và đổi lịch khám.
+                          {luotDangXem?.bs_go_co_ca_lai
+                            ? "⚠ Ca bác sĩ cũ đã xếp lại — gán lại bác sĩ cho lịch này (khung cũ có thể đã kín), không cần gọi khách."
+                            : "⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho khách hàng và đổi lịch khám."}
                         </span>
                       )}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
@@ -1726,8 +1731,9 @@ export default function CustomersView({
                         biến mất, và không có gì báo rằng nó đã biến mất. */}
                     {luotDangXem?.mat_bac_si && (
                         <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          ⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho
-                          khách hàng và đổi lịch khám.
+                          {luotDangXem?.bs_go_co_ca_lai
+                            ? "⚠ Ca bác sĩ cũ đã xếp lại — gán lại bác sĩ cho lịch này (khung cũ có thể đã kín), không cần gọi khách."
+                            : "⚠ Bác sĩ đã đổi lịch làm việc. Vui lòng liên hệ lại cho khách hàng và đổi lịch khám."}
                         </p>
                       )}
                   </div>

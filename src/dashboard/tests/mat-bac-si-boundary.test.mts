@@ -101,7 +101,8 @@ test("cờ mất bác sĩ tính THEO TỪNG LƯỢT, không chỉ cho lịch đ�
   assert.match(view, /luotDangXem\?\.mat_bac_si/, "vẽ từ chính lượt đang xem");
   // Chỉ soi KHỐI cảnh báo mất bác sĩ. Cảnh báo "quá giờ hẹn" vẫn dùng phép so
   // id ấy — nó là chuyện khác và chưa được đụng tới ở lần này.
-  const khoi = /mat_bac_si[\s\S]{0,400}?\)\}/.exec(view);
+  // Cửa sổ 700: từ 15/08 khối này chứa câu rẽ nhánh hai tình huống nên dài ra.
+  const khoi = /mat_bac_si[\s\S]{0,700}?\)\}/.exec(view);
   assert.ok(khoi, "không tìm thấy khối cảnh báo mất bác sĩ");
   assert.doesNotMatch(
     khoi![0],
@@ -137,5 +138,38 @@ test("CẢ HAI khối lịch hẹn đều hiện cảnh báo", () => {
     soKhoiVeGioHen,
     `${soKhoiVeGioHen} khối vẽ giờ hẹn nhưng chỉ ${soCanhBao} khối cảnh báo — ` +
       "khối thiếu sẽ im lặng đúng lúc người trực còn đổi được lịch",
+  );
+});
+
+test("hai tình huống mất bác sĩ có HAI câu — ở cả hai màn", () => {
+  // "Đã nghỉ" = gọi KHÁCH đổi lịch; "ca đã xếp lại" = việc NỘI BỘ (gán lại
+  // bác sĩ — add_shift 15/08 tự gắn phần còn ghế, nhánh này chỉ còn khi khung
+  // cũ đã kín). Một câu chung thì hoặc khách bị gọi oan, hoặc lịch chờ mãi.
+  const tuan = readFileSync(
+    new URL("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    tuan,
+    /bac_si_da_go_co_ca_lai\s*\?/,
+    "bảng tuần phải rẽ nhánh câu theo cờ 'đã có ca lại'",
+  );
+  assert.match(tuan, /đã xếp lại — gán lại bác sĩ/, "câu nội-bộ phải nói việc nội bộ");
+
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  );
+  const soReNhanh = (view.match(/luotDangXem\?\.bs_go_co_ca_lai\s*\?/g) ?? []).length;
+  assert.equal(
+    soReNhanh,
+    2,
+    "CẢ HAI khối lịch hẹn (bấm được + chỉ-đọc) phải rẽ nhánh — vá một trong " +
+      "hai là đúng lỗi 'ba lưới đặt chỗ' lặp lại",
+  );
+  assert.match(
+    view,
+    /không cần gọi khách/,
+    "câu nội-bộ phải nói rõ đừng làm phiền khách",
   );
 });

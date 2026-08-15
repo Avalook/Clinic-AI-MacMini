@@ -131,6 +131,23 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        -- và nói rõ hơn: đổi từ ai. Thiếu nó thì CSKH gọi khách chỉ nói được
        -- "lịch của chị bị đổi", không biết khách đang chờ gặp ai.
        bs_go.full_name AS bac_si_da_go,
+       -- BÁC SĨ BỊ GỠ ĐÃ CÓ CA KHÁM TRỞ LẠI hôm đó chưa? Hai tình huống cần
+       -- hai câu khác nhau trên màn: "đã nghỉ — xếp bác sĩ khác" (gọi khách
+       -- đổi lịch) vs "ca đã xếp lại — gán lại bác sĩ" (việc nội bộ, một cú
+       -- bấm). Sau bản add_shift tự gắn lại 15/08, nhánh hai chỉ còn xảy ra
+       -- khi ghế của khung cũ đã bị lịch khác chiếm — nói đúng tình huống để
+       -- người trực khỏi gọi khách vì một chuyện không cần gọi.
+       (
+         t.bac_si_da_go_id IS NOT NULL
+         AND EXISTS (
+           SELECT 1 FROM public.work_roster wg
+            WHERE wg.clinic_id = $1::uuid
+              AND wg.staff_id  = t.bac_si_da_go_id
+              AND wg.station   = 'LICH_KHAM'
+              AND wg.work_date =
+                  (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+         )
+       ) AS bs_go_co_ca_lai,
        CASE
          WHEN p.clinic_patient_id IS NULL THEN ''
          WHEN t.slot_start > s.dau_tien  THEN 'Tái khám'
@@ -225,6 +242,7 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "phan_loai": r["phan_loai"],
         "mat_bac_si": bool(r["mat_bac_si"]),
         "bac_si_da_go": r["bac_si_da_go"],
+        "bac_si_da_go_co_ca_lai": bool(r["bs_go_co_ca_lai"]),
         # Giờ đến thật + thứ tự gọi. Trước đây endpoint này không trả
         # `checked_in_at`, nên bản TypeScript của luật chạy ở đây luôn coi mọi
         # người là "chưa đến" và xếp theo giờ hẹn — luật đúng, dữ liệu thiếu.
