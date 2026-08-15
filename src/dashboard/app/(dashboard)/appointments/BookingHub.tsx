@@ -201,7 +201,7 @@ function LichThang({
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[10px] text-ink-faint">
+      <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-label text-ink-faint">
         {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((t) => (
           <span key={t}>{t}</span>
         ))}
@@ -350,13 +350,13 @@ function MocDatLich({
   return (
     <div className="flex items-center gap-2">
       <span
-        className={`grid size-5 place-items-center rounded-full text-[11px] font-bold ${vien}`}
+        className={`grid size-5 place-items-center rounded-full text-label font-bold ${vien}`}
       >
         {xong ? "✓" : so}
       </span>
       <span className={chu}>{nhan}</span>
       {ghiChu ? (
-        <span className="text-[11px] font-normal text-ink-faint">({ghiChu})</span>
+        <span className="text-label font-normal text-ink-faint">({ghiChu})</span>
       ) : null}
     </div>
   );
@@ -1614,7 +1614,7 @@ export default function BookingHub({
               {activePatient && (
                 <div className="rounded-2xl border border-brand-300 bg-brand-50/50 p-3.5 shadow-card space-y-3">
                   <div className="flex items-start justify-between">
-                    <span className="text-[11px] font-bold text-brand-700 uppercase tracking-wide">
+                    <span className="text-label font-bold text-brand-700 uppercase tracking-wide">
                       Khách hàng đang chọn
                     </span>
                     <button
@@ -1656,9 +1656,9 @@ export default function BookingHub({
                 </div>
               )}
 
-              {/* 2. TÌM KIẾM KHÁCH HÀNG CÓ SẴN (Kéo dài tối đa max-h-[380px]) */}
+              {/* 2. TÌM KIẾM KHÁCH HÀNG CÓ SẴN (Kéo dài tối đa max-h-95) */}
               <div className="rounded-2xl border border-line bg-surface p-3.5 shadow-card space-y-2.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                <span className="text-label font-semibold uppercase tracking-wide text-ink-muted">
                   Tìm kiếm khách hàng có sẵn
                 </span>
                 <label className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-3 py-2 text-xs text-ink focus-within:border-brand-500">
@@ -1672,7 +1672,7 @@ export default function BookingHub({
                   />
                 </label>
                 {/* Expanded scroll list */}
-                <div className="max-h-[380px] overflow-y-auto divide-y divide-line text-xs pr-0.5">
+                <div className="max-h-95 overflow-y-auto divide-y divide-line text-xs pr-0.5">
                   {filteredPatients.map((p) => {
                     const selected = p.clinic_patient_id === selectedPatientId;
                     return (
@@ -1701,7 +1701,7 @@ export default function BookingHub({
                         <div className="truncate font-semibold text-ink">
                           {p.full_name}
                         </div>
-                        <div className="text-[11px] text-ink-muted">
+                        <div className="text-label text-ink-muted">
                           {p.patient_code} · {p.phone_primary ?? "Chưa có SĐT"}
                         </div>
                       </button>
@@ -1946,15 +1946,15 @@ export default function BookingHub({
                           một góc màn hình: nó nói về đúng người này, và nó là
                           lý do cả cột bên dưới không bấm được. */}
                       {shiftLabel[`${doc.id}|${selectedDateIso}`] ? (
-                        <div className="truncate text-[11px] font-medium text-warning">
+                        <div className="truncate text-label font-medium text-warning">
                           Chỉ trực {shiftLabel[`${doc.id}|${selectedDateIso}`]}
                         </div>
                       ) : chuaXepCa ? (
-                        <div className="truncate text-[11px] font-medium text-warning">
+                        <div className="truncate text-label font-medium text-warning">
                           Chưa xếp ca — quản lý sẽ phân bác sĩ
                         </div>
                       ) : (
-                        <div className="text-[11px] font-normal text-ink-muted truncate">
+                        <div className="text-label font-normal text-ink-muted truncate">
                           Phụ khoa
                         </div>
                       )}
@@ -1970,7 +1970,7 @@ export default function BookingHub({
                 )}
 
                 {/* Slot Rows */}
-                <div className="max-h-[480px] overflow-y-auto space-y-1 pt-1.5">
+                <div className="max-h-120 overflow-y-auto space-y-1 pt-1.5">
                   {timeSlots.map((time) => {
                     // Độ dài khung từ LUẬT, không phải hằng số 15. Phòng khám
                     // đổi sang khung 30 phút thì nhãn "18:00 - 18:15" sẽ nói
@@ -1985,7 +1985,7 @@ export default function BookingHub({
                         }}
                       >
                         {/* FIRST COLUMN: TIME RANGE (e.g. 08:00 - 08:15) */}
-                        <div className="p-2 text-center font-mono font-medium text-ink-muted text-[11px]">
+                        <div className="p-2 text-center font-mono font-medium text-ink-muted text-label">
                           {timeRangeStr}
                         </div>
 
@@ -2003,7 +2003,7 @@ export default function BookingHub({
                                 <span>
                                   {st.label} · {st.sub}
                                 </span>
-                                <span className="grid size-4 place-items-center rounded-full bg-white text-teal-700 text-[10px] font-extrabold">
+                                <span className="grid size-4 place-items-center rounded-full bg-white text-teal-700 text-label font-extrabold">
                                   ✓
                                 </span>
                               </button>
@@ -2109,7 +2109,7 @@ export default function BookingHub({
             >
               <div className="flex items-center justify-between border-b border-line pb-2.5">
                 <h3 className="text-sm font-bold text-ink">Thông tin đặt lịch</h3>
-                <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-bold text-teal-700 border border-teal-200">
+                <span className="rounded-chip bg-teal-50 px-2.5 py-0.5 text-label font-bold text-teal-700">
                   Đang chọn
                 </span>
               </div>
@@ -2130,14 +2130,14 @@ export default function BookingHub({
                               lần đầu hay khách đang theo một chuỗi tái khám,
                               TRƯỚC khi chọn dịch vụ. */}
                           {nhanLanKham(lanKham?.[activePatient.clinic_patient_id]) && (
-                            <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-800">
+                            <span className="rounded-chip bg-brand-100 px-1.5 py-0.5 text-label font-semibold text-brand-800">
                               {nhanLanKham(
                                 lanKham?.[activePatient.clinic_patient_id],
                               )}
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-ink-muted font-mono">
+                        <div className="text-label text-ink-muted font-mono">
                           {activePatient.patient_code}
                         </div>
                       </div>
@@ -2212,7 +2212,7 @@ export default function BookingHub({
                       ? slotRange(selectedSlot.time, slotMinutes)
                       : "Chưa chọn khung giờ"}
                   </div>
-                  <div className="text-[11px] text-teal-700 font-medium">
+                  <div className="text-label text-teal-700 font-medium">
                     {dayLabel(selectedDateIso)},{" "}
                     {selectedDateIso.split("-").reverse().join("/")}
                   </div>
@@ -2275,7 +2275,7 @@ export default function BookingHub({
                     <b>{justBooked.name}</b> · {justBooked.time} ·{" "}
                     {justBooked.doctor}
                   </div>
-                  <p className="mt-1.5 text-[11px] text-ink-muted">
+                  <p className="mt-1.5 text-label text-ink-muted">
                     Lịch đã có hiệu lực, không cần bấm lại. Muốn đổi hoặc huỷ
                     thì vào Quản lý khách hàng → Lịch hẹn sắp tới.
                   </p>

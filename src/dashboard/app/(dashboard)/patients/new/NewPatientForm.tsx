@@ -768,16 +768,16 @@ export default function NewPatientForm({
           </div>
           <ol className="grid grid-cols-2 divide-x divide-line text-xs sm:grid-cols-3" aria-label="Các bước tiếp nhận">
             <li className="flex items-center gap-2 px-4 py-3 text-brand-800">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">1</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-label font-bold text-white">1</span>
               <span className="font-semibold">Thông tin hồ sơ</span>
             </li>
             <li className="flex items-center gap-2 px-4 py-3 text-ink-muted">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">2</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-label font-bold text-ink-soft">2</span>
               <span>{walkin ? "Dịch vụ & lượt khám" : "Lịch hẹn khám"}</span>
             </li>
             {!walkin && (
               <li className="hidden items-center gap-2 px-4 py-3 text-ink-muted sm:flex">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-[11px] font-bold text-ink-soft">3</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-surface-sunken text-label font-bold text-ink-soft">3</span>
                 <span>Xác nhận & lưu</span>
               </li>
             )}
@@ -809,7 +809,7 @@ export default function NewPatientForm({
               <label className={LABEL + " mb-0"}>
                 {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
               </label>
-              <label className="flex cursor-pointer items-center gap-1 text-[12px] text-ink-muted">
+              <label className="flex cursor-pointer items-center gap-1 text-meta text-ink-muted">
                 <input
                   type="checkbox"
                   checked={dobYearOnly}
@@ -837,7 +837,7 @@ export default function NewPatientForm({
                   placeholder="VD: 1990"
                 />
                 {birthYearErr && (
-                  <p className="mt-1 text-[12px] text-danger">{birthYearErr}</p>
+                  <p className="mt-1 text-meta text-danger">{birthYearErr}</p>
                 )}
               </div>
             ) : (
@@ -850,7 +850,7 @@ export default function NewPatientForm({
                   invalid={!!dobErr}
                 />
                 {dobErr && (
-                  <p className="mt-1 text-[12px] text-danger">{dobErr}</p>
+                  <p className="mt-1 text-meta text-danger">{dobErr}</p>
                 )}
               </div>
             )}
@@ -868,11 +868,11 @@ export default function NewPatientForm({
               maxLength={10}
             />
             {phoneErr && (
-              <p className="mt-1 text-[12px] text-danger">{phoneErr}</p>
+              <p className="mt-1 text-meta text-danger">{phoneErr}</p>
             )}
             {/* Cảnh báo MỀM trùng SĐT (feedback #9) — KHÔNG chặn lưu. */}
             {phoneDupes.length > 0 && (
-              <div className="mt-1.5 rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-[12px] text-warning">
+              <div className="mt-1.5 rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-meta text-warning">
                 {/* NÓI ĐÚNG THỨ ĐÃ KHỚP.
                     Bản trước luôn mở đầu bằng "Số này đã có trong hệ thống",
                     kể cả khi thứ khớp là TÊN + NĂM SINH chứ không phải số điện
@@ -915,7 +915,7 @@ export default function NewPatientForm({
                 màu cảnh báo và không đứng chung với khối trên: gộp lại thì
                 người trực sẽ học cách bỏ qua cả hai. */}
             {trungTen.length > 0 && (
-              <div className="mt-1.5 rounded-lg border border-line bg-surface-muted px-3 py-2 text-[12px] text-ink-soft">
+              <div className="mt-1.5 rounded-lg border border-line bg-surface-muted px-3 py-2 text-meta text-ink-soft">
                 <p className="font-medium text-ink">
                   Đã có {trungTen.length} hồ sơ trùng họ tên (khác năm sinh):
                 </p>
@@ -950,7 +950,7 @@ export default function NewPatientForm({
               maxLength={10}
             />
             {phone2Err && (
-              <p className="mt-1 text-[12px] text-danger">{phone2Err}</p>
+              <p className="mt-1 text-meta text-danger">{phone2Err}</p>
             )}
           </div>
           <div>
@@ -964,7 +964,7 @@ export default function NewPatientForm({
               maxLength={12}
             />
             {cccdErr && (
-              <p className="mt-1 text-[12px] text-danger">{cccdErr}</p>
+              <p className="mt-1 text-meta text-danger">{cccdErr}</p>
             )}
           </div>
           <div>
@@ -1209,7 +1209,7 @@ export default function NewPatientForm({
                 />
                 {apptTime && policy && (
                   <p
-                    className={`mt-1 text-[11px] font-medium ${
+                    className={`mt-1 text-label font-medium ${
                       isSlotBooked ? "text-danger" : "text-success"
                     }`}
                   >
@@ -1316,7 +1316,7 @@ export default function NewPatientForm({
                 services/queue_order.py quyết theo giờ check-in thật. Một câu
                 doạ không có hiệu lực thì chỉ dạy người đọc bỏ qua chữ đỏ. */}
             {apptCh && (
-              <p className="mt-1 text-[11px] text-ink-faint">
+              <p className="mt-1 text-label text-ink-faint">
                 Giờ mở cửa: {apptCh.open}–{apptCh.close}
               </p>
             )}

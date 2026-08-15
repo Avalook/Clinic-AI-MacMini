@@ -28,7 +28,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 // ── TRẦN — chỉ được sửa XUỐNG (trừ PR riêng đổi thang theo Kỷ luật điều 3) ──
-const TRAN = 321; // hạ 428→321: Màn 2 Quản lý khách hàng (Bước 4) về token thang
+const TRAN = 289; // hạ 321→289: Màn 3 Đặt lịch (Bước 4) về token thang
 
 const GOC = new URL("..", import.meta.url).pathname;
 const MAU_PX = /\[[^\][]*\dpx[^\][]*\]/g;
