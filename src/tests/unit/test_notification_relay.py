@@ -22,7 +22,11 @@ def _relay_db(
     acquire = AsyncMock()
     acquire.__aenter__.return_value = conn
     pool.acquire.return_value = acquire
-    conn.fetch.return_value = rows
+    # 15/08/2026: relay đọc thêm aggregate_* để làm giàu tin — fixture cũ
+    # không có hai khoá ấy thì đắp None (None = không làm giàu, đường cũ).
+    conn.fetch.return_value = [
+        {"aggregate_type": None, "aggregate_id": None, **r} for r in rows
+    ]
     conn.fetchval.side_effect = fetchvals
     conn.execute.return_value = "UPDATE 1"
     return pool, conn

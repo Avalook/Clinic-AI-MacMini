@@ -21,6 +21,7 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.services import notification_templates
 from clinicai.services.providers import telegram
 
@@ -44,6 +45,71 @@ MAX_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 0.5
 
 
+async def _lam_giau(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    aggregate_type: str | None,
+    aggregate_id: str | None,
+    event_type: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Đắp tên/giờ/dịch vụ vào payload TRƯỚC khi soạn tin.
+
+    ``event_log.payload`` cố ý chỉ mang ID (nó là sổ sự kiện, không phải bản
+    sao hồ sơ) — nhưng một tin nhắn toàn UUID thì không ai đọc được. Tra
+    database NGAY LÚC GỬI thay vì lúc ghi: tin kể trạng thái mới nhất, và
+    người ghi sự kiện không phải gánh thêm nghĩa vụ "nhớ đủ cột cho Telegram".
+
+    Chỉ đắp cho sự kiện CÓ template và có lịch hẹn để tra; còn lại trả
+    nguyên — render sẽ tự trả None và relay đánh dấu bỏ qua như cũ.
+    KHÔNG đắp số điện thoại — xem đầu notification_templates.
+    """
+    if (
+        aggregate_type != "appointment"
+        or not aggregate_id
+        or event_type not in notification_templates.TEMPLATES
+    ):
+        return payload
+    row = await conn.fetchrow(
+        """
+        SELECT a.slot_start,
+               p.full_name  AS ten_khach,
+               p.patient_code,
+               bs.full_name AS ten_bac_si,
+               bs_go.full_name AS bac_si_da_go,
+               st.name      AS dich_vu,
+               a.ly_do_huy_ma
+          FROM appointment a
+          LEFT JOIN patient p       ON p.clinic_patient_id = a.clinic_patient_id
+          LEFT JOIN staff bs        ON bs.id = a.doctor_id
+          LEFT JOIN staff bs_go     ON bs_go.id = a.bac_si_da_go_id
+          LEFT JOIN service_type st ON st.id = a.service_type_id
+         WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
+        """,
+        aggregate_id,
+        clinic_id,
+    )
+    if row is None:
+        return payload
+    gio = (
+        row["slot_start"].astimezone(CLINIC_TZ).strftime("%H:%M %d/%m")
+        if row["slot_start"]
+        else None
+    )
+    # Sự kiện nói gì thì giữ nguyên (payload thắng) — chỉ đắp chỗ trống.
+    dap = {
+        "gio_kham": gio,
+        "ten_khach": row["ten_khach"],
+        "patient_code": row["patient_code"],
+        "ten_bac_si": row["ten_bac_si"],
+        "bac_si_da_go": row["bac_si_da_go"],
+        "dich_vu": row["dich_vu"],
+        "ly_do_huy_ma": row["ly_do_huy_ma"],
+    }
+    return {**{k: v for k, v in dap.items() if v is not None}, **payload}
+
+
 async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
     """Poll unpublished events and deliver notifications.
 
@@ -52,7 +118,8 @@ async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT event_id, event_type, payload, metadata
+            SELECT event_id, event_type, payload, metadata,
+                   aggregate_type, aggregate_id
             FROM event_log
             WHERE clinic_id = $1::uuid
               AND event_published = FALSE
@@ -104,6 +171,16 @@ async def poll_and_deliver(pool: asyncpg.Pool, *, clinic_id: str) -> int:
                     else (row["payload"] or {})
                 )
 
+                payload = await _lam_giau(
+                    conn,
+                    clinic_id=clinic_id,
+                    aggregate_type=row["aggregate_type"],
+                    aggregate_id=(
+                        str(row["aggregate_id"]) if row["aggregate_id"] else None
+                    ),
+                    event_type=event_type,
+                    payload=payload,
+                )
                 message = notification_templates.render(event_type, payload)
                 if message is None:
                     await _mark_published(conn, event_id, clinic_id)
