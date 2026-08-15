@@ -40,6 +40,7 @@ EVENT_LABELS: dict[str, str] = {
     # nên nhãn nói RÕ nguyên nhân — đọc lại sáu tháng sau vẫn hiểu vì sao một
     # lịch tự nhiên mất bác sĩ.
     "patient.phone_added": "Thêm số điện thoại cho khách",
+    "patient.phone_removed": "Xoá số điện thoại của khách",
     "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
     "appointment.doctor_restored": "Gắn lại bác sĩ (ca trực xếp lại)",
     "appointment.cancelled": "Huỷ lịch hẹn",

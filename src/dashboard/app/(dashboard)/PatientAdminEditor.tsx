@@ -92,10 +92,37 @@ function Row({
 
 export default function PatientAdminEditor({
   patient,
+  sdtThem = [],
 }: {
   patient: PatientAdmin;
+  /** Các số gắn THÊM (patient_sdt_them) — vẽ dưới số cùng loại, xoá được
+   *  từng số. Hai số chính thức vẫn sửa qua form như trước. */
+  sdtThem?: { so_dien_thoai: string; loai: string }[];
 }) {
   const router = useRouter();
+  const [dangXoaSo, setDangXoaSo] = useState<string | null>(null);
+  const [loiXoaSo, setLoiXoaSo] = useState<string | null>(null);
+
+  /** Gỡ một số thêm — xoá thật, không hộp thoại: thêm lại chỉ tốn một cú
+   *  bấm ở ô cảnh báo trùng, và vết ai-xoá-lúc-nào đã nằm trong Lịch sử
+   *  thao tác. Hộp thoại cho một việc rẻ như vậy chỉ dạy người ta bấm OK
+   *  theo phản xạ (cùng lý do đã bỏ hộp xác nhận hoàn tác 10/08). */
+  async function xoaSo(so: string) {
+    setDangXoaSo(so);
+    setLoiXoaSo(null);
+    const qs = new URLSearchParams({
+      clinic_patient_id: patient.clinic_patient_id,
+      so_dien_thoai: so,
+    });
+    const res = await fetch(`/api/patients/sdt-them?${qs}`, { method: "DELETE" });
+    setDangXoaSo(null);
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      setLoiXoaSo(nhanLoi(d, `Không xoá được (lỗi ${res.status}).`));
+      return;
+    }
+    router.refresh();
+  }
   const [cur, setCur] = useState<PatientAdmin>(patient);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Form>(() => toForm(patient));
@@ -174,6 +201,21 @@ export default function PatientAdminEditor({
           <Row label="Nghề nghiệp" value={cur.occupation} />
           <Row label="Đối tượng" value={cur.patient_objection} />
           <Row label="SĐT" value={cur.phone_primary} />
+          {sdtThem
+            .filter((t) => t.loai === "CHINH")
+            .map((t) => (
+              <div key={t.so_dien_thoai} className="flex items-center justify-between gap-2">
+                <Row label="SĐT thêm" value={t.so_dien_thoai} />
+                <button
+                  type="button"
+                  onClick={() => void xoaSo(t.so_dien_thoai)}
+                  disabled={dangXoaSo === t.so_dien_thoai}
+                  className="shrink-0 text-label font-medium text-ink-faint hover:text-danger disabled:opacity-50"
+                >
+                  {dangXoaSo === t.so_dien_thoai ? "Đang xoá…" : "Xoá số này"}
+                </button>
+              </div>
+            ))}
           {/* "Không có" chứ không phải "—".
               Gạch ngang nói "chỗ này trống", và trống thì đọc thành "chưa ai
               nhập" — người trực sẽ đi hỏi lại khách một số điện thoại vốn
@@ -183,6 +225,24 @@ export default function PatientAdminEditor({
             value={cur.phone_secondary}
             khiTrong="Không có"
           />
+          {sdtThem
+            .filter((t) => t.loai === "NGUOI_NHA")
+            .map((t) => (
+              <div key={t.so_dien_thoai} className="flex items-center justify-between gap-2">
+                <Row label="SĐT người nhà thêm" value={t.so_dien_thoai} />
+                <button
+                  type="button"
+                  onClick={() => void xoaSo(t.so_dien_thoai)}
+                  disabled={dangXoaSo === t.so_dien_thoai}
+                  className="shrink-0 text-label font-medium text-ink-faint hover:text-danger disabled:opacity-50"
+                >
+                  {dangXoaSo === t.so_dien_thoai ? "Đang xoá…" : "Xoá số này"}
+                </button>
+              </div>
+            ))}
+          {loiXoaSo && (
+            <p className="text-label text-danger">{loiXoaSo}</p>
+          )}
           <Row label="Người giám hộ" value={cur.guardian_name} />
           <Row label="Địa chỉ" value={cur.address} />
           {cur.linh_vuc && (

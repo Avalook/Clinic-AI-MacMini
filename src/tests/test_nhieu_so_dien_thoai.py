@@ -179,3 +179,51 @@ class TestMoiDuongTraSoDeuThaySoThem:
         ma = inspect.getsource(patients.check_duplicate)
         assert "any([phone, full_name])" in ma
         assert "any([phone, full_name and birth_year])" not in ma
+
+
+class _ConnXoa:
+    """DELETE trả loai của dòng vừa xoá; None = không có dòng nào."""
+
+    def __init__(self, *, loai_xoa_duoc: str | None) -> None:
+        self._loai = loai_xoa_duoc
+        self.event_args: tuple[object, ...] | None = None
+
+    def transaction(self) -> _GiaoDich:
+        return _GiaoDich()
+
+    async def fetchval(self, sql: str, *args: object) -> object:
+        assert "DELETE FROM public.patient_sdt_them" in sql
+        assert "clinic_id = $1::uuid" in sql, "xoá phải tự khoá phòng khám"
+        return self._loai
+
+    async def execute(self, sql: str, *args: object) -> None:
+        assert "patient.phone_removed" in sql
+        self.event_args = args
+
+
+class TestXoaSoDienThoai:
+    def _goi(self, conn: _ConnXoa, so: str) -> dict[str, Any]:
+        service = PatientService(_Pool(conn))  # type: ignore[arg-type]
+        return asyncio.run(
+            service.xoa_so_dien_thoai(
+                clinic_patient_id="bn000000-0000-4000-8000-000000000001",
+                so_dien_thoai=so,
+                identity=_identity(),
+            )
+        )
+
+    def test_xoa_that_va_event_chi_ghi_4_so_cuoi(self) -> None:
+        conn = _ConnXoa(loai_xoa_duoc="NGUOI_NHA")
+        assert self._goi(conn, "+84903333333") == {"da_xoa": True}
+        assert conn.event_args is not None
+        payload = json.loads(str(conn.event_args[2]))
+        assert payload == {"loai": "NGUOI_NHA", "duoi": "3333"}
+        assert "0903333333" not in str(conn.event_args)
+
+    def test_so_khong_co_trong_danh_sach_thi_noi_ro(self) -> None:
+        from clinicai.core.exceptions import ResourceNotFoundError
+
+        conn = _ConnXoa(loai_xoa_duoc=None)
+        with pytest.raises(ResourceNotFoundError):
+            self._goi(conn, "0909999999")
+        assert conn.event_args is None, "không xoá gì thì không được ghi event"

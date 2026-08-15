@@ -46,3 +46,30 @@ export async function POST(request: Request) {
     loai: body.loai === "NGUOI_NHA" ? "NGUOI_NHA" : "CHINH",
   });
 }
+
+// DELETE — gỡ một số thêm. Cùng cửa, cùng gác vai: xoá số là sửa hồ sơ.
+export async function DELETE(request: Request) {
+  const supabase = await getSupabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  }
+  const role = await getClinicRole();
+  if (!canWriteIntake(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const sp = new URL(request.url).searchParams;
+  const benhNhan = sp.get("clinic_patient_id")?.trim();
+  const so = sp.get("so_dien_thoai")?.trim();
+  if (!benhNhan || !so) {
+    return NextResponse.json(
+      { error: "Thiếu khách hoặc thiếu số điện thoại." },
+      { status: 422 },
+    );
+  }
+  const qs = new URLSearchParams({ clinic_patient_id: benhNhan, so_dien_thoai: so });
+  return proxyJsonToBackend("DELETE", `/api/v1/patients/sdt-them?${qs}`, null);
+}

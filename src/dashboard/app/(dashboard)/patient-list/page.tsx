@@ -76,7 +76,8 @@ export default async function PatientListPage() {
     .select(
       "clinic_patient_id, patient_code, full_name, date_of_birth, " +
         "phone_primary, phone_secondary, gender, ethnicity, nationality, " +
-        "occupation, patient_objection, address, guardian_name",
+        "occupation, patient_objection, address, guardian_name, " +
+        "patient_sdt_them ( so_dien_thoai, loai )",
     )
     .order("created_at", { ascending: false })
     .limit(5000);

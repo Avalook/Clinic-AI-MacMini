@@ -1946,6 +1946,7 @@ export default function CustomersView({
                   <>
                     <PatientAdminEditor
                       key={selected.clinic_patient_id}
+                      sdtThem={selected.patient_sdt_them ?? []}
                       patient={{
                         clinic_patient_id: selected.clinic_patient_id,
                         full_name: selected.full_name,

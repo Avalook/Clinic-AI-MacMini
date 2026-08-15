@@ -233,6 +233,21 @@ async def them_so_dien_thoai(
     )
 
 
+@router.delete("/patients/sdt-them")
+async def xoa_so_dien_thoai(
+    clinic_patient_id: UUID,
+    so_dien_thoai: str,
+    identity: StaffIdentity = Depends(_PATIENT_EDIT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ một số THÊM — cùng gác vai với sửa hồ sơ (xoá số là sửa hồ sơ)."""
+    return await PatientService(pool).xoa_so_dien_thoai(
+        clinic_patient_id=str(clinic_patient_id),
+        so_dien_thoai=so_dien_thoai,
+        identity=identity,
+    )
+
+
 @router.get("/patients/{id:uuid}", response_model=PatientDTO)
 async def get_patient_by_id(
     id: UUID,

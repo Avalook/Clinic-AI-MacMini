@@ -88,3 +88,24 @@ test("gõ đủ 3 ký tự tên là hỏi trùng — không bắt chờ năm sin
   );
 });
 
+
+test("số thêm hiện ở Danh sách bệnh nhân và xoá được trong sửa hồ sơ", () => {
+  // Tuyền 15/08 chiều: "vẫn chỉ hiện 1 số… thêm hiển thị, khi sửa hồ sơ cho
+  // phép xoá". Ba mắt xích: nạp dữ liệu, vẽ đủ hai loại, và nút xoá đi qua
+  // DELETE /api/patients/sdt-them.
+  const page = doc("../app/(dashboard)/patient-list/page.tsx");
+  assert.match(page, /patient_sdt_them \( so_dien_thoai, loai \)/, "query phải embed số thêm");
+  const view = doc("../app/(dashboard)/patient-list/PatientListView.tsx");
+  assert.ok(
+    (view.match(/loai === "CHINH"|loai === "NGUOI_NHA"/g) ?? []).length >= 2,
+    "khối Liên hệ phải vẽ cả hai loại số thêm",
+  );
+  const editor = doc("../app/(dashboard)/PatientAdminEditor.tsx");
+  assert.match(editor, /\/api\/patients\/sdt-them\?\$\{qs\}/, "nút xoá phải gọi DELETE đúng cửa");
+  assert.ok(
+    (editor.match(/t\.loai === "CHINH"|t\.loai === "NGUOI_NHA"/g) ?? []).length >= 2,
+    "editor phải vẽ số thêm dưới đúng dòng cùng loại",
+  );
+  const cv = doc("../app/(dashboard)/customers/CustomersView.tsx");
+  assert.match(cv, /sdtThem=\{selected\.patient_sdt_them \?\? \[\]\}/, "CustomersView phải truyền số thêm vào editor");
+});
