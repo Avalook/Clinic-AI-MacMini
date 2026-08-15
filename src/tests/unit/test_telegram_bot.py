@@ -49,3 +49,11 @@ class TestLuatAnToan:
         """Cùng nguồn Uptime Kuma theo dõi — hai bên không kể hai chuyện."""
         assert bot._HEALTH["API + database"].endswith("/health/db")
         assert "dashboard:3000/health" in bot._HEALTH["Dashboard"]
+
+    def test_kham_suc_khoe_cung_luat_voi_kuma(self) -> None:
+        """Dashboard /health trả 307 → 200. Kuma đi theo chuyển hướng; bot
+        không đi theo thì hai người gác kể hai chuyện về cùng một endpoint
+        (đo 15/08: Kuma Up, bot ❌). Cùng luật: follow redirect + nhận 2xx."""
+        ma = inspect.getsource(bot._kham_suc_khoe)
+        assert "follow_redirects=True" in ma
+        assert "r.is_success" in ma
