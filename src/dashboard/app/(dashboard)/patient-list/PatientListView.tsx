@@ -26,7 +26,10 @@ import SplitPane from "../SplitPane";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
-type PatientFull = NonNullable<DoctorApptRow["patient"]>;
+type PatientFull = NonNullable<DoctorApptRow["patient"]> & {
+  /** Các số gắn THÊM — embed từ patient_sdt_them (15/08/2026). */
+  patient_sdt_them?: { so_dien_thoai: string; loai: string }[] | null;
+};
 
 /** Một lần khám trong quá khứ — đủ để liệt kê, không kèm dữ liệu lâm sàng. */
 export interface VisitSummary {
@@ -392,7 +395,17 @@ export default function PatientListView({
               </p>
               <dl className="mt-2 space-y-1 text-sm">
                 <HangHanhChinh nhan="Điện thoại" giaTri={hc?.phone_primary ?? selected.phone_primary} />
+                {(hc?.patient_sdt_them ?? [])
+                  .filter((t) => t.loai === "CHINH")
+                  .map((t) => (
+                    <HangHanhChinh key={t.so_dien_thoai} nhan="Điện thoại (thêm)" giaTri={t.so_dien_thoai} />
+                  ))}
                 <HangHanhChinh nhan="Điện thoại phụ" giaTri={hc?.phone_secondary} />
+                {(hc?.patient_sdt_them ?? [])
+                  .filter((t) => t.loai === "NGUOI_NHA")
+                  .map((t) => (
+                    <HangHanhChinh key={t.so_dien_thoai} nhan="Người nhà (thêm)" giaTri={t.so_dien_thoai} />
+                  ))}
                 <HangHanhChinh nhan="Địa chỉ" giaTri={hc?.address} />
               </dl>
               <p className="mt-3 border-t border-line pt-2 text-xs text-ink-muted">

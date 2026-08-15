@@ -598,3 +598,61 @@ class PatientService:
             loai=loai,
         )
         return {"so_dien_thoai": chuan, "loai": loai}
+
+    async def xoa_so_dien_thoai(
+        self,
+        *,
+        clinic_patient_id: str,
+        so_dien_thoai: str,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Gỡ một số THÊM khỏi hồ sơ (Tuyền 15/08/2026 — "cho phép xoá").
+
+        Chỉ đụng bảng số-thêm: hai số chính thức trên hồ sơ sửa qua đường
+        sửa-hồ-sơ như trước, mỗi cửa một việc. Xoá là xoá THẬT (không soft
+        delete): số gỡ rồi mà còn tra ra là gọi nhầm người theo một số không
+        còn của họ — cột tìm kiếm gộp tự tươi nhờ trigger. Vết "đã từng có,
+        ai gỡ, lúc nào" nằm ở event_log, với 4 số cuối như lúc thêm.
+        """
+        chuan = normalize_vn_phone(so_dien_thoai)
+        if chuan is None:
+            raise ValidationError("Số điện thoại không hợp lệ.")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                da_xoa = await conn.fetchval(
+                    """
+                    DELETE FROM public.patient_sdt_them
+                     WHERE clinic_id = $1::uuid
+                       AND clinic_patient_id = $2::uuid
+                       AND so_dien_thoai = $3
+                    RETURNING loai
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                    chuan,
+                )
+                if da_xoa is None:
+                    raise ResourceNotFoundError(
+                        "Số này không nằm trong danh sách số thêm của khách."
+                    )
+                await conn.execute(
+                    """
+                    INSERT INTO public.event_log
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, metadata, source, event_published)
+                    VALUES ($1::uuid, 'patient.phone_removed', 'patient',
+                            $2::uuid, $3::jsonb, $4::jsonb, 'api', FALSE)
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                    json.dumps({"loai": da_xoa, "duoi": chuan[-4:]}),
+                    json.dumps(
+                        {
+                            "clinic_role": identity.role.value,
+                            "clinic_staff_id": identity.staff_id,
+                            "origin": "api",
+                        }
+                    ),
+                )
+        logger.info("patient_phone_removed", clinic_patient_id=clinic_patient_id)
+        return {"da_xoa": True}
