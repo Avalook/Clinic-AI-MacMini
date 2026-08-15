@@ -101,7 +101,7 @@ def _chay(conn: _Conn) -> list[str]:
     service = RosterService(MagicMock())
     return asyncio.run(
         service._khoi_phuc_lich_bi_go(
-            conn,  # type: ignore[arg-type]
+            conn,
             doctor_id="bs000000-0000-4000-8000-000000000001",
             work_date=date(2026, 8, 20),
             identity=_identity(),
