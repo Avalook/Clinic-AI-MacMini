@@ -76,3 +76,15 @@ test("hồ sơ khách vẽ số thêm ở CẢ hai khu, đúng loại dưới đ
   );
   assert.ok(locNguoiNha >= 1, "số người nhà thêm phải có chỗ vẽ");
 });
+
+test("gõ đủ 3 ký tự tên là hỏi trùng — không bắt chờ năm sinh", () => {
+  // Ca hay gặp nhất: khách cũ đọc số mới, người trực gõ tên trước khi kịp
+  // hỏi năm sinh. Điều kiện bắn truy vấn không được trói tên vào năm.
+  const form = doc("../app/(dashboard)/patients/new/NewPatientForm.tsx");
+  assert.match(
+    form,
+    /const coTen = fullName\.trim\(\)\.length >= 3;/,
+    "coTen phải đứng một mình — trói thêm năm sinh là ca thường gặp nhất câm lặng",
+  );
+});
+

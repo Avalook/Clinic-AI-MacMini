@@ -167,3 +167,15 @@ class TestMoiDuongTraSoDeuThaySoThem:
         assert ma.count("clinic_patient_id") >= 2, (
             "matches lẫn trung_ten đều phải mang khoá hồ sơ"
         )
+
+    def test_ten_don_thuan_du_de_hoi_trung_ten(self) -> None:
+        """Khách cũ đọc số MỚI, người trực mới kịp gõ TÊN — chưa có năm sinh.
+
+        Bản trước đòi (tên VÀ năm) hoặc số nên đúng ca hay gặp nhất im lặng
+        (Tuyền 15/08/2026). Tên đơn thuần phải đủ để đổ vào `trung_ten`; khớp
+        MẠNH (matches) vẫn theo luật đường lưu, không nới."""
+        from clinicai.api.v1 import patients
+
+        ma = inspect.getsource(patients.check_duplicate)
+        assert "any([phone, full_name])" in ma
+        assert "any([phone, full_name and birth_year])" not in ma
