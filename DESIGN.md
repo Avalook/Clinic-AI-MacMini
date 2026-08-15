@@ -6,8 +6,10 @@ lời "code CÁCH nào" — hai file riêng, không gộp.
 
 **Luật gốc:** mọi thay đổi giao diện lấy giá trị từ các thang trong file này.
 "To ra / bé đi" nghĩa là **nhích một bậc thang**, không bao giờ là cộng trừ px
-tự do. Số đo ngày chốt: repo có **463 giá trị kích thước tuỳ ý** (`[..px]`) —
-con số ấy chỉ được giảm (xem §Kỷ luật thi hành).
+tự do. Ngày chốt repo có 463 giá trị kích thước tuỳ ý (`[..px]`); con số ấy
+chỉ được giảm — trần hiện hành nằm ở hằng `TRAN` trong
+`src/dashboard/tests/px-tu-che-ratchet-boundary.test.mts`, CI canh cả hai
+chiều (xem §Kỷ luật thi hành).
 
 ---
 
@@ -130,7 +132,9 @@ Chỉ ba thứ được chuyển động: hover/press của nút và hàng (120m
 
 1. Component dùng chung ở `components/ui/` (Button, Chip, DataTable, Field —
    Bước 1 của kế hoạch đại tu). Màn nào cần nút là import, không tự vẽ.
-2. **Ratchet:** số giá trị `[..px]` tuỳ ý hiện tại **463** — bài kiểm CI chỉ cho
-   giảm, không cho tăng (Bước 3).
+2. **Ratchet:** bài kiểm `px-tu-che-ratchet-boundary.test.mts` đếm mọi giá trị
+   `[..px]` tuỳ ý và so với trần `TRAN` ghi trong chính nó. Vượt trần = chế
+   kích thước ngoài thang, CI đỏ. Dọn được thì hạ trần xuống đúng số mới —
+   trần chỉ được vặn xuống (Bước 3, đã chạy từ 15/08/2026).
 3. Đổi bất kỳ thang nào trong file này = một PR riêng chỉ đổi file này + lý do,
    không đổi ngầm trong một PR tính năng.
