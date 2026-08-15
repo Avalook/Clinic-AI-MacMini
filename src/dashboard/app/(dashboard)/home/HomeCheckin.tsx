@@ -6,9 +6,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserCheck, ChevronDown, Search, FileText, Printer } from "lucide-react";
+import { UserCheck, ChevronDown, Search, FileText } from "lucide-react";
 import { fmtTime, isVnMidnight } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
+import { chipClass, type ChipTone } from "@/components/ui/Chip";
+import Button from "@/components/ui/Button";
+import NutInPhieu from "@/components/ui/NutInPhieu";
 import SplitPane from "../SplitPane";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
@@ -159,7 +162,7 @@ export default function HomeCheckin({
                     {isVnMidnight(r.slot_start) ? "—" : fmtTime(r.slot_start)}
                   </span>
                   {r.queue_number && (
-                    <span className="mt-0.5 rounded-full bg-brand-100 px-1.5 text-[10px] font-medium text-brand-800">
+                    <span className={`mt-0.5 ${chipClass("brand")}`}>
                       {r.queue_number}
                     </span>
                   )}
@@ -178,27 +181,26 @@ export default function HomeCheckin({
                     <span className="block truncate text-sm font-medium text-ink hover:text-brand-600">
                       {r.patient?.full_name ?? "—"}
                     </span>
-                    <span className="block truncate text-[11px] text-ink-muted">
+                    <span className="block truncate text-label text-ink-muted">
                       <span className="font-mono">{r.patient?.patient_code}</span>
                       {r.patient?.phone_primary ? ` · ${r.patient.phone_primary}` : ""}
                       {r.service?.name ? ` · ${r.service.name}` : ""}
                     </span>
                   </span>
                 </button>
-                {/* Cột TRẠNG THÁI (nhãn VN) */}
+                {/* Cột TRẠNG THÁI (nhãn VN) — tone chip theo pha. */}
                 <span
-                  className={
-                    "shrink-0 rounded-full px-2.5 py-0.5 text-center text-[10px] font-medium " +
+                  className={`shrink-0 ${chipClass(
                     (completed
-                      ? "bg-surface-sunken text-ink-soft"
+                      ? "neutral"
                       : checkedIn
-                        ? "bg-success-bg text-success"
+                        ? "success"
                         : r.status === "SCHEDULED"
-                          ? "bg-warning-bg text-warning"
+                          ? "warning"
                           : canCheckIn
-                            ? "bg-brand-100 text-brand-800"
-                            : "bg-surface-sunken text-ink-soft")
-                  }
+                            ? "brand"
+                            : "neutral") satisfies ChipTone,
+                  )}`}
                 >
                   {statusVN}
                 </span>
@@ -208,36 +210,22 @@ export default function HomeCheckin({
                     mở BN để nhập sinh hiệu; vẫn cho "In phiếu" khi đã khám xong. */}
                 {!canCheckinActions ? (
                   completed ? (
-                    <a
-                      href={`/print/${r.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-success-bg bg-white px-2.5 text-xs font-semibold text-success hover:bg-success-bg"
-                    >
-                      <Printer size={13} /> In phiếu
-                    </a>
+                    <NutInPhieu href={`/print/${r.id}`} size="md" />
                   ) : null
                 ) : completed ? (
                   // Đã khám xong — Lễ tân in phiếu khám bệnh (tab mới → Xuất PDF).
-                  <a
-                    href={`/print/${r.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-success-bg bg-white px-2.5 text-xs font-semibold text-success hover:bg-success-bg"
-                  >
-                    <Printer size={13} /> In phiếu
-                  </a>
+                  <NutInPhieu href={`/print/${r.id}`} size="md" />
                 ) : checkedIn ? (
                   // Đã check-in = ĐÃ vào hàng khám của bác sĩ. Không có nút đổi pha
                   // ở đây (việc khám là của bác sĩ); chỉ cho Hoàn tác nếu nhầm.
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="rounded-full bg-success-bg px-2 py-0.5 text-center text-[10px] font-medium text-success">
+                    <span className={chipClass("success")}>
                       Đang chờ bác sĩ khám
                     </span>
                     <button
                       onClick={() => act(r.id, "undo_checkin")}
                       disabled={busyId === r.id}
-                      className="text-[11px] text-ink-faint hover:text-ink-muted disabled:opacity-50"
+                      className="text-label text-ink-faint hover:text-ink-muted disabled:opacity-50"
                     >
                       Hoàn tác check-in
                     </button>
@@ -245,24 +233,24 @@ export default function HomeCheckin({
                 ) : canCheckIn ? (
                   // Đã xác nhận/Chưa xác nhận, BN chưa đến → BN tới quầy thì Check-in.
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={() => act(r.id, "checkin")}
                       disabled={busyId === r.id}
-                      className="min-h-9 rounded-lg bg-brand-600 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                     >
                       {busyId === r.id ? "..." : "Check-in"}
-                    </button>
+                    </Button>
                     <button
                       onClick={() => act(r.id, "no_show")}
                       disabled={busyId === r.id}
-                      className="text-[11px] text-ink-faint hover:text-danger disabled:opacity-50"
+                      className="text-label text-ink-faint hover:text-danger disabled:opacity-50"
                     >
                       Không đến
                     </button>
                   </div>
                 ) : (
                   // NO_SHOW / CANCELLED / DOCTOR_DECLINED — không thao tác từ hàng đợi.
-                  <span className="shrink-0 text-[11px] text-ink-faint">—</span>
+                  <span className="shrink-0 text-label text-ink-faint">—</span>
                 )}
               </li>
             );
@@ -280,7 +268,7 @@ export default function HomeCheckin({
       >
         <UserCheck size={16} />
         {triggerLabel}
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-brand-800">
+        <span className="rounded-chip bg-white px-2 py-0.5 text-meta font-medium text-brand-800">
           {arrived}/{rows.length} đã đến
         </span>
         <ChevronDown

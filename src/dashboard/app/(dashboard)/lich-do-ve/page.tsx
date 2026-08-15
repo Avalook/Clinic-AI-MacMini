@@ -23,6 +23,7 @@ import { isOpsAdmin } from "../../../lib/roles";
 import { currentWeekStartVn, shiftWeek, weekStartOf, fmtDayMonth, dayLabel } from "../../../lib/roster";
 import { thongKeTheoKhungGio, tongKet, khungGioVN, type LichDeDem } from "../../../lib/thong-ke-khung-gio";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
+import { chipClass } from "../../../components/ui/Chip";
 import { VN_TZ } from "../../../lib/datetime";
 
 export const dynamic = "force-dynamic";
@@ -213,7 +214,7 @@ export default async function LichDoVePage({
                           className="border-b border-hairline border-l-[3px] border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                         >
                           {dayLabel(ngay)} · {fmtDayMonth(ngay)}
-                          <span className="ml-2 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-brand-300">
+                          <span className={`ml-2 ${chipClass("neutral")}`}>
                             {ds.length} lịch
                           </span>
                         </td>

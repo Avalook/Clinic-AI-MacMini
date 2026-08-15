@@ -12,7 +12,7 @@
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Printer, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   canCheckin,
   canWriteIntake,
@@ -32,6 +32,8 @@ import {
 import { useBookingPolicy } from "../BookingPolicyContext";
 import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { chipClass } from "@/components/ui/Chip";
+import Button from "@/components/ui/Button";
+import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 
 export interface WeekApptRow {
@@ -322,17 +324,17 @@ export default function WeeklyAppointmentsTable({
           {error}
         </div>
       )}
-      <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
+      <div className="max-h-[88vh] min-h-45 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <thead className="sticky top-0 z-10">
             <tr>
-              <th className={`${TH} min-w-[92px]`}>Khung giờ</th>
-              <th className={`${TH} min-w-[120px]`}>Bác sĩ</th>
-              <th className={`${TH} min-w-[200px]`}>Thông tin</th>
-              <th className={`${TH} min-w-[130px]`}>Dịch vụ khám</th>
-              <th className={`${TH} min-w-[110px]`}>Phân loại khám</th>
+              <th className={`${TH} min-w-23`}>Khung giờ</th>
+              <th className={`${TH} min-w-30`}>Bác sĩ</th>
+              <th className={`${TH} min-w-50`}>Thông tin</th>
+              <th className={`${TH} min-w-33`}>Dịch vụ khám</th>
+              <th className={`${TH} min-w-28`}>Phân loại khám</th>
               {showActionCol && (
-                <th className={`${TH} min-w-[150px]`}>
+                <th className={`${TH} min-w-38`}>
                   {isNurse ? "Sinh hiệu" : "Thao tác Check-in"}
                 </th>
               )}
@@ -353,10 +355,10 @@ export default function WeeklyAppointmentsTable({
                   <tr className="bg-surface-muted">
                     <td
                       colSpan={nCols}
-                      className="border-b border-hairline border-l-[3px] border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
+                      className="border-b border-hairline border-l-3 border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                     >
                       {dayLabel(day.date)} · {fmtDayMonth(day.date)}
-                      <span className="ml-2 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-brand-300">
+                      <span className={`ml-2 ${chipClass("neutral")}`}>
                         {day.items.length} lịch
                       </span>
                     </td>
@@ -365,7 +367,7 @@ export default function WeeklyAppointmentsTable({
                     <tr>
                       <td
                         colSpan={nCols}
-                        className="border-b border-brand-100 px-3 py-2 text-center text-[11px] text-ink-faint"
+                        className="border-b border-hairline px-3 py-2 text-center text-label text-ink-faint"
                       >
                         — chưa có lịch —
                       </td>
@@ -403,7 +405,7 @@ export default function WeeklyAppointmentsTable({
                                     nên câu cảnh báo phải nằm ở đúng dòng họ
                                     đang nhìn. */}
                                 {(a.mat_bac_si || a.bac_si_da_go) && (
-                                  <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                                  <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-label font-semibold text-warning">
                                     ⚠{" "}
                                     {a.bac_si_da_go
                                       ? `${a.bac_si_da_go} đã nghỉ — gọi khách xếp bác sĩ khác`
@@ -420,7 +422,7 @@ export default function WeeklyAppointmentsTable({
                                       !a.has_vitals && (
                                         <span
                                           title="Cần điền sinh hiệu"
-                                          className="inline-flex h-4 w-4 shrink-0 animate-pulse items-center justify-center rounded-full bg-danger text-[10px] font-bold leading-none text-white motion-reduce:animate-none"
+                                          className="inline-flex h-4 w-4 shrink-0 animate-pulse items-center justify-center rounded-full bg-danger text-label font-bold leading-none text-white motion-reduce:animate-none"
                                         >
                                           !
                                         </span>
@@ -432,7 +434,7 @@ export default function WeeklyAppointmentsTable({
                                     {a.patient?.full_name ?? "—"}
                                   </span>
                                 )}
-                                <span className="block font-mono text-[10px] text-ink-muted">
+                                <span className="block font-mono text-label text-ink-muted">
                                   {a.patient?.patient_code}
                                   {a.patient?.phone_primary
                                     ? ` · ${a.patient.phone_primary}`
@@ -456,59 +458,46 @@ export default function WeeklyAppointmentsTable({
                                     ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"].includes(
                                       a.status,
                                     ) ? (
-                                      <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+                                      <span className={chipClass("neutral")}>
                                         {STATUS_VN[a.status] ?? a.status}
                                       </span>
                                     ) : a.status !== "CHECKED_IN" &&
                                       a.status !== "COMPLETED" ? (
                                       // Chưa check-in → điều dưỡng CHƯA điền sinh hiệu
                                       // được (lễ tân phải check-in trước).
-                                      <span className="text-[10px] text-ink-faint">
+                                      <span className="text-label text-ink-faint">
                                         Chờ lễ tân check-in
                                       </span>
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <button
+                                        <Button
+                                          variant="primary"
+                                          size="sm"
                                           onClick={() => setSelAppt(a)}
-                                          className="rounded bg-brand-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-700"
                                         >
                                           Điền sinh hiệu
-                                        </button>
+                                        </Button>
                                         {a.status === "COMPLETED" && (
-                                          <a
-                                            href={`/print/${a.id}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex min-h-7 items-center gap-1 rounded border border-success-bg bg-white px-2 text-[11px] font-semibold text-success hover:bg-success-bg"
-                                          >
-                                            <Printer size={12} /> In phiếu
-                                          </a>
+                                          <NutInPhieu href={`/print/${a.id}`} />
                                         )}
                                       </div>
                                     )
                                   ) : a.status === "COMPLETED" ? (
                                     <div className="flex items-center gap-1.5">
-                                      <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+                                      <span className={chipClass("neutral")}>
                                         Đã khám xong
                                       </span>
-                                      <a
-                                        href={`/print/${a.id}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex min-h-7 items-center gap-1 rounded border border-success-bg bg-white px-2 text-[11px] font-semibold text-success hover:bg-success-bg"
-                                      >
-                                        <Printer size={12} /> In phiếu
-                                      </a>
+                                      <NutInPhieu href={`/print/${a.id}`} />
                                     </div>
                                   ) : a.status === "CHECKED_IN" ? (
                                     <div className="flex flex-col items-start gap-0.5">
-                                      <span className="rounded-full bg-success-bg px-2 py-0.5 text-[10px] font-medium text-success">
+                                      <span className={chipClass("success")}>
                                         Đang chờ khám
                                       </span>
                                       <button
                                         onClick={() => act(a.id, "undo_checkin")}
                                         disabled={busyId === a.id}
-                                        className="text-[10px] text-ink-faint hover:text-ink-muted font-medium disabled:opacity-50"
+                                        className="text-label text-ink-faint hover:text-ink-muted font-medium disabled:opacity-50"
                                       >
                                         Hoàn tác check-in
                                       </button>
@@ -517,23 +506,24 @@ export default function WeeklyAppointmentsTable({
                                       a.status,
                                     ) ? (
                                     <div className="flex items-center gap-2">
-                                      <button
+                                      <Button
+                                        variant="primary"
+                                        size="sm"
                                         onClick={() => act(a.id, "checkin")}
                                         disabled={busyId === a.id}
-                                        className="rounded bg-brand-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
                                       >
                                         {busyId === a.id ? "..." : "Check-in"}
-                                      </button>
+                                      </Button>
                                       <button
                                         onClick={() => act(a.id, "no_show")}
                                         disabled={busyId === a.id}
-                                        className="text-[10px] text-ink-faint hover:text-danger font-medium disabled:opacity-50"
+                                        className="text-label text-ink-faint hover:text-danger font-medium disabled:opacity-50"
                                       >
                                         Không đến
                                       </button>
                                     </div>
                                   ) : (
-                                    <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+                                    <span className={chipClass("neutral")}>
                                       {STATUS_VN[a.status] ?? a.status}
                                     </span>
                                   )}
@@ -546,12 +536,12 @@ export default function WeeklyAppointmentsTable({
                                 {r.free?.href ? (
                                   <Link
                                     href={r.free.href}
-                                    className="inline-block rounded bg-success-bg px-2 py-1 text-[11px] font-semibold text-success hover:bg-success-bg"
+                                    className="inline-block rounded bg-success-bg px-2 py-1 text-label font-semibold text-success hover:bg-success-bg"
                                   >
                                     ＋ Đặt lịch vào đây
                                   </Link>
                                 ) : (
-                                  <span className="inline-block rounded bg-success-bg px-2 py-1 text-[11px] font-medium text-success/70">
+                                  <span className="inline-block rounded bg-success-bg px-2 py-1 text-label font-medium text-success/70">
                                     đặt vào đây (còn trống)
                                   </span>
                                 )}
@@ -577,8 +567,8 @@ export default function WeeklyAppointmentsTable({
 
       {canWriteClinical && selAppt && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={() => setSelAppt(null)}>
-          <div className="flex h-full w-full max-w-lg flex-col border-l border-brand-100 bg-surface p-4 shadow-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex items-center justify-between border-b border-brand-100 pb-2">
+          <div className="flex h-full w-full max-w-lg flex-col border-l border-hairline bg-surface p-4 shadow-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between border-b border-hairline pb-2">
               <h3 className="text-base font-semibold text-brand-800">Hành chính & Sinh hiệu bệnh nhân</h3>
               <button onClick={() => setSelAppt(null)} className="rounded-md p-1 text-brand-800 hover:bg-brand-100">
                 <X size={18} />
