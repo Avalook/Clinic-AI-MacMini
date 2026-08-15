@@ -30,6 +30,11 @@ async def send_telegram(message: str) -> dict[str, Any]:
     Does NOT raise on failure — the caller handles retry logic.
     """
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    # NHIỀU KÊNH, phân cách bằng dấu phẩy (15/08/2026: chat riêng của Tuyền
+    # + nhóm "MVP2: Clinic AI"). Tin đi ĐỦ mọi kênh; "thành công" nghĩa là
+    # tất cả cùng nhận — thiếu một kênh là relay giữ sự kiện lại thử tiếp,
+    # chấp nhận hiếm hoi trùng tin ở kênh đã nhận còn hơn một kênh lặng lẽ
+    # không bao giờ được báo.
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 
     if not token or not chat_id:
@@ -40,34 +45,38 @@ async def send_telegram(message: str) -> dict[str, Any]:
         return {"ok": False, "skipped": True}
 
     url = f"{TELEGRAM_API}/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True,
-    }
+    cac_kenh = [c.strip() for c in chat_id.split(",") if c.strip()]
 
     try:
+        ket_cuoi: dict[str, Any] = {"ok": True}
         async with httpx.AsyncClient(timeout=SEND_TIMEOUT) as client:
-            resp = await client.post(url, json=payload)
-            raw_result = resp.json()
-
-        result: dict[str, Any] = (
-            raw_result
-            if isinstance(raw_result, dict)
-            else {"ok": False, "error": "invalid Telegram response"}
-        )
-
-        if not result.get("ok"):
-            logger.warning(
-                "telegram_send_failed",
-                status_code=resp.status_code,
-                description=result.get("description"),
-            )
-        else:
-            logger.info("telegram_sent", chat_id=chat_id)
-
-        return result
+            for kenh in cac_kenh:
+                resp = await client.post(
+                    url,
+                    json={
+                        "chat_id": kenh,
+                        "text": message,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                    },
+                )
+                raw_result = resp.json()
+                result: dict[str, Any] = (
+                    raw_result
+                    if isinstance(raw_result, dict)
+                    else {"ok": False, "error": "invalid Telegram response"}
+                )
+                if not result.get("ok"):
+                    logger.warning(
+                        "telegram_send_failed",
+                        chat_id=kenh,
+                        status_code=resp.status_code,
+                        description=result.get("description"),
+                    )
+                    ket_cuoi = result
+                else:
+                    logger.info("telegram_sent", chat_id=kenh)
+        return ket_cuoi
     except httpx.HTTPError as exc:
         logger.error("telegram_http_error", error=str(exc))
         return {"ok": False, "error": str(exc)}

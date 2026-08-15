@@ -22,12 +22,22 @@ class TestDocLenh:
 
 
 class TestLuatAnToan:
-    def test_chi_tra_loi_dung_chat_da_cau_hinh(self) -> None:
-        """Bot đọc được con số vận hành — người lạ nhắn thì lờ đi + ghi vết,
-        không có nhánh nào trả lời chat khác chat cấu hình."""
+    def test_chi_tra_loi_kenh_da_dang_ky(self) -> None:
+        """Kênh ngoài danh sách bị lờ + ghi vết. 15/08 tối: TELEGRAM_CHAT_ID
+        thành danh sách phẩy (chat riêng + nhóm làm việc), và trả lời phải về
+        ĐÚNG kênh vừa hỏi — hỏi trong nhóm mà đáp vào chat riêng thì cả nhóm
+        tưởng bot chết."""
         ma = inspect.getsource(bot.bot_lenh_loop)
-        assert "chat != chat_id_cau_hinh" in ma
+        assert "chat not in kenh_duoc_phep" in ma
         assert "bot_lenh_nguoi_la" in ma
+        assert "_gui(client, chat," in ma, "trả lời phải về kênh vừa hỏi"
+
+    def test_danh_sach_kenh_tach_phay(self) -> None:
+        import os
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "111, -222 ,"}):
+            assert bot._chat_ids() == {"111", "-222"}
 
     def test_menu_tu_dang_ky_moi_lan_start(self) -> None:
         """Bot từng dính menu rác của project cũ — menu phải được ghi đè lúc

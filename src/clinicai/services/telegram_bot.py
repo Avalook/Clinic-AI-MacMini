@@ -66,8 +66,10 @@ def _token() -> str:
     return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
 
-def _chat_id() -> str:
-    return os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+def _chat_ids() -> set[str]:
+    """TELEGRAM_CHAT_ID là danh sách phẩy — chat riêng + nhóm làm việc."""
+    raw = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    return {c.strip() for c in raw.split(",") if c.strip()}
 
 
 def doc_lenh(text: str | None) -> str | None:
@@ -157,11 +159,13 @@ async def _tra_loi(pool: asyncpg.Pool, clinic_id: str, lenh: str) -> str | None:
     return None  # lệnh lạ: im lặng — menu đã kể đủ những gì bot biết
 
 
-async def _gui(client: httpx.AsyncClient, text: str) -> None:
+async def _gui(client: httpx.AsyncClient, chat_id: str, text: str) -> None:
+    # Trả lời về ĐÚNG kênh vừa hỏi — hỏi trong nhóm mà đáp vào chat riêng
+    # thì cả nhóm tưởng bot chết.
     await client.post(
         f"{TELEGRAM_API}/bot{_token()}/sendMessage",
         data={
-            "chat_id": _chat_id(),
+            "chat_id": chat_id,
             "text": text,
             "parse_mode": "HTML",
             "disable_web_page_preview": True,
@@ -192,10 +196,10 @@ async def bot_lenh_loop(
     pool: asyncpg.Pool, clinic_id: str, stop: asyncio.Event
 ) -> None:
     """Vòng nghe lệnh — chạy song song với vòng relay trong cùng process."""
-    if not _token() or not _chat_id():
+    if not _token() or not _chat_ids():
         logger.info("bot_lenh_skipped", reason="thiếu TELEGRAM_BOT_TOKEN/CHAT_ID")
         return
-    chat_id_cau_hinh = _chat_id()
+    kenh_duoc_phep = _chat_ids()
     async with httpx.AsyncClient(timeout=POLL_TIMEOUT + 10) as client:
         await _dang_ky_menu(client)
         offset = await _offset_bo_ton_dong(client)
@@ -213,7 +217,7 @@ async def bot_lenh_loop(
                     offset = u["update_id"] + 1
                     msg: dict[str, Any] = u.get("message") or {}
                     chat = str((msg.get("chat") or {}).get("id", ""))
-                    if chat != chat_id_cau_hinh:
+                    if chat not in kenh_duoc_phep:
                         # Người lạ nhắn với bot: lờ đi, chỉ ghi vết.
                         logger.warning("bot_lenh_nguoi_la", chat_id=chat)
                         continue
@@ -222,7 +226,7 @@ async def bot_lenh_loop(
                         continue
                     tra_loi = await _tra_loi(pool, clinic_id, lenh)
                     if tra_loi:
-                        await _gui(client, tra_loi)
+                        await _gui(client, chat, tra_loi)
             except httpx.HTTPError:
                 await asyncio.sleep(5)
             except Exception:
