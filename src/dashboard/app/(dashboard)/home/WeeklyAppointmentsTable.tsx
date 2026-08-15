@@ -420,8 +420,8 @@ export default function WeeklyAppointmentsTable({
                                     ⚠{" "}
                                     {a.bac_si_da_go
                                       ? a.bac_si_da_go_co_ca_lai
-                                        ? `Ca của ${a.bac_si_da_go} đã xếp lại — gán lại bác sĩ cho lịch này (khung cũ có thể đã kín)`
-                                        : `${a.bac_si_da_go} đã nghỉ — gọi khách xếp bác sĩ khác`
+                                        ? `Ca của ${a.bac_si_da_go} đã xếp lại — lịch cũ đã huỷ, có thể đặt lại đúng khung nếu còn chỗ`
+                                        : `${a.bac_si_da_go} đã nghỉ — lịch đã huỷ, gọi khách đặt lịch mới`
                                       : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
                                   </span>
                                 )}

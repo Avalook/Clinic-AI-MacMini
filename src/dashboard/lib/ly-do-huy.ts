@@ -16,6 +16,9 @@ export const LY_DO_HUY: Record<string, string> = {
   BAO_KHI_NHAC_HEN: "Đã xác nhận sẽ đến, tới lúc nhắc hẹn thì báo không đến",
   BAO_VAO_GIO_KHAM: "Đúng giờ khám, lễ tân gọi khách mới báo không đến",
   DAT_TRUNG: "Đặt trùng — khách có nhiều lịch, bỏ bớt giữ lại một",
+  // Máy ghi khi xoá ca trực (RosterService.remove); người cũng chọn được khi
+  // huỷ tay vì đúng lý do ấy. Khách không làm gì cả — đừng đếm vào BAO_*.
+  BAC_SI_DOI_LICH: "Bác sĩ đổi lịch làm việc — phòng khám huỷ để đặt lại",
   KHAC: "Lý do khác (tự viết)",
 };
 
@@ -25,6 +28,7 @@ export const LY_DO_HUY_THU_TU: string[] = [
   "BAO_KHI_NHAC_HEN",
   "BAO_VAO_GIO_KHAM",
   "DAT_TRUNG",
+  "BAC_SI_DOI_LICH",
   "KHAC",
 ];
 
