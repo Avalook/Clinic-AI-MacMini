@@ -304,10 +304,12 @@ class RosterService:
                                bac_si_da_go_id = NULL,
                                bo_bac_si_luc = NULL
                          WHERE id = $1::uuid AND doctor_id IS NULL
+                           AND clinic_id = $3::uuid
                         RETURNING id
                         """,
                         uv["id"],
                         doctor_id,
+                        identity.clinic_id,
                     )
                     if not ok:
                         continue
