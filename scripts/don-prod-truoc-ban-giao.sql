@@ -27,7 +27,8 @@
 -- `tuong_tac_cskh`, `tep_ket_qua`, `phan_hoi_khach`, `hen_goi_lai`.
 --
 -- ĐÃ KIỂM TRƯỚC KHI GIAO (14/08/2026):
---   · cả 39 bảng đều tồn tại trên prod
+--   · cả 39 bảng đều tồn tại trên prod (17/08: +patient_sdt_them = 40 —
+--     CASCADE vốn sẽ tự kéo nó theo patient, nhưng danh sách phải nói thật)
 --   · CASCADE không kéo thêm bảng nào ngoài danh sách — tập đã đóng theo đồ
 --     thị khoá ngoại, nên không có bảng nào bị xoá ngoài ý muốn
 --   · bản sao lưu chụp lúc 11:27 cùng ngày: 225KB, gzip toàn vẹn, kèm tài
@@ -52,6 +53,7 @@ SET LOCAL session_replication_role = 'replica';
 TRUNCATE
   -- Bệnh nhân và mọi hồ sơ treo vào người
   patient, patient_contact_channel, patient_next_of_kin,
+  patient_sdt_them,  -- số điện thoại gắn thêm (20260815000002) — treo vào patient
   patient_medical_profile, patient_link, pregnancy,
   mpi_merge_queue, clinical_data_consent,
   -- Lịch hẹn, lượt khám, giữ chỗ
