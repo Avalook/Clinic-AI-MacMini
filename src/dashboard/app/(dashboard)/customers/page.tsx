@@ -990,6 +990,27 @@ type LichHenRaw = {
       };
     }
 
+    // ĐẮP GIỜ ĐẾN THẬT vào lịch đại diện — chip danh sách cần mốc này để
+    // "Đã check-in" thắng lần chạm cuối của sổ chăm sóc (CustomersView.
+    // customerStatus). Đắp SAU vì visitTheoLich dựng ở đây, còn apptByPatient
+    // dựng ở trên; chỉ đắp khi lịch đang CHECKED_IN — lượt đã đóng thì chip
+    // kể chuyện checkout từ sổ như cũ.
+    for (const ap of Object.values(apptByPatient)) {
+      if (ap.id && ap.status === "CHECKED_IN") {
+        ap.checked_in_at = visitTheoLich[ap.id]?.batDau ?? null;
+      }
+    }
+
+    // ĐẮP GIỜ ĐẾN THẬT vào lịch đại diện — chip danh sách cần mốc này để
+    // "Đã check-in" thắng lần chạm cuối của sổ chăm sóc. Đắp SAU vì
+    // visitTheoLich dựng ở đây, còn apptByPatient dựng ở trên; chỉ đắp cho
+    // lịch đang CHECKED_IN — lượt đã đóng thì chip kể chuyện checkout từ sổ.
+    for (const ap of Object.values(apptByPatient)) {
+      if (ap.id && ap.status === "CHECKED_IN") {
+        ap.checked_in_at = visitTheoLich[ap.id]?.batDau ?? null;
+      }
+    }
+
     for (const [pid, list] of Object.entries(grouped)) {
       const cacLuot: LuotKham[] = list
         .filter((a) => a.id)

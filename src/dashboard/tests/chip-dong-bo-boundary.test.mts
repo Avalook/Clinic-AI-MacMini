@@ -83,3 +83,29 @@ test("`created_at` thật sự được nạp vào dữ liệu chip", () => {
     "truy vấn lịch hẹn phải chọn cả cột created_at",
   );
 });
+
+test("Lễ tân check-in là chip nhảy 'Đã check-in' — cùng phép so mốc thời gian", () => {
+  // Check-in không đi qua sổ chăm sóc (Lễ tân bấm ở màn khác), nên trước
+  // 17/08 chip vẫn kể cuộc gọi hôm kia trong khi khách ngồi phòng chờ.
+  // Nhánh mới phải (1) đứng TRƯỚC nhánh đặt-lịch — CHECKED_IN cũng nằm trong
+  // LUOT_CHUA_DONG nên đứng sau là bị "Đã đặt lịch" nuốt; (2) so mốc
+  // checked_in_at với lần chạm cuối như hai nhánh huỷ/đặt.
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const denLuc = view.indexOf("const denLuc");
+  const datLuc = view.indexOf("const datLuc");
+  assert.ok(denLuc > 0 && datLuc > 0, "thiếu một trong hai nhánh");
+  assert.ok(denLuc < datLuc, "nhánh check-in phải đứng TRƯỚC nhánh đặt lịch");
+  const khoi = view.slice(denLuc, denLuc + 500);
+  assert.match(khoi, /mocMs\(denLuc\) >= mocMs\(chamCuoiRow\.xay_ra_luc\)/);
+  assert.match(khoi, /Đã check-in/);
+
+  // Nguồn mốc: page.tsx phải đắp checked_in_at từ visit vào lịch đại diện.
+  const page = readFileSync(
+    new URL("../app/(dashboard)/customers/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /ap\.checked_in_at = visitTheoLich\[ap\.id\]\?\.batDau/);
+});
