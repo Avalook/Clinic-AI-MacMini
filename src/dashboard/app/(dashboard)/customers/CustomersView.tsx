@@ -377,6 +377,10 @@ export interface ApptInfo {
   upcoming: boolean;
   /** Lịch đại diện đã qua giờ mà khách vẫn chưa đến. */
   qua_gio_hen?: boolean;
+  /** Giờ đến THẬT (visit.checked_in_at) — chỉ đắp khi status CHECKED_IN.
+   *  Chip danh sách cần mốc này để "Đã check-in" thắng được lần chạm cuối
+   *  của sổ chăm sóc trong cùng phép so thời gian với huỷ/đặt lịch. */
+  checked_in_at?: string | null;
   /** Lịch có bác sĩ, nhưng bác sĩ ấy không còn ca trực vào ngày khám. */
   mat_bac_si?: boolean;
   count: number;
@@ -1112,6 +1116,20 @@ export default function CustomersView({
         label: ly ? `Đã huỷ lịch · ${ly}` : "Đã huỷ lịch",
         tone: "overdue",
       };
+    }
+
+    // KHÁCH ĐÃ ĐẾN QUẦY CŨNG LÀ MỘT SỰ KIỆN — và nó cũng không đi qua sổ
+    // chăm sóc: Lễ tân bấm check-in ở màn khác, không dòng nào vào
+    // tuong_tac_cskh. Trước 17/08 chip vẫn kể cuộc gọi hôm kia trong khi
+    // khách đang ngồi ở phòng chờ. Cùng phép so mốc thời gian với hai nhánh
+    // huỷ/đặt ngay trên dưới: cái gì xảy ra SAU là chuyện của bây giờ.
+    const denLuc =
+      apptRow?.status === "CHECKED_IN" ? (apptRow.checked_in_at ?? null) : null;
+    if (
+      denLuc &&
+      (!chamCuoiRow || mocMs(denLuc) >= mocMs(chamCuoiRow.xay_ra_luc))
+    ) {
+      return { label: "Đã check-in — đang chờ khám", tone: "assigned" };
     }
 
     // ĐẶT LỊCH MỚI CŨNG LÀ MỘT SỰ KIỆN, và nó CŨNG KHÔNG đi qua sổ chăm sóc.
