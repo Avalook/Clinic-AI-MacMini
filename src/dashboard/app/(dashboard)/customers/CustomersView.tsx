@@ -134,7 +134,8 @@ function homNayVn(): string {
 
 /** Một dòng cho ô "Tương tác gần nhất". `undefined` = chưa có lần nào. */
 function tomTatTuongTac(ds: DongLichSu[] | undefined): string | undefined {
-  const d = ds?.[0];
+  // Dòng đã hoàn tác không còn là "lần tương tác gần nhất" của khách.
+  const d = ds?.find((x) => !x.huy_luc);
   if (!d) return undefined;
   const ngay = new Date(d.xay_ra_luc).toLocaleDateString("vi-VN", {
     day: "2-digit",
@@ -328,7 +329,8 @@ function nhanChiTiet(
   if (tt.trang_thai !== "GOI_LAI") return tt.nhan;
   // `lichSu` xếp mới nhất trước (xem truy vấn ở `page.tsx`), và nhánh GOI_LAI
   // của view cũng đọc lần chạm CUỐI — nên hai bên nhìn cùng một dòng.
-  const kq = lichSu?.[0]?.ket_qua;
+  // Bỏ qua dòng đã hoàn tác — nhánh GOI_LAI của view cũng lọc `huy_luc IS NULL`.
+  const kq = lichSu?.find((d) => !d.huy_luc)?.ket_qua;
   const noi = kq ? NHAN_KET_QUA_NGAN_GOI[kq] : undefined;
   return noi ? `${tt.nhan} · ${noi}` : tt.nhan;
 }
@@ -1114,7 +1116,13 @@ export default function CustomersView({
     // là chuyện của khách này bây giờ. Cùng phép so ấy dùng được cho check-in
     // do Lễ tân bấm ở màn khác, khi nào mang được `checked_in_at` xuống đây.
     const apptRow = apptByPatient[row.clinic_patient_id];
-    const chamCuoiRow = tuongTacByPatient[row.clinic_patient_id]?.[0];
+    // BỎ QUA dòng đã hoàn tác (`huy_luc`): bấm nút tròn là dòng ấy thành vô
+    // hiệu ngay, chip không được kể tiếp câu chuyện vừa bị rút lại. View DB
+    // đã lọc `huy_luc IS NULL` từ 20260810000009 — đây là phía frontend của
+    // cùng một luật (Tuyền 17/08/2026: "không được delay").
+    const chamCuoiRow = tuongTacByPatient[row.clinic_patient_id]?.find(
+      (d) => !d.huy_luc,
+    );
     const huyLuc =
       apptRow?.status === "CANCELLED" ? (apptRow.cancelled_at ?? null) : null;
     if (
@@ -1558,8 +1566,9 @@ export default function CustomersView({
                                   từ Notion trên một bảng đang rỗng. Muốn có
                                   người phụ trách thật thì cần một bảng phân
                                   công + nút "nhận việc" — chưa làm. */}
-                              {tuongTacByPatient[row.clinic_patient_id]?.[0]
-                                ?.nhan_vien ??
+                              {tuongTacByPatient[row.clinic_patient_id]?.find(
+                                (d) => !d.huy_luc,
+                              )?.nhan_vien ??
                                 cskh?.assignee ?? (
                                   <span className="text-ink-faint">
                                     Chưa ai xử lý
@@ -1761,7 +1770,8 @@ export default function CustomersView({
                           Khách đã được nghe một giờ; nếu người gọi xác nhận
                           không biết là nó đã đổi thì họ đọc lại đúng giờ cũ. */}
                       {tuongTacByPatient[selected.clinic_patient_id]?.find(
-                        (d) => d.trang_thai_ma === "QUAN_LY_DOI_GIO",
+                        (d) =>
+                          d.trang_thai_ma === "QUAN_LY_DOI_GIO" && !d.huy_luc,
                       ) && (
                         <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
                           ⚠ Quản lý đã đổi giờ so với giờ hẹn ban đầu — gọi báo
