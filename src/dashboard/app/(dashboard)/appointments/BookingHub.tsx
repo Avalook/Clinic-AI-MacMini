@@ -773,7 +773,11 @@ export default function BookingHub({
   useEffect(() => {
     // Xoá ca là lịch hẹn của ca ấy bị HUỶ theo (remove() 15/08) — cache lịch
     // của-ngày-khác đang giữ những dòng vừa chết. Xả để lượt xem sau tự nạp.
-    if (doiCa > 0) setFetchedByDate({});
+    // Hoãn qua setTimeout(0): luật nhà cấm setState đồng bộ trong effect
+    // (react-hooks/set-state-in-effect) — cùng mẫu với tick của WaitClock.
+    if (doiCa === 0) return;
+    const t = setTimeout(() => setFetchedByDate({}), 0);
+    return () => clearTimeout(t);
   }, [doiCa]);
 
   const isToday = selectedDateIso === todayIso;
