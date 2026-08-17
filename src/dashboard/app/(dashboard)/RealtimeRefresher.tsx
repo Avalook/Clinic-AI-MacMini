@@ -38,6 +38,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
+import { SU_KIEN_DOI_CA } from "./dung-doi-ca";
+
 // 250ms: đủ để gộp một chuỗi thay đổi của cùng một thao tác (mở lượt khám đụng
 // vài bảng) thành một lần render, đủ ngắn để người dùng không kịp thấy độ trễ.
 // 1200ms ở bản cũ là hơn một giây thuần chờ trên MỌI cập nhật.
@@ -91,11 +93,22 @@ export default function RealtimeRefresher({
 }) {
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chuongCa = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const bump = () => {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => router.refresh(), DEBOUNCE_MS);
+    };
+    // CHUÔNG CA TRỰC — cho dữ liệu client-fetch mà router.refresh không với
+    // tới (hai lưới đặt chỗ). Debounce riêng: "áp dụng lịch cả tuần" bắn một
+    // tràng notify, và một tràng chuông là một tràng refetch quote vô ích.
+    const rungChuongCa = () => {
+      if (chuongCa.current) clearTimeout(chuongCa.current);
+      chuongCa.current = setTimeout(
+        () => window.dispatchEvent(new CustomEvent(SU_KIEN_DOI_CA)),
+        DEBOUNCE_MS,
+      );
     };
 
     // LỌC BẢNG Ở ĐÂY, LỌC PHÒNG KHÁM Ở MÁY CHỦ.
@@ -115,6 +128,7 @@ export default function RealtimeRefresher({
           t?: string;
         };
         if (!t || wanted.has(t)) bump();
+        if (t === "work_roster") rungChuongCa();
       } catch {
         // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót một
         // thay đổi và để người dùng nhìn dữ liệu cũ.
