@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 import { getClinicRole } from "../../../../lib/clinic-session";
+import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
@@ -104,6 +105,7 @@ export default async function NewPatientPage({
         </header>
       )}
       <NewPatientForm
+        staffId={(await getCurrentStaff())?.id ?? null}
         role={role}
         locations={locations}
         services={services}

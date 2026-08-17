@@ -20,6 +20,8 @@ def test_bon_loai_tin_dang_nhac_may() -> None:
         "appointment.cancelled",
         "appointment.rescheduled",
         "appointment.doctor_removed",
+        # 17/08: ca mới có lịch chờ xếp — trả lời câu hỏi của Đặng Dương.
+        "roster.shift_added_cho_xep",
     }
 
 
@@ -79,3 +81,21 @@ def test_khong_mau_nao_dua_so_dien_thoai_vao_tin() -> None:
     assert "phone" not in ma.replace("KHÔNG BAO GIỜ đưa số điện thoại", ""), (
         "mẫu tin chạm tới trường phone — Telegram là bên thứ ba, cấm"
     )
+
+
+def test_ca_moi_cho_xep_goi_duoc_cskh() -> None:
+    """Câu hỏi Đặng Dương 17/08: đặt lịch trước khi có lịch bác sĩ — ai báo
+    CSKH khi ca được cập nhật? Tin này chính là câu trả lời."""
+    tin = mau.render(
+        "roster.shift_added_cho_xep",
+        {
+            "ten_bac_si": "Phan Chí Thành",
+            "ngay": "20/08",
+            "ca": "SANG",
+            "so_lich": 2,
+            "gio": ["07:15", "08:30"],
+        },
+    )
+    assert tin is not None
+    assert "BS Phan Chí Thành có ca sáng ngày 20/08" in tin
+    assert "2 lịch đang chờ xếp" in tin and "07:15 · 08:30" in tin
