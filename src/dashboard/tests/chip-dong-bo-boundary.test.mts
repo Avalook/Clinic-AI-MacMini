@@ -109,3 +109,30 @@ test("Lễ tân check-in là chip nhảy 'Đã check-in' — cùng phép so mố
   );
   assert.match(page, /ap\.checked_in_at = visitTheoLich\[ap\.id\]\?\.batDau/);
 });
+
+test("đếm ngược tới giờ khám: có luật DỪNG, và đứng ở CẢ HAI khối lịch hẹn", () => {
+  // Tuyền 17/08: "có bị vô hạn thời gian không, có logic dừng khi đến hạn
+  // không?" — ba chốt: chỉ đếm trạng thái chưa-tới, interval tự tắt khi chạm
+  // mốc (không đếm âm), tới giờ thì im để dòng ⚠ quá-giờ của server tiếp quản.
+  const dem = readFileSync(
+    new URL("../app/(dashboard)/customers/DemNguocKham.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(dem, /\["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"\]/);
+  assert.match(
+    dem,
+    /Date\.now\(\) >= moc[\s\S]{0,120}?clearInterval/,
+    "chạm mốc là interval phải tự tắt — không đếm âm vô hạn",
+  );
+  assert.match(dem, /if \(conMs <= 0\) return null/);
+
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    (view.match(/<DemNguocKham/g) ?? []).length,
+    2,
+    "khối bấm-được và khối chỉ-đọc đều phải có — vá một trong hai là bài ba lưới",
+  );
+});
