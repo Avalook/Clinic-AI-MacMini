@@ -982,6 +982,35 @@ export default function VungLamViecKhach({
 
   const [dangHoanTac, setDangHoanTac] = useState<string | null>(null);
   const [loiHoanTac, setLoiHoanTac] = useState<string | null>(null);
+  // Vừa hoàn tác xong dòng nào → mời ghi LÝ DO (tuỳ chọn, Đặng Dương 17/08).
+  // Hoàn tác vẫn một-cú-bấm (Quang 10/08); ô này hiện SAU và bỏ qua được.
+  const [vuaHoanTac, setVuaHoanTac] = useState<string | null>(null);
+  const [lyDoLamLai, setLyDoLamLai] = useState("");
+  const [dangGhiLyDo, setDangGhiLyDo] = useState(false);
+  const [loiLyDo, setLoiLyDo] = useState<string | null>(null);
+
+  async function ghiLyDoLamLai() {
+    if (!vuaHoanTac || !lyDoLamLai.trim()) return;
+    setDangGhiLyDo(true);
+    setLoiLyDo(null);
+    const res = await fetch(
+      `/api/cskh/tuong-tac/${vuaHoanTac}/ly-do-hoan-tac`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ly_do: lyDoLamLai.trim() }),
+      },
+    );
+    setDangGhiLyDo(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      setLoiLyDo(nhanLoi(d, `Không ghi được (lỗi ${res.status}).`));
+      return;
+    }
+    setVuaHoanTac(null);
+    setLyDoLamLai("");
+    router.refresh();
+  }
 
   /** RÚT LẠI MỘT LẦN CHẠM BẤM NHẦM.
    *
@@ -1019,6 +1048,8 @@ export default function VungLamViecKhach({
       setLoiHoanTac(nhanLoi(d, `Không hoàn tác được (lỗi ${res.status}).`));
       return;
     }
+    setVuaHoanTac(id);
+    setLyDoLamLai("");
     router.refresh();
   }
 
@@ -1303,6 +1334,38 @@ export default function VungLamViecKhach({
             <p className="rounded-md bg-danger-bg px-2 py-1 text-label text-danger">
               {loiHoanTac}
             </p>
+          )}
+          {vuaHoanTac && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 rounded-control bg-surface-muted px-2.5 py-1.5">
+              <span className="text-label font-medium text-ink-soft">
+                ✓ Đã hoàn tác. Lý do làm lại (tuỳ chọn):
+              </span>
+              <input
+                value={lyDoLamLai}
+                onChange={(e) => setLyDoLamLai(e.target.value)}
+                placeholder="vd: bấm nhầm / khách đổi ý"
+                maxLength={500}
+                className="h-7 w-56 rounded-control bg-surface px-2 text-body text-ink ring-1 ring-inset ring-line focus:ring-brand-500 outline-none"
+              />
+              <button
+                type="button"
+                disabled={!lyDoLamLai.trim() || dangGhiLyDo}
+                onClick={() => void ghiLyDoLamLai()}
+                className="h-7 rounded-control bg-brand-600 px-2.5 text-label font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {dangGhiLyDo ? "Đang ghi…" : "Lưu lý do"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setVuaHoanTac(null)}
+                className="text-label text-ink-faint hover:text-ink-muted"
+              >
+                Bỏ qua
+              </button>
+              {loiLyDo && (
+                <span className="basis-full text-label text-danger">{loiLyDo}</span>
+              )}
+            </div>
           )}
           {khongGanDuocLuot && (
             <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-label font-medium text-warning">

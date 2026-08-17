@@ -272,6 +272,35 @@ class TuongTacCskhService:
         )
         return {"ok": True, "id": row_id}
 
+    async def ghi_ly_do_hoan_tac(
+        self, *, identity: StaffIdentity, tuong_tac_id: str, ly_do: str
+    ) -> dict[str, Any]:
+        """Ghi lý do làm lại — SAU hoàn tác, tuỳ chọn (Đặng Dương 17/08/2026).
+
+        Hoàn tác giữ nguyên một-cú-bấm (Quang 10/08: không hộp xác nhận);
+        đây là chỗ cho người cần báo cáo. Chỉ nhận vào dòng ĐÃ hoàn tác —
+        "lý do làm lại" trên một dòng còn hiệu lực là câu vô nghĩa."""
+        chu = ly_do.strip()
+        if not chu:
+            raise ValidationError("Lý do trống thì không có gì để ghi.")
+        if len(chu) > 500:
+            raise ValidationError("Lý do dài quá 500 ký tự.")
+        da_ghi = await self._pool.fetchval(
+            """
+            UPDATE public.tuong_tac_cskh
+               SET ly_do_hoan_tac = $3
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+               AND huy_luc IS NOT NULL
+            RETURNING id
+            """,
+            tuong_tac_id,
+            identity.clinic_id,
+            chu,
+        )
+        if da_ghi is None:
+            raise NotFoundError("Không tìm thấy thao tác đã hoàn tác nào để ghi lý do.")
+        return {"ok": True}
+
     async def hoan_tac(
         self, *, identity: StaffIdentity, tuong_tac_id: str
     ) -> dict[str, Any]:

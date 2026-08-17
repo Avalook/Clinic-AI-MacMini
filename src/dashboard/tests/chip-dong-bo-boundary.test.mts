@@ -136,3 +136,27 @@ test("đếm ngược tới giờ khám: có luật DỪNG, và đứng ở CẢ
     "khối bấm-được và khối chỉ-đọc đều phải có — vá một trong hai là bài ba lưới",
   );
 });
+
+test("hoàn tác vẫn một-cú-bấm; lý do làm lại hiện SAU và bỏ qua được", () => {
+  // Đặng Dương 17/08 xin chỗ ghi lý do; Quang 10/08 đã chốt không hộp xác
+  // nhận. Hai chốt sống chung: nút tròn rút NGAY như cũ, ô lý do mở sau —
+  // có nút Bỏ qua, không chặn ai.
+  const vung = readFileSync(
+    new URL("../app/(dashboard)/customers/VungLamViecKhach.tsx", import.meta.url),
+    "utf8",
+  );
+  const hoanTac = vung.indexOf("async function hoanTac");
+  const khoi = vung.slice(hoanTac, hoanTac + 900);
+  assert.doesNotMatch(khoi, /confirm\(/, "không hộp thoại chặn trước — chốt Quang 10/08");
+  assert.match(khoi, /setVuaHoanTac\(id\)/, "xong mới mời ghi lý do");
+  assert.match(vung, /ly-do-hoan-tac/, "ô lý do phải gọi đúng cửa API");
+  assert.match(vung, /Bỏ qua/, "phải bỏ qua được — tuỳ chọn nghĩa là tuỳ chọn");
+
+  // Lý do đã ghi phải HIỆN lại ở dòng gạch trong lịch sử — lưu mà không hiện
+  // thì lần sau người ta thôi không ghi nữa.
+  const ls = readFileSync(
+    new URL("../app/(dashboard)/customers/LichSuCacLanKham.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(ls, /ly_do_hoan_tac/, "dòng đã-hoàn-tác phải kể được lý do");
+});
