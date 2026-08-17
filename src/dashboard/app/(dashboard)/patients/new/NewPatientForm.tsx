@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound, CalendarClock } from "lucide-react";
 import Button from "@/components/ui/Button";
+import { useDoiCa } from "../../dung-doi-ca";
 import { nhanLoi } from "@/lib/loi-api";
 import { type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
@@ -400,6 +401,9 @@ export default function NewPatientForm({
   /** Tuần chứa ngày đã chọn chưa được bấm "Áp dụng tuần" — xem /api/roster. */
   const [dutyDuKien, setDutyDuKien] = useState(false);
   const dutyDate = walkin ? TODAY : apptDate;
+  // Ca trực đổi giữa chừng (quản lý thêm/xoá ca) → nạp lại danh sách bác sĩ
+  // trực của ngày — lưới đặt chỗ vẽ theo danh sách này. Xem dung-doi-ca.ts.
+  const doiCa = useDoiCa();
   useEffect(() => {
     if (!dutyDate) return;
     const ctrl = new AbortController();
@@ -413,7 +417,7 @@ export default function NewPatientForm({
       })
       .catch(() => {});
     return () => ctrl.abort();
-  }, [dutyDate]);
+  }, [dutyDate, doiCa]);
 
   // Khoảng giờ thật của từng bác sĩ trực — xem `dung-khoang-ca.ts`.
   const shiftWindows = useKhoangCa(dutyDate, dutyDoctorIds);

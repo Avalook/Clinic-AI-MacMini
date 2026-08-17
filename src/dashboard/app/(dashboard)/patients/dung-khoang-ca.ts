@@ -20,6 +20,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useDoiCa } from "../dung-doi-ca";
+
 /** doctorId → các khoảng [phút bắt đầu, phút kết thúc) trong ngày. */
 export type KhoangCa = Record<string, [number, number][]>;
 
@@ -31,6 +33,8 @@ export function useKhoangCa(
   // Khoá theo NỘI DUNG, không theo tham chiếu mảng: `dutyDoctorIds` được dựng
   // mới sau mỗi lần nạp, nên để nguyên mảng trong deps là gọi lại vô hạn.
   const khoaBacSi = (dutyDoctorIds ?? []).join(",");
+  // Ca trực đổi → khung giờ phủ của từng bác sĩ đổi theo — hỏi lại.
+  const doiCa = useDoiCa();
 
   useEffect(() => {
     if (!date || !khoaBacSi) return;
@@ -59,7 +63,7 @@ export function useKhoangCa(
       setKhoang(Object.fromEntries(cap));
     });
     return () => ctrl.abort();
-  }, [date, khoaBacSi]);
+  }, [date, khoaBacSi, doiCa]);
 
   return khoang;
 }

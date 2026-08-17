@@ -33,6 +33,7 @@ import {
 } from "@/lib/datetime";
 import { isDeadStatus } from "@/lib/slot-capacity";
 import { dayLabel } from "@/lib/roster";
+import { useDoiCa } from "../dung-doi-ca";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import LichSapToiCuaKhach, {
   type LichCu,
@@ -766,6 +767,14 @@ export default function BookingHub({
   // và tránh setState trong thân effect, thứ mà react-hooks chặn ở repo này.
   // `bookingSeq` thì để bắt effect sức chứa đọc lại phần ĐÃ DÙNG.
   const [bookingSeq, setBookingSeq] = useState(0);
+  // Ca trực đổi (quản lý thêm/xoá/đổi ca) → hỏi lại sức chứa + nhãn ca.
+  // Xem dung-doi-ca.ts — cùng vai bookingSeq, khác nguồn.
+  const doiCa = useDoiCa();
+  useEffect(() => {
+    // Xoá ca là lịch hẹn của ca ấy bị HUỶ theo (remove() 15/08) — cache lịch
+    // của-ngày-khác đang giữ những dòng vừa chết. Xả để lượt xem sau tự nạp.
+    if (doiCa > 0) setFetchedByDate({});
+  }, [doiCa]);
 
   const isToday = selectedDateIso === todayIso;
   const apptsForDate = isToday ? appts : fetchedByDate[selectedDateIso];
@@ -853,7 +862,7 @@ export default function BookingHub({
     return () => ctrl.abort();
     // `bookingSeq` đổi sau mỗi lần đặt thành công: số chỗ ĐÃ DÙNG nằm trong
     // chính câu trả lời này, nên không đọc lại thì ô vừa đặt vẫn vẽ là trống.
-  }, [selectedDateIso, activeDoctorIds, policy, bookingSeq]);
+  }, [selectedDateIso, activeDoctorIds, policy, bookingSeq, doiCa]);
 
   // Số lịch còn giữ chỗ, gom theo (bác sĩ, ngày VN, giờ VN).
   //
