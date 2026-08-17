@@ -28,6 +28,7 @@ import { unaccentVi } from "@/lib/validation";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import { nhanLanChamCuoi } from "./mot-cham";
 import PatientAdminEditor from "../PatientAdminEditor";
+import DemNguocKham from "./DemNguocKham";
 import BaoXepBacSi from "./BaoXepBacSi";
 // Khối "Ghi một tương tác khác" đã bỏ 09/08/2026 (mỗi trạng thái có bộ nút
 // riêng rồi), và `GhiTuongTac.tsx` xoá hẳn theo.
@@ -1729,6 +1730,12 @@ export default function CustomersView({
                       <span className="mt-1 block text-sm font-semibold text-ink">
                         {fmtDateTimeOrDate(luotDangXem?.slot_start ?? null)}
                       </span>
+                      {/* Đếm ngược tới giờ hẹn — tự dừng khi tới giờ, xem
+                          DemNguocKham. Cả HAI khối lịch hẹn cùng có (12.2). */}
+                      <DemNguocKham
+                        slotStart={luotDangXem?.slot_start}
+                        status={luotDangXem?.status}
+                      />
                       {selectedAppt?.qua_gio_hen &&
                         luotDangXem?.id === selectedAppt.id && (
                           <span className="mt-1 block rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
@@ -1778,6 +1785,10 @@ export default function CustomersView({
                         ? fmtDateTimeOrDate(luotDangXem.slot_start)
                         : "Chưa có lịch hẹn"}
                     </p>
+                    <DemNguocKham
+                      slotStart={luotDangXem?.slot_start}
+                      status={luotDangXem?.status}
+                    />
                     {selectedAppt?.qua_gio_hen &&
                       luotDangXem?.id === selectedAppt.id && (
                         <p className="mt-1 rounded-md bg-danger-bg px-2 py-1 text-xs font-semibold text-danger">
