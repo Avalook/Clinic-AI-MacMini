@@ -5,13 +5,21 @@
 // appointment if a service + date + time were filled, and finally lands on the
 // patient's profile. No more two-screen flow.
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound, CalendarClock } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useDoiCa } from "../../dung-doi-ca";
 import { nhanLoi } from "@/lib/loi-api";
+import {
+  docNhap,
+  donNhapCu,
+  ghiNhap,
+  khoaNhap,
+  moTaLuc,
+  xoaNhap,
+} from "../../../../lib/luu-nhap";
 import { type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
@@ -257,6 +265,7 @@ function SectionHeader({
 }
 
 export default function NewPatientForm({
+  staffId = null,
   role,
   locations,
   services,
@@ -267,6 +276,9 @@ export default function NewPatientForm({
   nhung = false,
   onHuy,
 }: {
+  /** Khoá bản nhập dở theo NGƯỜI đang đăng nhập — quầy dùng chung máy,
+   *  nháp của người trước không được hiện cho người sau (luu-nhap.ts). */
+  staffId?: string | null;
   role?: ClinicRole | null;
   locations: Option[];
   services: Option[];
@@ -337,6 +349,29 @@ export default function NewPatientForm({
   // CSKH khai thác lúc đặt lịch: vấn đề khiến đi khám + lĩnh vực (chuyên khoa).
   const [vanDe, setVanDe] = useState("");
   const [linhVuc, setLinhVuc] = useState("");
+
+  // ── BẢN NHẬP DỞ (Tuyền 17/08: "mất mạng hay refresh thì có lưu lại
+  // không?"). Cùng cơ chế đã chạy ở màn bệnh án (lib/luu-nhap): localStorage
+  // khoá theo người đăng nhập, hạn 24h, ghi sau mỗi nhịp gõ ngừng 1 giây.
+  // CHỈ giữ phần HÀNH CHÍNH — ngày/giờ/bác sĩ của lịch hẹn KHÔNG khôi phục:
+  // chúng thường tới từ URL ("đặt vào đây") và một khung giờ cũ khôi phục lại
+  // có thể đã bị người khác giữ mất — bịa lại lựa chọn thời gian là sai hơn
+  // bắt chọn lại. ──
+  const khoaNhapKhach = khoaNhap(staffId, "khach-moi", "form");
+  const [nhapDo, setNhapDo] = useState<{
+    moTa: string;
+    giaTri: Record<string, string | boolean>;
+  } | null>(() => {
+    if (typeof window === "undefined" || !khoaNhapKhach) return null;
+    donNhapCu(window.localStorage, Date.now());
+    const b = docNhap<Record<string, string | boolean>>(
+      window.localStorage,
+      khoaNhapKhach,
+      Date.now(),
+    );
+    return b ? { moTa: moTaLuc(b.luc, Date.now()), giaTri: b.giaTri } : null;
+  });
+  const mocNhapRef = useRef<string>("");
 
   // Chọn tỉnh → reset + load phường/xã của tỉnh đó (trong handler, KHÔNG dùng
   // effect → tránh set-state-in-effect + extra render).
@@ -697,7 +732,70 @@ export default function NewPatientForm({
 
   // Land on the patient profile (the "nice profile" the user sees right after).
   // Kèm mã BN để banner hiện "Mã BN: …" ngay sau khi tạo (feedback B5#2).
+  // Ghi nháp sau mỗi nhịp gõ ngừng 1 giây — chỉ khi đã có gì đáng cứu.
+  useEffect(() => {
+    if (!khoaNhapKhach || typeof window === "undefined") return;
+    const giaTri: Record<string, string | boolean> = {
+      fullName, dobIso, dobYearOnly, birthYear, phone, phone2, cccd,
+      gender, ethnicity, nationality, occupation, objection,
+      provinceCode, wardCode, addressDetail, vanDe, linhVuc,
+    };
+    const hienTai = JSON.stringify(giaTri);
+    if (mocNhapRef.current === "") {
+      mocNhapRef.current = hienTai; // lần đầu: form trống/prefill — chưa ai gõ
+      return;
+    }
+    if (hienTai === mocNhapRef.current) return;
+    const coGiCuu = fullName.trim() || phone || cccd || vanDe;
+    if (!coGiCuu) return;
+    const t = setTimeout(() => {
+      ghiNhap(window.localStorage, khoaNhapKhach, giaTri, Date.now());
+      mocNhapRef.current = hienTai;
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [
+    khoaNhapKhach, fullName, dobIso, dobYearOnly, birthYear, phone, phone2,
+    cccd, gender, ethnicity, nationality, occupation, objection,
+    provinceCode, wardCode, addressDetail, vanDe, linhVuc,
+  ]);
+
+  function khoiPhucNhap() {
+    if (!nhapDo) return;
+    const g = nhapDo.giaTri;
+    const chu = (k: string) => (typeof g[k] === "string" ? (g[k] as string) : "");
+    setFullName(chu("fullName"));
+    setDobIso(chu("dobIso"));
+    setDobYearOnly(Boolean(g["dobYearOnly"]));
+    setBirthYear(chu("birthYear"));
+    setPhone(chu("phone"));
+    setPhone2(chu("phone2"));
+    setCccd(chu("cccd"));
+    setGender(chu("gender"));
+    setEthnicity(chu("ethnicity") || "Kinh");
+    setNationality(chu("nationality") || "Việt Nam");
+    setOccupation(chu("occupation"));
+    setObjection(chu("objection"));
+    setProvinceCode(chu("provinceCode"));
+    setWardCode(chu("wardCode"));
+    setAddressDetail(chu("addressDetail"));
+    setVanDe(chu("vanDe"));
+    setLinhVuc(chu("linhVuc"));
+    setNhapDo(null);
+  }
+
+  function boNhap() {
+    if (khoaNhapKhach && typeof window !== "undefined") {
+      xoaNhap(window.localStorage, khoaNhapKhach);
+    }
+    setNhapDo(null);
+  }
+
   function goToProfile(id: string, code?: string) {
+    // TẠO XONG LÀ NHÁP HẾT VIỆC — để lại thì lần mở sau mời khôi phục một
+    // khách đã nằm trong hệ thống, và người trực tạo trùng.
+    if (khoaNhapKhach && typeof window !== "undefined") {
+      xoaNhap(window.localStorage, khoaNhapKhach);
+    }
     // LỄ TÂN: tạo BN xong → về BẢNG bệnh nhân (Danh sách bệnh nhân), không đứng
     // lại ở hồ sơ (Quang 2026-07-02). Khách vãng lai vừa nhận auto CHECKED_IN
     // hôm nay nên hiện ngay trên bảng đó.
@@ -921,6 +1019,31 @@ export default function NewPatientForm({
             )}
           </ol>
         </header>
+      )}
+
+      {/* BẢN NHẬP DỞ — mất mạng/F5 giữa chừng thì gõ lại từ đầu là hình phạt
+          sai người (tình huống phát sinh mục 4). Chỉ NHẮC, không tự đổ vào
+          form: người trực có thể đang cố tình nhập một khách KHÁC. */}
+      {nhapDo && (
+        <div className="flex flex-wrap items-center gap-2 rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+          <span className="font-medium">
+            🕘 Có bản nhập dở lưu {nhapDo.moTa} — khôi phục?
+          </span>
+          <button
+            type="button"
+            onClick={khoiPhucNhap}
+            className="h-7 rounded-control bg-surface px-2.5 text-label font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
+          >
+            Khôi phục
+          </button>
+          <button
+            type="button"
+            onClick={boNhap}
+            className="text-label text-ink-faint hover:text-ink-muted"
+          >
+            Bỏ nháp
+          </button>
+        </div>
       )}
 
       <section aria-label="Thông tin hồ sơ" className={CARD}>

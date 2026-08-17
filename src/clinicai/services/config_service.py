@@ -176,6 +176,22 @@ class RosterService:
                 "APPROVED" if is_admin else "PENDING",
             )
 
+            # CA MỚI VÀO MÀ CÓ LỊCH ĐANG CHỜ XẾP BÁC SĨ → BÁO CSKH (câu hỏi
+            # của Đặng Dương 17/08/2026: "có cơ chế thông báo tự động cho CSKH
+            # khi lịch làm việc của bác sĩ được cập nhật không?"). Màn hình đã
+            # tự tươi qua realtime, nhưng màn chỉ nói với người ĐANG NHÌN —
+            # tin Telegram mới gọi được người đang làm việc khác quay lại xếp.
+            # Chỉ ca ĐÃ DUYỆT: đăng ký PENDING chưa phải ca trực.
+            if station == "LICH_KHAM" and is_admin:
+                await self._bao_lich_cho_xep(
+                    conn,
+                    roster_id=str(row_id),
+                    work_date=work_date,
+                    shift=shift if shift in ("SANG", "CHIEU") else "FULL",
+                    ten_bac_si=target_name,
+                    identity=identity,
+                )
+
         logger.info(
             "roster_shift_added",
             roster_id=str(row_id),
@@ -183,6 +199,83 @@ class RosterService:
             by_staff_id=identity.staff_id,
         )
         return str(row_id)
+
+    async def _bao_lich_cho_xep(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        roster_id: str,
+        work_date: date,
+        shift: str,
+        ten_bac_si: str,
+        identity: StaffIdentity,
+    ) -> None:
+        """Đếm lịch CHỜ-XẾP-BÁC-SĨ rơi vào khung ca vừa thêm, có thì ghi sự
+        kiện cho relay đưa tin. Best-effort có chủ ý: đếm/ghi tin hỏng không
+        được làm hỏng cú xếp ca — ca trực là việc chính, tin là việc phụ."""
+        try:
+            gio_mo = await conn.fetchrow(
+                "SELECT open_minute, close_minute "
+                "FROM clinic_hours_for_date($1::uuid, $2)",
+                identity.clinic_id,
+                work_date,
+            )
+            if gio_mo is None or gio_mo["open_minute"] is None:
+                return
+            w = shift_window(shift, gio_mo["open_minute"], gio_mo["close_minute"])
+            if w is None:
+                return
+            cho_xep = await conn.fetch(
+                """
+                SELECT to_char(slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                               'HH24:MI') AS gio,
+                       (EXTRACT(HOUR FROM slot_start
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh') * 60
+                      + EXTRACT(MINUTE FROM slot_start
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh'))::int AS phut
+                  FROM public.appointment
+                 WHERE clinic_id = $1::uuid
+                   AND doctor_id IS NULL
+                   AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2
+                   AND slot_start > now()
+                   AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                 ORDER BY slot_start
+                """,
+                identity.clinic_id,
+                work_date,
+            )
+            trong_ca = [r for r in cho_xep if covers([w], r["phut"])]
+            if not trong_ca:
+                return
+            await conn.execute(
+                """
+                INSERT INTO public.event_log
+                    (clinic_id, event_type, aggregate_type, aggregate_id,
+                     payload, metadata, source, event_published)
+                VALUES ($1::uuid, 'roster.shift_added_cho_xep', 'work_roster',
+                        $2::uuid, $3::jsonb, $4::jsonb, 'api:roster', FALSE)
+                """,
+                identity.clinic_id,
+                roster_id,
+                json.dumps(
+                    {
+                        "ten_bac_si": ten_bac_si,
+                        "ngay": work_date.strftime("%d/%m"),
+                        "ca": shift,
+                        "so_lich": len(trong_ca),
+                        "gio": [r["gio"] for r in trong_ca][:6],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "clinic_role": identity.role.value,
+                        "clinic_staff_id": identity.staff_id,
+                        "origin": "api:roster",
+                    }
+                ),
+            )
+        except Exception:
+            logger.exception("bao_lich_cho_xep_failed")
 
     async def _kiem_pham_vi_tram(
         self,

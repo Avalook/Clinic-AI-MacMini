@@ -76,7 +76,27 @@ def xoa_ca_bac_si(payload: dict[str, Any]) -> str:
 # Registry: event_type → hàm soạn tin. Sự kiện KHÔNG có trong bảng này thì
 # relay đánh dấu đã-xử-lý và đi tiếp (render trả None) — im lặng có chủ ý:
 # nhóm nhận đủ bốn loại tin đáng nhấc máy, không nhận nhật ký hệ thống.
+_CA_LABEL = {"SANG": "sáng", "CHIEU": "chiều", "FULL": "cả ngày"}
+
+
+def ca_moi_cho_xep(payload: dict[str, Any]) -> str:
+    """Ca mới vào mà có lịch đang chờ xếp — gọi CSKH quay lại phân bổ.
+
+    (Đặng Dương 17/08/2026: đặt lịch trước khi có lịch bác sĩ, ai báo CSKH
+    khi ca được cập nhật?) Payload đủ ngay từ lúc ghi — aggregate là ca trực,
+    không đi qua đường làm giàu của lịch hẹn."""
+    ca = _CA_LABEL.get(str(payload.get("ca") or ""), "")
+    gio = " · ".join(payload.get("gio") or [])
+    return (
+        f"🩺 <b>BS {payload.get('ten_bac_si', '—')} có ca {ca} ngày "
+        f"{payload.get('ngay', '—')}</b>\n"
+        f"{payload.get('so_lich', 0)} lịch đang chờ xếp bác sĩ ({gio}) — "
+        f"vào Quản lý khách hàng gán bác sĩ cho khách."
+    )
+
+
 TEMPLATES: dict[str, Callable[[dict[str, Any]], str]] = {
+    "roster.shift_added_cho_xep": ca_moi_cho_xep,
     "appointment.created": lich_moi,
     "appointment.cancelled": huy_lich,
     "appointment.rescheduled": doi_lich,
