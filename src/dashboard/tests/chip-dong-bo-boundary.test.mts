@@ -137,28 +137,23 @@ test("đếm ngược tới giờ khám: có luật DỪNG, và đứng ở CẢ
   );
 });
 
-test("hoàn tác vẫn một-cú-bấm; lý do làm lại hiện SAU và bỏ qua được", () => {
-  // Đặng Dương 17/08 xin chỗ ghi lý do; Quang 10/08 đã chốt không hộp xác
-  // nhận. Hai chốt sống chung: nút tròn rút NGAY như cũ, ô lý do mở sau —
-  // có nút Bỏ qua, không chặn ai.
-  const vung = readFileSync(
-    new URL("../app/(dashboard)/customers/VungLamViecKhach.tsx", import.meta.url),
+test("ô Quá SLA cùng thước đo với chip đỏ — quá GIỜ hẹn cũng được đếm", () => {
+  // Tuyền 17/08: khách "Đã quá giờ hẹn — chưa check-in" đỏ rực mà ô Quá SLA
+  // trên đầu vẫn 0. Nguyên nhân: view đo theo NGÀY, chip đo theo PHÚT — ô số
+  // phải cộng cả hai, không thì "ô 0 mà dòng dưới đang đỏ" (đúng bệnh tab
+  // Ưu tiên đã chữa 08/08, được chú thích ngay trong hopVoiTab).
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
     "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const khoi = /if \(key === "qua_sla"\) \{[\s\S]{0,220}?\}/.exec(view);
+  assert.ok(khoi, "không tìm thấy nhánh qua_sla trong hopVoiTab");
+  assert.match(khoi![0], /co_viec_qua_han/, "thước NGÀY của view vẫn giữ");
+  assert.match(
+    khoi![0],
+    /qua_gio_hen/,
+    "thước PHÚT phải được cộng — ô số cùng thước với chip đỏ dưới nó",
   );
-  const hoanTac = vung.indexOf("async function hoanTac");
-  const khoi = vung.slice(hoanTac, hoanTac + 900);
-  assert.doesNotMatch(khoi, /confirm\(/, "không hộp thoại chặn trước — chốt Quang 10/08");
-  assert.match(khoi, /setVuaHoanTac\(id\)/, "xong mới mời ghi lý do");
-  assert.match(vung, /ly-do-hoan-tac/, "ô lý do phải gọi đúng cửa API");
-  assert.match(vung, /Bỏ qua/, "phải bỏ qua được — tuỳ chọn nghĩa là tuỳ chọn");
-
-  // Lý do đã ghi phải HIỆN lại ở dòng gạch trong lịch sử — lưu mà không hiện
-  // thì lần sau người ta thôi không ghi nữa.
-  const ls = readFileSync(
-    new URL("../app/(dashboard)/customers/LichSuCacLanKham.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(ls, /ly_do_hoan_tac/, "dòng đã-hoàn-tác phải kể được lý do");
 });
 
 test("ô Quá SLA cùng thước đo với chip đỏ — quá GIỜ hẹn cũng được đếm", () => {

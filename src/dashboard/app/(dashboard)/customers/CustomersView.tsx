@@ -187,8 +187,6 @@ export interface BuocCham {
   /** Đã bị rút lại lúc nào. Dòng VẪN HIỆN trong lịch sử — gạch ngang, không
    *  giấu đi: *"log không được xoá"*. Xem migration 20260810000009. */
   huy_luc?: string | null;
-  /** Lý do làm lại — ghi SAU hoàn tác, tuỳ chọn (Đặng Dương 17/08). */
-  ly_do_hoan_tac?: string | null;
   trang_thai_ma: string | null;
   loai: string;
   ket_qua: string | null;

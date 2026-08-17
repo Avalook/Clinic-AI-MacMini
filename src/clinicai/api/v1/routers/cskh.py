@@ -391,23 +391,6 @@ async def hoan_tac_tuong_tac(
     )
 
 
-class LyDoHoanTacBody(BaseModel):
-    ly_do: str
-
-
-@router.post("/cskh/tuong-tac/{tuong_tac_id}/ly-do-hoan-tac", status_code=201)
-async def ghi_ly_do_hoan_tac(
-    tuong_tac_id: UUID,
-    body: LyDoHoanTacBody,
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, Any]:
-    """Ghi lý do làm lại — SAU hoàn tác, tuỳ chọn. Xem service."""
-    return await TuongTacCskhService(pool).ghi_ly_do_hoan_tac(
-        identity=identity, tuong_tac_id=str(tuong_tac_id), ly_do=body.ly_do
-    )
-
-
 @router.get("/cskh/tuong-tac/{clinic_patient_id}")
 async def lich_su_tuong_tac(
     clinic_patient_id: UUID,
