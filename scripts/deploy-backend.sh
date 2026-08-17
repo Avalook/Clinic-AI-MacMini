@@ -288,6 +288,18 @@ if [ "$UP_OK" != "1" ]; then
   echo "!! compose up FAILED for the new release"
 fi
 
+# RELAY THÔNG BÁO SỐNG QUA DEPLOY. `up -d` chỉ dựng profile mặc định; relay
+# nằm trong profile `notifications` nên MỖI lần deploy nó bị bỏ rơi — đo được
+# 17/08/2026: sau deploy, relay biến mất và 57 sự kiện xếp hàng câm lặng cho
+# tới khi có người dựng tay. Chỉ dựng khi env đã bật cờ: staging chưa bật mà
+# cứ dựng thì worker tự thoát (SystemExit) và restart:unless-stopped biến nó
+# thành vòng crash-loop.
+if grep -q '^NOTIFICATION_RELAY_ENABLED=true' "$ENV_FILE"; then
+  echo "==> [4b] notification-relay (profile notifications)"
+  "${COMPOSE[@]}" --profile notifications up -d notification-relay \
+    || echo "!! relay up failed — tin Telegram sẽ dồn hàng chờ, dựng tay sau"
+fi
+
 echo "==> [5/6] health check (up to ~120s)"
 health_ok() {
   local svc cid st
