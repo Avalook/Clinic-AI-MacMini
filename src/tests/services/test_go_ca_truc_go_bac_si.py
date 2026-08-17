@@ -36,12 +36,19 @@ def test_chi_ca_kham_moi_dung_toi_lich_hen() -> None:
     assert 'row["station"] != "LICH_KHAM"' in src
 
 
-def test_con_ca_kham_khac_trong_ngay_thi_khong_go() -> None:
-    """Bác sĩ xếp cả SÁNG lẫn CHIỀU là hai dòng. Gỡ một dòng mà đá hết lịch ra
-    là sai: họ vẫn đi làm hôm ấy."""
+def test_huy_theo_khung_phu_con_lai_khong_theo_ngay() -> None:
+    """VIẾT LẠI 17/08/2026 (Luật 12.5 — quyết định đổi thì test đổi kèm lý do).
+
+    Bản cũ canh phép kiểm `con_ca` mức NGÀY: "còn ca nào trong ngày thì không
+    gỡ gì". Tuyền bắt được nó sai cả hai chiều — xoá SÁNG còn CHIỀU thì lịch
+    sáng sống sót mồ côi; xoá SÁNG rồi thêm CẢ NGÀY thì lịch sáng bị huỷ oan
+    trước khi ca mới kịp vào. Nay huỷ theo HỢP KHUNG các ca còn lại
+    (core/shifts — cùng thước với đường đặt lịch); hành vi đầy đủ nằm ở
+    test_huy_theo_khung_gio.py, đây chỉ khoá việc phép đo mức-ngày không
+    lặng lẽ quay lại."""
     src = _nguon()
-    assert "con_ca" in src and "LIMIT 1" in src
-    assert "if con_ca:" in src
+    assert "merge_windows" in src and "covers(" in src
+    assert "con_ca" not in src, "phép kiểm mức-ngày đã bị thay, không được về"
 
 
 def test_chi_go_lich_con_cuu_duoc_va_nho_nguoi_bi_go() -> None:

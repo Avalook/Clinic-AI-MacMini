@@ -284,6 +284,31 @@ export default function RosterRegisterTable({
       refresh();
       return;
     }
+    // ĐO TRƯỚC KHI CẮT. Gỡ một ca khám có thể HUỶ lịch hẹn của khách — mất
+    // mát không lấy lại được, đúng chỗ xứng đáng một hộp xác nhận (ngược với
+    // hoàn tác rẻ tiền đã bỏ hộp 10/08). Máy chủ chỉ huỷ những lịch rơi RA
+    // NGOÀI phần ca còn lại, nên hộp cũng dạy luôn đường đổi ca an toàn.
+    const uom = await fetch("/api/roster", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, dry_run: true }),
+    });
+    const doDac = (await uom.json().catch(() => null)) as {
+      so_lich_huy?: number;
+      gio?: string[];
+    } | null;
+    const soHuy = doDac?.so_lich_huy ?? 0;
+    if (uom.ok && soHuy > 0) {
+      const dsGio = (doDac?.gio ?? []).join(", ");
+      const dongY = window.confirm(
+        `Ca này đang gánh ${soHuy} lịch hẹn (${dsGio}).\n` +
+          `Gỡ ca là HUỶ những lịch ấy — CSKH sẽ được báo để gọi khách đặt lại.\n\n` +
+          `Nếu chị định ĐỔI ca (vd sáng → cả ngày): bấm Huỷ ở hộp này, THÊM ca mới ` +
+          `trước rồi mới gỡ ca cũ — lịch nằm trong khung còn phủ sẽ được giữ nguyên.\n\n` +
+          `Gỡ ca và huỷ ${soHuy} lịch?`,
+      );
+      if (!dongY) return;
+    }
     setOverrides((ov) => ({ ...ov, [id]: "REMOVED" }));
     const res = await fetch("/api/roster", {
       method: "DELETE",

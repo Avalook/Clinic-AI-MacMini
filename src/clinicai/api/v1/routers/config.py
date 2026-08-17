@@ -212,12 +212,19 @@ async def applied_weeks(
 @router.delete("/roster/shifts/{roster_id}")
 async def remove_shift(
     roster_id: UUID,
+    dry_run: bool = False,
     identity: StaffIdentity = Depends(_ROSTER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Remove a shift. Non-managers may only remove their own."""
-    await RosterService(pool).remove(roster_id=str(roster_id), identity=identity)
-    return {"ok": True}
+    """Remove a shift. Non-managers may only remove their own.
+
+    ``dry_run=true``: đo mà không cắt — trả số lịch hẹn SẼ bị huỷ (kèm giờ)
+    để màn hình hỏi lại trước khi xoá thật. Xem RosterService.remove.
+    """
+    ket = await RosterService(pool).remove(
+        roster_id=str(roster_id), identity=identity, dry_run=dry_run
+    )
+    return {"ok": True, **ket}
 
 
 class PriceRow(BaseModel):

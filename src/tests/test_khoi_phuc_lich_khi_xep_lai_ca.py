@@ -30,7 +30,9 @@ class TestXoaCaThiHuyHanLich:
         khoảnh khắc "còn sống mà không bác sĩ" chặn khách đặt lại."""
         ma = inspect.getsource(RosterService.remove)
         dau = ma.index("UPDATE public.appointment")
-        khoi = ma[dau : ma.index("RETURNING", dau)]
+        # 17/08: câu UPDATE huỷ theo danh sách id (ANY) nên không còn
+        # RETURNING — cắt một cửa sổ đủ rộng quanh câu lệnh thay vì neo vào nó.
+        khoi = ma[dau : dau + 700]
         assert "status = 'CANCELLED'" in khoi, "gỡ mà không huỷ là bỏ lửng"
         assert "'BAC_SI_DOI_LICH'" in khoi, "huỷ phải mang mã lý do riêng"
         assert "cancelled_by_staff_id" in khoi, "huỷ nhầm phải truy được về ai"
