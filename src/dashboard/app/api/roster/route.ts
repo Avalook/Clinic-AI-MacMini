@@ -289,9 +289,9 @@ export async function DELETE(request: Request) {
   const auth = await authorize();
   if (!auth.ok) return auth.res;
 
-  let body: { id?: string };
+  let body: { id?: string; dry_run?: boolean };
   try {
-    body = (await request.json()) as { id?: string };
+    body = (await request.json()) as { id?: string; dry_run?: boolean };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -300,5 +300,7 @@ export async function DELETE(request: Request) {
 
   // "Chỉ được xoá ca của chính mình" là luật của RosterService.remove — nó đọc
   // chủ ca trong cùng transaction với lệnh xoá, nên không có khe đua.
-  return proxyJsonToBackend("DELETE", `/api/v1/roster/shifts/${id}`, {});
+  // `dry_run`: đo trước không cắt — cho hộp xác nhận "ca này đang gánh N lịch".
+  const qs = body.dry_run ? "?dry_run=true" : "";
+  return proxyJsonToBackend("DELETE", `/api/v1/roster/shifts/${id}${qs}`, {});
 }

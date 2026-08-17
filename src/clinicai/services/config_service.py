@@ -35,6 +35,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.shifts import covers, merge_windows, shift_window
 
 logger = structlog.get_logger()
 
@@ -351,27 +352,35 @@ class RosterService:
         if updated is None:
             raise NotFoundError("Không tìm thấy ca trực")
 
-    async def remove(self, *, roster_id: str, identity: StaffIdentity) -> None:
-        """Gỡ một ca trực — VÀ gỡ bác sĩ khỏi những lịch hẹn ca ấy đang gánh.
+    async def remove(
+        self, *, roster_id: str, identity: StaffIdentity, dry_run: bool = False
+    ) -> dict[str, Any]:
+        """Gỡ một ca trực — và HUỶ những lịch hẹn KHÔNG CÒN KHUNG NÀO PHỦ.
 
-        Tuyền chốt 14/08/2026: gỡ ca trực thì lịch hẹn của khách phải bỏ luôn
-        bác sĩ ấy — *"còn để lại làm gì"* — và rơi về hàng "Chờ xếp bác sĩ".
+        Tuyền chốt 14/08: gỡ ca thì lịch của ca ấy phải có kết thúc (huỷ hẳn,
+        mã BAC_SI_DOI_LICH — xem #117). 17/08 Tuyền bắt tiếp cái tinh hơn:
+        "xoá ca sáng để thêm cả ngày thì sao — về bản chất bác sĩ vẫn khám".
+        Bản cũ hỏi thô "còn ca nào TRONG NGÀY không" nên sai cả hai chiều:
 
-        TRONG CÙNG MỘT GIAO DỊCH với việc xoá ca. Tách ra hai bước thì có một
-        khoảnh khắc ca trực đã mất mà lịch vẫn mang tên người không đi làm; và
-        nếu bước hai hỏng thì khoảnh khắc ấy kéo dài mãi mãi, không ai biết.
+          · xoá SÁNG khi còn CHIỀU → không huỷ gì — lịch buổi sáng SỐNG SÓT
+            MỒ CÔI dưới tên một bác sĩ sáng đó không đến, và cờ mất-bác-sĩ
+            (cũng dò theo ngày) không hề kêu;
+          · xoá SÁNG rồi thêm CẢ NGÀY → lịch sáng bị huỷ oan trước khi ca mới
+            kịp vào.
 
-        CHỈ CA KHÁM (`LICH_KHAM`). Gỡ ca thủ thuật ngoài giờ của một bác sĩ
-        không đụng gì tới lịch hẹn khám của họ — hai việc khác nhau.
+        Nay: huỷ theo KHUNG GIỜ — chỉ những lịch mà giờ hẹn rơi RA NGOÀI hợp
+        các ca còn lại của chính bác sĩ ấy hôm đó (cùng thước đo core/shifts
+        với đường đặt lịch). Hệ quả tự nhiên: muốn đổi sáng→cả ngày thì THÊM
+        ca mới TRƯỚC rồi xoá ca cũ — mọi lịch nằm trong khung còn phủ được
+        giữ nguyên, không cần cơ chế hồi sinh nào.
 
-        CHỈ LỊCH CÒN CỨU ĐƯỢC: chưa tới giờ, và khách chưa tới nơi. Gỡ bác sĩ
-        khỏi một lượt đã khám xong là viết lại quá khứ; khỏi một lượt đang khám
-        là lấy bác sĩ ra khỏi phòng.
+        `dry_run=True`: đo mà không cắt — trả về số lịch SẼ huỷ (kèm giờ) để
+        màn hình hỏi lại người xoá trước khi làm thật. Đây đúng chỗ xứng đáng
+        có hộp xác nhận: cái giá là lịch hẹn của khách, không lấy lại được —
+        ngược với hoàn tác rẻ tiền đã bỏ hộp (10/08).
 
-        NHỚ NGƯỜI BỊ GỠ (`bac_si_da_go_id`). Đặt `doctor_id = NULL` rồi thôi là
-        xoá mất một sự thật: khách đã được hẹn với một người cụ thể và CSKH sắp
-        phải gọi giải thích. Không có tên ấy thì câu gọi chỉ còn "lịch của chị
-        bị đổi", không nói được đổi từ ai.
+        CHỈ LỊCH CÒN CỨU ĐƯỢC (chưa tới giờ, chưa check-in) và NHỚ NGƯỜI BỊ
+        GỠ (`bac_si_da_go_id`) — như cũ, xem #117.
         """
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -389,47 +398,93 @@ class RosterService:
                 ):
                     raise SafetyGateError("Chỉ được xoá ca của chính mình")
 
-                await conn.execute(
-                    "DELETE FROM work_roster "
-                    "WHERE id = $1::uuid AND clinic_id = $2::uuid",
-                    roster_id,
-                    identity.clinic_id,
-                )
+                if not dry_run:
+                    await conn.execute(
+                        "DELETE FROM work_roster "
+                        "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                        roster_id,
+                        identity.clinic_id,
+                    )
 
                 if row["station"] != "LICH_KHAM" or row["staff_id"] is None:
-                    return
+                    return {"so_lich_huy": 0, "gio": []}
 
-                # NGƯỜI ẤY CÒN CA KHÁM NÀO KHÁC TRONG NGÀY KHÔNG?
-                #
-                # Một bác sĩ có thể được xếp cả SÁNG lẫn CHIỀU thành hai dòng.
-                # Gỡ một dòng mà đá hết lịch hẹn ra là sai: họ vẫn đi làm hôm
-                # ấy. Chỉ khi KHÔNG còn dòng ca khám nào thì họ mới thật sự
-                # nghỉ. (Ca sáng/chiều lệch giờ với lịch hẹn là chuyện khác, do
-                # `core/shifts.py` lo ở đường đặt lịch.)
-                con_ca = await conn.fetchval(
-                    "SELECT 1 FROM work_roster "
-                    " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid "
-                    "   AND work_date = $3 AND station = 'LICH_KHAM' LIMIT 1",
+                # HỢP CÁC CA CÒN LẠI của bác sĩ hôm đó — loại trừ chính ca đang
+                # xoá (dry_run chưa xoá thật nên phải tự loại). Chỉ ca ĐÃ DUYỆT
+                # được tính là phủ: một đăng ký PENDING chưa phải ca trực, giữ
+                # lịch của khách trên một quyết định chưa ai duyệt là treo họ
+                # vào lời hứa chưa có thật (NULL đời cũ coi như đã duyệt).
+                con_lai = await conn.fetch(
+                    """
+                    SELECT w.shift,
+                           (SELECT open_minute
+                              FROM clinic_hours_for_date($1::uuid, $3))
+                               AS open_minute,
+                           (SELECT close_minute
+                              FROM clinic_hours_for_date($1::uuid, $3))
+                               AS close_minute
+                      FROM public.work_roster w
+                     WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
+                       AND w.work_date = $3 AND w.station = 'LICH_KHAM'
+                       AND w.id <> $4::uuid
+                       AND coalesce(w.status, 'APPROVED') = 'APPROVED'
+                    """,
+                    identity.clinic_id,
+                    row["staff_id"],
+                    row["work_date"],
+                    roster_id,
+                )
+                windows: list[tuple[int, int]] = []
+                if con_lai and con_lai[0]["open_minute"] is not None:
+                    windows = merge_windows(
+                        [
+                            w
+                            for r in con_lai
+                            if (
+                                w := shift_window(
+                                    r["shift"],
+                                    r["open_minute"],
+                                    r["close_minute"],
+                                )
+                            )
+                            is not None
+                        ]
+                    )
+
+                ung_vien = await conn.fetch(
+                    """
+                    SELECT id::text AS id,
+                           (EXTRACT(HOUR FROM slot_start
+                                    AT TIME ZONE 'Asia/Ho_Chi_Minh') * 60
+                          + EXTRACT(MINUTE FROM slot_start
+                                    AT TIME ZONE 'Asia/Ho_Chi_Minh'))::int
+                               AS phut,
+                           to_char(slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                                   'HH24:MI') AS gio
+                      FROM public.appointment
+                     WHERE clinic_id = $1::uuid
+                       AND doctor_id = $2::uuid
+                       AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           = $3
+                       AND slot_start > now()
+                       AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                     ORDER BY slot_start
+                    """,
                     identity.clinic_id,
                     row["staff_id"],
                     row["work_date"],
                 )
-                if con_ca:
-                    return
+                # Khung nào còn được phủ thì lịch ở yên — chỉ huỷ phần rơi ra
+                # ngoài. Không còn khung nào (windows rỗng) thì huỷ cả, như #117.
+                se_huy = [uv for uv in ung_vien if not covers(windows, uv["phut"])]
 
-                # HUỶ HẲN, KHÔNG BỎ LỬNG (Tuyền 15/08/2026). Bản đầu chỉ gỡ
-                # bác sĩ và để lịch "chờ xếp lại" — một lịch còn sống không
-                # bác sĩ, đứng nguyên ở khung giờ cũ. Nó không chiếm ghế của
-                # ai (lưới báo 0/2 đúng), nhưng `_patient_conflict` thấy
-                # "khách đã có lịch giờ này còn sống" nên CHẶN chính con
-                # đường sửa nó: đặt lại cùng khung cho cùng khách với bác sĩ
-                # khác. Một sự kiện không có kết thúc, chạy vô tận.
-                #
-                # Nay: huỷ với mã BAC_SI_DOI_LICH (phòng khám chủ động, không
-                # phải lỗi khách). Vết `bac_si_da_go_id` giữ nguyên để hai màn
-                # còn nói được "đổi từ ai"; khung giờ thật sự trống — đặt lại
-                # cho chính khách ấy, cùng giờ, bác sĩ khác là được ngay.
-                go = await conn.fetch(
+                if dry_run or not se_huy:
+                    return {
+                        "so_lich_huy": len(se_huy),
+                        "gio": [uv["gio"] for uv in se_huy],
+                    }
+
+                await conn.execute(
                     """
                     UPDATE public.appointment
                        SET doctor_id = NULL,
@@ -438,21 +493,15 @@ class RosterService:
                            status = 'CANCELLED',
                            cancelled_at = now(),
                            ly_do_huy_ma = 'BAC_SI_DOI_LICH',
-                           cancelled_by_staff_id = $4::uuid
+                           cancelled_by_staff_id = $3::uuid
                      WHERE clinic_id = $1::uuid
-                       AND doctor_id = $2::uuid
-                       AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                           = $3
-                       AND slot_start > now()
-                       AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
-                    RETURNING id::text
+                       AND id = ANY($2::uuid[])
                     """,
                     identity.clinic_id,
-                    row["staff_id"],
-                    row["work_date"],
+                    [uv["id"] for uv in se_huy],
                     identity.staff_id,
                 )
-                for r in go:
+                for uv in se_huy:
                     await conn.execute(
                         """
                         INSERT INTO public.event_log
@@ -463,7 +512,7 @@ class RosterService:
                                 'api:roster', FALSE)
                         """,
                         identity.clinic_id,
-                        r["id"],
+                        uv["id"],
                         json.dumps(
                             {
                                 "ly_do": "ca_truc_bi_go",
@@ -479,13 +528,16 @@ class RosterService:
                             }
                         ),
                     )
-                if go:
-                    logger.info(
-                        "roster_shift_removed_unassigned_appointments",
-                        so_lich=len(go),
-                        staff_id=str(row["staff_id"]),
-                        work_date=row["work_date"].isoformat(),
-                    )
+                logger.info(
+                    "roster_shift_removed_cancelled_appointments",
+                    so_lich=len(se_huy),
+                    staff_id=str(row["staff_id"]),
+                    work_date=row["work_date"].isoformat(),
+                )
+                return {
+                    "so_lich_huy": len(se_huy),
+                    "gio": [uv["gio"] for uv in se_huy],
+                }
 
     async def apply_week(
         self, *, week_start: date, identity: StaffIdentity
