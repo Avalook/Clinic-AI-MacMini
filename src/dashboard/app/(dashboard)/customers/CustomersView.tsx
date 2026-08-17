@@ -187,8 +187,6 @@ export interface BuocCham {
   /** Đã bị rút lại lúc nào. Dòng VẪN HIỆN trong lịch sử — gạch ngang, không
    *  giấu đi: *"log không được xoá"*. Xem migration 20260810000009. */
   huy_luc?: string | null;
-  /** Lý do làm lại — ghi SAU hoàn tác, tuỳ chọn (Đặng Dương 17/08). */
-  ly_do_hoan_tac?: string | null;
   trang_thai_ma: string | null;
   loai: string;
   ket_qua: string | null;
@@ -851,7 +849,16 @@ export default function CustomersView({
       // ĐẾM THEO `co_viec_qua_han`, không theo việc đại diện. Một khách có thể
       // có ba việc mở mà chỉ một hiện ra; đếm việc hiện ra là đếm hụt, và một
       // ô số sai theo hướng thấp hơn sự thật là ô số không ai đi kiểm.
-      if (key === "qua_sla") return Boolean(tt?.co_viec_qua_han);
+      //
+      // CỘNG THÊM `qua_gio_hen` (Tuyền 17/08: khách hiện "quá giờ hẹn" đỏ mà
+      // ô Quá SLA vẫn 0). `co_viec_qua_han` của view đo theo NGÀY
+      // (luat_cskh.so_ngay) — khách trễ 28 phút TRONG CÙNG NGÀY chưa tính;
+      // nhưng chip và dòng cảnh báo đo theo PHÚT. Ô số phải cùng thước với
+      // các dòng đỏ ngay dưới nó — chính chú thích đầu hàm này đã gọi tên
+      // bệnh "ô 0 mà dòng dưới đang đỏ".
+      if (key === "qua_sla") {
+        return Boolean(tt?.co_viec_qua_han) || Boolean(appointment?.qua_gio_hen);
+      }
       if (key === "cho_xac_nhan") return tt?.trang_thai === "CHO_XAC_NHAN";
       if (key === "upcoming") {
         // "Cần xử lý hôm nay" = có việc đang mở, tới hạn hôm nay hoặc đã quá.

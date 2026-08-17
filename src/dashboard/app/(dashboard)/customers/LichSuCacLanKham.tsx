@@ -222,15 +222,8 @@ function MotLuot({
                   {b.nhan_vien && ` · ${b.nhan_vien}`}
                 </span>
                 {b.huy_luc && (
-                  <span
-                    className="shrink-0 rounded-chip bg-surface-sunken px-1.5 text-label font-medium text-ink-muted"
-                    title={
-                      b.ly_do_hoan_tac
-                        ? `Lý do làm lại: ${b.ly_do_hoan_tac}`
-                        : undefined
-                    }
-                  >
-                    đã hoàn tác{b.ly_do_hoan_tac ? ` · ${b.ly_do_hoan_tac}` : ""}
+                  <span className="shrink-0 rounded-chip bg-surface-sunken px-1.5 text-label font-medium text-ink-muted">
+                    đã hoàn tác
                   </span>
                 )}
               </li>

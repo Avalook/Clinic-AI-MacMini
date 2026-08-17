@@ -13,8 +13,6 @@ export interface DongLichSu {
   /** Đã bị rút lại lúc nào. Dòng VẪN Ở LẠI trong sổ — nó chỉ thôi được tính.
    *  Xem migration 20260810000009. */
   huy_luc?: string | null;
-  /** Lý do làm lại — ghi SAU hoàn tác, tuỳ chọn (17/08). */
-  ly_do_hoan_tac?: string | null;
   xay_ra_luc: string;
   loai: string;
   kenh: string;

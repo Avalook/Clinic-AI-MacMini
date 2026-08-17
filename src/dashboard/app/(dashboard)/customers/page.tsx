@@ -437,7 +437,7 @@ export default async function CustomersPage({
           // một câu select viết đúng từ trước. Ba chỗ khác trong màn này đã gọi
           // tên cột sẵn (`staff:tao_boi_staff_id`, `staff:nguoi_tiep_nhan_staff_id`,
           // `staff:tai_len_boi_staff_id`) — chỗ này là chỗ duy nhất còn đoán.
-          "id, clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, huy_luc, ly_do_hoan_tac, staff:nhan_vien_staff_id ( full_name )",
+          "id, clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, huy_luc, staff:nhan_vien_staff_id ( full_name )",
         )
         .in("clinic_patient_id", shownIds)
         .order("xay_ra_luc", { ascending: false })
@@ -801,7 +801,6 @@ type LichHenRaw = {
   type TuongTacRaw = {
     id: string;
     huy_luc: string | null;
-    ly_do_hoan_tac?: string | null;
     clinic_patient_id: string;
     xay_ra_luc: string;
     loai: string;
@@ -939,7 +938,6 @@ type LichHenRaw = {
       (tuongTacByPatient[t.clinic_patient_id] ??= []).push({
         id: t.id,
         huy_luc: t.huy_luc,
-        ly_do_hoan_tac: t.ly_do_hoan_tac ?? null,
         xay_ra_luc: t.xay_ra_luc,
         loai: t.loai,
         kenh: t.kenh,
@@ -1076,7 +1074,6 @@ type LichHenRaw = {
             buoc: buoc.map((d) => ({
               luc: d.xay_ra_luc,
               huy_luc: d.huy_luc ?? null,
-              ly_do_hoan_tac: d.ly_do_hoan_tac ?? null,
               trang_thai_ma: d.trang_thai_ma ?? null,
               loai: d.loai,
               ket_qua: d.ket_qua,
