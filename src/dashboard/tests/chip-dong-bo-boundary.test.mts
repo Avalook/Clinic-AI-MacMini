@@ -160,3 +160,22 @@ test("hoàn tác vẫn một-cú-bấm; lý do làm lại hiện SAU và bỏ qu
   );
   assert.match(ls, /ly_do_hoan_tac/, "dòng đã-hoàn-tác phải kể được lý do");
 });
+
+test("ô Quá SLA cùng thước đo với chip đỏ — quá GIỜ hẹn cũng được đếm", () => {
+  // Tuyền 17/08: khách "Đã quá giờ hẹn — chưa check-in" đỏ rực mà ô Quá SLA
+  // trên đầu vẫn 0. Nguyên nhân: view đo theo NGÀY, chip đo theo PHÚT — ô số
+  // phải cộng cả hai, không thì "ô 0 mà dòng dưới đang đỏ" (đúng bệnh tab
+  // Ưu tiên đã chữa 08/08, được chú thích ngay trong hopVoiTab).
+  const view = readFileSync(
+    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const khoi = /if \(key === "qua_sla"\) \{[\s\S]{0,220}?\}/.exec(view);
+  assert.ok(khoi, "không tìm thấy nhánh qua_sla trong hopVoiTab");
+  assert.match(khoi![0], /co_viec_qua_han/, "thước NGÀY của view vẫn giữ");
+  assert.match(
+    khoi![0],
+    /qua_gio_hen/,
+    "thước PHÚT phải được cộng — ô số cùng thước với chip đỏ dưới nó",
+  );
+});
