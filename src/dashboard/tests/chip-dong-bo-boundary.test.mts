@@ -156,21 +156,39 @@ test("ô Quá SLA cùng thước đo với chip đỏ — quá GIỜ hẹn cũng
   );
 });
 
-test("ô Quá SLA cùng thước đo với chip đỏ — quá GIỜ hẹn cũng được đếm", () => {
-  // Tuyền 17/08: khách "Đã quá giờ hẹn — chưa check-in" đỏ rực mà ô Quá SLA
-  // trên đầu vẫn 0. Nguyên nhân: view đo theo NGÀY, chip đo theo PHÚT — ô số
-  // phải cộng cả hai, không thì "ô 0 mà dòng dưới đang đỏ" (đúng bệnh tab
-  // Ưu tiên đã chữa 08/08, được chú thích ngay trong hopVoiTab).
+test("hoàn tác là chip quên ngay dòng đã rút — đủ 6 chỗ bỏ qua huy_luc", () => {
+  // Tuyền 17/08: "khi click nút tròn hoàn tác, trạng thái ở danh sách khách
+  // hàng cũng phải đồng bộ, không được delay". Lỗi thật không phải delay:
+  // các overlay frontend đọc dòng MỚI NHẤT của sổ mà không né dòng đã hoàn
+  // tác (`huy_luc`), nên chip kể tiếp câu chuyện vừa bị rút lại — kẹt cho tới
+  // khi có chạm mới. View DB đã lọc `huy_luc IS NULL` từ 20260810000009;
+  // đây là phía frontend của cùng luật. ĐẾM đủ các chỗ (Luật 12):
+  //   CustomersView: chamCuoiRow, nhanChiTiet, tomTatTuongTac,
+  //                  cột "ai xử lý", cảnh báo QUAN_LY_DOI_GIO  → 5
+  //   page.tsx:      bước của lượt (mốc CHECK_OUT)             → 1
   const view = readFileSync(
     new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
     "utf8",
   ).replace(/\/\/.*$/gm, "");
-  const khoi = /if \(key === "qua_sla"\) \{[\s\S]{0,220}?\}/.exec(view);
-  assert.ok(khoi, "không tìm thấy nhánh qua_sla trong hopVoiTab");
-  assert.match(khoi![0], /co_viec_qua_han/, "thước NGÀY của view vẫn giữ");
+  const page = readFileSync(
+    new URL("../app/(dashboard)/customers/page.tsx", import.meta.url),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const demView = (view.match(/!(?:d|x)\.huy_luc/g) ?? []).length;
+  assert.ok(
+    demView >= 5,
+    `CustomersView phải né huy_luc ở đủ 5 overlay, đang thấy ${demView}`,
+  );
   assert.match(
-    khoi![0],
-    /qua_gio_hen/,
-    "thước PHÚT phải được cộng — ô số cùng thước với chip đỏ dưới nó",
+    page,
+    /d\.appointment_id === a\.id && !d\.huy_luc/,
+    "bước của lượt (page.tsx) phải lọc dòng đã hoàn tác — CHECK_OUT rút lại là mốc kết thúc biến mất",
+  );
+  // Chiều ngược: dòng thời gian trong hồ sơ VẪN nhận đủ cả dòng đã hoàn tác
+  // (để vẽ gạch ngang) — không ai được lọc trước khi đưa vào lichSu.
+  assert.match(
+    view,
+    /lichSu=\{tuongTacByPatient\[selected\.clinic_patient_id\] \?\? \[\]\}/,
+    "dòng thời gian phải nhận NGUYÊN sổ, kể cả dòng đã hoàn tác",
   );
 });

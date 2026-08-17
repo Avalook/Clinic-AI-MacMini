@@ -1018,7 +1018,9 @@ type LichHenRaw = {
         .map((a) => {
           const v = visitTheoLich[a.id as string];
           const buoc = (tuongTacByPatient[pid] ?? [])
-            .filter((d) => d.appointment_id === a.id)
+            // `!d.huy_luc`: bước đã hoàn tác không được tính là bước của lượt
+            // — hoàn tác CHECK_OUT thì mốc kết thúc phải biến mất ngay.
+            .filter((d) => d.appointment_id === a.id && !d.huy_luc)
             .sort((x, y) => mocMs(x.xay_ra_luc) - mocMs(y.xay_ra_luc));
           // CSKH bấm "Checkout" ghi một dòng CHECK_OUT — đó là mốc kết thúc
           // theo góc nhìn của người trực, dùng khi quầy chưa đóng lượt.
