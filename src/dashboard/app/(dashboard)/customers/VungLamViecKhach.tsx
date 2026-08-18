@@ -1330,27 +1330,42 @@ export default function VungLamViecKhach({
             </p>
           )}
           {rutNgoaiLuot && (
-            <p className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-line px-2 py-1 text-label text-ink-soft">
-              <span className="min-w-0">
-                Thao tác gần nhất —{" "}
-                <span className="font-medium text-ink">
-                  {nhanLanChamCuoi(rutNgoaiLuot) ??
-                    rutNgoaiLuot.noi_dung ??
-                    rutNgoaiLuot.loai}
+            <div className="mt-1 rounded-md bg-warning-bg px-2 py-1.5">
+              {/* TÔNG CẢNH BÁO, KHÔNG PHẢI CHỮ MỜ. Bản đầu tôi vẽ nó bằng
+                  `text-ink-soft` viền mảnh, đặt ngay dưới dòng "Lượt đang xem"
+                  cũng chữ mờ — Tuyền dò cả màn không thấy ("tôi có thấy cái
+                  thao tác gần nhất nào đâu"). Một lối thoát hiểm mà người cần
+                  nó không nhìn ra thì bằng không. */}
+              <p className="text-label font-semibold text-warning">
+                ↩ Thao tác gần nhất nằm ở{" "}
+                {rutNgoaiLuot.appointment_id
+                  ? "một lượt khám khác"
+                  : "ngoài mọi lượt khám"}{" "}
+                — nút tròn bên dưới không rút được
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-label text-ink-soft">
+                <span className="min-w-0">
+                  <span className="font-medium text-ink">
+                    {nhanLanChamCuoi(rutNgoaiLuot) ??
+                      rutNgoaiLuot.noi_dung ??
+                      rutNgoaiLuot.loai}
+                  </span>
+                  {rutNgoaiLuot.xay_ra_luc
+                    ? ` · ${gio(rutNgoaiLuot.xay_ra_luc)}`
+                    : null}
                 </span>
-                {rutNgoaiLuot.xay_ra_luc
-                  ? ` · ${gio(rutNgoaiLuot.xay_ra_luc)}`
-                  : null}
-              </span>
-              <button
-                type="button"
-                onClick={() => void hoanTac(rutNgoaiLuot.id)}
-                disabled={dangHoanTac === rutNgoaiLuot.id}
-                className="rounded-md border border-line px-2 py-0.5 font-medium text-ink hover:bg-surface-muted disabled:opacity-50"
-              >
-                {dangHoanTac === rutNgoaiLuot.id ? "Đang rút lại…" : "↺ Rút lại"}
-              </button>
-            </p>
+                <button
+                  type="button"
+                  onClick={() => void hoanTac(rutNgoaiLuot.id)}
+                  disabled={dangHoanTac === rutNgoaiLuot.id}
+                  className="rounded-md border border-warning px-2 py-0.5 font-semibold text-warning hover:bg-warning hover:text-white disabled:opacity-50"
+                >
+                  {dangHoanTac === rutNgoaiLuot.id
+                    ? "Đang rút lại…"
+                    : "↺ Rút lại thao tác này"}
+                </button>
+              </p>
+            </div>
           )}
           {khongGanDuocLuot && (
             <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-label font-medium text-warning">
