@@ -232,3 +232,22 @@ test("chạm mới nhất ngoài lượt đang xem vẫn rút lại được —
     "lối dự phòng phải đi cùng một đường hoanTac với nút tròn",
   );
 });
+
+test("hồ sơ nào cũng đọc được lịch sử thao tác — không phụ thuộc lượt/trạng thái", () => {
+  // Khách hỏi (qua Tuyền 18/08): "cần hiển thị lịch sử thao tác trên từng hồ
+  // sơ mà không cần chuyển trạng thái". Sổ đọc phải: (1) đi từ `lichSu` NGUYÊN
+  // VẸN của cả khách (không lọc lượt, không lọc huy_luc), (2) dòng đã rút lại
+  // gạch ngang chứ không biến mất, (3) dòng không gắn lượt phải nói ra.
+  const vung = readFileSync(
+    new URL(
+      "../app/(dashboard)/customers/VungLamViecKhach.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const khoi = /Lịch sử thao tác \(\{lichSu\.length\}\)[\s\S]{0,1600}?<\/details>/.exec(vung);
+  assert.ok(khoi, "thiếu khối Lịch sử thao tác đọc từ lichSu");
+  assert.match(khoi![0], /lichSu\.map/, "phải duyệt nguyên sổ, không qua lichSuLuotNay");
+  assert.match(khoi![0], /line-through/, "dòng đã rút lại phải gạch ngang");
+  assert.match(khoi![0], /không gắn lượt/, "dòng mồ côi phải được nói ra");
+});

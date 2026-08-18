@@ -1650,6 +1650,46 @@ export default function VungLamViecKhach({
             (Quang chốt 09/08/2026). `TepKetQua` KHÔNG chết theo — màn
             HanhDongTrangThai vẫn dựng nó ở bước "Đã có kết quả, chưa gửi", đúng
             chỗ người ta thật sự tải kết quả lên. */}
+
+        {/* LỊCH SỬ THAO TÁC CỦA CẢ HỒ SƠ — không phụ thuộc lượt hay trạng thái.
+            Khách hỏi (qua Tuyền, 18/08/2026): "cần hiển thị lịch sử thao tác
+            trên từng hồ sơ mà không cần chuyển trạng thái". Trước đây các dòng
+            sổ chỉ hiện RẢI trong "Lịch sử các lần khám" theo từng lượt — dòng
+            không gắn lượt thì không hiện đâu cả. Đây là SỔ ĐỌC nguyên vẹn:
+            dòng đã rút lại vẫn nằm đó, gạch ngang (phép KỂ, xem PR 140). */}
+        {lichSu.length > 0 && (
+          <details className="border-t border-line px-4 py-2.5">
+            <summary className="cursor-pointer select-none text-label font-bold uppercase tracking-wide text-ink-faint">
+              Lịch sử thao tác ({lichSu.length})
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              {lichSu.map((d, i) => (
+                <li
+                  key={d.id ?? `${d.xay_ra_luc}-${i}`}
+                  className={`text-label ${
+                    d.huy_luc ? "text-ink-faint" : "text-ink-soft"
+                  }`}
+                >
+                  <span className="tabular-nums">{gio(d.xay_ra_luc)}</span>
+                  {" · "}
+                  <span
+                    className={
+                      d.huy_luc ? "italic line-through" : "font-medium text-ink"
+                    }
+                  >
+                    {nhanLanChamCuoi(d) ?? d.noi_dung ?? d.loai}
+                  </span>
+                  {d.ket_qua && NHAN_KET_QUA[d.ket_qua]
+                    ? ` — ${NHAN_KET_QUA[d.ket_qua]}`
+                    : null}
+                  {d.nhan_vien ? ` · ${d.nhan_vien}` : null}
+                  {d.huy_luc ? " · đã rút lại" : null}
+                  {!d.appointment_id ? " · không gắn lượt" : null}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
 
       {children}
