@@ -1017,14 +1017,19 @@ type LichHenRaw = {
         .sort((x, y) => mocMs(x.slot_start) - mocMs(y.slot_start))
         .map((a) => {
           const v = visitTheoLich[a.id as string];
+          // GIỮ NGUYÊN cả dòng đã hoàn tác (`huy_luc`): "Lịch sử các lần
+          // khám" vẽ chúng gạch ngang — bằng chứng "đã ghi rồi rút lại" phải
+          // còn nhìn thấy được (Tuyền 18/08/2026: PR 139 lọc mất từ nguồn, dòng
+          // gạch ngang biến mất hẳn). Hoàn tác chỉ được phép ảnh hưởng phép
+          // ĐẾM — như mốc checkout ngay dưới — không được phép ảnh hưởng
+          // phép KỂ.
           const buoc = (tuongTacByPatient[pid] ?? [])
-            // `!d.huy_luc`: bước đã hoàn tác không được tính là bước của lượt
-            // — hoàn tác CHECK_OUT thì mốc kết thúc phải biến mất ngay.
-            .filter((d) => d.appointment_id === a.id && !d.huy_luc)
+            .filter((d) => d.appointment_id === a.id)
             .sort((x, y) => mocMs(x.xay_ra_luc) - mocMs(y.xay_ra_luc));
           // CSKH bấm "Checkout" ghi một dòng CHECK_OUT — đó là mốc kết thúc
           // theo góc nhìn của người trực, dùng khi quầy chưa đóng lượt.
-          const checkout = buoc.find((d) => d.loai === "CHECK_OUT");
+          // `!d.huy_luc`: mốc checkout đã rút lại thì thôi tính là kết thúc.
+          const checkout = buoc.find((d) => d.loai === "CHECK_OUT" && !d.huy_luc);
           return {
             id: a.id as string,
             slot_start: a.slot_start,
