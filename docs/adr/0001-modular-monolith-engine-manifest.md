@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | **Status** | Proposed |
+| **Thi hành** | **CHƯA** — đo trên code 13/08/2026: không có thư mục `modules/`, không có manifest nào, `grep importlinter` = rỗng, `services/` vẫn phẳng 60 file. Đọc ADR này đừng tưởng ranh giới đã có người canh. Xem [SỔ LUẬT](../SO-LUAT.md) |
 | **Date** | 2026-07-18 |
 | **Deciders** | Quang |
 | **Liên quan** | Design doc v5 §5.2–5.3 |

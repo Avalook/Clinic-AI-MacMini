@@ -44,7 +44,9 @@ export default async function SchedulePage({
   searchParams: Promise<{ week?: string }>;
 }) {
   const { week: rawWeek } = await searchParams;
-  const week = rawWeek ? weekStartOf(rawWeek) : currentWeekStartVn();
+  // `?week=` là thứ người dùng gõ được. Ngày không đọc được thì rơi về tuần hiện
+  // tại — trang vẫn mở. Trước đây nó ném RangeError và cả trang không vào được.
+  const week = (rawWeek ? weekStartOf(rawWeek) : null) ?? currentWeekStartVn();
   const dates = weekDates(week);
 
   const role = await getClinicRole();

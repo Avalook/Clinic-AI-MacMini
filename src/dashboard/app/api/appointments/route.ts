@@ -207,7 +207,21 @@ export async function POST(request: Request) {
   if (!slot_start || !slot_end) {
     return NextResponse.json({ error: "Thiếu giờ hẹn." }, { status: 400 });
   }
-  if (new Date(slot_end).getTime() <= new Date(slot_start).getTime()) {
+  // KIỂM ĐỌC ĐƯỢC TRƯỚC, RỒI MỚI SO SÁNH. `new Date("rác").getTime()` cho `NaN`,
+  // và MỌI phép so sánh với `NaN` đều `false` — nên câu kiểm bên dưới IM LẶNG
+  // cho qua đúng lúc nó cần chặn nhất. Backend vẫn đỡ được (`slot_start:
+  // datetime` của pydantic trả 422), nhưng người trực nhận một lỗi 422 tiếng Anh
+  // thay vì một câu tiếng Việt nói rõ sai ở đâu — và một cửa kiểm không làm được
+  // việc nó ghi trên biển thì tệ hơn là không có cửa.
+  const batDau = new Date(slot_start).getTime();
+  const ketThuc = new Date(slot_end).getTime();
+  if (Number.isNaN(batDau) || Number.isNaN(ketThuc)) {
+    return NextResponse.json(
+      { error: "Giờ hẹn không đọc được." },
+      { status: 400 },
+    );
+  }
+  if (ketThuc <= batDau) {
     return NextResponse.json(
       { error: "Giờ kết thúc phải sau giờ bắt đầu." },
       { status: 400 },

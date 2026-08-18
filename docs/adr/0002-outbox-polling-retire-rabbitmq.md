@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | **Status** | Proposed |
+| **Thi hành** | **CHƯA** — đo trên code 13/08/2026: compose vẫn có service `rabbitmq` + `worker`, `event_bus/` vẫn còn, `RabbitMQPublisher.publish()` vẫn `raise NotImplementedError`, và bảng `notification_delivery` chưa có migration nào. Nghĩa là skeleton chết vẫn khởi động cùng stack. Xem [SỔ LUẬT](../SO-LUAT.md) |
 | **Date** | 2026-07-18 |
 | **Deciders** | Quang |
 | **Liên quan** | Design doc v5 §5.5–5.6 |

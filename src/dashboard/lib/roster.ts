@@ -146,13 +146,39 @@ function toISO(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Thứ 2 của tuần chứa `dateStr` (yyyy-mm-dd). */
-export function weekStartOf(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00Z");
+/** Thứ 2 của tuần chứa `d`. Chỉ dùng nội bộ, với Date đã chắc chắn hợp lệ. */
+function mondayOfUtc(d: Date): string {
   const dow = d.getUTCDay(); // 0=CN
   const diff = dow === 0 ? -6 : 1 - dow; // về thứ 2
-  d.setUTCDate(d.getUTCDate() + diff);
-  return toISO(d);
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() + diff);
+  return toISO(monday);
+}
+
+/**
+ * Thứ 2 của tuần chứa `dateStr` (yyyy-mm-dd). `null` = `dateStr` không đọc được.
+ *
+ * TRẢ `null` CHỨ KHÔNG NÉM, VÌ CHUỖI NÀY ĐẾN TỪ THANH ĐỊA CHỈ. `/home?weekAppt=…`
+ * và `/schedule?week=…` lấy thẳng tham số URL rồi đưa vào đây. Bản cũ dựng
+ * `new Date("abcT00:00:00Z")` thành Invalid Date, đi tiếp bình thường, rồi
+ * `toISO()` gọi `toISOString()` — và CHÍNH `toISOString()` là thứ ném
+ * `RangeError: Invalid time value`. Server component ném thì cả TRANG CHỦ rơi
+ * vào error.tsx: một link hỏng hay một lần sửa tay trên thanh địa chỉ là màn
+ * hình đầu ngày của mọi nhân viên không mở được.
+ *
+ * ĐÂY LÀ CON THỨ BA CÙNG MỘT HỌ. Hai lần trước (`/api/roster?date=99-99-9999`,
+ * và `/api/appointments` thiếu `date`) đều được vá TẠI CHỖ NÓ NỔ, nên bản dùng
+ * chung trong lib này sống sót qua cả hai lần — và nó phục vụ trang chủ. Luật
+ * rút ra: hàm nhận ngày từ người dùng phải trả giá trị rỗng thay vì ném, và chỗ
+ * kiểm phải nằm ở BIÊN (nơi chuỗi đi vào), không rải rác ở từng nơi gọi.
+ *
+ * `mondayOfUtc` bên dưới vẫn ném nếu bị đưa Date hỏng — cố ý: tới đó thì đó là
+ * lỗi lập trình, không phải dữ liệu người dùng, và im lặng trả sai còn tệ hơn.
+ */
+export function weekStartOf(dateStr: string): string | null {
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return null;
+  return mondayOfUtc(d);
 }
 
 /** 7 ngày của tuần bắt đầu từ `weekStart` (T2..CN). */
@@ -175,7 +201,9 @@ export function shiftWeek(weekStart: string, weeks: number): string {
 /** Thứ 2 của tuần hiện tại theo giờ VN (server chạy UTC). */
 export function currentWeekStartVn(): string {
   const nowVn = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  return weekStartOf(nowVn.toISOString().slice(0, 10));
+  // Đi thẳng vào `mondayOfUtc`: ngày này do chính hàm dựng nên luôn hợp lệ, nên
+  // không phải xử lý một `null` không bao giờ xảy ra ở mọi nơi gọi.
+  return mondayOfUtc(nowVn);
 }
 
 /** Hôm nay (yyyy-mm-dd) theo giờ VN. */
