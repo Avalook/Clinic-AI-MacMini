@@ -202,3 +202,33 @@ test("hoàn tác là chip quên ngay dòng đã rút — đủ 6 chỗ bỏ qua 
     "dòng thời gian phải nhận NGUYÊN sổ, kể cả dòng đã hoàn tác",
   );
 });
+
+test("chạm mới nhất ngoài lượt đang xem vẫn rút lại được — lối dự phòng", () => {
+  // Tuyền 18/08: "có những lúc dù F5 nhưng hệ thống không cho undo sau khi đã
+  // chuyển trạng thái". F5 làm mất ?luot= → màn tự chọn lượt, có thể KHÁC lượt
+  // của lần chạm vừa ghi; node chỉ rút được dòng của lượt đang xem, nên thao
+  // tác vừa làm thành mồ côi. Lối dự phòng ở đầu vùng làm việc phải:
+  //   (1) đọc sổ TOÀN KHÁCH, bỏ dòng đã rút (find đầu tiên !huy_luc),
+  //   (2) chỉ hiện khi chạm ấy KHÁC lượt đang xem (cùng lượt đã có nút tròn),
+  //   (3) không mời rút CHECK_OUT — backend từ chối mốc đóng lượt có chủ ý.
+  const vung = readFileSync(
+    new URL(
+      "../app/(dashboard)/customers/VungLamViecKhach.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  ).replace(/\/\/.*$/gm, "");
+  const khoi = /const chamMoiNhat = lichSu\.find\(\(d\) => !d\.huy_luc\);[\s\S]{0,400}?: null;/.exec(vung);
+  assert.ok(khoi, "thiếu phép tính chạm-mới-nhất-ngoài-lượt");
+  assert.match(khoi![0], /loai !== "CHECK_OUT"/, "CHECK_OUT không được mời rút");
+  assert.match(
+    khoi![0],
+    /appointment_id !== lich\.id/,
+    "cùng lượt thì nút tròn lo — lối dự phòng chỉ dành cho chạm ngoài lượt",
+  );
+  assert.match(
+    vung,
+    /void hoanTac\(rutNgoaiLuot\.id\)/,
+    "lối dự phòng phải đi cùng một đường hoanTac với nút tròn",
+  );
+});

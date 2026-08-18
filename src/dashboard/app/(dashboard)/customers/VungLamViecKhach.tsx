@@ -37,7 +37,7 @@ import { khoaThaoTac, xongThaoTac, dinhDanhThaoTac } from "./khoa-mot-lan";
 import { useRouter } from "next/navigation";
 import { Check, Phone, CircleDashed, Undo2 } from "lucide-react";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
-import { MOT_CHAM, kenhCho } from "./mot-cham";
+import { MOT_CHAM, kenhCho, nhanLanChamCuoi } from "./mot-cham";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { HenGoiLai } from "./CustomersView";
 import type { MocTaiKham } from "./NhacTaiKham";
@@ -983,6 +983,31 @@ export default function VungLamViecKhach({
   const [dangHoanTac, setDangHoanTac] = useState<string | null>(null);
   const [loiHoanTac, setLoiHoanTac] = useState<string | null>(null);
 
+  /** CHẠM MỚI NHẤT CỦA KHÁCH nằm NGOÀI lượt đang xem — nút tròn không với tới.
+   *
+   *  Tuyền 18/08/2026: "có những lúc dù F5 nhưng hệ thống không cho undo sau
+   *  khi đã chuyển trạng thái". Đúng, và F5 chính là thủ phạm: mất tham số
+   *  `?luot=` là màn tự chọn lượt theo `luotMacDinh`, có thể KHÁC lượt mà lần
+   *  chạm vừa ghi vào; node chỉ rút được dòng của lượt đang xem
+   *  (`lichSuLuotNay`), nên thao tác vừa làm thành không rút lại được. Dòng
+   *  ghi khi khách chưa gắn lượt (`appointment_id` null) thì tệ hơn: không
+   *  lượt nào rút được nó.
+   *
+   *  Vá bằng một lối rút DỰ PHÒNG ở đầu vùng làm việc, CHỈ hiện khi node bất
+   *  lực (chạm mới nhất khác lượt / không gắn lượt) — cùng lượt thì nút tròn
+   *  vẫn là đường chính, không bày hai nút cho một việc. `CHECK_OUT` không
+   *  vào đây: backend từ chối rút mốc đóng lượt có chủ ý (xem `hoan_tac`). */
+  const chamMoiNhat = lichSu.find((d) => !d.huy_luc);
+  const rutNgoaiLuot =
+    chamMoiNhat &&
+    // Dòng gộp từ `nhac_tai_kham` không có id — chúng đóng bằng đường khác,
+    // không rút từ đây được.
+    chamMoiNhat.id &&
+    chamMoiNhat.loai !== "CHECK_OUT" &&
+    chamMoiNhat.appointment_id !== lich.id
+      ? { ...chamMoiNhat, id: chamMoiNhat.id }
+      : null;
+
   /** RÚT LẠI MỘT LẦN CHẠM BẤM NHẦM.
    *
    *  Quang 10/08/2026: *"nhấn vào nút tròn của các sự kiện để hoàn tác… tất
@@ -1302,6 +1327,29 @@ export default function VungLamViecKhach({
           {loiHoanTac && (
             <p className="rounded-md bg-danger-bg px-2 py-1 text-label text-danger">
               {loiHoanTac}
+            </p>
+          )}
+          {rutNgoaiLuot && (
+            <p className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-line px-2 py-1 text-label text-ink-soft">
+              <span className="min-w-0">
+                Thao tác gần nhất —{" "}
+                <span className="font-medium text-ink">
+                  {nhanLanChamCuoi(rutNgoaiLuot) ??
+                    rutNgoaiLuot.noi_dung ??
+                    rutNgoaiLuot.loai}
+                </span>
+                {rutNgoaiLuot.xay_ra_luc
+                  ? ` · ${gio(rutNgoaiLuot.xay_ra_luc)}`
+                  : null}
+              </span>
+              <button
+                type="button"
+                onClick={() => void hoanTac(rutNgoaiLuot.id)}
+                disabled={dangHoanTac === rutNgoaiLuot.id}
+                className="rounded-md border border-line px-2 py-0.5 font-medium text-ink hover:bg-surface-muted disabled:opacity-50"
+              >
+                {dangHoanTac === rutNgoaiLuot.id ? "Đang rút lại…" : "↺ Rút lại"}
+              </button>
             </p>
           )}
           {khongGanDuocLuot && (
