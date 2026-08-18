@@ -165,7 +165,12 @@ test("hoàn tác là chip quên ngay dòng đã rút — đủ 6 chỗ bỏ qua 
   // đây là phía frontend của cùng luật. ĐẾM đủ các chỗ (Luật 12):
   //   CustomersView: chamCuoiRow, nhanChiTiet, tomTatTuongTac,
   //                  cột "ai xử lý", cảnh báo QUAN_LY_DOI_GIO  → 5
-  //   page.tsx:      bước của lượt (mốc CHECK_OUT)             → 1
+  //   page.tsx:      mốc CHECK_OUT của lượt                    → 1
+  //
+  // VIẾT LẠI 18/08 (Luật 12.5): bản đầu của #139 bắt `buoc` lọc huy_luc TỪ
+  // NGUỒN — và "Lịch sử các lần khám" mất luôn dòng gạch ngang (Tuyền: "undo
+  // là mất hẳn"). Luật đúng là: hoàn tác ảnh hưởng phép ĐẾM, không ảnh hưởng
+  // phép KỂ — `buoc` giữ nguyên dòng để vẽ gạch ngang, chỉ mốc checkout né.
   const view = readFileSync(
     new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
     "utf8",
@@ -181,8 +186,13 @@ test("hoàn tác là chip quên ngay dòng đã rút — đủ 6 chỗ bỏ qua 
   );
   assert.match(
     page,
+    /loai === "CHECK_OUT" && !d\.huy_luc/,
+    "mốc checkout phải né dòng đã hoàn tác — CHECK_OUT rút lại thì thôi là mốc kết thúc",
+  );
+  assert.doesNotMatch(
+    page,
     /d\.appointment_id === a\.id && !d\.huy_luc/,
-    "bước của lượt (page.tsx) phải lọc dòng đã hoàn tác — CHECK_OUT rút lại là mốc kết thúc biến mất",
+    "buoc KHÔNG được lọc huy_luc từ nguồn — Lịch sử các lần khám cần dòng ấy để vẽ gạch ngang",
   );
   // Chiều ngược: dòng thời gian trong hồ sơ VẪN nhận đủ cả dòng đã hoàn tác
   // (để vẽ gạch ngang) — không ai được lọc trước khi đưa vào lichSu.
