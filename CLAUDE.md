@@ -2,6 +2,8 @@
 
 Phần mềm quản lý phòng khám Dr4Women. **Chạy trên VPS Vietnix**, database Postgres
 tự dựng trên chính máy đó. Spec: `docs/spec-clinic.md`. Luật: **`docs/SO-LUAT.md`**.
+Giải thích code từ A tới Z (từng file, từng hàm, kèm những bẫy đã cắn thật):
+`docs/GIAI-THICH-CODE.md`.
 
 > Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không còn chạy gì**
 > của hệ thống từ 07/08/2026 — thứ duy nhất còn trỏ về Mac là bản sao lưu hằng
