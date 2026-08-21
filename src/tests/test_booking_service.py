@@ -322,6 +322,12 @@ class TestNoInventedDurations:
         assert "thanh = thanh_min" in source
 
 
+# Giờ mở cửa + giờ ca mà `_chan_dat_ngoai_khung_ca` hỏi. `settings=None` nghĩa
+# là phòng khám chưa khai giờ ca riêng, nên chốt lấy ba ca MẶC ĐỊNH
+# (sáng 08:00–13:00, chiều 14:00–17:30, tối 17:30–21:30).
+_GIO_MO_CUA = {"open_minute": 420, "close_minute": 1320, "settings": None}
+
+
 class _Conn:
     """A connection stub returning canned answers, in call order."""
 
@@ -647,7 +653,12 @@ class TestPatchBuilding:
         # this backwards would silently strip doctors off rescheduled bookings.
         patch = asyncio.run(
             BookingService(MagicMock())._build_patch(
-                _Conn([], []),
+                # Dòng đầu là câu hỏi giờ mở cửa + giờ ca của chốt
+                # `_chan_dat_ngoai_khung_ca` (21/08/2026). `_Conn` trả lời
+                # THEO THỨ TỰ GỌI, nên thiếu dòng này thì câu trả lời của
+                # chốt sau bị đẩy lên và bài kiểm đỏ vì lý do không liên
+                # quan. 11:00 nằm trong ca sáng nên chốt cho qua.
+                _Conn(_GIO_MO_CUA, [], []),
                 action="reschedule",
                 appt=self._appt(),
                 new_status="SCHEDULED",
@@ -665,7 +676,12 @@ class TestPatchBuilding:
     def test_an_explicit_null_unassigns(self) -> None:
         patch = asyncio.run(
             BookingService(MagicMock())._build_patch(
-                _Conn([], []),
+                # Dòng đầu là câu hỏi giờ mở cửa + giờ ca của chốt
+                # `_chan_dat_ngoai_khung_ca` (21/08/2026). `_Conn` trả lời
+                # THEO THỨ TỰ GỌI, nên thiếu dòng này thì câu trả lời của
+                # chốt sau bị đẩy lên và bài kiểm đỏ vì lý do không liên
+                # quan. 11:00 nằm trong ca sáng nên chốt cho qua.
+                _Conn(_GIO_MO_CUA, [], []),
                 action="reschedule",
                 appt=self._appt(),
                 new_status="SCHEDULED",
@@ -726,6 +742,7 @@ async def test_doctor_change_audit_records_target_doctor(
 
     with (
         patch.object(service, "_guard_slot", AsyncMock(return_value=None)),
+        patch.object(service, "_chan_dat_ngoai_khung_ca", AsyncMock(return_value=None)),
         patch.object(service, "_update", AsyncMock(return_value=True)),
         patch("clinicai.services.booking_service._log", new=audit_log),
     ):
@@ -889,11 +906,12 @@ class TestXoaVetBacSiDaGo:
 
     def _service_khong_cham_db(self) -> BookingService:
         service = BookingService(MagicMock())
-        # Ba chốt này hỏi database (trần số chỗ, trùng ca, luật bác sĩ bắt
-        # buộc). Bài kiểm này hỏi chuyện KHÁC — hình dạng patch — nên cho cả
-        # ba trả lời "ổn" để nhánh dựng patch chạy tới nơi.
+        # Bốn chốt này hỏi database (trần số chỗ, trùng ca, luật bác sĩ bắt
+        # buộc, và giờ ca làm việc). Bài kiểm này hỏi chuyện KHÁC — hình dạng
+        # patch — nên cho cả bốn trả lời "ổn" để nhánh dựng patch chạy tới nơi.
         service._guard_slot = AsyncMock(return_value=None)  # type: ignore[method-assign]
         service._luat_bac_si_bat_buoc = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        service._chan_dat_ngoai_khung_ca = AsyncMock(return_value=None)  # type: ignore[method-assign]
         return service
 
     def _patch_cua(self, action: str, **overrides: Any) -> dict[str, Any]:

@@ -30,6 +30,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
+from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
@@ -437,6 +438,23 @@ async def booking_policy(
             """,
             identity.clinic_id,
         )
+        ca_raw = await conn.fetchval(
+            "SELECT settings FROM clinic WHERE id = $1::uuid", identity.clinic_id
+        )
+
+    # GIỜ MỞ CỬA KHÔNG PHẢI GIỜ NHẬN LỊCH. Cửa mở 07:00–22:00 nhưng ba ca chỉ
+    # phủ 08:00–21:30, nên giữa chúng có ba khoảng không ai khám: trước ca sáng,
+    # nghỉ trưa, sau ca tối. `booking_service._chan_dat_ngoai_khung_ca` TỪ CHỐI
+    # đúng những khoảng ấy, nên lưới chọn giờ phải thôi mời chúng — mời rồi mới
+    # mắng là cách chắc nhất khiến người trực mất niềm tin vào lưới.
+    #
+    # Tính ở ĐÂY chứ không để trình duyệt tự suy: quy đổi "17:30" ra phút rồi
+    # cắt theo giờ mở cửa là LUẬT, và luật có bản thứ hai bằng TypeScript thì
+    # bản nào cũng sẽ lỡ mất lần sửa sau.
+    khung_nhan_lich = khung_theo_thu(
+        {str(r["weekday"]): (r["open"], r["close"]) for r in hours_rows},
+        ca_tu_settings(ca_raw),
+    )
 
     return {
         "slot_minutes": policy.slot_minutes,
@@ -447,6 +465,9 @@ async def booking_policy(
             str(r["weekday"]): {"open": r["open"], "close": r["close"]}
             for r in hours_rows
         },
+        # {"0": [[480,780],[840,1290]], …} — phút trong ngày, nửa mở [đầu, cuối).
+        # Rời nhau vì nghỉ trưa cắt ngày làm hai.
+        "khung_nhan_lich": khung_nhan_lich,
     }
 
 

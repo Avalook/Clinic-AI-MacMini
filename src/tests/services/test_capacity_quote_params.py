@@ -50,6 +50,10 @@ class _RecordingConn:
             "shifts": [],
             "open_minute": 17 * 60,
             "close_minute": 23 * 60,
+            # Truy vấn thật chọn cả `settings` (21/08/2026). Dòng giả thiếu
+            # khoá này thì bài kiểm xanh trong khi asyncpg.Record ném KeyError
+            # lúc chạy — đúng cách lỗi ấy lọt lên staging một lần rồi.
+            "settings": None,
         }
 
     async def fetch(self, _query: str, *args: Any) -> list[Any]:

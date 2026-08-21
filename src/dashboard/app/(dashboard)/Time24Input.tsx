@@ -17,6 +17,7 @@ export default function Time24Input({
   minHour = 0,
   maxHour = 23,
   minutesOptions,
+  khungPhut,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -24,12 +25,31 @@ export default function Time24Input({
   minHour?: number;
   maxHour?: number;
   minutesOptions?: string[];
+  /**
+   * Khung GIỜ NHẬN LỊCH của ngày đó: [[phútĐầu, phútCuối), …].
+   *
+   * `minHour`/`maxHour` chỉ cắt được HAI ĐẦU ngày — chúng không nói được
+   * "nghỉ trưa 13:00–14:00", nên ô này vẫn mời 13:00 trong khi backend từ chối
+   * (21/08/2026). Khung rỗng/không truyền = "chưa biết" ⇒ không lọc gì.
+   */
+  khungPhut?: [number, number][];
 }) {
   const [h, m] = value ? value.split(":") : ["", ""];
+  const phutHopLe = (phut: number) =>
+    !khungPhut ||
+    khungPhut.length === 0 ||
+    khungPhut.some(([lo, hi]) => phut >= lo && phut < hi);
+  const phutCoThe = minutesOptions ?? MINUTES;
   const hours = HOURS.filter((x) => {
     const n = Number(x);
-    return n >= minHour && n <= maxHour;
+    if (n < minHour || n > maxHour) return false;
+    // Giờ nào KHÔNG còn phút hợp lệ nào thì bỏ hẳn khỏi dropdown — để lại một
+    // lựa chọn mà mọi phút đều bị chặn là mời người dùng vào ngõ cụt.
+    return phutCoThe.some((mm) => phutHopLe(n * 60 + Number(mm)));
   });
+  const phutHienRa = phutCoThe.filter(
+    (mm) => h === "" || phutHopLe(Number(h) * 60 + Number(mm)),
+  );
   const emit = (nh: string, nm: string) =>
     onChange(!nh && !nm ? "" : `${nh || String(minHour).padStart(2, "0")}:${nm || "00"}`);
   // Icon đồng hồ → MỞ DROPDOWN GIỜ 24h (showPicker trên <select>). KHÔNG dùng
@@ -66,7 +86,7 @@ export default function Time24Input({
         aria-label="Phút"
       >
         <option value="">Phút</option>
-        {(minutesOptions ?? MINUTES).map((x) => (
+        {phutHienRa.map((x) => (
           <option key={x} value={x}>
             {x}
           </option>

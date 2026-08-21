@@ -32,6 +32,10 @@ import {
   vnLocalToUtcISO,
 } from "@/lib/datetime";
 import { isDeadStatus } from "@/lib/slot-capacity";
+import {
+  trongKhungNhanLich,
+  type KhungNhanLich,
+} from "@/lib/khung-nhan-lich";
 import { dayLabel } from "@/lib/roster";
 import { useDoiCa } from "../dung-doi-ca";
 import { useBookingPolicy } from "../BookingPolicyContext";
@@ -258,6 +262,7 @@ function generateSlotsForDate(
   isoDate: string,
   stepMinutes: number,
   hours: Record<string, { open: string; close: string }>,
+  khungNhanLich?: KhungNhanLich,
 ): string[] {
   const dow = giuaTruaVn(isoDate).getUTCDay();
   const today = hours[String(dow)];
@@ -274,6 +279,10 @@ function generateSlotsForDate(
   const slots: string[] = [];
   // Nửa mở: khung cuối BẮT ĐẦU trước giờ đóng cửa, không phải kết thúc đúng nó.
   for (let m = open; m < close; m += stepMinutes) {
+    // GIỜ MỞ CỬA KHÔNG PHẢI GIỜ NHẬN LỊCH. Ba ca không phủ kín giờ mở cửa —
+    // trước ca sáng, nghỉ trưa, sau ca tối — và backend TỪ CHỐI đặt vào đó
+    // (21/08/2026). Bỏ hẳn ô thay vì để lễ tân bấm rồi mới bị mắng.
+    if (!trongKhungNhanLich(khungNhanLich, dow, m)) continue;
     slots.push(
       `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`,
     );
@@ -426,7 +435,12 @@ export default function BookingHub({
   const timeSlots = useMemo(
     () =>
       policy
-        ? generateSlotsForDate(selectedDateIso, slotMinutes, policy.hours)
+        ? generateSlotsForDate(
+            selectedDateIso,
+            slotMinutes,
+            policy.hours,
+            policy.khungNhanLich,
+          )
         : [],
     [selectedDateIso, slotMinutes, policy],
   );

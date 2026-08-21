@@ -63,7 +63,7 @@ CA_MAC_DINH: dict[str, Window] = {
 }
 
 
-def _phut(hhmm: str) -> int | None:
+def phut_tu_gio(hhmm: str) -> int | None:
     """``"08:30"`` → 510. Chuỗi hỏng trả ``None`` thay vì ném lỗi.
 
     Cấu hình do người gõ vào; một ô đánh máy sai không được phép làm sập màn
@@ -94,8 +94,8 @@ def doc_cau_hinh_ca(settings: Mapping[str, Any] | None) -> dict[str, Window]:
         muc = raw.get(ma)
         if not isinstance(muc, Mapping):
             continue
-        lo = _phut(str(muc.get("bat_dau", "")))
-        hi = _phut(str(muc.get("ket_thuc", "")))
+        lo = phut_tu_gio(str(muc.get("bat_dau", "")))
+        hi = phut_tu_gio(str(muc.get("ket_thuc", "")))
         if lo is None or hi is None or hi <= lo:
             continue
         ket[ma] = (lo, hi)
@@ -169,6 +169,32 @@ def gio_lam_viec(
     nên vẫn mời đặt lịch vào giờ nghỉ trưa.
     """
     return shift_windows("FULL", open_min, close_min, ca)
+
+
+def khung_theo_thu(
+    gio_mo_dong: Mapping[str, tuple[str, str]],
+    ca: Mapping[str, Window] | None = None,
+) -> dict[str, list[list[int]]]:
+    """Giờ mở cửa từng thứ → KHUNG NHẬN LỊCH từng thứ, tính bằng phút.
+
+    ``{"1": ("07:00", "22:00")}`` → ``{"1": [[480, 780], [840, 1290]]}``.
+
+    Giờ mở cửa nói cửa mở lúc nào; khung này nói lúc nào NHẬN ĐƯỢC LỊCH — hai
+    chuyện khác nhau, vì ba ca không phủ kín giờ mở cửa (nghỉ trưa, và hai đầu
+    ngày). Trình duyệt lọc ô giờ theo đây để không mời rồi mới mắng.
+
+    Ở đây chứ không ở router: quy đổi "17:30" ra phút rồi cắt theo giờ mở cửa là
+    LUẬT, và luật nằm trong router thì không ai kiểm được nó mà không dựng cả
+    một request. Thứ nào khai giờ hỏng thì BỎ QUA thứ đó — trình duyệt hiểu
+    "vắng mặt" là "chưa biết" và không lọc, còn máy chủ vẫn chặn.
+    """
+    ket: dict[str, list[list[int]]] = {}
+    for thu, (mo_s, dong_s) in gio_mo_dong.items():
+        mo, dong = phut_tu_gio(mo_s or ""), phut_tu_gio(dong_s or "")
+        if mo is None or dong is None:
+            continue
+        ket[str(thu)] = [[lo, hi] for lo, hi in gio_lam_viec(mo, dong, ca)]
+    return ket
 
 
 def ca_cua_phut(minute: int, ca: Mapping[str, Window] | None = None) -> str:

@@ -474,6 +474,9 @@ class BookingService:
                     doctor_id=doctor_id,
                     identity=identity,
                 )
+                await self._chan_dat_ngoai_khung_ca(
+                    conn, slot_start=slot_start, identity=identity
+                )
 
                 warnings: list[str] = []
 
@@ -1186,6 +1189,9 @@ class BookingService:
             # vào quá khứ được, nhưng đặt một lịch tương lai rồi dời nó về hôm
             # qua thì được.
             _chan_dat_vao_qua_khu(slot_end)
+            await self._chan_dat_ngoai_khung_ca(
+                conn, slot_start=slot_start, identity=identity
+            )
             patch["slot_start"] = slot_start
             patch["slot_end"] = slot_end
             # Only touch the doctor when the field was actually sent; an absent
@@ -1226,6 +1232,58 @@ class BookingService:
             patch["bo_bac_si_luc"] = None
 
         return patch
+
+    async def _chan_dat_ngoai_khung_ca(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        slot_start: datetime,
+        identity: StaffIdentity,
+    ) -> None:
+        """Chỉ nhận lịch RƠI VÀO một ca làm việc của phòng khám.
+
+        Trước đây giờ mở cửa rộng hơn tổng ba ca, nên vẫn đặt được vào ba
+        khoảng trống: sớm hơn ca sáng, nghỉ trưa, và sau khi hết ca tối. Đo
+        trên staging 21/08/2026 có 3 lịch như vậy (07:15, 07:30, và một lịch
+        đúng 21:30). Chúng không lỗi ở đâu cả — chỉ lặng lẽ không thuộc ca nào,
+        nên KPI theo ca của CSKH đếm thiếu đúng những lịch ấy.
+
+        ĐO THEO GIỜ BẮT ĐẦU, KHÔNG PHẢI CẢ KHOẢNG. Khách vãng lai bước vào lúc
+        12:50 được tạo lịch với ``slot_start`` = bây giờ; nếu bắt cả khoảng phải
+        nằm gọn trong ca thì một dịch vụ 30 phút sẽ tràn qua 13:00 và lễ tân bị
+        từ chối trước mặt người đang đứng đó. Giờ bắt đầu mới là cái người ta
+        gọi là "giờ hẹn", và đó cũng là mốc mà mọi luật khác trong file này đo.
+
+        Ngày phòng khám đóng cửa (``clinic_hours_for_date`` không trả gì) thì im
+        lặng, để luật giờ mở cửa nói — hai luật cùng hét một lỗi thì người dùng
+        đọc được một nửa sự thật.
+        """
+        local = slot_start.astimezone(CLINIC_TZ)
+        row = await conn.fetchrow(
+            """
+            SELECT (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
+                     AS open_minute,
+                   (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
+                     AS close_minute,
+                   (SELECT settings FROM clinic WHERE id = $1::uuid) AS settings
+            """,
+            identity.clinic_id,
+            local.date(),
+        )
+        if row is None or row["open_minute"] is None or row["close_minute"] is None:
+            return
+        ca = ca_tu_settings(row["settings"])
+        windows = shift_windows("FULL", row["open_minute"], row["close_minute"], ca)
+        if not windows:
+            return
+        minute = local.hour * 60 + local.minute
+        if covers(windows, minute):
+            return
+        raise ValidationError(
+            f"Phòng khám chỉ nhận lịch trong {describe(windows)}. "
+            f"Giờ {minute // 60:02d}:{minute % 60:02d} không thuộc ca nào — "
+            "chọn giờ trong ca, hoặc sửa giờ ca ở màn Lịch làm việc."
+        )
 
     async def _guard_slot(
         self,

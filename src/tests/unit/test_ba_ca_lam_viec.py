@@ -160,3 +160,51 @@ def test_settings_hong_hoac_thieu_thi_lui_ve_mac_dinh() -> None:
     hong: tuple[object, ...] = (None, "", "khong-phai-json", b"{[", 42, [], {"khac": 1})
     for xau in hong:
         assert ca_tu_settings(xau) == CA_MAC_DINH, f"hỏng ở {xau!r}"
+
+
+class TestKhungTheoThu:
+    """Giờ mở cửa từng thứ → khung nhận lịch từng thứ.
+
+    Trình duyệt lọc ô giờ theo bảng này. Sai ở đây nghĩa là lưới mời một giờ mà
+    máy chủ sẽ từ chối — mời rồi mới mắng.
+    """
+
+    def test_ba_ca_cat_ngay_lam_hai_khoang_vi_nghi_trua(self) -> None:
+        from clinicai.core.shifts import khung_theo_thu
+
+        ket = khung_theo_thu({"1": ("07:00", "22:00")})
+        # 08:00–13:00 rồi 14:00–21:30; chiều với tối liền nhau nên nhập một.
+        assert ket == {"1": [[480, 780], [840, 1290]]}
+
+    def test_gio_mo_cua_hep_thi_cat_bot_ca(self) -> None:
+        from clinicai.core.shifts import khung_theo_thu
+
+        ket = khung_theo_thu({"3": ("09:00", "16:00")})
+        assert ket == {"3": [[540, 780], [840, 960]]}
+
+    def test_moi_thu_tinh_rieng(self) -> None:
+        from clinicai.core.shifts import khung_theo_thu
+
+        ket = khung_theo_thu({"0": ("07:00", "22:00"), "6": ("08:00", "12:00")})
+        assert set(ket) == {"0", "6"}
+        assert ket["6"] == [[480, 720]], "thứ Bảy đóng lúc 12:00"
+
+    def test_thu_khai_gio_hong_thi_bo_qua_thu_do_thoi(self) -> None:
+        """Một ô đánh máy sai không được làm hỏng cả bảng."""
+        from clinicai.core.shifts import khung_theo_thu
+
+        ket = khung_theo_thu(
+            {"1": ("07:00", "22:00"), "2": ("bay gio", "22:00"), "3": ("07:00", "")}
+        )
+        assert set(ket) == {"1"}, "chỉ thứ khai đúng mới có mặt"
+
+    def test_doc_gio_ca_cua_phong_kham_chu_khong_viet_cung(self) -> None:
+        from clinicai.core.shifts import khung_theo_thu
+
+        rieng = {
+            "SANG": (540, 750),
+            "CHIEU": (810, 1020),
+            "TOI": (1080, 1320),
+        }
+        ket = khung_theo_thu({"1": ("07:00", "23:00")}, rieng)
+        assert ket == {"1": [[540, 750], [810, 1020], [1080, 1320]]}
