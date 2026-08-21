@@ -98,6 +98,14 @@ services:
       GOTRUE_API_PORT: "9999"
       API_EXTERNAL_URL: http://localhost:${SUPABASE_API_PORT:-54321}
       GOTRUE_DB_DRIVER: postgres
+      # TRẦN POOL BẮT BUỘC. Không đặt thì gotrue mở kết nối KHÔNG GIỚI HẠN —
+      # đo tải 100 người đăng nhập cùng lúc (22/08/2026): 13–19% lượt trả 500,
+      # log gotrue ghi "FATAL: remaining connection slots are reserved for
+      # roles with the SUPERUSER attribute" — tức nó nuốt sạch 100 slot của
+      # Postgres rồi tự chết đói. Trần 10 khớp ngân sách kết nối: FastAPI 10
+      # + PostgREST 10 + gotrue 10 + realtime/worker/psql ~20 — dư già nửa
+      # max_connections=100 cho đột biến.
+      GOTRUE_DB_MAX_POOL_SIZE: "10"
       # GoTrue TỰ chạy migration của nó và tự tạo bảng trong schema `auth`.
       # Vì vậy nó phải khởi động XONG trước khi chuỗi migration của dự án chạy:
       # baseline có FK `staff.auth_user_id → auth.users(id)`.
@@ -137,6 +145,9 @@ services:
         condition: service_healthy
     environment:
       PGRST_DB_URI: postgres://authenticator:${SUPABASE_DB_PASSWORD}@db:5432/postgres
+      # Trùng mặc định, khai tường minh: ngân sách kết nối của cả stack phải
+      # đọc được từ file này, không phải đi tra tài liệu từng bản.
+      PGRST_DB_POOL: "10"
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: anon
       # CÙNG bí mật với GoTrue. Lệch một ký tự thì mọi token đăng nhập bị coi là
