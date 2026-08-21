@@ -11,6 +11,7 @@
 // direct-Supabase branch to fall back to. CLINIC_API_URL not being set is now a
 // broken deployment rather than a supported mode, so it fails loudly.
 
+import { cache } from "react";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "./supabase-server";
 
@@ -38,16 +39,23 @@ const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
  *
  * Chỉ nuốt lỗi xác thực. Lỗi khác (mạng, DNS) vẫn ném để còn thấy mà sửa.
  */
-async function refreshQuietly(
-  supabase: Awaited<ReturnType<typeof getSupabaseServer>>,
-): Promise<void> {
-  try {
-    await supabase.auth.getUser();
-  } catch (err) {
-    if ((err as { __isAuthError?: boolean } | null)?.__isAuthError) return;
-    throw err;
-  }
-}
+// `cache()` theo CHÍNH client: getSupabaseServer đã trả một client cho cả
+// lượt dựng trang, nên mọi fetchFromBackend trong lượt ấy chung một lần xác
+// minh — đo 21/08/2026, một lần mở /home chạy lại chuỗi users/sessions/mfa
+// của gotrue cho cùng một người nhiều lần. Trong route handler, cache() không
+// có kho theo-request nên tự thành gọi thẳng: mỗi request vẫn tự xác minh.
+const refreshQuietly = cache(
+  async (
+    supabase: Awaited<ReturnType<typeof getSupabaseServer>>,
+  ): Promise<void> => {
+    try {
+      await supabase.auth.getUser();
+    } catch (err) {
+      if ((err as { __isAuthError?: boolean } | null)?.__isAuthError) return;
+      throw err;
+    }
+  },
+);
 
 /**
  * Forward a JSON body to a FastAPI endpoint, attaching the caller's Supabase

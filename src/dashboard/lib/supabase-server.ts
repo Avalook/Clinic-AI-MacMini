@@ -1,6 +1,8 @@
 // Server-side Supabase client (server components, route handlers, middleware).
 // Uses ANON key + the request/response cookies for session refresh.
 
+import { cache } from "react";
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { SUPABASE_COOKIE_NAME } from "./supabase-cookie";
@@ -18,7 +20,14 @@ import { SUPABASE_COOKIE_NAME } from "./supabase-cookie";
 const SERVER_SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-export async function getSupabaseServer() {
+// `cache()` = MỘT client cho cả lượt dựng trang. Layout, page và các server
+// component con đều gọi hàm này; không gói thì mỗi nơi tự dựng một client và
+// tự xác minh phiên riêng — đo trên staging 21/08/2026: một lần mở /home chạy
+// lại chuỗi users/sessions/mfa của gotrue nhiều lần cho CÙNG một người. Trong
+// route handler không có kho theo-request thì cache() tự thành gọi thẳng, mỗi
+// request vẫn xác minh riêng — đúng như phải thế. Cùng mẫu getBookingPolicy
+// và getFeatureMode đã dùng.
+export const getSupabaseServer = cache(async () => {
   const cookieStore = await cookies();
   return createServerClient(
     SERVER_SUPABASE_URL,
@@ -44,4 +53,4 @@ export async function getSupabaseServer() {
       },
     },
   );
-}
+});
