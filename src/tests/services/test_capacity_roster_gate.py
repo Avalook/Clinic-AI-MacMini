@@ -278,3 +278,40 @@ class TestLuoiKhongMoiGioNgoaiCa:
 
         assert "10:00" in gio
         assert "18:00" not in gio, "bác sĩ này không trực ca tối"
+
+
+class TestDemGheCaNgayMotLan:
+    """Câu SQL của lưới phải đếm bằng slot_seats_ban, một lần cho cả ngày.
+
+    Số học chia khung đã được kiểm bằng Postgres thật trong
+    supabase/tests/dem_ghe_ca_ngay_mot_lan.sql (chạy ở job `database` của CI).
+    Hai bài dưới chỉ canh cho câu SQL trong service KHÔNG trôi khỏi hình dạng
+    mà bài kiểm SQL kia đã chứng minh — đổi hình dạng thì phải đổi cả hai.
+    """
+
+    def test_dem_bang_ban_khong_con_goi_used_tung_khung(self) -> None:
+        """120 lần slot_seats_used/lượt là thứ đốt 349% CPU database (21/08)."""
+        import inspect
+
+        from clinicai.services.capacity_service import CapacityService
+
+        nguon = inspect.getsource(CapacityService.quote)
+        # Đếm LỜI GỌI (có ngoặc mở) — dòng chú thích được phép nhắc tên hàm.
+        assert nguon.count("slot_seats_ban(") == 1, "gọi luật đúng MỘT lần"
+        # Soi LỜI GỌI (có ngoặc mở), không soi chữ: chú thích trong SQL có
+        # quyền nhắc tên hàm cũ khi kể lại vì sao đổi.
+        assert "slot_seats_used(" not in nguon, (
+            "quay lại đếm từng khung là quay lại 283ms/lượt"
+        )
+
+    def test_ghe_tre_chi_vao_khung_sau_gio_hen(self) -> None:
+        """Phép so ts_goc < đầu-khung phải có mặt — thiếu nó, khách check-in
+        trong chính khung hẹn bị đếm thành chiếm thêm ghế vãng lai (bài kiểm
+        SQL bắt đúng ca này khi kiểm ngược: chờ 2, đếm 3)."""
+        import inspect
+
+        from clinicai.services.capacity_service import CapacityService
+
+        nguon = inspect.getsource(CapacityService.quote)
+        assert "VANG_LAI_TRE" in nguon
+        assert "ts_goc <" in nguon
