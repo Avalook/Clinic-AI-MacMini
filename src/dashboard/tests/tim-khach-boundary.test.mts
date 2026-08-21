@@ -77,14 +77,19 @@ test("máy chủ vẫn tìm bằng đủ BỐN cách, gồm tên không dấu", 
   }
 });
 
-test("giới hạn 300 vẫn còn — nên đường máy chủ là BẮT BUỘC, không phải tuỳ chọn", () => {
-  // Nếu ai đó nâng limit lên rất cao và bỏ đường máy chủ đi, bài kiểm này vẫn
-  // xanh nhưng vấn đề quay lại ở quy mô lớn hơn. Ghi rõ ràng buộc ở đây để lần
-  // sau còn nhớ VÌ SAO cần cả hai.
+test("danh sách luôn bị CẮT TRANG — nên đường máy chủ là BẮT BUỘC, không phải tuỳ chọn", () => {
+  // VIẾT LẠI 22/08/2026 (Luật 12.5): bản cũ canh `.limit(300)` — mốc cắt cứng
+  // trước khi có phân trang. Nay truy vấn cắt bằng `.range()` theo trang 50
+  // khách, tiền đề của bài kiểm MẠNH HƠN chứ không mất đi: trình duyệt chỉ
+  // cầm một trang, nên tìm kiếm/lọc phải chạy ở máy chủ. Thứ bài này canh là
+  // "truy vấn patient PHẢI có mốc cắt" — mất cả range lẫn limit nghĩa là ai đó
+  // vừa quay lại kéo nguyên bảng khách về trình duyệt.
   const ma = boChuThich(page);
   assert.match(
     ma,
-    /\.from\("patient"\)[\s\S]{0,400}?\.limit\((\d+)\)/,
-    "không tìm thấy giới hạn của truy vấn danh sách khách",
+    /\.from\("patient"\)[\s\S]{0,400}?\.(range|limit)\(/,
+    "truy vấn danh sách khách không còn mốc cắt nào — sẽ kéo nguyên bảng",
   );
+  // Và mốc cắt phải là PHÂN TRANG thật, không phải một limit to tướng.
+  assert.match(ma, /KHACH_MOT_TRANG/, "mất hằng số phân trang");
 });
