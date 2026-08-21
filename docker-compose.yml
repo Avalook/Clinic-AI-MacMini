@@ -102,12 +102,17 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    mem_limit: ${DASHBOARD_MEMORY_LIMIT:-512m}
+    # 4 tiến trình × ~85MiB đo được lúc tải + phần dựng trang. 512m cũ vừa đủ
+    # cho MỘT tiến trình; giữ nguyên mà tăng số tiến trình là mời OOM.
+    mem_limit: ${DASHBOARD_MEMORY_LIMIT:-1g}
     pids_limit: 256
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
       # Dashboard calls FastAPI over the internal network (never the internet).
       CLINIC_API_URL: http://api:8000
+      # Số tiến trình Next.js. Bỏ trống = dùng hết số nhân, trần 4.
+      # Đặt 1 để về một tiến trình (máy dev, hoặc khi cần loại trừ nguyên nhân).
+      NEXT_WORKERS: ${NEXT_WORKERS:-}
       OPS_DOZZLE_PUBLIC_URL: ${OPS_DOZZLE_PUBLIC_URL:-http://127.0.0.1:${DOZZLE_PORT:-8888}}
       OPS_KUMA_PUBLIC_URL: ${OPS_KUMA_PUBLIC_URL:-http://127.0.0.1:${KUMA_PORT:-3001}}
       OPS_SENTRY_PUBLIC_URL: ${OPS_SENTRY_PUBLIC_URL:-}

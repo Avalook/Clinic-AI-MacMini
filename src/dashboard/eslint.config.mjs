@@ -16,6 +16,15 @@ const eslintConfig = defineConfig([
     "e2e/**",
     "e2e-report/**",
   ]),
+  {
+    // `cluster.cjs` là script khởi động Node CHẠY TRƯỚC mọi thứ của Next —
+    // nó không đi qua bundler, nên phải là CommonJS thật. Đuôi `.cjs` bảo đảm
+    // điều đó bất kể `type` trong package.json của bản standalone, và trong
+    // CommonJS thì `require` là cách viết ĐÚNG, không phải thói quen cũ.
+    // Mở đúng một luật cho đúng một dạng file, không nới toàn cục.
+    files: ["**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
 ]);
 
 export default eslintConfig;
