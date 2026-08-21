@@ -93,6 +93,34 @@ class TestTranNgoaiGioMoCua:
         loi = kiem_cau_hinh_ca(CA_MAC_DINH, gio)
         assert loi, "ca tối 17:30–21:30 không lọt vào ngày đóng lúc 18:00"
         assert all("Thứ Bảy" in x for x in loi), loi
+        assert len(loi) == 1, "một lỗi thì một dòng"
+
+    def test_ca_tuan_hep_giong_nhau_thi_gop_lam_mot_dong(self) -> None:
+        """Luật đổi 21/08/2026 sau khi đo trên staging: bản đầu in BẢY dòng.
+
+        Phòng khám mở giống nhau cả tuần, ca tối tràn giờ đóng cửa — bản đầu
+        sinh một dòng cho MỖI thứ, bảy dòng gần y hệt cho một lỗi duy nhất. Bảy
+        dòng na ná nhau là thứ người ta lướt qua, và lướt qua thì câu thứ tám
+        nói thật cũng bị bỏ lỡ.
+        """
+        xau = dict(CA_MAC_DINH)
+        xau["TOI"] = (1050, 23 * 60)
+        loi = kiem_cau_hinh_ca(xau, MO_CUA)
+        assert len(loi) == 1, f"phải gộp làm một dòng, đang có {len(loi)}: {loi}"
+        assert "Mọi ngày" in loi[0], loi[0]
+        assert "Tối" in loi[0] and "07:00–22:00" in loi[0]
+
+    def test_hai_nhom_gio_khac_nhau_thi_hai_dong(self) -> None:
+        """Gộp KHÔNG được gộp nhầm hai nhóm giờ khác nhau làm một."""
+        gio = {**MO_CUA, "0": ("07:00", "19:00"), "6": ("07:00", "19:00")}
+        xau = dict(CA_MAC_DINH)
+        xau["TOI"] = (1050, 23 * 60)
+        loi = kiem_cau_hinh_ca(xau, gio)
+        assert len(loi) == 2, f"hai khung giờ khác nhau ⇒ hai dòng: {loi}"
+        assert any("07:00–19:00" in x for x in loi)
+        assert any("07:00–22:00" in x for x in loi)
+        cn_t7 = next(x for x in loi if "07:00–19:00" in x)
+        assert "Chủ nhật" in cn_t7 and "Thứ Bảy" in cn_t7, cn_t7
 
     def test_ngay_khai_gio_hong_thi_bo_qua_ngay_do(self) -> None:
         gio = dict(MO_CUA)

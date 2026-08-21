@@ -71,20 +71,41 @@ export function soatLoi(ca: Record<MaCa, Khung>, gio: GioMoCua): string[] {
     }
   }
 
+  // GỘP THEO GIỜ MỞ CỬA, không mỗi thứ một dòng. Phòng khám mở giống nhau cả
+  // tuần thì bản đầu in BẢY dòng gần y hệt cho một lỗi duy nhất. Bảy dòng na ná
+  // nhau là thứ người ta lướt qua, và lướt qua thì câu thứ tám nói thật cũng bị
+  // bỏ lỡ. Cùng luật với `core/shifts.kiem_cau_hinh_ca`.
+  const gom = new Map<string, { ma: MaCa; mo: string; dong: string; thu: string[] }>();
+  let tongNgay = 0;
   for (const [thu, { mo, dong }] of Object.entries(gio)) {
     const lo = phut(mo ?? "");
     const hi = phut(dong ?? "");
     if (lo === null || hi === null) continue;
+    tongNgay++;
     for (const ma of CAC_CA) {
       const w = p[ma];
       if (!w) continue;
       if (w[0] < lo || w[1] > hi) {
-        loi.push(
-          `${NHAN_THU[thu] ?? `thứ ${thu}`} mở cửa ${mo}–${dong}, không chứa ` +
-            `hết ${NHAN[ma]} — để nguyên thì ca bị cắt mà không báo gì.`,
-        );
+        const khoa = `${ma}|${mo}|${dong}`;
+        const cu = gom.get(khoa);
+        if (cu) cu.thu.push(thu);
+        else gom.set(khoa, { ma, mo, dong, thu: [thu] });
       }
     }
+  }
+  for (const { ma, mo, dong, thu } of gom.values()) {
+    const ai =
+      tongNgay > 0 && thu.length === tongNgay
+        ? "Mọi ngày"
+        : thu
+            .slice()
+            .sort((a, b) => Number(a) - Number(b))
+            .map((t) => NHAN_THU[t] ?? `thứ ${t}`)
+            .join(", ");
+    loi.push(
+      `${ai} mở cửa ${mo}–${dong}, không chứa hết ${NHAN[ma]} — ` +
+        "để nguyên thì ca bị cắt mà không báo gì.",
+    );
   }
   return loi;
 }

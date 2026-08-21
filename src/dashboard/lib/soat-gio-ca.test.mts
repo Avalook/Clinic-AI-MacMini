@@ -59,8 +59,31 @@ test("ca tràn ngoài giờ mở cửa thì báo — kiểu sai không tự lộ
 test("chỉ một thứ đóng sớm thì gọi đúng tên thứ đó", () => {
   const gio: GioMoCua = { ...MO_CUA, "6": { mo: "07:00", dong: "18:00" } };
   const loi = soatLoi(DUNG, gio);
-  assert.ok(loi.length > 0, "ca tối không lọt vào ngày đóng lúc 18:00");
-  assert.ok(loi.every((x) => x.includes("Thứ Bảy")), loi.join(" | "));
+  assert.equal(loi.length, 1, "một lỗi thì một dòng");
+  assert.ok(loi[0]!.includes("Thứ Bảy"), loi[0]);
+});
+
+test("cả tuần hẹp giống nhau thì gộp làm MỘT dòng", () => {
+  // Luật đổi 21/08/2026 sau khi đo trên staging: bản đầu in BẢY dòng gần y hệt
+  // cho một lỗi duy nhất. Bảy dòng na ná nhau là thứ người ta lướt qua.
+  const loi = soatLoi(
+    { ...DUNG, TOI: { bat_dau: "17:30", ket_thuc: "23:00" } },
+    MO_CUA,
+  );
+  assert.equal(loi.length, 1, `phải gộp làm một: ${loi.join(" | ")}`);
+  assert.ok(loi[0]!.includes("Mọi ngày"), loi[0]);
+});
+
+test("hai nhóm giờ khác nhau thì KHÔNG gộp nhầm làm một", () => {
+  const gio: GioMoCua = {
+    ...MO_CUA,
+    "0": { mo: "07:00", dong: "19:00" },
+    "6": { mo: "07:00", dong: "19:00" },
+  };
+  const loi = soatLoi({ ...DUNG, TOI: { bat_dau: "17:30", ket_thuc: "23:00" } }, gio);
+  assert.equal(loi.length, 2, `hai khung giờ ⇒ hai dòng: ${loi.join(" | ")}`);
+  const hep = loi.find((x) => x.includes("07:00–19:00"))!;
+  assert.ok(hep.includes("Chủ nhật") && hep.includes("Thứ Bảy"), hep);
 });
 
 test("thứ khai giờ hỏng thì bỏ qua thứ đó, không báo bừa", () => {
