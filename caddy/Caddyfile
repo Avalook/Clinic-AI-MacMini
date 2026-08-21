@@ -12,6 +12,28 @@
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
+	# --- Access log ------------------------------------------------------------
+	#
+	# VÌ SAO CÓ, 21/08/2026: người dùng báo trang thi thoảng treo ở khung xương,
+	# mà phía máy chủ KHÔNG có một dòng nào về request của họ — Caddy mặc định
+	# không ghi access log, `docker logs` chỉ có log lỗi của reverse_proxy. Mọi
+	# phép tìm "request chậm hơn 2s" đều rỗng một cách VÔ NGHĨA: không phân biệt
+	# được "không có gì chậm" với "không có gì được ghi".
+	#
+	# Access log là mảnh phân xử: lần treo sau, request KHÔNG xuất hiện ở đây
+	# ⇒ nó chưa tới máy chủ (lỗi đường mạng phòng khám ↔ VPS); xuất hiện mà
+	# `duration` lớn ⇒ lỗi phía máy chủ.
+	#
+	# JSON mặc định đã có đủ `duration`, `status`, `request>uri`, và giữ cả
+	# `client_ip` — mạng nội bộ phòng khám, cần IP để lần sự cố mạng. Ra stdout
+	# để Docker quản dung lượng (json-file, max-size 10m × 5 file — xem anchor
+	# `clinic-service-defaults` trong docker-compose.yml); log lỗi runtime của
+	# Caddy vẫn ra stderr, hai dòng không trộn.
+	log {
+		output stdout
+		format json
+	}
+
 	# --- Security headers (OWASP best-practices) ---
 	header {
 		# HSTS: force HTTPS for 1 year (browsers remember).
@@ -29,7 +51,12 @@
 	}
 
 	# Liveness for the compose healthcheck (works in :80 tunnel mode).
+	#
+	# `log_skip`: healthcheck gõ /health mỗi 20 giây — hơn 4.000 dòng/ngày toàn
+	# một câu trả lời do chính Caddy tự nói, không cho biết gì về mạng hay ứng
+	# dụng, chỉ vùi các request thật của người dùng xuống dưới.
 	handle /health {
+		log_skip
 		respond "ok" 200
 	}
 
