@@ -15,6 +15,7 @@
 import { useMemo } from "react";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../lib/datetime";
 import { clinicHoursForDate } from "../../../lib/roster";
+import { trongKhungNhanLich } from "../../../lib/khung-nhan-lich";
 import {
   buildSlotUsage,
   usageAt,
@@ -98,11 +99,19 @@ export default function CinemaSlotPicker({
     if (!ch) return [] as string[];
     const minHour = Number(ch.open.slice(0, 2));
     const maxHour = Number(ch.close.slice(0, 2)); // giờ đóng cửa = mốc loại trừ
+    // GIỜ MỞ CỬA KHÔNG PHẢI GIỜ NHẬN LỊCH. Cửa mở 07:00–22:00 nhưng ba ca chỉ
+    // phủ 08:00–21:30; ba khoảng còn lại — trước ca sáng, nghỉ trưa, sau ca tối
+    // — backend TỪ CHỐI (21/08/2026). Mời rồi mới mắng là cách chắc nhất khiến
+    // người trực mất niềm tin vào lưới, nên bỏ hẳn cột khỏi bảng.
+    const weekday = new Date(`${date}T00:00:00`).getDay();
     const out: string[] = [];
     for (let h = minHour; h < maxHour; h++) {
       // Backend chỉ nhận độ dài khung chia hết 60' nên vòng này luôn kết thúc
       // đúng đầu giờ sau — không có cột nào tràn sang giờ kế tiếp.
       for (let m = 0; m < 60; m += policy.slotMinutes) {
+        if (!trongKhungNhanLich(policy.khungNhanLich, weekday, h * 60 + m)) {
+          continue;
+        }
         out.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
       }
     }

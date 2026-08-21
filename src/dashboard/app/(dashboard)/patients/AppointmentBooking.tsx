@@ -335,6 +335,14 @@ export default function AppointmentBooking({
     apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
   const minHour = ch ? Number(ch.open.slice(0, 2)) : 0;
   const maxHour = ch ? Number(ch.close.slice(0, 2)) - 1 : 23;
+  // Giờ mở cửa cắt được hai đầu ngày nhưng KHÔNG nói được nghỉ trưa,
+  // nên ô giờ vẫn mời 13:00 trong khi backend từ chối (21/08/2026).
+  const khungDatLich =
+    apptDate && policy
+      ? (policy.khungNhanLich[
+          String(new Date(`${apptDate}T00:00:00`).getDay())
+        ] ?? [])
+      : [];
 
   async function book() {
     setError(null);
@@ -537,6 +545,7 @@ export default function AppointmentBooking({
         <div className="space-y-1">
           <label className={LABEL}>Giờ *</label>
           <Time24Input
+            khungPhut={khungDatLich}
             value={apptTime}
             onChange={setApptTime}
             minHour={minHour}

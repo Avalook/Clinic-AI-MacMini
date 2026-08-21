@@ -12,7 +12,8 @@
     "test:boundary": "node --test tests/*boundary.test.mts",
     "test:luu-nhap": "node --test lib/luu-nhap.test.mts",
     "test:roster": "node --test lib/roster.test.mts",
-    "e2e:intake": "node e2e/intake-day-simulation.mjs"
+    "e2e:intake": "node e2e/intake-day-simulation.mjs",
+    "test:khung": "node --test lib/khung-nhan-lich.test.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

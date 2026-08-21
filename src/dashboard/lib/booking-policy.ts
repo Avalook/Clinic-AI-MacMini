@@ -14,6 +14,9 @@ import { cache } from "react";
 // là đọc không được — dù sao không có backend thì cũng không đặt được lịch.
 
 import { fetchFromBackend } from "./backend-proxy";
+import { docKhungNhanLich, type KhungNhanLich } from "./khung-nhan-lich";
+export type { KhungNhanLich } from "./khung-nhan-lich";
+export { trongKhungNhanLich, thuCuaNgay } from "./khung-nhan-lich";
 
 export interface ClinicHours {
   /** "HH:MM" */
@@ -38,6 +41,20 @@ export interface BookingPolicy {
    * thứ hai không thể có giờ khác.
    */
   hours: Record<string, ClinicHours>;
+  /**
+   * Khung GIỜ NHẬN LỊCH theo thứ: [[phútĐầu, phútCuối), …], nửa mở.
+   *
+   * KHÁC giờ mở cửa. Cửa mở 07:00–22:00 nhưng ba ca chỉ phủ 08:00–21:30, nên
+   * giữa chúng có ba khoảng không ai khám: trước ca sáng, nghỉ trưa, sau ca
+   * tối. Backend TỪ CHỐI đặt vào đó, nên lưới phải thôi mời — mời rồi mới mắng
+   * là cách chắc nhất khiến người trực mất niềm tin vào lưới.
+   *
+   * Backend tính sẵn (quy đổi "17:30" ra phút rồi cắt theo giờ mở cửa là LUẬT;
+   * bản thứ hai bằng TypeScript sẽ lỡ mất lần sửa sau). Thứ vắng mặt hoặc mảng
+   * rỗng = "chưa biết" ⇒ KHÔNG lọc, để backend chặn — thà thừa một lần bấm còn
+   * hơn khoá sạch lưới vì một lần hỏi hụt.
+   */
+  khungNhanLich: KhungNhanLich;
 }
 
 interface PolicyResponse {
@@ -45,6 +62,7 @@ interface PolicyResponse {
   regular_cap?: unknown;
   walkin_cap?: unknown;
   hours?: unknown;
+  khung_nhan_lich?: unknown;
 }
 
 /** Giờ mở cửa hợp lệ hay không — dữ liệu xấu ở đây là lưới vẽ sai giờ. */
@@ -102,7 +120,13 @@ export const getBookingPolicy = cache(async (): Promise<BookingPolicy | null> =>
   const hours = asHours(raw.hours);
   if (hours === null) return null;
 
-  return { slotMinutes, regularCap, walkinCap, hours };
+  return {
+    slotMinutes,
+    regularCap,
+    walkinCap,
+    hours,
+    khungNhanLich: docKhungNhanLich(raw.khung_nhan_lich),
+  };
 });
 
 /**

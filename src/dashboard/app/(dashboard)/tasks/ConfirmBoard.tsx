@@ -143,6 +143,14 @@ export default function ConfirmBoard({
     reschedDate && policy ? clinicHoursForDate(reschedDate, policy.hours) : null;
   const rMinHour = rCh ? Number(rCh.open.slice(0, 2)) : 0;
   const rMaxHour = rCh ? Number(rCh.close.slice(0, 2)) - 1 : 23;
+  // Giờ mở cửa cắt được hai đầu ngày nhưng KHÔNG nói được nghỉ trưa,
+  // nên ô giờ vẫn mời 13:00 trong khi backend từ chối (21/08/2026).
+  const rKhung =
+    reschedDate && policy
+      ? (policy.khungNhanLich[
+          String(new Date(`${reschedDate}T00:00:00`).getDay())
+        ] ?? [])
+      : [];
 
   function select(a: ApptRow) {
     setSelId(a.id);
@@ -578,6 +586,7 @@ export default function ConfirmBoard({
                     <div>
                       <label className={LABEL}>Giờ mới</label>
                       <Time24Input
+            khungPhut={rKhung}
                         value={reschedTime}
                         onChange={setReschedTime}
                         minHour={rMinHour}

@@ -677,6 +677,14 @@ export default function NewPatientForm({
     apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
   const apptMinHour = apptCh ? Number(apptCh.open.slice(0, 2)) : 0;
   const apptMaxHour = apptCh ? Number(apptCh.close.slice(0, 2)) - 1 : 23;
+  // Giờ mở cửa cắt được hai đầu ngày nhưng KHÔNG nói được nghỉ trưa,
+  // nên ô giờ vẫn mời 13:00 trong khi backend từ chối (21/08/2026).
+  const apptKhung =
+    apptDate && policy
+      ? (policy.khungNhanLich[
+          String(new Date(`${apptDate}T00:00:00`).getDay())
+        ] ?? [])
+      : [];
   // Lỗi nhỏ ngay cạnh ô SĐT/CCCD (live) — rõ ô NÀO sai (chính/người nhà/CCCD),
   // không chờ submit + không còn 1 câu lỗi chung gây khó hiểu.
   const phoneErr = phoneError(phone);
@@ -1571,6 +1579,7 @@ export default function NewPatientForm({
               Giờ <Req />
             </label>
             <Time24Input
+            khungPhut={apptKhung}
               value={apptTime}
               onChange={setApptTime}
               minHour={apptMinHour}
