@@ -55,16 +55,18 @@ from clinicai.api.identity import DOCTOR_DESK_ROLES, ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.shifts import (
-    MORNING_END_MIN,
+    ca_cua_phut,
+    ca_tu_settings,
     covers,
     describe,
     merge_windows,
-    shift_window,
+    shift_windows,
 )
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
+
 
 # ── LÝ DO HUỶ LỊCH ─────────────────────────────────────────────────────────
 #
@@ -905,10 +907,10 @@ class BookingService:
 
         BA QUYẾT ĐỊNH, NÓI RÕ VÌ CHÚNG KHÔNG SUY RA ĐƯỢC TỪ DỮ LIỆU:
 
-        1.  CA nào — lấy theo giờ của CHÍNH lịch hẹn, mốc 12:00 dùng chung với
-            `core.shifts.MORNING_END_MIN` (mốc ấy là quyết định của phòng khám,
-            và nó chỉ được nằm ở một chỗ). Xếp cả ngày cho một lịch 18:00 là tự
-            ý tuyên bố bác sĩ đi làm từ sáng.
+        1.  CA nào — lấy theo giờ của CHÍNH lịch hẹn, hỏi `core.shifts` để
+            biết giờ ấy rơi vào ca nào (giờ từng ca do phòng khám khai, và nó
+            chỉ được nằm ở một chỗ). Xếp cả ngày cho một lịch 18:00 là tự ý
+            tuyên bố bác sĩ đi làm từ sáng.
         2.  TRẠM là `LICH_KHAM` — "Lịch khám (Bác sĩ)" trong `lib/roster.ts`, và
             là trạm màn Đặt lịch đọc để liệt kê bác sĩ khám.
         3.  KHÔNG áp dụng tuần. Thêm một dòng trực khác hẳn với việc chốt cả
@@ -921,7 +923,14 @@ class BookingService:
         """
         cuc_bo = slot_start.astimezone(CLINIC_TZ)
         ngay = cuc_bo.date()
-        ca = "SANG" if cuc_bo.hour * 60 + cuc_bo.minute < MORNING_END_MIN else "CHIEU"
+        cai_dat = await conn.fetchval(
+            "SELECT settings FROM public.clinic WHERE id = $1::uuid",
+            identity.clinic_id,
+        )
+        ca = ca_cua_phut(
+            cuc_bo.hour * 60 + cuc_bo.minute,
+            ca_tu_settings((cai_dat)),
+        )
 
         da_co = await conn.fetchval(
             """
@@ -1592,7 +1601,10 @@ class BookingService:
               (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                 AS open_minute,
               (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
-                AS close_minute
+                AS close_minute,
+              -- Giờ ca của phòng khám, hỏi cùng lượt với giờ mở cửa: hai thứ
+              -- luôn cần cùng nhau, thêm một vòng mạng là cái giá không đáng.
+              (SELECT settings FROM clinic WHERE id = $1::uuid) AS settings
             """,
             identity.clinic_id,
             work_date,
@@ -1614,17 +1626,14 @@ class BookingService:
                 "ở màn Lịch làm việc trước."
             )
 
-        # CÓ TÊN TRONG NGÀY VẪN CÓ THỂ SAI GIỜ. Ca sáng không phải cả ngày; mốc
-        # 12:00 là quyết định của phòng khám, khai ở core/shifts.py.
+        # CÓ TÊN TRONG NGÀY VẪN CÓ THỂ SAI GIỜ. Ca sáng không phải cả ngày;
+        # giờ của từng ca do phòng khám khai, xem core/shifts.py.
         open_min, close_min = row["open_minute"], row["close_minute"]
         if open_min is None or close_min is None:
             return None
+        ca = ca_tu_settings((row["settings"]))
         windows = merge_windows(
-            [
-                w
-                for s in shifts
-                if (w := shift_window(s, open_min, close_min)) is not None
-            ]
+            [w for s in shifts for w in shift_windows(s, open_min, close_min, ca)]
         )
         if not windows or covers(windows, minute):
             return None

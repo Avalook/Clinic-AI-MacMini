@@ -631,7 +631,32 @@ class TestRosterAuthorisation:
             )
 
     def test_an_unknown_shift_falls_back_to_full_day(self) -> None:
+        """Ca lạ ⇒ ghi "cả ngày", chứ không từ chối và cũng không ghi rác.
+
+        VIẾT LẠI 21/08/2026 (Luật 12.5). Bản cũ dùng chính chữ "TOI" làm ví dụ
+        cho "ca lạ" — đúng ở thời điểm ấy vì hệ chỉ có SÁNG/CHIỀU. Nay TỐI là
+        một ca thật, nên ví dụ phải đổi; nếu không, bài kiểm sẽ lặng lẽ khẳng
+        định điều ngược với luật hiện hành.
+        """
         pool = self._pool("r3", vai="RECEPTION")
+        asyncio.run(
+            RosterService(pool).add_shift(
+                work_date=date(2026, 7, 30),
+                station="LICH_KHAM",
+                shift="NUA_DEM",
+                identity=_staff(ClinicRole.RECEPTION),
+            )
+        )
+        assert "FULL" in self._ins(pool)
+
+    def test_ca_toi_nay_la_ca_that_khong_con_bi_doi_thanh_ca_ngay(self) -> None:
+        """Chiều ngược của bài trên — và là thứ suýt hỏng lặng lẽ.
+
+        Nếu một nơi nào đó còn liệt kê tay ("SANG", "CHIEU") thì ca TỐI rơi vào
+        nhánh "ca lạ" và bị ghi thành CẢ NGÀY: quản lý xếp ca tối, hệ ghi cả
+        ngày, và không lỗi nào bật ra.
+        """
+        pool = self._pool("r4", vai="RECEPTION")
         asyncio.run(
             RosterService(pool).add_shift(
                 work_date=date(2026, 7, 30),
@@ -640,7 +665,7 @@ class TestRosterAuthorisation:
                 identity=_staff(ClinicRole.RECEPTION),
             )
         )
-        assert "FULL" in self._ins(pool)
+        assert "TOI" in self._ins(pool)
 
     def test_only_management_approves(self) -> None:
         with pytest.raises(SafetyGateError):

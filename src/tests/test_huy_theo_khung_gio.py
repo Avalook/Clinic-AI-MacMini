@@ -53,14 +53,30 @@ _UNG_VIEN = [
 
 
 def _ca_con_lai(shift: str) -> dict[str, Any]:
-    return {"shift": shift, "open_minute": 7 * 60, "close_minute": 20 * 60}
+    # `settings` đi cùng giờ mở cửa từ 21/08/2026: giờ của từng ca là cấu hình
+    # của phòng khám, không còn là hằng số trong code. None ⇒ dùng mặc định
+    # (sáng 08:00–13:00 · chiều 14:00–17:30 · tối 17:30–21:30).
+    return {
+        "shift": shift,
+        "open_minute": 7 * 60,
+        "close_minute": 20 * 60,
+        "settings": None,
+    }
 
 
 class _Conn:
     """Định tuyến theo nội dung SQL — vòng gọi thay đổi theo dry_run/dữ liệu."""
 
-    def __init__(self, *, con_lai: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        *,
+        con_lai: list[dict[str, Any]],
+        ung_vien: list[dict[str, Any]] | None = None,
+    ) -> None:
         self._con_lai = con_lai
+        # Bài nào cần lịch ở giờ khác thì tự mang dữ liệu riêng. SỬA biến dùng
+        # chung là cách làm hỏng ba bài kiểm khác mà không ai ngờ tới.
+        self._ung_vien = ung_vien if ung_vien is not None else list(_UNG_VIEN)
         self.da_xoa_ca = False
         self.ids_huy: list[str] | None = None
         self.so_event = 0
@@ -79,7 +95,7 @@ class _Conn:
             )
             return self._con_lai
         assert "FROM public.appointment" in sql
-        return list(_UNG_VIEN)
+        return list(self._ung_vien)
 
     async def execute(self, sql: str, *args: object) -> None:
         if "DELETE FROM work_roster" in sql:
@@ -148,3 +164,76 @@ class TestHuyTheoKhungGio:
         assert ket == {"so_lich_huy": 1, "gio": ["08:00"]}
         assert conn.da_xoa_ca is False
         assert conn.ids_huy is None and conn.so_event == 0
+
+
+class TestBaCa:
+    """Ba ca (21/08/2026) — và luật "thêm trước, gỡ sau" phải sống qua đợt sửa.
+
+    Tuyền nhắc lại nguyên văn luật này khi giao việc, nên nó được canh bằng
+    đúng câu chuyện đã kể: *"bệnh nhân Hoa khám 8h sáng, bác sĩ Thành đang ca
+    sáng, giờ muốn đổi thành cả ngày — phải thêm ca cả ngày TRƯỚC rồi mới xoá
+    ca sáng thì lịch của Hoa mới không bị ảnh hưởng."*
+    """
+
+    def test_con_ca_toi_thi_chi_lich_toi_song(self) -> None:
+        """Gỡ ca sáng, còn ca tối: lịch sáng và chiều chết, lịch tối sống."""
+        conn = _Conn(
+            con_lai=[_ca_con_lai("TOI")],
+            ung_vien=[
+                {"id": "sang8h", "phut": 8 * 60, "gio": "08:00"},
+                {"id": "chieu15h", "phut": 15 * 60, "gio": "15:00"},
+                {"id": "toi19h", "phut": 19 * 60, "gio": "19:00"},
+            ],
+        )
+        ket = _go(conn)
+        assert ket["so_lich_huy"] == 2
+        assert conn.ids_huy == ["sang8h", "chieu15h"]
+
+    def test_ca_ngay_phu_ca_ba_lich_ke_ca_buoi_toi(self) -> None:
+        """FULL = hợp cả ba ca, nên lịch 19:00 cũng được phủ."""
+        conn = _Conn(
+            con_lai=[_ca_con_lai("FULL")],
+            ung_vien=[
+                {"id": "sang8h", "phut": 8 * 60, "gio": "08:00"},
+                {"id": "toi19h", "phut": 19 * 60, "gio": "19:00"},
+            ],
+        )
+        ket = _go(conn)
+        assert ket["so_lich_huy"] == 0
+        assert conn.ids_huy is None
+
+    def test_chuyen_hoa_8h_tu_ca_sang_sang_ca_ngay_khong_mat_lich(self) -> None:
+        """CÂU CHUYỆN CỦA TUYỀN, chạy qua chính hàm gỡ ca.
+
+        Thứ tự đúng: thêm ca CẢ NGÀY trước → lúc gỡ ca sáng, hợp các ca còn lại
+        đã phủ 08:00 → lịch của Hoa nguyên vẹn.
+        """
+        conn = _Conn(con_lai=[_ca_con_lai("FULL")])
+        assert _go(conn)["so_lich_huy"] == 0
+
+    def test_lam_nguoc_thu_tu_thi_hoa_mat_lich(self) -> None:
+        """Và đây là vì sao thứ tự quan trọng — chiều ngược của bài trên.
+
+        Gỡ ca sáng TRƯỚC khi thêm ca mới: khoảnh khắc ấy bác sĩ không còn ca
+        nào phủ 08:00, và lịch 8 giờ của Hoa bị huỷ. Bài kiểm này tồn tại để
+        không ai "sửa cho tiện" thành gỡ-trước-thêm-sau.
+        """
+        conn = _Conn(con_lai=[])
+        ket = _go(conn)
+        assert "08:00" in ket["gio"], "lịch của Hoa nằm trong danh sách bị huỷ"
+
+    def test_nghi_trua_khong_thuoc_ca_nao_nen_lich_1330_bi_huy(self) -> None:
+        """Lịch rơi vào giờ nghỉ trưa thì không ca nào cứu được nó.
+
+        Không phải lỗi của bản vá này: một lịch 13:30 lẽ ra không đặt được từ
+        đầu (Tuyền chốt 21/08: ngoài ba ca thì không đặt lịch). Bài kiểm ghi
+        lại hành vi để nếu sau này phòng khám bỏ nghỉ trưa thì có chỗ đối
+        chiếu — và để người đọc biết ca CẢ NGÀY cũng không phủ giờ nghỉ.
+        """
+        conn = _Conn(
+            con_lai=[_ca_con_lai("FULL")],
+            ung_vien=[{"id": "trua1330", "phut": 13 * 60 + 30, "gio": "13:30"}],
+        )
+        ket = _go(conn)
+        assert ket["so_lich_huy"] == 1
+        assert ket["gio"] == ["13:30"]

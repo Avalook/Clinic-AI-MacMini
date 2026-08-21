@@ -114,12 +114,21 @@ export function demBacSiTruc(
   return nguoi.size;
 }
 
-export type Shift = "FULL" | "SANG" | "CHIEU";
-export const SHIFTS: Shift[] = ["FULL", "SANG", "CHIEU"];
+// BA CA, không phải hai (Tuyền 21/08/2026). Thứ tự CÓ Ý NGHĨA: sớm trước,
+// muộn sau — thanh chọn ca in theo đúng thứ tự này, và "Cả ngày" đứng đầu vì
+// nó là lựa chọn hay dùng nhất của quản lý.
+//
+// Giờ của từng ca KHÔNG nằm ở đây: nó là cấu hình của phòng khám
+// (`clinic.settings->ca_lam_viec`, xem `core/shifts.py`). Frontend chỉ biết
+// TÊN ca — viết giờ vào đây là dựng bản thứ hai của một sự thật, và bản
+// TypeScript chép lại luật xếp hàng đã từng lệch đúng như vậy rồi bị xoá.
+export type Shift = "FULL" | "SANG" | "CHIEU" | "TOI";
+export const SHIFTS: Shift[] = ["FULL", "SANG", "CHIEU", "TOI"];
 export const SHIFT_LABEL: Record<Shift, string> = {
   FULL: "Cả ngày",
   SANG: "Sáng",
   CHIEU: "Chiều",
+  TOI: "Tối",
 };
 
 const WEEKDAY = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];

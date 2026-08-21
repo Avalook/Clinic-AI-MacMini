@@ -34,12 +34,24 @@ class _Conn:
     """Trả lời câu hỏi lịch trực theo kịch bản, và ghi lại có truy vấn khung giờ
     hay không — vì "không hỏi tới khung giờ" chính là điều cần chứng minh."""
 
-    def __init__(self, *, roster_known: bool, shifts: list[str]) -> None:
+    def __init__(
+        self,
+        *,
+        roster_known: bool,
+        shifts: list[str],
+        ca_lam_viec: dict[str, Any] | None = None,
+    ) -> None:
         self._duty = {
             "roster_known": roster_known,
             "shifts": shifts,
             "open_minute": OPEN,
             "close_minute": CLOSE,
+            # `settings` đi cùng giờ mở cửa từ 21/08/2026 — giờ của từng ca là
+            # cấu hình của phòng khám. None ⇒ dùng mặc định (sáng 08:00–13:00 ·
+            # chiều 14:00–17:30 · tối 17:30–21:30).
+            # Bài nào cần giờ ca cụ thể thì tự khai, thay vì phụ thuộc mặc
+            # định — mặc định là con số của MỘT phòng khám và sẽ đổi.
+            "settings": ({"ca_lam_viec": ca_lam_viec} if ca_lam_viec else None),
         }
         self.fetched_slots = False
 
@@ -121,28 +133,53 @@ async def test_a_day_with_no_roster_yet_stays_open() -> None:
     assert conn.fetched_slots, "ngày chưa xếp ca vẫn phải mời đặt như bình thường"
 
 
-class TestAMorningShiftIsNotAWholeDay:
-    """Ca sáng kết thúc 12:00 (quyết định của Quang, 2026-08-04).
+class TestCaSangKhongPhaiCaNgay:
+    """Ca sáng không phải cả ngày — canh HÀNH VI, không canh con số.
 
-    Bản đầu của luật lịch trực chỉ dừng ở mức NGÀY, nên BS Thành chỉ trực ca
-    sáng ngày 08/08 vẫn được mời đặt lúc 18:00. Một luật đúng nửa vời khó chịu
-    hơn không có: nó tạo cảm giác đã được kiểm.
+    VIẾT LẠI 21/08/2026 (Luật 12.5). Bản cũ khoá cứng mốc 12:00 vì hồi ấy ca
+    được suy từ một mốc chia duy nhất. Nay giờ từng ca là CẤU HÌNH của phòng
+    khám, nên khoá con số ở đây là khoá lựa chọn của một phòng khám cụ thể vào
+    bài kiểm của cả hệ. Các bài dưới tự khai giờ ca rồi kiểm quan hệ giữa đầu
+    vào và đầu ra.
+
+    Điều được canh vẫn y nguyên: bản đầu của luật lịch trực chỉ dừng ở mức
+    NGÀY, nên BS Thành chỉ trực ca sáng ngày 08/08 vẫn được mời đặt lúc 18:00.
+    Một luật đúng nửa vời khó chịu hơn không có: nó tạo cảm giác đã được kiểm.
     """
 
+    #: Ba ca LIỀN NHAU, không nghỉ trưa — để "cả ngày = mọi khung" vẫn đúng và
+    #: bài kiểm nói được về một chuyện tại một thời điểm.
+    CA_LIEN = {
+        "SANG": {"bat_dau": "08:00", "ket_thuc": "12:00"},
+        "CHIEU": {"bat_dau": "12:00", "ket_thuc": "18:00"},
+        "TOI": {"bat_dau": "18:00", "ket_thuc": "23:00"},
+    }
+
     @pytest.mark.asyncio
-    async def test_afternoon_slots_disappear_for_a_morning_only_doctor(self) -> None:
-        conn = _Conn(roster_known=True, shifts=["SANG"])
+    async def test_khung_buoi_chieu_bien_mat_voi_bac_si_chi_truc_sang(self) -> None:
+        conn = _Conn(roster_known=True, shifts=["SANG"], ca_lam_viec=self.CA_LIEN)
         out = await _quote(conn)
 
         times = [s["minute_of_day"] for s in out["slots"]]
         assert times, "ca sáng vẫn phải còn khung buổi sáng"
-        assert max(times) < 12 * 60, "không được mời đặt sau 12:00"
+        assert max(times) < 12 * 60, "hết ca sáng thì không được mời đặt nữa"
         assert out["off_duty"] is False, "có đi làm, chỉ là không cả ngày"
         assert out["partial_shift"] is True, "màn hình phải nói được 'chỉ trực…'"
 
     @pytest.mark.asyncio
-    async def test_a_full_day_doctor_keeps_every_slot(self) -> None:
-        conn = _Conn(roster_known=True, shifts=["FULL"])
+    async def test_ca_toi_chi_con_khung_buoi_toi(self) -> None:
+        """Ca thứ ba (21/08/2026) — chiều ngược của bài trên."""
+        conn = _Conn(roster_known=True, shifts=["TOI"], ca_lam_viec=self.CA_LIEN)
+        out = await _quote(conn)
+
+        times = [s["minute_of_day"] for s in out["slots"]]
+        assert times, "ca tối phải còn khung buổi tối"
+        assert min(times) >= 18 * 60, "chưa tới ca tối thì chưa được mời đặt"
+        assert out["partial_shift"] is True
+
+    @pytest.mark.asyncio
+    async def test_bac_si_ca_ngay_giu_moi_khung(self) -> None:
+        conn = _Conn(roster_known=True, shifts=["FULL"], ca_lam_viec=self.CA_LIEN)
         out = await _quote(conn)
 
         assert len(out["slots"]) == (CLOSE - OPEN) // 60
@@ -151,12 +188,37 @@ class TestAMorningShiftIsNotAWholeDay:
         assert out["partial_shift"] is False
 
     @pytest.mark.asyncio
-    async def test_morning_at_one_station_plus_afternoon_at_another_is_full(
-        self,
-    ) -> None:
+    async def test_ca_ngay_co_nghi_trua_thi_khung_gio_nghi_bien_mat(self) -> None:
+        """Giờ ca thật của Dr4Women: cả ngày KHÔNG phủ 13:00–14:00.
+
+        Đây là thứ mô hình cũ không diễn tả nổi, và là lý do hàm khung ca đổi
+        chữ ký. Nếu ai đó "sửa cho gọn" thành một khoảng liền, bài này đỏ.
+        """
+        conn = _Conn(
+            roster_known=True,
+            shifts=["FULL"],
+            ca_lam_viec={
+                "SANG": {"bat_dau": "08:00", "ket_thuc": "13:00"},
+                "CHIEU": {"bat_dau": "14:00", "ket_thuc": "17:30"},
+                "TOI": {"bat_dau": "17:30", "ket_thuc": "21:30"},
+            },
+        )
+        out = await _quote(conn)
+        times = {s["minute_of_day"] for s in out["slots"]}
+
+        assert 12 * 60 in times, "12:00 vẫn trong ca sáng"
+        assert 13 * 60 not in times, "13:00 là giờ nghỉ trưa"
+        assert 14 * 60 in times, "14:00 vào ca chiều"
+        assert 21 * 60 in times, "21:00 vẫn trong ca tối (tới 21:30)"
+        assert 22 * 60 not in times, "sau 21:30 thì hết ca, dù cửa còn mở"
+
+    @pytest.mark.asyncio
+    async def test_sang_o_tram_nay_chieu_o_tram_kia_la_ca_ngay(self) -> None:
         """Có thật trong dữ liệu: BS Thành 09/08 có cả SANG lẫn CHIEU."""
-        conn = _Conn(roster_known=True, shifts=["SANG", "CHIEU"])
+        conn = _Conn(
+            roster_known=True, shifts=["SANG", "CHIEU"], ca_lam_viec=self.CA_LIEN
+        )
         out = await _quote(conn)
 
-        assert len(out["slots"]) == (CLOSE - OPEN) // 60
-        assert out["partial_shift"] is False
+        assert len(out["slots"]) == (18 * 60 - OPEN) // 60
+        assert out["partial_shift"] is True, "sáng+chiều vẫn thiếu ca tối"

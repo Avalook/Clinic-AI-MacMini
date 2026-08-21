@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  SHIFTS,
+  SHIFT_LABEL,
   chiaHaiHang,
   currentWeekStartVn,
   demBacSiTruc,
@@ -99,4 +101,33 @@ test("demBacSiTruc: dòng nạp từ Excel chưa nối được staff_id vẫn �
     { work_date: "2026-08-03", station: "LICH_KHAM", staff_id: "a", staff_name: "BS Thành" },
   ];
   assert.equal(demBacSiTruc(rows, "2026-08-03"), 2);
+});
+
+// Ba test dưới đây canh cùng MỘT lỗi: bản cũ liệt kê tay "SANG"/"CHIEU" ở
+// app/api/roster/route.ts, nên khi thêm ca TỐI (21/08/2026) route lặng lẽ đổi ca
+// tối thành "cả ngày" — quản lý xếp ca tối, hệ ghi cả ngày, không lỗi nào bật ra.
+// Vá bằng cách để route đọc SHIFTS từ đây; test giữ cho nguồn ấy không lệch.
+
+test("SHIFTS: đủ 4 lựa chọn, có ca tối", () => {
+  assert.equal(SHIFTS.length, 4, "đổi số ca thì phải sửa cả nhãn lẫn API");
+  assert.deepEqual([...SHIFTS].sort(), ["CHIEU", "FULL", "SANG", "TOI"]);
+});
+
+test("SHIFT_LABEL: mọi ca đều có nhãn tiếng Việt, không sót cái nào", () => {
+  const thieu = SHIFTS.filter((ca) => !SHIFT_LABEL[ca]);
+  assert.deepEqual(thieu, [], `ca chưa có nhãn: ${thieu.join(", ")}`);
+  assert.equal(Object.keys(SHIFT_LABEL).length, SHIFTS.length, "nhãn thừa/thiếu so với SHIFTS");
+  assert.equal(SHIFT_LABEL.TOI, "Tối");
+});
+
+test("luật ép ca của /api/roster: ca tối được giữ, ca lạ mới lùi về cả ngày", () => {
+  // Chính là biểu thức trong app/api/roster/route.ts, tách ra để kiểm được.
+  const epCa = (gui: string | undefined) =>
+    (SHIFTS as readonly string[]).includes(gui ?? "") ? (gui as string) : "FULL";
+
+  for (const ca of SHIFTS) assert.equal(epCa(ca), ca, `${ca} không được bị đổi`);
+  assert.equal(epCa("TOI"), "TOI", "ca tối KHÔNG được lặng lẽ thành cả ngày");
+  assert.equal(epCa("NUA_DEM"), "FULL");
+  assert.equal(epCa(undefined), "FULL");
+  assert.equal(epCa(""), "FULL");
 });
