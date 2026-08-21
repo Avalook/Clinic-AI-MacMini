@@ -31,12 +31,17 @@ import {
   patientLine,
   waitedMinutes,
   examMinutes,
+  NHAN_LY_DO_GOI,
   type WorklistItem,
 } from "@/lib/worklist";
 
 type QueueTab = "all" | "priority" | "verify";
 type ArrivalFilter = "all" | "appointment" | "walk-in";
-type SortMode = "wait" | "queue";
+// "goi" = thứ tự gọi thật của phòng khám (backend tính). Đứng đầu danh sách
+// và là MẶC ĐỊNH: đây là thứ tự mà bảng tivi đang hiện cho người ngồi chờ, nên
+// quầy phải nhìn cùng một thứ. Hai lựa chọn kia giữ lại vì có lúc cần soi khác
+// đi ("ai chờ lâu nhất" khi xử lý phàn nàn, "số thứ tự" khi khách hỏi theo vé).
+type SortMode = "goi" | "wait" | "queue";
 type KernelCommand = "start" | "complete";
 
 
@@ -172,8 +177,20 @@ function Row({
               tone={STATUS_PRESENTATION[tone].token as StatusTone}
               label={STATUS_PRESENTATION[tone].label}
             />
+            {/* LÝ DO XẾP HÀNG, không phải kênh đặt lịch.
+                "Đặt hẹn / Đến trực tiếp" chỉ nói khách đặt kiểu gì; còn thứ
+                người ngồi quầy cần là VÌ SAO người này đứng ở đây — nhất là khi
+                ai đó vượt lên trước người tới sớm hơn. Backend đã tính sẵn lý
+                do cùng lúc với thứ tự (`_classify` sinh cả hai trong một hàm,
+                cố ý, để câu giải thích không bao giờ lệch với thứ tự thật).
+                Chưa có lý do thì lùi về kênh đặt lịch như cũ. */}
             <span className="truncate text-ink-muted">
-              {item.booking_channel === "WALK_IN" ? "Đến trực tiếp" : "Đặt hẹn"}
+              {item.call_reason
+                ? (NHAN_LY_DO_GOI[item.call_reason] ?? item.call_reason)
+                : item.booking_channel === "WALK_IN"
+                  ? "Đến trực tiếp"
+                  : "Đặt hẹn"}
+              {item.promoted_over ? ` · vượt ${item.promoted_over}` : ""}
             </span>
           </span>
         </span>
@@ -194,7 +211,7 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
   const [tab, setTab] = useState<QueueTab>("all");
   const [query, setQuery] = useState("");
   const [arrival, setArrival] = useState<ArrivalFilter>("all");
-  const [sort, setSort] = useState<SortMode>("wait");
+  const [sort, setSort] = useState<SortMode>("goi");
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("vi-VN");
@@ -217,13 +234,21 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
         .toLocaleLowerCase("vi-VN");
       return matchesTab && matchesArrival && (!needle || haystack.includes(needle));
     });
-    return [...matching].sort((a, b) =>
-      sort === "wait"
-        ? waitedMinutes(b) - waitedMinutes(a)
-        : (a.queue_number ?? "").localeCompare(b.queue_number ?? "", "vi-VN", {
-            numeric: true,
-          }),
-    );
+    return [...matching].sort((a, b) => {
+      if (sort === "goi") {
+        // THỨ TỰ GỌI THẬT, do backend tính. Dòng không xếp được (không gắn
+        // lịch hẹn) rơi xuống cuối thay vì trộn lẫn — chúng không có chỗ trong
+        // hàng gọi, và đẩy chúng lên đầu bằng một số 0 mặc định là cách tệ
+        // nhất để "xử lý" dữ liệu thiếu.
+        const ra = a.call_order ?? Number.MAX_SAFE_INTEGER;
+        const rb = b.call_order ?? Number.MAX_SAFE_INTEGER;
+        if (ra !== rb) return ra - rb;
+      }
+      if (sort === "wait") return waitedMinutes(b) - waitedMinutes(a);
+      return (a.queue_number ?? "").localeCompare(b.queue_number ?? "", "vi-VN", {
+        numeric: true,
+      });
+    });
   }, [arrival, items, query, sort, tab]);
 
   const selected =
@@ -317,6 +342,7 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
                 aria-label="Sắp xếp"
                 className="min-w-0 flex-1 appearance-none bg-transparent outline-none"
               >
+                <option value="goi">Sắp xếp: thứ tự gọi</option>
                 <option value="wait">Sắp xếp: chờ lâu</option>
                 <option value="queue">Sắp xếp: số thứ tự</option>
               </select>

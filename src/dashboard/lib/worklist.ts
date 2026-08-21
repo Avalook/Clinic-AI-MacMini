@@ -47,7 +47,34 @@ export interface WorklistItem {
   /** Lúc khách được GỌI VÀO KHÁM — quỹ thời gian riêng, không phải giờ check-in.
    *  null = chưa gọi. Xem `visit.exam_started_at` (migration 20260820000001). */
   exam_started_at?: string | null;
+  /** THỨ TỰ GỌI DO BACKEND TÍNH (`queue_order.py`), 0 = người gọi tiếp theo.
+   *
+   *  Màn KHÔNG được tự xếp lại: luật gọi số là của phòng khám, và bảng tivi
+   *  cùng `/api/v1/queue` đang đọc đúng luật ấy. Xếp khác đi là quầy gọi một
+   *  đằng, người ngồi chờ nhìn bảng một nẻo. `null` = dòng không gắn lịch hẹn
+   *  nên không có khung giờ để so. */
+  call_order?: number | null;
+  /** Làn: -2 ƯT · -1 chờ đọc kết quả · 0 đúng hẹn · 1 đến sau. */
+  call_tier?: number | null;
+  /** Vì sao đứng ở đó — để màn NÓI ĐƯỢC, không chỉ xếp được. */
+  call_reason?: string | null;
+  /** Số người đến trước mà bị xếp sau mình. >0 nghĩa là "được đẩy lên". */
+  promoted_over?: number;
 }
+
+/** Nhãn tiếng Việt cho lý do xếp hàng — đối chiếu `REASON_*` của backend.
+ *
+ *  Bảng này ở phía màn hình vì nó là CÂU CHỮ cho người đọc, còn luật thì ở
+ *  backend. Thiếu mã nào thì hiện mã thô chứ không im lặng: người trực nhìn
+ *  thấy chuỗi lạ sẽ báo, còn ô trống thì không ai báo. */
+export const NHAN_LY_DO_GOI: Record<string, string> = {
+  UU_TIEN: "Ưu tiên",
+  CHO_DOC_KQ: "Có kết quả, vào lại",
+  DAT_TRUOC_DUNG_GIO: "Đặt trước, đến đúng giờ",
+  DEN_TRUC_TIEP: "Đến trực tiếp",
+  DEN_TRE: "Đặt trước nhưng đến muộn",
+  CHUA_DEN: "Chưa đến",
+};
 
 /** Số phút khách ĐÃ CHỜ — và đồng hồ này DỪNG khi được gọi vào khám.
  *

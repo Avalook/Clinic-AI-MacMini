@@ -110,3 +110,42 @@ test("Stepper: bấm được là TUỲ CHỌN, ba màn kia không đổi hành 
     );
   }
 });
+
+test("thứ tự gọi LÀ CỦA BACKEND — màn không được tự xếp lại", () => {
+  // Lỗi gốc (kiểm toán 19/08): quầy xếp theo "ai chờ lâu nhất" ở trình duyệt,
+  // trong khi bảng tivi và /api/v1/queue xếp theo luật thật của phòng khám.
+  // Hai bảng nói hai thứ tự khác nhau và người ngồi chờ nhìn thấy ngay.
+  const wl = doc("../lib/worklist.ts");
+  assert.match(wl, /call_order\?: number \| null;/, "phải nhận thứ hạng từ backend");
+  assert.match(
+    boardKhongChuThich,
+    /const ra = a\.call_order \?\? Number\.MAX_SAFE_INTEGER;/,
+    "dòng không xếp được phải rơi xuống CUỐI, không phải lên đầu bằng số 0",
+  );
+  assert.match(
+    boardKhongChuThich,
+    /useState<SortMode>\("goi"\)/,
+    "thứ tự gọi phải là MẶC ĐỊNH — cùng thứ tự bảng tivi đang hiện",
+  );
+});
+
+test("lý do xếp hàng được nói ra, và nhãn phủ đủ 6 mã của backend", () => {
+  const wl = doc("../lib/worklist.ts");
+  // Sáu mã REASON_* trong queue_order.py. Thiếu một mã là một dòng hiện chuỗi
+  // thô kiểu "DAT_TRUOC_DUNG_GIO" ngay trước mặt người bệnh.
+  for (const ma of [
+    "UU_TIEN",
+    "CHO_DOC_KQ",
+    "DAT_TRUOC_DUNG_GIO",
+    "DEN_TRUC_TIEP",
+    "DEN_TRE",
+    "CHUA_DEN",
+  ]) {
+    assert.match(wl, new RegExp(`${ma}:`), `thiếu nhãn tiếng Việt cho ${ma}`);
+  }
+  assert.match(
+    boardKhongChuThich,
+    /NHAN_LY_DO_GOI\[item\.call_reason\]/,
+    "dòng hàng đợi phải hiện LÝ DO, không chỉ hiện kênh đặt lịch",
+  );
+});

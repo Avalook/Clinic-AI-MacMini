@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 import asyncpg
 import structlog
@@ -28,6 +28,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
 
 logger = structlog.get_logger()
 
@@ -440,6 +441,17 @@ class WorkItemService:
                    -- thứ hai ở trạng thái đã-xong, và để đo ĐỒNG HỒ KHÁM
                    -- tách khỏi đồng hồ chờ (Tuyền 20/08/2026).
                    v.exam_started_at,
+                   v.status                             AS visit_status,
+                   a.doctor_id,
+                   -- ĐỘ DÀI KHUNG GIỜ ÁP DỤNG CHO CHÍNH LỊCH NÀY — nguyên
+                   -- liệu để suy ra cửa sổ "đến đúng giờ".
+                   --
+                   -- Dùng `resolve_effective_cap` y như bảng gọi số và như
+                   -- trigger sức chứa, KHÔNG đọc thẳng clinic.settings: đây là
+                   -- chỗ ba bên phải nói cùng một con số. Bảng của Lễ tân nghĩ
+                   -- khung 15 phút trong khi bảng tivi nghĩ 30 là loại lệch
+                   -- không ai lần ra được từ triệu chứng.
+                   cap.slot_minutes,
                    (m.role = ANY (n.actor_roles))      AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
@@ -466,6 +478,9 @@ class WorkItemService:
               -- Cùng phòng khám mới ghép: `service_type` có clinic_id riêng, và
               -- một FK một cột không chặn được việc trỏ sang danh mục của phòng
               -- khám khác.
+              LEFT JOIN LATERAL public.resolve_effective_cap(
+                  w.clinic_id, a.doctor_id, a.slot_start
+              ) cap ON a.id IS NOT NULL
               LEFT JOIN service_type st
                 ON st.id = a.service_type_id
                AND st.clinic_id = w.clinic_id
@@ -493,8 +508,51 @@ class WorkItemService:
             mine_only,
         )
 
+        # THỨ TỰ GỌI LÀ CỦA BACKEND, KHÔNG PHẢI CỦA MÀN HÌNH.
+        #
+        # Trước 20/08/2026 màn hàng đợi tự xếp ở trình duyệt theo "ai chờ lâu
+        # nhất". Bảng tivi và `/api/v1/queue` thì xếp theo luật thật
+        # (`queue_order.py`): ƯT → có kết quả vào lại → có hẹn đến đúng khung →
+        # vãng lai/đến muộn. Hai bảng nói hai thứ tự khác nhau, và người ngồi
+        # chờ nhìn thấy điều đó ngay: quầy gọi tên một người mà bảng đang để
+        # người khác ở đầu.
+        #
+        # Dùng `thu_tu_goi_theo_ngay` — CÙNG cầu nối mà bảng bác sĩ và lưới tuần
+        # đang dùng. Module luật đã cảnh báo: từng có một bản TypeScript chép
+        # lại rồi lệch, và bản ấy đã bị xoá. Bản thứ tư ở đây sẽ lặp lại đúng
+        # sai lầm đó.
+        #
+        # Chỉ xếp những dòng CÓ LỊCH HẸN: luật đứng trên `appointment`, còn việc
+        # không gắn lịch (nếu có) thì không có khung giờ để so.
+        xep = thu_tu_goi_theo_ngay(
+            [r for r in rows if r["appointment_id"] is not None],
+            id_key="appointment_id",
+        )
+
+        def _thu_hang(r: Any) -> dict[str, Any]:
+            """Thứ hạng gọi + LÝ DO, hoặc rỗng nếu dòng này không xếp được."""
+            appt = r["appointment_id"]
+            d = xep.get(str(appt)) if appt else None
+            if d is None:
+                return {
+                    "call_order": None,
+                    "call_tier": None,
+                    "call_reason": None,
+                    "promoted_over": 0,
+                }
+            return {
+                # `call_order` = vị trí trong hàng (0 là người gọi tiếp theo),
+                # `call_tier` = làn. Trả cả hai: màn cần cái đầu để XẾP và cái
+                # sau để GIẢI THÍCH vì sao ai đó vượt lên.
+                "call_order": d.call_order,
+                "call_tier": d.call_tier,
+                "call_reason": d.call_reason,
+                "promoted_over": d.promoted_over,
+            }
+
         return [
             {
+                **_thu_hang(r),
                 "id": str(r["id"]),
                 "node_code": r["node_code"],
                 "node_name": r["node_name"],
