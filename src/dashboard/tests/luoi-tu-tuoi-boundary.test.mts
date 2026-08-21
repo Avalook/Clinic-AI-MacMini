@@ -18,10 +18,19 @@ const doc = (p: string) =>
 test("RealtimeRefresher là người rung chuông duy nhất, có debounce", () => {
   const ma = doc("../app/(dashboard)/RealtimeRefresher.tsx");
   assert.match(ma, /t === "work_roster"/, "chuông chỉ rung vì ca trực");
+  // Nhịp gộp chuyển vào `lib/nhip-lam-moi` ngày 21/08/2026 (cùng lúc với việc
+  // gộp dòng SSE về một tab). Bất biến không đổi — chỉ đổi chỗ ép nó: `setTimeout`
+  // tại chỗ thành `taoNhipLamMoi`, thứ vừa gộp nhịp vừa bỏ tab đang ẩn, và có
+  // test riêng ở `lib/nhip-lam-moi.test.mts`.
   assert.match(
     ma,
-    /chuongCa\.current\s*=\s*setTimeout/,
-    "rung phải debounce — áp dụng cả tuần là một tràng notify, không được thành một tràng refetch",
+    /const chuongCa = taoNhipLamMoi\(\{[\s\S]*?SU_KIEN_DOI_CA/,
+    "rung phải qua taoNhipLamMoi — áp dụng cả tuần là một tràng notify, không được thành một tràng refetch",
+  );
+  assert.equal(
+    ma.match(/dispatchEvent\(new CustomEvent\(SU_KIEN_DOI_CA/g)?.length,
+    1,
+    "chỉ MỘT chỗ rung chuông, và nó nằm trong nhịp gộp — thêm chỗ thứ hai là đi vòng qua nhịp",
   );
 });
 

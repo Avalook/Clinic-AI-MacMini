@@ -48,6 +48,7 @@ import NewPatientForm, {
   type ProvinceOpt,
 } from "../patients/new/NewPatientForm";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
+import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
 
 export interface PatientLite {
   clinic_patient_id: string;
@@ -942,7 +943,16 @@ export default function BookingHub({
     // xác minh token 2,1ms + FastAPI đọc bảng 2,7ms — xem scripts/tests/
     // do-nhip-hoi.py). Bốn CSKH cùng mở màn ở nhịp 5s = 0,8 lượt/giây = 0,4%
     // một lõi. Ngưỡng đáng xem lại: khoảng 30 người cùng mở màn này.
-    const iv = setInterval(load, 5000);
+    //
+    // TAB ẨN THÌ BỎ NHỊP (21/08/2026). Bản đồ chỗ giữ chỉ có nghĩa khi có người
+    // nhìn lưới. Một tab ẩn hỏi lại mỗi 5 giây là mỗi 5 giây chiếm một trong
+    // sáu kết nối HTTP/1.1 mà trình duyệt cho phép tới origin này — đúng thứ
+    // đang khan hiếm (xem `lib/nhip-lam-moi`). Quay lại thì đã có tay nghe
+    // `visibilitychange` ngay dưới đây hỏi lại tức thì, nên không mù chỗ nào.
+    const iv = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void load();
+    }, 5000);
 
     // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI.
     //
@@ -964,40 +974,35 @@ export default function BookingHub({
     // vòng mạng: `slot_hold` có trigger `pg_notify` từ 14/08 (migration
     // 20260814000001), FastAPI nghe rồi đẩy SSE về đây.
     //
-    // MÀN NÀY TỰ MỞ DÒNG RIÊNG, không nhờ `RealtimeRefresher`. Bộ ấy gọi
-    // `router.refresh()` cho mọi tin — dựng lại toàn bộ cây server component.
-    // Tám CSKH bấm lướt qua các khung giờ sẽ thành một trận mưa render trên mọi
-    // tab đang mở, cho một thay đổi mà chỉ màn này quan tâm. Ở đây chỉ hỏi lại
-    // một endpoint nhẹ (4,8ms cả chuỗi).
+    // MÀN NÀY KHÔNG DỰNG LẠI CẢ TRANG, chỉ hỏi lại một endpoint nhẹ (4,8ms cả
+    // chuỗi). `RealtimeRefresher` gọi `router.refresh()` cho mọi tin — dựng lại
+    // toàn bộ cây server component; tám CSKH bấm lướt qua các khung giờ sẽ
+    // thành một trận mưa render trên mọi tab đang mở, cho một thay đổi mà chỉ
+    // màn này quan tâm.
+    //
+    // NHƯNG KHÔNG CÒN TỰ MỞ DÒNG RIÊNG (21/08/2026). Trước đây chỗ này mở
+    // EventSource thứ hai, nên một tab ở màn Đặt lịch nuốt HAI trong sáu kết
+    // nối HTTP/1.1 của trình duyệt thay vì một — phòng khám chạm trần chỉ sau
+    // ba tab, và trần đó là lúc trang không tải nổi nữa (đo 21/08, xem
+    // `lib/nhip-lam-moi`). Nay nghe ké dòng chung do một tab giữ; điều muốn giữ
+    // — tự quyết làm gì với tin, không bị ép dựng lại trang — vẫn nguyên.
     //
     // GIỮ NHỊP 5 GIÂY LÀM LƯỚI AN TOÀN. Dòng SSE có thể rớt, và ở đúng màn này
     // thì im lặng là thứ tệ nhất: người trực tin rằng khung còn trống.
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource("/api/events/stream");
-      es.addEventListener("change", (ev) => {
-        try {
-          const { t: bang } = JSON.parse(
-            (ev as MessageEvent<string>).data,
-          ) as { t?: string };
-          if (bang === "slot_hold") void load();
-        } catch {
-          // Tin méo thì cứ hỏi lại — một lượt gọi 4,8ms rẻ hơn nhiều so với
-          // việc bỏ sót một chỗ vừa bị giữ.
-          void load();
-        }
-      });
-    } catch {
-      // Trình duyệt không có EventSource, hoặc dòng không mở được. Nhịp 5 giây
-      // vẫn chạy, nên màn hình chỉ chậm hơn chứ không mù.
-    }
+    const khiBangDoi = (ev: Event) => {
+      const bang = (ev as CustomEvent<string | null>).detail;
+      // `null` = tin méo hoặc không rõ bảng nào. Cứ hỏi lại — một lượt gọi
+      // 4,8ms rẻ hơn nhiều so với việc bỏ sót một chỗ vừa bị giữ.
+      if (bang === "slot_hold" || bang === null) void load();
+    };
+    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
 
     return () => {
       alive = false;
       clearTimeout(t);
       clearInterval(iv);
       document.removeEventListener("visibilitychange", khiHien);
-      es?.close();
+      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
     };
   }, [selectedDateIso]);
 
