@@ -34,22 +34,49 @@
 // server component (≈150–400ms tuỳ trang). Muốn 0ms cho CHÍNH người vừa bấm thì
 // vẫn phải cập nhật lạc quan tại chỗ bấm — xem router.refresh() trong
 // BookingHub.handleConfirmBooking — chứ không phải chờ tin quay về.
+//
+// MỘT DÒNG CHO CẢ TRÌNH DUYỆT, KHÔNG PHẢI MỘT DÒNG CHO MỖI TAB (21/08/2026).
+//
+// Đây là chỗ chữa cái "đơ 5–10 phút, bấm nút không ăn" mà người dùng báo. Mỗi
+// EventSource là một kết nối HTTP/1.1 không bao giờ đóng, mà trình duyệt chỉ
+// cho 6 kết nối tới một origin — nên mỗi tab mở nuốt vĩnh viễn một chỗ. Đo trên
+// staging: 1 tab còn 5 chỗ, 4 tab còn 2, tới tab thứ SÁU là hết sạch, trang
+// không tải nổi (treo 300 giây) trong lúc CPU máy chủ 0.03%. Phòng khám mở
+// khoảng mười tab.
+//
+// Nay chỉ MỘT tab giữ dòng (bầu bằng navigator.locks) rồi phát lại cho các tab
+// khác qua BroadcastChannel; và tab đang ẩn thì không dựng lại trang, chỉ ghi
+// nợ rồi trả lúc người ta quay lại nhìn. Cả hai luật nằm ở `lib/nhip-lam-moi`,
+// tách khỏi React để test được — file này chỉ còn nối chúng với API trình duyệt.
+//
+// Bật HTTP/2 (cần HTTPS + tên miền) sẽ xoá hẳn giới hạn 6 kết nối. Chuyện đó
+// KHÔNG làm phần này thừa: nó cắt việc thừa, không chỉ né một giới hạn.
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { SU_KIEN_DOI_CA } from "./dung-doi-ca";
-
-// 250ms: đủ để gộp một chuỗi thay đổi của cùng một thao tác (mở lượt khám đụng
-// vài bảng) thành một lần render, đủ ngắn để người dùng không kịp thấy độ trễ.
-// 1200ms ở bản cũ là hơn một giây thuần chờ trên MỌI cập nhật.
-const DEBOUNCE_MS = 250;
+import {
+  moDongSuKien,
+  SU_KIEN_BANG,
+  taoNhipLamMoi,
+  type Go,
+  type Kenh,
+} from "../../lib/nhip-lam-moi";
 
 // Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
 // lo), nên nhịp này chỉ để phòng trường hợp cả dòng lẫn lần nối lại đều hỏng —
 // và 25s ở bản cũ là quá dày cho việc đó: nó tự nó là nguồn tải đều đặn lớn
 // nhất của hệ thống.
+//
+// Nhịp này cũng là lưới cho một bẫy mới: tab chủ có thể là một tab đang ẩn, và
+// trình duyệt được phép đóng băng tab nền. Tab người ta ĐANG NHÌN vẫn tự bắt
+// kịp trong một nhịp, kể cả khi tab chủ đã ngủ.
 const POLL_MS = 60_000;
+
+// Tên khoá bầu tab chủ. Web Locks đã tự giới hạn trong một origin nên không cần
+// gắn thêm gì; đổi tên này là chia đôi phòng bầu cử, tức lại hai dòng SSE.
+const KHOA_DONG = "clinicai-dong-su-kien";
 
 // Các bảng ĐANG được publish (20260803000004). Đổi ở đây thì phải đổi cả ở
 // migration — một danh sách lệch nhau là cách "realtime" chết trong im lặng.
@@ -92,24 +119,27 @@ export default function RealtimeRefresher({
   tables?: readonly string[];
 }) {
   const router = useRouter();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const chuongCa = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const bump = () => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => router.refresh(), DEBOUNCE_MS);
-    };
+    const dangAn = () => document.visibilityState === "hidden";
+
+    // Nhịp dựng lại trang.
+    const nhip = taoNhipLamMoi({
+      lamMoi: () => router.refresh(),
+      dangAn,
+      hen: (fn, ms) => setTimeout(fn, ms),
+      huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+    });
+
     // CHUÔNG CA TRỰC — cho dữ liệu client-fetch mà router.refresh không với
-    // tới (hai lưới đặt chỗ). Debounce riêng: "áp dụng lịch cả tuần" bắn một
-    // tràng notify, và một tràng chuông là một tràng refetch quote vô ích.
-    const rungChuongCa = () => {
-      if (chuongCa.current) clearTimeout(chuongCa.current);
-      chuongCa.current = setTimeout(
-        () => window.dispatchEvent(new CustomEvent(SU_KIEN_DOI_CA)),
-        DEBOUNCE_MS,
-      );
-    };
+    // tới (hai lưới đặt chỗ). Nhịp RIÊNG: "áp dụng lịch cả tuần" bắn một tràng
+    // notify, và một tràng chuông là một tràng refetch quote vô ích.
+    const chuongCa = taoNhipLamMoi({
+      lamMoi: () => window.dispatchEvent(new CustomEvent(SU_KIEN_DOI_CA)),
+      dangAn,
+      hen: (fn, ms) => setTimeout(fn, ms),
+      huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+    });
 
     // LỌC BẢNG Ở ĐÂY, LỌC PHÒNG KHÁM Ở MÁY CHỦ.
     //
@@ -119,33 +149,117 @@ export default function RealtimeRefresher({
     // thì không tính là một cái lọc.
     //
     // Bảng thì lọc ở đây, vì danh sách bảng là chuyện của từng màn: prop
-    // `tables` cho một trang thu hẹp lại chỉ những bảng nó vẽ.
+    // `tables` cho một trang thu hẹp lại chỉ những bảng nó vẽ. Tab chủ phát lại
+    // tin THÔ, chưa lọc — hai tab có thể đang xem hai màn khác nhau, nên lọc
+    // phải ở phía người nhận.
     const wanted = new Set(tables);
-    const es = new EventSource("/api/events/stream");
-    es.addEventListener("change", (ev) => {
-      try {
-        const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
-          t?: string;
-        };
-        if (!t || wanted.has(t)) bump();
-        if (t === "work_roster") rungChuongCa();
-      } catch {
-        // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót một
-        // thay đổi và để người dùng nhìn dữ liệu cũ.
-        bump();
-      }
-    });
-    // KHÔNG tự nối lại ở đây: EventSource đã tự làm, và viết thêm một vòng nối
-    // lại của mình sẽ chạy song song với vòng của trình duyệt.
 
-    const poll = setInterval(() => router.refresh(), POLL_MS);
+    const goDong = moDongSuKien({
+      moDong: (nhanTin) => {
+        const es = new EventSource("/api/events/stream");
+        es.addEventListener("change", (ev) => {
+          try {
+            const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
+              t?: string;
+            };
+            nhanTin(t ?? null);
+          } catch {
+            // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót
+            // một thay đổi và để người dùng nhìn dữ liệu cũ.
+            nhanTin(null);
+          }
+        });
+        // KHÔNG tự nối lại ở đây: EventSource đã tự làm, và viết thêm một vòng
+        // nối lại của mình sẽ chạy song song với vòng của trình duyệt.
+        return () => es.close();
+      },
+
+      xinLamChu: xinLamChu(),
+      moKenh: moKenh(),
+
+      xuLy: (t) => {
+        if (t === null || wanted.has(t)) nhip.nhan();
+        if (t === "work_roster") chuongCa.nhan();
+        // Phát tiếp cho các màn muốn tự xử lý một bảng cụ thể mà KHÔNG dựng lại
+        // cả trang (màn Đặt lịch nghe `slot_hold`). Trước đây mỗi màn như vậy
+        // tự mở EventSource riêng — tức thêm một kết nối bị giữ vĩnh viễn.
+        window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: t }));
+      },
+    });
+
+    const quayLai = () => {
+      if (dangAn()) return;
+      nhip.hienLai();
+      chuongCa.hienLai();
+    };
+    document.addEventListener("visibilitychange", quayLai);
+
+    const poll = setInterval(() => nhip.nhan(), POLL_MS);
 
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      document.removeEventListener("visibilitychange", quayLai);
       clearInterval(poll);
-      es.close();
+      goDong();
+      nhip.dung();
+      chuongCa.dung();
     };
   }, [router, tables]);
 
   return null;
+}
+
+/** Bầu tab chủ bằng Web Locks. `null` nếu trình duyệt không có. */
+function xinLamChu(): ((duoc: () => void) => Go) | null {
+  if (typeof navigator === "undefined" || !navigator.locks) return null;
+
+  return (duoc) => {
+    // HAI CÁCH RÚT LUI KHÁC NHAU, và lẫn chúng là để lại một dòng SSE ma.
+    // Đang XẾP HÀNG thì rút bằng cách huỷ tín hiệu. Đang GIỮ khoá thì tín hiệu
+    // vô tác dụng — Web Locks chỉ nhả khi lời hứa mình đang giữ kết thúc.
+    let nha: (() => void) | null = null;
+    let daRut = false;
+    const ac = new AbortController();
+
+    void navigator.locks
+      .request(KHOA_DONG, { signal: ac.signal }, () =>
+        new Promise<void>((xong) => {
+          // Giành được khoá đúng lúc tab đang đóng: nhả ngay, đừng mở dòng.
+          if (daRut) {
+            xong();
+            return;
+          }
+          nha = xong;
+          duoc();
+        }),
+      )
+      .catch(() => {
+        // AbortError khi tab đóng lúc còn xếp hàng — đúng như mong đợi, không
+        // phải lỗi.
+      });
+
+    return () => {
+      daRut = true;
+      if (nha) nha();
+      else ac.abort();
+    };
+  };
+}
+
+/** Kênh phát lại giữa các tab. `null` nếu trình duyệt không có. */
+function moKenh(): ((nhan: (t: string | null) => void) => Kenh) | null {
+  if (typeof BroadcastChannel === "undefined") return null;
+
+  return (nhan) => {
+    const bc = new BroadcastChannel(KHOA_DONG);
+    bc.addEventListener("message", (ev) => {
+      const t = (ev as MessageEvent<string | null>).data;
+      nhan(typeof t === "string" ? t : null);
+    });
+    return {
+      // BroadcastChannel KHÔNG gửi lại cho chính kênh vừa gửi, nên tab chủ
+      // không xử lý tin của mình hai lần.
+      gui: (t) => bc.postMessage(t),
+      dong: () => bc.close(),
+    };
+  };
 }

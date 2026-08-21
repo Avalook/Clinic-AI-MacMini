@@ -145,13 +145,26 @@ export function NotificationProvider({
       }
   }, []);
 
+  // TAB ĐANG ẨN THÌ KHÔNG HỎI (21/08/2026).
+  //
+  // Chuông chỉ có nghĩa khi có người nhìn nó. Nhịp 20 giây nhân với mười tab
+  // của cả phòng khám là ba mươi lượt gọi mỗi phút cho một cái chuông không ai
+  // thấy — và mỗi lượt gọi chiếm một trong sáu kết nối HTTP/1.1 mà trình duyệt
+  // cho phép tới origin này, đúng thứ đang khan hiếm (xem `lib/nhip-lam-moi`).
+  //
+  // Quay lại tab thì hỏi NGAY, không chờ hết nhịp: người ta vừa nhìn vào chuông.
   useEffect(() => {
-    const doc = () => void docThongBao();
+    const doc = () => {
+      if (document.visibilityState === "hidden") return;
+      void docThongBao();
+    };
     const first = setTimeout(doc, 0);
     const id = setInterval(doc, POLL_MS);
+    document.addEventListener("visibilitychange", doc);
     return () => {
       clearTimeout(first);
       clearInterval(id);
+      document.removeEventListener("visibilitychange", doc);
     };
   }, [docThongBao]);
 
