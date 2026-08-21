@@ -77,10 +77,20 @@ test("`created_at` thật sự được nạp vào dữ liệu chip", () => {
     /created_at:\s*repr\.created_at/,
     "apptByPatient phải mang theo created_at của lịch đại diện",
   );
+  // 22/08/2026 (Lát 2): truy vấn lịch hẹn dọn về backend — một vòng gói thay
+  // mười vòng PostgREST. Tiền đề "phải chọn cột created_at" không đổi, chỉ đổi
+  // NHÀ: giờ nó nằm trong man_khach_hang_service.py, nên test đọc file Python.
+  const goiService = readFileSync(
+    new URL(
+      "../../clinicai/services/man_khach_hang_service.py",
+      import.meta.url,
+    ),
+    "utf8",
+  );
   assert.match(
-    page,
-    /slot_start,\s*status,\s*created_at/,
-    "truy vấn lịch hẹn phải chọn cả cột created_at",
+    goiService,
+    /a\.slot_start, a\.status,\s*\n\s*a\.created_at/,
+    "truy vấn lịch hẹn (backend) phải chọn cả cột created_at",
   );
 });
 

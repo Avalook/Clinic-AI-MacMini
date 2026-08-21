@@ -76,10 +76,27 @@ test("customers dựng vùng ghi chỉ khi có capability và giữ vùng chỉ 
     /if \(rows\.length\)/,
     "quyền sửa lịch không được dùng để cắt dữ liệu lịch sử của vai chỉ đọc",
   );
+  // 22/08/2026 (Lát 2): hai nhánh select theo vai (đầy đủ / rút gọn) không còn
+  // — backend trả MỘT bộ trường đủ cho mọi vai (trim theo vai trước đây chỉ để
+  // nhẹ payload, không phải quyền; RLS/route mới là chốt). Tiền đề còn lại:
+  // vai chỉ đọc vẫn phải có TÊN DỊCH VỤ — tức câu SQL backend phải join lấy nó
+  // và lồng thành `service:{name}` như PostgREST cũ.
+  const goiService = readFileSync(
+    new URL(
+      "../../clinicai/services/man_khach_hang_service.py",
+      import.meta.url,
+    ),
+    "utf8",
+  );
   assert.match(
-    page,
-    /: `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,[\s\S]{0,300}service:service_type/,
+    goiService,
+    /st\.name AS ten_dich_vu/,
     "nhánh lịch chỉ đọc vẫn cần tên dịch vụ để hiển thị đúng lượt khám",
+  );
+  assert.match(
+    goiService,
+    /d\["service"\] = \{"name": ten_dv\}/,
+    "tên dịch vụ phải được lồng thành service:{name} như hình PostgREST cũ",
   );
 });
 
