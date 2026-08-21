@@ -15,7 +15,8 @@
     "e2e:intake": "node e2e/intake-day-simulation.mjs",
     "test:khung": "node --test lib/khung-nhan-lich.test.mts",
     "test:gio-ca": "node --test lib/soat-gio-ca.test.mts",
-    "test:nhip": "node --test lib/nhip-lam-moi.test.mts"
+    "test:nhip": "node --test lib/nhip-lam-moi.test.mts",
+    "test:bo-nho": "node --test lib/bo-nho-tam.test.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

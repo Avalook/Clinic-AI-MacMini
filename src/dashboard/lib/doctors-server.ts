@@ -33,6 +33,8 @@
 // đây không) và `clinic_membership.is_active` (còn thuộc phòng khám này không).
 // Bản cũ chỉ kiểm cái đầu.
 
+import { getClinicId } from "./clinic-session";
+import { nhoTheoPhongKham } from "./bo-nho-tam";
 import { doctorName } from "./doctor-name";
 import { getSupabaseServer } from "./supabase-server";
 
@@ -60,6 +62,16 @@ interface DoctorRow {
  * chọn trống nhìn thấy được; một trang lỗi thì che mất mọi thứ khác trên màn.
  */
 export async function listBookableDoctors(): Promise<DoctorOption[]> {
+  const clinicId = await getClinicId();
+  return nhoTheoPhongKham("bac-si-dat-duoc", clinicId ?? "", () =>
+    _listBookableDoctors(),
+  );
+}
+
+// Danh sách bác sĩ đặt được đổi khi nhân sự vào/ra hoặc đổi vai — vài lần một
+// tháng, không phải vài lần một phút. Gói qua bộ nhớ tạm có hạn giờ để cắt một
+// vòng gọi khỏi MỌI trang có ô chọn bác sĩ (xem `bo-nho-tam.ts`).
+async function _listBookableDoctors(): Promise<DoctorOption[]> {
   const supabase = await getSupabaseServer();
 
   // `clinic_membership!inner(...)` = INNER JOIN: chỉ giữ staff CÓ membership

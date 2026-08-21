@@ -44,6 +44,7 @@ import CustomersView, {
 type RecallRaw = MocTaiKham & { clinic_patient_id: string };
 import { listBookableDoctors } from "../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { layCoSo, layDichVu } from "../../../lib/danh-muc";
 
 export const dynamic = "force-dynamic";
 
@@ -212,11 +213,13 @@ export default async function CustomersPage({
 
   const [patRes, locRes, svcRes, docRes] = await Promise.all([
     buildPatientQuery(true),
-    supabase.from("clinic_location").select("id, name").order("name"),
+    // Cơ sở + dịch vụ qua bộ nhớ tạm có hạn giờ: hai danh mục này đổi vài
+    // tháng một lần nhưng mọi lượt dựng trang đều hỏi lại. Xem `bo-nho-tam.ts`.
+    layCoSo().then((data) => ({ data })),
     // Nạp dịch vụ + bác sĩ khi vai INTAKE (đặt/đổi/hủy lịch) — cho cả modal đổi
     // lịch (canManage) lẫn nút "Đặt lịch" (canEdit gồm Lễ tân).
     canEdit
-      ? supabase.from("service_type").select("id, name").order("name")
+      ? layDichVu().then((data) => ({ data }))
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
