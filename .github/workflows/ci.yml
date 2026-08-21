@@ -97,7 +97,7 @@ jobs:
         run: npm run lint -- --max-warnings=0
 
       - name: Security boundary tests
-        run: npm run test:audit && npm run test:ops && npm run test:boundary && npm run test:roster && npm run test:luu-nhap && npm run test:khung
+        run: npm run test:audit && npm run test:ops && npm run test:boundary && npm run test:roster && npm run test:luu-nhap && npm run test:khung && npm run test:gio-ca
 
       - name: Build
         run: npm run build

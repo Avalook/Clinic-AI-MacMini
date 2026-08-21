@@ -17,6 +17,7 @@ import {
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 // Nhập component BookingPolicyCard để hiển thị luật đặt lịch
 import BookingPolicyCard from "../BookingPolicyCard";
+import GioCaLamViecCard from "../GioCaLamViecCard";
 // Nhập component OverridePolicyCard và kiểu DoctorOpt
 import OverridePolicyCard, { type DoctorOpt } from "../OverridePolicyCard";
 import LuatBacSiCard, { type LuatBacSi } from "../LuatBacSiCard";
@@ -124,6 +125,11 @@ export default async function BookingPolicyPage() {
         }
         policy={bookingPolicy} // Luật đặt lịch hiện tại
       />
+
+      {/* Giờ ba ca — đặt NGAY SAU luật đặt lịch vì hai thứ trả lời cùng một câu
+          hỏi ("phòng khám nhận lịch lúc nào, mỗi khung mấy chỗ") và cùng một
+          lớp gác quyền. Trước 21/08/2026 giờ ca chỉ đổi được bằng lệnh SQL. */}
+      <GioCaLamViecCard />
 
       {/* Card luật override theo bác sĩ/khung giờ */}
       <OverridePolicyCard doctors={doctors} policy={bookingPolicy} rules={rules} />

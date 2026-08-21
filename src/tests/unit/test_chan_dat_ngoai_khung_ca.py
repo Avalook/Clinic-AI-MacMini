@@ -106,6 +106,18 @@ class TestBaKhoangTrong:
         assert "08:00" in loi and "13:00" in loi, "phải liệt kê khung nhận lịch"
         assert "21:30" in loi
 
+    def test_cau_tu_choi_chi_dung_cai_cua_co_that(self) -> None:
+        """Bản đầu bảo "sửa ở màn Lịch làm việc" — màn ấy KHÔNG sửa giờ ca.
+
+        Chỉ sai một cái cửa không tồn tại còn tệ hơn không chỉ gì: người trực đi
+        tìm, không thấy, rồi thôi không tin câu báo lỗi nào nữa. Màn sửa giờ ca
+        nằm ở Cài đặt (`PATCH /api/v1/ca-lam-viec`).
+        """
+        loi = _chan(7, 15)
+        assert loi is not None
+        assert "Cài đặt" in loi, loi
+        assert "Lịch làm việc" not in loi, "màn đó xếp AI trực, không định nghĩa ca"
+
 
 class TestGioTrongCaThiQua:
     @pytest.mark.parametrize(
