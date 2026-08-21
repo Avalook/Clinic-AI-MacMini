@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **15/08/2026**, cuối phiên (mục 0 là mới nhất; các mục dưới là nền từ 07/08, đọc kèm).
+Cập nhật: **21/08/2026**, cuối phiên (mục 0 là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -13,7 +13,72 @@ lịch sử hội thoại.
 
 ---
 
-## 0. Phiên 15/08/2026 (Tuyền) — 16 PR #112–#127, prod & staging đồng bộ
+## 0. Phiên 21/08/2026 (Tuyền) — Ba ca làm việc, đã LÊN PROD trọn gói
+
+**Một ngày nay chia BA ca thay vì hai, giờ do quản lý tự đặt.** PR #145–#148
+đã gộp; prod deploy giữa giờ khám theo yêu cầu của Tuyền (vượt khung 1h–4h có
+ghi lý do, run 32457538585, gián đoạn ~50 giây); staging = `staging-0821f`.
+
+- **Kernel**: `core/shifts.py` viết lại — `shift_window()` (một khoảng) thành
+  `shift_windows()` (danh sách), vì "cả ngày" nay là HAI khoảng rời nhau do
+  nghỉ trưa. Giờ ca đọc từ `clinic.settings->'ca_lam_viec'`, mặc định Dr4Women:
+  sáng 08:00–13:00 · chiều 14:00–17:30 · tối 17:30–21:30.
+- **Migration `20260821000001`** đã áp CẢ HAI database (prod áp 21/08 chiều,
+  đo trước khi áp: 1 lịch sống duy nhất nằm trong khung, 0 lịch từng đặt sau
+  21:30 nên thu giờ đóng 23:00→22:00 không đụng ai).
+- **Luật mới — chỉ đặt lịch TRONG ca** (`_chan_dat_ngoai_khung_ca`): gắn ở
+  đúng 2 đường chọn giờ (đặt mới, đổi lịch); cố ý KHÔNG gắn ở đường gán bác sĩ
+  để lịch cũ ngoài ca vẫn gán được. Lưới + 5 màn chọn giờ thôi mời giờ ngoài
+  ca (mời-rồi-mắng làm người trực mất niềm tin vào lưới).
+- **Quản lý tự sửa giờ ca**: Cài đặt → Luật đặt lịch → thẻ "Giờ ca làm việc"
+  (Trưởng ca + Quản lý). Bốn luật chặn khi lưu, quan trọng nhất là "ca phải
+  nằm trong giờ mở cửa" — sai kiểu này KHÔNG tự lộ, cấu hình lưu được nhưng bị
+  cắt lúc đọc. Sai thì báo đủ mọi lỗi một lần, một lỗi một dòng.
+- Xác minh trên CẢ prod lẫn staging bằng dữ liệu thật: 12/12 mốc giờ
+  chặn/cho-qua đúng; lưới 50 khung 08:00→21:15; đổi giờ giả thì kết quả đổi
+  theo (phân biệt "đọc từ DB" với "trùng mặc định").
+
+**Kịch bản bấm thử cho quản lý (staging trước, prod đã giống hệt):**
+1. Cài đặt → Luật đặt lịch → Giờ ca làm việc: sửa ca tối thành `17:30→23:00`,
+   bấm Lưu → phải bị chặn, MỘT dòng "Mọi ngày mở cửa 07:00–22:00…".
+2. Sửa ca chiều `12:00→17:30` → báo chồng ca sáng, có câu "KPI đếm đôi".
+3. Sửa ca sáng `09:00→12:00`, Lưu → lưới đặt lịch bỏ các khung 08:00–08:45
+   ngay (không cần F5). Thử xong TRẢ LẠI `08:00→13:00`.
+4. Màn đặt lịch: không còn cột 13:00 (nghỉ trưa) và sau 21:15.
+5. Lịch làm việc: xếp được ca **Tối** cho nhân viên.
+
+**Việc sót lại của phiên (làm đầu phiên sau):**
+- **Ghi sổ migration** — cả hai database áp `20260821000001` bằng psql tay,
+  CHƯA ghi `supabase_migrations.schema_migrations` (staging còn thiếu cả
+  `20260820000001` của #144). Lệnh:
+  `INSERT INTO supabase_migrations.schema_migrations(version) VALUES ('20260821000001') ON CONFLICT DO NOTHING;`
+- **PR #144 (lễ tân)** vẫn mở, chỉ ở staging (`staging-0820a`+), chờ quản lý
+  duyệt; migration `20260820000001` của nó CHƯA áp prod — đúng, vì code chưa lên.
+- Chip "siết cổng độ phủ": ngưỡng ghi 80 nhưng so sánh số ĐÃ LÀM TRÒN nên
+  thực tế là 79,5. Đừng hạ số; viết thêm test vượt 80.00 rồi mới siết.
+- HTTPS vẫn chưa có — toàn bộ chạy HTTP trần.
+
+**Cạm bẫy mới trả giá phiên này:**
+- `git fetch origin main && git tag X origin/main` gắn tag vào giá trị CŨ
+  (chỉ `FETCH_HEAD` chắc chắn được cập nhật) → tag trỏ code cũ, CD deploy lại
+  bản đang chạy, mọi thứ *trông như* đã lên. **Luôn tag vào SHA viết rõ**, và
+  xác minh bằng cách hỏi CONTAINER có ký hiệu mới chưa, đừng tin nhãn CI xanh.
+- `gh run list --workflow=cd.yml` hiện `headBranch=main` cho MỌI lần chạy, kể
+  cả deploy tag staging → nhìn danh sách tưởng CD chưa từng chạy. Phải mở từng
+  run xem JOB.
+- Lệnh đưa cho người khác chạy phải trơ với ngữ cảnh: `git pull` trong
+  worktree không upstream gãy im lặng giữa chuỗi `&&` (bước 2 của quy trình
+  prod đã trượt kiểu này). Dùng `git show FETCH_HEAD:<file>` thay vì pull.
+- Dòng giả trong test là `dict` thì có đủ khoá mình tự cho vào;
+  `asyncpg.Record` thì KeyError. `capacity_service` đọc cột không SELECT, cả
+  bộ test xanh, staging vỡ. Đã có `test_doc_dung_cot_da_chon.py` đối chiếu
+  mọi khoá đọc với mọi cột SELECT.
+- Phép đo phải PHÂN BIỆT được: giờ prod trùng giá trị mặc định nên "đọc từ
+  DB" và "lùi về mặc định" cho cùng kết quả — phải thử bằng giờ giả khác hẳn.
+
+---
+
+## 0.1 Phiên 15/08/2026 (Tuyền) — 16 PR #112–#127 (nền gần)
 
 **Đại tu giao diện xong cả 5 bước (0→4).** DESIGN.md là hiến pháp; nguyên tử
 Button/Chip/NutInPhieu ở `components/ui/`; ratchet `[..px]` trần 102 (từ 474)
@@ -67,7 +132,7 @@ nghiệp vụ có tên khách + mã BN).
 | Máy chủ | Vietnix VPS, `ssh clinic-vps` (222.255.215.219) |
 | Prod | nhánh `main`, cổng 80, project `clinicai_prod` + database `clinicai_db` |
 | Staging | cổng 8080, project `clinicai_staging` + database `clinicai_stg_db` |
-| Migration mới nhất | `20260807000008_go_co_so_trung_ten_phong_kham` — đã áp cả hai |
+| Migration mới nhất | `20260821000001_ba_ca_lam_viec` — đã áp cả hai (chưa ghi sổ, xem mục 0) |
 | Cơ sở | **2**: Kim Ngưu (đang mở, 12 phòng, 40 nhân sự) và Hào Nam (`is_active=false`) |
 | Dịch vụ khám | 5: PK · SK · NT · NK · HMVS |
 | Danh mục chỉ định | 39 mục đang bật, 5 mục chưa gán phòng |
@@ -133,7 +198,7 @@ nhập**, đặt lại mật khẩu, gỡ tài khoản.
 - Sinh tài liệu / lưu trữ tệp: "Hồ sơ trả bệnh nhân", tệp đính kèm nhân sự.
 - **208 dòng `event_log` chưa ai xử lý** — relay không chạy.
 - `visit_gate_rule` chưa được thi hành ở đâu.
-- CD (`cd.yml`) đang `disabled_manually` vì 0 runner. Không phải bug.
+- ~~CD tắt~~ **CD ĐÃ CHẠY (21/08)**: runner `vps-clinicai` online. Tag `staging-*` → staging tự động; prod bấm `gh workflow run cd.yml`, chỉ khung 1h–4h (ngoài khung phải điền `ly_do_vuot_khung_gio`).
 
 ## 6. Cạm bẫy đã trả giá để biết
 
@@ -186,8 +251,8 @@ cd src/dashboard && npx tsc --noEmit && npx eslint . --max-warnings=0 \
   && npm run test:audit && npm run test:ops && npm run test:boundary && npx next build
 ```
 
-Độ phủ đang **80,3%** — sát ngưỡng 80. Thêm code mới thì phải thêm test, đừng hạ
-ngưỡng.
+Độ phủ đang **~79,8%** và cổng thực tế là 79,5 vì coverage so số đã làm tròn
+(xem chip "siết cổng độ phủ"). Thêm code mới thì phải thêm test, đừng hạ ngưỡng.
 
 ## 8. Việc thường dùng
 
