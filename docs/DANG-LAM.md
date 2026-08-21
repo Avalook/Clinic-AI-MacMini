@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **21/08/2026**, cuối phiên (mục 0 là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **22/08/2026 rạng sáng**, cuối phiên đêm (mục 0 là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -13,7 +13,68 @@ lịch sử hội thoại.
 
 ---
 
-## 0. Phiên 21/08/2026 (Tuyền) — Ba ca làm việc, đã LÊN PROD trọn gói
+## 0. Phiên đêm 21→22/08/2026 (Tuyền ngủ, phiên tự chạy) — Chịu tải: Lát 1+2 xong, tìm ra OOM
+
+**Nhiệm vụ Tuyền giao trước khi ngủ:** "đo lại staging → làm Lát 2 → làm hết
+các nghi vấn, không làm hỏng hoặc kém đi, xong báo cáo."
+
+**Đã lên staging (`staging-0822d` = `bc2de348`, xác minh bằng cách hỏi container):**
+- **PR #157–159 (Lát 1)**: bộ nhớ tạm danh mục theo phòng khám, phân trang
+  /customers 50 khách/trang, trần pool gotrue+PostgREST=10 (đăng nhập hết 500).
+- **PR #160 (Lát 2)**: mười vòng PostgREST làm giàu màn khách hàng gộp về
+  `GET /api/v1/cskh/man-khach-hang` — mười câu SQL chạy tuần tự trên MỘT kết
+  nối asyncpg. Hình trả về bắt chước PostgREST từng trường nên page.tsx giữ
+  nguyên phần dựng map. Guard 7 vai có test gương hai chiều với roles.ts.
+- **Đo trước→sau** (cùng đêm, cùng máy, bảng đầy đủ trong PR #160):
+  - Giải phẫu 1 lần mở /customers: 73→50 câu SQL, 14→4 vòng PostgREST,
+    44→20 câu nghi lễ.
+  - 100 người ảo ×3 vòng: /customers p50 5734→2705ms (−53%), p95 8144→4190ms;
+    tổng 25,6→30,2 lượt/giây, 1300/1300 ok.
+
+**Phát hiện lớn nhất đêm nay — OOM-kill worker im lặng:** `.env.staging` trên
+VPS (cả hai bản) ghim `DASHBOARD_MEMORY_LIMIT=512m`, đè mặc định 1g mà #152
+đưa vào compose. 4 worker ×~125MB vượt trần → kernel giết worker giữa response:
+63/1300 lượt đứt kết nối (RemoteDisconnected/IncompleteRead), app-log sạch
+bong. Chẩn đoán bằng `docker inspect --format '{{.State.OOMKilled}}
+{{.HostConfig.Memory}}'`. Đã sửa env + `docker update --memory 1g` → 1300/1300
+ok. **Prod không có override nên lần deploy tới tự nhận 1g — không cần sửa.**
+
+**Đã ghi sổ migration staging**: 9 dòng `20260812000001`…`20260821000002` vào
+`supabase_migrations.schema_migrations` (từng cái xác minh object trước khi ghi).
+
+**Việc chờ Tuyền (prod — nút bấm của Tuyền, khung 1h–4h):**
+1. Deploy batch #150–160 lên prod. **TRƯỚC đó** áp migration
+   `20260821000002_dem_ghe_ca_ngay_mot_lan.sql` vào prod bằng psql
+   (`git show FETCH_HEAD:supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql | ssh clinic-vps 'docker exec -i clinicai_db psql -U postgres'`)
+   — prod đã soát: đủ mọi migration khác, chỉ thiếu đúng cái này.
+2. Ghi sổ prod (9 dòng, cùng câu INSERT như staging — xem PR #160 / phiên này).
+3. Áp trần pool supabase-stack prod (#158): `docker compose -f
+   docker-compose.supabase.yml --env-file .env.prod -p clinicai_db up -d auth rest`
+   lúc vắng khách.
+4. PR #144 (lễ tân) vẫn chờ quản lý duyệt trên staging.
+
+**Nghi vấn đã đóng / còn mở:**
+- ✅ RemoteDisconnected khi tải = OOM 512m (ở trên). ✅ Danh sách khách 5 giây
+  = phân trang + Lát 2. ✅ Đăng nhập 500 khi đông = pool không trần (#158).
+- ⏳ Suspense/streaming (P2 của cố vấn): hai trang nặng nhất (customers 1184
+  dòng, home 489) đều là một server component nguyên khối, không Suspense.
+  Đánh giá đêm nay: dưới tải, nút thắt là CPU render chứ không phải chuỗi
+  chờ, nên streaming cải thiện cảm nhận (TTFB) chứ không tăng thông lượng —
+  đáng làm thành LÁT 3 riêng, không sửa vội lúc cuối phiên.
+- ⏳ /home p50 ~3,6s dưới 100 người: ứng viên Lát 3 (cùng cách gói như Lát 2).
+
+**Cạm bẫy mới trả giá phiên này:**
+- Sửa `mem_limit` trong git mà máy đích có `.env.*` ghim giá trị cũ thì
+  override thắng IM LẶNG — đổi tài nguyên xong phải `docker inspect` máy đích.
+- Container restart là `/tmp/tai.py` (harness đo tải) bay — chép lại trước
+  mỗi lần đo, và đừng chạy đo song song với đo giải phẫu (bẩn cửa sổ log).
+- 4 test biên đỏ khi Lát 2 dọn truy vấn về backend — ĐỎ ĐÚNG THIẾT KẾ; viết
+  lại theo Luật 12.5: tiền đề dọn nhà thì test đi theo (giờ chúng đọc cả file
+  Python). Đừng xoá assertion, đổi địa chỉ cho nó.
+
+---
+
+## 1. Phiên 21/08/2026 (Tuyền) — Ba ca làm việc, đã LÊN PROD trọn gói
 
 **Một ngày nay chia BA ca thay vì hai, giờ do quản lý tự đặt.** PR #145–#148
 đã gộp; prod deploy giữa giờ khám theo yêu cầu của Tuyền (vượt khung 1h–4h có
