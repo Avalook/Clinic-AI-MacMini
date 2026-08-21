@@ -259,3 +259,23 @@ def test_chi_walk_in_moi_la_vang_lai() -> None:
         e = _e("a", channel=kenh, checked_in=den_trong_khung)
         assert call_rank(e)[0] == 1, f"kênh {kenh!r} phải là vãng lai"
         assert call_reason(e) == REASON_DEN_TRUC_TIEP
+
+
+def test_ket_qua_xet_nghiem_khong_gan_lich_hen_thi_bo_qua() -> None:
+    """Một kết quả không biết thuộc lịch nào thì không đẩy được ai lên hàng.
+
+    Bỏ qua chứ KHÔNG nổ: dữ liệu thiếu là chuyện thường ở một hệ đang chạy
+    thật, và một ngoại lệ ở đây sẽ làm trắng CẢ bảng gọi số vì một dòng hỏng.
+    Nhưng cũng không được đoán bừa nó thuộc về ai — đoán sai thì có người bị
+    đẩy lên trước bằng kết quả của người khác.
+    """
+    from clinicai.services.queue_order import b3_ready_appt_ids
+
+    ket = b3_ready_appt_ids(
+        [
+            {"appointment_id": None, "result_value": "12.3"},
+            {"appointment_id": "", "external_ref": "LIS-9"},
+            {"appointment_id": "a1", "result_value": "9.9"},
+        ]
+    )
+    assert ket == {"a1"}, "chỉ dòng có mã lịch hẹn mới được tính"
