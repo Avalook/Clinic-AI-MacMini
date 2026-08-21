@@ -18,6 +18,7 @@
 // dưới đây chỉ để người dùng thấy sớm.
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, TriangleAlert } from "lucide-react";
 
 import {
@@ -33,6 +34,7 @@ const O =
   "w-28 rounded-control border border-line bg-surface px-2 py-1.5 text-sm tabular-nums";
 
 export default function GioCaLamViecCard() {
+  const router = useRouter();
   const [ca, setCa] = useState<Record<MaCa, Khung> | null>(null);
   const [gio, setGio] = useState<GioMoCua>({});
   const [dangLuu, setDangLuu] = useState(false);
@@ -104,6 +106,11 @@ export default function GioCaLamViecCard() {
         return;
       }
       setXong(true);
+      // Layout đọc `khungNhanLich` một lần ở SERVER rồi truyền xuống mọi lưới
+      // chọn giờ. Không refresh thì lưu xong lưới vẫn vẽ giờ CŨ cho tới khi F5
+      // — đúng kiểu "lớp vẽ nói dối" Tuyền bắt được hôm 17/08 với ca trực.
+      // Cùng cách chữa mà BookingPolicyCard đang dùng.
+      router.refresh();
     } finally {
       setDangLuu(false);
     }
@@ -171,8 +178,8 @@ export default function GioCaLamViecCard() {
           )}
           {xong && (
             <p className="rounded-control bg-success-bg px-3 py-2 text-xs text-success">
-              Đã lưu. Lưới đặt lịch dùng giờ mới ngay từ lần mở tiếp theo. Lịch
-              hẹn đã đặt trước đó giữ nguyên.
+              Đã lưu. Lưới đặt lịch dùng giờ mới ngay. Lịch hẹn đã đặt trước
+              đó giữ nguyên — thu ca lại không huỷ lịch cũ.
             </p>
           )}
 
