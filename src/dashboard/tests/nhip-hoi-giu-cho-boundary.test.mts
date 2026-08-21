@@ -21,7 +21,11 @@ const nguon = readFileSync(
 const ma = nguon.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
 test("nhịp hỏi chỗ giữ là 5 giây, không chậm hơn", () => {
-  const khop = ma.match(/setInterval\(\s*load\s*,\s*(\d+)\s*\)/);
+  // Nhận cả `setInterval(load, N)` lẫn dạng bọc trong một thân hàm — từ
+  // 21/08/2026 nhịp này bỏ lượt khi tab đang ẩn, nên `load` không còn nằm trần.
+  const khop = ma.match(
+    /setInterval\(\s*(?:load|\(\)\s*=>\s*\{[\s\S]*?\bload\(\)[\s\S]*?\})\s*,\s*(\d+)\s*\)/,
+  );
   assert.ok(khop, "không tìm thấy nhịp hỏi chỗ giữ");
   const nhip = Number(khop![1]);
   assert.ok(
@@ -33,6 +37,20 @@ test("nhịp hỏi chỗ giữ là 5 giây, không chậm hơn", () => {
     nhip >= 2000,
     `nhịp ${nhip}ms là quá dày: mỗi nhịp gọi GoTrue xác minh token rồi mới ` +
       "tới FastAPI, nên nó không rẻ như một truy vấn đơn lẻ.",
+  );
+});
+
+test("tab đang ẩn thì BỎ nhịp — nhịp dày chỉ đáng khi có người nhìn", () => {
+  // Nhịp 5 giây được chọn với giá đã đo cho người ĐANG nhìn lưới. Một tab ẩn
+  // chạy tiếp nhịp ấy là mỗi 5 giây chiếm một trong sáu kết nối HTTP/1.1 của
+  // trình duyệt cho một lưới không ai thấy — và cạn kết nối chính là cái "đơ,
+  // bấm nút không ăn" đo được ngày 21/08 (xem lib/nhip-lam-moi).
+  const khop = ma.match(/setInterval\(\s*\(\)\s*=>\s*\{([\s\S]*?)\},\s*\d+\s*\)/);
+  assert.ok(khop, "nhịp hỏi chỗ giữ phải có thân hàm để kiểm tra tầm nhìn");
+  assert.match(
+    khop![1],
+    /visibilityState\s*===\s*["']hidden["'][\s\S]*?return/,
+    "thân nhịp phải thoát sớm khi tab ẩn",
   );
 });
 

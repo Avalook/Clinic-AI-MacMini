@@ -55,24 +55,21 @@ test("chỉ RealtimeRefresher được mở EventSource", () => {
   );
 });
 
-test("dòng ấy được bầu chủ, không phải mỗi tab một dòng", () => {
+test("dòng chỉ sống khi tab đang hiện", () => {
   const ma = NGUON.find(
     (f) => f.duong === "app/(dashboard)/RealtimeRefresher.tsx",
   )!.ma;
   assert.match(
     ma,
-    /moDongSuKien\(\{/,
-    "phải đi qua moDongSuKien — nó là chỗ bầu MỘT tab giữ dòng cho cả trình duyệt",
+    /moDongTheoHien\(\{/,
+    "phải đi qua moDongTheoHien — nó là chỗ nhả kết nối lúc tab ẩn",
   );
-  assert.match(
+  assert.doesNotMatch(
     ma,
     /navigator\.locks/,
-    "bầu tab chủ bằng Web Locks: tab chủ đóng thì khoá tự nhả, không cần ai canh",
-  );
-  assert.match(
-    ma,
-    /new BroadcastChannel\(/,
-    "tab chủ phải phát lại tin, không thì các tab kia mù",
+    "KHÔNG bầu tab chủ bằng Web Locks: staging và prod đều là HTTP thường trên " +
+      "một địa chỉ IP, nên isSecureContext là false và navigator.locks không tồn " +
+      "tại — bản bầu-chủ sẽ âm thầm rơi về cách cũ đúng ở hai chỗ cần nó nhất",
   );
 });
 

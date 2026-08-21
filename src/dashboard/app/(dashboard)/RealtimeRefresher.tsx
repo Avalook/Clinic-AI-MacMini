@@ -35,7 +35,7 @@
 // vẫn phải cập nhật lạc quan tại chỗ bấm — xem router.refresh() trong
 // BookingHub.handleConfirmBooking — chứ không phải chờ tin quay về.
 //
-// MỘT DÒNG CHO CẢ TRÌNH DUYỆT, KHÔNG PHẢI MỘT DÒNG CHO MỖI TAB (21/08/2026).
+// TAB KHÔNG AI NHÌN THÌ KHÔNG GIỮ KẾT NỐI (21/08/2026).
 //
 // Đây là chỗ chữa cái "đơ 5–10 phút, bấm nút không ăn" mà người dùng báo. Mỗi
 // EventSource là một kết nối HTTP/1.1 không bao giờ đóng, mà trình duyệt chỉ
@@ -44,10 +44,14 @@
 // không tải nổi (treo 300 giây) trong lúc CPU máy chủ 0.03%. Phòng khám mở
 // khoảng mười tab.
 //
-// Nay chỉ MỘT tab giữ dòng (bầu bằng navigator.locks) rồi phát lại cho các tab
-// khác qua BroadcastChannel; và tab đang ẩn thì không dựng lại trang, chỉ ghi
-// nợ rồi trả lúc người ta quay lại nhìn. Cả hai luật nằm ở `lib/nhip-lam-moi`,
-// tách khỏi React để test được — file này chỉ còn nối chúng với API trình duyệt.
+// Nay dòng chỉ sống trong lúc tab đang hiện, và tab đang ẩn cũng không dựng lại
+// trang. Mười tab mở mà một tab đang nhìn thì hệ thống dùng MỘT kết nối, còn
+// năm chỗ trống. Luật nằm ở `lib/nhip-lam-moi`, tách khỏi React để test được —
+// file này chỉ còn nối chúng với API trình duyệt.
+//
+// Vì sao KHÔNG bầu một "tab chủ" giữ dòng chung: `navigator.locks` chỉ có trong
+// secure context, mà staging lẫn prod đều là HTTP thường trên một địa chỉ IP —
+// đo tại chỗ 21/08, `isSecureContext` là false. Chi tiết ở `lib/nhip-lam-moi`.
 //
 // Bật HTTP/2 (cần HTTPS + tên miền) sẽ xoá hẳn giới hạn 6 kết nối. Chuyện đó
 // KHÔNG làm phần này thừa: nó cắt việc thừa, không chỉ né một giới hạn.
@@ -57,11 +61,9 @@ import { useRouter } from "next/navigation";
 
 import { SU_KIEN_DOI_CA } from "./dung-doi-ca";
 import {
-  moDongSuKien,
+  moDongTheoHien,
   SU_KIEN_BANG,
   taoNhipLamMoi,
-  type Go,
-  type Kenh,
 } from "../../lib/nhip-lam-moi";
 
 // Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
@@ -69,14 +71,9 @@ import {
 // và 25s ở bản cũ là quá dày cho việc đó: nó tự nó là nguồn tải đều đặn lớn
 // nhất của hệ thống.
 //
-// Nhịp này cũng là lưới cho một bẫy mới: tab chủ có thể là một tab đang ẩn, và
-// trình duyệt được phép đóng băng tab nền. Tab người ta ĐANG NHÌN vẫn tự bắt
-// kịp trong một nhịp, kể cả khi tab chủ đã ngủ.
+// Nhịp này chỉ chạy ở tab ĐANG HIỆN: `nhan()` bỏ lượt khi tab ẩn, mà tab ẩn thì
+// cũng chẳng có dòng nào để mà rớt.
 const POLL_MS = 60_000;
-
-// Tên khoá bầu tab chủ. Web Locks đã tự giới hạn trong một origin nên không cần
-// gắn thêm gì; đổi tên này là chia đôi phòng bầu cử, tức lại hai dòng SSE.
-const KHOA_DONG = "clinicai-dong-su-kien";
 
 // Các bảng ĐANG được publish (20260803000004). Đổi ở đây thì phải đổi cả ở
 // migration — một danh sách lệch nhau là cách "realtime" chết trong im lặng.
@@ -149,12 +146,10 @@ export default function RealtimeRefresher({
     // thì không tính là một cái lọc.
     //
     // Bảng thì lọc ở đây, vì danh sách bảng là chuyện của từng màn: prop
-    // `tables` cho một trang thu hẹp lại chỉ những bảng nó vẽ. Tab chủ phát lại
-    // tin THÔ, chưa lọc — hai tab có thể đang xem hai màn khác nhau, nên lọc
-    // phải ở phía người nhận.
+    // `tables` cho một trang thu hẹp lại chỉ những bảng nó vẽ.
     const wanted = new Set(tables);
 
-    const goDong = moDongSuKien({
+    const goDong = moDongTheoHien({
       moDong: (nhanTin) => {
         const es = new EventSource("/api/events/stream");
         es.addEventListener("change", (ev) => {
@@ -174,8 +169,11 @@ export default function RealtimeRefresher({
         return () => es.close();
       },
 
-      xinLamChu: xinLamChu(),
-      moKenh: moKenh(),
+      dangAn,
+      ngheDoiHien: (fn) => {
+        document.addEventListener("visibilitychange", fn);
+        return () => document.removeEventListener("visibilitychange", fn);
+      },
 
       xuLy: (t) => {
         if (t === null || wanted.has(t)) nhip.nhan();
@@ -185,19 +183,22 @@ export default function RealtimeRefresher({
         // tự mở EventSource riêng — tức thêm một kết nối bị giữ vĩnh viễn.
         window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: t }));
       },
-    });
 
-    const quayLai = () => {
-      if (dangAn()) return;
-      nhip.hienLai();
-      chuongCa.hienLai();
-    };
-    document.addEventListener("visibilitychange", quayLai);
+      // QUÃNG ẨN LÀ QUÃNG MÙ. Dòng đã đóng suốt lúc tab ẩn, nên không cách nào
+      // biết đã bỏ lỡ gì — mở lại là làm mới một lượt, không hỏi.
+      //
+      // MỘT tay nghe `visibilitychange` duy nhất, do `moDongTheoHien` giữ. Hai
+      // tay nghe riêng sẽ phụ thuộc vào thứ tự đăng ký để không dựng trang hai
+      // lượt, và đó là loại phụ thuộc không ai thấy khi đọc.
+      khiMoLai: () => {
+        nhip.batKip();
+        chuongCa.batKip();
+      },
+    });
 
     const poll = setInterval(() => nhip.nhan(), POLL_MS);
 
     return () => {
-      document.removeEventListener("visibilitychange", quayLai);
       clearInterval(poll);
       goDong();
       nhip.dung();
@@ -206,60 +207,4 @@ export default function RealtimeRefresher({
   }, [router, tables]);
 
   return null;
-}
-
-/** Bầu tab chủ bằng Web Locks. `null` nếu trình duyệt không có. */
-function xinLamChu(): ((duoc: () => void) => Go) | null {
-  if (typeof navigator === "undefined" || !navigator.locks) return null;
-
-  return (duoc) => {
-    // HAI CÁCH RÚT LUI KHÁC NHAU, và lẫn chúng là để lại một dòng SSE ma.
-    // Đang XẾP HÀNG thì rút bằng cách huỷ tín hiệu. Đang GIỮ khoá thì tín hiệu
-    // vô tác dụng — Web Locks chỉ nhả khi lời hứa mình đang giữ kết thúc.
-    let nha: (() => void) | null = null;
-    let daRut = false;
-    const ac = new AbortController();
-
-    void navigator.locks
-      .request(KHOA_DONG, { signal: ac.signal }, () =>
-        new Promise<void>((xong) => {
-          // Giành được khoá đúng lúc tab đang đóng: nhả ngay, đừng mở dòng.
-          if (daRut) {
-            xong();
-            return;
-          }
-          nha = xong;
-          duoc();
-        }),
-      )
-      .catch(() => {
-        // AbortError khi tab đóng lúc còn xếp hàng — đúng như mong đợi, không
-        // phải lỗi.
-      });
-
-    return () => {
-      daRut = true;
-      if (nha) nha();
-      else ac.abort();
-    };
-  };
-}
-
-/** Kênh phát lại giữa các tab. `null` nếu trình duyệt không có. */
-function moKenh(): ((nhan: (t: string | null) => void) => Kenh) | null {
-  if (typeof BroadcastChannel === "undefined") return null;
-
-  return (nhan) => {
-    const bc = new BroadcastChannel(KHOA_DONG);
-    bc.addEventListener("message", (ev) => {
-      const t = (ev as MessageEvent<string | null>).data;
-      nhan(typeof t === "string" ? t : null);
-    });
-    return {
-      // BroadcastChannel KHÔNG gửi lại cho chính kênh vừa gửi, nên tab chủ
-      // không xử lý tin của mình hai lần.
-      gui: (t) => bc.postMessage(t),
-      dong: () => bc.close(),
-    };
-  };
 }

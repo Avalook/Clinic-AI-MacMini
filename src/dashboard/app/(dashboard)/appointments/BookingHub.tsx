@@ -943,7 +943,16 @@ export default function BookingHub({
     // xác minh token 2,1ms + FastAPI đọc bảng 2,7ms — xem scripts/tests/
     // do-nhip-hoi.py). Bốn CSKH cùng mở màn ở nhịp 5s = 0,8 lượt/giây = 0,4%
     // một lõi. Ngưỡng đáng xem lại: khoảng 30 người cùng mở màn này.
-    const iv = setInterval(load, 5000);
+    //
+    // TAB ẨN THÌ BỎ NHỊP (21/08/2026). Bản đồ chỗ giữ chỉ có nghĩa khi có người
+    // nhìn lưới. Một tab ẩn hỏi lại mỗi 5 giây là mỗi 5 giây chiếm một trong
+    // sáu kết nối HTTP/1.1 mà trình duyệt cho phép tới origin này — đúng thứ
+    // đang khan hiếm (xem `lib/nhip-lam-moi`). Quay lại thì đã có tay nghe
+    // `visibilitychange` ngay dưới đây hỏi lại tức thì, nên không mù chỗ nào.
+    const iv = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void load();
+    }, 5000);
 
     // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI.
     //

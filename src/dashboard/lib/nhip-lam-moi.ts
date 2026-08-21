@@ -24,29 +24,41 @@
 // Phòng khám mở khoảng mười tab. Nên hệ thống không "chậm" — nó ĐỨNG HẲN, và
 // mọi phép đo phía máy chủ đều báo khoẻ trong lúc ấy.
 //
-// HAI VIỆC FILE NÀY LÀM:
+// CÁCH CHỮA: TAB NÀO KHÔNG AI NHÌN THÌ KHÔNG GIỮ GÌ CẢ.
 //
-//   1. `moDongSuKien` — bầu MỘT tab chủ giữ dòng SSE, rồi phát lại cho các tab
-//      khác qua BroadcastChannel. Mười tab dùng một kết nối thay vì mười.
+// Một tab đang ẩn không vẽ gì, nên nó không cần tin tức, và nó cũng không cần
+// một kết nối. Đóng dòng lúc ẩn, mở lại lúc hiện, rồi làm mới một lượt để bắt
+// kịp. Mười tab mở mà một tab đang nhìn thì hệ thống dùng MỘT kết nối, còn năm
+// chỗ trống — thay vì mười tab nuốt sạch sáu chỗ.
 //
-//   2. `taoNhipLamMoi` — tab đang ẩn thì KHÔNG dựng lại trang, chỉ ghi "có bỏ
-//      lỡ" rồi làm mới lúc người ta quay lại nhìn. Broker phát theo clinic_id
-//      tới MỌI tab (change_broker.py), nên một cú bấm của một người sinh một
-//      lượt dựng trang trên từng tab; mà dựng /home tốn ~163ms CPU (đo qua
-//      cgroup: 60 lượt = 9.76s CPU của container dashboard) trên một tiến trình
-//      Node duy nhất. Tab không ai nhìn thì lượt dựng ấy vứt đi.
+// ĐÃ CÂN NHẮC VÀ BỎ: bầu một "tab chủ" giữ dòng chung rồi phát lại cho các tab
+// khác qua BroadcastChannel. Nó cũng ra một kết nối, nhưng cách bầu duy nhất
+// đáng tin là `navigator.locks`, mà Web Locks CHỈ CÓ trong secure context.
+// Kiểm trên chính staging 21/08: `window.isSecureContext` là false và
+// `typeof navigator.locks` là "undefined" — prod cũng vậy, cả hai đều là HTTP
+// thường trên một địa chỉ IP. Nghĩa là bản bầu-tab-chủ sẽ âm thầm rơi về cách
+// cũ ĐÚNG Ở HAI CHỖ CẦN NÓ NHẤT, và test vẫn xanh vì test có Web Locks giả.
+// Tự viết bầu cử bằng nhịp tim qua BroadcastChannel thì vướng chuyện trình
+// duyệt bóp nhịp hẹn giờ của tab nền xuống một lần mỗi phút — tức tab chủ đang
+// ẩn trông y như đã chết. Cách theo tầm nhìn không đụng gì tới hai thứ đó.
 //
 // KHÔNG THAY CHO HTTP/2. Bật HTTP/2 (cần HTTPS + tên miền) xoá hẳn giới hạn 6
 // kết nối. Chừng nào chưa có tên miền thì đây là bản thay thế rẻ, và kể cả khi
-// có HTTP/2 thì mục 2 vẫn đáng giữ — nó cắt việc thừa, không chỉ né giới hạn.
+// có HTTP/2 thì phần "tab ẩn không dựng lại trang" vẫn đáng giữ — nó cắt việc
+// thừa, không chỉ né một giới hạn. Dựng /home tốn ~163ms CPU (đo qua cgroup:
+// 60 lượt = 9.76s CPU của container dashboard) trên MỘT tiến trình Node, mà
+// broker phát theo clinic_id tới MỌI tab đang nghe (change_broker.py).
 
 /** Một cái hẹn giờ. Kiểu do bên gọi định đoạt để test tiêm đồng hồ giả vào. */
 export type Hen = unknown;
 
+/** Gỡ bỏ một thứ đã đăng ký: đóng dòng, thôi nghe, huỷ hẹn. */
+export type Go = () => void;
+
 export interface CongCuNhip {
   /** Việc làm khi tới nhịp. Thực tế là `router.refresh()`. */
   lamMoi: () => void;
-  /** Tab này có đang bị ẩn/che không. Thực tế là `() => document.hidden`. */
+  /** Tab này có đang bị ẩn/che không. */
   dangAn: () => boolean;
   hen: (fn: () => void, ms: number) => Hen;
   huy: (h: Hen) => void;
@@ -55,10 +67,10 @@ export interface CongCuNhip {
 }
 
 export interface Nhip {
-  /** Có thay đổi — xin một lượt làm mới. */
+  /** Có thay đổi — xin một lượt làm mới, gộp với những lượt xin liền kề. */
   nhan: () => void;
-  /** Người dùng quay lại nhìn tab này. */
-  hienLai: () => void;
+  /** Vừa nối lại sau một quãng mù — làm mới NGAY, không chờ gộp nhịp. */
+  batKip: () => void;
   /** Gỡ bỏ. */
   dung: () => void;
 }
@@ -78,117 +90,99 @@ export const TRE_MAC_DINH = 250;
 export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
   const tre = cong.tre ?? TRE_MAC_DINH;
   let hen: Hen | null = null;
-  let boLo = false;
 
-  function nhan() {
-    // Ẩn thì ghi nợ, không hẹn. Hẹn rồi bỏ qua lúc nổ cũng ra kết quả ấy, nhưng
-    // để dành một cái hẹn trong tab nền là để dành một thứ trình duyệt sẽ bóp
-    // nhịp rồi bắn dồn lúc quay lại.
-    if (cong.dangAn()) {
-      boLo = true;
-      return;
-    }
-    if (hen !== null) cong.huy(hen);
-    hen = cong.hen(() => {
+  function huyHen() {
+    if (hen !== null) {
+      cong.huy(hen);
       hen = null;
-      // Kiểm lại lúc nổ: 250ms vừa qua người ta có thể đã chuyển sang tab khác.
-      if (cong.dangAn()) {
-        boLo = true;
-        return;
-      }
-      boLo = false;
+    }
+  }
+
+  return {
+    nhan() {
+      // Ẩn thì bỏ hẳn lượt này, không ghi sổ và không hẹn: dòng sự kiện của tab
+      // ẩn đã đóng rồi (xem `moDongTheoHien`), nên lúc hiện lại `batKip` sẽ làm
+      // mới một lượt bất kể có bỏ lỡ gì hay không. Giữ thêm một cuốn sổ nợ ở
+      // đây là giữ một thứ luôn luôn đúng — tức vô dụng.
+      if (cong.dangAn()) return;
+      huyHen();
+      hen = cong.hen(() => {
+        hen = null;
+        // Kiểm lại lúc nổ: 250ms vừa qua người ta có thể đã chuyển tab.
+        if (cong.dangAn()) return;
+        cong.lamMoi();
+      }, tre);
+    },
+
+    batKip() {
+      if (cong.dangAn()) return;
+      // KHÔNG gộp nhịp ở đây. Người ta vừa nhìn vào màn hình; 250ms nữa mới
+      // thấy số đúng là 250ms nhìn vào số sai.
+      huyHen();
       cong.lamMoi();
-    }, tre);
-  }
+    },
 
-  function hienLai() {
-    // Không nợ thì thôi — quay lại một tab vừa mới làm mới xong mà dựng lại
-    // trang thì chính là thứ file này sinh ra để bỏ.
-    if (!boLo) return;
-    boLo = false;
-    if (hen !== null) {
-      cong.huy(hen);
-      hen = null;
-    }
-    // KHÔNG debounce ở đây. Người ta vừa nhìn vào màn hình; 250ms nữa mới thấy
-    // số đúng là 250ms nhìn vào số sai.
-    cong.lamMoi();
-  }
-
-  function dung() {
-    if (hen !== null) {
-      cong.huy(hen);
-      hen = null;
-    }
-  }
-
-  return { nhan, hienLai, dung };
-}
-
-/** Đóng một dòng / một kênh / một lượt xếp hàng. */
-export type Go = () => void;
-
-export interface Kenh {
-  gui: (t: string | null) => void;
-  dong: Go;
+    dung: huyHen,
+  };
 }
 
 export interface CongCuDong {
   /** Mở dòng SSE thật. Trả hàm đóng. */
   moDong: (nhanTin: (t: string | null) => void) => Go;
-  /**
-   * Xin làm tab chủ (thực tế là `navigator.locks`). Gọi `duoc()` khi giành
-   * được khoá; trả hàm để thôi làm chủ hoặc thôi xếp hàng.
-   *
-   * `null` = trình duyệt không có Web Locks.
-   */
-  xinLamChu: ((duoc: () => void) => Go) | null;
-  /** Kênh phát lại giữa các tab (BroadcastChannel). `null` = không có. */
-  moKenh: ((nhan: (t: string | null) => void) => Kenh) | null;
-  /** Việc phải làm với mỗi tin, ở CHÍNH tab này. */
+  /** Tab này có đang bị ẩn/che không. */
+  dangAn: () => boolean;
+  /** Đăng ký nghe đổi tầm nhìn. Trả hàm thôi nghe. */
+  ngheDoiHien: (fn: () => void) => Go;
+  /** Việc phải làm với mỗi tin. */
   xuLy: (t: string | null) => void;
+  /** Gọi sau khi dòng được mở LẠI — quãng vừa rồi mù, phải bắt kịp. */
+  khiMoLai: () => void;
 }
 
 /**
- * Một dòng SSE cho cả trình duyệt, thay vì một dòng cho mỗi tab.
+ * Giữ dòng sự kiện CHỈ trong lúc tab đang hiện.
  *
- * Tab nào giành được khoá thì mở dòng và phát lại mọi tin qua BroadcastChannel;
- * các tab còn lại chỉ nghe. Tab chủ đóng lại thì khoá tự nhả và một tab đang
- * xếp hàng lên thay — không cần ai canh, đó là việc của Web Locks.
+ * Một kết nối cho mỗi tab người ta ĐANG NHÌN, thay vì một kết nối cho mỗi tab
+ * đang mở. Mười tab trong một cửa sổ là một kết nối, còn năm chỗ trống.
  *
- * THIẾU MỘT TRONG HAI THÌ QUAY VỀ CÁCH CŨ. Không có Web Locks hoặc không có
- * BroadcastChannel thì mỗi tab tự mở dòng của mình, y như trước. Chậm hơn,
- * nhưng chạy — còn hơn một tab ngồi chờ tin không bao giờ tới.
+ * KHÔNG ĐỆM MỘT QUÃNG ÂN HẠN trước khi đóng. Đệm để tránh nối lại khi người ta
+ * lướt nhanh qua vài tab nghe hợp lý, nhưng nó đúng là kiểu tích luỹ đã gây ra
+ * cả vấn đề này: lướt qua sáu tab trong quãng ân hạn là sáu dòng cùng mở, tức
+ * trình duyệt đứng hình lần nữa. Nối lại thì rẻ (một lượt gọi vài chục ms) và
+ * cái giá của nó có trần; tích luỹ kết nối thì không.
  *
- * BẪY ĐÃ BIẾT: tab chủ có thể là một tab đang ẩn, và trình duyệt được phép
- * đóng băng tab nền. Lưới an toàn là nhịp poll dự phòng của từng tab ĐANG HIỆN
- * (xem `taoNhipLamMoi`) — tab người ta đang nhìn vẫn tự bắt kịp trong một nhịp
- * poll, kể cả khi tab chủ đã ngủ.
+ * BỎ SÓT LÀ CHẮC CHẮN, KHÔNG PHẢI RỦI RO. Lúc đóng thì tab không biết gì về
+ * những thay đổi xảy ra sau đó — nên mở lại là phải làm mới một lượt, không cần
+ * hỏi "có bỏ lỡ gì không". Đó là việc của `khiMoLai`.
  */
-export function moDongSuKien(cong: CongCuDong): Go {
-  const { xinLamChu, moKenh } = cong;
+export function moDongTheoHien(cong: CongCuDong): Go {
+  let dongDong: Go | null = null;
+  let daTungMo = false;
 
-  if (!xinLamChu || !moKenh) {
-    return cong.moDong(cong.xuLy);
+  function mo() {
+    if (dongDong) return;
+    dongDong = cong.moDong(cong.xuLy);
+    // Lần mở ĐẦU không phải "mở lại": trang vừa dựng xong, dữ liệu đang mới.
+    if (daTungMo) cong.khiMoLai();
+    daTungMo = true;
   }
 
-  const kenh = moKenh(cong.xuLy);
-  let dongDong: Go | null = null;
+  function dong() {
+    if (!dongDong) return;
+    dongDong();
+    dongDong = null;
+  }
 
-  const thoiXepHang = xinLamChu(() => {
-    dongDong = cong.moDong((t) => {
-      // Tab chủ vừa xử lý cho mình, vừa phát lại cho các tab khác. Hai việc
-      // tách rời nhau: tab chủ đang ẩn thì `xuLy` của nó sẽ bỏ lượt dựng trang,
-      // nhưng tin vẫn phải đi tiếp — các tab kia có thể đang hiện.
-      cong.xuLy(t);
-      kenh.gui(t);
-    });
+  if (!cong.dangAn()) mo();
+
+  const thoiNghe = cong.ngheDoiHien(() => {
+    if (cong.dangAn()) dong();
+    else mo();
   });
 
   return () => {
-    if (dongDong) dongDong();
-    thoiXepHang();
-    kenh.dong();
+    thoiNghe();
+    dong();
   };
 }
 
@@ -202,8 +196,8 @@ export function moDongSuKien(cong: CongCuDong): Go {
  * giá không thấy được lúc viết là một tab ở màn ấy nuốt HAI trong sáu kết nối
  * của trình duyệt thay vì một, tức phòng khám chạm trần chỉ sau ba tab.
  *
- * Nay dòng SSE có đúng một chỗ mở (xem `moDongSuKien`), còn đây là cách các màn
- * lẻ nghe ké mà không phải mở thêm kết nối nào. Lý do ban đầu vẫn được giữ
- * nguyên: người nghe tự quyết làm gì với tin, không ai bị ép dựng lại trang.
+ * Nay dòng SSE có đúng một chỗ mở, còn đây là cách các màn lẻ nghe ké mà không
+ * phải mở thêm kết nối nào. Lý do ban đầu vẫn được giữ nguyên: người nghe tự
+ * quyết làm gì với tin, không ai bị ép dựng lại trang.
  */
 export const SU_KIEN_BANG = "clinicai:bang-doi";
