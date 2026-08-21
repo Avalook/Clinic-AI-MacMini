@@ -25,6 +25,7 @@ from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
 )
+from clinicai.services.man_khach_hang_service import ManKhachHangService
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
     MAX_BYTES_THEO_LOAI,
@@ -47,8 +48,56 @@ _RECALL_GUARD = require_role(
     ClinicRole.TRUONG_CA,
 )
 
+# Bảy vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
+# Hai danh sách này phải khớp nhau: lệch là một vai thấy được màn nhưng màn
+# trống dữ liệu (API chặn), hoặc ngược lại. Có test canh ở
+# test_man_khach_hang.py; đổi bên nào thì đổi cả hai + test.
+_MAN_KHACH_HANG_GUARD = require_role(
+    ClinicRole.CSKH,
+    ClinicRole.RECEPTION,
+    ClinicRole.MANAGEMENT,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_THUOC,
+    ClinicRole.CASHIER_DV,
+)
+
 _UPLOAD_SNIFF_BYTES = 512
 _UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+@router.get("/cskh/man-khach-hang")
+async def man_khach_hang(
+    ids: str,
+    identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, list[dict[str, object]]]:
+    """Mười khối dữ liệu làm giàu của màn Quản lý khách hàng, MỘT vòng.
+
+    Lát 2 lộ trình chịu tải (22/08/2026): thay mười vòng PostgREST — mỗi vòng
+    một giao dịch riêng — bằng một lời gọi; mười câu SQL chạy tuần tự trên MỘT
+    kết nối. `ids` là danh sách khách ĐANG HIỂN THỊ (đã phân trang, tối đa ~51
+    gồm cả khách được chuông thông báo trỏ thẳng), phẩy ngăn cách.
+
+    KHÔNG `response_model`: nó lặng lẽ bỏ khoá lạ — đã trả giá một lần với
+    `call_order` (staging 20/08, mọi dòng hiện "thứ None" mà test vẫn xanh).
+    """
+    danh_sach = [x for x in (m.strip() for m in ids.split(",")) if x]
+    # Trần 60: một trang 50 + khách được trỏ thẳng + dư địa. Gửi cả nghìn id
+    # là dấu hiệu caller quên phân trang — chặn sớm cho lỗi nổi lên thay vì
+    # âm thầm quét bảng to.
+    if len(danh_sach) > 60:
+        raise ValidationError(
+            "Quá 60 khách một lượt — màn đã phân trang, gửi đúng trang đang xem."
+        )
+    for x in danh_sach:
+        try:
+            UUID(x)
+        except ValueError as loi:
+            raise ValidationError(f"Id khách không hợp lệ: {x!r}") from loi
+    return await ManKhachHangService(pool).goi_du_lieu(
+        clinic_id=identity.clinic_id, ids=danh_sach
+    )
 
 
 async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:

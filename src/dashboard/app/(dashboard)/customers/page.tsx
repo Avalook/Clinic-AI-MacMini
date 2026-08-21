@@ -271,45 +271,44 @@ export default async function CustomersPage({
   const doctors: Opt[] = docRes;
 
   const shownIds = rows.map((r) => r.clinic_patient_id);
-  // canManage: nạp thêm field để ĐIỀN SẴN modal đổi lịch (dịch vụ/bác sĩ/
-  // cơ sở/kênh). Vai khác chỉ cần tóm tắt (nhẹ hơn).
+  // Trường của lịch hẹn nay do BACKEND trả (đủ bộ cho MỌI vai — phần trim
+  // theo vai trước đây chỉ để nhẹ payload, không phải quyền: RLS/route mới là
+  // chốt, và `id` thì vai nào cũng cần từ 10/08/2026). Xem man_khach_hang_service.
+  // ── MỘT VÒNG THAY CHO MƯỜI (Lát 2, 22/08/2026) ────────────────────────
   //
-  // NHƯNG `id` THÌ MỌI VAI ĐỀU CẦN, và trước 10/08/2026 nó chỉ có ở nhánh
-  // canManage. Bốn vai vào được màn này mà không có quyền đổi lịch — Lễ tân và
-  // ba vai Thu ngân (`roles.ts`: "/customers" mở cho 7 vai, `canManageAppt`
-  // chỉ 3) — do đó KHÔNG có id lịch nào, nên với họ:
-  //   · sổ chăm sóc không gắn được vào lượt nào,
-  //   · nút "Tái khám" mờ vĩnh viễn kể cả khi khách vừa khám xong,
-  //   · và mọi thao tác thuộc `CAN_LICH_HEN` trả lỗi "phải gắn với một lịch hẹn".
+  // Mười khối làm giàu dưới đây từng là mười vòng PostgREST rời — mỗi vòng một
+  // giao dịch BEGIN/set_config/COMMIT riêng; đo một lần mở trang: 73 câu SQL
+  // thì 44 là nghi lễ. Nay FastAPI trả cả mười khối trong MỘT lời gọi
+  // (`/cskh/man-khach-hang`), chạy tuần tự trên một kết nối.
   //
-  // `id` không phải dữ liệu nhạy cảm và không phải quyền: RLS mới là chốt, chứ
-  // không phải danh sách cột. Giấu nó chỉ làm màn hình nói dối về khách.
-  // LÝ DO HUỶ PHẢI ĐI CÙNG GIỜ HUỶ. Trước 10/08/2026 câu này lấy `cancelled_at`
-  // mà bỏ `ly_do_huy_ma` + `cancellation_reason` — hai cột `booking_service`
-  // vẫn ghi đầy đủ mỗi lần huỷ. Nên màn nói được "huỷ lúc 14:20" và không nói
-  // được vì sao, trong khi màn /tasks cùng dữ liệu ấy thì hiện ra bình thường.
-  // Lưu mà không hiện thì người trực gọi lại hỏi đúng câu khách vừa trả lời.
-  //
-  // Sửa CẢ HAI nhánh: nhánh không-canManage là màn của Thu ngân / Điều dưỡng,
-  // và một màn nói ít hơn cũng là một màn nói sai.
-  const apptSelectAll = canManage
-    ? `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
-       ly_do_huy_ma, cancellation_reason,
-       service_type_id, doctor_id, bac_si_da_go_id, location_id, booking_channel, lich_truoc_id,
-       service:service_type!service_type_id ( name ),
-       doctor:staff!doctor_id ( full_name )`
-    : `clinic_patient_id, id, slot_start, status, created_at, cancelled_at,
-       ly_do_huy_ma, cancellation_reason, service_type_id, bac_si_da_go_id, lich_truoc_id,
-       service:service_type!service_type_id ( name ),
-       doctor:staff!doctor_id ( full_name )`;
-  const apptsPromise = shownIds.length
-    ? supabase
-        .from("appointment")
-        .select(apptSelectAll)
-        .in("clinic_patient_id", shownIds)
-        .order("slot_start", { ascending: true })
-        .limit(3000)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  // CÁC "PROMISE" BÊN DƯỚI CHỈ LÀ PHÁI SINH của cùng một lời gọi — giữ nguyên
+  // để mọi chỗ `await ...Promise` phía sau không phải đổi một dòng nào. Hình
+  // dạng từng dòng (kể cả lồng `service:{name}`, `staff:{full_name}`) được
+  // backend bắt chước đúng PostgREST; test hình ở test_man_khach_hang.py.
+  type GoiManKhachHang = {
+    appts: unknown[];
+    ca_truc: unknown[];
+    trang_thai: unknown[];
+    viec_mo: unknown[];
+    tep: unknown[];
+    phan_hoi: unknown[];
+    hen_goi_lai: unknown[];
+    tuong_tac: unknown[];
+    cskh: unknown[];
+    visits: unknown[];
+  };
+  const goiPromise: Promise<GoiManKhachHang | null> = shownIds.length
+    ? fetchFromBackend<GoiManKhachHang>(
+        `/api/v1/cskh/man-khach-hang?ids=${shownIds.join(",")}`,
+      )
+    : Promise.resolve({
+        appts: [], ca_truc: [], trang_thai: [], viec_mo: [], tep: [],
+        phan_hoi: [], hen_goi_lai: [], tuong_tac: [], cskh: [], visits: [],
+      } satisfies GoiManKhachHang);
+  const khoi = (ten: keyof GoiManKhachHang) =>
+    goiPromise.then((g) => ({ data: g?.[ten] ?? [], error: null }));
+
+  const apptsPromise = khoi("appts");
   // CA TRỰC CỦA BÁC SĨ — để biết lịch nào vừa MẤT bác sĩ.
   //
   // TÌNH HUỐNG SỐ 9 trong bảng "tình huống phát sinh" của khách: *"Lịch bác sĩ
@@ -331,29 +330,14 @@ export default async function CustomersPage({
   //
   // Câu hỏi thật không phải "hôm ấy có mặt ở phòng khám không" mà "hôm ấy có
   // ngồi bàn khám không" — lịch hẹn của khách đặt vào bàn khám.
-  const caTrucPromise = shownIds.length
-    ? supabase
-        .from("work_roster")
-        .select("staff_id, work_date")
-        .eq("station", "LICH_KHAM")
-        .not("staff_id", "is", null)
-        .gte("work_date", new Date(nowMs() - 86_400_000).toISOString().slice(0, 10))
-        .limit(5000)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const caTrucPromise = khoi("ca_truc");
 
   // TRẠNG THÁI — suy lại từ dữ liệu mỗi lần đọc (view 20260809000005).
   //
   // Trước đây cột này đọc `cskh_action.status`, rơi về `appointment.status`,
   // rồi rơi tiếp về chuỗi cứng "Khách mới" — nên gần như mọi khách hiện "Đã
   // đặt lịch", một câu đúng mà vô dụng: nó không nói CSKH phải làm gì tiếp.
-  const trangThaiPromise = shownIds.length
-    ? supabase
-        .from("v_trang_thai_cskh")
-        .select(
-          "clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han, so_viec_mo, co_viec_qua_han, appointment_id, da_xac_nhan",
-        )
-        .in("clinic_patient_id", shownIds)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const trangThaiPromise = khoi("trang_thai");
 
   // MỌI VIỆC ĐANG MỞ, KHÔNG CHỈ VIỆC THẮNG (view 20260810000008).
   //
@@ -366,15 +350,7 @@ export default async function CustomersPage({
   // vẫn sáng "Đã check-in — đang ở đây" và cột phải mời "Check-in cho khách" —
   // cả hai đang nói về một lượt khác. Việc đúng của lượt ấy (`CHO_XAC_NHAN`)
   // bị `DISTINCT ON` ném đi trước khi tới được màn hình.
-  const viecMoPromise = shownIds.length
-    ? supabase
-        .from("v_viec_cskh")
-        .select(
-          "clinic_patient_id, trang_thai, nhan, uu_tien, han_xu_ly, qua_han, appointment_id",
-        )
-        .in("clinic_patient_id", shownIds)
-        .limit(3000)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const viecMoPromise = khoi("viec_mo");
 
   // NHẮC TÁI KHÁM — gộp về đây, không còn là một màn rời.
   //
@@ -401,28 +377,10 @@ export default async function CustomersPage({
   // một lượt sang backend cho một thứ không còn hiện ra ở đâu.
 
   // TỆP KẾT QUẢ — ảnh/video siêu âm, phiếu xét nghiệm CSKH đã tải lên.
-  const tepPromise = shownIds.length
-    ? supabase
-        .from("tep_ket_qua")
-        .select(
-          "id, clinic_patient_id, appointment_id, ten_hien_thi, loai_tep, mime, so_byte, tai_len_luc, gui_luc, gui_kenh, staff:tai_len_boi_staff_id ( full_name )",
-        )
-        .in("clinic_patient_id", shownIds)
-        .order("tai_len_luc", { ascending: false })
-        .limit(300)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const tepPromise = khoi("tep");
 
   // PHẢN HỒI / KHIẾU NẠI — vòng đời xử lý hiện ngay trong vùng làm việc.
-  const phanHoiPromise = shownIds.length
-    ? supabase
-        .from("phan_hoi_khach")
-        .select(
-          "id, clinic_patient_id, loai, noi_dung, trang_thai, huong_xu_ly, created_at, staff:nguoi_tiep_nhan_staff_id ( full_name )",
-        )
-        .in("clinic_patient_id", shownIds)
-        .order("created_at", { ascending: false })
-        .limit(300)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const phanHoiPromise = khoi("phan_hoi");
 
   // VIỆC CSKH TỰ HẸN CHO MÌNH — "gọi lại ngày…".
   //
@@ -433,58 +391,15 @@ export default async function CustomersPage({
   // node nào nói "hẹn gọi lại 23:30 ngày 10/08 vì việc gì", và cũng không có
   // nút nào đóng được việc, nên `dong_luc` vĩnh viễn NULL và khách kẹt ở trạng
   // thái ấy mãi mãi.
-  const henGoiLaiPromise = shownIds.length
-    ? supabase
-        .from("hen_goi_lai")
-        .select(
-          "id, clinic_patient_id, ngay_goi, gio_goi, ly_do, created_at, staff:tao_boi_staff_id ( full_name )",
-        )
-        .in("clinic_patient_id", shownIds)
-        .is("dong_luc", null)
-        .order("ngay_goi", { ascending: true })
-        .limit(300)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const henGoiLaiPromise = khoi("hen_goi_lai");
 
   // SỔ TƯƠNG TÁC — nguồn thật của cột "Tương tác gần nhất".
   //
   // `cskh_action` bên dưới là hàng nhập khẩu từ Notion và có 0 dòng trên bản
   // thật; hai câu INSERT duy nhất ghi vào nó còn không có cột `step` lẫn
   // `deadline_at`. Bảng mới ghi từ chính màn này (20260809000003).
-  const tuongTacPromise = shownIds.length
-    ? supabase
-        .from("tuong_tac_cskh")
-        .select(
-          // `appointment_id` để gom được từng lượt khám thành một chuỗi —
-          // cột đã có từ 20260809000003 nhưng chưa từng được mang xuống UI.
-          // GỌI TÊN CỘT KHOÁ NGOẠI, đừng để PostgREST tự đoán.
-          //
-          // `staff(full_name)` chạy được suốt vì `tuong_tac_cskh` chỉ có MỘT
-          // khoá ngoại sang `staff`. Migration 20260810000009 thêm cái thứ hai
-          // (`huy_boi_staff_id`, cho hoàn tác) và PostgREST lập tức từ chối cả
-          // câu: *"Could not embed because more than one relationship was found
-          // for 'tuong_tac_cskh' and 'staff'"* — không phải một cột null, mà là
-          // 400 cho toàn bộ truy vấn, tức TRẮNG CẢ MÀN Quản lý khách hàng.
-          //
-          // Thêm một khoá ngoại thứ hai sang cùng một bảng là đủ để làm hỏng
-          // một câu select viết đúng từ trước. Ba chỗ khác trong màn này đã gọi
-          // tên cột sẵn (`staff:tao_boi_staff_id`, `staff:nguoi_tiep_nhan_staff_id`,
-          // `staff:tai_len_boi_staff_id`) — chỗ này là chỗ duy nhất còn đoán.
-          "id, clinic_patient_id, appointment_id, xay_ra_luc, loai, kenh, ket_qua, khach_xac_nhan, noi_dung, trang_thai_ma, huy_luc, staff:nhan_vien_staff_id ( full_name )",
-        )
-        .in("clinic_patient_id", shownIds)
-        .order("xay_ra_luc", { ascending: false })
-        .limit(1000)
-    : Promise.resolve({ data: [] as unknown[], error: null });
-  const cskhPromise = shownIds.length
-    ? supabase
-        .from("cskh_action")
-        .select(
-          "id, clinic_patient_id, category, step, status, description, deadline_at, source_created_at, created_by_text, last_edited_by_text",
-        )
-        .in("clinic_patient_id", shownIds)
-        .order("source_created_at", { ascending: false })
-        .limit(1000)
-    : Promise.resolve({ data: [] as unknown[], error: null });
+  const tuongTacPromise = khoi("tuong_tac");
+  const cskhPromise = khoi("cskh");
 
 /** Ngày theo giờ PHÒNG KHÁM, dạng yyyy-mm-dd.
  *
@@ -997,11 +912,7 @@ type LichHenRaw = {
   // tương lai BIẾN MẤT khỏi lịch sử — đúng những lượt CSKH cần nhìn lại nhất.
   const lichSuKhamByPatient: Record<string, ChuoiKham[]> = {};
   if (rows.length) {
-    const { data: visitRows } = await supabase
-      .from("visit")
-      .select("appointment_id, checked_in_at, closed_at, finalized_at")
-      .in("clinic_patient_id", shownIds)
-      .limit(3000);
+    const visitRows = (await goiPromise)?.visits ?? [];
     const visitTheoLich: Record<
       string,
       { batDau: string | null; ketThuc: string | null }
@@ -1169,6 +1080,15 @@ type LichHenRaw = {
   // hẹn" ở danh sách mà CSKH KHÔNG có chỗ nào đóng chúng — đường ghi
   // (`/api/recall-jobs/{id}/ket-qua`) vẫn mở cho vai CSKH suốt thời gian ấy,
   // chỉ là không nút nào gọi tới.
+  // Backend im thì MƯỜI khối làm giàu cùng rỗng — phải nói ra, vì một danh
+  // sách khách "sạch bong" không lịch hẹn, không sổ chăm sóc trông y hệt dữ
+  // liệu thật của một phòng khám mới. Trước Lát 2, mỗi khối tự mang lỗi riêng;
+  // gộp một vòng thì tín hiệu lỗi cũng phải gộp theo.
+  const goiLoi =
+    shownIds.length && (await goiPromise) === null
+      ? { message: "Không đọc được dữ liệu chăm sóc — backend không trả lời." }
+      : null;
+
   const taiKhamByPatient: Record<string, MocTaiKham[]> = {};
   const recall = await recallPromise;
   for (const r of [...(recall?.luot1 ?? []), ...(recall?.luot2 ?? [])]) {
@@ -1180,9 +1100,10 @@ type LichHenRaw = {
       {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader) — nó đã hiện đúng
           "Quản lý khách hàng" kèm chính câu mô tả này. */}
 
-      {error || cskhError || tuongTacError || trangThaiError ? (
+      {error || goiLoi || cskhError || tuongTacError || trangThaiError ? (
         <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-          {(error ?? cskhError ?? tuongTacError ?? trangThaiError)?.message}
+          {(error ?? goiLoi ?? cskhError ?? tuongTacError ?? trangThaiError)
+            ?.message}
         </div>
       ) : (
         <CustomersView

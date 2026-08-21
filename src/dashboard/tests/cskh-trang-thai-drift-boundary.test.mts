@@ -253,7 +253,17 @@ test("tệp kết quả được gắn và lọc theo đúng appointment", () =>
   const tep = read("../app/(dashboard)/customers/TepKetQua.tsx");
 
   assert.match(tep, /appointment_id:\s*string\s*\|\s*null/);
-  assert.match(page, /id, clinic_patient_id, appointment_id, ten_hien_thi/);
+  // 22/08/2026 (Lát 2): câu SELECT tệp dọn về backend (một vòng gói thay mười
+  // vòng PostgREST). Tiền đề "tệp phải mang appointment_id để gắn đúng lượt"
+  // không đổi — chỉ đổi nhà sang man_khach_hang_service.py.
+  const goiService = read(
+    "../../clinicai/services/man_khach_hang_service.py",
+  );
+  assert.match(
+    goiService,
+    /t\.id, t\.clinic_patient_id, t\.appointment_id,\s*\n\s*t\.ten_hien_thi/,
+    "truy vấn tệp (backend) phải chọn appointment_id và ten_hien_thi",
+  );
   assert.match(page, /appointment_id:\s*r\.appointment_id/);
   assert.match(
     customersView,

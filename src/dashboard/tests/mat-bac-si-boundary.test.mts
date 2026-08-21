@@ -114,8 +114,30 @@ test("cờ mất bác sĩ tính THEO TỪNG LƯỢT, không chỉ cho lịch đ�
 test("tập ca trực dùng CHUNG cho cả hai chỗ, không hỏi database hai lần", () => {
   // Hai phép tính cùng một câu hỏi mà đọc hai lần thì có lúc chúng đọc hai
   // trạng thái khác nhau — và khi ấy lịch đại diện nói một đằng, lượt nói một nẻo.
-  const soLanTruyVan = (page.match(/from\("work_roster"\)/g) ?? []).length;
-  assert.equal(soLanTruyVan, 1, "chỉ được hỏi work_roster một lần cho cả màn");
+  //
+  // 22/08/2026 (Lát 2): nguồn ca trực dọn về gói man-khach-hang phía backend.
+  // Luật "một câu hỏi, một lần đọc" giữ nguyên nhưng đổi nhà: page không còn
+  // được tự hỏi work_roster (số lần = 0), và trong service câu FROM work_roster
+  // phải xuất hiện ĐÚNG MỘT lần — hai chỗ tiêu thụ cùng đọc khối ca_truc ấy.
+  const soLanTrongPage = (page.match(/from\("work_roster"\)/g) ?? []).length;
+  assert.equal(
+    soLanTrongPage,
+    0,
+    "page không được tự hỏi work_roster — ca trực đi qua gói man-khach-hang",
+  );
+  const goiService = readFileSync(
+    new URL(
+      "../../clinicai/services/man_khach_hang_service.py",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const soLanTrongGoi = (goiService.match(/FROM work_roster/g) ?? []).length;
+  assert.equal(
+    soLanTrongGoi,
+    1,
+    "backend chỉ được hỏi work_roster một lần cho cả màn",
+  );
 });
 
 
