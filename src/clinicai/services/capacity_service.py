@@ -220,43 +220,58 @@ class CapacityService:
                                s.slot_minutes) AS minute_of_day,
                            s.slot_minutes
                       FROM hours h CROSS JOIN step s
+                ),
+                -- Ghế đếm bằng slot_seats_ban — CÙNG luật mà trigger dựa
+                -- vào (slot_seats_used nay là vỏ mỏng trên chính hàm này, xem
+                -- 20260821000002). Trước đây mỗi khung gọi slot_seats_used
+                -- HAI lần; hàm SECURITY DEFINER không inline được nên một
+                -- lượt vẽ lưới là ~120 lượt quét riêng — đo 21/08/2026:
+                -- 283ms/lượt, 25 người xem cùng lúc thì database ăn 349% CPU.
+                -- Nay luật chạy MỘT lần cho cả ngày, phần chia khung còn lại
+                -- là số học.
+                ban AS (
+                    SELECT b.loai,
+                           b.ts_goc,
+                           (EXTRACT(hour FROM b.ts
+                                    AT TIME ZONE 'Asia/Ho_Chi_Minh')::int * 60
+                          + EXTRACT(minute FROM b.ts
+                                    AT TIME ZONE 'Asia/Ho_Chi_Minh')::int)
+                               AS phut
+                      FROM hours h
+                      CROSS JOIN LATERAL slot_seats_ban(
+                          $1::uuid, $3::uuid,
+                          ($2::date + make_interval(mins => h.open_minute))
+                              AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                          ($2::date + make_interval(mins => h.close_minute))
+                              AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                          NULL, $4::uuid) b
                 )
                 SELECT sl.minute_of_day,
                        sl.slot_minutes,
                        cap.regular_cap,
                        cap.walkin_cap,
-                       coalesce(used.regular_used, 0) AS regular_used,
-                       coalesce(used.walkin_used, 0)  AS walkin_used
+                       count(*) FILTER (WHERE b.loai = 'DAT_HEN')::int
+                           AS regular_used,
+                       -- "Khung sau giờ hẹn" cho khách đến muộn: nguyên văn
+                       -- phép so của slot_seats_used, chỉ đổi chỗ đứng.
+                       count(*) FILTER (
+                           WHERE b.loai = 'VANG_LAI'
+                              OR (b.loai = 'VANG_LAI_TRE'
+                                  AND b.ts_goc <
+                                      ($2::date + make_interval(
+                                           mins => sl.minute_of_day))
+                                          AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                       )::int AS walkin_used
                   FROM slots sl
                   CROSS JOIN LATERAL resolve_effective_cap(
                       $1::uuid, $3::uuid,
                       ($2::date + make_interval(mins => sl.minute_of_day))
                           AT TIME ZONE 'Asia/Ho_Chi_Minh') cap
-                  -- Phép đếm nằm ở `slot_seats_used()` — CÙNG hàm mà trigger
-                  -- gọi khi nó nhận hay từ chối. Trước đây chỗ này tự đếm bằng
-                  -- SQL riêng, và luật vừa đổi: một ghế vãng lai nay có thể bị
-                  -- một khách có hẹn ĐẾN MUỘN chiếm (20260807000001). Hai bản
-                  -- chép tay của một luật thì bản nào cũng sẽ lỡ mất lần sửa
-                  -- tiếp theo.
-                  LEFT JOIN LATERAL (
-                      SELECT
-                        slot_seats_used(
-                            $1::uuid, $3::uuid,
-                            ($2::date + make_interval(mins => sl.minute_of_day))
-                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
-                            ($2::date + make_interval(
-                                mins => sl.minute_of_day + sl.slot_minutes))
-                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
-                            FALSE, NULL, $4::uuid) AS regular_used,
-                        slot_seats_used(
-                            $1::uuid, $3::uuid,
-                            ($2::date + make_interval(mins => sl.minute_of_day))
-                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
-                            ($2::date + make_interval(
-                                mins => sl.minute_of_day + sl.slot_minutes))
-                                AT TIME ZONE 'Asia/Ho_Chi_Minh',
-                            TRUE, NULL, $4::uuid) AS walkin_used
-                  ) used ON TRUE
+                  LEFT JOIN ban b
+                    ON b.phut >= sl.minute_of_day
+                   AND b.phut <  sl.minute_of_day + sl.slot_minutes
+                 GROUP BY sl.minute_of_day, sl.slot_minutes,
+                          cap.regular_cap, cap.walkin_cap
                  ORDER BY sl.minute_of_day
                 """,
                 clinic_id,
