@@ -244,3 +244,41 @@ async def test_moi_loi_hien_cung_mot_lan() -> None:
     cau = str(e.value)
     assert "Sáng" in cau and "Tối" in cau, cau
     assert "\n" in cau, "nhiều lỗi thì ngăn bằng xuống dòng"
+
+
+@pytest.mark.asyncio
+async def test_ghi_ra_dang_nao_thi_doc_lai_dung_dang_ay() -> None:
+    """Vòng tròn ghi → đọc. Đây là chỗ lỗi hay nấp nhất.
+
+    Điểm cuối GHI dạng ``{"SANG": {"bat_dau": "08:00", …}}``; `ca_tu_settings`
+    ĐỌC dạng đó. Hai bên lệch nhau một chữ — `bat_dau` với `batDau`, hay phút
+    thay vì "HH:MM" — thì không có gì đỏ: bản đọc chỉ lặng lẽ lùi về giờ MẶC
+    ĐỊNH, và phòng khám vừa khai giờ riêng vẫn chạy giờ của Dr4Women.
+    """
+    from clinicai.core.shifts import CA_MAC_DINH, ca_tu_settings
+
+    conn = _Conn(json.dumps({"ca_lam_viec": CA_DANG_DUNG}))
+    rieng = {
+        "SANG": {"bat_dau": "09:00", "ket_thuc": "12:30"},
+        "CHIEU": {"bat_dau": "13:30", "ket_thuc": "17:00"},
+        "TOI": {"bat_dau": "18:00", "ket_thuc": "21:00"},
+    }
+    await sua_ca_lam_viec(
+        body=CaLamViecRequest(
+            ca_lam_viec={m: KhungCaRequest(**k) for m, k in rieng.items()}
+        ),
+        identity=_ai(),
+        pool=_Pool(conn),
+    )
+    _sql, args = conn.da_ghi[0]
+
+    doc_lai = ca_tu_settings(json.dumps({"ca_lam_viec": json.loads(args[1])}))
+    assert doc_lai == {
+        "SANG": (540, 750),
+        "CHIEU": (810, 1020),
+        "TOI": (1080, 1260),
+    }, doc_lai
+    assert doc_lai != CA_MAC_DINH, (
+        "đọc ra ĐÚNG giờ mặc định nghĩa là bản đọc đã bỏ qua thứ vừa ghi — "
+        "phép đo này không phân biệt được nếu giờ khai trùng giờ mặc định"
+    )
