@@ -24,7 +24,7 @@ import { isAdminRole } from "../../../lib/roles";
 // lịch dùng — nên cùng một họ lỗi mọc lại lần thứ ba ở chỗ khác. Hai hàm cùng tên
 // với hành vi khác nhau là bệnh; ba lần 500 chỉ là triệu chứng. Giờ chỉ còn một
 // bản, ở lib, và nó là bản có kiểm.
-import { weekStartOf } from "../../../lib/roster";
+import { SHIFTS, weekStartOf } from "../../../lib/roster";
 
 
 type Auth =
@@ -214,7 +214,13 @@ export async function POST(request: Request) {
   const week_start = (body.week_start ?? "").trim();
   const work_date = (body.work_date ?? "").trim();
   const station = (body.station ?? "").trim();
-  const shift = body.shift === "SANG" || body.shift === "CHIEU" ? body.shift : "FULL";
+  // Ca lạ thì lùi về "cả ngày" — nhưng danh sách ca hợp lệ lấy từ MỘT nguồn
+  // (`lib/roster.ts`), không viết cứng ở đây. Bản cũ liệt kê tay SANG/CHIEU
+  // nên khi thêm ca TỐI (21/08/2026) nó lặng lẽ đổi ca tối thành cả ngày —
+  // quản lý xếp ca tối, hệ ghi cả ngày, và không lỗi nào bật ra.
+  const shift = (SHIFTS as readonly string[]).includes(body.shift ?? "")
+    ? (body.shift as string)
+    : "FULL";
 
   // Quản lý XẾP CHO NGƯỜI KHÁC khi gửi kèm staff_id (qua /schedule/edit). Mọi
   // trường hợp còn lại — gồm Quản lý TỰ đăng ký trên bảng (không gửi staff_id) —

@@ -76,7 +76,14 @@ def xoa_ca_bac_si(payload: dict[str, Any]) -> str:
 # Registry: event_type → hàm soạn tin. Sự kiện KHÔNG có trong bảng này thì
 # relay đánh dấu đã-xử-lý và đi tiếp (render trả None) — im lặng có chủ ý:
 # nhóm nhận đủ bốn loại tin đáng nhấc máy, không nhận nhật ký hệ thống.
-_CA_LABEL = {"SANG": "sáng", "CHIEU": "chiều", "FULL": "cả ngày"}
+#: Nhãn ca trong tin nhắn. Thiếu một mã ở đây thì tin gửi đi mất chữ ca —
+#: câu "BS X có ca  ngày 21/08" đọc như một lỗi đánh máy.
+_CA_LABEL = {
+    "SANG": "sáng",
+    "CHIEU": "chiều",
+    "TOI": "tối",
+    "FULL": "cả ngày",
+}
 
 
 def ca_moi_cho_xep(payload: dict[str, Any]) -> str:

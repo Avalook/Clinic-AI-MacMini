@@ -35,9 +35,16 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.core.shifts import covers, merge_windows, shift_window
+from clinicai.core.shifts import (
+    CAC_CA,
+    ca_tu_settings,
+    covers,
+    merge_windows,
+    shift_windows,
+)
 
 logger = structlog.get_logger()
+
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
 
@@ -60,7 +67,8 @@ PRICE_ROLES: frozenset[ClinicRole] = frozenset(
     }
 )
 
-Shift = Literal["SANG", "CHIEU", "FULL"]
+#: Bốn nhãn ca. Giờ của từng ca do phòng khám khai — xem `core/shifts.py`.
+Shift = Literal["SANG", "CHIEU", "TOI", "FULL"]
 RosterDecision = Literal["approve", "reject"]
 PriceGroup = Literal["thuoc", "dich_vu"]
 
@@ -168,7 +176,7 @@ class RosterService:
                 identity.clinic_id,
                 week_start_of(work_date),
                 work_date,
-                shift if shift in ("SANG", "CHIEU") else "FULL",
+                shift if shift in CAC_CA else "FULL",
                 station,
                 target_id,
                 target_name,
@@ -187,7 +195,7 @@ class RosterService:
                     conn,
                     roster_id=str(row_id),
                     work_date=work_date,
-                    shift=shift if shift in ("SANG", "CHIEU") else "FULL",
+                    shift=shift if shift in CAC_CA else "FULL",
                     ten_bac_si=target_name,
                     identity=identity,
                 )
@@ -215,15 +223,20 @@ class RosterService:
         được làm hỏng cú xếp ca — ca trực là việc chính, tin là việc phụ."""
         try:
             gio_mo = await conn.fetchrow(
-                "SELECT open_minute, close_minute "
+                "SELECT open_minute, close_minute, "
+                "       (SELECT settings FROM clinic WHERE id = $1::uuid) "
+                "         AS settings "
                 "FROM clinic_hours_for_date($1::uuid, $2)",
                 identity.clinic_id,
                 work_date,
             )
             if gio_mo is None or gio_mo["open_minute"] is None:
                 return
-            w = shift_window(shift, gio_mo["open_minute"], gio_mo["close_minute"])
-            if w is None:
+            ca = ca_tu_settings((gio_mo["settings"]))
+            khung = shift_windows(
+                shift, gio_mo["open_minute"], gio_mo["close_minute"], ca
+            )
+            if not khung:
                 return
             cho_xep = await conn.fetch(
                 """
@@ -244,7 +257,7 @@ class RosterService:
                 identity.clinic_id,
                 work_date,
             )
-            trong_ca = [r for r in cho_xep if covers([w], r["phut"])]
+            trong_ca = [r for r in cho_xep if covers(khung, r["phut"])]
             if not trong_ca:
                 return
             await conn.execute(
@@ -515,7 +528,9 @@ class RosterService:
                                AS open_minute,
                            (SELECT close_minute
                               FROM clinic_hours_for_date($1::uuid, $3))
-                               AS close_minute
+                               AS close_minute,
+                           (SELECT settings FROM public.clinic
+                             WHERE id = $1::uuid) AS settings
                       FROM public.work_roster w
                      WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
                        AND w.work_date = $3 AND w.station = 'LICH_KHAM'
@@ -529,18 +544,17 @@ class RosterService:
                 )
                 windows: list[tuple[int, int]] = []
                 if con_lai and con_lai[0]["open_minute"] is not None:
+                    ca = ca_tu_settings((con_lai[0]["settings"]))
                     windows = merge_windows(
                         [
                             w
                             for r in con_lai
-                            if (
-                                w := shift_window(
-                                    r["shift"],
-                                    r["open_minute"],
-                                    r["close_minute"],
-                                )
+                            for w in shift_windows(
+                                r["shift"],
+                                r["open_minute"],
+                                r["close_minute"],
+                                ca,
                             )
-                            is not None
                         ]
                     )
 

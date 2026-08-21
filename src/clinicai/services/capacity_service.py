@@ -31,9 +31,15 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.core.shifts import covers, merge_windows, shift_window
+from clinicai.core.shifts import (
+    ca_tu_settings,
+    covers,
+    merge_windows,
+    shift_windows,
+)
 
 logger = structlog.get_logger()
+
 
 CellState = Literal["free", "few", "full", "closed"]
 
@@ -157,11 +163,12 @@ class CapacityService:
             close_min = duty["close_minute"] if duty else None
             windows: list[tuple[int, int]] = []
             if shifts and open_min is not None and close_min is not None:
+                ca = ca_tu_settings((duty["settings"] if duty else None))
                 windows = merge_windows(
                     [
                         w
                         for s in shifts
-                        if (w := shift_window(s, open_min, close_min)) is not None
+                        for w in shift_windows(s, open_min, close_min, ca)
                     ]
                 )
 
