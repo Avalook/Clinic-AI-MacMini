@@ -52,3 +52,37 @@ test("cache() lấy từ react — không phải bản tự chế", () => {
     );
   }
 });
+
+// ── Đường proxy phải giữ nguyên mã trạng thái ──────────────────────────────
+//
+// `fetchFromBackend` trả `null` cho MỌI lỗi, nên route nào dùng nó rồi tự chế
+// mã trạng thái sẽ biến 403 "không đủ quyền" thành 503 "máy chủ hỏng". Đo tải
+// 100 người ngày 22/08/2026 bắt được đúng ca này ở `/api/ca-lam-viec`:
+// 240/240 lượt của Lễ tân và CSKH nhận 503. Chính `backend-proxy.ts` đã cảnh
+// báo bẫy này bằng một đoạn chú thích dài — mà vẫn vấp.
+//
+// Luật: route nào PHỤ THUỘC QUYỀN (backend có thể trả 403) thì dùng
+// `proxyJsonToBackend`, vì nó chuyển tiếp nguyên mã và câu lỗi.
+
+const routeCaLamViec = readFileSync(
+  new URL("../app/api/ca-lam-viec/route.ts", import.meta.url),
+  "utf8",
+);
+
+test("route giờ ca giữ nguyên mã trạng thái của backend", () => {
+  // Soi LỜI GỌI (có ngoặc mở) và dòng IMPORT, không soi chữ: chú thích có
+  // quyền nhắc tên hàm cũ khi kể lại vì sao bỏ nó. Đây là lần thứ ba trong
+  // ngày cùng một cái bẫy viết test — grep chữ thì chú thích cũng dính.
+  assert.doesNotMatch(
+    routeCaLamViec,
+    /fetchFromBackend\(/,
+    "gọi fetchFromBackend là nuốt mã 403 thành 503 — dùng proxyJsonToBackend",
+  );
+  assert.doesNotMatch(
+    routeCaLamViec,
+    /^import .*fetchFromBackend/m,
+    "còn import fetchFromBackend nghĩa là còn đường quay lại lối tắt",
+  );
+  assert.match(routeCaLamViec, /proxyJsonToBackend\("GET"/);
+  assert.match(routeCaLamViec, /proxyJsonToBackend\("PATCH"/);
+});
