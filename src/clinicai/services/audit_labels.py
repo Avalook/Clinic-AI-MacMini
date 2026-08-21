@@ -130,6 +130,11 @@ EVENT_LABELS: dict[str, str] = {
     # tính (`tuong_tac_cskh.huy_luc`), nên nhãn phải nói "rút lại", không phải
     # "xoá": người đọc Lịch sử thao tác cần biết bản ghi vẫn còn đó.
     "cskh.tuong_tac_hoan_tac": "Rút lại một lần liên hệ đã ghi",
+    # QUẦY LỄ TÂN — mốc gọi vào khám. Nhãn nói rõ ĐÂY LÀ MỐC GIỜ, vì đó là
+    # điều người đọc Lịch sử thao tác cần: không phải "ai bấm nút gì" mà "đồng
+    # hồ khám của người này bắt đầu lúc nào".
+    "reception.called_in": "Gọi khách vào khám (bắt đầu tính giờ khám)",
+    "reception.called_in_undone": "Rút lại mốc gọi vào khám",
     "cskh.phan_hoi_ghi": "Ghi phản hồi của khách",
     "cskh.phan_hoi_xu_ly": "Xử lý phản hồi của khách",
     # `cskh.customers` là NGUỒN (cột source), không phải loại sự kiện — nó nói

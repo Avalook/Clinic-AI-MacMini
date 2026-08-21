@@ -30,6 +30,7 @@ import {
 import {
   patientLine,
   waitedMinutes,
+  examMinutes,
   type WorklistItem,
 } from "@/lib/worklist";
 
@@ -64,19 +65,66 @@ function initials(name: string | null): string {
  * mốc gọi số", "Hoàn tất tiếp nhận". Ba vòng tròn xám vĩnh viễn không kể được
  * điều gì, chỉ dạy người dùng bỏ qua cả thanh trạng thái.
  */
-function receptionSteps(item: WorklistItem): Step[] {
+/** HAI NÚT TRÒN LÀ HAI HÀNH ĐỘNG — bấm là làm, bấm lại là hoàn tác.
+ *
+ *  Tuyền 20/08/2026: *"click nút tròn được cơ chế như của CSKH, click là làm mà
+ *  click lại là undo"*. Trước đây thanh này chỉ là chỉ-báo, còn hành động nằm ở
+ *  hai nút chữ tận cột phải — người dùng nhìn thấy tiến trình ở một chỗ rồi phải
+ *  đi bấm ở chỗ khác.
+ *
+ *  MỖI NÚT MỞ MỘT ĐỒNG HỒ KHÁC NHAU, và đó là lý do chúng không gộp được:
+ *      Check-in      → mốc của BUỔI KHÁM, mở đồng hồ CHỜ
+ *      Gọi vào khám  → mở đồng hồ KHÁM, và đóng đồng hồ chờ
+ *
+ *  `detail` in ĐÚNG GIỜ chứ không in "Đã gọi": người ngồi quầy cần con số để
+ *  trả lời "chị đợi thêm mấy phút", một chữ "đã" không giúp được gì. */
+function receptionSteps(
+  item: WorklistItem,
+  tay: {
+    checkIn: () => void;
+    boCheckIn: () => void;
+    goiVao: () => void;
+    boGoiVao: () => void;
+    dangGui: boolean;
+  } | null,
+): Step[] {
   const daCheckIn = Boolean(item.checked_in_at);
-  const dangKham = item.status === "IN_PROGRESS" || item.status === "COMPLETED";
+  const daGoi = Boolean(item.exam_started_at);
+  const cho = waitedMinutes(item);
+  const kham = examMinutes(item);
   return [
     {
       label: "Check-in",
       state: daCheckIn ? "done" : "current",
-      detail: daCheckIn ? time(item.checked_in_at) : "Chưa đến",
+      detail: daCheckIn
+        ? `${time(item.checked_in_at)}${daGoi ? ` · chờ ${cho}′` : ""}`
+        : "Chưa đến",
+      onClick: tay
+        ? daCheckIn
+          ? tay.boCheckIn
+          : tay.checkIn
+        : undefined,
+      actionLabel: daCheckIn
+        ? "Hoàn tác check-in — khách chưa đến"
+        : "Check-in — khách đã đến",
+      busy: tay?.dangGui,
     },
     {
       label: "Gọi vào khám",
-      state: dangKham ? "done" : daCheckIn ? "current" : "upcoming",
-      detail: dangKham ? "Đã gọi" : "Chưa gọi",
+      state: daGoi ? "done" : daCheckIn ? "current" : "upcoming",
+      detail: daGoi
+        ? `${time(item.exam_started_at ?? null)}${kham !== null ? ` · khám ${kham}′` : ""}`
+        : daCheckIn
+          ? `đang chờ ${cho}′`
+          : "Chưa gọi",
+      // Chưa check-in thì không bấm được: gọi vào khám một người chưa tới là
+      // một mốc giờ khám cho người không có mặt. Backend cũng từ chối, nhưng
+      // chặn ở đây để người dùng không phải học điều đó bằng một câu lỗi.
+      onClick: tay && daCheckIn ? (daGoi ? tay.boGoiVao : tay.goiVao) : undefined,
+      actionLabel: daGoi
+        ? "Hoàn tác — khách chưa vào khám"
+        : "Gọi vào khám — bắt đầu tính giờ khám",
+      busy: tay?.dangGui,
     },
   ];
 }
@@ -325,7 +373,64 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
   );
 }
 
+/** Bộ hành động của hai nút tròn, dựng ở component cha để một chỗ giữ trạng
+ *  thái "đang gửi" và một chỗ hiện câu lỗi — hai nút mà hai ô lỗi thì người
+ *  dùng không biết cái nào vừa hỏng. */
+function useMocQuay(item: WorklistItem) {
+  const router = useRouter();
+  const [dangGui, setDangGui] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+
+  async function goi(duong: string, method: "POST" | "DELETE" | "PATCH", body?: unknown) {
+    setDangGui(true);
+    setLoi(null);
+    try {
+      const res = await fetch(duong, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      if (!res.ok) {
+        // GIỮ NGUYÊN câu của backend: "bước Sinh hiệu đã bắt đầu" nói cho người
+        // ngồi quầy biết đi hỏi ai; "không thực hiện được" thì không.
+        const d = (await res.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        setLoi(d?.message ?? d?.error ?? `Không thực hiện được (HTTP ${res.status})`);
+        return false;
+      }
+      router.refresh();
+      return true;
+    } finally {
+      setDangGui(false);
+    }
+  }
+
+  const apptId = item.appointment_id;
+  const visitId = item.visit_id;
+  return {
+    loi,
+    tay: {
+      dangGui,
+      checkIn: () => {
+        if (apptId) void goi("/api/appointments", "PATCH", { id: apptId, action: "checkin" });
+      },
+      boCheckIn: () => {
+        if (apptId)
+          void goi("/api/appointments", "PATCH", { id: apptId, action: "undo_checkin" });
+      },
+      goiVao: () => {
+        if (visitId) void goi(`/api/reception/goi-vao-kham/${visitId}`, "POST");
+      },
+      boGoiVao: () => {
+        if (visitId) void goi(`/api/reception/goi-vao-kham/${visitId}`, "DELETE");
+      },
+    },
+  };
+}
+
 function PatientDetail({ item }: { item: WorklistItem }) {
+  const { loi: loiMoc, tay } = useMocQuay(item);
   const tone = resolveStatus(item);
   const waited = waitedMinutes(item);
   const targetMinutes = (() => {
@@ -412,7 +517,12 @@ function PatientDetail({ item }: { item: WorklistItem }) {
 
       <div className="border-b border-line p-4">
         <h3 className="mb-4 text-sm font-semibold text-ink">Trạng thái xử lý</h3>
-        <Stepper steps={receptionSteps(item)} />
+        <Stepper steps={receptionSteps(item, tay)} />
+        {loiMoc ? (
+          <p className="mt-2 rounded-md bg-danger-bg px-2 py-1 text-label text-danger">
+            {loiMoc}
+          </p>
+        ) : null}
       </div>
 
     </section>

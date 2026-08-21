@@ -436,6 +436,10 @@ class WorkItemService:
                    -- nên bàn khám phải hỏi cột này chứ không suy từ tên.
                    st.form_code,
                    v.checked_in_at,
+                   -- Mốc gọi vào khám: màn hàng đợi cần nó để vẽ nút tròn
+                   -- thứ hai ở trạng thái đã-xong, và để đo ĐỒNG HỒ KHÁM
+                   -- tách khỏi đồng hồ chờ (Tuyền 20/08/2026).
+                   v.exam_started_at,
                    (m.role = ANY (n.actor_roles))      AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
@@ -527,6 +531,7 @@ class WorkItemService:
                 "service_name": r["service_name"],
                 "form_code": r["form_code"],
                 "checked_in_at": r["checked_in_at"],
+                "exam_started_at": r["exam_started_at"],
             }
             for r in rows
         ]

@@ -44,13 +44,36 @@ export interface WorklistItem {
    *  một loại khám. Nhiều dịch vụ dùng chung một biểu mẫu. */
   form_code: string | null;
   checked_in_at: string | null;
+  /** Lúc khách được GỌI VÀO KHÁM — quỹ thời gian riêng, không phải giờ check-in.
+   *  null = chưa gọi. Xem `visit.exam_started_at` (migration 20260820000001). */
+  exam_started_at?: string | null;
 }
 
-/** Minutes waited so far. Uses check-in time when there is one, else creation. */
+/** Số phút khách ĐÃ CHỜ — và đồng hồ này DỪNG khi được gọi vào khám.
+ *
+ *  HAI QUỸ THỜI GIAN, KHÔNG PHẢI MỘT (Tuyền 20/08/2026): check-in lúc 18:00,
+ *  gọi vào khám lúc 18:10 thì khách chờ đúng 10 phút — dù 19:00 mới khám xong.
+ *  Bản cũ đếm tới hiện tại bất kể đã gọi hay chưa, nên "thời gian chờ" của một
+ *  người đang nằm trên bàn khám vẫn tăng đều: con số ấy không trả lời được câu
+ *  hỏi nào của quầy, và làm hỏng luôn số liệu phân tích về sau. */
 export function waitedMinutes(item: WorklistItem, now: Date = new Date()): number {
   const from = item.checked_in_at ?? item.created_at;
   if (!from) return 0;
-  return Math.max(0, Math.round((now.getTime() - new Date(from).getTime()) / 60000));
+  const den = item.exam_started_at ? new Date(item.exam_started_at) : now;
+  return Math.max(0, Math.round((den.getTime() - new Date(from).getTime()) / 60000));
+}
+
+/** Số phút ĐANG KHÁM — đồng hồ thứ hai, chạy từ lúc được gọi vào.
+ *
+ *  Chưa gọi thì trả `null` chứ không trả 0: "chưa bắt đầu" và "vừa bắt đầu" là
+ *  hai chuyện khác nhau, và màn hình phải nói được sự khác ấy. */
+export function examMinutes(
+  item: WorklistItem,
+  now: Date = new Date(),
+): number | null {
+  if (!item.exam_started_at) return null;
+  const from = new Date(item.exam_started_at).getTime();
+  return Math.max(0, Math.round((now.getTime() - from) / 60000));
 }
 
 /** "1994 · Nữ · 32 tuổi", the subtitle used on every patient card in the design. */

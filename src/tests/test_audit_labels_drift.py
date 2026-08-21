@@ -140,6 +140,7 @@ _KHONG_PHAI_SU_KIEN = {
     "lab.classify_lab_result",
     "lab.query_lab_result",
     "patient.get_patient_summary",
+    "reception.queue",  # cột source của reception.called_in{,_undone}
     "scheduling.cancel_appointment",
     "scheduling.confirm_appointment",
     "scheduling.create_appointment",
