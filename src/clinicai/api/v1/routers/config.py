@@ -12,8 +12,16 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.core.shifts import (
+    CAC_CA,
+    NHAN_CA,
+    ca_tu_settings,
+    kiem_cau_hinh_ca,
+    phut_tu_gio,
+)
 from clinicai.services.clinic_settings_service import ClinicSettingsService
 from clinicai.services.config_service import (
     PRICE_ROLES,
@@ -527,6 +535,130 @@ async def update_display_settings(
         )
 
     return {"ok": True, "display": hien_tai}
+
+
+# ── Giờ ca làm việc ─────────────────────────────────────────────────────────
+#
+# Cùng gác với luật đặt lịch: người sửa được "phòng khám nhận đặt lịch theo luật
+# gì" thì sửa được "một ngày chia làm mấy ca".
+#
+# TRƯỚC ĐÂY CHỈ ĐỔI ĐƯỢC BẰNG LỆNH SQL. Giờ ca đã ra khỏi mã nguồn từ 21/08 để
+# mỗi phòng khám khai riêng, nhưng không có màn nào để khai — nghĩa là vẫn phải
+# gọi người viết code, đúng thứ việc đưa cấu hình ra khỏi mã sinh ra để tránh.
+
+
+class KhungCaRequest(BaseModel):
+    bat_dau: str = Field(pattern=r"^\d{2}:\d{2}$")
+    ket_thuc: str = Field(pattern=r"^\d{2}:\d{2}$")
+
+
+class CaLamViecRequest(BaseModel):
+    ca_lam_viec: dict[str, KhungCaRequest]
+
+
+@router.get("/ca-lam-viec")
+async def doc_ca_lam_viec(
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Giờ từng ca + giờ mở cửa từng thứ, cho màn cấu hình.
+
+    Trả kèm giờ mở cửa vì màn hình phải nói được "ca tối tràn ra ngoài giờ đóng
+    cửa thứ Bảy" ngay lúc gõ, chứ không đợi bấm Lưu mới biết.
+    """
+    async with pool.acquire() as conn:
+        raw = await conn.fetchval(
+            "SELECT settings FROM clinic WHERE id = $1::uuid", identity.clinic_id
+        )
+        gio_rows = await conn.fetch(
+            """
+            SELECT key::int AS thu, value ->> 'open' AS mo, value ->> 'close' AS dong
+              FROM clinic c, jsonb_each(c.settings -> 'hours')
+             WHERE c.id = $1::uuid
+            """,
+            identity.clinic_id,
+        )
+    ca = ca_tu_settings(raw)
+    return {
+        "ca_lam_viec": {
+            ma: {
+                "bat_dau": f"{ca[ma][0] // 60:02d}:{ca[ma][0] % 60:02d}",
+                "ket_thuc": f"{ca[ma][1] // 60:02d}:{ca[ma][1] % 60:02d}",
+                "nhan": NHAN_CA.get(ma, ma),
+            }
+            for ma in CAC_CA
+            if ma in ca
+        },
+        "gio_mo_cua": {
+            str(r["thu"]): {"mo": r["mo"], "dong": r["dong"]} for r in gio_rows
+        },
+    }
+
+
+@router.patch("/ca-lam-viec")
+async def sua_ca_lam_viec(
+    body: CaLamViecRequest,
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đổi giờ ba ca. `clinic_id` suy từ membership, KHÔNG nhận từ body.
+
+    GHI ĐÈ CẢ CỤM, không vá từng ca: gửi thiếu một ca rồi ghi đè từng khoá sẽ
+    để lại ca cũ nằm im trong cấu hình, và bản đọc vẫn dùng nó — người sửa
+    tưởng đã bỏ ca tối, hệ vẫn xếp ca tối. `kiem_cau_hinh_ca` bắt buộc đủ ba ca
+    nên "ghi đè cả cụm" là an toàn.
+
+    KHÔNG đụng tới lịch hẹn đã có. Thu ca lại thì những lịch cũ nằm ngoài ca vẫn
+    còn nguyên — phạt người dùng vì dữ liệu có trước luật là cách chắc nhất để
+    họ không dám sửa cấu hình nữa. Chốt đặt lịch chỉ áp cho lịch ĐẶT MỚI và
+    ĐỔI GIỜ; màn Lịch hẹn vẫn hiện lịch cũ như thường.
+    """
+    ca: dict[str, tuple[int, int]] = {}
+    xau_gio: list[str] = []
+    for ma, khung in body.ca_lam_viec.items():
+        if ma not in CAC_CA:
+            raise ValidationError(f"Không có ca {ma!r}.")
+        lo, hi = phut_tu_gio(khung.bat_dau), phut_tu_gio(khung.ket_thuc)
+        if lo is None or hi is None:
+            xau_gio.append(f"Ca {NHAN_CA.get(ma, ma)}: giờ không đọc được.")
+            continue
+        ca[ma] = (lo, hi)
+
+    async with pool.acquire() as conn:
+        gio_rows = await conn.fetch(
+            """
+            SELECT key::int AS thu, value ->> 'open' AS mo, value ->> 'close' AS dong
+              FROM clinic c, jsonb_each(c.settings -> 'hours')
+             WHERE c.id = $1::uuid
+            """,
+            identity.clinic_id,
+        )
+        loi = xau_gio + kiem_cau_hinh_ca(
+            ca, {str(r["thu"]): (r["mo"], r["dong"]) for r in gio_rows}
+        )
+        if loi:
+            # GỘP MỌI LỖI vào một câu, ngăn bằng xuống dòng: người nhập sai hai
+            # ô phải thấy cả hai, chứ không phải sửa một ô rồi bấm Lưu để biết
+            # ô thứ hai. Handler chung của app trả 422 kèm nguyên câu này.
+            raise ValidationError("\n".join(loi))
+
+        moi = {
+            ma: {"bat_dau": khung.bat_dau, "ket_thuc": khung.ket_thuc}
+            for ma, khung in body.ca_lam_viec.items()
+        }
+        await conn.execute(
+            """
+            UPDATE public.clinic
+               SET settings = jsonb_set(
+                       coalesce(settings, '{}'::jsonb),
+                       '{ca_lam_viec}', $2::jsonb, true),
+                   updated_at = now()
+             WHERE id = $1::uuid
+            """,
+            identity.clinic_id,
+            json.dumps(moi, ensure_ascii=False),
+        )
+    return {"ok": True, "ca_lam_viec": moi}
 
 
 # ── Luật bắt buộc bác sĩ ────────────────────────────────────────────────────

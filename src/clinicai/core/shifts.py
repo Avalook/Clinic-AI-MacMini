@@ -171,6 +171,96 @@ def gio_lam_viec(
     return shift_windows("FULL", open_min, close_min, ca)
 
 
+NHAN_THU = {
+    "0": "Chủ nhật",
+    "1": "Thứ Hai",
+    "2": "Thứ Ba",
+    "3": "Thứ Tư",
+    "4": "Thứ Năm",
+    "5": "Thứ Sáu",
+    "6": "Thứ Bảy",
+}
+
+
+def _gio(phut: int) -> str:
+    return f"{phut // 60:02d}:{phut % 60:02d}"
+
+
+def kiem_cau_hinh_ca(
+    ca: Mapping[str, Window],
+    gio_mo_dong: Mapping[str, tuple[str, str]] | None = None,
+) -> list[str]:
+    """Cấu hình ca quản lý vừa nhập có dùng được không — danh sách lỗi, rỗng là ổn.
+
+    Trả DANH SÁCH chứ không ném ở lỗi đầu tiên: người nhập sai hai ô thì nên
+    thấy cả hai, chứ không phải sửa một ô rồi bấm lưu để biết ô thứ hai.
+
+    Bốn điều được kiểm, và điều cuối là điều dễ quên nhất:
+
+    1. Đủ ba ca. Thiếu một ca thì bản đọc lặng lẽ lấy giờ MẶC ĐỊNH cho ca ấy —
+       người nhập tưởng mình đã bỏ ca tối, hệ vẫn chạy ca tối 17:30–21:30.
+    2. Giờ kết thúc sau giờ bắt đầu.
+    3. Các ca không chồng lên nhau, và theo đúng thứ tự sáng → chiều → tối. Hai
+       ca chồng nhau thì một mốc giờ thuộc hai ca, và KPI theo ca — thứ cả việc
+       này sinh ra để phục vụ — đếm đôi.
+    4. Ca phải NẰM TRONG giờ mở cửa của mọi ngày đã khai. Không kiểm thì ca vẫn
+       lưu được nhưng bị CẮT lúc đọc: khai ca tối tới 22:00 trong khi cửa đóng
+       21:00, hệ nhận lịch tới 21:00 và không báo gì. Im lặng cắt bớt là kiểu
+       sai khó lần nhất, vì màn cấu hình vẫn hiện đúng con số đã nhập.
+    """
+    loi: list[str] = []
+
+    thieu = [m for m in CAC_CA if m not in ca]
+    if thieu:
+        loi.append(
+            "Thiếu ca: "
+            + ", ".join(NHAN_CA.get(m, m) for m in thieu)
+            + ". Phải khai đủ ba ca, vì ca thiếu sẽ lặng lẽ dùng giờ mặc định."
+        )
+
+    for ma in CAC_CA:
+        if ma not in ca:
+            continue
+        lo, hi = ca[ma]
+        ten = NHAN_CA.get(ma, ma)
+        if not (0 <= lo < 24 * 60) or not (0 < hi <= 24 * 60):
+            loi.append(f"Ca {ten}: giờ phải nằm trong một ngày.")
+        elif hi <= lo:
+            loi.append(
+                f"Ca {ten}: giờ kết thúc ({_gio(hi)}) phải sau giờ bắt đầu "
+                f"({_gio(lo)})."
+            )
+
+    co = [(ma, ca[ma]) for ma in CAC_CA if ma in ca and ca[ma][1] > ca[ma][0]]
+    for (ma_a, (lo_a, hi_a)), (ma_b, (lo_b, _hi_b)) in zip(co, co[1:], strict=False):
+        if lo_b < hi_a:
+            loi.append(
+                f"Ca {NHAN_CA.get(ma_b, ma_b)} bắt đầu lúc {_gio(lo_b)}, "
+                f"trước khi ca {NHAN_CA.get(ma_a, ma_a)} kết thúc ({_gio(hi_a)}). "
+                "Hai ca chồng nhau thì một giờ thuộc hai ca và KPI đếm đôi."
+            )
+
+    for thu, (mo_s, dong_s) in (gio_mo_dong or {}).items():
+        mo, dong = phut_tu_gio(mo_s or ""), phut_tu_gio(dong_s or "")
+        if mo is None or dong is None:
+            continue
+        ten_thu = NHAN_THU.get(str(thu), f"thứ {thu}")
+        for ma in CAC_CA:
+            if ma not in ca:
+                continue
+            lo, hi = ca[ma]
+            if hi <= lo:
+                continue
+            if lo < mo or hi > dong:
+                loi.append(
+                    f"{ten_thu} mở cửa {_gio(mo)}–{_gio(dong)}, không chứa hết ca "
+                    f"{NHAN_CA.get(ma, ma)} ({_gio(lo)}–{_gio(hi)}). "
+                    "Nới giờ mở cửa hoặc thu ca lại — để nguyên thì ca bị cắt "
+                    "mà không báo gì."
+                )
+    return loi
+
+
 def khung_theo_thu(
     gio_mo_dong: Mapping[str, tuple[str, str]],
     ca: Mapping[str, Window] | None = None,

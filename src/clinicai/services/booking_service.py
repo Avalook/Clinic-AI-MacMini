@@ -1282,7 +1282,7 @@ class BookingService:
         raise ValidationError(
             f"Phòng khám chỉ nhận lịch trong {describe(windows)}. "
             f"Giờ {minute // 60:02d}:{minute % 60:02d} không thuộc ca nào — "
-            "chọn giờ trong ca, hoặc sửa giờ ca ở màn Lịch làm việc."
+            "chọn giờ trong ca, hoặc sửa giờ ca ở Cài đặt → Giờ ca làm việc."
         )
 
     async def _guard_slot(
