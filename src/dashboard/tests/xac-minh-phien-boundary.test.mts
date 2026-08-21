@@ -86,3 +86,43 @@ test("route giờ ca giữ nguyên mã trạng thái của backend", () => {
   assert.match(routeCaLamViec, /proxyJsonToBackend\("GET"/);
   assert.match(routeCaLamViec, /proxyJsonToBackend\("PATCH"/);
 });
+
+// ── Phân trang danh sách khách: hai bất biến giữ nó không tự phá mình ─────
+//
+// ① Truy vấn khách phải đi qua range() theo trang — quay lại limit(300) là
+//   quay lại kéo cả danh sách rồi làm giàu cho 300 người để hiện vài chục.
+// ② `go()` (đổi bộ lọc) phải dựng URLSearchParams MỚI, không chép từ URL —
+//   giữ `trang=3` khi đổi bộ lọc là người trực nhìn trang 3 rỗng của kết quả
+//   mới và tưởng "không tìm thấy ai".
+
+const trangKhach = readFileSync(
+  new URL("../app/(dashboard)/customers/page.tsx", import.meta.url),
+  "utf8",
+);
+const khungKhach = readFileSync(
+  new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
+  "utf8",
+);
+
+test("danh sách khách phân trang bằng range(), không kéo 300 dòng", () => {
+  assert.match(trangKhach, /KHACH_MOT_TRANG = 50/);
+  assert.match(trangKhach, /\.range\(\(trang - 1\) \* KHACH_MOT_TRANG/);
+  assert.doesNotMatch(
+    trangKhach,
+    /from\("patient"\)[\s\S]{0,200}\.limit\(300\)/,
+    "limit(300) trên bảng patient là quay lại kéo cả danh sách",
+  );
+});
+
+test("đổi bộ lọc thì trang rơi về 1 — go() không chép URL cũ", () => {
+  const go = khungKhach.slice(
+    khungKhach.indexOf("function go("),
+    khungKhach.indexOf("function go(") + 1200,
+  );
+  assert.doesNotMatch(
+    go,
+    /window\.location\.search|useSearchParams/,
+    "go() chép URL hiện tại là giữ luôn trang cũ cho kết quả lọc mới",
+  );
+  assert.doesNotMatch(go, /params\.set\("trang"/, "go() không được tự ghim trang");
+});

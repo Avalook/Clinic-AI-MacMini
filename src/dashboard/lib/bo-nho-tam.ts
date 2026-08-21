@@ -19,10 +19,13 @@
 //     kiểu rò rỉ nặng nhất mà hệ nhiều tenant có thể mắc. Hàm `nhoTheoPhongKham`
 //     BẮT BUỘC nhận clinic_id, không có đường vòng.
 //
-//   ② CHỈ DỮ LIỆU TRA CỨU. Không bao giờ nhớ lịch hẹn, ghế trống, trạng thái
-//     bệnh nhân — một ô lịch "còn trống" nhớ quá hạn là hai người đặt trùng.
-//     Danh sách cơ sở / dịch vụ / bác sĩ thì tệ nhất là chậm vài chục giây khi
-//     quản lý vừa thêm một dòng.
+//   ② CHỈ DỮ LIỆU TRA CỨU. Không nhớ lịch hẹn, ghế trống, trạng thái bệnh
+//     nhân. Nói chính xác: nhớ ghế trống ĐỂ HIỂN THỊ thì được phép (trigger
+//     sức chứa mới là chốt quyết lúc bấm Đặt), nhưng bộ nhớ này không có cơ
+//     chế làm tươi theo sự kiện nên cứ cấm hẳn cho tới khi cần thật — một ô
+//     "còn trống" quá hạn 60 giây trên màn hình là 60 giây người trực hứa
+//     nhầm với khách. Danh sách cơ sở / dịch vụ thì tệ nhất là chậm vài chục
+//     giây khi quản lý vừa thêm một dòng.
 //
 //   ③ HỎNG THÌ ĐỪNG NHỚ. Nếu hàm nạp ném lỗi hoặc trả rỗng, không ghi vào bộ
 //     nhớ tạm: nhớ một danh sách rỗng suốt 60 giây là cả phòng khám nhìn thấy

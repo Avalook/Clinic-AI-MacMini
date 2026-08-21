@@ -794,6 +794,11 @@ export default function CustomersView({
   }
 
   function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
+    // DỰNG PARAMS MỚI TINH, KHÔNG chép từ URL hiện tại — và đó là chủ ý:
+    // đổi bộ lọc thì `trang` phải rơi về 1. Đứng ở trang 3 rồi gõ tìm kiếm mà
+    // còn giữ `trang=3` là nhận về trang 3 CỦA KẾT QUẢ MỚI — thường là rỗng,
+    // và người trực sẽ tưởng "không tìm thấy ai". Ai refactor chỗ này sang
+    // "giữ nguyên mọi param" là dẫm đúng cái bẫy ấy.
     const params = new URLSearchParams();
     if (nextQ.trim()) params.set("q", nextQ.trim());
     if (nextPeriod !== "all") params.set("period", nextPeriod);

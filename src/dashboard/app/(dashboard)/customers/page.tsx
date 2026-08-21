@@ -3,6 +3,7 @@
 // HẸN (slot_start) để biết khách thuộc ngày/tuần nào (feedback 05/06). client
 // (CustomersView) lo chọn + bôi hồng.
 
+import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
 import {
@@ -124,6 +125,8 @@ export default async function CustomersPage({
     viec?: string;
     /** LƯỢT KHÁM đang xem (`appointment.id`). Thiếu = để màn tự chọn. */
     luot?: string;
+    /** Trang danh sách, đếm từ 1. Thiếu/hỏng = trang 1. */
+    trang?: string;
   }>;
 }) {
   await requireNavAccess("/customers");
@@ -153,6 +156,14 @@ export default async function CustomersPage({
   // dẫn gửi cho ca sau.
   const viec = (sp.viec ?? "").trim() || null;
   const luot = (sp.luot ?? "").trim() || null;
+  // PHÂN TRANG — 50 khách một trang. Trước 22/08/2026 màn kéo thẳng 300 khách
+  // mỗi lượt dựng, và MỌI truy vấn làm giàu phía dưới (lịch hẹn, sổ chăm sóc,
+  // tệp, hẹn gọi lại…) đều chạy trên cả 300 người ấy dù màn hình chỉ hiện vài
+  // chục. Phân trang ở truy vấn ĐẦU TIÊN nên tự động thu nhỏ toàn bộ phần sau.
+  // Đánh số trang (offset) là đủ cho quy mô nghìn khách; qua chục nghìn thì
+  // chuyển keyset (`created_at < mốc-cuối-trang-trước`) — ghi sẵn để khỏi quên.
+  const KHACH_MOT_TRANG = 50;
+  const trang = Math.max(1, Number.parseInt(sp.trang ?? "1", 10) || 1);
   const win = windowFor(period);
 
   const supabase = await getSupabaseServer();
@@ -182,9 +193,11 @@ export default async function CustomersPage({
   const buildPatientQuery = (useUnaccent: boolean) => {
     let query = supabase
       .from("patient")
-      .select(SELECT)
+      // `count: "exact"` để vẽ "Trang X/Y — N khách": đếm chạy trên cùng bộ
+      // lọc, Postgres đếm bằng index nên rẻ hơn nhiều so với kéo thừa 250 dòng.
+      .select(SELECT, { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(300);
+      .range((trang - 1) * KHACH_MOT_TRANG, trang * KHACH_MOT_TRANG - 1);
     if (by === "created" && win) query = query.gte("created_at", win.start);
     if (by === "appt" && apptFilterIds) {
       // Rỗng → sentinel để .in() không lỗi và trả 0 dòng.
@@ -224,13 +237,29 @@ export default async function CustomersPage({
     canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
 
-  let { data, error } = patRes;
+  let { data, error, count } = patRes;
   // Thiếu cột full_name_unaccent (chưa migrate) → tìm lại không bỏ dấu.
   if (error && /full_name_unaccent|column/i.test(error.message ?? "")) {
-    ({ data, error } = await buildPatientQuery(false));
+    ({ data, error, count } = await buildPatientQuery(false));
   }
+  const tongKhach = count ?? (data?.length ?? 0);
+  const tongTrang = Math.max(1, Math.ceil(tongKhach / KHACH_MOT_TRANG));
 
   const rows = (data as CustomerRow[] | null) ?? [];
+
+  // CỨU KHÁCH ĐƯỢC TRỎ THẲNG. Chuông thông báo gửi người trực tới đây kèm
+  // `selected` — trước phân trang thì khách ấy chắc chắn nằm trong 300 dòng,
+  // giờ có thể rơi ngoài trang hiện tại và cột phải sẽ trống không lý do.
+  // Nạp riêng đúng MỘT người ấy và ghép vào đầu danh sách; mọi truy vấn làm
+  // giàu phía dưới chạy trên `shownIds` nên tự phủ luôn họ.
+  if (selected && !rows.some((r) => r.clinic_patient_id === selected)) {
+    const { data: mot } = await supabase
+      .from("patient")
+      .select(SELECT)
+      .eq("clinic_patient_id", selected)
+      .maybeSingle();
+    if (mot) rows.unshift(mot as CustomerRow);
+  }
   const locations: Opt[] = (locRes.data ?? []).map((r) => ({
     id: r.id as string,
     label: r.name as string,
@@ -1182,6 +1211,54 @@ type LichHenRaw = {
           doctors={doctors}
         />
       )}
+
+      {/* THANH TRANG — server render, là các Link giữ nguyên mọi bộ lọc.
+          Chỉ hiện khi có hơn một trang: một phòng khám mới với 30 khách không
+          cần nhìn "Trang 1/1". `selected` cũng được giữ — đổi trang khi đang
+          xem một khách thì cột phải vẫn còn nhờ nhánh cứu ở trên. */}
+      {tongTrang > 1 && (
+        <nav
+          aria-label="Chuyển trang danh sách khách"
+          className="flex items-center justify-center gap-3 text-sm"
+        >
+          {trang > 1 ? (
+            <Link
+              className="rounded-control border border-line bg-surface px-3 py-1.5 hover:bg-surface-sunken"
+              href={`/customers?${duongTrang(trang - 1)}`}
+            >
+              ← Trang trước
+            </Link>
+          ) : (
+            <span className="px-3 py-1.5 text-ink-faint">← Trang trước</span>
+          )}
+          <span className="tabular-nums text-ink-muted">
+            Trang {trang}/{tongTrang} · {tongKhach} khách
+          </span>
+          {trang < tongTrang ? (
+            <Link
+              className="rounded-control border border-line bg-surface px-3 py-1.5 hover:bg-surface-sunken"
+              href={`/customers?${duongTrang(trang + 1)}`}
+            >
+              Trang sau →
+            </Link>
+          ) : (
+            <span className="px-3 py-1.5 text-ink-faint">Trang sau →</span>
+          )}
+        </nav>
+      )}
     </div>
   );
+
+  /** Chuỗi query cho một trang khác, GIỮ NGUYÊN mọi bộ lọc đang bật. */
+  function duongTrang(sang: number): string {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (period !== "all") qs.set("period", period);
+    if (by !== "created") qs.set("by", by);
+    if (selected) qs.set("selected", selected);
+    if (viec) qs.set("viec", viec);
+    if (luot) qs.set("luot", luot);
+    if (sang > 1) qs.set("trang", String(sang));
+    return qs.toString();
+  }
 }
