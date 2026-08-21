@@ -418,3 +418,36 @@ async def set_threshold(
         wait_minutes=body.wait_minutes,
         max_waiting=body.max_waiting,
     )
+
+
+# ── QUẦY LỄ TÂN: mốc "gọi vào khám" ───────────────────────────────────────
+# Hai đường dưới đây là một CẶP, và cặp ấy chính là "nút tròn bấm được" của màn
+# hàng đợi (Tuyền 20/08/2026): bấm là làm, bấm lại là hoàn tác — cùng cơ chế với
+# nút tròn của màn CSKH. Đặt cạnh /reception/checkout vì cùng một quầy, cùng một
+# vai; tách file riêng chỉ để có thêm một file.
+@router.post("/reception/goi-vao-kham/{visit_id:uuid}", status_code=201)
+async def goi_vao_kham(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gọi khách vào khám — đóng bước tiếp nhận và mở đồng hồ KHÁM."""
+    from clinicai.services.reception_service import ReceptionService
+
+    return await ReceptionService(pool).goi_vao_kham(
+        visit_id=str(visit_id), identity=identity
+    )
+
+
+@router.delete("/reception/goi-vao-kham/{visit_id:uuid}")
+async def hoan_tac_goi_vao_kham(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Rút lại mốc gọi vào khám — chỉ khi bác sĩ chưa động vào lượt này."""
+    from clinicai.services.reception_service import ReceptionService
+
+    return await ReceptionService(pool).hoan_tac_goi_vao_kham(
+        visit_id=str(visit_id), identity=identity
+    )

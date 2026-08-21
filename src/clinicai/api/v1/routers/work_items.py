@@ -323,6 +323,19 @@ class WorklistItem(BaseModel):
     service_name: str | None = None
     form_code: str | None = None
     checked_in_at: datetime | None = None
+    # Mốc gọi vào khám — quỹ thời gian riêng, tách khỏi giờ check-in.
+    exam_started_at: datetime | None = None
+    # THỨ TỰ GỌI do backend tính (`queue_order.py`), 0 = người gọi tiếp theo.
+    # `None` = dòng không gắn lịch hẹn nên không có khung giờ để so.
+    #
+    # Bốn trường dưới đây là bằng chứng sống cho lời cảnh báo ngay phía trên:
+    # service trả đủ dữ liệu, câu SQL đúng, bài kiểm xanh — mà API vẫn không có
+    # khoá nào, vì `response_model` lọc im lặng. Chỉ phép đo trên dữ liệu THẬT
+    # ở staging mới lộ ra (20/08/2026).
+    call_order: int | None = None
+    call_tier: int | None = None
+    call_reason: str | None = None
+    promoted_over: int = 0
 
 
 @router.get("/work-items", response_model=list[WorklistItem])
