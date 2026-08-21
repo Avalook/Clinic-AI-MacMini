@@ -74,7 +74,7 @@ ok. **Prod không có override nên lần deploy tới tự nhận 1g — không
 
 ---
 
-## 1. Phiên 21/08/2026 (Tuyền) — Ba ca làm việc, đã LÊN PROD trọn gói
+## 0.1 Phiên 21/08/2026 (Tuyền) — Ba ca làm việc, đã LÊN PROD trọn gói
 
 **Một ngày nay chia BA ca thay vì hai, giờ do quản lý tự đặt.** PR #145–#148
 đã gộp; prod deploy giữa giờ khám theo yêu cầu của Tuyền (vượt khung 1h–4h có
@@ -139,7 +139,7 @@ ghi lý do, run 32457538585, gián đoạn ~50 giây); staging = `staging-0821f`
 
 ---
 
-## 0.1 Phiên 15/08/2026 (Tuyền) — 16 PR #112–#127 (nền gần)
+## 0.2 Phiên 15/08/2026 (Tuyền) — 16 PR #112–#127 (nền gần)
 
 **Đại tu giao diện xong cả 5 bước (0→4).** DESIGN.md là hiến pháp; nguyên tử
 Button/Chip/NutInPhieu ở `components/ui/`; ratchet `[..px]` trần 102 (từ 474)
