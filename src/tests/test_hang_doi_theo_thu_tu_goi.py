@@ -234,3 +234,32 @@ def test_dong_khong_gan_lich_hen_khong_co_thu_hang() -> None:
     ra = _xep([mo_coi])
     assert ra[0][1] is None, "dòng không gắn lịch hẹn phải có call_order = None"
     assert ra[0][2] is None
+
+
+def test_moi_khoa_service_tra_ve_deu_co_trong_dto_cua_api() -> None:
+    """`response_model` LỌC BỎ mọi khoá không khai báo, và lọc IM LẶNG.
+
+    Đây là bài kiểm sinh ra từ một lần vấp thật (20/08/2026): service trả đủ
+    `call_order`/`call_tier`/`call_reason`, câu SQL đúng, mọi bài kiểm xanh —
+    mà API vẫn không có khoá nào, vì `WorklistItem` chưa khai chúng. Chỉ phép đo
+    trên dữ liệu THẬT ở staging mới lộ ra. Chú thích trong chính
+    `work_items.py` đã cảnh báo ("đã mất một lượt deploy vì chuyện này") nhưng
+    không có gì canh — nên nó lặp lại.
+
+    Bài này canh CẢ HỌ lỗi ấy, không riêng ba khoá lần này: bất kỳ ai thêm một
+    khoá vào service mà quên khai trong DTO đều bị chặn ngay tại CI.
+    """
+    from clinicai.api.v1.routers.work_items import WorklistItem
+
+    ket = asyncio.run(
+        WorkItemService(
+            _Pool([_hang(ma="a", ten="Ai Đó", ve="001", den_luc=_HEN)])
+        ).list_worklist(workspace="bang_dieu_phoi", identity=_identity(), day=_NGAY)
+    )
+    khoa_service = set(ket[0].keys())
+    khoa_dto = set(WorklistItem.model_fields.keys())
+    thieu = khoa_service - khoa_dto
+    assert not thieu, (
+        f"Service trả các khoá này nhưng DTO chưa khai nên API sẽ NUỐT chúng: "
+        f"{sorted(thieu)}"
+    )
