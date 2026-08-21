@@ -131,7 +131,14 @@ class CapacityService:
                   (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                     AS open_minute,
                   (SELECT close_minute FROM clinic_hours_for_date($1::uuid, $2))
-                    AS close_minute
+                    AS close_minute,
+                  -- Giờ ca của phòng khám. Bản trước ĐỌC `duty["settings"]` mà
+                  -- KHÔNG chọn cột này, nên asyncpg ném KeyError ngay khi chọn
+                  -- một bác sĩ có lịch trực đã duyệt — tức là đường đi thường
+                  -- nhất của màn đặt lịch. Test không bắt được vì dòng giả lập
+                  -- là dict do chính bài kiểm dựng, và dict thì có đủ khoá mình
+                  -- tự cho vào; asyncpg.Record thì không.
+                  (SELECT settings FROM clinic WHERE id = $1::uuid) AS settings
                 """,
                 clinic_id,
                 day,
@@ -161,9 +168,21 @@ class CapacityService:
             # cảm giác đã được kiểm.
             open_min = duty["open_minute"] if duty else None
             close_min = duty["close_minute"] if duty else None
+            ca = ca_tu_settings(duty["settings"] if duty else None)
+
+            # KHUNG CỦA PHÒNG KHÁM — dùng khi CHƯA chọn bác sĩ.
+            #
+            # Giờ mở cửa (07:00–22:00) rộng hơn tổng ba ca, nên lưới dựng theo
+            # giờ mở cửa mời cả những khung không thuộc ca nào: sớm hơn ca
+            # sáng, nghỉ trưa, sau ca tối. Từ 21/08/2026 `booking_service`
+            # TỪ CHỐI đúng những khung ấy — mời rồi mới mắng là cách chắc chắn
+            # nhất để người trực mất niềm tin vào lưới.
+            khung_phong_kham: list[tuple[int, int]] = []
+            if open_min is not None and close_min is not None:
+                khung_phong_kham = shift_windows("FULL", open_min, close_min, ca)
+
             windows: list[tuple[int, int]] = []
             if shifts and open_min is not None and close_min is not None:
-                ca = ca_tu_settings((duty["settings"] if duty else None))
                 windows = merge_windows(
                     [
                         w
@@ -171,6 +190,11 @@ class CapacityService:
                         for w in shift_windows(s, open_min, close_min, ca)
                     ]
                 )
+
+            # Ca trực của bác sĩ đã hẹp hơn khung phòng khám; không có bác sĩ
+            # thì lấy khung phòng khám. `windows` vẫn giữ nguyên nghĩa "ca trực
+            # của người này" cho `partial_shift` và cho màn hình.
+            khung_loc = windows or khung_phong_kham
 
             rows = await conn.fetch(
                 """
@@ -256,7 +280,7 @@ class CapacityService:
             # Ngoài ca trực thì khung đó không tồn tại với bác sĩ này. Bỏ hẳn
             # khỏi danh sách chứ không đánh dấu "đầy": đầy là hết chỗ, còn đây
             # là không có mặt, và hai thứ đó cần hai cách xử lý khác nhau.
-            if not windows or covers(windows, r["minute_of_day"])
+            if not khung_loc or covers(khung_loc, r["minute_of_day"])
         ]
 
         return {

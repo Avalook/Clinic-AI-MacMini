@@ -83,13 +83,17 @@ class _Pool:
         yield self._conn
 
 
-async def _quote(conn: _Conn) -> dict[str, Any]:
+async def _quote(conn: _Conn, doctor_id: str | None = DOCTOR) -> dict[str, Any]:
     return await CapacityService(_Pool(conn)).quote(
         date="2026-08-04",
         location_id=LOCATION,
-        doctor_id=DOCTOR,
+        doctor_id=doctor_id,
         clinic_id=CLINIC,
     )
+
+
+def _cac_gio(out: dict[str, Any]) -> list[str]:
+    return [o["time"] for o in out["slots"]]
 
 
 @pytest.mark.asyncio
@@ -222,3 +226,55 @@ class TestCaSangKhongPhaiCaNgay:
 
         assert len(out["slots"]) == (18 * 60 - OPEN) // 60
         assert out["partial_shift"] is True, "sáng+chiều vẫn thiếu ca tối"
+
+
+class TestLuoiKhongMoiGioNgoaiCa:
+    """Lưới không được mời khung mà chốt đặt lịch sẽ từ chối (21/08/2026).
+
+    Giờ mở cửa rộng hơn tổng ba ca, nên lưới dựng theo giờ mở cửa có cả nghỉ
+    trưa và phần sau ca tối. Từ khi `booking_service._chan_dat_ngoai_khung_ca`
+    từ chối đúng những khung ấy, mời rồi mới mắng là cách chắc chắn nhất khiến
+    người trực mất niềm tin vào lưới.
+
+    CHƯA CHỌN BÁC SĨ là đường phải canh: khi đã chọn, ca trực của người ấy vốn
+    đã hẹp hơn; khi chưa chọn thì trước đây `windows` rỗng và lưới mở toang.
+    """
+
+    @pytest.mark.asyncio
+    async def test_chua_chon_bac_si_van_bo_nghi_trua_va_sau_ca_toi(self) -> None:
+        conn = _Conn(roster_known=False, shifts=[])
+        gio = _cac_gio(await _quote(conn, doctor_id=None))
+
+        assert "10:00" in gio, "giữa ca sáng phải còn"
+        assert "18:00" in gio, "giữa ca tối phải còn"
+        assert "13:00" not in gio, "13:00 là nghỉ trưa — không thuộc ca nào"
+        assert "22:00" not in gio, "22:00 đã hết ca tối (21:30)"
+
+    @pytest.mark.asyncio
+    async def test_gio_ca_cua_phong_kham_quyet_dinh_luoi(self) -> None:
+        """Đổi giờ ca thì lưới đổi theo — không viết cứng con số nào."""
+        conn = _Conn(
+            roster_known=False,
+            shifts=[],
+            ca_lam_viec={
+                "SANG": {"bat_dau": "09:00", "ket_thuc": "12:00"},
+                "CHIEU": {"bat_dau": "13:00", "ket_thuc": "17:00"},
+                "TOI": {"bat_dau": "19:00", "ket_thuc": "22:00"},
+            },
+        )
+        gio = _cac_gio(await _quote(conn, doctor_id=None))
+
+        assert "08:00" not in gio, "ca sáng của phòng này bắt đầu 09:00"
+        assert "09:00" in gio
+        assert "13:00" in gio, "phòng này không nghỉ 13:00"
+        assert "18:00" not in gio, "18:00 rơi vào khoảng nghỉ 17:00–19:00"
+        assert "21:00" in gio, "ca tối của phòng này tới 22:00"
+
+    @pytest.mark.asyncio
+    async def test_ca_truc_bac_si_van_thang_khung_phong_kham(self) -> None:
+        """Chọn bác sĩ chỉ trực ca sáng thì lưới vẫn chỉ có ca sáng."""
+        conn = _Conn(roster_known=True, shifts=["SANG"])
+        gio = _cac_gio(await _quote(conn))
+
+        assert "10:00" in gio
+        assert "18:00" not in gio, "bác sĩ này không trực ca tối"
