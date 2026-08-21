@@ -40,6 +40,14 @@
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
+	# --- Access log (giống bản chính — xem lý do đầy đủ trong caddy/Caddyfile,
+	# mục 21/08/2026: không có access log thì "tìm request chậm" rỗng vô nghĩa,
+	# không phân xử được treo-do-mạng với treo-do-máy-chủ) ---
+	log {
+		output stdout
+		format json
+	}
+
 	# --- Security headers (giống bản chính) ---
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -56,6 +64,8 @@
 	# bị đánh dấu unhealthy, và deploy tự quay lui — một ổ khoá đặt sai chỗ sẽ
 	# giết chính lần triển khai đặt nó vào.
 	handle /health {
+		# log_skip: healthcheck 20s/lần, hơn 4.000 dòng/ngày không mang tin gì.
+		log_skip
 		respond "ok" 200
 	}
 
