@@ -240,11 +240,15 @@ def kiem_cau_hinh_ca(
                 "Hai ca chồng nhau thì một giờ thuộc hai ca và KPI đếm đôi."
             )
 
+    # GỘP THEO GIỜ MỞ CỬA, không mỗi thứ một dòng. Phòng khám mở giống nhau cả
+    # tuần thì bản đầu in BẢY dòng gần y hệt cho một lỗi duy nhất — đo trên
+    # staging 21/08/2026 mới thấy. Bảy dòng na ná nhau là thứ người ta lướt
+    # qua, và lướt qua thì câu thứ tám nói thật cũng bị bỏ lỡ.
+    gom: dict[tuple[str, int, int], list[str]] = {}
     for thu, (mo_s, dong_s) in (gio_mo_dong or {}).items():
         mo, dong = phut_tu_gio(mo_s or ""), phut_tu_gio(dong_s or "")
         if mo is None or dong is None:
             continue
-        ten_thu = NHAN_THU.get(str(thu), f"thứ {thu}")
         for ma in CAC_CA:
             if ma not in ca:
                 continue
@@ -252,12 +256,29 @@ def kiem_cau_hinh_ca(
             if hi <= lo:
                 continue
             if lo < mo or hi > dong:
-                loi.append(
-                    f"{ten_thu} mở cửa {_gio(mo)}–{_gio(dong)}, không chứa hết ca "
-                    f"{NHAN_CA.get(ma, ma)} ({_gio(lo)}–{_gio(hi)}). "
-                    "Nới giờ mở cửa hoặc thu ca lại — để nguyên thì ca bị cắt "
-                    "mà không báo gì."
-                )
+                gom.setdefault((ma, mo, dong), []).append(str(thu))
+
+    tong_ngay = len(
+        [
+            1
+            for _t, (m_s, d_s) in (gio_mo_dong or {}).items()
+            if phut_tu_gio(m_s or "") is not None and phut_tu_gio(d_s or "") is not None
+        ]
+    )
+    for (ma, mo, dong), cac_thu in gom.items():
+        lo, hi = ca[ma]
+        if tong_ngay and len(cac_thu) == tong_ngay:
+            ai_do = "Mọi ngày"
+        else:
+            ai_do = ", ".join(
+                NHAN_THU.get(t, f"thứ {t}") for t in sorted(cac_thu, key=int)
+            )
+        loi.append(
+            f"{ai_do} mở cửa {_gio(mo)}–{_gio(dong)}, không chứa hết ca "
+            f"{NHAN_CA.get(ma, ma)} ({_gio(lo)}–{_gio(hi)}). "
+            "Nới giờ mở cửa hoặc thu ca lại — để nguyên thì ca bị cắt "
+            "mà không báo gì."
+        )
     return loi
 
 
