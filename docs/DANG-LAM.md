@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **22/08/2026 rạng sáng**, cuối phiên đêm (mục 0 là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **22/08/2026 trưa**, sau Lát 3 + bộ kiểm đường ghi (mục 0 là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -13,7 +13,36 @@ lịch sử hội thoại.
 
 ---
 
-## 0. Phiên đêm 21→22/08/2026 (Tuyền ngủ, phiên tự chạy) — Chịu tải: Lát 1+2 xong, tìm ra OOM
+## 0. Phiên 21→22/08/2026 — Chịu tải: Lát 1+2+3 xong, OOM tìm ra, đường ghi đã kiểm
+
+**BỔ SUNG TRƯA 22/08 — Lát 3 + kiểm đường ghi (staging-0822e = `026669b7`):**
+- **PR #162 (Lát 3)**: trang chủ gộp 6 vòng PostgREST + 3 endpoint rời về MỘT
+  `GET /api/v1/home/bang-dieu-khien`; thêm SUSPENSE — lời chào + khung hiện
+  tức thì, dữ liệu rót sau (hết cảnh bấm sidebar màn trắng). Đo: 54→35 câu
+  SQL, 9→3 vòng, /home p50 dưới 100 người 3,6–3,7s → 2,9s. Khối theo vai do
+  backend quyết từ identity. Suýt ship lỗi rò dữ liệu giữa người dùng (Map
+  module-scope khử trùng lặp) — đã đổi sang `cache()` của React, có test canh.
+- **Bộ kiểm ĐƯỜNG GHI dưới tranh chấp** (scratchpad `kiem-duong-ghi.py`,
+  CHỈ CHẠY TRÊN STAGING — nó tạo lịch thật rồi huỷ mềm): 6/6 PASS giữa bão
+  100 người đọc — đua ghế 15 người trần 2 → đúng 2 thắng 0×500; trùng khách
+  5 lần → 1 lịch; giữ chỗ hiện chéo; huỷ đồng thời an toàn; sổ tương tác
+  ghi/thấy/hoàn tác; khách inactive bị chặn 422. Sổ sự kiện cân từng cặp
+  (created×8=cancelled×8). TUYỆT ĐỐI không chạy bộ này trên prod.
+- Chip đã tạo: endpoint GET timeline tương tác mồ côi (không màn nào dùng,
+  hiện cả dòng đã hoàn tác như thật) — chờ quyết gỡ hay sửa.
+
+**CHECKLIST DEPLOY PROD batch #150–162 (Tuyền bấm, khung 1h–4h; đã soát
+ngầm chỉ-đọc 22/08: prod đủ MỌI cột/bảng/view code mới đọc, chỉ thiếu đúng
+hàm của bước 1):**
+1. Áp migration TRƯỚC (bỏ qua bước này là lưới đặt lịch prod 500):
+   `git fetch origin main && git show FETCH_HEAD:supabase/migrations/20260821000002_dem_ghe_ca_ngay_mot_lan.sql | ssh clinic-vps 'docker exec -i clinicai_db psql -U postgres'`
+2. Bấm CD như mọi khi (prod tự nhận RAM 1g từ compose — không có override).
+3. Ghi sổ migration prod (9 dòng 20260812000001→20260821000002, câu INSERT
+   y như đã chạy trên staging — xem lịch sử phiên 22/08).
+4. Trần pool supabase-stack prod (#158), lúc vắng khách:
+   `docker compose -f docker-compose.supabase.yml --env-file .env.prod -p clinicai_db up -d auth rest`
+5. Báo "xong" — phiên AI sẽ kiểm hậu-deploy CHỈ-ĐỌC: container có ký hiệu
+   mới, /health, log sạch, RAM 1g, KHÔNG tạo dữ liệu nào trên prod.
 
 **Nhiệm vụ Tuyền giao trước khi ngủ:** "đo lại staging → làm Lát 2 → làm hết
 các nghi vấn, không làm hỏng hoặc kém đi, xong báo cáo."
