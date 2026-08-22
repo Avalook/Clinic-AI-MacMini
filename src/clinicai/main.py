@@ -26,6 +26,7 @@ from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
 from clinicai.api.v1.routers.auth import router as auth_router
 from clinicai.api.v1.routers.booking import router as booking_router
+from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
@@ -255,6 +256,7 @@ app.include_router(
     tags=["clinical-records"],
     dependencies=_GUARDED,
 )
+app.include_router(home_router, prefix="/api/v1", tags=["home"], dependencies=_GUARDED)
 app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"], dependencies=_GUARDED)
 app.include_router(
     pharmacy_router, prefix="/api/v1", tags=["pharmacy"], dependencies=_GUARDED
