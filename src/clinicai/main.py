@@ -43,6 +43,7 @@ from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
+from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.ops import router as ops_router
@@ -255,6 +256,7 @@ app.include_router(
     tags=["clinical-records"],
     dependencies=_GUARDED,
 )
+app.include_router(home_router, prefix="/api/v1", tags=["home"], dependencies=_GUARDED)
 app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"], dependencies=_GUARDED)
 app.include_router(
     pharmacy_router, prefix="/api/v1", tags=["pharmacy"], dependencies=_GUARDED
