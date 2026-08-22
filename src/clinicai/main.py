@@ -26,7 +26,6 @@ from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
 from clinicai.api.v1.routers.auth import router as auth_router
 from clinicai.api.v1.routers.booking import router as booking_router
-from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
@@ -44,6 +43,7 @@ from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
+from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.ops import router as ops_router
