@@ -1483,6 +1483,9 @@ export default function CustomersView({
                     const cskh = cskhByPatient[row.clinic_patient_id];
                     const st = customerStatus(row);
                     const dl = customerDeadline(row);
+                    const moiCu = nhanKhachMoiCu(
+                      apptByPatient[row.clinic_patient_id],
+                    );
 
                     return (
                       <div
@@ -1507,7 +1510,25 @@ export default function CustomersView({
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
-                          <StatusChip tone={st.tone} label={st.label} />
+                          {/* CỘT HẸP CHỈ TRẢ LỜI "AI", KHÔNG TRẢ LỜI "ĐANG Ở
+                              ĐÂU" (Tuyền 16/09/2026). Khi đã chọn một khách,
+                              cột này còn ~210px, mà chip trạng thái dài tới
+                              191px ("Đã check-in — đang chờ khám") nên nó rơi
+                              xuống một dòng riêng dưới từng tên: danh sách
+                              thành một cột chữ vỡ, đọc lướt không ra ai là ai.
+                              Trạng thái nay nằm cạnh tiêu đề "Trạng thái khách
+                              hàng — …" ở vùng làm việc, đúng chỗ người trực
+                              đang nhìn khi làm việc với khách ấy. */}
+                          {selected ? (
+                            <Chip
+                              tone={moiCu.dong2 ? "brand" : "neutral"}
+                              title={moiCu.dong2 ?? undefined}
+                            >
+                              {moiCu.dong1}
+                            </Chip>
+                          ) : (
+                            <StatusChip tone={st.tone} label={st.label} />
+                          )}
                           {/* TRÙNG LỊCH — cảnh báo BẤM ĐƯỢC, không phải con số
                               câm. Chip cũ ở đây đếm `so_viec_mo` (số VIỆC CSKH
                               đang mở) nhưng người đọc hiểu là số LỊCH, và bấm
@@ -1521,8 +1542,11 @@ export default function CustomersView({
                               đang có ba việc ở ba lượt. Hai cột đều đúng, nhưng
                               đọc cạnh nhau thì trông như lệch — trừ khi màn nói
                               thẳng rằng còn việc khác. */}
-                          {(trangThaiByPatient[row.clinic_patient_id]
-                            ?.so_viec_mo ?? 0) > 1 && (
+                          {/* Chỉ ở bảng rộng: nó chú thích cho chip trạng thái
+                              đứng cạnh, mà cột hẹp không còn chip ấy. */}
+                          {!selected &&
+                            (trangThaiByPatient[row.clinic_patient_id]
+                              ?.so_viec_mo ?? 0) > 1 && (
                             <Chip
                               tone="neutral"
                               title="Chip bên cạnh là việc gấp nhất; khách còn việc khác, có thể ở lượt khám khác."
@@ -1567,23 +1591,14 @@ export default function CustomersView({
                             Nằm chung một ô thì cả hai bị đọc lướt. */}
                         {!selected && (
                           <div className="min-w-0">
-                            {(() => {
-                              const nhan = nhanKhachMoiCu(
-                                apptByPatient[row.clinic_patient_id],
-                              );
-                              return (
-                                <>
-                                  <Chip tone={nhan.dong2 ? "brand" : "neutral"}>
-                                    {nhan.dong1}
-                                  </Chip>
-                                  {nhan.dong2 && (
-                                    <span className="mt-0.5 block truncate text-meta text-ink-muted">
-                                      {nhan.dong2}
-                                    </span>
-                                  )}
-                                </>
-                              );
-                            })()}
+                            <Chip tone={moiCu.dong2 ? "brand" : "neutral"}>
+                              {moiCu.dong1}
+                            </Chip>
+                            {moiCu.dong2 && (
+                              <span className="mt-0.5 block truncate text-meta text-ink-muted">
+                                {moiCu.dong2}
+                              </span>
+                            )}
                           </div>
                         )}
                         {!selected && (
@@ -1693,6 +1708,12 @@ export default function CustomersView({
             henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
             taiKham={taiKhamByPatient[selected.clinic_patient_id] ?? []}
             tepCuaLuot={tepKetQuaCuaLuot}
+            // Chip trạng thái của khách đang chọn — rời cột danh sách hẹp sang
+            // đây (16/09/2026), xem chú thích ở ô chip trong danh sách.
+            chipTrangThai={(() => {
+              const st = customerStatus(selected);
+              return <StatusChip tone={st.tone} label={st.label} />;
+            })()}
             thanhLuot={
               <ThanhLuotKham
                 chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}

@@ -443,6 +443,7 @@ export default function VungLamViecKhach({
   taiKham = [],
   tepCuaLuot = [],
   thanhLuot,
+  chipTrangThai,
   ghiChu = "",
   onGhiChuXong,
   children,
@@ -479,6 +480,14 @@ export default function VungLamViecKhach({
   tepCuaLuot?: TepKetQuaRow[];
   /** Thanh chọn lượt khám (ThanhLuotKham) — vẽ ở đầu vùng làm việc. */
   thanhLuot?: React.ReactNode;
+  /** Chip trạng thái của khách ("Đã check-in — đang chờ khám"…).
+   *
+   *  VÌ SAO Ở ĐÂY CHỨ KHÔNG Ở DANH SÁCH (Tuyền 16/09/2026). Khi đã chọn một
+   *  khách, cột danh sách co còn ~210px; chip này dài 191px nên nó chiếm trọn
+   *  một dòng riêng dưới mỗi tên, danh sách thành một cột chữ vỡ. Cột trái chỉ
+   *  còn trả lời "ai" (tên + mới/cũ); "đang ở đâu" thuộc về vùng này — chỗ đã
+   *  mang tên khách và thanh chọn lượt. */
+  chipTrangThai?: React.ReactNode;
   /** Ghi chú người dùng đang gõ ở CỘT PHẢI — đi kèm cú bấm một-chạm ở đây. */
   ghiChu?: string;
   /** Gọi sau khi ghi xong, để cột phải xoá ô gõ. */
@@ -865,9 +874,14 @@ export default function VungLamViecKhach({
         {/* TIÊU ĐỀ MỘT DÒNG. Dòng phụ "Bấm vào bước để làm…" đã bỏ theo yêu cầu
             09/08 — nó mô tả mô hình chuỗi bước không còn nữa. */}
         <div className="border-b border-line px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink">
-            Trạng thái khách hàng — {tenKhach}
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-ink">
+              Trạng thái khách hàng — {tenKhach}
+            </h2>
+            {/* Chip trạng thái chuyển từ cột danh sách sang đây (16/09/2026):
+                xem `chipTrangThai`. */}
+            {chipTrangThai}
+          </div>
           {/* LƯỢT ĐANG XEM, NÓI RA BẰNG CHỮ.
               Khách có nhiều lượt thì ba cột phải cùng nói về MỘT lượt, và người
               trực phải đọc được mình đang đứng ở lượt nào — bấm sang lượt khác

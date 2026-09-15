@@ -122,6 +122,29 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
   assert.match(customersPage, /requireNavAccess\("\/customers"\)/);
 });
 
+test("cột danh sách hẹp chỉ nói AI, trạng thái nằm ở vùng làm việc", () => {
+  // Tuyền 16/09/2026: *"chỗ trạng thái đã check-in đang chờ khám nên được cho
+  // vào bên dưới dòng trạng thái khách hàng… bị thừa dòng mất tiêu rồi bị xấu"*.
+  //
+  // Đo được: khi đã chọn một khách, cột danh sách còn ~210px, còn chip
+  // "Đã check-in — đang chờ khám" rộng 191px — nó rơi xuống một dòng riêng dưới
+  // TỪNG tên, danh sách 46 khách thành một cột chữ vỡ.
+  //
+  // Tính chất phải giữ (không canh pixel): ở cột HẸP chỉ có nhãn mới/cũ, chip
+  // trạng thái đi sang vùng "Trạng thái khách hàng — <tên>".
+  assert.match(
+    customers,
+    /\{selected \? \([\s\S]{0,400}?<Chip[\s\S]{0,300}?moiCu\.dong1[\s\S]{0,200}?\) : \([\s\S]{0,120}?<StatusChip/,
+    "cột danh sách hẹp phải là nhãn mới/cũ, không phải chip trạng thái dài",
+  );
+  assert.match(customers, /chipTrangThai=\{/);
+  const vung = read("../app/(dashboard)/customers/VungLamViecKhach.tsx");
+  assert.match(vung, /\{chipTrangThai\}/);
+  // Và chỉ MỘT chỗ dựng chip ấy — hai chỗ là hẹn ngày chúng kể hai chuyện khác
+  // nhau về cùng một khách.
+  assert.equal((customers.match(/<StatusChip /g) ?? []).length, 2);
+});
+
 test("episode confirmation retains its actual close and reopen contract in a three-region workspace", () => {
   for (const label of [
     "Danh sách đợt chờ xác nhận",
