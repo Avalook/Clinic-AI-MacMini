@@ -370,6 +370,32 @@ async def capacity_quote(
     )
 
 
+@router.get("/appointments/cho-trong-tuan")
+async def cho_trong_tuan(
+    week_start: str,
+    location_id: str | None = None,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng Bác sĩ × 7 ngày: còn chỗ / ít chỗ / đầy / nghỉ / đặt tự do.
+
+    Mỗi ô tóm từ CHÍNH `quote` của ngày ấy (Tuyền duyệt 16/09/2026: một nguồn
+    "còn chỗ" cho mọi màn đặt lịch). Chỉ đọc — quyết nhận hay từ chối vẫn là
+    trigger + BookingService.
+    """
+    from clinicai.core.clock import now_vn
+    from clinicai.services.capacity_service import bang_tuan
+
+    return await bang_tuan(
+        CapacityService(pool),
+        pool,
+        week_start=week_start,
+        location_id=location_id or identity.location_id,
+        clinic_id=identity.clinic_id,
+        hom_nay=now_vn().date().isoformat(),
+    )
+
+
 @router.get("/appointments/week")
 async def week_appointments(
     week_start: date_cls,

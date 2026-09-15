@@ -24,7 +24,10 @@ nhận hay từ chối. Nếu lưới nói còn chỗ thì đặt được; nế
 
 from __future__ import annotations
 
+import asyncio
+import json
 from datetime import date as _date
+from datetime import timedelta
 from typing import Any, Literal
 
 import asyncpg
@@ -43,9 +46,37 @@ logger = structlog.get_logger()
 
 CellState = Literal["free", "few", "full", "closed"]
 
-# Còn đúng một chỗ = "còn ít". Ngưỡng tính theo CHỖ, không theo phần trăm: với
-# trần 3 thì 66% nghe như còn nhiều, mà thực tế chỉ còn một người nữa là hết.
+# MỘT KHUNG GIỜ còn đúng một chỗ = "còn ít". Tính theo CHỖ, không theo phần
+# trăm: với trần 3 thì 66% nghe như còn nhiều, mà thực tế chỉ còn một người.
 FEW_REMAINING = 1
+
+# MỘT NGÀY (ô bảng Bác sĩ × tuần) "ít chỗ" = còn ≤ 2 chỗ HOẶC ≤ 20% tổng
+# (Tuyền chốt 16/09/2026); số chỗ quản lý chỉnh qua `clinic.settings.it_cho_toi_da`.
+IT_CHO_NGAY_MAC_DINH = 2
+IT_CHO_NGAY_PHAN_TRAM = 20
+
+#: Trạng thái MỘT Ô NGÀY của bảng Bác sĩ × tuần.
+TrangThaiNgay = Literal[
+    "CON_CHO", "IT_CHO", "DAY", "NGHI", "DONG_CUA", "TU_DO", "DA_QUA"
+]
+
+
+def nguong_it_cho(settings: object) -> int:
+    """Ngưỡng "ít chỗ" của MỘT NGÀY từ `clinic.settings.it_cho_toi_da`.
+
+    Hỏng/thiếu → mặc định; không bao giờ ném (dữ liệu cấu hình do người nhập).
+    """
+    doc: Any = settings
+    if isinstance(doc, (str, bytes)):
+        try:
+            doc = json.loads(doc)
+        except (ValueError, TypeError):
+            return IT_CHO_NGAY_MAC_DINH
+    if isinstance(doc, dict):
+        v = doc.get("it_cho_toi_da")
+        if isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 50:
+            return v
+    return IT_CHO_NGAY_MAC_DINH
 
 
 class CapacityService:
@@ -151,6 +182,7 @@ class CapacityService:
                 day,
                 doctor_id,
             )
+            nguong = nguong_it_cho(duty["settings"] if duty else None)
             roster_known = bool(duty and duty["roster_known"])
             tuan_da_cong_bo = bool(duty and duty["tuan_da_cong_bo"])
             shifts: list[str] = list(duty["shifts"]) if duty else []
@@ -292,6 +324,9 @@ class CapacityService:
                 "walkin_cap": r["walkin_cap"],
                 "regular_used": r["regular_used"],
                 "walkin_used": r["walkin_used"],
+                # CÒN LẠI của phần đặt hẹn — màn hình in thẳng số này, không tự
+                # trừ (16/09/2026: một nguồn "còn chỗ" cho mọi màn đặt lịch).
+                "con_lai": max(r["regular_cap"] - r["regular_used"], 0),
                 "state": cell_state(r["regular_cap"], r["regular_used"]),
             }
             for r in rows
@@ -317,6 +352,10 @@ class CapacityService:
             # Tuần CHƯA công bố lịch trực ⇒ khung đủ trần vẫn đặt được, đối soát
             # lúc công bố (CONTEXT v1.0). Lưới dùng cờ này để không khoá ô.
             "roster_week_published": tuan_da_cong_bo,
+            # Tuần chưa công bố lịch trực = ĐẶT TỰ DO (luật 15/09/2026): trần
+            # không chặn lịch hẹn, màn hình không được in "/3" như một giới hạn.
+            "dat_tu_do": not tuan_da_cong_bo,
+            "it_cho_toi_da": nguong,
             # Ca trực của bác sĩ hôm đó, để màn hình nói được "chỉ trực buổi
             # sáng" thay vì im lặng bỏ bớt nửa lưới.
             "shift_windows": [list(w) for w in windows],
@@ -344,3 +383,107 @@ def cell_state(regular_cap: int, regular_used: int) -> CellState:
 
 def _hhmm(minute_of_day: int) -> str:
     return f"{minute_of_day // 60:02d}:{minute_of_day % 60:02d}"
+
+
+def tom_tat_ngay(quote: dict[str, Any], *, hom_nay: str) -> dict[str, Any]:
+    """Một ô ngày của bảng Bác sĩ × tuần, tóm từ CHÍNH kết quả `quote`.
+
+    Không tự tính sức chứa lần nữa: ô ngày chỉ cộng các khung mà `quote` đã trả,
+    nên bảng tuần và popup khung giờ không bao giờ nói hai con số khác nhau.
+    """
+    ngay = str(quote["date"])
+    slots: list[dict[str, Any]] = list(quote.get("slots") or [])
+    da_dat = sum(int(x["regular_used"]) for x in slots)
+    con = sum(int(x["con_lai"]) for x in slots)
+    tong = sum(int(x["regular_cap"]) for x in slots)
+    trang_thai: TrangThaiNgay
+    if ngay < hom_nay:
+        trang_thai = "DA_QUA"
+    elif quote.get("off_duty"):
+        trang_thai = "NGHI"
+    elif quote.get("closed"):
+        trang_thai = "DONG_CUA"
+    elif quote.get("dat_tu_do"):
+        trang_thai = "TU_DO"
+    elif con <= 0:
+        trang_thai = "DAY"
+    elif con <= max(
+        int(quote.get("it_cho_toi_da", IT_CHO_NGAY_MAC_DINH)),
+        -(-tong * IT_CHO_NGAY_PHAN_TRAM // 100),
+    ):
+        trang_thai = "IT_CHO"
+    else:
+        trang_thai = "CON_CHO"
+    return {
+        "date": ngay,
+        "trang_thai": trang_thai,
+        "da_dat": da_dat,
+        # Đặt tự do thì không có "còn bao nhiêu" — in ra là bịa một giới hạn.
+        "con_cho": None
+        if trang_thai in ("TU_DO", "NGHI", "DONG_CUA", "DA_QUA")
+        else con,
+        "tong_cho": None
+        if trang_thai in ("TU_DO", "NGHI", "DONG_CUA", "DA_QUA")
+        else tong,
+    }
+
+
+async def bang_tuan(
+    svc: CapacityService,
+    pool: asyncpg.Pool,
+    *,
+    week_start: str,
+    location_id: str,
+    clinic_id: str,
+    hom_nay: str,
+) -> dict[str, Any]:
+    """Bảng Bác sĩ × 7 ngày cho màn Đặt lịch (Tuyền duyệt 16/09/2026).
+
+    Mỗi ô = `quote(ngày, bác sĩ)` rồi `tom_tat_ngay` — một nguồn duy nhất với
+    popup khung giờ. Thêm một hàng "Chưa phân bác sĩ" (quote không lọc bác sĩ)
+    cho lịch đặt trước khi có lịch trực.
+    """
+    try:
+        dau = _date.fromisoformat(week_start)
+    except ValueError as exc:
+        raise ValidationError(
+            f"Ngày không hợp lệ: {week_start!r}. Định dạng đúng là YYYY-MM-DD."
+        ) from exc
+    dau = dau - timedelta(days=dau.weekday())
+    ngay = [(dau + timedelta(days=i)).isoformat() for i in range(7)]
+    bac_si = await pool.fetch(
+        """
+        SELECT s.id::text AS id, s.full_name, m.role
+          FROM clinic_membership m
+          JOIN staff s ON s.id = m.staff_id AND s.is_active
+         WHERE m.clinic_id = $1::uuid AND m.is_active
+           AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+         ORDER BY s.full_name
+        """,
+        clinic_id,
+    )
+    hang: list[tuple[str | None, str, str | None]] = [
+        (r["id"], r["full_name"], r["role"]) for r in bac_si
+    ]
+    hang.append((None, "Chưa phân bác sĩ", None))
+
+    # Giới hạn song song để không chiếm hết pool của cả API.
+    chan = asyncio.Semaphore(6)
+
+    async def mot_o(bs: str | None, d: str) -> dict[str, Any]:
+        async with chan:
+            q = await svc.quote(
+                date=d, location_id=location_id, doctor_id=bs, clinic_id=clinic_id
+            )
+        return tom_tat_ngay(q, hom_nay=hom_nay)
+
+    ket_qua = await asyncio.gather(*(mot_o(bs, d) for bs, _, _ in hang for d in ngay))
+    it = iter(ket_qua)
+    return {
+        "week_start": ngay[0],
+        "ngay": ngay,
+        "bac_si": [
+            {"id": bs, "full_name": ten, "role": vai, "o": [next(it) for _ in ngay]}
+            for bs, ten, vai in hang
+        ],
+    }
